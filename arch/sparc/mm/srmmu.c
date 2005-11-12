@@ -2148,6 +2148,13 @@ void __init ld_mmu_srmmu(void)
 	BTFIXUPSET_INT(page_shared, pgprot_val(SRMMU_PAGE_SHARED));
 	BTFIXUPSET_INT(page_copy, pgprot_val(SRMMU_PAGE_COPY));
 	BTFIXUPSET_INT(page_readonly, pgprot_val(SRMMU_PAGE_RDONLY));
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	BTFIXUPSET_INT(page_shared_noexec, pgprot_val(SRMMU_PAGE_SHARED_NOEXEC));
+	BTFIXUPSET_INT(page_copy_noexec, pgprot_val(SRMMU_PAGE_COPY_NOEXEC));
+	BTFIXUPSET_INT(page_readonly_noexec, pgprot_val(SRMMU_PAGE_RDONLY_NOEXEC));
+#endif
+
 	BTFIXUPSET_INT(page_kernel, pgprot_val(SRMMU_PAGE_KERNEL));
 	page_kernel = pgprot_val(SRMMU_PAGE_KERNEL);
 	pg_iobits = SRMMU_VALID | SRMMU_WRITE | SRMMU_REF;

@@ -129,18 +129,18 @@ core_initcall(reboot_init);
    doesn't work with at least one type of 486 motherboard.  It is easy
    to stop this code working; hence the copious comments. */
 
-static unsigned long long
+static const unsigned long long
 real_mode_gdt_entries [3] =
 {
 	0x0000000000000000ULL,	/* Null descriptor */
-	0x00009a000000ffffULL,	/* 16-bit real-mode 64k code at 0x00000000 */
-	0x000092000100ffffULL	/* 16-bit real-mode 64k data at 0x00000100 */
+	0x00009b000000ffffULL,	/* 16-bit real-mode 64k code at 0x00000000 */
+	0x000093000100ffffULL	/* 16-bit real-mode 64k data at 0x00000100 */
 };
 
 static struct
 {
 	unsigned short       size __attribute__ ((packed));
-	unsigned long long * base __attribute__ ((packed));
+	const unsigned long long * base __attribute__ ((packed));
 }
 real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, real_mode_gdt_entries },
 real_mode_idt = { 0x3ff, NULL },

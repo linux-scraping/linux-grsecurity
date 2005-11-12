@@ -17,6 +17,7 @@
 #include <linux/ptrace.h>
 #include <linux/signal.h>
 #include <linux/rcupdate.h>
+#include <linux/grsecurity.h>
 
 #include <asm/poll.h>
 #include <asm/siginfo.h>
@@ -62,6 +63,7 @@ static int locate_fd(struct files_struct *files,
 	struct fdtable *fdt;
 
 	error = -EINVAL;
+	gr_learn_resource(current, RLIMIT_NOFILE, orig_start, 0);
 	if (orig_start >= current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
 		goto out;
 
@@ -82,6 +84,7 @@ repeat:
 	}
 	
 	error = -EMFILE;
+	gr_learn_resource(current, RLIMIT_NOFILE, newfd, 0);
 	if (newfd >= current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
 		goto out;
 
@@ -140,6 +143,8 @@ asmlinkage long sys_dup2(unsigned int oldfd, unsigned int newfd)
 	struct file * file, *tofree;
 	struct files_struct * files = current->files;
 	struct fdtable *fdt;
+
+	gr_learn_resource(current, RLIMIT_NOFILE, newfd, 0);
 
 	spin_lock(&files->file_lock);
 	if (!(file = fcheck(oldfd)))
@@ -424,7 +429,8 @@ static inline int sigio_perm(struct task_struct *p,
 	return (((fown->euid == 0) ||
 		 (fown->euid == p->suid) || (fown->euid == p->uid) ||
 		 (fown->uid == p->suid) || (fown->uid == p->uid)) &&
-		!security_file_send_sigiotask(p, fown, sig));
+		!security_file_send_sigiotask(p, fown, sig) &&
+		!gr_check_protected_task(p) && !gr_pid_is_chrooted(p));
 }
 
 static void send_sigio_to_task(struct task_struct *p,

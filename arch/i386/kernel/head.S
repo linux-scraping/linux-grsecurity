@@ -48,6 +48,12 @@
 
 
 /*
+ * Real beginning of normal "text" segment
+ */
+ENTRY(stext)
+ENTRY(_stext)
+
+/*
  * 32-bit kernel entrypoint; only used by the boot CPU.  On entry,
  * %esi points to the real-mode code as a 32-bit pointer.
  * CS and DS must be 4 GB flat segments, but we don't depend on
@@ -66,6 +72,19 @@ ENTRY(startup_32)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+
+#ifdef CONFIG_PAX_KERNEXEC
+	movl $ __KERNEL_TEXT_OFFSET,%eax
+	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 2)
+	rorl $16,%eax
+	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 4)
+	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 7)
+
+	movb %al,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 4)
+	movb %ah,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 7)
+	rorl $16,%eax
+	movw %ax,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 2)
+#endif
 
 /*
  * Clear BSS first so that there are no surprises...
@@ -114,24 +133,42 @@ ENTRY(startup_32)
  * Warning: don't use %esi or the stack in this code.  However, %esp
  * can be used as a GPR if you really need it...
  */
-page_pde_offset = (__PAGE_OFFSET >> 20);
-
+#ifdef CONFIG_X86_PAE
+page_pde_offset = ((__PAGE_OFFSET >> 21) * (4096 / PTRS_PER_PTE));
+#else
+page_pde_offset = ((__PAGE_OFFSET >> 22) * (4096 / PTRS_PER_PTE));
+#endif
 	movl $(pg0 - __PAGE_OFFSET), %edi
+#ifdef CONFIG_X86_PAE
+	movl $(swapper_pm_dir - __PAGE_OFFSET), %edx
+#else
 	movl $(swapper_pg_dir - __PAGE_OFFSET), %edx
-	movl $0x007, %eax			/* 0x007 = PRESENT+RW+USER */
+#endif
+	movl $0x063, %eax			/* 0x063 = DIRTY+ACCESSED+PRESENT+RW */
 10:
-	leal 0x007(%edi),%ecx			/* Create PDE entry */
+	leal 0x063(%edi),%ecx			/* Create PDE entry */
 	movl %ecx,(%edx)			/* Store identity PDE entry */
 	movl %ecx,page_pde_offset(%edx)		/* Store kernel PDE entry */
+#ifdef CONFIG_X86_PAE
+	movl $0,4(%edx)
+	movl $0,page_pde_offset+4(%edx)
+	addl $8,%edx
+	movl $512, %ecx
+#else
 	addl $4,%edx
 	movl $1024, %ecx
+#endif
 11:
 	stosl
+#ifdef CONFIG_X86_PAE
+	movl $0,(%edi)
+	addl $4,%edi
+#endif
 	addl $0x1000,%eax
 	loop 11b
 	/* End condition: we must map up to and including INIT_MAP_BEYOND_END */
-	/* bytes beyond the end of our own page tables; the +0x007 is the attribute bits */
-	leal (INIT_MAP_BEYOND_END+0x007)(%edi),%ebp
+	/* bytes beyond the end of our own page tables; the +0x063 is the attribute bits */
+	leal (INIT_MAP_BEYOND_END+0x063)(%edi),%ebp
 	cmpl %ebp,%eax
 	jb 10b
 	movl %edi,(init_pg_tables_end - __PAGE_OFFSET)
@@ -154,6 +191,11 @@ ENTRY(startup_32_smp)
 	movl %eax,%fs
 	movl %eax,%gs
 
+	/* This is a secondary processor (AP) */
+	xorl %ebx,%ebx
+	incl %ebx
+#endif /* CONFIG_SMP */
+
 /*
  *	New page tables may be in 4Mbyte page mode and may
  *	be using the global pages. 
@@ -169,26 +211,27 @@ ENTRY(startup_32_smp)
  *	not yet offset PAGE_OFFSET..
  */
 #define cr4_bits mmu_cr4_features-__PAGE_OFFSET
+3:
 	movl cr4_bits,%edx
 	andl %edx,%edx
-	jz 6f
+	jz 5f
 	movl %cr4,%eax		# Turn on paging options (PSE,PAE,..)
 	orl %edx,%eax
 	movl %eax,%cr4
 
-	btl $5, %eax		# check if PAE is enabled
-	jnc 6f
+#ifdef CONFIG_X86_PAE
+	movl %ebx,%edi
 
 	/* Check if extended functions are implemented */
 	movl $0x80000000, %eax
 	cpuid
 	cmpl $0x80000000, %eax
-	jbe 6f
+	jbe 4f
 	mov $0x80000001, %eax
 	cpuid
 	/* Execute Disable bit supported? */
 	btl $20, %edx
-	jnc 6f
+	jnc 4f
 
 	/* Setup EFER (Extended Feature Enable Register) */
 	movl $0xc0000080, %ecx
@@ -197,14 +240,12 @@ ENTRY(startup_32_smp)
 	btsl $11, %eax
 	/* Make changes effective */
 	wrmsr
+	btsl $63,__supported_pte_mask-__PAGE_OFFSET
 
-6:
-	/* This is a secondary processor (AP) */
-	xorl %ebx,%ebx
-	incl %ebx
-
-3:
-#endif /* CONFIG_SMP */
+4:
+	movl %edi,%ebx
+#endif
+5:
 
 /*
  * Enable paging
@@ -229,9 +270,7 @@ ENTRY(startup_32_smp)
 
 #ifdef CONFIG_SMP
 	andl %ebx,%ebx
-	jz  1f				/* Initial CPU cleans BSS */
-	jmp checkCPUtype
-1:
+	jnz  checkCPUtype	/* Initial CPU cleans BSS */
 #endif /* CONFIG_SMP */
 
 /*
@@ -408,31 +447,73 @@ ignore_int:
 #endif
 	iret
 
-/*
- * Real beginning of normal "text" segment
- */
-ENTRY(stext)
-ENTRY(_stext)
-
-/*
- * BSS section
- */
-.section ".bss.page_aligned","w"
+.section .data.swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
+#ifdef CONFIG_X86_PAE
+	.long swapper_pm_dir-__PAGE_OFFSET+1
+	.long 0
+	.long swapper_pm_dir+512*8-__PAGE_OFFSET+1
+	.long 0
+	.long swapper_pm_dir+512*16-__PAGE_OFFSET+1
+	.long 0
+	.long swapper_pm_dir+512*24-__PAGE_OFFSET+1
+	.long 0
+#else
 	.fill 1024,4,0
+#endif
+
+#ifdef CONFIG_PAX_KERNEXEC
+ENTRY(kernexec_pg_dir)
+#ifdef CONFIG_X86_PAE
+	.long kernexec_pm_dir-__PAGE_OFFSET+1
+	.long 0
+	.long kernexec_pm_dir+512*8-__PAGE_OFFSET+1
+	.long 0
+	.long kernexec_pm_dir+512*16-__PAGE_OFFSET+1
+	.long 0
+	.long kernexec_pm_dir+512*24-__PAGE_OFFSET+1
+	.long 0
+#else
+	.fill 1024,4,0
+#endif
+#endif
+
+#ifdef CONFIG_X86_PAE
+.section .data.swapper_pm_dir,"a",@progbits
+ENTRY(swapper_pm_dir)
+	.fill 512,8,0
+	.fill 512,8,0
+	.fill 512,8,0
+	.fill 512,8,0
+
+#ifdef CONFIG_PAX_KERNEXEC
+ENTRY(kernexec_pm_dir)
+	.fill 512,8,0
+	.fill 512,8,0
+	.fill 512,8,0
+	.fill 512,8,0
+#endif
+#endif
+
+.section .rodata.empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)
 	.fill 4096,1,0
 
 /*
- * This starts the data section.
+ * The IDT has to be page-aligned to simplify the Pentium
+ * F0 0F bug workaround.. We have a special link segment
+ * for this.
  */
-.data
+.section .rodata.idt,"a",@progbits
+ENTRY(idt_table)
+	.fill 256,8,0
+
+.section .rodata,"a",@progbits
+ready:	.byte 0
 
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE
 	.long __BOOT_DS
-
-ready:	.byte 0
 
 int_msg:
 	.asciz "Unknown interrupt or fault at EIP %p %p %p\n"
@@ -475,8 +556,8 @@ cpu_gdt_descr:
 	.align L1_CACHE_BYTES
 ENTRY(boot_gdt_table)
 	.fill GDT_ENTRY_BOOT_CS,8,0
-	.quad 0x00cf9a000000ffff	/* kernel 4GB code at 0x00000000 */
-	.quad 0x00cf92000000ffff	/* kernel 4GB data at 0x00000000 */
+	.quad 0x00cf9b000000ffff	/* kernel 4GB code at 0x00000000 */
+	.quad 0x00cf93000000ffff	/* kernel 4GB data at 0x00000000 */
 
 /*
  * The Global Descriptor Table contains 28 quadwords, per-CPU.
@@ -495,28 +576,27 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0x4b reserved */
 	.quad 0x0000000000000000	/* 0x53 reserved */
 	.quad 0x0000000000000000	/* 0x5b reserved */
-
-	.quad 0x00cf9a000000ffff	/* 0x60 kernel 4GB code at 0x00000000 */
-	.quad 0x00cf92000000ffff	/* 0x68 kernel 4GB data at 0x00000000 */
-	.quad 0x00cffa000000ffff	/* 0x73 user 4GB code at 0x00000000 */
-	.quad 0x00cff2000000ffff	/* 0x7b user 4GB data at 0x00000000 */
+	.quad 0x00cf9b000000ffff	/* 0x60 kernel 4GB code at 0x00000000 */
+	.quad 0x00cf93000000ffff	/* 0x68 kernel 4GB data at 0x00000000 */
+	.quad 0x00cffb000000ffff	/* 0x73 user 4GB code at 0x00000000 */
+	.quad 0x00cff3000000ffff	/* 0x7b user 4GB data at 0x00000000 */
 
 	.quad 0x0000000000000000	/* 0x80 TSS descriptor */
 	.quad 0x0000000000000000	/* 0x88 LDT descriptor */
 
 	/* Segments used for calling PnP BIOS */
-	.quad 0x00c09a0000000000	/* 0x90 32-bit code */
-	.quad 0x00809a0000000000	/* 0x98 16-bit code */
-	.quad 0x0080920000000000	/* 0xa0 16-bit data */
-	.quad 0x0080920000000000	/* 0xa8 16-bit data */
-	.quad 0x0080920000000000	/* 0xb0 16-bit data */
+	.quad 0x00c09b0000000000	/* 0x90 32-bit code */
+	.quad 0x00809b0000000000	/* 0x98 16-bit code */
+	.quad 0x0080930000000000	/* 0xa0 16-bit data */
+	.quad 0x0080930000000000	/* 0xa8 16-bit data */
+	.quad 0x0080930000000000	/* 0xb0 16-bit data */
 	/*
 	 * The APM segments have byte granularity and their bases
 	 * and limits are set at run time.
 	 */
-	.quad 0x00409a0000000000	/* 0xb8 APM CS    code */
-	.quad 0x00009a0000000000	/* 0xc0 APM CS 16 code (16 bit) */
-	.quad 0x0040920000000000	/* 0xc8 APM DS    data */
+	.quad 0x00409b0000000000	/* 0xb8 APM CS    code */
+	.quad 0x00009b0000000000	/* 0xc0 APM CS 16 code (16 bit) */
+	.quad 0x0040930000000000	/* 0xc8 APM DS    data */
 
 	.quad 0x0000920000000000	/* 0xd0 - ESPFIX 16-bit SS */
 	.quad 0x0000000000000000	/* 0xd8 - unused */
@@ -525,3 +605,6 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0xf0 - unused */
 	.quad 0x0000000000000000	/* 0xf8 - GDT entry 31: double-fault TSS */
 
+#ifdef CONFIG_SMP
+	.fill (NR_CPUS-1)*GDT_ENTRIES,8,0 /* other CPU's GDT */
+#endif

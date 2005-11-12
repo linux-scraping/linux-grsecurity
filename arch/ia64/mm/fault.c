@@ -10,6 +10,7 @@
 #include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/kprobes.h>
+#include <linux/binfmts.h>
 
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -36,6 +37,10 @@ expand_backing_store (struct vm_area_struct *vma, unsigned long address)
 	grow = PAGE_SIZE >> PAGE_SHIFT;
 	if (address - vma->vm_start > current->signal->rlim[RLIMIT_STACK].rlim_cur
 	    || (((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) > current->signal->rlim[RLIMIT_AS].rlim_cur))
+		return -ENOMEM;
+	if ((vma->vm_flags & VM_LOCKED) &&
+	    ((vma->vm_mm->locked_vm + grow) << PAGE_SHIFT) > current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur &&
+	    !capable(CAP_IPC_LOCK))
 		return -ENOMEM;
 	vma->vm_end += PAGE_SIZE;
 	vma->vm_mm->total_vm += grow;
@@ -76,6 +81,23 @@ mapped_kernel_page_is_present (unsigned long address)
 	pte = *ptep;
 	return pte_present(pte);
 }
+
+#ifdef CONFIG_PAX_PAGEEXEC
+void pax_report_insns(void *pc, void *sp)
+{
+	unsigned long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 8; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned int*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+}
+#endif
 
 void __kprobes
 ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *regs)
@@ -139,8 +161,22 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 		| (((isr >> IA64_ISR_W_BIT) & 1UL) << VM_WRITE_BIT)
 		| (((isr >> IA64_ISR_R_BIT) & 1UL) << VM_READ_BIT));
 
-	if ((vma->vm_flags & mask) != mask)
+	if ((vma->vm_flags & mask) != mask) {
+
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (!(vma->vm_flags & VM_EXEC) && (mask & VM_EXEC)) {
+			if (!(mm->pax_flags & MF_PAX_PAGEEXEC) || address != regs->cr_iip)
+				goto bad_area;
+
+			up_read(&mm->mmap_sem);
+			pax_report_fault(regs, (void*)regs->cr_iip, (void*)regs->r12);
+			do_exit(SIGKILL);
+		}
+#endif
+
 		goto bad_area;
+
+	}
 
   survive:
 	/*

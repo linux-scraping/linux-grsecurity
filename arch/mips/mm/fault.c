@@ -26,6 +26,23 @@
 #include <asm/uaccess.h>
 #include <asm/ptrace.h>
 
+#ifdef CONFIG_PAX_PAGEEXEC
+void pax_report_insns(void *pc)
+{
+	unsigned long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 5; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned int*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+}
+#endif
+
 /*
  * This routine handles page faults.  It determines the address,
  * and the problem, and then passes it off to one of the appropriate

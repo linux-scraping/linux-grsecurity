@@ -31,7 +31,7 @@ struct exec
 #define STACK_TOP_USER64 TASK_SIZE_USER64
 #define STACK_TOP_USER32 TASK_SIZE_USER32
 
-#define STACK_TOP (test_thread_flag(TIF_32BIT) ? \
+#define __STACK_TOP (test_thread_flag(TIF_32BIT) ? \
 		   STACK_TOP_USER32 : STACK_TOP_USER64)
 
 #endif /* __KERNEL__ */

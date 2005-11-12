@@ -28,6 +28,7 @@
 #include <linux/blkdev.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
+#include <linux/grsecurity.h>
 #include "filemap.h"
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
@@ -1550,7 +1551,13 @@ int generic_file_mmap(struct file * file, struct vm_area_struct * vma)
 	struct address_space *mapping = file->f_mapping;
 
 	if (!mapping->a_ops->readpage)
-		return -ENOEXEC;
+		return -ENODEV;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC)
+		vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+#endif
+
 	file_accessed(file);
 	vma->vm_ops = &generic_file_vm_ops;
 	return 0;
@@ -1773,6 +1780,7 @@ inline int generic_write_checks(struct file *file, loff_t *pos, size_t *count, i
                         *pos = i_size_read(inode);
 
 		if (limit != RLIM_INFINITY) {
+			gr_learn_resource(current, RLIMIT_FSIZE,*pos, 0);
 			if (*pos >= limit) {
 				send_sig(SIGXFSZ, current, 0);
 				return -EFBIG;

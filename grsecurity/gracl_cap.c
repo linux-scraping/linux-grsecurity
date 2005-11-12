@@ -1,0 +1,110 @@
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/sched.h>
+#include <linux/capability.h>
+#include <linux/gracl.h>
+#include <linux/grsecurity.h>
+#include <linux/grinternal.h>
+
+static const char *captab_log[] = {
+	"CAP_CHOWN",
+	"CAP_DAC_OVERRIDE",
+	"CAP_DAC_READ_SEARCH",
+	"CAP_FOWNER",
+	"CAP_FSETID",
+	"CAP_KILL",
+	"CAP_SETGID",
+	"CAP_SETUID",
+	"CAP_SETPCAP",
+	"CAP_LINUX_IMMUTABLE",
+	"CAP_NET_BIND_SERVICE",
+	"CAP_NET_BROADCAST",
+	"CAP_NET_ADMIN",
+	"CAP_NET_RAW",
+	"CAP_IPC_LOCK",
+	"CAP_IPC_OWNER",
+	"CAP_SYS_MODULE",
+	"CAP_SYS_RAWIO",
+	"CAP_SYS_CHROOT",
+	"CAP_SYS_PTRACE",
+	"CAP_SYS_PACCT",
+	"CAP_SYS_ADMIN",
+	"CAP_SYS_BOOT",
+	"CAP_SYS_NICE",
+	"CAP_SYS_RESOURCE",
+	"CAP_SYS_TIME",
+	"CAP_SYS_TTY_CONFIG",
+	"CAP_MKNOD",
+	"CAP_LEASE"
+};
+
+EXPORT_SYMBOL(gr_task_is_capable);
+
+int
+gr_task_is_capable(struct task_struct *task, const int cap)
+{
+	struct acl_subject_label *curracl;
+	__u32 cap_drop = 0, cap_mask = 0;
+
+	if (!gr_acl_is_enabled())
+		return 1;
+
+	curracl = task->acl;
+
+	cap_drop = curracl->cap_lower;
+	cap_mask = curracl->cap_mask;
+
+	while ((curracl = curracl->parent_subject)) {
+		if (!(cap_mask & (1 << cap)) && (curracl->cap_mask & (1 << cap)))
+			cap_drop |= curracl->cap_lower & (1 << cap);
+		cap_mask |= curracl->cap_mask;
+	}
+
+	if (!cap_raised(cap_drop, cap))
+		return 1;
+
+	curracl = task->acl;
+
+	if ((curracl->mode & (GR_LEARN | GR_INHERITLEARN))
+	    && cap_raised(task->cap_effective, cap)) {
+		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
+			       task->role->roletype, task->uid,
+			       task->gid, task->exec_file ?
+			       gr_to_filename(task->exec_file->f_dentry,
+			       task->exec_file->f_vfsmnt) : curracl->filename,
+			       curracl->filename, 0UL,
+			       0UL, "", (unsigned long) cap, NIPQUAD(task->signal->curr_ip));
+		return 1;
+	}
+
+	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(task->cap_effective, cap))
+		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);
+
+	return 0;
+}
+
+int
+gr_is_capable_nolog(const int cap)
+{
+	struct acl_subject_label *curracl;
+	__u32 cap_drop = 0, cap_mask = 0;
+
+	if (!gr_acl_is_enabled())
+		return 1;
+
+	curracl = current->acl;
+
+	cap_drop = curracl->cap_lower;
+	cap_mask = curracl->cap_mask;
+
+	while ((curracl = curracl->parent_subject)) {
+		cap_drop |= curracl->cap_lower & (cap_mask & ~curracl->cap_mask);
+		cap_mask |= curracl->cap_mask;
+	}
+
+	if (!cap_raised(cap_drop, cap))
+		return 1;
+
+	return 0;
+}
+

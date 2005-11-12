@@ -2,7 +2,7 @@
 #define __PPC_A_OUT_H__
 
 /* grabbed from the intel stuff  */
-#define STACK_TOP TASK_SIZE
+#define __STACK_TOP TASK_SIZE
 
 
 struct exec

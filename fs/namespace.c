@@ -22,6 +22,8 @@
 #include <linux/namei.h>
 #include <linux/security.h>
 #include <linux/mount.h>
+#include <linux/sched.h>
+#include <linux/grsecurity.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
@@ -427,6 +429,8 @@ static int do_umount(struct vfsmount *mnt, int flags)
 			DQUOT_OFF(sb);
 			retval = do_remount_sb(sb, MS_RDONLY, NULL, 0);
 			unlock_kernel();
+
+			gr_log_remount(mnt->mnt_devname, retval);
 		}
 		up_write(&sb->s_umount);
 		return retval;
@@ -455,6 +459,9 @@ static int do_umount(struct vfsmount *mnt, int flags)
 	if (retval)
 		security_sb_umount_busy(mnt);
 	up_write(&current->namespace->sem);
+
+	gr_log_unmount(mnt->mnt_devname, retval);
+
 	return retval;
 }
 
@@ -1050,6 +1057,11 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 	if (retval)
 		goto dput_out;
 
+	if (gr_handle_chroot_mount(nd.dentry, nd.mnt, dev_name)) {
+		retval = -EPERM;
+		goto dput_out;
+	}
+
 	if (flags & MS_REMOUNT)
 		retval = do_remount(&nd, flags & ~MS_REMOUNT, mnt_flags,
 				    data_page);
@@ -1062,6 +1074,9 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 				      dev_name, data_page);
 dput_out:
 	path_release(&nd);
+
+	gr_log_mount(dev_name, dir_name, retval);
+
 	return retval;
 }
 
@@ -1289,6 +1304,9 @@ asmlinkage long sys_pivot_root(const char __user *new_root, const char __user *p
 	int error;
 
 	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (gr_handle_chroot_pivot())
 		return -EPERM;
 
 	lock_kernel();

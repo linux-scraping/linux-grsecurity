@@ -567,7 +567,15 @@ static struct file_operations proc_pci_operations = {
 
 static void legacy_proc_init(void)
 {
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	struct proc_dir_entry * entry = create_proc_entry("pci", S_IRUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	struct proc_dir_entry * entry = create_proc_entry("pci", S_IRUSR | S_IRGRP, NULL);
+#endif
+#else
 	struct proc_dir_entry * entry = create_proc_entry("pci", 0, NULL);
+#endif
 	if (entry)
 		entry->proc_fops = &proc_pci_operations;
 }
@@ -596,7 +604,15 @@ static int __init pci_proc_init(void)
 {
 	struct proc_dir_entry *entry;
 	struct pci_dev *dev = NULL;
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	proc_bus_pci_dir = proc_mkdir_mode("pci", S_IRUSR | S_IXUSR, proc_bus);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	proc_bus_pci_dir = proc_mkdir_mode("pci", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, proc_bus);
+#endif
+#else
 	proc_bus_pci_dir = proc_mkdir("pci", proc_bus);
+#endif
 	entry = create_proc_entry("devices", 0, proc_bus_pci_dir);
 	if (entry)
 		entry->proc_fops = &proc_bus_pci_dev_operations;

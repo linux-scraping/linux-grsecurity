@@ -28,6 +28,7 @@
 #include <linux/suspend.h>
 #include <linux/tty.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
@@ -234,6 +235,12 @@ static int set_one_prio(struct task_struct *p, int niceval, int error)
 		error = -EACCES;
 		goto out;
 	}
+
+	if (gr_handle_chroot_setpriority(p, niceval)) {
+		error = -EACCES;
+		goto out;
+	}
+
 	no_nice = security_task_setnice(p, niceval);
 	if (no_nice) {
 		error = no_nice;
@@ -619,6 +626,9 @@ asmlinkage long sys_setregid(gid_t rgid, gid_t egid)
 	if (rgid != (gid_t) -1 ||
 	    (egid != (gid_t) -1 && egid != old_rgid))
 		current->sgid = new_egid;
+
+	gr_set_role_label(current, current->uid, new_rgid);
+
 	current->fsgid = new_egid;
 	current->egid = new_egid;
 	current->gid = new_rgid;
@@ -647,6 +657,9 @@ asmlinkage long sys_setgid(gid_t gid)
 			current->mm->dumpable = suid_dumpable;
 			smp_wmb();
 		}
+
+		gr_set_role_label(current, current->uid, gid);
+
 		current->gid = current->egid = current->sgid = current->fsgid = gid;
 	}
 	else if ((gid == current->gid) || (gid == current->sgid))
@@ -687,6 +700,9 @@ static int set_user(uid_t new_ruid, int dumpclear)
 		current->mm->dumpable = suid_dumpable;
 		smp_wmb();
 	}
+
+	gr_set_role_label(current, new_ruid, current->gid);
+
 	current->uid = new_ruid;
 	return 0;
 }
@@ -787,6 +803,9 @@ asmlinkage long sys_setuid(uid_t uid)
 			return -EAGAIN;
 		new_suid = uid;
 	} else if ((uid != current->uid) && (uid != new_suid))
+		return -EPERM;
+
+	if (gr_check_crash_uid(uid))
 		return -EPERM;
 
 	if (old_euid != uid)
@@ -892,8 +911,10 @@ asmlinkage long sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)
 		current->egid = egid;
 	}
 	current->fsgid = current->egid;
-	if (rgid != (gid_t) -1)
+	if (rgid != (gid_t) -1) {
+		gr_set_role_label(current, current->uid, rgid);
 		current->gid = rgid;
+	}
 	if (sgid != (gid_t) -1)
 		current->sgid = sgid;
 

@@ -31,6 +31,7 @@
 #include <linux/security.h>
 #include <linux/bootmem.h>
 #include <linux/syscalls.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 
@@ -223,6 +224,11 @@ int do_syslog(int type, char __user * buf, int len)
 	int do_clear = 0;
 	char c;
 	int error = 0;
+
+#ifdef CONFIG_GRKERNSEC_DMESG
+	if (grsec_enable_dmesg && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+#endif
 
 	error = security_syslog(type);
 	if (error)

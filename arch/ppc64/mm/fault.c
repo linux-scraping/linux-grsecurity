@@ -30,6 +30,7 @@
 #include <linux/smp_lock.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
+#include <linux/binfmts.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -99,6 +100,38 @@ static void do_dabr(struct pt_regs *regs, unsigned long error_code)
 	info.si_addr = (void __user *)regs->nip;
 	force_sig_info(SIGTRAP, &info, current);
 }
+
+#ifdef CONFIG_PAX_PAGEEXEC
+/*
+ * PaX: decide what to do with offenders (regs->nip = fault address)
+ *
+ * returns 1 when task should be killed
+ */
+static int pax_handle_fetch_fault(struct pt_regs *regs)
+{
+
+#if defined(CONFIG_PAX_EMUPLT) || defined(CONFIG_PAX_EMUSIGRT)
+	int err;
+#endif
+
+	return 1;
+}
+
+void pax_report_insns(void *pc, void *sp)
+{
+	unsigned long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 5; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned int*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+}
+#endif
 
 /*
  * The error_code parameter is
@@ -268,6 +301,19 @@ bad_area:
 bad_area_nosemaphore:
 	/* User mode accesses cause a SIGSEGV */
 	if (user_mode(regs)) {
+
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (mm->pax_flags & MF_PAX_PAGEEXEC) {
+			if ((trap == 0x400) && (error_code & DSISR_PROTFAULT)) {
+				switch (pax_handle_fetch_fault(regs)) {
+				}
+
+				pax_report_fault(regs, (void*)regs->nip, (void*)regs->gpr[1]);
+				do_exit(SIGKILL);
+			}
+		}
+#endif
+
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
 		info.si_code = code;

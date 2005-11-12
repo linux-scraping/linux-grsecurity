@@ -17,6 +17,7 @@
 #include <linux/audit.h>
 #include <linux/seccomp.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -388,6 +389,9 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 	if (pid == 1)		/* you may not mess with init */
 		goto out_tsk;
 
+	if (gr_handle_ptrace(child, request))
+		goto out_tsk;
+
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
 		goto out_tsk;
@@ -466,6 +470,17 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 			  if(addr == (long) &dummy->u_debugreg[5]) break;
 			  if(addr < (long) &dummy->u_debugreg[4] &&
 			     ((unsigned long) data) >= TASK_SIZE-3) break;
+
+#ifdef CONFIG_GRKERNSEC
+			  if(addr >= (long) &dummy->u_debugreg[0] &&
+			     addr <= (long) &dummy->u_debugreg[3]){
+				long reg   = (addr - (long) &dummy->u_debugreg[0]) >> 2;
+				long type  = (child->thread.debugreg[7] >> (DR_CONTROL_SHIFT + 4*reg)) & 3;
+				long align = (child->thread.debugreg[7] >> (DR_CONTROL_SHIFT + 2 + 4*reg)) & 3;
+				if((type & 1) && (data & align))
+					break;
+			  }
+#endif
 			  
 			  /* Sanity-check data. Take one half-byte at once with
 			   * check = (val >> (16 + 4*i)) & 0xf. It contains the

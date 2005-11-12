@@ -333,17 +333,17 @@ void __init paging_init(void)
 
 	/* Initialize the protection map with non-constant, MMU dependent values. */
 	protection_map[0] = PAGE_NONE;
-	protection_map[1] = PAGE_READONLY;
-	protection_map[2] = PAGE_COPY;
-	protection_map[3] = PAGE_COPY;
+	protection_map[1] = PAGE_READONLY_NOEXEC;
+	protection_map[2] = PAGE_COPY_NOEXEC;
+	protection_map[3] = PAGE_COPY_NOEXEC;
 	protection_map[4] = PAGE_READONLY;
 	protection_map[5] = PAGE_READONLY;
 	protection_map[6] = PAGE_COPY;
 	protection_map[7] = PAGE_COPY;
 	protection_map[8] = PAGE_NONE;
-	protection_map[9] = PAGE_READONLY;
-	protection_map[10] = PAGE_SHARED;
-	protection_map[11] = PAGE_SHARED;
+	protection_map[9] = PAGE_READONLY_NOEXEC;
+	protection_map[10] = PAGE_SHARED_NOEXEC;
+	protection_map[11] = PAGE_SHARED_NOEXEC;
 	protection_map[12] = PAGE_READONLY;
 	protection_map[13] = PAGE_READONLY;
 	protection_map[14] = PAGE_SHARED;

@@ -136,10 +136,27 @@ static int __init ioresources_init(void)
 {
 	struct proc_dir_entry *entry;
 
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	entry = create_proc_entry("ioports", S_IRUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	entry = create_proc_entry("ioports", S_IRUSR | S_IRGRP, NULL);
+#endif
+#else
 	entry = create_proc_entry("ioports", 0, NULL);
+#endif
 	if (entry)
 		entry->proc_fops = &proc_ioports_operations;
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	entry = create_proc_entry("iomem", S_IRUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	entry = create_proc_entry("iomem", S_IRUSR | S_IRGRP, NULL);
+#endif
+#else
 	entry = create_proc_entry("iomem", 0, NULL);
+#endif
 	if (entry)
 		entry->proc_fops = &proc_iomem_operations;
 	return 0;

@@ -31,7 +31,6 @@
  */
 #define ZERO_PAGE(vaddr) (virt_to_page(empty_zero_page))
 extern unsigned long empty_zero_page[1024];
-extern pgd_t swapper_pg_dir[1024];
 extern kmem_cache_t *pgd_cache;
 extern kmem_cache_t *pmd_cache;
 extern spinlock_t pgd_lock;
@@ -42,6 +41,7 @@ void pgd_ctor(void *, kmem_cache_t *, unsigned long);
 void pgd_dtor(void *, kmem_cache_t *, unsigned long);
 void pgtable_cache_init(void);
 void paging_init(void);
+#endif /* !__ASSEMBLY__ */
 
 /*
  * The Linux x86 paging architecture is 'compile-time dual-mode', it
@@ -54,6 +54,23 @@ void paging_init(void);
 # define PMD_MASK	(~(PMD_SIZE-1))
 #else
 # include <asm/pgtable-2level-defs.h>
+#endif
+
+#ifndef __ASSEMBLY__
+#ifdef CONFIG_X86_PAE
+extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
+extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
+
+#ifdef CONFIG_PAX_KERNEXEC
+extern pgd_t kernexec_pg_dir[PTRS_PER_PGD];
+extern pmd_t kernexec_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
+#endif
+#else
+extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
+
+#ifdef CONFIG_PAX_KERNEXEC
+extern pgd_t kernexec_pg_dir[PTRS_PER_PGD];
+#endif
 #endif
 
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
@@ -138,17 +155,26 @@ void paging_init(void);
 
 #define PAGE_SHARED_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_COPY_NOEXEC \
-	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
 #define PAGE_COPY_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_COPY \
-	PAGE_COPY_NOEXEC
 #define PAGE_READONLY \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
 #define PAGE_READONLY_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
 
+#ifdef CONFIG_PAX_PAGEEXEC
+# define PAGE_SHARED_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_ACCESSED)
+# define PAGE_COPY_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
+# define PAGE_READONLY_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
+#else
+# define PAGE_SHARED_NOEXEC	PAGE_SHARED
+# define PAGE_COPY_NOEXEC \
+	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
+# define PAGE_READONLY_NOEXEC	PAGE_READONLY
+#endif
+
+#define PAGE_COPY \
+	PAGE_COPY_NOEXEC
 #define _PAGE_KERNEL \
 	(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY | _PAGE_ACCESSED | _PAGE_NX)
 #define _PAGE_KERNEL_EXEC \
@@ -173,18 +199,18 @@ extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
  * This is the closest we can get..
  */
 #define __P000	PAGE_NONE
-#define __P001	PAGE_READONLY
-#define __P010	PAGE_COPY
-#define __P011	PAGE_COPY
+#define __P001	PAGE_READONLY_NOEXEC
+#define __P010	PAGE_COPY_NOEXEC
+#define __P011	PAGE_COPY_NOEXEC
 #define __P100	PAGE_READONLY_EXEC
 #define __P101	PAGE_READONLY_EXEC
 #define __P110	PAGE_COPY_EXEC
 #define __P111	PAGE_COPY_EXEC
 
 #define __S000	PAGE_NONE
-#define __S001	PAGE_READONLY
-#define __S010	PAGE_SHARED
-#define __S011	PAGE_SHARED
+#define __S001	PAGE_READONLY_NOEXEC
+#define __S010	PAGE_SHARED_NOEXEC
+#define __S011	PAGE_SHARED_NOEXEC
 #define __S100	PAGE_READONLY_EXEC
 #define __S101	PAGE_READONLY_EXEC
 #define __S110	PAGE_SHARED_EXEC
@@ -426,6 +452,9 @@ extern void noexec_setup(const char *str);
 	} while (0)
 
 #endif /* !__ASSEMBLY__ */
+
+#define HAVE_ARCH_UNMAPPED_AREA
+#define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
 
 #ifdef CONFIG_FLATMEM
 #define kern_addr_valid(addr)	(1)

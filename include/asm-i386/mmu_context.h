@@ -46,6 +46,13 @@ static inline void switch_mm(struct mm_struct *prev,
 		 */
 		if (unlikely(prev->context.ldt != next->context.ldt))
 			load_LDT_nolock(&next->context, cpu);
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
+		cpu_clear(cpu, prev->context.cpu_user_cs_mask);
+		cpu_set(cpu, next->context.cpu_user_cs_mask);
+#endif
+
+		set_user_cs(next, cpu);
 	}
 #ifdef CONFIG_SMP
 	else {
@@ -58,6 +65,12 @@ static inline void switch_mm(struct mm_struct *prev,
 			 */
 			load_cr3(next->pgd);
 			load_LDT_nolock(&next->context, cpu);
+
+#ifdef CONFIG_PAX_PAGEEXEC
+			cpu_set(cpu, next->context.cpu_user_cs_mask);
+#endif
+
+			set_user_cs(next, cpu);
 		}
 	}
 #endif

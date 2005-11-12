@@ -86,6 +86,10 @@ struct shmid_kernel /* private to the kernel */
 	pid_t			shm_cprid;
 	pid_t			shm_lprid;
 	struct user_struct	*mlock_user;
+#ifdef CONFIG_GRKERNSEC
+	time_t			shm_createtime;
+	pid_t			shm_lapid;
+#endif
 };
 
 /* shm_mode upper byte flags */

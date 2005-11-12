@@ -566,6 +566,8 @@ void create_seq_entry(char *name, mode_t mode, struct file_operations *f)
 void __init proc_misc_init(void)
 {
 	struct proc_dir_entry *entry;
+	int gr_mode = 0;
+
 	static struct {
 		char *name;
 		int (*read_proc)(char*,char**,off_t,int,int*,void*);
@@ -580,15 +582,29 @@ void __init proc_misc_init(void)
 #ifdef CONFIG_STRAM_PROC
 		{"stram",	stram_read_proc},
 #endif
+#ifndef CONFIG_GRKERNSEC_PROC_ADD
 		{"devices",	devices_read_proc},
+#endif
 		{"filesystems",	filesystems_read_proc},
+#ifndef CONFIG_GRKERNSEC_PROC_ADD
 		{"cmdline",	cmdline_read_proc},
+#endif
 		{"locks",	locks_read_proc},
 		{"execdomains",	execdomains_read_proc},
 		{NULL,}
 	};
 	for (p = simple_ones; p->name; p++)
 		create_proc_read_entry(p->name, 0, NULL, p->read_proc, NULL);
+
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	gr_mode = S_IRUSR;
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	gr_mode = S_IRUSR | S_IRGRP;
+#endif
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	create_proc_read_entry("devices", gr_mode, NULL, &devices_read_proc, NULL);
+	create_proc_read_entry("cmdline", gr_mode, NULL, &cmdline_read_proc, NULL);
+#endif
 
 	proc_symlink("mounts", NULL, "self/mounts");
 
@@ -600,18 +616,22 @@ void __init proc_misc_init(void)
 	create_seq_entry("partitions", 0, &proc_partitions_operations);
 	create_seq_entry("stat", 0, &proc_stat_operations);
 	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	create_seq_entry("slabinfo",S_IWUSR|gr_mode,&proc_slabinfo_operations);
+#else
 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
+#endif
 	create_seq_entry("buddyinfo",S_IRUGO, &fragmentation_file_operations);
 	create_seq_entry("vmstat",S_IRUGO, &proc_vmstat_file_operations);
 	create_seq_entry("zoneinfo",S_IRUGO, &proc_zoneinfo_file_operations);
 	create_seq_entry("diskstats", 0, &proc_diskstats_operations);
 #ifdef CONFIG_MODULES
-	create_seq_entry("modules", 0, &proc_modules_operations);
+	create_seq_entry("modules", gr_mode, &proc_modules_operations);
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	create_seq_entry("schedstat", 0, &proc_schedstat_operations);
 #endif
-#ifdef CONFIG_PROC_KCORE
+#if defined(CONFIG_PROC_KCORE) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
 	proc_root_kcore = create_proc_entry("kcore", S_IRUSR, NULL);
 	if (proc_root_kcore) {
 		proc_root_kcore->proc_fops = &proc_kcore_operations;

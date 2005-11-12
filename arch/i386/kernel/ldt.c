@@ -102,6 +102,19 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 		retval = copy_ldt(&mm->context, &old_mm->context);
 		up(&old_mm->context.sem);
 	}
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+	if (!mm->context.user_cs_limit) {
+		mm->context.user_cs_base = 0UL;
+		mm->context.user_cs_limit = ~0UL;
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
+		cpus_clear(mm->context.cpu_user_cs_mask);
+#endif
+
+	}
+#endif
+
 	return retval;
 }
 
@@ -159,7 +172,7 @@ static int read_default_ldt(void __user * ptr, unsigned long bytecount)
 {
 	int err;
 	unsigned long size;
-	void *address;
+	const void *address;
 
 	err = 0;
 	address = &default_ldt[0];
@@ -213,6 +226,13 @@ static int write_ldt(void __user * ptr, unsigned long bytecount, int oldmode)
 			goto install;
 		}
 	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (ldt_info.contents & 2)) {
+		error = -EINVAL;
+		goto out_unlock;
+	}
+#endif
 
 	entry_1 = LDT_entry_a(&ldt_info);
 	entry_2 = LDT_entry_b(&ldt_info);

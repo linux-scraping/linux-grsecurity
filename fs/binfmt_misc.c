@@ -112,8 +112,10 @@ static int load_misc_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	struct files_struct *files = NULL;
 
 	retval = -ENOEXEC;
-	if (!enabled)
+	if (!enabled || bprm->misc)
 		goto _ret;
+
+	bprm->misc++;
 
 	/* to keep locking time low, we copy the interpreter string */
 	read_lock(&entries_lock);

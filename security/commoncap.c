@@ -23,6 +23,7 @@
 #include <linux/ptrace.h>
 #include <linux/xattr.h>
 #include <linux/hugetlb.h>
+#include <linux/grsecurity.h>
 
 int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
@@ -44,7 +45,15 @@ EXPORT_SYMBOL(cap_netlink_recv);
 int cap_capable (struct task_struct *tsk, int cap)
 {
 	/* Derived from include/linux/sched.h:capable. */
-	if (cap_raised(tsk->cap_effective, cap))
+	if (cap_raised (tsk->cap_effective, cap) && gr_task_is_capable(tsk, cap))
+		return 0;
+	return -EPERM;
+}
+
+int cap_capable_nolog (struct task_struct *tsk, int cap)
+{
+	/* Derived from include/linux/sched.h:capable. */
+	if (cap_raised (tsk->cap_effective, cap))
 		return 0;
 	return -EPERM;
 }
@@ -60,7 +69,7 @@ int cap_ptrace (struct task_struct *parent, struct task_struct *child)
 {
 	/* Derived from arch/i386/kernel/ptrace.c:sys_ptrace. */
 	if (!cap_issubset (child->cap_permitted, current->cap_permitted) &&
-	    !capable(CAP_SYS_PTRACE))
+	    !capable_nolog(CAP_SYS_PTRACE))
 		return -EPERM;
 	return 0;
 }
@@ -163,8 +172,11 @@ void cap_bprm_apply_creds (struct linux_binprm *bprm, int unsafe)
 		}
 	}
 
-	current->suid = current->euid = current->fsuid = bprm->e_uid;
-	current->sgid = current->egid = current->fsgid = bprm->e_gid;
+	if (!gr_check_user_change(-1, bprm->e_uid, bprm->e_uid))
+		current->suid = current->euid = current->fsuid = bprm->e_uid;
+
+	if (!gr_check_group_change(-1, bprm->e_gid, bprm->e_gid))
+		current->sgid = current->egid = current->fsgid = bprm->e_gid;
 
 	/* For init, we want to retain the capabilities set
 	 * in the init_task struct. Thus we skip the usual
@@ -174,6 +186,8 @@ void cap_bprm_apply_creds (struct linux_binprm *bprm, int unsafe)
 		current->cap_effective =
 		    cap_intersect (new_permitted, bprm->cap_effective);
 	}
+
+	gr_handle_chroot_caps(current);
 
 	/* AUD: Audit candidate if current->cap_effective is set */
 
@@ -320,12 +334,13 @@ int cap_vm_enough_memory(long pages)
 {
 	int cap_sys_admin = 0;
 
-	if (cap_capable(current, CAP_SYS_ADMIN) == 0)
+	if (cap_capable_nolog(current, CAP_SYS_ADMIN) == 0)
 		cap_sys_admin = 1;
 	return __vm_enough_memory(pages, cap_sys_admin);
 }
 
 EXPORT_SYMBOL(cap_capable);
+EXPORT_SYMBOL(cap_capable_nolog);
 EXPORT_SYMBOL(cap_settime);
 EXPORT_SYMBOL(cap_ptrace);
 EXPORT_SYMBOL(cap_capget);

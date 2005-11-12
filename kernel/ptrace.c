@@ -127,10 +127,10 @@ static int may_attach(struct task_struct *task)
 	     (current->uid != task->uid) ||
 	     (current->gid != task->egid) ||
 	     (current->gid != task->sgid) ||
-	     (current->gid != task->gid)) && !capable(CAP_SYS_PTRACE))
+	     (current->gid != task->gid)) && !capable_nolog(CAP_SYS_PTRACE))
 		return -EPERM;
 	smp_rmb();
-	if (!task->mm->dumpable && !capable(CAP_SYS_PTRACE))
+	if (!task->mm->dumpable && !capable_nolog(CAP_SYS_PTRACE))
 		return -EPERM;
 
 	return security_ptrace(current, task);

@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 14
-EXTRAVERSION = .2
+EXTRAVERSION = .2-grsec
 NAME=Affluent Albatross
 
 # *DOCUMENTATION*
@@ -582,7 +582,7 @@ export MODLIB
 
 
 ifeq ($(KBUILD_EXTMOD),)
-core-y		+= kernel/ mm/ fs/ ipc/ security/ crypto/
+core-y		+= kernel/ mm/ fs/ ipc/ security/ crypto/ grsecurity/
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \

@@ -145,6 +145,12 @@ move_one_page(struct vm_area_struct *vma, unsigned long old_addr,
 				/* ZERO_PAGE can be dependant on virtual addr */
 				pte = move_pte(pte, new_vma->vm_page_prot,
 							old_addr, new_addr);
+
+#ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+				if ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
+					pte_exprotect(pte);
+#endif
+
 				set_pte_at(mm, new_addr, dst, pte);
 			} else
 				error = -ENOMEM;
@@ -290,12 +296,31 @@ unsigned long do_mremap(unsigned long addr,
 	if (!new_len)
 		goto out;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
+		if (new_len > SEGMEXEC_TASK_SIZE || addr > SEGMEXEC_TASK_SIZE-new_len ||
+		    old_len > SEGMEXEC_TASK_SIZE || addr > SEGMEXEC_TASK_SIZE-old_len)
+			goto out;
+	} else
+#endif
+
+	if (new_len > TASK_SIZE || addr > TASK_SIZE-new_len ||
+	    old_len > TASK_SIZE || addr > TASK_SIZE-old_len)
+		goto out;
+
 	/* new_addr is only valid if MREMAP_FIXED is specified */
 	if (flags & MREMAP_FIXED) {
 		if (new_addr & ~PAGE_MASK)
 			goto out;
 		if (!(flags & MREMAP_MAYMOVE))
 			goto out;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
+			if (new_len > SEGMEXEC_TASK_SIZE || new_addr > SEGMEXEC_TASK_SIZE-new_len)
+				goto out;
+		} else
+#endif
 
 		if (new_len > TASK_SIZE || new_addr > TASK_SIZE - new_len)
 			goto out;
@@ -340,6 +365,14 @@ unsigned long do_mremap(unsigned long addr,
 		ret = -EINVAL;
 		goto out;
 	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma->vm_flags & VM_MIRROR) {
+		ret = -EINVAL;
+		goto out;
+	}
+#endif
+
 	/* We can't remap across vm area boundaries */
 	if (old_len > vma->vm_end - addr)
 		goto out;
@@ -392,6 +425,7 @@ unsigned long do_mremap(unsigned long addr,
 						   addr + new_len);
 			}
 			ret = addr;
+			track_exec_limit(vma->vm_mm, vma->vm_start, addr + new_len, vma->vm_flags);
 			goto out;
 		}
 	}
@@ -402,8 +436,8 @@ unsigned long do_mremap(unsigned long addr,
 	 */
 	ret = -ENOMEM;
 	if (flags & MREMAP_MAYMOVE) {
+		unsigned long map_flags = 0;
 		if (!(flags & MREMAP_FIXED)) {
-			unsigned long map_flags = 0;
 			if (vma->vm_flags & VM_MAYSHARE)
 				map_flags |= MAP_SHARED;
 
@@ -413,7 +447,12 @@ unsigned long do_mremap(unsigned long addr,
 			if (new_addr & ~PAGE_MASK)
 				goto out;
 		}
+		map_flags = vma->vm_flags;
 		ret = move_vma(vma, addr, old_len, new_len, new_addr);
+		if (!(ret & ~PAGE_MASK)) {
+			track_exec_limit(current->mm, addr, addr + old_len, 0UL);
+			track_exec_limit(current->mm, new_addr, new_addr + new_len, map_flags);
+		}
 	}
 out:
 	if (ret & ~PAGE_MASK)

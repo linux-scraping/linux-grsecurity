@@ -28,6 +28,11 @@
 #include <linux/cpuset.h>
 #include <linux/syscalls.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
+
+#ifdef CONFIG_GRKERNSEC
+extern rwlock_t grsec_exec_file_lock;
+#endif
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -232,12 +237,23 @@ static inline void reparent_to_init(void)
 {
 	write_lock_irq(&tasklist_lock);
 
+#ifdef CONFIG_GRKERNSEC
+	write_lock(&grsec_exec_file_lock);
+	if (current->exec_file) {
+		fput(current->exec_file);
+		current->exec_file = NULL;
+	}
+	write_unlock(&grsec_exec_file_lock);
+#endif
+
 	ptrace_unlink(current);
 	/* Reparent to init */
 	REMOVE_LINKS(current);
 	current->parent = child_reaper;
 	current->real_parent = child_reaper;
 	SET_LINKS(current);
+
+	gr_set_kernel_label(current);
 
 	/* Set the exit signal to SIGCHLD so we signal init on exit */
 	current->exit_signal = SIGCHLD;
@@ -332,6 +348,17 @@ void daemonize(const char *name, ...)
 	va_start(args, name);
 	vsnprintf(current->comm, sizeof(current->comm), name, args);
 	va_end(args);
+
+#ifdef CONFIG_GRKERNSEC
+	write_lock(&grsec_exec_file_lock);
+	if (current->exec_file) {
+		fput(current->exec_file);
+		current->exec_file = NULL;
+	}
+	write_unlock(&grsec_exec_file_lock);
+#endif
+
+	gr_set_kernel_label(current);
 
 	/*
 	 * If we were started as result of loading a module, close all of the
@@ -846,9 +873,14 @@ fastcall NORET_TYPE void do_exit(long code)
 		exit_itimers(tsk->signal);
 		acct_process(code);
 	}
+
+	gr_acl_handle_psacct(tsk, code);
+	gr_acl_handle_exit();
+
 	exit_mm(tsk);
 
 	exit_sem(tsk);
+	gr_shm_exit(tsk);
 	__exit_files(tsk);
 	__exit_fs(tsk);
 	exit_namespace(tsk);

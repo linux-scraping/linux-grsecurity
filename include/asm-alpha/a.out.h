@@ -98,7 +98,7 @@ struct exec
 	set_personality (((BFPM->sh_bang || EX.ah.entry < 0x100000000L \
 			   ? ADDR_LIMIT_32BIT : 0) | PER_OSF4))
 
-#define STACK_TOP \
+#define __STACK_TOP \
   (current->personality & ADDR_LIMIT_32BIT ? 0x80000000 : 0x00120000000UL)
 
 #endif

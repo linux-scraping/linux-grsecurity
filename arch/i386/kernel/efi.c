@@ -64,78 +64,59 @@ extern void * boot_ioremap(unsigned long, unsigned long);
 
 static unsigned long efi_rt_eflags;
 static DEFINE_SPINLOCK(efi_rt_lock);
-static pgd_t efi_bak_pg_dir_pointer[2];
+static pgd_t __initdata efi_bak_pg_dir_pointer[4];
 
-static void efi_call_phys_prelog(void)
+static void __init efi_call_phys_prelog(void)
 {
-	unsigned long cr4;
-	unsigned long temp;
-
 	spin_lock(&efi_rt_lock);
 	local_irq_save(efi_rt_eflags);
 
-	/*
-	 * If I don't have PSE, I should just duplicate two entries in page
-	 * directory. If I have PSE, I just need to duplicate one entry in
-	 * page directory.
-	 */
-	cr4 = read_cr4();
+	efi_bak_pg_dir_pointer[0] = swapper_pg_dir[0];
+	swapper_pg_dir[0] = swapper_pg_dir[USER_PTRS_PER_PGD];
 
-	if (cr4 & X86_CR4_PSE) {
-		efi_bak_pg_dir_pointer[0].pgd =
-		    swapper_pg_dir[pgd_index(0)].pgd;
-		swapper_pg_dir[0].pgd =
-		    swapper_pg_dir[pgd_index(PAGE_OFFSET)].pgd;
-	} else {
-		efi_bak_pg_dir_pointer[0].pgd =
-		    swapper_pg_dir[pgd_index(0)].pgd;
-		efi_bak_pg_dir_pointer[1].pgd =
-		    swapper_pg_dir[pgd_index(0x400000)].pgd;
-		swapper_pg_dir[pgd_index(0)].pgd =
-		    swapper_pg_dir[pgd_index(PAGE_OFFSET)].pgd;
-		temp = PAGE_OFFSET + 0x400000;
-		swapper_pg_dir[pgd_index(0x400000)].pgd =
-		    swapper_pg_dir[pgd_index(temp)].pgd;
-	}
+#ifndef CONFIG_X86_PAE
+	efi_bak_pg_dir_pointer[1] = swapper_pg_dir[1];
+	swapper_pg_dir[1] = swapper_pg_dir[USER_PTRS_PER_PGD+1]
+	efi_bak_pg_dir_pointer[2] = swapper_pg_dir[2];
+	swapper_pg_dir[2] = swapper_pg_dir[USER_PTRS_PER_PGD+2];
+	efi_bak_pg_dir_pointer[3] = swapper_pg_dir[3];
+	swapper_pg_dir[3] = swapper_pg_dir[USER_PTRS_PER_PGD+3];
+#endif
+
 
 	/*
 	 * After the lock is released, the original page table is restored.
 	 */
-	local_flush_tlb();
+	__flush_tlb_all();
 
 	cpu_gdt_descr[0].address = __pa(cpu_gdt_descr[0].address);
 	load_gdt((struct Xgt_desc_struct *) __pa(&cpu_gdt_descr[0]));
 }
 
-static void efi_call_phys_epilog(void)
+static void __init efi_call_phys_epilog(void)
 {
-	unsigned long cr4;
-
 	cpu_gdt_descr[0].address =
 		(unsigned long) __va(cpu_gdt_descr[0].address);
 	load_gdt(&cpu_gdt_descr[0]);
-	cr4 = read_cr4();
 
-	if (cr4 & X86_CR4_PSE) {
-		swapper_pg_dir[pgd_index(0)].pgd =
-		    efi_bak_pg_dir_pointer[0].pgd;
-	} else {
-		swapper_pg_dir[pgd_index(0)].pgd =
-		    efi_bak_pg_dir_pointer[0].pgd;
-		swapper_pg_dir[pgd_index(0x400000)].pgd =
-		    efi_bak_pg_dir_pointer[1].pgd;
-	}
+	swapper_pg_dir[0] = efi_bak_pg_dir_pointer[0];
+
+#ifndef CONFIG_X86_PAE
+	swapper_pg_dir[1] = efi_bak_pg_dir_pointer[1];
+	swapper_pg_dir[2] = efi_bak_pg_dir_pointer[2];
+	swapper_pg_dir[3] = efi_bak_pg_dir_pointer[3];
+#endif
 
 	/*
 	 * After the lock is released, the original page table is restored.
 	 */
-	local_flush_tlb();
+	__flush_tlb_all();
 
 	local_irq_restore(efi_rt_eflags);
 	spin_unlock(&efi_rt_lock);
 }
 
-static efi_status_t
+static efi_status_t __init
 phys_efi_set_virtual_address_map(unsigned long memory_map_size,
 				 unsigned long descriptor_size,
 				 u32 descriptor_version,
@@ -151,7 +132,7 @@ phys_efi_set_virtual_address_map(unsigned long memory_map_size,
 	return status;
 }
 
-static efi_status_t
+static efi_status_t __init
 phys_efi_get_time(efi_time_t *tm, efi_time_cap_t *tc)
 {
 	efi_status_t status;

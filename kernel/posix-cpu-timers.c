@@ -6,6 +6,7 @@
 #include <linux/posix-timers.h>
 #include <asm/uaccess.h>
 #include <linux/errno.h>
+#include <linux/grsecurity.h>
 
 static int check_clock(clockid_t which_clock)
 {
@@ -1139,6 +1140,7 @@ static void check_process_timers(struct task_struct *tsk,
 			__group_send_sig_info(SIGKILL, SEND_SIG_PRIV, tsk);
 			return;
 		}
+		gr_learn_resource(tsk, RLIMIT_CPU, psecs, 1);
 		if (psecs >= sig->rlim[RLIMIT_CPU].rlim_cur) {
 			/*
 			 * At the soft limit, send a SIGXCPU every second.

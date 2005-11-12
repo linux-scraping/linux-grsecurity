@@ -147,6 +147,11 @@ static int get_futex_key(unsigned long uaddr, union futex_key *key)
 	struct page *page;
 	int err;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (uaddr >= SEGMEXEC_TASK_SIZE))
+		return -EFAULT;
+#endif
+
 	/*
 	 * The futex address must be "naturally" aligned.
 	 */

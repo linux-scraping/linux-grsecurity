@@ -70,6 +70,7 @@
 #include <linux/seccomp.h>
 #include <linux/cpuset.h>
 #include <linux/audit.h>
+#include <linux/grsecurity.h>
 #include "internal.h"
 
 /*
@@ -121,6 +122,9 @@ enum pid_directory_inos {
 #endif
 #ifdef CONFIG_AUDITSYSCALL
 	PROC_TGID_LOGINUID,
+#endif
+#ifdef CONFIG_GRKERNSEC_PROC_IPADDR
+	PROC_TGID_IPADDR,
 #endif
 	PROC_TGID_OOM_SCORE,
 	PROC_TGID_OOM_ADJUST,
@@ -199,6 +203,9 @@ static struct pid_entry tgid_base_stuff[] = {
 	E(PROC_TGID_ROOT,      "root",    S_IFLNK|S_IRWXUGO),
 	E(PROC_TGID_EXE,       "exe",     S_IFLNK|S_IRWXUGO),
 	E(PROC_TGID_MOUNTS,    "mounts",  S_IFREG|S_IRUGO),
+#ifdef CONFIG_GRKERNSEC_PROC_IPADDR
+	E(PROC_TGID_IPADDR,     "ipaddr",  S_IFREG|S_IRUSR),
+#endif
 #ifdef CONFIG_MMU
 	E(PROC_TGID_SMAPS,     "smaps",   S_IFREG|S_IRUGO),
 #endif
@@ -401,7 +408,7 @@ static int proc_task_root_link(struct inode *inode, struct dentry **dentry,
 	(task->parent == current && \
 	(task->ptrace & PT_PTRACED) && \
 	 (task->state == TASK_STOPPED || task->state == TASK_TRACED) && \
-	 security_ptrace(current,task) == 0))
+	 security_ptrace(current,task) == 0 && !gr_handle_proc_ptrace(task)))
 
 static int proc_pid_environ(struct task_struct *task, char * buffer)
 {
@@ -579,9 +586,25 @@ static int proc_check_root(struct inode *inode)
 
 static int proc_permission(struct inode *inode, int mask, struct nameidata *nd)
 {
+	int ret = -EACCES;
+	struct task_struct *task;
+
 	if (generic_permission(inode, mask, NULL) != 0)
-		return -EACCES;
-	return proc_check_root(inode);
+		goto out;
+
+	ret = proc_check_root(inode);
+	if (ret)
+		goto out;
+
+	task = proc_task(inode);
+
+	if (!task)
+		goto out;
+
+	ret = gr_acl_handle_procpidmem(task);
+
+out:
+	return ret;
 }
 
 static int proc_task_permission(struct inode *inode, int mask, struct nameidata *nd)
@@ -1297,6 +1320,9 @@ static struct inode *proc_pid_make_inode(struct super_block * sb, struct task_st
 		inode->i_uid = task->euid;
 		inode->i_gid = task->egid;
 	}
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+#endif
 	security_task_to_inode(task, inode);
 
 out:
@@ -1325,7 +1351,9 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 	if (pid_alive(task)) {
 		if (proc_type(inode) == PROC_TGID_INO || proc_type(inode) == PROC_TID_INO || task_dumpable(task)) {
 			inode->i_uid = task->euid;
+#ifndef CONFIG_GRKERNSEC_PROC_USERGROUP
 			inode->i_gid = task->egid;
+#endif
 		} else {
 			inode->i_uid = 0;
 			inode->i_gid = 0;
@@ -1648,6 +1676,12 @@ static struct dentry *proc_pident_lookup(struct inode *dir,
 			inode->i_fop = &proc_info_file_operations;
 			ei->op.proc_read = proc_pid_status;
 			break;
+#ifdef CONFIG_GRKERNSEC_PROC_IPADDR
+		case PROC_TGID_IPADDR:
+			inode->i_fop = &proc_info_file_operations;
+			ei->op.proc_read = proc_pid_ipaddr;
+			break;
+#endif
 		case PROC_TID_STAT:
 			inode->i_fop = &proc_info_file_operations;
 			ei->op.proc_read = proc_tid_stat;
@@ -1952,6 +1986,22 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 	if (!task)
 		goto out;
 
+	if (gr_check_hidden_task(task)) {
+		put_task_struct(task);
+		goto out;
+	}
+
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	if (current->uid && (task->uid != current->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+	    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+	) {
+		put_task_struct(task);
+		goto out;
+	}
+#endif
+
 	inode = proc_pid_make_inode(dir->i_sb, task, PROC_TGID_INO);
 
 
@@ -1959,7 +2009,15 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 		put_task_struct(task);
 		goto out;
 	}
+
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR;
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP;
+	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+#else
 	inode->i_mode = S_IFDIR|S_IRUGO|S_IXUGO;
+#endif
 	inode->i_op = &proc_tgid_base_inode_operations;
 	inode->i_fop = &proc_tgid_base_operations;
 	inode->i_flags|=S_IMMUTABLE;
@@ -2051,6 +2109,9 @@ out:
 static int get_tgid_list(int index, unsigned long version, unsigned int *tgids)
 {
 	struct task_struct *p;
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	struct task_struct *tmp = current;
+#endif
 	int nr_tgids = 0;
 
 	index--;
@@ -2071,6 +2132,18 @@ static int get_tgid_list(int index, unsigned long version, unsigned int *tgids)
 		int tgid = p->pid;
 		if (!pid_alive(p))
 			continue;
+		if (gr_pid_is_chrooted(p))
+			continue;
+		if (gr_check_hidden_task(p))
+			continue;
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		if (tmp->uid && (p->uid != tmp->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+		    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+		)
+			continue;
+#endif
 		if (--index >= 0)
 			continue;
 		tgids[nr_tgids] = tgid;

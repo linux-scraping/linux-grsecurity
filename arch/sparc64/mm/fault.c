@@ -19,6 +19,10 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kprobes.h>
+#include <linux/slab.h>
+#include <linux/pagemap.h>
+#include <linux/compiler.h>
+#include <linux/binfmts.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -253,6 +257,369 @@ cannot_handle:
 	unhandled_fault (address, current, regs);
 }
 
+#ifdef CONFIG_PAX_PAGEEXEC
+#ifdef CONFIG_PAX_EMUPLT
+static void pax_emuplt_close(struct vm_area_struct * vma)
+{
+	vma->vm_mm->call_dl_resolve = 0UL;
+}
+
+static struct page* pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
+{
+	struct page* page;
+	unsigned int *kaddr;
+
+	page = alloc_page(GFP_HIGHUSER);
+	if (!page)
+		return NOPAGE_OOM;
+
+	kaddr = kmap(page);
+	memset(kaddr, 0, PAGE_SIZE);
+	kaddr[0] = 0x9DE3BFA8U; /* save */
+	flush_dcache_page(page);
+	kunmap(page);
+	if (type)
+		*type = VM_FAULT_MAJOR;
+	return page;
+}
+
+static struct vm_operations_struct pax_vm_ops = {
+	.close = pax_emuplt_close,
+	.nopage = pax_emuplt_nopage,
+};
+
+static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
+{
+	int ret;
+
+	memset(vma, 0, sizeof(*vma));
+	vma->vm_mm = current->mm;
+	vma->vm_start = addr;
+	vma->vm_end = addr + PAGE_SIZE;
+	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
+	vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+	vma->vm_ops = &pax_vm_ops;
+
+	ret = insert_vm_struct(current->mm, vma);
+	if (ret)
+		return ret;
+
+	++current->mm->total_vm;
+	return 0;
+}
+#endif
+
+/*
+ * PaX: decide what to do with offenders (regs->tpc = fault address)
+ *
+ * returns 1 when task should be killed
+ *         2 when patched PLT trampoline was detected
+ *         3 when unpatched PLT trampoline was detected
+ */
+static int pax_handle_fetch_fault(struct pt_regs *regs)
+{
+
+#ifdef CONFIG_PAX_EMUPLT
+	int err;
+
+	do { /* PaX: patched PLT emulation #1 */
+		unsigned int sethi1, sethi2, jmpl;
+
+		err = get_user(sethi1, (unsigned int*)regs->tpc);
+		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
+		err |= get_user(jmpl, (unsigned int*)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if ((sethi1 & 0xFFC00000U) == 0x03000000U &&
+		    (sethi2 & 0xFFC00000U) == 0x03000000U &&
+		    (jmpl & 0xFFFFE000U) == 0x81C06000U)
+		{
+			unsigned long addr;
+
+			regs->u_regs[UREG_G1] = (sethi2 & 0x003FFFFFU) << 10;
+			addr = regs->u_regs[UREG_G1];
+			addr += (((jmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	{ /* PaX: patched PLT emulation #2 */
+		unsigned int ba;
+
+		err = get_user(ba, (unsigned int*)regs->tpc);
+
+		if (!err && (ba & 0xFFC00000U) == 0x30800000U) {
+			unsigned long addr;
+
+			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFC00000UL) ^ 0x00200000UL) + 0x00200000UL) << 2);
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	}
+
+	do { /* PaX: patched PLT emulation #3 */
+		unsigned int sethi, jmpl, nop;
+
+		err = get_user(sethi, (unsigned int*)regs->tpc);
+		err |= get_user(jmpl, (unsigned int*)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if ((sethi & 0xFFC00000U) == 0x03000000U &&
+		    (jmpl & 0xFFFFE000U) == 0x81C06000U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+
+			addr = (sethi & 0x003FFFFFU) << 10;
+			regs->u_regs[UREG_G1] = addr;
+			addr += (((jmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: patched PLT emulation #4 */
+		unsigned int mov1, call, mov2;
+
+		err = get_user(mov1, (unsigned int*)regs->tpc);
+		err |= get_user(call, (unsigned int*)(regs->tpc+4));
+		err |= get_user(mov2, (unsigned int*)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if (mov1 == 0x8210000FU &&
+		    (call & 0xC0000000U) == 0x40000000U &&
+		    mov2 == 0x9E100001U)
+		{
+			unsigned long addr;
+
+			regs->u_regs[UREG_G1] = regs->u_regs[UREG_RETPC];
+			addr = regs->tpc + 4 + ((((call | 0xFFFFFFFFC0000000UL) ^ 0x20000000UL) + 0x20000000UL) << 2);
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: patched PLT emulation #5 */
+		unsigned int sethi1, sethi2, or1, or2, sllx, jmpl, nop;
+
+		err = get_user(sethi1, (unsigned int*)regs->tpc);
+		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
+		err |= get_user(or1, (unsigned int*)(regs->tpc+8));
+		err |= get_user(or2, (unsigned int*)(regs->tpc+12));
+		err |= get_user(sllx, (unsigned int*)(regs->tpc+16));
+		err |= get_user(jmpl, (unsigned int*)(regs->tpc+20));
+		err |= get_user(nop, (unsigned int*)(regs->tpc+24));
+
+		if (err)
+			break;
+
+		if ((sethi1 & 0xFFC00000U) == 0x03000000U &&
+		    (sethi2 & 0xFFC00000U) == 0x0B000000U &&
+		    (or1 & 0xFFFFE000U) == 0x82106000U &&
+		    (or2 & 0xFFFFE000U) == 0x8A116000U &&
+		    sllx == 0x83287020 &&
+		    jmpl == 0x81C04005U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+
+			regs->u_regs[UREG_G1] = ((sethi1 & 0x003FFFFFU) << 10) | (or1 & 0x000003FFU);
+			regs->u_regs[UREG_G1] <<= 32;
+			regs->u_regs[UREG_G5] = ((sethi2 & 0x003FFFFFU) << 10) | (or2 & 0x000003FFU);
+			addr = regs->u_regs[UREG_G1] + regs->u_regs[UREG_G5];
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: patched PLT emulation #6 */
+		unsigned int sethi1, sethi2, sllx, or,  jmpl, nop;
+
+		err = get_user(sethi1, (unsigned int*)regs->tpc);
+		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
+		err |= get_user(sllx, (unsigned int*)(regs->tpc+8));
+		err |= get_user(or, (unsigned int*)(regs->tpc+12));
+		err |= get_user(jmpl, (unsigned int*)(regs->tpc+16));
+		err |= get_user(nop, (unsigned int*)(regs->tpc+20));
+
+		if (err)
+			break;
+
+		if ((sethi1 & 0xFFC00000U) == 0x03000000U &&
+		    (sethi2 & 0xFFC00000U) == 0x0B000000U &&
+		    sllx == 0x83287020 &&
+		    (or & 0xFFFFE000U) == 0x8A116000U &&
+		    jmpl == 0x81C04005U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+
+			regs->u_regs[UREG_G1] = (sethi1 & 0x003FFFFFU) << 10;
+			regs->u_regs[UREG_G1] <<= 32;
+			regs->u_regs[UREG_G5] = ((sethi2 & 0x003FFFFFU) << 10) | (or & 0x3FFU);
+			addr = regs->u_regs[UREG_G1] + regs->u_regs[UREG_G5];
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: patched PLT emulation #7 */
+		unsigned int sethi, ba, nop;
+
+		err = get_user(sethi, (unsigned int*)regs->tpc);
+		err |= get_user(ba, (unsigned int*)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if ((sethi & 0xFFC00000U) == 0x03000000U &&
+		    (ba & 0xFFF00000U) == 0x30600000U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+
+			addr = (sethi & 0x003FFFFFU) << 10;
+			regs->u_regs[UREG_G1] = addr;
+			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: unpatched PLT emulation step 1 */
+		unsigned int sethi, ba, nop;
+
+		err = get_user(sethi, (unsigned int*)regs->tpc);
+		err |= get_user(ba, (unsigned int*)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if ((sethi & 0xFFC00000U) == 0x03000000U &&
+		    ((ba & 0xFFC00000U) == 0x30800000U || (ba & 0xFFF80000U) == 0x30680000U) &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+			unsigned int save, call;
+
+			if ((ba & 0xFFC00000U) == 0x30800000U)
+				addr = regs->tpc + 4 + ((((ba | 0xFFFFFFFFFFC00000UL) ^ 0x00200000UL) + 0x00200000UL) << 2);
+			else
+				addr = regs->tpc + 4 + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
+
+			err = get_user(save, (unsigned int*)addr);
+			err |= get_user(call, (unsigned int*)(addr+4));
+			err |= get_user(nop, (unsigned int*)(addr+8));
+			if (err)
+				break;
+
+			if (save == 0x9DE3BFA8U &&
+			    (call & 0xC0000000U) == 0x40000000U &&
+			    nop == 0x01000000U)
+			{
+				struct vm_area_struct *vma;
+				unsigned long call_dl_resolve;
+
+				down_read(&current->mm->mmap_sem);
+				call_dl_resolve = current->mm->call_dl_resolve;
+				up_read(&current->mm->mmap_sem);
+				if (likely(call_dl_resolve))
+					goto emulate;
+
+				vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+
+				down_write(&current->mm->mmap_sem);
+				if (current->mm->call_dl_resolve) {
+					call_dl_resolve = current->mm->call_dl_resolve;
+					up_write(&current->mm->mmap_sem);
+					if (vma) kmem_cache_free(vm_area_cachep, vma);
+					goto emulate;
+				}
+
+				call_dl_resolve = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
+				if (!vma || (call_dl_resolve & ~PAGE_MASK)) {
+					up_write(&current->mm->mmap_sem);
+					if (vma) kmem_cache_free(vm_area_cachep, vma);
+					return 1;
+				}
+
+				if (pax_insert_vma(vma, call_dl_resolve)) {
+					up_write(&current->mm->mmap_sem);
+					kmem_cache_free(vm_area_cachep, vma);
+					return 1;
+				}
+
+				current->mm->call_dl_resolve = call_dl_resolve;
+				up_write(&current->mm->mmap_sem);
+
+emulate:
+				regs->u_regs[UREG_G1] = (sethi & 0x003FFFFFU) << 10;
+				regs->tpc = call_dl_resolve;
+				regs->tnpc = addr+4;
+				return 3;
+			}
+		}
+	} while (0);
+
+	do { /* PaX: unpatched PLT emulation step 2 */
+		unsigned int save, call, nop;
+
+		err = get_user(save, (unsigned int*)(regs->tpc-4));
+		err |= get_user(call, (unsigned int*)regs->tpc);
+		err |= get_user(nop, (unsigned int*)(regs->tpc+4));
+		if (err)
+			break;
+
+		if (save == 0x9DE3BFA8U &&
+		    (call & 0xC0000000U) == 0x40000000U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long dl_resolve = regs->tpc + ((((call | 0xFFFFFFFFC0000000UL) ^ 0x20000000UL) + 0x20000000UL) << 2);
+
+			regs->u_regs[UREG_RETPC] = regs->tpc;
+			regs->tpc = dl_resolve;
+			regs->tnpc = dl_resolve+4;
+			return 3;
+		}
+	} while (0);
+#endif
+
+	return 1;
+}
+
+void pax_report_insns(void *pc, void *sp)
+{
+	unsigned long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 5; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned int*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+}
+#endif
+
 asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 {
 	struct mm_struct *mm = current->mm;
@@ -295,8 +662,10 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 		goto intr_or_no_mm;
 
 	if (test_thread_flag(TIF_32BIT)) {
-		if (!(regs->tstate & TSTATE_PRIV))
+		if (!(regs->tstate & TSTATE_PRIV)) {
 			regs->tpc &= 0xffffffff;
+			regs->tnpc &= 0xffffffff;
+		}
 		address &= 0xffffffff;
 	}
 
@@ -312,6 +681,29 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 	vma = find_vma(mm, address);
 	if (!vma)
 		goto bad_area;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	/* PaX: detect ITLB misses on non-exec pages */
+	if ((mm->pax_flags & MF_PAX_PAGEEXEC) && vma->vm_start <= address &&
+	    !(vma->vm_flags & VM_EXEC) && (fault_code & FAULT_CODE_ITLB))
+	{
+		if (address != regs->tpc)
+			goto good_area;
+
+		up_read(&mm->mmap_sem);
+		switch (pax_handle_fetch_fault(regs)) {
+
+#ifdef CONFIG_PAX_EMUPLT
+		case 2:
+		case 3:
+			goto fault_done;
+#endif
+
+		}
+		pax_report_fault(regs, (void*)regs->tpc, (void*)(regs->u_regs[UREG_FP] + STACK_BIAS));
+		do_exit(SIGKILL);
+	}
+#endif
 
 	/* Pure DTLB misses do not tell us whether the fault causing
 	 * load/store/atomic was a write or not, it only says that there

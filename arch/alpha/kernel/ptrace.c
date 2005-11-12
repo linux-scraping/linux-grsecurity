@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/security.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -289,6 +290,9 @@ do_sys_ptrace(long request, long pid, long addr, long data,
 	read_unlock(&tasklist_lock);
 	if (!child)
 		goto out_notsk;
+
+	if (gr_handle_ptrace(child, request))
+		goto out;
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);

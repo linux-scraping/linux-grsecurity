@@ -764,7 +764,7 @@ config PROC_FS
 
 config PROC_KCORE
 	bool "/proc/kcore support" if !ARM
-	depends on PROC_FS && MMU
+	depends on PROC_FS && MMU && !GRKERNSEC_PROC_ADD
 
 config PROC_VMCORE
         bool "/proc/vmcore support (EXPERIMENTAL)"

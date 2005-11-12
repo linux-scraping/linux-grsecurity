@@ -62,6 +62,10 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+#endif
+
 	if (addr) {
 		if (do_align)
 			addr = COLOUR_ALIGN(addr, pgoff);
@@ -76,7 +80,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > mm->cached_hole_size) {
 	        start_addr = addr = mm->free_area_cache;
 	} else {
-	        start_addr = addr = TASK_UNMAPPED_BASE;
+	        start_addr = addr = mm->mmap_base;
 	        mm->cached_hole_size = 0;
 	}
 
@@ -93,8 +97,8 @@ full_search:
 			 * Start a new search - just in case we missed
 			 * some holes.
 			 */
-			if (start_addr != TASK_UNMAPPED_BASE) {
-				start_addr = addr = TASK_UNMAPPED_BASE;
+			if (start_addr != mm->mmap_base) {
+				start_addr = addr = mm->mmap_base;
 				mm->cached_hole_size = 0;
 				goto full_search;
 			}

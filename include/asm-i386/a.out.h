@@ -19,7 +19,11 @@ struct exec
 
 #ifdef __KERNEL__
 
-#define STACK_TOP	TASK_SIZE
+#ifdef CONFIG_PAX_SEGMEXEC
+#define __STACK_TOP ((current->mm->pax_flags & MF_PAX_SEGMEXEC)?TASK_SIZE/2:TASK_SIZE)
+#else
+#define __STACK_TOP TASK_SIZE
+#endif
 
 #endif
 

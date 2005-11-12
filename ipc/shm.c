@@ -29,6 +29,7 @@
 #include <linux/audit.h>
 #include <linux/ptrace.h>
 #include <linux/seq_file.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 
@@ -52,6 +53,14 @@ static void shm_open (struct vm_area_struct *shmd);
 static void shm_close (struct vm_area_struct *shmd);
 #ifdef CONFIG_PROC_FS
 static int sysvipc_shm_proc_show(struct seq_file *s, void *it);
+#endif
+
+#ifdef CONFIG_GRKERNSEC
+extern int gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
+			   const time_t shm_createtime, const uid_t cuid,
+			   const int shmid);
+extern int gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
+			   const time_t shm_createtime);
 #endif
 
 size_t	shm_ctlmax = SHMMAX;
@@ -147,6 +156,17 @@ static void shm_close (struct vm_area_struct *shmd)
 	shp->shm_lprid = current->tgid;
 	shp->shm_dtim = get_seconds();
 	shp->shm_nattch--;
+#ifdef CONFIG_GRKERNSEC_SHM
+	if (grsec_enable_shm) {
+		if (shp->shm_nattch == 0) {
+			shp->shm_flags |= SHM_DEST;
+			shm_destroy(shp);
+		} else
+			shm_unlock(shp);
+		up(&shm_ids.sem);
+		return;
+	}
+#endif
 	if(shp->shm_nattch == 0 &&
 	   shp->shm_flags & SHM_DEST)
 		shm_destroy (shp);
@@ -228,6 +248,9 @@ static int newseg (key_t key, int shmflg, size_t size)
 	shp->shm_lprid = 0;
 	shp->shm_atim = shp->shm_dtim = 0;
 	shp->shm_ctim = get_seconds();
+#ifdef CONFIG_GRKERNSEC
+	shp->shm_createtime = get_seconds();
+#endif
 	shp->shm_segsz = size;
 	shp->shm_nattch = 0;
 	shp->id = shm_buildid(id,shp->shm_perm.seq);
@@ -281,6 +304,8 @@ asmlinkage long sys_shmget (key_t key, size_t size, int shmflg)
 		shm_unlock(shp);
 	}
 	up(&shm_ids.sem);
+
+	gr_log_shmget(err, shmflg, size);
 
 	return err;
 }
@@ -587,6 +612,8 @@ asmlinkage long sys_shmctl (int shmid, int cmd, struct shmid_ds __user *buf)
 		if (err)
 			goto out_unlock_up;
 
+		gr_log_shmrm(shp->shm_perm.uid, shp->shm_perm.cuid);
+
 		if (shp->shm_nattch){
 			shp->shm_flags |= SHM_DEST;
 			/* Do not find it any more */
@@ -731,9 +758,27 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr)
 		return err;
 	}
 		
+#ifdef CONFIG_GRKERNSEC
+	if (!gr_handle_shmat(shp->shm_cprid, shp->shm_lapid, shp->shm_createtime,
+			     shp->shm_perm.cuid, shmid)) {
+		shm_unlock(shp);
+		return -EACCES;
+	}
+
+	if (!gr_chroot_shmat(shp->shm_cprid, shp->shm_lapid, shp->shm_createtime)) {
+		shm_unlock(shp);
+		return -EACCES;
+	}
+#endif
+
 	file = shp->shm_file;
 	size = i_size_read(file->f_dentry->d_inode);
 	shp->shm_nattch++;
+
+#ifdef CONFIG_GRKERNSEC
+	shp->shm_lapid = current->pid;
+#endif
+
 	shm_unlock(shp);
 
 	down_write(&current->mm->mmap_sem);
@@ -899,3 +944,24 @@ static int sysvipc_shm_proc_show(struct seq_file *s, void *it)
 			  shp->shm_ctim);
 }
 #endif
+
+void gr_shm_exit(struct task_struct *task)
+{
+#ifdef CONFIG_GRKERNSEC_SHM
+	int i;
+	struct shmid_kernel *shp;
+
+	if (!grsec_enable_shm)
+		return;
+
+	for (i = 0; i <= shm_ids.max_id; i++) {
+		shp = shm_get(i);
+		if (shp && (shp->shm_cprid == task->pid) &&
+		    (shp->shm_nattch <= 0)) {
+			shp->shm_flags |= SHM_DEST;
+			shm_destroy(shp);
+		}
+	}
+#endif
+	return;
+}

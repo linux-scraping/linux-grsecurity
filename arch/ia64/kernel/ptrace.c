@@ -18,6 +18,7 @@
 #include <linux/security.h>
 #include <linux/audit.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -1458,6 +1459,9 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
 		goto out;
 	ret = -EPERM;
 	if (pid == 1)		/* no messing around with init! */
+		goto out_tsk;
+
+	if (gr_handle_ptrace(child, request))
 		goto out_tsk;
 
 	if (request == PTRACE_ATTACH) {

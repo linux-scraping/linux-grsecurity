@@ -36,10 +36,10 @@ struct exec
 #ifdef __KERNEL__
 
 #ifdef CONFIG_32BIT
-#define STACK_TOP	TASK_SIZE
+#define __STACK_TOP	TASK_SIZE
 #endif
 #ifdef CONFIG_64BIT
-#define STACK_TOP	(current->thread.mflags & MF_32BIT_ADDR ? TASK_SIZE32 : TASK_SIZE)
+#define __STACK_TOP	(current->thread.mflags & MF_32BIT_ADDR ? TASK_SIZE32 : TASK_SIZE)
 #endif
 
 #endif

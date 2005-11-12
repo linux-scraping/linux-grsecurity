@@ -299,7 +299,7 @@ static int __init vesafb_probe(struct device *device)
 		size_remap = size_total;
 	vesafb_fix.smem_len = size_remap;
 
-#ifndef __i386__
+#if !defined(__i386__) || defined(CONFIG_PAX_KERNEXEC)
 	screen_info.vesapm_seg = 0;
 #endif
 

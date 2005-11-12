@@ -15,9 +15,46 @@
  * We can potentially split a vm area into separate
  * areas, each area with its own behavior.
  */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+static long __madvise_behavior(struct vm_area_struct * vma,
+		     struct vm_area_struct **prev,
+		     unsigned long start, unsigned long end, int behavior);
+
 static long madvise_behavior(struct vm_area_struct * vma,
 		     struct vm_area_struct **prev,
 		     unsigned long start, unsigned long end, int behavior)
+{
+	if (vma->vm_flags & VM_MIRROR) {
+		struct vm_area_struct * vma_m, * prev_m;
+		unsigned long start_m, end_m;
+		int error;
+
+		start_m = vma->vm_start + vma->vm_mirror;
+		vma_m = find_vma_prev(vma->vm_mm, start_m, &prev_m);
+		if (vma_m && vma_m->vm_start == start_m && (vma_m->vm_flags & VM_MIRROR)) {
+			start_m = start + vma->vm_mirror;
+			end_m = end + vma->vm_mirror;
+			error = __madvise_behavior(vma_m, &prev_m, start_m, end_m, behavior);
+			if (error)
+				return error;
+		} else {
+			printk("PAX: VMMIRROR: madvise bug in %s, %08lx\n", current->comm, vma->vm_start);
+			return -ENOMEM;
+		}
+	}
+
+	return __madvise_behavior(vma, prev, start, end, behavior);
+}
+
+static long __madvise_behavior(struct vm_area_struct * vma,
+		     struct vm_area_struct **prev,
+		     unsigned long start, unsigned long end, int behavior)
+#else
+static long madvise_behavior(struct vm_area_struct * vma,
+		     struct vm_area_struct **prev,
+		     unsigned long start, unsigned long end, int behavior)
+#endif
 {
 	struct mm_struct * mm = vma->vm_mm;
 	int error = 0;

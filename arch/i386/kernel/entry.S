@@ -213,6 +213,13 @@ sysenter_past_esp:
 	movl TI_flags(%ebp), %ecx
 	testw $_TIF_ALLWORK_MASK, %cx
 	jne syscall_exit_work
+
+#ifdef CONFIG_PAX_RANDKSTACK
+	pushl %eax
+	call pax_randomize_kstack
+	popl %eax
+#endif
+
 /* if something modifies registers it must also disable sysexit */
 	movl EIP(%esp), %edx
 	movl OLDESP(%esp), %ecx
@@ -242,6 +249,10 @@ syscall_exit:
 	movl TI_flags(%ebp), %ecx
 	testw $_TIF_ALLWORK_MASK, %cx	# current->work
 	jne syscall_exit_work
+
+#ifdef CONFIG_PAX_RANDKSTACK
+	call pax_randomize_kstack
+#endif
 
 restore_all:
 	movl EFLAGS(%esp), %eax		# mix EFLAGS, SS and CS

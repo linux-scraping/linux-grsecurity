@@ -37,7 +37,6 @@ struct desc_ptr idt_descr = { 256 * 16, (unsigned long) idt_table };
 char boot_cpu_stack[IRQSTACKSIZE] __attribute__((section(".bss.page_aligned")));
 
 unsigned long __supported_pte_mask __read_mostly = ~0UL;
-static int do_not_nx __initdata = 0;
 
 /* noexec=on|off
 Control non executable mappings for 64bit processes.
@@ -49,16 +48,14 @@ int __init nonx_setup(char *str)
 {
 	if (!strncmp(str, "on", 2)) {
                 __supported_pte_mask |= _PAGE_NX; 
- 		do_not_nx = 0; 
 	} else if (!strncmp(str, "off", 3)) {
-		do_not_nx = 1;
 		__supported_pte_mask &= ~_PAGE_NX;
         }
 	return 0;
 } 
 __setup("noexec=", nonx_setup);	/* parsed early actually */
 
-int force_personality32 = READ_IMPLIES_EXEC;
+int force_personality32;
 
 /* noexec32=on|off
 Control non executable heap for 32bit processes.
@@ -173,7 +170,7 @@ void __cpuinit check_efer(void)
 	unsigned long efer;
 
 	rdmsrl(MSR_EFER, efer); 
-        if (!(efer & EFER_NX) || do_not_nx) { 
+        if (!(efer & EFER_NX)) { 
                 __supported_pte_mask &= ~_PAGE_NX; 
         }       
 }

@@ -991,7 +991,7 @@ unsigned int ata_scsiop_inq_80(struct ata_scsi_args *args, u8 *rbuf,
 	return 0;
 }
 
-static const char *inq_83_str = "Linux ATA-SCSI simulator";
+static const char inq_83_str[] = "Linux ATA-SCSI simulator";
 
 /**
  *	ata_scsiop_inq_83 - Simulate INQUIRY EVPD page 83, device identity
@@ -1010,13 +1010,13 @@ unsigned int ata_scsiop_inq_83(struct ata_scsi_args *args, u8 *rbuf,
 			      unsigned int buflen)
 {
 	rbuf[1] = 0x83;			/* this page code */
-	rbuf[3] = 4 + strlen(inq_83_str);	/* page len */
+	rbuf[3] = 3 + sizeof(inq_83_str);	/* page len */
 
 	/* our one and only identification descriptor (vendor-specific) */
-	if (buflen > (strlen(inq_83_str) + 4 + 4 - 1)) {
+	if (buflen >= (sizeof(inq_83_str) + 4 + 4 - 1)) {
 		rbuf[4 + 0] = 2;	/* code set: ASCII */
-		rbuf[4 + 3] = strlen(inq_83_str);
-		memcpy(rbuf + 4 + 4, inq_83_str, strlen(inq_83_str));
+		rbuf[4 + 3] = sizeof(inq_83_str)-1;
+		memcpy(rbuf + 4 + 4, inq_83_str, sizeof(inq_83_str)-1);
 	}
 
 	return 0;

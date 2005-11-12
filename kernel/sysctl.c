@@ -51,6 +51,14 @@
 #endif
 
 #if defined(CONFIG_SYSCTL)
+#include <linux/grsecurity.h>
+#include <linux/grinternal.h>
+
+extern __u32 gr_handle_sysctl(const ctl_table *table, const void *oldval,
+			      const void *newval);
+extern int gr_handle_sysctl_mod(const char *dirname, const char *name,
+				const int op);
+extern int gr_handle_chroot_sysctl(const int op);
 
 /* External variables not in a header file. */
 extern int C_A_D;
@@ -151,6 +159,22 @@ extern ctl_table inotify_table[];
 
 #ifdef HAVE_ARCH_PICK_MMAP_LAYOUT
 int sysctl_legacy_va_layout;
+#endif
+extern ctl_table grsecurity_table[];
+
+#ifdef CONFIG_PAX_SOFTMODE
+static ctl_table pax_table[] = {
+	{
+		.ctl_name	= PAX_SOFTMODE,
+		.procname	= "softmode",
+		.data		= &pax_softmode,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+
+	{ .ctl_name = 0 }
+};
 #endif
 
 /* /proc declarations: */
@@ -656,6 +680,24 @@ static ctl_table kern_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_SYSCTL
+	{
+		.ctl_name	= KERN_GRSECURITY,
+		.procname	= "grsecurity",
+		.mode		= 0500,
+		.child		= grsecurity_table,
+	},
+#endif
+
+#ifdef CONFIG_PAX_SOFTMODE
+	{
+		.ctl_name	= KERN_PAX,
+		.procname	= "pax",
+		.mode		= 0500,
+		.child		= pax_table,
+	},
+#endif
+
 	{ .ctl_name = 0 }
 };
 
@@ -1114,6 +1156,10 @@ static int test_perm(int mode, int op)
 static inline int ctl_perm(ctl_table *table, int op)
 {
 	int error;
+	if (table->de && gr_handle_sysctl_mod(table->de->parent->name, table->de->name, op))
+		return -EACCES;
+	if (gr_handle_chroot_sysctl(op))
+		return -EACCES;
 	error = security_sysctl(table, op);
 	if (error)
 		return error;
@@ -1150,6 +1196,10 @@ repeat:
 				table = table->child;
 				goto repeat;
 			}
+
+			if (!gr_handle_sysctl(table, oldval, newval))
+				return -EACCES;
+
 			error = do_sysctl_strategy(table, name, nlen,
 						   oldval, oldlenp,
 						   newval, newlen, context);

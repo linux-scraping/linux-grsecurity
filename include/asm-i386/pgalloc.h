@@ -7,7 +7,7 @@
 #include <linux/mm.h>		/* for struct page */
 
 #define pmd_populate_kernel(mm, pmd, pte) \
-		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
+		set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)))
 
 #define pmd_populate(mm, pmd, pte) 				\
 	set_pmd(pmd, __pmd(_PAGE_TABLE +			\

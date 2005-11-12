@@ -28,7 +28,7 @@ struct exec
 #define M_ARM 103
 
 #ifdef __KERNEL__
-#define STACK_TOP	((current->personality == PER_LINUX_32BIT) ? \
+#define __STACK_TOP	((current->personality == PER_LINUX_32BIT) ? \
 			 TASK_SIZE : TASK_SIZE_26)
 #endif
 

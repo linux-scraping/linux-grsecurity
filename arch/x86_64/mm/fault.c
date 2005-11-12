@@ -24,6 +24,7 @@
 #include <linux/compiler.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
+#include <linux/binfmts.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -282,6 +283,33 @@ static int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+#ifdef CONFIG_PAX_PAGEEXEC
+void pax_report_insns(void *pc, void *sp)
+{
+	long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 20; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned char*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+
+	printk(KERN_ERR "PAX: bytes at SP-8: ");
+	for (i = -1; i < 10; i++) {
+		unsigned long c;
+		if (get_user(c, (unsigned long*)sp+i))
+			printk("???????????????? ");
+		else
+			printk("%16lx ", c);
+	}
+	printk("\n");
+}
+#endif
+
 int page_fault_trace = 0;
 int exception_trace = 1;
 
@@ -420,6 +448,8 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 good_area:
 	info.si_code = SEGV_ACCERR;
 	write = 0;
+	if ((error_code & 16) && !(vma->vm_flags & VM_EXEC))
+		goto bad_area;
 	switch (error_code & 3) {
 		default:	/* 3: write, present */
 			/* fall through */
@@ -486,7 +516,14 @@ bad_area_nosemaphore:
 					tsk->comm, tsk->pid, address, regs->rip,
 					regs->rsp, error_code);
 		}
-       
+
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (mm && (mm->pax_flags & MF_PAX_PAGEEXEC) && (error_code & 16)) {
+			pax_report_fault(regs, (void*)regs->rip, (void*)regs->rsp);
+			do_exit(SIGKILL);
+		}
+#endif
+
 		tsk->thread.cr2 = address;
 		/* Kernel addresses are always protection faults */
 		tsk->thread.error_code = error_code | (address >= TASK_SIZE);

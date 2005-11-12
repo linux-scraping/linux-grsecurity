@@ -19,11 +19,18 @@
 #include <linux/mempolicy.h>
 #include <linux/personality.h>
 #include <linux/syscalls.h>
+#include <linux/grsecurity.h>
+
+#ifdef CONFIG_PAX_MPROTECT
+#include <linux/elf.h>
+#include <linux/fs.h>
+#endif
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
+#include <asm/mmu_context.h>
 
 static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot)
@@ -99,6 +106,94 @@ static void change_protection(struct vm_area_struct *vma,
 	spin_unlock(&mm->page_table_lock);
 }
 
+#ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+/* called while holding the mmap semaphor for writing */
+static inline void establish_user_cs_limit(struct mm_struct *mm, unsigned long start, unsigned long end)
+{
+	struct vm_area_struct *vma = find_vma(mm, start);
+
+	for (; vma && vma->vm_start < end; vma = vma->vm_next)
+		change_protection(vma, vma->vm_start, vma->vm_end, vma->vm_page_prot);
+
+}
+
+void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot)
+{
+	unsigned long oldlimit, newlimit = 0UL;
+
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC))
+		return;
+
+	spin_lock(&mm->page_table_lock);
+	oldlimit = mm->context.user_cs_limit;
+	if ((prot & VM_EXEC) && oldlimit < end)
+		/* USER_CS limit moved up */
+		newlimit = end;
+	else if (!(prot & VM_EXEC) && start < oldlimit && oldlimit <= end)
+		/* USER_CS limit moved down */
+		newlimit = start;
+
+	if (newlimit) {
+		mm->context.user_cs_limit = newlimit;
+
+#ifdef CONFIG_SMP
+		wmb();
+		cpus_clear(mm->context.cpu_user_cs_mask);
+		cpu_set(smp_processor_id(), mm->context.cpu_user_cs_mask);
+#endif
+
+		set_user_cs(mm, smp_processor_id());
+	}
+	spin_unlock(&mm->page_table_lock);
+	if (newlimit == end)
+		establish_user_cs_limit(mm, oldlimit, end);
+}
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+static int __mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
+	unsigned long start, unsigned long end, unsigned int newflags);
+
+static int mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
+	unsigned long start, unsigned long end, unsigned int newflags)
+{
+	if (vma->vm_flags & VM_MIRROR) {
+		struct vm_area_struct * vma_m, * prev_m;
+		unsigned long start_m, end_m;
+		int error;
+
+		start_m = vma->vm_start + vma->vm_mirror;
+		vma_m = find_vma_prev(vma->vm_mm, start_m, &prev_m);
+		if (vma_m && vma_m->vm_start == start_m && (vma_m->vm_flags & VM_MIRROR)) {
+			start_m = start + vma->vm_mirror;
+			end_m = end + vma->vm_mirror;
+
+			if (vma_m->vm_start >= SEGMEXEC_TASK_SIZE && !(newflags & VM_EXEC))
+				error = __mprotect_fixup(vma_m, &prev_m, start_m, end_m, vma_m->vm_flags & ~(VM_READ | VM_WRITE | VM_EXEC));
+			else
+				error = __mprotect_fixup(vma_m, &prev_m, start_m, end_m, newflags);
+			if (error)
+				return error;
+		} else {
+			printk("PAX: VMMIRROR: mprotect bug in %s, %08lx\n", current->comm, vma->vm_start);
+			return -ENOMEM;
+		}
+	}
+
+	return __mprotect_fixup(vma, pprev, start, end, newflags);
+}
+
+static int __mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
+	unsigned long start, unsigned long end, unsigned int newflags)
+{
+	struct mm_struct * mm = vma->vm_mm;
+	unsigned long oldflags = vma->vm_flags;
+	long nrpages = (end - start) >> PAGE_SHIFT;
+	unsigned long charged = 0;
+	pgprot_t newprot;
+	pgoff_t pgoff;
+	int error;
+#else
 static int
 mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	unsigned long start, unsigned long end, unsigned long newflags)
@@ -115,6 +210,7 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 		*pprev = vma;
 		return 0;
 	}
+#endif
 
 	/*
 	 * If we make a private mapping writable we increase our commit;
@@ -132,6 +228,12 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 			newflags |= VM_ACCOUNT;
 		}
 	}
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
+		newprot = protection_map[(newflags | VM_EXEC) & 0xf];
+	else
+#endif
 
 	newprot = protection_map[newflags & 0xf];
 
@@ -177,6 +279,69 @@ fail:
 	return error;
 }
 
+#ifdef CONFIG_PAX_MPROTECT
+/* PaX: non-PIC ELF libraries need relocations on their executable segments
+ * therefore we'll grant them VM_MAYWRITE once during their life.
+ *
+ * The checks favour ld-linux.so behaviour which operates on a per ELF segment
+ * basis because we want to allow the common case and not the special ones.
+ */
+static inline void pax_handle_maywrite(struct vm_area_struct * vma, unsigned long start)
+{
+	struct elfhdr elf_h;
+	struct elf_phdr elf_p, p_dyn;
+	elf_dyn dyn;
+	unsigned long i, j = 65536UL / sizeof(struct elf_phdr);
+
+#ifndef CONFIG_PAX_NOELFRELOCS
+	if ((vma->vm_start != start) ||
+	    !vma->vm_file ||
+	    !(vma->vm_flags & VM_MAYEXEC) ||
+	    (vma->vm_flags & VM_MAYNOTWRITE))
+#endif
+
+		return;
+
+	if (sizeof(elf_h) != kernel_read(vma->vm_file, 0UL, (char*)&elf_h, sizeof(elf_h)) ||
+	    memcmp(elf_h.e_ident, ELFMAG, SELFMAG) ||
+
+#ifdef CONFIG_PAX_ETEXECRELOCS
+	    (elf_h.e_type != ET_DYN && elf_h.e_type != ET_EXEC) ||
+#else
+	    elf_h.e_type != ET_DYN ||
+#endif
+
+	    !elf_check_arch(&elf_h) ||
+	    elf_h.e_phentsize != sizeof(struct elf_phdr) ||
+	    elf_h.e_phnum > j)
+		return;
+
+	for (i = 0UL; i < elf_h.e_phnum; i++) {
+		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char*)&elf_p, sizeof(elf_p)))
+			return;
+		if (elf_p.p_type == PT_DYNAMIC) {
+			p_dyn = elf_p;
+			j = i;
+		}
+	}
+	if (elf_h.e_phnum <= j)
+		return;
+
+	i = 0UL;
+	do {
+		if (sizeof(dyn) != kernel_read(vma->vm_file, p_dyn.p_offset + i*sizeof(dyn), (char*)&dyn, sizeof(dyn)))
+			return;
+		if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
+			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
+			gr_log_textrel(vma);
+			return;
+		}
+		i++;
+	} while (dyn.d_tag != DT_NULL);
+	return;
+}
+#endif
+
 asmlinkage long
 sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 {
@@ -196,6 +361,17 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	end = start + len;
 	if (end <= start)
 		return -ENOMEM;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
+		if (end > SEGMEXEC_TASK_SIZE)
+			return -EINVAL;
+	} else
+#endif
+
+	if (end > TASK_SIZE)
+		return -EINVAL;
+
 	if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM))
 		return -EINVAL;
 
@@ -236,6 +412,16 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	if (start > vma->vm_start)
 		prev = vma;
 
+	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
+		error = -EACCES;
+		goto out;
+	}
+
+#ifdef CONFIG_PAX_MPROTECT
+	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
+		pax_handle_maywrite(vma, start);
+#endif
+
 	for (nstart = start ; ; ) {
 		unsigned long newflags;
 
@@ -253,6 +439,12 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 			error = -EACCES;
 			goto out;
 		}
+
+#ifdef CONFIG_PAX_MPROTECT
+		/* PaX: disallow write access after relocs are done, hopefully noone else needs it... */
+		if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE) && (vma->vm_flags & VM_MAYNOTWRITE))
+			newflags &= ~VM_MAYWRITE;
+#endif
 
 		error = security_file_mprotect(vma, reqprot, prot);
 		if (error)
@@ -277,6 +469,9 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 			goto out;
 		}
 	}
+
+	track_exec_limit(current->mm, start, end, vm_flags);
+
 out:
 	up_write(&current->mm->mmap_sem);
 	return error;

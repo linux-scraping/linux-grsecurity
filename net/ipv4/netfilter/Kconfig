@@ -315,6 +315,21 @@ config IP_NF_MATCH_TCPMSS
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config IP_NF_MATCH_STEALTH
+	tristate "stealth match support"
+	depends on IP_NF_IPTABLES
+	help
+	  Enabling this option will drop all syn packets coming to unserved tcp
+	  ports as well as all packets coming to unserved udp ports.  If you
+	  are using your system to route any type of packets (ie. via NAT)
+	  you should put this module at the end of your ruleset, since it will
+	  drop packets that aren't going to ports that are listening on your
+	  machine itself, it doesn't take into account that the packet might be
+	  destined for someone on your internal network if you're using NAT for
+	  instance.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config IP_NF_MATCH_HELPER
 	tristate "Helper match support"
 	depends on IP_NF_CONNTRACK && IP_NF_IPTABLES

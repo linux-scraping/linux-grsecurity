@@ -332,6 +332,12 @@ check_range(struct mm_struct *mm, unsigned long start, unsigned long end,
 			return ERR_PTR(-EFAULT);
 		if (prev && prev->vm_end < vma->vm_start)
 			return ERR_PTR(-EFAULT);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma->vm_flags & VM_MIRROR)
+			return ERR_PTR(-EFAULT);
+#endif
+
 		if ((flags & MPOL_MF_STRICT) && !is_vm_hugetlb_page(vma)) {
 			unsigned long endvma = vma->vm_end;
 			if (endvma > end)

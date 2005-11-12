@@ -56,7 +56,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	if (ARCH_SUN4C_SUN4 && len > 0x20000000)
 		return -ENOMEM;
 	if (!addr)
-		addr = TASK_UNMAPPED_BASE;
+		addr = current->mm->mmap_base;
 
 	if (flags & MAP_SHARED)
 		addr = COLOUR_ALIGN(addr);

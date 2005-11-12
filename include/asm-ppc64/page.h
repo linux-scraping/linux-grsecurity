@@ -255,6 +255,15 @@ extern u64 ppc64_pft_size;		/* Log 2 of page table size */
 	(test_thread_flag(TIF_32BIT) ? \
 	 VM_STACK_DEFAULT_FLAGS32 : VM_STACK_DEFAULT_FLAGS64)
 
+#ifdef CONFIG_PAX_PAGEEXEC
+#ifdef CONFIG_PAX_MPROTECT
+#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
+			 ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#else
+#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#endif
+#endif
+
 #endif /* __KERNEL__ */
 
 #include <asm-generic/page.h>

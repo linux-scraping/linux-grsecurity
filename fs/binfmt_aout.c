@@ -24,6 +24,7 @@
 #include <linux/binfmts.h>
 #include <linux/personality.h>
 #include <linux/init.h>
+#include <linux/grsecurity.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -125,10 +126,12 @@ static int aout_core_dump(long signr, struct pt_regs * regs, struct file *file)
 /* If the size of the dump file exceeds the rlimit, then see what would happen
    if we wrote the stack, but not the data area.  */
 #ifdef __sparc__
+	gr_learn_resource(current, RLIMIT_CORE, dump.u_dsize+dump.u_ssize, 1);
 	if ((dump.u_dsize+dump.u_ssize) >
 	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
 		dump.u_dsize = 0;
 #else
+	gr_learn_resource(current, RLIMIT_CORE, (dump.u_dsize+dump.u_ssize+1) * PAGE_SIZE, 1);
 	if ((dump.u_dsize+dump.u_ssize+1) * PAGE_SIZE >
 	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
 		dump.u_dsize = 0;
@@ -136,10 +139,12 @@ static int aout_core_dump(long signr, struct pt_regs * regs, struct file *file)
 
 /* Make sure we have enough room to write the stack and data areas. */
 #ifdef __sparc__
+	gr_learn_resource(current, RLIMIT_CORE, dump.u_ssize, 1);
 	if ((dump.u_ssize) >
 	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
 		dump.u_ssize = 0;
 #else
+	gr_learn_resource(current, RLIMIT_CORE, (dump.u_ssize+1) * PAGE_SIZE, 1);
 	if ((dump.u_ssize+1) * PAGE_SIZE >
 	    current->signal->rlim[RLIMIT_CORE].rlim_cur)
 		dump.u_ssize = 0;
@@ -289,6 +294,8 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
 	if (rlim >= RLIM_INFINITY)
 		rlim = ~0;
+
+	gr_learn_resource(current, RLIMIT_DATA, ex.a_data + ex.a_bss, 1);
 	if (ex.a_data + ex.a_bss > rlim)
 		return -ENOMEM;
 
@@ -322,6 +329,28 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	current->mm->mmap = NULL;
 	compute_creds(bprm);
  	current->flags &= ~PF_FORKNOEXEC;
+
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+	current->mm->pax_flags = 0UL;
+#endif
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (!(N_FLAGS(ex) & F_PAX_PAGEEXEC)) {
+		current->mm->pax_flags |= MF_PAX_PAGEEXEC;
+
+#ifdef CONFIG_PAX_EMUTRAMP
+		if (N_FLAGS(ex) & F_PAX_EMUTRAMP)
+			current->mm->pax_flags |= MF_PAX_EMUTRAMP;
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+		if (!(N_FLAGS(ex) & F_PAX_MPROTECT))
+			current->mm->pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+	}
+#endif
+
 #ifdef __sparc__
 	if (N_MAGIC(ex) == NMAGIC) {
 		loff_t pos = fd_offset;
@@ -417,7 +446,7 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 		down_write(&current->mm->mmap_sem);
  		error = do_mmap(bprm->file, N_DATADDR(ex), ex.a_data,
-				PROT_READ | PROT_WRITE | PROT_EXEC,
+				PROT_READ | PROT_WRITE,
 				MAP_FIXED | MAP_PRIVATE | MAP_DENYWRITE | MAP_EXECUTABLE,
 				fd_offset + ex.a_text);
 		up_write(&current->mm->mmap_sem);

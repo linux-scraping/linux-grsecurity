@@ -26,6 +26,7 @@
 #include <linux/init.h>
 #include <linux/bootmem.h>
 #include <linux/hash.h>
+#include <linux/grsecurity.h>
 
 #define pid_hashfn(nr) hash_long((unsigned long)nr, pidhash_shift)
 static struct hlist_head *pid_hash[PIDTYPE_MAX];
@@ -76,7 +77,9 @@ int alloc_pidmap(void)
 	int i, offset, max_scan, pid, last = last_pid;
 	pidmap_t *map;
 
-	pid = last + 1;
+	pid = gr_random_pid();
+	if (!pid)
+		pid = last_pid + 1;
 	if (pid >= pid_max)
 		pid = RESERVED_PIDS;
 	offset = pid & BITS_PER_PAGE_MASK;
@@ -207,12 +210,18 @@ void fastcall detach_pid(task_t *task, enum pid_type type)
 task_t *find_task_by_pid_type(int type, int nr)
 {
 	struct pid *pid;
+	task_t *task = NULL;
 
 	pid = find_pid(type, nr);
 	if (!pid)
 		return NULL;
 
-	return pid_task(&pid->pid_list, type);
+	task = pid_task(&pid->pid_list, type);
+
+	if (gr_pid_is_chrooted(task))
+		return NULL;
+
+	return task;
 }
 
 EXPORT_SYMBOL(find_task_by_pid_type);

@@ -39,11 +39,13 @@ startup_32:
 	movl %eax,%gs
 
 	lss stack_start,%esp
+	movl 0x000000,%ecx
 	xorl %eax,%eax
 1:	incl %eax		# check that A20 really IS enabled
 	movl %eax,0x000000	# loop forever if it isn't
 	cmpl %eax,0x100000
 	je 1b
+	movl %ecx,0x000000
 
 /*
  * Initialize eflags.  Some BIOS's leave bits like NT set.  This would

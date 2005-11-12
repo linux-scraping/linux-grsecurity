@@ -65,8 +65,8 @@ out:
 	return error;
 }
 
-static void find_start_end(unsigned long flags, unsigned long *begin,
-			   unsigned long *end)
+static void find_start_end(struct mm_struct *mm, unsigned long flags,
+			   unsigned long *begin, unsigned long *end)
 {
 	if (!test_thread_flag(TIF_IA32) && (flags & MAP_32BIT)) {
 		/* This is usually used needed to map code in small
@@ -78,8 +78,14 @@ static void find_start_end(unsigned long flags, unsigned long *begin,
 		   of playground for now. -AK */ 
 		*begin = 0x40000000; 
 		*end = 0x80000000;		
+
+#ifdef CONFIG_PAX_RANDMMAP
+		if (mm->pax_flags & MF_PAX_RANDMMAP)
+			begin += mm->delta_mmap & 0x0FFFFFFFU;
+#endif
+
 	} else {
-		*begin = TASK_UNMAPPED_BASE;
+		*begin = mm->mmap_base;
 		*end = TASK_SIZE; 
 	}
 } 
@@ -93,10 +99,14 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long start_addr;
 	unsigned long begin, end;
 	
-	find_start_end(flags, &begin, &end); 
+	find_start_end(mm, flags, &begin, &end); 
 
 	if (len > end)
 		return -ENOMEM;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+#endif
 
 	if (addr) {
 		addr = PAGE_ALIGN(addr);

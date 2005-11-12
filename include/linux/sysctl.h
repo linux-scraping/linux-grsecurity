@@ -147,7 +147,19 @@ enum
 	KERN_RANDOMIZE=68, /* int: randomize virtual address space */
 	KERN_SETUID_DUMPABLE=69, /* int: behaviour of dumps for setuid core */
 	KERN_SPIN_RETRY=70,	/* int: number of spinlock retries */
+	KERN_GRSECURITY=71,	/* grsecurity */
+
+#ifdef CONFIG_PAX_SOFTMODE
+	KERN_PAX=99,            /* PaX control */
+#endif
+
 };
+
+#ifdef CONFIG_PAX_SOFTMODE
+enum {
+	PAX_SOFTMODE=1		/* PaX: disable/enable soft mode */
+};
+#endif
 
 
 /* CTL_VM names: */

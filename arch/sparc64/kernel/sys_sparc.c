@@ -72,6 +72,10 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	if (filp || (flags & MAP_SHARED))
 		do_color_align = 1;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+#endif
+
 	if (addr) {
 		if (do_color_align)
 			addr = COLOUR_ALIGN(addr, pgoff);
@@ -86,7 +90,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 
 	if (len <= mm->cached_hole_size) {
 	        mm->cached_hole_size = 0;
-		mm->free_area_cache = TASK_UNMAPPED_BASE;
+		mm->free_area_cache = mm->mmap_base;
 	}
 	start_addr = addr = mm->free_area_cache;
 
@@ -105,8 +109,8 @@ full_search:
 			vma = find_vma(mm, PAGE_OFFSET);
 		}
 		if (task_size < addr) {
-			if (start_addr != TASK_UNMAPPED_BASE) {
-				start_addr = addr = TASK_UNMAPPED_BASE;
+			if (start_addr != mm->mmap_base) {
+				start_addr = addr = mm->mmap_base;
 				mm->cached_hole_size = 0;
 				goto full_search;
 			}

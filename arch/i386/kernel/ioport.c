@@ -15,6 +15,7 @@
 #include <linux/stddef.h>
 #include <linux/slab.h>
 #include <linux/thread_info.h>
+#include <linux/grsecurity.h>
 
 /* Set EXTENT bits starting at BASE in BITMAP to value TURN_ON. */
 static void set_bitmap(unsigned long *bitmap, unsigned int base, unsigned int extent, int new_value)
@@ -63,9 +64,16 @@ asmlinkage long sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 
 	if ((from + num <= from) || (from + num > IO_BITMAP_BITS))
 		return -EINVAL;
+#ifdef CONFIG_GRKERNSEC_IO
+	if (turn_on) {
+		gr_handle_ioperm();
+#else
 	if (turn_on && !capable(CAP_SYS_RAWIO))
+#endif
 		return -EPERM;
-
+#ifdef CONFIG_GRKERNSEC_IO
+	}
+#endif
 	/*
 	 * If it's the first ioperm() call in this thread's lifetime, set the
 	 * IO bitmap up. ioperm() is much less timing critical than clone(),
@@ -87,7 +95,7 @@ asmlinkage long sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 	 * because the ->io_bitmap_max value must match the bitmap
 	 * contents:
 	 */
-	tss = &per_cpu(init_tss, get_cpu());
+	tss = init_tss + get_cpu();
 
 	set_bitmap(t->io_bitmap_ptr, from, num, !turn_on);
 
@@ -138,8 +146,13 @@ asmlinkage long sys_iopl(unsigned long unused)
 		return -EINVAL;
 	/* Trying to gain more privileges? */
 	if (level > old) {
+#ifdef CONFIG_GRKERNSEC_IO
+		gr_handle_iopl();
+		return -EPERM;
+#else
 		if (!capable(CAP_SYS_RAWIO))
 			return -EPERM;
+#endif
 	}
 	t->iopl = level << 12;
 	regs->eflags = (regs->eflags & ~X86_EFLAGS_IOPL) | t->iopl;

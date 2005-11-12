@@ -95,7 +95,7 @@ struct relocation_info /* used when header.a_machtype == M_SPARC */
 
 #ifdef __KERNEL__
 
-#define STACK_TOP (test_thread_flag(TIF_32BIT) ? 0xf0000000 : 0x80000000000L)
+#define __STACK_TOP (test_thread_flag(TIF_32BIT) ? 0xf0000000 : 0x80000000000L)
 
 #endif
 

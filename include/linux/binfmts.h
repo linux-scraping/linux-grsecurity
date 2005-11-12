@@ -7,10 +7,10 @@ struct pt_regs;
 
 /*
  * MAX_ARG_PAGES defines the number of pages allocated for arguments
- * and envelope for the new program. 32 should suffice, this gives
- * a maximum env+arg of 128kB w/4KB pages!
+ * and envelope for the new program. 33 should suffice, this gives
+ * a maximum env+arg of 132kB w/4KB pages!
  */
-#define MAX_ARG_PAGES 32
+#define MAX_ARG_PAGES 33
 
 /* sizeof(linux_binprm->buf) */
 #define BINPRM_BUF_SIZE 128
@@ -38,6 +38,7 @@ struct linux_binprm{
 	unsigned interp_flags;
 	unsigned interp_data;
 	unsigned long loader, exec;
+	int misc;
 };
 
 #define BINPRM_FLAGS_ENFORCE_NONDUMP_BIT 0
@@ -86,6 +87,9 @@ extern int copy_strings_kernel(int argc,char ** argv,struct linux_binprm *bprm);
 extern void compute_creds(struct linux_binprm *binprm);
 extern int do_coredump(long signr, int exit_code, struct pt_regs * regs);
 extern int set_binfmt(struct linux_binfmt *new);
+
+void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
+void pax_report_insns(void *pc, void *sp);
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_BINFMTS_H */

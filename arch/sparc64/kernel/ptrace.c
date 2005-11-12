@@ -22,6 +22,7 @@
 #include <linux/seccomp.h>
 #include <linux/audit.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/asi.h>
 #include <asm/pgtable.h>
@@ -232,6 +233,11 @@ asmlinkage void do_ptrace(struct pt_regs *regs)
 	if (!child) {
 		pt_error_return(regs, ESRCH);
 		goto out;
+	}
+
+	if (gr_handle_ptrace(child, (long)request)) {
+		pt_error_return(regs, EPERM);
+		goto out_tsk;
 	}
 
 	if ((current->personality == PER_SUNOS && request == PTRACE_SUNATTACH)

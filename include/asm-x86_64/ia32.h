@@ -157,7 +157,13 @@ struct ustat32 {
 	char			f_fpack[6];
 };
 
-#define IA32_STACK_TOP IA32_PAGE_OFFSET
+#ifdef CONFIG_PAX_RANDUSTACK
+#define IA32_DELTA_STACK (current->mm->delta_stack)
+#else
+#define IA32_DELTA_STACK 0UL
+#endif
+
+#define IA32_STACK_TOP (IA32_PAGE_OFFSET - IA32_DELTA_STACK)
 
 #ifdef __KERNEL__
 struct user_desc;

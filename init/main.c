@@ -100,6 +100,7 @@ extern void acpi_early_init(void);
 #else
 static inline void acpi_early_init(void) { }
 #endif
+extern void grsecurity_init(void);
 
 #ifdef CONFIG_TC
 extern void tc_init(void);
@@ -153,6 +154,15 @@ static int __init maxcpus(char *str)
 }
 
 __setup("maxcpus=", maxcpus);
+
+#ifdef CONFIG_PAX_SOFTMODE
+static int __init setup_pax_softmode(char *str)
+{
+	get_option(&str, &pax_softmode);
+	return 1;
+}
+__setup("pax_softmode=", setup_pax_softmode);
+#endif
 
 static char * argv_init[MAX_INIT_ARGS+2] = { "init", NULL, };
 char * envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
@@ -702,6 +712,8 @@ static int init(void * unused)
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
 	}
+
+	grsecurity_init();
 
 	/*
 	 * Ok, we have completed the initial bootup, and

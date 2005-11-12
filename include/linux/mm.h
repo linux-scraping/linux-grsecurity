@@ -36,6 +36,7 @@ extern int sysctl_legacy_va_layout;
 #include <asm/pgtable.h>
 #include <asm/processor.h>
 #include <asm/atomic.h>
+#include <asm/mman.h>
 
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
@@ -109,7 +110,42 @@ struct vm_area_struct {
 #ifdef CONFIG_NUMA
 	struct mempolicy *vm_policy;	/* NUMA policy for the VMA */
 #endif
+
+	unsigned long vm_mirror;	/* PaX: mirror distance */
 };
+
+#ifdef CONFIG_PAX_SOFTMODE
+extern unsigned int pax_softmode;
+#endif
+
+extern int pax_check_flags(unsigned long *);
+
+/* if tsk != current then task_lock must be held on it */
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+static inline unsigned long pax_get_flags(struct task_struct *tsk)
+{
+	if (likely(tsk->mm))
+		return tsk->mm->pax_flags;
+	else
+		return 0UL;
+}
+
+/* if tsk != current then task_lock must be held on it */
+static inline long pax_set_flags(struct task_struct *tsk, unsigned long flags)
+{
+	if (likely(tsk->mm)) {
+		tsk->mm->pax_flags = flags;
+		return 0;
+	}
+	return -EINVAL;
+}
+#endif
+
+#ifdef CONFIG_PAX_HAVE_ACL_FLAGS
+extern void pax_set_initial_flags(struct linux_binprm * bprm);
+#elif defined(CONFIG_PAX_HOOK_ACL_FLAGS)
+extern void (*pax_set_initial_flags_func)(struct linux_binprm * bprm);
+#endif
 
 /*
  * This struct defines the per-mm list of VMAs for uClinux. If CONFIG_MMU is
@@ -162,6 +198,18 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
 #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
 #define VM_MAPPED_COPY	0x01000000	/* T if mapped copy of data (nommu mmap) */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+#define VM_MIRROR	0x01000000	/* vma is mirroring another */
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+#define VM_MAYNOTWRITE	0x02000000	/* vma cannot be granted VM_WRITE any more */
+#endif
+
+#ifdef __VM_STACK_FLAGS
+#define VM_STACK_DEFAULT_FLAGS (0x00000033 | __VM_STACK_FLAGS)
+#endif
 
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
 #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
@@ -969,6 +1017,12 @@ int in_gate_area_no_task(unsigned long addr);
 
 /* /proc/<pid>/oom_adj set to -17 protects from the oom-killer */
 #define OOM_DISABLE -17
+
+#ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+extern void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot);
+#else
+static inline void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot) {}
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_MM_H */

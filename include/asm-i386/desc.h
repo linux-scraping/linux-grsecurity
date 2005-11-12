@@ -10,12 +10,69 @@
 
 #include <linux/preempt.h>
 #include <linux/smp.h>
-#include <linux/percpu.h>
+#include <linux/sched.h>
 
 #include <asm/mmu.h>
+#include <asm/pgtable.h>
+#include <asm/tlbflush.h>
 
-extern struct desc_struct cpu_gdt_table[GDT_ENTRIES];
-DECLARE_PER_CPU(struct desc_struct, cpu_gdt_table[GDT_ENTRIES]);
+extern struct desc_struct cpu_gdt_table[NR_CPUS][GDT_ENTRIES];
+
+#define pax_open_kernel(flags, cr3)	\
+do {					\
+	typecheck(unsigned long,flags);	\
+	typecheck(unsigned long,cr3);	\
+	local_irq_save(flags);		\
+	pax_open_kernel_noirq(cr3);	\
+} while(0)
+
+#define pax_close_kernel(flags, cr3)	\
+do {					\
+	typecheck(unsigned long,flags);	\
+	typecheck(unsigned long,cr3);	\
+	pax_close_kernel_noirq(cr3);	\
+	local_irq_restore(flags);	\
+} while(0)
+
+#define pax_open_kernel_noirq(cr3)	\
+do {					\
+	typecheck(unsigned long,cr3);	\
+	cr3 = read_cr3();		\
+	load_cr3(kernexec_pg_dir);	\
+} while(0)
+
+#define pax_close_kernel_noirq(cr3)	\
+do {					\
+	typecheck(unsigned long,cr3);	\
+	write_cr3(cr3);			\
+} while(0)
+
+static inline void set_user_cs(struct mm_struct *mm, int cpu)
+{
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+	unsigned long base = mm->context.user_cs_base;
+	unsigned long limit = mm->context.user_cs_limit;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr3;
+
+	pax_open_kernel(flags, cr3);
+#endif
+
+	if (limit) {
+		limit -= 1UL;
+		limit >>= 12;
+	}
+
+	cpu_gdt_table[cpu][GDT_ENTRY_DEFAULT_USER_CS].a = (limit & 0xFFFFUL) | (base << 16);
+	cpu_gdt_table[cpu][GDT_ENTRY_DEFAULT_USER_CS].b = (limit & 0xF0000UL) | 0xC0FB00UL | (base & 0xFF000000UL) | ((base >> 16) & 0xFFUL);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr3);
+#endif
+
+#endif
+}
 
 DECLARE_PER_CPU(unsigned char, cpu_16bit_stack[CPU_16BIT_STACK_SIZE]);
 
@@ -44,7 +101,7 @@ extern struct Xgt_desc_struct idt_descr, cpu_gdt_descr[NR_CPUS];
  * This is the ldt that every process will get unless we need
  * something other than this.
  */
-extern struct desc_struct default_ldt[];
+extern const struct desc_struct default_ldt[];
 extern void set_intr_gate(unsigned int irq, void * addr);
 
 #define _set_tssldt_desc(n,addr,limit,type) \
@@ -58,17 +115,34 @@ __asm__ __volatile__ ("movw %w3,0(%2)\n\t" \
 	"rorl $16,%1" \
 	: "=m"(*(n)) : "q" (addr), "r"(n), "ir"(limit), "i"(type))
 
-static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, void *addr)
+static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const void *addr)
 {
-	_set_tssldt_desc(&per_cpu(cpu_gdt_table, cpu)[entry], (int)addr,
+	_set_tssldt_desc(&cpu_gdt_table[cpu][entry], (int)addr,
 		offsetof(struct tss_struct, __cacheline_filler) - 1, 0x89);
 }
 
 #define set_tss_desc(cpu,addr) __set_tss_desc(cpu, GDT_ENTRY_TSS, addr)
 
-static inline void set_ldt_desc(unsigned int cpu, void *addr, unsigned int size)
+static inline void __set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
 {
-	_set_tssldt_desc(&per_cpu(cpu_gdt_table, cpu)[GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+	_set_tssldt_desc(&cpu_gdt_table[cpu][GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+}
+
+static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
+{
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr3;
+
+	pax_open_kernel(flags, cr3);
+#endif
+
+	_set_tssldt_desc(&cpu_gdt_table[cpu][GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr3);
+#endif
+
 }
 
 #define LDT_entry_a(info) \
@@ -84,7 +158,7 @@ static inline void set_ldt_desc(unsigned int cpu, void *addr, unsigned int size)
 	((info)->seg_32bit << 22) | \
 	((info)->limit_in_pages << 23) | \
 	((info)->useable << 20) | \
-	0x7000)
+	0x7100)
 
 #define LDT_empty(info) (\
 	(info)->base_addr	== 0	&& \
@@ -109,7 +183,7 @@ static inline void write_ldt_entry(void *ldt, int entry, __u32 entry_a, __u32 en
 
 static inline void load_TLS(struct thread_struct *t, unsigned int cpu)
 {
-#define C(i) per_cpu(cpu_gdt_table, cpu)[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
+#define C(i) cpu_gdt_table[cpu][GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
 	C(0); C(1); C(2);
 #undef C
 }
@@ -128,7 +202,7 @@ static inline void clear_LDT(void)
  */
 static inline void load_LDT_nolock(mm_context_t *pc, int cpu)
 {
-	void *segments = pc->ldt;
+	const void *segments = pc->ldt;
 	int count = pc->size;
 
 	if (likely(!count)) {
@@ -154,6 +228,22 @@ static inline unsigned long get_desc_base(unsigned long *desc)
 		((desc[1] << 16) & 0x00ff0000) |
 		(desc[1] & 0xff000000);
 	return base;
+}
+
+static inline void _load_LDT(mm_context_t *pc)
+{
+	int cpu = get_cpu();
+	const void *segments = pc->ldt;
+	int count = pc->size;
+
+	if (likely(!count)) {
+		segments = &default_ldt[0];
+		count = 5;
+	}
+		
+	__set_ldt_desc(cpu, segments, count);
+	load_LDT_desc();
+	put_cpu();
 }
 
 #endif /* !__ASSEMBLY__ */

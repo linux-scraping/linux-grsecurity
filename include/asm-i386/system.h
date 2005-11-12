@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 #include <asm/cpufeature.h>
+#include <asm/page.h>
 #include <linux/bitops.h> /* for LOCK_PREFIX */
 
 #ifdef __KERNEL__
@@ -319,15 +320,15 @@ struct alt_instr {
 	asm volatile ("661:\n\t" oldinstr "\n662:\n" 		     \
 		      ".section .altinstructions,\"a\"\n"     	     \
 		      "  .align 4\n"				       \
-		      "  .long 661b\n"            /* label */          \
+		      "  .long 661b + %c1\n"      /* label */          \
 		      "  .long 663f\n"		  /* new instruction */ 	\
 		      "  .byte %c0\n"             /* feature bit */    \
 		      "  .byte 662b-661b\n"       /* sourcelen */      \
 		      "  .byte 664f-663f\n"       /* replacementlen */ \
 		      ".previous\n"						\
-		      ".section .altinstr_replacement,\"ax\"\n"			\
+		      ".section .altinstr_replacement,\"a\"\n"			\
 		      "663:\n\t" newinstr "\n664:\n"   /* replacement */    \
-		      ".previous" :: "i" (feature) : "memory")  
+		      ".previous" :: "i" (feature), "i" (__KERNEL_TEXT_OFFSET) : "memory")  
 
 /*
  * Alternative inline assembly with input.
@@ -343,15 +344,15 @@ struct alt_instr {
 	asm volatile ("661:\n\t" oldinstr "\n662:\n"				\
 		      ".section .altinstructions,\"a\"\n"			\
 		      "  .align 4\n"						\
-		      "  .long 661b\n"            /* label */			\
+		      "  .long 661b + %c1\n"      /* label */			\
 		      "  .long 663f\n"		  /* new instruction */ 	\
 		      "  .byte %c0\n"             /* feature bit */		\
 		      "  .byte 662b-661b\n"       /* sourcelen */		\
 		      "  .byte 664f-663f\n"       /* replacementlen */ 		\
 		      ".previous\n"						\
-		      ".section .altinstr_replacement,\"ax\"\n"			\
+		      ".section .altinstr_replacement,\"a\"\n"			\
 		      "663:\n\t" newinstr "\n664:\n"   /* replacement */ 	\
-		      ".previous" :: "i" (feature), ##input)
+		      ".previous" :: "i" (feature), "i" (__KERNEL_TEXT_OFFSET), ##input)
 
 /*
  * Force strict CPU ordering.

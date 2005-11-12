@@ -155,6 +155,17 @@ typedef elf_vrreg_t elf_vrregset_t32[ELF_NVRREG32];
 
 #define ELF_ET_DYN_BASE         (0x08000000)
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	(0x10000000UL)
+
+#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_MMAP_LEN(tsk)		((test_thread_flag(TIF_32BIT) || (ppcdebugset(PPCDBG_BINFMT_32ADDR))) ? 16 : 28)
+#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_EXEC_LEN(tsk)		((test_thread_flag(TIF_32BIT) || (ppcdebugset(PPCDBG_BINFMT_32ADDR))) ? 16 : 28)
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	((test_thread_flag(TIF_32BIT) || (ppcdebugset(PPCDBG_BINFMT_32ADDR))) ? 16 : 28)
+#endif
+
 #ifdef __KERNEL__
 
 /* Common routine for both 32-bit and 64-bit processes */

@@ -22,7 +22,7 @@ struct exec
 /* XXX: STACK_TOP actually should be STACK_BOTTOM for parisc.
  * prumpf */
 
-#define STACK_TOP	TASK_SIZE
+#define __STACK_TOP	TASK_SIZE
 
 #endif
 

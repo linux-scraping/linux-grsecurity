@@ -19,7 +19,6 @@
 #include <linux/cache.h>
 #include <linux/config.h>
 #include <linux/threads.h>
-#include <asm/percpu.h>
 
 /* flag for disabling the tsc */
 extern int tsc_disable;
@@ -29,7 +28,7 @@ struct desc_struct {
 };
 
 #define desc_empty(desc) \
-		(!((desc)->a | (desc)->b))
+		(!((desc)->a + (desc)->b))
 
 #define desc_equal(desc1, desc2) \
 		(((desc1)->a == (desc2)->a) && ((desc1)->b == (desc2)->b))
@@ -86,8 +85,6 @@ struct cpuinfo_x86 {
 
 extern struct cpuinfo_x86 boot_cpu_data;
 extern struct cpuinfo_x86 new_cpu_data;
-extern struct tss_struct doublefault_tss;
-DECLARE_PER_CPU(struct tss_struct, init_tss);
 
 #ifdef CONFIG_SMP
 extern struct cpuinfo_x86 cpu_data[];
@@ -314,10 +311,19 @@ extern int bootloader_type;
  */
 #define TASK_SIZE	(PAGE_OFFSET)
 
+#ifdef CONFIG_PAX_SEGMEXEC
+#define SEGMEXEC_TASK_SIZE	((PAGE_OFFSET) / 2)
+#endif
+
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+#define TASK_UNMAPPED_BASE	(PAGE_ALIGN((current->mm->pax_flags & MF_PAX_SEGMEXEC) ? SEGMEXEC_TASK_SIZE/3 : TASK_SIZE/3))
+#else
 #define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 3))
+#endif
 
 #define HAVE_ARCH_PICK_MMAP_LAYOUT
 
@@ -432,6 +438,9 @@ struct tss_struct {
 } __attribute__((packed));
 
 #define ARCH_MIN_TASKALIGN	16
+
+extern struct tss_struct doublefault_tss;
+extern struct tss_struct init_tss[NR_CPUS];
 
 struct thread_struct {
 /* cached TLS descriptors. */
@@ -549,16 +558,12 @@ void show_trace(struct task_struct *task, unsigned long *stack);
 unsigned long get_wchan(struct task_struct *p);
 
 #define THREAD_SIZE_LONGS      (THREAD_SIZE/sizeof(unsigned long))
-#define KSTK_TOP(info)                                                 \
-({                                                                     \
-       unsigned long *__ptr = (unsigned long *)(info);                 \
-       (unsigned long)(&__ptr[THREAD_SIZE_LONGS]);                     \
-})
+#define KSTK_TOP(info)         ((info)->task.thread.esp0)
 
 #define task_pt_regs(task)                                             \
 ({                                                                     \
        struct pt_regs *__regs__;                                       \
-       __regs__ = (struct pt_regs *)KSTK_TOP((task)->thread_info);     \
+       __regs__ = (struct pt_regs *)((task)->thread.esp0);             \
        __regs__ - 1;                                                   \
 })
 
@@ -682,7 +687,7 @@ static inline void rep_nop(void)
 static inline void prefetch(const void *x)
 {
 	alternative_input(ASM_NOP4,
-			  "prefetchnta (%1)",
+			  "prefetchnta (%2)",
 			  X86_FEATURE_XMM,
 			  "r" (x));
 }
@@ -696,7 +701,7 @@ static inline void prefetch(const void *x)
 static inline void prefetchw(const void *x)
 {
 	alternative_input(ASM_NOP4,
-			  "prefetchw (%1)",
+			  "prefetchw (%2)",
 			  X86_FEATURE_3DNOW,
 			  "r" (x));
 }

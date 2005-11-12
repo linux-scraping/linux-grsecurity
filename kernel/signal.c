@@ -25,6 +25,7 @@
 #include <linux/posix-timers.h>
 #include <linux/signal.h>
 #include <linux/audit.h>
+#include <linux/grsecurity.h>
 #include <asm/param.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -358,6 +359,7 @@ void __exit_signal(struct task_struct *tsk)
 		posix_cpu_timers_exit_group(tsk);
 		if (tsk == sig->curr_target)
 			sig->curr_target = next_thread(tsk);
+		gr_del_task_from_ip_table(tsk);
 		tsk->signal = NULL;
 		spin_unlock(&sighand->siglock);
 		flush_sigqueue(&sig->shared_pending);
@@ -654,16 +656,18 @@ static int check_kill_permission(int sig, struct siginfo *info,
 	error = -EPERM;
 	if ((!info || ((unsigned long)info != 1 &&
 			(unsigned long)info != 2 && SI_FROMUSER(info)))
-	    && ((sig != SIGCONT) ||
+	    && ((((sig != SIGCONT) ||
 		(current->signal->session != t->signal->session))
 	    && (current->euid ^ t->suid) && (current->euid ^ t->uid)
 	    && (current->uid ^ t->suid) && (current->uid ^ t->uid)
-	    && !capable(CAP_KILL))
+	    && !capable(CAP_KILL)) || gr_handle_signal(t, sig)))
 		return error;
 
 	error = security_task_kill(t, info, sig);
-	if (!error)
+	if (!error) {
 		audit_signal_info(sig, t); /* Let audit system see the signal */
+		gr_log_signal(sig, t);
+	}
 	return error;
 }
 
@@ -850,7 +854,7 @@ out_set:
 	(((sig) < SIGRTMIN) && sigismember(&(sigptr)->signal, (sig)))
 
 
-static int
+int
 specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
 	int ret = 0;
@@ -900,6 +904,10 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 		recalc_sigpending_tsk(t);
 	}
 	ret = specific_send_sig_info(sig, info, t);
+
+	gr_log_signal(sig, t);
+	gr_handle_crash(t, sig);
+
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 
 	return ret;

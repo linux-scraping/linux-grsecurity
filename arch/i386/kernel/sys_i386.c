@@ -106,6 +106,109 @@ out:
 	return err;
 }
 
+unsigned long
+arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
+			  const unsigned long len, const unsigned long pgoff,
+			  const unsigned long flags)
+{
+	struct vm_area_struct *vma;
+	struct mm_struct *mm = current->mm;
+	unsigned long base = mm->mmap_base, addr = addr0, task_size = TASK_SIZE;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC)
+		task_size = SEGMEXEC_TASK_SIZE;
+#endif
+
+	/* requested length too big for entire address space */
+	if (len > task_size)
+		return -ENOMEM;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if ((mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE))
+		goto bottomup;
+#endif
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+#endif
+
+	/* requesting a specific address */
+	if (addr) {
+		addr = PAGE_ALIGN(addr);
+		vma = find_vma(mm, addr);
+		if (task_size - len >= addr &&
+				(!vma || addr + len <= vma->vm_start))
+			return addr;
+	}
+
+	/* check if free_area_cache is useful for us */
+	if (len <= mm->cached_hole_size) {
+	        mm->cached_hole_size = 0;
+		mm->free_area_cache = mm->mmap_base;
+	}
+
+	/* either no address requested or can't fit in requested address hole */
+	addr = mm->free_area_cache;
+
+	/* make sure it can fit in the remaining address space */
+	if (addr > len) {
+		vma = find_vma(mm, addr-len);
+		if (!vma || addr <= vma->vm_start)
+			/* remember the address as a hint for next time */
+			return (mm->free_area_cache = addr-len);
+	}
+
+	if (mm->mmap_base < len)
+		goto bottomup;
+
+	addr = mm->mmap_base-len;
+
+	do {
+		/*
+		 * Lookup failure means no vma is above this address,
+		 * else if new region fits below vma->vm_start,
+		 * return with success:
+		 */
+		vma = find_vma(mm, addr);
+		if (!vma || addr+len <= vma->vm_start)
+			/* remember the address as a hint for next time */
+			return (mm->free_area_cache = addr);
+
+		/* remember the largest hole we saw so far */
+		if (addr + mm->cached_hole_size < vma->vm_start)
+			mm->cached_hole_size = vma->vm_start - addr;
+
+		/* try just below the current vma->vm_start */
+		addr = vma->vm_start-len;
+	} while (len < vma->vm_start);
+
+bottomup:
+	/*
+	 * A failed mmap() very likely causes application failure,
+	 * so fall back to the bottom-up function here. This scenario
+	 * can happen with large stack limits and large mmap()
+	 * allocations.
+	 */
+	mm->mmap_base = TASK_UNMAPPED_BASE;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
+		mm->mmap_base += mm->delta_mmap;
+#endif
+
+	mm->free_area_cache = mm->mmap_base;
+	mm->cached_hole_size = ~0UL;
+	addr = arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
+	/*
+	 * Restore the topdown base:
+	 */
+	mm->mmap_base = base;
+	mm->free_area_cache = base;
+	mm->cached_hole_size = ~0UL;
+
+	return addr;
+}
 
 struct sel_arg_struct {
 	unsigned long n;
@@ -249,4 +352,80 @@ asmlinkage int sys_olduname(struct oldold_utsname __user * name)
 	error = error ? -EFAULT : 0;
 
 	return error;
+}
+unsigned long
+arch_get_unmapped_area(struct file *filp, unsigned long addr,
+		unsigned long len, unsigned long pgoff, unsigned long flags)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	unsigned long start_addr, task_size = TASK_SIZE;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC)
+		task_size = SEGMEXEC_TASK_SIZE;
+#endif
+
+	if (len > task_size)
+		return -ENOMEM;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+#endif
+
+	if (addr) {
+		addr = PAGE_ALIGN(addr);
+		vma = find_vma(mm, addr);
+		if (task_size - len >= addr &&
+		    (!vma || addr + len <= vma->vm_start))
+			return addr;
+	}
+	if (len > mm->cached_hole_size) {
+		start_addr = addr = mm->free_area_cache;
+	} else {
+		start_addr = addr = mm->mmap_base;
+		mm->cached_hole_size = 0;
+	}
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if ((mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
+		start_addr = 0x00110000UL;
+
+#ifdef CONFIG_PAX_RANDMMAP
+		if (mm->pax_flags & MF_PAX_RANDMMAP)
+			start_addr += mm->delta_mmap;
+#endif
+
+		addr = start_addr;
+	}
+#endif
+
+full_search:
+	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
+		/* At this point:  (!vma || addr < vma->vm_end). */
+		if (task_size - len < addr) {
+			/*
+			 * Start a new search - just in case we missed
+			 * some holes.
+			 */
+			if (start_addr != mm->mmap_base) {
+				start_addr = addr = mm->mmap_base;
+				mm->cached_hole_size = 0;
+				goto full_search;
+			}
+			return -ENOMEM;
+		}
+		if (!vma || addr + len <= vma->vm_start) {
+			/*
+			 * Remember the place where we stopped the search:
+			 */
+			mm->free_area_cache = addr + len;
+			return addr;
+		}
+		if (addr + mm->cached_hole_size < vma->vm_start)
+			mm->cached_hole_size = vma->vm_start - addr;
+		addr = vma->vm_end;
+		if (mm->start_brk <= addr && addr < mm->mmap_base)
+			start_addr = addr = mm->mmap_base;
+	}
 }

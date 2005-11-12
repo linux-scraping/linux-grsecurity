@@ -119,10 +119,10 @@ fastcall unsigned int do_IRQ(struct pt_regs *regs)
  * gcc's 3.0 and earlier don't handle that correctly.
  */
 static char softirq_stack[NR_CPUS * THREAD_SIZE]
-		__attribute__((__aligned__(THREAD_SIZE)));
+		__attribute__((__aligned__(THREAD_SIZE), __section__(".bss.page_aligned")));
 
 static char hardirq_stack[NR_CPUS * THREAD_SIZE]
-		__attribute__((__aligned__(THREAD_SIZE)));
+		__attribute__((__aligned__(THREAD_SIZE), __section__(".bss.page_aligned")));
 
 /*
  * allocate per-cpu stacks for hardirq and for softirq processing

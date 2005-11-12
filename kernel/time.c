@@ -35,6 +35,7 @@
 #include <linux/security.h>
 #include <linux/fs.h>
 #include <linux/module.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -92,6 +93,9 @@ asmlinkage long sys_stime(time_t __user *tptr)
 		return err;
 
 	do_settimeofday(&tv);
+
+	gr_log_timechange();
+
 	return 0;
 }
 
@@ -194,6 +198,8 @@ asmlinkage long sys_settimeofday(struct timeval __user *tv,
 		if (copy_from_user(&new_tz, tz, sizeof(*tz)))
 			return -EFAULT;
 	}
+
+	gr_log_timechange();
 
 	return do_sys_settimeofday(tv ? &new_ts : NULL, tz ? &new_tz : NULL);
 }

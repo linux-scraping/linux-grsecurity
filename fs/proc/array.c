@@ -293,6 +293,21 @@ static inline char *task_cap(struct task_struct *p, char *buffer)
 			    cap_t(p->cap_effective));
 }
 
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+static inline char *task_pax(struct task_struct *p, char *buffer)
+{
+	if (p->mm)
+		return buffer + sprintf(buffer, "PaX:\t%c%c%c%c%c\n",
+				p->mm->pax_flags & MF_PAX_PAGEEXEC ? 'P' : 'p',
+				p->mm->pax_flags & MF_PAX_EMUTRAMP ? 'E' : 'e',
+				p->mm->pax_flags & MF_PAX_MPROTECT ? 'M' : 'm',
+				p->mm->pax_flags & MF_PAX_RANDMMAP ? 'R' : 'r',
+				p->mm->pax_flags & MF_PAX_SEGMEXEC ? 'S' : 's');
+	else
+		return buffer + sprintf(buffer, "PaX:\t-----\n");
+}
+#endif
+
 int proc_pid_status(struct task_struct *task, char * buffer)
 {
 	char * orig = buffer;
@@ -311,8 +326,19 @@ int proc_pid_status(struct task_struct *task, char * buffer)
 #if defined(CONFIG_ARCH_S390)
 	buffer = task_show_regs(task, buffer);
 #endif
+
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+	buffer = task_pax(task, buffer);
+#endif
+
 	return buffer - orig;
 }
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
+			    (_mm->pax_flags & MF_PAX_RANDMMAP || \
+			     _mm->pax_flags & MF_PAX_SEGMEXEC))
+#endif
 
 static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 {
@@ -400,6 +426,19 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 		stime = task->stime;
 	}
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (PAX_RAND_FLAGS(mm)) {
+		eip = 0;
+		esp = 0;
+		wchan = 0;
+	}
+#endif
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	wchan = 0;
+	eip =0;
+	esp =0;
+#endif
+
 	/* scale priority and nice values from timeslices to -20..20 */
 	/* to make it look like a "normal" Unix priority/nice value  */
 	priority = task_prio(task);
@@ -440,9 +479,15 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 		vsize,
 		mm ? get_mm_counter(mm, rss) : 0, /* you might want to shift this left 3 */
 	        rsslim,
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->start_code : 0),
+		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->end_code : 0),
+		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->start_stack : 0),
+#else
 		mm ? mm->start_code : 0,
 		mm ? mm->end_code : 0,
 		mm ? mm->start_stack : 0,
+#endif
 		esp,
 		eip,
 		/* The signal information here is obsolete.
@@ -488,3 +533,14 @@ int proc_pid_statm(struct task_struct *task, char *buffer)
 	return sprintf(buffer,"%d %d %d %d %d %d %d\n",
 		       size, resident, shared, text, lib, data, 0);
 }
+
+#ifdef CONFIG_GRKERNSEC_PROC_IPADDR
+int proc_pid_ipaddr(struct task_struct *task, char * buffer)
+{
+	int len;
+
+	len = sprintf(buffer, "%u.%u.%u.%u\n", NIPQUAD(task->signal->curr_ip));
+	return len;
+}
+#endif
+

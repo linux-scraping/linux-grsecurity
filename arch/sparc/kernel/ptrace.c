@@ -19,6 +19,7 @@
 #include <linux/smp_lock.h>
 #include <linux/security.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
 #include <asm/system.h>
@@ -321,6 +322,11 @@ asmlinkage void do_ptrace(struct pt_regs *regs)
 	if (!child) {
 		pt_error_return(regs, ESRCH);
 		goto out;
+	}
+
+	if (gr_handle_ptrace(child, request)) {
+		pt_error_return(regs, EPERM);
+		goto out_tsk;
 	}
 
 	if ((current->personality == PER_SUNOS && request == PTRACE_SUNATTACH)

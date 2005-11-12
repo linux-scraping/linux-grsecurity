@@ -213,4 +213,13 @@ get_order (unsigned long size)
 					 (((current->personality & READ_IMPLIES_EXEC) != 0)	\
 					  ? VM_EXEC : 0))
 
+#ifdef CONFIG_PAX_PAGEEXEC
+#ifdef CONFIG_PAX_MPROTECT
+#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
+			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#else
+#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#endif
+#endif
+
 #endif /* _ASM_IA64_PAGE_H */

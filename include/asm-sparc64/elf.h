@@ -140,6 +140,16 @@ typedef struct {
 #define ELF_ET_DYN_BASE         0x0000010000000000UL
 #endif
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	(test_thread_flag(TIF_32BIT) ? 0x10000UL : 0x100000UL)
+
+#define PAX_DELTA_MMAP_LSB(tsk)		(PAGE_SHIFT + 1)
+#define PAX_DELTA_MMAP_LEN(tsk)		(test_thread_flag(TIF_32BIT) ? 14 : 28 )
+#define PAX_DELTA_EXEC_LSB(tsk)		(PAGE_SHIFT + 1)
+#define PAX_DELTA_EXEC_LEN(tsk)		(test_thread_flag(TIF_32BIT) ? 14 : 28 )
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	(test_thread_flag(TIF_32BIT) ? 15 : 29 )
+#endif
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this cpu supports.  */

@@ -50,6 +50,13 @@ BTFIXUPDEF_INT(page_none)
 BTFIXUPDEF_INT(page_shared)
 BTFIXUPDEF_INT(page_copy)
 BTFIXUPDEF_INT(page_readonly)
+
+#ifdef CONFIG_PAX_PAGEEXEC
+BTFIXUPDEF_INT(page_shared_noexec)
+BTFIXUPDEF_INT(page_copy_noexec)
+BTFIXUPDEF_INT(page_readonly_noexec)
+#endif
+
 BTFIXUPDEF_INT(page_kernel)
 
 #define PMD_SHIFT		SUN4C_PMD_SHIFT
@@ -70,6 +77,16 @@ BTFIXUPDEF_INT(page_kernel)
 #define PAGE_SHARED    __pgprot(BTFIXUP_INT(page_shared))
 #define PAGE_COPY      __pgprot(BTFIXUP_INT(page_copy))
 #define PAGE_READONLY  __pgprot(BTFIXUP_INT(page_readonly))
+
+#ifdef CONFIG_PAX_PAGEEXEC
+# define PAGE_SHARED_NOEXEC	__pgprot(BTFIXUP_INT(page_shared_noexec))
+# define PAGE_COPY_NOEXEC	__pgprot(BTFIXUP_INT(page_copy_noexec))
+# define PAGE_READONLY_NOEXEC	__pgprot(BTFIXUP_INT(page_readonly_noexec))
+#else
+# define PAGE_SHARED_NOEXEC	PAGE_SHARED
+# define PAGE_COPY_NOEXEC	PAGE_COPY
+# define PAGE_READONLY_NOEXEC	PAGE_READONLY
+#endif
 
 extern unsigned long page_kernel;
 

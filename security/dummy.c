@@ -28,6 +28,7 @@
 #include <linux/hugetlb.h>
 #include <linux/ptrace.h>
 #include <linux/file.h>
+#include <linux/grsecurity.h>
 
 static int dummy_ptrace (struct task_struct *parent, struct task_struct *child)
 {
@@ -138,8 +139,11 @@ static void dummy_bprm_apply_creds (struct linux_binprm *bprm, int unsafe)
 		}
 	}
 
-	current->suid = current->euid = current->fsuid = bprm->e_uid;
-	current->sgid = current->egid = current->fsgid = bprm->e_gid;
+	if (!gr_check_user_change(-1, bprm->e_uid, bprm->e_uid))
+		current->suid = current->euid = current->fsuid = bprm->e_uid;
+
+	if (!gr_check_group_change(-1, bprm->e_gid, bprm->e_gid))
+		current->sgid = current->egid = current->fsgid = bprm->e_gid;
 
 	dummy_capget(current, &current->cap_effective, &current->cap_inheritable, &current->cap_permitted);
 }

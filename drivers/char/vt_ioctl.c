@@ -93,6 +93,12 @@ do_kdsk_ioctl(int cmd, struct kbentry __user *user_kbe, int perm, struct kbd_str
 	case KDSKBENT:
 		if (!perm)
 			return -EPERM;
+
+#ifdef CONFIG_GRKERNSEC
+		if (!capable(CAP_SYS_TTY_CONFIG))
+			return -EPERM;
+#endif
+
 		if (!i && v == K_NOSUCHMAP) {
 			/* disallocate map */
 			key_map = key_maps[s];
@@ -229,6 +235,13 @@ do_kdgkb_ioctl(int cmd, struct kbsentry __user *user_kdgkb, int perm)
 			ret = -EPERM;
 			goto reterr;
 		}
+
+#ifdef CONFIG_GRKERNSEC
+		if (!capable(CAP_SYS_TTY_CONFIG)) {
+			ret = -EPERM;
+			goto reterr;
+		}
+#endif
 
 		q = func_table[i];
 		first_free = funcbufptr + (funcbufsize - funcbufleft);

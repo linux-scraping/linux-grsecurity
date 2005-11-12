@@ -410,7 +410,15 @@ static int __init kallsyms_init(void)
 {
 	struct proc_dir_entry *entry;
 
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR | S_IRGRP, NULL);
+#endif
+#else
 	entry = create_proc_entry("kallsyms", 0444, NULL);
+#endif
 	if (entry)
 		entry->proc_fops = &kallsyms_operations;
 	return 0;

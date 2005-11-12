@@ -91,6 +91,17 @@ struct task_struct;
 
 #define ELF_ET_DYN_BASE         (0x08000000)
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	0x10000000UL
+
+#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_MMAP_LEN(tsk)		15
+#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_EXEC_LEN(tsk)		15
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	15
+#endif
+
 #define USE_ELF_CORE_DUMP
 #define ELF_EXEC_PAGESIZE	4096
 

@@ -440,11 +440,21 @@ extern unsigned long ioremap_bot, ioremap_base;
 
 #define PAGE_NONE	__pgprot(_PAGE_BASE)
 #define PAGE_READONLY	__pgprot(_PAGE_BASE | _PAGE_USER)
-#define PAGE_READONLY_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_EXEC)
+#define PAGE_READONLY_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_EXEC | _PAGE_HWEXEC)
 #define PAGE_SHARED	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_RW)
-#define PAGE_SHARED_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_RW | _PAGE_EXEC)
+#define PAGE_SHARED_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_RW | _PAGE_EXEC | _PAGE_HWEXEC)
 #define PAGE_COPY	__pgprot(_PAGE_BASE | _PAGE_USER)
-#define PAGE_COPY_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_EXEC)
+#define PAGE_COPY_X	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_EXEC | _PAGE_HWEXEC)
+
+#if defined(CONFIG_PAX_PAGEEXEC) && !defined(CONFIG_40x) && !defined(CONFIG_44x)
+# define PAGE_SHARED_NOEXEC	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_RW | _PAGE_GUARDED)
+# define PAGE_COPY_NOEXEC	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_GUARDED)
+# define PAGE_READONLY_NOEXEC	__pgprot(_PAGE_BASE | _PAGE_USER | _PAGE_GUARDED)
+#else
+# define PAGE_SHARED_NOEXEC	PAGE_SHARED
+# define PAGE_COPY_NOEXEC	PAGE_COPY
+# define PAGE_READONLY_NOEXEC	PAGE_READONLY
+#endif
 
 #define PAGE_KERNEL		__pgprot(_PAGE_RAM)
 #define PAGE_KERNEL_NOCACHE	__pgprot(_PAGE_IO)
@@ -456,21 +466,21 @@ extern unsigned long ioremap_bot, ioremap_base;
  * This is the closest we can get..
  */
 #define __P000	PAGE_NONE
-#define __P001	PAGE_READONLY_X
-#define __P010	PAGE_COPY
-#define __P011	PAGE_COPY_X
-#define __P100	PAGE_READONLY
+#define __P001	PAGE_READONLY_NOEXEC
+#define __P010	PAGE_COPY_NOEXEC
+#define __P011	PAGE_COPY_NOEXEC
+#define __P100	PAGE_READONLY_X
 #define __P101	PAGE_READONLY_X
-#define __P110	PAGE_COPY
+#define __P110	PAGE_COPY_X
 #define __P111	PAGE_COPY_X
 
 #define __S000	PAGE_NONE
-#define __S001	PAGE_READONLY_X
-#define __S010	PAGE_SHARED
-#define __S011	PAGE_SHARED_X
-#define __S100	PAGE_READONLY
+#define __S001	PAGE_READONLY_NOEXEC
+#define __S010	PAGE_SHARED_NOEXEC
+#define __S011	PAGE_SHARED_NOEXEC
+#define __S100	PAGE_READONLY_X
 #define __S101	PAGE_READONLY_X
-#define __S110	PAGE_SHARED
+#define __S110	PAGE_SHARED_X
 #define __S111	PAGE_SHARED_X
 
 #ifndef __ASSEMBLY__

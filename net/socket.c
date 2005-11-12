@@ -84,6 +84,7 @@
 #include <linux/compat.h>
 #include <linux/kmod.h>
 #include <linux/audit.h>
+#include <linux/in.h>
 
 #ifdef CONFIG_NET_RADIO
 #include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
@@ -96,6 +97,21 @@
 
 #include <net/sock.h>
 #include <linux/netfilter.h>
+
+extern void gr_attach_curr_ip(const struct sock *sk);
+extern int gr_handle_sock_all(const int family, const int type,
+			      const int protocol);
+extern int gr_handle_sock_server(const struct sockaddr *sck);
+extern int gr_handle_sock_server_other(const struct socket *sck);
+extern int gr_handle_sock_client(const struct sockaddr *sck);
+extern int gr_search_connect(const struct socket * sock,
+			     const struct sockaddr_in * addr);
+extern int gr_search_bind(const struct socket * sock,
+			   const struct sockaddr_in * addr);
+extern int gr_search_listen(const struct socket * sock);
+extern int gr_search_accept(const struct socket * sock);
+extern int gr_search_socket(const int domain, const int type,
+			    const int protocol);
 
 static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
 static ssize_t sock_aio_read(struct kiocb *iocb, char __user *buf,
@@ -1191,6 +1207,16 @@ asmlinkage long sys_socket(int family, int type, int protocol)
 	int retval;
 	struct socket *sock;
 
+	if(!gr_search_socket(family, type, protocol)) {
+		retval = -EACCES;
+		goto out;
+	}
+
+	if (gr_handle_sock_all(family, type, protocol)) {
+		retval = -EACCES;
+		goto out;
+	}
+
 	retval = sock_create(family, type, protocol, &sock);
 	if (retval < 0)
 		goto out;
@@ -1286,11 +1312,23 @@ asmlinkage long sys_bind(int fd, struct sockaddr __user *umyaddr, int addrlen)
 {
 	struct socket *sock;
 	char address[MAX_SOCK_ADDR];
+	struct sockaddr *sck;
 	int err;
 
 	if((sock = sockfd_lookup(fd,&err))!=NULL)
 	{
 		if((err=move_addr_to_kernel(umyaddr,addrlen,address))>=0) {
+			sck = (struct sockaddr *)address;
+			if (!gr_search_bind(sock, (struct sockaddr_in *)sck)) {
+				sockfd_put(sock);
+				return -EACCES;
+			}
+
+			if (gr_handle_sock_server(sck)) {
+				sockfd_put(sock);
+				return -EACCES;
+			}
+
 			err = security_socket_bind(sock, (struct sockaddr *)address, addrlen);
 			if (err) {
 				sockfd_put(sock);
@@ -1325,6 +1363,16 @@ asmlinkage long sys_listen(int fd, int backlog)
 		if (err) {
 			sockfd_put(sock);
 			return err;
+		}
+
+		if (gr_handle_sock_server_other(sock)) {
+			sockfd_put(sock);
+			return -EPERM;
+		}
+
+		if(!gr_search_listen(sock)) {
+			sockfd_put(sock);
+			return -EPERM;
 		}
 
 		err=sock->ops->listen(sock, backlog);
@@ -1363,6 +1411,16 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr, int _
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
+	if (gr_handle_sock_server_other(sock)) {
+		err = -EPERM;
+		goto out_release;
+	}
+
+	if(!gr_search_accept(sock)) {
+		err = -EPERM;
+		goto out_release;
+	}
+
 	/*
 	 * We don't need try_module_get here, as the listening socket (sock)
 	 * has the protocol module (sock->ops->owner) held.
@@ -1393,6 +1451,7 @@ asmlinkage long sys_accept(int fd, struct sockaddr __user *upeer_sockaddr, int _
 		goto out_release;
 
 	security_socket_post_accept(sock, newsock);
+	gr_attach_curr_ip(newsock->sk);
 
 out_put:
 	sockfd_put(sock);
@@ -1420,6 +1479,7 @@ asmlinkage long sys_connect(int fd, struct sockaddr __user *uservaddr, int addrl
 {
 	struct socket *sock;
 	char address[MAX_SOCK_ADDR];
+	struct sockaddr *sck;
 	int err;
 
 	sock = sockfd_lookup(fd, &err);
@@ -1428,6 +1488,18 @@ asmlinkage long sys_connect(int fd, struct sockaddr __user *uservaddr, int addrl
 	err = move_addr_to_kernel(uservaddr, addrlen, address);
 	if (err < 0)
 		goto out_put;
+
+	sck = (struct sockaddr *)address;
+
+	if (!gr_search_connect(sock, (struct sockaddr_in *)sck)) {
+		err = -EACCES;
+		goto out_put;
+	}
+
+	if (gr_handle_sock_client(sck)) {
+		err = -EACCES;
+		goto out_put;
+	}
 
 	err = security_socket_connect(sock, (struct sockaddr *)address, addrlen);
 	if (err)
@@ -1682,6 +1754,7 @@ asmlinkage long sys_shutdown(int fd, int how)
 		err=sock->ops->shutdown(sock, how);
 		sockfd_put(sock);
 	}
+
 	return err;
 }
 

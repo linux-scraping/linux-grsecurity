@@ -74,6 +74,7 @@
 #include <linux/syscalls.h>
 #include <linux/audit.h>
 #include <linux/seq_file.h>
+#include <linux/grsecurity.h>
 #include <asm/uaccess.h>
 #include "util.h"
 
@@ -242,6 +243,9 @@ asmlinkage long sys_semget (key_t key, int nsems, int semflg)
 	}
 
 	up(&sem_ids.sem);
+
+	gr_log_semget(err, semflg);
+
 	return err;
 }
 
@@ -831,6 +835,8 @@ static int semctl_down(int semid, int semnum, int cmd, int version, union semun 
 
 	switch(cmd){
 	case IPC_RMID:
+		gr_log_semrm(ipcp->uid, ipcp->cuid);
+
 		freeary(sma, semid);
 		err = 0;
 		break;

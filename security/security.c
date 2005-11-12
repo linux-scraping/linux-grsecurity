@@ -200,4 +200,5 @@ EXPORT_SYMBOL_GPL(unregister_security);
 EXPORT_SYMBOL_GPL(mod_reg_security);
 EXPORT_SYMBOL_GPL(mod_unreg_security);
 EXPORT_SYMBOL(capable);
+EXPORT_SYMBOL(capable_nolog);
 EXPORT_SYMBOL(security_ops);

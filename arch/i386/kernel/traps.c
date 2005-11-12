@@ -28,6 +28,7 @@
 #include <linux/utsname.h>
 #include <linux/kprobes.h>
 #include <linux/kexec.h>
+#include <linux/binfmts.h>
 
 #ifdef CONFIG_EISA
 #include <linux/ioport.h>
@@ -58,18 +59,13 @@
 
 asmlinkage int system_call(void);
 
-struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
+const struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
 		{ 0, 0 }, { 0, 0 } };
 
 /* Do we ignore FPU interrupts ? */
 char ignore_fpu_irq = 0;
 
-/*
- * The IDT has to be page-aligned to simplify the Pentium
- * F0 0F bug workaround.. We have a special link segment
- * for this.
- */
-struct desc_struct idt_table[256] __attribute__((__section__(".data.idt"))) = { {0, 0}, };
+extern struct desc_struct idt_table[256];
 
 asmlinkage void divide_error(void);
 asmlinkage void debug(void);
@@ -116,6 +112,7 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 				unsigned long *stack, unsigned long ebp)
 {
 	unsigned long addr;
+	int i = kstack_depth_to_print;
 
 #ifdef	CONFIG_FRAME_POINTER
 	while (valid_stack_ptr(tinfo, (void *)ebp)) {
@@ -124,6 +121,7 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 		print_symbol("%s", addr);
 		printk("\n");
 		ebp = *(unsigned long *)ebp;
+		--i;
 	}
 #else
 	while (valid_stack_ptr(tinfo, stack)) {
@@ -132,6 +130,7 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 			printk(" [<%08lx>]", addr);
 			print_symbol(" %s", addr);
 			printk("\n");
+			--i;
 		}
 	}
 #endif
@@ -241,7 +240,7 @@ void show_registers(struct pt_regs *regs)
 
 		printk("Code: ");
 
-		eip = (u8 __user *)regs->eip - 43;
+		eip = (u8 __user *)regs->eip - 43 + __KERNEL_TEXT_OFFSET;
 		for (i = 0; i < 64; i++, eip++) {
 			unsigned char c;
 
@@ -266,7 +265,7 @@ static void handle_BUG(struct pt_regs *regs)
 	char c;
 	unsigned long eip;
 
-	eip = regs->eip;
+	eip = regs->eip + __KERNEL_TEXT_OFFSET;
 
 	if (eip < PAGE_OFFSET)
 		goto no_bug;
@@ -464,7 +463,7 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 					      long error_code)
 {
 	int cpu = get_cpu();
-	struct tss_struct *tss = &per_cpu(init_tss, cpu);
+	struct tss_struct *tss = &init_tss[cpu];
 	struct thread_struct *thread = &current->thread;
 
 	/*
@@ -502,6 +501,22 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 	if (!user_mode(regs))
 		goto gp_in_kernel;
 
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (current->mm && (current->mm->pax_flags & MF_PAX_PAGEEXEC)) {
+		struct mm_struct *mm = current->mm;
+		unsigned long limit;
+
+		down_write(&mm->mmap_sem);
+		limit = mm->context.user_cs_limit;
+		if (limit < TASK_SIZE) {
+			track_exec_limit(mm, limit, TASK_SIZE, PROT_EXEC);
+			up_write(&mm->mmap_sem);
+			return;
+		}
+		up_write(&mm->mmap_sem);
+	}
+#endif
+
 	current->thread.error_code = error_code;
 	current->thread.trap_no = 13;
 	force_sig(SIGSEGV, current);
@@ -517,6 +532,13 @@ gp_in_kernel:
 		if (notify_die(DIE_GPF, "general protection fault", regs,
 				error_code, 13, SIGSEGV) == NOTIFY_STOP)
 			return;
+
+#ifdef CONFIG_PAX_KERNEXEC
+		if ((regs->xcs & 0xFFFF) == __KERNEL_CS)
+			die("PAX: suspicious general protection fault", regs, error_code);
+		else
+#endif
+
 		die("general protection fault", regs, error_code);
 	}
 }

@@ -47,6 +47,7 @@
 #include <linux/syscalls.h>
 #include <linux/times.h>
 #include <linux/acct.h>
+#include <linux/grsecurity.h>
 #include <asm/tlb.h>
 
 #include <asm/unistd.h>
@@ -3520,7 +3521,8 @@ asmlinkage long sys_nice(int increment)
 	if (nice > 19)
 		nice = 19;
 
-	if (increment < 0 && !can_nice(current, nice))
+	if (increment < 0 && (!can_nice(current, nice) ||
+			      gr_handle_chroot_nice()))
 		return -EPERM;
 
 	retval = security_task_setnice(current, nice);

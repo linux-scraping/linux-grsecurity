@@ -249,8 +249,13 @@
 /*
  * Configuration information
  */
+#ifdef CONFIG_GRKERNSEC_RANDNET
+#define INPUT_POOL_WORDS 256
+#define OUTPUT_POOL_WORDS 64
+#else
 #define INPUT_POOL_WORDS 128
 #define OUTPUT_POOL_WORDS 32
+#endif
 #define SEC_XFER_SIZE 512
 
 /*
@@ -1661,3 +1666,25 @@ randomize_range(unsigned long start, unsigned long end, unsigned long len)
 		return 0;
 	return PAGE_ALIGN(get_random_int() % range + start);
 }
+
+#if defined(CONFIG_PAX_ASLR) || defined(CONFIG_GRKERNSEC)
+unsigned long pax_get_random_long(void)
+{
+	static time_t   rekey_time;
+	static __u32    secret[12];
+	time_t          t;
+
+	/*
+	 * Pick a random secret every REKEY_INTERVAL seconds.
+	 */
+	t = get_seconds();
+	if (!rekey_time || (t - rekey_time) > REKEY_INTERVAL) {
+		rekey_time = t;
+		get_random_bytes(secret, sizeof(secret));
+	}
+
+	secret[1] = half_md4_transform(secret+8, secret);
+	secret[0] = half_md4_transform(secret+8, secret);
+	return *(unsigned long *)secret;
+}
+#endif

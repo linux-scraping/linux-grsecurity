@@ -62,6 +62,7 @@
 #include <linux/jhash.h>
 #include <linux/init.h>
 #include <linux/times.h>
+#include <linux/grsecurity.h>
 
 #include <net/icmp.h>
 #include <net/inet_hashtables.h>
@@ -76,6 +77,8 @@
 #include <linux/stddef.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+
+extern void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock *inet);
 
 int sysctl_tcp_tw_reuse;
 int sysctl_tcp_low_latency;
@@ -242,7 +245,12 @@ static inline int tcp_v4_hash_connect(struct sock *sk)
 		struct hlist_node *node;
  		struct inet_timewait_sock *tw = NULL;
 
- 		local_bh_disable();
+#ifdef CONFIG_GRKERNSEC_RANDSRC
+		if (grsec_enable_randsrc)
+			offset = get_random_long();
+#endif
+
+		local_bh_disable();
 		for (i = 1; i <= range; i++) {
 			port = low + (i + offset) % range;
  			head = &tcp_hashinfo.bhash[inet_bhashfn(port, tcp_hashinfo.bhash_size)];
@@ -290,6 +298,8 @@ ok:
  			__inet_hash(&tcp_hashinfo, sk, 0);
  		}
  		spin_unlock(&head->lock);
+
+		gr_update_task_in_ip_table(current, inet_sk(sk));
 
  		if (tw) {
  			inet_twsk_deschedule(tw, &tcp_death_row);;

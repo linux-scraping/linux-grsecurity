@@ -107,6 +107,19 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 			list_add(&vma->anon_vma_node, &anon_vma->head);
 			allocated = NULL;
 		}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma->vm_flags & VM_MIRROR) {
+			struct vm_area_struct *vma_m;
+
+			vma_m = find_vma(vma->vm_mm, vma->vm_start + vma->vm_mirror);
+			BUG_ON(!vma_m || vma_m->vm_start != vma->vm_start + vma->vm_mirror);
+			BUG_ON(vma_m->anon_vma || vma->vm_pgoff != vma_m->vm_pgoff);
+			vma_m->anon_vma = anon_vma;
+			__anon_vma_link(vma_m);
+		}
+#endif
+
 		spin_unlock(&mm->page_table_lock);
 
 		if (locked)

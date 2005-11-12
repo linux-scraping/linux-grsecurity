@@ -163,6 +163,16 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 typedef struct ia64_fpreg elf_fpreg_t;
 typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	((tsk)->personality == PER_LINUX32 ? 0x08048000UL : 0x4000000000000000UL)
+
+#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_MMAP_LEN(tsk)		((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - 13)
+#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_EXEC_LEN(tsk)		((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - 13)
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - 13)
+#endif
 
 
 struct pt_regs;	/* forward declaration... */

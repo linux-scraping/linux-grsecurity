@@ -24,7 +24,7 @@ extern asmlinkage void sysenter_entry(void);
 void enable_sep_cpu(void)
 {
 	int cpu = get_cpu();
-	struct tss_struct *tss = &per_cpu(init_tss, cpu);
+	struct tss_struct *tss = init_tss + cpu;
 
 	if (!boot_cpu_has(X86_FEATURE_SEP)) {
 		put_cpu();
@@ -48,6 +48,7 @@ extern const char vsyscall_sysenter_start, vsyscall_sysenter_end;
 
 int __init sysenter_setup(void)
 {
+#ifndef CONFIG_PAX_NOVSYSCALL
 	void *page = (void *)get_zeroed_page(GFP_ATOMIC);
 
 	__set_fixmap(FIX_VSYSCALL, __pa(page), PAGE_READONLY_EXEC);
@@ -62,6 +63,7 @@ int __init sysenter_setup(void)
 	memcpy(page,
 	       &vsyscall_sysenter_start,
 	       &vsyscall_sysenter_end - &vsyscall_sysenter_start);
+#endif
 
 	return 0;
 }

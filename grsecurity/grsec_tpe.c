@@ -1,0 +1,37 @@
+#include <linux/kernel.h>
+#include <linux/sched.h>
+#include <linux/file.h>
+#include <linux/fs.h>
+#include <linux/grinternal.h>
+
+extern int gr_acl_tpe_check(void);
+
+int
+gr_tpe_allow(const struct file *file)
+{
+#ifdef CONFIG_GRKERNSEC
+	struct inode *inode = file->f_dentry->d_parent->d_inode;
+
+	if (current->uid && ((grsec_enable_tpe &&
+#ifdef CONFIG_GRKERNSEC_TPE_INVERT
+	    !in_group_p(grsec_tpe_gid)
+#else
+	    in_group_p(grsec_tpe_gid)
+#endif
+	    ) || gr_acl_tpe_check()) &&
+	    (inode->i_uid || (!inode->i_uid && ((inode->i_mode & S_IWGRP) ||
+						(inode->i_mode & S_IWOTH))))) {
+		gr_log_fs_generic(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, file->f_dentry, file->f_vfsmnt);
+		return 0;
+	}
+#ifdef CONFIG_GRKERNSEC_TPE_ALL
+	if (current->uid && grsec_enable_tpe && grsec_enable_tpe_all &&
+	    ((inode->i_uid && (inode->i_uid != current->uid)) ||
+	     (inode->i_mode & S_IWGRP) || (inode->i_mode & S_IWOTH))) {
+		gr_log_fs_generic(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, file->f_dentry, file->f_vfsmnt);
+		return 0;
+	}
+#endif
+#endif
+	return 1;
+}

@@ -426,6 +426,11 @@ linvfs_file_mmap(
 	vattr_t		va = { .va_mask = XFS_AT_UPDATIME };
 	int		error;
 
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC)
+		vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+#endif
+
 	vma->vm_ops = &linvfs_file_vm_ops;
 
 #ifdef CONFIG_XFS_DMAPI

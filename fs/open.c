@@ -25,6 +25,7 @@
 #include <linux/pagemap.h>
 #include <linux/syscalls.h>
 #include <linux/rcupdate.h>
+#include <linux/grsecurity.h>
 
 #include <asm/unistd.h>
 
@@ -194,7 +195,7 @@ out:
 	return error;
 }
 
-int do_truncate(struct dentry *dentry, loff_t length)
+int do_truncate(struct dentry *dentry, loff_t length, struct vfsmount *mnt)
 {
 	int err;
 	struct iattr newattrs;
@@ -202,6 +203,9 @@ int do_truncate(struct dentry *dentry, loff_t length)
 	/* Not pretty: "inode->i_size" shouldn't really be signed. But it is. */
 	if (length < 0)
 		return -EINVAL;
+
+	if (!gr_acl_handle_truncate(dentry, mnt))
+		return -EACCES;
 
 	newattrs.ia_size = length;
 	newattrs.ia_valid = ATTR_SIZE | ATTR_CTIME;
@@ -262,7 +266,7 @@ static inline long do_sys_truncate(const char __user * path, loff_t length)
 	error = locks_verify_truncate(inode, NULL, length);
 	if (!error) {
 		DQUOT_INIT(inode);
-		error = do_truncate(nd.dentry, length);
+		error = do_truncate(nd.dentry, length, nd.mnt);
 	}
 	put_write_access(inode);
 
@@ -314,7 +318,7 @@ static inline long do_sys_ftruncate(unsigned int fd, loff_t length, int small)
 
 	error = locks_verify_truncate(inode, file, length);
 	if (!error)
-		error = do_truncate(dentry, length);
+		error = do_truncate(dentry, length, file->f_vfsmnt);
 out_putf:
 	fput(file);
 out:
@@ -393,6 +397,11 @@ asmlinkage long sys_utime(char __user * filename, struct utimbuf __user * times)
 		    (error = permission(inode,MAY_WRITE,&nd)) != 0)
 			goto dput_and_out;
 	}
+	if (!gr_acl_handle_utime(nd.dentry, nd.mnt)) {
+		error = -EACCES;
+		goto dput_and_out;
+	}
+
 	down(&inode->i_sem);
 	error = notify_change(nd.dentry, &newattrs);
 	up(&inode->i_sem);
@@ -446,6 +455,12 @@ long do_utimes(char __user * filename, struct timeval * times)
 		    (error = permission(inode,MAY_WRITE,&nd)) != 0)
 			goto dput_and_out;
 	}
+
+	if (!gr_acl_handle_utime(nd.dentry, nd.mnt)) {
+		error = -EACCES;
+		goto dput_and_out;
+	}
+
 	down(&inode->i_sem);
 	error = notify_change(nd.dentry, &newattrs);
 	up(&inode->i_sem);
@@ -507,6 +522,10 @@ asmlinkage long sys_access(const char __user * filename, int mode)
 		if(!res && (mode & S_IWOTH) && IS_RDONLY(nd.dentry->d_inode)
 		   && !special_file(nd.dentry->d_inode->i_mode))
 			res = -EROFS;
+
+		if (!res && !gr_acl_handle_access(nd.dentry, nd.mnt, mode))
+			res = -EACCES;
+
 		path_release(&nd);
 	}
 
@@ -529,6 +548,8 @@ asmlinkage long sys_chdir(const char __user * filename)
 	error = permission(nd.dentry->d_inode,MAY_EXEC,&nd);
 	if (error)
 		goto dput_and_out;
+
+	gr_log_chdir(nd.dentry, nd.mnt);
 
 	set_fs_pwd(current->fs, nd.mnt, nd.dentry);
 
@@ -560,6 +581,13 @@ asmlinkage long sys_fchdir(unsigned int fd)
 		goto out_putf;
 
 	error = permission(inode, MAY_EXEC, NULL);
+
+	if (!error && !gr_chroot_fchdir(dentry, mnt))
+		error = -EPERM;
+
+	if (!error)
+		gr_log_chdir(dentry, mnt);
+
 	if (!error)
 		set_fs_pwd(current->fs, mnt, dentry);
 out_putf:
@@ -585,8 +613,16 @@ asmlinkage long sys_chroot(const char __user * filename)
 	if (!capable(CAP_SYS_CHROOT))
 		goto dput_and_out;
 
+	if (gr_handle_chroot_chroot(nd.dentry, nd.mnt))
+		goto dput_and_out;
+
 	set_fs_root(current->fs, nd.mnt, nd.dentry);
 	set_fs_altroot();
+
+	gr_handle_chroot_caps(current);
+
+	gr_handle_chroot_chdir(nd.dentry, nd.mnt);
+
 	error = 0;
 dput_and_out:
 	path_release(&nd);
@@ -615,9 +651,22 @@ asmlinkage long sys_fchmod(unsigned int fd, mode_t mode)
 	err = -EPERM;
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto out_putf;
+
+	if (!gr_acl_handle_fchmod(dentry, file->f_vfsmnt, mode)) {
+		err = -EACCES;
+		goto out_putf;
+	}
+
 	down(&inode->i_sem);
 	if (mode == (mode_t) -1)
 		mode = inode->i_mode;
+
+	if (gr_handle_chroot_chmod(dentry, file->f_vfsmnt, mode)) {
+		err = -EPERM;
+		up(&inode->i_sem);
+		goto out_putf;
+	}
+
 	newattrs.ia_mode = (mode & S_IALLUGO) | (inode->i_mode & ~S_IALLUGO);
 	newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
 	err = notify_change(dentry, &newattrs);
@@ -649,9 +698,21 @@ asmlinkage long sys_chmod(const char __user * filename, mode_t mode)
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto dput_and_out;
 
+	if (!gr_acl_handle_chmod(nd.dentry, nd.mnt, mode)) {
+		error = -EACCES;
+		goto dput_and_out;
+	}
+
 	down(&inode->i_sem);
 	if (mode == (mode_t) -1)
 		mode = inode->i_mode;
+
+	if (gr_handle_chroot_chmod(nd.dentry, nd.mnt, mode)) {
+		error = -EACCES;
+		up(&inode->i_sem);
+		goto dput_and_out;
+	}
+
 	newattrs.ia_mode = (mode & S_IALLUGO) | (inode->i_mode & ~S_IALLUGO);
 	newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
 	error = notify_change(nd.dentry, &newattrs);
@@ -663,7 +724,7 @@ out:
 	return error;
 }
 
-static int chown_common(struct dentry * dentry, uid_t user, gid_t group)
+static int chown_common(struct dentry * dentry, uid_t user, gid_t group, struct vfsmount *mnt)
 {
 	struct inode * inode;
 	int error;
@@ -680,6 +741,12 @@ static int chown_common(struct dentry * dentry, uid_t user, gid_t group)
 	error = -EPERM;
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto out;
+
+	if (!gr_acl_handle_chown(dentry, mnt)) {
+		error = -EACCES;
+		goto out;
+	}
+
 	newattrs.ia_valid =  ATTR_CTIME;
 	if (user != (uid_t) -1) {
 		newattrs.ia_valid |= ATTR_UID;
@@ -705,7 +772,7 @@ asmlinkage long sys_chown(const char __user * filename, uid_t user, gid_t group)
 
 	error = user_path_walk(filename, &nd);
 	if (!error) {
-		error = chown_common(nd.dentry, user, group);
+		error = chown_common(nd.dentry, user, group, nd.mnt);
 		path_release(&nd);
 	}
 	return error;
@@ -718,7 +785,7 @@ asmlinkage long sys_lchown(const char __user * filename, uid_t user, gid_t group
 
 	error = user_path_walk_link(filename, &nd);
 	if (!error) {
-		error = chown_common(nd.dentry, user, group);
+		error = chown_common(nd.dentry, user, group, nd.mnt);
 		path_release(&nd);
 	}
 	return error;
@@ -732,7 +799,8 @@ asmlinkage long sys_fchown(unsigned int fd, uid_t user, gid_t group)
 
 	file = fget(fd);
 	if (file) {
-		error = chown_common(file->f_dentry, user, group);
+		error = chown_common(file->f_dentry, user,
+				     group, file->f_vfsmnt);
 		fput(file);
 	}
 	return error;
@@ -872,6 +940,7 @@ repeat:
 	 * N.B. For clone tasks sharing a files structure, this test
 	 * will limit the total number of files that can be opened.
 	 */
+	gr_learn_resource(current, RLIMIT_NOFILE, fd, 0);
 	if (fd >= current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
 		goto out;
 

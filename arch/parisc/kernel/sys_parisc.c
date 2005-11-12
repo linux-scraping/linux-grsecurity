@@ -105,7 +105,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 	if (!addr)
-		addr = TASK_UNMAPPED_BASE;
+		addr = current->mm->mmap_base;
 
 	if (filp) {
 		addr = get_shared_area(filp->f_mapping, addr, len, pgoff);

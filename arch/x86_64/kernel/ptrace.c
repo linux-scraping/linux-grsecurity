@@ -19,6 +19,7 @@
 #include <linux/audit.h>
 #include <linux/seccomp.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -346,6 +347,9 @@ asmlinkage long sys_ptrace(long request, long pid, unsigned long addr, long data
 	ret = -EPERM;
 	if (pid == 1)		/* you may not mess with init */
 		goto out_tsk;
+
+        if (gr_handle_ptrace(child, request))
+                goto out_tsk;
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);

@@ -52,7 +52,13 @@ void __init proc_root_init(void)
 		return;
 	}
 	proc_misc_init();
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	proc_net = proc_mkdir_mode("net", S_IRUSR | S_IXUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	proc_net = proc_mkdir_mode("net", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
+#else
 	proc_net = proc_mkdir("net", NULL);
+#endif
 	proc_net_stat = proc_mkdir("net/stat", NULL);
 
 #ifdef CONFIG_SYSVIPC
@@ -76,7 +82,15 @@ void __init proc_root_init(void)
 #ifdef CONFIG_PROC_DEVICETREE
 	proc_device_tree_init();
 #endif
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR, NULL);
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
+#endif
+#else
 	proc_bus = proc_mkdir("bus", NULL);
+#endif
 }
 
 static struct dentry *proc_root_lookup(struct inode * dir, struct dentry * dentry, struct nameidata *nd)

@@ -58,6 +58,7 @@
 #include <linux/file.h>
 #include <linux/workqueue.h>
 #include <linux/random.h>
+#include <linux/grsecurity.h>
 
 #include <net/sock.h>
 #include <net/checksum.h>

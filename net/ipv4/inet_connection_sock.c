@@ -16,6 +16,7 @@
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/jhash.h>
+#include <linux/grsecurity.h>
 
 #include <net/inet_connection_sock.h>
 #include <net/inet_hashtables.h>
@@ -85,6 +86,10 @@ int inet_csk_get_port(struct inet_hashinfo *hashinfo,
 			rover = low;
 		else
 			rover = hashinfo->port_rover;
+#ifdef CONFIG_GRKERNSEC_RANDSRC
+		if (grsec_enable_randsrc && (high > low))
+			rover = low + (get_random_long() % remaining);
+#endif
 		do {
 			rover++;
 			if (rover > high)

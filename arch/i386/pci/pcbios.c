@@ -8,7 +8,6 @@
 #include "pci.h"
 #include "pci-functions.h"
 
-
 /* BIOS32 signature: "_32_" */
 #define BIOS32_SIGNATURE	(('_' << 0) + ('3' << 8) + ('2' << 16) + ('_' << 24))
 

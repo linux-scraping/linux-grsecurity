@@ -9,10 +9,10 @@
 #define LARGE_PAGE_MASK (~(LARGE_PAGE_SIZE-1))
 #define LARGE_PAGE_SIZE (1UL << PMD_SHIFT)
 
+#include <linux/config.h>
+
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
-
-#include <linux/config.h>
 
 #ifdef CONFIG_X86_USE_3DNOW
 
@@ -57,7 +57,6 @@ typedef struct { unsigned long long pgprot; } pgprot_t;
 typedef struct { unsigned long pte_low; } pte_t;
 typedef struct { unsigned long pgd; } pgd_t;
 typedef struct { unsigned long pgprot; } pgprot_t;
-#define boot_pte_t pte_t /* or would you rather have a typedef */
 #define pte_val(x)	((x).pte_low)
 #define HPAGE_SHIFT	22
 #endif
@@ -118,6 +117,23 @@ extern int page_is_ram(unsigned long pagenr);
 #endif
 #define __KERNEL_START		(__PAGE_OFFSET + __PHYSICAL_START)
 
+#endif /* __KERNEL__ */
+
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef __ASSEMBLY__
+#define __KERNEL_TEXT_OFFSET	(0xC0400000)
+#else
+#define __KERNEL_TEXT_OFFSET	(0xC0400000UL)
+#endif
+#else
+#ifdef __ASSEMBLY__
+#define __KERNEL_TEXT_OFFSET	(0)
+#else
+#define __KERNEL_TEXT_OFFSET	(0x0UL)
+#endif
+#endif
+
+#ifdef __KERNEL__
 
 #define PAGE_OFFSET		((unsigned long)__PAGE_OFFSET)
 #define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)
@@ -138,6 +154,19 @@ extern int page_is_ram(unsigned long pagenr);
 	(VM_READ | VM_WRITE | \
 	((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
 		 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+#ifdef CONFIG_PAX_MPROTECT
+#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
+			  ((current->mm->pax_flags & (MF_PAX_PAGEEXEC|MF_PAX_SEGMEXEC))?0:VM_EXEC))
+#else
+#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & (MF_PAX_PAGEEXEC|MF_PAX_SEGMEXEC))?0:VM_EXEC))
+#endif
+#endif
+
+#ifdef CONFIG_PAX_PAGEEXEC
+#define CONFIG_ARCH_TRACK_EXEC_LIMIT 1
+#endif
 
 #endif /* __KERNEL__ */
 

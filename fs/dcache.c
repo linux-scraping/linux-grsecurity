@@ -1355,7 +1355,7 @@ already_unhashed:
  *
  * "buflen" should be positive. Caller holds the dcache_lock.
  */
-static char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
+char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
 			struct dentry *root, struct vfsmount *rootmnt,
 			char *buffer, int buflen)
 {

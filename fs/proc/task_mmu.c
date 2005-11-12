@@ -26,13 +26,24 @@ char *task_mem(struct mm_struct *mm, char *buffer)
 		"VmStk:\t%8lu kB\n"
 		"VmExe:\t%8lu kB\n"
 		"VmLib:\t%8lu kB\n"
-		"VmPTE:\t%8lu kB\n",
-		(mm->total_vm - mm->reserved_vm) << (PAGE_SHIFT-10),
+		"VmPTE:\t%8lu kB\n"
+
+#ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+		"CsBase:\t%8lx\nCsLim:\t%8lx\n"
+#endif
+
+		,(mm->total_vm - mm->reserved_vm) << (PAGE_SHIFT-10),
 		mm->locked_vm << (PAGE_SHIFT-10),
 		get_mm_counter(mm, rss) << (PAGE_SHIFT-10),
 		data << (PAGE_SHIFT-10),
 		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
-		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10);
+		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10
+
+#ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+		, mm->context.user_cs_base, mm->context.user_cs_limit
+#endif
+
+	);
 	return buffer;
 }
 
@@ -101,6 +112,12 @@ struct mem_size_stats
 	unsigned long private_dirty;
 };
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
+			    (_mm->pax_flags & MF_PAX_RANDMMAP || \
+			     _mm->pax_flags & MF_PAX_SEGMEXEC))
+#endif
+
 static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats *mss)
 {
 	struct task_struct *task = m->private;
@@ -119,13 +136,30 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 	}
 
 	seq_printf(m, "%08lx-%08lx %c%c%c%c %08lx %02x:%02x %lu %n",
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+			PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_start,
+			PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_end,
+#else
 			vma->vm_start,
 			vma->vm_end,
+#endif
+
+#if 0
+			flags & VM_MAYREAD ? flags & VM_READ ? 'R' : '+' : flags & VM_READ ? 'r' : '-',
+			flags & VM_MAYWRITE ? flags & VM_WRITE ? 'W' : '+' : flags & VM_WRITE ? 'w' : '-',
+			flags & VM_MAYEXEC ? flags & VM_EXEC ? 'X' : '+' : flags & VM_EXEC ? 'x' : '-',
+#else
 			flags & VM_READ ? 'r' : '-',
 			flags & VM_WRITE ? 'w' : '-',
 			flags & VM_EXEC ? 'x' : '-',
+#endif
+
 			flags & VM_MAYSHARE ? 's' : 'p',
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+			PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_pgoff << PAGE_SHIFT,
+#else
 			vma->vm_pgoff << PAGE_SHIFT,
+#endif
 			MAJOR(dev), MINOR(dev), ino, &len);
 
 	/*
@@ -137,13 +171,13 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 		seq_path(m, file->f_vfsmnt, file->f_dentry, "\n");
 	} else {
 		if (mm) {
-			if (vma->vm_start <= mm->start_brk &&
-						vma->vm_end >= mm->brk) {
+			if (vma->vm_start <= mm->brk && vma->vm_end >= mm->start_brk) {
 				pad_len_spaces(m, len);
 				seq_puts(m, "[heap]");
 			} else {
-				if (vma->vm_start <= mm->start_stack &&
-					vma->vm_end >= mm->start_stack) {
+				if ((vma->vm_flags & (VM_GROWSDOWN | VM_GROWSUP)) ||
+				    (vma->vm_start <= mm->start_stack &&
+					vma->vm_end >= mm->start_stack)) {
 
 					pad_len_spaces(m, len);
 					seq_puts(m, "[stack]");
@@ -156,7 +190,25 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 	}
 	seq_putc(m, '\n');
 
-	if (mss)
+	
+	if (mss) {
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	    if (PAX_RAND_FLAGS(mm))
+		seq_printf(m,
+			   "Size:          %8lu kB\n"
+			   "Rss:           %8lu kB\n"
+			   "Shared_Clean:  %8lu kB\n"
+			   "Shared_Dirty:  %8lu kB\n"
+			   "Private_Clean: %8lu kB\n"
+			   "Private_Dirty: %8lu kB\n",
+			   0UL,
+			   0UL,
+			   0UL,
+			   0UL,
+			   0UL,
+			   0UL);
+	    else
+#endif
 		seq_printf(m,
 			   "Size:          %8lu kB\n"
 			   "Rss:           %8lu kB\n"
@@ -170,6 +222,7 @@ static int show_map_internal(struct seq_file *m, void *v, struct mem_size_stats 
 			   mss->shared_dirty  >> 10,
 			   mss->private_clean >> 10,
 			   mss->private_dirty >> 10);
+	}
 
 	if (m->count < m->size)  /* vma is copied successfully */
 		m->version = (vma != get_gate_vma(task))? vma->vm_start: 0;
@@ -444,7 +497,7 @@ static int show_numa_map(struct seq_file *m, void *v)
 	if (!md)
 		return 0;
 
-	seq_printf(m, "%08lx", vma->vm_start);
+	seq_printf(m, "%08lx", PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : vma->vm_start);
 	pol = get_vma_policy(task, vma, vma->vm_start);
 	/* Print policy */
 	switch (pol->policy) {

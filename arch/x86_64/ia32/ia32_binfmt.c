@@ -186,6 +186,17 @@ struct elf_prpsinfo
 //#include <asm/ia32.h>
 #include <linux/elf.h>
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	0x08048000UL
+
+#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_MMAP_LEN(tsk)		16
+#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_EXEC_LEN(tsk)		16
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	16
+#endif
+
 typedef struct user_i387_ia32_struct elf_fpregset_t;
 typedef struct user32_fxsr_struct elf_fpxregset_t;
 

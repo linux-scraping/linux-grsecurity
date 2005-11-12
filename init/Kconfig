@@ -267,6 +267,7 @@ menuconfig EMBEDDED
 config KALLSYMS
 	 bool "Load all symbols for debugging/kksymoops" if EMBEDDED
 	 default y
+	 depends on !GRKERNSEC_HIDESYM
 	 help
 	   Say Y here to let the kernel print out symbolic crash information and
 	   symbolic stack backtraces. This increases the size of the kernel

@@ -379,7 +379,7 @@ void exit_thread(void)
 	/* The process may have allocated an io port bitmap... nuke it. */
 	if (unlikely(NULL != t->io_bitmap_ptr)) {
 		int cpu = get_cpu();
-		struct tss_struct *tss = &per_cpu(init_tss, cpu);
+		struct tss_struct *tss = init_tss + cpu;
 
 		kfree(t->io_bitmap_ptr);
 		t->io_bitmap_ptr = NULL;
@@ -406,6 +406,9 @@ void flush_thread(void)
 	 */
 	kprobe_flush_task(tsk);
 
+	__asm__("mov %0,%%fs\n"
+		"mov %0,%%gs\n"
+		: : "r" (0) : "memory");
 	memset(tsk->thread.debugreg, 0, sizeof(unsigned long)*8);
 	memset(tsk->thread.tls_array, 0, sizeof(tsk->thread.tls_array));	
 	/*
@@ -565,9 +568,8 @@ EXPORT_SYMBOL(dump_thread);
 int dump_task_regs(struct task_struct *tsk, elf_gregset_t *regs)
 {
 	struct pt_regs ptregs;
-	
-	ptregs = *(struct pt_regs *)
-		((unsigned long)tsk->thread_info+THREAD_SIZE - sizeof(ptregs));
+
+	ptregs = *(struct pt_regs *)(tsk->thread.esp0 - sizeof(ptregs));
 	ptregs.xcs &= 0xffff;
 	ptregs.xds &= 0xffff;
 	ptregs.xes &= 0xffff;
@@ -669,16 +671,15 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
 	int cpu = smp_processor_id();
-	struct tss_struct *tss = &per_cpu(init_tss, cpu);
+	struct tss_struct *tss = init_tss + cpu;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr3;
+#endif
 
 	/* never put a printk in __switch_to... printk() calls wake_up*() indirectly */
 
 	__unlazy_fpu(prev_p);
-
-	/*
-	 * Reload esp0.
-	 */
-	load_esp0(tss, next);
 
 	/*
 	 * Save away %fs and %gs. No need to save %es and %ds, as
@@ -692,10 +693,26 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	savesegment(fs, prev->fs);
 	savesegment(gs, prev->gs);
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel_noirq(cr3);
+#endif
+
+	/*
+	 * Reload esp0.
+	 */
+	load_esp0(tss, next);
+
 	/*
 	 * Load the per-thread Thread-Local Storage descriptor.
 	 */
 	load_TLS(next, cpu);
+
+	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr))
+		handle_io_bitmap(next, tss);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel_noirq(cr3);
+#endif
 
 	/*
 	 * Restore %fs and %gs if needed.
@@ -727,9 +744,6 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 		set_debugreg(next->debugreg[6], 6);
 		set_debugreg(next->debugreg[7], 7);
 	}
-
-	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr))
-		handle_io_bitmap(next, tss);
 
 	disable_tsc(prev_p, next_p);
 
@@ -851,6 +865,10 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 	struct desc_struct *desc;
 	int cpu, idx;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr3;
+#endif
+
 	if (copy_from_user(&info, u_info, sizeof(info)))
 		return -EFAULT;
 	idx = info.entry_number;
@@ -884,7 +902,16 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 		desc->a = LDT_entry_a(&info);
 		desc->b = LDT_entry_b(&info);
 	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr3);
+#endif
+
 	load_TLS(t, cpu);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr3);
+#endif
 
 	put_cpu();
 
@@ -947,3 +974,28 @@ unsigned long arch_align_stack(unsigned long sp)
 		sp -= get_random_int() % 8192;
 	return sp & ~0xf;
 }
+
+#ifdef CONFIG_PAX_RANDKSTACK
+asmlinkage void pax_randomize_kstack(void)
+{
+	struct tss_struct *tss = init_tss + smp_processor_id();
+	unsigned long time;
+
+	if (!randomize_va_space)
+		return;
+
+	rdtscl(time);
+
+      /* P4 seems to return a 0 LSB, ignore it */
+#ifdef CONFIG_MPENTIUM4
+	time &= 0x3EUL;
+	time <<= 1;
+#else
+	time &= 0x1FUL;
+	time <<= 2;
+#endif
+
+	tss->esp0 ^= time;
+	current->thread.esp0 = tss->esp0;
+}
+#endif

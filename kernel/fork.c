@@ -42,6 +42,7 @@
 #include <linux/profile.h>
 #include <linux/rmap.h>
 #include <linux/acct.h>
+#include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -195,8 +196,8 @@ static inline int dup_mmap(struct mm_struct * mm, struct mm_struct * oldmm)
 	mm->locked_vm = 0;
 	mm->mmap = NULL;
 	mm->mmap_cache = NULL;
-	mm->free_area_cache = oldmm->mmap_base;
-	mm->cached_hole_size = ~0UL;
+	mm->free_area_cache = oldmm->free_area_cache;
+	mm->cached_hole_size = oldmm->cached_hole_size;
 	mm->map_count = 0;
 	set_mm_counter(mm, rss, 0);
 	set_mm_counter(mm, anon_rss, 0);
@@ -327,7 +328,7 @@ static struct mm_struct * mm_init(struct mm_struct * mm)
 	rwlock_init(&mm->ioctx_list_lock);
 	mm->ioctx_list = NULL;
 	mm->default_kioctx = (struct kioctx)INIT_KIOCTX(mm->default_kioctx, *mm);
-	mm->free_area_cache = TASK_UNMAPPED_BASE;
+	mm->free_area_cache = ~0UL;
 	mm->cached_hole_size = ~0UL;
 
 	if (likely(!mm_alloc_pgd(mm))) {
@@ -909,6 +910,9 @@ static task_t *copy_process(unsigned long clone_flags,
 		goto fork_out;
 
 	retval = -EAGAIN;
+
+	gr_learn_resource(p, RLIMIT_NPROC, atomic_read(&p->user->processes), 0);
+
 	if (atomic_read(&p->user->processes) >=
 			p->signal->rlim[RLIMIT_NPROC].rlim_cur) {
 		if (!capable(CAP_SYS_ADMIN) && !capable(CAP_SYS_RESOURCE) &&
@@ -1012,6 +1016,8 @@ static task_t *copy_process(unsigned long clone_flags,
 	retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
 	if (retval)
 		goto bad_fork_cleanup_namespace;
+
+	gr_copy_label(p);
 
 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
 	/*
@@ -1195,6 +1201,9 @@ bad_fork_cleanup_count:
 	free_uid(p->user);
 bad_fork_free:
 	free_task(p);
+
+	gr_log_forkfail(retval);
+
 	goto fork_out;
 }
 
@@ -1252,6 +1261,9 @@ long do_fork(unsigned long clone_flags,
 
 	if (pid < 0)
 		return -EAGAIN;
+
+	gr_handle_brute_check();
+
 	if (unlikely(current->ptrace)) {
 		trace = fork_traceflag (clone_flags);
 		if (trace)

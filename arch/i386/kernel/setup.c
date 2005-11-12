@@ -59,6 +59,7 @@
 #include <asm/io.h>
 #include "setup_arch_pre.h"
 #include <bios_ebda.h>
+#include <asm/desc.h>
 
 /* Forward Declaration. */
 void __init find_max_pfn(void);
@@ -85,7 +86,11 @@ struct cpuinfo_x86 new_cpu_data __initdata = { 0, 0, 0, 0, -1, 1, 0, 0, -1 };
 struct cpuinfo_x86 boot_cpu_data __read_mostly = { 0, 0, 0, 0, -1, 1, 0, 0, -1 };
 EXPORT_SYMBOL(boot_cpu_data);
 
+#ifdef CONFIG_X86_PAE
+unsigned long mmu_cr4_features = X86_CR4_PAE;
+#else
 unsigned long mmu_cr4_features;
+#endif
 
 #ifdef	CONFIG_ACPI
 	int acpi_disabled = 0;
@@ -1428,12 +1433,22 @@ void apply_alternatives(void *start, void *end)
 	struct alt_instr *a; 
 	int diff, i, k;
         unsigned char **noptable = intel_nops; 
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr3;
+#endif
+
 	for (i = 0; noptypes[i].cpuid >= 0; i++) { 
 		if (boot_cpu_has(noptypes[i].cpuid)) { 
 			noptable = noptypes[i].noptable;
 			break;
 		}
 	} 
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr3);
+#endif
+
 	for (a = start; (void *)a < end; a++) { 
 		if (!boot_cpu_has(a->cpuid))
 			continue;
@@ -1448,6 +1463,11 @@ void apply_alternatives(void *start, void *end)
 			memcpy(a->instr + i, noptable[k], k); 
 		} 
 	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr3);
+#endif
+
 } 
 
 void __init alternative_instructions(void)
@@ -1526,14 +1546,14 @@ void __init setup_arch(char **cmdline_p)
 
 	if (!MOUNT_ROOT_RDONLY)
 		root_mountflags &= ~MS_RDONLY;
-	init_mm.start_code = (unsigned long) _text;
-	init_mm.end_code = (unsigned long) _etext;
+	init_mm.start_code = (unsigned long) _text + __KERNEL_TEXT_OFFSET;
+	init_mm.end_code = (unsigned long) _etext + __KERNEL_TEXT_OFFSET;
 	init_mm.end_data = (unsigned long) _edata;
 	init_mm.brk = init_pg_tables_end + PAGE_OFFSET;
 
-	code_resource.start = virt_to_phys(_text);
-	code_resource.end = virt_to_phys(_etext)-1;
-	data_resource.start = virt_to_phys(_etext);
+	code_resource.start = virt_to_phys(_text + __KERNEL_TEXT_OFFSET);
+	code_resource.end = virt_to_phys(_etext + __KERNEL_TEXT_OFFSET)-1;
+	data_resource.start = virt_to_phys(_data);
 	data_resource.end = virt_to_phys(_edata)-1;
 
 	parse_cmdline_early(cmdline_p);

@@ -62,6 +62,8 @@ extern __u32 secure_tcpv6_sequence_number(__u32 *saddr, __u32 *daddr,
 extern u64 secure_dccp_sequence_number(__u32 saddr, __u32 daddr,
 				       __u16 sport, __u16 dport);
 
+extern unsigned long pax_get_random_long(void);
+
 #ifndef MODULE
 extern struct file_operations random_fops, urandom_fops;
 #endif

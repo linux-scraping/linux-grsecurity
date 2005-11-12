@@ -71,7 +71,22 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
    the loader.  We need to make sure that it is out of the way of the program
    that it will "exec", and that there is sufficient room for the brk.  */
 
+#ifdef CONFIG_PAX_SEGMEXEC
+#define ELF_ET_DYN_BASE         ((current->mm->pax_flags & MF_PAX_SEGMEXEC) ? SEGMEXEC_TASK_SIZE/3*2 : TASK_SIZE/3*2)
+#else
 #define ELF_ET_DYN_BASE         (TASK_SIZE / 3 * 2)
+#endif
+
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE(tsk)	0x10000000UL
+
+#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_MMAP_LEN(tsk)		15
+#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
+#define PAX_DELTA_EXEC_LEN(tsk)		15
+#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
+#define PAX_DELTA_STACK_LEN(tsk)	((tsk)->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
+#endif
 
 /* regs is struct pt_regs, pr_reg is elf_gregset_t (which is
    now struct_user_regs, they are different) */
@@ -129,7 +144,14 @@ extern int dump_task_extended_fpu (struct task_struct *, struct user_fxsr_struct
 
 #define VSYSCALL_BASE	(__fix_to_virt(FIX_VSYSCALL))
 #define VSYSCALL_EHDR	((const struct elfhdr *) VSYSCALL_BASE)
+
+#ifndef CONFIG_PAX_NOVSYSCALL
+#ifdef CONFIG_PAX_SEGMEXEC
+#define VSYSCALL_ENTRY	((current->mm->pax_flags & MF_PAX_SEGMEXEC) ? (unsigned long) &__kernel_vsyscall - SEGMEXEC_TASK_SIZE : (unsigned long) &__kernel_vsyscall)
+#else
 #define VSYSCALL_ENTRY	((unsigned long) &__kernel_vsyscall)
+#endif
+
 extern void __kernel_vsyscall;
 
 #define ARCH_DLINFO						\
@@ -181,6 +203,8 @@ do {									      \
 				   PAGE_ALIGN(vsyscall_phdrs[i].p_memsz));    \
 	}								      \
 } while (0)
+
+#endif
 
 #endif
 

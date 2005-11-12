@@ -4,9 +4,18 @@
 
 #define LOAD_OFFSET __PAGE_OFFSET
 
+#include <linux/config.h>
+
 #include <asm-generic/vmlinux.lds.h>
 #include <asm/thread_info.h>
 #include <asm/page.h>
+#include <asm/segment.h>
+
+#ifdef CONFIG_X86_PAE
+#define PMD_SHIFT 21
+#else
+#define PMD_SHIFT 22
+#endif
 
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
@@ -15,67 +24,17 @@ jiffies = jiffies_64;
 SECTIONS
 {
   . = __KERNEL_START;
-  phys_startup_32 = startup_32 - LOAD_OFFSET;
-  /* read-only */
-  _text = .;			/* Text and read-only data */
-  .text : AT(ADDR(.text) - LOAD_OFFSET) {
-	*(.text)
-	SCHED_TEXT
-	LOCK_TEXT
-	KPROBES_TEXT
-	*(.fixup)
-	*(.gnu.warning)
-	} = 0x9090
+  phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 
-  _etext = .;			/* End of text section */
-
-  . = ALIGN(16);		/* Exception table */
-  __start___ex_table = .;
-  __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) { *(__ex_table) }
-  __stop___ex_table = .;
-
-  RODATA
-
-  /* writeable */
-  .data : AT(ADDR(.data) - LOAD_OFFSET) {	/* Data */
-	*(.data)
-	CONSTRUCTORS
+  .text.startup : AT(ADDR(.text.startup) - LOAD_OFFSET) {
+	BYTE(0xEA) /* jmp far */
+	LONG(phys_startup_32)
+	SHORT(__BOOT_CS)
 	}
-
-  . = ALIGN(4096);
-  __nosave_begin = .;
-  .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) { *(.data.nosave) }
-  . = ALIGN(4096);
-  __nosave_end = .;
-
-  . = ALIGN(4096);
-  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
-	*(.data.idt)
-  }
-
-  . = ALIGN(32);
-  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
-	*(.data.cacheline_aligned)
-  }
-
-  /* rarely changed data like cpu maps */
-  . = ALIGN(32);
-  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) { *(.data.read_mostly) }
-  _edata = .;			/* End of data section */
-
-  . = ALIGN(THREAD_SIZE);	/* init_task */
-  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
-	*(.data.init_task)
-  }
 
   /* will be freed after init */
   . = ALIGN(4096);		/* Init code and data */
   __init_begin = .;
-  .init.text : AT(ADDR(.init.text) - LOAD_OFFSET) {
-	_sinittext = .;
-	*(.init.text)
-	_einittext = .;
-  }
   .init.data : AT(ADDR(.init.data) - LOAD_OFFSET) { *(.init.data) }
   . = ALIGN(16);
   __setup_start = .;
@@ -107,9 +66,7 @@ SECTIONS
   .altinstr_replacement : AT(ADDR(.altinstr_replacement) - LOAD_OFFSET) {
 	*(.altinstr_replacement)
   }
-  /* .exit.text is discard at runtime, not link time, to deal with references
-     from .altinstructions and .eh_frame */
-  .exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) { *(.exit.text) }
+
   .exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) { *(.exit.data) }
   . = ALIGN(4096);
   __initramfs_start = .;
@@ -119,10 +76,106 @@ SECTIONS
   __per_cpu_start = .;
   .data.percpu  : AT(ADDR(.data.percpu) - LOAD_OFFSET) { *(.data.percpu) }
   __per_cpu_end = .;
+
+  /* read-only */
+
   . = ALIGN(4096);
-  __init_end = .;
+  .init.text (. - __KERNEL_TEXT_OFFSET) : AT(ADDR(.init.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	_sinittext = .;
+	*(.init.text)
+	_einittext = .;
+  }
+
+  /* .exit.text is discard at runtime, not link time, to deal with references
+     from .altinstructions and .eh_frame */
+  .exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) { *(.exit.text) }
+
+#ifdef CONFIG_PAX_KERNEXEC
+  .text.align : AT(ADDR(.text.align) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	. = ALIGN(__KERNEL_TEXT_OFFSET - LOAD_OFFSET) - 1;
+	BYTE(0)
+  }
+#else
+  . = ALIGN(4096);
+#endif
+
+  __init_end = . + __KERNEL_TEXT_OFFSET;
   /* freed after init ends here */
-	
+
+  _text = .;			/* Text and read-only data */
+  .text : AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	*(.text)
+	SCHED_TEXT
+	LOCK_TEXT
+	KPROBES_TEXT
+	*(.fixup)
+	*(.gnu.warning)
+	} = 0x9090
+
+  _etext = .;			/* End of text section */
+  . += __KERNEL_TEXT_OFFSET;
+  . = ALIGN(16);		/* Exception table */
+  __start___ex_table = .;
+  __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) { *(__ex_table) }
+  __stop___ex_table = .;
+
+  . = ALIGN(4096);
+  .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
+	*(.rodata.empty_zero_page)
+	*(.rodata.idt)
+	}
+
+  RODATA
+
+#ifdef CONFIG_PAX_KERNEXEC
+  .data.align : AT(ADDR(.data.align) - LOAD_OFFSET) {
+	. = ALIGN(1 << PMD_SHIFT) - 1;
+	BYTE(0)
+  }
+#else
+  . = ALIGN(32);
+#endif
+
+  /* writeable */
+  .data : AT(ADDR(.data) - LOAD_OFFSET) {	/* Data */
+	_data = .;
+	*(.data)
+	CONSTRUCTORS
+	}
+
+  . = ALIGN(4096);
+  __nosave_begin = .;
+  .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) { *(.data.nosave) }
+  . = ALIGN(4096);
+  __nosave_end = .;
+
+  . = ALIGN(32);
+  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
+	*(.data.cacheline_aligned)
+  }
+
+  /* rarely changed data like cpu maps */
+  . = ALIGN(32);
+  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) { *(.data.read_mostly) }
+
+  . = ALIGN(THREAD_SIZE);	/* init_task */
+  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
+	*(.data.init_task)
+  }
+
+  . = ALIGN(4096);
+  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
+
+#ifdef CONFIG_X86_PAE
+	*(.data.swapper_pm_dir)
+#endif
+
+	*(.data.swapper_pg_dir)
+  }
+
+  _edata = .;			/* End of data section */
+
+  . = ALIGN(4096);
   __bss_start = .;		/* BSS */
   .bss.page_aligned : AT(ADDR(.bss.page_aligned) - LOAD_OFFSET) {
 	*(.bss.page_aligned)

@@ -46,6 +46,7 @@
 #include <linux/rwsem.h>
 #include <linux/acct.h>
 #include <linux/mm.h>
+#include <linux/grsecurity.h>
 
 #include <net/sock.h>		/* siocdevprivate_ioctl */
 
@@ -1427,6 +1428,11 @@ int compat_do_execve(char * filename,
 	struct file *file;
 	int retval;
 	int i;
+#ifdef CONFIG_GRKERNSEC
+	struct file *old_exec_file;
+	struct acl_subject_label *old_acl;
+	struct rlimit old_rlim[RLIM_NLIMITS];
+#endif
 
 	retval = -ENOMEM;
 	bprm = kmalloc(sizeof(*bprm), GFP_KERNEL);
@@ -1445,6 +1451,15 @@ int compat_do_execve(char * filename,
 	bprm->file = file;
 	bprm->filename = filename;
 	bprm->interp = filename;
+
+	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->user->processes), 1);
+	retval = -EAGAIN;
+	if (gr_handle_nproc())
+		goto out_file;
+	retval = -EACCES;
+	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt))
+		goto out_file;
+
 	bprm->mm = mm_alloc();
 	retval = -ENOMEM;
 	if (!bprm->mm)
@@ -1483,9 +1498,38 @@ int compat_do_execve(char * filename,
 	if (retval < 0)
 		goto out;
 
+	if (!gr_tpe_allow(file)) {
+		retval = -EACCES;
+		goto out;
+	}
+
+	if (gr_check_crash_exec(file)) {
+		retval = -EACCES;
+		goto out;
+	}
+
+	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
+
+	gr_handle_exec_args(bprm, (char __user * __user *)argv);
+
+#ifdef CONFIG_GRKERNSEC
+	old_acl = current->acl;
+	memcpy(old_rlim, current->signal->rlim, sizeof(old_rlim));
+	old_exec_file = current->exec_file;
+	get_file(file);
+	current->exec_file = file;
+#endif
+
+	gr_set_proc_label(file->f_dentry, file->f_vfsmnt);
+
 	retval = search_binary_handler(bprm, regs);
 	if (retval >= 0) {
 		free_arg_pages(bprm);
+
+#ifdef CONFIG_GRKERNSEC
+		if (old_exec_file)
+			fput(old_exec_file);
+#endif
 
 		/* execve success */
 		security_bprm_free(bprm);
@@ -1494,6 +1538,13 @@ int compat_do_execve(char * filename,
 		kfree(bprm);
 		return retval;
 	}
+
+#ifdef CONFIG_GRKERNSEC
+	current->acl = old_acl;
+	memcpy(current->signal->rlim, old_rlim, sizeof(old_rlim));
+	fput(current->exec_file);
+	current->exec_file = old_exec_file;
+#endif
 
 out:
 	/* Something went wrong, return the inode and free the argument pages*/

@@ -38,6 +38,7 @@
 #include <linux/auxvec.h>	/* For AT_VECTOR_SIZE */
 
 struct exec_domain;
+struct linux_binprm;
 
 /*
  * cloning flags:
@@ -313,7 +314,33 @@ struct mm_struct {
 
 	unsigned long hiwater_rss;	/* High-water RSS usage */
 	unsigned long hiwater_vm;	/* High-water virtual memory usage */
+
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+	unsigned long pax_flags;
+#endif
+
+#ifdef CONFIG_PAX_DLRESOLVE
+	unsigned long call_dl_resolve;
+#endif
+
+#if defined(CONFIG_PPC32) && defined(CONFIG_PAX_EMUSIGRT)
+	unsigned long call_syscall;
+#endif
+
+#ifdef CONFIG_PAX_ASLR
+	unsigned long delta_mmap;		/* randomized offset */
+	unsigned long delta_exec;		/* randomized offset */
+	unsigned long delta_stack;		/* randomized offset */
+#endif
+
 };
+
+#define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
+#define MF_PAX_EMUTRAMP		0x02000000	/* Emulate trampolines */
+#define MF_PAX_MPROTECT		0x04000000	/* Restrict mprotect() */
+#define MF_PAX_RANDMMAP		0x08000000	/* Randomize mmap() base */
+/*#define MF_PAX_RANDEXEC		0x10000000*/	/* Randomize ET_EXEC base */
+#define MF_PAX_SEGMEXEC		0x20000000	/* Segmentation based non-executable pages */
 
 struct sighand_struct {
 	atomic_t		count;
@@ -410,6 +437,15 @@ struct signal_struct {
 #ifdef CONFIG_KEYS
 	struct key *session_keyring;	/* keyring inherited over fork */
 	struct key *process_keyring;	/* keyring private to this process */
+#endif
+
+#ifdef CONFIG_GRKERNSEC
+	u32 curr_ip;
+	u32 gr_saddr;
+	u32 gr_daddr;
+	u16 gr_sport;
+	u16 gr_dport;
+	u8 used_accept:1;
 #endif
 };
 
@@ -813,6 +849,17 @@ struct task_struct {
 	int cpuset_mems_generation;
 #endif
 	atomic_t fs_excl;	/* holding fs exclusive resources */
+
+#ifdef CONFIG_GRKERNSEC
+	/* grsecurity */
+	struct acl_subject_label *acl;
+	struct acl_role_label *role;
+	struct file *exec_file;
+	u16 acl_role_id;
+	u8 acl_sp_role:1;
+	u8 is_writable:1;
+	u8 brute:1;
+#endif
 };
 
 static inline pid_t process_group(struct task_struct *tsk)
@@ -1052,14 +1099,29 @@ static inline int sas_ss_flags(unsigned long sp)
 		: on_sig_stack(sp) ? SS_ONSTACK : 0);
 }
 
+extern int gr_task_is_capable(struct task_struct *task, const int cap);
+extern int gr_is_capable_nolog(const int cap);
 
 #ifdef CONFIG_SECURITY
 /* code is in security.c */
 extern int capable(int cap);
+static inline int capable_nolog(int cap)
+{
+	return capable(cap);
+}
 #else
 static inline int capable(int cap)
 {
-	if (cap_raised(current->cap_effective, cap)) {
+	if (cap_raised(current->cap_effective, cap) && gr_task_is_capable(current, cap)) {
+		current->flags |= PF_SUPERPRIV;
+		return 1;
+	}
+	return 0;
+}
+
+static inline int capable_nolog(int cap)
+{
+	if (cap_raised(current->cap_effective, cap) && gr_is_capable_nolog(cap)) {
 		current->flags |= PF_SUPERPRIV;
 		return 1;
 	}
@@ -1305,6 +1367,12 @@ extern void arch_pick_mmap_layout(struct mm_struct *mm);
 static inline void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	mm->mmap_base = TASK_UNMAPPED_BASE;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
+		mm->mmap_base += mm->delta_mmap;
+#endif
+
 	mm->get_unmapped_area = arch_get_unmapped_area;
 	mm->unmap_area = arch_unmap_area;
 }

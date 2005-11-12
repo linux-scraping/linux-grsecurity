@@ -27,6 +27,7 @@
 #include <linux/syscalls.h>
 #include <linux/audit.h>
 #include <linux/seq_file.h>
+#include <linux/grsecurity.h>
 #include <asm/current.h>
 #include <asm/uaccess.h>
 #include "util.h"
@@ -232,6 +233,9 @@ asmlinkage long sys_msgget (key_t key, int msgflg)
 		msg_unlock(msq);
 	}
 	up(&msg_ids.sem);
+
+	gr_log_msgget(ret, msgflg);
+
 	return ret;
 }
 
@@ -483,6 +487,8 @@ asmlinkage long sys_msgctl (int msqid, int cmd, struct msqid_ds __user *buf)
 		break;
 	}
 	case IPC_RMID:
+		gr_log_msgrm(ipcp->uid, ipcp->cuid);
+
 		freeque (msq, msqid); 
 		break;
 	}
