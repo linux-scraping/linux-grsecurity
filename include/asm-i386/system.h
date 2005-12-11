@@ -155,7 +155,7 @@ static inline unsigned long get_limit(unsigned long segment)
 	unsigned long __limit;
 	__asm__("lsll %1,%0"
 		:"=r" (__limit):"r" (segment));
-	return __limit+1;
+	return __limit;
 }
 
 #define nop() __asm__ __volatile__ ("nop")
@@ -489,6 +489,6 @@ void enable_hlt(void);
 extern int es7000_plat;
 void cpu_idle_wait(void);
 
-extern unsigned long arch_align_stack(unsigned long sp);
+#define arch_align_stack(x) (x)
 
 #endif

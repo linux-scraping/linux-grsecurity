@@ -393,10 +393,13 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 #ifdef CONFIG_PAX_RANDMMAP
 		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			start_addr += mm->delta_mmap;
+			start_addr += mm->delta_mmap & 0x03FFFFFFUL;
 #endif
 
-		addr = start_addr;
+		if (mm->start_brk <= start_addr && start_addr < mm->mmap_base)
+			start_addr = addr = mm->mmap_base;
+		else
+			addr = start_addr;
 	}
 #endif
 
@@ -425,7 +428,9 @@ full_search:
 		if (addr + mm->cached_hole_size < vma->vm_start)
 			mm->cached_hole_size = vma->vm_start - addr;
 		addr = vma->vm_end;
-		if (mm->start_brk <= addr && addr < mm->mmap_base)
+		if (mm->start_brk <= addr && addr < mm->mmap_base) {
 			start_addr = addr = mm->mmap_base;
+			goto full_search;
+		}
 	}
 }

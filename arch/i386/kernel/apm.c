@@ -599,14 +599,14 @@ static u8 apm_bios_call(u32 func, u32 ebx_in, u32 ecx_in,
 	struct desc_struct	save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long		cr3;
+	unsigned long		cr0;
 #endif
 
 	cpus = apm_save_cpus();
 	cpu = get_cpu();
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	save_desc_40 = cpu_gdt_table[cpu][0x40 / 8];
@@ -628,7 +628,7 @@ static u8 apm_bios_call(u32 func, u32 ebx_in, u32 ecx_in,
 	cpu_gdt_table[cpu][0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 	put_cpu();
@@ -661,14 +661,14 @@ static u8 apm_bios_call_simple(u32 func, u32 ebx_in, u32 ecx_in, u32 *eax)
 	struct desc_struct	save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long		cr3;
+	unsigned long		cr0;
 #endif
 
 	cpus = apm_save_cpus();
 	cpu = get_cpu();
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	save_desc_40 = cpu_gdt_table[cpu][0x40 / 8];
@@ -690,7 +690,7 @@ static u8 apm_bios_call_simple(u32 func, u32 ebx_in, u32 ecx_in, u32 *eax)
 	cpu_gdt_table[cpu][0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 	put_cpu();

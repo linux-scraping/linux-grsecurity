@@ -1435,7 +1435,7 @@ void apply_alternatives(void *start, void *end)
         unsigned char **noptable = intel_nops; 
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr3;
+	unsigned long flags, cr0;
 #endif
 
 	for (i = 0; noptypes[i].cpuid >= 0; i++) { 
@@ -1446,7 +1446,7 @@ void apply_alternatives(void *start, void *end)
 	} 
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	for (a = start; (void *)a < end; a++) { 
@@ -1465,7 +1465,7 @@ void apply_alternatives(void *start, void *end)
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 } 

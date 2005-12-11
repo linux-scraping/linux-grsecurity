@@ -108,7 +108,7 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	int cpu;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr3;
+	unsigned long cr0;
 #endif
 
 	/*
@@ -124,7 +124,7 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	spin_lock_irqsave(&pnp_bios_lock, flags);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel_noirq(cr3);
+	pax_open_kernel_noirq(cr0);
 #endif
 
 	save_desc_40 = cpu_gdt_table[cpu][0x40 / 8];
@@ -169,7 +169,7 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	cpu_gdt_table[cpu][0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel_noirq(cr3);
+	pax_close_kernel_noirq(cr0);
 #endif
 
 	spin_unlock_irqrestore(&pnp_bios_lock, flags);

@@ -194,6 +194,8 @@ struct vm_struct *__get_vm_area(unsigned long size, unsigned long flags,
 
 	write_lock(&vmlist_lock);
 	for (p = &vmlist; (tmp = *p) != NULL ;p = &tmp->next) {
+		if (addr > end - size)
+			goto out;
 		if ((unsigned long)tmp->addr < addr) {
 			if((unsigned long)tmp->addr + tmp->size >= addr)
 				addr = ALIGN(tmp->size + 
@@ -205,8 +207,6 @@ struct vm_struct *__get_vm_area(unsigned long size, unsigned long flags,
 		if (size + addr <= (unsigned long)tmp->addr)
 			goto found;
 		addr = ALIGN(tmp->size + (unsigned long)tmp->addr, align);
-		if (addr > end - size)
-			goto out;
 	}
 
 found:

@@ -88,8 +88,10 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 		return (eip & 0xFFFF) + (seg << 4);
 	
 	/* By far the most common cases. */
-	if (likely(seg == __USER_CS || seg == __KERNEL_CS))
+	if (likely(seg == __USER_CS))
 		return eip;
+	if (likely(seg == __KERNEL_CS))
+		return eip + __KERNEL_TEXT_OFFSET;
 
 	/* Check the segment exists, is within the current LDT/GDT size,
 	   that kernel/user (ring 0..3) has the appropriate privilege,
@@ -263,7 +265,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	pte_t *pte;
-	unsigned char pte_mask1, pte_mask2;
+	unsigned char pte_mask;
 #endif
 
 	/* get the address */
@@ -349,16 +351,20 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		goto not_pax_fault;
 	}
 
-	pte_mask1 = _PAGE_ACCESSED | _PAGE_USER | ((error_code & 2) << (_PAGE_BIT_DIRTY-1));
-
 #ifdef CONFIG_SMP
-	if (likely(cpu_isset(smp_processor_id(), mm->context.cpu_user_cs_mask)) && address >= get_limit(regs->xcs))
-		pte_mask2 = 0;
-	else
-		pte_mask2 = _PAGE_USER;
+	if (likely(address > get_limit(regs->xcs) && cpu_isset(smp_processor_id(), mm->context.cpu_user_cs_mask)))
 #else
-	pte_mask2 = (address >= get_limit(regs->xcs)) ? 0 : _PAGE_USER;
+	if (likely(address > get_limit(regs->xcs)))
 #endif
+	{
+		set_pte(pte, pte_mkread(*pte));
+		__flush_tlb_one(address);
+		pte_unmap(pte);
+		spin_unlock(&mm->page_table_lock);
+		return;
+	}
+
+	pte_mask = _PAGE_ACCESSED | _PAGE_USER | ((error_code & 2) << (_PAGE_BIT_DIRTY-1));
 
 	/*
 	 * PaX: fill DTLB with user rights and retry
@@ -384,7 +390,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		"testb $0,%0\n"
 		"xorb %3,%1\n"
 		:
-		: "m" (*(char*)address), "m" (*(char*)pte), "q" (pte_mask1), "q" (pte_mask2)
+		: "m" (*(char*)address), "m" (*(char*)pte), "q" (pte_mask), "i" (_PAGE_USER)
 		: "memory", "cc");
 	pte_unmap(pte);
 	spin_unlock(&mm->page_table_lock);
@@ -596,7 +602,11 @@ no_context:
 		printk(KERN_ALERT "Unable to handle kernel NULL pointer dereference");
 
 #ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_MODULES
+	else if (init_mm.start_code <= address && address < (unsigned long)MODULES_END)
+#else
 	else if (init_mm.start_code <= address && address < init_mm.end_code)
+#endif
 	{
 		if (tsk->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",

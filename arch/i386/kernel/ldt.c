@@ -228,7 +228,7 @@ static int write_ldt(void __user * ptr, unsigned long bytecount, int oldmode)
 	}
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (ldt_info.contents & 2)) {
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (ldt_info.contents & MODIFY_LDT_CONTENTS_CODE)) {
 		error = -EINVAL;
 		goto out_unlock;
 	}

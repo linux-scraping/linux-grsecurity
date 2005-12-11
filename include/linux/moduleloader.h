@@ -17,8 +17,20 @@ int module_frob_arch_sections(Elf_Ehdr *hdr,
    sections.  Returns NULL on failure. */
 void *module_alloc(unsigned long size);
 
+#ifdef CONFIG_PAX_KERNEXEC
+void *module_alloc_exec(unsigned long size);
+#else
+#define module_alloc_exec(x) module_alloc(x)
+#endif
+
 /* Free memory returned from module_alloc. */
 void module_free(struct module *mod, void *module_region);
+
+#ifdef CONFIG_PAX_KERNEXEC
+void module_free_exec(struct module *mod, void *module_region);
+#else
+#define module_free_exec(x, y) module_free(x, y)
+#endif
 
 /* Apply the given relocation to the (simplified) ELF.  Return -error
    or 0. */

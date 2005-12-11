@@ -209,7 +209,7 @@ void show_registers(struct pt_regs *regs)
 
 	esp = (unsigned long) (&regs->esp);
 	savesegment(ss, ss);
-	if (user_mode(regs)) {
+	if (user_mode_vm(regs)) {
 		in_kernel = 0;
 		esp = regs->esp;
 		ss = regs->xss & 0xffff;
@@ -248,7 +248,7 @@ void show_registers(struct pt_regs *regs)
 				printk(" Bad EIP value.");
 				break;
 			}
-			if (eip == (u8 __user *)regs->eip)
+			if (eip == (u8 __user *)regs->eip + __KERNEL_TEXT_OFFSET)
 				printk("<%02x> ", c);
 			else
 				printk("%02x ", c);

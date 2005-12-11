@@ -290,21 +290,21 @@ void pax_report_insns(void *pc, void *sp)
 
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 20; i++) {
-		unsigned int c;
-		if (get_user(c, (unsigned char*)pc+i))
-			printk("???????? ");
+		unsigned char c;
+		if (get_user(c, (unsigned char __user *)pc+i))
+			printk("?? ");
 		else
-			printk("%08x ", c);
+			printk("%02x ", c);
 	}
 	printk("\n");
 
 	printk(KERN_ERR "PAX: bytes at SP-8: ");
 	for (i = -1; i < 10; i++) {
 		unsigned long c;
-		if (get_user(c, (unsigned long*)sp+i))
+		if (get_user(c, (unsigned long __user *)sp+i))
 			printk("???????????????? ");
 		else
-			printk("%16lx ", c);
+			printk("%016lx ", c);
 	}
 	printk("\n");
 }

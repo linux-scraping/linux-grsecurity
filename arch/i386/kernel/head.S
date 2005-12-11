@@ -270,7 +270,7 @@ ENTRY(startup_32_smp)
 
 #ifdef CONFIG_SMP
 	andl %ebx,%ebx
-	jnz  checkCPUtype	/* Initial CPU cleans BSS */
+	jnz checkCPUtype	/* Initial CPU cleans BSS */
 #endif /* CONFIG_SMP */
 
 /*
@@ -462,22 +462,6 @@ ENTRY(swapper_pg_dir)
 	.fill 1024,4,0
 #endif
 
-#ifdef CONFIG_PAX_KERNEXEC
-ENTRY(kernexec_pg_dir)
-#ifdef CONFIG_X86_PAE
-	.long kernexec_pm_dir-__PAGE_OFFSET+1
-	.long 0
-	.long kernexec_pm_dir+512*8-__PAGE_OFFSET+1
-	.long 0
-	.long kernexec_pm_dir+512*16-__PAGE_OFFSET+1
-	.long 0
-	.long kernexec_pm_dir+512*24-__PAGE_OFFSET+1
-	.long 0
-#else
-	.fill 1024,4,0
-#endif
-#endif
-
 #ifdef CONFIG_X86_PAE
 .section .data.swapper_pm_dir,"a",@progbits
 ENTRY(swapper_pm_dir)
@@ -485,14 +469,6 @@ ENTRY(swapper_pm_dir)
 	.fill 512,8,0
 	.fill 512,8,0
 	.fill 512,8,0
-
-#ifdef CONFIG_PAX_KERNEXEC
-ENTRY(kernexec_pm_dir)
-	.fill 512,8,0
-	.fill 512,8,0
-	.fill 512,8,0
-	.fill 512,8,0
-#endif
 #endif
 
 .section .rodata.empty_zero_page,"a",@progbits

@@ -164,8 +164,8 @@ static uint32_t do_plt_call(void *location,
 
 	DEBUGP("Doing plt for call to 0x%x at 0x%x\n", val, (unsigned int)location);
 	/* Init, or core PLT? */
-	if (location >= mod->module_core
-	    && location < mod->module_core + mod->core_size)
+	if (location >= mod->module_core_rx
+	    && location < mod->module_core_rx + mod->core_size_rx)
 		entry = (void *)sechdrs[mod->arch.core_plt_section].sh_addr;
 	else
 		entry = (void *)sechdrs[mod->arch.init_plt_section].sh_addr;

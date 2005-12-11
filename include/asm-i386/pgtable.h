@@ -60,17 +60,8 @@ void paging_init(void);
 #ifdef CONFIG_X86_PAE
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
-
-#ifdef CONFIG_PAX_KERNEXEC
-extern pgd_t kernexec_pg_dir[PTRS_PER_PGD];
-extern pmd_t kernexec_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
-#endif
 #else
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
-
-#ifdef CONFIG_PAX_KERNEXEC
-extern pgd_t kernexec_pg_dir[PTRS_PER_PGD];
-#endif
 #endif
 
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
@@ -82,9 +73,11 @@ extern pgd_t kernexec_pg_dir[PTRS_PER_PGD];
 #define USER_PGD_PTRS (PAGE_OFFSET >> PGDIR_SHIFT)
 #define KERNEL_PGD_PTRS (PTRS_PER_PGD-USER_PGD_PTRS)
 
+#ifndef CONFIG_X86_PAE
 #define TWOLEVEL_PGDIR_SHIFT	22
 #define BOOT_USER_PGD_PTRS (__PAGE_OFFSET >> TWOLEVEL_PGDIR_SHIFT)
 #define BOOT_KERNEL_PGD_PTRS (1024-BOOT_USER_PGD_PTRS)
+#endif
 
 /* Just any arbitrary offset to the start of the vmalloc VM area: the
  * current 8MB value just means that there will be a 8MB "hole" after the

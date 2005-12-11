@@ -340,6 +340,11 @@ ptrace_set_thread_area(struct task_struct *child,
 	if (copy_from_user(&info, user_desc, sizeof(info)))
 		return -EFAULT;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((child->mm->pax_flags & MF_PAX_SEGMEXEC) && (info.contents & MODIFY_LDT_CONTENTS_CODE))
+		return -EINVAL;
+#endif
+
 	if (idx < GDT_ENTRY_TLS_MIN || idx > GDT_ENTRY_TLS_MAX)
 		return -EINVAL;
 

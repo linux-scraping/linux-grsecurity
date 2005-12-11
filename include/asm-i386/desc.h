@@ -18,33 +18,33 @@
 
 extern struct desc_struct cpu_gdt_table[NR_CPUS][GDT_ENTRIES];
 
-#define pax_open_kernel(flags, cr3)	\
+#define pax_open_kernel(flags, cr0)	\
 do {					\
 	typecheck(unsigned long,flags);	\
-	typecheck(unsigned long,cr3);	\
+	typecheck(unsigned long,cr0);	\
 	local_irq_save(flags);		\
-	pax_open_kernel_noirq(cr3);	\
+	pax_open_kernel_noirq(cr0);	\
 } while(0)
 
-#define pax_close_kernel(flags, cr3)	\
+#define pax_close_kernel(flags, cr0)	\
 do {					\
 	typecheck(unsigned long,flags);	\
-	typecheck(unsigned long,cr3);	\
-	pax_close_kernel_noirq(cr3);	\
+	typecheck(unsigned long,cr0);	\
+	pax_close_kernel_noirq(cr0);	\
 	local_irq_restore(flags);	\
 } while(0)
 
-#define pax_open_kernel_noirq(cr3)	\
+#define pax_open_kernel_noirq(cr0)	\
 do {					\
-	typecheck(unsigned long,cr3);	\
-	cr3 = read_cr3();		\
-	load_cr3(kernexec_pg_dir);	\
+	typecheck(unsigned long,cr0);	\
+	cr0 = read_cr0();		\
+	write_cr0(cr0 & ~0x10000UL);	\
 } while(0)
 
-#define pax_close_kernel_noirq(cr3)	\
+#define pax_close_kernel_noirq(cr0)	\
 do {					\
-	typecheck(unsigned long,cr3);	\
-	write_cr3(cr3);			\
+	typecheck(unsigned long,cr0);	\
+	write_cr0(cr0);			\
 } while(0)
 
 static inline void set_user_cs(struct mm_struct *mm, int cpu)
@@ -54,9 +54,9 @@ static inline void set_user_cs(struct mm_struct *mm, int cpu)
 	unsigned long limit = mm->context.user_cs_limit;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr3;
+	unsigned long flags, cr0;
 
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	if (limit) {
@@ -68,7 +68,7 @@ static inline void set_user_cs(struct mm_struct *mm, int cpu)
 	cpu_gdt_table[cpu][GDT_ENTRY_DEFAULT_USER_CS].b = (limit & 0xF0000UL) | 0xC0FB00UL | (base & 0xFF000000UL) | ((base >> 16) & 0xFFUL);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 #endif
@@ -132,15 +132,15 @@ static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int
 {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr3;
+	unsigned long flags, cr0;
 
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	_set_tssldt_desc(&cpu_gdt_table[cpu][GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 }

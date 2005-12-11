@@ -617,6 +617,8 @@ again:			remove_next = 1 + (end > next->vm_end);
 static inline int is_mergeable_vma(struct vm_area_struct *vma,
 			struct file *file, unsigned long vm_flags)
 {
+	if ((vma->vm_flags | vm_flags) & VM_SPECIAL)
+		return 0;
 	if (vma->vm_flags != vm_flags)
 		return 0;
 	if (vma->vm_file != file)
@@ -1742,7 +1744,6 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
 			if (vma_m) {
 				vma_m->vm_start = address_m;
 				vma_m->vm_pgoff -= grow;
-				track_exec_limit(vma_m->vm_mm, vma_m->vm_start, vma_m->vm_end, vma_m->vm_flags);
 			}
 #endif
 

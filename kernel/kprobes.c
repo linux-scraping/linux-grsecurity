@@ -105,7 +105,7 @@ kprobe_opcode_t __kprobes *get_insn_slot(void)
 	 * kernel image and loaded module images reside. This is required
 	 * so x86_64 can correctly handle the %rip-relative fixups.
 	 */
-	kip->insns = module_alloc(PAGE_SIZE);
+	kip->insns = module_alloc_exec(PAGE_SIZE);
 	if (!kip->insns) {
 		kfree(kip);
 		return NULL;

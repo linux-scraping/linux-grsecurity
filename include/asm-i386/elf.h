@@ -81,7 +81,7 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
 #define PAX_ELF_ET_DYN_BASE(tsk)	0x10000000UL
 
 #define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		15
+#define PAX_DELTA_MMAP_LEN(tsk)		((tsk)->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
 #define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
 #define PAX_DELTA_EXEC_LEN(tsk)		15
 #define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT

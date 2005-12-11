@@ -505,6 +505,11 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
 		if (idx < GDT_ENTRY_TLS_MIN || idx > GDT_ENTRY_TLS_MAX)
 			goto out;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+		if ((current->mm->pax_flags & MF_PAX_SEGMEXEC) && (info.contents & MODIFY_LDT_CONTENTS_CODE))
+			goto out;
+#endif
+
 		desc = p->thread.tls_array + idx - GDT_ENTRY_TLS_MIN;
 		desc->a = LDT_entry_a(&info);
 		desc->b = LDT_entry_b(&info);
@@ -674,12 +679,17 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	struct tss_struct *tss = init_tss + cpu;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr3;
+	unsigned long cr0;
 #endif
 
 	/* never put a printk in __switch_to... printk() calls wake_up*() indirectly */
 
 	__unlazy_fpu(prev_p);
+
+	/*
+	 * Reload esp0.
+	 */
+	load_esp0(tss, next);
 
 	/*
 	 * Save away %fs and %gs. No need to save %es and %ds, as
@@ -694,24 +704,16 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	savesegment(gs, prev->gs);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel_noirq(cr3);
+	pax_open_kernel_noirq(cr0);
 #endif
-
-	/*
-	 * Reload esp0.
-	 */
-	load_esp0(tss, next);
 
 	/*
 	 * Load the per-thread Thread-Local Storage descriptor.
 	 */
 	load_TLS(next, cpu);
 
-	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr))
-		handle_io_bitmap(next, tss);
-
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel_noirq(cr3);
+	pax_close_kernel_noirq(cr0);
 #endif
 
 	/*
@@ -744,6 +746,9 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 		set_debugreg(next->debugreg[6], 6);
 		set_debugreg(next->debugreg[7], 7);
 	}
+
+	if (unlikely(prev->io_bitmap_ptr || next->io_bitmap_ptr))
+		handle_io_bitmap(next, tss);
 
 	disable_tsc(prev_p, next_p);
 
@@ -866,11 +871,17 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 	int cpu, idx;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr3;
+	unsigned long flags, cr0;
 #endif
 
 	if (copy_from_user(&info, u_info, sizeof(info)))
 		return -EFAULT;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((current->mm->pax_flags & MF_PAX_SEGMEXEC) && (info.contents & MODIFY_LDT_CONTENTS_CODE))
+		return -EINVAL;
+#endif
+
 	idx = info.entry_number;
 
 	/*
@@ -904,13 +915,13 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr3);
+	pax_open_kernel(flags, cr0);
 #endif
 
 	load_TLS(t, cpu);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr3);
+	pax_close_kernel(flags, cr0);
 #endif
 
 	put_cpu();
@@ -966,13 +977,6 @@ asmlinkage int sys_get_thread_area(struct user_desc __user *u_info)
 	if (copy_to_user(u_info, &info, sizeof(info)))
 		return -EFAULT;
 	return 0;
-}
-
-unsigned long arch_align_stack(unsigned long sp)
-{
-	if (randomize_va_space)
-		sp -= get_random_int() % 8192;
-	return sp & ~0xf;
 }
 
 #ifdef CONFIG_PAX_RANDKSTACK

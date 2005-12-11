@@ -150,8 +150,8 @@ static uint32_t do_plt_call (void *location, Elf32_Addr val,
 	tramp[1] = ((val >> 16) & 0xffff) + 0x610000; /* ...; jmp r1 */
 
 	/* Init, or core PLT? */
-	if (location >= mod->module_core
-	    && location < mod->module_core + mod->core_size)
+	if (location >= mod->module_core_rx
+	    && location < mod->module_core_rx + mod->core_size_rx)
 		entry = (void *)sechdrs[mod->arch.core_plt_section].sh_addr;
 	else
 		entry = (void *)sechdrs[mod->arch.init_plt_section].sh_addr;

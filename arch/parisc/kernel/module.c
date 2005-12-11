@@ -72,16 +72,38 @@
 
 /* three functions to determine where in the module core
  * or init pieces the location is */
+static inline int is_init_rx(struct module *me, void *loc)
+{
+	return (loc >= me->module_init_rx &&
+		loc < (me->module_init_rx + me->init_size_rx));
+}
+
+static inline int is_init_rw(struct module *me, void *loc)
+{
+	return (loc >= me->module_init_rw &&
+		loc < (me->module_init_rw + me->init_size_rw));
+}
+
 static inline int is_init(struct module *me, void *loc)
 {
-	return (loc >= me->module_init &&
-		loc <= (me->module_init + me->init_size));
+	return is_init_rx(me, loc) || is_init_rw(me, loc);
+}
+
+static inline int is_core_rx(struct module *me, void *loc)
+{
+	return (loc >= me->module_core_rx &&
+		loc < (me->module_core_rx + me->core_size_rx));
+}
+
+static inline int is_core_rw(struct module *me, void *loc)
+{
+	return (loc >= me->module_core_rw &&
+		loc < (me->module_core_rw + me->core_size_rw));
 }
 
 static inline int is_core(struct module *me, void *loc)
 {
-	return (loc >= me->module_core &&
-		loc <= (me->module_core + me->core_size));
+	return is_core_rx(me, loc) || is_core_rw(me, loc);
 }
 
 static inline int is_local(struct module *me, void *loc)
@@ -289,21 +311,21 @@ int module_frob_arch_sections(CONST Elf_Ehdr *hdr,
 	}
 
 	/* align things a bit */
-	me->core_size = ALIGN(me->core_size, 16);
-	me->arch.got_offset = me->core_size;
-	me->core_size += gots * sizeof(struct got_entry);
+	me->core_size_rw = ALIGN(me->core_size_rw, 16);
+	me->arch.got_offset = me->core_size_rw;
+	me->core_size_rw += gots * sizeof(struct got_entry);
 
-	me->core_size = ALIGN(me->core_size, 16);
-	me->arch.fdesc_offset = me->core_size;
-	me->core_size += fdescs * sizeof(Elf_Fdesc);
+	me->core_size_rw = ALIGN(me->core_size_rw, 16);
+	me->arch.fdesc_offset = me->core_size_rw;
+	me->core_size_rw += fdescs * sizeof(Elf_Fdesc);
 
-	me->core_size = ALIGN(me->core_size, 16);
-	me->arch.stub_offset = me->core_size;
-	me->core_size += stubs * sizeof(struct stub_entry);
+	me->core_size_rx = ALIGN(me->core_size_rx, 16);
+	me->arch.stub_offset = me->core_size_rx;
+	me->core_size_rx += stubs * sizeof(struct stub_entry);
 
-	me->init_size = ALIGN(me->init_size, 16);
-	me->arch.init_stub_offset = me->init_size;
-	me->init_size += init_stubs * sizeof(struct stub_entry);
+	me->init_size_rx = ALIGN(me->init_size_rx, 16);
+	me->arch.init_stub_offset = me->init_size_rx;
+	me->init_size_rx += init_stubs * sizeof(struct stub_entry);
 
 	me->arch.got_max = gots;
 	me->arch.fdesc_max = fdescs;
@@ -323,7 +345,7 @@ static Elf64_Word get_got(struct module *me, unsigned long value, long addend)
 
 	BUG_ON(value == 0);
 
-	got = me->module_core + me->arch.got_offset;
+	got = me->module_core_rw + me->arch.got_offset;
 	for (i = 0; got[i].addr; i++)
 		if (got[i].addr == value)
 			goto out;
@@ -341,7 +363,7 @@ static Elf64_Word get_got(struct module *me, unsigned long value, long addend)
 #ifdef __LP64__
 static Elf_Addr get_fdesc(struct module *me, unsigned long value)
 {
-	Elf_Fdesc *fdesc = me->module_core + me->arch.fdesc_offset;
+	Elf_Fdesc *fdesc = me->module_core_rw + me->arch.fdesc_offset;
 
 	if (!value) {
 		printk(KERN_ERR "%s: zero OPD requested!\n", me->name);
@@ -359,7 +381,7 @@ static Elf_Addr get_fdesc(struct module *me, unsigned long value)
 
 	/* Create new one */
 	fdesc->addr = value;
-	fdesc->gp = (Elf_Addr)me->module_core + me->arch.got_offset;
+	fdesc->gp = (Elf_Addr)me->module_core_rw + me->arch.got_offset;
 	return (Elf_Addr)fdesc;
 }
 #endif /* __LP64__ */
@@ -373,12 +395,12 @@ static Elf_Addr get_stub(struct module *me, unsigned long value, long addend,
 	if(init_section) {
 		i = me->arch.init_stub_count++;
 		BUG_ON(me->arch.init_stub_count > me->arch.init_stub_max);
-		stub = me->module_init + me->arch.init_stub_offset + 
+		stub = me->module_init_rx + me->arch.init_stub_offset + 
 			i * sizeof(struct stub_entry);
 	} else {
 		i = me->arch.stub_count++;
 		BUG_ON(me->arch.stub_count > me->arch.stub_max);
-		stub = me->module_core + me->arch.stub_offset + 
+		stub = me->module_core_rx + me->arch.stub_offset + 
 			i * sizeof(struct stub_entry);
 	}
 
@@ -721,7 +743,7 @@ register_unwind_table(struct module *me,
 
 	table = (unsigned char *)sechdrs[me->arch.unwind_section].sh_addr;
 	end = table + sechdrs[me->arch.unwind_section].sh_size;
-	gp = (Elf_Addr)me->module_core + me->arch.got_offset;
+	gp = (Elf_Addr)me->module_core_rw + me->arch.got_offset;
 
 	DEBUGP("register_unwind_table(), sect = %d at 0x%p - 0x%p (gp=0x%lx)\n",
 	       me->arch.unwind_section, table, end, gp);

@@ -1196,7 +1196,7 @@ endchoice
 
 config PCI_BIOS
 	bool
-	depends on !X86_VISWS && PCI && (PCI_GOBIOS || PCI_GOANY)
+	depends on !X86_VISWS && PCI && PCI_GOBIOS
 	default y
 
 config PCI_DIRECT

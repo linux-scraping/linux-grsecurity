@@ -128,10 +128,16 @@ SECTIONS
   RODATA
 
 #ifdef CONFIG_PAX_KERNEXEC
-  .data.align : AT(ADDR(.data.align) - LOAD_OFFSET) {
+  . = ALIGN(4096);
+  MODULES_VADDR = .;
+
+  .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
+	. += (4 * 1024 * 1024);
 	. = ALIGN(1 << PMD_SHIFT) - 1;
 	BYTE(0)
   }
+
+  MODULES_END = .;
 #else
   . = ALIGN(32);
 #endif

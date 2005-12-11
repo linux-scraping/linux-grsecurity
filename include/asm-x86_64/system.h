@@ -335,6 +335,6 @@ void cpu_idle_wait(void);
 void disable_hlt(void);
 void enable_hlt(void);
 
-extern unsigned long arch_align_stack(unsigned long sp);
+#define arch_align_stack(x) (x)
 
 #endif

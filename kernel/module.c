@@ -41,6 +41,10 @@
 #include <asm/semaphore.h>
 #include <asm/cacheflush.h>
 
+#ifdef CONFIG_PAX_KERNEXEC
+#include <asm/desc.h>
+#endif
+
 #if 0
 #define DEBUGP printk
 #else
@@ -1178,13 +1182,15 @@ static void free_module(struct module *mod)
 	module_unload_free(mod);
 
 	/* This may be NULL, but that's OK */
-	module_free(mod, mod->module_init);
+	module_free(mod, mod->module_init_rw);
+	module_free_exec(mod, mod->module_init_rx);
 	kfree(mod->args);
 	if (mod->percpu)
 		percpu_modfree(mod->percpu);
 
 	/* Finally, free the core (containing the module structure) */
-	module_free(mod, mod->module_core);
+	module_free_exec(mod, mod->module_core_rx);
+	module_free(mod, mod->module_core_rw);
 }
 
 void *__symbol_get(const char *symbol)
@@ -1308,11 +1314,14 @@ static void layout_sections(struct module *mod,
 			    || strncmp(secstrings + s->sh_name,
 				       ".init", 5) == 0)
 				continue;
-			s->sh_entsize = get_offset(&mod->core_size, s);
+			if ((s->sh_flags & SHF_WRITE) || !(s->sh_flags & SHF_ALLOC))
+				s->sh_entsize = get_offset(&mod->core_size_rw, s);
+			else
+				s->sh_entsize = get_offset(&mod->core_size_rx, s);
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
 		if (m == 0)
-			mod->core_text_size = mod->core_size;
+			mod->core_size_rx = mod->core_size_rx;
 	}
 
 	DEBUGP("Init section allocation order:\n");
@@ -1326,12 +1335,15 @@ static void layout_sections(struct module *mod,
 			    || strncmp(secstrings + s->sh_name,
 				       ".init", 5) != 0)
 				continue;
-			s->sh_entsize = (get_offset(&mod->init_size, s)
-					 | INIT_OFFSET_MASK);
+			if ((s->sh_flags & SHF_WRITE) || !(s->sh_flags & SHF_ALLOC))
+				s->sh_entsize = get_offset(&mod->init_size_rw, s);
+			else
+				s->sh_entsize = get_offset(&mod->init_size_rx, s);
+			s->sh_entsize |= INIT_OFFSET_MASK;
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
 		if (m == 0)
-			mod->init_text_size = mod->init_size;
+			mod->init_size_rx = mod->init_size_rx;
 	}
 }
 
@@ -1512,6 +1524,10 @@ static struct module *load_module(void __user *umod,
 	struct exception_table_entry *extable;
 	mm_segment_t old_fs;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr0;
+#endif
+
 	DEBUGP("load_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
 	if (len < sizeof(*hdr))
@@ -1668,21 +1684,57 @@ static struct module *load_module(void __user *umod,
 	layout_sections(mod, hdr, sechdrs, secstrings);
 
 	/* Do the allocs. */
-	ptr = module_alloc(mod->core_size);
+	ptr = module_alloc(mod->core_size_rw);
 	if (!ptr) {
 		err = -ENOMEM;
 		goto free_percpu;
 	}
-	memset(ptr, 0, mod->core_size);
-	mod->module_core = ptr;
+	memset(ptr, 0, mod->core_size_rw);
+	mod->module_core_rw = ptr;
 
-	ptr = module_alloc(mod->init_size);
-	if (!ptr && mod->init_size) {
+	ptr = module_alloc(mod->init_size_rw);
+	if (!ptr && mod->init_size_rw) {
 		err = -ENOMEM;
-		goto free_core;
+		goto free_core_rw;
 	}
-	memset(ptr, 0, mod->init_size);
-	mod->module_init = ptr;
+	memset(ptr, 0, mod->init_size_rw);
+	mod->module_init_rw = ptr;
+
+	ptr = module_alloc_exec(mod->core_size_rx);
+	if (!ptr) {
+		err = -ENOMEM;
+		goto free_init_rw;
+	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
+	memset(ptr, 0, mod->core_size_rx);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
+
+	mod->module_core_rx = ptr;
+
+	ptr = module_alloc_exec(mod->init_size_rx);
+	if (!ptr && mod->init_size_rx) {
+		err = -ENOMEM;
+		goto free_core_rx;
+	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
+	memset(ptr, 0, mod->init_size_rx);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
+
+	mod->module_init_rx = ptr;
 
 	/* Transfer each section which specifies SHF_ALLOC */
 	DEBUGP("final section addresses:\n");
@@ -1692,17 +1744,44 @@ static struct module *load_module(void __user *umod,
 		if (!(sechdrs[i].sh_flags & SHF_ALLOC))
 			continue;
 
-		if (sechdrs[i].sh_entsize & INIT_OFFSET_MASK)
-			dest = mod->module_init
-				+ (sechdrs[i].sh_entsize & ~INIT_OFFSET_MASK);
-		else
-			dest = mod->module_core + sechdrs[i].sh_entsize;
+		if (sechdrs[i].sh_entsize & INIT_OFFSET_MASK) {
+			if ((sechdrs[i].sh_flags & SHF_WRITE) || !(sechdrs[i].sh_flags & SHF_ALLOC))
+				dest = mod->module_init_rw
+					+ (sechdrs[i].sh_entsize & ~INIT_OFFSET_MASK);
+			else
+				dest = mod->module_init_rx
+					+ (sechdrs[i].sh_entsize & ~INIT_OFFSET_MASK);
+		} else {
+			if ((sechdrs[i].sh_flags & SHF_WRITE) || !(sechdrs[i].sh_flags & SHF_ALLOC))
+				dest = mod->module_core_rw + sechdrs[i].sh_entsize;
+			else
+				dest = mod->module_core_rx + sechdrs[i].sh_entsize;
+		}
 
-		if (sechdrs[i].sh_type != SHT_NOBITS)
-			memcpy(dest, (void *)sechdrs[i].sh_addr,
-			       sechdrs[i].sh_size);
+		if (sechdrs[i].sh_type != SHT_NOBITS) {
+
+#ifdef CONFIG_PAX_KERNEXEC
+			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
+				pax_open_kernel(flags, cr0);
+#endif
+
+			memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
+				pax_close_kernel(flags, cr0);
+#endif
+
+		}
 		/* Update sh_addr to point to copy in image. */
-		sechdrs[i].sh_addr = (unsigned long)dest;
+
+#ifdef CONFIG_PAX_KERNEXEC
+		if (sechdrs[i].sh_flags & SHF_EXECINSTR)
+			sechdrs[i].sh_addr = (unsigned long)dest - __KERNEL_TEXT_OFFSET;
+		else
+#endif
+
+			sechdrs[i].sh_addr = (unsigned long)dest;
 		DEBUGP("\t0x%lx %s\n", sechdrs[i].sh_addr, secstrings + sechdrs[i].sh_name);
 	}
 	/* Module has been moved. */
@@ -1720,8 +1799,18 @@ static struct module *load_module(void __user *umod,
 #endif
 
 	/* Fix up syms, so that st_value is a pointer to location. */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,
 			       mod);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
+
 	if (err < 0)
 		goto cleanup;
 
@@ -1757,11 +1846,20 @@ static struct module *load_module(void __user *umod,
 		if (!(sechdrs[info].sh_flags & SHF_ALLOC))
 			continue;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
 		if (sechdrs[i].sh_type == SHT_REL)
 			err = apply_relocate(sechdrs, strtab, symindex, i,mod);
 		else if (sechdrs[i].sh_type == SHT_RELA)
 			err = apply_relocate_add(sechdrs, strtab, symindex, i,
 						 mod);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
+
 		if (err < 0)
 			goto cleanup;
 	}
@@ -1769,13 +1867,30 @@ static struct module *load_module(void __user *umod,
   	/* Set up and sort exception table */
 	mod->num_exentries = sechdrs[exindex].sh_size / sizeof(*mod->extable);
 	mod->extable = extable = (void *)sechdrs[exindex].sh_addr;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
 	sort_extable(extable, extable + mod->num_exentries);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
 
 	/* Finally, copy percpu area over. */
 	percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
 		       sechdrs[pcpuindex].sh_size);
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(flags, cr0);
+#endif
+
 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
 
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
@@ -1790,12 +1905,12 @@ static struct module *load_module(void __user *umod,
 	 * Do it before processing of module parameters, so the module
 	 * can provide parameter accessor functions of its own.
 	 */
-	if (mod->module_init)
-		flush_icache_range((unsigned long)mod->module_init,
-				   (unsigned long)mod->module_init
-				   + mod->init_size);
-	flush_icache_range((unsigned long)mod->module_core,
-			   (unsigned long)mod->module_core + mod->core_size);
+	if (mod->module_init_rx)
+		flush_icache_range((unsigned long)mod->module_init_rx,
+				   (unsigned long)mod->module_init_rx
+				   + mod->init_size_rx);
+	flush_icache_range((unsigned long)mod->module_core_rx,
+			   (unsigned long)mod->module_core_rx + mod->core_size_rx);
 
 	set_fs(old_fs);
 
@@ -1843,9 +1958,13 @@ static struct module *load_module(void __user *umod,
 	module_arch_cleanup(mod);
  cleanup:
 	module_unload_free(mod);
-	module_free(mod, mod->module_init);
- free_core:
-	module_free(mod, mod->module_core);
+	module_free_exec(mod, mod->module_init_rx);
+ free_core_rx:
+	module_free_exec(mod, mod->module_core_rx);
+ free_init_rw:
+	module_free(mod, mod->module_init_rw);
+ free_core_rw:
+	module_free(mod, mod->module_core_rw);
  free_percpu:
 	if (percpu)
 		percpu_modfree(percpu);
@@ -1933,10 +2052,12 @@ sys_init_module(void __user *umod,
 	mod->state = MODULE_STATE_LIVE;
 	/* Drop initial reference. */
 	module_put(mod);
-	module_free(mod, mod->module_init);
-	mod->module_init = NULL;
-	mod->init_size = 0;
-	mod->init_text_size = 0;
+	module_free(mod, mod->module_init_rw);
+	module_free_exec(mod, mod->module_init_rx);
+	mod->module_init_rw = NULL;
+	mod->module_init_rx = NULL;
+	mod->init_size_rw = 0;
+	mod->init_size_rx = 0;
 	up(&module_mutex);
 
 	return 0;
@@ -1967,10 +2088,14 @@ static const char *get_ksymbol(struct module *mod,
 	unsigned long nextval;
 
 	/* At worse, next value is at end of module */
-	if (within(addr, mod->module_init, mod->init_size))
-		nextval = (unsigned long)mod->module_init+mod->init_text_size;
-	else 
-		nextval = (unsigned long)mod->module_core+mod->core_text_size;
+	if (within(addr, mod->module_init_rx, mod->init_size_rx))
+		nextval = (unsigned long)mod->module_init_rw;
+	else if (within(addr, mod->module_init_rw, mod->init_size_rw))
+		nextval = (unsigned long)mod->module_core_rx;
+	else if (within(addr, mod->module_core_rx, mod->core_size_rx))
+		nextval = (unsigned long)mod->module_core_rw;
+	else
+		nextval = (unsigned long)mod->module_core_rw+mod->core_size_rw;
 
 	/* Scan for closest preceeding symbol, and next symbol. (ELF
            starts real symbols at 1). */
@@ -2011,8 +2136,10 @@ const char *module_address_lookup(unsigned long addr,
 	struct module *mod;
 
 	list_for_each_entry(mod, &modules, list) {
-		if (within(addr, mod->module_init, mod->init_size)
-		    || within(addr, mod->module_core, mod->core_size)) {
+		if (within(addr, mod->module_init_rx, mod->init_size_rx)
+		    || within(addr, mod->module_init_rw, mod->init_size_rw)
+		    || within(addr, mod->module_core_rx, mod->core_size_rx)
+		    || within(addr, mod->module_core_rw, mod->core_size_rw)) {
 			*modname = mod->name;
 			return get_ksymbol(mod, addr, size, offset);
 		}
@@ -2109,8 +2236,7 @@ static void m_stop(struct seq_file *m, void *p)
 static int m_show(struct seq_file *m, void *p)
 {
 	struct module *mod = list_entry(p, struct module, list);
-	seq_printf(m, "%s %lu",
-		   mod->name, mod->init_size + mod->core_size);
+	seq_printf(m, "%s %lu %lu %lu %lu", mod->name, mod->init_size_rx, mod->init_size_rw, mod->core_size_rx, mod->core_size_rw);
 	print_unload_info(m, mod);
 
 	/* Informative for users. */
@@ -2119,7 +2245,7 @@ static int m_show(struct seq_file *m, void *p)
 		   mod->state == MODULE_STATE_COMING ? "Loading":
 		   "Live");
 	/* Used by oprofile and other similar tools. */
-	seq_printf(m, " 0x%p", mod->module_core);
+	seq_printf(m, " 0x%p 0x%p", mod->module_core_rx, mod->module_core_rw);
 
 	seq_printf(m, "\n");
 	return 0;
@@ -2167,9 +2293,13 @@ struct module *__module_text_address(unsigned long addr)
 {
 	struct module *mod;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	addr += __KERNEL_TEXT_OFFSET;
+#endif
+
 	list_for_each_entry(mod, &modules, list)
-		if (within(addr, mod->module_init, mod->init_text_size)
-		    || within(addr, mod->module_core, mod->core_text_size))
+		if (within(addr, mod->module_init_rx, mod->init_size_rx)
+		    || within(addr, mod->module_core_rx, mod->core_size_rx))
 			return mod;
 	return NULL;
 }

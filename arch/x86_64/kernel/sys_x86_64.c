@@ -81,7 +81,7 @@ static void find_start_end(struct mm_struct *mm, unsigned long flags,
 
 #ifdef CONFIG_PAX_RANDMMAP
 		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			begin += mm->delta_mmap & 0x0FFFFFFFU;
+			*begin += mm->delta_mmap & 0x0FFFFFFFU;
 #endif
 
 	} else {

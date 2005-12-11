@@ -497,7 +497,12 @@ static int show_numa_map(struct seq_file *m, void *v)
 	if (!md)
 		return 0;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	seq_printf(m, "%08lx", PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : vma->vm_start);
+#else
+	seq_printf(m, "%08lx", vma->vm_start);
+#endif
+
 	pol = get_vma_policy(task, vma, vma->vm_start);
 	/* Print policy */
 	switch (pol->policy) {

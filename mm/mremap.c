@@ -278,6 +278,7 @@ unsigned long do_mremap(unsigned long addr,
 	struct vm_area_struct *vma;
 	unsigned long ret = -EINVAL;
 	unsigned long charged = 0;
+	unsigned long task_size = TASK_SIZE;
 
 	if (flags & ~(MREMAP_FIXED | MREMAP_MAYMOVE))
 		goto out;
@@ -297,15 +298,12 @@ unsigned long do_mremap(unsigned long addr,
 		goto out;
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
-		if (new_len > SEGMEXEC_TASK_SIZE || addr > SEGMEXEC_TASK_SIZE-new_len ||
-		    old_len > SEGMEXEC_TASK_SIZE || addr > SEGMEXEC_TASK_SIZE-old_len)
-			goto out;
-	} else
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
+		task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (new_len > TASK_SIZE || addr > TASK_SIZE-new_len ||
-	    old_len > TASK_SIZE || addr > TASK_SIZE-old_len)
+	if (new_len > task_size || addr > task_size-new_len ||
+	    old_len > task_size || addr > task_size-old_len)
 		goto out;
 
 	/* new_addr is only valid if MREMAP_FIXED is specified */
@@ -315,23 +313,13 @@ unsigned long do_mremap(unsigned long addr,
 		if (!(flags & MREMAP_MAYMOVE))
 			goto out;
 
-#ifdef CONFIG_PAX_SEGMEXEC
-		if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
-			if (new_len > SEGMEXEC_TASK_SIZE || new_addr > SEGMEXEC_TASK_SIZE-new_len)
-				goto out;
-		} else
-#endif
-
-		if (new_len > TASK_SIZE || new_addr > TASK_SIZE - new_len)
+		if (new_addr > task_size - new_len)
 			goto out;
 
 		/* Check if the location we're moving into overlaps the
 		 * old location at all, and fail if it does.
 		 */
-		if ((new_addr <= addr) && (new_addr+new_len) > addr)
-			goto out;
-
-		if ((addr <= new_addr) && (addr+old_len) > new_addr)
+		if (addr + old_len > new_addr && new_addr + new_len > addr)
 			goto out;
 
 		ret = do_munmap(current->mm, new_addr, new_len);
@@ -406,7 +394,7 @@ unsigned long do_mremap(unsigned long addr,
 	if (old_len == vma->vm_end - addr &&
 	    !((flags & MREMAP_FIXED) && (addr != new_addr)) &&
 	    (old_len != new_len || !(flags & MREMAP_MAYMOVE))) {
-		unsigned long max_addr = TASK_SIZE;
+		unsigned long max_addr = task_size;
 		if (vma->vm_next)
 			max_addr = vma->vm_next->vm_start;
 		/* can we just expand the current mapping? */

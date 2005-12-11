@@ -436,16 +436,6 @@ void __init paging_init(void)
 
 	__flush_tlb_all();
 
-#ifdef CONFIG_PAX_KERNEXEC
-
-#ifdef CONFIG_X86_PAE
-	memcpy(kernexec_pm_dir, swapper_pm_dir, sizeof(kernexec_pm_dir));
-#else
-	memcpy(kernexec_pg_dir, swapper_pg_dir, sizeof(kernexec_pg_dir));
-#endif
-
-#endif
-
 	kmap_init();
 }
 
@@ -624,41 +614,32 @@ void free_initmem(void)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	/* PaX: limit KERNEL_CS to actual size */
-	{
-		unsigned long limit;
-		int cpu;
-		pgd_t *pgd;
-		pud_t *pud;
-		pmd_t *pmd;
+	unsigned long limit;
+	int cpu;
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
 
-		limit = (unsigned long)&_etext >> PAGE_SHIFT;
-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
-			cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].a = (cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].a & 0xFFFF0000UL) | (limit & 0x0FFFFUL);
-			cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].b = (cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].b & 0xFFF0FFFFUL) | (limit & 0xF0000UL);
-		}
+#ifdef CONFIG_MODULES
+	limit = (unsigned long)&MODULES_END - __KERNEL_TEXT_OFFSET;
+#else
+	limit = (unsigned long)&_etext;
+#endif
+	limit = (limit - 1UL) >> PAGE_SHIFT;
+
+	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+		cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].a = (cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].a & 0xFFFF0000UL) | (limit & 0x0FFFFUL);
+		cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].b = (cpu_gdt_table[cpu][GDT_ENTRY_KERNEL_CS].b & 0xFFF0FFFFUL) | (limit & 0xF0000UL);
+	}
 
 	/* PaX: make KERNEL_CS read-only */
-		for (addr = __KERNEL_TEXT_OFFSET; addr < (unsigned long)&_data; addr += PMD_SIZE) {
-			pgd = pgd_offset_k(addr);
-			pud = pud_offset(pgd, addr);
-			pmd = pmd_offset(pud, addr);
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_GLOBAL));
-		}
-
-#ifdef CONFIG_X86_PAE
-		memcpy(kernexec_pm_dir, swapper_pm_dir, sizeof(kernexec_pm_dir));
-#else
-		memcpy(kernexec_pg_dir, swapper_pg_dir, sizeof(kernexec_pg_dir));
-#endif
-
-		for (addr = __KERNEL_TEXT_OFFSET; addr < (unsigned long)&_data; addr += PMD_SIZE) {
-			pgd = pgd_offset_k(addr);
-			pud = pud_offset(pgd, addr);
-			pmd = pmd_offset(pud, addr);
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-		}
-		flush_tlb_all();
+	for (addr = __KERNEL_TEXT_OFFSET; addr < (unsigned long)&_data; addr += PMD_SIZE) {
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 	}
+	flush_tlb_all();
 #endif
 
 	addr = (unsigned long)(&__init_begin);

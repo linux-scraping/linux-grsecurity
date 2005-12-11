@@ -124,6 +124,8 @@ extern int page_is_ram(unsigned long pagenr);
 #define __KERNEL_TEXT_OFFSET	(0xC0400000)
 #else
 #define __KERNEL_TEXT_OFFSET	(0xC0400000UL)
+extern unsigned char MODULES_VADDR[];
+extern unsigned char MODULES_END[];
 #endif
 #else
 #ifdef __ASSEMBLY__
