@@ -209,7 +209,7 @@ void show_registers(struct pt_regs *regs)
 
 	esp = (unsigned long) (&regs->esp);
 	savesegment(ss, ss);
-	if (user_mode_vm(regs)) {
+	if (user_mode(regs)) {
 		in_kernel = 0;
 		esp = regs->esp;
 		ss = regs->xss & 0xffff;
@@ -357,7 +357,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 
 static inline void die_if_kernel(const char * str, struct pt_regs * regs, long err)
 {
-	if (!user_mode_vm(regs))
+	if (!user_mode(regs))
 		die(str, regs, err);
 }
 
@@ -375,7 +375,7 @@ static void __kprobes do_trap(int trapnr, int signr, char *str, int vm86,
 		goto trap_signal;
 	}
 
-	if (!user_mode(regs))
+	if (!user_mode_novm(regs))
 		goto kernel_trap;
 
 	trap_signal: {
@@ -498,7 +498,7 @@ fastcall void __kprobes do_general_protection(struct pt_regs * regs,
 	if (regs->eflags & VM_MASK)
 		goto gp_in_vm86;
 
-	if (!user_mode(regs))
+	if (!user_mode_novm(regs))
 		goto gp_in_kernel;
 
 #ifdef CONFIG_PAX_PAGEEXEC
@@ -769,7 +769,7 @@ fastcall void __kprobes do_debug(struct pt_regs * regs, long error_code)
 		 * check for kernel mode by just checking the CPL
 		 * of CS.
 		 */
-		if (!user_mode(regs))
+		if (!user_mode_novm(regs))
 			goto clear_TF_reenable;
 	}
 
@@ -1059,7 +1059,18 @@ do { \
  */
 void set_intr_gate(unsigned int n, void *addr)
 {
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long flags, cr0;
+	pax_open_kernel(flags, cr0);
+#endif
+
 	_set_gate(idt_table+n,14,0,addr,__KERNEL_CS);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(flags, cr0);
+#endif
+
 }
 
 /*

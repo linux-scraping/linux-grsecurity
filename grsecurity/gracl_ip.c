@@ -12,6 +12,8 @@
 #include <linux/smp_lock.h>
 #include <linux/types.h>
 #include <linux/sched.h>
+#include <linux/netdevice.h>
+#include <linux/inetdevice.h>
 #include <linux/gracl.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
@@ -131,14 +133,39 @@ NIPQUAD(current->signal->curr_ip));
 	return 1;
 }
 
-static __inline__ int
+int check_ip_policy(struct acl_ip_label *ip, __u32 ip_addr, __u16 ip_port, __u8 protocol, const int mode, const int type, __u32 our_addr, __u32 our_netmask)
+{
+	if ((ip->mode & mode) &&
+	    (ip_port >= ip->low) &&
+	    (ip_port <= ip->high) &&
+	    ((ntohl(ip_addr) & our_netmask) ==
+	     (ntohl(our_addr) & our_netmask))
+	    && (ip->proto[protocol / 32] & (1 << (protocol % 32)))
+	    && (ip->type & (1 << type))) {
+		if (ip->mode & GR_INVERT)
+			return 2; // specifically denied
+		else
+			return 1; // allowed
+	}
+
+	return 0; // not specifically allowed, may continue parsing
+}
+
+static int
 gr_search_connectbind(const int mode, const struct sock *sk,
 		      const struct sockaddr_in *addr, const int type)
 {
+	char iface[IFNAMSIZ] = {0};
 	struct acl_subject_label *curr;
 	struct acl_ip_label *ip;
+	struct net_device *dev;
+	struct in_device *idev;
 	unsigned long i;
+	int ret;
 	__u32 ip_addr = 0;
+	__u32 our_addr;
+	__u32 our_netmask;
+	char *p;
 	__u16 ip_port = 0;
 
 	if (unlikely(!gr_acl_is_enabled() || sk->sk_family != PF_INET))
@@ -166,18 +193,49 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 
 	for (i = 0; i < curr->ip_num; i++) {
 		ip = *(curr->ips + i);
-		if ((ip->mode & mode) &&
-		    (ip_port >= ip->low) &&
-		    (ip_port <= ip->high) &&
-		    ((ntohl(ip_addr) & ip->netmask) ==
-		     (ntohl(ip->addr) & ip->netmask))
-		    && (ip->
-			proto[sk->sk_protocol / 32] & (1 << (sk->sk_protocol % 32)))
-		    && (ip->type & (1 << type))) {
-			if (ip->mode & GR_INVERT)
-				goto denied;
-			else
+		if (ip->iface != NULL) {
+			strncpy(iface, ip->iface, IFNAMSIZ - 1);
+			p = strchr(iface, ':');
+			if (p != NULL)
+				*p = '\0';
+			dev = dev_get_by_name(iface);
+			if (dev == NULL)
+				continue;
+			idev = in_dev_get(dev);
+			if (idev == NULL) {
+				dev_put(dev);
+				continue;
+			}
+			rcu_read_lock();
+			for_ifa(idev) {
+				if (!strcmp(ip->iface, ifa->ifa_label)) {
+					our_addr = ifa->ifa_address;
+					our_netmask = 0xffffffff;
+					ret = check_ip_policy(ip, ip_addr, ip_port, sk->sk_protocol, mode, type, our_addr, our_netmask);
+					if (ret == 1) {
+						rcu_read_unlock();
+						in_dev_put(idev);
+						dev_put(dev);
+						return 1;
+					} else if (ret == 2) {
+						rcu_read_unlock();
+						in_dev_put(idev);
+						dev_put(dev);
+						goto denied;
+					}
+				}
+			} endfor_ifa(idev);
+			rcu_read_unlock();
+			in_dev_put(idev);
+			dev_put(dev);
+		} else {
+			our_addr = ip->addr;
+			our_netmask = ip->netmask;
+			ret = check_ip_policy(ip, ip_addr, ip_port, sk->sk_protocol, mode, type, our_addr, our_netmask);
+			if (ret == 1)
 				return 1;
+			else if (ret == 2)
+				goto denied;
 		}
 	}
 

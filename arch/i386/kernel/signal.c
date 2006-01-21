@@ -633,7 +633,7 @@ int fastcall do_signal(struct pt_regs *regs, sigset_t *oldset)
  	 * before reaching here, so testing against kernel
  	 * CS suffices.
 	 */
-	if (!user_mode(regs))
+	if (!user_mode_novm(regs))
 		return 1;
 
 	if (try_to_freeze())

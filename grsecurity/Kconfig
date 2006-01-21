@@ -29,6 +29,8 @@ config GRKERNSEC_LOW
 	select GRKERNSEC_RANDNET
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_CHROOT_CHDIR
+	select GRKERNSEC_MODSTOP if (MODULES)
+
 	help
 	  If you choose this option, several of the grsecurity options will
 	  be enabled that will give you greater protection against a number
@@ -44,6 +46,7 @@ config GRKERNSEC_LOW
 	  - Enforcing RLIMIT_NPROC on execve
 	  - Restricted dmesg
 	  - Enforced chdir("/") on chroot
+	  - Runtime module disabling
 
 config GRKERNSEC_MEDIUM
 	bool "Medium"
@@ -72,6 +75,7 @@ config GRKERNSEC_MEDIUM
 	select GRKERNSEC_CHROOT_MKNOD
 	select GRKERNSEC_PROC
 	select GRKERNSEC_PROC_USERGROUP
+	select GRKERNSEC_MODSTOP if (MODULES)
 	select PAX_RANDUSTACK
 	select PAX_ASLR
 	select PAX_RANDMMAP
@@ -136,6 +140,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_CHROOT_CHMOD
 	select GRKERNSEC_CHROOT_NICE
 	select GRKERNSEC_AUDIT_MOUNT
+	select GRKERNSEC_MODSTOP if (MODULES)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -257,6 +262,24 @@ config GRKERNSEC_BRUTE
 	  situation and restart the daemon.  It is recommended that you also
 	  enable signal logging in the auditing section so that logs are
 	  generated when a process performs an illegal instruction.
+
+config GRKERNSEC_MODSTOP
+	bool "Runtime module disabling"
+	depends on MODULES
+	help
+	  If you say Y here, you will be able to disable the ability to (un)load
+	  modules at runtime.  This feature is useful if you need the ability
+	  to load kernel modules at boot time, but do not want to allow an
+	  attacker to load a rootkit kernel module into the system, or to remove
+	  a loaded kernel module important to system functioning.  You should
+	  enable the /dev/mem protection feature as well, since rootkits can be
+	  inserted into the kernel via other methods than kernel modules.  Since
+	  an untrusted module could still be loaded by modifying init scripts and
+	  rebooting the system, it is also recommended that you enable the RBAC
+	  system.  If you enable this option, a sysctl option with name
+	  "disable_modules" will be created.  Setting this option to "1" disables
+	  module loading.  After this option is set, no further writes to it are
+	  allowed until the system is rebooted.
 
 config GRKERNSEC_HIDESYM
 	bool "Hide kernel symbols"

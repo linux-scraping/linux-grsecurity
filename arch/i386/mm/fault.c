@@ -232,13 +232,13 @@ static inline pte_t * pax_get_pte(struct mm_struct *mm, unsigned long address)
 	pmd_t *pmd;
 
 	pgd = pgd_offset(mm, address);
-	if (!pgd || !pgd_present(*pgd))
+	if (!pgd_present(*pgd))
 		return NULL;
 	pud = pud_offset(pgd, address);
-	if (!pud || !pud_present(*pud))
+	if (!pud_present(*pud))
 		return NULL;
 	pmd = pmd_offset(pud, address);
-	if (!pmd || !pmd_present(*pmd))
+	if (!pmd_present(*pmd))
 		return NULL;
 	return pte_offset_map(pmd, address);
 }

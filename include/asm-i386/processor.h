@@ -482,7 +482,7 @@ struct thread_struct {
  * be within the limit.
  */
 #define INIT_TSS  {							\
-	.esp0		= sizeof(init_stack) + (long)&init_stack,	\
+	.esp0		= sizeof(init_stack) + (long)&init_stack - 8,	\
 	.ss0		= __KERNEL_DS,					\
 	.ss1		= __KERNEL_CS,					\
 	.io_bitmap_base	= INVALID_IO_BITMAP_OFFSET,			\

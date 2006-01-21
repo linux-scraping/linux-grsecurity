@@ -992,11 +992,11 @@ asmlinkage void pax_randomize_kstack(void)
 
       /* P4 seems to return a 0 LSB, ignore it */
 #ifdef CONFIG_MPENTIUM4
-	time &= 0x3EUL;
-	time <<= 1;
-#else
-	time &= 0x1FUL;
+	time &= 0x1EUL;
 	time <<= 2;
+#else
+	time &= 0xFUL;
+	time <<= 3;
 #endif
 
 	tss->esp0 ^= time;

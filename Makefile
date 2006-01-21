@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 14
-EXTRAVERSION = .3-grsec
+EXTRAVERSION = .6-grsec
 NAME=Affluent Albatross
 
 # *DOCUMENTATION*

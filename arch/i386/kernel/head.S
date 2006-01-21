@@ -488,7 +488,7 @@ ENTRY(idt_table)
 ready:	.byte 0
 
 ENTRY(stack_start)
-	.long init_thread_union+THREAD_SIZE
+	.long init_thread_union+THREAD_SIZE-8
 	.long __BOOT_DS
 
 int_msg:

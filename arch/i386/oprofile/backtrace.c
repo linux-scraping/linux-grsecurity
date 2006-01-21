@@ -91,7 +91,7 @@ x86_backtrace(struct pt_regs * const regs, unsigned int depth)
 	head = (struct frame_head *)regs->ebp;
 #endif
 
-	if (!user_mode_vm(regs)) {
+	if (!user_mode(regs)) {
 		while (depth-- && valid_kernel_stack(head, regs))
 			head = dump_backtrace(head);
 		return;

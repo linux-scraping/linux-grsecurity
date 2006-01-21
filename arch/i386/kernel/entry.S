@@ -572,9 +572,9 @@ nmi_debug_stack_check:
 	cmpw $__KERNEL_CS,16(%esp)
 	jne nmi_stack_correct
 	cmpl $debug - 1,(%esp)
-	jle nmi_stack_correct
+	jbe nmi_stack_correct
 	cmpl $debug_esp_fix_insn,(%esp)
-	jle nmi_debug_stack_fixup
+	jbe nmi_debug_stack_fixup
 nmi_debug_stack_fixup:
 	FIX_STACK(24,nmi_stack_correct, 1)
 	jmp nmi_stack_correct

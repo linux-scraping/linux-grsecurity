@@ -59,7 +59,7 @@ static inline void set_user_cs(struct mm_struct *mm, int cpu)
 	pax_open_kernel(flags, cr0);
 #endif
 
-	if (limit) {
+	if (likely(limit)) {
 		limit -= 1UL;
 		limit >>= 12;
 	}

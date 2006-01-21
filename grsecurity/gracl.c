@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/capability.h>
 #include <linux/sysctl.h>
+#include <linux/netdevice.h>
 #include <linux/ptrace.h>
 #include <linux/gracl.h>
 #include <linux/gralloc.h>
@@ -162,24 +163,52 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 }
 		
 static char *
+gen_full_path(struct dentry *dentry, struct vfsmount *vfsmnt,
+              struct dentry *root, struct vfsmount *rootmnt, char *buf, int buflen)
+{
+	char *end = buf + buflen;
+	char *retval;
+	int namelen = 0;
+
+	*--end = '\0';
+
+	retval = end - 1;
+	*retval = '/';
+
+	if (dentry == root && vfsmnt == rootmnt)
+		return retval;
+	if (dentry != vfsmnt->mnt_root && !IS_ROOT(dentry)) {
+		namelen = strlen(dentry->d_name.name);
+		buflen -= namelen;
+		if (buflen < 2)
+			goto err;
+		if (dentry->d_parent != root || vfsmnt != rootmnt)
+			buflen--;
+	}
+
+	retval = __d_path(dentry->d_parent, vfsmnt, root, rootmnt, buf, buflen);
+	if (unlikely(IS_ERR(retval)))
+err:
+		retval = strcpy(buf, "<path too long>");
+	else if (namelen != 0) {
+		end = buf + buflen - 1; // accounts for null termination
+		if (dentry->d_parent != root || vfsmnt != rootmnt)
+			*end++ = '/'; // accounted for above with buflen--
+		memcpy(end, dentry->d_name.name, namelen);
+	}
+
+	return retval;
+}
+
+static char *
 __d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 		char *buf, int buflen)
 {
 	char *res;
-	struct dentry *l_dentry = (struct dentry *)dentry;
 
 	/* we can use real_root, real_root_mnt, because this is only called
 	   by the RBAC system */
-	res = __d_path(l_dentry, (struct vfsmount *)vfsmnt, real_root, real_root_mnt, buf, buflen);
-	if (unlikely(IS_ERR(res)))
-		res = strcpy(buf, "<path too long>");
-	else if (!IS_ROOT(l_dentry) && d_unhashed(l_dentry)) {
-		unsigned int len;
-
-		/* strip off (deleted) */
-		len = strlen(res);
-		*(res + len - 10) = '\0';
-	}
+	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, real_root, real_root_mnt, buf, buflen);
 
 	return res;
 }
@@ -189,7 +218,6 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	    char *buf, int buflen)
 {
 	char *res;
-	struct dentry *l_dentry = (struct dentry *)dentry;
 	struct dentry *root;
 	struct vfsmount *rootmnt;
 
@@ -200,16 +228,7 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	read_unlock(&child_reaper->fs->lock);
 
 	spin_lock(&dcache_lock);
-	res = __d_path(l_dentry, (struct vfsmount *)vfsmnt, root, rootmnt, buf, buflen);
-	if (unlikely(IS_ERR(res)))
-		res = strcpy(buf, "<path too long>");
-	else if (!IS_ROOT(l_dentry) && d_unhashed(l_dentry)) {
-		unsigned int len;
-
-		/* strip off (deleted) */
-		len = strlen(res);
-		*(res + len - 10) = '\0';
-	}
+	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, root, rootmnt, buf, buflen);
 	spin_unlock(&dcache_lock);
 
 	dput(root);
@@ -1180,6 +1199,19 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 		    (*(i_tmp + i_num), i_utmp2,
 		     sizeof (struct acl_ip_label)))
 			return ERR_PTR(-EFAULT);
+		
+		if ((*(i_tmp + i_num))->iface == NULL)
+			continue;
+
+		len = strnlen_user((*(i_tmp + i_num))->iface, IFNAMSIZ);
+		if (!len || len >= IFNAMSIZ)
+			return ERR_PTR(-EINVAL);
+		tmp = acl_alloc(len);
+		if (tmp == NULL)
+			return ERR_PTR(-ENOMEM);
+		if (copy_from_user(tmp, (*(i_tmp + i_num))->iface, len))
+			return ERR_PTR(-EFAULT);
+		(*(i_tmp + i_num))->iface = tmp;
 	}
 
 	s_tmp->ips = i_tmp;
@@ -2911,6 +2943,8 @@ gr_set_acls(const int type)
 	struct acl_object_label *obj;
 	struct task_struct *task, *task2;
 	struct file *filp;
+	struct acl_role_label *role = current->role;
+	__u16 acl_role_id = current->acl_role_id;
 
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
@@ -2919,8 +2953,8 @@ gr_set_acls(const int type)
 		   if so, only replace ACLs that have inherited the admin
 		   ACL */
 
-		if (type && (task->role != current->role ||
-			     task->acl_role_id != current->acl_role_id))
+		if (type && (task->role != role ||
+			     task->acl_role_id != acl_role_id))
 			continue;
 
 		task->acl_role_id = 0;
@@ -3064,16 +3098,27 @@ pax_set_initial_flags(struct linux_binprm *bprm)
 
         proc = task->acl;
 
-        if (proc->mode & GR_PAXPAGE)
-                flags &= ~MF_PAX_PAGEEXEC;
-        if (proc->mode & GR_PAXSEGM)
-                flags &= ~MF_PAX_SEGMEXEC;
-        if (proc->mode & GR_PAXGCC)
-                flags |= MF_PAX_EMUTRAMP;
-        if (proc->mode & GR_PAXMPROTECT)
-                flags &= ~MF_PAX_MPROTECT;
-        if (proc->mode & GR_PAXRANDMMAP)
-                flags &= ~MF_PAX_RANDMMAP;
+	if (proc->pax_flags & GR_PAX_DISABLE_PAGEEXEC)
+		flags &= ~MF_PAX_PAGEEXEC;
+	if (proc->pax_flags & GR_PAX_DISABLE_SEGMEXEC)
+		flags &= ~MF_PAX_SEGMEXEC;
+	if (proc->pax_flags & GR_PAX_DISABLE_RANDMMAP)
+		flags &= ~MF_PAX_RANDMMAP;
+	if (proc->pax_flags & GR_PAX_DISABLE_EMUTRAMP)
+		flags &= ~MF_PAX_EMUTRAMP;
+	if (proc->pax_flags & GR_PAX_DISABLE_MPROTECT)
+		flags &= ~MF_PAX_MPROTECT;
+
+	if (proc->pax_flags & GR_PAX_ENABLE_PAGEEXEC)
+		flags |= MF_PAX_PAGEEXEC;
+	if (proc->pax_flags & GR_PAX_ENABLE_SEGMEXEC)
+		flags |= MF_PAX_SEGMEXEC;
+	if (proc->pax_flags & GR_PAX_ENABLE_RANDMMAP)
+		flags |= MF_PAX_RANDMMAP;
+	if (proc->pax_flags & GR_PAX_ENABLE_EMUTRAMP)
+		flags |= MF_PAX_EMUTRAMP;
+	if (proc->pax_flags & GR_PAX_ENABLE_MPROTECT)
+		flags |= MF_PAX_MPROTECT;
 
 	pax_set_flags(task, flags);
 

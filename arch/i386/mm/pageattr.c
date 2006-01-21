@@ -13,6 +13,7 @@
 #include <asm/processor.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
+#include <asm/desc.h>
 
 static DEFINE_SPINLOCK(cpa_lock);
 static struct list_head df_list = LIST_HEAD_INIT(df_list);

@@ -37,6 +37,7 @@
 #include <linux/stop_machine.h>
 #include <linux/device.h>
 #include <linux/string.h>
+#include <linux/kallsyms.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
 #include <asm/cacheflush.h>
@@ -67,6 +68,8 @@ static LIST_HEAD(modules);
 
 static DECLARE_MUTEX(notify_mutex);
 static struct notifier_block * module_notify_list;
+
+extern int gr_check_modstop(void);
 
 int register_module_notifier(struct notifier_block * nb)
 {
@@ -577,6 +580,9 @@ sys_delete_module(const char __user *name_user, unsigned int flags)
 	struct module *mod;
 	char name[MODULE_NAME_LEN];
 	int ret, forced = 0;
+
+	if (gr_check_modstop())
+		return -EPERM;
 
 	if (!capable(CAP_SYS_MODULE))
 		return -EPERM;
@@ -2001,6 +2007,9 @@ sys_init_module(void __user *umod,
 	struct module *mod;
 	int ret = 0;
 
+	if (gr_check_modstop())
+		return -EPERM;
+
 	/* Must have permission */
 	if (!capable(CAP_SYS_MODULE))
 		return -EPERM;
@@ -2150,7 +2159,7 @@ const char *module_address_lookup(unsigned long addr,
 struct module *module_get_kallsym(unsigned int symnum,
 				  unsigned long *value,
 				  char *type,
-				  char namebuf[128])
+				  char namebuf[KSYM_NAME_LEN+1])
 {
 	struct module *mod;
 
@@ -2161,7 +2170,7 @@ struct module *module_get_kallsym(unsigned int symnum,
 			*type = mod->symtab[symnum].st_info;
 			strncpy(namebuf,
 				mod->strtab + mod->symtab[symnum].st_name,
-				127);
+				KSYM_NAME_LEN);
 			up(&module_mutex);
 			return mod;
 		}
@@ -2236,7 +2245,8 @@ static void m_stop(struct seq_file *m, void *p)
 static int m_show(struct seq_file *m, void *p)
 {
 	struct module *mod = list_entry(p, struct module, list);
-	seq_printf(m, "%s %lu %lu %lu %lu", mod->name, mod->init_size_rx, mod->init_size_rw, mod->core_size_rx, mod->core_size_rw);
+	seq_printf(m, "%s %lu",
+		mod->name, mod->init_size_rx + mod->init_size_rw + mod->core_size_rx + mod->core_size_rw);
 	print_unload_info(m, mod);
 
 	/* Informative for users. */

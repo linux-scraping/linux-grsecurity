@@ -4,6 +4,10 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
+#ifdef CONFIG_GRKERNSEC_MODSTOP
+int grsec_modstop;
+#endif
+
 int
 gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 {
@@ -13,10 +17,16 @@ gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 		return -EACCES;
 	}
 #endif
+#ifdef CONFIG_GRKERNSEC_MODSTOP
+	if (!strcmp(dirname, "grsecurity") && grsec_modstop && (op & 002)) {
+		gr_log_str(GR_DONT_AUDIT, GR_SYSCTL_MSG, name);
+		return -EACCES;
+	}
+#endif
 	return 0;
 }
 
-#ifdef CONFIG_GRKERNSEC_SYSCTL
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
 enum {GS_LINK=1, GS_FIFO, GS_EXECVE, GS_EXECLOG, GS_SIGNAL,
 GS_FORKFAIL, GS_TIME, GS_CHROOT_SHMAT, GS_CHROOT_UNIX, GS_CHROOT_MNT,
 GS_CHROOT_FCHDIR, GS_CHROOT_DBL, GS_CHROOT_PVT, GS_CHROOT_CD, GS_CHROOT_CM,
@@ -25,10 +35,11 @@ GS_CHROOT_SYSCTL, GS_TPE, GS_TPE_GID, GS_TPE_ALL, GS_SIDCAPS,
 GS_RANDPID, GS_RANDSRC, GS_SOCKET_ALL, GS_SOCKET_ALL_GID, GS_SOCKET_CLIENT,
 GS_SOCKET_CLIENT_GID, GS_SOCKET_SERVER, GS_SOCKET_SERVER_GID, 
 GS_GROUP, GS_GID, GS_ACHDIR, GS_AMOUNT, GS_AIPC, GS_DMSG,
-GS_TEXTREL, GS_FINDTASK, GS_SHM, GS_LOCK};
+GS_TEXTREL, GS_FINDTASK, GS_SHM, GS_LOCK, GS_MODSTOP};
 
 
 ctl_table grsecurity_table[] = {
+#ifdef CONFIG_GRKERNSEC_SYSCTL
 #ifdef CONFIG_GRKERNSEC_LINK
 	{
 		.ctl_name	= GS_LINK,
@@ -427,6 +438,28 @@ ctl_table grsecurity_table[] = {
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
 	},
+#endif
+#ifdef CONFIG_GRKERNSEC_MODSTOP
+	{
+		.ctl_name	= GS_MODSTOP,
+		.procname	= "disable_modules",
+		.data		= &grsec_modstop,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 	{ .ctl_name = 0 }
 };
 #endif
+
+int gr_check_modstop(void)
+{
+#ifdef CONFIG_GRKERNSEC_MODSTOP
+	if (grsec_modstop == 1) {
+		gr_log_noargs(GR_DONT_AUDIT, GR_STOPMOD_MSG);
+		return 1;
+	}
+#endif
+	return 0;
+}

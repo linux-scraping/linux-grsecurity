@@ -10,6 +10,7 @@
 #include <linux/dmi.h>
 #include <asm/smp.h>
 #include <asm/tlbflush.h>
+#include <asm/desc.h>
 
 /* address in low memory of the wakeup routine. */
 unsigned long acpi_wakeup_address = 0;

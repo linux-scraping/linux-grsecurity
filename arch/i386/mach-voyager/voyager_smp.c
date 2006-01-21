@@ -1294,7 +1294,7 @@ smp_local_timer_interrupt(struct pt_regs * regs)
 						per_cpu(prof_counter, cpu);
 		}
 
-		update_process_times(user_mode_vm(regs));
+		update_process_times(user_mode(regs));
 	}
 
 	if( ((1<<cpu) & voyager_extended_vic_processors) == 0)

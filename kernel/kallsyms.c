@@ -300,7 +300,6 @@ static unsigned long get_ksymbol_core(struct kallsym_iter *iter)
 
 static void reset_iter(struct kallsym_iter *iter, loff_t new_pos)
 {
-	iter->name[0] = '\0';
 	iter->nameoff = get_symbol_offset(new_pos);
 	iter->pos = new_pos;
 }
@@ -379,7 +378,7 @@ static int kallsyms_open(struct inode *inode, struct file *file)
 	struct kallsym_iter *iter;
 	int ret;
 
-	iter = kmalloc(sizeof(*iter), GFP_KERNEL);
+	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
 	if (!iter)
 		return -ENOMEM;
 	reset_iter(iter, 0);

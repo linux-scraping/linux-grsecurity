@@ -899,7 +899,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	   )
 	{
 		unsigned long ret_m;
-		prot = prot & PROT_EXEC ? prot : PROT_NONE;
+		prot = prot & PROT_EXEC ? prot & ~PROT_WRITE : PROT_NONE;
 		ret_m = __do_mmap_pgoff(NULL, ret + SEGMEXEC_TASK_SIZE, 0UL, prot, flags | MAP_MIRROR | MAP_FIXED, ret);
 		if (ret_m >= TASK_SIZE) {
 			do_munmap(current->mm, ret, len);
@@ -941,8 +941,8 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 
 		if (!vma_m || is_vm_hugetlb_page(vma_m) ||
 		    vma_m->vm_start != pgoff ||
-		    (vma_m->vm_flags & VM_MIRROR) ||
-		    (!(vma_m->vm_flags & VM_WRITE) && (prot & PROT_WRITE)))
+		    (vma_m->vm_flags & VM_SPECIAL) ||
+		    (prot & PROT_WRITE))
 			return -EINVAL;
 
 		file = vma_m->vm_file;

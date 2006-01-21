@@ -8,8 +8,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.7"
-#define GRSECURITY_VERSION 0x217
+#define GR_VERSION  "grsecurity 2.1.8"
+#define GRSECURITY_VERSION 0x218
 
 enum {
 
@@ -115,6 +115,7 @@ struct acl_subject_label {
 
 	struct acl_object_label **obj_hash;
 	__u32 obj_hash_size;
+	__u16 pax_flags;
 };
 
 struct role_allowed_ip {
@@ -180,6 +181,7 @@ struct acl_object_label {
 };
 
 struct acl_ip_label {
+	char *iface;
 	__u32 addr;
 	__u32 netmask;
 	__u16 low, high;
