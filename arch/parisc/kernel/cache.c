@@ -27,10 +27,11 @@
 #include <asm/page.h>
 #include <asm/pgalloc.h>
 #include <asm/processor.h>
+#include <asm/sections.h>
 
-int split_tlb;
-int dcache_stride;
-int icache_stride;
+int split_tlb __read_mostly;
+int dcache_stride __read_mostly;
+int icache_stride __read_mostly;
 EXPORT_SYMBOL(dcache_stride);
 
 
@@ -44,29 +45,29 @@ DEFINE_SPINLOCK(pa_tlb_lock);
 EXPORT_SYMBOL(pa_tlb_lock);
 #endif
 
-struct pdc_cache_info cache_info;
+struct pdc_cache_info cache_info __read_mostly;
 #ifndef CONFIG_PA20
-static struct pdc_btlb_info btlb_info;
+static struct pdc_btlb_info btlb_info __read_mostly;
 #endif
 
 #ifdef CONFIG_SMP
 void
 flush_data_cache(void)
 {
-	on_each_cpu((void (*)(void *))flush_data_cache_local, NULL, 1, 1);
+	on_each_cpu(flush_data_cache_local, NULL, 1, 1);
 }
 void 
 flush_instruction_cache(void)
 {
-	on_each_cpu((void (*)(void *))flush_instruction_cache_local, NULL, 1, 1);
+	on_each_cpu(flush_instruction_cache_local, NULL, 1, 1);
 }
 #endif
 
 void
 flush_cache_all_local(void)
 {
-	flush_instruction_cache_local();
-	flush_data_cache_local();
+	flush_instruction_cache_local(NULL);
+	flush_data_cache_local(NULL);
 }
 EXPORT_SYMBOL(flush_cache_all_local);
 
@@ -207,6 +208,9 @@ parisc_cache_init(void)
 
 	/* "New and Improved" version from Jim Hull 
 	 *	(1 << (cc_block-1)) * (cc_line << (4 + cnf.cc_shift))
+	 * The following CAFL_STRIDE is an optimized version, see
+	 * http://lists.parisc-linux.org/pipermail/parisc-linux/2004-June/023625.html
+	 * http://lists.parisc-linux.org/pipermail/parisc-linux/2004-June/023671.html
 	 */
 #define CAFL_STRIDE(cnf) (cnf.cc_line << (3 + cnf.cc_block + cnf.cc_shift))
 	dcache_stride = CAFL_STRIDE(cache_info.dc_conf);
@@ -266,7 +270,6 @@ void flush_dcache_page(struct page *page)
 	unsigned long offset;
 	unsigned long addr;
 	pgoff_t pgoff;
-	pte_t *pte;
 	unsigned long pfn = page_to_pfn(page);
 
 
@@ -297,21 +300,16 @@ void flush_dcache_page(struct page *page)
 		 * taking a page fault if the pte doesn't exist.
 		 * This is just for speed.  If the page translation
 		 * isn't there, there's no point exciting the
-		 * nadtlb handler into a nullification frenzy */
-
-
-  		if(!(pte = translation_exists(mpnt, addr)))
-			continue;
-
-		/* make sure we really have this page: the private
+		 * nadtlb handler into a nullification frenzy.
+		 *
+		 * Make sure we really have this page: the private
 		 * mappings may cover this area but have COW'd this
-		 * particular page */
-		if(pte_pfn(*pte) != pfn)
-  			continue;
-
-		__flush_cache_page(mpnt, addr);
-
-		break;
+		 * particular page.
+		 */
+  		if (translation_exists(mpnt, addr, pfn)) {
+			__flush_cache_page(mpnt, addr);
+			break;
+		}
 	}
 	flush_dcache_mmap_unlock(mapping);
 }
@@ -334,22 +332,20 @@ void clear_user_page_asm(void *page, unsigned long vaddr)
 }
 
 #define FLUSH_THRESHOLD 0x80000 /* 0.5MB */
-int parisc_cache_flush_threshold = FLUSH_THRESHOLD;
+int parisc_cache_flush_threshold __read_mostly = FLUSH_THRESHOLD;
 
 void parisc_setup_cache_timing(void)
 {
 	unsigned long rangetime, alltime;
-	extern char _text;	/* start of kernel code, defined by linker */
-	extern char _end;	/* end of BSS, defined by linker */
 	unsigned long size;
 
 	alltime = mfctl(16);
 	flush_data_cache();
 	alltime = mfctl(16) - alltime;
 
-	size = (unsigned long)(&_end - _text);
+	size = (unsigned long)(_end - _text);
 	rangetime = mfctl(16);
-	flush_kernel_dcache_range((unsigned long)&_text, size);
+	flush_kernel_dcache_range((unsigned long)_text, size);
 	rangetime = mfctl(16) - rangetime;
 
 	printk(KERN_DEBUG "Whole cache flush %lu cycles, flushing %lu bytes %lu cycles\n",

@@ -94,15 +94,6 @@ static irqreturn_t serial21285_rx_chars(int irq, void *dev_id, struct pt_regs *r
 
 	status = *CSR_UARTFLG;
 	while (!(status & 0x10) && max_count--) {
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
-			if (tty->low_latency)
-				tty_flip_buffer_push(tty);
-			/*
-			 * If this failed then we will throw away the
-			 * bytes but must do so to clear interrupts
-			 */
-		}
-
 		ch = *CSR_UARTDR;
 		flag = TTY_NORMAL;
 		port->icount.rx++;
@@ -371,11 +362,11 @@ static struct uart_ops serial21285_ops = {
 
 static struct uart_port serial21285_port = {
 	.mapbase	= 0x42000160,
-	.iotype		= SERIAL_IO_MEM,
+	.iotype		= UPIO_MEM,
 	.irq		= NO_IRQ,
 	.fifosize	= 16,
 	.ops		= &serial21285_ops,
-	.flags		= ASYNC_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF,
 };
 
 static void serial21285_setup_ports(void)

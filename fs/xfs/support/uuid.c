@@ -1,35 +1,20 @@
 /*
- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2003,2005 Silicon Graphics, Inc.
+ * All Rights Reserved.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * This program is distributed in the hope that it would be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston MA 02111-1307, USA.
- *
- * Contact information: Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
- * Mountain View, CA  94043, or:
- *
- * http://www.sgi.com
- *
- * For further information regarding this notice, see:
- *
- * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write the Free Software Foundation,
+ * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-
 #include <xfs.h>
 
 static mutex_t	uuid_monitor;
@@ -39,8 +24,18 @@ static uuid_t	*uuid_table;
 void
 uuid_init(void)
 {
-	mutex_init(&uuid_monitor, MUTEX_DEFAULT, "uuid_monitor");
+	mutex_init(&uuid_monitor);
 }
+
+
+/* IRIX interpretation of an uuid_t */
+typedef struct {
+	__be32	uu_timelow;
+	__be16	uu_timemid;
+	__be16	uu_timehi;
+	__be16	uu_clockseq;
+	__be16	uu_node[3];
+} xfs_uu_t;
 
 /*
  * uuid_getnodeuniq - obtain the node unique fields of a UUID.
@@ -51,16 +46,11 @@ uuid_init(void)
 void
 uuid_getnodeuniq(uuid_t *uuid, int fsid [2])
 {
-	char	*uu = (char *)uuid;
+	xfs_uu_t *uup = (xfs_uu_t *)uuid;
 
-	/* on IRIX, this function assumes big-endian fields within
-	 * the uuid, so we use INT_GET to get the same result on
-	 * little-endian systems
-	 */
-
-	fsid[0] = (INT_GET(*(u_int16_t*)(uu+8), ARCH_CONVERT) << 16) +
-		   INT_GET(*(u_int16_t*)(uu+4), ARCH_CONVERT);
-	fsid[1] =  INT_GET(*(u_int32_t*)(uu  ), ARCH_CONVERT);
+	fsid[0] = (be16_to_cpu(uup->uu_clockseq) << 16) |
+		   be16_to_cpu(uup->uu_timemid);
+	fsid[1] = be16_to_cpu(uup->uu_timelow);
 }
 
 void
@@ -109,7 +99,7 @@ uuid_table_insert(uuid_t *uuid)
 {
 	int	i, hole;
 
-	mutex_lock(&uuid_monitor, PVFS);
+	mutex_lock(&uuid_monitor);
 	for (i = 0, hole = -1; i < uuid_table_size; i++) {
 		if (uuid_is_nil(&uuid_table[i])) {
 			hole = i;
@@ -137,7 +127,7 @@ uuid_table_remove(uuid_t *uuid)
 {
 	int	i;
 
-	mutex_lock(&uuid_monitor, PVFS);
+	mutex_lock(&uuid_monitor);
 	for (i = 0; i < uuid_table_size; i++) {
 		if (uuid_is_nil(&uuid_table[i]))
 			continue;

@@ -189,13 +189,12 @@ static int agp_create_segment(struct agp_client *client, struct agp_region *regi
 	struct agp_segment *user_seg;
 	size_t i;
 
-	seg = kmalloc((sizeof(struct agp_segment_priv) * region->seg_count), GFP_KERNEL);
+	seg = kzalloc((sizeof(struct agp_segment_priv) * region->seg_count), GFP_KERNEL);
 	if (seg == NULL) {
 		kfree(region->seg_list);
 		region->seg_list = NULL;
 		return -ENOMEM;
 	}
-	memset(seg, 0, (sizeof(struct agp_segment_priv) * region->seg_count));
 	user_seg = region->seg_list;
 
 	for (i = 0; i < region->seg_count; i++) {
@@ -332,14 +331,11 @@ static struct agp_controller *agp_create_controller(pid_t id)
 {
 	struct agp_controller *controller;
 
-	controller = kmalloc(sizeof(struct agp_controller), GFP_KERNEL);
-
+	controller = kzalloc(sizeof(struct agp_controller), GFP_KERNEL);
 	if (controller == NULL)
 		return NULL;
 
-	memset(controller, 0, sizeof(struct agp_controller));
 	controller->pid = id;
-
 	return controller;
 }
 
@@ -540,12 +536,10 @@ static struct agp_client *agp_create_client(pid_t id)
 {
 	struct agp_client *new_client;
 
-	new_client = kmalloc(sizeof(struct agp_client), GFP_KERNEL);
-
+	new_client = kzalloc(sizeof(struct agp_client), GFP_KERNEL);
 	if (new_client == NULL)
 		return NULL;
 
-	memset(new_client, 0, sizeof(struct agp_client));
 	new_client->pid = id;
 	agp_insert_client(new_client);
 	return new_client;
@@ -598,7 +592,7 @@ static int agp_mmap(struct file *file, struct vm_area_struct *vma)
 	struct agp_file_private *priv = file->private_data;
 	struct agp_kern_info kerninfo;
 
-	down(&(agp_fe.agp_mutex));
+	mutex_lock(&(agp_fe.agp_mutex));
 
 	if (agp_fe.backend_acquired != TRUE)
 		goto out_eperm;
@@ -633,7 +627,7 @@ static int agp_mmap(struct file *file, struct vm_area_struct *vma)
 					    size, vma->vm_page_prot)) {
 			goto out_again;
 		}
-		up(&(agp_fe.agp_mutex));
+		mutex_unlock(&(agp_fe.agp_mutex));
 		return 0;
 	}
 
@@ -649,20 +643,20 @@ static int agp_mmap(struct file *file, struct vm_area_struct *vma)
 					    size, vma->vm_page_prot)) {
 			goto out_again;
 		}
-		up(&(agp_fe.agp_mutex));
+		mutex_unlock(&(agp_fe.agp_mutex));
 		return 0;
 	}
 
 out_eperm:
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return -EPERM;
 
 out_inval:
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return -EINVAL;
 
 out_again:
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return -EAGAIN;
 }
 
@@ -670,7 +664,7 @@ static int agp_release(struct inode *inode, struct file *file)
 {
 	struct agp_file_private *priv = file->private_data;
 
-	down(&(agp_fe.agp_mutex));
+	mutex_lock(&(agp_fe.agp_mutex));
 
 	DBG("priv=%p", priv);
 
@@ -693,7 +687,7 @@ static int agp_release(struct inode *inode, struct file *file)
 	agp_remove_file_private(priv);
 	kfree(priv);
 	file->private_data = NULL;
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return 0;
 }
 
@@ -704,16 +698,15 @@ static int agp_open(struct inode *inode, struct file *file)
 	struct agp_client *client;
 	int rc = -ENXIO;
 
-	down(&(agp_fe.agp_mutex));
+	mutex_lock(&(agp_fe.agp_mutex));
 
 	if (minor != AGPGART_MINOR)
 		goto err_out;
 
-	priv = kmalloc(sizeof(struct agp_file_private), GFP_KERNEL);
+	priv = kzalloc(sizeof(struct agp_file_private), GFP_KERNEL);
 	if (priv == NULL)
 		goto err_out_nomem;
 
-	memset(priv, 0, sizeof(struct agp_file_private));
 	set_bit(AGP_FF_ALLOW_CLIENT, &priv->access_flags);
 	priv->my_pid = current->pid;
 
@@ -730,13 +723,13 @@ static int agp_open(struct inode *inode, struct file *file)
 	file->private_data = (void *) priv;
 	agp_insert_file_private(priv);
 	DBG("private=%p, client=%p", priv, client);
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return 0;
 
 err_out_nomem:
 	rc = -ENOMEM;
 err_out:
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return rc;
 }
 
@@ -992,7 +985,7 @@ static int agp_ioctl(struct inode *inode, struct file *file,
 	int ret_val = -ENOTTY;
 
 	DBG("priv=%p, cmd=%x", curr_priv, cmd);
-	down(&(agp_fe.agp_mutex));
+	mutex_lock(&(agp_fe.agp_mutex));
 
 	if ((agp_fe.current_controller == NULL) &&
 	    (cmd != AGPIOC_ACQUIRE)) {
@@ -1062,7 +1055,7 @@ static int agp_ioctl(struct inode *inode, struct file *file,
 
 ioctl_out:
 	DBG("ioctl returns %d\n", ret_val);
-	up(&(agp_fe.agp_mutex));
+	mutex_unlock(&(agp_fe.agp_mutex));
 	return ret_val;
 }
 
@@ -1088,7 +1081,7 @@ static struct miscdevice agp_miscdev =
 int agp_frontend_initialize(void)
 {
 	memset(&agp_fe, 0, sizeof(struct agp_front_data));
-	sema_init(&(agp_fe.agp_mutex), 1);
+	mutex_init(&(agp_fe.agp_mutex));
 
 	if (misc_register(&agp_miscdev)) {
 		printk(KERN_ERR PFX "unable to get minor: %d\n", AGPGART_MINOR);

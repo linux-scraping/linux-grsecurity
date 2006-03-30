@@ -19,9 +19,6 @@ config MMU
 config STACK_GROWSUP
 	def_bool y
 
-config UID16
-	bool
-
 config RWSEM_GENERIC_SPINLOCK
 	def_bool y
 
@@ -30,6 +27,11 @@ config RWSEM_XCHGADD_ALGORITHM
 
 config GENERIC_CALIBRATE_DELAY
 	bool
+	default y
+
+config TIME_LOW_RES
+	bool
+	depends on SMP
 	default y
 
 config GENERIC_ISA_DMA
@@ -47,10 +49,10 @@ config PM
 
 config ISA_DMA_API
 	bool
-	default y
 
 config ARCH_MAY_HAVE_PC_FDC
 	bool
+	depends on BROKEN
 	default y
 
 source "init/Kconfig"
@@ -152,15 +154,22 @@ config HOTPLUG_CPU
 	default y if SMP
 	select HOTPLUG
 
-config ARCH_DISCONTIGMEM_ENABLE
-	bool "Discontiguous memory support (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
-	help
-	  Say Y to support efficient handling of discontiguous physical memory,
-	  for architectures which are either NUMA (Non-Uniform Memory Access)
-	  or have huge holes in the physical address space for other reasons.
-	  See <file:Documentation/vm/numa> for more.
+config ARCH_SELECT_MEMORY_MODEL
+	def_bool y
+	depends on 64BIT
 
+config ARCH_DISCONTIGMEM_ENABLE
+	def_bool y
+	depends on 64BIT
+
+config ARCH_FLATMEM_ENABLE
+	def_bool y
+
+config ARCH_DISCONTIGMEM_DEFAULT
+	def_bool y
+	depends on ARCH_DISCONTIGMEM_ENABLE
+
+source "kernel/Kconfig.hz"
 source "mm/Kconfig"
 
 config PREEMPT

@@ -23,9 +23,6 @@
 // #define	VERBOSE			// more; success messages
 
 #include <linux/config.h>
-#ifdef	CONFIG_USB_DEBUG
-#   define DEBUG
-#endif
 #include <linux/module.h>
 #include <linux/kmod.h>
 #include <linux/sched.h>
@@ -753,7 +750,7 @@ static int ax88772_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 }
 
 static struct sk_buff *ax88772_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
-					unsigned flags)
+					gfp_t flags)
 {
 	int padlen;
 	int headroom = skb_headroom(skb);
@@ -915,13 +912,20 @@ static const struct usb_device_id	products [] = {
 	// ASIX AX88772 10/100
         USB_DEVICE (0x0b95, 0x7720),
         .driver_info = (unsigned long) &ax88772_info,
+}, {
+	// Linksys USB200M Rev 2
+	USB_DEVICE (0x13b1, 0x0018),
+	.driver_info = (unsigned long) &ax88772_info,
+}, {
+	// 0Q0 cable ethernet
+	USB_DEVICE (0x1557, 0x7720),
+	.driver_info = (unsigned long) &ax88772_info,
 },
 	{ },		// END
 };
 MODULE_DEVICE_TABLE(usb, products);
 
 static struct usb_driver asix_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"asix",
 	.id_table =	products,
 	.probe =	usbnet_probe,

@@ -121,7 +121,7 @@ void __init net_random_init(void)
 {
 	int i;
 
-	for (i = 0; i < NR_CPUS; i++) {
+	for_each_cpu(i) {
 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
 		__net_srandom(state, i+jiffies);
 	}
@@ -133,7 +133,7 @@ static int net_random_reseed(void)
 	unsigned long seed[NR_CPUS];
 
 	get_random_bytes(seed, sizeof(seed));
-	for (i = 0; i < NR_CPUS; i++) {
+	for_each_cpu(i) {
 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
 		__net_srandom(state, seed[i]);
 	}
@@ -162,7 +162,7 @@ EXPORT_SYMBOL(net_srandom);
  * is otherwise not dependent on the TCP/IP stack.
  */
 
-__u32 in_aton(const char *str)
+__be32 in_aton(const char *str)
 {
 	unsigned long l;
 	unsigned int val;
@@ -175,7 +175,7 @@ __u32 in_aton(const char *str)
 		if (*str != '\0')
 		{
 			val = 0;
-			while (*str != '\0' && *str != '.')
+			while (*str != '\0' && *str != '.' && *str != '\n')
 			{
 				val *= 10;
 				val += *str - '0';

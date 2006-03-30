@@ -158,7 +158,7 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
 	int err = 0;
 	struct dev_mc_list *dmi, *dmi1;
 
-	dmi1 = (struct dev_mc_list *)kmalloc(sizeof(*dmi), GFP_ATOMIC);
+	dmi1 = kmalloc(sizeof(*dmi), GFP_ATOMIC);
 
 	spin_lock_bh(&dev->xmit_lock);
 	for (dmi = dev->mc_list; dmi != NULL; dmi = dmi->next) {
@@ -194,8 +194,7 @@ int dev_mc_add(struct net_device *dev, void *addr, int alen, int glbl)
 
 done:
 	spin_unlock_bh(&dev->xmit_lock);
-	if (dmi1)
-		kfree(dmi1);
+	kfree(dmi1);
 	return err;
 }
 

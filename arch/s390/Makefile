@@ -13,16 +13,14 @@
 # Copyright (C) 1994 by Linus Torvalds
 #
 
-ifdef CONFIG_ARCH_S390_31
+ifndef CONFIG_64BIT
 LDFLAGS		:= -m elf_s390
 CFLAGS		+= -m31
 AFLAGS		+= -m31
 UTS_MACHINE	:= s390
 STACK_SIZE	:= 8192
 CHECKFLAGS	+= -D__s390__
-endif
-
-ifdef CONFIG_ARCH_S390X
+else
 LDFLAGS		:= -m elf64_s390
 MODFLAGS	+= -fpic -D__PIC__
 CFLAGS		+= -m64
@@ -76,9 +74,7 @@ AFLAGS		+= $(aflags-y)
 OBJCOPYFLAGS	:= -O binary
 LDFLAGS_vmlinux := -e start
 
-head-$(CONFIG_ARCH_S390_31)	+= arch/$(ARCH)/kernel/head.o
-head-$(CONFIG_ARCH_S390X)	+= arch/$(ARCH)/kernel/head64.o
-head-y				+= arch/$(ARCH)/kernel/init_task.o
+head-y		:= arch/$(ARCH)/kernel/head.o arch/$(ARCH)/kernel/init_task.o
 
 core-y		+= arch/$(ARCH)/mm/ arch/$(ARCH)/kernel/ arch/$(ARCH)/crypto/ \
 		   arch/$(ARCH)/appldata/

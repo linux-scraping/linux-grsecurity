@@ -207,7 +207,7 @@ struct sock {
 	struct sk_buff_head	sk_write_queue;
 	int			sk_wmem_queued;
 	int			sk_forward_alloc;
-	unsigned int		sk_allocation;
+	gfp_t			sk_allocation;
 	int			sk_sndbuf;
 	int			sk_route_caps;
 	unsigned long 		sk_flags;
@@ -461,16 +461,16 @@ static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
 }
 
 /* The per-socket spinlock must be held here. */
-#define sk_add_backlog(__sk, __skb)				\
-do {	if (!(__sk)->sk_backlog.tail) {				\
-		(__sk)->sk_backlog.head =			\
-		     (__sk)->sk_backlog.tail = (__skb);		\
-	} else {						\
-		((__sk)->sk_backlog.tail)->next = (__skb);	\
-		(__sk)->sk_backlog.tail = (__skb);		\
-	}							\
-	(__skb)->next = NULL;					\
-} while(0)
+static inline void sk_add_backlog(struct sock *sk, struct sk_buff *skb)
+{
+	if (!sk->sk_backlog.tail) {
+		sk->sk_backlog.head = sk->sk_backlog.tail = skb;
+	} else {
+		sk->sk_backlog.tail->next = skb;
+		sk->sk_backlog.tail = skb;
+	}
+	skb->next = NULL;
+}
 
 #define sk_wait_event(__sk, __timeo, __condition)		\
 ({	int rc;							\
@@ -478,9 +478,9 @@ do {	if (!(__sk)->sk_backlog.tail) {				\
 	rc = __condition;					\
 	if (!rc) {						\
 		*(__timeo) = schedule_timeout(*(__timeo));	\
-		rc = __condition;				\
 	}							\
 	lock_sock(__sk);					\
+	rc = __condition;					\
 	rc;							\
 })
 
@@ -493,6 +493,7 @@ extern void sk_stream_kill_queues(struct sock *sk);
 extern int sk_wait_data(struct sock *sk, long *timeo);
 
 struct request_sock_ops;
+struct timewait_sock_ops;
 
 /* Networking protocol blocks we attach to sockets.
  * socket layer -> transport layer interface
@@ -557,11 +558,10 @@ struct proto {
 	kmem_cache_t		*slab;
 	unsigned int		obj_size;
 
-	kmem_cache_t		*twsk_slab;
-	unsigned int		twsk_obj_size;
 	atomic_t		*orphan_count;
 
 	struct request_sock_ops	*rsk_prot;
+	struct timewait_sock_ops *twsk_prot;
 
 	struct module		*owner;
 
@@ -856,8 +856,8 @@ static inline int sk_filter(struct sock *sk, struct sk_buff *skb, int needlock)
 		
 		filter = sk->sk_filter;
 		if (filter) {
-			int pkt_len = sk_run_filter(skb, filter->insns,
-						    filter->len);
+			unsigned int pkt_len = sk_run_filter(skb, filter->insns,
+							     filter->len);
 			if (!pkt_len)
 				err = -EPERM;
 			else
@@ -924,6 +924,29 @@ static inline void sock_put(struct sock *sk)
 {
 	if (atomic_dec_and_test(&sk->sk_refcnt))
 		sk_free(sk);
+}
+
+static inline int sk_receive_skb(struct sock *sk, struct sk_buff *skb)
+{
+	int rc = NET_RX_SUCCESS;
+
+	if (sk_filter(sk, skb, 0))
+		goto discard_and_relse;
+
+	skb->dev = NULL;
+
+	bh_lock_sock(sk);
+	if (!sock_owned_by_user(sk))
+		rc = sk->sk_backlog_rcv(sk, skb);
+	else
+		sk_add_backlog(sk, skb);
+	bh_unlock_sock(sk);
+out:
+	sock_put(sk);
+	return rc;
+discard_and_relse:
+	kfree_skb(skb);
+	goto out;
 }
 
 /* Detach socket from process context.
@@ -1166,7 +1189,10 @@ static inline int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb)
  
 static inline int sock_error(struct sock *sk)
 {
-	int err = xchg(&sk->sk_err, 0);
+	int err;
+	if (likely(!sk->sk_err))
+		return 0;
+	err = xchg(&sk->sk_err, 0);
 	return -err;
 }
 
@@ -1247,6 +1273,12 @@ static inline struct page *sk_stream_alloc_page(struct sock *sk)
 		     (skb != (struct sk_buff *)&(sk)->sk_write_queue);	\
 		     skb = skb->next)
 
+/*from STCP for fast SACK Process*/
+#define sk_stream_for_retrans_queue_from(skb, sk)			\
+		for (; (skb != (sk)->sk_send_head) &&                   \
+		     (skb != (struct sk_buff *)&(sk)->sk_write_queue);	\
+		     skb = skb->next)
+
 /*
  *	Default write policy as shown to user space via poll/select/SIGIO
  */
@@ -1322,12 +1354,12 @@ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
  *	Enable debug/info messages 
  */
 
-#if 0
-#define NETDEBUG(fmt, args...)	do { } while (0)
-#define LIMIT_NETDEBUG(fmt, args...) do { } while(0)
-#else
+#ifdef CONFIG_NETDEBUG
 #define NETDEBUG(fmt, args...)	printk(fmt,##args)
 #define LIMIT_NETDEBUG(fmt, args...) do { if (net_ratelimit()) printk(fmt,##args); } while(0)
+#else
+#define NETDEBUG(fmt, args...)	do { } while (0)
+#define LIMIT_NETDEBUG(fmt, args...) do { } while(0)
 #endif
 
 /*

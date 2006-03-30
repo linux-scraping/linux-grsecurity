@@ -27,6 +27,7 @@
 #include <linux/fs.h>
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
+#include <linux/time.h>
 #include <linux/init.h>
 #include <linux/string.h>
 #include <linux/smp_lock.h>
@@ -34,13 +35,12 @@
 #include <linux/ramfs.h>
 
 #include <asm/uaccess.h>
+#include "internal.h"
 
 /* some random number */
 #define RAMFS_MAGIC	0x858458f6
 
 static struct super_operations ramfs_ops;
-static struct address_space_operations ramfs_aops;
-static struct inode_operations ramfs_file_inode_operations;
 static struct inode_operations ramfs_dir_inode_operations;
 
 static struct backing_dev_info ramfs_backing_dev_info = {
@@ -105,6 +105,7 @@ ramfs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 		d_instantiate(dentry, inode);
 		dget(dentry);	/* Extra count - pin the dentry in core */
 		error = 0;
+		dir->i_mtime = dir->i_ctime = CURRENT_TIME;
 	}
 	return error;
 }
@@ -136,30 +137,12 @@ static int ramfs_symlink(struct inode * dir, struct dentry *dentry, const char *
 				inode->i_gid = dir->i_gid;
 			d_instantiate(dentry, inode);
 			dget(dentry);
+			dir->i_mtime = dir->i_ctime = CURRENT_TIME;
 		} else
 			iput(inode);
 	}
 	return error;
 }
-
-static struct address_space_operations ramfs_aops = {
-	.readpage	= simple_readpage,
-	.prepare_write	= simple_prepare_write,
-	.commit_write	= simple_commit_write
-};
-
-struct file_operations ramfs_file_operations = {
-	.read		= generic_file_read,
-	.write		= generic_file_write,
-	.mmap		= generic_file_mmap,
-	.fsync		= simple_sync_file,
-	.sendfile	= generic_file_sendfile,
-	.llseek		= generic_file_llseek,
-};
-
-static struct inode_operations ramfs_file_inode_operations = {
-	.getattr	= simple_getattr,
-};
 
 static struct inode_operations ramfs_dir_inode_operations = {
 	.create		= ramfs_create,

@@ -16,6 +16,8 @@
 #include <asm/ptrace.h>
 #include <asm/arch/processor.h>
 
+struct task_struct;
+
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
@@ -43,9 +45,10 @@
  * Dito but for the currently running task
  */
 
-#define current_regs() user_regs(current->thread_info)
+#define task_pt_regs(task) user_regs(task_thread_info(task))
+#define current_regs() task_pt_regs(current)
 
-extern inline void prepare_to_copy(struct task_struct *tsk)
+static inline void prepare_to_copy(struct task_struct *tsk)
 {
 }
 
@@ -58,7 +61,7 @@ unsigned long get_wchan(struct task_struct *p);
 extern unsigned long thread_saved_pc(struct task_struct *tsk);
 
 /* Free all resources held by a thread. */
-extern inline void release_thread(struct task_struct *dead_task)
+static inline void release_thread(struct task_struct *dead_task)
 {
         /* Nothing needs to be done.  */
 }

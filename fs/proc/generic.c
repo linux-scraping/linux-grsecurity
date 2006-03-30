@@ -21,6 +21,8 @@
 #include <linux/bitops.h>
 #include <asm/uaccess.h>
 
+#include "internal.h"
+
 static ssize_t proc_file_read(struct file *file, char __user *buf,
 			      size_t nbytes, loff_t *ppos);
 static ssize_t proc_file_write(struct file *file, const char __user *buffer,
@@ -532,7 +534,7 @@ static void proc_kill_inodes(struct proc_dir_entry *de)
 	 */
 	file_list_lock();
 	list_for_each(p, &sb->s_files) {
-		struct file * filp = list_entry(p, struct file, f_list);
+		struct file * filp = list_entry(p, struct file, f_u.fu_list);
 		struct dentry * dentry = filp->f_dentry;
 		struct inode * inode;
 		struct file_operations *fops;

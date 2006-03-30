@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/types.h>
+#include <linux/err.h>
 
 #include <asm/ccwdev.h>
 #include <asm/cio.h>
@@ -212,6 +213,9 @@ con3270_update(struct con3270 *cp)
 	unsigned long updated;
 	struct string *s, *n;
 	int rc;
+
+	if (cp->view.dev)
+		raw3270_activate_view(&cp->view);
 
 	wrq = xchg(&cp->write, 0);
 	if (!wrq) {
@@ -489,8 +493,6 @@ con3270_write(struct console *co, const char *str, unsigned int count)
 	unsigned char c;
 
 	cp = condev;
-	if (cp->view.dev)
-		raw3270_activate_view(&cp->view);
 	spin_lock_irqsave(&cp->view.lock, flags);
 	while (count-- > 0) {
 		c = *str++;
@@ -596,7 +598,7 @@ con3270_init(void)
 	}
 
 	cdev = ccw_device_probe_console();
-	if (!cdev)
+	if (IS_ERR(cdev))
 		return -ENODEV;
 	rp = raw3270_setup_console(cdev);
 	if (IS_ERR(rp))
@@ -620,7 +622,7 @@ con3270_init(void)
 		     (void (*)(unsigned long)) con3270_read_tasklet,
 		     (unsigned long) condev->read);
 
-	raw3270_add_view(&condev->view, &con3270_fn, 0);
+	raw3270_add_view(&condev->view, &con3270_fn, 1);
 
 	INIT_LIST_HEAD(&condev->freemem);
 	for (i = 0; i < CON3270_STRING_PAGES; i++) {

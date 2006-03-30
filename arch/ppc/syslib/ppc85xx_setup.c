@@ -3,7 +3,7 @@
  *
  * MPC85XX common board code
  *
- * Maintainer: Kumar Gala <kumar.gala@freescale.com>
+ * Maintainer: Kumar Gala <galak@kernel.crashing.org>
  *
  * Copyright 2004 Freescale Semiconductor Inc.
  *
@@ -29,6 +29,7 @@
 #include <asm/mmu.h>
 #include <asm/ppc_sys.h>
 #include <asm/kgdb.h>
+#include <asm/machdep.h>
 
 #include <syslib/ppc85xx_setup.h>
 
@@ -89,7 +90,7 @@ mpc85xx_early_serial_map(void)
 
 #if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)
 	memset(&serial_req, 0, sizeof (serial_req));
-	serial_req.iotype = SERIAL_IO_MEM;
+	serial_req.iotype = UPIO_MEM;
 	serial_req.mapbase = pdata[0].mapbase;
 	serial_req.membase = pdata[0].membase;
 	serial_req.regshift = 0;

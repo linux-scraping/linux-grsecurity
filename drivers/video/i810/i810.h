@@ -249,6 +249,7 @@ struct i810fb_i2c_chan {
 	struct i810fb_par *par;
 	struct i2c_adapter adapter;
 	struct i2c_algo_bit_data algo;
+	unsigned long ddc_base;
 };
 
 struct i810fb_par {
@@ -262,7 +263,7 @@ struct i810fb_par {
 	struct heap_data         iring;
 	struct heap_data         cursor_heap;
 	struct vgastate          state;
-	struct i810fb_i2c_chan   chan[2];
+	struct i810fb_i2c_chan   chan[3];
 	atomic_t                 use_count;
 	u32 pseudo_palette[17];
 	unsigned long mmio_start_phys;
@@ -279,6 +280,7 @@ struct i810fb_par {
 	u32 blit_bpp;
 	u32 ovract;
 	u32 cur_state;
+	u32 ddc_num;
 	int mtrr_reg;
 	u16 bltcntl;
 	u8 interlace;

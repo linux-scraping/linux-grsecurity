@@ -15,10 +15,11 @@
 #include "os.h"
 #include "user.h"
 #include "user_util.h"
-#include "signal_user.h"
 #include "process.h"
 #include "irq_user.h"
 #include "kern_util.h"
+#include "longjmp.h"
+#include "skas_ptrace.h"
 
 #define ARBITRARY_ADDR -1
 #define FAILURE_PID    -1
@@ -98,6 +99,21 @@ void os_kill_process(int pid, int reap_child)
 	if(reap_child)
 		CATCH_EINTR(waitpid(pid, NULL, 0));
 		
+}
+
+/* This is here uniquely to have access to the userspace errno, i.e. the one
+ * used by ptrace in case of error.
+ */
+
+long os_ptrace_ldt(long pid, long addr, long data)
+{
+	int ret;
+
+	ret = ptrace(PTRACE_LDT, pid, addr, data);
+
+	if (ret < 0)
+		return -errno;
+	return ret;
 }
 
 /* Kill off a ptraced child by all means available.  kill it normally first,
@@ -206,24 +222,13 @@ void init_new_thread_signals(int altstack)
 
 int run_kernel_thread(int (*fn)(void *), void *arg, void **jmp_ptr)
 {
-       sigjmp_buf buf;
-       int n;
+	sigjmp_buf buf;
+	int n, enable;
 
-       *jmp_ptr = &buf;
-       n = sigsetjmp(buf, 1);
-       if(n != 0)
-               return(n);
-       (*fn)(arg);
-       return(0);
+	*jmp_ptr = &buf;
+	n = UML_SIGSETJMP(&buf, enable);
+	if(n != 0)
+		return(n);
+	(*fn)(arg);
+	return(0);
 }
-
-/*
- * Overrides for Emacs so that we follow Linus's tabbing style.
- * Emacs will notice this stuff at the end of the file and automatically
- * adjust the settings for this buffer only.  This must remain at the end
- * of the file.
- * ---------------------------------------------------------------------------
- * Local variables:
- * c-file-style: "linux"
- * End:
- */

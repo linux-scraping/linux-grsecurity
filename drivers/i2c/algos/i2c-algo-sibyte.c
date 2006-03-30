@@ -42,7 +42,7 @@
 
 /* module parameters:
  */
-static int bit_scan=0;	/* have a look at what's hanging 'round		*/
+static int bit_scan;	/* have a look at what's hanging 'round		*/
 
 
 static int smbus_xfer(struct i2c_adapter *i2c_adap, u16 addr, 
@@ -202,7 +202,7 @@ EXPORT_SYMBOL(i2c_sibyte_del_bus);
 #ifdef MODULE
 MODULE_AUTHOR("Kip Walker, Broadcom Corp.");
 MODULE_DESCRIPTION("SiByte I2C-Bus algorithm");
-MODULE_PARM(bit_scan, "i");
+module_param(bit_scan, int, 0);
 MODULE_PARM_DESC(bit_scan, "Scan for active chips on the bus");
 MODULE_LICENSE("GPL");
 

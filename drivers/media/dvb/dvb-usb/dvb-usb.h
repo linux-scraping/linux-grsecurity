@@ -10,8 +10,8 @@
 
 #include <linux/config.h>
 #include <linux/input.h>
-#include <linux/module.h>
 #include <linux/usb.h>
+#include <linux/firmware.h>
 
 #include "dvb_frontend.h"
 #include "dvb_demux.h"
@@ -87,14 +87,18 @@ struct dvb_usb_device;
 
 /**
  * struct dvb_usb_properties - properties of a dvb-usb-device
- * @caps: capabilites of the DVB USB device.
+ * @caps: capabilities of the DVB USB device.
  * @pid_filter_count: number of PID filter position in the optional hardware
  *  PID-filter.
  *
  * @usb_ctrl: which USB device-side controller is in use. Needed for firmware
  *  download.
  * @firmware: name of the firmware file.
- *
+ * @download_firmware: called to download the firmware when the usb_ctrl is
+ *  DEVICE_SPECIFIC.
+ * @no_reconnect: device doesn't do a reconnect after downloading the firmware,
+    so do the warm initialization right after it
+
  * @size_of_priv: how many bytes shall be allocated for the private field
  *  of struct dvb_usb_device.
  *
@@ -142,11 +146,14 @@ struct dvb_usb_properties {
 	int caps;
 	int pid_filter_count;
 
-#define CYPRESS_AN2135  0
-#define CYPRESS_AN2235  1
-#define CYPRESS_FX2     2
+#define DEVICE_SPECIFIC 0
+#define CYPRESS_AN2135  1
+#define CYPRESS_AN2235  2
+#define CYPRESS_FX2     3
 	int usb_ctrl;
-	const char *firmware;
+	const char firmware[FIRMWARE_NAME_MAX];
+	int (*download_firmware) (struct usb_device *, const struct firmware *);
+	int no_reconnect;
 
 	int size_of_priv;
 
@@ -300,7 +307,8 @@ struct dvb_usb_device {
 	int (*fe_init)  (struct dvb_frontend *);
 
 	/* remote control */
-	struct input_dev rc_input_dev;
+	struct input_dev *rc_input_dev;
+	char rc_phys[64];
 	struct work_struct rc_query_work;
 	u32 last_event;
 	int last_state;
@@ -325,5 +333,14 @@ extern int dvb_usb_pll_init_i2c(struct dvb_frontend *);
 extern int dvb_usb_pll_set(struct dvb_frontend *, struct dvb_frontend_parameters *, u8[]);
 extern int dvb_usb_pll_set_i2c(struct dvb_frontend *, struct dvb_frontend_parameters *);
 
+/* commonly used firmware download types and function */
+struct hexline {
+	u8 len;
+	u32 addr;
+	u8 type;
+	u8 data[255];
+	u8 chk;
+};
+extern int usb_cypress_load_firmware(struct usb_device *udev, const struct firmware *fw, int type);
 
 #endif

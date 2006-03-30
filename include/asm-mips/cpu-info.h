@@ -7,6 +7,7 @@
  * Copyright (C) 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003 Ralf Baechle
  * Copyright (C) 1996 Paul M. Antoine
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
+ * Copyright (C) 2004  Maciej W. Rozycki
  */
 #ifndef __ASM_CPU_INFO_H
 #define __ASM_CPU_INFO_H
@@ -38,6 +39,7 @@ struct cache_desc {
 #define MIPS_CACHE_ALIASES	0x00000004	/* Cache could have aliases */
 #define MIPS_CACHE_IC_F_DC	0x00000008	/* Ic can refill from D-cache */
 #define MIPS_IC_SNOOPS_REMOTE	0x00000010	/* Ic snoops remote stores */
+#define MIPS_CACHE_PINDEX	0x00000020	/* Physically indexed cache */
 
 struct cpuinfo_mips {
 	unsigned long		udelay_val;
@@ -61,6 +63,7 @@ struct cpuinfo_mips {
 	 * Capability and feature descriptor structure for MIPS CPU
 	 */
 	unsigned long		options;
+	unsigned long		ases;
 	unsigned int		processor_id;
 	unsigned int		fpu_id;
 	unsigned int		cputype;

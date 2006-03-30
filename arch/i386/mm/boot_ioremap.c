@@ -21,7 +21,7 @@
  * phys_addr and virtual_source, and who also has a preference
  * about which virtual address from which to steal ptes
  */
-static void __init __boot_ioremap(unsigned long phys_addr, unsigned int nrpages, 
+static void __init __boot_ioremap(unsigned long phys_addr, unsigned int nrpages,
 		    char* virtual_source)
 {
 	pgd_t *pgd;

@@ -22,35 +22,6 @@
 /*
  * Accelerated handlers.
  */
-#define FBCON_ATTRIBUTE_UNDERLINE 1
-#define FBCON_ATTRIBUTE_REVERSE   2
-#define FBCON_ATTRIBUTE_BOLD      4
-
-static inline int real_y(struct display *p, int ypos)
-{
-	int rows = p->vrows;
-
-	ypos += p->yscroll;
-	return ypos < rows ? ypos : ypos - rows;
-}
-
-
-static inline int get_attribute(struct fb_info *info, u16 c)
-{
-	int attribute = 0;
-
-	if (fb_get_color_depth(&info->var, &info->fix) == 1) {
-		if (attr_underline(c))
-			attribute |= FBCON_ATTRIBUTE_UNDERLINE;
-		if (attr_reverse(c))
-			attribute |= FBCON_ATTRIBUTE_REVERSE;
-		if (attr_bold(c))
-			attribute |= FBCON_ATTRIBUTE_BOLD;
-	}
-
-	return attribute;
-}
-
 static inline void update_attr(u8 *dst, u8 *src, int attribute,
 			       struct vc_data *vc)
 {
@@ -263,15 +234,16 @@ static void bit_clear_margins(struct vc_data *vc, struct fb_info *info,
 	}
 }
 
-static void bit_cursor(struct vc_data *vc, struct fb_info *info,
-		       struct display *p, int mode, int softback_lines, int fg, int bg)
+static void bit_cursor(struct vc_data *vc, struct fb_info *info, int mode,
+		       int softback_lines, int fg, int bg)
 {
 	struct fb_cursor cursor;
-	struct fbcon_ops *ops = (struct fbcon_ops *) info->fbcon_par;
+	struct fbcon_ops *ops = info->fbcon_par;
 	unsigned short charmask = vc->vc_hi_font_mask ? 0x1ff : 0xff;
 	int w = (vc->vc_font.width + 7) >> 3, c;
-	int y = real_y(p, vc->vc_y);
+	int y = real_y(ops->p, vc->vc_y);
 	int attribute, use_sw = (vc->vc_cursor_type & 0x10);
+	int err = 1;
 	char *src;
 
 	cursor.set = 0;
@@ -338,7 +310,7 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info,
 	}
 
 	if (cursor.set & FB_CUR_SETSIZE ||
-	    vc->vc_cursor_type != p->cursor_shape ||
+	    vc->vc_cursor_type != ops->p->cursor_shape ||
 	    ops->cursor_state.mask == NULL ||
 	    ops->cursor_reset) {
 		char *mask = kmalloc(w*vc->vc_font.height, GFP_ATOMIC);
@@ -351,10 +323,10 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info,
 		kfree(ops->cursor_state.mask);
 		ops->cursor_state.mask = mask;
 
-		p->cursor_shape = vc->vc_cursor_type;
+		ops->p->cursor_shape = vc->vc_cursor_type;
 		cursor.set |= FB_CUR_SETSHAPE;
 
-		switch (p->cursor_shape & CUR_HWMASK) {
+		switch (ops->p->cursor_shape & CUR_HWMASK) {
 		case CUR_NONE:
 			cur_height = 0;
 			break;
@@ -408,9 +380,25 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info,
 	cursor.image.depth = 1;
 	cursor.rop = ROP_XOR;
 
-	info->fbops->fb_cursor(info, &cursor);
+	if (info->fbops->fb_cursor)
+		err = info->fbops->fb_cursor(info, &cursor);
+
+	if (err)
+		soft_cursor(info, &cursor);
 
 	ops->cursor_reset = 0;
+}
+
+static int bit_update_start(struct fb_info *info)
+{
+	struct fbcon_ops *ops = info->fbcon_par;
+	int err;
+
+	err = fb_pan_display(info, &ops->var);
+	ops->var.xoffset = info->var.xoffset;
+	ops->var.yoffset = info->var.yoffset;
+	ops->var.vmode = info->var.vmode;
+	return err;
 }
 
 void fbcon_set_bitops(struct fbcon_ops *ops)
@@ -420,6 +408,11 @@ void fbcon_set_bitops(struct fbcon_ops *ops)
 	ops->putcs = bit_putcs;
 	ops->clear_margins = bit_clear_margins;
 	ops->cursor = bit_cursor;
+	ops->update_start = bit_update_start;
+	ops->rotate_font = NULL;
+
+	if (ops->rotate)
+		fbcon_set_rotate(ops);
 }
 
 EXPORT_SYMBOL(fbcon_set_bitops);

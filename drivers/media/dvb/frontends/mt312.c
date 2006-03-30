@@ -29,6 +29,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 
 #include "dvb_frontend.h"
 #include "mt312_priv.h"
@@ -499,7 +501,8 @@ static int mt312_set_frontend(struct dvb_frontend* fe,
 	case ID_VP310:
 	// For now we will do this only for the VP310.
 	// It should be better for the mt312 as well, but tunning will be slower. ACCJr 09/29/03
-		if ((ret = mt312_readreg(state, CONFIG, &config_val) < 0))
+		ret = mt312_readreg(state, CONFIG, &config_val);
+		if (ret < 0)
 			return ret;
 		if (p->u.qpsk.symbol_rate >= 30000000) //Note that 30MS/s should use 90MHz
 		{
@@ -552,7 +555,7 @@ static int mt312_set_frontend(struct dvb_frontend* fe,
 	if ((ret = mt312_write(state, SYM_RATE_H, buf, sizeof(buf))) < 0)
 		return ret;
 
-        mt312_reset(state, 0);
+	mt312_reset(state, 0);
 
 	return 0;
 }
@@ -609,77 +612,6 @@ static void mt312_release(struct dvb_frontend* fe)
 	kfree(state);
 }
 
-static struct dvb_frontend_ops vp310_mt312_ops;
-
-struct dvb_frontend* vp310_attach(const struct mt312_config* config,
-				  struct i2c_adapter* i2c)
-{
-	struct mt312_state* state = NULL;
-
-	/* allocate memory for the internal state */
-	state = kmalloc(sizeof(struct mt312_state), GFP_KERNEL);
-	if (state == NULL)
-		goto error;
-
-	/* setup the state */
-	state->config = config;
-	state->i2c = i2c;
-	memcpy(&state->ops, &vp310_mt312_ops, sizeof(struct dvb_frontend_ops));
-	strcpy(state->ops.info.name, "Zarlink VP310 DVB-S");
-
-	/* check if the demod is there */
-	if (mt312_readreg(state, ID, &state->id) < 0)
-		goto error;
-	if (state->id != ID_VP310) {
-		goto error;
-	}
-
-	/* create dvb_frontend */
-	state->frequency = 90;
-	state->frontend.ops = &state->ops;
-	state->frontend.demodulator_priv = state;
-	return &state->frontend;
-
-error:
-	kfree(state);
-	return NULL;
-}
-
-struct dvb_frontend* mt312_attach(const struct mt312_config* config,
-				  struct i2c_adapter* i2c)
-{
-	struct mt312_state* state = NULL;
-
-	/* allocate memory for the internal state */
-	state = kmalloc(sizeof(struct mt312_state), GFP_KERNEL);
-	if (state == NULL)
-		goto error;
-
-	/* setup the state */
-	state->config = config;
-	state->i2c = i2c;
-	memcpy(&state->ops, &vp310_mt312_ops, sizeof(struct dvb_frontend_ops));
-	strcpy(state->ops.info.name, "Zarlink MT312 DVB-S");
-
-	/* check if the demod is there */
-	if (mt312_readreg(state, ID, &state->id) < 0)
-		goto error;
-	if (state->id != ID_MT312) {
-		goto error;
-	}
-
-	/* create dvb_frontend */
-	state->frequency = 60;
-	state->frontend.ops = &state->ops;
-	state->frontend.demodulator_priv = state;
-	return &state->frontend;
-
-error:
-	if (state)
-		kfree(state);
-	return NULL;
-}
-
 static struct dvb_frontend_ops vp310_mt312_ops = {
 
 	.info = {
@@ -694,7 +626,7 @@ static struct dvb_frontend_ops vp310_mt312_ops = {
 		    FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 |
 		    FE_CAN_FEC_3_4 | FE_CAN_FEC_5_6 | FE_CAN_FEC_7_8 |
 		    FE_CAN_FEC_AUTO | FE_CAN_QPSK | FE_CAN_MUTE_TS |
-	            FE_CAN_RECOVER
+		    FE_CAN_RECOVER
 	},
 
 	.release = mt312_release,
@@ -718,6 +650,49 @@ static struct dvb_frontend_ops vp310_mt312_ops = {
 	.set_voltage = mt312_set_voltage,
 };
 
+struct dvb_frontend* vp310_mt312_attach(const struct mt312_config* config,
+					struct i2c_adapter* i2c)
+{
+	struct mt312_state* state = NULL;
+
+	/* allocate memory for the internal state */
+	state = kmalloc(sizeof(struct mt312_state), GFP_KERNEL);
+	if (state == NULL)
+		goto error;
+
+	/* setup the state */
+	state->config = config;
+	state->i2c = i2c;
+	memcpy(&state->ops, &vp310_mt312_ops, sizeof(struct dvb_frontend_ops));
+
+	/* check if the demod is there */
+	if (mt312_readreg(state, ID, &state->id) < 0)
+		goto error;
+
+	switch (state->id) {
+	case ID_VP310:
+		strcpy(state->ops.info.name, "Zarlink VP310 DVB-S");
+		state->frequency = 90;
+		break;
+	case ID_MT312:
+		strcpy(state->ops.info.name, "Zarlink MT312 DVB-S");
+		state->frequency = 60;
+		break;
+	default:
+		printk (KERN_WARNING "Only Zarlink VP310/MT312 are supported chips.\n");
+		goto error;
+	}
+
+	/* create dvb_frontend */
+	state->frontend.ops = &state->ops;
+	state->frontend.demodulator_priv = state;
+	return &state->frontend;
+
+error:
+	kfree(state);
+	return NULL;
+}
+
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Turn on/off frontend debugging (default:off).");
 
@@ -725,5 +700,4 @@ MODULE_DESCRIPTION("Zarlink VP310/MT312 DVB-S Demodulator driver");
 MODULE_AUTHOR("Andreas Oberritter <obi@linuxtv.org>");
 MODULE_LICENSE("GPL");
 
-EXPORT_SYMBOL(mt312_attach);
-EXPORT_SYMBOL(vp310_attach);
+EXPORT_SYMBOL(vp310_mt312_attach);

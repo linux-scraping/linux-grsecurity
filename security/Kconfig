@@ -124,8 +124,8 @@ config PAX_NOEXEC
 
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
-	depends on PAX_NOEXEC && (!X86 || X86_64 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
-	select PAX_NOVSYSCALL if X86 && !X86_64
+	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
+	select PAX_NOVSYSCALL if X86_32
 	help
 	  This implementation is based on the paging feature of the CPU.
 	  On i386 and ppc there is a variable but usually low performance
@@ -134,8 +134,8 @@ config PAX_PAGEEXEC
 
 config PAX_SEGMEXEC
 	bool "Segmentation based non-executable pages"
-	depends on PAX_NOEXEC && X86 && !X86_64
-	select PAX_NOVSYSCALL if X86 && !X86_64
+	depends on PAX_NOEXEC && X86_32
+	select PAX_NOVSYSCALL if X86_32
 	help
 	  This implementation is based on the segmentation feature of the
 	  CPU and has little performance impact, however applications will
@@ -157,7 +157,7 @@ config	PAX_DEFAULT_SEGMEXEC
 endchoice
 
 config PAX_EMUTRAMP
-	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86) && !X86_64
+	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86_32)
 	default y if PARISC || PPC32
 	help
 	  There are some programs and libraries that for one reason or
@@ -294,7 +294,7 @@ config PAX_SYSCALL
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && X86 && !X86_64 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI
+	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !DEBUG_RODATA
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
@@ -337,7 +337,7 @@ config PAX_ASLR
 
 config PAX_RANDKSTACK
 	bool "Randomize kernel stack base"
-	depends on PAX_ASLR && X86_TSC && !X86_64
+	depends on PAX_ASLR && X86_TSC && X86_32
 	help
 	  By saying Y here the kernel will randomize every task's kernel
 	  stack on every system call.  This will not only force an attacker
@@ -385,7 +385,7 @@ config PAX_RANDMMAP
 
 config PAX_NOVSYSCALL
 	bool "Disable the vsyscall page"
-	depends on PAX_ASLR && X86 && !X86_64
+	depends on PAX_ASLR && X86_32
 	help
 	  The Linux 2.6 kernel introduced a new feature that speeds up or
 	  simplifies certain operations, such as system calls or returns
@@ -454,6 +454,19 @@ config SECURITY_NETWORK
 	  This enables the socket and networking security hooks.
 	  If enabled, a security module can use these hooks to
 	  implement socket and networking access controls.
+	  If you are unsure how to answer this question, answer N.
+
+config SECURITY_NETWORK_XFRM
+	bool "XFRM (IPSec) Networking Security Hooks"
+	depends on XFRM && SECURITY_NETWORK
+	help
+	  This enables the XFRM (IPSec) networking security hooks.
+	  If enabled, a security module can use these hooks to
+	  implement per-packet access controls based on labels
+	  derived from IPSec policy.  Non-IPSec communications are
+	  designated as unlabelled, and only sockets authorized
+	  to communicate unlabelled data can send without using
+	  IPSec.
 	  If you are unsure how to answer this question, answer N.
 
 config SECURITY_CAPABILITIES

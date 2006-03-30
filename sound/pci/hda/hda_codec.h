@@ -79,6 +79,8 @@ enum {
 #define AC_VERB_GET_GPIO_MASK			0x0f16
 #define AC_VERB_GET_GPIO_DIRECTION		0x0f17
 #define AC_VERB_GET_CONFIG_DEFAULT		0x0f1c
+/* f20: AFG/MFG */
+#define AC_VERB_GET_SUBSYSTEM_ID		0x0f20
 
 /*
  * SET verbs
@@ -96,7 +98,7 @@ enum {
 #define AC_VERB_SET_UNSOLICITED_ENABLE		0x708
 #define AC_VERB_SET_PIN_SENSE			0x709
 #define AC_VERB_SET_BEEP_CONTROL		0x70a
-#define AC_VERB_SET_EAPD_BTLENALBE		0x70c
+#define AC_VERB_SET_EAPD_BTLENABLE		0x70c
 #define AC_VERB_SET_DIGI_CONVERT_1		0x70d
 #define AC_VERB_SET_DIGI_CONVERT_2		0x70e
 #define AC_VERB_SET_VOLUME_KNOB_CONTROL		0x70f
@@ -211,6 +213,12 @@ enum {
 #define AC_PWRST_D1SUP			(1<<1)
 #define AC_PWRST_D2SUP			(1<<2)
 #define AC_PWRST_D3SUP			(1<<3)
+
+/* Power state values */
+#define AC_PWRST_D0			0x00
+#define AC_PWRST_D1			0x01
+#define AC_PWRST_D2			0x02
+#define AC_PWRST_D3			0x03
 
 /* Processing capabilies */
 #define AC_PCAP_BENIGN			(1<<0)
@@ -374,7 +382,7 @@ enum {
 };
 
 /* max. connections to a widget */
-#define HDA_MAX_CONNECTIONS	16
+#define HDA_MAX_CONNECTIONS	32
 
 /* max. codec address */
 #define HDA_MAX_CODEC_ADDRESS	0x0f
@@ -418,7 +426,7 @@ struct hda_bus_template {
  * A hda_bus contains several codecs in the list codec_list.
  */
 struct hda_bus {
-	snd_card_t *card;
+	struct snd_card *card;
 
 	/* copied from template */
 	void *private_data;
@@ -435,7 +443,7 @@ struct hda_bus {
 	/* unsolicited event queue */
 	struct hda_bus_unsolicited *unsol;
 
-	snd_info_entry_t *proc;
+	struct snd_info_entry *proc;
 };
 
 /*
@@ -479,14 +487,14 @@ struct hda_amp_info {
 /* PCM callbacks */
 struct hda_pcm_ops {
 	int (*open)(struct hda_pcm_stream *info, struct hda_codec *codec,
-		    snd_pcm_substream_t *substream);
+		    struct snd_pcm_substream *substream);
 	int (*close)(struct hda_pcm_stream *info, struct hda_codec *codec,
-		     snd_pcm_substream_t *substream);
+		     struct snd_pcm_substream *substream);
 	int (*prepare)(struct hda_pcm_stream *info, struct hda_codec *codec,
 		       unsigned int stream_tag, unsigned int format,
-		       snd_pcm_substream_t *substream);
+		       struct snd_pcm_substream *substream);
 	int (*cleanup)(struct hda_pcm_stream *info, struct hda_codec *codec,
-		       snd_pcm_substream_t *substream);
+		       struct snd_pcm_substream *substream);
 };
 
 /* PCM information for each substream */
@@ -540,10 +548,16 @@ struct hda_codec {
 	/* codec specific info */
 	void *spec;
 
+	/* widget capabilities cache */
+	unsigned int num_nodes;
+	hda_nid_t start_nid;
+	u32 *wcaps;
+
 	/* hash for amp access */
 	u16 amp_hash[32];
 	int num_amp_entries;
-	struct hda_amp_info amp_info[128]; /* big enough? */
+	int amp_info_size;
+	struct hda_amp_info *amp_info;
 
 	struct semaphore spdif_mutex;
 	unsigned int spdif_status;	/* IEC958 status bits */
@@ -560,7 +574,7 @@ enum {
 /*
  * constructors
  */
-int snd_hda_bus_new(snd_card_t *card, const struct hda_bus_template *temp,
+int snd_hda_bus_new(struct snd_card *card, const struct hda_bus_template *temp,
 		    struct hda_bus **busp);
 int snd_hda_codec_new(struct hda_bus *bus, unsigned int codec_addr,
 		      struct hda_codec **codecp);

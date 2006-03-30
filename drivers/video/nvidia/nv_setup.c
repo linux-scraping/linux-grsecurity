@@ -190,9 +190,9 @@ static int NVIsConnected(struct nvidia_par *par, int output)
 	present = (NV_RD32(PRAMDAC, 0x0608) & (1 << 28)) ? 1 : 0;
 
 	if (present)
-		printk("nvidiafb: CRTC%i found\n", output);
+		printk("nvidiafb: CRTC%i analog found\n", output);
 	else
-		printk("nvidiafb: CRTC%i not found\n", output);
+		printk("nvidiafb: CRTC%i analog not found\n", output);
 
 	NV_WR32(par->PRAMDAC0, 0x0608, NV_RD32(par->PRAMDAC0, 0x0608) &
 		0x0000EFFF);
@@ -285,25 +285,34 @@ static void nv10GetConfig(struct nvidia_par *par)
 			par->CrystalFreqKHz = 27000;
 	}
 
-	par->CursorStart = (par->RamAmountKBytes - 96) * 1024;
 	par->CURSOR = NULL;	/* can't set this here */
 	par->MinVClockFreqKHz = 12000;
 	par->MaxVClockFreqKHz = par->twoStagePLL ? 400000 : 350000;
 }
 
-void NVCommonSetup(struct fb_info *info)
+int NVCommonSetup(struct fb_info *info)
 {
 	struct nvidia_par *par = info->par;
-	struct fb_var_screeninfo var;
+	struct fb_var_screeninfo *var;
 	u16 implementation = par->Chipset & 0x0ff0;
 	u8 *edidA = NULL, *edidB = NULL;
-	struct fb_monspecs monitorA, monitorB;
+	struct fb_monspecs *monitorA, *monitorB;
 	struct fb_monspecs *monA = NULL, *monB = NULL;
 	int mobile = 0;
 	int tvA = 0;
 	int tvB = 0;
 	int FlatPanel = -1;	/* really means the CRTC is slaved */
 	int Television = 0;
+	int err = 0;
+
+	var = kzalloc(sizeof(struct fb_var_screeninfo), GFP_KERNEL);
+	monitorA = kzalloc(sizeof(struct fb_monspecs), GFP_KERNEL);
+	monitorB = kzalloc(sizeof(struct fb_monspecs), GFP_KERNEL);
+
+	if (!var || !monitorA || !monitorB) {
+		err = -ENOMEM;
+		goto done;
+	}
 
 	par->PRAMIN = par->REGS + (0x00710000 / 4);
 	par->PCRTC0 = par->REGS + (0x00600000 / 4);
@@ -379,6 +388,8 @@ void NVCommonSetup(struct fb_info *info)
 	case 0x0146:
 	case 0x0147:
 	case 0x0148:
+	case 0x0098:
+	case 0x0099:
 		mobile = 1;
 		break;
 	default:
@@ -401,10 +412,11 @@ void NVCommonSetup(struct fb_info *info)
 	nvidia_create_i2c_busses(par);
 	if (!par->twoHeads) {
 		par->CRTCnumber = 0;
-		nvidia_probe_i2c_connector(info, 1, &edidA);
-		if (edidA && !fb_parse_edid(edidA, &var)) {
+		if (nvidia_probe_i2c_connector(info, 1, &edidA))
+			nvidia_probe_of_connector(info, 1, &edidA);
+		if (edidA && !fb_parse_edid(edidA, var)) {
 			printk("nvidiafb: EDID found from BUS1\n");
-			monA = &monitorA;
+			monA = monitorA;
 			fb_edid_to_monspecs(edidA, monA);
 			FlatPanel = (monA->input & FB_DISP_DDI) ? 1 : 0;
 
@@ -488,17 +500,19 @@ void NVCommonSetup(struct fb_info *info)
 		oldhead = NV_RD32(par->PCRTC0, 0x00000860);
 		NV_WR32(par->PCRTC0, 0x00000860, oldhead | 0x00000010);
 
-		nvidia_probe_i2c_connector(info, 1, &edidA);
-		if (edidA && !fb_parse_edid(edidA, &var)) {
+		if (nvidia_probe_i2c_connector(info, 1, &edidA))
+			nvidia_probe_of_connector(info, 1, &edidA);
+		if (edidA && !fb_parse_edid(edidA, var)) {
 			printk("nvidiafb: EDID found from BUS1\n");
-			monA = &monitorA;
+			monA = monitorA;
 			fb_edid_to_monspecs(edidA, monA);
 		}
 
-		nvidia_probe_i2c_connector(info, 2, &edidB);
-		if (edidB && !fb_parse_edid(edidB, &var)) {
+		if (nvidia_probe_i2c_connector(info, 2, &edidB))
+			nvidia_probe_of_connector(info, 2, &edidB);
+		if (edidB && !fb_parse_edid(edidB, var)) {
 			printk("nvidiafb: EDID found from BUS2\n");
-			monB = &monitorB;
+			monB = monitorB;
 			fb_edid_to_monspecs(edidB, monB);
 		}
 
@@ -633,4 +647,9 @@ void NVCommonSetup(struct fb_info *info)
 
 	kfree(edidA);
 	kfree(edidB);
+done:
+	kfree(var);
+	kfree(monitorA);
+	kfree(monitorB);
+	return err;
 }

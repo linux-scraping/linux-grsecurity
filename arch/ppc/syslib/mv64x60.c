@@ -19,6 +19,7 @@
 #include <linux/string.h>
 #include <linux/spinlock.h>
 #include <linux/mv643xx.h>
+#include <linux/platform_device.h>
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
@@ -312,7 +313,7 @@ static struct platform_device mpsc1_device = {
 };
 #endif
 
-#ifdef CONFIG_MV643XX_ETH
+#if defined(CONFIG_MV643XX_ETH) || defined(CONFIG_MV643XX_ETH_MODULE)
 static struct resource mv64x60_eth_shared_resources[] = {
 	[0] = {
 		.name	= "ethernet shared base",
@@ -455,7 +456,7 @@ static struct platform_device *mv64x60_pd_devs[] __initdata = {
 	&mpsc0_device,
 	&mpsc1_device,
 #endif
-#ifdef CONFIG_MV643XX_ETH
+#if defined(CONFIG_MV643XX_ETH) || defined(CONFIG_MV643XX_ETH_MODULE)
 	&mv64x60_eth_shared_device,
 #endif
 #ifdef CONFIG_MV643XX_ETH_0
@@ -1304,7 +1305,7 @@ mv64x60_config_pci_params(struct pci_controller *hose,
 	early_write_config_word(hose, 0, devfn, PCI_COMMAND, u16_val);
 
 	/* Set latency timer, cache line size, clear BIST */
-	u16_val = (pi->latency_timer << 8) | (L1_CACHE_LINE_SIZE >> 2);
+	u16_val = (pi->latency_timer << 8) | (L1_CACHE_BYTES >> 2);
 	early_write_config_word(hose, 0, devfn, PCI_CACHE_LINE_SIZE, u16_val);
 
 	mv64x60_pci_exclude_bridge = save_exclude;

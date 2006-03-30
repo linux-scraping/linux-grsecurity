@@ -1,4 +1,3 @@
-
 menu "Infrared-port device drivers"
 	depends on IRDA!=n
 
@@ -156,7 +155,7 @@ comment "Old Serial dongle support"
 
 config DONGLE_OLD
 	bool "Old Serial dongle support"
-	depends on (IRTTY_OLD || IRPORT_SIR) && BROKEN_ON_SMP
+	depends on IRPORT_SIR && BROKEN_ON_SMP
 	help
 	  Say Y here if you have an infrared device that connects to your
 	  computer's serial port. These devices are called dongles. Then say Y
@@ -399,6 +398,16 @@ config VIA_FIR
 
 	  To compile it as a module, choose M here: the module will be called
 	  via-ircc.
+
+config PXA_FICP
+	tristate "Intel PXA2xx Internal FICP"
+	depends on ARCH_PXA && IRDA
+	help
+	  Say Y or M here if you want to build support for the PXA2xx
+	  built-in IRDA interface which can support both SIR and FIR.
+	  This driver relies on platform specific helper routines so
+	  available capabilities may vary from one PXA2xx target to
+	  another.
 
 endmenu
 

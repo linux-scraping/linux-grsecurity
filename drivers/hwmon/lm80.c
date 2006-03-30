@@ -143,10 +143,10 @@ static int lm80_write_value(struct i2c_client *client, u8 reg, u8 value);
  */
 
 static struct i2c_driver lm80_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm80",
+	.driver = {
+		.name	= "lm80",
+	},
 	.id		= I2C_DRIVERID_LM80,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= lm80_attach_adapter,
 	.detach_client	= lm80_detach_client,
 };
@@ -393,7 +393,7 @@ static int lm80_attach_adapter(struct i2c_adapter *adapter)
 	return i2c_probe(adapter, &addr_data, lm80_detect);
 }
 
-int lm80_detect(struct i2c_adapter *adapter, int address, int kind)
+static int lm80_detect(struct i2c_adapter *adapter, int address, int kind)
 {
 	int i, cur;
 	struct i2c_client *new_client;
@@ -407,11 +407,10 @@ int lm80_detect(struct i2c_adapter *adapter, int address, int kind)
 	/* OK. For now, we presume we have a valid client. We now create the
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access lm80_{read,write}_value. */
-	if (!(data = kmalloc(sizeof(struct lm80_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct lm80_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct lm80_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

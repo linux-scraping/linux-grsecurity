@@ -227,8 +227,7 @@ repeat_locked:
 	spin_unlock(&transaction->t_handle_lock);
 	spin_unlock(&journal->j_state_lock);
 out:
-	if (new_transaction)
-		kfree(new_transaction);
+	kfree(new_transaction);
 	return ret;
 }
 
@@ -725,8 +724,7 @@ done:
 	journal_cancel_revoke(handle, jh);
 
 out:
-	if (frozen_buffer)
-		kfree(frozen_buffer);
+	kfree(frozen_buffer);
 
 	JBUFFER_TRACE(jh, "exit");
 	return error;
@@ -905,8 +903,7 @@ repeat:
 	jbd_unlock_bh_state(bh);
 out:
 	journal_put_journal_head(jh);
-	if (committed_data)
-		kfree(committed_data);
+	kfree(committed_data);
 	return err;
 }
 
@@ -1311,6 +1308,7 @@ int journal_stop(handle_t *handle)
 	transaction_t *transaction = handle->h_transaction;
 	journal_t *journal = transaction->t_journal;
 	int old_handle_count, err;
+	pid_t pid;
 
 	J_ASSERT(transaction->t_updates > 0);
 	J_ASSERT(journal_current_handle() == handle);
@@ -1336,8 +1334,15 @@ int journal_stop(handle_t *handle)
 	 * It doesn't cost much - we're about to run a commit and sleep
 	 * on IO anyway.  Speeds up many-threaded, many-dir operations
 	 * by 30x or more...
+	 *
+	 * But don't do this if this process was the most recent one to
+	 * perform a synchronous write.  We do this to detect the case where a
+	 * single process is doing a stream of sync writes.  No point in waiting
+	 * for joiners in that case.
 	 */
-	if (handle->h_sync) {
+	pid = current->pid;
+	if (handle->h_sync && journal->j_last_sync_writer != pid) {
+		journal->j_last_sync_writer = pid;
 		do {
 			old_handle_count = transaction->t_handle_count;
 			schedule_timeout_uninterruptible(1);
@@ -1621,7 +1626,7 @@ out:
  * while the data is part of a transaction.  Yes?
  */
 int journal_try_to_free_buffers(journal_t *journal, 
-				struct page *page, int unused_gfp_mask)
+				struct page *page, gfp_t unused_gfp_mask)
 {
 	struct buffer_head *head;
 	struct buffer_head *bh;

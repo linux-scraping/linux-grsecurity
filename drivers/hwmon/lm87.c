@@ -161,10 +161,10 @@ static struct lm87_data *lm87_update_device(struct device *dev);
  */
 
 static struct i2c_driver lm87_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm87",
+	.driver = {
+		.name	= "lm87",
+	},
 	.id		= I2C_DRIVERID_LM87,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= lm87_attach_adapter,
 	.detach_client	= lm87_detach_client,
 };
@@ -554,11 +554,10 @@ static int lm87_detect(struct i2c_adapter *adapter, int address, int kind)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct lm87_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct lm87_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct lm87_data));
 
 	/* The common I2C client data is placed right before the
 	   LM87-specific data. */

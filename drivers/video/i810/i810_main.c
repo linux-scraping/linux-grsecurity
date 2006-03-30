@@ -42,19 +42,61 @@
 #include <linux/pci_ids.h>
 #include <linux/resource.h>
 #include <linux/unistd.h>
+#include <linux/console.h>
 
 #include <asm/io.h>
 #include <asm/div64.h>
-
-#ifdef CONFIG_MTRR
-#include <asm/mtrr.h>
-#endif 
-
 #include <asm/page.h>
 
 #include "i810_regs.h"
 #include "i810.h"
 #include "i810_main.h"
+
+/*
+ * voffset - framebuffer offset in MiB from aperture start address.  In order for
+ * the driver to work with X, we must try to use memory holes left untouched by X. The
+ * following table lists where X's different surfaces start at.
+ *
+ * ---------------------------------------------
+ * :                :  64 MiB     : 32 MiB      :
+ * ----------------------------------------------
+ * : FrontBuffer    :   0         :  0          :
+ * : DepthBuffer    :   48        :  16         :
+ * : BackBuffer     :   56        :  24         :
+ * ----------------------------------------------
+ *
+ * So for chipsets with 64 MiB Aperture sizes, 32 MiB for v_offset is okay, allowing up to
+ * 15 + 1 MiB of Framebuffer memory.  For 32 MiB Aperture sizes, a v_offset of 8 MiB should
+ * work, allowing 7 + 1 MiB of Framebuffer memory.
+ * Note, the size of the hole may change depending on how much memory you allocate to X,
+ * and how the memory is split up between these surfaces.
+ *
+ * Note: Anytime the DepthBuffer or FrontBuffer is overlapped, X would still run but with
+ * DRI disabled.  But if the Frontbuffer is overlapped, X will fail to load.
+ *
+ * Experiment with v_offset to find out which works best for you.
+ */
+static u32 v_offset_default __initdata; /* For 32 MiB Aper size, 8 should be the default */
+static u32 voffset          __initdata = 0;
+
+static int i810fb_cursor(struct fb_info *info, struct fb_cursor *cursor);
+static int  __devinit i810fb_init_pci (struct pci_dev *dev,
+				       const struct pci_device_id *entry);
+static void __exit i810fb_remove_pci(struct pci_dev *dev);
+static int i810fb_resume(struct pci_dev *dev);
+static int i810fb_suspend(struct pci_dev *dev, pm_message_t state);
+
+/* Chipset Specific Functions */
+static int i810fb_set_par    (struct fb_info *info);
+static int i810fb_getcolreg  (u8 regno, u8 *red, u8 *green, u8 *blue,
+			      u8 *transp, struct fb_info *info);
+static int i810fb_setcolreg  (unsigned regno, unsigned red, unsigned green, unsigned blue,
+			      unsigned transp, struct fb_info *info);
+static int i810fb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
+static int i810fb_blank      (int blank_mode, struct fb_info *info);
+
+/* Initialization */
+static void i810fb_release_resource       (struct fb_info *info, struct i810fb_par *par);
 
 /* PCI */
 static const char *i810_pci_list[] __devinitdata = {
@@ -107,6 +149,7 @@ static int vyres      __devinitdata;
 static int sync       __devinitdata;
 static int extvga     __devinitdata;
 static int dcolor     __devinitdata;
+static int ddc3       __devinitdata = 2;
 
 /*------------------------------------------------------------*/
 
@@ -776,7 +819,7 @@ static void i810_load_cursor_image(int width, int height, u8 *data,
 
 static void i810_load_cursor_colors(int fg, int bg, struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u8 __iomem *mmio = par->mmio_start_virtual;
 	u8 red, green, blue, trans, temp;
 
@@ -949,7 +992,7 @@ static void set_color_bitfields(struct fb_var_screeninfo *var)
 static int i810_check_params(struct fb_var_screeninfo *var, 
 			     struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	int line_length, vidmem, mode_valid = 0, retval = 0;
 	u32 vyres = var->yres_virtual, vxres = var->xres_virtual;
 	/*
@@ -1043,7 +1086,7 @@ static int i810_check_params(struct fb_var_screeninfo *var,
  */
 static int encode_fix(struct fb_fix_screeninfo *fix, struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 
     	memset(fix, 0, sizeof(struct fb_fix_screeninfo));
 
@@ -1154,7 +1197,7 @@ static void decode_var(const struct fb_var_screeninfo *var,
 static int i810fb_getcolreg(u8 regno, u8 *red, u8 *green, u8 *blue, 
 			    u8 *transp, struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u8 __iomem *mmio = par->mmio_start_virtual;
 	u8 temp;
 
@@ -1193,7 +1236,7 @@ static int i810fb_getcolreg(u8 regno, u8 *red, u8 *green, u8 *blue,
 
 static int i810fb_open(struct fb_info *info, int user)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u32 count = atomic_read(&par->use_count);
 	
 	if (count == 0) {
@@ -1212,7 +1255,7 @@ static int i810fb_open(struct fb_info *info, int user)
 
 static int i810fb_release(struct fb_info *info, int user)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u32 count;
 	
 	count = atomic_read(&par->use_count);
@@ -1234,7 +1277,7 @@ static int i810fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 			    unsigned blue, unsigned transp, 
 			    struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u8 __iomem *mmio = par->mmio_start_virtual;
 	u8 temp;
 	int i;
@@ -1328,7 +1371,7 @@ static int i810fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 static int i810fb_pan_display(struct fb_var_screeninfo *var, 
 			      struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u32 total;
 	
 	total = var->xoffset * par->depth + 
@@ -1340,7 +1383,7 @@ static int i810fb_pan_display(struct fb_var_screeninfo *var,
 
 static int i810fb_blank (int blank_mode, struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	u8 __iomem *mmio = par->mmio_start_virtual;
 	int mode = 0, pwr, scr_off = 0;
 	
@@ -1385,7 +1428,7 @@ static int i810fb_blank (int blank_mode, struct fb_info *info)
 
 static int i810fb_set_par(struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 
 	decode_var(&info->var, par);
 	i810_load_regs(par);
@@ -1429,7 +1472,7 @@ static int i810fb_check_var(struct fb_var_screeninfo *var,
 
 static int i810fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 {
-	struct i810fb_par *par = (struct i810fb_par *)info->par;
+	struct i810fb_par *par = info->par;
 	u8 __iomem *mmio = par->mmio_start_virtual;
 
 	if (!par->dev_flags & LOCKUP)
@@ -1516,36 +1559,29 @@ static struct fb_ops i810fb_ops __devinitdata = {
 static int i810fb_suspend(struct pci_dev *dev, pm_message_t state)
 {
 	struct fb_info *info = pci_get_drvdata(dev);
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
-	int blank = 0, prev_state = par->cur_state;
-
-	if (state.event == prev_state)
-		return 0;
+	struct i810fb_par *par = info->par;
 
 	par->cur_state = state.event;
 
-	switch (state.event) {
-	case 1:
-		blank = VESA_VSYNC_SUSPEND;
-		break;
-	case 2:
-		blank = VESA_HSYNC_SUSPEND;
-		break;
-	case 3:
-		blank = VESA_POWERDOWN;
-		break;
-	default:
-		return -EINVAL;
+	if (state.event == PM_EVENT_FREEZE) {
+		dev->dev.power.power_state = state;
+		return 0;
 	}
-	info->fbops->fb_blank(blank, info);
 
-	if (!prev_state) { 
-		agp_unbind_memory(par->i810_gtt.i810_fb_memory);
-		agp_unbind_memory(par->i810_gtt.i810_cursor_memory);
-		pci_disable_device(dev);
-	}
+	acquire_console_sem();
+	fb_set_suspend(info, 1);
+
+	if (info->fbops->fb_sync)
+		info->fbops->fb_sync(info);
+
+	i810fb_blank(FB_BLANK_POWERDOWN, info);
+	agp_unbind_memory(par->i810_gtt.i810_fb_memory);
+	agp_unbind_memory(par->i810_gtt.i810_cursor_memory);
+
 	pci_save_state(dev);
+	pci_disable_device(dev);
 	pci_set_power_state(dev, pci_choose_state(dev, state));
+	release_console_sem();
 
 	return 0;
 }
@@ -1553,23 +1589,29 @@ static int i810fb_suspend(struct pci_dev *dev, pm_message_t state)
 static int i810fb_resume(struct pci_dev *dev) 
 {
 	struct fb_info *info = pci_get_drvdata(dev);
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
+	int cur_state = par->cur_state;
 
-	if (par->cur_state == 0)
+	par->cur_state = PM_EVENT_ON;
+
+	if (cur_state == PM_EVENT_FREEZE) {
+		pci_set_power_state(dev, PCI_D0);
 		return 0;
+	}
 
-	pci_restore_state(dev);
+	acquire_console_sem();
 	pci_set_power_state(dev, PCI_D0);
+	pci_restore_state(dev);
 	pci_enable_device(dev);
+	pci_set_master(dev);
 	agp_bind_memory(par->i810_gtt.i810_fb_memory,
 			par->fb.offset);
 	agp_bind_memory(par->i810_gtt.i810_cursor_memory,
 			par->cursor_heap.offset);
-
+	i810fb_set_par(info);
+	fb_set_suspend (info, 0);
 	info->fbops->fb_blank(VESA_NO_BLANKING, info);
-
-	par->cur_state = 0;
-
+	release_console_sem();
 	return 0;
 }
 /***********************************************************************
@@ -1610,7 +1652,7 @@ static void __devinit i810_fix_offsets(struct i810fb_par *par)
 
 static int __devinit i810_alloc_agp_mem(struct fb_info *info)
 {
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 	int size;
 	struct agp_bridge_data *bridge;
 	
@@ -1721,6 +1763,8 @@ static void __devinit i810_init_defaults(struct i810fb_par *par,
 
 	if (sync) 
 		par->dev_flags |= ALWAYS_SYNC;
+
+	par->ddc_num = ddc3;
 
 	if (bpp < 8)
 		bpp = 8;
@@ -1844,7 +1888,7 @@ static void __devinit i810fb_find_init_mode(struct fb_info *info)
 	int found = 0;
 #ifdef CONFIG_FB_I810_I2C
 	int i;
-	int err;
+	int err = 1;
 	struct i810fb_par *par = info->par;
 #endif
 
@@ -1854,8 +1898,8 @@ static void __devinit i810fb_find_init_mode(struct fb_info *info)
 #ifdef CONFIG_FB_I810_I2C
 	i810_create_i2c_busses(par);
 
-	for (i = 0; i < 3; i++) {
-		err = i810_probe_i2c_connector(info, &par->edid, i+1);
+	for (i = 0; i < par->ddc_num + 1; i++) {
+		err = i810_probe_i2c_connector(info, &par->edid, i);
 		if (!err)
 			break;
 	}
@@ -1871,27 +1915,18 @@ static void __devinit i810fb_find_init_mode(struct fb_info *info)
 	fb_videomode_to_modelist(specs->modedb, specs->modedb_len,
 				 &info->modelist);
 	if (specs->modedb != NULL) {
-		if (xres && yres) {
-			struct fb_videomode *m;
+		struct fb_videomode *m;
 
+		if (xres && yres) {
 			if ((m = fb_find_best_mode(&var, &info->modelist))) {
 				mode = *m;
 				found  = 1;
 			}
 		}
 
-		if (!found && specs->misc & FB_MISC_1ST_DETAIL) {
-			for (i = 0; i < specs->modedb_len; i++) {
-				if (specs->modedb[i].flag & FB_MODE_IS_FIRST) {
-					mode = specs->modedb[i];
-					found = 1;
-					break;
-				}
-			}
-		}
-
 		if (!found) {
-			mode = specs->modedb[0];
+			m = fb_find_best_display(&info->monspecs, &info->modelist);
+			mode = *m;
 			found = 1;
 		}
 
@@ -1951,6 +1986,8 @@ static int __devinit i810fb_setup(char *options)
 			vsync2 = simple_strtoul(this_opt+7, NULL, 0);
 		else if (!strncmp(this_opt, "dcolor", 6))
 			dcolor = 1;
+		else if (!strncmp(this_opt, "ddc3", 4))
+			ddc3 = 3;
 		else
 			mode_option = this_opt;
 	}
@@ -2066,8 +2103,7 @@ static void i810fb_release_resource(struct fb_info *info,
 		iounmap(par->mmio_start_virtual);
 	if (par->aperture.virtual)
 		iounmap(par->aperture.virtual);
-	if (par->edid)
-		kfree(par->edid);
+	kfree(par->edid);
 	if (par->res_flags & FRAMEBUFFER_REQ)
 		release_mem_region(par->aperture.physical,
 				   par->aperture.size);
@@ -2084,7 +2120,7 @@ static void i810fb_release_resource(struct fb_info *info,
 static void __exit i810fb_remove_pci(struct pci_dev *dev)
 {
 	struct fb_info *info = pci_get_drvdata(dev);
-	struct i810fb_par *par = (struct i810fb_par *) info->par;
+	struct i810fb_par *par = info->par;
 
 	unregister_framebuffer(info);  
 	i810fb_release_resource(info, par);
@@ -2159,6 +2195,8 @@ MODULE_PARM_DESC(sync, "wait for accel engine to finish drawing"
 module_param(dcolor, bool, 0);
 MODULE_PARM_DESC(dcolor, "use DirectColor visuals"
 		 " (default = 0 = TrueColor)");
+module_param(ddc3, bool, 0);
+MODULE_PARM_DESC(ddc3, "Probe DDC bus 3 (default = 0 = no)");
 module_param(mode_option, charp, 0);
 MODULE_PARM_DESC(mode_option, "Specify initial video mode");
 

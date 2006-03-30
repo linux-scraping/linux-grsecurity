@@ -1743,13 +1743,14 @@ sisfb_blank(int blank, struct fb_info *info)
 
 /* ----------- FBDev related routines for all series ---------- */
 
-static int
-sisfb_ioctl(struct inode *inode, struct file *file,
-            unsigned int cmd, unsigned long arg,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0)
-	    int con,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15)
+static int	sisfb_ioctl(struct fb_info *info, unsigned int cmd,
+			    unsigned long arg)
+#else
+static int	sisfb_ioctl(struct inode *inode, struct file *file,
+				unsigned int cmd, unsigned long arg,
+				struct fb_info *info)
 #endif
-	    struct fb_info *info)
 {
 	struct sis_video_info	*ivideo = (struct sis_video_info *)info->par;
 	struct sis_memreq	sismemreq;
@@ -1924,19 +1925,6 @@ sisfb_ioctl(struct inode *inode, struct file *file,
 	return 0;
 }
 
-#ifdef SIS_NEW_CONFIG_COMPAT
-static long
-sisfb_compat_ioctl(struct file *f, unsigned int cmd, unsigned long arg, struct fb_info *info)
-{
-	int ret;
-
-	lock_kernel();
-	ret = sisfb_ioctl(NULL, f, cmd, arg, info);
-	unlock_kernel();
-	return ret;
-}
-#endif
-
 static int
 sisfb_get_fix(struct fb_fix_screeninfo *fix, int con, struct fb_info *info)
 {
@@ -2002,10 +1990,12 @@ static struct fb_ops sisfb_ops = {
 	.fb_fillrect	= fbcon_sis_fillrect,
 	.fb_copyarea	= fbcon_sis_copyarea,
 	.fb_imageblit	= cfb_imageblit,
+#ifdef CONFIG_FB_SOFT_CURSOR
 	.fb_cursor	= soft_cursor,
+#endif
 	.fb_sync	= fbcon_sis_sync,
 #ifdef SIS_NEW_CONFIG_COMPAT
-	.fb_compat_ioctl= sisfb_compat_ioctl,
+	.fb_compat_ioctl= sisfb_ioctl,
 #endif
 	.fb_ioctl	= sisfb_ioctl
 };

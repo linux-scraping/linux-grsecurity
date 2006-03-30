@@ -145,13 +145,6 @@ static int __init do_lne390_probe(struct net_device *dev)
 	return -ENODEV;
 }
 
-static void cleanup_card(struct net_device *dev)
-{
-	free_irq(dev->irq, dev);
-	release_region(dev->base_addr, LNE390_IO_EXTENT);
-	iounmap(ei_status.mem);
-}
-
 #ifndef MODULE
 struct net_device * __init lne390_probe(int unit)
 {
@@ -298,7 +291,7 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
 	return 0;
 unmap:
 	if (ei_status.reg0)
-		iounmap((void *)dev->mem_start);
+		iounmap(ei_status.mem);
 cleanup:
 	free_irq(dev->irq, dev);
 	return ret;
@@ -438,6 +431,13 @@ int init_module(void)
 	if (found)
 		return 0;
 	return -ENXIO;
+}
+
+static void cleanup_card(struct net_device *dev)
+{
+	free_irq(dev->irq, dev);
+	release_region(dev->base_addr, LNE390_IO_EXTENT);
+	iounmap(ei_status.mem);
 }
 
 void cleanup_module(void)

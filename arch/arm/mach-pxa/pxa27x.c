@@ -16,11 +16,12 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/pm.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/hardware.h>
 #include <asm/irq.h>
 #include <asm/arch/pxa-regs.h>
+#include <asm/arch/ohci.h>
 
 #include "generic.h"
 
@@ -43,7 +44,7 @@ unsigned int get_clk_frequency_khz( int info)
 
 	/* Read clkcfg register: it has turbo, b, half-turbo (and f) */
 	asm( "mrc\tp14, 0, %0, c6, c0, 0" : "=r" (clkcfg) );
-	t  = clkcfg & (1 << 1);
+	t  = clkcfg & (1 << 0);
 	ht = clkcfg & (1 << 2);
 	b  = clkcfg & (1 << 3);
 
@@ -157,7 +158,7 @@ void pxa_cpu_pm_enter(suspend_state_t state)
 	case PM_SUSPEND_MEM:
 		/* set resume return address */
 		PSPR = virt_to_phys(pxa_cpu_resume);
-		pxa_cpu_suspend(3);
+		pxa_cpu_suspend(PWRMODE_SLEEP);
 		break;
 	}
 }
@@ -193,6 +194,11 @@ static struct platform_device ohci_device = {
 	.num_resources  = ARRAY_SIZE(pxa27x_ohci_resources),
 	.resource       = pxa27x_ohci_resources,
 };
+
+void __init pxa_set_ohci_info(struct pxaohci_platform_data *info)
+{
+	ohci_device.dev.platform_data = info;
+}
 
 static struct platform_device *devices[] __initdata = {
 	&ohci_device,

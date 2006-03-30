@@ -12,6 +12,7 @@
  */
 
 #include <linux/spinlock.h>
+#include <linux/mm.h>		/* for vm_area_struct */
 #include <asm/processor.h>
 #include <asm/cache.h>
 #include <asm/bitops.h>
@@ -223,7 +224,7 @@ extern  void *vmalloc_start;
 #endif
 
 #define PAGE_KERNEL	__pgprot(_PAGE_KERNEL)
-#define PAGE_KERNEL_RO	__pgprot(_PAGE_PRESENT | _PAGE_EXEC | _PAGE_READ | _PAGE_DIRTY | _PAGE_ACCESSED)
+#define PAGE_KERNEL_RO	__pgprot(_PAGE_KERNEL & ~_PAGE_WRITE)
 #define PAGE_KERNEL_UNC	__pgprot(_PAGE_KERNEL | _PAGE_NO_CACHE)
 #define PAGE_GATEWAY    __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_GATEWAY| _PAGE_READ)
 #define PAGE_FLUSH      __pgprot(_PAGE_FLUSH)
@@ -429,7 +430,6 @@ extern void paging_init (void);
 
 #define PG_dcache_dirty         PG_arch_1
 
-struct vm_area_struct; /* forward declaration (include/linux/mm.h) */
 extern void update_mmu_cache(struct vm_area_struct *, unsigned long, pte_t);
 
 /* Encode and de-code a swap entry */
@@ -475,6 +475,7 @@ static inline int ptep_test_and_clear_dirty(struct vm_area_struct *vma, unsigned
 
 extern spinlock_t pa_dbit_lock;
 
+struct mm_struct;
 static inline pte_t ptep_get_and_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
 	pte_t old_pte;
@@ -511,6 +512,8 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr, 
 
 #define io_remap_pfn_range(vma, vaddr, pfn, size, prot)		\
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
+
+#define pgprot_noncached(prot) __pgprot(pgprot_val(prot) | _PAGE_NO_CACHE)
 
 #define MK_IOSPACE_PFN(space, pfn)	(pfn)
 #define GET_IOSPACE(pfn)		0

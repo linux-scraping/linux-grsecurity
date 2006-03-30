@@ -7,7 +7,7 @@
  *            Occurs in several places in the IPC code.
  *            Chris Evans, <chris@ferret.lmh.ox.ac.uk>
  * Nov 1999 - ipc helper functions, unified SMP locking
- *	      Manfred Spraul <manfreds@colorfullife.com>
+ *	      Manfred Spraul <manfred@colorfullife.com>
  * Oct 2002 - One lock per IPC id. RCU ipc_free for lock-free grow_ary().
  *            Mingming Cao <cmm@us.ibm.com>
  */
@@ -20,6 +20,7 @@
 #include <linux/smp_lock.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
+#include <linux/capability.h>
 #include <linux/highuid.h>
 #include <linux/security.h>
 #include <linux/rcupdate.h>
@@ -410,7 +411,8 @@ void ipc_rcu_getref(void *ptr)
 }
 
 /**
- *	ipc_schedule_free	- free ipc + rcu space
+ * ipc_schedule_free - free ipc + rcu space
+ * @head: RCU callback structure for queued work
  * 
  * Since RCU callback function is called in bh,
  * we need to defer the vfree to schedule_work
@@ -427,10 +429,10 @@ static void ipc_schedule_free(struct rcu_head *head)
 }
 
 /**
- *	ipc_immediate_free	- free ipc + rcu space
+ * ipc_immediate_free - free ipc + rcu space
+ * @head: RCU callback structure that contains pointer to be freed
  *
- *	Free from the RCU callback context
- *
+ * Free from the RCU callback context
  */
 static void ipc_immediate_free(struct rcu_head *head)
 {

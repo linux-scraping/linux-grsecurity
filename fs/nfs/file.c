@@ -205,8 +205,8 @@ nfs_file_flush(struct file *file)
 	if (!status) {
 		status = ctx->error;
 		ctx->error = 0;
-		if (!status && !nfs_have_delegation(inode, FMODE_READ))
-			__nfs_revalidate_inode(NFS_SERVER(inode), inode);
+		if (!status)
+			nfs_revalidate_inode(NFS_SERVER(inode), inode);
 	}
 	unlock_kernel();
 	return status;
@@ -376,22 +376,31 @@ out_swapfile:
 
 static int do_getlk(struct file *filp, int cmd, struct file_lock *fl)
 {
+	struct file_lock *cfl;
 	struct inode *inode = filp->f_mapping->host;
 	int status = 0;
 
 	lock_kernel();
-	/* Use local locking if mounted with "-onolock" */
-	if (!(NFS_SERVER(inode)->flags & NFS_MOUNT_NONLM))
-		status = NFS_PROTO(inode)->lock(filp, cmd, fl);
-	else {
-		struct file_lock *cfl = posix_test_lock(filp, fl);
-
-		fl->fl_type = F_UNLCK;
-		if (cfl != NULL)
-			memcpy(fl, cfl, sizeof(*fl));
+	/* Try local locking first */
+	cfl = posix_test_lock(filp, fl);
+	if (cfl != NULL) {
+		locks_copy_lock(fl, cfl);
+		goto out;
 	}
+
+	if (nfs_have_delegation(inode, FMODE_READ))
+		goto out_noconflict;
+
+	if (NFS_SERVER(inode)->flags & NFS_MOUNT_NONLM)
+		goto out_noconflict;
+
+	status = NFS_PROTO(inode)->lock(filp, cmd, fl);
+out:
 	unlock_kernel();
 	return status;
+out_noconflict:
+	fl->fl_type = F_UNLCK;
+	goto out;
 }
 
 static int do_vfs_lock(struct file *file, struct file_lock *fl)
@@ -424,11 +433,7 @@ static int do_unlk(struct file *filp, int cmd, struct file_lock *fl)
 	 * Flush all pending writes before doing anything
 	 * with locks..
 	 */
-	filemap_fdatawrite(filp->f_mapping);
-	down(&inode->i_sem);
-	nfs_wb_all(inode);
-	up(&inode->i_sem);
-	filemap_fdatawait(filp->f_mapping);
+	nfs_sync_mapping(filp->f_mapping);
 
 	/* NOTE: special case
 	 * 	If we're signalled while cleaning up locks on process exit, we
@@ -456,15 +461,8 @@ static int do_setlk(struct file *filp, int cmd, struct file_lock *fl)
 	 * Flush all pending writes before doing anything
 	 * with locks..
 	 */
-	status = filemap_fdatawrite(filp->f_mapping);
-	if (status == 0) {
-		down(&inode->i_sem);
-		status = nfs_wb_all(inode);
-		up(&inode->i_sem);
-		if (status == 0)
-			status = filemap_fdatawait(filp->f_mapping);
-	}
-	if (status < 0)
+	status = nfs_sync_mapping(filp->f_mapping);
+	if (status != 0)
 		goto out;
 
 	lock_kernel();
@@ -488,11 +486,7 @@ static int do_setlk(struct file *filp, int cmd, struct file_lock *fl)
 	 * Make sure we clear the cache whenever we try to get the lock.
 	 * This makes locking act as a cache coherency point.
 	 */
-	filemap_fdatawrite(filp->f_mapping);
-	down(&inode->i_sem);
-	nfs_wb_all(inode);	/* we may have slept */
-	up(&inode->i_sem);
-	filemap_fdatawait(filp->f_mapping);
+	nfs_sync_mapping(filp->f_mapping);
 	nfs_zap_caches(inode);
 out:
 	rpc_clnt_sigunmask(NFS_CLIENT(inode), &oldset);
@@ -515,7 +509,8 @@ static int nfs_lock(struct file *filp, int cmd, struct file_lock *fl)
 		return -EINVAL;
 
 	/* No mandatory locks over NFS */
-	if ((inode->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID)
+	if ((inode->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID &&
+	    fl->fl_type != F_UNLCK)
 		return -ENOLCK;
 
 	if (IS_GETLK(cmd))

@@ -53,7 +53,7 @@ static void uncached_ipi_visibility(void *data)
 	if ((status != PAL_VISIBILITY_OK) &&
 	    (status != PAL_VISIBILITY_OK_REMOTE_NEEDED))
 		printk(KERN_DEBUG "pal_prefetch_visibility() returns %i on "
-		       "CPU %i\n", status, get_cpu());
+		       "CPU %i\n", status, raw_smp_processor_id());
 }
 
 
@@ -63,7 +63,7 @@ static void uncached_ipi_mc_drain(void *data)
 	status = ia64_pal_mc_drain();
 	if (status)
 		printk(KERN_WARNING "ia64_pal_mc_drain() failed with %i on "
-		       "CPU %i\n", status, get_cpu());
+		       "CPU %i\n", status, raw_smp_processor_id());
 }
 
 
@@ -105,7 +105,7 @@ uncached_get_new_chunk(struct gen_pool *poolp)
 	status = ia64_pal_prefetch_visibility(PAL_VISIBILITY_PHYSICAL);
 
 	dprintk(KERN_INFO "pal_prefetch_visibility() returns %i on cpu %i\n",
-		status, get_cpu());
+		status, raw_smp_processor_id());
 
 	if (!status) {
 		status = smp_call_function(uncached_ipi_visibility, NULL, 0, 1);
@@ -205,23 +205,19 @@ EXPORT_SYMBOL(uncached_free_page);
 static int __init
 uncached_build_memmap(unsigned long start, unsigned long end, void *arg)
 {
-	long length;
-	unsigned long vstart, vend;
+	long length = end - start;
 	int node;
-
-	length = end - start;
-	vstart = start + __IA64_UNCACHED_OFFSET;
-	vend = end + __IA64_UNCACHED_OFFSET;
 
 	dprintk(KERN_ERR "uncached_build_memmap(%lx %lx)\n", start, end);
 
-	memset((char *)vstart, 0, length);
+	touch_softlockup_watchdog();
+	memset((char *)start, 0, length);
 
-	node = paddr_to_nid(start);
+	node = paddr_to_nid(start - __IA64_UNCACHED_OFFSET);
 
-	for (; vstart < vend ; vstart += PAGE_SIZE) {
-		dprintk(KERN_INFO "sticking %lx into the pool!\n", vstart);
-		gen_pool_free(uncached_pool[node], vstart, PAGE_SIZE);
+	for (; start < end ; start += PAGE_SIZE) {
+		dprintk(KERN_INFO "sticking %lx into the pool!\n", start);
+		gen_pool_free(uncached_pool[node], start, PAGE_SIZE);
 	}
 
 	return 0;

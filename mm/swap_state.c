@@ -14,6 +14,7 @@
 #include <linux/pagemap.h>
 #include <linux/buffer_head.h>
 #include <linux/backing-dev.h>
+#include <linux/pagevec.h>
 
 #include <asm/pgtable.h>
 
@@ -26,6 +27,7 @@ static struct address_space_operations swap_aops = {
 	.writepage	= swap_writepage,
 	.sync_page	= block_sync_page,
 	.set_page_dirty	= __set_page_dirty_nobuffers,
+	.migratepage	= migrate_page,
 };
 
 static struct backing_dev_info swap_backing_dev_info = {
@@ -40,7 +42,6 @@ struct address_space swapper_space = {
 	.i_mmap_nonlinear = LIST_HEAD_INIT(swapper_space.i_mmap_nonlinear),
 	.backing_dev_info = &swap_backing_dev_info,
 };
-EXPORT_SYMBOL(swapper_space);
 
 #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
 
@@ -83,7 +84,7 @@ static int __add_to_swap_cache(struct page *page, swp_entry_t entry,
 			page_cache_get(page);
 			SetPageLocked(page);
 			SetPageSwapCache(page);
-			page->private = entry.val;
+			set_page_private(page, entry.val);
 			total_swapcache_pages++;
 			pagecache_acct(1);
 		}
@@ -126,8 +127,8 @@ void __delete_from_swap_cache(struct page *page)
 	BUG_ON(PageWriteback(page));
 	BUG_ON(PagePrivate(page));
 
-	radix_tree_delete(&swapper_space.page_tree, page->private);
-	page->private = 0;
+	radix_tree_delete(&swapper_space.page_tree, page_private(page));
+	set_page_private(page, 0);
 	ClearPageSwapCache(page);
 	total_swapcache_pages--;
 	pagecache_acct(-1);
@@ -141,7 +142,7 @@ void __delete_from_swap_cache(struct page *page)
  * Allocate swap space for the page and add the page to the
  * swap cache.  Caller needs to hold the page lock. 
  */
-int add_to_swap(struct page * page)
+int add_to_swap(struct page * page, gfp_t gfp_mask)
 {
 	swp_entry_t entry;
 	int err;
@@ -166,7 +167,7 @@ int add_to_swap(struct page * page)
 		 * Add it to the swap cache and mark it dirty
 		 */
 		err = __add_to_swap_cache(page, entry,
-				GFP_ATOMIC|__GFP_NOMEMALLOC|__GFP_NOWARN);
+				gfp_mask|__GFP_NOMEMALLOC|__GFP_NOWARN);
 
 		switch (err) {
 		case 0:				/* Success */
@@ -197,7 +198,7 @@ void delete_from_swap_cache(struct page *page)
 {
 	swp_entry_t entry;
 
-	entry.val = page->private;
+	entry.val = page_private(page);
 
 	write_lock_irq(&swapper_space.tree_lock);
 	__delete_from_swap_cache(page);
@@ -259,8 +260,7 @@ static inline void free_swap_cache(struct page *page)
 
 /* 
  * Perform a free_page(), also freeing any swap cache associated with
- * this page if it is the last user of the page. Can not do a lock_page,
- * as we are holding the page_table_lock spinlock.
+ * this page if it is the last user of the page.
  */
 void free_page_and_swap_cache(struct page *page)
 {
@@ -274,12 +274,11 @@ void free_page_and_swap_cache(struct page *page)
  */
 void free_pages_and_swap_cache(struct page **pages, int nr)
 {
-	int chunk = 16;
 	struct page **pagep = pages;
 
 	lru_add_drain();
 	while (nr) {
-		int todo = min(chunk, nr);
+		int todo = min(nr, PAGEVEC_SIZE);
 		int i;
 
 		for (i = 0; i < todo; i++)

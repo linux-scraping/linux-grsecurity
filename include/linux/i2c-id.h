@@ -25,12 +25,6 @@
 
 /*
  * ---- Driver types -----------------------------------------------------
- *       device id name + number        function description, i2c address(es)
- *
- *  Range 1000-1999 range is defined in sensors/sensors.h 
- *  Range 0x100 - 0x1ff is for V4L2 Common Components 
- *  Range 0xf000 - 0xffff is reserved for local experimentation, and should
- *        never be used in official drivers 
  */
 
 #define I2C_DRIVERID_MSP3400	 1
@@ -99,19 +93,27 @@
 #define I2C_DRIVERID_MAX6900	63	/* MAX6900 real-time clock	*/
 #define I2C_DRIVERID_SAA7114H	64	/* video decoder		*/
 #define I2C_DRIVERID_DS1374	65	/* DS1374 real time clock	*/
-
-
-#define I2C_DRIVERID_EXP0	0xF0	/* experimental use id's	*/
-#define I2C_DRIVERID_EXP1	0xF1
-#define I2C_DRIVERID_EXP2	0xF2
-#define I2C_DRIVERID_EXP3	0xF3
+#define I2C_DRIVERID_TDA9874	66	/* TV sound decoder		*/
+#define I2C_DRIVERID_SAA6752HS	67	/* MPEG2 encoder		*/
+#define I2C_DRIVERID_TVEEPROM	68	/* TV EEPROM			*/
+#define I2C_DRIVERID_WM8775	69	/* wm8775 audio processor	*/
+#define I2C_DRIVERID_CS53L32A	70	/* cs53l32a audio processor	*/
+#define I2C_DRIVERID_CX25840	71	/* cx2584x video encoder	*/
+#define I2C_DRIVERID_SAA7127	72	/* saa7124 video encoder	*/
+#define I2C_DRIVERID_SAA711X	73	/* saa711x video encoders	*/
+#define I2C_DRIVERID_AKITAIOEXP	74	/* IO Expander on Sharp SL-C1000 */
+#define I2C_DRIVERID_INFRARED	75	/* I2C InfraRed on Video boards */
+#define I2C_DRIVERID_TVP5150	76	/* TVP5150 video decoder        */
+#define I2C_DRIVERID_WM8739	77	/* wm8739 audio processor	*/
+#define I2C_DRIVERID_UPD64083	78	/* upd64083 video processor	*/
+#define I2C_DRIVERID_UPD64031A	79	/* upd64031a video processor	*/
+#define I2C_DRIVERID_SAA717X	80	/* saa717x video encoder	*/
 
 #define I2C_DRIVERID_I2CDEV	900
-#define I2C_DRIVERID_I2CPROC	901
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
 #define I2C_DRIVERID_ALERT      903    /* SMBus Alert Responder Client  */
 
-/* IDs --   Use DRIVERIDs 1000-1999 for sensors. 
+/* IDs --   Use DRIVERIDs 1000-1999 for sensors.
    These were originally in sensors.h in the lm_sensors package */
 #define I2C_DRIVERID_LM78 1002
 #define I2C_DRIVERID_LM75 1003
@@ -122,15 +124,12 @@
 #define I2C_DRIVERID_ADM1021 1008
 #define I2C_DRIVERID_ADM9240 1009
 #define I2C_DRIVERID_LTC1710 1010
-#define I2C_DRIVERID_SIS5595 1011
 #define I2C_DRIVERID_ICSPLL 1012
 #define I2C_DRIVERID_BT869 1013
 #define I2C_DRIVERID_MAXILIFE 1014
 #define I2C_DRIVERID_MATORB 1015
 #define I2C_DRIVERID_GL520 1016
 #define I2C_DRIVERID_THMC50 1017
-#define I2C_DRIVERID_DDCMON 1018
-#define I2C_DRIVERID_VIA686A 1019
 #define I2C_DRIVERID_ADM1025 1020
 #define I2C_DRIVERID_LM87 1021
 #define I2C_DRIVERID_PCF8574 1022
@@ -142,21 +141,16 @@
 #define I2C_DRIVERID_FSCPOS 1028
 #define I2C_DRIVERID_FSCSCY 1029
 #define I2C_DRIVERID_PCF8591 1030
-#define I2C_DRIVERID_SMSC47M1 1031
-#define I2C_DRIVERID_VT1211 1032
 #define I2C_DRIVERID_LM92 1033
-#define I2C_DRIVERID_VT8231 1034
 #define I2C_DRIVERID_SMARTBATT 1035
 #define I2C_DRIVERID_BMCSENSORS 1036
 #define I2C_DRIVERID_FS451 1037
-#define I2C_DRIVERID_W83627HF 1038
 #define I2C_DRIVERID_LM85 1039
 #define I2C_DRIVERID_LM83 1040
 #define I2C_DRIVERID_LM90 1042
 #define I2C_DRIVERID_ASB100 1043
 #define I2C_DRIVERID_FSCHER 1046
 #define I2C_DRIVERID_W83L785TS 1047
-#define I2C_DRIVERID_SMSC47B397 1050
 
 /*
  * ---- Adapter types ----------------------------------------------------
@@ -164,10 +158,7 @@
 
 /* --- Bit algorithm adapters 						*/
 #define I2C_HW_B_LP		0x010000 /* Parallel port Philips style */
-#define I2C_HW_B_LPC		0x010001 /* Parallel port control reg. */
 #define I2C_HW_B_SER		0x010002 /* Serial line interface */
-#define I2C_HW_B_ELV		0x010003 /* ELV Card */
-#define I2C_HW_B_VELLE		0x010004 /* Vellemann K8000 */
 #define I2C_HW_B_BT848		0x010005 /* BT848 video boards */
 #define I2C_HW_B_WNV		0x010006 /* Winnov Videums */
 #define I2C_HW_B_VIA		0x010007 /* Via vt82c586b */
@@ -193,6 +184,7 @@
 #define I2C_HW_B_NVIDIA		0x01001c /* nvidia framebuffer driver */
 #define I2C_HW_B_SAVAGE		0x01001d /* savage framebuffer driver */
 #define I2C_HW_B_RADEON		0x01001e /* radeon framebuffer driver */
+#define I2C_HW_B_EM28XX		0x01001f /* em28xx video capture cards */
 
 /* --- PCF 8584 based algorithms					*/
 #define I2C_HW_P_LP		0x020000 /* Parallel port interface */

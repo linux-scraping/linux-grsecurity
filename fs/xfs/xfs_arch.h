@@ -1,33 +1,19 @@
 /*
- * Copyright (c) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2002,2005 Silicon Graphics, Inc.
+ * All Rights Reserved.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * This program is distributed in the hope that it would be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston MA 02111-1307, USA.
- *
- * Contact information: Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
- * Mountain View, CA  94043, or:
- *
- * http://www.sgi.com
- *
- * For further information regarding this notice, see:
- *
- * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write the Free Software Foundation,
+ * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #ifndef __XFS_ARCH_H__
 #define __XFS_ARCH_H__
@@ -52,6 +38,22 @@
 #define	XFS_NATIVE_HOST	1
 #else
 #undef XFS_NATIVE_HOST
+#endif
+
+#ifdef XFS_NATIVE_HOST
+#define cpu_to_be16(val)	((__be16)(val))
+#define cpu_to_be32(val)	((__be32)(val))
+#define cpu_to_be64(val)	((__be64)(val))
+#define be16_to_cpu(val)	((__uint16_t)(val))
+#define be32_to_cpu(val)	((__uint32_t)(val))
+#define be64_to_cpu(val)	((__uint64_t)(val))
+#else
+#define cpu_to_be16(val)	(__swab16((__uint16_t)(val)))
+#define cpu_to_be32(val)	(__swab32((__uint32_t)(val)))
+#define cpu_to_be64(val)	(__swab64((__uint64_t)(val)))
+#define be16_to_cpu(val)	(__swab16((__be16)(val)))
+#define be32_to_cpu(val)	(__swab32((__be32)(val)))
+#define be64_to_cpu(val)	(__swab64((__be64)(val)))
 #endif
 
 #endif	/* __KERNEL__ */
@@ -168,6 +170,21 @@
     } \
 }
 
+static inline void be16_add(__be16 *a, __s16 b)
+{
+	*a = cpu_to_be16(be16_to_cpu(*a) + b);
+}
+
+static inline void be32_add(__be32 *a, __s32 b)
+{
+	*a = cpu_to_be32(be32_to_cpu(*a) + b);
+}
+
+static inline void be64_add(__be64 *a, __s64 b)
+{
+	*a = cpu_to_be64(be64_to_cpu(*a) + b);
+}
+
 /*
  * In directories inode numbers are stored as unaligned arrays of unsigned
  * 8bit integers on disk.
@@ -185,7 +202,7 @@
  */ 
 
 #define XFS_GET_DIR_INO4(di) \
-	(((u32)(di).i[0] << 24) | ((di).i[1] << 16) | ((di).i[2] << 8) | ((di).i[3]))
+	(((__u32)(di).i[0] << 24) | ((di).i[1] << 16) | ((di).i[2] << 8) | ((di).i[3]))
 
 #define XFS_PUT_DIR_INO4(from, di) \
 do { \
@@ -196,9 +213,9 @@ do { \
 } while (0)
 
 #define XFS_DI_HI(di) \
-	(((u32)(di).i[1] << 16) | ((di).i[2] << 8) | ((di).i[3]))
+	(((__u32)(di).i[1] << 16) | ((di).i[2] << 8) | ((di).i[3]))
 #define XFS_DI_LO(di) \
-	(((u32)(di).i[4] << 24) | ((di).i[5] << 16) | ((di).i[6] << 8) | ((di).i[7]))
+	(((__u32)(di).i[4] << 24) | ((di).i[5] << 16) | ((di).i[6] << 8) | ((di).i[7]))
 
 #define XFS_GET_DIR_INO8(di)        \
 	(((xfs_ino_t)XFS_DI_LO(di) & 0xffffffffULL) | \

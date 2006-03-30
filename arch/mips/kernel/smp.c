@@ -29,6 +29,7 @@
 #include <linux/timex.h>
 #include <linux/sched.h>
 #include <linux/cpumask.h>
+#include <linux/cpu.h>
 
 #include <asm/atomic.h>
 #include <asm/cpu.h>
@@ -50,7 +51,6 @@ static void smp_tune_scheduling (void)
 {
 	struct cache_desc *cd = &current_cpu_data.scache;
 	unsigned long cachesize;       /* kB   */
-	unsigned long bandwidth = 350; /* MB/s */
 	unsigned long cpu_khz;
 
 	/*
@@ -83,7 +83,7 @@ extern ATTRIB_NORET void cpu_idle(void);
  */
 asmlinkage void start_secondary(void)
 {
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu;
 
 	cpu_probe();
 	cpu_report();
@@ -96,6 +96,8 @@ asmlinkage void start_secondary(void)
 	 */
 
 	calibrate_delay();
+	preempt_disable();
+	cpu = smp_processor_id();
 	cpu_data[cpu].udelay_val = loops_per_jiffy;
 
 	prom_smp_finish();
@@ -121,7 +123,19 @@ struct call_data_struct *call_data;
  * or are or have executed.
  *
  * You must not call this function with disabled interrupts or from a
- * hardware interrupt handler or from a bottom half handler.
+ * hardware interrupt handler or from a bottom half handler:
+ *
+ * CPU A                               CPU B
+ * Disable interrupts
+ *                                     smp_call_function()
+ *                                     Take call_lock
+ *                                     Send IPIs
+ *                                     Wait for all cpus to acknowledge IPI
+ *                                     CPU A has not responded, spin waiting
+ *                                     for cpu A to respond, holding call_lock
+ * smp_call_function()
+ * Spin waiting for call_lock
+ * Deadlock                            Deadlock
  */
 int smp_call_function (void (*func) (void *info), void *info, int retry,
 								int wait)
@@ -129,6 +143,11 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	struct call_data_struct data;
 	int i, cpus = num_online_cpus() - 1;
 	int cpu = smp_processor_id();
+
+	/*
+	 * Can die spectacularly if this CPU isn't yet marked online
+	 */
+	BUG_ON(!cpu_online(cpu));
 
 	if (!cpus)
 		return 0;
@@ -214,11 +233,10 @@ void __init smp_cpus_done(unsigned int max_cpus)
 /* called from main before smp_init() */
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
-	cpu_data[0].udelay_val = loops_per_jiffy;
 	init_new_context(current, &init_mm);
 	current_thread_info()->cpu = 0;
 	smp_tune_scheduling();
-	prom_prepare_cpus(max_cpus);
+	plat_prepare_cpus(max_cpus);
 }
 
 /* preload SMP state for boot cpu */
@@ -236,44 +254,32 @@ void __devinit smp_prepare_boot_cpu(void)
 }
 
 /*
- * Startup the CPU with this logical number
- */
-static int __init do_boot_cpu(int cpu)
-{
-	struct task_struct *idle;
-
-	/*
-	 * The following code is purely to make sure
-	 * Linux can schedule processes on this slave.
-	 */
-	idle = fork_idle(cpu);
-	if (IS_ERR(idle))
-		panic("failed fork for CPU %d\n", cpu);
-
-	prom_boot_secondary(cpu, idle);
-
-	/* XXXKW timeout */
-	while (!cpu_isset(cpu, cpu_callin_map))
-		udelay(100);
-
-	cpu_set(cpu, cpu_online_map);
-
-	return 0;
-}
-
-/*
  * Called once for each "cpu_possible(cpu)".  Needs to spin up the cpu
  * and keep control until "cpu_online(cpu)" is set.  Note: cpu is
  * physical, not logical.
  */
 int __devinit __cpu_up(unsigned int cpu)
 {
-	int ret;
+	struct task_struct *idle;
 
-	/* Processor goes to start_secondary(), sets online flag */
-	ret = do_boot_cpu(cpu);
-	if (ret < 0)
-		return ret;
+	/*
+	 * Processor goes to start_secondary(), sets online flag
+	 * The following code is purely to make sure
+	 * Linux can schedule processes on this slave.
+	 */
+	idle = fork_idle(cpu);
+	if (IS_ERR(idle))
+		panic(KERN_ERR "Fork failed for CPU %d", cpu);
+
+	prom_boot_secondary(cpu, idle);
+
+	/*
+	 * Trust is futile.  We should really have timeouts ...
+	 */
+	while (!cpu_isset(cpu, cpu_callin_map))
+		udelay(100);
+
+	cpu_set(cpu, cpu_online_map);
 
 	return 0;
 }
@@ -418,6 +424,25 @@ void flush_tlb_one(unsigned long vaddr)
 	smp_call_function(flush_tlb_one_ipi, (void *) vaddr, 1, 1);
 	local_flush_tlb_one(vaddr);
 }
+
+static DEFINE_PER_CPU(struct cpu, cpu_devices);
+
+static int __init topology_init(void)
+{
+	int cpu;
+	int ret;
+
+	for_each_cpu(cpu) {
+		ret = register_cpu(&per_cpu(cpu_devices, cpu), cpu, NULL);
+		if (ret)
+			printk(KERN_WARNING "topology_init: register_cpu %d "
+			       "failed (%d)\n", cpu, ret);
+	}
+
+	return 0;
+}
+
+subsys_initcall(topology_init);
 
 EXPORT_SYMBOL(flush_tlb_page);
 EXPORT_SYMBOL(flush_tlb_one);

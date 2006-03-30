@@ -2,7 +2,7 @@
     it87.c - Part of lm_sensors, Linux kernel modules for hardware
              monitoring.
 
-    Supports: IT8705F  Super I/O chip w/LPC interface & SMBus
+    Supports: IT8705F  Super I/O chip w/LPC interface
               IT8712F  Super I/O chip w/LPC interface & SMBus
               Sis950   A clone of the IT8705F
 
@@ -45,9 +45,8 @@
 
 
 /* Addresses to scan */
-static unsigned short normal_i2c[] = { 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d,
-					0x2e, 0x2f, I2C_CLIENT_END };
-static unsigned short isa_address = 0x290;
+static unsigned short normal_i2c[] = { 0x2d, I2C_CLIENT_END };
+static unsigned short isa_address;
 
 /* Insmod parameters */
 I2C_CLIENT_INSMOD_2(it87, it8712);
@@ -213,7 +212,7 @@ struct it87_data {
 	u8 sensor;		/* Register value */
 	u8 fan_div[3];		/* Register encoding, shifted right */
 	u8 vid;			/* Register encoding, combined */
-	int vrm;
+	u8 vrm;
 	u32 alarms;		/* Register encoding, combined */
 	u8 fan_main_ctrl;	/* Register value */
 	u8 manual_pwm_ctl[3];   /* manual PWM value set by user */
@@ -234,17 +233,18 @@ static void it87_init_client(struct i2c_client *client, struct it87_data *data);
 
 
 static struct i2c_driver it87_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "it87",
+	.driver = {
+		.name	= "it87",
+	},
 	.id		= I2C_DRIVERID_IT87,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= it87_attach_adapter,
 	.detach_client	= it87_detach_client,
 };
 
 static struct i2c_driver it87_isa_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "it87-isa",
+	.driver = {
+		.name	= "it87-isa",
+	},
 	.attach_adapter	= it87_isa_attach_adapter,
 	.detach_client	= it87_detach_client,
 };
@@ -668,7 +668,7 @@ static ssize_t
 show_vrm_reg(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct it87_data *data = it87_update_device(dev);
-	return sprintf(buf, "%ld\n", (long) data->vrm);
+	return sprintf(buf, "%u\n", data->vrm);
 }
 static ssize_t
 store_vrm_reg(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -713,7 +713,7 @@ static int it87_isa_attach_adapter(struct i2c_adapter *adapter)
 }
 
 /* SuperIO detection - will change isa_address if a chip is found */
-static int __init it87_find(int *address)
+static int __init it87_find(unsigned short *address)
 {
 	int err = -ENODEV;
 
@@ -745,7 +745,7 @@ exit:
 }
 
 /* This function is called by i2c_probe */
-int it87_detect(struct i2c_adapter *adapter, int address, int kind)
+static int it87_detect(struct i2c_adapter *adapter, int address, int kind)
 {
 	int i;
 	struct i2c_client *new_client;
@@ -761,45 +761,18 @@ int it87_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	/* Reserve the ISA region */
 	if (is_isa)
-		if (!request_region(address, IT87_EXTENT, it87_isa_driver.name))
+		if (!request_region(address, IT87_EXTENT,
+				    it87_isa_driver.driver.name))
 			goto ERROR0;
 
-	/* Probe whether there is anything available on this address. Already
-	   done for SMBus and Super-I/O clients */
-	if (kind < 0) {
-		if (is_isa && !chip_type) {
-#define REALLY_SLOW_IO
-			/* We need the timeouts for at least some IT87-like chips. But only
-			   if we read 'undefined' registers. */
-			i = inb_p(address + 1);
-			if (inb_p(address + 2) != i
-			 || inb_p(address + 3) != i
-			 || inb_p(address + 7) != i) {
-		 		err = -ENODEV;
-				goto ERROR1;
-			}
-#undef REALLY_SLOW_IO
-
-			/* Let's just hope nothing breaks here */
-			i = inb_p(address + 5) & 0x7f;
-			outb_p(~i & 0x7f, address + 5);
-			if ((inb_p(address + 5) & 0x7f) != (~i & 0x7f)) {
-				outb_p(i, address + 5);
-				err = -ENODEV;
-				goto ERROR1;
-			}
-		}
-	}
-
-	/* OK. For now, we presume we have a valid client. We now create the
+	/* For now, we presume we have a valid client. We create the
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access it87_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct it87_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct it87_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto ERROR1;
 	}
-	memset(data, 0, sizeof(struct it87_data));
 
 	new_client = &data->client;
 	if (is_isa)
@@ -855,6 +828,11 @@ int it87_detect(struct i2c_adapter *adapter, int address, int kind)
 	/* Tell the I2C layer a new client has arrived */
 	if ((err = i2c_attach_client(new_client)))
 		goto ERROR2;
+
+	if (!is_isa)
+		dev_info(&new_client->dev, "The I2C interface to IT87xxF "
+			 "hardware monitoring chips is deprecated. Please "
+			 "report if you still rely on it.\n");
 
 	/* Check PWM configuration */
 	enable_pwm_interface = it87_check_pwm(new_client);
@@ -1189,20 +1167,18 @@ static struct it87_data *it87_update_device(struct device *dev)
 
 static int __init sm_it87_init(void)
 {
-	int addr, res;
-
-	if (!it87_find(&addr)) {
-		isa_address = addr;
-	}
+	int res;
 
 	res = i2c_add_driver(&it87_driver);
 	if (res)
 		return res;
 
-	res = i2c_isa_add_driver(&it87_isa_driver);
-	if (res) {
-		i2c_del_driver(&it87_driver);
-		return res;
+	if (!it87_find(&isa_address)) {
+		res = i2c_isa_add_driver(&it87_isa_driver);
+		if (res) {
+			i2c_del_driver(&it87_driver);
+			return res;
+		}
 	}
 
 	return 0;
@@ -1210,7 +1186,8 @@ static int __init sm_it87_init(void)
 
 static void __exit sm_it87_exit(void)
 {
-	i2c_isa_del_driver(&it87_isa_driver);
+	if (isa_address)
+		i2c_isa_del_driver(&it87_isa_driver);
 	i2c_del_driver(&it87_driver);
 }
 

@@ -21,6 +21,13 @@
 #include "mpc52xx_pci.h"
 
 #include <asm/delay.h>
+#include <asm/machdep.h>
+
+
+/* This macro is defined to activate the workaround for the bug
+   435 of the MPC5200 (L25R). With it activated, we don't do any
+   32 bits configuration access during type-1 cycles */
+#define MPC5200_BUG_435_WORKAROUND
 
 
 static int
@@ -39,17 +46,39 @@ mpc52xx_pci_read_config(struct pci_bus *bus, unsigned int devfn,
 		((bus->number - hose->bus_offset) << 16) |
 		(devfn << 8) |
 		(offset & 0xfc));
+	mb();
 
-	value = in_le32(hose->cfg_data);
+#ifdef MPC5200_BUG_435_WORKAROUND
+	if (bus->number != hose->bus_offset) {
+		switch (len) {
+			case 1:
+				value = in_8(((u8 __iomem *)hose->cfg_data) + (offset & 3));
+				break;
+			case 2:
+				value = in_le16(((u16 __iomem *)hose->cfg_data) + ((offset>>1) & 1));
+				break;
 
-	if (len != 4) {
-		value >>= ((offset & 0x3) << 3);
-		value &= 0xffffffff >> (32 - (len << 3));
+			default:
+				value = in_le16((u16 __iomem *)hose->cfg_data) |
+					(in_le16(((u16 __iomem *)hose->cfg_data) + 1) << 16);
+				break;
+		}
+	}
+	else
+#endif
+	{
+		value = in_le32(hose->cfg_data);
+
+		if (len != 4) {
+			value >>= ((offset & 0x3) << 3);
+			value &= 0xffffffff >> (32 - (len << 3));
+		}
 	}
 
 	*val = value;
 
 	out_be32(hose->cfg_addr, 0);
+	mb();
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -70,21 +99,48 @@ mpc52xx_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 		((bus->number - hose->bus_offset) << 16) |
 		(devfn << 8) |
 		(offset & 0xfc));
+	mb();
 
-	if (len != 4) {
-		value = in_le32(hose->cfg_data);
+#ifdef MPC5200_BUG_435_WORKAROUND
+	if (bus->number != hose->bus_offset) {
+		switch (len) {
+			case 1:
+				out_8(((u8 __iomem *)hose->cfg_data) +
+					(offset & 3), val);
+				break;
+			case 2:
+				out_le16(((u16 __iomem *)hose->cfg_data) +
+					((offset>>1) & 1), val);
+				break;
 
-		offset = (offset & 0x3) << 3;
-		mask = (0xffffffff >> (32 - (len << 3)));
-		mask <<= offset;
-
-		value &= ~mask;
-		val = value | ((val << offset) & mask);
+			default:
+				out_le16((u16 __iomem *)hose->cfg_data,
+					(u16)val);
+				out_le16(((u16 __iomem *)hose->cfg_data) + 1,
+					(u16)(val>>16));
+				break;
+		}
 	}
+	else
+#endif
+	{
+		if (len != 4) {
+			value = in_le32(hose->cfg_data);
 
-	out_le32(hose->cfg_data, val);
+			offset = (offset & 0x3) << 3;
+			mask = (0xffffffff >> (32 - (len << 3)));
+			mask <<= offset;
+
+			value &= ~mask;
+			val = value | ((val << offset) & mask);
+		}
+
+		out_le32(hose->cfg_data, val);
+	}
+	mb();
 
 	out_be32(hose->cfg_addr, 0);
+	mb();
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -98,9 +154,12 @@ static struct pci_ops mpc52xx_pci_ops = {
 static void __init
 mpc52xx_pci_setup(struct mpc52xx_pci __iomem *pci_regs)
 {
+	u32 tmp;
 
 	/* Setup control regs */
-		/* Nothing to do afaik */
+	tmp = in_be32(&pci_regs->scr);
+	tmp |= PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY;
+	out_be32(&pci_regs->scr, tmp);
 
 	/* Setup windows */
 	out_be32(&pci_regs->iw0btar, MPC52xx_PCI_IWBTAR_TRANSLATION(
@@ -141,16 +200,15 @@ mpc52xx_pci_setup(struct mpc52xx_pci __iomem *pci_regs)
 	/* Not necessary and can be a bad thing if for example the bootloader
 	   is displaying a splash screen or ... Just left here for
 	   documentation purpose if anyone need it */
-#if 0
-	u32 tmp;
 	tmp = in_be32(&pci_regs->gscr);
+#if 0
 	out_be32(&pci_regs->gscr, tmp | MPC52xx_PCI_GSCR_PR);
 	udelay(50);
-	out_be32(&pci_regs->gscr, tmp);
 #endif
+	out_be32(&pci_regs->gscr, tmp & ~MPC52xx_PCI_GSCR_PR);
 }
 
-static void __init
+static void
 mpc52xx_pci_fixup_resources(struct pci_dev *dev)
 {
 	int i;
@@ -181,7 +239,7 @@ mpc52xx_find_bridges(void)
 	struct mpc52xx_pci __iomem *pci_regs;
 	struct pci_controller *hose;
 
-	pci_assign_all_busses = 1;
+	pci_assign_all_buses = 1;
 
 	pci_regs = ioremap(MPC52xx_PA(MPC52xx_PCI_OFFSET), MPC52xx_PCI_SIZE);
 	if (!pci_regs)

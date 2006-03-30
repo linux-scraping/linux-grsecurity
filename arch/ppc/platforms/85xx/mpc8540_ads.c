@@ -3,7 +3,7 @@
  *
  * MPC8540ADS board specific routines
  *
- * Maintainer: Kumar Gala <kumar.gala@freescale.com>
+ * Maintainer: Kumar Gala <galak@kernel.crashing.org>
  *
  * Copyright 2004 Freescale Semiconductor Inc.
  *
@@ -63,6 +63,7 @@ mpc8540ads_setup_arch(void)
 	bd_t *binfo = (bd_t *) __res;
 	unsigned int freq;
 	struct gianfar_platform_data *pdata;
+	struct gianfar_mdio_data *mdata;
 
 	/* get the core frequency */
 	freq = binfo->bi_intfreq;
@@ -89,34 +90,37 @@ mpc8540ads_setup_arch(void)
 	invalidate_tlbcam_entry(num_tlbcam_entries - 1);
 #endif
 
+	/* setup the board related info for the MDIO bus */
+	mdata = (struct gianfar_mdio_data *) ppc_sys_get_pdata(MPC85xx_MDIO);
+
+	mdata->irq[0] = MPC85xx_IRQ_EXT5;
+	mdata->irq[1] = MPC85xx_IRQ_EXT5;
+	mdata->irq[2] = -1;
+	mdata->irq[3] = MPC85xx_IRQ_EXT5;
+	mdata->irq[31] = -1;
+
 	/* setup the board related information for the enet controllers */
 	pdata = (struct gianfar_platform_data *) ppc_sys_get_pdata(MPC85xx_TSEC1);
 	if (pdata) {
 		pdata->board_flags = FSL_GIANFAR_BRD_HAS_PHY_INTR;
-		pdata->interruptPHY = MPC85xx_IRQ_EXT5;
-		pdata->phyid = 0;
-		/* fixup phy address */
-		pdata->phy_reg_addr += binfo->bi_immr_base;
+		pdata->bus_id = 0;
+		pdata->phy_id = 0;
 		memcpy(pdata->mac_addr, binfo->bi_enetaddr, 6);
 	}
 
 	pdata = (struct gianfar_platform_data *) ppc_sys_get_pdata(MPC85xx_TSEC2);
 	if (pdata) {
 		pdata->board_flags = FSL_GIANFAR_BRD_HAS_PHY_INTR;
-		pdata->interruptPHY = MPC85xx_IRQ_EXT5;
-		pdata->phyid = 1;
-		/* fixup phy address */
-		pdata->phy_reg_addr += binfo->bi_immr_base;
+		pdata->bus_id = 0;
+		pdata->phy_id = 1;
 		memcpy(pdata->mac_addr, binfo->bi_enet1addr, 6);
 	}
 
 	pdata = (struct gianfar_platform_data *) ppc_sys_get_pdata(MPC85xx_FEC);
 	if (pdata) {
 		pdata->board_flags = 0;
-		pdata->interruptPHY = MPC85xx_IRQ_EXT5;
-		pdata->phyid = 3;
-		/* fixup phy address */
-		pdata->phy_reg_addr += binfo->bi_immr_base;
+		pdata->bus_id = 0;
+		pdata->phy_id = 3;
 		memcpy(pdata->mac_addr, binfo->bi_enet2addr, 6);
 	}
 
@@ -158,14 +162,14 @@ platform_init(unsigned long r3, unsigned long r4, unsigned long r5,
 			  binfo->bi_immr_base, MPC85xx_CCSRBAR_SIZE, _PAGE_IO, 0);
 
 		memset(&p, 0, sizeof (p));
-		p.iotype = SERIAL_IO_MEM;
+		p.iotype = UPIO_MEM;
 		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART0_OFFSET;
 		p.uartclk = binfo->bi_busfreq;
 
 		gen550_init(0, &p);
 
 		memset(&p, 0, sizeof (p));
-		p.iotype = SERIAL_IO_MEM;
+		p.iotype = UPIO_MEM;
 		p.membase = (void *) binfo->bi_immr_base + MPC85xx_UART1_OFFSET;
 		p.uartclk = binfo->bi_busfreq;
 

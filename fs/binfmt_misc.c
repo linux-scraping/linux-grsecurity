@@ -152,7 +152,7 @@ static int load_misc_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 		/* if the binary is not readable than enforce mm->dumpable=0
 		   regardless of the interpreter's permissions */
-		if (permission(bprm->file->f_dentry->d_inode, MAY_READ, NULL))
+		if (file_permission(bprm->file, MAY_READ))
 			bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
 
 		allow_write_access(bprm->file);
@@ -266,7 +266,7 @@ static int unquote(char *from)
 	return p - from;
 }
 
-static inline char * check_special_flags (char * sfs, Node * e)
+static char * check_special_flags (char * sfs, Node * e)
 {
 	char * p = sfs;
 	int cont = 1;
@@ -590,11 +590,11 @@ static ssize_t bm_entry_write(struct file *file, const char __user *buffer,
 		case 2: set_bit(Enabled, &e->flags);
 			break;
 		case 3: root = dget(file->f_vfsmnt->mnt_sb->s_root);
-			down(&root->d_inode->i_sem);
+			mutex_lock(&root->d_inode->i_mutex);
 
 			kill_node(e);
 
-			up(&root->d_inode->i_sem);
+			mutex_unlock(&root->d_inode->i_mutex);
 			dput(root);
 			break;
 		default: return res;
@@ -624,7 +624,7 @@ static ssize_t bm_register_write(struct file *file, const char __user *buffer,
 		return PTR_ERR(e);
 
 	root = dget(sb->s_root);
-	down(&root->d_inode->i_sem);
+	mutex_lock(&root->d_inode->i_mutex);
 	dentry = lookup_one_len(e->name, root, strlen(e->name));
 	err = PTR_ERR(dentry);
 	if (IS_ERR(dentry))
@@ -660,7 +660,7 @@ static ssize_t bm_register_write(struct file *file, const char __user *buffer,
 out2:
 	dput(dentry);
 out:
-	up(&root->d_inode->i_sem);
+	mutex_unlock(&root->d_inode->i_mutex);
 	dput(root);
 
 	if (err) {
@@ -705,12 +705,12 @@ static ssize_t bm_status_write(struct file * file, const char __user * buffer,
 		case 1: enabled = 0; break;
 		case 2: enabled = 1; break;
 		case 3: root = dget(file->f_vfsmnt->mnt_sb->s_root);
-			down(&root->d_inode->i_sem);
+			mutex_lock(&root->d_inode->i_mutex);
 
 			while (!list_empty(&entries))
 				kill_node(list_entry(entries.next, Node, list));
 
-			up(&root->d_inode->i_sem);
+			mutex_unlock(&root->d_inode->i_mutex);
 			dput(root);
 		default: return res;
 	}

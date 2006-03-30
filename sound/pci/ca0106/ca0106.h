@@ -399,10 +399,24 @@
 #define PLAYBACK_VOLUME2        0x6a            /* Playback Analog volume per channel. Does not effect AC3 output */
 						/* Similar to register 0x66, except that the destination is the I2S mixer instead of the SPDIF mixer. I.E. Outputs to the Analog outputs instead of SPDIF. */
 #define UNKNOWN6b               0x6b            /* Unknown. Readonly. Default 00400000 00400000 00400000 00400000 */
-#define UART_A_DATA		0x6c            /* Uart, used in setting sample rates, bits per sample etc. */
-#define UART_A_CMD		0x6d            /* Uart, used in setting sample rates, bits per sample etc. */
-#define UART_B_DATA		0x6e            /* Uart, Unknown. */
-#define UART_B_CMD		0x6f            /* Uart, Unknown. */
+#define MIDI_UART_A_DATA		0x6c            /* Midi Uart A Data */
+#define MIDI_UART_A_CMD		0x6d            /* Midi Uart A Command/Status */
+#define MIDI_UART_B_DATA		0x6e            /* Midi Uart B Data (currently unused) */
+#define MIDI_UART_B_CMD		0x6f            /* Midi Uart B Command/Status (currently unused) */
+
+/* unique channel identifier for midi->channel */
+
+#define CA0106_MIDI_CHAN_A		0x1
+#define CA0106_MIDI_CHAN_B		0x2
+
+/* from mpu401 */
+
+#define CA0106_MIDI_INPUT_AVAIL 	0x80
+#define CA0106_MIDI_OUTPUT_READY	0x40
+#define CA0106_MPU401_RESET		0xff
+#define CA0106_MPU401_ENTER_UART	0x3f
+#define CA0106_MPU401_ACK		0xfe
+
 #define SAMPLE_RATE_TRACKER_STATUS 0x70         /* Readonly. Default 00108000 00108000 00500000 00500000 */
 						/* Estimated sample rate [19:0] Relative to 48kHz. 0x8000 =  1.0
 						 * Rate Locked [20]
@@ -538,37 +552,38 @@
 #define CONTROL_CENTER_LFE_CHANNEL 1
 #define CONTROL_UNKNOWN_CHANNEL 2
 
-typedef struct snd_ca0106_channel ca0106_channel_t;
-typedef struct snd_ca0106 ca0106_t;
-typedef struct snd_ca0106_pcm ca0106_pcm_t;
+#include "ca_midi.h"
+
+struct snd_ca0106;
 
 struct snd_ca0106_channel {
-	ca0106_t *emu;
+	struct snd_ca0106 *emu;
 	int number;
 	int use;
-	void (*interrupt)(ca0106_t *emu, ca0106_channel_t *channel);
-	ca0106_pcm_t *epcm;
+	void (*interrupt)(struct snd_ca0106 *emu, struct snd_ca0106_channel *channel);
+	struct snd_ca0106_pcm *epcm;
 };
 
 struct snd_ca0106_pcm {
-	ca0106_t *emu;
-	snd_pcm_substream_t *substream;
+	struct snd_ca0106 *emu;
+	struct snd_pcm_substream *substream;
         int channel_id;
 	unsigned short running;
 };
 
-typedef struct {
+struct snd_ca0106_details {
         u32 serial;
         char * name;
         int ac97;
 	int gpio_type;
 	int i2c_adc;
-} ca0106_details_t;
+	int spi_dac;
+};
 
 // definition of the chip-specific record
 struct snd_ca0106 {
-	snd_card_t *card;
-	ca0106_details_t *details;
+	struct snd_card *card;
+	struct snd_ca0106_details *details;
 	struct pci_dev *pci;
 
 	unsigned long port;
@@ -581,31 +596,34 @@ struct snd_ca0106 {
 
 	spinlock_t emu_lock;
 
-	ac97_t *ac97;
-	snd_pcm_t *pcm;
+	struct snd_ac97 *ac97;
+	struct snd_pcm *pcm;
 
-	ca0106_channel_t playback_channels[4];
-	ca0106_channel_t capture_channels[4];
+	struct snd_ca0106_channel playback_channels[4];
+	struct snd_ca0106_channel capture_channels[4];
 	u32 spdif_bits[4];             /* s/pdif out setup */
 	int spdif_enable;
 	int capture_source;
 	int capture_mic_line_in;
 
 	struct snd_dma_buffer buffer;
+
+	struct snd_ca_midi midi;
+	struct snd_ca_midi midi2;
 };
 
-int __devinit snd_ca0106_mixer(ca0106_t *emu);
-int __devinit snd_ca0106_proc_init(ca0106_t * emu);
+int snd_ca0106_mixer(struct snd_ca0106 *emu);
+int snd_ca0106_proc_init(struct snd_ca0106 * emu);
 
-unsigned int snd_ca0106_ptr_read(ca0106_t * emu, 
-					  unsigned int reg, 
-					  unsigned int chn);
+unsigned int snd_ca0106_ptr_read(struct snd_ca0106 * emu, 
+				 unsigned int reg, 
+				 unsigned int chn);
 
-void snd_ca0106_ptr_write(ca0106_t *emu, 
-				   unsigned int reg, 
-				   unsigned int chn, 
-				   unsigned int data);
+void snd_ca0106_ptr_write(struct snd_ca0106 *emu, 
+			  unsigned int reg, 
+			  unsigned int chn, 
+			  unsigned int data);
 
-int snd_ca0106_i2c_write(ca0106_t *emu, u32 reg, u32 value);
+int snd_ca0106_i2c_write(struct snd_ca0106 *emu, u32 reg, u32 value);
 
 

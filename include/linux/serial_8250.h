@@ -12,7 +12,7 @@
 #define _LINUX_SERIAL_8250_H
 
 #include <linux/serial_core.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 /*
  * This is the platform device platform_data structure
@@ -26,7 +26,7 @@ struct plat_serial8250_port {
 	unsigned char	regshift;	/* register shift */
 	unsigned char	iotype;		/* UPIO_* */
 	unsigned char	hub6;
-	unsigned int	flags;		/* UPF_* flags */
+	upf_t		flags;		/* UPF_* flags */
 };
 
 /*
@@ -42,6 +42,7 @@ enum {
 	PLAT8250_DEV_BOCA,
 	PLAT8250_DEV_HUB6,
 	PLAT8250_DEV_MCA,
+	PLAT8250_DEV_AU1X00,
 };
 
 /*

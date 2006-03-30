@@ -11,19 +11,13 @@
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/system.h>
 #include <asm/m32r.h>
 #include <asm/io.h>
 
 #define irq2port(x) (M32R_ICU_CR1_PORTL + ((x - 1) * sizeof(unsigned long)))
-
-#ifndef CONFIG_SMP
-typedef struct {
-	unsigned long icucr;  /* ICU Control Register */
-} icu_data_t;
-#endif /* CONFIG_SMP */
 
 icu_data_t icu_data[NR_IRQS];
 

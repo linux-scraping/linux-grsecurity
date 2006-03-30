@@ -787,8 +787,7 @@ static void ll_unload(struct IsdnCardState *cs)
 	ic.command = ISDN_STAT_UNLOAD;
 	ic.driver = cs->myid;
 	cs->iif.statcallb(&ic);
-	if (cs->status_buf)
-		kfree(cs->status_buf);
+	kfree(cs->status_buf);
 	cs->status_read = NULL;
 	cs->status_write = NULL;
 	cs->status_end = NULL;
@@ -807,10 +806,8 @@ static void closecard(int cardnr)
 
 	skb_queue_purge(&csta->rq);
 	skb_queue_purge(&csta->sq);
-	if (csta->rcvbuf) {
-		kfree(csta->rcvbuf);
-		csta->rcvbuf = NULL;
-	}
+	kfree(csta->rcvbuf);
+	csta->rcvbuf = NULL;
 	if (csta->tx_skb) {
 		dev_kfree_skb(csta->tx_skb);
 		csta->tx_skb = NULL;
@@ -1932,6 +1929,8 @@ static struct pci_device_id hisax_pci_tbl[] __initdata = {
 	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00B,         PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00C,         PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B100,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B700,         PCI_ANY_ID, PCI_ANY_ID},
+	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B701,         PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1,      PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675,     PCI_ANY_ID, PCI_ANY_ID},
 	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT, PCI_ANY_ID, PCI_ANY_ID},

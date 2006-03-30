@@ -4,6 +4,7 @@
  * Copyright (C) 2001-2003 Andreas Gruenbacher, <agruen@suse.de>
  */
 
+#include <linux/capability.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -149,7 +150,7 @@ ext2_iset_acl(struct inode *inode, struct posix_acl **i_acl,
 }
 
 /*
- * inode->i_sem: don't care
+ * inode->i_mutex: don't care
  */
 static struct posix_acl *
 ext2_get_acl(struct inode *inode, int type)
@@ -194,8 +195,7 @@ ext2_get_acl(struct inode *inode, int type)
 		acl = NULL;
 	else
 		acl = ERR_PTR(retval);
-	if (value)
-		kfree(value);
+	kfree(value);
 
 	if (!IS_ERR(acl)) {
 		switch(type) {
@@ -212,7 +212,7 @@ ext2_get_acl(struct inode *inode, int type)
 }
 
 /*
- * inode->i_sem: down
+ * inode->i_mutex: down
  */
 static int
 ext2_set_acl(struct inode *inode, int type, struct posix_acl *acl)
@@ -220,7 +220,7 @@ ext2_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 	struct ext2_inode_info *ei = EXT2_I(inode);
 	int name_index;
 	void *value = NULL;
-	size_t size;
+	size_t size = 0;
 	int error;
 
 	if (S_ISLNK(inode->i_mode))
@@ -262,8 +262,7 @@ ext2_set_acl(struct inode *inode, int type, struct posix_acl *acl)
 
 	error = ext2_xattr_set(inode, name_index, "", value, size, 0);
 
-	if (value)
-		kfree(value);
+	kfree(value);
 	if (!error) {
 		switch(type) {
 			case ACL_TYPE_ACCESS:
@@ -303,8 +302,8 @@ ext2_permission(struct inode *inode, int mask, struct nameidata *nd)
 /*
  * Initialize the ACLs of a new inode. Called from ext2_new_inode.
  *
- * dir->i_sem: down
- * inode->i_sem: up (access to inode is still exclusive)
+ * dir->i_mutex: down
+ * inode->i_mutex: up (access to inode is still exclusive)
  */
 int
 ext2_init_acl(struct inode *inode, struct inode *dir)
@@ -363,7 +362,7 @@ cleanup:
  * for directories) are added. There are no more bits available in the
  * file mode.
  *
- * inode->i_sem: down
+ * inode->i_mutex: down
  */
 int
 ext2_acl_chmod(struct inode *inode)

@@ -155,6 +155,13 @@ static int __devinit mthca_dev_lim(struct mthca_dev *mdev, struct mthca_dev_lim 
 		return -ENODEV;
 	}
 
+	if (dev_lim->uar_size > pci_resource_len(mdev->pdev, 2)) {
+		mthca_err(mdev, "HCA reported UAR size of 0x%x bigger than "
+			  "PCI resource 2 size of 0x%lx, aborting.\n",
+			  dev_lim->uar_size, pci_resource_len(mdev->pdev, 2));
+		return -ENODEV;
+	}
+
 	mdev->limits.num_ports      	= dev_lim->num_ports;
 	mdev->limits.vl_cap             = dev_lim->max_vl;
 	mdev->limits.mtu_cap            = dev_lim->max_mtu;
@@ -162,9 +169,19 @@ static int __devinit mthca_dev_lim(struct mthca_dev *mdev, struct mthca_dev_lim 
 	mdev->limits.pkey_table_len 	= dev_lim->max_pkeys;
 	mdev->limits.local_ca_ack_delay = dev_lim->local_ca_ack_delay;
 	mdev->limits.max_sg             = dev_lim->max_sg;
+	mdev->limits.max_wqes           = dev_lim->max_qp_sz;
+	mdev->limits.max_qp_init_rdma   = dev_lim->max_requester_per_qp;
 	mdev->limits.reserved_qps       = dev_lim->reserved_qps;
+	mdev->limits.max_srq_wqes       = dev_lim->max_srq_sz;
 	mdev->limits.reserved_srqs      = dev_lim->reserved_srqs;
 	mdev->limits.reserved_eecs      = dev_lim->reserved_eecs;
+	mdev->limits.max_desc_sz        = dev_lim->max_desc_sz;
+	/*
+	 * Subtract 1 from the limit because we need to allocate a
+	 * spare CQE so the HCA HW can tell the difference between an
+	 * empty CQ and a full CQ.
+	 */
+	mdev->limits.max_cqes           = dev_lim->max_cq_sz - 1;
 	mdev->limits.reserved_cqs       = dev_lim->reserved_cqs;
 	mdev->limits.reserved_eqs       = dev_lim->reserved_eqs;
 	mdev->limits.reserved_mtts      = dev_lim->reserved_mtts;
@@ -172,6 +189,8 @@ static int __devinit mthca_dev_lim(struct mthca_dev *mdev, struct mthca_dev_lim 
 	mdev->limits.reserved_uars      = dev_lim->reserved_uars;
 	mdev->limits.reserved_pds       = dev_lim->reserved_pds;
 	mdev->limits.port_width_cap     = dev_lim->max_port_width;
+	mdev->limits.page_size_cap      = ~(u32) (dev_lim->min_page_sz - 1);
+	mdev->limits.flags              = dev_lim->flags;
 
 	/* IB_DEVICE_RESIZE_MAX_WR not supported by driver.
 	   May be doable since hardware supports it for SRQ.
@@ -249,6 +268,10 @@ static int __devinit mthca_init_tavor(struct mthca_dev *mdev)
 	}
 
 	err = mthca_dev_lim(mdev, &dev_lim);
+	if (err) {
+		mthca_err(mdev, "QUERY_DEV_LIM command failed, aborting.\n");
+		goto err_disable;
+	}
 
 	profile = default_profile;
 	profile.num_uar   = dev_lim.uar_size / PAGE_SIZE;
@@ -960,8 +983,7 @@ static int __devinit mthca_init_one(struct pci_dev *pdev,
 		err = -ENODEV;
 		goto err_disable_pdev;
 	}
-	if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM) ||
-	    pci_resource_len(pdev, 2) != 1 << 23) {
+	if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
 		dev_err(&pdev->dev, "Missing UAR, aborting.\n");
 		err = -ENODEV;
 		goto err_disable_pdev;
@@ -1047,7 +1069,7 @@ static int __devinit mthca_init_one(struct pci_dev *pdev,
 		goto err_cmd;
 
 	if (mdev->fw_ver < mthca_hca_table[id->driver_data].latest_fw) {
-		mthca_warn(mdev, "HCA FW version %x.%x.%x is old (%x.%x.%x is current).\n",
+		mthca_warn(mdev, "HCA FW version %d.%d.%d is old (%d.%d.%d is current).\n",
 			   (int) (mdev->fw_ver >> 32), (int) (mdev->fw_ver >> 16) & 0xffff,
 			   (int) (mdev->fw_ver & 0xffff),
 			   (int) (mthca_hca_table[id->driver_data].latest_fw >> 32),

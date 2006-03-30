@@ -61,6 +61,7 @@ MODULE_DESCRIPTION("Adaptec I2O RAID Driver");
 #include <linux/timer.h>
 #include <linux/string.h>
 #include <linux/ioport.h>
+#include <linux/mutex.h>
 
 #include <asm/processor.h>	/* for boot_cpu_data */
 #include <asm/pgtable.h>
@@ -106,7 +107,7 @@ static dpt_sig_S DPTI_sig = {
  *============================================================================
  */
 
-static DECLARE_MUTEX(adpt_configuration_lock);
+static DEFINE_MUTEX(adpt_configuration_lock);
 
 static struct i2o_sys_tbl *sys_tbl = NULL;
 static int sys_tbl_ind = 0;
@@ -537,13 +538,13 @@ static int adpt_proc_info(struct Scsi_Host *host, char *buffer, char **start, of
 	 */
 
 	// Find HBA (host bus adapter) we are looking for
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	for (pHba = hba_chain; pHba; pHba = pHba->next) {
 		if (pHba->host == host) {
 			break;	/* found adapter */
 		}
 	}
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 	if (pHba == NULL) {
 		return 0;
 	}
@@ -898,6 +899,12 @@ static int adpt_install_hba(struct scsi_host_template* sht, struct pci_dev* pDev
 	if(pci_enable_device(pDev)) {
 		return -EINVAL;
 	}
+
+	if (pci_request_regions(pDev, "dpt_i2o")) {
+		PERROR("dpti: adpt_config_hba: pci request region failed\n");
+		return -EINVAL;
+	}
+
 	pci_set_master(pDev);
 	if (pci_set_dma_mask(pDev, 0xffffffffffffffffULL) &&
 	    pci_set_dma_mask(pDev, 0xffffffffULL))
@@ -923,10 +930,6 @@ static int adpt_install_hba(struct scsi_host_template* sht, struct pci_dev* pDev
 		raptorFlag = TRUE;
 	}
 
-	if (pci_request_regions(pDev, "dpt_i2o")) {
-		PERROR("dpti: adpt_config_hba: pci request region failed\n");
-		return -EINVAL;
-	}
 	base_addr_virt = ioremap(base_addr0_phys,hba_map0_area_size);
 	if (!base_addr_virt) {
 		pci_release_regions(pDev);
@@ -958,7 +961,7 @@ static int adpt_install_hba(struct scsi_host_template* sht, struct pci_dev* pDev
 	}
 	memset(pHba, 0, sizeof(adpt_hba));
 
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 
 	if(hba_chain != NULL){
 		for(p = hba_chain; p->next; p = p->next);
@@ -971,7 +974,7 @@ static int adpt_install_hba(struct scsi_host_template* sht, struct pci_dev* pDev
 	sprintf(pHba->name, "dpti%d", hba_count);
 	hba_count++;
 	
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 
 	pHba->pDev = pDev;
 	pHba->base_addr_phys = base_addr0_phys;
@@ -1027,7 +1030,7 @@ static void adpt_i2o_delete_hba(adpt_hba* pHba)
 	struct adpt_device* pNext;
 
 
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	// scsi_unregister calls our adpt_release which
 	// does a quiese
 	if(pHba->host){
@@ -1046,25 +1049,17 @@ static void adpt_i2o_delete_hba(adpt_hba* pHba)
 	}
 
 	hba_count--;
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 
 	iounmap(pHba->base_addr_virt);
 	pci_release_regions(pHba->pDev);
 	if(pHba->msg_addr_virt != pHba->base_addr_virt){
 		iounmap(pHba->msg_addr_virt);
 	}
-	if(pHba->hrt) {
-		kfree(pHba->hrt);
-	}
-	if(pHba->lct){
-		kfree(pHba->lct);
-	}
-	if(pHba->status_block) {
-		kfree(pHba->status_block);
-	}
-	if(pHba->reply_pool){
-		kfree(pHba->reply_pool);
-	}
+	kfree(pHba->hrt);
+	kfree(pHba->lct);
+	kfree(pHba->status_block);
+	kfree(pHba->reply_pool);
 
 	for(d = pHba->devices; d ; d = next){
 		next = d->next;
@@ -1234,8 +1229,7 @@ static s32 adpt_i2o_post_this(adpt_hba* pHba, u32* data, int len)
 			printk(KERN_WARNING"dpti%d: Timeout waiting for message frame!\n", pHba->unit);
 			return -ETIMEDOUT;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	} while(m == EMPTY_QUEUE);
 		
 	msg = pHba->msg_addr_virt + m;
@@ -1310,8 +1304,7 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 			printk(KERN_WARNING"Timeout waiting for message!\n");
 			return -ETIMEDOUT;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	} while (m == EMPTY_QUEUE);
 
 	status = (u8*)kmalloc(4, GFP_KERNEL|ADDR32);
@@ -1343,8 +1336,7 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 			return -ETIMEDOUT;
 		}
 		rmb();
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	}
 
 	if(*status == 0x01 /*I2O_EXEC_IOP_RESET_IN_PROGRESS*/) {
@@ -1361,8 +1353,7 @@ static s32 adpt_i2o_reset_hba(adpt_hba* pHba)
 				printk(KERN_ERR "%s:Timeout waiting for IOP Reset.\n",pHba->name);
 				return -ETIMEDOUT;
 			}
-			set_current_state(TASK_UNINTERRUPTIBLE);
-			schedule_timeout(1);
+			schedule_timeout_uninterruptible(1);
 		} while (m == EMPTY_QUEUE);
 		// Flush the offset
 		adpt_send_nop(pHba, m);
@@ -1561,7 +1552,7 @@ static int adpt_i2o_parse_lct(adpt_hba* pHba)
  
 static int adpt_i2o_install_device(adpt_hba* pHba, struct i2o_device *d)
 {
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	d->controller=pHba;
 	d->owner=NULL;
 	d->next=pHba->devices;
@@ -1572,7 +1563,7 @@ static int adpt_i2o_install_device(adpt_hba* pHba, struct i2o_device *d)
 	pHba->devices=d;
 	*d->dev_name = 0;
 
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 	return 0;
 }
 
@@ -1587,24 +1578,24 @@ static int adpt_open(struct inode *inode, struct file *file)
 	if (minor >= hba_count) {
 		return -ENXIO;
 	}
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	for (pHba = hba_chain; pHba; pHba = pHba->next) {
 		if (pHba->unit == minor) {
 			break;	/* found adapter */
 		}
 	}
 	if (pHba == NULL) {
-		up(&adpt_configuration_lock);
+		mutex_unlock(&adpt_configuration_lock);
 		return -ENXIO;
 	}
 
 //	if(pHba->in_use){
-	//	up(&adpt_configuration_lock);
+	//	mutex_unlock(&adpt_configuration_lock);
 //		return -EBUSY;
 //	}
 
 	pHba->in_use = 1;
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 
 	return 0;
 }
@@ -1618,13 +1609,13 @@ static int adpt_close(struct inode *inode, struct file *file)
 	if (minor >= hba_count) {
 		return -ENXIO;
 	}
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	for (pHba = hba_chain; pHba; pHba = pHba->next) {
 		if (pHba->unit == minor) {
 			break;	/* found adapter */
 		}
 	}
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 	if (pHba == NULL) {
 		return -ENXIO;
 	}
@@ -1922,22 +1913,19 @@ static int adpt_ioctl(struct inode *inode, struct file *file, uint cmd,
 	if (minor >= DPTI_MAX_HBA){
 		return -ENXIO;
 	}
-	down(&adpt_configuration_lock);
+	mutex_lock(&adpt_configuration_lock);
 	for (pHba = hba_chain; pHba; pHba = pHba->next) {
 		if (pHba->unit == minor) {
 			break;	/* found adapter */
 		}
 	}
-	up(&adpt_configuration_lock);
+	mutex_unlock(&adpt_configuration_lock);
 	if(pHba == NULL){
 		return -ENXIO;
 	}
 
-	while((volatile u32) pHba->state & DPTI_STATE_RESET ) {
-		set_task_state(current,TASK_UNINTERRUPTIBLE);
-		schedule_timeout(2);
-
-	}
+	while((volatile u32) pHba->state & DPTI_STATE_RESET )
+		schedule_timeout_uninterruptible(2);
 
 	switch (cmd) {
 	// TODO: handle 3 cases
@@ -2651,8 +2639,7 @@ static s32 adpt_send_nop(adpt_hba*pHba,u32 m)
 			printk(KERN_ERR "%s: Timeout waiting for message frame!\n",pHba->name);
 			return 2;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	}
 	msg = (u32 __iomem *)(pHba->msg_addr_virt + m);
 	writel( THREE_WORD_MSG_SIZE | SGL_OFFSET_0,&msg[0]);
@@ -2686,8 +2673,7 @@ static s32 adpt_i2o_init_outbound_q(adpt_hba* pHba)
 			printk(KERN_WARNING"%s: Timeout waiting for message frame\n",pHba->name);
 			return -ETIMEDOUT;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	} while(m == EMPTY_QUEUE);
 
 	msg=(u32 __iomem *)(pHba->msg_addr_virt+m);
@@ -2725,21 +2711,18 @@ static s32 adpt_i2o_init_outbound_q(adpt_hba* pHba)
 			printk(KERN_WARNING"%s: Timeout Initializing\n",pHba->name);
 			return -ETIMEDOUT;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	} while (1);
 
 	// If the command was successful, fill the fifo with our reply
 	// message packets
 	if(*status != 0x04 /*I2O_EXEC_OUTBOUND_INIT_COMPLETE*/) {
-		kfree((void*)status);
+		kfree(status);
 		return -2;
 	}
-	kfree((void*)status);
+	kfree(status);
 
-	if(pHba->reply_pool != NULL){
-		kfree(pHba->reply_pool);
-	}
+	kfree(pHba->reply_pool);
 
 	pHba->reply_pool = (u32*)kmalloc(pHba->reply_fifo_size * REPLY_FRAME_SIZE * 4, GFP_KERNEL|ADDR32);
 	if(!pHba->reply_pool){
@@ -2804,8 +2787,7 @@ static s32 adpt_i2o_status_get(adpt_hba* pHba)
 					pHba->name);
 			return -ETIMEDOUT;
 		}
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	} while(m==EMPTY_QUEUE);
 
 	
@@ -2832,8 +2814,7 @@ static s32 adpt_i2o_status_get(adpt_hba* pHba)
 			return -ETIMEDOUT;
 		}
 		rmb();
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
+		schedule_timeout_uninterruptible(1);
 	}
 
 	// Set up our number of outbound and inbound messages
@@ -2957,8 +2938,7 @@ static int adpt_i2o_build_sys_table(void)
 	sys_tbl_len = sizeof(struct i2o_sys_tbl) +	// Header + IOPs
 				(hba_count) * sizeof(struct i2o_sys_tbl_entry);
 
-	if(sys_tbl)
-		kfree(sys_tbl);
+	kfree(sys_tbl);
 
 	sys_tbl = kmalloc(sys_tbl_len, GFP_KERNEL|ADDR32);
 	if(!sys_tbl) {

@@ -34,6 +34,7 @@
 #include <linux/kernel.h>
 #include <linux/timer.h>
 #include <linux/mm.h>
+#include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/major.h>
 #include <linux/errno.h>
@@ -50,8 +51,6 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-
-#define DEBUG_TASKFILE	0	/* unset when fixed */
 
 static void ata_bswap_data (void *buffer, int wcount)
 {
@@ -160,8 +159,6 @@ ide_startstop_t do_rw_taskfile (ide_drive_t *drive, ide_task_t *task)
 
 	return ide_stopped;
 }
-
-EXPORT_SYMBOL(do_rw_taskfile);
 
 /*
  * set_multmode_intr() is invoked on completion of a WIN_SETMULT cmd.
@@ -312,11 +309,13 @@ static void ide_pio_multi(ide_drive_t *drive, unsigned int write)
 		ide_pio_sector(drive, write);
 }
 
-static inline void ide_pio_datablock(ide_drive_t *drive, struct request *rq,
+static void ide_pio_datablock(ide_drive_t *drive, struct request *rq,
 				     unsigned int write)
 {
 	if (rq->bio)	/* fs request */
 		rq->errors = 0;
+
+	touch_softlockup_watchdog();
 
 	switch (drive->hwif->data_phase) {
 	case TASKFILE_MULTI_IN:
@@ -528,9 +527,8 @@ int ide_taskfile_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 
 //	printk("IDE Taskfile ...\n");
 
-	req_task = kmalloc(tasksize, GFP_KERNEL);
+	req_task = kzalloc(tasksize, GFP_KERNEL);
 	if (req_task == NULL) return -ENOMEM;
-	memset(req_task, 0, tasksize);
 	if (copy_from_user(req_task, buf, tasksize)) {
 		kfree(req_task);
 		return -EFAULT;
@@ -541,12 +539,11 @@ int ide_taskfile_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 
 	if (taskout) {
 		int outtotal = tasksize;
-		outbuf = kmalloc(taskout, GFP_KERNEL);
+		outbuf = kzalloc(taskout, GFP_KERNEL);
 		if (outbuf == NULL) {
 			err = -ENOMEM;
 			goto abort;
 		}
-		memset(outbuf, 0, taskout);
 		if (copy_from_user(outbuf, buf + outtotal, taskout)) {
 			err = -EFAULT;
 			goto abort;
@@ -555,12 +552,11 @@ int ide_taskfile_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 
 	if (taskin) {
 		int intotal = tasksize + taskout;
-		inbuf = kmalloc(taskin, GFP_KERNEL);
+		inbuf = kzalloc(taskin, GFP_KERNEL);
 		if (inbuf == NULL) {
 			err = -ENOMEM;
 			goto abort;
 		}
-		memset(inbuf, 0, taskin);
 		if (copy_from_user(inbuf, buf + intotal, taskin)) {
 			err = -EFAULT;
 			goto abort;
@@ -649,10 +645,8 @@ int ide_taskfile_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 	}
 abort:
 	kfree(req_task);
-	if (outbuf != NULL)
-		kfree(outbuf);
-	if (inbuf != NULL)
-		kfree(inbuf);
+	kfree(outbuf);
+	kfree(inbuf);
 
 //	printk("IDE Taskfile ioctl ended. rc = %i\n", err);
 
@@ -709,10 +703,9 @@ int ide_cmd_ioctl (ide_drive_t *drive, unsigned int cmd, unsigned long arg)
 
 	if (args[3]) {
 		argsize = 4 + (SECTOR_WORDS * 4 * args[3]);
-		argbuf = kmalloc(argsize, GFP_KERNEL);
+		argbuf = kzalloc(argsize, GFP_KERNEL);
 		if (argbuf == NULL)
 			return -ENOMEM;
-		memcpy(argbuf, args, 4);
 	}
 	if (set_transfer(drive, &tfargs)) {
 		xfer_rate = args[1];
@@ -773,9 +766,6 @@ ide_startstop_t flagged_taskfile (ide_drive_t *drive, ide_task_t *task)
 	ide_hwif_t *hwif	= HWIF(drive);
 	task_struct_t *taskfile	= (task_struct_t *) task->tfRegister;
 	hob_struct_t *hobfile	= (hob_struct_t *) task->hobRegister;
-#if DEBUG_TASKFILE
-	u8 status;
-#endif
 
 	if (task->data_phase == TASKFILE_MULTI_IN ||
 	    task->data_phase == TASKFILE_MULTI_OUT) {
@@ -786,19 +776,13 @@ ide_startstop_t flagged_taskfile (ide_drive_t *drive, ide_task_t *task)
 	}
 
 	/*
-	 * (ks) Check taskfile in/out flags.
+	 * (ks) Check taskfile in flags.
 	 * If set, then execute as it is defined.
 	 * If not set, then define default settings.
 	 * The default values are:
-	 *	write and read all taskfile registers (except data) 
-	 *	write and read the hob registers (sector,nsector,lcyl,hcyl)
+	 *	read all taskfile registers (except data)
+	 *	read the hob registers (sector, nsector, lcyl, hcyl)
 	 */
-	if (task->tf_out_flags.all == 0) {
-		task->tf_out_flags.all = IDE_TASKFILE_STD_OUT_FLAGS;
-		if (drive->addressing == 1)
-			task->tf_out_flags.all |= (IDE_HOB_STD_OUT_FLAGS << 8);
-        }
-
 	if (task->tf_in_flags.all == 0) {
 		task->tf_in_flags.all = IDE_TASKFILE_STD_IN_FLAGS;
 		if (drive->addressing == 1)
@@ -810,16 +794,6 @@ ide_startstop_t flagged_taskfile (ide_drive_t *drive, ide_task_t *task)
 		/* clear nIEN */
 		hwif->OUTB(drive->ctl, IDE_CONTROL_REG);
 	SELECT_MASK(drive, 0);
-
-#if DEBUG_TASKFILE
-	status = hwif->INB(IDE_STATUS_REG);
-	if (status & 0x80) {
-		printk("flagged_taskfile -> Bad status. Status = %02x. wait 100 usec ...\n", status);
-		udelay(100);
-		status = hwif->INB(IDE_STATUS_REG);
-		printk("flagged_taskfile -> Status = %02x\n", status);
-	}
-#endif
 
 	if (task->tf_out_flags.b.data) {
 		u16 data =  taskfile->data + (hobfile->data << 8);

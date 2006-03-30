@@ -27,7 +27,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
-#include <asm/bug.h>
 #include <asm/io.h>
 #include <asm/system.h>
 
@@ -132,7 +131,6 @@ static struct fb_ops pmagbbfb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 };
 
 

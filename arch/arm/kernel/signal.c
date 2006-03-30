@@ -30,15 +30,21 @@
 #define SWI_SYS_RT_SIGRETURN	(0xef000000|(__NR_rt_sigreturn))
 
 /*
+ * With EABI, the syscall number has to be loaded into r7.
+ */
+#define MOV_R7_NR_SIGRETURN	(0xe3a07000 | (__NR_sigreturn - __NR_SYSCALL_BASE))
+#define MOV_R7_NR_RT_SIGRETURN	(0xe3a07000 | (__NR_rt_sigreturn - __NR_SYSCALL_BASE))
+
+/*
  * For Thumb syscalls, we pass the syscall number via r7.  We therefore
  * need two 16-bit instructions.
  */
 #define SWI_THUMB_SIGRETURN	(0xdf00 << 16 | 0x2700 | (__NR_sigreturn - __NR_SYSCALL_BASE))
 #define SWI_THUMB_RT_SIGRETURN	(0xdf00 << 16 | 0x2700 | (__NR_rt_sigreturn - __NR_SYSCALL_BASE))
 
-const unsigned long sigreturn_codes[4] = {
-	SWI_SYS_SIGRETURN,	SWI_THUMB_SIGRETURN,
-	SWI_SYS_RT_SIGRETURN,	SWI_THUMB_RT_SIGRETURN
+const unsigned long sigreturn_codes[7] = {
+	MOV_R7_NR_SIGRETURN,    SWI_SYS_SIGRETURN,    SWI_THUMB_SIGRETURN,
+	MOV_R7_NR_RT_SIGRETURN, SWI_SYS_RT_SIGRETURN, SWI_THUMB_RT_SIGRETURN,
 };
 
 static int do_signal(sigset_t *oldset, struct pt_regs * regs, int syscall);
@@ -139,93 +145,33 @@ struct iwmmxt_sigframe {
 	unsigned long	storage[0x98/4];
 };
 
-static int page_present(struct mm_struct *mm, void __user *uptr, int wr)
-{
-	unsigned long addr = (unsigned long)uptr;
-	pgd_t *pgd = pgd_offset(mm, addr);
-	if (pgd_present(*pgd)) {
-		pmd_t *pmd = pmd_offset(pgd, addr);
-		if (pmd_present(*pmd)) {
-			pte_t *pte = pte_offset_map(pmd, addr);
-			return (pte_present(*pte) && (!wr || pte_write(*pte)));
-		}
-	}
-	return 0;
-}
-
-static int copy_locked(void __user *uptr, void *kptr, size_t size, int write,
-		       void (*copyfn)(void *, void __user *))
-{
-	unsigned char v, __user *userptr = uptr;
-	int err = 0;
-
-	do {
-		struct mm_struct *mm;
-
-		if (write) {
-			__put_user_error(0, userptr, err);
-			__put_user_error(0, userptr + size - 1, err);
-		} else {
-			__get_user_error(v, userptr, err);
-			__get_user_error(v, userptr + size - 1, err);
-		}
-
-		if (err)
-			break;
-
-		mm = current->mm;
-		spin_lock(&mm->page_table_lock);
-		if (page_present(mm, userptr, write) &&
-		    page_present(mm, userptr + size - 1, write)) {
-		    	copyfn(kptr, uptr);
-		} else
-			err = 1;
-		spin_unlock(&mm->page_table_lock);
-	} while (err);
-
-	return err;
-}
-
 static int preserve_iwmmxt_context(struct iwmmxt_sigframe *frame)
 {
-	int err = 0;
+	char kbuf[sizeof(*frame) + 8];
+	struct iwmmxt_sigframe *kframe;
 
 	/* the iWMMXt context must be 64 bit aligned */
-	WARN_ON((unsigned long)frame & 7);
-
-	__put_user_error(IWMMXT_MAGIC0, &frame->magic0, err);
-	__put_user_error(IWMMXT_MAGIC1, &frame->magic1, err);
-
-	/*
-	 * iwmmxt_task_copy() doesn't check user permissions.
-	 * Let's do a dummy write on the upper boundary to ensure
-	 * access to user mem is OK all way up.
-	 */
-	err |= copy_locked(&frame->storage, current_thread_info(),
-			   sizeof(frame->storage), 1, iwmmxt_task_copy);
-	return err;
+	kframe = (struct iwmmxt_sigframe *)((unsigned long)(kbuf + 8) & ~7);
+	kframe->magic0 = IWMMXT_MAGIC0;
+	kframe->magic1 = IWMMXT_MAGIC1;
+	iwmmxt_task_copy(current_thread_info(), &kframe->storage);
+	return __copy_to_user(frame, kframe, sizeof(*frame));
 }
 
 static int restore_iwmmxt_context(struct iwmmxt_sigframe *frame)
 {
-	unsigned long magic0, magic1;
-	int err = 0;
+	char kbuf[sizeof(*frame) + 8];
+	struct iwmmxt_sigframe *kframe;
 
-	/* the iWMMXt context is 64 bit aligned */
-	WARN_ON((unsigned long)frame & 7);
-
-	/*
-	 * Validate iWMMXt context signature.
-	 * Also, iwmmxt_task_restore() doesn't check user permissions.
-	 * Let's do a dummy write on the upper boundary to ensure
-	 * access to user mem is OK all way up.
-	 */
-	__get_user_error(magic0, &frame->magic0, err);
-	__get_user_error(magic1, &frame->magic1, err);
-	if (!err && magic0 == IWMMXT_MAGIC0 && magic1 == IWMMXT_MAGIC1)
-		err = copy_locked(&frame->storage, current_thread_info(),
-				  sizeof(frame->storage), 0, iwmmxt_task_restore);
-	return err;
+	/* the iWMMXt context must be 64 bit aligned */
+	kframe = (struct iwmmxt_sigframe *)((unsigned long)(kbuf + 8) & ~7);
+	if (__copy_from_user(kframe, frame, sizeof(*frame)))
+		return -1;
+	if (kframe->magic0 != IWMMXT_MAGIC0 ||
+	    kframe->magic1 != IWMMXT_MAGIC1)
+		return -1;
+	iwmmxt_task_restore(current_thread_info(), &kframe->storage);
+	return 0;
 }
 
 #endif
@@ -249,7 +195,7 @@ struct aux_sigframe {
 struct sigframe {
 	struct sigcontext sc;
 	unsigned long extramask[_NSIG_WORDS-1];
-	unsigned long retcode;
+	unsigned long retcode[2];
 	struct aux_sigframe aux __attribute__((aligned(8)));
 };
 
@@ -258,7 +204,7 @@ struct rt_sigframe {
 	void __user *puc;
 	struct siginfo info;
 	struct ucontext uc;
-	unsigned long retcode;
+	unsigned long retcode[2];
 	struct aux_sigframe aux __attribute__((aligned(8)));
 };
 
@@ -496,12 +442,13 @@ setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 	if (ka->sa.sa_flags & SA_RESTORER) {
 		retcode = (unsigned long)ka->sa.sa_restorer;
 	} else {
-		unsigned int idx = thumb;
+		unsigned int idx = thumb << 1;
 
 		if (ka->sa.sa_flags & SA_SIGINFO)
-			idx += 2;
+			idx += 3;
 
-		if (__put_user(sigreturn_codes[idx], rc))
+		if (__put_user(sigreturn_codes[idx],   rc) ||
+		    __put_user(sigreturn_codes[idx+1], rc+1))
 			return 1;
 
 		if (cpsr & MODE32_BIT) {
@@ -516,7 +463,7 @@ setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 			 * the return code written onto the stack.
 			 */
 			flush_icache_range((unsigned long)rc,
-					   (unsigned long)(rc + 1));
+					   (unsigned long)(rc + 2));
 
 			retcode = ((unsigned long)rc) + thumb;
 		}
@@ -548,7 +495,7 @@ setup_frame(int usig, struct k_sigaction *ka, sigset_t *set, struct pt_regs *reg
 	}
 
 	if (err == 0)
-		err = setup_return(regs, ka, &frame->retcode, frame, usig);
+		err = setup_return(regs, ka, frame->retcode, frame, usig);
 
 	return err;
 }
@@ -582,7 +529,7 @@ setup_rt_frame(int usig, struct k_sigaction *ka, siginfo_t *info,
 	err |= __copy_to_user(&frame->uc.uc_sigmask, set, sizeof(*set));
 
 	if (err == 0)
-		err = setup_return(regs, ka, &frame->retcode, frame, usig);
+		err = setup_return(regs, ka, frame->retcode, frame, usig);
 
 	if (err == 0) {
 		/*
@@ -655,23 +602,22 @@ handle_signal(unsigned long sig, struct k_sigaction *ka,
 	 */
 	ret |= !valid_user_regs(regs);
 
-	/*
-	 * Block the signal if we were unsuccessful.
-	 */
 	if (ret != 0) {
-		spin_lock_irq(&tsk->sighand->siglock);
-		sigorsets(&tsk->blocked, &tsk->blocked,
-			  &ka->sa.sa_mask);
-		if (!(ka->sa.sa_flags & SA_NODEFER))
-			sigaddset(&tsk->blocked, sig);
-		recalc_sigpending();
-		spin_unlock_irq(&tsk->sighand->siglock);
+		force_sigsegv(sig, tsk);
+		return;
 	}
 
-	if (ret == 0)
-		return;
+	/*
+	 * Block the signal if we were successful.
+	 */
+	spin_lock_irq(&tsk->sighand->siglock);
+	sigorsets(&tsk->blocked, &tsk->blocked,
+		  &ka->sa.sa_mask);
+	if (!(ka->sa.sa_flags & SA_NODEFER))
+		sigaddset(&tsk->blocked, sig);
+	recalc_sigpending();
+	spin_unlock_irq(&tsk->sighand->siglock);
 
-	force_sigsegv(sig, tsk);
 }
 
 /*

@@ -36,6 +36,9 @@
 
 #include "core_priv.h"
 
+#include <linux/slab.h>
+#include <linux/string.h>
+
 #include <rdma/ib_mad.h>
 
 struct ib_port {
@@ -65,6 +68,11 @@ struct port_table_attribute {
 	int			index;
 };
 
+static inline int ibdev_is_alive(const struct ib_device *dev) 
+{
+	return dev->reg_state == IB_DEV_REGISTERED;
+}
+
 static ssize_t port_attr_show(struct kobject *kobj,
 			      struct attribute *attr, char *buf)
 {
@@ -74,6 +82,8 @@ static ssize_t port_attr_show(struct kobject *kobj,
 
 	if (!port_attr->show)
 		return -EIO;
+	if (!ibdev_is_alive(p->ibdev))
+		return -ENODEV;
 
 	return port_attr->show(p, port_attr, buf);
 }
@@ -300,14 +310,13 @@ static ssize_t show_pma_counter(struct ib_port *p, struct port_attribute *attr,
 	if (!p->ibdev->process_mad)
 		return sprintf(buf, "N/A (no PMA)\n");
 
-	in_mad  = kmalloc(sizeof *in_mad, GFP_KERNEL);
+	in_mad  = kzalloc(sizeof *in_mad, GFP_KERNEL);
 	out_mad = kmalloc(sizeof *in_mad, GFP_KERNEL);
 	if (!in_mad || !out_mad) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	memset(in_mad, 0, sizeof *in_mad);
 	in_mad->mad_hdr.base_version  = 1;
 	in_mad->mad_hdr.mgmt_class    = IB_MGMT_CLASS_PERF_MGMT;
 	in_mad->mad_hdr.class_version = 1;
@@ -425,24 +434,18 @@ static void ib_device_release(struct class_device *cdev)
 	kfree(dev);
 }
 
-static int ib_device_hotplug(struct class_device *cdev, char **envp,
-			     int num_envp, char *buf, int size)
+static int ib_device_uevent(struct class_device *cdev, char **envp,
+			    int num_envp, char *buf, int size)
 {
 	struct ib_device *dev = container_of(cdev, struct ib_device, class_dev);
 	int i = 0, len = 0;
 
-	if (add_hotplug_env_var(envp, num_envp, &i, buf, size, &len,
-				"NAME=%s", dev->name))
+	if (add_uevent_var(envp, num_envp, &i, buf, size, &len,
+			   "NAME=%s", dev->name))
 		return -ENOMEM;
 
 	/*
-	 * It might be nice to pass the node GUID to hotplug, but
-	 * right now the only way to get it is to query the device
-	 * provider, and this can crash during device removal because
-	 * we are will be running after driver removal has started.
-	 * We could add a node_guid field to struct ib_device, or we
-	 * could just let the hotplug script read the node GUID from
-	 * sysfs when devices are added.
+	 * It would be nice to pass the node GUID with the event...
 	 */
 
 	envp[i] = NULL;
@@ -501,10 +504,9 @@ static int add_port(struct ib_device *device, int port_num)
 	if (ret)
 		return ret;
 
-	p = kmalloc(sizeof *p, GFP_KERNEL);
+	p = kzalloc(sizeof *p, GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
-	memset(p, 0, sizeof *p);
 
 	p->ibdev      = device;
 	p->port_num   = port_num;
@@ -581,6 +583,9 @@ static ssize_t show_node_type(struct class_device *cdev, char *buf)
 {
 	struct ib_device *dev = container_of(cdev, struct ib_device, class_dev);
 
+	if (!ibdev_is_alive(dev))
+		return -ENODEV;
+
 	switch (dev->node_type) {
 	case IB_NODE_CA:     return sprintf(buf, "%d: CA\n", dev->node_type);
 	case IB_NODE_SWITCH: return sprintf(buf, "%d: switch\n", dev->node_type);
@@ -594,6 +599,9 @@ static ssize_t show_sys_image_guid(struct class_device *cdev, char *buf)
 	struct ib_device *dev = container_of(cdev, struct ib_device, class_dev);
 	struct ib_device_attr attr;
 	ssize_t ret;
+
+	if (!ibdev_is_alive(dev))
+		return -ENODEV;
 
 	ret = ib_query_device(dev, &attr);
 	if (ret)
@@ -609,18 +617,15 @@ static ssize_t show_sys_image_guid(struct class_device *cdev, char *buf)
 static ssize_t show_node_guid(struct class_device *cdev, char *buf)
 {
 	struct ib_device *dev = container_of(cdev, struct ib_device, class_dev);
-	struct ib_device_attr attr;
-	ssize_t ret;
 
-	ret = ib_query_device(dev, &attr);
-	if (ret)
-		return ret;
+	if (!ibdev_is_alive(dev))
+		return -ENODEV;
 
 	return sprintf(buf, "%04x:%04x:%04x:%04x\n",
-		       be16_to_cpu(((__be16 *) &attr.node_guid)[0]),
-		       be16_to_cpu(((__be16 *) &attr.node_guid)[1]),
-		       be16_to_cpu(((__be16 *) &attr.node_guid)[2]),
-		       be16_to_cpu(((__be16 *) &attr.node_guid)[3]));
+		       be16_to_cpu(((__be16 *) &dev->node_guid)[0]),
+		       be16_to_cpu(((__be16 *) &dev->node_guid)[1]),
+		       be16_to_cpu(((__be16 *) &dev->node_guid)[2]),
+		       be16_to_cpu(((__be16 *) &dev->node_guid)[3]));
 }
 
 static CLASS_DEVICE_ATTR(node_type, S_IRUGO, show_node_type, NULL);
@@ -636,7 +641,7 @@ static struct class_device_attribute *ib_class_attributes[] = {
 static struct class ib_class = {
 	.name    = "infiniband",
 	.release = ib_device_release,
-	.hotplug = ib_device_hotplug,
+	.uevent = ib_device_uevent,
 };
 
 int ib_device_register_sysfs(struct ib_device *device)

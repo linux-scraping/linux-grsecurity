@@ -1,5 +1,5 @@
 /*
- * $Id: pcmciamtd.c,v 1.51 2004/07/12 22:38:29 dwmw2 Exp $
+ * $Id: pcmciamtd.c,v 1.55 2005/11/07 11:14:28 gleixner Exp $
  *
  * pcmciamtd.c - MTD driver for PCMCIA flash memory cards
  *
@@ -48,7 +48,7 @@ static const int debug = 0;
 
 
 #define DRIVER_DESC	"PCMCIA Flash memory card driver"
-#define DRIVER_VERSION	"$Revision: 1.51 $"
+#define DRIVER_VERSION	"$Revision: 1.55 $"
 
 /* Size of the PCMCIA address space: 26 bits = 64 MB */
 #define MAX_PCMCIA_ADDR	0x4000000
@@ -65,9 +65,6 @@ struct pcmciamtd_dev {
 	char		mtd_name[sizeof(struct cistpl_vers_1_t)];
 };
 
-
-static dev_info_t dev_info = "pcmciamtd";
-static dev_link_t *dev_list;
 
 /* Module parameters */
 
@@ -176,7 +173,7 @@ static void pcmcia_copy_from_remap(struct map_info *map, void *to, unsigned long
 
 		if(toread > len)
 			toread = len;
-		
+
 		addr = remap_window(map, from);
 		if(!addr)
 			return;
@@ -386,7 +383,7 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			cs_error(link->handle, ParseTuple, rc);
 			break;
 		}
-		
+
 		switch(tuple.TupleCode) {
 		case  CISTPL_FORMAT: {
 			cistpl_format_t *t = &parse.format;
@@ -394,9 +391,9 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			DEBUG(2, "Format type: %u, Error Detection: %u, offset = %u, length =%u",
 			      t->type, t->edc, t->offset, t->length);
 			break;
-			
+
 		}
-			
+
 		case CISTPL_DEVICE: {
 			cistpl_device_t *t = &parse.device;
 			int i;
@@ -410,7 +407,7 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			}
 			break;
 		}
-			
+
 		case CISTPL_VERS_1: {
 			cistpl_vers_1_t *t = &parse.version_1;
 			int i;
@@ -425,7 +422,7 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			DEBUG(2, "Found name: %s", dev->mtd_name);
 			break;
 		}
-			
+
 		case CISTPL_JEDEC_C: {
 			cistpl_jedec_t *t = &parse.jedec;
 			int i;
@@ -434,7 +431,7 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			}
 			break;
 		}
-			
+
 		case CISTPL_DEVICE_GEO: {
 			cistpl_device_geo_t *t = &parse.device_geo;
 			int i;
@@ -449,11 +446,11 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 			}
 			break;
 		}
-			
+
 		default:
 			DEBUG(2, "Unknown tuple code %d", tuple.TupleCode);
 		}
-		
+
 		rc = pcmcia_get_next_tuple(link->handle, &tuple);
 	}
 	if(!dev->pcmcia_map.size)
@@ -470,7 +467,7 @@ static void card_settings(struct pcmciamtd_dev *dev, dev_link_t *link, int *new_
 	if(bankwidth) {
 		dev->pcmcia_map.bankwidth = bankwidth;
 		DEBUG(2, "bankwidth forced to %d", bankwidth);
-	}		
+	}
 
 	dev->pcmcia_map.name = dev->mtd_name;
 	if(!dev->mtd_name[0]) {
@@ -568,7 +565,7 @@ static void pcmciamtd_config(dev_link_t *link)
 		return;
 	}
 	DEBUG(1, "Allocated a window of %dKiB", dev->win_size >> 10);
-		
+
 	/* Get write protect status */
 	CS_CHECK(GetStatus, pcmcia_get_status(link->handle, &status));
 	DEBUG(2, "status value: 0x%x window handle = 0x%8.8lx",
@@ -624,11 +621,11 @@ static void pcmciamtd_config(dev_link_t *link)
 			mtd = do_map_probe(probes[i], &dev->pcmcia_map);
 			if(mtd)
 				break;
-			
+
 			DEBUG(1, "FAILED: %s", probes[i]);
 		}
 	}
-	
+
 	if(!mtd) {
 		DEBUG(1, "Cant find an MTD");
 		pcmciamtd_release(link);
@@ -691,55 +688,21 @@ static void pcmciamtd_config(dev_link_t *link)
 }
 
 
-/* The card status event handler.  Mostly, this schedules other
- * stuff to run after an event is received.  A CARD_REMOVAL event
- * also sets some flags to discourage the driver from trying
- * to talk to the card any more.
- */
-
-static int pcmciamtd_event(event_t event, int priority,
-			event_callback_args_t *args)
+static int pcmciamtd_suspend(struct pcmcia_device *dev)
 {
-	dev_link_t *link = args->client_data;
+	DEBUG(2, "EVENT_PM_RESUME");
 
-	DEBUG(1, "event=0x%06x", event);
-	switch (event) {
-	case CS_EVENT_CARD_REMOVAL:
-		DEBUG(2, "EVENT_CARD_REMOVAL");
-		link->state &= ~DEV_PRESENT;
-		if (link->state & DEV_CONFIG) {
-			struct pcmciamtd_dev *dev = link->priv;
-			if(dev->mtd_info) {
-				del_mtd_device(dev->mtd_info);
-				info("mtd%d: Removed", dev->mtd_info->index);
-			}
-			pcmciamtd_release(link);
-		}
-		break;
-	case CS_EVENT_CARD_INSERTION:
-		DEBUG(2, "EVENT_CARD_INSERTION");
-		link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
-		pcmciamtd_config(link);
-		break;
-	case CS_EVENT_PM_SUSPEND:
-		DEBUG(2, "EVENT_PM_SUSPEND");
-		link->state |= DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_RESET_PHYSICAL:
-		DEBUG(2, "EVENT_RESET_PHYSICAL");
-		/* get_lock(link); */
-		break;
-	case CS_EVENT_PM_RESUME:
-		DEBUG(2, "EVENT_PM_RESUME");
-		link->state &= ~DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_CARD_RESET:
-		DEBUG(2, "EVENT_CARD_RESET");
-		/* free_lock(link); */
-		break;
-	default:
-		DEBUG(2, "Unknown event %d", event);
-	}
+	/* get_lock(link); */
+
+	return 0;
+}
+
+static int pcmciamtd_resume(struct pcmcia_device *dev)
+{
+	DEBUG(2, "EVENT_PM_SUSPEND");
+
+	/* free_lock(link); */
+
 	return 0;
 }
 
@@ -750,23 +713,21 @@ static int pcmciamtd_event(event_t event, int priority,
  * when the device is released.
  */
 
-static void pcmciamtd_detach(dev_link_t *link)
+static void pcmciamtd_detach(struct pcmcia_device *p_dev)
 {
+	dev_link_t *link = dev_to_instance(p_dev);
+
 	DEBUG(3, "link=0x%p", link);
 
 	if(link->state & DEV_CONFIG) {
+		struct pcmciamtd_dev *dev = link->priv;
+		if(dev->mtd_info) {
+			del_mtd_device(dev->mtd_info);
+			info("mtd%d: Removed", dev->mtd_info->index);
+		}
+
 		pcmciamtd_release(link);
 	}
-
-	if (link->handle) {
-		int ret;
-		DEBUG(2, "Deregistering with card services");
-		ret = pcmcia_deregister_client(link->handle);
-		if (ret != CS_SUCCESS)
-			cs_error(link->handle, DeregisterClient, ret);
-	}
-
-	link->state |= DEV_STALE_LINK;
 }
 
 
@@ -775,16 +736,14 @@ static void pcmciamtd_detach(dev_link_t *link)
  * with Card Services.
  */
 
-static dev_link_t *pcmciamtd_attach(void)
+static int pcmciamtd_attach(struct pcmcia_device *p_dev)
 {
 	struct pcmciamtd_dev *dev;
 	dev_link_t *link;
-	client_reg_t client_reg;
-	int ret;
 
 	/* Create new memory card device */
 	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev) return NULL;
+	if (!dev) return -ENOMEM;
 	DEBUG(1, "dev=0x%p", dev);
 
 	memset(dev, 0, sizeof(*dev));
@@ -794,22 +753,14 @@ static dev_link_t *pcmciamtd_attach(void)
 	link->conf.Attributes = 0;
 	link->conf.IntType = INT_MEMORY;
 
-	link->next = dev_list;
-	dev_list = link;
+	link->next = NULL;
+	link->handle = p_dev;
+	p_dev->instance = link;
 
-	/* Register with Card Services */
-	client_reg.dev_info = &dev_info;
-	client_reg.Version = 0x0210;
-	client_reg.event_callback_args.client_data = link;
-	DEBUG(2, "Calling RegisterClient");
-	ret = pcmcia_register_client(&link->handle, &client_reg);
-	if (ret != 0) {
-		cs_error(link->handle, RegisterClient, ret);
-		pcmciamtd_detach(link);
-		return NULL;
-	}
-	DEBUG(2, "link = %p", link);
-	return link;
+	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
+	pcmciamtd_config(link);
+
+	return 0;
 }
 
 static struct pcmcia_device_id pcmciamtd_ids[] = {
@@ -843,11 +794,12 @@ static struct pcmcia_driver pcmciamtd_driver = {
 	.drv		= {
 		.name	= "pcmciamtd"
 	},
-	.attach		= pcmciamtd_attach,
-	.event		= pcmciamtd_event,
-	.detach		= pcmciamtd_detach,
+	.probe		= pcmciamtd_attach,
+	.remove		= pcmciamtd_detach,
 	.owner		= THIS_MODULE,
 	.id_table	= pcmciamtd_ids,
+	.suspend	= pcmciamtd_suspend,
+	.resume		= pcmciamtd_resume,
 };
 
 
@@ -875,7 +827,6 @@ static void __exit exit_pcmciamtd(void)
 {
 	DEBUG(1, DRIVER_DESC " unloading");
 	pcmcia_unregister_driver(&pcmciamtd_driver);
-	BUG_ON(dev_list != NULL);
 }
 
 module_init(init_pcmciamtd);

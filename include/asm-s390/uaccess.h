@@ -61,8 +61,10 @@
 #define segment_eq(a,b) ((a).ar4 == (b).ar4)
 
 
-#define __access_ok(addr,size) (1)
-
+static inline int __access_ok(const void __user *addr, unsigned long size)
+{
+	return 1;
+}
 #define access_ok(type,addr,size) __access_ok(addr,size)
 
 /*
@@ -200,21 +202,37 @@ extern int __put_user_bad(void) __attribute__((noreturn));
 
 #define __get_user(x, ptr)					\
 ({								\
-	__typeof__(*(ptr)) __x;					\
 	int __gu_err;						\
         __chk_user_ptr(ptr);                                    \
 	switch (sizeof(*(ptr))) {				\
-	case 1:							\
-	case 2:							\
-	case 4:							\
-	case 8:							\
+	case 1: {						\
+		unsigned char __x;				\
 		__get_user_asm(__x, ptr, __gu_err);		\
+		(x) = *(__force __typeof__(*(ptr)) *) &__x;	\
 		break;						\
+	};							\
+	case 2: {						\
+		unsigned short __x;				\
+		__get_user_asm(__x, ptr, __gu_err);		\
+		(x) = *(__force __typeof__(*(ptr)) *) &__x;	\
+		break;						\
+	};							\
+	case 4: {						\
+		unsigned int __x;				\
+		__get_user_asm(__x, ptr, __gu_err);		\
+		(x) = *(__force __typeof__(*(ptr)) *) &__x;	\
+		break;						\
+	};							\
+	case 8: {						\
+		unsigned long long __x;				\
+		__get_user_asm(__x, ptr, __gu_err);		\
+		(x) = *(__force __typeof__(*(ptr)) *) &__x;	\
+		break;						\
+	};							\
 	default:						\
 		__get_user_bad();				\
 		break;						\
 	}							\
-	(x) = __x;						\
 	__gu_err;						\
 })
 

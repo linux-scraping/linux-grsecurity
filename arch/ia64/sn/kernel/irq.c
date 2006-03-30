@@ -5,11 +5,12 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (c) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
  */
 
 #include <linux/irq.h>
 #include <linux/spinlock.h>
+#include <linux/init.h>
 #include <asm/sn/addrs.h>
 #include <asm/sn/arch.h>
 #include <asm/sn/intr.h>
@@ -28,7 +29,7 @@ extern int sn_ioif_inited;
 static struct list_head **sn_irq_lh;
 static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ lock */
 
-static inline uint64_t sn_intr_alloc(nasid_t local_nasid, int local_widget,
+static inline u64 sn_intr_alloc(nasid_t local_nasid, int local_widget,
 				     u64 sn_irq_info,
 				     int req_irq, nasid_t req_nasid,
 				     int req_slice)
@@ -76,17 +77,15 @@ static void sn_enable_irq(unsigned int irq)
 
 static void sn_ack_irq(unsigned int irq)
 {
-	u64 event_occurred, mask = 0;
+	u64 event_occurred, mask;
 
 	irq = irq & 0xff;
-	event_occurred =
-	    HUB_L((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED));
+	event_occurred = HUB_L((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED));
 	mask = event_occurred & SH_ALL_INT_MASK;
-	HUB_S((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED_ALIAS),
-	      mask);
+	HUB_S((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED_ALIAS), mask);
 	__set_bit(irq, (volatile void *)pda->sn_in_service_ivecs);
 
-	move_irq(irq);
+	move_native_irq(irq);
 }
 
 static void sn_end_irq(unsigned int irq)
@@ -123,7 +122,7 @@ static void sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
 
 	list_for_each_entry_safe(sn_irq_info, sn_irq_info_safe,
 				 sn_irq_lh[irq], list) {
-		uint64_t bridge;
+		u64 bridge;
 		int local_widget, status;
 		nasid_t local_nasid;
 		struct sn_irq_info *new_irq_info;
@@ -134,7 +133,7 @@ static void sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
 			break;
 		memcpy(new_irq_info, sn_irq_info, sizeof(struct sn_irq_info));
 
-		bridge = (uint64_t) new_irq_info->irq_bridge;
+		bridge = (u64) new_irq_info->irq_bridge;
 		if (!bridge) {
 			kfree(new_irq_info);
 			break; /* irq is not a device interrupt */
@@ -219,9 +218,8 @@ static void register_intr_pda(struct sn_irq_info *sn_irq_info)
 		pdacpu(cpu)->sn_last_irq = irq;
 	}
 
-	if (pdacpu(cpu)->sn_first_irq == 0 || pdacpu(cpu)->sn_first_irq > irq) {
+	if (pdacpu(cpu)->sn_first_irq == 0 || pdacpu(cpu)->sn_first_irq > irq)
 		pdacpu(cpu)->sn_first_irq = irq;
-	}
 }
 
 static void unregister_intr_pda(struct sn_irq_info *sn_irq_info)
@@ -289,7 +287,7 @@ void sn_irq_fixup(struct pci_dev *pci_dev, struct sn_irq_info *sn_irq_info)
 	list_add_rcu(&sn_irq_info->list, sn_irq_lh[sn_irq_info->irq_irq]);
 	spin_unlock(&sn_irq_info_lock);
 
-	(void)register_intr_pda(sn_irq_info);
+	register_intr_pda(sn_irq_info);
 }
 
 void sn_irq_unfixup(struct pci_dev *pci_dev)
@@ -301,7 +299,9 @@ void sn_irq_unfixup(struct pci_dev *pci_dev)
 		return;
 
 	sn_irq_info = SN_PCIDEV_INFO(pci_dev)->pdi_sn_irq_info;
-	if (!sn_irq_info || !sn_irq_info->irq_irq) {
+	if (!sn_irq_info)
+		return;
+	if (!sn_irq_info->irq_irq) {
 		kfree(sn_irq_info);
 		return;
 	}
@@ -349,10 +349,10 @@ static void force_interrupt(int irq)
  */
 static void sn_check_intr(int irq, struct sn_irq_info *sn_irq_info)
 {
-	uint64_t regval;
+	u64 regval;
 	int irr_reg_num;
 	int irr_bit;
-	uint64_t irr_reg;
+	u64 irr_reg;
 	struct pcidev_info *pcidev_info;
 	struct pcibus_info *pcibus_info;
 
@@ -419,7 +419,7 @@ void sn_lb_int_war_check(void)
 	rcu_read_unlock();
 }
 
-void sn_irq_lh_init(void)
+void __init sn_irq_lh_init(void)
 {
 	int i;
 
@@ -434,5 +434,4 @@ void sn_irq_lh_init(void)
 
 		INIT_LIST_HEAD(sn_irq_lh[i]);
 	}
-
 }

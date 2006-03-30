@@ -107,18 +107,19 @@ struct dvb_pll_desc dvb_pll_microtune_4042 = {
 };
 EXPORT_SYMBOL(dvb_pll_microtune_4042);
 
-struct dvb_pll_desc dvb_pll_thomson_dtt7611 = {
-	.name  = "Thomson dtt7611",
-	.min   =  44000000,
-	.max   = 958000000,
+struct dvb_pll_desc dvb_pll_thomson_dtt761x = {
+	/* DTT 7611 7611A 7612 7613 7613A 7614 7615 7615A */
+	.name  = "Thomson dtt761x",
+	.min   =  57000000,
+	.max   = 863000000,
 	.count = 3,
 	.entries = {
-		{ 157250000, 44000000, 62500, 0x8e, 0x39 },
-		{ 454000000, 44000000, 62500, 0x8e, 0x3a },
+		{ 147000000, 44000000, 62500, 0x8e, 0x39 },
+		{ 417000000, 44000000, 62500, 0x8e, 0x3a },
 		{ 999999999, 44000000, 62500, 0x8e, 0x3c },
 	},
 };
-EXPORT_SYMBOL(dvb_pll_thomson_dtt7611);
+EXPORT_SYMBOL(dvb_pll_thomson_dtt761x);
 
 struct dvb_pll_desc dvb_pll_unknown_1 = {
 	.name  = "unknown 1", /* used by dntv live dvb-t */
@@ -226,7 +227,7 @@ struct dvb_pll_desc dvb_pll_tua6034 = {
 EXPORT_SYMBOL(dvb_pll_tua6034);
 
 /* Infineon TUA6034
- * used in LG Innotek TDVS-H062F
+ * used in LG TDVS H061F and LG TDVS H062F
  */
 struct dvb_pll_desc dvb_pll_tdvs_tua6034 = {
 	.name  = "LG/Infineon TUA6034",
@@ -291,6 +292,75 @@ struct dvb_pll_desc dvb_pll_tded4 = {
 	}
 };
 EXPORT_SYMBOL(dvb_pll_tded4);
+
+/* ALPS TDHU2
+ * used in AverTVHD MCE A180
+ */
+struct dvb_pll_desc dvb_pll_tdhu2 = {
+	.name = "ALPS TDHU2",
+	.min = 54000000,
+	.max = 864000000,
+	.count = 4,
+	.entries = {
+		{ 162000000, 44000000, 62500, 0x85, 0x01 },
+		{ 426000000, 44000000, 62500, 0x85, 0x02 },
+		{ 782000000, 44000000, 62500, 0x85, 0x08 },
+		{ 999999999, 44000000, 62500, 0x85, 0x88 },
+	}
+};
+EXPORT_SYMBOL(dvb_pll_tdhu2);
+
+/* Philips TUV1236D
+ * used in ATI HDTV Wonder
+ */
+struct dvb_pll_desc dvb_pll_tuv1236d = {
+	.name  = "Philips TUV1236D",
+	.min   =  54000000,
+	.max   = 864000000,
+	.count = 3,
+	.entries = {
+		{ 157250000, 44000000, 62500, 0xc6, 0x41 },
+		{ 454000000, 44000000, 62500, 0xc6, 0x42 },
+		{ 999999999, 44000000, 62500, 0xc6, 0x44 },
+	},
+};
+EXPORT_SYMBOL(dvb_pll_tuv1236d);
+
+/* Samsung TBMV30111IN / TBMV30712IN1
+ * used in Air2PC ATSC - 2nd generation (nxt2002)
+ */
+struct dvb_pll_desc dvb_pll_samsung_tbmv = {
+	.name = "Samsung TBMV30111IN / TBMV30712IN1",
+	.min = 54000000,
+	.max = 860000000,
+	.count = 6,
+	.entries = {
+		{ 172000000, 44000000, 166666, 0xb4, 0x01 },
+		{ 214000000, 44000000, 166666, 0xb4, 0x02 },
+		{ 467000000, 44000000, 166666, 0xbc, 0x02 },
+		{ 721000000, 44000000, 166666, 0xbc, 0x08 },
+		{ 841000000, 44000000, 166666, 0xf4, 0x08 },
+		{ 999999999, 44000000, 166666, 0xfc, 0x02 },
+	}
+};
+EXPORT_SYMBOL(dvb_pll_samsung_tbmv);
+
+/*
+ * Philips SD1878 Tuner.
+ */
+struct dvb_pll_desc dvb_pll_philips_sd1878_tda8261 = {
+	.name  = "Philips SD1878",
+	.min   =  950000,
+	.max   = 2150000,
+	.count = 4,
+	.entries = {
+		{ 1250000, 499, 500, 0xc4, 0x00},
+		{ 1550000, 499, 500, 0xc4, 0x40},
+		{ 2050000, 499, 500, 0xc4, 0x80},
+		{ 2150000, 499, 500, 0xc4, 0xc0},
+	},
+};
+EXPORT_SYMBOL(dvb_pll_philips_sd1878_tda8261);
 
 /* ----------------------------------------------------------- */
 /* code                                                        */

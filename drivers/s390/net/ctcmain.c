@@ -1,6 +1,4 @@
 /*
- * $Id: ctcmain.c,v 1.78 2005/09/07 12:18:02 pavlic Exp $
- *
  * CTC / ESCON network driver
  *
  * Copyright (C) 2001 IBM Deutschland Entwicklung GmbH, IBM Corporation
@@ -8,7 +6,7 @@
  * Fixes by : Jochen Röhrig (roehrig@de.ibm.com)
  *            Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 	      Peter Tiedemann (ptiedem@de.ibm.com)
- * Driver Model stuff by : Cornelia Huck <cohuck@de.ibm.com>
+ * Driver Model stuff by : Cornelia Huck <huckc@de.ibm.com>
  *
  * Documentation used:
  *  - Principles of Operation (IBM doc#: SA22-7201-06)
@@ -36,8 +34,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- *
- * RELEASE-TAG: CTC/ESCON network driver $Revision: 1.78 $
  *
  */
 #undef DEBUG
@@ -248,22 +244,11 @@ static void
 print_banner(void)
 {
 	static int printed = 0;
-	char vbuf[] = "$Revision: 1.78 $";
-	char *version = vbuf;
 
 	if (printed)
 		return;
-	if ((version = strchr(version, ':'))) {
-		char *p = strchr(version + 1, '$');
-		if (p)
-			*p = '\0';
-	} else
-		version = " ??? ";
-	printk(KERN_INFO "CTC driver Version%s"
-#ifdef DEBUG
-		    " (DEBUG-VERSION, " __DATE__ __TIME__ ")"
-#endif
-		    " initialized\n", version);
+
+	printk(KERN_INFO "CTC driver initialized\n");
 	printed = 1;
 }
 

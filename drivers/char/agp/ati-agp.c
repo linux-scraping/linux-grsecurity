@@ -6,6 +6,8 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/init.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 #include <linux/agp_backend.h>
 #include <asm/agp.h>
 #include "agp.h"
@@ -116,14 +118,12 @@ static int ati_create_gatt_pages(int nr_tables)
 	int retval = 0;
 	int i;
 
-	tables = kmalloc((nr_tables + 1) * sizeof(ati_page_map *),
-			 GFP_KERNEL);
+	tables = kzalloc((nr_tables + 1) * sizeof(ati_page_map *),GFP_KERNEL);
 	if (tables == NULL)
 		return -ENOMEM;
 
-	memset(tables, 0, sizeof(ati_page_map *) * (nr_tables + 1));
 	for (i = 0; i < nr_tables; i++) {
-		entry = kmalloc(sizeof(ati_page_map), GFP_KERNEL);
+		entry = kzalloc(sizeof(ati_page_map), GFP_KERNEL);
 		if (entry == NULL) {
 			while (i>0) {
 				kfree (tables[i-1]);
@@ -134,7 +134,6 @@ static int ati_create_gatt_pages(int nr_tables)
 			retval = -ENOMEM;
 			break;
 		}
-		memset(entry, 0, sizeof(ati_page_map));
 		tables[i] = entry;
 		retval = ati_create_page_map(entry);
 		if (retval != 0) break;
@@ -244,6 +243,22 @@ static int ati_configure(void)
 	return 0;
 }
 
+
+#ifdef CONFIG_PM
+static int agp_ati_resume(struct pci_dev *dev)
+{
+	pci_restore_state(dev);
+
+	return ati_configure();
+}
+
+static int agp_ati_suspend(struct pci_dev *dev, pm_message_t state)
+{
+	pci_save_state(dev);
+
+	return 0;
+}
+#endif
 
 /*
  *Since we don't need contigious memory we just try
@@ -526,6 +541,10 @@ static struct pci_driver agp_ati_pci_driver = {
 	.id_table	= agp_ati_pci_table,
 	.probe		= agp_ati_probe,
 	.remove		= agp_ati_remove,
+#ifdef CONFIG_PM
+	.resume		= agp_ati_resume,
+	.suspend	= agp_ati_suspend,
+#endif
 };
 
 static int __init agp_ati_init(void)

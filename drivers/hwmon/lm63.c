@@ -139,9 +139,9 @@ static void lm63_init_client(struct i2c_client *client);
  */
 
 static struct i2c_driver lm63_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm63",
-	.flags		= I2C_DF_NOTIFY,
+	.driver = {
+		.name	= "lm63",
+	},
 	.attach_adapter	= lm63_attach_adapter,
 	.detach_client	= lm63_detach_client,
 };
@@ -375,11 +375,10 @@ static int lm63_detect(struct i2c_adapter *adapter, int address, int kind)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct lm63_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct lm63_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct lm63_data));
 
 	/* The common I2C client data is placed right before the
 	   LM63-specific data. */

@@ -32,6 +32,7 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <linux/bitops.h>
+#include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -58,6 +59,7 @@
 #endif
 #include <linux/kmod.h>
 
+#include <net/arp.h>
 #include <net/ip.h>
 #include <net/route.h>
 #include <net/ip_fib.h>
@@ -234,7 +236,10 @@ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
 			 int destroy)
 {
 	struct in_ifaddr *promote = NULL;
-	struct in_ifaddr *ifa1 = *ifap;
+	struct in_ifaddr *ifa, *ifa1 = *ifap;
+	struct in_ifaddr *last_prim = in_dev->ifa_list;
+	struct in_ifaddr *prev_prom = NULL;
+	int do_promote = IN_DEV_PROMOTE_SECONDARIES(in_dev);
 
 	ASSERT_RTNL();
 
@@ -243,18 +248,22 @@ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
 	 **/
 
 	if (!(ifa1->ifa_flags & IFA_F_SECONDARY)) {
-		struct in_ifaddr *ifa;
 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
 
 		while ((ifa = *ifap1) != NULL) {
+			if (!(ifa->ifa_flags & IFA_F_SECONDARY) && 
+			    ifa1->ifa_scope <= ifa->ifa_scope)
+				last_prim = ifa;
+
 			if (!(ifa->ifa_flags & IFA_F_SECONDARY) ||
 			    ifa1->ifa_mask != ifa->ifa_mask ||
 			    !inet_ifa_match(ifa1->ifa_address, ifa)) {
 				ifap1 = &ifa->ifa_next;
+				prev_prom = ifa;
 				continue;
 			}
 
-			if (!IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
+			if (!do_promote) {
 				*ifap1 = ifa->ifa_next;
 
 				rtmsg_ifa(RTM_DELADDR, ifa);
@@ -283,18 +292,31 @@ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
 	 */
 	rtmsg_ifa(RTM_DELADDR, ifa1);
 	notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
+
+	if (promote) {
+
+		if (prev_prom) {
+			prev_prom->ifa_next = promote->ifa_next;
+			promote->ifa_next = last_prim->ifa_next;
+			last_prim->ifa_next = promote;
+		}
+
+		promote->ifa_flags &= ~IFA_F_SECONDARY;
+		rtmsg_ifa(RTM_NEWADDR, promote);
+		notifier_call_chain(&inetaddr_chain, NETDEV_UP, promote);
+		for (ifa = promote->ifa_next; ifa; ifa = ifa->ifa_next) {
+			if (ifa1->ifa_mask != ifa->ifa_mask ||
+			    !inet_ifa_match(ifa1->ifa_address, ifa))
+					continue;
+			fib_add_ifaddr(ifa);
+		}
+
+	}
 	if (destroy) {
 		inet_free_ifa(ifa1);
 
 		if (!in_dev->ifa_list)
 			inetdev_destroy(in_dev);
-	}
-
-	if (promote && IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
-		/* not sure if we should send a delete notify first? */
-		promote->ifa_flags &= ~IFA_F_SECONDARY;
-		rtmsg_ifa(RTM_NEWADDR, promote);
-		notifier_call_chain(&inetaddr_chain, NETDEV_UP, promote);
 	}
 }
 
@@ -715,6 +737,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
 			break;
 		ret = 0;
 		if (ifa->ifa_mask != sin->sin_addr.s_addr) {
+			u32 old_mask = ifa->ifa_mask;
 			inet_del_ifa(in_dev, ifap, 0);
 			ifa->ifa_mask = sin->sin_addr.s_addr;
 			ifa->ifa_prefixlen = inet_mask_len(ifa->ifa_mask);
@@ -728,7 +751,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
 			if ((dev->flags & IFF_BROADCAST) &&
 			    (ifa->ifa_prefixlen < 31) &&
 			    (ifa->ifa_broadcast ==
-			     (ifa->ifa_local|~ifa->ifa_mask))) {
+			     (ifa->ifa_local|~old_mask))) {
 				ifa->ifa_broadcast = (ifa->ifa_local |
 						      ~sin->sin_addr.s_addr);
 			}
@@ -1112,7 +1135,7 @@ static void rtmsg_ifa(int event, struct in_ifaddr* ifa)
 
 	if (!skb)
 		netlink_set_err(rtnl, 0, RTNLGRP_IPV4_IFADDR, ENOBUFS);
-	else if (inet_fill_ifaddr(skb, ifa, current->pid, 0, event, 0) < 0) {
+	else if (inet_fill_ifaddr(skb, ifa, 0, 0, event, 0) < 0) {
 		kfree_skb(skb);
 		netlink_set_err(rtnl, 0, RTNLGRP_IPV4_IFADDR, EINVAL);
 	} else {

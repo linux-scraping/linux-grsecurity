@@ -30,6 +30,7 @@
 #include <linux/init.h>
 #include <linux/completion.h>
 #include <linux/transport_class.h>
+#include <linux/platform_device.h>
 
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
@@ -139,11 +140,11 @@ int scsi_host_set_state(struct Scsi_Host *shost, enum scsi_host_state state)
 
  illegal:
 	SCSI_LOG_ERROR_RECOVERY(1,
-				dev_printk(KERN_ERR, &shost->shost_gendev,
-					   "Illegal host state transition"
-					   "%s->%s\n",
-					   scsi_host_state_name(oldstate),
-					   scsi_host_state_name(state)));
+				shost_printk(KERN_ERR, shost,
+					     "Illegal host state transition"
+					     "%s->%s\n",
+					     scsi_host_state_name(oldstate),
+					     scsi_host_state_name(state)));
 	return -EINVAL;
 }
 EXPORT_SYMBOL(scsi_host_set_state);
@@ -155,16 +156,16 @@ EXPORT_SYMBOL(scsi_host_set_state);
 void scsi_remove_host(struct Scsi_Host *shost)
 {
 	unsigned long flags;
-	down(&shost->scan_mutex);
+	mutex_lock(&shost->scan_mutex);
 	spin_lock_irqsave(shost->host_lock, flags);
 	if (scsi_host_set_state(shost, SHOST_CANCEL))
 		if (scsi_host_set_state(shost, SHOST_CANCEL_RECOVERY)) {
 			spin_unlock_irqrestore(shost->host_lock, flags);
-			up(&shost->scan_mutex);
+			mutex_unlock(&shost->scan_mutex);
 			return;
 		}
 	spin_unlock_irqrestore(shost->host_lock, flags);
-	up(&shost->scan_mutex);
+	mutex_unlock(&shost->scan_mutex);
 	scsi_forget_host(shost);
 	scsi_proc_host_rm(shost);
 
@@ -287,7 +288,8 @@ static void scsi_host_dev_release(struct device *dev)
 struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 {
 	struct Scsi_Host *shost;
-	int gfp_mask = GFP_KERNEL, rval;
+	gfp_t gfp_mask = GFP_KERNEL;
+	int rval;
 
 	if (sht->unchecked_isa_dma && privsize)
 		gfp_mask |= __GFP_DMA;
@@ -318,7 +320,7 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 	INIT_LIST_HEAD(&shost->starved_list);
 	init_waitqueue_head(&shost->host_wait);
 
-	init_MUTEX(&shost->scan_mutex);
+	mutex_init(&shost->scan_mutex);
 
 	shost->host_no = scsi_host_next_hn++; /* XXX(hch): still racy */
 	shost->dma_channel = 0xff;
@@ -345,16 +347,7 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 	shost->cmd_per_lun = sht->cmd_per_lun;
 	shost->unchecked_isa_dma = sht->unchecked_isa_dma;
 	shost->use_clustering = sht->use_clustering;
-	shost->ordered_flush = sht->ordered_flush;
 	shost->ordered_tag = sht->ordered_tag;
-
-	/*
-	 * hosts/devices that do queueing must support ordered tags
-	 */
-	if (shost->can_queue > 1 && shost->ordered_flush) {
-		printk(KERN_ERR "scsi: ordered flushes don't support queueing\n");
-		shost->ordered_flush = 0;
-	}
 
 	if (sht->max_host_blocked)
 		shost->max_host_blocked = sht->max_host_blocked;

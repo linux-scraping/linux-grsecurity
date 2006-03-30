@@ -113,7 +113,7 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 		desc = (void *)desc + (seg & ~7);
 	} else {
 		/* Must disable preemption while reading the GDT. */
-		desc = (u32 *)&cpu_gdt_table[get_cpu()];
+		desc = (u32 *)get_cpu_gdt_table(get_cpu());
 		desc = (void *)desc + (seg & ~7);
 	}
 
@@ -224,8 +224,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs);
 #endif
 
 #ifdef CONFIG_PAX_PAGEEXEC
-/* PaX: called with the page_table_lock spinlock held */
-static inline pte_t * pax_get_pte(struct mm_struct *mm, unsigned long address)
+static inline pmd_t * pax_get_pmd(struct mm_struct *mm, unsigned long address)
 {
 	pgd_t *pgd;
 	pud_t *pud;
@@ -240,7 +239,7 @@ static inline pte_t * pax_get_pte(struct mm_struct *mm, unsigned long address)
 	pmd = pmd_offset(pud, address);
 	if (!pmd_present(*pmd))
 		return NULL;
-	return pte_offset_map(pmd, address);
+	return pmd;
 }
 #endif
 
@@ -264,7 +263,9 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	int write, si_code;
 
 #ifdef CONFIG_PAX_PAGEEXEC
+	pmd_t *pmd;
 	pte_t *pte;
+	spinlock_t *ptl;
 	unsigned char pte_mask;
 #endif
 
@@ -313,6 +314,28 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	if (in_atomic() || !mm)
 		goto bad_area_nopax;
 
+	/* When running in the kernel we expect faults to occur only to
+	 * addresses in user space.  All other faults represent errors in the
+	 * kernel and should generate an OOPS.  Unfortunatly, in the case of an
+	 * erroneous fault occuring in a code path which already holds mmap_sem
+	 * we will deadlock attempting to validate the fault against the
+	 * address space.  Luckily the kernel only validly references user
+	 * space from well defined areas of code, which are listed in the
+	 * exceptions table.
+	 *
+	 * As the vast majority of faults will be valid we will only perform
+	 * the source reference check when there is a possibilty of a deadlock.
+	 * Attempt to lock the address space, if we cannot we then validate the
+	 * source.  If this is invalid we can skip the address space check,
+	 * thus avoiding the deadlock.
+	 */
+	if (!down_read_trylock(&mm->mmap_sem)) {
+		if ((error_code & 4) == 0 &&
+		    !search_exception_tables(regs->eip))
+			goto bad_area_nopax;
+		down_read(&mm->mmap_sem);
+	}
+
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (unlikely((error_code & 5) != 5 ||
 		     (regs->eflags & X86_EFLAGS_VM) ||
@@ -324,6 +347,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	/* PaX: take a look at read faults before acquiring any locks */
 	if (unlikely(!(error_code & 2) && (regs->eip == address))) {
 		/* instruction fetch attempt from a protected page in user mode */
+		up_read(&mm->mmap_sem);
 		switch (pax_handle_fetch_fault(regs)) {
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -336,18 +360,19 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		do_exit(SIGKILL);
 	}
 
-	spin_lock(&mm->page_table_lock);
-	pte = pax_get_pte(mm, address);
-	if (unlikely(!pte || !(pte_val(*pte) & _PAGE_PRESENT) || pte_user(*pte))) {
-		pte_unmap(pte);
-		spin_unlock(&mm->page_table_lock);
+	pmd = pax_get_pmd(mm, address);
+	if (unlikely(!pmd))
+		goto not_pax_fault;
+
+	pte = pte_offset_map_lock(mm, pmd, address, &ptl);
+	if (unlikely(!(pte_val(*pte) & _PAGE_PRESENT) || pte_user(*pte))) {
+		pte_unmap_unlock(pte, ptl);
 		goto not_pax_fault;
 	}
 
 	if (unlikely((error_code & 2) && !pte_write(*pte))) {
 		/* write attempt to a protected page in user mode */
-		pte_unmap(pte);
-		spin_unlock(&mm->page_table_lock);
+		pte_unmap_unlock(pte, ptl);
 		goto not_pax_fault;
 	}
 
@@ -359,8 +384,8 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	{
 		set_pte(pte, pte_mkread(*pte));
 		__flush_tlb_one(address);
-		pte_unmap(pte);
-		spin_unlock(&mm->page_table_lock);
+		pte_unmap_unlock(pte, ptl);
+		up_read(&mm->mmap_sem);
 		return;
 	}
 
@@ -392,34 +417,12 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		:
 		: "m" (*(char*)address), "m" (*(char*)pte), "q" (pte_mask), "i" (_PAGE_USER)
 		: "memory", "cc");
-	pte_unmap(pte);
-	spin_unlock(&mm->page_table_lock);
+	pte_unmap_unlock(pte, ptl);
+	up_read(&mm->mmap_sem);
 	return;
 
 not_pax_fault:
 #endif
-
-	/* When running in the kernel we expect faults to occur only to
-	 * addresses in user space.  All other faults represent errors in the
-	 * kernel and should generate an OOPS.  Unfortunatly, in the case of an
-	 * erroneous fault occuring in a code path which already holds mmap_sem
-	 * we will deadlock attempting to validate the fault against the
-	 * address space.  Luckily the kernel only validly references user
-	 * space from well defined areas of code, which are listed in the
-	 * exceptions table.
-	 *
-	 * As the vast majority of faults will be valid we will only perform
-	 * the source reference check when there is a possibilty of a deadlock.
-	 * Attempt to lock the address space, if we cannot we then validate the
-	 * source.  If this is invalid we can skip the address space check,
-	 * thus avoiding the deadlock.
-	 */
-	if (!down_read_trylock(&mm->mmap_sem)) {
-		if ((error_code & 4) == 0 &&
-		    !search_exception_tables(regs->eip))
-			goto bad_area_nopax;
-		down_read(&mm->mmap_sem);
-	}
 
 	vma = find_vma(mm, address);
 	if (!vma)
@@ -607,14 +610,12 @@ no_context:
 #else
 	else if (init_mm.start_code <= address && address < init_mm.end_code)
 #endif
-	{
 		if (tsk->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
 					 NIPQUAD(tsk->signal->curr_ip), tsk->comm, tsk->pid, tsk->uid, tsk->euid);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
 					 tsk->comm, tsk->pid, tsk->uid, tsk->euid);
-	}
 #endif
 
 	else

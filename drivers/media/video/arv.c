@@ -22,7 +22,6 @@
 #include <linux/init.h>
 #include <linux/devfs_fs_kernel.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
@@ -130,9 +129,9 @@ static unsigned char	yuv[MAX_AR_FRAME_BYTES];
 static int freq = DEFAULT_FREQ;	/* BCLK: available 50 or 70 (MHz) */
 static int vga = 0;		/* default mode(0:QVGA mode, other:VGA mode) */
 static int vga_interlace = 0;	/* 0 is normal mode for, else interlace mode */
-MODULE_PARM(freq, "i");
-MODULE_PARM(vga, "i");
-MODULE_PARM(vga_interlace, "i");
+module_param(freq, int, 0);
+module_param(vga, int, 0);
+module_param(vga_interlace, int, 0);
 
 static int ar_initialize(struct video_device *dev);
 
@@ -750,6 +749,7 @@ static struct file_operations ar_fops = {
 	.release	= video_exclusive_release,
 	.read		= ar_read,
 	.ioctl		= ar_ioctl,
+	.compat_ioctl	= v4l_compat_ioctl32,
 	.llseek		= no_llseek,
 };
 
@@ -865,10 +865,8 @@ out_dev:
 
 out_irq:
 #endif
-	for (i = 0; i < MAX_AR_HEIGHT; i++) {
-		if (ar->frame[i])
-			kfree(ar->frame[i]);
-	}
+	for (i = 0; i < MAX_AR_HEIGHT; i++)
+		kfree(ar->frame[i]);
 
 out_line_buff:
 #if USE_INT
@@ -899,10 +897,8 @@ static void __exit ar_cleanup_module(void)
 #if USE_INT
 	free_irq(M32R_IRQ_INT3, ar);
 #endif
-	for (i = 0; i < MAX_AR_HEIGHT; i++) {
-		if (ar->frame[i])
-			kfree(ar->frame[i]);
-	}
+	for (i = 0; i < MAX_AR_HEIGHT; i++)
+		kfree(ar->frame[i]);
 #if USE_INT
 	kfree(ar->line_buff);
 #endif

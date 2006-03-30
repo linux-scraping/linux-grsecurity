@@ -26,6 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/jiffies.h>
+#include <asm/div64.h>
 
 #include "dvb_frontend.h"
 #include "s5h1420.h"
@@ -492,7 +494,7 @@ static int s5h1420_getfreqoffset(struct s5h1420_state* state)
 }
 
 static void s5h1420_setfec_inversion(struct s5h1420_state* state,
-			   	     struct dvb_frontend_parameters *p)
+				     struct dvb_frontend_parameters *p)
 {
 	u8 inversion = 0;
 
@@ -519,8 +521,8 @@ static void s5h1420_setfec_inversion(struct s5h1420_state* state,
 
 		case FEC_3_4:
 			s5h1420_writereg(state, 0x30, 0x04);
-                        s5h1420_writereg(state, 0x31, 0x12 | inversion);
-                        break;
+			s5h1420_writereg(state, 0x31, 0x12 | inversion);
+			break;
 
 		case FEC_5_6:
 			s5h1420_writereg(state, 0x30, 0x08);

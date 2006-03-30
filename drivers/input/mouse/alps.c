@@ -40,9 +40,10 @@ static struct alps_model_info alps_model_data[] = {
 	{ { 0x33, 0x02, 0x0a },	0x88, 0xf8, ALPS_OLDPROTO },		/* UMAX-530T */
 	{ { 0x53, 0x02, 0x0a },	0xf8, 0xf8, 0 },
 	{ { 0x53, 0x02, 0x14 },	0xf8, 0xf8, 0 },
+	{ { 0x60, 0x03, 0xc8 }, 0xf8, 0xf8, 0 },			/* HP ze1115 */
 	{ { 0x63, 0x02, 0x0a },	0xf8, 0xf8, 0 },
 	{ { 0x63, 0x02, 0x14 },	0xf8, 0xf8, 0 },
-	{ { 0x63, 0x02, 0x28 },	0xf8, 0xf8, 0 },
+	{ { 0x63, 0x02, 0x28 },	0xf8, 0xf8, ALPS_FW_BK_2 },		/* Fujitsu Siemens S6010 */
 	{ { 0x63, 0x02, 0x3c },	0x8f, 0x8f, ALPS_WHEEL },		/* Toshiba Satellite S2400-103 */
 	{ { 0x63, 0x02, 0x50 },	0xef, 0xef, ALPS_FW_BK_1 },		/* NEC Versa L320 */
 	{ { 0x63, 0x02, 0x64 },	0xf8, 0xf8, 0 },
@@ -79,8 +80,8 @@ static void alps_process_packet(struct psmouse *psmouse, struct pt_regs *regs)
 {
 	struct alps_data *priv = psmouse->private;
 	unsigned char *packet = psmouse->packet;
-	struct input_dev *dev = &psmouse->dev;
-	struct input_dev *dev2 = &priv->dev2;
+	struct input_dev *dev = psmouse->dev;
+	struct input_dev *dev2 = priv->dev2;
 	int x, y, z, ges, fin, left, right, middle;
 	int back = 0, forward = 0;
 
@@ -347,6 +348,40 @@ static int alps_tap_mode(struct psmouse *psmouse, int enable)
 	return 0;
 }
 
+/*
+ * alps_poll() - poll the touchpad for current motion packet.
+ * Used in resync.
+ */
+static int alps_poll(struct psmouse *psmouse)
+{
+	struct alps_data *priv = psmouse->private;
+	unsigned char buf[6];
+	int poll_failed;
+
+	if (priv->i->flags & ALPS_PASS)
+		alps_passthrough_mode(psmouse, 1);
+
+	poll_failed = ps2_command(&psmouse->ps2dev, buf,
+				  PSMOUSE_CMD_POLL | (psmouse->pktsize << 8)) < 0;
+
+	if (priv->i->flags & ALPS_PASS)
+		alps_passthrough_mode(psmouse, 0);
+
+	if (poll_failed || (buf[0] & priv->i->mask0) != priv->i->byte0)
+		return -1;
+
+	if ((psmouse->badbyte & 0xc8) == 0x08) {
+/*
+ * Poll the track stick ...
+ */
+		if (ps2_command(&psmouse->ps2dev, buf, PSMOUSE_CMD_POLL | (3 << 8)))
+			return -1;
+	}
+
+	memcpy(psmouse->packet, buf, sizeof(buf));
+	return 0;
+}
+
 static int alps_reconnect(struct psmouse *psmouse)
 {
 	struct alps_data *priv = psmouse->private;
@@ -379,20 +414,24 @@ static int alps_reconnect(struct psmouse *psmouse)
 static void alps_disconnect(struct psmouse *psmouse)
 {
 	struct alps_data *priv = psmouse->private;
+
 	psmouse_reset(psmouse);
-	input_unregister_device(&priv->dev2);
+	input_unregister_device(priv->dev2);
 	kfree(priv);
 }
 
 int alps_init(struct psmouse *psmouse)
 {
 	struct alps_data *priv;
+	struct input_dev *dev1 = psmouse->dev, *dev2;
 	int version;
 
-	psmouse->private = priv = kmalloc(sizeof(struct alps_data), GFP_KERNEL);
-	if (!priv)
+	psmouse->private = priv = kzalloc(sizeof(struct alps_data), GFP_KERNEL);
+	dev2 = input_allocate_device();
+	if (!priv || !dev2)
 		goto init_fail;
-	memset(priv, 0, sizeof(struct alps_data));
+
+	priv->dev2 = dev2;
 
 	if (!(priv->i = alps_get_model(psmouse, &version)))
 		goto init_fail;
@@ -411,50 +450,53 @@ int alps_init(struct psmouse *psmouse)
 	if ((priv->i->flags & ALPS_PASS) && alps_passthrough_mode(psmouse, 0))
 		goto init_fail;
 
-	psmouse->dev.evbit[LONG(EV_KEY)] |= BIT(EV_KEY);
-	psmouse->dev.keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);
-	psmouse->dev.keybit[LONG(BTN_TOOL_FINGER)] |= BIT(BTN_TOOL_FINGER);
-	psmouse->dev.keybit[LONG(BTN_LEFT)] |= BIT(BTN_LEFT) | BIT(BTN_MIDDLE) | BIT(BTN_RIGHT);
+	dev1->evbit[LONG(EV_KEY)] |= BIT(EV_KEY);
+	dev1->keybit[LONG(BTN_TOUCH)] |= BIT(BTN_TOUCH);
+	dev1->keybit[LONG(BTN_TOOL_FINGER)] |= BIT(BTN_TOOL_FINGER);
+	dev1->keybit[LONG(BTN_LEFT)] |= BIT(BTN_LEFT) | BIT(BTN_MIDDLE) | BIT(BTN_RIGHT);
 
-	psmouse->dev.evbit[LONG(EV_ABS)] |= BIT(EV_ABS);
-	input_set_abs_params(&psmouse->dev, ABS_X, 0, 1023, 0, 0);
-	input_set_abs_params(&psmouse->dev, ABS_Y, 0, 767, 0, 0);
-	input_set_abs_params(&psmouse->dev, ABS_PRESSURE, 0, 127, 0, 0);
+	dev1->evbit[LONG(EV_ABS)] |= BIT(EV_ABS);
+	input_set_abs_params(dev1, ABS_X, 0, 1023, 0, 0);
+	input_set_abs_params(dev1, ABS_Y, 0, 767, 0, 0);
+	input_set_abs_params(dev1, ABS_PRESSURE, 0, 127, 0, 0);
 
 	if (priv->i->flags & ALPS_WHEEL) {
-		psmouse->dev.evbit[LONG(EV_REL)] |= BIT(EV_REL);
-		psmouse->dev.relbit[LONG(REL_WHEEL)] |= BIT(REL_WHEEL);
+		dev1->evbit[LONG(EV_REL)] |= BIT(EV_REL);
+		dev1->relbit[LONG(REL_WHEEL)] |= BIT(REL_WHEEL);
 	}
 
 	if (priv->i->flags & (ALPS_FW_BK_1 | ALPS_FW_BK_2)) {
-		psmouse->dev.keybit[LONG(BTN_FORWARD)] |= BIT(BTN_FORWARD);
-		psmouse->dev.keybit[LONG(BTN_BACK)] |= BIT(BTN_BACK);
+		dev1->keybit[LONG(BTN_FORWARD)] |= BIT(BTN_FORWARD);
+		dev1->keybit[LONG(BTN_BACK)] |= BIT(BTN_BACK);
 	}
 
 	sprintf(priv->phys, "%s/input1", psmouse->ps2dev.serio->phys);
-	priv->dev2.phys = priv->phys;
-	priv->dev2.name = (priv->i->flags & ALPS_DUALPOINT) ? "DualPoint Stick" : "PS/2 Mouse";
-	priv->dev2.id.bustype = BUS_I8042;
-	priv->dev2.id.vendor = 0x0002;
-	priv->dev2.id.product = PSMOUSE_ALPS;
-	priv->dev2.id.version = 0x0000;
+	dev2->phys = priv->phys;
+	dev2->name = (priv->i->flags & ALPS_DUALPOINT) ? "DualPoint Stick" : "PS/2 Mouse";
+	dev2->id.bustype = BUS_I8042;
+	dev2->id.vendor  = 0x0002;
+	dev2->id.product = PSMOUSE_ALPS;
+	dev2->id.version = 0x0000;
 
-	priv->dev2.evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
-	priv->dev2.relbit[LONG(REL_X)] |= BIT(REL_X) | BIT(REL_Y);
-	priv->dev2.keybit[LONG(BTN_LEFT)] |= BIT(BTN_LEFT) | BIT(BTN_MIDDLE) | BIT(BTN_RIGHT);
+	dev2->evbit[0] = BIT(EV_KEY) | BIT(EV_REL);
+	dev2->relbit[LONG(REL_X)] |= BIT(REL_X) | BIT(REL_Y);
+	dev2->keybit[LONG(BTN_LEFT)] |= BIT(BTN_LEFT) | BIT(BTN_MIDDLE) | BIT(BTN_RIGHT);
 
-	input_register_device(&priv->dev2);
-
-	printk(KERN_INFO "input: %s on %s\n", priv->dev2.name, psmouse->ps2dev.serio->phys);
+	input_register_device(priv->dev2);
 
 	psmouse->protocol_handler = alps_process_byte;
+	psmouse->poll = alps_poll;
 	psmouse->disconnect = alps_disconnect;
 	psmouse->reconnect = alps_reconnect;
 	psmouse->pktsize = 6;
 
+	/* We are having trouble resyncing ALPS touchpads so disable it for now */
+	psmouse->resync_time = 0;
+
 	return 0;
 
 init_fail:
+	input_free_device(dev2);
 	kfree(priv);
 	return -1;
 }

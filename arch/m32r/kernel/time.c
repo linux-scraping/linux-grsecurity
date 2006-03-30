@@ -39,10 +39,6 @@ extern void send_IPI_allbutself(int, int);
 extern void smp_local_timer_interrupt(struct pt_regs *);
 #endif
 
-u64 jiffies_64 = INITIAL_JIFFIES;
-
-EXPORT_SYMBOL(jiffies_64);
-
 extern unsigned long wall_jiffies;
 #define TICK_SIZE	(tick_nsec / 1000)
 
@@ -61,7 +57,7 @@ static unsigned long do_gettimeoffset(void)
 
 #if defined(CONFIG_CHIP_M32102) || defined(CONFIG_CHIP_XNUX2) \
 	|| defined(CONFIG_CHIP_VDEC2) || defined(CONFIG_CHIP_M32700) \
-	|| defined(CONFIG_CHIP_OPSP)
+	|| defined(CONFIG_CHIP_OPSP) || defined(CONFIG_CHIP_M32104)
 #ifndef CONFIG_SMP
 
 	unsigned long count;
@@ -272,7 +268,7 @@ void __init time_init(void)
 
 #if defined(CONFIG_CHIP_M32102) || defined(CONFIG_CHIP_XNUX2) \
 	|| defined(CONFIG_CHIP_VDEC2) || defined(CONFIG_CHIP_M32700) \
-	|| defined(CONFIG_CHIP_OPSP)
+	|| defined(CONFIG_CHIP_OPSP) || defined(CONFIG_CHIP_M32104)
 
 	/* M32102 MFT setup */
 	setup_irq(M32R_IRQ_MFT2, &irq0);

@@ -37,12 +37,6 @@
 extern void init_mmu(void);
 #endif
 
-#if defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_HD)	\
-	|| defined(CONFIG_BLK_DEV_IDE_MODULE)			\
-	|| defined(CONFIG_BLK_DEV_HD_MODULE)
-struct drive_info_struct { char dummy[32]; } drive_info;
-#endif
-
 extern char _end[];
 
 /*
@@ -305,41 +299,46 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_printf(m, "processor\t: %ld\n", cpu);
 
-#ifdef CONFIG_CHIP_VDEC2
+#if defined(CONFIG_CHIP_VDEC2)
 	seq_printf(m, "cpu family\t: VDEC2\n"
 		"cache size\t: Unknown\n");
-#elif  CONFIG_CHIP_M32700
+#elif defined(CONFIG_CHIP_M32700)
 	seq_printf(m,"cpu family\t: M32700\n"
 		"cache size\t: I-8KB/D-8KB\n");
-#elif  CONFIG_CHIP_M32102
+#elif defined(CONFIG_CHIP_M32102)
 	seq_printf(m,"cpu family\t: M32102\n"
 		"cache size\t: I-8KB\n");
-#elif  CONFIG_CHIP_OPSP
+#elif defined(CONFIG_CHIP_OPSP)
 	seq_printf(m,"cpu family\t: OPSP\n"
 		"cache size\t: I-8KB/D-8KB\n");
-#elif  CONFIG_CHIP_MP
+#elif defined(CONFIG_CHIP_MP)
 	seq_printf(m, "cpu family\t: M32R-MP\n"
 		"cache size\t: I-xxKB/D-xxKB\n");
+#elif  defined(CONFIG_CHIP_M32104)
+	seq_printf(m,"cpu family\t: M32104\n"
+		"cache size\t: I-8KB/D-8KB\n");
 #else
 	seq_printf(m, "cpu family\t: Unknown\n");
 #endif
 	seq_printf(m, "bogomips\t: %lu.%02lu\n",
 		c->loops_per_jiffy/(500000/HZ),
 		(c->loops_per_jiffy/(5000/HZ)) % 100);
-#ifdef CONFIG_PLAT_MAPPI
+#if defined(CONFIG_PLAT_MAPPI)
 	seq_printf(m, "Machine\t\t: Mappi Evaluation board\n");
-#elif CONFIG_PLAT_MAPPI2
+#elif defined(CONFIG_PLAT_MAPPI2)
 	seq_printf(m, "Machine\t\t: Mappi-II Evaluation board\n");
-#elif CONFIG_PLAT_MAPPI3
+#elif defined(CONFIG_PLAT_MAPPI3)
 	seq_printf(m, "Machine\t\t: Mappi-III Evaluation board\n");
-#elif  CONFIG_PLAT_M32700UT
+#elif defined(CONFIG_PLAT_M32700UT)
 	seq_printf(m, "Machine\t\t: M32700UT Evaluation board\n");
-#elif  CONFIG_PLAT_OPSPUT
+#elif defined(CONFIG_PLAT_OPSPUT)
 	seq_printf(m, "Machine\t\t: OPSPUT Evaluation board\n");
-#elif  CONFIG_PLAT_USRV
+#elif defined(CONFIG_PLAT_USRV)
 	seq_printf(m, "Machine\t\t: uServer\n");
-#elif  CONFIG_PLAT_OAKS32R
+#elif defined(CONFIG_PLAT_OAKS32R)
 	seq_printf(m, "Machine\t\t: OAKS32R\n");
+#elif  defined(CONFIG_PLAT_M32104UT)
+	seq_printf(m, "Machine\t\t: M3T-M32104UT uT Engine board\n");
 #else
 	seq_printf(m, "Machine\t\t: Unknown\n");
 #endif
@@ -389,7 +388,7 @@ unsigned long cpu_initialized __initdata = 0;
  */
 #if defined(CONFIG_CHIP_VDEC2) || defined(CONFIG_CHIP_XNUX2)	\
 	|| defined(CONFIG_CHIP_M32700) || defined(CONFIG_CHIP_M32102) \
-	|| defined(CONFIG_CHIP_OPSP)
+	|| defined(CONFIG_CHIP_OPSP) || defined(CONFIG_CHIP_M32104)
 void __init cpu_init (void)
 {
 	int cpu_id = smp_processor_id();

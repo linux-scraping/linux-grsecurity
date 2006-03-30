@@ -24,7 +24,7 @@
 
 DECLARE_MUTEX(pm_sem);
 
-struct pm_ops * pm_ops = NULL;
+struct pm_ops *pm_ops;
 suspend_disk_method_t pm_disk_mode = PM_DISK_SHUTDOWN;
 
 /**
@@ -133,10 +133,10 @@ static int suspend_enter(suspend_state_t state)
 static void suspend_finish(suspend_state_t state)
 {
 	device_resume();
-	if (pm_ops && pm_ops->finish)
-		pm_ops->finish(state);
 	thaw_processes();
 	enable_nonboot_cpus();
+	if (pm_ops && pm_ops->finish)
+		pm_ops->finish(state);
 	pm_restore_console();
 }
 
@@ -150,6 +150,18 @@ static char *pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_DISK]	= "disk",
 #endif
 };
+
+static inline int valid_state(suspend_state_t state)
+{
+	/* Suspend-to-disk does not really need low-level support.
+	 * It can work with reboot if needed. */
+	if (state == PM_SUSPEND_DISK)
+		return 1;
+
+	if (pm_ops && pm_ops->valid && !pm_ops->valid(state))
+		return 0;
+	return 1;
+}
 
 
 /**
@@ -167,6 +179,8 @@ static int enter_state(suspend_state_t state)
 {
 	int error;
 
+	if (!valid_state(state))
+		return -ENODEV;
 	if (down_trylock(&pm_sem))
 		return -EBUSY;
 
@@ -236,8 +250,8 @@ static ssize_t state_show(struct subsystem * subsys, char * buf)
 	char * s = buf;
 
 	for (i = 0; i < PM_SUSPEND_MAX; i++) {
-		if (pm_states[i])
-			s += sprintf(s,"%s ",pm_states[i]);
+		if (pm_states[i] && valid_state(i))
+			s += sprintf(s,"%s ", pm_states[i]);
 	}
 	s += sprintf(s,"\n");
 	return (s - buf);

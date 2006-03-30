@@ -33,6 +33,7 @@
 #include <linux/list.h>
 #include <linux/writeback.h>
 #include <linux/inotify.h>
+#include <linux/syscalls.h>
 
 #include <asm/ioctls.h>
 
@@ -364,15 +365,16 @@ static int inotify_dev_get_wd(struct inotify_device *dev,
 /*
  * find_inode - resolve a user-given path to a specific inode and return a nd
  */
-static int find_inode(const char __user *dirname, struct nameidata *nd)
+static int find_inode(const char __user *dirname, struct nameidata *nd,
+		      unsigned flags)
 {
 	int error;
 
-	error = __user_walk(dirname, LOOKUP_FOLLOW, nd);
+	error = __user_walk(dirname, flags, nd);
 	if (error)
 		return error;
 	/* you can only watch an inode if you have read permissions on it */
-	error = permission(nd->dentry->d_inode, MAY_READ, NULL);
+	error = vfs_permission(nd, MAY_READ);
 	if (error) 
 		path_release(nd);
 	return error;
@@ -933,6 +935,7 @@ asmlinkage long sys_inotify_add_watch(int fd, const char __user *path, u32 mask)
 	struct file *filp;
 	int ret, fput_needed;
 	int mask_add = 0;
+	unsigned flags = 0;
 
 	filp = fget_light(fd, &fput_needed);
 	if (unlikely(!filp))
@@ -944,7 +947,12 @@ asmlinkage long sys_inotify_add_watch(int fd, const char __user *path, u32 mask)
 		goto fput_and_out;
 	}
 
-	ret = find_inode(path, &nd);
+	if (!(mask & IN_DONT_FOLLOW))
+		flags |= LOOKUP_FOLLOW;
+	if (mask & IN_ONLYDIR)
+		flags |= LOOKUP_DIRECTORY;
+
+	ret = find_inode(path, &nd, flags);
 	if (unlikely(ret))
 		goto fput_and_out;
 
@@ -959,7 +967,7 @@ asmlinkage long sys_inotify_add_watch(int fd, const char __user *path, u32 mask)
 		mask_add = 1;
 
 	/* don't let user-space set invalid bits: we don't want flags set */
-	mask &= IN_ALL_EVENTS;
+	mask &= IN_ALL_EVENTS | IN_ONESHOT;
 	if (unlikely(!mask)) {
 		ret = -EINVAL;
 		goto out;

@@ -14,11 +14,7 @@
 typedef struct pbe {
 	unsigned long address;		/* address of the copy */
 	unsigned long orig_address;	/* original address of page */
-	swp_entry_t swap_address;	
-
-	struct pbe *next;	/* also used as scratch space at
-				 * end of page (see link, diskpage)
-				 */
+	struct pbe *next;
 } suspend_pagedir_t;
 
 #define for_each_pbe(pbe, pblist) \
@@ -47,16 +43,20 @@ extern void mark_free_pages(struct zone *zone);
 /* kernel/power/swsusp.c */
 extern int software_suspend(void);
 
+#if defined(CONFIG_VT) && defined(CONFIG_VT_CONSOLE)
 extern int pm_prepare_console(void);
 extern void pm_restore_console(void);
-
+#else
+static inline int pm_prepare_console(void) { return 0; }
+static inline void pm_restore_console(void) {}
+#endif /* defined(CONFIG_VT) && defined(CONFIG_VT_CONSOLE) */
 #else
 static inline int software_suspend(void)
 {
 	printk("Warning: fake suspend called\n");
 	return -EPERM;
 }
-#endif
+#endif /* CONFIG_PM */
 
 #ifdef CONFIG_SUSPEND_SMP
 extern void disable_nonboot_cpus(void);
@@ -71,7 +71,12 @@ void restore_processor_state(void);
 struct saved_context;
 void __save_processor_state(struct saved_context *ctxt);
 void __restore_processor_state(struct saved_context *ctxt);
-extern unsigned long get_usable_page(unsigned gfp_mask);
-extern void free_eaten_memory(void);
+unsigned long get_safe_page(gfp_t gfp_mask);
+
+/*
+ * XXX: We try to keep some more pages free so that I/O operations succeed
+ * without paging. Might this be more?
+ */
+#define PAGES_FOR_IO	1024
 
 #endif /* _LINUX_SWSUSP_H */

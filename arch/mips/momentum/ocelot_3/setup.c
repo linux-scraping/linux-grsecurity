@@ -57,6 +57,8 @@
 #include <linux/timex.h>
 #include <linux/bootmem.h>
 #include <linux/mv643xx.h>
+#include <linux/pm.h>
+
 #include <asm/time.h>
 #include <asm/page.h>
 #include <asm/bootinfo.h>
@@ -135,7 +137,9 @@ void setup_wired_tlb_entries(void)
 unsigned long m48t37y_get_time(void)
 {
 	unsigned int year, month, day, hour, min, sec;
+	unsigned long flags;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* stop the update */
 	rtc_base[0x7ff8] = 0x40;
 
@@ -152,6 +156,7 @@ unsigned long m48t37y_get_time(void)
 
 	/* start the update */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return mktime(year, month, day, hour, min, sec);
 }
@@ -159,11 +164,13 @@ unsigned long m48t37y_get_time(void)
 int m48t37y_set_time(unsigned long sec)
 {
 	struct rtc_time tm;
+	unsigned long flags;
 
 	/* convert to a more useful format -- note months count from 0 */
 	to_tm(sec, &tm);
 	tm.tm_mon += 1;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* enable writing */
 	rtc_base[0x7ff8] = 0x80;
 
@@ -187,6 +194,7 @@ int m48t37y_set_time(unsigned long sec)
 
 	/* disable writing */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return 0;
 }
@@ -307,7 +315,7 @@ static __init int __init ja_pci_init(void)
 
 arch_initcall(ja_pci_init);
 
-static int __init momenco_ocelot_3_setup(void)
+void __init plat_setup(void)
 {
 	unsigned int tmpword;
 
@@ -315,7 +323,7 @@ static int __init momenco_ocelot_3_setup(void)
 
 	_machine_restart = momenco_ocelot_restart;
 	_machine_halt = momenco_ocelot_halt;
-	_machine_power_off = momenco_ocelot_power_off;
+	pm_power_off = momenco_ocelot_power_off;
 
 	/* Wired TLB entries */
 	setup_wired_tlb_entries();
@@ -391,8 +399,4 @@ static int __init momenco_ocelot_3_setup(void)
 
 	/* Support for 128 MB memory */
 	add_memory_region(0x0, 0x08000000, BOOT_MEM_RAM);
-
-	return 0;
 }
-
-early_initcall(momenco_ocelot_3_setup);

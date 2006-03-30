@@ -19,6 +19,7 @@
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
+#include <linux/clk.h>
 
 #include <asm/delay.h>
 #include <asm/io.h>
@@ -29,8 +30,6 @@
 #include <asm/arch/irqs.h>
 #include <asm/arch/dsp_common.h>
 #include <asm/arch/mcbsp.h>
-
-#include <asm/hardware/clock.h>
 
 #ifdef CONFIG_MCBSP_DEBUG
 #define DBG(x...)	printk(x)
@@ -191,11 +190,11 @@ static int omap_mcbsp_check(unsigned int id)
 static void omap_mcbsp_dsp_request(void)
 {
 	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
-		clk_use(mcbsp_dsp_ck);
-		clk_use(mcbsp_api_ck);
+		clk_enable(mcbsp_dsp_ck);
+		clk_enable(mcbsp_api_ck);
 
 		/* enable 12MHz clock to mcbsp 1 & 3 */
-		clk_use(mcbsp_dspxor_ck);
+		clk_enable(mcbsp_dspxor_ck);
 
 		/*
 		 * DSP external peripheral reset
@@ -209,9 +208,9 @@ static void omap_mcbsp_dsp_request(void)
 static void omap_mcbsp_dsp_free(void)
 {
 	if (cpu_is_omap1510() || cpu_is_omap16xx()) {
-		clk_unuse(mcbsp_dspxor_ck);
-		clk_unuse(mcbsp_dsp_ck);
-		clk_unuse(mcbsp_api_ck);
+		clk_disable(mcbsp_dspxor_ck);
+		clk_disable(mcbsp_dsp_ck);
+		clk_disable(mcbsp_api_ck);
 	}
 }
 
@@ -491,17 +490,20 @@ int omap_mcbsp_xmit_buffer(unsigned int id, dma_addr_t buffer, unsigned int leng
 	omap_set_dma_transfer_params(mcbsp[id].dma_tx_lch,
 				     OMAP_DMA_DATA_TYPE_S16,
 				     length >> 1, 1,
-				     OMAP_DMA_SYNC_ELEMENT);
+				     OMAP_DMA_SYNC_ELEMENT,
+				     0, 0);
 
 	omap_set_dma_dest_params(mcbsp[id].dma_tx_lch,
 				 OMAP_DMA_PORT_TIPB,
 				 OMAP_DMA_AMODE_CONSTANT,
-				 mcbsp[id].io_base + OMAP_MCBSP_REG_DXR1);
+				 mcbsp[id].io_base + OMAP_MCBSP_REG_DXR1,
+				 0, 0);
 
 	omap_set_dma_src_params(mcbsp[id].dma_tx_lch,
 				OMAP_DMA_PORT_EMIFF,
 				OMAP_DMA_AMODE_POST_INC,
-				buffer);
+				buffer,
+				0, 0);
 
 	omap_start_dma(mcbsp[id].dma_tx_lch);
 	wait_for_completion(&(mcbsp[id].tx_dma_completion));
@@ -531,17 +533,20 @@ int omap_mcbsp_recv_buffer(unsigned int id, dma_addr_t buffer, unsigned int leng
 	omap_set_dma_transfer_params(mcbsp[id].dma_rx_lch,
 				     OMAP_DMA_DATA_TYPE_S16,
 				     length >> 1, 1,
-				     OMAP_DMA_SYNC_ELEMENT);
+				     OMAP_DMA_SYNC_ELEMENT,
+				     0, 0);
 
 	omap_set_dma_src_params(mcbsp[id].dma_rx_lch,
 				OMAP_DMA_PORT_TIPB,
 				OMAP_DMA_AMODE_CONSTANT,
-				mcbsp[id].io_base + OMAP_MCBSP_REG_DRR1);
+				mcbsp[id].io_base + OMAP_MCBSP_REG_DRR1,
+				0, 0);
 
 	omap_set_dma_dest_params(mcbsp[id].dma_rx_lch,
 				 OMAP_DMA_PORT_EMIFF,
 				 OMAP_DMA_AMODE_POST_INC,
-				 buffer);
+				 buffer,
+				 0, 0);
 
 	omap_start_dma(mcbsp[id].dma_rx_lch);
 	wait_for_completion(&(mcbsp[id].rx_dma_completion));
@@ -643,7 +648,7 @@ static const struct omap_mcbsp_info mcbsp_730[] = {
 };
 #endif
 
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 static const struct omap_mcbsp_info mcbsp_1510[] = {
 	[0] = { .virt_base = OMAP1510_MCBSP1_BASE,
 		.dma_rx_sync = OMAP_DMA_MCBSP1_RX,
@@ -712,7 +717,7 @@ static int __init omap_mcbsp_init(void)
 		mcbsp_count = ARRAY_SIZE(mcbsp_730);
 	}
 #endif
-#ifdef CONFIG_ARCH_OMAP1510
+#ifdef CONFIG_ARCH_OMAP15XX
 	if (cpu_is_omap1510()) {
 		mcbsp_info = mcbsp_1510;
 		mcbsp_count = ARRAY_SIZE(mcbsp_1510);

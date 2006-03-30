@@ -33,7 +33,7 @@ void fat_fs_panic(struct super_block *s, const char *fmt, ...)
 	}
 }
 
-EXPORT_SYMBOL(fat_fs_panic);
+EXPORT_SYMBOL_GPL(fat_fs_panic);
 
 /* Flushes the number of free clusters on FAT32 */
 /* XXX: Need to write one per FSINFO block.  Currently only writes 1 */
@@ -67,8 +67,6 @@ void fat_clusters_flush(struct super_block *sb)
 		if (sbi->prev_free != -1)
 			fsinfo->next_cluster = cpu_to_le32(sbi->prev_free);
 		mark_buffer_dirty(bh);
-		if (sb->s_flags & MS_SYNCHRONOUS)
-			sync_dirty_buffer(bh);
 	}
 	brelse(bh);
 }
@@ -194,23 +192,13 @@ void fat_date_unix2dos(int unix_date, __le16 *time, __le16 *date)
 	*date = cpu_to_le16(nl_day-day_n[month-1]+1+(month << 5)+(year << 9));
 }
 
-EXPORT_SYMBOL(fat_date_unix2dos);
+EXPORT_SYMBOL_GPL(fat_date_unix2dos);
 
 int fat_sync_bhs(struct buffer_head **bhs, int nr_bhs)
 {
-	int i, e, err = 0;
+	int i, err = 0;
 
-	for (i = 0; i < nr_bhs; i++) {
-		lock_buffer(bhs[i]);
-		if (test_clear_buffer_dirty(bhs[i])) {
-			get_bh(bhs[i]);
-			bhs[i]->b_end_io = end_buffer_write_sync;
-			e = submit_bh(WRITE, bhs[i]);
-			if (!err && e)
-				err = e;
-		} else
-			unlock_buffer(bhs[i]);
-	}
+	ll_rw_block(SWRITE, nr_bhs, bhs);
 	for (i = 0; i < nr_bhs; i++) {
 		wait_on_buffer(bhs[i]);
 		if (buffer_eopnotsupp(bhs[i])) {
@@ -222,4 +210,4 @@ int fat_sync_bhs(struct buffer_head **bhs, int nr_bhs)
 	return err;
 }
 
-EXPORT_SYMBOL(fat_sync_bhs);
+EXPORT_SYMBOL_GPL(fat_sync_bhs);

@@ -259,6 +259,7 @@
 #include "scsi.h"
 #include <scsi/scsi_dbg.h>
 #include <scsi/scsi_host.h>
+#include <scsi/scsi_transport_spi.h>
 #include "aha152x.h"
 
 
@@ -424,7 +425,7 @@ MODULE_DEVICE_TABLE(isapnp, id_table);
 
 static int registered_count=0;
 static struct Scsi_Host *aha152x_host[2];
-static Scsi_Host_Template aha152x_driver_template;
+static struct scsi_host_template aha152x_driver_template;
 
 /*
  * internal states of the host
@@ -1259,16 +1260,15 @@ static void free_hard_reset_SCs(struct Scsi_Host *shpnt, Scsi_Cmnd **SCs)
  * Reset the bus
  *
  */
-static int aha152x_bus_reset(Scsi_Cmnd *SCpnt)
+static int aha152x_bus_reset_host(struct Scsi_Host *shpnt)
 {
-	struct Scsi_Host *shpnt = SCpnt->device->host;
 	unsigned long flags;
 
 	DO_LOCK(flags);
 
 #if defined(AHA152X_DEBUG)
 	if(HOSTDATA(shpnt)->debug & debug_eh) {
-		printk(DEBUG_LEAD "aha152x_bus_reset(%p)", CMDINFO(SCpnt), SCpnt);
+		printk(KERN_DEBUG "scsi%d: bus reset", shpnt->host_no);
 		show_queues(shpnt);
 	}
 #endif
@@ -1276,14 +1276,14 @@ static int aha152x_bus_reset(Scsi_Cmnd *SCpnt)
 	free_hard_reset_SCs(shpnt, &ISSUE_SC);
 	free_hard_reset_SCs(shpnt, &DISCONNECTED_SC);
 
-	DPRINTK(debug_eh, DEBUG_LEAD "resetting bus\n", CMDINFO(SCpnt));
+	DPRINTK(debug_eh, KERN_DEBUG "scsi%d: resetting bus\n", shpnt->host_no);
 
 	SETPORT(SCSISEQ, SCSIRSTO);
 	mdelay(256);
 	SETPORT(SCSISEQ, 0);
 	mdelay(DELAY);
 
-	DPRINTK(debug_eh, DEBUG_LEAD "bus resetted\n", CMDINFO(SCpnt));
+	DPRINTK(debug_eh, KERN_DEBUG "scsi%d: bus resetted\n", shpnt->host_no);
 
 	setup_expected_interrupts(shpnt);
 	if(HOSTDATA(shpnt)->commands==0)
@@ -1294,6 +1294,14 @@ static int aha152x_bus_reset(Scsi_Cmnd *SCpnt)
 	return SUCCESS;
 }
 
+/*
+ * Reset the bus
+ *
+ */
+static int aha152x_bus_reset(Scsi_Cmnd *SCpnt)
+{
+	return aha152x_bus_reset_host(SCpnt->device->host);
+}
 
 /*
  *  Restore default values to the AIC-6260 registers and reset the fifos
@@ -1336,20 +1344,25 @@ static void reset_ports(struct Scsi_Host *shpnt)
  * Reset the host (bus and controller)
  *
  */
-int aha152x_host_reset(Scsi_Cmnd * SCpnt)
+int aha152x_host_reset_host(struct Scsi_Host *shpnt)
 {
-#if defined(AHA152X_DEBUG)
-	struct Scsi_Host *shpnt = SCpnt->device->host;
-#endif
+	DPRINTK(debug_eh, KERN_DEBUG "scsi%d: host reset\n", shpnt->host_no);
 
-	DPRINTK(debug_eh, DEBUG_LEAD "aha152x_host_reset(%p)\n", CMDINFO(SCpnt), SCpnt);
+	aha152x_bus_reset_host(shpnt);
 
-	aha152x_bus_reset(SCpnt);
-
-	DPRINTK(debug_eh, DEBUG_LEAD "resetting ports\n", CMDINFO(SCpnt));
-	reset_ports(SCpnt->device->host);
+	DPRINTK(debug_eh, KERN_DEBUG "scsi%d: resetting ports\n", shpnt->host_no);
+	reset_ports(shpnt);
 
 	return SUCCESS;
+}
+
+/*
+ * Reset the host (bus and controller)
+ * 
+ */
+static int aha152x_host_reset(Scsi_Cmnd *SCpnt)
+{
+	return aha152x_host_reset_host(SCpnt->device->host);
 }
 
 /*
@@ -1430,22 +1443,18 @@ static void run(void)
 {
 	int i;
 	for (i = 0; i<ARRAY_SIZE(aha152x_host); i++) {
-		struct Scsi_Host *shpnt = aha152x_host[i];
-		if (shpnt && HOSTDATA(shpnt)->service) {
-			HOSTDATA(shpnt)->service=0;
-			is_complete(shpnt);
-		}
+		is_complete(aha152x_host[i]);
 	}
 }
 
 /*
- *    Interrupts handler
+ * Interrupt handler
  *
  */
-
 static irqreturn_t intr(int irqno, void *dev_id, struct pt_regs *regs)
 {
 	struct Scsi_Host *shpnt = lookup_irq(irqno);
+	unsigned long flags;
 	unsigned char rev, dmacntrl0;
 
 	if (!shpnt) {
@@ -1471,23 +1480,23 @@ static irqreturn_t intr(int irqno, void *dev_id, struct pt_regs *regs)
 	if ((rev == 0xFF) && (dmacntrl0 == 0xFF))
 		return IRQ_NONE;
 
+	if( TESTLO(DMASTAT, INTSTAT) )
+		return IRQ_NONE;	
+
 	/* no more interrupts from the controller, while we're busy.
 	   INTEN is restored by the BH handler */
 	CLRBITS(DMACNTRL0, INTEN);
 
-#if 0
-	/* check if there is already something to be
-           serviced; should not happen */
-	if(HOSTDATA(shpnt)->service) {
-		printk(KERN_ERR "aha152x%d: lost interrupt (%d)\n", HOSTNO, HOSTDATA(shpnt)->service);
-	        show_queues(shpnt);
+	DO_LOCK(flags);
+	if( HOSTDATA(shpnt)->service==0 ) {
+		HOSTDATA(shpnt)->service=1;
+
+		/* Poke the BH handler */
+		INIT_WORK(&aha152x_tq, (void *) run, NULL);
+		schedule_work(&aha152x_tq);
 	}
-#endif
-	
-	/* Poke the BH handler */
-	HOSTDATA(shpnt)->service++;
-	INIT_WORK(&aha152x_tq, (void *) run, NULL);
-	schedule_work(&aha152x_tq);
+	DO_UNLOCK(flags);
+
 	return IRQ_HANDLED;
 }
 
@@ -1845,7 +1854,7 @@ static void msgi_run(struct Scsi_Host *shpnt)
 #if defined(AHA152X_DEBUG)
 		if (HOSTDATA(shpnt)->debug & debug_msgi) {
 			printk(INFO_LEAD "inbound message %02x ", CMDINFO(CURRENT_SC), MSGI(0));
-			scsi_print_msg(&MSGI(0));
+			spi_print_msg(&MSGI(0));
 			printk("\n");
 		}
 #endif
@@ -1933,7 +1942,7 @@ static void msgi_run(struct Scsi_Host *shpnt)
 						break;
 
 					printk(INFO_LEAD, CMDINFO(CURRENT_SC));
-					scsi_print_msg(&MSGI(0));
+					spi_print_msg(&MSGI(0));
 					printk("\n");
 
 					ticks = (MSGI(3) * 4 + 49) / 50;
@@ -2031,7 +2040,7 @@ static void msgo_init(struct Scsi_Host *shpnt)
 		int i;
 
 		printk(DEBUG_LEAD "messages( ", CMDINFO(CURRENT_SC));
-		for (i=0; i<MSGOLEN; i+=scsi_print_msg(&MSGO(i)), printk(" "))
+		for (i=0; i<MSGOLEN; i+=spi_print_msg(&MSGO(i)), printk(" "))
 			;
 		printk(")\n");
 	}
@@ -2526,7 +2535,18 @@ static void is_complete(struct Scsi_Host *shpnt)
 	unsigned long flags;
 	int pending;
 
+	if(!shpnt)
+		return;
+
 	DO_LOCK(flags);
+
+	if( HOSTDATA(shpnt)->service==0 )  {
+		DO_UNLOCK(flags);
+		return;
+	}
+
+	HOSTDATA(shpnt)->service = 0;
+
 	if(HOSTDATA(shpnt)->in_intr) {
 		DO_UNLOCK(flags);
 		/* aha152x_error never returns.. */
@@ -2921,8 +2941,7 @@ static void disp_enintr(struct Scsi_Host *shpnt)
  */
 static void show_command(Scsi_Cmnd *ptr)
 {
-	printk(KERN_DEBUG "0x%08x: target=%d; lun=%d; cmnd=(",
-	       (unsigned int) ptr, ptr->device->id, ptr->device->lun);
+	scmd_printk(KERN_DEBUG, ptr, "%p: cmnd=(", ptr);
 
 	__scsi_print_command(ptr->cmnd);
 
@@ -3465,7 +3484,7 @@ static int aha152x_proc_info(struct Scsi_Host *shpnt, char *buffer, char **start
 	return thislength < length ? thislength : length;
 }
 
-static Scsi_Host_Template aha152x_driver_template = {
+static struct scsi_host_template aha152x_driver_template = {
 	.module				= THIS_MODULE,
 	.name				= AHA152X_REVID,
 	.proc_name			= "aha152x",

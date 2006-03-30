@@ -122,6 +122,8 @@ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
  *	__alloc_skb	-	allocate a network buffer
  *	@size: size to allocate
  *	@gfp_mask: allocation mask
+ *	@fclone: allocate from fclone cache instead of head cache
+ *		and allocate a cloned (child) skb
  *
  *	Allocate a new &sk_buff. The returned buffer has no headroom and a
  *	tail room of size bytes. The object has a reference count of one.
@@ -133,17 +135,15 @@ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
 struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 			    int fclone)
 {
+	kmem_cache_t *cache;
+	struct skb_shared_info *shinfo;
 	struct sk_buff *skb;
 	u8 *data;
 
-	/* Get the HEAD */
-	if (fclone)
-		skb = kmem_cache_alloc(skbuff_fclone_cache,
-				       gfp_mask & ~__GFP_DMA);
-	else
-		skb = kmem_cache_alloc(skbuff_head_cache,
-				       gfp_mask & ~__GFP_DMA);
+	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
 
+	/* Get the HEAD */
+	skb = kmem_cache_alloc(cache, gfp_mask & ~__GFP_DMA);
 	if (!skb)
 		goto out;
 
@@ -160,6 +160,16 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->data = data;
 	skb->tail = data;
 	skb->end  = data + size;
+	/* make sure we initialize shinfo sequentially */
+	shinfo = skb_shinfo(skb);
+	atomic_set(&shinfo->dataref, 1);
+	shinfo->nr_frags  = 0;
+	shinfo->tso_size = 0;
+	shinfo->tso_segs = 0;
+	shinfo->ufo_size = 0;
+	shinfo->ip6_frag_id = 0;
+	shinfo->frag_list = NULL;
+
 	if (fclone) {
 		struct sk_buff *child = skb + 1;
 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
@@ -169,15 +179,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 
 		child->fclone = SKB_FCLONE_UNAVAILABLE;
 	}
-	atomic_set(&(skb_shinfo(skb)->dataref), 1);
-	skb_shinfo(skb)->nr_frags  = 0;
-	skb_shinfo(skb)->tso_size = 0;
-	skb_shinfo(skb)->tso_segs = 0;
-	skb_shinfo(skb)->frag_list = NULL;
 out:
 	return skb;
 nodata:
-	kmem_cache_free(skbuff_head_cache, skb);
+	kmem_cache_free(cache, skb);
 	skb = NULL;
 	goto out;
 }
@@ -332,6 +337,9 @@ void __kfree_skb(struct sk_buff *skb)
 	}
 #ifdef CONFIG_NETFILTER
 	nf_conntrack_put(skb->nfct);
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	nf_conntrack_put_reasm(skb->nfct_reasm);
+#endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	nf_bridge_put(skb->nf_bridge);
 #endif
@@ -403,6 +411,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 	C(pkt_type);
 	C(ip_summed);
 	C(priority);
+#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+	C(ipvs_property);
+#endif
 	C(protocol);
 	n->destructor = NULL;
 #ifdef CONFIG_NETFILTER
@@ -410,8 +421,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 	C(nfct);
 	nf_conntrack_get(skb->nfct);
 	C(nfctinfo);
-#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-	C(ipvs_property);
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	C(nfct_reasm);
+	nf_conntrack_get_reasm(skb->nfct_reasm);
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	C(nf_bridge);
@@ -470,6 +482,10 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->nfct	= old->nfct;
 	nf_conntrack_get(old->nfct);
 	new->nfctinfo	= old->nfctinfo;
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	new->nfct_reasm = old->nfct_reasm;
+	nf_conntrack_get_reasm(old->nfct_reasm);
+#endif
 #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
 	new->ipvs_property = old->ipvs_property;
 #endif
@@ -773,8 +789,7 @@ int ___pskb_trim(struct sk_buff *skb, unsigned int len, int realloc)
 		int end = offset + skb_shinfo(skb)->frags[i].size;
 		if (end > len) {
 			if (skb_cloned(skb)) {
-				if (!realloc)
-					BUG();
+				BUG_ON(!realloc);
 				if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
 					return -ENOMEM;
 			}
@@ -876,8 +891,7 @@ unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta)
 		struct sk_buff *insp = NULL;
 
 		do {
-			if (!list)
-				BUG();
+			BUG_ON(!list);
 
 			if (list->len <= eat) {
 				/* Eaten as whole. */
@@ -1181,8 +1195,7 @@ unsigned int skb_checksum(const struct sk_buff *skb, int offset,
 			start = end;
 		}
 	}
-	if (len)
-		BUG();
+	BUG_ON(len);
 
 	return csum;
 }
@@ -1264,8 +1277,7 @@ unsigned int skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
 			start = end;
 		}
 	}
-	if (len)
-		BUG();
+	BUG_ON(len);
 	return csum;
 }
 
@@ -1279,8 +1291,7 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
 	else
 		csstart = skb_headlen(skb);
 
-	if (csstart > skb_headlen(skb))
-		BUG();
+	BUG_ON(csstart > skb_headlen(skb));
 
 	memcpy(to, skb->data, csstart);
 
@@ -1694,6 +1705,78 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
 	return textsearch_find(config, state);
 }
 
+/**
+ * skb_append_datato_frags: - append the user data to a skb
+ * @sk: sock  structure
+ * @skb: skb structure to be appened with user data.
+ * @getfrag: call back function to be used for getting the user data
+ * @from: pointer to user message iov
+ * @length: length of the iov message
+ *
+ * Description: This procedure append the user data in the fragment part
+ * of the skb if any page alloc fails user this procedure returns  -ENOMEM
+ */
+int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+			int (*getfrag)(void *from, char *to, int offset,
+					int len, int odd, struct sk_buff *skb),
+			void *from, int length)
+{
+	int frg_cnt = 0;
+	skb_frag_t *frag = NULL;
+	struct page *page = NULL;
+	int copy, left;
+	int offset = 0;
+	int ret;
+
+	do {
+		/* Return error if we don't have space for new frag */
+		frg_cnt = skb_shinfo(skb)->nr_frags;
+		if (frg_cnt >= MAX_SKB_FRAGS)
+			return -EFAULT;
+
+		/* allocate a new page for next frag */
+		page = alloc_pages(sk->sk_allocation, 0);
+
+		/* If alloc_page fails just return failure and caller will
+		 * free previous allocated pages by doing kfree_skb()
+		 */
+		if (page == NULL)
+			return -ENOMEM;
+
+		/* initialize the next frag */
+		sk->sk_sndmsg_page = page;
+		sk->sk_sndmsg_off = 0;
+		skb_fill_page_desc(skb, frg_cnt, page, 0, 0);
+		skb->truesize += PAGE_SIZE;
+		atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
+
+		/* get the new initialized frag */
+		frg_cnt = skb_shinfo(skb)->nr_frags;
+		frag = &skb_shinfo(skb)->frags[frg_cnt - 1];
+
+		/* copy the user data to page */
+		left = PAGE_SIZE - frag->page_offset;
+		copy = (length > left)? left : length;
+
+		ret = getfrag(from, (page_address(frag->page) +
+			    frag->page_offset + frag->size),
+			    offset, copy, 0, skb);
+		if (ret < 0)
+			return -EFAULT;
+
+		/* copy was successful so update the size parameters */
+		sk->sk_sndmsg_off += copy;
+		frag->size += copy;
+		skb->len += copy;
+		skb->data_len += copy;
+		offset += copy;
+		length -= copy;
+
+	} while (length > 0);
+
+	return 0;
+}
+
 void __init skb_init(void)
 {
 	skbuff_head_cache = kmem_cache_create("skbuff_head_cache",
@@ -1745,3 +1828,4 @@ EXPORT_SYMBOL(skb_prepare_seq_read);
 EXPORT_SYMBOL(skb_seq_read);
 EXPORT_SYMBOL(skb_abort_seq_read);
 EXPORT_SYMBOL(skb_find_text);
+EXPORT_SYMBOL(skb_append_datato_frags);

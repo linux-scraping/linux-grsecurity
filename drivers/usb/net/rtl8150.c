@@ -177,7 +177,6 @@ static int rtl8150_probe(struct usb_interface *intf,
 static const char driver_name [] = "rtl8150";
 
 static struct usb_driver rtl8150_driver = {
-	.owner =	THIS_MODULE,
 	.name =		driver_name,
 	.probe =	rtl8150_probe,
 	.disconnect =	rtl8150_disconnect,
@@ -909,6 +908,7 @@ static void rtl8150_disconnect(struct usb_interface *intf)
 	usb_set_intfdata(intf, NULL);
 	if (dev) {
 		set_bit(RTL8150_UNPLUG, &dev->flags);
+		tasklet_disable(&dev->tl);
 		unregister_netdev(dev->netdev);
 		unlink_all_urbs(dev);
 		free_all_urbs(dev);

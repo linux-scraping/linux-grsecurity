@@ -20,6 +20,7 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <linux/bitops.h>
+#include <linux/capability.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -30,6 +31,7 @@
 #include <linux/errno.h>
 #include <linux/in.h>
 #include <linux/inet.h>
+#include <linux/inetdevice.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/skbuff.h>
@@ -266,8 +268,7 @@ int ip_rt_ioctl(unsigned int cmd, void __user *arg)
 				if (tb)
 					err = tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
 			}
-			if (rta.rta_mx)
-				kfree(rta.rta_mx);
+			kfree(rta.rta_mx);
 		}
 		rtnl_unlock();
 		return err;
@@ -288,13 +289,13 @@ static int inet_check_attr(struct rtmsg *r, struct rtattr **rta)
 {
 	int i;
 
-	for (i=1; i<=RTA_MAX; i++) {
-		struct rtattr *attr = rta[i-1];
+	for (i=1; i<=RTA_MAX; i++, rta++) {
+		struct rtattr *attr = *rta;
 		if (attr) {
 			if (RTA_PAYLOAD(attr) < 4)
 				return -EINVAL;
 			if (i != RTA_MULTIPATH && i != RTA_METRICS)
-				rta[i-1] = (struct rtattr*)RTA_DATA(attr);
+				*rta = (struct rtattr*)RTA_DATA(attr);
 		}
 	}
 	return 0;
@@ -408,7 +409,7 @@ static void fib_magic(int cmd, int type, u32 dst, int dst_len, struct in_ifaddr 
 		tb->tb_delete(tb, &req.rtm, &rta, &req.nlh, NULL);
 }
 
-static void fib_add_ifaddr(struct in_ifaddr *ifa)
+void fib_add_ifaddr(struct in_ifaddr *ifa)
 {
 	struct in_device *in_dev = ifa->ifa_dev;
 	struct net_device *dev = in_dev->dev;
@@ -595,7 +596,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event, 
 		break;
 	case NETDEV_DOWN:
 		fib_del_ifaddr(ifa);
-		if (ifa->ifa_dev && ifa->ifa_dev->ifa_list == NULL) {
+		if (ifa->ifa_dev->ifa_list == NULL) {
 			/* Last address was deleted from this interface.
 			   Disable IP.
 			 */

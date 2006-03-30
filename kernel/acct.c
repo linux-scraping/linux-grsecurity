@@ -47,6 +47,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/acct.h>
+#include <linux/capability.h>
 #include <linux/file.h>
 #include <linux/tty.h>
 #include <linux/security.h>
@@ -54,6 +55,7 @@
 #include <linux/jiffies.h>
 #include <linux/times.h>
 #include <linux/syscalls.h>
+#include <linux/mount.h>
 #include <asm/uaccess.h>
 #include <asm/div64.h>
 #include <linux/blkdev.h> /* sector_div */
@@ -192,11 +194,48 @@ static void acct_file_reopen(struct file *file)
 		add_timer(&acct_globals.timer);
 	}
 	if (old_acct) {
+		mnt_unpin(old_acct->f_vfsmnt);
 		spin_unlock(&acct_globals.lock);
 		do_acct_process(0, old_acct);
 		filp_close(old_acct, NULL);
 		spin_lock(&acct_globals.lock);
 	}
+}
+
+static int acct_on(char *name)
+{
+	struct file *file;
+	int error;
+
+	/* Difference from BSD - they don't do O_APPEND */
+	file = filp_open(name, O_WRONLY|O_APPEND|O_LARGEFILE, 0);
+	if (IS_ERR(file))
+		return PTR_ERR(file);
+
+	if (!S_ISREG(file->f_dentry->d_inode->i_mode)) {
+		filp_close(file, NULL);
+		return -EACCES;
+	}
+
+	if (!file->f_op->write) {
+		filp_close(file, NULL);
+		return -EIO;
+	}
+
+	error = security_acct(file);
+	if (error) {
+		filp_close(file, NULL);
+		return error;
+	}
+
+	spin_lock(&acct_globals.lock);
+	mnt_pin(file->f_vfsmnt);
+	acct_file_reopen(file);
+	spin_unlock(&acct_globals.lock);
+
+	mntput(file->f_vfsmnt);	/* it's pinned, now give up active reference */
+
+	return 0;
 }
 
 /**
@@ -212,47 +251,41 @@ static void acct_file_reopen(struct file *file)
  */
 asmlinkage long sys_acct(const char __user *name)
 {
-	struct file *file = NULL;
-	char *tmp;
 	int error;
 
 	if (!capable(CAP_SYS_PACCT))
 		return -EPERM;
 
 	if (name) {
-		tmp = getname(name);
-		if (IS_ERR(tmp)) {
+		char *tmp = getname(name);
+		if (IS_ERR(tmp))
 			return (PTR_ERR(tmp));
-		}
-		/* Difference from BSD - they don't do O_APPEND */
-		file = filp_open(tmp, O_WRONLY|O_APPEND|O_LARGEFILE, 0);
+		error = acct_on(tmp);
 		putname(tmp);
-		if (IS_ERR(file)) {
-			return (PTR_ERR(file));
-		}
-		if (!S_ISREG(file->f_dentry->d_inode->i_mode)) {
-			filp_close(file, NULL);
-			return (-EACCES);
-		}
-
-		if (!file->f_op->write) {
-			filp_close(file, NULL);
-			return (-EIO);
+	} else {
+		error = security_acct(NULL);
+		if (!error) {
+			spin_lock(&acct_globals.lock);
+			acct_file_reopen(NULL);
+			spin_unlock(&acct_globals.lock);
 		}
 	}
+	return error;
+}
 
-	error = security_acct(file);
-	if (error) {
-		if (file)
-			filp_close(file, NULL);
-		return error;
-	}
-
+/**
+ * acct_auto_close - turn off a filesystem's accounting if it is on
+ * @m: vfsmount being shut down
+ *
+ * If the accounting is turned on for a file in the subtree pointed to
+ * to by m, turn accounting off.  Done when m is about to die.
+ */
+void acct_auto_close_mnt(struct vfsmount *m)
+{
 	spin_lock(&acct_globals.lock);
-	acct_file_reopen(file);
+	if (acct_globals.file && acct_globals.file->f_vfsmnt == m)
+		acct_file_reopen(NULL);
 	spin_unlock(&acct_globals.lock);
-
-	return (0);
 }
 
 /**
@@ -266,8 +299,8 @@ void acct_auto_close(struct super_block *sb)
 {
 	spin_lock(&acct_globals.lock);
 	if (acct_globals.file &&
-	    acct_globals.file->f_dentry->d_inode->i_sb == sb) {
-		acct_file_reopen((struct file *)NULL);
+	    acct_globals.file->f_vfsmnt->mnt_sb == sb) {
+		acct_file_reopen(NULL);
 	}
 	spin_unlock(&acct_globals.lock);
 }
@@ -395,6 +428,7 @@ static void do_acct_process(long exitcode, struct file *file)
 	u64 elapsed;
 	u64 run_time;
 	struct timespec uptime;
+	unsigned long jiffies;
 
 	/*
 	 * First check to see if there is enough free_space to continue
@@ -435,12 +469,12 @@ static void do_acct_process(long exitcode, struct file *file)
 #endif
 	do_div(elapsed, AHZ);
 	ac.ac_btime = xtime.tv_sec - elapsed;
-	ac.ac_utime = encode_comp_t(jiffies_to_AHZ(
-					    current->signal->utime +
-					    current->group_leader->utime));
-	ac.ac_stime = encode_comp_t(jiffies_to_AHZ(
-					    current->signal->stime +
-					    current->group_leader->stime));
+	jiffies = cputime_to_jiffies(cputime_add(current->group_leader->utime,
+						 current->signal->utime));
+	ac.ac_utime = encode_comp_t(jiffies_to_AHZ(jiffies));
+	jiffies = cputime_to_jiffies(cputime_add(current->group_leader->stime,
+						 current->signal->stime));
+	ac.ac_stime = encode_comp_t(jiffies_to_AHZ(jiffies));
 	/* we really need to bite the bullet and change layout */
 	ac.ac_uid = current->uid;
 	ac.ac_gid = current->gid;
@@ -548,12 +582,13 @@ void acct_process(long exitcode)
 void acct_update_integrals(struct task_struct *tsk)
 {
 	if (likely(tsk->mm)) {
-		long delta = tsk->stime - tsk->acct_stimexpd;
+		long delta =
+			cputime_to_jiffies(tsk->stime) - tsk->acct_stimexpd;
 
 		if (delta == 0)
 			return;
 		tsk->acct_stimexpd = tsk->stime;
-		tsk->acct_rss_mem1 += delta * get_mm_counter(tsk->mm, rss);
+		tsk->acct_rss_mem1 += delta * get_mm_rss(tsk->mm);
 		tsk->acct_vm_mem1 += delta * tsk->mm->total_vm;
 	}
 }

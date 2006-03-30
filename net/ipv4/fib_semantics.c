@@ -29,6 +29,7 @@
 #include <linux/errno.h>
 #include <linux/in.h>
 #include <linux/inet.h>
+#include <linux/inetdevice.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/proc_fs.h>
@@ -36,6 +37,7 @@
 #include <linux/netlink.h>
 #include <linux/init.h>
 
+#include <net/arp.h>
 #include <net/ip.h>
 #include <net/protocol.h>
 #include <net/route.h>
@@ -83,7 +85,7 @@ for (nhsel=0; nhsel < 1; nhsel++)
 #define endfor_nexthops(fi) }
 
 
-static struct 
+static const struct 
 {
 	int	error;
 	u8	scope;
@@ -1043,7 +1045,7 @@ fib_convert_rtentry(int cmd, struct nlmsghdr *nl, struct rtmsg *rtm,
 	}
 
 	nl->nlmsg_flags = NLM_F_REQUEST;
-	nl->nlmsg_pid = current->pid;
+	nl->nlmsg_pid = 0;
 	nl->nlmsg_seq = 0;
 	nl->nlmsg_len = NLMSG_LENGTH(sizeof(*rtm));
 	if (cmd == SIOCDELRT) {

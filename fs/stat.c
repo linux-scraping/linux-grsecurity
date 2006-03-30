@@ -63,12 +63,12 @@ int vfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 
 EXPORT_SYMBOL(vfs_getattr);
 
-int vfs_stat(char __user *name, struct kstat *stat)
+int vfs_stat_fd(int dfd, char __user *name, struct kstat *stat)
 {
 	struct nameidata nd;
 	int error;
 
-	error = user_path_walk(name, &nd);
+	error = __user_walk_fd(dfd, name, LOOKUP_FOLLOW, &nd);
 	if (!error) {
 		error = vfs_getattr(nd.mnt, nd.dentry, stat);
 		path_release(&nd);
@@ -76,19 +76,29 @@ int vfs_stat(char __user *name, struct kstat *stat)
 	return error;
 }
 
+int vfs_stat(char __user *name, struct kstat *stat)
+{
+	return vfs_stat_fd(AT_FDCWD, name, stat);
+}
+
 EXPORT_SYMBOL(vfs_stat);
 
-int vfs_lstat(char __user *name, struct kstat *stat)
+int vfs_lstat_fd(int dfd, char __user *name, struct kstat *stat)
 {
 	struct nameidata nd;
 	int error;
 
-	error = user_path_walk_link(name, &nd);
+	error = __user_walk_fd(dfd, name, 0, &nd);
 	if (!error) {
 		error = vfs_getattr(nd.mnt, nd.dentry, stat);
 		path_release(&nd);
 	}
 	return error;
+}
+
+int vfs_lstat(char __user *name, struct kstat *stat)
+{
+	return vfs_lstat_fd(AT_FDCWD, name, stat);
 }
 
 EXPORT_SYMBOL(vfs_lstat);
@@ -151,7 +161,7 @@ static int cp_old_stat(struct kstat *stat, struct __old_kernel_stat __user * sta
 asmlinkage long sys_stat(char __user * filename, struct __old_kernel_stat __user * statbuf)
 {
 	struct kstat stat;
-	int error = vfs_stat(filename, &stat);
+	int error = vfs_stat_fd(AT_FDCWD, filename, &stat);
 
 	if (!error)
 		error = cp_old_stat(&stat, statbuf);
@@ -161,7 +171,7 @@ asmlinkage long sys_stat(char __user * filename, struct __old_kernel_stat __user
 asmlinkage long sys_lstat(char __user * filename, struct __old_kernel_stat __user * statbuf)
 {
 	struct kstat stat;
-	int error = vfs_lstat(filename, &stat);
+	int error = vfs_lstat_fd(AT_FDCWD, filename, &stat);
 
 	if (!error)
 		error = cp_old_stat(&stat, statbuf);
@@ -229,27 +239,52 @@ static int cp_new_stat(struct kstat *stat, struct stat __user *statbuf)
 	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
 }
 
-asmlinkage long sys_newstat(char __user * filename, struct stat __user * statbuf)
+asmlinkage long sys_newstat(char __user *filename, struct stat __user *statbuf)
 {
 	struct kstat stat;
-	int error = vfs_stat(filename, &stat);
+	int error = vfs_stat_fd(AT_FDCWD, filename, &stat);
 
 	if (!error)
 		error = cp_new_stat(&stat, statbuf);
 
 	return error;
 }
-asmlinkage long sys_newlstat(char __user * filename, struct stat __user * statbuf)
+
+asmlinkage long sys_newlstat(char __user *filename, struct stat __user *statbuf)
 {
 	struct kstat stat;
-	int error = vfs_lstat(filename, &stat);
+	int error = vfs_lstat_fd(AT_FDCWD, filename, &stat);
 
 	if (!error)
 		error = cp_new_stat(&stat, statbuf);
 
 	return error;
 }
-asmlinkage long sys_newfstat(unsigned int fd, struct stat __user * statbuf)
+
+#ifndef __ARCH_WANT_STAT64
+asmlinkage long sys_newfstatat(int dfd, char __user *filename,
+				struct stat __user *statbuf, int flag)
+{
+	struct kstat stat;
+	int error = -EINVAL;
+
+	if ((flag & ~AT_SYMLINK_NOFOLLOW) != 0)
+		goto out;
+
+	if (flag & AT_SYMLINK_NOFOLLOW)
+		error = vfs_lstat_fd(dfd, filename, &stat);
+	else
+		error = vfs_stat_fd(dfd, filename, &stat);
+
+	if (!error)
+		error = cp_new_stat(&stat, statbuf);
+
+out:
+	return error;
+}
+#endif
+
+asmlinkage long sys_newfstat(unsigned int fd, struct stat __user *statbuf)
 {
 	struct kstat stat;
 	int error = vfs_fstat(fd, &stat);
@@ -260,7 +295,8 @@ asmlinkage long sys_newfstat(unsigned int fd, struct stat __user * statbuf)
 	return error;
 }
 
-asmlinkage long sys_readlink(const char __user * path, char __user * buf, int bufsiz)
+asmlinkage long sys_readlinkat(int dfd, const char __user *path,
+				char __user *buf, int bufsiz)
 {
 	struct nameidata nd;
 	int error;
@@ -268,7 +304,7 @@ asmlinkage long sys_readlink(const char __user * path, char __user * buf, int bu
 	if (bufsiz <= 0)
 		return -EINVAL;
 
-	error = user_path_walk_link(path, &nd);
+	error = __user_walk_fd(dfd, path, 0, &nd);
 	if (!error) {
 		struct inode * inode = nd.dentry->d_inode;
 
@@ -283,6 +319,12 @@ asmlinkage long sys_readlink(const char __user * path, char __user * buf, int bu
 		path_release(&nd);
 	}
 	return error;
+}
+
+asmlinkage long sys_readlink(const char __user *path, char __user *buf,
+				int bufsiz)
+{
+	return sys_readlinkat(AT_FDCWD, path, buf, bufsiz);
 }
 
 
@@ -355,6 +397,26 @@ asmlinkage long sys_fstat64(unsigned long fd, struct stat64 __user * statbuf)
 	return error;
 }
 
+asmlinkage long sys_fstatat64(int dfd, char __user *filename,
+			       struct stat64 __user *statbuf, int flag)
+{
+	struct kstat stat;
+	int error = -EINVAL;
+
+	if ((flag & ~AT_SYMLINK_NOFOLLOW) != 0)
+		goto out;
+
+	if (flag & AT_SYMLINK_NOFOLLOW)
+		error = vfs_lstat_fd(dfd, filename, &stat);
+	else
+		error = vfs_stat_fd(dfd, filename, &stat);
+
+	if (!error)
+		error = cp_new_stat64(&stat, statbuf);
+
+out:
+	return error;
+}
 #endif /* __ARCH_WANT_STAT64 */
 
 void inode_add_bytes(struct inode *inode, loff_t bytes)

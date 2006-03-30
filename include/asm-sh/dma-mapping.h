@@ -4,12 +4,13 @@
 #include <linux/config.h>
 #include <linux/mm.h>
 #include <asm/scatterlist.h>
+#include <asm/cacheflush.h>
 #include <asm/io.h>
 
 extern struct bus_type pci_bus_type;
 
 /* arch/sh/mm/consistent.c */
-extern void *consistent_alloc(int gfp, size_t size, dma_addr_t *handle);
+extern void *consistent_alloc(gfp_t gfp, size_t size, dma_addr_t *handle);
 extern void consistent_free(void *vaddr, size_t size);
 extern void consistent_sync(void *vaddr, size_t size, int direction);
 
@@ -26,7 +27,7 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
 }
 
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
-			 dma_addr_t *dma_handle, int flag)
+			 dma_addr_t *dma_handle, gfp_t flag)
 {
 	if (sh_mv.mv_consistent_alloc) {
 		void *ret;
@@ -141,24 +142,24 @@ static inline void dma_sync_sg(struct device *dev, struct scatterlist *sg,
 	}
 }
 
-static inline void dma_sync_single_for_cpu(struct device *dev,
-					   dma_addr_t dma_handle, size_t size,
-					   enum dma_data_direction dir)
+static void dma_sync_single_for_cpu(struct device *dev,
+				    dma_addr_t dma_handle, size_t size,
+				    enum dma_data_direction dir)
 	__attribute__ ((alias("dma_sync_single")));
 
-static inline void dma_sync_single_for_device(struct device *dev,
-					   dma_addr_t dma_handle, size_t size,
-					   enum dma_data_direction dir)
-	__attribute__ ((alias("dma_sync_single")));
-
-static inline void dma_sync_sg_for_cpu(struct device *dev,
-				       struct scatterlist *sg, int nelems,
+static void dma_sync_single_for_device(struct device *dev,
+				       dma_addr_t dma_handle, size_t size,
 				       enum dma_data_direction dir)
+	__attribute__ ((alias("dma_sync_single")));
+
+static void dma_sync_sg_for_cpu(struct device *dev,
+				struct scatterlist *sg, int nelems,
+				enum dma_data_direction dir)
 	__attribute__ ((alias("dma_sync_sg")));
 
-static inline void dma_sync_sg_for_device(struct device *dev,
-				       struct scatterlist *sg, int nelems,
-				       enum dma_data_direction dir)
+static void dma_sync_sg_for_device(struct device *dev,
+				   struct scatterlist *sg, int nelems,
+				   enum dma_data_direction dir)
 	__attribute__ ((alias("dma_sync_sg")));
 
 static inline int dma_get_cache_alignment(void)

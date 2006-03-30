@@ -893,8 +893,10 @@ static int hid_input_report(int type, struct urb *urb, int interrupt, struct pt_
 
 	size = ((report->size - 1) >> 3) + 1;
 
-	if (len < size)
+	if (len < size) {
 		dbg("report %d is too short, (%d < %d)", report->id, len, size);
+		memset(data + len, 0, size - len);
+	}
 
 	if (hid->claimed & HID_CLAIMED_HIDDEV)
 		hiddev_report_event(hid, report);
@@ -1305,7 +1307,7 @@ void hid_init_reports(struct hid_device *hid)
 	}
 
 	if (err)
-		warn("timeout initializing reports\n");
+		warn("timeout initializing reports");
 }
 
 #define USB_VENDOR_ID_WACOM		0x056a
@@ -1318,6 +1320,7 @@ void hid_init_reports(struct hid_device *hid)
 #define USB_DEVICE_ID_WACOM_PTU		0x0003
 #define USB_DEVICE_ID_WACOM_INTUOS3	0x00B0
 #define USB_DEVICE_ID_WACOM_CINTIQ	0x003F
+#define USB_DEVICE_ID_WACOM_DTF         0x00C0
 
 #define USB_VENDOR_ID_ACECAD		0x0460
 #define USB_DEVICE_ID_ACECAD_FLAIR	0x0004
@@ -1404,6 +1407,7 @@ void hid_init_reports(struct hid_device *hid)
 #define USB_VENDOR_ID_WISEGROUP		0x0925
 #define USB_DEVICE_ID_1_PHIDGETSERVO_20	0x8101
 #define USB_DEVICE_ID_4_PHIDGETSERVO_20	0x8104
+#define USB_DEVICE_ID_DUAL_USB_JOYPAD   0x8866
 
 #define USB_VENDOR_ID_CODEMERCS		0x07c0
 #define USB_DEVICE_ID_CODEMERCS_IOW40	0x1500
@@ -1432,26 +1436,35 @@ void hid_init_reports(struct hid_device *hid)
 #define USB_DEVICE_ID_VERNIER_CYCLOPS	0x0004
 
 #define USB_VENDOR_ID_LD		0x0f11
-#define USB_DEVICE_ID_CASSY		0x1000
-#define USB_DEVICE_ID_POCKETCASSY	0x1010
-#define USB_DEVICE_ID_MOBILECASSY	0x1020
-#define USB_DEVICE_ID_JWM		0x1080
-#define USB_DEVICE_ID_DMMP		0x1081
-#define USB_DEVICE_ID_UMIP		0x1090
-#define USB_DEVICE_ID_VIDEOCOM		0x1200
-#define USB_DEVICE_ID_COM3LAB		0x2000
-#define USB_DEVICE_ID_TELEPORT		0x2010
-#define USB_DEVICE_ID_NETWORKANALYSER	0x2020
-#define USB_DEVICE_ID_POWERCONTROL	0x2030
+#define USB_DEVICE_ID_LD_CASSY		0x1000
+#define USB_DEVICE_ID_LD_POCKETCASSY	0x1010
+#define USB_DEVICE_ID_LD_MOBILECASSY	0x1020
+#define USB_DEVICE_ID_LD_JWM		0x1080
+#define USB_DEVICE_ID_LD_DMMP		0x1081
+#define USB_DEVICE_ID_LD_UMIP		0x1090
+#define USB_DEVICE_ID_LD_XRAY1		0x1100
+#define USB_DEVICE_ID_LD_XRAY2		0x1101
+#define USB_DEVICE_ID_LD_VIDEOCOM	0x1200
+#define USB_DEVICE_ID_LD_COM3LAB	0x2000
+#define USB_DEVICE_ID_LD_TELEPORT	0x2010
+#define USB_DEVICE_ID_LD_NETWORKANALYSER 0x2020
+#define USB_DEVICE_ID_LD_POWERCONTROL	0x2030
+#define USB_DEVICE_ID_LD_MACHINETEST	0x2040
 
 #define USB_VENDOR_ID_APPLE		0x05ac
 #define USB_DEVICE_ID_APPLE_POWERMOUSE	0x0304
+
+#define USB_VENDOR_ID_CHERRY		0x046a
+#define USB_DEVICE_ID_CHERRY_CYMOTION	0x0023
+
+#define USB_VENDOR_ID_HP		0x03f0
+#define USB_DEVICE_ID_HP_USBHUB_KB	0x020c
 
 /*
  * Alphabetically sorted blacklist by quirk type.
  */
 
-static struct hid_blacklist {
+static const struct hid_blacklist {
 	__u16 idVendor;
 	__u16 idProduct;
 	unsigned quirks;
@@ -1482,17 +1495,20 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_GRIFFIN, USB_DEVICE_ID_POWERMATE, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GRIFFIN, USB_DEVICE_ID_SOUNDKNOB, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_KBGEAR, USB_DEVICE_ID_KBGEAR_JAMSTUDIO, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_CASSY, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_POCKETCASSY, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_MOBILECASSY, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_JWM, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_DMMP, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_UMIP, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_VIDEOCOM, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_COM3LAB, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_TELEPORT, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_NETWORKANALYSER, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_POWERCONTROL, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_CASSY, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_POCKETCASSY, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_MOBILECASSY, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_JWM, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_DMMP, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_UMIP, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_XRAY1, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_XRAY2, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_VIDEOCOM, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_COM3LAB, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_TELEPORT, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_NETWORKANALYSER, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_POWERCONTROL, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_LD, USB_DEVICE_ID_LD_MACHINETEST, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_MCC, USB_DEVICE_ID_MCC_PMD1024LS, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_MCC, USB_DEVICE_ID_MCC_PMD1208LS, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_MGE, USB_DEVICE_ID_MGE_UPS, HID_QUIRK_IGNORE },
@@ -1524,6 +1540,9 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 3, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 4, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 5, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 7, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 8, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PL + 9, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS2 + 1, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS2 + 2, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS2 + 3, HID_QUIRK_IGNORE },
@@ -1531,11 +1550,19 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS2 + 5, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS2 + 7, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_VOLITO, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_VOLITO + 1, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_VOLITO + 2, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_VOLITO + 3, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_VOLITO + 4, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_GRAPHIRE + 5, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_GRAPHIRE + 6, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_PTU, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS3, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS3 + 1, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS3 + 2, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_INTUOS3 + 5, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_CINTIQ, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WACOM, USB_DEVICE_ID_WACOM_DTF, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_4_PHIDGETSERVO_20, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_1_PHIDGETSERVO_20, HID_QUIRK_IGNORE },
 
@@ -1549,7 +1576,9 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_ATEN, USB_DEVICE_ID_ATEN_4PORTKVMC, HID_QUIRK_NOGET },
 	{ USB_VENDOR_ID_BTC, USB_DEVICE_ID_BTC_KEYBOARD, HID_QUIRK_NOGET},
 	{ USB_VENDOR_ID_CHICONY, USB_DEVICE_ID_CHICONY_USBHUB_KB, HID_QUIRK_NOGET},
+	{ USB_VENDOR_ID_HP, USB_DEVICE_ID_HP_USBHUB_KB, HID_QUIRK_NOGET },
 	{ USB_VENDOR_ID_TANGTOP, USB_DEVICE_ID_TANGTOP_USBPS2, HID_QUIRK_NOGET },
+	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_DUAL_USB_JOYPAD, HID_QUIRK_NOGET | HID_QUIRK_MULTI_INPUT },
 
 	{ USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_POWERMOUSE, HID_QUIRK_2WHEEL_POWERMOUSE },
 	{ USB_VENDOR_ID_A4TECH, USB_DEVICE_ID_A4TECH_WCP32PU, HID_QUIRK_2WHEEL_MOUSE_HACK_7 },
@@ -1565,6 +1594,16 @@ static struct hid_blacklist {
 	{ USB_VENDOR_ID_NEC, USB_DEVICE_ID_NEC_USB_GAME_PAD, HID_QUIRK_BADPAD },
 	{ USB_VENDOR_ID_SAITEK, USB_DEVICE_ID_SAITEK_RUMBLEPAD, HID_QUIRK_BADPAD },
 	{ USB_VENDOR_ID_TOPMAX, USB_DEVICE_ID_TOPMAX_COBRAPAD, HID_QUIRK_BADPAD },
+
+	{ USB_VENDOR_ID_CHERRY, USB_DEVICE_ID_CHERRY_CYMOTION, HID_QUIRK_CYMOTION },
+
+	{ USB_VENDOR_ID_APPLE, 0x020E, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x020F, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x0214, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x0215, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x0216, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x030A, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x030B, HID_QUIRK_POWERBOOK_HAS_FN },
 
 	{ 0, 0 }
 };
@@ -1612,6 +1651,20 @@ static void hid_free_buffers(struct usb_device *dev, struct hid_device *hid)
 		usb_buffer_free(dev, hid->bufsize, hid->ctrlbuf, hid->ctrlbuf_dma);
 }
 
+/*
+ * Cherry Cymotion keyboard have an invalid HID report descriptor,
+ * that needs fixing before we can parse it.
+ */
+
+static void hid_fixup_cymotion_descriptor(char *rdesc, int rsize)
+{
+	if (rsize >= 17 && rdesc[11] == 0x3c && rdesc[12] == 0x02) {
+		info("Fixing up Cherry Cymotion report descriptor");
+		rdesc[11] = rdesc[16] = 0xff;
+		rdesc[12] = rdesc[17] = 0x03;
+	}
+}
+
 static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 {
 	struct usb_host_interface *interface = intf->cur_altsetting;
@@ -1619,8 +1672,8 @@ static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 	struct hid_descriptor *hdesc;
 	struct hid_device *hid;
 	unsigned quirks = 0, rsize = 0;
-	char *buf, *rdesc;
-	int n, insize = 0;
+	char *rdesc;
+	int n, len, insize = 0;
 
 	for (n = 0; hid_blacklist[n].idVendor; n++)
 		if ((hid_blacklist[n].idVendor == le16_to_cpu(dev->descriptor.idVendor)) &&
@@ -1630,10 +1683,11 @@ static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 	if (quirks & HID_QUIRK_IGNORE)
 		return NULL;
 
-	if (usb_get_extra_descriptor(interface, HID_DT_HID, &hdesc) && ((!interface->desc.bNumEndpoints) ||
-		usb_get_extra_descriptor(&interface->endpoint[0], HID_DT_HID, &hdesc))) {
-			dbg("class descriptor not present\n");
-			return NULL;
+	if (usb_get_extra_descriptor(interface, HID_DT_HID, &hdesc) &&
+	    (!interface->desc.bNumEndpoints ||
+	     usb_get_extra_descriptor(&interface->endpoint[0], HID_DT_HID, &hdesc))) {
+		dbg("class descriptor not present\n");
+		return NULL;
 	}
 
 	for (n = 0; n < hdesc->bNumDescriptors; n++)
@@ -1657,6 +1711,9 @@ static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 		kfree(rdesc);
 		return NULL;
 	}
+
+	if ((quirks & HID_QUIRK_CYMOTION))
+		hid_fixup_cymotion_descriptor(rdesc, rsize);
 
 #ifdef DEBUG_DATA
 	printk(KERN_DEBUG __FILE__ ": report descriptor (size %u, read %d) = ", rsize, n);
@@ -1749,32 +1806,34 @@ static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 
 	hid->name[0] = 0;
 
-	if (!(buf = kmalloc(64, GFP_KERNEL)))
-		goto fail;
+	if (dev->manufacturer)
+		strlcpy(hid->name, dev->manufacturer, sizeof(hid->name));
 
-	if (dev->manufacturer) {
-		strcat(hid->name, dev->manufacturer);
-		if (dev->product)
-			snprintf(hid->name, 64, "%s %s", hid->name, dev->product);
-	} else if (dev->product) {
-			snprintf(hid->name, 128, "%s", dev->product);
-	} else
-		snprintf(hid->name, 128, "%04x:%04x",
-			le16_to_cpu(dev->descriptor.idVendor),
-			le16_to_cpu(dev->descriptor.idProduct));
+	if (dev->product) {
+		if (dev->manufacturer)
+			strlcat(hid->name, " ", sizeof(hid->name));
+		strlcat(hid->name, dev->product, sizeof(hid->name));
+	}
 
-	usb_make_path(dev, buf, 64);
-	snprintf(hid->phys, 64, "%s/input%d", buf,
-			intf->altsetting[0].desc.bInterfaceNumber);
+	if (!strlen(hid->name))
+		snprintf(hid->name, sizeof(hid->name), "HID %04x:%04x",
+			 le16_to_cpu(dev->descriptor.idVendor),
+			 le16_to_cpu(dev->descriptor.idProduct));
+
+	usb_make_path(dev, hid->phys, sizeof(hid->phys));
+	strlcat(hid->phys, "/input", sizeof(hid->phys));
+	len = strlen(hid->phys);
+	if (len < sizeof(hid->phys) - 1)
+		snprintf(hid->phys + len, sizeof(hid->phys) - len,
+			 "%d", intf->altsetting[0].desc.bInterfaceNumber);
 
 	if (usb_string(dev, dev->descriptor.iSerialNumber, hid->uniq, 64) <= 0)
 		hid->uniq[0] = 0;
 
-	kfree(buf);
-
 	hid->urbctrl = usb_alloc_urb(0, GFP_KERNEL);
 	if (!hid->urbctrl)
 		goto fail;
+
 	usb_fill_control_urb(hid->urbctrl, dev, 0, (void *) hid->cr,
 			     hid->ctrlbuf, 1, hid_ctrl, hid);
 	hid->urbctrl->setup_dma = hid->cr_dma;
@@ -1884,7 +1943,6 @@ static int hid_suspend(struct usb_interface *intf, pm_message_t message)
 	struct hid_device *hid = usb_get_intfdata (intf);
 
 	usb_kill_urb(hid->urbin);
-	intf->dev.power.power_state = PMSG_SUSPEND;
 	dev_dbg(&intf->dev, "suspend\n");
 	return 0;
 }
@@ -1894,7 +1952,6 @@ static int hid_resume(struct usb_interface *intf)
 	struct hid_device *hid = usb_get_intfdata (intf);
 	int status;
 
-	intf->dev.power.power_state = PMSG_ON;
 	if (hid->open)
 		status = usb_submit_urb(hid->urbin, GFP_NOIO);
 	else
@@ -1912,7 +1969,6 @@ static struct usb_device_id hid_usb_ids [] = {
 MODULE_DEVICE_TABLE (usb, hid_usb_ids);
 
 static struct usb_driver hid_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"usbhid",
 	.probe =	hid_probe,
 	.disconnect =	hid_disconnect,

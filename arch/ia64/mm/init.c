@@ -158,7 +158,7 @@ ia64_init_addr_space (void)
 		vma->vm_start = current->thread.rbs_bot & PAGE_MASK;
 		vma->vm_end = vma->vm_start + PAGE_SIZE;
 		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
-		vma->vm_flags = VM_DATA_DEFAULT_FLAGS | VM_GROWSUP;
+		vma->vm_flags = VM_DATA_DEFAULT_FLAGS|VM_GROWSUP|VM_ACCOUNT;
 		down_write(&current->mm->mmap_sem);
 		if (insert_vm_struct(current->mm, vma)) {
 			up_write(&current->mm->mmap_sem);
@@ -275,26 +275,21 @@ put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
 
 	pgd = pgd_offset_k(address);		/* note: this is NOT pgd_offset()! */
 
-	spin_lock(&init_mm.page_table_lock);
 	{
 		pud = pud_alloc(&init_mm, pgd, address);
 		if (!pud)
 			goto out;
-
 		pmd = pmd_alloc(&init_mm, pud, address);
 		if (!pmd)
 			goto out;
-		pte = pte_alloc_map(&init_mm, pmd, address);
+		pte = pte_alloc_kernel(pmd, address);
 		if (!pte)
 			goto out;
-		if (!pte_none(*pte)) {
-			pte_unmap(pte);
+		if (!pte_none(*pte))
 			goto out;
-		}
 		set_pte(pte, mk_pte(page, pgprot));
-		pte_unmap(pte);
 	}
-  out:	spin_unlock(&init_mm.page_table_lock);
+  out:
 	/* no need for flush_tlb */
 	return page;
 }
@@ -593,7 +588,7 @@ mem_init (void)
 	platform_dma_init();
 #endif
 
-#ifndef CONFIG_DISCONTIGMEM
+#ifdef CONFIG_FLATMEM
 	if (!mem_map)
 		BUG();
 	max_mapnr = max_low_pfn;
@@ -640,3 +635,39 @@ mem_init (void)
 	ia32_mem_init();
 #endif
 }
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+void online_page(struct page *page)
+{
+	ClearPageReserved(page);
+	set_page_count(page, 1);
+	__free_page(page);
+	totalram_pages++;
+	num_physpages++;
+}
+
+int add_memory(u64 start, u64 size)
+{
+	pg_data_t *pgdat;
+	struct zone *zone;
+	unsigned long start_pfn = start >> PAGE_SHIFT;
+	unsigned long nr_pages = size >> PAGE_SHIFT;
+	int ret;
+
+	pgdat = NODE_DATA(0);
+
+	zone = pgdat->node_zones + ZONE_NORMAL;
+	ret = __add_pages(zone, start_pfn, nr_pages);
+
+	if (ret)
+		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
+		       __FUNCTION__,  ret);
+
+	return ret;
+}
+
+int remove_memory(u64 start, u64 size)
+{
+	return -EINVAL;
+}
+#endif

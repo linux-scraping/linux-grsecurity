@@ -18,7 +18,7 @@
 
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/fb.h>
 
 #include <asm/setup.h>
@@ -152,16 +152,17 @@ static void __init idp_init_irq(void)
 }
 
 static struct map_desc idp_io_desc[] __initdata = {
- /* virtual     physical    length      type */
-
-  { IDP_COREVOLT_VIRT,
-    IDP_COREVOLT_PHYS,
-    IDP_COREVOLT_SIZE,
-    MT_DEVICE },
-  { IDP_CPLD_VIRT,
-    IDP_CPLD_PHYS,
-    IDP_CPLD_SIZE,
-    MT_DEVICE }
+  	{
+		.virtual	=  IDP_COREVOLT_VIRT,
+		.pfn		= __phys_to_pfn(IDP_COREVOLT_PHYS),
+		.length		= IDP_COREVOLT_SIZE,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  IDP_CPLD_VIRT,
+		.pfn		= __phys_to_pfn(IDP_CPLD_PHYS),
+		.length		= IDP_CPLD_SIZE,
+		.type		= MT_DEVICE
+	}
 };
 
 static void __init idp_map_io(void)
@@ -182,7 +183,6 @@ static void __init idp_map_io(void)
 
 MACHINE_START(PXA_IDP, "Vibren PXA255 IDP")
 	/* Maintainer: Vibren Technologies */
-	.phys_ram	= 0xa0000000,
 	.phys_io	= 0x40000000,
 	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.map_io		= idp_map_io,

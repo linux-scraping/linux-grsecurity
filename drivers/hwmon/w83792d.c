@@ -193,6 +193,7 @@ static const u8 W83792D_REG_LEVELS[3][4] = {
 	  0xE2 }	/* (bit3-0) SmartFanII: Fan3 Level 3 */
 };
 
+#define W83792D_REG_GPIO_EN		0x1A
 #define W83792D_REG_CONFIG		0x40
 #define W83792D_REG_VID_FANDIV		0x47
 #define W83792D_REG_CHIPID		0x49
@@ -257,7 +258,7 @@ DIV_TO_REG(long val)
 {
 	int i;
 	val = SENSORS_LIMIT(val, 1, 128) >> 1;
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < 7; i++) {
 		if (val == 0)
 			break;
 		val >>= 1;
@@ -268,7 +269,6 @@ DIV_TO_REG(long val)
 struct w83792d_data {
 	struct i2c_client client;
 	struct class_device *class_dev;
-	struct semaphore lock;
 	enum chips type;
 
 	struct semaphore update_lock;
@@ -281,7 +281,7 @@ struct w83792d_data {
 	u8 in[9];		/* Register value */
 	u8 in_max[9];		/* Register value */
 	u8 in_min[9];		/* Register value */
-	u8 low_bits[2];		/* Additional resolution to voltage in0-6 */
+	u16 low_bits;		/* Additional resolution to voltage in6-0 */
 	u8 fan[7];		/* Register value */
 	u8 fan_min[7];		/* Register value */
 	u8 temp1[3];		/* current, over, thyst */
@@ -303,10 +303,6 @@ struct w83792d_data {
 static int w83792d_attach_adapter(struct i2c_adapter *adapter);
 static int w83792d_detect(struct i2c_adapter *adapter, int address, int kind);
 static int w83792d_detach_client(struct i2c_client *client);
-
-static int w83792d_read_value(struct i2c_client *client, u8 register);
-static int w83792d_write_value(struct i2c_client *client, u8 register,
-				u8 value);
 static struct w83792d_data *w83792d_update_device(struct device *dev);
 
 #ifdef DEBUG
@@ -316,45 +312,31 @@ static void w83792d_print_debug(struct w83792d_data *data, struct device *dev);
 static void w83792d_init_client(struct i2c_client *client);
 
 static struct i2c_driver w83792d_driver = {
-	.owner = THIS_MODULE,
-	.name = "w83792d",
-	.flags = I2C_DF_NOTIFY,
+	.driver = {
+		.name = "w83792d",
+	},
 	.attach_adapter = w83792d_attach_adapter,
 	.detach_client = w83792d_detach_client,
 };
 
-static long in_count_from_reg(int nr, struct w83792d_data *data)
+static inline long in_count_from_reg(int nr, struct w83792d_data *data)
 {
-	u16 vol_count = data->in[nr];
-	u16 low_bits = 0;
-	vol_count = (vol_count << 2);
-	switch (nr)
-	{
-	case 0:  /* vin0 */
-		low_bits = (data->low_bits[0]) & 0x03;
-		break;
-	case 1:  /* vin1 */
-		low_bits = ((data->low_bits[0]) & 0x0c) >> 2;
-		break;
-	case 2:  /* vin2 */
-		low_bits = ((data->low_bits[0]) & 0x30) >> 4;
-		break;
-	case 3:  /* vin3 */
-		low_bits = ((data->low_bits[0]) & 0xc0) >> 6;
-		break;
-	case 4:  /* vin4 */
-		low_bits = (data->low_bits[1]) & 0x03;
-		break;
-	case 5:  /* vin5 */
-		low_bits = ((data->low_bits[1]) & 0x0c) >> 2;
-		break;
-	case 6:  /* vin6 */
-		low_bits = ((data->low_bits[1]) & 0x30) >> 4;
-	default:
-		break;
-	}
-	vol_count = vol_count | low_bits;
-	return vol_count;
+	/* in7 and in8 do not have low bits, but the formula still works */
+	return ((data->in[nr] << 2) | ((data->low_bits >> (2 * nr)) & 0x03));
+}
+
+/* The SMBus locks itself. The Winbond W83792D chip has a bank register,
+   but the driver only accesses registers in bank 0, so we don't have
+   to switch banks and lock access between switches. */
+static inline int w83792d_read_value(struct i2c_client *client, u8 reg)
+{
+	return i2c_smbus_read_byte_data(client, reg);
+}
+
+static inline int
+w83792d_write_value(struct i2c_client *client, u8 reg, u8 value)
+{
+	return i2c_smbus_write_byte_data(client, reg, value);
 }
 
 /* following are the sysfs callback functions */
@@ -1086,11 +1068,10 @@ w83792d_create_subclient(struct i2c_adapter *adapter,
 	int err;
 	struct i2c_client *sub_client;
 
-	(*sub_cli) = sub_client = kmalloc(sizeof(struct i2c_client), GFP_KERNEL);
+	(*sub_cli) = sub_client = kzalloc(sizeof(struct i2c_client), GFP_KERNEL);
 	if (!(sub_client)) {
 		return -ENOMEM;
 	}
-	memset(sub_client, 0x00, sizeof(struct i2c_client));
 	sub_client->addr = 0x48 + addr;
 	i2c_set_clientdata(sub_client, NULL);
 	sub_client->adapter = adapter;
@@ -1184,16 +1165,14 @@ w83792d_detect(struct i2c_adapter *adapter, int address, int kind)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access w83792d_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct w83792d_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct w83792d_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto ERROR0;
 	}
-	memset(data, 0, sizeof(struct w83792d_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);
 	new_client->addr = address;
-	init_MUTEX(&data->lock);
 	new_client->adapter = adapter;
 	new_client->driver = &w83792d_driver;
 	new_client->flags = 0;
@@ -1244,7 +1223,7 @@ w83792d_detect(struct i2c_adapter *adapter, int address, int kind)
 			goto ERROR1;
 		}
 		val1 = w83792d_read_value(new_client, W83792D_REG_WCHIPID);
-		if (val1 == 0x7a && address >= 0x2c) {
+		if (val1 == 0x7a) {
 			kind = w83792d;
 		} else {
 			if (kind == 0)
@@ -1284,8 +1263,8 @@ w83792d_detect(struct i2c_adapter *adapter, int address, int kind)
 	w83792d_init_client(new_client);
 
 	/* A few vars need to be filled upon startup */
-	for (i = 1; i <= 7; i++) {
-		data->fan_min[i - 1] = w83792d_read_value(new_client,
+	for (i = 0; i < 7; i++) {
+		data->fan_min[i] = w83792d_read_value(new_client,
 					W83792D_REG_FAN_MIN[i]);
 	}
 
@@ -1308,10 +1287,20 @@ w83792d_detect(struct i2c_adapter *adapter, int address, int kind)
 	device_create_file_fan(new_client, 1);
 	device_create_file_fan(new_client, 2);
 	device_create_file_fan(new_client, 3);
-	device_create_file_fan(new_client, 4);
-	device_create_file_fan(new_client, 5);
-	device_create_file_fan(new_client, 6);
-	device_create_file_fan(new_client, 7);
+
+	/* Read GPIO enable register to check if pins for fan 4,5 are used as
+	   GPIO */
+	val1 = w83792d_read_value(new_client, W83792D_REG_GPIO_EN);
+	if (!(val1 & 0x40))
+		device_create_file_fan(new_client, 4);
+	if (!(val1 & 0x20))
+		device_create_file_fan(new_client, 5);
+
+	val1 = w83792d_read_value(new_client, W83792D_REG_PIN);
+	if (val1 & 0x40)
+		device_create_file_fan(new_client, 6);
+	if (val1 & 0x04)
+		device_create_file_fan(new_client, 7);
 
 	device_create_file_temp1(new_client);		/* Temp1 */
 	device_create_file_temp_add(new_client, 2);	/* Temp2 */
@@ -1407,29 +1396,6 @@ w83792d_detach_client(struct i2c_client *client)
 	return 0;
 }
 
-/* The SMBus locks itself, usually, but nothing may access the Winbond between
-   bank switches. ISA access must always be locked explicitly!
-   We ignore the W83792D BUSY flag at this moment - it could lead to deadlocks,
-   would slow down the W83792D access and should not be necessary.
-   There are some ugly typecasts here, but the good news is - they should
-   nowhere else be necessary! */
-static int
-w83792d_read_value(struct i2c_client *client, u8 reg)
-{
-	int res=0;
-	res = i2c_smbus_read_byte_data(client, reg);
-
-	return res;
-}
-
-static int
-w83792d_write_value(struct i2c_client *client, u8 reg, u8 value)
-{
-	i2c_smbus_write_byte_data(client, reg,  value);
-	return 0;
-}
-
-/* Called when we have found a new W83792D. It should set limits, etc. */
 static void
 w83792d_init_client(struct i2c_client *client)
 {
@@ -1484,10 +1450,10 @@ static struct w83792d_data *w83792d_update_device(struct device *dev)
 			data->in_min[i] = w83792d_read_value(client,
 						W83792D_REG_IN_MIN[i]);
 		}
-		data->low_bits[0] = w83792d_read_value(client,
-						W83792D_REG_LOW_BITS1);
-		data->low_bits[1] = w83792d_read_value(client,
-						W83792D_REG_LOW_BITS2);
+		data->low_bits = w83792d_read_value(client,
+						W83792D_REG_LOW_BITS1) +
+				 (w83792d_read_value(client,
+						W83792D_REG_LOW_BITS2) << 8);
 		for (i = 0; i < 7; i++) {
 			/* Update the Fan measured value and limits */
 			data->fan[i] = w83792d_read_value(client,
@@ -1498,7 +1464,7 @@ static struct w83792d_data *w83792d_update_device(struct device *dev)
 			pwm_array_tmp[i] = w83792d_read_value(client,
 						W83792D_REG_PWM[i]);
 			data->pwm[i] = pwm_array_tmp[i] & 0x0f;
-			data->pwm_mode[i] = (pwm_array_tmp[i] >> 7) & 0x01;
+			data->pwm_mode[i] = pwm_array_tmp[i] >> 7;
 		}
 
 		reg_tmp = w83792d_read_value(client, W83792D_REG_FAN_CFG);
@@ -1599,8 +1565,8 @@ static void w83792d_print_debug(struct w83792d_data *data, struct device *dev)
 		dev_dbg(dev, "vin[%d] max is: 0x%x\n", i, data->in_max[i]);
 		dev_dbg(dev, "vin[%d] min is: 0x%x\n", i, data->in_min[i]);
 	}
-	dev_dbg(dev, "Low Bit1 is: 0x%x\n", data->low_bits[0]);
-	dev_dbg(dev, "Low Bit2 is: 0x%x\n", data->low_bits[1]);
+	dev_dbg(dev, "Low Bit1 is: 0x%x\n", data->low_bits & 0xff);
+	dev_dbg(dev, "Low Bit2 is: 0x%x\n", data->low_bits >> 8);
 	dev_dbg(dev, "7 set of Fan Counts and Duty Cycles: =====>\n");
 	for (i=0; i<7; i++) {
 		dev_dbg(dev, "fan[%d] is: 0x%x\n", i, data->fan[i]);

@@ -3,7 +3,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001-2004 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2001-2006 Silicon Graphics, Inc. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -12,22 +12,20 @@
 #include <asm/sn/pcibus_provider_defs.h>
 #include <asm/sn/pcidev.h>
 
-int pcibr_invalidate_ate = 0;	/* by default don't invalidate ATE on free */
+int pcibr_invalidate_ate;	/* by default don't invalidate ATE on free */
 
 /*
  * mark_ate: Mark the ate as either free or inuse.
  */
 static void mark_ate(struct ate_resource *ate_resource, int start, int number,
-		     uint64_t value)
+		     u64 value)
 {
-
-	uint64_t *ate = ate_resource->ate;
+	u64 *ate = ate_resource->ate;
 	int index;
 	int length = 0;
 
 	for (index = start; length < number; index++, length++)
 		ate[index] = value;
-
 }
 
 /*
@@ -37,8 +35,7 @@ static void mark_ate(struct ate_resource *ate_resource, int start, int number,
 static int find_free_ate(struct ate_resource *ate_resource, int start,
 			 int count)
 {
-
-	uint64_t *ate = ate_resource->ate;
+	u64 *ate = ate_resource->ate;
 	int index;
 	int start_free;
 
@@ -70,12 +67,10 @@ static int find_free_ate(struct ate_resource *ate_resource, int start,
 static inline void free_ate_resource(struct ate_resource *ate_resource,
 				     int start)
 {
-
 	mark_ate(ate_resource, start, ate_resource->ate[start], 0);
 	if ((ate_resource->lowest_free_index > start) ||
 	    (ate_resource->lowest_free_index < 0))
 		ate_resource->lowest_free_index = start;
-
 }
 
 /*
@@ -84,7 +79,6 @@ static inline void free_ate_resource(struct ate_resource *ate_resource,
 static inline int alloc_ate_resource(struct ate_resource *ate_resource,
 				     int ate_needed)
 {
-
 	int start_index;
 
 	/*
@@ -118,19 +112,12 @@ static inline int alloc_ate_resource(struct ate_resource *ate_resource,
  */
 int pcibr_ate_alloc(struct pcibus_info *pcibus_info, int count)
 {
-	int status = 0;
-	uint64_t flag;
+	int status;
+	unsigned long flags;
 
-	flag = pcibr_lock(pcibus_info);
+	spin_lock_irqsave(&pcibus_info->pbi_lock, flags);
 	status = alloc_ate_resource(&pcibus_info->pbi_int_ate_resource, count);
-
-	if (status < 0) {
-		/* Failed to allocate */
-		pcibr_unlock(pcibus_info, flag);
-		return -1;
-	}
-
-	pcibr_unlock(pcibus_info, flag);
+	spin_unlock_irqrestore(&pcibus_info->pbi_lock, flags);
 
 	return status;
 }
@@ -139,7 +126,7 @@ int pcibr_ate_alloc(struct pcibus_info *pcibus_info, int count)
  * Setup an Address Translation Entry as specified.  Use either the Bridge
  * internal maps or the external map RAM, as appropriate.
  */
-static inline uint64_t *pcibr_ate_addr(struct pcibus_info *pcibus_info,
+static inline u64 *pcibr_ate_addr(struct pcibus_info *pcibus_info,
 				       int ate_index)
 {
 	if (ate_index < pcibus_info->pbi_int_ate_size) {
@@ -153,7 +140,7 @@ static inline uint64_t *pcibr_ate_addr(struct pcibus_info *pcibus_info,
  */
 void inline
 ate_write(struct pcibus_info *pcibus_info, int ate_index, int count,
-	  volatile uint64_t ate)
+	  volatile u64 ate)
 {
 	while (count-- > 0) {
 		if (ate_index < pcibus_info->pbi_int_ate_size) {
@@ -171,9 +158,9 @@ ate_write(struct pcibus_info *pcibus_info, int ate_index, int count,
 void pcibr_ate_free(struct pcibus_info *pcibus_info, int index)
 {
 
-	volatile uint64_t ate;
+	volatile u64 ate;
 	int count;
-	uint64_t flags;
+	u64 flags;
 
 	if (pcibr_invalidate_ate) {
 		/* For debugging purposes, clear the valid bit in the ATE */
@@ -182,7 +169,7 @@ void pcibr_ate_free(struct pcibus_info *pcibus_info, int index)
 		ate_write(pcibus_info, index, count, (ate & ~PCI32_ATE_V));
 	}
 
-	flags = pcibr_lock(pcibus_info);
+	spin_lock_irqsave(&pcibus_info->pbi_lock, flags);
 	free_ate_resource(&pcibus_info->pbi_int_ate_resource, index);
-	pcibr_unlock(pcibus_info, flags);
+	spin_unlock_irqrestore(&pcibus_info->pbi_lock, flags);
 }

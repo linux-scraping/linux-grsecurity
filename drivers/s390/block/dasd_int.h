@@ -6,7 +6,6 @@
  * Bugreports.to..: <Linux390@de.ibm.com>
  * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 1999,2000
  *
- * $Revision: 1.65 $
  */
 
 #ifndef DASD_INT_H
@@ -27,7 +26,7 @@
  *   new: the dasd_device structure is allocated.
  *   known: the discipline for the device is identified.
  *   basic: the device can do basic i/o.
- *   accept: the device is analysed (format is known).
+ *   unfmt: the device could not be analyzed (format is unknown).
  *   ready: partition detection is done and the device is can do block io.
  *   online: the device accepts requests from the block device queue.
  *
@@ -48,8 +47,9 @@
 #define DASD_STATE_NEW	  0
 #define DASD_STATE_KNOWN  1
 #define DASD_STATE_BASIC  2
-#define DASD_STATE_READY  3
-#define DASD_STATE_ONLINE 4
+#define DASD_STATE_UNFMT  3
+#define DASD_STATE_READY  4
+#define DASD_STATE_ONLINE 5
 
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -208,6 +208,7 @@ struct dasd_ccw_req {
 
 /* per dasd_ccw_req flags */
 #define DASD_CQR_FLAGS_USE_ERP   0	/* use ERP for this request */
+#define DASD_CQR_FLAGS_FAILFAST  1	/* FAILFAST */
 
 /* Signature for error recovery functions. */
 typedef struct dasd_ccw_req *(*dasd_erp_fn_t) (struct dasd_ccw_req *);
@@ -290,6 +291,7 @@ struct dasd_device {
 
 	/* Device discipline stuff. */
 	struct dasd_discipline *discipline;
+	struct dasd_discipline *base_discipline;
 	char *private;
 
 	/* Device state and target state. */
@@ -526,6 +528,7 @@ void dasd_ioctl_exit(void);
 int  dasd_ioctl_no_register(struct module *, int, dasd_ioctl_fn_t);
 int  dasd_ioctl_no_unregister(struct module *, int, dasd_ioctl_fn_t);
 int  dasd_ioctl(struct inode *, struct file *, unsigned int, unsigned long);
+long dasd_compat_ioctl(struct file *, unsigned int, unsigned long);
 
 /* externals in dasd_proc.c */
 int dasd_proc_init(void);

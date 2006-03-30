@@ -30,6 +30,7 @@
 #include <linux/shm.h>
 #include <linux/msg.h>
 #include <linux/sched.h>
+#include <linux/key.h>
 
 struct ctl_table;
 
@@ -58,6 +59,12 @@ struct sk_buff;
 struct sock;
 struct sockaddr;
 struct socket;
+struct flowi;
+struct dst_entry;
+struct xfrm_selector;
+struct xfrm_policy;
+struct xfrm_state;
+struct xfrm_user_sec_ctx;
 
 extern int cap_netlink_send(struct sock *sk, struct sk_buff *skb);
 extern int cap_netlink_recv(struct sk_buff *skb);
@@ -385,6 +392,9 @@ struct swap_info_struct;
  *	NULL to request the size of the buffer required.  @size indicates
  *	the size of @buffer in bytes.  Note that @name is the remainder
  *	of the attribute name after the security. prefix has been removed.
+ *	@err is the return value from the preceding fs getxattr call,
+ *	and can be used by the security module to determine whether it
+ *	should try and canonicalize the attribute value.
  *	Return number of bytes used/required on success.
  * @inode_setsecurity:
  *	Set the security label associated with @name for @inode from the
@@ -784,6 +794,73 @@ struct swap_info_struct;
  *      which is used to copy security attributes between local stream sockets.
  * @sk_free_security:
  *	Deallocate security structure.
+ * @sk_getsid:
+ *	Retrieve the LSM-specific sid for the sock to enable caching of network
+ *	authorizations.
+ *
+ * Security hooks for XFRM operations.
+ *
+ * @xfrm_policy_alloc_security:
+ *	@xp contains the xfrm_policy being added to Security Policy Database
+ *	used by the XFRM system.
+ *	@sec_ctx contains the security context information being provided by
+ *	the user-level policy update program (e.g., setkey).
+ *	Allocate a security structure to the xp->selector.security field.
+ *	The security field is initialized to NULL when the xfrm_policy is
+ *	allocated.
+ *	Return 0 if operation was successful (memory to allocate, legal context)
+ * @xfrm_policy_clone_security:
+ *	@old contains an existing xfrm_policy in the SPD.
+ *	@new contains a new xfrm_policy being cloned from old.
+ *	Allocate a security structure to the new->selector.security field
+ *	that contains the information from the old->selector.security field.
+ *	Return 0 if operation was successful (memory to allocate).
+ * @xfrm_policy_free_security:
+ *	@xp contains the xfrm_policy
+ *	Deallocate xp->selector.security.
+ * @xfrm_state_alloc_security:
+ *	@x contains the xfrm_state being added to the Security Association
+ *	Database by the XFRM system.
+ *	@sec_ctx contains the security context information being provided by
+ *	the user-level SA generation program (e.g., setkey or racoon).
+ *	Allocate a security structure to the x->sel.security field.  The
+ *	security field is initialized to NULL when the xfrm_state is
+ *	allocated.
+ *	Return 0 if operation was successful (memory to allocate, legal context).
+ * @xfrm_state_free_security:
+ *	@x contains the xfrm_state.
+ *	Deallocate x>sel.security.
+ * @xfrm_policy_lookup:
+ *	@xp contains the xfrm_policy for which the access control is being
+ *	checked.
+ *	@sk_sid contains the sock security label that is used to authorize
+ *	access to the policy xp.
+ *	@dir contains the direction of the flow (input or output).
+ *	Check permission when a sock selects a xfrm_policy for processing
+ *	XFRMs on a packet.  The hook is called when selecting either a
+ *	per-socket policy or a generic xfrm policy.
+ *	Return 0 if permission is granted.
+ *
+ * Security hooks affecting all Key Management operations
+ *
+ * @key_alloc:
+ *	Permit allocation of a key and assign security data. Note that key does
+ *	not have a serial number assigned at this point.
+ *	@key points to the key.
+ *	Return 0 if permission is granted, -ve error otherwise.
+ * @key_free:
+ *	Notification of destruction; free security data.
+ *	@key points to the key.
+ *	No return value.
+ * @key_permission:
+ *	See whether a specific operational right is granted to a process on a
+ *      key.
+ *	@key_ref refers to the key (key pointer + possession attribute bit).
+ *	@context points to the process to provide the context against which to
+ *       evaluate the security data on the key.
+ *	@perm describes the combination of permissions required of this key.
+ *	Return 1 if permission granted, 0 if permission denied and -ve it the
+ *      normal permissions model should be effected.
  *
  * Security hooks affecting all System V IPC operations.
  *
@@ -1091,7 +1168,7 @@ struct security_operations {
 	int (*inode_getxattr) (struct dentry *dentry, char *name);
 	int (*inode_listxattr) (struct dentry *dentry);
 	int (*inode_removexattr) (struct dentry *dentry, char *name);
-  	int (*inode_getsecurity)(struct inode *inode, const char *name, void *buffer, size_t size);
+  	int (*inode_getsecurity)(struct inode *inode, const char *name, void *buffer, size_t size, int err);
   	int (*inode_setsecurity)(struct inode *inode, const char *name, const void *value, size_t size, int flags);
   	int (*inode_listsecurity)(struct inode *inode, char *buffer, size_t buffer_size);
 
@@ -1210,9 +1287,30 @@ struct security_operations {
 	int (*socket_shutdown) (struct socket * sock, int how);
 	int (*socket_sock_rcv_skb) (struct sock * sk, struct sk_buff * skb);
 	int (*socket_getpeersec) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
-	int (*sk_alloc_security) (struct sock *sk, int family, int priority);
+	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority);
 	void (*sk_free_security) (struct sock *sk);
+	unsigned int (*sk_getsid) (struct sock *sk, struct flowi *fl, u8 dir);
 #endif	/* CONFIG_SECURITY_NETWORK */
+
+#ifdef CONFIG_SECURITY_NETWORK_XFRM
+	int (*xfrm_policy_alloc_security) (struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx);
+	int (*xfrm_policy_clone_security) (struct xfrm_policy *old, struct xfrm_policy *new);
+	void (*xfrm_policy_free_security) (struct xfrm_policy *xp);
+	int (*xfrm_state_alloc_security) (struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx);
+	void (*xfrm_state_free_security) (struct xfrm_state *x);
+	int (*xfrm_policy_lookup)(struct xfrm_policy *xp, u32 sk_sid, u8 dir);
+#endif	/* CONFIG_SECURITY_NETWORK_XFRM */
+
+	/* key management security hooks */
+#ifdef CONFIG_KEYS
+	int (*key_alloc)(struct key *key);
+	void (*key_free)(struct key *key);
+	int (*key_permission)(key_ref_t key_ref,
+			      struct task_struct *context,
+			      key_perm_t perm);
+
+#endif	/* CONFIG_KEYS */
+
 };
 
 /* global variables */
@@ -1401,15 +1499,11 @@ static inline void security_sb_post_pivotroot (struct nameidata *old_nd,
 
 static inline int security_inode_alloc (struct inode *inode)
 {
-	if (unlikely (IS_PRIVATE (inode)))
-		return 0;
 	return security_ops->inode_alloc_security (inode);
 }
 
 static inline void security_inode_free (struct inode *inode)
 {
-	if (unlikely (IS_PRIVATE (inode)))
-		return;
 	security_ops->inode_free_security (inode);
 }
 
@@ -1580,11 +1674,11 @@ static inline int security_inode_removexattr (struct dentry *dentry, char *name)
 	return security_ops->inode_removexattr (dentry, name);
 }
 
-static inline int security_inode_getsecurity(struct inode *inode, const char *name, void *buffer, size_t size)
+static inline int security_inode_getsecurity(struct inode *inode, const char *name, void *buffer, size_t size, int err)
 {
 	if (unlikely (IS_PRIVATE (inode)))
 		return 0;
-	return security_ops->inode_getsecurity(inode, name, buffer, size);
+	return security_ops->inode_getsecurity(inode, name, buffer, size, err);
 }
 
 static inline int security_inode_setsecurity(struct inode *inode, const char *name, const void *value, size_t size, int flags)
@@ -2222,7 +2316,7 @@ static inline int security_inode_removexattr (struct dentry *dentry, char *name)
 	return cap_inode_removexattr(dentry, name);
 }
 
-static inline int security_inode_getsecurity(struct inode *inode, const char *name, void *buffer, size_t size)
+static inline int security_inode_getsecurity(struct inode *inode, const char *name, void *buffer, size_t size, int err)
 {
 	return -EOPNOTSUPP;
 }
@@ -2519,6 +2613,25 @@ static inline int security_netlink_recv (struct sk_buff *skb)
 	return cap_netlink_recv (skb);
 }
 
+static inline struct dentry *securityfs_create_dir(const char *name,
+					struct dentry *parent)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct dentry *securityfs_create_file(const char *name,
+						mode_t mode,
+						struct dentry *parent,
+						void *data,
+						struct file_operations *fops)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline void securityfs_remove(struct dentry *dentry)
+{
+}
+
 #endif	/* CONFIG_SECURITY */
 
 #ifdef CONFIG_SECURITY_NETWORK
@@ -2643,6 +2756,11 @@ static inline void security_sk_free(struct sock *sk)
 {
 	return security_ops->sk_free_security(sk);
 }
+
+static inline unsigned int security_sk_sid(struct sock *sk, struct flowi *fl, u8 dir)
+{
+	return security_ops->sk_getsid(sk, fl, dir);
+}
 #else	/* CONFIG_SECURITY_NETWORK */
 static inline int security_unix_stream_connect(struct socket * sock,
 					       struct socket * other, 
@@ -2759,7 +2877,112 @@ static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 static inline void security_sk_free(struct sock *sk)
 {
 }
+
+static inline unsigned int security_sk_sid(struct sock *sk, struct flowi *fl, u8 dir)
+{
+	return 0;
+}
 #endif	/* CONFIG_SECURITY_NETWORK */
+
+#ifdef CONFIG_SECURITY_NETWORK_XFRM
+static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
+{
+	return security_ops->xfrm_policy_alloc_security(xp, sec_ctx);
+}
+
+static inline int security_xfrm_policy_clone(struct xfrm_policy *old, struct xfrm_policy *new)
+{
+	return security_ops->xfrm_policy_clone_security(old, new);
+}
+
+static inline void security_xfrm_policy_free(struct xfrm_policy *xp)
+{
+	security_ops->xfrm_policy_free_security(xp);
+}
+
+static inline int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx)
+{
+	return security_ops->xfrm_state_alloc_security(x, sec_ctx);
+}
+
+static inline void security_xfrm_state_free(struct xfrm_state *x)
+{
+	security_ops->xfrm_state_free_security(x);
+}
+
+static inline int security_xfrm_policy_lookup(struct xfrm_policy *xp, u32 sk_sid, u8 dir)
+{
+	return security_ops->xfrm_policy_lookup(xp, sk_sid, dir);
+}
+#else	/* CONFIG_SECURITY_NETWORK_XFRM */
+static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
+{
+	return 0;
+}
+
+static inline int security_xfrm_policy_clone(struct xfrm_policy *old, struct xfrm_policy *new)
+{
+	return 0;
+}
+
+static inline void security_xfrm_policy_free(struct xfrm_policy *xp)
+{
+}
+
+static inline int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx)
+{
+	return 0;
+}
+
+static inline void security_xfrm_state_free(struct xfrm_state *x)
+{
+}
+
+static inline int security_xfrm_policy_lookup(struct xfrm_policy *xp, u32 sk_sid, u8 dir)
+{
+	return 0;
+}
+#endif	/* CONFIG_SECURITY_NETWORK_XFRM */
+
+#ifdef CONFIG_KEYS
+#ifdef CONFIG_SECURITY
+static inline int security_key_alloc(struct key *key)
+{
+	return security_ops->key_alloc(key);
+}
+
+static inline void security_key_free(struct key *key)
+{
+	security_ops->key_free(key);
+}
+
+static inline int security_key_permission(key_ref_t key_ref,
+					  struct task_struct *context,
+					  key_perm_t perm)
+{
+	return security_ops->key_permission(key_ref, context, perm);
+}
+
+#else
+
+static inline int security_key_alloc(struct key *key)
+{
+	return 0;
+}
+
+static inline void security_key_free(struct key *key)
+{
+}
+
+static inline int security_key_permission(key_ref_t key_ref,
+					  struct task_struct *context,
+					  key_perm_t perm)
+{
+	return 0;
+}
+
+#endif
+#endif /* CONFIG_KEYS */
 
 #endif /* ! __LINUX_SECURITY_H */
 

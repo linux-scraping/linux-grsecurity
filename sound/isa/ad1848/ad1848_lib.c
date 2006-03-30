@@ -24,7 +24,6 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>
 #include <sound/core.h>
@@ -69,7 +68,7 @@ static unsigned int rates[14] = {
 	27042, 32000, 33075, 37800, 44100, 48000
 };
 
-static snd_pcm_hw_constraint_list_t hw_constraints_rates = {
+static struct snd_pcm_hw_constraint_list hw_constraints_rates = {
 	.count = 14,
 	.list = rates,
 	.mask = 0,
@@ -99,7 +98,7 @@ static unsigned char snd_ad1848_original_image[16] =
  *  Basic I/O functions
  */
 
-void snd_ad1848_out(ad1848_t *chip,
+void snd_ad1848_out(struct snd_ad1848 *chip,
 			   unsigned char reg,
 			   unsigned char value)
 {
@@ -109,7 +108,7 @@ void snd_ad1848_out(ad1848_t *chip,
 		udelay(100);
 #ifdef CONFIG_SND_DEBUG
 	if (inb(AD1848P(chip, REGSEL)) & AD1848_INIT)
-		snd_printk("auto calibration time out - reg = 0x%x, value = 0x%x\n", reg, value);
+		snd_printk(KERN_WARNING "auto calibration time out - reg = 0x%x, value = 0x%x\n", reg, value);
 #endif
 	outb(chip->mce_bit | reg, AD1848P(chip, REGSEL));
 	outb(chip->image[reg] = value, AD1848P(chip, REG));
@@ -119,7 +118,7 @@ void snd_ad1848_out(ad1848_t *chip,
 #endif
 }
 
-static void snd_ad1848_dout(ad1848_t *chip,
+static void snd_ad1848_dout(struct snd_ad1848 *chip,
 			    unsigned char reg, unsigned char value)
 {
 	int timeout;
@@ -131,7 +130,7 @@ static void snd_ad1848_dout(ad1848_t *chip,
 	mb();
 }
 
-static unsigned char snd_ad1848_in(ad1848_t *chip, unsigned char reg)
+static unsigned char snd_ad1848_in(struct snd_ad1848 *chip, unsigned char reg)
 {
 	int timeout;
 
@@ -139,7 +138,7 @@ static unsigned char snd_ad1848_in(ad1848_t *chip, unsigned char reg)
 		udelay(100);
 #ifdef CONFIG_SND_DEBUG
 	if (inb(AD1848P(chip, REGSEL)) & AD1848_INIT)
-		snd_printk("auto calibration time out - reg = 0x%x\n", reg);
+		snd_printk(KERN_WARNING "auto calibration time out - reg = 0x%x\n", reg);
 #endif
 	outb(chip->mce_bit | reg, AD1848P(chip, REGSEL));
 	mb();
@@ -148,7 +147,7 @@ static unsigned char snd_ad1848_in(ad1848_t *chip, unsigned char reg)
 
 #if 0
 
-static void snd_ad1848_debug(ad1848_t *chip)
+static void snd_ad1848_debug(struct snd_ad1848 *chip)
 {
 	printk("AD1848 REGS:      INDEX = 0x%02x  ", inb(AD1848P(chip, REGSEL)));
 	printk("                 STATUS = 0x%02x\n", inb(AD1848P(chip, STATUS)));
@@ -176,7 +175,7 @@ static void snd_ad1848_debug(ad1848_t *chip)
  *  AD1848 detection / MCE routines
  */
 
-static void snd_ad1848_mce_up(ad1848_t *chip)
+static void snd_ad1848_mce_up(struct snd_ad1848 *chip)
 {
 	unsigned long flags;
 	int timeout;
@@ -185,19 +184,19 @@ static void snd_ad1848_mce_up(ad1848_t *chip)
 		udelay(100);
 #ifdef CONFIG_SND_DEBUG
 	if (inb(AD1848P(chip, REGSEL)) & AD1848_INIT)
-		snd_printk("mce_up - auto calibration time out (0)\n");
+		snd_printk(KERN_WARNING "mce_up - auto calibration time out (0)\n");
 #endif
 	spin_lock_irqsave(&chip->reg_lock, flags);
 	chip->mce_bit |= AD1848_MCE;
 	timeout = inb(AD1848P(chip, REGSEL));
 	if (timeout == 0x80)
-		snd_printk("mce_up [0x%lx]: serious init problem - codec still busy\n", chip->port);
+		snd_printk(KERN_WARNING "mce_up [0x%lx]: serious init problem - codec still busy\n", chip->port);
 	if (!(timeout & AD1848_MCE))
 		outb(chip->mce_bit | (timeout & 0x1f), AD1848P(chip, REGSEL));
 	spin_unlock_irqrestore(&chip->reg_lock, flags);
 }
 
-static void snd_ad1848_mce_down(ad1848_t *chip)
+static void snd_ad1848_mce_down(struct snd_ad1848 *chip)
 {
 	unsigned long flags;
 	int timeout;
@@ -214,13 +213,13 @@ static void snd_ad1848_mce_down(ad1848_t *chip)
 #endif
 #ifdef CONFIG_SND_DEBUG
 	if (inb(AD1848P(chip, REGSEL)) & AD1848_INIT)
-		snd_printk("mce_down [0x%lx] - auto calibration time out (0)\n", AD1848P(chip, REGSEL));
+		snd_printk(KERN_WARNING "mce_down [0x%lx] - auto calibration time out (0)\n", AD1848P(chip, REGSEL));
 #endif
 	chip->mce_bit &= ~AD1848_MCE;
 	timeout = inb(AD1848P(chip, REGSEL));
 	outb(chip->mce_bit | (timeout & 0x1f), AD1848P(chip, REGSEL));
 	if (timeout == 0x80)
-		snd_printk("mce_down [0x%lx]: serious init problem - codec still busy\n", chip->port);
+		snd_printk(KERN_WARNING "mce_down [0x%lx]: serious init problem - codec still busy\n", chip->port);
 	if ((timeout & AD1848_MCE) == 0) {
 		spin_unlock_irqrestore(&chip->reg_lock, flags);
 		return;
@@ -240,11 +239,10 @@ static void snd_ad1848_mce_down(ad1848_t *chip)
 	while (snd_ad1848_in(chip, AD1848_TEST_INIT) & AD1848_CALIB_IN_PROGRESS) {
 		spin_unlock_irqrestore(&chip->reg_lock, flags);
 		if (time <= 0) {
-			snd_printk("mce_down - auto calibration time out (2)\n");
+			snd_printk(KERN_ERR "mce_down - auto calibration time out (2)\n");
 			return;
 		}
-		set_current_state(TASK_INTERRUPTIBLE);
-		time = schedule_timeout(time);
+		time = schedule_timeout_interruptible(time);
 		spin_lock_irqsave(&chip->reg_lock, flags);
 	}
 #if 0
@@ -254,11 +252,10 @@ static void snd_ad1848_mce_down(ad1848_t *chip)
 	while (inb(AD1848P(chip, REGSEL)) & AD1848_INIT) {
 		spin_unlock_irqrestore(&chip->reg_lock, flags);
 		if (time <= 0) {
-			snd_printk("mce_down - auto calibration time out (3)\n");
+			snd_printk(KERN_ERR "mce_down - auto calibration time out (3)\n");
 			return;
 		}
-		set_current_state(TASK_INTERRUPTIBLE);
-		time = schedule_timeout(time);
+		time = schedule_timeout_interruptible(time);
 		spin_lock_irqsave(&chip->reg_lock, flags);
 	}
 	spin_unlock_irqrestore(&chip->reg_lock, flags);
@@ -281,7 +278,7 @@ static unsigned int snd_ad1848_get_count(unsigned char format,
 	return size;
 }
 
-static int snd_ad1848_trigger(ad1848_t *chip, unsigned char what,
+static int snd_ad1848_trigger(struct snd_ad1848 *chip, unsigned char what,
 			      int channel, int cmd)
 {
 	int result = 0;
@@ -326,7 +323,7 @@ static unsigned char snd_ad1848_get_rate(unsigned int rate)
 	return freq_bits[13];
 }
 
-static int snd_ad1848_ioctl(snd_pcm_substream_t * substream,
+static int snd_ad1848_ioctl(struct snd_pcm_substream *substream,
 			    unsigned int cmd, void *arg)
 {
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
@@ -350,7 +347,7 @@ static unsigned char snd_ad1848_get_format(int format, int channels)
 	return rformat;
 }
 
-static void snd_ad1848_calibrate_mute(ad1848_t *chip, int mute)
+static void snd_ad1848_calibrate_mute(struct snd_ad1848 *chip, int mute)
 {
 	unsigned long flags;
 	
@@ -374,7 +371,7 @@ static void snd_ad1848_calibrate_mute(ad1848_t *chip, int mute)
 	spin_unlock_irqrestore(&chip->reg_lock, flags);
 }
 
-static void snd_ad1848_set_data_format(ad1848_t *chip, snd_pcm_hw_params_t *hw_params)
+static void snd_ad1848_set_data_format(struct snd_ad1848 *chip, struct snd_pcm_hw_params *hw_params)
 {
 	if (hw_params == NULL) {
 		chip->image[AD1848_DATA_FORMAT] = 0x20;
@@ -386,7 +383,7 @@ static void snd_ad1848_set_data_format(ad1848_t *chip, snd_pcm_hw_params_t *hw_p
 	// snd_printk(">>> pmode = 0x%x, dfr = 0x%x\n", pstr->mode, chip->image[AD1848_DATA_FORMAT]);
 }
 
-static int snd_ad1848_open(ad1848_t *chip, unsigned int mode)
+static int snd_ad1848_open(struct snd_ad1848 *chip, unsigned int mode)
 {
 	unsigned long flags;
 
@@ -440,7 +437,7 @@ static int snd_ad1848_open(ad1848_t *chip, unsigned int mode)
 	return 0;
 }
 
-static void snd_ad1848_close(ad1848_t *chip)
+static void snd_ad1848_close(struct snd_ad1848 *chip)
 {
 	unsigned long flags;
 
@@ -481,24 +478,24 @@ static void snd_ad1848_close(ad1848_t *chip)
  *  ok.. exported functions..
  */
 
-static int snd_ad1848_playback_trigger(snd_pcm_substream_t * substream,
+static int snd_ad1848_playback_trigger(struct snd_pcm_substream *substream,
 				       int cmd)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	return snd_ad1848_trigger(chip, AD1848_PLAYBACK_ENABLE, SNDRV_PCM_STREAM_PLAYBACK, cmd);
 }
 
-static int snd_ad1848_capture_trigger(snd_pcm_substream_t * substream,
+static int snd_ad1848_capture_trigger(struct snd_pcm_substream *substream,
 				      int cmd)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	return snd_ad1848_trigger(chip, AD1848_CAPTURE_ENABLE, SNDRV_PCM_STREAM_CAPTURE, cmd);
 }
 
-static int snd_ad1848_playback_hw_params(snd_pcm_substream_t * substream,
-					 snd_pcm_hw_params_t * hw_params)
+static int snd_ad1848_playback_hw_params(struct snd_pcm_substream *substream,
+					 struct snd_pcm_hw_params *hw_params)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	unsigned long flags;
 	int err;
 
@@ -515,15 +512,15 @@ static int snd_ad1848_playback_hw_params(snd_pcm_substream_t * substream,
 	return 0;
 }
 
-static int snd_ad1848_playback_hw_free(snd_pcm_substream_t * substream)
+static int snd_ad1848_playback_hw_free(struct snd_pcm_substream *substream)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static int snd_ad1848_playback_prepare(snd_pcm_substream_t * substream)
+static int snd_ad1848_playback_prepare(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	unsigned long flags;
 	unsigned int size = snd_pcm_lib_buffer_bytes(substream);
 	unsigned int count = snd_pcm_lib_period_bytes(substream);
@@ -539,10 +536,10 @@ static int snd_ad1848_playback_prepare(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_ad1848_capture_hw_params(snd_pcm_substream_t * substream,
-					snd_pcm_hw_params_t * hw_params)
+static int snd_ad1848_capture_hw_params(struct snd_pcm_substream *substream,
+					struct snd_pcm_hw_params *hw_params)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	unsigned long flags;
 	int err;
 
@@ -559,15 +556,15 @@ static int snd_ad1848_capture_hw_params(snd_pcm_substream_t * substream,
 	return 0;
 }
 
-static int snd_ad1848_capture_hw_free(snd_pcm_substream_t * substream)
+static int snd_ad1848_capture_hw_free(struct snd_pcm_substream *substream)
 {
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static int snd_ad1848_capture_prepare(snd_pcm_substream_t * substream)
+static int snd_ad1848_capture_prepare(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	unsigned long flags;
 	unsigned int size = snd_pcm_lib_buffer_bytes(substream);
 	unsigned int count = snd_pcm_lib_period_bytes(substream);
@@ -585,7 +582,7 @@ static int snd_ad1848_capture_prepare(snd_pcm_substream_t * substream)
 
 static irqreturn_t snd_ad1848_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
-	ad1848_t *chip = dev_id;
+	struct snd_ad1848 *chip = dev_id;
 
 	if ((chip->mode & AD1848_MODE_PLAY) && chip->playback_substream &&
 	    (chip->mode & AD1848_MODE_RUNNING))
@@ -597,9 +594,9 @@ static irqreturn_t snd_ad1848_interrupt(int irq, void *dev_id, struct pt_regs *r
 	return IRQ_HANDLED;
 }
 
-static snd_pcm_uframes_t snd_ad1848_playback_pointer(snd_pcm_substream_t * substream)
+static snd_pcm_uframes_t snd_ad1848_playback_pointer(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	size_t ptr;
 	
 	if (!(chip->image[AD1848_IFACE_CTRL] & AD1848_PLAYBACK_ENABLE))
@@ -608,9 +605,9 @@ static snd_pcm_uframes_t snd_ad1848_playback_pointer(snd_pcm_substream_t * subst
 	return bytes_to_frames(substream->runtime, ptr);
 }
 
-static snd_pcm_uframes_t snd_ad1848_capture_pointer(snd_pcm_substream_t * substream)
+static snd_pcm_uframes_t snd_ad1848_capture_pointer(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 	size_t ptr;
 
 	if (!(chip->image[AD1848_IFACE_CTRL] & AD1848_CAPTURE_ENABLE))
@@ -623,7 +620,7 @@ static snd_pcm_uframes_t snd_ad1848_capture_pointer(snd_pcm_substream_t * substr
 
  */
 
-static void snd_ad1848_thinkpad_twiddle(ad1848_t *chip, int on) {
+static void snd_ad1848_thinkpad_twiddle(struct snd_ad1848 *chip, int on) {
 
 	int tmp;
 
@@ -644,33 +641,34 @@ static void snd_ad1848_thinkpad_twiddle(ad1848_t *chip, int on) {
 }
 
 #ifdef CONFIG_PM
-static int snd_ad1848_suspend(snd_card_t *card, pm_message_t state)
+static void snd_ad1848_suspend(struct snd_ad1848 *chip)
 {
-	ad1848_t *chip = card->pm_private_data;
-
 	snd_pcm_suspend_all(chip->pcm);
-	/* FIXME: save registers? */
-
 	if (chip->thinkpad_flag)
 		snd_ad1848_thinkpad_twiddle(chip, 0);
-
-	return 0;
 }
 
-static int snd_ad1848_resume(snd_card_t *card)
+static void snd_ad1848_resume(struct snd_ad1848 *chip)
 {
-	ad1848_t *chip = card->pm_private_data;
+	int i;
 
 	if (chip->thinkpad_flag)
 		snd_ad1848_thinkpad_twiddle(chip, 1);
 
-	/* FIXME: restore registers? */
+	/* clear any pendings IRQ */
+	inb(AD1848P(chip, STATUS));
+	outb(0, AD1848P(chip, STATUS));
+	mb();
 
-	return 0;
+	snd_ad1848_mce_down(chip);
+	for (i = 0; i < 16; i++)
+		snd_ad1848_out(chip, i, chip->image[i]);
+	snd_ad1848_mce_up(chip);
+	snd_ad1848_mce_down(chip);
 }
 #endif /* CONFIG_PM */
 
-static int snd_ad1848_probe(ad1848_t * chip)
+static int snd_ad1848_probe(struct snd_ad1848 * chip)
 {
 	unsigned long flags;
 	int i, id, rev, ad1847;
@@ -750,7 +748,7 @@ static int snd_ad1848_probe(ad1848_t * chip)
 
  */
 
-static snd_pcm_hardware_t snd_ad1848_playback =
+static struct snd_pcm_hardware snd_ad1848_playback =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_MMAP_VALID),
@@ -769,7 +767,7 @@ static snd_pcm_hardware_t snd_ad1848_playback =
 	.fifo_size =		0,
 };
 
-static snd_pcm_hardware_t snd_ad1848_capture =
+static struct snd_pcm_hardware snd_ad1848_capture =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_MMAP_VALID),
@@ -792,10 +790,10 @@ static snd_pcm_hardware_t snd_ad1848_capture =
 
  */
 
-static int snd_ad1848_playback_open(snd_pcm_substream_t * substream)
+static int snd_ad1848_playback_open(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	int err;
 
 	if ((err = snd_ad1848_open(chip, AD1848_MODE_PLAY)) < 0)
@@ -808,10 +806,10 @@ static int snd_ad1848_playback_open(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_ad1848_capture_open(snd_pcm_substream_t * substream)
+static int snd_ad1848_capture_open(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
-	snd_pcm_runtime_t *runtime = substream->runtime;
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	int err;
 
 	if ((err = snd_ad1848_open(chip, AD1848_MODE_CAPTURE)) < 0)
@@ -824,9 +822,9 @@ static int snd_ad1848_capture_open(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_ad1848_playback_close(snd_pcm_substream_t * substream)
+static int snd_ad1848_playback_close(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 
 	chip->mode &= ~AD1848_MODE_PLAY;
 	chip->playback_substream = NULL;
@@ -834,9 +832,9 @@ static int snd_ad1848_playback_close(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_ad1848_capture_close(snd_pcm_substream_t * substream)
+static int snd_ad1848_capture_close(struct snd_pcm_substream *substream)
 {
-	ad1848_t *chip = snd_pcm_substream_chip(substream);
+	struct snd_ad1848 *chip = snd_pcm_substream_chip(substream);
 
 	chip->mode &= ~AD1848_MODE_CAPTURE;
 	chip->capture_substream = NULL;
@@ -844,12 +842,9 @@ static int snd_ad1848_capture_close(snd_pcm_substream_t * substream)
 	return 0;
 }
 
-static int snd_ad1848_free(ad1848_t *chip)
+static int snd_ad1848_free(struct snd_ad1848 *chip)
 {
-	if (chip->res_port) {
-		release_resource(chip->res_port);
-		kfree_nocheck(chip->res_port);
-	}
+	release_and_free_resource(chip->res_port);
 	if (chip->irq >= 0)
 		free_irq(chip->irq, (void *) chip);
 	if (chip->dma >= 0) {
@@ -860,13 +855,13 @@ static int snd_ad1848_free(ad1848_t *chip)
 	return 0;
 }
 
-static int snd_ad1848_dev_free(snd_device_t *device)
+static int snd_ad1848_dev_free(struct snd_device *device)
 {
-	ad1848_t *chip = device->device_data;
+	struct snd_ad1848 *chip = device->device_data;
 	return snd_ad1848_free(chip);
 }
 
-static const char *snd_ad1848_chip_id(ad1848_t *chip)
+static const char *snd_ad1848_chip_id(struct snd_ad1848 *chip)
 {
 	switch (chip->hardware) {
 	case AD1848_HW_AD1847:	return "AD1847";
@@ -877,16 +872,16 @@ static const char *snd_ad1848_chip_id(ad1848_t *chip)
 	}
 }
 
-int snd_ad1848_create(snd_card_t * card,
+int snd_ad1848_create(struct snd_card *card,
 		      unsigned long port,
 		      int irq, int dma,
 		      unsigned short hardware,
-		      ad1848_t ** rchip)
+		      struct snd_ad1848 ** rchip)
 {
-	static snd_device_ops_t ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_ad1848_dev_free,
 	};
-	ad1848_t *chip;
+	struct snd_ad1848 *chip;
 	int err;
 
 	*rchip = NULL;
@@ -924,7 +919,6 @@ int snd_ad1848_create(snd_card_t * card,
 		chip->thinkpad_flag = 1;
 		chip->hardware = AD1848_HW_DETECT; /* reset */
 		snd_ad1848_thinkpad_twiddle(chip, 1);
-		snd_card_set_isa_pm_callback(card, snd_ad1848_suspend, snd_ad1848_resume, chip);
 	}
 
 	if (snd_ad1848_probe(chip) < 0) {
@@ -938,11 +932,16 @@ int snd_ad1848_create(snd_card_t * card,
 		return err;
 	}
 
+#ifdef CONFIG_PM
+	chip->suspend = snd_ad1848_suspend;
+	chip->resume = snd_ad1848_resume;
+#endif
+
 	*rchip = chip;
 	return 0;
 }
 
-static snd_pcm_ops_t snd_ad1848_playback_ops = {
+static struct snd_pcm_ops snd_ad1848_playback_ops = {
 	.open =		snd_ad1848_playback_open,
 	.close =	snd_ad1848_playback_close,
 	.ioctl =	snd_ad1848_ioctl,
@@ -953,7 +952,7 @@ static snd_pcm_ops_t snd_ad1848_playback_ops = {
 	.pointer =	snd_ad1848_playback_pointer,
 };
 
-static snd_pcm_ops_t snd_ad1848_capture_ops = {
+static struct snd_pcm_ops snd_ad1848_capture_ops = {
 	.open =		snd_ad1848_capture_open,
 	.close =	snd_ad1848_capture_close,
 	.ioctl =	snd_ad1848_ioctl,
@@ -964,16 +963,9 @@ static snd_pcm_ops_t snd_ad1848_capture_ops = {
 	.pointer =	snd_ad1848_capture_pointer,
 };
 
-static void snd_ad1848_pcm_free(snd_pcm_t *pcm)
+int snd_ad1848_pcm(struct snd_ad1848 *chip, int device, struct snd_pcm **rpcm)
 {
-	ad1848_t *chip = pcm->private_data;
-	chip->pcm = NULL;
-	snd_pcm_lib_preallocate_free_for_all(pcm);
-}
-
-int snd_ad1848_pcm(ad1848_t *chip, int device, snd_pcm_t **rpcm)
-{
-	snd_pcm_t *pcm;
+	struct snd_pcm *pcm;
 	int err;
 
 	if ((err = snd_pcm_new(chip->card, "AD1848", device, 1, 1, &pcm)) < 0)
@@ -982,7 +974,6 @@ int snd_ad1848_pcm(ad1848_t *chip, int device, snd_pcm_t **rpcm)
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &snd_ad1848_playback_ops);
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &snd_ad1848_capture_ops);
 
-	pcm->private_free = snd_ad1848_pcm_free;
 	pcm->private_data = chip;
 	pcm->info_flags = SNDRV_PCM_INFO_HALF_DUPLEX;
 	strcpy(pcm->name, snd_ad1848_chip_id(chip));
@@ -997,7 +988,7 @@ int snd_ad1848_pcm(ad1848_t *chip, int device, snd_pcm_t **rpcm)
 	return 0;
 }
 
-const snd_pcm_ops_t *snd_ad1848_get_pcm_ops(int direction)
+const struct snd_pcm_ops *snd_ad1848_get_pcm_ops(int direction)
 {
 	return direction == SNDRV_PCM_STREAM_PLAYBACK ?
 		&snd_ad1848_playback_ops : &snd_ad1848_capture_ops;
@@ -1007,7 +998,7 @@ const snd_pcm_ops_t *snd_ad1848_get_pcm_ops(int direction)
  *  MIXER part
  */
 
-static int snd_ad1848_info_mux(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_ad1848_info_mux(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	static char *texts[4] = {
 		"Line", "Aux", "Mic", "Mix"
@@ -1022,9 +1013,9 @@ static int snd_ad1848_info_mux(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * u
 	return 0;
 }
 
-static int snd_ad1848_get_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_get_mux(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	
 	spin_lock_irqsave(&chip->reg_lock, flags);
@@ -1034,9 +1025,9 @@ static int snd_ad1848_get_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * 
 	return 0;
 }
 
-static int snd_ad1848_put_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_put_mux(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	unsigned short left, right;
 	int change;
@@ -1057,7 +1048,7 @@ static int snd_ad1848_put_mux(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * 
 	return change;
 }
 
-static int snd_ad1848_info_single(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_ad1848_info_single(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	int mask = (kcontrol->private_value >> 16) & 0xff;
 
@@ -1068,9 +1059,9 @@ static int snd_ad1848_info_single(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t 
 	return 0;
 }
 
-static int snd_ad1848_get_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_get_single(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	int reg = kcontrol->private_value & 0xff;
 	int shift = (kcontrol->private_value >> 8) & 0xff;
@@ -1085,9 +1076,9 @@ static int snd_ad1848_get_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t
 	return 0;
 }
 
-static int snd_ad1848_put_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_put_single(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	int reg = kcontrol->private_value & 0xff;
 	int shift = (kcontrol->private_value >> 8) & 0xff;
@@ -1108,7 +1099,7 @@ static int snd_ad1848_put_single(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t
 	return change;
 }
 
-static int snd_ad1848_info_double(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_ad1848_info_double(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	int mask = (kcontrol->private_value >> 24) & 0xff;
 
@@ -1119,9 +1110,9 @@ static int snd_ad1848_info_double(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t 
 	return 0;
 }
 
-static int snd_ad1848_get_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_get_double(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	int left_reg = kcontrol->private_value & 0xff;
 	int right_reg = (kcontrol->private_value >> 8) & 0xff;
@@ -1141,9 +1132,9 @@ static int snd_ad1848_get_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t
 	return 0;
 }
 
-static int snd_ad1848_put_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_ad1848_put_double(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	ad1848_t *chip = snd_kcontrol_chip(kcontrol);
+	struct snd_ad1848 *chip = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	int left_reg = kcontrol->private_value & 0xff;
 	int right_reg = (kcontrol->private_value >> 8) & 0xff;
@@ -1180,9 +1171,9 @@ static int snd_ad1848_put_double(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t
 
 /*
  */
-int snd_ad1848_add_ctl(ad1848_t *chip, const char *name, int index, int type, unsigned long value)
+int snd_ad1848_add_ctl(struct snd_ad1848 *chip, const char *name, int index, int type, unsigned long value)
 {
-	static snd_kcontrol_new_t newctls[] = {
+	static struct snd_kcontrol_new newctls[] = {
 		[AD1848_MIX_SINGLE] = {
 			.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 			.info = snd_ad1848_info_single,
@@ -1202,7 +1193,7 @@ int snd_ad1848_add_ctl(ad1848_t *chip, const char *name, int index, int type, un
 			.put = snd_ad1848_put_mux,
 		},
 	};
-	snd_kcontrol_t *ctl;
+	struct snd_kcontrol *ctl;
 	int err;
 
 	ctl = snd_ctl_new1(&newctls[type], chip);
@@ -1235,10 +1226,10 @@ AD1848_SINGLE("Loopback Capture Switch", 0, AD1848_LOOPBACK, 0, 1, 0),
 AD1848_SINGLE("Loopback Capture Volume", 0, AD1848_LOOPBACK, 1, 63, 0)
 };
                                         
-int snd_ad1848_mixer(ad1848_t *chip)
+int snd_ad1848_mixer(struct snd_ad1848 *chip)
 {
-	snd_card_t *card;
-	snd_pcm_t *pcm;
+	struct snd_card *card;
+	struct snd_pcm *pcm;
 	unsigned int idx;
 	int err;
 

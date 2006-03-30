@@ -26,6 +26,7 @@
 #include <linux/pci.h>
 #include <sound/core.h>
 #include "hda_codec.h"
+#include "hda_local.h"
 
 static const char *get_wid_type_name(unsigned int wid_value)
 {
@@ -47,7 +48,7 @@ static const char *get_wid_type_name(unsigned int wid_value)
 		return "UNKOWN Widget";
 }
 
-static void print_amp_caps(snd_info_buffer_t *buffer,
+static void print_amp_caps(struct snd_info_buffer *buffer,
 			   struct hda_codec *codec, hda_nid_t nid, int dir)
 {
 	unsigned int caps;
@@ -66,7 +67,7 @@ static void print_amp_caps(snd_info_buffer_t *buffer,
 		    (caps & AC_AMPCAP_MUTE) >> AC_AMPCAP_MUTE_SHIFT);
 }
 
-static void print_amp_vals(snd_info_buffer_t *buffer,
+static void print_amp_vals(struct snd_info_buffer *buffer,
 			   struct hda_codec *codec, hda_nid_t nid,
 			   int dir, int stereo, int indices)
 {
@@ -91,7 +92,7 @@ static void print_amp_vals(snd_info_buffer_t *buffer,
 	snd_iprintf(buffer, "\n");
 }
 
-static void print_pcm_caps(snd_info_buffer_t *buffer,
+static void print_pcm_caps(struct snd_info_buffer *buffer,
 			   struct hda_codec *codec, hda_nid_t nid)
 {
 	unsigned int pcm = snd_hda_param_read(codec, nid, AC_PAR_PCM);
@@ -160,7 +161,7 @@ static const char *get_jack_color(u32 cfg)
 		return "UNKNOWN";
 }
 
-static void print_pin_caps(snd_info_buffer_t *buffer,
+static void print_pin_caps(struct snd_info_buffer *buffer,
 			   struct hda_codec *codec, hda_nid_t nid)
 {
 	static char *jack_conns[4] = { "Jack", "N/A", "Fixed", "Both" };
@@ -194,7 +195,7 @@ static void print_pin_caps(snd_info_buffer_t *buffer,
 }
 
 
-static void print_codec_info(snd_info_entry_t *entry, snd_info_buffer_t *buffer)
+static void print_codec_info(struct snd_info_entry *entry, struct snd_info_buffer *buffer)
 {
 	struct hda_codec *codec = entry->private_data;
 	char buf[32];
@@ -281,6 +282,11 @@ static void print_codec_info(snd_info_entry_t *entry, snd_info_buffer_t *buffer)
 			print_pcm_caps(buffer, codec, nid);
 		}
 
+		if (wid_caps & AC_WCAP_POWER)
+			snd_iprintf(buffer, "  Power: 0x%x\n",
+				    snd_hda_codec_read(codec, nid, 0,
+						       AC_VERB_GET_POWER_STATE, 0));
+
 		if (wid_caps & AC_WCAP_CONN_LIST) {
 			int c, curr = -1;
 			if (conn_len > 1 && wid_type != AC_WID_AUD_MIX)
@@ -304,7 +310,7 @@ static void print_codec_info(snd_info_entry_t *entry, snd_info_buffer_t *buffer)
 int snd_hda_codec_proc_new(struct hda_codec *codec)
 {
 	char name[32];
-	snd_info_entry_t *entry;
+	struct snd_info_entry *entry;
 	int err;
 
 	snprintf(name, sizeof(name), "codec#%d", codec->addr);

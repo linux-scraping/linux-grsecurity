@@ -164,17 +164,18 @@ static void lm78_init_client(struct i2c_client *client);
 
 
 static struct i2c_driver lm78_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm78",
+	.driver = {
+		.name	= "lm78",
+	},
 	.id		= I2C_DRIVERID_LM78,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= lm78_attach_adapter,
 	.detach_client	= lm78_detach_client,
 };
 
 static struct i2c_driver lm78_isa_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm78-isa",
+	.driver = {
+		.name	= "lm78-isa",
+	},
 	.attach_adapter	= lm78_isa_attach_adapter,
 	.detach_client	= lm78_detach_client,
 };
@@ -480,7 +481,7 @@ static int lm78_isa_attach_adapter(struct i2c_adapter *adapter)
 }
 
 /* This function is called by i2c_probe */
-int lm78_detect(struct i2c_adapter *adapter, int address, int kind)
+static int lm78_detect(struct i2c_adapter *adapter, int address, int kind)
 {
 	int i, err;
 	struct i2c_client *new_client;
@@ -497,7 +498,7 @@ int lm78_detect(struct i2c_adapter *adapter, int address, int kind)
 	/* Reserve the ISA region */
 	if (is_isa)
 		if (!request_region(address, LM78_EXTENT,
-				    lm78_isa_driver.name)) {
+				    lm78_isa_driver.driver.name)) {
 			err = -EBUSY;
 			goto ERROR0;
 		}
@@ -540,11 +541,10 @@ int lm78_detect(struct i2c_adapter *adapter, int address, int kind)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access lm78_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct lm78_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct lm78_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto ERROR1;
 	}
-	memset(data, 0, sizeof(struct lm78_data));
 
 	new_client = &data->client;
 	if (is_isa)
@@ -726,7 +726,6 @@ static int lm78_write_value(struct i2c_client *client, u8 reg, u8 value)
 		return i2c_smbus_write_byte_data(client, reg, value);
 }
 
-/* Called when we have found a new LM78. It should set limits, etc. */
 static void lm78_init_client(struct i2c_client *client)
 {
 	u8 config = lm78_read_value(client, LM78_REG_CONFIG);

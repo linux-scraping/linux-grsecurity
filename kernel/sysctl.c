@@ -25,12 +25,14 @@
 #include <linux/slab.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
+#include <linux/capability.h>
 #include <linux/ctype.h>
 #include <linux/utsname.h>
 #include <linux/capability.h>
 #include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/kobject.h>
 #include <linux/net.h>
 #include <linux/sysrq.h>
 #include <linux/highuid.h>
@@ -42,13 +44,14 @@
 #include <linux/limits.h>
 #include <linux/dcache.h>
 #include <linux/syscalls.h>
+#include <linux/nfs_fs.h>
+#include <linux/acpi.h>
 
 #include <asm/uaccess.h>
 #include <asm/processor.h>
 
-#ifdef CONFIG_ROOT_NFS
-#include <linux/nfs_fs.h>
-#endif
+extern int proc_nr_files(ctl_table *table, int write, struct file *filp,
+                     void __user *buffer, size_t *lenp, loff_t *ppos);
 
 #if defined(CONFIG_SYSCTL)
 #include <linux/grsecurity.h>
@@ -75,6 +78,8 @@ extern int min_free_kbytes;
 extern int printk_ratelimit_jiffies;
 extern int printk_ratelimit_burst;
 extern int pid_max_min, pid_max_max;
+extern int sysctl_drop_caches;
+extern int percpu_pagelist_fraction;
 
 #if defined(CONFIG_X86_LOCAL_APIC) && defined(CONFIG_X86)
 int unknown_nmi_panic;
@@ -85,14 +90,12 @@ extern int proc_unknown_nmi_panic(ctl_table *, int, struct file *,
 /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
 static int maxolduid = 65535;
 static int minolduid;
+static int min_percpu_pagelist_fract = 8;
 
 static int ngroups_max = NGROUPS_MAX;
 
 #ifdef CONFIG_KMOD
 extern char modprobe_path[];
-#endif
-#ifdef CONFIG_HOTPLUG
-extern char hotplug_path[];
 #endif
 #ifdef CONFIG_CHR_DEV_SG
 extern int sg_big_buff;
@@ -118,7 +121,7 @@ extern int pwrsw_enabled;
 extern int unaligned_enabled;
 #endif
 
-#ifdef CONFIG_ARCH_S390
+#ifdef CONFIG_S390
 #ifdef CONFIG_MATHEMU
 extern int sysctl_ieee_emulation_warnings;
 #endif
@@ -132,7 +135,9 @@ extern int sysctl_hz_timer;
 extern int acct_parm[];
 #endif
 
-int randomize_va_space = 1;
+#ifdef CONFIG_IA64
+extern int no_unaligned_warning;
+#endif
 
 static int parse_table(int __user *, int, void __user *, size_t __user *, void __user *, size_t,
 		       ctl_table *, void **);
@@ -421,8 +426,8 @@ static ctl_table kern_table[] = {
 	{
 		.ctl_name	= KERN_HOTPLUG,
 		.procname	= "hotplug",
-		.data		= &hotplug_path,
-		.maxlen		= HOTPLUG_PATH_LEN,
+		.data		= &uevent_helper,
+		.maxlen		= UEVENT_HELPER_PATH_LEN,
 		.mode		= 0644,
 		.proc_handler	= &proc_dostring,
 		.strategy	= &sysctl_string,
@@ -568,7 +573,7 @@ static ctl_table kern_table[] = {
 		.extra1		= &minolduid,
 		.extra2		= &maxolduid,
 	},
-#ifdef CONFIG_ARCH_S390
+#ifdef CONFIG_S390
 #ifdef CONFIG_MATHEMU
 	{
 		.ctl_name	= KERN_IEEE_EMULATION_WARNINGS,
@@ -662,6 +667,7 @@ static ctl_table kern_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#if defined(CONFIG_MMU)
 	{
 		.ctl_name	= KERN_RANDOMIZE,
 		.procname	= "randomize_va_space",
@@ -670,7 +676,8 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
-#if defined(CONFIG_ARCH_S390)
+#endif
+#if defined(CONFIG_S390) && defined(CONFIG_SMP)
 	{
 		.ctl_name	= KERN_SPIN_RETRY,
 		.procname	= "spin_retry",
@@ -680,12 +687,24 @@ static ctl_table kern_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
-#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
+#ifdef CONFIG_ACPI_SLEEP
 	{
-		.ctl_name	= KERN_GRSECURITY,
-		.procname	= "grsecurity",
-		.mode		= 0500,
-		.child		= grsecurity_table,
+		.ctl_name	= KERN_ACPI_VIDEO_FLAGS,
+		.procname	= "acpi_video_flags",
+		.data		= &acpi_video_flags,
+		.maxlen		= sizeof (unsigned long),
+		.mode		= 0644,
+		.proc_handler	= &proc_doulongvec_minmax,
+	},
+#endif
+#ifdef CONFIG_IA64
+	{
+		.ctl_name	= KERN_IA64_UNALIGNED,
+		.procname	= "ignore-unaligned-usertrap",
+		.data		= &no_unaligned_warning,
+		.maxlen		= sizeof (int),
+	 	.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
 	},
 #endif
 
@@ -819,6 +838,15 @@ static ctl_table vm_table[] = {
 		.strategy	= &sysctl_intvec,
 	},
 	{
+		.ctl_name	= VM_DROP_PAGECACHE,
+		.procname	= "drop_caches",
+		.data		= &sysctl_drop_caches,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= drop_caches_sysctl_handler,
+		.strategy	= &sysctl_intvec,
+	},
+	{
 		.ctl_name	= VM_MIN_FREE_KBYTES,
 		.procname	= "min_free_kbytes",
 		.data		= &min_free_kbytes,
@@ -827,6 +855,16 @@ static ctl_table vm_table[] = {
 		.proc_handler	= &min_free_kbytes_sysctl_handler,
 		.strategy	= &sysctl_intvec,
 		.extra1		= &zero,
+	},
+	{
+		.ctl_name	= VM_PERCPU_PAGELIST_FRACTION,
+		.procname	= "percpu_pagelist_fraction",
+		.data		= &percpu_pagelist_fraction,
+		.maxlen		= sizeof(percpu_pagelist_fraction),
+		.mode		= 0644,
+		.proc_handler	= &percpu_pagelist_fraction_sysctl_handler,
+		.strategy	= &sysctl_intvec,
+		.extra1		= &min_percpu_pagelist_fract,
 	},
 #ifdef CONFIG_MMU
 	{
@@ -891,6 +929,45 @@ static ctl_table vm_table[] = {
 		.strategy	= &sysctl_jiffies,
 	},
 #endif
+#ifdef CONFIG_NUMA
+	{
+		.ctl_name	= VM_ZONE_RECLAIM_MODE,
+		.procname	= "zone_reclaim_mode",
+		.data		= &zone_reclaim_mode,
+		.maxlen		= sizeof(zone_reclaim_mode),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+		.strategy	= &sysctl_intvec,
+		.extra1		= &zero,
+	},
+	{
+		.ctl_name	= VM_ZONE_RECLAIM_INTERVAL,
+		.procname	= "zone_reclaim_interval",
+		.data		= &zone_reclaim_interval,
+		.maxlen		= sizeof(zone_reclaim_interval),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec_jiffies,
+		.strategy	= &sysctl_jiffies,
+	},
+#endif
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
+	{
+		.ctl_name	= KERN_GRSECURITY,
+		.procname	= "grsecurity",
+		.mode		= 0500,
+		.child		= grsecurity_table,
+	},
+#endif
+
+#ifdef CONFIG_PAX_SOFTMODE
+	{
+		.ctl_name	= KERN_PAX,
+		.procname	= "pax",
+		.mode		= 0500,
+		.child		= pax_table,
+	},
+#endif
+
 	{ .ctl_name = 0 }
 };
 
@@ -921,7 +998,7 @@ static ctl_table fs_table[] = {
 		.data		= &files_stat,
 		.maxlen		= 3*sizeof(int),
 		.mode		= 0444,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_nr_files,
 	},
 	{
 		.ctl_name	= FS_MAXFILE,
@@ -994,7 +1071,7 @@ static ctl_table fs_table[] = {
 		.data		= &aio_nr,
 		.maxlen		= sizeof(aio_nr),
 		.mode		= 0444,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_doulongvec_minmax,
 	},
 	{
 		.ctl_name	= FS_AIO_MAX_NR,
@@ -1002,7 +1079,7 @@ static ctl_table fs_table[] = {
 		.data		= &aio_max_nr,
 		.maxlen		= sizeof(aio_max_nr),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_doulongvec_minmax,
 	},
 #ifdef CONFIG_INOTIFY
 	{
@@ -2125,6 +2202,7 @@ int proc_dointvec_jiffies(ctl_table *table, int write, struct file *filp,
  * @filp: the file structure
  * @buffer: the user buffer
  * @lenp: the size of the user buffer
+ * @ppos: pointer to the file position
  *
  * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
  * values from/to the user buffer, treated as an ASCII string. 

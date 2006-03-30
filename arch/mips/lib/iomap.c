@@ -3,7 +3,7 @@
  *
  *  This code is based on lib/iomap.c, by Linus Torvalds.
  *
- *  Copyright (C) 2004-2005  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copyright (C) 2004-2005  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
 		return ioport_map(start, len);
 	if (flags & IORESOURCE_MEM) {
 		if (flags & IORESOURCE_CACHEABLE)
-			return ioremap_cacheable_cow(start, len);
+			return ioremap_cachable(start, len);
 		return ioremap_nocache(start, len);
 	}
 

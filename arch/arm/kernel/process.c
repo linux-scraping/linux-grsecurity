@@ -26,11 +26,12 @@
 #include <linux/interrupt.h>
 #include <linux/kallsyms.h>
 #include <linux/init.h>
+#include <linux/cpu.h>
+#include <linux/elfcore.h>
 
-#include <asm/system.h>
-#include <asm/io.h>
 #include <asm/leds.h>
 #include <asm/processor.h>
+#include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/mach/time.h>
 
@@ -83,14 +84,18 @@ EXPORT_SYMBOL(pm_power_off);
  * This is our default idle handler.  We need to disable
  * interrupts here to ensure we don't miss a wakeup call.
  */
-void default_idle(void)
+static void default_idle(void)
 {
-	local_irq_disable();
-	if (!need_resched() && !hlt_counter) {
-		timer_dyn_reprogram();
-		arch_idle();
+	if (hlt_counter)
+		cpu_relax();
+	else {
+		local_irq_disable();
+		if (!need_resched()) {
+			timer_dyn_reprogram();
+			arch_idle();
+		}
+		local_irq_enable();
 	}
-	local_irq_enable();
 }
 
 /*
@@ -105,15 +110,23 @@ void cpu_idle(void)
 	/* endless idle loop with no priority at all */
 	while (1) {
 		void (*idle)(void) = pm_idle;
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (cpu_is_offline(smp_processor_id())) {
+			leds_event(led_idle_start);
+			cpu_die();
+		}
+#endif
+
 		if (!idle)
 			idle = default_idle;
-		preempt_disable();
 		leds_event(led_idle_start);
 		while (!need_resched())
 			idle();
 		leds_event(led_idle_end);
-		preempt_enable();
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 	}
 }
 
@@ -330,10 +343,10 @@ void flush_thread(void)
 void release_thread(struct task_struct *dead_task)
 {
 #if defined(CONFIG_VFP)
-	vfp_release_thread(&dead_task->thread_info->vfpstate);
+	vfp_release_thread(&task_thread_info(dead_task)->vfpstate);
 #endif
 #if defined(CONFIG_IWMMXT)
-	iwmmxt_task_release(dead_task->thread_info);
+	iwmmxt_task_release(task_thread_info(dead_task));
 #endif
 }
 
@@ -343,10 +356,9 @@ int
 copy_thread(int nr, unsigned long clone_flags, unsigned long stack_start,
 	    unsigned long stk_sz, struct task_struct *p, struct pt_regs *regs)
 {
-	struct thread_info *thread = p->thread_info;
-	struct pt_regs *childregs;
+	struct thread_info *thread = task_thread_info(p);
+	struct pt_regs *childregs = task_pt_regs(p);
 
-	childregs = ((struct pt_regs *)((unsigned long)thread + THREAD_START_SP)) - 1;
 	*childregs = *regs;
 	childregs->ARM_r0 = 0;
 	childregs->ARM_sp = stack_start;
@@ -448,8 +460,8 @@ unsigned long get_wchan(struct task_struct *p)
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
 
-	stack_start = (unsigned long)(p->thread_info + 1);
-	stack_end = ((unsigned long)p->thread_info) + THREAD_SIZE;
+	stack_start = (unsigned long)end_of_stack(p);
+	stack_end = (unsigned long)task_stack_page(p) + THREAD_SIZE;
 
 	fp = thread_saved_fp(p);
 	do {

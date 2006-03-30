@@ -48,6 +48,7 @@
 #include <asm/processor.h>
 #include <asm/i387.h>
 #include <asm/desc.h>
+#include <asm/vm86.h>
 #ifdef CONFIG_MATH_EMULATION
 #include <asm/math_emu.h>
 #endif
@@ -99,14 +100,22 @@ EXPORT_SYMBOL(enable_hlt);
  */
 void default_idle(void)
 {
+	local_irq_enable();
+
 	if (!hlt_counter && boot_cpu_data.hlt_works_ok) {
-		local_irq_disable();
-		if (!need_resched())
-			safe_halt();
-		else
-			local_irq_enable();
+		clear_thread_flag(TIF_POLLING_NRFLAG);
+		smp_mb__after_clear_bit();
+		while (!need_resched()) {
+			local_irq_disable();
+			if (!need_resched())
+				safe_halt();
+			else
+				local_irq_enable();
+		}
+		set_thread_flag(TIF_POLLING_NRFLAG);
 	} else {
-		cpu_relax();
+		while (!need_resched())
+			cpu_relax();
 	}
 }
 #ifdef CONFIG_APM_MODULE
@@ -120,29 +129,14 @@ EXPORT_SYMBOL(default_idle);
  */
 static void poll_idle (void)
 {
-	int oldval;
-
 	local_irq_enable();
 
-	/*
-	 * Deal with another CPU just having chosen a thread to
-	 * run here:
-	 */
-	oldval = test_and_clear_thread_flag(TIF_NEED_RESCHED);
-
-	if (!oldval) {
-		set_thread_flag(TIF_POLLING_NRFLAG);
-		asm volatile(
-			"2:"
-			"testl %0, %1;"
-			"rep; nop;"
-			"je 2b;"
-			: : "i"(_TIF_NEED_RESCHED), "m" (current_thread_info()->flags));
-
-		clear_thread_flag(TIF_POLLING_NRFLAG);
-	} else {
-		set_need_resched();
-	}
+	asm volatile(
+		"2:"
+		"testl %0, %1;"
+		"rep; nop;"
+		"je 2b;"
+		: : "i"(_TIF_NEED_RESCHED), "m" (current_thread_info()->flags));
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -179,7 +173,9 @@ static inline void play_dead(void)
  */
 void cpu_idle(void)
 {
-	int cpu = raw_smp_processor_id();
+	int cpu = smp_processor_id();
+
+	set_thread_flag(TIF_POLLING_NRFLAG);
 
 	/* endless idle loop with no priority at all */
 	while (1) {
@@ -201,7 +197,9 @@ void cpu_idle(void)
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
 			idle();
 		}
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 	}
 }
 
@@ -244,15 +242,12 @@ static void mwait_idle(void)
 {
 	local_irq_enable();
 
-	if (!need_resched()) {
-		set_thread_flag(TIF_POLLING_NRFLAG);
-		do {
-			__monitor((void *)&current_thread_info()->flags, 0, 0);
-			if (need_resched())
-				break;
-			__mwait(0, 0);
-		} while (!need_resched());
-		clear_thread_flag(TIF_POLLING_NRFLAG);
+	while (!need_resched()) {
+		__monitor((void *)&current_thread_info()->flags, 0, 0);
+		smp_mb();
+		if (need_resched())
+			break;
+		__mwait(0, 0);
 	}
 }
 
@@ -302,8 +297,10 @@ void show_regs(struct pt_regs * regs)
 
 	if (user_mode(regs))
 		printk(" ESP: %04x:%08lx",0xffff & regs->xss,regs->esp);
-	printk(" EFLAGS: %08lx    %s  (%s)\n",
-	       regs->eflags, print_tainted(), system_utsname.release);
+	printk(" EFLAGS: %08lx    %s  (%s %.*s)\n",
+	       regs->eflags, print_tainted(), system_utsname.release,
+	       (int)strcspn(system_utsname.version, " "),
+	       system_utsname.version);
 	printk("EAX: %08lx EBX: %08lx ECX: %08lx EDX: %08lx\n",
 		regs->eax,regs->ebx,regs->ecx,regs->edx);
 	printk("ESI: %08lx EDI: %08lx EBP: %08lx",
@@ -314,9 +311,7 @@ void show_regs(struct pt_regs * regs)
 	cr0 = read_cr0();
 	cr2 = read_cr2();
 	cr3 = read_cr3();
-	if (current_cpu_data.x86 > 4) {
-		cr4 = read_cr4();
-	}
+	cr4 = read_cr4_safe();
 	printk("CR0: %08lx CR2: %08lx CR3: %08lx CR4: %08lx\n", cr0, cr2, cr3, cr4);
 	show_trace(NULL, &regs->esp);
 }
@@ -399,13 +394,6 @@ void flush_thread(void)
 {
 	struct task_struct *tsk = current;
 
-	/*
-	 * Remove function-return probe instances associated with this task
-	 * and put them back on the free list. Do not insert an exit probe for
-	 * this function, it will be disabled by kprobe_flush_task if you do.
-	 */
-	kprobe_flush_task(tsk);
-
 	__asm__("mov %0,%%fs\n"
 		"mov %0,%%gs\n"
 		: : "r" (0) : "memory");
@@ -420,17 +408,7 @@ void flush_thread(void)
 
 void release_thread(struct task_struct *dead_task)
 {
-	if (dead_task->mm) {
-		// temporary debugging check
-		if (dead_task->mm->context.size) {
-			printk("WARNING: dead process %8s still has LDT? <%p/%d>\n",
-					dead_task->comm,
-					dead_task->mm->context.ldt,
-					dead_task->mm->context.size);
-			BUG();
-		}
-	}
-
+	BUG_ON(dead_task->mm);
 	release_vm86_irqs(dead_task);
 }
 
@@ -451,18 +429,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
 	struct task_struct *tsk;
 	int err;
 
-	childregs = ((struct pt_regs *) (THREAD_SIZE + (unsigned long) p->thread_info)) - 1;
-	/*
-	 * The below -8 is to reserve 8 bytes on top of the ring0 stack.
-	 * This is necessary to guarantee that the entire "struct pt_regs"
-	 * is accessable even if the CPU haven't stored the SS/ESP registers
-	 * on the stack (interrupt gate does not save these registers
-	 * when switching to the same priv ring).
-	 * Therefore beware: accessing the xss/esp fields of the
-	 * "struct pt_regs" is possible, but they may contain the
-	 * completely wrong values.
-	 */
-	childregs = (struct pt_regs *) ((unsigned long) childregs - 8);
+	childregs = task_stack_page(p) + THREAD_SIZE - sizeof(struct pt_regs) - 8;
 	*childregs = *regs;
 	childregs->eax = 0;
 	childregs->esp = esp;
@@ -572,9 +539,7 @@ EXPORT_SYMBOL(dump_thread);
  */
 int dump_task_regs(struct task_struct *tsk, elf_gregset_t *regs)
 {
-	struct pt_regs ptregs;
-
-	ptregs = *(struct pt_regs *)(tsk->thread.esp0 - sizeof(ptregs));
+	struct pt_regs ptregs = *task_pt_regs(tsk);
 	ptregs.xcs &= 0xffff;
 	ptregs.xds &= 0xffff;
 	ptregs.xes &= 0xffff;
@@ -630,8 +595,8 @@ static inline void disable_tsc(struct task_struct *prev_p,
 	 * gcc should eliminate the ->thread_info dereference if
 	 * has_secure_computing returns 0 at compile time (SECCOMP=n).
 	 */
-	prev = prev_p->thread_info;
-	next = next_p->thread_info;
+	prev = task_thread_info(prev_p);
+	next = task_thread_info(next_p);
 
 	if (has_secure_computing(prev) || has_secure_computing(next)) {
 		/* slow path here */
@@ -704,7 +669,7 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	savesegment(gs, prev->gs);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel_noirq(cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	/*
@@ -713,7 +678,7 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	load_TLS(next, cpu);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel_noirq(cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	/*
@@ -828,7 +793,7 @@ unsigned long get_wchan(struct task_struct *p)
 	int count = 0;
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
-	stack_page = (unsigned long)p->thread_info;
+	stack_page = (unsigned long)task_stack_page(p);
 	esp = p->thread.esp;
 	if (!stack_page || esp < stack_page || esp > top_esp+stack_page)
 		return 0;
@@ -871,7 +836,7 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 	int cpu, idx;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr0;
+	unsigned long cr0;
 #endif
 
 	if (copy_from_user(&info, u_info, sizeof(info)))
@@ -915,13 +880,13 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	load_TLS(t, cpu);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	put_cpu();
@@ -990,7 +955,7 @@ asmlinkage void pax_randomize_kstack(void)
 
 	rdtscl(time);
 
-      /* P4 seems to return a 0 LSB, ignore it */
+	/* P4 seems to return a 0 LSB, ignore it */
 #ifdef CONFIG_MPENTIUM4
 	time &= 0x1EUL;
 	time <<= 2;

@@ -642,14 +642,13 @@ static void __devinit it821x_fixups(ide_hwif_t *hwif)
 
 static void __devinit init_hwif_it821x(ide_hwif_t *hwif)
 {
-	struct it821x_dev *idev = kmalloc(sizeof(struct it821x_dev), GFP_KERNEL);
+	struct it821x_dev *idev = kzalloc(sizeof(struct it821x_dev), GFP_KERNEL);
 	u8 conf;
 
 	if(idev == NULL) {
 		printk(KERN_ERR "it821x: out of memory, falling back to legacy behaviour.\n");
 		goto fallback;
 	}
-	memset(idev, 0, sizeof(struct it821x_dev));
 	ide_set_hwifdata(hwif, idev);
 
 	pci_read_config_byte(hwif->pci_dev, 0x50, &conf);
@@ -734,7 +733,7 @@ static void __devinit it8212_disable_raid(struct pci_dev *dev)
 
 	pci_write_config_dword(dev,0x4C, 0x02040204);
 	pci_write_config_byte(dev, 0x42, 0x36);
-	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0);
+	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0x20);
 }
 
 static unsigned int __devinit init_chipset_it821x(struct pci_dev *dev, const char *name)

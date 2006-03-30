@@ -126,8 +126,8 @@ BUFFER_FNS(Eopnotsupp, eopnotsupp)
 /* If we *know* page->private refers to buffer_heads */
 #define page_buffers(page)					\
 	({							\
-		BUG_ON(!PagePrivate(page));		\
-		((struct buffer_head *)(page)->private);	\
+		BUG_ON(!PagePrivate(page));			\
+		((struct buffer_head *)page_private(page));	\
 	})
 #define page_has_buffers(page)	PagePrivate(page)
 
@@ -188,15 +188,17 @@ extern int buffer_heads_over_limit;
  * Generic address_space_operations implementations for buffer_head-backed
  * address_spaces.
  */
-int try_to_release_page(struct page * page, int gfp_mask);
+int try_to_release_page(struct page * page, gfp_t gfp_mask);
 int block_invalidatepage(struct page *page, unsigned long offset);
+int do_invalidatepage(struct page *page, unsigned long offset);
 int block_write_full_page(struct page *page, get_block_t *get_block,
 				struct writeback_control *wbc);
 int block_read_full_page(struct page*, get_block_t*);
 int block_prepare_write(struct page*, unsigned, unsigned, get_block_t*);
 int cont_prepare_write(struct page*, unsigned, unsigned, get_block_t*,
 				loff_t *);
-int generic_cont_expand(struct inode *inode, loff_t size) ;
+int generic_cont_expand(struct inode *inode, loff_t size);
+int generic_cont_expand_simple(struct inode *inode, loff_t size);
 int block_commit_write(struct page *page, unsigned from, unsigned to);
 int block_sync_page(struct page *);
 sector_t generic_block_bmap(struct address_space *, sector_t, get_block_t *);
@@ -219,7 +221,7 @@ static inline void attach_page_buffers(struct page *page,
 {
 	page_cache_get(page);
 	SetPagePrivate(page);
-	page->private = (unsigned long)head;
+	set_page_private(page, (unsigned long)head);
 }
 
 static inline void get_bh(struct buffer_head *bh)

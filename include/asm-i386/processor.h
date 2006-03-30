@@ -28,7 +28,7 @@ struct desc_struct {
 };
 
 #define desc_empty(desc) \
-		(!((desc)->a + (desc)->b))
+		(!((desc)->a | (desc)->b))
 
 #define desc_equal(desc1, desc2) \
 		(((desc1)->a == (desc2)->a) && ((desc1)->b == (desc2)->b))
@@ -60,11 +60,15 @@ struct cpuinfo_x86 {
 	int 	x86_cache_size;  /* in KB - valid for CPUS which support this
 				    call  */
 	int 	x86_cache_alignment;	/* In bytes */
-	int	fdiv_bug;
-	int	f00f_bug;
-	int	coma_bug;
+	char	fdiv_bug;
+	char	f00f_bug;
+	char	coma_bug;
+	char	pad0;
+	int	x86_power;
 	unsigned long loops_per_jiffy;
-	unsigned char x86_num_cores;
+	unsigned char x86_max_cores;	/* cpuid returned max cores value */
+	unsigned char booted_cores;	/* number of cores as seen by OS */
+	unsigned char apicid;
 } __attribute__((__aligned__(SMP_CACHE_BYTES)));
 
 #define X86_VENDOR_INTEL 0
@@ -274,9 +278,11 @@ static inline void clear_in_cr4 (unsigned long mask)
 	outb((data), 0x23); \
 } while (0)
 
-static inline void serialize_cpu(void)
+/* Stop speculative execution */
+static inline void sync_core(void)
 {
-	 __asm__ __volatile__ ("cpuid" : : : "ax", "bx", "cx", "dx");
+	int tmp;
+	asm volatile("cpuid" : "=a" (tmp) : "0" (1) : "ebx","ecx","edx","memory");
 }
 
 static inline void __monitor(const void *eax, unsigned long ecx,
@@ -470,6 +476,7 @@ struct thread_struct {
 };
 
 #define INIT_THREAD  {							\
+	.esp0		= sizeof(init_stack) + (long)&init_stack - 8,	\
 	.vm86_info = NULL,						\
 	.sysenter_cs = __KERNEL_CS,					\
 	.io_bitmap_ptr = NULL,						\
@@ -560,6 +567,16 @@ unsigned long get_wchan(struct task_struct *p);
 #define THREAD_SIZE_LONGS      (THREAD_SIZE/sizeof(unsigned long))
 #define KSTK_TOP(info)         ((info)->task.thread.esp0)
 
+/*
+ * The below -8 is to reserve 8 bytes on top of the ring0 stack.
+ * This is necessary to guarantee that the entire "struct pt_regs"
+ * is accessable even if the CPU haven't stored the SS/ESP registers
+ * on the stack (interrupt gate does not save these registers
+ * when switching to the same priv ring).
+ * Therefore beware: accessing the xss/esp fields of the
+ * "struct pt_regs" is possible, but they may contain the
+ * completely wrong values.
+ */
 #define task_pt_regs(task)                                             \
 ({                                                                     \
        struct pt_regs *__regs__;                                       \
@@ -721,6 +738,12 @@ extern void mtrr_bp_init(void);
 #else
 #define mtrr_ap_init() do {} while (0)
 #define mtrr_bp_init() do {} while (0)
+#endif
+
+#ifdef CONFIG_X86_MCE
+extern void mcheck_init(struct cpuinfo_x86 *c);
+#else
+#define mcheck_init(c) do {} while(0)
 #endif
 
 #endif /* __ASM_I386_PROCESSOR_H */

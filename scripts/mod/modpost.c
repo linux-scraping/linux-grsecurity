@@ -326,8 +326,8 @@ parse_elf_finish(struct elf_info *info)
 	release_file(info->hdr, info->size);
 }
 
-#define CRC_PFX     MODULE_SYMBOL_PREFIX "__crc_"
-#define KSYMTAB_PFX MODULE_SYMBOL_PREFIX "__ksymtab_"
+#define CRC_PFX     "__crc_"
+#define KSYMTAB_PFX "__ksymtab_"
 
 void
 handle_modversions(struct module *mod, struct elf_info *info,
@@ -508,12 +508,7 @@ buf_printf(struct buffer *buf, const char *fmt, ...)
 	
 	va_start(ap, fmt);
 	len = vsnprintf(tmp, SZ, fmt, ap);
-	if (buf->size - buf->pos < len + 1) {
-		buf->size += 128;
-		buf->p = realloc(buf->p, buf->size);
-	}
-	strncpy(buf->p + buf->pos, tmp, len + 1);
-	buf->pos += len;
+	buf_write(buf, tmp, len);
 	va_end(ap);
 }
 
@@ -521,7 +516,7 @@ void
 buf_write(struct buffer *buf, const char *s, int len)
 {
 	if (buf->size - buf->pos < len) {
-		buf->size += len;
+		buf->size += len + SZ;
 		buf->p = realloc(buf->p, buf->size);
 	}
 	strncpy(buf->p + buf->pos, s, len);
@@ -539,10 +534,9 @@ add_header(struct buffer *b, struct module *mod)
 	buf_printf(b, "\n");
 	buf_printf(b, "MODULE_INFO(vermagic, VERMAGIC_STRING);\n");
 	buf_printf(b, "\n");
-	buf_printf(b, "#undef unix\n"); /* We have a module called "unix" */
 	buf_printf(b, "struct module __this_module\n");
 	buf_printf(b, "__attribute__((section(\".gnu.linkonce.this_module\"))) = {\n");
-	buf_printf(b, " .name = __stringify(KBUILD_MODNAME),\n");
+	buf_printf(b, " .name = KBUILD_MODNAME,\n");
 	if (mod->has_init)
 		buf_printf(b, " .init = init_module,\n");
 	if (mod->has_cleanup)

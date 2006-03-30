@@ -1,5 +1,5 @@
 # drivers/mtd/maps/Kconfig
-# $Id: Kconfig,v 1.15 2004/12/22 17:51:15 joern Exp $
+# $Id: Kconfig,v 1.18 2005/11/07 11:14:24 gleixner Exp $
 
 menu "Self-contained MTD device drivers"
 	depends on MTD!=n
@@ -46,6 +46,22 @@ config MTD_MS02NV
 	  backed-up NVRAM module.  The module was originally meant as an NFS
 	  accelerator.  Say Y here if you have a DECstation 5000/2x0 or a
 	  DECsystem 5900 equipped with such a module.
+
+config MTD_DATAFLASH
+	tristate "Support for AT45xxx DataFlash"
+	depends on MTD && SPI_MASTER && EXPERIMENTAL
+	help
+	  This enables access to AT45xxx DataFlash chips, using SPI.
+	  Sometimes DataFlash chips are packaged inside MMC-format
+	  cards; at this writing, the MMC stack won't handle those.
+
+config MTD_M25P80
+	tristate "Support for M25 SPI Flash"
+	depends on MTD && SPI_MASTER && EXPERIMENTAL
+	help
+	  This enables access to ST M25P80 and similar SPI flash chips,
+	  used for program and data storage.  Set up your spi devices
+	  with the right board-specific platform data.
 
 config MTD_SLRAM
 	tristate "Uncached system RAM"
@@ -110,7 +126,7 @@ config MTDRAM_ABS_POS
 	  If you have system RAM accessible by the CPU but not used by Linux
 	  in normal operation, you can give the physical address at which the
 	  available RAM starts, and the MTDRAM driver will use it instead of
-	  allocating space from Linux's available memory. Otherwise, leave 
+	  allocating space from Linux's available memory. Otherwise, leave
 	  this set to zero. Most people will want to leave this as zero.
 
 config MTD_BLKMTD
@@ -165,7 +181,7 @@ config MTD_DOC2001
 	select MTD_DOCPROBE
 	select MTD_NAND_IDS
 	---help---
-	  This provides an alternative MTD device driver for the M-Systems 
+	  This provides an alternative MTD device driver for the M-Systems
 	  DiskOnChip Millennium devices.  Use this if you have problems with
 	  the combined DiskOnChip 2000 and Millennium driver above.  To get
 	  the DiskOnChip probe code to load and use this driver instead of
@@ -192,7 +208,7 @@ config MTD_DOC2001PLUS
 
 	  If you use this device, you probably also want to enable the INFTL
 	  'Inverse NAND Flash Translation Layer' option below, which is used
-	  to emulate a block device by using a kind of file system on the 
+	  to emulate a block device by using a kind of file system on the
 	  flash chips.
 
 	  NOTE: This driver will soon be replaced by the new DiskOnChip driver
@@ -202,6 +218,7 @@ config MTD_DOC2001PLUS
 config MTD_DOCPROBE
 	tristate
 	select MTD_DOCECC
+	select OBSOLETE_INTERMODULE
 
 config MTD_DOCECC
 	tristate

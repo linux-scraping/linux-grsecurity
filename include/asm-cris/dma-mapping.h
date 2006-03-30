@@ -15,14 +15,14 @@
 
 #ifdef CONFIG_PCI
 void *dma_alloc_coherent(struct device *dev, size_t size,
-			   dma_addr_t *dma_handle, int flag);
+			   dma_addr_t *dma_handle, gfp_t flag);
 
 void dma_free_coherent(struct device *dev, size_t size,
 			 void *vaddr, dma_addr_t dma_handle);
 #else
 static inline void *
 dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
-                   int flag)
+                   gfp_t flag)
 {
         BUG();
         return NULL;
@@ -153,7 +153,7 @@ dma_set_mask(struct device *dev, u64 mask)
 static inline int
 dma_get_cache_alignment(void)
 {
-	return (1 << L1_CACHE_SHIFT_MAX);
+	return (1 << INTERNODE_CACHE_SHIFT);
 }
 
 #define dma_is_consistent(d)	(1)

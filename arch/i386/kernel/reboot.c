@@ -12,6 +12,7 @@
 #include <linux/efi.h>
 #include <linux/dmi.h>
 #include <linux/ctype.h>
+#include <linux/pm.h>
 #include <asm/uaccess.h>
 #include <asm/apic.h>
 #include <asm/desc.h>
@@ -111,6 +112,14 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "PowerEdge 2400"),
 		},
 	},
+	{	/* Handle problems with rebooting on HP laptops */
+		.callback = set_bios_reboot,
+		.ident = "HP Compaq Laptop",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Compaq"),
+		},
+	},
 	{ }
 };
 
@@ -194,6 +203,10 @@ void machine_real_restart(unsigned char *code, int length)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	local_irq_disable();
 
 	/* Write zero to CMOS register number 0x0f, which the BIOS POST
@@ -214,8 +227,16 @@ void machine_real_restart(unsigned char *code, int length)
 	   from the kernel segment.  This assumes the kernel segment starts at
 	   virtual address PAGE_OFFSET. */
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	memcpy (swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
 		sizeof (swapper_pg_dir [0]) * KERNEL_PGD_PTRS);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	/*
 	 * Use `swapper_pg_dir' as our page directory.
@@ -347,10 +368,10 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
-	machine_shutdown();
-
-	if (pm_power_off)
+	if (pm_power_off) {
+		machine_shutdown();
 		pm_power_off();
+	}
 }
 
 

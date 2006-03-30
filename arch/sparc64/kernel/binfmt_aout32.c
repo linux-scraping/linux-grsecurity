@@ -36,8 +36,6 @@ static int load_aout32_binary(struct linux_binprm *, struct pt_regs * regs);
 static int load_aout32_library(struct file*);
 static int aout32_core_dump(long signr, struct pt_regs * regs, struct file *file);
 
-extern void dump_thread(struct pt_regs *, struct user *);
-
 static struct linux_binfmt aout32_format = {
 	NULL, THIS_MODULE, load_aout32_binary, load_aout32_library, aout32_core_dump,
 	PAGE_SIZE
@@ -241,7 +239,6 @@ static int load_aout32_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	current->mm->brk = ex.a_bss +
 		(current->mm->start_brk = N_BSSADDR(ex));
 
-	set_mm_counter(current->mm, rss, 0);
 	current->mm->mmap = NULL;
 	compute_creds(bprm);
  	current->flags &= ~PF_FORKNOEXEC;

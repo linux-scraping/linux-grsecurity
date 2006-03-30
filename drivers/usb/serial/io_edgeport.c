@@ -27,225 +27,6 @@
  * Networks technical support, or Peter Berger <pberger@brimson.com>,
  * or Al Borchers <alborchers@steinerpoint.com>.
  *
- * Version history:
- * 
- * 2003_04_03 al borchers
- *  - fixed a bug (that shows up with dosemu) where the tty struct is
- *    used in a callback after it has been freed
- *
- * 2.3 2002_03_08 greg kroah-hartman
- *	- fixed bug when multiple devices were attached at the same time.
- *
- * 2.2 2001_11_14 greg kroah-hartman
- *	- fixed bug in edge_close that kept the port from being used more
- *	  than once.
- *	- fixed memory leak on device removal.
- *	- fixed potential double free of memory when command urb submitting
- *	  failed.
- *	- other small cleanups when the device is removed
- *	
- * 2.1 2001_07_09 greg kroah-hartman
- *	- added support for TIOCMBIS and TIOCMBIC.
- *
- *     (04/08/2001) gb
- *	- Identify version on module load.
- *
- * 2.0 2001_03_05 greg kroah-hartman
- *	- reworked entire driver to fit properly in with the other usb-serial
- *	  drivers.  Occasional oopses still happen, but it's a good start.
- *
- * 1.2.3 (02/23/2001) greg kroah-hartman
- *	- changed device table to work properly for 2.4.x final format.
- *	- fixed problem with dropping data at high data rates.
- *
- * 1.2.2 (11/27/2000) greg kroah-hartman
- *	- cleaned up more NTisms.
- *	- Added device table for 2.4.0-test11
- *
- * 1.2.1 (11/08/2000) greg kroah-hartman
- *	- Started to clean up NTisms.
- *	- Fixed problem with dev field of urb for kernels >= 2.4.0-test9
- *
- * 1.2 (10/17/2000) David Iacovelli
- * 	Remove all EPIC code and GPL source
- *  Fix RELEVANT_IFLAG macro to include flow control 
- *  changes port configuration changes.
- *  Fix redefinition of SERIAL_MAGIC
- *  Change all timeout values to 5 seconds
- *  Tried to fix the UHCI multiple urb submission, but failed miserably.
- *  it seems to work fine with OHCI.
- *  ( Greg take a look at the #if 0 at end of WriteCmdUsb() we must 
- *    find a way to work arount this UHCI bug )
- *
- * 1.1 (10/11/2000) David Iacovelli
- *  Fix XON/XOFF flow control to support both IXON and IXOFF
- *
- * 0.9.27 (06/30/2000) David Iacovelli
- *  Added transmit queue and now allocate urb for command writes.
- *
- * 0.9.26 (06/29/2000) David Iacovelli
- *  Add support for 80251 based edgeport
- *
- * 0.9.25 (06/27/2000) David Iacovelli
- *  Do not close the port if it has multiple opens.
- *
- * 0.9.24 (05/26/2000) David Iacovelli
- *  Add IOCTLs to support RXTX and JAVA POS 
- *  and first cut at running BlackBox Demo
- *
- * 0.9.23 (05/24/2000) David Iacovelli
- *  Add IOCTLs to support RXTX and JAVA POS
- *
- * 0.9.22 (05/23/2000) David Iacovelli
- *  fixed bug in enumeration.  If epconfig turns on mapping by
- *  path after a device is already plugged in, we now update
- *  the mapping correctly
- *
- * 0.9.21 (05/16/2000) David Iacovelli
- *  Added BlockUntilChaseResp() to also wait for txcredits
- *  Updated the way we allocate and handle write URBs 
- *	Add debug code to dump buffers
- *
- * 0.9.20 (05/01/2000) David Iacovelli
- *	change driver to use usb/tts/
- *
- * 0.9.19 (05/01/2000) David Iacovelli
- *  Update code to compile if DEBUG is off
- *
- * 0.9.18 (04/28/2000) David Iacovelli
- *  cleanup and test tty_register with devfs
- *
- * 0.9.17 (04/27/2000) greg kroah-hartman
- * 	changed tty_register around to be like the way it
- * 	was before, but now it works properly with devfs.
- *
- * 0.9.16 (04/26/2000) david iacovelli
- *  Fixed bug in GetProductInfo()
- *
- * 0.9.15 (04/25/2000) david iacovelli
- *	Updated enumeration
- *
- * 0.9.14 (04/24/2000) david iacovelli
- *  Removed all config/status IOCTLS and 
- *  converted to using /proc/edgeport
- *  still playing with devfs
- *
- * 0.9.13 (04/24/2000) david iacovelli
- *  Removed configuration based on ttyUSB0
- *  Added support for configuration using /prod/edgeport
- *  first attempt at using devfs (not working yet!)
- *  Added IOCTL to GetProductInfo()
- *  Added support for custom baud rates
- *	Add support for random port numbers
- *
- * 0.9.12 (04/18/2000) david iacovelli
- *	added additional configuration IOCTLs
- *  use ttyUSB0 for configuration
- *
- * 0.9.11 (04/17/2000) greg kroah-hartman
- *	fixed module initialization race conditions.
- *	made all urbs dynamically allocated.
- *	made driver devfs compatible. now it only registers the tty device
- *	when the device is actually plugged in.
- *
- * 0.9.10 (04/13/2000) greg kroah-hartman
- *	added proc interface framework.
- *
- * 0.9.9 (04/13/2000) david iacovelli
- *	added enumeration code and ioctls to configure the device
- *
- * 0.9.8 (04/12/2000) david iacovelli
- *  Change interrupt read start when device is plugged in
- *  and stop when device is removed
- *	process interrupt reads when all ports are closed 
- *  (keep value of rxBytesAvail consistent with the edgeport)
- *  set the USB_BULK_QUEUE flag so that we can shove a bunch 
- *  of urbs at once down the pipe 
- *
- * 0.9.7 (04/10/2000) david iacovelli
- * 	start to add enumeration code.
- *  generate serial number for epic devices
- *  add support for kdb
- *
- * 0.9.6 (03/30/2000) david iacovelli
- *  add IOCTL to get string, manufacture, and boot descriptors
- *
- * 0.9.5 (03/14/2000) greg kroah-hartman
- *	more error checking added to SerialOpen to try to fix UHCI open problem
- *
- * 0.9.4 (03/09/2000) greg kroah-hartman
- *	added more error checking to handle oops when data is hanging
- *	around and tty is abruptly closed.
- *
- * 0.9.3 (03/09/2000) david iacovelli
- *	Add epic support for xon/xoff chars
- *	play with performance
- *
- * 0.9.2 (03/08/2000) greg kroah-hartman
- *	changed most "info" calls to "dbg"
- *	implemented flow control properly in the termios call
- *
- * 0.9.1 (03/08/2000) david iacovelli
- *	added EPIC support
- *	enabled bootloader update
- *
- * 0.9 (03/08/2000) greg kroah-hartman
- *	Release to IO networks.
- *	Integrated changes that David made
- *  made getting urbs for writing SMP safe
- *
- * 0.8 (03/07/2000) greg kroah-hartman
- *	Release to IO networks.
- *	Fixed problems that were seen in code by David.
- *  Now both Edgeport/4 and Edgeport/2 works properly.
- *  Changed most of the functions to use port instead of serial.
- *
- * 0.7 (02/27/2000) greg kroah-hartman
- *	Milestone 3 release.
- *	Release to IO Networks
- *	ioctl for waiting on line change implemented.
- *	ioctl for getting statistics implemented.
- *	multiport support working.
- *	lsr and msr registers are now handled properly.
- *	change break now hooked up and working.
- *	support for all known Edgeport devices.
- *
- * 0.6 (02/22/2000) greg kroah-hartman
- *	Release to IO networks.
- *	CHASE is implemented correctly when port is closed.
- *	SerialOpen now blocks correctly until port is fully opened.
- *
- * 0.5 (02/20/2000) greg kroah-hartman
- *	Release to IO networks.
- *	Known problems:
- *		modem status register changes are not sent on to the user
- *		CHASE is not implemented when the port is closed.
- *
- * 0.4 (02/16/2000) greg kroah-hartman
- *	Second cut at the CeBit demo.
- *	Doesn't leak memory on every write to the port
- *	Still small leaks on startup.
- *	Added support for Edgeport/2 and Edgeport/8
- *
- * 0.3 (02/15/2000) greg kroah-hartman
- *	CeBit demo release.
- *	Force the line settings to 4800, 8, 1, e for the demo.
- *	Warning! This version leaks memory like crazy!
- *
- * 0.2 (01/30/2000) greg kroah-hartman
- *	Milestone 1 release.
- *	Device is found by USB subsystem, enumerated, fimware is downloaded
- *	and the descriptors are printed to the debug log, config is set, and
- *	green light starts to blink. Open port works, and data can be sent
- *	and received at the default settings of the UART. Loopback connector
- *	and debug log confirms this.
- * 
- * 0.1 (01/23/2000) greg kroah-hartman
- *	Initial release to help IO Networks try to set up their test system. 
- *	Edgeport4 is recognized, firmware is downloaded, config is set so 
- *	device blinks green light every 3 sec. Port is bound, but opening,
- *	closing, and sending data do not work properly.
- * 
  */
 
 #include <linux/config.h>
@@ -403,7 +184,7 @@ struct divisor_table_entry {
 // These assume a 3.6864MHz crystal, the standard /16, and
 // MCR.7 = 0.
 //
-static struct divisor_table_entry divisor_table[] = {
+static const struct divisor_table_entry divisor_table[] = {
 	{   50,		4608},  
 	{   75,		3072},  
 	{   110,	2095},		/* 2094.545455 => 230450   => .0217 % over */
@@ -461,11 +242,11 @@ static void edge_shutdown		(struct usb_serial *serial);
 #include "io_tables.h"	/* all of the devices that this driver supports */
 
 static struct usb_driver io_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"io_edgeport",
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table_combined,
+	.no_dynamic_id = 	1,
 };
 
 /* function prototypes for all of our local functions */
@@ -2184,20 +1965,14 @@ static void edge_tty_recv(struct device *dev, struct tty_struct *tty, unsigned c
 	int cnt;
 
 	do {
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
-			tty_flip_buffer_push(tty);
-			if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
-				dev_err(dev, "%s - dropping data, %d bytes lost\n",
-					__FUNCTION__, length);
-				return;
-			}
+		cnt = tty_buffer_request_room(tty, length);
+		if (cnt < length) {
+			dev_err(dev, "%s - dropping data, %d bytes lost\n",
+					__FUNCTION__, length - cnt);
+			if(cnt == 0)
+				break;
 		}
-		cnt = min(length, TTY_FLIPBUF_SIZE - tty->flip.count);
-		memcpy(tty->flip.char_buf_ptr, data, cnt);
-		memset(tty->flip.flag_buf_ptr, 0, cnt);
-		tty->flip.char_buf_ptr += cnt;
-		tty->flip.flag_buf_ptr += cnt;
-		tty->flip.count += cnt;
+		tty_insert_flip_string(tty, data, cnt);
 		data += cnt;
 		length -= cnt;
 	} while (length > 0);
@@ -2572,7 +2347,7 @@ static int calc_baud_rate_divisor (int baudrate, int *divisor)
 
 	dbg("%s - %d", __FUNCTION__, baudrate);
 
-	for (i = 0; i < NUM_ENTRIES(divisor_table); i++) {
+	for (i = 0; i < ARRAY_SIZE(divisor_table); i++) {
 		if ( divisor_table[i].BaudRate == baudrate ) {
 			*divisor = divisor_table[i].Divisor;
 			return 0;

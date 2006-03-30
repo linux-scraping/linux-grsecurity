@@ -43,10 +43,6 @@
 #endif
 
 
-#if !defined( HOST ) && !defined( INKERNEL )
-#define RTA 1
-#endif
-
 #define NUM_FREE_LIST_UNITS     500
 
 #ifndef FALSE
@@ -60,15 +56,12 @@
 #define RX    FALSE
 
 
-typedef struct FREE_LIST FREE_LIST ;
-struct FREE_LIST   {
-                       FREE_LIST_ptr next ;
-                       FREE_LIST_ptr prev ;
-                   } ;
+typedef struct FREE_LIST FREE_LIST;
+struct FREE_LIST {
+	FREE_LIST_ptr next;
+	FREE_LIST_ptr prev;
+};
 
 
 #endif
 /*********** end of file ***********/
-
-
-

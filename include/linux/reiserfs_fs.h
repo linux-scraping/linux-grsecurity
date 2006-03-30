@@ -1052,7 +1052,7 @@ struct reiserfs_dir_entry {
 	int de_entrylen;
 	int de_namelen;
 	char *de_name;
-	char *de_gen_number_bit_string;
+	unsigned long *de_gen_number_bit_string;
 
 	__u32 de_dir_id;
 	__u32 de_objectid;
@@ -1857,7 +1857,7 @@ void padd_item(char *item, int total_length, int length);
 #define GET_BLOCK_CREATE 1	/* add anything you need to find block */
 #define GET_BLOCK_NO_HOLE 2	/* return -ENOENT for file holes */
 #define GET_BLOCK_READ_DIRECT 4	/* read the tail if indirect item not found */
-#define GET_BLOCK_NO_ISEM     8	/* i_sem is not held, don't preallocate */
+#define GET_BLOCK_NO_IMUX     8	/* i_mutex is not held, don't preallocate */
 #define GET_BLOCK_NO_DANGLE   16	/* don't leave any transactions running */
 
 int restart_transaction(struct reiserfs_transaction_handle *th,
@@ -1971,22 +1971,6 @@ extern struct file_operations reiserfs_file_operations;
 extern struct address_space_operations reiserfs_address_space_operations;
 
 /* fix_nodes.c */
-#ifdef CONFIG_REISERFS_CHECK
-void *reiserfs_kmalloc(size_t size, int flags, struct super_block *s);
-void reiserfs_kfree(const void *vp, size_t size, struct super_block *s);
-#else
-static inline void *reiserfs_kmalloc(size_t size, int flags,
-				     struct super_block *s)
-{
-	return kmalloc(size, flags);
-}
-
-static inline void reiserfs_kfree(const void *vp, size_t size,
-				  struct super_block *s)
-{
-	kfree(vp);
-}
-#endif
 
 int fix_nodes(int n_op_mode, struct tree_balance *p_s_tb,
 	      struct item_head *p_s_ins_ih, const void *);

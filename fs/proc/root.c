@@ -18,6 +18,8 @@
 #include <linux/bitops.h>
 #include <linux/smp_lock.h>
 
+#include "internal.h"
+
 struct proc_dir_entry *proc_net, *proc_net_stat, *proc_bus, *proc_root_fs, *proc_root_driver;
 
 #ifdef CONFIG_SYSCTL
@@ -36,7 +38,6 @@ static struct file_system_type proc_fs_type = {
 	.kill_sb	= kill_anon_super,
 };
 
-extern int __init proc_init_inodecache(void);
 void __init proc_root_init(void)
 {
 	int err = proc_init_inodecache();
@@ -93,16 +94,16 @@ void __init proc_root_init(void)
 #endif
 }
 
+static int proc_root_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat
+)
+{
+	generic_fillattr(dentry->d_inode, stat);
+	stat->nlink = proc_root.nlink + nr_processes();
+	return 0;
+}
+
 static struct dentry *proc_root_lookup(struct inode * dir, struct dentry * dentry, struct nameidata *nd)
 {
-	/*
-	 * nr_threads is actually protected by the tasklist_lock;
-	 * however, it's conventional to do reads, especially for
-	 * reporting, without any locking whatsoever.
-	 */
-	if (dir->i_ino == PROC_ROOT_INO) /* check for safety... */
-		dir->i_nlink = proc_root.nlink + nr_threads;
-
 	if (!proc_lookup(dir, dentry, nd)) {
 		return NULL;
 	}
@@ -147,6 +148,7 @@ static struct file_operations proc_root_operations = {
  */
 static struct inode_operations proc_root_inode_operations = {
 	.lookup		= proc_root_lookup,
+	.getattr	= proc_root_getattr,
 };
 
 /*

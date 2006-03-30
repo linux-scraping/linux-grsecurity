@@ -26,7 +26,6 @@
 
 #define ZR060_VERSION "v0.7"
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -162,7 +161,7 @@ zr36060_wait_end (struct zr36060 *ptr)
 
 	while (zr36060_read_status(ptr) & ZR060_CFSR_Busy) {
 		udelay(1);
-		if (i++ > 200000) {	// 200ms, there is for shure something wrong!!!
+		if (i++ > 200000) {	// 200ms, there is for sure something wrong!!!
 			dprintk(1,
 				"%s: timout at wait_end (last status: 0x%02x)\n",
 				ptr->name, ptr->status);
@@ -920,12 +919,11 @@ zr36060_setup (struct videocodec *codec)
 		return -ENOSPC;
 	}
 	//mem structure init
-	codec->data = ptr = kmalloc(sizeof(struct zr36060), GFP_KERNEL);
+	codec->data = ptr = kzalloc(sizeof(struct zr36060), GFP_KERNEL);
 	if (NULL == ptr) {
 		dprintk(1, KERN_ERR "zr36060: Can't get enough memory!\n");
 		return -ENOMEM;
 	}
-	memset(ptr, 0, sizeof(struct zr36060));
 
 	snprintf(ptr->name, sizeof(ptr->name), "zr36060[%d]",
 		 zr36060_codecs);

@@ -317,26 +317,29 @@ static int edid_is_monitor_block(unsigned char *block)
 static void calc_mode_timings(int xres, int yres, int refresh,
 			      struct fb_videomode *mode)
 {
-	struct fb_var_screeninfo var;
-	struct fb_info info;
+	struct fb_var_screeninfo *var;
 	
-	memset(&var, 0, sizeof(struct fb_var_screeninfo));
-	var.xres = xres;
-	var.yres = yres;
-	fb_get_mode(FB_VSYNCTIMINGS | FB_IGNOREMON, 
-		    refresh, &var, &info);
-	mode->xres = xres;
-	mode->yres = yres;
-	mode->pixclock = var.pixclock;
-	mode->refresh = refresh;
-	mode->left_margin = var.left_margin;
-	mode->right_margin = var.right_margin;
-	mode->upper_margin = var.upper_margin;
-	mode->lower_margin = var.lower_margin;
-	mode->hsync_len = var.hsync_len;
-	mode->vsync_len = var.vsync_len;
-	mode->vmode = 0;
-	mode->sync = 0;
+	var = kzalloc(sizeof(struct fb_var_screeninfo), GFP_KERNEL);
+
+	if (var) {
+		var->xres = xres;
+		var->yres = yres;
+		fb_get_mode(FB_VSYNCTIMINGS | FB_IGNOREMON,
+			    refresh, var, NULL);
+		mode->xres = xres;
+		mode->yres = yres;
+		mode->pixclock = var->pixclock;
+		mode->refresh = refresh;
+		mode->left_margin = var->left_margin;
+		mode->right_margin = var->right_margin;
+		mode->upper_margin = var->upper_margin;
+		mode->lower_margin = var->lower_margin;
+		mode->hsync_len = var->hsync_len;
+		mode->vsync_len = var->vsync_len;
+		mode->vmode = 0;
+		mode->sync = 0;
+		kfree(var);
+	}
 }
 
 static int get_est_timing(unsigned char *block, struct fb_videomode *mode)
@@ -525,10 +528,9 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 	unsigned char *block;
 	int num = 0, i;
 
-	mode = kmalloc(50 * sizeof(struct fb_videomode), GFP_KERNEL);
+	mode = kzalloc(50 * sizeof(struct fb_videomode), GFP_KERNEL);
 	if (mode == NULL)
 		return NULL;
-	memset(mode, 0, 50 * sizeof(struct fb_videomode));
 
 	if (edid == NULL || !edid_checksum(edid) || 
 	    !edid_check_header(edid)) {
@@ -538,25 +540,12 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 
 	*dbsize = 0;
 
-	DPRINTK("   Supported VESA Modes\n");
-	block = edid + ESTABLISHED_TIMING_1;
-	num += get_est_timing(block, &mode[num]);
-
-	DPRINTK("   Standard Timings\n");
-	block = edid + STD_TIMING_DESCRIPTIONS_START;
-	for (i = 0; i < STD_TIMING; i++, block += STD_TIMING_DESCRIPTION_SIZE) 
-		num += get_std_timing(block, &mode[num]);
-
 	DPRINTK("   Detailed Timings\n");
 	block = edid + DETAILED_TIMING_DESCRIPTIONS_START;
 	for (i = 0; i < 4; i++, block+= DETAILED_TIMING_DESCRIPTION_SIZE) {
 	        int first = 1;
 
-		if (block[0] == 0x00 && block[1] == 0x00) {
-			if (block[3] == 0xfa) {
-				num += get_dst_timing(block + 5, &mode[num]);
-			}
-		} else  {
+		if (!(block[0] == 0x00 && block[1] == 0x00)) {
 			get_detailed_timing(block, &mode[num]);
 			if (first) {
 			        mode[num].flag |= FB_MODE_IS_FIRST;
@@ -564,6 +553,21 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 			}
 			num++;
 		}
+	}
+
+	DPRINTK("   Supported VESA Modes\n");
+	block = edid + ESTABLISHED_TIMING_1;
+	num += get_est_timing(block, &mode[num]);
+
+	DPRINTK("   Standard Timings\n");
+	block = edid + STD_TIMING_DESCRIPTIONS_START;
+	for (i = 0; i < STD_TIMING; i++, block += STD_TIMING_DESCRIPTION_SIZE)
+		num += get_std_timing(block, &mode[num]);
+
+	block = edid + DETAILED_TIMING_DESCRIPTIONS_START;
+	for (i = 0; i < 4; i++, block+= DETAILED_TIMING_DESCRIPTION_SIZE) {
+		if (block[0] == 0x00 && block[1] == 0x00 && block[3] == 0xfa)
+			num += get_dst_timing(block + 5, &mode[num]);
 	}
 	
 	/* Yikes, EDID data is totally useless */
@@ -827,7 +831,7 @@ int fb_parse_edid(unsigned char *edid, struct fb_var_screeninfo *var)
 void fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 {
 	unsigned char *block;
-	int i;
+	int i, found = 0;
 
 	if (edid == NULL)
 		return;
@@ -869,6 +873,22 @@ void fb_edid_to_monspecs(unsigned char *edid, struct fb_monspecs *specs)
 	get_monspecs(edid, specs);
 
 	specs->modedb = fb_create_modedb(edid, &specs->modedb_len);
+
+	/*
+	 * Workaround for buggy EDIDs that sets that the first
+	 * detailed timing is preferred but has not detailed
+	 * timing specified
+	 */
+	for (i = 0; i < specs->modedb_len; i++) {
+		if (specs->modedb[i].flag & FB_MODE_IS_DETAILED) {
+			found = 1;
+			break;
+		}
+	}
+
+	if (!found)
+		specs->misc &= ~FB_MISC_1ST_DETAIL;
+
 	DPRINTK("========================================\n");
 }
 
@@ -1087,15 +1107,21 @@ static void fb_timings_dclk(struct __fb_timings *timings)
  */ 
 int fb_get_mode(int flags, u32 val, struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct __fb_timings timings;
+	struct __fb_timings *timings;
 	u32 interlace = 1, dscan = 1;
-	u32 hfmin, hfmax, vfmin, vfmax, dclkmin, dclkmax;
+	u32 hfmin, hfmax, vfmin, vfmax, dclkmin, dclkmax, err = 0;
+
+
+	timings = kzalloc(sizeof(struct __fb_timings), GFP_KERNEL);
+
+	if (!timings)
+		return -ENOMEM;
 
 	/* 
 	 * If monspecs are invalid, use values that are enough
 	 * for 640x480@60
 	 */
-	if (!info->monspecs.hfmax || !info->monspecs.vfmax ||
+	if (!info || !info->monspecs.hfmax || !info->monspecs.vfmax ||
 	    !info->monspecs.dclkmax ||
 	    info->monspecs.hfmax < info->monspecs.hfmin ||
 	    info->monspecs.vfmax < info->monspecs.vfmin ||
@@ -1112,65 +1138,66 @@ int fb_get_mode(int flags, u32 val, struct fb_var_screeninfo *var, struct fb_inf
 		dclkmax = info->monspecs.dclkmax;
 	}
 
-	memset(&timings, 0, sizeof(struct __fb_timings));
-	timings.hactive = var->xres;
-	timings.vactive = var->yres;
+	timings->hactive = var->xres;
+	timings->vactive = var->yres;
 	if (var->vmode & FB_VMODE_INTERLACED) { 
-		timings.vactive /= 2;
+		timings->vactive /= 2;
 		interlace = 2;
 	}
 	if (var->vmode & FB_VMODE_DOUBLE) {
-		timings.vactive *= 2;
+		timings->vactive *= 2;
 		dscan = 2;
 	}
 
 	switch (flags & ~FB_IGNOREMON) {
 	case FB_MAXTIMINGS: /* maximize refresh rate */
-		timings.hfreq = hfmax;
-		fb_timings_hfreq(&timings);
-		if (timings.vfreq > vfmax) {
-			timings.vfreq = vfmax;
-			fb_timings_vfreq(&timings);
+		timings->hfreq = hfmax;
+		fb_timings_hfreq(timings);
+		if (timings->vfreq > vfmax) {
+			timings->vfreq = vfmax;
+			fb_timings_vfreq(timings);
 		}
-		if (timings.dclk > dclkmax) {
-			timings.dclk = dclkmax;
-			fb_timings_dclk(&timings);
+		if (timings->dclk > dclkmax) {
+			timings->dclk = dclkmax;
+			fb_timings_dclk(timings);
 		}
 		break;
 	case FB_VSYNCTIMINGS: /* vrefresh driven */
-		timings.vfreq = val;
-		fb_timings_vfreq(&timings);
+		timings->vfreq = val;
+		fb_timings_vfreq(timings);
 		break;
 	case FB_HSYNCTIMINGS: /* hsync driven */
-		timings.hfreq = val;
-		fb_timings_hfreq(&timings);
+		timings->hfreq = val;
+		fb_timings_hfreq(timings);
 		break;
 	case FB_DCLKTIMINGS: /* pixelclock driven */
-		timings.dclk = PICOS2KHZ(val) * 1000;
-		fb_timings_dclk(&timings);
+		timings->dclk = PICOS2KHZ(val) * 1000;
+		fb_timings_dclk(timings);
 		break;
 	default:
-		return -EINVAL;
+		err = -EINVAL;
 		
 	} 
 	
-	if (!(flags & FB_IGNOREMON) && 
-	    (timings.vfreq < vfmin || timings.vfreq > vfmax || 
-	     timings.hfreq < hfmin || timings.hfreq > hfmax ||
-	     timings.dclk < dclkmin || timings.dclk > dclkmax))
-		return -EINVAL;
-
-	var->pixclock = KHZ2PICOS(timings.dclk/1000);
-	var->hsync_len = (timings.htotal * 8)/100;
-	var->right_margin = (timings.hblank/2) - var->hsync_len;
-	var->left_margin = timings.hblank - var->right_margin - var->hsync_len;
+	if (err || (!(flags & FB_IGNOREMON) &&
+	    (timings->vfreq < vfmin || timings->vfreq > vfmax ||
+	     timings->hfreq < hfmin || timings->hfreq > hfmax ||
+	     timings->dclk < dclkmin || timings->dclk > dclkmax))) {
+		err = -EINVAL;
+	} else {
+		var->pixclock = KHZ2PICOS(timings->dclk/1000);
+		var->hsync_len = (timings->htotal * 8)/100;
+		var->right_margin = (timings->hblank/2) - var->hsync_len;
+		var->left_margin = timings->hblank - var->right_margin -
+			var->hsync_len;
+		var->vsync_len = (3 * interlace)/dscan;
+		var->lower_margin = (1 * interlace)/dscan;
+		var->upper_margin = (timings->vblank * interlace)/dscan -
+			(var->vsync_len + var->lower_margin);
+	}
 	
-	var->vsync_len = (3 * interlace)/dscan;
-	var->lower_margin = (1 * interlace)/dscan;
-	var->upper_margin = (timings.vblank * interlace)/dscan - 
-		(var->vsync_len + var->lower_margin);
-	
-	return 0;
+	kfree(timings);
+	return err;
 }
 #else
 int fb_parse_edid(unsigned char *edid, struct fb_var_screeninfo *var)

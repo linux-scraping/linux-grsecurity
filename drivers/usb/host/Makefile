@@ -1,7 +1,12 @@
 #
-# Makefile for USB Host Controller Driver
-# framework and drivers
+# Makefile for USB Host Controller Drivers
 #
+
+ifeq ($(CONFIG_USB_DEBUG),y)
+	EXTRA_CFLAGS		+= -DDEBUG
+endif
+
+obj-$(CONFIG_PCI)		+= pci-quirks.o
 
 obj-$(CONFIG_USB_EHCI_HCD)	+= ehci-hcd.o
 obj-$(CONFIG_USB_ISP116X_HCD)	+= isp116x-hcd.o

@@ -16,8 +16,6 @@
 #ifndef _LINUX_JBD_H
 #define _LINUX_JBD_H
 
-#if defined(CONFIG_JBD) || defined(CONFIG_JBD_MODULE) || !defined(__KERNEL__)
-
 /* Allow this file to be included directly into e2fsprogs */
 #ifndef __KERNEL__
 #include "jfs_compat.h"
@@ -25,6 +23,7 @@
 #define jfs_debug jbd_debug
 #else
 
+#include <linux/types.h>
 #include <linux/buffer_head.h>
 #include <linux/journal-head.h>
 #include <linux/stddef.h>
@@ -69,7 +68,7 @@ extern int journal_enable_debug;
 #define jbd_debug(f, a...)	/**/
 #endif
 
-extern void * __jbd_kmalloc (const char *where, size_t size, int flags, int retry);
+extern void * __jbd_kmalloc (const char *where, size_t size, gfp_t flags, int retry);
 #define jbd_kmalloc(size, flags) \
 	__jbd_kmalloc(__FUNCTION__, (size), (flags), journal_oom_retry)
 #define jbd_rep_kmalloc(size, flags) \
@@ -240,7 +239,6 @@ typedef struct journal_superblock_s
 
 #include <linux/fs.h>
 #include <linux/sched.h>
-#include <asm/bug.h>
 
 #define JBD_ASSERTIONS
 #ifdef JBD_ASSERTIONS
@@ -611,6 +609,10 @@ struct transaction_s
  * @j_revoke: The revoke table - maintains the list of revoked blocks in the
  *     current transaction.
  * @j_revoke_table: alternate revoke tables for j_revoke
+ * @j_wbuf: array of buffer_heads for journal_commit_transaction
+ * @j_wbufsize: maximum number of buffer_heads allowed in j_wbuf, the
+ *	number that will fit in j_blocksize
+ * @j_last_sync_writer: most recent pid which did a synchronous write
  * @j_private: An opaque pointer to fs-private information.
  */
 
@@ -800,6 +802,8 @@ struct journal_s
 	struct buffer_head	**j_wbuf;
 	int			j_wbufsize;
 
+	pid_t			j_last_sync_writer;
+
 	/*
 	 * An opaque pointer to fs-private information.  ext3 puts its
 	 * superblock pointer here
@@ -890,7 +894,7 @@ extern int	 journal_forget (handle_t *, struct buffer_head *);
 extern void	 journal_sync_buffer (struct buffer_head *);
 extern int	 journal_invalidatepage(journal_t *,
 				struct page *, unsigned long);
-extern int	 journal_try_to_free_buffers(journal_t *, struct page *, int);
+extern int	 journal_try_to_free_buffers(journal_t *, struct page *, gfp_t);
 extern int	 journal_stop(handle_t *);
 extern int	 journal_flush (journal_t *);
 extern void	 journal_lock_updates (journal_t *);
@@ -1080,19 +1084,4 @@ extern int jbd_blocks_per_page(struct inode *inode);
 
 #endif	/* __KERNEL__ */
 
-#endif	/* CONFIG_JBD || CONFIG_JBD_MODULE || !__KERNEL__ */
-
-/*
- * Compatibility no-ops which allow the kernel to compile without CONFIG_JBD
- * go here.
- */
-
-#if defined(__KERNEL__) && !(defined(CONFIG_JBD) || defined(CONFIG_JBD_MODULE))
-
-#define J_ASSERT(expr)			do {} while (0)
-#define J_ASSERT_BH(bh, expr)		do {} while (0)
-#define buffer_jbd(bh)			0
-#define journal_buffer_journal_lru(bh)	0
-
-#endif	/* defined(__KERNEL__) && !defined(CONFIG_JBD) */
 #endif	/* _LINUX_JBD_H */

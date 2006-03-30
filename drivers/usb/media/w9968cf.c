@@ -25,7 +25,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
 
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
@@ -63,7 +62,6 @@ MODULE_LICENSE(W9968CF_MODULE_LICENSE);
 MODULE_SUPPORTED_DEVICE("Video");
 
 static int ovmod_load = W9968CF_OVMOD_LOAD;
-static int vppmod_load = W9968CF_VPPMOD_LOAD;
 static unsigned short simcams = W9968CF_SIMCAMS;
 static short video_nr[]={[0 ... W9968CF_MAX_DEVICES-1] = -1}; /*-1=first free*/
 static unsigned int packet_size[] = {[0 ... W9968CF_MAX_DEVICES-1] = 
@@ -108,7 +106,6 @@ static unsigned int param_nv[24]; /* number of values per parameter */
 
 #ifdef CONFIG_KMOD
 module_param(ovmod_load, bool, 0644);
-module_param(vppmod_load, bool, 0444);
 #endif
 module_param(simcams, ushort, 0644);
 module_param_array(video_nr, short, &param_nv[0], 0444);
@@ -150,18 +147,6 @@ MODULE_PARM_DESC(ovmod_load,
                  "\nperformed once as soon as the 'w9968cf' module is loaded"
                  "\ninto memory."
                  "\nDefault value is "__MODULE_STRING(W9968CF_OVMOD_LOAD)"."
-                 "\n");
-MODULE_PARM_DESC(vppmod_load, 
-                 "\n<0|1> Automatic 'w9968cf-vpp' module loading."
-                 "\n0 disabled, 1 enabled."
-                 "\nIf enabled, every time an application attempts to open a"
-                 "\ncamera, 'insmod' searches for the video post-processing"
-                 "\nmodule in the system and loads it automatically (if"
-                 "\npresent). The optional 'w9968cf-vpp' module adds extra"
-                 "\n image manipulation functions to the 'w9968cf' module,like"
-                 "\nsoftware up-scaling,colour conversions and video decoding"
-                 "\nfor very high frame rates."
-                 "\nDefault value is "__MODULE_STRING(W9968CF_VPPMOD_LOAD)"."
                  "\n");
 #endif
 MODULE_PARM_DESC(simcams, 
@@ -492,10 +477,6 @@ static void w9968cf_init_framelist(struct w9968cf_device*);
 static void w9968cf_push_frame(struct w9968cf_device*, u8 f_num);
 static void w9968cf_pop_frame(struct w9968cf_device*,struct w9968cf_frame_t**);
 static void w9968cf_release_resources(struct w9968cf_device*);
-
-/* Intermodule communication */
-static int w9968cf_vppmod_detect(struct w9968cf_device*);
-static void w9968cf_vppmod_release(struct w9968cf_device*);
 
 
 
@@ -1534,12 +1515,12 @@ static int w9968cf_i2c_attach_inform(struct i2c_client* client)
 		}
 	} else {
 		DBG(4, "Rejected client [%s] with driver [%s]", 
-		    client->name, client->driver->name)
+		    client->name, client->driver->driver.name)
 		return -EINVAL;
 	}
 
 	DBG(5, "I2C attach client [%s] with driver [%s]",
-	    client->name, client->driver->name)
+	    client->name, client->driver->driver.name)
 
 	return 0;
 }
@@ -2738,9 +2719,7 @@ static int w9968cf_open(struct inode* inode, struct file* filp)
 	cam->streaming = 0;
 	cam->misconfigured = 0;
 
-	if (!w9968cf_vpp)
-		if ((err = w9968cf_vppmod_detect(cam)))
-			goto out;
+	w9968cf_adjust_configuration(cam);
 
 	if ((err = w9968cf_allocate_memory(cam)))
 		goto deallocate_memory;
@@ -2767,7 +2746,6 @@ static int w9968cf_open(struct inode* inode, struct file* filp)
 
 deallocate_memory:
 	w9968cf_deallocate_memory(cam);
-out:
 	DBG(2, "Failed to open the video device")
 	up(&cam->dev_sem);
 	up_read(&w9968cf_disconnect);
@@ -2784,8 +2762,6 @@ static int w9968cf_release(struct inode* inode, struct file* filp)
 	down(&cam->dev_sem); /* prevent disconnect() to be called */
 
 	w9968cf_stop_transfer(cam);
-
-	w9968cf_vppmod_release(cam);
 
 	if (cam->disconnected) {
 		w9968cf_release_resources(cam);
@@ -2959,7 +2935,7 @@ static int w9968cf_v4l_ioctl(struct inode* inode, struct file* filp,
 	};
 
 	#define V4L1_IOCTL(cmd) \
-	        ((_IOC_NR((cmd)) < sizeof(v4l1_ioctls)/sizeof(char*)) ? \
+	        ((_IOC_NR((cmd)) < ARRAY_SIZE(v4l1_ioctls)) ? \
 	        v4l1_ioctls[_IOC_NR((cmd))] : "?")
 
 	cam = (struct w9968cf_device*)video_get_drvdata(video_devdata(filp));
@@ -3491,6 +3467,7 @@ static struct file_operations w9968cf_fops = {
 	.release = w9968cf_release,
 	.read =    w9968cf_read,
 	.ioctl =   w9968cf_ioctl,
+	.compat_ioctl = v4l_compat_ioctl32,
 	.mmap =    w9968cf_mmap,
 	.llseek =  no_llseek,
 };
@@ -3555,7 +3532,7 @@ w9968cf_usb_probe(struct usb_interface* intf, const struct usb_device_id* id)
 
 
 	/* Allocate 2 bytes of memory for camera control USB transfers */
-	if (!(cam->control_buffer = (u16*)kmalloc(2, GFP_KERNEL))) {
+	if (!(cam->control_buffer = kmalloc(2, GFP_KERNEL))) {
 		DBG(1,"Couldn't allocate memory for camera control transfers")
 		err = -ENOMEM;
 		goto fail;
@@ -3563,7 +3540,7 @@ w9968cf_usb_probe(struct usb_interface* intf, const struct usb_device_id* id)
 	memset(cam->control_buffer, 0, 2);
 
 	/* Allocate 8 bytes of memory for USB data transfers to the FSB */
-	if (!(cam->data_buffer = (u16*)kmalloc(8, GFP_KERNEL))) {
+	if (!(cam->data_buffer = kmalloc(8, GFP_KERNEL))) {
 		DBG(1, "Couldn't allocate memory for data "
 		       "transfers to the FSB")
 		err = -ENOMEM;
@@ -3669,7 +3646,6 @@ static void w9968cf_usb_disconnect(struct usb_interface* intf)
 
 
 static struct usb_driver w9968cf_usb_driver = {
-	.owner =      THIS_MODULE,
 	.name =       "w9968cf",
 	.id_table =   winbond_id_table,
 	.probe =      w9968cf_usb_probe,
@@ -3681,106 +3657,6 @@ static struct usb_driver w9968cf_usb_driver = {
 /****************************************************************************
  * Module init, exit and intermodule communication                          *
  ****************************************************************************/
-
-static int w9968cf_vppmod_detect(struct w9968cf_device* cam)
-{
-	if (!w9968cf_vpp)
-		if (vppmod_load)
-			request_module("w9968cf-vpp");
-
-	down(&w9968cf_vppmod_lock);
-
-	if (!w9968cf_vpp) {
-		DBG(4, "Video post-processing module not detected")
-		w9968cf_adjust_configuration(cam);
-		goto out;
-	}
-
-	if (!try_module_get(w9968cf_vpp->owner)) {
-		DBG(1, "Couldn't increment the reference count of "
-		       "the video post-processing module")
-		up(&w9968cf_vppmod_lock);
-		return -ENOSYS;
-	}
-
-	w9968cf_vpp->busy++;
-
-	DBG(5, "Video post-processing module detected")
-
-out:
-	up(&w9968cf_vppmod_lock);
-	return 0;
-}
-
-
-static void w9968cf_vppmod_release(struct w9968cf_device* cam)
-{
-	down(&w9968cf_vppmod_lock);
-
-	if (w9968cf_vpp && w9968cf_vpp->busy) {
-		module_put(w9968cf_vpp->owner);
-		w9968cf_vpp->busy--;
-		wake_up(&w9968cf_vppmod_wait);
-		DBG(5, "Video post-processing module released")
-	}
-
-	up(&w9968cf_vppmod_lock);
-}
-
-
-int w9968cf_vppmod_register(struct w9968cf_vpp_t* vpp)
-{
-	down(&w9968cf_vppmod_lock);
-
-	if (w9968cf_vpp) {
-		KDBG(1, "Video post-processing module already registered")
-		up(&w9968cf_vppmod_lock);
-		return -EINVAL;
-	}
-
-	w9968cf_vpp = vpp;
-	w9968cf_vpp->busy = 0;
-
-	KDBG(2, "Video post-processing module registered")
-	up(&w9968cf_vppmod_lock);
-	return 0;
-}
-
-
-int w9968cf_vppmod_deregister(struct w9968cf_vpp_t* vpp)
-{
-	down(&w9968cf_vppmod_lock);
-
-	if (!w9968cf_vpp) {
-		up(&w9968cf_vppmod_lock);
-		return -EINVAL;
-	}
-
-	if (w9968cf_vpp != vpp) {
-		KDBG(1, "Only the owner can unregister the video "
-		        "post-processing module")
-		up(&w9968cf_vppmod_lock);
-		return -EINVAL;
-	}
-
-	if (w9968cf_vpp->busy) {
-		KDBG(2, "Video post-processing module busy. Wait for it to be "
-		        "released...")
-		up(&w9968cf_vppmod_lock);
-		wait_event(w9968cf_vppmod_wait, !w9968cf_vpp->busy);
-		w9968cf_vpp = NULL;
-		goto out;
-	}
-
-	w9968cf_vpp = NULL;
-
-	up(&w9968cf_vppmod_lock);
-
-out:
-	KDBG(2, "Video post-processing module unregistered")
-	return 0;
-}
-
 
 static int __init w9968cf_module_init(void)
 {
@@ -3811,6 +3687,3 @@ static void __exit w9968cf_module_exit(void)
 module_init(w9968cf_module_init);
 module_exit(w9968cf_module_exit);
 
-
-EXPORT_SYMBOL(w9968cf_vppmod_register);
-EXPORT_SYMBOL(w9968cf_vppmod_deregister);

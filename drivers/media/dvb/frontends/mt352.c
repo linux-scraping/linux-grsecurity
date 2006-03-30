@@ -35,6 +35,8 @@
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 
 #include "dvb_frontend.h"
 #include "mt352_priv.h"
@@ -533,9 +535,8 @@ struct dvb_frontend* mt352_attach(const struct mt352_config* config,
 	struct mt352_state* state = NULL;
 
 	/* allocate memory for the internal state */
-	state = kmalloc(sizeof(struct mt352_state), GFP_KERNEL);
+	state = kzalloc(sizeof(struct mt352_state), GFP_KERNEL);
 	if (state == NULL) goto error;
-	memset(state,0,sizeof(*state));
 
 	/* setup the state */
 	state->i2c = i2c;

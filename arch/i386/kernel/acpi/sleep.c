@@ -25,11 +25,22 @@ static void init_low_mapping(pgd_t * pgd, int pgd_limit)
 {
 	int pgd_ofs = 0;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
 	while ((pgd_ofs < pgd_limit)
 	       && (pgd_ofs + USER_PTRS_PER_PGD < PTRS_PER_PGD)) {
 		set_pgd(pgd, *(pgd + USER_PTRS_PER_PGD));
 		pgd_ofs++, pgd++;
 	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 	flush_tlb_all();
 }
 
@@ -56,7 +67,18 @@ int acpi_save_state_mem(void)
  */
 void acpi_restore_state_mem(void)
 {
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
 	zap_low_mappings();
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 }
 
 /**

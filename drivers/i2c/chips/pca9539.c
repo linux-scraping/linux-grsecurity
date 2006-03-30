@@ -38,9 +38,9 @@ static int pca9539_detach_client(struct i2c_client *client);
 
 /* This is the driver that will be inserted */
 static struct i2c_driver pca9539_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "pca9539",
-	.flags		= I2C_DF_NOTIFY,
+	.driver = {
+		.name	= "pca9539",
+	},
 	.attach_adapter	= pca9539_attach_adapter,
 	.detach_client	= pca9539_detach_client,
 };
@@ -122,11 +122,10 @@ static int pca9539_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	/* OK. For now, we presume we have a valid client. We now create the
 	   client structure, even though we cannot fill it completely yet. */
-	if (!(data = kmalloc(sizeof(struct pca9539_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct pca9539_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct pca9539_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

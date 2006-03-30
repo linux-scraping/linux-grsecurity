@@ -4,11 +4,6 @@
  * PURPOSE
  *	Block allocation handling routines for the OSTA-UDF(tm) filesystem.
  *
- * CONTACTS
- *	E-mail regarding any portion of the Linux UDF file system should be
- *	directed to the development team mailing list (run by majordomo):
- *		linux_udf@hpesjro.fc.hp.com
- *
  * COPYRIGHT
  *	This file is distributed under the terms of the GNU General Public
  *	License (GPL). Copies of the GPL can be obtained from:
@@ -46,7 +41,7 @@
 #define uint(x) xuint(x)
 #define xuint(x) __le ## x
 
-extern inline int find_next_one_bit (void * addr, int size, int offset)
+static inline int find_next_one_bit (void * addr, int size, int offset)
 {
 	uintBPL_t * p = ((uintBPL_t *) addr) + (offset / BITS_PER_LONG);
 	int result = offset & ~(BITS_PER_LONG-1);
@@ -584,10 +579,9 @@ static void udf_table_free_blocks(struct super_block * sb,
 			{
 				loffset = nextoffset;
 				aed->lengthAllocDescs = cpu_to_le32(adsize);
-				if (obh)
-					sptr = UDF_I_DATA(inode) + nextoffset -  udf_file_entry_alloc_offset(inode) + UDF_I_LENEATTR(inode) - adsize;
-				else
-					sptr = obh->b_data + nextoffset - adsize;
+				sptr = UDF_I_DATA(inode) + nextoffset -
+					udf_file_entry_alloc_offset(inode) +
+					UDF_I_LENEATTR(inode) - adsize;
 				dptr = nbh->b_data + sizeof(struct allocExtDesc);
 				memcpy(dptr, sptr, adsize);
 				nextoffset = sizeof(struct allocExtDesc) + adsize;

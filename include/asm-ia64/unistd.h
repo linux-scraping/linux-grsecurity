@@ -265,16 +265,32 @@
 #define __NR_keyctl			1273
 #define __NR_ioprio_set			1274
 #define __NR_ioprio_get			1275
-#define __NR_set_zone_reclaim		1276
+/* 1276 is available for reuse (was briefly sys_set_zone_reclaim) */
 #define __NR_inotify_init		1277
 #define __NR_inotify_add_watch		1278
 #define __NR_inotify_rm_watch		1279
+#define __NR_migrate_pages		1280
+#define __NR_openat			1281
+#define __NR_mkdirat			1282
+#define __NR_mknodat			1283
+#define __NR_fchownat			1284
+#define __NR_futimesat			1285
+#define __NR_newfstatat			1286
+#define __NR_unlinkat			1287
+#define __NR_renameat			1288
+#define __NR_linkat			1289
+#define __NR_symlinkat			1290
+#define __NR_readlinkat			1291
+#define __NR_fchmodat			1292
+#define __NR_faccessat			1293
+/* 1294, 1295 reserved for pselect/ppoll */
+#define __NR_unshare			1296
 
 #ifdef __KERNEL__
 
 #include <linux/config.h>
 
-#define NR_syscalls			256 /* length of syscall table */
+#define NR_syscalls			273 /* length of syscall table */
 
 #define __ARCH_WANT_SYS_RT_SIGACTION
 
@@ -383,8 +399,6 @@ struct sigaction;
 long sys_execve(char __user *filename, char __user * __user *argv,
 			   char __user * __user *envp, struct pt_regs *regs);
 asmlinkage long sys_pipe(void);
-asmlinkage long sys_ptrace(long request, pid_t pid,
-			   unsigned long addr, unsigned long data);
 asmlinkage long sys_rt_sigaction(int sig,
 				 const struct sigaction __user *act,
 				 struct sigaction __user *oact,

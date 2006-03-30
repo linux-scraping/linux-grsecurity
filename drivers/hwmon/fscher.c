@@ -118,10 +118,10 @@ static int fscher_write_value(struct i2c_client *client, u8 reg, u8 value);
  */
  
 static struct i2c_driver fscher_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "fscher",
+	.driver = {
+		.name	= "fscher",
+	},
 	.id		= I2C_DRIVERID_FSCHER,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= fscher_attach_adapter,
 	.detach_client	= fscher_detach_client,
 };
@@ -303,11 +303,10 @@ static int fscher_detect(struct i2c_adapter *adapter, int address, int kind)
 	/* OK. For now, we presume we have a valid client. We now create the
 	 * client structure, even though we cannot fill it completely yet.
 	 * But it allows us to access i2c_smbus_read_byte_data. */
-	if (!(data = kmalloc(sizeof(struct fscher_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct fscher_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
   	}
-	memset(data, 0, sizeof(struct fscher_data));
 
 	/* The common I2C client data is placed right before the
 	 * Hermes-specific data. */

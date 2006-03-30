@@ -38,6 +38,12 @@
 int smp_found_config;
 unsigned int __initdata maxcpus = NR_CPUS;
 
+#ifdef CONFIG_HOTPLUG_CPU
+#define CPU_HOTPLUG_ENABLED	(1)
+#else
+#define CPU_HOTPLUG_ENABLED	(0)
+#endif
+
 /*
  * Various Linux-internal data structures created from the
  * MP-table.
@@ -69,7 +75,7 @@ unsigned int def_to_bigsmp = 0;
 /* Processor that is doing the boot up */
 unsigned int boot_cpu_physical_apicid = -1U;
 /* Internal processor count */
-static unsigned int __initdata num_processors;
+static unsigned int __devinitdata num_processors;
 
 /* Bitmask of physically existing CPUs */
 physid_mask_t phys_cpu_present_map;
@@ -119,7 +125,7 @@ static int MP_valid_apicid(int apicid, int version)
 }
 #endif
 
-static void __init MP_processor_info (struct mpc_config_processor *m)
+static void __devinit MP_processor_info (struct mpc_config_processor *m)
 {
  	int ver, apicid;
 	physid_mask_t phys_cpu;
@@ -182,17 +188,6 @@ static void __init MP_processor_info (struct mpc_config_processor *m)
 		boot_cpu_physical_apicid = m->mpc_apicid;
 	}
 
-	if (num_processors >= NR_CPUS) {
-		printk(KERN_WARNING "WARNING: NR_CPUS limit of %i reached."
-			"  Processor ignored.\n", NR_CPUS); 
-		return;
-	}
-
-	if (num_processors >= maxcpus) {
-		printk(KERN_WARNING "WARNING: maxcpus limit of %i reached."
-			" Processor ignored.\n", maxcpus); 
-		return;
-	}
 	ver = m->mpc_apicver;
 
 	if (!MP_valid_apicid(apicid, ver)) {
@@ -200,11 +195,6 @@ static void __init MP_processor_info (struct mpc_config_processor *m)
 			m->mpc_apicid, MAX_APICS);
 		return;
 	}
-
-	cpu_set(num_processors, cpu_possible_map);
-	num_processors++;
-	phys_cpu = apicid_to_cpu_present(apicid);
-	physids_or(phys_cpu_present_map, phys_cpu_present_map, phys_cpu);
 
 	/*
 	 * Validate version
@@ -216,13 +206,37 @@ static void __init MP_processor_info (struct mpc_config_processor *m)
 		ver = 0x10;
 	}
 	apic_version[m->mpc_apicid] = ver;
-	if ((num_processors > 8) &&
-	    APIC_XAPIC(ver) &&
-	    (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL))
-		def_to_bigsmp = 1;
-	else
-		def_to_bigsmp = 0;
 
+	phys_cpu = apicid_to_cpu_present(apicid);
+	physids_or(phys_cpu_present_map, phys_cpu_present_map, phys_cpu);
+
+	if (num_processors >= NR_CPUS) {
+		printk(KERN_WARNING "WARNING: NR_CPUS limit of %i reached."
+			"  Processor ignored.\n", NR_CPUS);
+		return;
+	}
+
+	if (num_processors >= maxcpus) {
+		printk(KERN_WARNING "WARNING: maxcpus limit of %i reached."
+			" Processor ignored.\n", maxcpus);
+		return;
+	}
+
+	cpu_set(num_processors, cpu_possible_map);
+	num_processors++;
+
+	if (CPU_HOTPLUG_ENABLED || (num_processors > 8)) {
+		switch (boot_cpu_data.x86_vendor) {
+		case X86_VENDOR_INTEL:
+			if (!APIC_XAPIC(ver)) {
+				def_to_bigsmp = 0;
+				break;
+			}
+			/* If P4 and above fall through */
+		case X86_VENDOR_AMD:
+			def_to_bigsmp = 1;
+		}
+	}
 	bios_cpu_apicid[num_processors - 1] = m->mpc_apicid;
 }
 
@@ -696,7 +710,7 @@ void __init get_smp_config (void)
 		 * Read the physical hardware table.  Anything here will
 		 * override the defaults.
 		 */
-		if (!smp_read_mpc((void *)mpf->mpf_physptr)) {
+		if (!smp_read_mpc(phys_to_virt(mpf->mpf_physptr))) {
 			smp_found_config = 0;
 			printk(KERN_ERR "BIOS bug, MP table errors detected!...\n");
 			printk(KERN_ERR "... disabling SMP support. (tell your hw vendor)\n");
@@ -834,7 +848,7 @@ void __init mp_register_lapic_address (
 }
 
 
-void __init mp_register_lapic (
+void __devinit mp_register_lapic (
 	u8			id, 
 	u8			enabled)
 {
@@ -901,6 +915,7 @@ void __init mp_register_ioapic (
 	u32			gsi_base)
 {
 	int			idx = 0;
+	int			tmpid;
 
 	if (nr_ioapics >= MAX_IO_APICS) {
 		printk(KERN_ERR "ERROR: Max # of I/O APICs (%d) exceeded "
@@ -921,9 +936,14 @@ void __init mp_register_ioapic (
 
 	set_fixmap_nocache(FIX_IO_APIC_BASE_0 + idx, address);
 	if ((boot_cpu_data.x86_vendor == X86_VENDOR_INTEL) && (boot_cpu_data.x86 < 15))
-		mp_ioapics[idx].mpc_apicid = io_apic_get_unique_id(idx, id);
+		tmpid = io_apic_get_unique_id(idx, id);
 	else
-		mp_ioapics[idx].mpc_apicid = id;
+		tmpid = id;
+	if (tmpid == -1) {
+		nr_ioapics--;
+		return;
+	}
+	mp_ioapics[idx].mpc_apicid = tmpid;
 	mp_ioapics[idx].mpc_apicver = io_apic_get_version(idx);
 	
 	/* 
@@ -1066,7 +1086,7 @@ void __init mp_config_acpi_legacy_irqs (void)
 
 #define MAX_GSI_NUM	4096
 
-int mp_register_gsi (u32 gsi, int edge_level, int active_high_low)
+int mp_register_gsi (u32 gsi, int triggering, int polarity)
 {
 	int			ioapic = -1;
 	int			ioapic_pin = 0;
@@ -1115,7 +1135,7 @@ int mp_register_gsi (u32 gsi, int edge_level, int active_high_low)
 
 	mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
 
-	if (edge_level) {
+	if (triggering == ACPI_LEVEL_SENSITIVE) {
 		/*
 		 * For PCI devices assign IRQs in order, avoiding gaps
 		 * due to unused I/O APIC pins.
@@ -1137,8 +1157,8 @@ int mp_register_gsi (u32 gsi, int edge_level, int active_high_low)
 	}
 
 	io_apic_set_pci_routing(ioapic, ioapic_pin, gsi,
-		    edge_level == ACPI_EDGE_SENSITIVE ? 0 : 1,
-		    active_high_low == ACPI_ACTIVE_HIGH ? 0 : 1);
+		    triggering == ACPI_EDGE_SENSITIVE ? 0 : 1,
+		    polarity == ACPI_ACTIVE_HIGH ? 0 : 1);
 	return gsi;
 }
 

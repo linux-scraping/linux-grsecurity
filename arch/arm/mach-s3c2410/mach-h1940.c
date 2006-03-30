@@ -25,6 +25,7 @@
  *     14-Jan-2005 BJD  Added clock init
  *     10-Mar-2005 LCVR Changed S3C2410_VA to S3C24XX_VA
  *     20-Sep-2005 BJD  Added static to non-exported items
+ *     26-Oct-2005 BJD  Changed name of fb init call
 */
 
 #include <linux/kernel.h>
@@ -33,6 +34,7 @@
 #include <linux/list.h>
 #include <linux/timer.h>
 #include <linux/init.h>
+#include <linux/platform_device.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -44,10 +46,11 @@
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
-//#include <asm/debug-ll.h>
+
 #include <asm/arch/regs-serial.h>
 #include <asm/arch/regs-lcd.h>
 
+#include <asm/arch/h1940-latch.h>
 #include <asm/arch/fb.h>
 
 #include <linux/serial_core.h>
@@ -57,7 +60,12 @@
 #include "cpu.h"
 
 static struct map_desc h1940_iodesc[] __initdata = {
-	/* nothing here yet */
+	[0] = {
+		.virtual	= (unsigned long)H1940_LATCH,
+		.pfn		= __phys_to_pfn(H1940_PA_LATCH),
+		.length		= SZ_16K,
+		.type		= MT_DEVICE
+	},
 };
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
@@ -90,6 +98,25 @@ static struct s3c2410_uartcfg h1940_uartcfgs[] = {
 	}
 };
 
+/* Board control latch control */
+
+static unsigned int latch_state = H1940_LATCH_DEFAULT;
+
+void h1940_latch_control(unsigned int clear, unsigned int set)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	latch_state &= ~clear;
+	latch_state |= set;
+
+	__raw_writel(latch_state, H1940_LATCH);
+
+	local_irq_restore(flags);
+}
+
+EXPORT_SYMBOL_GPL(h1940_latch_control);
 
 
 /**
@@ -164,12 +191,11 @@ static void __init h1940_init_irq(void)
 
 static void __init h1940_init(void)
 {
-	set_s3c2410fb_info(&h1940_lcdcfg);
+	s3c24xx_fb_set_platdata(&h1940_lcdcfg);
 }
 
 MACHINE_START(H1940, "IPAQ-H1940")
 	/* Maintainer: Ben Dooks <ben@fluff.org> */
-	.phys_ram	= S3C2410_SDRAM_PA,
 	.phys_io	= S3C2410_PA_UART,
 	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
 	.boot_params	= S3C2410_SDRAM_PA + 0x100,

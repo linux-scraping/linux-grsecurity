@@ -12,13 +12,8 @@
 #include <linux/kallsyms.h>
 #include <asm/ptrace.h>
 #include <asm/string.h>
-#include <asm/prom.h>
-#include <asm/bootx.h>
 #include <asm/machdep.h>
 #include <asm/xmon.h>
-#ifdef CONFIG_PMAC_BACKLIGHT
-#include <asm/backlight.h>
-#endif
 #include "nonstdio.h"
 #include "privinst.h"
 
@@ -99,14 +94,11 @@ static void remove_bpts(void);
 static void insert_bpts(void);
 static struct bpt *at_breakpoint(unsigned pc);
 static void bpt_cmds(void);
-static void cacheflush(void);
+void cacheflush(void);
 #ifdef CONFIG_SMP
 static void cpu_cmd(void);
 #endif /* CONFIG_SMP */
 static void csum(void);
-#ifdef CONFIG_BOOTX_TEXT
-static void vidcmds(void);
-#endif
 static void bootcmds(void);
 static void proccall(void);
 static void printtime(void);
@@ -148,9 +140,14 @@ Commands:\n\
   r	print registers\n\
   S	print special registers\n\
   t	print backtrace\n\
-  la	lookup address in system.map\n\
-  ls	lookup symbol in system.map\n\
+  la	lookup address\n\
+  ls	lookup symbol\n\
+  C	checksum\n\
+  p	call function with arguments\n\
+  T	print time\n\
   x	exit monitor\n\
+  zr    reboot\n\
+  zh    halt\n\
 ";
 
 static int xmon_trace[NR_CPUS];
@@ -215,8 +212,7 @@ static void get_tb(unsigned *p)
 	p[1] = lo;
 }
 
-void
-xmon(struct pt_regs *excp)
+int xmon(struct pt_regs *excp)
 {
 	struct pt_regs regs;
 	int msr, cmd;
@@ -256,16 +252,6 @@ xmon(struct pt_regs *excp)
 	 */
 #endif /* CONFIG_SMP */
 	remove_bpts();
-#ifdef CONFIG_PMAC_BACKLIGHT
-	if( setjmp(bus_error_jmp) == 0 ) {
-		debugger_fault_handler = handle_fault;
-		sync();
-		set_backlight_enable(1);
-		set_backlight_level(BACKLIGHT_MAX);
-		sync();
-	}
-	debugger_fault_handler = NULL;
-#endif	/* CONFIG_PMAC_BACKLIGHT */
 	cmd = cmds(excp);
 	if (cmd == 's') {
 		xmon_trace[smp_processor_id()] = SSTEP;
@@ -285,6 +271,8 @@ xmon(struct pt_regs *excp)
 #endif /* CONFIG_SMP */
 	set_msr(msr);		/* restore interrupt enable */
 	get_tb(start_tb[smp_processor_id()]);
+
+	return cmd != 'X';
 }
 
 irqreturn_t
@@ -529,11 +517,6 @@ cmds(struct pt_regs *excp)
 			cpu_cmd();
 			break;
 #endif /* CONFIG_SMP */
-#ifdef CONFIG_BOOTX_TEXT
-		case 'v':
-			vidcmds();
-			break;
-#endif
 		case 'z':
 			bootcmds();
 			break;
@@ -625,43 +608,6 @@ static void cpu_cmd(void)
 }
 #endif /* CONFIG_SMP */
 
-#ifdef CONFIG_BOOTX_TEXT
-extern boot_infos_t disp_bi;
-
-static void vidcmds(void)
-{
-	int c = inchar();
-	unsigned int val, w;
-	extern int boot_text_mapped;
-
-	if (!boot_text_mapped)
-		return;
-	if (c != '\n' && scanhex(&val)) {
-		switch (c) {
-		case 'd':
-			w = disp_bi.dispDeviceRowBytes
-				/ (disp_bi.dispDeviceDepth >> 3);
-			disp_bi.dispDeviceDepth = val;
-			disp_bi.dispDeviceRowBytes = w * (val >> 3);
-			return;
-		case 'p':
-			disp_bi.dispDeviceRowBytes = val;
-			return;
-		case 'w':
-			disp_bi.dispDeviceRect[2] = val;
-			return;
-		case 'h':
-			disp_bi.dispDeviceRect[3] = val;
-			return;
-		}
-	}
-	printf("W = %d (0x%x) H = %d (0x%x) D = %d (0x%x) P = %d (0x%x)\n",
-	       disp_bi.dispDeviceRect[2], disp_bi.dispDeviceRect[2],
-	       disp_bi.dispDeviceRect[3], disp_bi.dispDeviceRect[3],
-	       disp_bi.dispDeviceDepth, disp_bi.dispDeviceDepth,
-	       disp_bi.dispDeviceRowBytes, disp_bi.dispDeviceRowBytes);
-}
-#endif /* CONFIG_BOOTX_TEXT */
 
 static unsigned short fcstab[256] = {
 	0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,
@@ -1027,7 +973,6 @@ dump_hash_table(void)
 }
 #else
 
-#ifndef CONFIG_PPC64BRIDGE
 static void
 dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 {
@@ -1085,66 +1030,6 @@ dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
 	if (last_found)
 		printf(" ... %x\n", last_va);
 }
-
-#else /* CONFIG_PPC64BRIDGE */
-static void
-dump_hash_table_seg(unsigned seg, unsigned start, unsigned end)
-{
-	extern void *Hash;
-	extern unsigned long Hash_size;
-	unsigned *htab = Hash;
-	unsigned hsize = Hash_size;
-	unsigned v, hmask, va, last_va;
-	int found, last_found, i;
-	unsigned *hg, w1, last_w2, last_va0;
-
-	last_found = 0;
-	hmask = hsize / 128 - 1;
-	va = start;
-	start = (start >> 12) & 0xffff;
-	end = (end >> 12) & 0xffff;
-	for (v = start; v < end; ++v) {
-		found = 0;
-		hg = htab + (((v ^ seg) & hmask) * 32);
-		w1 = 1 | (seg << 12) | ((v & 0xf800) >> 4);
-		for (i = 0; i < 8; ++i, hg += 4) {
-			if (hg[1] == w1) {
-				found = 1;
-				break;
-			}
-		}
-		if (!found) {
-			w1 ^= 2;
-			hg = htab + ((~(v ^ seg) & hmask) * 32);
-			for (i = 0; i < 8; ++i, hg += 4) {
-				if (hg[1] == w1) {
-					found = 1;
-					break;
-				}
-			}
-		}
-		if (!(last_found && found && (hg[3] & ~0x180) == last_w2 + 4096)) {
-			if (last_found) {
-				if (last_va != last_va0)
-					printf(" ... %x", last_va);
-				printf("\n");
-			}
-			if (found) {
-				printf("%x to %x", va, hg[3]);
-				last_va0 = va;
-			}
-			last_found = found;
-		}
-		if (found) {
-			last_w2 = hg[3] & ~0x180;
-			last_va = va;
-		}
-		va += 4096;
-	}
-	if (last_found)
-		printf(" ... %x\n", last_va);
-}
-#endif /* CONFIG_PPC64BRIDGE */
 
 static unsigned hash_ctx;
 static unsigned hash_start;

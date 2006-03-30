@@ -11,6 +11,7 @@
 #include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
+#include <linux/capability.h>
 #include <linux/fs.h> 
 #include <linux/mm.h> 
 #include <linux/file.h> 
@@ -427,6 +428,27 @@ asmlinkage long compat_sys_fstat64(unsigned int fd,
 	return error;
 }
 
+asmlinkage long compat_sys_fstatat64(unsigned int dfd, char __user *filename,
+		struct compat_stat64 __user * statbuf, int flag)
+{
+	struct kstat stat;
+	int error = -EINVAL;
+
+	if ((flag & ~AT_SYMLINK_NOFOLLOW) != 0)
+		goto out;
+
+	if (flag & AT_SYMLINK_NOFOLLOW)
+		error = vfs_lstat_fd(dfd, filename, &stat);
+	else
+		error = vfs_stat_fd(dfd, filename, &stat);
+
+	if (!error)
+		error = cp_compat_stat64(&stat, statbuf);
+
+out:
+	return error;
+}
+
 asmlinkage long compat_sys_sysfs(int option, u32 arg1, u32 arg2)
 {
 	return sys_sysfs(option, arg1, arg2);
@@ -820,7 +842,7 @@ asmlinkage long sys32_utimes(char __user *filename,
 			return -EFAULT;
 	}
 
-	return do_utimes(filename, (tvs ? &ktvs[0] : NULL));
+	return do_utimes(AT_FDCWD, filename, (tvs ? &ktvs[0] : NULL));
 }
 
 /* These are here just in case some old sparc32 binary calls it. */
@@ -1002,7 +1024,7 @@ asmlinkage long sys32_adjtimex(struct timex32 __user *utp)
 asmlinkage long sparc32_open(const char __user *filename,
 			     int flags, int mode)
 {
-	return do_sys_open(filename, flags, mode);
+	return do_sys_open(AT_FDCWD, filename, flags, mode);
 }
 
 extern unsigned long do_mremap(unsigned long addr,
@@ -1119,40 +1141,4 @@ long sys32_lookup_dcookie(unsigned long cookie_high,
 {
 	return sys_lookup_dcookie((cookie_high << 32) | cookie_low,
 				  buf, len);
-}
-
-extern asmlinkage long
-sys_timer_create(clockid_t which_clock,
-		 struct sigevent __user *timer_event_spec,
-		 timer_t __user *created_timer_id);
-
-long
-sys32_timer_create(u32 clock, struct compat_sigevent __user *se32,
-		   timer_t __user *timer_id)
-{
-	struct sigevent se;
-	mm_segment_t oldfs;
-	timer_t t;
-	long err;
-
-	if (se32 == NULL)
-		return sys_timer_create(clock, NULL, timer_id);
-
-	if (get_compat_sigevent(&se, se32))
-		return -EFAULT;
-
-	if (!access_ok(VERIFY_WRITE,timer_id,sizeof(timer_t)))
-		return -EFAULT;
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
-	err = sys_timer_create(clock,
-			       (struct sigevent __user *) &se,
-			       (timer_t __user *) &t);
-	set_fs(oldfs);
-
-	if (!err)
-		err = __put_user (t, timer_id);
-
-	return err;
 }

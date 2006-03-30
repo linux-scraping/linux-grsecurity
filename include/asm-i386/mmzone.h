@@ -76,22 +76,11 @@ static inline int pfn_to_nid(unsigned long pfn)
  * Following are macros that each numa implmentation must define.
  */
 
-/*
- * Given a kernel address, find the home node of the underlying memory.
- */
-#define kvaddr_to_nid(kaddr)	pfn_to_nid(__pa(kaddr) >> PAGE_SHIFT)
-
 #define node_start_pfn(nid)	(NODE_DATA(nid)->node_start_pfn)
 #define node_end_pfn(nid)						\
 ({									\
 	pg_data_t *__pgdat = NODE_DATA(nid);				\
 	__pgdat->node_start_pfn + __pgdat->node_spanned_pages;		\
-})
-
-#define local_mapnr(kvaddr)						\
-({									\
-	unsigned long __pfn = __pa(kvaddr) >> PAGE_SHIFT;		\
-	(__pfn - node_start_pfn(pfn_to_nid(__pfn)));			\
 })
 
 /* XXX: FIXME -- wli */

@@ -78,6 +78,23 @@ typedef int __bitwise pci_power_t;
 #define PCI_UNKNOWN	((pci_power_t __force) 5)
 #define PCI_POWER_ERROR	((pci_power_t __force) -1)
 
+/** The pci_channel state describes connectivity between the CPU and
+ *  the pci device.  If some PCI bus between here and the pci device
+ *  has crashed or locked up, this info is reflected here.
+ */
+typedef unsigned int __bitwise pci_channel_state_t;
+
+enum pci_channel_state {
+	/* I/O channel is in normal state */
+	pci_channel_io_normal = (__force pci_channel_state_t) 1,
+
+	/* I/O to channel is blocked */
+	pci_channel_io_frozen = (__force pci_channel_state_t) 2,
+
+	/* PCI card is dead */
+	pci_channel_io_perm_failure = (__force pci_channel_state_t) 3,
+};
+
 /*
  * The pci_dev structure is used to describe PCI devices.
  */
@@ -98,6 +115,7 @@ struct pci_dev {
 	unsigned int	class;		/* 3 bytes: (base,sub,prog-if) */
 	u8		hdr_type;	/* PCI header type (`multi' flag masked out) */
 	u8		rom_base_reg;	/* which config register controls the ROM */
+	u8		pin;  		/* which interrupt pin this device uses */
 
 	struct pci_driver *driver;	/* which driver has allocated this device */
 	u64		dma_mask;	/* Mask of the bits of bus address this
@@ -110,6 +128,7 @@ struct pci_dev {
 					   this is D0-D3, D0 being fully functional,
 					   and D3 being off. */
 
+	pci_channel_state_t error_state;	/* current connectivity state */
 	struct	device	dev;		/* Generic device interface */
 
 	/* device is compatible with these IDs */
@@ -132,6 +151,7 @@ struct pci_dev {
 	unsigned int	is_enabled:1;	/* pci_enable_device has been called */
 	unsigned int	is_busmaster:1; /* device is busmaster */
 	unsigned int	no_msi:1;	/* device may not use msi */
+	unsigned int	block_ucfg_access:1;	/* userspace config space access is blocked */
 
 	u32		saved_config_space[16]; /* config space saved at suspend time */
 	struct bin_attribute *rom_attr; /* attribute descriptor for sysfs ROM entry */
@@ -231,11 +251,58 @@ struct pci_dynids {
 	unsigned int use_driver_data:1; /* pci_driver->driver_data is used */
 };
 
+/* ---------------------------------------------------------------- */
+/** PCI Error Recovery System (PCI-ERS).  If a PCI device driver provides
+ *  a set fof callbacks in struct pci_error_handlers, then that device driver
+ *  will be notified of PCI bus errors, and will be driven to recovery
+ *  when an error occurs.
+ */
+
+typedef unsigned int __bitwise pci_ers_result_t;
+
+enum pci_ers_result {
+	/* no result/none/not supported in device driver */
+	PCI_ERS_RESULT_NONE = (__force pci_ers_result_t) 1,
+
+	/* Device driver can recover without slot reset */
+	PCI_ERS_RESULT_CAN_RECOVER = (__force pci_ers_result_t) 2,
+
+	/* Device driver wants slot to be reset. */
+	PCI_ERS_RESULT_NEED_RESET = (__force pci_ers_result_t) 3,
+
+	/* Device has completely failed, is unrecoverable */
+	PCI_ERS_RESULT_DISCONNECT = (__force pci_ers_result_t) 4,
+
+	/* Device driver is fully recovered and operational */
+	PCI_ERS_RESULT_RECOVERED = (__force pci_ers_result_t) 5,
+};
+
+/* PCI bus error event callbacks */
+struct pci_error_handlers
+{
+	/* PCI bus error detected on this device */
+	pci_ers_result_t (*error_detected)(struct pci_dev *dev,
+	                      enum pci_channel_state error);
+
+	/* MMIO has been re-enabled, but not DMA */
+	pci_ers_result_t (*mmio_enabled)(struct pci_dev *dev);
+
+	/* PCI Express link has been reset */
+	pci_ers_result_t (*link_reset)(struct pci_dev *dev);
+
+	/* PCI slot has been reset */
+	pci_ers_result_t (*slot_reset)(struct pci_dev *dev);
+
+	/* Device driver may resume normal operations */
+	void (*resume)(struct pci_dev *dev);
+};
+
+/* ---------------------------------------------------------------- */
+
 struct module;
 struct pci_driver {
 	struct list_head node;
 	char *name;
-	struct module *owner;
 	const struct pci_device_id *id_table;	/* must be non-NULL for probe to be called */
 	int  (*probe)  (struct pci_dev *dev, const struct pci_device_id *id);	/* New device inserted */
 	void (*remove) (struct pci_dev *dev);	/* Device removed (NULL if not a hot-plug capable driver) */
@@ -244,6 +311,7 @@ struct pci_driver {
 	int  (*enable_wake) (struct pci_dev *dev, pci_power_t state, int enable);   /* Enable wake event */
 	void (*shutdown) (struct pci_dev *dev);
 
+	struct pci_error_handlers *err_handler;
 	struct device_driver	driver;
 	struct pci_dynids dynids;
 };
@@ -337,7 +405,7 @@ struct pci_dev *pci_find_device (unsigned int vendor, unsigned int device, const
 struct pci_dev *pci_find_device_reverse (unsigned int vendor, unsigned int device, const struct pci_dev *from);
 struct pci_dev *pci_find_slot (unsigned int bus, unsigned int devfn);
 int pci_find_capability (struct pci_dev *dev, int cap);
-int pci_find_ext_capability (struct pci_dev *dev, int cap);
+int pci_find_next_capability (struct pci_dev *dev, u8 pos, int cap);
 struct pci_bus * pci_find_next_bus(const struct pci_bus *from);
 
 struct pci_dev *pci_get_device (unsigned int vendor, unsigned int device, struct pci_dev *from);
@@ -431,8 +499,13 @@ int pci_bus_alloc_resource(struct pci_bus *bus, struct resource *res,
 			   void *alignf_data);
 void pci_enable_bridges(struct pci_bus *bus);
 
-/* New-style probing supporting hot-pluggable devices */
-int pci_register_driver(struct pci_driver *);
+/* Proper probing supporting hot-pluggable devices */
+int __pci_register_driver(struct pci_driver *, struct module *);
+static inline int pci_register_driver(struct pci_driver *driver)
+{
+	return __pci_register_driver(driver, THIS_MODULE);
+}
+
 void pci_unregister_driver(struct pci_driver *);
 void pci_remove_behind_bridge(struct pci_dev *);
 struct pci_driver *pci_dev_driver(const struct pci_dev *);
@@ -442,6 +515,7 @@ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass
 
 void pci_walk_bus(struct pci_bus *top, void (*cb)(struct pci_dev *, void *),
 		  void *userdata);
+int pci_cfg_space_size(struct pci_dev *dev);
 
 /* kmem_cache style wrapper around pci_alloc_consistent() */
 
@@ -489,6 +563,9 @@ extern int pci_enable_msix(struct pci_dev* dev,
 extern void pci_disable_msix(struct pci_dev *dev);
 extern void msi_remove_pci_irq_vectors(struct pci_dev *dev);
 #endif
+
+extern void pci_block_user_cfg_access(struct pci_dev *dev);
+extern void pci_unblock_user_cfg_access(struct pci_dev *dev);
 
 /*
  * PCI domain support.  Sometimes called PCI segment (eg by ACPI),
@@ -543,10 +620,11 @@ static inline int pci_enable_device(struct pci_dev *dev) { return -EIO; }
 static inline void pci_disable_device(struct pci_dev *dev) { }
 static inline int pci_set_dma_mask(struct pci_dev *dev, u64 mask) { return -EIO; }
 static inline int pci_assign_resource(struct pci_dev *dev, int i) { return -EBUSY;}
+static inline int __pci_register_driver(struct pci_driver *drv, struct module *owner) { return 0;}
 static inline int pci_register_driver(struct pci_driver *drv) { return 0;}
 static inline void pci_unregister_driver(struct pci_driver *drv) { }
 static inline int pci_find_capability (struct pci_dev *dev, int cap) {return 0; }
-static inline int pci_find_ext_capability (struct pci_dev *dev, int cap) {return 0; }
+static inline int pci_find_next_capability (struct pci_dev *dev, u8 post, int cap) { return 0; }
 static inline const struct pci_device_id *pci_match_device(const struct pci_device_id *ids, const struct pci_dev *dev) { return NULL; }
 
 /* Power management related routines */
@@ -559,6 +637,9 @@ static inline int pci_enable_wake(struct pci_dev *dev, pci_power_t state, int en
 #define	isa_bridge	((struct pci_dev *)NULL)
 
 #define pci_dma_burst_advice(pdev, strat, strategy_parameter) do { } while (0)
+
+static inline void pci_block_user_cfg_access(struct pci_dev *dev) { }
+static inline void pci_unblock_user_cfg_access(struct pci_dev *dev) { }
 
 #endif /* CONFIG_PCI */
 

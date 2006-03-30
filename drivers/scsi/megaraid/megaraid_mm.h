@@ -18,12 +18,10 @@
 #include <linux/spinlock.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/pci.h>
 #include <linux/list.h>
-#include <linux/ioctl32.h>
 
 #include "mbox_defs.h"
 #include "megaraid_ioctl.h"

@@ -47,6 +47,7 @@
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/arcfb.h>
+#include <linux/platform_device.h>
 
 #include <asm/uaccess.h>
 
@@ -252,7 +253,7 @@ static void arcfb_lcd_update_page(struct arcfb_par *par, unsigned int upper,
 {
 	unsigned char *src;
 	unsigned int xindex, yindex, chipindex, linesize;
-	int i, count;
+	int i;
 	unsigned char val;
 	unsigned char bitmask, rightshift;
 
@@ -281,7 +282,6 @@ static void arcfb_lcd_update_page(struct arcfb_par *par, unsigned int upper,
 		}
 		ks108_writeb_data(par, chipindex, val);
 		left++;
-		count++;
 		if (bitmask == 0x80) {
 			bitmask = 1;
 			src++;
@@ -365,7 +365,8 @@ static void arcfb_lcd_update(struct arcfb_par *par, unsigned int dx,
 	}
 }
 
-void arcfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect)
+static void arcfb_fillrect(struct fb_info *info,
+			   const struct fb_fillrect *rect)
 {
 	struct arcfb_par *par = info->par;
 
@@ -375,7 +376,8 @@ void arcfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect)
 	arcfb_lcd_update(par, rect->dx, rect->dy, rect->width, rect->height);
 }
 
-void arcfb_copyarea(struct fb_info *info, const struct fb_copyarea *area)
+static void arcfb_copyarea(struct fb_info *info,
+			   const struct fb_copyarea *area)
 {
 	struct arcfb_par *par = info->par;
 
@@ -385,7 +387,7 @@ void arcfb_copyarea(struct fb_info *info, const struct fb_copyarea *area)
 	arcfb_lcd_update(par, area->dx, area->dy, area->width, area->height);
 }
 
-void arcfb_imageblit(struct fb_info *info, const struct fb_image *image)
+static void arcfb_imageblit(struct fb_info *info, const struct fb_image *image)
 {
 	struct arcfb_par *par = info->par;
 
@@ -396,9 +398,8 @@ void arcfb_imageblit(struct fb_info *info, const struct fb_image *image)
 				image->height);
 }
 
-static int arcfb_ioctl(struct inode *inode, struct file *file,
-			  unsigned int cmd, unsigned long arg,
-			  struct fb_info *info)
+static int arcfb_ioctl(struct fb_info *info,
+			  unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
 	struct arcfb_par *par = info->par;
@@ -440,7 +441,7 @@ static int arcfb_ioctl(struct inode *inode, struct file *file,
  * the fb. it's inefficient for them to do anything less than 64*8
  * writes since we update the lcd in each write() anyway.
  */
-static ssize_t arcfb_write(struct file *file, const char *buf, size_t count,
+static ssize_t arcfb_write(struct file *file, const char __user *buf, size_t count,
 				loff_t *ppos)
 {
 	/* modded from epson 1355 */
@@ -458,11 +459,11 @@ static ssize_t arcfb_write(struct file *file, const char *buf, size_t count,
 	inode = file->f_dentry->d_inode;
 	fbidx = iminor(inode);
 	info = registered_fb[fbidx];
-	par = info->par;
 
 	if (!info || !info->screen_base)
 		return -ENODEV;
 
+	par = info->par;
 	xres = info->var.xres;
 	fbmemlength = (xres * info->var.yres)/8;
 
@@ -501,10 +502,6 @@ static ssize_t arcfb_write(struct file *file, const char *buf, size_t count,
 	return err;
 }
 
-static void arcfb_platform_release(struct device *device)
-{
-}
-
 static struct fb_ops arcfb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_open	= arcfb_open,
@@ -514,13 +511,11 @@ static struct fb_ops arcfb_ops = {
 	.fb_fillrect	= arcfb_fillrect,
 	.fb_copyarea	= arcfb_copyarea,
 	.fb_imageblit	= arcfb_imageblit,
-	.fb_cursor	= soft_cursor,
 	.fb_ioctl 	= arcfb_ioctl,
 };
 
-static int __init arcfb_probe(struct device *device)
+static int __init arcfb_probe(struct platform_device *dev)
 {
-	struct platform_device *dev = to_platform_device(device);
 	struct fb_info *info;
 	int retval = -ENOMEM;
 	int videomemorysize;
@@ -563,7 +558,7 @@ static int __init arcfb_probe(struct device *device)
 	retval = register_framebuffer(info);
 	if (retval < 0)
 		goto err1;
-	dev_set_drvdata(&dev->dev, info);
+	platform_set_drvdata(dev, info);
 	if (irq) {
 		par->irq = irq;
 		if (request_irq(par->irq, &arcfb_interrupt, SA_SHIRQ,
@@ -604,9 +599,9 @@ err:
 	return retval;
 }
 
-static int arcfb_remove(struct device *device)
+static int arcfb_remove(struct platform_device *dev)
 {
-	struct fb_info *info = dev_get_drvdata(device);
+	struct fb_info *info = platform_get_drvdata(dev);
 
 	if (info) {
 		unregister_framebuffer(info);
@@ -616,20 +611,15 @@ static int arcfb_remove(struct device *device)
 	return 0;
 }
 
-static struct device_driver arcfb_driver = {
-	.name	= "arcfb",
-	.bus	= &platform_bus_type,
+static struct platform_driver arcfb_driver = {
 	.probe	= arcfb_probe,
 	.remove = arcfb_remove,
+	.driver	= {
+		.name	= "arcfb",
+	},
 };
 
-static struct platform_device arcfb_device = {
-	.name	= "arcfb",
-	.id	= 0,
-	.dev	= {
-		.release = arcfb_platform_release,
-	}
-};
+static struct platform_device *arcfb_device;
 
 static int __init arcfb_init(void)
 {
@@ -638,11 +628,18 @@ static int __init arcfb_init(void)
 	if (!arcfb_enable)
 		return -ENXIO;
 
-	ret = driver_register(&arcfb_driver);
+	ret = platform_driver_register(&arcfb_driver);
 	if (!ret) {
-		ret = platform_device_register(&arcfb_device);
-		if (ret)
-			driver_unregister(&arcfb_driver);
+		arcfb_device = platform_device_alloc("arcfb", 0);
+		if (arcfb_device) {
+			ret = platform_device_add(arcfb_device);
+		} else {
+			ret = -ENOMEM;
+		}
+		if (ret) {
+			platform_device_put(arcfb_device);
+			platform_driver_unregister(&arcfb_driver);
+		}
 	}
 	return ret;
 
@@ -650,8 +647,8 @@ static int __init arcfb_init(void)
 
 static void __exit arcfb_exit(void)
 {
-	platform_device_unregister(&arcfb_device);
-	driver_unregister(&arcfb_driver);
+	platform_device_unregister(arcfb_device);
+	platform_driver_unregister(&arcfb_driver);
 }
 
 module_param(num_cols, ulong, 0);

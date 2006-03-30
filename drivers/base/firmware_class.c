@@ -7,6 +7,7 @@
  *
  */
 
+#include <linux/capability.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -47,7 +48,7 @@ struct firmware_priv {
 	struct timer_list timeout;
 };
 
-static inline void
+static void
 fw_load_abort(struct firmware_priv *fw_priv)
 {
 	set_bit(FW_STATUS_ABORT, &fw_priv->status);
@@ -62,14 +63,16 @@ firmware_timeout_show(struct class *class, char *buf)
 }
 
 /**
- * firmware_timeout_store:
- * Description:
+ * firmware_timeout_store - set number of seconds to wait for firmware
+ * @class: device class pointer
+ * @buf: buffer to scan for timeout value
+ * @count: number of bytes in @buf
+ *
  *	Sets the number of seconds to wait for the firmware.  Once
- *	this expires an error will be return to the driver and no
+ *	this expires an error will be returned to the driver and no
  *	firmware will be provided.
  *
- *	Note: zero means 'wait for ever'
- *
+ *	Note: zero means 'wait forever'.
  **/
 static ssize_t
 firmware_timeout_store(struct class *class, const char *buf, size_t count)
@@ -83,17 +86,17 @@ firmware_timeout_store(struct class *class, const char *buf, size_t count)
 static CLASS_ATTR(timeout, 0644, firmware_timeout_show, firmware_timeout_store);
 
 static void  fw_class_dev_release(struct class_device *class_dev);
-int firmware_class_hotplug(struct class_device *dev, char **envp,
+int firmware_class_uevent(struct class_device *dev, char **envp,
 			   int num_envp, char *buffer, int buffer_size);
 
 static struct class firmware_class = {
 	.name		= "firmware",
-	.hotplug	= firmware_class_hotplug,
+	.uevent	= firmware_class_uevent,
 	.release	= fw_class_dev_release,
 };
 
 int
-firmware_class_hotplug(struct class_device *class_dev, char **envp,
+firmware_class_uevent(struct class_device *class_dev, char **envp,
 		       int num_envp, char *buffer, int buffer_size)
 {
 	struct firmware_priv *fw_priv = class_get_devdata(class_dev);
@@ -102,13 +105,12 @@ firmware_class_hotplug(struct class_device *class_dev, char **envp,
 	if (!test_bit(FW_STATUS_READY, &fw_priv->status))
 		return -ENODEV;
 
-	if (add_hotplug_env_var(envp, num_envp, &i, buffer, buffer_size, &len,
-			"FIRMWARE=%s", fw_priv->fw_id))
+	if (add_uevent_var(envp, num_envp, &i, buffer, buffer_size, &len,
+			   "FIRMWARE=%s", fw_priv->fw_id))
 		return -ENOMEM;
-	if (add_hotplug_env_var(envp, num_envp, &i, buffer, buffer_size, &len,
-			"TIMEOUT=%i", loading_timeout))
+	if (add_uevent_var(envp, num_envp, &i, buffer, buffer_size, &len,
+			   "TIMEOUT=%i", loading_timeout))
 		return -ENOMEM;
-
 	envp[i] = NULL;
 
 	return 0;
@@ -123,12 +125,15 @@ firmware_loading_show(struct class_device *class_dev, char *buf)
 }
 
 /**
- * firmware_loading_store: - loading control file
- * Description:
+ * firmware_loading_store - set value in the 'loading' control file
+ * @class_dev: class_device pointer
+ * @buf: buffer to scan for loading control value
+ * @count: number of bytes in @buf
+ *
  *	The relevant values are:
  *
  *	 1: Start a load, discarding any previous partial load.
- *	 0: Conclude the load and handle the data to the driver code.
+ *	 0: Conclude the load and hand the data to the driver code.
  *	-1: Conclude the load with an error and discard any written data.
  **/
 static ssize_t
@@ -201,6 +206,7 @@ out:
 	up(&fw_lock);
 	return ret_count;
 }
+
 static int
 fw_realloc_buffer(struct firmware_priv *fw_priv, int min_size)
 {
@@ -227,11 +233,13 @@ fw_realloc_buffer(struct firmware_priv *fw_priv, int min_size)
 }
 
 /**
- * firmware_data_write:
+ * firmware_data_write - write method for firmware
+ * @kobj: kobject for the class_device
+ * @buffer: buffer being written
+ * @offset: buffer offset for write in total data store area
+ * @count: buffer size
  *
- * Description:
- *
- *	Data written to the 'data' attribute will be later handled to
+ *	Data written to the 'data' attribute will be later handed to
  *	the driver as a firmware image.
  **/
 static ssize_t
@@ -264,6 +272,7 @@ out:
 	up(&fw_lock);
 	return retval;
 }
+
 static struct bin_attribute firmware_attr_data_tmpl = {
 	.attr = {.name = "data", .mode = 0644, .owner = THIS_MODULE},
 	.size = 0,
@@ -343,7 +352,7 @@ error_kfree:
 
 static int
 fw_setup_class_device(struct firmware *fw, struct class_device **class_dev_p,
-		      const char *fw_name, struct device *device, int hotplug)
+		      const char *fw_name, struct device *device, int uevent)
 {
 	struct class_device *class_dev;
 	struct firmware_priv *fw_priv;
@@ -375,7 +384,7 @@ fw_setup_class_device(struct firmware *fw, struct class_device **class_dev_p,
 		goto error_unreg;
 	}
 
-	if (hotplug)
+	if (uevent)
                 set_bit(FW_STATUS_READY, &fw_priv->status);
         else
                 set_bit(FW_STATUS_READY_NOHOTPLUG, &fw_priv->status);
@@ -390,7 +399,7 @@ out:
 
 static int
 _request_firmware(const struct firmware **firmware_p, const char *name,
-		 struct device *device, int hotplug)
+		 struct device *device, int uevent)
 {
 	struct class_device *class_dev;
 	struct firmware_priv *fw_priv;
@@ -409,19 +418,19 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 	}
 
 	retval = fw_setup_class_device(firmware, &class_dev, name, device,
-		hotplug);
+				       uevent);
 	if (retval)
 		goto error_kfree_fw;
 
 	fw_priv = class_get_devdata(class_dev);
 
-	if (hotplug) {
+	if (uevent) {
 		if (loading_timeout > 0) {
 			fw_priv->timeout.expires = jiffies + loading_timeout * HZ;
 			add_timer(&fw_priv->timeout);
 		}
 
-		kobject_hotplug(&class_dev->kobj, KOBJ_ADD);
+		kobject_uevent(&class_dev->kobj, KOBJ_ADD);
 		wait_for_completion(&fw_priv->completion);
 		set_bit(FW_STATUS_DONE, &fw_priv->status);
 		del_timer_sync(&fw_priv->timeout);
@@ -447,14 +456,17 @@ out:
 }
 
 /**
- * request_firmware: - request firmware to hotplug and wait for it
- * Description:
- *      @firmware will be used to return a firmware image by the name
+ * request_firmware: - send firmware request and wait for it
+ * @firmware_p: pointer to firmware image
+ * @name: name of firmware file
+ * @device: device for which firmware is being loaded
+ *
+ *      @firmware_p will be used to return a firmware image by the name
  *      of @name for device @device.
  *
  *      Should be called from user context where sleeping is allowed.
  *
- *      @name will be use as $FIRMWARE in the hotplug environment and
+ *      @name will be used as $FIRMWARE in the uevent environment and
  *      should be distinctive enough not to be confused with any other
  *      firmware image for this or any other device.
  **/
@@ -462,12 +474,13 @@ int
 request_firmware(const struct firmware **firmware_p, const char *name,
                  struct device *device)
 {
-        int hotplug = 1;
-        return _request_firmware(firmware_p, name, device, hotplug);
+        int uevent = 1;
+        return _request_firmware(firmware_p, name, device, uevent);
 }
 
 /**
  * release_firmware: - release the resource associated with a firmware image
+ * @fw: firmware resource to release
  **/
 void
 release_firmware(const struct firmware *fw)
@@ -480,8 +493,10 @@ release_firmware(const struct firmware *fw)
 
 /**
  * register_firmware: - provide a firmware image for later usage
+ * @name: name of firmware image file
+ * @data: buffer pointer for the firmware image
+ * @size: size of the data buffer area
  *
- * Description:
  *	Make sure that @data will be available by requesting firmware @name.
  *
  *	Note: This will not be possible until some kind of persistence
@@ -503,7 +518,7 @@ struct firmware_work {
 	struct device *device;
 	void *context;
 	void (*cont)(const struct firmware *fw, void *context);
-	int hotplug;
+	int uevent;
 };
 
 static int
@@ -511,40 +526,43 @@ request_firmware_work_func(void *arg)
 {
 	struct firmware_work *fw_work = arg;
 	const struct firmware *fw;
+	int ret;
 	if (!arg) {
 		WARN_ON(1);
 		return 0;
 	}
 	daemonize("%s/%s", "firmware", fw_work->name);
-	_request_firmware(&fw, fw_work->name, fw_work->device,
-		fw_work->hotplug);
-	fw_work->cont(fw, fw_work->context);
-	release_firmware(fw);
+	ret = _request_firmware(&fw, fw_work->name, fw_work->device,
+		fw_work->uevent);
+	if (ret < 0)
+		fw_work->cont(NULL, fw_work->context);
+	else {
+		fw_work->cont(fw, fw_work->context);
+		release_firmware(fw);
+	}
 	module_put(fw_work->module);
 	kfree(fw_work);
-	return 0;
+	return ret;
 }
 
 /**
- * request_firmware_nowait:
+ * request_firmware_nowait: asynchronous version of request_firmware
+ * @module: module requesting the firmware
+ * @uevent: sends uevent to copy the firmware image if this flag
+ *	is non-zero else the firmware copy must be done manually.
+ * @name: name of firmware file
+ * @device: device for which firmware is being loaded
+ * @context: will be passed over to @cont, and
+ *	@fw may be %NULL if firmware request fails.
+ * @cont: function will be called asynchronously when the firmware
+ *	request is over.
  *
- * Description:
  *	Asynchronous variant of request_firmware() for contexts where
  *	it is not possible to sleep.
- *
- *      @hotplug invokes hotplug event to copy the firmware image if this flag
- *      is non-zero else the firmware copy must be done manually.
- *
- *	@cont will be called asynchronously when the firmware request is over.
- *
- *	@context will be passed over to @cont.
- *
- *	@fw may be %NULL if firmware request fails.
- *
  **/
 int
 request_firmware_nowait(
-	struct module *module, int hotplug,
+	struct module *module, int uevent,
 	const char *name, struct device *device, void *context,
 	void (*cont)(const struct firmware *fw, void *context))
 {
@@ -565,7 +583,7 @@ request_firmware_nowait(
 		.device = device,
 		.context = context,
 		.cont = cont,
-		.hotplug = hotplug,
+		.uevent = uevent,
 	};
 
 	ret = kernel_thread(request_firmware_work_func, fw_work,
@@ -573,6 +591,8 @@ request_firmware_nowait(
 
 	if (ret < 0) {
 		fw_work->cont(NULL, fw_work->context);
+		module_put(fw_work->module);
+		kfree(fw_work);
 		return ret;
 	}
 	return 0;

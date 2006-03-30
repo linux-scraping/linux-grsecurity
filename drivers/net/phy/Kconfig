@@ -6,19 +6,11 @@ menu "PHY device support"
 
 config PHYLIB
 	tristate "PHY Device support and infrastructure"
-	depends on NET_ETHERNET && (BROKEN || !ARCH_S390)
+	depends on NET_ETHERNET && (BROKEN || !S390)
 	help
 	  Ethernet controllers are usually attached to PHY
 	  devices.  This option provides infrastructure for
 	  managing PHY devices.
-
-config PHYCONTROL
-	bool "  Support for automatically handling PHY state changes"
-	depends on PHYLIB
-	help
-	  Adds code to perform all the work for keeping PHY link
-	  state (speed/duplex/etc) up-to-date.  Also handles
-	  interrupts.
 
 comment "MII PHY device drivers"
 	depends on PHYLIB

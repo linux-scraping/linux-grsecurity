@@ -17,7 +17,6 @@
 #include "irq_user.h"
 #include "tlb.h"
 #include "os.h"
-#include "time_user.h"
 #include "choose-mode.h"
 #include "mode_kern.h"
 
@@ -34,7 +33,7 @@ void start_thread(struct pt_regs *regs, unsigned long eip, unsigned long esp)
 extern void log_exec(char **argv, void *tty);
 
 static long execve1(char *file, char __user * __user *argv,
-		    char *__user __user *env)
+		    char __user *__user *env)
 {
         long error;
 

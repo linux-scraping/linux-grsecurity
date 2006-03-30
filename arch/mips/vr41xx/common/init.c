@@ -1,7 +1,7 @@
 /*
  *  init.c, Common initialization routines for NEC VR4100 series.
  *
- *  Copyright (C) 2003-2005  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copyright (C) 2003-2005  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,6 +58,14 @@ static void __init timer_init(void)
 	board_timer_setup = setup_timer_irq;
 }
 
+void __init plat_setup(void)
+{
+	vr41xx_calculate_clock_frequency();
+
+	timer_init();
+	iomem_resource_init();
+}
+
 void __init prom_init(void)
 {
 	int argc, i;
@@ -71,12 +79,6 @@ void __init prom_init(void)
 		if (i < (argc - 1))
 			strcat(arcs_cmdline, " ");
 	}
-
-	vr41xx_calculate_clock_frequency();
-
-	timer_init();
-
-	iomem_resource_init();
 }
 
 unsigned long __init prom_free_prom_memory (void)

@@ -154,7 +154,7 @@ static struct file_lock *locks_alloc_lock(void)
 }
 
 /* Free a lock which is not in use. */
-static inline void locks_free_lock(struct file_lock *fl)
+static void locks_free_lock(struct file_lock *fl)
 {
 	if (fl == NULL) {
 		BUG();
@@ -316,21 +316,22 @@ static int flock_to_posix_lock(struct file *filp, struct file_lock *fl,
 	/* POSIX-1996 leaves the case l->l_len < 0 undefined;
 	   POSIX-2001 defines it. */
 	start += l->l_start;
-	end = start + l->l_len - 1;
-	if (l->l_len < 0) {
-		end = start - 1;
-		start += l->l_len;
-	}
-
 	if (start < 0)
 		return -EINVAL;
-	if (l->l_len > 0 && end < 0)
-		return -EOVERFLOW;
-
+	fl->fl_end = OFFSET_MAX;
+	if (l->l_len > 0) {
+		end = start + l->l_len - 1;
+		fl->fl_end = end;
+	} else if (l->l_len < 0) {
+		end = start - 1;
+		fl->fl_end = end;
+		start += l->l_len;
+		if (start < 0)
+			return -EINVAL;
+	}
 	fl->fl_start = start;	/* we record the absolute position */
-	fl->fl_end = end;
-	if (l->l_len == 0)
-		fl->fl_end = OFFSET_MAX;
+	if (fl->fl_end < fl->fl_start)
+		return -EOVERFLOW;
 	
 	fl->fl_owner = current->files;
 	fl->fl_pid = current->tgid;
@@ -362,14 +363,21 @@ static int flock64_to_posix_lock(struct file *filp, struct file_lock *fl,
 		return -EINVAL;
 	}
 
-	if (((start += l->l_start) < 0) || (l->l_len < 0))
+	start += l->l_start;
+	if (start < 0)
 		return -EINVAL;
-	fl->fl_end = start + l->l_len - 1;
-	if (l->l_len > 0 && fl->fl_end < 0)
-		return -EOVERFLOW;
+	fl->fl_end = OFFSET_MAX;
+	if (l->l_len > 0) {
+		fl->fl_end = start + l->l_len - 1;
+	} else if (l->l_len < 0) {
+		fl->fl_end = start - 1;
+		start += l->l_len;
+		if (start < 0)
+			return -EINVAL;
+	}
 	fl->fl_start = start;	/* we record the absolute position */
-	if (l->l_len == 0)
-		fl->fl_end = OFFSET_MAX;
+	if (fl->fl_end < fl->fl_start)
+		return -EOVERFLOW;
 	
 	fl->fl_owner = current->files;
 	fl->fl_pid = current->tgid;
@@ -467,8 +475,7 @@ static inline int locks_overlap(struct file_lock *fl1, struct file_lock *fl2)
 /*
  * Check whether two locks have the same owner.
  */
-static inline int
-posix_same_owner(struct file_lock *fl1, struct file_lock *fl2)
+static int posix_same_owner(struct file_lock *fl1, struct file_lock *fl2)
 {
 	if (fl1->fl_lmops && fl1->fl_lmops->fl_compare_owner)
 		return fl2->fl_lmops == fl1->fl_lmops &&
@@ -479,7 +486,7 @@ posix_same_owner(struct file_lock *fl1, struct file_lock *fl2)
 /* Remove waiter from blocker's block list.
  * When blocker ends up pointing to itself then the list is empty.
  */
-static inline void __locks_delete_block(struct file_lock *waiter)
+static void __locks_delete_block(struct file_lock *waiter)
 {
 	list_del_init(&waiter->fl_block);
 	list_del_init(&waiter->fl_link);
@@ -829,12 +836,16 @@ static int __posix_lock_file(struct inode *inode, struct file_lock *request)
 		/* Detect adjacent or overlapping regions (if same lock type)
 		 */
 		if (request->fl_type == fl->fl_type) {
+			/* In all comparisons of start vs end, use
+			 * "start - 1" rather than "end + 1". If end
+			 * is OFFSET_MAX, end + 1 will become negative.
+			 */
 			if (fl->fl_end < request->fl_start - 1)
 				goto next_lock;
 			/* If the next lock in the list has entirely bigger
 			 * addresses than the new one, insert the lock here.
 			 */
-			if (fl->fl_start > request->fl_end + 1)
+			if (fl->fl_start - 1 > request->fl_end)
 				break;
 
 			/* If we come here, the new and old lock are of the
@@ -1093,7 +1104,6 @@ static void time_out_leases(struct inode *inode)
 			before = &fl->fl_next;
 			continue;
 		}
-		printk(KERN_INFO "lease broken - owner pid = %d\n", fl->fl_pid);
 		lease_modify(before, fl->fl_type & ~F_INPROGRESS);
 		if (fl == *before)	/* lease_modify may have freed fl */
 			before = &fl->fl_next;
@@ -1947,22 +1957,18 @@ EXPORT_SYMBOL(posix_block_lock);
  *
  *	lockd needs to block waiting for locks.
  */
-void
+int
 posix_unblock_lock(struct file *filp, struct file_lock *waiter)
 {
-	/* 
-	 * A remote machine may cancel the lock request after it's been
-	 * granted locally.  If that happens, we need to delete the lock.
-	 */
+	int status = 0;
+
 	lock_kernel();
-	if (waiter->fl_next) {
+	if (waiter->fl_next)
 		__locks_delete_block(waiter);
-		unlock_kernel();
-	} else {
-		unlock_kernel();
-		waiter->fl_type = F_UNLCK;
-		posix_lock_file(filp, waiter);
-	}
+	else
+		status = -ENOENT;
+	unlock_kernel();
+	return status;
 }
 
 EXPORT_SYMBOL(posix_unblock_lock);

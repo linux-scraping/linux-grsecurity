@@ -43,6 +43,9 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
+#include <linux/timer.h>
+#include <linux/mutex.h>
+
 #include <asm/semaphore.h>
 
 #include "mthca_provider.h"
@@ -50,8 +53,8 @@
 
 #define DRV_NAME	"ib_mthca"
 #define PFX		DRV_NAME ": "
-#define DRV_VERSION	"0.06"
-#define DRV_RELDATE	"June 23, 2005"
+#define DRV_VERSION	"0.07"
+#define DRV_RELDATE	"February 13, 2006"
 
 enum {
 	MTHCA_FLAG_DDR_HIDDEN = 1 << 1,
@@ -83,6 +86,8 @@ enum {
 	/* Arbel FW gives us these, but we need them for Tavor */
 	MTHCA_MPT_ENTRY_SIZE  =  0x40,
 	MTHCA_MTT_SEG_SIZE    =  0x40,
+
+	MTHCA_QP_PER_MGM      = 4 * (MTHCA_MGM_ENTRY_SIZE / 16 - 2)
 };
 
 enum {
@@ -108,7 +113,7 @@ enum {
 struct mthca_cmd {
 	struct pci_pool          *pool;
 	int                       use_events;
-	struct semaphore          hcr_sem;
+	struct mutex              hcr_mutex;
 	struct semaphore 	  poll_sem;
 	struct semaphore 	  event_sem;
 	int              	  max_cmds;
@@ -128,12 +133,17 @@ struct mthca_limits {
 	int      num_uars;
 	int      max_sg;
 	int      num_qps;
+	int      max_wqes;
+	int	 max_desc_sz;
+	int	 max_qp_init_rdma;
 	int      reserved_qps;
 	int      num_srqs;
+	int      max_srq_wqes;
 	int      reserved_srqs;
 	int      num_eecs;
 	int      reserved_eecs;
 	int      num_cqs;
+	int      max_cqes;
 	int      reserved_cqs;
 	int      num_eqs;
 	int      reserved_eqs;
@@ -148,6 +158,8 @@ struct mthca_limits {
 	int      reserved_mcgs;
 	int      num_pds;
 	int      reserved_pds;
+	u32      page_size_cap;
+	u32      flags;
 	u8       port_width_cap;
 };
 
@@ -246,9 +258,17 @@ struct mthca_av_table {
 };
 
 struct mthca_mcg_table {
-	struct semaphore   	sem;
+	struct mutex		mutex;
 	struct mthca_alloc 	alloc;
 	struct mthca_icm_table *table;
+};
+
+struct mthca_catas_err {
+	u64			addr;
+	u32 __iomem	       *map;
+	unsigned long		stop;
+	u32			size;
+	struct timer_list	timer;
 };
 
 struct mthca_dev {
@@ -283,7 +303,7 @@ struct mthca_dev {
 	u64              ddr_end;
 
 	MTHCA_DECLARE_DOORBELL_LOCK(doorbell_lock)
-	struct semaphore cap_mask_mutex;
+	struct mutex cap_mask_mutex;
 
 	void __iomem    *hcr;
 	void __iomem    *kar;
@@ -310,6 +330,8 @@ struct mthca_dev {
 	struct mthca_qp_table  qp_table;
 	struct mthca_av_table  av_table;
 	struct mthca_mcg_table mcg_table;
+
+	struct mthca_catas_err catas_err;
 
 	struct mthca_uar       driver_uar;
 	struct mthca_db_table *db_tab;
@@ -398,6 +420,9 @@ void mthca_cleanup_mcg_table(struct mthca_dev *dev);
 int mthca_register_device(struct mthca_dev *dev);
 void mthca_unregister_device(struct mthca_dev *dev);
 
+void mthca_start_catas_poll(struct mthca_dev *dev);
+void mthca_stop_catas_poll(struct mthca_dev *dev);
+
 int mthca_uar_alloc(struct mthca_dev *dev, struct mthca_uar *uar);
 void mthca_uar_free(struct mthca_dev *dev, struct mthca_uar *uar);
 
@@ -440,13 +465,17 @@ int mthca_init_cq(struct mthca_dev *dev, int nent,
 		  struct mthca_cq *cq);
 void mthca_free_cq(struct mthca_dev *dev,
 		   struct mthca_cq *cq);
-void mthca_cq_event(struct mthca_dev *dev, u32 cqn);
+void mthca_cq_completion(struct mthca_dev *dev, u32 cqn);
+void mthca_cq_event(struct mthca_dev *dev, u32 cqn,
+		    enum ib_event_type event_type);
 void mthca_cq_clean(struct mthca_dev *dev, u32 cqn, u32 qpn,
 		    struct mthca_srq *srq);
 
 int mthca_alloc_srq(struct mthca_dev *dev, struct mthca_pd *pd,
 		    struct ib_srq_attr *attr, struct mthca_srq *srq);
 void mthca_free_srq(struct mthca_dev *dev, struct mthca_srq *srq);
+int mthca_modify_srq(struct ib_srq *ibsrq, struct ib_srq_attr *attr,
+		     enum ib_srq_attr_mask attr_mask);
 void mthca_srq_event(struct mthca_dev *dev, u32 srqn,
 		     enum ib_event_type event_type);
 void mthca_free_srq_wqe(struct mthca_srq *srq, u32 wqe_addr);
@@ -493,6 +522,7 @@ int mthca_create_ah(struct mthca_dev *dev,
 int mthca_destroy_ah(struct mthca_dev *dev, struct mthca_ah *ah);
 int mthca_read_ah(struct mthca_dev *dev, struct mthca_ah *ah,
 		  struct ib_ud_header *header);
+int mthca_ah_grh_present(struct mthca_ah *ah);
 
 int mthca_multicast_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid);
 int mthca_multicast_detach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid);

@@ -57,8 +57,12 @@ static void hackkit_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
  */
 
 static struct map_desc hackkit_io_desc[] __initdata = {
- /* virtual     physical    length      type */
-  { 0xe8000000, 0x00000000, 0x01000000, MT_DEVICE } /* Flash bank 0 */
+	{	/* Flash bank 0 */
+		.virtual	=  0xe8000000,
+		.pfn		= __phys_to_pfn(0x00000000),
+		.length		= 0x01000000,
+		.type		= MT_DEVICE
+	},
 };
 
 static struct sa1100_port_fns hackkit_port_fns __initdata = {
@@ -191,7 +195,6 @@ static void __init hackkit_init(void)
  */
 
 MACHINE_START(HACKKIT, "HackKit Cpu Board")
-	.phys_ram	= 0xc0000000,
 	.phys_io	= 0x80000000,
 	.io_pg_offst	= ((0xf8000000) >> 18) & 0xfffc,
 	.boot_params	= 0xc0000100,

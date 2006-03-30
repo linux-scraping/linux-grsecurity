@@ -95,7 +95,6 @@ static void iforce_usb_irq(struct urb *urb, struct pt_regs *regs)
 		goto exit;
 	}
 
-	wake_up(&iforce->wait);
 	iforce_process_packet(iforce,
 		(iforce->data[0] << 8) | (urb->actual_length - 1), iforce->data + 1, regs);
 
@@ -135,28 +134,24 @@ static int iforce_usb_probe(struct usb_interface *intf,
 	struct usb_host_interface *interface;
 	struct usb_endpoint_descriptor *epirq, *epout;
 	struct iforce *iforce;
+	int err = -ENOMEM;
 
 	interface = intf->cur_altsetting;
 
 	epirq = &interface->endpoint[0].desc;
 	epout = &interface->endpoint[1].desc;
 
-	if (!(iforce = kmalloc(sizeof(struct iforce) + 32, GFP_KERNEL)))
+	if (!(iforce = kzalloc(sizeof(struct iforce) + 32, GFP_KERNEL)))
 		goto fail;
 
-	memset(iforce, 0, sizeof(struct iforce));
-
-	if (!(iforce->irq = usb_alloc_urb(0, GFP_KERNEL))) {
+	if (!(iforce->irq = usb_alloc_urb(0, GFP_KERNEL)))
 		goto fail;
-	}
 
-	if (!(iforce->out = usb_alloc_urb(0, GFP_KERNEL))) {
+	if (!(iforce->out = usb_alloc_urb(0, GFP_KERNEL)))
 		goto fail;
-	}
 
-	if (!(iforce->ctrl = usb_alloc_urb(0, GFP_KERNEL))) {
+	if (!(iforce->ctrl = usb_alloc_urb(0, GFP_KERNEL)))
 		goto fail;
-	}
 
 	iforce->bus = IFORCE_USB;
 	iforce->usbdev = dev;
@@ -174,7 +169,9 @@ static int iforce_usb_probe(struct usb_interface *intf,
 	usb_fill_control_urb(iforce->ctrl, dev, usb_rcvctrlpipe(dev, 0),
 			(void*) &iforce->cr, iforce->edata, 16, iforce_usb_ctrl, iforce);
 
-	if (iforce_init_device(iforce)) goto fail;
+	err = iforce_init_device(iforce);
+	if (err)
+		goto fail;
 
 	usb_set_intfdata(intf, iforce);
 	return 0;
@@ -187,7 +184,7 @@ fail:
 		kfree(iforce);
 	}
 
-	return -ENODEV;
+	return err;
 }
 
 /* Called by iforce_delete() */
@@ -211,7 +208,7 @@ static void iforce_usb_disconnect(struct usb_interface *intf)
 	usb_set_intfdata(intf, NULL);
 	if (iforce) {
 		iforce->usbdev = NULL;
-		input_unregister_device(&iforce->dev);
+		input_unregister_device(iforce->dev);
 
 		if (!open) {
 			iforce_delete_device(iforce);
@@ -237,7 +234,6 @@ static struct usb_device_id iforce_usb_ids [] = {
 MODULE_DEVICE_TABLE (usb, iforce_usb_ids);
 
 struct usb_driver iforce_usb_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"iforce",
 	.probe =	iforce_usb_probe,
 	.disconnect =	iforce_usb_disconnect,

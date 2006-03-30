@@ -124,17 +124,13 @@ videocodec_attach (struct videocodec_master *master)
 			if (res == 0) {
 				dprintk(3, "videocodec_attach '%s'\n",
 					codec->name);
-				ptr = (struct attached_list *)
-				    kmalloc(sizeof(struct attached_list),
-					    GFP_KERNEL);
+				ptr = kzalloc(sizeof(struct attached_list), GFP_KERNEL);
 				if (!ptr) {
 					dprintk(1,
 						KERN_ERR
 						"videocodec_attach: no memory\n");
 					goto out_kfree;
 				}
-				memset(ptr, 0,
-				       sizeof(struct attached_list));
 				ptr->codec = codec;
 
 				a = h->list;
@@ -249,14 +245,11 @@ videocodec_register (const struct videocodec *codec)
 		"videocodec: register '%s', type: %x, flags %lx, magic %lx\n",
 		codec->name, codec->type, codec->flags, codec->magic);
 
-	ptr =
-	    (struct codec_list *) kmalloc(sizeof(struct codec_list),
-					  GFP_KERNEL);
+	ptr = kzalloc(sizeof(struct codec_list), GFP_KERNEL);
 	if (!ptr) {
 		dprintk(1, KERN_ERR "videocodec_register: no memory\n");
 		return -ENOMEM;
 	}
-	memset(ptr, 0, sizeof(struct codec_list));
 	ptr->codec = codec;
 
 	if (!h) {
@@ -353,8 +346,7 @@ videocodec_build_table (void)
 	dprintk(3, "videocodec_build table: %d entries, %d bytes\n", i,
 		size);
 
-	if (videocodec_buf)
-		kfree(videocodec_buf);
+	kfree(videocodec_buf);
 	videocodec_buf = (char *) kmalloc(size, GFP_KERNEL);
 
 	i = 0;
@@ -471,8 +463,7 @@ videocodec_exit (void)
 {
 #ifdef CONFIG_PROC_FS
 	remove_proc_entry("videocodecs", NULL);
-	if (videocodec_buf)
-		kfree(videocodec_buf);
+	kfree(videocodec_buf);
 #endif
 }
 

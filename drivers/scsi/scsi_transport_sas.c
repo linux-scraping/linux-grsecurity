@@ -26,7 +26,10 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/err.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 
+#include <scsi/scsi.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_transport.h>
@@ -34,7 +37,7 @@
 
 
 #define SAS_HOST_ATTRS		0
-#define SAS_PORT_ATTRS		11
+#define SAS_PORT_ATTRS		17
 #define SAS_RPORT_ATTRS		5
 
 struct sas_internal {
@@ -60,7 +63,7 @@ struct sas_internal {
 
 struct sas_host_attrs {
 	struct list_head rphy_list;
-	spinlock_t lock;
+	struct mutex lock;
 	u32 next_target_id;
 };
 #define to_sas_host_attrs(host)	((struct sas_host_attrs *)(host)->shost_data)
@@ -163,7 +166,7 @@ static int sas_host_setup(struct transport_container *tc, struct device *dev,
 	struct sas_host_attrs *sas_host = to_sas_host_attrs(shost);
 
 	INIT_LIST_HEAD(&sas_host->rphy_list);
-	spin_lock_init(&sas_host->lock);
+	mutex_init(&sas_host->lock);
 	sas_host->next_target_id = 0;
 	return 0;
 }
@@ -257,6 +260,29 @@ show_sas_phy_##field(struct class_device *cdev, char *buf)		\
 	sas_phy_show_linkspeed(field)					\
 static CLASS_DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
 
+#define sas_phy_show_linkerror(field)					\
+static ssize_t								\
+show_sas_phy_##field(struct class_device *cdev, char *buf)		\
+{									\
+	struct sas_phy *phy = transport_class_to_phy(cdev);		\
+	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);	\
+	struct sas_internal *i = to_sas_internal(shost->transportt);	\
+	int error;							\
+									\
+	if (!phy->local_attached)					\
+		return -EINVAL;						\
+									\
+	error = i->f->get_linkerrors(phy);				\
+	if (error)							\
+		return error;						\
+	return snprintf(buf, 20, "%u\n", phy->field);			\
+}
+
+#define sas_phy_linkerror_attr(field)					\
+	sas_phy_show_linkerror(field)					\
+static CLASS_DEVICE_ATTR(field, S_IRUGO, show_sas_phy_##field, NULL)
+
+
 static ssize_t
 show_sas_device_type(struct class_device *cdev, char *buf)
 {
@@ -266,8 +292,38 @@ show_sas_device_type(struct class_device *cdev, char *buf)
 		return snprintf(buf, 20, "none\n");
 	return get_sas_device_type_names(phy->identify.device_type, buf);
 }
-
 static CLASS_DEVICE_ATTR(device_type, S_IRUGO, show_sas_device_type, NULL);
+
+static ssize_t do_sas_phy_reset(struct class_device *cdev,
+		size_t count, int hard_reset)
+{
+	struct sas_phy *phy = transport_class_to_phy(cdev);
+	struct Scsi_Host *shost = dev_to_shost(phy->dev.parent);
+	struct sas_internal *i = to_sas_internal(shost->transportt);
+	int error;
+
+	if (!phy->local_attached)
+		return -EINVAL;
+
+	error = i->f->phy_reset(phy, hard_reset);
+	if (error)
+		return error;
+	return count;
+};
+
+static ssize_t store_sas_link_reset(struct class_device *cdev,
+		const char *buf, size_t count)
+{
+	return do_sas_phy_reset(cdev, count, 0);
+}
+static CLASS_DEVICE_ATTR(link_reset, S_IWUSR, NULL, store_sas_link_reset);
+
+static ssize_t store_sas_hard_reset(struct class_device *cdev,
+		const char *buf, size_t count)
+{
+	return do_sas_phy_reset(cdev, count, 1);
+}
+static CLASS_DEVICE_ATTR(hard_reset, S_IWUSR, NULL, store_sas_hard_reset);
 
 sas_phy_protocol_attr(identify.initiator_port_protocols,
 		initiator_port_protocols);
@@ -282,6 +338,10 @@ sas_phy_linkspeed_attr(minimum_linkrate_hw);
 sas_phy_linkspeed_attr(minimum_linkrate);
 sas_phy_linkspeed_attr(maximum_linkrate_hw);
 sas_phy_linkspeed_attr(maximum_linkrate);
+sas_phy_linkerror_attr(invalid_dword_count);
+sas_phy_linkerror_attr(running_disparity_error_count);
+sas_phy_linkerror_attr(loss_of_dword_sync_count);
+sas_phy_linkerror_attr(phy_reset_problem_count);
 
 
 static DECLARE_TRANSPORT_CLASS(sas_phy_class,
@@ -317,7 +377,7 @@ static void sas_phy_release(struct device *dev)
 /**
  * sas_phy_alloc  --  allocates and initialize a SAS PHY structure
  * @parent:	Parent device
- * @number:	Port number
+ * @number:	Phy index
  *
  * Allocates an SAS PHY structure.  It will be added in the device tree
  * below the device specified by @parent, which has to be either a Scsi_Host
@@ -535,8 +595,8 @@ struct sas_rphy *sas_rphy_alloc(struct sas_phy *parent)
 	device_initialize(&rphy->dev);
 	rphy->dev.parent = get_device(&parent->dev);
 	rphy->dev.release = sas_rphy_release;
-	sprintf(rphy->dev.bus_id, "rphy-%d:%d",
-		shost->host_no, parent->number);
+	sprintf(rphy->dev.bus_id, "rphy-%d:%d-%d",
+		shost->host_no, parent->port_identifier, parent->number);
 	transport_setup_device(&rphy->dev);
 
 	return rphy;
@@ -567,7 +627,7 @@ int sas_rphy_add(struct sas_rphy *rphy)
 	transport_add_device(&rphy->dev);
 	transport_configure_device(&rphy->dev);
 
-	spin_lock(&sas_host->lock);
+	mutex_lock(&sas_host->lock);
 	list_add_tail(&rphy->list, &sas_host->rphy_list);
 	if (identify->device_type == SAS_END_DEVICE &&
 	    (identify->target_port_protocols &
@@ -575,10 +635,10 @@ int sas_rphy_add(struct sas_rphy *rphy)
 		rphy->scsi_target_id = sas_host->next_target_id++;
 	else
 		rphy->scsi_target_id = -1;
-	spin_unlock(&sas_host->lock);
+	mutex_unlock(&sas_host->lock);
 
 	if (rphy->scsi_target_id != -1) {
-		scsi_scan_target(&rphy->dev, parent->number,
+		scsi_scan_target(&rphy->dev, parent->port_identifier,
 				rphy->scsi_target_id, ~0, 0);
 	}
 
@@ -602,9 +662,9 @@ void sas_rphy_free(struct sas_rphy *rphy)
 	struct Scsi_Host *shost = dev_to_shost(rphy->dev.parent->parent);
 	struct sas_host_attrs *sas_host = to_sas_host_attrs(shost);
 
-	spin_lock(&sas_host->lock);
+	mutex_lock(&sas_host->lock);
 	list_del(&rphy->list);
-	spin_unlock(&sas_host->lock);
+	mutex_unlock(&sas_host->lock);
 
 	transport_destroy_device(&rphy->dev);
 	put_device(rphy->dev.parent);
@@ -628,15 +688,27 @@ sas_rphy_delete(struct sas_rphy *rphy)
 	struct Scsi_Host *shost = dev_to_shost(parent->dev.parent);
 	struct sas_host_attrs *sas_host = to_sas_host_attrs(shost);
 
-	scsi_remove_target(dev);
+	switch (rphy->identify.device_type) {
+	case SAS_END_DEVICE:
+		scsi_remove_target(dev);
+		break;
+	case SAS_EDGE_EXPANDER_DEVICE:
+	case SAS_FANOUT_EXPANDER_DEVICE:
+		device_for_each_child(dev, NULL, do_sas_phy_delete);
+		break;
+	default:
+		break;
+	}
 
 	transport_remove_device(dev);
 	device_del(dev);
 	transport_destroy_device(dev);
 
-	spin_lock(&sas_host->lock);
+	mutex_lock(&sas_host->lock);
 	list_del(&rphy->list);
-	spin_unlock(&sas_host->lock);
+	mutex_unlock(&sas_host->lock);
+
+	parent->rphy = NULL;
 
 	put_device(&parent->dev);
 }
@@ -660,23 +732,28 @@ EXPORT_SYMBOL(scsi_is_sas_rphy);
  * SCSI scan helper
  */
 
-static struct device *sas_target_parent(struct Scsi_Host *shost,
-					int channel, uint id)
+static int sas_user_scan(struct Scsi_Host *shost, uint channel,
+		uint id, uint lun)
 {
 	struct sas_host_attrs *sas_host = to_sas_host_attrs(shost);
 	struct sas_rphy *rphy;
-	struct device *dev = NULL;
 
-	spin_lock(&sas_host->lock);
+	mutex_lock(&sas_host->lock);
 	list_for_each_entry(rphy, &sas_host->rphy_list, list) {
 		struct sas_phy *parent = dev_to_phy(rphy->dev.parent);
-		if (parent->number == channel &&
-		    rphy->scsi_target_id == id)
-			dev = &rphy->dev;
-	}
-	spin_unlock(&sas_host->lock);
 
-	return dev;
+		if (rphy->scsi_target_id == -1)
+			continue;
+
+		if ((channel == SCAN_WILD_CARD || channel == parent->port_identifier) &&
+		    (id == SCAN_WILD_CARD || id == rphy->scsi_target_id)) {
+			scsi_scan_target(&rphy->dev, parent->port_identifier,
+					 rphy->scsi_target_id, lun, 1);
+		}
+	}
+	mutex_unlock(&sas_host->lock);
+
+	return 0;
 }
 
 
@@ -698,6 +775,13 @@ static struct device *sas_target_parent(struct Scsi_Host *shost,
         i->phy_attrs[count] = &i->private_phy_attrs[count];		\
 	count++
 
+#define SETUP_PORT_ATTRIBUTE_WRONLY(field)				\
+	i->private_phy_attrs[count] = class_device_attr_##field;	\
+	i->private_phy_attrs[count].attr.mode = S_IWUGO;		\
+	i->private_phy_attrs[count].show = NULL;			\
+	i->phy_attrs[count] = &i->private_phy_attrs[count];		\
+	count++
+
 
 /**
  * sas_attach_transport  --  instantiate SAS transport template
@@ -714,7 +798,7 @@ sas_attach_transport(struct sas_function_template *ft)
 		return NULL;
 	memset(i, 0, sizeof(struct sas_internal));
 
-	i->t.target_parent = sas_target_parent;
+	i->t.user_scan = sas_user_scan;
 
 	i->t.host_attrs.ac.attrs = &i->host_attrs[0];
 	i->t.host_attrs.ac.class = &sas_host_class.class;
@@ -749,6 +833,13 @@ sas_attach_transport(struct sas_function_template *ft)
 	SETUP_PORT_ATTRIBUTE(minimum_linkrate);
 	SETUP_PORT_ATTRIBUTE(maximum_linkrate_hw);
 	SETUP_PORT_ATTRIBUTE(maximum_linkrate);
+
+	SETUP_PORT_ATTRIBUTE(invalid_dword_count);
+	SETUP_PORT_ATTRIBUTE(running_disparity_error_count);
+	SETUP_PORT_ATTRIBUTE(loss_of_dword_sync_count);
+	SETUP_PORT_ATTRIBUTE(phy_reset_problem_count);
+	SETUP_PORT_ATTRIBUTE_WRONLY(link_reset);
+	SETUP_PORT_ATTRIBUTE_WRONLY(hard_reset);
 	i->phy_attrs[count] = NULL;
 
 	count = 0;

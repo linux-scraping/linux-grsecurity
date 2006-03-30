@@ -29,8 +29,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#define ZFCP_AUX_REVISION "$Revision: 1.145 $"
-
 #include "zfcp_ext.h"
 
 /* accumulated log level (module parameter) */
@@ -450,8 +448,7 @@ zfcp_cfdc_dev_ioctl(struct file *file, unsigned int command,
 		kfree(sg_list);
 	}
 
-	if (sense_data != NULL)
-		kfree(sense_data);
+	kfree(sense_data);
 
 	return retval;
 }
@@ -997,6 +994,20 @@ zfcp_adapter_enqueue(struct ccw_device *ccw_device)
 	spin_lock_init(&adapter->fsf_req_list_lock);
 	INIT_LIST_HEAD(&adapter->fsf_req_list_head);
 
+	/* initialize debug locks */
+
+	spin_lock_init(&adapter->erp_dbf_lock);
+	spin_lock_init(&adapter->hba_dbf_lock);
+	spin_lock_init(&adapter->san_dbf_lock);
+	spin_lock_init(&adapter->scsi_dbf_lock);
+
+	/* initialize error recovery stuff */
+
+	rwlock_init(&adapter->erp_lock);
+	sema_init(&adapter->erp_ready_sem, 0);
+	INIT_LIST_HEAD(&adapter->erp_ready_head);
+	INIT_LIST_HEAD(&adapter->erp_running_head);
+
 	/* initialize abort lock */
 	rwlock_init(&adapter->abort_lock);
 
@@ -1112,6 +1123,8 @@ zfcp_adapter_dequeue(struct zfcp_adapter *adapter)
 	zfcp_free_low_mem_buffers(adapter);
 	/* free memory of adapter data structure and queues */
 	zfcp_qdio_free_queues(adapter);
+	kfree(adapter->fc_stats);
+	kfree(adapter->stats_reset_data);
 	ZFCP_LOG_TRACE("freeing adapter structure\n");
 	kfree(adapter);
  out:

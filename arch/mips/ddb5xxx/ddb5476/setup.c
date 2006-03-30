@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/pci.h>
+#include <linux/pm.h>
 
 #include <asm/addrspace.h>
 #include <asm/bcache.h>
@@ -124,7 +125,7 @@ static struct {
 
 static void ddb5476_board_init(void);
 
-static void __init ddb5476_setup(void)
+void __init plat_setup(void)
 {
 	set_io_port_base(KSEG1ADDR(DDB_PCI_IO_BASE));
 
@@ -133,7 +134,7 @@ static void __init ddb5476_setup(void)
 
 	_machine_restart = ddb_machine_restart;
 	_machine_halt = ddb_machine_halt;
-	_machine_power_off = ddb_machine_power_off;
+	pm_power_off = ddb_machine_power_off;
 
 	/* request io port/mem resources  */
 	if (request_resource(&ioport_resource, &ddb5476_ioport.dma1) ||
@@ -157,8 +158,6 @@ static void __init ddb5476_setup(void)
 	/* board initialization stuff */
 	ddb5476_board_init();
 }
-
-early_initcall(ddb5476_setup);
 
 /*
  * We don't trust bios.  We essentially does hardware re-initialization

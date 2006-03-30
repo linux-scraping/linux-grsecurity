@@ -8,6 +8,7 @@
  */
 #include <linux/config.h>
 #include <linux/completion.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
@@ -31,11 +32,42 @@ static void nfs_free_delegation(struct nfs_delegation *delegation)
 	kfree(delegation);
 }
 
+static int nfs_delegation_claim_locks(struct nfs_open_context *ctx, struct nfs4_state *state)
+{
+	struct inode *inode = state->inode;
+	struct file_lock *fl;
+	int status;
+
+	for (fl = inode->i_flock; fl != 0; fl = fl->fl_next) {
+		if (!(fl->fl_flags & (FL_POSIX|FL_FLOCK)))
+			continue;
+		if ((struct nfs_open_context *)fl->fl_file->private_data != ctx)
+			continue;
+		status = nfs4_lock_delegation_recall(state, fl);
+		if (status >= 0)
+			continue;
+		switch (status) {
+			default:
+				printk(KERN_ERR "%s: unhandled error %d.\n",
+						__FUNCTION__, status);
+			case -NFS4ERR_EXPIRED:
+				/* kill_proc(fl->fl_pid, SIGLOST, 1); */
+			case -NFS4ERR_STALE_CLIENTID:
+				nfs4_schedule_state_recovery(NFS_SERVER(inode)->nfs4_state);
+				goto out_err;
+		}
+	}
+	return 0;
+out_err:
+	return status;
+}
+
 static void nfs_delegation_claim_opens(struct inode *inode)
 {
 	struct nfs_inode *nfsi = NFS_I(inode);
 	struct nfs_open_context *ctx;
 	struct nfs4_state *state;
+	int err;
 
 again:
 	spin_lock(&inode->i_lock);
@@ -47,9 +79,12 @@ again:
 			continue;
 		get_nfs_open_context(ctx);
 		spin_unlock(&inode->i_lock);
-		if (nfs4_open_delegation_recall(ctx->dentry, state) < 0)
-			return;
+		err = nfs4_open_delegation_recall(ctx->dentry, state);
+		if (err >= 0)
+			err = nfs_delegation_claim_locks(ctx, state);
 		put_nfs_open_context(ctx);
+		if (err != 0)
+			return;
 		goto again;
 	}
 	spin_unlock(&inode->i_lock);
@@ -96,6 +131,7 @@ int nfs_inode_set_delegation(struct inode *inode, struct rpc_cred *cred, struct 
 			sizeof(delegation->stateid.data));
 	delegation->type = res->delegation_type;
 	delegation->maxsize = res->maxsize;
+	delegation->change_attr = nfsi->change_attr;
 	delegation->cred = get_rpccred(cred);
 	delegation->inode = inode;
 
@@ -115,16 +151,13 @@ int nfs_inode_set_delegation(struct inode *inode, struct rpc_cred *cred, struct 
 		}
 	}
 	spin_unlock(&clp->cl_lock);
-	if (delegation != NULL)
-		kfree(delegation);
+	kfree(delegation);
 	return status;
 }
 
 static int nfs_do_return_delegation(struct inode *inode, struct nfs_delegation *delegation)
 {
 	int res = 0;
-
-	__nfs_revalidate_inode(NFS_SERVER(inode), inode);
 
 	res = nfs4_proc_delegreturn(inode, delegation->cred, &delegation->stateid);
 	nfs_free_delegation(delegation);
@@ -142,7 +175,7 @@ static void nfs_msync_inode(struct inode *inode)
 /*
  * Basic procedure for returning a delegation to the server
  */
-int nfs_inode_return_delegation(struct inode *inode)
+int __nfs_inode_return_delegation(struct inode *inode)
 {
 	struct nfs4_client *clp = NFS_SERVER(inode)->nfs4_state;
 	struct nfs_inode *nfsi = NFS_I(inode);
@@ -196,6 +229,49 @@ restart:
 		goto restart;
 	}
 	spin_unlock(&clp->cl_lock);
+}
+
+int nfs_do_expire_all_delegations(void *ptr)
+{
+	struct nfs4_client *clp = ptr;
+	struct nfs_delegation *delegation;
+	struct inode *inode;
+
+	allow_signal(SIGKILL);
+restart:
+	spin_lock(&clp->cl_lock);
+	if (test_bit(NFS4CLNT_STATE_RECOVER, &clp->cl_state) != 0)
+		goto out;
+	if (test_bit(NFS4CLNT_LEASE_EXPIRED, &clp->cl_state) == 0)
+		goto out;
+	list_for_each_entry(delegation, &clp->cl_delegations, super_list) {
+		inode = igrab(delegation->inode);
+		if (inode == NULL)
+			continue;
+		spin_unlock(&clp->cl_lock);
+		nfs_inode_return_delegation(inode);
+		iput(inode);
+		goto restart;
+	}
+out:
+	spin_unlock(&clp->cl_lock);
+	nfs4_put_client(clp);
+	module_put_and_exit(0);
+}
+
+void nfs_expire_all_delegations(struct nfs4_client *clp)
+{
+	struct task_struct *task;
+
+	__module_get(THIS_MODULE);
+	atomic_inc(&clp->cl_count);
+	task = kthread_run(nfs_do_expire_all_delegations, clp,
+			"%u.%u.%u.%u-delegreturn",
+			NIPQUAD(clp->cl_addr));
+	if (!IS_ERR(task))
+		return;
+	nfs4_put_client(clp);
+	module_put(THIS_MODULE);
 }
 
 /*

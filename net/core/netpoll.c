@@ -13,6 +13,7 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/string.h>
+#include <linux/if_arp.h>
 #include <linux/inetdevice.h>
 #include <linux/inet.h>
 #include <linux/interrupt.h>
@@ -101,16 +102,20 @@ void netpoll_queue(struct sk_buff *skb)
 static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
 			     unsigned short ulen, u32 saddr, u32 daddr)
 {
-	if (uh->check == 0)
+	unsigned int psum;
+
+	if (uh->check == 0 || skb->ip_summed == CHECKSUM_UNNECESSARY)
 		return 0;
 
-	if (skb->ip_summed == CHECKSUM_HW)
-		return csum_tcpudp_magic(
-			saddr, daddr, ulen, IPPROTO_UDP, skb->csum);
+	psum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
 
-	skb->csum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
+	if (skb->ip_summed == CHECKSUM_HW &&
+	    !(u16)csum_fold(csum_add(psum, skb->csum)))
+		return 0;
 
-	return csum_fold(skb_checksum(skb, 0, skb->len, skb->csum));
+	skb->csum = psum;
+
+	return __skb_checksum_complete(skb);
 }
 
 /*
@@ -489,7 +494,7 @@ int __netpoll_rx(struct sk_buff *skb)
 
 	if (ulen != len)
 		goto out;
-	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr) < 0)
+	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
 		goto out;
 	if (np->local_ip && np->local_ip != ntohl(iph->daddr))
 		goto out;
@@ -698,7 +703,7 @@ int netpoll_setup(struct netpoll *np)
 		}
 	}
 
-	if (!memcmp(np->local_mac, "\0\0\0\0\0\0", 6) && ndev->dev_addr)
+	if (is_zero_ether_addr(np->local_mac) && ndev->dev_addr)
 		memcpy(np->local_mac, ndev->dev_addr, 6);
 
 	if (!np->local_ip) {

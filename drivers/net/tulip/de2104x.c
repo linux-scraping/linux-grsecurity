@@ -1362,7 +1362,6 @@ static int de_open (struct net_device *dev)
 {
 	struct de_private *de = dev->priv;
 	int rc;
-	unsigned long flags;
 
 	if (netif_msg_ifup(de))
 		printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
@@ -1376,18 +1375,20 @@ static int de_open (struct net_device *dev)
 		return rc;
 	}
 
-	rc = de_init_hw(de);
-	if (rc) {
-		printk(KERN_ERR "%s: h/w init failure, err=%d\n",
-		       dev->name, rc);
-		goto err_out_free;
-	}
+	dw32(IntrMask, 0);
 
 	rc = request_irq(dev->irq, de_interrupt, SA_SHIRQ, dev->name, dev);
 	if (rc) {
 		printk(KERN_ERR "%s: IRQ %d request failure, err=%d\n",
 		       dev->name, dev->irq, rc);
-		goto err_out_hw;
+		goto err_out_free;
+	}
+
+	rc = de_init_hw(de);
+	if (rc) {
+		printk(KERN_ERR "%s: h/w init failure, err=%d\n",
+		       dev->name, rc);
+		goto err_out_free_irq;
 	}
 
 	netif_start_queue(dev);
@@ -1395,11 +1396,8 @@ static int de_open (struct net_device *dev)
 
 	return 0;
 
-err_out_hw:
-	spin_lock_irqsave(&de->lock, flags);
-	de_stop_hw(de);
-	spin_unlock_irqrestore(&de->lock, flags);
-
+err_out_free_irq:
+	free_irq(dev->irq, dev);
 err_out_free:
 	de_free_rings(de);
 	return rc;
@@ -1454,6 +1452,8 @@ static void de_tx_timeout (struct net_device *dev)
 
 	synchronize_irq(dev->irq);
 	de_clean_rings(de);
+
+	de_init_rings(de);
 
 	de_init_hw(de);
 	
@@ -1787,9 +1787,14 @@ static void __init de21041_get_srom_info (struct de_private *de)
 	/* DEC now has a specification but early board makers
 	   just put the address in the first EEPROM locations. */
 	/* This does  memcmp(eedata, eedata+16, 8) */
+
+#ifndef CONFIG_MIPS_COBALT
+
 	for (i = 0; i < 8; i ++)
 		if (ee_data[i] != ee_data[16+i])
 			sa_offset = 20;
+
+#endif
 
 	/* store MAC address */
 	for (i = 0; i < 6; i ++)
@@ -2071,8 +2076,7 @@ static int __init de_init_one (struct pci_dev *pdev,
 	return 0;
 
 err_out_iomap:
-	if (de->ee_data)
-		kfree(de->ee_data);
+	kfree(de->ee_data);
 	iounmap(regs);
 err_out_res:
 	pci_release_regions(pdev);
@@ -2091,8 +2095,7 @@ static void __exit de_remove_one (struct pci_dev *pdev)
 	if (!dev)
 		BUG();
 	unregister_netdev(dev);
-	if (de->ee_data)
-		kfree(de->ee_data);
+	kfree(de->ee_data);
 	iounmap(de->regs);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);

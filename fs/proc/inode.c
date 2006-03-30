@@ -19,7 +19,7 @@
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
-extern void free_proc_entry(struct proc_dir_entry *);
+#include "internal.h"
 
 static inline struct proc_dir_entry * de_get(struct proc_dir_entry *de)
 {
@@ -156,10 +156,13 @@ struct inode *proc_get_inode(struct super_block *sb, unsigned int ino,
 
 	WARN_ON(de && de->deleted);
 
+	if (de != NULL && !try_module_get(de->owner))
+		goto out_mod;
+
 	inode = iget(sb, ino);
 	if (!inode)
-		goto out_fail;
-	
+		goto out_ino;
+
 	PROC_I(inode)->pde = de;
 	if (de) {
 		if (de->mode) {
@@ -175,20 +178,20 @@ struct inode *proc_get_inode(struct super_block *sb, unsigned int ino,
 			inode->i_size = de->size;
 		if (de->nlink)
 			inode->i_nlink = de->nlink;
-		if (!try_module_get(de->owner))
-			goto out_fail;
 		if (de->proc_iops)
 			inode->i_op = de->proc_iops;
 		if (de->proc_fops)
 			inode->i_fop = de->proc_fops;
 	}
 
-out:
 	return inode;
 
-out_fail:
+out_ino:
+	if (de != NULL)
+		module_put(de->owner);
+out_mod:
 	de_put(de);
-	goto out;
+	return NULL;
 }			
 
 int proc_fill_super(struct super_block *s, void *data, int silent)
@@ -205,10 +208,6 @@ int proc_fill_super(struct super_block *s, void *data, int silent)
 	root_inode = proc_get_inode(s, PROC_ROOT_INO, &proc_root);
 	if (!root_inode)
 		goto out_no_root;
-	/*
-	 * Fixup the root inode's nlink value
-	 */
-	root_inode->i_nlink += nr_processes();
 	root_inode->i_uid = 0;
 	root_inode->i_gid = 0;
 	s->s_root = d_alloc_root(root_inode);

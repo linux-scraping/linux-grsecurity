@@ -33,15 +33,11 @@
 
 #include <linux/timex.h>
 
-u64 jiffies_64 = INITIAL_JIFFIES;
-
-EXPORT_SYMBOL(jiffies_64);
-
 /* xtime and wall_jiffies keep wall-clock time */
 extern unsigned long wall_jiffies;
 
-static long clocktick;	/* timer cycles per tick */
-static long halftick;
+static long clocktick __read_mostly;	/* timer cycles per tick */
+static long halftick __read_mostly;
 
 #ifdef CONFIG_SMP
 extern void smp_do_timer(struct pt_regs *regs);
@@ -89,20 +85,30 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		}
 	}
     
-#ifdef CONFIG_CHASSIS_LCD_LED
-	/* Only schedule the led tasklet on cpu 0, and only if it
-	 * is enabled.
-	 */
-	if (cpu == 0 && !atomic_read(&led_tasklet.count))
-		tasklet_schedule(&led_tasklet);
-#endif
-
 	/* check soft power switch status */
 	if (cpu == 0 && !atomic_read(&power_tasklet.count))
 		tasklet_schedule(&power_tasklet);
 
 	return IRQ_HANDLED;
 }
+
+
+unsigned long profile_pc(struct pt_regs *regs)
+{
+	unsigned long pc = instruction_pointer(regs);
+
+	if (regs->gr[0] & PSW_N)
+		pc -= 4;
+
+#ifdef CONFIG_SMP
+	if (in_lock_functions(pc))
+		pc = regs->gr[2];
+#endif
+
+	return pc;
+}
+EXPORT_SYMBOL(profile_pc);
+
 
 /*** converted from ia64 ***/
 /*

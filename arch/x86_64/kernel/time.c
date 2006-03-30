@@ -42,20 +42,18 @@
 #include <asm/apic.h>
 #endif
 
-u64 jiffies_64 = INITIAL_JIFFIES;
-
-EXPORT_SYMBOL(jiffies_64);
-
 #ifdef CONFIG_CPU_FREQ
 static void cpufreq_delayed_get(void);
 #endif
 extern void i8254_timer_resume(void);
 extern int using_apic_timer;
 
+static char *time_init_gtod(void);
+
 DEFINE_SPINLOCK(rtc_lock);
 DEFINE_SPINLOCK(i8253_lock);
 
-static int nohpet __initdata = 0;
+int nohpet __initdata = 0;
 static int notsc __initdata = 0;
 
 #undef HPET_HACK_ENABLE_DANGEROUS
@@ -63,7 +61,7 @@ static int notsc __initdata = 0;
 unsigned int cpu_khz;					/* TSC clocks / usec, not used here */
 static unsigned long hpet_period;			/* fsecs / HPET clock */
 unsigned long hpet_tick;				/* HPET clocks / interrupt */
-static int hpet_use_timer;
+int hpet_use_timer;				/* Use counter of hpet for time keeping, otherwise PIT */
 unsigned long vxtime_hz = PIT_TICK_RATE;
 int report_lost_ticks;				/* command line option */
 unsigned long long monotonic_base;
@@ -74,14 +72,6 @@ volatile unsigned long __jiffies __section_jiffies = INITIAL_JIFFIES;
 unsigned long __wall_jiffies __section_wall_jiffies = INITIAL_JIFFIES;
 struct timespec __xtime __section_xtime;
 struct timezone __sys_tz __section_sys_tz;
-
-static inline void rdtscll_sync(unsigned long *tsc)
-{
-#ifdef CONFIG_SMP
-	sync_core();
-#endif
-	rdtscll(*tsc);
-}
 
 /*
  * do_gettimeoffset() returns microseconds since last timer interrupt was
@@ -97,7 +87,7 @@ static inline unsigned int do_gettimeoffset_tsc(void)
 {
 	unsigned long t;
 	unsigned long x;
-	rdtscll_sync(&t);
+	t = get_cycles_sync();
 	if (t < vxtime.last_tsc) t = vxtime.last_tsc; /* hack */
 	x = ((t - vxtime.last_tsc) * vxtime.tsc_quot) >> 32;
 	return x;
@@ -263,8 +253,8 @@ static void set_rtc_mmss(unsigned long nowtime)
 #endif
 
 	{
-			BIN_TO_BCD(real_seconds);
-			BIN_TO_BCD(real_minutes);
+		BIN_TO_BCD(real_seconds);
+		BIN_TO_BCD(real_minutes);
 		CMOS_WRITE(real_seconds, RTC_SECONDS);
 		CMOS_WRITE(real_minutes, RTC_MINUTES);
 	}
@@ -301,25 +291,21 @@ unsigned long long monotonic_clock(void)
 			last_offset = vxtime.last;
 			base = monotonic_base;
 			this_offset = hpet_readl(HPET_COUNTER);
-
 		} while (read_seqretry(&xtime_lock, seq));
 		offset = (this_offset - last_offset);
 		offset *=(NSEC_PER_SEC/HZ)/hpet_tick;
 		return base + offset;
-	}else{
+	} else {
 		do {
 			seq = read_seqbegin(&xtime_lock);
 
 			last_offset = vxtime.last_tsc;
 			base = monotonic_base;
 		} while (read_seqretry(&xtime_lock, seq));
-		sync_core();
-		rdtscll(this_offset);
+		this_offset = get_cycles_sync();
 		offset = (this_offset - last_offset)*1000/cpu_khz; 
 		return base + offset;
 	}
-
-
 }
 EXPORT_SYMBOL(monotonic_clock);
 
@@ -342,7 +328,10 @@ static noinline void handle_lost_ticks(int lost, struct pt_regs *regs)
 	    print_symbol("rip %s\n", regs->rip);
 	    if (vxtime.mode == VXTIME_TSC && vxtime.hpet_address) {
 		    printk(KERN_WARNING "Falling back to HPET\n");
-		    vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
+		    if (hpet_use_timer)
+		    	vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
+		    else
+		    	vxtime.last = hpet_readl(HPET_COUNTER);
 		    vxtime.mode = VXTIME_HPET;
 		    do_gettimeoffset = do_gettimeoffset_hpet;
 	    }
@@ -361,7 +350,7 @@ static noinline void handle_lost_ticks(int lost, struct pt_regs *regs)
 #endif
 }
 
-static irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+void main_timer_handler(struct pt_regs *regs)
 {
 	static unsigned long rtc_update = 0;
 	unsigned long tsc;
@@ -395,7 +384,7 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		delay = LATCH - 1 - delay;
 	}
 
-	rdtscll_sync(&tsc);
+	tsc = get_cycles_sync();
 
 	if (vxtime.mode == VXTIME_HPET) {
 		if (offset - vxtime.last > hpet_tick) {
@@ -474,16 +463,26 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	}
  
 	write_sequnlock(&xtime_lock);
+}
 
+static irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+{
+	if (apic_runs_main_timer > 1)
+		return IRQ_HANDLED;
+	main_timer_handler(regs);
+#ifdef CONFIG_X86_LOCAL_APIC
+	if (using_apic_timer)
+		smp_send_timer_broadcast_ipi();
+#endif
 	return IRQ_HANDLED;
 }
 
 static unsigned int cyc2ns_scale;
 #define CYC2NS_SCALE_FACTOR 10 /* 2^10, carefully chosen */
 
-static inline void set_cyc2ns_scale(unsigned long cpu_mhz)
+static inline void set_cyc2ns_scale(unsigned long cpu_khz)
 {
-	cyc2ns_scale = (1000 << CYC2NS_SCALE_FACTOR)/cpu_mhz;
+	cyc2ns_scale = (1000000 << CYC2NS_SCALE_FACTOR)/cpu_khz;
 }
 
 static inline unsigned long long cycles_2_ns(unsigned long long cyc)
@@ -513,10 +512,10 @@ unsigned long long sched_clock(void)
 	return cycles_2_ns(a);
 }
 
-unsigned long get_cmos_time(void)
+static unsigned long get_cmos_time(void)
 {
-	unsigned int timeout, year, mon, day, hour, min, sec;
-	unsigned char last, this;
+	unsigned int timeout = 1000000, year, mon, day, hour, min, sec;
+	unsigned char uip = 0, this = 0;
 	unsigned long flags;
 
 /*
@@ -529,45 +528,41 @@ unsigned long get_cmos_time(void)
 
 	spin_lock_irqsave(&rtc_lock, flags);
 
-	timeout = 1000000;
-	last = this = 0;
-
-	while (timeout && last && !this) {
-		last = this;
+	while (timeout && (!uip || this)) {
+		uip |= this;
 		this = CMOS_READ(RTC_FREQ_SELECT) & RTC_UIP;
 		timeout--;
 	}
 
-/*
- * Here we are safe to assume the registers won't change for a whole second, so
- * we just go ahead and read them.
-	 */
-
-		sec = CMOS_READ(RTC_SECONDS);
-		min = CMOS_READ(RTC_MINUTES);
-		hour = CMOS_READ(RTC_HOURS);
-		day = CMOS_READ(RTC_DAY_OF_MONTH);
-		mon = CMOS_READ(RTC_MONTH);
-		year = CMOS_READ(RTC_YEAR);
+	/*
+	 * Here we are safe to assume the registers won't change for a whole
+	 * second, so we just go ahead and read them.
+ 	 */
+	sec = CMOS_READ(RTC_SECONDS);
+	min = CMOS_READ(RTC_MINUTES);
+	hour = CMOS_READ(RTC_HOURS);
+	day = CMOS_READ(RTC_DAY_OF_MONTH);
+	mon = CMOS_READ(RTC_MONTH);
+	year = CMOS_READ(RTC_YEAR);
 
 	spin_unlock_irqrestore(&rtc_lock, flags);
 
-/*
- * We know that x86-64 always uses BCD format, no need to check the config
- * register.
- */
+	/*
+	 * We know that x86-64 always uses BCD format, no need to check the
+	 * config register.
+ 	*/
 
-	    BCD_TO_BIN(sec);
-	    BCD_TO_BIN(min);
-	    BCD_TO_BIN(hour);
-	    BCD_TO_BIN(day);
-	    BCD_TO_BIN(mon);
-	    BCD_TO_BIN(year);
+	BCD_TO_BIN(sec);
+	BCD_TO_BIN(min);
+	BCD_TO_BIN(hour);
+	BCD_TO_BIN(day);
+	BCD_TO_BIN(mon);
+	BCD_TO_BIN(year);
 
-/*
- * x86-64 systems only exists since 2002.
- * This will work up to Dec 31, 2100
- */
+	/*
+	 * x86-64 systems only exists since 2002.
+	 * This will work up to Dec 31, 2100
+	 */
 	year += 2000;
 
 	return mktime(year, mon, day, hour, min, sec);
@@ -655,7 +650,7 @@ static int time_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
 			vxtime.tsc_quot = (1000L << 32) / cpu_khz;
 	}
 	
-	set_cyc2ns_scale(cpu_khz_ref / 1000);
+	set_cyc2ns_scale(cpu_khz_ref);
 
 	return 0;
 }
@@ -699,8 +694,7 @@ static unsigned int __init hpet_calibrate_tsc(void)
 	do {
 		local_irq_disable();
 		hpet_now = hpet_readl(HPET_COUNTER);
-		sync_core();
-		rdtscl(tsc_now);
+		tsc_now = get_cycles_sync();
 		local_irq_restore(flags);
 	} while ((tsc_now - tsc_start) < TICK_COUNT &&
 		 (hpet_now - hpet_start) < TICK_COUNT);
@@ -730,11 +724,9 @@ static unsigned int __init pit_calibrate_tsc(void)
 	outb(0xb0, 0x43);
 	outb((PIT_TICK_RATE / (1000 / 50)) & 0xff, 0x42);
 	outb((PIT_TICK_RATE / (1000 / 50)) >> 8, 0x42);
-	rdtscll(start);
-	sync_core();
+	start = get_cycles_sync();
 	while ((inb(0x61) & 0x20) == 0);
-	sync_core();
-	rdtscll(end);
+	end = get_cycles_sync();
 
 	spin_unlock_irqrestore(&i8253_lock, flags);
 	
@@ -748,7 +740,7 @@ static __init int late_hpet_init(void)
 	unsigned int 		ntimer;
 
 	if (!vxtime.hpet_address)
-          return -1;
+        	return -1;
 
 	memset(&hd, 0, sizeof (hd));
 
@@ -761,7 +753,7 @@ static __init int late_hpet_init(void)
 	 * Timer0 and Timer1 is used by platform.
 	 */
 	hd.hd_phys_address = vxtime.hpet_address;
-	hd.hd_address = (void *)fix_to_virt(FIX_HPET_BASE);
+	hd.hd_address = (void __iomem *)fix_to_virt(FIX_HPET_BASE);
 	hd.hd_nirqs = ntimer;
 	hd.hd_flags = HPET_DATA_PLATFORM;
 	hpet_reserve_timer(&hd, 0);
@@ -861,15 +853,41 @@ static int hpet_reenable(void)
 	return hpet_timer_stop_set_go(hpet_tick);
 }
 
-void __init pit_init(void)
+#define PIT_MODE 0x43
+#define PIT_CH0  0x40
+
+static void __init __pit_init(int val, u8 mode)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&i8253_lock, flags);
-	outb_p(0x34, 0x43);		/* binary, mode 2, LSB/MSB, ch 0 */
-	outb_p(LATCH & 0xff, 0x40);	/* LSB */
-	outb_p(LATCH >> 8, 0x40);	/* MSB */
+	outb_p(mode, PIT_MODE);
+	outb_p(val & 0xff, PIT_CH0);	/* LSB */
+	outb_p(val >> 8, PIT_CH0);	/* MSB */
 	spin_unlock_irqrestore(&i8253_lock, flags);
+}
+
+void __init pit_init(void)
+{
+	__pit_init(LATCH, 0x34); /* binary, mode 2, LSB/MSB, ch 0 */
+}
+
+void __init pit_stop_interrupt(void)
+{
+	__pit_init(0, 0x30); /* mode 0 */
+}
+
+void __init stop_timer_interrupt(void)
+{
+	char *name;
+	if (vxtime.hpet_address) {
+		name = "HPET";
+		hpet_timer_stop_set_go(0);
+	} else {
+		name = "PIT";
+		pit_stop_interrupt();
+	}
+	printk(KERN_INFO "timer: %s interrupt stopped.\n", name);
 }
 
 int __init time_setup(char *str)
@@ -882,11 +900,10 @@ static struct irqaction irq0 = {
 	timer_interrupt, SA_INTERRUPT, CPU_MASK_NONE, "timer", NULL, NULL
 };
 
-extern void __init config_acpi_tables(void);
-
 void __init time_init(void)
 {
 	char *timename;
+	char *gtod;
 
 #ifdef HPET_HACK_ENABLE_DANGEROUS
         if (!vxtime.hpet_address) {
@@ -912,12 +929,14 @@ void __init time_init(void)
 	if (!hpet_init())
                 vxtime_hz = (1000000000000000L + hpet_period / 2) /
 			hpet_period;
+	else
+		vxtime.hpet_address = 0;
 
 	if (hpet_use_timer) {
 		cpu_khz = hpet_calibrate_tsc();
 		timename = "HPET";
 #ifdef CONFIG_X86_PM_TIMER
-	} else if (pmtmr_ioport) {
+	} else if (pmtmr_ioport && !vxtime.hpet_address) {
 		vxtime_hz = PM_TIMER_FREQUENCY;
 		timename = "PM";
 		pit_init();
@@ -929,28 +948,26 @@ void __init time_init(void)
 		timename = "PIT";
 	}
 
-	printk(KERN_INFO "time.c: Using %ld.%06ld MHz %s timer.\n",
-	       vxtime_hz / 1000000, vxtime_hz % 1000000, timename);
+	vxtime.mode = VXTIME_TSC;
+	gtod = time_init_gtod();
+
+	printk(KERN_INFO "time.c: Using %ld.%06ld MHz WALL %s GTOD %s timer.\n",
+	       vxtime_hz / 1000000, vxtime_hz % 1000000, timename, gtod);
 	printk(KERN_INFO "time.c: Detected %d.%03d MHz processor.\n",
 		cpu_khz / 1000, cpu_khz % 1000);
-	vxtime.mode = VXTIME_TSC;
 	vxtime.quot = (1000000L << 32) / vxtime_hz;
 	vxtime.tsc_quot = (1000L << 32) / cpu_khz;
-	rdtscll_sync(&vxtime.last_tsc);
+	vxtime.last_tsc = get_cycles_sync();
 	setup_irq(0, &irq0);
 
-	set_cyc2ns_scale(cpu_khz / 1000);
-
-#ifndef CONFIG_SMP
-	time_init_gtod();
-#endif
+	set_cyc2ns_scale(cpu_khz);
 }
 
 /*
  * Make an educated guess if the TSC is trustworthy and synchronized
  * over all CPUs.
  */
-static __init int unsynchronized_tsc(void)
+__cpuinit int unsynchronized_tsc(void)
 {
 #ifdef CONFIG_SMP
 	if (oem_force_hpet_timer())
@@ -961,13 +978,13 @@ static __init int unsynchronized_tsc(void)
  		return 0;
 #endif
  	/* Assume multi socket systems are not synchronized */
- 	return num_online_cpus() > 1;
+ 	return num_present_cpus() > 1;
 }
 
 /*
- * Decide after all CPUs are booted what mode gettimeofday should use.
+ * Decide what mode gettimeofday should use.
  */
-void __init time_init_gtod(void)
+__init static char *time_init_gtod(void)
 {
 	char *timetype;
 
@@ -975,7 +992,10 @@ void __init time_init_gtod(void)
 		notsc = 1;
 	if (vxtime.hpet_address && notsc) {
 		timetype = hpet_use_timer ? "HPET" : "PIT/HPET";
-		vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
+		if (hpet_use_timer)
+			vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
+		else
+			vxtime.last = hpet_readl(HPET_COUNTER);
 		vxtime.mode = VXTIME_HPET;
 		do_gettimeoffset = do_gettimeoffset_hpet;
 #ifdef CONFIG_X86_PM_TIMER
@@ -992,14 +1012,17 @@ void __init time_init_gtod(void)
 		timetype = hpet_use_timer ? "HPET/TSC" : "PIT/TSC";
 		vxtime.mode = VXTIME_TSC;
 	}
-
-	printk(KERN_INFO "time.c: Using %s based timekeeping.\n", timetype);
+	return timetype;
 }
 
 __setup("report_lost_ticks", time_setup);
 
 static long clock_cmos_diff;
 static unsigned long sleep_start;
+
+/*
+ * sysfs support for the timer.
+ */
 
 static int timer_suspend(struct sys_device *dev, pm_message_t state)
 {
@@ -1030,9 +1053,21 @@ static int timer_resume(struct sys_device *dev)
 	write_seqlock_irqsave(&xtime_lock,flags);
 	xtime.tv_sec = sec;
 	xtime.tv_nsec = 0;
+	if (vxtime.mode == VXTIME_HPET) {
+		if (hpet_use_timer)
+			vxtime.last = hpet_readl(HPET_T0_CMP) - hpet_tick;
+		else
+			vxtime.last = hpet_readl(HPET_COUNTER);
+#ifdef CONFIG_X86_PM_TIMER
+	} else if (vxtime.mode == VXTIME_PMTMR) {
+		pmtimer_resume();
+#endif
+	} else
+		vxtime.last_tsc = get_cycles_sync();
 	write_sequnlock_irqrestore(&xtime_lock,flags);
 	jiffies += sleep_length;
 	wall_jiffies += sleep_length;
+	monotonic_base += sleep_length * (NSEC_PER_SEC/HZ);
 	touch_softlockup_watchdog();
 	return 0;
 }
@@ -1042,7 +1077,6 @@ static struct sysdev_class timer_sysclass = {
 	.suspend = timer_suspend,
 	set_kset_name("timer"),
 };
-
 
 /* XXX this driverfs stuff should probably go elsewhere later -john */
 static struct sys_device device_timer = {
@@ -1077,8 +1111,6 @@ device_initcall(time_init_device);
  */
 #include <linux/rtc.h>
 
-extern irqreturn_t rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs);
-
 #define DEFAULT_RTC_INT_FREQ 	64
 #define RTC_NUM_INTS 		1
 
@@ -1093,6 +1125,7 @@ static unsigned long PIE_freq = DEFAULT_RTC_INT_FREQ;
 static unsigned long PIE_count;
 
 static unsigned long hpet_rtc_int_freq; /* RTC interrupt frequency */
+static unsigned int hpet_t1_cmp; /* cached comparator register */
 
 int is_hpet_enabled(void)
 {
@@ -1129,10 +1162,12 @@ int hpet_rtc_timer_init(void)
 	cnt = hpet_readl(HPET_COUNTER);
 	cnt += ((hpet_tick*HZ)/hpet_rtc_int_freq);
 	hpet_writel(cnt, HPET_T1_CMP);
+	hpet_t1_cmp = cnt;
 	local_irq_restore(flags);
 
 	cfg = hpet_readl(HPET_T1_CFG);
-	cfg |= HPET_TN_ENABLE | HPET_TN_SETVAL | HPET_TN_32BIT;
+	cfg &= ~HPET_TN_PERIODIC;
+	cfg |= HPET_TN_ENABLE | HPET_TN_32BIT;
 	hpet_writel(cfg, HPET_T1_CFG);
 
 	return 1;
@@ -1142,8 +1177,12 @@ static void hpet_rtc_timer_reinit(void)
 {
 	unsigned int cfg, cnt;
 
-	if (!(PIE_on | AIE_on | UIE_on))
+	if (unlikely(!(PIE_on | AIE_on | UIE_on))) {
+		cfg = hpet_readl(HPET_T1_CFG);
+		cfg &= ~HPET_TN_ENABLE;
+		hpet_writel(cfg, HPET_T1_CFG);
 		return;
+	}
 
 	if (PIE_on && (PIE_freq > DEFAULT_RTC_INT_FREQ))
 		hpet_rtc_int_freq = PIE_freq;
@@ -1151,15 +1190,10 @@ static void hpet_rtc_timer_reinit(void)
 		hpet_rtc_int_freq = DEFAULT_RTC_INT_FREQ;
 
 	/* It is more accurate to use the comparator value than current count.*/
-	cnt = hpet_readl(HPET_T1_CMP);
+	cnt = hpet_t1_cmp;
 	cnt += hpet_tick*HZ/hpet_rtc_int_freq;
 	hpet_writel(cnt, HPET_T1_CMP);
-
-	cfg = hpet_readl(HPET_T1_CFG);
-	cfg |= HPET_TN_ENABLE | HPET_TN_SETVAL | HPET_TN_32BIT;
-	hpet_writel(cfg, HPET_T1_CFG);
-
-	return;
+	hpet_t1_cmp = cnt;
 }
 
 /*
@@ -1285,8 +1319,6 @@ irqreturn_t hpet_rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 }
 #endif
 
-
-
 static int __init nohpet_setup(char *s) 
 { 
 	nohpet = 1;
@@ -1295,13 +1327,10 @@ static int __init nohpet_setup(char *s)
 
 __setup("nohpet", nohpet_setup);
 
-
-static int __init notsc_setup(char *s)
+int __init notsc_setup(char *s)
 {
 	notsc = 1;
 	return 0;
 }
 
 __setup("notsc", notsc_setup);
-
-

@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
+#include <linux/capability.h>
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <asm/system.h>
@@ -65,7 +66,7 @@ static int tiocx_match(struct device *dev, struct device_driver *drv)
 
 }
 
-static int tiocx_hotplug(struct device *dev, char **envp, int num_envp,
+static int tiocx_uevent(struct device *dev, char **envp, int num_envp,
 			 char *buffer, int buffer_size)
 {
 	return -ENODEV;
@@ -75,12 +76,6 @@ static void tiocx_bus_release(struct device *dev)
 {
 	kfree(to_cx_dev(dev));
 }
-
-struct bus_type tiocx_bus_type = {
-	.name = "tiocx",
-	.match = tiocx_match,
-	.hotplug = tiocx_hotplug,
-};
 
 /**
  * cx_device_match - Find cx_device in the id table.
@@ -148,6 +143,14 @@ static int cx_driver_remove(struct device *dev)
 	return 0;
 }
 
+struct bus_type tiocx_bus_type = {
+	.name = "tiocx",
+	.match = tiocx_match,
+	.uevent = tiocx_uevent,
+	.probe = cx_device_probe,
+	.remove = cx_driver_remove,
+};
+
 /**
  * cx_driver_register - Register the driver.
  * @cx_driver: driver table (cx_drv struct) from driver
@@ -161,8 +164,6 @@ int cx_driver_register(struct cx_drv *cx_driver)
 {
 	cx_driver->driver.name = cx_driver->name;
 	cx_driver->driver.bus = &tiocx_bus_type;
-	cx_driver->driver.probe = cx_device_probe;
-	cx_driver->driver.remove = cx_driver_remove;
 
 	return driver_register(&cx_driver->driver);
 }
@@ -183,11 +184,12 @@ int cx_driver_unregister(struct cx_drv *cx_driver)
  * @part_num: device's part number
  * @mfg_num: device's manufacturer number
  * @hubdev: hub info associated with this device
+ * @bt: board type of the device
  *
  */
 int
 cx_device_register(nasid_t nasid, int part_num, int mfg_num,
-		   struct hubdev_info *hubdev)
+		   struct hubdev_info *hubdev, int bt)
 {
 	struct cx_dev *cx_dev;
 
@@ -200,6 +202,7 @@ cx_device_register(nasid_t nasid, int part_num, int mfg_num,
 	cx_dev->cx_id.mfg_num = mfg_num;
 	cx_dev->cx_id.nasid = nasid;
 	cx_dev->hubdev = hubdev;
+	cx_dev->bt = bt;
 
 	cx_dev->dev.parent = NULL;
 	cx_dev->dev.bus = &tiocx_bus_type;
@@ -238,10 +241,11 @@ static int cx_device_reload(struct cx_dev *cx_dev)
 {
 	cx_device_unregister(cx_dev);
 	return cx_device_register(cx_dev->cx_id.nasid, cx_dev->cx_id.part_num,
-				  cx_dev->cx_id.mfg_num, cx_dev->hubdev);
+				  cx_dev->cx_id.mfg_num, cx_dev->hubdev,
+				  cx_dev->bt);
 }
 
-static inline uint64_t tiocx_intr_alloc(nasid_t nasid, int widget,
+static inline u64 tiocx_intr_alloc(nasid_t nasid, int widget,
 					u64 sn_irq_info,
 					int req_irq, nasid_t req_nasid,
 					int req_slice)
@@ -280,11 +284,9 @@ struct sn_irq_info *tiocx_irq_alloc(nasid_t nasid, int widget, int irq,
 	if ((nasid & 1) == 0)
 		return NULL;
 
-	sn_irq_info = kmalloc(sn_irq_size, GFP_KERNEL);
+	sn_irq_info = kzalloc(sn_irq_size, GFP_KERNEL);
 	if (sn_irq_info == NULL)
 		return NULL;
-
-	memset(sn_irq_info, 0x0, sn_irq_size);
 
 	status = tiocx_intr_alloc(nasid, widget, __pa(sn_irq_info), irq,
 				  req_nasid, slice);
@@ -298,7 +300,7 @@ struct sn_irq_info *tiocx_irq_alloc(nasid_t nasid, int widget, int irq,
 
 void tiocx_irq_free(struct sn_irq_info *sn_irq_info)
 {
-	uint64_t bridge = (uint64_t) sn_irq_info->irq_bridge;
+	u64 bridge = (u64) sn_irq_info->irq_bridge;
 	nasid_t nasid = NASID_GET(bridge);
 	int widget;
 
@@ -309,12 +311,12 @@ void tiocx_irq_free(struct sn_irq_info *sn_irq_info)
 	}
 }
 
-uint64_t tiocx_dma_addr(uint64_t addr)
+u64 tiocx_dma_addr(u64 addr)
 {
 	return PHYS_TO_TIODMA(addr);
 }
 
-uint64_t tiocx_swin_base(int nasid)
+u64 tiocx_swin_base(int nasid)
 {
 	return TIO_SWIN_BASE(nasid, TIOCX_CORELET);
 }
@@ -331,8 +333,8 @@ EXPORT_SYMBOL(tiocx_swin_base);
 
 static void tio_conveyor_set(nasid_t nasid, int enable_flag)
 {
-	uint64_t ice_frz;
-	uint64_t disable_cb = (1ull << 61);
+	u64 ice_frz;
+	u64 disable_cb = (1ull << 61);
 
 	if (!(nasid & 1))
 		return;
@@ -365,32 +367,26 @@ static void tio_corelet_reset(nasid_t nasid, int corelet)
 	udelay(2000);
 }
 
-static int tiocx_btchar_get(int nasid)
+static int is_fpga_tio(int nasid, int *bt)
 {
-	moduleid_t module_id;
-	geoid_t geoid;
-	int cnodeid;
+	int ioboard_type;
 
-	cnodeid = nasid_to_cnodeid(nasid);
-	geoid = cnodeid_get_geoid(cnodeid);
-	module_id = geo_module(geoid);
-	return MODULE_GET_BTCHAR(module_id);
-}
+	ioboard_type = ia64_sn_sysctl_ioboard_get(nasid);
 
-static int is_fpga_brick(int nasid)
-{
-	switch (tiocx_btchar_get(nasid)) {
+	switch (ioboard_type) {
 	case L1_BRICKTYPE_SA:
 	case L1_BRICKTYPE_ATHENA:
-	case L1_BRICKTYPE_DAYTONA:
+	case L1_BOARDTYPE_DAYTONA:
+		*bt = ioboard_type;
 		return 1;
 	}
+
 	return 0;
 }
 
 static int bitstream_loaded(nasid_t nasid)
 {
-	uint64_t cx_credits;
+	u64 cx_credits;
 
 	cx_credits = REMOTE_HUB_L(nasid, TIO_ICE_PMI_TX_DYN_CREDIT_STAT_CB3);
 	cx_credits &= TIO_ICE_PMI_TX_DYN_CREDIT_STAT_CB3_CREDIT_CNT_MASK;
@@ -406,17 +402,23 @@ static int tiocx_reload(struct cx_dev *cx_dev)
 	nasid_t nasid = cx_dev->cx_id.nasid;
 
 	if (bitstream_loaded(nasid)) {
-		uint64_t cx_id;
+		u64 cx_id;
+		int rv;
 
-		cx_id =
-		    *(volatile uint64_t *)(TIO_SWIN_BASE(nasid, TIOCX_CORELET) +
+		rv = ia64_sn_sysctl_tio_clock_reset(nasid);
+		if (rv) {
+			printk(KERN_ALERT "CX port JTAG reset failed.\n");
+		} else {
+			cx_id = *(volatile u64 *)
+				(TIO_SWIN_BASE(nasid, TIOCX_CORELET) +
 					  WIDGET_ID);
-		part_num = XWIDGET_PART_NUM(cx_id);
-		mfg_num = XWIDGET_MFG_NUM(cx_id);
-		DBG("part= 0x%x, mfg= 0x%x\n", part_num, mfg_num);
-		/* just ignore it if it's a CE */
-		if (part_num == TIO_CE_ASIC_PARTNUM)
-			return 0;
+			part_num = XWIDGET_PART_NUM(cx_id);
+			mfg_num = XWIDGET_MFG_NUM(cx_id);
+			DBG("part= 0x%x, mfg= 0x%x\n", part_num, mfg_num);
+			/* just ignore it if it's a CE */
+			if (part_num == TIO_CE_ASIC_PARTNUM)
+				return 0;
+		}
 	}
 
 	cx_dev->cx_id.part_num = part_num;
@@ -436,10 +438,10 @@ static ssize_t show_cxdev_control(struct device *dev, struct device_attribute *a
 {
 	struct cx_dev *cx_dev = to_cx_dev(dev);
 
-	return sprintf(buf, "0x%x 0x%x 0x%x %d\n",
+	return sprintf(buf, "0x%x 0x%x 0x%x 0x%x\n",
 		       cx_dev->cx_id.nasid,
 		       cx_dev->cx_id.part_num, cx_dev->cx_id.mfg_num,
-		       tiocx_btchar_get(cx_dev->cx_id.nasid));
+		       cx_dev->bt);
 }
 
 static ssize_t store_cxdev_control(struct device *dev, struct device_attribute *attr, const char *buf,
@@ -482,17 +484,17 @@ static int __init tiocx_init(void)
 	int found_tiocx_device = 0;
 
 	if (!ia64_platform_is("sn2"))
-		return -ENODEV;
+		return 0;
 
 	bus_register(&tiocx_bus_type);
 
-	for (cnodeid = 0; cnodeid < MAX_COMPACT_NODES; cnodeid++) {
+	for (cnodeid = 0; cnodeid < num_cnodes; cnodeid++) {
 		nasid_t nasid;
+		int bt;
 
-		if ((nasid = cnodeid_to_nasid(cnodeid)) < 0)
-			break;	/* No more nasids .. bail out of loop */
+		nasid = cnodeid_to_nasid(cnodeid);
 
-		if ((nasid & 0x1) && is_fpga_brick(nasid)) {
+		if ((nasid & 0x1) && is_fpga_tio(nasid, &bt)) {
 			struct hubdev_info *hubdev;
 			struct xwidget_info *widgetp;
 
@@ -512,7 +514,7 @@ static int __init tiocx_init(void)
 
 			if (cx_device_register
 			    (nasid, widgetp->xwi_hwid.part_num,
-			     widgetp->xwi_hwid.mfg_num, hubdev) < 0)
+			     widgetp->xwi_hwid.mfg_num, hubdev, bt) < 0)
 				return -ENXIO;
 			else
 				found_tiocx_device++;

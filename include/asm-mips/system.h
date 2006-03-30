@@ -17,6 +17,7 @@
 
 #include <asm/addrspace.h>
 #include <asm/cpu-features.h>
+#include <asm/dsp.h>
 #include <asm/ptrace.h>
 #include <asm/war.h>
 #include <asm/interrupt.h>
@@ -70,7 +71,7 @@
  * does not enforce ordering, since there is no data dependency between
  * the read of "a" and the read of "b".  Therefore, on some CPUs, such
  * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
- * in cases like thiswhere there are no data dependencies.
+ * in cases like this where there are no data dependencies.
  */
 
 #define read_barrier_depends()	do { } while(0)
@@ -154,14 +155,24 @@ extern asmlinkage void *resume(void *last, void *next, void *next_ti);
 
 struct task_struct;
 
-#define switch_to(prev,next,last) \
-do { \
-	(last) = resume(prev, next, next->thread_info); \
+#define switch_to(prev,next,last)					\
+do {									\
+	if (cpu_has_dsp)						\
+		__save_dsp(prev);					\
+	(last) = resume(prev, next, task_thread_info(next));		\
+	if (cpu_has_dsp)						\
+		__restore_dsp(current);					\
 } while(0)
 
-#define ROT_IN_PIECES							\
-	"	.set	noreorder	\n"				\
-	"	.set	reorder		\n"
+/*
+ * On SMP systems, when the scheduler does migration-cost autodetection,
+ * it needs a way to flush as much of the CPU's caches as possible.
+ *
+ * TODO: fill this in!
+ */
+static inline void sched_cacheflush(void)
+{
+}
 
 static inline unsigned long __xchg_u32(volatile int * m, unsigned int val)
 {
@@ -171,14 +182,17 @@ static inline unsigned long __xchg_u32(volatile int * m, unsigned int val)
 		unsigned long dummy;
 
 		__asm__ __volatile__(
+		"	.set	mips3					\n"
 		"1:	ll	%0, %3			# xchg_u32	\n"
+		"	.set	mips0					\n"
 		"	move	%2, %z4					\n"
+		"	.set	mips3					\n"
 		"	sc	%2, %1					\n"
 		"	beqzl	%2, 1b					\n"
-		ROT_IN_PIECES
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
+		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
 		: "memory");
@@ -186,13 +200,17 @@ static inline unsigned long __xchg_u32(volatile int * m, unsigned int val)
 		unsigned long dummy;
 
 		__asm__ __volatile__(
+		"	.set	mips3					\n"
 		"1:	ll	%0, %3			# xchg_u32	\n"
+		"	.set	mips0					\n"
 		"	move	%2, %z4					\n"
+		"	.set	mips3					\n"
 		"	sc	%2, %1					\n"
 		"	beqz	%2, 1b					\n"
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
+		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
 		: "memory");
@@ -217,14 +235,15 @@ static inline __u64 __xchg_u64(volatile __u64 * m, __u64 val)
 		unsigned long dummy;
 
 		__asm__ __volatile__(
+		"	.set	mips3					\n"
 		"1:	lld	%0, %3			# xchg_u64	\n"
 		"	move	%2, %z4					\n"
 		"	scd	%2, %1					\n"
 		"	beqzl	%2, 1b					\n"
-		ROT_IN_PIECES
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
+		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
 		: "memory");
@@ -232,6 +251,7 @@ static inline __u64 __xchg_u64(volatile __u64 * m, __u64 val)
 		unsigned long dummy;
 
 		__asm__ __volatile__(
+		"	.set	mips3					\n"
 		"1:	lld	%0, %3			# xchg_u64	\n"
 		"	move	%2, %z4					\n"
 		"	scd	%2, %1					\n"
@@ -239,6 +259,7 @@ static inline __u64 __xchg_u64(volatile __u64 * m, __u64 val)
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
+		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
 		: "memory");
@@ -286,35 +307,42 @@ static inline unsigned long __cmpxchg_u32(volatile int * m, unsigned long old,
 
 	if (cpu_has_llsc && R10000_LLSC_WAR) {
 		__asm__ __volatile__(
+		"	.set	push					\n"
 		"	.set	noat					\n"
+		"	.set	mips3					\n"
 		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
 		"	bne	%0, %z3, 2f				\n"
+		"	.set	mips0					\n"
 		"	move	$1, %z4					\n"
+		"	.set	mips3					\n"
 		"	sc	$1, %1					\n"
 		"	beqzl	$1, 1b					\n"
-		ROT_IN_PIECES
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
 		"2:							\n"
-		"	.set	at					\n"
-		: "=&r" (retval), "=m" (*m)
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
 		: "R" (*m), "Jr" (old), "Jr" (new)
 		: "memory");
 	} else if (cpu_has_llsc) {
 		__asm__ __volatile__(
+		"	.set	push					\n"
 		"	.set	noat					\n"
+		"	.set	mips3					\n"
 		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
 		"	bne	%0, %z3, 2f				\n"
+		"	.set	mips0					\n"
 		"	move	$1, %z4					\n"
+		"	.set	mips3					\n"
 		"	sc	$1, %1					\n"
 		"	beqz	$1, 1b					\n"
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
 		"2:							\n"
-		"	.set	at					\n"
-		: "=&r" (retval), "=m" (*m)
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
 		: "R" (*m), "Jr" (old), "Jr" (new)
 		: "memory");
 	} else {
@@ -338,24 +366,27 @@ static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
 
 	if (cpu_has_llsc) {
 		__asm__ __volatile__(
+		"	.set	push					\n"
 		"	.set	noat					\n"
+		"	.set	mips3					\n"
 		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
 		"	bne	%0, %z3, 2f				\n"
 		"	move	$1, %z4					\n"
 		"	scd	$1, %1					\n"
 		"	beqzl	$1, 1b					\n"
-		ROT_IN_PIECES
 #ifdef CONFIG_SMP
 		"	sync						\n"
 #endif
 		"2:							\n"
-		"	.set	at					\n"
-		: "=&r" (retval), "=m" (*m)
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
 		: "R" (*m), "Jr" (old), "Jr" (new)
 		: "memory");
 	} else if (cpu_has_llsc) {
 		__asm__ __volatile__(
+		"	.set	push					\n"
 		"	.set	noat					\n"
+		"	.set	mips3					\n"
 		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
 		"	bne	%0, %z3, 2f				\n"
 		"	move	$1, %z4					\n"
@@ -365,8 +396,8 @@ static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
 		"	sync						\n"
 #endif
 		"2:							\n"
-		"	.set	at					\n"
-		: "=&r" (retval), "=m" (*m)
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
 		: "R" (*m), "Jr" (old), "Jr" (new)
 		: "memory");
 	} else {
@@ -406,18 +437,20 @@ static inline unsigned long __cmpxchg(volatile void * ptr, unsigned long old,
 
 #define cmpxchg(ptr,old,new) ((__typeof__(*(ptr)))__cmpxchg((ptr), (unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
 
+extern void set_handler (unsigned long offset, void *addr, unsigned long len);
+extern void set_uncached_handler (unsigned long offset, void *addr, unsigned long len);
+extern void *set_vi_handler (int n, void *addr);
+extern void *set_vi_srs_handler (int n, void *addr, int regset);
 extern void *set_except_vector(int n, void *addr);
 extern void per_cpu_trap_init(void);
 
-extern NORET_TYPE void __die(const char *, struct pt_regs *, const char *file,
-	const char *func, unsigned long line);
-extern void __die_if_kernel(const char *, struct pt_regs *, const char *file,
-	const char *func, unsigned long line);
+extern NORET_TYPE void die(const char *, struct pt_regs *);
 
-#define die(msg, regs)							\
-	__die(msg, regs, __FILE__ ":", __FUNCTION__, __LINE__)
-#define die_if_kernel(msg, regs)					\
-	__die_if_kernel(msg, regs, __FILE__ ":", __FUNCTION__, __LINE__)
+static inline void die_if_kernel(const char *str, struct pt_regs *regs)
+{
+	if (unlikely(!user_mode(regs)))
+		die(str, regs);
+}
 
 extern int stop_a_enabled;
 

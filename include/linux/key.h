@@ -40,28 +40,32 @@ struct key;
 #define KEY_POS_WRITE	0x04000000	/* possessor can update key payload / add link to keyring */
 #define KEY_POS_SEARCH	0x08000000	/* possessor can find a key in search / search a keyring */
 #define KEY_POS_LINK	0x10000000	/* possessor can create a link to a key/keyring */
-#define KEY_POS_ALL	0x1f000000
+#define KEY_POS_SETATTR	0x20000000	/* possessor can set key attributes */
+#define KEY_POS_ALL	0x3f000000
 
 #define KEY_USR_VIEW	0x00010000	/* user permissions... */
 #define KEY_USR_READ	0x00020000
 #define KEY_USR_WRITE	0x00040000
 #define KEY_USR_SEARCH	0x00080000
 #define KEY_USR_LINK	0x00100000
-#define KEY_USR_ALL	0x001f0000
+#define KEY_USR_SETATTR	0x00200000
+#define KEY_USR_ALL	0x003f0000
 
 #define KEY_GRP_VIEW	0x00000100	/* group permissions... */
 #define KEY_GRP_READ	0x00000200
 #define KEY_GRP_WRITE	0x00000400
 #define KEY_GRP_SEARCH	0x00000800
 #define KEY_GRP_LINK	0x00001000
-#define KEY_GRP_ALL	0x00001f00
+#define KEY_GRP_SETATTR	0x00002000
+#define KEY_GRP_ALL	0x00003f00
 
 #define KEY_OTH_VIEW	0x00000001	/* third party permissions... */
 #define KEY_OTH_READ	0x00000002
 #define KEY_OTH_WRITE	0x00000004
 #define KEY_OTH_SEARCH	0x00000008
 #define KEY_OTH_LINK	0x00000010
-#define KEY_OTH_ALL	0x0000001f
+#define KEY_OTH_SETATTR	0x00000020
+#define KEY_OTH_ALL	0x0000003f
 
 struct seq_file;
 struct user_struct;
@@ -119,6 +123,7 @@ struct key {
 	struct key_type		*type;		/* type of key */
 	struct rw_semaphore	sem;		/* change vs change sem */
 	struct key_user		*user;		/* owner of this key */
+	void			*security;	/* security data for this key */
 	time_t			expiry;		/* time at which key expires (or 0) */
 	uid_t			uid;
 	gid_t			gid;
@@ -172,6 +177,8 @@ struct key {
 /*
  * kernel managed key type definition
  */
+typedef int (*request_key_actor_t)(struct key *key, struct key *authkey, const char *op);
+
 struct key_type {
 	/* name of the type */
 	const char *name;
@@ -187,14 +194,6 @@ struct key_type {
 	 *   user's quota will hold the payload
 	 */
 	int (*instantiate)(struct key *key, const void *data, size_t datalen);
-
-	/* duplicate a key of this type (optional)
-	 * - the source key will be locked against change
-	 * - the new description will be attached
-	 * - the quota will have been adjusted automatically from
-	 *   source->quotalen
-	 */
-	int (*duplicate)(struct key *key, const struct key *source);
 
 	/* update a key of this type (optional)
 	 * - this method should call key_payload_reserve() to recalculate the
@@ -220,6 +219,16 @@ struct key_type {
 	 * - shouldn't do the copy if the buffer is NULL
 	 */
 	long (*read)(const struct key *key, char __user *buffer, size_t buflen);
+
+	/* handle request_key() for this type instead of invoking
+	 * /sbin/request-key (optional)
+	 * - key is the key to instantiate
+	 * - authkey is the authority to assume when instantiating this key
+	 * - op is the operation to be done, usually "create"
+	 * - the call must not return until the instantiation process has run
+	 *   its course
+	 */
+	request_key_actor_t request_key;
 
 	/* internal fields */
 	struct list_head	link;		/* link in types list */

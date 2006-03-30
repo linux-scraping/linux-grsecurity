@@ -215,7 +215,7 @@ static void __load_zsregs(struct zilog_channel *channel, unsigned char *regs)
 	/* Lower and upper byte of baud rate generator divisor.  */
 	write_zsreg(channel, R12, regs[R12]);
 	write_zsreg(channel, R13, regs[R13]);
-	
+
 	/* Now rewrite R14, with BRENAB (if set).  */
 	write_zsreg(channel, R14, regs[R14]);
 
@@ -259,13 +259,7 @@ static void ip22zilog_receive_chars(struct uart_ip22zilog_port *up,
 	struct tty_struct *tty = up->port.info->tty;	/* XXX info==NULL? */
 
 	while (1) {
-		unsigned char ch, r1;
-
-		if (unlikely(tty->flip.count >= TTY_FLIPBUF_SIZE)) {
-			tty->flip.work.func((void *)tty);
-			if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-				return;		/* XXX Ignores SysRq when we need it most. Fix. */
-		}
+		unsigned char ch, r1, flag;
 
 		r1 = read_zsreg(channel, R1);
 		if (r1 & (PAR_ERR | Rx_OVR | CRC_ERR)) {
@@ -303,8 +297,7 @@ static void ip22zilog_receive_chars(struct uart_ip22zilog_port *up,
 		}
 
 		/* A real serial line, record the character and status.  */
-		*tty->flip.char_buf_ptr = ch;
-		*tty->flip.flag_buf_ptr = TTY_NORMAL;
+		flag = TTY_NORMAL;
 		up->port.icount.rx++;
 		if (r1 & (BRK_ABRT | PAR_ERR | Rx_OVR | CRC_ERR)) {
 			if (r1 & BRK_ABRT) {
@@ -321,28 +314,21 @@ static void ip22zilog_receive_chars(struct uart_ip22zilog_port *up,
 				up->port.icount.overrun++;
 			r1 &= up->port.read_status_mask;
 			if (r1 & BRK_ABRT)
-				*tty->flip.flag_buf_ptr = TTY_BREAK;
+				flag = TTY_BREAK;
 			else if (r1 & PAR_ERR)
-				*tty->flip.flag_buf_ptr = TTY_PARITY;
+				flag = TTY_PARITY;
 			else if (r1 & CRC_ERR)
-				*tty->flip.flag_buf_ptr = TTY_FRAME;
+				flag = TTY_FRAME;
 		}
 		if (uart_handle_sysrq_char(&up->port, ch, regs))
 			goto next_char;
 
 		if (up->port.ignore_status_mask == 0xff ||
-		    (r1 & up->port.ignore_status_mask) == 0) {
-			tty->flip.flag_buf_ptr++;
-			tty->flip.char_buf_ptr++;
-			tty->flip.count++;
-		}
-		if ((r1 & Rx_OVR) &&
-		    tty->flip.count < TTY_FLIPBUF_SIZE) {
-			*tty->flip.flag_buf_ptr = TTY_OVERRUN;
-			tty->flip.flag_buf_ptr++;
-			tty->flip.char_buf_ptr++;
-			tty->flip.count++;
-		}
+		    (r1 & up->port.ignore_status_mask) == 0)
+		    	tty_insert_flip_char(tty, ch, flag);
+
+		if (r1 & Rx_OVR)
+			tty_insert_flip_char(tty, 0, TTY_OVERRUN);
 	next_char:
 		ch = readb(&channel->control);
 		ZSDELAY();
@@ -434,10 +420,8 @@ static void ip22zilog_transmit_chars(struct uart_ip22zilog_port *up,
 	if (up->port.info == NULL)
 		goto ack_tx_int;
 	xmit = &up->port.info->xmit;
-	if (uart_circ_empty(xmit)) {
-		uart_write_wakeup(&up->port);
+	if (uart_circ_empty(xmit))
 		goto ack_tx_int;
-	}
 	if (uart_tx_stopped(&up->port))
 		goto ack_tx_int;
 
@@ -585,7 +569,7 @@ static void ip22zilog_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	else
 		clear_bits |= DTR;
 
-	/* NOTE: Not subject to 'transmitter active' rule.  */ 
+	/* NOTE: Not subject to 'transmitter active' rule.  */
 	up->curregs[R5] |= set_bits;
 	up->curregs[R5] &= ~clear_bits;
 	write_zsreg(channel, R5, up->curregs[R5]);
@@ -668,7 +652,7 @@ static void ip22zilog_enable_ms(struct uart_port *port)
 	if (new_reg != up->curregs[R15]) {
 		up->curregs[R15] = new_reg;
 
-		/* NOTE: Not subject to 'transmitter active' rule.  */ 
+		/* NOTE: Not subject to 'transmitter active' rule.  */
 		write_zsreg(channel, R15, up->curregs[R15]);
 	}
 }
@@ -694,7 +678,7 @@ static void ip22zilog_break_ctl(struct uart_port *port, int break_state)
 	if (new_reg != up->curregs[R5]) {
 		up->curregs[R5] = new_reg;
 
-		/* NOTE: Not subject to 'transmitter active' rule.  */ 
+		/* NOTE: Not subject to 'transmitter active' rule.  */
 		write_zsreg(channel, R5, up->curregs[R5]);
 	}
 

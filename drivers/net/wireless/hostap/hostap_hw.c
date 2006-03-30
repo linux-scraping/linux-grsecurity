@@ -31,7 +31,6 @@
 
 
 #include <linux/config.h>
-#include <linux/version.h>
 
 #include <asm/delay.h>
 #include <asm/uaccess.h>
@@ -254,7 +253,7 @@ static void prism2_clear_cmd_queue(local_info_t *local)
  * @dev: pointer to net_device
  * @entry: Prism2 command queue entry to be issued
  */
-static inline int hfa384x_cmd_issue(struct net_device *dev,
+static int hfa384x_cmd_issue(struct net_device *dev,
 				    struct hostap_cmd_queue *entry)
 {
 	struct hostap_interface *iface;
@@ -744,7 +743,7 @@ static void prism2_cmd_ev(struct net_device *dev)
 }
 
 
-static inline int hfa384x_wait_offset(struct net_device *dev, u16 o_off)
+static int hfa384x_wait_offset(struct net_device *dev, u16 o_off)
 {
 	int tries = HFA384X_BAP_BUSY_TIMEOUT;
 	int res = HFA384X_INW(o_off) & HFA384X_OFFSET_BUSY;
@@ -1905,7 +1904,7 @@ fail:
  * and will try to get the correct fid eventually. */
 #define EXTRA_FID_READ_TESTS
 
-static inline u16 prism2_read_fid_reg(struct net_device *dev, u16 reg)
+static u16 prism2_read_fid_reg(struct net_device *dev, u16 reg)
 {
 #ifdef EXTRA_FID_READ_TESTS
 	u16 val, val2, val3;
@@ -2582,7 +2581,7 @@ static void prism2_ev_tick(struct net_device *dev)
 
 
 /* Called only from hardware IRQ */
-static inline void prism2_check_magic(local_info_t *local)
+static void prism2_check_magic(local_info_t *local)
 {
 	/* at least PCI Prism2.5 with bus mastering seems to sometimes
 	 * return 0x0000 in SWSUPPORT0 for unknown reason, but re-reading the
@@ -3322,6 +3321,18 @@ static void prism2_free_local_data(struct net_device *dev)
 	iface = netdev_priv(dev);
 	local = iface->local;
 
+	/* Unregister all netdevs before freeing local data. */
+	list_for_each_safe(ptr, n, &local->hostap_interfaces) {
+		iface = list_entry(ptr, struct hostap_interface, list);
+		if (iface->type == HOSTAP_INTERFACE_MASTER) {
+			/* special handling for this interface below */
+			continue;
+		}
+		hostap_remove_interface(iface->dev, 0, 1);
+	}
+
+	unregister_netdev(local->dev);
+
 	flush_scheduled_work();
 
 	if (timer_pending(&local->crypt_deinit_timer))
@@ -3382,15 +3393,6 @@ static void prism2_free_local_data(struct net_device *dev)
 	prism2_download_free_data(local->dl_sec);
 #endif /* PRISM2_DOWNLOAD_SUPPORT */
 
-	list_for_each_safe(ptr, n, &local->hostap_interfaces) {
-		iface = list_entry(ptr, struct hostap_interface, list);
-		if (iface->type == HOSTAP_INTERFACE_MASTER) {
-			/* special handling for this interface below */
-			continue;
-		}
-		hostap_remove_interface(iface->dev, 0, 1);
-	}
-
 	prism2_clear_set_tim_queue(local);
 
 	list_for_each_safe(ptr, n, &local->bss_list) {
@@ -3403,7 +3405,6 @@ static void prism2_free_local_data(struct net_device *dev)
 	kfree(local->last_scan_results);
 	kfree(local->generic_elem);
 
-	unregister_netdev(local->dev);
 	free_netdev(local->dev);
 }
 

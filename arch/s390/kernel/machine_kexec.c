@@ -12,15 +12,16 @@
  * on the S390 architecture.
  */
 
-#include <asm/cio.h>
-#include <asm/setup.h>
 #include <linux/device.h>
 #include <linux/mm.h>
 #include <linux/kexec.h>
 #include <linux/delay.h>
+#include <asm/cio.h>
+#include <asm/setup.h>
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
 #include <asm/system.h>
+#include <asm/smp.h>
 
 static void kexec_halt_all_cpus(void *);
 
@@ -85,7 +86,7 @@ kexec_halt_all_cpus(void *kernel_image)
 		pfault_fini();
 #endif
 
-	if (atomic_compare_and_swap(-1, smp_processor_id(), &cpuid))
+	if (atomic_cmpxchg(&cpuid, -1, smp_processor_id()) != -1)
 		signal_processor(smp_processor_id(), sigp_stop);
 
 	/* Wait for all other cpus to enter stopped state */

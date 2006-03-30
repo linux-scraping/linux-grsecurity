@@ -8,7 +8,7 @@
  */
 #include <asm/asm.h>
 #include <asm/mipsregs.h>
-#include <asm/cobalt/cobalt.h>
+#include <asm/mach-cobalt/cobalt.h>
 #include <asm/regdef.h>
 #include <asm/stackframe.h>
 
@@ -18,8 +18,8 @@
 		SAVE_ALL
 		CLI
 
-		la	ra, ret_from_irq
-		move	a1, sp
+		PTR_LA	ra, ret_from_irq
+		move	a0, sp
 		j	cobalt_irq
 
 		END(cobalt_handle_int)

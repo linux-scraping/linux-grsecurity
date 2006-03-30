@@ -31,6 +31,7 @@ typedef struct
 	__u16      cpu;
 } sigp_info;
 
+extern void smp_setup_cpu_possible_map(void);
 extern int smp_call_function_on(void (*func) (void *info), void *info,
 				int nonatomic, int wait, int cpu);
 #define NO_PROC_ID		0xFF		/* No processor magic marker */
@@ -52,7 +53,7 @@ extern int smp_call_function_on(void (*func) (void *info), void *info,
 extern int smp_get_cpu(cpumask_t cpu_map);
 extern void smp_put_cpu(int cpu);
 
-extern __inline__ __u16 hard_smp_processor_id(void)
+static inline __u16 hard_smp_processor_id(void)
 {
         __u16 cpu_address;
  
@@ -101,8 +102,10 @@ smp_call_function_on(void (*func) (void *info), void *info,
 	func(info);
 	return 0;
 }
+#define smp_cpu_not_running(cpu)	1
 #define smp_get_cpu(cpu) ({ 0; })
 #define smp_put_cpu(cpu) ({ 0; })
+#define smp_setup_cpu_possible_map()
 #endif
 
 #endif

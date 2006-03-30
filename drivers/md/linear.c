@@ -121,11 +121,10 @@ static int linear_run (mddev_t *mddev)
 	sector_t curr_offset;
 	struct list_head *tmp;
 
-	conf = kmalloc (sizeof (*conf) + mddev->raid_disks*sizeof(dev_info_t),
+	conf = kzalloc (sizeof (*conf) + mddev->raid_disks*sizeof(dev_info_t),
 			GFP_KERNEL);
 	if (!conf)
 		goto out;
-	memset(conf, 0, sizeof(*conf) + mddev->raid_disks*sizeof(dev_info_t));
 	mddev->private = conf;
 
 	cnt = 0;
@@ -271,6 +270,7 @@ static int linear_stop (mddev_t *mddev)
 
 static int linear_make_request (request_queue_t *q, struct bio *bio)
 {
+	const int rw = bio_data_dir(bio);
 	mddev_t *mddev = q->queuedata;
 	dev_info_t *tmp_dev;
 	sector_t block;
@@ -280,13 +280,8 @@ static int linear_make_request (request_queue_t *q, struct bio *bio)
 		return 0;
 	}
 
-	if (bio_data_dir(bio)==WRITE) {
-		disk_stat_inc(mddev->gendisk, writes);
-		disk_stat_add(mddev->gendisk, write_sectors, bio_sectors(bio));
-	} else {
-		disk_stat_inc(mddev->gendisk, reads);
-		disk_stat_add(mddev->gendisk, read_sectors, bio_sectors(bio));
-	}
+	disk_stat_inc(mddev->gendisk, ios[rw]);
+	disk_stat_add(mddev->gendisk, sectors[rw], bio_sectors(bio));
 
 	tmp_dev = which_dev(mddev, bio->bi_sector);
 	block = bio->bi_sector >> 1;
@@ -356,9 +351,10 @@ static void linear_status (struct seq_file *seq, mddev_t *mddev)
 }
 
 
-static mdk_personality_t linear_personality=
+static struct mdk_personality linear_personality =
 {
 	.name		= "linear",
+	.level		= LEVEL_LINEAR,
 	.owner		= THIS_MODULE,
 	.make_request	= linear_make_request,
 	.run		= linear_run,
@@ -368,16 +364,18 @@ static mdk_personality_t linear_personality=
 
 static int __init linear_init (void)
 {
-	return register_md_personality (LINEAR, &linear_personality);
+	return register_md_personality (&linear_personality);
 }
 
 static void linear_exit (void)
 {
-	unregister_md_personality (LINEAR);
+	unregister_md_personality (&linear_personality);
 }
 
 
 module_init(linear_init);
 module_exit(linear_exit);
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("md-personality-1"); /* LINEAR */
+MODULE_ALIAS("md-personality-1"); /* LINEAR - deprecated*/
+MODULE_ALIAS("md-linear");
+MODULE_ALIAS("md-level--1");

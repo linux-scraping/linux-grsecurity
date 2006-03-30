@@ -6,17 +6,24 @@
 #include <asm-generic/vmlinux.lds.h>
 #include <linux/config.h>
 #include <asm/thread_info.h>
+#include <asm/memory.h>
 	
 OUTPUT_ARCH(arm)
 ENTRY(stext)
+
 #ifndef __ARMEB__
 jiffies = jiffies_64;
 #else
 jiffies = jiffies_64 + 4;
 #endif
+
 SECTIONS
 {
-	. = TEXTADDR;
+#ifdef CONFIG_XIP_KERNEL
+	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
+#else
+	. = PAGE_OFFSET + TEXT_OFFSET;
+#endif
 	.init : {			/* Init code and data		*/
 		_stext = .;
 			_sinittext = .;
@@ -95,7 +102,7 @@ SECTIONS
 
 #ifdef CONFIG_XIP_KERNEL
 	__data_loc = ALIGN(4);		/* location in binary */
-	. = DATAADDR;
+	. = PAGE_OFFSET + TEXT_OFFSET;
 #else
 	. = ALIGN(THREAD_SIZE);
 	__data_loc = .;
@@ -163,6 +170,10 @@ SECTIONS
 	.comment 0 : { *(.comment) }
 }
 
-/* those must never be empty */
+/*
+ * These must never be empty
+ * If you have to comment these two assert statements out, your
+ * binutils is too old (for other reasons as well)
+ */
 ASSERT((__proc_info_end - __proc_info_begin), "missing CPU support")
 ASSERT((__arch_info_end - __arch_info_begin), "no machine record defined")

@@ -329,7 +329,7 @@ static struct mii_chip_info {
 	{ NULL, }
 };
 
-const static struct {
+static const struct {
 	const char *name;
 } sis_chip_info[] = {
 	{ "SiS 190 PCI Fast Ethernet adapter" },
@@ -842,7 +842,7 @@ static void sis190_set_rx_mode(struct net_device *dev)
 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
 		     i++, mclist = mclist->next) {
 			int bit_nr =
-				ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
+				ether_crc(ETH_ALEN, mclist->dmi_addr) & 0x3f;
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 			rx_mode |= AcceptMulticast;
 		}
@@ -1791,6 +1791,8 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
 		goto out;
 	}
 
+	pci_set_drvdata(pdev, dev);
+
 	tp = netdev_priv(dev);
 	ioaddr = tp->mmio_addr;
 
@@ -1826,8 +1828,6 @@ static int __devinit sis190_init_one(struct pci_dev *pdev,
 	rc = register_netdev(dev);
 	if (rc < 0)
 		goto err_remove_mii;
-
-	pci_set_drvdata(pdev, dev);
 
 	net_probe(tp, KERN_INFO "%s: %s at %p (IRQ: %d), "
 	       "%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",

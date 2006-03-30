@@ -19,13 +19,14 @@
 #include <linux/highmem.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/protocol.h>
+#include <linux/amba/bus.h>
+#include <linux/clk.h>
 
+#include <asm/cacheflush.h>
 #include <asm/div64.h>
 #include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/scatterlist.h>
-#include <asm/hardware/amba.h>
-#include <asm/hardware/clock.h>
+#include <asm/sizes.h>
 #include <asm/mach/mmc.h>
 
 #include "mmci.h"
@@ -96,6 +97,13 @@ static void mmci_start_data(struct mmci_host *host, struct mmc_data *data)
 	if (data->flags & MMC_DATA_READ) {
 		datactrl |= MCI_DPSM_DIRECTION;
 		irqmask = MCI_RXFIFOHALFFULLMASK;
+
+		/*
+		 * If we have less than a FIFOSIZE of bytes to transfer,
+		 * trigger a PIO interrupt as soon as any data is available.
+		 */
+		if (host->size < MCI_FIFOSIZE)
+			irqmask |= MCI_RXDATAAVLBLMASK;
 	} else {
 		/*
 		 * We don't actually need to include "FIFO empty" here
@@ -123,15 +131,10 @@ mmci_start_command(struct mmci_host *host, struct mmc_command *cmd, u32 c)
 	}
 
 	c |= cmd->opcode | MCI_CPSM_ENABLE;
-	switch (cmd->flags & MMC_RSP_MASK) {
-	case MMC_RSP_NONE:
-	default:
-		break;
-	case MMC_RSP_LONG:
-		c |= MCI_CPSM_LONGRSP;
-	case MMC_RSP_SHORT:
+	if (cmd->flags & MMC_RSP_PRESENT) {
+		if (cmd->flags & MMC_RSP_136)
+			c |= MCI_CPSM_LONGRSP;
 		c |= MCI_CPSM_RESPONSE;
-		break;
 	}
 	if (/*interrupt*/0)
 		c |= MCI_CPSM_INTERRUPT;
@@ -157,6 +160,13 @@ mmci_data_irq(struct mmci_host *host, struct mmc_data *data,
 		else if (status & (MCI_TXUNDERRUN|MCI_RXOVERRUN))
 			data->error = MMC_ERR_FIFO;
 		status |= MCI_DATAEND;
+
+		/*
+		 * We hit an error condition.  Ensure that any data
+		 * partially written to a page is properly coherent.
+		 */
+		if (host->sg_len && data->flags & MMC_DATA_READ)
+			flush_dcache_page(host->sg_ptr->page);
 	}
 	if (status & MCI_DATAEND) {
 		mmci_stop_data(host);
@@ -292,7 +302,7 @@ static irqreturn_t mmci_pio_irq(int irq, void *dev_id, struct pt_regs *regs)
 		/*
 		 * Unmap the buffer.
 		 */
-		mmci_kunmap_atomic(host, &flags);
+		mmci_kunmap_atomic(host, buffer, &flags);
 
 		host->sg_off += len;
 		host->size -= len;
@@ -300,6 +310,13 @@ static irqreturn_t mmci_pio_irq(int irq, void *dev_id, struct pt_regs *regs)
 
 		if (remain)
 			break;
+
+		/*
+		 * If we were reading, and we have completed this
+		 * page, ensure that the data cache is coherent.
+		 */
+		if (status & MCI_RXACTIVE)
+			flush_dcache_page(host->sg_ptr->page);
 
 		if (!mmci_next_sg(host))
 			break;
@@ -479,13 +496,9 @@ static int mmci_probe(struct amba_device *dev, void *id)
 		goto host_free;
 	}
 
-	ret = clk_use(host->clk);
-	if (ret)
-		goto clk_free;
-
 	ret = clk_enable(host->clk);
 	if (ret)
-		goto clk_unuse;
+		goto clk_free;
 
 	host->plat = plat;
 	host->mclk = clk_get_rate(host->clk);
@@ -558,8 +571,6 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	iounmap(host->base);
  clk_disable:
 	clk_disable(host->clk);
- clk_unuse:
-	clk_unuse(host->clk);
  clk_free:
 	clk_put(host->clk);
  host_free:
@@ -594,7 +605,6 @@ static int mmci_remove(struct amba_device *dev)
 
 		iounmap(host->base);
 		clk_disable(host->clk);
-		clk_unuse(host->clk);
 		clk_put(host->clk);
 
 		mmc_free_host(mmc);

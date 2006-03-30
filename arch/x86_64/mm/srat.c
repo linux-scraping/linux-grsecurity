@@ -17,21 +17,27 @@
 #include <linux/topology.h>
 #include <asm/proto.h>
 #include <asm/numa.h>
+#include <asm/e820.h>
 
 static struct acpi_table_slit *acpi_slit;
 
 static nodemask_t nodes_parsed __initdata;
 static nodemask_t nodes_found __initdata;
 static struct node nodes[MAX_NUMNODES] __initdata;
-static __u8  pxm2node[256] = { [0 ... 255] = 0xff };
+static u8 pxm2node[256] = { [0 ... 255] = 0xff };
+
+/* Too small nodes confuse the VM badly. Usually they result
+   from BIOS bugs. */
+#define NODE_MIN_SIZE (4*1024*1024)
 
 static int node_to_pxm(int n);
 
 int pxm_to_node(int pxm)
 {
 	if ((unsigned)pxm >= 256)
-		return 0;
-	return pxm2node[pxm];
+		return -1;
+	/* Extend 0xff to (int)-1 */
+	return (signed char)pxm2node[pxm];
 }
 
 static __init int setup_node(int pxm)
@@ -71,8 +77,6 @@ static __init void cutoff_node(int i, unsigned long start, unsigned long end)
 			nd->start = nd->end;
 	}
 	if (nd->end > end) {
-		if (!(end & 0xfff))
-			end--;
 		nd->end = end;
 		if (nd->start > nd->end)
 			nd->start = nd->end;
@@ -93,9 +97,36 @@ static __init inline int srat_disabled(void)
 	return numa_off || acpi_numa < 0;
 }
 
+/*
+ * A lot of BIOS fill in 10 (= no distance) everywhere. This messes
+ * up the NUMA heuristics which wants the local node to have a smaller
+ * distance than the others.
+ * Do some quick checks here and only use the SLIT if it passes.
+ */
+static __init int slit_valid(struct acpi_table_slit *slit)
+{
+	int i, j;
+	int d = slit->localities;
+	for (i = 0; i < d; i++) {
+		for (j = 0; j < d; j++)  {
+			u8 val = slit->entry[d*i + j];
+			if (i == j) {
+				if (val != 10)
+					return 0;
+			} else if (val <= 10)
+				return 0;
+		}
+	}
+	return 1;
+}
+
 /* Callback for SLIT parsing */
 void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
 {
+	if (!slit_valid(slit)) {
+		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
+		return;
+	}
 	acpi_slit = slit;
 }
 
@@ -104,7 +135,12 @@ void __init
 acpi_numa_processor_affinity_init(struct acpi_table_processor_affinity *pa)
 {
 	int pxm, node;
-	if (srat_disabled() || pa->flags.enabled == 0)
+	if (srat_disabled())
+		return;
+	if (pa->header.length != sizeof(struct acpi_table_processor_affinity)) {		bad_srat();
+		return;
+	}
+	if (pa->flags.enabled == 0)
 		return;
 	pxm = pa->proximity_domain;
 	node = setup_node(pxm);
@@ -128,8 +164,16 @@ acpi_numa_memory_affinity_init(struct acpi_table_memory_affinity *ma)
 	int node, pxm;
 	int i;
 
-	if (srat_disabled() || ma->flags.enabled == 0)
+	if (srat_disabled())
 		return;
+	if (ma->header.length != sizeof(struct acpi_table_memory_affinity)) {
+		bad_srat();
+		return;
+	}
+	if (ma->flags.enabled == 0)
+		return;
+	start = ma->base_addr_lo | ((u64)ma->base_addr_hi << 32);
+	end = start + (ma->length_lo | ((u64)ma->length_hi << 32));
 	pxm = ma->proximity_domain;
 	node = setup_node(pxm);
 	if (node < 0) {
@@ -137,8 +181,6 @@ acpi_numa_memory_affinity_init(struct acpi_table_memory_affinity *ma)
 		bad_srat();
 		return;
 	}
-	start = ma->base_addr_lo | ((u64)ma->base_addr_hi << 32);
-	end = start + (ma->length_lo | ((u64)ma->length_hi << 32));
 	/* It is fine to add this area to the nodes data it will be used later*/
 	if (ma->flags.hot_pluggable == 1)
 		printk(KERN_INFO "SRAT: hot plug zone found %lx - %lx \n",
@@ -166,10 +208,45 @@ acpi_numa_memory_affinity_init(struct acpi_table_memory_affinity *ma)
 		if (nd->end < end)
 			nd->end = end;
 	}
-	if (!(nd->end & 0xfff))
-		nd->end--;
 	printk(KERN_INFO "SRAT: Node %u PXM %u %Lx-%Lx\n", node, pxm,
 	       nd->start, nd->end);
+}
+
+/* Sanity check to catch more bad SRATs (they are amazingly common).
+   Make sure the PXMs cover all memory. */
+static int nodes_cover_memory(void)
+{
+	int i;
+	unsigned long pxmram, e820ram;
+
+	pxmram = 0;
+	for_each_node_mask(i, nodes_parsed) {
+		unsigned long s = nodes[i].start >> PAGE_SHIFT;
+		unsigned long e = nodes[i].end >> PAGE_SHIFT;
+		pxmram += e - s;
+		pxmram -= e820_hole_size(s, e);
+	}
+
+	e820ram = end_pfn - e820_hole_size(0, end_pfn);
+	/* We seem to lose 3 pages somewhere. Allow a bit of slack. */
+	if ((long)(e820ram - pxmram) >= 1*1024*1024) {
+		printk(KERN_ERR
+	"SRAT: PXMs only cover %luMB of your %luMB e820 RAM. Not used.\n",
+			(pxmram << PAGE_SHIFT) >> 20,
+			(e820ram << PAGE_SHIFT) >> 20);
+		return 0;
+	}
+	return 1;
+}
+
+static void unparse_node(int node)
+{
+	int i;
+	node_clear(node, nodes_parsed);
+	for (i = 0; i < MAX_LOCAL_APIC; i++) {
+		if (apicid_to_node[i] == node)
+			apicid_to_node[i] = NUMA_NO_NODE;
+	}
 }
 
 void __init acpi_numa_arch_fixup(void) {}
@@ -178,17 +255,23 @@ void __init acpi_numa_arch_fixup(void) {}
 int __init acpi_scan_nodes(unsigned long start, unsigned long end)
 {
 	int i;
+
+	/* First clean up the node list */
+	for (i = 0; i < MAX_NUMNODES; i++) {
+		cutoff_node(i, start, end);
+		if ((nodes[i].end - nodes[i].start) < NODE_MIN_SIZE)
+			unparse_node(i);
+	}
+
 	if (acpi_numa <= 0)
 		return -1;
 
-	/* First clean up the node list */
-	for_each_node_mask(i, nodes_parsed) {
-		cutoff_node(i, start, end);
-		if (nodes[i].start == nodes[i].end)
-			node_clear(i, nodes_parsed);
+	if (!nodes_cover_memory()) {
+		bad_srat();
+		return -1;
 	}
 
-	memnode_shift = compute_hash_shift(nodes, nodes_weight(nodes_parsed));
+	memnode_shift = compute_hash_shift(nodes, MAX_NUMNODES);
 	if (memnode_shift < 0) {
 		printk(KERN_ERR
 		     "SRAT: No NUMA node hash function found. Contact maintainer\n");
@@ -203,7 +286,7 @@ int __init acpi_scan_nodes(unsigned long start, unsigned long end)
 		if (cpu_to_node[i] == NUMA_NO_NODE)
 			continue;
 		if (!node_isset(cpu_to_node[i], nodes_parsed))
-			cpu_to_node[i] = NUMA_NO_NODE; 
+			numa_set_node(i, NUMA_NO_NODE);
 	}
 	numa_init_array();
 	return 0;

@@ -78,12 +78,6 @@ static void find_start_end(struct mm_struct *mm, unsigned long flags,
 		   of playground for now. -AK */ 
 		*begin = 0x40000000; 
 		*end = 0x80000000;		
-
-#ifdef CONFIG_PAX_RANDMMAP
-		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			*begin += mm->delta_mmap & 0x0FFFFFFFU;
-#endif
-
 	} else {
 		*begin = mm->mmap_base;
 		*end = TASK_SIZE; 
@@ -163,18 +157,4 @@ asmlinkage long sys_uname(struct new_utsname __user * name)
 	if (personality(current->personality) == PER_LINUX32) 
 		err |= copy_to_user(&name->machine, "i686", 5); 		
 	return err ? -EFAULT : 0;
-}
-
-asmlinkage long sys_time64(long __user * tloc)
-{
-	struct timeval now; 
-	int i; 
-
-	do_gettimeofday(&now);
-	i = now.tv_sec;
-	if (tloc) {
-		if (put_user(i,tloc))
-			i = -EFAULT;
-	}
-	return i;
 }

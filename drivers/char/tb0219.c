@@ -1,7 +1,7 @@
 /*
  *  Driver for TANBAC TB0219 base board.
  *
- *  Copyright (C) 2005  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copyright (C) 2005  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -27,7 +27,7 @@
 #include <asm/vr41xx/giu.h>
 #include <asm/vr41xx/tb0219.h>
 
-MODULE_AUTHOR("Yoichi Yuasa <yuasa@hh.iij4u.or.jp>");
+MODULE_AUTHOR("Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>");
 MODULE_DESCRIPTION("TANBAC TB0219 base board driver");
 MODULE_LICENSE("GPL");
 
@@ -283,7 +283,7 @@ static void tb0219_pci_irq_init(void)
 	vr41xx_set_irq_level(TB0219_PCI_SLOT3_PIN, IRQ_LEVEL_LOW);
 }
 
-static int tb0219_probe(struct device *dev)
+static int tb0219_probe(struct platform_device *dev)
 {
 	int retval;
 
@@ -319,7 +319,7 @@ static int tb0219_probe(struct device *dev)
 	return 0;
 }
 
-static int tb0219_remove(struct device *dev)
+static int tb0219_remove(struct platform_device *dev)
 {
 	_machine_restart = old_machine_restart;
 
@@ -333,11 +333,12 @@ static int tb0219_remove(struct device *dev)
 
 static struct platform_device *tb0219_platform_device;
 
-static struct device_driver tb0219_device_driver = {
-	.name		= "TB0219",
-	.bus		= &platform_bus_type,
+static struct platform_driver tb0219_device_driver = {
 	.probe		= tb0219_probe,
 	.remove		= tb0219_remove,
+	.driver		= {
+		.name	= "TB0219",
+	},
 };
 
 static int __devinit tanbac_tb0219_init(void)
@@ -348,7 +349,7 @@ static int __devinit tanbac_tb0219_init(void)
 	if (IS_ERR(tb0219_platform_device))
 		return PTR_ERR(tb0219_platform_device);
 
-	retval = driver_register(&tb0219_device_driver);
+	retval = platform_driver_register(&tb0219_device_driver);
 	if (retval < 0)
 		platform_device_unregister(tb0219_platform_device);
 
@@ -357,7 +358,7 @@ static int __devinit tanbac_tb0219_init(void)
 
 static void __devexit tanbac_tb0219_exit(void)
 {
-	driver_unregister(&tb0219_device_driver);
+	platform_driver_unregister(&tb0219_device_driver);
 
 	platform_device_unregister(tb0219_platform_device);
 }

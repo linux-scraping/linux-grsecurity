@@ -235,8 +235,7 @@ static int irport_close(struct irport_cb *self)
 		   __FUNCTION__, self->io.sir_base);
 	release_region(self->io.sir_base, self->io.sir_ext);
 
-	if (self->tx_buff.head)
-		kfree(self->tx_buff.head);
+	kfree(self->tx_buff.head);
 	
 	if (self->rx_buff.skb)
 		kfree_skb(self->rx_buff.skb);
@@ -283,19 +282,6 @@ static void irport_start(struct irport_cb *self)
 	
 	/* Turn on interrups */
 	outb(UART_IER_RLSI | UART_IER_RDI |UART_IER_THRI, iobase+UART_IER);
-}
-
-/*
- * Function irport_probe (void)
- *
- *    Start IO port 
- *
- */
-int irport_probe(int iobase)
-{
-	IRDA_DEBUG(4, "%s(), iobase=%#x\n", __FUNCTION__, iobase);
-
-	return 0;
 }
 
 /*
@@ -383,7 +369,7 @@ static void irport_change_speed(void *priv, __u32 speed)
  *    we cannot use schedule_timeout() when we are in interrupt context
  *
  */
-int __irport_change_speed(struct irda_task *task)
+static int __irport_change_speed(struct irda_task *task)
 {
 	struct irport_cb *self;
 	__u32 speed = (__u32) task->param;

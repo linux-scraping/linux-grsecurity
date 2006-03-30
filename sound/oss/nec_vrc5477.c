@@ -435,7 +435,7 @@ static int ac97_codec_not_present(struct ac97_codec *codec)
 
 /* --------------------------------------------------------------------- */
 
-extern inline void
+static inline void
 stop_dac(struct vrc5477_ac97_state *s)
 {
 	struct dmabuf* db = &s->dma_dac;
@@ -553,7 +553,7 @@ static void start_dac(struct vrc5477_ac97_state *s)
 	spin_unlock_irqrestore(&s->lock, flags);
 }	
 
-extern inline void stop_adc(struct vrc5477_ac97_state *s)
+static inline void stop_adc(struct vrc5477_ac97_state *s)
 {
 	struct dmabuf* db = &s->dma_adc;
 	unsigned long flags;
@@ -652,7 +652,7 @@ static void start_adc(struct vrc5477_ac97_state *s)
 #define DMABUF_DEFAULTORDER (16-PAGE_SHIFT)
 #define DMABUF_MINORDER 1
 
-extern inline void dealloc_dmabuf(struct vrc5477_ac97_state *s,
+static inline void dealloc_dmabuf(struct vrc5477_ac97_state *s,
 				  struct dmabuf *db)
 {
 	if (db->lbuf) {
@@ -2045,7 +2045,7 @@ static struct pci_driver vrc5477_ac97_driver = {
 static int __init init_vrc5477_ac97(void)
 {
 	printk("Vrc5477 AC97 driver: version v0.2 time " __TIME__ " " __DATE__ " by Jun Sun\n");
-	return pci_module_init(&vrc5477_ac97_driver);
+	return pci_register_driver(&vrc5477_ac97_driver);
 }
 
 static void __exit cleanup_vrc5477_ac97(void)

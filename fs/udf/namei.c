@@ -4,11 +4,6 @@
  * PURPOSE
  *      Inode name handling routines for the OSTA-UDF(tm) filesystem.
  *
- * CONTACTS
- *      E-mail regarding any portion of the Linux UDF file system should be
- *      directed to the development team mailing list (run by majordomo):
- *              linux_udf@hpesjro.fc.hp.com
- *
  * COPYRIGHT
  *      This file is distributed under the terms of the GNU General Public
  *      License (GPL). Copies of the GPL can be obtained from:
@@ -301,7 +296,7 @@ static struct dentry *
 udf_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode *inode = NULL;
-	struct fileIdentDesc cfi, *fi;
+	struct fileIdentDesc cfi;
 	struct udf_fileident_bh fibh;
 
 	if (dentry->d_name.len > UDF_NAME_LEN-2)
@@ -323,7 +318,7 @@ udf_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 	else
 #endif /* UDF_RECOVERY */
 
-	if ((fi = udf_find_entry(dir, dentry, &fibh, &cfi)))
+	if (udf_find_entry(dir, dentry, &fibh, &cfi))
 	{
 		if (fibh.sbh != fibh.ebh)
 			udf_release_data(fibh.ebh);

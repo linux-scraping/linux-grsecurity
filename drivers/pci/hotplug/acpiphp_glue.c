@@ -58,6 +58,9 @@ static LIST_HEAD(bridge_list);
 
 static void handle_hotplug_event_bridge (acpi_handle, u32, void *);
 static void handle_hotplug_event_func (acpi_handle, u32, void *);
+static void acpiphp_sanitize_bus(struct pci_bus *bus);
+static void acpiphp_set_hpp_values(acpi_handle handle, struct pci_bus *bus);
+
 
 /*
  * initialization & terminatation routines
@@ -791,13 +794,20 @@ static int enable_device(struct acpiphp_slot *slot)
 			if (PCI_SLOT(dev->devfn) != slot->device)
 				continue;
 			if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE ||
-			    dev->hdr_type == PCI_HEADER_TYPE_CARDBUS)
+			    dev->hdr_type == PCI_HEADER_TYPE_CARDBUS) {
 				max = pci_scan_bridge(bus, dev, max, pass);
+				if (pass && dev->subordinate)
+					pci_bus_size_bridges(dev->subordinate);
+			}
 		}
 	}
 
 	pci_bus_assign_resources(bus);
+	acpiphp_sanitize_bus(bus);
+	pci_enable_bridges(bus);
 	pci_bus_add_devices(bus);
+	acpiphp_set_hpp_values(DEVICE_ACPI_HANDLE(&bus->self->dev), bus);
+	acpiphp_configure_ioapics(DEVICE_ACPI_HANDLE(&bus->self->dev));
 
 	/* associate pci_dev to our representation */
 	list_for_each (l, &slot->funcs) {

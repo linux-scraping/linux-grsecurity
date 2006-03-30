@@ -20,6 +20,10 @@
 #define UDF_FLAG_VARCONV		8
 #define UDF_FLAG_NLS_MAP		9
 #define UDF_FLAG_UTF8			10
+#define UDF_FLAG_UID_FORGET     11    /* save -1 for uid to disk */
+#define UDF_FLAG_UID_IGNORE     12    /* use sb uid instead of on disk uid */
+#define UDF_FLAG_GID_FORGET     13
+#define UDF_FLAG_GID_IGNORE     14
 
 #define UDF_PART_FLAG_UNALLOC_BITMAP	0x0001
 #define UDF_PART_FLAG_UNALLOC_TABLE	0x0002
@@ -39,8 +43,7 @@ static inline struct udf_sb_info *UDF_SB(struct super_block *sb)
 {\
 	if (UDF_SB(X))\
 	{\
-		if (UDF_SB_PARTMAPS(X))\
-			kfree(UDF_SB_PARTMAPS(X));\
+		kfree(UDF_SB_PARTMAPS(X));\
 		UDF_SB_PARTMAPS(X) = NULL;\
 	}\
 }

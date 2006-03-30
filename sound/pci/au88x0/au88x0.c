@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
+#include <linux/dma-mapping.h>
 #include <sound/initval.h>
 
 // module parameters (see "Module Parameters")
@@ -118,7 +119,7 @@ static void __devinit snd_vortex_workaround(struct pci_dev *vortex, int fix)
 
 // component-destructor
 // (see "Management of Cards and Components")
-static int snd_vortex_dev_free(snd_device_t * device)
+static int snd_vortex_dev_free(struct snd_device *device)
 {
 	vortex_t *vortex = device->device_data;
 
@@ -137,11 +138,11 @@ static int snd_vortex_dev_free(snd_device_t * device)
 // chip-specific constructor
 // (see "Management of Cards and Components")
 static int __devinit
-snd_vortex_create(snd_card_t * card, struct pci_dev *pci, vortex_t ** rchip)
+snd_vortex_create(struct snd_card *card, struct pci_dev *pci, vortex_t ** rchip)
 {
 	vortex_t *chip;
 	int err;
-	static snd_device_ops_t ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_vortex_dev_free,
 	};
 
@@ -150,11 +151,10 @@ snd_vortex_create(snd_card_t * card, struct pci_dev *pci, vortex_t ** rchip)
 	// check PCI availability (DMA).
 	if ((err = pci_enable_device(pci)) < 0)
 		return err;
-	if (!pci_dma_supported(pci, VORTEX_DMA_MASK)) {
+	if (pci_set_dma_mask(pci, DMA_32BIT_MASK)) {
 		printk(KERN_ERR "error to set DMA mask\n");
 		return -ENXIO;
 	}
-	pci_set_dma_mask(pci, VORTEX_DMA_MASK);
 
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (chip == NULL)
@@ -233,7 +233,7 @@ static int __devinit
 snd_vortex_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 {
 	static int dev;
-	snd_card_t *card;
+	struct snd_card *card;
 	vortex_t *chip;
 	int err;
 
@@ -303,7 +303,7 @@ snd_vortex_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 	if (snd_seq_device_new(card, 1, SNDRV_SEQ_DEV_ID_VORTEX_SYNTH,
 			       sizeof(snd_vortex_synth_arg_t), &wave) < 0
 	    || wave == NULL) {
-		snd_printk("Can't initialize Aureal wavetable synth\n");
+		snd_printk(KERN_ERR "Can't initialize Aureal wavetable synth\n");
 	} else {
 		snd_vortex_synth_arg_t *arg;
 
@@ -373,7 +373,6 @@ static void __devexit snd_vortex_remove(struct pci_dev *pci)
 // pci_driver definition
 static struct pci_driver driver = {
 	.name = CARD_NAME_SHORT,
-	.owner = THIS_MODULE,
 	.id_table = snd_vortex_ids,
 	.probe = snd_vortex_probe,
 	.remove = __devexit_p(snd_vortex_remove),

@@ -51,8 +51,11 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/pci.h>
+#include <linux/pm.h>
 #include <linux/timex.h>
 #include <linux/vmalloc.h>
+#include <linux/mv643xx.h>
+
 #include <asm/time.h>
 #include <asm/bootinfo.h>
 #include <asm/page.h>
@@ -62,9 +65,9 @@
 #include <asm/processor.h>
 #include <asm/ptrace.h>
 #include <asm/reboot.h>
+#include <asm/marvell.h>
 #include <linux/bootmem.h>
 #include <linux/blkdev.h>
-#include <asm/mv64340.h>
 #include "ocelot_c_fpga.h"
 
 unsigned long marvell_base;
@@ -140,7 +143,9 @@ unsigned long m48t37y_get_time(void)
 	unsigned char* rtc_base = (unsigned char*)0xfc800000;
 #endif
 	unsigned int year, month, day, hour, min, sec;
+	unsigned long flags;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* stop the update */
 	rtc_base[0x7ff8] = 0x40;
 
@@ -157,6 +162,7 @@ unsigned long m48t37y_get_time(void)
 
 	/* start the update */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return mktime(year, month, day, hour, min, sec);
 }
@@ -169,11 +175,13 @@ int m48t37y_set_time(unsigned long sec)
 	unsigned char* rtc_base = (unsigned char*)0xfc800000;
 #endif
 	struct rtc_time tm;
+	unsigned long flags;
 
 	/* convert to a more useful format -- note months count from 0 */
 	to_tm(sec, &tm);
 	tm.tm_mon += 1;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* enable writing */
 	rtc_base[0x7ff8] = 0x80;
 
@@ -197,6 +205,7 @@ int m48t37y_set_time(unsigned long sec)
 
 	/* disable writing */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return 0;
 }
@@ -222,7 +231,7 @@ void momenco_time_init(void)
 	rtc_set_time = m48t37y_set_time;
 }
 
-static void __init momenco_ocelot_c_setup(void)
+void __init plat_setup(void)
 {
 	unsigned int tmpword;
 
@@ -230,7 +239,7 @@ static void __init momenco_ocelot_c_setup(void)
 
 	_machine_restart = momenco_ocelot_restart;
 	_machine_halt = momenco_ocelot_halt;
-	_machine_power_off = momenco_ocelot_power_off;
+	pm_power_off = momenco_ocelot_power_off;
 
 	/*
 	 * initrd_start = (ulong)ocelot_initrd_start;
@@ -244,22 +253,22 @@ static void __init momenco_ocelot_c_setup(void)
 	/* shut down ethernet ports, just to be sure our memory doesn't get
 	 * corrupted by random ethernet traffic.
 	 */
-	MV_WRITE(MV64340_ETH_TRANSMIT_QUEUE_COMMAND_REG(0), 0xff << 8);
-	MV_WRITE(MV64340_ETH_TRANSMIT_QUEUE_COMMAND_REG(1), 0xff << 8);
-	MV_WRITE(MV64340_ETH_RECEIVE_QUEUE_COMMAND_REG(0), 0xff << 8);
-	MV_WRITE(MV64340_ETH_RECEIVE_QUEUE_COMMAND_REG(1), 0xff << 8);
+	MV_WRITE(MV643XX_ETH_TRANSMIT_QUEUE_COMMAND_REG(0), 0xff << 8);
+	MV_WRITE(MV643XX_ETH_TRANSMIT_QUEUE_COMMAND_REG(1), 0xff << 8);
+	MV_WRITE(MV643XX_ETH_RECEIVE_QUEUE_COMMAND_REG(0), 0xff << 8);
+	MV_WRITE(MV643XX_ETH_RECEIVE_QUEUE_COMMAND_REG(1), 0xff << 8);
 	do {}
-	  while (MV_READ(MV64340_ETH_RECEIVE_QUEUE_COMMAND_REG(0)) & 0xff);
+	  while (MV_READ(MV643XX_ETH_RECEIVE_QUEUE_COMMAND_REG(0)) & 0xff);
 	do {}
-	  while (MV_READ(MV64340_ETH_RECEIVE_QUEUE_COMMAND_REG(1)) & 0xff);
+	  while (MV_READ(MV643XX_ETH_RECEIVE_QUEUE_COMMAND_REG(1)) & 0xff);
 	do {}
-	  while (MV_READ(MV64340_ETH_TRANSMIT_QUEUE_COMMAND_REG(0)) & 0xff);
+	  while (MV_READ(MV643XX_ETH_TRANSMIT_QUEUE_COMMAND_REG(0)) & 0xff);
 	do {}
-	  while (MV_READ(MV64340_ETH_TRANSMIT_QUEUE_COMMAND_REG(1)) & 0xff);
-	MV_WRITE(MV64340_ETH_PORT_SERIAL_CONTROL_REG(0),
-	         MV_READ(MV64340_ETH_PORT_SERIAL_CONTROL_REG(0)) & ~1);
-	MV_WRITE(MV64340_ETH_PORT_SERIAL_CONTROL_REG(1),
-	         MV_READ(MV64340_ETH_PORT_SERIAL_CONTROL_REG(1)) & ~1);
+	  while (MV_READ(MV643XX_ETH_TRANSMIT_QUEUE_COMMAND_REG(1)) & 0xff);
+	MV_WRITE(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(0),
+	         MV_READ(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(0)) & ~1);
+	MV_WRITE(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(1),
+	         MV_READ(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(1)) & ~1);
 
 	/* Turn off the Bit-Error LED */
 	OCELOT_FPGA_WRITE(0x80, CLR);
@@ -339,8 +348,6 @@ static void __init momenco_ocelot_c_setup(void)
 		break;
 	}
 }
-
-early_initcall(momenco_ocelot_c_setup);
 
 #ifndef CONFIG_64BIT
 /* This needs to be one of the first initcalls, because no I/O port access

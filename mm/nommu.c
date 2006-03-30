@@ -44,10 +44,6 @@ int sysctl_max_map_count = DEFAULT_MAX_MAP_COUNT;
 int heap_stack_gap = 0;
 
 EXPORT_SYMBOL(mem_map);
-EXPORT_SYMBOL(sysctl_max_map_count);
-EXPORT_SYMBOL(sysctl_overcommit_memory);
-EXPORT_SYMBOL(sysctl_overcommit_ratio);
-EXPORT_SYMBOL(vm_committed_space);
 EXPORT_SYMBOL(__vm_enough_memory);
 
 /* list of shareable VMAs */
@@ -57,10 +53,11 @@ DECLARE_RWSEM(nommu_vma_sem);
 struct vm_operations_struct generic_file_vm_ops = {
 };
 
-EXPORT_SYMBOL(vmalloc);
 EXPORT_SYMBOL(vfree);
 EXPORT_SYMBOL(vmalloc_to_page);
 EXPORT_SYMBOL(vmalloc_32);
+EXPORT_SYMBOL(vmap);
+EXPORT_SYMBOL(vunmap);
 
 /*
  * Handle all mappings that got truncated by a "truncate()"
@@ -207,6 +204,13 @@ void *vmalloc(unsigned long size)
 {
        return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL);
 }
+EXPORT_SYMBOL(vmalloc);
+
+void *vmalloc_node(unsigned long size, int node)
+{
+	return vmalloc(size);
+}
+EXPORT_SYMBOL(vmalloc_node);
 
 /*
  *	vmalloc_32  -  allocate virtually continguos memory (32bit addressable)
@@ -931,6 +935,8 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 	realalloc -= kobjsize(vml);
 	askedalloc -= sizeof(*vml);
 	kfree(vml);
+
+	update_hiwater_vm(mm);
 	mm->total_vm -= len >> PAGE_SHIFT;
 
 #ifdef DEBUG
@@ -1047,7 +1053,8 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 
 EXPORT_SYMBOL(find_vma);
 
-struct page * follow_page(struct mm_struct *mm, unsigned long addr, int write)
+struct page *follow_page(struct vm_area_struct *vma, unsigned long address,
+			unsigned int foll_flags)
 {
 	return NULL;
 }
@@ -1076,19 +1083,6 @@ unsigned long arch_get_unmapped_area(struct file *file, unsigned long addr,
 
 void arch_unmap_area(struct mm_struct *mm, unsigned long addr)
 {
-}
-
-void update_mem_hiwater(struct task_struct *tsk)
-{
-	unsigned long rss;
-
-	if (likely(tsk->mm)) {
-		rss = get_mm_counter(tsk->mm, rss);
-		if (tsk->mm->hiwater_rss < rss)
-			tsk->mm->hiwater_rss = rss;
-		if (tsk->mm->hiwater_vm < tsk->mm->total_vm)
-			tsk->mm->hiwater_vm = tsk->mm->total_vm;
-	}
 }
 
 void unmap_mapping_range(struct address_space *mapping,
@@ -1190,4 +1184,11 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 int in_gate_area_no_task(unsigned long addr)
 {
 	return 0;
+}
+
+struct page *filemap_nopage(struct vm_area_struct *area,
+			unsigned long address, int *type)
+{
+	BUG();
+	return NULL;
 }

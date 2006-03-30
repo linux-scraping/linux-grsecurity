@@ -15,6 +15,8 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 #include <linux/device.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 
 #include <asm/dma.h>
 #include <asm/system.h>
@@ -75,6 +77,8 @@ static int mcp_bus_resume(struct device *dev)
 static struct bus_type mcp_bus_type = {
 	.name		= "mcp",
 	.match		= mcp_bus_match,
+	.probe		= mcp_bus_probe,
+	.remove		= mcp_bus_remove,
 	.suspend	= mcp_bus_suspend,
 	.resume		= mcp_bus_resume,
 };
@@ -225,8 +229,6 @@ EXPORT_SYMBOL(mcp_host_unregister);
 int mcp_driver_register(struct mcp_driver *mcpdrv)
 {
 	mcpdrv->drv.bus = &mcp_bus_type;
-	mcpdrv->drv.probe = mcp_bus_probe;
-	mcpdrv->drv.remove = mcp_bus_remove;
 	return driver_register(&mcpdrv->drv);
 }
 EXPORT_SYMBOL(mcp_driver_register);

@@ -2,7 +2,7 @@
  * BRIEF MODULE DESCRIPTION
  * Momentum Computer Jaguar-ATX board dependent boot routines
  *
- * Copyright (C) 1996, 1997, 2001, 2004  Ralf Baechle (ralf@linux-mips.org)
+ * Copyright (C) 1996, 1997, 2001, 04, 06  Ralf Baechle (ralf@linux-mips.org)
  * Copyright (C) 2000 RidgeRun, Inc.
  * Copyright (C) 2001 Red Hat, Inc.
  * Copyright (C) 2002 Momentum Computer
@@ -50,10 +50,13 @@
 #include <linux/pci.h>
 #include <linux/swap.h>
 #include <linux/ioport.h>
+#include <linux/pm.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/timex.h>
 #include <linux/vmalloc.h>
+#include <linux/mv643xx.h>
+
 #include <asm/time.h>
 #include <asm/bootinfo.h>
 #include <asm/page.h>
@@ -63,7 +66,6 @@
 #include <asm/ptrace.h>
 #include <asm/reboot.h>
 #include <asm/tlbflush.h>
-#include <asm/mv64340.h>
 
 #include "jaguar_atx_fpga.h"
 
@@ -149,7 +151,9 @@ arch_initcall(per_cpu_mappings);
 unsigned long m48t37y_get_time(void)
 {
 	unsigned int year, month, day, hour, min, sec;
+	unsigned long flags;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* stop the update */
 	rtc_base[0x7ff8] = 0x40;
 
@@ -166,6 +170,7 @@ unsigned long m48t37y_get_time(void)
 
 	/* start the update */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return mktime(year, month, day, hour, min, sec);
 }
@@ -173,11 +178,13 @@ unsigned long m48t37y_get_time(void)
 int m48t37y_set_time(unsigned long sec)
 {
 	struct rtc_time tm;
+	unsigned long flags;
 
 	/* convert to a more useful format -- note months count from 0 */
 	to_tm(sec, &tm);
 	tm.tm_mon += 1;
 
+	spin_lock_irqsave(&rtc_lock, flags);
 	/* enable writing */
 	rtc_base[0x7ff8] = 0x80;
 
@@ -201,6 +208,7 @@ int m48t37y_set_time(unsigned long sec)
 
 	/* disable writing */
 	rtc_base[0x7ff8] = 0x00;
+	spin_unlock_irqrestore(&rtc_lock, flags);
 
 	return 0;
 }
@@ -351,7 +359,7 @@ static __init int __init ja_pci_init(void)
 
 arch_initcall(ja_pci_init);
 
-static int  __init momenco_jaguar_atx_setup(void)
+void __init plat_setup(void)
 {
 	unsigned int tmpword;
 
@@ -359,7 +367,7 @@ static int  __init momenco_jaguar_atx_setup(void)
 
 	_machine_restart = momenco_jaguar_restart;
 	_machine_halt = momenco_jaguar_halt;
-	_machine_power_off = momenco_jaguar_power_off;
+	pm_power_off = momenco_jaguar_power_off;
 
 	/*
 	 * initrd_start = (ulong)jaguar_initrd_start;
@@ -467,8 +475,4 @@ static int  __init momenco_jaguar_atx_setup(void)
 
 	}
 #endif
-
-	return 0;
 }
-
-early_initcall(momenco_jaguar_atx_setup);

@@ -9,7 +9,7 @@
  *    Copyright (C) 2000-2003 Paul Bame <bame at parisc-linux.org>
  *    Copyright (C) 2000 Philipp Rumpf <prumpf with tux.org>
  *    Copyright (C) 2000 David Kennedy <dkennedy with linuxcare.com>
- *    Copyright (C) 2000 Richard Hirst <rhirst with parisc-lixux.org>
+ *    Copyright (C) 2000 Richard Hirst <rhirst with parisc-linux.org>
  *    Copyright (C) 2000 Grant Grundler <grundler with parisc-linux.org>
  *    Copyright (C) 2001 Alan Modra <amodra at parisc-linux.org>
  *    Copyright (C) 2001-2002 Ryan Bradetich <rbrad at parisc-linux.org>
@@ -54,27 +54,6 @@
 #include <asm/uaccess.h>
 #include <asm/unwind.h>
 
-static int hlt_counter;
-
-/*
- * Power off function, if any
- */ 
-void (*pm_power_off)(void);
-
-void disable_hlt(void)
-{
-	hlt_counter++;
-}
-
-EXPORT_SYMBOL(disable_hlt);
-
-void enable_hlt(void)
-{
-	hlt_counter--;
-}
-
-EXPORT_SYMBOL(enable_hlt);
-
 void default_idle(void)
 {
 	barrier();
@@ -88,22 +67,21 @@ void default_idle(void)
  */
 void cpu_idle(void)
 {
+	set_thread_flag(TIF_POLLING_NRFLAG);
+
 	/* endless idle loop with no priority at all */
 	while (1) {
 		while (!need_resched())
 			barrier();
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 		check_pgt_cache();
 	}
 }
 
 
-#ifdef __LP64__
-#define COMMAND_GLOBAL  0xfffffffffffe0030UL
-#else
-#define COMMAND_GLOBAL  0xfffe0030
-#endif
-
+#define COMMAND_GLOBAL  F_EXTEND(0xfffe0030)
 #define CMD_RESET       5       /* reset any module */
 
 /*
@@ -158,6 +136,7 @@ void machine_halt(void)
 	*/
 }
 
+void (*chassis_power_off)(void);
 
 /*
  * This routine is called from sys_reboot to actually turn off the
@@ -166,8 +145,8 @@ void machine_halt(void)
 void machine_power_off(void)
 {
 	/* If there is a registered power off handler, call it. */
-	if(pm_power_off)
-		pm_power_off();
+	if (chassis_power_off)
+		chassis_power_off();
 
 	/* Put the soft power button back under hardware control.
 	 * If the user had already pressed the power button, the
@@ -183,6 +162,8 @@ void machine_power_off(void)
 	       KERN_EMERG "Please power this system off now.");
 }
 
+void (*pm_power_off)(void) = machine_power_off;
+EXPORT_SYMBOL(pm_power_off);
 
 /*
  * Create a kernel thread
@@ -245,7 +226,17 @@ int
 sys_clone(unsigned long clone_flags, unsigned long usp,
 	  struct pt_regs *regs)
 {
-	int __user *user_tid = (int __user *)regs->gr[26];
+  	/* Arugments from userspace are:
+	   r26 = Clone flags.
+	   r25 = Child stack.
+	   r24 = parent_tidptr.
+	   r23 = Is the TLS storage descriptor 
+	   r22 = child_tidptr 
+	   
+	   However, these last 3 args are only examined
+	   if the proper flags are set. */
+	int __user *child_tidptr;
+	int __user *parent_tidptr;
 
 	/* usp must be word aligned.  This also prevents users from
 	 * passing in the value 1 (which is the signal for a special
@@ -253,10 +244,20 @@ sys_clone(unsigned long clone_flags, unsigned long usp,
 	usp = ALIGN(usp, 4);
 
 	/* A zero value for usp means use the current stack */
-	if(usp == 0)
-		usp = regs->gr[30];
+	if (usp == 0)
+	  usp = regs->gr[30];
 
-	return do_fork(clone_flags, usp, regs, 0, user_tid, NULL);
+	if (clone_flags & CLONE_PARENT_SETTID)
+	  parent_tidptr = (int __user *)regs->gr[24];
+	else
+	  parent_tidptr = NULL;
+	
+	if (clone_flags & (CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID))
+	  child_tidptr = (int __user *)regs->gr[22];
+	else
+	  child_tidptr = NULL;
+
+	return do_fork(clone_flags, usp, regs, 0, parent_tidptr, child_tidptr);
 }
 
 int
@@ -271,7 +272,7 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	    struct task_struct * p, struct pt_regs * pregs)
 {
 	struct pt_regs * cregs = &(p->thread.regs);
-	struct thread_info *ti = p->thread_info;
+	void *stack = task_stack_page(p);
 	
 	/* We have to use void * instead of a function pointer, because
 	 * function pointers aren't a pointer to the function on 64-bit.
@@ -298,7 +299,7 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	 */
 	if (usp == 1) {
 		/* kernel thread */
-		cregs->ksp = (((unsigned long)(ti)) + THREAD_SZ_ALGN);
+		cregs->ksp = (unsigned long)stack + THREAD_SZ_ALGN;
 		/* Must exit via ret_from_kernel_thread in order
 		 * to call schedule_tail()
 		 */
@@ -320,7 +321,7 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 		 */
 
 		/* Use same stack depth as parent */
-		cregs->ksp = ((unsigned long)(ti))
+		cregs->ksp = (unsigned long)stack
 			+ (pregs->gr[21] & (THREAD_SIZE - 1));
 		cregs->gr[30] = usp;
 		if (p->personality == PER_HPUX) {
@@ -332,6 +333,10 @@ copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 		} else {
 			cregs->kpc = (unsigned long) &child_return;
 		}
+		/* Setup thread TLS area from the 4th parameter in clone */
+		if (clone_flags & CLONE_SETTLS)
+		  cregs->cr27 = pregs->gr[23];
+	
 	}
 
 	return 0;

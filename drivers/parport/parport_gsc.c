@@ -249,7 +249,7 @@ struct parport *__devinit parport_gsc_probe_port (unsigned long base,
 	struct parport tmp;
 	struct parport *p = &tmp;
 
-	priv = kmalloc (sizeof (struct parport_gsc_private), GFP_KERNEL);
+	priv = kzalloc (sizeof (struct parport_gsc_private), GFP_KERNEL);
 	if (!priv) {
 		printk (KERN_DEBUG "parport (0x%lx): no memory!\n", base);
 		return NULL;
@@ -359,11 +359,12 @@ static int __devinit parport_init_chip(struct parisc_device *dev)
 	unsigned long port;
 
 	if (!dev->irq) {
-		printk("IRQ not found for parallel device at 0x%lx\n", dev->hpa);
+		printk(KERN_WARNING "IRQ not found for parallel device at 0x%lx\n",
+			dev->hpa.start);
 		return -ENODEV;
 	}
 
-	port = dev->hpa + PARPORT_GSC_OFFSET;
+	port = dev->hpa.start + PARPORT_GSC_OFFSET;
 	
 	/* some older machines with ASP-chip don't support
 	 * the enhanced parport modes.

@@ -64,9 +64,11 @@ module_param_array(wavetable_size, int, NULL, 0444);
 MODULE_PARM_DESC(wavetable_size, "Maximum memory size in kB for wavetable synth.");
 
 static struct pci_device_id snd_trident_ids[] = {
-	{ 0x1023, 0x2000, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },	/* Trident 4DWave DX PCI Audio */
-	{ 0x1023, 0x2001, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },	/* Trident 4DWave NX PCI Audio */
-	{ 0x1039, 0x7018, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },	/* SiS SI7018 PCI Audio */
+	{PCI_DEVICE(PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_TRIDENT_4DWAVE_DX), 
+		PCI_CLASS_MULTIMEDIA_AUDIO << 8, 0xffff00, 0},
+	{PCI_DEVICE(PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_TRIDENT_4DWAVE_NX), 
+		0, 0, 0},
+	{PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_7018), 0, 0, 0},
 	{ 0, }
 };
 
@@ -76,8 +78,8 @@ static int __devinit snd_trident_probe(struct pci_dev *pci,
 				       const struct pci_device_id *pci_id)
 {
 	static int dev;
-	snd_card_t *card;
-	trident_t *trident;
+	struct snd_card *card;
+	struct snd_trident *trident;
 	const char *str;
 	int err, pcm_dev = 0;
 
@@ -100,6 +102,7 @@ static int __devinit snd_trident_probe(struct pci_dev *pci,
 		snd_card_free(card);
 		return err;
 	}
+	card->private_data = trident;
 
 	switch (trident->device) {
 	case TRIDENT_DEVICE_ID_DX:
@@ -177,11 +180,13 @@ static void __devexit snd_trident_remove(struct pci_dev *pci)
 
 static struct pci_driver driver = {
 	.name = "Trident4DWaveAudio",
-	.owner = THIS_MODULE,
 	.id_table = snd_trident_ids,
 	.probe = snd_trident_probe,
 	.remove = __devexit_p(snd_trident_remove),
-	SND_PCI_PM_CALLBACKS
+#ifdef CONFIG_PM
+	.suspend = snd_trident_suspend,
+	.resume = snd_trident_resume,
+#endif
 };
 
 static int __init alsa_card_trident_init(void)

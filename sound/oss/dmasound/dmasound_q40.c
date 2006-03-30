@@ -36,7 +36,7 @@ static int expand_data;	/* Data for expanding */
 /*** Low level stuff *********************************************************/
 
 
-static void *Q40Alloc(unsigned int size, int flags);
+static void *Q40Alloc(unsigned int size, gfp_t flags);
 static void Q40Free(void *, unsigned int);
 static int Q40IrqInit(void);
 #ifdef MODULE
@@ -58,7 +58,7 @@ static void Q40Interrupt(void);
 
 
 /* userCount, frameUsed, frameLeft == byte counts */
-static ssize_t q40_ct_law(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ct_law(const u_char __user *userPtr, size_t userCount,
 			   u_char frame[], ssize_t *frameUsed,
 			   ssize_t frameLeft)
 {
@@ -79,7 +79,7 @@ static ssize_t q40_ct_law(const u_char *userPtr, size_t userCount,
 }
 
 
-static ssize_t q40_ct_s8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ct_s8(const u_char __user *userPtr, size_t userCount,
 			  u_char frame[], ssize_t *frameUsed,
 			  ssize_t frameLeft)
 {
@@ -98,7 +98,7 @@ static ssize_t q40_ct_s8(const u_char *userPtr, size_t userCount,
 	return used;
 }
 
-static ssize_t q40_ct_u8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ct_u8(const u_char __user *userPtr, size_t userCount,
 			  u_char frame[], ssize_t *frameUsed,
 			  ssize_t frameLeft)
 {
@@ -114,7 +114,7 @@ static ssize_t q40_ct_u8(const u_char *userPtr, size_t userCount,
 
 
 /* a bit too complicated to optimise right now ..*/
-static ssize_t q40_ctx_law(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctx_law(const u_char __user *userPtr, size_t userCount,
 			    u_char frame[], ssize_t *frameUsed,
 			    ssize_t frameLeft)
 {
@@ -152,7 +152,7 @@ static ssize_t q40_ctx_law(const u_char *userPtr, size_t userCount,
 }
 
 
-static ssize_t q40_ctx_s8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctx_s8(const u_char __user *userPtr, size_t userCount,
 			   u_char frame[], ssize_t *frameUsed,
 			   ssize_t frameLeft)
 {
@@ -189,7 +189,7 @@ static ssize_t q40_ctx_s8(const u_char *userPtr, size_t userCount,
 }
 
 
-static ssize_t q40_ctx_u8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctx_u8(const u_char __user *userPtr, size_t userCount,
 			   u_char frame[], ssize_t *frameUsed,
 			   ssize_t frameLeft)
 {
@@ -224,7 +224,7 @@ static ssize_t q40_ctx_u8(const u_char *userPtr, size_t userCount,
 }
 
 /* compressing versions */
-static ssize_t q40_ctc_law(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctc_law(const u_char __user *userPtr, size_t userCount,
 			    u_char frame[], ssize_t *frameUsed,
 			    ssize_t frameLeft)
 {
@@ -265,7 +265,7 @@ static ssize_t q40_ctc_law(const u_char *userPtr, size_t userCount,
 }
 
 
-static ssize_t q40_ctc_s8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctc_s8(const u_char __user *userPtr, size_t userCount,
 			   u_char frame[], ssize_t *frameUsed,
 			   ssize_t frameLeft)
 {
@@ -304,7 +304,7 @@ static ssize_t q40_ctc_s8(const u_char *userPtr, size_t userCount,
 }
 
 
-static ssize_t q40_ctc_u8(const u_char *userPtr, size_t userCount,
+static ssize_t q40_ctc_u8(const u_char __user *userPtr, size_t userCount,
 			   u_char frame[], ssize_t *frameUsed,
 			   ssize_t frameLeft)
 {
@@ -358,7 +358,7 @@ static TRANS transQ40Compressing = {
 
 /*** Low level stuff *********************************************************/
 
-static void *Q40Alloc(unsigned int size, int flags)
+static void *Q40Alloc(unsigned int size, gfp_t flags)
 {
          return kmalloc(size, flags); /* change to vmalloc */
 }

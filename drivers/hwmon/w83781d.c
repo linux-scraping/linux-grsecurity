@@ -95,11 +95,16 @@ MODULE_PARM_DESC(init, "Set to zero to bypass chip initialization");
 						     (0x39)))
 
 #define W83781D_REG_CONFIG		0x40
+
+/* Interrupt status (W83781D, AS99127F) */
 #define W83781D_REG_ALARM1		0x41
 #define W83781D_REG_ALARM2		0x42
-#define W83781D_REG_ALARM3		0x450	/* not on W83781D */
 
-#define W83781D_REG_IRQ			0x4C
+/* Real-time status (W83782D, W83783S, W83627HF) */
+#define W83782D_REG_ALARM1		0x459
+#define W83782D_REG_ALARM2		0x45A
+#define W83782D_REG_ALARM3		0x45B
+
 #define W83781D_REG_BEEP_CONFIG		0x4D
 #define W83781D_REG_BEEP_INTS1		0x56
 #define W83781D_REG_BEEP_INTS2		0x57
@@ -269,17 +274,18 @@ static struct w83781d_data *w83781d_update_device(struct device *dev);
 static void w83781d_init_client(struct i2c_client *client);
 
 static struct i2c_driver w83781d_driver = {
-	.owner = THIS_MODULE,
-	.name = "w83781d",
+	.driver = {
+		.name = "w83781d",
+	},
 	.id = I2C_DRIVERID_W83781D,
-	.flags = I2C_DF_NOTIFY,
 	.attach_adapter = w83781d_attach_adapter,
 	.detach_client = w83781d_detach_client,
 };
 
 static struct i2c_driver w83781d_isa_driver = {
-	.owner = THIS_MODULE,
-	.name = "w83781d-isa",
+	.driver = {
+		.name = "w83781d-isa",
+	},
 	.attach_adapter = w83781d_isa_attach_adapter,
 	.detach_client = w83781d_detach_client,
 };
@@ -889,12 +895,11 @@ w83781d_detect_subclients(struct i2c_adapter *adapter, int address, int kind,
 	const char *client_name = "";
 	struct w83781d_data *data = i2c_get_clientdata(new_client);
 
-	data->lm75[0] = kmalloc(sizeof(struct i2c_client), GFP_KERNEL);
+	data->lm75[0] = kzalloc(sizeof(struct i2c_client), GFP_KERNEL);
 	if (!(data->lm75[0])) {
 		err = -ENOMEM;
 		goto ERROR_SC_0;
 	}
-	memset(data->lm75[0], 0x00, sizeof (struct i2c_client));
 
 	id = i2c_adapter_id(adapter);
 
@@ -919,13 +924,11 @@ w83781d_detect_subclients(struct i2c_adapter *adapter, int address, int kind,
 	}
 
 	if (kind != w83783s) {
-
-		data->lm75[1] = kmalloc(sizeof(struct i2c_client), GFP_KERNEL);
+		data->lm75[1] = kzalloc(sizeof(struct i2c_client), GFP_KERNEL);
 		if (!(data->lm75[1])) {
 			err = -ENOMEM;
 			goto ERROR_SC_1;
 		}
-		memset(data->lm75[1], 0x0, sizeof(struct i2c_client));
 
 		if (force_subclients[0] == id &&
 		    force_subclients[1] == address) {
@@ -979,11 +982,9 @@ w83781d_detect_subclients(struct i2c_adapter *adapter, int address, int kind,
 ERROR_SC_3:
 	i2c_detach_client(data->lm75[0]);
 ERROR_SC_2:
-	if (data->lm75[1])
-		kfree(data->lm75[1]);
+	kfree(data->lm75[1]);
 ERROR_SC_1:
-	if (data->lm75[0])
-		kfree(data->lm75[0]);
+	kfree(data->lm75[0]);
 ERROR_SC_0:
 	return err;
 }
@@ -1017,7 +1018,7 @@ w83781d_detect(struct i2c_adapter *adapter, int address, int kind)
 	
 	if (is_isa)
 		if (!request_region(address, W83781D_EXTENT,
-				    w83781d_isa_driver.name)) {
+				    w83781d_isa_driver.driver.name)) {
 			dev_dbg(&adapter->dev, "Request of region "
 				"0x%x-0x%x for w83781d failed\n", address,
 				address + W83781D_EXTENT - 1);
@@ -1064,11 +1065,10 @@ w83781d_detect(struct i2c_adapter *adapter, int address, int kind)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access w83781d_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct w83781d_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct w83781d_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto ERROR1;
 	}
-	memset(data, 0, sizeof(struct w83781d_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);
@@ -1451,7 +1451,6 @@ w83781d_write_value(struct i2c_client *client, u16 reg, u16 value)
 	return 0;
 }
 
-/* Called when we have found a new W83781D. It should set limits, etc. */
 static void
 w83781d_init_client(struct i2c_client *client)
 {
@@ -1518,15 +1517,6 @@ w83781d_init_client(struct i2c_client *client)
 				w83781d_write_value(client,
 					W83781D_REG_TEMP3_CONFIG, tmp & 0xfe);
 			}
-		}
-
-		if (type != w83781d) {
-			/* enable comparator mode for temp2 and temp3 so
-			   alarm indication will work correctly */
-			i = w83781d_read_value(client, W83781D_REG_IRQ);
-			if (!(i & 0x40))
-				w83781d_write_value(client, W83781D_REG_IRQ,
-						    i | 0x40);
 		}
 	}
 
@@ -1618,14 +1608,25 @@ static struct w83781d_data *w83781d_update_device(struct device *dev)
 			data->fan_div[1] |= (i >> 4) & 0x04;
 			data->fan_div[2] |= (i >> 5) & 0x04;
 		}
-		data->alarms =
-		    w83781d_read_value(client,
-				       W83781D_REG_ALARM1) +
-		    (w83781d_read_value(client, W83781D_REG_ALARM2) << 8);
 		if ((data->type == w83782d) || (data->type == w83627hf)) {
-			data->alarms |=
-			    w83781d_read_value(client,
-					       W83781D_REG_ALARM3) << 16;
+			data->alarms = w83781d_read_value(client,
+						W83782D_REG_ALARM1)
+				     | (w83781d_read_value(client,
+						W83782D_REG_ALARM2) << 8)
+				     | (w83781d_read_value(client,
+						W83782D_REG_ALARM3) << 16);
+		} else if (data->type == w83783s) {
+			data->alarms = w83781d_read_value(client,
+						W83782D_REG_ALARM1)
+				     | (w83781d_read_value(client,
+						W83782D_REG_ALARM2) << 8);
+		} else {
+			/* No real-time status registers, fall back to
+			   interrupt status registers */
+			data->alarms = w83781d_read_value(client,
+						W83781D_REG_ALARM1)
+				     | (w83781d_read_value(client,
+						W83781D_REG_ALARM2) << 8);
 		}
 		i = w83781d_read_value(client, W83781D_REG_BEEP_INTS2);
 		data->beep_enable = i >> 7;

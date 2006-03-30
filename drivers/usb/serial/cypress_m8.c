@@ -112,6 +112,7 @@ static struct usb_driver cypress_driver = {
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table_combined,
+	.no_dynamic_id = 	1,
 };
 
 struct cypress_private {
@@ -176,10 +177,12 @@ static unsigned int	  cypress_buf_put(struct cypress_buf *cb, const char *buf, u
 static unsigned int	  cypress_buf_get(struct cypress_buf *cb, char *buf, unsigned int count);
 
 
-static struct usb_serial_device_type cypress_earthmate_device = {
-	.owner =			THIS_MODULE,
-	.name =				"DeLorme Earthmate USB",
-	.short_name =			"earthmate",
+static struct usb_serial_driver cypress_earthmate_device = {
+	.driver = {
+		.owner =		THIS_MODULE,
+		.name =			"earthmate",
+	},
+	.description =			"DeLorme Earthmate USB",
 	.id_table =			id_table_earthmate,
 	.num_interrupt_in = 		1,
 	.num_interrupt_out =		1,
@@ -203,10 +206,12 @@ static struct usb_serial_device_type cypress_earthmate_device = {
 	.write_int_callback =		cypress_write_int_callback,
 };
 
-static struct usb_serial_device_type cypress_hidcom_device = {
-	.owner =			THIS_MODULE,
-	.name =				"HID->COM RS232 Adapter",
-	.short_name =			"cyphidcom",
+static struct usb_serial_driver cypress_hidcom_device = {
+	.driver = {
+		.owner =		THIS_MODULE,
+		.name =			"cyphidcom",
+	},
+	.description =			"HID->COM RS232 Adapter",
 	.id_table =			id_table_cyphidcomrs232,
 	.num_interrupt_in =		1,
 	.num_interrupt_out =		1,
@@ -352,7 +357,7 @@ static int cypress_serial_control (struct usb_serial_port *port, unsigned baud_m
 			} while (retval != 5 && retval != ENODEV);
 
 			if (retval != 5) {
-				err("%s - failed to retreive serial line settings - %d", __FUNCTION__, retval);
+				err("%s - failed to retrieve serial line settings - %d", __FUNCTION__, retval);
 				return retval;
 			} else {
 				spin_lock_irqsave(&priv->lock, flags);
@@ -1258,12 +1263,10 @@ static void cypress_read_int_callback(struct urb *urb, struct pt_regs *regs)
 
 	/* process read if there is data other than line status */
 	if (tty && (bytes > i)) {
+		bytes = tty_buffer_request_room(tty, bytes);
 		for (; i < bytes ; ++i) {
 			dbg("pushing byte number %d - %d - %c", i, data[i],
 					data[i]);
-			if(tty->flip.count >= TTY_FLIPBUF_SIZE) {
-				tty_flip_buffer_push(tty);
-			}
 			tty_insert_flip_char(tty, data[i], tty_flag);
 		}
 		tty_flip_buffer_push(port->tty);

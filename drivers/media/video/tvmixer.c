@@ -79,7 +79,7 @@ static int tvmixer_ioctl(struct inode *inode, struct file *file, unsigned int cm
 {
 	struct video_audio va;
 	int left,right,ret,val = 0;
-        struct TVMIXER *mix = file->private_data;
+	struct TVMIXER *mix = file->private_data;
 	struct i2c_client *client = mix->dev;
 	void __user *argp = (void __user *)arg;
 	int __user *p = argp;
@@ -87,25 +87,25 @@ static int tvmixer_ioctl(struct inode *inode, struct file *file, unsigned int cm
 	if (NULL == client)
 		return -ENODEV;
 
-        if (cmd == SOUND_MIXER_INFO) {
-                mixer_info info;
-                strlcpy(info.id, "tv card", sizeof(info.id));
-                strlcpy(info.name, client->name, sizeof(info.name));
-                info.modify_counter = 42 /* FIXME */;
-                if (copy_to_user(argp, &info, sizeof(info)))
-                        return -EFAULT;
-                return 0;
-        }
-        if (cmd == SOUND_OLD_MIXER_INFO) {
-                _old_mixer_info info;
-                strlcpy(info.id, "tv card", sizeof(info.id));
-                strlcpy(info.name, client->name, sizeof(info.name));
-                if (copy_to_user(argp, &info, sizeof(info)))
-                        return -EFAULT;
-                return 0;
-        }
-        if (cmd == OSS_GETVERSION)
-                return put_user(SOUND_VERSION, p);
+	if (cmd == SOUND_MIXER_INFO) {
+		mixer_info info;
+		strlcpy(info.id, "tv card", sizeof(info.id));
+		strlcpy(info.name, client->name, sizeof(info.name));
+		info.modify_counter = 42 /* FIXME */;
+		if (copy_to_user(argp, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	if (cmd == SOUND_OLD_MIXER_INFO) {
+		_old_mixer_info info;
+		strlcpy(info.id, "tv card", sizeof(info.id));
+		strlcpy(info.name, client->name, sizeof(info.name));
+		if (copy_to_user(argp, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	if (cmd == OSS_GETVERSION)
+		return put_user(SOUND_VERSION, p);
 
 	if (_SIOC_DIR(cmd) & _SIOC_WRITE)
 		if (get_user(val, p))
@@ -181,8 +181,8 @@ static int tvmixer_ioctl(struct inode *inode, struct file *file, unsigned int cm
 
 static int tvmixer_open(struct inode *inode, struct file *file)
 {
-        int i, minor = iminor(inode);
-        struct TVMIXER *mix = NULL;
+	int i, minor = iminor(inode);
+	struct TVMIXER *mix = NULL;
 	struct i2c_client *client = NULL;
 
 	for (i = 0; i < DEV_MAX; i++) {
@@ -204,7 +204,7 @@ static int tvmixer_open(struct inode *inode, struct file *file)
 #endif
 	if (client->adapter->owner)
 		try_module_get(client->adapter->owner);
-        return 0;
+	return 0;
 }
 
 static int tvmixer_release(struct inode *inode, struct file *file)
@@ -227,19 +227,13 @@ static int tvmixer_release(struct inode *inode, struct file *file)
 }
 
 static struct i2c_driver driver = {
-#ifdef I2C_PEC
-	.owner           = THIS_MODULE,
-#endif
-	.name            = "tv card mixer driver",
-        .id              = I2C_DRIVERID_TVMIXER,
-#ifdef I2C_DF_DUMMY
-	.flags           = I2C_DF_DUMMY,
-#else
-	.flags           = I2C_DF_NOTIFY,
-        .detach_adapter  = tvmixer_adapters,
-#endif
-        .attach_adapter  = tvmixer_adapters,
-        .detach_client   = tvmixer_clients,
+	.driver = {
+		.name    = "tvmixer",
+	},
+	.id              = I2C_DRIVERID_TVMIXER,
+	.detach_adapter  = tvmixer_adapters,
+	.attach_adapter  = tvmixer_adapters,
+	.detach_client   = tvmixer_clients,
 };
 
 static struct file_operations tvmixer_fops = {
@@ -269,22 +263,8 @@ static int tvmixer_clients(struct i2c_client *client)
 	struct video_audio va;
 	int i,minor;
 
-#ifdef I2C_CLASS_TV_ANALOG
 	if (!(client->adapter->class & I2C_CLASS_TV_ANALOG))
 		return -1;
-#else
-	/* TV card ??? */
-	switch (client->adapter->id) {
-	case I2C_HW_SMBUS_VOODOO3:
-	case I2C_HW_B_BT848:
-	case I2C_HW_B_RIVA:
-		/* ok, have a look ... */
-		break;
-	default:
-		/* ignore that one */
-		return -1;
-	}
-#endif
 
 	/* unregister ?? */
 	for (i = 0; i < DEV_MAX; i++) {

@@ -18,7 +18,7 @@
 
 /*
  * Let drivers decide whether they want to support given codec from their
- * probe method.  Drivers have direct access to the ac97_t structure and may
+ * probe method.  Drivers have direct access to the struct snd_ac97 structure and may
  * decide based on the id field amongst other things.
  */
 static int ac97_bus_match(struct device *dev, struct device_driver *drv)
@@ -31,7 +31,8 @@ static int ac97_bus_suspend(struct device *dev, pm_message_t state)
 	int ret = 0;
 
 	if (dev->driver && dev->driver->suspend)
-		ret = dev->driver->suspend(dev, state, SUSPEND_POWER_DOWN);
+		ret = dev->driver->suspend(dev, state);
+
 	return ret;
 }
 
@@ -40,7 +41,8 @@ static int ac97_bus_resume(struct device *dev)
 	int ret = 0;
 
 	if (dev->driver && dev->driver->resume)
-		ret = dev->driver->resume(dev, RESUME_POWER_ON);
+		ret = dev->driver->resume(dev);
+
 	return ret;
 }
 

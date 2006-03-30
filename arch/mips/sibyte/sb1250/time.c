@@ -47,44 +47,72 @@
 #define IMR_IP3_VAL	K_INT_MAP_I1
 #define IMR_IP4_VAL	K_INT_MAP_I2
 
+#define SB1250_HPT_NUM		3
+#define SB1250_HPT_VALUE	M_SCD_TIMER_CNT /* max value */
+#define SB1250_HPT_SHIFT	((sizeof(unsigned int)*8)-V_SCD_TIMER_WIDTH)
+
+
 extern int sb1250_steal_irq(int irq);
+
+static unsigned int sb1250_hpt_read(void);
+static void sb1250_hpt_init(unsigned int);
+
+static unsigned int hpt_offset;
+
+void __init sb1250_hpt_setup(void)
+{
+	int cpu = smp_processor_id();
+
+	if (!cpu) {
+		/* Setup hpt using timer #3 but do not enable irq for it */
+		__raw_writeq(0, IOADDR(A_SCD_TIMER_REGISTER(SB1250_HPT_NUM, R_SCD_TIMER_CFG)));
+		__raw_writeq(SB1250_HPT_VALUE,
+			     IOADDR(A_SCD_TIMER_REGISTER(SB1250_HPT_NUM, R_SCD_TIMER_INIT)));
+		__raw_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
+			     IOADDR(A_SCD_TIMER_REGISTER(SB1250_HPT_NUM, R_SCD_TIMER_CFG)));
+
+		/*
+		 * we need to fill 32 bits, so just use the upper 23 bits and pretend
+		 * the timer is going 512Mhz instead of 1Mhz
+		 */
+		mips_hpt_frequency = V_SCD_TIMER_FREQ << SB1250_HPT_SHIFT;
+		mips_hpt_init = sb1250_hpt_init;
+		mips_hpt_read = sb1250_hpt_read;
+	}
+}
+
 
 void sb1250_time_init(void)
 {
 	int cpu = smp_processor_id();
 	int irq = K_INT_TIMER_0+cpu;
 
-	/* Only have 4 general purpose timers */
-	if (cpu > 3) {
+	/* Only have 4 general purpose timers, and we use last one as hpt */
+	if (cpu > 2) {
 		BUG();
-	}
-
-	if (!cpu) {
-		/* Use our own gettimeoffset() routine */
-		do_gettimeoffset = sb1250_gettimeoffset;
 	}
 
 	sb1250_mask_irq(cpu, irq);
 
 	/* Map the timer interrupt to ip[4] of this cpu */
-	bus_writeq(IMR_IP4_VAL,
-		   IOADDR(A_IMR_REGISTER(cpu, R_IMR_INTERRUPT_MAP_BASE) +
-			  (irq << 3)));
+	__raw_writeq(IMR_IP4_VAL,
+		     IOADDR(A_IMR_REGISTER(cpu, R_IMR_INTERRUPT_MAP_BASE) +
+			    (irq << 3)));
 
 	/* the general purpose timer ticks at 1 Mhz independent if the rest of the system */
 	/* Disable the timer and set up the count */
-	bus_writeq(0, IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
+	__raw_writeq(0, IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
 #ifdef CONFIG_SIMULATION
-	bus_writeq(50000 / HZ,
-		   IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_INIT)));
+	__raw_writeq((50000 / HZ) - 1,
+		     IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_INIT)));
 #else
-	bus_writeq(1000000/HZ,
-		   IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_INIT)));
+	__raw_writeq((V_SCD_TIMER_FREQ / HZ) - 1,
+		     IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_INIT)));
 #endif
 
 	/* Set the timer running */
-	bus_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
-		   IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
+	__raw_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
+		     IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
 
 	sb1250_unmask_irq(cpu, irq);
 	sb1250_steal_irq(irq);
@@ -100,37 +128,48 @@ void sb1250_time_init(void)
 
 void sb1250_timer_interrupt(struct pt_regs *regs)
 {
-	extern asmlinkage void ll_local_timer_interrupt(int irq, struct pt_regs *regs);
 	int cpu = smp_processor_id();
 	int irq = K_INT_TIMER_0 + cpu;
 
-	/* Reset the timer */
-	__bus_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
-		     IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
+	/* ACK interrupt */
+	____raw_writeq(M_SCD_TIMER_ENABLE | M_SCD_TIMER_MODE_CONTINUOUS,
+		       IOADDR(A_SCD_TIMER_REGISTER(cpu, R_SCD_TIMER_CFG)));
 
-	/*
-	 * CPU 0 handles the global timer interrupt job
-	 */
 	if (cpu == 0) {
+		/*
+		 * CPU 0 handles the global timer interrupt job
+		 */
 		ll_timer_interrupt(irq, regs);
 	}
-
-	/*
-	 * every CPU should do profiling and process accouting
-	 */
-	ll_local_timer_interrupt(irq, regs);
+	else {
+		/*
+		 * other CPUs should just do profiling and process accounting
+		 */
+		ll_local_timer_interrupt(irq, regs);
+	}
 }
 
 /*
- * We use our own do_gettimeoffset() instead of the generic one,
- * because the generic one does not work for SMP case.
- * In addition, since we use general timer 0 for system time,
- * we can get accurate intra-jiffy offset without calibration.
+ * The HPT is free running from SB1250_HPT_VALUE down to 0 then starts over
+ * again. There's no easy way to set to a specific value so store init value
+ * in hpt_offset and subtract each time.
+ *
+ * Note: Timer isn't full 32bits so shift it into the upper part making
+ *       it appear to run at a higher frequency.
  */
-unsigned long sb1250_gettimeoffset(void)
+static unsigned int sb1250_hpt_read(void)
 {
-	unsigned long count =
-		bus_readq(IOADDR(A_SCD_TIMER_REGISTER(0, R_SCD_TIMER_CNT)));
+	unsigned int count;
 
-	return 1000000/HZ - count;
- }
+	count = G_SCD_TIMER_CNT(__raw_readq(IOADDR(A_SCD_TIMER_REGISTER(SB1250_HPT_NUM, R_SCD_TIMER_CNT))));
+
+	count = (SB1250_HPT_VALUE - count) << SB1250_HPT_SHIFT;
+
+	return count - hpt_offset;
+}
+
+static void sb1250_hpt_init(unsigned int count)
+{
+	hpt_offset = count;
+	return;
+}

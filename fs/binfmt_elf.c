@@ -63,7 +63,7 @@ extern int dump_fpu (struct pt_regs *, elf_fpregset_t *);
  * If we don't support core dumping, then supply a NULL so we
  * don't even try.
  */
-#ifdef USE_ELF_CORE_DUMP
+#if defined(USE_ELF_CORE_DUMP) && defined(CONFIG_ELF_CORE)
 static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file);
 #else
 #define elf_core_dump	NULL
@@ -106,7 +106,6 @@ static int set_brk(unsigned long start, unsigned long end)
 		up_write(&current->mm->mmap_sem);
 		if (BAD_ADDR(addr))
 			return addr;
-
 	}
 	current->mm->start_brk = current->mm->brk = e;
 	return 0;
@@ -296,11 +295,17 @@ static unsigned long elf_map(struct file *filep, unsigned long addr,
 			struct elf_phdr *eppnt, int prot, int type)
 {
 	unsigned long map_addr;
+	unsigned long pageoffset = ELF_PAGEOFFSET(eppnt->p_vaddr);
 
 	down_write(&current->mm->mmap_sem);
-	map_addr = do_mmap(filep, ELF_PAGESTART(addr),
-			   eppnt->p_filesz + ELF_PAGEOFFSET(eppnt->p_vaddr), prot, type,
-			   eppnt->p_offset - ELF_PAGEOFFSET(eppnt->p_vaddr));
+	/* mmap() will return -EINVAL if given a zero size, but a
+	 * segment with zero filesize is perfectly valid */
+	if (eppnt->p_filesz + pageoffset)
+		map_addr = do_mmap(filep, ELF_PAGESTART(addr),
+				   eppnt->p_filesz + pageoffset, prot, type,
+				   eppnt->p_offset - pageoffset);
+	else
+		map_addr = ELF_PAGESTART(addr);
 	up_write(&current->mm->mmap_sem);
 	return(map_addr);
 }
@@ -819,7 +824,7 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 				goto out_free_file;
 
 			retval = -ENOMEM;
-			elf_interpreter = (char *) kmalloc(elf_ppnt->p_filesz,
+			elf_interpreter = kmalloc(elf_ppnt->p_filesz,
 							   GFP_KERNEL);
 			if (!elf_interpreter)
 				goto out_free_file;
@@ -1050,7 +1055,6 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 	/* Do this so that we can load the interpreter, if need be.  We will
 	   change some of these later */
-	set_mm_counter(current->mm, rss, 0);
 	current->mm->free_area_cache = current->mm->mmap_base;
 	current->mm->cached_hole_size = 0;
 	retval = setup_arg_pages(bprm, randomize_stack_top(STACK_TOP),
@@ -1225,6 +1229,11 @@ static int load_elf_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		kfree(elf_interpreter);
 	} else {
 		elf_entry = loc->elf_ex.e_entry;
+		if (BAD_ADDR(elf_entry)) {
+			send_sig(SIGSEGV, current, 0);
+			retval = -ENOEXEC; /* Nobody gets to see this, but.. */
+			goto out_free_dentry;
+		}
 	}
 
 	kfree(elf_phdata);
@@ -1299,8 +1308,7 @@ out_free_dentry:
 	if (interpreter)
 		fput(interpreter);
 out_free_interp:
-	if (elf_interpreter)
-		kfree(elf_interpreter);
+	kfree(elf_interpreter);
 out_free_file:
 	sys_close(elf_exec_fileno);
 out_free_fh:
@@ -1401,7 +1409,7 @@ out:
  * Note that some platforms still use traditional core dumps and not
  * the ELF core dump.  Each platform can select it as appropriate.
  */
-#ifdef USE_ELF_CORE_DUMP
+#if defined(USE_ELF_CORE_DUMP) && defined(CONFIG_ELF_CORE)
 
 /*
  * ELF core dumper
@@ -1509,7 +1517,7 @@ static int writenote(struct memelfnote *men, struct file *file)
 	if (!dump_seek(file, (off))) \
 		goto end_coredump;
 
-static inline void fill_elf_header(struct elfhdr *elf, int segs)
+static void fill_elf_header(struct elfhdr *elf, int segs)
 {
 	memcpy(elf->e_ident, ELFMAG, SELFMAG);
 	elf->e_ident[EI_CLASS] = ELF_CLASS;
@@ -1534,7 +1542,7 @@ static inline void fill_elf_header(struct elfhdr *elf, int segs)
 	return;
 }
 
-static inline void fill_elf_note_phdr(struct elf_phdr *phdr, int sz, off_t offset)
+static void fill_elf_note_phdr(struct elf_phdr *phdr, int sz, off_t offset)
 {
 	phdr->p_type = PT_NOTE;
 	phdr->p_offset = offset;
@@ -1798,9 +1806,7 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 	fill_psinfo(psinfo, current->group_leader, current->mm);
 	fill_note(notes +1, "CORE", NT_PRPSINFO, sizeof(*psinfo), psinfo);
 	
-	fill_note(notes +2, "CORE", NT_TASKSTRUCT, sizeof(*current), current);
-  
-	numnote = 3;
+	numnote = 2;
 
 	auxv = (elf_addr_t *) current->mm->saved_auxv;
 
@@ -1928,17 +1934,17 @@ static int elf_core_dump(long signr, struct pt_regs * regs, struct file * file)
 	ELF_CORE_WRITE_EXTRA_DATA;
 #endif
 
-	if ((off_t) file->f_pos != offset) {
+	if ((off_t)file->f_pos != offset) {
 		/* Sanity check */
-		printk("elf_core_dump: file->f_pos (%ld) != offset (%ld)\n",
-		       (off_t) file->f_pos, offset);
+		printk(KERN_WARNING "elf_core_dump: file->f_pos (%ld) != offset (%ld)\n",
+		       (off_t)file->f_pos, offset);
 	}
 
 end_coredump:
 	set_fs(fs);
 
 cleanup:
-	while(!list_empty(&thread_list)) {
+	while (!list_empty(&thread_list)) {
 		struct list_head *tmp = thread_list.next;
 		list_del(tmp);
 		kfree(list_entry(tmp, struct elf_thread_status, list));

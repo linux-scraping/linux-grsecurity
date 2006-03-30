@@ -7,6 +7,7 @@
  * to continually duplicate across every architecture.
  */
 
+#include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/errno.h>
@@ -17,6 +18,7 @@
 #include <linux/ptrace.h>
 #include <linux/security.h>
 #include <linux/signal.h>
+#include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>
@@ -56,6 +58,10 @@ void ptrace_untrace(task_t *child)
 			signal_wake_up(child, 1);
 		}
 	}
+	if (child->signal->flags & SIGNAL_GROUP_EXIT) {
+		sigaddset(&child->pending.signal, SIGKILL);
+		signal_wake_up(child, 1);
+	}
 	spin_unlock(&child->sighand->siglock);
 }
 
@@ -67,8 +73,8 @@ void ptrace_untrace(task_t *child)
  */
 void __ptrace_unlink(task_t *child)
 {
-	if (!child->ptrace)
-		BUG();
+	BUG_ON(!child->ptrace);
+
 	child->ptrace = 0;
 	if (!list_empty(&child->ptrace_list)) {
 		list_del_init(&child->ptrace_list);
@@ -77,8 +83,7 @@ void __ptrace_unlink(task_t *child)
 		SET_LINKS(child);
 	}
 
-	if (child->state == TASK_TRACED)
-		ptrace_untrace(child);
+	ptrace_untrace(child);
 }
 
 /*
@@ -180,22 +185,27 @@ bad:
 	return retval;
 }
 
-int ptrace_detach(struct task_struct *child, unsigned int data)
+void __ptrace_detach(struct task_struct *child, unsigned int data)
 {
-	if (!valid_signal(data))
-		return	-EIO;
-
-	/* Architecture-specific hardware disable .. */
-	ptrace_disable(child);
-
-	/* .. re-parent .. */
 	child->exit_code = data;
-
-	write_lock_irq(&tasklist_lock);
+	/* .. re-parent .. */
 	__ptrace_unlink(child);
 	/* .. and wake it up. */
 	if (child->exit_state != EXIT_ZOMBIE)
 		wake_up_process(child);
+}
+
+int ptrace_detach(struct task_struct *child, unsigned int data)
+{
+	if (!valid_signal(data))
+		return -EIO;
+
+	/* Architecture-specific hardware disable .. */
+	ptrace_disable(child);
+
+	write_lock_irq(&tasklist_lock);
+	if (child->ptrace)
+		__ptrace_detach(child, data);
 	write_unlock_irq(&tasklist_lock);
 
 	return 0;
@@ -238,8 +248,7 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 		if (write) {
 			copy_to_user_page(vma, page, addr,
 					  maddr + offset, buf, bytes);
-			if (!PageCompound(page))
-				set_page_dirty_lock(page);
+			set_page_dirty_lock(page);
 		} else {
 			copy_from_user_page(vma, page, addr,
 					    buf, maddr + offset, bytes);
@@ -404,3 +413,105 @@ int ptrace_request(struct task_struct *child, long request,
 
 	return ret;
 }
+
+/**
+ * ptrace_traceme  --  helper for PTRACE_TRACEME
+ *
+ * Performs checks and sets PT_PTRACED.
+ * Should be used by all ptrace implementations for PTRACE_TRACEME.
+ */
+int ptrace_traceme(void)
+{
+	int ret;
+
+	/*
+	 * Are we already being traced?
+	 */
+	if (current->ptrace & PT_PTRACED)
+		return -EPERM;
+	ret = security_ptrace(current->parent, current);
+	if (ret)
+		return -EPERM;
+	/*
+	 * Set the ptrace bit in the process ptrace flags.
+	 */
+	current->ptrace |= PT_PTRACED;
+	return 0;
+}
+
+/**
+ * ptrace_get_task_struct  --  grab a task struct reference for ptrace
+ * @pid:       process id to grab a task_struct reference of
+ *
+ * This function is a helper for ptrace implementations.  It checks
+ * permissions and then grabs a task struct for use of the actual
+ * ptrace implementation.
+ *
+ * Returns the task_struct for @pid or an ERR_PTR() on failure.
+ */
+struct task_struct *ptrace_get_task_struct(pid_t pid)
+{
+	struct task_struct *child;
+
+	/*
+	 * Tracing init is not allowed.
+	 */
+	if (pid == 1)
+		return ERR_PTR(-EPERM);
+
+	read_lock(&tasklist_lock);
+	child = find_task_by_pid(pid);
+	if (child)
+		get_task_struct(child);
+	read_unlock(&tasklist_lock);
+	if (!child)
+		return ERR_PTR(-ESRCH);
+	return child;
+}
+
+#ifndef __ARCH_SYS_PTRACE
+asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
+{
+	struct task_struct *child;
+	long ret;
+
+	/*
+	 * This lock_kernel fixes a subtle race with suid exec
+	 */
+	lock_kernel();
+	if (request == PTRACE_TRACEME) {
+		ret = ptrace_traceme();
+		goto out;
+	}
+
+	child = ptrace_get_task_struct(pid);
+	if (IS_ERR(child)) {
+		ret = PTR_ERR(child);
+		goto out;
+	}
+
+	if (request == PTRACE_ATTACH) {
+		ret = ptrace_attach(child);
+		goto out_put_task_struct;
+	}
+
+	ret = ptrace_check_attach(child, request == PTRACE_KILL);
+	if (ret < 0)
+		goto out_put_task_struct;
+
+	if (gr_handle_ptrace(child, request)) {
+		ret = -EPERM;
+		goto out_put_task_struct;
+	}
+
+	ret = arch_ptrace(child, request, addr, data);
+	if (ret < 0)
+		goto out_put_task_struct;
+
+ out_put_task_struct:
+	put_task_struct(child);
+ out:
+	unlock_kernel();
+	return ret;
+}
+#endif /* __ARCH_SYS_PTRACE */

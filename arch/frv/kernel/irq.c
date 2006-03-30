@@ -32,6 +32,7 @@
 #include <linux/irq.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/module.h>
 
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -178,6 +179,8 @@ void disable_irq_nosync(unsigned int irq)
 	spin_unlock_irqrestore(&level->lock, flags);
 }
 
+EXPORT_SYMBOL(disable_irq_nosync);
+
 /**
  *	disable_irq - disable an irq and wait for completion
  *	@irq: Interrupt to disable
@@ -203,6 +206,8 @@ void disable_irq(unsigned int irq)
 	}
 #endif
 }
+
+EXPORT_SYMBOL(disable_irq);
 
 /**
  *	enable_irq - enable handling of an irq
@@ -268,6 +273,8 @@ void enable_irq(unsigned int irq)
 	spin_unlock_irqrestore(&level->lock, flags);
 }
 
+EXPORT_SYMBOL(enable_irq);
+
 /*****************************************************************************/
 /*
  * handles all normal device IRQ's
@@ -280,17 +287,10 @@ asmlinkage void do_IRQ(void)
 	struct irq_source *source;
 	int level, cpu;
 
+	irq_enter();
+
 	level = (__frame->tbr >> 4) & 0xf;
 	cpu = smp_processor_id();
-
-#if 0
-	{
-		static u32 irqcount;
-		*(volatile u32 *) 0xe1200004 = ~((irqcount++ << 8) | level);
-		*(volatile u16 *) 0xffc00100 = (u16) ~0x9999;
-		mb();
-	}
-#endif
 
 	if ((unsigned long) __frame - (unsigned long) (current + 1) < 512)
 		BUG();
@@ -301,40 +301,12 @@ asmlinkage void do_IRQ(void)
 
 	kstat_this_cpu.irqs[level]++;
 
-	irq_enter();
-
 	for (source = frv_irq_levels[level].sources; source; source = source->next)
 		source->doirq(source);
 
-	irq_exit();
-
 	__clr_MASK(level);
 
-	/* only process softirqs if we didn't interrupt another interrupt handler */
-	if ((__frame->psr & PSR_PIL) == PSR_PIL_0)
-		if (local_softirq_pending())
-			do_softirq();
-
-#ifdef CONFIG_PREEMPT
-	local_irq_disable();
-	while (--current->preempt_count == 0) {
-		if (!(__frame->psr & PSR_S) ||
-		    current->need_resched == 0 ||
-		    in_interrupt())
-			break;
-		current->preempt_count++;
-		local_irq_enable();
-		preempt_schedule();
-		local_irq_disable();
-	}
-#endif
-
-#if 0
-	{
-		*(volatile u16 *) 0xffc00100 = (u16) ~0x6666;
-		mb();
-	}
-#endif
+	irq_exit();
 
 } /* end do_IRQ() */
 
@@ -425,6 +397,8 @@ int request_irq(unsigned int irq,
 	return retval;
 }
 
+EXPORT_SYMBOL(request_irq);
+
 /**
  *	free_irq - free an interrupt
  *	@irq: Interrupt line to free
@@ -496,6 +470,8 @@ void free_irq(unsigned int irq, void *dev_id)
 	}
 }
 
+EXPORT_SYMBOL(free_irq);
+
 /*
  * IRQ autodetection code..
  *
@@ -519,6 +495,8 @@ unsigned long probe_irq_on(void)
 	return 0;
 }
 
+EXPORT_SYMBOL(probe_irq_on);
+
 /*
  * Return a mask of triggered interrupts (this
  * can handle only legacy ISA interrupts).
@@ -541,6 +519,8 @@ unsigned int probe_irq_mask(unsigned long xmask)
 	up(&probe_sem);
 	return 0;
 }
+
+EXPORT_SYMBOL(probe_irq_mask);
 
 /*
  * Return the one interrupt that triggered (this can
@@ -570,6 +550,8 @@ int probe_irq_off(unsigned long xmask)
 	up(&probe_sem);
 	return -1;
 }
+
+EXPORT_SYMBOL(probe_irq_off);
 
 /* this was setup_x86_irq but it seems pretty generic */
 int setup_irq(unsigned int irq, struct irqaction *new)

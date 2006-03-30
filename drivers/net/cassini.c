@@ -67,7 +67,6 @@
  */
 
 #include <linux/config.h>
-#include <linux/version.h>
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -336,6 +335,30 @@ static inline void cas_mask_intr(struct cas *cp)
 		cas_disable_irq(cp, i);
 }
 
+static inline void cas_buffer_init(cas_page_t *cp)
+{
+	struct page *page = cp->buffer;
+	atomic_set((atomic_t *)&page->lru.next, 1);
+}
+
+static inline int cas_buffer_count(cas_page_t *cp)
+{
+	struct page *page = cp->buffer;
+	return atomic_read((atomic_t *)&page->lru.next);
+}
+
+static inline void cas_buffer_inc(cas_page_t *cp)
+{
+	struct page *page = cp->buffer;
+	atomic_inc((atomic_t *)&page->lru.next);
+}
+
+static inline void cas_buffer_dec(cas_page_t *cp)
+{
+	struct page *page = cp->buffer;
+	atomic_dec((atomic_t *)&page->lru.next);
+}
+
 static void cas_enable_irq(struct cas *cp, const int ring)
 {
 	if (ring == 0) { /* all but TX_DONE */
@@ -473,6 +496,7 @@ static int cas_page_free(struct cas *cp, cas_page_t *page)
 {
 	pci_unmap_page(cp->pdev, page->dma_addr, cp->page_size, 
 		       PCI_DMA_FROMDEVICE);
+	cas_buffer_dec(page);
 	__free_pages(page->buffer, cp->page_order);
 	kfree(page);
 	return 0;
@@ -489,7 +513,7 @@ static int cas_page_free(struct cas *cp, cas_page_t *page)
 /* local page allocation routines for the receive buffers. jumbo pages
  * require at least 8K contiguous and 8K aligned buffers.
  */
-static cas_page_t *cas_page_alloc(struct cas *cp, const int flags)
+static cas_page_t *cas_page_alloc(struct cas *cp, const gfp_t flags)
 {
 	cas_page_t *page;
 
@@ -502,6 +526,7 @@ static cas_page_t *cas_page_alloc(struct cas *cp, const int flags)
 	page->buffer = alloc_pages(flags, cp->page_order);
 	if (!page->buffer)
 		goto page_err;
+	cas_buffer_init(page);
 	page->dma_addr = pci_map_page(cp->pdev, page->buffer, 0,
 				      cp->page_size, PCI_DMA_FROMDEVICE);
 	return page;
@@ -561,7 +586,7 @@ static void cas_spare_free(struct cas *cp)
 }
 
 /* replenish spares if needed */
-static void cas_spare_recover(struct cas *cp, const int flags)
+static void cas_spare_recover(struct cas *cp, const gfp_t flags)
 {
 	struct list_head list, *elem, *tmp;
 	int needed, i;
@@ -580,7 +605,7 @@ static void cas_spare_recover(struct cas *cp, const int flags)
 	list_for_each_safe(elem, tmp, &list) {
 		cas_page_t *page = list_entry(elem, cas_page_t, list);
 
-		if (page_count(page->buffer) > 1) 
+		if (cas_buffer_count(page) > 1)
 			continue;
 
 		list_del(elem);
@@ -1348,7 +1373,7 @@ static inline cas_page_t *cas_page_spare(struct cas *cp, const int index)
 	cas_page_t *page = cp->rx_pages[1][index];
 	cas_page_t *new;
 
-	if (page_count(page->buffer) == 1)
+	if (cas_buffer_count(page) == 1)
 		return page;
 
 	new = cas_page_dequeue(cp);
@@ -1368,7 +1393,7 @@ static cas_page_t *cas_page_swap(struct cas *cp, const int ring,
 	cas_page_t **page1 = cp->rx_pages[1];
 
 	/* swap if buffer is in use */
-	if (page_count(page0[index]->buffer) > 1) {
+	if (cas_buffer_count(page0[index]) > 1) {
 		cas_page_t *new = cas_page_spare(cp, index);
 		if (new) {
 			page1[index] = page0[index];
@@ -1926,8 +1951,8 @@ static void cas_tx(struct net_device *dev, struct cas *cp,
 	u64 compwb = le64_to_cpu(cp->init_block->tx_compwb);
 #endif
 	if (netif_msg_intr(cp))
-		printk(KERN_DEBUG "%s: tx interrupt, status: 0x%x, %lx\n",
-			cp->dev->name, status, compwb);
+		printk(KERN_DEBUG "%s: tx interrupt, status: 0x%x, %llx\n",
+			cp->dev->name, status, (unsigned long long)compwb);
 	/* process all the rings */
 	for (ring = 0; ring < N_TX_RINGS; ring++) {
 #ifdef USE_TX_COMPWB
@@ -2040,6 +2065,7 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 		skb->len      += hlen - swivel;
 
 		get_page(page->buffer);
+		cas_buffer_inc(page);
 		frag->page = page->buffer;
 		frag->page_offset = off;
 		frag->size = hlen - swivel;
@@ -2064,6 +2090,7 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 			frag++;
 
 			get_page(page->buffer);
+			cas_buffer_inc(page);
 			frag->page = page->buffer;
 			frag->page_offset = 0;
 			frag->size = hlen;
@@ -2226,7 +2253,7 @@ static int cas_post_rxds_ringN(struct cas *cp, int ring, int num)
 	released = 0;
 	while (entry != last) {
 		/* make a new buffer if it's still in use */
-		if (page_count(page[entry]->buffer) > 1) {
+		if (cas_buffer_count(page[entry]) > 1) {
 			cas_page_t *new = cas_page_dequeue(cp);
 			if (!new) {
 				/* let the timer know that we need to 

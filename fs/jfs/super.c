@@ -442,6 +442,7 @@ static int jfs_fill_super(struct super_block *sb, void *data, int silent)
 	inode->i_nlink = 1;
 	inode->i_size = sb->s_bdev->bd_inode->i_size;
 	inode->i_mapping->a_ops = &jfs_metapage_aops;
+	insert_inode_hash(inode);
 	mapping_set_gfp_mask(inode->i_mapping, GFP_NOFS);
 
 	sbi->direct_inode = inode;
@@ -501,8 +502,7 @@ out_no_rw:
 		jfs_err("jfs_umount failed with return code %d", rc);
 	}
 out_mount_failed:
-	filemap_fdatawrite(sbi->direct_inode->i_mapping);
-	filemap_fdatawait(sbi->direct_inode->i_mapping);
+	filemap_write_and_wait(sbi->direct_inode->i_mapping);
 	truncate_inode_pages(sbi->direct_inode->i_mapping, 0);
 	make_bad_inode(sbi->direct_inode);
 	iput(sbi->direct_inode);

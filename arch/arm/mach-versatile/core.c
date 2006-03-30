@@ -22,18 +22,20 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
 #include <linux/sysdev.h>
 #include <linux/interrupt.h>
+#include <linux/amba/bus.h>
+#include <linux/amba/clcd.h>
 
 #include <asm/system.h>
 #include <asm/hardware.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/leds.h>
-#include <asm/hardware/amba.h>
-#include <asm/hardware/amba_clcd.h>
 #include <asm/hardware/arm_timer.h>
 #include <asm/hardware/icst307.h>
+#include <asm/hardware/vic.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/flash.h>
@@ -54,24 +56,6 @@
 #define __io_address(n)		__io(IO_ADDRESS(n))
 #define VA_VIC_BASE		__io_address(VERSATILE_VIC_BASE)
 #define VA_SIC_BASE		__io_address(VERSATILE_SIC_BASE)
-
-static void vic_mask_irq(unsigned int irq)
-{
-	irq -= IRQ_VIC_START;
-	writel(1 << irq, VA_VIC_BASE + VIC_IRQ_ENABLE_CLEAR);
-}
-
-static void vic_unmask_irq(unsigned int irq)
-{
-	irq -= IRQ_VIC_START;
-	writel(1 << irq, VA_VIC_BASE + VIC_IRQ_ENABLE);
-}
-
-static struct irqchip vic_chip = {
-	.ack	= vic_mask_irq,
-	.mask	= vic_mask_irq,
-	.unmask	= vic_unmask_irq,
-};
 
 static void sic_mask_irq(unsigned int irq)
 {
@@ -126,43 +110,12 @@ sic_handle_irq(unsigned int irq, struct irqdesc *desc, struct pt_regs *regs)
 
 void __init versatile_init_irq(void)
 {
-	unsigned int i, value;
+	unsigned int i;
 
-	/* Disable all interrupts initially. */
-
-	writel(0, VA_VIC_BASE + VIC_INT_SELECT);
-	writel(0, VA_VIC_BASE + VIC_IRQ_ENABLE);
-	writel(~0, VA_VIC_BASE + VIC_IRQ_ENABLE_CLEAR);
-	writel(0, VA_VIC_BASE + VIC_IRQ_STATUS);
-	writel(0, VA_VIC_BASE + VIC_ITCR);
-	writel(~0, VA_VIC_BASE + VIC_IRQ_SOFT_CLEAR);
-
-	/*
-	 * Make sure we clear all existing interrupts
-	 */
-	writel(0, VA_VIC_BASE + VIC_VECT_ADDR);
-	for (i = 0; i < 19; i++) {
-		value = readl(VA_VIC_BASE + VIC_VECT_ADDR);
-		writel(value, VA_VIC_BASE + VIC_VECT_ADDR);
-	}
-
-	for (i = 0; i < 16; i++) {
-		value = readl(VA_VIC_BASE + VIC_VECT_CNTL0 + (i * 4));
-		writel(value | VICVectCntl_Enable | i, VA_VIC_BASE + VIC_VECT_CNTL0 + (i * 4));
-	}
-
-	writel(32, VA_VIC_BASE + VIC_DEF_VECT_ADDR);
-
-	for (i = IRQ_VIC_START; i <= IRQ_VIC_END; i++) {
-		if (i != IRQ_VICSOURCE31) {
-			set_irq_chip(i, &vic_chip);
-			set_irq_handler(i, do_level_IRQ);
-			set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
-		}
-	}
+	vic_init(VA_VIC_BASE, ~(1 << 31));
 
 	set_irq_handler(IRQ_VICSOURCE31, sic_handle_irq);
-	vic_unmask_irq(IRQ_VICSOURCE31);
+	enable_irq(IRQ_VICSOURCE31);
 
 	/* Do second interrupt controller */
 	writel(~0, VA_SIC_BASE + SIC_IRQ_ENABLE_CLEAR);
@@ -186,25 +139,82 @@ void __init versatile_init_irq(void)
 }
 
 static struct map_desc versatile_io_desc[] __initdata = {
- { IO_ADDRESS(VERSATILE_SYS_BASE),   VERSATILE_SYS_BASE,   SZ_4K,      MT_DEVICE },
- { IO_ADDRESS(VERSATILE_SIC_BASE),   VERSATILE_SIC_BASE,   SZ_4K,      MT_DEVICE },
- { IO_ADDRESS(VERSATILE_VIC_BASE),   VERSATILE_VIC_BASE,   SZ_4K,      MT_DEVICE },
- { IO_ADDRESS(VERSATILE_SCTL_BASE),  VERSATILE_SCTL_BASE,  SZ_4K * 9,  MT_DEVICE },
+	{
+		.virtual	=  IO_ADDRESS(VERSATILE_SYS_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_SYS_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  IO_ADDRESS(VERSATILE_SIC_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_SIC_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  IO_ADDRESS(VERSATILE_VIC_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_VIC_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  IO_ADDRESS(VERSATILE_SCTL_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_SCTL_BASE),
+		.length		= SZ_4K * 9,
+		.type		= MT_DEVICE
+	},
 #ifdef CONFIG_MACH_VERSATILE_AB
- { IO_ADDRESS(VERSATILE_GPIO0_BASE), VERSATILE_GPIO0_BASE, SZ_4K,      MT_DEVICE },
- { IO_ADDRESS(VERSATILE_IB2_BASE),   VERSATILE_IB2_BASE,   SZ_64M,     MT_DEVICE },
+ 	{
+		.virtual	=  IO_ADDRESS(VERSATILE_GPIO0_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_GPIO0_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  IO_ADDRESS(VERSATILE_IB2_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_IB2_BASE),
+		.length		= SZ_64M,
+		.type		= MT_DEVICE
+	},
 #endif
 #ifdef CONFIG_DEBUG_LL
- { IO_ADDRESS(VERSATILE_UART0_BASE), VERSATILE_UART0_BASE, SZ_4K,      MT_DEVICE },
+ 	{
+		.virtual	=  IO_ADDRESS(VERSATILE_UART0_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_UART0_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	},
 #endif
 #ifdef CONFIG_PCI
- { IO_ADDRESS(VERSATILE_PCI_CORE_BASE), VERSATILE_PCI_CORE_BASE, SZ_4K, MT_DEVICE },
- { VERSATILE_PCI_VIRT_BASE,          VERSATILE_PCI_BASE,   VERSATILE_PCI_BASE_SIZE, MT_DEVICE },
- { VERSATILE_PCI_CFG_VIRT_BASE,      VERSATILE_PCI_CFG_BASE, VERSATILE_PCI_CFG_BASE_SIZE, MT_DEVICE },
+ 	{
+		.virtual	=  IO_ADDRESS(VERSATILE_PCI_CORE_BASE),
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_CORE_BASE),
+		.length		= SZ_4K,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  VERSATILE_PCI_VIRT_BASE,
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_BASE),
+		.length		= VERSATILE_PCI_BASE_SIZE,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  VERSATILE_PCI_CFG_VIRT_BASE,
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_CFG_BASE),
+		.length		= VERSATILE_PCI_CFG_BASE_SIZE,
+		.type		= MT_DEVICE
+	},
 #if 0
- { VERSATILE_PCI_VIRT_MEM_BASE0,     VERSATILE_PCI_MEM_BASE0, SZ_16M,  MT_DEVICE },
- { VERSATILE_PCI_VIRT_MEM_BASE1,     VERSATILE_PCI_MEM_BASE1, SZ_16M,  MT_DEVICE },
- { VERSATILE_PCI_VIRT_MEM_BASE2,     VERSATILE_PCI_MEM_BASE2, SZ_16M,  MT_DEVICE },
+ 	{
+		.virtual	=  VERSATILE_PCI_VIRT_MEM_BASE0,
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_MEM_BASE0),
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  VERSATILE_PCI_VIRT_MEM_BASE1,
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_MEM_BASE1),
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	=  VERSATILE_PCI_VIRT_MEM_BASE2,
+		.pfn		= __phys_to_pfn(VERSATILE_PCI_MEM_BASE2),
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	},
 #endif
 #endif
 };
@@ -819,7 +829,7 @@ static unsigned long versatile_gettimeoffset(void)
 	ticks2 = readl(TIMER0_VA_BASE + TIMER_VALUE) & 0xffff;
 	do {
 		ticks1 = ticks2;
-		status = __raw_readl(VA_IC_BASE + VIC_IRQ_RAW_STATUS);
+		status = __raw_readl(VA_IC_BASE + VIC_RAW_STATUS);
 		ticks2 = readl(TIMER0_VA_BASE + TIMER_VALUE) & 0xffff;
 	} while (ticks2 > ticks1);
 

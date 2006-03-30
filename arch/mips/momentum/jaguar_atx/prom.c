@@ -21,10 +21,10 @@
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/bootmem.h>
+#include <linux/mv643xx.h>
 
 #include <asm/addrspace.h>
 #include <asm/bootinfo.h>
-#include <asm/mv64340.h>
 #include <asm/pmon.h>
 
 #include "jaguar_atx_fpga.h"
@@ -236,8 +236,9 @@ void __init prom_init(void)
 #endif
 }
 
-void __init prom_free_prom_memory(void)
+unsigned long __init prom_free_prom_memory(void)
 {
+	return 0;
 }
 
 void __init prom_fixup_mem_map(unsigned long start, unsigned long end)

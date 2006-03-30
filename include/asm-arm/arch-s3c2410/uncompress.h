@@ -35,13 +35,13 @@
 #undef S3C2410_GPIOREG
 #undef S3C2410_WDOGREG
 
-#define S3C2410_GPIOREG(x) ((S3C2410_PA_GPIO + (x)))
-#define S3C2410_WDOGREG(x) ((S3C2410_PA_WATCHDOG + (x)))
+#define S3C2410_GPIOREG(x) ((S3C24XX_PA_GPIO + (x)))
+#define S3C2410_WDOGREG(x) ((S3C24XX_PA_WATCHDOG + (x)))
 
 /* how many bytes we allow into the FIFO at a time in FIFO mode */
 #define FIFO_MAX	 (14)
 
-#define uart_base S3C2410_PA_UART + (0x4000*CONFIG_S3C2410_LOWLEVEL_UART_PORT)
+#define uart_base S3C24XX_PA_UART + (0x4000*CONFIG_S3C2410_LOWLEVEL_UART_PORT)
 
 static __inline__ void
 uart_wr(unsigned int reg, unsigned int val)
@@ -116,6 +116,8 @@ putstr(const char *ptr)
 	}
 }
 
+#define __raw_writel(d,ad) do { *((volatile unsigned int *)(ad)) = (d); } while(0)
+
 /* CONFIG_S3C2410_BOOT_WATCHDOG
  *
  * Simple boot-time watchdog setup, to reboot the system if there is
@@ -125,8 +127,6 @@ putstr(const char *ptr)
 #ifdef CONFIG_S3C2410_BOOT_WATCHDOG
 
 #define WDOG_COUNT (0xff00)
-
-#define __raw_writel(d,ad) do { *((volatile unsigned int *)(ad)) = (d); } while(0)
 
 static inline void arch_decomp_wdog(void)
 {
@@ -143,6 +143,24 @@ static void arch_decomp_wdog_start(void)
 #else
 #define arch_decomp_wdog_start()
 #define arch_decomp_wdog()
+#endif
+
+#ifdef CONFIG_S3C2410_BOOT_ERROR_RESET
+
+static void arch_decomp_error(const char *x)
+{
+	putstr("\n\n");
+	putstr(x);
+	putstr("\n\n -- System resetting\n");
+
+	__raw_writel(0x4000, S3C2410_WTDAT);
+	__raw_writel(0x4000, S3C2410_WTCNT);
+	__raw_writel(S3C2410_WTCON_ENABLE | S3C2410_WTCON_DIV128 | S3C2410_WTCON_RSTEN | S3C2410_WTCON_PRESCALE(0x40), S3C2410_WTCON);
+
+	while(1);
+}
+
+#define arch_error arch_decomp_error
 #endif
 
 static void error(char *err);

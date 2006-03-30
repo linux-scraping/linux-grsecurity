@@ -519,7 +519,7 @@ static inline int __test_bit(unsigned long nr, const volatile unsigned long *ptr
 static inline int 
 __constant_test_bit(unsigned long nr, const volatile unsigned long *addr) {
     return (((volatile char *) addr)
-	    [(nr^(__BITOPS_WORDSIZE-8))>>3] & (1<<(nr&7)));
+	    [(nr^(__BITOPS_WORDSIZE-8))>>3] & (1<<(nr&7))) != 0;
 }
 
 #define test_bit(nr,addr) \
@@ -839,6 +839,7 @@ static inline int sched_find_first_bit(unsigned long *b)
  * fls: find last bit set.
  */
 #define fls(x) generic_fls(x)
+#define fls64(x)   generic_fls64(x)
 
 /*
  * hweightN: returns the hamming weight (i.e. the number

@@ -74,7 +74,7 @@
 static void dbAllocBits(struct bmap * bmp, struct dmap * dp, s64 blkno,
 			int nblocks);
 static void dbSplit(dmtree_t * tp, int leafno, int splitsz, int newval);
-static void dbBackSplit(dmtree_t * tp, int leafno);
+static int dbBackSplit(dmtree_t * tp, int leafno);
 static int dbJoin(dmtree_t * tp, int leafno, int newval);
 static void dbAdjTree(dmtree_t * tp, int leafno, int newval);
 static int dbAdjCtl(struct bmap * bmp, s64 blkno, int newval, int alloc,
@@ -302,10 +302,8 @@ int dbSync(struct inode *ipbmap)
 	/*
 	 * write out dirty pages of bmap
 	 */
-	filemap_fdatawrite(ipbmap->i_mapping);
-	filemap_fdatawait(ipbmap->i_mapping);
+	filemap_write_and_wait(ipbmap->i_mapping);
 
-	ipbmap->i_state |= I_DIRTY;
 	diWriteSpecial(ipbmap, 0);
 
 	return (0);
@@ -534,10 +532,10 @@ dbUpdatePMap(struct inode *ipbmap,
 
 		lastlblkno = lblkno;
 
+		LOGSYNC_LOCK(log, flags);
 		if (mp->lsn != 0) {
 			/* inherit older/smaller lsn */
 			logdiff(diffp, mp->lsn, log);
-			LOGSYNC_LOCK(log, flags);
 			if (difft < diffp) {
 				mp->lsn = lsn;
 
@@ -550,20 +548,17 @@ dbUpdatePMap(struct inode *ipbmap,
 			logdiff(diffp, mp->clsn, log);
 			if (difft > diffp)
 				mp->clsn = tblk->clsn;
-			LOGSYNC_UNLOCK(log, flags);
 		} else {
 			mp->log = log;
 			mp->lsn = lsn;
 
 			/* insert bp after tblock in logsync list */
-			LOGSYNC_LOCK(log, flags);
-
 			log->count++;
 			list_add(&mp->synclist, &tblk->synclist);
 
 			mp->clsn = tblk->clsn;
-			LOGSYNC_UNLOCK(log, flags);
 		}
+		LOGSYNC_UNLOCK(log, flags);
 	}
 
 	/* write the last buffer. */
@@ -2467,7 +2462,9 @@ dbAdjCtl(struct bmap * bmp, s64 blkno, int newval, int alloc, int level)
 		 * that it is at the front of a binary buddy system.
 		 */
 		if (oldval == NOFREE) {
-			dbBackSplit((dmtree_t *) dcp, leafno);
+			rc = dbBackSplit((dmtree_t *) dcp, leafno);
+			if (rc)
+				return rc;
 			oldval = dcp->stree[ti];
 		}
 		dbSplit((dmtree_t *) dcp, leafno, dcp->budmin, newval);
@@ -2627,7 +2624,7 @@ static void dbSplit(dmtree_t * tp, int leafno, int splitsz, int newval)
  *
  * serialization: IREAD_LOCK(ipbmap) or IWRITE_LOCK(ipbmap) held on entry/exit;
  */
-static void dbBackSplit(dmtree_t * tp, int leafno)
+static int dbBackSplit(dmtree_t * tp, int leafno)
 {
 	int budsz, bud, w, bsz, size;
 	int cursz;
@@ -2662,7 +2659,10 @@ static void dbBackSplit(dmtree_t * tp, int leafno)
 		 */
 		for (w = leafno, bsz = budsz;; bsz <<= 1,
 		     w = (w < bud) ? w : bud) {
-			assert(bsz < le32_to_cpu(tp->dmt_nleafs));
+			if (bsz >= le32_to_cpu(tp->dmt_nleafs)) {
+				jfs_err("JFS: block map error in dbBackSplit");
+				return -EIO;
+			}
 
 			/* determine the buddy.
 			 */
@@ -2681,7 +2681,11 @@ static void dbBackSplit(dmtree_t * tp, int leafno)
 		}
 	}
 
-	assert(leaf[leafno] == size);
+	if (leaf[leafno] != size) {
+		jfs_err("JFS: wrong leaf value in dbBackSplit");
+		return -EIO;
+	}
+	return 0;
 }
 
 

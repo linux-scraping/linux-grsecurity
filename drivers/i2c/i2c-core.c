@@ -19,7 +19,8 @@
 
 /* With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi>.
    All SMBus-related things are written by Frodo Looijaard <frodol@dds.nl>
-   SMBus 2.0 support by Mark Studebaker <mdsxyz123@yahoo.com>                */
+   SMBus 2.0 support by Mark Studebaker <mdsxyz123@yahoo.com> and
+   Jean Delvare <khali@linux-fr.org> */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -29,6 +30,7 @@
 #include <linux/init.h>
 #include <linux/idr.h>
 #include <linux/seq_file.h>
+#include <linux/platform_device.h>
 #include <asm/uaccess.h>
 
 
@@ -48,7 +50,7 @@ static int i2c_bus_suspend(struct device * dev, pm_message_t state)
 	int rc = 0;
 
 	if (dev->driver && dev->driver->suspend)
-		rc = dev->driver->suspend(dev,state,0);
+		rc = dev->driver->suspend(dev, state);
 	return rc;
 }
 
@@ -57,16 +59,9 @@ static int i2c_bus_resume(struct device * dev)
 	int rc = 0;
 	
 	if (dev->driver && dev->driver->resume)
-		rc = dev->driver->resume(dev,0);
+		rc = dev->driver->resume(dev);
 	return rc;
 }
-
-struct bus_type i2c_bus_type = {
-	.name =		"i2c",
-	.match =	i2c_device_match,
-	.suspend =      i2c_bus_suspend,
-	.resume =       i2c_bus_resume,
-};
 
 static int i2c_device_probe(struct device *dev)
 {
@@ -78,6 +73,15 @@ static int i2c_device_remove(struct device *dev)
 	return 0;
 }
 
+struct bus_type i2c_bus_type = {
+	.name =		"i2c",
+	.match =	i2c_device_match,
+	.probe =	i2c_device_probe,
+	.remove =	i2c_device_remove,
+	.suspend =      i2c_bus_suspend,
+	.resume =       i2c_bus_resume,
+};
+
 void i2c_adapter_dev_release(struct device *dev)
 {
 	struct i2c_adapter *adap = dev_to_i2c_adapter(dev);
@@ -85,10 +89,9 @@ void i2c_adapter_dev_release(struct device *dev)
 }
 
 struct device_driver i2c_adapter_driver = {
+	.owner = THIS_MODULE,
 	.name =	"i2c_adapter",
 	.bus = &i2c_bus_type,
-	.probe = i2c_device_probe,
-	.remove = i2c_device_remove,
 };
 
 static void i2c_adapter_class_dev_release(struct class_device *dev)
@@ -98,6 +101,7 @@ static void i2c_adapter_class_dev_release(struct class_device *dev)
 }
 
 struct class i2c_adapter_class = {
+	.owner =	THIS_MODULE,
 	.name =		"i2c-adapter",
 	.release =	&i2c_adapter_class_dev_release,
 };
@@ -193,7 +197,7 @@ int i2c_add_adapter(struct i2c_adapter *adap)
 	/* inform drivers of new adapters */
 	list_for_each(item,&drivers) {
 		driver = list_entry(item, struct i2c_driver, list);
-		if (driver->flags & I2C_DF_NOTIFY)
+		if (driver->attach_adapter)
 			/* We ignore the return code; if it fails, too bad */
 			driver->attach_adapter(adap);
 	}
@@ -231,7 +235,8 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 		if (driver->detach_adapter)
 			if ((res = driver->detach_adapter(adap))) {
 				dev_err(&adap->dev, "detach_adapter failed "
-					"for driver [%s]\n", driver->name);
+					"for driver [%s]\n",
+					driver->driver.name);
 				goto out_unlock;
 			}
 	}
@@ -241,10 +246,6 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 	list_for_each_safe(item, _n, &adap->clients) {
 		client = list_entry(item, struct i2c_client, list);
 
-		/* detaching devices is unconditional of the set notify
-		 * flag, as _all_ clients that reside on the adapter
-		 * must be deleted, as this would cause invalid states.
-		 */
 		if ((res=client->driver->detach_client(client))) {
 			dev_err(&adap->dev, "detach_client failed for client "
 				"[%s] at address 0x%02x\n", client->name,
@@ -282,7 +283,7 @@ int i2c_del_adapter(struct i2c_adapter *adap)
  * chips.
  */
 
-int i2c_add_driver(struct i2c_driver *driver)
+int i2c_register_driver(struct module *owner, struct i2c_driver *driver)
 {
 	struct list_head   *item;
 	struct i2c_adapter *adapter;
@@ -291,20 +292,18 @@ int i2c_add_driver(struct i2c_driver *driver)
 	down(&core_lists);
 
 	/* add the driver to the list of i2c drivers in the driver core */
-	driver->driver.name = driver->name;
+	driver->driver.owner = owner;
 	driver->driver.bus = &i2c_bus_type;
-	driver->driver.probe = i2c_device_probe;
-	driver->driver.remove = i2c_device_remove;
 
 	res = driver_register(&driver->driver);
 	if (res)
 		goto out_unlock;
 	
 	list_add_tail(&driver->list,&drivers);
-	pr_debug("i2c-core: driver [%s] registered\n", driver->name);
+	pr_debug("i2c-core: driver [%s] registered\n", driver->driver.name);
 
 	/* now look for instances of driver on our adapters */
-	if (driver->flags & I2C_DF_NOTIFY) {
+	if (driver->attach_adapter) {
 		list_for_each(item,&adapters) {
 			adapter = list_entry(item, struct i2c_adapter, list);
 			driver->attach_adapter(adapter);
@@ -315,6 +314,7 @@ int i2c_add_driver(struct i2c_driver *driver)
 	up(&core_lists);
 	return res;
 }
+EXPORT_SYMBOL(i2c_register_driver);
 
 int i2c_del_driver(struct i2c_driver *driver)
 {
@@ -329,17 +329,14 @@ int i2c_del_driver(struct i2c_driver *driver)
 	/* Have a look at each adapter, if clients of this driver are still
 	 * attached. If so, detach them to be able to kill the driver 
 	 * afterwards.
-	 *
-	 * Removing clients does not depend on the notify flag, else
-	 * invalid operation might (will!) result, when using stale client
-	 * pointers.
 	 */
 	list_for_each(item1,&adapters) {
 		adap = list_entry(item1, struct i2c_adapter, list);
 		if (driver->detach_adapter) {
 			if ((res = driver->detach_adapter(adap))) {
 				dev_err(&adap->dev, "detach_adapter failed "
-					"for driver [%s]\n", driver->name);
+					"for driver [%s]\n",
+					driver->driver.name);
 				goto out_unlock;
 			}
 		} else {
@@ -363,7 +360,7 @@ int i2c_del_driver(struct i2c_driver *driver)
 
 	driver_unregister(&driver->driver);
 	list_del(&driver->list);
-	pr_debug("i2c-core: driver [%s] unregistered\n", driver->name);
+	pr_debug("i2c-core: driver [%s] unregistered\n", driver->driver.name);
 
  out_unlock:
 	up(&core_lists);
@@ -414,8 +411,7 @@ int i2c_attach_client(struct i2c_client *client)
 		}
 	}
 
-	if (client->flags & I2C_CLIENT_ALLOW_USE)
-		client->usage_count = 0;
+	client->usage_count = 0;
 
 	client->dev.parent = &client->adapter->dev;
 	client->dev.driver = &client->driver->driver;
@@ -438,8 +434,7 @@ int i2c_detach_client(struct i2c_client *client)
 	struct i2c_adapter *adapter = client->adapter;
 	int res = 0;
 	
-	if ((client->flags & I2C_CLIENT_ALLOW_USE)
-	 && (client->usage_count > 0)) {
+	if (client->usage_count > 0) {
 		dev_warn(&client->dev, "Client [%s] still busy, "
 			 "can't detach\n", client->name);
 		return -EBUSY;
@@ -470,10 +465,10 @@ int i2c_detach_client(struct i2c_client *client)
 static int i2c_inc_use_client(struct i2c_client *client)
 {
 
-	if (!try_module_get(client->driver->owner))
+	if (!try_module_get(client->driver->driver.owner))
 		return -ENODEV;
 	if (!try_module_get(client->adapter->owner)) {
-		module_put(client->driver->owner);
+		module_put(client->driver->driver.owner);
 		return -ENODEV;
 	}
 
@@ -482,7 +477,7 @@ static int i2c_inc_use_client(struct i2c_client *client)
 
 static void i2c_dec_use_client(struct i2c_client *client)
 {
-	module_put(client->driver->owner);
+	module_put(client->driver->driver.owner);
 	module_put(client->adapter->owner);
 }
 
@@ -494,33 +489,20 @@ int i2c_use_client(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	if (client->flags & I2C_CLIENT_ALLOW_USE) {
-		if (client->flags & I2C_CLIENT_ALLOW_MULTIPLE_USE)
-			client->usage_count++;
-		else if (client->usage_count > 0) 
-			goto busy;
-		else 
-			client->usage_count++;
-	}
+	client->usage_count++;
 
 	return 0;
- busy:
-	i2c_dec_use_client(client);
-	return -EBUSY;
 }
 
 int i2c_release_client(struct i2c_client *client)
 {
-	if(client->flags & I2C_CLIENT_ALLOW_USE) {
-		if(client->usage_count>0)
-			client->usage_count--;
-		else {
-			pr_debug("i2c-core: %s used one too many times\n",
-				__FUNCTION__);
-			return -EPERM;
-		}
+	if (!client->usage_count) {
+		pr_debug("i2c-core: %s used one too many times\n",
+			 __FUNCTION__);
+		return -EPERM;
 	}
 	
+	client->usage_count--;
 	i2c_dec_use_client(client);
 	
 	return 0;
@@ -534,14 +516,14 @@ void i2c_clients_command(struct i2c_adapter *adap, unsigned int cmd, void *arg)
 	down(&adap->clist_lock);
 	list_for_each(item,&adap->clients) {
 		client = list_entry(item, struct i2c_client, list);
-		if (!try_module_get(client->driver->owner))
+		if (!try_module_get(client->driver->driver.owner))
 			continue;
 		if (NULL != client->driver->command) {
 			up(&adap->clist_lock);
 			client->driver->command(client,cmd,arg);
 			down(&adap->clist_lock);
 		}
-		module_put(client->driver->owner);
+		module_put(client->driver->driver.owner);
        }
        up(&adap->clist_lock);
 }
@@ -706,10 +688,6 @@ int i2c_probe(struct i2c_adapter *adapter,
 	int i, err;
 	int adap_id = i2c_adapter_id(adapter);
 
-	/* Forget it if we can't probe using SMBUS_QUICK */
-	if (! i2c_check_functionality(adapter,I2C_FUNC_SMBUS_QUICK))
-		return -1;
-
 	/* Force entries are done first, and are not affected by ignore
 	   entries */
 	if (address_data->forces) {
@@ -734,6 +712,17 @@ int i2c_probe(struct i2c_adapter *adapter,
 				}
 			}
 		}
+	}
+
+	/* Stop here if we can't use SMBUS_QUICK */
+	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_QUICK)) {
+		if (address_data->probe[0] == I2C_CLIENT_END
+		 && address_data->normal_i2c[0] == I2C_CLIENT_END)
+		 	return 0;
+
+		dev_warn(&adapter->dev, "SMBus Quick command not supported, "
+			 "can't probe for chips\n");
+		return -1;
 	}
 
 	/* Probe entries are done second, and are not affected by ignore
@@ -820,101 +809,44 @@ crc8(u16 data)
 	return (u8)(data >> 8);
 }
 
-/* CRC over count bytes in the first array plus the bytes in the rest
-   array if it is non-null. rest[0] is the (length of rest) - 1
-   and is included. */
-static u8 i2c_smbus_partial_pec(u8 crc, int count, u8 *first, u8 *rest)
+/* Incremental CRC8 over count bytes in the array pointed to by p */
+static u8 i2c_smbus_pec(u8 crc, u8 *p, size_t count)
 {
 	int i;
 
 	for(i = 0; i < count; i++)
-		crc = crc8((crc ^ first[i]) << 8);
-	if(rest != NULL)
-		for(i = 0; i <= rest[0]; i++)
-			crc = crc8((crc ^ rest[i]) << 8);
+		crc = crc8((crc ^ p[i]) << 8);
 	return crc;
 }
 
-static u8 i2c_smbus_pec(int count, u8 *first, u8 *rest)
+/* Assume a 7-bit address, which is reasonable for SMBus */
+static u8 i2c_smbus_msg_pec(u8 pec, struct i2c_msg *msg)
 {
-	return i2c_smbus_partial_pec(0, count, first, rest);
+	/* The address will be sent first */
+	u8 addr = (msg->addr << 1) | !!(msg->flags & I2C_M_RD);
+	pec = i2c_smbus_pec(pec, &addr, 1);
+
+	/* The data buffer follows */
+	return i2c_smbus_pec(pec, msg->buf, msg->len);
 }
 
-/* Returns new "size" (transaction type)
-   Note that we convert byte to byte_data and byte_data to word_data
-   rather than invent new xxx_PEC transactions. */
-static int i2c_smbus_add_pec(u16 addr, u8 command, int size,
-			     union i2c_smbus_data *data)
+/* Used for write only transactions */
+static inline void i2c_smbus_add_pec(struct i2c_msg *msg)
 {
-	u8 buf[3];
-
-	buf[0] = addr << 1;
-	buf[1] = command;
-	switch(size) {
-		case I2C_SMBUS_BYTE:
-			data->byte = i2c_smbus_pec(2, buf, NULL);
-			size = I2C_SMBUS_BYTE_DATA;
-			break;
-		case I2C_SMBUS_BYTE_DATA:
-			buf[2] = data->byte;
-			data->word = buf[2] ||
-			            (i2c_smbus_pec(3, buf, NULL) << 8);
-			size = I2C_SMBUS_WORD_DATA;
-			break;
-		case I2C_SMBUS_WORD_DATA:
-			/* unsupported */
-			break;
-		case I2C_SMBUS_BLOCK_DATA:
-			data->block[data->block[0] + 1] =
-			             i2c_smbus_pec(2, buf, data->block);
-			size = I2C_SMBUS_BLOCK_DATA_PEC;
-			break;
-	}
-	return size;	
+	msg->buf[msg->len] = i2c_smbus_msg_pec(0, msg);
+	msg->len++;
 }
 
-static int i2c_smbus_check_pec(u16 addr, u8 command, int size, u8 partial,
-			       union i2c_smbus_data *data)
+/* Return <0 on CRC error
+   If there was a write before this read (most cases) we need to take the
+   partial CRC from the write part into account.
+   Note that this function does modify the message (we need to decrease the
+   message length to hide the CRC byte from the caller). */
+static int i2c_smbus_check_pec(u8 cpec, struct i2c_msg *msg)
 {
-	u8 buf[3], rpec, cpec;
+	u8 rpec = msg->buf[--msg->len];
+	cpec = i2c_smbus_msg_pec(cpec, msg);
 
-	buf[1] = command;
-	switch(size) {
-		case I2C_SMBUS_BYTE_DATA:
-			buf[0] = (addr << 1) | 1;
-			cpec = i2c_smbus_pec(2, buf, NULL);
-			rpec = data->byte;
-			break;
-		case I2C_SMBUS_WORD_DATA:
-			buf[0] = (addr << 1) | 1;
-			buf[2] = data->word & 0xff;
-			cpec = i2c_smbus_pec(3, buf, NULL);
-			rpec = data->word >> 8;
-			break;
-		case I2C_SMBUS_WORD_DATA_PEC:
-			/* unsupported */
-			cpec = rpec = 0;
-			break;
-		case I2C_SMBUS_PROC_CALL_PEC:
-			/* unsupported */
-			cpec = rpec = 0;
-			break;
-		case I2C_SMBUS_BLOCK_DATA_PEC:
-			buf[0] = (addr << 1);
-			buf[2] = (addr << 1) | 1;
-			cpec = i2c_smbus_pec(3, buf, data->block);
-			rpec = data->block[data->block[0] + 1];
-			break;
-		case I2C_SMBUS_BLOCK_PROC_CALL_PEC:
-			buf[0] = (addr << 1) | 1;
-			rpec = i2c_smbus_partial_pec(partial, 1,
-			                             buf, data->block);
-			cpec = data->block[data->block[0] + 1];
-			break;
-		default:
-			cpec = rpec = 0;
-			break;
-	}
 	if (rpec != cpec) {
 		pr_debug("i2c-core: Bad PEC 0x%02x vs. 0x%02x\n",
 			rpec, cpec);
@@ -941,9 +873,8 @@ s32 i2c_smbus_read_byte(struct i2c_client *client)
 
 s32 i2c_smbus_write_byte(struct i2c_client *client, u8 value)
 {
-	union i2c_smbus_data data;	/* only for PEC */
 	return i2c_smbus_xfer(client->adapter,client->addr,client->flags,
-	                      I2C_SMBUS_WRITE,value, I2C_SMBUS_BYTE,&data);
+	                      I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, NULL);
 }
 
 s32 i2c_smbus_read_byte_data(struct i2c_client *client, u8 command)
@@ -1015,6 +946,20 @@ s32 i2c_smbus_read_i2c_block_data(struct i2c_client *client, u8 command, u8 *val
 	}
 }
 
+s32 i2c_smbus_write_i2c_block_data(struct i2c_client *client, u8 command,
+				   u8 length, u8 *values)
+{
+	union i2c_smbus_data data;
+
+	if (length > I2C_SMBUS_BLOCK_MAX)
+		length = I2C_SMBUS_BLOCK_MAX;
+	data.block[0] = length;
+	memcpy(data.block + 1, values, length);
+	return i2c_smbus_xfer(client->adapter, client->addr, client->flags,
+			      I2C_SMBUS_WRITE, command,
+			      I2C_SMBUS_I2C_BLOCK_DATA, &data);
+}
+
 /* Simulate a SMBus command using the i2c protocol 
    No checking of parameters is done!  */
 static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr, 
@@ -1026,13 +971,14 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 	  need to use only one message; when reading, we need two. We initialize
 	  most things with sane defaults, to keep the code below somewhat
 	  simpler. */
-	unsigned char msgbuf0[34];
-	unsigned char msgbuf1[34];
+	unsigned char msgbuf0[I2C_SMBUS_BLOCK_MAX+3];
+	unsigned char msgbuf1[I2C_SMBUS_BLOCK_MAX+2];
 	int num = read_write == I2C_SMBUS_READ?2:1;
 	struct i2c_msg msg[2] = { { addr, flags, 1, msgbuf0 }, 
 	                          { addr, flags | I2C_M_RD, 0, msgbuf1 }
 	                        };
 	int i;
+	u8 partial_pec = 0;
 
 	msgbuf0[0] = command;
 	switch(size) {
@@ -1075,7 +1021,6 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 		msgbuf0[2] = (data->word >> 8) & 0xff;
 		break;
 	case I2C_SMBUS_BLOCK_DATA:
-	case I2C_SMBUS_BLOCK_DATA_PEC:
 		if (read_write == I2C_SMBUS_READ) {
 			dev_err(&adapter->dev, "Block read not supported "
 			       "under I2C emulation!\n");
@@ -1088,23 +1033,20 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 				       data->block[0]);
 				return -1;
 			}
-			if(size == I2C_SMBUS_BLOCK_DATA_PEC)
-				(msg[0].len)++;
-			for (i = 1; i <= msg[0].len; i++)
+			for (i = 1; i < msg[0].len; i++)
 				msgbuf0[i] = data->block[i-1];
 		}
 		break;
 	case I2C_SMBUS_BLOCK_PROC_CALL:
-	case I2C_SMBUS_BLOCK_PROC_CALL_PEC:
 		dev_dbg(&adapter->dev, "Block process call not supported "
 		       "under I2C emulation!\n");
 		return -1;
 	case I2C_SMBUS_I2C_BLOCK_DATA:
 		if (read_write == I2C_SMBUS_READ) {
-			msg[1].len = I2C_SMBUS_I2C_BLOCK_MAX;
+			msg[1].len = I2C_SMBUS_BLOCK_MAX;
 		} else {
 			msg[0].len = data->block[0] + 1;
-			if (msg[0].len > I2C_SMBUS_I2C_BLOCK_MAX + 1) {
+			if (msg[0].len > I2C_SMBUS_BLOCK_MAX + 1) {
 				dev_err(&adapter->dev, "i2c_smbus_xfer_emulated called with "
 				       "invalid block write size (%d)\n",
 				       data->block[0]);
@@ -1120,8 +1062,29 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 		return -1;
 	}
 
+	i = ((flags & I2C_CLIENT_PEC) && size != I2C_SMBUS_QUICK
+				      && size != I2C_SMBUS_I2C_BLOCK_DATA);
+	if (i) {
+		/* Compute PEC if first message is a write */
+		if (!(msg[0].flags & I2C_M_RD)) {
+		 	if (num == 1) /* Write only */
+				i2c_smbus_add_pec(&msg[0]);
+			else /* Write followed by read */
+				partial_pec = i2c_smbus_msg_pec(0, &msg[0]);
+		}
+		/* Ask for PEC if last message is a read */
+		if (msg[num-1].flags & I2C_M_RD)
+		 	msg[num-1].len++;
+	}
+
 	if (i2c_transfer(adapter, msg, num) < 0)
 		return -1;
+
+	/* Check PEC if last message is a read */
+	if (i && (msg[num-1].flags & I2C_M_RD)) {
+		if (i2c_smbus_check_pec(partial_pec, &msg[num-1]) < 0)
+			return -1;
+	}
 
 	if (read_write == I2C_SMBUS_READ)
 		switch(size) {
@@ -1137,8 +1100,8 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 				break;
 			case I2C_SMBUS_I2C_BLOCK_DATA:
 				/* fixed at 32 for now */
-				data->block[0] = I2C_SMBUS_I2C_BLOCK_MAX;
-				for (i = 0; i < I2C_SMBUS_I2C_BLOCK_MAX; i++)
+				data->block[0] = I2C_SMBUS_BLOCK_MAX;
+				for (i = 0; i < I2C_SMBUS_BLOCK_MAX; i++)
 					data->block[i+1] = msgbuf1[i];
 				break;
 		}
@@ -1151,28 +1114,8 @@ s32 i2c_smbus_xfer(struct i2c_adapter * adapter, u16 addr, unsigned short flags,
                    union i2c_smbus_data * data)
 {
 	s32 res;
-	int swpec = 0;
-	u8 partial = 0;
 
 	flags &= I2C_M_TEN | I2C_CLIENT_PEC;
-	if((flags & I2C_CLIENT_PEC) &&
-	   !(i2c_check_functionality(adapter, I2C_FUNC_SMBUS_HWPEC_CALC))) {
-		swpec = 1;
-		if(read_write == I2C_SMBUS_READ &&
-		   size == I2C_SMBUS_BLOCK_DATA)
-			size = I2C_SMBUS_BLOCK_DATA_PEC;
-		else if(size == I2C_SMBUS_PROC_CALL)
-			size = I2C_SMBUS_PROC_CALL_PEC;
-		else if(size == I2C_SMBUS_BLOCK_PROC_CALL) {
-			i2c_smbus_add_pec(addr, command,
-		                          I2C_SMBUS_BLOCK_DATA, data);
-			partial = data->block[data->block[0] + 1];
-			size = I2C_SMBUS_BLOCK_PROC_CALL_PEC;
-		} else if(read_write == I2C_SMBUS_WRITE &&
-		          size != I2C_SMBUS_QUICK &&
-		          size != I2C_SMBUS_I2C_BLOCK_DATA)
-			size = i2c_smbus_add_pec(addr, command, size, data);
-	}
 
 	if (adapter->algo->smbus_xfer) {
 		down(&adapter->bus_lock);
@@ -1183,13 +1126,6 @@ s32 i2c_smbus_xfer(struct i2c_adapter * adapter, u16 addr, unsigned short flags,
 		res = i2c_smbus_xfer_emulated(adapter,addr,flags,read_write,
 	                                      command,size,data);
 
-	if(res >= 0 && swpec &&
-	   size != I2C_SMBUS_QUICK && size != I2C_SMBUS_I2C_BLOCK_DATA &&
-	   (read_write == I2C_SMBUS_READ || size == I2C_SMBUS_PROC_CALL_PEC ||
-	    size == I2C_SMBUS_BLOCK_PROC_CALL_PEC)) {
-		if(i2c_smbus_check_pec(addr, command, size, partial, data))
-			return -1;
-	}
 	return res;
 }
 
@@ -1202,7 +1138,6 @@ EXPORT_SYMBOL_GPL(i2c_bus_type);
 
 EXPORT_SYMBOL(i2c_add_adapter);
 EXPORT_SYMBOL(i2c_del_adapter);
-EXPORT_SYMBOL(i2c_add_driver);
 EXPORT_SYMBOL(i2c_del_driver);
 EXPORT_SYMBOL(i2c_attach_client);
 EXPORT_SYMBOL(i2c_detach_client);
@@ -1229,6 +1164,7 @@ EXPORT_SYMBOL(i2c_smbus_read_word_data);
 EXPORT_SYMBOL(i2c_smbus_write_word_data);
 EXPORT_SYMBOL(i2c_smbus_write_block_data);
 EXPORT_SYMBOL(i2c_smbus_read_i2c_block_data);
+EXPORT_SYMBOL(i2c_smbus_write_i2c_block_data);
 
 MODULE_AUTHOR("Simon G. Vogl <simon@tk.uni-linz.ac.at>");
 MODULE_DESCRIPTION("I2C-Bus main module");

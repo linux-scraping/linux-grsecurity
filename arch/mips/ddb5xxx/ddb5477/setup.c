@@ -26,6 +26,7 @@
 #include <linux/major.h>
 #include <linux/kdev_t.h>
 #include <linux/root_dev.h>
+#include <linux/pm.h>
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
@@ -170,7 +171,7 @@ static void ddb5477_board_init(void);
 extern struct pci_controller ddb5477_ext_controller;
 extern struct pci_controller ddb5477_io_controller;
 
-static int  ddb5477_setup(void)
+void __init plat_setup(void)
 {
 	/* initialize board - we don't trust the loader */
         ddb5477_board_init();
@@ -182,7 +183,7 @@ static int  ddb5477_setup(void)
 
 	_machine_restart = ddb_machine_restart;
 	_machine_halt = ddb_machine_halt;
-	_machine_power_off = ddb_machine_power_off;
+	pm_power_off = ddb_machine_power_off;
 
 	/* setup resource limits */
 	ioport_resource.end = DDB_PCI0_IO_SIZE + DDB_PCI1_IO_SIZE - 1;
@@ -193,11 +194,7 @@ static int  ddb5477_setup(void)
 
 	register_pci_controller (&ddb5477_ext_controller);
 	register_pci_controller (&ddb5477_io_controller);
-
-	return 0;
 }
-
-early_initcall(ddb5477_setup);
 
 static void __init ddb5477_board_init(void)
 {

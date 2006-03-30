@@ -31,6 +31,7 @@
 #include <linux/spinlock.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
+#include <asm/string.h>
 
 #define PPP_VERSION	"2.4.2"
 
@@ -188,7 +189,7 @@ ppp_asynctty_open(struct tty_struct *tty)
 		goto out_free;
 
 	tty->disc_data = ap;
-
+	tty->receive_room = 65536;
 	return 0;
 
  out_free:
@@ -342,12 +343,6 @@ ppp_asynctty_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
 	return 0;
 }
 
-static int
-ppp_asynctty_room(struct tty_struct *tty)
-{
-	return 65535;
-}
-
 /*
  * This can now be called from hard interrupt level as well
  * as soft interrupt level or mainline.
@@ -397,7 +392,6 @@ static struct tty_ldisc ppp_ldisc = {
 	.write	= ppp_asynctty_write,
 	.ioctl	= ppp_asynctty_ioctl,
 	.poll	= ppp_asynctty_poll,
-	.receive_room = ppp_asynctty_room,
 	.receive_buf = ppp_asynctty_receive,
 	.write_wakeup = ppp_asynctty_wakeup,
 };
@@ -835,8 +829,11 @@ process_input_packet(struct asyncppp *ap)
  err:
 	/* frame had an error, remember that, reset SC_TOSS & SC_ESCAPE */
 	ap->state = SC_PREV_ERROR;
-	if (skb)
+	if (skb) {
+		/* make skb appear as freshly allocated */
 		skb_trim(skb, 0);
+		skb_reserve(skb, - skb_headroom(skb));
+	}
 }
 
 /* Called when the tty driver has data for us. Runs parallel with the
@@ -889,10 +886,17 @@ ppp_async_input(struct asyncppp *ap, const unsigned char *buf,
 				skb = dev_alloc_skb(ap->mru + PPP_HDRLEN + 2);
 				if (skb == 0)
 					goto nomem;
-				/* Try to get the payload 4-byte aligned */
+ 				ap->rpkt = skb;
+ 			}
+ 			if (skb->len == 0) {
+ 				/* Try to get the payload 4-byte aligned.
+ 				 * This should match the
+ 				 * PPP_ALLSTATIONS/PPP_UI/compressed tests in
+ 				 * process_input_packet, but we do not have
+ 				 * enough chars here to test buf[1] and buf[2].
+ 				 */
 				if (buf[0] != PPP_ALLSTATIONS)
 					skb_reserve(skb, 2 + (buf[0] & 1));
-				ap->rpkt = skb;
 			}
 			if (n > skb_tailroom(skb)) {
 				/* packet overflowed MRU */

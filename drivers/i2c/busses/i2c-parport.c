@@ -155,12 +155,11 @@ static void i2c_parport_attach (struct parport *port)
 {
 	struct i2c_par *adapter;
 	
-	adapter = kmalloc(sizeof(struct i2c_par), GFP_KERNEL);
+	adapter = kzalloc(sizeof(struct i2c_par), GFP_KERNEL);
 	if (adapter == NULL) {
-		printk(KERN_ERR "i2c-parport: Failed to kmalloc\n");
+		printk(KERN_ERR "i2c-parport: Failed to kzalloc\n");
 		return;
 	}
-	memset(adapter, 0x00, sizeof(struct i2c_par));
 
 	pr_debug("i2c-parport: attaching to %s\n", port->name);
 	adapter->pdev = parport_register_device(port, "i2c-parport",
@@ -232,7 +231,7 @@ static void i2c_parport_detach (struct parport *port)
 	}
 }
 
-static struct parport_driver i2c_driver = {
+static struct parport_driver i2c_parport_driver = {
 	.name	= "i2c-parport",
 	.attach	= i2c_parport_attach,
 	.detach	= i2c_parport_detach,
@@ -242,20 +241,17 @@ static struct parport_driver i2c_driver = {
 
 static int __init i2c_parport_init(void)
 {
-	int type_count;
-
-	type_count = sizeof(adapter_parm)/sizeof(struct adapter_parm);
-	if (type < 0 || type >= type_count) {
+	if (type < 0 || type >= ARRAY_SIZE(adapter_parm)) {
 		printk(KERN_WARNING "i2c-parport: invalid type (%d)\n", type);
 		type = 0;
 	}
-	
-	return parport_register_driver(&i2c_driver);
+
+	return parport_register_driver(&i2c_parport_driver);
 }
 
 static void __exit i2c_parport_exit(void)
 {
-	parport_unregister_driver(&i2c_driver);
+	parport_unregister_driver(&i2c_parport_driver);
 }
 
 MODULE_AUTHOR("Jean Delvare <khali@linux-fr.org>");

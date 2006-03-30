@@ -106,6 +106,11 @@ static inline int valid_phys_addr_range(unsigned long addr, size_t *count)
 
 	return 1;
 }
+
+static inline int valid_mmap_phys_addr_range(unsigned long addr, size_t *size)
+{
+	return 1;
+}
 #endif
 
 /*
@@ -238,22 +243,30 @@ static ssize_t write_mem(struct file * file, const char __user * buf,
 	return written;
 }
 
+#ifndef __HAVE_PHYS_MEM_ACCESS_PROT
+static pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+				     unsigned long size, pgprot_t vma_prot)
+{
+#ifdef pgprot_noncached
+	unsigned long offset = pfn << PAGE_SHIFT;
+
+	if (uncached_access(file, offset))
+		return pgprot_noncached(vma_prot);
+#endif
+	return vma_prot;
+}
+#endif
+
 static int mmap_mem(struct file * file, struct vm_area_struct * vma)
 {
-#if defined(__HAVE_PHYS_MEM_ACCESS_PROT)
-	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
+	size_t size = vma->vm_end - vma->vm_start;
 
-	vma->vm_page_prot = phys_mem_access_prot(file, offset,
-						 vma->vm_end - vma->vm_start,
+	if (!valid_mmap_phys_addr_range(vma->vm_pgoff << PAGE_SHIFT, &size))
+		return -EINVAL;
+
+	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_pgoff,
+						 size,
 						 vma->vm_page_prot);
-#elif defined(pgprot_noncached)
-	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
-	int uncached;
-
-	uncached = uncached_access(file, offset);
-	if (uncached)
-		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-#endif
 
 #ifdef CONFIG_GRKERNSEC_KMEM
 	if (gr_handle_mem_mmap(vma->vm_pgoff << PAGE_SHIFT, vma))
@@ -264,7 +277,7 @@ static int mmap_mem(struct file * file, struct vm_area_struct * vma)
 	if (remap_pfn_range(vma,
 			    vma->vm_start,
 			    vma->vm_pgoff,
-			    vma->vm_end-vma->vm_start,
+			    size,
 			    vma->vm_page_prot))
 		return -EAGAIN;
 	return 0;
@@ -541,7 +554,7 @@ static ssize_t write_kmem(struct file * file, const char __user * buf,
  	return virtr + wrote;
 }
 
-#if (defined(CONFIG_ISA) || !defined(__mc68000__)) && (!defined(CONFIG_PPC_ISERIES) || defined(CONFIG_PCI))
+#if defined(CONFIG_ISA) || !defined(__mc68000__)
 static ssize_t read_port(struct file * file, char __user * buf,
 			 size_t count, loff_t *ppos)
 {
@@ -764,7 +777,7 @@ static loff_t memory_lseek(struct file * file, loff_t offset, int orig)
 {
 	loff_t ret;
 
-	down(&file->f_dentry->d_inode->i_sem);
+	mutex_lock(&file->f_dentry->d_inode->i_mutex);
 	switch (orig) {
 		case 0:
 			file->f_pos = offset;
@@ -779,7 +792,7 @@ static loff_t memory_lseek(struct file * file, loff_t offset, int orig)
 		default:
 			ret = -EINVAL;
 	}
-	up(&file->f_dentry->d_inode->i_sem);
+	mutex_unlock(&file->f_dentry->d_inode->i_mutex);
 	return ret;
 }
 
@@ -827,7 +840,7 @@ static struct file_operations null_fops = {
 	.write		= write_null,
 };
 
-#if (defined(CONFIG_ISA) || !defined(__mc68000__)) && (!defined(CONFIG_PPC_ISERIES) || defined(CONFIG_PCI))
+#if defined(CONFIG_ISA) || !defined(__mc68000__)
 static struct file_operations port_fops = {
 	.llseek		= memory_lseek,
 	.read		= read_port,
@@ -864,7 +877,7 @@ static ssize_t kmsg_write(struct file * file, const char __user * buf,
 			  size_t count, loff_t *ppos)
 {
 	char *tmp;
-	int ret;
+	ssize_t ret;
 
 	tmp = kmalloc(count + 1, GFP_KERNEL);
 	if (tmp == NULL)
@@ -873,6 +886,9 @@ static ssize_t kmsg_write(struct file * file, const char __user * buf,
 	if (!copy_from_user(tmp, buf, count)) {
 		tmp[count] = 0;
 		ret = printk("%s", tmp);
+		if (ret > count)
+			/* printk can add a prefix */
+			ret = count;
 	}
 	kfree(tmp);
 	return ret;
@@ -894,7 +910,7 @@ static int memory_open(struct inode * inode, struct file * filp)
 		case 3:
 			filp->f_op = &null_fops;
 			break;
-#if (defined(CONFIG_ISA) || !defined(__mc68000__)) && (!defined(CONFIG_PPC_ISERIES) || defined(CONFIG_PCI))
+#if defined(CONFIG_ISA) || !defined(__mc68000__)
 		case 4:
 			filp->f_op = &port_fops;
 			break;
@@ -946,7 +962,7 @@ static const struct {
 	{1, "mem",     S_IRUSR | S_IWUSR | S_IRGRP, &mem_fops},
 	{2, "kmem",    S_IRUSR | S_IWUSR | S_IRGRP, &kmem_fops},
 	{3, "null",    S_IRUGO | S_IWUGO,           &null_fops},
-#if (defined(CONFIG_ISA) || !defined(__mc68000__)) && (!defined(CONFIG_PPC_ISERIES) || defined(CONFIG_PCI))
+#if defined(CONFIG_ISA) || !defined(__mc68000__)
 	{4, "port",    S_IRUSR | S_IWUSR | S_IRGRP, &port_fops},
 #endif
 	{5, "zero",    S_IRUGO | S_IWUGO,           &zero_fops},
@@ -973,7 +989,8 @@ static int __init chr_dev_init(void)
 
 	mem_class = class_create(THIS_MODULE, "mem");
 	for (i = 0; i < ARRAY_SIZE(devlist); i++) {
-		class_device_create(mem_class, MKDEV(MEM_MAJOR, devlist[i].minor),
+		class_device_create(mem_class, NULL,
+					MKDEV(MEM_MAJOR, devlist[i].minor),
 					NULL, devlist[i].name);
 		devfs_mk_cdev(MKDEV(MEM_MAJOR, devlist[i].minor),
 				S_IFCHR | devlist[i].mode, devlist[i].name);

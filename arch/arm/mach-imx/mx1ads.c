@@ -14,6 +14,7 @@
 
 #include <linux/device.h>
 #include <linux/init.h>
+#include <linux/platform_device.h>
 #include <asm/system.h>
 #include <asm/hardware.h>
 #include <asm/irq.h>
@@ -26,29 +27,28 @@
 #include <asm/mach/arch.h>
 #include <linux/interrupt.h>
 #include "generic.h"
-#include <asm/serial.h>
 
-static struct resource mx1ads_resources[] = {
+static struct resource cs89x0_resources[] = {
 	[0] = {
-		.start	= IMX_CS4_VIRT,
-		.end	= IMX_CS4_VIRT + 16,
+		.start	= IMX_CS4_PHYS + 0x300,
+		.end	= IMX_CS4_PHYS + 0x300 + 16,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= 13,
-		.end	= 13,
+		.start	= IRQ_GPIOC(17),
+		.end	= IRQ_GPIOC(17),
 		.flags	= IORESOURCE_IRQ,
 	},
 };
 
-static struct platform_device mx1ads_device = {
-	.name		= "mx1ads",
-	.num_resources	= ARRAY_SIZE(mx1ads_resources),
-	.resource	= mx1ads_resources,
+static struct platform_device cs89x0_device = {
+	.name		= "cirrus-cs89x0",
+	.num_resources	= ARRAY_SIZE(cs89x0_resources),
+	.resource	= cs89x0_resources,
 };
 
 static struct platform_device *devices[] __initdata = {
-	&mx1ads_device,
+	&cs89x0_device,
 };
 
 static void __init
@@ -60,26 +60,14 @@ mx1ads_init(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
-static struct map_desc mx1ads_io_desc[] __initdata = {
-	/* virtual     physical    length      type */
-	{IMX_CS0_VIRT, IMX_CS0_PHYS, IMX_CS0_SIZE, MT_DEVICE},
-	{IMX_CS1_VIRT, IMX_CS1_PHYS, IMX_CS1_SIZE, MT_DEVICE},
-	{IMX_CS2_VIRT, IMX_CS2_PHYS, IMX_CS2_SIZE, MT_DEVICE},
-	{IMX_CS3_VIRT, IMX_CS3_PHYS, IMX_CS3_SIZE, MT_DEVICE},
-	{IMX_CS4_VIRT, IMX_CS4_PHYS, IMX_CS4_SIZE, MT_DEVICE},
-	{IMX_CS5_VIRT, IMX_CS5_PHYS, IMX_CS5_SIZE, MT_DEVICE},
-};
-
 static void __init
 mx1ads_map_io(void)
 {
 	imx_map_io();
-	iotable_init(mx1ads_io_desc, ARRAY_SIZE(mx1ads_io_desc));
 }
 
 MACHINE_START(MX1ADS, "Motorola MX1ADS")
 	/* Maintainer: Sascha Hauer, Pengutronix */
-	.phys_ram	= 0x08000000,
 	.phys_io	= 0x00200000,
 	.io_pg_offst	= ((0xe0200000) >> 18) & 0xfffc,
 	.boot_params	= 0x08000100,

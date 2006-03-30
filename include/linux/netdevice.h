@@ -308,6 +308,7 @@ struct net_device
 #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
 #define NETIF_F_TSO		2048	/* Can offload TCP/IP segmentation */
 #define NETIF_F_LLTX		4096	/* LockLess TX */
+#define NETIF_F_UFO             8192    /* Can offload UDP Large Send*/
 
 	struct net_device	*next_sched;
 
@@ -683,6 +684,7 @@ extern int		netif_rx(struct sk_buff *skb);
 extern int		netif_rx_ni(struct sk_buff *skb);
 #define HAVE_NETIF_RECEIVE_SKB 1
 extern int		netif_receive_skb(struct sk_buff *skb);
+extern int		dev_valid_name(const char *name);
 extern int		dev_ioctl(unsigned int cmd, void __user *);
 extern int		dev_ethtool(struct ifreq *);
 extern unsigned		dev_get_flags(const struct net_device *);
@@ -800,12 +802,16 @@ static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
 	return (1 << debug_value) - 1;
 }
 
-/* Schedule rx intr now? */
+/* Test if receive needs to be scheduled */
+static inline int __netif_rx_schedule_prep(struct net_device *dev)
+{
+	return !test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
+}
 
+/* Test if receive needs to be scheduled but only if up */
 static inline int netif_rx_schedule_prep(struct net_device *dev)
 {
-	return netif_running(dev) &&
-		!test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
+	return netif_running(dev) && __netif_rx_schedule_prep(dev);
 }
 
 /* Add interface to tail of rx poll list. This assumes that _prep has
@@ -873,11 +879,9 @@ static inline void netif_rx_complete(struct net_device *dev)
 
 static inline void netif_poll_disable(struct net_device *dev)
 {
-	while (test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
+	while (test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state))
 		/* No hurry. */
-		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout(1);
-	}
+		schedule_timeout_interruptible(1);
 }
 
 static inline void netif_poll_enable(struct net_device *dev)
@@ -928,6 +932,13 @@ extern int		netdev_max_backlog;
 extern int		weight_p;
 extern int		netdev_set_master(struct net_device *dev, struct net_device *master);
 extern int skb_checksum_help(struct sk_buff *skb, int inward);
+#ifdef CONFIG_BUG
+extern void netdev_rx_csum_fault(struct net_device *dev);
+#else
+static inline void netdev_rx_csum_fault(struct net_device *dev)
+{
+}
+#endif
 /* rx skb timestamps */
 extern void		net_enable_timestamp(void);
 extern void		net_disable_timestamp(void);

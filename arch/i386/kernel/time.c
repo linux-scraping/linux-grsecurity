@@ -74,10 +74,6 @@ int pit_latch_buggy;              /* extern */
 
 #include "do_timer.h"
 
-u64 jiffies_64 = INITIAL_JIFFIES;
-
-EXPORT_SYMBOL(jiffies_64);
-
 unsigned int cpu_khz;	/* Detected as we calibrate the TSC */
 EXPORT_SYMBOL(cpu_khz);
 
@@ -306,6 +302,12 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	do_timer_interrupt(irq, regs);
 
 	write_sequnlock(&xtime_lock);
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	if (using_apic_timer)
+		smp_send_timer_broadcast_ipi(regs);
+#endif
+
 	return IRQ_HANDLED;
 }
 
@@ -410,9 +412,9 @@ static int timer_resume(struct sys_device *dev)
 	write_seqlock_irqsave(&xtime_lock, flags);
 	xtime.tv_sec = sec;
 	xtime.tv_nsec = 0;
-	write_sequnlock_irqrestore(&xtime_lock, flags);
-	jiffies += sleep_length;
+	jiffies_64 += sleep_length;
 	wall_jiffies += sleep_length;
+	write_sequnlock_irqrestore(&xtime_lock, flags);
 	if (last_timer->resume)
 		last_timer->resume();
 	cur_timer = last_timer;

@@ -133,7 +133,9 @@ static struct kobj_type ktype_bus = {
 decl_subsys(bus, &ktype_bus, NULL);
 
 
-/* Manually detach a device from it's associated driver. */
+#ifdef CONFIG_HOTPLUG
+
+/* Manually detach a device from its associated driver. */
 static int driver_helper(struct device *dev, void *data)
 {
 	const char *name = data;
@@ -151,14 +153,17 @@ static ssize_t driver_unbind(struct device_driver *drv,
 	int err = -ENODEV;
 
 	dev = bus_find_device(bus, NULL, (void *)buf, driver_helper);
-	if ((dev) &&
-	    (dev->driver == drv)) {
+	if (dev && dev->driver == drv) {
+		if (dev->parent)	/* Needed for USB */
+			down(&dev->parent->sem);
 		device_release_driver(dev);
+		if (dev->parent)
+			up(&dev->parent->sem);
 		err = count;
 	}
-	if (err)
-		return err;
-	return count;
+	put_device(dev);
+	put_bus(bus);
+	return err;
 }
 static DRIVER_ATTR(unbind, S_IWUSR, NULL, driver_unbind);
 
@@ -175,19 +180,22 @@ static ssize_t driver_bind(struct device_driver *drv,
 	int err = -ENODEV;
 
 	dev = bus_find_device(bus, NULL, (void *)buf, driver_helper);
-	if ((dev) &&
-	    (dev->driver == NULL)) {
+	if (dev && dev->driver == NULL) {
+		if (dev->parent)	/* Needed for USB */
+			down(&dev->parent->sem);
 		down(&dev->sem);
 		err = driver_probe_device(drv, dev);
 		up(&dev->sem);
-		put_device(dev);
+		if (dev->parent)
+			up(&dev->parent->sem);
 	}
-	if (err)
-		return err;
-	return count;
+	put_device(dev);
+	put_bus(bus);
+	return err;
 }
 static DRIVER_ATTR(bind, S_IWUSR, NULL, driver_bind);
 
+#endif
 
 static struct device * next_device(struct klist_iter * i)
 {
@@ -423,6 +431,26 @@ static void driver_remove_attrs(struct bus_type * bus, struct device_driver * dr
 	}
 }
 
+#ifdef CONFIG_HOTPLUG
+/*
+ * Thanks to drivers making their tables __devinit, we can't allow manual
+ * bind and unbind from userspace unless CONFIG_HOTPLUG is enabled.
+ */
+static void add_bind_files(struct device_driver *drv)
+{
+	driver_create_file(drv, &driver_attr_unbind);
+	driver_create_file(drv, &driver_attr_bind);
+}
+
+static void remove_bind_files(struct device_driver *drv)
+{
+	driver_remove_file(drv, &driver_attr_bind);
+	driver_remove_file(drv, &driver_attr_unbind);
+}
+#else
+static inline void add_bind_files(struct device_driver *drv) {}
+static inline void remove_bind_files(struct device_driver *drv) {}
+#endif
 
 /**
  *	bus_add_driver - Add a driver to the bus.
@@ -452,8 +480,7 @@ int bus_add_driver(struct device_driver * drv)
 		module_add_driver(drv->owner, drv);
 
 		driver_add_attrs(bus, drv);
-		driver_create_file(drv, &driver_attr_unbind);
-		driver_create_file(drv, &driver_attr_bind);
+		add_bind_files(drv);
 	}
 	return error;
 }
@@ -471,8 +498,7 @@ int bus_add_driver(struct device_driver * drv)
 void bus_remove_driver(struct device_driver * drv)
 {
 	if (drv->bus) {
-		driver_remove_file(drv, &driver_attr_bind);
-		driver_remove_file(drv, &driver_attr_unbind);
+		remove_bind_files(drv);
 		driver_remove_attrs(drv->bus, drv);
 		klist_remove(&drv->knode_bus);
 		pr_debug("bus %s: remove driver %s\n", drv->bus->name, drv->name);
@@ -487,8 +513,13 @@ void bus_remove_driver(struct device_driver * drv)
 /* Helper for bus_rescan_devices's iter */
 static int bus_rescan_devices_helper(struct device *dev, void *data)
 {
-	if (!dev->driver)
+	if (!dev->driver) {
+		if (dev->parent)	/* Needed for USB */
+			down(&dev->parent->sem);
 		device_attach(dev);
+		if (dev->parent)
+			up(&dev->parent->sem);
+	}
 	return 0;
 }
 

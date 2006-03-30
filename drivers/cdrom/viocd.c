@@ -42,13 +42,11 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
-#include <asm/bug.h>
-
 #include <asm/vio.h>
 #include <asm/scatterlist.h>
-#include <asm/iSeries/HvTypes.h>
-#include <asm/iSeries/HvLpEvent.h>
-#include <asm/iSeries/vio.h>
+#include <asm/iseries/hv_types.h>
+#include <asm/iseries/hv_lp_event.h>
+#include <asm/iseries/vio.h>
 
 #define VIOCD_DEVICE			"iseries/vcd"
 #define VIOCD_DEVICE_DEVFS		"iseries/vcd"
@@ -542,10 +540,10 @@ static void vio_handle_cd_event(struct HvLpEvent *event)
 		/* Notification that a partition went away! */
 		return;
 	/* First, we should NEVER get an int here...only acks */
-	if (event->xFlags.xFunction == HvLpEvent_Function_Int) {
+	if (hvlpevent_is_int(event)) {
 		printk(VIOCD_KERN_WARNING
 				"Yikes! got an int in viocd event handler!\n");
-		if (event->xFlags.xAckInd == HvLpEvent_AckInd_DoAck) {
+		if (hvlpevent_need_ack(event)) {
 			event->xRc = HvLpEvent_Rc_InvalidSubtype;
 			HvCallEvent_ackLpEvent(event);
 		}
@@ -616,7 +614,7 @@ return_complete:
 		printk(VIOCD_KERN_WARNING
 				"message with invalid subtype %0x04X!\n",
 				event->xSubtype & VIOMINOR_SUBTYPE_MASK);
-		if (event->xFlags.xAckInd == HvLpEvent_AckInd_DoAck) {
+		if (hvlpevent_need_ack(event)) {
 			event->xRc = HvLpEvent_Rc_InvalidSubtype;
 			HvCallEvent_ackLpEvent(event);
 		}
@@ -736,13 +734,16 @@ static struct vio_device_id viocd_device_table[] __devinitdata = {
 	{ "viocd", "" },
 	{ "", "" }
 };
-
 MODULE_DEVICE_TABLE(vio, viocd_device_table);
+
 static struct vio_driver viocd_driver = {
-	.name = "viocd",
 	.id_table = viocd_device_table,
 	.probe = viocd_probe,
-	.remove = viocd_remove
+	.remove = viocd_remove,
+	.driver = {
+		.name = "viocd",
+		.owner = THIS_MODULE,
+	}
 };
 
 static int __init viocd_init(void)

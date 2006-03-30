@@ -19,6 +19,8 @@
 #include <linux/fb.h>
 #include <linux/ioport.h>
 #include <linux/init.h>
+#include <linux/platform_device.h>
+
 #include <video/vga.h>
 #include <asm/io.h>
 #include <asm/mtrr.h>
@@ -46,7 +48,7 @@ static struct fb_fix_screeninfo vesafb_fix __initdata = {
 };
 
 static int             inverse   = 0;
-static int             mtrr      = 3; /* default to write-combining */
+static int             mtrr      = 0; /* disable mtrr */
 static int	       vram_remap __initdata = 0; /* Set amount of memory to be used */
 static int	       vram_total __initdata = 0; /* Set total amount of memory */
 static int             pmi_setpal = 0;	/* pmi for palette changes ??? */
@@ -55,7 +57,6 @@ static unsigned short  *pmi_base  = NULL;
 static void            (*pmi_start)(void);
 static void            (*pmi_pal)(void);
 static int             depth;
-static int             vga_compat;
 
 /* --------------------------------------------------------------------- */
 
@@ -64,15 +65,6 @@ static int vesafb_pan_display(struct fb_var_screeninfo *var,
 {
 #ifdef __i386__
 	int offset;
-
-	if (!ypan)
-		return -EINVAL;
-	if (var->xoffset)
-		return -EINVAL;
-	if (var->yoffset > var->yres_virtual)
-		return -EINVAL;
-	if ((ypan==1) && var->yoffset+var->yres > var->yres_virtual)
-		return -EINVAL;
 
 	offset = (var->yoffset * info->fix.line_length + var->xoffset) / 4;
 
@@ -86,37 +78,6 @@ static int vesafb_pan_display(struct fb_var_screeninfo *var,
                   "D" (&pmi_start));    /* EDI */
 #endif
 	return 0;
-}
-
-static int vesafb_blank(int blank, struct fb_info *info)
-{
-	int err = 1;
-
-	if (vga_compat) {
-		int loop = 10000;
-		u8 seq = 0, crtc17 = 0;
-
-		if (blank == FB_BLANK_POWERDOWN) {
-			seq = 0x20;
-			crtc17 = 0x00;
-			err = 0;
-		} else {
-			seq = 0x00;
-			crtc17 = 0x80;
-			err = (blank == FB_BLANK_UNBLANK) ? 0 : -EINVAL;
-		}
-
-		vga_wseq(NULL, 0x00, 0x01);
-		seq |= vga_rseq(NULL, 0x01) & ~0x20;
-		vga_wseq(NULL, 0x00, seq);
-
-		crtc17 |= vga_rcrt(NULL, 0x17) & ~0x80;
-		while (loop--);
-		vga_wcrt(NULL, 0x17, crtc17);
-		vga_wseq(NULL, 0x00, 0x03);
-	}
-
-	return err;
 }
 
 static void vesa_setpalette(int regno, unsigned red, unsigned green,
@@ -164,56 +125,48 @@ static int vesafb_setcolreg(unsigned regno, unsigned red, unsigned green,
 	if (regno >= info->cmap.len)
 		return 1;
 
-	switch (info->var.bits_per_pixel) {
-	case 8:
+	if (info->var.bits_per_pixel == 8)
 		vesa_setpalette(regno,red,green,blue);
-		break;
-	case 16:
-		if (info->var.red.offset == 10) {
-			/* 1:5:5:5 */
-			((u32*) (info->pseudo_palette))[regno] =	
+	else if (regno < 16) {
+		switch (info->var.bits_per_pixel) {
+		case 16:
+			if (info->var.red.offset == 10) {
+				/* 1:5:5:5 */
+				((u32*) (info->pseudo_palette))[regno] =
 					((red   & 0xf800) >>  1) |
 					((green & 0xf800) >>  6) |
 					((blue  & 0xf800) >> 11);
-		} else {
-			/* 0:5:6:5 */
-			((u32*) (info->pseudo_palette))[regno] =	
+			} else {
+				/* 0:5:6:5 */
+				((u32*) (info->pseudo_palette))[regno] =
 					((red   & 0xf800)      ) |
 					((green & 0xfc00) >>  5) |
 					((blue  & 0xf800) >> 11);
+			}
+			break;
+		case 24:
+		case 32:
+			red   >>= 8;
+			green >>= 8;
+			blue  >>= 8;
+			((u32 *)(info->pseudo_palette))[regno] =
+				(red   << info->var.red.offset)   |
+				(green << info->var.green.offset) |
+				(blue  << info->var.blue.offset);
+			break;
 		}
-		break;
-	case 24:
-		red   >>= 8;
-		green >>= 8;
-		blue  >>= 8;
-		((u32 *)(info->pseudo_palette))[regno] =
-			(red   << info->var.red.offset)   |
-			(green << info->var.green.offset) |
-			(blue  << info->var.blue.offset);
-		break;
-	case 32:
-		red   >>= 8;
-		green >>= 8;
-		blue  >>= 8;
-		((u32 *)(info->pseudo_palette))[regno] =
-			(red   << info->var.red.offset)   |
-			(green << info->var.green.offset) |
-			(blue  << info->var.blue.offset);
-		break;
-    }
-    return 0;
+	}
+
+	return 0;
 }
 
 static struct fb_ops vesafb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_setcolreg	= vesafb_setcolreg,
 	.fb_pan_display	= vesafb_pan_display,
-	.fb_blank       = vesafb_blank,
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 };
 
 static int __init vesafb_setup(char *options)
@@ -250,9 +203,8 @@ static int __init vesafb_setup(char *options)
 	return 0;
 }
 
-static int __init vesafb_probe(struct device *device)
+static int __init vesafb_probe(struct platform_device *dev)
 {
-	struct platform_device *dev = to_platform_device(device);
 	struct fb_info *info;
 	int i, err;
 	unsigned int size_vmode;
@@ -419,6 +371,7 @@ static int __init vesafb_probe(struct device *device)
 	 * region already (FIXME) */
 	request_region(0x3c0, 32, "vesafb");
 
+#ifdef CONFIG_MTRR
 	if (mtrr) {
 		unsigned int temp_size = size_total;
 		unsigned int type = 0;
@@ -456,6 +409,7 @@ static int __init vesafb_probe(struct device *device)
 			} while (temp_size >= PAGE_SIZE && rc == -EINVAL);
 		}
 	}
+#endif
 	
 	info->fbops = &vesafb_ops;
 	info->var = vesafb_defined;
@@ -463,9 +417,8 @@ static int __init vesafb_probe(struct device *device)
 	info->flags = FBINFO_FLAG_DEFAULT |
 		(ypan) ? FBINFO_HWACCEL_YPAN : 0;
 
-	vga_compat = (screen_info.capabilities & 2) ? 0 : 1;
-	printk("vesafb: Mode is %sVGA compatible\n",
-	       (vga_compat) ? "" : "not ");
+	if (!ypan)
+		info->fbops->fb_pan_display = NULL;
 
 	if (fb_alloc_cmap(&info->cmap, 256, 0) < 0) {
 		err = -ENOMEM;
@@ -485,10 +438,11 @@ err:
 	return err;
 }
 
-static struct device_driver vesafb_driver = {
-	.name	= "vesafb",
-	.bus	= &platform_bus_type,
+static struct platform_driver vesafb_driver = {
 	.probe	= vesafb_probe,
+	.driver	= {
+		.name	= "vesafb",
+	},
 };
 
 static struct platform_device vesafb_device = {
@@ -503,12 +457,12 @@ static int __init vesafb_init(void)
 	/* ignore error return of fb_get_options */
 	fb_get_options("vesafb", &option);
 	vesafb_setup(option);
-	ret = driver_register(&vesafb_driver);
+	ret = platform_driver_register(&vesafb_driver);
 
 	if (!ret) {
 		ret = platform_device_register(&vesafb_device);
 		if (ret)
-			driver_unregister(&vesafb_driver);
+			platform_driver_unregister(&vesafb_driver);
 	}
 	return ret;
 }

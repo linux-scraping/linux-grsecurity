@@ -12,6 +12,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <asm/ptrace.h>
+#include <asm/uaccess.h>
 
 struct frame_head {
 	struct frame_head * ebp;
@@ -19,7 +20,7 @@ struct frame_head {
 } __attribute__((packed));
 
 static struct frame_head *
-dump_backtrace(struct frame_head * head)
+dump_kernel_backtrace(struct frame_head * head)
 {
 	oprofile_add_trace(head->ret);
 
@@ -31,16 +32,25 @@ dump_backtrace(struct frame_head * head)
 	return head->ebp;
 }
 
-/* check that the page(s) containing the frame head are present */
-static int pages_present(struct frame_head * head)
+static struct frame_head *
+dump_user_backtrace(struct frame_head * head)
 {
-	struct mm_struct * mm = current->mm;
+	struct frame_head bufhead[2];
 
-	/* FIXME: only necessary once per page */
-	if (!check_user_page_readable(mm, (unsigned long)head))
-		return 0;
+	/* Also check accessibility of one struct frame_head beyond */
+	if (!access_ok(VERIFY_READ, head, sizeof(bufhead)))
+		return NULL;
+	if (__copy_from_user_inatomic(bufhead, head, sizeof(bufhead)))
+		return NULL;
 
-	return check_user_page_readable(mm, (unsigned long)(head + 1));
+	oprofile_add_trace(bufhead[0].ret);
+
+	/* frame pointers should strictly progress back up the stack
+	 * (towards higher addresses) */
+	if (head >= bufhead[0].ebp)
+		return NULL;
+
+	return bufhead[0].ebp;
 }
 
 /*
@@ -52,7 +62,9 @@ static int pages_present(struct frame_head * head)
  * |    stack    |
  * --------------- saved regs->ebp value if valid (frame_head address)
  * .             .
- * --------------- struct pt_regs stored on stack (struct pt_regs *)
+ * --------------- saved regs->rsp value if x86_64
+ * |             |
+ * --------------- struct pt_regs * stored on stack if 32-bit
  * |             |
  * .             .
  * |             |
@@ -60,13 +72,26 @@ static int pages_present(struct frame_head * head)
  * |             |
  * |             | \/ Lower addresses
  *
- * Thus, &pt_regs <-> stack base restricts the valid(ish) ebp values
+ * Thus, regs (or regs->rsp for x86_64) <-> stack base restricts the
+ * valid(ish) ebp values. Note: (1) for x86_64, NMI and several other
+ * exceptions use special stacks, maintained by the interrupt stack table
+ * (IST). These stacks are set up in trap_init() in
+ * arch/x86_64/kernel/traps.c. Thus, for x86_64, regs now does not point
+ * to the kernel stack; instead, it points to some location on the NMI
+ * stack. On the other hand, regs->rsp is the stack pointer saved when the
+ * NMI occurred. (2) For 32-bit, regs->esp is not valid because the
+ * processor does not save %esp on the kernel stack when interrupts occur
+ * in the kernel mode.
  */
 #ifdef CONFIG_FRAME_POINTER
 static int valid_kernel_stack(struct frame_head * head, struct pt_regs * regs)
 {
 	unsigned long headaddr = (unsigned long)head;
+#ifdef CONFIG_X86_64
+	unsigned long stack = (unsigned long)regs->rsp;
+#else
 	unsigned long stack = (unsigned long)regs;
+#endif
 	unsigned long stack_base = (stack & ~(THREAD_SIZE - 1)) + THREAD_SIZE;
 
 	return headaddr > stack && headaddr < stack_base;
@@ -93,19 +118,10 @@ x86_backtrace(struct pt_regs * const regs, unsigned int depth)
 
 	if (!user_mode(regs)) {
 		while (depth-- && valid_kernel_stack(head, regs))
-			head = dump_backtrace(head);
+			head = dump_kernel_backtrace(head);
 		return;
 	}
 
-#ifdef CONFIG_SMP
-	if (!spin_trylock(&current->mm->page_table_lock))
-		return;
-#endif
-
-	while (depth-- && head && pages_present(head))
-		head = dump_backtrace(head);
-
-#ifdef CONFIG_SMP
-	spin_unlock(&current->mm->page_table_lock);
-#endif
+	while (depth-- && head)
+		head = dump_user_backtrace(head);
 }

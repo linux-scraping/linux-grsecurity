@@ -32,7 +32,7 @@ static int digitv_ctrl_msg(struct dvb_usb_device *d,
 	sndbuf[1] = vv;
 	sndbuf[2] = wo ? wlen : rlen;
 
-	if (!wo) {
+	if (wo) {
 		memcpy(&sndbuf[3],wbuf,wlen);
 		dvb_usb_generic_write(d,sndbuf,7);
 	} else {
@@ -148,7 +148,7 @@ static struct dvb_usb_rc_key digitv_rc_keys[] = {
 };
 
 /* TODO is it really the NEC protocol ? */
-int digitv_rc_query(struct dvb_usb_device *d, u32 *event, int *state)
+static int digitv_rc_query(struct dvb_usb_device *d, u32 *event, int *state)
 {
 	u8 key[5];
 
@@ -175,11 +175,13 @@ static int digitv_probe(struct usb_interface *intf,
 	if ((ret = dvb_usb_device_init(intf,&digitv_properties,THIS_MODULE,&d)) == 0) {
 		u8 b[4] = { 0 };
 
-		b[0] = 1;
-		digitv_ctrl_msg(d,USB_WRITE_REMOTE_TYPE,0,b,4,NULL,0);
+		if (d != NULL) { /* do that only when the firmware is loaded */
+			b[0] = 1;
+			digitv_ctrl_msg(d,USB_WRITE_REMOTE_TYPE,0,b,4,NULL,0);
 
-		b[0] = 0;
-		digitv_ctrl_msg(d,USB_WRITE_REMOTE,0,b,4,NULL,0);
+			b[0] = 0;
+			digitv_ctrl_msg(d,USB_WRITE_REMOTE,0,b,4,NULL,0);
+		}
 	}
 	return ret;
 }
@@ -194,7 +196,7 @@ static struct dvb_usb_properties digitv_properties = {
 	.caps = DVB_USB_IS_AN_I2C_ADAPTER,
 
 	.usb_ctrl = CYPRESS_FX2,
-	.firmware = "dvb-usb-digitv-01.fw",
+	.firmware = "dvb-usb-digitv-02.fw",
 
 	.size_of_priv     = 0,
 
@@ -229,11 +231,11 @@ static struct dvb_usb_properties digitv_properties = {
 			{ &digitv_table[0], NULL },
 			{ NULL },
 		},
+		{ NULL },
 	}
 };
 
 static struct usb_driver digitv_driver = {
-	.owner		= THIS_MODULE,
 	.name		= "dvb_usb_digitv",
 	.probe		= digitv_probe,
 	.disconnect = dvb_usb_device_exit,

@@ -334,8 +334,7 @@ acpi_video_device_lcd_query_levels(struct acpi_video_device *device,
 	return_VALUE(0);
 
       err:
-	if (buffer.pointer)
-		kfree(buffer.pointer);
+	kfree(buffer.pointer);
 
 	return_VALUE(status);
 }
@@ -921,8 +920,8 @@ static int acpi_video_device_add_fs(struct acpi_device *device)
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
 				  "Unable to create 'state' fs entry\n"));
 	else {
+		acpi_video_device_state_fops.write = acpi_video_device_write_state;
 		entry->proc_fops = &acpi_video_device_state_fops;
-		entry->proc_fops->write = acpi_video_device_write_state;
 		entry->data = acpi_driver_data(device);
 		entry->owner = THIS_MODULE;
 	}
@@ -935,8 +934,8 @@ static int acpi_video_device_add_fs(struct acpi_device *device)
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
 				  "Unable to create 'brightness' fs entry\n"));
 	else {
+		acpi_video_device_brightness_fops.write = acpi_video_device_write_brightness;
 		entry->proc_fops = &acpi_video_device_brightness_fops;
-		entry->proc_fops->write = acpi_video_device_write_brightness;
 		entry->data = acpi_driver_data(device);
 		entry->owner = THIS_MODULE;
 	}
@@ -1240,8 +1239,8 @@ static int acpi_video_bus_add_fs(struct acpi_device *device)
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
 				  "Unable to create 'POST' fs entry\n"));
 	else {
+		acpi_video_bus_POST_fops.write = acpi_video_bus_write_POST;
 		entry->proc_fops = &acpi_video_bus_POST_fops;
-		entry->proc_fops->write = acpi_video_bus_write_POST;
 		entry->data = acpi_driver_data(device);
 		entry->owner = THIS_MODULE;
 	}
@@ -1254,8 +1253,8 @@ static int acpi_video_bus_add_fs(struct acpi_device *device)
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
 				  "Unable to create 'DOS' fs entry\n"));
 	else {
+		acpi_video_bus_DOS_fops.write = acpi_video_bus_write_DOS;
 		entry->proc_fops = &acpi_video_bus_DOS_fops;
-		entry->proc_fops->write = acpi_video_bus_write_DOS;
 		entry->data = acpi_driver_data(device);
 		entry->owner = THIS_MODULE;
 	}
@@ -1488,8 +1487,7 @@ static int acpi_video_device_enumerate(struct acpi_video_bus *video)
 	}
 	active_device_list[count].value.int_val = ACPI_VIDEO_HEAD_END;
 
-	if (video->attached_array)
-		kfree(video->attached_array);
+	kfree(video->attached_array);
 
 	video->attached_array = active_device_list;
 	video->attached_count = count;
@@ -1645,8 +1643,7 @@ static int acpi_video_bus_put_devices(struct acpi_video_bus *video)
 			printk(KERN_WARNING PREFIX
 			       "hhuuhhuu bug in acpi video driver.\n");
 
-		if (data->brightness)
-			kfree(data->brightness);
+		kfree(data->brightness);
 
 		kfree(data);
 	}
@@ -1831,8 +1828,7 @@ static int acpi_video_bus_remove(struct acpi_device *device, int type)
 	acpi_video_bus_put_devices(video);
 	acpi_video_bus_remove_fs(device);
 
-	if (video->attached_array)
-		kfree(video->attached_array);
+	kfree(video->attached_array);
 	kfree(video);
 
 	return_VALUE(0);

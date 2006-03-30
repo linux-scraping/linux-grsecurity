@@ -1288,6 +1288,10 @@ static void __devinit hpt37x_clocking(ide_hwif_t *hwif)
 				goto init_hpt37X_done;
 			}
 		}
+		if (!pci_get_drvdata(dev)) {
+			printk("No Clock Stabilization!!!\n");
+			return;
+		}
 pll_recal:
 		if (adjust & 1)
 			pll -= (adjust >> 1);
@@ -1516,7 +1520,7 @@ static void __devinit init_dma_hpt366(ide_hwif_t *hwif, unsigned long dmabase)
 
 static void __devinit init_iops_hpt366(ide_hwif_t *hwif)
 {
-	struct hpt_info *info = kmalloc(sizeof(struct hpt_info), GFP_KERNEL);
+	struct hpt_info *info = kzalloc(sizeof(struct hpt_info), GFP_KERNEL);
 	unsigned long dmabase = pci_resource_start(hwif->pci_dev, 4);
 	u8 did, rid;
 
@@ -1524,7 +1528,6 @@ static void __devinit init_iops_hpt366(ide_hwif_t *hwif)
 		printk(KERN_WARNING "hpt366: out of memory.\n");
 		return;
 	}
-	memset(info, 0, sizeof(struct hpt_info));
 	ide_set_hwifdata(hwif, info);
 
 	if(dmabase) {

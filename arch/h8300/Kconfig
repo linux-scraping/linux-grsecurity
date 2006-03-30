@@ -21,10 +21,6 @@ config FPU
 	bool
 	default n
 
-config UID16
-	bool
-	default y
-
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -34,6 +30,10 @@ config RWSEM_XCHGADD_ALGORITHM
 	default n
 
 config GENERIC_CALIBRATE_DELAY
+	bool
+	default y
+
+config TIME_LOW_RES
 	bool
 	default y
 

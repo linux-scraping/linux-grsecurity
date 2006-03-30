@@ -39,7 +39,6 @@
 #include <asm/starfire.h>
 #include <asm/tlb.h>
 
-extern int linux_num_cpus;
 extern void calibrate_delay(void);
 
 /* Please don't make this stuff initdata!!!  --DaveM */
@@ -168,6 +167,9 @@ void __init smp_callin(void)
 		rmb();
 
 	cpu_set(cpuid, cpu_online_map);
+
+	/* idle thread is expected to have preempt disabled */
+	preempt_disable();
 }
 
 void cpu_panic(void)
@@ -333,7 +335,7 @@ static int __devinit smp_boot_one_cpu(unsigned int cpu)
 
 	p = fork_idle(cpu);
 	callin_flag = 0;
-	cpu_new_thread = p->thread_info;
+	cpu_new_thread = task_thread_info(p);
 	cpu_set(cpu, cpu_callout_map);
 
 	cpu_find_by_mid(cpu, &cpu_node);
@@ -839,43 +841,29 @@ void smp_flush_tlb_all(void)
  *    questionable (in theory the big win for threads is the massive sharing of
  *    address space state across processors).
  */
+
+/* This currently is only used by the hugetlb arch pre-fault
+ * hook on UltraSPARC-III+ and later when changing the pagesize
+ * bits of the context register for an address space.
+ */
 void smp_flush_tlb_mm(struct mm_struct *mm)
 {
-        /*
-         * This code is called from two places, dup_mmap and exit_mmap. In the
-         * former case, we really need a flush. In the later case, the callers
-         * are single threaded exec_mmap (really need a flush), multithreaded
-         * exec_mmap case (do not need to flush, since the caller gets a new
-         * context via activate_mm), and all other callers of mmput() whence
-         * the flush can be optimized since the associated threads are dead and
-         * the mm is being torn down (__exit_mm and other mmput callers) or the
-         * owning thread is dissociating itself from the mm. The
-         * (atomic_read(&mm->mm_users) == 0) check ensures real work is done
-         * for single thread exec and dup_mmap cases. An alternate check might
-         * have been (current->mm != mm).
-         *                                              Kanoj Sarcar
-         */
-        if (atomic_read(&mm->mm_users) == 0)
-                return;
+	u32 ctx = CTX_HWBITS(mm->context);
+	int cpu = get_cpu();
 
-	{
-		u32 ctx = CTX_HWBITS(mm->context);
-		int cpu = get_cpu();
-
-		if (atomic_read(&mm->mm_users) == 1) {
-			mm->cpu_vm_mask = cpumask_of_cpu(cpu);
-			goto local_flush_and_out;
-		}
-
-		smp_cross_call_masked(&xcall_flush_tlb_mm,
-				      ctx, 0, 0,
-				      mm->cpu_vm_mask);
-
-	local_flush_and_out:
-		__flush_tlb_mm(ctx, SECONDARY_CONTEXT);
-
-		put_cpu();
+	if (atomic_read(&mm->mm_users) == 1) {
+		mm->cpu_vm_mask = cpumask_of_cpu(cpu);
+		goto local_flush_and_out;
 	}
+
+	smp_cross_call_masked(&xcall_flush_tlb_mm,
+			      ctx, 0, 0,
+			      mm->cpu_vm_mask);
+
+local_flush_and_out:
+	__flush_tlb_mm(ctx, SECONDARY_CONTEXT);
+
+	put_cpu();
 }
 
 void smp_flush_tlb_pending(struct mm_struct *mm, unsigned long nr, unsigned long *vaddrs)
@@ -883,34 +871,13 @@ void smp_flush_tlb_pending(struct mm_struct *mm, unsigned long nr, unsigned long
 	u32 ctx = CTX_HWBITS(mm->context);
 	int cpu = get_cpu();
 
-	if (mm == current->active_mm && atomic_read(&mm->mm_users) == 1) {
+	if (mm == current->active_mm && atomic_read(&mm->mm_users) == 1)
 		mm->cpu_vm_mask = cpumask_of_cpu(cpu);
-		goto local_flush_and_out;
-	} else {
-		/* This optimization is not valid.  Normally
-		 * we will be holding the page_table_lock, but
-		 * there is an exception which is copy_page_range()
-		 * when forking.  The lock is held during the individual
-		 * page table updates in the parent, but not at the
-		 * top level, which is where we are invoked.
-		 */
-		if (0) {
-			cpumask_t this_cpu_mask = cpumask_of_cpu(cpu);
+	else
+		smp_cross_call_masked(&xcall_flush_tlb_pending,
+				      ctx, nr, (unsigned long) vaddrs,
+				      mm->cpu_vm_mask);
 
-			/* By virtue of running under the mm->page_table_lock,
-			 * and mmu_context.h:switch_mm doing the same, the
-			 * following operation is safe.
-			 */
-			if (cpus_equal(mm->cpu_vm_mask, this_cpu_mask))
-				goto local_flush_and_out;
-		}
-	}
-
-	smp_cross_call_masked(&xcall_flush_tlb_pending,
-			      ctx, nr, (unsigned long) vaddrs,
-			      mm->cpu_vm_mask);
-
-local_flush_and_out:
 	__flush_tlb_pending(ctx, nr, vaddrs);
 
 	put_cpu();
@@ -1112,18 +1079,12 @@ int setup_profiling_timer(unsigned int multiplier)
 	return 0;
 }
 
+/* Constrain the number of cpus to max_cpus.  */
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
-	int instance, mid;
-
-	instance = 0;
-	while (!cpu_find_by_instance(instance, NULL, &mid)) {
-		if (mid < max_cpus)
-			cpu_set(mid, phys_cpu_present_map);
-		instance++;
-	}
-
 	if (num_possible_cpus() > max_cpus) {
+		int instance, mid;
+
 		instance = 0;
 		while (!cpu_find_by_instance(instance, NULL, &mid)) {
 			if (mid != boot_cpu_id) {
@@ -1136,6 +1097,22 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	}
 
 	smp_store_cpu_info(boot_cpu_id);
+}
+
+/* Set this up early so that things like the scheduler can init
+ * properly.  We use the same cpu mask for both the present and
+ * possible cpu map.
+ */
+void __init smp_setup_cpu_possible_map(void)
+{
+	int instance, mid;
+
+	instance = 0;
+	while (!cpu_find_by_instance(instance, NULL, &mid)) {
+		if (mid < NR_CPUS)
+			cpu_set(mid, phys_cpu_present_map);
+		instance++;
+	}
 }
 
 void __devinit smp_prepare_boot_cpu(void)
@@ -1184,20 +1161,9 @@ void __init smp_cpus_done(unsigned int max_cpus)
 	       (bogosum/(5000/HZ))%100);
 }
 
-/* This needn't do anything as we do not sleep the cpu
- * inside of the idler task, so an interrupt is not needed
- * to get a clean fast response.
- *
- * XXX Reverify this assumption... -DaveM
- *
- * Addendum: We do want it to do something for the signal
- *           delivery case, we detect that by just seeing
- *           if we are trying to send this to an idler or not.
- */
 void smp_send_reschedule(int cpu)
 {
-	if (cpu_data(cpu).idle_volume == 0)
-		smp_receive_signal(cpu);
+	smp_receive_signal(cpu);
 }
 
 /* This is a nop because we capture all other cpus

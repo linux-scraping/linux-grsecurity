@@ -439,6 +439,20 @@ static int pci_siig_init(struct pci_dev *dev)
 	return -ENODEV;
 }
 
+static int pci_siig_setup(struct serial_private *priv,
+			  struct pciserial_board *board,
+			  struct uart_port *port, int idx)
+{
+	unsigned int bar = FL_GET_BASE(board->flags) + idx, offset = 0;
+
+	if (idx > 3) {
+		bar = 4;
+		offset = (idx - 4) * 8;
+	}
+
+	return setup_port(priv, port, bar, offset, 0);
+}
+
 /*
  * Timedia has an explosion of boards, and to avoid the PCI table from
  * growing *huge*, we use this function to collapse some 70 entries
@@ -468,7 +482,7 @@ static unsigned short timedia_eight_port[] = {
 	0x9167, 0x9168, 0xA066, 0xA167, 0xA168, 0
 };
 
-static struct timedia_struct {
+static const struct timedia_struct {
 	int num;
 	unsigned short *ids;
 } timedia_data[] = {
@@ -516,7 +530,7 @@ pci_timedia_setup(struct serial_private *priv, struct pciserial_board *board,
 		break;
 	case 3:
 		offset = board->uart_offset;
-		bar = 1;
+		/* FALLTHROUGH */
 	case 4: /* BAR 2 */
 	case 5: /* BAR 3 */
 	case 6: /* BAR 4 */
@@ -748,7 +762,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
 		.init		= pci_siig_init,
-		.setup		= pci_default_setup,
+		.setup		= pci_siig_setup,
 	},
 	/*
 	 * Titan cards
@@ -837,8 +851,8 @@ static struct pci_serial_quirk *find_quirk(struct pci_dev *dev)
 	return quirk;
 }
 
-static _INLINE_ int
-get_pci_irq(struct pci_dev *dev, struct pciserial_board *board)
+static inline int get_pci_irq(struct pci_dev *dev,
+				struct pciserial_board *board)
 {
 	if (board->flags & FL_NOIRQ)
 		return 0;
@@ -853,14 +867,15 @@ get_pci_irq(struct pci_dev *dev, struct pciserial_board *board)
  * driver_data member.
  *
  * The makeup of these names are:
- *  pbn_bn{_bt}_n_baud
+ *  pbn_bn{_bt}_n_baud{_offsetinhex}
  *
- *  bn   = PCI BAR number
- *  bt   = Index using PCI BARs
- *  n    = number of serial ports
- *  baud = baud rate
+ *  bn		= PCI BAR number
+ *  bt		= Index using PCI BARs
+ *  n		= number of serial ports
+ *  baud	= baud rate
+ *  offsetinhex	= offset for each sequential port (in hex)
  *
- * This table is sorted by (in order): baud, bt, bn, n.
+ * This table is sorted by (in order): bn, bt, baud, offsetindex, n.
  *
  * Please note: in theory if n = 1, _bt infix should make no difference.
  * ie, pbn_b0_1_115200 is the same as pbn_b0_bt_1_115200
@@ -880,6 +895,13 @@ enum pci_board_num_t {
 	pbn_b0_2_1130000,
 
 	pbn_b0_4_1152000,
+
+	pbn_b0_2_1843200,
+	pbn_b0_4_1843200,
+
+	pbn_b0_2_1843200_200,
+	pbn_b0_4_1843200_200,
+	pbn_b0_8_1843200_200,
 
 	pbn_b0_bt_1_115200,
 	pbn_b0_bt_2_115200,
@@ -903,6 +925,8 @@ enum pci_board_num_t {
 	pbn_b1_2_921600,
 	pbn_b1_4_921600,
 	pbn_b1_8_921600,
+
+	pbn_b1_2_1250000,
 
 	pbn_b1_bt_2_921600,
 
@@ -930,6 +954,7 @@ enum pci_board_num_t {
 	pbn_b2_bt_2_921600,
 	pbn_b2_bt_4_921600,
 
+	pbn_b3_2_115200,
 	pbn_b3_4_115200,
 	pbn_b3_8_115200,
 
@@ -1027,6 +1052,38 @@ static struct pciserial_board pci_boards[] __devinitdata = {
 		.num_ports	= 4,
 		.base_baud	= 1152000,
 		.uart_offset	= 8,
+	},
+
+	[pbn_b0_2_1843200] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 2,
+		.base_baud	= 1843200,
+		.uart_offset	= 8,
+	},
+	[pbn_b0_4_1843200] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 4,
+		.base_baud	= 1843200,
+		.uart_offset	= 8,
+	},
+
+	[pbn_b0_2_1843200_200] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 2,
+		.base_baud	= 1843200,
+		.uart_offset	= 0x200,
+	},
+	[pbn_b0_4_1843200_200] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 4,
+		.base_baud	= 1843200,
+		.uart_offset	= 0x200,
+	},
+	[pbn_b0_8_1843200_200] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 8,
+		.base_baud	= 1843200,
+		.uart_offset	= 0x200,
 	},
 
 	[pbn_b0_bt_1_115200] = {
@@ -1139,6 +1196,12 @@ static struct pciserial_board pci_boards[] __devinitdata = {
 		.flags		= FL_BASE1,
 		.num_ports	= 8,
 		.base_baud	= 921600,
+		.uart_offset	= 8,
+	},
+	[pbn_b1_2_1250000] = {
+		.flags		= FL_BASE1,
+		.num_ports	= 2,
+		.base_baud	= 1250000,
 		.uart_offset	= 8,
 	},
 
@@ -1263,6 +1326,12 @@ static struct pciserial_board pci_boards[] __devinitdata = {
 		.uart_offset	= 8,
 	},
 
+	[pbn_b3_2_115200] = {
+		.flags		= FL_BASE3,
+		.num_ports	= 2,
+		.base_baud	= 115200,
+		.uart_offset	= 8,
+	},
 	[pbn_b3_4_115200] = {
 		.flags		= FL_BASE3,
 		.num_ports	= 4,
@@ -1801,6 +1870,70 @@ static struct pci_device_id serial_pci_tbl[] = {
 		PCI_SUBVENDOR_ID_CONNECT_TECH,
 		PCI_SUBDEVICE_ID_CONNECT_TECH_BH041101V1, 0, 0,
 		pbn_b1_4_921600 },
+	{	PCI_VENDOR_ID_V3, PCI_DEVICE_ID_V3_V351,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_BH2_20MHZ, 0, 0,
+		pbn_b1_2_1250000 },
+	{	PCI_VENDOR_ID_OXSEMI, PCI_DEVICE_ID_OXSEMI_16PCI954,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_TITAN_2, 0, 0,
+		pbn_b0_2_1843200 },
+	{	PCI_VENDOR_ID_OXSEMI, PCI_DEVICE_ID_OXSEMI_16PCI954,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_TITAN_4, 0, 0,
+		pbn_b0_4_1843200 },
+	{	PCI_VENDOR_ID_OXSEMI, PCI_DEVICE_ID_OXSEMI_16PCI954,
+		PCI_VENDOR_ID_AFAVLAB,
+		PCI_SUBDEVICE_ID_AFAVLAB_P061, 0, 0,
+		pbn_b0_4_1152000 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C152,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_2_232, 0, 0,
+		pbn_b0_2_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C154,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_4_232, 0, 0,
+		pbn_b0_4_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C158,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_8_232, 0, 0,
+		pbn_b0_8_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C152,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_1_1, 0, 0,
+		pbn_b0_2_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C154,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_2_2, 0, 0,
+		pbn_b0_4_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C158,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_4_4, 0, 0,
+		pbn_b0_8_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C152,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_2, 0, 0,
+		pbn_b0_2_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C154,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_4, 0, 0,
+		pbn_b0_4_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C158,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_8, 0, 0,
+		pbn_b0_8_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C152,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_2_485, 0, 0,
+		pbn_b0_2_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C154,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_4_485, 0, 0,
+		pbn_b0_4_1843200_200 },
+	{	PCI_VENDOR_ID_EXAR, PCI_DEVICE_ID_EXAR_XR17C158,
+		PCI_SUBVENDOR_ID_CONNECT_TECH,
+		PCI_SUBDEVICE_ID_CONNECT_TECH_PCI_UART_8_485, 0, 0,
+		pbn_b0_8_1843200_200 },
 
 	{	PCI_VENDOR_ID_SEALEVEL, PCI_DEVICE_ID_SEALEVEL_U530,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 
@@ -2026,6 +2159,15 @@ static struct pci_device_id serial_pci_tbl[] = {
 	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_4S_20x_850,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_b0_bt_4_921600 },
+	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_8S_20x_550,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_b0_bt_8_921600 },
+	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_8S_20x_650,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_b0_bt_8_921600 },
+	{	PCI_VENDOR_ID_SIIG, PCI_DEVICE_ID_SIIG_8S_20x_850,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_b0_bt_8_921600 },
 
 	/*
 	 * Computone devices submitted by Doug McNash dmcnash@computone.com
@@ -2164,6 +2306,9 @@ static struct pci_device_id serial_pci_tbl[] = {
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_nec_nile4 },
 
+	{	PCI_VENDOR_ID_DCI, PCI_DEVICE_ID_DCI_PCCOM2,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+		pbn_b3_2_115200 },
 	{	PCI_VENDOR_ID_DCI, PCI_DEVICE_ID_DCI_PCCOM4,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_b3_4_115200 },

@@ -171,7 +171,8 @@ xdr_argsize_check(struct svc_rqst *rqstp, u32 *p)
 {
 	char *cp = (char *)p;
 	struct kvec *vec = &rqstp->rq_arg.head[0];
-	return cp - (char*)vec->iov_base <= vec->iov_len;
+	return cp >= (char*)vec->iov_base
+		&& cp <= (char*)vec->iov_base + vec->iov_len;
 }
 
 static inline int
@@ -245,6 +246,7 @@ struct svc_deferred_req {
 	u32			prot;	/* protocol (UDP or TCP) */
 	struct sockaddr_in	addr;
 	struct svc_sock		*svsk;	/* where reply must go */
+	u32			daddr;	/* where reply must come from */
 	struct cache_deferred_req handle;
 	int			argslen;
 	u32			args[0];

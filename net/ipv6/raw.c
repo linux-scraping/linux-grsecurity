@@ -32,9 +32,9 @@
 #include <linux/icmpv6.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv6.h>
+#include <linux/skbuff.h>
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
-#include <asm/bug.h>
 
 #include <net/ip.h>
 #include <net/sock.h>
@@ -174,8 +174,10 @@ int ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
 			struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
 
 			/* Not releasing hash table! */
-			if (clone)
+			if (clone) {
+				nf_reset(clone);
 				rawv6_rcv(sk, clone);
+			}
 		}
 		sk = __raw_v6_lookup(sk_next(sk), nexthdr, daddr, saddr,
 				     IP6CB(skb)->iif);
@@ -296,13 +298,10 @@ void rawv6_err(struct sock *sk, struct sk_buff *skb,
 static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
 {
 	if ((raw6_sk(sk)->checksum || sk->sk_filter) && 
-	    skb->ip_summed != CHECKSUM_UNNECESSARY) {
-		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
-			/* FIXME: increment a raw6 drops counter here */
-			kfree_skb(skb);
-			return 0;
-		}
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+	    skb_checksum_complete(skb)) {
+		/* FIXME: increment a raw6 drops counter here */
+		kfree_skb(skb);
+		return 0;
 	}
 
 	/* Charge it to the socket. */
@@ -335,32 +334,25 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
 	if (!rp->checksum)
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
-		if (skb->ip_summed == CHECKSUM_HW) {
-			skb_postpull_rcsum(skb, skb->nh.raw,
-			                   skb->h.raw - skb->nh.raw);
+	if (skb->ip_summed == CHECKSUM_HW) {
+		skb_postpull_rcsum(skb, skb->nh.raw,
+		                   skb->h.raw - skb->nh.raw);
+		if (!csum_ipv6_magic(&skb->nh.ipv6h->saddr,
+				     &skb->nh.ipv6h->daddr,
+				     skb->len, inet->num, skb->csum))
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
-			if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-					    &skb->nh.ipv6h->daddr,
-					    skb->len, inet->num, skb->csum)) {
-				LIMIT_NETDEBUG(KERN_DEBUG "raw v6 hw csum failure.\n");
-				skb->ip_summed = CHECKSUM_NONE;
-			}
-		}
-		if (skb->ip_summed == CHECKSUM_NONE)
-			skb->csum = ~csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-						     &skb->nh.ipv6h->daddr,
-						     skb->len, inet->num, 0);
 	}
+	if (skb->ip_summed != CHECKSUM_UNNECESSARY)
+		skb->csum = ~csum_ipv6_magic(&skb->nh.ipv6h->saddr,
+					     &skb->nh.ipv6h->daddr,
+					     skb->len, inet->num, 0);
 
 	if (inet->hdrincl) {
-		if (skb->ip_summed != CHECKSUM_UNNECESSARY &&
-		    (unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
+		if (skb_checksum_complete(skb)) {
 			/* FIXME: increment a raw6 drops counter here */
 			kfree_skb(skb);
 			return 0;
 		}
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
 	rawv6_rcv_skb(sk, skb);
@@ -405,7 +397,7 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
 	if (skb->ip_summed==CHECKSUM_UNNECESSARY) {
 		err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
 	} else if (msg->msg_flags&MSG_TRUNC) {
-		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum)))
+		if (__skb_checksum_complete(skb))
 			goto csum_copy_err;
 		err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
 	} else {
@@ -441,25 +433,14 @@ out:
 	return err;
 
 csum_copy_err:
-	/* Clear queue. */
-	if (flags&MSG_PEEK) {
-		int clear = 0;
-		spin_lock_bh(&sk->sk_receive_queue.lock);
-		if (skb == skb_peek(&sk->sk_receive_queue)) {
-			__skb_unlink(skb, &sk->sk_receive_queue);
-			clear = 1;
-		}
-		spin_unlock_bh(&sk->sk_receive_queue.lock);
-		if (clear)
-			kfree_skb(skb);
-	}
+	skb_kill_datagram(sk, skb, flags);
 
 	/* Error for blocking case is chosen to masquerade
 	   as some normal condition.
 	 */
 	err = (flags&MSG_DONTWAIT) ? -EAGAIN : -EHOSTUNREACH;
 	/* FIXME: increment a raw6 drops counter here */
-	goto out_free;
+	goto out;
 }
 
 static int rawv6_push_pending_frames(struct sock *sk, struct flowi *fl,
@@ -822,10 +803,7 @@ back_from_confirm:
 			err = rawv6_push_pending_frames(sk, &fl, rp);
 	}
 done:
-	ip6_dst_store(sk, dst,
-		      ipv6_addr_equal(&fl.fl6_dst, &np->daddr) ?
-		      &np->daddr : NULL);
-
+	dst_release(dst);
 	release_sock(sk);
 out:	
 	fl6_sock_release(flowlabel);

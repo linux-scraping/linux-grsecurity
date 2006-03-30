@@ -1231,10 +1231,8 @@ int txCommit(tid_t tid,		/* transaction identifier */
 		 * when we don't need to worry about it at all.
 		 *
 		 * if ((!S_ISDIR(ip->i_mode))
-		 *    && (tblk->flag & COMMIT_DELETE) == 0) {
-		 *	filemap_fdatawrite(ip->i_mapping);
-		 *	filemap_fdatawait(ip->i_mapping);
-		 * }
+		 *    && (tblk->flag & COMMIT_DELETE) == 0)
+		 *	filemap_write_and_wait(ip->i_mapping);
 		 */
 
 		/*
@@ -2396,7 +2394,6 @@ static void txUpdateMap(struct tblock * tblk)
 	 */
 	if (tblk->xflag & COMMIT_CREATE) {
 		diUpdatePMap(ipimap, tblk->ino, FALSE, tblk);
-		ipimap->i_state |= I_DIRTY;
 		/* update persistent block allocation map
 		 * for the allocation of inode extent;
 		 */
@@ -2407,7 +2404,6 @@ static void txUpdateMap(struct tblock * tblk)
 	} else if (tblk->xflag & COMMIT_DELETE) {
 		ip = tblk->u.ip;
 		diUpdatePMap(ipimap, ip->i_ino, TRUE, tblk);
-		ipimap->i_state |= I_DIRTY;
 		iput(ip);
 	}
 }

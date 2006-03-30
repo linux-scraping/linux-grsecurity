@@ -21,6 +21,8 @@
 #ifndef _LINUX_IF_ETHER_H
 #define _LINUX_IF_ETHER_H
 
+#include <linux/types.h>
+
 /*
  *	IEEE 802.3 Ethernet magic constants.  The frame sizes omit the preamble
  *	and FCS/CRC (frame check sequence). 
@@ -70,6 +72,7 @@
 					 * over Ethernet
 					 */
 #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
+#define ETH_P_TIPC	0x88CA		/* TIPC 			*/
 
 /*
  *	Non DIX types. Won't clash for 1500 types.
@@ -100,7 +103,7 @@
 struct ethhdr {
 	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
 	unsigned char	h_source[ETH_ALEN];	/* source ether addr	*/
-	unsigned short	h_proto;		/* packet type ID field	*/
+	__be16		h_proto;		/* packet type ID field	*/
 } __attribute__((packed));
 
 #ifdef __KERNEL__

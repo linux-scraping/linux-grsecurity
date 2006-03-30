@@ -64,6 +64,9 @@ EXPORT_SYMBOL(init_task);
 
 struct task_struct *current_set[NR_CPUS] = {&init_task, };
 
+void (*pm_power_off)(void) = NULL;
+EXPORT_SYMBOL(pm_power_off);
+
 
 #if XCHAL_CP_NUM > 0
 
@@ -96,8 +99,9 @@ void cpu_idle(void)
 	while (1) {
 		while (!need_resched())
 			platform_idle();
-		preempt_enable();
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 	}
 }
 
@@ -144,7 +148,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	int user_mode = user_mode(regs);
 
 	/* Set up new TSS. */
-	tos = (unsigned long)p->thread_info + THREAD_SIZE;
+	tos = (unsigned long)task_stack_page(p) + THREAD_SIZE;
 	if (user_mode)
 		childregs = (struct pt_regs*)(tos - PT_USER_SIZE);
 	else
@@ -216,7 +220,7 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 unsigned long get_wchan(struct task_struct *p)
 {
 	unsigned long sp, pc;
-	unsigned long stack_page = (unsigned long) p->thread_info;
+	unsigned long stack_page = (unsigned long) task_stack_page(p);
 	int count = 0;
 
 	if (!p || p == current || p->state == TASK_RUNNING)

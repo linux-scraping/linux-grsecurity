@@ -160,7 +160,6 @@ static void mts_usb_disconnect(struct usb_interface *intf);
 static struct usb_device_id mts_usb_ids [];
 
 static struct usb_driver mts_usb_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"microtekX6",
 	.probe =	mts_usb_probe,
 	.disconnect =	mts_usb_disconnect,
@@ -643,7 +642,7 @@ out:
 	return err;
 }
 
-static Scsi_Host_Template mts_scsi_host_template = {
+static struct scsi_host_template mts_scsi_host_template = {
 	.module			= THIS_MODULE,
 	.name			= "microtekX6",
 	.proc_name		= "microtekX6",
@@ -675,7 +674,7 @@ struct vendor_product
 
 
 /* These are taken from the msmUSB.inf file on the Windows driver CD */
-const static struct vendor_product mts_supported_products[] =
+static const struct vendor_product mts_supported_products[] =
 {
 	{ "Phantom 336CX",	mts_sup_unknown},
 	{ "Phantom 336CX",	mts_sup_unknown},
@@ -785,13 +784,12 @@ static int mts_usb_probe(struct usb_interface *intf,
 		MTS_WARNING( "couldn't find an output bulk endpoint. Bailing out.\n" );
 		return -ENODEV;
 	}
-	
-	
-	new_desc = kmalloc(sizeof(struct mts_desc), GFP_KERNEL);
+
+
+	new_desc = kzalloc(sizeof(struct mts_desc), GFP_KERNEL);
 	if (!new_desc)
 		goto out;
 
-	memset(new_desc, 0, sizeof(*new_desc));
 	new_desc->urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!new_desc->urb)
 		goto out_kfree;

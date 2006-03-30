@@ -34,6 +34,7 @@
 #include "dvb_frontend.h"
 #include "dvb-bt8xx.h"
 #include "bt878.h"
+#include "dvb-pll.h"
 
 static int debug;
 
@@ -279,7 +280,7 @@ static int microtune_mt7202dtf_pll_set(struct dvb_frontend* fe, struct dvb_front
 	data[0] = (div >> 8) & 0x7f;
 	data[1] = div & 0xff;
 	data[2] = ((div >> 10) & 0x60) | cfg;
-	data[3] = cpump | band_select;
+	data[3] = (cpump << 6) | band_select;
 
 	i2c_transfer(card->i2c_adapter, &msg, 1);
 	return (div * 166666 - 36000000);
@@ -522,9 +523,7 @@ static void digitv_alps_tded4_reset(struct dvb_bt8xx_card *bt)
 	/*
 	 * Reset the frontend, must be called before trying
 	 * to initialise the MT352 or mt352_attach
-	 * will fail.
-	 *
-	 * Presumably not required for the NXT6000 frontend.
+	 * will fail. Same goes for the nxt6000 frontend.
 	 *
 	 */
 
@@ -546,33 +545,84 @@ static struct mt352_config digitv_alps_tded4_config = {
 	.pll_set = digitv_alps_tded4_pll_set,
 };
 
+static int tdvs_tua6034_pll_set(struct dvb_frontend* fe, struct dvb_frontend_parameters* params)
+{
+	struct dvb_bt8xx_card *card = (struct dvb_bt8xx_card *) fe->dvb->priv;
+	u8 buf[4];
+	struct i2c_msg msg = { .addr = 0x61, .flags = 0, .buf = buf, .len = sizeof(buf) };
+	int err;
+
+	dvb_pll_configure(&dvb_pll_tdvs_tua6034, buf, params->frequency, 0);
+	dprintk("%s: tuner at 0x%02x bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
+		__FUNCTION__, msg.addr, buf[0],buf[1],buf[2],buf[3]);
+	if ((err = i2c_transfer(card->i2c_adapter, &msg, 1)) != 1) {
+		printk(KERN_WARNING "dvb-bt8xx: %s error "
+			"(addr %02x <- %02x, err = %i)\n",
+			__FUNCTION__, buf[0], buf[1], err);
+		if (err < 0)
+			return err;
+		else
+			return -EREMOTEIO;
+	}
+
+	/* Set the Auxiliary Byte. */
+	buf[2] &= ~0x20;
+	buf[2] |= 0x18;
+	buf[3] = 0x50;
+	i2c_transfer(card->i2c_adapter, &msg, 1);
+
+	return 0;
+}
+
+static struct lgdt330x_config tdvs_tua6034_config = {
+	.demod_address    = 0x0e,
+	.demod_chip       = LGDT3303,
+	.serial_mpeg      = 0x40, /* TPSERIAL for 3303 in TOP_CONTROL */
+	.pll_set          = tdvs_tua6034_pll_set,
+};
+
+static void lgdt330x_reset(struct dvb_bt8xx_card *bt)
+{
+	/* Set pin 27 of the lgdt3303 chip high to reset the frontend */
+
+	/* Pulse the reset line */
+	bttv_write_gpio(bt->bttv_nr, 0x00e00007, 0x00000001); /* High */
+	bttv_write_gpio(bt->bttv_nr, 0x00e00007, 0x00000000); /* Low  */
+	msleep(100);
+
+	bttv_write_gpio(bt->bttv_nr, 0x00e00007, 0x00000001); /* High */
+	msleep(100);
+}
+
 static void frontend_init(struct dvb_bt8xx_card *card, u32 type)
 {
 	int ret;
 	struct dst_state* state = NULL;
 
 	switch(type) {
-#ifdef BTTV_DVICO_DVBT_LITE
-	case BTTV_DVICO_DVBT_LITE:
+	case BTTV_BOARD_DVICO_DVBT_LITE:
 		card->fe = mt352_attach(&thomson_dtt7579_config, card->i2c_adapter);
 		if (card->fe != NULL) {
 			card->fe->ops->info.frequency_min = 174000000;
 			card->fe->ops->info.frequency_max = 862000000;
 		}
 		break;
-#endif
 
-#ifdef BTTV_TWINHAN_VP3021
-	case BTTV_TWINHAN_VP3021:
-#else
-	case BTTV_NEBULA_DIGITV:
-#endif
+	case BTTV_BOARD_DVICO_FUSIONHDTV_5_LITE:
+		lgdt330x_reset(card);
+		card->fe = lgdt330x_attach(&tdvs_tua6034_config, card->i2c_adapter);
+		if (card->fe != NULL)
+			dprintk ("dvb_bt8xx: lgdt330x detected\n");
+		break;
+
+	case BTTV_BOARD_NEBULA_DIGITV:
 		/*
 		 * It is possible to determine the correct frontend using the I2C bus (see the Nebula SDK);
 		 * this would be a cleaner solution than trying each frontend in turn.
 		 */
 
 		/* Old Nebula (marked (c)2003 on high profile pci card) has nxt6000 demod */
+		digitv_alps_tded4_reset(card);
 		card->fe = nxt6000_attach(&vp3021_alps_tded4_config, card->i2c_adapter);
 		if (card->fe != NULL) {
 			dprintk ("dvb_bt8xx: an nxt6000 was detected on your digitv card\n");
@@ -587,11 +637,11 @@ static void frontend_init(struct dvb_bt8xx_card *card, u32 type)
 			dprintk ("dvb_bt8xx: an mt352 was detected on your digitv card\n");
 		break;
 
-	case BTTV_AVDVBT_761:
+	case BTTV_BOARD_AVDVBT_761:
 		card->fe = sp887x_attach(&microtune_mt7202dtf_config, card->i2c_adapter);
 		break;
 
-	case BTTV_AVDVBT_771:
+	case BTTV_BOARD_AVDVBT_771:
 		card->fe = mt352_attach(&advbt771_samsung_tdtc9251dh0_config, card->i2c_adapter);
 		if (card->fe != NULL) {
 			card->fe->ops->info.frequency_min = 174000000;
@@ -599,7 +649,7 @@ static void frontend_init(struct dvb_bt8xx_card *card, u32 type)
 		}
 		break;
 
-	case BTTV_TWINHAN_DST:
+	case BTTV_BOARD_TWINHAN_DST:
 		/*	DST is not a frontend driver !!!		*/
 		state = (struct dst_state *) kmalloc(sizeof (struct dst_state), GFP_KERNEL);
 		/*	Setup the Card					*/
@@ -620,11 +670,11 @@ static void frontend_init(struct dvb_bt8xx_card *card, u32 type)
 			ret = dst_ca_attach(state, &card->dvb_adapter);
 		break;
 
-	case BTTV_PINNACLESAT:
+	case BTTV_BOARD_PINNACLESAT:
 		card->fe = cx24110_attach(&pctvsat_config, card->i2c_adapter);
 		break;
 
-	case BTTV_PC_HDTV:
+	case BTTV_BOARD_PC_HDTV:
 		card->fe = or51211_attach(&or51211_config, card->i2c_adapter);
 		break;
 	}
@@ -729,24 +779,22 @@ static int __init dvb_bt8xx_load_card(struct dvb_bt8xx_card *card, u32 type)
 	return 0;
 }
 
-static int dvb_bt8xx_probe(struct device *dev)
+static int dvb_bt8xx_probe(struct bttv_sub_device *sub)
 {
-	struct bttv_sub_device *sub = to_bttv_sub_dev(dev);
 	struct dvb_bt8xx_card *card;
 	struct pci_dev* bttv_pci_dev;
 	int ret;
 
-	if (!(card = kmalloc(sizeof(struct dvb_bt8xx_card), GFP_KERNEL)))
+	if (!(card = kzalloc(sizeof(struct dvb_bt8xx_card), GFP_KERNEL)))
 		return -ENOMEM;
 
-	memset(card, 0, sizeof(*card));
 	init_MUTEX(&card->lock);
 	card->bttv_nr = sub->core->nr;
 	strncpy(card->card_name, sub->core->name, sizeof(sub->core->name));
 	card->i2c_adapter = &sub->core->i2c_adap;
 
 	switch(sub->core->type) {
-	case BTTV_PINNACLESAT:
+	case BTTV_BOARD_PINNACLESAT:
 		card->gpio_mode = 0x0400c060;
 		/* should be: BT878_A_GAIN=0,BT878_A_PWRDN,BT878_DA_DPM,BT878_DA_SBR,
 			      BT878_DA_IOM=1,BT878_DA_APP to enable serial highspeed mode. */
@@ -754,9 +802,7 @@ static int dvb_bt8xx_probe(struct device *dev)
 		card->irq_err_ignore = 0;
 		break;
 
-#ifdef BTTV_DVICO_DVBT_LITE
-	case BTTV_DVICO_DVBT_LITE:
-#endif
+	case BTTV_BOARD_DVICO_DVBT_LITE:
 		card->gpio_mode = 0x0400C060;
 		card->op_sync_orin = 0;
 		card->irq_err_ignore = 0;
@@ -765,26 +811,28 @@ static int dvb_bt8xx_probe(struct device *dev)
 		 * DA_APP(parallel) */
 		break;
 
-#ifdef BTTV_TWINHAN_VP3021
-	case BTTV_TWINHAN_VP3021:
-#else
-	case BTTV_NEBULA_DIGITV:
-#endif
-	case BTTV_AVDVBT_761:
+	case BTTV_BOARD_DVICO_FUSIONHDTV_5_LITE:
+		card->gpio_mode = 0x0400c060;
+		card->op_sync_orin = BT878_RISC_SYNC_MASK;
+		card->irq_err_ignore = BT878_AFBUS | BT878_AFDSR;
+		break;
+
+	case BTTV_BOARD_NEBULA_DIGITV:
+	case BTTV_BOARD_AVDVBT_761:
 		card->gpio_mode = (1 << 26) | (1 << 14) | (1 << 5);
 		card->op_sync_orin = 0;
 		card->irq_err_ignore = 0;
 		/* A_PWRDN DA_SBR DA_APP (high speed serial) */
 		break;
 
-	case BTTV_AVDVBT_771: //case 0x07711461:
+	case BTTV_BOARD_AVDVBT_771: //case 0x07711461:
 		card->gpio_mode = 0x0400402B;
 		card->op_sync_orin = BT878_RISC_SYNC_MASK;
 		card->irq_err_ignore = 0;
 		/* A_PWRDN DA_SBR  DA_APP[0] PKTP=10 RISC_ENABLE FIFO_ENABLE*/
 		break;
 
-	case BTTV_TWINHAN_DST:
+	case BTTV_BOARD_TWINHAN_DST:
 		card->gpio_mode = 0x2204f2c;
 		card->op_sync_orin = BT878_RISC_SYNC_MASK;
 		card->irq_err_ignore = BT878_APABORT | BT878_ARIPERR |
@@ -802,7 +850,7 @@ static int dvb_bt8xx_probe(struct device *dev)
 		 * RISC+FIFO ENABLE */
 		break;
 
-	case BTTV_PC_HDTV:
+	case BTTV_BOARD_PC_HDTV:
 		card->gpio_mode = 0x0100EC7B;
 		card->op_sync_orin = 0;
 		card->irq_err_ignore = 0;
@@ -841,13 +889,13 @@ static int dvb_bt8xx_probe(struct device *dev)
 		return ret;
 	}
 
-	dev_set_drvdata(dev, card);
+	dev_set_drvdata(&sub->dev, card);
 	return 0;
 }
 
-static int dvb_bt8xx_remove(struct device *dev)
+static void dvb_bt8xx_remove(struct bttv_sub_device *sub)
 {
-	struct dvb_bt8xx_card *card = dev_get_drvdata(dev);
+	struct dvb_bt8xx_card *card = dev_get_drvdata(&sub->dev);
 
 	dprintk("dvb_bt8xx: unloading card%d\n", card->bttv_nr);
 
@@ -863,21 +911,19 @@ static int dvb_bt8xx_remove(struct device *dev)
 	dvb_unregister_adapter(&card->dvb_adapter);
 
 	kfree(card);
-
-	return 0;
 }
 
 static struct bttv_sub_driver driver = {
 	.drv = {
 		.name		= "dvb-bt8xx",
-		.probe		= dvb_bt8xx_probe,
-		.remove		= dvb_bt8xx_remove,
-		/* FIXME:
-		 * .shutdown	= dvb_bt8xx_shutdown,
-		 * .suspend	= dvb_bt8xx_suspend,
-		 * .resume	= dvb_bt8xx_resume,
-		 */
 	},
+	.probe		= dvb_bt8xx_probe,
+	.remove		= dvb_bt8xx_remove,
+	/* FIXME:
+	 * .shutdown	= dvb_bt8xx_shutdown,
+	 * .suspend	= dvb_bt8xx_suspend,
+	 * .resume	= dvb_bt8xx_resume,
+	 */
 };
 
 static int __init dvb_bt8xx_init(void)

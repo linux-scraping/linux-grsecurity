@@ -139,7 +139,8 @@ printk(KERN_DEBUG "iforce-packets.c: control_playback %d %d\n", id, value);
 static int mark_core_as_ready(struct iforce *iforce, unsigned short addr)
 {
 	int i;
-	for (i=0; i<iforce->dev.ff_effects_max; ++i) {
+
+	for (i = 0; i < iforce->dev->ff_effects_max; ++i) {
 		if (test_bit(FF_CORE_IS_USED, iforce->core_effects[i].flags) &&
 		    (iforce->core_effects[i].mod1_chunk.start == addr ||
 		     iforce->core_effects[i].mod2_chunk.start == addr)) {
@@ -153,7 +154,7 @@ static int mark_core_as_ready(struct iforce *iforce, unsigned short addr)
 
 void iforce_process_packet(struct iforce *iforce, u16 cmd, unsigned char *data, struct pt_regs *regs)
 {
-	struct input_dev *dev = &iforce->dev;
+	struct input_dev *dev = iforce->dev;
 	int i;
 	static int being_used = 0;
 
@@ -166,9 +167,9 @@ void iforce_process_packet(struct iforce *iforce, u16 cmd, unsigned char *data, 
 		iforce->expect_packet = 0;
 		iforce->ecmd = cmd;
 		memcpy(iforce->edata, data, IFORCE_MAX_LENGTH);
-		wake_up(&iforce->wait);
 	}
 #endif
+	wake_up(&iforce->wait);
 
 	if (!iforce->type) {
 		being_used--;
@@ -263,7 +264,7 @@ int iforce_get_id_packet(struct iforce *iforce, char *packet)
 		wait_event_interruptible_timeout(iforce->wait,
 			iforce->ctrl->status != -EINPROGRESS, HZ);
 
-		if (iforce->ctrl->status != -EINPROGRESS) {
+		if (iforce->ctrl->status) {
 			usb_unlink_urb(iforce->ctrl);
 			return -1;
 		}

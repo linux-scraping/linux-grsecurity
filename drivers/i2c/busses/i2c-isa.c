@@ -38,6 +38,7 @@
 #include <linux/errno.h>
 #include <linux/i2c.h>
 #include <linux/i2c-isa.h>
+#include <linux/platform_device.h>
 
 static u32 isa_func(struct i2c_adapter *adapter);
 
@@ -71,16 +72,6 @@ static ssize_t show_adapter_name(struct device *dev,
 }
 static DEVICE_ATTR(name, S_IRUGO, show_adapter_name, NULL);
 
-static int i2c_isa_device_probe(struct device *dev)
-{
-	return -ENODEV;
-}
-
-static int i2c_isa_device_remove(struct device *dev)
-{
-	return 0;
-}
-
 
 /* We implement an interface which resembles i2c_{add,del}_driver,
    but for i2c-isa drivers. We don't have to remember and handle lists
@@ -91,14 +82,11 @@ int i2c_isa_add_driver(struct i2c_driver *driver)
 	int res;
 
 	/* Add the driver to the list of i2c drivers in the driver core */
-	driver->driver.name = driver->name;
 	driver->driver.bus = &i2c_bus_type;
-	driver->driver.probe = i2c_isa_device_probe;
-	driver->driver.remove = i2c_isa_device_remove;
 	res = driver_register(&driver->driver);
 	if (res)
 		return res;
-	dev_dbg(&isa_adapter.dev, "Driver %s registered\n", driver->name);
+	dev_dbg(&isa_adapter.dev, "Driver %s registered\n", driver->driver.name);
 
 	/* Now look for clients */
 	driver->attach_adapter(&isa_adapter);
@@ -122,14 +110,14 @@ int i2c_isa_del_driver(struct i2c_driver *driver)
 		if ((res = driver->detach_client(client))) {
 			dev_err(&isa_adapter.dev, "Failed, driver "
 				"%s not unregistered!\n",
-				driver->name);
+				driver->driver.name);
 			return res;
 		}
 	}
 
 	/* Get the driver off the core list */
 	driver_unregister(&driver->driver);
-	dev_dbg(&isa_adapter.dev, "Driver %s unregistered\n", driver->name);
+	dev_dbg(&isa_adapter.dev, "Driver %s unregistered\n", driver->driver.name);
 
 	return 0;
 }
@@ -174,7 +162,7 @@ static void __exit i2c_isa_exit(void)
 	list_for_each_safe(item, _n, &isa_adapter.clients) {
 		client = list_entry(item, struct i2c_client, list);
 		dev_err(&isa_adapter.dev, "Driver %s still has an active "
-			"ISA client at 0x%x\n", client->driver->name,
+			"ISA client at 0x%x\n", client->driver->driver.name,
 			client->addr);
 	}
 	if (client != NULL)

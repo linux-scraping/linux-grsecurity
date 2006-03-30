@@ -491,7 +491,7 @@ static unsigned long ext3_find_goal(struct inode *inode, long block,
  *	the same format as ext3_get_branch() would do. We are calling it after
  *	we had read the existing part of chain and partial points to the last
  *	triple of that (one with zero ->key). Upon the exit we have the same
- *	picture as after the successful ext3_get_block(), excpet that in one
+ *	picture as after the successful ext3_get_block(), except that in one
  *	place chain is disconnected - *branch->p is still zero (we did not
  *	set the last link), but branch->key contains the number that should
  *	be placed into *branch->p to fill that gap.
@@ -523,7 +523,6 @@ static int ext3_alloc_branch(handle_t *handle, struct inode *inode,
 			if (!nr)
 				break;
 			branch[n].key = cpu_to_le32(nr);
-			keys = n+1;
 
 			/*
 			 * Get buffer_head for parent block, zero it out
@@ -531,6 +530,9 @@ static int ext3_alloc_branch(handle_t *handle, struct inode *inode,
 			 * parent to disk.  
 			 */
 			bh = sb_getblk(inode->i_sb, parent);
+			if (!bh)
+				break;
+			keys = n+1;
 			branch[n].bh = bh;
 			lock_buffer(bh);
 			BUFFER_TRACE(bh, "call get_create_access");
@@ -864,6 +866,10 @@ struct buffer_head *ext3_getblk(handle_t *handle, struct inode * inode,
 	if (!*errp && buffer_mapped(&dummy)) {
 		struct buffer_head *bh;
 		bh = sb_getblk(inode->i_sb, dummy.b_blocknr);
+		if (!bh) {
+			*errp = -EIO;
+			goto err;
+		}
 		if (buffer_new(&dummy)) {
 			J_ASSERT(create != 0);
 			J_ASSERT(handle != 0);
@@ -896,6 +902,7 @@ struct buffer_head *ext3_getblk(handle_t *handle, struct inode * inode,
 		}
 		return bh;
 	}
+err:
 	return NULL;
 }
 
@@ -1377,8 +1384,10 @@ static int ext3_journalled_writepage(struct page *page,
 		ClearPageChecked(page);
 		ret = block_prepare_write(page, 0, PAGE_CACHE_SIZE,
 					ext3_get_block);
-		if (ret != 0)
+		if (ret != 0) {
+			ext3_journal_stop(handle);
 			goto out_unlock;
+		}
 		ret = walk_page_buffers(handle, page_buffers(page), 0,
 			PAGE_CACHE_SIZE, NULL, do_journal_get_write_access);
 
@@ -1434,7 +1443,7 @@ static int ext3_invalidatepage(struct page *page, unsigned long offset)
 	return journal_invalidatepage(journal, page, offset);
 }
 
-static int ext3_releasepage(struct page *page, int wait)
+static int ext3_releasepage(struct page *page, gfp_t wait)
 {
 	journal_t *journal = EXT3_JOURNAL(page->mapping->host);
 
@@ -1550,6 +1559,7 @@ static struct address_space_operations ext3_ordered_aops = {
 	.invalidatepage	= ext3_invalidatepage,
 	.releasepage	= ext3_releasepage,
 	.direct_IO	= ext3_direct_IO,
+	.migratepage	= buffer_migrate_page,
 };
 
 static struct address_space_operations ext3_writeback_aops = {
@@ -1563,6 +1573,7 @@ static struct address_space_operations ext3_writeback_aops = {
 	.invalidatepage	= ext3_invalidatepage,
 	.releasepage	= ext3_releasepage,
 	.direct_IO	= ext3_direct_IO,
+	.migratepage	= buffer_migrate_page,
 };
 
 static struct address_space_operations ext3_journalled_aops = {
@@ -1613,15 +1624,14 @@ static int ext3_block_truncate_page(handle_t *handle, struct page *page,
 	 * For "nobh" option,  we can only work if we don't need to
 	 * read-in the page - otherwise we create buffers to do the IO.
 	 */
-	if (!page_has_buffers(page) && test_opt(inode->i_sb, NOBH)) {
-		if (PageUptodate(page)) {
-			kaddr = kmap_atomic(page, KM_USER0);
-			memset(kaddr + offset, 0, length);
-			flush_dcache_page(page);
-			kunmap_atomic(kaddr, KM_USER0);
-			set_page_dirty(page);
-			goto unlock;
-		}
+	if (!page_has_buffers(page) && test_opt(inode->i_sb, NOBH) &&
+	     ext3_should_writeback_data(inode) && PageUptodate(page)) {
+		kaddr = kmap_atomic(page, KM_USER0);
+		memset(kaddr + offset, 0, length);
+		flush_dcache_page(page);
+		kunmap_atomic(kaddr, KM_USER0);
+		set_page_dirty(page);
+		goto unlock;
 	}
 
 	if (!page_has_buffers(page))

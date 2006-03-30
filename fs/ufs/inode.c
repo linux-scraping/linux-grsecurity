@@ -61,7 +61,7 @@ static int ufs_block_to_path(struct inode *inode, sector_t i_block, sector_t off
 	int n = 0;
 
 
-	UFSD(("ptrs=uspi->s_apb = %d,double_blocks=%d \n",ptrs,double_blocks));
+	UFSD(("ptrs=uspi->s_apb = %d,double_blocks=%ld \n",ptrs,double_blocks));
 	if (i_block < 0) {
 		ufs_warning(inode->i_sb, "ufs_block_to_path", "block < 0");
 	} else if (i_block < direct_blocks) {
@@ -104,7 +104,7 @@ u64  ufs_frag_map(struct inode *inode, sector_t frag)
 	unsigned flags = UFS_SB(sb)->s_flags;
 	u64 temp = 0L;
 
-	UFSD((": frag = %lu  depth = %d\n",frag,depth));
+	UFSD((": frag = %llu  depth = %d\n", (unsigned long long)frag, depth));
 	UFSD((": uspi->s_fpbshift = %d ,uspi->s_apbmask = %x, mask=%llx\n",uspi->s_fpbshift,uspi->s_apbmask,mask));
 
 	if (depth == 0)
@@ -365,9 +365,10 @@ repeat:
 		sync_dirty_buffer(bh);
 	inode->i_ctime = CURRENT_TIME_SEC;
 	mark_inode_dirty(inode);
+	UFSD(("result %u\n", tmp + blockoff));
 out:
 	brelse (bh);
-	UFSD(("EXIT, result %u\n", tmp + blockoff))
+	UFSD(("EXIT\n"));
 	return result;
 }
 
@@ -375,7 +376,7 @@ out:
  * This function gets the block which contains the fragment.
  */
 
-static int ufs_getfrag_block (struct inode *inode, sector_t fragment, struct buffer_head *bh_result, int create)
+int ufs_getfrag_block (struct inode *inode, sector_t fragment, struct buffer_head *bh_result, int create)
 {
 	struct super_block * sb = inode->i_sb;
 	struct ufs_sb_private_info * uspi = UFS_SB(sb)->s_uspi;
@@ -386,7 +387,7 @@ static int ufs_getfrag_block (struct inode *inode, sector_t fragment, struct buf
 	
 	if (!create) {
 		phys64 = ufs_frag_map(inode, fragment);
-		UFSD(("phys64 = %lu \n",phys64));
+		UFSD(("phys64 = %llu \n",phys64));
 		if (phys64)
 			map_bh(bh_result, sb, phys64);
 		return 0;
@@ -401,7 +402,7 @@ static int ufs_getfrag_block (struct inode *inode, sector_t fragment, struct buf
 
 	lock_kernel();
 
-	UFSD(("ENTER, ino %lu, fragment %u\n", inode->i_ino, fragment))
+	UFSD(("ENTER, ino %lu, fragment %llu\n", inode->i_ino, (unsigned long long)fragment))
 	if (fragment < 0)
 		goto abort_negative;
 	if (fragment >

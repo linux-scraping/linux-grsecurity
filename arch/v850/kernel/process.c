@@ -30,17 +30,17 @@
 #include <asm/system.h>
 #include <asm/pgtable.h>
 
+void (*pm_power_off)(void) = NULL;
+EXPORT_SYMBOL(pm_power_off);
+
 extern void ret_from_fork (void);
 
 
 /* The idle loop.  */
 void default_idle (void)
 {
-	while (1) {
-		while (! need_resched ())
-			asm ("halt; nop; nop; nop; nop; nop" ::: "cc");
-		schedule ();
-	}
+	while (! need_resched ())
+		asm ("halt; nop; nop; nop; nop; nop" ::: "cc");
 }
 
 void (*idle)(void) = default_idle;
@@ -54,7 +54,14 @@ void (*idle)(void) = default_idle;
 void cpu_idle (void)
 {
 	/* endless idle loop with no priority at all */
-	(*idle) ();
+	while (1) {
+		while (!need_resched())
+			(*idle) ();
+
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
+	}
 }
 
 /*
@@ -110,7 +117,7 @@ int copy_thread (int nr, unsigned long clone_flags,
 		 struct task_struct *p, struct pt_regs *regs)
 {
 	/* Start pushing stuff from the top of the child's kernel stack.  */
-	unsigned long orig_ksp = (unsigned long)p->thread_info + THREAD_SIZE;
+	unsigned long orig_ksp = task_tos(p);
 	unsigned long ksp = orig_ksp;
 	/* We push two `state save' stack fames (see entry.S) on the new
 	   kernel stack:
@@ -157,30 +164,6 @@ int copy_thread (int nr, unsigned long clone_flags,
 	p->thread.ksp = ksp;
 
 	return 0;
-}
-
-/*
- * fill in the user structure for a core dump..
- */
-void dump_thread (struct pt_regs *regs, struct user *dump)
-{
-#if 0  /* Later.  XXX */
-	dump->magic = CMAGIC;
-	dump->start_code = 0;
-	dump->start_stack = regs->gpr[GPR_SP];
-	dump->u_tsize = ((unsigned long) current->mm->end_code) >> PAGE_SHIFT;
-	dump->u_dsize = ((unsigned long) (current->mm->brk +
-					  (PAGE_SIZE-1))) >> PAGE_SHIFT;
-	dump->u_dsize -= dump->u_tsize;
-	dump->u_ssize = 0;
-
-	if (dump->start_stack < TASK_SIZE)
-		dump->u_ssize = ((unsigned long) (TASK_SIZE - dump->start_stack)) >> PAGE_SHIFT;
-
-	dump->u_ar0 = (struct user_regs_struct *)((int)&dump->regs - (int)dump);
-	dump->regs = *regs;
-	dump->u_fpvalid = 0;
-#endif
 }
 
 /*

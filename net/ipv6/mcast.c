@@ -164,13 +164,13 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
 #define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
 #define MLDV2_EXP(thresh, nbmant, nbexp, value) \
 	((value) < (thresh) ? (value) : \
-	((MLDV2_MASK(value, nbmant) | (1<<(nbmant+nbexp))) << \
+	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
 	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
 
 #define MLDV2_QQIC(value) MLDV2_EXP(0x80, 4, 3, value)
 #define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
 
-#define IPV6_MLD_MAX_MSF	10
+#define IPV6_MLD_MAX_MSF	64
 
 int sysctl_mld_max_msf = IPV6_MLD_MAX_MSF;
 
@@ -224,6 +224,7 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, struct in6_addr *addr)
 
 	mc_lst->ifindex = dev->ifindex;
 	mc_lst->sfmode = MCAST_EXCLUDE;
+	rwlock_init(&mc_lst->sflock);
 	mc_lst->sflist = NULL;
 
 	/*
@@ -360,6 +361,7 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 	struct ip6_sf_socklist *psl;
 	int i, j, rv;
 	int leavegroup = 0;
+	int pmclocked = 0;
 	int err;
 
 	if (pgsr->gsr_group.ss_family != AF_INET6 ||
@@ -403,6 +405,9 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 		pmc->sfmode = omode;
 	}
 
+	write_lock_bh(&pmc->sflock);
+	pmclocked = 1;
+
 	psl = pmc->sflist;
 	if (!add) {
 		if (!psl)
@@ -444,8 +449,7 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 
 		if (psl)
 			count += psl->sl_max;
-		newpsl = (struct ip6_sf_socklist *)sock_kmalloc(sk,
-			IP6_SFLSIZE(count), GFP_ATOMIC);
+		newpsl = sock_kmalloc(sk, IP6_SFLSIZE(count), GFP_ATOMIC);
 		if (!newpsl) {
 			err = -ENOBUFS;
 			goto done;
@@ -475,6 +479,8 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 	/* update the interface list */
 	ip6_mc_add_src(idev, group, omode, 1, source, 1);
 done:
+	if (pmclocked)
+		write_unlock_bh(&pmc->sflock);
 	read_unlock_bh(&ipv6_sk_mc_lock);
 	read_unlock_bh(&idev->lock);
 	in6_dev_put(idev);
@@ -510,6 +516,8 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
 	dev = idev->dev;
 
 	err = 0;
+	read_lock_bh(&ipv6_sk_mc_lock);
+
 	if (gsf->gf_fmode == MCAST_INCLUDE && gsf->gf_numsrc == 0) {
 		leavegroup = 1;
 		goto done;
@@ -526,8 +534,8 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
 		goto done;
 	}
 	if (gsf->gf_numsrc) {
-		newpsl = (struct ip6_sf_socklist *)sock_kmalloc(sk,
-				IP6_SFLSIZE(gsf->gf_numsrc), GFP_ATOMIC);
+		newpsl = sock_kmalloc(sk, IP6_SFLSIZE(gsf->gf_numsrc),
+							  GFP_ATOMIC);
 		if (!newpsl) {
 			err = -ENOBUFS;
 			goto done;
@@ -545,8 +553,12 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
 			sock_kfree_s(sk, newpsl, IP6_SFLSIZE(newpsl->sl_max));
 			goto done;
 		}
-	} else
+	} else {
 		newpsl = NULL;
+		(void) ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
+	}
+
+	write_lock_bh(&pmc->sflock);
 	psl = pmc->sflist;
 	if (psl) {
 		(void) ip6_mc_del_src(idev, group, pmc->sfmode,
@@ -556,8 +568,10 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
 		(void) ip6_mc_del_src(idev, group, pmc->sfmode, 0, NULL, 0);
 	pmc->sflist = newpsl;
 	pmc->sfmode = gsf->gf_fmode;
+	write_unlock_bh(&pmc->sflock);
 	err = 0;
 done:
+	read_unlock_bh(&ipv6_sk_mc_lock);
 	read_unlock_bh(&idev->lock);
 	in6_dev_put(idev);
 	dev_put(dev);
@@ -590,6 +604,11 @@ int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
 	dev = idev->dev;
 
 	err = -EADDRNOTAVAIL;
+	/*
+	 * changes to the ipv6_mc_list require the socket lock and
+	 * a read lock on ip6_sk_mc_lock. We have the socket lock,
+	 * so reading the list is safe.
+	 */
 
 	for (pmc=inet6->ipv6_mc_list; pmc; pmc=pmc->next) {
 		if (pmc->ifindex != gsf->gf_interface)
@@ -612,6 +631,10 @@ int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
 	    copy_to_user(optval, gsf, GROUP_FILTER_SIZE(0))) {
 		return -EFAULT;
 	}
+	/* changes to psl require the socket lock, a read lock on
+	 * on ipv6_sk_mc_lock and a write lock on pmc->sflock. We
+	 * have the socket lock, so reading here is safe.
+	 */
 	for (i=0; i<copycount; i++) {
 		struct sockaddr_in6 *psin6;
 		struct sockaddr_storage ss;
@@ -648,6 +671,7 @@ int inet6_mc_check(struct sock *sk, struct in6_addr *mc_addr,
 		read_unlock(&ipv6_sk_mc_lock);
 		return 1;
 	}
+	read_lock(&mc->sflock);
 	psl = mc->sflist;
 	if (!psl) {
 		rv = mc->sfmode == MCAST_EXCLUDE;
@@ -663,6 +687,7 @@ int inet6_mc_check(struct sock *sk, struct in6_addr *mc_addr,
 		if (mc->sfmode == MCAST_EXCLUDE && i < psl->sl_count)
 			rv = 0;
 	}
+	read_unlock(&mc->sflock);
 	read_unlock(&ipv6_sk_mc_lock);
 
 	return rv;
@@ -742,7 +767,7 @@ static void mld_add_delrec(struct inet6_dev *idev, struct ifmcaddr6 *im)
 	 * for deleted items allows change reports to use common code with
 	 * non-deleted or query-response MCA's.
 	 */
-	pmc = (struct ifmcaddr6 *)kmalloc(sizeof(*pmc), GFP_ATOMIC);
+	pmc = kmalloc(sizeof(*pmc), GFP_ATOMIC);
 	if (!pmc)
 		return;
 	memset(pmc, 0, sizeof(*pmc));
@@ -1066,7 +1091,8 @@ static void igmp6_group_queried(struct ifmcaddr6 *ma, unsigned long resptime)
 	ma->mca_flags |= MAF_TIMER_RUNNING;
 }
 
-static void mld_marksources(struct ifmcaddr6 *pmc, int nsrcs,
+/* mark EXCLUDE-mode sources */
+static int mld_xmarksources(struct ifmcaddr6 *pmc, int nsrcs,
 	struct in6_addr *srcs)
 {
 	struct ip6_sf_list *psf;
@@ -1076,18 +1102,58 @@ static void mld_marksources(struct ifmcaddr6 *pmc, int nsrcs,
 	for (psf=pmc->mca_sources; psf; psf=psf->sf_next) {
 		if (scount == nsrcs)
 			break;
-		for (i=0; i<nsrcs; i++)
+		for (i=0; i<nsrcs; i++) {
+			/* skip inactive filters */
+			if (pmc->mca_sfcount[MCAST_INCLUDE] ||
+			    pmc->mca_sfcount[MCAST_EXCLUDE] !=
+			    psf->sf_count[MCAST_EXCLUDE])
+				continue;
+			if (ipv6_addr_equal(&srcs[i], &psf->sf_addr)) {
+				scount++;
+				break;
+			}
+		}
+	}
+	pmc->mca_flags &= ~MAF_GSQUERY;
+	if (scount == nsrcs)	/* all sources excluded */
+		return 0;
+	return 1;
+}
+
+static int mld_marksources(struct ifmcaddr6 *pmc, int nsrcs,
+	struct in6_addr *srcs)
+{
+	struct ip6_sf_list *psf;
+	int i, scount;
+
+	if (pmc->mca_sfmode == MCAST_EXCLUDE)
+		return mld_xmarksources(pmc, nsrcs, srcs);
+
+	/* mark INCLUDE-mode sources */
+
+	scount = 0;
+	for (psf=pmc->mca_sources; psf; psf=psf->sf_next) {
+		if (scount == nsrcs)
+			break;
+		for (i=0; i<nsrcs; i++) {
 			if (ipv6_addr_equal(&srcs[i], &psf->sf_addr)) {
 				psf->sf_gsresp = 1;
 				scount++;
 				break;
 			}
+		}
 	}
+	if (!scount) {
+		pmc->mca_flags &= ~MAF_GSQUERY;
+		return 0;
+	}
+	pmc->mca_flags |= MAF_GSQUERY;
+	return 1;
 }
 
 int igmp6_event_query(struct sk_buff *skb)
 {
-	struct mld2_query *mlh2 = (struct mld2_query *) skb->h.raw;
+	struct mld2_query *mlh2 = NULL;
 	struct ifmcaddr6 *ma;
 	struct in6_addr *group;
 	unsigned long max_delay;
@@ -1140,6 +1206,13 @@ int igmp6_event_query(struct sk_buff *skb)
 		/* clear deleted report items */
 		mld_clear_delrec(idev);
 	} else if (len >= 28) {
+		int srcs_offset = sizeof(struct mld2_query) - 
+				  sizeof(struct icmp6hdr);
+		if (!pskb_may_pull(skb, srcs_offset)) {
+			in6_dev_put(idev);
+			return -EINVAL;
+		}
+		mlh2 = (struct mld2_query *) skb->h.raw;
 		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
 		if (!max_delay)
 			max_delay = 1;
@@ -1156,7 +1229,15 @@ int igmp6_event_query(struct sk_buff *skb)
 			return 0;
 		}
 		/* mark sources to include, if group & source-specific */
-		mark = mlh2->nsrcs != 0;
+		if (mlh2->nsrcs != 0) {
+			if (!pskb_may_pull(skb, srcs_offset + 
+			    ntohs(mlh2->nsrcs) * sizeof(struct in6_addr))) {
+				in6_dev_put(idev);
+				return -EINVAL;
+			}
+			mlh2 = (struct mld2_query *) skb->h.raw;
+			mark = 1;
+		}
 	} else {
 		in6_dev_put(idev);
 		return -EINVAL;
@@ -1171,8 +1252,7 @@ int igmp6_event_query(struct sk_buff *skb)
 		}
 	} else {
 		for (ma = idev->mc_list; ma; ma=ma->next) {
-			if (group_type != IPV6_ADDR_ANY &&
-			    !ipv6_addr_equal(group, &ma->mca_addr))
+			if (!ipv6_addr_equal(group, &ma->mca_addr))
 				continue;
 			spin_lock_bh(&ma->mca_lock);
 			if (ma->mca_flags & MAF_TIMER_RUNNING) {
@@ -1186,13 +1266,11 @@ int igmp6_event_query(struct sk_buff *skb)
 				else
 					ma->mca_flags &= ~MAF_GSQUERY;
 			}
-			if (ma->mca_flags & MAF_GSQUERY)
-				mld_marksources(ma, ntohs(mlh2->nsrcs),
-					mlh2->srcs);
-			igmp6_group_queried(ma, max_delay);
+			if (!(ma->mca_flags & MAF_GSQUERY) ||
+			    mld_marksources(ma, ntohs(mlh2->nsrcs), mlh2->srcs))
+				igmp6_group_queried(ma, max_delay);
 			spin_unlock_bh(&ma->mca_lock);
-			if (group_type != IPV6_ADDR_ANY)
-				break;
+			break;
 		}
 	}
 	read_unlock_bh(&idev->lock);
@@ -1212,6 +1290,11 @@ int igmp6_event_report(struct sk_buff *skb)
 
 	/* Our own report looped back. Ignore it. */
 	if (skb->pkt_type == PACKET_LOOPBACK)
+		return 0;
+
+	/* send our report if the MC router may not have heard this report */
+	if (skb->pkt_type != PACKET_MULTICAST &&
+	    skb->pkt_type != PACKET_BROADCAST)
 		return 0;
 
 	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
@@ -1259,7 +1342,18 @@ static int is_in(struct ifmcaddr6 *pmc, struct ip6_sf_list *psf, int type,
 	case MLD2_MODE_IS_EXCLUDE:
 		if (gdeleted || sdeleted)
 			return 0;
-		return !((pmc->mca_flags & MAF_GSQUERY) && !psf->sf_gsresp);
+		if (!((pmc->mca_flags & MAF_GSQUERY) && !psf->sf_gsresp)) {
+			if (pmc->mca_sfmode == MCAST_INCLUDE)
+				return 1;
+			/* don't include if this source is excluded
+			 * in all filters
+			 */
+			if (psf->sf_count[MCAST_INCLUDE])
+				return type == MLD2_MODE_IS_INCLUDE;
+			return pmc->mca_sfcount[MCAST_EXCLUDE] ==
+				psf->sf_count[MCAST_EXCLUDE];
+		}
+		return 0;
 	case MLD2_CHANGE_TO_INCLUDE:
 		if (gdeleted || sdeleted)
 			return 0;
@@ -1428,7 +1522,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
 	struct mld2_report *pmr;
 	struct mld2_grec *pgr = NULL;
 	struct ip6_sf_list *psf, *psf_next, *psf_prev, **psf_list;
-	int scount, first, isquery, truncate;
+	int scount, stotal, first, isquery, truncate;
 
 	if (pmc->mca_flags & MAF_NOREPORT)
 		return skb;
@@ -1438,25 +1532,13 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
 	truncate = type == MLD2_MODE_IS_EXCLUDE ||
 		    type == MLD2_CHANGE_TO_EXCLUDE;
 
+	stotal = scount = 0;
+
 	psf_list = sdeleted ? &pmc->mca_tomb : &pmc->mca_sources;
 
-	if (!*psf_list) {
-		if (type == MLD2_ALLOW_NEW_SOURCES ||
-		    type == MLD2_BLOCK_OLD_SOURCES)
-			return skb;
-		if (pmc->mca_crcount || isquery) {
-			/* make sure we have room for group header and at
-			 * least one source.
-			 */
-			if (skb && AVAILABLE(skb) < sizeof(struct mld2_grec)+
-			    sizeof(struct in6_addr)) {
-				mld_sendpack(skb);
-				skb = NULL; /* add_grhead will get a new one */
-			}
-			skb = add_grhead(skb, pmc, type, &pgr);
-		}
-		return skb;
-	}
+	if (!*psf_list)
+		goto empty_source;
+
 	pmr = skb ? (struct mld2_report *)skb->h.raw : NULL;
 
 	/* EX and TO_EX get a fresh packet, if needed */
@@ -1469,7 +1551,6 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
 		}
 	}
 	first = 1;
-	scount = 0;
 	psf_prev = NULL;
 	for (psf=*psf_list; psf; psf=psf_next) {
 		struct in6_addr *psrc;
@@ -1503,7 +1584,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
 		}
 		psrc = (struct in6_addr *)skb_put(skb, sizeof(*psrc));
 		*psrc = psf->sf_addr;
-		scount++;
+		scount++; stotal++;
 		if ((type == MLD2_ALLOW_NEW_SOURCES ||
 		     type == MLD2_BLOCK_OLD_SOURCES) && psf->sf_crcount) {
 			psf->sf_crcount--;
@@ -1517,6 +1598,21 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
 			}
 		}
 		psf_prev = psf;
+	}
+
+empty_source:
+	if (!stotal) {
+		if (type == MLD2_ALLOW_NEW_SOURCES ||
+		    type == MLD2_BLOCK_OLD_SOURCES)
+			return skb;
+		if (pmc->mca_crcount || isquery) {
+			/* make sure we have room for group header */
+			if (skb && AVAILABLE(skb) < sizeof(struct mld2_grec)) {
+				mld_sendpack(skb);
+				skb = NULL; /* add_grhead will get a new one */
+			}
+			skb = add_grhead(skb, pmc, type, &pgr);
+		}
 	}
 	if (pgr)
 		pgr->grec_nsrcs = htons(scount);
@@ -1599,11 +1695,11 @@ static void mld_send_cr(struct inet6_dev *idev)
 			skb = add_grec(skb, pmc, dtype, 1, 1);
 		}
 		if (pmc->mca_crcount) {
-			pmc->mca_crcount--;
 			if (pmc->mca_sfmode == MCAST_EXCLUDE) {
 				type = MLD2_CHANGE_TO_INCLUDE;
 				skb = add_grec(skb, pmc, type, 1, 0);
 			}
+			pmc->mca_crcount--;
 			if (pmc->mca_crcount == 0) {
 				mld_clear_zeros(&pmc->mca_tomb);
 				mld_clear_zeros(&pmc->mca_sources);
@@ -1637,12 +1733,12 @@ static void mld_send_cr(struct inet6_dev *idev)
 
 		/* filter mode changes */
 		if (pmc->mca_crcount) {
-			pmc->mca_crcount--;
 			if (pmc->mca_sfmode == MCAST_EXCLUDE)
 				type = MLD2_CHANGE_TO_EXCLUDE;
 			else
 				type = MLD2_CHANGE_TO_INCLUDE;
 			skb = add_grec(skb, pmc, type, 0, 0);
+			pmc->mca_crcount--;
 		}
 		spin_unlock_bh(&pmc->mca_lock);
 	}
@@ -1838,7 +1934,7 @@ static int ip6_mc_add1_src(struct ifmcaddr6 *pmc, int sfmode,
 		psf_prev = psf;
 	}
 	if (!psf) {
-		psf = (struct ip6_sf_list *)kmalloc(sizeof(*psf), GFP_ATOMIC);
+		psf = kmalloc(sizeof(*psf), GFP_ATOMIC);
 		if (!psf)
 			return -ENOBUFS;
 		memset(psf, 0, sizeof(*psf));
@@ -1868,7 +1964,7 @@ static void sf_markstate(struct ifmcaddr6 *pmc)
 
 static int sf_setstate(struct ifmcaddr6 *pmc)
 {
-	struct ip6_sf_list *psf;
+	struct ip6_sf_list *psf, *dpsf;
 	int mca_xcount = pmc->mca_sfcount[MCAST_EXCLUDE];
 	int qrv = pmc->idev->mc_qrv;
 	int new_in, rv;
@@ -1880,8 +1976,48 @@ static int sf_setstate(struct ifmcaddr6 *pmc)
 				!psf->sf_count[MCAST_INCLUDE];
 		} else
 			new_in = psf->sf_count[MCAST_INCLUDE] != 0;
-		if (new_in != psf->sf_oldin) {
-			psf->sf_crcount = qrv;
+		if (new_in) {
+			if (!psf->sf_oldin) {
+				struct ip6_sf_list *prev = NULL;
+
+				for (dpsf=pmc->mca_tomb; dpsf;
+				     dpsf=dpsf->sf_next) {
+					if (ipv6_addr_equal(&dpsf->sf_addr,
+					    &psf->sf_addr))
+						break;
+					prev = dpsf;
+				}
+				if (dpsf) {
+					if (prev)
+						prev->sf_next = dpsf->sf_next;
+					else
+						pmc->mca_tomb = dpsf->sf_next;
+					kfree(dpsf);
+				}
+				psf->sf_crcount = qrv;
+				rv++;
+			}
+		} else if (psf->sf_oldin) {
+			psf->sf_crcount = 0;
+			/*
+			 * add or update "delete" records if an active filter
+			 * is now inactive
+			 */
+			for (dpsf=pmc->mca_tomb; dpsf; dpsf=dpsf->sf_next)
+				if (ipv6_addr_equal(&dpsf->sf_addr,
+				    &psf->sf_addr))
+					break;
+			if (!dpsf) {
+				dpsf = (struct ip6_sf_list *)
+					kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+				if (!dpsf)
+					continue;
+				*dpsf = *psf;
+				/* pmc->mca_lock held by callers */
+				dpsf->sf_next = pmc->mca_tomb;
+				pmc->mca_tomb = dpsf;
+			}
+			dpsf->sf_crcount = qrv;
 			rv++;
 		}
 	}
@@ -2001,6 +2137,9 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
 {
 	int err;
 
+	/* callers have the socket lock and a write lock on ipv6_sk_mc_lock,
+	 * so no other readers or writers of iml or its sflist
+	 */
 	if (iml->sflist == 0) {
 		/* any-source empty exclude case */
 		return ip6_mc_del_src(idev, &iml->addr, iml->sfmode, 0, NULL, 0);
@@ -2272,7 +2411,7 @@ static int igmp6_mc_seq_show(struct seq_file *seq, void *v)
 	struct igmp6_mc_iter_state *state = igmp6_mc_seq_private(seq);
 
 	seq_printf(seq,
-		   "%-4d %-15s %04x%04x%04x%04x%04x%04x%04x%04x %5d %08X %ld\n", 
+		   "%-4d %-15s " NIP6_SEQFMT " %5d %08X %ld\n", 
 		   state->dev->ifindex, state->dev->name,
 		   NIP6(im->mca_addr),
 		   im->mca_users, im->mca_flags,
@@ -2446,10 +2585,7 @@ static int igmp6_mcf_seq_show(struct seq_file *seq, void *v)
 			   "Source Address", "INC", "EXC");
 	} else {
 		seq_printf(seq,
-			   "%3d %6.6s "
-			   "%04x%04x%04x%04x%04x%04x%04x%04x "
-			   "%04x%04x%04x%04x%04x%04x%04x%04x "
-			   "%6lu %6lu\n",
+			   "%3d %6.6s " NIP6_SEQFMT " " NIP6_SEQFMT " %6lu %6lu\n",
 			   state->dev->ifindex, state->dev->name,
 			   NIP6(state->im->mca_addr),
 			   NIP6(psf->sf_addr),

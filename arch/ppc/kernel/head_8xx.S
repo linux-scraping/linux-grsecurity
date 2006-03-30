@@ -203,7 +203,7 @@ i##n:								\
 			  ret_from_except)
 
 /* System reset */
-	EXCEPTION(0x100, Reset, UnknownException, EXC_XFER_STD)
+	EXCEPTION(0x100, Reset, unknown_exception, EXC_XFER_STD)
 
 /* Machine check */
 	. = 0x200
@@ -214,7 +214,7 @@ MachineCheck:
 	mfspr r5,SPRN_DSISR
 	stw r5,_DSISR(r11)
 	addi r3,r1,STACK_FRAME_OVERHEAD
-	EXC_XFER_STD(0x200, MachineCheckException)
+	EXC_XFER_STD(0x200, machine_check_exception)
 
 /* Data access exception.
  * This is "never generated" by the MPC8xx.  We jump to it for other
@@ -252,20 +252,20 @@ Alignment:
 	mfspr	r5,SPRN_DSISR
 	stw	r5,_DSISR(r11)
 	addi	r3,r1,STACK_FRAME_OVERHEAD
-	EXC_XFER_EE(0x600, AlignmentException)
+	EXC_XFER_EE(0x600, alignment_exception)
 
 /* Program check exception */
-	EXCEPTION(0x700, ProgramCheck, ProgramCheckException, EXC_XFER_STD)
+	EXCEPTION(0x700, ProgramCheck, program_check_exception, EXC_XFER_STD)
 
 /* No FPU on MPC8xx.  This exception is not supposed to happen.
 */
-	EXCEPTION(0x800, FPUnavailable, UnknownException, EXC_XFER_STD)
+	EXCEPTION(0x800, FPUnavailable, unknown_exception, EXC_XFER_STD)
 
 /* Decrementer */
 	EXCEPTION(0x900, Decrementer, timer_interrupt, EXC_XFER_LITE)
 
-	EXCEPTION(0xa00, Trap_0a, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0xb00, Trap_0b, UnknownException, EXC_XFER_EE)
+	EXCEPTION(0xa00, Trap_0a, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0xb00, Trap_0b, unknown_exception, EXC_XFER_EE)
 
 /* System call */
 	. = 0xc00
@@ -274,9 +274,9 @@ SystemCall:
 	EXC_XFER_EE_LITE(0xc00, DoSyscall)
 
 /* Single step - not used on 601 */
-	EXCEPTION(0xd00, SingleStep, SingleStepException, EXC_XFER_STD)
-	EXCEPTION(0xe00, Trap_0e, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0xf00, Trap_0f, UnknownException, EXC_XFER_EE)
+	EXCEPTION(0xd00, SingleStep, single_step_exception, EXC_XFER_STD)
+	EXCEPTION(0xe00, Trap_0e, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0xf00, Trap_0f, unknown_exception, EXC_XFER_EE)
 
 /* On the MPC8xx, this is a software emulation interrupt.  It occurs
  * for all unimplemented and illegal instructions.
@@ -375,6 +375,8 @@ DataStoreTLBMiss:
 	lis	r11, swapper_pg_dir@h
 	ori	r11, r11, swapper_pg_dir@l
 	rlwimi	r10, r11, 0, 2, 19
+	stw	r12, 16(r0)
+	b LoadLargeDTLB
 3:
 	lwz	r11, 0(r10)	/* Get the level 1 entry */
 	rlwinm.	r10, r11,0,0,19	/* Extract page descriptor page address */
@@ -429,6 +431,81 @@ DataStoreTLBMiss:
 	. = 0x1300
 InstructionTLBError:
 	b	InstructionAccess
+
+LoadLargeDTLB:
+	li	r12, 0
+	lwz	r11, 0(r10)	/* Get the level 1 entry */
+	rlwinm.	r10, r11,0,0,19	/* Extract page descriptor page address */
+	beq	3f		/* If zero, don't try to find a pte */
+
+	/* We have a pte table, so load fetch the pte from the table.
+	 */
+	ori	r11, r11, 1	/* Set valid bit in physical L2 page */
+	DO_8xx_CPU6(0x3b80, r3)
+	mtspr	SPRN_MD_TWC, r11	/* Load pte table base address */
+	mfspr	r10, SPRN_MD_TWC	/* ....and get the pte address */
+	lwz	r10, 0(r10)	/* Get the pte */
+
+	/* Insert the Guarded flag into the TWC from the Linux PTE.
+	 * It is bit 27 of both the Linux PTE and the TWC (at least
+	 * I got that right :-).  It will be better when we can put
+	 * this into the Linux pgd/pmd and load it in the operation
+	 * above.
+	 */
+	rlwimi	r11, r10, 0, 27, 27
+
+	rlwimi  r12, r10, 0, 0, 9	/* extract phys. addr */
+	mfspr	r3, SPRN_MD_EPN
+	rlwinm	r3, r3, 0, 0, 9		/* extract virtual address */
+	tophys(r3, r3)
+	cmpw	r3, r12			/* only use 8M page if it is a direct 
+					   kernel mapping */
+	bne	1f
+	ori     r11, r11, MD_PS8MEG
+	li	r12, 1
+	b	2f
+1:
+	li	r12, 0		/* can't use 8MB TLB, so zero r12. */
+2:
+	DO_8xx_CPU6(0x3b80, r3)
+	mtspr	SPRN_MD_TWC, r11
+
+	/* The Linux PTE won't go exactly into the MMU TLB.
+	 * Software indicator bits 21, 22 and 28 must be clear.
+	 * Software indicator bits 24, 25, 26, and 27 must be
+	 * set.  All other Linux PTE bits control the behavior
+	 * of the MMU.
+	 */
+3:	li	r11, 0x00f0
+	rlwimi	r10, r11, 0, 24, 28	/* Set 24-27, clear 28 */
+	cmpwi   r12, 1
+	bne 4f
+	ori     r10, r10, 0x8
+
+	mfspr	r12, SPRN_MD_EPN
+	lis	r3, 0xff80		/* 10-19 must be clear for 8MB TLB */
+	ori	r3, r3, 0x0fff
+	and	r12, r3, r12
+	DO_8xx_CPU6(0x3780, r3)
+	mtspr	SPRN_MD_EPN, r12
+
+	lis	r3, 0xff80		/* 10-19 must be clear for 8MB TLB */
+	ori	r3, r3, 0x0fff
+	and	r10, r3, r10
+4:
+	DO_8xx_CPU6(0x3d80, r3)
+	mtspr	SPRN_MD_RPN, r10	/* Update TLB entry */
+
+	mfspr	r10, SPRN_M_TW	/* Restore registers */
+	lwz	r11, 0(r0)
+	mtcr	r11
+	lwz	r11, 4(r0)
+
+	lwz	r12, 16(r0)
+#ifdef CONFIG_8xx_CPU6
+	lwz	r3, 8(r0)
+#endif
+	rfi
 
 /* This is the data TLB error on the MPC8xx.  This could be due to
  * many reasons, including a dirty update to a pte.  We can catch that
@@ -540,22 +617,22 @@ DataTLBError:
 #endif
 	b	DataAccess
 
-	EXCEPTION(0x1500, Trap_15, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1600, Trap_16, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1700, Trap_17, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1800, Trap_18, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1900, Trap_19, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1a00, Trap_1a, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1b00, Trap_1b, UnknownException, EXC_XFER_EE)
+	EXCEPTION(0x1500, Trap_15, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1600, Trap_16, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1700, Trap_17, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1800, Trap_18, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1900, Trap_19, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1a00, Trap_1a, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1b00, Trap_1b, unknown_exception, EXC_XFER_EE)
 
 /* On the MPC8xx, these next four traps are used for development
  * support of breakpoints and such.  Someday I will get around to
  * using them.
  */
-	EXCEPTION(0x1c00, Trap_1c, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1d00, Trap_1d, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1e00, Trap_1e, UnknownException, EXC_XFER_EE)
-	EXCEPTION(0x1f00, Trap_1f, UnknownException, EXC_XFER_EE)
+	EXCEPTION(0x1c00, Trap_1c, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1d00, Trap_1d, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1e00, Trap_1e, unknown_exception, EXC_XFER_EE)
+	EXCEPTION(0x1f00, Trap_1f, unknown_exception, EXC_XFER_EE)
 
 	. = 0x2000
 
@@ -733,13 +810,16 @@ initial_mmu:
 	mtspr	SPRN_MD_TWC, r9
 	li	r11, MI_BOOTINIT	/* Create RPN for address 0 */
 	addis	r11, r11, 0x0080	/* Add 8M */
-	mtspr	SPRN_MD_RPN, r8
+	mtspr	SPRN_MD_RPN, r11
+
+	addi	r10, r10, 0x0100
+	mtspr	SPRN_MD_CTR, r10
 
 	addis	r8, r8, 0x0080		/* Add 8M */
 	mtspr	SPRN_MD_EPN, r8
 	mtspr	SPRN_MD_TWC, r9
 	addis	r11, r11, 0x0080	/* Add 8M */
-	mtspr	SPRN_MD_RPN, r8
+	mtspr	SPRN_MD_RPN, r11
 #endif
 
 	/* Since the cache is enabled according to the information we

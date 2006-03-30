@@ -43,6 +43,11 @@
 #define	MADV_SPACEAVAIL	5		/* ensure resources are available */
 #define MADV_DONTNEED	6		/* don't need these pages */
 
+/* common/generic parameters */
+#define MADV_REMOVE	9		/* remove these pages & resources */
+#define MADV_DONTFORK	10		/* don't inherit across fork */
+#define MADV_DOFORK	11		/* do inherit across fork */
+
 /* compatibility flags */
 #define MAP_ANON	MAP_ANONYMOUS
 #define MAP_FILE	0

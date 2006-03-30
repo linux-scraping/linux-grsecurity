@@ -9,7 +9,7 @@ extern void (*mips_hpt_init)(unsigned int);
 
 #define LAUNCHSTACK_SIZE 256
 
-static spinlock_t launch_lock __initdata;
+static __initdata DEFINE_SPINLOCK(launch_lock);
 
 static unsigned long secondary_sp __initdata;
 static unsigned long secondary_gp __initdata;
@@ -50,37 +50,25 @@ void __init prom_grab_secondary(void)
  * We don't want to start the secondary CPU yet nor do we have a nice probing
  * feature in PMON so we just assume presence of the secondary core.
  */
-static char maxcpus_string[] __initdata =
-	KERN_WARNING "max_cpus set to 0; using 1 instead\n";
-
-void __init prom_prepare_cpus(unsigned int max_cpus)
+void __init plat_smp_setup(void)
 {
-	int enabled = 0, i;
-
-	if (max_cpus == 0) {
-		printk(maxcpus_string);
-		max_cpus = 1;
-	}
+	int i;
 
 	cpus_clear(phys_cpu_present_map);
 
 	for (i = 0; i < 2; i++) {
-		if (i == max_cpus)
-			break;
-
-		/*
-		 * The boot CPU
-		 */
 		cpu_set(i, phys_cpu_present_map);
 		__cpu_number_map[i]	= i;
 		__cpu_logical_map[i]	= i;
-		enabled++;
 	}
+}
 
+void __init plat_prepare_cpus(unsigned int max_cpus)
+{
 	/*
 	 * Be paranoid.  Enable the IPI only if we're really about to go SMP.
 	 */
-	if (enabled > 1)
+	if (cpus_weight(cpu_possible_map))
 		set_c0_status(STATUSF_IP5);
 }
 
@@ -93,8 +81,8 @@ void __init prom_prepare_cpus(unsigned int max_cpus)
  */
 void prom_boot_secondary(int cpu, struct task_struct *idle)
 {
-	unsigned long gp = (unsigned long) idle->thread_info;
-	unsigned long sp = gp + THREAD_SIZE - 32;
+	unsigned long gp = (unsigned long) task_thread_info(idle);
+	unsigned long sp = __KSTK_TOS(idle);
 
 	secondary_sp = sp;
 	secondary_gp = gp;

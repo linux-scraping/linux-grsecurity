@@ -26,6 +26,9 @@
  *   DViCO FusionHDTV 3 Gold-Q
  *   DViCO FusionHDTV 3 Gold-T
  *   DViCO FusionHDTV 5 Gold
+ *   DViCO FusionHDTV 5 Lite
+ *   DViCO FusionHDTV 5 USB Gold
+ *   Air2PC/AirStar 2 ATSC 3rd generation (HD5000)
  *
  * TODO:
  * signal strength always returns 0.
@@ -37,6 +40,8 @@
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/delay.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 #include <asm/byteorder.h>
 
 #include "dvb_frontend.h"
@@ -220,6 +225,11 @@ static int lgdt330x_init(struct dvb_frontend* fe)
 		0x4c, 0x14
 	};
 
+	static u8 flip_lgdt3303_init_data[] = {
+		0x4c, 0x14,
+		0x87, 0xf3
+	};
+
 	struct lgdt330x_state* state = fe->demodulator_priv;
 	char  *chip_name;
 	int    err;
@@ -232,8 +242,13 @@ static int lgdt330x_init(struct dvb_frontend* fe)
 		break;
 	case LGDT3303:
 		chip_name = "LGDT3303";
-		err = i2c_write_demod_bytes(state, lgdt3303_init_data,
-					    sizeof(lgdt3303_init_data));
+		if (state->config->clock_polarity_flip) {
+			err = i2c_write_demod_bytes(state, flip_lgdt3303_init_data,
+						    sizeof(flip_lgdt3303_init_data));
+		} else {
+			err = i2c_write_demod_bytes(state, lgdt3303_init_data,
+						    sizeof(lgdt3303_init_data));
+		}
 		break;
 	default:
 		chip_name = "undefined";
@@ -287,10 +302,10 @@ static int lgdt330x_set_parameters(struct dvb_frontend* fe,
 	static u8 lgdt3303_8vsb_44_data[] = {
 		0x04, 0x00,
 		0x0d, 0x40,
-        0x0e, 0x87,
-        0x0f, 0x8e,
-        0x10, 0x01,
-        0x47, 0x8b };
+	0x0e, 0x87,
+	0x0f, 0x8e,
+	0x10, 0x01,
+	0x47, 0x8b };
 
 	/*
 	 * Array of byte pairs <address, value>
@@ -388,6 +403,8 @@ static int lgdt330x_set_parameters(struct dvb_frontend* fe,
 		state->config->pll_set(fe, param);
 
 	/* Keep track of the new frequency */
+	/* FIXME this is the wrong way to do this...           */
+	/* The tuner is shared with the video4linux analog API */
 	state->current_frequency = param->frequency;
 
 	lgdt330x_SwReset(state);
@@ -697,10 +714,9 @@ struct dvb_frontend* lgdt330x_attach(const struct lgdt330x_config* config,
 	u8 buf[1];
 
 	/* Allocate memory for the internal state */
-	state = (struct lgdt330x_state*) kmalloc(sizeof(struct lgdt330x_state), GFP_KERNEL);
+	state = kzalloc(sizeof(struct lgdt330x_state), GFP_KERNEL);
 	if (state == NULL)
 		goto error;
-	memset(state,0,sizeof(*state));
 
 	/* Setup the state */
 	state->config = config;
@@ -729,8 +745,7 @@ struct dvb_frontend* lgdt330x_attach(const struct lgdt330x_config* config,
 	return &state->frontend;
 
 error:
-	if (state)
-		kfree(state);
+	kfree(state);
 	dprintk("%s: ERROR\n",__FUNCTION__);
 	return NULL;
 }
@@ -742,9 +757,8 @@ static struct dvb_frontend_ops lgdt3302_ops = {
 		.frequency_min= 54000000,
 		.frequency_max= 858000000,
 		.frequency_stepsize= 62500,
-		/* Symbol rate is for all VSB modes need to check QAM */
-		.symbol_rate_min    = 10762000,
-		.symbol_rate_max    = 10762000,
+		.symbol_rate_min    = 5056941,	/* QAM 64 */
+		.symbol_rate_max    = 10762000,	/* VSB 8  */
 		.caps = FE_CAN_QAM_64 | FE_CAN_QAM_256 | FE_CAN_8VSB
 	},
 	.init                 = lgdt330x_init,
@@ -766,9 +780,8 @@ static struct dvb_frontend_ops lgdt3303_ops = {
 		.frequency_min= 54000000,
 		.frequency_max= 858000000,
 		.frequency_stepsize= 62500,
-		/* Symbol rate is for all VSB modes need to check QAM */
-		.symbol_rate_min    = 10762000,
-		.symbol_rate_max    = 10762000,
+		.symbol_rate_min    = 5056941,	/* QAM 64 */
+		.symbol_rate_max    = 10762000,	/* VSB 8  */
 		.caps = FE_CAN_QAM_64 | FE_CAN_QAM_256 | FE_CAN_8VSB
 	},
 	.init                 = lgdt330x_init,

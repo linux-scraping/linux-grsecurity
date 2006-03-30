@@ -103,6 +103,7 @@
 
 #include <linux/serial.h>
 #include <linux/generic_serial.h>
+#include <linux/tty_flip.h>
 
 #include "ser_a2232.h"
 #include "ser_a2232fw.h"
@@ -194,11 +195,6 @@ static inline void a2232_receive_char(struct a2232_port *port, int ch, int err)
 */
 	struct tty_struct *tty = port->gs.tty;
 
-	if (tty->flip.count >= TTY_FLIPBUF_SIZE)
-		return;
-
-	tty->flip.count++;
-
 #if 0
 	switch(err) {
 	case TTY_BREAK:
@@ -212,8 +208,7 @@ static inline void a2232_receive_char(struct a2232_port *port, int ch, int err)
 	}
 #endif
 
-	*tty->flip.flag_buf_ptr++ = err;
-	*tty->flip.char_buf_ptr++ = ch;
+	tty_insert_flip_char(tty, ch, err);
 	tty_flip_buffer_push(tty);
 }
 
@@ -790,7 +785,7 @@ static int __init a2232board_init(void)
 
 	}	
 
-	printk("Total: %d A2232 boards initialized.\n.", nr_a2232); /* Some status report if no card was found */
+	printk("Total: %d A2232 boards initialized.\n", nr_a2232); /* Some status report if no card was found */
 
 	a2232_init_portstructs();
 

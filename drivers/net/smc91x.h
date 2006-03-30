@@ -90,7 +90,7 @@
 			__l--;						\
 		}							\
 	} while (0)
-#define set_irq_type(irq, type)
+#define SMC_IRQ_FLAGS		(0)
 
 #elif defined(CONFIG_SA1100_PLEB)
 /* We can only do 16-bit reads and writes in the static memory space. */
@@ -100,16 +100,16 @@
 #define SMC_IO_SHIFT		0
 #define SMC_NOWAIT		1
 
-#define SMC_inb(a, r)		inb((a) + (r))
-#define SMC_insb(a, r, p, l)	insb((a) + (r), p, (l))
-#define SMC_inw(a, r)		inw((a) + (r))
-#define SMC_insw(a, r, p, l)	insw((a) + (r), p, l)
-#define SMC_outb(v, a, r)	outb(v, (a) + (r))
-#define SMC_outsb(a, r, p, l)	outsb((a) + (r), p, (l))
-#define SMC_outw(v, a, r)	outw(v, (a) + (r))
-#define SMC_outsw(a, r, p, l)	outsw((a) + (r), p, l)
+#define SMC_inb(a, r)		readb((a) + (r))
+#define SMC_insb(a, r, p, l)	readsb((a) + (r), p, (l))
+#define SMC_inw(a, r)		readw((a) + (r))
+#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
+#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
+#define SMC_outsb(a, r, p, l)	writesb((a) + (r), p, (l))
+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
+#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
 
-#define set_irq_type(irq, type) do {} while (0)
+#define SMC_IRQ_FLAGS		(0)
 
 #elif defined(CONFIG_SA1100_ASSABET)
 
@@ -185,11 +185,11 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #include <asm/mach-types.h>
 #include <asm/arch/cpu.h>
 
-#define	SMC_IRQ_TRIGGER_TYPE (( \
+#define	SMC_IRQ_FLAGS (( \
 		   machine_is_omap_h2() \
 		|| machine_is_omap_h3() \
 		|| (machine_is_omap_innovator() && !cpu_is_omap1510()) \
-	) ? IRQT_FALLING : IRQT_RISING)
+	) ? SA_TRIGGER_FALLING : SA_TRIGGER_RISING)
 
 
 #elif	defined(CONFIG_SH_SH4202_MICRODEV)
@@ -209,7 +209,7 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #define SMC_insw(a, r, p, l)	insw((a) + (r) - 0xa0000000, p, l)
 #define SMC_outsw(a, r, p, l)	outsw((a) + (r) - 0xa0000000, p, l)
 
-#define set_irq_type(irq, type)	do {} while(0)
+#define SMC_IRQ_FLAGS		(0)
 
 #elif	defined(CONFIG_ISA)
 
@@ -230,14 +230,14 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
 #define SMC_CAN_USE_16BIT	1
 #define SMC_CAN_USE_32BIT	0
 
-#define SMC_inb(a, r)		inb((a) + (r) - 0xa0000000)
-#define SMC_inw(a, r)		inw((a) + (r) - 0xa0000000)
-#define SMC_outb(v, a, r)	outb(v, (a) + (r) - 0xa0000000)
-#define SMC_outw(v, a, r)	outw(v, (a) + (r) - 0xa0000000)
-#define SMC_insw(a, r, p, l)	insw((a) + (r) - 0xa0000000, p, l)
-#define SMC_outsw(a, r, p, l)	outsw((a) + (r) - 0xa0000000, p, l)
+#define SMC_inb(a, r)		inb((u32)a) + (r))
+#define SMC_inw(a, r)		inw(((u32)a) + (r))
+#define SMC_outb(v, a, r)	outb(v, ((u32)a) + (r))
+#define SMC_outw(v, a, r)	outw(v, ((u32)a) + (r))
+#define SMC_insw(a, r, p, l)	insw(((u32)a) + (r), p, l)
+#define SMC_outsw(a, r, p, l)	outsw(((u32)a) + (r), p, l)
 
-#define set_irq_type(irq, type)	do {} while(0)
+#define SMC_IRQ_FLAGS		(0)
 
 #define RPC_LSA_DEFAULT		RPC_LED_TX_RX
 #define RPC_LSB_DEFAULT		RPC_LED_100_10
@@ -289,6 +289,38 @@ static inline void SMC_outsw (unsigned long a, int r, unsigned char* p, int l)
 #define RPC_LSA_DEFAULT		RPC_LED_TX_RX
 #define RPC_LSB_DEFAULT		RPC_LED_100_10
 
+#elif defined(CONFIG_SOC_AU1X00)
+
+#include <au1xxx.h>
+
+/* We can only do 16-bit reads and writes in the static memory space. */
+#define SMC_CAN_USE_8BIT	0
+#define SMC_CAN_USE_16BIT	1
+#define SMC_CAN_USE_32BIT	0
+#define SMC_IO_SHIFT		0
+#define SMC_NOWAIT		1
+
+#define SMC_inw(a, r)		au_readw((unsigned long)((a) + (r)))
+#define SMC_insw(a, r, p, l)	\
+	do {	\
+		unsigned long _a = (unsigned long)((a) + (r)); \
+		int _l = (l); \
+		u16 *_p = (u16 *)(p); \
+		while (_l-- > 0) \
+			*_p++ = au_readw(_a); \
+	} while(0)
+#define SMC_outw(v, a, r)	au_writew(v, (unsigned long)((a) + (r)))
+#define SMC_outsw(a, r, p, l)	\
+	do {	\
+		unsigned long _a = (unsigned long)((a) + (r)); \
+		int _l = (l); \
+		const u16 *_p = (const u16 *)(p); \
+		while (_l-- > 0) \
+			au_writew(*_p++ , _a); \
+	} while(0)
+
+#define SMC_IRQ_FLAGS		(0)
+
 #else
 
 #define SMC_CAN_USE_8BIT	1
@@ -310,8 +342,8 @@ static inline void SMC_outsw (unsigned long a, int r, unsigned char* p, int l)
 
 #endif
 
-#ifndef	SMC_IRQ_TRIGGER_TYPE
-#define	SMC_IRQ_TRIGGER_TYPE	IRQT_RISING
+#ifndef	SMC_IRQ_FLAGS
+#define	SMC_IRQ_FLAGS		SA_TRIGGER_RISING
 #endif
 
 #ifdef SMC_USE_PXA_DMA

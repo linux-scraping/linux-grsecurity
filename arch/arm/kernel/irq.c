@@ -264,6 +264,7 @@ unlock:
 #endif
 #ifdef CONFIG_SMP
 		show_ipi_list(p);
+		show_local_irqs(p);
 #endif
 		seq_printf(p, "Err: %10lu\n", irq_err_count);
 	}
@@ -683,8 +684,12 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 	spin_lock_irqsave(&irq_controller_lock, flags);
 	p = &desc->action;
 	if ((old = *p) != NULL) {
-		/* Can't share interrupts unless both agree to */
-		if (!(old->flags & new->flags & SA_SHIRQ)) {
+		/*
+		 * Can't share interrupts unless both agree to and are
+		 * the same type.
+		 */
+		if (!(old->flags & new->flags & SA_SHIRQ) ||
+		    (~old->flags & new->flags) & SA_TRIGGER_MASK) {
 			spin_unlock_irqrestore(&irq_controller_lock, flags);
 			return -EBUSY;
 		}
@@ -704,6 +709,13 @@ int setup_irq(unsigned int irq, struct irqaction *new)
 		desc->running = 0;
 		desc->pending = 0;
 		desc->disable_depth = 1;
+
+		if (new->flags & SA_TRIGGER_MASK &&
+		    desc->chip->set_type) {
+			unsigned int type = new->flags & SA_TRIGGER_MASK;
+			desc->chip->set_type(irq, type);
+		}
+
 		if (!desc->noautoenable) {
 			desc->disable_depth = 0;
 			desc->chip->unmask(irq);
@@ -995,7 +1007,7 @@ void __init init_irq_proc(void)
 	struct proc_dir_entry *dir;
 	int irq;
 
-	dir = proc_mkdir("irq", 0);
+	dir = proc_mkdir("irq", NULL);
 	if (!dir)
 		return;
 
@@ -1026,7 +1038,6 @@ void __init init_irq_proc(void)
 void __init init_IRQ(void)
 {
 	struct irqdesc *desc;
-	extern void init_dma(void);
 	int irq;
 
 #ifdef CONFIG_SMP
@@ -1040,7 +1051,6 @@ void __init init_IRQ(void)
 	}
 
 	init_arch_irq();
-	init_dma();
 }
 
 static int __init noirqdebug_setup(char *str)
@@ -1050,3 +1060,34 @@ static int __init noirqdebug_setup(char *str)
 }
 
 __setup("noirqdebug", noirqdebug_setup);
+
+#ifdef CONFIG_HOTPLUG_CPU
+/*
+ * The CPU has been marked offline.  Migrate IRQs off this CPU.  If
+ * the affinity settings do not allow other CPUs, force them onto any
+ * available CPU.
+ */
+void migrate_irqs(void)
+{
+	unsigned int i, cpu = smp_processor_id();
+
+	for (i = 0; i < NR_IRQS; i++) {
+		struct irqdesc *desc = irq_desc + i;
+
+		if (desc->cpu == cpu) {
+			unsigned int newcpu = any_online_cpu(desc->affinity);
+
+			if (newcpu == NR_CPUS) {
+				if (printk_ratelimit())
+					printk(KERN_INFO "IRQ%u no longer affine to CPU%u\n",
+					       i, cpu);
+
+				cpus_setall(desc->affinity);
+				newcpu = any_online_cpu(desc->affinity);
+			}
+
+			route_irq(desc, i, newcpu);
+		}
+	}
+}
+#endif /* CONFIG_HOTPLUG_CPU */

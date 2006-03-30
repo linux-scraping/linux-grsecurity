@@ -18,62 +18,6 @@
 
 extern struct desc_struct cpu_gdt_table[NR_CPUS][GDT_ENTRIES];
 
-#define pax_open_kernel(flags, cr0)	\
-do {					\
-	typecheck(unsigned long,flags);	\
-	typecheck(unsigned long,cr0);	\
-	local_irq_save(flags);		\
-	pax_open_kernel_noirq(cr0);	\
-} while(0)
-
-#define pax_close_kernel(flags, cr0)	\
-do {					\
-	typecheck(unsigned long,flags);	\
-	typecheck(unsigned long,cr0);	\
-	pax_close_kernel_noirq(cr0);	\
-	local_irq_restore(flags);	\
-} while(0)
-
-#define pax_open_kernel_noirq(cr0)	\
-do {					\
-	typecheck(unsigned long,cr0);	\
-	cr0 = read_cr0();		\
-	write_cr0(cr0 & ~0x10000UL);	\
-} while(0)
-
-#define pax_close_kernel_noirq(cr0)	\
-do {					\
-	typecheck(unsigned long,cr0);	\
-	write_cr0(cr0);			\
-} while(0)
-
-static inline void set_user_cs(struct mm_struct *mm, int cpu)
-{
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	unsigned long base = mm->context.user_cs_base;
-	unsigned long limit = mm->context.user_cs_limit;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr0;
-
-	pax_open_kernel(flags, cr0);
-#endif
-
-	if (likely(limit)) {
-		limit -= 1UL;
-		limit >>= 12;
-	}
-
-	cpu_gdt_table[cpu][GDT_ENTRY_DEFAULT_USER_CS].a = (limit & 0xFFFFUL) | (base << 16);
-	cpu_gdt_table[cpu][GDT_ENTRY_DEFAULT_USER_CS].b = (limit & 0xF0000UL) | 0xC0FB00UL | (base & 0xFF000000UL) | ((base >> 16) & 0xFFUL);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
-#endif
-
-#endif
-}
-
 DECLARE_PER_CPU(unsigned char, cpu_16bit_stack[CPU_16BIT_STACK_SIZE]);
 
 struct Xgt_desc_struct {
@@ -83,6 +27,53 @@ struct Xgt_desc_struct {
 } __attribute__ ((packed));
 
 extern struct Xgt_desc_struct idt_descr, cpu_gdt_descr[NR_CPUS];
+
+static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
+{
+	return cpu_gdt_table[cpu];
+}
+
+#define pax_open_kernel(cr0)		\
+do {					\
+	typecheck(unsigned long,cr0);	\
+	preempt_disable();		\
+	cr0 = read_cr0();		\
+	write_cr0(cr0 & ~0x10000UL);	\
+} while(0)
+
+#define pax_close_kernel(cr0)		\
+do {					\
+	typecheck(unsigned long,cr0);	\
+	write_cr0(cr0);			\
+	preempt_enable_no_resched();	\
+} while(0)
+
+static inline void set_user_cs(struct mm_struct *mm, int cpu)
+{
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+	unsigned long base = mm->context.user_cs_base;
+	unsigned long limit = mm->context.user_cs_limit;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	if (likely(limit)) {
+		limit -= 1UL;
+		limit >>= 12;
+	}
+
+	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_CS].a = (limit & 0xFFFFUL) | (base << 16);
+	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_CS].b = (limit & 0xF0000UL) | 0xC0FB00UL | (base & 0xFF000000UL) | ((base >> 16) & 0xFFUL);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+#endif
+}
 
 #define load_TR_desc() __asm__ __volatile__("ltr %w0"::"q" (GDT_ENTRY_TSS*8))
 #define load_LDT_desc() __asm__ __volatile__("lldt %w0"::"q" (GDT_ENTRY_LDT*8))
@@ -117,7 +108,7 @@ __asm__ __volatile__ ("movw %w3,0(%2)\n\t" \
 
 static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const void *addr)
 {
-	_set_tssldt_desc(&cpu_gdt_table[cpu][entry], (int)addr,
+	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[entry], (int)addr,
 		offsetof(struct tss_struct, __cacheline_filler) - 1, 0x89);
 }
 
@@ -125,22 +116,22 @@ static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const vo
 
 static inline void __set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
 {
-	_set_tssldt_desc(&cpu_gdt_table[cpu][GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
 }
 
 static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
 {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr0;
+	unsigned long cr0;
 
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
-	_set_tssldt_desc(&cpu_gdt_table[cpu][GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 }
@@ -183,7 +174,7 @@ static inline void write_ldt_entry(void *ldt, int entry, __u32 entry_a, __u32 en
 
 static inline void load_TLS(struct thread_struct *t, unsigned int cpu)
 {
-#define C(i) cpu_gdt_table[cpu][GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
+#define C(i) get_cpu_gdt_table(cpu)[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
 	C(0); C(1); C(2);
 #undef C
 }

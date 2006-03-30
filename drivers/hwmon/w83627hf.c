@@ -142,10 +142,14 @@ superio_exit(void)
 #define WINB_BASE_REG 0x60
 /* Constants specified below */
 
-/* Length of ISA address segment */
-#define WINB_EXTENT 8
+/* Alignment of the base address */
+#define WINB_ALIGNMENT		~7
 
-/* Where are the ISA address/data registers relative to the base address */
+/* Offset & size of I/O region we are interested in */
+#define WINB_REGION_OFFSET	5
+#define WINB_REGION_SIZE	2
+
+/* Where are the sensors address/data registers relative to the base address */
 #define W83781D_ADDR_REG_OFFSET 5
 #define W83781D_DATA_REG_OFFSET 6
 
@@ -176,11 +180,10 @@ superio_exit(void)
 #define W83781D_REG_BANK 0x4E
 
 #define W83781D_REG_CONFIG 0x40
-#define W83781D_REG_ALARM1 0x41
-#define W83781D_REG_ALARM2 0x42
-#define W83781D_REG_ALARM3 0x450
+#define W83781D_REG_ALARM1 0x459
+#define W83781D_REG_ALARM2 0x45A
+#define W83781D_REG_ALARM3 0x45B
 
-#define W83781D_REG_IRQ 0x4C
 #define W83781D_REG_BEEP_CONFIG 0x4D
 #define W83781D_REG_BEEP_INTS1 0x56
 #define W83781D_REG_BEEP_INTS2 0x57
@@ -197,7 +200,6 @@ superio_exit(void)
 
 #define W83627HF_REG_PWM1 0x5A
 #define W83627HF_REG_PWM2 0x5B
-#define W83627HF_REG_PWMCLK12 0x5C
 
 #define W83627THF_REG_PWM1		0x01	/* 697HF and 637HF too */
 #define W83627THF_REG_PWM2		0x03	/* 697HF and 637HF too */
@@ -330,8 +332,9 @@ static struct w83627hf_data *w83627hf_update_device(struct device *dev);
 static void w83627hf_init_client(struct i2c_client *client);
 
 static struct i2c_driver w83627hf_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "w83627hf",
+	.driver = {
+		.name	= "w83627hf",
+	},
 	.attach_adapter	= w83627hf_detect,
 	.detach_client	= w83627hf_detach_client,
 };
@@ -985,7 +988,7 @@ static int __init w83627hf_find(int sioaddr, unsigned short *addr)
 	superio_select(W83627HF_LD_HWM);
 	val = (superio_inb(WINB_BASE_REG) << 8) |
 	       superio_inb(WINB_BASE_REG + 1);
-	*addr = val & ~(WINB_EXTENT - 1);
+	*addr = val & WINB_ALIGNMENT;
 	if (*addr == 0 && force_addr == 0) {
 		superio_exit();
 		return -ENODEV;
@@ -1004,9 +1007,10 @@ static int w83627hf_detect(struct i2c_adapter *adapter)
 	const char *client_name = "";
 
 	if(force_addr)
-		address = force_addr & ~(WINB_EXTENT - 1);
+		address = force_addr & WINB_ALIGNMENT;
 
-	if (!request_region(address, WINB_EXTENT, w83627hf_driver.name)) {
+	if (!request_region(address + WINB_REGION_OFFSET, WINB_REGION_SIZE,
+	                    w83627hf_driver.driver.name)) {
 		err = -EBUSY;
 		goto ERROR0;
 	}
@@ -1045,11 +1049,10 @@ static int w83627hf_detect(struct i2c_adapter *adapter)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access w83627hf_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct w83627hf_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct w83627hf_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto ERROR1;
 	}
-	memset(data, 0, sizeof(struct w83627hf_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);
@@ -1120,11 +1123,10 @@ static int w83627hf_detect(struct i2c_adapter *adapter)
 	if (kind != w83697hf)
 		device_create_file_temp(new_client, 3);
 
-	if (kind != w83697hf)
+	if (kind != w83697hf && data->vid != 0xff) {
 		device_create_file_vid(new_client);
-
-	if (kind != w83697hf)
 		device_create_file_vrm(new_client);
+	}
 
 	device_create_file_fan_div(new_client, 1);
 	device_create_file_fan_div(new_client, 2);
@@ -1152,7 +1154,7 @@ static int w83627hf_detect(struct i2c_adapter *adapter)
       ERROR2:
 	kfree(data);
       ERROR1:
-	release_region(address, WINB_EXTENT);
+	release_region(address + WINB_REGION_OFFSET, WINB_REGION_SIZE);
       ERROR0:
 	return err;
 }
@@ -1167,7 +1169,7 @@ static int w83627hf_detach_client(struct i2c_client *client)
 	if ((err = i2c_detach_client(client)))
 		return err;
 
-	release_region(client->addr, WINB_EXTENT);
+	release_region(client->addr + WINB_REGION_OFFSET, WINB_REGION_SIZE);
 	kfree(data);
 
 	return 0;
@@ -1230,7 +1232,7 @@ static int w83627thf_read_gpio5(struct i2c_client *client)
 
 	/* Make sure the pins are configured for input
 	   There must be at least five (VRM 9), and possibly 6 (VRM 10) */
-	sel = superio_inb(W83627THF_GPIO5_IOSR);
+	sel = superio_inb(W83627THF_GPIO5_IOSR) & 0x3f;
 	if ((sel & 0x1f) != 0x1f) {
 		dev_dbg(&client->dev, "GPIO5 not configured for VID "
 			"function\n");
@@ -1279,7 +1281,6 @@ static int w83627hf_write_value(struct i2c_client *client, u16 reg, u16 value)
 	return 0;
 }
 
-/* Called when we have found a new W83781D. It should set limits, etc. */
 static void w83627hf_init_client(struct i2c_client *client)
 {
 	struct w83627hf_data *data = i2c_get_clientdata(client);
@@ -1322,18 +1323,17 @@ static void w83627hf_init_client(struct i2c_client *client)
 		int hi = w83627hf_read_value(client, W83781D_REG_CHIPID);
 		data->vid = (lo & 0x0f) | ((hi & 0x01) << 4);
 	} else if (w83627thf == data->type) {
-		data->vid = w83627thf_read_gpio5(client) & 0x3f;
+		data->vid = w83627thf_read_gpio5(client);
 	}
 
 	/* Read VRM & OVT Config only once */
 	if (w83627thf == data->type || w83637hf == data->type) {
 		data->vrm_ovt = 
 			w83627hf_read_value(client, W83627THF_REG_VRM_OVT_CFG);
-		data->vrm = (data->vrm_ovt & 0x01) ? 90 : 82;
-	} else {
-		/* Convert VID to voltage based on default VRM */
-		data->vrm = vid_which_vrm();
 	}
+
+	/* Convert VID to voltage based on VRM */
+	data->vrm = vid_which_vrm();
 
 	tmp = w83627hf_read_value(client, W83781D_REG_SCFG1);
 	for (i = 1; i <= 3; i++) {
@@ -1372,19 +1372,6 @@ static void w83627hf_init_client(struct i2c_client *client)
 					W83781D_REG_TEMP3_CONFIG, tmp & 0xfe);
 			}
 		}
-
-		if (type == w83627hf) {
-			/* enable PWM2 control (can't hurt since PWM reg
-		           should have been reset to 0xff) */
-			w83627hf_write_value(client, W83627HF_REG_PWMCLK12,
-					    0x19);
-		}
-		/* enable comparator mode for temp2 and temp3 so
-	           alarm indication will work correctly */
-		i = w83627hf_read_value(client, W83781D_REG_IRQ);
-		if (!(i & 0x40))
-			w83627hf_write_value(client, W83781D_REG_IRQ,
-					    i | 0x40);
 	}
 
 	/* Start monitoring */
@@ -1408,7 +1395,7 @@ static struct w83627hf_data *w83627hf_update_device(struct device *dev)
 			/* skip missing sensors */
 			if (((data->type == w83697hf) && (i == 1)) ||
 			    ((data->type == w83627thf || data->type == w83637hf)
-			    && (i == 4 || i == 5)))
+			    && (i == 5 || i == 6)))
 				continue;
 			data->in[i] =
 			    w83627hf_read_value(client, W83781D_REG_IN(i));

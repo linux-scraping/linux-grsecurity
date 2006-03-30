@@ -282,6 +282,13 @@ static inline int ntp_synced(void)
 	return !(time_status & STA_UNSYNC);
 }
 
+/* Required to safely shift negative values */
+#define shift_right(x, s) ({	\
+	__typeof__(x) __x = (x);	\
+	__typeof__(s) __s = (s);	\
+	__x < 0 ? -(-__x >> __s) : __x >> __s;	\
+})
+
 
 #ifdef CONFIG_TIME_INTERPOLATION
 
@@ -337,6 +344,9 @@ time_interpolator_reset(void)
 }
 
 #endif /* !CONFIG_TIME_INTERPOLATION */
+
+/* Returns how long ticks are at present, in ns / 2^(SHIFT_SCALE-10). */
+extern u64 current_tick_length(void);
 
 #endif /* KERNEL */
 

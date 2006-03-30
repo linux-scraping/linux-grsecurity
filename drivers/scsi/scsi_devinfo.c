@@ -126,6 +126,7 @@ static struct {
 	{"ADAPTEC", "Adaptec 5400S", NULL, BLIST_FORCELUN},
 	{"AFT PRO", "-IX CF", "0.0>", BLIST_FORCELUN},
 	{"BELKIN", "USB 2 HS-CF", "1.95",  BLIST_FORCELUN | BLIST_INQUIRY_36},
+	{"BROWNIE", "1600U3P", NULL, BLIST_NOREPORTLUN},
 	{"CANON", "IPUBJD", NULL, BLIST_SPARSELUN},
 	{"CBOX3", "USB Storage-SMC", "300A", BLIST_FORCELUN | BLIST_INQUIRY_36},
 	{"CMD", "CRA-7280", NULL, BLIST_SPARSELUN},	/* CMD RAID Controller */
@@ -354,8 +355,9 @@ static int scsi_dev_info_list_add_str(char *dev_list)
  *     @model, if found, return the matching flags value, else return
  *     the host or global default settings.
  **/
-int scsi_get_device_flags(struct scsi_device *sdev, unsigned char *vendor,
-			  unsigned char *model)
+int scsi_get_device_flags(struct scsi_device *sdev,
+			  const unsigned char *vendor,
+			  const unsigned char *model)
 {
 	struct scsi_dev_info_list *devinfo;
 	unsigned int bflags;

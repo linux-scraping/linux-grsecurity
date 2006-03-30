@@ -14,32 +14,15 @@
 #define PFX DRIVER_NAME ": "
 
 #include <linux/config.h>
-#ifdef  __IN_PCMCIA_PACKAGE__
-#include <pcmcia/k_compat.h>
-#endif /* __IN_PCMCIA_PACKAGE__ */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/sched.h>
-#include <linux/ptrace.h>
-#include <linux/slab.h>
-#include <linux/string.h>
-#include <linux/ioport.h>
-#include <linux/netdevice.h>
-#include <linux/if_arp.h>
-#include <linux/etherdevice.h>
-#include <linux/wireless.h>
-
+#include <linux/delay.h>
 #include <pcmcia/cs_types.h>
 #include <pcmcia/cs.h>
 #include <pcmcia/cistpl.h>
 #include <pcmcia/cisreg.h>
 #include <pcmcia/ds.h>
-
-#include <asm/uaccess.h>
-#include <asm/io.h>
-#include <asm/system.h>
 
 #include "orinoco.h"
 
@@ -60,17 +43,6 @@ module_param(ignore_cis_vcc, int, 0);
 MODULE_PARM_DESC(ignore_cis_vcc, "Allow voltage mismatch between card and socket");
 
 /********************************************************************/
-/* Magic constants						    */
-/********************************************************************/
-
-/*
- * The dev_info variable is the "key" that is used to match up this
- * device driver with appropriate cards, through the card
- * configuration database.
- */
-static dev_info_t dev_info = DRIVER_NAME;
-
-/********************************************************************/
 /* Data structures						    */
 /********************************************************************/
 
@@ -86,28 +58,14 @@ struct orinoco_pccard {
 	unsigned long hard_reset_in_progress; 
 };
 
-/*
- * A linked list of "instances" of the device.  Each actual PCMCIA
- * card corresponds to one device instance, and is described by one
- * dev_link_t structure (defined in ds.h).
- */
-static dev_link_t *dev_list; /* = NULL */
 
 /********************************************************************/
 /* Function prototypes						    */
 /********************************************************************/
 
-/* device methods */
-static int orinoco_cs_hard_reset(struct orinoco_private *priv);
-
-/* PCMCIA gumpf */
-static void orinoco_cs_config(dev_link_t * link);
-static void orinoco_cs_release(dev_link_t * link);
-static int orinoco_cs_event(event_t event, int priority,
-			    event_callback_args_t * args);
-
-static dev_link_t *orinoco_cs_attach(void);
-static void orinoco_cs_detach(dev_link_t *);
+static void orinoco_cs_config(dev_link_t *link);
+static void orinoco_cs_release(dev_link_t *link);
+static void orinoco_cs_detach(struct pcmcia_device *p_dev);
 
 /********************************************************************/
 /* Device methods     						    */
@@ -145,19 +103,17 @@ orinoco_cs_hard_reset(struct orinoco_private *priv)
  * The dev_link structure is initialized, but we don't actually
  * configure the card at this point -- we wait until we receive a card
  * insertion event.  */
-static dev_link_t *
-orinoco_cs_attach(void)
+static int
+orinoco_cs_attach(struct pcmcia_device *p_dev)
 {
 	struct net_device *dev;
 	struct orinoco_private *priv;
 	struct orinoco_pccard *card;
 	dev_link_t *link;
-	client_reg_t client_reg;
-	int ret;
 
 	dev = alloc_orinocodev(sizeof(*card), orinoco_cs_hard_reset);
 	if (! dev)
-		return NULL;
+		return -ENOMEM;
 	priv = netdev_priv(dev);
 	card = priv->card;
 
@@ -180,22 +136,15 @@ orinoco_cs_attach(void)
 	link->conf.IntType = INT_MEMORY_AND_IO;
 
 	/* Register with Card Services */
-	/* FIXME: need a lock? */
-	link->next = dev_list;
-	dev_list = link;
+	link->next = NULL;
 
-	client_reg.dev_info = &dev_info;
-	client_reg.Version = 0x0210; /* FIXME: what does this mean? */
-	client_reg.event_callback_args.client_data = link;
+	link->handle = p_dev;
+	p_dev->instance = link;
 
-	ret = pcmcia_register_client(&link->handle, &client_reg);
-	if (ret != CS_SUCCESS) {
-		cs_error(link->handle, RegisterClient, ret);
-		orinoco_cs_detach(link);
-		return NULL;
-	}
+	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
+	orinoco_cs_config(link);
 
-	return link;
+	return 0;
 }				/* orinoco_cs_attach */
 
 /*
@@ -204,27 +153,14 @@ orinoco_cs_attach(void)
  * are freed.  Otherwise, the structures will be freed when the device
  * is released.
  */
-static void orinoco_cs_detach(dev_link_t *link)
+static void orinoco_cs_detach(struct pcmcia_device *p_dev)
 {
-	dev_link_t **linkp;
+	dev_link_t *link = dev_to_instance(p_dev);
 	struct net_device *dev = link->priv;
-
-	/* Locate device structure */
-	for (linkp = &dev_list; *linkp; linkp = &(*linkp)->next)
-		if (*linkp == link)
-			break;
-
-	BUG_ON(*linkp == NULL);
 
 	if (link->state & DEV_CONFIG)
 		orinoco_cs_release(link);
 
-	/* Break the link with Card Services */
-	if (link->handle)
-		pcmcia_deregister_client(link->handle);
-
-	/* Unlink device structure, and free it */
-	*linkp = link->next;
 	DEBUG(0, PFX "detach: link=%p link->dev=%p\n", link, link->dev);
 	if (link->dev) {
 		DEBUG(0, PFX "About to unregister net device %p\n",
@@ -325,13 +261,13 @@ orinoco_cs_config(dev_link_t *link)
 		/* Note that the CIS values need to be rescaled */
 		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
 			if (conf.Vcc != cfg->vcc.param[CISTPL_POWER_VNOM] / 10000) {
-				DEBUG(2, "orinoco_cs_config: Vcc mismatch (conf.Vcc = %d, CIS = %d)\n",  conf.Vcc, cfg->vcc.param[CISTPL_POWER_VNOM] / 10000);
+				DEBUG(2, "orinoco_cs_config: Vcc mismatch (conf.Vcc = %d, cfg CIS = %d)\n",  conf.Vcc, cfg->vcc.param[CISTPL_POWER_VNOM] / 10000);
 				if (!ignore_cis_vcc)
 					goto next_entry;
 			}
 		} else if (dflt.vcc.present & (1 << CISTPL_POWER_VNOM)) {
 			if (conf.Vcc != dflt.vcc.param[CISTPL_POWER_VNOM] / 10000) {
-				DEBUG(2, "orinoco_cs_config: Vcc mismatch (conf.Vcc = %d, CIS = %d)\n",  conf.Vcc, dflt.vcc.param[CISTPL_POWER_VNOM] / 10000);
+				DEBUG(2, "orinoco_cs_config: Vcc mismatch (conf.Vcc = %d, dflt CIS = %d)\n",  conf.Vcc, dflt.vcc.param[CISTPL_POWER_VNOM] / 10000);
 				if(!ignore_cis_vcc)
 					goto next_entry;
 			}
@@ -491,106 +427,82 @@ orinoco_cs_release(dev_link_t *link)
 		ioport_unmap(priv->hw.iobase);
 }				/* orinoco_cs_release */
 
-/*
- * The card status event handler.  Mostly, this schedules other stuff
- * to run after an event is received.
- */
-static int
-orinoco_cs_event(event_t event, int priority,
-		       event_callback_args_t * args)
+static int orinoco_cs_suspend(struct pcmcia_device *p_dev)
 {
-	dev_link_t *link = args->client_data;
+	dev_link_t *link = dev_to_instance(p_dev);
 	struct net_device *dev = link->priv;
 	struct orinoco_private *priv = netdev_priv(dev);
 	struct orinoco_pccard *card = priv->card;
 	int err = 0;
 	unsigned long flags;
 
-	switch (event) {
-	case CS_EVENT_CARD_REMOVAL:
-		link->state &= ~DEV_PRESENT;
-		if (link->state & DEV_CONFIG) {
-			unsigned long flags;
-
+	link->state |= DEV_SUSPEND;
+	if (link->state & DEV_CONFIG) {
+		/* This is probably racy, but I can't think of
+		   a better way, short of rewriting the PCMCIA
+		   layer to not suck :-( */
+		if (! test_bit(0, &card->hard_reset_in_progress)) {
 			spin_lock_irqsave(&priv->lock, flags);
+
+			err = __orinoco_down(dev);
+			if (err)
+				printk(KERN_WARNING "%s: Error %d downing interface\n",
+				       dev->name, err);
+
 			netif_device_detach(dev);
 			priv->hw_unavailable++;
+
 			spin_unlock_irqrestore(&priv->lock, flags);
 		}
-		break;
 
-	case CS_EVENT_CARD_INSERTION:
-		link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
-		orinoco_cs_config(link);
-		break;
-
-	case CS_EVENT_PM_SUSPEND:
-		link->state |= DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_RESET_PHYSICAL:
-		/* Mark the device as stopped, to block IO until later */
-		if (link->state & DEV_CONFIG) {
-			/* This is probably racy, but I can't think of
-                           a better way, short of rewriting the PCMCIA
-                           layer to not suck :-( */
-			if (! test_bit(0, &card->hard_reset_in_progress)) {
-				spin_lock_irqsave(&priv->lock, flags);
-
-				err = __orinoco_down(dev);
-				if (err)
-					printk(KERN_WARNING "%s: %s: Error %d downing interface\n",
-					       dev->name,
-					       event == CS_EVENT_PM_SUSPEND ? "SUSPEND" : "RESET_PHYSICAL",
-					       err);
-				
-				netif_device_detach(dev);
-				priv->hw_unavailable++;
-
-				spin_unlock_irqrestore(&priv->lock, flags);
-			}
-
-			pcmcia_release_configuration(link->handle);
-		}
-		break;
-
-	case CS_EVENT_PM_RESUME:
-		link->state &= ~DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_CARD_RESET:
-		if (link->state & DEV_CONFIG) {
-			/* FIXME: should we double check that this is
-			 * the same card as we had before */
-			pcmcia_request_configuration(link->handle, &link->conf);
-
-			if (! test_bit(0, &card->hard_reset_in_progress)) {
-				err = orinoco_reinit_firmware(dev);
-				if (err) {
-					printk(KERN_ERR "%s: Error %d re-initializing firmware\n",
-					       dev->name, err);
-					break;
-				}
-				
-				spin_lock_irqsave(&priv->lock, flags);
-				
-				netif_device_attach(dev);
-				priv->hw_unavailable--;
-				
-				if (priv->open && ! priv->hw_unavailable) {
-					err = __orinoco_up(dev);
-					if (err)
-						printk(KERN_ERR "%s: Error %d restarting card\n",
-						       dev->name, err);
-					
-				}
-
-				spin_unlock_irqrestore(&priv->lock, flags);
-			}
-		}
-		break;
+		pcmcia_release_configuration(link->handle);
 	}
 
-	return err;
-}				/* orinoco_cs_event */
+	return 0;
+}
+
+static int orinoco_cs_resume(struct pcmcia_device *p_dev)
+{
+	dev_link_t *link = dev_to_instance(p_dev);
+	struct net_device *dev = link->priv;
+	struct orinoco_private *priv = netdev_priv(dev);
+	struct orinoco_pccard *card = priv->card;
+	int err = 0;
+	unsigned long flags;
+
+	link->state &= ~DEV_SUSPEND;
+	if (link->state & DEV_CONFIG) {
+		/* FIXME: should we double check that this is
+		 * the same card as we had before */
+		pcmcia_request_configuration(link->handle, &link->conf);
+
+		if (! test_bit(0, &card->hard_reset_in_progress)) {
+			err = orinoco_reinit_firmware(dev);
+			if (err) {
+				printk(KERN_ERR "%s: Error %d re-initializing firmware\n",
+				       dev->name, err);
+				return -EIO;
+			}
+
+			spin_lock_irqsave(&priv->lock, flags);
+
+			netif_device_attach(dev);
+			priv->hw_unavailable--;
+
+			if (priv->open && ! priv->hw_unavailable) {
+				err = __orinoco_up(dev);
+				if (err)
+					printk(KERN_ERR "%s: Error %d restarting card\n",
+					       dev->name, err);
+			}
+
+			spin_unlock_irqrestore(&priv->lock, flags);
+		}
+	}
+
+	return 0;
+}
+
 
 /********************************************************************/
 /* Module initialization					    */
@@ -603,49 +515,86 @@ static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
 	"Pavel Roskin <proski@gnu.org>, et al)";
 
 static struct pcmcia_device_id orinoco_cs_ids[] = {
-	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300),
-	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a),
-	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001),
-	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0305),
-	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613),
-	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673),
-	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001),
-	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300),
-	PCMCIA_DEVICE_MANF_CARD(0x9005, 0x0021),
-	PCMCIA_DEVICE_MANF_CARD(0xc250, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002),
-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005),
+	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7100), /* SonicWALL Long Range Wireless Card */
+	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300), /* Sohoware NCP110, Philips 802.11b */
+	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0002), /* AnyPoint(TM) Wireless II PC Card */
+	PCMCIA_DEVICE_MANF_CARD(0x0101, 0x0777), /* 3Com AirConnect PCI 777A */
+	PCMCIA_DEVICE_MANF_CARD(0x0126, 0x8000), /* PROXIM RangeLAN-DS/LAN PC CARD */
+	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002), /* Compaq WL100 11 Mbps Wireless Adapter */
+	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002), /* Lucent Orinoco and old Intersil */
+	PCMCIA_DEVICE_MANF_CARD(0x016b, 0x0001), /* Ericsson WLAN Card C11 */
+	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a), /* Nortel Networks eMobility 802.11 Wireless Adapter */
+	PCMCIA_DEVICE_MANF_CARD(0x01ff, 0x0008), /* Intermec MobileLAN 11Mbps 802.11b WLAN Card */
+	PCMCIA_DEVICE_MANF_CARD(0x0250, 0x0002), /* Samsung SWL2000-N 11Mb/s WLAN Card */
+	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002), /* AirWay 802.11 Adapter (PCMCIA) */
+	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001), /* ARtem Onair */
+	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0305), /* Buffalo WLI-PCM-S11 */
+	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1612), /* Linksys WPC11 Version 2.5 */
+	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613), /* Linksys WPC11 Version 3 */
+	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002), /* Compaq HNW-100 11 Mbps Wireless Adapter */
+	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673), /* Linksys WCF12 Wireless CompactFlash Card */
+	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002), /* ASUS SpaceLink WL-100 */
+	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002), /* SpeedStream SS1021 Wireless Adapter */
+	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001), /* PLANEX RoadLannerWave GW-NS11H */
+	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300), /* Airvast WN-100 */
+	PCMCIA_DEVICE_MANF_CARD(0x9005, 0x0021), /* Adaptec Ultra Wireless ANW-8030 */
+	PCMCIA_DEVICE_MANF_CARD(0xc001, 0x0008), /* CONTEC FLEXSCAN/FX-DDS110-PCC */
+	PCMCIA_DEVICE_MANF_CARD(0xc250, 0x0002), /* Conceptronic CON11Cpro, EMTAC A2424i */
+	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002), /* Safeway 802.11b, ZCOMAX AirRunner/XI-300 */
+	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005), /* D-Link DCF660, Sandisk Connect SDWCFB-000 */
+	PCMCIA_DEVICE_PROD_ID12(" ", "IEEE 802.11 Wireless LAN/PC Card", 0x3b6e20c8, 0xefccafe9),
 	PCMCIA_DEVICE_PROD_ID12("3Com", "3CRWE737A AirConnect Wireless LAN PC Card", 0x41240e5b, 0x56010af3),
-	PCMCIA_DEVICE_PROD_ID123("Instant Wireless ", " Network PC CARD", "Version 01.02", 0x11d901af, 0x6e9bd926, 0x4b74baa0),
 	PCMCIA_DEVICE_PROD_ID12("ACTIONTEC", "PRISM Wireless LAN PC Card", 0x393089da, 0xa71e69d5),
+	PCMCIA_DEVICE_PROD_ID12("Addtron", "AWP-100 Wireless PCMCIA", 0xe6ec52ce, 0x08649af2),
+	PCMCIA_DEVICE_PROD_ID123("AIRVAST", "IEEE 802.11b Wireless PCMCIA Card", "HFA3863", 0xea569531, 0x4bcb9645, 0x355cb092),
+	PCMCIA_DEVICE_PROD_ID12("Allied Telesyn", "AT-WCL452 Wireless PCMCIA Radio", 0x5cd01705, 0x4271660f),
+	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11b_PC_CARD_25", 0x78fc06ee, 0xdb9aa842),
+	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11B_CF_CARD_25", 0x78fc06ee, 0x45a50c1e),
 	PCMCIA_DEVICE_PROD_ID12("Avaya Communication", "Avaya Wireless PC Card", 0xd8a43b78, 0x0d341169),
+	PCMCIA_DEVICE_PROD_ID12("BENQ", "AWL100 PCMCIA ADAPTER", 0x35dadc74, 0x01f7fedb),
 	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-PCM-L11G", 0x2decece3, 0xf57ca4b3),
+	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-CF-S11G", 0x2decece3, 0x82067c18),
 	PCMCIA_DEVICE_PROD_ID12("Cabletron", "RoamAbout 802.11 DS", 0x32d445f5, 0xedeffd90),
+	PCMCIA_DEVICE_PROD_ID12("Compaq", "WL200_11Mbps_Wireless_PCI_Card", 0x54f7c49c, 0x15a75e5b),
+	PCMCIA_DEVICE_PROD_ID123("corega", "WL PCCL-11", "ISL37300P", 0x0a21501a, 0x59868926, 0xc9049a39),
 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCC-11", 0x5261440f, 0xa6405584),
 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCCA-11", 0x5261440f, 0xdf6115f9),
 	PCMCIA_DEVICE_PROD_ID12("corega_K.K.", "Wireless_LAN_PCCB-11", 0x29e33311, 0xee7a27ae),
 	PCMCIA_DEVICE_PROD_ID12("D", "Link DRC-650 11Mbps WLAN Card", 0x71b18589, 0xf144e3ac),
 	PCMCIA_DEVICE_PROD_ID12("D", "Link DWL-650 11Mbps WLAN Card", 0x71b18589, 0xb6f1b0ab),
+	PCMCIA_DEVICE_PROD_ID12("D-Link Corporation", "D-Link DWL-650H 11Mbps WLAN Adapter", 0xef544d24, 0xcd8ea916),
+	PCMCIA_DEVICE_PROD_ID12("Digital Data Communications", "WPC-0100", 0xfdd73470, 0xe0b6f146),
 	PCMCIA_DEVICE_PROD_ID12("ELSA", "AirLancer MC-11", 0x4507a33a, 0xef54f0e3),
 	PCMCIA_DEVICE_PROD_ID12("HyperLink", "Wireless PC Card 11Mbps", 0x56cc3f1a, 0x0bcf220c),
+	PCMCIA_DEVICE_PROD_ID123("Instant Wireless ", " Network PC CARD", "Version 01.02", 0x11d901af, 0x6e9bd926, 0x4b74baa0),
+	PCMCIA_DEVICE_PROD_ID12("Intel", "PRO/Wireless 2011 LAN PC Card", 0x816cc815, 0x07f58077),
 	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "HFA384x/IEEE", 0x74c5e40d, 0xdb472a18),
+	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "I-GATE 11M PC Card / PC Card plus", 0x74c5e40d, 0x8304ff77),
+	PCMCIA_DEVICE_PROD_ID12("Intersil", "PRISM 2_5 PCMCIA ADAPTER", 0x4b801a17, 0x6345a0bf),
+	PCMCIA_DEVICE_PROD_ID123("Intersil", "PRISM Freedom PCMCIA Adapter", "ISL37100P", 0x4b801a17, 0xf222ec2d, 0x630d52b2),
+	PCMCIA_DEVICE_PROD_ID12("LeArtery", "SYNCBYAIR 11Mbps Wireless LAN PC Card", 0x7e3b326a, 0x49893e92),
+	PCMCIA_DEVICE_PROD_ID12("Linksys", "Wireless CompactFlash Card", 0x0733cc81, 0x0c52f395),
 	PCMCIA_DEVICE_PROD_ID12("Lucent Technologies", "WaveLAN/IEEE", 0x23eb9949, 0xc562e72a),
 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11", 0x481e0094, 0x7360e410),
 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11G", 0x481e0094, 0xf57ca4b3),
 	PCMCIA_DEVICE_PROD_ID12("Microsoft", "Wireless Notebook Adapter MN-520", 0x5961bf85, 0x6eec8c01),
 	PCMCIA_DEVICE_PROD_ID12("NCR", "WaveLAN/IEEE", 0x24358cd4, 0xc562e72a),
+	PCMCIA_DEVICE_PROD_ID12("NETGEAR MA401 Wireless PC", "Card", 0xa37434e9, 0x9762e8f1),
 	PCMCIA_DEVICE_PROD_ID12("NETGEAR MA401RA Wireless PC", "Card", 0x0306467f, 0x9762e8f1),
+	PCMCIA_DEVICE_PROD_ID12("Nortel Networks", "emobility 802.11 Wireless LAN PC Card", 0x2d617ea0, 0x88cd5767),
+	PCMCIA_DEVICE_PROD_ID12("OEM", "PRISM2 IEEE 802.11 PC-Card", 0xfea54c90, 0x48f2bdd6),
+	PCMCIA_DEVICE_PROD_ID12("OTC", "Wireless AirEZY 2411-PCC WLAN Card", 0x4ac44287, 0x235a6bed),
+	PCMCIA_DEVICE_PROD_ID123("PCMCIA", "11M WLAN Card v2.5", "ISL37300P", 0x281f1c5d, 0x6e440487, 0xc9049a39),
 	PCMCIA_DEVICE_PROD_ID12("PLANEX", "GeoWave/GW-CF110", 0x209f40ab, 0xd9715264),
+	PCMCIA_DEVICE_PROD_ID12("PLANEX", "GeoWave/GW-NS110", 0x209f40ab, 0x46263178),
 	PCMCIA_DEVICE_PROD_ID12("PROXIM", "LAN PC CARD HARMONY 80211B", 0xc6536a5e, 0x090c3cd9),
 	PCMCIA_DEVICE_PROD_ID12("PROXIM", "LAN PCI CARD HARMONY 80211B", 0xc6536a5e, 0x9f494e26),
 	PCMCIA_DEVICE_PROD_ID12("SAMSUNG", "11Mbps WLAN Card", 0x43d74cb4, 0x579bd91b),
-	PCMCIA_DEVICE_PROD_ID1("Symbol Technologies", 0x3f02b4d6),
+	PCMCIA_DEVICE_PROD_ID12("SMC", "SMC2532W-B EliteConnect Wireless Adapter", 0xc4f8b18b, 0x196bd757),
+	PCMCIA_DEVICE_PROD_ID12("SMC", "SMC2632W", 0xc4f8b18b, 0x474a1f2a),
+	PCMCIA_DEVICE_PROD_ID12("Symbol Technologies", "LA4111 Spectrum24 Wireless LAN PC Card", 0x3f02b4d6, 0x3663cb0e),
+	PCMCIA_DEVICE_PROD_ID123("The Linksys Group, Inc.", "Instant Wireless Network PC Card", "ISL37300P", 0xa5f472c2, 0x590eb502, 0xc9049a39),
+	PCMCIA_DEVICE_PROD_ID12("ZoomAir 11Mbps High", "Rate wireless Networking", 0x273fe3db, 0x32a1eaee),
 	PCMCIA_DEVICE_NULL,
 };
 MODULE_DEVICE_TABLE(pcmcia, orinoco_cs_ids);
@@ -655,10 +604,11 @@ static struct pcmcia_driver orinoco_driver = {
 	.drv		= {
 		.name	= DRIVER_NAME,
 	},
-	.attach		= orinoco_cs_attach,
-	.event		= orinoco_cs_event,
-	.detach		= orinoco_cs_detach,
+	.probe		= orinoco_cs_attach,
+	.remove		= orinoco_cs_detach,
 	.id_table       = orinoco_cs_ids,
+	.suspend	= orinoco_cs_suspend,
+	.resume		= orinoco_cs_resume,
 };
 
 static int __init
@@ -673,7 +623,6 @@ static void __exit
 exit_orinoco_cs(void)
 {
 	pcmcia_unregister_driver(&orinoco_driver);
-	BUG_ON(dev_list != NULL);
 }
 
 module_init(init_orinoco_cs);

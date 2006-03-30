@@ -2,8 +2,6 @@
  *  drivers/s390/net/claw.c
  *    ESCON CLAW network driver
  *
- *    $Revision: 1.38 $ $Date: 2005/08/29 09:47:04 $
- *
  *  Linux for zSeries version
  *    Copyright (C) 2002,2005 IBM Corporation
  *  Author(s) Original code written by:
@@ -88,7 +86,6 @@
 #include <linux/tcp.h>
 #include <linux/timer.h>
 #include <linux/types.h>
-#include <linux/version.h>
 
 #include "cu3088.h"
 #include "claw.h"
@@ -1604,7 +1601,7 @@ dumpit(char* buf, int len)
         __u32      ct, sw, rm, dup;
         char       *ptr, *rptr;
         char       tbuf[82], tdup[82];
-#if (CONFIG_ARCH_S390X)
+#if (CONFIG_64BIT)
         char       addr[22];
 #else
         char       addr[12];
@@ -1620,7 +1617,7 @@ dumpit(char* buf, int len)
         dup = 0;
         for ( ct=0; ct < len; ct++, ptr++, rptr++ )  {
                 if (sw == 0) {
-#if (CONFIG_ARCH_S390X)
+#if (CONFIG_64BIT)
                         sprintf(addr, "%16.16lX",(unsigned long)rptr);
 #else
                         sprintf(addr, "%8.8X",(__u32)rptr);
@@ -1635,7 +1632,7 @@ dumpit(char* buf, int len)
                 if (sw == 8) {
                         strcat(bhex, "  ");
                 }
-#if (CONFIG_ARCH_S390X)
+#if (CONFIG_64BIT)
                 sprintf(tbuf,"%2.2lX", (unsigned long)*ptr);
 #else
                 sprintf(tbuf,"%2.2X", (__u32)*ptr);
@@ -2743,14 +2740,10 @@ probe_error( struct ccwgroup_device *cgdev)
 #endif
         privptr=(struct claw_privbk *)cgdev->dev.driver_data;
 	if (privptr!=NULL) {
-		if (privptr->p_env != NULL) {
-			kfree(privptr->p_env);
-			privptr->p_env=NULL;
-		}
-        	if (privptr->p_mtc_envelope!=NULL) {
-                	kfree(privptr->p_mtc_envelope);
-                	privptr->p_mtc_envelope=NULL;
-        	}
+		kfree(privptr->p_env);
+		privptr->p_env=NULL;
+                kfree(privptr->p_mtc_envelope);
+               	privptr->p_mtc_envelope=NULL;
                 kfree(privptr);
                 privptr=NULL;
         }
@@ -4121,22 +4114,14 @@ claw_remove_device(struct ccwgroup_device *cgdev)
 	if (cgdev->state == CCWGROUP_ONLINE)
 		claw_shutdown_device(cgdev);
 	claw_remove_files(&cgdev->dev);
-	if (priv->p_mtc_envelope!=NULL) {
-                kfree(priv->p_mtc_envelope);
-                priv->p_mtc_envelope=NULL;
-        }
-	if (priv->p_env != NULL) {
-		kfree(priv->p_env);
-		priv->p_env=NULL;
-	}
-	if (priv->channel[0].irb != NULL) {
-		kfree(priv->channel[0].irb);
-		priv->channel[0].irb=NULL;
-	}
-	if (priv->channel[1].irb != NULL) {
-		kfree(priv->channel[1].irb);
-		priv->channel[1].irb=NULL;
-	}
+	kfree(priv->p_mtc_envelope);
+	priv->p_mtc_envelope=NULL;
+	kfree(priv->p_env);
+	priv->p_env=NULL;
+	kfree(priv->channel[0].irb);
+	priv->channel[0].irb=NULL;
+	kfree(priv->channel[1].irb);
+	priv->channel[1].irb=NULL;
 	kfree(priv);
 	cgdev->dev.driver_data=NULL;
 	cgdev->cdev[READ]->dev.driver_data = NULL;
@@ -4404,14 +4389,7 @@ static int __init
 claw_init(void)
 {
 	int ret = 0;
-       printk(KERN_INFO "claw: starting driver "
-#ifdef MODULE
-                "module "
-#else
-                "compiled into kernel "
-#endif
-                " $Revision: 1.38 $ $Date: 2005/08/29 09:47:04 $ \n");
-
+	printk(KERN_INFO "claw: starting driver\n");
 
 #ifdef FUNCTRACE
         printk(KERN_INFO "claw: %s() enter \n",__FUNCTION__);

@@ -221,6 +221,11 @@ static int ext2_show_options(struct seq_file *seq, struct vfsmount *vfs)
 		seq_puts(seq, ",grpquota");
 #endif
 
+#if defined(CONFIG_EXT2_FS_XIP)
+	if (sbi->s_mount_opt & EXT2_MOUNT_XIP)
+		seq_puts(seq, ",xip");
+#endif
+
 	return 0;
 }
 
@@ -281,7 +286,7 @@ static unsigned long get_sb_block(void **data)
 enum {
 	Opt_bsd_df, Opt_minix_df, Opt_grpid, Opt_nogrpid,
 	Opt_resgid, Opt_resuid, Opt_sb, Opt_err_cont, Opt_err_panic,
-	Opt_err_ro, Opt_nouid32, Opt_check, Opt_nocheck, Opt_debug,
+	Opt_err_ro, Opt_nouid32, Opt_nocheck, Opt_debug,
 	Opt_oldalloc, Opt_orlov, Opt_nobh, Opt_user_xattr, Opt_nouser_xattr,
 	Opt_acl, Opt_noacl, Opt_xip, Opt_ignore, Opt_err, Opt_quota,
 	Opt_usrquota, Opt_grpquota
@@ -303,7 +308,6 @@ static match_table_t tokens = {
 	{Opt_nouid32, "nouid32"},
 	{Opt_nocheck, "check=none"},
 	{Opt_nocheck, "nocheck"},
-	{Opt_check, "check"},
 	{Opt_debug, "debug"},
 	{Opt_oldalloc, "oldalloc"},
 	{Opt_orlov, "orlov"},
@@ -375,13 +379,6 @@ static int parse_options (char * options,
 			break;
 		case Opt_nouid32:
 			set_opt (sbi->s_mount_opt, NO_UID32);
-			break;
-		case Opt_check:
-#ifdef CONFIG_EXT2_CHECK
-			set_opt (sbi->s_mount_opt, CHECK);
-#else
-			printk("EXT2 Check option not supported\n");
-#endif
 			break;
 		case Opt_nocheck:
 			clear_opt (sbi->s_mount_opt, CHECK);
@@ -503,12 +500,6 @@ static int ext2_setup_super (struct super_block * sb,
 			EXT2_BLOCKS_PER_GROUP(sb),
 			EXT2_INODES_PER_GROUP(sb),
 			sbi->s_mount_opt);
-#ifdef CONFIG_EXT2_CHECK
-	if (test_opt (sb, CHECK)) {
-		ext2_check_blocks_bitmap (sb);
-		ext2_check_inodes_bitmap (sb);
-	}
-#endif
 	return res;
 }
 
@@ -895,7 +886,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	}
 	if (EXT2_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
 		ext2_warning(sb, __FUNCTION__,
-			"mounting ext3 filesystem as ext2\n");
+			"mounting ext3 filesystem as ext2");
 	ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY);
 	percpu_counter_mod(&sbi->s_freeblocks_counter,
 				ext2_count_free_blocks(sb));
@@ -1166,7 +1157,7 @@ static ssize_t ext2_quota_write(struct super_block *sb, int type,
 	struct buffer_head tmp_bh;
 	struct buffer_head *bh;
 
-	down(&inode->i_sem);
+	mutex_lock(&inode->i_mutex);
 	while (towrite > 0) {
 		tocopy = sb->s_blocksize - offset < towrite ?
 				sb->s_blocksize - offset : towrite;
@@ -1203,7 +1194,7 @@ out:
 	inode->i_version++;
 	inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	mark_inode_dirty(inode);
-	up(&inode->i_sem);
+	mutex_unlock(&inode->i_mutex);
 	return len - towrite;
 }
 

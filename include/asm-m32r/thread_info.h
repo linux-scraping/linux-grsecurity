@@ -95,7 +95,7 @@ static inline struct thread_info *current_thread_info(void)
 }
 
 /* thread information allocation */
-#if CONFIG_DEBUG_STACK_USAGE
+#ifdef CONFIG_DEBUG_STACK_USAGE
 #define alloc_thread_info(tsk)					\
 	({							\
 		struct thread_info *ret;			\
@@ -110,8 +110,6 @@ static inline struct thread_info *current_thread_info(void)
 #endif
 
 #define free_thread_info(info) kfree(info)
-#define get_thread_info(ti) get_task_struct((ti)->task)
-#define put_thread_info(ti) put_task_struct((ti)->task)
 
 #define TI_FLAG_FAULT_CODE_SHIFT	28
 

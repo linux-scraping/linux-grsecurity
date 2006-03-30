@@ -3,7 +3,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2004-2005 Silicon Graphics, Inc. All rights reserved.
+ * Copyright (C) 2004-2006 Silicon Graphics, Inc. All rights reserved.
  *
  * SGI Altix topology and hardware performance monitoring API.
  * Mark Goodwin <markgw@sgi.com>. 
@@ -476,8 +476,8 @@ static int sn_topology_show(struct seq_file *s, void *d)
 				for_each_online_cpu(j) {
 					seq_printf(s, j ? ":%d" : ", dist %d",
 						node_distance(
-						    cpuid_to_cnodeid(i),
-						    cpuid_to_cnodeid(j)));
+						    cpu_to_node(i),
+						    cpu_to_node(j)));
 				}
 				seq_putc(s, '\n');
 			}
@@ -743,13 +743,14 @@ sn_hwperf_ioctl(struct inode *in, struct file *fp, u32 op, u64 arg)
 		if ((r = sn_hwperf_enum_objects(&nobj, &objs)) == 0) {
 			memset(p, 0, a.sz);
 			for (i = 0; i < nobj; i++) {
+				int cpuobj_index = 0;
 				if (!SN_HWPERF_IS_NODE(objs + i))
 					continue;
 				node = sn_hwperf_obj_to_cnode(objs + i);
 				for_each_online_cpu(j) {
 					if (node != cpu_to_node(j))
 						continue;
-					cpuobj = (struct sn_hwperf_object_info *) p + j;
+					cpuobj = (struct sn_hwperf_object_info *) p + cpuobj_index++;
 					slice = 'a' + cpuid_to_slice(j);
 					cdata = cpu_data(j);
 					cpuobj->id = j;
@@ -971,6 +972,9 @@ int sn_hwperf_get_nearest_node(cnodeid_t node,
 static int __devinit sn_hwperf_misc_register_init(void)
 {
 	int e;
+
+	if (!ia64_platform_is("sn2"))
+		return 0;
 
 	sn_hwperf_init();
 

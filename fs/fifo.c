@@ -34,10 +34,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 {
 	int ret;
 
-	ret = -ERESTARTSYS;
-	if (down_interruptible(PIPE_SEM(*inode)))
-		goto err_nolock_nocleanup;
-
+	mutex_lock(PIPE_MUTEX(*inode));
 	if (!inode->i_pipe) {
 		ret = -ENOMEM;
 		if(!pipe_new(inode))
@@ -119,7 +116,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	}
 
 	/* Ok! */
-	up(PIPE_SEM(*inode));
+	mutex_unlock(PIPE_MUTEX(*inode));
 	return 0;
 
 err_rd:
@@ -139,9 +136,7 @@ err:
 		free_pipe_info(inode);
 
 err_nocleanup:
-	up(PIPE_SEM(*inode));
-
-err_nolock_nocleanup:
+	mutex_unlock(PIPE_MUTEX(*inode));
 	return ret;
 }
 

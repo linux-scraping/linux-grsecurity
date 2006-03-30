@@ -36,9 +36,8 @@ static int cg6_blank(int, struct fb_info *);
 static void cg6_imageblit(struct fb_info *, const struct fb_image *);
 static void cg6_fillrect(struct fb_info *, const struct fb_fillrect *);
 static int cg6_sync(struct fb_info *);
-static int cg6_mmap(struct fb_info *, struct file *, struct vm_area_struct *);
-static int cg6_ioctl(struct inode *, struct file *, unsigned int,
-		     unsigned long, struct fb_info *);
+static int cg6_mmap(struct fb_info *, struct vm_area_struct *);
+static int cg6_ioctl(struct fb_info *, unsigned int, unsigned long);
 
 /*
  *  Frame buffer operations
@@ -54,7 +53,9 @@ static struct fb_ops cg6_ops = {
 	.fb_sync		= cg6_sync,
 	.fb_mmap		= cg6_mmap,
 	.fb_ioctl		= cg6_ioctl,
-	.fb_cursor		= soft_cursor,
+#ifdef CONFIG_COMPAT
+	.fb_compat_ioctl	= sbusfb_compat_ioctl,
+#endif
 };
 
 /* Offset of interesting structures in the OBIO space */
@@ -263,7 +264,6 @@ struct cg6_par {
 	unsigned long		fbsize;
 
 	struct sbus_dev		*sdev;
-	struct list_head	list;
 };
 
 static int cg6_sync(struct fb_info *info)
@@ -523,7 +523,7 @@ static struct sbus_mmap_map cg6_mmap_map[] = {
 	{ .size	= 0 }
 };
 
-static int cg6_mmap(struct fb_info *info, struct file *file, struct vm_area_struct *vma)
+static int cg6_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 	struct cg6_par *par = (struct cg6_par *)info->par;
 
@@ -533,8 +533,7 @@ static int cg6_mmap(struct fb_info *info, struct file *file, struct vm_area_stru
 				  vma);
 }
 
-static int cg6_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
-		     unsigned long arg, struct fb_info *info)
+static int cg6_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 {
 	struct cg6_par *par = (struct cg6_par *) info->par;
 
@@ -610,7 +609,7 @@ static void cg6_chip_init(struct fb_info *info)
 	struct cg6_par *par = (struct cg6_par *) info->par;
 	struct cg6_tec __iomem *tec = par->tec;
 	struct cg6_fbc __iomem *fbc = par->fbc;
-	u32 rev, conf, mode, tmp;
+	u32 rev, conf, mode;
 	int i;
 	
 	/* Turn off stuff in the Transform Engine. */
@@ -654,12 +653,6 @@ static void cg6_chip_init(struct fb_info *info)
 	sbus_writel(0, &fbc->clipminy);
 	sbus_writel(info->var.xres - 1, &fbc->clipmaxx);
 	sbus_writel(info->var.yres - 1, &fbc->clipmaxy);
-
-	/* Disable cursor in Brooktree DAC. */
-	sbus_writel(0x06 << 24, &par->bt->addr);
-	tmp = sbus_readl(&par->bt->control);
-	tmp &= ~(0x03 << 24);
-	sbus_writel(tmp, &par->bt->control);
 }
 
 struct all_info {

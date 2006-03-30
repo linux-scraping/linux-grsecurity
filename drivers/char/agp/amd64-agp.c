@@ -13,6 +13,8 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/agp_backend.h>
+#include <linux/mmzone.h>
+#include <asm/page.h>		/* PAGE_SIZE */
 #include "agp.h"
 
 /* Will need to be increased if AMD64 ever goes >8-way. */
@@ -55,9 +57,8 @@ static int nr_garts;
 static struct pci_dev * hammers[MAX_HAMMER_GARTS];
 
 static struct resource *aperture_resource;
-static int __initdata agp_try_unsupported;
+static int __initdata agp_try_unsupported = 1;
 
-static int gart_iterator;
 #define for_each_nb() for(gart_iterator=0;gart_iterator<nr_garts;gart_iterator++)
 
 static void flush_amd64_tlb(struct pci_dev *dev)
@@ -71,6 +72,7 @@ static void flush_amd64_tlb(struct pci_dev *dev)
 
 static void amd64_tlbflush(struct agp_memory *temp)
 {
+	int gart_iterator;
 	for_each_nb()
 		flush_amd64_tlb(hammers[gart_iterator]);
 }
@@ -220,6 +222,7 @@ static struct aper_size_info_32 amd_8151_sizes[7] =
 static int amd_8151_configure(void)
 {
 	unsigned long gatt_bus = virt_to_gart(agp_bridge->gatt_table_real);
+	int gart_iterator;
 
 	/* Configure AGP regs in each x86-64 host bridge. */
 	for_each_nb() {
@@ -233,7 +236,7 @@ static int amd_8151_configure(void)
 static void amd64_cleanup(void)
 {
 	u32 tmp;
-
+	int gart_iterator;
 	for_each_nb() {
 		/* disable gart translation */
 		pci_read_config_dword (hammers[gart_iterator], AMD64_GARTAPERTURECTL, &tmp);
@@ -413,7 +416,7 @@ static void __devinit amd8151_init(struct pci_dev *pdev, struct agp_bridge_data 
 }
 
 
-static struct aper_size_info_32 uli_sizes[7] =
+static const struct aper_size_info_32 uli_sizes[7] =
 {
 	{256, 65536, 6, 10},
 	{128, 32768, 5, 9},
@@ -467,7 +470,7 @@ static int __devinit uli_agp_init(struct pci_dev *pdev)
 }
 
 
-static struct aper_size_info_32 nforce3_sizes[5] =
+static const struct aper_size_info_32 nforce3_sizes[5] =
 {
 	{512,  131072, 7, 0x00000000 },
 	{256,  65536,  6, 0x00000008 },
@@ -513,8 +516,10 @@ static int __devinit nforce3_agp_init(struct pci_dev *pdev)
 	pci_read_config_dword (hammers[0], AMD64_GARTAPERTUREBASE, &apbase);
 
 	/* if x86-64 aperture base is beyond 4G, exit here */
-	if ( (apbase & 0x7fff) >> (32 - 25) )
-		 return -ENODEV;
+	if ( (apbase & 0x7fff) >> (32 - 25) ) {
+		printk(KERN_INFO PFX "aperture base > 4G\n");
+		return -ENODEV;
+	}
 
 	apbase = (apbase & 0x7fff) << 25;
 
@@ -596,6 +601,26 @@ static void __devexit agp_amd64_remove(struct pci_dev *pdev)
 	agp_remove_bridge(bridge);
 	agp_put_bridge(bridge);
 }
+
+#ifdef CONFIG_PM
+
+static int agp_amd64_suspend(struct pci_dev *pdev, pm_message_t state)
+{
+	pci_save_state(pdev);
+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+
+	return 0;
+}
+
+static int agp_amd64_resume(struct pci_dev *pdev)
+{
+	pci_set_power_state(pdev, PCI_D0);
+	pci_restore_state(pdev);
+
+	return amd_8151_configure();
+}
+
+#endif /* CONFIG_PM */
 
 static struct pci_device_id agp_amd64_pci_table[] = {
 	{
@@ -695,6 +720,16 @@ static struct pci_device_id agp_amd64_pci_table[] = {
 	.subvendor	= PCI_ANY_ID,
 	.subdevice	= PCI_ANY_ID,
 	},
+	/* ALI/ULI M1695 */
+	{
+	.class		= (PCI_CLASS_BRIDGE_HOST << 8),
+	.class_mask	= ~0,
+	.vendor		= PCI_VENDOR_ID_AL,
+	.device		= 0x1689,
+	.subvendor	= PCI_ANY_ID,
+	.subdevice	= PCI_ANY_ID,
+	},
+
 	{ }
 };
 
@@ -705,6 +740,10 @@ static struct pci_driver agp_amd64_pci_driver = {
 	.id_table	= agp_amd64_pci_table,
 	.probe		= agp_amd64_probe,
 	.remove		= agp_amd64_remove,
+#ifdef CONFIG_PM
+	.suspend	= agp_amd64_suspend,
+	.resume		= agp_amd64_resume,
+#endif
 };
 
 

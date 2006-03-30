@@ -30,8 +30,8 @@
  */
 
 #include <linux/init.h>
-#include <asm/atomic.h>
 #include <asm/types.h>
+#include <asm/atomic.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/mount.h>
@@ -803,7 +803,7 @@ static void audit_log_task_info(struct audit_buffer *ab)
 	up_read(&mm->mmap_sem);
 }
 
-static void audit_log_exit(struct audit_context *context, unsigned int gfp_mask)
+static void audit_log_exit(struct audit_context *context, gfp_t gfp_mask)
 {
 	int i;
 	struct audit_buffer *ab;
@@ -841,7 +841,7 @@ static void audit_log_exit(struct audit_context *context, unsigned int gfp_mask)
 
 	for (aux = context->aux; aux; aux = aux->next) {
 
-		ab = audit_log_start(context, GFP_KERNEL, aux->type);
+		ab = audit_log_start(context, gfp_mask, aux->type);
 		if (!ab)
 			continue; /* audit_panic has been called */
 
@@ -878,14 +878,14 @@ static void audit_log_exit(struct audit_context *context, unsigned int gfp_mask)
 	}
 
 	if (context->pwd && context->pwdmnt) {
-		ab = audit_log_start(context, GFP_KERNEL, AUDIT_CWD);
+		ab = audit_log_start(context, gfp_mask, AUDIT_CWD);
 		if (ab) {
 			audit_log_d_path(ab, "cwd=", context->pwd, context->pwdmnt);
 			audit_log_end(ab);
 		}
 	}
 	for (i = 0; i < context->name_count; i++) {
-		ab = audit_log_start(context, GFP_KERNEL, AUDIT_PATH);
+		ab = audit_log_start(context, gfp_mask, AUDIT_PATH);
 		if (!ab)
 			continue; /* audit_panic has been called */
 

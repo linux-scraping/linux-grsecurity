@@ -11,6 +11,7 @@
  */
 #include <linux/config.h>
 #include <linux/module.h>
+#include <linux/moduleloader.h>
 #include <linux/kernel.h>
 #include <linux/elf.h>
 #include <linux/vmalloc.h>
@@ -100,6 +101,8 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 			break;
 
 		case R_ARM_PC24:
+		case R_ARM_CALL:
+		case R_ARM_JUMP24:
 			offset = (*(u32 *)loc & 0x00ffffff) << 2;
 			if (offset & 0x02000000)
 				offset -= 0x04000000;

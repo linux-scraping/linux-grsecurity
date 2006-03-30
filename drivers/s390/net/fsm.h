@@ -1,5 +1,3 @@
-/* $Id: fsm.h,v 1.1.1.1 2002/03/13 19:33:09 mschwide Exp $
- */
 #ifndef _FSM_H_
 #define _FSM_H_
 
@@ -110,7 +108,7 @@ extern fsm_instance *
 init_fsm(char *name, const char **state_names,
 	 const char **event_names,
 	 int nr_states, int nr_events, const fsm_node *tmpl,
-	 int tmpl_len, int order);
+	 int tmpl_len, gfp_t order);
 
 /**
  * Releases an FSM
@@ -140,7 +138,7 @@ fsm_record_history(fsm_instance *fi, int state, int event);
  *              1  if current state or event is out of range
  *              !0 if state and event in range, but no action defined.
  */
-extern __inline__ int
+static inline int
 fsm_event(fsm_instance *fi, int event, void *arg)
 {
 	fsm_function_t r;
@@ -188,7 +186,7 @@ fsm_event(fsm_instance *fi, int event, void *arg)
  * @param fi    Pointer to FSM
  * @param state The new state for this FSM.
  */
-extern __inline__ void
+static inline void
 fsm_newstate(fsm_instance *fi, int newstate)
 {
 	atomic_set(&fi->state,newstate);
@@ -208,7 +206,7 @@ fsm_newstate(fsm_instance *fi, int newstate)
  *
  * @return The current state of the FSM.
  */
-extern __inline__ int
+static inline int
 fsm_getstate(fsm_instance *fi)
 {
 	return atomic_read(&fi->state);

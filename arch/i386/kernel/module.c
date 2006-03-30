@@ -86,11 +86,11 @@ void module_free_exec(struct module *mod, void *module_region)
 			break;
 
 	if (tmp) {
-		unsigned long flags, cr0;
+		unsigned long cr0;
 
-		pax_open_kernel(flags, cr0);
+		pax_open_kernel(cr0);
 		memset(tmp->addr, 0xCC, tmp->size);
-		pax_close_kernel(flags, cr0);
+		pax_close_kernel(cr0);
 
 		*p = tmp->next;
 		kfree(tmp);

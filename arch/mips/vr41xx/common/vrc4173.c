@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001-2003  MontaVista Software Inc.
  *    Author: Yoichi Yuasa <yyuasa@mvista.com, or source@mvista.com>
- *  Copyright (C) 2004  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copyright (C) 2004  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *  Copyright (C) 2005 Ralf Baechle (ralf@linux-mips.org)
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,8 +81,8 @@ EXPORT_SYMBOL(vrc4173_io_offset);
 static int vrc4173_initialized;
 static uint16_t vrc4173_cmuclkmsk;
 static uint16_t vrc4173_selectreg;
-static spinlock_t vrc4173_cmu_lock;
-static spinlock_t vrc4173_giu_lock;
+static DEFINE_SPINLOCK(vrc4173_cmu_lock);
+static DEFINE_SPINLOCK(vrc4173_giu_lock);
 
 static inline void set_cmusrst(uint16_t val)
 {
@@ -561,7 +561,7 @@ static int __devinit vrc4173_init(void)
 {
 	int err;
 
-	err = pci_module_init(&vrc4173_driver);
+	err = pci_register_driver(&vrc4173_driver);
 	if (err < 0)
 		return err;
 

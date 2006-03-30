@@ -35,21 +35,21 @@ MODULE_AUTHOR("Jaroslav Kysela <perex@suse.cz>");
 MODULE_DESCRIPTION("Routines for Gravis UltraSound soundcards");
 MODULE_LICENSE("GPL");
 
-static int snd_gus_init_dma_irq(snd_gus_card_t * gus, int latches);
+static int snd_gus_init_dma_irq(struct snd_gus_card * gus, int latches);
 
-int snd_gus_use_inc(snd_gus_card_t * gus)
+int snd_gus_use_inc(struct snd_gus_card * gus)
 {
 	if (!try_module_get(gus->card->module))
 		return 0;
 	return 1;
 }
 
-void snd_gus_use_dec(snd_gus_card_t * gus)
+void snd_gus_use_dec(struct snd_gus_card * gus)
 {
 	module_put(gus->card->module);
 }
 
-static int snd_gus_joystick_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t * uinfo)
+static int snd_gus_joystick_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -58,17 +58,17 @@ static int snd_gus_joystick_info(snd_kcontrol_t *kcontrol, snd_ctl_elem_info_t *
 	return 0;
 }
 
-static int snd_gus_joystick_get(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_gus_joystick_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	snd_gus_card_t *gus = snd_kcontrol_chip(kcontrol);
+	struct snd_gus_card *gus = snd_kcontrol_chip(kcontrol);
 	
 	ucontrol->value.integer.value[0] = gus->joystick_dac & 31;
 	return 0;
 }
 
-static int snd_gus_joystick_put(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t * ucontrol)
+static int snd_gus_joystick_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-	snd_gus_card_t *gus = snd_kcontrol_chip(kcontrol);
+	struct snd_gus_card *gus = snd_kcontrol_chip(kcontrol);
 	unsigned long flags;
 	int change;
 	unsigned char nval;
@@ -82,7 +82,7 @@ static int snd_gus_joystick_put(snd_kcontrol_t * kcontrol, snd_ctl_elem_value_t 
 	return change;
 }
 
-static snd_kcontrol_new_t snd_gus_joystick_control = {
+static struct snd_kcontrol_new snd_gus_joystick_control = {
 	.iface = SNDRV_CTL_ELEM_IFACE_CARD,
 	.name = "Joystick Speed",
 	.info = snd_gus_joystick_info,
@@ -90,7 +90,7 @@ static snd_kcontrol_new_t snd_gus_joystick_control = {
 	.put = snd_gus_joystick_put
 };
 
-static void snd_gus_init_control(snd_gus_card_t *gus)
+static void snd_gus_init_control(struct snd_gus_card *gus)
 {
 	if (!gus->ace_flag)
 		snd_ctl_add(gus->card, snd_ctl_new1(&snd_gus_joystick_control, gus));
@@ -100,7 +100,7 @@ static void snd_gus_init_control(snd_gus_card_t *gus)
  *
  */
 
-static int snd_gus_free(snd_gus_card_t *gus)
+static int snd_gus_free(struct snd_gus_card *gus)
 {
 	if (gus->gf1.res_port2 == NULL)
 		goto __hw_end;
@@ -113,14 +113,8 @@ static int snd_gus_free(snd_gus_card_t *gus)
 	snd_gf1_stop(gus);
 	snd_gus_init_dma_irq(gus, 0);
       __hw_end:
-	if (gus->gf1.res_port1) {
-		release_resource(gus->gf1.res_port1);
-		kfree_nocheck(gus->gf1.res_port1);
-	}
-	if (gus->gf1.res_port2) {
-		release_resource(gus->gf1.res_port2);
-		kfree_nocheck(gus->gf1.res_port2);
-	}
+	release_and_free_resource(gus->gf1.res_port1);
+	release_and_free_resource(gus->gf1.res_port2);
 	if (gus->gf1.irq >= 0)
 		free_irq(gus->gf1.irq, (void *) gus);
 	if (gus->gf1.dma1 >= 0) {
@@ -135,24 +129,24 @@ static int snd_gus_free(snd_gus_card_t *gus)
 	return 0;
 }
 
-static int snd_gus_dev_free(snd_device_t *device)
+static int snd_gus_dev_free(struct snd_device *device)
 {
-	snd_gus_card_t *gus = device->device_data;
+	struct snd_gus_card *gus = device->device_data;
 	return snd_gus_free(gus);
 }
 
-int snd_gus_create(snd_card_t * card,
+int snd_gus_create(struct snd_card *card,
 		   unsigned long port,
 		   int irq, int dma1, int dma2,
 		   int timer_dev,
 		   int voices,
 		   int pcm_channels,
 		   int effect,
-		   snd_gus_card_t **rgus)
+		   struct snd_gus_card **rgus)
 {
-	snd_gus_card_t *gus;
+	struct snd_gus_card *gus;
 	int err;
-	static snd_device_ops_t ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_gus_dev_free,
 	};
 
@@ -244,7 +238,7 @@ int snd_gus_create(snd_card_t * card,
  *  Memory detection routine for plain GF1 soundcards
  */
 
-static int snd_gus_detect_memory(snd_gus_card_t * gus)
+static int snd_gus_detect_memory(struct snd_gus_card * gus)
 {
 	int l, idx, local;
 	unsigned char d;
@@ -252,7 +246,7 @@ static int snd_gus_detect_memory(snd_gus_card_t * gus)
 	snd_gf1_poke(gus, 0L, 0xaa);
 	snd_gf1_poke(gus, 1L, 0x55);
 	if (snd_gf1_peek(gus, 0L) != 0xaa || snd_gf1_peek(gus, 1L) != 0x55) {
-		snd_printk("plain GF1 card at 0x%lx without onboard DRAM?\n", gus->gf1.port);
+		snd_printk(KERN_ERR "plain GF1 card at 0x%lx without onboard DRAM?\n", gus->gf1.port);
 		return -ENOMEM;
 	}
 	for (idx = 1, d = 0xab; idx < 4; idx++, d++) {
@@ -279,9 +273,9 @@ static int snd_gus_detect_memory(snd_gus_card_t * gus)
 	return 0;		/* some memory were detected */
 }
 
-static int snd_gus_init_dma_irq(snd_gus_card_t * gus, int latches)
+static int snd_gus_init_dma_irq(struct snd_gus_card * gus, int latches)
 {
-	snd_card_t *card;
+	struct snd_card *card;
 	unsigned long flags;
 	int irq, dma1, dma2;
 	static unsigned char irqs[16] =
@@ -305,20 +299,17 @@ static int snd_gus_init_dma_irq(snd_gus_card_t * gus, int latches)
 	dma2 = gus->gf1.dma2;
 	dma2 = dma2 < 0 ? -dma2 : dma2;
 	dma2 = dmas[dma2 & 7];
-#if 0
-	printk("dma1 = %i, dma2 = %i\n", gus->gf1.dma1, gus->gf1.dma2);
-#endif
 	dma1 |= gus->equal_dma ? 0x40 : (dma2 << 3);
 
 	if ((dma1 & 7) == 0 || (dma2 & 7) == 0) {
-		snd_printk("Error! DMA isn't defined.\n");
+		snd_printk(KERN_ERR "Error! DMA isn't defined.\n");
 		return -EINVAL;
 	}
 	irq = gus->gf1.irq;
 	irq = irq < 0 ? -irq : irq;
 	irq = irqs[irq & 0x0f];
 	if (irq == 0) {
-		snd_printk("Error! IRQ isn't defined.\n");
+		snd_printk(KERN_ERR "Error! IRQ isn't defined.\n");
 		return -EINVAL;
 	}
 	irq |= 0x40;
@@ -369,11 +360,11 @@ static int snd_gus_init_dma_irq(snd_gus_card_t * gus, int latches)
 	return 0;
 }
 
-static int snd_gus_check_version(snd_gus_card_t * gus)
+static int snd_gus_check_version(struct snd_gus_card * gus)
 {
 	unsigned long flags;
 	unsigned char val, rev;
-	snd_card_t *card;
+	struct snd_card *card;
 
 	card = gus->card;
 	spin_lock_irqsave(&gus->reg_lock, flags);
@@ -406,8 +397,8 @@ static int snd_gus_check_version(snd_gus_card_t * gus)
 				strcpy(card->longname, "Gravis UltraSound Extreme");
 				gus->ess_flag = 1;
 			} else {
-				snd_printk("unknown GF1 revision number at 0x%lx - 0x%x (0x%x)\n", gus->gf1.port, rev, val);
-				snd_printk("  please - report to <perex@suse.cz>\n");
+				snd_printk(KERN_ERR "unknown GF1 revision number at 0x%lx - 0x%x (0x%x)\n", gus->gf1.port, rev, val);
+				snd_printk(KERN_ERR "  please - report to <perex@suse.cz>\n");
 			}
 		}
 	}
@@ -418,20 +409,20 @@ static int snd_gus_check_version(snd_gus_card_t * gus)
 }
 
 #if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && defined(CONFIG_SND_SEQUENCER_MODULE))
-static void snd_gus_seq_dev_free(snd_seq_device_t *seq_dev)
+static void snd_gus_seq_dev_free(struct snd_seq_device *seq_dev)
 {
-	snd_gus_card_t *gus = seq_dev->private_data;
+	struct snd_gus_card *gus = seq_dev->private_data;
 	gus->seq_dev = NULL;
 }
 #endif
 
-int snd_gus_initialize(snd_gus_card_t *gus)
+int snd_gus_initialize(struct snd_gus_card *gus)
 {
 	int err;
 
 	if (!gus->interwave) {
 		if ((err = snd_gus_check_version(gus)) < 0) {
-			snd_printk("version check failed\n");
+			snd_printk(KERN_ERR "version check failed\n");
 			return err;
 		}
 		if ((err = snd_gus_detect_memory(gus)) < 0)
@@ -441,9 +432,9 @@ int snd_gus_initialize(snd_gus_card_t *gus)
 		return err;
 #if defined(CONFIG_SND_SEQUENCER) || (defined(MODULE) && defined(CONFIG_SND_SEQUENCER_MODULE))
 	if (snd_seq_device_new(gus->card, 1, SNDRV_SEQ_DEV_ID_GUS,
-			       sizeof(snd_gus_card_t*), &gus->seq_dev) >= 0) {
+			       sizeof(struct snd_gus_card *), &gus->seq_dev) >= 0) {
 		strcpy(gus->seq_dev->name, "GUS");
-		*(snd_gus_card_t**)SNDRV_SEQ_DEVICE_ARGPTR(gus->seq_dev) = gus;
+		*(struct snd_gus_card **)SNDRV_SEQ_DEVICE_ARGPTR(gus->seq_dev) = gus;
 		gus->seq_dev->private_data = gus;
 		gus->seq_dev->private_free = snd_gus_seq_dev_free;
 	}

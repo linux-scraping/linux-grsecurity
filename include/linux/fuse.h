@@ -14,7 +14,7 @@
 #define FUSE_KERNEL_VERSION 7
 
 /** Minor version number of this interface */
-#define FUSE_KERNEL_MINOR_VERSION 2
+#define FUSE_KERNEL_MINOR_VERSION 6
 
 /** The node ID of the root inode */
 #define FUSE_ROOT_ID 1
@@ -53,15 +53,21 @@ struct fuse_kstatfs {
 	__u64	ffree;
 	__u32	bsize;
 	__u32	namelen;
+	__u32	frsize;
+	__u32	padding;
+	__u32	spare[6];
 };
 
+/**
+ * Bitmasks for fuse_setattr_in.valid
+ */
 #define FATTR_MODE	(1 << 0)
 #define FATTR_UID	(1 << 1)
 #define FATTR_GID	(1 << 2)
 #define FATTR_SIZE	(1 << 3)
 #define FATTR_ATIME	(1 << 4)
 #define FATTR_MTIME	(1 << 5)
-#define FATTR_CTIME	(1 << 6)
+#define FATTR_FH	(1 << 6)
 
 /**
  * Flags returned by the OPEN request
@@ -71,6 +77,11 @@ struct fuse_kstatfs {
  */
 #define FOPEN_DIRECT_IO		(1 << 0)
 #define FOPEN_KEEP_CACHE	(1 << 1)
+
+/**
+ * INIT request/reply flags
+ */
+#define FUSE_ASYNC_READ		(1 << 0)
 
 enum fuse_opcode {
 	FUSE_LOOKUP	   = 1,
@@ -100,15 +111,13 @@ enum fuse_opcode {
 	FUSE_OPENDIR       = 27,
 	FUSE_READDIR       = 28,
 	FUSE_RELEASEDIR    = 29,
-	FUSE_FSYNCDIR      = 30
+	FUSE_FSYNCDIR      = 30,
+	FUSE_ACCESS        = 34,
+	FUSE_CREATE        = 35
 };
 
-/* Conservative buffer size for the client */
-#define FUSE_MAX_IN 8192
-
-#define FUSE_NAME_MAX 1024
-#define FUSE_SYMLINK_MAX 4096
-#define FUSE_XATTR_SIZE_MAX 4096
+/* The read buffer is required to be at least 8k, but may be much larger */
+#define FUSE_MIN_READ_BUFFER 8192
 
 struct fuse_entry_out {
 	__u64	nodeid;		/* Inode ID */
@@ -153,12 +162,25 @@ struct fuse_link_in {
 struct fuse_setattr_in {
 	__u32	valid;
 	__u32	padding;
-	struct fuse_attr attr;
+	__u64	fh;
+	__u64	size;
+	__u64	unused1;
+	__u64	atime;
+	__u64	mtime;
+	__u64	unused2;
+	__u32	atimensec;
+	__u32	mtimensec;
+	__u32	unused3;
+	__u32	mode;
+	__u32	unused4;
+	__u32	uid;
+	__u32	gid;
+	__u32	unused5;
 };
 
 struct fuse_open_in {
 	__u32	flags;
-	__u32	padding;
+	__u32	mode;
 };
 
 struct fuse_open_out {
@@ -198,6 +220,8 @@ struct fuse_write_out {
 	__u32	padding;
 };
 
+#define FUSE_COMPAT_STATFS_SIZE 48
+
 struct fuse_statfs_out {
 	struct fuse_kstatfs st;
 };
@@ -223,9 +247,25 @@ struct fuse_getxattr_out {
 	__u32	padding;
 };
 
-struct fuse_init_in_out {
+struct fuse_access_in {
+	__u32	mask;
+	__u32	padding;
+};
+
+struct fuse_init_in {
 	__u32	major;
 	__u32	minor;
+	__u32	max_readahead;
+	__u32	flags;
+};
+
+struct fuse_init_out {
+	__u32	major;
+	__u32	minor;
+	__u32	max_readahead;
+	__u32	flags;
+	__u32	unused;
+	__u32	max_write;
 };
 
 struct fuse_in_header {

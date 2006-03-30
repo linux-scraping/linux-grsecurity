@@ -97,17 +97,20 @@ static struct usb_device_id id_table [] = {
 MODULE_DEVICE_TABLE (usb, id_table);
 
 static struct usb_driver kobil_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"kobil",
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table,
+	.no_dynamic_id = 	1,
 };
 
 
-static struct usb_serial_device_type kobil_device = {
-	.owner =		THIS_MODULE,
-	.name =			"KOBIL USB smart card terminal",
+static struct usb_serial_driver kobil_device = {
+	.driver = {
+		.owner =	THIS_MODULE,
+		.name =		"kobil",
+	},
+	.description =		"KOBIL USB smart card terminal",
 	.id_table =		id_table,
 	.num_interrupt_in =	NUM_DONT_CARE,
 	.num_bulk_in =		0,
@@ -362,7 +365,6 @@ static void kobil_close (struct usb_serial_port *port, struct file *filp)
 
 static void kobil_read_int_callback( struct urb *purb, struct pt_regs *regs)
 {
-	int i;
 	int result;
 	struct usb_serial_port *port = (struct usb_serial_port *) purb->context;
 	struct tty_struct *tty;
@@ -394,14 +396,8 @@ static void kobil_read_int_callback( struct urb *purb, struct pt_regs *regs)
 		*/
 		// END DEBUG
 
-		for (i = 0; i < purb->actual_length; ++i) {
-			// if we insert more than TTY_FLIPBUF_SIZE characters, we drop them.
-			if(tty->flip.count >= TTY_FLIPBUF_SIZE) {
-				tty_flip_buffer_push(tty);
-			}
-			// this doesn't actually push the data through unless tty->low_latency is set
-			tty_insert_flip_char(tty, data[i], 0);
-		}
+		tty_buffer_request_room(tty, purb->actual_length);
+		tty_insert_flip_string(tty, data, purb->actual_length);
 		tty_flip_buffer_push(tty);
 	}
 

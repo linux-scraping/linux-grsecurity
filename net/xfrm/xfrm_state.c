@@ -10,7 +10,7 @@
  * 		Split up af-specific functions
  *	Derek Atkins <derek@ihtfp.com>
  *		Add UDP Encapsulation
- * 	
+ *
  */
 
 #include <linux/workqueue.h>
@@ -62,18 +62,15 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
 {
 	if (del_timer(&x->timer))
 		BUG();
-	if (x->aalg)
-		kfree(x->aalg);
-	if (x->ealg)
-		kfree(x->ealg);
-	if (x->calg)
-		kfree(x->calg);
-	if (x->encap)
-		kfree(x->encap);
+	kfree(x->aalg);
+	kfree(x->ealg);
+	kfree(x->calg);
+	kfree(x->encap);
 	if (x->type) {
 		x->type->destructor(x);
 		xfrm_put_type(x->type);
 	}
+	security_xfrm_state_free(x);
 	kfree(x);
 }
 
@@ -223,14 +220,14 @@ static int __xfrm_state_delete(struct xfrm_state *x)
 		x->km.state = XFRM_STATE_DEAD;
 		spin_lock(&xfrm_state_lock);
 		list_del(&x->bydst);
-		atomic_dec(&x->refcnt);
+		__xfrm_state_put(x);
 		if (x->id.spi) {
 			list_del(&x->byspi);
-			atomic_dec(&x->refcnt);
+			__xfrm_state_put(x);
 		}
 		spin_unlock(&xfrm_state_lock);
 		if (del_timer(&x->timer))
-			atomic_dec(&x->refcnt);
+			__xfrm_state_put(x);
 
 		/* The number two in this test is the reference
 		 * mentioned in the comment below plus the reference
@@ -246,7 +243,7 @@ static int __xfrm_state_delete(struct xfrm_state *x)
 		 * The xfrm_state_alloc call gives a reference, and that
 		 * is what we are dropping here.
 		 */
-		atomic_dec(&x->refcnt);
+		__xfrm_state_put(x);
 		err = 0;
 	}
 
@@ -347,7 +344,8 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
 			      selector.
 			 */
 			if (x->km.state == XFRM_STATE_VALID) {
-				if (!xfrm_selector_match(&x->sel, fl, family))
+				if (!xfrm_selector_match(&x->sel, fl, family) ||
+				    !xfrm_sec_ctx_match(pol->security, x->security))
 					continue;
 				if (!best ||
 				    best->km.dying > x->km.dying ||
@@ -358,7 +356,8 @@ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
 				acquire_in_progress = 1;
 			} else if (x->km.state == XFRM_STATE_ERROR ||
 				   x->km.state == XFRM_STATE_EXPIRED) {
-				if (xfrm_selector_match(&x->sel, fl, family))
+ 				if (xfrm_selector_match(&x->sel, fl, family) &&
+				    xfrm_sec_ctx_match(pol->security, x->security))
 					error = -ESRCH;
 			}
 		}
@@ -1031,6 +1030,12 @@ void xfrm_state_delete_tunnel(struct xfrm_state *x)
 }
 EXPORT_SYMBOL(xfrm_state_delete_tunnel);
 
+/*
+ * This function is NOT optimal.  For example, with ESP it will give an
+ * MTU that's usually two bytes short of being optimal.  However, it will
+ * usually give an answer that's a multiple of 4 provided the input is
+ * also a multiple of 4.
+ */
 int xfrm_state_mtu(struct xfrm_state *x, int mtu)
 {
 	int res = mtu;

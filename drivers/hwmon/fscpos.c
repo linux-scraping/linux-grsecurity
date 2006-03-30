@@ -100,10 +100,10 @@ static void reset_fan_alarm(struct i2c_client *client, int nr);
  * Driver data (common to all clients)
  */
 static struct i2c_driver fscpos_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "fscpos",
+	.driver = {
+		.name	= "fscpos",
+	},
 	.id		= I2C_DRIVERID_FSCPOS,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= fscpos_attach_adapter,
 	.detach_client	= fscpos_detach_client,
 };
@@ -438,7 +438,7 @@ static int fscpos_attach_adapter(struct i2c_adapter *adapter)
 	return i2c_probe(adapter, &addr_data, fscpos_detect);
 }
 
-int fscpos_detect(struct i2c_adapter *adapter, int address, int kind)
+static int fscpos_detect(struct i2c_adapter *adapter, int address, int kind)
 {
 	struct i2c_client *new_client;
 	struct fscpos_data *data;
@@ -453,11 +453,10 @@ int fscpos_detect(struct i2c_adapter *adapter, int address, int kind)
 	 * But it allows us to access fscpos_{read,write}_value.
 	 */
 
-	if (!(data = kmalloc(sizeof(struct fscpos_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct fscpos_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct fscpos_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

@@ -13,6 +13,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/delay.h>
+#include <linux/pm.h>
 #include <linux/smp.h>
 
 #include <asm/io.h>
@@ -92,7 +93,7 @@ void __init prom_init(void)
 	/* Callbacks for halt, restart */
 	_machine_restart = (void (*)(char *)) prom_exit;
 	_machine_halt = prom_halt;
-	_machine_power_off = prom_halt;
+	pm_power_off = prom_halt;
 
 	debug_vectors = cv;
 	arcs_cmdline[0] = '\0';
@@ -132,8 +133,9 @@ void __init prom_init(void)
 	prom_grab_secondary();
 }
 
-void __init prom_free_prom_memory(void)
+unsigned long __init prom_free_prom_memory(void)
 {
+	return 0;
 }
 
 void __init prom_fixup_mem_map(unsigned long start, unsigned long end)

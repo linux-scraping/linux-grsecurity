@@ -110,8 +110,15 @@ enum {
 enum {
 	AX25_PROTO_STD_SIMPLEX,
 	AX25_PROTO_STD_DUPLEX,
+#ifdef CONFIG_AX25_DAMA_SLAVE
 	AX25_PROTO_DAMA_SLAVE,
-	AX25_PROTO_DAMA_MASTER
+#ifdef CONFIG_AX25_DAMA_MASTER
+	AX25_PROTO_DAMA_MASTER,
+#define AX25_PROTO_MAX AX25_PROTO_DAMA_MASTER
+#endif
+#endif
+	__AX25_PROTO_MAX,
+	AX25_PROTO_MAX = __AX25_PROTO_MAX -1
 };
 
 enum {
@@ -237,8 +244,7 @@ typedef struct ax25_cb {
 static __inline__ void ax25_cb_put(ax25_cb *ax25)
 {
 	if (atomic_dec_and_test(&ax25->refcount)) {
-		if (ax25->digipeat)
-			kfree(ax25->digipeat);
+		kfree(ax25->digipeat);
 		kfree(ax25);
 	}
 }

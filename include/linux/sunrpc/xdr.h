@@ -91,7 +91,6 @@ struct xdr_buf {
 u32 *	xdr_encode_opaque_fixed(u32 *p, const void *ptr, unsigned int len);
 u32 *	xdr_encode_opaque(u32 *p, const void *ptr, unsigned int len);
 u32 *	xdr_encode_string(u32 *p, const char *s);
-u32 *	xdr_decode_string(u32 *p, char **sp, int *lenp, int maxlen);
 u32 *	xdr_decode_string_inplace(u32 *p, char **sp, int *lenp, int maxlen);
 u32 *	xdr_encode_netobj(u32 *p, const struct xdr_netobj *);
 u32 *	xdr_decode_netobj(u32 *p, struct xdr_netobj *);
@@ -135,11 +134,6 @@ xdr_adjust_iovec(struct kvec *iov, u32 *p)
 }
 
 /*
- * Maximum number of iov's we use.
- */
-#define MAX_IOVEC	(12)
-
-/*
  * XDR buffer helper functions
  */
 extern void xdr_shift_buf(struct xdr_buf *, size_t);
@@ -161,13 +155,9 @@ typedef struct {
 
 typedef size_t (*skb_read_actor_t)(skb_reader_t *desc, void *to, size_t len);
 
+extern int csum_partial_copy_to_xdr(struct xdr_buf *, struct sk_buff *);
 extern ssize_t xdr_partial_copy_from_skb(struct xdr_buf *, unsigned int,
 		skb_reader_t *, skb_read_actor_t);
-
-struct socket;
-struct sockaddr;
-extern int xdr_sendpages(struct socket *, struct sockaddr *, int,
-		struct xdr_buf *, unsigned int, int);
 
 extern int xdr_encode_word(struct xdr_buf *, int, u32);
 extern int xdr_decode_word(struct xdr_buf *, int, u32 *);

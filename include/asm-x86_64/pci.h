@@ -19,8 +19,6 @@ extern unsigned int pcibios_assign_all_busses(void);
 #endif
 #define pcibios_scan_all_fns(a, b)	0
 
-extern int no_iommu, force_iommu;
-
 extern unsigned long pci_mem_start;
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		(pci_mem_start)
@@ -42,18 +40,20 @@ int pcibios_set_irq_routing(struct pci_dev *dev, int pin, int irq);
 #include <asm/scatterlist.h>
 #include <linux/string.h>
 #include <asm/page.h>
+#include <linux/dma-mapping.h> /* for have_iommu */
 
 extern int iommu_setup(char *opt);
 
-#ifdef CONFIG_GART_IOMMU
 /* The PCI address space does equal the physical memory
  * address space.  The networking and block device layers use
  * this boolean for bounce buffer decisions
  *
- * On AMD64 it mostly equals, but we set it to zero to tell some subsystems
- * that an IOMMU is available.
+ * On AMD64 it mostly equals, but we set it to zero if a hardware
+ * IOMMU (gart) of sotware IOMMU (swiotlb) is available.
  */
-#define PCI_DMA_BUS_IS_PHYS	(no_iommu ? 1 : 0)
+#define PCI_DMA_BUS_IS_PHYS (dma_ops->is_phys)
+
+#ifdef CONFIG_GART_IOMMU
 
 /*
  * x86-64 always supports DAC, but sometimes it is useful to force
@@ -79,7 +79,6 @@ extern int iommu_sac_force;
 #else
 /* No IOMMU */
 
-#define PCI_DMA_BUS_IS_PHYS	1
 #define pci_dac_dma_supported(pci_dev, mask)    1
 
 #define DECLARE_PCI_UNMAP_ADDR(ADDR_NAME)

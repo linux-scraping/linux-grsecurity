@@ -27,6 +27,15 @@
 #ifndef _ASM_I386_TOPOLOGY_H
 #define _ASM_I386_TOPOLOGY_H
 
+#ifdef CONFIG_X86_HT
+#define topology_physical_package_id(cpu)				\
+	(phys_proc_id[cpu] == BAD_APICID ? -1 : phys_proc_id[cpu])
+#define topology_core_id(cpu)						\
+	(cpu_core_id[cpu] == BAD_APICID ? 0 : cpu_core_id[cpu])
+#define topology_core_siblings(cpu)		(cpu_core_map[cpu])
+#define topology_thread_siblings(cpu)		(cpu_sibling_map[cpu])
+#endif
+
 #ifdef CONFIG_NUMA
 
 #include <asm/mpspec.h>
@@ -72,7 +81,6 @@ static inline int node_to_first_cpu(int node)
 	.max_interval		= 32,			\
 	.busy_factor		= 32,			\
 	.imbalance_pct		= 125,			\
-	.cache_hot_time		= (10*1000000),		\
 	.cache_nice_tries	= 1,			\
 	.busy_idx		= 3,			\
 	.idle_idx		= 1,			\

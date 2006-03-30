@@ -98,9 +98,8 @@ extern unsigned int user_debug;
  * spin_unlock_irq() and friends are implemented.  This avoids
  * us needlessly decrementing and incrementing the preempt count.
  */
-#define prepare_arch_switch(rq,next)	local_irq_enable()
-#define finish_arch_switch(rq,prev)	spin_unlock(&(rq)->lock)
-#define task_running(rq,p)		((rq)->curr == (p))
+#define prepare_arch_switch(next)	local_irq_enable()
+#define finish_arch_switch(prev)	spin_unlock(&(rq)->lock)
 
 /*
  * switch_to(prev, next) should switch from task `prev' to `next'
@@ -111,8 +110,18 @@ extern struct task_struct *__switch_to(struct task_struct *, struct thread_info 
 
 #define switch_to(prev,next,last)					\
 do {									\
-	last = __switch_to(prev,prev->thread_info,next->thread_info);	\
+	last = __switch_to(prev,task_thread_info(prev),task_thread_info(next));	\
 } while (0)
+
+/*
+ * On SMP systems, when the scheduler does migration-cost autodetection,
+ * it needs a way to flush as much of the CPU's caches as possible.
+ *
+ * TODO: fill this in!
+ */
+static inline void sched_cacheflush(void)
+{
+}
 
 /*
  * Save the current interrupt enable state & disable IRQs

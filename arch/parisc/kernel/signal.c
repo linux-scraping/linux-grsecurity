@@ -296,7 +296,6 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	struct rt_sigframe __user *frame;
 	unsigned long rp, usp;
 	unsigned long haddr, sigframe_size;
-	struct siginfo si;
 	int err = 0;
 #ifdef __LP64__
 	compat_int_t compat_val;
@@ -318,7 +317,7 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	
 	if(personality(current->personality) == PER_LINUX32) {
 		DBG(1,"setup_rt_frame: frame->info = 0x%p\n", &compat_frame->info);
-		err |= compat_copy_siginfo_to_user(&compat_frame->info, info);
+		err |= copy_siginfo_to_user32(&compat_frame->info, info);
 		DBG(1,"SETUP_RT_FRAME: 1\n");
 		compat_val = (compat_int_t)current->sas_ss_sp;
 		err |= __put_user(compat_val, &compat_frame->uc.uc_stack.ss_sp);
@@ -490,15 +489,7 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 
 give_sigsegv:
 	DBG(1,"setup_rt_frame: sending SIGSEGV\n");
-	if (sig == SIGSEGV)
-		ka->sa.sa_handler = SIG_DFL;
-	si.si_signo = SIGSEGV;
-	si.si_errno = 0;
-	si.si_code = SI_KERNEL;
-	si.si_pid = current->pid;
-	si.si_uid = current->uid;
-	si.si_addr = frame;
-	force_sig_info(SIGSEGV, &si, current);
+	force_sigsegv(sig, current);
 	return 0;
 }
 
@@ -633,10 +624,14 @@ do_signal(sigset_t *oldset, struct pt_regs *regs, int in_syscall)
 			put_user(0xe0008200, &usp[3]);
 			put_user(0x34140000, &usp[4]);
 
-			/* Stack is 64-byte aligned, and we only 
-			 * need to flush 1 cache line */
-			asm("fdc 0(%%sr3, %0)\n"
-			    "fic 0(%%sr3, %0)\n"
+			/* Stack is 64-byte aligned, and we only need
+			 * to flush 1 cache line.
+			 * Flushing one cacheline is cheap.
+			 * "sync" on bigger (> 4 way) boxes is not.
+			 */
+			asm("fdc %%r0(%%sr3, %0)\n"
+			    "sync\n"
+			    "fic %%r0(%%sr3, %0)\n"
 			    "sync\n"
 			    : : "r"(regs->gr[30]));
 

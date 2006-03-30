@@ -21,23 +21,35 @@ struct mmc_command {
 	u32			arg;
 	u32			resp[4];
 	unsigned int		flags;		/* expected response type */
-#define MMC_RSP_NONE	(0 << 0)
-#define MMC_RSP_SHORT	(1 << 0)
-#define MMC_RSP_LONG	(2 << 0)
-#define MMC_RSP_MASK	(3 << 0)
-#define MMC_RSP_CRC	(1 << 3)		/* expect valid crc */
-#define MMC_RSP_BUSY	(1 << 4)		/* card may send busy */
+#define MMC_RSP_PRESENT	(1 << 0)
+#define MMC_RSP_136	(1 << 1)		/* 136 bit response */
+#define MMC_RSP_CRC	(1 << 2)		/* expect valid crc */
+#define MMC_RSP_BUSY	(1 << 3)		/* card may send busy */
+#define MMC_RSP_OPCODE	(1 << 4)		/* response contains opcode */
+#define MMC_CMD_MASK	(3 << 5)		/* command type */
+#define MMC_CMD_AC	(0 << 5)
+#define MMC_CMD_ADTC	(1 << 5)
+#define MMC_CMD_BC	(2 << 5)
+#define MMC_CMD_BCR	(3 << 5)
 
 /*
  * These are the response types, and correspond to valid bit
  * patterns of the above flags.  One additional valid pattern
  * is all zeros, which means we don't expect a response.
  */
-#define MMC_RSP_R1	(MMC_RSP_SHORT|MMC_RSP_CRC)
-#define MMC_RSP_R1B	(MMC_RSP_SHORT|MMC_RSP_CRC|MMC_RSP_BUSY)
-#define MMC_RSP_R2	(MMC_RSP_LONG|MMC_RSP_CRC)
-#define MMC_RSP_R3	(MMC_RSP_SHORT)
-#define MMC_RSP_R6	(MMC_RSP_SHORT|MMC_RSP_CRC)
+#define MMC_RSP_NONE	(0)
+#define MMC_RSP_R1	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
+#define MMC_RSP_R1B	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE|MMC_RSP_BUSY)
+#define MMC_RSP_R2	(MMC_RSP_PRESENT|MMC_RSP_136|MMC_RSP_CRC)
+#define MMC_RSP_R3	(MMC_RSP_PRESENT)
+#define MMC_RSP_R6	(MMC_RSP_PRESENT|MMC_RSP_CRC)
+
+#define mmc_resp_type(cmd)	((cmd)->flags & (MMC_RSP_PRESENT|MMC_RSP_136|MMC_RSP_CRC|MMC_RSP_BUSY|MMC_RSP_OPCODE))
+
+/*
+ * These are the command types.
+ */
+#define mmc_cmd_type(cmd)	((cmd)->flags & MMC_CMD_MASK)
 
 	unsigned int		retries;	/* max number of retries */
 	unsigned int		error;		/* command error */
@@ -50,7 +62,7 @@ struct mmc_command {
 #define MMC_ERR_INVALID	5
 
 	struct mmc_data		*data;		/* data segment associated with cmd */
-	struct mmc_request	*mrq;		/* assoicated request */
+	struct mmc_request	*mrq;		/* associated request */
 };
 
 struct mmc_data {
@@ -64,11 +76,12 @@ struct mmc_data {
 #define MMC_DATA_WRITE	(1 << 8)
 #define MMC_DATA_READ	(1 << 9)
 #define MMC_DATA_STREAM	(1 << 10)
+#define MMC_DATA_MULTI	(1 << 11)
 
 	unsigned int		bytes_xfered;
 
 	struct mmc_command	*stop;		/* stop command */
-	struct mmc_request	*mrq;		/* assoicated request */
+	struct mmc_request	*mrq;		/* associated request */
 
 	unsigned int		sg_len;		/* size of scatter list */
 	struct scatterlist	*sg;		/* I/O scatter list */

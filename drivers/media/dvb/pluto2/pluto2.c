@@ -286,15 +286,10 @@ static void pluto_dma_end(struct pluto *pluto, unsigned int nbpackets)
 	 *     although one packet has been transfered.
 	 */
 	if ((nbpackets == 0) || (nbpackets > TS_DMA_PACKETS)) {
-		unsigned int i = 0, valid;
+		unsigned int i = 0;
 		while (pluto->dma_buf[i] == 0x47)
 			i += 188;
-		valid = i / 188;
-		if (nbpackets != valid) {
-			dev_err(&pluto->pdev->dev, "nbpackets=%u valid=%u\n",
-					nbpackets, valid);
-			nbpackets = valid;
-		}
+		nbpackets = i / 188;
 	}
 
 	dvb_dmx_swfilter_packets(&pluto->demux, pluto->dma_buf, nbpackets);
@@ -589,11 +584,10 @@ static int __devinit pluto2_probe(struct pci_dev *pdev,
 	struct dmx_demux *dmx;
 	int ret = -ENOMEM;
 
-	pluto = kmalloc(sizeof(struct pluto), GFP_KERNEL);
+	pluto = kzalloc(sizeof(struct pluto), GFP_KERNEL);
 	if (!pluto)
 		goto out;
 
-	memset(pluto, 0, sizeof(struct pluto));
 	pluto->pdev = pdev;
 
 	ret = pci_enable_device(pdev);

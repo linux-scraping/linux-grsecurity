@@ -152,7 +152,8 @@ struct ttusb_dec {
 	struct list_head	filter_info_list;
 	spinlock_t		filter_info_list_lock;
 
-	struct input_dev	rc_input_dev;
+	struct input_dev	*rc_input_dev;
+	char			rc_phys[64];
 
 	int			active; /* Loaded successfully */
 };
@@ -235,9 +236,9 @@ static void ttusb_dec_handle_irq( struct urb *urb, struct pt_regs *regs)
 		 * this should/could be added later ...
 		 * for now lets report each signal as a key down and up*/
 		dprintk("%s:rc signal:%d\n", __FUNCTION__, buffer[4]);
-		input_report_key(&dec->rc_input_dev,rc_keys[buffer[4]-1],1);
-		input_report_key(&dec->rc_input_dev,rc_keys[buffer[4]-1],0);
-		input_sync(&dec->rc_input_dev);
+		input_report_key(dec->rc_input_dev, rc_keys[buffer[4] - 1], 1);
+		input_report_key(dec->rc_input_dev, rc_keys[buffer[4] - 1], 0);
+		input_sync(dec->rc_input_dev);
 	}
 
 exit:	retval = usb_submit_urb(urb, GFP_ATOMIC);
@@ -368,7 +369,7 @@ static int ttusb_dec_get_stb_state (struct ttusb_dec *dec, unsigned int *mode,
 
 static int ttusb_dec_audio_pes2ts_cb(void *priv, unsigned char *data)
 {
-	struct ttusb_dec *dec = (struct ttusb_dec *)priv;
+	struct ttusb_dec *dec = priv;
 
 	dec->audio_filter->feed->cb.ts(data, 188, NULL, 0,
 				       &dec->audio_filter->feed->feed.ts,
@@ -379,7 +380,7 @@ static int ttusb_dec_audio_pes2ts_cb(void *priv, unsigned char *data)
 
 static int ttusb_dec_video_pes2ts_cb(void *priv, unsigned char *data)
 {
-	struct ttusb_dec *dec = (struct ttusb_dec *)priv;
+	struct ttusb_dec *dec = priv;
 
 	dec->video_filter->feed->cb.ts(data, 188, NULL, 0,
 				       &dec->video_filter->feed->feed.ts,
@@ -964,8 +965,8 @@ static int ttusb_dec_start_ts_feed(struct dvb_demux_feed *dvbdmxfeed)
 
 	case DMX_TS_PES_TELETEXT:
 		dec->pid[DMX_PES_TELETEXT] = dvbdmxfeed->pid;
-		dprintk("  pes_type: DMX_TS_PES_TELETEXT\n");
-		break;
+		dprintk("  pes_type: DMX_TS_PES_TELETEXT(not supported)\n");
+		return -ENOSYS;
 
 	case DMX_TS_PES_PCR:
 		dprintk("  pes_type: DMX_TS_PES_PCR\n");
@@ -974,8 +975,8 @@ static int ttusb_dec_start_ts_feed(struct dvb_demux_feed *dvbdmxfeed)
 		break;
 
 	case DMX_TS_PES_OTHER:
-		dprintk("  pes_type: DMX_TS_PES_OTHER\n");
-		break;
+		dprintk("  pes_type: DMX_TS_PES_OTHER(not supported)\n");
+		return -ENOSYS;
 
 	default:
 		dprintk("  pes_type: unknown (%d)\n", dvbdmxfeed->pes_type);
@@ -1181,29 +1182,37 @@ static void ttusb_dec_init_tasklet(struct ttusb_dec *dec)
 		     (unsigned long)dec);
 }
 
-static void ttusb_init_rc( struct ttusb_dec *dec)
+static int ttusb_init_rc( struct ttusb_dec *dec)
 {
+	struct input_dev *input_dev;
 	u8 b[] = { 0x00, 0x01 };
 	int i;
 
-	init_input_dev(&dec->rc_input_dev);
+	usb_make_path(dec->udev, dec->rc_phys, sizeof(dec->rc_phys));
+	strlcpy(dec->rc_phys, "/input0", sizeof(dec->rc_phys));
 
-	dec->rc_input_dev.name = "ttusb_dec remote control";
-	dec->rc_input_dev.evbit[0] = BIT(EV_KEY);
-	dec->rc_input_dev.keycodesize = sizeof(u16);
-	dec->rc_input_dev.keycodemax = 0x1a;
-	dec->rc_input_dev.keycode = rc_keys;
+	dec->rc_input_dev = input_dev = input_allocate_device();
+	if (!input_dev)
+		return -ENOMEM;
 
-	 for (i = 0; i < sizeof(rc_keys)/sizeof(rc_keys[0]); i++)
-                set_bit(rc_keys[i], dec->rc_input_dev.keybit);
+	input_dev->name = "ttusb_dec remote control";
+	input_dev->phys = dec->rc_phys;
+	input_dev->evbit[0] = BIT(EV_KEY);
+	input_dev->keycodesize = sizeof(u16);
+	input_dev->keycodemax = 0x1a;
+	input_dev->keycode = rc_keys;
 
-	input_register_device(&dec->rc_input_dev);
+	for (i = 0; i < ARRAY_SIZE(rc_keys); i++)
+		  set_bit(rc_keys[i], input_dev->keybit);
 
-	if(usb_submit_urb(dec->irq_urb,GFP_KERNEL)) {
+	input_register_device(input_dev);
+
+	if (usb_submit_urb(dec->irq_urb, GFP_KERNEL))
 		printk("%s: usb_submit_urb failed\n",__FUNCTION__);
-	}
 	/* enable irq pipe */
 	ttusb_dec_send_command(dec,0xb0,sizeof(b),b,NULL,NULL);
+
+	return 0;
 }
 
 static void ttusb_dec_init_v_pes(struct ttusb_dec *dec)
@@ -1385,6 +1394,7 @@ static int ttusb_dec_init_stb(struct ttusb_dec *dec)
 			/* We can't trust the USB IDs that some firmwares
 			   give the box */
 			switch (model) {
+			case 0x00070001:
 			case 0x00070008:
 			case 0x0007000c:
 				ttusb_dec_set_model(dec, TTUSB_DEC3000S);
@@ -1513,15 +1523,18 @@ static void ttusb_dec_exit_rc(struct ttusb_dec *dec)
 	  * As the irq is submitted after the interface is changed,
 	  * this is the best method i figured out.
 	  * Any others?*/
-	if(dec->interface == TTUSB_DEC_INTERFACE_IN)
+	if (dec->interface == TTUSB_DEC_INTERFACE_IN)
 		usb_kill_urb(dec->irq_urb);
 
 	usb_free_urb(dec->irq_urb);
 
 	usb_buffer_free(dec->udev,IRQ_PACKET_SIZE,
-		           dec->irq_buffer, dec->irq_dma_handle);
+			   dec->irq_buffer, dec->irq_dma_handle);
 
-	input_unregister_device(&dec->rc_input_dev);
+	if (dec->rc_input_dev) {
+		input_unregister_device(dec->rc_input_dev);
+		dec->rc_input_dev = NULL;
+	}
 }
 
 
@@ -1575,7 +1588,7 @@ static int fe_send_command(struct dvb_frontend* fe, const u8 command,
 			   int param_length, const u8 params[],
 			   int *result_length, u8 cmd_result[])
 {
-	struct ttusb_dec* dec = (struct ttusb_dec*) fe->dvb->priv;
+	struct ttusb_dec* dec = fe->dvb->priv;
 	return ttusb_dec_send_command(dec, command, param_length, params, result_length, cmd_result);
 }
 
@@ -1593,14 +1606,12 @@ static int ttusb_dec_probe(struct usb_interface *intf,
 
 	udev = interface_to_usbdev(intf);
 
-	if (!(dec = kmalloc(sizeof(struct ttusb_dec), GFP_KERNEL))) {
+	if (!(dec = kzalloc(sizeof(struct ttusb_dec), GFP_KERNEL))) {
 		printk("%s: couldn't allocate memory.\n", __FUNCTION__);
 		return -ENOMEM;
 	}
 
 	usb_set_intfdata(intf, (void *)dec);
-
-	memset(dec, 0, sizeof(struct ttusb_dec));
 
 	switch (le16_to_cpu(id->idProduct)) {
 	case 0x1006:
@@ -1659,7 +1670,7 @@ static int ttusb_dec_probe(struct usb_interface *intf,
 
 	ttusb_dec_set_interface(dec, TTUSB_DEC_INTERFACE_IN);
 
-	if(enable_rc)
+	if (enable_rc)
 		ttusb_init_rc(dec);
 
 	return 0;

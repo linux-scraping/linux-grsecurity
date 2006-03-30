@@ -37,7 +37,7 @@
 #include <asm/errno.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/hd64465/hd64465.h>
@@ -417,18 +417,6 @@ static int hs_get_status(struct pcmcia_socket *s, u_int *value)
 
 /*============================================================*/
 
-static int hs_get_socket(struct pcmcia_socket *s, socket_state_t *state)
-{
-    	hs_socket_t *sp = container_of(s, struct hs_socket_t, socket);
-
-    	DPRINTK("hs_get_socket(%d)\n", sock);
-	
-	*state = sp->state;
-	return 0;
-}
-
-/*============================================================*/
-
 static int hs_set_socket(struct pcmcia_socket *s, socket_state_t *state)
 {
     	hs_socket_t *sp = container_of(s, struct hs_socket_t, socket);
@@ -749,7 +737,6 @@ static irqreturn_t hs_interrupt(int irq, void *dev, struct pt_regs *regs)
 static struct pccard_operations hs_operations = {
 	.init			= hs_init,
 	.get_status		= hs_get_status,
-	.get_socket		= hs_get_socket,
 	.set_socket		= hs_set_socket,
 	.set_io_map		= hs_set_io_map,
 	.set_mem_map		= hs_set_mem_map,
@@ -844,27 +831,11 @@ static void hs_exit_socket(hs_socket_t *sp)
 	local_irq_restore(flags);
 }
 
-static int hd64465_suspend(struct device *dev, pm_message_t state, u32 level)
-{
-	int ret = 0;
-	if (level == SUSPEND_SAVE_STATE)
-		ret = pcmcia_socket_dev_suspend(dev, state);
-	return ret;
-}
-
-static int hd64465_resume(struct device *dev, u32 level)
-{
-	int ret = 0;
-	if (level == RESUME_RESTORE_STATE)
-		ret = pcmcia_socket_dev_resume(dev);
-	return ret;
-}
-
 static struct device_driver hd64465_driver = {
 	.name = "hd64465-pcmcia",
 	.bus = &platform_bus_type,
-	.suspend = hd64465_suspend,
-	.resume = hd64465_resume,
+	.suspend = pcmcia_socket_dev_suspend,
+	.resume = pcmcia_socket_dev_resume,
 };
 
 static struct platform_device hd64465_device = {

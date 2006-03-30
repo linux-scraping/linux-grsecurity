@@ -31,8 +31,6 @@
 
 #define ZFCP_LOG_AREA			ZFCP_LOG_AREA_ERP
 
-#define ZFCP_ERP_REVISION "$Revision: 1.86 $"
-
 #include "zfcp_ext.h"
 
 static int zfcp_erp_adisc(struct zfcp_port *);
@@ -1070,11 +1068,6 @@ zfcp_erp_thread_setup(struct zfcp_adapter *adapter)
 	int retval = 0;
 
 	atomic_clear_mask(ZFCP_STATUS_ADAPTER_ERP_THREAD_UP, &adapter->status);
-
-	rwlock_init(&adapter->erp_lock);
-	INIT_LIST_HEAD(&adapter->erp_ready_head);
-	INIT_LIST_HEAD(&adapter->erp_running_head);
-	sema_init(&adapter->erp_ready_sem, 0);
 
 	retval = kernel_thread(zfcp_erp_thread, adapter, SIGCHLD);
 	if (retval < 0) {
@@ -2248,41 +2241,22 @@ zfcp_erp_adapter_strategy_close_qdio(struct zfcp_erp_action *erp_action)
 	return retval;
 }
 
-/*
- * function:    zfcp_fsf_init
- *
- * purpose:	initializes FSF operation for the specified adapter
- *
- * returns:	0 - succesful initialization of FSF operation
- *		!0 - failed to initialize FSF operation
- */
 static int
 zfcp_erp_adapter_strategy_open_fsf(struct zfcp_erp_action *erp_action)
 {
-	int xconfig, xport;
+	int retval;
 
-	if (atomic_test_mask(ZFCP_STATUS_ADAPTER_LINK_UNPLUGGED,
-			     &erp_action->adapter->status)) {
-		zfcp_erp_adapter_strategy_open_fsf_xport(erp_action);
-		atomic_set(&erp_action->adapter->erp_counter, 0);
+	retval = zfcp_erp_adapter_strategy_open_fsf_xconfig(erp_action);
+	if (retval == ZFCP_ERP_FAILED)
 		return ZFCP_ERP_FAILED;
-	}
 
-	xconfig = zfcp_erp_adapter_strategy_open_fsf_xconfig(erp_action);
-	xport   = zfcp_erp_adapter_strategy_open_fsf_xport(erp_action);
-	if ((xconfig == ZFCP_ERP_FAILED) || (xport == ZFCP_ERP_FAILED))
+	retval = zfcp_erp_adapter_strategy_open_fsf_xport(erp_action);
+	if (retval == ZFCP_ERP_FAILED)
 		return ZFCP_ERP_FAILED;
 
 	return zfcp_erp_adapter_strategy_open_fsf_statusread(erp_action);
 }
 
-/*
- * function:	
- *
- * purpose:	
- *
- * returns:
- */
 static int
 zfcp_erp_adapter_strategy_open_fsf_xconfig(struct zfcp_erp_action *erp_action)
 {
@@ -2359,71 +2333,41 @@ zfcp_erp_adapter_strategy_open_fsf_xconfig(struct zfcp_erp_action *erp_action)
 static int
 zfcp_erp_adapter_strategy_open_fsf_xport(struct zfcp_erp_action *erp_action)
 {
-	int retval = ZFCP_ERP_SUCCEEDED;
-	int retries;
-	int sleep;
-	struct zfcp_adapter *adapter = erp_action->adapter;
+	int ret;
+	struct zfcp_adapter *adapter;
 
+	adapter = erp_action->adapter;
 	atomic_clear_mask(ZFCP_STATUS_ADAPTER_XPORT_OK, &adapter->status);
 
-	for (retries = 0; ; retries++) {
-		ZFCP_LOG_DEBUG("Doing exchange port data\n");
-		zfcp_erp_action_to_running(erp_action);
-		zfcp_erp_timeout_init(erp_action);
-		if (zfcp_fsf_exchange_port_data(erp_action, adapter, NULL)) {
-			retval = ZFCP_ERP_FAILED;
-			debug_text_event(adapter->erp_dbf, 5, "a_fstx_xf");
-			ZFCP_LOG_INFO("error: initiation of exchange of "
-				      "port data failed for adapter %s\n",
-				      zfcp_get_busid_by_adapter(adapter));
-			break;
-		}
-		debug_text_event(adapter->erp_dbf, 6, "a_fstx_xok");
-		ZFCP_LOG_DEBUG("Xchange underway\n");
+	write_lock(&adapter->erp_lock);
+	zfcp_erp_action_to_running(erp_action);
+	write_unlock(&adapter->erp_lock);
 
-		/*
-		 * Why this works:
-		 * Both the normal completion handler as well as the timeout
-		 * handler will do an 'up' when the 'exchange port data'
-		 * request completes or times out. Thus, the signal to go on
-		 * won't be lost utilizing this semaphore.
-		 * Furthermore, this 'adapter_reopen' action is
-		 * guaranteed to be the only action being there (highest action
-		 * which prevents other actions from being created).
-		 * Resulting from that, the wake signal recognized here
-		 * _must_ be the one belonging to the 'exchange port
-		 * data' request.
-		 */
-		down(&adapter->erp_ready_sem);
-		if (erp_action->status & ZFCP_STATUS_ERP_TIMEDOUT) {
-			ZFCP_LOG_INFO("error: exchange of port data "
-				      "for adapter %s timed out\n",
-				      zfcp_get_busid_by_adapter(adapter));
-			break;
-		}
+	zfcp_erp_timeout_init(erp_action);
+	ret = zfcp_fsf_exchange_port_data(erp_action, adapter, NULL);
+	if (ret == -EOPNOTSUPP) {
+		debug_text_event(adapter->erp_dbf, 3, "a_xport_notsupp");
+		return ZFCP_ERP_SUCCEEDED;
+	} else if (ret) {
+		debug_text_event(adapter->erp_dbf, 3, "a_xport_failed");
+		return ZFCP_ERP_FAILED;
+	}
+	debug_text_event(adapter->erp_dbf, 6, "a_xport_ok");
 
-		if (!atomic_test_mask(ZFCP_STATUS_ADAPTER_LINK_UNPLUGGED,
-				      &adapter->status))
-			break;
-
-		ZFCP_LOG_DEBUG("host connection still initialising... "
-			       "waiting and retrying...\n");
-		/* sleep a little bit before retry */
-		sleep = retries < ZFCP_EXCHANGE_PORT_DATA_SHORT_RETRIES ?
-				ZFCP_EXCHANGE_PORT_DATA_SHORT_SLEEP :
-				ZFCP_EXCHANGE_PORT_DATA_LONG_SLEEP;
-		msleep(jiffies_to_msecs(sleep));
+	ret = ZFCP_ERP_SUCCEEDED;
+	down(&adapter->erp_ready_sem);
+	if (erp_action->status & ZFCP_STATUS_ERP_TIMEDOUT) {
+		ZFCP_LOG_INFO("error: exchange port data timed out (adapter "
+			      "%s)\n", zfcp_get_busid_by_adapter(adapter));
+		ret = ZFCP_ERP_FAILED;
+	}
+	if (!atomic_test_mask(ZFCP_STATUS_ADAPTER_XPORT_OK, &adapter->status)) {
+		ZFCP_LOG_INFO("error: exchange port data failed (adapter "
+			      "%s\n", zfcp_get_busid_by_adapter(adapter));
+		ret = ZFCP_ERP_FAILED;
 	}
 
-	if (atomic_test_mask(ZFCP_STATUS_ADAPTER_LINK_UNPLUGGED,
-			     &adapter->status)) {
-		ZFCP_LOG_INFO("error: exchange of port data for "
-			      "adapter %s failed\n",
-			      zfcp_get_busid_by_adapter(adapter));
-		retval = ZFCP_ERP_FAILED;
-	}
-
-	return retval;
+	return ret;
 }
 
 /*
@@ -2643,7 +2587,7 @@ zfcp_erp_port_strategy_open_common(struct zfcp_erp_action *erp_action)
 	case ZFCP_ERP_STEP_UNINITIALIZED:
 	case ZFCP_ERP_STEP_PHYS_PORT_CLOSING:
 	case ZFCP_ERP_STEP_PORT_CLOSING:
-		if (adapter->fc_topology == FSF_TOPO_P2P) {
+		if (fc_host_port_type(adapter->scsi_host) == FC_PORTTYPE_PTP) {
 			if (port->wwpn != adapter->peer_wwpn) {
 				ZFCP_LOG_NORMAL("Failed to open port 0x%016Lx "
 						"on adapter %s.\nPeer WWPN "
@@ -3433,7 +3377,7 @@ zfcp_erp_action_dequeue(struct zfcp_erp_action *erp_action)
 /**
  * zfcp_erp_action_cleanup
  *
- * Register unit with scsi stack if appropiate and fix reference counts.
+ * Register unit with scsi stack if appropriate and fix reference counts.
  * Note: Temporary units are not registered with scsi stack.
  */
 static void
@@ -3447,10 +3391,13 @@ zfcp_erp_action_cleanup(int action, struct zfcp_adapter *adapter,
 		    && (!atomic_test_mask(ZFCP_STATUS_UNIT_TEMPORARY,
 					  &unit->status))
 		    && !unit->device
-		    && port->rport)
- 			scsi_add_device(port->adapter->scsi_host, 0,
- 					port->rport->scsi_target_id,
-					unit->scsi_lun);
+		    && port->rport) {
+			atomic_set_mask(ZFCP_STATUS_UNIT_REGISTERED,
+					&unit->status);
+ 			scsi_scan_target(&port->rport->dev, 0,
+					 port->rport->scsi_target_id,
+					 unit->scsi_lun, 0);
+		}
 		zfcp_unit_put(unit);
 		break;
 	case ZFCP_ERP_ACTION_REOPEN_PORT_FORCED:
@@ -3471,6 +3418,8 @@ zfcp_erp_action_cleanup(int action, struct zfcp_adapter *adapter,
 						"(adapter %s, wwpn=0x%016Lx)\n",
 						zfcp_get_busid_by_port(port),
 						port->wwpn);
+			else
+				scsi_flush_work(adapter->scsi_host);
 		}
 		zfcp_port_put(port);
 		break;

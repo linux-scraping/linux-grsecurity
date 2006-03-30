@@ -6,6 +6,7 @@
  * Copyright (C) 2005      Stelian Pop (stelian@popies.net)
  * Copyright (C) 2005      Frank Arnold (frank@scirocco-5v-turbo.de)
  * Copyright (C) 2005      Peter Osterlund (petero2@telia.com)
+ * Copyright (C) 2005      Michael Hanselmann (linux-kernel@hansmi.ch)
  *
  * Thanks to Alex Harper <basilisk@foobox.net> for his inputs.
  *
@@ -38,8 +39,13 @@
 /* Apple has powerbooks which have the keyboard with different Product IDs */
 #define APPLE_VENDOR_ID		0x05AC
 
+/* These names come from Info.plist in AppleUSBTrackpad.kext */
+#define GEYSER_ANSI_PRODUCT_ID	0x0214
+#define GEYSER_ISO_PRODUCT_ID	0x0215
+#define GEYSER_JIS_PRODUCT_ID	0x0216
+
 #define ATP_DEVICE(prod)					\
-	.match_flags = USB_DEVICE_ID_MATCH_DEVICE |   		\
+	.match_flags = USB_DEVICE_ID_MATCH_DEVICE |		\
 		       USB_DEVICE_ID_MATCH_INT_CLASS |		\
 		       USB_DEVICE_ID_MATCH_INT_PROTOCOL,	\
 	.idVendor = APPLE_VENDOR_ID,				\
@@ -53,12 +59,16 @@ static struct usb_device_id atp_table [] = {
 	{ ATP_DEVICE(0x020F) },
 	{ ATP_DEVICE(0x030A) },
 	{ ATP_DEVICE(0x030B) },
-	{ }					/* Terminating entry */
+
+	/* PowerBooks Oct 2005 */
+	{ ATP_DEVICE(GEYSER_ANSI_PRODUCT_ID) },
+	{ ATP_DEVICE(GEYSER_ISO_PRODUCT_ID) },
+	{ ATP_DEVICE(GEYSER_JIS_PRODUCT_ID) },
+
+	/* Terminating entry */
+	{ }
 };
 MODULE_DEVICE_TABLE (usb, atp_table);
-
-/* size of a USB urb transfer */
-#define ATP_DATASIZE	81
 
 /*
  * number of sensors. Note that only 16 instead of 26 X (horizontal)
@@ -78,9 +88,9 @@ MODULE_DEVICE_TABLE (usb, atp_table);
  * We try to keep the touchpad aspect ratio while still doing only simple
  * arithmetics.
  * The factors below give coordinates like:
- * 	0 <= x <  960 on 12" and 15" Powerbooks
- * 	0 <= x < 1600 on 17" Powerbooks
- * 	0 <= y <  646
+ *	0 <= x <  960 on 12" and 15" Powerbooks
+ *	0 <= x < 1600 on 17" Powerbooks
+ *	0 <= y <  646
  */
 #define ATP_XFACT	64
 #define ATP_YFACT	43
@@ -93,11 +103,12 @@ MODULE_DEVICE_TABLE (usb, atp_table);
 
 /* Structure to hold all of our device specific stuff */
 struct atp {
+	char			phys[64];
 	struct usb_device *	udev;		/* usb device */
 	struct urb *		urb;		/* usb request block */
 	signed char *		data;		/* transferred data */
 	int			open;		/* non-zero if opened */
-	struct input_dev	input;		/* input dev */
+	struct input_dev	*input;		/* input dev */
 	int			valid;		/* are the sensors valid ? */
 	int			x_old;		/* last reported x/y, */
 	int			y_old;		/* used for smoothing */
@@ -107,6 +118,8 @@ struct atp {
 	signed char		xy_old[ATP_XSENSORS + ATP_YSENSORS];
 						/* accumulated sensors */
 	int			xy_acc[ATP_XSENSORS + ATP_YSENSORS];
+	int			overflowwarn;	/* overflow warning printed? */
+	int			datalen;	/* size of an USB urb transfer */
 };
 
 #define dbg_dump(msg, tab) \
@@ -114,22 +127,32 @@ struct atp {
 		int i;							\
 		printk("appletouch: %s %lld", msg, (long long)jiffies); \
 		for (i = 0; i < ATP_XSENSORS + ATP_YSENSORS; i++)	\
-			printk(" %02x", tab[i]); 			\
-		printk("\n"); 						\
+			printk(" %02x", tab[i]);			\
+		printk("\n");						\
 	}
 
-#define dprintk(format, a...) 						\
+#define dprintk(format, a...)						\
 	do {								\
 		if (debug) printk(format, ##a);				\
 	} while (0)
 
-MODULE_AUTHOR("Johannes Berg, Stelian Pop, Frank Arnold");
+MODULE_AUTHOR("Johannes Berg, Stelian Pop, Frank Arnold, Michael Hanselmann");
 MODULE_DESCRIPTION("Apple PowerBooks USB touchpad driver");
 MODULE_LICENSE("GPL");
 
 static int debug = 1;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Activate debugging output");
+
+/* Checks if the device a Geyser 2 (ANSI, ISO, JIS) */
+static inline int atp_is_geyser_2(struct atp *dev)
+{
+	int16_t productId = le16_to_cpu(dev->udev->descriptor.idProduct);
+
+	return (productId == GEYSER_ANSI_PRODUCT_ID) ||
+		(productId == GEYSER_ISO_PRODUCT_ID) ||
+		(productId == GEYSER_JIS_PRODUCT_ID);
+}
 
 static int atp_calculate_abs(int *xy_sensors, int nb_sensors, int fact,
 			     int *z, int *fingers)
@@ -167,13 +190,20 @@ static inline void atp_report_fingers(struct input_dev *input, int fingers)
 static void atp_complete(struct urb* urb, struct pt_regs* regs)
 {
 	int x, y, x_z, y_z, x_f, y_f;
-	int retval, i;
+	int retval, i, j;
 	struct atp *dev = urb->context;
 
 	switch (urb->status) {
 	case 0:
 		/* success */
 		break;
+	case -EOVERFLOW:
+		if(!dev->overflowwarn) {
+			printk("appletouch: OVERFLOW with data "
+				"length %d, actual length is %d\n",
+				dev->datalen, dev->urb->actual_length);
+			dev->overflowwarn = 1;
+		}
 	case -ECONNRESET:
 	case -ENOENT:
 	case -ESHUTDOWN:
@@ -188,23 +218,45 @@ static void atp_complete(struct urb* urb, struct pt_regs* regs)
 	}
 
 	/* drop incomplete datasets */
-	if (dev->urb->actual_length != ATP_DATASIZE) {
+	if (dev->urb->actual_length != dev->datalen) {
 		dprintk("appletouch: incomplete data package.\n");
 		goto exit;
 	}
 
 	/* reorder the sensors values */
-	for (i = 0; i < 8; i++) {
-		/* X values */
-		dev->xy_cur[i     ] = dev->data[5 * i +  2];
-		dev->xy_cur[i +  8] = dev->data[5 * i +  4];
-		dev->xy_cur[i + 16] = dev->data[5 * i + 42];
-		if (i < 2)
-			dev->xy_cur[i + 24] = dev->data[5 * i + 44];
+	if (atp_is_geyser_2(dev)) {
+		memset(dev->xy_cur, 0, sizeof(dev->xy_cur));
 
-		/* Y values */
-		dev->xy_cur[i + 26] = dev->data[5 * i +  1];
-		dev->xy_cur[i + 34] = dev->data[5 * i +  3];
+		/*
+		 * The values are laid out like this:
+		 * Y1, Y2, -, Y3, Y4, -, ..., X1, X2, -, X3, X4, -, ...
+		 * '-' is an unused value.
+		 */
+
+		/* read X values */
+		for (i = 0, j = 19; i < 20; i += 2, j += 3) {
+			dev->xy_cur[i] = dev->data[j];
+			dev->xy_cur[i + 1] = dev->data[j + 1];
+		}
+
+		/* read Y values */
+		for (i = 0, j = 1; i < 9; i += 2, j += 3) {
+			dev->xy_cur[ATP_XSENSORS + i] = dev->data[j];
+			dev->xy_cur[ATP_XSENSORS + i + 1] = dev->data[j + 1];
+		}
+	} else {
+		for (i = 0; i < 8; i++) {
+			/* X values */
+			dev->xy_cur[i     ] = dev->data[5 * i +  2];
+			dev->xy_cur[i +  8] = dev->data[5 * i +  4];
+			dev->xy_cur[i + 16] = dev->data[5 * i + 42];
+			if (i < 2)
+				dev->xy_cur[i + 24] = dev->data[5 * i + 44];
+
+			/* Y values */
+			dev->xy_cur[i + 26] = dev->data[5 * i +  1];
+			dev->xy_cur[i + 34] = dev->data[5 * i +  3];
+		}
 	}
 
 	dbg_dump("sample", dev->xy_cur);
@@ -215,16 +267,24 @@ static void atp_complete(struct urb* urb, struct pt_regs* regs)
 		dev->x_old = dev->y_old = -1;
 		memcpy(dev->xy_old, dev->xy_cur, sizeof(dev->xy_old));
 
-		/* 17" Powerbooks have 10 extra X sensors */
-		for (i = 16; i < ATP_XSENSORS; i++)
-			if (dev->xy_cur[i]) {
-				printk("appletouch: 17\" model detected.\n");
-				input_set_abs_params(&dev->input, ABS_X, 0,
-				     		     (ATP_XSENSORS - 1) *
+		/* 17" Powerbooks have extra X sensors */
+		for (i = (atp_is_geyser_2(dev)?15:16); i < ATP_XSENSORS; i++) {
+			if (!dev->xy_cur[i]) continue;
+
+			printk("appletouch: 17\" model detected.\n");
+			if(atp_is_geyser_2(dev))
+				input_set_abs_params(dev->input, ABS_X, 0,
+						     (20 - 1) *
 						     ATP_XFACT - 1,
 						     ATP_FUZZ, 0);
-				break;
-			}
+			else
+				input_set_abs_params(dev->input, ABS_X, 0,
+						     (ATP_XSENSORS - 1) *
+						     ATP_XFACT - 1,
+						     ATP_FUZZ, 0);
+
+			break;
+		}
 
 		goto exit;
 	}
@@ -260,12 +320,12 @@ static void atp_complete(struct urb* urb, struct pt_regs* regs)
 				       "Xz: %3d Yz: %3d\n",
 				       x, y, x_z, y_z);
 
-			input_report_key(&dev->input, BTN_TOUCH, 1);
-			input_report_abs(&dev->input, ABS_X, x);
-			input_report_abs(&dev->input, ABS_Y, y);
-			input_report_abs(&dev->input, ABS_PRESSURE,
+			input_report_key(dev->input, BTN_TOUCH, 1);
+			input_report_abs(dev->input, ABS_X, x);
+			input_report_abs(dev->input, ABS_Y, y);
+			input_report_abs(dev->input, ABS_PRESSURE,
 					 min(ATP_PRESSURE, x_z + y_z));
-			atp_report_fingers(&dev->input, max(x_f, y_f));
+			atp_report_fingers(dev->input, max(x_f, y_f));
 		}
 		dev->x_old = x;
 		dev->y_old = y;
@@ -273,17 +333,18 @@ static void atp_complete(struct urb* urb, struct pt_regs* regs)
 	else if (!x && !y) {
 
 		dev->x_old = dev->y_old = -1;
-		input_report_key(&dev->input, BTN_TOUCH, 0);
-		input_report_abs(&dev->input, ABS_PRESSURE, 0);
-		atp_report_fingers(&dev->input, 0);
+		input_report_key(dev->input, BTN_TOUCH, 0);
+		input_report_abs(dev->input, ABS_PRESSURE, 0);
+		atp_report_fingers(dev->input, 0);
 
 		/* reset the accumulator on release */
 		memset(dev->xy_acc, 0, sizeof(dev->xy_acc));
 	}
 
-	input_report_key(&dev->input, BTN_LEFT, !!dev->data[80]);
+	input_report_key(dev->input, BTN_LEFT,
+			 !!dev->data[dev->datalen - 1]);
 
-	input_sync(&dev->input);
+	input_sync(dev->input);
 
 exit:
 	retval = usb_submit_urb(dev->urb, GFP_ATOMIC);
@@ -314,21 +375,14 @@ static void atp_close(struct input_dev *input)
 
 static int atp_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
-	struct atp *dev = NULL;
+	struct atp *dev;
+	struct input_dev *input_dev;
+	struct usb_device *udev = interface_to_usbdev(iface);
 	struct usb_host_interface *iface_desc;
 	struct usb_endpoint_descriptor *endpoint;
 	int int_in_endpointAddr = 0;
 	int i, retval = -ENOMEM;
 
-	/* allocate memory for our device state and initialize it */
-	dev = kmalloc(sizeof(struct atp), GFP_KERNEL);
-	if (dev == NULL) {
-		err("Out of memory");
-		goto err_kmalloc;
-	}
-	memset(dev, 0, sizeof(struct atp));
-
-	dev->udev = interface_to_usbdev(iface);
 
 	/* set up the endpoint information */
 	/* use only the first interrupt-in endpoint */
@@ -345,70 +399,95 @@ static int atp_probe(struct usb_interface *iface, const struct usb_device_id *id
 		}
 	}
 	if (!int_in_endpointAddr) {
-		retval = -EIO;
 		err("Could not find int-in endpoint");
-		goto err_endpoint;
+		return -EIO;
 	}
 
-	/* save our data pointer in this interface device */
-	usb_set_intfdata(iface, dev);
+	/* allocate memory for our device state and initialize it */
+	dev = kzalloc(sizeof(struct atp), GFP_KERNEL);
+	input_dev = input_allocate_device();
+	if (!dev || !input_dev) {
+		err("Out of memory");
+		goto err_free_devs;
+	}
+
+	dev->udev = udev;
+	dev->input = input_dev;
+	dev->overflowwarn = 0;
+	dev->datalen = (atp_is_geyser_2(dev)?64:81);
 
 	dev->urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->urb) {
 		retval = -ENOMEM;
-		goto err_usballoc;
+		goto err_free_devs;
 	}
-	dev->data = usb_buffer_alloc(dev->udev, ATP_DATASIZE, GFP_KERNEL,
+
+	dev->data = usb_buffer_alloc(dev->udev, dev->datalen, GFP_KERNEL,
 				     &dev->urb->transfer_dma);
 	if (!dev->data) {
 		retval = -ENOMEM;
-		goto err_usbbufalloc;
+		goto err_free_urb;
 	}
-	usb_fill_int_urb(dev->urb, dev->udev,
-			 usb_rcvintpipe(dev->udev, int_in_endpointAddr),
-			 dev->data, ATP_DATASIZE, atp_complete, dev, 1);
 
-	init_input_dev(&dev->input);
-	dev->input.name = "appletouch";
-	dev->input.dev = &iface->dev;
-	dev->input.private = dev;
-	dev->input.open = atp_open;
-	dev->input.close = atp_close;
+	usb_fill_int_urb(dev->urb, udev,
+			 usb_rcvintpipe(udev, int_in_endpointAddr),
+			 dev->data, dev->datalen, atp_complete, dev, 1);
 
-	usb_to_input_id(dev->udev, &dev->input.id);
+	usb_make_path(udev, dev->phys, sizeof(dev->phys));
+	strlcat(dev->phys, "/input0", sizeof(dev->phys));
 
-	set_bit(EV_ABS, dev->input.evbit);
+	input_dev->name = "appletouch";
+	input_dev->phys = dev->phys;
+	usb_to_input_id(dev->udev, &input_dev->id);
+	input_dev->cdev.dev = &iface->dev;
 
-	/*
-	 * 12" and 15" Powerbooks only have 16 x sensors,
-	 * 17" models are detected later.
-	 */
-	input_set_abs_params(&dev->input, ABS_X, 0,
-			     (16 - 1) * ATP_XFACT - 1, ATP_FUZZ, 0);
-	input_set_abs_params(&dev->input, ABS_Y, 0,
-			     (ATP_YSENSORS - 1) * ATP_YFACT - 1, ATP_FUZZ, 0);
-	input_set_abs_params(&dev->input, ABS_PRESSURE, 0, ATP_PRESSURE, 0, 0);
+	input_dev->private = dev;
+	input_dev->open = atp_open;
+	input_dev->close = atp_close;
 
-	set_bit(EV_KEY, dev->input.evbit);
-	set_bit(BTN_TOUCH, dev->input.keybit);
-	set_bit(BTN_TOOL_FINGER, dev->input.keybit);
-	set_bit(BTN_TOOL_DOUBLETAP, dev->input.keybit);
-	set_bit(BTN_TOOL_TRIPLETAP, dev->input.keybit);
-	set_bit(BTN_LEFT, dev->input.keybit);
+	set_bit(EV_ABS, input_dev->evbit);
 
-	input_register_device(&dev->input);
+	if (atp_is_geyser_2(dev)) {
+		/*
+		 * Oct 2005 15" PowerBooks have 15 X sensors, 17" are detected
+		 * later.
+		 */
+		input_set_abs_params(input_dev, ABS_X, 0,
+				     ((15 - 1) * ATP_XFACT) - 1, ATP_FUZZ, 0);
+		input_set_abs_params(input_dev, ABS_Y, 0,
+				     ((9 - 1) * ATP_YFACT) - 1, ATP_FUZZ, 0);
+	} else {
+		/*
+		 * 12" and 15" Powerbooks only have 16 x sensors,
+		 * 17" models are detected later.
+		 */
+		input_set_abs_params(input_dev, ABS_X, 0,
+				     (16 - 1) * ATP_XFACT - 1, ATP_FUZZ, 0);
+		input_set_abs_params(input_dev, ABS_Y, 0,
+				     (ATP_YSENSORS - 1) * ATP_YFACT - 1, ATP_FUZZ, 0);
+	}
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, ATP_PRESSURE, 0, 0);
 
-	printk(KERN_INFO "input: appletouch connected\n");
+	set_bit(EV_KEY, input_dev->evbit);
+	set_bit(BTN_TOUCH, input_dev->keybit);
+	set_bit(BTN_TOOL_FINGER, input_dev->keybit);
+	set_bit(BTN_TOOL_DOUBLETAP, input_dev->keybit);
+	set_bit(BTN_TOOL_TRIPLETAP, input_dev->keybit);
+	set_bit(BTN_LEFT, input_dev->keybit);
+
+	input_register_device(dev->input);
+
+	/* save our data pointer in this interface device */
+	usb_set_intfdata(iface, dev);
 
 	return 0;
 
-err_usbbufalloc:
+ err_free_urb:
 	usb_free_urb(dev->urb);
-err_usballoc:
+ err_free_devs:
 	usb_set_intfdata(iface, NULL);
-err_endpoint:
 	kfree(dev);
-err_kmalloc:
+	input_free_device(input_dev);
 	return retval;
 }
 
@@ -419,9 +498,9 @@ static void atp_disconnect(struct usb_interface *iface)
 	usb_set_intfdata(iface, NULL);
 	if (dev) {
 		usb_kill_urb(dev->urb);
-		input_unregister_device(&dev->input);
+		input_unregister_device(dev->input);
 		usb_free_urb(dev->urb);
-		usb_buffer_free(dev->udev, ATP_DATASIZE,
+		usb_buffer_free(dev->udev, dev->datalen,
 				dev->data, dev->urb->transfer_dma);
 		kfree(dev);
 	}
@@ -446,7 +525,6 @@ static int atp_resume(struct usb_interface *iface)
 }
 
 static struct usb_driver atp_driver = {
-	.owner		= THIS_MODULE,
 	.name		= "appletouch",
 	.probe		= atp_probe,
 	.disconnect	= atp_disconnect,

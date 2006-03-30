@@ -3,7 +3,7 @@
                  for hardware monitoring
 
     Supports the SMSC LPC47B27x, LPC47M10x, LPC47M13x, LPC47M14x,
-    LPC47M15x and LPC47M192 Super-I/O chips.
+    LPC47M15x, LPC47M192 and LPC47M997 Super-I/O chips.
 
     Copyright (C) 2002 Mark D. Studebaker <mdsxyz123@yahoo.com>
     Copyright (C) 2004 Jean Delvare <khali@linux-fr.org>
@@ -126,8 +126,9 @@ static struct smsc47m1_data *smsc47m1_update_device(struct device *dev,
 
 
 static struct i2c_driver smsc47m1_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "smsc47m1",
+	.driver = {
+		.name	= "smsc47m1",
+	},
 	.attach_adapter	= smsc47m1_detect,
 	.detach_client	= smsc47m1_detach_client,
 };
@@ -356,6 +357,8 @@ static int __init smsc47m1_find(unsigned short *addr)
 	 * 0x5F) and LPC47B27x (device id 0x51) have fan control.
 	 * The LPC47M15x and LPC47M192 chips "with hardware monitoring block"
 	 * can do much more besides (device id 0x60).
+	 * The LPC47M997 is undocumented, but seems to be compatible with
+	 * the LPC47M192, and has the same device id.
 	 */
 	if (val == 0x51)
 		printk(KERN_INFO "smsc47m1: Found SMSC LPC47B27x\n");
@@ -364,7 +367,8 @@ static int __init smsc47m1_find(unsigned short *addr)
 	else if (val == 0x5F)
 		printk(KERN_INFO "smsc47m1: Found SMSC LPC47M14x\n");
 	else if (val == 0x60)
-		printk(KERN_INFO "smsc47m1: Found SMSC LPC47M15x/LPC47M192\n");
+		printk(KERN_INFO "smsc47m1: Found SMSC "
+		       "LPC47M15x/LPC47M192/LPC47M997\n");
 	else {
 		superio_exit();
 		return -ENODEV;
@@ -391,16 +395,15 @@ static int smsc47m1_detect(struct i2c_adapter *adapter)
 	int err = 0;
 	int fan1, fan2, pwm1, pwm2;
 
-	if (!request_region(address, SMSC_EXTENT, smsc47m1_driver.name)) {
+	if (!request_region(address, SMSC_EXTENT, smsc47m1_driver.driver.name)) {
 		dev_err(&adapter->dev, "Region 0x%x already in use!\n", address);
 		return -EBUSY;
 	}
 
-	if (!(data = kmalloc(sizeof(struct smsc47m1_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct smsc47m1_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto error_release;
 	}
-	memset(data, 0x00, sizeof(struct smsc47m1_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

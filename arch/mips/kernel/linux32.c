@@ -161,135 +161,35 @@ out:
 	return error;
 }
 
-struct dirent32 {
-	unsigned int	d_ino;
-	unsigned int	d_off;
-	unsigned short	d_reclen;
-	char		d_name[NAME_MAX + 1];
-};
-
-static void
-xlate_dirent(void *dirent64, void *dirent32, long n)
-{
-	long off;
-	struct dirent *dirp;
-	struct dirent32 *dirp32;
-
-	off = 0;
-	while (off < n) {
-		dirp = (struct dirent *)(dirent64 + off);
-		dirp32 = (struct dirent32 *)(dirent32 + off);
-		off += dirp->d_reclen;
-		dirp32->d_ino = dirp->d_ino;
-		dirp32->d_off = (unsigned int)dirp->d_off;
-		dirp32->d_reclen = dirp->d_reclen;
-		strncpy(dirp32->d_name, dirp->d_name, dirp->d_reclen - ((3 * 4) + 2));
-	}
-	return;
-}
-
-asmlinkage long
-sys32_getdents(unsigned int fd, void * dirent32, unsigned int count)
-{
-	long n;
-	void *dirent64;
-
-	dirent64 = (void *)((unsigned long)(dirent32 + (sizeof(long) - 1)) & ~(sizeof(long) - 1));
-	if ((n = sys_getdents(fd, dirent64, count - (dirent64 - dirent32))) < 0)
-		return(n);
-	xlate_dirent(dirent64, dirent32, n);
-	return(n);
-}
-
-asmlinkage int old_readdir(unsigned int fd, void * dirent, unsigned int count);
-
-asmlinkage int
-sys32_readdir(unsigned int fd, void * dirent32, unsigned int count)
-{
-	int n;
-	struct dirent dirent64;
-
-	if ((n = old_readdir(fd, &dirent64, count)) < 0)
-		return(n);
-	xlate_dirent(&dirent64, dirent32, dirent64.d_reclen);
-	return(n);
-}
-
-struct rusage32 {
-        struct compat_timeval ru_utime;
-        struct compat_timeval ru_stime;
-        int    ru_maxrss;
-        int    ru_ixrss;
-        int    ru_idrss;
-        int    ru_isrss;
-        int    ru_minflt;
-        int    ru_majflt;
-        int    ru_nswap;
-        int    ru_inblock;
-        int    ru_oublock;
-        int    ru_msgsnd;
-        int    ru_msgrcv;
-        int    ru_nsignals;
-        int    ru_nvcsw;
-        int    ru_nivcsw;
-};
-
-static int
-put_rusage (struct rusage32 *ru, struct rusage *r)
-{
-	int err;
-
-	if (!access_ok(VERIFY_WRITE, ru, sizeof *ru))
-		return -EFAULT;
-
-	err = __put_user (r->ru_utime.tv_sec, &ru->ru_utime.tv_sec);
-	err |= __put_user (r->ru_utime.tv_usec, &ru->ru_utime.tv_usec);
-	err |= __put_user (r->ru_stime.tv_sec, &ru->ru_stime.tv_sec);
-	err |= __put_user (r->ru_stime.tv_usec, &ru->ru_stime.tv_usec);
-	err |= __put_user (r->ru_maxrss, &ru->ru_maxrss);
-	err |= __put_user (r->ru_ixrss, &ru->ru_ixrss);
-	err |= __put_user (r->ru_idrss, &ru->ru_idrss);
-	err |= __put_user (r->ru_isrss, &ru->ru_isrss);
-	err |= __put_user (r->ru_minflt, &ru->ru_minflt);
-	err |= __put_user (r->ru_majflt, &ru->ru_majflt);
-	err |= __put_user (r->ru_nswap, &ru->ru_nswap);
-	err |= __put_user (r->ru_inblock, &ru->ru_inblock);
-	err |= __put_user (r->ru_oublock, &ru->ru_oublock);
-	err |= __put_user (r->ru_msgsnd, &ru->ru_msgsnd);
-	err |= __put_user (r->ru_msgrcv, &ru->ru_msgrcv);
-	err |= __put_user (r->ru_nsignals, &ru->ru_nsignals);
-	err |= __put_user (r->ru_nvcsw, &ru->ru_nvcsw);
-	err |= __put_user (r->ru_nivcsw, &ru->ru_nivcsw);
-
-	return err;
-}
-
-asmlinkage int
-sys32_wait4(compat_pid_t pid, unsigned int * stat_addr, int options,
-	    struct rusage32 * ru)
-{
-	if (!ru)
-		return sys_wait4(pid, stat_addr, options, NULL);
-	else {
-		struct rusage r;
-		int ret;
-		unsigned int status;
-		mm_segment_t old_fs = get_fs();
-
-		set_fs(KERNEL_DS);
-		ret = sys_wait4(pid, stat_addr ? &status : NULL, options, &r);
-		set_fs(old_fs);
-		if (put_rusage (ru, &r)) return -EFAULT;
-		if (stat_addr && put_user (status, stat_addr))
-			return -EFAULT;
-		return ret;
-	}
-}
-
 asmlinkage int
 sys32_waitpid(compat_pid_t pid, unsigned int *stat_addr, int options)
 {
-	return sys32_wait4(pid, stat_addr, options, NULL);
+	return compat_sys_wait4(pid, stat_addr, options, NULL);
+}
+
+asmlinkage long
+sysn32_waitid(int which, compat_pid_t pid,
+	      siginfo_t __user *uinfo, int options,
+	      struct compat_rusage __user *uru)
+{
+	struct rusage ru;
+	long ret;
+	mm_segment_t old_fs = get_fs();
+
+	if (!access_ok(VERIFY_WRITE, uinfo, sizeof(*uinfo)))
+		return -EFAULT;
+
+	set_fs (KERNEL_DS);
+	ret = sys_waitid(which, pid, uinfo, options,
+			 uru ? (struct rusage __user *) &ru : NULL);
+	set_fs (old_fs);
+
+	if (ret < 0 || uinfo->si_signo == 0)
+		return ret;
+
+	if (uru)
+		ret = put_compat_rusage(&ru, uru);
+	return ret;
 }
 
 struct sysinfo32 {
@@ -469,7 +369,7 @@ asmlinkage ssize_t sys32_pread(unsigned int fd, char * buf,
 		goto out;
 	pos = merge_64(a4, a5);
 	ret = rw_verify_area(READ, file, &pos, count);
-	if (ret)
+	if (ret < 0)
 		goto out;
 	ret = -EINVAL;
 	if (!file->f_op || !(read = file->f_op->read))
@@ -504,7 +404,7 @@ asmlinkage ssize_t sys32_pwrite(unsigned int fd, const char * buf,
 		goto out;
 	pos = merge_64(a4, a5);
 	ret = rw_verify_area(WRITE, file, &pos, count);
-	if (ret)
+	if (ret < 0)
 		goto out;
 	ret = -EINVAL;
 	if (!file->f_op || !(write = file->f_op->write))
@@ -1466,4 +1366,62 @@ asmlinkage long sys32_socketcall(int call, unsigned int *args32)
 			break;
 	}
 	return err;
+}
+
+struct sigevent32 {
+	u32 sigev_value;
+	u32 sigev_signo;
+	u32 sigev_notify;
+	u32 payload[(64 / 4) - 3];
+};
+
+extern asmlinkage long
+sys_timer_create(clockid_t which_clock,
+		 struct sigevent __user *timer_event_spec,
+		 timer_t __user * created_timer_id);
+
+long
+sys32_timer_create(u32 clock, struct sigevent32 __user *se32, timer_t __user *timer_id)
+{
+	struct sigevent __user *p = NULL;
+	if (se32) {
+		struct sigevent se;
+		p = compat_alloc_user_space(sizeof(struct sigevent));
+		memset(&se, 0, sizeof(struct sigevent));
+		if (get_user(se.sigev_value.sival_int,  &se32->sigev_value) ||
+		    __get_user(se.sigev_signo, &se32->sigev_signo) ||
+		    __get_user(se.sigev_notify, &se32->sigev_notify) ||
+		    __copy_from_user(&se._sigev_un._pad, &se32->payload,
+				     sizeof(se32->payload)) ||
+		    copy_to_user(p, &se, sizeof(se)))
+			return -EFAULT;
+	}
+	return sys_timer_create(clock, p, timer_id);
+}
+
+save_static_function(sys32_clone);
+__attribute_used__ noinline static int
+_sys32_clone(nabi_no_regargs struct pt_regs regs)
+{
+	unsigned long clone_flags;
+	unsigned long newsp;
+	int __user *parent_tidptr, *child_tidptr;
+
+	clone_flags = regs.regs[4];
+	newsp = regs.regs[5];
+	if (!newsp)
+		newsp = regs.regs[29];
+	parent_tidptr = (int *) regs.regs[6];
+
+	/* Use __dummy4 instead of getting it off the stack, so that
+	   syscall() works.  */
+	child_tidptr = (int __user *) __dummy4;
+	return do_fork(clone_flags, newsp, &regs, 0,
+	               parent_tidptr, child_tidptr);
+}
+
+extern asmlinkage void sys_set_thread_area(u32 addr);
+asmlinkage void sys32_set_thread_area(u32 addr)
+{
+	sys_set_thread_area(AA(addr));
 }

@@ -174,7 +174,6 @@ xdr_decode_fattr(u32 *p, struct nfs_fattr *fattr)
 
 	/* Update the mode bits */
 	fattr->valid |= (NFS_ATTR_FATTR | NFS_ATTR_FATTR_V3);
-	fattr->timestamp = jiffies;
 	return p;
 }
 
@@ -183,7 +182,7 @@ xdr_encode_sattr(u32 *p, struct iattr *attr)
 {
 	if (attr->ia_valid & ATTR_MODE) {
 		*p++ = xdr_one;
-		*p++ = htonl(attr->ia_mode);
+		*p++ = htonl(attr->ia_mode & S_IALLUGO);
 	} else {
 		*p++ = xdr_zero;
 	}

@@ -46,10 +46,14 @@
 */
 
 static struct map_desc autcpu12_io_desc[] __initdata = {
- /* virtual, physical, length, type */
- /* memory-mapped extra io and CS8900A Ethernet chip */
- /* ethernet chip */
- 	{ AUTCPU12_VIRT_CS8900A, AUTCPU12_PHYS_CS8900A, SZ_1M, MT_DEVICE }
+	/* memory-mapped extra io and CS8900A Ethernet chip */
+ 	/* ethernet chip */
+ 	{
+		.virtual	= AUTCPU12_VIRT_CS8900A,
+		.pfn		= __phys_to_pfn(AUTCPU12_PHYS_CS8900A),
+		.length		= SZ_1M,
+		.type		= MT_DEVICE
+	}
 };
 
 void __init autcpu12_map_io(void)
@@ -60,7 +64,6 @@ void __init autcpu12_map_io(void)
 
 MACHINE_START(AUTCPU12, "autronix autcpu12")
 	/* Maintainer: Thomas Gleixner */
-	.phys_ram	= 0xc0000000,
 	.phys_io	= 0x80000000,
 	.io_pg_offst	= ((0xff000000) >> 18) & 0xfffc,
 	.boot_params	= 0xc0020000,

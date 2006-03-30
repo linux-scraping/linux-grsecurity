@@ -30,7 +30,6 @@
 #include <linux/spinlock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/mii.h>
 #include <linux/ethtool.h>
 #include <linux/phy.h>
@@ -38,6 +37,10 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/uaccess.h>
+
+MODULE_DESCRIPTION("PHY library");
+MODULE_AUTHOR("Andy Fleming");
+MODULE_LICENSE("GPL");
 
 static struct phy_driver genphy_driver;
 extern int mdio_bus_init(void);
@@ -101,7 +104,6 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
 	return dev;
 }
 
-#ifdef CONFIG_PHYCONTROL
 /* phy_prepare_link:
  *
  * description: Tells the PHY infrastructure to handle the
@@ -159,8 +161,6 @@ void phy_disconnect(struct phy_device *phydev)
 	phy_detach(phydev);
 }
 EXPORT_SYMBOL(phy_disconnect);
-
-#endif /* CONFIG_PHYCONTROL */
 
 /* phy_attach:
  *

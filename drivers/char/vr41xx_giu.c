@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2002 MontaVista Software Inc.
  *	Author: Yoichi Yuasa <yyuasa@mvista.com or source@mvista.com>
- *  Copyright (C) 2003-2005  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copyright (C) 2003-2005  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -35,7 +35,7 @@
 #include <asm/vr41xx/giu.h>
 #include <asm/vr41xx/vr41xx.h>
 
-MODULE_AUTHOR("Yoichi Yuasa <yuasa@hh.iij4u.or.jp>");
+MODULE_AUTHOR("Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>");
 MODULE_DESCRIPTION("NEC VR4100 series General-purpose I/O Unit driver");
 MODULE_LICENSE("GPL");
 
@@ -613,7 +613,7 @@ static struct file_operations gpio_fops = {
 	.release	= gpio_release,
 };
 
-static int giu_probe(struct device *dev)
+static int giu_probe(struct platform_device *dev)
 {
 	unsigned long start, size, flags = 0;
 	unsigned int nr_pins = 0;
@@ -697,7 +697,7 @@ static int giu_probe(struct device *dev)
 	return cascade_irq(GIUINT_IRQ, giu_get_irq);
 }
 
-static int giu_remove(struct device *dev)
+static int giu_remove(struct platform_device *dev)
 {
 	iounmap(giu_base);
 
@@ -710,14 +710,15 @@ static int giu_remove(struct device *dev)
 
 static struct platform_device *giu_platform_device;
 
-static struct device_driver giu_device_driver = {
-	.name		= "GIU",
-	.bus		= &platform_bus_type,
+static struct platform_driver giu_device_driver = {
 	.probe		= giu_probe,
 	.remove		= giu_remove,
+	.driver		= {
+		.name	= "GIU",
+	},
 };
 
-static int __devinit vr41xx_giu_init(void)
+static int __init vr41xx_giu_init(void)
 {
 	int retval;
 
@@ -725,16 +726,16 @@ static int __devinit vr41xx_giu_init(void)
 	if (IS_ERR(giu_platform_device))
 		return PTR_ERR(giu_platform_device);
 
-	retval = driver_register(&giu_device_driver);
+	retval = platform_driver_register(&giu_device_driver);
 	if (retval < 0)
 		platform_device_unregister(giu_platform_device);
 
 	return retval;
 }
 
-static void __devexit vr41xx_giu_exit(void)
+static void __exit vr41xx_giu_exit(void)
 {
-	driver_unregister(&giu_device_driver);
+	platform_driver_unregister(&giu_device_driver);
 
 	platform_device_unregister(giu_platform_device);
 }

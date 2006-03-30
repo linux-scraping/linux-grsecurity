@@ -8,11 +8,16 @@
 #ifndef _ASM_S390_SETUP_H
 #define _ASM_S390_SETUP_H
 
+#ifdef __KERNEL__
+
+#include <asm/types.h>
+
 #define PARMAREA		0x10400
 #define COMMAND_LINE_SIZE 	896
 #define RAMDISK_ORIGIN		0x800000
 #define RAMDISK_SIZE		0x800000
 #define MEMORY_CHUNKS		16	/* max 0x7fff */
+#define IPL_PARMBLOCK_ORIGIN	0x2000
 
 #ifndef __ASSEMBLY__
 
@@ -64,7 +69,54 @@ extern unsigned int console_irq;
 #define SET_CONSOLE_3215	do { console_mode = 2; } while (0)
 #define SET_CONSOLE_3270	do { console_mode = 3; } while (0)
 
-#else 
+struct ipl_list_header {
+	u32 length;
+	u8  reserved[3];
+	u8  version;
+} __attribute__((packed));
+
+struct ipl_block_fcp {
+	u32 length;
+	u8  pbt;
+	u8  reserved1[322-1];
+	u16 devno;
+	u8  reserved2[4];
+	u64 wwpn;
+	u64 lun;
+	u32 bootprog;
+	u8  reserved3[12];
+	u64 br_lba;
+	u32 scp_data_len;
+	u8  reserved4[260];
+	u8  scp_data[];
+} __attribute__((packed));
+
+struct ipl_parameter_block {
+	union {
+		u32 length;
+		struct ipl_list_header header;
+	} hdr;
+	struct ipl_block_fcp fcp;
+} __attribute__((packed));
+
+#define IPL_MAX_SUPPORTED_VERSION (0)
+
+#define IPL_TYPE_FCP (0)
+
+/*
+ * IPL validity flags and parameters as detected in head.S
+ */
+extern u32 ipl_parameter_flags;
+extern u16 ipl_devno;
+
+#define IPL_DEVNO_VALID		(ipl_parameter_flags & 1)
+#define IPL_PARMBLOCK_VALID	(ipl_parameter_flags & 2)
+
+#define IPL_PARMBLOCK_START	((struct ipl_parameter_block *) \
+				 IPL_PARMBLOCK_ORIGIN)
+#define IPL_PARMBLOCK_SIZE	(IPL_PARMBLOCK_START->hdr.length)
+
+#else /* __ASSEMBLY__ */
 
 #ifndef __s390x__
 #define IPL_DEVICE        0x10404
@@ -77,6 +129,6 @@ extern unsigned int console_irq;
 #endif /* __s390x__ */
 #define COMMAND_LINE      0x10480
 
-#endif
-
-#endif
+#endif /* __ASSEMBLY__ */
+#endif /* __KERNEL__ */
+#endif /* _ASM_S390_SETUP_H */

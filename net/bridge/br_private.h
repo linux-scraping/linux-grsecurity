@@ -27,6 +27,10 @@
 #define BR_PORT_BITS	10
 #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
 
+#define BR_PORT_DEBOUNCE (HZ/10)
+
+#define BR_VERSION	"2.1"
+
 typedef struct bridge_id bridge_id;
 typedef struct mac_addr mac_addr;
 typedef __u16 port_id;
@@ -78,6 +82,7 @@ struct net_bridge_port
 	struct timer_list		hold_timer;
 	struct timer_list		message_age_timer;
 	struct kobject			kobj;
+	struct work_struct		carrier_check;
 	struct rcu_head			rcu;
 };
 
@@ -90,6 +95,7 @@ struct net_bridge
 	spinlock_t			hash_lock;
 	struct hlist_head		hash[BR_HASH_SIZE];
 	struct list_head		age_list;
+	unsigned long			feature_mask;
 
 	/* STP */
 	bridge_id			designated_root;
@@ -201,6 +207,7 @@ extern void br_stp_disable_bridge(struct net_bridge *br);
 extern void br_stp_enable_port(struct net_bridge_port *p);
 extern void br_stp_disable_port(struct net_bridge_port *p);
 extern void br_stp_recalculate_bridge_id(struct net_bridge *br);
+extern void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *a);
 extern void br_stp_set_bridge_priority(struct net_bridge *br,
 				       u16 newprio);
 extern void br_stp_set_port_priority(struct net_bridge_port *p,
@@ -225,9 +232,8 @@ extern void (*br_fdb_put_hook)(struct net_bridge_fdb_entry *ent);
 
 #ifdef CONFIG_SYSFS
 /* br_sysfs_if.c */
+extern struct sysfs_ops brport_sysfs_ops;
 extern int br_sysfs_addif(struct net_bridge_port *p);
-extern void br_sysfs_removeif(struct net_bridge_port *p);
-extern void br_sysfs_freeif(struct net_bridge_port *p);
 
 /* br_sysfs_br.c */
 extern int br_sysfs_addbr(struct net_device *dev);
@@ -236,8 +242,6 @@ extern void br_sysfs_delbr(struct net_device *dev);
 #else
 
 #define br_sysfs_addif(p)	(0)
-#define br_sysfs_removeif(p)	do { } while(0)
-#define br_sysfs_freeif(p)	kfree(p)
 #define br_sysfs_addbr(dev)	(0)
 #define br_sysfs_delbr(dev)	do { } while(0)
 #endif /* CONFIG_SYSFS */

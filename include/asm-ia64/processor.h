@@ -25,8 +25,8 @@
  * Limits for PMC and PMD are set to less than maximum architected values
  * but should be sufficient for a while
  */
-#define IA64_NUM_PMC_REGS	32
-#define IA64_NUM_PMD_REGS	32
+#define IA64_NUM_PMC_REGS	64
+#define IA64_NUM_PMD_REGS	64
 
 #define DEFAULT_MAP_BASE	__IA64_UL_CONST(0x2000000000000000)
 #define DEFAULT_TASK_SIZE	__IA64_UL_CONST(0xa000000000000000)
@@ -352,7 +352,7 @@ extern unsigned long get_wchan (struct task_struct *p);
 /* Return instruction pointer of blocked task TSK.  */
 #define KSTK_EIP(tsk)					\
   ({							\
-	struct pt_regs *_regs = ia64_task_regs(tsk);	\
+	struct pt_regs *_regs = task_pt_regs(tsk);	\
 	_regs->cr_iip + ia64_psr(_regs)->ri;		\
   })
 
@@ -558,6 +558,23 @@ ia64_eoi (void)
 }
 
 #define cpu_relax()	ia64_hint(ia64_hint_pause)
+
+static inline int
+ia64_get_irr(unsigned int vector)
+{
+	unsigned int reg = vector / 64;
+	unsigned int bit = vector % 64;
+	u64 irr;
+
+	switch (reg) {
+	case 0: irr = ia64_getreg(_IA64_REG_CR_IRR0); break;
+	case 1: irr = ia64_getreg(_IA64_REG_CR_IRR1); break;
+	case 2: irr = ia64_getreg(_IA64_REG_CR_IRR2); break;
+	case 3: irr = ia64_getreg(_IA64_REG_CR_IRR3); break;
+	}
+
+	return test_bit(bit, &irr);
+}
 
 static inline void
 ia64_set_lrr0 (unsigned long val)

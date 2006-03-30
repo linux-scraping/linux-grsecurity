@@ -71,8 +71,8 @@ static struct acpi_driver acpi_memory_device_driver = {
 struct acpi_memory_device {
 	acpi_handle handle;
 	unsigned int state;	/* State of the memory device */
-	unsigned short cache_attribute;	/* memory cache attribute */
-	unsigned short read_write_attribute;	/* memory read/write attribute */
+	unsigned short caching;	/* memory cache attribute */
+	unsigned short write_protect;	/* memory read/write attribute */
 	u64 start_addr;		/* Memory Range start physical addr */
 	u64 end_addr;		/* Memory Range end physical addr */
 };
@@ -97,12 +97,12 @@ acpi_memory_get_device_resources(struct acpi_memory_device *mem_device)
 	if (ACPI_SUCCESS(status)) {
 		if (address64.resource_type == ACPI_MEMORY_RANGE) {
 			/* Populate the structure */
-			mem_device->cache_attribute =
-			    address64.attribute.memory.cache_attribute;
-			mem_device->read_write_attribute =
-			    address64.attribute.memory.read_write_attribute;
-			mem_device->start_addr = address64.min_address_range;
-			mem_device->end_addr = address64.max_address_range;
+			mem_device->caching =
+			    address64.info.mem.caching;
+			mem_device->write_protect =
+			    address64.info.mem.write_protect;
+			mem_device->start_addr = address64.minimum;
+			mem_device->end_addr = address64.maximum;
 		}
 	}
 
@@ -200,8 +200,7 @@ static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
 	 * Note: Assume that this function returns zero on success
 	 */
 	result = add_memory(mem_device->start_addr,
-			    (mem_device->end_addr - mem_device->start_addr) + 1,
-			    mem_device->read_write_attribute);
+			    (mem_device->end_addr - mem_device->start_addr) + 1);
 	if (result) {
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR, "\nadd_memory failed\n"));
 		mem_device->state = MEMORY_INVALID_STATE;
@@ -251,7 +250,6 @@ static int acpi_memory_disable_device(struct acpi_memory_device *mem_device)
 	int result;
 	u64 start = mem_device->start_addr;
 	u64 len = mem_device->end_addr - start + 1;
-	unsigned long attr = mem_device->read_write_attribute;
 
 	ACPI_FUNCTION_TRACE("acpi_memory_disable_device");
 
@@ -259,7 +257,7 @@ static int acpi_memory_disable_device(struct acpi_memory_device *mem_device)
 	 * Ask the VM to offline this memory range.
 	 * Note: Assume that this function returns zero on success
 	 */
-	result = remove_memory(start, len, attr);
+	result = remove_memory(start, len);
 	if (result) {
 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR, "Hot-Remove failed.\n"));
 		return_VALUE(result);

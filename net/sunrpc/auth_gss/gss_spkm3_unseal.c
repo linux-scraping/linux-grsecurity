@@ -52,7 +52,7 @@ u32
 spkm3_read_token(struct spkm3_ctx *ctx,
 		struct xdr_netobj *read_token,    /* checksum */
 		struct xdr_buf *message_buffer, /* signbuf */
-		int *qop_state, int toktype)
+		int toktype)
 {
 	s32			code;
 	struct xdr_netobj	wire_cksum = {.len =0, .data = NULL};
@@ -95,7 +95,7 @@ spkm3_read_token(struct spkm3_ctx *ctx,
 		ret = GSS_S_DEFECTIVE_TOKEN;
 		code = make_checksum(CKSUMTYPE_RSA_MD5, ptr + 2, 
 					mic_hdrlen + 2, 
-		                        message_buffer, &md5cksum);
+		                        message_buffer, 0, &md5cksum);
 
 		if (code)
 			goto out;
@@ -120,9 +120,7 @@ spkm3_read_token(struct spkm3_ctx *ctx,
 	/* XXX: need to add expiration and sequencing */
 	ret = GSS_S_COMPLETE;
 out:
-	if (md5cksum.data) 
-		kfree(md5cksum.data);
-	if (wire_cksum.data) 
-		kfree(wire_cksum.data);
+	kfree(md5cksum.data);
+	kfree(wire_cksum.data);
 	return ret;
 }

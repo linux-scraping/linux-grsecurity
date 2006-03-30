@@ -211,7 +211,7 @@ int mmc_wait_for_app_cmd(struct mmc_host *host, unsigned int rca,
 
 		appcmd.opcode = MMC_APP_CMD;
 		appcmd.arg = rca << 16;
-		appcmd.flags = MMC_RSP_R1;
+		appcmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 		appcmd.retries = 0;
 		memset(appcmd.resp, 0, sizeof(appcmd.resp));
 		appcmd.data = NULL;
@@ -331,7 +331,7 @@ static int mmc_select_card(struct mmc_host *host, struct mmc_card *card)
 
 	cmd.opcode = MMC_SELECT_CARD;
 	cmd.arg = card->rca << 16;
-	cmd.flags = MMC_RSP_R1;
+	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 	err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 	if (err != MMC_ERR_NONE)
@@ -358,7 +358,7 @@ static int mmc_select_card(struct mmc_host *host, struct mmc_card *card)
 			struct mmc_command cmd;
 			cmd.opcode = SD_APP_SET_BUS_WIDTH;
 			cmd.arg = SD_BUS_WIDTH_4;
-			cmd.flags = MMC_RSP_R1;
+			cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 			err = mmc_wait_for_app_cmd(host, card->rca, &cmd,
 				CMD_RETRIES);
@@ -386,7 +386,7 @@ static void mmc_deselect_cards(struct mmc_host *host)
 
 		cmd.opcode = MMC_SELECT_CARD;
 		cmd.arg = 0;
-		cmd.flags = MMC_RSP_NONE;
+		cmd.flags = MMC_RSP_NONE | MMC_CMD_AC;
 
 		mmc_wait_for_cmd(host, &cmd, 0);
 	}
@@ -495,6 +495,7 @@ static void mmc_decode_cid(struct mmc_card *card)
 
 		case 2: /* MMC v2.0 - v2.2 */
 		case 3: /* MMC v3.1 - v3.3 */
+		case 4: /* MMC v4 */
 			card->cid.manfid	= UNSTUFF_BITS(resp, 120, 8);
 			card->cid.oemid		= UNSTUFF_BITS(resp, 104, 16);
 			card->cid.prod_name[0]	= UNSTUFF_BITS(resp, 96, 8);
@@ -550,6 +551,11 @@ static void mmc_decode_csd(struct mmc_card *card)
 		csd->capacity	  = (1 + m) << (e + 2);
 
 		csd->read_blkbits = UNSTUFF_BITS(resp, 80, 4);
+		csd->read_partial = UNSTUFF_BITS(resp, 79, 1);
+		csd->write_misalign = UNSTUFF_BITS(resp, 78, 1);
+		csd->read_misalign = UNSTUFF_BITS(resp, 77, 1);
+		csd->write_blkbits = UNSTUFF_BITS(resp, 22, 4);
+		csd->write_partial = UNSTUFF_BITS(resp, 21, 1);
 	} else {
 		/*
 		 * We only understand CSD structure v1.1 and v1.2.
@@ -579,6 +585,11 @@ static void mmc_decode_csd(struct mmc_card *card)
 		csd->capacity	  = (1 + m) << (e + 2);
 
 		csd->read_blkbits = UNSTUFF_BITS(resp, 80, 4);
+		csd->read_partial = UNSTUFF_BITS(resp, 79, 1);
+		csd->write_misalign = UNSTUFF_BITS(resp, 78, 1);
+		csd->read_misalign = UNSTUFF_BITS(resp, 77, 1);
+		csd->write_blkbits = UNSTUFF_BITS(resp, 22, 4);
+		csd->write_partial = UNSTUFF_BITS(resp, 21, 1);
 	}
 }
 
@@ -666,7 +677,7 @@ static void mmc_idle_cards(struct mmc_host *host)
 
 	cmd.opcode = MMC_GO_IDLE_STATE;
 	cmd.arg = 0;
-	cmd.flags = MMC_RSP_NONE;
+	cmd.flags = MMC_RSP_NONE | MMC_CMD_BC;
 
 	mmc_wait_for_cmd(host, &cmd, 0);
 
@@ -679,7 +690,15 @@ static void mmc_idle_cards(struct mmc_host *host)
 }
 
 /*
- * Apply power to the MMC stack.
+ * Apply power to the MMC stack.  This is a two-stage process.
+ * First, we enable power to the card without the clock running.
+ * We then wait a bit for the power to stabilise.  Finally,
+ * enable the bus drivers and clock to the card.
+ *
+ * We must _NOT_ enable the clock prior to power stablising.
+ *
+ * If a host does all the power sequencing itself, ignore the
+ * initial MMC_POWER_UP stage.
  */
 static void mmc_power_up(struct mmc_host *host)
 {
@@ -719,7 +738,7 @@ static int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 
 	cmd.opcode = MMC_SEND_OP_COND;
 	cmd.arg = ocr;
-	cmd.flags = MMC_RSP_R3;
+	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 
 	for (i = 100; i; i--) {
 		err = mmc_wait_for_cmd(host, &cmd, 0);
@@ -747,7 +766,7 @@ static int mmc_send_app_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 
 	cmd.opcode = SD_APP_OP_COND;
 	cmd.arg = ocr;
-	cmd.flags = MMC_RSP_R3;
+	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 
 	for (i = 100; i; i--) {
 		err = mmc_wait_for_app_cmd(host, 0, &cmd, CMD_RETRIES);
@@ -786,7 +805,7 @@ static void mmc_discover_cards(struct mmc_host *host)
 
 		cmd.opcode = MMC_ALL_SEND_CID;
 		cmd.arg = 0;
-		cmd.flags = MMC_RSP_R2;
+		cmd.flags = MMC_RSP_R2 | MMC_CMD_BCR;
 
 		err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 		if (err == MMC_ERR_TIMEOUT) {
@@ -816,7 +835,7 @@ static void mmc_discover_cards(struct mmc_host *host)
 
 			cmd.opcode = SD_SEND_RELATIVE_ADDR;
 			cmd.arg = 0;
-			cmd.flags = MMC_RSP_R1;
+			cmd.flags = MMC_RSP_R6 | MMC_CMD_BCR;
 
 			err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 			if (err != MMC_ERR_NONE)
@@ -837,7 +856,7 @@ static void mmc_discover_cards(struct mmc_host *host)
 		} else {
 			cmd.opcode = MMC_SET_RELATIVE_ADDR;
 			cmd.arg = card->rca << 16;
-			cmd.flags = MMC_RSP_R1;
+			cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 			err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 			if (err != MMC_ERR_NONE)
@@ -859,7 +878,7 @@ static void mmc_read_csds(struct mmc_host *host)
 
 		cmd.opcode = MMC_SEND_CSD;
 		cmd.arg = card->rca << 16;
-		cmd.flags = MMC_RSP_R2;
+		cmd.flags = MMC_RSP_R2 | MMC_CMD_AC;
 
 		err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 		if (err != MMC_ERR_NONE) {
@@ -901,7 +920,7 @@ static void mmc_read_scrs(struct mmc_host *host)
 
 		cmd.opcode = MMC_APP_CMD;
 		cmd.arg = card->rca << 16;
-		cmd.flags = MMC_RSP_R1;
+		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 		err = mmc_wait_for_cmd(host, &cmd, 0);
 		if ((err != MMC_ERR_NONE) || !(cmd.resp[0] & R1_APP_CMD)) {
@@ -913,7 +932,7 @@ static void mmc_read_scrs(struct mmc_host *host)
 
 		cmd.opcode = SD_APP_SEND_SCR;
 		cmd.arg = 0;
-		cmd.flags = MMC_RSP_R1;
+		cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
 
 		memset(&data, 0, sizeof(struct mmc_data));
 
@@ -932,8 +951,9 @@ static void mmc_read_scrs(struct mmc_host *host)
 
 		sg_init_one(&sg, (u8*)card->raw_scr, 8);
 
-		err = mmc_wait_for_req(host, &mrq);
-		if (err != MMC_ERR_NONE) {
+		mmc_wait_for_req(host, &mrq);
+
+		if (cmd.error != MMC_ERR_NONE || data.error != MMC_ERR_NONE) {
 			mmc_card_set_dead(card);
 			continue;
 		}
@@ -983,7 +1003,7 @@ static void mmc_check_cards(struct mmc_host *host)
 
 		cmd.opcode = MMC_SEND_STATUS;
 		cmd.arg = card->rca << 16;
-		cmd.flags = MMC_RSP_R1;
+		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 		err = mmc_wait_for_cmd(host, &cmd, CMD_RETRIES);
 		if (err == MMC_ERR_NONE)
@@ -1263,7 +1283,7 @@ EXPORT_SYMBOL(mmc_suspend_host);
  */
 int mmc_resume_host(struct mmc_host *host)
 {
-	mmc_detect_change(host, 0);
+	mmc_rescan(host);
 
 	return 0;
 }

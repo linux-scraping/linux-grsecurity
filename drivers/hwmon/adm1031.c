@@ -105,9 +105,9 @@ static struct adm1031_data *adm1031_update_device(struct device *dev);
 
 /* This is the driver that will be inserted */
 static struct i2c_driver adm1031_driver = {
-	.owner = THIS_MODULE,
-	.name = "adm1031",
-	.flags = I2C_DF_NOTIFY,
+	.driver = {
+		.name = "adm1031",
+	},
 	.attach_adapter = adm1031_attach_adapter,
 	.detach_client = adm1031_detach_client,
 };
@@ -740,11 +740,10 @@ static int adm1031_detect(struct i2c_adapter *adapter, int address, int kind)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct adm1031_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct adm1031_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct adm1031_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

@@ -59,7 +59,7 @@ struct thread_struct {
 
 
 /* Do necessary setup to start up a newly executed thread.  */
-extern inline void start_thread (struct pt_regs *regs,
+static inline void start_thread (struct pt_regs *regs,
 				 unsigned long pc, unsigned long usp)
 {
 	regs->pc = pc;
@@ -68,7 +68,7 @@ extern inline void start_thread (struct pt_regs *regs,
 }
 
 /* Free all resources held by a thread. */
-extern inline void release_thread (struct task_struct *dead_task)
+static inline void release_thread (struct task_struct *dead_task)
 {
 }
 
@@ -98,10 +98,10 @@ unsigned long get_wchan (struct task_struct *p);
 
 
 /* Return some info about the user process TASK.  */
-#define task_tos(task)	((unsigned long)(task)->thread_info + THREAD_SIZE)
-#define task_regs(task) ((struct pt_regs *)task_tos (task) - 1)
-#define task_sp(task)	(task_regs (task)->gpr[GPR_SP])
-#define task_pc(task)	(task_regs (task)->pc)
+#define task_tos(task)	((unsigned long)task_stack_page(task) + THREAD_SIZE)
+#define task_pt_regs(task) ((struct pt_regs *)task_tos (task) - 1)
+#define task_sp(task)	(task_pt_regs (task)->gpr[GPR_SP])
+#define task_pc(task)	(task_pt_regs (task)->pc)
 /* Grotty old names for some.  */
 #define KSTK_EIP(task)	task_pc (task)
 #define KSTK_ESP(task)	task_sp (task)

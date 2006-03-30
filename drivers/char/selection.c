@@ -246,8 +246,7 @@ int set_selection(const struct tiocl_selection __user *sel, struct tty_struct *t
 		clear_selection();
 		return -ENOMEM;
 	}
-	if (sel_buffer)
-		kfree(sel_buffer);
+	kfree(sel_buffer);
 	sel_buffer = bp;
 
 	obp = bp;
@@ -276,7 +275,8 @@ int set_selection(const struct tiocl_selection __user *sel, struct tty_struct *t
 int paste_selection(struct tty_struct *tty)
 {
 	struct vc_data *vc = (struct vc_data *)tty->driver_data;
-	int	pasted = 0, count;
+	int	pasted = 0;
+	unsigned int count;
 	struct  tty_ldisc *ld;
 	DECLARE_WAITQUEUE(wait, current);
 
@@ -294,7 +294,7 @@ int paste_selection(struct tty_struct *tty)
 			continue;
 		}
 		count = sel_buffer_lth - pasted;
-		count = min(count, tty->ldisc.receive_room(tty));
+		count = min(count, tty->receive_room);
 		tty->ldisc.receive_buf(tty, sel_buffer + pasted, NULL, count);
 		pasted += count;
 	}

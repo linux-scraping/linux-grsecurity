@@ -934,6 +934,13 @@ static int do_replace(void __user *user, unsigned int len)
 		BUGPRINT("Entries_size never zero\n");
 		return -EINVAL;
 	}
+	/* overflow check */
+	if (tmp.nentries >= ((INT_MAX - sizeof(struct ebt_table_info)) / NR_CPUS -
+			SMP_CACHE_BYTES) / sizeof(struct ebt_counter))
+		return -ENOMEM;
+	if (tmp.num_counters >= INT_MAX / sizeof(struct ebt_counter))
+		return -ENOMEM;
+
 	countersize = COUNTER_OFFSET(tmp.nentries) * 
 					(highest_possible_processor_id()+1);
 	newinfo = (struct ebt_table_info *)
@@ -944,7 +951,7 @@ static int do_replace(void __user *user, unsigned int len)
 	if (countersize)
 		memset(newinfo->counters, 0, countersize);
 
-	newinfo->entries = (char *)vmalloc(tmp.entries_size);
+	newinfo->entries = vmalloc(tmp.entries_size);
 	if (!newinfo->entries) {
 		ret = -ENOMEM;
 		goto free_newinfo;
@@ -1146,7 +1153,7 @@ int ebt_register_table(struct ebt_table *table)
 	if (!newinfo)
 		return -ENOMEM;
 
-	newinfo->entries = (char *)vmalloc(table->table->entries_size);
+	newinfo->entries = vmalloc(table->table->entries_size);
 	if (!(newinfo->entries))
 		goto free_newinfo;
 

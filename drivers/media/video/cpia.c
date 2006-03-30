@@ -3369,7 +3369,7 @@ static int cpia_do_ioctl(struct inode *inode, struct file *file,
 	//DBG("cpia_ioctl: %u\n", ioctlnr);
 
 	switch (ioctlnr) {
-	/* query capabilites */
+	/* query capabilities */
 	case VIDIOCGCAP:
 	{
 		struct video_capability *b = arg;
@@ -3807,6 +3807,7 @@ static struct file_operations cpia_fops = {
 	.read		= cpia_read,
 	.mmap		= cpia_mmap,
 	.ioctl          = cpia_ioctl,
+	.compat_ioctl	= v4l_compat_ioctl32,
 	.llseek         = no_llseek,
 };
 

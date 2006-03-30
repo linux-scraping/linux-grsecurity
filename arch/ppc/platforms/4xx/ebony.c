@@ -54,7 +54,7 @@
 #include <syslib/gen550.h>
 #include <syslib/ibm440gp_common.h>
 
-bd_t __res;
+extern bd_t __res;
 
 static struct ibm44x_clocks clocks __initdata;
 
@@ -90,7 +90,7 @@ ebony_calibrate_decr(void)
 	 * on Rev. C silicon then errata forces us to
 	 * use the internal clock.
 	 */
-	if (strcmp(cur_cpu_spec[0]->cpu_name, "440GP Rev. B") == 0)
+	if (strcmp(cur_cpu_spec->cpu_name, "440GP Rev. B") == 0)
 		freq = EBONY_440GP_RB_SYSCLK;
 	else
 		freq = EBONY_440GP_RC_SYSCLK;
@@ -225,8 +225,8 @@ ebony_early_serial_map(void)
 	port.irq = 0;
 	port.uartclk = clocks.uart0;
 	port.regshift = 0;
-	port.iotype = SERIAL_IO_MEM;
-	port.flags = ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST;
+	port.iotype = UPIO_MEM;
+	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
 	port.line = 0;
 
 	if (early_serial_setup(&port) != 0) {
@@ -317,16 +317,7 @@ ebony_setup_arch(void)
 void __init platform_init(unsigned long r3, unsigned long r4,
 		unsigned long r5, unsigned long r6, unsigned long r7)
 {
-	parse_bootinfo(find_bootinfo());
-
-	/*
-	 * If we were passed in a board information, copy it into the
-	 * residual data area.
-	 */
-	if (r3)
-		__res = *(bd_t *)(r3 + KERNELBASE);
-
-	ibm44x_platform_init();
+	ibm44x_platform_init(r3, r4, r5, r6, r7);
 
 	ppc_md.setup_arch = ebony_setup_arch;
 	ppc_md.show_cpuinfo = ebony_show_cpuinfo;

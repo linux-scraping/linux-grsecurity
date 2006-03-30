@@ -159,6 +159,7 @@ struct neofb_par {
 	unsigned char PanelDispCntlReg1;
 	unsigned char PanelDispCntlReg2;
 	unsigned char PanelDispCntlReg3;
+	unsigned char PanelDispCntlRegRead;
 	unsigned char PanelVertCenterReg1;
 	unsigned char PanelVertCenterReg2;
 	unsigned char PanelVertCenterReg3;
@@ -196,6 +197,7 @@ struct neofb_par {
 	int internal_display;
 	int external_display;
 	int libretto;
+	u32 palette[16];
 };
 
 typedef struct {

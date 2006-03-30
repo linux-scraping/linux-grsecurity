@@ -83,6 +83,10 @@
 struct e1000_adapter;
 
 #include "e1000_hw.h"
+#ifdef CONFIG_E1000_MQ
+#include <linux/cpu.h>
+#include <linux/smp.h>
+#endif
 
 #ifdef DBG
 #define E1000_DBG(args...) printk(KERN_DEBUG "e1000: " args)
@@ -165,10 +169,44 @@ struct e1000_buffer {
 	uint16_t next_to_watch;
 };
 
-struct e1000_ps_page { struct page *ps_page[MAX_PS_BUFFERS]; };
-struct e1000_ps_page_dma { uint64_t ps_page_dma[MAX_PS_BUFFERS]; };
+#ifdef CONFIG_E1000_MQ
+struct e1000_queue_stats {
+	uint64_t packets;
+	uint64_t bytes;
+};
+#endif
 
-struct e1000_desc_ring {
+struct e1000_ps_page { struct page *ps_page[PS_PAGE_BUFFERS]; };
+struct e1000_ps_page_dma { uint64_t ps_page_dma[PS_PAGE_BUFFERS]; };
+
+struct e1000_tx_ring {
+	/* pointer to the descriptor ring memory */
+	void *desc;
+	/* physical address of the descriptor ring */
+	dma_addr_t dma;
+	/* length of descriptor ring in bytes */
+	unsigned int size;
+	/* number of descriptors in the ring */
+	unsigned int count;
+	/* next descriptor to associate a buffer with */
+	unsigned int next_to_use;
+	/* next descriptor to check for DD status bit */
+	unsigned int next_to_clean;
+	/* array of buffer information structs */
+	struct e1000_buffer *buffer_info;
+
+	spinlock_t tx_lock;
+	uint16_t tdh;
+	uint16_t tdt;
+
+	boolean_t last_tx_tso;
+
+#ifdef CONFIG_E1000_MQ
+	struct e1000_queue_stats tx_stats;
+#endif
+};
+
+struct e1000_rx_ring {
 	/* pointer to the descriptor ring memory */
 	void *desc;
 	/* physical address of the descriptor ring */
@@ -186,6 +224,15 @@ struct e1000_desc_ring {
 	/* arrays of page information for packet split */
 	struct e1000_ps_page *ps_page;
 	struct e1000_ps_page_dma *ps_page_dma;
+
+	/* cpu for rx queue */
+	int cpu;
+
+	uint16_t rdh;
+	uint16_t rdt;
+#ifdef CONFIG_E1000_MQ
+	struct e1000_queue_stats rx_stats;
+#endif
 };
 
 #define E1000_DESC_UNUSED(R) \
@@ -218,6 +265,9 @@ struct e1000_adapter {
 	uint16_t link_speed;
 	uint16_t link_duplex;
 	spinlock_t stats_lock;
+#ifdef CONFIG_E1000_NAPI
+	spinlock_t tx_queue_lock;
+#endif
 	atomic_t irq_sem;
 	struct work_struct tx_timeout_task;
 	struct work_struct watchdog_task;
@@ -227,9 +277,11 @@ struct e1000_adapter {
 	unsigned long led_status;
 
 	/* TX */
-	struct e1000_desc_ring tx_ring;
-	struct e1000_buffer previous_buffer_info;
-	spinlock_t tx_lock;
+	struct e1000_tx_ring *tx_ring;      /* One per active queue */
+#ifdef CONFIG_E1000_MQ
+	struct e1000_tx_ring **cpu_tx_ring; /* per-cpu */
+#endif
+	unsigned long tx_queue_len;
 	uint32_t txd_cmd;
 	uint32_t tx_int_delay;
 	uint32_t tx_abs_int_delay;
@@ -237,28 +289,47 @@ struct e1000_adapter {
 	uint64_t gotcl_old;
 	uint64_t tpt_old;
 	uint64_t colc_old;
+	uint32_t tx_timeout_count;
 	uint32_t tx_fifo_head;
 	uint32_t tx_head_addr;
 	uint32_t tx_fifo_size;
+	uint8_t  tx_timeout_factor;
 	atomic_t tx_fifo_stall;
 	boolean_t pcix_82544;
 	boolean_t detect_tx_hung;
 
 	/* RX */
 #ifdef CONFIG_E1000_NAPI
-	boolean_t (*clean_rx) (struct e1000_adapter *adapter, int *work_done,
-			  int work_to_do);
+	boolean_t (*clean_rx) (struct e1000_adapter *adapter,
+						   struct e1000_rx_ring *rx_ring,
+						   int *work_done, int work_to_do);
 #else
-	boolean_t (*clean_rx) (struct e1000_adapter *adapter);
+	boolean_t (*clean_rx) (struct e1000_adapter *adapter,
+						   struct e1000_rx_ring *rx_ring);
 #endif
-	void (*alloc_rx_buf) (struct e1000_adapter *adapter);
-	struct e1000_desc_ring rx_ring;
+	void (*alloc_rx_buf) (struct e1000_adapter *adapter,
+						  struct e1000_rx_ring *rx_ring,
+						  int cleaned_count);
+	struct e1000_rx_ring *rx_ring;      /* One per active queue */
+#ifdef CONFIG_E1000_NAPI
+	struct net_device *polling_netdev;  /* One per active queue */
+#endif
+#ifdef CONFIG_E1000_MQ
+	struct net_device **cpu_netdev;     /* per-cpu */
+	struct call_async_data_struct rx_sched_call_data;
+	cpumask_t cpumask;
+#endif
+	int num_tx_queues;
+	int num_rx_queues;
+
 	uint64_t hw_csum_err;
 	uint64_t hw_csum_good;
+	uint64_t rx_hdr_split;
+	uint32_t alloc_rx_buff_failed;
 	uint32_t rx_int_delay;
 	uint32_t rx_abs_int_delay;
 	boolean_t rx_csum;
-	boolean_t rx_ps;
+	unsigned int rx_ps_pages;
 	uint32_t gorcl;
 	uint64_t gorcl_old;
 	uint16_t rx_ps_bsize0;
@@ -278,10 +349,11 @@ struct e1000_adapter {
 	struct e1000_phy_stats phy_stats;
 
 	uint32_t test_icr;
-	struct e1000_desc_ring test_tx_ring;
-	struct e1000_desc_ring test_rx_ring;
+	struct e1000_tx_ring test_tx_ring;
+	struct e1000_rx_ring test_rx_ring;
 
 
+	u32 *config_space;
 	int msg_enable;
 #ifdef CONFIG_PCI_MSI
 	boolean_t have_msi;

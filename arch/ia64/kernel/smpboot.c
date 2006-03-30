@@ -129,7 +129,7 @@ DEFINE_PER_CPU(int, cpu_state);
 /* Bitmasks of currently online, and possible CPUs */
 cpumask_t cpu_online_map;
 EXPORT_SYMBOL(cpu_online_map);
-cpumask_t cpu_possible_map;
+cpumask_t cpu_possible_map = CPU_MASK_NONE;
 EXPORT_SYMBOL(cpu_possible_map);
 
 cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
@@ -399,6 +399,7 @@ start_secondary (void *unused)
 	Dprintk("start_secondary: starting CPU 0x%x\n", hard_smp_processor_id());
 	efi_map_pal_code();
 	cpu_init();
+	preempt_disable();
 	smp_callin();
 
 	cpu_idle();
@@ -505,9 +506,6 @@ smp_build_cpu_map (void)
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
 		ia64_cpu_to_sapicid[cpu] = -1;
-#ifdef CONFIG_HOTPLUG_CPU
-		cpu_set(cpu, cpu_possible_map);
-#endif
 	}
 
 	ia64_cpu_to_sapicid[0] = boot_cpu_id;
@@ -694,9 +692,9 @@ smp_cpus_done (unsigned int dummy)
 	 * Allow the user to impress friends.
 	 */
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		if (cpu_online(cpu))
-			bogosum += cpu_data(cpu)->loops_per_jiffy;
+	for_each_online_cpu(cpu) {
+		bogosum += cpu_data(cpu)->loops_per_jiffy;
+	}
 
 	printk(KERN_INFO "Total of %d processors activated (%lu.%02lu BogoMIPS).\n",
 	       (int)num_online_cpus(), bogosum/(500000/HZ), (bogosum/(5000/HZ))%100);

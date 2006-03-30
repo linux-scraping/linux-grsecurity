@@ -46,6 +46,29 @@ ipfrag_secret_interval - INTEGER
 	for the hash secret) for IP fragments.
 	Default: 600
 
+ipfrag_max_dist - INTEGER
+	ipfrag_max_dist is a non-negative integer value which defines the 
+	maximum "disorder" which is allowed among fragments which share a 
+	common IP source address. Note that reordering of packets is 
+	not unusual, but if a large number of fragments arrive from a source 
+	IP address while a particular fragment queue remains incomplete, it 
+	probably indicates that one or more fragments belonging to that queue 
+	have been lost. When ipfrag_max_dist is positive, an additional check 
+	is done on fragments before they are added to a reassembly queue - if 
+	ipfrag_max_dist (or more) fragments have arrived from a particular IP 
+	address between additions to any IP fragment queue using that source 
+	address, it's presumed that one or more fragments in the queue are 
+	lost. The existing fragment queue will be dropped, and a new one 
+	started. An ipfrag_max_dist value of zero disables this check.
+
+	Using a very small value, e.g. 1 or 2, for ipfrag_max_dist can
+	result in unnecessarily dropping fragment queues when normal
+	reordering of packets occurs, which could lead to poor application 
+	performance. Using a very large value, e.g. 50000, increases the 
+	likelihood of incorrectly reassembling IP fragments that originate 
+	from different IP datagrams, which could result in data corruption.
+	Default: 64
+
 INET peer storage:
 
 inet_peer_threshold - INTEGER
@@ -77,6 +100,11 @@ inet_peer_gc_maxtime - INTEGER
 	Measured in jiffies(1).
 
 TCP variables: 
+
+tcp_abc - INTEGER
+	Controls Appropriate Byte Count defined in RFC3465. If set to
+	0 then does congestion avoid once per ack. 1 is conservative
+	value, and 2 is more agressive.
 
 tcp_syn_retries - INTEGER
 	Number of times initial SYNs for an active TCP connection attempt
@@ -309,7 +337,7 @@ tcp_tso_win_divisor - INTEGER
        can be consumed by a single TSO frame.
        The setting of this parameter is a choice between burstiness and
        building larger TSO frames.
-       Default: 8
+       Default: 3
 
 tcp_frto - BOOLEAN
 	Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
@@ -398,6 +426,23 @@ icmp_ignore_bogus_error_responses - BOOLEAN
 	If this is set to TRUE, the kernel will not give such warnings, which
 	will avoid log file clutter.
 	Default: FALSE
+
+icmp_errors_use_inbound_ifaddr - BOOLEAN
+
+	If zero, icmp error messages are sent with the primary address of
+	the exiting interface.
+ 
+	If non-zero, the message will be sent with the primary address of
+	the interface that received the packet that caused the icmp error.
+	This is the behaviour network many administrators will expect from
+	a router. And it can make debugging complicated network layouts
+	much easier. 
+
+	Note that if no primary address exists for the interface selected,
+	then the primary address of the first non-loopback interface that
+	has one will be used regarldess of this setting.
+
+	Default: 0
 
 igmp_max_memberships - INTEGER
 	Change the maximum number of multicast groups we can subscribe to.

@@ -12,8 +12,10 @@
 
 #include <linux/config.h>
 #include <linux/dccp.h>
+#include <linux/kernel.h>
 #include <linux/skbuff.h>
 
+#include <net/inet_sock.h>
 #include <net/sock.h>
 
 #include "ackvec.h"
@@ -25,16 +27,24 @@ static inline void dccp_event_ack_sent(struct sock *sk)
 	inet_csk_clear_xmit_timer(sk, ICSK_TIME_DACK);
 }
 
+static inline void dccp_skb_entail(struct sock *sk, struct sk_buff *skb)
+{
+	skb_set_owner_w(skb, sk);
+	WARN_ON(sk->sk_send_head);
+	sk->sk_send_head = skb;
+}
+
 /*
  * All SKB's seen here are completely headerless. It is our
  * job to build the DCCP header, and pass the packet down to
  * IP so it can do the same plus pass the packet off to the
  * device.
  */
-int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
+static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 {
 	if (likely(skb != NULL)) {
 		const struct inet_sock *inet = inet_sk(sk);
+		const struct inet_connection_sock *icsk = inet_csk(sk);
 		struct dccp_sock *dp = dccp_sk(sk);
 		struct dccp_skb_cb *dcb = DCCP_SKB_CB(skb);
 		struct dccp_hdr *dh;
@@ -50,10 +60,21 @@ int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 		switch (dcb->dccpd_type) {
 		case DCCP_PKT_DATA:
 			set_ack = 0;
+			/* fall through */
+		case DCCP_PKT_DATAACK:
 			break;
+
 		case DCCP_PKT_SYNC:
 		case DCCP_PKT_SYNCACK:
 			ackno = dcb->dccpd_seq;
+			/* fall through */
+		default:
+			/*
+			 * Only data packets should come through with skb->sk
+			 * set.
+			 */
+			WARN_ON(skb->sk);
+			skb_set_owner_w(skb, sk);
 			break;
 		}
 
@@ -62,9 +83,6 @@ int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 		
 		skb->h.raw = skb_push(skb, dccp_header_size);
 		dh = dccp_hdr(skb);
-
-		if (!skb->sk)
-			skb_set_owner_w(skb, sk);
 
 		/* Build DCCP header and checksum it. */
 		memset(dh, 0, dccp_header_size);
@@ -92,8 +110,7 @@ int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 			break;
 		}
 
-		dh->dccph_checksum = dccp_v4_checksum(skb, inet->saddr,
-						      inet->daddr);
+		icsk->icsk_af_ops->send_check(sk, skb->len, skb);
 
 		if (set_ack)
 			dccp_event_ack_sent(sk);
@@ -101,7 +118,7 @@ int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
 
 		memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-		err = ip_queue_xmit(skb, 0);
+		err = icsk->icsk_af_ops->queue_xmit(skb, 0);
 		if (err <= 0)
 			return err;
 
@@ -118,20 +135,13 @@ int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
 
 unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu)
 {
+	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct dccp_sock *dp = dccp_sk(sk);
-	int mss_now;
-
-	/*
-	 * FIXME: we really should be using the af_specific thing to support
-	 * 	  IPv6.
-	 * mss_now = pmtu - tp->af_specific->net_header_len -
-	 * 	     sizeof(struct dccp_hdr) - sizeof(struct dccp_hdr_ext);
-	 */
-	mss_now = pmtu - sizeof(struct iphdr) - sizeof(struct dccp_hdr) -
-		  sizeof(struct dccp_hdr_ext);
+	int mss_now = (pmtu - icsk->icsk_af_ops->net_header_len -
+		       sizeof(struct dccp_hdr) - sizeof(struct dccp_hdr_ext));
 
 	/* Now subtract optional transport overhead */
-	mss_now -= dp->dccps_ext_header_len;
+	mss_now -= icsk->icsk_ext_hdr_len;
 
 	/*
 	 * FIXME: this should come from the CCID infrastructure, where, say,
@@ -144,11 +154,13 @@ unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu)
 	mss_now -= ((5 + 6 + 10 + 6 + 6 + 6 + 3) / 4) * 4;
 
 	/* And store cached results */
-	dp->dccps_pmtu_cookie = pmtu;
+	icsk->icsk_pmtu_cookie = pmtu;
 	dp->dccps_mss_cache = mss_now;
 
 	return mss_now;
 }
+
+EXPORT_SYMBOL_GPL(dccp_sync_mss);
 
 void dccp_write_space(struct sock *sk)
 {
@@ -250,7 +262,7 @@ int dccp_write_xmit(struct sock *sk, struct sk_buff *skb, long *timeo)
 
 int dccp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
 {
-	if (inet_sk_rebuild_header(sk) != 0)
+	if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk) != 0)
 		return -EHOSTUNREACH; /* Routing failure or similar. */
 
 	return dccp_transmit_skb(sk, (skb_cloned(skb) ?
@@ -304,6 +316,8 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
 	DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
 	return skb;
 }
+
+EXPORT_SYMBOL_GPL(dccp_make_response);
 
 struct sk_buff *dccp_make_reset(struct sock *sk, struct dst_entry *dst,
 				const enum dccp_reset_codes code)
@@ -361,6 +375,7 @@ struct sk_buff *dccp_make_reset(struct sock *sk, struct dst_entry *dst,
  */
 static inline void dccp_connect_init(struct sock *sk)
 {
+	struct dccp_sock *dp = dccp_sk(sk);
 	struct dst_entry *dst = __sk_dst_get(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
 
@@ -369,10 +384,16 @@ static inline void dccp_connect_init(struct sock *sk)
 	
 	dccp_sync_mss(sk, dst_mtu(dst));
 
-	/*
-	 * FIXME: set dp->{dccps_swh,dccps_swl}, with
-	 * something like dccp_inc_seq
-	 */
+	dccp_update_gss(sk, dp->dccps_iss);
+ 	/*
+	 * SWL and AWL are initially adjusted so that they are not less than
+	 * the initial Sequence Numbers received and sent, respectively:
+	 *	SWL := max(GSR + 1 - floor(W/4), ISR),
+	 *	AWL := max(GSS - W' + 1, ISS).
+	 * These adjustments MUST be applied only at the beginning of the
+	 * connection.
+ 	 */
+	dccp_set_seqno(&dp->dccps_awl, max48(dp->dccps_awl, dp->dccps_iss));
 
 	icsk->icsk_retransmits = 0;
 }
@@ -393,10 +414,8 @@ int dccp_connect(struct sock *sk)
 
 	DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_REQUEST;
 	skb->csum = 0;
-	skb_set_owner_w(skb, sk);
 
-	BUG_TRAP(sk->sk_send_head == NULL);
-	sk->sk_send_head = skb;
+	dccp_skb_entail(sk, skb);
 	dccp_transmit_skb(sk, skb_clone(skb, GFP_KERNEL));
 	DCCP_INC_STATS(DCCP_MIB_ACTIVEOPENS);
 
@@ -405,6 +424,8 @@ int dccp_connect(struct sock *sk)
 				  icsk->icsk_rto, DCCP_RTO_MAX);
 	return 0;
 }
+
+EXPORT_SYMBOL_GPL(dccp_connect);
 
 void dccp_send_ack(struct sock *sk)
 {
@@ -425,7 +446,6 @@ void dccp_send_ack(struct sock *sk)
 		skb_reserve(skb, MAX_DCCP_HEADER);
 		skb->csum = 0;
 		DCCP_SKB_CB(skb)->dccpd_type = DCCP_PKT_ACK;
-		skb_set_owner_w(skb, sk);
 		dccp_transmit_skb(sk, skb);
 	}
 }
@@ -482,7 +502,6 @@ void dccp_send_sync(struct sock *sk, const u64 seq,
 	DCCP_SKB_CB(skb)->dccpd_type = pkt_type;
 	DCCP_SKB_CB(skb)->dccpd_seq = seq;
 
-	skb_set_owner_w(skb, sk);
 	dccp_transmit_skb(sk, skb);
 }
 
@@ -495,7 +514,7 @@ void dccp_send_close(struct sock *sk, const int active)
 {
 	struct dccp_sock *dp = dccp_sk(sk);
 	struct sk_buff *skb;
-	const unsigned int prio = active ? GFP_KERNEL : GFP_ATOMIC;
+	const gfp_t prio = active ? GFP_KERNEL : GFP_ATOMIC;
 
 	skb = alloc_skb(sk->sk_prot->max_header, prio);
 	if (skb == NULL)
@@ -507,10 +526,8 @@ void dccp_send_close(struct sock *sk, const int active)
 	DCCP_SKB_CB(skb)->dccpd_type = dp->dccps_role == DCCP_ROLE_CLIENT ?
 					DCCP_PKT_CLOSE : DCCP_PKT_CLOSEREQ;
 
-	skb_set_owner_w(skb, sk);
 	if (active) {
-		BUG_TRAP(sk->sk_send_head == NULL);
-		sk->sk_send_head = skb;
+		dccp_skb_entail(sk, skb);
 		dccp_transmit_skb(sk, skb_clone(skb, prio));
 	} else
 		dccp_transmit_skb(sk, skb);

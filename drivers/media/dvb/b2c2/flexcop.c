@@ -193,6 +193,7 @@ static void flexcop_reset(struct flexcop_device *fc)
 	v204 = fc->read_ibi_reg(fc,misc_204);
 	v204.misc_204.Per_reset_sig = 0;
 	fc->write_ibi_reg(fc,misc_204,v204);
+	msleep(1);
 	v204.misc_204.Per_reset_sig = 1;
 	fc->write_ibi_reg(fc,misc_204,v204);
 }
@@ -219,20 +220,18 @@ EXPORT_SYMBOL(flexcop_reset_block_300);
 struct flexcop_device *flexcop_device_kmalloc(size_t bus_specific_len)
 {
 	void *bus;
-	struct flexcop_device *fc = kmalloc(sizeof(struct flexcop_device), GFP_KERNEL);
+	struct flexcop_device *fc = kzalloc(sizeof(struct flexcop_device), GFP_KERNEL);
 	if (!fc) {
 		err("no memory");
 		return NULL;
 	}
-	memset(fc, 0, sizeof(struct flexcop_device));
 
-	bus = kmalloc(bus_specific_len, GFP_KERNEL);
+	bus = kzalloc(bus_specific_len, GFP_KERNEL);
 	if (!bus) {
 		err("no memory");
 		kfree(fc);
 		return NULL;
 	}
-	memset(bus, 0, bus_specific_len);
 
 	fc->bus_specific = bus;
 

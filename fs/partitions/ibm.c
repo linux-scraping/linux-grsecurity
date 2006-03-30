@@ -29,7 +29,7 @@
  * cyl-cyl-head-head structure
  */
 static inline int
-cchh2blk (cchh_t *ptr, struct hd_geometry *geo) {
+cchh2blk (struct vtoc_cchh *ptr, struct hd_geometry *geo) {
         return ptr->cc * geo->heads * geo->sectors +
 	       ptr->hh * geo->sectors;
 }
@@ -40,7 +40,7 @@ cchh2blk (cchh_t *ptr, struct hd_geometry *geo) {
  * cyl-cyl-head-head-block structure
  */
 static inline int
-cchhb2blk (cchhb_t *ptr, struct hd_geometry *geo) {
+cchhb2blk (struct vtoc_cchhb *ptr, struct hd_geometry *geo) {
         return ptr->cc * geo->heads * geo->sectors +
 		ptr->hh * geo->sectors +
 		ptr->b;
@@ -52,27 +52,35 @@ int
 ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 {
 	int blocksize, offset, size;
+	loff_t i_size;
 	dasd_information_t *info;
 	struct hd_geometry *geo;
 	char type[5] = {0,};
 	char name[7] = {0,};
-	volume_label_t *vlabel;
+	union label_t {
+		struct vtoc_volume_label vol;
+		struct vtoc_cms_label cms;
+	} *label;
 	unsigned char *data;
 	Sector sect;
+
+	blocksize = bdev_hardsect_size(bdev);
+	if (blocksize <= 0)
+		return 0;
+	i_size = i_size_read(bdev->bd_inode);
+	if (i_size == 0)
+		return 0;
 
 	if ((info = kmalloc(sizeof(dasd_information_t), GFP_KERNEL)) == NULL)
 		goto out_noinfo;
 	if ((geo = kmalloc(sizeof(struct hd_geometry), GFP_KERNEL)) == NULL)
 		goto out_nogeo;
-	if ((vlabel = kmalloc(sizeof(volume_label_t), GFP_KERNEL)) == NULL)
-		goto out_novlab;
+	if ((label = kmalloc(sizeof(union label_t), GFP_KERNEL)) == NULL)
+		goto out_nolab;
 	
 	if (ioctl_by_bdev(bdev, BIODASDINFO, (unsigned long)info) != 0 ||
 	    ioctl_by_bdev(bdev, HDIO_GETGEO, (unsigned long)geo) != 0)
 		goto out_noioctl;
-	
-	if ((blocksize = bdev_hardsect_size(bdev)) <= 0)
-		goto out_badsect;
 
 	/*
 	 * Get volume label, extract name and type.
@@ -86,7 +94,7 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		strncpy(name, data + 8, 6);
 	else
 		strncpy(name, data + 4, 6);
-	memcpy (vlabel, data, sizeof(volume_label_t));
+	memcpy(label, data, sizeof(union label_t));
 	put_dev_sector(sect);
 
 	EBCASC(type, 4);
@@ -99,18 +107,16 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		/*
 		 * VM style CMS1 labeled disk
 		 */
-		int *label = (int *) vlabel;
-
-		if (label[13] != 0) {
+		if (label->cms.disk_offset != 0) {
 			printk("CMS1/%8s(MDSK):", name);
 			/* disk is reserved minidisk */
-			blocksize = label[3];
-			offset = label[13];
-			size = (label[7] - 1)*(blocksize >> 9);
+			blocksize = label->cms.block_size;
+			offset = label->cms.disk_offset;
+			size = (label->cms.block_count - 1) * (blocksize >> 9);
 		} else {
 			printk("CMS1/%8s:", name);
 			offset = (info->label_block + 1);
-			size = bdev->bd_inode->i_size >> 9;
+			size = i_size >> 9;
 		}
 		put_partition(state, 1, offset*(blocksize >> 9),
 				 size-offset*(blocksize >> 9));
@@ -125,13 +131,13 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		printk("VOL1/%8s:", name);
 
 		/* get block number and read then go through format1 labels */
-		blk = cchhb2blk(&vlabel->vtoc, geo) + 1;
+		blk = cchhb2blk(&label->vol.vtoc, geo) + 1;
 		counter = 0;
 		while ((data = read_dev_sector(bdev, blk*(blocksize/512),
 					       &sect)) != NULL) {
-			format1_label_t f1;
+			struct vtoc_format1_label f1;
 
-			memcpy(&f1, data, sizeof(format1_label_t));
+			memcpy(&f1, data, sizeof(struct vtoc_format1_label));
 			put_dev_sector(sect);
 
 			/* skip FMT4 / FMT5 / FMT7 labels */
@@ -167,22 +173,21 @@ ibm_partition(struct parsed_partitions *state, struct block_device *bdev)
 		else
 			printk("(nonl)/%8s:", name);
 		offset = (info->label_block + 1);
-		size = (bdev->bd_inode->i_size >> 9);
+		size = i_size >> 9;
 		put_partition(state, 1, offset*(blocksize >> 9),
 				 size-offset*(blocksize >> 9));
 	}
 
 	printk("\n");
-	kfree(vlabel);
+	kfree(label);
 	kfree(geo);
 	kfree(info);
 	return 1;
 	
 out_readerr:
-out_badsect:
 out_noioctl:
-	kfree(vlabel);
-out_novlab:
+	kfree(label);
+out_nolab:
 	kfree(geo);
 out_nogeo:
 	kfree(info);

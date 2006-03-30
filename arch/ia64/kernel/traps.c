@@ -16,6 +16,7 @@
 #include <linux/module.h>       /* for EXPORT_SYMBOL */
 #include <linux/hardirq.h>
 #include <linux/kprobes.h>
+#include <linux/delay.h>		/* for ssleep() */
 
 #include <asm/fpswa.h>
 #include <asm/ia32.h>
@@ -30,17 +31,20 @@ fpswa_interface_t *fpswa_interface;
 EXPORT_SYMBOL(fpswa_interface);
 
 struct notifier_block *ia64die_chain;
-static DEFINE_SPINLOCK(die_notifier_lock);
 
-int register_die_notifier(struct notifier_block *nb)
+int
+register_die_notifier(struct notifier_block *nb)
 {
-	int err = 0;
-	unsigned long flags;
-	spin_lock_irqsave(&die_notifier_lock, flags);
-	err = notifier_chain_register(&ia64die_chain, nb);
-	spin_unlock_irqrestore(&die_notifier_lock, flags);
-	return err;
+	return notifier_chain_register(&ia64die_chain, nb);
 }
+EXPORT_SYMBOL_GPL(register_die_notifier);
+
+int
+unregister_die_notifier(struct notifier_block *nb)
+{
+	return notifier_chain_unregister(&ia64die_chain, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_die_notifier);
 
 void __init
 trap_init (void)
@@ -105,6 +109,7 @@ die (const char *str, struct pt_regs *regs, long err)
 	if (++die.lock_owner_depth < 3) {
 		printk("%s[%d]: %s %ld [%d]\n",
 			current->comm, current->pid, str, err, ++die_counter);
+		(void) notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
 		show_regs(regs);
   	} else
 		printk(KERN_ERR "Recursive die() failure, output suppressed\n");
@@ -112,6 +117,13 @@ die (const char *str, struct pt_regs *regs, long err)
 	bust_spinlocks(0);
 	die.lock_owner = -1;
 	spin_unlock_irq(&die.lock);
+
+	if (panic_on_oops) {
+		printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
+		ssleep(5);
+		panic("Fatal exception");
+	}
+
   	do_exit(SIGSEGV);
 }
 
@@ -128,24 +140,6 @@ __kprobes ia64_bad_break (unsigned long break_num, struct pt_regs *regs)
 	siginfo_t siginfo;
 	int sig, code;
 
-	/* break.b always sets cr.iim to 0, which causes problems for
-	 * debuggers.  Get the real break number from the original instruction,
-	 * but only for kernel code.  User space break.b is left alone, to
-	 * preserve the existing behaviour.  All break codings have the same
-	 * format, so there is no need to check the slot type.
-	 */
-	if (break_num == 0 && !user_mode(regs)) {
-		struct ia64_psr *ipsr = ia64_psr(regs);
-		unsigned long *bundle = (unsigned long *)regs->cr_iip;
-		unsigned long slot;
-		switch (ipsr->ri) {
-		      case 0:  slot = (bundle[0] >>  5); break;
-		      case 1:  slot = (bundle[0] >> 46) | (bundle[1] << 18); break;
-		      default: slot = (bundle[1] >> 23); break;
-		}
-		break_num = ((slot >> 36 & 1) << 20) | (slot >> 6 & 0xfffff);
-	}
-
 	/* SIGILL, SIGFPE, SIGSEGV, and SIGBUS want these field initialized: */
 	siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
 	siginfo.si_imm = break_num;
@@ -155,9 +149,8 @@ __kprobes ia64_bad_break (unsigned long break_num, struct pt_regs *regs)
 	switch (break_num) {
 	      case 0: /* unknown error (used by GCC for __builtin_abort()) */
 		if (notify_die(DIE_BREAK, "break 0", regs, break_num, TRAP_BRKPT, SIGTRAP)
-			       	== NOTIFY_STOP) {
+			       	== NOTIFY_STOP)
 			return;
-		}
 		die_if_kernel("bugcheck!", regs, break_num);
 		sig = SIGILL; code = ILL_ILLOPC;
 		break;
@@ -210,15 +203,6 @@ __kprobes ia64_bad_break (unsigned long break_num, struct pt_regs *regs)
 		sig = SIGILL; code = __ILL_BNDMOD;
 		break;
 
-	      case 0x80200:
-	      case 0x80300:
-		if (notify_die(DIE_BREAK, "kprobe", regs, break_num, TRAP_BRKPT, SIGTRAP)
-			       	== NOTIFY_STOP) {
-			return;
-		}
-		sig = SIGTRAP; code = TRAP_BRKPT;
-		break;
-
 	      default:
 		if (break_num < 0x40000 || break_num > 0x100000)
 			die_if_kernel("Bad break", regs, break_num);
@@ -226,6 +210,9 @@ __kprobes ia64_bad_break (unsigned long break_num, struct pt_regs *regs)
 		if (break_num < 0x80000) {
 			sig = SIGILL; code = __ILL_BREAK;
 		} else {
+			if (notify_die(DIE_BREAK, "bad break", regs, break_num, TRAP_BRKPT, SIGTRAP)
+					== NOTIFY_STOP)
+				return;
 			sig = SIGTRAP; code = TRAP_BRKPT;
 		}
 	}
@@ -551,12 +538,15 @@ ia64_fault (unsigned long vector, unsigned long isr, unsigned long ifa,
 		if (fsys_mode(current, &regs)) {
 			extern char __kernel_syscall_via_break[];
 			/*
-			 * Got a trap in fsys-mode: Taken Branch Trap and Single Step trap
-			 * need special handling; Debug trap is not supposed to happen.
+			 * Got a trap in fsys-mode: Taken Branch Trap
+			 * and Single Step trap need special handling;
+			 * Debug trap is ignored (we disable it here
+			 * and re-enable it in the lower-privilege trap).
 			 */
 			if (unlikely(vector == 29)) {
-				die("Got debug trap in fsys-mode---not supposed to happen!",
-				    &regs, 0);
+				set_thread_flag(TIF_DB_DISABLED);
+				ia64_psr(&regs)->db = 0;
+				ia64_psr(&regs)->lp = 1;
 				return;
 			}
 			/* re-do the system call via break 0x100000: */
@@ -578,12 +568,11 @@ ia64_fault (unsigned long vector, unsigned long isr, unsigned long ifa,
 #endif
 			break;
 		      case 35: siginfo.si_code = TRAP_BRANCH; ifa = 0; break;
-		      case 36:
-			      if (notify_die(DIE_SS, "ss", &regs, vector,
-					     vector, SIGTRAP) == NOTIFY_STOP)
-				      return;
-			      siginfo.si_code = TRAP_TRACE; ifa = 0; break;
+		      case 36: siginfo.si_code = TRAP_TRACE; ifa = 0; break;
 		}
+		if (notify_die(DIE_FAULT, "ia64_fault", &regs, vector, siginfo.si_code, SIGTRAP)
+			       	== NOTIFY_STOP)
+			return;
 		siginfo.si_signo = SIGTRAP;
 		siginfo.si_errno = 0;
 		siginfo.si_addr  = (void __user *) ifa;
@@ -611,10 +600,19 @@ ia64_fault (unsigned long vector, unsigned long isr, unsigned long ifa,
 	      case 34:
 		if (isr & 0x2) {
 			/* Lower-Privilege Transfer Trap */
+
+			/* If we disabled debug traps during an fsyscall,
+			 * re-enable them here.
+			 */
+			if (test_thread_flag(TIF_DB_DISABLED)) {
+				clear_thread_flag(TIF_DB_DISABLED);
+				ia64_psr(&regs)->db = 1;
+			}
+
 			/*
-			 * Just clear PSR.lp and then return immediately: all the
-			 * interesting work (e.g., signal delivery is done in the kernel
-			 * exit path).
+			 * Just clear PSR.lp and then return immediately:
+			 * all the interesting work (e.g., signal delivery)
+			 * is done in the kernel exit path.
 			 */
 			ia64_psr(&regs)->lp = 0;
 			return;

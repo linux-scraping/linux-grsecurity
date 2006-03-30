@@ -113,18 +113,20 @@ static struct usb_device_id id_table_combined [] = {
 MODULE_DEVICE_TABLE (usb, id_table_combined);
 
 static struct usb_driver belkin_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"belkin",
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table_combined,
+	.no_dynamic_id = 	1,
 };
 
 /* All of the device info needed for the serial converters */
-static struct usb_serial_device_type belkin_device = {
-	.owner =		THIS_MODULE,
-	.name =			"Belkin / Peracom / GoHubs USB Serial Adapter",
-	.short_name =		"belkin",
+static struct usb_serial_driver belkin_device = {
+	.driver = {
+		.owner =	THIS_MODULE,
+		.name =		"belkin",
+	},
+	.description =		"Belkin / Peracom / GoHubs USB Serial Adapter",
 	.id_table =		id_table_combined,
 	.num_interrupt_in =	1,
 	.num_bulk_in =		1,

@@ -3,13 +3,15 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001 by Ralf Baechle
+ * Copyright (C) 2001, 06 by Ralf Baechle (ralf@linux-mips.org)
  * Copyright (C) 2001 MIPS Technologies, Inc.
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/pm.h>
 #include <linux/types.h>
 #include <linux/reboot.h>
+
 #include <asm/reboot.h>
 
 /*
@@ -19,20 +21,22 @@
  */
 void (*_machine_restart)(char *command);
 void (*_machine_halt)(void);
-void (*_machine_power_off)(void);
+void (*pm_power_off)(void);
 
 void machine_restart(char *command)
 {
-	_machine_restart(command);
+	if (_machine_restart)
+		_machine_restart(command);
 }
 
 void machine_halt(void)
 {
-	_machine_halt();
+	if (_machine_halt)
+		_machine_halt();
 }
 
 void machine_power_off(void)
 {
-	_machine_power_off();
+	if (pm_power_off)
+		pm_power_off();
 }
-

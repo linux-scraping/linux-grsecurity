@@ -28,6 +28,7 @@
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 #include <linux/rcupdate.h>
+#include <linux/capability.h>
 #include <linux/cpu.h>
 #include <linux/moduleparam.h>
 #include <linux/errno.h>
@@ -37,6 +38,7 @@
 #include <linux/stop_machine.h>
 #include <linux/device.h>
 #include <linux/string.h>
+#include <linux/sched.h>
 #include <linux/kallsyms.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
@@ -502,15 +504,15 @@ static void module_unload_free(struct module *mod)
 }
 
 #ifdef CONFIG_MODULE_FORCE_UNLOAD
-static inline int try_force(unsigned int flags)
+static inline int try_force_unload(unsigned int flags)
 {
 	int ret = (flags & O_TRUNC);
 	if (ret)
-		add_taint(TAINT_FORCED_MODULE);
+		add_taint(TAINT_FORCED_RMMOD);
 	return ret;
 }
 #else
-static inline int try_force(unsigned int flags)
+static inline int try_force_unload(unsigned int flags)
 {
 	return 0;
 }
@@ -530,7 +532,7 @@ static int __try_stop_module(void *_sref)
 
 	/* If it's not unused, quit unless we are told to block. */
 	if ((sref->flags & O_NONBLOCK) && module_refcount(sref->mod) != 0) {
-		if (!(*sref->forced = try_force(sref->flags)))
+		if (!(*sref->forced = try_force_unload(sref->flags)))
 			return -EWOULDBLOCK;
 	}
 
@@ -618,7 +620,7 @@ sys_delete_module(const char __user *name_user, unsigned int flags)
 	/* If it has an init func, it must have an exit func to unload */
 	if ((mod->init != NULL && mod->exit == NULL)
 	    || mod->unsafe) {
-		forced = try_force(flags);
+		forced = try_force_unload(flags);
 		if (!forced) {
 			/* This module can't be removed */
 			ret = -EBUSY;
@@ -967,7 +969,6 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 	unsigned long ret;
 	const unsigned long *crc;
 
-	spin_lock_irq(&modlist_lock);
 	ret = __find_symbol(name, &owner, &crc, mod->license_gplok);
 	if (ret) {
 		/* use_module can fail due to OOM, or module unloading */
@@ -975,7 +976,6 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 		    !use_module(mod, owner))
 			ret = 0;
 	}
-	spin_unlock_irq(&modlist_lock);
 	return ret;
 }
 
@@ -1214,6 +1214,39 @@ void *__symbol_get(const char *symbol)
 	return (void *)value;
 }
 EXPORT_SYMBOL_GPL(__symbol_get);
+
+/*
+ * Ensure that an exported symbol [global namespace] does not already exist
+ * in the Kernel or in some other modules exported symbol table.
+ */
+static int verify_export_symbols(struct module *mod)
+{
+	const char *name = NULL;
+	unsigned long i, ret = 0;
+	struct module *owner;
+	const unsigned long *crc;
+
+	for (i = 0; i < mod->num_syms; i++)
+	        if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
+			name = mod->syms[i].name;
+			ret = -ENOEXEC;
+			goto dup;
+		}
+
+	for (i = 0; i < mod->num_gpl_syms; i++)
+	        if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
+			name = mod->gpl_syms[i].name;
+			ret = -ENOEXEC;
+			goto dup;
+		}
+
+dup:
+	if (ret)
+		printk(KERN_ERR "%s: exports duplicate symbol %s (owned by %s)\n",
+			mod->name, name, module_name(owner));
+
+	return ret;
+}
 
 /* Change all symbols so that sh_value encodes the pointer directly. */
 static int simplify_symbols(Elf_Shdr *sechdrs,
@@ -1531,7 +1564,7 @@ static struct module *load_module(void __user *umod,
 	mm_segment_t old_fs;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	unsigned long flags, cr0;
+	unsigned long cr0;
 #endif
 
 	DEBUGP("load_module: umod=%p, len=%lu, uargs=%p\n",
@@ -1659,6 +1692,9 @@ static struct module *load_module(void __user *umod,
 		goto free_mod;
 	}
 
+	/* Userspace could have altered the string after the strlen_user() */
+	args[arglen - 1] = '\0';
+
 	if (find_module(mod->name)) {
 		err = -EEXIST;
 		goto free_mod;
@@ -1713,13 +1749,13 @@ static struct module *load_module(void __user *umod,
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	memset(ptr, 0, mod->core_size_rx);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	mod->module_core_rx = ptr;
@@ -1731,13 +1767,13 @@ static struct module *load_module(void __user *umod,
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	memset(ptr, 0, mod->init_size_rx);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	mod->module_init_rx = ptr;
@@ -1768,14 +1804,14 @@ static struct module *load_module(void __user *umod,
 
 #ifdef CONFIG_PAX_KERNEXEC
 			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
-				pax_open_kernel(flags, cr0);
+				pax_open_kernel(cr0);
 #endif
 
 			memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
 
 #ifdef CONFIG_PAX_KERNEXEC
 			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
-				pax_close_kernel(flags, cr0);
+				pax_close_kernel(cr0);
 #endif
 
 		}
@@ -1799,6 +1835,11 @@ static struct module *load_module(void __user *umod,
 	/* Set up license info based on the info section */
 	set_license(mod, get_modinfo(sechdrs, infoindex, "license"));
 
+	if (strcmp(mod->name, "ndiswrapper") == 0)
+		add_taint(TAINT_PROPRIETARY_MODULE);
+	if (strcmp(mod->name, "driverloader") == 0)
+		add_taint(TAINT_PROPRIETARY_MODULE);
+
 #ifdef CONFIG_MODULE_UNLOAD
 	/* Set up MODINFO_ATTR fields */
 	setup_modinfo(mod, sechdrs, infoindex);
@@ -1807,14 +1848,14 @@ static struct module *load_module(void __user *umod,
 	/* Fix up syms, so that st_value is a pointer to location. */
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,
 			       mod);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	if (err < 0)
@@ -1853,7 +1894,7 @@ static struct module *load_module(void __user *umod,
 			continue;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 		if (sechdrs[i].sh_type == SHT_REL)
@@ -1863,25 +1904,31 @@ static struct module *load_module(void __user *umod,
 						 mod);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 		if (err < 0)
 			goto cleanup;
 	}
 
+        /* Find duplicate symbols */
+	err = verify_export_symbols(mod);
+
+	if (err < 0)
+		goto cleanup;
+
   	/* Set up and sort exception table */
 	mod->num_exentries = sechdrs[exindex].sh_size / sizeof(*mod->extable);
 	mod->extable = extable = (void *)sechdrs[exindex].sh_addr;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	sort_extable(extable, extable + mod->num_exentries);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	/* Finally, copy percpu area over. */
@@ -1889,13 +1936,13 @@ static struct module *load_module(void __user *umod,
 		       sechdrs[pcpuindex].sh_size);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	err = module_finalize(hdr, sechdrs, mod);
@@ -1978,8 +2025,7 @@ static struct module *load_module(void __user *umod,
 	kfree(args);
  free_hdr:
 	vfree(hdr);
-	if (err < 0) return ERR_PTR(err);
-	else return ptr;
+	return ERR_PTR(err);
 
  truncated:
 	printk(KERN_ERR "Module len %lu truncated\n", len);
@@ -2185,7 +2231,8 @@ static unsigned long mod_find_symname(struct module *mod, const char *name)
 	unsigned int i;
 
 	for (i = 0; i < mod->num_symtab; i++)
-		if (strcmp(name, mod->strtab+mod->symtab[i].st_name) == 0)
+		if (strcmp(name, mod->strtab+mod->symtab[i].st_name) == 0 &&
+		    mod->symtab[i].st_info != 'U')
 			return mod->symtab[i].st_value;
 	return 0;
 }
@@ -2246,7 +2293,7 @@ static int m_show(struct seq_file *m, void *p)
 {
 	struct module *mod = list_entry(p, struct module, list);
 	seq_printf(m, "%s %lu",
-		mod->name, mod->init_size_rx + mod->init_size_rw + mod->core_size_rx + mod->core_size_rw);
+		   mod->name, mod->init_size_rx + mod->init_size_rw + mod->core_size_rx + mod->core_size_rw);
 	print_unload_info(m, mod);
 
 	/* Informative for users. */

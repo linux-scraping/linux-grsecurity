@@ -172,7 +172,6 @@ static ssize_t msr_read(struct file *file, char __user * buf,
 {
 	u32 __user *tmp = (u32 __user *) buf;
 	u32 data[2];
-	size_t rv;
 	u32 reg = *ppos;
 	int cpu = iminor(file->f_dentry->d_inode);
 	int err;
@@ -180,7 +179,7 @@ static ssize_t msr_read(struct file *file, char __user * buf,
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	for (rv = 0; count; count -= 8) {
+	for (; count; count -= 8) {
 		err = do_rdmsr(cpu, reg, &data[0], &data[1]);
 		if (err)
 			return err;
@@ -246,7 +245,7 @@ static int msr_class_device_create(int i)
 	int err = 0;
 	struct class_device *class_err;
 
-	class_err = class_device_create(msr_class, MKDEV(MSR_MAJOR, i), NULL, "msr%d",i);
+	class_err = class_device_create(msr_class, NULL, MKDEV(MSR_MAJOR, i), NULL, "msr%d",i);
 	if (IS_ERR(class_err)) 
 		err = PTR_ERR(class_err);
 	return err;

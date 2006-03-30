@@ -31,7 +31,6 @@
 #include <linux/slab.h>
 #include <linux/config.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/input.h>
@@ -102,15 +101,16 @@ struct command {
 static inline void command_put(struct command *cmd)
 {
 	unsigned long flags;
+	spinlock_t *lock = cmd->lock;
 
-	spin_lock_irqsave(cmd->lock, flags);
-        kobject_put(&cmd->kobj);
-	spin_unlock_irqrestore(cmd->lock, flags);
+	spin_lock_irqsave(lock, flags);
+	kobject_put(&cmd->kobj);
+	spin_unlock_irqrestore(lock, flags);
 }
 
 static inline void command_get(struct command *cmd)
 {
-        kobject_get(&cmd->kobj);
+	kobject_get(&cmd->kobj);
 }
 
 
@@ -142,8 +142,8 @@ struct reverse_heartbeat {
 };
 
 struct ibmasm_remote {
-	struct input_dev keybd_dev;
-	struct input_dev mouse_dev;
+	struct input_dev *keybd_dev;
+	struct input_dev *mouse_dev;
 };
 
 struct service_processor {
@@ -158,7 +158,7 @@ struct service_processor {
 	char			dirname[IBMASM_NAME_SIZE];
 	char			devname[IBMASM_NAME_SIZE];
 	unsigned int		number;
-	struct ibmasm_remote	*remote;
+	struct ibmasm_remote	remote;
 	int			serial_line;
 	struct device		*dev;
 };

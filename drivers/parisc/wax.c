@@ -76,12 +76,12 @@ wax_init_chip(struct parisc_device *dev)
 	struct gsc_irq gsc_irq;
 	int ret;
 
-	wax = kmalloc(sizeof(*wax), GFP_KERNEL);
+	wax = kzalloc(sizeof(*wax), GFP_KERNEL);
 	if (!wax)
 		return -ENOMEM;
 
 	wax->name = "wax";
-	wax->hpa = dev->hpa;
+	wax->hpa = dev->hpa.start;
 
 	wax->version = 0;   /* gsc_readb(wax->hpa+WAX_VER); */
 	printk(KERN_INFO "%s at 0x%lx found.\n", wax->name, wax->hpa);

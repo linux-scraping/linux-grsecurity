@@ -28,7 +28,7 @@
 
 static struct acl_role_db acl_role_set;
 static struct name_db name_set;
-static struct name_db inodev_set;
+static struct inodev_db inodev_set;
 
 /* for keeping track of userspace pointers used for subjects, so we
    can share references in the kernel as well
@@ -478,35 +478,35 @@ lookup_name_entry(const char *name)
 	return match;
 }
 
-static struct name_entry *
+static struct inodev_entry *
 lookup_inodev_entry(const ino_t ino, const dev_t dev)
 {
-	unsigned int index = fhash(ino, dev, inodev_set.n_size);
-	struct name_entry *match;
+	unsigned int index = fhash(ino, dev, inodev_set.i_size);
+	struct inodev_entry *match;
 
-	match = inodev_set.n_hash[index];
+	match = inodev_set.i_hash[index];
 
-	while (match && (match->inode != ino || match->device != dev))
+	while (match && (match->nentry->inode != ino || match->nentry->device != dev))
 		match = match->next;
 
 	return match;
 }
 
 static void
-insert_inodev_entry(struct name_entry *nentry)
+insert_inodev_entry(struct inodev_entry *entry)
 {
-	unsigned int index = fhash(nentry->inode, nentry->device,
-				    inodev_set.n_size);
-	struct name_entry **curr;
+	unsigned int index = fhash(entry->nentry->inode, entry->nentry->device,
+				    inodev_set.i_size);
+	struct inodev_entry **curr;
 
-	nentry->prev = NULL;
+	entry->prev = NULL;
 
-	curr = &inodev_set.n_hash[index];
+	curr = &inodev_set.i_hash[index];
 	if (*curr != NULL)
-		(*curr)->prev = nentry;
+		(*curr)->prev = entry;
 	
-	nentry->next = *curr;
-	*curr = nentry;
+	entry->next = *curr;
+	*curr = entry;
 
 	return;
 }
@@ -546,6 +546,7 @@ static int
 insert_name_entry(char *name, const ino_t inode, const dev_t device)
 {
 	struct name_entry **curr, *nentry;
+	struct inodev_entry *ientry;
 	unsigned int len = strlen(name);
 	unsigned int key = full_name_hash(name, len);
 	unsigned int index = key % name_set.n_size;
@@ -561,6 +562,10 @@ insert_name_entry(char *name, const ino_t inode, const dev_t device)
 	nentry = acl_alloc(sizeof (struct name_entry));
 	if (nentry == NULL)
 		return 0;
+	ientry = acl_alloc(sizeof (struct inodev_entry));
+	if (ientry == NULL)
+		return 0;
+	ientry->nentry = nentry;
 
 	nentry->key = key;
 	nentry->name = name;
@@ -576,7 +581,7 @@ insert_name_entry(char *name, const ino_t inode, const dev_t device)
 	*curr = nentry;
 
 	/* insert us into the table searchable by inode/dev */
-	insert_inodev_entry(nentry);
+	insert_inodev_entry(ientry);
 
 	return 1;
 }
@@ -661,10 +666,10 @@ init_variables(const struct gr_arg *arg)
 	subj_map_set.s_size = arg->role_db.num_subjects;
 	acl_role_set.r_size = arg->role_db.num_roles + arg->role_db.num_domain_children;
 	name_set.n_size = arg->role_db.num_objects;
-	inodev_set.n_size = arg->role_db.num_objects;
+	inodev_set.i_size = arg->role_db.num_objects;
 
 	if (!subj_map_set.s_size || !acl_role_set.r_size ||
-	    !name_set.n_size || !inodev_set.n_size)
+	    !name_set.n_size || !inodev_set.i_size)
 		return 1;
 
 	if (!gr_init_uidset())
@@ -689,11 +694,11 @@ init_variables(const struct gr_arg *arg)
 	acl_role_set.r_hash =
 	    (struct acl_role_label **) create_table(&acl_role_set.r_size, sizeof(void *));
 	name_set.n_hash = (struct name_entry **) create_table(&name_set.n_size, sizeof(void *));
-	inodev_set.n_hash =
-	    (struct name_entry **) create_table(&inodev_set.n_size, sizeof(void *));
+	inodev_set.i_hash =
+	    (struct inodev_entry **) create_table(&inodev_set.i_size, sizeof(void *));
 
 	if (!subj_map_set.s_hash || !acl_role_set.r_hash ||
-	    !name_set.n_hash || !inodev_set.n_hash)
+	    !name_set.n_hash || !inodev_set.i_hash)
 		return 1;
 
 	memset(subj_map_set.s_hash, 0,
@@ -702,8 +707,8 @@ init_variables(const struct gr_arg *arg)
 	       sizeof (struct acl_role_label *) * acl_role_set.r_size);
 	memset(name_set.n_hash, 0,
 	       sizeof (struct name_entry *) * name_set.n_size);
-	memset(inodev_set.n_hash, 0,
-	       sizeof (struct name_entry *) * inodev_set.n_size);
+	memset(inodev_set.i_hash, 0,
+	       sizeof (struct inodev_entry *) * inodev_set.i_size);
 
 	return 0;
 }
@@ -774,7 +779,7 @@ free_variables(void)
 				kfree(s->obj_hash);
 			else
 				vfree(s->obj_hash);
-		FOR_EACH_SUBJECT_END(x)
+		FOR_EACH_SUBJECT_END(s, x)
 		FOR_EACH_NESTED_SUBJECT_START(r, s)
 			if (s->obj_hash == NULL)
 				break;
@@ -787,7 +792,7 @@ free_variables(void)
 			kfree(r->subj_hash);
 		else
 			vfree(r->subj_hash);
-	FOR_EACH_ROLE_END(i)
+	FOR_EACH_ROLE_END(r,i)
 
 	acl_free_all();
 
@@ -806,18 +811,18 @@ free_variables(void)
 			vfree(name_set.n_hash);
 	}
 
-	if (inodev_set.n_hash) {
-		if ((inodev_set.n_size * sizeof (struct name_entry *)) <=
+	if (inodev_set.i_hash) {
+		if ((inodev_set.i_size * sizeof (struct inodev_entry *)) <=
 		    PAGE_SIZE)
-			kfree(inodev_set.n_hash);
+			kfree(inodev_set.i_hash);
 		else
-			vfree(inodev_set.n_hash);
+			vfree(inodev_set.i_hash);
 	}
 
 	gr_free_uidset();
 
 	memset(&name_set, 0, sizeof (struct name_db));
-	memset(&inodev_set, 0, sizeof (struct name_db));
+	memset(&inodev_set, 0, sizeof (struct inodev_db));
 	memset(&acl_role_set, 0, sizeof (struct acl_role_db));
 	memset(&subj_map_set, 0, sizeof (struct acl_subj_map_db));
 
@@ -2276,14 +2281,14 @@ do_handle_delete(const ino_t ino, const dev_t dev)
 		FOR_EACH_SUBJECT_START(role, subj, x)
 			if ((matchpo = lookup_acl_obj_label(ino, dev, subj)) != NULL)
 				matchpo->mode |= GR_DELETED;
-		FOR_EACH_SUBJECT_END(x)
+		FOR_EACH_SUBJECT_END(subj,x)
 		FOR_EACH_NESTED_SUBJECT_START(role, subj)
 			if (subj->inode == ino && subj->device == dev)
 				subj->mode |= GR_DELETED;
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		if ((matchps = lookup_acl_subj_label(ino, dev, role)) != NULL)
 			matchps->mode |= GR_DELETED;
-	FOR_EACH_ROLE_END(i)
+	FOR_EACH_ROLE_END(role,i)
 
 	return;
 }
@@ -2384,19 +2389,19 @@ static void
 update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 		    const ino_t newinode, const dev_t newdevice)
 {
-	unsigned int index = fhash(oldinode, olddevice, inodev_set.n_size);
-	struct name_entry *match;
+	unsigned int index = fhash(oldinode, olddevice, inodev_set.i_size);
+	struct inodev_entry *match;
 
-	match = inodev_set.n_hash[index];
+	match = inodev_set.i_hash[index];
 
-	while (match && (match->inode != oldinode ||
-	       match->device != olddevice))
+	while (match && (match->nentry->inode != oldinode ||
+	       match->nentry->device != olddevice))
 		match = match->next;
 
-	if (match && (match->inode == oldinode)
-	    && (match->device == olddevice)) {
+	if (match && (match->nentry->inode == oldinode)
+	    && (match->nentry->device == olddevice)) {
 		if (match->prev == NULL) {
-			inodev_set.n_hash[index] = match->next;
+			inodev_set.i_hash[index] = match->next;
 			if (match->next != NULL)
 				match->next->prev = NULL;
 		} else {
@@ -2406,8 +2411,8 @@ update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 		}
 		match->prev = NULL;
 		match->next = NULL;
-		match->inode = newinode;
-		match->device = newdevice;
+		match->nentry->inode = newinode;
+		match->nentry->device = newdevice;
 
 		insert_inodev_entry(match);
 	}
@@ -2439,8 +2444,8 @@ do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 			update_acl_obj_label(matchn->inode, matchn->device,
 					     dentry->d_inode->i_ino,
 					     dentry->d_inode->i_sb->s_dev, subj);
-		FOR_EACH_SUBJECT_END(x)
-	FOR_EACH_ROLE_END(i)
+		FOR_EACH_SUBJECT_END(subj,x)
+	FOR_EACH_ROLE_END(role,i)
 
 	update_inodev_entry(matchn->inode, matchn->device,
 			    dentry->d_inode->i_ino, dentry->d_inode->i_sb->s_dev);
@@ -2558,7 +2563,7 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 				return 1;
 			}
 		}
-	FOR_EACH_ROLE_END(i)
+	FOR_EACH_ROLE_END(r,i)
 
 	for (i = 0; i < num_sprole_pws; i++) {
 		if (!strcmp(rolename, acl_special_roles[i]->rolename)) {
@@ -2585,7 +2590,7 @@ assign_special_role(char *rolename)
 		if (!strcmp(rolename, r->rolename) &&
 		    (r->roletype & GR_ROLE_SPECIAL))
 			assigned = r;
-	FOR_EACH_ROLE_END(i)
+	FOR_EACH_ROLE_END(r,i)
 
 	if (!assigned)
 		return;

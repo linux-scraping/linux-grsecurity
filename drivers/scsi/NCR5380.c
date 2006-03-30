@@ -87,6 +87,7 @@
  *      the high level code.
  */
 #include <scsi/scsi_dbg.h>
+#include <scsi/scsi_transport_spi.h>
 
 #ifndef NDEBUG
 #define NDEBUG 0
@@ -606,10 +607,7 @@ static int __init NCR5380_probe_irq(struct Scsi_Host *instance, int possible)
 	NCR5380_write(INITIATOR_COMMAND_REG, ICR_BASE | ICR_ASSERT_DATA | ICR_ASSERT_SEL);
 
 	while (probe_irq == SCSI_IRQ_NONE && time_before(jiffies, timeout))
-	{
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(1);
-	}
+		schedule_timeout_uninterruptible(1);
 	
 	NCR5380_write(SELECT_ENABLE_REG, 0);
 	NCR5380_write(INITIATOR_COMMAND_REG, ICR_BASE);
@@ -1247,13 +1245,13 @@ static void collect_stats(struct NCR5380_hostdata *hostdata, Scsi_Cmnd * cmd)
 	case WRITE:
 	case WRITE_6:
 	case WRITE_10:
-		hostdata->time_write[cmd->device->id] += (jiffies - hostdata->timebase);
+		hostdata->time_write[scmd_id(cmd)] += (jiffies - hostdata->timebase);
 		hostdata->pendingw--;
 		break;
 	case READ:
 	case READ_6:
 	case READ_10:
-		hostdata->time_read[cmd->device->id] += (jiffies - hostdata->timebase);
+		hostdata->time_read[scmd_id(cmd)] += (jiffies - hostdata->timebase);
 		hostdata->pendingr--;
 		break;
 	}
@@ -1385,7 +1383,7 @@ static int NCR5380_select(struct Scsi_Host *instance, Scsi_Cmnd * cmd, int tag)
 	 * the host and target ID's on the SCSI bus.
 	 */
 
-	NCR5380_write(OUTPUT_DATA_REG, (hostdata->id_mask | (1 << cmd->device->id)));
+	NCR5380_write(OUTPUT_DATA_REG, (hostdata->id_mask | (1 << scmd_id(cmd))));
 
 	/* 
 	 * Raise ATN while SEL is true before BSY goes false from arbitration,
@@ -1430,7 +1428,7 @@ static int NCR5380_select(struct Scsi_Host *instance, Scsi_Cmnd * cmd, int tag)
 
 	udelay(1);
 
-	dprintk(NDEBUG_SELECTION, ("scsi%d : selecting target %d\n", instance->host_no, cmd->device->id));
+	dprintk(NDEBUG_SELECTION, ("scsi%d : selecting target %d\n", instance->host_no, scmd_id(cmd)));
 
 	/* 
 	 * The SCSI specification calls for a 250 ms timeout for the actual 
@@ -1483,7 +1481,7 @@ part2:
 
 	if (!(NCR5380_read(STATUS_REG) & SR_BSY)) {
 		NCR5380_write(INITIATOR_COMMAND_REG, ICR_BASE);
-		if (hostdata->targets_present & (1 << cmd->device->id)) {
+		if (hostdata->targets_present & (1 << scmd_id(cmd))) {
 			printk(KERN_DEBUG "scsi%d : weirdness\n", instance->host_no);
 			if (hostdata->restart_select)
 				printk(KERN_DEBUG "\trestart select\n");
@@ -1499,7 +1497,7 @@ part2:
 		NCR5380_write(SELECT_ENABLE_REG, hostdata->id_mask);
 		return 0;
 	}
-	hostdata->targets_present |= (1 << cmd->device->id);
+	hostdata->targets_present |= (1 << scmd_id(cmd));
 
 	/*
 	 * Since we followed the SCSI spec, and raised ATN while SEL 
@@ -2190,7 +2188,8 @@ static void NCR5380_information_transfer(struct Scsi_Host *instance) {
 						 * If the watchdog timer fires, all future accesses to this
 						 * device will use the polled-IO.
 						 */
-						printk("scsi%d : switching target %d lun %d to slow handshake\n", instance->host_no, cmd->device->id, cmd->device->lun);
+						scmd_printk(KERN_INFO, cmd,
+							    "switching to slow handshake\n");
 						cmd->device->borken = 1;
 						NCR5380_write(INITIATOR_COMMAND_REG, ICR_BASE | ICR_ASSERT_ATN);
 						sink = 1;
@@ -2379,7 +2378,7 @@ static void NCR5380_information_transfer(struct Scsi_Host *instance) {
  * 3..length+1  arguments
  *
  * Start the extended message buffer with the EXTENDED_MESSAGE
- * byte, since scsi_print_msg() wants the whole thing.  
+ * byte, since spi_print_msg() wants the whole thing.  
  */
 					extended_msg[0] = EXTENDED_MESSAGE;
 					/* Accept first byte by clearing ACK */
@@ -2426,12 +2425,14 @@ static void NCR5380_information_transfer(struct Scsi_Host *instance) {
 				default:
 					if (!tmp) {
 						printk("scsi%d: rejecting message ", instance->host_no);
-						scsi_print_msg(extended_msg);
+						spi_print_msg(extended_msg);
 						printk("\n");
 					} else if (tmp != EXTENDED_MESSAGE)
-						printk("scsi%d: rejecting unknown message %02x from target %d, lun %d\n", instance->host_no, tmp, cmd->device->id, cmd->device->lun);
+						scmd_printk(KERN_INFO, cmd,
+							"rejecting unknown message %02x\n",tmp);
 					else
-						printk("scsi%d: rejecting unknown extended message code %02x, length %d from target %d, lun %d\n", instance->host_no, extended_msg[1], extended_msg[0], cmd->device->id, cmd->device->lun);
+						scmd_printk(KERN_INFO, cmd,
+							"rejecting unknown extended message code %02x, length %d\n", extended_msg[1], extended_msg[0]);
 
 					msgout = MESSAGE_REJECT;
 					NCR5380_write(INITIATOR_COMMAND_REG, ICR_BASE | ICR_ASSERT_ATN);
@@ -2560,7 +2561,7 @@ static void NCR5380_reselect(struct Scsi_Host *instance) {
 
 	if (!(msg[0] & 0x80)) {
 		printk(KERN_ERR "scsi%d : expecting IDENTIFY message, got ", instance->host_no);
-		scsi_print_msg(msg);
+		spi_print_msg(msg);
 		abort = 1;
 	} else {
 		/* Accept message by clearing ACK */

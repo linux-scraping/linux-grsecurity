@@ -22,6 +22,7 @@
 #include <linux/init.h>
 #include <linux/cpufreq.h>
 #include <linux/config.h>
+#include <linux/sched.h>	/* current */
 #include <linux/delay.h>
 #include <linux/compiler.h>
 
@@ -33,8 +34,6 @@
 #include <asm/msr.h>
 #include <asm/processor.h>
 #include <asm/cpufeature.h>
-
-#include "speedstep-est-common.h"
 
 #define PFX		"speedstep-centrino: "
 #define MAINTAINER	"Jeremy Fitzhardinge <jeremy@goop.org>"
@@ -66,7 +65,7 @@ static const struct cpu_id cpu_ids[] = {
 	[CPU_MP4HT_D0]	= {15,  3, 4 },
 	[CPU_MP4HT_E0]	= {15,  4, 1 },
 };
-#define N_IDS	(sizeof(cpu_ids)/sizeof(cpu_ids[0]))
+#define N_IDS	ARRAY_SIZE(cpu_ids)
 
 struct cpu_model
 {
@@ -363,21 +362,9 @@ static struct acpi_processor_performance p;
  */
 static int centrino_cpu_init_acpi(struct cpufreq_policy *policy)
 {
-	union acpi_object		arg0 = {ACPI_TYPE_BUFFER};
-	u32				arg0_buf[3];
-	struct acpi_object_list		arg_list = {1, &arg0};
 	unsigned long			cur_freq;
 	int				result = 0, i;
 	unsigned int			cpu = policy->cpu;
-
-	/* _PDC settings */
-	arg0.buffer.length = 12;
-	arg0.buffer.pointer = (u8 *) arg0_buf;
-	arg0_buf[0] = ACPI_PDC_REVISION_ID;
-	arg0_buf[1] = 1;
-	arg0_buf[2] = ACPI_PDC_EST_CAPABILITY_SMP_MSR;
-
-	p.pdc = &arg_list;
 
 	/* register with ACPI core */
 	if (acpi_processor_register_performance(&p, cpu)) {
@@ -422,12 +409,11 @@ static int centrino_cpu_init_acpi(struct cpufreq_policy *policy)
 		}
 	}
 
-	centrino_model[cpu] = kmalloc(sizeof(struct cpu_model), GFP_KERNEL);
+	centrino_model[cpu] = kzalloc(sizeof(struct cpu_model), GFP_KERNEL);
 	if (!centrino_model[cpu]) {
 		result = -ENOMEM;
 		goto err_unreg;
 	}
-	memset(centrino_model[cpu], 0, sizeof(struct cpu_model));
 
 	centrino_model[cpu]->model_name=NULL;
 	centrino_model[cpu]->max_freq = p.states[0].core_frequency * 1000;
@@ -493,12 +479,13 @@ static int centrino_cpu_init(struct cpufreq_policy *policy)
 	unsigned l, h;
 	int ret;
 	int i;
+	struct cpuinfo_x86 *c = &cpu_data[policy->cpu];
 
 	/* Only Intel makes Enhanced Speedstep-capable CPUs */
 	if (cpu->x86_vendor != X86_VENDOR_INTEL || !cpu_has(cpu, X86_FEATURE_EST))
 		return -ENODEV;
 
-	if (is_const_loops_cpu(policy->cpu)) {
+	if (cpu_has(c, X86_FEATURE_CONSTANT_TSC)) {
 		centrino_driver.flags |= CPUFREQ_CONST_LOOPS;
 	}
 

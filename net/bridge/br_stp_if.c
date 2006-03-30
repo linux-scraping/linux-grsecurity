@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/smp_lock.h>
+#include <linux/etherdevice.h>
 
 #include "br_private.h"
 #include "br_private_stp.h"
@@ -38,8 +39,6 @@ void br_init_port(struct net_bridge_port *p)
 	p->state = BR_STATE_BLOCKING;
 	p->topology_change_ack = 0;
 	p->config_pending = 0;
-
-	br_stp_port_timer_init(p);
 }
 
 /* called under bridge lock */
@@ -66,7 +65,7 @@ void br_stp_disable_bridge(struct net_bridge *br)
 {
 	struct net_bridge_port *p;
 
-	spin_lock(&br->lock);
+	spin_lock_bh(&br->lock);
 	list_for_each_entry(p, &br->port_list, list) {
 		if (p->state != BR_STATE_DISABLED)
 			br_stp_disable_port(p);
@@ -75,7 +74,7 @@ void br_stp_disable_bridge(struct net_bridge *br)
 
 	br->topology_change = 0;
 	br->topology_change_detected = 0;
-	spin_unlock(&br->lock);
+	spin_unlock_bh(&br->lock);
 
 	del_timer_sync(&br->hello_timer);
 	del_timer_sync(&br->topology_change_timer);
@@ -119,8 +118,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
 }
 
 /* called under bridge lock */
-static void br_stp_change_bridge_id(struct net_bridge *br, 
-				    const unsigned char *addr)
+void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *addr)
 {
 	unsigned char oldaddr[6];
 	struct net_bridge_port *p;
@@ -133,10 +131,10 @@ static void br_stp_change_bridge_id(struct net_bridge *br,
 	memcpy(br->dev->dev_addr, addr, ETH_ALEN);
 
 	list_for_each_entry(p, &br->port_list, list) {
-		if (!memcmp(p->designated_bridge.addr, oldaddr, ETH_ALEN))
+		if (!compare_ether_addr(p->designated_bridge.addr, oldaddr))
 			memcpy(p->designated_bridge.addr, addr, ETH_ALEN);
 
-		if (!memcmp(p->designated_root.addr, oldaddr, ETH_ALEN))
+		if (!compare_ether_addr(p->designated_root.addr, oldaddr))
 			memcpy(p->designated_root.addr, addr, ETH_ALEN);
 
 	}
@@ -162,7 +160,7 @@ void br_stp_recalculate_bridge_id(struct net_bridge *br)
 
 	}
 
-	if (memcmp(br->bridge_id.addr, addr, ETH_ALEN))
+	if (compare_ether_addr(br->bridge_id.addr, addr))
 		br_stp_change_bridge_id(br, addr);
 }
 

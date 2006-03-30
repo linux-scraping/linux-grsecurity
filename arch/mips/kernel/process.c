@@ -4,6 +4,7 @@
  * for more details.
  *
  * Copyright (C) 1994 - 1999, 2000 by Ralf Baechle and others.
+ * Copyright (C) 2005, 2006 by Ralf Baechle (ralf@linux-mips.org)
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  * Copyright (C) 2004 Thiemo Seufer
  */
@@ -24,9 +25,12 @@
 #include <linux/a.out.h>
 #include <linux/init.h>
 #include <linux/completion.h>
+#include <linux/kallsyms.h>
 
+#include <asm/abi.h>
 #include <asm/bootinfo.h>
 #include <asm/cpu.h>
+#include <asm/dsp.h>
 #include <asm/fpu.h>
 #include <asm/pgtable.h>
 #include <asm/system.h>
@@ -37,14 +41,6 @@
 #include <asm/elf.h>
 #include <asm/isadep.h>
 #include <asm/inst.h>
-
-/*
- * We use this if we don't have any better idle routine..
- * (This to kill: kernel/platform.c.
- */
-void default_idle (void)
-{
-}
 
 /*
  * The idle thread. There's no useful work to be done, so just try to conserve
@@ -58,9 +54,59 @@ ATTRIB_NORET void cpu_idle(void)
 		while (!need_resched())
 			if (cpu_wait)
 				(*cpu_wait)();
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 	}
 }
+
+extern void do_signal(struct pt_regs *regs);
+extern void do_signal32(struct pt_regs *regs);
+
+/*
+ * Native o32 and N64 ABI without DSP ASE
+ */
+extern int setup_frame(struct k_sigaction * ka, struct pt_regs *regs,
+        int signr, sigset_t *set);
+extern int setup_rt_frame(struct k_sigaction * ka, struct pt_regs *regs,
+        int signr, sigset_t *set, siginfo_t *info);
+
+struct mips_abi mips_abi = {
+	.do_signal	= do_signal,
+#ifdef CONFIG_TRAD_SIGNALS
+	.setup_frame	= setup_frame,
+#endif
+	.setup_rt_frame	= setup_rt_frame
+};
+
+#ifdef CONFIG_MIPS32_O32
+/*
+ * o32 compatibility on 64-bit kernels, without DSP ASE
+ */
+extern int setup_frame_32(struct k_sigaction * ka, struct pt_regs *regs,
+        int signr, sigset_t *set);
+extern int setup_rt_frame_32(struct k_sigaction * ka, struct pt_regs *regs,
+        int signr, sigset_t *set, siginfo_t *info);
+
+struct mips_abi mips_abi_32 = {
+	.do_signal	= do_signal32,
+	.setup_frame	= setup_frame_32,
+	.setup_rt_frame	= setup_rt_frame_32
+};
+#endif /* CONFIG_MIPS32_O32 */
+
+#ifdef CONFIG_MIPS32_N32
+/*
+ * N32 on 64-bit kernels, without DSP ASE
+ */
+extern int setup_rt_frame_n32(struct k_sigaction * ka, struct pt_regs *regs,
+        int signr, sigset_t *set, siginfo_t *info);
+
+struct mips_abi mips_abi_n32 = {
+	.do_signal	= do_signal,
+	.setup_rt_frame	= setup_rt_frame_n32
+};
+#endif /* CONFIG_MIPS32_N32 */
 
 asmlinkage void ret_from_fork(void);
 
@@ -78,6 +124,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	regs->cp0_status = status;
 	clear_used_math();
 	lose_fpu();
+	if (cpu_has_dsp)
+		__init_dsp();
 	regs->cp0_epc = pc;
 	regs->regs[29] = sp;
 	current_thread_info()->addr_limit = USER_DS;
@@ -94,17 +142,20 @@ void flush_thread(void)
 int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	unsigned long unused, struct task_struct *p, struct pt_regs *regs)
 {
-	struct thread_info *ti = p->thread_info;
+	struct thread_info *ti = task_thread_info(p);
 	struct pt_regs *childregs;
 	long childksp;
+	p->set_child_tid = p->clear_child_tid = NULL;
 
-	childksp = (unsigned long)ti + THREAD_SIZE - 32;
+	childksp = (unsigned long)task_stack_page(p) + THREAD_SIZE - 32;
 
 	preempt_disable();
 
-	if (is_fpu_owner()) {
+	if (is_fpu_owner())
 		save_fp(p);
-	}
+
+	if (cpu_has_dsp)
+		save_dsp(p);
 
 	preempt_enable();
 
@@ -142,6 +193,9 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 	childregs->cp0_status &= ~(ST0_CU2|ST0_CU1);
 	clear_tsk_thread_flag(p, TIF_USEDFPU);
 
+	if (clone_flags & CLONE_SETTLS)
+		ti->tp_value = regs->regs[7];
+
 	return 0;
 }
 
@@ -153,7 +207,7 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *r)
 	return 1;
 }
 
-void dump_regs(elf_greg_t *gp, struct pt_regs *regs)
+void elf_dump_regs(elf_greg_t *gp, struct pt_regs *regs)
 {
 	int i;
 
@@ -173,6 +227,12 @@ void dump_regs(elf_greg_t *gp, struct pt_regs *regs)
 #ifdef EF_UNUSED0
 	gp[EF_UNUSED0] = 0;
 #endif
+}
+
+int dump_task_regs (struct task_struct *tsk, elf_gregset_t *regs)
+{
+	elf_dump_regs(*regs, task_pt_regs(tsk));
+	return 1;
 }
 
 int dump_task_fpu (struct task_struct *t, elf_fpregset_t *fpr)
@@ -211,22 +271,21 @@ long kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 	return do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 }
 
-struct mips_frame_info {
-	int frame_offset;
+static struct mips_frame_info {
+	void *func;
+	unsigned long func_size;
+	int frame_size;
 	int pc_offset;
-};
-static struct mips_frame_info schedule_frame;
-static struct mips_frame_info schedule_timeout_frame;
-static struct mips_frame_info sleep_on_frame;
-static struct mips_frame_info sleep_on_timeout_frame;
-static struct mips_frame_info wait_for_completion_frame;
-static int mips_frame_info_initialized;
-static int __init get_frame_info(struct mips_frame_info *info, void *func)
+} *schedule_frame, mfinfo[64];
+static int mfinfo_num;
+
+static int __init get_frame_info(struct mips_frame_info *info)
 {
 	int i;
+	void *func = info->func;
 	union mips_instruction *ip = (union mips_instruction *)func;
 	info->pc_offset = -1;
-	info->frame_offset = -1;
+	info->frame_size = 0;
 	for (i = 0; i < 128; i++, ip++) {
 		/* if jal, jalr, jr, stop. */
 		if (ip->j_format.opcode == jal_op ||
@@ -235,6 +294,23 @@ static int __init get_frame_info(struct mips_frame_info *info, void *func)
 		      ip->r_format.func == jr_op)))
 			break;
 
+		if (info->func_size && i >= info->func_size / 4)
+			break;
+		if (
+#ifdef CONFIG_32BIT
+		    ip->i_format.opcode == addiu_op &&
+#endif
+#ifdef CONFIG_64BIT
+		    ip->i_format.opcode == daddiu_op &&
+#endif
+		    ip->i_format.rs == 29 &&
+		    ip->i_format.rt == 29) {
+			/* addiu/daddiu sp,sp,-imm */
+			if (info->frame_size)
+				continue;
+			info->frame_size = - ip->i_format.simmediate;
+		}
+
 		if (
 #ifdef CONFIG_32BIT
 		    ip->i_format.opcode == sw_op &&
@@ -242,29 +318,20 @@ static int __init get_frame_info(struct mips_frame_info *info, void *func)
 #ifdef CONFIG_64BIT
 		    ip->i_format.opcode == sd_op &&
 #endif
-		    ip->i_format.rs == 29)
-		{
+		    ip->i_format.rs == 29 &&
+		    ip->i_format.rt == 31) {
 			/* sw / sd $ra, offset($sp) */
-			if (ip->i_format.rt == 31) {
-				if (info->pc_offset != -1)
-					break;
-				info->pc_offset =
-					ip->i_format.simmediate / sizeof(long);
-			}
-			/* sw / sd $s8, offset($sp) */
-			if (ip->i_format.rt == 30) {
-				if (info->frame_offset != -1)
-					break;
-				info->frame_offset =
-					ip->i_format.simmediate / sizeof(long);
-			}
+			if (info->pc_offset != -1)
+				continue;
+			info->pc_offset =
+				ip->i_format.simmediate / sizeof(long);
 		}
 	}
-	if (info->pc_offset == -1 || info->frame_offset == -1) {
-		printk("Can't analyze prologue code at %p\n", func);
+	if (info->pc_offset == -1 || info->frame_size == 0) {
+		if (func == schedule)
+			printk("Can't analyze prologue code at %p\n", func);
 		info->pc_offset = -1;
-		info->frame_offset = -1;
-		return -1;
+		info->frame_size = 0;
 	}
 
 	return 0;
@@ -272,13 +339,36 @@ static int __init get_frame_info(struct mips_frame_info *info, void *func)
 
 static int __init frame_info_init(void)
 {
-	mips_frame_info_initialized =
-		!get_frame_info(&schedule_frame, schedule) &&
-		!get_frame_info(&schedule_timeout_frame, schedule_timeout) &&
-		!get_frame_info(&sleep_on_frame, sleep_on) &&
-		!get_frame_info(&sleep_on_timeout_frame, sleep_on_timeout) &&
-		!get_frame_info(&wait_for_completion_frame, wait_for_completion);
+	int i;
+#ifdef CONFIG_KALLSYMS
+	char *modname;
+	char namebuf[KSYM_NAME_LEN + 1];
+	unsigned long start, size, ofs;
+	extern char __sched_text_start[], __sched_text_end[];
+	extern char __lock_text_start[], __lock_text_end[];
 
+	start = (unsigned long)__sched_text_start;
+	for (i = 0; i < ARRAY_SIZE(mfinfo); i++) {
+		if (start == (unsigned long)schedule)
+			schedule_frame = &mfinfo[i];
+		if (!kallsyms_lookup(start, &size, &ofs, &modname, namebuf))
+			break;
+		mfinfo[i].func = (void *)(start + ofs);
+		mfinfo[i].func_size = size;
+		start += size - ofs;
+		if (start >= (unsigned long)__lock_text_end)
+			break;
+		if (start == (unsigned long)__sched_text_end)
+			start = (unsigned long)__lock_text_start;
+	}
+#else
+	mfinfo[0].func = schedule;
+	schedule_frame = &mfinfo[0];
+#endif
+	for (i = 0; i < ARRAY_SIZE(mfinfo) && mfinfo[i].func; i++)
+		get_frame_info(&mfinfo[i]);
+
+	mfinfo_num = i;
 	return 0;
 }
 
@@ -295,67 +385,51 @@ unsigned long thread_saved_pc(struct task_struct *tsk)
 	if (t->reg31 == (unsigned long) ret_from_fork)
 		return t->reg31;
 
-	if (schedule_frame.pc_offset < 0)
+	if (!schedule_frame || schedule_frame->pc_offset < 0)
 		return 0;
-	return ((unsigned long *)t->reg29)[schedule_frame.pc_offset];
+	return ((unsigned long *)t->reg29)[schedule_frame->pc_offset];
 }
 
 /* get_wchan - a maintenance nightmare^W^Wpain in the ass ...  */
 unsigned long get_wchan(struct task_struct *p)
 {
-	unsigned long frame, pc;
+	unsigned long stack_page;
+	unsigned long pc;
+#ifdef CONFIG_KALLSYMS
+	unsigned long frame;
+#endif
 
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
 
-	if (!mips_frame_info_initialized)
+	stack_page = (unsigned long)task_stack_page(p);
+	if (!stack_page || !mfinfo_num)
 		return 0;
+
 	pc = thread_saved_pc(p);
+#ifdef CONFIG_KALLSYMS
 	if (!in_sched_functions(pc))
-		goto out;
+		return pc;
 
-	if (pc >= (unsigned long) sleep_on_timeout)
-		goto schedule_timeout_caller;
-	if (pc >= (unsigned long) sleep_on)
-		goto schedule_caller;
-	if (pc >= (unsigned long) interruptible_sleep_on_timeout)
-		goto schedule_timeout_caller;
-	if (pc >= (unsigned long)interruptible_sleep_on)
-		goto schedule_caller;
-	if (pc >= (unsigned long)wait_for_completion)
-		goto schedule_caller;
-	goto schedule_timeout_caller;
+	frame = p->thread.reg29 + schedule_frame->frame_size;
+	do {
+		int i;
 
-schedule_caller:
-	frame = ((unsigned long *)p->thread.reg30)[schedule_frame.frame_offset];
-	if (pc >= (unsigned long) sleep_on)
-		pc = ((unsigned long *)frame)[sleep_on_frame.pc_offset];
-	else
-		pc = ((unsigned long *)frame)[wait_for_completion_frame.pc_offset];
-	goto out;
+		if (frame < stack_page || frame > stack_page + THREAD_SIZE - 32)
+			return 0;
 
-schedule_timeout_caller:
-	/*
-	 * The schedule_timeout frame
-	 */
-	frame = ((unsigned long *)p->thread.reg30)[schedule_frame.frame_offset];
+		for (i = mfinfo_num - 1; i >= 0; i--) {
+			if (pc >= (unsigned long) mfinfo[i].func)
+				break;
+		}
+		if (i < 0)
+			break;
 
-	/*
-	 * frame now points to sleep_on_timeout's frame
-	 */
-	pc    = ((unsigned long *)frame)[schedule_timeout_frame.pc_offset];
-
-	if (in_sched_functions(pc)) {
-		/* schedule_timeout called by [interruptible_]sleep_on_timeout */
-		frame = ((unsigned long *)frame)[schedule_timeout_frame.frame_offset];
-		pc    = ((unsigned long *)frame)[sleep_on_timeout_frame.pc_offset];
-	}
-
-out:
-
-#ifdef CONFIG_64BIT
-	if (current->thread.mflags & MF_32BIT_REGS) /* Kludge for 32-bit ps  */
-		pc &= 0xffffffffUL;
+		pc = ((unsigned long *)frame)[mfinfo[i].pc_offset];
+		if (!mfinfo[i].frame_size)
+			break;
+		frame += mfinfo[i].frame_size;
+	} while (in_sched_functions(pc));
 #endif
 
 	return pc;

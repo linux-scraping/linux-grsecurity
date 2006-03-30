@@ -55,6 +55,8 @@
 #include <asm/sections.h>
 #include <asm/irq.h>
 #include <asm/pmac_feature.h>
+#include <asm/pmac_pfunc.h>
+#include <asm/pmac_low_i2c.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/cputable.h>
@@ -147,6 +149,7 @@ static struct device_node *vias;
 static int pmu_kind = PMU_UNKNOWN;
 static int pmu_fully_inited = 0;
 static int pmu_has_adb;
+static struct device_node *gpio_node;
 static unsigned char __iomem *gpio_reg = NULL;
 static int gpio_irq = -1;
 static int gpio_irq_enabled = -1;
@@ -155,10 +158,10 @@ static spinlock_t pmu_lock;
 static u8 pmu_intr_mask;
 static int pmu_version;
 static int drop_interrupts;
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 static int option_lid_wakeup = 1;
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 static int sleep_in_progress;
-#endif /* CONFIG_PM */
 static unsigned long async_req_locks;
 static unsigned int pmu_irq_stats[11];
 
@@ -196,7 +199,6 @@ static int pmu_adb_reset_bus(void);
 #endif /* CONFIG_ADB */
 
 static int init_pmu(void);
-static int pmu_queue_request(struct adb_request *req);
 static void pmu_start(void);
 static irqreturn_t via_pmu_interrupt(int irq, void *arg, struct pt_regs *regs);
 static irqreturn_t gpio1_interrupt(int irq, void *arg, struct pt_regs *regs);
@@ -244,7 +246,7 @@ int pmu_wink(struct adb_request *req);
  * - the number of response bytes which the PMU will return, or
  *   -1 if it will send a length byte.
  */
-static const s8 pmu_data_len[256][2] __openfirmwaredata = {
+static const s8 pmu_data_len[256][2] = {
 /*	   0	   1	   2	   3	   4	   5	   6	   7  */
 /*00*/	{-1, 0},{-1, 0},{-1, 0},{-1, 0},{-1, 0},{-1, 0},{-1, 0},{-1, 0},
 /*08*/	{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},
@@ -295,22 +297,26 @@ static struct backlight_controller pmu_backlight_controller = {
 };
 #endif /* CONFIG_PMAC_BACKLIGHT */
 
-int __openfirmware
-find_via_pmu(void)
+int __init find_via_pmu(void)
 {
+	u64 taddr;
+	u32 *reg;
+
 	if (via != 0)
 		return 1;
-	vias = find_devices("via-pmu");
-	if (vias == 0)
+	vias = of_find_node_by_name(NULL, "via-pmu");
+	if (vias == NULL)
 		return 0;
-	if (vias->next != 0)
-		printk(KERN_WARNING "Warning: only using 1st via-pmu\n");
 
-	if (vias->n_addrs < 1 || vias->n_intrs < 1) {
-		printk(KERN_ERR "via-pmu: %d addresses, %d interrupts!\n",
-		       vias->n_addrs, vias->n_intrs);
-		if (vias->n_addrs < 1 || vias->n_intrs < 1)
-			return 0;
+	reg = (u32 *)get_property(vias, "reg", NULL);
+	if (reg == NULL) {
+		printk(KERN_ERR "via-pmu: No \"reg\" property !\n");
+		goto fail;
+	}
+	taddr = of_translate_address(vias, reg);
+	if (taddr == OF_BAD_ADDR) {
+		printk(KERN_ERR "via-pmu: Can't translate address !\n");
+		goto fail;
 	}
 
 	spin_lock_init(&pmu_lock);
@@ -331,7 +337,8 @@ find_via_pmu(void)
 		pmu_kind = PMU_HEATHROW_BASED;
 	else if (device_is_compatible(vias->parent, "Keylargo")
 		 || device_is_compatible(vias->parent, "K2-Keylargo")) {
-		struct device_node *gpio, *gpiop;
+		struct device_node *gpiop;
+		u64 gaddr = OF_BAD_ADDR;
 
 		pmu_kind = PMU_KEYLARGO_BASED;
 		pmu_has_adb = (find_type_devices("adb") != NULL);
@@ -341,19 +348,24 @@ find_via_pmu(void)
 				PMU_INT_TICK |
 				PMU_INT_ENVIRONMENT;
 		
-		gpiop = find_devices("gpio");
-		if (gpiop && gpiop->n_addrs) {
-			gpio_reg = ioremap(gpiop->addrs->address, 0x10);
-			gpio = find_devices("extint-gpio1");
-			if (gpio == NULL)
-				gpio = find_devices("pmu-interrupt");
-			if (gpio && gpio->parent == gpiop && gpio->n_intrs)
-				gpio_irq = gpio->intrs[0].line;
+		gpiop = of_find_node_by_name(NULL, "gpio");
+		if (gpiop) {
+			reg = (u32 *)get_property(gpiop, "reg", NULL);
+			if (reg)
+				gaddr = of_translate_address(gpiop, reg);
+			if (gaddr != OF_BAD_ADDR)
+				gpio_reg = ioremap(gaddr, 0x10);
 		}
+		if (gpio_reg == NULL)
+			printk(KERN_ERR "via-pmu: Can't find GPIO reg !\n");
 	} else
 		pmu_kind = PMU_UNKNOWN;
 
-	via = ioremap(vias->addrs->address, 0x2000);
+	via = ioremap(taddr, 0x2000);
+	if (via == NULL) {
+		printk(KERN_ERR "via-pmu: Can't map address !\n");
+		goto fail;
+	}
 	
 	out_8(&via[IER], IER_CLR | 0x7f);	/* disable all intrs */
 	out_8(&via[IFR], 0x7f);			/* clear IFR */
@@ -365,23 +377,25 @@ find_via_pmu(void)
 		return 0;
 	}
 
-	printk(KERN_INFO "PMU driver %d initialized for %s, firmware: %02x\n",
+	printk(KERN_INFO "PMU driver v%d initialized for %s, firmware: %02x\n",
 	       PMU_DRIVER_VERSION, pbook_type[pmu_kind], pmu_version);
 	       
 	sys_ctrler = SYS_CTRLER_PMU;
 	
 	return 1;
+ fail:
+	of_node_put(vias);
+	vias = NULL;
+	return 0;
 }
 
 #ifdef CONFIG_ADB
-static int __openfirmware
-pmu_probe(void)
+static int pmu_probe(void)
 {
 	return vias == NULL? -ENODEV: 0;
 }
 
-static int __init
-pmu_init(void)
+static int __init pmu_init(void)
 {
 	if (vias == NULL)
 		return -ENODEV;
@@ -405,7 +419,7 @@ static int __init via_pmu_start(void)
 	bright_req_2.complete = 1;
 	batt_req.complete = 1;
 
-#ifdef CONFIG_PPC32
+#ifndef CONFIG_PPC_MERGE
 	if (pmu_kind == PMU_KEYLARGO_BASED)
 		openpic_set_irq_priority(vias->intrs[0].line,
 					 OPENPIC_PRIORITY_DEFAULT + 1);
@@ -418,10 +432,22 @@ static int __init via_pmu_start(void)
 		return -EAGAIN;
 	}
 
-	if (pmu_kind == PMU_KEYLARGO_BASED && gpio_irq != -1) {
-		if (request_irq(gpio_irq, gpio1_interrupt, 0, "GPIO1 ADB", (void *)0))
-			printk(KERN_ERR "pmu: can't get irq %d (GPIO1)\n", gpio_irq);
-		gpio_irq_enabled = 1;
+	if (pmu_kind == PMU_KEYLARGO_BASED) {
+		gpio_node = of_find_node_by_name(NULL, "extint-gpio1");
+		if (gpio_node == NULL)
+			gpio_node = of_find_node_by_name(NULL,
+							 "pmu-interrupt");
+		if (gpio_node && gpio_node->n_intrs > 0)
+			gpio_irq = gpio_node->intrs[0].line;
+
+		if (gpio_irq != -1) {
+			if (request_irq(gpio_irq, gpio1_interrupt, 0,
+					"GPIO1 ADB", (void *)0))
+				printk(KERN_ERR "pmu: can't get irq %d"
+				       " (GPIO1)\n", gpio_irq);
+			else
+				gpio_irq_enabled = 1;
+		}
 	}
 
 	/* Enable interrupts */
@@ -454,9 +480,6 @@ static int __init via_pmu_dev_init(void)
 	if (vias == NULL)
 		return -ENODEV;
 
-#ifndef CONFIG_PPC64
-	request_OF_resource(vias, 0, NULL);
-#endif
 #ifdef CONFIG_PMAC_BACKLIGHT
 	/* Enable backlight */
 	register_backlight_controller(&pmu_backlight_controller, NULL, "pmu");
@@ -520,7 +543,7 @@ static int __init via_pmu_dev_init(void)
 
 device_initcall(via_pmu_dev_init);
 
-static int __openfirmware
+static int
 init_pmu(void)
 {
 	int timeout;
@@ -588,17 +611,6 @@ pmu_get_model(void)
 	return pmu_kind;
 }
 
-#ifndef CONFIG_PPC64
-static inline void wakeup_decrementer(void)
-{
-	set_dec(tb_ticks_per_jiffy);
-	/* No currently-supported powerbook has a 601,
-	 * so use get_tbl, not native
-	 */
-	last_jiffy_stamp(0) = tb_last_stamp = get_tbl();
-}
-#endif
-
 static void pmu_set_server_mode(int server_mode)
 {
 	struct adb_request req;
@@ -625,7 +637,7 @@ static void pmu_set_server_mode(int server_mode)
 /* This new version of the code for 2400/3400/3500 powerbooks
  * is inspired from the implementation in gkrellm-pmu
  */
-static void __pmac
+static void
 done_battery_state_ohare(struct adb_request* req)
 {
 	/* format:
@@ -713,7 +725,7 @@ done_battery_state_ohare(struct adb_request* req)
 	clear_bit(0, &async_req_locks);
 }
 
-static void __pmac
+static void
 done_battery_state_smart(struct adb_request* req)
 {
 	/* format:
@@ -791,7 +803,7 @@ done_battery_state_smart(struct adb_request* req)
 	clear_bit(0, &async_req_locks);
 }
 
-static void __pmac
+static void
 query_battery_state(void)
 {
 	if (test_and_set_bit(0, &async_req_locks))
@@ -804,7 +816,7 @@ query_battery_state(void)
 			2, PMU_SMART_BATTERY_STATE, pmu_cur_battery+1);
 }
 
-static int __pmac
+static int
 proc_get_info(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -813,13 +825,13 @@ proc_get_info(char *page, char **start, off_t off,
 	p += sprintf(p, "PMU driver version     : %d\n", PMU_DRIVER_VERSION);
 	p += sprintf(p, "PMU firmware version   : %02x\n", pmu_version);
 	p += sprintf(p, "AC Power               : %d\n",
-		((pmu_power_flags & PMU_PWR_AC_PRESENT) != 0));
+		((pmu_power_flags & PMU_PWR_AC_PRESENT) != 0) || pmu_battery_count == 0);
 	p += sprintf(p, "Battery count          : %d\n", pmu_battery_count);
 
 	return p - page;
 }
 
-static int __pmac
+static int
 proc_get_irqstats(char *page, char **start, off_t off,
 		  int count, int *eof, void *data)
 {
@@ -846,7 +858,7 @@ proc_get_irqstats(char *page, char **start, off_t off,
 	return p - page;
 }
 
-static int __pmac
+static int
 proc_get_batt(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -870,13 +882,13 @@ proc_get_batt(char *page, char **start, off_t off,
 	return p - page;
 }
 
-static int __pmac
+static int
 proc_read_options(char *page, char **start, off_t off,
 			int count, int *eof, void *data)
 {
 	char *p = page;
 
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 	if (pmu_kind == PMU_KEYLARGO_BASED &&
 	    pmac_call_feature(PMAC_FTR_SLEEP_STATE,NULL,0,-1) >= 0)
 		p += sprintf(p, "lid_wakeup=%d\n", option_lid_wakeup);
@@ -887,7 +899,7 @@ proc_read_options(char *page, char **start, off_t off,
 	return p - page;
 }
 			
-static int __pmac
+static int
 proc_write_options(struct file *file, const char __user *buffer,
 			unsigned long count, void *data)
 {
@@ -917,7 +929,7 @@ proc_write_options(struct file *file, const char __user *buffer,
 	*(val++) = 0;
 	while(*val == ' ')
 		val++;
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 	if (pmu_kind == PMU_KEYLARGO_BASED &&
 	    pmac_call_feature(PMAC_FTR_SLEEP_STATE,NULL,0,-1) >= 0)
 		if (!strcmp(label, "lid_wakeup"))
@@ -934,7 +946,7 @@ proc_write_options(struct file *file, const char __user *buffer,
 
 #ifdef CONFIG_ADB
 /* Send an ADB command */
-static int __pmac
+static int
 pmu_send_request(struct adb_request *req, int sync)
 {
 	int i, ret;
@@ -1014,7 +1026,7 @@ pmu_send_request(struct adb_request *req, int sync)
 }
 
 /* Enable/disable autopolling */
-static int __pmac
+static int
 pmu_adb_autopoll(int devs)
 {
 	struct adb_request req;
@@ -1037,7 +1049,7 @@ pmu_adb_autopoll(int devs)
 }
 
 /* Reset the ADB bus */
-static int __pmac
+static int
 pmu_adb_reset_bus(void)
 {
 	struct adb_request req;
@@ -1072,7 +1084,7 @@ pmu_adb_reset_bus(void)
 #endif /* CONFIG_ADB */
 
 /* Construct and send a pmu request */
-int __openfirmware
+int
 pmu_request(struct adb_request *req, void (*done)(struct adb_request *),
 	    int nbytes, ...)
 {
@@ -1098,7 +1110,7 @@ pmu_request(struct adb_request *req, void (*done)(struct adb_request *),
 	return pmu_queue_request(req);
 }
 
-int __pmac
+int
 pmu_queue_request(struct adb_request *req)
 {
 	unsigned long flags;
@@ -1190,7 +1202,7 @@ pmu_done(struct adb_request *req)
 		(*done)(req);
 }
 
-static void __pmac
+static void
 pmu_start(void)
 {
 	struct adb_request *req;
@@ -1214,7 +1226,7 @@ pmu_start(void)
 	send_byte(req->data[0]);
 }
 
-void __openfirmware
+void
 pmu_poll(void)
 {
 	if (!via)
@@ -1224,7 +1236,7 @@ pmu_poll(void)
 	via_pmu_interrupt(0, NULL, NULL);
 }
 
-void __openfirmware
+void
 pmu_poll_adb(void)
 {
 	if (!via)
@@ -1239,7 +1251,7 @@ pmu_poll_adb(void)
 		|| req_awaiting_reply));
 }
 
-void __openfirmware
+void
 pmu_wait_complete(struct adb_request *req)
 {
 	if (!via)
@@ -1253,7 +1265,7 @@ pmu_wait_complete(struct adb_request *req)
  * This is done to avoid spurrious shutdowns when we know we'll have
  * interrupts switched off for a long time
  */
-void __openfirmware
+void
 pmu_suspend(void)
 {
 	unsigned long flags;
@@ -1293,7 +1305,7 @@ pmu_suspend(void)
 	} while (1);
 }
 
-void __openfirmware
+void
 pmu_resume(void)
 {
 	unsigned long flags;
@@ -1323,7 +1335,7 @@ pmu_resume(void)
 }
 
 /* Interrupt data could be the result data from an ADB cmd */
-static void __pmac
+static void
 pmu_handle_data(unsigned char *data, int len, struct pt_regs *regs)
 {
 	unsigned char ints, pirq;
@@ -1382,7 +1394,6 @@ next:
 			}
 			pmu_done(req);
 		} else {
-#if defined(CONFIG_XMON) && !defined(CONFIG_PPC64)
 			if (len == 4 && data[1] == 0x2c) {
 				extern int xmon_wants_key, xmon_adb_keycode;
 				if (xmon_wants_key) {
@@ -1390,7 +1401,6 @@ next:
 					return;
 				}
 			}
-#endif /* defined(CONFIG_XMON) && !defined(CONFIG_PPC64) */
 #ifdef CONFIG_ADB
 			/*
 			 * XXX On the [23]400 the PMU gives us an up
@@ -1435,7 +1445,7 @@ next:
 	goto next;
 }
 
-static struct adb_request* __pmac
+static struct adb_request*
 pmu_sr_intr(struct pt_regs *regs)
 {
 	struct adb_request *req;
@@ -1541,7 +1551,7 @@ pmu_sr_intr(struct pt_regs *regs)
 	return NULL;
 }
 
-static irqreturn_t __pmac
+static irqreturn_t
 via_pmu_interrupt(int irq, void *arg, struct pt_regs *regs)
 {
 	unsigned long flags;
@@ -1629,7 +1639,7 @@ no_free_slot:
 	return IRQ_RETVAL(handled);
 }
 
-void __pmac
+void
 pmu_unlock(void)
 {
 	unsigned long flags;
@@ -1642,7 +1652,7 @@ pmu_unlock(void)
 }
 
 
-static irqreturn_t __pmac
+static irqreturn_t
 gpio1_interrupt(int irq, void *arg, struct pt_regs *regs)
 {
 	unsigned long flags;
@@ -1663,12 +1673,12 @@ gpio1_interrupt(int irq, void *arg, struct pt_regs *regs)
 }
 
 #ifdef CONFIG_PMAC_BACKLIGHT
-static int backlight_to_bright[] __pmacdata = {
+static int backlight_to_bright[] = {
 	0x7f, 0x46, 0x42, 0x3e, 0x3a, 0x36, 0x32, 0x2e,
 	0x2a, 0x26, 0x22, 0x1e, 0x1a, 0x16, 0x12, 0x0e
 };
  
-static int __openfirmware
+static int
 pmu_set_backlight_enable(int on, int level, void* data)
 {
 	struct adb_request req;
@@ -1688,7 +1698,7 @@ pmu_set_backlight_enable(int on, int level, void* data)
 	return 0;
 }
 
-static void __openfirmware
+static void
 pmu_bright_complete(struct adb_request *req)
 {
 	if (req == &bright_req_1)
@@ -1697,7 +1707,7 @@ pmu_bright_complete(struct adb_request *req)
 		clear_bit(2, &async_req_locks);
 }
 
-static int __openfirmware
+static int
 pmu_set_backlight_level(int level, void* data)
 {
 	if (vias == NULL)
@@ -1717,7 +1727,7 @@ pmu_set_backlight_level(int level, void* data)
 }
 #endif /* CONFIG_PMAC_BACKLIGHT */
 
-void __pmac
+void
 pmu_enable_irled(int on)
 {
 	struct adb_request req;
@@ -1732,7 +1742,7 @@ pmu_enable_irled(int on)
 	pmu_wait_complete(&req);
 }
 
-void __pmac
+void
 pmu_restart(void)
 {
 	struct adb_request req;
@@ -1757,7 +1767,7 @@ pmu_restart(void)
 		;
 }
 
-void __pmac
+void
 pmu_shutdown(void)
 {
 	struct adb_request req;
@@ -1793,258 +1803,6 @@ pmu_present(void)
 	return via != 0;
 }
 
-struct pmu_i2c_hdr {
-	u8	bus;
-	u8	mode;
-	u8	bus2;
-	u8	address;
-	u8	sub_addr;
-	u8	comb_addr;
-	u8	count;
-};
-
-int
-pmu_i2c_combined_read(int bus, int addr, int subaddr,  u8* data, int len)
-{
-	struct adb_request	req;
-	struct pmu_i2c_hdr	*hdr = (struct pmu_i2c_hdr *)&req.data[1];
-	int retry;
-	int rc;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		hdr->bus = bus;
-		hdr->address = addr & 0xfe;
-		hdr->mode = PMU_I2C_MODE_COMBINED;
-		hdr->bus2 = 0;
-		hdr->sub_addr = subaddr;
-		hdr->comb_addr = addr | 1;
-		hdr->count = len;
-		
-		req.nbytes = sizeof(struct pmu_i2c_hdr) + 1;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.data[0] = PMU_I2C_CMD;
-		req.reply[0] = 0xff;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			break;
-		mdelay(15);
-	}
-	if (req.reply[0] != PMU_I2C_STATUS_OK)
-		return -1;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		mdelay(15);
-
-		hdr->bus = PMU_I2C_BUS_STATUS;
-		req.reply[0] = 0xff;
-		
-		req.nbytes = 2;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.data[0] = PMU_I2C_CMD;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_DATAREAD) {
-			memcpy(data, &req.reply[1], req.reply_len - 1);
-			return req.reply_len - 1;
-		}
-	}
-	return -1;
-}
-
-int
-pmu_i2c_stdsub_write(int bus, int addr, int subaddr,  u8* data, int len)
-{
-	struct adb_request	req;
-	struct pmu_i2c_hdr	*hdr = (struct pmu_i2c_hdr *)&req.data[1];
-	int retry;
-	int rc;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		hdr->bus = bus;
-		hdr->address = addr & 0xfe;
-		hdr->mode = PMU_I2C_MODE_STDSUB;
-		hdr->bus2 = 0;
-		hdr->sub_addr = subaddr;
-		hdr->comb_addr = addr & 0xfe;
-		hdr->count = len;
-
-		req.data[0] = PMU_I2C_CMD;
-		memcpy(&req.data[sizeof(struct pmu_i2c_hdr) + 1], data, len);
-		req.nbytes = sizeof(struct pmu_i2c_hdr) + len + 1;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.reply[0] = 0xff;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			break;
-		mdelay(15);
-	}
-	if (req.reply[0] != PMU_I2C_STATUS_OK)
-		return -1;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		mdelay(15);
-
-		hdr->bus = PMU_I2C_BUS_STATUS;
-		req.reply[0] = 0xff;
-		
-		req.nbytes = 2;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.data[0] = PMU_I2C_CMD;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			return len;
-	}
-	return -1;
-}
-
-int
-pmu_i2c_simple_read(int bus, int addr,  u8* data, int len)
-{
-	struct adb_request	req;
-	struct pmu_i2c_hdr	*hdr = (struct pmu_i2c_hdr *)&req.data[1];
-	int retry;
-	int rc;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		hdr->bus = bus;
-		hdr->address = addr | 1;
-		hdr->mode = PMU_I2C_MODE_SIMPLE;
-		hdr->bus2 = 0;
-		hdr->sub_addr = 0;
-		hdr->comb_addr = 0;
-		hdr->count = len;
-
-		req.data[0] = PMU_I2C_CMD;
-		req.nbytes = sizeof(struct pmu_i2c_hdr) + 1;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.reply[0] = 0xff;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			break;
-		mdelay(15);
-	}
-	if (req.reply[0] != PMU_I2C_STATUS_OK)
-		return -1;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		mdelay(15);
-
-		hdr->bus = PMU_I2C_BUS_STATUS;
-		req.reply[0] = 0xff;
-		
-		req.nbytes = 2;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.data[0] = PMU_I2C_CMD;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_DATAREAD) {
-			memcpy(data, &req.reply[1], req.reply_len - 1);
-			return req.reply_len - 1;
-		}
-	}
-	return -1;
-}
-
-int
-pmu_i2c_simple_write(int bus, int addr,  u8* data, int len)
-{
-	struct adb_request	req;
-	struct pmu_i2c_hdr	*hdr = (struct pmu_i2c_hdr *)&req.data[1];
-	int retry;
-	int rc;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		hdr->bus = bus;
-		hdr->address = addr & 0xfe;
-		hdr->mode = PMU_I2C_MODE_SIMPLE;
-		hdr->bus2 = 0;
-		hdr->sub_addr = 0;
-		hdr->comb_addr = 0;
-		hdr->count = len;
-
-		req.data[0] = PMU_I2C_CMD;
-		memcpy(&req.data[sizeof(struct pmu_i2c_hdr) + 1], data, len);
-		req.nbytes = sizeof(struct pmu_i2c_hdr) + len + 1;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.reply[0] = 0xff;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			break;
-		mdelay(15);
-	}
-	if (req.reply[0] != PMU_I2C_STATUS_OK)
-		return -1;
-
-	for (retry=0; retry<16; retry++) {
-		memset(&req, 0, sizeof(req));
-
-		mdelay(15);
-
-		hdr->bus = PMU_I2C_BUS_STATUS;
-		req.reply[0] = 0xff;
-		
-		req.nbytes = 2;
-		req.reply_expected = 0;
-		req.reply_len = 0;
-		req.data[0] = PMU_I2C_CMD;
-		rc = pmu_queue_request(&req);
-		if (rc)
-			return rc;
-		while(!req.complete)
-			pmu_poll();
-		if (req.reply[0] == PMU_I2C_STATUS_OK)
-			return len;
-	}
-	return -1;
-}
-
 #ifdef CONFIG_PM
 
 static LIST_HEAD(sleep_notifiers);
@@ -2064,6 +1822,7 @@ pmu_register_sleep_notifier(struct pmu_sleep_notifier *n)
 	__list_add(&n->list, list->prev, list);
 	return 0;
 }
+EXPORT_SYMBOL(pmu_register_sleep_notifier);
 
 int
 pmu_unregister_sleep_notifier(struct pmu_sleep_notifier* n)
@@ -2074,9 +1833,13 @@ pmu_unregister_sleep_notifier(struct pmu_sleep_notifier* n)
 	n->list.next = NULL;
 	return 0;
 }
+EXPORT_SYMBOL(pmu_unregister_sleep_notifier);
+#endif /* CONFIG_PM */
+
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 
 /* Sleep is broadcast last-to-first */
-static int __pmac
+static int
 broadcast_sleep(int when, int fallback)
 {
 	int ret = PBOOK_SLEEP_OK;
@@ -2101,7 +1864,7 @@ broadcast_sleep(int when, int fallback)
 }
 
 /* Wake is broadcast first-to-last */
-static int __pmac
+static int
 broadcast_wake(void)
 {
 	int ret = PBOOK_SLEEP_OK;
@@ -2132,7 +1895,7 @@ static struct pci_save {
 } *pbook_pci_saves;
 static int pbook_npci_saves;
 
-static void __pmac
+static void
 pbook_alloc_pci_save(void)
 {
 	int npci;
@@ -2149,7 +1912,7 @@ pbook_alloc_pci_save(void)
 	pbook_npci_saves = npci;
 }
 
-static void __pmac
+static void
 pbook_free_pci_save(void)
 {
 	if (pbook_pci_saves == NULL)
@@ -2159,7 +1922,7 @@ pbook_free_pci_save(void)
 	pbook_npci_saves = 0;
 }
 
-static void __pmac
+static void
 pbook_pci_save(void)
 {
 	struct pci_save *ps = pbook_pci_saves;
@@ -2190,7 +1953,7 @@ pbook_pci_save(void)
  * during boot, it will be in the pci dev list. If it's disabled at this point
  * (and it will probably be), then you can't access it's config space.
  */
-static void __pmac
+static void
 pbook_pci_restore(void)
 {
 	u16 cmd;
@@ -2238,7 +2001,7 @@ pbook_pci_restore(void)
 
 #ifdef DEBUG_SLEEP
 /* N.B. This doesn't work on the 3400 */
-void  __pmac
+void 
 pmu_blink(int n)
 {
 	struct adb_request req;
@@ -2277,9 +2040,9 @@ pmu_blink(int n)
  * Put the powerbook to sleep.
  */
  
-static u32 save_via[8] __pmacdata;
+static u32 save_via[8];
 
-static void __pmac
+static void
 save_via_state(void)
 {
 	save_via[0] = in_8(&via[ANH]);
@@ -2291,7 +2054,7 @@ save_via_state(void)
 	save_via[6] = in_8(&via[T1CL]);
 	save_via[7] = in_8(&via[T1CH]);
 }
-static void __pmac
+static void
 restore_via_state(void)
 {
 	out_8(&via[ANH], save_via[0]);
@@ -2307,7 +2070,7 @@ restore_via_state(void)
 	out_8(&via[IER], IER_SET | SR_INT | CB1_INT);
 }
 
-static int __pmac
+static int
 pmac_suspend_devices(void)
 {
 	int ret;
@@ -2344,8 +2107,9 @@ pmac_suspend_devices(void)
 		return -EBUSY;
 	}
 
-	/* Disable clock spreading on some machines */
-	pmac_tweak_clock_spreading(0);
+	/* Call platform functions marked "on sleep" */
+	pmac_pfunc_i2c_suspend();
+	pmac_pfunc_base_suspend();
 
 	/* Stop preemption */
 	preempt_disable();
@@ -2397,7 +2161,7 @@ pmac_suspend_devices(void)
 	return 0;
 }
 
-static int __pmac
+static int
 pmac_wakeup_devices(void)
 {
 	mdelay(100);
@@ -2417,8 +2181,9 @@ pmac_wakeup_devices(void)
 	mdelay(10);
 	preempt_enable();
 
-	/* Re-enable clock spreading on some machines */
-	pmac_tweak_clock_spreading(1);
+	/* Call platform functions marked "on wake" */
+	pmac_pfunc_base_resume();
+	pmac_pfunc_i2c_resume();
 
 	/* Resume devices */
 	device_resume();
@@ -2436,7 +2201,7 @@ pmac_wakeup_devices(void)
 #define	GRACKLE_NAP	(1<<4)
 #define	GRACKLE_SLEEP	(1<<3)
 
-int __pmac
+int
 powerbook_sleep_grackle(void)
 {
 	unsigned long save_l2cr;
@@ -2520,7 +2285,7 @@ powerbook_sleep_grackle(void)
 	return 0;
 }
 
-static int __pmac
+static int
 powerbook_sleep_Core99(void)
 {
 	unsigned long save_l2cr;
@@ -2620,7 +2385,7 @@ powerbook_sleep_Core99(void)
 #define PB3400_MEM_CTRL		0xf8000000
 #define PB3400_MEM_CTRL_SLEEP	0x70
 
-static int __pmac
+static int
 powerbook_sleep_3400(void)
 {
 	int ret, i, x;
@@ -2675,10 +2440,10 @@ powerbook_sleep_3400(void)
 	asleep = 1;
 
 	/* Put the CPU into sleep mode */
-	asm volatile("mfspr %0,1008" : "=r" (hid0) :);
+	hid0 = mfspr(SPRN_HID0);
 	hid0 = (hid0 & ~(HID0_NAP | HID0_DOZE)) | HID0_SLEEP;
-	asm volatile("mtspr 1008,%0" : : "r" (hid0));
-	_nmask_and_or_msr(0, MSR_POW | MSR_EE);
+	mtspr(SPRN_HID0, hid0);
+	mtmsr(mfmsr() | MSR_POW | MSR_EE);
 	udelay(10);
 
 	/* OK, we're awake again, start restoring things */
@@ -2698,7 +2463,7 @@ powerbook_sleep_3400(void)
 	return 0;
 }
 
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 
 /*
  * Support for /dev/pmu device
@@ -2720,9 +2485,9 @@ struct pmu_private {
 };
 
 static LIST_HEAD(all_pmu_pvt);
-static DEFINE_SPINLOCK(all_pvt_lock __pmacdata);
+static DEFINE_SPINLOCK(all_pvt_lock);
 
-static void __pmac
+static void
 pmu_pass_intr(unsigned char *data, int len)
 {
 	struct pmu_private *pp;
@@ -2751,7 +2516,7 @@ pmu_pass_intr(unsigned char *data, int len)
 	spin_unlock_irqrestore(&all_pvt_lock, flags);
 }
 
-static int __pmac
+static int
 pmu_open(struct inode *inode, struct file *file)
 {
 	struct pmu_private *pp;
@@ -2773,7 +2538,7 @@ pmu_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t  __pmac
+static ssize_t 
 pmu_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
@@ -2825,14 +2590,14 @@ pmu_read(struct file *file, char __user *buf,
 	return ret;
 }
 
-static ssize_t __pmac
+static ssize_t
 pmu_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	return 0;
 }
 
-static unsigned int __pmac
+static unsigned int
 pmu_fpoll(struct file *filp, poll_table *wait)
 {
 	struct pmu_private *pp = filp->private_data;
@@ -2849,7 +2614,7 @@ pmu_fpoll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
-static int __pmac
+static int
 pmu_release(struct inode *inode, struct file *file)
 {
 	struct pmu_private *pp = file->private_data;
@@ -2874,8 +2639,7 @@ pmu_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-/* Note: removed __openfirmware here since it causes link errors */
-static int __pmac
+static int
 pmu_ioctl(struct inode * inode, struct file *filp,
 		     u_int cmd, u_long arg)
 {
@@ -2883,7 +2647,7 @@ pmu_ioctl(struct inode * inode, struct file *filp,
 	int error = -EINVAL;
 
 	switch (cmd) {
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 	case PMU_IOC_SLEEP:
 		if (!capable(CAP_SYS_ADMIN))
 			return -EACCES;
@@ -2911,7 +2675,7 @@ pmu_ioctl(struct inode * inode, struct file *filp,
 			return put_user(0, argp);
 		else
 			return put_user(1, argp);
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 
 #ifdef CONFIG_PMAC_BACKLIGHT
 	/* Backlight should have its own device or go via
@@ -2957,7 +2721,7 @@ pmu_ioctl(struct inode * inode, struct file *filp,
 	return error;
 }
 
-static struct file_operations pmu_device_fops __pmacdata = {
+static struct file_operations pmu_device_fops = {
 	.read		= pmu_read,
 	.write		= pmu_write,
 	.poll		= pmu_fpoll,
@@ -2966,7 +2730,7 @@ static struct file_operations pmu_device_fops __pmacdata = {
 	.release	= pmu_release,
 };
 
-static struct miscdevice pmu_device __pmacdata = {
+static struct miscdevice pmu_device = {
 	PMU_MINOR, "pmu", &pmu_device_fops
 };
 
@@ -2982,7 +2746,7 @@ device_initcall(pmu_device_init);
 
 
 #ifdef DEBUG_SLEEP
-static inline void  __pmac
+static inline void 
 polled_handshake(volatile unsigned char __iomem *via)
 {
 	via[B] &= ~TREQ; eieio();
@@ -2993,7 +2757,7 @@ polled_handshake(volatile unsigned char __iomem *via)
 		;
 }
 
-static inline void  __pmac
+static inline void 
 polled_send_byte(volatile unsigned char __iomem *via, int x)
 {
 	via[ACR] |= SR_OUT | SR_EXT; eieio();
@@ -3001,7 +2765,7 @@ polled_send_byte(volatile unsigned char __iomem *via, int x)
 	polled_handshake(via);
 }
 
-static inline int __pmac
+static inline int
 polled_recv_byte(volatile unsigned char __iomem *via)
 {
 	int x;
@@ -3013,7 +2777,7 @@ polled_recv_byte(volatile unsigned char __iomem *via)
 	return x;
 }
 
-int __pmac
+int
 pmu_polled_request(struct adb_request *req)
 {
 	unsigned long flags;
@@ -3059,7 +2823,7 @@ pmu_polled_request(struct adb_request *req)
  * to do suspend-to-disk.
  */
 
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 
 static int pmu_sys_suspended = 0;
 
@@ -3094,7 +2858,7 @@ static int pmu_sys_resume(struct sys_device *sysdev)
 	return 0;
 }
 
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 
 static struct sysdev_class pmu_sysclass = {
 	set_kset_name("pmu"),
@@ -3106,10 +2870,10 @@ static struct sys_device device_pmu = {
 };
 
 static struct sysdev_driver driver_pmu = {
-#ifdef CONFIG_PM
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 	.suspend	= &pmu_sys_suspend,
 	.resume		= &pmu_sys_resume,
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 };
 
 static int __init init_pmu_sysfs(void)
@@ -3137,22 +2901,17 @@ static int __init init_pmu_sysfs(void)
 subsys_initcall(init_pmu_sysfs);
 
 EXPORT_SYMBOL(pmu_request);
+EXPORT_SYMBOL(pmu_queue_request);
 EXPORT_SYMBOL(pmu_poll);
 EXPORT_SYMBOL(pmu_poll_adb);
 EXPORT_SYMBOL(pmu_wait_complete);
 EXPORT_SYMBOL(pmu_suspend);
 EXPORT_SYMBOL(pmu_resume);
 EXPORT_SYMBOL(pmu_unlock);
-EXPORT_SYMBOL(pmu_i2c_combined_read);
-EXPORT_SYMBOL(pmu_i2c_stdsub_write);
-EXPORT_SYMBOL(pmu_i2c_simple_read);
-EXPORT_SYMBOL(pmu_i2c_simple_write);
-#ifdef CONFIG_PM
-EXPORT_SYMBOL(pmu_register_sleep_notifier);
-EXPORT_SYMBOL(pmu_unregister_sleep_notifier);
+#if defined(CONFIG_PM) && defined(CONFIG_PPC32)
 EXPORT_SYMBOL(pmu_enable_irled);
 EXPORT_SYMBOL(pmu_battery_count);
 EXPORT_SYMBOL(pmu_batteries);
 EXPORT_SYMBOL(pmu_power_flags);
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM && CONFIG_PPC32 */
 

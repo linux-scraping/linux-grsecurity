@@ -45,7 +45,7 @@ const char *get_system_type(void)
 	return "MIPS SEAD";
 }
 
-static void __init sead_setup(void)
+void __init plat_setup(void)
 {
 	ioport_resource.end = 0x7fffffff;
 
@@ -56,8 +56,6 @@ static void __init sead_setup(void)
 
 	mips_reboot_setup();
 }
-
-early_initcall(sead_setup);
 
 static void __init serial_init(void)
 {
@@ -71,10 +69,10 @@ static void __init serial_init(void)
 #else
 	s.iobase = SEAD_UART0_REGS_BASE+3;
 #endif
-	s.irq = SEADINT_UART0;
+	s.irq = MIPSCPU_INT_BASE + MIPSCPU_INT_UART0;
 	s.uartclk = SEAD_BASE_BAUD * 16;
-	s.flags = ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST | ASYNC_AUTO_IRQ;
-	s.iotype = 0;
+	s.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_AUTO_IRQ;
+	s.iotype = UPIO_PORT;
 	s.regshift = 3;
 
 	if (early_serial_setup(&s) != 0) {

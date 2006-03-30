@@ -25,6 +25,7 @@
 #define cpu_has_vtag_icache	0
 #define cpu_has_dc_aliases	0
 #define cpu_has_ic_fills_f_dc	0
+#define cpu_has_dsp		0
 #define cpu_icache_snoops_remote_store	0
 
 #define cpu_has_nofpuex		0
@@ -36,10 +37,9 @@
 #define cpu_icache_line_size()	32
 #define cpu_scache_line_size()	32
 
-/*
- * On the RM9000 we need to ensure that I-cache lines being fetches only
- * contain valid instructions are funny things will happen.
- */
-#define PLAT_TRAMPOLINE_STUFF_LINE	32UL
+#define cpu_has_mips32r1	0
+#define cpu_has_mips32r2	0
+#define cpu_has_mips64r1	0
+#define cpu_has_mips64r2	0
 
 #endif /* __ASM_MACH_JA_CPU_FEATURE_OVERRIDES_H */

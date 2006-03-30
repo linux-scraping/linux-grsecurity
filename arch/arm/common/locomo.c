@@ -22,7 +22,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
@@ -550,20 +550,17 @@ struct locomo_save_data {
 	u16	LCM_SPIMD;
 };
 
-static int locomo_suspend(struct device *dev, pm_message_t state, u32 level)
+static int locomo_suspend(struct platform_device *dev, pm_message_t state)
 {
-	struct locomo *lchip = dev_get_drvdata(dev);
+	struct locomo *lchip = platform_get_drvdata(dev);
 	struct locomo_save_data *save;
 	unsigned long flags;
-
-	if (level != SUSPEND_DISABLE)
-		return 0;
 
 	save = kmalloc(sizeof(struct locomo_save_data), GFP_KERNEL);
 	if (!save)
 		return -ENOMEM;
 
-	dev->power.saved_state = (void *) save;
+	dev->dev.power.saved_state = (void *) save;
 
 	spin_lock_irqsave(&lchip->lock, flags);
 
@@ -597,17 +594,14 @@ static int locomo_suspend(struct device *dev, pm_message_t state, u32 level)
 	return 0;
 }
 
-static int locomo_resume(struct device *dev, u32 level)
+static int locomo_resume(struct platform_device *dev)
 {
-	struct locomo *lchip = dev_get_drvdata(dev);
+	struct locomo *lchip = platform_get_drvdata(dev);
 	struct locomo_save_data *save;
 	unsigned long r;
 	unsigned long flags;
 	
-	if (level != RESUME_ENABLE)
-		return 0;
-
-	save = (struct locomo_save_data *) dev->power.saved_state;
+	save = (struct locomo_save_data *) dev->dev.power.saved_state;
 	if (!save)
 		return 0;
 
@@ -629,13 +623,27 @@ static int locomo_resume(struct device *dev, u32 level)
 	locomo_writel(0x1, lchip->base + LOCOMO_KEYBOARD + LOCOMO_KCMD);
 
 	spin_unlock_irqrestore(&lchip->lock, flags);
-
-	dev->power.saved_state = NULL;
 	kfree(save);
 
 	return 0;
 }
 #endif
+
+
+#define LCM_ALC_EN	0x8000
+
+void frontlight_set(struct locomo *lchip, int duty, int vr, int bpwf)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&lchip->lock, flags);
+	locomo_writel(bpwf, lchip->base + LOCOMO_FRONTLIGHT + LOCOMO_ALS);
+	udelay(100);
+	locomo_writel(duty, lchip->base + LOCOMO_FRONTLIGHT + LOCOMO_ALD);
+	locomo_writel(bpwf | LCM_ALC_EN, lchip->base + LOCOMO_FRONTLIGHT + LOCOMO_ALS);
+	spin_unlock_irqrestore(&lchip->lock, flags);
+}
+
 
 /**
  *	locomo_probe - probe for a single LoCoMo chip.
@@ -696,6 +704,11 @@ __locomo_probe(struct device *me, struct resource *mem, int irq)
 	/* FrontLight */
 	locomo_writel(0, lchip->base + LOCOMO_FRONTLIGHT + LOCOMO_ALS);
 	locomo_writel(0, lchip->base + LOCOMO_FRONTLIGHT + LOCOMO_ALD);
+
+	/* Same constants can be used for collie and poodle
+	   (depending on CONFIG options in original sharp code)? */
+	frontlight_set(lchip, 163, 0, 148);
+
 	/* Longtime timer */
 	locomo_writel(0, lchip->base + LOCOMO_LTINT);
 	/* SPI */
@@ -766,27 +779,26 @@ static void __locomo_remove(struct locomo *lchip)
 	kfree(lchip);
 }
 
-static int locomo_probe(struct device *dev)
+static int locomo_probe(struct platform_device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *mem;
 	int irq;
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	mem = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (!mem)
 		return -EINVAL;
-	irq = platform_get_irq(pdev, 0);
+	irq = platform_get_irq(dev, 0);
 
-	return __locomo_probe(dev, mem, irq);
+	return __locomo_probe(&dev->dev, mem, irq);
 }
 
-static int locomo_remove(struct device *dev)
+static int locomo_remove(struct platform_device *dev)
 {
-	struct locomo *lchip = dev_get_drvdata(dev);
+	struct locomo *lchip = platform_get_drvdata(dev);
 
 	if (lchip) {
 		__locomo_remove(lchip);
-		dev_set_drvdata(dev, NULL);
+		platform_set_drvdata(dev, NULL);
 	}
 
 	return 0;
@@ -798,15 +810,16 @@ static int locomo_remove(struct device *dev)
  *	the per-machine level, and then have this driver pick
  *	up the registered devices.
  */
-static struct device_driver locomo_device_driver = {
-	.name		= "locomo",
-	.bus		= &platform_bus_type,
+static struct platform_driver locomo_device_driver = {
 	.probe		= locomo_probe,
 	.remove		= locomo_remove,
 #ifdef CONFIG_PM
 	.suspend	= locomo_suspend,
 	.resume		= locomo_resume,
 #endif
+	.driver		= {
+		.name	= "locomo",
+	},
 };
 
 /*
@@ -1111,14 +1124,14 @@ static int locomo_bus_remove(struct device *dev)
 struct bus_type locomo_bus_type = {
 	.name		= "locomo-bus",
 	.match		= locomo_match,
+	.probe		= locomo_bus_probe,
+	.remove		= locomo_bus_remove,
 	.suspend	= locomo_bus_suspend,
 	.resume		= locomo_bus_resume,
 };
 
 int locomo_driver_register(struct locomo_driver *driver)
 {
-	driver->drv.probe = locomo_bus_probe;
-	driver->drv.remove = locomo_bus_remove;
 	driver->drv.bus = &locomo_bus_type;
 	return driver_register(&driver->drv);
 }
@@ -1132,13 +1145,13 @@ static int __init locomo_init(void)
 {
 	int ret = bus_register(&locomo_bus_type);
 	if (ret == 0)
-		driver_register(&locomo_device_driver);
+		platform_driver_register(&locomo_device_driver);
 	return ret;
 }
 
 static void __exit locomo_exit(void)
 {
-	driver_unregister(&locomo_device_driver);
+	platform_driver_unregister(&locomo_device_driver);
 	bus_unregister(&locomo_bus_type);
 }
 

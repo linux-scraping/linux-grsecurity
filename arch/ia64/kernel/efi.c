@@ -239,57 +239,56 @@ is_available_memory (efi_memory_desc_t *md)
 	return 0;
 }
 
-/*
- * Trim descriptor MD so its starts at address START_ADDR.  If the descriptor covers
- * memory that is normally available to the kernel, issue a warning that some memory
- * is being ignored.
- */
-static void
-trim_bottom (efi_memory_desc_t *md, u64 start_addr)
+typedef struct kern_memdesc {
+	u64 attribute;
+	u64 start;
+	u64 num_pages;
+} kern_memdesc_t;
+
+static kern_memdesc_t *kern_memmap;
+
+#define efi_md_size(md)	(md->num_pages << EFI_PAGE_SHIFT)
+
+static inline u64
+kmd_end(kern_memdesc_t *kmd)
 {
-	u64 num_skipped_pages;
+	return (kmd->start + (kmd->num_pages << EFI_PAGE_SHIFT));
+}
 
-	if (md->phys_addr >= start_addr || !md->num_pages)
-		return;
+static inline u64
+efi_md_end(efi_memory_desc_t *md)
+{
+	return (md->phys_addr + efi_md_size(md));
+}
 
-	num_skipped_pages = (start_addr - md->phys_addr) >> EFI_PAGE_SHIFT;
-	if (num_skipped_pages > md->num_pages)
-		num_skipped_pages = md->num_pages;
+static inline int
+efi_wb(efi_memory_desc_t *md)
+{
+	return (md->attribute & EFI_MEMORY_WB);
+}
 
-	if (is_available_memory(md))
-		printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
-		       "at 0x%lx\n", __FUNCTION__,
-		       (num_skipped_pages << EFI_PAGE_SHIFT) >> 10,
-		       md->phys_addr, start_addr - IA64_GRANULE_SIZE);
-	/*
-	 * NOTE: Don't set md->phys_addr to START_ADDR because that could cause the memory
-	 * descriptor list to become unsorted.  In such a case, md->num_pages will be
-	 * zero, so the Right Thing will happen.
-	 */
-	md->phys_addr += num_skipped_pages << EFI_PAGE_SHIFT;
-	md->num_pages -= num_skipped_pages;
+static inline int
+efi_uc(efi_memory_desc_t *md)
+{
+	return (md->attribute & EFI_MEMORY_UC);
 }
 
 static void
-trim_top (efi_memory_desc_t *md, u64 end_addr)
+walk (efi_freemem_callback_t callback, void *arg, u64 attr)
 {
-	u64 num_dropped_pages, md_end_addr;
+	kern_memdesc_t *k;
+	u64 start, end, voff;
 
-	md_end_addr = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT);
-
-	if (md_end_addr <= end_addr || !md->num_pages)
-		return;
-
-	num_dropped_pages = (md_end_addr - end_addr) >> EFI_PAGE_SHIFT;
-	if (num_dropped_pages > md->num_pages)
-		num_dropped_pages = md->num_pages;
-
-	if (is_available_memory(md))
-		printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
-		       "at 0x%lx\n", __FUNCTION__,
-		       (num_dropped_pages << EFI_PAGE_SHIFT) >> 10,
-		       md->phys_addr, end_addr);
-	md->num_pages -= num_dropped_pages;
+	voff = (attr == EFI_MEMORY_WB) ? PAGE_OFFSET : __IA64_UNCACHED_OFFSET;
+	for (k = kern_memmap; k->start != ~0UL; k++) {
+		if (k->attribute != attr)
+			continue;
+		start = PAGE_ALIGN(k->start);
+		end = (k->start + (k->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK;
+		if (start < end)
+			if ((*callback)(start + voff, end + voff, arg) < 0)
+				return;
+	}
 }
 
 /*
@@ -299,147 +298,18 @@ trim_top (efi_memory_desc_t *md, u64 end_addr)
 void
 efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
 {
-	int prev_valid = 0;
-	struct range {
-		u64 start;
-		u64 end;
-	} prev, curr;
-	void *efi_map_start, *efi_map_end, *p, *q;
-	efi_memory_desc_t *md, *check_md;
-	u64 efi_desc_size, start, end, granule_addr, last_granule_addr, first_non_wb_addr = 0;
-	unsigned long total_mem = 0;
-
-	efi_map_start = __va(ia64_boot_param->efi_memmap);
-	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-
-	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-		md = p;
-
-		/* skip over non-WB memory descriptors; that's all we're interested in... */
-		if (!(md->attribute & EFI_MEMORY_WB))
-			continue;
-
-		/*
-		 * granule_addr is the base of md's first granule.
-		 * [granule_addr - first_non_wb_addr) is guaranteed to
-		 * be contiguous WB memory.
-		 */
-		granule_addr = GRANULEROUNDDOWN(md->phys_addr);
-		first_non_wb_addr = max(first_non_wb_addr, granule_addr);
-
-		if (first_non_wb_addr < md->phys_addr) {
-			trim_bottom(md, granule_addr + IA64_GRANULE_SIZE);
-			granule_addr = GRANULEROUNDDOWN(md->phys_addr);
-			first_non_wb_addr = max(first_non_wb_addr, granule_addr);
-		}
-
-		for (q = p; q < efi_map_end; q += efi_desc_size) {
-			check_md = q;
-
-			if ((check_md->attribute & EFI_MEMORY_WB) &&
-			    (check_md->phys_addr == first_non_wb_addr))
-				first_non_wb_addr += check_md->num_pages << EFI_PAGE_SHIFT;
-			else
-				break;		/* non-WB or hole */
-		}
-
-		last_granule_addr = GRANULEROUNDDOWN(first_non_wb_addr);
-		if (last_granule_addr < md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT))
-			trim_top(md, last_granule_addr);
-
-		if (is_available_memory(md)) {
-			if (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) >= max_addr) {
-				if (md->phys_addr >= max_addr)
-					continue;
-				md->num_pages = (max_addr - md->phys_addr) >> EFI_PAGE_SHIFT;
-				first_non_wb_addr = max_addr;
-			}
-
-			if (total_mem >= mem_limit)
-				continue;
-
-			if (total_mem + (md->num_pages << EFI_PAGE_SHIFT) > mem_limit) {
-				unsigned long limit_addr = md->phys_addr;
-
-				limit_addr += mem_limit - total_mem;
-				limit_addr = GRANULEROUNDDOWN(limit_addr);
-
-				if (md->phys_addr > limit_addr)
-					continue;
-
-				md->num_pages = (limit_addr - md->phys_addr) >>
-				                EFI_PAGE_SHIFT;
-				first_non_wb_addr = max_addr = md->phys_addr +
-				              (md->num_pages << EFI_PAGE_SHIFT);
-			}
-			total_mem += (md->num_pages << EFI_PAGE_SHIFT);
-
-			if (md->num_pages == 0)
-				continue;
-
-			curr.start = PAGE_OFFSET + md->phys_addr;
-			curr.end   = curr.start + (md->num_pages << EFI_PAGE_SHIFT);
-
-			if (!prev_valid) {
-				prev = curr;
-				prev_valid = 1;
-			} else {
-				if (curr.start < prev.start)
-					printk(KERN_ERR "Oops: EFI memory table not ordered!\n");
-
-				if (prev.end == curr.start) {
-					/* merge two consecutive memory ranges */
-					prev.end = curr.end;
-				} else {
-					start = PAGE_ALIGN(prev.start);
-					end = prev.end & PAGE_MASK;
-					if ((end > start) && (*callback)(start, end, arg) < 0)
-						return;
-					prev = curr;
-				}
-			}
-		}
-	}
-	if (prev_valid) {
-		start = PAGE_ALIGN(prev.start);
-		end = prev.end & PAGE_MASK;
-		if (end > start)
-			(*callback)(start, end, arg);
-	}
+	walk(callback, arg, EFI_MEMORY_WB);
 }
 
 /*
- * Walk the EFI memory map to pull out leftover pages in the lower
- * memory regions which do not end up in the regular memory map and
- * stick them into the uncached allocator
- *
- * The regular walk function is significantly more complex than the
- * uncached walk which means it really doesn't make sense to try and
- * marge the two.
+ * Walks the EFI memory map and calls CALLBACK once for each EFI memory descriptor that
+ * has memory that is available for uncached allocator.
  */
-void __init
-efi_memmap_walk_uc (efi_freemem_callback_t callback)
+void
+efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg)
 {
-	void *efi_map_start, *efi_map_end, *p;
-	efi_memory_desc_t *md;
-	u64 efi_desc_size, start, end;
-
-	efi_map_start = __va(ia64_boot_param->efi_memmap);
-	efi_map_end = efi_map_start + ia64_boot_param->efi_memmap_size;
-	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-
-	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-		md = p;
-		if (md->attribute == EFI_MEMORY_UC) {
-			start = PAGE_ALIGN(md->phys_addr);
-			end = PAGE_ALIGN((md->phys_addr+(md->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK);
-			if ((*callback)(start, end, NULL) < 0)
-				return;
-		}
-	}
+	walk(callback, arg, EFI_MEMORY_UC);
 }
-
 
 /*
  * Look for the PAL_CODE region reported by EFI and maps it using an
@@ -540,24 +410,16 @@ efi_init (void)
 	efi_config_table_t *config_tables;
 	efi_char16_t *c16;
 	u64 efi_desc_size;
-	char *cp, *end, vendor[100] = "unknown";
+	char *cp, vendor[100] = "unknown";
 	extern char saved_command_line[];
 	int i;
 
 	/* it's too early to be able to use the standard kernel command line support... */
 	for (cp = saved_command_line; *cp; ) {
 		if (memcmp(cp, "mem=", 4) == 0) {
-			cp += 4;
-			mem_limit = memparse(cp, &end);
-			if (end != cp)
-				break;
-			cp = end;
+			mem_limit = memparse(cp + 4, &cp);
 		} else if (memcmp(cp, "max_addr=", 9) == 0) {
-			cp += 9;
-			max_addr = GRANULEROUNDDOWN(memparse(cp, &end));
-			if (end != cp)
-				break;
-			cp = end;
+			max_addr = GRANULEROUNDDOWN(memparse(cp + 9, &cp));
 		} else {
 			while (*cp != ' ' && *cp)
 				++cp;
@@ -588,7 +450,7 @@ efi_init (void)
 	/* Show what we know for posterity */
 	c16 = __va(efi.systab->fw_vendor);
 	if (c16) {
-		for (i = 0;i < (int) sizeof(vendor) && *c16; ++i)
+		for (i = 0;i < (int) sizeof(vendor) - 1 && *c16; ++i)
 			vendor[i] = *c16++;
 		vendor[i] = '\0';
 	}
@@ -751,8 +613,8 @@ efi_get_iobase (void)
 	return 0;
 }
 
-u32
-efi_mem_type (unsigned long phys_addr)
+static efi_memory_desc_t *
+efi_memory_descriptor (unsigned long phys_addr)
 {
 	void *efi_map_start, *efi_map_end, *p;
 	efi_memory_desc_t *md;
@@ -766,55 +628,117 @@ efi_mem_type (unsigned long phys_addr)
 		md = p;
 
 		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
-			 return md->type;
+			 return md;
 	}
+	return 0;
+}
+
+static int
+efi_memmap_has_mmio (void)
+{
+	void *efi_map_start, *efi_map_end, *p;
+	efi_memory_desc_t *md;
+	u64 efi_desc_size;
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+		md = p;
+
+		if (md->type == EFI_MEMORY_MAPPED_IO)
+			return 1;
+	}
+	return 0;
+}
+
+u32
+efi_mem_type (unsigned long phys_addr)
+{
+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
+
+	if (md)
+		return md->type;
 	return 0;
 }
 
 u64
 efi_mem_attributes (unsigned long phys_addr)
 {
-	void *efi_map_start, *efi_map_end, *p;
-	efi_memory_desc_t *md;
-	u64 efi_desc_size;
+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
 
-	efi_map_start = __va(ia64_boot_param->efi_memmap);
-	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-
-	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-		md = p;
-
-		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
-			return md->attribute;
-	}
+	if (md)
+		return md->attribute;
 	return 0;
 }
 EXPORT_SYMBOL(efi_mem_attributes);
 
+/*
+ * Determines whether the memory at phys_addr supports the desired
+ * attribute (WB, UC, etc).  If this returns 1, the caller can safely
+ * access *size bytes at phys_addr with the specified attribute.
+ */
+static int
+efi_mem_attribute_range (unsigned long phys_addr, unsigned long *size, u64 attr)
+{
+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
+	unsigned long md_end;
+
+	if (!md || (md->attribute & attr) != attr)
+		return 0;
+
+	do {
+		md_end = efi_md_end(md);
+		if (phys_addr + *size <= md_end)
+			return 1;
+
+		md = efi_memory_descriptor(md_end);
+		if (!md || (md->attribute & attr) != attr) {
+			*size = md_end - phys_addr;
+			return 1;
+		}
+	} while (md);
+	return 0;
+}
+
+/*
+ * For /dev/mem, we only allow read & write system calls to access
+ * write-back memory, because read & write don't allow the user to
+ * control access size.
+ */
 int
 valid_phys_addr_range (unsigned long phys_addr, unsigned long *size)
 {
-	void *efi_map_start, *efi_map_end, *p;
-	efi_memory_desc_t *md;
-	u64 efi_desc_size;
+	return efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_WB);
+}
 
-	efi_map_start = __va(ia64_boot_param->efi_memmap);
-	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+/*
+ * We allow mmap of anything in the EFI memory map that supports
+ * either write-back or uncacheable access.  For uncacheable regions,
+ * the supported access sizes are system-dependent, and the user is
+ * responsible for using the correct size.
+ *
+ * Note that this doesn't currently allow access to hot-added memory,
+ * because that doesn't appear in the boot-time EFI memory map.
+ */
+int
+valid_mmap_phys_addr_range (unsigned long phys_addr, unsigned long *size)
+{
+	if (efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_WB))
+		return 1;
 
-	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-		md = p;
+	if (efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_UC))
+		return 1;
 
-		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT)) {
-			if (!(md->attribute & EFI_MEMORY_WB))
-				return 0;
+	/*
+	 * Some firmware doesn't report MMIO regions in the EFI memory map.
+	 * The Intel BigSur (a.k.a. HP i2000) has this problem.  In this
+	 * case, we can't use the EFI memory map to validate mmap requests.
+	 */
+	if (!efi_memmap_has_mmio())
+		return 1;
 
-			if (*size > md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - phys_addr)
-				*size = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - phys_addr;
-			return 1;
-		}
-	}
 	return 0;
 }
 
@@ -861,4 +785,282 @@ efi_uart_console_only(void)
 	}
 	printk(KERN_ERR "Malformed %s value\n", name);
 	return 0;
+}
+
+/*
+ * Look for the first granule aligned memory descriptor memory
+ * that is big enough to hold EFI memory map. Make sure this
+ * descriptor is atleast granule sized so it does not get trimmed
+ */
+struct kern_memdesc *
+find_memmap_space (void)
+{
+	u64	contig_low=0, contig_high=0;
+	u64	as = 0, ae;
+	void *efi_map_start, *efi_map_end, *p, *q;
+	efi_memory_desc_t *md, *pmd = NULL, *check_md;
+	u64	space_needed, efi_desc_size;
+	unsigned long total_mem = 0;
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	/*
+	 * Worst case: we need 3 kernel descriptors for each efi descriptor
+	 * (if every entry has a WB part in the middle, and UC head and tail),
+	 * plus one for the end marker.
+	 */
+	space_needed = sizeof(kern_memdesc_t) *
+		(3 * (ia64_boot_param->efi_memmap_size/efi_desc_size) + 1);
+
+	for (p = efi_map_start; p < efi_map_end; pmd = md, p += efi_desc_size) {
+		md = p;
+		if (!efi_wb(md)) {
+			continue;
+		}
+		if (pmd == NULL || !efi_wb(pmd) || efi_md_end(pmd) != md->phys_addr) {
+			contig_low = GRANULEROUNDUP(md->phys_addr);
+			contig_high = efi_md_end(md);
+			for (q = p + efi_desc_size; q < efi_map_end; q += efi_desc_size) {
+				check_md = q;
+				if (!efi_wb(check_md))
+					break;
+				if (contig_high != check_md->phys_addr)
+					break;
+				contig_high = efi_md_end(check_md);
+			}
+			contig_high = GRANULEROUNDDOWN(contig_high);
+		}
+		if (!is_available_memory(md) || md->type == EFI_LOADER_DATA)
+			continue;
+
+		/* Round ends inward to granule boundaries */
+		as = max(contig_low, md->phys_addr);
+		ae = min(contig_high, efi_md_end(md));
+
+		/* keep within max_addr= command line arg */
+		ae = min(ae, max_addr);
+		if (ae <= as)
+			continue;
+
+		/* avoid going over mem= command line arg */
+		if (total_mem + (ae - as) > mem_limit)
+			ae -= total_mem + (ae - as) - mem_limit;
+
+		if (ae <= as)
+			continue;
+
+		if (ae - as > space_needed)
+			break;
+	}
+	if (p >= efi_map_end)
+		panic("Can't allocate space for kernel memory descriptors");
+
+	return __va(as);
+}
+
+/*
+ * Walk the EFI memory map and gather all memory available for kernel
+ * to use.  We can allocate partial granules only if the unavailable
+ * parts exist, and are WB.
+ */
+void
+efi_memmap_init(unsigned long *s, unsigned long *e)
+{
+	struct kern_memdesc *k, *prev = 0;
+	u64	contig_low=0, contig_high=0;
+	u64	as, ae, lim;
+	void *efi_map_start, *efi_map_end, *p, *q;
+	efi_memory_desc_t *md, *pmd = NULL, *check_md;
+	u64	efi_desc_size;
+	unsigned long total_mem = 0;
+
+	k = kern_memmap = find_memmap_space();
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	for (p = efi_map_start; p < efi_map_end; pmd = md, p += efi_desc_size) {
+		md = p;
+		if (!efi_wb(md)) {
+			if (efi_uc(md) && (md->type == EFI_CONVENTIONAL_MEMORY ||
+				    	   md->type == EFI_BOOT_SERVICES_DATA)) {
+				k->attribute = EFI_MEMORY_UC;
+				k->start = md->phys_addr;
+				k->num_pages = md->num_pages;
+				k++;
+			}
+			continue;
+		}
+		if (pmd == NULL || !efi_wb(pmd) || efi_md_end(pmd) != md->phys_addr) {
+			contig_low = GRANULEROUNDUP(md->phys_addr);
+			contig_high = efi_md_end(md);
+			for (q = p + efi_desc_size; q < efi_map_end; q += efi_desc_size) {
+				check_md = q;
+				if (!efi_wb(check_md))
+					break;
+				if (contig_high != check_md->phys_addr)
+					break;
+				contig_high = efi_md_end(check_md);
+			}
+			contig_high = GRANULEROUNDDOWN(contig_high);
+		}
+		if (!is_available_memory(md))
+			continue;
+
+		/*
+		 * Round ends inward to granule boundaries
+		 * Give trimmings to uncached allocator
+		 */
+		if (md->phys_addr < contig_low) {
+			lim = min(efi_md_end(md), contig_low);
+			if (efi_uc(md)) {
+				if (k > kern_memmap && (k-1)->attribute == EFI_MEMORY_UC &&
+				    kmd_end(k-1) == md->phys_addr) {
+					(k-1)->num_pages += (lim - md->phys_addr) >> EFI_PAGE_SHIFT;
+				} else {
+					k->attribute = EFI_MEMORY_UC;
+					k->start = md->phys_addr;
+					k->num_pages = (lim - md->phys_addr) >> EFI_PAGE_SHIFT;
+					k++;
+				}
+			}
+			as = contig_low;
+		} else
+			as = md->phys_addr;
+
+		if (efi_md_end(md) > contig_high) {
+			lim = max(md->phys_addr, contig_high);
+			if (efi_uc(md)) {
+				if (lim == md->phys_addr && k > kern_memmap &&
+				    (k-1)->attribute == EFI_MEMORY_UC &&
+				    kmd_end(k-1) == md->phys_addr) {
+					(k-1)->num_pages += md->num_pages;
+				} else {
+					k->attribute = EFI_MEMORY_UC;
+					k->start = lim;
+					k->num_pages = (efi_md_end(md) - lim) >> EFI_PAGE_SHIFT;
+					k++;
+				}
+			}
+			ae = contig_high;
+		} else
+			ae = efi_md_end(md);
+
+		/* keep within max_addr= command line arg */
+		ae = min(ae, max_addr);
+		if (ae <= as)
+			continue;
+
+		/* avoid going over mem= command line arg */
+		if (total_mem + (ae - as) > mem_limit)
+			ae -= total_mem + (ae - as) - mem_limit;
+
+		if (ae <= as)
+			continue;
+		if (prev && kmd_end(prev) == md->phys_addr) {
+			prev->num_pages += (ae - as) >> EFI_PAGE_SHIFT;
+			total_mem += ae - as;
+			continue;
+		}
+		k->attribute = EFI_MEMORY_WB;
+		k->start = as;
+		k->num_pages = (ae - as) >> EFI_PAGE_SHIFT;
+		total_mem += ae - as;
+		prev = k++;
+	}
+	k->start = ~0L; /* end-marker */
+
+	/* reserve the memory we are using for kern_memmap */
+	*s = (u64)kern_memmap;
+	*e = (u64)++k;
+}
+
+void
+efi_initialize_iomem_resources(struct resource *code_resource,
+			       struct resource *data_resource)
+{
+	struct resource *res;
+	void *efi_map_start, *efi_map_end, *p;
+	efi_memory_desc_t *md;
+	u64 efi_desc_size;
+	char *name;
+	unsigned long flags;
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	res = NULL;
+
+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+		md = p;
+
+		if (md->num_pages == 0) /* should not happen */
+			continue;
+
+		flags = IORESOURCE_MEM;
+		switch (md->type) {
+
+			case EFI_MEMORY_MAPPED_IO:
+			case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
+				continue;
+
+			case EFI_LOADER_CODE:
+			case EFI_LOADER_DATA:
+			case EFI_BOOT_SERVICES_DATA:
+			case EFI_BOOT_SERVICES_CODE:
+			case EFI_CONVENTIONAL_MEMORY:
+				if (md->attribute & EFI_MEMORY_WP) {
+					name = "System ROM";
+					flags |= IORESOURCE_READONLY;
+				} else {
+					name = "System RAM";
+				}
+				break;
+
+			case EFI_ACPI_MEMORY_NVS:
+				name = "ACPI Non-volatile Storage";
+				flags |= IORESOURCE_BUSY;
+				break;
+
+			case EFI_UNUSABLE_MEMORY:
+				name = "reserved";
+				flags |= IORESOURCE_BUSY | IORESOURCE_DISABLED;
+				break;
+
+			case EFI_RESERVED_TYPE:
+			case EFI_RUNTIME_SERVICES_CODE:
+			case EFI_RUNTIME_SERVICES_DATA:
+			case EFI_ACPI_RECLAIM_MEMORY:
+			default:
+				name = "reserved";
+				flags |= IORESOURCE_BUSY;
+				break;
+		}
+
+		if ((res = kzalloc(sizeof(struct resource), GFP_KERNEL)) == NULL) {
+			printk(KERN_ERR "failed to alocate resource for iomem\n");
+			return;
+		}
+
+		res->name = name;
+		res->start = md->phys_addr;
+		res->end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1;
+		res->flags = flags;
+
+		if (insert_resource(&iomem_resource, res) < 0)
+			kfree(res);
+		else {
+			/*
+			 * We don't know which region contains
+			 * kernel data so we try it repeatedly and
+			 * let the resource manager test it.
+			 */
+			insert_resource(res, code_resource);
+			insert_resource(res, data_resource);
+		}
+	}
 }

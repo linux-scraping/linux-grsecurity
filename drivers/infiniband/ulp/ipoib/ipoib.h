@@ -45,11 +45,11 @@
 #include <linux/config.h>
 #include <linux/kref.h>
 #include <linux/if_infiniband.h>
+#include <linux/mutex.h>
 
 #include <net/neighbour.h>
 
 #include <asm/atomic.h>
-#include <asm/semaphore.h>
 
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_pack.h>
@@ -78,6 +78,7 @@ enum {
 	IPOIB_FLAG_SUBINTERFACE   = 4,
 	IPOIB_MCAST_RUN 	  = 5,
 	IPOIB_STOP_REAPER         = 6,
+	IPOIB_MCAST_STARTED       = 7,
 
 	IPOIB_MAX_BACKOFF_SECONDS = 16,
 
@@ -100,7 +101,12 @@ struct ipoib_pseudoheader {
 
 struct ipoib_mcast;
 
-struct ipoib_buf {
+struct ipoib_rx_buf {
+	struct sk_buff *skb;
+	dma_addr_t	mapping;
+};
+
+struct ipoib_tx_buf {
 	struct sk_buff *skb;
 	DECLARE_PCI_UNMAP_ADDR(mapping)
 };
@@ -118,8 +124,8 @@ struct ipoib_dev_priv {
 
 	unsigned long flags;
 
-	struct semaphore mcast_mutex;
-	struct semaphore vlan_mutex;
+	struct mutex mcast_mutex;
+	struct mutex vlan_mutex;
 
 	struct rb_root  path_tree;
 	struct list_head path_list;
@@ -150,14 +156,14 @@ struct ipoib_dev_priv {
 	unsigned int admin_mtu;
 	unsigned int mcast_mtu;
 
-	struct ipoib_buf *rx_ring;
+	struct ipoib_rx_buf *rx_ring;
 
-	spinlock_t        tx_lock;
-	struct ipoib_buf *tx_ring;
-	unsigned          tx_head;
-	unsigned          tx_tail;
-	struct ib_sge     tx_sge;
-	struct ib_send_wr tx_wr;
+	spinlock_t           tx_lock;
+	struct ipoib_tx_buf *tx_ring;
+	unsigned             tx_head;
+	unsigned             tx_tail;
+	struct ib_sge        tx_sge;
+	struct ib_send_wr    tx_wr;
 
 	struct ib_wc ibwc[IPOIB_NUM_WC];
 
@@ -174,6 +180,7 @@ struct ipoib_dev_priv {
 #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG
 	struct list_head fs_list;
 	struct dentry *mcg_dentry;
+	struct dentry *path_dentry;
 #endif
 };
 
@@ -230,6 +237,7 @@ static inline void ipoib_put_ah(struct ipoib_ah *ah)
 	kref_put(&ah->ref, ipoib_free_ah);
 }
 
+int ipoib_open(struct net_device *dev);
 int ipoib_add_pkey_attr(struct net_device *dev);
 
 void ipoib_send(struct net_device *dev, struct sk_buff *skb,
@@ -262,8 +270,8 @@ int ipoib_mcast_stop_thread(struct net_device *dev, int flush);
 void ipoib_mcast_dev_down(struct net_device *dev);
 void ipoib_mcast_dev_flush(struct net_device *dev);
 
+#ifdef CONFIG_INFINIBAND_IPOIB_DEBUG
 struct ipoib_mcast_iter *ipoib_mcast_iter_init(struct net_device *dev);
-void ipoib_mcast_iter_free(struct ipoib_mcast_iter *iter);
 int ipoib_mcast_iter_next(struct ipoib_mcast_iter *iter);
 void ipoib_mcast_iter_read(struct ipoib_mcast_iter *iter,
 				  union ib_gid *gid,
@@ -272,12 +280,18 @@ void ipoib_mcast_iter_read(struct ipoib_mcast_iter *iter,
 				  unsigned int *complete,
 				  unsigned int *send_only);
 
+struct ipoib_path_iter *ipoib_path_iter_init(struct net_device *dev);
+int ipoib_path_iter_next(struct ipoib_path_iter *iter);
+void ipoib_path_iter_read(struct ipoib_path_iter *iter,
+			  struct ipoib_path *path);
+#endif
+
 int ipoib_mcast_attach(struct net_device *dev, u16 mlid,
 		       union ib_gid *mgid);
 int ipoib_mcast_detach(struct net_device *dev, u16 mlid,
 		       union ib_gid *mgid);
 
-int ipoib_qp_create(struct net_device *dev);
+int ipoib_init_qp(struct net_device *dev);
 int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca);
 void ipoib_transport_dev_cleanup(struct net_device *dev);
 
@@ -291,13 +305,13 @@ void ipoib_pkey_poll(void *dev);
 int ipoib_pkey_dev_delay_open(struct net_device *dev);
 
 #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG
-int ipoib_create_debug_file(struct net_device *dev);
-void ipoib_delete_debug_file(struct net_device *dev);
+void ipoib_create_debug_files(struct net_device *dev);
+void ipoib_delete_debug_files(struct net_device *dev);
 int ipoib_register_debugfs(void);
 void ipoib_unregister_debugfs(void);
 #else
-static inline int ipoib_create_debug_file(struct net_device *dev) { return 0; }
-static inline void ipoib_delete_debug_file(struct net_device *dev) { }
+static inline void ipoib_create_debug_files(struct net_device *dev) { }
+static inline void ipoib_delete_debug_files(struct net_device *dev) { }
 static inline int ipoib_register_debugfs(void) { return 0; }
 static inline void ipoib_unregister_debugfs(void) { }
 #endif

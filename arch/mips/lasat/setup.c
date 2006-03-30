@@ -134,8 +134,8 @@ void __init serial_init(void)
 
 	memset(&s, 0, sizeof(s));
 
-	s.flags = STD_COM_FLAGS;
-	s.iotype = SERIAL_IO_MEM;
+	s.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
+	s.iotype = UPIO_MEM;
 
 	if (mips_machtype == MACH_LASAT_100) {
 		s.uartclk = LASAT_BASE_BAUD_100 * 16;
@@ -155,7 +155,7 @@ void __init serial_init(void)
 }
 #endif
 
-static int __init lasat_setup(void)
+void __init plat_setup(void)
 {
 	int i;
 	lasat_misc  = &lasat_misc_info[mips_machtype];
@@ -185,8 +185,4 @@ static int __init lasat_setup(void)
 	change_c0_status(ST0_BEV,0);
 
 	prom_printf("Lasat specific initialization complete\n");
-
-        return 0;
 }
-
-early_initcall(lasat_setup);

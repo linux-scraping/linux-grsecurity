@@ -69,7 +69,6 @@
 #include <linux/pci.h>
 #include <linux/vmalloc.h>
 #include <linux/device.h>
-#include <linux/i2c.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -113,6 +112,7 @@ static struct pci_device_id radeonfb_pci_table[] = {
 	/* Radeon VE/7000 */
 	CHIP_DEF(PCI_CHIP_RV100_QY, 	RV100,	CHIP_HAS_CRTC2),
 	CHIP_DEF(PCI_CHIP_RV100_QZ, 	RV100,	CHIP_HAS_CRTC2),
+	CHIP_DEF(PCI_CHIP_RN50,		RV100,	CHIP_HAS_CRTC2),
 	/* Radeon IGP320M (U1) */
 	CHIP_DEF(PCI_CHIP_RS100_4336,	RS100,	CHIP_HAS_CRTC2 | CHIP_IS_IGP | CHIP_IS_MOBILITY),
 	/* Radeon IGP320 (A3) */
@@ -594,7 +594,7 @@ static int __devinit radeon_probe_pll_params(struct radeonfb_info *rinfo)
 }
 
 /*
- * Retreive PLL infos by different means (BIOS, Open Firmware, register probing...)
+ * Retrieve PLL infos by different means (BIOS, Open Firmware, register probing...)
  */
 static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 {
@@ -660,17 +660,17 @@ static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 
 #ifdef CONFIG_PPC_OF
 	/*
-	 * Retreive PLL infos from Open Firmware first
+	 * Retrieve PLL infos from Open Firmware first
 	 */
        	if (!force_measure_pll && radeon_read_xtal_OF(rinfo) == 0) {
-       		printk(KERN_INFO "radeonfb: Retreived PLL infos from Open Firmware\n");
+       		printk(KERN_INFO "radeonfb: Retrieved PLL infos from Open Firmware\n");
 		goto found;
 	}
 #endif /* CONFIG_PPC_OF */
 
 	/*
 	 * Check out if we have an X86 which gave us some PLL informations
-	 * and if yes, retreive them
+	 * and if yes, retrieve them
 	 */
 	if (!force_measure_pll && rinfo->bios_seg) {
 		u16 pll_info_block = BIOS_IN16(rinfo->fp_bios_start + 0x30);
@@ -682,7 +682,7 @@ static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 		rinfo->pll.ppll_min	= BIOS_IN32(pll_info_block + 0x12);
 		rinfo->pll.ppll_max	= BIOS_IN32(pll_info_block + 0x16);
 
-		printk(KERN_INFO "radeonfb: Retreived PLL infos from BIOS\n");
+		printk(KERN_INFO "radeonfb: Retrieved PLL infos from BIOS\n");
 		goto found;
 	}
 
@@ -691,7 +691,7 @@ static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 	 * probe them
 	 */
 	if (radeon_probe_pll_params(rinfo) == 0) {
-		printk(KERN_INFO "radeonfb: Retreived PLL infos from registers\n");
+		printk(KERN_INFO "radeonfb: Retrieved PLL infos from registers\n");
 		goto found;
 	}
 
@@ -702,7 +702,7 @@ static void __devinit radeon_get_pllinfo(struct radeonfb_info *rinfo)
 
 found:
 	/*
-	 * Some methods fail to retreive SCLK and MCLK values, we apply default
+	 * Some methods fail to retrieve SCLK and MCLK values, we apply default
 	 * settings in this case (200Mhz). If that really happne often, we could
 	 * fetch from registers instead...
 	 */
@@ -864,8 +864,8 @@ static int radeonfb_pan_display (struct fb_var_screeninfo *var,
 }
 
 
-static int radeonfb_ioctl (struct inode *inode, struct file *file, unsigned int cmd,
-                           unsigned long arg, struct fb_info *info)
+static int radeonfb_ioctl (struct fb_info *info, unsigned int cmd,
+                           unsigned long arg)
 {
         struct radeonfb_info *rinfo = info->par;
 	unsigned int tmp;
@@ -1874,7 +1874,6 @@ static struct fb_ops radeonfb_ops = {
 	.fb_fillrect		= radeonfb_fillrect,
 	.fb_copyarea		= radeonfb_copyarea,
 	.fb_imageblit		= radeonfb_imageblit,
-	.fb_cursor		= soft_cursor,
 };
 
 
@@ -2394,7 +2393,7 @@ static int radeonfb_pci_register (struct pci_dev *pdev,
 	       rinfo->mapped_vram/1024);
 
 	/*
-	 * Map the BIOS ROM if any and retreive PLL parameters from
+	 * Map the BIOS ROM if any and retrieve PLL parameters from
 	 * the BIOS. We skip that on mobility chips as the real panel
 	 * values we need aren't in the ROM but in the BIOS image in
 	 * memory. This is definitely not the best meacnism though,

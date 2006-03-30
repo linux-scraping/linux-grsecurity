@@ -12,11 +12,6 @@
 #ifndef __QETH_FS_H__
 #define __QETH_FS_H__
 
-#define VERSION_QETH_FS_H "$Revision: 1.9 $"
-
-extern const char *VERSION_QETH_PROC_C;
-extern const char *VERSION_QETH_SYS_C;
-
 #ifdef CONFIG_PROC_FS
 extern int
 qeth_create_procfs_entries(void);
@@ -42,6 +37,12 @@ qeth_create_device_attributes(struct device *dev);
 extern void
 qeth_remove_device_attributes(struct device *dev);
 
+extern int
+qeth_create_device_attributes_osn(struct device *dev);
+
+extern void
+qeth_remove_device_attributes_osn(struct device *dev);
+		    
 extern int
 qeth_create_driver_attributes(void);
 
@@ -108,6 +109,8 @@ qeth_get_cardname(struct qeth_card *card)
 			return " OSD Express";
 		case QETH_CARD_TYPE_IQD:
 			return " HiperSockets";
+		case QETH_CARD_TYPE_OSN:
+			return " OSN QDIO";
 		default:
 			return " unknown";
 		}
@@ -153,6 +156,8 @@ qeth_get_cardname_short(struct qeth_card *card)
 			}
 		case QETH_CARD_TYPE_IQD:
 			return "HiperSockets";
+		case QETH_CARD_TYPE_OSN:
+			return "OSN";
 		default:
 			return "unknown";
 		}

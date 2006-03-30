@@ -431,8 +431,7 @@ static int aty128fb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 static int aty128fb_pan_display(struct fb_var_screeninfo *var,
 			   struct fb_info *fb);
 static int aty128fb_blank(int blank, struct fb_info *fb);
-static int aty128fb_ioctl(struct inode *inode, struct file *file, u_int cmd,
-			  u_long arg, struct fb_info *info);
+static int aty128fb_ioctl(struct fb_info *info, u_int cmd, unsigned long arg);
 static int aty128fb_sync(struct fb_info *info);
 
     /*
@@ -478,7 +477,6 @@ static struct fb_ops aty128fb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 };
 
 #ifdef CONFIG_PMAC_BACKLIGHT
@@ -1328,7 +1326,7 @@ static int aty128_var_to_pll(u32 period_in_ps, struct aty128_pll *pll,
 	unsigned char post_dividers[] = {1,2,4,8,3,6,12};
 	u32 output_freq;
 	u32 vclk;        /* in .01 MHz */
-	int i;
+	int i = 0;
 	u32 n, d;
 
 	vclk = 100000000 / period_in_ps;	/* convert units to 10 kHz */
@@ -1342,15 +1340,16 @@ static int aty128_var_to_pll(u32 period_in_ps, struct aty128_pll *pll,
 	/* now, find an acceptable divider */
 	for (i = 0; i < sizeof(post_dividers); i++) {
 		output_freq = post_dividers[i] * vclk;
-		if (output_freq >= c.ppll_min && output_freq <= c.ppll_max)
+		if (output_freq >= c.ppll_min && output_freq <= c.ppll_max) {
+			pll->post_divider = post_dividers[i];
 			break;
+		}
 	}
 
 	/* calculate feedback divider */
 	n = c.ref_divider * output_freq;
 	d = c.ref_clk;
 
-	pll->post_divider = post_dividers[i];
 	pll->feedback_divider = round_div(n, d);
 	pll->vclk = vclk;
 
@@ -2109,8 +2108,7 @@ static int aty128fb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 /* in param: u32*	backlight value: 0 to 15 */
 #define FBIO_ATY128_SET_MIRROR	_IOW('@', 2, __u32)
 
-static int aty128fb_ioctl(struct inode *inode, struct file *file, u_int cmd,
-			  u_long arg, struct fb_info *info)
+static int aty128fb_ioctl(struct fb_info *info, u_int cmd, u_long arg)
 {
 	struct aty128fb_par *par = info->par;
 	u32 value;

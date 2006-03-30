@@ -165,8 +165,8 @@ static unsigned buflen = 4096;
 static unsigned qlen = 32;
 static unsigned pattern = 0;
 
-module_param (buflen, uint, S_IRUGO|S_IWUSR);
-module_param (qlen, uint, S_IRUGO|S_IWUSR);
+module_param (buflen, uint, S_IRUGO);
+module_param (qlen, uint, S_IRUGO);
 module_param (pattern, uint, S_IRUGO|S_IWUSR);
 
 /*
@@ -612,7 +612,7 @@ static void source_sink_complete (struct usb_ep *ep, struct usb_request *req)
 }
 
 static struct usb_request *
-source_sink_start_ep (struct usb_ep *ep, unsigned gfp_flags)
+source_sink_start_ep (struct usb_ep *ep, gfp_t gfp_flags)
 {
 	struct usb_request	*req;
 	int			status;
@@ -640,7 +640,7 @@ source_sink_start_ep (struct usb_ep *ep, unsigned gfp_flags)
 }
 
 static int
-set_source_sink_config (struct zero_dev *dev, unsigned gfp_flags)
+set_source_sink_config (struct zero_dev *dev, gfp_t gfp_flags)
 {
 	int			result = 0;
 	struct usb_ep		*ep;
@@ -744,7 +744,7 @@ static void loopback_complete (struct usb_ep *ep, struct usb_request *req)
 }
 
 static int
-set_loopback_config (struct zero_dev *dev, unsigned gfp_flags)
+set_loopback_config (struct zero_dev *dev, gfp_t gfp_flags)
 {
 	int			result = 0;
 	struct usb_ep		*ep;
@@ -845,7 +845,7 @@ static void zero_reset_config (struct zero_dev *dev)
  * by limiting configuration choices (like the pxa2xx).
  */
 static int
-zero_set_config (struct zero_dev *dev, unsigned number, unsigned gfp_flags)
+zero_set_config (struct zero_dev *dev, unsigned number, gfp_t gfp_flags)
 {
 	int			result = 0;
 	struct usb_gadget	*gadget = dev->gadget;
@@ -1127,8 +1127,10 @@ zero_unbind (struct usb_gadget *gadget)
 	DBG (dev, "unbind\n");
 
 	/* we've already been disconnected ... no i/o is active */
-	if (dev->req)
+	if (dev->req) {
+		dev->req->length = USB_BUFSIZ;
 		free_ep_req (gadget->ep0, dev->req);
+	}
 	del_timer_sync (&dev->resume);
 	kfree (dev);
 	set_gadget_data (gadget, NULL);
@@ -1302,9 +1304,7 @@ static struct usb_gadget_driver zero_driver = {
 
 	.driver 	= {
 		.name		= (char *) shortname,
-		// .shutdown = ...
-		// .suspend = ...
-		// .resume = ...
+		.owner		= THIS_MODULE,
 	},
 };
 

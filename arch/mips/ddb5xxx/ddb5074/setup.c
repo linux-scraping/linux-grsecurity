@@ -14,6 +14,7 @@
 #include <linux/ide.h>
 #include <linux/ioport.h>
 #include <linux/irq.h>
+#include <linux/pm.h>
 
 #include <asm/addrspace.h>
 #include <asm/bcache.h>
@@ -85,7 +86,7 @@ static void __init ddb_time_init(void)
 
 
 
-static void __init ddb5074_setup(void)
+void __init plat_setup(void)
 {
 	set_io_port_base(NILE4_PCI_IO_BASE);
 	isa_slot_offset = NILE4_PCI_MEM_BASE;
@@ -95,7 +96,7 @@ static void __init ddb5074_setup(void)
 
 	_machine_restart = ddb_machine_restart;
 	_machine_halt = ddb_machine_halt;
-	_machine_power_off = ddb_machine_power_off;
+	pm_power_off = ddb_machine_power_off;
 
 	ddb_out32(DDB_BAR0, 0);
 
@@ -105,8 +106,6 @@ static void __init ddb5074_setup(void)
 	/* Reboot on panic */
 	panic_timeout = 180;
 }
-
-early_initcall(ddb5074_setup);
 
 #define USE_NILE4_SERIAL	0
 

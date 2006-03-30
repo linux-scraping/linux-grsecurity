@@ -325,7 +325,7 @@ cleanup:
 /*
  * Inode operation listxattr()
  *
- * dentry->d_inode->i_sem: don't care
+ * dentry->d_inode->i_mutex: don't care
  */
 ssize_t
 ext2_listxattr(struct dentry *dentry, char *buffer, size_t size)
@@ -389,10 +389,6 @@ ext2_xattr_set(struct inode *inode, int name_index, const char *name,
 	ea_idebug(inode, "name=%d.%s, value=%p, value_len=%ld",
 		  name_index, name, value, (long)value_len);
 
-	if (IS_RDONLY(inode))
-		return -EROFS;
-	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
-		return -EPERM;
 	if (value == NULL)
 		value_len = 0;
 	if (name == NULL)
@@ -796,18 +792,20 @@ ext2_xattr_delete_inode(struct inode *inode)
 		ext2_free_blocks(inode, EXT2_I(inode)->i_file_acl, 1);
 		get_bh(bh);
 		bforget(bh);
+		unlock_buffer(bh);
 	} else {
 		HDR(bh)->h_refcount = cpu_to_le32(
 			le32_to_cpu(HDR(bh)->h_refcount) - 1);
 		if (ce)
 			mb_cache_entry_release(ce);
+		ea_bdebug(bh, "refcount now=%d",
+			le32_to_cpu(HDR(bh)->h_refcount));
+		unlock_buffer(bh);
 		mark_buffer_dirty(bh);
 		if (IS_SYNC(inode))
 			sync_dirty_buffer(bh);
 		DQUOT_FREE_BLOCK(inode, 1);
 	}
-	ea_bdebug(bh, "refcount now=%d", le32_to_cpu(HDR(bh)->h_refcount) - 1);
-	unlock_buffer(bh);
 	EXT2_I(inode)->i_file_acl = 0;
 
 cleanup:

@@ -62,7 +62,6 @@ config GRKERNSEC_MEDIUM
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_RANDNET
-	select GRKERNSEC_RANDSRC
 	select GRKERNSEC_FORKFAIL
 	select GRKERNSEC_TIME
 	select GRKERNSEC_SIGNAL
@@ -112,7 +111,6 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_RANDPID
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
-	select GRKERNSEC_RANDSRC
 	select GRKERNSEC_FORKFAIL
 	select GRKERNSEC_TIME
 	select GRKERNSEC_SIGNAL
@@ -764,17 +762,6 @@ config GRKERNSEC_RANDNET
 	  features use additional randomness, it is recommended that you say Y
 	  here.  Saying Y here has a similar effect as modifying
 	  /proc/sys/kernel/random/poolsize.
-
-config GRKERNSEC_RANDSRC
-	bool "Randomized TCP source ports"
-	default n if GRKERNSEC_LOW || GRKERNSEC_MID
-	default y if GRKERNSEC_HIGH
-	help
-	  If you say Y here, situations where a source port is generated on the
-	  fly for the TCP protocol (ie. with connect() ) will be altered so that
-	  the source port is generated at random, instead of a simple incrementing
-	  algorithm.  If the sysctl option is enabled, a sysctl option with name
-	  "rand_tcp_src_ports" is created.
 
 config GRKERNSEC_SOCKET
 	bool "Socket restrictions"

@@ -140,6 +140,50 @@ enum sis96x_eeprom_command {
 	EEREQ = 0x00000400, EEDONE = 0x00000200, EEGNT = 0x00000100
 };
 
+/* PCI Registers */
+enum sis900_pci_registers {
+	CFGPMC 	 = 0x40,
+	CFGPMCSR = 0x44
+};
+
+/* Power management capabilities bits */
+enum sis900_cfgpmc_register_bits {
+	PMVER	= 0x00070000, 
+	DSI	= 0x00100000,
+	PMESP	= 0xf8000000
+};
+
+enum sis900_pmesp_bits {
+	PME_D0 = 0x1,
+	PME_D1 = 0x2,
+	PME_D2 = 0x4,
+	PME_D3H = 0x8,
+	PME_D3C = 0x10
+};
+
+/* Power management control/status bits */
+enum sis900_cfgpmcsr_register_bits {
+	PMESTS = 0x00004000,
+	PME_EN = 0x00000100, // Power management enable
+	PWR_STA = 0x00000003 // Current power state
+};
+
+/* Wake-on-LAN support. */
+enum sis900_power_management_control_register_bits {
+	LINKLOSS  = 0x00000001,
+	LINKON    = 0x00000002,
+	MAGICPKT  = 0x00000400,
+	ALGORITHM = 0x00000800,
+	FRM1EN    = 0x00100000,
+	FRM2EN    = 0x00200000,
+	FRM3EN    = 0x00400000,
+	FRM1ACS   = 0x01000000,
+	FRM2ACS   = 0x02000000,
+	FRM3ACS   = 0x04000000,
+	WAKEALL   = 0x40000000,
+	GATECLK   = 0x80000000
+};
+
 /* Management Data I/O (mdio) frame */
 #define MIIread         0x6000
 #define MIIwrite        0x5002

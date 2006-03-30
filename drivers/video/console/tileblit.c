@@ -80,9 +80,8 @@ static void tile_clear_margins(struct vc_data *vc, struct fb_info *info,
 	return;
 }
 
-static void tile_cursor(struct vc_data *vc, struct fb_info *info,
-			struct display *p, int mode, int softback_lines,
-			int fg, int bg)
+static void tile_cursor(struct vc_data *vc, struct fb_info *info, int mode,
+			int softback_lines, int fg, int bg)
 {
 	struct fb_tilecursor cursor;
 	int use_sw = (vc->vc_cursor_type & 0x01);
@@ -118,24 +117,37 @@ static void tile_cursor(struct vc_data *vc, struct fb_info *info,
 	info->tileops->fb_tilecursor(info, &cursor);
 }
 
-void fbcon_set_tileops(struct vc_data *vc, struct fb_info *info,
-		       struct display *p, struct fbcon_ops *ops)
+static int tile_update_start(struct fb_info *info)
+{
+	struct fbcon_ops *ops = info->fbcon_par;
+	int err;
+
+	err = fb_pan_display(info, &ops->var);
+	ops->var.xoffset = info->var.xoffset;
+	ops->var.yoffset = info->var.yoffset;
+	ops->var.vmode = info->var.vmode;
+	return err;
+}
+
+void fbcon_set_tileops(struct vc_data *vc, struct fb_info *info)
 {
 	struct fb_tilemap map;
+	struct fbcon_ops *ops = info->fbcon_par;
 
 	ops->bmove = tile_bmove;
 	ops->clear = tile_clear;
 	ops->putcs = tile_putcs;
 	ops->clear_margins = tile_clear_margins;
 	ops->cursor = tile_cursor;
+	ops->update_start = tile_update_start;
 
-	if (p) {
+	if (ops->p) {
 		map.width = vc->vc_font.width;
 		map.height = vc->vc_font.height;
 		map.depth = 1;
-		map.length = (p->userfont) ?
-			FNTCHARCNT(p->fontdata) : 256;
-		map.data = p->fontdata;
+		map.length = (ops->p->userfont) ?
+			FNTCHARCNT(ops->p->fontdata) : 256;
+		map.data = ops->p->fontdata;
 		info->tileops->fb_settile(info, &map);
 	}
 }

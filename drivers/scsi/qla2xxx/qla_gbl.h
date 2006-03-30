@@ -1,25 +1,9 @@
-/********************************************************************************
-*                  QLOGIC LINUX SOFTWARE
-*
-* QLogic ISP2x00 device driver for Linux 2.6.x
-* Copyright (C) 2003-2005 QLogic Corporation
-* (www.qlogic.com)
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of the GNU General Public License as published by the
-* Free Software Foundation; either version 2, or (at your option) any
-* later version.
-*
-* This program is distributed in the hope that it will be useful, but
-* WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-* General Public License for more details.
-*
-******************************************************************************
-* Global include file.
-******************************************************************************/
-
-
+/*
+ * QLogic Fibre Channel HBA Driver
+ * Copyright (c)  2003-2005 QLogic Corporation
+ *
+ * See LICENSE.qla2xxx for copyright and licensing details.
+ */
 #ifndef __QLA_GBL_H
 #define	__QLA_GBL_H
 
@@ -49,10 +33,10 @@ extern int qla24xx_nvram_config(struct scsi_qla_host *);
 extern void qla2x00_update_fw_options(struct scsi_qla_host *);
 extern void qla24xx_update_fw_options(scsi_qla_host_t *);
 extern int qla2x00_load_risc(struct scsi_qla_host *, uint32_t *);
+extern int qla24xx_load_risc(scsi_qla_host_t *, uint32_t *);
 extern int qla24xx_load_risc_flash(scsi_qla_host_t *, uint32_t *);
-extern int qla24xx_load_risc_hotplug(scsi_qla_host_t *, uint32_t *);
 
-extern fc_port_t *qla2x00_alloc_fcport(scsi_qla_host_t *, int);
+extern fc_port_t *qla2x00_alloc_fcport(scsi_qla_host_t *, gfp_t);
 
 extern int qla2x00_loop_resync(scsi_qla_host_t *);
 
@@ -63,9 +47,11 @@ extern int qla2x00_local_device_login(scsi_qla_host_t *, uint16_t);
 extern void qla2x00_restart_queues(scsi_qla_host_t *, uint8_t);
 
 extern void qla2x00_rescan_fcports(scsi_qla_host_t *);
+extern void qla2x00_update_fcports(scsi_qla_host_t *);
 
 extern int qla2x00_abort_isp(scsi_qla_host_t *);
 
+extern void qla2x00_update_fcport(scsi_qla_host_t *, fc_port_t *);
 extern void qla2x00_reg_remote_port(scsi_qla_host_t *, fc_port_t *);
 
 /*
@@ -76,10 +62,9 @@ extern char qla2x00_version_str[];
 extern int ql2xlogintimeout;
 extern int qlport_down_retry;
 extern int ql2xplogiabsentdevice;
-extern int ql2xenablezio;
-extern int ql2xintrdelaytimer;
 extern int ql2xloginretrycount;
 extern int ql2xfdmienable;
+extern int ql2xprocessrscn;
 
 extern void qla2x00_sp_compl(scsi_qla_host_t *, srb_t *);
 
@@ -87,12 +72,14 @@ extern char *qla2x00_get_fw_version_str(struct scsi_qla_host *, char *);
 
 extern void qla2x00_cmd_timeout(srb_t *);
 
-extern void qla2x00_mark_device_lost(scsi_qla_host_t *, fc_port_t *, int);
-extern void qla2x00_mark_all_devices_lost(scsi_qla_host_t *);
-
-extern void qla2x00_blink_led(scsi_qla_host_t *);
+extern void qla2x00_mark_device_lost(scsi_qla_host_t *, fc_port_t *, int, int);
+extern void qla2x00_mark_all_devices_lost(scsi_qla_host_t *, int);
 
 extern int qla2x00_down_timeout(struct semaphore *, unsigned long);
+
+extern struct fw_blob *qla2x00_request_firmware(scsi_qla_host_t *);
+
+extern int qla2x00_wait_for_hba_online(scsi_qla_host_t *);
 
 /*
  * Global Function Prototypes in qla_iocb.c source file.
@@ -112,10 +99,7 @@ int __qla2x00_marker(scsi_qla_host_t *, uint16_t, uint16_t, uint8_t);
  * Global Function Prototypes in qla_mbx.c source file.
  */
 extern int
-qla2x00_load_ram(scsi_qla_host_t *, dma_addr_t, uint16_t, uint16_t);
-
-extern int
-qla2x00_load_ram_ext(scsi_qla_host_t *, dma_addr_t, uint32_t, uint32_t);
+qla2x00_load_ram(scsi_qla_host_t *, dma_addr_t, uint32_t, uint32_t);
 
 extern int
 qla2x00_execute_fw(scsi_qla_host_t *, uint32_t);
@@ -201,6 +185,13 @@ qla2x00_get_resource_cnts(scsi_qla_host_t *, uint16_t *, uint16_t *, uint16_t *,
 extern int
 qla2x00_get_fcal_position_map(scsi_qla_host_t *ha, char *pos_map);
 
+extern int
+qla2x00_get_link_status(scsi_qla_host_t *, uint16_t, link_stat_t *,
+    uint16_t *);
+
+extern int
+qla24xx_get_isp_stats(scsi_qla_host_t *, uint32_t *, uint32_t, uint16_t *);
+
 extern int qla24xx_abort_command(scsi_qla_host_t *, srb_t *);
 extern int qla24xx_abort_target(fc_port_t *);
 
@@ -223,6 +214,7 @@ extern irqreturn_t qla2100_intr_handler(int, void *, struct pt_regs *);
 extern irqreturn_t qla2300_intr_handler(int, void *, struct pt_regs *);
 extern irqreturn_t qla24xx_intr_handler(int, void *, struct pt_regs *);
 extern void qla2x00_process_response_queue(struct scsi_qla_host *);
+extern void qla24xx_process_response_queue(struct scsi_qla_host *);
 
 /*
  * Global Function Prototypes in qla_sup.c source file.
@@ -242,6 +234,22 @@ extern int qla2x00_write_nvram_data(scsi_qla_host_t *, uint8_t *, uint32_t,
     uint32_t);
 extern int qla24xx_write_nvram_data(scsi_qla_host_t *, uint8_t *, uint32_t,
     uint32_t);
+
+extern int qla2x00_beacon_on(struct scsi_qla_host *);
+extern int qla2x00_beacon_off(struct scsi_qla_host *);
+extern void qla2x00_beacon_blink(struct scsi_qla_host *);
+extern int qla24xx_beacon_on(struct scsi_qla_host *);
+extern int qla24xx_beacon_off(struct scsi_qla_host *);
+extern void qla24xx_beacon_blink(struct scsi_qla_host *);
+
+extern uint8_t *qla2x00_read_optrom_data(struct scsi_qla_host *, uint8_t *,
+    uint32_t, uint32_t);
+extern int qla2x00_write_optrom_data(struct scsi_qla_host *, uint8_t *,
+    uint32_t, uint32_t);
+extern uint8_t *qla24xx_read_optrom_data(struct scsi_qla_host *, uint8_t *,
+    uint32_t, uint32_t);
+extern int qla24xx_write_optrom_data(struct scsi_qla_host *, uint8_t *,
+    uint32_t, uint32_t);
 
 /*
  * Global Function Prototypes in qla_dbg.c source file.
@@ -277,7 +285,7 @@ extern int qla2x00_fdmi_register(scsi_qla_host_t *);
 /*
  * Global Function Prototypes in qla_rscn.c source file.
  */
-extern fc_port_t *qla2x00_alloc_rscn_fcport(scsi_qla_host_t *, int);
+extern fc_port_t *qla2x00_alloc_rscn_fcport(scsi_qla_host_t *, gfp_t);
 extern int qla2x00_handle_port_rscn(scsi_qla_host_t *, uint32_t, fc_port_t *,
     int);
 extern void qla2x00_process_iodesc(scsi_qla_host_t *, struct mbx_entry *);

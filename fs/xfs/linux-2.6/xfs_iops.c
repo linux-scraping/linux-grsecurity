@@ -1,39 +1,25 @@
 /*
- * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2005 Silicon Graphics, Inc.
+ * All Rights Reserved.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * This program is distributed in the hope that it would be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc., 59
- * Temple Place - Suite 330, Boston MA 02111-1307, USA.
- *
- * Contact information: Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
- * Mountain View, CA  94043, or:
- *
- * http://www.sgi.com
- *
- * For further information regarding this notice, see:
- *
- * http://oss.sgi.com/projects/GenInfo/SGIGPLNoticeExplan/
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write the Free Software Foundation,
+ * Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-
 #include "xfs.h"
 #include "xfs_fs.h"
-#include "xfs_inum.h"
+#include "xfs_bit.h"
 #include "xfs_log.h"
+#include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
@@ -43,18 +29,17 @@
 #include "xfs_dmapi.h"
 #include "xfs_quota.h"
 #include "xfs_mount.h"
-#include "xfs_alloc_btree.h"
 #include "xfs_bmap_btree.h"
+#include "xfs_alloc_btree.h"
 #include "xfs_ialloc_btree.h"
-#include "xfs_btree.h"
-#include "xfs_ialloc.h"
-#include "xfs_attr_sf.h"
 #include "xfs_dir_sf.h"
 #include "xfs_dir2_sf.h"
+#include "xfs_attr_sf.h"
 #include "xfs_dinode.h"
 #include "xfs_inode.h"
 #include "xfs_bmap.h"
-#include "xfs_bit.h"
+#include "xfs_btree.h"
+#include "xfs_ialloc.h"
 #include "xfs_rtalloc.h"
 #include "xfs_error.h"
 #include "xfs_itable.h"
@@ -66,8 +51,147 @@
 #include "xfs_buf_item.h"
 #include "xfs_utils.h"
 
+#include <linux/capability.h>
 #include <linux/xattr.h>
 #include <linux/namei.h>
+#include <linux/security.h>
+
+/*
+ * Get a XFS inode from a given vnode.
+ */
+xfs_inode_t *
+xfs_vtoi(
+	struct vnode	*vp)
+{
+	bhv_desc_t      *bdp;
+
+	bdp = bhv_lookup_range(VN_BHV_HEAD(vp),
+			VNODE_POSITION_XFS, VNODE_POSITION_XFS);
+	if (unlikely(bdp == NULL))
+		return NULL;
+	return XFS_BHVTOI(bdp);
+}
+
+/*
+ * Bring the atime in the XFS inode uptodate.
+ * Used before logging the inode to disk or when the Linux inode goes away.
+ */
+void
+xfs_synchronize_atime(
+	xfs_inode_t	*ip)
+{
+	vnode_t		*vp;
+
+	vp = XFS_ITOV_NULL(ip);
+	if (vp) {
+		struct inode *inode = &vp->v_inode;
+		ip->i_d.di_atime.t_sec = (__int32_t)inode->i_atime.tv_sec;
+		ip->i_d.di_atime.t_nsec = (__int32_t)inode->i_atime.tv_nsec;
+	}
+}
+
+/*
+ * Change the requested timestamp in the given inode.
+ * We don't lock across timestamp updates, and we don't log them but
+ * we do record the fact that there is dirty information in core.
+ *
+ * NOTE -- callers MUST combine XFS_ICHGTIME_MOD or XFS_ICHGTIME_CHG
+ *		with XFS_ICHGTIME_ACC to be sure that access time
+ *		update will take.  Calling first with XFS_ICHGTIME_ACC
+ *		and then XFS_ICHGTIME_MOD may fail to modify the access
+ *		timestamp if the filesystem is mounted noacctm.
+ */
+void
+xfs_ichgtime(
+	xfs_inode_t	*ip,
+	int		flags)
+{
+	struct inode	*inode = LINVFS_GET_IP(XFS_ITOV(ip));
+	timespec_t	tv;
+
+	nanotime(&tv);
+	if (flags & XFS_ICHGTIME_MOD) {
+		inode->i_mtime = tv;
+		ip->i_d.di_mtime.t_sec = (__int32_t)tv.tv_sec;
+		ip->i_d.di_mtime.t_nsec = (__int32_t)tv.tv_nsec;
+	}
+	if (flags & XFS_ICHGTIME_ACC) {
+		inode->i_atime = tv;
+		ip->i_d.di_atime.t_sec = (__int32_t)tv.tv_sec;
+		ip->i_d.di_atime.t_nsec = (__int32_t)tv.tv_nsec;
+	}
+	if (flags & XFS_ICHGTIME_CHG) {
+		inode->i_ctime = tv;
+		ip->i_d.di_ctime.t_sec = (__int32_t)tv.tv_sec;
+		ip->i_d.di_ctime.t_nsec = (__int32_t)tv.tv_nsec;
+	}
+
+	/*
+	 * We update the i_update_core field _after_ changing
+	 * the timestamps in order to coordinate properly with
+	 * xfs_iflush() so that we don't lose timestamp updates.
+	 * This keeps us from having to hold the inode lock
+	 * while doing this.  We use the SYNCHRONIZE macro to
+	 * ensure that the compiler does not reorder the update
+	 * of i_update_core above the timestamp updates above.
+	 */
+	SYNCHRONIZE();
+	ip->i_update_core = 1;
+	if (!(inode->i_state & I_LOCK))
+		mark_inode_dirty_sync(inode);
+}
+
+/*
+ * Variant on the above which avoids querying the system clock
+ * in situations where we know the Linux inode timestamps have
+ * just been updated (and so we can update our inode cheaply).
+ */
+void
+xfs_ichgtime_fast(
+	xfs_inode_t	*ip,
+	struct inode	*inode,
+	int		flags)
+{
+	timespec_t	*tvp;
+
+	/*
+	 * Atime updates for read() & friends are handled lazily now, and
+	 * explicit updates must go through xfs_ichgtime()
+	 */
+	ASSERT((flags & XFS_ICHGTIME_ACC) == 0);
+
+	/*
+	 * We're not supposed to change timestamps in readonly-mounted
+	 * filesystems.  Throw it away if anyone asks us.
+	 */
+	if (unlikely(IS_RDONLY(inode)))
+		return;
+
+	if (flags & XFS_ICHGTIME_MOD) {
+		tvp = &inode->i_mtime;
+		ip->i_d.di_mtime.t_sec = (__int32_t)tvp->tv_sec;
+		ip->i_d.di_mtime.t_nsec = (__int32_t)tvp->tv_nsec;
+	}
+	if (flags & XFS_ICHGTIME_CHG) {
+		tvp = &inode->i_ctime;
+		ip->i_d.di_ctime.t_sec = (__int32_t)tvp->tv_sec;
+		ip->i_d.di_ctime.t_nsec = (__int32_t)tvp->tv_nsec;
+	}
+
+	/*
+	 * We update the i_update_core field _after_ changing
+	 * the timestamps in order to coordinate properly with
+	 * xfs_iflush() so that we don't lose timestamp updates.
+	 * This keeps us from having to hold the inode lock
+	 * while doing this.  We use the SYNCHRONIZE macro to
+	 * ensure that the compiler does not reorder the update
+	 * of i_update_core above the timestamp updates above.
+	 */
+	SYNCHRONIZE();
+	ip->i_update_core = 1;
+	if (!(inode->i_state & I_LOCK))
+		mark_inode_dirty_sync(inode);
+}
 
 
 /*
@@ -87,10 +211,43 @@ validate_fields(
 		ip->i_nlink = va.va_nlink;
 		ip->i_blocks = va.va_nblocks;
 
-		/* we're under i_sem so i_size can't change under us */
+		/* we're under i_mutex so i_size can't change under us */
 		if (i_size_read(ip) != va.va_size)
 			i_size_write(ip, va.va_size);
 	}
+}
+
+/*
+ * Hook in SELinux.  This is not quite correct yet, what we really need
+ * here (as we do for default ACLs) is a mechanism by which creation of
+ * these attrs can be journalled at inode creation time (along with the
+ * inode, of course, such that log replay can't cause these to be lost).
+ */
+STATIC int
+linvfs_init_security(
+	struct vnode	*vp,
+	struct inode	*dir)
+{
+	struct inode	*ip = LINVFS_GET_IP(vp);
+	size_t		length;
+	void		*value;
+	char		*name;
+	int		error;
+
+	error = security_inode_init_security(ip, dir, &name, &value, &length);
+	if (error) {
+		if (error == -EOPNOTSUPP)
+			return 0;
+		return -error;
+	}
+
+	VOP_ATTR_SET(vp, name, value, length, ATTR_SECURE, NULL, error);
+	if (!error)
+		VMODIFY(vp);
+
+	kfree(name);
+	kfree(value);
+	return error;
 }
 
 /*
@@ -103,6 +260,31 @@ STATIC inline int
 has_fs_struct(struct task_struct *task)
 {
 	return (task->fs != init_task.fs);
+}
+
+STATIC inline void
+cleanup_inode(
+	vnode_t		*dvp,
+	vnode_t		*vp,
+	struct dentry	*dentry,	
+	int		mode)
+{
+	struct dentry   teardown = {};
+	int             err2;
+
+	/* Oh, the horror.
+	 * If we can't add the ACL or we fail in 
+	 * linvfs_init_security we must back out.
+	 * ENOSPC can hit here, among other things.
+	 */
+	teardown.d_inode = LINVFS_GET_IP(vp);
+	teardown.d_name = dentry->d_name;
+
+	if (S_ISDIR(mode))
+	  	VOP_RMDIR(dvp, &teardown, NULL, err2);
+	else
+		VOP_REMOVE(dvp, &teardown, NULL, err2);
+	VN_RELE(vp);
 }
 
 STATIC int
@@ -158,30 +340,20 @@ linvfs_mknod(
 		break;
 	}
 
+	if (!error)
+	{
+		error = linvfs_init_security(vp, dir);
+		if (error)
+			cleanup_inode(dvp, vp, dentry, mode);
+	}
+
 	if (default_acl) {
 		if (!error) {
 			error = _ACL_INHERIT(vp, &va, default_acl);
-			if (!error) {
+			if (!error) 
 				VMODIFY(vp);
-			} else {
-				struct dentry	teardown = {};
-				int		err2;
-
-				/* Oh, the horror.
-				 * If we can't add the ACL we must back out.
-				 * ENOSPC can hit here, among other things.
-				 */
-				teardown.d_inode = ip = LINVFS_GET_IP(vp);
-				teardown.d_name = dentry->d_name;
-
-				vn_mark_bad(vp);
-				
-				if (S_ISDIR(mode))
-					VOP_RMDIR(dvp, &teardown, NULL, err2);
-				else
-					VOP_REMOVE(dvp, &teardown, NULL, err2);
-				VN_RELE(vp);
-			}
+			else
+				cleanup_inode(dvp, vp, dentry, mode);
 		}
 		_ACL_FREE(default_acl);
 	}
@@ -313,11 +485,14 @@ linvfs_symlink(
 
 	error = 0;
 	VOP_SYMLINK(dvp, dentry, &va, (char *)symname, &cvp, NULL, error);
-	if (!error && cvp) {
-		ip = LINVFS_GET_IP(cvp);
-		d_instantiate(dentry, ip);
-		validate_fields(dir);
-		validate_fields(ip); /* size needs update */
+	if (likely(!error && cvp)) {
+		error = linvfs_init_security(cvp, dir);
+		if (likely(!error)) {
+			ip = LINVFS_GET_IP(cvp);
+			d_instantiate(dentry, ip);
+			validate_fields(dir);
+			validate_fields(ip);
+		}
 	}
 	return -error;
 }
@@ -386,7 +561,7 @@ linvfs_follow_link(
 	ASSERT(dentry);
 	ASSERT(nd);
 
-	link = (char *)kmalloc(MAXNAMELEN+1, GFP_KERNEL);
+	link = (char *)kmalloc(MAXPATHLEN+1, GFP_KERNEL);
 	if (!link) {
 		nd_set_link(nd, ERR_PTR(-ENOMEM));
 		return NULL;
@@ -402,12 +577,12 @@ linvfs_follow_link(
 	vp = LINVFS_GET_VP(dentry->d_inode);
 
 	iov.iov_base = link;
-	iov.iov_len = MAXNAMELEN;
+	iov.iov_len = MAXPATHLEN;
 
 	uio->uio_iov = &iov;
 	uio->uio_offset = 0;
 	uio->uio_segflg = UIO_SYSSPACE;
-	uio->uio_resid = MAXNAMELEN;
+	uio->uio_resid = MAXPATHLEN;
 	uio->uio_iovcnt = 1;
 
 	VOP_READLINK(vp, uio, 0, NULL, error);
@@ -415,7 +590,7 @@ linvfs_follow_link(
 		kfree(link);
 		link = ERR_PTR(-error);
 	} else {
-		link[MAXNAMELEN - uio->uio_resid] = '\0';
+		link[MAXPATHLEN - uio->uio_resid] = '\0';
 	}
 	kfree(uio);
 
@@ -498,6 +673,8 @@ linvfs_setattr(
 	if (ia_valid & ATTR_ATIME) {
 		vattr.va_mask |= XFS_AT_ATIME;
 		vattr.va_atime = attr->ia_atime;
+		if (ia_valid & ATTR_ATIME_SET)
+			inode->i_atime = attr->ia_atime;
 	}
 	if (ia_valid & ATTR_MTIME) {
 		vattr.va_mask |= XFS_AT_MTIME;

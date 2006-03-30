@@ -235,12 +235,12 @@ static int set_attention_status(struct hotplug_slot *hotplug_slot, u8 value)
 {
 	int rc = 0;
 	struct slot *pslot;
-	u8 cmd;
+	u8 cmd = 0x00;     /* avoid compiler warning */
 
 	debug("set_attention_status - Entry hotplug_slot[%lx] value[%x]\n",
 			(ulong) hotplug_slot, value);
 	ibmphp_lock_operations();
-	cmd = 0x00;     // avoid compiler warning
+
 
 	if (hotplug_slot) {
 		switch (value) {
@@ -1077,7 +1077,7 @@ static int enable_slot(struct hotplug_slot *hs)
 	if (rc) {
 		err("Adding this card exceeds the limitations of this bus.\n");
 		err("(i.e., >1 133MHz cards running on same bus, or "
-		     ">2 66 PCI cards running on same bus\n.");
+		     ">2 66 PCI cards running on same bus.\n");
 		err("Try hot-adding into another bus\n");
 		rc = -EINVAL;
 		goto error_nopower;

@@ -34,8 +34,6 @@
 #include <asm/sections.h>
 #include <asm/kdebug.h>
 
-#define ELEMENTS(arr) (sizeof (arr)/sizeof (arr[0]))
-
 /*
  * To debug kernel to catch accesses to certain virtual/physical addresses.
  * Mode = 0 selects physical watchpoints, mode = 1 selects virtual watchpoints.
@@ -113,7 +111,7 @@ static void bad_kernel_pc(struct pt_regs *regs)
  * this. Additionally, to prevent kswapd from ripping ptes from
  * under us, raise interrupts around the time that we look at the
  * pte, kswapd will have to wait to get his smp ipi response from
- * us. This saves us having to get page_table_lock.
+ * us. vmtruncate likewise. This saves us having to get pte lock.
  */
 static unsigned int get_user_insn(unsigned long tpc)
 {
@@ -696,7 +694,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 #ifdef CONFIG_PAX_EMUPLT
 		case 2:
 		case 3:
-			goto fault_done;
+			return;
 #endif
 
 		}

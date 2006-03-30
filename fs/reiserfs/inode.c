@@ -32,6 +32,7 @@ void reiserfs_delete_inode(struct inode *inode)
 	    JOURNAL_PER_BALANCE_CNT * 2 +
 	    2 * REISERFS_QUOTA_INIT_BLOCKS(inode->i_sb);
 	struct reiserfs_transaction_handle th;
+	int err;
 
 	truncate_inode_pages(&inode->i_data, 0);
 
@@ -39,32 +40,36 @@ void reiserfs_delete_inode(struct inode *inode)
 
 	/* The = 0 happens when we abort creating a new inode for some reason like lack of space.. */
 	if (!(inode->i_state & I_NEW) && INODE_PKEY(inode)->k_objectid != 0) {	/* also handles bad_inode case */
-		down(&inode->i_sem);
+		mutex_lock(&inode->i_mutex);
 
 		reiserfs_delete_xattrs(inode);
 
 		if (journal_begin(&th, inode->i_sb, jbegin_count)) {
-			up(&inode->i_sem);
+			mutex_unlock(&inode->i_mutex);
 			goto out;
 		}
 		reiserfs_update_inode_transaction(inode);
 
-		if (reiserfs_delete_object(&th, inode)) {
-			up(&inode->i_sem);
-			goto out;
-		}
+		err = reiserfs_delete_object(&th, inode);
 
 		/* Do quota update inside a transaction for journaled quotas. We must do that
 		 * after delete_object so that quota updates go into the same transaction as
 		 * stat data deletion */
-		DQUOT_FREE_INODE(inode);
+		if (!err) 
+			DQUOT_FREE_INODE(inode);
 
 		if (journal_end(&th, inode->i_sb, jbegin_count)) {
-			up(&inode->i_sem);
+			mutex_unlock(&inode->i_mutex);
 			goto out;
 		}
 
-		up(&inode->i_sem);
+		mutex_unlock(&inode->i_mutex);
+
+		/* check return value from reiserfs_delete_object after
+		 * ending the transaction
+		 */
+		if (err)
+		    goto out;
 
 		/* all items of file are deleted, so we can remove "save" link */
 		remove_save_link(inode, 0 /* not truncate */ );	/* we can't do anything
@@ -546,7 +551,7 @@ static int convert_tail_for_hole(struct inode *inode,
 
 	/* we don't have to make sure the conversion did not happen while
 	 ** we were locking the page because anyone that could convert
-	 ** must first take i_sem.
+	 ** must first take i_mutex.
 	 **
 	 ** We must fix the tail page for writing because it might have buffers
 	 ** that are mapped, but have a block number of 0.  This indicates tail
@@ -581,7 +586,7 @@ static inline int _allocate_block(struct reiserfs_transaction_handle *th,
 	BUG_ON(!th->t_trans_id);
 
 #ifdef REISERFS_PREALLOCATE
-	if (!(flags & GET_BLOCK_NO_ISEM)) {
+	if (!(flags & GET_BLOCK_NO_IMUX)) {
 		return reiserfs_new_unf_blocknrs2(th, inode, allocated_block_nr,
 						  path, block);
 	}
@@ -621,11 +626,6 @@ int reiserfs_get_block(struct inode *inode, sector_t block,
 	/* bad.... */
 	reiserfs_write_lock(inode->i_sb);
 	version = get_inode_item_key_version(inode);
-
-	if (block < 0) {
-		reiserfs_write_unlock(inode->i_sb);
-		return -EIO;
-	}
 
 	if (!file_capable(inode, block)) {
 		reiserfs_write_unlock(inode->i_sb);
@@ -929,12 +929,13 @@ int reiserfs_get_block(struct inode *inode, sector_t block,
 				     //pos_in_item * inode->i_sb->s_blocksize,
 				     TYPE_INDIRECT, 3);	// key type is unimportant
 
+			RFALSE(cpu_key_k_offset(&tmp_key) > cpu_key_k_offset(&key),
+			       "green-805: invalid offset");
 			blocks_needed =
 			    1 +
 			    ((cpu_key_k_offset(&key) -
 			      cpu_key_k_offset(&tmp_key)) >> inode->i_sb->
 			     s_blocksize_bits);
-			RFALSE(blocks_needed < 0, "green-805: invalid offset");
 
 			if (blocks_needed == 1) {
 				un = &unf_single;
@@ -2099,6 +2100,7 @@ int reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps)
 	struct page *page = NULL;
 	int error;
 	struct buffer_head *bh = NULL;
+	int err2;
 
 	reiserfs_write_lock(p_s_inode->i_sb);
 
@@ -2136,14 +2138,18 @@ int reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps)
 		   transaction of truncating gets committed - on reboot the file
 		   either appears truncated properly or not truncated at all */
 		add_save_link(&th, p_s_inode, 1);
-	error = reiserfs_do_truncate(&th, p_s_inode, page, update_timestamps);
-	if (error)
-		goto out;
+	err2 = reiserfs_do_truncate(&th, p_s_inode, page, update_timestamps);
 	error =
 	    journal_end(&th, p_s_inode->i_sb, JOURNAL_PER_BALANCE_CNT * 2 + 1);
 	if (error)
 		goto out;
 
+	/* check reiserfs_do_truncate after ending the transaction */
+	if (err2) {
+		error = err2;
+  		goto out;
+	}
+	
 	if (update_timestamps) {
 		error = remove_save_link(p_s_inode, 1 /* truncate */ );
 		if (error)
@@ -2194,7 +2200,7 @@ static int map_block_for_writepage(struct inode *inode,
 	INITIALIZE_PATH(path);
 	int pos_in_item;
 	int jbegin_count = JOURNAL_PER_BALANCE_CNT;
-	loff_t byte_offset = (block << inode->i_sb->s_blocksize_bits) + 1;
+	loff_t byte_offset = ((loff_t)block << inode->i_sb->s_blocksize_bits)+1;
 	int retval;
 	int use_get_block = 0;
 	int bytes_copied = 0;
@@ -2308,7 +2314,7 @@ static int map_block_for_writepage(struct inode *inode,
 	/* this is where we fill in holes in the file. */
 	if (use_get_block) {
 		retval = reiserfs_get_block(inode, block, bh_result,
-					    GET_BLOCK_CREATE | GET_BLOCK_NO_ISEM
+					    GET_BLOCK_CREATE | GET_BLOCK_NO_IMUX
 					    | GET_BLOCK_NO_DANGLE);
 		if (!retval) {
 			if (!buffer_mapped(bh_result)
@@ -2352,6 +2358,13 @@ static int reiserfs_write_full_page(struct page *page,
 	struct super_block *s = inode->i_sb;
 	int bh_per_page = PAGE_CACHE_SIZE / s->s_blocksize;
 	th.t_trans_id = 0;
+
+	/* no logging allowed when nonblocking or from PF_MEMALLOC */
+	if (checked && (current->flags & PF_MEMALLOC)) {
+		redirty_page_for_writepage(wbc, page);
+		unlock_page(page);
+		return 0;
+	}
 
 	/* The page dirty bit is cleared before writepage is called, which
 	 * means we have to tell create_empty_buffers to make dirty buffers
@@ -2733,6 +2746,7 @@ static int invalidatepage_can_drop(struct inode *inode, struct buffer_head *bh)
 	int ret = 1;
 	struct reiserfs_journal *j = SB_JOURNAL(inode->i_sb);
 
+	lock_buffer(bh);
 	spin_lock(&j->j_dirty_buffers_lock);
 	if (!buffer_mapped(bh)) {
 		goto free_jh;
@@ -2748,7 +2762,7 @@ static int invalidatepage_can_drop(struct inode *inode, struct buffer_head *bh)
 		if (buffer_journaled(bh) || buffer_journal_dirty(bh)) {
 			ret = 0;
 		}
-	} else if (buffer_dirty(bh) || buffer_locked(bh)) {
+	} else  if (buffer_dirty(bh)) {
 		struct reiserfs_journal_list *jl;
 		struct reiserfs_jh *jh = bh->b_private;
 
@@ -2774,6 +2788,7 @@ static int invalidatepage_can_drop(struct inode *inode, struct buffer_head *bh)
 		reiserfs_free_jh(bh);
 	}
 	spin_unlock(&j->j_dirty_buffers_lock);
+	unlock_buffer(bh);
 	return ret;
 }
 
@@ -2842,7 +2857,7 @@ static int reiserfs_set_page_dirty(struct page *page)
  * even in -o notail mode, we can't be sure an old mount without -o notail
  * didn't create files with tails.
  */
-static int reiserfs_releasepage(struct page *page, int unused_gfp_flags)
+static int reiserfs_releasepage(struct page *page, gfp_t unused_gfp_flags)
 {
 	struct inode *inode = page->mapping->host;
 	struct reiserfs_journal *j = SB_JOURNAL(inode->i_sb);

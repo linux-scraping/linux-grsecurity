@@ -82,10 +82,11 @@
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/dma-mapping.h>
-#include <linux/string.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/wait.h>
+#include <linux/platform_device.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -95,7 +96,6 @@
 #include <asm/arch/regs-lcd.h>
 #include <asm/arch/regs-gpio.h>
 #include <asm/arch/fb.h>
-#include <asm/hardware/clock.h>
 
 #ifdef CONFIG_PM
 #include <linux/pm.h>
@@ -494,7 +494,6 @@ static struct fb_ops s3c2410fb_ops = {
 	.fb_fillrect	= cfb_fillrect,
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
-	.fb_cursor	= soft_cursor,
 };
 
 
@@ -552,7 +551,7 @@ static inline void modify_gpio(void __iomem *reg,
  * s3c2410fb_init_registers - Initialise all LCD-related registers
  */
 
-int s3c2410fb_init_registers(struct s3c2410fb_info *fbi)
+static int s3c2410fb_init_registers(struct s3c2410fb_info *fbi)
 {
 	unsigned long flags;
 
@@ -634,19 +633,18 @@ static irqreturn_t s3c2410fb_irq(int irq, void *dev_id, struct pt_regs *r)
 
 static char driver_name[]="s3c2410fb";
 
-int __init s3c2410fb_probe(struct device *dev)
+static int __init s3c2410fb_probe(struct platform_device *pdev)
 {
 	struct s3c2410fb_info *info;
 	struct fb_info	   *fbinfo;
-	struct platform_device *pdev = to_platform_device(dev);
 	struct s3c2410fb_hw *mregs;
 	int ret;
 	int irq;
 	int i;
 
-	mach_info = dev->platform_data;
+	mach_info = pdev->dev.platform_data;
 	if (mach_info == NULL) {
-		dev_err(dev,"no platform data for lcd, cannot attach\n");
+		dev_err(&pdev->dev,"no platform data for lcd, cannot attach\n");
 		return -EINVAL;
 	}
 
@@ -654,11 +652,11 @@ int __init s3c2410fb_probe(struct device *dev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		dev_err(dev, "no irq for device\n");
+		dev_err(&pdev->dev, "no irq for device\n");
 		return -ENOENT;
 	}
 
-	fbinfo = framebuffer_alloc(sizeof(struct s3c2410fb_info), dev);
+	fbinfo = framebuffer_alloc(sizeof(struct s3c2410fb_info), &pdev->dev);
 	if (!fbinfo) {
 		return -ENOMEM;
 	}
@@ -666,9 +664,7 @@ int __init s3c2410fb_probe(struct device *dev)
 
 	info = fbinfo->par;
 	info->fb = fbinfo;
-	dev_set_drvdata(dev, fbinfo);
-
-	s3c2410fb_init_registers(info);
+	platform_set_drvdata(pdev, fbinfo);
 
 	dprintk("devinit\n");
 
@@ -676,7 +672,7 @@ int __init s3c2410fb_probe(struct device *dev)
 
 	memcpy(&info->regs, &mach_info->regs, sizeof(info->regs));
 
-	info->mach_info		    = dev->platform_data;
+	info->mach_info		    = pdev->dev.platform_data;
 
 	fbinfo->fix.type	    = FB_TYPE_PACKED_PIXELS;
 	fbinfo->fix.type_aux	    = 0;
@@ -702,8 +698,8 @@ int __init s3c2410fb_probe(struct device *dev)
 	fbinfo->var.yres_virtual    = mach_info->yres.defval;
 	fbinfo->var.bits_per_pixel  = mach_info->bpp.defval;
 
-	fbinfo->var.upper_margin    = S3C2410_LCDCON2_GET_VBPD(mregs->lcdcon2) +1;
-	fbinfo->var.lower_margin    = S3C2410_LCDCON2_GET_VFPD(mregs->lcdcon2) +1;
+	fbinfo->var.upper_margin    = S3C2410_LCDCON2_GET_VBPD(mregs->lcdcon2) + 1;
+	fbinfo->var.lower_margin    = S3C2410_LCDCON2_GET_VFPD(mregs->lcdcon2) + 1;
 	fbinfo->var.vsync_len	    = S3C2410_LCDCON2_GET_VSPW(mregs->lcdcon2) + 1;
 
 	fbinfo->var.left_margin	    = S3C2410_LCDCON3_GET_HFPD(mregs->lcdcon3) + 1;
@@ -735,7 +731,7 @@ int __init s3c2410fb_probe(struct device *dev)
 
 	ret = request_irq(irq, s3c2410fb_irq, SA_INTERRUPT, pdev->name, info);
 	if (ret) {
-		dev_err(dev, "cannot get irq %d - err %d\n", irq, ret);
+		dev_err(&pdev->dev, "cannot get irq %d - err %d\n", irq, ret);
 		ret = -EBUSY;
 		goto release_mem;
 	}
@@ -747,7 +743,6 @@ int __init s3c2410fb_probe(struct device *dev)
 		goto release_irq;
 	}
 
-	clk_use(info->clk);
 	clk_enable(info->clk);
 	dprintk("got and enabled clock\n");
 
@@ -773,7 +768,7 @@ int __init s3c2410fb_probe(struct device *dev)
 	}
 
 	/* create device files */
-	device_create_file(dev, &dev_attr_debug);
+	device_create_file(&pdev->dev, &dev_attr_debug);
 
 	printk(KERN_INFO "fb%d: %s frame buffer device\n",
 		fbinfo->node, fbinfo->fix.id);
@@ -784,7 +779,6 @@ free_video_memory:
 	s3c2410fb_unmap_video_memory(info);
 release_clock:
 	clk_disable(info->clk);
-	clk_unuse(info->clk);
 	clk_put(info->clk);
 release_irq:
 	free_irq(irq,info);
@@ -816,10 +810,9 @@ static void s3c2410fb_stop_lcd(void)
 /*
  *  Cleanup
  */
-static int s3c2410fb_remove(struct device *dev)
+static int s3c2410fb_remove(struct platform_device *pdev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct fb_info	   *fbinfo = dev_get_drvdata(dev);
+	struct fb_info	   *fbinfo = platform_get_drvdata(pdev);
 	struct s3c2410fb_info *info = fbinfo->par;
 	int irq;
 
@@ -830,7 +823,6 @@ static int s3c2410fb_remove(struct device *dev)
 
  	if (info->clk) {
  		clk_disable(info->clk);
- 		clk_unuse(info->clk);
  		clk_put(info->clk);
  		info->clk = NULL;
 	}
@@ -847,37 +839,32 @@ static int s3c2410fb_remove(struct device *dev)
 
 /* suspend and resume support for the lcd controller */
 
-static int s3c2410fb_suspend(struct device *dev, pm_message_t state, u32 level)
+static int s3c2410fb_suspend(struct platform_device *dev, pm_message_t state)
 {
-	struct fb_info	   *fbinfo = dev_get_drvdata(dev);
+	struct fb_info	   *fbinfo = platform_get_drvdata(dev);
 	struct s3c2410fb_info *info = fbinfo->par;
 
-	if (level == SUSPEND_DISABLE || level == SUSPEND_POWER_DOWN) {
-		s3c2410fb_stop_lcd();
+	s3c2410fb_stop_lcd();
 
-		/* sleep before disabling the clock, we need to ensure
-		 * the LCD DMA engine is not going to get back on the bus
-		 * before the clock goes off again (bjd) */
+	/* sleep before disabling the clock, we need to ensure
+	 * the LCD DMA engine is not going to get back on the bus
+	 * before the clock goes off again (bjd) */
 
-		msleep(1);
-		clk_disable(info->clk);
-	}
+	msleep(1);
+	clk_disable(info->clk);
 
 	return 0;
 }
 
-static int s3c2410fb_resume(struct device *dev, u32 level)
+static int s3c2410fb_resume(struct platform_device *dev)
 {
-	struct fb_info	   *fbinfo = dev_get_drvdata(dev);
+	struct fb_info	   *fbinfo = platform_get_drvdata(dev);
 	struct s3c2410fb_info *info = fbinfo->par;
 
-	if (level == RESUME_ENABLE) {
-		clk_enable(info->clk);
-		msleep(1);
+	clk_enable(info->clk);
+	msleep(1);
 
-		s3c2410fb_init_registers(info);
-
-	}
+	s3c2410fb_init_registers(info);
 
 	return 0;
 }
@@ -887,23 +874,25 @@ static int s3c2410fb_resume(struct device *dev, u32 level)
 #define s3c2410fb_resume  NULL
 #endif
 
-static struct device_driver s3c2410fb_driver = {
-	.name		= "s3c2410-lcd",
-	.bus		= &platform_bus_type,
+static struct platform_driver s3c2410fb_driver = {
 	.probe		= s3c2410fb_probe,
+	.remove		= s3c2410fb_remove,
 	.suspend	= s3c2410fb_suspend,
 	.resume		= s3c2410fb_resume,
-	.remove		= s3c2410fb_remove
+	.driver		= {
+		.name	= "s3c2410-lcd",
+		.owner	= THIS_MODULE,
+	},
 };
 
 int __devinit s3c2410fb_init(void)
 {
-	return driver_register(&s3c2410fb_driver);
+	return platform_driver_register(&s3c2410fb_driver);
 }
 
 static void __exit s3c2410fb_cleanup(void)
 {
-	driver_unregister(&s3c2410fb_driver);
+	platform_driver_unregister(&s3c2410fb_driver);
 }
 
 

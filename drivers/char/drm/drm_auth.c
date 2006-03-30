@@ -1,5 +1,5 @@
 /**
- * \file drm_auth.h 
+ * \file drm_auth.c
  * IOCTLs for authentication
  *
  * \author Rickard E. (Rik) Faith <faith@valinux.com>
@@ -46,7 +46,7 @@
  */
 static int drm_hash_magic(drm_magic_t magic)
 {
-	return magic & (DRM_HASH_SIZE-1);
+	return magic & (DRM_HASH_SIZE - 1);
 }
 
 /**
@@ -56,85 +56,86 @@ static int drm_hash_magic(drm_magic_t magic)
  * \param magic magic number.
  *
  * Searches in drm_device::magiclist within all files with the same hash key
- * the one with matching magic number, while holding the drm_device::struct_sem
+ * the one with matching magic number, while holding the drm_device::struct_mutex
  * lock.
  */
-static drm_file_t *drm_find_file(drm_device_t *dev, drm_magic_t magic)
+static drm_file_t *drm_find_file(drm_device_t * dev, drm_magic_t magic)
 {
-	drm_file_t	  *retval = NULL;
+	drm_file_t *retval = NULL;
 	drm_magic_entry_t *pt;
-	int		  hash	  = drm_hash_magic(magic);
+	int hash = drm_hash_magic(magic);
 
-	down(&dev->struct_sem);
+	mutex_lock(&dev->struct_mutex);
 	for (pt = dev->magiclist[hash].head; pt; pt = pt->next) {
 		if (pt->magic == magic) {
 			retval = pt->priv;
 			break;
 		}
 	}
-	up(&dev->struct_sem);
+	mutex_unlock(&dev->struct_mutex);
 	return retval;
 }
 
 /**
  * Adds a magic number.
- * 
+ *
  * \param dev DRM device.
  * \param priv file private data.
  * \param magic magic number.
  *
  * Creates a drm_magic_entry structure and appends to the linked list
  * associated the magic number hash key in drm_device::magiclist, while holding
- * the drm_device::struct_sem lock.
+ * the drm_device::struct_mutex lock.
  */
-static int drm_add_magic(drm_device_t *dev, drm_file_t *priv, drm_magic_t magic)
+static int drm_add_magic(drm_device_t * dev, drm_file_t * priv,
+			 drm_magic_t magic)
 {
-	int		  hash;
+	int hash;
 	drm_magic_entry_t *entry;
 
 	DRM_DEBUG("%d\n", magic);
 
-	hash	     = drm_hash_magic(magic);
-	entry	     = drm_alloc(sizeof(*entry), DRM_MEM_MAGIC);
-	if (!entry) return -ENOMEM;
+	hash = drm_hash_magic(magic);
+	entry = drm_alloc(sizeof(*entry), DRM_MEM_MAGIC);
+	if (!entry)
+		return -ENOMEM;
 	memset(entry, 0, sizeof(*entry));
 	entry->magic = magic;
-	entry->priv  = priv;
-	entry->next  = NULL;
+	entry->priv = priv;
+	entry->next = NULL;
 
-	down(&dev->struct_sem);
+	mutex_lock(&dev->struct_mutex);
 	if (dev->magiclist[hash].tail) {
 		dev->magiclist[hash].tail->next = entry;
-		dev->magiclist[hash].tail	= entry;
+		dev->magiclist[hash].tail = entry;
 	} else {
-		dev->magiclist[hash].head	= entry;
-		dev->magiclist[hash].tail	= entry;
+		dev->magiclist[hash].head = entry;
+		dev->magiclist[hash].tail = entry;
 	}
-	up(&dev->struct_sem);
+	mutex_unlock(&dev->struct_mutex);
 
 	return 0;
 }
 
 /**
  * Remove a magic number.
- * 
+ *
  * \param dev DRM device.
  * \param magic magic number.
  *
  * Searches and unlinks the entry in drm_device::magiclist with the magic
- * number hash key, while holding the drm_device::struct_sem lock.
+ * number hash key, while holding the drm_device::struct_mutex lock.
  */
-static int drm_remove_magic(drm_device_t *dev, drm_magic_t magic)
+static int drm_remove_magic(drm_device_t * dev, drm_magic_t magic)
 {
 	drm_magic_entry_t *prev = NULL;
 	drm_magic_entry_t *pt;
-	int		  hash;
-
+	int hash;
 
 	DRM_DEBUG("%d\n", magic);
 	hash = drm_hash_magic(magic);
 
-	down(&dev->struct_sem);
+	mutex_lock(&dev->struct_mutex);
 	for (pt = dev->magiclist[hash].head; pt; prev = pt, pt = pt->next) {
 		if (pt->magic == magic) {
 			if (dev->magiclist[hash].head == pt) {
@@ -146,11 +147,11 @@ static int drm_remove_magic(drm_device_t *dev, drm_magic_t magic)
 			if (prev) {
 				prev->next = pt->next;
 			}
-			up(&dev->struct_sem);
+			mutex_unlock(&dev->struct_mutex);
 			return 0;
 		}
 	}
-	up(&dev->struct_sem);
+	mutex_unlock(&dev->struct_mutex);
 
 	drm_free(pt, sizeof(*pt), DRM_MEM_MAGIC);
 
@@ -171,21 +172,22 @@ static int drm_remove_magic(drm_device_t *dev, drm_magic_t magic)
  * filp.
  */
 int drm_getmagic(struct inode *inode, struct file *filp,
-		  unsigned int cmd, unsigned long arg)
+		 unsigned int cmd, unsigned long arg)
 {
 	static drm_magic_t sequence = 0;
 	static DEFINE_SPINLOCK(lock);
-	drm_file_t	   *priv    = filp->private_data;
-	drm_device_t	   *dev	    = priv->head->dev;
-	drm_auth_t	   auth;
+	drm_file_t *priv = filp->private_data;
+	drm_device_t *dev = priv->head->dev;
+	drm_auth_t auth;
 
-				/* Find unique magic */
+	/* Find unique magic */
 	if (priv->magic) {
 		auth.magic = priv->magic;
 	} else {
 		do {
 			spin_lock(&lock);
-			if (!sequence) ++sequence; /* reserve 0 */
+			if (!sequence)
+				++sequence;	/* reserve 0 */
 			auth.magic = sequence++;
 			spin_unlock(&lock);
 		} while (drm_find_file(dev, auth.magic));
@@ -194,7 +196,7 @@ int drm_getmagic(struct inode *inode, struct file *filp,
 	}
 
 	DRM_DEBUG("%u\n", auth.magic);
-	if (copy_to_user((drm_auth_t __user *)arg, &auth, sizeof(auth)))
+	if (copy_to_user((drm_auth_t __user *) arg, &auth, sizeof(auth)))
 		return -EFAULT;
 	return 0;
 }
@@ -211,14 +213,14 @@ int drm_getmagic(struct inode *inode, struct file *filp,
  * Checks if \p filp is associated with the magic number passed in \arg.
  */
 int drm_authmagic(struct inode *inode, struct file *filp,
-		   unsigned int cmd, unsigned long arg)
+		  unsigned int cmd, unsigned long arg)
 {
-	drm_file_t	   *priv    = filp->private_data;
-	drm_device_t	   *dev	    = priv->head->dev;
-	drm_auth_t	   auth;
-	drm_file_t	   *file;
+	drm_file_t *priv = filp->private_data;
+	drm_device_t *dev = priv->head->dev;
+	drm_auth_t auth;
+	drm_file_t *file;
 
-	if (copy_from_user(&auth, (drm_auth_t __user *)arg, sizeof(auth)))
+	if (copy_from_user(&auth, (drm_auth_t __user *) arg, sizeof(auth)))
 		return -EFAULT;
 	DRM_DEBUG("%u\n", auth.magic);
 	if ((file = drm_find_file(dev, auth.magic))) {

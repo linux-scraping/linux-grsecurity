@@ -33,6 +33,7 @@
 #include <linux/string.h>
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
+#include <linux/capability.h>
 #include <linux/if.h>
 #include <linux/if_ether.h>
 #include <linux/if_arp.h>
@@ -342,12 +343,12 @@ static void irda_task_timer_expired(void *data)
 static void irda_device_setup(struct net_device *dev)
 {
         dev->hard_header_len = 0;
-        dev->addr_len        = 0;
+        dev->addr_len        = LAP_ALEN;
 
         dev->type            = ARPHRD_IRDA;
         dev->tx_queue_len    = 8; /* Window size + 1 s-frame */
 
-	memset(dev->broadcast, 0xff, 4);
+	memset(dev->broadcast, 0xff, LAP_ALEN);
 
 	dev->mtu = 2048;
 	dev->flags = IFF_NOARP;

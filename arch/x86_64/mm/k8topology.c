@@ -108,6 +108,7 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 		limit >>= 16; 
 		limit <<= 24; 
 		limit |= (1<<24)-1;
+		limit++;
 
 		if (limit > end_pfn << PAGE_SHIFT)
 			limit = end_pfn << PAGE_SHIFT;
@@ -154,7 +155,7 @@ int __init k8_scan_nodes(unsigned long start, unsigned long end)
 	if (!found)
 		return -1; 
 
-	memnode_shift = compute_hash_shift(nodes, numnodes);
+	memnode_shift = compute_hash_shift(nodes, 8);
 	if (memnode_shift < 0) { 
 		printk(KERN_ERR "No NUMA node hash function found. Contact maintainer\n"); 
 		return -1; 

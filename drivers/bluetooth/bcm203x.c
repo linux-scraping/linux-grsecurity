@@ -179,13 +179,11 @@ static int bcm203x_probe(struct usb_interface *intf, const struct usb_device_id 
 	if (ignore || (intf->cur_altsetting->desc.bInterfaceNumber != 0))
 		return -ENODEV;
 
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data) {
 		BT_ERR("Can't allocate memory for data structure");
 		return -ENOMEM;
 	}
-
-	memset(data, 0, sizeof(*data));
 
 	data->udev  = udev;
 	data->state = BCM203X_LOAD_MINIDRV;
@@ -277,7 +275,6 @@ static void bcm203x_disconnect(struct usb_interface *intf)
 }
 
 static struct usb_driver bcm203x_driver = {
-	.owner		= THIS_MODULE,
 	.name		= "bcm203x",
 	.probe		= bcm203x_probe,
 	.disconnect	= bcm203x_disconnect,

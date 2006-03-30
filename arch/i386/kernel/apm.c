@@ -218,6 +218,8 @@
 #include <linux/time.h>
 #include <linux/sched.h>
 #include <linux/pm.h>
+#include <linux/pm_legacy.h>
+#include <linux/capability.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/smp.h>
@@ -300,17 +302,6 @@ extern int (*console_blank_hook)(int);
 #define APM_ZERO_SEGS
 
 #include "apm.h"
-
-/*
- * Define to make all _set_limit calls use 64k limits.  The APM 1.1 BIOS is
- * supposed to provide limit information that it recognizes.  Many machines
- * do this correctly, but many others do not restrict themselves to their
- * claimed limit.  When this happens, they will cause a segmentation
- * violation in the kernel at boot time.  Most BIOS's, however, will
- * respect a 64k limit, so we use that.  If you want to be pedantic and
- * hold your BIOS to its claims, then undefine this.
- */
-#define APM_RELAX_SEGMENTS
 
 /*
  * Define to re-initialize the interrupt 0 timer to 100 Hz after a suspend.
@@ -447,8 +438,7 @@ static char *	apm_event_name[] = {
 	"system standby resume",
 	"capabilities change"
 };
-#define NR_APM_EVENT_NAME	\
-		(sizeof(apm_event_name) / sizeof(apm_event_name[0]))
+#define NR_APM_EVENT_NAME ARRAY_SIZE(apm_event_name)
 
 typedef struct lookup_t {
 	int	key;
@@ -479,7 +469,7 @@ static const lookup_t error_table[] = {
 	{ APM_NO_ERROR,		"BIOS did not set a return code" },
 	{ APM_NOT_PRESENT,	"No APM present" }
 };
-#define ERROR_COUNT	(sizeof(error_table)/sizeof(lookup_t))
+#define ERROR_COUNT	ARRAY_SIZE(error_table)
 
 /**
  *	apm_error	-	display an APM error
@@ -597,38 +587,34 @@ static u8 apm_bios_call(u32 func, u32 ebx_in, u32 ecx_in,
 	cpumask_t		cpus;
 	int			cpu;
 	struct desc_struct	save_desc_40;
+	struct desc_struct	*gdt;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long		cr0;
 #endif
 
 	cpus = apm_save_cpus();
+	
 	cpu = get_cpu();
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
-	save_desc_40 = cpu_gdt_table[cpu][0x40 / 8];
-	cpu_gdt_table[cpu][0x40 / 8] = bad_bios_desc;
+	gdt = get_cpu_gdt_table(cpu);
+	save_desc_40 = gdt[0x40 / 8];
+	gdt[0x40 / 8] = bad_bios_desc;
 
-#ifndef CONFIG_PAX_KERNEXEC
 	local_save_flags(flags);
 	APM_DO_CLI;
-#endif
-
 	APM_DO_SAVE_SEGS;
 	apm_bios_call_asm(func, ebx_in, ecx_in, eax, ebx, ecx, edx, esi);
 	APM_DO_RESTORE_SEGS;
-
-#ifndef CONFIG_PAX_KERNEXEC
 	local_irq_restore(flags);
-#endif
-
-	cpu_gdt_table[cpu][0x40 / 8] = save_desc_40;
+	gdt[0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	put_cpu();
@@ -659,38 +645,34 @@ static u8 apm_bios_call_simple(u32 func, u32 ebx_in, u32 ecx_in, u32 *eax)
 	cpumask_t		cpus;
 	int			cpu;
 	struct desc_struct	save_desc_40;
+	struct desc_struct	*gdt;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long		cr0;
 #endif
 
 	cpus = apm_save_cpus();
+	
 	cpu = get_cpu();
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(flags, cr0);
+	pax_open_kernel(cr0);
 #endif
 
-	save_desc_40 = cpu_gdt_table[cpu][0x40 / 8];
-	cpu_gdt_table[cpu][0x40 / 8] = bad_bios_desc;
+	gdt = get_cpu_gdt_table(cpu);
+	save_desc_40 = gdt[0x40 / 8];
+	gdt[0x40 / 8] = bad_bios_desc;
 
-#ifndef CONFIG_PAX_KERNEXEC
 	local_save_flags(flags);
 	APM_DO_CLI;
-#endif
-
 	APM_DO_SAVE_SEGS;
 	error = apm_bios_call_simple_asm(func, ebx_in, ecx_in, eax);
 	APM_DO_RESTORE_SEGS;
-
-#ifndef CONFIG_PAX_KERNEXEC
 	local_irq_restore(flags);
-#endif
-
-	cpu_gdt_table[cpu][0x40 / 8] = save_desc_40;
+	gdt[0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(flags, cr0);
+	pax_close_kernel(cr0);
 #endif
 
 	put_cpu();
@@ -806,8 +788,26 @@ static int set_system_power_state(u_short state)
 static int apm_do_idle(void)
 {
 	u32	eax;
+	u8	ret = 0;
+	int	idled = 0;
+	int	polling;
 
-	if (apm_bios_call_simple(APM_FUNC_IDLE, 0, 0, &eax)) {
+	polling = test_thread_flag(TIF_POLLING_NRFLAG);
+	if (polling) {
+		clear_thread_flag(TIF_POLLING_NRFLAG);
+		smp_mb__after_clear_bit();
+	}
+	if (!need_resched()) {
+		idled = 1;
+		ret = apm_bios_call_simple(APM_FUNC_IDLE, 0, 0, &eax);
+	}
+	if (polling)
+		set_thread_flag(TIF_POLLING_NRFLAG);
+
+	if (!idled)
+		return 0;
+
+	if (ret) {
 		static unsigned long t;
 
 		/* This always fails on some SMP boards running UP kernels.
@@ -1093,22 +1093,23 @@ static int apm_engage_power_management(u_short device, int enable)
  
 static int apm_console_blank(int blank)
 {
-	int	error;
-	u_short	state;
+	int error, i;
+	u_short state;
+	static const u_short dev[3] = { 0x100, 0x1FF, 0x101 };
 
 	state = blank ? APM_STATE_STANDBY : APM_STATE_READY;
-	/* Blank the first display device */
-	error = set_power_state(0x100, state);
-	if ((error != APM_SUCCESS) && (error != APM_NO_ERROR)) {
-		/* try to blank them all instead */
-		error = set_power_state(0x1ff, state);
-		if ((error != APM_SUCCESS) && (error != APM_NO_ERROR))
-			/* try to blank device one instead */
-			error = set_power_state(0x101, state);
+
+	for (i = 0; i < ARRAY_SIZE(dev); i++) {
+		error = set_power_state(dev[i], state);
+
+		if ((error == APM_SUCCESS) || (error == APM_NO_ERROR))
+			return 1;
+
+		if (error == APM_NOT_ENGAGED)
+			break;
 	}
-	if ((error == APM_SUCCESS) || (error == APM_NO_ERROR))
-		return 1;
-	if (error == APM_NOT_ENGAGED) {
+
+	if (error == APM_NOT_ENGAGED && state != APM_STATE_READY) {
 		static int tried;
 		int eng_error;
 		if (tried++ == 0) {
@@ -2251,8 +2252,8 @@ static struct dmi_system_id __initdata apm_dmi_table[] = {
 static int __init apm_init(void)
 {
 	struct proc_dir_entry *apm_proc;
+	struct desc_struct *gdt;
 	int ret;
-	int i;
 
 	dmi_check_system(apm_dmi_table);
 
@@ -2319,7 +2320,9 @@ static int __init apm_init(void)
 		apm_info.disabled = 1;
 		return -ENODEV;
 	}
+#ifdef CONFIG_PM_LEGACY
 	pm_active = 1;
+#endif
 
 	/*
 	 * Set up a segment that references the real mode segment 0x40
@@ -2330,44 +2333,30 @@ static int __init apm_init(void)
 	set_base(bad_bios_desc, __va((unsigned long)0x40 << 4));
 	_set_limit((char *)&bad_bios_desc, 4095 - (0x40 << 4));
 
+	/*
+	 * Set up the long jump entry point to the APM BIOS, which is called
+	 * from inline assembly.
+	 */
 	apm_bios_entry.offset = apm_info.bios.offset;
 	apm_bios_entry.segment = APM_CS;
 
-	for (i = 0; i < NR_CPUS; i++) {
-		set_base(cpu_gdt_table[i][APM_CS >> 3],
-			 __va((unsigned long)apm_info.bios.cseg << 4));
-		set_base(cpu_gdt_table[i][APM_CS_16 >> 3],
-			 __va((unsigned long)apm_info.bios.cseg_16 << 4));
-		set_base(cpu_gdt_table[i][APM_DS >> 3],
-			 __va((unsigned long)apm_info.bios.dseg << 4));
-#ifndef APM_RELAX_SEGMENTS
-		if (apm_info.bios.version == 0x100) {
-#endif
-			/* For ASUS motherboard, Award BIOS rev 110 (and others?) */
-			_set_limit((char *)&cpu_gdt_table[i][APM_CS >> 3], 64 * 1024 - 1);
-			/* For some unknown machine. */
-			_set_limit((char *)&cpu_gdt_table[i][APM_CS_16 >> 3], 64 * 1024 - 1);
-			/* For the DEC Hinote Ultra CT475 (and others?) */
-			_set_limit((char *)&cpu_gdt_table[i][APM_DS >> 3], 64 * 1024 - 1);
-#ifndef APM_RELAX_SEGMENTS
-		} else {
-			_set_limit((char *)&cpu_gdt_table[i][APM_CS >> 3],
-				(apm_info.bios.cseg_len - 1) & 0xffff);
-			_set_limit((char *)&cpu_gdt_table[i][APM_CS_16 >> 3],
-				(apm_info.bios.cseg_16_len - 1) & 0xffff);
-			_set_limit((char *)&cpu_gdt_table[i][APM_DS >> 3],
-				(apm_info.bios.dseg_len - 1) & 0xffff);
-		      /* workaround for broken BIOSes */
-	                if (apm_info.bios.cseg_len <= apm_info.bios.offset)
-        	                _set_limit((char *)&cpu_gdt_table[i][APM_CS >> 3], 64 * 1024 -1);
-                       if (apm_info.bios.dseg_len <= 0x40) { /* 0x40 * 4kB == 64kB */
-                        	/* for the BIOS that assumes granularity = 1 */
-                        	cpu_gdt_table[i][APM_DS >> 3].b |= 0x800000;
-                        	printk(KERN_NOTICE "apm: we set the granularity of dseg.\n");
-        	        }
-		}
-#endif
-	}
+	/*
+	 * The APM 1.1 BIOS is supposed to provide limit information that it
+	 * recognizes.  Many machines do this correctly, but many others do
+	 * not restrict themselves to their claimed limit.  When this happens,
+	 * they will cause a segmentation violation in the kernel at boot time.
+	 * Most BIOS's, however, will respect a 64k limit, so we use that.
+	 *
+	 * Note we only set APM segments on CPU zero, since we pin the APM
+	 * code to that CPU.
+	 */
+	gdt = get_cpu_gdt_table(0);
+	set_base(gdt[APM_CS >> 3],
+		 __va((unsigned long)apm_info.bios.cseg << 4));
+	set_base(gdt[APM_CS_16 >> 3],
+		 __va((unsigned long)apm_info.bios.cseg_16 << 4));
+	set_base(gdt[APM_DS >> 3],
+		 __va((unsigned long)apm_info.bios.dseg << 4));
 
 	apm_proc = create_proc_info_entry("apm", 0, NULL, apm_get_info);
 	if (apm_proc)
@@ -2424,7 +2413,9 @@ static void __exit apm_exit(void)
 	exit_kapmd = 1;
 	while (kapmd_running)
 		schedule();
+#ifdef CONFIG_PM_LEGACY
 	pm_active = 0;
+#endif
 }
 
 module_init(apm_init);

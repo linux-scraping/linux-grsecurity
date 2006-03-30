@@ -140,15 +140,17 @@ extern void proc_tty_unregister_driver(struct tty_driver *driver);
 /*
  * proc_devtree.c
  */
-struct device_node;
-extern void proc_device_tree_init(void);
 #ifdef CONFIG_PROC_DEVICETREE
+struct device_node;
+struct property;
+extern void proc_device_tree_init(void);
 extern void proc_device_tree_add_node(struct device_node *, struct proc_dir_entry *);
-#else /* !CONFIG_PROC_DEVICETREE */
-static inline void proc_device_tree_add_node(struct device_node *np, struct proc_dir_entry *pde)
-{
-	return;
-}
+extern void proc_device_tree_add_prop(struct proc_dir_entry *pde, struct property *prop);
+extern void proc_device_tree_remove_prop(struct proc_dir_entry *pde,
+					 struct property *prop);
+extern void proc_device_tree_update_prop(struct proc_dir_entry *pde,
+					 struct property *newprop,
+					 struct property *oldprop);
 #endif /* CONFIG_PROC_DEVICETREE */
 
 extern struct proc_dir_entry *proc_symlink(const char *,

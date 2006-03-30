@@ -52,7 +52,7 @@ long __init chrp_time_init(void)
 	return 0;
 }
 
-int __chrp chrp_cmos_clock_read(int addr)
+int chrp_cmos_clock_read(int addr)
 {
 	if (nvram_as1 != 0)
 		outb(addr>>8, nvram_as1);
@@ -60,7 +60,7 @@ int __chrp chrp_cmos_clock_read(int addr)
 	return (inb(nvram_data));
 }
 
-void __chrp chrp_cmos_clock_write(unsigned long val, int addr)
+void chrp_cmos_clock_write(unsigned long val, int addr)
 {
 	if (nvram_as1 != 0)
 		outb(addr>>8, nvram_as1);
@@ -72,7 +72,7 @@ void __chrp chrp_cmos_clock_write(unsigned long val, int addr)
 /*
  * Set the hardware clock. -- Cort
  */
-int __chrp chrp_set_rtc_time(unsigned long nowtime)
+int chrp_set_rtc_time(unsigned long nowtime)
 {
 	unsigned char save_control, save_freq_select;
 	struct rtc_time tm;
@@ -118,7 +118,7 @@ int __chrp chrp_set_rtc_time(unsigned long nowtime)
 	return 0;
 }
 
-unsigned long __chrp chrp_get_rtc_time(void)
+unsigned long chrp_get_rtc_time(void)
 {
 	unsigned int year, mon, day, hour, min, sec;
 	int uip, i;
@@ -163,13 +163,75 @@ unsigned long __chrp chrp_get_rtc_time(void)
 	return mktime(year, mon, day, hour, min, sec);
 }
 
+/*
+ * Calibrate the decrementer frequency with the VIA timer 1.
+ */
+#define VIA_TIMER_FREQ_6	4700000	/* time 1 frequency * 6 */
+
+/* VIA registers */
+#define RS		0x200		/* skip between registers */
+#define T1CL		(4*RS)		/* Timer 1 ctr/latch (low 8 bits) */
+#define T1CH		(5*RS)		/* Timer 1 counter (high 8 bits) */
+#define T1LL		(6*RS)		/* Timer 1 latch (low 8 bits) */
+#define T1LH		(7*RS)		/* Timer 1 latch (high 8 bits) */
+#define ACR		(11*RS)		/* Auxiliary control register */
+#define IFR		(13*RS)		/* Interrupt flag register */
+
+/* Bits in ACR */
+#define T1MODE		0xc0		/* Timer 1 mode */
+#define T1MODE_CONT	0x40		/*  continuous interrupts */
+
+/* Bits in IFR and IER */
+#define T1_INT		0x40		/* Timer 1 interrupt */
+
+static int __init chrp_via_calibrate_decr(void)
+{
+	struct device_node *vias;
+	volatile unsigned char __iomem *via;
+	int count = VIA_TIMER_FREQ_6 / 100;
+	unsigned int dstart, dend;
+
+	vias = find_devices("via-cuda");
+	if (vias == 0)
+		vias = find_devices("via");
+	if (vias == 0 || vias->n_addrs == 0)
+		return 0;
+	via = ioremap(vias->addrs[0].address, vias->addrs[0].size);
+
+	/* set timer 1 for continuous interrupts */
+	out_8(&via[ACR], (via[ACR] & ~T1MODE) | T1MODE_CONT);
+	/* set the counter to a small value */
+	out_8(&via[T1CH], 2);
+	/* set the latch to `count' */
+	out_8(&via[T1LL], count);
+	out_8(&via[T1LH], count >> 8);
+	/* wait until it hits 0 */
+	while ((in_8(&via[IFR]) & T1_INT) == 0)
+		;
+	dstart = get_dec();
+	/* clear the interrupt & wait until it hits 0 again */
+	in_8(&via[T1CL]);
+	while ((in_8(&via[IFR]) & T1_INT) == 0)
+		;
+	dend = get_dec();
+
+	tb_ticks_per_jiffy = (dstart - dend) / ((6 * HZ)/100);
+	tb_to_us = mulhwu_scale_factor(dstart - dend, 60000);
+
+	printk(KERN_INFO "via_calibrate_decr: ticks per jiffy = %u (%u ticks)\n",
+	       tb_ticks_per_jiffy, dstart - dend);
+
+	iounmap(via);
+	
+	return 1;
+}
 
 void __init chrp_calibrate_decr(void)
 {
 	struct device_node *cpu;
 	unsigned int freq, *fp;
 
-	if (via_calibrate_decr())
+	if (chrp_via_calibrate_decr())
 		return;
 
 	/*

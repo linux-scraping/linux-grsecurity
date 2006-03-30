@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_ether.h>
 #include <net/sock.h>
 
 #include "br_private.h"
@@ -32,9 +33,8 @@
  * ethtool, use ethtool_ops.  Also, since driver might sleep need to
  * not be holding any locks.
  */
-static int br_initial_port_cost(struct net_device *dev)
+static int port_cost(struct net_device *dev)
 {
-
 	struct ethtool_cmd ecmd = { ETHTOOL_GSET };
 	struct ifreq ifr;
 	mm_segment_t old_fs;
@@ -58,10 +58,6 @@ static int br_initial_port_cost(struct net_device *dev)
 			return 2;
 		case SPEED_10:
 			return 100;
-		default:
-			pr_info("bridge: can't decode speed from %s: %d\n",
-				dev->name, ecmd.speed);
-			return 100;
 		}
 	}
 
@@ -75,6 +71,56 @@ static int br_initial_port_cost(struct net_device *dev)
 	return 100;	/* assume old 10Mbps */
 }
 
+
+/*
+ * Check for port carrier transistions.
+ * Called from work queue to allow for calling functions that
+ * might sleep (such as speed check), and to debounce.
+ */
+static void port_carrier_check(void *arg)
+{
+	struct net_device *dev = arg;
+	struct net_bridge_port *p;
+	struct net_bridge *br;
+
+	rtnl_lock();
+	p = dev->br_port;
+	if (!p)
+		goto done;
+	br = p->br;
+
+	if (netif_carrier_ok(dev))
+		p->path_cost = port_cost(dev);
+
+	if (br->dev->flags & IFF_UP) {
+		spin_lock_bh(&br->lock);
+		if (netif_carrier_ok(dev)) {
+			if (p->state == BR_STATE_DISABLED)
+				br_stp_enable_port(p);
+		} else {
+			if (p->state != BR_STATE_DISABLED)
+				br_stp_disable_port(p);
+		}
+		spin_unlock_bh(&br->lock);
+	}
+done:
+	rtnl_unlock();
+}
+
+static void release_nbp(struct kobject *kobj)
+{
+	struct net_bridge_port *p
+		= container_of(kobj, struct net_bridge_port, kobj);
+	kfree(p);
+}
+
+static struct kobj_type brport_ktype = {
+#ifdef CONFIG_SYSFS
+	.sysfs_ops = &brport_sysfs_ops,
+#endif
+	.release = release_nbp,
+};
+
 static void destroy_nbp(struct net_bridge_port *p)
 {
 	struct net_device *dev = p->dev;
@@ -83,7 +129,7 @@ static void destroy_nbp(struct net_bridge_port *p)
 	p->dev = NULL;
 	dev_put(dev);
 
-	br_sysfs_freeif(p);
+	kobject_put(&p->kobj);
 }
 
 static void destroy_nbp_rcu(struct rcu_head *head)
@@ -93,14 +139,25 @@ static void destroy_nbp_rcu(struct rcu_head *head)
 	destroy_nbp(p);
 }
 
-/* called with RTNL */
+/* Delete port(interface) from bridge is done in two steps.
+ * via RCU. First step, marks device as down. That deletes
+ * all the timers and stops new packets from flowing through.
+ *
+ * Final cleanup doesn't occur until after all CPU's finished
+ * processing packets.
+ *
+ * Protected from multiple admin operations by RTNL mutex
+ */
 static void del_nbp(struct net_bridge_port *p)
 {
 	struct net_bridge *br = p->br;
 	struct net_device *dev = p->dev;
 
-	dev->br_port = NULL;
+	sysfs_remove_link(&br->ifobj, dev->name);
+
 	dev_set_promiscuity(dev, -1);
+
+	cancel_delayed_work(&p->carrier_check);
 
 	spin_lock_bh(&br->lock);
 	br_stp_disable_port(p);
@@ -110,10 +167,11 @@ static void del_nbp(struct net_bridge_port *p)
 
 	list_del_rcu(&p->list);
 
-	del_timer_sync(&p->message_age_timer);
-	del_timer_sync(&p->forward_delay_timer);
-	del_timer_sync(&p->hold_timer);
-	
+	rcu_assign_pointer(dev->br_port, NULL);
+
+	kobject_uevent(&p->kobj, KOBJ_REMOVE);
+	kobject_del(&p->kobj);
+
 	call_rcu(&p->rcu, destroy_nbp_rcu);
 }
 
@@ -123,7 +181,6 @@ static void del_br(struct net_bridge *br)
 	struct net_bridge_port *p, *n;
 
 	list_for_each_entry_safe(p, n, &br->port_list, list) {
-		br_sysfs_removeif(p);
 		del_nbp(p);
 	}
 
@@ -155,6 +212,7 @@ static struct net_device *new_bridge_dev(const char *name)
 	br->bridge_id.prio[1] = 0x00;
 	memset(br->bridge_id.addr, 0, ETH_ALEN);
 
+	br->feature_mask = dev->features;
 	br->stp_enabled = 0;
 	br->designated_root = br->bridge_id;
 	br->root_path_cost = 0;
@@ -195,10 +253,9 @@ static int find_portno(struct net_bridge *br)
 	return (index >= BR_MAX_PORTS) ? -EXFULL : index;
 }
 
-/* called with RTNL */
+/* called with RTNL but without bridge lock */
 static struct net_bridge_port *new_nbp(struct net_bridge *br, 
-				       struct net_device *dev,
-				       unsigned long cost)
+				       struct net_device *dev)
 {
 	int index;
 	struct net_bridge_port *p;
@@ -215,13 +272,19 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
 	p->br = br;
 	dev_hold(dev);
 	p->dev = dev;
-	p->path_cost = cost;
+	p->path_cost = port_cost(dev);
  	p->priority = 0x8000 >> BR_PORT_BITS;
-	dev->br_port = p;
 	p->port_no = index;
 	br_init_port(p);
 	p->state = BR_STATE_DISABLED;
+	INIT_WORK(&p->carrier_check, port_carrier_check, dev);
+	br_stp_port_timer_init(p);
+
 	kobject_init(&p->kobj);
+	kobject_set_name(&p->kobj, SYSFS_BRIDGE_PORT_ATTR);
+	p->kobj.ktype = &brport_ktype;
+	p->kobj.parent = &(dev->class_dev.kobj);
+	p->kobj.kset = NULL;
 
 	return p;
 }
@@ -295,7 +358,7 @@ int br_del_bridge(const char *name)
 	return ret;
 }
 
-/* Mtu of the bridge pseudo-device 1500 or the minimum of the ports */
+/* MTU of the bridge pseudo-device: ETH_DATA_LEN or the minimum of the ports */
 int br_min_mtu(const struct net_bridge *br)
 {
 	const struct net_bridge_port *p;
@@ -304,7 +367,7 @@ int br_min_mtu(const struct net_bridge *br)
 	ASSERT_RTNL();
 
 	if (list_empty(&br->port_list))
-		mtu = 1500;
+		mtu = ETH_DATA_LEN;
 	else {
 		list_for_each_entry(p, &br->port_list, list) {
 			if (!mtu  || p->dev->mtu < mtu)
@@ -322,9 +385,8 @@ void br_features_recompute(struct net_bridge *br)
 	struct net_bridge_port *p;
 	unsigned long features, checksum;
 
-	features = NETIF_F_SG | NETIF_F_FRAGLIST 
-		| NETIF_F_HIGHDMA | NETIF_F_TSO;
-	checksum = NETIF_F_IP_CSUM;	/* least commmon subset */
+	features = br->feature_mask &~ NETIF_F_IP_CSUM;
+	checksum = br->feature_mask & NETIF_F_IP_CSUM;
 
 	list_for_each_entry(p, &br->port_list, list) {
 		if (!(p->dev->features 
@@ -351,30 +413,43 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
 	if (dev->br_port != NULL)
 		return -EBUSY;
 
-	if (IS_ERR(p = new_nbp(br, dev, br_initial_port_cost(dev))))
+	p = new_nbp(br, dev);
+	if (IS_ERR(p))
 		return PTR_ERR(p);
 
- 	if ((err = br_fdb_insert(br, p, dev->dev_addr)))
-		destroy_nbp(p);
- 
-	else if ((err = br_sysfs_addif(p)))
-		del_nbp(p);
-	else {
-		dev_set_promiscuity(dev, 1);
+	err = kobject_add(&p->kobj);
+	if (err)
+		goto err0;
 
-		list_add_rcu(&p->list, &br->port_list);
+ 	err = br_fdb_insert(br, p, dev->dev_addr);
+	if (err)
+		goto err1;
 
-		spin_lock_bh(&br->lock);
-		br_stp_recalculate_bridge_id(br);
-		br_features_recompute(br);
-		if ((br->dev->flags & IFF_UP) 
-		    && (dev->flags & IFF_UP) && netif_carrier_ok(dev))
-			br_stp_enable_port(p);
-		spin_unlock_bh(&br->lock);
+	err = br_sysfs_addif(p);
+	if (err)
+		goto err2;
 
-		dev_set_mtu(br->dev, br_min_mtu(br));
-	}
+	rcu_assign_pointer(dev->br_port, p);
+	dev_set_promiscuity(dev, 1);
 
+	list_add_rcu(&p->list, &br->port_list);
+
+	spin_lock_bh(&br->lock);
+	br_stp_recalculate_bridge_id(br);
+	br_features_recompute(br);
+	schedule_delayed_work(&p->carrier_check, BR_PORT_DEBOUNCE);
+	spin_unlock_bh(&br->lock);
+
+	dev_set_mtu(br->dev, br_min_mtu(br));
+	kobject_uevent(&p->kobj, KOBJ_ADD);
+
+	return 0;
+err2:
+	br_fdb_delete_by_port(br, p);
+err1:
+	kobject_del(&p->kobj);
+err0:
+	kobject_put(&p->kobj);
 	return err;
 }
 
@@ -386,7 +461,6 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
 	if (!p || p->br != br) 
 		return -EINVAL;
 
-	br_sysfs_removeif(p);
 	del_nbp(p);
 
 	spin_lock_bh(&br->lock);

@@ -77,6 +77,8 @@
 #include <linux/kmod.h>
 #include <linux/namei.h>
 #include <linux/buffer_head.h>
+#include <linux/capability.h>
+#include <linux/quotaops.h>
 
 #include <asm/uaccess.h>
 
@@ -99,7 +101,7 @@
  * operation is just reading pointers from inode (or not using them at all) the
  * read lock is enough. If pointers are altered function must hold write lock
  * (these locking rules also apply for S_NOQUOTA flag in the inode - note that
- * for altering the flag i_sem is also needed).  If operation is holding
+ * for altering the flag i_mutex is also needed).  If operation is holding
  * reference to dquot in other way (e.g. quotactl ops) it must be guarded by
  * dqonoff_sem.
  * This locking assures that:
@@ -116,9 +118,9 @@
  * spinlock to internal buffers before writing.
  *
  * Lock ordering (including related VFS locks) is the following:
- *   i_sem > dqonoff_sem > iprune_sem > journal_lock > dqptr_sem >
+ *   i_mutex > dqonoff_sem > iprune_sem > journal_lock > dqptr_sem >
  *   > dquot->dq_lock > dqio_sem
- * i_sem on quota files is special (it's below dqio_sem)
+ * i_mutex on quota files is special (it's below dqio_sem)
  */
 
 static DEFINE_SPINLOCK(dq_list_lock);
@@ -500,7 +502,7 @@ static void prune_dqcache(int count)
  * more memory
  */
 
-static int shrink_dqcache_memory(int nr, unsigned int gfp_mask)
+static int shrink_dqcache_memory(int nr, gfp_t gfp_mask)
 {
 	if (nr) {
 		spin_lock(&dq_list_lock);
@@ -662,7 +664,7 @@ static void add_dquot_ref(struct super_block *sb, int type)
 restart:
 	file_list_lock();
 	list_for_each(p, &sb->s_files) {
-		struct file *filp = list_entry(p, struct file, f_list);
+		struct file *filp = list_entry(p, struct file, f_u.fu_list);
 		struct inode *inode = filp->f_dentry->d_inode;
 		if (filp->f_mode & FMODE_WRITE && dqinit_needed(inode, type)) {
 			struct dentry *dentry = dget(filp->f_dentry);
@@ -1320,13 +1322,11 @@ int vfs_quota_off(struct super_block *sb, int type)
 	int cnt;
 	struct quota_info *dqopt = sb_dqopt(sb);
 	struct inode *toputinode[MAXQUOTAS];
-	struct vfsmount *toputmnt[MAXQUOTAS];
 
 	/* We need to serialize quota_off() for device */
 	down(&dqopt->dqonoff_sem);
 	for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
 		toputinode[cnt] = NULL;
-		toputmnt[cnt] = NULL;
 		if (type != -1 && cnt != type)
 			continue;
 		if (!sb_has_quota_enabled(sb, cnt))
@@ -1347,9 +1347,7 @@ int vfs_quota_off(struct super_block *sb, int type)
 		put_quota_format(dqopt->info[cnt].dqi_format);
 
 		toputinode[cnt] = dqopt->files[cnt];
-		toputmnt[cnt] = dqopt->mnt[cnt];
 		dqopt->files[cnt] = NULL;
-		dqopt->mnt[cnt] = NULL;
 		dqopt->info[cnt].dqi_flags = 0;
 		dqopt->info[cnt].dqi_igrace = 0;
 		dqopt->info[cnt].dqi_bgrace = 0;
@@ -1357,10 +1355,7 @@ int vfs_quota_off(struct super_block *sb, int type)
 	}
 	up(&dqopt->dqonoff_sem);
 	/* Sync the superblock so that buffers with quota data are written to
-	 * disk (and so userspace sees correct data afterwards).
-	 * The reference to vfsmnt we are still holding protects us from
-	 * umount (we don't have it only when quotas are turned on/off for
-	 * journal replay but in that case we are guarded by the fs anyway). */
+	 * disk (and so userspace sees correct data afterwards). */
 	if (sb->s_op->sync_fs)
 		sb->s_op->sync_fs(sb, 1);
 	sync_blockdev(sb->s_bdev);
@@ -1375,19 +1370,15 @@ int vfs_quota_off(struct super_block *sb, int type)
 			/* If quota was reenabled in the meantime, we have
 			 * nothing to do */
 			if (!sb_has_quota_enabled(sb, cnt)) {
-				down(&toputinode[cnt]->i_sem);
+				mutex_lock(&toputinode[cnt]->i_mutex);
 				toputinode[cnt]->i_flags &= ~(S_IMMUTABLE |
 				  S_NOATIME | S_NOQUOTA);
 				truncate_inode_pages(&toputinode[cnt]->i_data, 0);
-				up(&toputinode[cnt]->i_sem);
+				mutex_unlock(&toputinode[cnt]->i_mutex);
 				mark_inode_dirty(toputinode[cnt]);
 				iput(toputinode[cnt]);
 			}
 			up(&dqopt->dqonoff_sem);
-			/* We don't hold the reference when we turned on quotas
-			 * just for the journal replay... */
-			if (toputmnt[cnt])
-				mntput(toputmnt[cnt]);
 		}
 	if (sb->s_bdev)
 		invalidate_bdev(sb->s_bdev, 0);
@@ -1427,7 +1418,7 @@ static int vfs_quota_on_inode(struct inode *inode, int type, int format_id)
 	write_inode_now(inode, 1);
 	/* And now flush the block cache so that kernel sees the changes */
 	invalidate_bdev(sb->s_bdev, 0);
-	down(&inode->i_sem);
+	mutex_lock(&inode->i_mutex);
 	down(&dqopt->dqonoff_sem);
 	if (sb_has_quota_enabled(sb, type)) {
 		error = -EBUSY;
@@ -1459,7 +1450,7 @@ static int vfs_quota_on_inode(struct inode *inode, int type, int format_id)
 		goto out_file_init;
 	}
 	up(&dqopt->dqio_sem);
-	up(&inode->i_sem);
+	mutex_unlock(&inode->i_mutex);
 	set_enable_flags(dqopt, type);
 
 	add_dquot_ref(sb, type);
@@ -1480,7 +1471,7 @@ out_lock:
 		inode->i_flags |= oldflags;
 		up_write(&dqopt->dqptr_sem);
 	}
-	up(&inode->i_sem);
+	mutex_unlock(&inode->i_mutex);
 out_fmt:
 	put_quota_format(fmt);
 
@@ -1502,11 +1493,8 @@ int vfs_quota_on(struct super_block *sb, int type, int format_id, char *path)
 	/* Quota file not on the same filesystem? */
 	if (nd.mnt->mnt_sb != sb)
 		error = -EXDEV;
-	else {
+	else
 		error = vfs_quota_on_inode(nd.dentry->d_inode, type, format_id);
-		if (!error)
-			sb_dqopt(sb)->mnt[type] = mntget(nd.mnt);
-	}
 out_path:
 	path_release(&nd);
 	return error;
@@ -1526,10 +1514,16 @@ int vfs_quota_on_mount(struct super_block *sb, char *qf_name,
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
 
+	if (!dentry->d_inode) {
+		error = -ENOENT;
+		goto out;
+	}
+
 	error = security_quota_on(dentry);
 	if (!error)
 		error = vfs_quota_on_inode(dentry->d_inode, type, format_id);
 
+out:
 	dput(dentry);
 	return error;
 }

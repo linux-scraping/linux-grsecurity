@@ -8,8 +8,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.8"
-#define GRSECURITY_VERSION 0x218
+#define GR_VERSION  "grsecurity 2.1.9"
+#define GRSECURITY_VERSION 0x219
 
 enum {
 
@@ -56,9 +56,20 @@ struct name_entry {
 	struct name_entry *next;
 };
 
+struct inodev_entry {
+	struct name_entry *nentry;
+	struct inodev_entry *prev;
+	struct inodev_entry *next;
+};
+
 struct acl_role_db {
 	struct acl_role_label **r_hash;
 	__u32 r_size;
+};
+
+struct inodev_db {
+	struct inodev_entry **i_hash;
+	__u32 i_size;
 };
 
 struct name_db {
@@ -262,36 +273,34 @@ nhash(const char *name, const __u16 len, const unsigned int sz)
 	role = NULL; \
 	iter = 0; \
 	while (iter < acl_role_set.r_size) { \
-		if (role != NULL) { \
-			role = role->next; \
-			continue; \
-		} \
-		role = acl_role_set.r_hash[iter]; \
+		if (role == NULL) \
+			role = acl_role_set.r_hash[iter]; \
 		if (role == NULL) { \
 			iter++; \
 			continue; \
 		}
 
-#define FOR_EACH_ROLE_END(iter) \
-		iter++; \
+#define FOR_EACH_ROLE_END(role,iter) \
+		role = role->next; \
+		if (role == NULL) \
+			iter++; \
 	}
 
 #define FOR_EACH_SUBJECT_START(role,subj,iter) \
 	subj = NULL; \
 	iter = 0; \
 	while (iter < role->subj_hash_size) { \
-		if (subj != NULL) { \
-			subj = subj->next; \
-			continue; \
-		} \
-		subj = role->subj_hash[iter]; \
+		if (subj == NULL) \
+			subj = role->subj_hash[iter]; \
 		if (subj == NULL) { \
 			iter++; \
 			continue; \
 		}
 
-#define FOR_EACH_SUBJECT_END(iter) \
-		iter++; \
+#define FOR_EACH_SUBJECT_END(subj,iter) \
+		subj = subj->next; \
+		if (subj == NULL) \
+			iter++; \
 	}
 
 

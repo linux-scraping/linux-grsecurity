@@ -871,10 +871,8 @@ static void ace_init_cleanup(struct net_device *dev)
 	if (ap->info)
 		pci_free_consistent(ap->pdev, sizeof(struct ace_info),
 				    ap->info, ap->info_dma);
-	if (ap->skb)
-		kfree(ap->skb);
-	if (ap->trace_buf)
-		kfree(ap->trace_buf);
+	kfree(ap->skb);
+	kfree(ap->trace_buf);
 
 	if (dev->irq)
 		free_irq(dev->irq, dev);
@@ -1004,6 +1002,8 @@ static int __devinit ace_init(struct net_device *dev)
 
 	mac1 = 0;
 	for(i = 0; i < 4; i++) {
+		int tmp;
+
 		mac1 = mac1 << 8;
 		tmp = read_eeprom_byte(dev, 0x8c+i);
 		if (tmp < 0) {
@@ -1014,6 +1014,8 @@ static int __devinit ace_init(struct net_device *dev)
 	}
 	mac2 = 0;
 	for(i = 4; i < 8; i++) {
+		int tmp;
+
 		mac2 = mac2 << 8;
 		tmp = read_eeprom_byte(dev, 0x8c+i);
 		if (tmp < 0) {

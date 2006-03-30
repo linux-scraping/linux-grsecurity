@@ -637,7 +637,7 @@ out:
 	preempt_enable();
 }
 
-extern void add_input_randomness(unsigned int type, unsigned int code,
+void add_input_randomness(unsigned int type, unsigned int code,
 				 unsigned int value)
 {
 	static unsigned char last_value;
@@ -1559,10 +1559,8 @@ __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
 
 EXPORT_SYMBOL(secure_tcp_sequence_number);
 
-
-
-/* Generate secure starting point for ephemeral TCP port search */
-u32 secure_tcp_port_ephemeral(__u32 saddr, __u32 daddr, __u16 dport)
+/* Generate secure starting point for ephemeral IPV4 transport port search */
+u32 secure_ipv4_port_ephemeral(__u32 saddr, __u32 daddr, __u16 dport)
 {
 	struct keydata *keyptr = get_keyptr();
 	u32 hash[4];
@@ -1580,7 +1578,7 @@ u32 secure_tcp_port_ephemeral(__u32 saddr, __u32 daddr, __u16 dport)
 }
 
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-u32 secure_tcpv6_port_ephemeral(const __u32 *saddr, const __u32 *daddr, __u16 dport)
+u32 secure_ipv6_port_ephemeral(const __u32 *saddr, const __u32 *daddr, __u16 dport)
 {
 	struct keydata *keyptr = get_keyptr();
 	u32 hash[12];
@@ -1591,7 +1589,7 @@ u32 secure_tcpv6_port_ephemeral(const __u32 *saddr, const __u32 *daddr, __u16 dp
 
 	return twothirdsMD4Transform(daddr, hash);
 }
-EXPORT_SYMBOL(secure_tcpv6_port_ephemeral);
+EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
 #endif
 
 #if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
@@ -1670,9 +1668,9 @@ randomize_range(unsigned long start, unsigned long end, unsigned long len)
 #if defined(CONFIG_PAX_ASLR) || defined(CONFIG_GRKERNSEC)
 unsigned long pax_get_random_long(void)
 {
-	static time_t   rekey_time;
-	static __u32    secret[12];
-	time_t          t;
+	static time_t	rekey_time;
+	static __u32	secret[12];
+	time_t		t;
 
 	/*
 	 * Pick a random secret every REKEY_INTERVAL seconds.

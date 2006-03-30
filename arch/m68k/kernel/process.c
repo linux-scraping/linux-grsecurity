@@ -102,7 +102,9 @@ void cpu_idle(void)
 	while (1) {
 		while (!need_resched())
 			idle();
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 	}
 }
 
@@ -126,6 +128,9 @@ void machine_power_off(void)
 		mach_power_off();
 	for (;;);
 }
+
+void (*pm_power_off)(void) = machine_power_off;
+EXPORT_SYMBOL(pm_power_off);
 
 void show_regs(struct pt_regs * regs)
 {
@@ -236,10 +241,9 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long usp,
 {
 	struct pt_regs * childregs;
 	struct switch_stack * childstack, *stack;
-	unsigned long stack_offset, *retp;
+	unsigned long *retp;
 
-	stack_offset = THREAD_SIZE - sizeof(struct pt_regs);
-	childregs = (struct pt_regs *) ((unsigned long) (p->thread_info) + stack_offset);
+	childregs = (struct pt_regs *) (task_stack_page(p) + THREAD_SIZE) - 1;
 
 	*childregs = *regs;
 	childregs->d0 = 0;
@@ -384,7 +388,7 @@ unsigned long get_wchan(struct task_struct *p)
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
 
-	stack_page = (unsigned long)(p->thread_info);
+	stack_page = (unsigned long)task_stack_page(p);
 	fp = ((struct switch_stack *)p->thread.ksp)->a6;
 	do {
 		if (fp < stack_page+sizeof(struct thread_info) ||

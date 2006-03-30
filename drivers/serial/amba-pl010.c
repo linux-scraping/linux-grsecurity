@@ -47,11 +47,12 @@
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
+#include <linux/amba/bus.h>
+#include <linux/amba/serial.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/hardware/amba.h>
-#include <asm/hardware/amba_serial.h>
+#include <asm/hardware.h>
 
 #define UART_NR		2
 
@@ -153,15 +154,6 @@ pl010_rx_chars(struct uart_port *port)
 
 	status = UART_GET_FR(port);
 	while (UART_RX_DATA(status) && max_count--) {
-		if (tty->flip.count >= TTY_FLIPBUF_SIZE) {
-			if (tty->low_latency)
-				tty_flip_buffer_push(tty);
-			/*
-			 * If this failed then we will throw away the
-			 * bytes but must do so to clear interrupts.
-			 */
-		}
-
 		ch = UART_GET_CHAR(port);
 		flag = TTY_NORMAL;
 
@@ -569,12 +561,12 @@ static struct uart_amba_port amba_ports[UART_NR] = {
 		.port	= {
 			.membase	= (void *)IO_ADDRESS(INTEGRATOR_UART0_BASE),
 			.mapbase	= INTEGRATOR_UART0_BASE,
-			.iotype		= SERIAL_IO_MEM,
+			.iotype		= UPIO_MEM,
 			.irq		= IRQ_UARTINT0,
 			.uartclk	= 14745600,
 			.fifosize	= 16,
 			.ops		= &amba_pl010_pops,
-			.flags		= ASYNC_BOOT_AUTOCONF,
+			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 0,
 		},
 		.dtr_mask	= 1 << 5,
@@ -584,12 +576,12 @@ static struct uart_amba_port amba_ports[UART_NR] = {
 		.port	= {
 			.membase	= (void *)IO_ADDRESS(INTEGRATOR_UART1_BASE),
 			.mapbase	= INTEGRATOR_UART1_BASE,
-			.iotype		= SERIAL_IO_MEM,
+			.iotype		= UPIO_MEM,
 			.irq		= IRQ_UARTINT1,
 			.uartclk	= 14745600,
 			.fifosize	= 16,
 			.ops		= &amba_pl010_pops,
-			.flags		= ASYNC_BOOT_AUTOCONF,
+			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 1,
 		},
 		.dtr_mask	= 1 << 7,

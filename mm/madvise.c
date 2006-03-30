@@ -59,16 +59,23 @@ static long madvise_behavior(struct vm_area_struct * vma,
 	struct mm_struct * mm = vma->vm_mm;
 	int error = 0;
 	pgoff_t pgoff;
-	int new_flags = vma->vm_flags & ~VM_READHINTMASK;
+	int new_flags = vma->vm_flags;
 
 	switch (behavior) {
+	case MADV_NORMAL:
+		new_flags = new_flags & ~VM_RAND_READ & ~VM_SEQ_READ;
+		break;
 	case MADV_SEQUENTIAL:
-		new_flags |= VM_SEQ_READ;
+		new_flags = (new_flags & ~VM_RAND_READ) | VM_SEQ_READ;
 		break;
 	case MADV_RANDOM:
-		new_flags |= VM_RAND_READ;
+		new_flags = (new_flags & ~VM_SEQ_READ) | VM_RAND_READ;
 		break;
-	default:
+	case MADV_DONTFORK:
+		new_flags |= VM_DONTCOPY;
+		break;
+	case MADV_DOFORK:
+		new_flags &= ~VM_DONTCOPY;
 		break;
 	}
 
@@ -163,7 +170,7 @@ static long madvise_dontneed(struct vm_area_struct * vma,
 			     unsigned long start, unsigned long end)
 {
 	*prev = vma;
-	if ((vma->vm_flags & VM_LOCKED) || is_vm_hugetlb_page(vma))
+	if (vma->vm_flags & (VM_LOCKED|VM_HUGETLB|VM_PFNMAP))
 		return -EINVAL;
 
 	if (unlikely(vma->vm_flags & VM_NONLINEAR)) {
@@ -177,6 +184,36 @@ static long madvise_dontneed(struct vm_area_struct * vma,
 	return 0;
 }
 
+/*
+ * Application wants to free up the pages and associated backing store.
+ * This is effectively punching a hole into the middle of a file.
+ *
+ * NOTE: Currently, only shmfs/tmpfs is supported for this operation.
+ * Other filesystems return -ENOSYS.
+ */
+static long madvise_remove(struct vm_area_struct *vma,
+				unsigned long start, unsigned long end)
+{
+	struct address_space *mapping;
+        loff_t offset, endoff;
+
+	if (vma->vm_flags & (VM_LOCKED|VM_NONLINEAR|VM_HUGETLB))
+		return -EINVAL;
+
+	if (!vma->vm_file || !vma->vm_file->f_mapping
+		|| !vma->vm_file->f_mapping->host) {
+			return -EINVAL;
+	}
+
+	mapping = vma->vm_file->f_mapping;
+
+	offset = (loff_t)(start - vma->vm_start)
+			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
+	endoff = (loff_t)(end - vma->vm_start - 1)
+			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
+	return  vmtruncate_range(mapping->host, offset, endoff);
+}
+
 static long
 madvise_vma(struct vm_area_struct *vma, struct vm_area_struct **prev,
 		unsigned long start, unsigned long end, int behavior)
@@ -184,10 +221,19 @@ madvise_vma(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	long error;
 
 	switch (behavior) {
+	case MADV_DOFORK:
+		if (vma->vm_flags & VM_IO) {
+			error = -EINVAL;
+			break;
+		}
+	case MADV_DONTFORK:
 	case MADV_NORMAL:
 	case MADV_SEQUENTIAL:
 	case MADV_RANDOM:
 		error = madvise_behavior(vma, prev, start, end, behavior);
+		break;
+	case MADV_REMOVE:
+		error = madvise_remove(vma, start, end);
 		break;
 
 	case MADV_WILLNEED:
@@ -227,6 +273,8 @@ madvise_vma(struct vm_area_struct *vma, struct vm_area_struct **prev,
  *		some pages ahead.
  *  MADV_DONTNEED - the application is finished with the given range,
  *		so the kernel can free resources associated with it.
+ *  MADV_REMOVE - the application wants to free up the given range of
+ *		pages and associated backing store.
  *
  * return values:
  *  zero    - success

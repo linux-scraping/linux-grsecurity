@@ -1,6 +1,10 @@
 #ifndef HOSTAP_WLAN_H
 #define HOSTAP_WLAN_H
 
+#include <linux/wireless.h>
+#include <linux/netdevice.h>
+#include <net/iw_handler.h>
+
 #include "hostap_config.h"
 #include "hostap_common.h"
 
@@ -552,8 +556,6 @@ struct prism2_helper_functions {
 	 * (hostap_{cs,plx,pci}.c */
 	int (*card_present)(local_info_t *local);
 	void (*cor_sreset)(local_info_t *local);
-	int (*dev_open)(local_info_t *local);
-	int (*dev_close)(local_info_t *local);
 	void (*genesis_reset)(local_info_t *local, int hcr);
 
 	/* the following functions are from hostap_hw.c, but they may have some

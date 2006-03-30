@@ -54,7 +54,7 @@ void (*pm_idle)(void);
  * This is done via auxio, but could be used as a fallback
  * handler when auxio is not present-- unused for now...
  */
-void (*pm_power_off)(void);
+void (*pm_power_off)(void) = machine_power_off;
 
 /*
  * sysctl - toggle power-off restriction for serial console 
@@ -66,13 +66,6 @@ extern void fpsave(unsigned long *, unsigned long *, void *, unsigned long *);
 
 struct task_struct *last_task_used_math = NULL;
 struct thread_info *current_set[NR_CPUS];
-
-/*
- * default_idle is new in 2.5. XXX Review, currently stolen from sparc64.
- */
-void default_idle(void)
-{
-}
 
 #ifndef CONFIG_SMP
 
@@ -92,12 +85,11 @@ void cpu_idle(void)
 			static unsigned long fps;
 			unsigned long now;
 			unsigned long faults;
-			unsigned long flags;
 
 			extern unsigned long sun4c_kernel_faults;
 			extern void sun4c_grow_kernel_ring(void);
 
-			local_irq_save(flags);
+			local_irq_disable();
 			now = jiffies;
 			count -= (now - last_jiffies);
 			last_jiffies = now;
@@ -113,14 +105,19 @@ void cpu_idle(void)
 					sun4c_grow_kernel_ring();
 				}
 			}
-			local_irq_restore(flags);
+			local_irq_enable();
 		}
 
-		while((!need_resched()) && pm_idle) {
-			(*pm_idle)();
+		if (pm_idle) {
+			while (!need_resched())
+				(*pm_idle)();
+		} else {
+			while (!need_resched())
+				cpu_relax();
 		}
-
+		preempt_enable_no_resched();
 		schedule();
+		preempt_disable();
 		check_pgt_cache();
 	}
 }
@@ -130,13 +127,15 @@ void cpu_idle(void)
 /* This is being executed in task 0 'user space'. */
 void cpu_idle(void)
 {
+        set_thread_flag(TIF_POLLING_NRFLAG);
 	/* endless idle loop with no priority at all */
 	while(1) {
-		if(need_resched()) {
-			schedule();
-			check_pgt_cache();
-		}
-		barrier(); /* or else gcc optimizes... */
+		while (!need_resched())
+			cpu_relax();
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
+		check_pgt_cache();
 	}
 }
 
@@ -303,7 +302,7 @@ void show_stack(struct task_struct *tsk, unsigned long *_ksp)
 	int count = 0;
 
 	if (tsk != NULL)
-		task_base = (unsigned long) tsk->thread_info;
+		task_base = (unsigned long) task_stack_page(tsk);
 	else
 		task_base = (unsigned long) current_thread_info();
 
@@ -338,7 +337,7 @@ EXPORT_SYMBOL(dump_stack);
  */
 unsigned long thread_saved_pc(struct task_struct *tsk)
 {
-	return tsk->thread_info->kpc;
+	return task_thread_info(tsk)->kpc;
 }
 
 /*
@@ -393,7 +392,7 @@ void flush_thread(void)
 		/* We must fixup kregs as well. */
 		/* XXX This was not fixed for ti for a while, worked. Unused? */
 		current->thread.kregs = (struct pt_regs *)
-		    ((char *)current->thread_info + (THREAD_SIZE - TRACEREG_SZ));
+		    (task_stack_page(current) + (THREAD_SIZE - TRACEREG_SZ));
 	}
 }
 
@@ -460,7 +459,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 		unsigned long unused,
 		struct task_struct *p, struct pt_regs *regs)
 {
-	struct thread_info *ti = p->thread_info;
+	struct thread_info *ti = task_thread_info(p);
 	struct pt_regs *childregs;
 	char *new_stack;
 
@@ -483,7 +482,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 	 *  V                      V (stk.fr.) V  (pt_regs)  { (stk.fr.) }
 	 *  +----- - - - - - ------+===========+============={+==========}+
 	 */
-	new_stack = (char*)ti + THREAD_SIZE;
+	new_stack = task_stack_page(p) + THREAD_SIZE;
 	if (regs->psr & PSR_PS)
 		new_stack -= STACKFRAME_SZ;
 	new_stack -= STACKFRAME_SZ + TRACEREG_SZ;
@@ -725,7 +724,7 @@ unsigned long get_wchan(struct task_struct *task)
             task->state == TASK_RUNNING)
 		goto out;
 
-	fp = task->thread_info->ksp + bias;
+	fp = task_thread_info(task)->ksp + bias;
 	do {
 		/* Bogus frame pointer? */
 		if (fp < (task_base + sizeof(struct thread_info)) ||

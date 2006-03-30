@@ -32,7 +32,7 @@ svc_create(struct svc_program *prog, unsigned int bufsize)
 	int vers;
 	unsigned int xdrsize;
 
-	if (!(serv = (struct svc_serv *) kmalloc(sizeof(*serv), GFP_KERNEL)))
+	if (!(serv = kmalloc(sizeof(*serv), GFP_KERNEL)))
 		return NULL;
 	memset(serv, 0, sizeof(*serv));
 	serv->sv_name      = prog->pg_name;
@@ -122,8 +122,7 @@ svc_init_buffer(struct svc_rqst *rqstp, unsigned int size)
 	rqstp->rq_argused = 0;
 	rqstp->rq_resused = 0;
 	arghi = 0;
-	if (pages > RPCSVC_MAXPAGES)
-		BUG();
+	BUG_ON(pages > RPCSVC_MAXPAGES);
 	while (pages) {
 		struct page *p = alloc_page(GFP_KERNEL);
 		if (!p)
@@ -167,8 +166,8 @@ svc_create_thread(svc_thread_fn func, struct svc_serv *serv)
 	memset(rqstp, 0, sizeof(*rqstp));
 	init_waitqueue_head(&rqstp->rq_wait);
 
-	if (!(rqstp->rq_argp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
-	 || !(rqstp->rq_resp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
+	if (!(rqstp->rq_argp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
+	 || !(rqstp->rq_resp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
 	 || !svc_init_buffer(rqstp, serv->sv_bufsz))
 		goto out_thread;
 
@@ -196,12 +195,9 @@ svc_exit_thread(struct svc_rqst *rqstp)
 	struct svc_serv	*serv = rqstp->rq_server;
 
 	svc_release_buffer(rqstp);
-	if (rqstp->rq_resp)
-		kfree(rqstp->rq_resp);
-	if (rqstp->rq_argp)
-		kfree(rqstp->rq_argp);
-	if (rqstp->rq_auth_data)
-		kfree(rqstp->rq_auth_data);
+	kfree(rqstp->rq_resp);
+	kfree(rqstp->rq_argp);
+	kfree(rqstp->rq_auth_data);
 	kfree(rqstp);
 
 	/* Release the server */
@@ -313,6 +309,11 @@ svc_process(struct svc_serv *serv, struct svc_rqst *rqstp)
 	rqstp->rq_proc = proc = ntohl(svc_getu32(argv));	/* procedure number */
 
 	progp = serv->sv_program;
+
+	for (progp = serv->sv_program; progp; progp = progp->pg_next)
+		if (prog == progp->pg_prog)
+			break;
+
 	/*
 	 * Decode auth data, and add verifier to reply buffer.
 	 * We do this before anything else in order to get a decent
@@ -320,7 +321,7 @@ svc_process(struct svc_serv *serv, struct svc_rqst *rqstp)
 	 */
 	auth_res = svc_authenticate(rqstp, &auth_stat);
 	/* Also give the program a chance to reject this call: */
-	if (auth_res == SVC_OK) {
+	if (auth_res == SVC_OK && progp) {
 		auth_stat = rpc_autherr_badcred;
 		auth_res = progp->pg_authenticate(rqstp);
 	}
@@ -340,10 +341,7 @@ svc_process(struct svc_serv *serv, struct svc_rqst *rqstp)
 	case SVC_COMPLETE:
 		goto sendit;
 	}
-		
-	for (progp = serv->sv_program; progp; progp = progp->pg_next)
-		if (prog == progp->pg_prog)
-			break;
+
 	if (progp == NULL)
 		goto err_bad_prog;
 

@@ -39,16 +39,13 @@
 
 #ifdef	CONFIG_X86_64
 
-static inline void acpi_madt_oem_check(char *oem_id, char *oem_table_id)
-{
-}
 extern void __init clustered_apic_check(void);
-static inline int ioapic_setup_disabled(void)
-{
-	return 0;
-}
 
+extern int gsi_irq_sharing(int gsi);
 #include <asm/proto.h>
+
+static inline int acpi_madt_oem_check(char *oem_id, char *oem_table_id) { return 0; }
+
 
 #else				/* X86 */
 
@@ -56,6 +53,8 @@ static inline int ioapic_setup_disabled(void)
 #include <mach_apic.h>
 #include <mach_mpparse.h>
 #endif				/* CONFIG_X86_LOCAL_APIC */
+
+static inline int gsi_irq_sharing(int gsi) { return gsi; }
 
 #endif				/* X86 */
 
@@ -109,7 +108,7 @@ char *__acpi_map_table(unsigned long phys_addr, unsigned long size)
 	if (!phys_addr || !size)
 		return NULL;
 
-	if (phys_addr < (end_pfn_map << PAGE_SHIFT))
+	if (phys_addr+size <= (end_pfn_map << PAGE_SHIFT) + PAGE_SIZE)
 		return __va(phys_addr);
 
 	return NULL;
@@ -249,12 +248,17 @@ acpi_parse_lapic(acpi_table_entry_header * header, const unsigned long end)
 
 	acpi_table_print_madt_entry(header);
 
-	/* no utility in registering a disabled processor */
-	if (processor->flags.enabled == 0)
-		return 0;
+	/* Record local apic id only when enabled */
+	if (processor->flags.enabled)
+		x86_acpiid_to_apicid[processor->acpi_id] = processor->id;
 
-	x86_acpiid_to_apicid[processor->acpi_id] = processor->id;
-
+	/*
+	 * We need to register disabled CPU as well to permit
+	 * counting disabled CPUs. This allows us to size
+	 * cpus_possible_map more accurately, to permit
+	 * to not preallocating memory for all NR_CPUS
+	 * when we use CPU hotplug.
+	 */
 	mp_register_lapic(processor->id,	/* APIC ID */
 			  processor->flags.enabled);	/* Enabled? */
 
@@ -459,7 +463,7 @@ int acpi_gsi_to_irq(u32 gsi, unsigned int *irq)
 		*irq = IO_APIC_VECTOR(gsi);
 	else
 #endif
-		*irq = gsi;
+		*irq = gsi_irq_sharing(gsi);
 	return 0;
 }
 
@@ -467,7 +471,7 @@ int acpi_gsi_to_irq(u32 gsi, unsigned int *irq)
  * success: return IRQ number (>=0)
  * failure: return < 0
  */
-int acpi_register_gsi(u32 gsi, int edge_level, int active_high_low)
+int acpi_register_gsi(u32 gsi, int triggering, int polarity)
 {
 	unsigned int irq;
 	unsigned int plat_gsi = gsi;
@@ -479,14 +483,14 @@ int acpi_register_gsi(u32 gsi, int edge_level, int active_high_low)
 	if (acpi_irq_model == ACPI_IRQ_MODEL_PIC) {
 		extern void eisa_set_level_irq(unsigned int irq);
 
-		if (edge_level == ACPI_LEVEL_SENSITIVE)
+		if (triggering == ACPI_LEVEL_SENSITIVE)
 			eisa_set_level_irq(gsi);
 	}
 #endif
 
 #ifdef CONFIG_X86_IO_APIC
 	if (acpi_irq_model == ACPI_IRQ_MODEL_IOAPIC) {
-		plat_gsi = mp_register_gsi(gsi, edge_level, active_high_low);
+		plat_gsi = mp_register_gsi(gsi, triggering, polarity);
 	}
 #endif
 	acpi_gsi_to_irq(plat_gsi, &irq);
@@ -543,7 +547,7 @@ acpi_scan_rsdp(unsigned long start, unsigned long length)
 	 * RSDP signature.
 	 */
 	for (offset = 0; offset < length; offset += 16) {
-		if (strncmp((char *)(start + offset), "RSD PTR ", sig_len))
+		if (strncmp((char *)(phys_to_virt(start) + offset), "RSD PTR ", sig_len))
 			continue;
 		return (start + offset);
 	}
@@ -641,6 +645,13 @@ static int __init acpi_parse_fadt(unsigned long phys, unsigned long size)
 			return 0;
 
 		pmtmr_ioport = fadt->xpm_tmr_blk.address;
+		/*
+		 * "X" fields are optional extensions to the original V1.0
+		 * fields, so we must selectively expand V1.0 fields if the
+		 * corresponding X field is zero.
+	 	 */
+		if (!pmtmr_ioport)
+			pmtmr_ioport = fadt->V1_pm_tmr_blk;
 	} else {
 		/* FADT rev. 1 */
 		pmtmr_ioport = fadt->V1_pm_tmr_blk;
@@ -1100,9 +1111,6 @@ int __init acpi_boot_table_init(void)
 		disable_acpi();
 		return error;
 	}
-#ifdef __i386__
-	check_acpi_pci();
-#endif
 
 	acpi_table_parse(ACPI_BOOT, acpi_parse_sbf);
 

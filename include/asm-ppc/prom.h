@@ -93,7 +93,7 @@ extern int device_is_compatible(struct device_node *device, const char *);
 extern int machine_is_compatible(const char *compat);
 extern unsigned char *get_property(struct device_node *node, const char *name,
 				   int *lenp);
-extern void prom_add_property(struct device_node* np, struct property* prop);
+extern int prom_add_property(struct device_node* np, struct property* prop);
 extern void prom_get_irq_senses(unsigned char *, int, int);
 extern int prom_n_addr_cells(struct device_node* np);
 extern int prom_n_size_cells(struct device_node* np);
@@ -135,6 +135,46 @@ extern unsigned long sub_reloc_offset(unsigned long);
 
 #define PTRRELOC(x)	((typeof(x))add_reloc_offset((unsigned long)(x)))
 #define PTRUNRELOC(x)	((typeof(x))sub_reloc_offset((unsigned long)(x)))
+
+
+/*
+ * OF address retreival & translation
+ */
+
+
+/* Translate an OF address block into a CPU physical address
+ */
+#define OF_BAD_ADDR	((u64)-1)
+extern u64 of_translate_address(struct device_node *np, u32 *addr);
+
+/* Extract an address from a device, returns the region size and
+ * the address space flags too. The PCI version uses a BAR number
+ * instead of an absolute index
+ */
+extern u32 *of_get_address(struct device_node *dev, int index,
+			   u64 *size, unsigned int *flags);
+extern u32 *of_get_pci_address(struct device_node *dev, int bar_no,
+			       u64 *size, unsigned int *flags);
+
+/* Get an address as a resource. Note that if your address is
+ * a PIO address, the conversion will fail if the physical address
+ * can't be internally converted to an IO token with
+ * pci_address_to_pio(), that is because it's either called to early
+ * or it can't be matched to any host bridge IO space
+ */
+extern int of_address_to_resource(struct device_node *dev, int index,
+				  struct resource *r);
+extern int of_pci_address_to_resource(struct device_node *dev, int bar,
+				      struct resource *r);
+
+#ifndef CONFIG_PPC_OF
+/*
+ * Fallback definitions for builds where we don't have prom.c included.
+ */
+#define machine_is_compatible(x)		0
+#define of_find_compatible_node(f, t, c)	NULL
+#define get_property(p, n, l)			NULL
+#endif
 
 #endif /* _PPC_PROM_H */
 #endif /* __KERNEL__ */

@@ -29,9 +29,6 @@
 
 extern volatile unsigned long wall_jiffies;
 
-u64 jiffies_64 = INITIAL_JIFFIES;
-EXPORT_SYMBOL(jiffies_64);
-
 spinlock_t rtc_lock = SPIN_LOCK_UNLOCKED;
 EXPORT_SYMBOL(rtc_lock);
 
@@ -204,7 +201,7 @@ again:
 	if ((signed long)(get_ccount() - next) > 0)
 		goto again;
 
-	/* Allow platform to do something usefull (Wdog). */
+	/* Allow platform to do something useful (Wdog). */
 
 	platform_heartbeat();
 

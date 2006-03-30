@@ -40,21 +40,6 @@
 #define BREAKINST_ARM	0xef9f0001
 
 /*
- * Get the address of the live pt_regs for the specified task.
- * These are saved onto the top kernel stack when the process
- * is not running.
- *
- * Note: if a user thread is execve'd from kernel space, the
- * kernel stack will not be empty on entry to the kernel, so
- * ptracing these tasks will fail.
- */
-static inline struct pt_regs *
-get_user_regs(struct task_struct *task)
-{
-	return __get_user_regs(task->thread_info);
-}
-
-/*
  * this routine will get a word off of the processes privileged stack.
  * the offset is how far from the base addr as stored in the THREAD.
  * this routine assumes that all the privileged stacks are in our
@@ -62,7 +47,7 @@ get_user_regs(struct task_struct *task)
  */
 static inline long get_user_reg(struct task_struct *task, int offset)
 {
-	return get_user_regs(task)->uregs[offset];
+	return task_pt_regs(task)->uregs[offset];
 }
 
 /*
@@ -74,7 +59,7 @@ static inline long get_user_reg(struct task_struct *task, int offset)
 static inline int
 put_user_reg(struct task_struct *task, int offset, long data)
 {
-	struct pt_regs newregs, *regs = get_user_regs(task);
+	struct pt_regs newregs, *regs = task_pt_regs(task);
 	int ret = -EINVAL;
 
 	newregs = *regs;
@@ -377,7 +362,7 @@ void ptrace_set_bpt(struct task_struct *child)
 	u32 insn;
 	int res;
 
-	regs = get_user_regs(child);
+	regs = task_pt_regs(child);
 	pc = instruction_pointer(regs);
 
 	res = read_instr(child, pc, &insn);
@@ -500,7 +485,7 @@ static int ptrace_write_user(struct task_struct *tsk, unsigned long off,
  */
 static int ptrace_getregs(struct task_struct *tsk, void *uregs)
 {
-	struct pt_regs *regs = get_user_regs(tsk);
+	struct pt_regs *regs = task_pt_regs(tsk);
 
 	return copy_to_user(uregs, regs, sizeof(struct pt_regs)) ? -EFAULT : 0;
 }
@@ -515,7 +500,7 @@ static int ptrace_setregs(struct task_struct *tsk, void *uregs)
 
 	ret = -EFAULT;
 	if (copy_from_user(&newregs, uregs, sizeof(struct pt_regs)) == 0) {
-		struct pt_regs *regs = get_user_regs(tsk);
+		struct pt_regs *regs = task_pt_regs(tsk);
 
 		ret = -EINVAL;
 		if (valid_user_regs(&newregs)) {
@@ -532,7 +517,7 @@ static int ptrace_setregs(struct task_struct *tsk, void *uregs)
  */
 static int ptrace_getfpregs(struct task_struct *tsk, void *ufp)
 {
-	return copy_to_user(ufp, &tsk->thread_info->fpstate,
+	return copy_to_user(ufp, &task_thread_info(tsk)->fpstate,
 			    sizeof(struct user_fp)) ? -EFAULT : 0;
 }
 
@@ -542,11 +527,11 @@ static int ptrace_getfpregs(struct task_struct *tsk, void *ufp)
 static int ptrace_setfpregs(struct task_struct *tsk, void *ufp)
 {
 	set_stopped_child_used_math(tsk);
-	return copy_from_user(&tsk->thread_info->fpstate, ufp,
+	return copy_from_user(&task_thread_info(tsk)->fpstate, ufp,
 			      sizeof(struct user_fp)) ? -EFAULT : 0;
 }
 
-static int do_ptrace(int request, struct task_struct *child, long addr, long data)
+long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 {
 	unsigned long tmp;
 	int ret;
@@ -662,53 +647,6 @@ static int do_ptrace(int request, struct task_struct *child, long addr, long dat
 			break;
 	}
 
-	return ret;
-}
-
-asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
-{
-	struct task_struct *child;
-	int ret;
-
-	lock_kernel();
-	ret = -EPERM;
-	if (request == PTRACE_TRACEME) {
-		/* are we already being traced? */
-		if (current->ptrace & PT_PTRACED)
-			goto out;
-		ret = security_ptrace(current->parent, current);
-		if (ret)
-			goto out;
-		/* set the ptrace bit in the process flags. */
-		current->ptrace |= PT_PTRACED;
-		ret = 0;
-		goto out;
-	}
-	ret = -ESRCH;
-	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
-	if (child)
-		get_task_struct(child);
-	read_unlock(&tasklist_lock);
-	if (!child)
-		goto out;
-
-	ret = -EPERM;
-	if (pid == 1)		/* you may not mess with init */
-		goto out_tsk;
-
-	if (request == PTRACE_ATTACH) {
-		ret = ptrace_attach(child);
-		goto out_tsk;
-	}
-	ret = ptrace_check_attach(child, request == PTRACE_KILL);
-	if (ret == 0)
-		ret = do_ptrace(request, child, addr, data);
-
-out_tsk:
-	put_task_struct(child);
-out:
-	unlock_kernel();
 	return ret;
 }
 

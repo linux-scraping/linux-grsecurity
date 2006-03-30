@@ -24,7 +24,7 @@
 #include <linux/slab.h>
 
 /*
- * Unlink a buffer from a transaction. 
+ * Unlink a buffer from a transaction.
  *
  * Called with j_list_lock held.
  */
@@ -117,10 +117,10 @@ static void jbd_sync_bh(journal_t *journal, struct buffer_head *bh)
 }
 
 /*
- * Clean up a transaction's checkpoint list.  
+ * Clean up a transaction's checkpoint list.
  *
  * We wait for any pending IO to complete and make sure any clean
- * buffers are removed from the transaction. 
+ * buffers are removed from the transaction.
  *
  * Return 1 if we performed any actions which might have destroyed the
  * checkpoint.  (journal_remove_checkpoint() deletes the transaction when
@@ -276,7 +276,7 @@ static int __flush_buffer(journal_t *journal, struct journal_head *jh,
  * 
  * However, we _do_ take into account the amount requested so that once
  * the IO has been queued, we can return as soon as enough of it has
- * completed to disk.  
+ * completed to disk.
  *
  * The journal should be locked before calling this function.
  */
@@ -360,7 +360,7 @@ int log_do_checkpoint(journal_t *journal)
 		/*
 		 * We have walked the whole transaction list without
 		 * finding anything to write to disk.  We had better be
-		 * able to make some progress or we are in trouble. 
+		 * able to make some progress or we are in trouble.
 		 */
 		cleanup_ret = __cleanup_transaction(journal, transaction);
 		J_ASSERT(drop_count != 0 || cleanup_ret != 0);
@@ -518,7 +518,7 @@ out:
  * transaction need to be maintained on the transaction's checkpoint
  * list until they have been rewritten, at which point this function is
  * called to remove the buffer from the existing transaction's
- * checkpoint list.  
+ * checkpoint list.
  *
  * This function is called with the journal locked.
  * This function is called with j_list_lock held.

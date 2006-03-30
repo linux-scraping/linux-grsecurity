@@ -121,8 +121,14 @@ SECTIONS
 
   . = ALIGN(4096);
   .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
-	*(.rodata.empty_zero_page)
-	*(.rodata.idt)
+	*(.empty_zero_page)
+
+#ifdef CONFIG_X86_PAE
+	*(.swapper_pm_dir)
+#endif
+
+	*(.swapper_pg_dir)
+	*(.idt)
 	}
 
   RODATA
@@ -167,16 +173,6 @@ SECTIONS
   . = ALIGN(THREAD_SIZE);	/* init_task */
   .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
 	*(.data.init_task)
-  }
-
-  . = ALIGN(4096);
-  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
-
-#ifdef CONFIG_X86_PAE
-	*(.data.swapper_pm_dir)
-#endif
-
-	*(.data.swapper_pg_dir)
   }
 
   _edata = .;			/* End of data section */

@@ -36,6 +36,7 @@
 #include <linux/ipv6.h>
 #include <linux/icmpv6.h>
 #include <linux/init.h>
+#include <linux/skbuff.h>
 #include <asm/uaccess.h>
 
 #include <net/sock.h>
@@ -248,7 +249,7 @@ try_again:
 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov,
 					      copied);
 	} else if (msg->msg_flags&MSG_TRUNC) {
-		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum)))
+		if (__skb_checksum_complete(skb))
 			goto csum_copy_err;
 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov,
 					      copied);
@@ -300,20 +301,7 @@ out:
 	return err;
 
 csum_copy_err:
-	/* Clear queue. */
-	if (flags&MSG_PEEK) {
-		int clear = 0;
-		spin_lock_bh(&sk->sk_receive_queue.lock);
-		if (skb == skb_peek(&sk->sk_receive_queue)) {
-			__skb_unlink(skb, &sk->sk_receive_queue);
-			clear = 1;
-		}
-		spin_unlock_bh(&sk->sk_receive_queue.lock);
-		if (clear)
-			kfree_skb(skb);
-	}
-
-	skb_free_datagram(sk, skb);
+	skb_kill_datagram(sk, skb, flags);
 
 	if (flags & MSG_DONTWAIT) {
 		UDP6_INC_STATS_USER(UDP_MIB_INERRORS);
@@ -363,13 +351,10 @@ static inline int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 		return -1;
 	}
 
-	if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
-		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
-			UDP6_INC_STATS_BH(UDP_MIB_INERRORS);
-			kfree_skb(skb);
-			return 0;
-		}
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+	if (skb_checksum_complete(skb)) {
+		UDP6_INC_STATS_BH(UDP_MIB_INERRORS);
+		kfree_skb(skb);
+		return 0;
 	}
 
 	if (sock_queue_rcv_skb(sk,skb)<0) {
@@ -450,7 +435,7 @@ out:
 	read_unlock(&udp_hash_lock);
 }
 
-static int udpv6_rcv(struct sk_buff **pskb, unsigned int *nhoffp)
+static int udpv6_rcv(struct sk_buff **pskb)
 {
 	struct sk_buff *skb = *pskb;
 	struct sock *sk;
@@ -491,13 +476,10 @@ static int udpv6_rcv(struct sk_buff **pskb, unsigned int *nhoffp)
 		uh = skb->h.uh;
 	}
 
-	if (skb->ip_summed==CHECKSUM_HW) {
+	if (skb->ip_summed == CHECKSUM_HW &&
+	    !csum_ipv6_magic(saddr, daddr, ulen, IPPROTO_UDP, skb->csum))
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-		if (csum_ipv6_magic(saddr, daddr, ulen, IPPROTO_UDP, skb->csum)) {
-			LIMIT_NETDEBUG(KERN_DEBUG "udp v6 hw csum failure.\n");
-			skb->ip_summed = CHECKSUM_NONE;
-		}
-	}
+
 	if (skb->ip_summed != CHECKSUM_UNNECESSARY)
 		skb->csum = ~csum_ipv6_magic(saddr, daddr, ulen, IPPROTO_UDP, 0);
 
@@ -521,8 +503,7 @@ static int udpv6_rcv(struct sk_buff **pskb, unsigned int *nhoffp)
 		if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
 			goto discard;
 
-		if (skb->ip_summed != CHECKSUM_UNNECESSARY &&
-		    (unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum)))
+		if (skb_checksum_complete(skb))
 			goto discard;
 		UDP6_INC_STATS_BH(UDP_MIB_NOPORTS);
 

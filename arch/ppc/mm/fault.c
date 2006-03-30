@@ -641,6 +641,7 @@ bad_area:
 
 	/* User mode accesses cause a SIGSEGV */
 	if (user_mode(regs)) {
+
 #ifdef CONFIG_PAX_PAGEEXEC
 		if (mm->pax_flags & MF_PAX_PAGEEXEC) {
 			if ((TRAP(regs) == 0x400) && (regs->nip == address)) {

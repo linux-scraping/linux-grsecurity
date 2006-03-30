@@ -65,7 +65,11 @@ struct rcu_ctrlblk {
 	long	cur;		/* Current batch number.                      */
 	long	completed;	/* Number of the last completed batch         */
 	int	next_pending;	/* Is the next batch already waiting?         */
-} ____cacheline_maxaligned_in_smp;
+
+	spinlock_t	lock	____cacheline_internodealigned_in_smp;
+	cpumask_t	cpumask; /* CPUs that need to switch in order    */
+	                         /* for current batch to proceed.        */
+} ____cacheline_internodealigned_in_smp;
 
 /* Is batch a before batch b ? */
 static inline int rcu_batch_before(long a, long b)
@@ -94,12 +98,17 @@ struct rcu_data {
 	long  	       	batch;           /* Batch # for current RCU batch */
 	struct rcu_head *nxtlist;
 	struct rcu_head **nxttail;
-	long            count; /* # of queued items */
+	long            qlen; 	 	 /* # of queued callbacks */
 	struct rcu_head *curlist;
 	struct rcu_head **curtail;
 	struct rcu_head *donelist;
 	struct rcu_head **donetail;
+	long		blimit;		 /* Upper limit on a processed batch */
 	int cpu;
+	struct rcu_head barrier;
+#ifdef CONFIG_SMP
+	long		last_rs_qlen;	 /* qlen during the last resched */
+#endif
 };
 
 DECLARE_PER_CPU(struct rcu_data, rcu_data);
@@ -124,36 +133,7 @@ static inline void rcu_bh_qsctr_inc(int cpu)
 	rdp->passed_quiesc = 1;
 }
 
-static inline int __rcu_pending(struct rcu_ctrlblk *rcp,
-						struct rcu_data *rdp)
-{
-	/* This cpu has pending rcu entries and the grace period
-	 * for them has completed.
-	 */
-	if (rdp->curlist && !rcu_batch_before(rcp->completed, rdp->batch))
-		return 1;
-
-	/* This cpu has no pending entries, but there are new entries */
-	if (!rdp->curlist && rdp->nxtlist)
-		return 1;
-
-	/* This cpu has finished callbacks to invoke */
-	if (rdp->donelist)
-		return 1;
-
-	/* The rcu core waits for a quiescent state from the cpu */
-	if (rdp->quiescbatch != rcp->cur || rdp->qs_pending)
-		return 1;
-
-	/* nothing to do */
-	return 0;
-}
-
-static inline int rcu_pending(int cpu)
-{
-	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu)) ||
-		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
-}
+extern int rcu_pending(int cpu);
 
 /**
  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
@@ -264,17 +244,21 @@ static inline int rcu_pending(int cpu)
  * This means that all preempt_disable code sequences, including NMI and
  * hardware-interrupt handlers, in progress on entry will have completed
  * before this primitive returns.  However, this does not guarantee that
- * softirq handlers will have completed, since in some kernels
+ * softirq handlers will have completed, since in some kernels, these
+ * handlers can run in process context, and can block.
  *
  * This primitive provides the guarantees made by the (deprecated)
  * synchronize_kernel() API.  In contrast, synchronize_rcu() only
  * guarantees that rcu_read_lock() sections will have completed.
+ * In "classic RCU", these two guarantees happen to be one and
+ * the same, but can differ in realtime RCU implementations.
  */
 #define synchronize_sched() synchronize_rcu()
 
 extern void rcu_init(void);
 extern void rcu_check_callbacks(int cpu, int user);
 extern void rcu_restart_cpu(int cpu);
+extern long rcu_batches_completed(void);
 
 /* Exported interfaces */
 extern void FASTCALL(call_rcu(struct rcu_head *head, 
@@ -284,6 +268,7 @@ extern void FASTCALL(call_rcu_bh(struct rcu_head *head,
 extern __deprecated_for_modules void synchronize_kernel(void);
 extern void synchronize_rcu(void);
 void synchronize_idle(void);
+extern void rcu_barrier(void);
 
 #endif /* __KERNEL__ */
 #endif /* __LINUX_RCUPDATE_H */

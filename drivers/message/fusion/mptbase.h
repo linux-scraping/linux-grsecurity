@@ -49,7 +49,6 @@
 #define MPTBASE_H_INCLUDED
 /*{-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
-#include <linux/version.h>
 #include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
@@ -77,8 +76,8 @@
 #define COPYRIGHT	"Copyright (c) 1999-2005 " MODULEAUTHOR
 #endif
 
-#define MPT_LINUX_VERSION_COMMON	"3.03.03"
-#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-3.03.03"
+#define MPT_LINUX_VERSION_COMMON	"3.03.07"
+#define MPT_LINUX_PACKAGE_NAME		"@(#)mptlinux-3.03.07"
 #define WHAT_MAGIC_STRING		"@" "(" "#" ")"
 
 #define show_mptmod_ver(s,ver)  \
@@ -124,7 +123,7 @@
 #define  MPT_MAX_FRAME_SIZE		128
 #define  MPT_DEFAULT_FRAME_SIZE		128
 
-#define  MPT_REPLY_FRAME_SIZE		0x40  /* Must be a multiple of 8 */
+#define  MPT_REPLY_FRAME_SIZE		0x50  /* Must be a multiple of 8 */
 
 #define  MPT_SG_REQ_128_SCALE		1
 #define  MPT_SG_REQ_96_SCALE		2
@@ -322,7 +321,7 @@ typedef struct _SYSIF_REGS
  *	Dynamic Multi-Pathing specific stuff...
  */
 
-/* VirtDevice negoFlags field */
+/* VirtTarget negoFlags field */
 #define MPT_TARGET_NO_NEGO_WIDE		0x01
 #define MPT_TARGET_NO_NEGO_SYNC		0x02
 #define MPT_TARGET_NO_NEGO_QAS		0x04
@@ -331,8 +330,7 @@ typedef struct _SYSIF_REGS
 /*
  *	VirtDevice - FC LUN device or SCSI target device
  */
-typedef struct _VirtDevice {
-	struct scsi_device	*device;
+typedef struct _VirtTarget {
 	u8			 tflags;
 	u8			 ioc_id;
 	u8			 target_id;
@@ -343,21 +341,18 @@ typedef struct _VirtDevice {
 	u8			 negoFlags;	/* bit field, see above */
 	u8			 raidVolume;	/* set, if RAID Volume */
 	u8			 type;		/* byte 0 of Inquiry data */
-	u8			 cflags;	/* controller flags */
-	u8			 rsvd1raid;
-	u16			 fc_phys_lun;
-	u16			 fc_xlat_lun;
 	u32			 num_luns;
 	u32			 luns[8];		/* Max LUNs is 256 */
-	u8			 pad[4];
 	u8			 inq_data[8];
-		/* IEEE Registered Extended Identifier
-		   obtained via INQUIRY VPD page 0x83 */
-		/* NOTE: Do not separate uniq_prepad and uniq_data
-		   as they are treateed as a single entity in the code */
-	u8			 uniq_prepad[8];
-	u8			 uniq_data[20];
-	u8			 pad2[4];
+} VirtTarget;
+
+typedef struct _VirtDevice {
+	VirtTarget	 	*vtarget;
+	u8			 ioc_id;
+	u8			 bus_id;
+	u8			 target_id;
+	u8			 configured_lun;
+	u32			 lun;
 } VirtDevice;
 
 /*
@@ -418,8 +413,19 @@ typedef struct _MPT_IOCTL {
 	u8			 status;	/* current command status */
 	u8			 reset;		/* 1 if bus reset allowed */
 	u8			 target;	/* target for reset */
-	struct semaphore	 sem_ioc;
+	struct mutex		 ioctl_mutex;
 } MPT_IOCTL;
+
+#define MPT_SAS_MGMT_STATUS_RF_VALID	0x02	/* The Reply Frame is VALID */
+#define MPT_SAS_MGMT_STATUS_COMMAND_GOOD	0x10	/* Command Status GOOD */
+#define MPT_SAS_MGMT_STATUS_TM_FAILED	0x40	/* User TM request failed */
+
+typedef struct _MPT_SAS_MGMT {
+	struct mutex		 mutex;
+	struct completion	 done;
+	u8			 reply[MPT_DEFAULT_FRAME_SIZE]; /* reply frame data */
+	u8			 status;	/* current command status */
+}MPT_SAS_MGMT;
 
 /*
  *  Event Structure and define
@@ -492,6 +498,23 @@ typedef	struct _RaidCfgData {
 	IOCPage3_t	*pIocPg3;		/* table of physical disks */
 	int		 isRaid;		/* bit field, 1 if RAID */
 }RaidCfgData;
+
+#define MPT_RPORT_INFO_FLAGS_REGISTERED	0x01	/* rport registered */
+#define MPT_RPORT_INFO_FLAGS_MISSING	0x02	/* missing from DevPage0 scan */
+#define MPT_RPORT_INFO_FLAGS_MAPPED_VDEV 0x04	/* target mapped in vdev */
+
+/*
+ * data allocated for each fc rport device
+ */
+struct mptfc_rport_info
+{
+	struct list_head list;
+	struct fc_rport *rport;
+	struct scsi_target *starget;
+	FCDevicePage0_t pg0;
+	u8		flags;
+	u8		remap_needed;
+};
 
 /*
  *  Adapter Structure - pci_dev specific. Maximum: MPT_MAX_ADAPTERS
@@ -593,6 +616,7 @@ typedef struct _MPT_ADAPTER
 	 * increments by 32 bytes
 	 */
 	int			 errata_flag_1064;
+	int			 aen_event_read_flag; /* flag to indicate event log was read*/
 	u8			 FirstWhoInit;
 	u8			 upload_fw;	/* If set, do a fw upload */
 	u8			 reload_fw;	/* Force a FW Reload on next reset */
@@ -601,9 +625,22 @@ typedef struct _MPT_ADAPTER
 	int			 DoneCtx;
 	int			 TaskCtx;
 	int			 InternalCtx;
+	spinlock_t		 initializing_hba_lock;
+	int 	 		 initializing_hba_lock_flag;
 	struct list_head	 list;
 	struct net_device	*netdev;
 	struct list_head	 sas_topology;
+	struct mutex		 sas_topology_mutex;
+	MPT_SAS_MGMT		 sas_mgmt;
+	int			 num_ports;
+	struct work_struct	 mptscsih_persistTask;
+
+	struct list_head	 fc_rports;
+	spinlock_t		 fc_rport_lock; /* list and ri flags */
+	spinlock_t		 fc_rescan_work_lock;
+	int			 fc_rescan_work_count;
+	struct work_struct	 fc_rescan_work;
+
 } MPT_ADAPTER;
 
 /*
@@ -769,6 +806,12 @@ typedef struct _mpt_sge {
 #define dreplyprintk(x)
 #endif
 
+#ifdef DMPT_DEBUG_FC
+#define dfcprintk(x) printk x
+#else
+#define dfcprintk(x)
+#endif
+
 #ifdef MPT_DEBUG_TM
 #define dtmprintk(x) printk x
 #define DBG_DUMP_TM_REQUEST_FRAME(mfp) \
@@ -890,7 +933,7 @@ typedef struct _MPT_LOCAL_REPLY {
 
 typedef enum {
 	FC,
-	SCSI,
+	SPI,
 	SAS
 } BUS_TYPE;
 
@@ -899,7 +942,7 @@ typedef struct _MPT_SCSI_HOST {
 	int			  port;
 	u32			  pad0;
 	struct scsi_cmnd	**ScsiLookup;
-	VirtDevice		**Targets;
+	VirtTarget		**Targets;
 	MPT_LOCAL_REPLY		 *pLocal;		/* used for internal commands */
 	struct timer_list	  timer;
 		/* Pool of memory for holding SCpnts before doing
@@ -984,12 +1027,13 @@ extern u32	 mpt_GetIocState(MPT_ADAPTER *ioc, int cooked);
 extern void	 mpt_print_ioc_summary(MPT_ADAPTER *ioc, char *buf, int *size, int len, int showlan);
 extern int	 mpt_HardResetHandler(MPT_ADAPTER *ioc, int sleepFlag);
 extern int	 mpt_config(MPT_ADAPTER *ioc, CONFIGPARMS *cfg);
-extern int	 mpt_toolbox(MPT_ADAPTER *ioc, CONFIGPARMS *cfg);
 extern void	 mpt_alloc_fw_memory(MPT_ADAPTER *ioc, int size);
 extern void	 mpt_free_fw_memory(MPT_ADAPTER *ioc);
 extern int	 mpt_findImVolumes(MPT_ADAPTER *ioc);
 extern int	 mpt_read_ioc_pg_3(MPT_ADAPTER *ioc);
 extern int	 mptbase_sas_persist_operation(MPT_ADAPTER *ioc, u8 persist_opcode);
+extern int	 mptbase_GetFcPortPage0(MPT_ADAPTER *ioc, int portnum);
+extern int	 mpt_alt_ioc_wait(MPT_ADAPTER *ioc);
 
 /*
  *  Public data decl's...

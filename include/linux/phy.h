@@ -53,6 +53,9 @@
 
 #define PHY_MAX_ADDR 32
 
+/* Used when trying to connect to a specific phy (mii bus id:phy device id) */
+#define PHY_ID_FMT "%x:%02x"
+
 /* The Bus class for PHYs.  Devices which provide access to
  * PHYs should register using this structure */
 struct mii_bus {
@@ -71,6 +74,9 @@ struct mii_bus {
 
 	/* list of all PHYs on bus */
 	struct phy_device *phy_map[PHY_MAX_ADDR];
+
+	/* Phy addresses to be ignored when probing */
+	u32 phy_mask;
 
 	/* Pointer to an array of interrupts, each PHY's
 	 * interrupt at the index matching its address */

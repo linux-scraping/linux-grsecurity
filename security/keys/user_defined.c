@@ -15,17 +15,9 @@
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/err.h>
+#include <keys/user-type.h>
 #include <asm/uaccess.h>
 #include "internal.h"
-
-static int user_instantiate(struct key *key, const void *data, size_t datalen);
-static int user_duplicate(struct key *key, const struct key *source);
-static int user_update(struct key *key, const void *data, size_t datalen);
-static int user_match(const struct key *key, const void *criterion);
-static void user_destroy(struct key *key);
-static void user_describe(const struct key *user, struct seq_file *m);
-static long user_read(const struct key *key,
-		      char __user *buffer, size_t buflen);
 
 /*
  * user defined keys take an arbitrary string as the description and an
@@ -34,18 +26,11 @@ static long user_read(const struct key *key,
 struct key_type key_type_user = {
 	.name		= "user",
 	.instantiate	= user_instantiate,
-	.duplicate	= user_duplicate,
 	.update		= user_update,
 	.match		= user_match,
 	.destroy	= user_destroy,
 	.describe	= user_describe,
 	.read		= user_read,
-};
-
-struct user_key_payload {
-	struct rcu_head	rcu;		/* RCU destructor */
-	unsigned short	datalen;	/* length of this data */
-	char		data[0];	/* actual data */
 };
 
 EXPORT_SYMBOL_GPL(key_type_user);
@@ -54,7 +39,7 @@ EXPORT_SYMBOL_GPL(key_type_user);
 /*
  * instantiate a user defined key
  */
-static int user_instantiate(struct key *key, const void *data, size_t datalen)
+int user_instantiate(struct key *key, const void *data, size_t datalen)
 {
 	struct user_key_payload *upayload;
 	int ret;
@@ -78,39 +63,11 @@ static int user_instantiate(struct key *key, const void *data, size_t datalen)
 	rcu_assign_pointer(key->payload.data, upayload);
 	ret = 0;
 
- error:
+error:
 	return ret;
 
 } /* end user_instantiate() */
-
-/*****************************************************************************/
-/*
- * duplicate a user defined key
- * - both keys' semaphores are locked against further modification
- * - the new key cannot yet be accessed
- */
-static int user_duplicate(struct key *key, const struct key *source)
-{
-	struct user_key_payload *upayload, *spayload;
-	int ret;
-
-	/* just copy the payload */
-	ret = -ENOMEM;
-	upayload = kmalloc(sizeof(*upayload) + source->datalen, GFP_KERNEL);
-	if (upayload) {
-		spayload = rcu_dereference(source->payload.data);
-		BUG_ON(source->datalen != spayload->datalen);
-
-		upayload->datalen = key->datalen = spayload->datalen;
-		memcpy(upayload->data, spayload->data, key->datalen);
-
-		key->payload.data = upayload;
-		ret = 0;
-	}
-
-	return ret;
-
-} /* end user_duplicate() */
+EXPORT_SYMBOL_GPL(user_instantiate);
 
 /*****************************************************************************/
 /*
@@ -131,7 +88,7 @@ static void user_update_rcu_disposal(struct rcu_head *rcu)
  * update a user defined key
  * - the key's semaphore is write-locked
  */
-static int user_update(struct key *key, const void *data, size_t datalen)
+int user_update(struct key *key, const void *data, size_t datalen)
 {
 	struct user_key_payload *upayload, *zap;
 	int ret;
@@ -163,26 +120,30 @@ static int user_update(struct key *key, const void *data, size_t datalen)
 
 	call_rcu(&zap->rcu, user_update_rcu_disposal);
 
- error:
+error:
 	return ret;
 
 } /* end user_update() */
+
+EXPORT_SYMBOL_GPL(user_update);
 
 /*****************************************************************************/
 /*
  * match users on their name
  */
-static int user_match(const struct key *key, const void *description)
+int user_match(const struct key *key, const void *description)
 {
 	return strcmp(key->description, description) == 0;
 
 } /* end user_match() */
 
+EXPORT_SYMBOL_GPL(user_match);
+
 /*****************************************************************************/
 /*
  * dispose of the data dangling from the corpse of a user
  */
-static void user_destroy(struct key *key)
+void user_destroy(struct key *key)
 {
 	struct user_key_payload *upayload = key->payload.data;
 
@@ -190,11 +151,13 @@ static void user_destroy(struct key *key)
 
 } /* end user_destroy() */
 
+EXPORT_SYMBOL_GPL(user_destroy);
+
 /*****************************************************************************/
 /*
  * describe the user key
  */
-static void user_describe(const struct key *key, struct seq_file *m)
+void user_describe(const struct key *key, struct seq_file *m)
 {
 	seq_puts(m, key->description);
 
@@ -202,13 +165,14 @@ static void user_describe(const struct key *key, struct seq_file *m)
 
 } /* end user_describe() */
 
+EXPORT_SYMBOL_GPL(user_describe);
+
 /*****************************************************************************/
 /*
  * read the key data
  * - the key's semaphore is read-locked
  */
-static long user_read(const struct key *key,
-		      char __user *buffer, size_t buflen)
+long user_read(const struct key *key, char __user *buffer, size_t buflen)
 {
 	struct user_key_payload *upayload;
 	long ret;
@@ -228,3 +192,5 @@ static long user_read(const struct key *key,
 	return ret;
 
 } /* end user_read() */
+
+EXPORT_SYMBOL_GPL(user_read);

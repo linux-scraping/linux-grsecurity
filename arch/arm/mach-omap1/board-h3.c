@@ -19,7 +19,7 @@
 #include <linux/init.h>
 #include <linux/major.h>
 #include <linux/kernel.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -40,8 +40,6 @@
 #include <asm/arch/common.h>
 
 extern int omap_gpio_init(void);
-
-static int __initdata h3_serial_ports[OMAP_MAX_NR_PORTS] = {1, 1, 1};
 
 static struct mtd_partition h3_partitions[] = {
 	/* bootloader (U-Boot, etc) in first sector */
@@ -168,9 +166,20 @@ static struct omap_mmc_config h3_mmc_config __initdata = {
 	},
 };
 
+static struct omap_uart_config h3_uart_config __initdata = {
+	.enabled_uarts = ((1 << 0) | (1 << 1) | (1 << 2)),
+};
+
+static struct omap_lcd_config h3_lcd_config __initdata = {
+	.panel_name	= "h3",
+	.ctrl_name	= "internal",
+};
+
 static struct omap_board_config_kernel h3_config[] = {
-	{ OMAP_TAG_USB,	 &h3_usb_config },
-	{ OMAP_TAG_MMC,  &h3_mmc_config },
+	{ OMAP_TAG_USB,		&h3_usb_config },
+	{ OMAP_TAG_MMC,		&h3_mmc_config },
+	{ OMAP_TAG_UART,	&h3_uart_config },
+	{ OMAP_TAG_LCD,		&h3_lcd_config },
 };
 
 static void __init h3_init(void)
@@ -180,6 +189,7 @@ static void __init h3_init(void)
 	(void) platform_add_devices(devices, ARRAY_SIZE(devices));
 	omap_board_config = h3_config;
 	omap_board_config_size = ARRAY_SIZE(h3_config);
+	omap_serial_init();
 }
 
 static void __init h3_init_smc91x(void)
@@ -193,6 +203,7 @@ static void __init h3_init_smc91x(void)
 
 void h3_init_irq(void)
 {
+	omap1_init_common_hw();
 	omap_init_irq();
 	omap_gpio_init();
 	h3_init_smc91x();
@@ -200,13 +211,11 @@ void h3_init_irq(void)
 
 static void __init h3_map_io(void)
 {
-	omap_map_common_io();
-	omap_serial_init(h3_serial_ports);
+	omap1_map_common_io();
 }
 
 MACHINE_START(OMAP_H3, "TI OMAP1710 H3 board")
 	/* Maintainer: Texas Instruments, Inc. */
-	.phys_ram	= 0x10000000,
 	.phys_io	= 0xfff00000,
 	.io_pg_offst	= ((0xfef00000) >> 18) & 0xfffc,
 	.boot_params	= 0x10000100,

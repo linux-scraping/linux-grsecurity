@@ -23,11 +23,10 @@
 #include <linux/root_dev.h>
 #include <linux/cpu.h>
 #include <linux/interrupt.h>
+#include <linux/smp.h>
 
 #include <asm/cpu.h>
 #include <asm/elf.h>
-#include <asm/hardware.h>
-#include <asm/io.h>
 #include <asm/procinfo.h>
 #include <asm/setup.h>
 #include <asm/mach-types.h>
@@ -37,6 +36,8 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
+
+#include "compat.h"
 
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
@@ -54,10 +55,7 @@ static int __init fpe_setup(char *line)
 __setup("fpe=", fpe_setup);
 #endif
 
-extern unsigned int mem_fclk_21285;
 extern void paging_init(struct meminfo *, struct machine_desc *desc);
-extern void convert_to_tag_list(struct tag *tags);
-extern void squash_mem_tags(struct tag *tag);
 extern void reboot_setup(char *str);
 extern int root_mountflags;
 extern void _stext, _text, _etext, __data_start, _edata, _end;
@@ -207,7 +205,7 @@ static const char *proc_arch[] = {
 	"5TE",
 	"5TEJ",
 	"6TEJ",
-	"?(10)",
+	"7",
 	"?(11)",
 	"?(12)",
 	"?(13)",
@@ -260,14 +258,17 @@ int cpu_architecture(void)
 {
 	int cpu_arch;
 
-	if ((processor_id & 0x0000f000) == 0) {
+	if ((processor_id & 0x0008f000) == 0) {
 		cpu_arch = CPU_ARCH_UNKNOWN;
-	} else if ((processor_id & 0x0000f000) == 0x00007000) {
+	} else if ((processor_id & 0x0008f000) == 0x00007000) {
 		cpu_arch = (processor_id & (1 << 23)) ? CPU_ARCH_ARMv4T : CPU_ARCH_ARMv3;
-	} else {
+	} else if ((processor_id & 0x00080000) == 0x00000000) {
 		cpu_arch = (processor_id >> 16) & 7;
 		if (cpu_arch)
 			cpu_arch += CPU_ARCH_ARMv3;
+	} else {
+		/* the revised CPUID */
+		cpu_arch = ((processor_id >> 12) & 0xf) - 0xb + CPU_ARCH_ARMv6;
 	}
 
 	return cpu_arch;
@@ -338,7 +339,8 @@ void cpu_init(void)
 		BUG();
 	}
 
-	dump_cpu_info(cpu);
+	if (system_state == SYSTEM_BOOTING)
+		dump_cpu_info(cpu);
 
 	/*
 	 * setup stacks for re-entrant exception handlers
@@ -769,6 +771,10 @@ void __init setup_arch(char **cmdline_p)
 	paging_init(&meminfo, mdesc);
 	request_standard_resources(&meminfo, mdesc);
 
+#ifdef CONFIG_SMP
+	smp_init_cpus();
+#endif
+
 	cpu_init();
 
 	/*
@@ -838,7 +844,12 @@ static int c_show(struct seq_file *m, void *v)
 
 #if defined(CONFIG_SMP)
 	for_each_online_cpu(i) {
-		seq_printf(m, "Processor\t: %d\n", i);
+		/*
+		 * glibc reads /proc/cpuinfo to determine the number of
+		 * online processors, looking for lines beginning with
+		 * "processor".  Give glibc what it expects.
+		 */
+		seq_printf(m, "processor\t: %d\n", i);
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n\n",
 			   per_cpu(cpu_data, i).loops_per_jiffy / (500000UL/HZ),
 			   (per_cpu(cpu_data, i).loops_per_jiffy / (5000UL/HZ)) % 100);
@@ -859,11 +870,11 @@ static int c_show(struct seq_file *m, void *v)
 	seq_printf(m, "\nCPU implementer\t: 0x%02x\n", processor_id >> 24);
 	seq_printf(m, "CPU architecture: %s\n", proc_arch[cpu_architecture()]);
 
-	if ((processor_id & 0x0000f000) == 0x00000000) {
+	if ((processor_id & 0x0008f000) == 0x00000000) {
 		/* pre-ARM7 */
 		seq_printf(m, "CPU part\t\t: %07x\n", processor_id >> 4);
 	} else {
-		if ((processor_id & 0x0000f000) == 0x00007000) {
+		if ((processor_id & 0x0008f000) == 0x00007000) {
 			/* ARM7 */
 			seq_printf(m, "CPU variant\t: 0x%02x\n",
 				   (processor_id >> 16) & 127);

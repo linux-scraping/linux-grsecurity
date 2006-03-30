@@ -10,6 +10,8 @@
 #define ALIGN_FUNCTION()  . = ALIGN(8)
 
 #define RODATA								\
+	. = ALIGN(4096);						\
+	__start_rodata = .;						\
 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
 		*(.rodata) *(.rodata.*)					\
 		*(__vermagic)		/* Kernel version magic */	\
@@ -33,6 +35,13 @@
 		VMLINUX_SYMBOL(__start_pci_fixups_enable) = .;		\
 		*(.pci_fixup_enable)					\
 		VMLINUX_SYMBOL(__end_pci_fixups_enable) = .;		\
+	}								\
+									\
+	/* RapidIO route ops */						\
+	.rio_route        : AT(ADDR(.rio_route) - LOAD_OFFSET) {	\
+		VMLINUX_SYMBOL(__start_rio_route_ops) = .;		\
+		*(.rio_route_ops)					\
+		VMLINUX_SYMBOL(__end_rio_route_ops) = .;		\
 	}								\
 									\
 	/* Kernel symbol table: Normal symbols */			\
@@ -67,6 +76,8 @@
         __ksymtab_strings : AT(ADDR(__ksymtab_strings) - LOAD_OFFSET) {	\
 		*(__ksymtab_strings)					\
 	}								\
+	__end_rodata = .;						\
+	. = ALIGN(4096);						\
 									\
 	/* Built-in module parameters. */				\
 	__param : AT(ADDR(__param) - LOAD_OFFSET) {			\

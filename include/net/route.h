@@ -126,6 +126,9 @@ extern int		ip_rt_ioctl(unsigned int cmd, void __user *arg);
 extern void		ip_rt_get_source(u8 *src, struct rtable *rt);
 extern int		ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb);
 
+struct in_ifaddr;
+extern void fib_add_ifaddr(struct in_ifaddr *);
+
 static inline void ip_rt_put(struct rtable * rt)
 {
 	if (rt)
@@ -167,8 +170,8 @@ static inline int ip_route_connect(struct rtable **rp, u32 dst,
 	return ip_route_output_flow(rp, &fl, sk, 0);
 }
 
-static inline int ip_route_newports(struct rtable **rp, u16 sport, u16 dport,
-				    struct sock *sk)
+static inline int ip_route_newports(struct rtable **rp, u8 protocol,
+				    u16 sport, u16 dport, struct sock *sk)
 {
 	if (sport != (*rp)->fl.fl_ip_sport ||
 	    dport != (*rp)->fl.fl_ip_dport) {
@@ -177,6 +180,7 @@ static inline int ip_route_newports(struct rtable **rp, u16 sport, u16 dport,
 		memcpy(&fl, &(*rp)->fl, sizeof(fl));
 		fl.fl_ip_sport = sport;
 		fl.fl_ip_dport = dport;
+		fl.proto = protocol;
 		ip_rt_put(*rp);
 		*rp = NULL;
 		return ip_route_output_flow(rp, &fl, sk, 0);

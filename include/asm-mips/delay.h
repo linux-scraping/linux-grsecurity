@@ -12,10 +12,8 @@
 
 #include <linux/config.h>
 #include <linux/param.h>
-
+#include <linux/smp.h>
 #include <asm/compiler.h>
-
-extern unsigned long loops_per_jiffy;
 
 static inline void __delay(unsigned long loops)
 {
@@ -54,13 +52,11 @@ static inline void __udelay(unsigned long usecs, unsigned long lpj)
 	unsigned long lo;
 
 	/*
-	 * The common rates of 1000 and 128 are rounded wrongly by the
-	 * catchall case for 64-bit.  Excessive precission?  Probably ...
+	 * The rates of 128 is rounded wrongly by the catchall case
+	 * for 64-bit.  Excessive precission?  Probably ...
 	 */
 #if defined(CONFIG_64BIT) && (HZ == 128)
 	usecs *= 0x0008637bd05af6c7UL;		/* 2**64 / (1000000 / HZ) */
-#elif defined(CONFIG_64BIT) && (HZ == 1000)
-	usecs *= 0x004189374BC6A7f0UL;		/* 2**64 / (1000000 / HZ) */
 #elif defined(CONFIG_64BIT)
 	usecs *= (0x8000000000000000UL / (500000 / HZ));
 #else /* 32-bit junk follows here */
@@ -82,12 +78,17 @@ static inline void __udelay(unsigned long usecs, unsigned long lpj)
 	__delay(usecs);
 }
 
-#ifdef CONFIG_SMP
 #define __udelay_val cpu_data[smp_processor_id()].udelay_val
-#else
-#define __udelay_val loops_per_jiffy
-#endif
 
 #define udelay(usecs) __udelay((usecs),__udelay_val)
+
+/* make sure "usecs *= ..." in udelay do not overflow. */
+#if HZ >= 1000
+#define MAX_UDELAY_MS	1
+#elif HZ <= 200
+#define MAX_UDELAY_MS	5
+#else
+#define MAX_UDELAY_MS	(1000 / HZ)
+#endif
 
 #endif /* _ASM_DELAY_H */

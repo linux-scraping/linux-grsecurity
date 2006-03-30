@@ -88,17 +88,18 @@ struct crw {
 #define CRW_ERC_PERRI    0x07 /* perm. error, facility init */
 #define CRW_ERC_PMOD     0x08 /* installed parameters modified */
 
-extern __inline__ int stcrw(struct crw *pcrw )
+static inline int stcrw(struct crw *pcrw )
 {
-        int ccode;
+	int ccode;
 
-        __asm__ __volatile__(
-                "STCRW 0(%1)\n\t"
-                "IPM %0\n\t"
-                "SRL %0,28\n\t"
-                : "=d" (ccode) : "a" (pcrw)
-                : "cc", "1" );
-        return ccode;
+	__asm__ __volatile__(
+		"stcrw 0(%2)\n\t"
+		"ipm %0\n\t"
+		"srl %0,28\n\t"
+		: "=d" (ccode), "=m" (*pcrw)
+		: "a" (pcrw)
+		: "cc" );
+	return ccode;
 }
 
 #endif /* __s390mach */

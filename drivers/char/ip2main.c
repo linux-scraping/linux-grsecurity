@@ -172,7 +172,7 @@ static int Fip_firmware_size;
 /* Private (static) functions */
 static int  ip2_open(PTTY, struct file *);
 static void ip2_close(PTTY, struct file *);
-static int  ip2_write(PTTY, int, const unsigned char *, int);
+static int  ip2_write(PTTY, const unsigned char *, int);
 static void ip2_putchar(PTTY, unsigned char);
 static void ip2_flush_chars(PTTY);
 static int  ip2_write_room(PTTY);
@@ -721,8 +721,9 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 			}
 
 			if ( NULL != ( pB = i2BoardPtrTable[i] ) ) {
-				class_device_create(ip2_class, MKDEV(IP2_IPL_MAJOR,
-						4 * i), NULL, "ipl%d", i);
+				class_device_create(ip2_class, NULL,
+						MKDEV(IP2_IPL_MAJOR, 4 * i),
+						NULL, "ipl%d", i);
 				err = devfs_mk_cdev(MKDEV(IP2_IPL_MAJOR, 4 * i),
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IFCHR,
 						"ip2/ipl%d", i);
@@ -732,8 +733,9 @@ ip2_loadmain(int *iop, int *irqp, unsigned char *firmware, int firmsize)
 					goto out_class;
 				}
 
-				class_device_create(ip2_class, MKDEV(IP2_IPL_MAJOR,
-						4 * i + 1), NULL, "stat%d", i);
+				class_device_create(ip2_class, NULL,
+						MKDEV(IP2_IPL_MAJOR, 4 * i + 1),
+						NULL, "stat%d", i);
 				err = devfs_mk_cdev(MKDEV(IP2_IPL_MAJOR, 4 * i + 1),
 						S_IRUSR | S_IWUSR | S_IRGRP | S_IFCHR,
 						"ip2/stat%d", i);
@@ -1711,7 +1713,7 @@ ip2_hangup ( PTTY tty )
 /*                                                                            */
 /******************************************************************************/
 static int
-ip2_write( PTTY tty, int user, const unsigned char *pData, int count)
+ip2_write( PTTY tty, const unsigned char *pData, int count)
 {
 	i2ChanStrPtr  pCh = tty->driver_data;
 	int bytesSent = 0;
@@ -1724,7 +1726,7 @@ ip2_write( PTTY tty, int user, const unsigned char *pData, int count)
 
 	/* This is the actual move bit. Make sure it does what we need!!!!! */
 	WRITE_LOCK_IRQSAVE(&pCh->Pbuf_spinlock,flags);
-	bytesSent = i2Output( pCh, pData, count, user );
+	bytesSent = i2Output( pCh, pData, count, 0 );
 	WRITE_UNLOCK_IRQRESTORE(&pCh->Pbuf_spinlock,flags);
 
 	ip2trace (CHANN, ITRC_WRITE, ITRC_RETURN, 1, bytesSent );
@@ -1999,7 +2001,9 @@ ip2_stop ( PTTY tty )
 static int ip2_tiocmget(struct tty_struct *tty, struct file *file)
 {
 	i2ChanStrPtr pCh = DevTable[tty->index];
+#ifdef	ENABLE_DSSNOW
 	wait_queue_t wait;
+#endif
 
 	if (pCh == NULL)
 		return -ENODEV;
@@ -2087,15 +2091,17 @@ ip2_ioctl ( PTTY tty, struct file *pFile, UINT cmd, ULONG arg )
 {
 	wait_queue_t wait;
 	i2ChanStrPtr pCh = DevTable[tty->index];
+	i2eBordStrPtr pB;
 	struct async_icount cprev, cnow;	/* kernel counter temps */
 	struct serial_icounter_struct __user *p_cuser;
 	int rc = 0;
 	unsigned long flags;
 	void __user *argp = (void __user *)arg;
 
-	if ( pCh == NULL ) {
+	if ( pCh == NULL )
 		return -ENODEV;
-	}
+
+	pB = pCh->pMyBord;
 
 	ip2trace (CHANN, ITRC_IOCTL, ITRC_ENTER, 2, cmd, arg );
 
@@ -2204,9 +2210,9 @@ ip2_ioctl ( PTTY tty, struct file *pFile, UINT cmd, ULONG arg )
 	 * for masking). Caller should use TIOCGICOUNT to see which one it was
 	 */
 	case TIOCMIWAIT:
-		save_flags(flags);cli();
+		WRITE_LOCK_IRQSAVE(&pB->read_fifo_spinlock, flags);
 		cprev = pCh->icount;	 /* note the counters on entry */
-		restore_flags(flags);
+		WRITE_UNLOCK_IRQRESTORE(&pB->read_fifo_spinlock, flags);
 		i2QueueCommands(PTYPE_BYPASS, pCh, 100, 4, 
 						CMD_DCD_REP, CMD_CTS_REP, CMD_DSR_REP, CMD_RI_REP);
 		init_waitqueue_entry(&wait, current);
@@ -2226,9 +2232,9 @@ ip2_ioctl ( PTTY tty, struct file *pFile, UINT cmd, ULONG arg )
 				rc = -ERESTARTSYS;
 				break;
 			}
-			save_flags(flags);cli();
+			WRITE_LOCK_IRQSAVE(&pB->read_fifo_spinlock, flags);
 			cnow = pCh->icount; /* atomic copy */
-			restore_flags(flags);
+			WRITE_UNLOCK_IRQRESTORE(&pB->read_fifo_spinlock, flags);
 			if (cnow.rng == cprev.rng && cnow.dsr == cprev.dsr &&
 				cnow.dcd == cprev.dcd && cnow.cts == cprev.cts) {
 				rc =  -EIO; /* no change => rc */
@@ -2266,9 +2272,9 @@ ip2_ioctl ( PTTY tty, struct file *pFile, UINT cmd, ULONG arg )
 	case TIOCGICOUNT:
 		ip2trace (CHANN, ITRC_IOCTL, 11, 1, rc );
 
-		save_flags(flags);cli();
+		WRITE_LOCK_IRQSAVE(&pB->read_fifo_spinlock, flags);
 		cnow = pCh->icount;
-		restore_flags(flags);
+		WRITE_UNLOCK_IRQRESTORE(&pB->read_fifo_spinlock, flags);
 		p_cuser = argp;
 		rc = put_user(cnow.cts, &p_cuser->cts);
 		rc = put_user(cnow.dsr, &p_cuser->dsr);
@@ -2900,65 +2906,16 @@ ip2_ipl_ioctl ( struct inode *pInode, struct file *pFile, UINT cmd, ULONG arg )
 		rc = -EINVAL;
 		break;
 	case 3:	    // Trace device
-		if ( cmd == 1 ) {
-			rc = put_user(iiSendPendingMail, pIndex++ );
-			rc = put_user(i2InitChannels, pIndex++ );
-			rc = put_user(i2QueueNeeds, pIndex++ );
-			rc = put_user(i2QueueCommands, pIndex++ );
-			rc = put_user(i2GetStatus, pIndex++ );
-			rc = put_user(i2Input, pIndex++ );
-			rc = put_user(i2InputFlush, pIndex++ );
-			rc = put_user(i2Output, pIndex++ );
-			rc = put_user(i2FlushOutput, pIndex++ );
-			rc = put_user(i2DrainWakeup, pIndex++ );
-			rc = put_user(i2DrainOutput, pIndex++ );
-			rc = put_user(i2OutputFree, pIndex++ );
-			rc = put_user(i2StripFifo, pIndex++ );
-			rc = put_user(i2StuffFifoBypass, pIndex++ );
-			rc = put_user(i2StuffFifoFlow, pIndex++ );
-			rc = put_user(i2StuffFifoInline, pIndex++ );
-			rc = put_user(i2ServiceBoard, pIndex++ );
-			rc = put_user(serviceOutgoingFifo, pIndex++ );
-			// rc = put_user(ip2_init, pIndex++ );
-			rc = put_user(ip2_init_board, pIndex++ );
-			rc = put_user(find_eisa_board, pIndex++ );
-			rc = put_user(set_irq, pIndex++ );
-			rc = put_user(ip2_interrupt, pIndex++ );
-			rc = put_user(ip2_poll, pIndex++ );
-			rc = put_user(service_all_boards, pIndex++ );
-			rc = put_user(do_input, pIndex++ );
-			rc = put_user(do_status, pIndex++ );
-#ifndef IP2DEBUG_OPEN
-			rc = put_user(0, pIndex++ );
-#else
-			rc = put_user(open_sanity_check, pIndex++ );
-#endif
-			rc = put_user(ip2_open, pIndex++ );
-			rc = put_user(ip2_close, pIndex++ );
-			rc = put_user(ip2_hangup, pIndex++ );
-			rc = put_user(ip2_write, pIndex++ );
-			rc = put_user(ip2_putchar, pIndex++ );
-			rc = put_user(ip2_flush_chars, pIndex++ );
-			rc = put_user(ip2_write_room, pIndex++ );
-			rc = put_user(ip2_chars_in_buf, pIndex++ );
-			rc = put_user(ip2_flush_buffer, pIndex++ );
-
-			//rc = put_user(ip2_wait_until_sent, pIndex++ );
-			rc = put_user(0, pIndex++ );
-
-			rc = put_user(ip2_throttle, pIndex++ );
-			rc = put_user(ip2_unthrottle, pIndex++ );
-			rc = put_user(ip2_ioctl, pIndex++ );
-			rc = put_user(0, pIndex++ );
-			rc = put_user(get_serial_info, pIndex++ );
-			rc = put_user(set_serial_info, pIndex++ );
-			rc = put_user(ip2_set_termios, pIndex++ );
-			rc = put_user(ip2_set_line_discipline, pIndex++ );
-			rc = put_user(set_params, pIndex++ );
-		} else {
+		/*
+		 * akpm: This used to write a whole bunch of function addresses
+		 * to userspace, which generated lots of put_user() warnings.
+		 * I killed it all.  Just return "success" and don't do
+		 * anything.
+		 */
+		if (cmd == 1)
+			rc = 0;
+		else
 			rc = -EINVAL;
-		}
-
 		break;
 
 	default:

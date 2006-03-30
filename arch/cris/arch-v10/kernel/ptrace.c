@@ -37,7 +37,7 @@ inline long get_reg(struct task_struct *task, unsigned int regno)
 	if (regno == PT_USP)
 		return task->thread.usp;
 	else if (regno < PT_MAX)
-		return ((unsigned long *)user_regs(task->thread_info))[regno];
+		return ((unsigned long *)task_pt_regs(task))[regno];
 	else
 		return 0;
 }
@@ -51,7 +51,7 @@ inline int put_reg(struct task_struct *task, unsigned int regno,
 	if (regno == PT_USP)
 		task->thread.usp = data;
 	else if (regno < PT_MAX)
-		((unsigned long *)user_regs(task->thread_info))[regno] = data;
+		((unsigned long *)task_pt_regs(task))[regno] = data;
 	else
 		return -1;
 	return 0;
@@ -76,54 +76,10 @@ ptrace_disable(struct task_struct *child)
  * (in user space) where the result of the ptrace call is written (instead of
  * being returned).
  */
-asmlinkage int 
-sys_ptrace(long request, long pid, long addr, long data)
+long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 {
-	struct task_struct *child;
 	int ret;
 	unsigned long __user *datap = (unsigned long __user *)data;
-
-	lock_kernel();
-	ret = -EPERM;
-	
-	if (request == PTRACE_TRACEME) {
-		/* are we already being traced? */
-		if (current->ptrace & PT_PTRACED)
-			goto out;
-		ret = security_ptrace(current->parent, current);
-		if (ret)
-			goto out;
-		/* set the ptrace bit in the process flags. */
-		current->ptrace |= PT_PTRACED;
-		ret = 0;
-		goto out;
-	}
-	
-	ret = -ESRCH;
-	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
-	
-	if (child)
-		get_task_struct(child);
-	
-	read_unlock(&tasklist_lock);
-	
-	if (!child)
-		goto out;
-	
-	ret = -EPERM;
-	
-	if (pid == 1)		/* Leave the init process alone! */
-		goto out_tsk;
-	
-	if (request == PTRACE_ATTACH) {
-		ret = ptrace_attach(child);
-		goto out_tsk;
-	}
-	
-	ret = ptrace_check_attach(child, request == PTRACE_KILL);
-	if (ret < 0)
-		goto out_tsk;
 
 	switch (request) {
 		/* Read word at location address. */ 
@@ -246,18 +202,18 @@ sys_ptrace(long request, long pid, long addr, long data)
 		  	int i;
 			unsigned long tmp;
 			
+			ret = 0;
 			for (i = 0; i <= PT_MAX; i++) {
 				tmp = get_reg(child, i);
 				
 				if (put_user(tmp, datap)) {
 					ret = -EFAULT;
-					goto out_tsk;
+					break;
 				}
 				
 				data += sizeof(long);
 			}
 
-			ret = 0;
 			break;
 		}
 
@@ -266,10 +222,11 @@ sys_ptrace(long request, long pid, long addr, long data)
 			int i;
 			unsigned long tmp;
 			
+			ret = 0;
 			for (i = 0; i <= PT_MAX; i++) {
 				if (get_user(tmp, datap)) {
 					ret = -EFAULT;
-					goto out_tsk;
+					break;
 				}
 				
 				if (i == PT_DCCR) {
@@ -281,7 +238,6 @@ sys_ptrace(long request, long pid, long addr, long data)
 				data += sizeof(long);
 			}
 			
-			ret = 0;
 			break;
 		}
 
@@ -289,10 +245,7 @@ sys_ptrace(long request, long pid, long addr, long data)
 			ret = ptrace_request(child, request, addr, data);
 			break;
 	}
-out_tsk:
-	put_task_struct(child);
-out:
-	unlock_kernel();
+
 	return ret;
 }
 

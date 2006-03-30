@@ -50,9 +50,9 @@ static struct atxp1_data * atxp1_update_device(struct device *dev);
 static int atxp1_detect(struct i2c_adapter *adapter, int address, int kind);
 
 static struct i2c_driver atxp1_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "atxp1",
-	.flags		= I2C_DF_NOTIFY,
+	.driver = {
+		.name	= "atxp1",
+	},
 	.attach_adapter = atxp1_attach_adapter,
 	.detach_client	= atxp1_detach_client,
 };
@@ -253,6 +253,8 @@ static DEVICE_ATTR(gpio2, S_IRUGO | S_IWUSR, atxp1_showgpio2, atxp1_storegpio2);
 
 static int atxp1_attach_adapter(struct i2c_adapter *adapter)
 {
+	if (!(adapter->class & I2C_CLASS_HWMON))
+		return 0;
 	return i2c_probe(adapter, &addr_data, &atxp1_detect);
 };
 
@@ -266,12 +268,11 @@ static int atxp1_detect(struct i2c_adapter *adapter, int address, int kind)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct atxp1_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct atxp1_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
 
-	memset(data, 0, sizeof(struct atxp1_data));
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);
 

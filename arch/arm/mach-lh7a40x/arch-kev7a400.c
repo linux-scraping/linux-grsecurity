@@ -26,8 +26,17 @@
       /* This function calls the board specific IRQ initialization function. */
 
 static struct map_desc kev7a400_io_desc[] __initdata = {
-	{ IO_VIRT,    IO_PHYS,    IO_SIZE,    MT_DEVICE },
-	{ CPLD_VIRT,  CPLD_PHYS,  CPLD_SIZE,  MT_DEVICE },
+	{
+		.virtual	= IO_VIRT,
+		.pfn		= __phys_to_pfn(IO_PHYS),
+		.length		= IO_SIZE,
+		.type		= MT_DEVICE
+	}, {
+		.virtual	= CPLD_VIRT,
+		.pfn		= __phys_to_pfn(CPLD_PHYS),
+		.length		= CPLD_SIZE,
+		.type		= MT_DEVICE
+	}
 };
 
 void __init kev7a400_map_io(void)
@@ -103,7 +112,6 @@ void __init lh7a40x_init_board_irq (void)
 
 MACHINE_START (KEV7A400, "Sharp KEV7a400")
 	/* Maintainer: Marc Singer */
-	.phys_ram	= 0xc0000000,
 	.phys_io	= 0x80000000,
 	.io_pg_offst	= ((io_p2v (0x80000000))>>18) & 0xfffc,
 	.boot_params	= 0xc0000100,

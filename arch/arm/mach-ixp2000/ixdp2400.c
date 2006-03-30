@@ -68,6 +68,7 @@ void __init ixdp2400_pci_preinit(void)
 {
 	ixp2000_reg_write(IXP2000_PCI_ADDR_EXT, 0x00100000);
 	ixp2000_pci_preinit();
+	pcibios_setup("firmware");
 }
 
 int ixdp2400_pci_setup(int nr, struct pci_sys_data *sys)
@@ -169,7 +170,6 @@ void ixdp2400_init_irq(void)
 
 MACHINE_START(IXDP2400, "Intel IXDP2400 Development Platform")
 	/* Maintainer: MontaVista Software, Inc. */
-	.phys_ram	= 0x00000000,
 	.phys_io	= IXP2000_UART_PHYS_BASE,
 	.io_pg_offst	= ((IXP2000_UART_VIRT_BASE) >> 18) & 0xfffc,
 	.boot_params	= 0x00000100,

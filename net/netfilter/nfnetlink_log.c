@@ -37,7 +37,7 @@
 #include "../bridge/br_private.h"
 #endif
 
-#define NFULNL_NLBUFSIZ_DEFAULT	4096
+#define NFULNL_NLBUFSIZ_DEFAULT	NLMSG_GOODSIZE
 #define NFULNL_TIMEOUT_DEFAULT 	100	/* every second */
 #define NFULNL_QTHRESH_DEFAULT 	100	/* 100 packets */
 
@@ -146,13 +146,12 @@ instance_create(u_int16_t group_num, int pid)
 		goto out_unlock;
 	}
 
-	inst = kmalloc(sizeof(*inst), GFP_ATOMIC);
+	inst = kzalloc(sizeof(*inst), GFP_ATOMIC);
 	if (!inst)
 		goto out_unlock;
 
-	memset(inst, 0, sizeof(*inst));
 	INIT_HLIST_NODE(&inst->hlist);
-	inst->lock = SPIN_LOCK_UNLOCKED;
+	spin_lock_init(&inst->lock);
 	/* needs to be two, since we _put() after creation */
 	atomic_set(&inst->use, 2);
 
@@ -315,24 +314,28 @@ static struct sk_buff *nfulnl_alloc_skb(unsigned int inst_size,
 					unsigned int pkt_size)
 {
 	struct sk_buff *skb;
+	unsigned int n;
 
 	UDEBUG("entered (%u, %u)\n", inst_size, pkt_size);
 
 	/* alloc skb which should be big enough for a whole multipart
 	 * message.  WARNING: has to be <= 128k due to slab restrictions */
 
-	skb = alloc_skb(inst_size, GFP_ATOMIC);
+	n = max(inst_size, pkt_size);
+	skb = alloc_skb(n, GFP_ATOMIC);
 	if (!skb) {
 		PRINTR("nfnetlink_log: can't alloc whole buffer (%u bytes)\n",
 			inst_size);
 
-		/* try to allocate only as much as we need for current
-		 * packet */
+		if (n > pkt_size) {
+			/* try to allocate only as much as we need for current
+			 * packet */
 
-		skb = alloc_skb(pkt_size, GFP_ATOMIC);
-		if (!skb)
-			PRINTR("nfnetlink_log: can't even alloc %u bytes\n",
-				pkt_size);
+			skb = alloc_skb(pkt_size, GFP_ATOMIC);
+			if (!skb)
+				PRINTR("nfnetlink_log: can't even alloc %u "
+				       "bytes\n", pkt_size);
+		}
 	}
 
 	return skb;
@@ -863,11 +866,9 @@ out_put:
 
 static struct nfnl_callback nfulnl_cb[NFULNL_MSG_MAX] = {
 	[NFULNL_MSG_PACKET]	= { .call = nfulnl_recv_unsupp,
-				    .attr_count = NFULA_MAX,
-				    .cap_required = CAP_NET_ADMIN, },
+				    .attr_count = NFULA_MAX, },
 	[NFULNL_MSG_CONFIG]	= { .call = nfulnl_recv_config,
-				    .attr_count = NFULA_CFG_MAX,
-				    .cap_required = CAP_NET_ADMIN },
+				    .attr_count = NFULA_CFG_MAX, },
 };
 
 static struct nfnetlink_subsystem nfulnl_subsys = {
@@ -962,10 +963,9 @@ static int nful_open(struct inode *inode, struct file *file)
 	struct iter_state *is;
 	int ret;
 
-	is = kmalloc(sizeof(*is), GFP_KERNEL);
+	is = kzalloc(sizeof(*is), GFP_KERNEL);
 	if (!is)
 		return -ENOMEM;
-	memset(is, 0, sizeof(*is));
 	ret = seq_open(file, &nful_seq_ops);
 	if (ret < 0)
 		goto out_free;

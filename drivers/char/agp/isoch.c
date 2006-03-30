@@ -6,6 +6,7 @@
 #include <linux/pci.h>
 #include <linux/agp_backend.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 #include "agp.h"
 
@@ -217,10 +218,8 @@ static int agp_3_5_isochronous_node_enable(struct agp_bridge_data *bridge,
 			master[cdev].rq *= (1 << (master[cdev].y - 1));
 
 		tot_rq += master[cdev].rq;
-
-		if (cdev == ndevs-1)
-			master[cdev].n += rem;
 	}
+	master[ndevs-1].n += rem;
 
 	/* Figure the number of isochronous and asynchronous RQ slots the
 	 * target is providing. */

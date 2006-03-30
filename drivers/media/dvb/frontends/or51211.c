@@ -25,7 +25,8 @@
 /*
  * This driver needs external firmware. Please use the command
  * "<kerneldir>/Documentation/dvb/get_dvb_firmware or51211" to
- * download/extract it, and then copy it to /usr/lib/hotplug/firmware.
+ * download/extract it, and then copy it to /usr/lib/hotplug/firmware
+ * or /lib/firmware (depending on configuration of firmware hotplug).
  */
 #define OR51211_DEFAULT_FIRMWARE "dvb-fe-or51211.fw"
 
@@ -34,6 +35,8 @@
 #include <linux/moduleparam.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
+#include <linux/string.h>
+#include <linux/slab.h>
 #include <asm/byteorder.h>
 
 #include "dvb_frontend.h"
@@ -110,7 +113,7 @@ static int or51211_load_firmware (struct dvb_frontend* fe,
 	u8 tudata[585];
 	int i;
 
-	dprintk("Firmware is %d bytes\n",fw->size);
+	dprintk("Firmware is %zd bytes\n",fw->size);
 
 	/* Get eprom data */
 	tudata[0] = 17;
@@ -337,6 +340,7 @@ static int or51211_read_signal_strength(struct dvb_frontend* fe, u16* strength)
 	u8 rec_buf[2];
 	u8 snd_buf[4];
 	u8 snr_equ;
+	u32 signal_strength;
 
 	/* SNR after Equalizer */
 	snd_buf[0] = 0x04;
@@ -356,8 +360,11 @@ static int or51211_read_signal_strength(struct dvb_frontend* fe, u16* strength)
 	snr_equ = rec_buf[0] & 0xff;
 
 	/* The value reported back from the frontend will be FFFF=100% 0000=0% */
-	*strength = (((5334 - i20Log10(snr_equ))/3+5)*65535)/1000;
-
+	signal_strength = (((5334 - i20Log10(snr_equ))/3+5)*65535)/1000;
+	if (signal_strength > 0xffff)
+		*strength = 0xffff;
+	else
+		*strength = signal_strength;
 	dprintk("read_signal_strength %i\n",*strength);
 
 	return 0;

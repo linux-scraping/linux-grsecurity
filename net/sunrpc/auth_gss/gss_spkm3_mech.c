@@ -111,14 +111,18 @@ get_key(const void *p, const void *end, struct crypto_tfm **res, int *resalg)
 			setkey = 0;
 			break;
 		default:
-			dprintk("RPC: SPKM3 get_key: unsupported algorithm %d", *resalg);
+			dprintk("gss_spkm3_mech: unsupported algorithm %d\n", *resalg);
 			goto out_err_free_key;
 	}
-	if (!(*res = crypto_alloc_tfm(alg_name, alg_mode)))
+	if (!(*res = crypto_alloc_tfm(alg_name, alg_mode))) {
+		printk("gss_spkm3_mech: unable to initialize crypto algorthm %s\n", alg_name);
 		goto out_err_free_key;
+	}
 	if (setkey) {
-		if (crypto_cipher_setkey(*res, key.data, key.len))
+		if (crypto_cipher_setkey(*res, key.data, key.len)) {
+			printk("gss_spkm3_mech: error setting key for crypto algorthm %s\n", alg_name);
 			goto out_err_free_tfm;
+		}
 	}
 
 	if(key.len > 0)
@@ -224,18 +228,13 @@ gss_delete_sec_context_spkm3(void *internal_ctx) {
 static u32
 gss_verify_mic_spkm3(struct gss_ctx		*ctx,
 			struct xdr_buf		*signbuf,
-			struct xdr_netobj	*checksum,
-			u32		*qstate) {
+			struct xdr_netobj	*checksum)
+{
 	u32 maj_stat = 0;
-	int qop_state = 0;
 	struct spkm3_ctx *sctx = ctx->internal_ctx_id;
 
 	dprintk("RPC: gss_verify_mic_spkm3 calling spkm3_read_token\n");
-	maj_stat = spkm3_read_token(sctx, checksum, signbuf, &qop_state,
-				   SPKM_MIC_TOK);
-
-	if (!maj_stat && qop_state)
-	    *qstate = qop_state;
+	maj_stat = spkm3_read_token(sctx, checksum, signbuf, SPKM_MIC_TOK);
 
 	dprintk("RPC: gss_verify_mic_spkm3 returning %d\n", maj_stat);
 	return maj_stat;
@@ -243,15 +242,15 @@ gss_verify_mic_spkm3(struct gss_ctx		*ctx,
 
 static u32
 gss_get_mic_spkm3(struct gss_ctx	*ctx,
-		     u32		qop,
 		     struct xdr_buf	*message_buffer,
-		     struct xdr_netobj	*message_token) {
+		     struct xdr_netobj	*message_token)
+{
 	u32 err = 0;
 	struct spkm3_ctx *sctx = ctx->internal_ctx_id;
 
 	dprintk("RPC: gss_get_mic_spkm3\n");
 
-	err = spkm3_make_token(sctx, qop, message_buffer,
+	err = spkm3_make_token(sctx, message_buffer,
 			      message_token, SPKM_MIC_TOK);
 	return err;
 }
@@ -264,8 +263,8 @@ static struct gss_api_ops gss_spkm3_ops = {
 };
 
 static struct pf_desc gss_spkm3_pfs[] = {
-	{RPC_AUTH_GSS_SPKM, 0, RPC_GSS_SVC_NONE, "spkm3"},
-	{RPC_AUTH_GSS_SPKMI, 0, RPC_GSS_SVC_INTEGRITY, "spkm3i"},
+	{RPC_AUTH_GSS_SPKM, RPC_GSS_SVC_NONE, "spkm3"},
+	{RPC_AUTH_GSS_SPKMI, RPC_GSS_SVC_INTEGRITY, "spkm3i"},
 };
 
 static struct gss_api_mech gss_spkm3_mech = {

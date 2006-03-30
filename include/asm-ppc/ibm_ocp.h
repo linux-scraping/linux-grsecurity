@@ -63,7 +63,6 @@ struct ocp_func_emac_data {
 	int	wol_irq;	/* WOL interrupt */
 	int	mdio_idx;	/* EMAC idx of MDIO master or -1 */
 	int	tah_idx;	/* TAH device index or -1 */
-	int	jumbo;		/* Jumbo frames capable flag */
 	int	phy_mode;	/* PHY type or configurable mode */
 	u8	mac_addr[6];	/* EMAC mac address */
 	u32	phy_map;	/* EMAC phy map */
@@ -131,9 +130,22 @@ static inline void ibm_ocp_set_emac(int start, int end)
 	/* Copy MAC addresses to EMAC additions */
 	for (i=start; i<=end; i++) {
 		def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, i);
-		memcpy(((struct ocp_func_emac_data *)def->additions)->mac_addr,
-				&__res.bi_enetaddr[i],
-				6);
+		if (i == 0)
+			memcpy(((struct ocp_func_emac_data *)def->additions)->mac_addr,
+			       __res.bi_enetaddr, 6);
+#if defined(CONFIG_405EP) || defined(CONFIG_44x)
+		else if (i == 1)
+			memcpy(((struct ocp_func_emac_data *)def->additions)->mac_addr,
+			       __res.bi_enet1addr, 6);
+#endif
+#if defined(CONFIG_440GX)
+		else if (i == 2)
+			memcpy(((struct ocp_func_emac_data *)def->additions)->mac_addr,
+			       __res.bi_enet2addr, 6);
+		else if (i == 3)
+			memcpy(((struct ocp_func_emac_data *)def->additions)->mac_addr,
+			       __res.bi_enet3addr, 6);
+#endif
 	}
 }
 #endif

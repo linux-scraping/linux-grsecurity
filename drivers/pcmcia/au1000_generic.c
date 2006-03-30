@@ -42,7 +42,7 @@
 #include <linux/notifier.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -241,23 +241,6 @@ au1x00_pcmcia_get_status(struct pcmcia_socket *sock, unsigned int *status)
 	return 0;
 }
 
-/* au1x00_pcmcia_get_socket()
- * Implements the get_socket() operation for the in-kernel PCMCIA
- * service (formerly SS_GetSocket in Card Services). Not a very
- * exciting routine.
- *
- * Returns: 0
- */
-static int
-au1x00_pcmcia_get_socket(struct pcmcia_socket *sock, socket_state_t *state)
-{
-  struct au1000_pcmcia_socket *skt = to_au1000_socket(sock);
-
-  debug("for sock %u\n", skt->nr);
-  *state = skt->cs_state;
-  return 0;
-}
-
 /* au1x00_pcmcia_set_socket()
  * Implements the set_socket() operation for the in-kernel PCMCIA
  * service (formerly SS_SetSocket in Card Services). We more or
@@ -352,7 +335,6 @@ static struct pccard_operations au1x00_pcmcia_operations = {
 	.init			= au1x00_pcmcia_sock_init,
 	.suspend		= au1x00_pcmcia_suspend,
 	.get_status		= au1x00_pcmcia_get_status,
-	.get_socket		= au1x00_pcmcia_get_socket,
 	.set_socket		= au1x00_pcmcia_set_socket,
 	.set_io_map		= au1x00_pcmcia_set_io_map,
 	.set_mem_map		= au1x00_pcmcia_set_mem_map,
@@ -372,13 +354,12 @@ int au1x00_pcmcia_socket_probe(struct device *dev, struct pcmcia_low_level *ops,
 	struct skt_dev_info *sinfo;
 	int ret, i;
 
-	sinfo = kmalloc(sizeof(struct skt_dev_info), GFP_KERNEL);
+	sinfo = kzalloc(sizeof(struct skt_dev_info), GFP_KERNEL);
 	if (!sinfo) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	memset(sinfo, 0, sizeof(struct skt_dev_info));
 	sinfo->nskt = nr;
 
 	/*
@@ -490,7 +471,7 @@ int au1x00_drv_pcmcia_remove(struct device *dev)
 		flush_scheduled_work();
 		skt->ops->hw_shutdown(skt);
 		au1x00_pcmcia_config_skt(skt, &dead_socket);
-		iounmap(skt->virt_io);
+		iounmap(skt->virt_io + (u32)mips_io_port_base);
 		skt->virt_io = NULL;
 	}
 
@@ -519,36 +500,15 @@ static int au1x00_drv_pcmcia_probe(struct device *dev)
 }
 
 
-static int au1x00_drv_pcmcia_suspend(struct device *dev, pm_message_t state, u32 level)
-{
-	int ret = 0;
-	if (level == SUSPEND_SAVE_STATE)
-		ret = pcmcia_socket_dev_suspend(dev, state);
-	return ret;
-}
-
-static int au1x00_drv_pcmcia_resume(struct device *dev, u32 level)
-{
-	int ret = 0;
-	if (level == RESUME_RESTORE_STATE)
-		ret = pcmcia_socket_dev_resume(dev);
-	return ret;
-}
-
-
 static struct device_driver au1x00_pcmcia_driver = {
 	.probe		= au1x00_drv_pcmcia_probe,
 	.remove		= au1x00_drv_pcmcia_remove,
 	.name		= "au1x00-pcmcia",
 	.bus		= &platform_bus_type,
-	.suspend	= au1x00_drv_pcmcia_suspend,
-	.resume		= au1x00_drv_pcmcia_resume
+	.suspend	= pcmcia_socket_dev_suspend,
+	.resume		= pcmcia_socket_dev_resume,
 };
 
-static struct platform_device au1x00_device = {
-	.name = "au1x00-pcmcia",
-	.id = 0,
-};
 
 /* au1x00_pcmcia_init()
  *
@@ -562,7 +522,6 @@ static int __init au1x00_pcmcia_init(void)
 	int error = 0;
 	if ((error = driver_register(&au1x00_pcmcia_driver)))
 		return error;
-	platform_device_register(&au1x00_device);
 	return error;
 }
 
@@ -573,7 +532,6 @@ static int __init au1x00_pcmcia_init(void)
 static void __exit au1x00_pcmcia_exit(void)
 {
 	driver_unregister(&au1x00_pcmcia_driver);
-	platform_device_unregister(&au1x00_device);
 }
 
 module_init(au1x00_pcmcia_init);

@@ -35,7 +35,6 @@
 #include <linux/usb.h>
 #include "hid.h"
 #include <linux/hiddev.h>
-#include <linux/devfs_fs_kernel.h>
 
 #ifdef CONFIG_USB_DYNAMIC_MINORS
 #define HIDDEV_MINOR_BASE	0
@@ -632,7 +631,7 @@ static int hiddev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 
 			else if ((cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) &&
 				 (uref_multi->num_values > HID_MAX_MULTI_USAGES ||
-				  uref->usage_index + uref_multi->num_values >= field->report_count))
+				  uref->usage_index + uref_multi->num_values > field->report_count))
 				goto inval;
 			}
 
@@ -732,9 +731,8 @@ static struct file_operations hiddev_fops = {
 };
 
 static struct usb_class_driver hiddev_class = {
-	.name =		"usb/hid/hiddev%d",
+	.name =		"hiddev%d",
 	.fops =		&hiddev_fops,
-	.mode =		S_IFCHR | S_IRUGO | S_IWUSR,
 	.minor_base =	HIDDEV_MINOR_BASE,
 };
 
@@ -827,19 +825,16 @@ static int hiddev_usbd_probe(struct usb_interface *intf,
 
 
 static /* const */ struct usb_driver hiddev_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"hiddev",
 	.probe =	hiddev_usbd_probe,
 };
 
 int __init hiddev_init(void)
 {
-	devfs_mk_dir("usb/hid");
 	return usb_register(&hiddev_driver);
 }
 
 void hiddev_exit(void)
 {
 	usb_deregister(&hiddev_driver);
-	devfs_remove("usb/hid");
 }

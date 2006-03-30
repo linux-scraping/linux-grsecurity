@@ -76,13 +76,12 @@ static void __init efi_call_phys_prelog(void)
 
 #ifndef CONFIG_X86_PAE
 	efi_bak_pg_dir_pointer[1] = swapper_pg_dir[1];
-	swapper_pg_dir[1] = swapper_pg_dir[USER_PTRS_PER_PGD+1];
+	swapper_pg_dir[1] = swapper_pg_dir[USER_PTRS_PER_PGD+1]
 	efi_bak_pg_dir_pointer[2] = swapper_pg_dir[2];
 	swapper_pg_dir[2] = swapper_pg_dir[USER_PTRS_PER_PGD+2];
 	efi_bak_pg_dir_pointer[3] = swapper_pg_dir[3];
 	swapper_pg_dir[3] = swapper_pg_dir[USER_PTRS_PER_PGD+3];
 #endif
-
 
 	/*
 	 * After the lock is released, the original page table is restored.

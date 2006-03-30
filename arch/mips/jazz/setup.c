@@ -19,6 +19,8 @@
 #include <linux/console.h>
 #include <linux/fb.h>
 #include <linux/ide.h>
+#include <linux/pm.h>
+
 #include <asm/bootinfo.h>
 #include <asm/irq.h>
 #include <asm/jazz.h>
@@ -50,7 +52,7 @@ static struct resource jazz_io_resources[] = {
 	{ "dma2", 0xc0, 0xdf, IORESOURCE_BUSY },
 };
 
-static void __init jazz_setup(void)
+void __init plat_setup(void)
 {
 	int i;
 
@@ -79,7 +81,7 @@ static void __init jazz_setup(void)
 
 	_machine_restart = jazz_machine_restart;
 	_machine_halt = jazz_machine_halt;
-	_machine_power_off = jazz_machine_power_off;
+	pm_power_off = jazz_machine_power_off;
 
 #warning "Somebody should check if screen_info is ok for Jazz."
 
@@ -97,5 +99,3 @@ static void __init jazz_setup(void)
 
 	vdma_init();
 }
-
-early_initcall(jazz_setup);

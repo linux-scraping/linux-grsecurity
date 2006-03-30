@@ -9,7 +9,7 @@ lib-y := errno.o ctype.o string.o vsprintf.o cmdline.o \
 
 lib-y	+= kobject.o kref.o kobject_uevent.o klist.o
 
-obj-y += sort.o parser.o halfmd4.o
+obj-y += sort.o parser.o halfmd4.o iomap_copy.o
 
 ifeq ($(CONFIG_DEBUG_KOBJECT),y)
 CFLAGS_kobject.o += -DDEBUG
@@ -43,6 +43,8 @@ obj-$(CONFIG_TEXTSEARCH) += textsearch.o
 obj-$(CONFIG_TEXTSEARCH_KMP) += ts_kmp.o
 obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
 obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
+
+obj-$(CONFIG_SWIOTLB) += swiotlb.o
 
 hostprogs-y	:= gen_crc32table
 clean-files	:= crc32table.h

@@ -33,6 +33,7 @@
 #include <linux/console.h>
 #include <linux/initrd.h>
 #include <linux/root_dev.h>
+#include <linux/platform_device.h>
 #if !defined(CONFIG_SERIAL_MPSC_CONSOLE)
 #include <linux/serial.h>
 #include <linux/tty.h>
@@ -329,7 +330,7 @@ ev64260_early_serial_map(void)
 		port.irq = EV64260_UART_0_IRQ;
 		port.uartclk = BASE_BAUD * 16;
 		port.regshift = 2;
-		port.iotype = SERIAL_IO_MEM;
+		port.iotype = UPIO_MEM;
 		port.flags = STD_COM_FLAGS;
 
 #if defined(CONFIG_SERIAL_TEXT_DEBUG) || defined(CONFIG_KGDB)

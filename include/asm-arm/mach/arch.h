@@ -10,6 +10,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/compiler.h>
+
 struct tag;
 struct meminfo;
 struct sys_timer;
@@ -20,7 +22,7 @@ struct machine_desc {
 	 * by assembler code in head-armv.S
 	 */
 	unsigned int		nr;		/* architecture number	*/
-	unsigned int		phys_ram;	/* start of physical ram */
+	unsigned int __deprecated phys_ram;	/* start of physical ram */
 	unsigned int		phys_io;	/* start of physical io	*/
 	unsigned int		io_pg_offst;	/* byte offset for io 
 						 * page tabe entry	*/
@@ -48,10 +50,11 @@ struct machine_desc {
  * Set of macros to define architecture features.  This is built into
  * a table by the linker.
  */
-#define MACHINE_START(_type,_name)		\
-const struct machine_desc __mach_desc_##_type	\
+#define MACHINE_START(_type,_name)			\
+static const struct machine_desc __mach_desc_##_type	\
+ __attribute_used__					\
  __attribute__((__section__(".arch.info.init"))) = {	\
-	.nr		= MACH_TYPE_##_type,	\
+	.nr		= MACH_TYPE_##_type,		\
 	.name		= _name,
 
 #define MACHINE_END				\

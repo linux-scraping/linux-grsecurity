@@ -45,27 +45,41 @@ static unsigned long last_tsc_high; /* msb 32 bits of Time Stamp Counter */
 static unsigned long long monotonic_base;
 static seqlock_t monotonic_lock = SEQLOCK_UNLOCKED;
 
+/* Avoid compensating for lost ticks before TSCs are synched */
+static int detect_lost_ticks;
+static int __init start_lost_tick_compensation(void)
+{
+	detect_lost_ticks = 1;
+	return 0;
+}
+late_initcall(start_lost_tick_compensation);
+
 /* convert from cycles(64bits) => nanoseconds (64bits)
  *  basic equation:
  *		ns = cycles / (freq / ns_per_sec)
  *		ns = cycles * (ns_per_sec / freq)
- *		ns = cycles * (10^9 / (cpu_mhz * 10^6))
- *		ns = cycles * (10^3 / cpu_mhz)
+ *		ns = cycles * (10^9 / (cpu_khz * 10^3))
+ *		ns = cycles * (10^6 / cpu_khz)
  *
  *	Then we use scaling math (suggested by george@mvista.com) to get:
- *		ns = cycles * (10^3 * SC / cpu_mhz) / SC
+ *		ns = cycles * (10^6 * SC / cpu_khz) / SC
  *		ns = cycles * cyc2ns_scale / SC
  *
  *	And since SC is a constant power of two, we can convert the div
- *  into a shift.   
+ *  into a shift.
+ *
+ *  We can use khz divisor instead of mhz to keep a better percision, since
+ *  cyc2ns_scale is limited to 10^6 * 2^10, which fits in 32 bits.
+ *  (mathieu.desnoyers@polymtl.ca)
+ *
  *			-johnstul@us.ibm.com "math is hard, lets go shopping!"
  */
 static unsigned long cyc2ns_scale; 
 #define CYC2NS_SCALE_FACTOR 10 /* 2^10, carefully chosen */
 
-static inline void set_cyc2ns_scale(unsigned long cpu_mhz)
+static inline void set_cyc2ns_scale(unsigned long cpu_khz)
 {
-	cyc2ns_scale = (1000 << CYC2NS_SCALE_FACTOR)/cpu_mhz;
+	cyc2ns_scale = (1000000 << CYC2NS_SCALE_FACTOR)/cpu_khz;
 }
 
 static inline unsigned long long cycles_2_ns(unsigned long long cyc)
@@ -191,7 +205,8 @@ static void mark_offset_tsc_hpet(void)
 
 	/* lost tick compensation */
 	offset = hpet_readl(HPET_T0_CMP) - hpet_tick;
-	if (unlikely(((offset - hpet_last) > hpet_tick) && (hpet_last != 0))) {
+	if (unlikely(((offset - hpet_last) > hpet_tick) && (hpet_last != 0))
+					&& detect_lost_ticks) {
 		int lost_ticks = (offset - hpet_last) / hpet_tick;
 		jiffies_64 += lost_ticks;
 	}
@@ -267,6 +282,10 @@ time_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
 	if (val != CPUFREQ_RESUMECHANGE)
 		write_seqlock_irq(&xtime_lock);
 	if (!ref_freq) {
+		if (!freq->old){
+			ref_freq = freq->new;
+			goto end;
+		}
 		ref_freq = freq->old;
 		loops_per_jiffy_ref = cpu_data[freq->cpu].loops_per_jiffy;
 #ifndef CONFIG_SMP
@@ -286,12 +305,13 @@ time_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
 		if (use_tsc) {
 			if (!(freq->flags & CPUFREQ_CONST_LOOPS)) {
 				fast_gettimeoffset_quotient = cpufreq_scale(fast_gettimeoffset_ref, freq->new, ref_freq);
-				set_cyc2ns_scale(cpu_khz/1000);
+				set_cyc2ns_scale(cpu_khz);
 			}
 		}
 #endif
 	}
 
+end:
 	if (val != CPUFREQ_RESUMECHANGE)
 		write_sequnlock_irq(&xtime_lock);
 
@@ -325,7 +345,9 @@ int recalibrate_cpu_khz(void)
 	unsigned int cpu_khz_old = cpu_khz;
 
 	if (cpu_has_tsc) {
+		local_irq_disable();
 		init_cpu_khz();
+		local_irq_enable();
 		cpu_data[0].loops_per_jiffy =
 		    cpufreq_scale(cpu_data[0].loops_per_jiffy,
 			          cpu_khz_old,
@@ -414,7 +436,7 @@ static void mark_offset_tsc(void)
 	delta += delay_at_last_interrupt;
 	lost = delta/(1000000/HZ);
 	delay = delta%(1000000/HZ);
-	if (lost >= 2) {
+	if (lost >= 2 && detect_lost_ticks) {
 		jiffies_64 += lost-1;
 
 		/* sanity check to ensure we're not always losing ticks */
@@ -536,7 +558,7 @@ static int __init init_tsc(char* override)
 				printk("Detected %u.%03u MHz processor.\n",
 					cpu_khz / 1000, cpu_khz % 1000);
 			}
-			set_cyc2ns_scale(cpu_khz/1000);
+			set_cyc2ns_scale(cpu_khz);
 			return 0;
 		}
 	}

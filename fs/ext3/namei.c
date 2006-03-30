@@ -36,6 +36,8 @@
 #include <linux/quotaops.h>
 #include <linux/buffer_head.h>
 #include <linux/smp_lock.h>
+
+#include "namei.h"
 #include "xattr.h"
 #include "acl.h"
 
@@ -1003,10 +1005,7 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
 		if (!inode)
 			return ERR_PTR(-EACCES);
 	}
-	if (inode)
-		return d_splice_alias(inode, dentry);
-	d_add(dentry, inode);
-	return NULL;
+	return d_splice_alias(inode, dentry);
 }
 
 
@@ -1474,7 +1473,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
 		if (levels && (dx_get_count(frames->entries) ==
 			       dx_get_limit(frames->entries))) {
 			ext3_warning(sb, __FUNCTION__,
-				     "Directory index full!\n");
+				     "Directory index full!");
 			err = -ENOSPC;
 			goto cleanup;
 		}
@@ -2142,7 +2141,8 @@ retry:
 		 * We have a transaction open.  All is sweetness.  It also sets
 		 * i_size in generic_commit_write().
 		 */
-		err = page_symlink(inode, symname, l);
+		err = __page_symlink(inode, symname, l,
+				mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS);
 		if (err) {
 			ext3_dec_count(handle, inode);
 			ext3_mark_inode_dirty(handle, inode);

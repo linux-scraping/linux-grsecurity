@@ -28,7 +28,7 @@
 #include <linux/jiffies.h>
 #include <linux/kernel_stat.h>
 #include <linux/percpu.h>
-
+#include <linux/mutex.h>
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -71,7 +71,7 @@ static DEFINE_PER_CPU(struct cpu_dbs_info_s, cpu_dbs_info);
 
 static unsigned int dbs_enable;	/* number of CPUs using this policy */
 
-static DECLARE_MUTEX 	(dbs_sem);
+static DEFINE_MUTEX 	(dbs_mutex);
 static DECLARE_WORK	(dbs_work, do_dbs_timer, NULL);
 
 struct dbs_tuners {
@@ -93,7 +93,7 @@ static inline unsigned int get_cpu_idle_time(unsigned int cpu)
 {
 	return	kstat_cpu(cpu).cpustat.idle +
 		kstat_cpu(cpu).cpustat.iowait +
-		( !dbs_tuners_ins.ignore_nice ? 
+		( dbs_tuners_ins.ignore_nice ?
 		  kstat_cpu(cpu).cpustat.nice :
 		  0);
 }
@@ -127,7 +127,7 @@ show_one(sampling_rate, sampling_rate);
 show_one(sampling_down_factor, sampling_down_factor);
 show_one(up_threshold, up_threshold);
 show_one(down_threshold, down_threshold);
-show_one(ignore_nice, ignore_nice);
+show_one(ignore_nice_load, ignore_nice);
 show_one(freq_step, freq_step);
 
 static ssize_t store_sampling_down_factor(struct cpufreq_policy *unused, 
@@ -139,9 +139,9 @@ static ssize_t store_sampling_down_factor(struct cpufreq_policy *unused,
 	if (ret != 1 )
 		return -EINVAL;
 
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	dbs_tuners_ins.sampling_down_factor = input;
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
@@ -153,14 +153,14 @@ static ssize_t store_sampling_rate(struct cpufreq_policy *unused,
 	int ret;
 	ret = sscanf (buf, "%u", &input);
 
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	if (ret != 1 || input > MAX_SAMPLING_RATE || input < MIN_SAMPLING_RATE) {
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		return -EINVAL;
 	}
 
 	dbs_tuners_ins.sampling_rate = input;
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
@@ -172,16 +172,16 @@ static ssize_t store_up_threshold(struct cpufreq_policy *unused,
 	int ret;
 	ret = sscanf (buf, "%u", &input);
 
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	if (ret != 1 || input > MAX_FREQUENCY_UP_THRESHOLD || 
 			input < MIN_FREQUENCY_UP_THRESHOLD ||
 			input <= dbs_tuners_ins.down_threshold) {
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		return -EINVAL;
 	}
 
 	dbs_tuners_ins.up_threshold = input;
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
@@ -193,21 +193,21 @@ static ssize_t store_down_threshold(struct cpufreq_policy *unused,
 	int ret;
 	ret = sscanf (buf, "%u", &input);
 
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	if (ret != 1 || input > MAX_FREQUENCY_DOWN_THRESHOLD || 
 			input < MIN_FREQUENCY_DOWN_THRESHOLD ||
 			input >= dbs_tuners_ins.up_threshold) {
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		return -EINVAL;
 	}
 
 	dbs_tuners_ins.down_threshold = input;
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
 
-static ssize_t store_ignore_nice(struct cpufreq_policy *policy,
+static ssize_t store_ignore_nice_load(struct cpufreq_policy *policy,
 		const char *buf, size_t count)
 {
 	unsigned int input;
@@ -222,9 +222,9 @@ static ssize_t store_ignore_nice(struct cpufreq_policy *policy,
 	if ( input > 1 )
 		input = 1;
 	
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	if ( input == dbs_tuners_ins.ignore_nice ) { /* nothing to do */
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		return count;
 	}
 	dbs_tuners_ins.ignore_nice = input;
@@ -236,7 +236,7 @@ static ssize_t store_ignore_nice(struct cpufreq_policy *policy,
 		j_dbs_info->prev_cpu_idle_up = get_cpu_idle_time(j);
 		j_dbs_info->prev_cpu_idle_down = j_dbs_info->prev_cpu_idle_up;
 	}
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
@@ -257,9 +257,9 @@ static ssize_t store_freq_step(struct cpufreq_policy *policy,
 	
 	/* no need to test here if freq_step is zero as the user might actually
 	 * want this, they would be crazy though :) */
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	dbs_tuners_ins.freq_step = input;
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
@@ -272,7 +272,7 @@ define_one_rw(sampling_rate);
 define_one_rw(sampling_down_factor);
 define_one_rw(up_threshold);
 define_one_rw(down_threshold);
-define_one_rw(ignore_nice);
+define_one_rw(ignore_nice_load);
 define_one_rw(freq_step);
 
 static struct attribute * dbs_attributes[] = {
@@ -282,7 +282,7 @@ static struct attribute * dbs_attributes[] = {
 	&sampling_down_factor.attr,
 	&up_threshold.attr,
 	&down_threshold.attr,
-	&ignore_nice.attr,
+	&ignore_nice_load.attr,
 	&freq_step.attr,
 	NULL
 };
@@ -444,12 +444,12 @@ static void dbs_check_cpu(int cpu)
 static void do_dbs_timer(void *data)
 { 
 	int i;
-	down(&dbs_sem);
+	mutex_lock(&dbs_mutex);
 	for_each_online_cpu(i)
 		dbs_check_cpu(i);
 	schedule_delayed_work(&dbs_work, 
 			usecs_to_jiffies(dbs_tuners_ins.sampling_rate));
-	up(&dbs_sem);
+	mutex_unlock(&dbs_mutex);
 } 
 
 static inline void dbs_timer_init(void)
@@ -487,7 +487,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (this_dbs_info->enable) /* Already enabled */
 			break;
 		 
-		down(&dbs_sem);
+		mutex_lock(&dbs_mutex);
 		for_each_cpu_mask(j, policy->cpus) {
 			struct cpu_dbs_info_s *j_dbs_info;
 			j_dbs_info = &per_cpu(cpu_dbs_info, j);
@@ -521,11 +521,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			dbs_timer_init();
 		}
 		
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		break;
 
 	case CPUFREQ_GOV_STOP:
-		down(&dbs_sem);
+		mutex_lock(&dbs_mutex);
 		this_dbs_info->enable = 0;
 		sysfs_remove_group(&policy->kobj, &dbs_attr_group);
 		dbs_enable--;
@@ -536,12 +536,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (dbs_enable == 0) 
 			dbs_timer_exit();
 		
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
-		down(&dbs_sem);
+		mutex_lock(&dbs_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(
 					this_dbs_info->cur_policy,
@@ -550,7 +550,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			__cpufreq_driver_target(
 					this_dbs_info->cur_policy,
 				       	policy->min, CPUFREQ_RELATION_L);
-		up(&dbs_sem);
+		mutex_unlock(&dbs_mutex);
 		break;
 	}
 	return 0;

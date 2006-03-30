@@ -55,22 +55,6 @@ struct tcphdr {
 	__u16	urg_ptr;
 };
 
-#define TCP_ACTION_FIN	(1 << 7)
-
-enum {
-  TCPF_ESTABLISHED = (1 << 1),
-  TCPF_SYN_SENT  = (1 << 2),
-  TCPF_SYN_RECV  = (1 << 3),
-  TCPF_FIN_WAIT1 = (1 << 4),
-  TCPF_FIN_WAIT2 = (1 << 5),
-  TCPF_TIME_WAIT = (1 << 6),
-  TCPF_CLOSE     = (1 << 7),
-  TCPF_CLOSE_WAIT = (1 << 8),
-  TCPF_LAST_ACK  = (1 << 9),
-  TCPF_LISTEN    = (1 << 10),
-  TCPF_CLOSING   = (1 << 11) 
-};
-
 /*
  *	The union cast uses a gcc extension to avoid aliasing problems
  *  (union is compatible to any of its members)
@@ -254,10 +238,9 @@ struct tcp_sock {
 	__u32	snd_wl1;	/* Sequence for window update		*/
 	__u32	snd_wnd;	/* The window we expect to receive	*/
 	__u32	max_window;	/* Maximal window ever seen from peer	*/
-	__u32	pmtu_cookie;	/* Last pmtu seen by socket		*/
 	__u32	mss_cache;	/* Cached effective mss, not including SACKS */
 	__u16	xmit_size_goal;	/* Goal for segmenting output packets	*/
-	__u16	ext_header_len;	/* Network protocol overhead (IP/IPv6 options) */
+	/* XXX Two bytes hole, try to pack */
 
 	__u32	window_clamp;	/* Maximal window to advertise		*/
 	__u32	rcv_ssthresh;	/* Current window clamp			*/
@@ -295,8 +278,6 @@ struct tcp_sock {
 
 	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
 
-	struct tcp_func		*af_specific;	/* Operations which are AF_INET{4,6} specific	*/
-
  	__u32	rcv_wnd;	/* Current receiver window		*/
 	__u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
 	__u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */
@@ -306,6 +287,21 @@ struct tcp_sock {
 /*	SACKs data	*/
 	struct tcp_sack_block duplicate_sack[1]; /* D-SACK block */
 	struct tcp_sack_block selective_acks[4]; /* The SACKS themselves*/
+
+	struct tcp_sack_block recv_sack_cache[4];
+
+	/* from STCP, retrans queue hinting */
+	struct sk_buff* lost_skb_hint;
+
+	struct sk_buff *scoreboard_skb_hint;
+	struct sk_buff *retransmit_skb_hint;
+	struct sk_buff *forward_skb_hint;
+	struct sk_buff *fastpath_skb_hint;
+
+	int     fastpath_cnt_hint;
+	int     lost_cnt_hint;
+	int     retransmit_cnt_hint;
+	int     forward_cnt_hint;
 
 	__u16	advmss;		/* Advertised MSS			*/
 	__u16	prior_ssthresh; /* ssthresh saved at recovery start	*/
@@ -326,6 +322,7 @@ struct tcp_sock {
 	__u32	snd_up;		/* Urgent pointer		*/
 
 	__u32	total_retrans;	/* Total retransmits for entire connection */
+	__u32	bytes_acked;	/* Appropriate Byte Counting - RFC3465 */
 
 	unsigned int		keepalive_time;	  /* time before keep alive takes place */
 	unsigned int		keepalive_intvl;  /* time interval between keep alive probes */

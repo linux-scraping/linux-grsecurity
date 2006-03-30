@@ -110,8 +110,7 @@ ip_vs_app_inc_new(struct ip_vs_app *app, __u16 proto, __u16 port)
 	return 0;
 
   out:
-	if (inc->timeout_table)
-		kfree(inc->timeout_table);
+	kfree(inc->timeout_table);
 	kfree(inc);
 	return ret;
 }
@@ -136,8 +135,7 @@ ip_vs_app_inc_release(struct ip_vs_app *inc)
 
 	list_del(&inc->a_list);
 
-	if (inc->timeout_table != NULL)
-		kfree(inc->timeout_table);
+	kfree(inc->timeout_table);
 	kfree(inc);
 }
 
@@ -224,34 +222,6 @@ void unregister_ip_vs_app(struct ip_vs_app *app)
 	/* decrease the module use count */
 	ip_vs_use_count_dec();
 }
-
-
-#if 0000
-/*
- *	Get reference to app by name (called from user context)
- */
-struct ip_vs_app *ip_vs_app_get_by_name(char *appname)
-{
-	struct ip_vs_app *app, *a = NULL;
-
-	down(&__ip_vs_app_mutex);
-
-	list_for_each_entry(ent, &ip_vs_app_list, a_list) {
-		if (strcmp(app->name, appname))
-			continue;
-
-		/* softirq may call ip_vs_app_get too, so the caller
-		   must disable softirq on the current CPU */
-		if (ip_vs_app_get(app))
-			a = app;
-		break;
-	}
-
-	up(&__ip_vs_app_mutex);
-
-	return a;
-}
-#endif
 
 
 /*

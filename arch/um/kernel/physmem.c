@@ -246,7 +246,7 @@ int is_remapped(void *virt)
 /* Changed during early boot */
 unsigned long high_physmem;
 
-extern unsigned long physmem_size;
+extern unsigned long long physmem_size;
 
 int init_maps(unsigned long physmem, unsigned long iomem, unsigned long highmem)
 {
@@ -265,7 +265,7 @@ int init_maps(unsigned long physmem, unsigned long iomem, unsigned long highmem)
 	highmem_len = highmem_pages * sizeof(struct page);
 
 	total_pages = phys_pages + iomem_pages + highmem_pages;
-	total_len = phys_len + iomem_pages + highmem_len;
+	total_len = phys_len + iomem_len + highmem_len;
 
 	if(kmalloc_ok){
 		map = kmalloc(total_len, GFP_KERNEL);
@@ -321,7 +321,7 @@ void map_memory(unsigned long virt, unsigned long phys, unsigned long len,
 extern int __syscall_stub_start, __binary_start;
 
 void setup_physmem(unsigned long start, unsigned long reserve_end,
-		   unsigned long len, unsigned long highmem)
+		   unsigned long len, unsigned long long highmem)
 {
 	unsigned long reserve = reserve_end - start;
 	int pfn = PFN_UP(__pa(reserve_end));

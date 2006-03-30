@@ -17,7 +17,9 @@
 #include <linux/proc_fs.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
+#include <linux/capability.h>
 #include <linux/device.h>
+#include <linux/mutex.h>
 
 #include <asm/rtc.h>
 #include <asm/semaphore.h>
@@ -34,7 +36,7 @@ static unsigned long rtc_irq_data;
 /*
  * rtc_sem protects rtc_inuse and rtc_ops
  */
-static DECLARE_MUTEX(rtc_sem);
+static DEFINE_MUTEX(rtc_mutex);
 static unsigned long rtc_inuse;
 static struct rtc_ops *rtc_ops;
 
@@ -126,19 +128,27 @@ EXPORT_SYMBOL(rtc_tm_to_time);
 /*
  * Calculate the next alarm time given the requested alarm time mask
  * and the current time.
- *
- * FIXME: for now, we just copy the alarm time because we're lazy (and
- * is therefore buggy - setting a 10am alarm at 8pm will not result in
- * the alarm triggering.)
  */
 void rtc_next_alarm_time(struct rtc_time *next, struct rtc_time *now, struct rtc_time *alrm)
 {
+	unsigned long next_time;
+	unsigned long now_time;
+
 	next->tm_year = now->tm_year;
 	next->tm_mon = now->tm_mon;
 	next->tm_mday = now->tm_mday;
 	next->tm_hour = alrm->tm_hour;
 	next->tm_min = alrm->tm_min;
 	next->tm_sec = alrm->tm_sec;
+
+	rtc_tm_to_time(now, &now_time);
+	rtc_tm_to_time(next, &next_time);
+
+	if (next_time < now_time) {
+		/* Advance one day */
+		next_time += 60 * 60 * 24;
+		rtc_time_to_tm(next_time, next);
+	}
 }
 
 static inline int rtc_read_time(struct rtc_ops *ops, struct rtc_time *tm)
@@ -355,7 +365,7 @@ static int rtc_open(struct inode *inode, struct file *file)
 {
 	int ret;
 
-	down(&rtc_sem);
+	mutex_lock(&rtc_mutex);
 
 	if (rtc_inuse) {
 		ret = -EBUSY;
@@ -373,7 +383,7 @@ static int rtc_open(struct inode *inode, struct file *file)
 			rtc_inuse = 1;
 		}
 	}
-	up(&rtc_sem);
+	mutex_unlock(&rtc_mutex);
 
 	return ret;
 }
@@ -479,7 +489,7 @@ int register_rtc(struct rtc_ops *ops)
 {
 	int ret = -EBUSY;
 
-	down(&rtc_sem);
+	mutex_lock(&rtc_mutex);
 	if (rtc_ops == NULL) {
 		rtc_ops = ops;
 
@@ -488,7 +498,7 @@ int register_rtc(struct rtc_ops *ops)
 			create_proc_read_entry("driver/rtc", 0, NULL,
 					       rtc_read_proc, ops);
 	}
-	up(&rtc_sem);
+	mutex_unlock(&rtc_mutex);
 
 	return ret;
 }
@@ -496,12 +506,12 @@ EXPORT_SYMBOL(register_rtc);
 
 void unregister_rtc(struct rtc_ops *rtc)
 {
-	down(&rtc_sem);
+	mutex_lock(&rtc_mutex);
 	if (rtc == rtc_ops) {
 		remove_proc_entry("driver/rtc", NULL);
 		misc_deregister(&rtc_miscdev);
 		rtc_ops = NULL;
 	}
-	up(&rtc_sem);
+	mutex_unlock(&rtc_mutex);
 }
 EXPORT_SYMBOL(unregister_rtc);

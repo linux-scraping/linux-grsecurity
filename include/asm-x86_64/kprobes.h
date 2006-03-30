@@ -25,8 +25,12 @@
  */
 #include <linux/types.h>
 #include <linux/ptrace.h>
+#include <linux/percpu.h>
+
+#define  __ARCH_WANT_KPROBES_INSN_SLOT
 
 struct pt_regs;
+struct kprobe;
 
 typedef u8 kprobe_opcode_t;
 #define BREAKPOINT_INSTRUCTION	0xcc
@@ -41,11 +45,30 @@ typedef u8 kprobe_opcode_t;
 #define ARCH_SUPPORTS_KRETPROBES
 
 void kretprobe_trampoline(void);
+extern void arch_remove_kprobe(struct kprobe *p);
 
 /* Architecture specific copy of original instruction*/
 struct arch_specific_insn {
 	/* copy of the original instruction */
 	kprobe_opcode_t *insn;
+};
+
+struct prev_kprobe {
+	struct kprobe *kp;
+	unsigned long status;
+	unsigned long old_rflags;
+	unsigned long saved_rflags;
+};
+
+/* per-cpu kprobe control block */
+struct kprobe_ctlblk {
+	unsigned long kprobe_status;
+	unsigned long kprobe_old_rflags;
+	unsigned long kprobe_saved_rflags;
+	long *jprobe_saved_rsp;
+	struct pt_regs jprobe_saved_regs;
+	kprobe_opcode_t jprobes_stack[MAX_STACK_SIZE];
+	struct prev_kprobe prev_kprobe;
 };
 
 /* trap3/1 are intr gates for kprobes.  So, restore the status of IF,

@@ -109,10 +109,10 @@ static struct gl520_data *gl520_update_device(struct device *dev);
 
 /* Driver data */
 static struct i2c_driver gl520_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "gl520sm",
+	.driver = {
+		.name	= "gl520sm",
+	},
 	.id		= I2C_DRIVERID_GL520,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= gl520_attach_adapter,
 	.detach_client	= gl520_detach_client,
 };
@@ -536,11 +536,10 @@ static int gl520_detect(struct i2c_adapter *adapter, int address, int kind)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access gl520_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct gl520_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct gl520_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct gl520_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

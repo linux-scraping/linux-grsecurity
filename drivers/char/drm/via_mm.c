@@ -42,7 +42,7 @@ static int via_agp_free(drm_via_mem_t * mem);
 static int via_fb_alloc(drm_via_mem_t * mem);
 static int via_fb_free(drm_via_mem_t * mem);
 
-static int add_alloc_set(int context, int type, unsigned int val)
+static int add_alloc_set(int context, int type, unsigned long val)
 {
 	int i, retval = 0;
 
@@ -56,7 +56,7 @@ static int add_alloc_set(int context, int type, unsigned int val)
 	return retval;
 }
 
-static int del_alloc_set(int context, int type, unsigned int val)
+static int del_alloc_set(int context, int type, unsigned long val)
 {
 	int i, retval = 0;
 
@@ -81,7 +81,8 @@ int via_agp_init(DRM_IOCTL_ARGS)
 
 	AgpHeap = via_mmInit(agp.offset, agp.size);
 
-	DRM_DEBUG("offset = %lu, size = %lu", (unsigned long)agp.offset, (unsigned long)agp.size);
+	DRM_DEBUG("offset = %lu, size = %lu", (unsigned long)agp.offset,
+		  (unsigned long)agp.size);
 
 	return 0;
 }
@@ -97,7 +98,8 @@ int via_fb_init(DRM_IOCTL_ARGS)
 
 	FBHeap = via_mmInit(fb.offset, fb.size);
 
-	DRM_DEBUG("offset = %lu, size = %lu", (unsigned long)fb.offset, (unsigned long)fb.size);
+	DRM_DEBUG("offset = %lu, size = %lu", (unsigned long)fb.offset,
+		  (unsigned long)fb.size);
 
 	return 0;
 }
@@ -134,8 +136,8 @@ int via_init_context(struct drm_device *dev, int context)
 }
 
 int via_final_context(struct drm_device *dev, int context)
-{	
-        int i;
+{
+	int i;
 	drm_via_private_t *dev_priv = (drm_via_private_t *) dev->dev_private;
 
 	for (i = 0; i < MAX_CONTEXT; i++)
@@ -171,14 +173,13 @@ int via_final_context(struct drm_device *dev, int context)
 		via_setDestroy(set);
 		global_ppriv[i].used = 0;
 	}
-	via_release_futex(dev_priv, context); 
-	
-			
+	via_release_futex(dev_priv, context);
+
 #if defined(__linux__)
 	/* Linux specific until context tracking code gets ported to BSD */
 	/* Last context, perform cleanup */
 	if (dev->ctx_count == 1 && dev->dev_private) {
-	        DRM_DEBUG("Last Context\n");
+		DRM_DEBUG("Last Context\n");
 		if (dev->irq)
 			drm_irq_uninstall(dev);
 
@@ -198,13 +199,13 @@ int via_mem_alloc(DRM_IOCTL_ARGS)
 				 sizeof(mem));
 
 	switch (mem.type) {
-	case VIDEO:
+	case VIA_MEM_VIDEO:
 		if (via_fb_alloc(&mem) < 0)
 			return -EFAULT;
 		DRM_COPY_TO_USER_IOCTL((drm_via_mem_t __user *) data, mem,
 				       sizeof(mem));
 		return 0;
-	case AGP:
+	case VIA_MEM_AGP:
 		if (via_agp_alloc(&mem) < 0)
 			return -EFAULT;
 		DRM_COPY_TO_USER_IOCTL((drm_via_mem_t __user *) data, mem,
@@ -231,7 +232,7 @@ static int via_fb_alloc(drm_via_mem_t * mem)
 	if (block) {
 		fb.offset = block->ofs;
 		fb.free = (unsigned long)block;
-		if (!add_alloc_set(fb.context, VIDEO, fb.free)) {
+		if (!add_alloc_set(fb.context, VIA_MEM_VIDEO, fb.free)) {
 			DRM_DEBUG("adding to allocation set fails\n");
 			via_mmFreeMem((PMemBlock) fb.free);
 			retval = -1;
@@ -268,7 +269,7 @@ static int via_agp_alloc(drm_via_mem_t * mem)
 	if (block) {
 		agp.offset = block->ofs;
 		agp.free = (unsigned long)block;
-		if (!add_alloc_set(agp.context, AGP, agp.free)) {
+		if (!add_alloc_set(agp.context, VIA_MEM_AGP, agp.free)) {
 			DRM_DEBUG("adding to allocation set fails\n");
 			via_mmFreeMem((PMemBlock) agp.free);
 			retval = -1;
@@ -296,11 +297,11 @@ int via_mem_free(DRM_IOCTL_ARGS)
 
 	switch (mem.type) {
 
-	case VIDEO:
+	case VIA_MEM_VIDEO:
 		if (via_fb_free(&mem) == 0)
 			return 0;
 		break;
-	case AGP:
+	case VIA_MEM_AGP:
 		if (via_agp_free(&mem) == 0)
 			return 0;
 		break;
@@ -328,7 +329,7 @@ static int via_fb_free(drm_via_mem_t * mem)
 
 	via_mmFreeMem((PMemBlock) fb.free);
 
-	if (!del_alloc_set(fb.context, VIDEO, fb.free)) {
+	if (!del_alloc_set(fb.context, VIA_MEM_VIDEO, fb.free)) {
 		retval = -1;
 	}
 
@@ -351,7 +352,7 @@ static int via_agp_free(drm_via_mem_t * mem)
 
 	via_mmFreeMem((PMemBlock) agp.free);
 
-	if (!del_alloc_set(agp.context, AGP, agp.free)) {
+	if (!del_alloc_set(agp.context, VIA_MEM_AGP, agp.free)) {
 		retval = -1;
 	}
 

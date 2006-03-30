@@ -16,8 +16,6 @@ typedef enum {
 	FLEXCOP_III,
 } flexcop_revision_t;
 
-extern const char *flexcop_revision_names[];
-
 typedef enum {
 	FC_UNK = 0,
 	FC_AIR_DVB,
@@ -26,6 +24,7 @@ typedef enum {
 	FC_SKY,
 	FC_SKY_OLD,
 	FC_CABLE,
+	FC_AIR_ATSC3,
 } flexcop_device_type_t;
 
 typedef enum {
@@ -33,15 +32,15 @@ typedef enum {
 	FC_PCI,
 } flexcop_bus_t;
 
-extern const char *flexcop_device_names[];
-
 /* FlexCop IBI Registers */
 #if defined(__LITTLE_ENDIAN)
 	#include "flexcop_ibi_value_le.h"
-#elif defined(__BIG_ENDIAN)
+#else
+#if defined(__BIG_ENDIAN)
 	#include "flexcop_ibi_value_be.h"
 #else
 	#error no endian defined
+#endif
 #endif
 
 #define fc_data_Tag_ID_DVB  0x3e

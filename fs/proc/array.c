@@ -323,7 +323,7 @@ int proc_pid_status(struct task_struct *task, char * buffer)
 	buffer = task_sig(task, buffer);
 	buffer = task_cap(task, buffer);
 	buffer = cpuset_task_status_allowed(task, buffer);
-#if defined(CONFIG_ARCH_S390)
+#if defined(CONFIG_S390)
 	buffer = task_show_regs(task, buffer);
 #endif
 
@@ -356,7 +356,7 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 	unsigned long  min_flt = 0,  maj_flt = 0;
 	cputime_t cutime, cstime, utime, stime;
 	unsigned long rsslim = 0;
-	unsigned long it_real_value = 0;
+	DEFINE_KTIME(it_real_value);
 	struct task_struct *t;
 	char tcomm[sizeof(task->comm)];
 
@@ -412,7 +412,7 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 			utime = cputime_add(utime, task->signal->utime);
 			stime = cputime_add(stime, task->signal->stime);
 		}
-		it_real_value = task->signal->it_real_value;
+		it_real_value = task->signal->real_timer.expires;
 	}
 	ppid = pid_alive(task) ? task->group_leader->real_parent->tgid : 0;
 	read_unlock(&tasklist_lock);
@@ -474,14 +474,14 @@ static int do_task_stat(struct task_struct *task, char * buffer, int whole)
 		priority,
 		nice,
 		num_threads,
-		jiffies_to_clock_t(it_real_value),
+		(long) ktime_to_clock_t(it_real_value),
 		start_time,
 		vsize,
-		mm ? get_mm_counter(mm, rss) : 0, /* you might want to shift this left 3 */
+		mm ? get_mm_rss(mm) : 0,
 	        rsslim,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->start_code : 0),
-		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->end_code : 0),
+		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->start_code : 0),
+		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->end_code : 0),
 		PAX_RAND_FLAGS(mm) ? 0 : (mm ? mm->start_stack : 0),
 #else
 		mm ? mm->start_code : 0,

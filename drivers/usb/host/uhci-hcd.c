@@ -23,11 +23,6 @@
  */
 
 #include <linux/config.h>
-#ifdef CONFIG_USB_DEBUG
-#define DEBUG
-#else
-#undef DEBUG
-#endif
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel.h>
@@ -67,10 +62,10 @@ Alan Stern"
 
 /*
  * debug = 0, no debugging messages
- * debug = 1, dump failed URB's except for stalls
- * debug = 2, dump all failed URB's (including stalls)
+ * debug = 1, dump failed URBs except for stalls
+ * debug = 2, dump all failed URBs (including stalls)
  *            show all queues in /debug/uhci/[pci_addr]
- * debug = 3, show all TD's in URB's when dumping
+ * debug = 3, show all TDs in URBs when dumping
  */
 #ifdef DEBUG
 static int debug = 1;
@@ -93,7 +88,7 @@ static void uhci_get_current_frame_number(struct uhci_hcd *uhci);
 #define FSBR_DELAY	msecs_to_jiffies(50)
 
 /* When we timeout an idle transfer for FSBR, we'll switch it over to */
-/* depth first traversal. We'll do it in groups of this number of TD's */
+/* depth first traversal. We'll do it in groups of this number of TDs */
 /* to make sure it doesn't hog all of the bandwidth */
 #define DEPTH_INTERVAL 5
 
@@ -101,36 +96,15 @@ static void uhci_get_current_frame_number(struct uhci_hcd *uhci);
 #include "uhci-q.c"
 #include "uhci-hub.c"
 
+extern void uhci_reset_hc(struct pci_dev *pdev, unsigned long base);
+extern int uhci_check_and_reset_hc(struct pci_dev *pdev, unsigned long base);
+
 /*
- * Make sure the controller is completely inactive, unable to
- * generate interrupts or do DMA.
+ * Finish up a host controller reset and update the recorded state.
  */
-static void reset_hc(struct uhci_hcd *uhci)
+static void finish_reset(struct uhci_hcd *uhci)
 {
 	int port;
-
-	/* Turn off PIRQ enable and SMI enable.  (This also turns off the
-	 * BIOS's USB Legacy Support.)  Turn off all the R/WC bits too.
-	 */
-	pci_write_config_word(to_pci_dev(uhci_dev(uhci)), USBLEGSUP,
-			USBLEGSUP_RWC);
-
-	/* Reset the HC - this will force us to get a
-	 * new notification of any already connected
-	 * ports due to the virtual disconnect that it
-	 * implies.
-	 */
-	outw(USBCMD_HCRESET, uhci->io_addr + USBCMD);
-	mb();
-	udelay(5);
-	if (inw(uhci->io_addr + USBCMD) & USBCMD_HCRESET)
-		dev_warn(uhci_dev(uhci), "HCRESET not completed yet!\n");
-
-	/* Just to be safe, disable interrupt requests and
-	 * make sure the controller is stopped.
-	 */
-	outw(0, uhci->io_addr + USBINTR);
-	outw(0, uhci->io_addr + USBCMD);
 
 	/* HCRESET doesn't affect the Suspend, Reset, and Resume Detect
 	 * bits in the port status and control registers.
@@ -153,7 +127,8 @@ static void reset_hc(struct uhci_hcd *uhci)
  */
 static void hc_died(struct uhci_hcd *uhci)
 {
-	reset_hc(uhci);
+	uhci_reset_hc(to_pci_dev(uhci_dev(uhci)), uhci->io_addr);
+	finish_reset(uhci);
 	uhci->hc_inaccessible = 1;
 }
 
@@ -163,44 +138,8 @@ static void hc_died(struct uhci_hcd *uhci)
  */
 static void check_and_reset_hc(struct uhci_hcd *uhci)
 {
-	u16 legsup;
-	unsigned int cmd, intr;
-
-	/*
-	 * When restarting a suspended controller, we expect all the
-	 * settings to be the same as we left them:
-	 *
-	 *	PIRQ and SMI disabled, no R/W bits set in USBLEGSUP;
-	 *	Controller is stopped and configured with EGSM set;
-	 *	No interrupts enabled except possibly Resume Detect.
-	 *
-	 * If any of these conditions are violated we do a complete reset.
-	 */
-	pci_read_config_word(to_pci_dev(uhci_dev(uhci)), USBLEGSUP, &legsup);
-	if (legsup & ~(USBLEGSUP_RO | USBLEGSUP_RWC)) {
-		dev_dbg(uhci_dev(uhci), "%s: legsup = 0x%04x\n",
-				__FUNCTION__, legsup);
-		goto reset_needed;
-	}
-
-	cmd = inw(uhci->io_addr + USBCMD);
-	if ((cmd & USBCMD_RS) || !(cmd & USBCMD_CF) || !(cmd & USBCMD_EGSM)) {
-		dev_dbg(uhci_dev(uhci), "%s: cmd = 0x%04x\n",
-				__FUNCTION__, cmd);
-		goto reset_needed;
-	}
-
-	intr = inw(uhci->io_addr + USBINTR);
-	if (intr & (~USBINTR_RESUME)) {
-		dev_dbg(uhci_dev(uhci), "%s: intr = 0x%04x\n",
-				__FUNCTION__, intr);
-		goto reset_needed;
-	}
-	return;
-
-reset_needed:
-	dev_dbg(uhci_dev(uhci), "Performing full reset\n");
-	reset_hc(uhci);
+	if (uhci_check_and_reset_hc(to_pci_dev(uhci_dev(uhci)), uhci->io_addr))
+		finish_reset(uhci);
 }
 
 /*
@@ -212,13 +151,13 @@ static void configure_hc(struct uhci_hcd *uhci)
 	outb(USBSOF_DEFAULT, uhci->io_addr + USBSOF);
 
 	/* Store the frame list base address */
-	outl(uhci->fl->dma_handle, uhci->io_addr + USBFLBASEADD);
+	outl(uhci->frame_dma_handle, uhci->io_addr + USBFLBASEADD);
 
 	/* Set the current frame number */
 	outw(uhci->frame_number, uhci->io_addr + USBFRNUM);
 
-	/* Mark controller as running before we enable interrupts */
-	uhci_to_hcd(uhci)->state = HC_STATE_RUNNING;
+	/* Mark controller as not halted before we enable interrupts */
+	uhci_to_hcd(uhci)->state = HC_STATE_SUSPENDED;
 	mb();
 
 	/* Enable PIRQ */
@@ -319,6 +258,7 @@ __acquires(uhci->lock)
 
 static void start_rh(struct uhci_hcd *uhci)
 {
+	uhci_to_hcd(uhci)->state = HC_STATE_RUNNING;
 	uhci->is_stopped = 0;
 	smp_wmb();
 
@@ -437,36 +377,21 @@ static void release_uhci(struct uhci_hcd *uhci)
 	int i;
 
 	for (i = 0; i < UHCI_NUM_SKELQH; i++)
-		if (uhci->skelqh[i]) {
-			uhci_free_qh(uhci, uhci->skelqh[i]);
-			uhci->skelqh[i] = NULL;
-		}
+		uhci_free_qh(uhci, uhci->skelqh[i]);
 
-	if (uhci->term_td) {
-		uhci_free_td(uhci, uhci->term_td);
-		uhci->term_td = NULL;
-	}
+	uhci_free_td(uhci, uhci->term_td);
 
-	if (uhci->qh_pool) {
-		dma_pool_destroy(uhci->qh_pool);
-		uhci->qh_pool = NULL;
-	}
+	dma_pool_destroy(uhci->qh_pool);
 
-	if (uhci->td_pool) {
-		dma_pool_destroy(uhci->td_pool);
-		uhci->td_pool = NULL;
-	}
+	dma_pool_destroy(uhci->td_pool);
 
-	if (uhci->fl) {
-		dma_free_coherent(uhci_dev(uhci), sizeof(*uhci->fl),
-				uhci->fl, uhci->fl->dma_handle);
-		uhci->fl = NULL;
-	}
+	kfree(uhci->frame_cpu);
 
-	if (uhci->dentry) {
-		debugfs_remove(uhci->dentry);
-		uhci->dentry = NULL;
-	}
+	dma_free_coherent(uhci_dev(uhci),
+			UHCI_NUMFRAMES * sizeof(*uhci->frame),
+			uhci->frame, uhci->frame_dma_handle);
+
+	debugfs_remove(uhci->dentry);
 }
 
 static int uhci_reset(struct usb_hcd *hcd)
@@ -545,12 +470,9 @@ static int uhci_start(struct usb_hcd *hcd)
 	struct uhci_hcd *uhci = hcd_to_uhci(hcd);
 	int retval = -EBUSY;
 	int i;
-	dma_addr_t dma_handle;
 	struct dentry *dentry;
 
 	hcd->uses_new_polling = 1;
-	if (pci_find_capability(to_pci_dev(uhci_dev(uhci)), PCI_CAP_ID_PM))
-		hcd->can_wakeup = 1;		/* Assume it supports PME# */
 
 	dentry = debugfs_create_file(hcd->self.bus_name,
 			S_IFREG|S_IRUGO|S_IWUSR, uhci_debugfs_root, uhci,
@@ -579,17 +501,23 @@ static int uhci_start(struct usb_hcd *hcd)
 
 	init_waitqueue_head(&uhci->waitqh);
 
-	uhci->fl = dma_alloc_coherent(uhci_dev(uhci), sizeof(*uhci->fl),
-			&dma_handle, 0);
-	if (!uhci->fl) {
+	uhci->frame = dma_alloc_coherent(uhci_dev(uhci),
+			UHCI_NUMFRAMES * sizeof(*uhci->frame),
+			&uhci->frame_dma_handle, 0);
+	if (!uhci->frame) {
 		dev_err(uhci_dev(uhci), "unable to allocate "
 				"consistent memory for frame list\n");
-		goto err_alloc_fl;
+		goto err_alloc_frame;
 	}
+	memset(uhci->frame, 0, UHCI_NUMFRAMES * sizeof(*uhci->frame));
 
-	memset((void *)uhci->fl, 0, sizeof(*uhci->fl));
-
-	uhci->fl->dma_handle = dma_handle;
+	uhci->frame_cpu = kcalloc(UHCI_NUMFRAMES, sizeof(*uhci->frame_cpu),
+			GFP_KERNEL);
+	if (!uhci->frame_cpu) {
+		dev_err(uhci_dev(uhci), "unable to allocate "
+				"memory for frame pointers\n");
+		goto err_alloc_frame_cpu;
+	}
 
 	uhci->td_pool = dma_pool_create("uhci_td", uhci_dev(uhci),
 			sizeof(struct uhci_td), 16, 0);
@@ -638,7 +566,7 @@ static int uhci_start(struct usb_hcd *hcd)
 	uhci->skel_bulk_qh->link = cpu_to_le32(uhci->skel_term_qh->dma_handle) | UHCI_PTR_QH;
 
 	/* This dummy TD is to work around a bug in Intel PIIX controllers */
-	uhci_fill_td(uhci->term_td, 0, (UHCI_NULL_DATA_SIZE << 21) |
+	uhci_fill_td(uhci->term_td, 0, uhci_explen(0) |
 		(0x7f << TD_TOKEN_DEVADDR_SHIFT) | USB_PID_IN, 0);
 	uhci->term_td->link = cpu_to_le32(uhci->term_td->dma_handle);
 
@@ -672,7 +600,7 @@ static int uhci_start(struct usb_hcd *hcd)
 			irq = 7;
 
 		/* Only place we don't use the frame list routines */
-		uhci->fl->frame[i] = UHCI_PTR_QH |
+		uhci->frame[i] = UHCI_PTR_QH |
 				cpu_to_le32(uhci->skelqh[irq]->dma_handle);
 	}
 
@@ -690,31 +618,29 @@ static int uhci_start(struct usb_hcd *hcd)
  * error exits:
  */
 err_alloc_skelqh:
-	for (i = 0; i < UHCI_NUM_SKELQH; i++)
-		if (uhci->skelqh[i]) {
+	for (i = 0; i < UHCI_NUM_SKELQH; i++) {
+		if (uhci->skelqh[i])
 			uhci_free_qh(uhci, uhci->skelqh[i]);
-			uhci->skelqh[i] = NULL;
-		}
+	}
 
 	uhci_free_td(uhci, uhci->term_td);
-	uhci->term_td = NULL;
 
 err_alloc_term_td:
 	dma_pool_destroy(uhci->qh_pool);
-	uhci->qh_pool = NULL;
 
 err_create_qh_pool:
 	dma_pool_destroy(uhci->td_pool);
-	uhci->td_pool = NULL;
 
 err_create_td_pool:
-	dma_free_coherent(uhci_dev(uhci), sizeof(*uhci->fl),
-			uhci->fl, uhci->fl->dma_handle);
-	uhci->fl = NULL;
+	kfree(uhci->frame_cpu);
 
-err_alloc_fl:
+err_alloc_frame_cpu:
+	dma_free_coherent(uhci_dev(uhci),
+			UHCI_NUMFRAMES * sizeof(*uhci->frame),
+			uhci->frame, uhci->frame_dma_handle);
+
+err_alloc_frame:
 	debugfs_remove(uhci->dentry);
-	uhci->dentry = NULL;
 
 err_create_debug_entry:
 	return retval;
@@ -726,7 +652,7 @@ static void uhci_stop(struct usb_hcd *hcd)
 
 	spin_lock_irq(&uhci->lock);
 	if (!uhci->hc_inaccessible)
-		reset_hc(uhci);
+		hc_died(uhci);
 	uhci_scan_schedule(uhci, NULL);
 	spin_unlock_irq(&uhci->lock);
 
@@ -774,14 +700,8 @@ static int uhci_suspend(struct usb_hcd *hcd, pm_message_t message)
 	if (uhci->hc_inaccessible)	/* Dead or already suspended */
 		goto done;
 
-#ifndef CONFIG_USB_SUSPEND
-	/* Otherwise this would never happen */
-	suspend_rh(uhci, UHCI_RH_SUSPENDED);
-#endif
-
 	if (uhci->rh_state > UHCI_RH_SUSPENDED) {
 		dev_warn(uhci_dev(uhci), "Root hub isn't suspended!\n");
-		hcd->state = HC_STATE_RUNNING;
 		rc = -EBUSY;
 		goto done;
 	};
@@ -790,6 +710,8 @@ static int uhci_suspend(struct usb_hcd *hcd, pm_message_t message)
 	 * at the source, so we must turn off PIRQ.
 	 */
 	pci_write_config_word(to_pci_dev(uhci_dev(uhci)), USBLEGSUP, 0);
+	mb();
+	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 	uhci->hc_inaccessible = 1;
 	hcd->poll_rh = 0;
 
@@ -806,6 +728,13 @@ static int uhci_resume(struct usb_hcd *hcd)
 
 	dev_dbg(uhci_dev(uhci), "%s\n", __FUNCTION__);
 
+	/* Since we aren't in D3 any more, it's safe to set this flag
+	 * even if the controller was dead.  It might not even be dead
+	 * any more, if the firmware or quirks code has reset it.
+	 */
+	set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+	mb();
+
 	if (uhci->rh_state == UHCI_RH_RESET)	/* Dead */
 		return 0;
 	spin_lock_irq(&uhci->lock);
@@ -820,12 +749,12 @@ static int uhci_resume(struct usb_hcd *hcd)
 	check_and_reset_hc(uhci);
 	configure_hc(uhci);
 
-#ifndef CONFIG_USB_SUSPEND
-	/* Otherwise this would never happen */
-	wakeup_rh(uhci);
-#endif
-	if (uhci->rh_state == UHCI_RH_RESET)
+	if (uhci->rh_state == UHCI_RH_RESET) {
+
+		/* The controller had to be reset */
+		usb_root_hub_lost_power(hcd->self.root_hub);
 		suspend_rh(uhci, UHCI_RH_SUSPENDED);
+	}
 
 	spin_unlock_irq(&uhci->lock);
 
@@ -881,8 +810,8 @@ static const struct hc_driver uhci_driver = {
 #ifdef CONFIG_PM
 	.suspend =		uhci_suspend,
 	.resume =		uhci_resume,
-	.hub_suspend =		uhci_rh_suspend,
-	.hub_resume =		uhci_rh_resume,
+	.bus_suspend =		uhci_rh_suspend,
+	.bus_resume =		uhci_rh_resume,
 #endif
 	.stop =			uhci_stop,
 
@@ -951,7 +880,7 @@ static int __init uhci_hcd_init(void)
 
 init_failed:
 	if (kmem_cache_destroy(uhci_up_cachep))
-		warn("not all urb_priv's were freed!");
+		warn("not all urb_privs were freed!");
 
 up_failed:
 	debugfs_remove(uhci_debugfs_root);
@@ -969,7 +898,7 @@ static void __exit uhci_hcd_cleanup(void)
 	pci_unregister_driver(&uhci_pci_driver);
 	
 	if (kmem_cache_destroy(uhci_up_cachep))
-		warn("not all urb_priv's were freed!");
+		warn("not all urb_privs were freed!");
 
 	debugfs_remove(uhci_debugfs_root);
 	kfree(errbuf);

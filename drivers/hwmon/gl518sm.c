@@ -151,10 +151,10 @@ static struct gl518_data *gl518_update_device(struct device *dev);
 
 /* This is the driver that will be inserted */
 static struct i2c_driver gl518_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "gl518sm",
+	.driver = {
+		.name	= "gl518sm",
+	},
 	.id		= I2C_DRIVERID_GL518,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= gl518_attach_adapter,
 	.detach_client	= gl518_detach_client,
 };
@@ -365,11 +365,10 @@ static int gl518_detect(struct i2c_adapter *adapter, int address, int kind)
 	   client structure, even though we cannot fill it completely yet.
 	   But it allows us to access gl518_{read,write}_value. */
 
-	if (!(data = kmalloc(sizeof(struct gl518_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct gl518_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct gl518_data));
 
 	new_client = &data->client;
 	i2c_set_clientdata(new_client, data);

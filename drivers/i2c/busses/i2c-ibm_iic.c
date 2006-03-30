@@ -672,13 +672,12 @@ static int __devinit iic_probe(struct ocp_device *ocp){
 		printk(KERN_WARNING"ibm-iic%d: missing additional data!\n",
 			ocp->def->index);
 
-	if (!(dev = kmalloc(sizeof(*dev), GFP_KERNEL))){
+	if (!(dev = kzalloc(sizeof(*dev), GFP_KERNEL))) {
 		printk(KERN_CRIT "ibm-iic%d: failed to allocate device data\n",
 			ocp->def->index);
 		return -ENOMEM;
 	}
 
-	memset(dev, 0, sizeof(*dev));
 	dev->idx = ocp->def->index;
 	ocp_set_drvdata(ocp, dev);
 	
@@ -726,6 +725,7 @@ static int __devinit iic_probe(struct ocp_device *ocp){
 	strcpy(adap->name, "IBM IIC");
 	i2c_set_adapdata(adap, dev);
 	adap->id = I2C_HW_OCP;
+	adap->class = I2C_CLASS_HWMON;
 	adap->algo = &iic_algo;
 	adap->client_register = NULL;
 	adap->client_unregister = NULL;

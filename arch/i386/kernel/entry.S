@@ -82,7 +82,7 @@ VM_MASK		= 0x00020000
 #define resume_kernel		restore_nocheck
 #endif
 
-#define SAVE_ALL \
+#define __SAVE_ALL \
 	cld; \
 	pushl %es; \
 	pushl %ds; \
@@ -96,6 +96,18 @@ VM_MASK		= 0x00020000
 	movl $(__USER_DS), %edx; \
 	movl %edx, %ds; \
 	movl %edx, %es;
+
+#ifdef CONFIG_PAX_KERNEXEC
+#define SAVE_ALL \
+	__SAVE_ALL \
+	movl %cr0, %edx; \
+	movl %edx, %esi; \
+	orl $0x10000, %edx; \
+	xorl %edx, %esi; \
+	movl %edx, %cr0;
+#else
+#define SAVE_ALL __SAVE_ALL
+#endif
 
 #define RESTORE_INT_REGS \
 	popl %ebx;	\
@@ -146,7 +158,19 @@ ret_from_intr:
 	movl EFLAGS(%esp), %eax		# mix EFLAGS and CS
 	movb CS(%esp), %al
 	testl $(VM_MASK | 3), %eax
+
+#ifdef CONFIG_PAX_KERNEXEC
+	jnz resume_userspace
+
+	movl %cr0, %edx
+	xorl %esi, %edx
+	movl %edx, %cr0
+	jmp resume_kernel
+#else
 	jz resume_kernel
+#endif
+
+
 ENTRY(resume_userspace)
  	cli				# make sure we don't miss an interrupt
 					# setting need_resched or sigpending
@@ -334,6 +358,7 @@ work_notifysig:				# deal with pending signals and
 
 	ALIGN
 work_notifysig_v86:
+#ifdef CONFIG_VM86
 	pushl %ecx			# save ti_flags for do_notify_resume
 	call save_v86_state		# %eax contains pt_regs pointer
 	popl %ecx
@@ -341,6 +366,7 @@ work_notifysig_v86:
 	xorl %edx, %edx
 	call do_notify_resume
 	jmp resume_userspace
+#endif
 
 	# perform syscall exit tracing
 	ALIGN
@@ -407,7 +433,7 @@ syscall_badsys:
  * Build the entry stubs and pointer table with
  * some assembler magic.
  */
-.data
+.section .rodata,"a",@progbits
 ENTRY(interrupt)
 .text
 
@@ -417,7 +443,7 @@ ENTRY(irq_entries_start)
 	ALIGN
 1:	pushl $vector-256
 	jmp common_interrupt
-.data
+.section .rodata,"a",@progbits
 	.long 1b
 .text
 vector=vector+1
@@ -468,6 +494,15 @@ error_code:
 	movl %ecx, %ds
 	movl %ecx, %es
 	movl %esp,%eax			# pt_regs pointer
+
+#ifdef CONFIG_PAX_KERNEXEC
+	movl %cr0, %ecx
+	movl %ecx, %esi
+	orl $0x10000, %ecx
+	xorl %ecx, %esi
+	movl %ecx, %cr0
+#endif
+
 	call *%edi
 	jmp ret_from_exception
 
@@ -571,11 +606,10 @@ nmi_stack_fixup:
 nmi_debug_stack_check:
 	cmpw $__KERNEL_CS,16(%esp)
 	jne nmi_stack_correct
-	cmpl $debug - 1,(%esp)
-	jbe nmi_stack_correct
+	cmpl $debug,(%esp)
+	jb nmi_stack_correct
 	cmpl $debug_esp_fix_insn,(%esp)
-	jbe nmi_debug_stack_fixup
-nmi_debug_stack_fixup:
+	ja nmi_stack_correct
 	FIX_STACK(24,nmi_stack_correct, 1)
 	jmp nmi_stack_correct
 

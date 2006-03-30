@@ -34,10 +34,15 @@ extern int seq_default_timer_device;
 extern int seq_default_timer_subdevice;
 extern int seq_default_timer_resolution;
 
+/* allowed sequencer timer frequencies, in Hz */
+#define MIN_FREQUENCY		10
+#define MAX_FREQUENCY		6250
+#define DEFAULT_FREQUENCY	1000
+
 #define SKEW_BASE	0x10000	/* 16bit shift */
 
-static void snd_seq_timer_set_tick_resolution(seq_timer_tick_t *tick,
-					      int tempo, int ppq, int nticks)
+static void snd_seq_timer_set_tick_resolution(struct snd_seq_timer_tick *tick,
+					      int tempo, int ppq)
 {
 	if (tempo < 1000000)
 		tick->resolution = (tempo * 1000) / ppq;
@@ -51,14 +56,13 @@ static void snd_seq_timer_set_tick_resolution(seq_timer_tick_t *tick,
 	}
 	if (tick->resolution <= 0)
 		tick->resolution = 1;
-	tick->resolution *= nticks;
 	snd_seq_timer_update_tick(tick, 0);
 }
 
 /* create new timer (constructor) */
-seq_timer_t *snd_seq_timer_new(void)
+struct snd_seq_timer *snd_seq_timer_new(void)
 {
-	seq_timer_t *tmr;
+	struct snd_seq_timer *tmr;
 	
 	tmr = kzalloc(sizeof(*tmr), GFP_KERNEL);
 	if (tmr == NULL) {
@@ -77,9 +81,9 @@ seq_timer_t *snd_seq_timer_new(void)
 }
 
 /* delete timer (destructor) */
-void snd_seq_timer_delete(seq_timer_t **tmr)
+void snd_seq_timer_delete(struct snd_seq_timer **tmr)
 {
-	seq_timer_t *t = *tmr;
+	struct snd_seq_timer *t = *tmr;
 	*tmr = NULL;
 
 	if (t == NULL) {
@@ -95,12 +99,12 @@ void snd_seq_timer_delete(seq_timer_t **tmr)
 	kfree(t);
 }
 
-void snd_seq_timer_defaults(seq_timer_t * tmr)
+void snd_seq_timer_defaults(struct snd_seq_timer * tmr)
 {
 	/* setup defaults */
 	tmr->ppq = 96;		/* 96 PPQ */
 	tmr->tempo = 500000;	/* 120 BPM */
-	snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq, 1);
+	snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq);
 	tmr->running = 0;
 
 	tmr->type = SNDRV_SEQ_TIMER_ALSA;
@@ -114,7 +118,7 @@ void snd_seq_timer_defaults(seq_timer_t * tmr)
 	tmr->skew = tmr->skew_base = SKEW_BASE;
 }
 
-void snd_seq_timer_reset(seq_timer_t * tmr)
+void snd_seq_timer_reset(struct snd_seq_timer * tmr)
 {
 	unsigned long flags;
 
@@ -132,13 +136,13 @@ void snd_seq_timer_reset(seq_timer_t * tmr)
 
 
 /* called by timer interrupt routine. the period time since previous invocation is passed */
-static void snd_seq_timer_interrupt(snd_timer_instance_t *timeri,
+static void snd_seq_timer_interrupt(struct snd_timer_instance *timeri,
 				    unsigned long resolution,
 				    unsigned long ticks)
 {
 	unsigned long flags;
-	queue_t *q = (queue_t *)timeri->callback_data;
-	seq_timer_t *tmr;
+	struct snd_seq_queue *q = timeri->callback_data;
+	struct snd_seq_timer *tmr;
 
 	if (q == NULL)
 		return;
@@ -173,7 +177,7 @@ static void snd_seq_timer_interrupt(snd_timer_instance_t *timeri,
 }
 
 /* set current tempo */
-int snd_seq_timer_set_tempo(seq_timer_t * tmr, int tempo)
+int snd_seq_timer_set_tempo(struct snd_seq_timer * tmr, int tempo)
 {
 	unsigned long flags;
 
@@ -183,14 +187,14 @@ int snd_seq_timer_set_tempo(seq_timer_t * tmr, int tempo)
 	spin_lock_irqsave(&tmr->lock, flags);
 	if ((unsigned int)tempo != tmr->tempo) {
 		tmr->tempo = tempo;
-		snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq, 1);
+		snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq);
 	}
 	spin_unlock_irqrestore(&tmr->lock, flags);
 	return 0;
 }
 
 /* set current ppq */
-int snd_seq_timer_set_ppq(seq_timer_t * tmr, int ppq)
+int snd_seq_timer_set_ppq(struct snd_seq_timer * tmr, int ppq)
 {
 	unsigned long flags;
 
@@ -207,13 +211,14 @@ int snd_seq_timer_set_ppq(seq_timer_t * tmr, int ppq)
 	}
 
 	tmr->ppq = ppq;
-	snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq, 1);
+	snd_seq_timer_set_tick_resolution(&tmr->tick, tmr->tempo, tmr->ppq);
 	spin_unlock_irqrestore(&tmr->lock, flags);
 	return 0;
 }
 
 /* set current tick position */
-int snd_seq_timer_set_position_tick(seq_timer_t *tmr, snd_seq_tick_time_t position)
+int snd_seq_timer_set_position_tick(struct snd_seq_timer *tmr,
+				    snd_seq_tick_time_t position)
 {
 	unsigned long flags;
 
@@ -227,7 +232,8 @@ int snd_seq_timer_set_position_tick(seq_timer_t *tmr, snd_seq_tick_time_t positi
 }
 
 /* set current real-time position */
-int snd_seq_timer_set_position_time(seq_timer_t *tmr, snd_seq_real_time_t position)
+int snd_seq_timer_set_position_time(struct snd_seq_timer *tmr,
+				    snd_seq_real_time_t position)
 {
 	unsigned long flags;
 
@@ -241,7 +247,8 @@ int snd_seq_timer_set_position_time(seq_timer_t *tmr, snd_seq_real_time_t positi
 }
 
 /* set timer skew */
-int snd_seq_timer_set_skew(seq_timer_t *tmr, unsigned int skew, unsigned int base)
+int snd_seq_timer_set_skew(struct snd_seq_timer *tmr, unsigned int skew,
+			   unsigned int base)
 {
 	unsigned long flags;
 
@@ -258,10 +265,10 @@ int snd_seq_timer_set_skew(seq_timer_t *tmr, unsigned int skew, unsigned int bas
 	return 0;
 }
 
-int snd_seq_timer_open(queue_t *q)
+int snd_seq_timer_open(struct snd_seq_queue *q)
 {
-	snd_timer_instance_t *t;
-	seq_timer_t *tmr;
+	struct snd_timer_instance *t;
+	struct snd_seq_timer *tmr;
 	char str[32];
 	int err;
 
@@ -278,7 +285,7 @@ int snd_seq_timer_open(queue_t *q)
 	if (err < 0 && tmr->alsa_id.dev_class != SNDRV_TIMER_CLASS_SLAVE) {
 		if (tmr->alsa_id.dev_class != SNDRV_TIMER_CLASS_GLOBAL ||
 		    tmr->alsa_id.device != SNDRV_TIMER_GLOBAL_SYSTEM) {
-			snd_timer_id_t tid;
+			struct snd_timer_id tid;
 			memset(&tid, 0, sizeof(tid));
 			tid.dev_class = SNDRV_TIMER_CLASS_GLOBAL;
 			tid.dev_sclass = SNDRV_TIMER_SCLASS_SEQUENCER;
@@ -298,9 +305,9 @@ int snd_seq_timer_open(queue_t *q)
 	return 0;
 }
 
-int snd_seq_timer_close(queue_t *q)
+int snd_seq_timer_close(struct snd_seq_queue *q)
 {
-	seq_timer_t *tmr;
+	struct snd_seq_timer *tmr;
 	
 	tmr = q->timer;
 	snd_assert(tmr != NULL, return -EINVAL);
@@ -312,7 +319,7 @@ int snd_seq_timer_close(queue_t *q)
 	return 0;
 }
 
-int snd_seq_timer_stop(seq_timer_t * tmr)
+int snd_seq_timer_stop(struct snd_seq_timer * tmr)
 {
 	if (! tmr->timeri)
 		return -EINVAL;
@@ -323,20 +330,29 @@ int snd_seq_timer_stop(seq_timer_t * tmr)
 	return 0;
 }
 
-static int initialize_timer(seq_timer_t *tmr)
+static int initialize_timer(struct snd_seq_timer *tmr)
 {
-	snd_timer_t *t;
+	struct snd_timer *t;
+	unsigned long freq;
+
 	t = tmr->timeri->timer;
 	snd_assert(t, return -EINVAL);
 
+	freq = tmr->preferred_resolution;
+	if (!freq)
+		freq = DEFAULT_FREQUENCY;
+	else if (freq < MIN_FREQUENCY)
+		freq = MIN_FREQUENCY;
+	else if (freq > MAX_FREQUENCY)
+		freq = MAX_FREQUENCY;
+
 	tmr->ticks = 1;
-	if (tmr->preferred_resolution &&
-	    ! (t->hw.flags & SNDRV_TIMER_HW_SLAVE)) {
+	if (!(t->hw.flags & SNDRV_TIMER_HW_SLAVE)) {
 		unsigned long r = t->hw.resolution;
 		if (! r && t->hw.c_resolution)
 			r = t->hw.c_resolution(t);
 		if (r) {
-			tmr->ticks = (unsigned int)(1000000000uL / (r * tmr->preferred_resolution));
+			tmr->ticks = (unsigned int)(1000000000uL / (r * freq));
 			if (! tmr->ticks)
 				tmr->ticks = 1;
 		}
@@ -345,7 +361,7 @@ static int initialize_timer(seq_timer_t *tmr)
 	return 0;
 }
 
-int snd_seq_timer_start(seq_timer_t * tmr)
+int snd_seq_timer_start(struct snd_seq_timer * tmr)
 {
 	if (! tmr->timeri)
 		return -EINVAL;
@@ -360,7 +376,7 @@ int snd_seq_timer_start(seq_timer_t * tmr)
 	return 0;
 }
 
-int snd_seq_timer_continue(seq_timer_t * tmr)
+int snd_seq_timer_continue(struct snd_seq_timer * tmr)
 {
 	if (! tmr->timeri)
 		return -EINVAL;
@@ -378,7 +394,7 @@ int snd_seq_timer_continue(seq_timer_t * tmr)
 }
 
 /* return current 'real' time. use timeofday() to get better granularity. */
-snd_seq_real_time_t snd_seq_timer_get_cur_time(seq_timer_t *tmr)
+snd_seq_real_time_t snd_seq_timer_get_cur_time(struct snd_seq_timer *tmr)
 {
 	snd_seq_real_time_t cur_time;
 
@@ -403,19 +419,21 @@ snd_seq_real_time_t snd_seq_timer_get_cur_time(seq_timer_t *tmr)
 
 /* TODO: use interpolation on tick queue (will only be useful for very
  high PPQ values) */
-snd_seq_tick_time_t snd_seq_timer_get_cur_tick(seq_timer_t *tmr)
+snd_seq_tick_time_t snd_seq_timer_get_cur_tick(struct snd_seq_timer *tmr)
 {
 	return tmr->tick.cur_tick;
 }
 
 
+#ifdef CONFIG_PROC_FS
 /* exported to seq_info.c */
-void snd_seq_info_timer_read(snd_info_entry_t *entry, snd_info_buffer_t * buffer)
+void snd_seq_info_timer_read(struct snd_info_entry *entry,
+			     struct snd_info_buffer *buffer)
 {
 	int idx;
-	queue_t *q;
-	seq_timer_t *tmr;
-	snd_timer_instance_t *ti;
+	struct snd_seq_queue *q;
+	struct snd_seq_timer *tmr;
+	struct snd_timer_instance *ti;
 	unsigned long resolution;
 	
 	for (idx = 0; idx < SNDRV_SEQ_MAX_QUEUES; idx++) {
@@ -434,3 +452,5 @@ void snd_seq_info_timer_read(snd_info_entry_t *entry, snd_info_buffer_t * buffer
 		queuefree(q);
  	}
 }
+#endif /* CONFIG_PROC_FS */
+

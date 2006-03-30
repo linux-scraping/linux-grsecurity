@@ -27,6 +27,9 @@
 #include <linux/types.h>
 #include <linux/ptrace.h>
 
+#define  __ARCH_WANT_KPROBES_INSN_SLOT
+
+struct kprobe;
 struct pt_regs;
 
 typedef u8 kprobe_opcode_t;
@@ -41,14 +44,32 @@ typedef u8 kprobe_opcode_t;
 #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)pentry
 #define ARCH_SUPPORTS_KRETPROBES
 
+void arch_remove_kprobe(struct kprobe *p);
 void kretprobe_trampoline(void);
 
 /* Architecture specific copy of original instruction*/
 struct arch_specific_insn {
 	/* copy of the original instruction */
-	kprobe_opcode_t insn[MAX_INSN_SIZE];
+	kprobe_opcode_t *insn;
 };
 
+struct prev_kprobe {
+	struct kprobe *kp;
+	unsigned long status;
+	unsigned long old_eflags;
+	unsigned long saved_eflags;
+};
+
+/* per-cpu kprobe control block */
+struct kprobe_ctlblk {
+	unsigned long kprobe_status;
+	unsigned long kprobe_old_eflags;
+	unsigned long kprobe_saved_eflags;
+	long *jprobe_saved_esp;
+	struct pt_regs jprobe_saved_regs;
+	kprobe_opcode_t jprobes_stack[MAX_STACK_SIZE];
+	struct prev_kprobe prev_kprobe;
+};
 
 /* trap3/1 are intr gates for kprobes.  So, restore the status of IF,
  * if necessary, before executing the original int3/1 (trap) handler.
@@ -59,14 +80,6 @@ static inline void restore_interrupts(struct pt_regs *regs)
 		local_irq_enable();
 }
 
-#ifdef CONFIG_KPROBES
 extern int kprobe_exceptions_notify(struct notifier_block *self,
 				    unsigned long val, void *data);
-#else				/* !CONFIG_KPROBES */
-static inline int kprobe_exceptions_notify(struct notifier_block *self,
-					   unsigned long val, void *data)
-{
-	return 0;
-}
-#endif
 #endif				/* _ASM_KPROBES_H */

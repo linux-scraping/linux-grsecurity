@@ -20,6 +20,7 @@
 #include <linux/serial.h>
 #include <linux/sched.h>
 #include <linux/tty.h>
+#include <linux/platform_device.h>
 #include <linux/serial_core.h>
 #include <linux/bootmem.h>
 #include <linux/interrupt.h>
@@ -44,24 +45,24 @@
 static struct map_desc ixp4xx_io_desc[] __initdata = {
 	{	/* UART, Interrupt ctrl, GPIO, timers, NPEs, MACs, USB .... */
 		.virtual	= IXP4XX_PERIPHERAL_BASE_VIRT,
-		.physical	= IXP4XX_PERIPHERAL_BASE_PHYS,
+		.pfn		= __phys_to_pfn(IXP4XX_PERIPHERAL_BASE_PHYS),
 		.length		= IXP4XX_PERIPHERAL_REGION_SIZE,
 		.type		= MT_DEVICE
 	}, {	/* Expansion Bus Config Registers */
 		.virtual	= IXP4XX_EXP_CFG_BASE_VIRT,
-		.physical	= IXP4XX_EXP_CFG_BASE_PHYS,
+		.pfn		= __phys_to_pfn(IXP4XX_EXP_CFG_BASE_PHYS),
 		.length		= IXP4XX_EXP_CFG_REGION_SIZE,
 		.type		= MT_DEVICE
 	}, {	/* PCI Registers */
 		.virtual	= IXP4XX_PCI_CFG_BASE_VIRT,
-		.physical	= IXP4XX_PCI_CFG_BASE_PHYS,
+		.pfn		= __phys_to_pfn(IXP4XX_PCI_CFG_BASE_PHYS),
 		.length		= IXP4XX_PCI_CFG_REGION_SIZE,
 		.type		= MT_DEVICE
 	},
 #ifdef CONFIG_DEBUG_LL
 	{	/* Debug UART mapping */
 		.virtual	= IXP4XX_DEBUG_UART_BASE_VIRT,
-		.physical	= IXP4XX_DEBUG_UART_BASE_PHYS,
+		.pfn		= __phys_to_pfn(IXP4XX_DEBUG_UART_BASE_PHYS),
 		.length		= IXP4XX_DEBUG_UART_REGION_SIZE,
 		.type		= MT_DEVICE
 	}
@@ -110,24 +111,30 @@ static int ixp4xx_set_irq_type(unsigned int irq, unsigned int type)
 	if (line < 0)
 		return -EINVAL;
 
-	if (type & IRQT_BOTHEDGE) {
+	switch (type){
+	case IRQT_BOTHEDGE:
 		int_style = IXP4XX_GPIO_STYLE_TRANSITIONAL;
 		irq_type = IXP4XX_IRQ_EDGE;
-	} else  if (type & IRQT_RISING) {
+		break;
+	case IRQT_RISING:
 		int_style = IXP4XX_GPIO_STYLE_RISING_EDGE;
 		irq_type = IXP4XX_IRQ_EDGE;
-	} else if (type & IRQT_FALLING) {
+		break;
+	case IRQT_FALLING:
 		int_style = IXP4XX_GPIO_STYLE_FALLING_EDGE;
 		irq_type = IXP4XX_IRQ_EDGE;
-	} else if (type & IRQT_HIGH) {
+		break;
+	case IRQT_HIGH:
 		int_style = IXP4XX_GPIO_STYLE_ACTIVE_HIGH;
 		irq_type = IXP4XX_IRQ_LEVEL;
-	} else if (type & IRQT_LOW) {
+		break;
+	case IRQT_LOW:
 		int_style = IXP4XX_GPIO_STYLE_ACTIVE_LOW;
 		irq_type = IXP4XX_IRQ_LEVEL;
-	} else
+		break;
+	default:
 		return -EINVAL;
-
+	}
 	ixp4xx_config_irq(irq, irq_type);
 
 	if (line >= 8) {	/* pins 8-15 */
@@ -140,6 +147,8 @@ static int ixp4xx_set_irq_type(unsigned int irq, unsigned int type)
 	/* Clear the style for the appropriate pin */
 	*int_reg &= ~(IXP4XX_GPIO_STYLE_CLEAR <<
 	    		(line * IXP4XX_GPIO_STYLE_SIZE));
+
+	*IXP4XX_GPIO_GPISR = (1 << line);
 
 	/* Set the new style */
 	*int_reg |= (int_style << (line * IXP4XX_GPIO_STYLE_SIZE));
@@ -168,7 +177,7 @@ static void ixp4xx_irq_ack(unsigned int irq)
 	int line = (irq < 32) ? irq2gpio[irq] : -1;
 
 	if (line >= 0)
-		gpio_line_isr_clear(line);
+		*IXP4XX_GPIO_GPISR = (1 << line);
 }
 
 /*
@@ -329,11 +338,28 @@ static struct platform_device *ixp46x_devices[] __initdata = {
 	&ixp46x_i2c_controller
 };
 
+unsigned long ixp4xx_exp_bus_size;
+EXPORT_SYMBOL(ixp4xx_exp_bus_size);
+
 void __init ixp4xx_sys_init(void)
 {
+	ixp4xx_exp_bus_size = SZ_16M;
+
 	if (cpu_is_ixp46x()) {
+		int region;
+
 		platform_add_devices(ixp46x_devices,
 				ARRAY_SIZE(ixp46x_devices));
+
+		for (region = 0; region < 7; region++) {
+			if((*(IXP4XX_EXP_REG(0x4 * region)) & 0x200)) {
+				ixp4xx_exp_bus_size = SZ_32M;
+				break;
+			}
+		}
 	}
+
+	printk("IXP4xx: Using %luMiB expansion bus window size\n",
+			ixp4xx_exp_bus_size >> 20);
 }
 

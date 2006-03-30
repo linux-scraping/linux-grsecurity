@@ -16,7 +16,7 @@
 #define dma_free_coherent(dev, size, va, addr)		\
 		pci_free_consistent(alpha_gendev_to_pci(dev), size, va, addr)
 #define dma_map_page(dev, page, off, size, dir)		\
-		pci_map_single(alpha_gendev_to_pci(dev), page, off, size, dir)
+		pci_map_page(alpha_gendev_to_pci(dev), page, off, size, dir)
 #define dma_unmap_page(dev, addr, size, dir)		\
 		pci_unmap_page(alpha_gendev_to_pci(dev), addr, size, dir)
 #define dma_map_sg(dev, sg, nents, dir)			\
@@ -30,8 +30,9 @@
 
 #else	/* no PCI - no IOMMU. */
 
+struct scatterlist;
 void *dma_alloc_coherent(struct device *dev, size_t size,
-			 dma_addr_t *dma_handle, int gfp);
+			 dma_addr_t *dma_handle, gfp_t gfp);
 int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 	       enum dma_data_direction direction);
 

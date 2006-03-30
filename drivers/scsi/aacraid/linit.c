@@ -46,7 +46,6 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/syscalls.h>
-#include <linux/ioctl32.h>
 #include <linux/delay.h>
 #include <linux/smp_lock.h>
 #include <asm/semaphore.h>
@@ -201,10 +200,10 @@ static struct aac_driver_ident aac_drivers[] = {
 	{ aac_rkt_init, "aacraid",  "ADAPTEC ", "Callisto        ", 2, AAC_QUIRK_MASTER }, /* Jupiter Platform */
 	{ aac_rx_init, "aacraid",  "ADAPTEC ", "ASR-2020SA       ", 1 }, /* ASR-2020SA SATA PCI-X ZCR (Skyhawk) */
 	{ aac_rx_init, "aacraid",  "ADAPTEC ", "ASR-2025SA       ", 1 }, /* ASR-2025SA SATA SO-DIMM PCI-X ZCR (Terminator) */
-	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-2410SA SATA ", 1 }, /* AAR-2410SA PCI SATA 4ch (Jaguar II) */
-	{ aac_rx_init, "aacraid",  "DELL    ", "CERC SR2        ", 1 }, /* CERC SATA RAID 2 PCI SATA 6ch (DellCorsair) */
-	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-2810SA SATA ", 1 }, /* AAR-2810SA PCI SATA 8ch (Corsair-8) */
-	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-21610SA SATA", 1 }, /* AAR-21610SA PCI SATA 16ch (Corsair-16) */
+	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-2410SA SATA ", 1, AAC_QUIRK_17SG }, /* AAR-2410SA PCI SATA 4ch (Jaguar II) */
+	{ aac_rx_init, "aacraid",  "DELL    ", "CERC SR2        ", 1, AAC_QUIRK_17SG }, /* CERC SATA RAID 2 PCI SATA 6ch (DellCorsair) */
+	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-2810SA SATA ", 1, AAC_QUIRK_17SG }, /* AAR-2810SA PCI SATA 8ch (Corsair-8) */
+	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-21610SA SATA", 1, AAC_QUIRK_17SG }, /* AAR-21610SA PCI SATA 16ch (Corsair-16) */
 	{ aac_rx_init, "aacraid",  "ADAPTEC ", "ASR-2026ZCR     ", 1 }, /* ESD SO-DIMM PCI-X SATA ZCR (Prowler) */
 	{ aac_rx_init, "aacraid",  "ADAPTEC ", "AAR-2610SA      ", 1 }, /* SATA 6Ch (Bearcat) */
 	{ aac_rx_init, "aacraid",  "ADAPTEC ", "ASR-2240S       ", 1 }, /* ASR-2240S (SabreExpress) */
@@ -325,6 +324,8 @@ static int aac_biosparm(struct scsi_device *sdev, struct block_device *bdev,
 	 *	translations ( 64/32, 128/32, 255/63 ).
 	 */
 	buf = scsi_bios_ptable(bdev);
+	if (!buf)
+		return 0;
 	if(*(__le16 *)(buf + 0x40) == cpu_to_le16(0xaa55)) {
 		struct partition *first = (struct partition * )buf;
 		struct partition *entry = first;
@@ -384,16 +385,44 @@ static int aac_biosparm(struct scsi_device *sdev, struct block_device *bdev,
 
 static int aac_slave_configure(struct scsi_device *sdev)
 {
-	struct Scsi_Host *host = sdev->host;
+	if (sdev_channel(sdev) == CONTAINER_CHANNEL) {
+		sdev->skip_ms_page_8 = 1;
+		sdev->skip_ms_page_3f = 1;
+	}
+	if ((sdev->type == TYPE_DISK) &&
+			(sdev_channel(sdev) != CONTAINER_CHANNEL)) {
+		struct aac_dev *aac = (struct aac_dev *)sdev->host->hostdata;
+		if (!aac->raid_scsi_mode || (sdev_channel(sdev) != 2))
+			sdev->no_uld_attach = 1;
+	}
+	if (sdev->tagged_supported && (sdev->type == TYPE_DISK) &&
+			(sdev_channel(sdev) == CONTAINER_CHANNEL)) {
+		struct scsi_device * dev;
+		struct Scsi_Host *host = sdev->host;
+		unsigned num_lsu = 0;
+		unsigned num_one = 0;
+		unsigned depth;
 
-	if (sdev->tagged_supported)
-		scsi_adjust_queue_depth(sdev, MSG_ORDERED_TAG, 128);
-	else
+		__shost_for_each_device(dev, host) {
+			if (dev->tagged_supported && (dev->type == TYPE_DISK) &&
+				(sdev_channel(dev) == CONTAINER_CHANNEL))
+				++num_lsu;
+			else
+				++num_one;
+		}
+		if (num_lsu == 0)
+			++num_lsu;
+		depth = (host->can_queue - num_one) / num_lsu;
+		if (depth > 256)
+			depth = 256;
+		else if (depth < 2)
+			depth = 2;
+		scsi_adjust_queue_depth(sdev, MSG_ORDERED_TAG, depth);
+		if (!(((struct aac_dev *)host->hostdata)->adapter_info.options &
+				AAC_OPT_NEW_COMM))
+			blk_queue_max_segment_size(sdev->request_queue, 65536);
+	} else
 		scsi_adjust_queue_depth(sdev, 0, 1);
-
-	if (!(((struct aac_dev *)host->hostdata)->adapter_info.options
-	  & AAC_OPT_NEW_COMM))
-		blk_queue_max_segment_size(sdev->request_queue, 65536);
 
 	return 0;
 }
@@ -573,7 +602,15 @@ static ssize_t aac_show_model(struct class_device *class_dev,
 	struct aac_dev *dev = (struct aac_dev*)class_to_shost(class_dev)->hostdata;
 	int len;
 
-	len = snprintf(buf, PAGE_SIZE, "%s\n",
+	if (dev->supplement_adapter_info.AdapterTypeText[0]) {
+		char * cp = dev->supplement_adapter_info.AdapterTypeText;
+		while (*cp && *cp != ' ')
+			++cp;
+		while (*cp == ' ')
+			++cp;
+		len = snprintf(buf, PAGE_SIZE, "%s\n", cp);
+	} else
+		len = snprintf(buf, PAGE_SIZE, "%s\n",
 		  aac_drivers[dev->cardtype].model);
 	return len;
 }
@@ -584,7 +621,15 @@ static ssize_t aac_show_vendor(struct class_device *class_dev,
 	struct aac_dev *dev = (struct aac_dev*)class_to_shost(class_dev)->hostdata;
 	int len;
 
-	len = snprintf(buf, PAGE_SIZE, "%s\n",
+	if (dev->supplement_adapter_info.AdapterTypeText[0]) {
+		char * cp = dev->supplement_adapter_info.AdapterTypeText;
+		while (*cp && *cp != ' ')
+			++cp;
+		len = snprintf(buf, PAGE_SIZE, "%.*s\n",
+		  (int)(cp - (char *)dev->supplement_adapter_info.AdapterTypeText),
+		  dev->supplement_adapter_info.AdapterTypeText);
+	} else
+		len = snprintf(buf, PAGE_SIZE, "%s\n",
 		  aac_drivers[dev->cardtype].vname);
 	return len;
 }
@@ -752,8 +797,8 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
 	if (error)
 		goto out;
 
-	if (pci_set_dma_mask(pdev, 0xFFFFFFFFULL) || 
-			pci_set_consistent_dma_mask(pdev, 0xFFFFFFFFULL))
+	if (pci_set_dma_mask(pdev, DMA_32BIT_MASK) || 
+			pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK))
 		goto out;
 	/*
 	 * If the quirk31 bit is set, the adapter needs adapter
@@ -788,8 +833,29 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
 		goto out_free_host;
 	spin_lock_init(&aac->fib_lock);
 
-	if ((*aac_drivers[index].init)(aac))
+	/*
+	 *	Map in the registers from the adapter.
+	 */
+	aac->base_size = AAC_MIN_FOOTPRINT_SIZE;
+	if ((aac->regs.sa = ioremap(
+	  (unsigned long)aac->scsi_host_ptr->base, AAC_MIN_FOOTPRINT_SIZE))
+	  == NULL) {	
+		printk(KERN_WARNING "%s: unable to map adapter.\n",
+		  AAC_DRIVERNAME);
 		goto out_free_fibs;
+	}
+	if ((*aac_drivers[index].init)(aac))
+		goto out_unmap;
+
+	/*
+	 *	Start any kernel threads needed
+	 */
+	aac->thread_pid = kernel_thread((int (*)(void *))aac_command_thread,
+	  aac, 0);
+	if (aac->thread_pid < 0) {
+		printk(KERN_ERR "aacraid: Unable to create command thread.\n");
+		goto out_deinit;
+	}
 
 	/*
 	 * If we had set a smaller DMA mask earlier, set it to 4gig
@@ -797,9 +863,9 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
 	 * address space.
 	 */
 	if (aac_drivers[index].quirks & AAC_QUIRK_31BIT)
-		if (pci_set_dma_mask(pdev, 0xFFFFFFFFULL))
-			goto out_free_fibs;
-
+		if (pci_set_dma_mask(pdev, DMA_32BIT_MASK))
+			goto out_deinit;
+ 
 	aac->maximum_num_channels = aac_drivers[index].channels;
 	error = aac_get_adapter_info(aac);
 	if (error < 0)
@@ -815,6 +881,13 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
  		  = (aac->scsi_host_ptr->sg_tablesize * 8) + 112;
  	}
 
+ 	if ((aac_drivers[index].quirks & AAC_QUIRK_17SG) &&
+			(aac->scsi_host_ptr->sg_tablesize > 17)) {
+ 		aac->scsi_host_ptr->sg_tablesize = 17;
+ 		aac->scsi_host_ptr->max_sectors
+ 		  = (aac->scsi_host_ptr->sg_tablesize * 8) + 112;
+ 	}
+
 	/*
 	 * Firware printf works only with older firmware.
 	 */
@@ -825,7 +898,7 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
  
  	/*
 	 * max channel will be the physical channels plus 1 virtual channel
-	 * all containers are on the virtual channel 0
+	 * all containers are on the virtual channel 0 (CONTAINER_CHANNEL)
 	 * physical channels are address by their actual physical number+1
 	 */
 	if (aac->nondasd_support == 1)
@@ -866,10 +939,11 @@ static int __devinit aac_probe_one(struct pci_dev *pdev,
 
 	aac_send_shutdown(aac);
 	aac_adapter_disable_int(aac);
-	fib_map_free(aac);
+	free_irq(pdev->irq, aac);
+ out_unmap:
+	aac_fib_map_free(aac);
 	pci_free_consistent(aac->pdev, aac->comm_size, aac->comm_addr, aac->comm_phys);
 	kfree(aac->queues);
-	free_irq(pdev->irq, aac);
 	iounmap(aac->regs.sa);
  out_free_fibs:
 	kfree(aac->fibs);
@@ -901,7 +975,7 @@ static void __devexit aac_remove_one(struct pci_dev *pdev)
 
 	aac_send_shutdown(aac);
 	aac_adapter_disable_int(aac);
-	fib_map_free(aac);
+	aac_fib_map_free(aac);
 	pci_free_consistent(aac->pdev, aac->comm_size, aac->comm_addr,
 			aac->comm_phys);
 	kfree(aac->queues);
@@ -910,6 +984,7 @@ static void __devexit aac_remove_one(struct pci_dev *pdev)
 	iounmap(aac->regs.sa);
 	
 	kfree(aac->fibs);
+	kfree(aac->fsa_dev);
 	
 	list_del(&aac->entry);
 	scsi_host_put(shost);

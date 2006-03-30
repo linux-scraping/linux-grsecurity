@@ -56,6 +56,8 @@
 static DEFINE_SPINLOCK(vga_lock);
 static int cursor_size_lastfrom;
 static int cursor_size_lastto;
+static u32 vgacon_xres;
+static u32 vgacon_yres;
 static struct vgastate state;
 
 #define BLANK 0x0020
@@ -69,7 +71,7 @@ static struct vgastate state;
  * appear.
  */
 #undef TRIDENT_GLITCH
-
+#define VGA_FONTWIDTH       8   /* VGA does not support fontwidths != 8 */
 /*
  *  Interface used by the world
  */
@@ -325,6 +327,10 @@ static const char __init *vgacon_startup(void)
 		vga_scan_lines =
 		    vga_video_font_height * vga_video_num_lines;
 	}
+
+	vgacon_xres = ORIG_VIDEO_COLS * VGA_FONTWIDTH;
+	vgacon_yres = vga_scan_lines;
+
 	return display_desc;
 }
 
@@ -448,7 +454,8 @@ static void vgacon_cursor(struct vc_data *c, int mode)
 		vgacon_scrolldelta(c, 0);
 	switch (mode) {
 	case CM_ERASE:
-		write_vga(14, (vga_vram_end - vga_vram_base - 1) / 2);
+		write_vga(14, (c->vc_pos - vga_vram_base) / 2);
+		vgacon_set_cursor_size(c->vc_x, 31, 30);
 		break;
 
 	case CM_MOVE:
@@ -502,54 +509,69 @@ static int vgacon_doresize(struct vc_data *c,
 {
 	unsigned long flags;
 	unsigned int scanlines = height * c->vc_font.height;
-	u8 scanlines_lo, r7, vsync_end, mode;
+	u8 scanlines_lo = 0, r7 = 0, vsync_end = 0, mode, max_scan;
 
 	spin_lock_irqsave(&vga_lock, flags);
 
-	outb_p(VGA_CRTC_MODE, vga_video_port_reg);
-	mode = inb_p(vga_video_port_val);
+	vgacon_xres = width * VGA_FONTWIDTH;
+	vgacon_yres = height * c->vc_font.height;
+	if (vga_video_type >= VIDEO_TYPE_VGAC) {
+		outb_p(VGA_CRTC_MAX_SCAN, vga_video_port_reg);
+		max_scan = inb_p(vga_video_port_val);
 
-	if (mode & 0x04)
-		scanlines >>= 1;
+		if (max_scan & 0x80)
+			scanlines <<= 1;
 
-	scanlines -= 1;
-	scanlines_lo = scanlines & 0xff;
+		outb_p(VGA_CRTC_MODE, vga_video_port_reg);
+		mode = inb_p(vga_video_port_val);
 
-	outb_p(VGA_CRTC_OVERFLOW, vga_video_port_reg);
-	r7 = inb_p(vga_video_port_val) & ~0x42;
+		if (mode & 0x04)
+			scanlines >>= 1;
 
-	if (scanlines & 0x100)
-		r7 |= 0x02;
-	if (scanlines & 0x200)
-		r7 |= 0x40;
+		scanlines -= 1;
+		scanlines_lo = scanlines & 0xff;
 
-	/* deprotect registers */
-	outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
-	vsync_end = inb_p(vga_video_port_val);
-	outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
-	outb_p(vsync_end & ~0x80, vga_video_port_val);
+		outb_p(VGA_CRTC_OVERFLOW, vga_video_port_reg);
+		r7 = inb_p(vga_video_port_val) & ~0x42;
+
+		if (scanlines & 0x100)
+			r7 |= 0x02;
+		if (scanlines & 0x200)
+			r7 |= 0x40;
+
+		/* deprotect registers */
+		outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
+		vsync_end = inb_p(vga_video_port_val);
+		outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
+		outb_p(vsync_end & ~0x80, vga_video_port_val);
+	}
 
 	outb_p(VGA_CRTC_H_DISP, vga_video_port_reg);
 	outb_p(width - 1, vga_video_port_val);
 	outb_p(VGA_CRTC_OFFSET, vga_video_port_reg);
 	outb_p(width >> 1, vga_video_port_val);
 
-	outb_p(VGA_CRTC_V_DISP_END, vga_video_port_reg);
-	outb_p(scanlines_lo, vga_video_port_val);
-	outb_p(VGA_CRTC_OVERFLOW, vga_video_port_reg);
-	outb_p(r7,vga_video_port_val);
+	if (vga_video_type >= VIDEO_TYPE_VGAC) {
+		outb_p(VGA_CRTC_V_DISP_END, vga_video_port_reg);
+		outb_p(scanlines_lo, vga_video_port_val);
+		outb_p(VGA_CRTC_OVERFLOW, vga_video_port_reg);
+		outb_p(r7,vga_video_port_val);
 
-	/* reprotect registers */
-	outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
-	outb_p(vsync_end, vga_video_port_val);
+		/* reprotect registers */
+		outb_p(VGA_CRTC_V_SYNC_END, vga_video_port_reg);
+		outb_p(vsync_end, vga_video_port_val);
+	}
 
 	spin_unlock_irqrestore(&vga_lock, flags);
-
 	return 0;
 }
 
 static int vgacon_switch(struct vc_data *c)
 {
+	int x = c->vc_cols * VGA_FONTWIDTH;
+	int y = c->vc_rows * c->vc_font.height;
+	int rows = ORIG_VIDEO_LINES * vga_default_font_height/
+		c->vc_font.height;
 	/*
 	 * We need to save screen size here as it's the only way
 	 * we can spot the screen has been resized and we need to
@@ -565,10 +587,11 @@ static int vgacon_switch(struct vc_data *c)
 		scr_memcpyw((u16 *) c->vc_origin, (u16 *) c->vc_screenbuf,
 			    c->vc_screenbuf_size > vga_vram_size ?
 				vga_vram_size : c->vc_screenbuf_size);
-		if (!(vga_video_num_columns % 2) &&
-		    vga_video_num_columns <= ORIG_VIDEO_COLS &&
-		    vga_video_num_lines <= (ORIG_VIDEO_LINES *
-			vga_default_font_height) / c->vc_font.height)
+
+		if ((vgacon_xres != x || vgacon_yres != y) &&
+		    (!(vga_video_num_columns % 2) &&
+		     vga_video_num_columns <= ORIG_VIDEO_COLS &&
+		     vga_video_num_lines <= rows))
 			vgacon_doresize(c, c->vc_cols, c->vc_rows);
 	}
 
@@ -579,6 +602,7 @@ static void vga_set_palette(struct vc_data *vc, unsigned char *table)
 {
 	int i, j;
 
+	vga_w(state.vgabase, VGA_PEL_MSK, 0xff);
 	for (i = j = 0; i < 16; i++) {
 		vga_w(state.vgabase, VGA_PEL_IW, table[i]);
 		vga_w(state.vgabase, VGA_PEL_D, vc->vc_palette[j++] >> 2);
@@ -721,6 +745,7 @@ static void vga_pal_blank(struct vgastate *state)
 {
 	int i;
 
+	vga_w(state->vgabase, VGA_PEL_MSK, 0xff);
 	for (i = 0; i < 16; i++) {
 		vga_w(state->vgabase, VGA_PEL_IW, i);
 		vga_w(state->vgabase, VGA_PEL_D, 0);
@@ -963,6 +988,7 @@ static int vgacon_adjust_height(struct vc_data *vc, unsigned fontheight)
 	outb_p(0x12, vga_video_port_reg);	/* Vertical display limit */
 	outb_p(vde, vga_video_port_val);
 	spin_unlock_irq(&vga_lock);
+	vga_video_font_height = fontheight;
 
 	for (i = 0; i < MAX_NR_CONSOLES; i++) {
 		struct vc_data *c = vc_cons[i].d;
@@ -989,7 +1015,8 @@ static int vgacon_font_set(struct vc_data *c, struct console_font *font, unsigne
 	if (vga_video_type < VIDEO_TYPE_EGAM)
 		return -EINVAL;
 
-	if (font->width != 8 || (charcount != 256 && charcount != 512))
+	if (font->width != VGA_FONTWIDTH ||
+	    (charcount != 256 && charcount != 512))
 		return -EINVAL;
 
 	rc = vgacon_do_font_op(&state, font->data, 1, charcount == 512);
@@ -1006,7 +1033,7 @@ static int vgacon_font_get(struct vc_data *c, struct console_font *font)
 	if (vga_video_type < VIDEO_TYPE_EGAM)
 		return -EINVAL;
 
-	font->width = 8;
+	font->width = VGA_FONTWIDTH;
 	font->height = c->vc_font.height;
 	font->charcount = vga_512_chars ? 512 : 256;
 	if (!font->data)

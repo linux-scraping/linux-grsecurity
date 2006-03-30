@@ -89,7 +89,7 @@ bubinga_early_serial_map(void)
           * by 16.
           */
 	uart_div = (mfdcr(DCRN_CPC0_UCR_BASE) & DCRN_CPC0_UCR_U0DIV);
-	uart_clock = __res.bi_pllouta_freq / uart_div;
+	uart_clock = __res.bi_procfreq / uart_div;
 
 	/* Setup serial port access */
 	memset(&port, 0, sizeof(port));
@@ -97,8 +97,8 @@ bubinga_early_serial_map(void)
 	port.irq = ACTING_UART0_INT;
 	port.uartclk = uart_clock;
 	port.regshift = 0;
-	port.iotype = SERIAL_IO_MEM;
-	port.flags = ASYNC_BOOT_AUTOCONF | ASYNC_SKIP_TEST;
+	port.iotype = UPIO_MEM;
+	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;
 	port.line = 0;
 
 	if (early_serial_setup(&port) != 0) {

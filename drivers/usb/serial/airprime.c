@@ -23,16 +23,18 @@ static struct usb_device_id id_table [] = {
 MODULE_DEVICE_TABLE(usb, id_table);
 
 static struct usb_driver airprime_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"airprime",
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table,
+	.no_dynamic_id = 	1,
 };
 
-static struct usb_serial_device_type airprime_device = {
-	.owner =		THIS_MODULE,
-	.name =			"airprime",
+static struct usb_serial_driver airprime_device = {
+	.driver = {
+		.owner =	THIS_MODULE,
+		.name =		"airprime",
+	},
 	.id_table =		id_table,
 	.num_interrupt_in =	NUM_DONT_CARE,
 	.num_bulk_in =		NUM_DONT_CARE,

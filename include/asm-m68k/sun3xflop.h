@@ -27,10 +27,8 @@
 
 /* We don't need no stinkin' I/O port allocation crap. */
 #undef release_region
-#undef check_region
 #undef request_region
 #define release_region(X, Y)	do { } while(0)
-#define check_region(X, Y)	(0)
 #define request_region(X, Y, Z)	(1)
 
 struct sun3xflop_private {
@@ -210,7 +208,7 @@ static int sun3xflop_request_irq(void)
 
 	if(!once) {
 		once = 1;
-		error = request_irq(FLOPPY_IRQ, sun3xflop_hardint, SA_INTERRUPT, "floppy", 0);
+		error = request_irq(FLOPPY_IRQ, sun3xflop_hardint, SA_INTERRUPT, "floppy", NULL);
 		return ((error == 0) ? 0 : -1);
 	} else return 0;
 }
@@ -240,7 +238,7 @@ static int sun3xflop_init(void)
 	*sun3x_fdc.fcr_r = 0;
 
 	/* Success... */
-	floppy_set_flags(0, 1, FD_BROKEN_DCL); // I don't know how to detect this.
+	floppy_set_flags(NULL, 1, FD_BROKEN_DCL); // I don't know how to detect this.
 	allowed_drive_mask = 0x01;
 	return (int) SUN3X_FDC;
 }

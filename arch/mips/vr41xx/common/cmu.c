@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2001-2002  MontaVista Software Inc.
  *    Author: Yoichi Yuasa <yyuasa@mvista.com or source@mvista.com>
- *  Copuright (C) 2003-2005  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Copuright (C) 2003-2005  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
  *  - New creation, NEC VR4122 and VR4131 are supported.
  *  - Added support for NEC VR4111 and VR4121.
  *
- *  Yoichi Yuasa <yuasa@hh.iij4u.or.jp>
+ *  Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
  *  - Added support for NEC VR4133.
  */
 #include <linux/init.h>
@@ -69,7 +69,7 @@
 
 static void __iomem *cmu_base;
 static uint16_t cmuclkmsk, cmuclkmsk2;
-static spinlock_t cmu_lock;
+static DEFINE_SPINLOCK(cmu_lock);
 
 #define cmu_read(offset)		readw(cmu_base + (offset))
 #define cmu_write(offset, value)	writew((value), cmu_base + (offset))

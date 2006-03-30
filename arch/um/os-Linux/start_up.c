@@ -24,13 +24,11 @@
 #include "kern_util.h"
 #include "user.h"
 #include "signal_kern.h"
-#include "signal_user.h"
 #include "sysdep/ptrace.h"
 #include "sysdep/sigcontext.h"
 #include "irq_user.h"
 #include "ptrace_user.h"
 #include "mem_user.h"
-#include "time_user.h"
 #include "init.h"
 #include "os.h"
 #include "uml-config.h"
@@ -51,6 +49,7 @@ static int ptrace_child(void *arg)
 	int pid = os_getpid(), ppid = getppid();
 	int sc_result;
 
+	change_sig(SIGWINCH, 0);
 	if(ptrace(PTRACE_TRACEME, 0, 0, 0) < 0){
 		perror("ptrace");
 		os_kill_process(pid, 0);
@@ -116,16 +115,16 @@ static int stop_ptraced_child(int pid, void *stack, int exitcode,
 	if(!WIFEXITED(status) || (WEXITSTATUS(status) != exitcode)) {
 		int exit_with = WEXITSTATUS(status);
 		if (exit_with == 2)
-			printk("check_ptrace : child exited with status 2. "
+			printf("check_ptrace : child exited with status 2. "
 			       "Serious trouble happening! Try updating your "
 			       "host skas patch!\nDisabling SYSEMU support.");
-		printk("check_ptrace : child exited with exitcode %d, while "
+		printf("check_ptrace : child exited with exitcode %d, while "
 		      "expecting %d; status 0x%x", exit_with,
 		      exitcode, status);
 		if (mustpanic)
 			panic("\n");
 		else
-			printk("\n");
+			printf("\n");
 		ret = -1;
 	}
 
@@ -135,7 +134,9 @@ static int stop_ptraced_child(int pid, void *stack, int exitcode,
 }
 
 int ptrace_faultinfo = 1;
+int ptrace_ldt = 1;
 int proc_mm = 1;
+int skas_needs_stub = 0;
 
 static int __init skas0_cmd_param(char *str, int* add)
 {
@@ -181,7 +182,7 @@ static void __init check_sysemu(void)
 	void *stack;
  	int pid, n, status, count=0;
 
-	printk("Checking syscall emulation patch for ptrace...");
+	printf("Checking syscall emulation patch for ptrace...");
 	sysemu_supported = 0;
 	pid = start_ptraced_child(&stack);
 
@@ -205,10 +206,10 @@ static void __init check_sysemu(void)
 		goto fail_stopped;
 
 	sysemu_supported = 1;
-	printk("OK\n");
+	printf("OK\n");
 	set_using_sysemu(!force_sysemu_disabled);
 
-	printk("Checking advanced syscall emulation patch for ptrace...");
+	printf("Checking advanced syscall emulation patch for ptrace...");
 	pid = start_ptraced_child(&stack);
 
 	if(ptrace(PTRACE_OLDSETOPTIONS, pid, 0,
@@ -244,7 +245,7 @@ static void __init check_sysemu(void)
 		goto fail_stopped;
 
 	sysemu_supported = 2;
-	printk("OK\n");
+	printf("OK\n");
 
 	if ( !force_sysemu_disabled )
 		set_using_sysemu(sysemu_supported);
@@ -253,7 +254,7 @@ static void __init check_sysemu(void)
 fail:
 	stop_ptraced_child(pid, stack, 1, 0);
 fail_stopped:
-	printk("missing\n");
+	printf("missing\n");
 }
 
 static void __init check_ptrace(void)
@@ -261,7 +262,7 @@ static void __init check_ptrace(void)
 	void *stack;
 	int pid, syscall, n, status;
 
-	printk("Checking that ptrace can change system call numbers...");
+	printf("Checking that ptrace can change system call numbers...");
 	pid = start_ptraced_child(&stack);
 
 	if(ptrace(PTRACE_OLDSETOPTIONS, pid, 0, (void *)PTRACE_O_TRACESYSGOOD) < 0)
@@ -290,11 +291,11 @@ static void __init check_ptrace(void)
 		}
 	}
 	stop_ptraced_child(pid, stack, 0, 1);
-	printk("OK\n");
+	printf("OK\n");
 	check_sysemu();
 }
 
-extern int create_tmp_file(unsigned long len);
+extern int create_tmp_file(unsigned long long len);
 
 static void check_tmpexec(void)
 {
@@ -352,14 +353,26 @@ __uml_setup("noptracefaultinfo", noptracefaultinfo_cmd_param,
 "    it. To support PTRACE_FAULTINFO, the host needs to be patched\n"
 "    using the current skas3 patch.\n\n");
 
+static int __init noptraceldt_cmd_param(char *str, int* add)
+{
+	ptrace_ldt = 0;
+	return 0;
+}
+
+__uml_setup("noptraceldt", noptraceldt_cmd_param,
+"noptraceldt\n"
+"    Turns off usage of PTRACE_LDT, even if host supports it.\n"
+"    To support PTRACE_LDT, the host needs to be patched using\n"
+"    the current skas3 patch.\n\n");
+
 #ifdef UML_CONFIG_MODE_SKAS
-static inline void check_skas3_ptrace_support(void)
+static inline void check_skas3_ptrace_faultinfo(void)
 {
 	struct ptrace_faultinfo fi;
 	void *stack;
 	int pid, n;
 
-	printf("Checking for the skas3 patch in the host...");
+	printf("  - PTRACE_FAULTINFO...");
 	pid = start_ptraced_child(&stack);
 
 	n = ptrace(PTRACE_FAULTINFO, pid, 0, &fi);
@@ -381,9 +394,49 @@ static inline void check_skas3_ptrace_support(void)
 	stop_ptraced_child(pid, stack, 1, 1);
 }
 
-int can_do_skas(void)
+static inline void check_skas3_ptrace_ldt(void)
 {
-	printf("Checking for /proc/mm...");
+#ifdef PTRACE_LDT
+	void *stack;
+	int pid, n;
+	unsigned char ldtbuf[40];
+	struct ptrace_ldt ldt_op = (struct ptrace_ldt) {
+		.func = 2, /* read default ldt */
+		.ptr = ldtbuf,
+		.bytecount = sizeof(ldtbuf)};
+
+	printf("  - PTRACE_LDT...");
+	pid = start_ptraced_child(&stack);
+
+	n = ptrace(PTRACE_LDT, pid, 0, (unsigned long) &ldt_op);
+	if (n < 0) {
+		if(errno == EIO)
+			printf("not found\n");
+		else {
+			perror("not found");
+		}
+		ptrace_ldt = 0;
+	}
+	else {
+		if(ptrace_ldt)
+			printf("found\n");
+		else
+			printf("found, but use is disabled\n");
+	}
+
+	stop_ptraced_child(pid, stack, 1, 1);
+#else
+	/* PTRACE_LDT might be disabled via cmdline option.
+	 * We want to override this, else we might use the stub
+	 * without real need
+	 */
+	ptrace_ldt = 1;
+#endif
+}
+
+static inline void check_skas3_proc_mm(void)
+{
+	printf("  - /proc/mm...");
 	if (os_access("/proc/mm", OS_ACC_W_OK) < 0) {
  		proc_mm = 0;
 		printf("not found\n");
@@ -394,8 +447,19 @@ int can_do_skas(void)
 		else
 			printf("found\n");
 	}
+}
 
-	check_skas3_ptrace_support();
+int can_do_skas(void)
+{
+	printf("Checking for the skas3 patch in the host:\n");
+
+	check_skas3_proc_mm();
+	check_skas3_ptrace_faultinfo();
+	check_skas3_ptrace_ldt();
+
+	if(!proc_mm || !ptrace_faultinfo || !ptrace_ldt)
+		skas_needs_stub = 1;
+
 	return 1;
 }
 #else
@@ -406,6 +470,8 @@ int can_do_skas(void)
 #endif
 
 int have_devanon = 0;
+
+/* Runs on boot kernel stack - already safe to use printk. */
 
 void check_devanon(void)
 {

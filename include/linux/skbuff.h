@@ -32,7 +32,6 @@
 
 #define HAVE_ALLOC_SKB		/* For the drivers to know */
 #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
-#define SLAB_SKB 		/* Slabified skbuffs 	   */
 
 #define CHECKSUM_NONE 0
 #define CHECKSUM_HW 1
@@ -134,9 +133,11 @@ struct skb_frag_struct {
  */
 struct skb_shared_info {
 	atomic_t	dataref;
-	unsigned int	nr_frags;
+	unsigned short	nr_frags;
 	unsigned short	tso_size;
 	unsigned short	tso_segs;
+	unsigned short  ufo_size;
+	unsigned int    ip6_frag_id;
 	struct sk_buff	*frag_list;
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
@@ -171,7 +172,6 @@ enum {
  *	struct sk_buff - socket buffer
  *	@next: Next buffer in list
  *	@prev: Previous buffer in list
- *	@list: List we are on
  *	@sk: Socket we are owned by
  *	@tstamp: Time we arrived
  *	@dev: Device we arrived on/are leaving by
@@ -190,6 +190,7 @@ enum {
  *	@cloned: Head may be cloned (check refcnt to be sure)
  *	@nohdr: Payload reference only, must not modify header
  *	@pkt_type: Packet class
+ *	@fclone: skbuff clone status
  *	@ip_summed: Driver fed us an IP checksum
  *	@priority: Packet queueing priority
  *	@users: User count - see {datagram,tcp}.c
@@ -202,7 +203,9 @@ enum {
  *	@destructor: Destruct function
  *	@nfmark: Can be used for communication between hooks
  *	@nfct: Associated connection, if any
+ *	@ipvs_property: skbuff is owned by ipvs
  *	@nfctinfo: Relationship of this skb to the connection
+ *	@nfct_reasm: netfilter conntrack re-assembly pointer
  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
  *	@tc_index: Traffic control index
  *	@tc_verd: traffic control verdict
@@ -248,7 +251,7 @@ struct sk_buff {
 	 * want to keep them across layers you have to do a skb_clone()
 	 * first. This is owned by whoever has the skb queued ATM.
 	 */
-	char			cb[40];
+	char			cb[48];
 
 	unsigned int		len,
 				data_len,
@@ -261,15 +264,16 @@ struct sk_buff {
 				nohdr:1,
 				nfctinfo:3;
 	__u8			pkt_type:3,
-				fclone:2;
+				fclone:2,
+				ipvs_property:1;
 	__be16			protocol;
 
 	void			(*destructor)(struct sk_buff *skb);
 #ifdef CONFIG_NETFILTER
 	__u32			nfmark;
 	struct nf_conntrack	*nfct;
-#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-	__u8			ipvs_property:1;
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	struct sk_buff		*nfct_reasm;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	struct nf_bridge_info	*nf_bridge;
@@ -339,6 +343,11 @@ extern void	      skb_over_panic(struct sk_buff *skb, int len,
 				     void *here);
 extern void	      skb_under_panic(struct sk_buff *skb, int len,
 				      void *here);
+
+extern int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+			int getfrag(void *from, char *to, int offset,
+			int len,int odd, struct sk_buff *skb),
+			void *from, int length);
 
 struct skb_seq_state
 {
@@ -595,6 +604,30 @@ static inline void skb_queue_head_init(struct sk_buff_head *list)
  */
 
 /**
+ *	__skb_queue_after - queue a buffer at the list head
+ *	@list: list to use
+ *	@prev: place after this buffer
+ *	@newsk: buffer to queue
+ *
+ *	Queue a buffer int the middle of a list. This function takes no locks
+ *	and you must therefore hold required locks before calling it.
+ *
+ *	A buffer cannot be placed on two lists at the same time.
+ */
+static inline void __skb_queue_after(struct sk_buff_head *list,
+				     struct sk_buff *prev,
+				     struct sk_buff *newsk)
+{
+	struct sk_buff *next;
+	list->qlen++;
+
+	next = prev->next;
+	newsk->next = next;
+	newsk->prev = prev;
+	next->prev  = prev->next = newsk;
+}
+
+/**
  *	__skb_queue_head - queue a buffer at the list head
  *	@list: list to use
  *	@newsk: buffer to queue
@@ -608,14 +641,7 @@ extern void skb_queue_head(struct sk_buff_head *list, struct sk_buff *newsk);
 static inline void __skb_queue_head(struct sk_buff_head *list,
 				    struct sk_buff *newsk)
 {
-	struct sk_buff *prev, *next;
-
-	list->qlen++;
-	prev = (struct sk_buff *)list;
-	next = prev->next;
-	newsk->next = next;
-	newsk->prev = prev;
-	next->prev  = prev->next = newsk;
+	__skb_queue_after(list, (struct sk_buff *)list, newsk);
 }
 
 /**
@@ -900,7 +926,7 @@ static inline int skb_tailroom(const struct sk_buff *skb)
  *	Increase the headroom of an empty &sk_buff by reducing the tail
  *	room. This is only allowed for an empty buffer.
  */
-static inline void skb_reserve(struct sk_buff *skb, unsigned int len)
+static inline void skb_reserve(struct sk_buff *skb, int len)
 {
 	skb->data += len;
 	skb->tail += len;
@@ -1195,6 +1221,11 @@ static inline void kunmap_skb_frag(void *vaddr)
 		     prefetch(skb->next), (skb != (struct sk_buff *)(queue));	\
 		     skb = skb->next)
 
+#define skb_queue_reverse_walk(queue, skb) \
+		for (skb = (queue)->prev;					\
+		     prefetch(skb->prev), (skb != (struct sk_buff *)(queue));	\
+		     skb = skb->prev)
+
 
 extern struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
 					 int noblock, int *err);
@@ -1203,11 +1234,12 @@ extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
 extern int	       skb_copy_datagram_iovec(const struct sk_buff *from,
 					       int offset, struct iovec *to,
 					       int size);
-extern int	       skb_copy_and_csum_datagram_iovec(const
-							struct sk_buff *skb,
+extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
 							int hlen,
 							struct iovec *iov);
 extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
+extern void	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
+					 unsigned int flags);
 extern unsigned int    skb_checksum(const struct sk_buff *skb, int offset,
 				    int len, unsigned int csum);
 extern int	       skb_copy_bits(const struct sk_buff *skb, int offset,
@@ -1272,6 +1304,30 @@ static inline void skb_set_timestamp(struct sk_buff *skb, const struct timeval *
 
 extern void __net_timestamp(struct sk_buff *skb);
 
+extern unsigned int __skb_checksum_complete(struct sk_buff *skb);
+
+/**
+ *	skb_checksum_complete - Calculate checksum of an entire packet
+ *	@skb: packet to process
+ *
+ *	This function calculates the checksum over the entire packet plus
+ *	the value of skb->csum.  The latter can be used to supply the
+ *	checksum of a pseudo header as used by TCP/UDP.  It returns the
+ *	checksum.
+ *
+ *	For protocols that contain complete checksums such as ICMP/TCP/UDP,
+ *	this function can be used to verify that checksum on received
+ *	packets.  In that case the function should return zero if the
+ *	checksum is correct.  In particular, this function will return zero
+ *	if skb->ip_summed is CHECKSUM_UNNECESSARY which indicates that the
+ *	hardware has already verified the correctness of the checksum.
+ */
+static inline unsigned int skb_checksum_complete(struct sk_buff *skb)
+{
+	return skb->ip_summed != CHECKSUM_UNNECESSARY &&
+		__skb_checksum_complete(skb);
+}
+
 #ifdef CONFIG_NETFILTER
 static inline void nf_conntrack_put(struct nf_conntrack *nfct)
 {
@@ -1283,10 +1339,26 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
 	if (nfct)
 		atomic_inc(&nfct->use);
 }
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
+{
+	if (skb)
+		atomic_inc(&skb->users);
+}
+static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
+{
+	if (skb)
+		kfree_skb(skb);
+}
+#endif
 static inline void nf_reset(struct sk_buff *skb)
 {
 	nf_conntrack_put(skb->nfct);
 	skb->nfct = NULL;
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	nf_conntrack_put_reasm(skb->nfct_reasm);
+	skb->nfct_reasm = NULL;
+#endif
 }
 
 #ifdef CONFIG_BRIDGE_NETFILTER

@@ -682,8 +682,7 @@ tape_alloc_request(int cplength, int datasize)
 		request->cpdata = kmalloc(datasize, GFP_KERNEL | GFP_DMA);
 		if (request->cpdata == NULL) {
 			DBF_EXCEPTION(1, "cqra nomem\n");
-			if (request->cpaddr != NULL)
-				kfree(request->cpaddr);
+			kfree(request->cpaddr);
 			kfree(request);
 			return ERR_PTR(-ENOMEM);
 		}
@@ -706,10 +705,8 @@ tape_free_request (struct tape_request * request)
 	if (request->device != NULL) {
 		request->device = tape_put_device(request->device);
 	}
-	if (request->cpdata != NULL)
-		kfree(request->cpdata);
-	if (request->cpaddr != NULL)
-		kfree(request->cpaddr);
+	kfree(request->cpdata);
+	kfree(request->cpaddr);
 	kfree(request);
 }
 
@@ -1242,7 +1239,7 @@ tape_init (void)
 #ifdef DBF_LIKE_HELL
 	debug_set_level(TAPE_DBF_AREA, 6);
 #endif
-	DBF_EVENT(3, "tape init: ($Revision: 1.54 $)\n");
+	DBF_EVENT(3, "tape init\n");
 	tape_proc_init();
 	tapechar_init ();
 	tapeblock_init ();
@@ -1266,8 +1263,7 @@ tape_exit(void)
 
 MODULE_AUTHOR("(C) 2001 IBM Deutschland Entwicklung GmbH by Carsten Otte and "
 	      "Michael Holzheu (cotte@de.ibm.com,holzheu@de.ibm.com)");
-MODULE_DESCRIPTION("Linux on zSeries channel attached "
-		   "tape device driver ($Revision: 1.54 $)");
+MODULE_DESCRIPTION("Linux on zSeries channel attached tape device driver");
 MODULE_LICENSE("GPL");
 
 module_init(tape_init);

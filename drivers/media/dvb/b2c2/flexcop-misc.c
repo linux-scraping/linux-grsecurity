@@ -36,14 +36,14 @@ void flexcop_determine_revision(struct flexcop_device *fc)
 	/* bus parts have to decide if hw pid filtering is used or not. */
 }
 
-const char *flexcop_revision_names[] = {
+static const char *flexcop_revision_names[] = {
 	"Unkown chip",
 	"FlexCopII",
 	"FlexCopIIb",
 	"FlexCopIII",
 };
 
-const char *flexcop_device_names[] = {
+static const char *flexcop_device_names[] = {
 	"Unkown device",
 	"Air2PC/AirStar 2 DVB-T",
 	"Air2PC/AirStar 2 ATSC 1st generation",
@@ -51,9 +51,10 @@ const char *flexcop_device_names[] = {
 	"Sky2PC/SkyStar 2 DVB-S",
 	"Sky2PC/SkyStar 2 DVB-S (old version)",
 	"Cable2PC/CableStar 2 DVB-C",
+	"Air2PC/AirStar 2 ATSC 3rd generation (HD5000)",
 };
 
-const char *flexcop_bus_names[] = {
+static const char *flexcop_bus_names[] = {
 	"USB",
 	"PCI",
 };

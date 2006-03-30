@@ -3,7 +3,7 @@
     cx88-i2c.c  --  all the i2c code is here
 
     Copyright (C) 1996,97,98 Ralph  Metzler (rjkm@thp.uni-koeln.de)
-                           & Marcus Metzler (mocm@thp.uni-koeln.de)
+			   & Marcus Metzler (mocm@thp.uni-koeln.de)
     (c) 2002 Yurij Sysoev <yurij@naturesoft.net>
     (c) 1999-2003 Gerd Knorr <kraxel@bytesex.org>
 
@@ -30,6 +30,7 @@
 #include <asm/io.h>
 
 #include "cx88.h"
+#include <media/v4l2-common.h>
 
 static unsigned int i2c_debug = 0;
 module_param(i2c_debug, int, 0644);
@@ -90,15 +91,15 @@ static int cx8800_bit_getsda(void *data)
 
 static int attach_inform(struct i2c_client *client)
 {
-        struct tuner_setup tun_setup;
+	struct tuner_setup tun_setup;
 	struct cx88_core *core = i2c_get_adapdata(client->adapter);
 
 	dprintk(1, "%s i2c attach [addr=0x%x,client=%s]\n",
-		client->driver->name, client->addr, client->name);
+		client->driver->driver.name, client->addr, client->name);
 	if (!client->driver->command)
 		return 0;
 
-        if (core->radio_type != UNSET) {
+	if (core->radio_type != UNSET) {
 		if ((core->radio_addr==ADDR_UNSET)||(core->radio_addr==client->addr)) {
 			tun_setup.mode_mask = T_RADIO;
 			tun_setup.type = core->radio_type;
@@ -106,8 +107,8 @@ static int attach_inform(struct i2c_client *client)
 
 			client->driver->command (client, TUNER_SET_TYPE_ADDR, &tun_setup);
 		}
-        }
-        if (core->tuner_type != UNSET) {
+	}
+	if (core->tuner_type != UNSET) {
 		if ((core->tuner_addr==ADDR_UNSET)||(core->tuner_addr==client->addr)) {
 
 			tun_setup.mode_mask = T_ANALOG_TV;
@@ -116,7 +117,7 @@ static int attach_inform(struct i2c_client *client)
 
 			client->driver->command (client,TUNER_SET_TYPE_ADDR, &tun_setup);
 		}
-        }
+	}
 
 	if (core->tda9887_conf)
 		client->driver->command(client, TDA9887_SET_CONFIG, &core->tda9887_conf);
@@ -135,7 +136,17 @@ void cx88_call_i2c_clients(struct cx88_core *core, unsigned int cmd, void *arg)
 {
 	if (0 != core->i2c_rc)
 		return;
-	i2c_clients_command(&core->i2c_adap, cmd, arg);
+
+	if (core->dvbdev) {
+		if (core->dvbdev->dvb.frontend->ops->i2c_gate_ctrl)
+			core->dvbdev->dvb.frontend->ops->i2c_gate_ctrl(core->dvbdev->dvb.frontend, 1);
+
+		i2c_clients_command(&core->i2c_adap, cmd, arg);
+
+		if (core->dvbdev->dvb.frontend->ops->i2c_gate_ctrl)
+			core->dvbdev->dvb.frontend->ops->i2c_gate_ctrl(core->dvbdev->dvb.frontend, 0);
+	} else
+		i2c_clients_command(&core->i2c_adap, cmd, arg);
 }
 
 static struct i2c_algo_bit_data cx8800_i2c_algo_template = {
@@ -159,7 +170,7 @@ static struct i2c_adapter cx8800_i2c_adap_template = {
 };
 
 static struct i2c_client cx8800_i2c_client_template = {
-        .name	= "cx88xx internal",
+	.name	= "cx88xx internal",
 };
 
 static char *i2c_devs[128] = {
@@ -202,10 +213,10 @@ int cx88_i2c_init(struct cx88_core *core, struct pci_dev *pci)
 
 	core->i2c_adap.dev.parent = &pci->dev;
 	strlcpy(core->i2c_adap.name,core->name,sizeof(core->i2c_adap.name));
-        core->i2c_algo.data = core;
-        i2c_set_adapdata(&core->i2c_adap,core);
-        core->i2c_adap.algo_data = &core->i2c_algo;
-        core->i2c_client.adapter = &core->i2c_adap;
+	core->i2c_algo.data = core;
+	i2c_set_adapdata(&core->i2c_adap,core);
+	core->i2c_adap.algo_data = &core->i2c_algo;
+	core->i2c_client.adapter = &core->i2c_adap;
 
 	cx8800_bit_setscl(core,1);
 	cx8800_bit_setsda(core,1);

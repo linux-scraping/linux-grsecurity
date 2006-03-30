@@ -240,6 +240,8 @@ extern struct ipv6_txoptions *	ipv6_renew_options(struct sock *sk, struct ipv6_t
 struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
 					  struct ipv6_txoptions *opt);
 
+extern int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb);
+
 extern int ip6_frag_nqueues;
 extern atomic_t ip6_frag_mem;
 
@@ -254,12 +256,25 @@ typedef int		(*inet_getfrag_t) (const void *data,
 					   char *,
 					   unsigned int, unsigned int);
 
-
-extern int		ipv6_addr_type(const struct in6_addr *addr);
+extern int __ipv6_addr_type(const struct in6_addr *addr);
+static inline int ipv6_addr_type(const struct in6_addr *addr)
+{
+	return __ipv6_addr_type(addr) & 0xffff;
+}
 
 static inline int ipv6_addr_scope(const struct in6_addr *addr)
 {
-	return ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
+	return __ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
+}
+
+static inline int __ipv6_addr_src_scope(int type)
+{
+	return (type == IPV6_ADDR_ANY ? __IPV6_ADDR_SCOPE_INVALID : (type >> 16));
+}
+
+static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+{
+	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
 }
 
 static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
@@ -343,6 +358,54 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
 }
 
 /*
+ * find the first different bit between two addresses
+ * length of address must be a multiple of 32bits
+ */
+static inline int __ipv6_addr_diff(const void *token1, const void *token2, int addrlen)
+{
+	const __u32 *a1 = token1, *a2 = token2;
+	int i;
+
+	addrlen >>= 2;
+
+	for (i = 0; i < addrlen; i++) {
+		__u32 xb = a1[i] ^ a2[i];
+		if (xb) {
+			int j = 31;
+
+			xb = ntohl(xb);
+			while ((xb & (1 << j)) == 0)
+				j--;
+
+			return (i * 32 + 31 - j);
+		}
+	}
+
+	/*
+	 *	we should *never* get to this point since that 
+	 *	would mean the addrs are equal
+	 *
+	 *	However, we do get to it 8) And exacly, when
+	 *	addresses are equal 8)
+	 *
+	 *	ip route add 1111::/128 via ...
+	 *	ip route add 1111::/64 via ...
+	 *	and we are here.
+	 *
+	 *	Ideally, this function should stop comparison
+	 *	at prefix length. It does not, but it is still OK,
+	 *	if returned value is greater than prefix length.
+	 *					--ANK (980803)
+	 */
+	return (addrlen << 5);
+}
+
+static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_addr *a2)
+{
+	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+}
+
+/*
  *	Prototypes exported by ipv6
  */
 
@@ -354,6 +417,8 @@ extern int			ipv6_rcv(struct sk_buff *skb,
 					 struct net_device *dev, 
 					 struct packet_type *pt,
 					 struct net_device *orig_dev);
+
+extern int			ip6_rcv_finish(struct sk_buff *skb);
 
 /*
  *	upper-layer output functions
@@ -464,6 +529,9 @@ extern int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
 extern int inet6_ioctl(struct socket *sock, unsigned int cmd, 
 		       unsigned long arg);
 
+extern int inet6_hash_connect(struct inet_timewait_death_row *death_row,
+			      struct sock *sk);
+
 /*
  * reassembly.c
  */
@@ -472,8 +540,11 @@ extern int sysctl_ip6frag_low_thresh;
 extern int sysctl_ip6frag_time;
 extern int sysctl_ip6frag_secret_interval;
 
-extern struct proto_ops inet6_stream_ops;
-extern struct proto_ops inet6_dgram_ops;
+extern const struct proto_ops inet6_stream_ops;
+extern const struct proto_ops inet6_dgram_ops;
+
+struct group_source_req;
+struct group_filter;
 
 extern int ip6_mc_source(int add, int omode, struct sock *sk,
 			 struct group_source_req *pgsr);

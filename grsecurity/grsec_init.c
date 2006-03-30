@@ -40,7 +40,6 @@ int grsec_enable_tpe;
 int grsec_tpe_gid;
 int grsec_enable_tpe_all;
 int grsec_enable_randpid;
-int grsec_enable_randsrc;
 int grsec_enable_socket_all;
 int grsec_socket_all_gid;
 int grsec_enable_socket_client;
@@ -76,7 +75,7 @@ grsecurity_init(void)
 
 	preempt_disable();
 	for (j = 0; j < 4; j++) {
-		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE, __alignof__(char *));
+		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE);
 		if (gr_shared_page[j] == NULL) {
 			panic("Unable to allocate grsecurity shared page");
 			return;
@@ -214,9 +213,6 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_RANDPID
 	grsec_enable_randpid = 1;
-#endif
-#ifdef CONFIG_GRKERNSEC_RANDSRC
-	grsec_enable_randsrc = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_ALL
 	grsec_enable_socket_all = 1;

@@ -48,7 +48,7 @@ struct rpc_cred {
 
 	/* per-flavor data */
 };
-#define RPCAUTH_CRED_LOCKED	0x0001
+#define RPCAUTH_CRED_NEW	0x0001
 #define RPCAUTH_CRED_UPTODATE	0x0002
 
 #define RPCAUTH_CRED_MAGIC	0x0f4aa4f0
@@ -66,7 +66,12 @@ struct rpc_cred_cache {
 
 struct rpc_auth {
 	unsigned int		au_cslack;	/* call cred size estimate */
-	unsigned int		au_rslack;	/* reply verf size guess */
+				/* guess at number of u32's auth adds before
+				 * reply data; normally the verifier size: */
+	unsigned int		au_rslack;
+				/* for gss, used to calculate au_rslack: */
+	unsigned int		au_verfsize;
+
 	unsigned int		au_flags;	/* various flags */
 	struct rpc_authops *	au_ops;		/* operations */
 	rpc_authflavor_t	au_flavor;	/* pseudoflavor (note may
@@ -78,9 +83,10 @@ struct rpc_auth {
 	struct rpc_cred_cache *	au_credcache;
 	/* per-flavor data */
 };
-#define RPC_AUTH_PROC_CREDS	0x0010		/* process creds (including
-						 * uid/gid, fs[ug]id, gids)
-						 */
+
+/* Flags for rpcauth_lookupcred() */
+#define RPCAUTH_LOOKUP_NEW		0x01	/* Accept an uninitialised cred */
+#define RPCAUTH_LOOKUP_ROOTCREDS	0x02	/* This really ought to go! */
 
 /*
  * Client authentication ops
@@ -100,6 +106,7 @@ struct rpc_authops {
 
 struct rpc_credops {
 	const char *		cr_name;	/* Name of the auth flavour */
+	int			(*cr_init)(struct rpc_auth *, struct rpc_cred *);
 	void			(*crdestroy)(struct rpc_cred *);
 
 	int			(*crmatch)(struct auth_cred *, struct rpc_cred *, int);

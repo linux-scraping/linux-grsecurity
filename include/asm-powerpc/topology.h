@@ -1,5 +1,6 @@
 #ifndef _ASM_POWERPC_TOPOLOGY_H
 #define _ASM_POWERPC_TOPOLOGY_H
+#ifdef __KERNEL__
 
 #include <linux/config.h>
 
@@ -9,15 +10,7 @@
 
 static inline int cpu_to_node(int cpu)
 {
-	int node;
-
-	node = numa_cpu_lookup_table[cpu];
-
-#ifdef DEBUG_NUMA
-	BUG_ON(node == -1);
-#endif
-
-	return node;
+	return numa_cpu_lookup_table[cpu];
 }
 
 #define parent_node(node)	(node)
@@ -37,8 +30,6 @@ static inline int node_to_first_cpu(int node)
 #define pcibus_to_node(node)    (-1)
 #define pcibus_to_cpumask(bus)	(cpu_online_map)
 
-#define nr_cpus_node(node)	(nr_cpus_in_node[node])
-
 /* sched_domains SD_NODE_INIT for PPC64 machines */
 #define SD_NODE_INIT (struct sched_domain) {		\
 	.span			= CPU_MASK_NONE,	\
@@ -48,9 +39,12 @@ static inline int node_to_first_cpu(int node)
 	.max_interval		= 32,			\
 	.busy_factor		= 32,			\
 	.imbalance_pct		= 125,			\
-	.cache_hot_time		= (10*1000000),		\
 	.cache_nice_tries	= 1,			\
 	.per_cpu_gain		= 100,			\
+	.busy_idx		= 3,			\
+	.idle_idx		= 1,			\
+	.newidle_idx		= 2,			\
+	.wake_idx		= 1,			\
 	.flags			= SD_LOAD_BALANCE	\
 				| SD_BALANCE_EXEC	\
 				| SD_BALANCE_NEWIDLE	\
@@ -61,10 +55,15 @@ static inline int node_to_first_cpu(int node)
 	.nr_balance_failed	= 0,			\
 }
 
+extern void __init dump_numa_cpu_topology(void);
+
 #else
+
+static inline void dump_numa_cpu_topology(void) {}
 
 #include <asm-generic/topology.h>
 
 #endif /* CONFIG_NUMA */
 
+#endif /* __KERNEL__ */
 #endif	/* _ASM_POWERPC_TOPOLOGY_H */

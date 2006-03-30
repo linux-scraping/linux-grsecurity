@@ -23,66 +23,16 @@
  *
  */
 #include <linux/pci.h>
+#include <linux/string.h>
+
 #include <asm/pci-bridge.h>
 #include <asm/rtas.h>
 #include <asm/machdep.h>
-#include "../pci.h"		/* for pci_add_new_bus */
 
+#include "../pci.h"		/* for pci_add_new_bus */
 #include "rpaphp.h"
 
-static struct pci_bus *find_bus_among_children(struct pci_bus *bus,
-					struct device_node *dn)
-{
-	struct pci_bus *child = NULL;
-	struct list_head *tmp;
-	struct device_node *busdn;
-
-	busdn = pci_bus_to_OF_node(bus);
-	if (busdn == dn)
-		return bus;
-
-	list_for_each(tmp, &bus->children) {
-		child = find_bus_among_children(pci_bus_b(tmp), dn);
-		if (child)
-			break;
-	}
-	return child;
-}
-
-struct pci_bus *rpaphp_find_pci_bus(struct device_node *dn)
-{
-	struct pci_dn *pdn = dn->data;
-
-	if (!pdn  || !pdn->phb || !pdn->phb->bus)
-		return NULL;
-
-	return find_bus_among_children(pdn->phb->bus, dn);
-}
-EXPORT_SYMBOL_GPL(rpaphp_find_pci_bus);
-
-int rpaphp_claim_resource(struct pci_dev *dev, int resource)
-{
-	struct resource *res = &dev->resource[resource];
-	struct resource *root = pci_find_parent_resource(dev, res);
-	char *dtype = resource < PCI_BRIDGE_RESOURCES ? "device" : "bridge";
-	int err = -EINVAL;
-
-	if (root != NULL) {
-		err = request_resource(root, res);
-	}
-
-	if (err) {
-		err("PCI: %s region %d of %s %s [%lx:%lx]\n",
-		    root ? "Address space collision on" :
-		    "No parent found for",
-		    resource, dtype, pci_name(dev), res->start, res->end);
-	}
-	return err;
-}
-
-EXPORT_SYMBOL_GPL(rpaphp_claim_resource);
-
-static int rpaphp_get_sensor_state(struct slot *slot, int *state)
+int rpaphp_get_sensor_state(struct slot *slot, int *state)
 {
 	int rc;
 	int setlevel;
@@ -140,7 +90,7 @@ int rpaphp_get_pci_adapter_status(struct slot *slot, int is_init, u8 * value)
 			/* config/unconfig adapter */
 			*value = slot->state;
 		} else {
-			bus = rpaphp_find_pci_bus(slot->dn);
+			bus = pcibios_find_pci_bus(slot->dn);
 			if (bus && !list_empty(&bus->devices))
 				*value = CONFIGURED;
 			else
@@ -149,117 +99,6 @@ int rpaphp_get_pci_adapter_status(struct slot *slot, int is_init, u8 * value)
 	}
 exit:
 	return rc;
-}
-
-/* Must be called before pci_bus_add_devices */
-static void 
-rpaphp_fixup_new_pci_devices(struct pci_bus *bus, int fix_bus)
-{
-	struct pci_dev *dev;
-
-	list_for_each_entry(dev, &bus->devices, bus_list) {
-		/*
-		 * Skip already-present devices (which are on the
-		 * global device list.)
-		 */
-		if (list_empty(&dev->global_list)) {
-			int i;
-			
-			/* Need to setup IOMMU tables */
-			ppc_md.iommu_dev_setup(dev);
-
-			if(fix_bus)
-				pcibios_fixup_device_resources(dev, bus);
-			pci_read_irq_line(dev);
-			for (i = 0; i < PCI_NUM_RESOURCES; i++) {
-				struct resource *r = &dev->resource[i];
-
-				if (r->parent || !r->start || !r->flags)
-					continue;
-				rpaphp_claim_resource(dev, i);
-			}
-		}
-	}
-}
-
-static int rpaphp_pci_config_bridge(struct pci_dev *dev)
-{
-	u8 sec_busno;
-	struct pci_bus *child_bus;
-	struct pci_dev *child_dev;
-
-	dbg("Enter %s:  BRIDGE dev=%s\n", __FUNCTION__, pci_name(dev));
-
-	/* get busno of downstream bus */
-	pci_read_config_byte(dev, PCI_SECONDARY_BUS, &sec_busno);
-		
-	/* add to children of PCI bridge dev->bus */
-	child_bus = pci_add_new_bus(dev->bus, dev, sec_busno);
-	if (!child_bus) {
-		err("%s: could not add second bus\n", __FUNCTION__);
-		return -EIO;
-	}
-	sprintf(child_bus->name, "PCI Bus #%02x", child_bus->number);
-	/* do pci_scan_child_bus */
-	pci_scan_child_bus(child_bus);
-
-	list_for_each_entry(child_dev, &child_bus->devices, bus_list) {
-		eeh_add_device_late(child_dev);
-	}
-
-	 /* fixup new pci devices without touching bus struct */
-	rpaphp_fixup_new_pci_devices(child_bus, 0);
-
-	/* Make the discovered devices available */
-	pci_bus_add_devices(child_bus);
-	return 0;
-}
-
-/*****************************************************************************
- rpaphp_pci_config_slot() will  configure all devices under the
- given slot->dn and return the the first pci_dev.
- *****************************************************************************/
-static struct pci_dev *
-rpaphp_pci_config_slot(struct pci_bus *bus)
-{
-	struct device_node *dn = pci_bus_to_OF_node(bus);
-	struct pci_dev *dev = NULL;
-	int slotno;
-	int num;
-
-	dbg("Enter %s: dn=%s bus=%s\n", __FUNCTION__, dn->full_name, bus->name);
-	if (!dn || !dn->child)
-		return NULL;
-
-	slotno = PCI_SLOT(PCI_DN(dn->child)->devfn);
-
-	/* pci_scan_slot should find all children */
-	num = pci_scan_slot(bus, PCI_DEVFN(slotno, 0));
-	if (num) {
-		rpaphp_fixup_new_pci_devices(bus, 1);
-		pci_bus_add_devices(bus);
-	}
-	if (list_empty(&bus->devices)) {
-		err("%s: No new device found\n", __FUNCTION__);
-		return NULL;
-	}
-	list_for_each_entry(dev, &bus->devices, bus_list) {
-		if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE)
-			rpaphp_pci_config_bridge(dev);
-	}
-
-	return dev;
-}
-
-static void enable_eeh(struct device_node *dn)
-{
-	struct device_node *sib;
-
-	for (sib = dn->child; sib; sib = sib->sibling) 
-		enable_eeh(sib);
-	eeh_add_device_early(dn);
-	return;
-	
 }
 
 static void print_slot_pci_funcs(struct pci_bus *bus)
@@ -277,73 +116,16 @@ static void print_slot_pci_funcs(struct pci_bus *bus)
 	return;
 }
 
-int rpaphp_config_pci_adapter(struct pci_bus *bus)
-{
-	struct device_node *dn = pci_bus_to_OF_node(bus);
-	struct pci_dev *dev;
-	int rc = -ENODEV;
-
-	dbg("Entry %s: slot[%s]\n", __FUNCTION__, dn->full_name);
-	if (!dn)
-		goto exit;
-
-	enable_eeh(dn);
-	dev = rpaphp_pci_config_slot(bus);
-	if (!dev) {
-		err("%s: can't find any devices.\n", __FUNCTION__);
-		goto exit;
-	}
-	print_slot_pci_funcs(bus);
-	rc = 0;
-exit:
-	dbg("Exit %s:  rc=%d\n", __FUNCTION__, rc);
-	return rc;
-}
-EXPORT_SYMBOL_GPL(rpaphp_config_pci_adapter);
-
-static void rpaphp_eeh_remove_bus_device(struct pci_dev *dev)
-{
-	eeh_remove_device(dev);
-	if (dev->hdr_type == PCI_HEADER_TYPE_BRIDGE) {
-		struct pci_bus *bus = dev->subordinate;
-		struct list_head *ln;
-		if (!bus)
-			return; 
-		for (ln = bus->devices.next; ln != &bus->devices; ln = ln->next) {
-			struct pci_dev *pdev = pci_dev_b(ln);
-			if (pdev)
-				rpaphp_eeh_remove_bus_device(pdev);
-		}
-
-	}
-	return;
-}
-
-int rpaphp_unconfig_pci_adapter(struct slot *slot)
-{
-	struct pci_dev *dev, *tmp;
-	int retval = 0;
-
-	list_for_each_entry_safe(dev, tmp, slot->pci_devs, bus_list) {
-		rpaphp_eeh_remove_bus_device(dev);
-		pci_remove_bus_device(dev);
-	}
-
-	slot->state = NOT_CONFIGURED;
-	info("%s: devices in slot[%s] unconfigured.\n", __FUNCTION__,
-	     slot->name);
-	return retval;
-}
-
 static int setup_pci_hotplug_slot_info(struct slot *slot)
 {
+	struct hotplug_slot_info *hotplug_slot_info = slot->hotplug_slot->info;
+
 	dbg("%s Initilize the PCI slot's hotplug->info structure ...\n",
 	    __FUNCTION__);
-	rpaphp_get_power_status(slot, &slot->hotplug_slot->info->power_status);
+	rpaphp_get_power_status(slot, &hotplug_slot_info->power_status);
 	rpaphp_get_pci_adapter_status(slot, 1,
-				      &slot->hotplug_slot->info->
-				      adapter_status);
-	if (slot->hotplug_slot->info->adapter_status == NOT_VALID) {
+				      &hotplug_slot_info->adapter_status);
+	if (hotplug_slot_info->adapter_status == NOT_VALID) {
 		err("%s: NOT_VALID: skip dn->full_name=%s\n",
 		    __FUNCTION__, slot->dn->full_name);
 		return -EINVAL;
@@ -370,7 +152,7 @@ static int setup_pci_slot(struct slot *slot)
 	struct pci_bus *bus;
 
 	BUG_ON(!dn);
-	bus = rpaphp_find_pci_bus(dn);
+	bus = pcibios_find_pci_bus(dn);
 	if (!bus) {
 		err("%s: no pci_bus for dn %s\n", __FUNCTION__, dn->full_name);
 		goto exit_rc;
@@ -395,10 +177,7 @@ static int setup_pci_slot(struct slot *slot)
 		if (slot->hotplug_slot->info->adapter_status == NOT_CONFIGURED) {
 			dbg("%s CONFIGURING pci adapter in slot[%s]\n",  
 				__FUNCTION__, slot->name);
-			if (rpaphp_config_pci_adapter(slot->bus)) {
-				err("%s: CONFIG pci adapter failed\n", __FUNCTION__);
-				goto exit_rc;		
-			}
+			pcibios_add_pci_devices(slot->bus);
 
 		} else if (slot->hotplug_slot->info->adapter_status != CONFIGURED) {
 			err("%s: slot[%s]'s adapter_status is NOT_VALID.\n",
@@ -420,7 +199,7 @@ exit_rc:
 	return -EINVAL;
 }
 
-int register_pci_slot(struct slot *slot)
+int rpaphp_register_pci_slot(struct slot *slot)
 {
 	int rc = -EINVAL;
 
@@ -428,42 +207,8 @@ int register_pci_slot(struct slot *slot)
 		goto exit_rc;
 	if (setup_pci_slot(slot))
 		goto exit_rc;
-	rc = register_slot(slot);
+	rc = rpaphp_register_slot(slot);
 exit_rc:
 	return rc;
 }
 
-int rpaphp_enable_pci_slot(struct slot *slot)
-{
-	int retval = 0, state;
-
-	retval = rpaphp_get_sensor_state(slot, &state);
-	if (retval)
-		goto exit;
-	dbg("%s: sensor state[%d]\n", __FUNCTION__, state);
-	/* if slot is not empty, enable the adapter */
-	if (state == PRESENT) {
-		dbg("%s : slot[%s] is occupied.\n", __FUNCTION__, slot->name);
-		retval = rpaphp_config_pci_adapter(slot->bus);
-		if (!retval) {
-			slot->state = CONFIGURED;
-			dbg("%s: PCI devices in slot[%s] has been configured\n", 
-				__FUNCTION__, slot->name);
-		} else {
-			slot->state = NOT_CONFIGURED;
-			dbg("%s: no pci_dev struct for adapter in slot[%s]\n",
-			    __FUNCTION__, slot->name);
-		}
-	} else if (state == EMPTY) {
-		dbg("%s : slot[%s] is empty\n", __FUNCTION__, slot->name);
-		slot->state = EMPTY;
-	} else {
-		err("%s: slot[%s] is in invalid state\n", __FUNCTION__,
-		    slot->name);
-		slot->state = NOT_VALID;
-		retval = -EINVAL;
-	}
-exit:
-	dbg("%s - Exit: rc[%d]\n", __FUNCTION__, retval);
-	return retval;
-}

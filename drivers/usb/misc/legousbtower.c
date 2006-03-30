@@ -271,19 +271,17 @@ static struct file_operations tower_fops = {
 
 /*
  * usb class driver info in order to get a minor number from the usb core,
- * and to have the device registered with devfs and the driver core
+ * and to have the device registered with the driver core
  */
 static struct usb_class_driver tower_class = {
-	.name =		"usb/legousbtower%d",
+	.name =		"legousbtower%d",
 	.fops =		&tower_fops,
-	.mode =		S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH,
 	.minor_base =	LEGO_USB_TOWER_MINOR_BASE,
 };
 
 
 /* usb specific object needed to register this driver with the usb subsystem */
 static struct usb_driver tower_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"legousbtower",
 	.probe =	tower_probe,
 	.disconnect =	tower_disconnect,

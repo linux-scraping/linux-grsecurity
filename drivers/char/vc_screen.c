@@ -419,7 +419,7 @@ vcs_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 			while (this_round > 1) {
 				unsigned short w;
 
-				w = get_unaligned(((const unsigned short *)con_buf0));
+				w = get_unaligned(((unsigned short *)con_buf0));
 				vcs_scr_writew(vc, w, org++);
 				con_buf0 += 2;
 				this_round -= 2;
@@ -484,8 +484,10 @@ void vcs_make_devfs(struct tty_struct *tty)
 	devfs_mk_cdev(MKDEV(VCS_MAJOR, tty->index + 129),
 			S_IFCHR|S_IRUSR|S_IWUSR,
 			"vcc/a%u", tty->index + 1);
-	class_device_create(vc_class, MKDEV(VCS_MAJOR, tty->index + 1), NULL, "vcs%u", tty->index + 1);
-	class_device_create(vc_class, MKDEV(VCS_MAJOR, tty->index + 129), NULL, "vcsa%u", tty->index + 1);
+	class_device_create(vc_class, NULL, MKDEV(VCS_MAJOR, tty->index + 1),
+			NULL, "vcs%u", tty->index + 1);
+	class_device_create(vc_class, NULL, MKDEV(VCS_MAJOR, tty->index + 129),
+			NULL, "vcsa%u", tty->index + 1);
 }
 void vcs_remove_devfs(struct tty_struct *tty)
 {
@@ -503,7 +505,7 @@ int __init vcs_init(void)
 
 	devfs_mk_cdev(MKDEV(VCS_MAJOR, 0), S_IFCHR|S_IRUSR|S_IWUSR, "vcc/0");
 	devfs_mk_cdev(MKDEV(VCS_MAJOR, 128), S_IFCHR|S_IRUSR|S_IWUSR, "vcc/a0");
-	class_device_create(vc_class, MKDEV(VCS_MAJOR, 0), NULL, "vcs");
-	class_device_create(vc_class, MKDEV(VCS_MAJOR, 128), NULL, "vcsa");
+	class_device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 0), NULL, "vcs");
+	class_device_create(vc_class, NULL, MKDEV(VCS_MAJOR, 128), NULL, "vcsa");
 	return 0;
 }

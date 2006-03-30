@@ -68,5 +68,6 @@ void foo(void)
 		 sizeof(struct tss_struct));
 
 	DEFINE(PAGE_SIZE_asm, PAGE_SIZE);
+	DEFINE(PTRS_PER_PTE_asm, PTRS_PER_PTE);
 	DEFINE(VSYSCALL_BASE, __fix_to_virt(FIX_VSYSCALL));
 }

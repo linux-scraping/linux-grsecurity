@@ -56,7 +56,7 @@
  * lock_type is DIO_LOCKING for regular files on direct-IO-naive filesystems.
  * This determines whether we need to do the fancy locking which prevents
  * direct-IO from being able to read uninitialised disk blocks.  If its zero
- * (blockdev) this locking is not done, and if it is DIO_OWN_LOCKING i_sem is
+ * (blockdev) this locking is not done, and if it is DIO_OWN_LOCKING i_mutex is
  * not held for the entire direct write (taken briefly, initially, during a
  * direct read though, but its never held for the duration of a direct-IO).
  */
@@ -162,6 +162,7 @@ static int dio_refill_pages(struct dio *dio)
 	up_read(&current->mm->mmap_sem);
 
 	if (ret < 0 && dio->blocks_available && (dio->rw == WRITE)) {
+		struct page *page = ZERO_PAGE(dio->curr_user_address);
 		/*
 		 * A memory fault, but the filesystem has some outstanding
 		 * mapped blocks.  We need to use those blocks up to avoid
@@ -169,7 +170,8 @@ static int dio_refill_pages(struct dio *dio)
 		 */
 		if (dio->page_errors == 0)
 			dio->page_errors = ret;
-		dio->pages[0] = ZERO_PAGE(dio->curr_user_address);
+		page_cache_get(page);
+		dio->pages[0] = page;
 		dio->head = 0;
 		dio->tail = 1;
 		ret = 0;
@@ -855,6 +857,7 @@ do_holes:
 			/* Handle holes */
 			if (!buffer_mapped(map_bh)) {
 				char *kaddr;
+				loff_t i_size_aligned;
 
 				/* AKPM: eargh, -ENOTBLK is a hack */
 				if (dio->rw == WRITE) {
@@ -862,8 +865,14 @@ do_holes:
 					return -ENOTBLK;
 				}
 
+				/*
+				 * Be sure to account for a partial block as the
+				 * last block in the file
+				 */
+				i_size_aligned = ALIGN(i_size_read(dio->inode),
+							1 << blkbits);
 				if (dio->block_in_file >=
-					i_size_read(dio->inode)>>blkbits) {
+						i_size_aligned >> blkbits) {
 					/* We hit eof */
 					page_cache_release(page);
 					goto out;
@@ -928,7 +937,7 @@ out:
 }
 
 /*
- * Releases both i_sem and i_alloc_sem
+ * Releases both i_mutex and i_alloc_sem
  */
 static ssize_t
 direct_io_worker(int rw, struct kiocb *iocb, struct inode *inode, 
@@ -1060,11 +1069,11 @@ direct_io_worker(int rw, struct kiocb *iocb, struct inode *inode,
 
 	/*
 	 * All block lookups have been performed. For READ requests
-	 * we can let i_sem go now that its achieved its purpose
+	 * we can let i_mutex go now that its achieved its purpose
 	 * of protecting us from looking up uninitialized blocks.
 	 */
 	if ((rw == READ) && (dio->lock_type == DIO_LOCKING))
-		up(&dio->inode->i_sem);
+		mutex_unlock(&dio->inode->i_mutex);
 
 	/*
 	 * OK, all BIOs are submitted, so we can decrement bio_count to truly
@@ -1143,18 +1152,19 @@ direct_io_worker(int rw, struct kiocb *iocb, struct inode *inode,
  * The locking rules are governed by the dio_lock_type parameter.
  *
  * DIO_NO_LOCKING (no locking, for raw block device access)
- * For writes, i_sem is not held on entry; it is never taken.
+ * For writes, i_mutex is not held on entry; it is never taken.
  *
  * DIO_LOCKING (simple locking for regular files)
- * For writes we are called under i_sem and return with i_sem held, even though
- * it is internally dropped.
- * For reads, i_sem is not held on entry, but it is taken and dropped before
+ * For writes we are called under i_mutex and return with i_mutex held, even
+ * though it is internally dropped.
+ * For reads, i_mutex is not held on entry, but it is taken and dropped before
  * returning.
  *
  * DIO_OWN_LOCKING (filesystem provides synchronisation and handling of
  *	uninitialised data, allowing parallel direct readers and writers)
- * For writes we are called without i_sem, return without it, never touch it.
- * For reads, i_sem is held on entry and will be released before returning.
+ * For writes we are called without i_mutex, return without it, never touch it.
+ * For reads we are called under i_mutex and return with i_mutex held, even
+ * though it may be internally dropped.
  *
  * Additional i_alloc_sem locking requirements described inline below.
  */
@@ -1173,7 +1183,8 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	ssize_t retval = -EINVAL;
 	loff_t end = offset;
 	struct dio *dio;
-	int reader_with_isem = (rw == READ && dio_lock_type == DIO_OWN_LOCKING);
+	int release_i_mutex = 0;
+	int acquire_i_mutex = 0;
 
 	if (rw & WRITE)
 		current->flags |= PF_SYNCWRITE;
@@ -1212,11 +1223,10 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	 * For block device access DIO_NO_LOCKING is used,
 	 *	neither readers nor writers do any locking at all
 	 * For regular files using DIO_LOCKING,
-	 *	readers need to grab i_sem and i_alloc_sem
-	 *	writers need to grab i_alloc_sem only (i_sem is already held)
+	 *	readers need to grab i_mutex and i_alloc_sem
+	 *	writers need to grab i_alloc_sem only (i_mutex is already held)
 	 * For regular files using DIO_OWN_LOCKING,
 	 *	neither readers nor writers take any locks here
-	 *	(i_sem is already held and release for writers here)
 	 */
 	dio->lock_type = dio_lock_type;
 	if (dio_lock_type != DIO_NO_LOCKING) {
@@ -1226,8 +1236,8 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 
 			mapping = iocb->ki_filp->f_mapping;
 			if (dio_lock_type != DIO_OWN_LOCKING) {
-				down(&inode->i_sem);
-				reader_with_isem = 1;
+				mutex_lock(&inode->i_mutex);
+				release_i_mutex = 1;
 			}
 
 			retval = filemap_write_and_wait_range(mapping, offset,
@@ -1238,8 +1248,8 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 			}
 
 			if (dio_lock_type == DIO_OWN_LOCKING) {
-				up(&inode->i_sem);
-				reader_with_isem = 0;
+				mutex_unlock(&inode->i_mutex);
+				acquire_i_mutex = 1;
 			}
 		}
 
@@ -1260,11 +1270,13 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 				nr_segs, blkbits, get_blocks, end_io, dio);
 
 	if (rw == READ && dio_lock_type == DIO_LOCKING)
-		reader_with_isem = 0;
+		release_i_mutex = 0;
 
 out:
-	if (reader_with_isem)
-		up(&inode->i_sem);
+	if (release_i_mutex)
+		mutex_unlock(&inode->i_mutex);
+	else if (acquire_i_mutex)
+		mutex_lock(&inode->i_mutex);
 	if (rw & WRITE)
 		current->flags &= ~PF_SYNCWRITE;
 	return retval;

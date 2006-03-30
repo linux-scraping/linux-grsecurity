@@ -11,7 +11,6 @@
  * 
  */
 
-#include <asm/bug.h>
 #include <linux/compiler.h>
 #include <linux/config.h>
 #include <linux/netdevice.h>
@@ -214,6 +213,7 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl)
 		case IPPROTO_UDP:
 		case IPPROTO_TCP:
 		case IPPROTO_SCTP:
+		case IPPROTO_DCCP:
 			if (pskb_may_pull(skb, skb->nh.raw + offset + 4 - skb->data)) {
 				u16 *ports = (u16 *)exthdr;
 

@@ -24,7 +24,6 @@
 #include <asm/s390_ext.h>
 #include <asm/timer.h>
 
-#define VTIMER_MAGIC (TIMER_MAGIC + 1)
 static ext_int_info_t ext_int_info_timer;
 DEFINE_PER_CPU(struct vtimer_queue, virt_cpu_timer);
 
@@ -33,7 +32,7 @@ DEFINE_PER_CPU(struct vtimer_queue, virt_cpu_timer);
  * Update process times based on virtual cpu times stored by entry.S
  * to the lowcore fields user_timer, system_timer & steal_clock.
  */
-void account_user_vtime(struct task_struct *tsk)
+void account_tick_vtime(struct task_struct *tsk)
 {
 	cputime_t cputime;
 	__u64 timer, clock;
@@ -71,6 +70,31 @@ void account_user_vtime(struct task_struct *tsk)
 		rcu_check_callbacks(smp_processor_id(), rcu_user_flag);
 	scheduler_tick();
  	run_posix_cpu_timers(tsk);
+}
+
+/*
+ * Update process times based on virtual cpu times stored by entry.S
+ * to the lowcore fields user_timer, system_timer & steal_clock.
+ */
+void account_vtime(struct task_struct *tsk)
+{
+	cputime_t cputime;
+	__u64 timer;
+
+	timer = S390_lowcore.last_update_timer;
+	asm volatile ("  STPT %0"    /* Store current cpu timer value */
+		      : "=m" (S390_lowcore.last_update_timer) );
+	S390_lowcore.system_timer += timer - S390_lowcore.last_update_timer;
+
+	cputime = S390_lowcore.user_timer >> 12;
+	S390_lowcore.user_timer -= cputime << 12;
+	S390_lowcore.steal_clock -= cputime << 12;
+	account_user_time(tsk, cputime);
+
+	cputime =  S390_lowcore.system_timer >> 12;
+	S390_lowcore.system_timer -= cputime << 12;
+	S390_lowcore.steal_clock -= cputime << 12;
+	account_system_time(tsk, 0, cputime);
 }
 
 /*
@@ -277,19 +301,11 @@ static void do_cpu_timer_interrupt(struct pt_regs *regs, __u16 error_code)
 
 void init_virt_timer(struct vtimer_list *timer)
 {
-	timer->magic = VTIMER_MAGIC;
 	timer->function = NULL;
 	INIT_LIST_HEAD(&timer->entry);
 	spin_lock_init(&timer->lock);
 }
 EXPORT_SYMBOL(init_virt_timer);
-
-static inline int check_vtimer(struct vtimer_list *timer)
-{
-	if (timer->magic != VTIMER_MAGIC)
-		return -EINVAL;
-	return 0;
-}
 
 static inline int vtimer_pending(struct vtimer_list *timer)
 {
@@ -346,7 +362,7 @@ static void internal_add_vtimer(struct vtimer_list *timer)
 
 static inline int prepare_vtimer(struct vtimer_list *timer)
 {
-	if (check_vtimer(timer) || !timer->function) {
+	if (!timer->function) {
 		printk("add_virt_timer: uninitialized timer\n");
 		return -EINVAL;
 	}
@@ -414,7 +430,7 @@ int mod_virt_timer(struct vtimer_list *timer, __u64 expires)
 	unsigned long flags;
 	int cpu;
 
-	if (check_vtimer(timer) || !timer->function) {
+	if (!timer->function) {
 		printk("mod_virt_timer: uninitialized timer\n");
 		return	-EINVAL;
 	}
@@ -480,11 +496,6 @@ int del_virt_timer(struct vtimer_list *timer)
 {
 	unsigned long flags;
 	struct vtimer_queue *vt_list;
-
-	if (check_vtimer(timer)) {
-		printk("del_virt_timer: timer not initialized\n");
-		return -EINVAL;
-	}
 
 	/* check if timer is pending */
 	if (!vtimer_pending(timer))

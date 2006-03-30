@@ -24,6 +24,7 @@
 #include <linux/sysdev.h>
 #include <linux/nmi.h>
 #include <linux/sysctl.h>
+#include <linux/kprobes.h>
 
 #include <asm/smp.h>
 #include <asm/mtrr.h>
@@ -151,23 +152,25 @@ int __init check_nmi_watchdog (void)
 
 	printk(KERN_INFO "testing NMI watchdog ... ");
 
+#ifdef CONFIG_SMP
 	if (nmi_watchdog == NMI_LOCAL_APIC)
 		smp_call_function(nmi_cpu_busy, (void *)&endflag, 0, 0);
+#endif
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		counts[cpu] = cpu_pda[cpu].__nmi_count; 
+		counts[cpu] = cpu_pda(cpu)->__nmi_count;
 	local_irq_enable();
 	mdelay((10*1000)/nmi_hz); // wait 10 ticks
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
 		if (!cpu_online(cpu))
 			continue;
-		if (cpu_pda[cpu].__nmi_count - counts[cpu] <= 5) {
+		if (cpu_pda(cpu)->__nmi_count - counts[cpu] <= 5) {
 			endflag = 1;
 			printk("CPU#%d: NMI appears to be stuck (%d->%d)!\n",
 			       cpu,
 			       counts[cpu],
-			       cpu_pda[cpu].__nmi_count);
+			       cpu_pda(cpu)->__nmi_count);
 			nmi_active = 0;
 			lapic_nmi_owner &= ~LAPIC_NMI_WATCHDOG;
 			nmi_perfctr_msr = 0;
@@ -233,6 +236,7 @@ static void enable_lapic_nmi_watchdog(void)
 {
 	if (nmi_active < 0) {
 		nmi_watchdog = NMI_LOCAL_APIC;
+		touch_nmi_watchdog();
 		setup_apic_nmi_watchdog();
 	}
 }
@@ -453,20 +457,22 @@ static DEFINE_PER_CPU(int, nmi_touch);
 
 void touch_nmi_watchdog (void)
 {
-	int i;
+	if (nmi_watchdog > 0) {
+		unsigned cpu;
 
-	/*
- 	 * Tell other CPUs to reset their alert counters. We cannot
-	 * do it ourselves because the alert count increase is not
-	 * atomic.
-	 */
-	for (i = 0; i < NR_CPUS; i++)
-		per_cpu(nmi_touch, i) = 1;
+		/*
+ 		 * Tell other CPUs to reset their alert counters. We cannot
+		 * do it ourselves because the alert count increase is not
+		 * atomic.
+		 */
+		for_each_present_cpu (cpu)
+			per_cpu(nmi_touch, cpu) = 1;
+	}
 
  	touch_softlockup_watchdog();
 }
 
-void nmi_watchdog_tick (struct pt_regs * regs, unsigned reason)
+void __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 {
 	int sum;
 	int touched = 0;
@@ -510,14 +516,14 @@ void nmi_watchdog_tick (struct pt_regs * regs, unsigned reason)
 	}
 }
 
-static int dummy_nmi_callback(struct pt_regs * regs, int cpu)
+static __kprobes int dummy_nmi_callback(struct pt_regs * regs, int cpu)
 {
 	return 0;
 }
  
 static nmi_callback_t nmi_callback = dummy_nmi_callback;
  
-asmlinkage void do_nmi(struct pt_regs * regs, long error_code)
+asmlinkage __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
 	int cpu = safe_smp_processor_id();
 

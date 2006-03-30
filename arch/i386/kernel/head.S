@@ -134,9 +134,9 @@ ENTRY(startup_32)
  * can be used as a GPR if you really need it...
  */
 #ifdef CONFIG_X86_PAE
-page_pde_offset = ((__PAGE_OFFSET >> 21) * (4096 / PTRS_PER_PTE));
+page_pde_offset = ((__PAGE_OFFSET >> 21) * (4096 / PTRS_PER_PTE_asm));
 #else
-page_pde_offset = ((__PAGE_OFFSET >> 22) * (4096 / PTRS_PER_PTE));
+page_pde_offset = ((__PAGE_OFFSET >> 22) * (4096 / PTRS_PER_PTE_asm));
 #endif
 	movl $(pg0 - __PAGE_OFFSET), %edi
 #ifdef CONFIG_X86_PAE
@@ -437,7 +437,11 @@ ignore_int:
 	pushl 32(%esp)
 	pushl 40(%esp)
 	pushl $int_msg
+#ifdef CONFIG_EARLY_PRINTK
+	call early_printk
+#else
 	call printk
+#endif
 	addl $(5*4),%esp
 	popl %ds
 	popl %es
@@ -447,7 +451,7 @@ ignore_int:
 #endif
 	iret
 
-.section .data.swapper_pg_dir,"a",@progbits
+.section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
 	.long swapper_pm_dir-__PAGE_OFFSET+1
@@ -463,7 +467,7 @@ ENTRY(swapper_pg_dir)
 #endif
 
 #ifdef CONFIG_X86_PAE
-.section .data.swapper_pm_dir,"a",@progbits
+.section .swapper_pm_dir,"a",@progbits
 ENTRY(swapper_pm_dir)
 	.fill 512,8,0
 	.fill 512,8,0
@@ -471,7 +475,7 @@ ENTRY(swapper_pm_dir)
 	.fill 512,8,0
 #endif
 
-.section .rodata.empty_zero_page,"a",@progbits
+.section .empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)
 	.fill 4096,1,0
 
@@ -480,7 +484,7 @@ ENTRY(empty_zero_page)
  * F0 0F bug workaround.. We have a special link segment
  * for this.
  */
-.section .rodata.idt,"a",@progbits
+.section .idt,"a",@progbits
 ENTRY(idt_table)
 	.fill 256,8,0
 
@@ -552,6 +556,7 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0x4b reserved */
 	.quad 0x0000000000000000	/* 0x53 reserved */
 	.quad 0x0000000000000000	/* 0x5b reserved */
+
 	.quad 0x00cf9b000000ffff	/* 0x60 kernel 4GB code at 0x00000000 */
 	.quad 0x00cf93000000ffff	/* 0x68 kernel 4GB data at 0x00000000 */
 	.quad 0x00cffb000000ffff	/* 0x73 user 4GB code at 0x00000000 */
@@ -560,27 +565,35 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0x80 TSS descriptor */
 	.quad 0x0000000000000000	/* 0x88 LDT descriptor */
 
-	/* Segments used for calling PnP BIOS */
-	.quad 0x00c09b0000000000	/* 0x90 32-bit code */
-	.quad 0x00809b0000000000	/* 0x98 16-bit code */
-	.quad 0x0080930000000000	/* 0xa0 16-bit data */
-	.quad 0x0080930000000000	/* 0xa8 16-bit data */
-	.quad 0x0080930000000000	/* 0xb0 16-bit data */
+	/*
+	 * Segments used for calling PnP BIOS have byte granularity.
+	 * They code segments and data segments have fixed 64k limits,
+	 * the transfer segment sizes are set at run time.
+	 */
+	.quad 0x00409b000000ffff	/* 0x90 32-bit code */
+	.quad 0x00009b000000ffff	/* 0x98 16-bit code */
+	.quad 0x000093000000ffff	/* 0xa0 16-bit data */
+	.quad 0x0000930000000000	/* 0xa8 16-bit data */
+	.quad 0x0000930000000000	/* 0xb0 16-bit data */
+
 	/*
 	 * The APM segments have byte granularity and their bases
-	 * and limits are set at run time.
+	 * are set at run time.  All have 64k limits.
 	 */
-	.quad 0x00409b0000000000	/* 0xb8 APM CS    code */
-	.quad 0x00009b0000000000	/* 0xc0 APM CS 16 code (16 bit) */
-	.quad 0x0040930000000000	/* 0xc8 APM DS    data */
+	.quad 0x00409b000000ffff	/* 0xb8 APM CS    code */
+	.quad 0x00009b000000ffff	/* 0xc0 APM CS 16 code (16 bit) */
+	.quad 0x004093000000ffff	/* 0xc8 APM DS    data */
 
-	.quad 0x0000920000000000	/* 0xd0 - ESPFIX 16-bit SS */
+	.quad 0x0000930000000000	/* 0xd0 - ESPFIX 16-bit SS */
 	.quad 0x0000000000000000	/* 0xd8 - unused */
 	.quad 0x0000000000000000	/* 0xe0 - unused */
 	.quad 0x0000000000000000	/* 0xe8 - unused */
 	.quad 0x0000000000000000	/* 0xf0 - unused */
 	.quad 0x0000000000000000	/* 0xf8 - GDT entry 31: double-fault TSS */
 
+	/* Be sure this is zeroed to avoid false validations in Xen */
+	.fill PAGE_SIZE_asm / 8 - GDT_ENTRIES,8,0
+
 #ifdef CONFIG_SMP
-	.fill (NR_CPUS-1)*GDT_ENTRIES,8,0 /* other CPU's GDT */
+	.fill (NR_CPUS-1) * (PAGE_SIZE_asm / 8),8,0 /* other CPU's GDT */
 #endif

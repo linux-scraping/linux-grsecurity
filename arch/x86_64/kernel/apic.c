@@ -25,6 +25,7 @@
 #include <linux/mc146818rtc.h>
 #include <linux/kernel_stat.h>
 #include <linux/sysdev.h>
+#include <linux/module.h>
 
 #include <asm/atomic.h>
 #include <asm/smp.h>
@@ -33,38 +34,62 @@
 #include <asm/pgalloc.h>
 #include <asm/mach_apic.h>
 #include <asm/nmi.h>
+#include <asm/idle.h>
+#include <asm/proto.h>
+#include <asm/timex.h>
 
 int apic_verbosity;
+int apic_runs_main_timer;
+int apic_calibrate_pmtmr __initdata;
 
 int disable_apic_timer __initdata;
 
+/*
+ * cpu_mask that denotes the CPUs that needs timer interrupt coming in as
+ * IPIs in place of local APIC timers
+ */
+static cpumask_t timer_interrupt_broadcast_ipi_mask;
+
 /* Using APIC to generate smp_local_timer_interrupt? */
 int using_apic_timer = 0;
-
-static DEFINE_PER_CPU(int, prof_multiplier) = 1;
-static DEFINE_PER_CPU(int, prof_old_multiplier) = 1;
-static DEFINE_PER_CPU(int, prof_counter) = 1;
 
 static void apic_pm_activate(void);
 
 void enable_NMI_through_LVT0 (void * dummy)
 {
-	unsigned int v, ver;
+	unsigned int v;
 	
-	ver = apic_read(APIC_LVR);
-	ver = GET_APIC_VERSION(ver);
 	v = APIC_DM_NMI;                        /* unmask and set to NMI */
-	apic_write_around(APIC_LVT0, v);
+	apic_write(APIC_LVT0, v);
 }
 
 int get_maxlvt(void)
 {
-	unsigned int v, ver, maxlvt;
+	unsigned int v, maxlvt;
 
 	v = apic_read(APIC_LVR);
-	ver = GET_APIC_VERSION(v);
 	maxlvt = GET_APIC_MAXLVT(v);
 	return maxlvt;
+}
+
+/*
+ * 'what should we do if we get a hw irq event on an illegal vector'.
+ * each architecture has to answer this themselves.
+ */
+void ack_bad_irq(unsigned int irq)
+{
+	printk("unexpected IRQ trap at vector %02x\n", irq);
+	/*
+	 * Currently unexpected vectors happen only on SMP and APIC.
+	 * We _must_ ack these because every local APIC has only N
+	 * irq slots per priority level, and a 'hanging, unacked' IRQ
+	 * holds up an irq slot - in excessive cases (when multiple
+	 * unexpected vectors occur) that might lock up the APIC
+	 * completely.
+  	 * But don't ack when the APIC is disabled. -AK
+	 */
+	if (!disable_apic)
+		ack_APIC_irq();
 }
 
 void clear_local_APIC(void)
@@ -80,33 +105,33 @@ void clear_local_APIC(void)
 	 */
 	if (maxlvt >= 3) {
 		v = ERROR_APIC_VECTOR; /* any non-zero vector will do */
-		apic_write_around(APIC_LVTERR, v | APIC_LVT_MASKED);
+		apic_write(APIC_LVTERR, v | APIC_LVT_MASKED);
 	}
 	/*
 	 * Careful: we have to set masks only first to deassert
 	 * any level-triggered sources.
 	 */
 	v = apic_read(APIC_LVTT);
-	apic_write_around(APIC_LVTT, v | APIC_LVT_MASKED);
+	apic_write(APIC_LVTT, v | APIC_LVT_MASKED);
 	v = apic_read(APIC_LVT0);
-	apic_write_around(APIC_LVT0, v | APIC_LVT_MASKED);
+	apic_write(APIC_LVT0, v | APIC_LVT_MASKED);
 	v = apic_read(APIC_LVT1);
-	apic_write_around(APIC_LVT1, v | APIC_LVT_MASKED);
+	apic_write(APIC_LVT1, v | APIC_LVT_MASKED);
 	if (maxlvt >= 4) {
 		v = apic_read(APIC_LVTPC);
-		apic_write_around(APIC_LVTPC, v | APIC_LVT_MASKED);
+		apic_write(APIC_LVTPC, v | APIC_LVT_MASKED);
 	}
 
 	/*
 	 * Clean APIC state for other OSs:
 	 */
-	apic_write_around(APIC_LVTT, APIC_LVT_MASKED);
-	apic_write_around(APIC_LVT0, APIC_LVT_MASKED);
-	apic_write_around(APIC_LVT1, APIC_LVT_MASKED);
+	apic_write(APIC_LVTT, APIC_LVT_MASKED);
+	apic_write(APIC_LVT0, APIC_LVT_MASKED);
+	apic_write(APIC_LVT1, APIC_LVT_MASKED);
 	if (maxlvt >= 3)
-		apic_write_around(APIC_LVTERR, APIC_LVT_MASKED);
+		apic_write(APIC_LVTERR, APIC_LVT_MASKED);
 	if (maxlvt >= 4)
-		apic_write_around(APIC_LVTPC, APIC_LVT_MASKED);
+		apic_write(APIC_LVTPC, APIC_LVT_MASKED);
 	v = GET_APIC_VERSION(apic_read(APIC_LVR));
 	apic_write(APIC_ESR, 0);
 	apic_read(APIC_ESR);
@@ -151,7 +176,7 @@ void disconnect_bsp_APIC(int virt_wire_setup)
 		value &= ~APIC_VECTOR_MASK;
 		value |= APIC_SPIV_APIC_ENABLED;
 		value |= 0xf;
-		apic_write_around(APIC_SPIV, value);
+		apic_write(APIC_SPIV, value);
 
 		if (!virt_wire_setup) {
 			/* For LVT0 make it edge triggered, active high, external and enabled */
@@ -161,11 +186,11 @@ void disconnect_bsp_APIC(int virt_wire_setup)
 				APIC_LVT_LEVEL_TRIGGER | APIC_LVT_MASKED );
 			value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
 			value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_EXTINT);
-			apic_write_around(APIC_LVT0, value);
+			apic_write(APIC_LVT0, value);
 		}
 		else {
 			/* Disable LVT0 */
-			apic_write_around(APIC_LVT0, APIC_LVT_MASKED);
+			apic_write(APIC_LVT0, APIC_LVT_MASKED);
 		}
 
 		/* For LVT1 make it edge triggered, active high, nmi and enabled */
@@ -176,7 +201,7 @@ void disconnect_bsp_APIC(int virt_wire_setup)
 			APIC_LVT_LEVEL_TRIGGER | APIC_LVT_MASKED);
 		value |= APIC_LVT_REMOTE_IRR | APIC_SEND_PENDING;
 		value = SET_APIC_DELIVERY_MODE(value, APIC_MODE_NMI);
-		apic_write_around(APIC_LVT1, value);
+		apic_write(APIC_LVT1, value);
 	}
 }
 
@@ -192,7 +217,7 @@ void disable_local_APIC(void)
 	 */
 	value = apic_read(APIC_SPIV);
 	value &= ~APIC_SPIV_APIC_ENABLED;
-	apic_write_around(APIC_SPIV, value);
+	apic_write(APIC_SPIV, value);
 }
 
 /*
@@ -269,7 +294,7 @@ void __init sync_Arb_IDs(void)
 	apic_wait_icr_idle();
 
 	apic_printk(APIC_DEBUG, "Synchronizing Arb IDs.\n");
-	apic_write_around(APIC_ICR, APIC_DEST_ALLINC | APIC_INT_LEVELTRIG
+	apic_write(APIC_ICR, APIC_DEST_ALLINC | APIC_INT_LEVELTRIG
 				| APIC_DM_INIT);
 }
 
@@ -280,7 +305,7 @@ extern void __error_in_apic_c (void);
  */
 void __init init_bsp_APIC(void)
 {
-	unsigned int value, ver;
+	unsigned int value;
 
 	/*
 	 * Don't do the setup now if we have a SMP BIOS as the
@@ -290,7 +315,6 @@ void __init init_bsp_APIC(void)
 		return;
 
 	value = apic_read(APIC_LVR);
-	ver = GET_APIC_VERSION(value);
 
 	/*
 	 * Do not trust the local APIC being empty at bootup.
@@ -305,22 +329,21 @@ void __init init_bsp_APIC(void)
 	value |= APIC_SPIV_APIC_ENABLED;
 	value |= APIC_SPIV_FOCUS_DISABLED;
 	value |= SPURIOUS_APIC_VECTOR;
-	apic_write_around(APIC_SPIV, value);
+	apic_write(APIC_SPIV, value);
 
 	/*
 	 * Set up the virtual wire mode.
 	 */
-	apic_write_around(APIC_LVT0, APIC_DM_EXTINT);
+	apic_write(APIC_LVT0, APIC_DM_EXTINT);
 	value = APIC_DM_NMI;
-	apic_write_around(APIC_LVT1, value);
+	apic_write(APIC_LVT1, value);
 }
 
 void __cpuinit setup_local_APIC (void)
 {
-	unsigned int value, ver, maxlvt;
+	unsigned int value, maxlvt;
 
 	value = apic_read(APIC_LVR);
-	ver = GET_APIC_VERSION(value);
 
 	if ((SPURIOUS_APIC_VECTOR & 0x0f) != 0x0f)
 		__error_in_apic_c();
@@ -345,7 +368,7 @@ void __cpuinit setup_local_APIC (void)
 	 */
 	value = apic_read(APIC_TASKPRI);
 	value &= ~APIC_TPRI_MASK;
-	apic_write_around(APIC_TASKPRI, value);
+	apic_write(APIC_TASKPRI, value);
 
 	/*
 	 * Now that we are all set up, enable the APIC
@@ -387,7 +410,7 @@ void __cpuinit setup_local_APIC (void)
 	 * Set spurious IRQ vector
 	 */
 	value |= SPURIOUS_APIC_VECTOR;
-	apic_write_around(APIC_SPIV, value);
+	apic_write(APIC_SPIV, value);
 
 	/*
 	 * Set up LVT0, LVT1:
@@ -407,7 +430,7 @@ void __cpuinit setup_local_APIC (void)
 		value = APIC_DM_EXTINT | APIC_LVT_MASKED;
 		apic_printk(APIC_VERBOSE, "masked ExtINT on CPU#%d\n", smp_processor_id());
 	}
-	apic_write_around(APIC_LVT0, value);
+	apic_write(APIC_LVT0, value);
 
 	/*
 	 * only the BP should see the LINT1 NMI signal, obviously.
@@ -416,14 +439,14 @@ void __cpuinit setup_local_APIC (void)
 		value = APIC_DM_NMI;
 	else
 		value = APIC_DM_NMI | APIC_LVT_MASKED;
-	apic_write_around(APIC_LVT1, value);
+	apic_write(APIC_LVT1, value);
 
 	{
 		unsigned oldvalue;
 		maxlvt = get_maxlvt();
 		oldvalue = apic_read(APIC_ESR);
 		value = ERROR_APIC_VECTOR;      // enables sending errors
-		apic_write_around(APIC_LVTERR, value);
+		apic_write(APIC_LVTERR, value);
 		/*
 		 * spec says clear errors after enabling vector.
 		 */
@@ -500,13 +523,10 @@ static int lapic_resume(struct sys_device *dev)
 	if (!apic_pm_state.active)
 		return 0;
 
-	/* XXX: Pavel needs this for S3 resume, but can't explain why */
-	set_fixmap_nocache(FIX_APIC_BASE, APIC_DEFAULT_PHYS_BASE);
-
 	local_irq_save(flags);
 	rdmsr(MSR_IA32_APICBASE, l, h);
 	l &= ~MSR_IA32_APICBASE_BASE;
-	l |= MSR_IA32_APICBASE_ENABLE | APIC_DEFAULT_PHYS_BASE;
+	l |= MSR_IA32_APICBASE_ENABLE | mp_lapic_addr;
 	wrmsr(MSR_IA32_APICBASE, l, h);
 	apic_write(APIC_LVTERR, ERROR_APIC_VECTOR | APIC_LVT_MASKED);
 	apic_write(APIC_ID, apic_pm_state.apic_id);
@@ -660,20 +680,25 @@ void __init init_apic_mappings(void)
 static void __setup_APIC_LVTT(unsigned int clocks)
 {
 	unsigned int lvtt_value, tmp_value, ver;
+	int cpu = smp_processor_id();
 
 	ver = GET_APIC_VERSION(apic_read(APIC_LVR));
 	lvtt_value = APIC_LVT_TIMER_PERIODIC | LOCAL_TIMER_VECTOR;
-	apic_write_around(APIC_LVTT, lvtt_value);
+
+	if (cpu_isset(cpu, timer_interrupt_broadcast_ipi_mask))
+		lvtt_value |= APIC_LVT_MASKED;
+
+	apic_write(APIC_LVTT, lvtt_value);
 
 	/*
 	 * Divide PICLK by 16
 	 */
 	tmp_value = apic_read(APIC_TDCR);
-	apic_write_around(APIC_TDCR, (tmp_value
+	apic_write(APIC_TDCR, (tmp_value
 				& ~(APIC_TDR_DIV_1 | APIC_TDR_DIV_TMBASE))
 				| APIC_TDR_DIV_16);
 
-	apic_write_around(APIC_TMICT, clocks/APIC_DIVISOR);
+	apic_write(APIC_TMICT, clocks/APIC_DIVISOR);
 }
 
 static void setup_APIC_timer(unsigned int clocks)
@@ -682,14 +707,8 @@ static void setup_APIC_timer(unsigned int clocks)
 
 	local_irq_save(flags);
 
-	/* For some reasons this doesn't work on Simics, so fake it for now */ 
-	if (!strstr(boot_cpu_data.x86_model_id, "Screwdriver")) { 
-	__setup_APIC_LVTT(clocks);
-		return;
-	} 
-
 	/* wait for irq slice */
- 	if (vxtime.hpet_address) {
+ 	if (vxtime.hpet_address && hpet_use_timer) {
  		int trigger = hpet_readl(HPET_T0_CMP);
  		while (hpet_readl(HPET_COUNTER) >= trigger)
  			/* do nothing */ ;
@@ -700,16 +719,24 @@ static void setup_APIC_timer(unsigned int clocks)
 		outb_p(0x00, 0x43);
 		c2 = inb_p(0x40);
 		c2 |= inb_p(0x40) << 8;
-	do {
+		do {
 			c1 = c2;
 			outb_p(0x00, 0x43);
 			c2 = inb_p(0x40);
 			c2 |= inb_p(0x40) << 8;
 		} while (c2 - c1 < 300);
 	}
-
 	__setup_APIC_LVTT(clocks);
-
+	/* Turn off PIT interrupt if we use APIC timer as main timer.
+	   Only works with the PM timer right now
+	   TBD fix it for HPET too. */
+	if (vxtime.mode == VXTIME_PMTMR &&
+		smp_processor_id() == boot_cpu_id &&
+		apic_runs_main_timer == 1 &&
+		!cpu_isset(boot_cpu_id, timer_interrupt_broadcast_ipi_mask)) {
+		stop_timer_interrupt();
+		apic_runs_main_timer++;
+	}
 	local_irq_restore(flags);
 }
 
@@ -740,14 +767,27 @@ static int __init calibrate_APIC_clock(void)
 	__setup_APIC_LVTT(1000000000);
 
 	apic_start = apic_read(APIC_TMCCT);
-	rdtscl(tsc_start);
-
-	do {
+#ifdef CONFIG_X86_PM_TIMER
+	if (apic_calibrate_pmtmr && pmtmr_ioport) {
+		pmtimer_wait(5000);  /* 5ms wait */
 		apic = apic_read(APIC_TMCCT);
-		rdtscl(tsc);
-	} while ((tsc - tsc_start) < TICK_COUNT && (apic - apic_start) < TICK_COUNT);
+		result = (apic_start - apic) * 1000L / 5;
+	} else
+#endif
+	{
+		rdtscl(tsc_start);
 
-	result = (apic_start - apic) * 1000L * cpu_khz / (tsc - tsc_start);
+		do {
+			apic = apic_read(APIC_TMCCT);
+			rdtscl(tsc);
+		} while ((tsc - tsc_start) < TICK_COUNT &&
+				(apic - apic_start) < TICK_COUNT);
+
+		result = (apic_start - apic) * 1000L * cpu_khz /
+					(tsc - tsc_start);
+	}
+	printk("result %d\n", result);
+
 
 	printk(KERN_INFO "Detected %d.%03d MHz APIC timer.\n",
 		result / 1000 / 1000, result / 1000 % 1000);
@@ -785,53 +825,79 @@ void __cpuinit setup_secondary_APIC_clock(void)
 	local_irq_enable();
 }
 
-void __cpuinit disable_APIC_timer(void)
+void disable_APIC_timer(void)
 {
 	if (using_apic_timer) {
 		unsigned long v;
 
 		v = apic_read(APIC_LVTT);
-		apic_write_around(APIC_LVTT, v | APIC_LVT_MASKED);
+		apic_write(APIC_LVTT, v | APIC_LVT_MASKED);
 	}
 }
 
 void enable_APIC_timer(void)
 {
-	if (using_apic_timer) {
+	int cpu = smp_processor_id();
+
+	if (using_apic_timer &&
+	    !cpu_isset(cpu, timer_interrupt_broadcast_ipi_mask)) {
 		unsigned long v;
 
 		v = apic_read(APIC_LVTT);
-		apic_write_around(APIC_LVTT, v & ~APIC_LVT_MASKED);
+		apic_write(APIC_LVTT, v & ~APIC_LVT_MASKED);
 	}
 }
 
-/*
- * the frequency of the profiling timer can be changed
- * by writing a multiplier value into /proc/profile.
- */
+void switch_APIC_timer_to_ipi(void *cpumask)
+{
+	cpumask_t mask = *(cpumask_t *)cpumask;
+	int cpu = smp_processor_id();
+
+	if (cpu_isset(cpu, mask) &&
+	    !cpu_isset(cpu, timer_interrupt_broadcast_ipi_mask)) {
+		disable_APIC_timer();
+		cpu_set(cpu, timer_interrupt_broadcast_ipi_mask);
+	}
+}
+EXPORT_SYMBOL(switch_APIC_timer_to_ipi);
+
+void smp_send_timer_broadcast_ipi(void)
+{
+	cpumask_t mask;
+
+	cpus_and(mask, cpu_online_map, timer_interrupt_broadcast_ipi_mask);
+	if (!cpus_empty(mask)) {
+		send_IPI_mask(mask, LOCAL_TIMER_VECTOR);
+	}
+}
+
+void switch_ipi_to_APIC_timer(void *cpumask)
+{
+	cpumask_t mask = *(cpumask_t *)cpumask;
+	int cpu = smp_processor_id();
+
+	if (cpu_isset(cpu, mask) &&
+	    cpu_isset(cpu, timer_interrupt_broadcast_ipi_mask)) {
+		cpu_clear(cpu, timer_interrupt_broadcast_ipi_mask);
+		enable_APIC_timer();
+	}
+}
+EXPORT_SYMBOL(switch_ipi_to_APIC_timer);
+
 int setup_profiling_timer(unsigned int multiplier)
 {
-	int i;
-
-	/*
-	 * Sanity check. [at least 500 APIC cycles should be
-	 * between APIC interrupts as a rule of thumb, to avoid
-	 * irqs flooding us]
-	 */
-	if ( (!multiplier) || (calibration_result/multiplier < 500))
-		return -EINVAL;
-
-	/* 
-	 * Set the new multiplier for each CPU. CPUs don't start using the
-	 * new values until the next timer interrupt in which they do process
-	 * accounting. At that time they also adjust their APIC timers
-	 * accordingly.
-	 */
-	for (i = 0; i < NR_CPUS; ++i)
-		per_cpu(prof_multiplier, i) = multiplier;
-
-	return 0;
+	return -EINVAL;
 }
+
+#ifdef CONFIG_X86_MCE_AMD
+void setup_threshold_lvt(unsigned long lvt_off)
+{
+	unsigned int v = 0;
+	unsigned long reg = (lvt_off << 4) + 0x500;
+	v |= THRESHOLD_APIC_VECTOR;
+	apic_write(reg, v);
+}
+#endif /* CONFIG_X86_MCE_AMD */
 
 #undef APIC_DIVISOR
 
@@ -847,32 +913,12 @@ int setup_profiling_timer(unsigned int multiplier)
 
 void smp_local_timer_interrupt(struct pt_regs *regs)
 {
-	int cpu = smp_processor_id();
-
 	profile_tick(CPU_PROFILING, regs);
-	if (--per_cpu(prof_counter, cpu) <= 0) {
-		/*
-		 * The multiplier may have changed since the last time we got
-		 * to this point as a result of the user writing to
-		 * /proc/profile. In this case we need to adjust the APIC
-		 * timer accordingly.
-		 *
-		 * Interrupts are already masked off at this point.
-		 */
-		per_cpu(prof_counter, cpu) = per_cpu(prof_multiplier, cpu);
-		if (per_cpu(prof_counter, cpu) != 
-		    per_cpu(prof_old_multiplier, cpu)) {
-			__setup_APIC_LVTT(calibration_result/
-					per_cpu(prof_counter, cpu));
-			per_cpu(prof_old_multiplier, cpu) =
-				per_cpu(prof_counter, cpu);
-		}
-
 #ifdef CONFIG_SMP
-		update_process_times(user_mode(regs));
+	update_process_times(user_mode(regs));
 #endif
-	}
-
+	if (apic_runs_main_timer > 1 && smp_processor_id() == boot_cpu_id)
+		main_timer_handler(regs);
 	/*
 	 * We take the 'long' return path, and there every subsystem
 	 * grabs the appropriate locks (kernel lock/ irq lock).
@@ -910,6 +956,7 @@ void smp_apic_timer_interrupt(struct pt_regs *regs)
 	 * Besides, if we don't timer interrupts ignore the global
 	 * interrupt lock, which is the WrongThing (tm) to do.
 	 */
+	exit_idle();
 	irq_enter();
 	smp_local_timer_interrupt(regs);
 	irq_exit();
@@ -924,7 +971,7 @@ void smp_apic_timer_interrupt(struct pt_regs *regs)
  * multi-chassis. Use available data to take a good guess.
  * If in doubt, go HPET.
  */
-__init int oem_force_hpet_timer(void)
+__cpuinit int oem_force_hpet_timer(void)
 {
 	int i, clusters, zeros;
 	unsigned id;
@@ -969,6 +1016,7 @@ __init int oem_force_hpet_timer(void)
 asmlinkage void smp_spurious_interrupt(void)
 {
 	unsigned int v;
+	exit_idle();
 	irq_enter();
 	/*
 	 * Check if this really is a spurious interrupt and ACK it
@@ -1004,6 +1052,7 @@ asmlinkage void smp_error_interrupt(void)
 {
 	unsigned int v, v1;
 
+	exit_idle();
 	irq_enter();
 	/* First tickle the hardware, only then report what went on. -- REW */
 	v = apic_read(APIC_ESR);
@@ -1050,7 +1099,7 @@ int __init APIC_init_uniprocessor (void)
 	connect_bsp_APIC();
 
 	phys_cpu_present_map = physid_mask_of_physid(boot_cpu_id);
-	apic_write_around(APIC_ID, boot_cpu_id);
+	apic_write(APIC_ID, SET_APIC_ID(boot_cpu_id));
 
 	setup_local_APIC();
 
@@ -1079,9 +1128,34 @@ static __init int setup_nolapic(char *str)
 
 static __init int setup_noapictimer(char *str) 
 { 
+	if (str[0] != ' ' && str[0] != 0)
+		return -1;
 	disable_apic_timer = 1;
 	return 0;
 } 
+
+static __init int setup_apicmaintimer(char *str)
+{
+	apic_runs_main_timer = 1;
+	nohpet = 1;
+	return 0;
+}
+__setup("apicmaintimer", setup_apicmaintimer);
+
+static __init int setup_noapicmaintimer(char *str)
+{
+	apic_runs_main_timer = -1;
+	return 0;
+}
+__setup("noapicmaintimer", setup_noapicmaintimer);
+
+static __init int setup_apicpmtimer(char *s)
+{
+	apic_calibrate_pmtmr = 1;
+	notsc_setup(NULL);
+	return setup_apicmaintimer(NULL);
+}
+__setup("apicpmtimer", setup_apicpmtimer);
 
 /* dummy parsing: see setup.c */
 

@@ -9,7 +9,7 @@
  * the Free Software Foundation.
  */
 
-#define MOUSEDEV_MINOR_BASE 	32
+#define MOUSEDEV_MINOR_BASE	32
 #define MOUSEDEV_MINORS		32
 #define MOUSEDEV_MIX		31
 
@@ -24,7 +24,6 @@
 #include <linux/random.h>
 #include <linux/major.h>
 #include <linux/device.h>
-#include <linux/devfs_fs_kernel.h>
 #ifdef CONFIG_INPUT_MOUSEDEV_PSAUX
 #include <linux/miscdevice.h>
 #endif
@@ -41,15 +40,15 @@ MODULE_LICENSE("GPL");
 #endif
 
 static int xres = CONFIG_INPUT_MOUSEDEV_SCREEN_X;
-module_param(xres, uint, 0);
+module_param(xres, uint, 0644);
 MODULE_PARM_DESC(xres, "Horizontal screen resolution");
 
 static int yres = CONFIG_INPUT_MOUSEDEV_SCREEN_Y;
-module_param(yres, uint, 0);
+module_param(yres, uint, 0644);
 MODULE_PARM_DESC(yres, "Vertical screen resolution");
 
 static unsigned tap_time = 200;
-module_param(tap_time, uint, 0);
+module_param(tap_time, uint, 0644);
 MODULE_PARM_DESC(tap_time, "Tap time for touchpads in absolute mode (msecs)");
 
 struct mousedev_hw_data {
@@ -156,7 +155,7 @@ static void mousedev_abs_event(struct input_dev *dev, struct mousedev *mousedev,
 	switch (code) {
 		case ABS_X:
 			size = dev->absmax[ABS_X] - dev->absmin[ABS_X];
-			if (size == 0) size = xres;
+			if (size == 0) size = xres ? : 1;
 			if (value > dev->absmax[ABS_X]) value = dev->absmax[ABS_X];
 			if (value < dev->absmin[ABS_X]) value = dev->absmin[ABS_X];
 			mousedev->packet.x = ((value - dev->absmin[ABS_X]) * xres) / size;
@@ -165,7 +164,7 @@ static void mousedev_abs_event(struct input_dev *dev, struct mousedev *mousedev,
 
 		case ABS_Y:
 			size = dev->absmax[ABS_Y] - dev->absmin[ABS_Y];
-			if (size == 0) size = yres;
+			if (size == 0) size = yres ? : 1;
 			if (value > dev->absmax[ABS_Y]) value = dev->absmax[ABS_Y];
 			if (value < dev->absmin[ABS_Y]) value = dev->absmin[ABS_Y];
 			mousedev->packet.y = yres - ((value - dev->absmin[ABS_Y]) * yres) / size;
@@ -357,7 +356,7 @@ static void mousedev_free(struct mousedev *mousedev)
 	kfree(mousedev);
 }
 
-static int mixdev_release(void)
+static void mixdev_release(void)
 {
 	struct input_handle *handle;
 
@@ -371,8 +370,6 @@ static int mixdev_release(void)
 				mousedev_free(mousedev);
 		}
 	}
-
-	return 0;
 }
 
 static int mousedev_release(struct inode * inode, struct file * file)
@@ -385,9 +382,8 @@ static int mousedev_release(struct inode * inode, struct file * file)
 
 	if (!--list->mousedev->open) {
 		if (list->mousedev->minor == MOUSEDEV_MIX)
-			return mixdev_release();
-
-		if (!mousedev_mix.open) {
+			mixdev_release();
+		else if (!mousedev_mix.open) {
 			if (list->mousedev->exist)
 				input_close_device(&list->mousedev->handle);
 			else
@@ -621,6 +617,7 @@ static struct file_operations mousedev_fops = {
 static struct input_handle *mousedev_connect(struct input_handler *handler, struct input_dev *dev, struct input_device_id *id)
 {
 	struct mousedev *mousedev;
+	struct class_device *cdev;
 	int minor = 0;
 
 	for (minor = 0; minor < MOUSEDEV_MINORS && mousedev_table[minor]; minor++);
@@ -649,11 +646,13 @@ static struct input_handle *mousedev_connect(struct input_handler *handler, stru
 
 	mousedev_table[minor] = mousedev;
 
-	devfs_mk_cdev(MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + minor),
-			S_IFCHR|S_IRUGO|S_IWUSR, "input/mouse%d", minor);
-	class_device_create(input_class,
+	cdev = class_device_create(&input_class, &dev->cdev,
 			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + minor),
-			dev->dev, "mouse%d", minor);
+			dev->cdev.dev, mousedev->name);
+
+	/* temporary symlink to keep userspace happy */
+	sysfs_create_link(&input_class.subsys.kset.kobj, &cdev->kobj,
+			  mousedev->name);
 
 	return &mousedev->handle;
 }
@@ -663,9 +662,9 @@ static void mousedev_disconnect(struct input_handle *handle)
 	struct mousedev *mousedev = handle->private;
 	struct mousedev_list *list;
 
-	class_device_destroy(input_class,
+	sysfs_remove_link(&input_class.subsys.kset.kobj, mousedev->name);
+	class_device_destroy(&input_class,
 			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + mousedev->minor));
-	devfs_remove("input/mouse%d", mousedev->minor);
 	mousedev->exist = 0;
 
 	if (mousedev->open) {
@@ -738,9 +737,7 @@ static int __init mousedev_init(void)
 	mousedev_mix.exist = 1;
 	mousedev_mix.minor = MOUSEDEV_MIX;
 
-	devfs_mk_cdev(MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + MOUSEDEV_MIX),
-			S_IFCHR|S_IRUGO|S_IWUSR, "input/mice");
-	class_device_create(input_class,
+	class_device_create(&input_class, NULL,
 			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + MOUSEDEV_MIX), NULL, "mice");
 
 #ifdef CONFIG_INPUT_MOUSEDEV_PSAUX
@@ -759,8 +756,7 @@ static void __exit mousedev_exit(void)
 	if (psaux_registered)
 		misc_deregister(&psaux_mouse);
 #endif
-	devfs_remove("input/mice");
-	class_device_destroy(input_class,
+	class_device_destroy(&input_class,
 			MKDEV(INPUT_MAJOR, MOUSEDEV_MINOR_BASE + MOUSEDEV_MIX));
 	input_unregister_handler(&mousedev_handler);
 }

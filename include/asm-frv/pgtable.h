@@ -26,6 +26,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
+struct mm_struct;
+struct vm_area_struct;
 #endif
 
 #ifndef __ASSEMBLY__
@@ -419,6 +421,11 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr, 
 }
 
 /*
+ * Macro to mark a page protection value as "uncacheable"
+ */
+#define pgprot_noncached(prot) (__pgprot(pgprot_val(prot) | _PAGE_NOCACHE))
+
+/*
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
@@ -435,8 +442,6 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 	pte.pte |= pgprot_val(newprot);
 	return pte;
 }
-
-#define page_pte(page)	page_pte_prot((page), __pgprot(0))
 
 /* to find an entry in a page-table-directory. */
 #define pgd_index(address) (((address) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1))

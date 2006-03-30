@@ -34,25 +34,25 @@
 /* How many pages do we try to swap or page in/out together? */
 int page_cluster;
 
-#ifdef CONFIG_HUGETLB_PAGE
+static void put_compound_page(struct page *page)
+{
+	page = (struct page *)page_private(page);
+	if (put_page_testzero(page)) {
+		void (*dtor)(struct page *page);
+
+		dtor = (void (*)(struct page *))page[1].lru.next;
+		(*dtor)(page);
+	}
+}
 
 void put_page(struct page *page)
 {
-	if (unlikely(PageCompound(page))) {
-		page = (struct page *)page->private;
-		if (put_page_testzero(page)) {
-			void (*dtor)(struct page *page);
-
-			dtor = (void (*)(struct page *))page[1].mapping;
-			(*dtor)(page);
-		}
-		return;
-	}
-	if (!PageReserved(page) && put_page_testzero(page))
+	if (unlikely(PageCompound(page)))
+		put_compound_page(page);
+	else if (put_page_testzero(page))
 		__page_cache_release(page);
 }
 EXPORT_SYMBOL(put_page);
-#endif
 
 /*
  * Writeback is about to end against a page which has been marked for immediate
@@ -159,17 +159,49 @@ void fastcall lru_cache_add_active(struct page *page)
 	put_cpu_var(lru_add_active_pvecs);
 }
 
-void lru_add_drain(void)
+static void __lru_add_drain(int cpu)
 {
-	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
+	struct pagevec *pvec = &per_cpu(lru_add_pvecs, cpu);
 
+	/* CPU is dead, so no locking needed. */
 	if (pagevec_count(pvec))
 		__pagevec_lru_add(pvec);
-	pvec = &__get_cpu_var(lru_add_active_pvecs);
+	pvec = &per_cpu(lru_add_active_pvecs, cpu);
 	if (pagevec_count(pvec))
 		__pagevec_lru_add_active(pvec);
-	put_cpu_var(lru_add_pvecs);
 }
+
+void lru_add_drain(void)
+{
+	__lru_add_drain(get_cpu());
+	put_cpu();
+}
+
+#ifdef CONFIG_NUMA
+static void lru_add_drain_per_cpu(void *dummy)
+{
+	lru_add_drain();
+}
+
+/*
+ * Returns 0 for success
+ */
+int lru_add_drain_all(void)
+{
+	return schedule_on_each_cpu(lru_add_drain_per_cpu, NULL);
+}
+
+#else
+
+/*
+ * Returns 0 for success
+ */
+int lru_add_drain_all(void)
+{
+	lru_add_drain();
+	return 0;
+}
+#endif
 
 /*
  * This path almost never happens for VM activity - pages are normally
@@ -215,7 +247,16 @@ void release_pages(struct page **pages, int nr, int cold)
 		struct page *page = pages[i];
 		struct zone *pagezone;
 
-		if (PageReserved(page) || !put_page_testzero(page))
+		if (unlikely(PageCompound(page))) {
+			if (zone) {
+				spin_unlock_irq(&zone->lru_lock);
+				zone = NULL;
+			}
+			put_compound_page(page);
+			continue;
+		}
+
+		if (!put_page_testzero(page))
 			continue;
 
 		pagezone = page_zone(page);
@@ -259,6 +300,8 @@ void __pagevec_release(struct pagevec *pvec)
 	pagevec_reinit(pvec);
 }
 
+EXPORT_SYMBOL(__pagevec_release);
+
 /*
  * pagevec_release() for pages which are known to not be on the LRU
  *
@@ -270,7 +313,6 @@ void __pagevec_release_nonlru(struct pagevec *pvec)
 	struct pagevec pages_to_free;
 
 	pagevec_init(&pages_to_free, pvec->cold);
-	pages_to_free.cold = pvec->cold;
 	for (i = 0; i < pagevec_count(pvec); i++) {
 		struct page *page = pvec->pages[i];
 
@@ -351,7 +393,8 @@ void pagevec_strip(struct pagevec *pvec)
 		struct page *page = pvec->pages[i];
 
 		if (PagePrivate(page) && !TestSetPageLocked(page)) {
-			try_to_release_page(page, 0);
+			if (PagePrivate(page))
+				try_to_release_page(page, 0);
 			unlock_page(page);
 		}
 	}
@@ -380,6 +423,8 @@ unsigned pagevec_lookup(struct pagevec *pvec, struct address_space *mapping,
 	return pagevec_count(pvec);
 }
 
+EXPORT_SYMBOL(pagevec_lookup);
+
 unsigned pagevec_lookup_tag(struct pagevec *pvec, struct address_space *mapping,
 		pgoff_t *index, int tag, unsigned nr_pages)
 {
@@ -388,6 +433,7 @@ unsigned pagevec_lookup_tag(struct pagevec *pvec, struct address_space *mapping,
 	return pagevec_count(pvec);
 }
 
+EXPORT_SYMBOL(pagevec_lookup_tag);
 
 #ifdef CONFIG_SMP
 /*
@@ -411,20 +457,8 @@ void vm_acct_memory(long pages)
 	}
 	preempt_enable();
 }
-EXPORT_SYMBOL(vm_acct_memory);
 
 #ifdef CONFIG_HOTPLUG_CPU
-static void lru_drain_cache(unsigned int cpu)
-{
-	struct pagevec *pvec = &per_cpu(lru_add_pvecs, cpu);
-
-	/* CPU is dead, so no locking needed. */
-	if (pagevec_count(pvec))
-		__pagevec_lru_add(pvec);
-	pvec = &per_cpu(lru_add_active_pvecs, cpu);
-	if (pagevec_count(pvec))
-		__pagevec_lru_add_active(pvec);
-}
 
 /* Drop the CPU's cached committed space back into the central pool. */
 static int cpu_swap_callback(struct notifier_block *nfb,
@@ -437,7 +471,7 @@ static int cpu_swap_callback(struct notifier_block *nfb,
 	if (action == CPU_DEAD) {
 		atomic_add(*committed, &vm_committed_space);
 		*committed = 0;
-		lru_drain_cache((long)hcpu);
+		__lru_add_drain((long)hcpu);
 	}
 	return NOTIFY_OK;
 }
@@ -456,13 +490,34 @@ void percpu_counter_mod(struct percpu_counter *fbc, long amount)
 	if (count >= FBC_BATCH || count <= -FBC_BATCH) {
 		spin_lock(&fbc->lock);
 		fbc->count += count;
+		*pcount = 0;
 		spin_unlock(&fbc->lock);
-		count = 0;
+	} else {
+		*pcount = count;
 	}
-	*pcount = count;
 	put_cpu();
 }
 EXPORT_SYMBOL(percpu_counter_mod);
+
+/*
+ * Add up all the per-cpu counts, return the result.  This is a more accurate
+ * but much slower version of percpu_counter_read_positive()
+ */
+long percpu_counter_sum(struct percpu_counter *fbc)
+{
+	long ret;
+	int cpu;
+
+	spin_lock(&fbc->lock);
+	ret = fbc->count;
+	for_each_cpu(cpu) {
+		long *pcount = per_cpu_ptr(fbc->counters, cpu);
+		ret += *pcount;
+	}
+	spin_unlock(&fbc->lock);
+	return ret < 0 ? 0 : ret;
+}
+EXPORT_SYMBOL(percpu_counter_sum);
 #endif
 
 /*

@@ -45,57 +45,9 @@ void ptrace_disable(struct task_struct *child)
 	/* Nothing to do.. */
 }
 
-int sys_ptrace(long request, long pid, long addr, long data)
+long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 {
-	struct task_struct *child;
 	int ret = -EPERM;
-
-	lock_kernel();
-
-#if 0
-	if ((int)request != 1)
-	printk("ptrace(r=%d,pid=%d,addr=%08lx,data=%08lx)\n",
-	       (int) request, (int) pid, (unsigned long) addr,
-	       (unsigned long) data);
-#endif
-
-	if (request == PTRACE_TRACEME) {
-
-		/* Are we already being traced? */
-
-		if (current->ptrace & PT_PTRACED)
-			goto out;
-
-		if ((ret = security_ptrace(current->parent, current)))
-			goto out;
-
-		/* Set the ptrace bit in the process flags. */
-
-		current->ptrace |= PT_PTRACED;
-		ret = 0;
-		goto out;
-	}
-
-	ret = -ESRCH;
-	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
-	if (child)
-		get_task_struct(child);
-	read_unlock(&tasklist_lock);
-	if (!child)
-		goto out;
-
-	ret = -EPERM;
-	if (pid == 1)		/* you may not mess with init */
-		goto out;
-
-	if (request == PTRACE_ATTACH) {
-		ret = ptrace_attach(child);
-		goto out_tsk;
-	}
-
-	if ((ret = ptrace_check_attach(child, request == PTRACE_KILL)) < 0)
-		goto out_tsk;
 
 	switch (request) {
 	case PTRACE_PEEKTEXT: /* read word at location addr. */
@@ -120,7 +72,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		struct pt_regs *regs;
 		unsigned long tmp;
 
-		regs = xtensa_pt_regs(child);
+		regs = task_pt_regs(child);
 		tmp = 0;  /* Default return value. */
 
 		switch(addr) {
@@ -197,7 +149,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 	case PTRACE_POKEUSR:
 		{
 		struct pt_regs *regs;
-		regs = xtensa_pt_regs(child);
+		regs = task_pt_regs(child);
 
 		switch (addr) {
 		case REG_AR_BASE ... REG_AR_BASE + XCHAL_NUM_AREGS - 1:
@@ -288,7 +240,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		 * elf_gregset_t format. */
 
 		xtensa_gregset_t format;
-		struct pt_regs *regs = xtensa_pt_regs(child);
+		struct pt_regs *regs = task_pt_regs(child);
 
 		do_copy_regs (&format, regs, child);
 
@@ -305,7 +257,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		 * values in the elf_gregset_t format. */
 
 		xtensa_gregset_t format;
-		struct pt_regs *regs = xtensa_pt_regs(child);
+		struct pt_regs *regs = task_pt_regs(child);
 
 		if (copy_from_user(&format,(void *)data,sizeof(elf_gregset_t))){
 			ret = -EFAULT;
@@ -329,7 +281,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		 * elf_fpregset_t format. */
 
 		elf_fpregset_t fpregs;
-		struct pt_regs *regs = xtensa_pt_regs(child);
+		struct pt_regs *regs = task_pt_regs(child);
 
 		do_save_fpregs (&fpregs, regs, child);
 
@@ -347,7 +299,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		 * values in the elf_fpregset_t format.
 		 */
 		elf_fpregset_t fpregs;
-		struct pt_regs *regs = xtensa_pt_regs(child);
+		struct pt_regs *regs = task_pt_regs(child);
 
 		ret = 0;
 		if (copy_from_user(&fpregs, (void *)data, sizeof(elf_fpregset_t))) {
@@ -375,10 +327,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		ret = ptrace_request(child, request, addr, data);
 		goto out;
 	}
-out_tsk:
-	put_task_struct(child);
-out:
-	unlock_kernel();
+ out:
 	return ret;
 }
 

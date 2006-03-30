@@ -320,7 +320,8 @@ typedef struct sal_log_timestamp {
 typedef struct sal_log_record_header {
 	u64 id;				/* Unique monotonically increasing ID */
 	sal_log_revision_t revision;	/* Major and Minor revision of header */
-	u16 severity;			/* Error Severity */
+	u8 severity;			/* Error Severity */
+	u8 validation_bits;		/* 0: platform_guid, 1: !timestamp */
 	u32 len;			/* Length of this error log in bytes */
 	sal_log_timestamp_t timestamp;	/* Timestamp */
 	efi_guid_t platform_guid;	/* Unique OEM Platform ID */
@@ -657,15 +658,7 @@ ia64_sal_freq_base (unsigned long which, unsigned long *ticks_per_second,
 	return isrv.status;
 }
 
-/* Flush all the processor and platform level instruction and/or data caches */
-static inline s64
-ia64_sal_cache_flush (u64 cache_type)
-{
-	struct ia64_sal_retval isrv;
-	SAL_CALL(isrv, SAL_CACHE_FLUSH, cache_type, 0, 0, 0, 0, 0, 0);
-	return isrv.status;
-}
-
+extern s64 ia64_sal_cache_flush (u64 cache_type);
 
 /* Initialize all the processor and platform level instruction and data caches */
 static inline s64

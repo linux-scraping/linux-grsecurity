@@ -24,6 +24,7 @@
 #include <linux/bootmem.h>
 #include <linux/highmem.h>
 #include <linux/swap.h>
+#include <linux/proc_fs.h>
 
 #include <asm/bootinfo.h>
 #include <asm/cachectl.h>
@@ -67,8 +68,8 @@ unsigned long setup_zero_pages(void)
 
 	page = virt_to_page(empty_zero_page);
 	while (page < virt_to_page(empty_zero_page + (PAGE_SIZE << order))) {
-		set_bit(PG_reserved, &page->flags);
-		set_page_count(page, 0);
+		SetPageReserved(page);
+		set_page_count(page, 1);
 		page++;
 	}
 
@@ -83,7 +84,7 @@ pte_t *kmap_pte;
 pgprot_t kmap_prot;
 
 #define kmap_get_fixmap_pte(vaddr)					\
-	pte_offset_kernel(pmd_offset(pgd_offset_k(vaddr), (vaddr)), (vaddr))
+	pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k(vaddr), (vaddr)), (vaddr)), (vaddr))
 
 static void __init kmap_init(void)
 {
@@ -96,36 +97,42 @@ static void __init kmap_init(void)
 	kmap_prot = PAGE_KERNEL;
 }
 
-#ifdef CONFIG_64BIT
-static void __init fixrange_init(unsigned long start, unsigned long end,
+#ifdef CONFIG_32BIT
+void __init fixrange_init(unsigned long start, unsigned long end,
 	pgd_t *pgd_base)
 {
 	pgd_t *pgd;
+	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte;
-	int i, j;
+	int i, j, k;
 	unsigned long vaddr;
 
 	vaddr = start;
 	i = __pgd_offset(vaddr);
-	j = __pmd_offset(vaddr);
+	j = __pud_offset(vaddr);
+	k = __pmd_offset(vaddr);
 	pgd = pgd_base + i;
 
 	for ( ; (i < PTRS_PER_PGD) && (vaddr != end); pgd++, i++) {
-		pmd = (pmd_t *)pgd;
-		for (; (j < PTRS_PER_PMD) && (vaddr != end); pmd++, j++) {
-			if (pmd_none(*pmd)) {
-				pte = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
-				set_pmd(pmd, __pmd(pte));
-				if (pte != pte_offset_kernel(pmd, 0))
-					BUG();
+		pud = (pud_t *)pgd;
+		for ( ; (j < PTRS_PER_PUD) && (vaddr != end); pud++, j++) {
+			pmd = (pmd_t *)pud;
+			for (; (k < PTRS_PER_PMD) && (vaddr != end); pmd++, k++) {
+				if (pmd_none(*pmd)) {
+					pte = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
+					set_pmd(pmd, __pmd(pte));
+					if (pte != pte_offset_kernel(pmd, 0))
+						BUG();
+				}
+				vaddr += PMD_SIZE;
 			}
-			vaddr += PMD_SIZE;
+			k = 0;
 		}
 		j = 0;
 	}
 }
-#endif /* CONFIG_64BIT */
+#endif /* CONFIG_32BIT */
 #endif /* CONFIG_HIGHMEM */
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
@@ -194,6 +201,11 @@ static inline int page_is_ram(unsigned long pagenr)
 	return 0;
 }
 
+static struct kcore_list kcore_mem, kcore_vmalloc;
+#ifdef CONFIG_64BIT
+static struct kcore_list kcore_kseg0;
+#endif
+
 void __init mem_init(void)
 {
 	unsigned long codesize, reservedpages, datasize, initsize;
@@ -242,6 +254,16 @@ void __init mem_init(void)
 	codesize =  (unsigned long) &_etext - (unsigned long) &_text;
 	datasize =  (unsigned long) &_edata - (unsigned long) &_etext;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
+
+#ifdef CONFIG_64BIT
+	if ((unsigned long) &_text > (unsigned long) CKSEG0)
+		/* The -4 is a hack so that user tools don't have to handle
+		   the overflow.  */
+		kclist_add(&kcore_kseg0, (void *) CKSEG0, 0x80000000 - 4);
+#endif
+	kclist_add(&kcore_mem, __va(0), max_low_pfn << PAGE_SHIFT);
+	kclist_add(&kcore_vmalloc, (void *)VMALLOC_START,
+		   VMALLOC_END-VMALLOC_START);
 
 	printk(KERN_INFO "Memory: %luk/%luk available (%ldk kernel code, "
 	       "%ldk reserved, %ldk data, %ldk init, %ldk highmem)\n",

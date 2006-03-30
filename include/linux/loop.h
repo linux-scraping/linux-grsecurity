@@ -52,15 +52,15 @@ struct loop_device {
 	unsigned	lo_blocksize;
 	void		*key_data; 
 
-	int		old_gfp_mask;
+	gfp_t		old_gfp_mask;
 
 	spinlock_t		lo_lock;
 	struct bio 		*lo_bio;
 	struct bio		*lo_biotail;
 	int			lo_state;
-	struct semaphore	lo_sem;
+	struct completion	lo_done;
+	struct completion	lo_bh_done;
 	struct semaphore	lo_ctl_mutex;
-	struct semaphore	lo_bh_mutex;
 	int			lo_pending;
 
 	request_queue_t		*lo_queue;

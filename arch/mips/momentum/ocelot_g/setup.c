@@ -47,8 +47,10 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/pci.h>
+#include <linux/pm.h>
 #include <linux/timex.h>
 #include <linux/vmalloc.h>
+
 #include <asm/time.h>
 #include <asm/bootinfo.h>
 #include <asm/page.h>
@@ -160,7 +162,7 @@ static void __init setup_l3cache(unsigned long size)
 	printk("Done\n");
 }
 
-static int  __init momenco_ocelot_g_setup(void)
+void __init plat_setup(void)
 {
 	void (*l3func)(unsigned long) = (void *) KSEG1ADDR(setup_l3cache);
 	unsigned int tmpword;
@@ -169,7 +171,7 @@ static int  __init momenco_ocelot_g_setup(void)
 
 	_machine_restart = momenco_ocelot_restart;
 	_machine_halt = momenco_ocelot_halt;
-	_machine_power_off = momenco_ocelot_power_off;
+	pm_power_off = momenco_ocelot_power_off;
 
 	/*
 	 * initrd_start = (ulong)ocelot_initrd_start;
@@ -240,11 +242,7 @@ static int  __init momenco_ocelot_g_setup(void)
 
 	/* FIXME: Fix up the DiskOnChip mapping */
 	MV_WRITE(0x468, 0xfef73);
-
-	return 0;
 }
-
-early_initcall(momenco_ocelot_g_setup);
 
 /* This needs to be one of the first initcalls, because no I/O port access
    can work before this */

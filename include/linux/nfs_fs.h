@@ -38,8 +38,9 @@
 # define NFS_DEBUG
 #endif
 
-#define NFS_MAX_FILE_IO_BUFFER_SIZE	32768
-#define NFS_DEF_FILE_IO_BUFFER_SIZE	4096
+/* Default timeout values */
+#define NFS_MAX_UDP_TIMEOUT	(60*HZ)
+#define NFS_MAX_TCP_TIMEOUT	(600*HZ)
 
 /*
  * superblock magic number for NFS
@@ -61,6 +62,7 @@
 #define FLUSH_STABLE		4	/* commit to stable storage */
 #define FLUSH_LOWPRI		8	/* low priority background flush */
 #define FLUSH_HIGHPRI		16	/* high priority memory reclaim flush */
+#define FLUSH_NOCOMMIT		32	/* Don't send the NFSv3/v4 COMMIT */
 
 #ifdef __KERNEL__
 
@@ -137,6 +139,7 @@ struct nfs_inode {
 	unsigned long		attrtimeo_timestamp;
 	__u64			change_attr;		/* v4 only */
 
+	unsigned long		last_updated;
 	/* "Generation counter" for the attribute cache. This is
 	 * bumped whenever we update the metadata on the
 	 * server.
@@ -236,13 +239,17 @@ static inline int nfs_caches_unstable(struct inode *inode)
 	return atomic_read(&NFS_I(inode)->data_updates) != 0;
 }
 
+static inline void nfs_mark_for_revalidate(struct inode *inode)
+{
+	spin_lock(&inode->i_lock);
+	NFS_I(inode)->cache_validity |= NFS_INO_INVALID_ATTR | NFS_INO_INVALID_ACCESS;
+	spin_unlock(&inode->i_lock);
+}
+
 static inline void NFS_CACHEINV(struct inode *inode)
 {
-	if (!nfs_caches_unstable(inode)) {
-		spin_lock(&inode->i_lock);
-		NFS_I(inode)->cache_validity |= NFS_INO_INVALID_ATTR | NFS_INO_INVALID_ACCESS;
-		spin_unlock(&inode->i_lock);
-	}
+	if (!nfs_caches_unstable(inode))
+		nfs_mark_for_revalidate(inode);
 }
 
 static inline int nfs_server_capable(struct inode *inode, int cap)
@@ -276,16 +283,18 @@ static inline long nfs_save_change_attribute(struct inode *inode)
 static inline int nfs_verify_change_attribute(struct inode *inode, unsigned long chattr)
 {
 	return !nfs_caches_unstable(inode)
-		&& chattr == NFS_I(inode)->cache_change_attribute;
+		&& time_after_eq(chattr, NFS_I(inode)->cache_change_attribute);
 }
 
 /*
  * linux/fs/nfs/inode.c
  */
+extern int nfs_sync_mapping(struct address_space *mapping);
 extern void nfs_zap_caches(struct inode *);
 extern struct inode *nfs_fhget(struct super_block *, struct nfs_fh *,
 				struct nfs_fattr *);
 extern int nfs_refresh_inode(struct inode *, struct nfs_fattr *);
+extern int nfs_post_op_update_inode(struct inode *inode, struct nfs_fattr *fattr);
 extern int nfs_getattr(struct vfsmount *, struct dentry *, struct kstat *);
 extern int nfs_permission(struct inode *, int, struct nameidata *);
 extern int nfs_access_get_cached(struct inode *, struct rpc_cred *, struct nfs_access_entry *);
@@ -306,11 +315,17 @@ extern struct nfs_open_context *alloc_nfs_open_context(struct dentry *dentry, st
 extern struct nfs_open_context *get_nfs_open_context(struct nfs_open_context *ctx);
 extern void put_nfs_open_context(struct nfs_open_context *ctx);
 extern void nfs_file_set_open_context(struct file *filp, struct nfs_open_context *ctx);
-extern struct nfs_open_context *nfs_find_open_context(struct inode *inode, int mode);
+extern struct nfs_open_context *nfs_find_open_context(struct inode *inode, struct rpc_cred *cred, int mode);
 extern void nfs_file_clear_open_context(struct file *filp);
 
 /* linux/net/ipv4/ipconfig.c: trims ip addr off front of name, too. */
 extern u32 root_nfs_parse_addr(char *name); /*__init*/
+
+static inline void nfs_fattr_init(struct nfs_fattr *fattr)
+{
+	fattr->valid = 0;
+	fattr->time_start = jiffies;
+}
 
 /*
  * linux/fs/nfs/file.c
@@ -377,6 +392,17 @@ extern int nfs_instantiate(struct dentry *dentry, struct nfs_fh *fh, struct nfs_
 extern struct inode_operations nfs_symlink_inode_operations;
 
 /*
+ * linux/fs/nfs/sysctl.c
+ */
+#ifdef CONFIG_SYSCTL
+extern int nfs_register_sysctl(void);
+extern void nfs_unregister_sysctl(void);
+#else
+#define nfs_register_sysctl() 0
+#define nfs_unregister_sysctl() do { } while(0)
+#endif
+
+/*
  * linux/fs/nfs/unlink.c
  */
 extern int  nfs_async_unlink(struct dentry *);
@@ -389,10 +415,12 @@ extern int  nfs_writepage(struct page *page, struct writeback_control *wbc);
 extern int  nfs_writepages(struct address_space *, struct writeback_control *);
 extern int  nfs_flush_incompatible(struct file *file, struct page *page);
 extern int  nfs_updatepage(struct file *, struct page *, unsigned int, unsigned int);
-extern void nfs_writeback_done(struct rpc_task *task);
+extern void nfs_writeback_done(struct rpc_task *task, void *data);
+extern void nfs_writedata_release(void *data);
 
 #if defined(CONFIG_NFS_V3) || defined(CONFIG_NFS_V4)
-extern void nfs_commit_done(struct rpc_task *);
+extern void nfs_commit_done(struct rpc_task *, void *data);
+extern void nfs_commit_release(void *data);
 #endif
 
 /*
@@ -443,18 +471,33 @@ static inline int nfs_wb_page(struct inode *inode, struct page* page)
  */
 extern mempool_t *nfs_wdata_mempool;
 
-static inline struct nfs_write_data *nfs_writedata_alloc(void)
+static inline struct nfs_write_data *nfs_writedata_alloc(unsigned int pagecount)
 {
 	struct nfs_write_data *p = mempool_alloc(nfs_wdata_mempool, SLAB_NOFS);
+
 	if (p) {
 		memset(p, 0, sizeof(*p));
 		INIT_LIST_HEAD(&p->pages);
+		if (pagecount < NFS_PAGEVEC_SIZE)
+			p->pagevec = &p->page_array[0];
+		else {
+			size_t size = ++pagecount * sizeof(struct page *);
+			p->pagevec = kmalloc(size, GFP_NOFS);
+			if (p->pagevec) {
+				memset(p->pagevec, 0, size);
+			} else {
+				mempool_free(p, nfs_wdata_mempool);
+				p = NULL;
+			}
+		}
 	}
 	return p;
 }
 
 static inline void nfs_writedata_free(struct nfs_write_data *p)
 {
+	if (p && (p->pagevec != &p->page_array[0]))
+		kfree(p->pagevec);
 	mempool_free(p, nfs_wdata_mempool);
 }
 
@@ -464,27 +507,44 @@ static inline void nfs_writedata_free(struct nfs_write_data *p)
 extern int  nfs_readpage(struct file *, struct page *);
 extern int  nfs_readpages(struct file *, struct address_space *,
 		struct list_head *, unsigned);
-extern void nfs_readpage_result(struct rpc_task *);
+extern void nfs_readpage_result(struct rpc_task *, void *);
+extern void  nfs_readdata_release(void *data);
+
 
 /*
  * Allocate and free nfs_read_data structures
  */
 extern mempool_t *nfs_rdata_mempool;
 
-static inline struct nfs_read_data *nfs_readdata_alloc(void)
+static inline struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
 {
 	struct nfs_read_data *p = mempool_alloc(nfs_rdata_mempool, SLAB_NOFS);
-	if (p)
+
+	if (p) {
 		memset(p, 0, sizeof(*p));
+		INIT_LIST_HEAD(&p->pages);
+		if (pagecount < NFS_PAGEVEC_SIZE)
+			p->pagevec = &p->page_array[0];
+		else {
+			size_t size = ++pagecount * sizeof(struct page *);
+			p->pagevec = kmalloc(size, GFP_NOFS);
+			if (p->pagevec) {
+				memset(p->pagevec, 0, size);
+			} else {
+				mempool_free(p, nfs_rdata_mempool);
+				p = NULL;
+			}
+		}
+	}
 	return p;
 }
 
 static inline void nfs_readdata_free(struct nfs_read_data *p)
 {
+	if (p && (p->pagevec != &p->page_array[0]))
+		kfree(p->pagevec);
 	mempool_free(p, nfs_rdata_mempool);
 }
-
-extern void  nfs_readdata_release(struct rpc_task *task);
 
 /*
  * linux/fs/nfs3proc.c

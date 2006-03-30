@@ -5,6 +5,9 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/init.h>
+#include <linux/string.h>
+#include <linux/slab.h>
+#include <linux/jiffies.h>
 #include <linux/agp_backend.h>
 #include "agp.h"
 
@@ -100,19 +103,17 @@ static int serverworks_create_gatt_pages(int nr_tables)
 	int retval = 0;
 	int i;
 
-	tables = kmalloc((nr_tables + 1) * sizeof(struct serverworks_page_map *), 
+	tables = kzalloc((nr_tables + 1) * sizeof(struct serverworks_page_map *), 
 			 GFP_KERNEL);
-	if (tables == NULL) {
+	if (tables == NULL)
 		return -ENOMEM;
-	}
-	memset(tables, 0, sizeof(struct serverworks_page_map *) * (nr_tables + 1));
+
 	for (i = 0; i < nr_tables; i++) {
-		entry = kmalloc(sizeof(struct serverworks_page_map), GFP_KERNEL);
+		entry = kzalloc(sizeof(struct serverworks_page_map), GFP_KERNEL);
 		if (entry == NULL) {
 			retval = -ENOMEM;
 			break;
 		}
-		memset(entry, 0, sizeof(struct serverworks_page_map));
 		tables[i] = entry;
 		retval = serverworks_create_page_map(entry);
 		if (retval != 0) break;
@@ -467,9 +468,7 @@ static int __devinit agp_serverworks_probe(struct pci_dev *pdev,
 
 	switch (pdev->device) {
 	case 0x0006:
-		/* ServerWorks CNB20HE
-		Fail silently.*/
-		printk (KERN_ERR PFX "Detected ServerWorks CNB20HE chipset: No AGP present.\n");
+		printk (KERN_ERR PFX "ServerWorks CNB20HE is unsupported due to lack of documentation.\n");
 		return -ENODEV;
 
 	case PCI_DEVICE_ID_SERVERWORKS_HE:

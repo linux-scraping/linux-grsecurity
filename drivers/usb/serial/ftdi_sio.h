@@ -31,8 +31,13 @@
 #define FTDI_NF_RIC_VID	0x0DCD	/* Vendor Id */
 #define FTDI_NF_RIC_PID	0x0001	/* Product Id */
 
+
 /* www.irtrans.de device */
 #define FTDI_IRTRANS_PID 0xFC60 /* Product Id */
+
+
+/* www.thoughttechnology.com/ TT-USB provide with procomp use ftdi_sio */
+#define FTDI_TTUSB_PID 0xFF20 /* Product Id */
 
 /* www.crystalfontz.com devices - thanx for providing free devices for evaluation ! */
 /* they use the ftdi chipset for the USB interface and the vendor id is the same */
@@ -49,6 +54,12 @@
 /* broadband internet service.  The following PID is exhibited by the usb device supplied */
 /* (the VID is the standard ftdi vid (FTDI_VID) */
 #define FTDI_VNHCPCUSB_D_PID 0xfe38 /* Product Id */
+
+/*
+ * PCDJ use ftdi based dj-controllers.  The following PID is for their DAC-2 device
+ * http://www.pcdjhardware.com/DAC2.asp (PID sent by Wouter Paesen)
+ * (the VID is the standard ftdi vid (FTDI_VID) */
+#define FTDI_PCDJ_DAC2_PID 0xFA88
 
 /*
  * The following are the values for the Matrix Orbital LCD displays,
@@ -128,6 +139,13 @@
 #define SEALEVEL_2803_8_PID	0X2883 	/* SeaLINK+8 (2803) Port 8 */
 
 /*
+ * The following are the values for two KOBIL chipcard terminals.
+ */
+#define KOBIL_VID		0x0d46	/* KOBIL Vendor ID */
+#define KOBIL_CONV_B1_PID	0x2020	/* KOBIL Konverter for B1 */
+#define KOBIL_CONV_KAAN_PID	0x2021	/* KOBIL_Konverter for KAAN */
+
+/*
  * DSS-20 Sync Station for Sony Ericsson P800
  */
  
@@ -197,6 +215,21 @@
 
 /* an infrared receiver for user access control with IR tags */
 #define FTDI_PIEGROUP_PID	0xF208	/* Product Id */
+
+/*
+ * Definitions for Artemis astronomical USB based cameras
+ * Check it at http://www.artemisccd.co.uk/
+ */
+#define FTDI_ARTEMIS_PID	0xDF28	/* All Artemis Cameras */
+
+/*
+ * Definitions for ATIK Instruments astronomical USB based cameras
+ * Check it at http://www.atik-instruments.com/
+ */
+#define FTDI_ATIK_ATK16_PID	0xDF30	/* ATIK ATK-16 Grayscale Camera */
+#define FTDI_ATIK_ATK16C_PID	0xDF32	/* ATIK ATK-16C Colour Camera */
+#define FTDI_ATIK_ATK16HR_PID	0xDF31	/* ATIK ATK-16HR Grayscale Camera */
+#define FTDI_ATIK_ATK16HRC_PID	0xDF33	/* ATIK ATK-16HRC Colour Camera */
 
 /*
  * Protego product ids
@@ -300,10 +333,18 @@
 
 /*
  * microHAM product IDs (http://www.microham.com).
- * Submitted by Justin Burket (KL1RL) <zorton@jtan.com>.
+ * Submitted by Justin Burket (KL1RL) <zorton@jtan.com>
+ * and Mike Studer (K6EEP) <k6eep@hamsoftware.org>.
+ * Ian Abbott <abbotti@mev.co.uk> added a few more from the driver INF file.
  */
+#define FTDI_MHAM_KW_PID 0xEEE8		/* USB-KW interface */
+#define FTDI_MHAM_YS_PID 0xEEE9		/* USB-YS interface */
 #define FTDI_MHAM_Y6_PID 0xEEEA		/* USB-Y6 interface */
 #define FTDI_MHAM_Y8_PID 0xEEEB		/* USB-Y8 interface */
+#define FTDI_MHAM_IC_PID 0xEEEC		/* USB-IC interface */
+#define FTDI_MHAM_DB9_PID 0xEEED	/* USB-DB9 interface */
+#define FTDI_MHAM_RS232_PID 0xEEEE	/* USB-RS232 interface */
+#define FTDI_MHAM_Y9_PID 0xEEEF		/* USB-Y9 interface */
 
 /*
  * Active Robots product ids.
@@ -323,11 +364,33 @@
 #define XSENS_CONVERTER_7_PID	0xD38F
 
 /*
+ * Teratronik product ids.
+ * Submitted by O. Wölfelschneider.
+ */
+#define FTDI_TERATRONIK_VCP_PID	 0xEC88	/* Teratronik device (preferring VCP driver on windows) */
+#define FTDI_TERATRONIK_D2XX_PID 0xEC89	/* Teratronik device (preferring D2XX driver on windows) */
+
+/*
  * Evolution Robotics products (http://www.evolution.com/).
  * Submitted by Shawn M. Lavelle.
  */
 #define EVOLUTION_VID		0xDEEE	/* Vendor ID */
 #define EVOLUTION_ER1_PID	0x0300	/* ER1 Control Module */
+
+/* Pyramid Computer GmbH */
+#define FTDI_PYRAMID_PID	0xE6C8	/* Pyramid Appliance Display */
+
+/*
+ * Posiflex inc retail equipment (http://www.posiflex.com.tw)
+ */
+#define POSIFLEX_VID		0x0d3a  /* Vendor ID */
+#define POSIFLEX_PP7000_PID	0x0300  /* PP-7000II thermal printer */
+
+/*
+ * Westrex International devices submitted by Cory Lee
+ */
+#define FTDI_WESTREX_MODEL_777_PID	0xDC00	/* Model 777 */
+#define FTDI_WESTREX_MODEL_8900F_PID	0xDC01	/* Model 8900F */
 
 /* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */
@@ -691,7 +754,7 @@ typedef enum {
  */
 
 /* FTDI_SIO_GET_MODEM_STATUS */
-/* Retreive the current value of the modem status register */
+/* Retrieve the current value of the modem status register */
 
 #define FTDI_SIO_GET_MODEM_STATUS_REQUEST_TYPE 0xc0
 #define FTDI_SIO_GET_MODEM_STATUS_REQUEST FTDI_SIO_GET_MODEM_STATUS

@@ -1,20 +1,8 @@
 /*
- *                  QLOGIC LINUX SOFTWARE
+ * QLogic Fibre Channel HBA Driver
+ * Copyright (c)  2003-2005 QLogic Corporation
  *
- * QLogic ISP2x00 device driver for Linux 2.6.x
- * Copyright (C) 2003-2005 QLogic Corporation
- * (www.qlogic.com)
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
+ * See LICENSE.qla2xxx for copyright and licensing details.
  */
 #include "qla_def.h"
 
@@ -550,6 +538,7 @@ qla2x00_rff_id(scsi_qla_host_t *ha)
 	ct_req->req.rff_id.port_id[1] = ha->d_id.b.area;
 	ct_req->req.rff_id.port_id[2] = ha->d_id.b.al_pa;
 
+	ct_req->req.rff_id.fc4_feature = BIT_1;
 	ct_req->req.rff_id.fc4_type = 0x08;		/* SCSI - FCP */
 
 	/* Execute MS IOCB */
@@ -1541,9 +1530,9 @@ qla2x00_fdmi_rpa(scsi_qla_host_t *ha)
 	eiter->type = __constant_cpu_to_be16(FDMI_PORT_SUPPORT_SPEED);
 	eiter->len = __constant_cpu_to_be16(4 + 4);
 	if (IS_QLA25XX(ha))
-		eiter->a.sup_speed = __constant_cpu_to_be32(4);
-	else if (IS_QLA24XX(ha))
 		eiter->a.sup_speed = __constant_cpu_to_be32(8);
+	else if (IS_QLA24XX(ha))
+		eiter->a.sup_speed = __constant_cpu_to_be32(4);
 	else if (IS_QLA23XX(ha))
 		eiter->a.sup_speed = __constant_cpu_to_be32(2);
 	else
@@ -1565,9 +1554,6 @@ qla2x00_fdmi_rpa(scsi_qla_host_t *ha)
 		eiter->a.cur_speed = __constant_cpu_to_be32(2);
 		break;
 	case 3:
-		eiter->a.cur_speed = __constant_cpu_to_be32(8);
-		break;
-	case 4:
 		eiter->a.cur_speed = __constant_cpu_to_be32(4);
 		break;
 	}

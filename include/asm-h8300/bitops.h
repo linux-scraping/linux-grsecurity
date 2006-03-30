@@ -227,7 +227,7 @@ static __inline__ int find_next_zero_bit (const unsigned long * addr, int size, 
 	tmp = *p;
 
 found_first:
-	tmp |= ~0UL >> size;
+	tmp |= ~0UL << size;
 found_middle:
 	return result + ffz(tmp);
 }
@@ -406,5 +406,6 @@ found_middle:
 #endif /* __KERNEL__ */
 
 #define fls(x) generic_fls(x)
+#define fls64(x)   generic_fls64(x)
 
 #endif /* _H8300_BITOPS_H */

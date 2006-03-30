@@ -86,6 +86,7 @@
 #include <linux/module.h>
 #include <linux/socket.h>
 #include <linux/sockios.h>
+#include <linux/igmp.h>
 #include <linux/in.h>
 #include <linux/errno.h>
 #include <linux/timer.h>
@@ -774,7 +775,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
 
 static __inline__ int __udp_checksum_complete(struct sk_buff *skb)
 {
-	return (unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum));
+	return __skb_checksum_complete(skb);
 }
 
 static __inline__ int udp_checksum_complete(struct sk_buff *skb)
@@ -864,20 +865,7 @@ out:
 csum_copy_err:
 	UDP_INC_STATS_BH(UDP_MIB_INERRORS);
 
-	/* Clear queue. */
-	if (flags&MSG_PEEK) {
-		int clear = 0;
-		spin_lock_bh(&sk->sk_receive_queue.lock);
-		if (skb == skb_peek(&sk->sk_receive_queue)) {
-			__skb_unlink(skb, &sk->sk_receive_queue);
-			clear = 1;
-		}
-		spin_unlock_bh(&sk->sk_receive_queue.lock);
-		if (clear)
-			kfree_skb(skb);
-	}
-
-	skb_free_datagram(sk, skb);
+	skb_kill_datagram(sk, skb, flags);
 
 	if (noblock)
 		return -EAGAIN;	
@@ -1019,6 +1007,7 @@ static int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 		kfree_skb(skb);
 		return -1;
 	}
+	nf_reset(skb);
 
 	if (up->encap_type) {
 		/*
@@ -1112,24 +1101,20 @@ static int udp_v4_mcast_deliver(struct sk_buff *skb, struct udphdr *uh,
  * Otherwise, csum completion requires chacksumming packet body,
  * including udp header and folding it to skb->csum.
  */
-static int udp_checksum_init(struct sk_buff *skb, struct udphdr *uh,
+static void udp_checksum_init(struct sk_buff *skb, struct udphdr *uh,
 			     unsigned short ulen, u32 saddr, u32 daddr)
 {
 	if (uh->check == 0) {
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 	} else if (skb->ip_summed == CHECKSUM_HW) {
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
 		if (!udp_check(uh, ulen, saddr, daddr, skb->csum))
-			return 0;
-		LIMIT_NETDEBUG(KERN_DEBUG "udp v4 hw csum failure.\n");
-		skb->ip_summed = CHECKSUM_NONE;
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 	if (skb->ip_summed != CHECKSUM_UNNECESSARY)
 		skb->csum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
 	/* Probably, we should checksum udp header (it should be in cache
 	 * in any case) and data in tiny packets (< rx copybreak).
 	 */
-	return 0;
 }
 
 /*
@@ -1162,8 +1147,7 @@ int udp_rcv(struct sk_buff *skb)
 	if (pskb_trim_rcsum(skb, ulen))
 		goto short_packet;
 
-	if (udp_checksum_init(skb, uh, ulen, saddr, daddr) < 0)
-		goto csum_error;
+	udp_checksum_init(skb, uh, ulen, saddr, daddr);
 
 	if(rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
 		return udp_v4_mcast_deliver(skb, uh, saddr, daddr);
@@ -1184,6 +1168,7 @@ int udp_rcv(struct sk_buff *skb)
 
 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
 		goto drop;
+	nf_reset(skb);
 
 	/* No socket. Drop packet silently, if checksum is wrong */
 	if (udp_checksum_complete(skb))

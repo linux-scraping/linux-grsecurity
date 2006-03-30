@@ -36,7 +36,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic79xx_osm.h#137 $
+ * $Id: //depot/aic7xxx/linux/drivers/scsi/aic7xxx/aic79xx_osm.h#166 $
  *
  */
 #ifndef _AIC79XX_LINUX_H_
@@ -49,7 +49,6 @@
 #include <linux/ioport.h>
 #include <linux/pci.h>
 #include <linux/smp_lock.h>
-#include <linux/version.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -229,7 +228,6 @@ typedef struct timer_list ahd_timer_t;
 typedef void ahd_linux_callback_t (u_long);  
 static __inline void ahd_timer_reset(ahd_timer_t *timer, int usec,
 				     ahd_callback_t *func, void *arg);
-static __inline void ahd_scb_timer_reset(struct scb *scb, u_int usec);
 
 static __inline void
 ahd_timer_reset(ahd_timer_t *timer, int usec, ahd_callback_t *func, void *arg)
@@ -244,16 +242,10 @@ ahd_timer_reset(ahd_timer_t *timer, int usec, ahd_callback_t *func, void *arg)
 	add_timer(timer);
 }
 
-static __inline void
-ahd_scb_timer_reset(struct scb *scb, u_int usec)
-{
-	mod_timer(&scb->io_ctx->eh_timeout, jiffies + (usec * HZ)/1000000);
-}
-
 /***************************** SMP support ************************************/
 #include <linux/spinlock.h>
 
-#define AIC79XX_DRIVER_VERSION "1.3.11"
+#define AIC79XX_DRIVER_VERSION "3.0"
 
 /*************************** Device Data Structures ***************************/
 /*
@@ -390,7 +382,6 @@ struct ahd_platform_data {
 
 	spinlock_t		 spin_lock;
 	u_int			 qfrozen;
-	struct timer_list	 reset_timer;
 	struct semaphore	 eh_sem;
 	struct Scsi_Host        *host;		/* pointer to scsi host */
 #define AHD_LINUX_NOIRQ	((uint32_t)~0)

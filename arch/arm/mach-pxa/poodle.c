@@ -16,7 +16,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/fb.h>
 
 #include <asm/hardware.h>
@@ -32,6 +32,7 @@
 #include <asm/arch/irq.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/udc.h>
+#include <asm/arch/irda.h>
 #include <asm/arch/poodle.h>
 #include <asm/arch/pxafb.h>
 
@@ -64,6 +65,27 @@ struct platform_device poodle_scoop_device = {
 	.resource	= poodle_scoop_resources,
 };
 
+static void poodle_pcmcia_init(void)
+{
+	/* Setup default state of GPIO outputs
+	   before we enable them as outputs. */
+	GPSR(GPIO48_nPOE) = GPIO_bit(GPIO48_nPOE) |
+		GPIO_bit(GPIO49_nPWE) | GPIO_bit(GPIO50_nPIOR) |
+		GPIO_bit(GPIO51_nPIOW) | GPIO_bit(GPIO52_nPCE_1) |
+		GPIO_bit(GPIO53_nPCE_2);
+
+	pxa_gpio_mode(GPIO48_nPOE_MD);
+	pxa_gpio_mode(GPIO49_nPWE_MD);
+	pxa_gpio_mode(GPIO50_nPIOR_MD);
+	pxa_gpio_mode(GPIO51_nPIOW_MD);
+	pxa_gpio_mode(GPIO55_nPREG_MD);
+	pxa_gpio_mode(GPIO56_nPWAIT_MD);
+	pxa_gpio_mode(GPIO57_nIOIS16_MD);
+	pxa_gpio_mode(GPIO52_nPCE_1_MD);
+	pxa_gpio_mode(GPIO53_nPCE_2_MD);
+	pxa_gpio_mode(GPIO54_pSKTSEL_MD);
+}
+
 static struct scoop_pcmcia_dev poodle_pcmcia_scoop[] = {
 {
 	.dev        = &poodle_scoop_device.dev,
@@ -72,6 +94,14 @@ static struct scoop_pcmcia_dev poodle_pcmcia_scoop[] = {
 	.cd_irq_str = "PCMCIA0 CD",
 },
 };
+
+static struct scoop_pcmcia_config poodle_pcmcia_config = {
+	.devs         = &poodle_pcmcia_scoop[0],
+	.num_devs     = 1,
+	.pcmcia_init  = poodle_pcmcia_init,
+};
+
+EXPORT_SYMBOL(poodle_scoop_device);
 
 
 /* LoCoMo device */
@@ -116,14 +146,13 @@ static int poodle_mci_init(struct device *dev, irqreturn_t (*poodle_detect_int)(
 
 	poodle_mci_platform_data.detect_delay = msecs_to_jiffies(250);
 
-	err = request_irq(POODLE_IRQ_GPIO_nSD_DETECT, poodle_detect_int, SA_INTERRUPT,
-			     "MMC card detect", data);
+	err = request_irq(POODLE_IRQ_GPIO_nSD_DETECT, poodle_detect_int,
+			  SA_INTERRUPT | SA_TRIGGER_RISING | SA_TRIGGER_FALLING,
+			  "MMC card detect", data);
 	if (err) {
 		printk(KERN_ERR "poodle_mci_init: MMC/SD: can't request MMC card detect IRQ\n");
 		return -1;
 	}
-
-	set_irq_type(POODLE_IRQ_GPIO_nSD_DETECT, IRQT_BOTHEDGE);
 
 	return 0;
 }
@@ -148,6 +177,24 @@ static struct pxamci_platform_data poodle_mci_platform_data = {
 	.init 		= poodle_mci_init,
 	.setpower 	= poodle_mci_setpower,
 	.exit		= poodle_mci_exit,
+};
+
+
+/*
+ * Irda
+ */
+static void poodle_irda_transceiver_mode(struct device *dev, int mode)
+{
+	if (mode & IR_OFF) {
+		GPSR(POODLE_GPIO_IR_ON) = GPIO_bit(POODLE_GPIO_IR_ON);
+	} else {
+		GPCR(POODLE_GPIO_IR_ON) = GPIO_bit(POODLE_GPIO_IR_ON);
+	}
+}
+
+static struct pxaficp_platform_data poodle_ficp_platform_data = {
+	.transceiver_cap  = IR_SIRMODE | IR_OFF,
+	.transceiver_mode = poodle_irda_transceiver_mode,
 };
 
 
@@ -244,11 +291,12 @@ static void __init poodle_init(void)
 
 	set_pxa_fb_info(&poodle_fb_info);
 	pxa_gpio_mode(POODLE_GPIO_USB_PULLUP | GPIO_OUT);
+	pxa_gpio_mode(POODLE_GPIO_IR_ON | GPIO_OUT);
 	pxa_set_udc_info(&udc_info);
 	pxa_set_mci_info(&poodle_mci_platform_data);
+	pxa_set_ficp_info(&poodle_ficp_platform_data);
 
-	scoop_num = 1;
-	scoop_devs = &poodle_pcmcia_scoop[0];
+	platform_scoop_config = &poodle_pcmcia_config;
 
 	ret = platform_add_devices(devices, ARRAY_SIZE(devices));
 	if (ret) {
@@ -263,7 +311,6 @@ static void __init fixup_poodle(struct machine_desc *desc,
 }
 
 MACHINE_START(POODLE, "SHARP Poodle")
-	.phys_ram	= 0xa0000000,
 	.phys_io	= 0x40000000,
 	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.fixup		= fixup_poodle,

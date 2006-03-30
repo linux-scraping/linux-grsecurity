@@ -61,7 +61,6 @@
 #include <linux/timer.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-#include <linux/version.h>
 #include <linux/string.h>
 #include <linux/wait.h>
 #include <asm/io.h>
@@ -792,7 +791,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
 #endif
 
 	if (vptr->flags & VELOCITY_FLAGS_TX_CSUM) {
-		dev->features |= NETIF_F_HW_CSUM;
+		dev->features |= NETIF_F_IP_CSUM;
 	}
 
 	ret = register_netdev(dev);
@@ -1107,6 +1106,9 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
 
 	for (i = 0; i < vptr->options.numrx; i++) {
 		struct velocity_rd_info *rd_info = &(vptr->rd_info[i]);
+		struct rx_desc *rd = vptr->rd_ring + i;
+
+		memset(rd, 0, sizeof(*rd));
 
 		if (!rd_info->skb)
 			continue;
@@ -1212,10 +1214,8 @@ static void velocity_free_td_ring(struct velocity_info *vptr)
 			velocity_free_td_ring_entry(vptr, j, i);
 
 		}
-		if (vptr->td_infos[j]) {
-			kfree(vptr->td_infos[j]);
-			vptr->td_infos[j] = NULL;
-		}
+		kfree(vptr->td_infos[j]);
+		vptr->td_infos[j] = NULL;
 	}
 }
 

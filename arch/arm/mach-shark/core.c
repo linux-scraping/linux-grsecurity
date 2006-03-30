@@ -62,7 +62,12 @@ arch_initcall(shark_init);
 extern void shark_init_irq(void);
 
 static struct map_desc shark_io_desc[] __initdata = {
-	{ IO_BASE	, IO_START	, IO_SIZE	, MT_DEVICE }
+	{
+		.virtual	= IO_BASE,
+		.pfn		= __phys_to_pfn(IO_START),
+		.length		= IO_SIZE,
+		.type		= MT_DEVICE
+	}
 };
 
 static void __init shark_map_io(void)
@@ -106,7 +111,6 @@ static struct sys_timer shark_timer = {
 
 MACHINE_START(SHARK, "Shark")
 	/* Maintainer: Alexander Schulz */
-	.phys_ram	= 0x08000000,
 	.phys_io	= 0x40000000,
 	.io_pg_offst	= ((0xe0000000) >> 18) & 0xfffc,
 	.boot_params	= 0x08003000,

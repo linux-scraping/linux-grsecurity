@@ -29,16 +29,9 @@
 #include <linux/sysdev.h>
 #include <linux/timer.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
-#include <asm/irq.h>
 #include <asm/leds.h>
 #include <asm/thread_info.h>
 #include <asm/mach/time.h>
-
-u64 jiffies_64 = INITIAL_JIFFIES;
-
-EXPORT_SYMBOL(jiffies_64);
 
 /*
  * Our system timer.
@@ -429,12 +422,14 @@ static int timer_dyn_tick_disable(void)
 void timer_dyn_reprogram(void)
 {
 	struct dyn_tick_timer *dyn_tick = system_timer->dyn_tick;
+	unsigned long next, seq;
 
-	if (dyn_tick) {
-		write_seqlock(&xtime_lock);
-		if (dyn_tick->state & DYN_TICK_ENABLED)
+	if (dyn_tick && (dyn_tick->state & DYN_TICK_ENABLED)) {
+		next = next_timer_interrupt();
+		do {
+			seq = read_seqbegin(&xtime_lock);
 			dyn_tick->reprogram(next_timer_interrupt() - jiffies);
-		write_sequnlock(&xtime_lock);
+		} while (read_seqretry(&xtime_lock, seq));
 	}
 }
 

@@ -103,7 +103,7 @@ int __cpu_up(unsigned int cpu)
 	if (IS_ERR(tsk))
 		panic("Failed forking idle task for cpu %d\n", cpu);
 	
-	tsk->thread_info->cpu = cpu;
+	task_thread_info(tsk)->cpu = cpu;
 
 	cpu_set(cpu, cpu_online_map);
 
@@ -112,7 +112,9 @@ int __cpu_up(unsigned int cpu)
 
 int start_secondary(void *unused)
 {
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu;
+
+	cpu = smp_processor_id();
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
@@ -120,6 +122,7 @@ int start_secondary(void *unused)
 	smp_store_cpu_info(cpu);
 
 	__smp_slave_init(cpu);
+	preempt_disable();
 	per_cpu_trap_init();
 	
 	atomic_inc(&cpus_booted);

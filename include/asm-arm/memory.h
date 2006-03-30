@@ -12,29 +12,48 @@
 #ifndef __ASM_ARM_MEMORY_H
 #define __ASM_ARM_MEMORY_H
 
+/*
+ * Allow for constants defined here to be used from assembly code
+ * by prepending the UL suffix only with actual C code compilation.
+ */
+#ifndef __ASSEMBLY__
+#define UL(x) (x##UL)
+#else
+#define UL(x) (x)
+#endif
+
 #include <linux/config.h>
 #include <linux/compiler.h>
 #include <asm/arch/memory.h>
+#include <asm/sizes.h>
 
 #ifndef TASK_SIZE
 /*
  * TASK_SIZE - the maximum size of a user space task.
  * TASK_UNMAPPED_BASE - the lower boundary of the mmap VM area
  */
-#define TASK_SIZE		(0xbf000000UL)
-#define TASK_UNMAPPED_BASE	(0x40000000UL)
+#define TASK_SIZE		UL(0xbf000000)
+#define TASK_UNMAPPED_BASE	UL(0x40000000)
 #endif
 
 /*
  * The maximum size of a 26-bit user space task.
  */
-#define TASK_SIZE_26		(0x04000000UL)
+#define TASK_SIZE_26		UL(0x04000000)
 
 /*
  * Page offset: 3GB
  */
 #ifndef PAGE_OFFSET
-#define PAGE_OFFSET		(0xc0000000UL)
+#define PAGE_OFFSET		UL(0xc0000000)
+#endif
+
+/*
+ * Size of DMA-consistent memory region.  Must be multiple of 2M,
+ * between 2MB and 14MB inclusive.
+ */
+#ifndef CONSISTENT_DMA_SIZE
+#define CONSISTENT_DMA_SIZE SZ_2M
 #endif
 
 /*
@@ -48,6 +67,12 @@
 #endif
 
 /*
+ * Convert a physical address to a Page Frame Number and back
+ */
+#define	__phys_to_pfn(paddr)	((paddr) >> PAGE_SHIFT)
+#define	__pfn_to_phys(pfn)	((pfn) << PAGE_SHIFT)
+
+/*
  * The module space lives between the addresses given by TASK_SIZE
  * and PAGE_OFFSET - it must be within 32MB of the kernel text.
  */
@@ -57,6 +82,13 @@
 #if TASK_SIZE > MODULE_START
 #error Top of user space clashes with start of module space
 #endif
+
+/*
+ * The XIP kernel gets mapped at the bottom of the module vm area.
+ * Since we use sections to map it, this macro replaces the physical address
+ * with its virtual address while keeping offset from the base section.
+ */
+#define XIP_VIRT_ADDR(physaddr)  (MODULE_START + ((physaddr) & 0x000fffff))
 
 #ifndef __ASSEMBLY__
 
@@ -105,6 +137,7 @@ static inline void *phys_to_virt(unsigned long x)
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 #define __va(x)			((void *)__phys_to_virt((unsigned long)(x)))
+#define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
 
 /*
  * Virtual <-> DMA view memory address translations

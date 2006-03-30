@@ -411,6 +411,8 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_UM100_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_UR100_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_ALC8500_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_PYRAMID_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FHZ1000PC_PID) },
 	/*
 	 * These will probably use user-space drivers.  Uncomment them if
 	 * you need them or use the user-specified vendor/product module
@@ -428,7 +430,6 @@ static struct usb_device_id id_table_combined [] = {
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_T1100_PID) }, */
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_PCD200_PID) }, */
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_ULA200_PID) }, */
-	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_FHZ1000PC_PID) }, */
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_CSI8_PID) }, */
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_EM1000DL_PID) }, */
 	/* { USB_DEVICE(FTDI_VID, FTDI_ELV_PCK100_PID) }, */
@@ -468,9 +469,29 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, XSENS_CONVERTER_7_PID) },
 	{ USB_DEVICE(MOBILITY_VID, MOBILITY_USB_SERIAL_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ACTIVE_ROBOTS_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_KW_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_YS_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_Y6_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_Y8_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_IC_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_DB9_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_RS232_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_MHAM_Y9_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_TERATRONIK_VCP_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_TERATRONIK_D2XX_PID) },
 	{ USB_DEVICE(EVOLUTION_VID, EVOLUTION_ER1_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ARTEMIS_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ATIK_ATK16_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ATIK_ATK16C_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ATIK_ATK16HR_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_ATIK_ATK16HRC_PID) },
+	{ USB_DEVICE(KOBIL_VID, KOBIL_CONV_B1_PID) },
+	{ USB_DEVICE(KOBIL_VID, KOBIL_CONV_KAAN_PID) },
+	{ USB_DEVICE(POSIFLEX_VID, POSIFLEX_PP7000_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_TTUSB_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_WESTREX_MODEL_777_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_WESTREX_MODEL_8900F_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_PCDJ_DAC2_PID) },
 	{ },					/* Optional parameter entry */
 	{ }					/* Terminating entry */
 };
@@ -482,9 +503,10 @@ static struct usb_driver ftdi_driver = {
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table_combined,
+	.no_dynamic_id = 	1,
 };
 
-static char *ftdi_chip_name[] = {
+static const char *ftdi_chip_name[] = {
 	[SIO] = "SIO",	/* the serial part of FT8U100AX */
 	[FT8U232AM] = "FT8U232AM",
 	[FT232BM] = "FT232BM",
@@ -558,10 +580,12 @@ static unsigned short int ftdi_232am_baud_to_divisor (int baud);
 static __u32 ftdi_232bm_baud_base_to_divisor (int baud, int base);
 static __u32 ftdi_232bm_baud_to_divisor (int baud);
 
-static struct usb_serial_device_type ftdi_sio_device = {
-	.owner =		THIS_MODULE,
-	.name =			"FTDI USB Serial Device",
-	.short_name =		"ftdi_sio",
+static struct usb_serial_driver ftdi_sio_device = {
+	.driver = {
+		.owner =	THIS_MODULE,
+		.name =		"ftdi_sio",
+	},
+	.description =		"FTDI USB Serial Device",
 	.id_table =		id_table_combined,
 	.num_interrupt_in =	0,
 	.num_bulk_in =		1,
@@ -1598,24 +1622,11 @@ static void ftdi_process_read (void *param)
 			length = 0;
 		}
 
-		/* have to make sure we don't overflow the buffer
-		   with tty_insert_flip_char's */
-		if (tty->flip.count+length > TTY_FLIPBUF_SIZE) {
-			tty_flip_buffer_push(tty);
-			need_flip = 0;
-
-			if (tty->flip.count != 0) {
-				/* flip didn't work, this happens when ftdi_process_read() is
-				 * called from ftdi_unthrottle, because TTY_DONT_FLIP is set */
-				dbg("%s - flip buffer push failed", __FUNCTION__);
-				break;
-			}
-		}
 		if (priv->rx_flags & THROTTLED) {
 			dbg("%s - throttled", __FUNCTION__);
 			break;
 		}
-		if (tty->ldisc.receive_room(tty)-tty->flip.count < length) {
+		if (tty_buffer_request_room(tty, length) < length) {
 			/* break out & wait for throttling/unthrottling to happen */
 			dbg("%s - receive room low", __FUNCTION__);
 			break;

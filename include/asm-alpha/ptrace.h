@@ -67,15 +67,18 @@ struct switch_stack {
 };
 
 #ifdef __KERNEL__
+
+#define __ARCH_SYS_PTRACE	1
+
 #define user_mode(regs) (((regs)->ps & 8) != 0)
 #define instruction_pointer(regs) ((regs)->pc)
 #define profile_pc(regs) instruction_pointer(regs)
 extern void show_regs(struct pt_regs *);
 
-#define alpha_task_regs(task) \
-  ((struct pt_regs *) ((long) (task)->thread_info + 2*PAGE_SIZE) - 1)
+#define task_pt_regs(task) \
+  ((struct pt_regs *) (task_stack_page(task) + 2*PAGE_SIZE) - 1)
 
-#define force_successful_syscall_return() (alpha_task_regs(current)->r0 = 0)
+#define force_successful_syscall_return() (task_pt_regs(current)->r0 = 0)
 
 #endif
 

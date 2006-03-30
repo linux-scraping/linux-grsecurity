@@ -219,6 +219,7 @@ save_config_help[] = N_(
 search_help[] = N_(
 	"\n"
 	"Search for CONFIG_ symbols and display their relations.\n"
+	"Regular expressions are allowed.\n"
 	"Example: search for \"^FOO\"\n"
 	"Result:\n"
 	"-----------------------------------------------------------------\n"
@@ -324,7 +325,7 @@ static void cprint_init(void)
 	memset(args, 0, sizeof(args));
 	indent = 0;
 	child_count = 0;
-	cprint("./scripts/lxdialog/lxdialog");
+	cprint("./scripts/kconfig/lxdialog/lxdialog");
 	cprint("--backtitle");
 	cprint(menu_backtitle);
 }
@@ -531,7 +532,7 @@ again:
 	cprint("--title");
 	cprint(_("Search Configuration Parameter"));
 	cprint("--inputbox");
-	cprint(_("Enter Keyword"));
+	cprint(_("Enter CONFIG_ (sub)string to search for (omit CONFIG_)"));
 	cprint("10");
 	cprint("75");
 	cprint("");
@@ -1050,7 +1051,7 @@ int main(int ac, char **av)
 	conf_parse(av[1]);
 	conf_read(NULL);
 
-	sym = sym_lookup("KERNELRELEASE", 0);
+	sym = sym_lookup("KERNELVERSION", 0);
 	sym_calc_value(sym);
 	sprintf(menu_backtitle, _("Linux Kernel v%s Configuration"),
 		sym_get_string_value(sym));

@@ -88,7 +88,7 @@ mca_page_isolate(unsigned long paddr)
 	if (!ia64_phys_addr_valid(paddr))
 		return ISOLATE_NONE;
 
-	if (!pfn_valid(paddr))
+	if (!pfn_valid(paddr >> PAGE_SHIFT))
 		return ISOLATE_NONE;
 
 	/* convert physical address to physical page number */
@@ -108,6 +108,7 @@ mca_page_isolate(unsigned long paddr)
 		return ISOLATE_NG;
 
 	/* add attribute 'Reserved' and register the page */
+	get_page(p);
 	SetPageReserved(p);
 	page_isolate[num_page_isolate++] = p;
 
@@ -122,8 +123,9 @@ mca_page_isolate(unsigned long paddr)
 void
 mca_handler_bh(unsigned long paddr)
 {
-	printk(KERN_DEBUG "OS_MCA: process [pid: %d](%s) encounters MCA.\n",
-		current->pid, current->comm);
+	printk(KERN_ERR
+		"OS_MCA: process [pid: %d](%s) encounters MCA (paddr=%lx)\n",
+		current->pid, current->comm, paddr);
 
 	spin_lock(&mca_bh_lock);
 	switch (mca_page_isolate(paddr)) {
@@ -131,7 +133,7 @@ mca_handler_bh(unsigned long paddr)
 		printk(KERN_DEBUG "Page isolation: ( %lx ) success.\n", paddr);
 		break;
 	case ISOLATE_NG:
-		printk(KERN_DEBUG "Page isolation: ( %lx ) failure.\n", paddr);
+		printk(KERN_CRIT "Page isolation: ( %lx ) failure.\n", paddr);
 		break;
 	default:
 		break;
@@ -436,6 +438,9 @@ recover_from_read_error(slidx_table_t *slidx,
 	 *    the process not have any locks of kernel.
 	 */
 
+	/* Is minstate valid? */
+	if (!peidx_bottom(peidx) || !(peidx_bottom(peidx)->valid.minstate))
+		return 0;
 	psr1 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_ipsr);
 
 	/*
@@ -546,16 +551,32 @@ recover_from_processor_error(int platform, slidx_table_t *slidx,
 		(pal_processor_state_info_t*)peidx_psp(peidx);
 
 	/*
-	 * We cannot recover errors with other than bus_check.
+	 * Processor recovery status must key off of the PAL recovery
+	 * status in the Processor State Parameter.
 	 */
-	if (psp->cc || psp->rc || psp->uc)
+
+	/*
+	 * The machine check is corrected.
+	 */
+	if (psp->cm == 1)
+		return 1;
+
+	/*
+	 * The error was not contained.  Software must be reset.
+	 */
+	if (psp->us || psp->ci == 0)
 		return 0;
 
 	/*
-	 * If there is no bus error, record is weird but we need not to recover.
+	 * The cache check and bus check bits have four possible states
+	 *   cc bc
+	 *    0  0	Weird record, not recovered
+	 *    1  0	Cache error, not recovered
+	 *    0  1	I/O error, attempt recovery
+	 *    1  1	Memory error, attempt recovery
 	 */
 	if (psp->bc == 0 || pbci == NULL)
-		return 1;
+		return 0;
 
 	/*
 	 * Sorry, we cannot handle so many.
@@ -568,8 +589,6 @@ recover_from_processor_error(int platform, slidx_table_t *slidx,
 	if (pbci->ib || pbci->cc)
 		return 0;
 	if (pbci->eb && pbci->bsi > 0)
-		return 0;
-	if (psp->ci == 0)
 		return 0;
 
 	/*

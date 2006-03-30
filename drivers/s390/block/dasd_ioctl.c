@@ -7,8 +7,6 @@
  * Bugreports.to..: <Linux390@de.ibm.com>
  * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 1999-2001
  *
- * $Revision: 1.47 $
- *
  * i/o controls for the dasd driver.
  */
 #include <linux/config.h>
@@ -116,6 +114,18 @@ dasd_ioctl(struct inode *inp, struct file *filp,
 		      "unknown ioctl 0x%08x=%s'0x%x'%d(%d) data %8lx", no,
 		      dir, _IOC_TYPE(no), _IOC_NR(no), _IOC_SIZE(no), data);
 	return -EINVAL;
+}
+
+long
+dasd_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int rval;
+
+	lock_kernel();
+	rval = dasd_ioctl(filp->f_dentry->d_inode, filp, cmd, arg);
+	unlock_kernel();
+
+	return (rval == -EINVAL) ? -ENOIOCTLCMD : rval;
 }
 
 static int
@@ -352,6 +362,9 @@ dasd_ioctl_read_profile(struct block_device *bdev, int no, long args)
 	if (device == NULL)
 		return -ENODEV;
 
+	if (dasd_profile_level == DASD_PROFILE_OFF)
+		return -EIO;
+
 	if (copy_to_user((long __user *) args, (long *) &device->profile,
 			 sizeof (struct dasd_profile_info_t)))
 		return -EFAULT;
@@ -408,8 +421,15 @@ dasd_ioctl_information(struct block_device *bdev, int no, long args)
 	dasd_info->cu_model = cdev->id.cu_model;
 	dasd_info->dev_type = cdev->id.dev_type;
 	dasd_info->dev_model = cdev->id.dev_model;
-	dasd_info->open_count = atomic_read(&device->open_count);
 	dasd_info->status = device->state;
+	/*
+	 * The open_count is increased for every opener, that includes
+	 * the blkdev_get in dasd_scan_partitions.
+	 * This must be hidden from user-space.
+	 */
+	dasd_info->open_count = atomic_read(&device->open_count);
+	if (!device->bdev)
+		dasd_info->open_count++;
 	
 	/*
 	 * check if device is really formatted
@@ -483,33 +503,6 @@ dasd_ioctl_set_ro(struct block_device *bdev, int no, long args)
 }
 
 /*
- * Return disk geometry.
- */
-static int
-dasd_ioctl_getgeo(struct block_device *bdev, int no, long args)
-{
-	struct hd_geometry geo = { 0, };
-	struct dasd_device *device;
-
-	device =  bdev->bd_disk->private_data;
-	if (device == NULL)
-		return -ENODEV;
-
-	if (device == NULL || device->discipline == NULL ||
-	    device->discipline->fill_geometry == NULL)
-		return -EINVAL;
-
-	geo = (struct hd_geometry) {};
-	device->discipline->fill_geometry(device, &geo);
-	geo.start = get_start_sect(bdev) >> device->s2b_shift;
-	if (copy_to_user((struct hd_geometry __user *) args, &geo,
-			 sizeof (struct hd_geometry)))
-		return -EFAULT;
-
-	return 0;
-}
-
-/*
  * List of static ioctls.
  */
 static struct { int no; dasd_ioctl_fn_t fn; } dasd_ioctls[] =
@@ -525,7 +518,6 @@ static struct { int no; dasd_ioctl_fn_t fn; } dasd_ioctls[] =
 	{ BIODASDPRRST, dasd_ioctl_reset_profile },
 	{ BLKROSET, dasd_ioctl_set_ro },
 	{ DASDAPIVER, dasd_ioctl_api_version },
-	{ HDIO_GETGEO, dasd_ioctl_getgeo },
 	{ -1, NULL }
 };
 

@@ -33,6 +33,7 @@
 #include <linux/string.h>
 #include <net/icmp.h>
 #include <net/ipv6.h>
+#include <net/protocol.h>
 #include <net/xfrm.h>
 #include <asm/scatterlist.h>
 
@@ -278,7 +279,7 @@ static int ah6_input(struct xfrm_state *x, struct xfrm_decap_state *decap, struc
 		goto out;
 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
 	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
-		goto out;
+		goto free_out;
 	skb->nh.ipv6h->priority    = 0;
 	skb->nh.ipv6h->flow_lbl[0] = 0;
 	skb->nh.ipv6h->flow_lbl[1] = 0;
@@ -331,8 +332,7 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 	if (!x)
 		return;
 
-	NETDEBUG(KERN_DEBUG "pmtu discovery on SA AH/%08x/"
-		 "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+	NETDEBUG(KERN_DEBUG "pmtu discovery on SA AH/%08x/" NIP6_FMT "\n",
 		 ntohl(ah->spi), NIP6(iph->daddr));
 
 	xfrm_state_put(x);

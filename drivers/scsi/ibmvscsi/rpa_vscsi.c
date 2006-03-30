@@ -230,6 +230,11 @@ int ibmvscsi_init_crq_queue(struct crq_queue *queue,
 	rc = plpar_hcall_norets(H_REG_CRQ,
 				vdev->unit_address,
 				queue->msg_token, PAGE_SIZE);
+	if (rc == H_Resource) 
+		/* maybe kexecing and resource is busy. try a reset */
+		rc = ibmvscsi_reset_crq_queue(queue,
+					      hostdata);
+
 	if (rc == 2) {
 		/* Adapter is good, but other end is not ready */
 		printk(KERN_WARNING "ibmvscsi: Partner adapter not ready\n");
@@ -276,12 +281,34 @@ int ibmvscsi_init_crq_queue(struct crq_queue *queue,
 }
 
 /**
+ * reenable_crq_queue: - reenables a crq after
+ * @queue:	crq_queue to initialize and register
+ * @hostdata:	ibmvscsi_host_data of host
+ *
+ */
+int ibmvscsi_reenable_crq_queue(struct crq_queue *queue,
+				 struct ibmvscsi_host_data *hostdata)
+{
+	int rc;
+	struct vio_dev *vdev = to_vio_dev(hostdata->dev);
+
+	/* Re-enable the CRQ */
+	do {
+		rc = plpar_hcall_norets(H_ENABLE_CRQ, vdev->unit_address);
+	} while ((rc == H_InProgress) || (rc == H_Busy) || (H_isLongBusy(rc)));
+
+	if (rc)
+		printk(KERN_ERR "ibmvscsi: Error %d enabling adapter\n", rc);
+	return rc;
+}
+
+/**
  * reset_crq_queue: - resets a crq after a failure
  * @queue:	crq_queue to initialize and register
  * @hostdata:	ibmvscsi_host_data of host
  *
  */
-void ibmvscsi_reset_crq_queue(struct crq_queue *queue,
+int ibmvscsi_reset_crq_queue(struct crq_queue *queue,
 			      struct ibmvscsi_host_data *hostdata)
 {
 	int rc;
@@ -309,4 +336,5 @@ void ibmvscsi_reset_crq_queue(struct crq_queue *queue,
 		printk(KERN_WARNING
 		       "ibmvscsi: couldn't register crq--rc 0x%x\n", rc);
 	}
+	return rc;
 }

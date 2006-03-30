@@ -3,6 +3,7 @@
  *
  *      Changes:
  *      Venkatesh Pallipadi	: Adding cache identification through cpuid(4)
+ *		Ashok Raj <ashok.raj@intel.com>: Work with CPU hotplug infrastructure.
  */
 
 #include <linux/init.h>
@@ -10,6 +11,7 @@
 #include <linux/device.h>
 #include <linux/compiler.h>
 #include <linux/cpu.h>
+#include <linux/sched.h>
 
 #include <asm/processor.h>
 #include <asm/smp.h>
@@ -28,7 +30,7 @@ struct _cache_table
 };
 
 /* all the cache descriptor types we care about (no TLB or trace cache entries) */
-static struct _cache_table cache_table[] __devinitdata =
+static struct _cache_table cache_table[] __cpuinitdata =
 {
 	{ 0x06, LVL_1_INST, 8 },	/* 4-way set assoc, 32 byte line size */
 	{ 0x08, LVL_1_INST, 16 },	/* 4-way set assoc, 32 byte line size */
@@ -41,13 +43,23 @@ static struct _cache_table cache_table[] __devinitdata =
 	{ 0x2c, LVL_1_DATA, 32 },	/* 8-way set assoc, 64 byte line size */
 	{ 0x30, LVL_1_INST, 32 },	/* 8-way set assoc, 64 byte line size */
 	{ 0x39, LVL_2,      128 },	/* 4-way set assoc, sectored cache, 64 byte line size */
+	{ 0x3a, LVL_2,      192 },	/* 6-way set assoc, sectored cache, 64 byte line size */
 	{ 0x3b, LVL_2,      128 },	/* 2-way set assoc, sectored cache, 64 byte line size */
 	{ 0x3c, LVL_2,      256 },	/* 4-way set assoc, sectored cache, 64 byte line size */
+	{ 0x3d, LVL_2,      384 },	/* 6-way set assoc, sectored cache, 64 byte line size */
+	{ 0x3e, LVL_2,      512 },	/* 4-way set assoc, sectored cache, 64 byte line size */
 	{ 0x41, LVL_2,      128 },	/* 4-way set assoc, 32 byte line size */
 	{ 0x42, LVL_2,      256 },	/* 4-way set assoc, 32 byte line size */
 	{ 0x43, LVL_2,      512 },	/* 4-way set assoc, 32 byte line size */
 	{ 0x44, LVL_2,      1024 },	/* 4-way set assoc, 32 byte line size */
 	{ 0x45, LVL_2,      2048 },	/* 4-way set assoc, 32 byte line size */
+	{ 0x46, LVL_3,      4096 },	/* 4-way set assoc, 64 byte line size */
+	{ 0x47, LVL_3,      8192 },	/* 8-way set assoc, 64 byte line size */
+	{ 0x49, LVL_3,      4096 },	/* 16-way set assoc, 64 byte line size */
+	{ 0x4a, LVL_3,      6144 },	/* 12-way set assoc, 64 byte line size */
+	{ 0x4b, LVL_3,      8192 },	/* 16-way set assoc, 64 byte line size */
+	{ 0x4c, LVL_3,     12288 },	/* 12-way set assoc, 64 byte line size */
+	{ 0x4d, LVL_3,     16384 },	/* 16-way set assoc, 64 byte line size */
 	{ 0x60, LVL_1_DATA, 16 },	/* 8-way set assoc, sectored cache, 64 byte line size */
 	{ 0x66, LVL_1_DATA, 8 },	/* 4-way set assoc, sectored cache, 64 byte line size */
 	{ 0x67, LVL_1_DATA, 16 },	/* 4-way set assoc, sectored cache, 64 byte line size */
@@ -55,6 +67,7 @@ static struct _cache_table cache_table[] __devinitdata =
 	{ 0x70, LVL_TRACE,  12 },	/* 8-way set assoc */
 	{ 0x71, LVL_TRACE,  16 },	/* 8-way set assoc */
 	{ 0x72, LVL_TRACE,  32 },	/* 8-way set assoc */
+	{ 0x73, LVL_TRACE,  64 },	/* 8-way set assoc */
 	{ 0x78, LVL_2,    1024 },	/* 4-way set assoc, 64 byte line size */
 	{ 0x79, LVL_2,     128 },	/* 8-way set assoc, sectored cache, 64 byte line size */
 	{ 0x7a, LVL_2,     256 },	/* 8-way set assoc, sectored cache, 64 byte line size */
@@ -117,10 +130,9 @@ struct _cpuid4_info {
 	cpumask_t shared_cpu_map;
 };
 
-#define MAX_CACHE_LEAVES		4
 static unsigned short			num_cache_leaves;
 
-static int __devinit cpuid4_cache_lookup(int index, struct _cpuid4_info *this_leaf)
+static int __cpuinit cpuid4_cache_lookup(int index, struct _cpuid4_info *this_leaf)
 {
 	unsigned int		eax, ebx, ecx, edx;
 	union _cpuid4_leaf_eax	cache_eax;
@@ -140,27 +152,23 @@ static int __devinit cpuid4_cache_lookup(int index, struct _cpuid4_info *this_le
 	return 0;
 }
 
+/* will only be called once; __init is safe here */
 static int __init find_num_cache_leaves(void)
 {
 	unsigned int		eax, ebx, ecx, edx;
 	union _cpuid4_leaf_eax	cache_eax;
-	int 			i;
-	int 			retval;
+	int 			i = -1;
 
-	retval = MAX_CACHE_LEAVES;
-	/* Do cpuid(4) loop to find out num_cache_leaves */
-	for (i = 0; i < MAX_CACHE_LEAVES; i++) {
+	do {
+		++i;
+		/* Do cpuid(4) loop to find out num_cache_leaves */
 		cpuid_count(4, i, &eax, &ebx, &ecx, &edx);
 		cache_eax.full = eax;
-		if (cache_eax.split.type == CACHE_TYPE_NULL) {
-			retval = i;
-			break;
-		}
-	}
-	return retval;
+	} while (cache_eax.split.type != CACHE_TYPE_NULL);
+	return i;
 }
 
-unsigned int __devinit init_intel_cacheinfo(struct cpuinfo_x86 *c)
+unsigned int __cpuinit init_intel_cacheinfo(struct cpuinfo_x86 *c)
 {
 	unsigned int trace = 0, l1i = 0, l1d = 0, l2 = 0, l3 = 0; /* Cache sizes */
 	unsigned int new_l1d = 0, new_l1i = 0; /* Cache sizes from cpuid(4) */
@@ -284,13 +292,7 @@ unsigned int __devinit init_intel_cacheinfo(struct cpuinfo_x86 *c)
 		if ( l3 )
 			printk(KERN_INFO "CPU: L3 cache: %dK\n", l3);
 
-		/*
-		 * This assumes the L3 cache is shared; it typically lives in
-		 * the northbridge.  The L1 caches are included by the L2
-		 * cache, and so should not be included for the purpose of
-		 * SMP switching weights.
-		 */
-		c->x86_cache_size = l2 ? l2 : (l1i+l1d);
+		c->x86_cache_size = l3 ? l3 : (l2 ? l2 : (l1i+l1d));
 	}
 
 	return l2;
@@ -301,31 +303,47 @@ static struct _cpuid4_info *cpuid4_info[NR_CPUS];
 #define CPUID4_INFO_IDX(x,y)    (&((cpuid4_info[x])[y]))
 
 #ifdef CONFIG_SMP
-static void __devinit cache_shared_cpu_map_setup(unsigned int cpu, int index)
+static void __cpuinit cache_shared_cpu_map_setup(unsigned int cpu, int index)
 {
-	struct _cpuid4_info	*this_leaf;
+	struct _cpuid4_info	*this_leaf, *sibling_leaf;
 	unsigned long num_threads_sharing;
-#ifdef CONFIG_X86_HT
-	struct cpuinfo_x86 *c = cpu_data + cpu;
-#endif
+	int index_msb, i;
+	struct cpuinfo_x86 *c = cpu_data;
 
 	this_leaf = CPUID4_INFO_IDX(cpu, index);
 	num_threads_sharing = 1 + this_leaf->eax.split.num_threads_sharing;
 
 	if (num_threads_sharing == 1)
 		cpu_set(cpu, this_leaf->shared_cpu_map);
-#ifdef CONFIG_X86_HT
-	else if (num_threads_sharing == smp_num_siblings)
-		this_leaf->shared_cpu_map = cpu_sibling_map[cpu];
-	else if (num_threads_sharing == (c->x86_num_cores * smp_num_siblings))
-		this_leaf->shared_cpu_map = cpu_core_map[cpu];
-	else
-		printk(KERN_DEBUG "Number of CPUs sharing cache didn't match "
-				"any known set of CPUs\n");
-#endif
+	else {
+		index_msb = get_count_order(num_threads_sharing);
+
+		for_each_online_cpu(i) {
+			if (c[i].apicid >> index_msb ==
+			    c[cpu].apicid >> index_msb) {
+				cpu_set(i, this_leaf->shared_cpu_map);
+				if (i != cpu && cpuid4_info[i])  {
+					sibling_leaf = CPUID4_INFO_IDX(i, index);
+					cpu_set(cpu, sibling_leaf->shared_cpu_map);
+				}
+			}
+		}
+	}
+}
+static void __devinit cache_remove_shared_cpu_map(unsigned int cpu, int index)
+{
+	struct _cpuid4_info	*this_leaf, *sibling_leaf;
+	int sibling;
+
+	this_leaf = CPUID4_INFO_IDX(cpu, index);
+	for_each_cpu_mask(sibling, this_leaf->shared_cpu_map) {
+		sibling_leaf = CPUID4_INFO_IDX(sibling, index);	
+		cpu_clear(cpu, sibling_leaf->shared_cpu_map);
+	}
 }
 #else
 static void __init cache_shared_cpu_map_setup(unsigned int cpu, int index) {}
+static void __init cache_remove_shared_cpu_map(unsigned int cpu, int index) {}
 #endif
 
 static void free_cache_attributes(unsigned int cpu)
@@ -334,7 +352,7 @@ static void free_cache_attributes(unsigned int cpu)
 	cpuid4_info[cpu] = NULL;
 }
 
-static int __devinit detect_cache_attributes(unsigned int cpu)
+static int __cpuinit detect_cache_attributes(unsigned int cpu)
 {
 	struct _cpuid4_info	*this_leaf;
 	unsigned long 		j;
@@ -511,7 +529,7 @@ static void cpuid4_cache_sysfs_exit(unsigned int cpu)
 	free_cache_attributes(cpu);
 }
 
-static int __devinit cpuid4_cache_sysfs_init(unsigned int cpu)
+static int __cpuinit cpuid4_cache_sysfs_init(unsigned int cpu)
 {
 
 	if (num_cache_leaves == 0)
@@ -542,7 +560,7 @@ err_out:
 }
 
 /* Add/Remove cache interface for CPU device */
-static int __devinit cache_add_dev(struct sys_device * sys_dev)
+static int __cpuinit cache_add_dev(struct sys_device * sys_dev)
 {
 	unsigned int cpu = sys_dev->id;
 	unsigned long i, j;
@@ -579,33 +597,60 @@ static int __devinit cache_add_dev(struct sys_device * sys_dev)
 	return retval;
 }
 
-static int __devexit cache_remove_dev(struct sys_device * sys_dev)
+static void __cpuexit cache_remove_dev(struct sys_device * sys_dev)
 {
 	unsigned int cpu = sys_dev->id;
 	unsigned long i;
 
-	for (i = 0; i < num_cache_leaves; i++)
+	for (i = 0; i < num_cache_leaves; i++) {
+		cache_remove_shared_cpu_map(cpu, i);
 		kobject_unregister(&(INDEX_KOBJECT_PTR(cpu,i)->kobj));
+	}
 	kobject_unregister(cache_kobject[cpu]);
 	cpuid4_cache_sysfs_exit(cpu);
-	return 0;
+	return;
 }
 
-static struct sysdev_driver cache_sysdev_driver = {
-	.add = cache_add_dev,
-	.remove = __devexit_p(cache_remove_dev),
+static int __cpuinit cacheinfo_cpu_callback(struct notifier_block *nfb,
+					unsigned long action, void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+	struct sys_device *sys_dev;
+
+	sys_dev = get_cpu_sysdev(cpu);
+	switch (action) {
+	case CPU_ONLINE:
+		cache_add_dev(sys_dev);
+		break;
+	case CPU_DEAD:
+		cache_remove_dev(sys_dev);
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cacheinfo_cpu_notifier =
+{
+    .notifier_call = cacheinfo_cpu_callback,
 };
 
-/* Register/Unregister the cpu_cache driver */
-static int __devinit cache_register_driver(void)
+static int __cpuinit cache_sysfs_init(void)
 {
+	int i;
+
 	if (num_cache_leaves == 0)
 		return 0;
 
-	return sysdev_driver_register(&cpu_sysdev_class,&cache_sysdev_driver);
+	register_cpu_notifier(&cacheinfo_cpu_notifier);
+
+	for_each_online_cpu(i) {
+		cacheinfo_cpu_callback(&cacheinfo_cpu_notifier, CPU_ONLINE,
+			(void *)(long)i);
+	}
+
+	return 0;
 }
 
-device_initcall(cache_register_driver);
+device_initcall(cache_sysfs_init);
 
 #endif
-

@@ -125,17 +125,20 @@ static struct usb_device_id id_table [] = {
 MODULE_DEVICE_TABLE (usb, id_table);
 
 static struct usb_driver ir_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"ir-usb",
 	.probe =	usb_serial_probe,
 	.disconnect =	usb_serial_disconnect,
 	.id_table =	id_table,
+	.no_dynamic_id = 	1,
 };
 
 
-static struct usb_serial_device_type ir_device = {
-	.owner =		THIS_MODULE,
-	.name =			"IR Dongle",
+static struct usb_serial_driver ir_device = {
+	.driver = {
+		.owner =	THIS_MODULE,
+		.name =		"ir-usb",
+	},
+	.description =		"IR Dongle",
 	.id_table =		id_table,
 	.num_interrupt_in =	1,
 	.num_bulk_in =		1,

@@ -246,6 +246,7 @@ struct ScsiReqBlk {
 	 * total_xfer_length in xferred. These values are restored in
 	 * pci_unmap_srb_sense. This is the only place xferred is used.
 	 */
+	unsigned char *virt_addr_req;	/* Saved virtual address of the request buffer */
 	u32 xferred;		        /* Saved copy of total_xfer_length */
 
 	u16 state;
@@ -976,6 +977,16 @@ static void send_srb(struct AdapterCtlBlk *acb, struct ScsiReqBlk *srb)
 	}
 }
 
+static inline void pio_trigger(void)
+{
+	static int feedback_requested;
+
+	if (!feedback_requested) {
+		feedback_requested = 1;
+		printk(KERN_WARNING "%s: Please, contact <linux-scsi@vger.kernel.org> "
+		       "to help improve support for your system.\n", __FILE__);
+	}
+}
 
 /* Prepare SRB for being sent to Device DCB w/ command *cmd */
 static void build_srb(struct scsi_cmnd *cmd, struct DeviceCtlBlk *dcb,
@@ -2007,7 +2018,7 @@ static void sg_update_list(struct ScsiReqBlk *srb, u32 left)
 	sg_verify_length(srb);
 
 	/* we need the corresponding virtual address */
-	if (!segment) {
+	if (!segment || (srb->flag & AUTO_REQSENSE)) {
 		srb->virt_addr += xferred;
 		return;
 	}
@@ -2320,6 +2331,7 @@ static void data_in_phase0(struct AdapterCtlBlk *acb, struct ScsiReqBlk *srb,
 					      CFG2_WIDEFIFO);
 			while (DC395x_read8(acb, TRM_S1040_SCSI_FIFOCNT) != 0x40) {
 				u8 byte = DC395x_read8(acb, TRM_S1040_SCSI_FIFO);
+				pio_trigger();
 				*(srb->virt_addr)++ = byte;
 				if (debug_enabled(DBG_PIO))
 					printk(" %02x", byte);
@@ -2331,6 +2343,7 @@ static void data_in_phase0(struct AdapterCtlBlk *acb, struct ScsiReqBlk *srb,
                 /* Read the last byte ... */
 				if (srb->total_xfer_length > 0) {
 					u8 byte = DC395x_read8(acb, TRM_S1040_SCSI_FIFO);
+					pio_trigger();
 					*(srb->virt_addr)++ = byte;
 					srb->total_xfer_length--;
 					if (debug_enabled(DBG_PIO))
@@ -2507,6 +2520,7 @@ static void data_io_transfer(struct AdapterCtlBlk *acb,
 				if (debug_enabled(DBG_PIO))
 					printk(" %02x", (unsigned char) *(srb->virt_addr));
 
+				pio_trigger();
 				DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 
 				     *(srb->virt_addr)++);
 
@@ -3305,6 +3319,7 @@ static void pci_unmap_srb_sense(struct AdapterCtlBlk *acb,
 	    srb->segment_x[DC395x_MAX_SG_LISTENTRY - 1].address;
 	srb->segment_x[0].length =
 	    srb->segment_x[DC395x_MAX_SG_LISTENTRY - 1].length;
+	srb->virt_addr = srb->virt_addr_req;
 }
 
 
@@ -3698,6 +3713,8 @@ static void request_sense(struct AdapterCtlBlk *acb, struct DeviceCtlBlk *dcb,
 	srb->xferred = srb->total_xfer_length;
 	/* srb->segment_x : a one entry of S/G list table */
 	srb->total_xfer_length = sizeof(cmd->sense_buffer);
+	srb->virt_addr_req = srb->virt_addr;
+	srb->virt_addr = cmd->sense_buffer;
 	srb->segment_x[0].length = sizeof(cmd->sense_buffer);
 	/* Map sense buffer */
 	srb->segment_x[0].address =
@@ -4257,8 +4274,7 @@ static void adapter_sg_tables_free(struct AdapterCtlBlk *acb)
 	const unsigned srbs_per_page = PAGE_SIZE/SEGMENTX_LEN;
 
 	for (i = 0; i < DC395x_MAX_SRB_CNT; i += srbs_per_page)
-		if (acb->srb_array[i].segment_x)
-			kfree(acb->srb_array[i].segment_x);
+		kfree(acb->srb_array[i].segment_x);
 }
 
 

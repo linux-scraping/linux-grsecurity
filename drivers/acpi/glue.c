@@ -99,15 +99,15 @@ do_root_bridge_busnr_callback(struct acpi_resource *resource, void *data)
 	unsigned long *busnr = (unsigned long *)data;
 	struct acpi_resource_address64 address;
 
-	if (resource->id != ACPI_RSTYPE_ADDRESS16 &&
-	    resource->id != ACPI_RSTYPE_ADDRESS32 &&
-	    resource->id != ACPI_RSTYPE_ADDRESS64)
+	if (resource->type != ACPI_RESOURCE_TYPE_ADDRESS16 &&
+	    resource->type != ACPI_RESOURCE_TYPE_ADDRESS32 &&
+	    resource->type != ACPI_RESOURCE_TYPE_ADDRESS64)
 		return AE_OK;
 
 	acpi_resource_to_address64(resource, &address);
 	if ((address.address_length > 0) &&
 	    (address.resource_type == ACPI_BUS_NUMBER_RANGE))
-		*busnr = address.min_address_range;
+		*busnr = address.minimum;
 
 	return AE_OK;
 }
@@ -203,6 +203,7 @@ acpi_handle acpi_get_pci_rootbridge_handle(unsigned int seg, unsigned int bus)
 	acpi_get_devices(PCI_ROOT_HID_STRING, find_pci_rootbridge, &find, NULL);
 	return find.handle;
 }
+EXPORT_SYMBOL_GPL(acpi_get_pci_rootbridge_handle);
 
 /* Get device's handler per its address under its parent */
 struct acpi_find_child {

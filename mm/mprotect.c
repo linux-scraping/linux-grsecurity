@@ -36,8 +36,9 @@ static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot)
 {
 	pte_t *pte;
+	spinlock_t *ptl;
 
-	pte = pte_offset_map(pmd, addr);
+	pte = pte_offset_map_lock(mm, pmd, addr, &ptl);
 	do {
 		if (pte_present(*pte)) {
 			pte_t ptent;
@@ -51,7 +52,7 @@ static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 			lazy_mmu_prot_update(ptent);
 		}
 	} while (pte++, addr += PAGE_SIZE, addr != end);
-	pte_unmap(pte - 1);
+	pte_unmap_unlock(pte - 1, ptl);
 }
 
 static inline void change_pmd_range(struct mm_struct *mm, pud_t *pud,
@@ -95,7 +96,6 @@ static void change_protection(struct vm_area_struct *vma,
 	BUG_ON(addr >= end);
 	pgd = pgd_offset(mm, addr);
 	flush_cache_range(vma, addr, end);
-	spin_lock(&mm->page_table_lock);
 	do {
 		next = pgd_addr_end(addr, end);
 		if (pgd_none_or_clear_bad(pgd))
@@ -103,7 +103,6 @@ static void change_protection(struct vm_area_struct *vma,
 		change_pud_range(mm, pgd, addr, next, newprot);
 	} while (pgd++, addr = next, addr != end);
 	flush_tlb_range(vma, start, end);
-	spin_unlock(&mm->page_table_lock);
 }
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
@@ -270,8 +269,8 @@ success:
 	vma->vm_flags = newflags;
 	vma->vm_page_prot = newprot;
 	change_protection(vma, start, end, newprot);
-	__vm_stat_account(mm, oldflags, vma->vm_file, -nrpages);
-	__vm_stat_account(mm, newflags, vma->vm_file, nrpages);
+	vm_stat_account(mm, oldflags, vma->vm_file, -nrpages);
+	vm_stat_account(mm, newflags, vma->vm_file, nrpages);
 	return 0;
 
 fail:
@@ -412,15 +411,15 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	if (start > vma->vm_start)
 		prev = vma;
 
-	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
-		error = -EACCES;
-		goto out;
-	}
-
 #ifdef CONFIG_PAX_MPROTECT
 	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
 		pax_handle_maywrite(vma, start);
 #endif
+
+	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
+		error = -EACCES;
+		goto out;
+	}
 
 	for (nstart = start ; ; ) {
 		unsigned long newflags;

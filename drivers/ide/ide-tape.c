@@ -1013,6 +1013,8 @@ typedef struct ide_tape_obj {
 
 static DECLARE_MUTEX(idetape_ref_sem);
 
+static struct class *idetape_sysfs_class;
+
 #define to_ide_tape(obj) container_of(obj, struct ide_tape_obj, kref)
 
 #define ide_tape_g(disk) \
@@ -4680,9 +4682,8 @@ static void idetape_setup (ide_drive_t *drive, idetape_tape_t *tape, int minor)
 	idetape_add_settings(drive);
 }
 
-static int ide_tape_remove(struct device *dev)
+static void ide_tape_remove(ide_drive_t *drive)
 {
-	ide_drive_t *drive = to_ide_device(dev);
 	idetape_tape_t *tape = drive->driver_data;
 
 	ide_unregister_subdriver(drive, tape->driver);
@@ -4690,8 +4691,6 @@ static int ide_tape_remove(struct device *dev)
 	ide_unregister_region(tape->disk);
 
 	ide_tape_put(tape);
-
-	return 0;
 }
 
 static void ide_tape_release(struct kref *kref)
@@ -4704,6 +4703,10 @@ static void ide_tape_release(struct kref *kref)
 
 	drive->dsc_overlap = 0;
 	drive->driver_data = NULL;
+	class_device_destroy(idetape_sysfs_class,
+			MKDEV(IDETAPE_MAJOR, tape->minor));
+	class_device_destroy(idetape_sysfs_class,
+			MKDEV(IDETAPE_MAJOR, tape->minor + 128));
 	devfs_remove("%s/mt", drive->devfs_name);
 	devfs_remove("%s/mtn", drive->devfs_name);
 	devfs_unregister_tape(g->number);
@@ -4739,16 +4742,16 @@ static ide_proc_entry_t idetape_proc[] = {
 
 #endif
 
-static int ide_tape_probe(struct device *);
+static int ide_tape_probe(ide_drive_t *);
 
 static ide_driver_t idetape_driver = {
-	.owner			= THIS_MODULE,
 	.gen_driver = {
+		.owner		= THIS_MODULE,
 		.name		= "ide-tape",
 		.bus		= &ide_bus_type,
-		.probe		= ide_tape_probe,
-		.remove		= ide_tape_remove,
 	},
+	.probe			= ide_tape_probe,
+	.remove			= ide_tape_remove,
 	.version		= IDETAPE_VERSION,
 	.media			= ide_tape,
 	.supports_dsc_overlap 	= 1,
@@ -4819,9 +4822,8 @@ static struct block_device_operations idetape_block_ops = {
 	.ioctl		= idetape_ioctl,
 };
 
-static int ide_tape_probe(struct device *dev)
+static int ide_tape_probe(ide_drive_t *drive)
 {
-	ide_drive_t *drive = to_ide_device(dev);
 	idetape_tape_t *tape;
 	struct gendisk *g;
 	int minor;
@@ -4844,7 +4846,7 @@ static int ide_tape_probe(struct device *dev)
 		printk(KERN_WARNING "ide-tape: Use drive %s with ide-scsi emulation and osst.\n", drive->name);
 		printk(KERN_WARNING "ide-tape: OnStream support will be removed soon from ide-tape!\n");
 	}
-	tape = (idetape_tape_t *) kmalloc (sizeof (idetape_tape_t), GFP_KERNEL);
+	tape = (idetape_tape_t *) kzalloc (sizeof (idetape_tape_t), GFP_KERNEL);
 	if (tape == NULL) {
 		printk(KERN_ERR "ide-tape: %s: Can't allocate a tape structure\n", drive->name);
 		goto failed;
@@ -4857,8 +4859,6 @@ static int ide_tape_probe(struct device *dev)
 	ide_init_disk(g, drive);
 
 	ide_register_subdriver(drive, &idetape_driver);
-
-	memset(tape, 0, sizeof(*tape));
 
 	kref_init(&tape->kref);
 
@@ -4877,6 +4877,11 @@ static int ide_tape_probe(struct device *dev)
 	up(&idetape_ref_sem);
 
 	idetape_setup(drive, tape, minor);
+
+	class_device_create(idetape_sysfs_class, NULL,
+			MKDEV(IDETAPE_MAJOR, minor), &drive->gendev, "%s", tape->name);
+	class_device_create(idetape_sysfs_class, NULL,
+			MKDEV(IDETAPE_MAJOR, minor + 128), &drive->gendev, "n%s", tape->name);
 
 	devfs_mk_cdev(MKDEV(HWIF(drive)->major, minor),
 			S_IFCHR | S_IRUGO | S_IWUGO,
@@ -4903,21 +4908,42 @@ MODULE_LICENSE("GPL");
 static void __exit idetape_exit (void)
 {
 	driver_unregister(&idetape_driver.gen_driver);
+	class_destroy(idetape_sysfs_class);
 	unregister_chrdev(IDETAPE_MAJOR, "ht");
 }
 
-/*
- *	idetape_init will register the driver for each tape.
- */
-static int idetape_init (void)
+static int __init idetape_init(void)
 {
+	int error = 1;
+	idetape_sysfs_class = class_create(THIS_MODULE, "ide_tape");
+	if (IS_ERR(idetape_sysfs_class)) {
+		idetape_sysfs_class = NULL;
+		printk(KERN_ERR "Unable to create sysfs class for ide tapes\n");
+		error = -EBUSY;
+		goto out;
+	}
+
 	if (register_chrdev(IDETAPE_MAJOR, "ht", &idetape_fops)) {
 		printk(KERN_ERR "ide-tape: Failed to register character device interface\n");
-		return -EBUSY;
+		error = -EBUSY;
+		goto out_free_class;
 	}
-	return driver_register(&idetape_driver.gen_driver);
+
+	error = driver_register(&idetape_driver.gen_driver);
+	if (error)
+		goto out_free_driver;
+
+	return 0;
+
+out_free_driver:
+	driver_unregister(&idetape_driver.gen_driver);
+out_free_class:
+	class_destroy(idetape_sysfs_class);
+out:
+	return error;
 }
 
+MODULE_ALIAS("ide:*m-tape*");
 module_init(idetape_init);
 module_exit(idetape_exit);
 MODULE_ALIAS_CHARDEV_MAJOR(IDETAPE_MAJOR);

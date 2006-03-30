@@ -65,8 +65,6 @@ void (*mach_kbd_leds) (unsigned int) = NULL;
 /* machine dependent irq functions */
 void (*mach_init_IRQ) (void) = NULL;
 irqreturn_t (*(*mach_default_handler)[]) (int, void *, struct pt_regs *) = NULL;
-void (*mach_enable_irq) (unsigned int) = NULL;
-void (*mach_disable_irq) (unsigned int) = NULL;
 int (*mach_get_irq_list) (struct seq_file *, void *) = NULL;
 void (*mach_process_int) (int irq, struct pt_regs *fp) = NULL;
 void (*mach_trap_init) (void);
@@ -107,6 +105,9 @@ void (*mach_power_off)( void ) = NULL;
 #if defined(CONFIG_M5206e)
 	#define	CPU "COLDFIRE(m5206e)"
 #endif
+#if defined(CONFIG_M520x)
+	#define CPU "COLDFIRE(m520x)"
+#endif
 #if defined(CONFIG_M523x)
 	#define CPU "COLDFIRE(m523x)"
 #endif
@@ -132,7 +133,7 @@ void (*mach_power_off)( void ) = NULL;
 	#define	CPU "COLDFIRE(m5407)"
 #endif
 #ifndef CPU
-	#define	CPU "UNKOWN"
+	#define	CPU "UNKNOWN"
 #endif
 
 /* (es) */

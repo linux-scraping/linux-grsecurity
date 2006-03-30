@@ -34,6 +34,7 @@
 #include <linux/major.h>
 #include <linux/kdev_t.h>
 #include <linux/root_dev.h>
+#include <linux/pm.h>
 
 #include <asm/cpu.h>
 #include <asm/time.h>
@@ -105,7 +106,7 @@ void __init it8172_init_ram_resource(unsigned long memsize)
 	it8172_resources.ram.end = memsize;
 }
 
-static void __init it8172_setup(void)
+void __init plat_setup(void)
 {
 	unsigned short dsr;
 	char *argptr;
@@ -125,7 +126,7 @@ static void __init it8172_setup(void)
 
 	_machine_restart = it8172_restart;
 	_machine_halt = it8172_halt;
-	_machine_power_off = it8172_power_off;
+	pm_power_off = it8172_power_off;
 
 	/*
 	 * IO/MEM resources.
@@ -250,8 +251,6 @@ static void __init it8172_setup(void)
 	}
 #endif /* CONFIG_IT8172_SCR1 */
 }
-
-early_initcall(it8172_setup);
 
 #ifdef CONFIG_SERIO_I8042
 /*

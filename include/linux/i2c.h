@@ -23,15 +23,15 @@
 /* With some changes from Kyösti Mälkki <kmalkki@cc.hut.fi> and
    Frodo Looijaard <frodol@dds.nl> */
 
-/* $Id: i2c.h,v 1.68 2003/01/21 08:08:16 kmalkki Exp $ */
-
 #ifndef _LINUX_I2C_H
 #define _LINUX_I2C_H
 
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/i2c-id.h>
+#include <linux/mod_devicetable.h>
 #include <linux/device.h>	/* for struct device */
+#include <linux/sched.h>	/* for completion */
 #include <asm/semaphore.h>
 
 /* --- For i2c-isa ---------------------------------------------------- */
@@ -94,25 +94,28 @@ extern s32 i2c_smbus_write_byte_data(struct i2c_client * client,
 extern s32 i2c_smbus_read_word_data(struct i2c_client * client, u8 command);
 extern s32 i2c_smbus_write_word_data(struct i2c_client * client,
                                      u8 command, u16 value);
-/* Returns the number of bytes transferred */
 extern s32 i2c_smbus_write_block_data(struct i2c_client * client,
 				      u8 command, u8 length,
 				      u8 *values);
+/* Returns the number of read bytes */
 extern s32 i2c_smbus_read_i2c_block_data(struct i2c_client * client,
 					 u8 command, u8 *values);
+extern s32 i2c_smbus_write_i2c_block_data(struct i2c_client * client,
+					  u8 command, u8 length,
+					  u8 *values);
 
 /*
  * A driver is capable of handling one or more physical devices present on
  * I2C adapters. This information is used to inform the driver of adapter
  * events.
+ *
+ * The driver.owner field should be set to the module owner of this driver.
+ * The driver.name field should be set to the name of this driver.
  */
 
 struct i2c_driver {
-	struct module *owner;
-	char name[32];
 	int id;
 	unsigned int class;
-	unsigned int flags;		/* div., see below		*/
 
 	/* Notifies the driver that a new bus has appeared. This routine
 	 * can be used by the driver to test if the bus meets its conditions
@@ -250,18 +253,7 @@ static inline void i2c_set_adapdata (struct i2c_adapter *dev, void *data)
 	dev_set_drvdata (&dev->dev, data);
 }
 
-/*flags for the driver struct: */
-#define I2C_DF_NOTIFY	0x01		/* notify on bus (de/a)ttaches 	*/
-#if 0
-/* this flag is gone -- there is a (optional) driver->detach_adapter
- * callback now which can be used instead */
-# define I2C_DF_DUMMY	0x02
-#endif
-
 /*flags for the client struct: */
-#define I2C_CLIENT_ALLOW_USE		0x01	/* Client allows access */
-#define I2C_CLIENT_ALLOW_MULTIPLE_USE 	0x02  	/* Allow multiple access-locks */
-						/* on an i2c_client */
 #define I2C_CLIENT_PEC  0x04			/* Use Packet Error Checking */
 #define I2C_CLIENT_TEN	0x10			/* we have a ten bit chip address	*/
 						/* Must equal I2C_M_TEN below */
@@ -302,26 +294,20 @@ struct i2c_client_address_data {
 extern int i2c_add_adapter(struct i2c_adapter *);
 extern int i2c_del_adapter(struct i2c_adapter *);
 
-extern int i2c_add_driver(struct i2c_driver *);
+extern int i2c_register_driver(struct module *, struct i2c_driver *);
 extern int i2c_del_driver(struct i2c_driver *);
+
+static inline int i2c_add_driver(struct i2c_driver *driver)
+{
+	return i2c_register_driver(THIS_MODULE, driver);
+}
 
 extern int i2c_attach_client(struct i2c_client *);
 extern int i2c_detach_client(struct i2c_client *);
 
-/* New function: This is to get an i2c_client-struct for controlling the 
-   client either by using i2c_control-function or having the 
-   client-module export functions that can be used with the i2c_client
-   -struct. */
-extern struct i2c_client *i2c_get_client(int driver_id, int adapter_id, 
-					struct i2c_client *prev);
-
-/* Should be used with new function
-   extern struct i2c_client *i2c_get_client(int,int,struct i2c_client *);
-   to make sure that client-struct is valid and that it is okay to access
-   the i2c-client. 
-   returns -EACCES if client doesn't allow use (default)
-   returns -EBUSY if client doesn't allow multiple use (default) and 
-   usage_count >0 */
+/* Should be used to make sure that client-struct is valid and that it
+   is okay to access the i2c-client.
+   returns -ENODEV if client has gone in the meantime */
 extern int i2c_use_client(struct i2c_client *);
 extern int i2c_release_client(struct i2c_client *);
 
@@ -391,10 +377,6 @@ struct i2c_msg {
 #define I2C_FUNC_10BIT_ADDR		0x00000002
 #define I2C_FUNC_PROTOCOL_MANGLING	0x00000004 /* I2C_M_{REV_DIR_ADDR,NOSTART,..} */
 #define I2C_FUNC_SMBUS_HWPEC_CALC	0x00000008 /* SMBus 2.0 */
-#define I2C_FUNC_SMBUS_READ_WORD_DATA_PEC  0x00000800 /* SMBus 2.0 */ 
-#define I2C_FUNC_SMBUS_WRITE_WORD_DATA_PEC 0x00001000 /* SMBus 2.0 */ 
-#define I2C_FUNC_SMBUS_PROC_CALL_PEC	0x00002000 /* SMBus 2.0 */
-#define I2C_FUNC_SMBUS_BLOCK_PROC_CALL_PEC 0x00004000 /* SMBus 2.0 */
 #define I2C_FUNC_SMBUS_BLOCK_PROC_CALL	0x00008000 /* SMBus 2.0 */
 #define I2C_FUNC_SMBUS_QUICK		0x00010000 
 #define I2C_FUNC_SMBUS_READ_BYTE	0x00020000 
@@ -410,8 +392,6 @@ struct i2c_msg {
 #define I2C_FUNC_SMBUS_WRITE_I2C_BLOCK	0x08000000 /* w/ 1-byte reg. addr. */
 #define I2C_FUNC_SMBUS_READ_I2C_BLOCK_2	 0x10000000 /* I2C-like block xfer  */
 #define I2C_FUNC_SMBUS_WRITE_I2C_BLOCK_2 0x20000000 /* w/ 2-byte reg. addr. */
-#define I2C_FUNC_SMBUS_READ_BLOCK_DATA_PEC  0x40000000 /* SMBus 2.0 */
-#define I2C_FUNC_SMBUS_WRITE_BLOCK_DATA_PEC 0x80000000 /* SMBus 2.0 */
 
 #define I2C_FUNC_SMBUS_BYTE (I2C_FUNC_SMBUS_READ_BYTE | \
                              I2C_FUNC_SMBUS_WRITE_BYTE)
@@ -425,17 +405,6 @@ struct i2c_msg {
                                   I2C_FUNC_SMBUS_WRITE_I2C_BLOCK)
 #define I2C_FUNC_SMBUS_I2C_BLOCK_2 (I2C_FUNC_SMBUS_READ_I2C_BLOCK_2 | \
                                     I2C_FUNC_SMBUS_WRITE_I2C_BLOCK_2)
-#define I2C_FUNC_SMBUS_BLOCK_DATA_PEC (I2C_FUNC_SMBUS_READ_BLOCK_DATA_PEC | \
-                                       I2C_FUNC_SMBUS_WRITE_BLOCK_DATA_PEC)
-#define I2C_FUNC_SMBUS_WORD_DATA_PEC  (I2C_FUNC_SMBUS_READ_WORD_DATA_PEC | \
-                                       I2C_FUNC_SMBUS_WRITE_WORD_DATA_PEC)
-
-#define I2C_FUNC_SMBUS_READ_BYTE_PEC		I2C_FUNC_SMBUS_READ_BYTE_DATA
-#define I2C_FUNC_SMBUS_WRITE_BYTE_PEC		I2C_FUNC_SMBUS_WRITE_BYTE_DATA
-#define I2C_FUNC_SMBUS_READ_BYTE_DATA_PEC	I2C_FUNC_SMBUS_READ_WORD_DATA
-#define I2C_FUNC_SMBUS_WRITE_BYTE_DATA_PEC	I2C_FUNC_SMBUS_WRITE_WORD_DATA
-#define I2C_FUNC_SMBUS_BYTE_PEC			I2C_FUNC_SMBUS_BYTE_DATA
-#define I2C_FUNC_SMBUS_BYTE_DATA_PEC		I2C_FUNC_SMBUS_WORD_DATA
 
 #define I2C_FUNC_SMBUS_EMUL (I2C_FUNC_SMBUS_QUICK | \
                              I2C_FUNC_SMBUS_BYTE | \
@@ -443,20 +412,17 @@ struct i2c_msg {
                              I2C_FUNC_SMBUS_WORD_DATA | \
                              I2C_FUNC_SMBUS_PROC_CALL | \
                              I2C_FUNC_SMBUS_WRITE_BLOCK_DATA | \
-                             I2C_FUNC_SMBUS_WRITE_BLOCK_DATA_PEC | \
                              I2C_FUNC_SMBUS_I2C_BLOCK)
 
 /* 
  * Data for SMBus Messages 
  */
 #define I2C_SMBUS_BLOCK_MAX	32	/* As specified in SMBus standard */	
-#define I2C_SMBUS_I2C_BLOCK_MAX	32	/* Not specified but we use same structure */
 union i2c_smbus_data {
 	__u8 byte;
 	__u16 word;
-	__u8 block[I2C_SMBUS_BLOCK_MAX + 3]; /* block[0] is used for length */
-                          /* one more for read length in block process call */
-	                                            /* and one more for PEC */
+	__u8 block[I2C_SMBUS_BLOCK_MAX + 2]; /* block[0] is used for length */
+	                       /* and one more for user-space compatibility */
 };
 
 /* smbus_access read or write markers */
@@ -473,10 +439,6 @@ union i2c_smbus_data {
 #define I2C_SMBUS_BLOCK_DATA	    5
 #define I2C_SMBUS_I2C_BLOCK_DATA    6
 #define I2C_SMBUS_BLOCK_PROC_CALL   7		/* SMBus 2.0 */
-#define I2C_SMBUS_BLOCK_DATA_PEC    8		/* SMBus 2.0 */
-#define I2C_SMBUS_PROC_CALL_PEC     9		/* SMBus 2.0 */
-#define I2C_SMBUS_BLOCK_PROC_CALL_PEC  10	/* SMBus 2.0 */
-#define I2C_SMBUS_WORD_DATA_PEC	   11		/* SMBus 2.0 */
 
 
 /* ----- commands for the ioctl like i2c_command call:
@@ -505,11 +467,6 @@ union i2c_smbus_data {
 #define I2C_PEC		0x0708	/* != 0 for SMBus PEC                   */
 
 #define I2C_SMBUS	0x0720	/* SMBus-level access */
-
-/* ... algo-bit.c recognizes */
-#define I2C_UDELAY	0x0705	/* set delay in microsecs between each	*/
-				/* written byte (except address)	*/
-#define I2C_MDELAY	0x0706	/* millisec delay between written bytes */
 
 /* ----- I2C-DEV: char device interface stuff ------------------------- */
 

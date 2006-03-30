@@ -12,6 +12,8 @@
 #ifdef __KERNEL__
 #include <linux/time.h>
 #include <linux/list.h>
+#include <linux/device.h>
+#include <linux/mod_devicetable.h>
 #else
 #include <sys/time.h>
 #include <sys/ioctl.h>
@@ -510,6 +512,8 @@ struct input_absinfo {
 #define KEY_FN_S		0x1e3
 #define KEY_FN_B		0x1e4
 
+/* We avoid low common keys in module aliases so they don't get huge. */
+#define KEY_MIN_INTERESTING	KEY_MUTE
 #define KEY_MAX			0x1ff
 
 /*
@@ -644,6 +648,7 @@ struct input_absinfo {
 #define BUS_ADB			0x17
 #define BUS_I2C			0x18
 #define BUS_HOST		0x19
+#define BUS_GSC			0x1A
 
 /*
  * Values describing the status of an effect
@@ -791,6 +796,44 @@ struct ff_effect {
 
 #define FF_MAX		0x7f
 
+struct input_device_id {
+
+	kernel_ulong_t flags;
+
+	struct input_id id;
+
+	kernel_ulong_t evbit[EV_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t keybit[KEY_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t relbit[REL_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t absbit[ABS_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t mscbit[MSC_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t ledbit[LED_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t sndbit[SND_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t ffbit[FF_MAX/BITS_PER_LONG+1];
+	kernel_ulong_t swbit[SW_MAX/BITS_PER_LONG+1];
+
+	kernel_ulong_t driver_info;
+};
+
+/*
+ * Structure for hotplug & device<->driver matching.
+ */
+
+#define INPUT_DEVICE_ID_MATCH_BUS	1
+#define INPUT_DEVICE_ID_MATCH_VENDOR	2
+#define INPUT_DEVICE_ID_MATCH_PRODUCT	4
+#define INPUT_DEVICE_ID_MATCH_VERSION	8
+
+#define INPUT_DEVICE_ID_MATCH_EVBIT	0x010
+#define INPUT_DEVICE_ID_MATCH_KEYBIT	0x020
+#define INPUT_DEVICE_ID_MATCH_RELBIT	0x040
+#define INPUT_DEVICE_ID_MATCH_ABSBIT	0x080
+#define INPUT_DEVICE_ID_MATCH_MSCIT	0x100
+#define INPUT_DEVICE_ID_MATCH_LEDBIT	0x200
+#define INPUT_DEVICE_ID_MATCH_SNDBIT	0x400
+#define INPUT_DEVICE_ID_MATCH_FFBIT	0x800
+#define INPUT_DEVICE_ID_MATCH_SWBIT	0x1000
+
 #ifdef __KERNEL__
 
 /*
@@ -889,54 +932,20 @@ struct input_dev {
 	struct semaphore sem;	/* serializes open and close operations */
 	unsigned int users;
 
-	struct device *dev;
+	struct class_device cdev;
+	struct device *dev;	/* will be removed soon */
+
+	int dynalloc;	/* temporarily */
 
 	struct list_head	h_list;
 	struct list_head	node;
 };
-
-/*
- * Structure for hotplug & device<->driver matching.
- */
-
-#define INPUT_DEVICE_ID_MATCH_BUS	1
-#define INPUT_DEVICE_ID_MATCH_VENDOR	2
-#define INPUT_DEVICE_ID_MATCH_PRODUCT	4
-#define INPUT_DEVICE_ID_MATCH_VERSION	8
-
-#define INPUT_DEVICE_ID_MATCH_EVBIT	0x010
-#define INPUT_DEVICE_ID_MATCH_KEYBIT	0x020
-#define INPUT_DEVICE_ID_MATCH_RELBIT	0x040
-#define INPUT_DEVICE_ID_MATCH_ABSBIT	0x080
-#define INPUT_DEVICE_ID_MATCH_MSCIT	0x100
-#define INPUT_DEVICE_ID_MATCH_LEDBIT	0x200
-#define INPUT_DEVICE_ID_MATCH_SNDBIT	0x400
-#define INPUT_DEVICE_ID_MATCH_FFBIT	0x800
-#define INPUT_DEVICE_ID_MATCH_SWBIT	0x1000
+#define to_input_dev(d) container_of(d, struct input_dev, cdev)
 
 #define INPUT_DEVICE_ID_MATCH_DEVICE\
 	(INPUT_DEVICE_ID_MATCH_BUS | INPUT_DEVICE_ID_MATCH_VENDOR | INPUT_DEVICE_ID_MATCH_PRODUCT)
 #define INPUT_DEVICE_ID_MATCH_DEVICE_AND_VERSION\
 	(INPUT_DEVICE_ID_MATCH_DEVICE | INPUT_DEVICE_ID_MATCH_VERSION)
-
-struct input_device_id {
-
-	unsigned long flags;
-
-	struct input_id id;
-
-	unsigned long evbit[NBITS(EV_MAX)];
-	unsigned long keybit[NBITS(KEY_MAX)];
-	unsigned long relbit[NBITS(REL_MAX)];
-	unsigned long absbit[NBITS(ABS_MAX)];
-	unsigned long mscbit[NBITS(MSC_MAX)];
-	unsigned long ledbit[NBITS(LED_MAX)];
-	unsigned long sndbit[NBITS(SND_MAX)];
-	unsigned long ffbit[NBITS(FF_MAX)];
-	unsigned long swbit[NBITS(SW_MAX)];
-
-	unsigned long driver_info;
-};
 
 struct input_handle;
 
@@ -984,7 +993,24 @@ static inline void init_input_dev(struct input_dev *dev)
 	INIT_LIST_HEAD(&dev->node);
 }
 
-void input_register_device(struct input_dev *);
+struct input_dev *input_allocate_device(void);
+
+static inline void input_free_device(struct input_dev *dev)
+{
+	kfree(dev);
+}
+
+static inline struct input_dev *input_get_device(struct input_dev *dev)
+{
+	return to_input_dev(class_device_get(&dev->cdev));
+}
+
+static inline void input_put_device(struct input_dev *dev)
+{
+	class_device_put(&dev->cdev);
+}
+
+int input_register_device(struct input_dev *);
 void input_unregister_device(struct input_dev *);
 
 void input_register_handler(struct input_handler *);
@@ -1052,7 +1078,7 @@ static inline void input_set_abs_params(struct input_dev *dev, int axis, int min
 	dev->absbit[LONG(axis)] |= BIT(axis);
 }
 
-extern struct class *input_class;
+extern struct class input_class;
 
 #endif
 #endif

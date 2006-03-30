@@ -40,7 +40,7 @@ struct ps2pp_info {
 
 static psmouse_ret_t ps2pp_process_byte(struct psmouse *psmouse, struct pt_regs *regs)
 {
-	struct input_dev *dev = &psmouse->dev;
+	struct input_dev *dev = psmouse->dev;
 	unsigned char *packet = psmouse->packet;
 
 	if (psmouse->pktcnt < 3)
@@ -117,7 +117,7 @@ static int ps2pp_cmd(struct psmouse *psmouse, unsigned char *param, unsigned cha
 	if (psmouse_sliced_command(psmouse, command))
 		return -1;
 
-	if (ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_POLL))
+	if (ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_POLL | 0x0300))
 		return -1;
 
 	return 0;
@@ -217,16 +217,22 @@ static struct ps2pp_info *get_model_info(unsigned char model)
 		{ 61,	PS2PP_KIND_MX,					/* MX700 */
 				PS2PP_WHEEL | PS2PP_SIDE_BTN | PS2PP_TASK_BTN |
 				PS2PP_EXTRA_BTN | PS2PP_NAV_BTN },
+		{ 66,	PS2PP_KIND_MX,					/* MX3100 reciver */
+				PS2PP_WHEEL | PS2PP_SIDE_BTN | PS2PP_TASK_BTN |
+				PS2PP_EXTRA_BTN | PS2PP_NAV_BTN | PS2PP_HWHEEL },
 		{ 73,	0,			PS2PP_SIDE_BTN },
 		{ 75,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 76,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 80,	PS2PP_KIND_WHEEL,	PS2PP_SIDE_BTN | PS2PP_WHEEL },
 		{ 81,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 83,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
+		{ 85,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 86,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
+		{ 87,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 88,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 96,	0,			0 },
 		{ 97,	PS2PP_KIND_TP3,		PS2PP_WHEEL | PS2PP_HWHEEL },
+		{ 99,	PS2PP_KIND_WHEEL,	PS2PP_WHEEL },
 		{ 100,	PS2PP_KIND_MX,					/* MX510 */
 				PS2PP_WHEEL | PS2PP_SIDE_BTN | PS2PP_TASK_BTN |
 				PS2PP_EXTRA_BTN | PS2PP_NAV_BTN },
@@ -257,25 +263,27 @@ static struct ps2pp_info *get_model_info(unsigned char model)
 static void ps2pp_set_model_properties(struct psmouse *psmouse, struct ps2pp_info *model_info,
 				       int using_ps2pp)
 {
+	struct input_dev *input_dev = psmouse->dev;
+
 	if (model_info->features & PS2PP_SIDE_BTN)
-		set_bit(BTN_SIDE, psmouse->dev.keybit);
+		set_bit(BTN_SIDE, input_dev->keybit);
 
 	if (model_info->features & PS2PP_EXTRA_BTN)
-		set_bit(BTN_EXTRA, psmouse->dev.keybit);
+		set_bit(BTN_EXTRA, input_dev->keybit);
 
 	if (model_info->features & PS2PP_TASK_BTN)
-		set_bit(BTN_TASK, psmouse->dev.keybit);
+		set_bit(BTN_TASK, input_dev->keybit);
 
 	if (model_info->features & PS2PP_NAV_BTN) {
-		set_bit(BTN_FORWARD, psmouse->dev.keybit);
-		set_bit(BTN_BACK, psmouse->dev.keybit);
+		set_bit(BTN_FORWARD, input_dev->keybit);
+		set_bit(BTN_BACK, input_dev->keybit);
 	}
 
 	if (model_info->features & PS2PP_WHEEL)
-		set_bit(REL_WHEEL, psmouse->dev.relbit);
+		set_bit(REL_WHEEL, input_dev->relbit);
 
 	if (model_info->features & PS2PP_HWHEEL)
-		set_bit(REL_HWHEEL, psmouse->dev.relbit);
+		set_bit(REL_HWHEEL, input_dev->relbit);
 
 	switch (model_info->kind) {
 		case PS2PP_KIND_WHEEL:
@@ -387,7 +395,7 @@ int ps2pp_init(struct psmouse *psmouse, int set_properties)
 		}
 
 		if (buttons < 3)
-			clear_bit(BTN_MIDDLE, psmouse->dev.keybit);
+			clear_bit(BTN_MIDDLE, psmouse->dev->keybit);
 
 		if (model_info)
 			ps2pp_set_model_properties(psmouse, model_info, use_ps2pp);

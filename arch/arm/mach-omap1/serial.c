@@ -17,10 +17,10 @@
 #include <linux/tty.h>
 #include <linux/serial_8250.h>
 #include <linux/serial_reg.h>
+#include <linux/clk.h>
 
 #include <asm/io.h>
 #include <asm/mach-types.h>
-#include <asm/hardware/clock.h>
 
 #include <asm/arch/board.h>
 #include <asm/arch/mux.h>
@@ -109,9 +109,10 @@ static struct platform_device serial_device = {
  * By default UART2 does not work on Innovator-1510 if you have
  * USB OHCI enabled. To use UART2, you must disable USB2 first.
  */
-void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
+void __init omap_serial_init(void)
 {
 	int i;
+	const struct omap_uart_config *info;
 
 	if (cpu_is_omap730()) {
 		serial_platform_data[0].regshift = 0;
@@ -126,10 +127,14 @@ void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
 		serial_platform_data[2].uartclk = OMAP1510_BASE_BAUD * 16;
 	}
 
+	info = omap_get_config(OMAP_TAG_UART, struct omap_uart_config);
+	if (info == NULL)
+		return;
+
 	for (i = 0; i < OMAP_MAX_NR_PORTS; i++) {
 		unsigned char reg;
 
-		if (ports[i] == 0) {
+		if (!((1 << i) & info->enabled_uarts)) {
 			serial_platform_data[i].membase = NULL;
 			serial_platform_data[i].mapbase = 0;
 			continue;
@@ -141,7 +146,7 @@ void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
 			if (IS_ERR(uart1_ck))
 				printk("Could not get uart1_ck\n");
 			else {
-				clk_use(uart1_ck);
+				clk_enable(uart1_ck);
 				if (cpu_is_omap1510())
 					clk_set_rate(uart1_ck, 12000000);
 			}
@@ -161,7 +166,7 @@ void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
 			if (IS_ERR(uart2_ck))
 				printk("Could not get uart2_ck\n");
 			else {
-				clk_use(uart2_ck);
+				clk_enable(uart2_ck);
 				if (cpu_is_omap1510())
 					clk_set_rate(uart2_ck, 12000000);
 				else
@@ -183,7 +188,7 @@ void __init omap_serial_init(int ports[OMAP_MAX_NR_PORTS])
 			if (IS_ERR(uart3_ck))
 				printk("Could not get uart3_ck\n");
 			else {
-				clk_use(uart3_ck);
+				clk_enable(uart3_ck);
 				if (cpu_is_omap1510())
 					clk_set_rate(uart3_ck, 12000000);
 			}
@@ -247,9 +252,8 @@ static void __init omap_serial_set_port_wakeup(int gpio_nr)
 		return;
 	}
 	omap_set_gpio_direction(gpio_nr, 1);
-	set_irq_type(OMAP_GPIO_IRQ(gpio_nr), IRQT_RISING);
 	ret = request_irq(OMAP_GPIO_IRQ(gpio_nr), &omap_serial_wake_interrupt,
-			  0, "serial wakeup", NULL);
+			  SA_TRIGGER_RISING, "serial wakeup", NULL);
 	if (ret) {
 		omap_free_gpio(gpio_nr);
 		printk(KERN_ERR "No interrupt for UART wake GPIO: %i\n",

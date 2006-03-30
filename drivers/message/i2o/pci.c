@@ -168,6 +168,24 @@ static int __devinit i2o_pci_alloc(struct i2o_controller *c)
 	c->in_port = c->base.virt + I2O_IN_PORT;
 	c->out_port = c->base.virt + I2O_OUT_PORT;
 
+	/* Motorola/Freescale chip does not follow spec */
+	if (pdev->vendor == PCI_VENDOR_ID_MOTOROLA && pdev->device == 0x18c0) {
+		/* Check if CPU is enabled */
+		if (be32_to_cpu(readl(c->base.virt + 0x10000)) & 0x10000000) {
+			printk(KERN_INFO "%s: MPC82XX needs CPU running to "
+			       "service I2O.\n", c->name);
+			i2o_pci_free(c);
+			return -ENODEV;
+		} else {
+			c->irq_status += I2O_MOTOROLA_PORT_OFFSET;
+			c->irq_mask += I2O_MOTOROLA_PORT_OFFSET;
+			c->in_port += I2O_MOTOROLA_PORT_OFFSET;
+			c->out_port += I2O_MOTOROLA_PORT_OFFSET;
+			printk(KERN_INFO "%s: MPC82XX workarounds activated.\n",
+			       c->name);
+		}
+	}
+
 	if (i2o_dma_alloc(dev, &c->status, 8, GFP_KERNEL)) {
 		i2o_pci_free(c);
 		return -ENOMEM;
@@ -303,6 +321,7 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 	struct i2o_controller *c;
 	int rc;
 	struct pci_dev *i960 = NULL;
+	int enabled = pdev->is_enabled;
 
 	printk(KERN_INFO "i2o: Checking for PCI I2O controllers...\n");
 
@@ -312,11 +331,12 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 		return -ENODEV;
 	}
 
-	if ((rc = pci_enable_device(pdev))) {
-		printk(KERN_WARNING "i2o: couldn't enable device %s\n",
-		       pci_name(pdev));
-		return rc;
-	}
+	if (!enabled)
+		if ((rc = pci_enable_device(pdev))) {
+			printk(KERN_WARNING "i2o: couldn't enable device %s\n",
+			       pci_name(pdev));
+			return rc;
+		}
 
 	if (pci_set_dma_mask(pdev, DMA_32BIT_MASK)) {
 		printk(KERN_WARNING "i2o: no suitable DMA found for %s\n",
@@ -338,7 +358,7 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 		       pci_name(pdev));
 
 	c->pdev = pdev;
-	c->device.parent = get_device(&pdev->dev);
+	c->device.parent = &pdev->dev;
 
 	/* Cards that fall apart if you hit them with large I/O loads... */
 	if (pdev->vendor == PCI_VENDOR_ID_NCR && pdev->device == 0x0630) {
@@ -394,7 +414,7 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 
 	if ((rc = i2o_pci_alloc(c))) {
 		printk(KERN_ERR "%s: DMA / IO allocation for I2O controller "
-		       " failed\n", c->name);
+		       "failed\n", c->name);
 		goto free_controller;
 	}
 
@@ -406,8 +426,6 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 
 	if ((rc = i2o_iop_add(c)))
 		goto uninstall;
-
-	get_device(&c->device);
 
 	if (i960)
 		pci_write_config_word(i960, 0x42, 0x03ff);
@@ -421,11 +439,11 @@ static int __devinit i2o_pci_probe(struct pci_dev *pdev,
 	i2o_pci_free(c);
 
       free_controller:
-	put_device(c->device.parent);
 	i2o_iop_free(c);
 
       disable:
-	pci_disable_device(pdev);
+	if (!enabled)
+		pci_disable_device(pdev);
 
 	return rc;
 }
@@ -450,7 +468,6 @@ static void __devexit i2o_pci_remove(struct pci_dev *pdev)
 
 	printk(KERN_INFO "%s: Controller removed.\n", c->name);
 
-	put_device(c->device.parent);
 	put_device(&c->device);
 };
 
@@ -479,4 +496,5 @@ void __exit i2o_pci_exit(void)
 {
 	pci_unregister_driver(&i2o_pci_driver);
 };
+
 MODULE_DEVICE_TABLE(pci, i2o_pci_ids);

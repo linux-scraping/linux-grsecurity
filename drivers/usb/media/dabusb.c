@@ -707,9 +707,8 @@ static struct file_operations dabusb_fops =
 };
 
 static struct usb_class_driver dabusb_class = {
-	.name =		"usb/dabusb%d",
+	.name =		"dabusb%d",
 	.fops =		&dabusb_fops,
-	.mode =		S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
 	.minor_base =	DABUSB_MINOR,
 };
 
@@ -813,7 +812,6 @@ static struct usb_device_id dabusb_ids [] = {
 MODULE_DEVICE_TABLE (usb, dabusb_ids);
 
 static struct usb_driver dabusb_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"dabusb",
 	.probe =	dabusb_probe,
 	.disconnect =	dabusb_disconnect,

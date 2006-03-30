@@ -40,6 +40,10 @@ extern int proc_pid_statm(struct task_struct *, char *);
 extern int proc_pid_ipaddr(struct task_struct*,char*);
 #endif
 
+void free_proc_entry(struct proc_dir_entry *de);
+
+int proc_init_inodecache(void);
+
 static inline struct task_struct *proc_task(struct inode *inode)
 {
 	return PROC_I(inode)->task;

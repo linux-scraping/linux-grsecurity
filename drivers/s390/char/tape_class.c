@@ -1,6 +1,6 @@
 /*
  * (C) Copyright IBM Corp. 2004
- * tape_class.c ($Revision: 1.8 $)
+ * tape_class.c
  *
  * Tape class device support
  *
@@ -12,7 +12,7 @@
 MODULE_AUTHOR("Stefan Bader <shbader@de.ibm.com>");
 MODULE_DESCRIPTION(
 	"(C) Copyright IBM Corp. 2004   All Rights Reserved.\n"
-	"tape_class.c ($Revision: 1.8 $)"
+	"tape_class.c"
 );
 MODULE_LICENSE("GPL");
 
@@ -72,6 +72,7 @@ struct tape_class_device *register_tape_dev(
 
 	tcd->class_device = class_device_create(
 				tape_class,
+				NULL,
 				tcd->char_device->dev,
 				device,
 				"%s", tcd->device_name

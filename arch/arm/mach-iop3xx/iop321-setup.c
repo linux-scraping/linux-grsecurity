@@ -13,10 +13,9 @@
 #include <linux/mm.h>
 #include <linux/init.h>
 #include <linux/config.h>
-#include <linux/init.h>
 #include <linux/major.h>
 #include <linux/fs.h>
-#include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/serial.h>
 #include <linux/tty.h>
 #include <linux/serial_core.h>
@@ -38,13 +37,17 @@
  * Standard IO mapping for all IOP321 based systems
  */
 static struct map_desc iop321_std_desc[] __initdata = {
- /* virtual     physical      length      type */
-
- /* mem mapped registers */
- { IOP321_VIRT_MEM_BASE,  IOP321_PHYS_MEM_BASE,   0x00002000,  MT_DEVICE },
-
- /* PCI IO space */
- { IOP321_PCI_LOWER_IO_VA,  IOP321_PCI_LOWER_IO_PA,   IOP321_PCI_IO_WINDOW_SIZE,  MT_DEVICE }
+	 {	/* mem mapped registers */
+		.virtual	= IOP321_VIRT_MEM_BASE,
+		.pfn		= __phys_to_pfn(IOP321_PHYS_MEM_BASE),
+		.length		= 0x00002000,
+		.type		= MT_DEVICE
+	 }, {	/* PCI IO space */
+		.virtual	= IOP321_PCI_LOWER_IO_VA,
+		.pfn		= __phys_to_pfn(IOP321_PCI_LOWER_IO_PA),
+		.length		= IOP321_PCI_IO_WINDOW_SIZE,
+		.type		= MT_DEVICE
+	 }
 };
 
 #ifdef CONFIG_ARCH_IQ80321
@@ -147,7 +150,6 @@ extern void iop321_init_time(void);
 #if defined(CONFIG_ARCH_IQ80321)
 MACHINE_START(IQ80321, "Intel IQ80321")
 	/* Maintainer: Intel Corporation */
-	.phys_ram	= PHYS_OFFSET,
 	.phys_io	= IQ80321_UART,
 	.io_pg_offst	= ((IQ80321_UART) >> 18) & 0xfffc,
 	.map_io		= iq80321_map_io,
@@ -159,7 +161,6 @@ MACHINE_END
 #elif defined(CONFIG_ARCH_IQ31244)
 MACHINE_START(IQ31244, "Intel IQ31244")
 	/* Maintainer: Intel Corp. */
-	.phys_ram	= PHYS_OFFSET,
 	.phys_io	= IQ31244_UART,
 	.io_pg_offst	= ((IQ31244_UART) >> 18) & 0xfffc,
 	.map_io		= iq31244_map_io,

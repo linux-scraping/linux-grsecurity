@@ -124,10 +124,10 @@ static struct lm83_data *lm83_update_device(struct device *dev);
  */
  
 static struct i2c_driver lm83_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "lm83",
+	.driver = {
+		.name	= "lm83",
+	},
 	.id		= I2C_DRIVERID_LM83,
-	.flags		= I2C_DF_NOTIFY,
 	.attach_adapter	= lm83_attach_adapter,
 	.detach_client	= lm83_detach_client,
 };
@@ -230,11 +230,10 @@ static int lm83_detect(struct i2c_adapter *adapter, int address, int kind)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct lm83_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct lm83_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct lm83_data));
 
 	/* The common I2C client data is placed right after the
 	 * LM83-specific data. */

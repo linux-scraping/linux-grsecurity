@@ -57,6 +57,12 @@
 #include "jfs_debug.h"
 
 /*
+ * __mark_inode_dirty expects inodes to be hashed.  Since we don't want
+ * special inodes in the fileset inode space, we hash them to a dummy head
+ */
+static HLIST_HEAD(aggregate_hash);
+
+/*
  * imap locks
  */
 /* iag free list lock */
@@ -259,8 +265,7 @@ int diSync(struct inode *ipimap)
 	/*
 	 * write out dirty pages of imap
 	 */
-	filemap_fdatawrite(ipimap->i_mapping);
-	filemap_fdatawait(ipimap->i_mapping);
+	filemap_write_and_wait(ipimap->i_mapping);
 
 	diWriteSpecial(ipimap, 0);
 
@@ -491,6 +496,8 @@ struct inode *diReadSpecial(struct super_block *sb, ino_t inum, int secondary)
 	/* release the page */
 	release_metapage(mp);
 
+	hlist_add_head(&ip->i_hash, &aggregate_hash);
+
 	return (ip);
 }
 
@@ -513,8 +520,6 @@ void diWriteSpecial(struct inode *ip, int secondary)
 	struct dinode *dp;
 	ino_t inum = ip->i_ino;
 	struct metapage *mp;
-
-	ip->i_state &= ~I_DIRTY;
 
 	if (secondary)
 		address = addressPXD(&sbi->ait2) >> sbi->l2nbperpage;
@@ -559,8 +564,7 @@ void diFreeSpecial(struct inode *ip)
 		jfs_err("diFreeSpecial called with NULL ip!");
 		return;
 	}
-	filemap_fdatawrite(ip->i_mapping);
-	filemap_fdatawait(ip->i_mapping);
+	filemap_write_and_wait(ip->i_mapping);
 	truncate_inode_pages(ip->i_mapping, 0);
 	iput(ip);
 }
@@ -2840,11 +2844,11 @@ diUpdatePMap(struct inode *ipimap,
 	 */
 	lsn = tblk->lsn;
 	log = JFS_SBI(tblk->sb)->log;
+	LOGSYNC_LOCK(log, flags);
 	if (mp->lsn != 0) {
 		/* inherit older/smaller lsn */
 		logdiff(difft, lsn, log);
 		logdiff(diffp, mp->lsn, log);
-		LOGSYNC_LOCK(log, flags);
 		if (difft < diffp) {
 			mp->lsn = lsn;
 			/* move mp after tblock in logsync list */
@@ -2856,17 +2860,15 @@ diUpdatePMap(struct inode *ipimap,
 		logdiff(diffp, mp->clsn, log);
 		if (difft > diffp)
 			mp->clsn = tblk->clsn;
-		LOGSYNC_UNLOCK(log, flags);
 	} else {
 		mp->log = log;
 		mp->lsn = lsn;
 		/* insert mp after tblock in logsync list */
-		LOGSYNC_LOCK(log, flags);
 		log->count++;
 		list_add(&mp->synclist, &tblk->synclist);
 		mp->clsn = tblk->clsn;
-		LOGSYNC_UNLOCK(log, flags);
 	}
+	LOGSYNC_UNLOCK(log, flags);
 	write_metapage(mp);
 	return (0);
 }

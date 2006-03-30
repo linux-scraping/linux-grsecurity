@@ -33,15 +33,17 @@
 #define ORB_DIRECTION_NO_DATA_TRANSFER  0x2
 
 #define ORB_SET_NULL_PTR(value)			((value & 0x1) << 31)
-#define ORB_SET_NOTIFY(value)                   ((value & 0x1) << 31)
-#define ORB_SET_RQ_FMT(value)                   ((value & 0x3) << 29)	/* unused ? */
+#define ORB_SET_NOTIFY(value)			((value & 0x1) << 31)
+#define ORB_SET_RQ_FMT(value)			((value & 0x3) << 29)	/* unused ? */
 #define ORB_SET_NODE_ID(value)			((value & 0xffff) << 16)
-#define ORB_SET_DATA_SIZE(value)                (value & 0xffff)
-#define ORB_SET_PAGE_SIZE(value)                ((value & 0x7) << 16)
-#define ORB_SET_PAGE_TABLE_PRESENT(value)       ((value & 0x1) << 19)
-#define ORB_SET_MAX_PAYLOAD(value)              ((value & 0xf) << 20)
-#define ORB_SET_SPEED(value)                    ((value & 0x7) << 24)
-#define ORB_SET_DIRECTION(value)                ((value & 0x1) << 27)
+#define ORB_SET_STATUS_FIFO_HI(value, id)	(value >> 32 | ORB_SET_NODE_ID(id))
+#define ORB_SET_STATUS_FIFO_LO(value)		(value & 0xffffffff)
+#define ORB_SET_DATA_SIZE(value)		(value & 0xffff)
+#define ORB_SET_PAGE_SIZE(value)		((value & 0x7) << 16)
+#define ORB_SET_PAGE_TABLE_PRESENT(value)	((value & 0x1) << 19)
+#define ORB_SET_MAX_PAYLOAD(value)		((value & 0xf) << 20)
+#define ORB_SET_SPEED(value)			((value & 0x7) << 24)
+#define ORB_SET_DIRECTION(value)		((value & 0x1) << 27)
 
 struct sbp2_command_orb {
 	volatile u32 next_ORB_hi;
@@ -76,8 +78,8 @@ struct sbp2_login_orb {
 	u32 login_response_lo;
 	u32 lun_misc;
 	u32 passwd_resp_lengths;
-	u32 status_FIFO_hi;
-	u32 status_FIFO_lo;
+	u32 status_fifo_hi;
+	u32 status_fifo_lo;
 };
 
 #define RESPONSE_GET_LOGIN_ID(value)            (value & 0xffff)
@@ -102,8 +104,8 @@ struct sbp2_query_logins_orb {
 	u32 query_response_lo;
 	u32 lun_misc;
 	u32 reserved_resp_length;
-	u32 status_FIFO_hi;
-	u32 status_FIFO_lo;
+	u32 status_fifo_hi;
+	u32 status_fifo_lo;
 };
 
 #define RESPONSE_GET_MAX_LOGINS(value)          (value & 0xffff)
@@ -119,23 +121,23 @@ struct sbp2_query_logins_response {
 struct sbp2_reconnect_orb {
 	u32 reserved1;
 	u32 reserved2;
-        u32 reserved3;
-        u32 reserved4;
+	u32 reserved3;
+	u32 reserved4;
 	u32 login_ID_misc;
 	u32 reserved5;
-	u32 status_FIFO_hi;
-	u32 status_FIFO_lo;
+	u32 status_fifo_hi;
+	u32 status_fifo_lo;
 };
 
 struct sbp2_logout_orb {
 	u32 reserved1;
 	u32 reserved2;
-        u32 reserved3;
-        u32 reserved4;
+	u32 reserved3;
+	u32 reserved4;
 	u32 login_ID_misc;
 	u32 reserved5;
-	u32 status_FIFO_hi;
-	u32 status_FIFO_lo;
+	u32 status_fifo_hi;
+	u32 status_fifo_lo;
 };
 
 #define PAGE_TABLE_SET_SEGMENT_BASE_HI(value)   (value & 0xffff)
@@ -188,36 +190,12 @@ struct sbp2_unrestricted_page_table {
 struct sbp2_status_block {
 	u32 ORB_offset_hi_misc;
 	u32 ORB_offset_lo;
-        u8 command_set_dependent[24];
+	u8 command_set_dependent[24];
 };
 
 /*
  * Miscellaneous SBP2 related config rom defines
  */
-
-/* The status fifo address definition below is used as a base for each
- * node, which a chunk seperately assigned to each unit directory in the
- * node.  For example, 0xfffe00000000ULL is used for the first sbp2 device
- * detected on node 0, 0xfffe00000020ULL for the next sbp2 device on node
- * 0, and so on.
- *
- * Note: We could use a single status fifo address for all sbp2 devices,
- * and figure out which sbp2 device the status belongs to by looking at
- * the source node id of the status write... but, using separate addresses
- * for each sbp2 unit directory allows for better code and the ability to
- * support multiple luns within a single 1394 node.
- *
- * Also note that we choose the address range below as it is a region
- * specified for write posting, where the ohci controller will
- * automatically send an ack_complete when the status is written by the
- * sbp2 device... saving a split transaction.   =)
- */ 
-#define SBP2_STATUS_FIFO_ADDRESS				0xfffe00000000ULL
-#define SBP2_STATUS_FIFO_ADDRESS_HI                             0xfffe
-#define SBP2_STATUS_FIFO_ADDRESS_LO                             0x0
-
-#define SBP2_STATUS_FIFO_ENTRY_TO_OFFSET(entry)			((entry) << 5)
-#define SBP2_STATUS_FIFO_OFFSET_TO_ENTRY(offset)		((offset) >> 5)
 
 #define SBP2_UNIT_DIRECTORY_OFFSET_KEY				0xd1
 #define SBP2_CSR_OFFSET_KEY					0x54
@@ -228,9 +206,6 @@ struct sbp2_status_block {
 #define SBP2_UNIT_CHARACTERISTICS_KEY				0x3a
 #define SBP2_DEVICE_TYPE_AND_LUN_KEY				0x14
 #define SBP2_FIRMWARE_REVISION_KEY				0x3c
-
-#define SBP2_DEVICE_TYPE(q)					(((q) >> 16) & 0x1f)
-#define SBP2_DEVICE_LUN(q)					((q) & 0xffff)
 
 #define SBP2_AGENT_STATE_OFFSET					0x00ULL
 #define SBP2_AGENT_RESET_OFFSET					0x04ULL
@@ -256,54 +231,13 @@ struct sbp2_status_block {
  */
 #define SBP2_128KB_BROKEN_FIRMWARE				0xa0b800
 
-#define SBP2_DEVICE_TYPE_LUN_UNINITIALIZED			0xffffffff
-
 /*
  * SCSI specific stuff
  */
 
 #define SBP2_MAX_SG_ELEMENT_LENGTH	0xf000
-#define SBP2_MAX_UDS_PER_NODE		16	/* Maximum scsi devices per node */
 #define SBP2_MAX_SECTORS		255	/* Max sectors supported */
-
-/*
- * SCSI direction table...
- * (now used as a back-up in case the direction passed down from above is "unknown")
- *
- * DIN = IN data direction
- * DOU = OUT data direction
- * DNO = No data transfer
- * DUN = Unknown data direction
- *
- * Opcode 0xec (Teac specific "opc execute") possibly should be DNO,
- * but we'll change it when somebody reports a problem with this.
- */
-#define DIN				ORB_DIRECTION_READ_FROM_MEDIA
-#define DOU				ORB_DIRECTION_WRITE_TO_MEDIA
-#define DNO				ORB_DIRECTION_NO_DATA_TRANSFER
-#define DUN				DIN
-
-static unchar sbp2scsi_direction_table[0x100] = {
-	DNO,DNO,DIN,DIN,DOU,DIN,DIN,DOU,DIN,DUN,DOU,DOU,DUN,DUN,DUN,DIN,
-	DNO,DIN,DIN,DOU,DIN,DOU,DNO,DNO,DOU,DNO,DIN,DNO,DIN,DOU,DNO,DUN,
-	DIN,DUN,DIN,DIN,DOU,DIN,DUN,DUN,DIN,DIN,DOU,DNO,DUN,DIN,DOU,DOU,
-	DOU,DOU,DOU,DNO,DIN,DNO,DNO,DIN,DOU,DOU,DOU,DOU,DIN,DOU,DIN,DOU,
-	DOU,DOU,DIN,DIN,DIN,DNO,DIN,DNO,DNO,DNO,DUN,DNO,DOU,DIN,DNO,DUN,
-	DUN,DIN,DIN,DNO,DNO,DOU,DUN,DUN,DNO,DIN,DIN,DNO,DIN,DOU,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DNO,DOU,DOU,DIN,DNO,DNO,DNO,DIN,DNO,DOU,DUN,DNO,DIN,DOU,DOU,
-	DOU,DOU,DOU,DNO,DUN,DIN,DOU,DIN,DIN,DIN,DNO,DNO,DNO,DIN,DIN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DOU,DUN,DUN,DUN,DUN,DUN,
-	DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN,DUN
-};
-
-/* This should be safe */
-#define SBP2_MAX_CMDS		8
+#define SBP2_MAX_CMDS			8	/* This should be safe */
 
 /* This is the two dma types we use for cmd_dma below */
 enum cmd_dma_types {
@@ -338,9 +272,7 @@ struct sbp2_command_info {
 #define SBP2_BREAKAGE_128K_MAX_TRANSFER		0x1
 #define SBP2_BREAKAGE_INQUIRY_HACK		0x2
 
-
 struct sbp2scsi_host_info;
-
 
 /*
  * Information needed on a per scsi id basis (one for each sbp2 device)
@@ -379,8 +311,13 @@ struct scsi_id_instance_data {
 	u32 sbp2_command_set_spec_id;
 	u32 sbp2_command_set;
 	u32 sbp2_unit_characteristics;
-	u32 sbp2_device_type_and_lun;
+	u32 sbp2_lun;
 	u32 sbp2_firmware_revision;
+
+	/*
+	 * Address for the device to write status blocks to
+	 */
+	u64 status_fifo_addr;
 
 	/*
 	 * Variable used for logins, reconnects, logouts, query logins
@@ -410,7 +347,6 @@ struct scsi_id_instance_data {
 	/* Device specific workarounds/brokeness */
 	u32 workarounds;
 };
-
 
 /* Sbp2 host data structure (one per IEEE1394 host) */
 struct sbp2scsi_host_info {
@@ -456,20 +392,12 @@ static int sbp2_logout_device(struct scsi_id_instance_data *scsi_id);
 static int sbp2_handle_status_write(struct hpsb_host *host, int nodeid, int destid,
 				    quadlet_t *data, u64 addr, size_t length, u16 flags);
 static int sbp2_agent_reset(struct scsi_id_instance_data *scsi_id, int wait);
-static int sbp2_create_command_orb(struct scsi_id_instance_data *scsi_id,
-				   struct sbp2_command_info *command,
-				   unchar *scsi_cmd,
-				   unsigned int scsi_use_sg,
-				   unsigned int scsi_request_bufflen,
-				   void *scsi_request_buffer,
-				   enum dma_data_direction dma_dir);
 static int sbp2_link_orb_command(struct scsi_id_instance_data *scsi_id,
 				 struct sbp2_command_info *command);
 static int sbp2_send_command(struct scsi_id_instance_data *scsi_id,
 			     struct scsi_cmnd *SCpnt,
 			     void (*done)(struct scsi_cmnd *));
 static unsigned int sbp2_status_to_sense_data(unchar *sbp2_status, unchar *sense_data);
-static void sbp2_check_sbp2_command(struct scsi_id_instance_data *scsi_id, unchar *cmd);
 static void sbp2_check_sbp2_response(struct scsi_id_instance_data *scsi_id,
 				     struct scsi_cmnd *SCpnt);
 static void sbp2_parse_unit_directory(struct scsi_id_instance_data *scsi_id,

@@ -52,9 +52,9 @@ static int ds1337_command(struct i2c_client *client, unsigned int cmd,
  * Driver data (common to all clients)
  */
 static struct i2c_driver ds1337_driver = {
-	.owner		= THIS_MODULE,
-	.name		= "ds1337",
-	.flags		= I2C_DF_NOTIFY,
+	.driver = {
+		.name	= "ds1337",
+	},
 	.attach_adapter	= ds1337_attach_adapter,
 	.detach_client	= ds1337_detach_client,
 	.command	= ds1337_command,
@@ -164,9 +164,9 @@ static int ds1337_set_datetime(struct i2c_client *client, struct rtc_time *dt)
 	buf[1] = BIN2BCD(dt->tm_sec);
 	buf[2] = BIN2BCD(dt->tm_min);
 	buf[3] = BIN2BCD(dt->tm_hour);
-	buf[4] = BIN2BCD(dt->tm_wday) + 1;
+	buf[4] = BIN2BCD(dt->tm_wday + 1);
 	buf[5] = BIN2BCD(dt->tm_mday);
-	buf[6] = BIN2BCD(dt->tm_mon) + 1;
+	buf[6] = BIN2BCD(dt->tm_mon + 1);
 	val = dt->tm_year;
 	if (val >= 100) {
 		val -= 100;
@@ -243,11 +243,10 @@ static int ds1337_detect(struct i2c_adapter *adapter, int address, int kind)
 				     I2C_FUNC_I2C))
 		goto exit;
 
-	if (!(data = kmalloc(sizeof(struct ds1337_data), GFP_KERNEL))) {
+	if (!(data = kzalloc(sizeof(struct ds1337_data), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	memset(data, 0, sizeof(struct ds1337_data));
 	INIT_LIST_HEAD(&data->list);
 
 	/* The common I2C client data is placed right before the
@@ -338,13 +337,38 @@ exit:
 
 static void ds1337_init_client(struct i2c_client *client)
 {
-	s32 val;
+	u8 status, control;
 
-	/* Ensure that device is set in 24-hour mode */
-	val = i2c_smbus_read_byte_data(client, DS1337_REG_HOUR);
-	if ((val >= 0) && (val & (1 << 6)))
-		i2c_smbus_write_byte_data(client, DS1337_REG_HOUR,
-					  val & 0x3f);
+	/* On some boards, the RTC isn't configured by boot firmware.
+	 * Handle that case by starting/configuring the RTC now.
+	 */
+	status = i2c_smbus_read_byte_data(client, DS1337_REG_STATUS);
+	control = i2c_smbus_read_byte_data(client, DS1337_REG_CONTROL);
+
+	if ((status & 0x80) || (control & 0x80)) {
+		/* RTC not running */
+		u8 buf[16];
+		struct i2c_msg msg[1];
+
+		dev_dbg(&client->dev, "%s: RTC not running!\n", __FUNCTION__);
+
+		/* Initialize all, including STATUS and CONTROL to zero */
+		memset(buf, 0, sizeof(buf));
+		msg[0].addr = client->addr;
+		msg[0].flags = 0;
+		msg[0].len = sizeof(buf);
+		msg[0].buf = &buf[0];
+
+		i2c_transfer(client->adapter, msg, 1);
+	} else {
+		/* Running: ensure that device is set in 24-hour mode */
+		s32 val;
+
+		val = i2c_smbus_read_byte_data(client, DS1337_REG_HOUR);
+		if ((val >= 0) && (val & (1 << 6)))
+			i2c_smbus_write_byte_data(client, DS1337_REG_HOUR,
+						  val & 0x3f);
+	}
 }
 
 static int ds1337_detach_client(struct i2c_client *client)

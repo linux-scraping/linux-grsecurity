@@ -567,16 +567,16 @@ void __init acpi_numa_arch_fixup(void)
  * success: return IRQ number (>=0)
  * failure: return < 0
  */
-int acpi_register_gsi(u32 gsi, int edge_level, int active_high_low)
+int acpi_register_gsi(u32 gsi, int triggering, int polarity)
 {
 	if (has_8259 && gsi < 16)
 		return isa_irq_to_vector(gsi);
 
 	return iosapic_register_intr(gsi,
-				     (active_high_low ==
+				     (polarity ==
 				      ACPI_ACTIVE_HIGH) ? IOSAPIC_POL_HIGH :
 				     IOSAPIC_POL_LOW,
-				     (edge_level ==
+				     (triggering ==
 				      ACPI_EDGE_SENSITIVE) ? IOSAPIC_EDGE :
 				     IOSAPIC_LEVEL);
 }
@@ -761,6 +761,59 @@ int acpi_map_cpu2node(acpi_handle handle, int cpu, long physid)
 	return (0);
 }
 
+int additional_cpus __initdata = -1;
+
+static __init int setup_additional_cpus(char *s)
+{
+	if (s)
+		additional_cpus = simple_strtol(s, NULL, 0);
+
+	return 0;
+}
+
+early_param("additional_cpus", setup_additional_cpus);
+
+/*
+ * cpu_possible_map should be static, it cannot change as cpu's
+ * are onlined, or offlined. The reason is per-cpu data-structures
+ * are allocated by some modules at init time, and dont expect to
+ * do this dynamically on cpu arrival/departure.
+ * cpu_present_map on the other hand can change dynamically.
+ * In case when cpu_hotplug is not compiled, then we resort to current
+ * behaviour, which is cpu_possible == cpu_present.
+ * - Ashok Raj
+ *
+ * Three ways to find out the number of additional hotplug CPUs:
+ * - If the BIOS specified disabled CPUs in ACPI/mptables use that.
+ * - The user can overwrite it with additional_cpus=NUM
+ * - Otherwise don't reserve additional CPUs.
+ */
+__init void prefill_possible_map(void)
+{
+	int i;
+	int possible, disabled_cpus;
+
+	disabled_cpus = total_cpus - available_cpus;
+
+ 	if (additional_cpus == -1) {
+ 		if (disabled_cpus > 0)
+			additional_cpus = disabled_cpus;
+ 		else
+			additional_cpus = 0;
+ 	}
+
+	possible = available_cpus + additional_cpus;
+
+	if (possible > NR_CPUS)
+		possible = NR_CPUS;
+
+	printk(KERN_INFO "SMP: Allowing %d CPUs, %d hotplug CPUs\n",
+		possible, max((possible - available_cpus), 0));
+
+	for (i = 0; i < possible; i++)
+		cpu_set(i, cpu_possible_map);
+}
+
 int acpi_map_lsapic(acpi_handle handle, int *pcpu)
 {
 	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -838,7 +891,7 @@ EXPORT_SYMBOL(acpi_unmap_lsapic);
 #endif				/* CONFIG_ACPI_HOTPLUG_CPU */
 
 #ifdef CONFIG_ACPI_NUMA
-acpi_status __devinit
+static acpi_status __devinit
 acpi_map_iosapic(acpi_handle handle, u32 depth, void *context, void **ret)
 {
 	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -890,7 +943,16 @@ acpi_map_iosapic(acpi_handle handle, u32 depth, void *context, void **ret)
 	map_iosapic_to_node(gsi_base, node);
 	return AE_OK;
 }
-#endif				/* CONFIG_NUMA */
+
+static int __init
+acpi_map_iosapics (void)
+{
+	acpi_get_devices(NULL, acpi_map_iosapic, NULL, NULL);
+	return 0;
+}
+
+fs_initcall(acpi_map_iosapics);
+#endif				/* CONFIG_ACPI_NUMA */
 
 int acpi_register_ioapic(acpi_handle handle, u64 phys_addr, u32 gsi_base)
 {

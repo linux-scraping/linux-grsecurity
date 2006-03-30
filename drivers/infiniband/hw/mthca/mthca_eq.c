@@ -45,6 +45,7 @@
 enum {
 	MTHCA_NUM_ASYNC_EQE = 0x80,
 	MTHCA_NUM_CMD_EQE   = 0x80,
+	MTHCA_NUM_SPARE_EQE = 0x80,
 	MTHCA_EQ_ENTRY_SIZE = 0x20
 };
 
@@ -83,7 +84,8 @@ enum {
 	MTHCA_EVENT_TYPE_PATH_MIG   	    = 0x01,
 	MTHCA_EVENT_TYPE_COMM_EST   	    = 0x02,
 	MTHCA_EVENT_TYPE_SQ_DRAINED 	    = 0x03,
-	MTHCA_EVENT_TYPE_SRQ_LAST_WQE       = 0x13,
+	MTHCA_EVENT_TYPE_SRQ_QP_LAST_WQE    = 0x13,
+	MTHCA_EVENT_TYPE_SRQ_LIMIT	    = 0x14,
 	MTHCA_EVENT_TYPE_CQ_ERROR   	    = 0x04,
 	MTHCA_EVENT_TYPE_WQ_CATAS_ERROR     = 0x05,
 	MTHCA_EVENT_TYPE_EEC_CATAS_ERROR    = 0x06,
@@ -110,8 +112,9 @@ enum {
 				(1ULL << MTHCA_EVENT_TYPE_LOCAL_CATAS_ERROR)  | \
 				(1ULL << MTHCA_EVENT_TYPE_PORT_CHANGE)        | \
 				(1ULL << MTHCA_EVENT_TYPE_ECC_DETECT))
-#define MTHCA_SRQ_EVENT_MASK    (1ULL << MTHCA_EVENT_TYPE_SRQ_CATAS_ERROR)    | \
-				(1ULL << MTHCA_EVENT_TYPE_SRQ_LAST_WQE)
+#define MTHCA_SRQ_EVENT_MASK   ((1ULL << MTHCA_EVENT_TYPE_SRQ_CATAS_ERROR)    | \
+				(1ULL << MTHCA_EVENT_TYPE_SRQ_QP_LAST_WQE)    | \
+				(1ULL << MTHCA_EVENT_TYPE_SRQ_LIMIT))
 #define MTHCA_CMD_EVENT_MASK    (1ULL << MTHCA_EVENT_TYPE_CMD)
 
 #define MTHCA_EQ_DB_INC_CI     (1 << 24)
@@ -141,6 +144,9 @@ struct mthca_eqe {
 		struct {
 			__be32 qpn;
 		} __attribute__((packed)) qp;
+		struct {
+			__be32 srqn;
+		} __attribute__((packed)) srq;
 		struct {
 			__be32 cqn;
 			u32    reserved1;
@@ -272,11 +278,10 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 {
 	struct mthca_eqe *eqe;
 	int disarm_cqn;
-	int  eqes_found = 0;
+	int eqes_found = 0;
+	int set_ci = 0;
 
 	while ((eqe = next_eqe_sw(eq))) {
-		int set_ci = 0;
-
 		/*
 		 * Make sure we read EQ entry contents after we've
 		 * checked the ownership bit.
@@ -287,7 +292,7 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 		case MTHCA_EVENT_TYPE_COMP:
 			disarm_cqn = be32_to_cpu(eqe->event.comp.cqn) & 0xffffff;
 			disarm_cq(dev, eq->eqn, disarm_cqn);
-			mthca_cq_event(dev, disarm_cqn);
+			mthca_cq_completion(dev, disarm_cqn);
 			break;
 
 		case MTHCA_EVENT_TYPE_PATH_MIG:
@@ -303,6 +308,16 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 		case MTHCA_EVENT_TYPE_SQ_DRAINED:
 			mthca_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) & 0xffffff,
 				       IB_EVENT_SQ_DRAINED);
+			break;
+
+		case MTHCA_EVENT_TYPE_SRQ_QP_LAST_WQE:
+			mthca_qp_event(dev, be32_to_cpu(eqe->event.qp.qpn) & 0xffffff,
+				       IB_EVENT_QP_LAST_WQE_REACHED);
+			break;
+
+		case MTHCA_EVENT_TYPE_SRQ_LIMIT:
+			mthca_srq_event(dev, be32_to_cpu(eqe->event.srq.srqn) & 0xffffff,
+					IB_EVENT_SRQ_LIMIT_REACHED);
 			break;
 
 		case MTHCA_EVENT_TYPE_WQ_CATAS_ERROR:
@@ -330,12 +345,6 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 					be16_to_cpu(eqe->event.cmd.token),
 					eqe->event.cmd.status,
 					be64_to_cpu(eqe->event.cmd.out_param));
-			/*
-			 * cmd_event() may add more commands.
-			 * The card will think the queue has overflowed if
-			 * we don't tell it we've been processing events.
-			 */
-			set_ci = 1;
 			break;
 
 		case MTHCA_EVENT_TYPE_PORT_CHANGE:
@@ -349,6 +358,8 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 				   eqe->event.cq_err.syndrome == 1 ?
 				   "overrun" : "access violation",
 				   be32_to_cpu(eqe->event.cq_err.cqn) & 0xffffff);
+			mthca_cq_event(dev, be32_to_cpu(eqe->event.cq_err.cqn),
+				       IB_EVENT_CQ_ERR);
 			break;
 
 		case MTHCA_EVENT_TYPE_EQ_OVERFLOW:
@@ -368,8 +379,16 @@ static int mthca_eq_int(struct mthca_dev *dev, struct mthca_eq *eq)
 		set_eqe_hw(eqe);
 		++eq->cons_index;
 		eqes_found = 1;
+		++set_ci;
 
-		if (unlikely(set_ci)) {
+		/*
+		 * The HCA will think the queue has overflowed if we
+		 * don't tell it we've been processing events.  We
+		 * create our EQs with MTHCA_NUM_SPARE_EQE extra
+		 * entries, so we must update our consumer index at
+		 * least that often.
+		 */
+		if (unlikely(set_ci >= MTHCA_NUM_SPARE_EQE)) {
 			/*
 			 * Conditional on hca_type is OK here because
 			 * this is a rare case, not the fast path.
@@ -467,8 +486,7 @@ static int __devinit mthca_create_eq(struct mthca_dev *dev,
 				     u8 intr,
 				     struct mthca_eq *eq)
 {
-	int npages = (nent * MTHCA_EQ_ENTRY_SIZE + PAGE_SIZE - 1) /
-		PAGE_SIZE;
+	int npages;
 	u64 *dma_list = NULL;
 	dma_addr_t t;
 	struct mthca_mailbox *mailbox;
@@ -479,6 +497,7 @@ static int __devinit mthca_create_eq(struct mthca_dev *dev,
 
 	eq->dev  = dev;
 	eq->nent = roundup_pow_of_two(max(nent, 2));
+ 	npages = ALIGN(eq->nent * MTHCA_EQ_ENTRY_SIZE, PAGE_SIZE) / PAGE_SIZE;
 
 	eq->page_list = kmalloc(npages * sizeof *eq->page_list,
 				GFP_KERNEL);
@@ -845,19 +864,19 @@ int __devinit mthca_init_eq_table(struct mthca_dev *dev)
 	intr = (dev->mthca_flags & MTHCA_FLAG_MSI) ?
 		128 : dev->eq_table.inta_pin;
 
-	err = mthca_create_eq(dev, dev->limits.num_cqs,
+	err = mthca_create_eq(dev, dev->limits.num_cqs + MTHCA_NUM_SPARE_EQE,
 			      (dev->mthca_flags & MTHCA_FLAG_MSI_X) ? 128 : intr,
 			      &dev->eq_table.eq[MTHCA_EQ_COMP]);
 	if (err)
 		goto err_out_unmap;
 
-	err = mthca_create_eq(dev, MTHCA_NUM_ASYNC_EQE,
+	err = mthca_create_eq(dev, MTHCA_NUM_ASYNC_EQE + MTHCA_NUM_SPARE_EQE,
 			      (dev->mthca_flags & MTHCA_FLAG_MSI_X) ? 129 : intr,
 			      &dev->eq_table.eq[MTHCA_EQ_ASYNC]);
 	if (err)
 		goto err_out_comp;
 
-	err = mthca_create_eq(dev, MTHCA_NUM_CMD_EQE,
+	err = mthca_create_eq(dev, MTHCA_NUM_CMD_EQE + MTHCA_NUM_SPARE_EQE,
 			      (dev->mthca_flags & MTHCA_FLAG_MSI_X) ? 130 : intr,
 			      &dev->eq_table.eq[MTHCA_EQ_CMD]);
 	if (err)

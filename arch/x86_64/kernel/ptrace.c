@@ -37,9 +37,12 @@
  * in exit.c or in signal.c.
  */
 
-/* determines which flags the user has access to. */
-/* 1 = access 0 = no access */
-#define FLAG_MASK 0x44dd5UL
+/*
+ * Determines which flags the user has access to [1 = access, 0 = no access].
+ * Prohibits changing ID(21), VIP(20), VIF(19), VM(17), IOPL(12-13), IF(9).
+ * Also masks reserved bits (63-22, 15, 5, 3, 1).
+ */
+#define FLAG_MASK 0x54dd5UL
 
 /* set's the trap flag. */
 #define TRAP_FLAG 0x100UL
@@ -63,12 +66,6 @@ static inline unsigned long get_stack_long(struct task_struct *task, int offset)
 	stack = (unsigned char *)task->thread.rsp0;
 	stack += offset;
 	return (*((unsigned long *)stack));
-}
-
-static inline struct pt_regs *get_child_regs(struct task_struct *task)
-{
-	struct pt_regs *regs = (void *)task->thread.rsp0;
-	return regs - 1;
 }
 
 /*
@@ -168,7 +165,7 @@ static int is_at_popf(struct task_struct *child, struct pt_regs *regs)
 
 static void set_singlestep(struct task_struct *child)
 {
-	struct pt_regs *regs = get_child_regs(child);
+	struct pt_regs *regs = task_pt_regs(child);
 
 	/*
 	 * Always set TIF_SINGLESTEP - this guarantees that
@@ -206,7 +203,7 @@ static void clear_singlestep(struct task_struct *child)
 
 	/* But touch TF only if it was set by us.. */
 	if (child->ptrace & PT_DTRACE) {
-		struct pt_regs *regs = get_child_regs(child);
+		struct pt_regs *regs = task_pt_regs(child);
 		regs->eflags &= ~TRAP_FLAG;
 		child->ptrace &= ~PT_DTRACE;
 	}
@@ -314,50 +311,10 @@ static unsigned long getreg(struct task_struct *child, unsigned long regno)
 
 }
 
-asmlinkage long sys_ptrace(long request, long pid, unsigned long addr, long data)
+long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 {
-	struct task_struct *child;
 	long i, ret;
 	unsigned ui;
-
-	/* This lock_kernel fixes a subtle race with suid exec */
-	lock_kernel();
-	ret = -EPERM;
-	if (request == PTRACE_TRACEME) {
-		/* are we already being traced? */
-		if (current->ptrace & PT_PTRACED)
-			goto out;
-		ret = security_ptrace(current->parent, current);
-		if (ret)
-			goto out;
-		/* set the ptrace bit in the process flags. */
-		current->ptrace |= PT_PTRACED;
-		ret = 0;
-		goto out;
-	}
-	ret = -ESRCH;
-	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
-	if (child)
-		get_task_struct(child);
-	read_unlock(&tasklist_lock);
-	if (!child)
-		goto out;
-
-	ret = -EPERM;
-	if (pid == 1)		/* you may not mess with init */
-		goto out_tsk;
-
-        if (gr_handle_ptrace(child, request))
-                goto out_tsk;
-
-	if (request == PTRACE_ATTACH) {
-		ret = ptrace_attach(child);
-		goto out_tsk;
-	}
-	ret = ptrace_check_attach(child, request == PTRACE_KILL); 
-	if (ret < 0) 
-		goto out_tsk;
 
 	switch (request) {
 	/* when I and D space are separate, these will need to be fixed. */
@@ -612,10 +569,6 @@ asmlinkage long sys_ptrace(long request, long pid, unsigned long addr, long data
 		ret = ptrace_request(child, request, addr, data);
 		break;
 	}
-out_tsk:
-	put_task_struct(child);
-out:
-	unlock_kernel();
 	return ret;
 }
 

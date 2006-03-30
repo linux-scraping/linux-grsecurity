@@ -777,7 +777,7 @@ doing so is the same as described in the "Configuring Multiple Bonds
 Manually" section, below.
 
 	NOTE: It has been observed that some Red Hat supplied kernels
-are apparently unable to rename modules at load time (the "-obonding1"
+are apparently unable to rename modules at load time (the "-o bond1"
 part).  Attempts to pass that option to modprobe will produce an
 "Operation not permitted" error.  This has been reported on some
 Fedora Core kernels, and has been seen on RHEL 4 as well.  On kernels
@@ -883,7 +883,8 @@ the above does not work, and the second bonding instance never sees
 its options.  In that case, the second options line can be substituted
 as follows:
 
-install bonding1 /sbin/modprobe bonding -obond1 mode=balance-alb miimon=50
+install bond1 /sbin/modprobe --ignore-install bonding -o bond1 \
+	mode=balance-alb miimon=50
 
 	This may be repeated any number of times, specifying a new and
 unique name in place of bond1 for each subsequent instance.
@@ -944,7 +945,6 @@ bond0     Link encap:Ethernet  HWaddr 00:C0:F0:1F:37:B4
           collisions:0 txqueuelen:0
 
 eth0      Link encap:Ethernet  HWaddr 00:C0:F0:1F:37:B4
-          inet addr:XXX.XXX.XXX.YYY  Bcast:XXX.XXX.XXX.255  Mask:255.255.252.0
           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
           RX packets:3573025 errors:0 dropped:0 overruns:0 frame:0
           TX packets:1643167 errors:1 dropped:0 overruns:1 carrier:0
@@ -952,7 +952,6 @@ eth0      Link encap:Ethernet  HWaddr 00:C0:F0:1F:37:B4
           Interrupt:10 Base address:0x1080
 
 eth1      Link encap:Ethernet  HWaddr 00:C0:F0:1F:37:B4
-          inet addr:XXX.XXX.XXX.YYY  Bcast:XXX.XXX.XXX.255  Mask:255.255.252.0
           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
           RX packets:3651769 errors:0 dropped:0 overruns:0 frame:0
           TX packets:1643480 errors:0 dropped:0 overruns:0 carrier:0

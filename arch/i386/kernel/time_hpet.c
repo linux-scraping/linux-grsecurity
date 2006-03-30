@@ -259,8 +259,6 @@ __setup("hpet=", hpet_setup);
 #include <linux/mc146818rtc.h>
 #include <linux/rtc.h>
 
-extern irqreturn_t rtc_interrupt(int irq, void *dev_id, struct pt_regs *regs);
-
 #define DEFAULT_RTC_INT_FREQ 	64
 #define RTC_NUM_INTS 		1
 
@@ -275,6 +273,7 @@ static unsigned long PIE_freq = DEFAULT_RTC_INT_FREQ;
 static unsigned long PIE_count;
 
 static unsigned long hpet_rtc_int_freq; /* RTC interrupt frequency */
+static unsigned int hpet_t1_cmp; /* cached comparator register */
 
 /*
  * Timer 1 for RTC, we do not use periodic interrupt feature,
@@ -306,10 +305,12 @@ int hpet_rtc_timer_init(void)
 	cnt = hpet_readl(HPET_COUNTER);
 	cnt += ((hpet_tick*HZ)/hpet_rtc_int_freq);
 	hpet_writel(cnt, HPET_T1_CMP);
+	hpet_t1_cmp = cnt;
 	local_irq_restore(flags);
 
 	cfg = hpet_readl(HPET_T1_CFG);
-	cfg |= HPET_TN_ENABLE | HPET_TN_SETVAL | HPET_TN_32BIT;
+	cfg &= ~HPET_TN_PERIODIC;
+	cfg |= HPET_TN_ENABLE | HPET_TN_32BIT;
 	hpet_writel(cfg, HPET_T1_CFG);
 
 	return 1;
@@ -319,8 +320,12 @@ static void hpet_rtc_timer_reinit(void)
 {
 	unsigned int cfg, cnt;
 
-	if (!(PIE_on | AIE_on | UIE_on))
+	if (unlikely(!(PIE_on | AIE_on | UIE_on))) {
+		cfg = hpet_readl(HPET_T1_CFG);
+		cfg &= ~HPET_TN_ENABLE;
+		hpet_writel(cfg, HPET_T1_CFG);
 		return;
+	}
 
 	if (PIE_on && (PIE_freq > DEFAULT_RTC_INT_FREQ))
 		hpet_rtc_int_freq = PIE_freq;
@@ -328,15 +333,10 @@ static void hpet_rtc_timer_reinit(void)
 		hpet_rtc_int_freq = DEFAULT_RTC_INT_FREQ;
 
 	/* It is more accurate to use the comparator value than current count.*/
-	cnt = hpet_readl(HPET_T1_CMP);
+	cnt = hpet_t1_cmp;
 	cnt += hpet_tick*HZ/hpet_rtc_int_freq;
 	hpet_writel(cnt, HPET_T1_CMP);
-
-	cfg = hpet_readl(HPET_T1_CFG);
-	cfg |= HPET_TN_ENABLE | HPET_TN_SETVAL | HPET_TN_32BIT;
-	hpet_writel(cfg, HPET_T1_CFG);
-
-	return;
+	hpet_t1_cmp = cnt;
 }
 
 /*

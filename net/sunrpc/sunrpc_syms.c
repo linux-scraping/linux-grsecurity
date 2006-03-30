@@ -10,7 +10,6 @@
 #include <linux/module.h>
 
 #include <linux/types.h>
-#include <linux/socket.h>
 #include <linux/sched.h>
 #include <linux/uio.h>
 #include <linux/unistd.h>
@@ -31,8 +30,6 @@ EXPORT_SYMBOL(rpc_init_task);
 EXPORT_SYMBOL(rpc_sleep_on);
 EXPORT_SYMBOL(rpc_wake_up_next);
 EXPORT_SYMBOL(rpc_wake_up_task);
-EXPORT_SYMBOL(rpc_new_child);
-EXPORT_SYMBOL(rpc_run_child);
 EXPORT_SYMBOL(rpciod_down);
 EXPORT_SYMBOL(rpciod_up);
 EXPORT_SYMBOL(rpc_new_task);
@@ -46,7 +43,6 @@ EXPORT_SYMBOL(rpc_clone_client);
 EXPORT_SYMBOL(rpc_bind_new_program);
 EXPORT_SYMBOL(rpc_destroy_client);
 EXPORT_SYMBOL(rpc_shutdown_client);
-EXPORT_SYMBOL(rpc_release_client);
 EXPORT_SYMBOL(rpc_killall_tasks);
 EXPORT_SYMBOL(rpc_call_sync);
 EXPORT_SYMBOL(rpc_call_async);
@@ -64,8 +60,6 @@ EXPORT_SYMBOL(rpc_mkpipe);
 /* Client transport */
 EXPORT_SYMBOL(xprt_create_proto);
 EXPORT_SYMBOL(xprt_set_timeout);
-EXPORT_SYMBOL(xprt_udp_slot_table_entries);
-EXPORT_SYMBOL(xprt_tcp_slot_table_entries);
 
 /* Client credential cache */
 EXPORT_SYMBOL(rpcauth_register);
@@ -123,7 +117,6 @@ EXPORT_SYMBOL(unix_domain_find);
 
 /* Generic XDR */
 EXPORT_SYMBOL(xdr_encode_string);
-EXPORT_SYMBOL(xdr_decode_string);
 EXPORT_SYMBOL(xdr_decode_string_inplace);
 EXPORT_SYMBOL(xdr_decode_netobj);
 EXPORT_SYMBOL(xdr_encode_netobj);

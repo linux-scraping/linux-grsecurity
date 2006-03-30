@@ -20,7 +20,6 @@
 
 #include <linux/kernel.h>
 #include <linux/types.h>
-#include <linux/list.h>
 #include <linux/compiler.h>
 
 struct file;
@@ -125,7 +124,7 @@ enum
 	KERN_OVERFLOWUID=46,	/* int: overflow UID */
 	KERN_OVERFLOWGID=47,	/* int: overflow GID */
 	KERN_SHMPATH=48,	/* string: path to shm fs */
-	KERN_HOTPLUG=49,	/* string: path to hotplug policy agent */
+	KERN_HOTPLUG=49,	/* string: path to uevent helper (deprecated) */
 	KERN_IEEE_EMULATION_WARNINGS=50, /* int: unimplemented ieee instructions */
 	KERN_S390_USER_DEBUG_LOGGING=51,  /* int: dumps of user faults */
 	KERN_CORE_USES_PID=52,		/* int: use core or core.%pid */
@@ -147,10 +146,13 @@ enum
 	KERN_RANDOMIZE=68, /* int: randomize virtual address space */
 	KERN_SETUID_DUMPABLE=69, /* int: behaviour of dumps for setuid core */
 	KERN_SPIN_RETRY=70,	/* int: number of spinlock retries */
-	KERN_GRSECURITY=71,	/* grsecurity */
-
+	KERN_ACPI_VIDEO_FLAGS=71, /* int: flags for setting up video after ACPI sleep */
+	KERN_IA64_UNALIGNED=72, /* int: ia64 unaligned userland trap enable */
+#ifdef CONFIG_GRKERNSEC
+	KERN_GRSECURITY=98,	/* grsecurity */
+#endif
 #ifdef CONFIG_PAX_SOFTMODE
-	KERN_PAX=99,            /* PaX control */
+	KERN_PAX=99,		/* PaX control */
 #endif
 
 };
@@ -160,7 +162,6 @@ enum {
 	PAX_SOFTMODE=1		/* PaX: disable/enable soft mode */
 };
 #endif
-
 
 /* CTL_VM names: */
 enum
@@ -193,6 +194,10 @@ enum
 	VM_VFS_CACHE_PRESSURE=26, /* dcache/icache reclaim pressure */
 	VM_LEGACY_VA_LAYOUT=27, /* legacy/compatibility virtual address space layout */
 	VM_SWAP_TOKEN_TIMEOUT=28, /* default time for token time out */
+	VM_DROP_PAGECACHE=29,	/* int: nuke lots of pagecache */
+	VM_PERCPU_PAGELIST_FRACTION=30,/* int: fraction of pages in each percpu_pagelist */
+	VM_ZONE_RECLAIM_MODE=31, /* reclaim local zone memory before going off node */
+	VM_ZONE_RECLAIM_INTERVAL=32, /* time period to wait after reclaim failure */
 };
 
 
@@ -217,6 +222,7 @@ enum
 	NET_ECONET=16,
 	NET_SCTP=17,
 	NET_LLC=18,
+	NET_NETFILTER=19,
 };
 
 /* /proc/sys/kernel/random */
@@ -280,6 +286,42 @@ enum
 	NET_UNIX_DESTROY_DELAY=1,
 	NET_UNIX_DELETE_DELAY=2,
 	NET_UNIX_MAX_DGRAM_QLEN=3,
+};
+
+/* /proc/sys/net/netfilter */
+enum
+{
+	NET_NF_CONNTRACK_MAX=1,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_SYN_SENT=2,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_SYN_RECV=3,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_ESTABLISHED=4,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_FIN_WAIT=5,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_CLOSE_WAIT=6,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_LAST_ACK=7,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_TIME_WAIT=8,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_CLOSE=9,
+	NET_NF_CONNTRACK_UDP_TIMEOUT=10,
+	NET_NF_CONNTRACK_UDP_TIMEOUT_STREAM=11,
+	NET_NF_CONNTRACK_ICMP_TIMEOUT=12,
+	NET_NF_CONNTRACK_GENERIC_TIMEOUT=13,
+	NET_NF_CONNTRACK_BUCKETS=14,
+	NET_NF_CONNTRACK_LOG_INVALID=15,
+	NET_NF_CONNTRACK_TCP_TIMEOUT_MAX_RETRANS=16,
+	NET_NF_CONNTRACK_TCP_LOOSE=17,
+	NET_NF_CONNTRACK_TCP_BE_LIBERAL=18,
+	NET_NF_CONNTRACK_TCP_MAX_RETRANS=19,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_CLOSED=20,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_COOKIE_WAIT=21,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_COOKIE_ECHOED=22,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_ESTABLISHED=23,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_SHUTDOWN_SENT=24,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_SHUTDOWN_RECD=25,
+	NET_NF_CONNTRACK_SCTP_TIMEOUT_SHUTDOWN_ACK_SENT=26,
+	NET_NF_CONNTRACK_COUNT=27,
+	NET_NF_CONNTRACK_ICMPV6_TIMEOUT=28,
+	NET_NF_CONNTRACK_FRAG6_TIMEOUT=29,
+	NET_NF_CONNTRACK_FRAG6_LOW_THRESH=30,
+	NET_NF_CONNTRACK_FRAG6_HIGH_THRESH=31,
 };
 
 /* /proc/sys/net/ipv4 */
@@ -365,6 +407,8 @@ enum
 	NET_TCP_BIC_BETA=108,
 	NET_IPV4_ICMP_ERRORS_USE_INBOUND_IFADDR=109,
 	NET_TCP_CONG_CONTROL=110,
+	NET_TCP_ABC=111,
+	NET_IPV4_IPFRAG_MAX_DIST=112,
 };
 
 enum {
@@ -645,6 +689,9 @@ enum {
 	NET_DECNET_DST_GC_INTERVAL = 9,
 	NET_DECNET_CONF = 10,
 	NET_DECNET_NO_FC_MAX_CWND = 11,
+	NET_DECNET_MEM = 12,
+	NET_DECNET_RMEM = 13,
+	NET_DECNET_WMEM = 14,
 	NET_DECNET_DEBUG_LEVEL = 255
 };
 
@@ -689,6 +736,7 @@ enum {
 	NET_SCTP_PRSCTP_ENABLE		 = 14,
 	NET_SCTP_SNDBUF_POLICY		 = 15,
 	NET_SCTP_SACK_TIMEOUT		 = 16,
+	NET_SCTP_RCVBUF_POLICY		 = 17,
 };
 
 /* /proc/sys/net/bridge */
@@ -832,6 +880,7 @@ enum
 };
 
 #ifdef __KERNEL__
+#include <linux/list.h>
 
 extern void sysctl_init(void);
 

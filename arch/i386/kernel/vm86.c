@@ -4,7 +4,7 @@
  *  Copyright (C) 1994  Linus Torvalds
  *
  *  29 dec 2001 - Fixed oopses caused by unchecked access to the vm86
- *                stack - Manfred Spraul <manfreds@colorfullife.com>
+ *                stack - Manfred Spraul <manfred@colorfullife.com>
  *
  *  22 mar 2002 - Manfred detected the stackfaults, but didn't handle
  *                them correctly. Now the emulation will be in a
@@ -30,6 +30,7 @@
  *
  */
 
+#include <linux/capability.h>
 #include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
@@ -134,17 +135,16 @@ struct pt_regs * fastcall save_v86_state(struct kernel_vm86_regs * regs)
 	return ret;
 }
 
-static void mark_screen_rdonly(struct task_struct * tsk)
+static void mark_screen_rdonly(struct mm_struct *mm)
 {
 	pgd_t *pgd;
 	pud_t *pud;
 	pmd_t *pmd;
-	pte_t *pte, *mapped;
+	pte_t *pte;
+	spinlock_t *ptl;
 	int i;
 
-	preempt_disable();
-	spin_lock(&tsk->mm->page_table_lock);
-	pgd = pgd_offset(tsk->mm, 0xA0000);
+	pgd = pgd_offset(mm, 0xA0000);
 	if (pgd_none_or_clear_bad(pgd))
 		goto out;
 	pud = pud_offset(pgd, 0xA0000);
@@ -153,16 +153,14 @@ static void mark_screen_rdonly(struct task_struct * tsk)
 	pmd = pmd_offset(pud, 0xA0000);
 	if (pmd_none_or_clear_bad(pmd))
 		goto out;
-	pte = mapped = pte_offset_map(pmd, 0xA0000);
+	pte = pte_offset_map_lock(mm, pmd, 0xA0000, &ptl);
 	for (i = 0; i < 32; i++) {
 		if (pte_present(*pte))
 			set_pte(pte, pte_wrprotect(*pte));
 		pte++;
 	}
-	pte_unmap(mapped);
+	pte_unmap_unlock(pte, ptl);
 out:
-	spin_unlock(&tsk->mm->page_table_lock);
-	preempt_enable();
 	flush_tlb();
 }
 
@@ -306,14 +304,14 @@ static void do_sys_vm86(struct kernel_vm86_struct *info, struct task_struct *tsk
 
 	tsk->thread.screen_bitmap = info->screen_bitmap;
 	if (info->flags & VM86_SCREEN_BITMAP)
-		mark_screen_rdonly(tsk);
+		mark_screen_rdonly(tsk->mm);
 	__asm__ __volatile__(
 		"xorl %%eax,%%eax; movl %%eax,%%fs; movl %%eax,%%gs\n\t"
 		"movl %0,%%esp\n\t"
 		"movl %1,%%ebp\n\t"
 		"jmp resume_userspace"
 		: /* no outputs */
-		:"r" (&info->regs), "r" (tsk->thread_info) : "ax");
+		:"r" (&info->regs), "r" (task_thread_info(tsk)) : "ax");
 	/* we never return here */
 }
 

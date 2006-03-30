@@ -1,9 +1,8 @@
 /*
- *  arch/s390/kernel/entry.S
+ *  arch/s390/kernel/entry64.S
  *    S390 low-level entry points.
  *
- *  S390 version
- *    Copyright (C) 1999,2000 IBM Deutschland Entwicklung GmbH, IBM Corporation
+ *    Copyright (C) IBM Corp. 1999,2006
  *    Author(s): Martin Schwidefsky (schwidefsky@de.ibm.com),
  *               Hartmut Penner (hp@de.ibm.com),
  *               Denis Joseph Barrow (djbarrow@de.ibm.com,barrow_dj@yahoo.com),
@@ -53,9 +52,10 @@ SP_SIZE      =  STACK_FRAME_OVERHEAD + __PT_SIZE
 STACK_SHIFT = PAGE_SHIFT + THREAD_ORDER
 STACK_SIZE  = 1 << STACK_SHIFT
 
-_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_NEED_RESCHED | _TIF_MCCK_PENDING | \
-		 _TIF_RESTART_SVC | _TIF_SINGLE_STEP )
-_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_NEED_RESCHED | _TIF_MCCK_PENDING)
+_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+		 _TIF_MCCK_PENDING | _TIF_RESTART_SVC | _TIF_SINGLE_STEP )
+_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+		 _TIF_MCCK_PENDING)
 
 #define BASED(name) name-system_call(%r13)
 
@@ -213,7 +213,7 @@ sysc_nr_ok:
 	mvc	SP_ARGS(8,%r15),SP_R7(%r15)
 sysc_do_restart:
 	larl    %r10,sys_call_table
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 	tm	__TI_flags+5(%r9),(_TIF_31BIT>>16)  # running in 31 bit mode ?
 	jno	sysc_noemu
 	larl    %r10,sys_call_table_emu  # use 31 bit emulation system calls
@@ -249,8 +249,8 @@ sysc_work:
 	jo	sysc_mcck_pending
 	tm	__TI_flags+7(%r9),_TIF_NEED_RESCHED
 	jo	sysc_reschedule
-	tm	__TI_flags+7(%r9),_TIF_SIGPENDING
-	jo	sysc_sigpending
+	tm	__TI_flags+7(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	jnz	sysc_sigpending
 	tm	__TI_flags+7(%r9),_TIF_RESTART_SVC
 	jo	sysc_restart
 	tm	__TI_flags+7(%r9),_TIF_SINGLE_STEP
@@ -272,18 +272,17 @@ sysc_mcck_pending:
 	jg	s390_handle_mcck    # TIF bit will be cleared by handler
 
 #
-# _TIF_SIGPENDING is set, call do_signal
+# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
 #
 sysc_sigpending:     
 	ni	__TI_flags+7(%r9),255-_TIF_SINGLE_STEP # clear TIF_SINGLE_STEP
         la      %r2,SP_PTREGS(%r15) # load pt_regs
-        sgr     %r3,%r3           # clear *oldset
 	brasl	%r14,do_signal    # call do_signal
 	tm	__TI_flags+7(%r9),_TIF_RESTART_SVC
 	jo	sysc_restart
 	tm	__TI_flags+7(%r9),_TIF_SINGLE_STEP
 	jo	sysc_singlestep
-	j	sysc_leave        # out of here, do NOT recheck
+	j	sysc_work_loop
 
 #
 # _TIF_RESTART_SVC is set, set up registers and restart svc
@@ -361,7 +360,7 @@ sys_clone_glue:
         la      %r2,SP_PTREGS(%r15)    # load pt_regs
         jg      sys_clone              # branch to sys_clone
 
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 sys32_clone_glue: 
         la      %r2,SP_PTREGS(%r15)    # load pt_regs
         jg      sys32_clone            # branch to sys32_clone
@@ -383,7 +382,7 @@ sys_execve_glue:
         bnz     0(%r12)               # it did fail -> store result in gpr2
         b       6(%r12)               # SKIP STG 2,SP_R2(15) in
                                       # system_call/sysc_tracesys
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 sys32_execve_glue:        
         la      %r2,SP_PTREGS(%r15)   # load pt_regs
 	lgr     %r12,%r14             # save return address
@@ -398,7 +397,7 @@ sys_sigreturn_glue:
         la      %r2,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys_sigreturn         # branch to sys_sigreturn
 
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 sys32_sigreturn_glue:     
         la      %r2,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys32_sigreturn       # branch to sys32_sigreturn
@@ -408,63 +407,17 @@ sys_rt_sigreturn_glue:
         la      %r2,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys_rt_sigreturn      # branch to sys_sigreturn
 
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 sys32_rt_sigreturn_glue:     
         la      %r2,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys32_rt_sigreturn    # branch to sys32_sigreturn
-#endif
-
-#
-# sigsuspend and rt_sigsuspend need pt_regs as an additional
-# parameter and they have to skip the store of %r2 into the
-# user register %r2 because the return value was set in 
-# sigsuspend and rt_sigsuspend already and must not be overwritten!
-#
-
-sys_sigsuspend_glue:    
-        lgr     %r5,%r4               # move mask back
-        lgr     %r4,%r3               # move history1 parameter
-        lgr     %r3,%r2               # move history0 parameter
-        la      %r2,SP_PTREGS(%r15)   # load pt_regs as first parameter
-	la      %r14,6(%r14)          # skip store of return value
-        jg      sys_sigsuspend        # branch to sys_sigsuspend
-
-#ifdef CONFIG_S390_SUPPORT
-sys32_sigsuspend_glue:    
-	llgfr	%r4,%r4               # unsigned long			
-        lgr     %r5,%r4               # move mask back
-	lgfr	%r3,%r3               # int			
-        lgr     %r4,%r3               # move history1 parameter
-	lgfr	%r2,%r2               # int			
-        lgr     %r3,%r2               # move history0 parameter
-        la      %r2,SP_PTREGS(%r15)   # load pt_regs as first parameter
-	la      %r14,6(%r14)          # skip store of return value
-        jg      sys32_sigsuspend      # branch to sys32_sigsuspend
-#endif
-
-sys_rt_sigsuspend_glue: 
-        lgr     %r4,%r3               # move sigsetsize parameter
-        lgr     %r3,%r2               # move unewset parameter
-        la      %r2,SP_PTREGS(%r15)   # load pt_regs as first parameter
-	la      %r14,6(%r14)          # skip store of return value
-        jg      sys_rt_sigsuspend     # branch to sys_rt_sigsuspend
-
-#ifdef CONFIG_S390_SUPPORT
-sys32_rt_sigsuspend_glue: 
-	llgfr	%r3,%r3               # size_t			
-        lgr     %r4,%r3               # move sigsetsize parameter
-	llgtr	%r2,%r2               # sigset_emu31_t *
-        lgr     %r3,%r2               # move unewset parameter
-        la      %r2,SP_PTREGS(%r15)   # load pt_regs as first parameter
-	la      %r14,6(%r14)          # skip store of return value
-        jg      sys32_rt_sigsuspend   # branch to sys32_rt_sigsuspend
 #endif
 
 sys_sigaltstack_glue:
         la      %r4,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys_sigaltstack       # branch to sys_sigreturn
 
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 sys32_sigaltstack_glue:
         la      %r4,SP_PTREGS(%r15)   # load pt_regs as parameter
         jg      sys32_sigaltstack_wrapper # branch to sys_sigreturn
@@ -646,15 +599,16 @@ io_work:
 	lgr	%r15,%r1
 #
 # One of the work bits is on. Find out which one.
-# Checked are: _TIF_SIGPENDING, _TIF_NEED_RESCHED and _TIF_MCCK_PENDING
+# Checked are: _TIF_SIGPENDING, _TIF_RESTORE_SIGPENDING, _TIF_NEED_RESCHED
+#	       and _TIF_MCCK_PENDING
 #
 io_work_loop:
 	tm	__TI_flags+7(%r9),_TIF_MCCK_PENDING
 	jo	io_mcck_pending
 	tm	__TI_flags+7(%r9),_TIF_NEED_RESCHED
 	jo	io_reschedule
-	tm	__TI_flags+7(%r9),_TIF_SIGPENDING
-	jo	io_sigpending
+	tm	__TI_flags+7(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	jnz	io_sigpending
 	j	io_leave
 
 #
@@ -676,15 +630,14 @@ io_reschedule:
 	j	io_work_loop
 
 #
-# _TIF_SIGPENDING is set, call do_signal
+# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
 #
 io_sigpending:     
 	stosm   __SF_EMPTY(%r15),0x03	# reenable interrupts
 	la      %r2,SP_PTREGS(%r15)	# load pt_regs
-	slgr    %r3,%r3			# clear *oldset
 	brasl	%r14,do_signal		# call do_signal
 	stnsm   __SF_EMPTY(%r15),0xfc	# disable I/O and ext. interrupts
-	j	sysc_leave		# out of here, do NOT recheck
+	j	io_work_loop
 
 /*
  * External interrupt handler routine
@@ -1009,7 +962,7 @@ sys_call_table:
 #include "syscalls.S"
 #undef SYSCALL
 
-#ifdef CONFIG_S390_SUPPORT
+#ifdef CONFIG_COMPAT
 
 #define SYSCALL(esa,esame,emu)	.long emu
 	.globl  sys_call_table_emu

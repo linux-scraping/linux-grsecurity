@@ -21,9 +21,6 @@
 // #define	VERBOSE			// more; success messages
 
 #include <linux/config.h>
-#ifdef	CONFIG_USB_DEBUG
-#   define DEBUG
-#endif
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/init.h>
@@ -517,7 +514,7 @@ static int rndis_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 }
 
 static struct sk_buff *
-rndis_tx_fixup(struct usbnet *dev, struct sk_buff *skb, unsigned flags)
+rndis_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
 {
 	struct rndis_data_hdr	*hdr;
 	struct sk_buff		*skb2;
@@ -589,7 +586,6 @@ static const struct usb_device_id	products [] = {
 MODULE_DEVICE_TABLE(usb, products);
 
 static struct usb_driver rndis_driver = {
-	.owner =	THIS_MODULE,
 	.name =		"rndis_host",
 	.id_table =	products,
 	.probe =	usbnet_probe,

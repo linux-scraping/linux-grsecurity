@@ -90,14 +90,8 @@ typedef struct bt3c_info_t {
 
 static void bt3c_config(dev_link_t *link);
 static void bt3c_release(dev_link_t *link);
-static int bt3c_event(event_t event, int priority, event_callback_args_t *args);
 
-static dev_info_t dev_info = "bt3c_cs";
-
-static dev_link_t *bt3c_attach(void);
-static void bt3c_detach(dev_link_t *);
-
-static dev_link_t *dev_list = NULL;
+static void bt3c_detach(struct pcmcia_device *p_dev);
 
 
 /* Transmit states  */
@@ -480,18 +474,6 @@ static int bt3c_hci_ioctl(struct hci_dev *hdev, unsigned int cmd, unsigned long 
 /* ======================== Card services HCI interaction ======================== */
 
 
-static struct device *bt3c_device(void)
-{
-	static struct device dev = {
-		.bus_id = "pcmcia",
-	};
-	kobject_set_name(&dev.kobj, "bt3c");
-	kobject_init(&dev.kobj);
-
-	return &dev;
-}
-
-
 static int bt3c_load_firmware(bt3c_info_t *info, unsigned char *firmware, int count)
 {
 	char *ptr = (char *) firmware;
@@ -580,6 +562,7 @@ static int bt3c_open(bt3c_info_t *info)
 {
 	const struct firmware *firmware;
 	struct hci_dev *hdev;
+	client_handle_t handle;
 	int err;
 
 	spin_lock_init(&(info->lock));
@@ -611,8 +594,10 @@ static int bt3c_open(bt3c_info_t *info)
 
 	hdev->owner = THIS_MODULE;
 
+	handle = info->link.handle;
+
 	/* Load firmware */
-	err = request_firmware(&firmware, "BT3CPCC.bin", bt3c_device());
+	err = request_firmware(&firmware, "BT3CPCC.bin", &handle_to_dev(handle));
 	if (err < 0) {
 		BT_ERR("Firmware request failed");
 		goto error;
@@ -663,18 +648,15 @@ static int bt3c_close(bt3c_info_t *info)
 	return 0;
 }
 
-static dev_link_t *bt3c_attach(void)
+static int bt3c_attach(struct pcmcia_device *p_dev)
 {
 	bt3c_info_t *info;
-	client_reg_t client_reg;
 	dev_link_t *link;
-	int ret;
 
 	/* Create new info device */
-	info = kmalloc(sizeof(*info), GFP_KERNEL);
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
-		return NULL;
-	memset(info, 0, sizeof(*info));
+		return -ENOMEM;
 
 	link = &info->link;
 	link->priv = info;
@@ -691,49 +673,23 @@ static dev_link_t *bt3c_attach(void)
 	link->conf.Vcc = 50;
 	link->conf.IntType = INT_MEMORY_AND_IO;
 
-	/* Register with Card Services */
-	link->next = dev_list;
-	dev_list = link;
-	client_reg.dev_info = &dev_info;
-	client_reg.Version = 0x0210;
-	client_reg.event_callback_args.client_data = link;
+	link->handle = p_dev;
+	p_dev->instance = link;
 
-	ret = pcmcia_register_client(&link->handle, &client_reg);
-	if (ret != CS_SUCCESS) {
-		cs_error(link->handle, RegisterClient, ret);
-		bt3c_detach(link);
-		return NULL;
-	}
+	link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
+	bt3c_config(link);
 
-	return link;
+	return 0;
 }
 
 
-static void bt3c_detach(dev_link_t *link)
+static void bt3c_detach(struct pcmcia_device *p_dev)
 {
+	dev_link_t *link = dev_to_instance(p_dev);
 	bt3c_info_t *info = link->priv;
-	dev_link_t **linkp;
-	int ret;
-
-	/* Locate device structure */
-	for (linkp = &dev_list; *linkp; linkp = &(*linkp)->next)
-		if (*linkp == link)
-			break;
-
-	if (*linkp == NULL)
-		return;
 
 	if (link->state & DEV_CONFIG)
 		bt3c_release(link);
-
-	if (link->handle) {
-		ret = pcmcia_deregister_client(link->handle);
-		if (ret != CS_SUCCESS)
-			cs_error(link->handle, DeregisterClient, ret);
-	}
-
-	/* Unlink device structure, free bits */
-	*linkp = link->next;
 
 	kfree(info);
 }
@@ -892,42 +848,28 @@ static void bt3c_release(dev_link_t *link)
 	link->state &= ~DEV_CONFIG;
 }
 
-
-static int bt3c_event(event_t event, int priority, event_callback_args_t *args)
+static int bt3c_suspend(struct pcmcia_device *dev)
 {
-	dev_link_t *link = args->client_data;
-	bt3c_info_t *info = link->priv;
+	dev_link_t *link = dev_to_instance(dev);
 
-	switch (event) {
-	case CS_EVENT_CARD_REMOVAL:
-		link->state &= ~DEV_PRESENT;
-		if (link->state & DEV_CONFIG) {
-			bt3c_close(info);
-			bt3c_release(link);
-		}
-		break;
-	case CS_EVENT_CARD_INSERTION:
-		link->state |= DEV_PRESENT | DEV_CONFIG_PENDING;
-		bt3c_config(link);
-		break;
-	case CS_EVENT_PM_SUSPEND:
-		link->state |= DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_RESET_PHYSICAL:
-		if (link->state & DEV_CONFIG)
-			pcmcia_release_configuration(link->handle);
-		break;
-	case CS_EVENT_PM_RESUME:
-		link->state &= ~DEV_SUSPEND;
-		/* Fall through... */
-	case CS_EVENT_CARD_RESET:
-		if (DEV_OK(link))
-			pcmcia_request_configuration(link->handle, &link->conf);
-		break;
-	}
+	link->state |= DEV_SUSPEND;
+	if (link->state & DEV_CONFIG)
+		pcmcia_release_configuration(link->handle);
 
 	return 0;
 }
+
+static int bt3c_resume(struct pcmcia_device *dev)
+{
+	dev_link_t *link = dev_to_instance(dev);
+
+	link->state &= ~DEV_SUSPEND;
+	if (DEV_OK(link))
+		pcmcia_request_configuration(link->handle, &link->conf);
+
+	return 0;
+}
+
 
 static struct pcmcia_device_id bt3c_ids[] = {
 	PCMCIA_DEVICE_PROD_ID13("3COM", "Bluetooth PC Card", 0xefce0a31, 0xd4ce9b02),
@@ -940,10 +882,11 @@ static struct pcmcia_driver bt3c_driver = {
 	.drv		= {
 		.name	= "bt3c_cs",
 	},
-	.attach		= bt3c_attach,
-	.event		= bt3c_event,
-	.detach		= bt3c_detach,
+	.probe		= bt3c_attach,
+	.remove		= bt3c_detach,
 	.id_table	= bt3c_ids,
+	.suspend	= bt3c_suspend,
+	.resume		= bt3c_resume,
 };
 
 static int __init init_bt3c_cs(void)
@@ -955,7 +898,6 @@ static int __init init_bt3c_cs(void)
 static void __exit exit_bt3c_cs(void)
 {
 	pcmcia_unregister_driver(&bt3c_driver);
-	BUG_ON(dev_list != NULL);
 }
 
 module_init(init_bt3c_cs);

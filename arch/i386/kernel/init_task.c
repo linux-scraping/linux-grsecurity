@@ -42,4 +42,5 @@ EXPORT_SYMBOL(init_task);
  * per-CPU TSS segments. Threads are completely 'soft' on Linux,
  * no more per-task TSS's.
  */ 
-struct tss_struct init_tss[NR_CPUS] ____cacheline_maxaligned_in_smp = { [0 ... NR_CPUS-1] = INIT_TSS };
+struct tss_struct init_tss[NR_CPUS] ____cacheline_internodealigned_in_smp = { [0 ... NR_CPUS-1] = INIT_TSS };
+

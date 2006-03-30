@@ -12,10 +12,10 @@ copy_page:
 	movq	%rbx,(%rsp)
 	movq	%r12,1*8(%rsp)
 	movq	%r13,2*8(%rsp)
-			
+
 	movl	$(4096/64)-5,%ecx
 	.p2align 4
-.Loop64:	
+.Loop64:
   	dec     %rcx
 
 	movq        (%rsi), %rax
@@ -45,7 +45,7 @@ copy_page:
 
 	movl	$5,%ecx
 	.p2align 4
-.Loop2:	
+.Loop2:
 	decl   %ecx
 
 	movq        (%rsi), %rax
@@ -65,28 +65,28 @@ copy_page:
 	movq     %r10, 40 (%rdi)
 	movq     %r11, 48 (%rdi)
 	movq     %r12, 56 (%rdi)
-	
-	leaq	64(%rdi),%rdi			
-	leaq	64(%rsi),%rsi			
-	
-	jnz	.Loop2		
-	
+
+	leaq	64(%rdi),%rdi
+	leaq	64(%rsi),%rsi
+
+	jnz	.Loop2
+
 	movq	(%rsp),%rbx
 	movq	1*8(%rsp),%r12
 	movq	2*8(%rsp),%r13
 	addq	$3*8,%rsp
 	ret
-	
-	/* C stepping K8 run faster using the string copy instructions.
+
+	/* Some CPUs run faster using the string copy instructions.
 	   It is also a lot simpler. Use this when possible */
 
-#include <asm/cpufeature.h>		
-		
+#include <asm/cpufeature.h>
+
 	.section .altinstructions,"a"
 	.align 8
 	.quad  copy_page
 	.quad  copy_page_c
-	.byte  X86_FEATURE_K8_C
+	.byte  X86_FEATURE_REP_GOOD
 	.byte  copy_page_c_end-copy_page_c
 	.byte  copy_page_c_end-copy_page_c
 	.previous

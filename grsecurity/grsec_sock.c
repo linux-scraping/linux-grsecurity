@@ -6,6 +6,7 @@
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <net/sock.h>
+#include <net/inet_sock.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 #include <linux/gracl.h>
@@ -13,11 +14,6 @@
 #if defined(CONFIG_IP_NF_MATCH_STEALTH_MODULE)
 extern struct sock *udp_v4_lookup(u32 saddr, u16 sport, u32 daddr, u16 dport, int dif);
 EXPORT_SYMBOL(udp_v4_lookup);
-#endif
-
-#ifdef CONFIG_GRKERNSEC_RANDSRC
-EXPORT_SYMBOL(pax_get_random_long);
-EXPORT_SYMBOL(grsec_enable_randsrc);
 #endif
 
 EXPORT_SYMBOL(gr_cap_rtnetlink);

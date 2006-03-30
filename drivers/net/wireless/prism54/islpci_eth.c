@@ -17,7 +17,6 @@
  *
  */
 
-#include <linux/version.h>
 #include <linux/module.h>
 
 #include <linux/pci.h>
@@ -178,7 +177,7 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
 #endif
 
 			newskb->dev = skb->dev;
-			dev_kfree_skb(skb);
+			dev_kfree_skb_irq(skb);
 			skb = newskb;
 		}
 	}
@@ -227,26 +226,23 @@ islpci_eth_transmit(struct sk_buff *skb, struct net_device *ndev)
 		priv->data_low_tx_full = 1;
 	}
 
+	/* set the transmission time */
+	ndev->trans_start = jiffies;
+	priv->statistics.tx_packets++;
+	priv->statistics.tx_bytes += skb->len;
+
 	/* trigger the device */
 	islpci_trigger(priv);
 
 	/* unlock the driver code */
 	spin_unlock_irqrestore(&priv->slock, flags);
 
-	/* set the transmission time */
-	ndev->trans_start = jiffies;
-	priv->statistics.tx_packets++;
-	priv->statistics.tx_bytes += skb->len;
-
 	return 0;
 
       drop_free:
-	/* free the skbuf structure before aborting */
-	dev_kfree_skb(skb);
-	skb = NULL;
-
 	priv->statistics.tx_dropped++;
 	spin_unlock_irqrestore(&priv->slock, flags);
+	dev_kfree_skb(skb);
 	return err;
 }
 

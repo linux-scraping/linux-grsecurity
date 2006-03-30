@@ -11,7 +11,6 @@
  * functions may not be called from interrupt context. In particular
  * dasd_get_device is a no-no from interrupt context.
  *
- * $Revision: 1.43 $
  */
 
 #include <linux/config.h>
@@ -387,8 +386,7 @@ dasd_add_busid(char *bus_id, int features)
 		new = 0;
 	}
 	spin_unlock(&dasd_devmap_lock);
-	if (new)
-		kfree(new);
+	kfree(new);
 	return devmap;
 }
 

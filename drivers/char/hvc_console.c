@@ -335,6 +335,8 @@ static int hvc_open(struct tty_struct *tty, struct file * filp)
 	} /* else count == 0 */
 
 	tty->driver_data = hp;
+	tty->low_latency = 1; /* Makes flushes to ldisc synchronous. */
+
 	hp->tty = tty;
 	/* Save for request_irq outside of spin_lock. */
 	irq = hp->irq;
@@ -597,9 +599,7 @@ static int hvc_poll(struct hvc_struct *hp)
 
 	/* Read data if any */
 	for (;;) {
-		int count = N_INBUF;
-		if (count > (TTY_FLIPBUF_SIZE - tty->flip.count))
-			count = TTY_FLIPBUF_SIZE - tty->flip.count;
+		int count = tty_buffer_request_room(tty, N_INBUF);
 
 		/* If flip is full, just reschedule a later read */
 		if (count == 0) {
@@ -635,9 +635,6 @@ static int hvc_poll(struct hvc_struct *hp)
 			tty_insert_flip_char(tty, buf[i], 0);
 		}
 
-		if (tty->flip.count)
-			tty_schedule_flip(tty);
-
 		/*
 		 * Account for the total amount read in one loop, and if above
 		 * 64 bytes, we do a quick schedule loop to let the tty grok
@@ -658,6 +655,9 @@ static int hvc_poll(struct hvc_struct *hp)
  bail:
 	spin_unlock_irqrestore(&hp->lock, flags);
 
+	if (read_total)
+		tty_flip_buffer_push(tty);
+	
 	return poll_mask;
 }
 

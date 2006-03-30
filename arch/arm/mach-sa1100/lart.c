@@ -31,9 +31,17 @@ static void __init lart_init(void)
 }
 
 static struct map_desc lart_io_desc[] __initdata = {
- /* virtual     physical    length      type */
-  { 0xe8000000, 0x00000000, 0x00400000, MT_DEVICE }, /* main flash memory */
-  { 0xec000000, 0x08000000, 0x00400000, MT_DEVICE }  /* main flash, alternative location */
+	{	/* main flash memory */
+		.virtual	=  0xe8000000,
+		.pfn		= __phys_to_pfn(0x00000000),
+		.length		= 0x00400000,
+		.type		= MT_DEVICE
+	}, {	/* main flash, alternative location */
+		.virtual	=  0xec000000,
+		.pfn		= __phys_to_pfn(0x08000000),
+		.length		= 0x00400000,
+		.type		= MT_DEVICE
+	}
 };
 
 static void __init lart_map_io(void)
@@ -52,7 +60,6 @@ static void __init lart_map_io(void)
 }
 
 MACHINE_START(LART, "LART")
-	.phys_ram	= 0xc0000000,
 	.phys_io	= 0x80000000,
 	.io_pg_offst	= ((0xf8000000) >> 18) & 0xfffc,
 	.boot_params	= 0xc0000100,

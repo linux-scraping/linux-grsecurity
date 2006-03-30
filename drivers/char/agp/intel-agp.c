@@ -270,6 +270,7 @@ static struct agp_memory *alloc_agpphysmem_i8xx(size_t pg_count, int type)
 
 	switch (pg_count) {
 	case 1: addr = agp_bridge->driver->agp_alloc_page(agp_bridge);
+		global_flush_tlb();
 		break;
 	case 4:
 		/* kludge to get 4 physical pages for ARGB cursor */
@@ -330,9 +331,11 @@ static void intel_i810_free_by_type(struct agp_memory *curr)
 	if(curr->type == AGP_PHYS_MEMORY) {
 		if (curr->page_count == 4)
 			i8xx_destroy_pages(gart_to_virt(curr->memory[0]));
-		else
+		else {
 			agp_bridge->driver->agp_destroy_page(
 				 gart_to_virt(curr->memory[0]));
+			global_flush_tlb();
+		}
 		vfree(curr->memory);
 	}
 	kfree(curr);
@@ -419,7 +422,8 @@ static void intel_i830_init_gtt_entries(void)
 			/* Check it's really I915G */
 			if (agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82915G_HB ||
 			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82915GM_HB ||
-			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945G_HB)
+			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945G_HB ||
+			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945GM_HB)
 				gtt_entries = MB(48) - KB(size);
 			else
 				gtt_entries = 0;
@@ -428,7 +432,8 @@ static void intel_i830_init_gtt_entries(void)
 			/* Check it's really I915G */
 			if (agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82915G_HB ||
 			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82915GM_HB ||
-			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945G_HB)
+			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945G_HB ||
+			    agp_bridge->dev->device == PCI_DEVICE_ID_INTEL_82945GM_HB)
 				gtt_entries = MB(64) - KB(size);
 			else
 				gtt_entries = 0;
@@ -1678,6 +1683,14 @@ static int __devinit agp_intel_probe(struct pci_dev *pdev,
 		}
 		name = "945G";
 		break;
+	case PCI_DEVICE_ID_INTEL_82945GM_HB:
+		if (find_i830(PCI_DEVICE_ID_INTEL_82945GM_IG)) {
+			bridge->driver = &intel_915_driver;
+		} else {
+			bridge->driver = &intel_845_driver;
+		}
+		name = "945GM";
+		break;
 	case PCI_DEVICE_ID_INTEL_7505_0:
 		bridge->driver = &intel_7505_driver;
 		name = "E7505";
@@ -1818,6 +1831,7 @@ static struct pci_device_id agp_intel_pci_table[] = {
 	ID(PCI_DEVICE_ID_INTEL_82915G_HB),
 	ID(PCI_DEVICE_ID_INTEL_82915GM_HB),
 	ID(PCI_DEVICE_ID_INTEL_82945G_HB),
+	ID(PCI_DEVICE_ID_INTEL_82945GM_HB),
 	{ }
 };
 

@@ -9,10 +9,10 @@
 #define LARGE_PAGE_MASK (~(LARGE_PAGE_SIZE-1))
 #define LARGE_PAGE_SIZE (1UL << PMD_SHIFT)
 
-#include <linux/config.h>
-
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
+
+#include <linux/config.h>
 
 #ifdef CONFIG_X86_USE_3DNOW
 
@@ -109,10 +109,10 @@ extern int page_is_ram(unsigned long pagenr);
 #endif /* __ASSEMBLY__ */
 
 #ifdef __ASSEMBLY__
-#define __PAGE_OFFSET		(0xC0000000)
+#define __PAGE_OFFSET		CONFIG_PAGE_OFFSET
 #define __PHYSICAL_START	CONFIG_PHYSICAL_START
 #else
-#define __PAGE_OFFSET		(0xC0000000UL)
+#define __PAGE_OFFSET		((unsigned long)CONFIG_PAGE_OFFSET)
 #define __PHYSICAL_START	((unsigned long)CONFIG_PHYSICAL_START)
 #endif
 #define __KERNEL_START		(__PAGE_OFFSET + __PHYSICAL_START)
@@ -120,10 +120,8 @@ extern int page_is_ram(unsigned long pagenr);
 #endif /* __KERNEL__ */
 
 #ifdef CONFIG_PAX_KERNEXEC
-#ifdef __ASSEMBLY__
-#define __KERNEL_TEXT_OFFSET	(0xC0400000)
-#else
-#define __KERNEL_TEXT_OFFSET	(0xC0400000UL)
+#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + ((__PHYSICAL_START + ~(4*1024*1024)) & (4*1024*1024)))
+#ifndef __ASSEMBLY__
 extern unsigned char MODULES_VADDR[];
 extern unsigned char MODULES_END[];
 #endif

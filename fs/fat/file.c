@@ -6,11 +6,13 @@
  *  regular file handling primitives for fat-based filesystems
  */
 
+#include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/time.h>
 #include <linux/msdos_fs.h>
 #include <linux/smp_lock.h>
 #include <linux/buffer_head.h>
+#include <linux/writeback.h>
 
 int fat_generic_ioctl(struct inode *inode, struct file *filp,
 		      unsigned int cmd, unsigned long arg)
@@ -40,7 +42,7 @@ int fat_generic_ioctl(struct inode *inode, struct file *filp,
 		if (err)
 			return err;
 
-		down(&inode->i_sem);
+		mutex_lock(&inode->i_mutex);
 
 		if (IS_RDONLY(inode)) {
 			err = -EROFS;
@@ -102,7 +104,7 @@ int fat_generic_ioctl(struct inode *inode, struct file *filp,
 		MSDOS_I(inode)->i_attrs = attr & ATTR_UNUSED;
 		mark_inode_dirty(inode);
 	up:
-		up(&inode->i_sem);
+		mutex_unlock(&inode->i_mutex);
 		return err;
 	}
 	default:
@@ -124,6 +126,24 @@ struct file_operations fat_file_operations = {
 	.sendfile	= generic_file_sendfile,
 };
 
+static int fat_cont_expand(struct inode *inode, loff_t size)
+{
+	struct address_space *mapping = inode->i_mapping;
+	loff_t start = inode->i_size, count = size - inode->i_size;
+	int err;
+
+	err = generic_cont_expand_simple(inode, size);
+	if (err)
+		goto out;
+
+	inode->i_ctime = inode->i_mtime = CURRENT_TIME_SEC;
+	mark_inode_dirty(inode);
+	if (IS_SYNC(inode))
+		err = sync_page_range_nolock(inode, mapping, start, count);
+out:
+	return err;
+}
+
 int fat_notify_change(struct dentry *dentry, struct iattr *attr)
 {
 	struct msdos_sb_info *sbi = MSDOS_SB(dentry->d_sb);
@@ -132,11 +152,17 @@ int fat_notify_change(struct dentry *dentry, struct iattr *attr)
 
 	lock_kernel();
 
-	/* FAT cannot truncate to a longer file */
+	/*
+	 * Expand the file. Since inode_setattr() updates ->i_size
+	 * before calling the ->truncate(), but FAT needs to fill the
+	 * hole before it.
+	 */
 	if (attr->ia_valid & ATTR_SIZE) {
 		if (attr->ia_size > inode->i_size) {
-			error = -EPERM;
-			goto out;
+			error = fat_cont_expand(inode, attr->ia_size);
+			if (error || attr->ia_valid == ATTR_SIZE)
+				goto out;
+			attr->ia_valid &= ~ATTR_SIZE;
 		}
 	}
 
@@ -173,7 +199,7 @@ out:
 	return error;
 }
 
-EXPORT_SYMBOL(fat_notify_change);
+EXPORT_SYMBOL_GPL(fat_notify_change);
 
 /* Free all clusters after the skip'th cluster. */
 static int fat_free(struct inode *inode, int skip)
@@ -184,10 +210,30 @@ static int fat_free(struct inode *inode, int skip)
 	if (MSDOS_I(inode)->i_start == 0)
 		return 0;
 
-	/*
-	 * Write a new EOF, and get the remaining cluster chain for freeing.
-	 */
+	fat_cache_inval_inode(inode);
+
 	wait = IS_DIRSYNC(inode);
+	i_start = free_start = MSDOS_I(inode)->i_start;
+	i_logstart = MSDOS_I(inode)->i_logstart;
+
+	/* First, we write the new file size. */
+	if (!skip) {
+		MSDOS_I(inode)->i_start = 0;
+		MSDOS_I(inode)->i_logstart = 0;
+	}
+	MSDOS_I(inode)->i_attrs |= ATTR_ARCH;
+	inode->i_ctime = inode->i_mtime = CURRENT_TIME_SEC;
+	if (wait) {
+		err = fat_sync_inode(inode);
+		if (err) {
+			MSDOS_I(inode)->i_start = i_start;
+			MSDOS_I(inode)->i_logstart = i_logstart;
+			return err;
+		}
+	} else
+		mark_inode_dirty(inode);
+
+	/* Write a new EOF, and get the remaining cluster chain for freeing. */
 	if (skip) {
 		struct fat_entry fatent;
 		int ret, fclus, dclus;
@@ -218,35 +264,11 @@ static int fat_free(struct inode *inode, int skip)
 			return ret;
 
 		free_start = ret;
-		i_start = i_logstart = 0;
-		fat_cache_inval_inode(inode);
-	} else {
-		fat_cache_inval_inode(inode);
-
-		i_start = free_start = MSDOS_I(inode)->i_start;
-		i_logstart = MSDOS_I(inode)->i_logstart;
-		MSDOS_I(inode)->i_start = 0;
-		MSDOS_I(inode)->i_logstart = 0;
 	}
-	MSDOS_I(inode)->i_attrs |= ATTR_ARCH;
-	inode->i_ctime = inode->i_mtime = CURRENT_TIME_SEC;
-	if (wait) {
-		err = fat_sync_inode(inode);
-		if (err)
-			goto error;
-	} else
-		mark_inode_dirty(inode);
 	inode->i_blocks = skip << (MSDOS_SB(sb)->cluster_bits - 9);
 
 	/* Freeing the remained cluster chain */
 	return fat_free_clusters(inode, free_start);
-
-error:
-	if (i_start) {
-		MSDOS_I(inode)->i_start = i_start;
-		MSDOS_I(inode)->i_logstart = i_logstart;
-	}
-	return err;
 }
 
 void fat_truncate(struct inode *inode)

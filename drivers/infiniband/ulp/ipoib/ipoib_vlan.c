@@ -63,7 +63,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 
 	ppriv = netdev_priv(pdev);
 
-	down(&ppriv->vlan_mutex);
+	mutex_lock(&ppriv->vlan_mutex);
 
 	/*
 	 * First ensure this isn't a duplicate. We check the parent device and
@@ -113,8 +113,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 
 	priv->parent = ppriv->dev;
 
-	if (ipoib_create_debug_file(priv->dev))
-		goto debug_failed;
+	ipoib_create_debug_files(priv->dev);
 
 	if (ipoib_add_pkey_attr(priv->dev))
 		goto sysfs_failed;
@@ -125,14 +124,12 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 
 	list_add_tail(&priv->list, &ppriv->child_intfs);
 
-	up(&ppriv->vlan_mutex);
+	mutex_unlock(&ppriv->vlan_mutex);
 
 	return 0;
 
 sysfs_failed:
-	ipoib_delete_debug_file(priv->dev);
-
-debug_failed:
+	ipoib_delete_debug_files(priv->dev);
 	unregister_netdev(priv->dev);
 
 register_failed:
@@ -142,7 +139,7 @@ device_init_failed:
 	free_netdev(priv->dev);
 
 err:
-	up(&ppriv->vlan_mutex);
+	mutex_unlock(&ppriv->vlan_mutex);
 	return result;
 }
 
@@ -156,7 +153,7 @@ int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
 
 	ppriv = netdev_priv(pdev);
 
-	down(&ppriv->vlan_mutex);
+	mutex_lock(&ppriv->vlan_mutex);
 	list_for_each_entry_safe(priv, tpriv, &ppriv->child_intfs, list) {
 		if (priv->pkey == pkey) {
 			unregister_netdev(priv->dev);
@@ -170,7 +167,7 @@ int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
 			break;
 		}
 	}
-	up(&ppriv->vlan_mutex);
+	mutex_unlock(&ppriv->vlan_mutex);
 
 	return ret;
 }

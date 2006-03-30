@@ -18,6 +18,7 @@
 
 #include <linux/cache.h>
 #include <linux/hardirq.h>
+#include <linux/mutex.h>
 #include <asm/sn/types.h>
 #include <asm/sn/bte.h>
 
@@ -49,7 +50,7 @@
  * C-brick nasids, thus the need for bitmaps which don't account for
  * odd-numbered (non C-brick) nasids.
  */
-#define XP_MAX_PHYSNODE_ID	(MAX_PHYSNODE_ID / 2)
+#define XP_MAX_PHYSNODE_ID	(MAX_NUMALINK_NODES / 2)
 #define XP_NASID_MASK_BYTES	((XP_MAX_PHYSNODE_ID + 7) / 8)
 #define XP_NASID_MASK_WORDS	((XP_MAX_PHYSNODE_ID + 63) / 64)
 
@@ -217,7 +218,19 @@ enum xpc_retval {
 	xpcInvalidPartid,	/* 42: invalid partition ID */
 	xpcLocalPartid,		/* 43: local partition ID */
 
-	xpcUnknownReason	/* 44: unknown reason -- must be last in list */
+	xpcOtherGoingDown,	/* 44: other side going down, reason unknown */
+	xpcSystemGoingDown,	/* 45: system is going down, reason unknown */
+	xpcSystemHalt,		/* 46: system is being halted */
+	xpcSystemReboot,	/* 47: system is being rebooted */
+	xpcSystemPoweroff,	/* 48: system is being powered off */
+
+	xpcDisconnecting,	/* 49: channel disconnecting (closing) */
+
+	xpcOpenCloseError,	/* 50: channel open/close protocol error */
+
+	xpcDisconnected,	/* 51: channel disconnected (closed) */
+
+	xpcUnknownReason	/* 52: unknown reason -- must be last in list */
 };
 
 
@@ -342,12 +355,12 @@ typedef void (*xpc_notify_func)(enum xpc_retval reason, partid_t partid,
  *
  * The 'func' field points to the function to call when aynchronous
  * notification is required for such events as: a connection established/lost,
- * or an incomming message received, or an error condition encountered. A
+ * or an incoming message received, or an error condition encountered. A
  * non-NULL 'func' field indicates that there is an active registration for
  * the channel.
  */
 struct xpc_registration {
-	struct semaphore sema;
+	struct mutex mutex;
 	xpc_channel_func func;		/* function to call */
 	void *key;			/* pointer to user's key */
 	u16 nentries;			/* #of msg entries in local msg queue */

@@ -59,6 +59,14 @@
 
 #include "harmony.h"
 
+static int index = SNDRV_DEFAULT_IDX1;	/* Index 0-MAX */
+static char *id = SNDRV_DEFAULT_STR1;	/* ID for this card */
+module_param(index, int, 0444);
+MODULE_PARM_DESC(index, "Index value for Harmony driver.");
+module_param(id, charp, 0444);
+MODULE_PARM_DESC(id, "ID string for Harmony driver.");
+
+
 static struct parisc_device_id snd_harmony_devtable[] = {
 	/* bushmaster / flounder */
 	{ HPHW_FIO, HVERSION_REV_ANY_ID, HVERSION_ANY_ID, 0x0007A }, 
@@ -91,32 +99,32 @@ static unsigned int rate_bits[14] = {
 	HARMONY_SR_44KHZ, HARMONY_SR_48KHZ
 };
 
-static snd_pcm_hw_constraint_list_t hw_constraint_rates = {
+static struct snd_pcm_hw_constraint_list hw_constraint_rates = {
 	.count = ARRAY_SIZE(snd_harmony_rates),
 	.list = snd_harmony_rates,
 	.mask = 0,
 };
 
-inline unsigned long
-harmony_read(harmony_t *h, unsigned r)
+static inline unsigned long
+harmony_read(struct snd_harmony *h, unsigned r)
 {
 	return __raw_readl(h->iobase + r);
 }
 
-inline void
-harmony_write(harmony_t *h, unsigned r, unsigned long v)
+static inline void
+harmony_write(struct snd_harmony *h, unsigned r, unsigned long v)
 {
 	__raw_writel(v, h->iobase + r);
 }
 
-static void
-harmony_wait_for_control(harmony_t *h)
+static inline void
+harmony_wait_for_control(struct snd_harmony *h)
 {
 	while (harmony_read(h, HARMONY_CNTL) & HARMONY_CNTL_C) ;
 }
 
-inline void
-harmony_reset(harmony_t *h)
+static inline void
+harmony_reset(struct snd_harmony *h)
 {
 	harmony_write(h, HARMONY_RESET, 1);
 	mdelay(50);
@@ -124,7 +132,7 @@ harmony_reset(harmony_t *h)
 }
 
 static void
-harmony_disable_interrupts(harmony_t *h)
+harmony_disable_interrupts(struct snd_harmony *h)
 {
 	u32 dstatus;
 	harmony_wait_for_control(h);
@@ -134,7 +142,7 @@ harmony_disable_interrupts(harmony_t *h)
 }
 
 static void
-harmony_enable_interrupts(harmony_t *h)
+harmony_enable_interrupts(struct snd_harmony *h)
 {
 	u32 dstatus;
 	harmony_wait_for_control(h);
@@ -144,7 +152,7 @@ harmony_enable_interrupts(harmony_t *h)
 }
 
 static void
-harmony_mute(harmony_t *h)
+harmony_mute(struct snd_harmony *h)
 {
 	unsigned long flags;
 
@@ -155,7 +163,7 @@ harmony_mute(harmony_t *h)
 }
 
 static void
-harmony_unmute(harmony_t *h)
+harmony_unmute(struct snd_harmony *h)
 {
 	unsigned long flags;
 
@@ -166,7 +174,7 @@ harmony_unmute(harmony_t *h)
 }
 
 static void
-harmony_set_control(harmony_t *h)
+harmony_set_control(struct snd_harmony *h)
 {
 	u32 ctrl;
 	unsigned long flags;
@@ -188,7 +196,7 @@ static irqreturn_t
 snd_harmony_interrupt(int irq, void *dev, struct pt_regs *regs)
 {
 	u32 dstatus;
-	harmony_t *h = dev;
+	struct snd_harmony *h = dev;
 
 	spin_lock(&h->lock);
 	harmony_disable_interrupts(h);
@@ -197,7 +205,7 @@ snd_harmony_interrupt(int irq, void *dev, struct pt_regs *regs)
 	spin_unlock(&h->lock);
 
 	if (dstatus & HARMONY_DSTATUS_PN) {
-		if (h->psubs) {
+		if (h->psubs && h->st.playing) {
 			spin_lock(&h->lock);
 			h->pbuf.buf += h->pbuf.count; /* PAGE_SIZE */
 			h->pbuf.buf %= h->pbuf.size; /* MAX_BUFS*PAGE_SIZE */
@@ -216,7 +224,7 @@ snd_harmony_interrupt(int irq, void *dev, struct pt_regs *regs)
 	}
 
 	if (dstatus & HARMONY_DSTATUS_RN) {
-		if (h->csubs) {
+		if (h->csubs && h->st.capturing) {
 			spin_lock(&h->lock);
 			h->cbuf.buf += h->cbuf.count;
 			h->cbuf.buf %= h->cbuf.size;
@@ -253,7 +261,7 @@ snd_harmony_rate_bits(int rate)
 	return HARMONY_SR_44KHZ;
 }
 
-static snd_pcm_hardware_t snd_harmony_playback =
+static struct snd_pcm_hardware snd_harmony_playback =
 {
 	.info =	(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED | 
 		 SNDRV_PCM_INFO_JOINT_DUPLEX | SNDRV_PCM_INFO_MMAP_VALID |
@@ -274,7 +282,7 @@ static snd_pcm_hardware_t snd_harmony_playback =
 	.fifo_size = 0,
 };
 
-static snd_pcm_hardware_t snd_harmony_capture =
+static struct snd_pcm_hardware snd_harmony_capture =
 {
         .info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
                  SNDRV_PCM_INFO_JOINT_DUPLEX | SNDRV_PCM_INFO_MMAP_VALID |
@@ -296,15 +304,14 @@ static snd_pcm_hardware_t snd_harmony_capture =
 };
 
 static int
-snd_harmony_playback_trigger(snd_pcm_substream_t *ss, int cmd)
+snd_harmony_playback_trigger(struct snd_pcm_substream *ss, int cmd)
 {
-	harmony_t *h = snd_pcm_substream_chip(ss);
-	unsigned long flags;
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
 
 	if (h->st.capturing)
 		return -EBUSY;
 
-	spin_lock_irqsave(&h->lock, flags);
+	spin_lock(&h->lock);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		h->st.playing = 1;
@@ -316,31 +323,31 @@ snd_harmony_playback_trigger(snd_pcm_substream_t *ss, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 		h->st.playing = 0;
 		harmony_mute(h);
+		harmony_write(h, HARMONY_PNXTADD, h->sdma.addr);
 		harmony_disable_interrupts(h);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	default:
-		spin_unlock_irqrestore(&h->lock, flags);
+		spin_unlock(&h->lock);
 		snd_BUG();
 		return -EINVAL;
 	}
-	spin_unlock_irqrestore(&h->lock, flags);
+	spin_unlock(&h->lock);
 	
 	return 0;
 }
 
 static int
-snd_harmony_capture_trigger(snd_pcm_substream_t *ss, int cmd)
+snd_harmony_capture_trigger(struct snd_pcm_substream *ss, int cmd)
 {
-        harmony_t *h = snd_pcm_substream_chip(ss);
-	unsigned long flags;
+        struct snd_harmony *h = snd_pcm_substream_chip(ss);
 
 	if (h->st.playing)
 		return -EBUSY;
 
-	spin_lock_irqsave(&h->lock, flags);
+	spin_lock(&h->lock);
         switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
 		h->st.capturing = 1;
@@ -351,24 +358,25 @@ snd_harmony_capture_trigger(snd_pcm_substream_t *ss, int cmd)
 		break;
         case SNDRV_PCM_TRIGGER_STOP:
 		h->st.capturing = 0;
-                harmony_mute(h);
-                harmony_disable_interrupts(h);
+		harmony_mute(h);
+		harmony_write(h, HARMONY_RNXTADD, h->gdma.addr);
+		harmony_disable_interrupts(h);
 		break;
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
         case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
         case SNDRV_PCM_TRIGGER_SUSPEND:
 	default:
-		spin_unlock_irqrestore(&h->lock, flags);
+		spin_unlock(&h->lock);
 		snd_BUG();
                 return -EINVAL;
         }
-	spin_unlock_irqrestore(&h->lock, flags);
+	spin_unlock(&h->lock);
 		
         return 0;
 }
 
 static int
-snd_harmony_set_data_format(harmony_t *h, int fmt, int force)
+snd_harmony_set_data_format(struct snd_harmony *h, int fmt, int force)
 {
 	int o = h->st.format;
 	int n;
@@ -398,17 +406,18 @@ snd_harmony_set_data_format(harmony_t *h, int fmt, int force)
 }
 
 static int
-snd_harmony_playback_prepare(snd_pcm_substream_t *ss)
+snd_harmony_playback_prepare(struct snd_pcm_substream *ss)
 {
-	harmony_t *h = snd_pcm_substream_chip(ss);
-	snd_pcm_runtime_t *rt = ss->runtime;
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
+	struct snd_pcm_runtime *rt = ss->runtime;
 	
 	if (h->st.capturing)
 		return -EBUSY;
 	
 	h->pbuf.size = snd_pcm_lib_buffer_bytes(ss);
 	h->pbuf.count = snd_pcm_lib_period_bytes(ss);
-	h->pbuf.buf = 0;
+	if (h->pbuf.buf >= h->pbuf.size)
+		h->pbuf.buf = 0;
 	h->st.playing = 0;
 
 	h->st.rate = snd_harmony_rate_bits(rt->rate);
@@ -427,17 +436,18 @@ snd_harmony_playback_prepare(snd_pcm_substream_t *ss)
 }
 
 static int
-snd_harmony_capture_prepare(snd_pcm_substream_t *ss)
+snd_harmony_capture_prepare(struct snd_pcm_substream *ss)
 {
-        harmony_t *h = snd_pcm_substream_chip(ss);
-        snd_pcm_runtime_t *rt = ss->runtime;
+        struct snd_harmony *h = snd_pcm_substream_chip(ss);
+        struct snd_pcm_runtime *rt = ss->runtime;
 
 	if (h->st.playing)
 		return -EBUSY;
 
         h->cbuf.size = snd_pcm_lib_buffer_bytes(ss);
         h->cbuf.count = snd_pcm_lib_period_bytes(ss);
-        h->cbuf.buf = 0;
+	if (h->cbuf.buf >= h->cbuf.size)
+	        h->cbuf.buf = 0;
 	h->st.capturing = 0;
 
         h->st.rate = snd_harmony_rate_bits(rt->rate);
@@ -456,10 +466,10 @@ snd_harmony_capture_prepare(snd_pcm_substream_t *ss)
 }
 
 static snd_pcm_uframes_t 
-snd_harmony_playback_pointer(snd_pcm_substream_t *ss)
+snd_harmony_playback_pointer(struct snd_pcm_substream *ss)
 {
-	snd_pcm_runtime_t *rt = ss->runtime;
-	harmony_t *h = snd_pcm_substream_chip(ss);
+	struct snd_pcm_runtime *rt = ss->runtime;
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
 	unsigned long pcuradd;
 	unsigned long played;
 
@@ -485,10 +495,10 @@ snd_harmony_playback_pointer(snd_pcm_substream_t *ss)
 }
 
 static snd_pcm_uframes_t
-snd_harmony_capture_pointer(snd_pcm_substream_t *ss)
+snd_harmony_capture_pointer(struct snd_pcm_substream *ss)
 {
-        snd_pcm_runtime_t *rt = ss->runtime;
-        harmony_t *h = snd_pcm_substream_chip(ss);
+        struct snd_pcm_runtime *rt = ss->runtime;
+        struct snd_harmony *h = snd_pcm_substream_chip(ss);
         unsigned long rcuradd;
         unsigned long caught;
 
@@ -514,10 +524,10 @@ snd_harmony_capture_pointer(snd_pcm_substream_t *ss)
 }
 
 static int 
-snd_harmony_playback_open(snd_pcm_substream_t *ss)
+snd_harmony_playback_open(struct snd_pcm_substream *ss)
 {
-	harmony_t *h = snd_pcm_substream_chip(ss);
-	snd_pcm_runtime_t *rt = ss->runtime;
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
+	struct snd_pcm_runtime *rt = ss->runtime;
 	int err;
 	
 	h->psubs = ss;
@@ -533,10 +543,10 @@ snd_harmony_playback_open(snd_pcm_substream_t *ss)
 }
 
 static int
-snd_harmony_capture_open(snd_pcm_substream_t *ss)
+snd_harmony_capture_open(struct snd_pcm_substream *ss)
 {
-        harmony_t *h = snd_pcm_substream_chip(ss);
-        snd_pcm_runtime_t *rt = ss->runtime;
+        struct snd_harmony *h = snd_pcm_substream_chip(ss);
+        struct snd_pcm_runtime *rt = ss->runtime;
         int err;
 
         h->csubs = ss;
@@ -552,27 +562,27 @@ snd_harmony_capture_open(snd_pcm_substream_t *ss)
 }
 
 static int 
-snd_harmony_playback_close(snd_pcm_substream_t *ss)
+snd_harmony_playback_close(struct snd_pcm_substream *ss)
 {
-	harmony_t *h = snd_pcm_substream_chip(ss);
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
 	h->psubs = NULL;
 	return 0;
 }
 
 static int
-snd_harmony_capture_close(snd_pcm_substream_t *ss)
+snd_harmony_capture_close(struct snd_pcm_substream *ss)
 {
-        harmony_t *h = snd_pcm_substream_chip(ss);
+        struct snd_harmony *h = snd_pcm_substream_chip(ss);
         h->csubs = NULL;
         return 0;
 }
 
 static int 
-snd_harmony_hw_params(snd_pcm_substream_t *ss,
-		      snd_pcm_hw_params_t *hw)
+snd_harmony_hw_params(struct snd_pcm_substream *ss,
+		      struct snd_pcm_hw_params *hw)
 {
 	int err;
-	harmony_t *h = snd_pcm_substream_chip(ss);
+	struct snd_harmony *h = snd_pcm_substream_chip(ss);
 	
 	err = snd_pcm_lib_malloc_pages(ss, params_buffer_bytes(hw));
 	if (err > 0 && h->dma.type == SNDRV_DMA_TYPE_CONTINUOUS)
@@ -582,12 +592,12 @@ snd_harmony_hw_params(snd_pcm_substream_t *ss,
 }
 
 static int 
-snd_harmony_hw_free(snd_pcm_substream_t *ss) 
+snd_harmony_hw_free(struct snd_pcm_substream *ss) 
 {
 	return snd_pcm_lib_free_pages(ss);
 }
 
-static snd_pcm_ops_t snd_harmony_playback_ops = {
+static struct snd_pcm_ops snd_harmony_playback_ops = {
 	.open =	snd_harmony_playback_open,
 	.close = snd_harmony_playback_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -598,7 +608,7 @@ static snd_pcm_ops_t snd_harmony_playback_ops = {
  	.pointer = snd_harmony_playback_pointer,
 };
 
-static snd_pcm_ops_t snd_harmony_capture_ops = {
+static struct snd_pcm_ops snd_harmony_capture_ops = {
         .open = snd_harmony_capture_open,
         .close = snd_harmony_capture_close,
         .ioctl = snd_pcm_lib_ioctl,
@@ -610,9 +620,9 @@ static snd_pcm_ops_t snd_harmony_capture_ops = {
 };
 
 static int 
-snd_harmony_pcm_init(harmony_t *h)
+snd_harmony_pcm_init(struct snd_harmony *h)
 {
-	snd_pcm_t *pcm;
+	struct snd_pcm *pcm;
 	int err;
 
 	harmony_disable_interrupts(h);
@@ -673,15 +683,15 @@ snd_harmony_pcm_init(harmony_t *h)
 }
 
 static void 
-snd_harmony_set_new_gain(harmony_t *h)
+snd_harmony_set_new_gain(struct snd_harmony *h)
 {
  	harmony_wait_for_control(h);
 	harmony_write(h, HARMONY_GAINCTL, h->st.gain);
 }
 
 static int 
-snd_harmony_mixercontrol_info(snd_kcontrol_t *kc, 
-			      snd_ctl_elem_info_t *uinfo)
+snd_harmony_mixercontrol_info(struct snd_kcontrol *kc, 
+			      struct snd_ctl_elem_info *uinfo)
 {
 	int mask = (kc->private_value >> 16) & 0xff;
 	int left_shift = (kc->private_value) & 0xff;
@@ -697,67 +707,123 @@ snd_harmony_mixercontrol_info(snd_kcontrol_t *kc,
 }
 
 static int 
-snd_harmony_volume_get(snd_kcontrol_t *kc, 
-		       snd_ctl_elem_value_t *ucontrol)
+snd_harmony_volume_get(struct snd_kcontrol *kc, 
+		       struct snd_ctl_elem_value *ucontrol)
 {
-	harmony_t *h = snd_kcontrol_chip(kc);
+	struct snd_harmony *h = snd_kcontrol_chip(kc);
 	int shift_left = (kc->private_value) & 0xff;
 	int shift_right = (kc->private_value >> 8) & 0xff;
 	int mask = (kc->private_value >> 16) & 0xff;
 	int invert = (kc->private_value >> 24) & 0xff;
 	int left, right;
-	unsigned long flags;
 	
-	spin_lock_irqsave(&h->mixer_lock, flags);
+	spin_lock_irq(&h->mixer_lock);
 
 	left = (h->st.gain >> shift_left) & mask;
 	right = (h->st.gain >> shift_right) & mask;
-
 	if (invert) {
 		left = mask - left;
 		right = mask - right;
 	}
+	
 	ucontrol->value.integer.value[0] = left;
-	ucontrol->value.integer.value[1] = right;
+	if (shift_left != shift_right)
+		ucontrol->value.integer.value[1] = right;
 
-	spin_unlock_irqrestore(&h->mixer_lock, flags);
+	spin_unlock_irq(&h->mixer_lock);
 
 	return 0;
 }  
 
 static int 
-snd_harmony_volume_put(snd_kcontrol_t *kc, 
-		       snd_ctl_elem_value_t *ucontrol)
+snd_harmony_volume_put(struct snd_kcontrol *kc, 
+		       struct snd_ctl_elem_value *ucontrol)
 {
-	harmony_t *h = snd_kcontrol_chip(kc);
+	struct snd_harmony *h = snd_kcontrol_chip(kc);
 	int shift_left = (kc->private_value) & 0xff;
 	int shift_right = (kc->private_value >> 8) & 0xff;
 	int mask = (kc->private_value >> 16) & 0xff;
 	int invert = (kc->private_value >> 24) & 0xff;
 	int left, right;
 	int old_gain = h->st.gain;
-	unsigned long flags;
 	
-	left = ucontrol->value.integer.value[0] & mask;
-	right = ucontrol->value.integer.value[1] & mask;
-	if (invert) {
-		left = mask - left;
-		right = mask - right;
-	}
-	
-	spin_lock_irqsave(&h->mixer_lock, flags);
+	spin_lock_irq(&h->mixer_lock);
 
-	h->st.gain &= ~( (mask << shift_right) | (mask << shift_left) );
- 	h->st.gain |=  ( (left << shift_left) | (right << shift_right) );
+	left = ucontrol->value.integer.value[0] & mask;
+	if (invert)
+		left = mask - left;
+	h->st.gain &= ~( (mask << shift_left ) );
+ 	h->st.gain |= (left << shift_left);
+
+	if (shift_left != shift_right) {
+		right = ucontrol->value.integer.value[1] & mask;
+		if (invert)
+			right = mask - right;
+		h->st.gain &= ~( (mask << shift_right) );
+		h->st.gain |= (right << shift_right);
+	}
+
 	snd_harmony_set_new_gain(h);
 
-	spin_unlock_irqrestore(&h->mixer_lock, flags);
+	spin_unlock_irq(&h->mixer_lock);
 	
-	return (old_gain - h->st.gain);
+	return h->st.gain != old_gain;
 }
 
-#define HARMONY_CONTROLS (sizeof(snd_harmony_controls)/ \
-                          sizeof(snd_kcontrol_new_t))
+static int 
+snd_harmony_captureroute_info(struct snd_kcontrol *kc, 
+			      struct snd_ctl_elem_info *uinfo)
+{
+	static char *texts[2] = { "Line", "Mic" };
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
+	uinfo->count = 1;
+	uinfo->value.enumerated.items = 2;
+	if (uinfo->value.enumerated.item > 1)
+		uinfo->value.enumerated.item = 1;
+	strcpy(uinfo->value.enumerated.name,
+	       texts[uinfo->value.enumerated.item]);
+	return 0;
+}
+
+static int 
+snd_harmony_captureroute_get(struct snd_kcontrol *kc, 
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_harmony *h = snd_kcontrol_chip(kc);
+	int value;
+	
+	spin_lock_irq(&h->mixer_lock);
+
+	value = (h->st.gain >> HARMONY_GAIN_IS_SHIFT) & 1;
+	ucontrol->value.enumerated.item[0] = value;
+
+	spin_unlock_irq(&h->mixer_lock);
+
+	return 0;
+}  
+
+static int 
+snd_harmony_captureroute_put(struct snd_kcontrol *kc, 
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_harmony *h = snd_kcontrol_chip(kc);
+	int value;
+	int old_gain = h->st.gain;
+	
+	spin_lock_irq(&h->mixer_lock);
+
+	value = ucontrol->value.enumerated.item[0] & 1;
+	h->st.gain &= ~HARMONY_GAIN_IS_MASK;
+ 	h->st.gain |= value << HARMONY_GAIN_IS_SHIFT;
+
+	snd_harmony_set_new_gain(h);
+
+	spin_unlock_irq(&h->mixer_lock);
+	
+	return h->st.gain != old_gain;
+}
+
+#define HARMONY_CONTROLS	ARRAY_SIZE(snd_harmony_controls)
 
 #define HARMONY_VOLUME(xname, left_shift, right_shift, mask, invert) \
 { .iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,                \
@@ -766,15 +832,30 @@ snd_harmony_volume_put(snd_kcontrol_t *kc,
   .private_value = ((left_shift) | ((right_shift) << 8) |            \
                    ((mask) << 16) | ((invert) << 24)) }
 
-static snd_kcontrol_new_t snd_harmony_controls[] = {
-	HARMONY_VOLUME("Playback Volume", HARMONY_GAIN_LO_SHIFT, 
+static struct snd_kcontrol_new snd_harmony_controls[] = {
+	HARMONY_VOLUME("Master Playback Volume", HARMONY_GAIN_LO_SHIFT, 
 		       HARMONY_GAIN_RO_SHIFT, HARMONY_GAIN_OUT, 1),
 	HARMONY_VOLUME("Capture Volume", HARMONY_GAIN_LI_SHIFT,
 		       HARMONY_GAIN_RI_SHIFT, HARMONY_GAIN_IN, 0),
+	HARMONY_VOLUME("Monitor Volume", HARMONY_GAIN_MA_SHIFT,
+		       HARMONY_GAIN_MA_SHIFT, HARMONY_GAIN_MA, 1),
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Input Route",
+		.info = snd_harmony_captureroute_info,
+		.get = snd_harmony_captureroute_get,
+		.put = snd_harmony_captureroute_put
+	},
+	HARMONY_VOLUME("Internal Speaker Switch", HARMONY_GAIN_SE_SHIFT,
+		       HARMONY_GAIN_SE_SHIFT, 1, 0),
+	HARMONY_VOLUME("Line-Out Switch", HARMONY_GAIN_LE_SHIFT,
+		       HARMONY_GAIN_LE_SHIFT, 1, 0),
+	HARMONY_VOLUME("Headphones Switch", HARMONY_GAIN_HE_SHIFT,
+		       HARMONY_GAIN_HE_SHIFT, 1, 0),
 };
 
 static void __init 
-snd_harmony_mixer_reset(harmony_t *h)
+snd_harmony_mixer_reset(struct snd_harmony *h)
 {
 	harmony_mute(h);
 	harmony_reset(h);
@@ -783,9 +864,9 @@ snd_harmony_mixer_reset(harmony_t *h)
 }
 
 static int __init 
-snd_harmony_mixer_init(harmony_t *h)
+snd_harmony_mixer_init(struct snd_harmony *h)
 {
-	snd_card_t *card = h->card;
+	struct snd_card *card = h->card;
 	int idx, err;
 
 	snd_assert(h != NULL, return -EINVAL);
@@ -804,7 +885,7 @@ snd_harmony_mixer_init(harmony_t *h)
 }
 
 static int
-snd_harmony_free(harmony_t *h)
+snd_harmony_free(struct snd_harmony *h)
 {
         if (h->gdma.addr)
                 snd_dma_free_pages(&h->gdma);
@@ -824,53 +905,49 @@ snd_harmony_free(harmony_t *h)
 }
 
 static int
-snd_harmony_dev_free(snd_device_t *dev)
+snd_harmony_dev_free(struct snd_device *dev)
 {
-	harmony_t *h = dev->device_data;
+	struct snd_harmony *h = dev->device_data;
 	return snd_harmony_free(h);
 }
 
 static int __devinit
-snd_harmony_create(snd_card_t *card, 
+snd_harmony_create(struct snd_card *card, 
 		   struct parisc_device *padev, 
-		   harmony_t **rchip)
+		   struct snd_harmony **rchip)
 {
 	int err;
-	harmony_t *h;
-	static snd_device_ops_t ops = {
+	struct snd_harmony *h;
+	static struct snd_device_ops ops = {
 		.dev_free = snd_harmony_dev_free,
 	};
 
 	*rchip = NULL;
 
-	h = kmalloc(sizeof(*h), GFP_KERNEL);
+	h = kzalloc(sizeof(*h), GFP_KERNEL);
 	if (h == NULL)
 		return -ENOMEM;
 
-	memset(&h->st, 0, sizeof(h->st));
-	memset(&h->stats, 0, sizeof(h->stats));
-	memset(&h->pbuf, 0, sizeof(h->pbuf));
-	memset(&h->cbuf, 0, sizeof(h->cbuf));
-
-	h->hpa = padev->hpa;
+	h->hpa = padev->hpa.start;
 	h->card = card;
 	h->dev = padev;
-	h->irq = padev->irq;
-	h->iobase = ioremap_nocache(padev->hpa, HARMONY_SIZE);
+	h->irq = -1;
+	h->iobase = ioremap_nocache(padev->hpa.start, HARMONY_SIZE);
 	if (h->iobase == NULL) {
 		printk(KERN_ERR PFX "unable to remap hpa 0x%lx\n",
-		       padev->hpa);
+		       padev->hpa.start);
 		err = -EBUSY;
 		goto free_and_ret;
 	}
 		
-	err = request_irq(h->irq, snd_harmony_interrupt, 0,
+	err = request_irq(padev->irq, snd_harmony_interrupt, 0,
 			  "harmony", h);
 	if (err) {
 		printk(KERN_ERR PFX "could not obtain interrupt %d",
-		       h->irq);
+		       padev->irq);
 		goto free_and_ret;
 	}
+	h->irq = padev->irq;
 
 	spin_lock_init(&h->mixer_lock);
 	spin_lock_init(&h->lock);
@@ -895,35 +972,24 @@ static int __devinit
 snd_harmony_probe(struct parisc_device *padev)
 {
 	int err;
-	static int dev;
-	snd_card_t *card;
-	harmony_t *h;
-	static int index = SNDRV_DEFAULT_IDX1;
-	static char *id = SNDRV_DEFAULT_STR1;
-
-	h = parisc_get_drvdata(padev);
-	if (h != NULL) {
-		return -ENODEV;
-	}
+	struct snd_card *card;
+	struct snd_harmony *h;
 
 	card = snd_card_new(index, id, THIS_MODULE, 0);
 	if (card == NULL)
 		return -ENOMEM;
 
 	err = snd_harmony_create(card, padev, &h);
-	if (err < 0) {
+	if (err < 0)
 		goto free_and_ret;
-	}
 
 	err = snd_harmony_pcm_init(h);
-	if (err < 0) {
+	if (err < 0)
 		goto free_and_ret;
-	}
 
 	err = snd_harmony_mixer_init(h);
-	if (err < 0) {
+	if (err < 0)
 		goto free_and_ret;
-	}
 
 	strcpy(card->driver, "harmony");
 	strcpy(card->shortname, "Harmony");
@@ -931,13 +997,10 @@ snd_harmony_probe(struct parisc_device *padev)
 		card->shortname, h->hpa, h->irq);
 
 	err = snd_card_register(card);
-	if (err < 0) {
+	if (err < 0)
 		goto free_and_ret;
-	}
 
-	dev++;
-	parisc_set_drvdata(padev, h);
-
+	parisc_set_drvdata(padev, card);
 	return 0;
 
 free_and_ret:
@@ -948,8 +1011,8 @@ free_and_ret:
 static int __devexit
 snd_harmony_remove(struct parisc_device *padev)
 {
-	harmony_t *h = parisc_get_drvdata(padev);
-	snd_card_free(h->card);
+	snd_card_free(parisc_get_drvdata(padev));
+	parisc_set_drvdata(padev, NULL);
 	return 0;
 }
 
@@ -963,28 +1026,13 @@ static struct parisc_driver snd_harmony_driver = {
 static int __init 
 alsa_harmony_init(void)
 {
-	int err;
-
-	err = register_parisc_driver(&snd_harmony_driver);
-	if (err < 0) {
-		printk(KERN_ERR PFX "device not found\n");
-		return err;
-	}
-
-	return 0;
+	return register_parisc_driver(&snd_harmony_driver);
 }
 
 static void __exit
 alsa_harmony_fini(void)
 {
-	int err;
-
-	err = unregister_parisc_driver(&snd_harmony_driver);
-	if (err < 0) {
-		printk(KERN_ERR PFX "failed to unregister\n");
-	}
-	
-	return;
+	unregister_parisc_driver(&snd_harmony_driver);
 }
 
 MODULE_LICENSE("GPL");

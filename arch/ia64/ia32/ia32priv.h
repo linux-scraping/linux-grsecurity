@@ -305,10 +305,6 @@ struct old_linux32_dirent {
 #define ELF_DATA	ELFDATA2LSB
 #define ELF_ARCH	EM_386
 
-#define IA32_PAGE_OFFSET	0xc0000000
-#define IA32_GATE_OFFSET	IA32_PAGE_OFFSET
-#define IA32_GATE_END		IA32_PAGE_OFFSET + PAGE_SIZE
-
 #ifdef CONFIG_PAX_RANDUSTACK
 #define __IA32_DELTA_STACK	(current->mm->delta_stack)
 #else
@@ -316,6 +312,9 @@ struct old_linux32_dirent {
 #endif
 
 #define IA32_STACK_TOP		(IA32_PAGE_OFFSET - __IA32_DELTA_STACK)
+
+#define IA32_GATE_OFFSET	IA32_PAGE_OFFSET
+#define IA32_GATE_END		IA32_PAGE_OFFSET + PAGE_SIZE
 
 /*
  * The system segments (GDT, TSS, LDT) have to be mapped below 4GB so the IA-32 engine can

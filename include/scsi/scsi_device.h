@@ -79,9 +79,9 @@ struct scsi_device {
 	char inq_periph_qual;	/* PQ from INQUIRY data */	
 	unsigned char inquiry_len;	/* valid bytes in 'inquiry' */
 	unsigned char * inquiry;	/* INQUIRY response data */
-	char * vendor;		/* [back_compat] point into 'inquiry' ... */
-	char * model;		/* ... after scan; point to static string */
-	char * rev;		/* ... "nullnullnullnull" before scan */
+	const char * vendor;		/* [back_compat] point into 'inquiry' ... */
+	const char * model;		/* ... after scan; point to static string */
+	const char * rev;		/* ... "nullnullnullnull" before scan */
 	unsigned char current_tag;	/* current tag */
 	struct scsi_target      *sdev_target;   /* used only for single_lun */
 
@@ -148,6 +148,12 @@ struct scsi_device {
 #define transport_class_to_sdev(class_dev) \
 	to_scsi_device(class_dev->dev)
 
+#define sdev_printk(prefix, sdev, fmt, a...)	\
+	dev_printk(prefix, &(sdev)->sdev_gendev, fmt, ##a)
+
+#define scmd_printk(prefix, scmd, fmt, a...)	\
+	dev_printk(prefix, &(scmd)->device->sdev_gendev, fmt, ##a)
+
 /*
  * scsi_target: representation of a scsi target, for now, this is only
  * used for single_lun devices. If no one has active IO to the target,
@@ -176,6 +182,9 @@ static inline struct scsi_target *scsi_target(struct scsi_device *sdev)
 }
 #define transport_class_to_starget(class_dev) \
 	to_scsi_target(class_dev->dev)
+
+#define starget_printk(prefix, starget, fmt, a...)	\
+	dev_printk(prefix, &(starget)->dev, fmt, ##a)
 
 extern struct scsi_device *__scsi_add_device(struct Scsi_Host *,
 		uint, uint, uint, void *hostdata);
@@ -265,6 +274,25 @@ extern int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 extern int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
 			    int data_direction, void *buffer, unsigned bufflen,
 			    struct scsi_sense_hdr *, int timeout, int retries);
+extern int scsi_execute_async(struct scsi_device *sdev,
+			      const unsigned char *cmd, int cmd_len, int data_direction,
+			      void *buffer, unsigned bufflen, int use_sg,
+			      int timeout, int retries, void *privdata,
+			      void (*done)(void *, char *, int, int),
+			      gfp_t gfp);
+
+static inline unsigned int sdev_channel(struct scsi_device *sdev)
+{
+	return sdev->channel;
+}
+
+static inline unsigned int sdev_id(struct scsi_device *sdev)
+{
+	return sdev->id;
+}
+
+#define scmd_id(scmd) sdev_id((scmd)->device)
+#define scmd_channel(scmd) sdev_channel((scmd)->device)
 
 static inline int scsi_device_online(struct scsi_device *sdev)
 {
