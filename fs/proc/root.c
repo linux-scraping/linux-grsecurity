@@ -55,7 +55,7 @@ void __init proc_root_init(void)
 	proc_misc_init();
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	proc_net = proc_mkdir_mode("net", S_IRUSR | S_IXUSR, NULL);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	proc_net = proc_mkdir_mode("net", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
 #else
 	proc_net = proc_mkdir("net", NULL);
@@ -86,7 +86,7 @@ void __init proc_root_init(void)
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR, NULL);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
 #endif
 #else

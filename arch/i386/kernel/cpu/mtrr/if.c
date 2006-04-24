@@ -106,7 +106,7 @@ mtrr_write(struct file *file, const char __user *buf, size_t len, loff_t * ppos)
 	if (!len)
 		return -EINVAL;
 	memset(line, 0, LINE_SIZE);
-	if (!len || len > LINE_SIZE)
+	if (len > LINE_SIZE)
 		len = LINE_SIZE;
 	if (copy_from_user(line, buf, len - 1))
 		return -EFAULT;

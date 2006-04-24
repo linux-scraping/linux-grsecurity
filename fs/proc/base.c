@@ -2045,7 +2045,7 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR;
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP;
 	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
 #else

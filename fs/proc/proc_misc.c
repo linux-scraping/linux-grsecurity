@@ -312,7 +312,7 @@ static void *devinfo_next(struct seq_file *f, void *v, loff_t *pos)
 		case BLK_HDR:
 			info->state = BLK_LIST;
 			(*pos)++;
-			break;
+			/*fallthrough*/
 		case BLK_LIST:
 			if (get_blkdev_info(info->blkdev,&idummy,&ndummy)) {
 				/*
@@ -737,7 +737,7 @@ void __init proc_misc_init(void)
 
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	gr_mode = S_IRUSR;
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	gr_mode = S_IRUSR | S_IRGRP;
 #endif
 #ifdef CONFIG_GRKERNSEC_PROC_ADD

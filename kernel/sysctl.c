@@ -708,6 +708,15 @@ static ctl_table kern_table[] = {
 	},
 #endif
 
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
+	{
+		.ctl_name	= KERN_GRSECURITY,
+		.procname	= "grsecurity",
+		.mode		= 0500,
+		.child		= grsecurity_table,
+	},
+#endif
+
 #ifdef CONFIG_PAX_SOFTMODE
 	{
 		.ctl_name	= KERN_PAX,
@@ -950,24 +959,6 @@ static ctl_table vm_table[] = {
 		.strategy	= &sysctl_jiffies,
 	},
 #endif
-#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
-	{
-		.ctl_name	= KERN_GRSECURITY,
-		.procname	= "grsecurity",
-		.mode		= 0500,
-		.child		= grsecurity_table,
-	},
-#endif
-
-#ifdef CONFIG_PAX_SOFTMODE
-	{
-		.ctl_name	= KERN_PAX,
-		.procname	= "pax",
-		.mode		= 0500,
-		.child		= pax_table,
-	},
-#endif
-
 	{ .ctl_name = 0 }
 };
 

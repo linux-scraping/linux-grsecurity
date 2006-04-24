@@ -441,7 +441,7 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 
 #ifdef CONFIG_PAX_MPROTECT
 		/* PaX: disallow write access after relocs are done, hopefully noone else needs it... */
-		if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE) && (vma->vm_flags & VM_MAYNOTWRITE))
+		if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && !(prot & PROT_WRITE) && (vma->vm_flags & VM_MAYNOTWRITE))
 			newflags &= ~VM_MAYWRITE;
 #endif
 

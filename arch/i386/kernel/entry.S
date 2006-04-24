@@ -598,6 +598,13 @@ nmi_stack_correct:
 	xorl %edx,%edx		# zero error code
 	movl %esp,%eax		# pt_regs pointer
 	call do_nmi
+
+#ifdef CONFIG_PAX_KERNEXEC
+	movl %cr0, %edx
+	xorl %esi, %edx
+	movl %edx, %cr0
+#endif
+
 	jmp restore_all
 
 nmi_stack_fixup:
@@ -628,6 +635,13 @@ nmi_16bit_stack:
 	FIXUP_ESPFIX_STACK		# %eax == %esp
 	xorl %edx,%edx			# zero error code
 	call do_nmi
+
+#ifdef CONFIG_PAX_KERNEXEC
+	movl %cr0, %edx
+	xorl %esi, %edx
+	movl %edx, %cr0
+#endif
+
 	RESTORE_REGS
 	lss 12+4(%esp), %esp		# back to 16bit stack
 1:	iret

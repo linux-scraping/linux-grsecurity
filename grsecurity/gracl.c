@@ -792,6 +792,7 @@ free_variables(void)
 			kfree(r->subj_hash);
 		else
 			vfree(r->subj_hash);
+		r->subj_hash = NULL;
 	FOR_EACH_ROLE_END(r,i)
 
 	acl_free_all();

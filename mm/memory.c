@@ -1447,9 +1447,9 @@ static inline void cow_user_page(struct page *dst, struct page *src, unsigned lo
  * the ptl of the lower mapped page is held on entry and is not released on exit
  * or inside to ensure atomic changes to the PTE states (swapout, mremap, munmap, etc)
  */
-static void pax_mirror_fault(struct mm_struct *mm, struct vm_area_struct * vma,
-	unsigned long address, pte_t *pte)
+static void pax_mirror_fault(struct vm_area_struct *vma, unsigned long address, pte_t *pte)
 {
+	struct mm_struct *mm = vma->vm_mm;
 	unsigned long address_m, pfn_m;
 	struct vm_area_struct * vma_m = NULL;
 	pte_t * pte_m, entry_m;
@@ -1460,16 +1460,11 @@ static void pax_mirror_fault(struct mm_struct *mm, struct vm_area_struct * vma,
 	BUG_ON(!vma_m || vma_m->vm_start != address_m);
 
 	address_m = address + vma->vm_mirror;
+	pte_m = pte_offset_map_nested(pmd_offset(pud_offset(pgd_offset(mm, address_m), address_m), address_m), address_m);
 
-	{
-		pgd_t *pgd_m;
-		pud_t *pud_m;
-		pmd_t *pmd_m;
-
-		pgd_m = pgd_offset(mm, address_m);
-		pud_m = pud_offset(pgd_m, address_m);
-		pmd_m = pmd_offset(pud_m, address_m);
-		pte_m = pte_offset_map_nested(pmd_m, address_m);
+	if (pte_same(*pte, *pte_m)) {
+		pte_unmap_nested(pte_m);
+		return;
 	}
 
 	if (pte_present(*pte_m)) {
@@ -1489,11 +1484,11 @@ static void pax_mirror_fault(struct mm_struct *mm, struct vm_area_struct * vma,
 	} else if (pte_present(entry_m)) {
 		if (page_m) {
 			page_remove_rmap(page_m);
-			page_cache_release(page_m);
 			if (PageAnon(page_m))
 				dec_mm_counter(mm, anon_rss);
 			else
 				dec_mm_counter(mm, file_rss);
+			page_cache_release(page_m);
 		}
 	} else if (!pte_file(entry_m)) {
 		free_swap_and_cache(pte_to_swp_entry(entry_m));
@@ -1621,7 +1616,7 @@ gotten:
 
 #ifdef CONFIG_PAX_SEGMEXEC
 		if (vma->vm_flags & VM_MIRROR)
-			pax_mirror_fault(mm, vma, address, page_table);
+			pax_mirror_fault(vma, address, page_table);
 #endif
 
 	}
@@ -2067,7 +2062,7 @@ again:
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (vma->vm_flags & VM_MIRROR)
-		pax_mirror_fault(mm, vma, address, page_table);
+		pax_mirror_fault(vma, address, page_table);
 #endif
 
 unlock:
@@ -2135,7 +2130,7 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (vma->vm_flags & VM_MIRROR)
-		pax_mirror_fault(mm, vma, address, page_table);
+		pax_mirror_fault(vma, address, page_table);
 #endif
 
 unlock:
@@ -2266,7 +2261,7 @@ retry:
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (vma->vm_flags & VM_MIRROR)
-		pax_mirror_fault(mm, vma, address, page_table);
+		pax_mirror_fault(vma, address, page_table);
 #endif
 
 unlock:
@@ -2378,6 +2373,12 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 			flush_tlb_page(vma, address);
 	}
 unlock:
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma->vm_flags & VM_MIRROR)
+		pax_mirror_fault(vma, address, pte);
+#endif
+
 	pte_unmap_unlock(pte, ptl);
 	return VM_FAULT_MINOR;
 }
@@ -2406,8 +2407,7 @@ int __handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 		struct vm_area_struct * vma_m;
 		pgd_t *pgd_m;
 		pud_t *pud_m;
-		pmd_t *pmd_m = NULL;
-		pte_t *pte_m = NULL;
+		pmd_t *pmd_m;
 
 		address_m = vma->vm_start + vma->vm_mirror;
 		vma_m = find_vma(mm, address_m);
@@ -2434,13 +2434,13 @@ int __handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 		address_m = address + vma->vm_mirror;
 		pgd_m = pgd_offset(mm, address_m);
 		pud_m = pud_alloc(mm, pgd_m, address_m);
-		if (pud_m)
-			pmd_m = pmd_alloc(mm, pud_m, address_m);
-		if (pmd_m)
-			pte_m = pte_alloc_map(mm, pmd_m, address_m);
-		if (!pud_m || !pmd_m || !pte_m)
+		if (!pud_m)
 			return VM_FAULT_OOM;
-		pte_unmap(pte_m);
+		pmd_m = pmd_alloc(mm, pud_m, address_m);
+		if (!pmd_m)
+			return VM_FAULT_OOM;
+		if (!pmd_present(*pmd_m) && __pte_alloc(mm, pmd_m, address_m))
+			return VM_FAULT_OOM;
 	}
 #endif
 

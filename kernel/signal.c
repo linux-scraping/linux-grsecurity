@@ -983,7 +983,6 @@ __group_complete_signal(int sig, struct task_struct *p)
 		if (t == NULL)
 			/* restart balancing at this thread */
 			t = p->signal->curr_target = p;
-		BUG_ON(t->tgid != p->tgid);
 
 		while (!wants_signal(sig, t)) {
 			t = next_thread(t);
@@ -1697,6 +1696,7 @@ static void ptrace_stop(int exit_code, int nostop_code, siginfo_t *info)
 	/* Let the debugger run.  */
 	set_current_state(TASK_TRACED);
 	spin_unlock_irq(&current->sighand->siglock);
+	try_to_freeze();
 	read_lock(&tasklist_lock);
 	if (likely(current->ptrace & PT_PTRACED) &&
 	    likely(current->parent != current->real_parent ||
@@ -1950,9 +1950,9 @@ relock:
 			/* Let the debugger run.  */
 			ptrace_stop(signr, signr, info);
 
-			/* We're back.  Did the debugger cancel the sig or group_exit? */
+			/* We're back.  Did the debugger cancel the sig?  */
 			signr = current->exit_code;
-			if (signr == 0 || current->signal->flags & SIGNAL_GROUP_EXIT)
+			if (signr == 0)
 				continue;
 
 			current->exit_code = 0;
