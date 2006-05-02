@@ -1109,7 +1109,7 @@ static int apm_console_blank(int blank)
 			break;
 	}
 
-	if (error == APM_NOT_ENGAGED && state != APM_STATE_READY) {
+	if (error == APM_NOT_ENGAGED) {
 		static int tried;
 		int eng_error;
 		if (tried++ == 0) {
