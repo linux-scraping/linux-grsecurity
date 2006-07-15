@@ -153,6 +153,7 @@ struct o2hb_region {
 struct o2hb_bio_wait_ctxt {
 	atomic_t          wc_num_reqs;
 	struct completion wc_io_complete;
+	int               wc_error;
 };
 
 static void o2hb_write_timeout(void *arg)
@@ -186,6 +187,7 @@ static inline void o2hb_bio_wait_init(struct o2hb_bio_wait_ctxt *wc,
 {
 	atomic_set(&wc->wc_num_reqs, num_ios);
 	init_completion(&wc->wc_io_complete);
+	wc->wc_error = 0;
 }
 
 /* Used in error paths too */
@@ -218,8 +220,10 @@ static int o2hb_bio_end_io(struct bio *bio,
 {
 	struct o2hb_bio_wait_ctxt *wc = bio->bi_private;
 
-	if (error)
+	if (error) {
 		mlog(ML_ERROR, "IO Error %d\n", error);
+		wc->wc_error = error;
+	}
 
 	if (bio->bi_size)
 		return 1;
@@ -390,6 +394,8 @@ static int o2hb_read_slots(struct o2hb_region *reg,
 
 bail_and_wait:
 	o2hb_wait_on_io(reg, &wc);
+	if (wc.wc_error && !status)
+		status = wc.wc_error;
 
 	if (bios) {
 		for(i = 0; i < num_bios; i++)
@@ -449,11 +455,11 @@ static u32 o2hb_compute_block_crc_le(struct o2hb_region *reg,
 
 static void o2hb_dump_slot(struct o2hb_disk_heartbeat_block *hb_block)
 {
-	mlog(ML_ERROR, "Dump slot information: seq = 0x%"MLFx64", node = %u, "
-	     "cksum = 0x%x, generation 0x%"MLFx64"\n",
-	     le64_to_cpu(hb_block->hb_seq), hb_block->hb_node,
-	     le32_to_cpu(hb_block->hb_cksum),
-	     le64_to_cpu(hb_block->hb_generation));
+	mlog(ML_ERROR, "Dump slot information: seq = 0x%llx, node = %u, "
+	     "cksum = 0x%x, generation 0x%llx\n",
+	     (long long)le64_to_cpu(hb_block->hb_seq),
+	     hb_block->hb_node, le32_to_cpu(hb_block->hb_cksum),
+	     (long long)le64_to_cpu(hb_block->hb_generation));
 }
 
 static int o2hb_verify_crc(struct o2hb_region *reg,
@@ -516,8 +522,9 @@ static inline void o2hb_prepare_block(struct o2hb_region *reg,
 	hb_block->hb_cksum = cpu_to_le32(o2hb_compute_block_crc_le(reg,
 								   hb_block));
 
-	mlog(ML_HB_BIO, "our node generation = 0x%"MLFx64", cksum = 0x%x\n",
-	     cpu_to_le64(generation), le32_to_cpu(hb_block->hb_cksum));
+	mlog(ML_HB_BIO, "our node generation = 0x%llx, cksum = 0x%x\n",
+	     (long long)cpu_to_le64(generation),
+	     le32_to_cpu(hb_block->hb_cksum));
 }
 
 static void o2hb_fire_callbacks(struct o2hb_callback *hbcall,
@@ -686,19 +693,20 @@ static int o2hb_check_slot(struct o2hb_region *reg,
 	if (slot->ds_last_generation != le64_to_cpu(hb_block->hb_generation)) {
 		gen_changed = 1;
 		slot->ds_equal_samples = 0;
-		mlog(ML_HEARTBEAT, "Node %d changed generation (0x%"MLFx64" "
-		     "to 0x%"MLFx64")\n", slot->ds_node_num,
-		     slot->ds_last_generation,
-		     le64_to_cpu(hb_block->hb_generation));
+		mlog(ML_HEARTBEAT, "Node %d changed generation (0x%llx "
+		     "to 0x%llx)\n", slot->ds_node_num,
+		     (long long)slot->ds_last_generation,
+		     (long long)le64_to_cpu(hb_block->hb_generation));
 	}
 
 	slot->ds_last_generation = le64_to_cpu(hb_block->hb_generation);
 
-	mlog(ML_HEARTBEAT, "Slot %d gen 0x%"MLFx64" cksum 0x%x "
-	     "seq %"MLFu64" last %"MLFu64" changed %u equal %u\n",
-	     slot->ds_node_num, slot->ds_last_generation,
-	     le32_to_cpu(hb_block->hb_cksum), le64_to_cpu(hb_block->hb_seq), 
-	     slot->ds_last_time, slot->ds_changed_samples,
+	mlog(ML_HEARTBEAT, "Slot %d gen 0x%llx cksum 0x%x "
+	     "seq %llu last %llu changed %u equal %u\n",
+	     slot->ds_node_num, (long long)slot->ds_last_generation,
+	     le32_to_cpu(hb_block->hb_cksum),
+	     (unsigned long long)le64_to_cpu(hb_block->hb_seq), 
+	     (unsigned long long)slot->ds_last_time, slot->ds_changed_samples,
 	     slot->ds_equal_samples);
 
 	spin_lock(&o2hb_live_lock);
@@ -708,8 +716,8 @@ fire_callbacks:
 	 * changes at any time during their dead time */
 	if (list_empty(&slot->ds_live_item) &&
 	    slot->ds_changed_samples >= O2HB_LIVE_THRESHOLD) {
-		mlog(ML_HEARTBEAT, "Node %d (id 0x%"MLFx64") joined my "
-		     "region\n", slot->ds_node_num, slot->ds_last_generation);
+		mlog(ML_HEARTBEAT, "Node %d (id 0x%llx) joined my region\n",
+		     slot->ds_node_num, (long long)slot->ds_last_generation);
 
 		/* first on the list generates a callback */
 		if (list_empty(&o2hb_live_slots[slot->ds_node_num])) {
@@ -788,20 +796,24 @@ static int o2hb_highest_node(unsigned long *nodes,
 	return highest;
 }
 
-static void o2hb_do_disk_heartbeat(struct o2hb_region *reg)
+static int o2hb_do_disk_heartbeat(struct o2hb_region *reg)
 {
 	int i, ret, highest_node, change = 0;
 	unsigned long configured_nodes[BITS_TO_LONGS(O2NM_MAX_NODES)];
 	struct bio *write_bio;
 	struct o2hb_bio_wait_ctxt write_wc;
 
-	if (o2nm_configured_node_map(configured_nodes, sizeof(configured_nodes)))
-		return;
+	ret = o2nm_configured_node_map(configured_nodes,
+				       sizeof(configured_nodes));
+	if (ret) {
+		mlog_errno(ret);
+		return ret;
+	}
 
 	highest_node = o2hb_highest_node(configured_nodes, O2NM_MAX_NODES);
 	if (highest_node >= O2NM_MAX_NODES) {
 		mlog(ML_NOTICE, "ocfs2_heartbeat: no configured nodes found!\n");
-		return;
+		return -EINVAL;
 	}
 
 	/* No sense in reading the slots of nodes that don't exist
@@ -811,7 +823,7 @@ static void o2hb_do_disk_heartbeat(struct o2hb_region *reg)
 	ret = o2hb_read_slots(reg, highest_node + 1);
 	if (ret < 0) {
 		mlog_errno(ret);
-		return;
+		return ret;
 	}
 
 	/* With an up to date view of the slots, we can check that no
@@ -829,7 +841,7 @@ static void o2hb_do_disk_heartbeat(struct o2hb_region *reg)
 	ret = o2hb_issue_node_write(reg, &write_bio, &write_wc);
 	if (ret < 0) {
 		mlog_errno(ret);
-		return;
+		return ret;
 	}
 
 	i = -1;
@@ -845,6 +857,15 @@ static void o2hb_do_disk_heartbeat(struct o2hb_region *reg)
 	 */
 	o2hb_wait_on_io(reg, &write_wc);
 	bio_put(write_bio);
+	if (write_wc.wc_error) {
+		/* Do not re-arm the write timeout on I/O error - we
+		 * can't be sure that the new block ever made it to
+		 * disk */
+		mlog(ML_ERROR, "Write error %d on device \"%s\"\n",
+		     write_wc.wc_error, reg->hr_dev_name);
+		return write_wc.wc_error;
+	}
+
 	o2hb_arm_write_timeout(reg);
 
 	/* let the person who launched us know when things are steady */
@@ -852,6 +873,8 @@ static void o2hb_do_disk_heartbeat(struct o2hb_region *reg)
 		if (atomic_dec_and_test(&reg->hr_steady_iterations))
 			wake_up(&o2hb_steady_queue);
 	}
+
+	return 0;
 }
 
 /* Subtract b from a, storing the result in a. a *must* have a larger
@@ -911,7 +934,10 @@ static int o2hb_thread(void *data)
 		 * likely to time itself out. */
 		do_gettimeofday(&before_hb);
 
-		o2hb_do_disk_heartbeat(reg);
+		i = 0;
+		do {
+			ret = o2hb_do_disk_heartbeat(reg);
+		} while (ret && ++i < 2);
 
 		do_gettimeofday(&after_hb);
 		elapsed_msec = o2hb_elapsed_msecs(&before_hb, &after_hb);

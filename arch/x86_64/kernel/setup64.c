@@ -33,7 +33,7 @@ cpumask_t cpu_initialized __cpuinitdata = CPU_MASK_NONE;
 struct x8664_pda *_cpu_pda[NR_CPUS] __read_mostly;
 struct x8664_pda boot_cpu_pda[NR_CPUS] __cacheline_aligned;
 
-struct desc_ptr idt_descr = { 256 * 16, (unsigned long) idt_table }; 
+struct desc_ptr idt_descr = { 256 * 16 - 1, (unsigned long) idt_table };
 
 char boot_cpu_stack[IRQSTACKSIZE] __attribute__((section(".bss.page_aligned")));
 
@@ -52,7 +52,7 @@ int __init nonx_setup(char *str)
 	} else if (!strncmp(str, "off", 3)) {
 		__supported_pte_mask &= ~_PAGE_NX;
         }
-	return 0;
+	return 1;
 } 
 __setup("noexec=", nonx_setup);	/* parsed early actually */
 
@@ -71,7 +71,7 @@ static int __init nonx32_setup(char *str)
 		force_personality32 &= ~READ_IMPLIES_EXEC;
 	else if (!strcmp(str, "off"))
 		force_personality32 |= READ_IMPLIES_EXEC;
-	return 0;
+	return 1;
 }
 __setup("noexec32=", nonx32_setup);
 
@@ -245,7 +245,7 @@ void __cpuinit cpu_init (void)
 		switch (v + 1) {
 #if DEBUG_STKSZ > EXCEPTION_STKSZ
 		case DEBUG_STACK:
-			cpu_pda[cpu].debugstack = (unsigned long)estacks;
+			cpu_pda(cpu)->debugstack = (unsigned long)estacks;
 			estacks += DEBUG_STKSZ;
 			break;
 #endif
@@ -278,12 +278,12 @@ void __cpuinit cpu_init (void)
 	 * Clear all 6 debug registers:
 	 */
 
-	set_debug(0UL, 0);
-	set_debug(0UL, 1);
-	set_debug(0UL, 2);
-	set_debug(0UL, 3);
-	set_debug(0UL, 6);
-	set_debug(0UL, 7);
+	set_debugreg(0UL, 0);
+	set_debugreg(0UL, 1);
+	set_debugreg(0UL, 2);
+	set_debugreg(0UL, 3);
+	set_debugreg(0UL, 6);
+	set_debugreg(0UL, 7);
 
 	fpu_init(); 
 }

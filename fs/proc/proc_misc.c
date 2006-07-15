@@ -394,6 +394,40 @@ static struct file_operations proc_slabinfo_operations = {
 	.llseek		= seq_lseek,
 	.release	= seq_release,
 };
+
+#ifdef CONFIG_DEBUG_SLAB_LEAK
+extern struct seq_operations slabstats_op;
+static int slabstats_open(struct inode *inode, struct file *file)
+{
+	unsigned long *n = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	int ret = -ENOMEM;
+	if (n) {
+		ret = seq_open(file, &slabstats_op);
+		if (!ret) {
+			struct seq_file *m = file->private_data;
+			*n = PAGE_SIZE / (2 * sizeof(unsigned long));
+			m->private = n;
+			n = NULL;
+		}
+		kfree(n);
+	}
+	return ret;
+}
+
+static int slabstats_release(struct inode *inode, struct file *file)
+{
+	struct seq_file *m = file->private_data;
+	kfree(m->private);
+	return seq_release(inode, file);
+}
+
+static struct file_operations proc_slabstats_operations = {
+	.open		= slabstats_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= slabstats_release,
+};
+#endif
 #endif
 
 static int show_stat(struct seq_file *p, void *v)
@@ -409,7 +443,7 @@ static int show_stat(struct seq_file *p, void *v)
 	if (wall_to_monotonic.tv_nsec)
 		--jif;
 
-	for_each_cpu(i) {
+	for_each_possible_cpu(i) {
 		int j;
 
 		user = cputime64_add(user, kstat_cpu(i).cpustat.user);
@@ -606,7 +640,7 @@ static struct file_operations proc_sysrq_trigger_operations = {
 
 struct proc_dir_entry *proc_root_kcore;
 
-void create_seq_entry(char *name, mode_t mode, struct file_operations *f)
+void create_seq_entry(char *name, mode_t mode, const struct file_operations *f)
 {
 	struct proc_dir_entry *entry;
 	entry = create_proc_entry(name, mode, NULL);
@@ -659,7 +693,6 @@ void __init proc_misc_init(void)
 	entry = create_proc_entry("kmsg", S_IRUSR, &proc_root);
 	if (entry)
 		entry->proc_fops = &proc_kmsg_operations;
-
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 	create_seq_entry("devices", gr_mode, &proc_devinfo_operations);
 #else
@@ -675,13 +708,16 @@ void __init proc_misc_init(void)
 #else
 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
 #endif
+#ifdef CONFIG_DEBUG_SLAB_LEAK
+	create_seq_entry("slab_allocators", 0 ,&proc_slabstats_operations);
+#endif
 #endif
 	create_seq_entry("buddyinfo",S_IRUGO, &fragmentation_file_operations);
 	create_seq_entry("vmstat",S_IRUGO, &proc_vmstat_file_operations);
 	create_seq_entry("zoneinfo",S_IRUGO, &proc_zoneinfo_file_operations);
 	create_seq_entry("diskstats", 0, &proc_diskstats_operations);
 #ifdef CONFIG_MODULES
-	create_seq_entry("modules", gr_mode, &proc_modules_operations);
+	create_seq_entry("modules", 0, &proc_modules_operations);
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	create_seq_entry("schedstat", 0, &proc_schedstat_operations);

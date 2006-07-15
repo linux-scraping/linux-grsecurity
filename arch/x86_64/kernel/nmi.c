@@ -34,6 +34,7 @@
 #include <asm/proto.h>
 #include <asm/kdebug.h>
 #include <asm/local.h>
+#include <asm/mce.h>
 
 /*
  * lapic_nmi_owner tracks the ownership of the lapic NMI hardware:
@@ -162,9 +163,7 @@ int __init check_nmi_watchdog (void)
 	local_irq_enable();
 	mdelay((10*1000)/nmi_hz); // wait 10 ticks
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-		if (!cpu_online(cpu))
-			continue;
+	for_each_online_cpu(cpu) {
 		if (cpu_pda(cpu)->__nmi_count - counts[cpu] <= 5) {
 			endflag = 1;
 			printk("CPU#%d: NMI appears to be stuck (%d->%d)!\n",
@@ -482,6 +481,12 @@ void __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 		__get_cpu_var(nmi_touch) = 0;
 		touched = 1;
 	}
+#ifdef CONFIG_X86_MCE
+	/* Could check oops_in_progress here too, but it's safer
+	   not too */
+	if (atomic_read(&mce_entry) > 0)
+		touched = 1;
+#endif
 	if (!touched && __get_cpu_var(last_irq_sum) == sum) {
 		/*
 		 * Ayiee, looks like this CPU is stuck ...
@@ -536,6 +541,7 @@ asmlinkage __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 
 void set_nmi_callback(nmi_callback_t callback)
 {
+	vmalloc_sync_all();
 	rcu_assign_pointer(nmi_callback, callback);
 }
 

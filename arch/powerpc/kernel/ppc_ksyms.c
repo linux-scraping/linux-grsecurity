@@ -57,7 +57,6 @@ extern void machine_check_exception(struct pt_regs *regs);
 extern void alignment_exception(struct pt_regs *regs);
 extern void program_check_exception(struct pt_regs *regs);
 extern void single_step_exception(struct pt_regs *regs);
-extern int pmac_newworld;
 extern int sys_sigreturn(struct pt_regs *regs);
 
 EXPORT_SYMBOL(clear_pages);
@@ -82,6 +81,7 @@ EXPORT_SYMBOL(strcat);
 EXPORT_SYMBOL(strlen);
 EXPORT_SYMBOL(strcmp);
 EXPORT_SYMBOL(strcasecmp);
+EXPORT_SYMBOL(strncasecmp);
 
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(csum_partial_copy_generic);

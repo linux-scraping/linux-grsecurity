@@ -30,6 +30,9 @@ asmlinkage unsigned int csum_partial(const unsigned char * buff, int len, unsign
 asmlinkage unsigned int csum_partial_copy_generic(const unsigned char *src, unsigned char *dst,
 						  int len, int sum, int *src_err_ptr, int *dst_err_ptr);
 
+asmlinkage unsigned int csum_partial_copy_generic_user(const unsigned char *src, unsigned char *dst,
+						  int len, int sum, int *src_err_ptr, int *dst_err_ptr);
+
 /*
  *	Note: when you get a NULL pointer exception here this means someone
  *	passed in an incorrect kernel address to one of these functions.
@@ -49,7 +52,7 @@ unsigned int csum_partial_copy_from_user(const unsigned char __user *src, unsign
 						int len, int sum, int *err_ptr)
 {
 	might_sleep();
-	return csum_partial_copy_generic((__force unsigned char *)src, dst,
+	return csum_partial_copy_generic_user((__force unsigned char *)src, dst,
 					len, sum, err_ptr, NULL);
 }
 

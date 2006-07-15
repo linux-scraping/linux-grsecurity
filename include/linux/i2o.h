@@ -950,9 +950,7 @@ static inline int i2o_pool_alloc(struct i2o_pool *pool, const char *name,
 	if (!pool->slab)
 		goto free_name;
 
-	pool->mempool =
-	    mempool_create(min_nr, mempool_alloc_slab, mempool_free_slab,
-			   pool->slab);
+	pool->mempool = mempool_create_slab_pool(min_nr, pool->slab);
 	if (!pool->mempool)
 		goto free_slab;
 
@@ -1116,8 +1114,11 @@ static inline struct i2o_message *i2o_msg_get(struct i2o_controller *c)
 
 	mmsg->mfa = readl(c->in_port);
 	if (unlikely(mmsg->mfa >= c->in_queue.len)) {
+		u32 mfa = mmsg->mfa;
+
 		mempool_free(mmsg, c->in_msg.mempool);
-		if(mmsg->mfa == I2O_QUEUE_EMPTY)
+
+		if (mfa == I2O_QUEUE_EMPTY)
 			return ERR_PTR(-EBUSY);
 		return ERR_PTR(-EFAULT);
 	}

@@ -669,14 +669,14 @@ static int __init alsa_card_dummy_init(void)
 		return err;
 
 	cards = 0;
-	for (i = 0; i < SNDRV_CARDS && enable[i]; i++) {
+	for (i = 0; i < SNDRV_CARDS; i++) {
 		struct platform_device *device;
+		if (! enable[i])
+			continue;
 		device = platform_device_register_simple(SND_DUMMY_DRIVER,
 							 i, NULL, 0);
-		if (IS_ERR(device)) {
-			err = PTR_ERR(device);
-			goto errout;
-		}
+		if (IS_ERR(device))
+			continue;
 		devices[i] = device;
 		cards++;
 	}
@@ -684,14 +684,10 @@ static int __init alsa_card_dummy_init(void)
 #ifdef MODULE
 		printk(KERN_ERR "Dummy soundcard not found or device busy\n");
 #endif
-		err = -ENODEV;
-		goto errout;
+		snd_dummy_unregister_all();
+		return -ENODEV;
 	}
 	return 0;
-
- errout:
-	snd_dummy_unregister_all();
-	return err;
 }
 
 static void __exit alsa_card_dummy_exit(void)

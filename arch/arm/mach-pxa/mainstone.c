@@ -95,7 +95,10 @@ static void __init mainstone_init_irq(void)
 	for(irq = MAINSTONE_IRQ(0); irq <= MAINSTONE_IRQ(15); irq++) {
 		set_irq_chip(irq, &mainstone_irq_chip);
 		set_irq_handler(irq, do_level_IRQ);
-		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
+		if (irq == MAINSTONE_IRQ(10) || irq == MAINSTONE_IRQ(14))
+			set_irq_flags(irq, IRQF_VALID | IRQF_PROBE | IRQF_NOAUTOEN);
+		else
+			set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
 	set_irq_flags(MAINSTONE_IRQ(8), 0);
 	set_irq_flags(MAINSTONE_IRQ(12), 0);
@@ -157,14 +160,14 @@ static struct platform_device smc91x_device = {
 	.resource	= smc91x_resources,
 };
 
-static int mst_audio_startup(snd_pcm_substream_t *substream, void *priv)
+static int mst_audio_startup(struct snd_pcm_substream *substream, void *priv)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		MST_MSCWR2 &= ~MST_MSCWR2_AC97_SPKROFF;
 	return 0;
 }
 
-static void mst_audio_shutdown(snd_pcm_substream_t *substream, void *priv)
+static void mst_audio_shutdown(struct snd_pcm_substream *substream, void *priv)
 {
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		MST_MSCWR2 |= MST_MSCWR2_AC97_SPKROFF;
@@ -490,6 +493,7 @@ static void __init mainstone_map_io(void)
 MACHINE_START(MAINSTONE, "Intel HCDDBBVA0 Development Platform (aka Mainstone)")
 	/* Maintainer: MontaVista Software Inc. */
 	.phys_io	= 0x40000000,
+	.boot_params	= 0xa0000100,	/* BLOB boot parameter setting */
 	.io_pg_offst	= (io_p2v(0x40000000) >> 18) & 0xfffc,
 	.map_io		= mainstone_map_io,
 	.init_irq	= mainstone_init_irq,

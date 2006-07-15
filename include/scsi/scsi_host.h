@@ -140,25 +140,10 @@ struct scsi_host_template {
 	 *
 	 * Status: REQUIRED	(at least one of them)
 	 */
-	int (* eh_strategy_handler)(struct Scsi_Host *);
 	int (* eh_abort_handler)(struct scsi_cmnd *);
 	int (* eh_device_reset_handler)(struct scsi_cmnd *);
 	int (* eh_bus_reset_handler)(struct scsi_cmnd *);
 	int (* eh_host_reset_handler)(struct scsi_cmnd *);
-
-	/*
-	 * This is an optional routine to notify the host that the scsi
-	 * timer just fired.  The returns tell the timer routine what to
-	 * do about this:
-	 *
-	 * EH_HANDLED:		I fixed the error, please complete the command
-	 * EH_RESET_TIMER:	I need more time, reset the timer and
-	 *			begin counting again
-	 * EH_NOT_HANDLED	Begin normal error recovery
-	 *
-	 * Status: OPTIONAL
-	 */
-	enum scsi_eh_timer_return (* eh_timed_out)(struct scsi_cmnd *);
 
 	/*
 	 * Before the mid layer attempts to scan for a new device where none
@@ -300,7 +285,7 @@ struct scsi_host_template {
 	 * suspend support
 	 */
 	int (*resume)(struct scsi_device *);
-	int (*suspend)(struct scsi_device *);
+	int (*suspend)(struct scsi_device *, pm_message_t state);
 
 	/*
 	 * Name of proc directory

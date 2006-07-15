@@ -514,6 +514,16 @@ struct sctp_af {
 					 int optname,
 					 char __user *optval,
 					 int __user *optlen);
+	int		(*compat_setsockopt)	(struct sock *sk,
+					 int level,
+					 int optname,
+					 char __user *optval,
+					 int optlen);
+	int		(*compat_getsockopt)	(struct sock *sk,
+					 int level,
+					 int optname,
+					 char __user *optval,
+					 int __user *optlen);
 	struct dst_entry *(*get_dst)	(struct sctp_association *asoc,
 					 union sctp_addr *daddr,
 					 union sctp_addr *saddr);
@@ -545,7 +555,8 @@ struct sctp_af {
 	int		(*to_addr_param) (const union sctp_addr *,
 					  union sctp_addr_param *); 
 	int		(*addr_valid)	(union sctp_addr *,
-					 struct sctp_sock *);
+					 struct sctp_sock *,
+					 const struct sk_buff *);
 	sctp_scope_t	(*scope) (union sctp_addr *);
 	void		(*inaddr_any)	(union sctp_addr *, unsigned short);
 	int		(*is_any)	(const union sctp_addr *);

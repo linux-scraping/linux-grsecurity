@@ -573,7 +573,9 @@ config GRKERNSEC_RESLOG
 	help
 	  If you say Y here, all attempts to overstep resource limits will
 	  be logged with the resource name, the requested size, and the current
-	  limit.  It is highly recommended that you say Y here.
+	  limit.  It is highly recommended that you say Y here.  If the sysctl
+	  option is enabled, a sysctl option with name "resource_logging" is
+	  created.  If the RBAC system is enabled, the sysctl value is ignored.
 
 config GRKERNSEC_CHROOT_EXECLOG
 	bool "Log execs within chroot"

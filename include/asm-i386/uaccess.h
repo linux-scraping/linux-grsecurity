@@ -10,6 +10,8 @@
 #include <linux/prefetch.h>
 #include <linux/string.h>
 #include <asm/page.h>
+#include <asm/segment.h>
+#include <asm/desc.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
@@ -30,7 +32,43 @@
 
 #define get_ds()	(KERNEL_DS)
 #define get_fs()	(current_thread_info()->addr_limit)
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+static inline void __set_fs(mm_segment_t x, int cpu)
+{
+	unsigned long limit = x.seg;
+
+	current_thread_info()->addr_limit = x;
+	if (likely(limit)) {
+		limit -= 1UL;
+		limit >>= 12;
+	}
+
+	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].a = (limit & 0xFFFFUL);
+	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].b = (limit & 0xF0000UL) | 0xC0F300UL;
+}
+
+static inline void set_fs(mm_segment_t x)
+{
+	int cpu = get_cpu();
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	__set_fs(x, cpu);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+	put_cpu_no_resched();
+}
+#else
 #define set_fs(x)	(current_thread_info()->addr_limit = (x))
+#endif
 
 #define segment_eq(a,b)	((a).seg == (b).seg)
 
@@ -197,13 +235,15 @@ extern void __put_user_8(void);
 
 #define put_user(x,ptr)						\
 ({	int __ret_pu;						\
+	__typeof__(*(ptr)) __pu_val;				\
 	__chk_user_ptr(ptr);					\
+	__pu_val = x;						\
 	switch(sizeof(*(ptr))) {				\
-	case 1: __put_user_1(x, ptr); break;			\
-	case 2: __put_user_2(x, ptr); break;			\
-	case 4: __put_user_4(x, ptr); break;			\
-	case 8: __put_user_8(x, ptr); break;			\
-	default:__put_user_X(x, ptr); break;			\
+	case 1: __put_user_1(__pu_val, ptr); break;		\
+	case 2: __put_user_2(__pu_val, ptr); break;		\
+	case 4: __put_user_4(__pu_val, ptr); break;		\
+	case 8: __put_user_8(__pu_val, ptr); break;		\
+	default:__put_user_X(__pu_val, ptr); break;		\
 	}							\
 	__ret_pu;						\
 })
@@ -279,9 +319,12 @@ extern void __put_user_8(void);
 
 #define __put_user_u64(x, addr, err)				\
 	__asm__ __volatile__(					\
-		"1:	movl %%eax,0(%2)\n"			\
-		"2:	movl %%edx,4(%2)\n"			\
+		"	movw %w5,%%ds\n"			\
+		"1:	movl %%eax,%%ds:0(%2)\n"		\
+		"2:	movl %%edx,%%ds:4(%2)\n"		\
 		"3:\n"						\
+		"	pushl %%ss\n"				\
+		"	popl %%ds\n"				\
 		".section .fixup,\"ax\"\n"			\
 		"4:	movl %3,%0\n"				\
 		"	jmp 3b\n"				\
@@ -292,7 +335,8 @@ extern void __put_user_8(void);
 		"	.long 2b,4b\n"				\
 		".previous"					\
 		: "=r"(err)					\
-		: "A" (x), "r" (addr), "i"(-EFAULT), "0"(err))
+		: "A" (x), "r" (addr), "i"(-EFAULT), "0"(err),	\
+		  "r"(__USER_DS))
 
 #ifdef CONFIG_X86_WP_WORKS_OK
 
@@ -331,8 +375,11 @@ struct __large_struct { unsigned long buf[100]; };
  */
 #define __put_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
 	__asm__ __volatile__(						\
-		"1:	mov"itype" %"rtype"1,%2\n"			\
+		"	movw %w5,%%ds\n"				\
+		"1:	mov"itype" %"rtype"1,%%ds:%2\n"			\
 		"2:\n"							\
+		"	pushl %%ss\n"					\
+		"	popl %%ds\n"					\
 		".section .fixup,\"ax\"\n"				\
 		"3:	movl %3,%0\n"					\
 		"	jmp 2b\n"					\
@@ -342,7 +389,8 @@ struct __large_struct { unsigned long buf[100]; };
 		"	.long 1b,3b\n"					\
 		".previous"						\
 		: "=r"(err)						\
-		: ltype (x), "m"(__m(addr)), "i"(errret), "0"(err))
+		: ltype (x), "m"(__m(addr)), "i"(errret), "0"(err),	\
+		  "r"(__USER_DS))
 
 
 #define __get_user_nocheck(x,ptr,size)				\
@@ -370,8 +418,11 @@ do {									\
 
 #define __get_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
 	__asm__ __volatile__(						\
-		"1:	mov"itype" %2,%"rtype"1\n"			\
+		"	movw %w5,%%ds\n"				\
+		"1:	mov"itype" %%ds:%2,%"rtype"1\n"			\
 		"2:\n"							\
+		"	pushl %%ss\n"					\
+		"	popl %%ds\n"					\
 		".section .fixup,\"ax\"\n"				\
 		"3:	movl %3,%0\n"					\
 		"	xor"itype" %"rtype"1,%"rtype"1\n"		\
@@ -382,7 +433,7 @@ do {									\
 		"	.long 1b,3b\n"					\
 		".previous"						\
 		: "=r"(err), ltype (x)					\
-		: "m"(__m(addr)), "i"(errret), "0"(err))
+		: "m"(__m(addr)), "i"(errret), "0"(err), "r"(__USER_DS))
 
 
 unsigned long __must_check __copy_to_user_ll(void __user *to,

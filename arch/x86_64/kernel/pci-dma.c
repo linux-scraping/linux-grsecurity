@@ -48,10 +48,16 @@ dma_alloc_pages(struct device *dev, gfp_t gfp, unsigned order)
 {
 	struct page *page;
 	int node;
+#ifdef CONFIG_PCI
 	if (dev->bus == &pci_bus_type)
 		node = pcibus_to_node(to_pci_dev(dev)->bus);
 	else
+#endif
 		node = numa_node_id();
+
+	if (node < first_node(node_online_map))
+		node = first_node(node_online_map);
+
 	page = alloc_pages_node(node, gfp, order);
 	return page ? page_address(page) : NULL;
 }
@@ -72,6 +78,9 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
 	dma_mask = dev->coherent_dma_mask;
 	if (dma_mask == 0)
 		dma_mask = 0xffffffff;
+
+	/* Don't invoke OOM killer */
+	gfp |= __GFP_NORETRY;
 
 	/* Kludge to make it bug-to-bug compatible with i386. i386
 	   uses the normal dma_mask for alloc_coherent. */

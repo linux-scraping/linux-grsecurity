@@ -38,7 +38,6 @@
 #include <linux/kallsyms.h>
 #include <linux/ptrace.h>
 #include <linux/random.h>
-#include <linux/kprobes.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -70,7 +69,7 @@ EXPORT_SYMBOL(boot_option_idle_override);
  */
 unsigned long thread_saved_pc(struct task_struct *tsk)
 {
-	return ((unsigned long *)tsk->thread.esp)[3];
+	return tsk->thread.eip;
 }
 
 /*
@@ -344,8 +343,8 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 	regs.ebx = (unsigned long) fn;
 	regs.edx = (unsigned long) arg;
 
-	regs.xds = __USER_DS;
-	regs.xes = __USER_DS;
+	regs.xds = __KERNEL_DS;
+	regs.xes = __KERNEL_DS;
 	regs.orig_eax = -1;
 	regs.eip = (unsigned long) kernel_thread_helper;
 	regs.xcs = __KERNEL_CS;
@@ -363,13 +362,6 @@ void exit_thread(void)
 {
 	struct task_struct *tsk = current;
 	struct thread_struct *t = &tsk->thread;
-
-	/*
-	 * Remove function-return probe instances associated with this task
-	 * and put them back on the free list. Do not insert an exit probe for
-	 * this function, it will be disabled by kprobe_flush_task if you do.
-	 */
-	kprobe_flush_task(tsk);
 
 	/* The process may have allocated an io port bitmap... nuke it. */
 	if (unlikely(NULL != t->io_bitmap_ptr)) {
@@ -672,6 +664,10 @@ struct task_struct fastcall * __switch_to(struct task_struct *prev_p, struct tas
 	pax_open_kernel(cr0);
 #endif
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	__set_fs(get_fs(), cpu);
+#endif
+
 	/*
 	 * Load the per-thread Thread-Local Storage descriptor.
 	 */
@@ -809,7 +805,6 @@ unsigned long get_wchan(struct task_struct *p)
 	} while (count++ < 16);
 	return 0;
 }
-EXPORT_SYMBOL(get_wchan);
 
 /*
  * sys_alloc_thread_area: get a yet unused TLS descriptor index.

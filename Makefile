@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
-SUBLEVEL = 16
-EXTRAVERSION = .15
-NAME=Sliding Snow Leopard
+SUBLEVEL = 17
+EXTRAVERSION = .4
+NAME=Crazed Snow-Weasel
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -95,7 +95,7 @@ ifdef O
 endif
 
 # That's our default target when none is given on the command line
-.PHONY: _all
+PHONY := _all
 _all:
 
 ifneq ($(KBUILD_OUTPUT),)
@@ -106,7 +106,7 @@ KBUILD_OUTPUT := $(shell cd $(KBUILD_OUTPUT) && /bin/pwd)
 $(if $(KBUILD_OUTPUT),, \
      $(error output directory "$(saved-output)" does not exist))
 
-.PHONY: $(MAKECMDGOALS)
+PHONY += $(MAKECMDGOALS)
 
 $(filter-out _all,$(MAKECMDGOALS)) _all:
 	$(if $(KBUILD_VERBOSE:1=),@)$(MAKE) -C $(KBUILD_OUTPUT) \
@@ -123,7 +123,7 @@ ifeq ($(skip-makefile),)
 
 # If building an external module we do not care about the all: rule
 # but instead _all depend on modules
-.PHONY: all
+PHONY += all
 ifeq ($(KBUILD_EXTMOD),)
 _all: all
 else
@@ -137,7 +137,7 @@ objtree		:= $(CURDIR)
 src		:= $(srctree)
 obj		:= $(objtree)
 
-VPATH		:= $(srctree)
+VPATH		:= $(srctree)$(if $(KBUILD_EXTMOD),:$(KBUILD_EXTMOD))
 
 export srctree objtree VPATH TOPDIR
 
@@ -151,7 +151,7 @@ export srctree objtree VPATH TOPDIR
 SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 				  -e s/arm.*/arm/ -e s/sa110/arm/ \
 				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
-				  -e s/ppc.*/powerpc/ )
+				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ )
 
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
@@ -258,38 +258,6 @@ endif
 
 export quiet Q KBUILD_VERBOSE
 
-######
-# cc support functions to be used (only) in arch/$(ARCH)/Makefile
-# See documentation in Documentation/kbuild/makefiles.txt
-
-# as-option
-# Usage: cflags-y += $(call as-option, -Wa$(comma)-isa=foo,)
-
-as-option = $(shell if $(CC) $(CFLAGS) $(1) -Wa,-Z -c -o /dev/null \
-	     -xassembler /dev/null > /dev/null 2>&1; then echo "$(1)"; \
-	     else echo "$(2)"; fi ;)
-
-# cc-option
-# Usage: cflags-y += $(call cc-option, -march=winchip-c6, -march=i586)
-
-cc-option = $(shell if $(CC) $(CFLAGS) $(1) -S -o /dev/null -xc /dev/null \
-             > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
-
-# cc-option-yn
-# Usage: flag := $(call cc-option-yn, -march=winchip-c6)
-cc-option-yn = $(shell if $(CC) $(CFLAGS) $(1) -S -o /dev/null -xc /dev/null \
-                > /dev/null 2>&1; then echo "y"; else echo "n"; fi;)
-
-# cc-option-align
-# Prefix align with either -falign or -malign
-cc-option-align = $(subst -functions=0,,\
-	$(call cc-option,-falign-functions=0,-malign-functions=0))
-
-# cc-version
-# Usage gcc-ver := $(call cc-version $(CC))
-cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh \
-              $(if $(1), $(1), $(CC)))
-
 
 # Look for make include files relative to root of kernel src
 MAKEFLAGS += --include-dir=$(srctree)
@@ -338,8 +306,7 @@ LINUXINCLUDE    := -Iinclude \
 CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
 
 CFLAGS 		:= -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-	  	   -fno-strict-aliasing -fno-common \
-		   -ffreestanding
+	  	   -fno-strict-aliasing -fno-common
 AFLAGS		:= -D__ASSEMBLY__
 
 # Read KERNELRELEASE from .kernelrelease (if it exists)
@@ -369,24 +336,22 @@ export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exc
 # Rules shared between *config targets and build targets
 
 # Basic helpers built in scripts/
-.PHONY: scripts_basic
+PHONY += scripts_basic
 scripts_basic:
 	$(Q)$(MAKE) $(build)=scripts/basic
 
 # To avoid any implicit rule to kick in, define an empty command.
 scripts/basic/%: scripts_basic ;
 
-.PHONY: outputmakefile
-# outputmakefile generate a Makefile to be placed in output directory, if
-# using a seperate output directory. This allows convinient use
-# of make in output directory
+PHONY += outputmakefile
+# outputmakefile generates a Makefile in the output directory, if using a
+# separate output directory. This allows convenient use of make in the
+# output directory.
 outputmakefile:
-	$(Q)if test ! $(srctree) -ef $(objtree); then \
-	$(CONFIG_SHELL) $(srctree)/scripts/mkmakefile              \
-	    $(srctree) $(objtree) $(VERSION) $(PATCHLEVEL)         \
-	    > $(objtree)/Makefile;                                 \
-	    echo '  GEN    $(objtree)/Makefile';                   \
-	fi
+ifneq ($(KBUILD_SRC),)
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/mkmakefile \
+	    $(srctree) $(objtree) $(VERSION) $(PATCHLEVEL)
+endif
 
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
@@ -452,7 +417,7 @@ ifeq ($(KBUILD_EXTMOD),)
 # Additional helpers built in scripts/
 # Carefully list dependencies so we do not try to build scripts twice
 # in parrallel
-.PHONY: scripts
+PHONY += scripts
 scripts: scripts_basic include/config/MARKER
 	$(Q)$(MAKE) $(build)=$(@)
 
@@ -504,17 +469,14 @@ else
 CFLAGS		+= -O2
 endif
 
-#Add align options if CONFIG_CC_* is not equal to 0
-add-align = $(if $(filter-out 0,$($(1))),$(cc-option-align)$(2)=$($(1)))
-CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_FUNCTIONS,-functions)
-CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_LABELS,-labels)
-CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_LOOPS,-loops)
-CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_JUMPS,-jumps)
-
 ifdef CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
 else
 CFLAGS		+= -fomit-frame-pointer
+endif
+
+ifdef CONFIG_UNWIND_INFO
+CFLAGS		+= -fasynchronous-unwind-tables
 endif
 
 ifdef CONFIG_DEBUG_INFO
@@ -752,7 +714,7 @@ $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
 # make menuconfig etc.
 # Error messages still appears in the original language
 
-.PHONY: $(vmlinux-dirs)
+PHONY += $(vmlinux-dirs)
 $(vmlinux-dirs): prepare scripts
 	$(Q)$(MAKE) $(build)=$@
 
@@ -805,10 +767,10 @@ kernelrelease = $(KERNELVERSION)$(localver-full)
 # version.h and scripts_basic is processed / created.
 
 # Listed in dependency order
-.PHONY: prepare archprepare prepare0 prepare1 prepare2 prepare3
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
 # prepare-all is deprecated, use prepare as valid replacement
-.PHONY: prepare-all
+PHONY += prepare-all
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
@@ -832,8 +794,8 @@ prepare2: prepare3 outputmakefile
 prepare1: prepare2 include/linux/version.h include/asm \
                    include/config/MARKER
 ifneq ($(KBUILD_MODULES),)
-	$(Q)rm -rf $(MODVERDIR)
 	$(Q)mkdir -p $(MODVERDIR)
+	$(Q)rm -f $(MODVERDIR)/*
 endif
 
 archprepare: prepare1 scripts_basic
@@ -848,27 +810,6 @@ prepare prepare-all: prepare0
 #	done in arch/$(ARCH)/kernel/Makefile
 
 export CPPFLAGS_vmlinux.lds += -P -C -U$(ARCH)
-
-# Single targets
-# ---------------------------------------------------------------------------
-
-%.s: %.c scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
-%.i: %.c scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
-%.o: %.c scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
-%.ko: scripts FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) $(build)=$(@D) $(@:.ko=.o)
-	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
-%/:      scripts prepare FORCE
-	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) $(build)=$(@D)
-%.lst: %.c scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
-%.s: %.S scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
-%.o: %.S scripts FORCE
-	$(Q)$(MAKE) $(build)=$(@D) $@
 
 # 	FIXME: The asm symlink changes when $(ARCH) changes. That's
 #	hard to detect, but I suppose "make mrproper" is a good idea
@@ -910,7 +851,7 @@ include/linux/version.h: $(srctree)/Makefile .config .kernelrelease FORCE
 
 # ---------------------------------------------------------------------------
 
-.PHONY: depend dep
+PHONY += depend dep
 depend dep:
 	@echo '*** Warning: make $@ is unnecessary now.'
 
@@ -925,21 +866,21 @@ all: modules
 
 #	Build modules
 
-.PHONY: modules
+PHONY += modules
 modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux)
 	@echo '  Building modules, stage 2.';
 	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
 
 
 # Target to prepare building external modules
-.PHONY: modules_prepare
+PHONY += modules_prepare
 modules_prepare: prepare scripts
 
 # Target to install modules
-.PHONY: modules_install
+PHONY += modules_install
 modules_install: _modinst_ _modinst_post
 
-.PHONY: _modinst_
+PHONY += _modinst_
 _modinst_:
 	@if [ -z "`$(DEPMOD) -V 2>/dev/null | grep module-init-tools`" ]; then \
 		echo "Warning: you may need to install module-init-tools"; \
@@ -966,7 +907,7 @@ depmod_opts	:=
 else
 depmod_opts	:= -b $(INSTALL_MOD_PATH) -r
 endif
-.PHONY: _modinst_post
+PHONY += _modinst_post
 _modinst_post: _modinst_
 	if [ -r System.map -a -x $(DEPMOD) ]; then $(DEPMOD) -ae -F System.map $(depmod_opts) $(KERNELRELEASE); fi
 
@@ -1009,7 +950,7 @@ clean: rm-dirs  := $(CLEAN_DIRS)
 clean: rm-files := $(CLEAN_FILES)
 clean-dirs      := $(addprefix _clean_,$(srctree) $(vmlinux-alldirs))
 
-.PHONY: $(clean-dirs) clean archclean
+PHONY += $(clean-dirs) clean archclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
@@ -1027,7 +968,7 @@ mrproper: rm-dirs  := $(wildcard $(MRPROPER_DIRS))
 mrproper: rm-files := $(wildcard $(MRPROPER_FILES))
 mrproper-dirs      := $(addprefix _mrproper_,Documentation/DocBook scripts)
 
-.PHONY: $(mrproper-dirs) mrproper archmrproper
+PHONY += $(mrproper-dirs) mrproper archmrproper
 $(mrproper-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _mrproper_%,%,$@)
 
@@ -1037,7 +978,7 @@ mrproper: clean archmrproper $(mrproper-dirs)
 
 # distclean
 #
-.PHONY: distclean
+PHONY += distclean
 
 distclean: mrproper
 	@find $(srctree) $(RCS_FIND_IGNORE) \
@@ -1053,12 +994,10 @@ distclean: mrproper
 # rpm target kept for backward compatibility
 package-dir	:= $(srctree)/scripts/package
 
-.PHONY: %-pkg rpm
-
 %pkg: FORCE
-	$(Q)$(MAKE) -f $(package-dir)/Makefile $@
+	$(Q)$(MAKE) $(build)=$(package-dir) $@
 rpm: FORCE
-	$(Q)$(MAKE) -f $(package-dir)/Makefile $@
+	$(Q)$(MAKE) $(build)=$(package-dir) $@
 
 
 # Brief documentation of the typical targets used
@@ -1090,13 +1029,11 @@ help:
 	@echo  '  kernelversion	  - Output the version stored in Makefile'
 	@echo  ''
 	@echo  'Static analysers'
-	@echo  '  buildcheck      - List dangling references to vmlinux discarded sections'
-	@echo  '                    and init sections from non-init sections'
 	@echo  '  checkstack      - Generate a list of stack hogs'
 	@echo  '  namespacecheck  - Name space analysis on compiled kernel'
 	@echo  ''
 	@echo  'Kernel packaging:'
-	@$(MAKE) -f $(package-dir)/Makefile help
+	@$(MAKE) $(build)=$(package-dir) help
 	@echo  ''
 	@echo  'Documentation targets:'
 	@$(MAKE) -f $(srctree)/Documentation/DocBook/Makefile dochelp
@@ -1145,11 +1082,12 @@ else # KBUILD_EXTMOD
 
 # We are always building modules
 KBUILD_MODULES := 1
-.PHONY: crmodverdir
+PHONY += crmodverdir
 crmodverdir:
 	$(Q)mkdir -p $(MODVERDIR)
+	$(Q)rm -f $(MODVERDIR)/*
 
-.PHONY: $(objtree)/Module.symvers
+PHONY += $(objtree)/Module.symvers
 $(objtree)/Module.symvers:
 	@test -e $(objtree)/Module.symvers || ( \
 	echo; \
@@ -1158,7 +1096,7 @@ $(objtree)/Module.symvers:
 	echo )
 
 module-dirs := $(addprefix _module_,$(KBUILD_EXTMOD))
-.PHONY: $(module-dirs) modules
+PHONY += $(module-dirs) modules
 $(module-dirs): crmodverdir $(objtree)/Module.symvers
 	$(Q)$(MAKE) $(build)=$(patsubst _module_%,%,$@)
 
@@ -1166,13 +1104,31 @@ modules: $(module-dirs)
 	@echo '  Building modules, stage 2.';
 	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
 
-.PHONY: modules_install
-modules_install:
+PHONY += modules_install
+modules_install: _emodinst_ _emodinst_post
+
+install-dir := $(if $(INSTALL_MOD_DIR),$(INSTALL_MOD_DIR),extra)
+PHONY += _emodinst_
+_emodinst_:
+	$(Q)mkdir -p $(MODLIB)/$(install-dir)
 	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modinst
+
+# Run depmod only is we have System.map and depmod is executable
+quiet_cmd_depmod = DEPMOD  $(KERNELRELEASE)
+      cmd_depmod = if [ -r System.map -a -x $(DEPMOD) ]; then \
+                      $(DEPMOD) -ae -F System.map             \
+                      $(if $(strip $(INSTALL_MOD_PATH)),      \
+		      -b $(INSTALL_MOD_PATH) -r)              \
+		      $(KERNELRELEASE);                       \
+                   fi
+
+PHONY += _emodinst_post
+_emodinst_post: _emodinst_
+	$(call cmd,depmod)
 
 clean-dirs := $(addprefix _clean_,$(KBUILD_EXTMOD))
 
-.PHONY: $(clean-dirs) clean
+PHONY += $(clean-dirs) clean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
@@ -1192,6 +1148,11 @@ help:
 	@echo  '  modules_install - install the module'
 	@echo  '  clean           - remove generated files in module directory only'
 	@echo  ''
+
+# Dummies...
+PHONY += prepare scripts
+prepare: ;
+scripts: ;
 endif # KBUILD_EXTMOD
 
 # Generate tags for editors
@@ -1292,17 +1253,13 @@ versioncheck:
 		-name '*.[hcS]' -type f -print | sort \
 		| xargs $(PERL) -w scripts/checkversion.pl
 
-buildcheck:
-	$(PERL) $(srctree)/scripts/reference_discarded.pl
-	$(PERL) $(srctree)/scripts/reference_init.pl
-
 namespacecheck:
 	$(PERL) $(srctree)/scripts/namespace.pl
 
 endif #ifeq ($(config-targets),1)
 endif #ifeq ($(mixed-targets),1)
 
-.PHONY: checkstack
+PHONY += checkstack
 checkstack:
 	$(OBJDUMP) -d vmlinux $$(find . -name '*.ko') | \
 	$(PERL) $(src)/scripts/checkstack.pl $(ARCH)
@@ -1312,6 +1269,47 @@ kernelrelease:
 	$(error kernelrelease not valid - run 'make *config' to update it))
 kernelversion:
 	@echo $(KERNELVERSION)
+
+# Single targets
+# ---------------------------------------------------------------------------
+# Single targets are compatible with:
+# - build whith mixed source and output
+# - build with separate output dir 'make O=...'
+# - external modules
+#
+#  target-dir => where to store outputfile
+#  build-dir  => directory in kernel source tree to use
+
+ifeq ($(KBUILD_EXTMOD),)
+        build-dir  = $(patsubst %/,%,$(dir $@))
+        target-dir = $(dir $@)
+else
+        zap-slash=$(filter-out .,$(patsubst %/,%,$(dir $@)))
+        build-dir  = $(KBUILD_EXTMOD)$(if $(zap-slash),/$(zap-slash))
+        target-dir = $(if $(KBUILD_EXTMOD),$(dir $<),$(dir $@))
+endif
+
+%.s: %.c prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+%.i: %.c prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+%.o: %.c prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+%.lst: %.c prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+%.s: %.S prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+%.o: %.S prepare scripts FORCE
+	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+
+# Modules
+/ %/: prepare scripts FORCE
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
+	$(build)=$(build-dir)
+%.ko: prepare scripts FORCE
+	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1)   \
+	$(build)=$(build-dir) $(@:.ko=.o)
+	$(Q)$(MAKE) -rR -f $(srctree)/scripts/Makefile.modpost
 
 # FIXME Should go into a make.lib or something 
 # ===========================================================================
@@ -1347,4 +1345,10 @@ clean := -f $(if $(KBUILD_SRC),$(srctree)/)scripts/Makefile.clean obj
 
 endif	# skip-makefile
 
+PHONY += FORCE
 FORCE:
+
+
+# Declare the contents of the .PHONY variable as phony.  We keep that
+# information in a variable se we can use it in if_changed and friends.
+.PHONY: $(PHONY)

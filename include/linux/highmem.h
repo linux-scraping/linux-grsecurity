@@ -7,6 +7,18 @@
 
 #include <asm/cacheflush.h>
 
+#ifndef ARCH_HAS_FLUSH_ANON_PAGE
+static inline void flush_anon_page(struct page *page, unsigned long vmaddr)
+{
+}
+#endif
+
+#ifndef ARCH_HAS_FLUSH_KERNEL_DCACHE_PAGE
+static inline void flush_kernel_dcache_page(struct page *page)
+{
+}
+#endif
+
 #ifdef CONFIG_HIGHMEM
 
 #include <asm/highmem.h>
@@ -58,9 +70,9 @@ alloc_zeroed_user_highpage(struct vm_area_struct *vma, unsigned long vaddr)
 
 static inline void clear_highpage(struct page *page)
 {
-	void *kaddr = kmap_atomic(page, KM_USER0);
+	void *kaddr = kmap_atomic(page, KM_CLEARPAGE);
 	clear_page(kaddr);
-	kunmap_atomic(kaddr, KM_USER0);
+	kunmap_atomic(kaddr, KM_CLEARPAGE);
 }
 
 /*

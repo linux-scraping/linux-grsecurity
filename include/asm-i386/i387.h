@@ -31,8 +31,8 @@ extern void init_fpu(struct task_struct *);
  */
 #define restore_fpu(tsk)			\
 	alternative_input(			\
-		"nop ; frstor %2",		\
-		"fxrstor %2",			\
+		"nop ; frstor %1",		\
+		"fxrstor %1",			\
 		X86_FEATURE_FXSR,		\
 		"m" ((tsk)->thread.i387.fxsave))
 

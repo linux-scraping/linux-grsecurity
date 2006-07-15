@@ -75,6 +75,7 @@ static int dummy_isoctl(struct hpsb_iso *iso, enum isoctl_cmd command, unsigned 
 }
 
 static struct hpsb_host_driver dummy_driver = {
+	.name =		   "dummy",
 	.transmit_packet = dummy_transmit_packet,
 	.devctl =	   dummy_devctl,
 	.isoctl =	   dummy_isoctl

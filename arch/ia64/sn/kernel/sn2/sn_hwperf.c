@@ -110,7 +110,11 @@ static int sn_hwperf_geoid_to_cnode(char *location)
 	if (sn_hwperf_location_to_bpos(location, &rack, &bay, &slot, &slab))
 		return -1;
 
-	for_each_node(cnode) {
+	/*
+	 * FIXME: replace with cleaner for_each_XXX macro which addresses
+	 * both compute and IO nodes once ACPI3.0 is available.
+	 */
+	for (cnode = 0; cnode < num_cnodes; cnode++) {
 		geoid = cnodeid_get_geoid(cnode);
 		module_id = geo_module(geoid);
 		this_rack = MODULE_GET_RACK(module_id);
@@ -280,6 +284,8 @@ static int sn_hwperf_get_nearest_node_objdata(struct sn_hwperf_object_info *objb
 	/* find nearest node with cpus and nearest memory */
 	for (router=NULL, j=0; j < op->ports; j++) {
 		dest = sn_hwperf_findobj_id(objbuf, nobj, ptdata[j].conn_id);
+		if (dest && SN_HWPERF_IS_ROUTER(dest))
+			router = dest;
 		if (!dest || SN_HWPERF_FOREIGN(dest) ||
 		    !SN_HWPERF_IS_NODE(dest) || SN_HWPERF_IS_IONODE(dest)) {
 			continue;
@@ -295,8 +301,6 @@ static int sn_hwperf_get_nearest_node_objdata(struct sn_hwperf_object_info *objb
 				*near_mem_node = c;
 			found_mem++;
 		}
-		if (SN_HWPERF_IS_ROUTER(dest))
-			router = dest;
 	}
 
 	if (router && (!found_cpu || !found_mem)) {
@@ -489,7 +493,7 @@ static int sn_topology_show(struct seq_file *s, void *d)
 		 * numalink ports
 		 */
 		sz = obj->ports * sizeof(struct sn_hwperf_port_info);
-		if ((ptdata = vmalloc(sz)) == NULL)
+		if ((ptdata = kmalloc(sz, GFP_KERNEL)) == NULL)
 			return -ENOMEM;
 		e = ia64_sn_hwperf_op(sn_hwperf_master_nasid,
 				      SN_HWPERF_ENUM_PORTS, obj->id, sz,
@@ -537,7 +541,7 @@ static int sn_topology_show(struct seq_file *s, void *d)
 				(SN_HWPERF_IS_NL3ROUTER(obj) ||
 				SN_HWPERF_IS_NL3ROUTER(p)) ?  "LLP3" : "LLP4");
 		}
-		vfree(ptdata);
+		kfree(ptdata);
 	}
 
 	return 0;
@@ -605,7 +609,7 @@ static int sn_hwperf_op_cpu(struct sn_hwperf_op_info *op_info)
 	op_info->a->arg &= SN_HWPERF_ARG_OBJID_MASK;
 
 	if (cpu != SN_HWPERF_ARG_ANY_CPU) {
-		if (cpu >= num_online_cpus() || !cpu_online(cpu)) {
+		if (cpu >= NR_CPUS || !cpu_online(cpu)) {
 			r = -EINVAL;
 			goto out;
 		}

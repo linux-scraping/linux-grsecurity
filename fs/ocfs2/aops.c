@@ -74,8 +74,8 @@ static int ocfs2_symlink_get_block(struct inode *inode, sector_t iblock,
 	fe = (struct ocfs2_dinode *) bh->b_data;
 
 	if (!OCFS2_IS_VALID_DINODE(fe)) {
-		mlog(ML_ERROR, "Invalid dinode #%"MLFu64": signature = %.*s\n",
-		     fe->i_blkno, 7, fe->i_signature);
+		mlog(ML_ERROR, "Invalid dinode #%llu: signature = %.*s\n",
+		     (unsigned long long)fe->i_blkno, 7, fe->i_signature);
 		goto bail;
 	}
 
@@ -162,8 +162,8 @@ static int ocfs2_get_block(struct inode *inode, sector_t iblock,
 					  NULL);
 	if (err) {
 		mlog(ML_ERROR, "Error %d from get_blocks(0x%p, %llu, 1, "
-		     "%"MLFu64", NULL)\n", err, inode,
-		     (unsigned long long)iblock, p_blkno);
+		     "%llu, NULL)\n", err, inode, (unsigned long long)iblock,
+		     (unsigned long long)p_blkno);
 		goto bail;
 	}
 
@@ -171,13 +171,15 @@ static int ocfs2_get_block(struct inode *inode, sector_t iblock,
 
 	if (bh_result->b_blocknr == 0) {
 		err = -EIO;
-		mlog(ML_ERROR, "iblock = %llu p_blkno = %"MLFu64" "
-		     "blkno=(%"MLFu64")\n", (unsigned long long)iblock,
-		     p_blkno, OCFS2_I(inode)->ip_blkno);
+		mlog(ML_ERROR, "iblock = %llu p_blkno = %llu blkno=(%llu)\n",
+		     (unsigned long long)iblock,
+		     (unsigned long long)p_blkno,
+		     (unsigned long long)OCFS2_I(inode)->ip_blkno);
 	}
 
 	past_eof = ocfs2_blocks_for_bytes(inode->i_sb, i_size_read(inode));
-	mlog(0, "Inode %lu, past_eof = %"MLFu64"\n", inode->i_ino, past_eof);
+	mlog(0, "Inode %lu, past_eof = %llu\n", inode->i_ino,
+	     (unsigned long long)past_eof);
 
 	if (create && (iblock >= past_eof))
 		set_buffer_new(bh_result);
@@ -274,13 +276,29 @@ static int ocfs2_writepage(struct page *page, struct writeback_control *wbc)
 	return ret;
 }
 
+/* This can also be called from ocfs2_write_zero_page() which has done
+ * it's own cluster locking. */
+int ocfs2_prepare_write_nolock(struct inode *inode, struct page *page,
+			       unsigned from, unsigned to)
+{
+	int ret;
+
+	down_read(&OCFS2_I(inode)->ip_alloc_sem);
+
+	ret = block_prepare_write(page, from, to, ocfs2_get_block);
+
+	up_read(&OCFS2_I(inode)->ip_alloc_sem);
+
+	return ret;
+}
+
 /*
  * ocfs2_prepare_write() can be an outer-most ocfs2 call when it is called
  * from loopback.  It must be able to perform its own locking around
  * ocfs2_get_block().
  */
-int ocfs2_prepare_write(struct file *file, struct page *page,
-			unsigned from, unsigned to)
+static int ocfs2_prepare_write(struct file *file, struct page *page,
+			       unsigned from, unsigned to)
 {
 	struct inode *inode = page->mapping->host;
 	int ret;
@@ -293,11 +311,7 @@ int ocfs2_prepare_write(struct file *file, struct page *page,
 		goto out;
 	}
 
-	down_read(&OCFS2_I(inode)->ip_alloc_sem);
-
-	ret = block_prepare_write(page, from, to, ocfs2_get_block);
-
-	up_read(&OCFS2_I(inode)->ip_alloc_sem);
+	ret = ocfs2_prepare_write_nolock(inode, page, from, to);
 
 	ocfs2_meta_unlock(inode, 0);
 out:
@@ -538,7 +552,6 @@ bail:
  * 					fs_count, map_bh, dio->rw == WRITE);
  */
 static int ocfs2_direct_IO_get_blocks(struct inode *inode, sector_t iblock,
-				     unsigned long max_blocks,
 				     struct buffer_head *bh_result, int create)
 {
 	int ret;
@@ -546,6 +559,7 @@ static int ocfs2_direct_IO_get_blocks(struct inode *inode, sector_t iblock,
 	u64 p_blkno;
 	int contig_blocks;
 	unsigned char blocksize_bits;
+	unsigned long max_blocks = bh_result->b_size >> inode->i_blkbits;
 
 	if (!inode || !bh_result) {
 		mlog(ML_ERROR, "inode or bh_result is null\n");
@@ -623,11 +637,31 @@ static ssize_t ocfs2_direct_IO(int rw,
 	int ret;
 
 	mlog_entry_void();
+
+	/*
+	 * We get PR data locks even for O_DIRECT.  This allows
+	 * concurrent O_DIRECT I/O but doesn't let O_DIRECT with
+	 * extending and buffered zeroing writes race.  If they did
+	 * race then the buffered zeroing could be written back after
+	 * the O_DIRECT I/O.  It's one thing to tell people not to mix
+	 * buffered and O_DIRECT writes, but expecting them to
+	 * understand that file extension is also an implicit buffered
+	 * write is too much.  By getting the PR we force writeback of
+	 * the buffered zeroing before proceeding.
+	 */
+	ret = ocfs2_data_lock(inode, 0);
+	if (ret < 0) {
+		mlog_errno(ret);
+		goto out;
+	}
+	ocfs2_data_unlock(inode, 0);
+
 	ret = blockdev_direct_IO_no_locking(rw, iocb, inode,
 					    inode->i_sb->s_bdev, iov, offset,
 					    nr_segs, 
 					    ocfs2_direct_IO_get_blocks,
 					    ocfs2_dio_end_io);
+out:
 	mlog_exit(ret);
 	return ret;
 }

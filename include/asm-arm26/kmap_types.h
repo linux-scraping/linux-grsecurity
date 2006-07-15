@@ -6,7 +6,8 @@
  */
 enum km_type {
         KM_IRQ0,
-        KM_USER1
+        KM_USER1,
+        KM_CLEARPAGE
 };
 
 #endif

@@ -46,6 +46,7 @@ int grsec_enable_socket_client;
 int grsec_socket_client_gid;
 int grsec_enable_socket_server;
 int grsec_socket_server_gid;
+int grsec_resource_logging;
 int grsec_lock;
 
 spinlock_t grsec_alert_lock = SPIN_LOCK_UNLOCKED;
@@ -161,6 +162,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_TIME
 	grsec_enable_time = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_RESLOG
+	grsec_resource_logging = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
 	grsec_enable_chroot_findtask = 1;

@@ -82,7 +82,7 @@ VM_MASK		= 0x00020000
 #define resume_kernel		restore_nocheck
 #endif
 
-#define __SAVE_ALL \
+#define __SAVE_ALL(_DS) \
 	cld; \
 	pushl %es; \
 	pushl %ds; \
@@ -93,20 +93,22 @@ VM_MASK		= 0x00020000
 	pushl %edx; \
 	pushl %ecx; \
 	pushl %ebx; \
-	movl $(__USER_DS), %edx; \
+	movl $(_DS), %edx; \
 	movl %edx, %ds; \
 	movl %edx, %es;
 
 #ifdef CONFIG_PAX_KERNEXEC
 #define SAVE_ALL \
-	__SAVE_ALL \
+	__SAVE_ALL(__KERNEL_DS) \
 	movl %cr0, %edx; \
 	movl %edx, %esi; \
 	orl $0x10000, %edx; \
 	xorl %edx, %esi; \
 	movl %edx, %cr0;
+#elif defined(CONFIG_PAX_NOVSYSCALL)
+#define SAVE_ALL __SAVE_ALL(__KERNEL_DS)
 #else
-#define SAVE_ALL __SAVE_ALL
+#define SAVE_ALL __SAVE_ALL(__USER_DS)
 #endif
 
 #define RESTORE_INT_REGS \
@@ -247,16 +249,33 @@ sysenter_past_esp:
 /* if something modifies registers it must also disable sysexit */
 	movl EIP(%esp), %edx
 	movl OLDESP(%esp), %ecx
+1:	mov DS(%esp), %ds
+2:	mov ES(%esp), %es
 	xorl %ebp,%ebp
 	sti
 	sysexit
 
+.section .fixup,"ax"
+3:	movl $0,DS(%esp)
+	jmp 1b
+4:	movl $0,ES(%esp)
+	jmp 2b
+.previous
+.section __ex_table,"a"
+	.align 4
+	.long 1b,3b
+	.long 2b,4b
+.previous
 
 	# system call handler stub
 ENTRY(system_call)
 	pushl %eax			# save orig_eax
 	SAVE_ALL
 	GET_THREAD_INFO(%ebp)
+	testl $TF_MASK,EFLAGS(%esp)
+	jz no_singlestep
+	orl $_TIF_SINGLESTEP,TI_flags(%ebp)
+no_singlestep:
 					# system call tracing in operation / emulation
 	/* Note, _TIF_SECCOMP is bit number 8, and so it needs testw and not testb */
 	testw $(_TIF_SYSCALL_EMU|_TIF_SYSCALL_TRACE|_TIF_SECCOMP|_TIF_SYSCALL_AUDIT),TI_flags(%ebp)
@@ -490,7 +509,7 @@ error_code:
 	movl ORIG_EAX(%esp), %edx	# get the error code
 	movl %eax, ORIG_EAX(%esp)
 	movl %ecx, ES(%esp)
-	movl $(__USER_DS), %ecx
+	movl $(__KERNEL_DS), %ecx
 	movl %ecx, %ds
 	movl %ecx, %es
 	movl %esp,%eax			# pt_regs pointer

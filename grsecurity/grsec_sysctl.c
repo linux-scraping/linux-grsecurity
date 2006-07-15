@@ -36,7 +36,7 @@ GS_CHROOT_SYSCTL, GS_TPE, GS_TPE_GID, GS_TPE_ALL, GS_SIDCAPS,
 GS_RANDPID, GS_SOCKET_ALL, GS_SOCKET_ALL_GID, GS_SOCKET_CLIENT,
 GS_SOCKET_CLIENT_GID, GS_SOCKET_SERVER, GS_SOCKET_SERVER_GID, 
 GS_GROUP, GS_GID, GS_ACHDIR, GS_AMOUNT, GS_AIPC, GS_DMSG,
-GS_TEXTREL, GS_FINDTASK, GS_SHM, GS_LOCK, GS_MODSTOP};
+GS_TEXTREL, GS_FINDTASK, GS_SHM, GS_LOCK, GS_MODSTOP, GS_RESLOG};
 
 
 ctl_table grsecurity_table[] = {
@@ -416,6 +416,16 @@ ctl_table grsecurity_table[] = {
 		.ctl_name	= GS_SHM,
 		.procname	= "destroy_unused_shm",
 		.data		= &grsec_enable_shm,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_GRKERNSEC_RESLOG
+	{
+		.ctl_name	= GS_RESLOG,
+		.procname	= "resource_logging",
+		.data		= &grsec_resource_logging,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,

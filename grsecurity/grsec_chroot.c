@@ -21,10 +21,10 @@ gr_handle_chroot_unix(const pid_t pid)
 
 	read_lock(&tasklist_lock);
 
-	spid = find_pid(PIDTYPE_PID, pid);
+	spid = find_pid(pid);
 	if (spid) {
 		struct task_struct *p;
-		p = pid_task(&spid->pid_list, PIDTYPE_PID);
+		p = pid_task(spid, PIDTYPE_PID);
 		task_lock(p);
 		if (unlikely(!have_same_root(current, p))) {
 			task_unlock(p);
@@ -178,10 +178,10 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 
 	read_lock(&tasklist_lock);
 
-	pid = find_pid(PIDTYPE_PID, shm_cprid);
+	pid = find_pid(shm_cprid);
 	if (pid) {
 		struct task_struct *p;
-		p = pid_task(&pid->pid_list, PIDTYPE_PID);
+		p = pid_task(pid, PIDTYPE_PID);
 		task_lock(p);
 		starttime = p->start_time.tv_sec;
 		if (unlikely(!have_same_root(current, p) &&
@@ -193,10 +193,10 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		}
 		task_unlock(p);
 	} else {
-		pid = find_pid(PIDTYPE_PID, shm_lapid);
+		pid = find_pid(shm_lapid);
 		if (pid) {
 			struct task_struct *p;
-			p = pid_task(&pid->pid_list, PIDTYPE_PID);
+			p = pid_task(pid, PIDTYPE_PID);
 			task_lock(p);
 			if (unlikely(!have_same_root(current, p))) {
 				task_unlock(p);

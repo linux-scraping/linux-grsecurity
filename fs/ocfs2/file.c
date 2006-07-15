@@ -220,8 +220,9 @@ static int ocfs2_truncate_file(struct inode *inode,
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	struct ocfs2_truncate_context *tc = NULL;
 
-	mlog_entry("(inode = %"MLFu64", new_i_size = %"MLFu64"\n",
-		   OCFS2_I(inode)->ip_blkno, new_i_size);
+	mlog_entry("(inode = %llu, new_i_size = %llu\n",
+		   (unsigned long long)OCFS2_I(inode)->ip_blkno,
+		   (unsigned long long)new_i_size);
 
 	truncate_inode_pages(inode->i_mapping, new_i_size);
 
@@ -233,28 +234,42 @@ static int ocfs2_truncate_file(struct inode *inode,
 	}
 
 	mlog_bug_on_msg(le64_to_cpu(fe->i_size) != i_size_read(inode),
-			"Inode %"MLFu64", inode i_size = %lld != di "
-			"i_size = %"MLFu64", i_flags = 0x%x\n",
-			OCFS2_I(inode)->ip_blkno,
+			"Inode %llu, inode i_size = %lld != di "
+			"i_size = %llu, i_flags = 0x%x\n",
+			(unsigned long long)OCFS2_I(inode)->ip_blkno,
 			i_size_read(inode),
-			le64_to_cpu(fe->i_size), le32_to_cpu(fe->i_flags));
+			(unsigned long long)le64_to_cpu(fe->i_size),
+			le32_to_cpu(fe->i_flags));
 
 	if (new_i_size > le64_to_cpu(fe->i_size)) {
-		mlog(0, "asked to truncate file with size (%"MLFu64") "
-		     "to size (%"MLFu64")!\n",
-		     le64_to_cpu(fe->i_size), new_i_size);
+		mlog(0, "asked to truncate file with size (%llu) to size (%llu)!\n",
+		     (unsigned long long)le64_to_cpu(fe->i_size),
+		     (unsigned long long)new_i_size);
 		status = -EINVAL;
 		mlog_errno(status);
 		goto bail;
 	}
 
-	mlog(0, "inode %"MLFu64", i_size = %"MLFu64", new_i_size = %"MLFu64"\n",
-	     le64_to_cpu(fe->i_blkno), le64_to_cpu(fe->i_size), new_i_size);
+	mlog(0, "inode %llu, i_size = %llu, new_i_size = %llu\n",
+	     (unsigned long long)le64_to_cpu(fe->i_blkno),
+	     (unsigned long long)le64_to_cpu(fe->i_size),
+	     (unsigned long long)new_i_size);
 
 	/* lets handle the simple truncate cases before doing any more
 	 * cluster locking. */
 	if (new_i_size == le64_to_cpu(fe->i_size))
 		goto bail;
+
+	/* This forces other nodes to sync and drop their pages. Do
+	 * this even if we have a truncate without allocation change -
+	 * ocfs2 cluster sizes can be much greater than page size, so
+	 * we have to truncate them anyway.  */
+	status = ocfs2_data_lock(inode, 1);
+	if (status < 0) {
+		mlog_errno(status);
+		goto bail;
+	}
+	ocfs2_data_unlock(inode, 1);
 
 	if (le32_to_cpu(fe->i_clusters) ==
 	    ocfs2_clusters_for_bytes(osb->sb, new_i_size)) {
@@ -267,14 +282,6 @@ static int ocfs2_truncate_file(struct inode *inode,
 			mlog_errno(status);
 		goto bail;
 	}
-
-	/* This forces other nodes to sync and drop their pages */
-	status = ocfs2_data_lock(inode, 1);
-	if (status < 0) {
-		mlog_errno(status);
-		goto bail;
-	}
-	ocfs2_data_unlock(inode, 1);
 
 	/* alright, we're going to need to do a full blown alloc size
 	 * change. Orphan the inode so that recovery can complete the
@@ -378,8 +385,8 @@ int ocfs2_do_extend_allocation(struct ocfs2_super *osb,
 	}
 
 	block = ocfs2_clusters_to_blocks(osb->sb, bit_off);
-	mlog(0, "Allocating %u clusters at block %u for inode %"MLFu64"\n",
-	     num_bits, bit_off, OCFS2_I(inode)->ip_blkno);
+	mlog(0, "Allocating %u clusters at block %u for inode %llu\n",
+	     num_bits, bit_off, (unsigned long long)OCFS2_I(inode)->ip_blkno);
 	status = ocfs2_insert_extent(osb, handle, inode, fe_bh, block,
 				     num_bits, meta_ac);
 	if (status < 0) {
@@ -449,9 +456,9 @@ static int ocfs2_extend_allocation(struct inode *inode,
 restart_all:
 	BUG_ON(le32_to_cpu(fe->i_clusters) != OCFS2_I(inode)->ip_clusters);
 
-	mlog(0, "extend inode %"MLFu64", i_size = %lld, fe->i_clusters = %u, "
+	mlog(0, "extend inode %llu, i_size = %lld, fe->i_clusters = %u, "
 	     "clusters_to_add = %u\n",
-	     OCFS2_I(inode)->ip_blkno, i_size_read(inode),
+	     (unsigned long long)OCFS2_I(inode)->ip_blkno, i_size_read(inode),
 	     fe->i_clusters, clusters_to_add);
 
 	handle = ocfs2_alloc_handle(osb);
@@ -569,8 +576,8 @@ restarted_transaction:
 		}
 	}
 
-	mlog(0, "fe: i_clusters = %u, i_size=%"MLFu64"\n",
-	     fe->i_clusters, fe->i_size);
+	mlog(0, "fe: i_clusters = %u, i_size=%llu\n",
+	     fe->i_clusters, (unsigned long long)fe->i_size);
 	mlog(0, "inode: ip_clusters=%u, i_size=%lld\n",
 	     OCFS2_I(inode)->ip_clusters, i_size_read(inode));
 
@@ -606,7 +613,8 @@ leave:
 
 /* Some parts of this taken from generic_cont_expand, which turned out
  * to be too fragile to do exactly what we need without us having to
- * worry about recursive locking in ->commit_write(). */
+ * worry about recursive locking in ->prepare_write() and
+ * ->commit_write(). */
 static int ocfs2_write_zero_page(struct inode *inode,
 				 u64 size)
 {
@@ -634,7 +642,7 @@ static int ocfs2_write_zero_page(struct inode *inode,
 		goto out;
 	}
 
-	ret = ocfs2_prepare_write(NULL, page, offset, offset);
+	ret = ocfs2_prepare_write_nolock(inode, page, offset, offset);
 	if (ret < 0) {
 		mlog_errno(ret);
 		goto out_unlock;
@@ -688,12 +696,25 @@ out:
 	return ret;
 }
 
+/* 
+ * A tail_to_skip value > 0 indicates that we're being called from
+ * ocfs2_file_aio_write(). This has the following implications:
+ *
+ * - we don't want to update i_size
+ * - di_bh will be NULL, which is fine because it's only used in the
+ *   case where we want to update i_size.
+ * - ocfs2_zero_extend() will then only be filling the hole created
+ *   between i_size and the start of the write.
+ */
 static int ocfs2_extend_file(struct inode *inode,
 			     struct buffer_head *di_bh,
-			     u64 new_i_size)
+			     u64 new_i_size,
+			     size_t tail_to_skip)
 {
 	int ret = 0;
 	u32 clusters_to_add;
+
+	BUG_ON(!tail_to_skip && !di_bh);
 
 	/* setattr sometimes calls us like this. */
 	if (new_i_size == 0)
@@ -707,26 +728,43 @@ static int ocfs2_extend_file(struct inode *inode,
 		OCFS2_I(inode)->ip_clusters;
 
 	if (clusters_to_add) {
+		/* 
+		 * protect the pages that ocfs2_zero_extend is going to
+		 * be pulling into the page cache.. we do this before the
+		 * metadata extend so that we don't get into the situation
+		 * where we've extended the metadata but can't get the data
+		 * lock to zero.
+		 */
+		ret = ocfs2_data_lock(inode, 1);
+		if (ret < 0) {
+			mlog_errno(ret);
+			goto out;
+		}
+
 		ret = ocfs2_extend_allocation(inode, clusters_to_add);
 		if (ret < 0) {
 			mlog_errno(ret);
-			goto out;
+			goto out_unlock;
 		}
 
-		ret = ocfs2_zero_extend(inode, new_i_size);
+		ret = ocfs2_zero_extend(inode, (u64)new_i_size - tail_to_skip);
 		if (ret < 0) {
 			mlog_errno(ret);
-			goto out;
+			goto out_unlock;
 		}
-	} 
-
-	/* No allocation required, we just use this helper to
-	 * do a trivial update of i_size. */
-	ret = ocfs2_simple_size_update(inode, di_bh, new_i_size);
-	if (ret < 0) {
-		mlog_errno(ret);
-		goto out;
 	}
+
+	if (!tail_to_skip) {
+		/* We're being called from ocfs2_setattr() which wants
+		 * us to update i_size */
+		ret = ocfs2_simple_size_update(inode, di_bh, new_i_size);
+		if (ret < 0)
+			mlog_errno(ret);
+	}
+
+out_unlock:
+	if (clusters_to_add) /* this is the only case in which we lock */
+		ocfs2_data_unlock(inode, 1);
 
 out:
 	return ret;
@@ -786,7 +824,7 @@ int ocfs2_setattr(struct dentry *dentry, struct iattr *attr)
 		if (i_size_read(inode) > attr->ia_size)
 			status = ocfs2_truncate_file(inode, bh, attr->ia_size);
 		else
-			status = ocfs2_extend_file(inode, bh, attr->ia_size);
+			status = ocfs2_extend_file(inode, bh, attr->ia_size, 0);
 		if (status < 0) {
 			if (status != -ENOSPC)
 				mlog_errno(status);
@@ -865,8 +903,8 @@ static int ocfs2_write_remove_suid(struct inode *inode)
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	struct ocfs2_dinode *di;
 
-	mlog_entry("(Inode %"MLFu64", mode 0%o)\n", oi->ip_blkno,
-		   inode->i_mode);
+	mlog_entry("(Inode %llu, mode 0%o)\n",
+		   (unsigned long long)oi->ip_blkno, inode->i_mode);
 
 	handle = ocfs2_start_trans(osb, NULL, OCFS2_INODE_UPDATE_CREDITS);
 	if (handle == NULL) {
@@ -1042,19 +1080,10 @@ static ssize_t ocfs2_file_aio_write(struct kiocb *iocb,
 		if (!clusters)
 			break;
 
-		ret = ocfs2_extend_allocation(inode, clusters);
+		ret = ocfs2_extend_file(inode, NULL, newsize, count);
 		if (ret < 0) {
 			if (ret != -ENOSPC)
 				mlog_errno(ret);
-			goto out;
-		}
-
-		/* Fill any holes which would've been created by this
-		 * write. If we're O_APPEND, this will wind up
-		 * (correctly) being a noop. */
-		ret = ocfs2_zero_extend(inode, (u64) newsize - count);
-		if (ret < 0) {
-			mlog_errno(ret);
 			goto out;
 		}
 		break;
@@ -1139,6 +1168,22 @@ static ssize_t ocfs2_file_aio_read(struct kiocb *iocb,
 		ocfs2_iocb_set_rw_locked(iocb);
 	}
 
+	/*
+	 * We're fine letting folks race truncates and extending
+	 * writes with read across the cluster, just like they can
+	 * locally. Hence no rw_lock during read.
+	 * 
+	 * Take and drop the meta data lock to update inode fields
+	 * like i_size. This allows the checks down below
+	 * generic_file_aio_read() a chance of actually working. 
+	 */
+	ret = ocfs2_meta_lock(inode, NULL, NULL, 0);
+	if (ret < 0) {
+		mlog_errno(ret);
+		goto bail;
+	}
+	ocfs2_meta_unlock(inode, 0);
+
 	ret = generic_file_aio_read(iocb, buf, count, iocb->ki_pos);
 	if (ret == -EINVAL)
 		mlog(ML_ERROR, "generic_file_aio_read returned -EINVAL\n");
@@ -1172,7 +1217,7 @@ struct inode_operations ocfs2_special_file_iops = {
 	.getattr	= ocfs2_getattr,
 };
 
-struct file_operations ocfs2_fops = {
+const struct file_operations ocfs2_fops = {
 	.read		= do_sync_read,
 	.write		= do_sync_write,
 	.sendfile	= generic_file_sendfile,
@@ -1184,7 +1229,7 @@ struct file_operations ocfs2_fops = {
 	.aio_write	= ocfs2_file_aio_write,
 };
 
-struct file_operations ocfs2_dops = {
+const struct file_operations ocfs2_dops = {
 	.read		= generic_read_dir,
 	.readdir	= ocfs2_readdir,
 	.fsync		= ocfs2_sync_file,

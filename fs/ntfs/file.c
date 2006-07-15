@@ -943,7 +943,8 @@ rl_not_mapped_enoent:
 		}
 		ni->runlist.rl = rl;
 		status.runlist_merged = 1;
-		ntfs_debug("Allocated cluster, lcn 0x%llx.", lcn);
+		ntfs_debug("Allocated cluster, lcn 0x%llx.",
+				(unsigned long long)lcn);
 		/* Map and lock the mft record and get the attribute record. */
 		if (!NInoAttr(ni))
 			base_ni = ni;
@@ -1206,8 +1207,6 @@ rl_not_mapped_enoent:
 					"attribute runlist in error code "
 					"path.  Run chkdsk to recover the "
 					"lost cluster.");
-			make_bad_inode(vi);
-			make_bad_inode(VFS_I(base_ni));
 			NVolSetErrors(vol);
 		} else /* if (success) */ {
 			status.runlist_merged = 0;
@@ -1238,8 +1237,6 @@ rl_not_mapped_enoent:
 			ntfs_error(vol->sb, "Failed to restore attribute "
 					"record in error code path.  Run "
 					"chkdsk to recover.");
-			make_bad_inode(vi);
-			make_bad_inode(VFS_I(base_ni));
 			NVolSetErrors(vol);
 		} else /* if (success) */ {
 			if (ntfs_mapping_pairs_build(vol, (u8*)a +
@@ -1252,8 +1249,6 @@ rl_not_mapped_enoent:
 						"mapping pairs array in error "
 						"code path.  Run chkdsk to "
 						"recover.");
-				make_bad_inode(vi);
-				make_bad_inode(VFS_I(base_ni));
 				NVolSetErrors(vol);
 			}
 			flush_dcache_mft_record_page(ctx->ntfs_ino);
@@ -1489,14 +1484,15 @@ static inline void ntfs_flush_dcache_pages(struct page **pages,
 		unsigned nr_pages)
 {
 	BUG_ON(!nr_pages);
+	/*
+	 * Warning: Do not do the decrement at the same time as the call to
+	 * flush_dcache_page() because it is a NULL macro on i386 and hence the
+	 * decrement never happens so the loop never terminates.
+	 */
 	do {
-		/*
-		 * Warning: Do not do the decrement at the same time as the
-		 * call because flush_dcache_page() is a NULL macro on i386
-		 * and hence the decrement never happens.
-		 */
+		--nr_pages;
 		flush_dcache_page(pages[nr_pages]);
-	} while (--nr_pages > 0);
+	} while (nr_pages > 0);
 }
 
 /**
@@ -1622,11 +1618,8 @@ err_out:
 		unmap_mft_record(base_ni);
 	ntfs_error(vi->i_sb, "Failed to update initialized_size/i_size (error "
 			"code %i).", err);
-	if (err != -ENOMEM) {
+	if (err != -ENOMEM)
 		NVolSetErrors(ni->vol);
-		make_bad_inode(VFS_I(base_ni));
-		make_bad_inode(vi);
-	}
 	return err;
 }
 
@@ -1801,8 +1794,6 @@ err_out:
 		ntfs_error(vi->i_sb, "Resident attribute commit write failed "
 				"with error %i.", err);
 		NVolSetErrors(ni->vol);
-		make_bad_inode(VFS_I(base_ni));
-		make_bad_inode(vi);
 	}
 	if (ctx)
 		ntfs_attr_put_search_ctx(ctx);
@@ -2304,7 +2295,7 @@ static int ntfs_file_fsync(struct file *filp, struct dentry *dentry,
 
 #endif /* NTFS_RW */
 
-struct file_operations ntfs_file_ops = {
+const struct file_operations ntfs_file_ops = {
 	.llseek		= generic_file_llseek,	 /* Seek inside file. */
 	.read		= generic_file_read,	 /* Read from file. */
 	.aio_read	= generic_file_aio_read, /* Async read from file. */
@@ -2347,6 +2338,6 @@ struct inode_operations ntfs_file_inode_ops = {
 #endif /* NTFS_RW */
 };
 
-struct file_operations ntfs_empty_file_ops = {};
+const struct file_operations ntfs_empty_file_ops = {};
 
 struct inode_operations ntfs_empty_inode_ops = {};

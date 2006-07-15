@@ -104,10 +104,9 @@ static inline int insert_metapage(struct page *page, struct metapage *mp)
 	if (PagePrivate(page))
 		a = mp_anchor(page);
 	else {
-		a = kmalloc(sizeof(struct meta_anchor), GFP_NOFS);
+		a = kzalloc(sizeof(struct meta_anchor), GFP_NOFS);
 		if (!a)
 			return -ENOMEM;
-		memset(a, 0, sizeof(struct meta_anchor));
 		set_page_private(page, (unsigned long)a);
 		SetPagePrivate(page);
 		kmap(page);
@@ -221,8 +220,8 @@ int __init metapage_init(void)
 	if (metapage_cache == NULL)
 		return -ENOMEM;
 
-	metapage_mempool = mempool_create(METAPOOL_MIN_PAGES, mempool_alloc_slab,
-					  mempool_free_slab, metapage_cache);
+	metapage_mempool = mempool_create_slab_pool(METAPOOL_MIN_PAGES,
+						    metapage_cache);
 
 	if (metapage_mempool == NULL) {
 		kmem_cache_destroy(metapage_cache);
@@ -543,7 +542,7 @@ add_failed:
 static int metapage_releasepage(struct page *page, gfp_t gfp_mask)
 {
 	struct metapage *mp;
-	int busy = 0;
+	int ret = 1;
 	unsigned int offset;
 
 	for (offset = 0; offset < PAGE_CACHE_SIZE; offset += PSIZE) {
@@ -553,19 +552,12 @@ static int metapage_releasepage(struct page *page, gfp_t gfp_mask)
 			continue;
 
 		jfs_info("metapage_releasepage: mp = 0x%p", mp);
-		if (mp->count || mp->nohomeok) {
+		if (mp->count || mp->nohomeok ||
+		    test_bit(META_dirty, &mp->flag)) {
 			jfs_info("count = %ld, nohomeok = %d", mp->count,
 				 mp->nohomeok);
-			busy = 1;
+			ret = 0;
 			continue;
-		}
-		wait_on_page_writeback(page);
-		//WARN_ON(test_bit(META_dirty, &mp->flag));
-		if (test_bit(META_dirty, &mp->flag)) {
-			dump_mem("dirty mp in metapage_releasepage", mp,
-				 sizeof(struct metapage));
-			dump_mem("page", page, sizeof(struct page));
-			dump_stack();
 		}
 		if (mp->lsn)
 			remove_from_logsync(mp);
@@ -573,20 +565,16 @@ static int metapage_releasepage(struct page *page, gfp_t gfp_mask)
 		INCREMENT(mpStat.pagefree);
 		free_metapage(mp);
 	}
-	if (busy)
-		return -1;
-
-	return 0;
+	return ret;
 }
 
-static int metapage_invalidatepage(struct page *page, unsigned long offset)
+static void metapage_invalidatepage(struct page *page, unsigned long offset)
 {
 	BUG_ON(offset);
 
-	if (PageWriteback(page))
-		return 0;
+	BUG_ON(PageWriteback(page));
 
-	return metapage_releasepage(page, 0);
+	metapage_releasepage(page, 0);
 }
 
 struct address_space_operations jfs_metapage_aops = {

@@ -56,10 +56,10 @@ struct tss_struct doublefault_tss __cacheline_aligned = {
 	.eip		= (unsigned long) doublefault_fn,
 	.eflags		= X86_EFLAGS_SF | 0x2,	/* 0x2 bit is always set */
 	.esp		= STACK_START,
-	.es		= __USER_DS,
+	.es		= __KERNEL_DS,
 	.cs		= __KERNEL_CS,
 	.ss		= __KERNEL_DS,
-	.ds		= __USER_DS,
+	.ds		= __KERNEL_DS,
 
 	.__cr3		= __pa(swapper_pg_dir)
 };

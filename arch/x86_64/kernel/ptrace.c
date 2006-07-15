@@ -275,11 +275,6 @@ static int putreg(struct task_struct *child,
 				return -EIO;
 			value &= 0xffff;
 			break;
-		case offsetof(struct user_regs_struct, rip):
-			/* Check if the new RIP address is canonical */
-			if (value >= TASK_SIZE_OF(child))
-				return -EIO;
-			break;
 	}
 	put_stack_long(child, regno - sizeof(struct pt_regs), value);
 	return 0;
@@ -421,9 +416,9 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 		case offsetof(struct user, u_debugreg[7]):
 			/* See arch/i386/kernel/ptrace.c for an explanation of
 			 * this awkward check.*/
-				  data &= ~DR_CONTROL_RESERVED;
-				  for(i=0; i<4; i++)
-					  if ((0x5454 >> ((data >> (16 + 4*i)) & 0xf)) & 1)
+			data &= ~DR_CONTROL_RESERVED;
+			for(i=0; i<4; i++)
+				if ((0x5554 >> ((data >> (16 + 4*i)) & 0xf)) & 1)
 					break;
 			if (i == 4) {
 				child->thread.debugreg7 = data;
@@ -606,12 +601,12 @@ asmlinkage void syscall_trace_enter(struct pt_regs *regs)
 
 	if (unlikely(current->audit_context)) {
 		if (test_thread_flag(TIF_IA32)) {
-			audit_syscall_entry(current, AUDIT_ARCH_I386,
+			audit_syscall_entry(AUDIT_ARCH_I386,
 					    regs->orig_rax,
 					    regs->rbx, regs->rcx,
 					    regs->rdx, regs->rsi);
 		} else {
-			audit_syscall_entry(current, AUDIT_ARCH_X86_64,
+			audit_syscall_entry(AUDIT_ARCH_X86_64,
 					    regs->orig_rax,
 					    regs->rdi, regs->rsi,
 					    regs->rdx, regs->r10);
@@ -622,7 +617,7 @@ asmlinkage void syscall_trace_enter(struct pt_regs *regs)
 asmlinkage void syscall_trace_leave(struct pt_regs *regs)
 {
 	if (unlikely(current->audit_context))
-		audit_syscall_exit(current, AUDITSC_RESULT(regs->rax), regs->rax);
+		audit_syscall_exit(AUDITSC_RESULT(regs->rax), regs->rax);
 
 	if ((test_thread_flag(TIF_SYSCALL_TRACE)
 	     || test_thread_flag(TIF_SINGLESTEP))

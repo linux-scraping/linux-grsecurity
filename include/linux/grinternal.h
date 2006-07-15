@@ -70,6 +70,7 @@ extern int grsec_enable_audit_ipc;
 extern int grsec_enable_audit_textrel;
 extern int grsec_enable_mount;
 extern int grsec_enable_chdir;
+extern int grsec_resource_logging;
 extern int grsec_lock;
 
 extern struct task_struct *child_reaper;

@@ -29,6 +29,8 @@
 #define MISC_MCELOG_MINOR 227
 #define NR_BANKS 6
 
+atomic_t mce_entry;
+
 static int mce_dont_init;
 
 /* 0: always panic, 1: panic if deadlock possible, 2: try to avoid panic,
@@ -139,8 +141,7 @@ static void mce_panic(char *msg, struct mce *backup, unsigned long start)
 
 static int mce_available(struct cpuinfo_x86 *c)
 {
-	return test_bit(X86_FEATURE_MCE, &c->x86_capability) &&
-	       test_bit(X86_FEATURE_MCA, &c->x86_capability);
+	return cpu_has(c, X86_FEATURE_MCE) && cpu_has(c, X86_FEATURE_MCA);
 }
 
 static inline void mce_get_rip(struct mce *m, struct pt_regs *regs)
@@ -173,10 +174,12 @@ void do_machine_check(struct pt_regs * regs, long error_code)
 	int i;
 	int panicm_found = 0;
 
+	atomic_inc(&mce_entry);
+
 	if (regs)
 		notify_die(DIE_NMI, "machine check", regs, error_code, 18, SIGKILL);
 	if (!banks)
-		return;
+		goto out2;
 
 	memset(&m, 0, sizeof(struct mce));
 	m.cpu = safe_smp_processor_id();
@@ -267,6 +270,8 @@ void do_machine_check(struct pt_regs * regs, long error_code)
  out:
 	/* Last thing done in the machine check exception to clear state. */
 	wrmsrl(MSR_IA32_MCG_STATUS, 0);
+ out2:
+	atomic_dec(&mce_entry);
 }
 
 /*
@@ -502,7 +507,7 @@ static struct miscdevice mce_log_device = {
 static int __init mcheck_disable(char *str)
 {
 	mce_dont_init = 1;
-	return 0;
+	return 1;
 }
 
 /* mce=off disables machine check. Note you can reenable it later
@@ -522,7 +527,7 @@ static int __init mcheck_enable(char *str)
 		get_option(&str, &tolerant);
 	else
 		printk("mce= argument %s ignored. Please use /sys", str); 
-	return 0;
+	return 1;
 }
 
 __setup("nomce", mcheck_disable);
@@ -624,7 +629,7 @@ static __cpuinit void mce_remove_device(unsigned int cpu)
 #endif
 
 /* Get notified when a cpu comes on/off. Be hotplug friendly. */
-static __cpuinit int
+static int
 mce_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;

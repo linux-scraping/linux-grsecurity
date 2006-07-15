@@ -46,6 +46,10 @@
  */
 #define INIT_MAP_BEYOND_END	(128*1024)
 
+#ifdef CONFIG_PAX_KERNEXEC
+/* PaX: fill first page in .text with int3 to catch NULL derefs in kernel mode */
+.fill 4096,1,0xcc
+#endif
 
 /*
  * Real beginning of normal "text" segment
@@ -72,6 +76,13 @@ ENTRY(startup_32)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),%eax
+	movl %eax,(cpu_gdt_table - __PAGE_OFFSET + GDT_ENTRY_KERNEL_DS * 8 + 4)
+	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c0f300),%eax
+	movl %eax,(cpu_gdt_table - __PAGE_OFFSET + GDT_ENTRY_DEFAULT_USER_DS * 8 + 4)
+#endif
 
 #ifdef CONFIG_PAX_KERNEXEC
 	movl $ __KERNEL_TEXT_OFFSET,%eax
@@ -347,8 +358,6 @@ is386:	movl $2,%ecx		# set MP
 	ljmp $(__KERNEL_CS),$1f
 1:	movl $(__KERNEL_DS),%eax	# reload all the segment registers
 	movl %eax,%ss			# after changing gdt.
-
-	movl $(__USER_DS),%eax		# DS/ES contains default USER segment
 	movl %eax,%ds
 	movl %eax,%es
 
@@ -507,7 +516,6 @@ int_msg:
 
 .globl boot_gdt_descr
 .globl idt_descr
-.globl cpu_gdt_descr
 
 	ALIGN
 # early boot GDT descriptor (must use 1:1 address mapping)
@@ -523,11 +531,9 @@ idt_descr:
 
 # boot GDT descriptor (later on used by CPU#0):
 	.word 0				# 32 bit align gdt_desc.address
-cpu_gdt_descr:
+ENTRY(cpu_gdt_descr)
 	.word GDT_ENTRIES*8-1
 	.long cpu_gdt_table
-
-	.fill NR_CPUS-1,8,0		# space for the other GDT descriptors
 
 /*
  * The boot_gdt_table must mirror the equivalent in setup.S and is
@@ -542,7 +548,7 @@ ENTRY(boot_gdt_table)
 /*
  * The Global Descriptor Table contains 28 quadwords, per-CPU.
  */
-	.align PAGE_SIZE_asm
+	.align L1_CACHE_BYTES
 ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x0000000000000000	/* 0x0b reserved */

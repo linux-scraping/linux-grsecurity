@@ -72,7 +72,7 @@ void show_mem(void)
 	show_free_areas();
 	printk(KERN_INFO "Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
 
-	for_each_pgdat(pgdat) {
+	for_each_online_pgdat(pgdat) {
                for (i = 0; i < pgdat->node_spanned_pages; ++i) {
 			page = pfn_to_page(pgdat->node_start_pfn + i);
 			total++;
@@ -94,7 +94,7 @@ void show_mem(void)
 
 int after_bootmem;
 
-static void *spp_getpage(void)
+static __init void *spp_getpage(void)
 { 
 	void *ptr;
 	if (after_bootmem)
@@ -108,7 +108,7 @@ static void *spp_getpage(void)
 	return ptr;
 } 
 
-static void set_pte_phys(unsigned long vaddr,
+static __init void set_pte_phys(unsigned long vaddr,
 			 unsigned long phys, pgprot_t prot)
 {
 	pgd_t *pgd;
@@ -157,7 +157,8 @@ static void set_pte_phys(unsigned long vaddr,
 }
 
 /* NOTE: this is meant to be run only at boot */
-void __set_fixmap (enum fixed_addresses idx, unsigned long phys, pgprot_t prot)
+void __init 
+__set_fixmap (enum fixed_addresses idx, unsigned long phys, pgprot_t prot)
 {
 	unsigned long address = __fix_to_virt(idx);
 
@@ -225,6 +226,33 @@ static __meminit void unmap_low_page(int i)
 	ti->allocated = 0; 
 } 
 
+/* Must run before zap_low_mappings */
+__init void *early_ioremap(unsigned long addr, unsigned long size)
+{
+	unsigned long map = round_down(addr, LARGE_PAGE_SIZE); 
+
+	/* actually usually some more */
+	if (size >= LARGE_PAGE_SIZE) { 
+		printk("SMBIOS area too long %lu\n", size);
+		return NULL;
+	}
+	set_pmd(temp_mappings[0].pmd,  __pmd(map | _KERNPG_TABLE | _PAGE_PSE));
+	map += LARGE_PAGE_SIZE;
+	set_pmd(temp_mappings[1].pmd,  __pmd(map | _KERNPG_TABLE | _PAGE_PSE));
+	__flush_tlb();
+	return temp_mappings[0].address + (addr & (LARGE_PAGE_SIZE-1));
+}
+
+/* To avoid virtual aliases later */
+__init void early_iounmap(void *addr, unsigned long size)
+{
+	if ((void *)round_down((unsigned long)addr, LARGE_PAGE_SIZE) != temp_mappings[0].address)
+		printk("early_iounmap: bad address %p\n", addr);
+	set_pmd(temp_mappings[0].pmd, __pmd(0));
+	set_pmd(temp_mappings[1].pmd, __pmd(0));
+	__flush_tlb();
+}
+
 static void __meminit
 phys_pmd_init(pmd_t *pmd, unsigned long address, unsigned long end)
 {
@@ -277,7 +305,7 @@ static void __meminit phys_pud_init(pud_t *pud, unsigned long address, unsigned 
 		if (paddr >= end)
 			break;
 
-		if (!after_bootmem && !e820_mapped(paddr, paddr+PUD_SIZE, 0)) {
+		if (!after_bootmem && !e820_any_mapped(paddr, paddr+PUD_SIZE, 0)) {
 			set_pud(pud, __pud(0)); 
 			continue;
 		} 
@@ -344,7 +372,7 @@ void __meminit init_memory_mapping(unsigned long start, unsigned long end)
 		pud_t *pud;
 
 		if (after_bootmem)
-			pud = pud_offset_k(pgd, __PAGE_OFFSET);
+			pud = pud_offset_k(pgd, start & PGDIR_MASK);
 		else
 			pud = alloc_low_page(&map, &pud_phys);
 
@@ -479,19 +507,50 @@ void __init clear_kernel_mapping(unsigned long address, unsigned long size)
 
 /*
  * Memory hotplug specific functions
- * These are only for non-NUMA machines right now.
  */
-#ifdef CONFIG_MEMORY_HOTPLUG
+#if defined(CONFIG_ACPI_HOTPLUG_MEMORY) || defined(CONFIG_ACPI_HOTPLUG_MEMORY_MODULE)
 
 void online_page(struct page *page)
 {
 	ClearPageReserved(page);
-	set_page_count(page, 1);
+	init_page_count(page);
 	__free_page(page);
 	totalram_pages++;
 	num_physpages++;
 }
 
+#ifndef CONFIG_MEMORY_HOTPLUG
+/*
+ * Memory Hotadd without sparsemem. The mem_maps have been allocated in advance,
+ * just online the pages.
+ */
+int __add_pages(struct zone *z, unsigned long start_pfn, unsigned long nr_pages)
+{
+	int err = -EIO;
+	unsigned long pfn;
+	unsigned long total = 0, mem = 0;
+	for (pfn = start_pfn; pfn < start_pfn + nr_pages; pfn++) {
+		if (pfn_valid(pfn)) {
+			online_page(pfn_to_page(pfn));
+			err = 0;
+			mem++;
+		}
+		total++;
+	}
+	if (!err) {
+		z->spanned_pages += total;
+		z->present_pages += mem;
+		z->zone_pgdat->node_spanned_pages += total;
+		z->zone_pgdat->node_present_pages += mem;
+	}
+	return err;
+}
+#endif
+
+/*
+ * Memory is added always to NORMAL zone. This means you will never get
+ * additional DMA/DMA32 memory.
+ */
 int add_memory(u64 start, u64 size)
 {
 	struct pglist_data *pgdat = NODE_DATA(0);
@@ -592,7 +651,7 @@ void free_initmem(void)
 	addr = (unsigned long)(&__init_begin);
 	for (; addr < (unsigned long)(&__init_end); addr += PAGE_SIZE) {
 		ClearPageReserved(virt_to_page(addr));
-		set_page_count(virt_to_page(addr), 1);
+		init_page_count(virt_to_page(addr));
 		memset((void *)(addr & ~(PAGE_SIZE-1)), 0xcc, PAGE_SIZE); 
 		free_page(addr);
 		totalram_pages++;
@@ -632,7 +691,7 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 	printk ("Freeing initrd memory: %ldk freed\n", (end - start) >> 10);
 	for (; start < end; start += PAGE_SIZE) {
 		ClearPageReserved(virt_to_page(start));
-		set_page_count(virt_to_page(start), 1);
+		init_page_count(virt_to_page(start));
 		free_page(start);
 		totalram_pages++;
 	}

@@ -9,6 +9,7 @@
 #include <asm-generic/vmlinux.lds.h>
 #include <asm/thread_info.h>
 #include <asm/page.h>
+#include <asm/cache.h>
 #include <asm/segment.h>
 
 #ifdef CONFIG_X86_PAE
@@ -31,6 +32,26 @@ SECTIONS
 	LONG(phys_startup_32)
 	SHORT(__BOOT_CS)
 	}
+
+  /* might get freed after init */
+  . = ALIGN(4096);
+  __smp_alt_begin = .;
+  __smp_alt_instructions = .;
+  .smp_altinstructions : AT(ADDR(.smp_altinstructions) - LOAD_OFFSET) {
+	*(.smp_altinstructions)
+  }
+  __smp_alt_instructions_end = .;
+  . = ALIGN(4);
+  __smp_locks = .;
+  .smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
+	*(.smp_locks)
+  }
+  __smp_locks_end = .;
+  .smp_altinstr_replacement : AT(ADDR(.smp_altinstr_replacement) - LOAD_OFFSET) {
+	*(.smp_altinstr_replacement)
+  }
+  . = ALIGN(4096);
+  __smp_alt_end = .;
 
   /* will be freed after init */
   . = ALIGN(4096);		/* Init code and data */
@@ -72,7 +93,7 @@ SECTIONS
   __initramfs_start = .;
   .init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET) { *(.init.ramfs) }
   __initramfs_end = .;
-  . = ALIGN(32);
+  . = ALIGN(L1_CACHE_BYTES);
   __per_cpu_start = .;
   .data.percpu  : AT(ADDR(.data.percpu) - LOAD_OFFSET) { *(.data.percpu) }
   __per_cpu_end = .;

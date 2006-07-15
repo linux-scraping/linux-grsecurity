@@ -1,6 +1,4 @@
 /*
- *  arch/ppc/kernel/irq.c
- *
  *  Derived from arch/i386/kernel/irq.c
  *    Copyright (C) 1992 Linus Torvalds
  *  Adapted from arch/i386 by Gary Thomas
@@ -137,9 +135,8 @@ skip:
 #ifdef CONFIG_TAU_INT
 		if (tau_initialized){
 			seq_puts(p, "TAU: ");
-			for (j = 0; j < NR_CPUS; j++)
-				if (cpu_online(j))
-					seq_printf(p, "%10u ", tau_interrupts(j));
+			for_each_online_cpu(j)
+				seq_printf(p, "%10u ", tau_interrupts(j));
 			seq_puts(p, "  PowerPC             Thermal Assist (cpu temp)\n");
 		}
 #endif
@@ -275,18 +272,26 @@ unsigned int virt_irq_to_real_map[NR_IRQS];
  * Don't use virtual irqs 0, 1, 2 for devices.
  * The pcnet32 driver considers interrupt numbers < 2 to be invalid,
  * and 2 is the XICS IPI interrupt.
- * We limit virtual irqs to 17 less than NR_IRQS so that when we
- * offset them by 16 (to reserve the first 16 for ISA interrupts)
- * we don't end up with an interrupt number >= NR_IRQS.
+ * We limit virtual irqs to __irq_offet_value less than virt_irq_max so
+ * that when we offset them we don't end up with an interrupt
+ * number >= virt_irq_max.
  */
 #define MIN_VIRT_IRQ	3
-#define MAX_VIRT_IRQ	(NR_IRQS - NUM_ISA_INTERRUPTS - 1)
-#define NR_VIRT_IRQS	(MAX_VIRT_IRQ - MIN_VIRT_IRQ + 1)
+
+unsigned int virt_irq_max;
+static unsigned int max_virt_irq;
+static unsigned int nr_virt_irqs;
 
 void
 virt_irq_init(void)
 {
 	int i;
+
+	if ((virt_irq_max == 0) || (virt_irq_max > (NR_IRQS - 1)))
+		virt_irq_max = NR_IRQS - 1;
+	max_virt_irq = virt_irq_max - __irq_offset_value;
+	nr_virt_irqs = max_virt_irq - MIN_VIRT_IRQ + 1;
+
 	for (i = 0; i < NR_IRQS; i++)
 		virt_irq_to_real_map[i] = UNDEFINED_IRQ;
 }
@@ -311,17 +316,17 @@ int virt_irq_create_mapping(unsigned int real_irq)
 		return real_irq;
 	}
 
-	/* map to a number between MIN_VIRT_IRQ and MAX_VIRT_IRQ */
+	/* map to a number between MIN_VIRT_IRQ and max_virt_irq */
 	virq = real_irq;
-	if (virq > MAX_VIRT_IRQ)
-		virq = (virq % NR_VIRT_IRQS) + MIN_VIRT_IRQ;
+	if (virq > max_virt_irq)
+		virq = (virq % nr_virt_irqs) + MIN_VIRT_IRQ;
 
 	/* search for this number or a free slot */
 	first_virq = virq;
 	while (virt_irq_to_real_map[virq] != UNDEFINED_IRQ) {
 		if (virt_irq_to_real_map[virq] == real_irq)
 			return virq;
-		if (++virq > MAX_VIRT_IRQ)
+		if (++virq > max_virt_irq)
 			virq = MIN_VIRT_IRQ;
 		if (virq == first_virq)
 			goto nospace;	/* oops, no free slots */
@@ -333,8 +338,8 @@ int virt_irq_create_mapping(unsigned int real_irq)
  nospace:
 	if (!warned) {
 		printk(KERN_CRIT "Interrupt table is full\n");
-		printk(KERN_CRIT "Increase NR_IRQS (currently %d) "
-		       "in your kernel sources and rebuild.\n", NR_IRQS);
+		printk(KERN_CRIT "Increase virt_irq_max (currently %d) "
+		       "in your kernel sources and rebuild.\n", virt_irq_max);
 		warned = 1;
 	}
 	return NO_IRQ;
@@ -352,8 +357,8 @@ unsigned int real_irq_to_virt_slowpath(unsigned int real_irq)
 
 	virq = real_irq;
 
-	if (virq > MAX_VIRT_IRQ)
-		virq = (virq % NR_VIRT_IRQS) + MIN_VIRT_IRQ;
+	if (virq > max_virt_irq)
+		virq = (virq % nr_virt_irqs) + MIN_VIRT_IRQ;
 
 	first_virq = virq;
 
@@ -363,7 +368,7 @@ unsigned int real_irq_to_virt_slowpath(unsigned int real_irq)
 
 		virq++;
 
-		if (virq >= MAX_VIRT_IRQ)
+		if (virq >= max_virt_irq)
 			virq = 0;
 
 	} while (first_virq != virq);
@@ -371,6 +376,7 @@ unsigned int real_irq_to_virt_slowpath(unsigned int real_irq)
 	return NO_IRQ;
 
 }
+#endif /* CONFIG_PPC64 */
 
 #ifdef CONFIG_IRQSTACKS
 struct thread_info *softirq_ctx[NR_CPUS];
@@ -381,7 +387,7 @@ void irq_ctx_init(void)
 	struct thread_info *tp;
 	int i;
 
-	for_each_cpu(i) {
+	for_each_possible_cpu(i) {
 		memset((void *)softirq_ctx[i], 0, THREAD_SIZE);
 		tp = softirq_ctx[i];
 		tp->cpu = i;
@@ -394,10 +400,24 @@ void irq_ctx_init(void)
 	}
 }
 
+static inline void do_softirq_onstack(void)
+{
+	struct thread_info *curtp, *irqtp;
+
+	curtp = current_thread_info();
+	irqtp = softirq_ctx[smp_processor_id()];
+	irqtp->task = curtp->task;
+	call_do_softirq(irqtp);
+	irqtp->task = NULL;
+}
+
+#else
+#define do_softirq_onstack()	__do_softirq()
+#endif /* CONFIG_IRQSTACKS */
+
 void do_softirq(void)
 {
 	unsigned long flags;
-	struct thread_info *curtp, *irqtp;
 
 	if (in_interrupt())
 		return;
@@ -405,19 +425,18 @@ void do_softirq(void)
 	local_irq_save(flags);
 
 	if (local_softirq_pending()) {
-		curtp = current_thread_info();
-		irqtp = softirq_ctx[smp_processor_id()];
-		irqtp->task = curtp->task;
-		call_do_softirq(irqtp);
-		irqtp->task = NULL;
+		account_system_vtime(current);
+		local_bh_disable();
+		do_softirq_onstack();
+		account_system_vtime(current);
+		__local_bh_enable();
 	}
 
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL(do_softirq);
 
-#endif /* CONFIG_IRQSTACKS */
-
+#ifdef CONFIG_PPC64
 static int __init setup_noirqdistrib(char *str)
 {
 	distribute_irqs = 0;

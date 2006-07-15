@@ -26,6 +26,7 @@
 
 #define ITEGNO_VENDOR_ID	0x0eba
 #define ITEGNO_PRODUCT_ID	0x1080
+#define ITEGNO_PRODUCT_ID_2080	0x2080
 
 #define MA620_VENDOR_ID		0x0df7
 #define MA620_PRODUCT_ID	0x0620
@@ -75,3 +76,11 @@
 /* Leadtek GPS 9531 (ID 0413:2101) */
 #define LEADTEK_VENDOR_ID	0x0413
 #define LEADTEK_9531_PRODUCT_ID	0x2101
+
+/* USB GSM cable from Speed Dragon Multimedia, Ltd */
+#define SPEEDDRAGON_VENDOR_ID	0x0e55
+#define SPEEDDRAGON_PRODUCT_ID	0x110b
+
+/* Ours Technology Inc DKU-5 clone, chipset: Prolific Technology Inc */
+#define OTI_VENDOR_ID	0x0ea0
+#define OTI_PRODUCT_ID	0x6858

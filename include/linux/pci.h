@@ -95,6 +95,17 @@ enum pci_channel_state {
 	pci_channel_io_perm_failure = (__force pci_channel_state_t) 3,
 };
 
+typedef unsigned short __bitwise pci_bus_flags_t;
+enum pci_bus_flags {
+	PCI_BUS_FLAGS_NO_MSI = (__force pci_bus_flags_t) 1,
+};
+
+struct pci_cap_saved_state {
+	struct hlist_node next;
+	char cap_nr;
+	u32 data[0];
+};
+
 /*
  * The pci_dev structure is used to describe PCI devices.
  */
@@ -154,6 +165,7 @@ struct pci_dev {
 	unsigned int	block_ucfg_access:1;	/* userspace config space access is blocked */
 
 	u32		saved_config_space[16]; /* config space saved at suspend time */
+	struct hlist_head saved_cap_space;
 	struct bin_attribute *rom_attr; /* attribute descriptor for sysfs ROM entry */
 	int rom_attr_enabled;		/* has display of the rom attribute been enabled? */
 	struct bin_attribute *res_attr[DEVICE_COUNT_RESOURCE]; /* sysfs file for resources */
@@ -163,6 +175,30 @@ struct pci_dev {
 #define pci_dev_b(n) list_entry(n, struct pci_dev, bus_list)
 #define	to_pci_dev(n) container_of(n, struct pci_dev, dev)
 #define for_each_pci_dev(d) while ((d = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, d)) != NULL)
+
+static inline struct pci_cap_saved_state *pci_find_saved_cap(
+	struct pci_dev *pci_dev,char cap)
+{
+	struct pci_cap_saved_state *tmp;
+	struct hlist_node *pos;
+
+	hlist_for_each_entry(tmp, pos, &pci_dev->saved_cap_space, next) {
+		if (tmp->cap_nr == cap)
+			return tmp;
+	}
+	return NULL;
+}
+
+static inline void pci_add_saved_cap(struct pci_dev *pci_dev,
+	struct pci_cap_saved_state *new_cap)
+{
+	hlist_add_head(&new_cap->next, &pci_dev->saved_cap_space);
+}
+
+static inline void pci_remove_saved_cap(struct pci_cap_saved_state *cap)
+{
+	hlist_del(&cap->next);
+}
 
 /*
  *  For PCI devices, the region numbers are assigned this way:
@@ -203,7 +239,7 @@ struct pci_bus {
 	char		name[48];
 
 	unsigned short  bridge_ctl;	/* manage NO_ISA/FBB/et al behaviors */
-	unsigned short  pad2;
+	pci_bus_flags_t bus_flags;	/* Inherited by child busses */
 	struct device		*bridge;
 	struct class_device	class_dev;
 	struct bin_attribute	*legacy_io; /* legacy I/O for this bus */
@@ -485,9 +521,9 @@ void pdev_sort_resources(struct pci_dev *, struct resource_list *);
 void pci_fixup_irqs(u8 (*)(struct pci_dev *, u8 *),
 		    int (*)(struct pci_dev *, u8, u8));
 #define HAVE_PCI_REQ_REGIONS	2
-int pci_request_regions(struct pci_dev *, char *);
+int pci_request_regions(struct pci_dev *, const char *);
 void pci_release_regions(struct pci_dev *);
-int pci_request_region(struct pci_dev *, int, char *);
+int pci_request_region(struct pci_dev *, int, const char *);
 void pci_release_region(struct pci_dev *, int);
 
 /* drivers/pci/bus.c */
@@ -516,6 +552,7 @@ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass
 void pci_walk_bus(struct pci_bus *top, void (*cb)(struct pci_dev *, void *),
 		  void *userdata);
 int pci_cfg_space_size(struct pci_dev *dev);
+unsigned char pci_bus_max_busnr(struct pci_bus* bus);
 
 /* kmem_cache style wrapper around pci_alloc_consistent() */
 

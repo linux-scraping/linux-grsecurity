@@ -124,14 +124,26 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 		 * only call if we're about to fail.
 		 */
 		n = nr_free_pages();
+
+		/*
+		 * Leave reserved pages. The pages are not for anonymous pages.
+		 */
+		if (n <= totalreserve_pages)
+			goto error;
+		else
+			n -= totalreserve_pages;
+
+		/*
+		 * Leave the last 3% for root
+		 */
 		if (!cap_sys_admin)
 			n -= n / 32;
 		free += n;
 
 		if (free > pages)
 			return 0;
-		vm_unacct_memory(pages);
-		return -ENOMEM;
+
+		goto error;
 	}
 
 	allowed = (totalram_pages - hugetlb_total_pages())
@@ -153,7 +165,7 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 	 */
 	if (atomic_read(&vm_committed_space) < (long)allowed)
 		return 0;
-
+error:
 	vm_unacct_memory(pages);
 
 	return -ENOMEM;
@@ -223,6 +235,18 @@ asmlinkage unsigned long sys_brk(unsigned long brk)
 
 	if (brk < mm->end_code)
 		goto out;
+
+	/*
+	 * Check against rlimit here. If this check is done later after the test
+	 * of oldbrk with newbrk then it can escape the test and let the data
+	 * segment grow beyond its set limit the in case where the limit is
+	 * not page aligned -Ram Gupta
+	 */
+	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
+	gr_learn_resource(current, RLIMIT_DATA, brk - mm->start_data, 1);
+	if (rlim < RLIM_INFINITY && brk - mm->start_data > rlim)
+		goto out;
+
 	newbrk = PAGE_ALIGN(brk);
 	oldbrk = PAGE_ALIGN(mm->brk);
 	if (oldbrk == newbrk)
@@ -234,12 +258,6 @@ asmlinkage unsigned long sys_brk(unsigned long brk)
 			goto set_brk;
 		goto out;
 	}
-
-	/* Check against rlimit.. */
-	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
-	gr_learn_resource(current, RLIMIT_DATA, brk - mm->start_data, 1);
-	if (rlim < RLIM_INFINITY && brk - mm->start_data > rlim)
-		goto out;
 
 	/* Check against existing mmap mappings. */
 	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
@@ -298,8 +316,7 @@ void validate_mm(struct mm_struct *mm)
 	i = browse_rb(&mm->mm_rb);
 	if (i != mm->map_count)
 		printk("map_count %d rb %d\n", mm->map_count, i), bug = 1;
-	if (bug)
-		BUG();
+	BUG_ON(bug);
 }
 #else
 #define validate_mm(mm) do { } while (0)
@@ -436,8 +453,7 @@ __insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 	struct rb_node ** rb_link, * rb_parent;
 
 	__vma = find_vma_prepare(mm, vma->vm_start,&prev, &rb_link, &rb_parent);
-	if (__vma && __vma->vm_start < vma->vm_end)
-		BUG();
+	BUG_ON(__vma && __vma->vm_start < vma->vm_end);
 	__vma_link(mm, vma, prev, rb_link, rb_parent);
 	mm->map_count++;
 }
@@ -617,9 +633,9 @@ again:			remove_next = 1 + (end > next->vm_end);
  * per-vma resources, so we don't attempt to merge those.
  */
 #ifdef CONFIG_PAX_SEGMEXEC
-#define VM_SPECIAL (VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED | VM_PFNMAP | VM_MIRROR)
+#define VM_SPECIAL (VM_IO | VM_DONTEXPAND | VM_RESERVED | VM_PFNMAP | VM_MIRROR)
 #else
-#define VM_SPECIAL (VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED | VM_PFNMAP)
+#define VM_SPECIAL (VM_IO | VM_DONTEXPAND | VM_RESERVED | VM_PFNMAP)
 #endif
 
 static inline int is_mergeable_vma(struct vm_area_struct *vma,
@@ -823,8 +839,7 @@ try_prev:
 	 * (e.g. stash info in next's anon_vma_node when assigning
 	 * an anon_vma, or when trying vma_merge).  Another time.
 	 */
-	if (find_vma_prev(vma->vm_mm, vma->vm_start, &near) != vma)
-		BUG();
+	BUG_ON(find_vma_prev(vma->vm_mm, vma->vm_start, &near) != vma);
 	if (!near)
 		goto none;
 
@@ -852,14 +867,6 @@ none:
 void vm_stat_account(struct mm_struct *mm, unsigned long flags,
 						struct file *file, long pages)
 {
-#ifdef CONFIG_HUGETLB
-	if (flags & VM_HUGETLB) {
-		if (!(flags & VM_DONTCOPY))
-			mm->shared_vm += pages;
-		return;
-	}
-#endif /* CONFIG_HUGETLB */
-
 	if (file) {
 		mm->shared_vm += pages;
 		if ((flags & (VM_EXEC|VM_WRITE)) == VM_EXEC)
@@ -1149,12 +1156,11 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 * specific mapper. the address has already been validated, but
 	 * not unmapped, but the maps are removed from the list.
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma) {
 		error = -ENOMEM;
 		goto unacct_error;
 	}
-	memset(vma, 0, sizeof(*vma));
 
 	vma->vm_mm = mm;
 	vma->vm_start = addr;
@@ -2143,12 +2149,11 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	/*
 	 * create a vma struct for an anonymous mapping
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma) {
 		vm_unacct_memory(len >> PAGE_SHIFT);
 		return -ENOMEM;
 	}
-	memset(vma, 0, sizeof(*vma));
 
 	vma->vm_mm = mm;
 	vma->vm_start = addr;

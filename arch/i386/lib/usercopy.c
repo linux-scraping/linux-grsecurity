@@ -33,6 +33,7 @@ do {									   \
 	int __d0, __d1, __d2;						   \
 	might_sleep();							   \
 	__asm__ __volatile__(						   \
+		"	movw %w10,%%ds\n"				   \
 		"	testl %1,%1\n"					   \
 		"	jz 2f\n"					   \
 		"0:	lodsb\n"					   \
@@ -43,6 +44,8 @@ do {									   \
 		"	jnz 0b\n"					   \
 		"1:	subl %1,%0\n"					   \
 		"2:\n"							   \
+		"	pushl %%ss\n"					   \
+		"	popl %%ds\n"					   \
 		".section .fixup,\"ax\"\n"				   \
 		"3:	movl %5,%0\n"					   \
 		"	jmp 2b\n"					   \
@@ -53,7 +56,8 @@ do {									   \
 		".previous"						   \
 		: "=d"(res), "=c"(count), "=&a" (__d0), "=&S" (__d1),	   \
 		  "=&D" (__d2)						   \
-		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst) \
+		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst),\
+		  "r"(__USER_DS)					   \
 		: "memory");						   \
 } while (0)
 
@@ -123,10 +127,13 @@ do {									\
 	int __d0;							\
 	might_sleep();							\
   	__asm__ __volatile__(						\
+		"	movw %w6,%%es\n"				\
 		"0:	rep; stosl\n"					\
 		"	movl %2,%0\n"					\
 		"1:	rep; stosb\n"					\
 		"2:\n"							\
+		"	pushl %%ss\n"					\
+		"	popl %%es\n"					\
 		".section .fixup,\"ax\"\n"				\
 		"3:	lea 0(%2,%0,4),%0\n"				\
 		"	jmp 2b\n"					\
@@ -137,7 +144,8 @@ do {									\
 		"	.long 1b,2b\n"					\
 		".previous"						\
 		: "=&c"(size), "=&D" (__d0)				\
-		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0));	\
+		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0),	\
+		  "r"(__USER_DS));					\
 } while (0)
 
 /**
@@ -198,14 +206,17 @@ long strnlen_user(const char __user *s, long n)
 	might_sleep();
 
 	__asm__ __volatile__(
+		"	movw %w8,%%es\n"
 		"	testl %0, %0\n"
 		"	jz 3f\n"
-		"	andl %0,%%ecx\n"
+		"	movl %0,%%ecx\n"
 		"0:	repne; scasb\n"
 		"	setne %%al\n"
 		"	subl %%ecx,%0\n"
 		"	addl %0,%%eax\n"
 		"1:\n"
+		"	pushl %%ss\n"
+		"	popl %%es\n"
 		".section .fixup,\"ax\"\n"
 		"2:	xorl %%eax,%%eax\n"
 		"	jmp 1b\n"
@@ -217,7 +228,7 @@ long strnlen_user(const char __user *s, long n)
 		"	.long 0b,2b\n"
 		".previous"
 		:"=r" (n), "=D" (s), "=a" (res), "=c" (tmp)
-		:"0" (n), "1" (s), "2" (0), "3" (mask)
+		:"0" (n), "1" (s), "2" (0), "3" (mask), "r" (__USER_DS)
 		:"cc");
 	return res & mask;
 }
@@ -229,6 +240,7 @@ __copy_user_intel(void __user *to, const void *from, unsigned long size)
 {
 	int d0, d1;
 	__asm__ __volatile__(
+		       "       movw %w6, %%es\n"
 		       "       .align 2,0x90\n"
 		       "1:     movl 32(%4), %%eax\n"
 		       "       cmpl $67, %0\n"
@@ -237,36 +249,36 @@ __copy_user_intel(void __user *to, const void *from, unsigned long size)
 		       "       .align 2,0x90\n"
 		       "3:     movl 0(%4), %%eax\n"
 		       "4:     movl 4(%4), %%edx\n"
-		       "5:     movl %%eax, 0(%3)\n"
-		       "6:     movl %%edx, 4(%3)\n"
+		       "5:     movl %%eax, %%es:0(%3)\n"
+		       "6:     movl %%edx, %%es:4(%3)\n"
 		       "7:     movl 8(%4), %%eax\n"
 		       "8:     movl 12(%4),%%edx\n"
-		       "9:     movl %%eax, 8(%3)\n"
-		       "10:    movl %%edx, 12(%3)\n"
+		       "9:     movl %%eax, %%es:8(%3)\n"
+		       "10:    movl %%edx, %%es:12(%3)\n"
 		       "11:    movl 16(%4), %%eax\n"
 		       "12:    movl 20(%4), %%edx\n"
-		       "13:    movl %%eax, 16(%3)\n"
-		       "14:    movl %%edx, 20(%3)\n"
+		       "13:    movl %%eax, %%es:16(%3)\n"
+		       "14:    movl %%edx, %%es:20(%3)\n"
 		       "15:    movl 24(%4), %%eax\n"
 		       "16:    movl 28(%4), %%edx\n"
-		       "17:    movl %%eax, 24(%3)\n"
-		       "18:    movl %%edx, 28(%3)\n"
+		       "17:    movl %%eax, %%es:24(%3)\n"
+		       "18:    movl %%edx, %%es:28(%3)\n"
 		       "19:    movl 32(%4), %%eax\n"
 		       "20:    movl 36(%4), %%edx\n"
-		       "21:    movl %%eax, 32(%3)\n"
-		       "22:    movl %%edx, 36(%3)\n"
+		       "21:    movl %%eax, %%es:32(%3)\n"
+		       "22:    movl %%edx, %%es:36(%3)\n"
 		       "23:    movl 40(%4), %%eax\n"
 		       "24:    movl 44(%4), %%edx\n"
-		       "25:    movl %%eax, 40(%3)\n"
-		       "26:    movl %%edx, 44(%3)\n"
+		       "25:    movl %%eax, %%es:40(%3)\n"
+		       "26:    movl %%edx, %%es:44(%3)\n"
 		       "27:    movl 48(%4), %%eax\n"
 		       "28:    movl 52(%4), %%edx\n"
-		       "29:    movl %%eax, 48(%3)\n"
-		       "30:    movl %%edx, 52(%3)\n"
+		       "29:    movl %%eax, %%es:48(%3)\n"
+		       "30:    movl %%edx, %%es:52(%3)\n"
 		       "31:    movl 56(%4), %%eax\n"
 		       "32:    movl 60(%4), %%edx\n"
-		       "33:    movl %%eax, 56(%3)\n"
-		       "34:    movl %%edx, 60(%3)\n"
+		       "33:    movl %%eax, %%es:56(%3)\n"
+		       "34:    movl %%edx, %%es:60(%3)\n"
 		       "       addl $-64, %0\n"
 		       "       addl $64, %4\n"
 		       "       addl $64, %3\n"
@@ -280,6 +292,8 @@ __copy_user_intel(void __user *to, const void *from, unsigned long size)
 		       "36:    movl %%eax, %0\n"
 		       "37:    rep; movsb\n"
 		       "100:\n"
+		       "       pushl %%ss\n"
+		       "       popl %%es\n"
 		       ".section .fixup,\"ax\"\n"
 		       "101:   lea 0(%%eax,%0,4),%0\n"
 		       "       jmp 100b\n"
@@ -326,7 +340,7 @@ __copy_user_intel(void __user *to, const void *from, unsigned long size)
 		       "       .long 99b,101b\n"
 		       ".previous"
 		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-		       :  "1"(to), "2"(from), "0"(size)
+		       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
 		       : "eax", "edx", "memory");
 	return size;
 }
@@ -336,6 +350,7 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 {
 	int d0, d1;
 	__asm__ __volatile__(
+		       "        movw %w6, %%ds\n"
 		       "        .align 2,0x90\n"
 		       "0:      movl 32(%4), %%eax\n"
 		       "        cmpl $67, %0\n"      
@@ -344,36 +359,36 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 		       "        .align 2,0x90\n"     
 		       "2:      movl 0(%4), %%eax\n" 
 		       "21:     movl 4(%4), %%edx\n" 
-		       "        movl %%eax, 0(%3)\n" 
-		       "        movl %%edx, 4(%3)\n" 
+		       "        movl %%eax, %%es:0(%3)\n" 
+		       "        movl %%edx, %%es:4(%3)\n" 
 		       "3:      movl 8(%4), %%eax\n" 
 		       "31:     movl 12(%4),%%edx\n" 
-		       "        movl %%eax, 8(%3)\n" 
-		       "        movl %%edx, 12(%3)\n"
+		       "        movl %%eax, %%es:8(%3)\n" 
+		       "        movl %%edx, %%es:12(%3)\n"
 		       "4:      movl 16(%4), %%eax\n"
 		       "41:     movl 20(%4), %%edx\n"
-		       "        movl %%eax, 16(%3)\n"
-		       "        movl %%edx, 20(%3)\n"
+		       "        movl %%eax, %%es:16(%3)\n"
+		       "        movl %%edx, %%es:20(%3)\n"
 		       "10:     movl 24(%4), %%eax\n"
 		       "51:     movl 28(%4), %%edx\n"
-		       "        movl %%eax, 24(%3)\n"
-		       "        movl %%edx, 28(%3)\n"
+		       "        movl %%eax, %%es:24(%3)\n"
+		       "        movl %%edx, %%es:28(%3)\n"
 		       "11:     movl 32(%4), %%eax\n"
 		       "61:     movl 36(%4), %%edx\n"
-		       "        movl %%eax, 32(%3)\n"
-		       "        movl %%edx, 36(%3)\n"
+		       "        movl %%eax, %%es:32(%3)\n"
+		       "        movl %%edx, %%es:36(%3)\n"
 		       "12:     movl 40(%4), %%eax\n"
 		       "71:     movl 44(%4), %%edx\n"
-		       "        movl %%eax, 40(%3)\n"
-		       "        movl %%edx, 44(%3)\n"
+		       "        movl %%eax, %%es:40(%3)\n"
+		       "        movl %%edx, %%es:44(%3)\n"
 		       "13:     movl 48(%4), %%eax\n"
 		       "81:     movl 52(%4), %%edx\n"
-		       "        movl %%eax, 48(%3)\n"
-		       "        movl %%edx, 52(%3)\n"
+		       "        movl %%eax, %%es:48(%3)\n"
+		       "        movl %%edx, %%es:52(%3)\n"
 		       "14:     movl 56(%4), %%eax\n"
 		       "91:     movl 60(%4), %%edx\n"
-		       "        movl %%eax, 56(%3)\n"
-		       "        movl %%edx, 60(%3)\n"
+		       "        movl %%eax, %%es:56(%3)\n"
+		       "        movl %%edx, %%es:60(%3)\n"
 		       "        addl $-64, %0\n"     
 		       "        addl $64, %4\n"      
 		       "        addl $64, %3\n"      
@@ -387,6 +402,8 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 		       "        movl %%eax,%0\n"
 		       "7:      rep; movsb\n"	
 		       "8:\n"			
+		       "        pushl %%ss\n"
+		       "        popl %%ds\n"
 		       ".section .fixup,\"ax\"\n"
 		       "9:      lea 0(%%eax,%0,4),%0\n"	
 		       "16:     pushl %0\n"	
@@ -421,7 +438,7 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 		       "        .long 7b,16b\n" 
 		       ".previous"		
 		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-		       :  "1"(to), "2"(from), "0"(size)
+		       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
 		       : "eax", "edx", "memory");
 	return size;
 }
@@ -441,6 +458,7 @@ __copy_user_intel(void __user *to, const void *from, unsigned long size);
 do {									\
 	int __d0, __d1, __d2;						\
 	__asm__ __volatile__(						\
+		"	movw %w8,%%es\n"				\
 		"	cmp  $7,%0\n"					\
 		"	jbe  1f\n"					\
 		"	movl %1,%0\n"					\
@@ -456,6 +474,8 @@ do {									\
 		"	movl %3,%0\n"					\
 		"1:	rep; movsb\n"					\
 		"2:\n"							\
+		"	pushl %%ss\n"					\
+		"	popl %%es\n"					\
 		".section .fixup,\"ax\"\n"				\
 		"5:	addl %3,%0\n"					\
 		"	jmp 2b\n"					\
@@ -469,7 +489,7 @@ do {									\
 		"	.long 1b,2b\n"					\
 		".previous"						\
 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)	\
-		: "3"(size), "0"(size), "1"(to), "2"(from)		\
+		: "3"(size), "0"(size), "1"(to), "2"(from), "r"(__USER_DS)\
 		: "memory");						\
 } while (0)
 
@@ -477,6 +497,7 @@ do {									\
 do {									\
 	int __d0, __d1, __d2;						\
 	__asm__ __volatile__(						\
+		"	movw %w8,%%ds\n"				\
 		"	cmp  $7,%0\n"					\
 		"	jbe  1f\n"					\
 		"	movl %1,%0\n"					\
@@ -492,6 +513,8 @@ do {									\
 		"	movl %3,%0\n"					\
 		"1:	rep; movsb\n"					\
 		"2:\n"							\
+		"	pushl %%ss\n"					\
+		"	popl %%ds\n"					\
 		".section .fixup,\"ax\"\n"				\
 		"5:	addl %3,%0\n"					\
 		"	jmp 6f\n"					\
@@ -511,7 +534,7 @@ do {									\
 		"	.long 1b,6b\n"					\
 		".previous"						\
 		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)	\
-		: "3"(size), "0"(size), "1"(to), "2"(from)		\
+		: "3"(size), "0"(size), "1"(to), "2"(from), "r"(__USER_DS)\
 		: "memory");						\
 } while (0)
 

@@ -58,7 +58,7 @@ struct elf_phdr;
 
 #define USE_ELF_CORE_DUMP 1
 
-/* Overwrite elfcore.h */ 
+/* Override elfcore.h */ 
 #define _LINUX_ELFCORE_H 1
 typedef unsigned int elf_greg_t;
 
@@ -350,7 +350,7 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 	struct mm_struct *mm = current->mm;
 	int i, ret;
 
-	stack_base = IA32_STACK_TOP - MAX_ARG_PAGES * PAGE_SIZE;
+	stack_base = stack_top - MAX_ARG_PAGES * PAGE_SIZE;
 	mm->arg_start = bprm->p + stack_base;
 
 	bprm->p += stack_base;
@@ -368,7 +368,7 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 	{
 		mpnt->vm_mm = mm;
 		mpnt->vm_start = PAGE_MASK & (unsigned long) bprm->p;
-		mpnt->vm_end = IA32_STACK_TOP;
+		mpnt->vm_end = stack_top;
 		if (executable_stack == EXSTACK_ENABLE_X)
 			mpnt->vm_flags = VM_STACK_FLAGS |  VM_EXEC;
 		else if (executable_stack == EXSTACK_DISABLE_X)

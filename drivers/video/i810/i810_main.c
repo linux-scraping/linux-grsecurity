@@ -76,8 +76,8 @@
  *
  * Experiment with v_offset to find out which works best for you.
  */
-static u32 v_offset_default __initdata; /* For 32 MiB Aper size, 8 should be the default */
-static u32 voffset          __initdata = 0;
+static u32 v_offset_default __devinitdata; /* For 32 MiB Aper size, 8 should be the default */
+static u32 voffset          __devinitdata;
 
 static int i810fb_cursor(struct fb_info *info, struct fb_cursor *cursor);
 static int  __devinit i810fb_init_pci (struct pci_dev *dev,
@@ -1508,7 +1508,7 @@ static int i810fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 		int size = ((cursor->image.width + 7) >> 3) *
 			cursor->image.height;
 		int i;
-		u8 *data = kmalloc(64 * 8, GFP_ATOMIC);
+		u8 *data = kmalloc(64 * 8, GFP_KERNEL);
 
 		if (data == NULL)
 			return -ENOMEM;

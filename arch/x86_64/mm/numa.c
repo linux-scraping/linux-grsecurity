@@ -25,8 +25,7 @@
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 bootmem_data_t plat_node_bdata[MAX_NUMNODES];
 
-int memnode_shift;
-u8  memnodemap[NODEMAPSIZE];
+struct memnode memnode;
 
 unsigned char cpu_to_node[NR_CPUS] __read_mostly = {
 	[0 ... NR_CPUS-1] = NUMA_NO_NODE
@@ -47,7 +46,7 @@ int numa_off __initdata;
  * -1 if node overlap or lost ram (shift too big)
  */
 static int __init
-populate_memnodemap(const struct node *nodes, int numnodes, int shift)
+populate_memnodemap(const struct bootnode *nodes, int numnodes, int shift)
 {
 	int i; 
 	int res = -1;
@@ -74,7 +73,7 @@ populate_memnodemap(const struct node *nodes, int numnodes, int shift)
 	return res;
 }
 
-int __init compute_hash_shift(struct node *nodes, int numnodes)
+int __init compute_hash_shift(struct bootnode *nodes, int numnodes)
 {
 	int shift = 20;
 
@@ -101,11 +100,30 @@ int early_pfn_to_nid(unsigned long pfn)
 }
 #endif
 
+static void * __init
+early_node_mem(int nodeid, unsigned long start, unsigned long end,
+	      unsigned long size)
+{
+	unsigned long mem = find_e820_area(start, end, size);
+	void *ptr;
+	if (mem != -1L)
+		return __va(mem);
+	ptr = __alloc_bootmem_nopanic(size,
+				SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS));
+	if (ptr == 0) {
+		printk(KERN_ERR "Cannot find %lu bytes in node %d\n",
+			size, nodeid);
+		return NULL;
+	}
+	return ptr;
+}
+
 /* Initialize bootmem allocator for a node */
 void __init setup_node_bootmem(int nodeid, unsigned long start, unsigned long end)
 { 
 	unsigned long start_pfn, end_pfn, bootmap_pages, bootmap_size, bootmap_start; 
 	unsigned long nodedata_phys;
+	void *bootmap;
 	const int pgdat_size = round_up(sizeof(pg_data_t), PAGE_SIZE);
 
 	start = round_up(start, ZONE_ALIGN); 
@@ -115,13 +133,11 @@ void __init setup_node_bootmem(int nodeid, unsigned long start, unsigned long en
 	start_pfn = start >> PAGE_SHIFT;
 	end_pfn = end >> PAGE_SHIFT;
 
-	nodedata_phys = find_e820_area(start, end, pgdat_size); 
-	if (nodedata_phys == -1L) 
-		panic("Cannot find memory pgdat in node %d\n", nodeid);
+	node_data[nodeid] = early_node_mem(nodeid, start, end, pgdat_size);
+	if (node_data[nodeid] == NULL)
+		return;
+	nodedata_phys = __pa(node_data[nodeid]);
 
-	Dprintk("nodedata_phys %lx\n", nodedata_phys); 
-
-	node_data[nodeid] = phys_to_virt(nodedata_phys);
 	memset(NODE_DATA(nodeid), 0, sizeof(pg_data_t));
 	NODE_DATA(nodeid)->bdata = &plat_node_bdata[nodeid];
 	NODE_DATA(nodeid)->node_start_pfn = start_pfn;
@@ -130,9 +146,15 @@ void __init setup_node_bootmem(int nodeid, unsigned long start, unsigned long en
 	/* Find a place for the bootmem map */
 	bootmap_pages = bootmem_bootmap_pages(end_pfn - start_pfn); 
 	bootmap_start = round_up(nodedata_phys + pgdat_size, PAGE_SIZE);
-	bootmap_start = find_e820_area(bootmap_start, end, bootmap_pages<<PAGE_SHIFT);
-	if (bootmap_start == -1L) 
-		panic("Not enough continuous space for bootmap on node %d", nodeid); 
+	bootmap = early_node_mem(nodeid, bootmap_start, end,
+					bootmap_pages<<PAGE_SHIFT);
+	if (bootmap == NULL)  {
+		if (nodedata_phys < start || nodedata_phys >= end)
+			free_bootmem((unsigned long)node_data[nodeid],pgdat_size);
+		node_data[nodeid] = NULL;
+		return;
+	}
+	bootmap_start = __pa(bootmap);
 	Dprintk("bootmap start %lu pages %lu\n", bootmap_start, bootmap_pages); 
 	
 	bootmap_size = init_bootmem_node(NODE_DATA(nodeid),
@@ -143,13 +165,16 @@ void __init setup_node_bootmem(int nodeid, unsigned long start, unsigned long en
 
 	reserve_bootmem_node(NODE_DATA(nodeid), nodedata_phys, pgdat_size); 
 	reserve_bootmem_node(NODE_DATA(nodeid), bootmap_start, bootmap_pages<<PAGE_SHIFT);
+#ifdef CONFIG_ACPI_NUMA
+	srat_reserve_add_area(nodeid);
+#endif
 	node_set_online(nodeid);
 } 
 
 /* Initialize final allocator for a zone */
 void __init setup_node_zones(int nodeid)
 { 
-	unsigned long start_pfn, end_pfn; 
+	unsigned long start_pfn, end_pfn, memmapsize, limit;
 	unsigned long zones[MAX_NR_ZONES];
 	unsigned long holes[MAX_NR_ZONES];
 
@@ -158,6 +183,18 @@ void __init setup_node_zones(int nodeid)
 
 	Dprintk(KERN_INFO "Setting up node %d %lx-%lx\n",
 		nodeid, start_pfn, end_pfn);
+
+	/* Try to allocate mem_map at end to not fill up precious <4GB
+	   memory. */
+	memmapsize = sizeof(struct page) * (end_pfn-start_pfn);
+	limit = end_pfn << PAGE_SHIFT;
+#ifdef CONFIG_FLAT_NODE_MEM_MAP
+	NODE_DATA(nodeid)->node_mem_map = 
+		__alloc_bootmem_core(NODE_DATA(nodeid)->bdata, 
+				memmapsize, SMP_CACHE_BYTES, 
+				round_down(limit - memmapsize, PAGE_SIZE), 
+				limit);
+#endif
 
 	size_zones(zones, holes, start_pfn, end_pfn);
 	free_area_init_node(nodeid, NODE_DATA(nodeid), zones,
@@ -191,7 +228,7 @@ int numa_fake __initdata = 0;
 static int numa_emulation(unsigned long start_pfn, unsigned long end_pfn)
 {
  	int i;
- 	struct node nodes[MAX_NUMNODES];
+ 	struct bootnode nodes[MAX_NUMNODES];
  	unsigned long sz = ((end_pfn - start_pfn)<<PAGE_SHIFT) / numa_fake;
 
  	/* Kludge needed for the hash function */
@@ -326,6 +363,8 @@ __init int numa_setup(char *opt)
 #ifdef CONFIG_ACPI_NUMA
  	if (!strncmp(opt,"noacpi",6))
  		acpi_numa = -1;
+	if (!strncmp(opt,"hotadd=", 7))
+		hotadd_percent = simple_strtoul(opt+7, NULL, 10);
 #endif
 	return 1;
 } 
@@ -357,8 +396,7 @@ void __init init_cpu_to_node(void)
 
 EXPORT_SYMBOL(cpu_to_node);
 EXPORT_SYMBOL(node_to_cpumask);
-EXPORT_SYMBOL(memnode_shift);
-EXPORT_SYMBOL(memnodemap);
+EXPORT_SYMBOL(memnode);
 EXPORT_SYMBOL(node_data);
 
 #ifdef CONFIG_DISCONTIGMEM
@@ -368,21 +406,6 @@ EXPORT_SYMBOL(node_data);
  * They could be all tuned by pre caching more state.
  * Should do that.
  */
-
-/* Requires pfn_valid(pfn) to be true */
-struct page *pfn_to_page(unsigned long pfn)
-{
-	int nid = phys_to_nid(((unsigned long)(pfn)) << PAGE_SHIFT);
-	return (pfn - node_start_pfn(nid)) + NODE_DATA(nid)->node_mem_map;
-}
-EXPORT_SYMBOL(pfn_to_page);
-
-unsigned long page_to_pfn(struct page *page)
-{
-	return (long)(((page) - page_zone(page)->zone_mem_map) +
-		      page_zone(page)->zone_start_pfn);
-}
-EXPORT_SYMBOL(page_to_pfn);
 
 int pfn_valid(unsigned long pfn)
 {

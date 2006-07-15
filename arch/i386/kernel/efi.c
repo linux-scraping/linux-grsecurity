@@ -337,7 +337,7 @@ void __init efi_init(void)
 	 */
 	c16 = (efi_char16_t *) boot_ioremap(efi.systab->fw_vendor, 2);
 	if (c16) {
-		for (i = 0; i < sizeof(vendor) && *c16; ++i)
+		for (i = 0; i < (sizeof(vendor) - 1) && *c16; ++i)
 			vendor[i] = *c16++;
 		vendor[i] = '\0';
 	} else
@@ -357,29 +357,38 @@ void __init efi_init(void)
 	if (config_tables == NULL)
 		printk(KERN_ERR PFX "Could not map EFI Configuration Table!\n");
 
+	efi.mps        = EFI_INVALID_TABLE_ADDR;
+	efi.acpi       = EFI_INVALID_TABLE_ADDR;
+	efi.acpi20     = EFI_INVALID_TABLE_ADDR;
+	efi.smbios     = EFI_INVALID_TABLE_ADDR;
+	efi.sal_systab = EFI_INVALID_TABLE_ADDR;
+	efi.boot_info  = EFI_INVALID_TABLE_ADDR;
+	efi.hcdp       = EFI_INVALID_TABLE_ADDR;
+	efi.uga        = EFI_INVALID_TABLE_ADDR;
+
 	for (i = 0; i < num_config_tables; i++) {
 		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) == 0) {
-			efi.mps = (void *)config_tables[i].table;
+			efi.mps = config_tables[i].table;
 			printk(KERN_INFO " MPS=0x%lx ", config_tables[i].table);
 		} else
 		    if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) == 0) {
-			efi.acpi20 = __va(config_tables[i].table);
+			efi.acpi20 = config_tables[i].table;
 			printk(KERN_INFO " ACPI 2.0=0x%lx ", config_tables[i].table);
 		} else
 		    if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) == 0) {
-			efi.acpi = __va(config_tables[i].table);
+			efi.acpi = config_tables[i].table;
 			printk(KERN_INFO " ACPI=0x%lx ", config_tables[i].table);
 		} else
 		    if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) == 0) {
-			efi.smbios = (void *) config_tables[i].table;
+			efi.smbios = config_tables[i].table;
 			printk(KERN_INFO " SMBIOS=0x%lx ", config_tables[i].table);
 		} else
 		    if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) == 0) {
-			efi.hcdp = (void *)config_tables[i].table;
+			efi.hcdp = config_tables[i].table;
 			printk(KERN_INFO " HCDP=0x%lx ", config_tables[i].table);
 		} else
 		    if (efi_guidcmp(config_tables[i].guid, UGA_IO_PROTOCOL_GUID) == 0) {
-			efi.uga = (void *)config_tables[i].table;
+			efi.uga = config_tables[i].table;
 			printk(KERN_INFO " UGA=0x%lx ", config_tables[i].table);
 		}
 	}
@@ -519,7 +528,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
 		if ((md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT)) >
 		    0x100000000ULL)
 			continue;
-		res = alloc_bootmem_low(sizeof(struct resource));
+		res = kzalloc(sizeof(struct resource), GFP_ATOMIC);
 		switch (md->type) {
 		case EFI_RESERVED_TYPE:
 			res->name = "Reserved Memory";

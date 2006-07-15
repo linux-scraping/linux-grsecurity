@@ -60,7 +60,7 @@ static u32 __init allocate_aperture(void)
 		printk("Cannot allocate aperture memory hole (%p,%uK)\n",
 		       p, aper_size>>10);
 		if (p)
-			free_bootmem_node(nd0, (unsigned long)p, aper_size); 
+			free_bootmem_node(nd0, __pa(p), aper_size); 
 		return 0;
 	}
 	printk("Mapping aperture over %d KB of RAM @ %lx\n",
@@ -80,7 +80,7 @@ static int __init aperture_valid(char *name, u64 aper_base, u32 aper_size)
 		printk("Aperture from %s beyond 4GB. Ignoring.\n",name);
 		return 0; 
 	}
-	if (e820_mapped(aper_base, aper_base + aper_size, E820_RAM)) {  
+	if (e820_any_mapped(aper_base, aper_base + aper_size, E820_RAM)) {
 		printk("Aperture from %s pointing to e820 RAM. Ignoring.\n",name);
 		return 0; 
 	} 
@@ -161,7 +161,7 @@ static __u32 __init search_agp_bridge(u32 *order, int *valid_agp)
 	int num, slot, func;
 
 	/* Poor man's PCI discovery */
-	for (num = 0; num < 32; num++) { 
+	for (num = 0; num < 256; num++) { 
 		for (slot = 0; slot < 32; slot++) { 
 			for (func = 0; func < 8; func++) { 
 				u32 class, cap;

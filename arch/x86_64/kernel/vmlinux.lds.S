@@ -20,6 +20,12 @@ SECTIONS
   phys_startup_64 = startup_64 - LOAD_OFFSET;
   _text = .;			/* Text and read-only data */
   .text :  AT(ADDR(.text) - LOAD_OFFSET) {
+	/* First the code that has to be first for bootstrapping */
+	*(.bootstrap.text)
+	/* Then all the functions that are "hot" in profiles, to group them
+           onto the same hugetlb entry */
+	#include "functionlist"
+	/* Then the rest */
 	*(.text)
 	SCHED_TEXT
 	LOCK_TEXT
@@ -59,7 +65,7 @@ SECTIONS
   .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
 	*(.data.cacheline_aligned)
   }
-  . = ALIGN(CONFIG_X86_L1_CACHE_BYTES);
+  . = ALIGN(CONFIG_X86_INTERNODE_CACHE_BYTES);
   .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) {
   	*(.data.read_mostly)
   }

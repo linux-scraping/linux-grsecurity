@@ -315,10 +315,11 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 		if (r1_bio->bios[mirror] == bio)
 			break;
 
-	if (error == -ENOTSUPP && test_bit(R1BIO_Barrier, &r1_bio->state)) {
+	if (error == -EOPNOTSUPP && test_bit(R1BIO_Barrier, &r1_bio->state)) {
 		set_bit(BarriersNotsupp, &conf->mirrors[mirror].rdev->flags);
 		set_bit(R1BIO_BarrierRetry, &r1_bio->state);
 		r1_bio->mddev->barriers_work = 0;
+		/* Don't rdev_dec_pending in this branch - keep it for the retry */
 	} else {
 		/*
 		 * this branch is our 'one mirror IO has finished' event handler:
@@ -365,6 +366,7 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 				}
 			}
 		}
+		rdev_dec_pending(conf->mirrors[mirror].rdev, conf->mddev);
 	}
 	/*
 	 *
@@ -374,11 +376,9 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 	if (atomic_dec_and_test(&r1_bio->remaining)) {
 		if (test_bit(R1BIO_BarrierRetry, &r1_bio->state)) {
 			reschedule_retry(r1_bio);
-			/* Don't dec_pending yet, we want to hold
-			 * the reference over the retry
-			 */
 			goto out;
 		}
+		/* it really is the end of this request */
 		if (test_bit(R1BIO_BehindIO, &r1_bio->state)) {
 			/* free extra copy of the data pages */
 			int i = bio->bi_vcnt;
@@ -393,8 +393,6 @@ static int raid1_end_write_request(struct bio *bio, unsigned int bytes_done, int
 		md_write_end(r1_bio->mddev);
 		raid_end_bio_io(r1_bio);
 	}
-
-	rdev_dec_pending(conf->mirrors[mirror].rdev, conf->mddev);
  out:
 	if (to_put)
 		bio_put(to_put);
@@ -753,17 +751,23 @@ static int make_request(request_queue_t *q, struct bio * bio)
 	const int rw = bio_data_dir(bio);
 	int do_barriers;
 
-	if (unlikely(!mddev->barriers_work && bio_barrier(bio))) {
-		bio_endio(bio, bio->bi_size, -EOPNOTSUPP);
-		return 0;
-	}
-
 	/*
 	 * Register the new request and wait if the reconstruction
 	 * thread has put up a bar for new requests.
 	 * Continue immediately if no resync is active currently.
+	 * We test barriers_work *after* md_write_start as md_write_start
+	 * may cause the first superblock write, and that will check out
+	 * if barriers work.
 	 */
+
 	md_write_start(mddev, bio); /* wait on superblock update early */
+
+	if (unlikely(!mddev->barriers_work && bio_barrier(bio))) {
+		if (rw == WRITE)
+			md_write_end(mddev);
+		bio_endio(bio, bio->bi_size, -EOPNOTSUPP);
+		return 0;
+	}
 
 	wait_barrier(conf);
 
@@ -1135,8 +1139,19 @@ static int end_sync_write(struct bio *bio, unsigned int bytes_done, int error)
 			mirror = i;
 			break;
 		}
-	if (!uptodate)
+	if (!uptodate) {
+		int sync_blocks = 0;
+		sector_t s = r1_bio->sector;
+		long sectors_to_go = r1_bio->sectors;
+		/* make sure these bits doesn't get cleared. */
+		do {
+			bitmap_end_sync(mddev->bitmap, r1_bio->sector,
+					&sync_blocks, 1);
+			s += sync_blocks;
+			sectors_to_go -= sync_blocks;
+		} while (sectors_to_go > 0);
 		md_error(mddev, conf->mirrors[mirror].rdev);
+	}
 
 	update_head_pos(mirror, r1_bio);
 
@@ -1393,14 +1408,18 @@ static void raid1d(mddev_t *mddev)
 			unplug = 1;
 		} else if (test_bit(R1BIO_BarrierRetry, &r1_bio->state)) {
 			/* some requests in the r1bio were BIO_RW_BARRIER
-			 * requests which failed with -ENOTSUPP.  Hohumm..
+			 * requests which failed with -EOPNOTSUPP.  Hohumm..
 			 * Better resubmit without the barrier.
 			 * We know which devices to resubmit for, because
 			 * all others have had their bios[] entry cleared.
+			 * We already have a nr_pending reference on these rdevs.
 			 */
 			int i;
 			clear_bit(R1BIO_BarrierRetry, &r1_bio->state);
 			clear_bit(R1BIO_Barrier, &r1_bio->state);
+			for (i=0; i < conf->raid_disks; i++)
+				if (r1_bio->bios[i])
+					atomic_inc(&r1_bio->remaining);
 			for (i=0; i < conf->raid_disks; i++)
 				if (r1_bio->bios[i]) {
 					struct bio_vec *bvec;
@@ -1544,8 +1563,7 @@ static int init_resync(conf_t *conf)
 	int buffs;
 
 	buffs = RESYNC_WINDOW / RESYNC_BLOCK_SIZE;
-	if (conf->r1buf_pool)
-		BUG();
+	BUG_ON(conf->r1buf_pool);
 	conf->r1buf_pool = mempool_create(buffs, r1buf_pool_alloc, r1buf_pool_free,
 					  conf->poolinfo);
 	if (!conf->r1buf_pool)
@@ -1718,8 +1736,7 @@ static sector_t sync_request(mddev_t *mddev, sector_t sector_nr, int *skipped, i
 			    !conf->fullsync &&
 			    !test_bit(MD_RECOVERY_REQUESTED, &mddev->recovery))
 				break;
-			if (sync_blocks < (PAGE_SIZE>>9))
-				BUG();
+			BUG_ON(sync_blocks < (PAGE_SIZE>>9));
 			if (len > (sync_blocks<<9))
 				len = sync_blocks<<9;
 		}
@@ -1787,6 +1804,11 @@ static int run(mddev_t *mddev)
 	if (mddev->level != 1) {
 		printk("raid1: %s: raid level not set to mirroring (%d)\n",
 		       mdname(mddev), mddev->level);
+		goto out;
+	}
+	if (mddev->reshape_position != MaxSector) {
+		printk("raid1: %s: reshape_position set but not supported\n",
+		       mdname(mddev));
 		goto out;
 	}
 	/*
@@ -1971,7 +1993,7 @@ static int raid1_resize(mddev_t *mddev, sector_t sectors)
 	return 0;
 }
 
-static int raid1_reshape(mddev_t *mddev, int raid_disks)
+static int raid1_reshape(mddev_t *mddev)
 {
 	/* We need to:
 	 * 1/ resize the r1bio_pool
@@ -1988,9 +2010,21 @@ static int raid1_reshape(mddev_t *mddev, int raid_disks)
 	struct pool_info *newpoolinfo;
 	mirror_info_t *newmirrors;
 	conf_t *conf = mddev_to_conf(mddev);
-	int cnt;
+	int cnt, raid_disks;
 
 	int d, d2;
+
+	/* Cannot change chunk_size, layout, or level */
+	if (mddev->chunk_size != mddev->new_chunk ||
+	    mddev->layout != mddev->new_layout ||
+	    mddev->level != mddev->new_level) {
+		mddev->new_chunk = mddev->chunk_size;
+		mddev->new_layout = mddev->layout;
+		mddev->new_level = mddev->level;
+		return -EINVAL;
+	}
+
+	raid_disks = mddev->raid_disks + mddev->delta_disks;
 
 	if (raid_disks < conf->raid_disks) {
 		cnt=0;
@@ -2038,6 +2072,7 @@ static int raid1_reshape(mddev_t *mddev, int raid_disks)
 
 	mddev->degraded += (raid_disks - conf->raid_disks);
 	conf->raid_disks = mddev->raid_disks = raid_disks;
+	mddev->delta_disks = 0;
 
 	conf->last_used = 0; /* just make sure it is in-range */
 	lower_barrier(conf);
@@ -2079,7 +2114,7 @@ static struct mdk_personality raid1_personality =
 	.spare_active	= raid1_spare_active,
 	.sync_request	= sync_request,
 	.resize		= raid1_resize,
-	.reshape	= raid1_reshape,
+	.check_reshape	= raid1_reshape,
 	.quiesce	= raid1_quiesce,
 };
 

@@ -45,7 +45,7 @@ static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
 static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
 
-static struct pci_device_id snd_cs5535audio_ids[] = {
+static struct pci_device_id snd_cs5535audio_ids[] __devinitdata = {
 	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_CS5535_AUDIO,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0, },
 	{ PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_CS5536_AUDIO,
@@ -62,7 +62,7 @@ static void wait_till_cmd_acked(struct cs5535audio *cs5535au, unsigned long time
 		tmp = cs_readl(cs5535au, ACC_CODEC_CNTL);
 		if (!(tmp & CMD_NEW))
 			break;
-		msleep(10);
+		udelay(1);
 	} while (--timeout);
 	if (!timeout)
 		snd_printk(KERN_ERR "Failure writing to cs5535 codec\n");
@@ -80,14 +80,14 @@ static unsigned short snd_cs5535audio_codec_read(struct cs5535audio *cs5535au,
 	regdata |= CMD_NEW;
 
 	cs_writel(cs5535au, ACC_CODEC_CNTL, regdata);
-	wait_till_cmd_acked(cs5535au, 500);
+	wait_till_cmd_acked(cs5535au, 50);
 
 	timeout = 50;
 	do {
 		val = cs_readl(cs5535au, ACC_CODEC_STATUS);
 		if ((val & STS_NEW) && reg == (val >> 24))
 			break;
-		msleep(10);
+		udelay(1);
 	} while (--timeout);
 	if (!timeout)
 		snd_printk(KERN_ERR "Failure reading cs5535 codec\n");

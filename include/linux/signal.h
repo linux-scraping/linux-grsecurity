@@ -14,10 +14,12 @@
  *
  * SA_INTERRUPT is also used by the irq handling routines.
  * SA_SHIRQ is for shared interrupt support on PCI and EISA.
+ * SA_PROBEIRQ is set by callers when they expect sharing mismatches to occur
  */
-#define SA_PROBE		SA_ONESHOT
 #define SA_SAMPLE_RANDOM	SA_RESTART
 #define SA_SHIRQ		0x04000000
+#define SA_PROBEIRQ		0x08000000
+
 /*
  * As above, these correspond to the IORESOURCE_IRQ_* defines in
  * linux/ioport.h to select the interrupt line behaviour.  When
@@ -248,6 +250,8 @@ static inline void init_sigpending(struct sigpending *sig)
 	sigemptyset(&sig->signal);
 	INIT_LIST_HEAD(&sig->list);
 }
+
+extern void flush_sigqueue(struct sigpending *queue);
 
 /* Test if 'sig' is valid signal. Use this instead of testing _NSIG directly */
 static inline int valid_signal(unsigned long sig)

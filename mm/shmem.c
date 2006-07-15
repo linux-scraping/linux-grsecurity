@@ -46,6 +46,8 @@
 #include <linux/mempolicy.h>
 #include <linux/namei.h>
 #include <linux/ctype.h>
+#include <linux/migrate.h>
+
 #include <asm/uaccess.h>
 #include <asm/div64.h>
 #include <asm/pgtable.h>
@@ -875,7 +877,7 @@ redirty:
 }
 
 #ifdef CONFIG_NUMA
-static int shmem_parse_mpol(char *value, int *policy, nodemask_t *policy_nodes)
+static inline int shmem_parse_mpol(char *value, int *policy, nodemask_t *policy_nodes)
 {
 	char *nodelist = strchr(value, ':');
 	int err = 1;
@@ -1778,6 +1780,7 @@ static int shmem_rmdir(struct inode *dir, struct dentry *dentry)
 	if (!simple_empty(dentry))
 		return -ENOTEMPTY;
 
+	dentry->d_inode->i_nlink--;
 	dir->i_nlink--;
 	return shmem_unlink(dir, dentry);
 }
@@ -2100,6 +2103,7 @@ static int shmem_fill_super(struct super_block *sb,
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
 	sb->s_magic = TMPFS_MAGIC;
 	sb->s_op = &shmem_ops;
+	sb->s_time_gran = 1;
 
 	inode = shmem_get_inode(sb, S_IFDIR | mode, 0);
 	if (!inode)
@@ -2119,7 +2123,7 @@ failed:
 	return err;
 }
 
-static kmem_cache_t *shmem_inode_cachep;
+static struct kmem_cache *shmem_inode_cachep;
 
 static struct inode *shmem_alloc_inode(struct super_block *sb)
 {
@@ -2139,7 +2143,8 @@ static void shmem_destroy_inode(struct inode *inode)
 	kmem_cache_free(shmem_inode_cachep, SHMEM_I(inode));
 }
 
-static void init_once(void *foo, kmem_cache_t *cachep, unsigned long flags)
+static void init_once(void *foo, struct kmem_cache *cachep,
+		      unsigned long flags)
 {
 	struct shmem_inode_info *p = (struct shmem_inode_info *) foo;
 
@@ -2172,6 +2177,7 @@ static struct address_space_operations shmem_aops = {
 	.prepare_write	= shmem_prepare_write,
 	.commit_write	= simple_commit_write,
 #endif
+	.migratepage	= migrate_page,
 };
 
 static struct file_operations shmem_file_operations = {
@@ -2239,7 +2245,7 @@ static struct file_system_type tmpfs_fs_type = {
 	.get_sb		= shmem_get_sb,
 	.kill_sb	= kill_litter_super,
 };
-static struct vfsmount *shm_mnt;
+struct vfsmount *shm_mnt;
 
 static int __init init_tmpfs(void)
 {

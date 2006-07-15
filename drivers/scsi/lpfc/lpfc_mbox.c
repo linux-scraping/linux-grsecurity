@@ -1,7 +1,7 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2004-2005 Emulex.  All rights reserved.           *
+ * Copyright (C) 2004-2006 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
  * www.emulex.com                                                  *
  * Portions Copyright (C) 2004-2005 Christoph Hellwig              *
@@ -195,7 +195,13 @@ lpfc_init_link(struct lpfc_hba * phba,
 		mb->un.varInitLnk.link_flags = FLAGS_TOPOLOGY_MODE_PT_PT;
 		mb->un.varInitLnk.link_flags |= FLAGS_TOPOLOGY_FAILOVER;
 		break;
+	case FLAGS_LOCAL_LB:
+		mb->un.varInitLnk.link_flags = FLAGS_LOCAL_LB;
+		break;
 	}
+
+	/* Enable asynchronous ABTS responses from firmware */
+	mb->un.varInitLnk.link_flags |= FLAGS_IMED_ABORT;
 
 	/* NEW_FEATURE
 	 * Setting up the link speed
@@ -289,36 +295,6 @@ lpfc_unreg_did(struct lpfc_hba * phba, uint32_t did, LPFC_MBOXQ_t * pmb)
 	return;
 }
 
-/***********************************************/
-
-/*                  command to write slim      */
-/***********************************************/
-void
-lpfc_set_slim(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb, uint32_t addr,
-	      uint32_t value)
-{
-	MAILBOX_t *mb;
-
-	mb = &pmb->mb;
-	memset(pmb, 0, sizeof (LPFC_MBOXQ_t));
-
-	/* addr = 0x090597 is AUTO ABTS disable for ELS commands */
-	/* addr = 0x052198 is DELAYED ABTS enable for ELS commands */
-
-	/*
-	 * Always turn on DELAYED ABTS for ELS timeouts
-	 */
-	if ((addr == 0x052198) && (value == 0))
-		value = 1;
-
-	mb->un.varWords[0] = addr;
-	mb->un.varWords[1] = value;
-
-	mb->mbxCommand = MBX_SET_SLIM;
-	mb->mbxOwner = OWN_HOST;
-	return;
-}
-
 /**********************************************/
 /*  lpfc_read_nv  Issue a READ CONFIG         */
 /*                mailbox command             */
@@ -332,6 +308,23 @@ lpfc_read_config(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb)
 	memset(pmb, 0, sizeof (LPFC_MBOXQ_t));
 
 	mb->mbxCommand = MBX_READ_CONFIG;
+	mb->mbxOwner = OWN_HOST;
+	return;
+}
+
+/*************************************************/
+/*  lpfc_read_lnk_stat  Issue a READ LINK STATUS */
+/*                mailbox command                */
+/*************************************************/
+void
+lpfc_read_lnk_stat(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb)
+{
+	MAILBOX_t *mb;
+
+	mb = &pmb->mb;
+	memset(pmb, 0, sizeof (LPFC_MBOXQ_t));
+
+	mb->mbxCommand = MBX_READ_LNK_STAT;
 	mb->mbxOwner = OWN_HOST;
 	return;
 }
@@ -617,6 +610,17 @@ lpfc_config_port(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb)
 	lpfc_printf_log(phba, KERN_INFO, LOG_INIT,
 		        "%d:0405 Service Level Interface (SLI) 2 selected\n",
 		        phba->brd_no);
+}
+
+void
+lpfc_kill_board(struct lpfc_hba * phba, LPFC_MBOXQ_t * pmb)
+{
+	MAILBOX_t *mb = &pmb->mb;
+
+	memset(pmb, 0, sizeof(LPFC_MBOXQ_t));
+	mb->mbxCommand = MBX_KILL_BOARD;
+	mb->mbxOwner = OWN_HOST;
+	return;
 }
 
 void

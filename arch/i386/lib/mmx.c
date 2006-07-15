@@ -48,14 +48,30 @@ void *_mmx_memcpy(void *to, const void *from, size_t len)
 		"   prefetch 256(%0)\n"
 		"2:  \n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+		"3:  \n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   cli\n"
+		"   movl %%cr0, %%eax\n"
+		"   andl $0xFFFEFFFF, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+#endif
+
+		" movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   orl $0x00010000, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+		"   sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from) );
+		: : "r" (from) : "ax");
 		
 	
 	for(; i>5; i--)
@@ -79,14 +95,30 @@ void *_mmx_memcpy(void *to, const void *from, size_t len)
 		"  movq %%mm2, 48(%1)\n"
 		"  movq %%mm3, 56(%1)\n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+		"3:\n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"  cli\n"
+		"  movl %%cr0, %%eax\n"
+		"  andl $0xFFFEFFFF, %%eax\n"
+		"  movl %%eax, %%cr0\n"
+#endif
+
+		"  movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"  orl $0x00010000, %%eax\n"
+		"  movl %%eax, %%cr0\n"
+		"  sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from), "r" (to) : "memory");
+		: : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;
 	}
@@ -179,14 +211,30 @@ static void fast_copy_page(void *to, void *from)
 		"   prefetch 256(%0)\n"
 		"2:  \n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+		"3:  \n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   cli\n"
+		"   movl %%cr0, %%eax\n"
+		"   andl $0xFFFEFFFF, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+#endif
+
+		"   movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   orl $0x00010000, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+		"   sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from) );
+		: : "r" (from) : "ax");
 
 	for(i=0; i<(4096-320)/64; i++)
 	{
@@ -209,14 +257,30 @@ static void fast_copy_page(void *to, void *from)
 		"   movq 56(%0), %%mm7\n"
 		"   movntq %%mm7, 56(%1)\n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+		"3:\n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   cli\n"
+		"   movl %%cr0, %%eax\n"
+		"   andl $0xFFFEFFFF, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+#endif
+
+		"   movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   orl $0x00010000, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+		"   sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from), "r" (to) : "memory");
+		: : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;
 	}
@@ -309,14 +373,30 @@ static void fast_copy_page(void *to, void *from)
 		"   prefetch 256(%0)\n"
 		"2:  \n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+		"3:  \n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   cli\n"
+		"   movl %%cr0, %%eax\n"
+		"   andl $0xFFFEFFFF, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+#endif
+
+		"   movw $0x1AEB, 1b\n"	/* jmp on 26 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   orl $0x00010000, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+		"   sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from) );
+		: : "r" (from) : "ax");
 
 	for(i=0; i<4096/64; i++)
 	{
@@ -339,14 +419,30 @@ static void fast_copy_page(void *to, void *from)
 		"   movq %%mm2, 48(%1)\n"
 		"   movq %%mm3, 56(%1)\n"
 		".section .fixup, \"ax\"\n"
-		"3: movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+		"3:\n"
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   cli\n"
+		"   movl %%cr0, %%eax\n"
+		"   andl $0xFFFEFFFF, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+#endif
+
+		"   movw $0x05EB, 1b\n"	/* jmp on 5 bytes */
+
+#ifdef CONFIG_PAX_KERNEXEC
+		"   orl $0x00010000, %%eax\n"
+		"   movl %%eax, %%cr0\n"
+		"   sti\n"
+#endif
+
 		"   jmp 2b\n"
 		".previous\n"
 		".section __ex_table,\"a\"\n"
 		"	.align 4\n"
 		"	.long 1b, 3b\n"
 		".previous"
-		: : "r" (from), "r" (to) : "memory");
+		: : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;
 	}

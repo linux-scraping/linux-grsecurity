@@ -69,8 +69,8 @@ int cap_settime(struct timespec *ts, struct timezone *tz)
 int cap_ptrace (struct task_struct *parent, struct task_struct *child)
 {
 	/* Derived from arch/i386/kernel/ptrace.c:sys_ptrace. */
-	if (!cap_issubset (child->cap_permitted, current->cap_permitted) &&
-	    !capable_nolog(CAP_SYS_PTRACE))
+	if (!cap_issubset(child->cap_permitted, parent->cap_permitted) &&
+	    !__capable(parent, CAP_SYS_PTRACE))
 		return -EPERM;
 	return 0;
 }

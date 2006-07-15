@@ -17,11 +17,14 @@
 
 #include <asm/scatterlist.h>
 
+struct scsi_ioctl_command;
+
 struct request_queue;
 typedef struct request_queue request_queue_t;
 struct elevator_queue;
 typedef struct elevator_queue elevator_t;
 struct request_pm_state;
+struct blk_trace;
 
 #define BLKDEV_MIN_RQ	4
 #define BLKDEV_MAX_RQ	128	/* Default maximum */
@@ -54,23 +57,29 @@ struct as_io_context {
 
 struct cfq_queue;
 struct cfq_io_context {
-	/*
-	 * circular list of cfq_io_contexts belonging to a process io context
-	 */
-	struct list_head list;
-	struct cfq_queue *cfqq;
+	struct rb_node rb_node;
 	void *key;
+
+	struct cfq_queue *cfqq[2];
 
 	struct io_context *ioc;
 
 	unsigned long last_end_request;
-	unsigned long last_queue;
+	sector_t last_request_pos;
+ 	unsigned long last_queue;
+
 	unsigned long ttime_total;
 	unsigned long ttime_samples;
 	unsigned long ttime_mean;
 
-	void (*dtor)(struct cfq_io_context *);
-	void (*exit)(struct cfq_io_context *);
+	unsigned int seek_samples;
+	u64 seek_total;
+	sector_t seek_mean;
+
+	struct list_head queue_list;
+
+	void (*dtor)(struct io_context *); /* destructor */
+	void (*exit)(struct io_context *); /* called on task exit */
 };
 
 /*
@@ -91,7 +100,7 @@ struct io_context {
 	int nr_batch_requests;     /* Number of requests left in the batch */
 
 	struct as_io_context *aic;
-	struct cfq_io_context *cic;
+	struct rb_root cic_root;
 };
 
 void put_io_context(struct io_context *ioc);
@@ -404,8 +413,6 @@ struct request_queue
 
 	struct blk_queue_tag	*queue_tags;
 
-	atomic_t		refcnt;
-
 	unsigned int		nr_sorted;
 	unsigned int		in_flight;
 
@@ -416,6 +423,8 @@ struct request_queue
 	unsigned int		sg_reserved_size;
 	int			node;
 
+	struct blk_trace	*blk_trace;
+
 	/*
 	 * reserved for flush operations
 	 */
@@ -424,6 +433,8 @@ struct request_queue
 	struct request		pre_flush_rq, bar_rq, post_flush_rq;
 	struct request		*orig_bar_rq;
 	unsigned int		bi_size;
+
+	struct mutex		sysfs_lock;
 };
 
 #define RQ_INACTIVE		(-1)
@@ -602,6 +613,8 @@ extern void blk_plug_device(request_queue_t *);
 extern int blk_remove_plug(request_queue_t *);
 extern void blk_recount_segments(request_queue_t *, struct bio *);
 extern int scsi_cmd_ioctl(struct file *, struct gendisk *, unsigned int, void __user *);
+extern int sg_scsi_ioctl(struct file *, struct request_queue *,
+		struct gendisk *, struct scsi_ioctl_command __user *);
 extern void blk_start_queue(request_queue_t *q);
 extern void blk_stop_queue(request_queue_t *q);
 extern void blk_sync_queue(struct request_queue *q);
@@ -725,7 +738,7 @@ extern long nr_blockdev_pages(void);
 int blk_get_queue(request_queue_t *);
 request_queue_t *blk_alloc_queue(gfp_t);
 request_queue_t *blk_alloc_queue_node(gfp_t, int);
-#define blk_put_queue(q) blk_cleanup_queue((q))
+extern void blk_put_queue(request_queue_t *);
 
 /*
  * tag stuff

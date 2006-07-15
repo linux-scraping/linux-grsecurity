@@ -46,8 +46,6 @@ struct inet_bind_bucket *inet_bind_bucket_create(kmem_cache_t *cachep,
 	return tb;
 }
 
-EXPORT_SYMBOL(inet_bind_bucket_create);
-
 /*
  * Caller must hold hashbucket lock for this tb with local BH disabled
  */
@@ -66,8 +64,6 @@ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
 	sk_add_bind_node(sk, &tb->owners);
 	inet_csk(sk)->icsk_bind_hash = tb;
 }
-
-EXPORT_SYMBOL(inet_bind_hash);
 
 /*
  * Get rid of any references to a local port held by the given sock.
@@ -320,7 +316,7 @@ ok:
 		gr_update_task_in_ip_table(current, inet_sk(sk));
 
  		if (tw) {
- 			inet_twsk_deschedule(tw, death_row);;
+ 			inet_twsk_deschedule(tw, death_row);
  			inet_twsk_put(tw);
  		}
 

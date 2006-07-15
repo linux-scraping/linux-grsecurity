@@ -138,7 +138,7 @@ asmlinkage long sys_uselib(const char __user * library)
 	struct nameidata nd;
 	int error;
 
-	error = __user_path_lookup_open(library, LOOKUP_FOLLOW, &nd, FMODE_READ);
+	error = __user_path_lookup_open(library, LOOKUP_FOLLOW, &nd, FMODE_READ|FMODE_EXEC);
 	if (error)
 		goto out;
 
@@ -565,7 +565,7 @@ struct file *open_exec(const char *name)
 	int err;
 	struct file *file;
 
-	err = path_lookup_open(AT_FDCWD, name, LOOKUP_FOLLOW, &nd, FMODE_READ);
+	err = path_lookup_open(AT_FDCWD, name, LOOKUP_FOLLOW, &nd, FMODE_READ|FMODE_EXEC);
 	file = ERR_PTR(err);
 
 	if (!err) {
@@ -649,7 +649,7 @@ static int exec_mmap(struct mm_struct *mm)
 	arch_pick_mmap_layout(mm);
 	if (old_mm) {
 		up_read(&old_mm->mmap_sem);
-		if (active_mm != old_mm) BUG();
+		BUG_ON(active_mm != old_mm);
 		mmput(old_mm);
 		return 0;
 	}
@@ -704,6 +704,15 @@ static int de_thread(struct task_struct *tsk)
 		kmem_cache_free(sighand_cachep, newsighand);
 		return -EAGAIN;
 	}
+
+	/*
+	 * child_reaper ignores SIGKILL, change it now.
+	 * Reparenting needs write_lock on tasklist_lock,
+	 * so it is safe to do it under read_lock.
+	 */
+	if (unlikely(current->group_leader == child_reaper))
+		child_reaper = current;
+
 	zap_other_threads(current);
 	read_unlock(&tasklist_lock);
 
@@ -720,7 +729,7 @@ static int de_thread(struct task_struct *tsk)
 		 * synchronize with any firing (by calling del_timer_sync)
 		 * before we can safely let the old group leader die.
 		 */
-		sig->real_timer.data = current;
+		sig->tsk = current;
 		spin_unlock_irq(lock);
 		if (hrtimer_cancel(&sig->real_timer))
 			hrtimer_restart(&sig->real_timer);
@@ -744,9 +753,7 @@ static int de_thread(struct task_struct *tsk)
 	 * and to assume its PID:
 	 */
 	if (!thread_group_leader(current)) {
-		struct task_struct *parent;
 		struct dentry *proc_dentry1, *proc_dentry2;
-		unsigned long ptrace;
 
 		/*
 		 * Wait for the thread group leader to be a zombie.
@@ -756,6 +763,18 @@ static int de_thread(struct task_struct *tsk)
 		leader = current->group_leader;
 		while (leader->exit_state != EXIT_ZOMBIE)
 			yield();
+
+		/*
+		 * The only record we have of the real-time age of a
+		 * process, regardless of execs it's done, is start_time.
+		 * All the past CPU time is accumulated in signal_struct
+		 * from sister threads now dead.  But in this non-leader
+		 * exec, nothing survives from the original leader thread,
+		 * whose birth marks the true age of this process now.
+		 * When we take on its identity by switching to its PID, we
+		 * also take its birthdate (always earlier than our own).
+		 */
+		current->start_time = leader->start_time;
 
 		spin_lock(&leader->proc_lock);
 		spin_lock(&current->proc_lock);
@@ -771,38 +790,26 @@ static int de_thread(struct task_struct *tsk)
 		 * two threads with a switched PID, and release
 		 * the former thread group leader:
 		 */
-		ptrace = leader->ptrace;
-		parent = leader->parent;
-		if (unlikely(ptrace) && unlikely(parent == current)) {
-			/*
-			 * Joker was ptracing his own group leader,
-			 * and now he wants to be his own parent!
-			 * We can't have that.
-			 */
-			ptrace = 0;
-		}
 
-		ptrace_unlink(current);
-		ptrace_unlink(leader);
-		remove_parent(current);
-		remove_parent(leader);
+		/* Become a process group leader with the old leader's pid.
+		 * Note: The old leader also uses thispid until release_task
+		 *       is called.  Odd but simple and correct.
+		 */
+		detach_pid(current, PIDTYPE_PID);
+		current->pid = leader->pid;
+		attach_pid(current, PIDTYPE_PID,  current->pid);
+		attach_pid(current, PIDTYPE_PGID, current->signal->pgrp);
+		attach_pid(current, PIDTYPE_SID,  current->signal->session);
+		list_add_tail_rcu(&current->tasks, &init_task.tasks);
 
-		switch_exec_pids(leader, current);
-
-		current->parent = current->real_parent = leader->real_parent;
-		leader->parent = leader->real_parent = child_reaper;
 		current->group_leader = current;
-		leader->group_leader = leader;
+		leader->group_leader = current;
 
-		add_parent(current, current->parent);
-		add_parent(leader, leader->parent);
-		if (ptrace) {
-			current->ptrace = ptrace;
-			__ptrace_link(current, parent);
-		}
+		/* Reduce leader to a thread */
+		detach_pid(leader, PIDTYPE_PGID);
+		detach_pid(leader, PIDTYPE_SID);
+		list_del_init(&leader->tasks);
 
-		list_del(&current->tasks);
-		list_add_tail(&current->tasks, &init_task.tasks);
 		current->exit_signal = SIGCHLD;
 
 		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
@@ -839,7 +846,6 @@ no_thread_group:
 		/*
 		 * Move our state over to newsighand and switch it in.
 		 */
-		spin_lock_init(&newsighand->siglock);
 		atomic_set(&newsighand->count, 1);
 		memcpy(newsighand->action, oldsighand->action,
 		       sizeof(newsighand->action));
@@ -856,7 +862,7 @@ no_thread_group:
 		write_unlock_irq(&tasklist_lock);
 
 		if (atomic_dec_and_test(&oldsighand->count))
-			sighand_free(oldsighand);
+			kmem_cache_free(sighand_cachep, oldsighand);
 	}
 
 	BUG_ON(!thread_group_leader(current));
@@ -1236,10 +1242,9 @@ int do_execve(char * filename,
 #endif
 
 	retval = -ENOMEM;
-	bprm = kmalloc(sizeof(*bprm), GFP_KERNEL);
+	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
 	if (!bprm)
 		goto out_ret;
-	memset(bprm, 0, sizeof(*bprm));
 
 	file = open_exec(filename);
 	retval = PTR_ERR(file);

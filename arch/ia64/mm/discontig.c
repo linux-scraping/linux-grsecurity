@@ -379,31 +379,6 @@ static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize)
 }
 
 /**
- * pgdat_insert - insert the pgdat into global pgdat_list
- * @pgdat: the pgdat for a node.
- */
-static void __init pgdat_insert(pg_data_t *pgdat)
-{
-	pg_data_t *prev = NULL, *next;
-
-	for_each_pgdat(next)
-		if (pgdat->node_id < next->node_id)
-			break;
-		else
-			prev = next;
-
-	if (prev) {
-		prev->pgdat_next = pgdat;
-		pgdat->pgdat_next = next;
-	} else {
-		pgdat->pgdat_next = pgdat_list;
-		pgdat_list = pgdat;
-	}
-
-	return;
-}
-
-/**
  * memory_less_nodes - allocate and initialize CPU only nodes pernode
  *	information.
  */
@@ -525,19 +500,86 @@ void __init find_memory(void)
  * find_pernode_space() does most of this already, we just need to set
  * local_per_cpu_offset
  */
-void *per_cpu_init(void)
+void __cpuinit *per_cpu_init(void)
 {
 	int cpu;
+	static int first_time = 1;
+
 
 	if (smp_processor_id() != 0)
 		return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+	if (first_time) {
+		first_time = 0;
+		for (cpu = 0; cpu < NR_CPUS; cpu++)
+			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+	}
 
 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
 }
 #endif /* CONFIG_SMP */
+
+#ifdef CONFIG_VIRTUAL_MEM_MAP
+static inline int find_next_valid_pfn_for_pgdat(pg_data_t *pgdat, int i)
+{
+	unsigned long end_address, hole_next_pfn;
+	unsigned long stop_address;
+
+	end_address = (unsigned long) &vmem_map[pgdat->node_start_pfn + i];
+	end_address = PAGE_ALIGN(end_address);
+
+	stop_address = (unsigned long) &vmem_map[
+		pgdat->node_start_pfn + pgdat->node_spanned_pages];
+
+	do {
+		pgd_t *pgd;
+		pud_t *pud;
+		pmd_t *pmd;
+		pte_t *pte;
+
+		pgd = pgd_offset_k(end_address);
+		if (pgd_none(*pgd)) {
+			end_address += PGDIR_SIZE;
+			continue;
+		}
+
+		pud = pud_offset(pgd, end_address);
+		if (pud_none(*pud)) {
+			end_address += PUD_SIZE;
+			continue;
+		}
+
+		pmd = pmd_offset(pud, end_address);
+		if (pmd_none(*pmd)) {
+			end_address += PMD_SIZE;
+			continue;
+		}
+
+		pte = pte_offset_kernel(pmd, end_address);
+retry_pte:
+		if (pte_none(*pte)) {
+			end_address += PAGE_SIZE;
+			pte++;
+			if ((end_address < stop_address) &&
+			    (end_address != ALIGN(end_address, 1UL << PMD_SHIFT)))
+				goto retry_pte;
+			continue;
+		}
+		/* Found next valid vmem_map page */
+		break;
+	} while (end_address < stop_address);
+
+	end_address = min(end_address, stop_address);
+	end_address = end_address - (unsigned long) vmem_map + sizeof(struct page) - 1;
+	hole_next_pfn = end_address / sizeof(struct page);
+	return hole_next_pfn - pgdat->node_start_pfn;
+}
+#else
+static inline int find_next_valid_pfn_for_pgdat(pg_data_t *pgdat, int i)
+{
+	return i + 1;
+}
+#endif
 
 /**
  * show_mem - give short summary of memory stats
@@ -555,7 +597,7 @@ void show_mem(void)
 	printk("Mem-info:\n");
 	show_free_areas();
 	printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
-	for_each_pgdat(pgdat) {
+	for_each_online_pgdat(pgdat) {
 		unsigned long present;
 		unsigned long flags;
 		int shared = 0, cached = 0, reserved = 0;
@@ -567,8 +609,10 @@ void show_mem(void)
 			struct page *page;
 			if (pfn_valid(pgdat->node_start_pfn + i))
 				page = pfn_to_page(pgdat->node_start_pfn + i);
-			else
+			else {
+				i = find_next_valid_pfn_for_pgdat(pgdat, i) - 1;
 				continue;
+			}
 			if (PageReserved(page))
 				reserved++;
 			else if (PageSwapCache(page))
@@ -739,12 +783,6 @@ void __init paging_init(void)
 		free_area_init_node(node, NODE_DATA(node), zones_size,
 				    pfn_offset, zholes_size);
 	}
-
-	/*
-	 * Make memory less nodes become a member of the known nodes.
-	 */
-	for_each_node_mask(node, memory_less_mask)
-		pgdat_insert(mem_data[node].pgdat);
 
 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
 }

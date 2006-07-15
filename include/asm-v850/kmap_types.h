@@ -13,6 +13,7 @@ enum km_type {
 	KM_PTE1,
 	KM_IRQ0,
 	KM_IRQ1,
+	KM_CLEARPAGE,
 	KM_TYPE_NR
 };
 

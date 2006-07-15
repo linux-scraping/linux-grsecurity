@@ -280,7 +280,7 @@ static unsigned long rand;
 
 MODULE_AUTHOR("Klaus Kudielka");
 MODULE_DESCRIPTION("Driver for high-speed SCC boards");
-MODULE_PARM(io, "1-" __MODULE_STRING(MAX_NUM_DEVS) "i");
+module_param_array(io, int, NULL, 0);
 MODULE_LICENSE("GPL");
 
 static void __exit dmascc_exit(void)
@@ -582,7 +582,6 @@ static int __init setup_adapter(int card_base, int type, int n)
 		INIT_WORK(&priv->rx_work, rx_bh, priv);
 		dev->priv = priv;
 		sprintf(dev->name, "dmascc%i", 2 * n + i);
-		SET_MODULE_OWNER(dev);
 		dev->base_addr = card_base;
 		dev->irq = irq;
 		dev->open = scc_open;

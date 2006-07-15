@@ -74,6 +74,11 @@ static struct acl_role_label *kernel_role = NULL;
 static unsigned int gr_auth_attempts = 0;
 static unsigned long gr_auth_expires = 0UL;
 
+extern struct vfsmount *sock_mnt;
+extern struct vfsmount *pipe_mnt;
+extern struct vfsmount *shm_mnt;
+static struct acl_object_label *fakefs_obj;
+
 extern int gr_init_uidset(void);
 extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
@@ -688,6 +693,10 @@ init_variables(const struct gr_arg *arg)
 	real_root = dget(child_reaper->fs->root);
 	read_unlock(&child_reaper->fs->lock);
 	
+	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
+	if (fakefs_obj == NULL)
+		return 1;
+	fakefs_obj->mode = GR_FIND | GR_READ | GR_WRITE | GR_EXEC;
 
 	subj_map_set.s_hash =
 	    (struct subject_map **) create_table(&subj_map_set.s_size, sizeof(void *));
@@ -1669,6 +1678,11 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_object_label *retval;
 
 	spin_lock(&dcache_lock);
+
+	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt)) {
+		retval = fakefs_obj;
+		goto out;
+	}
 
 	for (;;) {
 		if (dentry == real_root && mnt == real_root_mnt)

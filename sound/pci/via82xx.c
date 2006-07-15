@@ -123,6 +123,7 @@ module_param(enable, bool, 0444);
 #define VIA_REV_8233A		0x40	/* 1 rec, 1 multi-pb, spdf */
 #define VIA_REV_8235		0x50	/* 2 rec, 4 pb, 1 multi-pb, spdif */
 #define VIA_REV_8237		0x60
+#define VIA_REV_8251		0x70
 
 /*
  *  Direct registers
@@ -395,7 +396,7 @@ struct via82xx {
 #endif
 };
 
-static struct pci_device_id snd_via82xx_ids[] = {
+static struct pci_device_id snd_via82xx_ids[] __devinitdata = {
 	/* 0x1106, 0x3058 */
 	{ PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_82C686_5, PCI_ANY_ID, PCI_ANY_ID, 0, 0, TYPE_CARD_VIA686, },	/* 686A */
 	/* 0x1106, 0x3059 */
@@ -861,6 +862,11 @@ static snd_pcm_uframes_t snd_via8233_pcm_pointer(struct snd_pcm_substream *subst
 	status = viadev->in_interrupt;
 	if (!status)
 		status = inb(VIADEV_REG(viadev, OFFSET_STATUS));
+
+	/* An apparent bug in the 8251 is worked around by sending a 
+	 * REG_CTRL_START. */
+	if (chip->revision == VIA_REV_8251 && (status & VIA_REG_STAT_EOL))
+		snd_via82xx_pcm_trigger(substream, SNDRV_PCM_TRIGGER_START);
 
 	if (!(status & VIA_REG_STAT_ACTIVE)) {
 		res = 0;
@@ -2313,6 +2319,7 @@ static struct via823x_info via823x_cards[] __devinitdata = {
 	{ VIA_REV_8233A, "VIA 8233A", TYPE_VIA8233A },
 	{ VIA_REV_8235, "VIA 8235", TYPE_VIA8233 },
 	{ VIA_REV_8237, "VIA 8237", TYPE_VIA8233 },
+	{ VIA_REV_8251, "VIA 8251", TYPE_VIA8233 },
 };
 
 /*
@@ -2325,7 +2332,7 @@ struct dxs_whitelist {
 	short action;	/* new dxs_support value */
 };
 
-static int __devinit check_dxs_list(struct pci_dev *pci)
+static int __devinit check_dxs_list(struct pci_dev *pci, int revision)
 {
 	static struct dxs_whitelist whitelist[] = {
 		{ .subvendor = 0x1005, .subdevice = 0x4710, .action = VIA_DXS_ENABLE }, /* Avance Logic Mobo */
@@ -2333,6 +2340,7 @@ static int __devinit check_dxs_list(struct pci_dev *pci)
 		{ .subvendor = 0x1019, .subdevice = 0x0a81, .action = VIA_DXS_NO_VRA }, /* ECS K7VTA3 v8.0 */
 		{ .subvendor = 0x1019, .subdevice = 0x0a85, .action = VIA_DXS_NO_VRA }, /* ECS L7VMM2 */
 		{ .subvendor = 0x1019, .subdevice = 0xa101, .action = VIA_DXS_SRC },
+		{ .subvendor = 0x1019, .subdevice = 0xaa01, .action = VIA_DXS_SRC }, /* ECS K8T890-A */
 		{ .subvendor = 0x1025, .subdevice = 0x0033, .action = VIA_DXS_NO_VRA }, /* Acer Inspire 1353LM */
 		{ .subvendor = 0x1025, .subdevice = 0x0046, .action = VIA_DXS_SRC }, /* Acer Aspire 1524 WLMi */
 		{ .subvendor = 0x1043, .subdevice = 0x8095, .action = VIA_DXS_NO_VRA }, /* ASUS A7V8X (FIXME: possibly VIA_DXS_ENABLE?)*/
@@ -2341,6 +2349,7 @@ static int __devinit check_dxs_list(struct pci_dev *pci)
 		{ .subvendor = 0x1043, .subdevice = 0x810d, .action = VIA_DXS_SRC }, /* ASUS */
 		{ .subvendor = 0x1043, .subdevice = 0x812a, .action = VIA_DXS_SRC    }, /* ASUS A8V Deluxe */ 
 		{ .subvendor = 0x1043, .subdevice = 0x8174, .action = VIA_DXS_SRC    }, /* ASUS */
+		{ .subvendor = 0x1043, .subdevice = 0x81b9, .action = VIA_DXS_SRC    }, /* ASUS A8V-MX */
 		{ .subvendor = 0x1071, .subdevice = 0x8375, .action = VIA_DXS_NO_VRA }, /* Vobis/Yakumo/Mitac notebook */
 		{ .subvendor = 0x1071, .subdevice = 0x8399, .action = VIA_DXS_NO_VRA }, /* Umax AB 595T (VIA K8N800A - VT8237) */
 		{ .subvendor = 0x10cf, .subdevice = 0x118e, .action = VIA_DXS_ENABLE }, /* FSC laptop */
@@ -2373,10 +2382,13 @@ static int __devinit check_dxs_list(struct pci_dev *pci)
 		{ .subvendor = 0x161f, .subdevice = 0x2032, .action = VIA_DXS_48K }, /* m680x machines */
 		{ .subvendor = 0x1631, .subdevice = 0xe004, .action = VIA_DXS_ENABLE }, /* Easy Note 3174, Packard Bell */
 		{ .subvendor = 0x1695, .subdevice = 0x3005, .action = VIA_DXS_ENABLE }, /* EPoX EP-8K9A */
+		{ .subvendor = 0x1695, .subdevice = 0x300c, .action = VIA_DXS_SRC }, /* EPoX EP-8KRAI */
 		{ .subvendor = 0x1695, .subdevice = 0x300e, .action = VIA_DXS_SRC }, /* EPoX 9HEAI */
 		{ .subvendor = 0x16f3, .subdevice = 0x6405, .action = VIA_DXS_SRC }, /* Jetway K8M8MS */
+		{ .subvendor = 0x1734, .subdevice = 0x1078, .action = VIA_DXS_SRC }, /* FSC Amilo L7300 */
 		{ .subvendor = 0x1734, .subdevice = 0x1093, .action = VIA_DXS_SRC }, /* FSC */
 		{ .subvendor = 0x1849, .subdevice = 0x3059, .action = VIA_DXS_NO_VRA }, /* ASRock K7VM2 */
+		{ .subvendor = 0x1849, .subdevice = 0x9739, .action = VIA_DXS_SRC }, /* ASRock mobo(?) */
 		{ .subvendor = 0x1849, .subdevice = 0x9761, .action = VIA_DXS_SRC }, /* ASRock mobo(?) */
 		{ .subvendor = 0x1919, .subdevice = 0x200a, .action = VIA_DXS_NO_VRA }, /* Soltek SL-K8Tpro-939 */
 		{ .subvendor = 0x4005, .subdevice = 0x4710, .action = VIA_DXS_SRC },	/* MSI K7T266 Pro2 (MS-6380 V2.0) BIOS 3.7 */
@@ -2400,6 +2412,10 @@ static int __devinit check_dxs_list(struct pci_dev *pci)
 				return w->action;
 		}
 	}
+
+	/* for newer revision, default to DXS_SRC */
+	if (revision >= VIA_REV_8235)
+		return VIA_DXS_SRC;
 
 	/*
 	 * not detected, try 48k rate only to be sure.
@@ -2445,7 +2461,7 @@ static int __devinit snd_via82xx_probe(struct pci_dev *pci,
 		}
 		if (chip_type != TYPE_VIA8233A) {
 			if (dxs_support == VIA_DXS_AUTO)
-				dxs_support = check_dxs_list(pci);
+				dxs_support = check_dxs_list(pci, revision);
 			/* force to use VIA8233 or 8233A model according to
 			 * dxs_support module option
 			 */

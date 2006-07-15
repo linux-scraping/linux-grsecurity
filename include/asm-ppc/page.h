@@ -20,6 +20,7 @@
 /* This must match what is in arch/ppc/Makefile */
 #define PAGE_OFFSET	CONFIG_KERNEL_START
 #define KERNELBASE	PAGE_OFFSET
+#define is_kernel_addr(x)	((x) >= PAGE_OFFSET)
 
 #ifndef __ASSEMBLY__
 
@@ -149,8 +150,7 @@ extern int page_is_ram(unsigned long pfn);
 #define __pa(x) ___pa((unsigned long)(x))
 #define __va(x) ((void *)(___va((unsigned long)(x))))
 
-#define pfn_to_page(pfn)	(mem_map + ((pfn) - PPC_PGSTART))
-#define page_to_pfn(page)	((unsigned long)((page) - mem_map) + PPC_PGSTART)
+#define ARCH_PFN_OFFSET		(PPC_PGSTART)
 #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
 #define page_to_virt(page)	__va(page_to_pfn(page) << PAGE_SHIFT)
 
@@ -184,5 +184,6 @@ extern __inline__ int get_order(unsigned long size)
 #endif
 #endif
 
+#include <asm-generic/memory_model.h>
 #endif /* __KERNEL__ */
 #endif /* _PPC_PAGE_H */

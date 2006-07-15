@@ -113,8 +113,6 @@ struct rcu_data {
 
 DECLARE_PER_CPU(struct rcu_data, rcu_data);
 DECLARE_PER_CPU(struct rcu_data, rcu_bh_data);
-extern struct rcu_ctrlblk rcu_ctrlblk;
-extern struct rcu_ctrlblk rcu_bh_ctrlblk;
 
 /*
  * Increment the quiescent state counter.
@@ -134,6 +132,7 @@ static inline void rcu_bh_qsctr_inc(int cpu)
 }
 
 extern int rcu_pending(int cpu);
+extern int rcu_needs_cpu(int cpu);
 
 /**
  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
