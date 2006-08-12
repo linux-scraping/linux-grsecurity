@@ -320,10 +320,11 @@ static void handle_BUG(struct pt_regs *regs)
 		goto no_bug;
 	if (ud2 != 0x0b0f)
 		goto no_bug;
-	if (__get_user(line, (unsigned short __user *)(eip + 2)))
+	if (__get_user(line, (unsigned short __user *)(eip + 3)))
 		goto bug;
-	if (__get_user(file, (char * __user *)(eip + 4)) ||
-		(unsigned long)file < PAGE_OFFSET || __get_user(c, file))
+	if (__get_user(file, (char * __user *)(eip + 8)) || file < _text + __KERNEL_TEXT_OFFSET)
+		goto bug;
+	if (__get_user(c, file))
 		file = "<bad filename>";
 
 	printk(KERN_EMERG "------------[ cut here ]------------\n");

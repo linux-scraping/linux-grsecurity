@@ -32,43 +32,8 @@
 
 #define get_ds()	(KERNEL_DS)
 #define get_fs()	(current_thread_info()->addr_limit)
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-static inline void __set_fs(mm_segment_t x, int cpu)
-{
-	unsigned long limit = x.seg;
-
-	current_thread_info()->addr_limit = x;
-	if (likely(limit)) {
-		limit -= 1UL;
-		limit >>= 12;
-	}
-
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].a = (limit & 0xFFFFUL);
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].b = (limit & 0xF0000UL) | 0xC0F300UL;
-}
-
-static inline void set_fs(mm_segment_t x)
-{
-	int cpu = get_cpu();
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-	__set_fs(x, cpu);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-	put_cpu_no_resched();
-}
-#else
-#define set_fs(x)	(current_thread_info()->addr_limit = (x))
-#endif
+void __set_fs(mm_segment_t x, int cpu);
+void set_fs(mm_segment_t x);
 
 #define segment_eq(a,b)	((a).seg == (b).seg)
 

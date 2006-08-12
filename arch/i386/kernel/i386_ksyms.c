@@ -11,6 +11,8 @@ EXPORT_SYMBOL(__down_failed_trylock);
 EXPORT_SYMBOL(__up_wakeup);
 /* Networking helper routines. */
 EXPORT_SYMBOL(csum_partial_copy_generic);
+EXPORT_SYMBOL(csum_partial_copy_generic_to_user);
+EXPORT_SYMBOL(csum_partial_copy_generic_from_user);
 
 EXPORT_SYMBOL(__get_user_1);
 EXPORT_SYMBOL(__get_user_2);

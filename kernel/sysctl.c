@@ -1264,7 +1264,7 @@ repeat:
 			}
 
 			if (!gr_handle_sysctl(table, oldval, newval))
-				return -EACCES;
+				return -EPERM;
 
 			error = do_sysctl_strategy(table, name, nlen,
 						   oldval, oldlenp,

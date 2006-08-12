@@ -52,7 +52,12 @@ static inline void switch_mm(struct mm_struct *prev,
 		cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
-		set_user_cs(next, cpu);
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+		if (prev->context.user_cs_base != next->context.user_cs_base ||
+		    prev->context.user_cs_limit != next->context.user_cs_limit)
+#endif
+
+			set_user_cs(next, cpu);
 	}
 #ifdef CONFIG_SMP
 	else {

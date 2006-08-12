@@ -164,11 +164,11 @@ static uint32_t do_plt_call(void *location,
 
 	DEBUGP("Doing plt for call to 0x%x at 0x%x\n", val, (unsigned int)location);
 	/* Init, or core PLT? */
-	if ((location >= mod->module_core_rx && location < mod->module_core_rx + mod->core_size_rx)) ||
+	if ((location >= mod->module_core_rx && location < mod->module_core_rx + mod->core_size_rx) ||
 	    (location >= mod->module_core_rw && location < mod->module_core_rw + mod->core_size_rw))
 		entry = (void *)sechdrs[mod->arch.core_plt_section].sh_addr;
-	else if ((location >= mod->module_init_rx && location < mod->module_init_rx + mod->core_init_rx)) ||
-		 (location >= mod->module_init_rw && location < mod->module_init_rw + mod->core_init_rw))
+	else if ((location >= mod->module_init_rx && location < mod->module_init_rx + mod->init_size_rx) ||
+		 (location >= mod->module_init_rw && location < mod->module_init_rw + mod->init_size_rw))
 		entry = (void *)sechdrs[mod->arch.init_plt_section].sh_addr;
 	else {
 		printk(KERN_ERR "%s: invalid R_PPC_REL24 entry found\n", mod->name);

@@ -92,8 +92,8 @@ checkentry(const char *tablename,
 
 static struct ipt_match stealth_match = {
 	.name = "stealth",
-	.match = &match,
-	.checkentry = &checkentry,
+	.match = match,
+	.checkentry = checkentry,
 	.destroy = NULL,
 	.me = THIS_MODULE
 };

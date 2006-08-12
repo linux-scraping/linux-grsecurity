@@ -235,7 +235,7 @@
 #include "io_ports.h"
 
 extern unsigned long get_cmos_time(void);
-extern void machine_real_restart(unsigned char *, int);
+extern void machine_real_restart(const unsigned char *, unsigned int);
 
 #if defined(CONFIG_APM_DISPLAY_BLANK) && defined(CONFIG_VT)
 extern int (*console_blank_hook)(int);
@@ -938,7 +938,7 @@ recalc:
  
 static void apm_power_off(void)
 {
-	unsigned char	po_bios_call[] = {
+	const unsigned char	po_bios_call[] = {
 		0xb8, 0x00, 0x10,	/* movw  $0x1000,ax  */
 		0x8e, 0xd0,		/* movw  ax,ss       */
 		0xbc, 0x00, 0xf0,	/* movw  $0xf000,sp  */

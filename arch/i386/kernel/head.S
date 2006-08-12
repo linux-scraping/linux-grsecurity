@@ -548,7 +548,7 @@ ENTRY(boot_gdt_table)
 /*
  * The Global Descriptor Table contains 28 quadwords, per-CPU.
  */
-	.align L1_CACHE_BYTES
+	.align 4096
 ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x0000000000000000	/* 0x0b reserved */

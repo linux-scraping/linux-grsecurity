@@ -619,6 +619,27 @@ out:
 	return ret;
 }
 
+static int proc_setattr(struct dentry *dentry, struct iattr *attr)
+{
+	int error;
+	struct inode *inode = dentry->d_inode;
+
+	if (attr->ia_valid & ATTR_MODE)
+		return -EPERM;
+
+	error = inode_change_ok(inode, attr);
+	if (!error) {
+		error = security_inode_setattr(dentry, attr);
+		if (!error)
+			error = inode_setattr(inode, attr);
+	}
+	return error;
+}
+
+static struct inode_operations proc_def_inode_operations = {
+	.setattr	= proc_setattr,
+};
+
 static int proc_task_permission(struct inode *inode, int mask, struct nameidata *nd)
 {
 	struct dentry *root;
@@ -1010,6 +1031,7 @@ static struct file_operations proc_oom_adjust_operations = {
 
 static struct inode_operations proc_mem_inode_operations = {
 	.permission	= proc_permission,
+	.setattr	= proc_setattr,
 };
 
 #ifdef CONFIG_AUDITSYSCALL
@@ -1207,7 +1229,8 @@ out:
 
 static struct inode_operations proc_pid_link_inode_operations = {
 	.readlink	= proc_pid_readlink,
-	.follow_link	= proc_pid_follow_link
+	.follow_link	= proc_pid_follow_link,
+	.setattr	= proc_setattr,
 };
 
 #define NUMBUF 10
@@ -1379,6 +1402,7 @@ static struct inode *proc_pid_make_inode(struct super_block * sb, struct task_st
 	ei->task = NULL;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	inode->i_ino = fake_ino(task->pid, ino);
+	inode->i_op = &proc_def_inode_operations;
 
 	if (!pid_alive(task))
 		goto out_unlock;
@@ -1433,6 +1457,7 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 			inode->i_uid = 0;
 			inode->i_gid = 0;
 		}
+		inode->i_mode &= ~(S_ISUID | S_ISGID);
 		security_task_to_inode(task, inode);
 		return 1;
 	}
@@ -1460,6 +1485,7 @@ static int tid_fd_revalidate(struct dentry *dentry, struct nameidata *nd)
 				inode->i_uid = 0;
 				inode->i_gid = 0;
 			}
+			inode->i_mode &= ~(S_ISUID | S_ISGID);
 			security_task_to_inode(task, inode);
 			return 1;
 		}
@@ -1605,11 +1631,13 @@ static struct file_operations proc_task_operations = {
 static struct inode_operations proc_fd_inode_operations = {
 	.lookup		= proc_lookupfd,
 	.permission	= proc_permission,
+	.setattr	= proc_setattr,
 };
 
 static struct inode_operations proc_task_inode_operations = {
 	.lookup		= proc_task_lookup,
 	.permission	= proc_task_permission,
+	.setattr	= proc_setattr,
 };
 
 #ifdef CONFIG_SECURITY
@@ -1905,10 +1933,12 @@ static struct file_operations proc_tid_base_operations = {
 
 static struct inode_operations proc_tgid_base_inode_operations = {
 	.lookup		= proc_tgid_base_lookup,
+	.setattr	= proc_setattr,
 };
 
 static struct inode_operations proc_tid_base_inode_operations = {
 	.lookup		= proc_tid_base_lookup,
+	.setattr	= proc_setattr,
 };
 
 #ifdef CONFIG_SECURITY
@@ -1950,10 +1980,12 @@ static struct dentry *proc_tid_attr_lookup(struct inode *dir,
 
 static struct inode_operations proc_tgid_attr_inode_operations = {
 	.lookup		= proc_tgid_attr_lookup,
+	.setattr	= proc_setattr,
 };
 
 static struct inode_operations proc_tid_attr_inode_operations = {
 	.lookup		= proc_tid_attr_lookup,
+	.setattr	= proc_setattr,
 };
 #endif
 
@@ -1978,6 +2010,7 @@ static void *proc_self_follow_link(struct dentry *dentry, struct nameidata *nd)
 static struct inode_operations proc_self_inode_operations = {
 	.readlink	= proc_self_readlink,
 	.follow_link	= proc_self_follow_link,
+	.setattr	= proc_setattr,
 };
 
 /**

@@ -281,15 +281,21 @@ unsigned int csum_partial_copy_generic (const char *src, char *dst,
 	.previous
 
 .align 4
-.globl csum_partial_copy_generic_user
 .globl csum_partial_copy_generic
-				
+.globl csum_partial_copy_generic_to_user
+.globl csum_partial_copy_generic_from_user
+
 #ifndef CONFIG_X86_USE_PPRO_CHECKSUM
 
-#define ARGBASE 20		
-#define FP		16
+#define ARGBASE 16		
+#define FP		12
 
-csum_partial_copy_generic_user:
+csum_partial_copy_generic_to_user:
+	pushl $(__USER_DS)
+	popl %es
+	jmp csum_partial_copy_generic
+
+csum_partial_copy_generic_from_user:
 	pushl $(__USER_DS)
 	popl %ds
 
@@ -298,13 +304,12 @@ csum_partial_copy_generic:
 	pushl %edi
 	pushl %esi
 	pushl %ebx
-	pushl %ebp
 	movl ARGBASE+16(%esp),%eax	# sum
 	movl ARGBASE+12(%esp),%ecx	# len
 	movl ARGBASE+4(%esp),%esi	# src
-	movl ARGBASE+8(%esp),%ebp	# dst
+	movl ARGBASE+8(%esp),%edi	# dst
 
-	testl $2, %ebp			# Check alignment. 
+	testl $2, %edi			# Check alignment. 
 	jz 2f				# Jump if alignment is ok.
 	subl $2, %ecx			# Alignment uses up two bytes.
 	jae 1f				# Jump if we had at least two bytes.
@@ -312,8 +317,8 @@ csum_partial_copy_generic:
 	jmp 4f
 SRC(1:	movw (%esi), %bx	)
 	addl $2, %esi
-DST(	movw %bx, (%ebp)	)
-	addl $2, %ebp
+DST(	movw %bx, %es:(%edi)	)
+	addl $2, %edi
 	addw %bx, %ax	
 	adcl $0, %eax
 2:
@@ -324,33 +329,33 @@ DST(	movw %bx, (%ebp)	)
 SRC(1:	movl (%esi), %ebx	)
 SRC(	movl 4(%esi), %edx	)
 	adcl %ebx, %eax
-DST(	movl %ebx, (%ebp)	)
+DST(	movl %ebx, %es:(%edi)	)
 	adcl %edx, %eax
-DST(	movl %edx, 4(%ebp)	)
+DST(	movl %edx, %es:4(%edi)	)
 
 SRC(	movl 8(%esi), %ebx	)
 SRC(	movl 12(%esi), %edx	)
 	adcl %ebx, %eax
-DST(	movl %ebx, 8(%ebp)	)
+DST(	movl %ebx, %es:8(%edi)	)
 	adcl %edx, %eax
-DST(	movl %edx, 12(%ebp)	)
+DST(	movl %edx, %es:12(%edi)	)
 
 SRC(	movl 16(%esi), %ebx 	)
 SRC(	movl 20(%esi), %edx	)
 	adcl %ebx, %eax
-DST(	movl %ebx, 16(%ebp)	)
+DST(	movl %ebx, %es:16(%edi)	)
 	adcl %edx, %eax
-DST(	movl %edx, 20(%ebp)	)
+DST(	movl %edx, %es:20(%edi)	)
 
 SRC(	movl 24(%esi), %ebx	)
 SRC(	movl 28(%esi), %edx	)
 	adcl %ebx, %eax
-DST(	movl %ebx, 24(%ebp)	)
+DST(	movl %ebx, %es:24(%edi)	)
 	adcl %edx, %eax
-DST(	movl %edx, 28(%ebp)	)
+DST(	movl %edx, %es:28(%edi)	)
 
 	lea 32(%esi), %esi
-	lea 32(%ebp), %ebp
+	lea 32(%edi), %edi
 	dec %ecx
 	jne 1b
 	adcl $0, %eax
@@ -361,9 +366,9 @@ DST(	movl %edx, 28(%ebp)	)
 	shrl $2, %edx			# This clears CF
 SRC(3:	movl (%esi), %ebx	)
 	adcl %ebx, %eax
-DST(	movl %ebx, (%ebp)	)
+DST(	movl %ebx, %es:(%edi)	)
 	lea 4(%esi), %esi
-	lea 4(%ebp), %ebp
+	lea 4(%edi), %edi
 	dec %edx
 	jne 3b
 	adcl $0, %eax
@@ -373,12 +378,12 @@ DST(	movl %ebx, (%ebp)	)
 	jb 5f
 SRC(	movw (%esi), %cx	)
 	leal 2(%esi), %esi
-DST(	movw %cx, (%ebp)	)
-	leal 2(%ebp), %ebp
+DST(	movw %cx, %es:(%edi)	)
+	leal 2(%edi), %edi
 	je 6f
 	shll $16,%ecx
 SRC(5:	movb (%esi), %cl	)
-DST(	movb %cl, (%ebp)	)
+DST(	movb %cl, %es:(%edi)	)
 6:	addl %ecx, %eax
 	adcl $0, %eax
 7:
@@ -409,7 +414,8 @@ DST(	movb %cl, (%ebp)	)
 
 	pushl %ss
 	popl %ds
-	popl %ebp
+	pushl %ss
+	popl %es
 	popl %ebx
 	popl %esi
 	popl %edi
@@ -421,28 +427,34 @@ DST(	movb %cl, (%ebp)	)
 /* Version for PentiumII/PPro */
 
 #define ROUND1(x) \
+	nop; nop; nop;				\
 	SRC(movl x(%esi), %ebx	)	;	\
 	addl %ebx, %eax			;	\
-	DST(movl %ebx, x(%ebp));
+	DST(movl %ebx, %es:x(%edi));
 
 #define ROUND(x) \
+	nop; nop; nop;				\
 	SRC(movl x(%esi), %ebx	)	;	\
 	adcl %ebx, %eax			;	\
-	DST(movl %ebx, x(%ebp));
+	DST(movl %ebx, %es:x(%edi));
 
-#define ARGBASE 16
+#define ARGBASE 12
 
-csum_partial_copy_generic_user:
+csum_partial_copy_generic_to_user:
+	pushl $(__USER_DS)
+	popl %es
+	jmp csum_partial_copy_generic
+
+csum_partial_copy_generic_from_user:
 	pushl $(__USER_DS)
 	popl %ds
 
 csum_partial_copy_generic:
 	pushl %ebx
-	pushl %ebp
 	pushl %edi
 	pushl %esi
 	movl ARGBASE+4(%esp),%esi	#src
-	movl ARGBASE+8(%esp),%ebp	#dst	
+	movl ARGBASE+8(%esp),%edi	#dst	
 	movl ARGBASE+12(%esp),%ecx	#len
 	movl ARGBASE+16(%esp),%eax	#sum
 #	movl %ecx, %edx  
@@ -452,14 +464,14 @@ csum_partial_copy_generic:
 	andl $0x3c, %ebx  
 	negl %ebx
 	subl %ebx, %esi  
-	subl %ebx, %ebp  
+	subl %ebx, %edi  
 	lea  -1(%esi),%edx
 	andl $-32,%edx
-	lea 3f(%ebx,%ebx), %ebx
+	lea 3f(%ebx,%ebx,2), %ebx
 	testl %esi, %esi 
 	jmp *%ebx
 1:	addl $64,%esi
-	addl $64,%ebp 
+	addl $64,%edi 
 	SRC(movb -32(%edx),%bl)	; SRC(movb (%edx),%bl)
 	ROUND1(-64) ROUND(-60) ROUND(-56) ROUND(-52)	
 	ROUND (-48) ROUND(-44) ROUND(-40) ROUND(-36)	
@@ -476,13 +488,13 @@ csum_partial_copy_generic:
 	jb 5f
 SRC(	movw (%esi), %dx         )
 	leal 2(%esi), %esi
-DST(	movw %dx, (%ebp)         )
-	leal 2(%ebp), %ebp
+DST(	movw %dx, %es:(%edi)     )
+	leal 2(%edi), %edi
 	je 6f
 	shll $16,%edx
 5:
 SRC(	movb (%esi), %dl         )
-DST(	movb %dl, (%ebp)         )
+DST(	movb %dl, %es:(%edi)     )
 6:	addl %edx, %eax
 	adcl $0, %eax
 7:
@@ -502,9 +514,10 @@ DST(	movb %dl, (%ebp)         )
 
 	pushl %ss
 	popl %ds
+	pushl %ss
+	popl %es
 	popl %esi
 	popl %edi
-	popl %ebp
 	popl %ebx
 	ret
 				

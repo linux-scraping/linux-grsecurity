@@ -30,7 +30,10 @@ asmlinkage unsigned int csum_partial(const unsigned char * buff, int len, unsign
 asmlinkage unsigned int csum_partial_copy_generic(const unsigned char *src, unsigned char *dst,
 						  int len, int sum, int *src_err_ptr, int *dst_err_ptr);
 
-asmlinkage unsigned int csum_partial_copy_generic_user(const unsigned char *src, unsigned char *dst,
+asmlinkage unsigned int csum_partial_copy_generic_to_user(const unsigned char *src, unsigned char *dst,
+						  int len, int sum, int *src_err_ptr, int *dst_err_ptr);
+
+asmlinkage unsigned int csum_partial_copy_generic_from_user(const unsigned char *src, unsigned char *dst,
 						  int len, int sum, int *src_err_ptr, int *dst_err_ptr);
 
 /*
@@ -52,7 +55,7 @@ unsigned int csum_partial_copy_from_user(const unsigned char __user *src, unsign
 						int len, int sum, int *err_ptr)
 {
 	might_sleep();
-	return csum_partial_copy_generic_user((__force unsigned char *)src, dst,
+	return csum_partial_copy_generic_from_user((__force unsigned char *)src, dst,
 					len, sum, err_ptr, NULL);
 }
 
@@ -186,7 +189,7 @@ static __inline__ unsigned int csum_and_copy_to_user(const unsigned char *src,
 {
 	might_sleep();
 	if (access_ok(VERIFY_WRITE, dst, len))
-		return csum_partial_copy_generic(src, (__force unsigned char *)dst, len, sum, NULL, err_ptr);
+		return csum_partial_copy_generic_to_user(src, (__force unsigned char *)dst, len, sum, NULL, err_ptr);
 
 	if (len)
 		*err_ptr = -EFAULT;

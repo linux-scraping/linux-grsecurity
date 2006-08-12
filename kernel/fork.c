@@ -1198,8 +1198,6 @@ static task_t *copy_process(unsigned long clone_flags,
 	p->ioprio = current->ioprio;
 
 	if (likely(p->pid)) {
-		gr_handle_brute_check();
-
 		add_parent(p);
 		if (unlikely(p->ptrace & PT_PTRACED))
 			__ptrace_link(p, current->parent);
@@ -1337,6 +1335,8 @@ long do_fork(unsigned long clone_flags,
 	 */
 	if (!IS_ERR(p)) {
 		struct completion vfork;
+
+		gr_handle_brute_check();
 
 		if (clone_flags & CLONE_VFORK) {
 			p->vfork_done = &vfork;

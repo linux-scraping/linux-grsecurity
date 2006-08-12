@@ -25,7 +25,7 @@
 void (*pm_power_off)(void);
 EXPORT_SYMBOL(pm_power_off);
 
-static int reboot_mode;
+static unsigned short reboot_mode;
 static int reboot_thru_bios;
 
 #ifdef CONFIG_SMP
@@ -175,7 +175,7 @@ no_idt = { 0, NULL };
    More could be done here to set up the registers as if a CPU reset had
    occurred; hopefully real BIOSs don't assume much. */
 
-static unsigned char real_mode_switch [] =
+static const unsigned char real_mode_switch [] =
 {
 	0x66, 0x0f, 0x20, 0xc0,			/*    movl  %cr0,%eax        */
 	0x66, 0x83, 0xe0, 0x11,			/*    andl  $0x00000011,%eax */
@@ -189,7 +189,7 @@ static unsigned char real_mode_switch [] =
 	0x24, 0x10,				/* f: andb  $0x10,al         */
 	0x66, 0x0f, 0x22, 0xc0			/*    movl  %eax,%cr0        */
 };
-static unsigned char jump_to_bios [] =
+static const unsigned char jump_to_bios [] =
 {
 	0xea, 0x00, 0x00, 0xff, 0xff		/*    ljmp  $0xffff,$0x0000  */
 };
@@ -199,7 +199,7 @@ static unsigned char jump_to_bios [] =
  * specified by the code and length parameters.
  * We assume that length will aways be less that 100!
  */
-void machine_real_restart(unsigned char *code, int length)
+void machine_real_restart(const unsigned char *code, unsigned int length)
 {
 	unsigned long flags;
 
@@ -249,7 +249,7 @@ void machine_real_restart(unsigned char *code, int length)
 	   REBOOT.COM programs, and the previous reset routine did this
 	   too. */
 
-	*((unsigned short *)0x472) = reboot_mode;
+	__put_user(reboot_mode, (unsigned short __user *)0x472);
 
 	/* For the switch to real mode, copy some code to low memory.  It has
 	   to be in the first 64k because it is running in 16-bit mode, and it
@@ -257,9 +257,9 @@ void machine_real_restart(unsigned char *code, int length)
 	   off paging.  Copy it near the end of the first page, out of the way
 	   of BIOS variables. */
 
-	memcpy ((void *) (0x1000 - sizeof (real_mode_switch) - 100),
+	flags = __copy_to_user ((void __user *) (0x1000 - sizeof (real_mode_switch) - 100),
 		real_mode_switch, sizeof (real_mode_switch));
-	memcpy ((void *) (0x1000 - 100), code, length);
+	flags = __copy_to_user ((void __user *) (0x1000 - 100), code, length);
 
 	/* Set up the IDT for real mode. */
 
@@ -341,7 +341,7 @@ void machine_emergency_restart(void)
 			__asm__ __volatile__("int3");
 		}
 		/* rebooting needs to touch the page at absolute addr 0 */
-		*((unsigned short *)__va(0x472)) = reboot_mode;
+		__put_user(reboot_mode, (unsigned short __user *)0x472);
 		for (;;) {
 			mach_reboot_fixups(); /* for board specific fixups */
 			mach_reboot();
