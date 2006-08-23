@@ -435,21 +435,17 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		bprm->loader += stack_base;
 	bprm->exec += stack_base;
 
-	mpnt = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+	mpnt = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
 	if (!mpnt)
 		return -ENOMEM;
 
-	memset(mpnt, 0, sizeof(*mpnt));
-
 #ifdef CONFIG_PAX_SEGMEXEC
 	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (VM_STACK_FLAGS & VM_MAYEXEC)) {
-		mpnt_m = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+		mpnt_m = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
 		if (!mpnt_m) {
 			kmem_cache_free(vm_area_cachep, mpnt);
 			return -ENOMEM;
 		}
-
-		memset(mpnt_m, 0, sizeof(*mpnt_m));
 	}
 #endif
 
@@ -474,13 +470,13 @@ int setup_arg_pages(struct linux_binprm *bprm,
 			mpnt->vm_flags = VM_STACK_FLAGS;
 		mpnt->vm_flags |= mm->def_flags;
 
-#ifdef CONFIG_PAX_PAGEEXEC
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
 		if (!(mm->pax_flags & MF_PAX_PAGEEXEC))
-			mpnt->vm_page_prot = protection_map[(mpnt->vm_flags | VM_EXEC) & 0x7];
+			mpnt->vm_page_prot = protection_map[(mpnt->vm_flags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC)];
 		else
 #endif
 
-		mpnt->vm_page_prot = protection_map[mpnt->vm_flags & 0x7];
+		mpnt->vm_page_prot = protection_map[mpnt->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 		if ((ret = insert_vm_struct(mm, mpnt))) {
 			up_write(&mm->mmap_sem);
 			kmem_cache_free(vm_area_cachep, mpnt);

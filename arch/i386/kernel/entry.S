@@ -216,9 +216,17 @@ sysenter_past_esp:
  * Load the potential sixth argument from user stack.
  * Careful about security.
  */
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pushl $(__USER_DS)
+	pop %ds
+1:	movl %ds:(%ebp),%ebp
+#else
 	cmpl $__PAGE_OFFSET-3,%ebp
 	jae syscall_fault
 1:	movl (%ebp),%ebp
+#endif
+
 .section __ex_table,"a"
 	.align 4
 	.long 1b,syscall_fault

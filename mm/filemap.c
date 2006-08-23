@@ -1653,9 +1653,9 @@ int generic_file_mmap(struct file * file, struct vm_area_struct * vma)
 	if (!mapping->a_ops->readpage)
 		return -ENODEV;
 
-#ifdef CONFIG_PAX_PAGEEXEC
-	if (vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC)
-		vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	if ((vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
+		vma->vm_page_prot = __pgprot(pte_val(pte_exprotect(__pte(pgprot_val(vma->vm_page_prot)))));
 #endif
 
 	file_accessed(file);

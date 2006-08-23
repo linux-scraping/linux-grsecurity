@@ -24,7 +24,12 @@ EXPORT_PER_CPU_SYMBOL(cpu_16bit_stack);
 static int cachesize_override __cpuinitdata = -1;
 static int disable_x86_fxsr __cpuinitdata;
 static int disable_x86_serial_nr __cpuinitdata = 1;
+
+#ifdef CONFIG_PAX_NOVSYSCALL
+static int disable_x86_sep __cpuinitdata = 1;
+#else
 static int disable_x86_sep __cpuinitdata;
+#endif
 
 struct cpu_dev * cpu_devs[X86_VENDOR_NUM] = {};
 
@@ -396,10 +401,6 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 	 */
 	if (this_cpu->c_init)
 		this_cpu->c_init(c);
-
-#if defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_NOVSYSCALL)
-	clear_bit(X86_FEATURE_SEP, c->x86_capability);
-#endif
 
 	/* Disable the PN if appropriate */
 	squash_the_stupid_serial_number(c);

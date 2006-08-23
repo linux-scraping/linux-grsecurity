@@ -1532,6 +1532,11 @@ static void store_stackinfo(struct kmem_cache *cachep, unsigned long *addr,
 
 		while (!kstack_end(sptr)) {
 			svalue = *sptr++;
+
+#ifdef CONFIG_PAX_KERNEXEC
+			svalue += __KERNEL_TEXT_OFFSET;
+#endif
+
 			if (kernel_text_address(svalue)) {
 				*addr++ = svalue;
 				size -= sizeof(unsigned long);

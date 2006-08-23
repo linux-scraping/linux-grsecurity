@@ -228,13 +228,13 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 		}
 	}
 
-#ifdef CONFIG_PAX_PAGEEXEC
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
 	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
-		newprot = protection_map[(newflags | VM_EXEC) & 0xf];
+		newprot = protection_map[(newflags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	else
 #endif
 
-	newprot = protection_map[newflags & 0xf];
+	newprot = protection_map[newflags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 
 	/*
 	 * First try to merge with previous and/or next vma.
@@ -381,7 +381,7 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC:
 	 */
-	if (unlikely((prot & PROT_READ) &&
+	if (unlikely((prot & (PROT_READ | PROT_WRITE)) &&
 			(current->personality & READ_IMPLIES_EXEC)))
 		prot |= PROT_EXEC;
 

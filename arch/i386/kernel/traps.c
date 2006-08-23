@@ -152,7 +152,7 @@ static inline unsigned long print_context_stack(struct thread_info *tinfo,
 #else
 	while (valid_stack_ptr(tinfo, stack)) {
 		addr = *stack++;
-		if (__kernel_text_address(addr)) {
+		if (__kernel_text_address(addr + __KERNEL_TEXT_OFFSET)) {
 			printed = print_addr_and_symbol(addr, log_lvl, printed);
 			--i;
 		}

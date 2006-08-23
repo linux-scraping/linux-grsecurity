@@ -948,7 +948,7 @@ config PCI
 choice
 	prompt "PCI access mode"
 	depends on PCI && !X86_VISWS
-	default PCI_GOANY
+	default PCI_GODIRECT
 	---help---
 	  On PCI systems, the BIOS can be used to detect the PCI devices and
 	  determine their configuration. However, some old PCI motherboards

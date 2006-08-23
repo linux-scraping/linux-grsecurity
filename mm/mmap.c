@@ -61,8 +61,6 @@ pgprot_t protection_map[16] = {
 	__S000, __S001, __S010, __S011, __S100, __S101, __S110, __S111
 };
 
-EXPORT_SYMBOL(protection_map);
-
 int sysctl_overcommit_memory = OVERCOMMIT_GUESS;  /* heuristic overcommit */
 int sysctl_overcommit_ratio = 50;	/* default is 50% */
 int sysctl_max_map_count __read_mostly = DEFAULT_MAX_MAP_COUNT;
@@ -980,12 +978,16 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	 * (the exception is when the underlying filesystem is noexec
 	 *  mounted, in which case we dont add PROT_EXEC.)
 	 */
-	if ((prot & PROT_READ) && (current->personality & READ_IMPLIES_EXEC))
+	if ((prot & (PROT_READ | PROT_WRITE)) && (current->personality & READ_IMPLIES_EXEC))
 		if (!(file && (file->f_vfsmnt->mnt_flags & MNT_NOEXEC)))
 			prot |= PROT_EXEC;
 
 	if (!len)
 		return -EINVAL;
+
+	error = arch_mmap_check(addr, len, flags);
+	if (error)
+		return error;
 
 	/* Careful about overflows.. */
 	len = PAGE_ALIGN(len);
@@ -1167,13 +1169,13 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	vma->vm_end = addr + len;
 	vma->vm_flags = vm_flags;
 
-#ifdef CONFIG_PAX_PAGEEXEC
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
 	if ((file || !(mm->pax_flags & MF_PAX_PAGEEXEC)) && (vm_flags & (VM_READ|VM_WRITE)))
-		vma->vm_page_prot = protection_map[(vm_flags | VM_EXEC) & 0x0f];
+		vma->vm_page_prot = protection_map[(vm_flags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	else
 #endif
 
-	vma->vm_page_prot = protection_map[vm_flags & 0x0f];
+	vma->vm_page_prot = protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	vma->vm_pgoff = pgoff;
 
 	if (file) {
@@ -2073,6 +2075,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	unsigned long flags, task_size = TASK_SIZE;
 	struct rb_node ** rb_link, * rb_parent;
 	pgoff_t pgoff = addr >> PAGE_SHIFT;
+	int error;
 
 	len = PAGE_ALIGN(len);
 	if (!len)
@@ -2085,6 +2088,24 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 
 	if ((addr + len) > task_size || (addr + len) < addr)
 		return -EINVAL;
+
+	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+	if (mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		flags &= ~VM_EXEC;
+
+#ifdef CONFIG_PAX_MPROTECT
+		if (mm->pax_flags & MF_PAX_MPROTECT)
+			flags &= ~VM_MAYEXEC;
+#endif
+
+	}
+#endif
+
+	error = arch_mmap_check(addr, len, flags);
+	if (error)
+		return error;
 
 	/*
 	 * mlock MCL_FUTURE?
@@ -2127,20 +2148,6 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	if (security_vm_enough_memory(len >> PAGE_SHIFT))
 		return -ENOMEM;
 
-	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
-
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		flags &= ~VM_EXEC;
-
-#ifdef CONFIG_PAX_MPROTECT
-		if (mm->pax_flags & MF_PAX_MPROTECT)
-			flags &= ~VM_MAYEXEC;
-#endif
-
-	}
-#endif
-
 	/* Can we just expand an old private anonymous mapping? */
 	if (vma_merge(mm, prev, addr, addr + len, flags,
 					NULL, NULL, pgoff, NULL))
@@ -2161,13 +2168,13 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	vma->vm_pgoff = pgoff;
 	vma->vm_flags = flags;
 
-#ifdef CONFIG_PAX_PAGEEXEC
-	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & (VM_READ|VM_WRITE)))
-		vma->vm_page_prot = protection_map[(flags | VM_EXEC) & 0x0f];
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC))
+		vma->vm_page_prot = protection_map[(flags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	else
 #endif
 
-	vma->vm_page_prot = protection_map[flags & 0x0f];
+	vma->vm_page_prot = protection_map[flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 out:
 	mm->total_vm += len >> PAGE_SHIFT;

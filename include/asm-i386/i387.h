@@ -40,13 +40,8 @@ extern void kernel_fpu_begin(void);
 #define kernel_fpu_end() do { stts(); preempt_enable(); } while(0)
 
 /* We need a safe address that is cheap to find and that is already
-   in L1 during context switch. The best choices are unfortunately
-   different for UP and SMP */
-#ifdef CONFIG_SMP
-#define safe_address (__per_cpu_offset[0])
-#else
-#define safe_address (kstat_cpu(0).cpustat.user)
-#endif
+   in L1 during context switch. */
+#define safe_address (init_tss[smp_processor_id()].esp0)
 
 /*
  * These must be called with preempt disabled

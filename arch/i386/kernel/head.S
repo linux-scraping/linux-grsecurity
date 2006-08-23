@@ -426,13 +426,35 @@ rp_sidt:
 	addl $8,%edi
 	dec %ecx
 	jne rp_sidt
+
+	lea ignore_int_error_code,%edx
+	movw %dx,%ax		/* selector = 0x0010 = cs */
+	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
+
+	lea idt_table,%edi
+	movl %eax,8*8(%edi)
+	movl %edx,8*8+4(%edi)
+	movl %eax,10*8(%edi)
+	movl %edx,10*8+4(%edi)
+	movl %eax,11*8(%edi)
+	movl %edx,11*8+4(%edi)
+	movl %eax,12*8(%edi)
+	movl %edx,12*8+4(%edi)
+	movl %eax,13*8(%edi)
+	movl %edx,13*8+4(%edi)
+	movl %eax,14*8(%edi)
+	movl %edx,14*8+4(%edi)
+	movl %eax,17*8(%edi)
+	movl %edx,17*8+4(%edi)
 	ret
 
 /* This is the default interrupt "handler" :-) */
 	ALIGN
+ignore_int_error_code:
+	addl $4,%esp
 ignore_int:
-	cld
 #ifdef CONFIG_PRINTK
+	cld
 	pushl %eax
 	pushl %ecx
 	pushl %edx
@@ -441,17 +463,16 @@ ignore_int:
 	movl $(__KERNEL_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
-	pushl 16(%esp)
-	pushl 24(%esp)
-	pushl 32(%esp)
-	pushl 40(%esp)
+	pushl 28(%esp)
+	pushl 28(%esp)
+	pushl 28(%esp)
 	pushl $int_msg
 #ifdef CONFIG_EARLY_PRINTK
 	call early_printk
 #else
 	call printk
 #endif
-	addl $(5*4),%esp
+	addl $(4*4),%esp
 	popl %ds
 	popl %es
 	popl %edx
@@ -535,6 +556,8 @@ ENTRY(cpu_gdt_descr)
 	.word GDT_ENTRIES*8-1
 	.long cpu_gdt_table
 
+	.fill NR_CPUS*8-6,1,0		# space for the other GDT descriptors
+
 /*
  * The boot_gdt_table must mirror the equivalent in setup.S and is
  * used only for booting.
@@ -548,7 +571,7 @@ ENTRY(boot_gdt_table)
 /*
  * The Global Descriptor Table contains 28 quadwords, per-CPU.
  */
-	.align 4096
+	.align PAGE_SIZE_asm
 ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x0000000000000000	/* 0x0b reserved */

@@ -2207,10 +2207,6 @@ struct module *__module_text_address(unsigned long addr)
 {
 	struct module *mod;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	addr += __KERNEL_TEXT_OFFSET;
-#endif
-
 	list_for_each_entry(mod, &modules, list)
 		if (within(addr, mod->module_init_rx, mod->init_size_rx)
 		    || within(addr, mod->module_core_rx, mod->core_size_rx))

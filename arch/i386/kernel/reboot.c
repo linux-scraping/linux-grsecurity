@@ -231,8 +231,8 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	pax_open_kernel(cr0);
 #endif
 
-	memcpy (swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
-		sizeof (swapper_pg_dir [0]) * KERNEL_PGD_PTRS);
+	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
+			USER_PGD_PTRS >= KERNEL_PGD_PTRS ? KERNEL_PGD_PTRS : USER_PGD_PTRS);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);

@@ -461,9 +461,9 @@ xfs_file_mmap(
 	vattr_t		vattr;
 	int		error;
 
-#ifdef CONFIG_PAX_PAGEEXEC
-	if (vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC)
-		vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	if ((vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
+		vma->vm_page_prot = __pgprot(pte_val(pte_exprotect(__pte(pgprot_val(vma->vm_page_prot)))));
 #endif
 
 	vma->vm_ops = &xfs_file_vm_ops;

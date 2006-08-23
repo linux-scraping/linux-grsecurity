@@ -72,13 +72,8 @@ static void __init efi_call_phys_prelog(void)
 	local_irq_save(efi_rt_eflags);
 
 	clone_pgd_range(efi_bak_pg_dir_pointer, swapper_pg_dir, KERNEL_PGD_PTRS);
-	if (USER_PTRS_PER_PGD >= KERNEL_PGD_PTRS)
-		clone_pgd_range(swapper_pg_dir, swapper_pg_dir + USER_PTRS_PER_PGD, KERNEL_PGD_PTRS);
-	else {
-		unsigned long i;
-		for (i = 0; i < KERNEL_PGD_PTRS; ++i)
-			clone_pgd_range(swapper_pg_dir + i, swapper_pg_dir + USER_PTRS_PER_PGD + i, 1);
-	}
+	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
+			USER_PGD_PTRS >= KERNEL_PGD_PTRS ? KERNEL_PGD_PTRS : USER_PGD_PTRS);
 
 	/*
 	 * After the lock is released, the original page table is restored.
