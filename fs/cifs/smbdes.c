@@ -196,15 +196,18 @@ dohash(char *out, char *in, char *key, int forw)
 	char c[28];
 	char d[28];
 	char *cd;
-	char ki[16][48];
+	char *ki;
 	char *pd1;
 	char l[32], r[32];
 	char *rl;
+	char *er;  /* er[48]  */
 
 	/* Have to reduce stack usage */
-	pk1 = kmalloc(56+56+64+64,GFP_KERNEL);
-	if(pk1 == NULL)
-		return;
+	pk1 = kmalloc(56+56+64+64, GFP_KERNEL);
+	ki = kmalloc(16*48, GFP_KERNEL);
+	er = kmalloc(48+48+32+32+32, GFP_KERNEL);
+	if (!pk1 || !ki || !er)
+		goto free;
 
 	cd = pk1 + 56;
 	pd1= cd  + 56;
@@ -222,7 +225,7 @@ dohash(char *out, char *in, char *key, int forw)
 		lshift(d, sc[i], 28);
 
 		concat(cd, c, d, 28, 28);
-		permute(ki[i], cd, perm2, 48);
+		permute(ki+48*i, cd, perm2, 48);
 	}
 
 	permute(pd1, in, perm3, 64);
@@ -233,18 +236,12 @@ dohash(char *out, char *in, char *key, int forw)
 	}
 
 	for (i = 0; i < 16; i++) {
-		char *er;  /* er[48]  */
 		char *erk; /* erk[48] */
 		char b[8][6];
 		char *cb;  /* cb[32]  */
 		char *pcb; /* pcb[32] */
 		char *r2;  /* r2[32]  */
 
-		er = kmalloc(48+48+32+32+32, GFP_KERNEL);
-		if(er == NULL) {
-			kfree(pk1);
-			return;
-		}
 		erk = er+48;
 		cb  = erk+48;
 		pcb = cb+32;
@@ -252,7 +249,7 @@ dohash(char *out, char *in, char *key, int forw)
 
 		permute(er, r, perm4, 48);
 
-		xor(erk, er, ki[forw ? i : 15 - i], 48);
+		xor(erk, er, ki+48*(forw ? i : 15 - i), 48);
 
 		for (j = 0; j < 8; j++)
 			for (k = 0; k < 6; k++)
@@ -282,13 +279,15 @@ dohash(char *out, char *in, char *key, int forw)
 
 		for (j = 0; j < 32; j++)
 			r[j] = r2[j];
-
-		kfree(er);
 	}
 
 	concat(rl, r, l, 32, 32);
 
 	permute(out, rl, perm6, 64);
+
+free:
+	kfree(er);
+	kfree(ki);
 	kfree(pk1);
 }
 

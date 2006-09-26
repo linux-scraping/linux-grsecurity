@@ -14,13 +14,13 @@
 #define __POWERPC_TIME_H
 
 #ifdef __KERNEL__
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/percpu.h>
 
 #include <asm/processor.h>
-#ifdef CONFIG_PPC64
+#ifdef CONFIG_PPC_ISERIES
 #include <asm/paca.h>
+#include <asm/firmware.h>
 #include <asm/iseries/hv_call.h>
 #endif
 
@@ -30,10 +30,6 @@ extern unsigned long tb_ticks_per_usec;
 extern unsigned long tb_ticks_per_sec;
 extern u64 tb_to_xs;
 extern unsigned      tb_to_us;
-extern unsigned long tb_last_stamp;
-extern u64 tb_last_jiffy;
-
-DECLARE_PER_CPU(unsigned long, last_jiffy);
 
 struct rtc_time;
 extern void to_tm(int tim, struct rtc_time * tm);
@@ -178,7 +174,8 @@ static inline void set_dec(int val)
 #ifdef CONFIG_PPC_ISERIES
 	int cur_dec;
 
-	if (get_lppaca()->shared_proc) {
+	if (firmware_has_feature(FW_FEATURE_ISERIES) &&
+			get_lppaca()->shared_proc) {
 		get_lppaca()->virtual_decr = val;
 		cur_dec = get_dec();
 		if (cur_dec > val)

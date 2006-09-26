@@ -1,7 +1,6 @@
 #ifndef __ASM_SYSTEM_H
 #define __ASM_SYSTEM_H
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <asm/segment.h>
 #include <asm/cpufeature.h>
@@ -13,9 +12,14 @@
 struct task_struct;	/* one of the stranger aspects of C forward declarations.. */
 extern struct task_struct * FASTCALL(__switch_to(struct task_struct *prev, struct task_struct *next));
 
+/*
+ * Saving eflags is important. It switches not only IOPL between tasks,
+ * it also protects other tasks from NT leaking through sysenter etc.
+ */
 #define switch_to(prev,next,last) do {					\
 	unsigned long esi,edi;						\
-	asm volatile("pushl %%ebp\n\t"					\
+	asm volatile("pushfl\n\t"		/* Save flags */	\
+		     "pushl %%ebp\n\t"					\
 		     "movl %%esp,%0\n\t"	/* save ESP */		\
 		     "movl %5,%%esp\n\t"	/* restore ESP */	\
 		     "movl $1f,%1\n\t"		/* save EIP */		\
@@ -23,6 +27,7 @@ extern struct task_struct * FASTCALL(__switch_to(struct task_struct *prev, struc
 		     "jmp __switch_to\n"				\
 		     "1:\t"						\
 		     "popl %%ebp\n\t"					\
+		     "popfl"						\
 		     :"=m" (prev->thread.esp),"=m" (prev->thread.eip),	\
 		      "=a" (last),"=S" (esi),"=D" (edi)			\
 		     :"m" (next->thread.esp),"m" (next->thread.eip),	\
@@ -84,10 +89,6 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 #define savesegment(seg, value) \
 	asm volatile("mov %%" #seg ",%0":"=rm" (value))
 
-/*
- * Clear and set 'TS' bit respectively
- */
-#define clts() __asm__ __volatile__ ("clts")
 #define read_cr0() ({ \
 	unsigned int __dummy; \
 	__asm__ __volatile__( \
@@ -96,7 +97,7 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 	__dummy; \
 })
 #define write_cr0(x) \
-	__asm__ __volatile__("movl %0,%%cr0": :"r" (x));
+	__asm__ __volatile__("movl %0,%%cr0": :"r" (x))
 
 #define read_cr2() ({ \
 	unsigned int __dummy; \
@@ -106,7 +107,7 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 	__dummy; \
 })
 #define write_cr2(x) \
-	__asm__ __volatile__("movl %0,%%cr2": :"r" (x));
+	__asm__ __volatile__("movl %0,%%cr2": :"r" (x))
 
 #define read_cr3() ({ \
 	unsigned int __dummy; \
@@ -116,7 +117,7 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 	__dummy; \
 })
 #define write_cr3(x) \
-	__asm__ __volatile__("movl %0,%%cr3": :"r" (x));
+	__asm__ __volatile__("movl %0,%%cr3": :"r" (x))
 
 #define read_cr4() ({ \
 	unsigned int __dummy; \
@@ -125,7 +126,6 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 		:"=r" (__dummy)); \
 	__dummy; \
 })
-
 #define read_cr4_safe() ({			      \
 	unsigned int __dummy;			      \
 	/* This could fault if %cr4 does not exist */ \
@@ -137,15 +137,19 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 		: "=r" (__dummy): "0" (0));	      \
 	__dummy;				      \
 })
-
 #define write_cr4(x) \
-	__asm__ __volatile__("movl %0,%%cr4": :"r" (x));
+	__asm__ __volatile__("movl %0,%%cr4": :"r" (x))
+
+/*
+ * Clear and set 'TS' bit respectively
+ */
+#define clts() __asm__ __volatile__ ("clts")
 #define stts() write_cr0(8 | read_cr0())
 
 #endif	/* __KERNEL__ */
 
 #define wbinvd() \
-	__asm__ __volatile__ ("wbinvd": : :"memory");
+	__asm__ __volatile__ ("wbinvd": : :"memory")
 
 static inline unsigned long get_limit(unsigned long segment)
 {
@@ -429,7 +433,7 @@ static inline unsigned long long __cmpxchg64(volatile void *ptr, unsigned long l
  * does not enforce ordering, since there is no data dependency between
  * the read of "a" and the read of "b".  Therefore, on some CPUs, such
  * as Alpha, "y" could be set to 3 and "x" to 0.  Use rmb()
- * in cases like thiswhere there are no data dependencies.
+ * in cases like this where there are no data dependencies.
  **/
 
 #define read_barrier_depends()	do { } while(0)
@@ -456,27 +460,7 @@ static inline unsigned long long __cmpxchg64(volatile void *ptr, unsigned long l
 #define set_mb(var, value) do { var = value; barrier(); } while (0)
 #endif
 
-#define set_wmb(var, value) do { var = value; wmb(); } while (0)
-
-/* interrupt control.. */
-#define local_save_flags(x)	do { typecheck(unsigned long,x); __asm__ __volatile__("pushfl ; popl %0":"=g" (x): /* no input */); } while (0)
-#define local_irq_restore(x) 	do { typecheck(unsigned long,x); __asm__ __volatile__("pushl %0 ; popfl": /* no output */ :"g" (x):"memory", "cc"); } while (0)
-#define local_irq_disable() 	__asm__ __volatile__("cli": : :"memory")
-#define local_irq_enable()	__asm__ __volatile__("sti": : :"memory")
-/* used in the idle loop; sti takes one instruction cycle to complete */
-#define safe_halt()		__asm__ __volatile__("sti; hlt": : :"memory")
-/* used when interrupts are already enabled or to shutdown the processor */
-#define halt()			__asm__ __volatile__("hlt": : :"memory")
-
-#define irqs_disabled()			\
-({					\
-	unsigned long flags;		\
-	local_save_flags(flags);	\
-	!(flags & (1<<9));		\
-})
-
-/* For spinlocks etc */
-#define local_irq_save(x)	__asm__ __volatile__("pushfl ; popl %0 ; cli":"=g" (x): /* no input */ :"memory")
+#include <linux/irqflags.h>
 
 /*
  * disable hlt during certain critical i/o operations

@@ -34,7 +34,6 @@
  * $Id: mthca_main.c 1396 2004-12-28 04:10:27Z roland $
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/errno.h>
@@ -172,8 +171,9 @@ static int __devinit mthca_dev_lim(struct mthca_dev *mdev, struct mthca_dev_lim 
 
 	if (dev_lim->uar_size > pci_resource_len(mdev->pdev, 2)) {
 		mthca_err(mdev, "HCA reported UAR size of 0x%x bigger than "
-			  "PCI resource 2 size of 0x%lx, aborting.\n",
-			  dev_lim->uar_size, pci_resource_len(mdev->pdev, 2));
+			  "PCI resource 2 size of 0x%llx, aborting.\n",
+			  dev_lim->uar_size,
+			  (unsigned long long)pci_resource_len(mdev->pdev, 2));
 		return -ENODEV;
 	}
 
@@ -967,12 +967,12 @@ static struct {
 } mthca_hca_table[] = {
 	[TAVOR]        = { .latest_fw = MTHCA_FW_VER(3, 4, 0),
 			   .flags     = 0 },
-	[ARBEL_COMPAT] = { .latest_fw = MTHCA_FW_VER(4, 7, 400),
+	[ARBEL_COMPAT] = { .latest_fw = MTHCA_FW_VER(4, 7, 600),
 			   .flags     = MTHCA_FLAG_PCIE },
-	[ARBEL_NATIVE] = { .latest_fw = MTHCA_FW_VER(5, 1, 0),
+	[ARBEL_NATIVE] = { .latest_fw = MTHCA_FW_VER(5, 1, 400),
 			   .flags     = MTHCA_FLAG_MEMFREE |
 					MTHCA_FLAG_PCIE },
-	[SINAI]        = { .latest_fw = MTHCA_FW_VER(1, 0, 800),
+	[SINAI]        = { .latest_fw = MTHCA_FW_VER(1, 1, 0),
 			   .flags     = MTHCA_FLAG_MEMFREE |
 					MTHCA_FLAG_PCIE    |
 					MTHCA_FLAG_SINAI_OPT }

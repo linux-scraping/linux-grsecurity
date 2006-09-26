@@ -1,16 +1,8 @@
 /*
- * linux/drivers/s390/scsi/zfcp_ccw.c
+ * This file is part of the zfcp device driver for
+ * FCP adapters for IBM System z9 and zSeries.
  *
- * FCP adapter driver for IBM eServer zSeries
- *
- * CCW driver related routines
- *
- * (C) Copyright IBM Corp. 2003, 2004
- *
- * Authors:
- *      Martin Peschke <mpeschke@de.ibm.com>
- *	Heiko Carstens <heiko.carstens@de.ibm.com>
- *      Andreas Herrmann <aherrman@de.ibm.com>
+ * (C) Copyright IBM Corp. 2002, 2006
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -172,6 +164,11 @@ zfcp_ccw_set_online(struct ccw_device *ccw_device)
 	retval = zfcp_adapter_scsi_register(adapter);
 	if (retval)
 		goto out_scsi_register;
+
+	/* initialize request counter */
+	BUG_ON(!zfcp_reqlist_isempty(adapter));
+	adapter->req_no = 0;
+
 	zfcp_erp_modify_adapter_status(adapter, ZFCP_STATUS_COMMON_RUNNING,
 				       ZFCP_SET);
 	zfcp_erp_adapter_reopen(adapter, ZFCP_STATUS_COMMON_ERP_FAILED);

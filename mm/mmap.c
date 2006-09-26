@@ -31,6 +31,10 @@
 #include <asm/cacheflush.h>
 #include <asm/tlb.h>
 
+#ifndef arch_mmap_check
+#define arch_mmap_check(addr, len, flags)	(0)
+#endif
+
 static void unmap_region(struct mm_struct *mm,
 		struct vm_area_struct *vma, struct vm_area_struct *prev,
 		unsigned long start, unsigned long end);
@@ -97,7 +101,7 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 	if (sysctl_overcommit_memory == OVERCOMMIT_GUESS) {
 		unsigned long n;
 
-		free = get_page_cache_size();
+		free = global_page_state(NR_FILE_PAGES);
 		free += nr_swap_pages;
 
 		/*
@@ -1175,7 +1179,8 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	else
 #endif
 
-	vma->vm_page_prot = protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
+	vma->vm_page_prot = protection_map[vm_flags &
+				(VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	vma->vm_pgoff = pgoff;
 
 	if (file) {
@@ -1197,6 +1202,20 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 		error = shmem_zero_setup(vma);
 		if (error)
 			goto free_vma;
+	}
+
+	/* Don't make the VMA automatically writable if it's shared, but the
+	 * backer wishes to know when pages are first written to */
+	if (vma->vm_ops && vma->vm_ops->page_mkwrite) {
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+		if ((file || !(mm->pax_flags & MF_PAX_PAGEEXEC)) && (vm_flags & (VM_READ|VM_WRITE)))
+			vma->vm_page_prot = protection_map[(vm_flags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC)];
+		else
+#endif
+
+		vma->vm_page_prot =
+			protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 	}
 
 #ifdef CONFIG_PAX_SEGMEXEC
@@ -1298,7 +1317,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	if (addr) {
@@ -1374,7 +1393,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	/* requesting a specific address */
@@ -2174,7 +2193,8 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	else
 #endif
 
-	vma->vm_page_prot = protection_map[flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
+	vma->vm_page_prot = protection_map[flags &
+				(VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 out:
 	mm->total_vm += len >> PAGE_SHIFT;

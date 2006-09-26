@@ -153,8 +153,7 @@ static void udf_bitmap_free_blocks(struct super_block * sb,
 	unsigned long overflow;
 
 	mutex_lock(&sbi->s_alloc_mutex);
-	if (bloc.logicalBlockNum < 0 ||
-		(bloc.logicalBlockNum + count) > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
+	if (bloc.logicalBlockNum + count > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
 	{
 		udf_debug("%d < %d || %d + %d > %d\n",
 			bloc.logicalBlockNum, 0, bloc.logicalBlockNum, count,
@@ -227,7 +226,7 @@ static int udf_bitmap_prealloc_blocks(struct super_block * sb,
 	struct buffer_head *bh;
 
 	mutex_lock(&sbi->s_alloc_mutex);
-	if (first_block < 0 || first_block >= UDF_SB_PARTLEN(sb, partition))
+	if (first_block >= UDF_SB_PARTLEN(sb, partition))
 		goto out;
 
 	if (first_block + block_count > UDF_SB_PARTLEN(sb, partition))
@@ -294,7 +293,7 @@ static int udf_bitmap_new_block(struct super_block * sb,
 	mutex_lock(&sbi->s_alloc_mutex);
 
 repeat:
-	if (goal < 0 || goal >= UDF_SB_PARTLEN(sb, partition))
+	if (goal >= UDF_SB_PARTLEN(sb, partition))
 		goal = 0;
 
 	nr_groups = bitmap->s_nr_groups;
@@ -434,8 +433,7 @@ static void udf_table_free_blocks(struct super_block * sb,
 	int i;
 
 	mutex_lock(&sbi->s_alloc_mutex);
-	if (bloc.logicalBlockNum < 0 ||
-		(bloc.logicalBlockNum + count) > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
+	if (bloc.logicalBlockNum + count > UDF_SB_PARTLEN(sb, bloc.partitionReferenceNum))
 	{
 		udf_debug("%d < %d || %d + %d > %d\n",
 			bloc.logicalBlockNum, 0, bloc.logicalBlockNum, count,
@@ -682,7 +680,7 @@ static int udf_table_prealloc_blocks(struct super_block * sb,
 	struct buffer_head *bh;
 	int8_t etype = -1;
 
-	if (first_block < 0 || first_block >= UDF_SB_PARTLEN(sb, partition))
+	if (first_block >= UDF_SB_PARTLEN(sb, partition))
 		return 0;
 
 	if (UDF_I_ALLOCTYPE(table) == ICBTAG_FLAG_AD_SHORT)
@@ -762,7 +760,7 @@ static int udf_table_new_block(struct super_block * sb,
 		return newblock;
 
 	mutex_lock(&sbi->s_alloc_mutex);
-	if (goal < 0 || goal >= UDF_SB_PARTLEN(sb, partition))
+	if (goal >= UDF_SB_PARTLEN(sb, partition))
 		goal = 0;
 
 	/* We search for the closest matching block to goal. If we find a exact hit,

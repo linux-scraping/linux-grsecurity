@@ -5,7 +5,6 @@
  * Copyright (C) 1999-2000, 2002-2003, 2005 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  */
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
@@ -171,7 +170,7 @@ sys_pipe (void)
 	return retval;
 }
 
-int ia64_map_check_rgn(unsigned long addr, unsigned long len,
+int ia64_mmap_check(unsigned long addr, unsigned long len,
 		unsigned long flags)
 {
 	unsigned long roff;

@@ -16,7 +16,6 @@
  *
  */
 
-#include <linux/config.h>
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -32,6 +31,7 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/videodev.h>
+#include <media/v4l2-common.h>
 
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -599,6 +599,10 @@ v4l_compat_translate_ioctl(struct inode         *inode,
 			dprintk("VIDIOCGPICT / VIDIOC_G_FMT: %d\n",err);
 			break;
 		}
+
+		pict->depth   = ((fmt2->fmt.pix.bytesperline<<3)
+				 + (fmt2->fmt.pix.width-1) )
+				 /fmt2->fmt.pix.width;
 		pict->palette = pixelformat_to_palette(
 			fmt2->fmt.pix.pixelformat);
 		break;

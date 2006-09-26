@@ -81,7 +81,6 @@ static const char StripVersion[] = "1.3A-STUART.CHESHIRE";
 /************************************************************************/
 /* Header files								*/
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -468,6 +467,7 @@ static int arp_query(unsigned char *haddr, u32 paddr,
 		     struct net_device *dev)
 {
 	struct neighbour *neighbor_entry;
+	int ret = 0;
 
 	neighbor_entry = neigh_lookup(&arp_tbl, &paddr, dev);
 
@@ -475,10 +475,11 @@ static int arp_query(unsigned char *haddr, u32 paddr,
 		neighbor_entry->used = jiffies;
 		if (neighbor_entry->nud_state & NUD_VALID) {
 			memcpy(haddr, neighbor_entry->ha, dev->addr_len);
-			return 1;
+			ret = 1;
 		}
+		neigh_release(neighbor_entry);
 	}
-	return 0;
+	return ret;
 }
 
 static void DumpData(char *msg, struct strip *strip_info, __u8 * ptr,

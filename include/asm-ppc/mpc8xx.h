@@ -8,7 +8,6 @@
 #ifndef __CONFIG_8xx_DEFS
 #define __CONFIG_8xx_DEFS
 
-#include <linux/config.h>
 
 #ifdef CONFIG_8xx
 
@@ -111,6 +110,7 @@ enum ppc_sys_devices {
 	MPC8xx_CPM_SMC1,
 	MPC8xx_CPM_SMC2,
 	MPC8xx_CPM_USB,
+	MPC8xx_MDIO_FEC,
 	NUM_PPC_SYS_DEVS,
 };
 

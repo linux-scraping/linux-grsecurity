@@ -53,12 +53,10 @@
 #ifndef _LINUX_TIMEX_H
 #define _LINUX_TIMEX_H
 
-#include <linux/config.h>
 #include <linux/compiler.h>
 #include <linux/time.h>
 
 #include <asm/param.h>
-#include <asm/timex.h>
 
 /*
  * SHIFT_KG and SHIFT_KF establish the damping of the PLL and are chosen
@@ -192,6 +190,8 @@ struct timex {
 #define TIME_BAD	TIME_ERROR /* bw compat */
 
 #ifdef __KERNEL__
+#include <asm/timex.h>
+
 /*
  * kernel variables
  * Note: maximum error = NTP synch distance = dispersion + delay / 2;
@@ -303,6 +303,8 @@ time_interpolator_reset(void)
 }
 
 #endif /* !CONFIG_TIME_INTERPOLATION */
+
+#define TICK_LENGTH_SHIFT	32
 
 /* Returns how long ticks are at present, in ns / 2^(SHIFT_SCALE-10). */
 extern u64 current_tick_length(void);

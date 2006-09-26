@@ -318,6 +318,7 @@ int saa7146_start_preview(struct saa7146_fh *fh)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7146_start_preview);
 
 int saa7146_stop_preview(struct saa7146_fh *fh)
 {
@@ -352,6 +353,7 @@ int saa7146_stop_preview(struct saa7146_fh *fh)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(saa7146_stop_preview);
 
 static int s_fmt(struct saa7146_fh *fh, struct v4l2_format *f)
 {
@@ -1188,6 +1190,7 @@ int saa7146_video_do_ioctl(struct inode *inode, struct file *file, unsigned int 
 		}
 		return err;
 	}
+#ifdef CONFIG_VIDEO_V4L1_COMPAT
 	case VIDIOCGMBUF:
 	{
 		struct video_mbuf *mbuf = arg;
@@ -1216,6 +1219,7 @@ int saa7146_video_do_ioctl(struct inode *inode, struct file *file, unsigned int 
 		mutex_unlock(&q->lock);
 		return 0;
 	}
+#endif
 	default:
 		return v4l_compat_translate_ioctl(inode,file,cmd,arg,
 						  saa7146_video_do_ioctl);

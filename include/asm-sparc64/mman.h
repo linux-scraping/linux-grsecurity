@@ -2,12 +2,6 @@
 #ifndef __SPARC64_MMAN_H__
 #define __SPARC64_MMAN_H__
 
-#ifdef __KERNEL__
-#define arch_mmap_check	sparc64_mmap_check
-int sparc64_mmap_check(unsigned long addr, unsigned long len,
-		unsigned long flags);
-#endif
-
 #include <asm-generic/mman.h>
 
 /* SunOS'ified... */
@@ -40,5 +34,13 @@ int sparc64_mmap_check(unsigned long addr, unsigned long len,
 #define MC_UNLOCKAS     6  /* Unlock entire address space of calling process */
 
 #define MADV_FREE	0x5		/* (Solaris) contents can be freed */
+
+#ifdef __KERNEL__
+#ifndef __ASSEMBLY__
+#define arch_mmap_check	sparc64_mmap_check
+int sparc64_mmap_check(unsigned long addr, unsigned long len,
+		unsigned long flags);
+#endif
+#endif
 
 #endif /* __SPARC64_MMAN_H__ */

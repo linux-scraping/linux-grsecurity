@@ -136,7 +136,7 @@ config RADIO_GEMTEK_PCI
 	  Choose Y here if you have this PCI FM radio card.
 
 	  In order to control your radio card, you will need to use programs
-	  that are compatible with the Video for Linux API.  Information on 
+	  that are compatible with the Video for Linux API.  Information on
 	  this API and pointers to "v4l" programs may be found at
 	  <file:Documentation/video4linux/API.html>.
 
@@ -350,5 +350,15 @@ config RADIO_ZOLTRIX_PORT
 	help
 	  Enter the I/O port of your Zoltrix radio card.
 
-endmenu
+config USB_DSBR
+	tristate "D-Link USB FM radio support (EXPERIMENTAL)"
+	depends on USB && VIDEO_V4L1 && EXPERIMENTAL
+	---help---
+	  Say Y here if you want to connect this type of radio to your
+	  computer's USB port. Note that the audio is not digital, and
+	  you must connect the line out connector to a sound card or a
+	  set of speakers.
 
+	  To compile this driver as a module, choose M here: the
+	  module will be called dsbr100.
+endmenu

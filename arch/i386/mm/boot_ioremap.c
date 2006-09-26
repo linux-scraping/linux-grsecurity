@@ -7,21 +7,18 @@
  * Written by Dave Hansen <haveblue@us.ibm.com>
  */
 
-
-#include <linux/config.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <linux/init.h>
 #include <linux/stddef.h>
 
-
 /*
  * This is only for a caller who is clever enough to page-align
  * phys_addr and virtual_source, and who also has a preference
  * about which virtual address from which to steal ptes
  */
-static void __init __boot_ioremap(unsigned long phys_addr, unsigned int nrpages,
+static void __init __boot_ioremap(unsigned long phys_addr, unsigned long nrpages, 
 		    char* virtual_source)
 {
 	pgd_t *pgd;
@@ -36,6 +33,7 @@ static void __init __boot_ioremap(unsigned long phys_addr, unsigned int nrpages,
 	pmd = pmd_offset(pud, vaddr);
 	pte = pte_offset_kernel(pmd, vaddr);
 
+	pte = boot_vaddr_to_pte(virtual_source);
 	for (i=0; i < nrpages; i++, phys_addr += PAGE_SIZE, pte++) {
 		set_pte(pte, pfn_pte(phys_addr>>PAGE_SHIFT, PAGE_KERNEL));
 		__flush_tlb_one(&virtual_source[i*PAGE_SIZE]);

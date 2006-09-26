@@ -21,7 +21,6 @@
 
 #include <linux/stddef.h>
 #include <linux/init.h>
-#include <linux/config.h>
 #include <linux/mm.h>
 #include <linux/bootmem.h>
 #include <linux/delay.h>
@@ -113,8 +112,10 @@ struct resource io_resources[] = {
 };
 
 struct resource kram_resources[] = {
-	{ "Kernel code", 0, 0 },	/* These must be last in the array */
-	{ "Kernel data", 0, 0 }		/* These must be last in the array */
+	/* These must be last in the array */
+	{ .name = "Kernel code", .start = 0, .end = 0 },
+	/* These must be last in the array */
+	{ .name = "Kernel data", .start = 0, .end = 0 }
 };
 
 struct resource xram_resources[] = {

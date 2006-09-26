@@ -35,7 +35,6 @@
 	response to inb()s from other device probes!
 */
 
-#include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -902,7 +901,7 @@ MODULE_PARM_DESC(io, "AT1700/FMV18X I/O base address");
 MODULE_PARM_DESC(irq, "AT1700/FMV18X IRQ number");
 MODULE_PARM_DESC(net_debug, "AT1700/FMV18X debug level (0-6)");
 
-int init_module(void)
+int __init init_module(void)
 {
 	if (io == 0)
 		printk("at1700: You should not use auto-probing with insmod!\n");

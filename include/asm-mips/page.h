@@ -9,13 +9,10 @@
 #ifndef _ASM_PAGE_H
 #define _ASM_PAGE_H
 
-#include <linux/config.h>
 
 #ifdef __KERNEL__
 
 #include <spaces.h>
-
-#endif
 
 /*
  * PAGE_SHIFT determines the page size
@@ -35,8 +32,6 @@
 #define PAGE_SIZE	(1UL << PAGE_SHIFT)
 #define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
 
-
-#ifdef __KERNEL__
 #ifndef __ASSEMBLY__
 
 extern void clear_page(void * page);
@@ -79,7 +74,7 @@ static inline void copy_user_page(void *vto, void *vfrom, unsigned long vaddr,
   #ifdef CONFIG_CPU_MIPS32
     typedef struct { unsigned long pte_low, pte_high; } pte_t;
     #define pte_val(x)    ((x).pte_low | ((unsigned long long)(x).pte_high << 32))
-    #define __pte(x)	({ pte_t __pte = {(x), (x) >> 32}; __pte;})
+    #define __pte(x)	({ pte_t __pte = {(x), (x) >> 32}; __pte; })
   #else
      typedef struct { unsigned long long pte; } pte_t;
      #define pte_val(x)	((x).pte)
@@ -141,10 +136,25 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
 
-#ifndef CONFIG_SPARSEMEM
-#ifndef CONFIG_NEED_MULTIPLE_NODES
+#ifdef CONFIG_FLATMEM
+
 #define pfn_valid(pfn)		((pfn) < max_mapnr)
-#endif
+
+#elif defined(CONFIG_SPARSEMEM)
+
+/* pfn_valid is defined in linux/mmzone.h */
+
+#elif defined(CONFIG_NEED_MULTIPLE_NODES)
+
+#define pfn_valid(pfn)							\
+({									\
+	unsigned long __pfn = (pfn);					\
+	int __n = pfn_to_nid(__pfn);					\
+	((__n >= 0) ? (__pfn < NODE_DATA(__n)->node_start_pfn +		\
+	                       NODE_DATA(__n)->node_spanned_pages)	\
+	            : 0);						\
+})
+
 #endif
 
 #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
@@ -165,13 +175,13 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define UNCAC_ADDR(addr)	((addr) - PAGE_OFFSET + UNCAC_BASE)
 #define CAC_ADDR(addr)		((addr) - UNCAC_BASE + PAGE_OFFSET)
 
-#endif /* defined (__KERNEL__) */
-
 #ifdef CONFIG_LIMITED_DMA
 #define WANT_PAGE_VIRTUAL
 #endif
 
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#endif /* defined (__KERNEL__) */
 
 #endif /* _ASM_PAGE_H */

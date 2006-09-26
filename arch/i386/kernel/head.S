@@ -8,7 +8,6 @@
  */
 
 .text
-#include <linux/config.h>
 #include <linux/threads.h>
 #include <linux/linkage.h>
 #include <asm/segment.h>
@@ -366,20 +365,14 @@ is386:	movl $2,%ecx		# set MP
 	movl %eax,%gs
 	lldt %ax
 	cld			# gcc2 wants the direction flag cleared at all times
+	pushl %eax		# fake return address
 #ifdef CONFIG_SMP
 	movb ready, %cl
 	movb $1, ready
-	cmpb $0,%cl
-	je 1f			# the first CPU calls start_kernel
-				# all other CPUs call initialize_secondary
-	call initialize_secondary
-	jmp L6
-1:
+	cmpb $0,%cl		# the first CPU calls start_kernel
+	jne initialize_secondary # all other CPUs call initialize_secondary
 #endif /* CONFIG_SMP */
-	call start_kernel
-L6:
-	jmp L6			# main should never return here, but
-				# just in case, we know what happens.
+	jmp start_kernel
 
 /*
  * We depend on ET to be correct. This checks for 287/387.
@@ -426,60 +419,29 @@ rp_sidt:
 	addl $8,%edi
 	dec %ecx
 	jne rp_sidt
-
-	lea ignore_int_error_code,%edx
-	movw %dx,%ax		/* selector = 0x0010 = cs */
-	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
-
-	lea idt_table,%edi
-	movl %eax,8*8(%edi)
-	movl %edx,8*8+4(%edi)
-	movl %eax,10*8(%edi)
-	movl %edx,10*8+4(%edi)
-	movl %eax,11*8(%edi)
-	movl %edx,11*8+4(%edi)
-	movl %eax,12*8(%edi)
-	movl %edx,12*8+4(%edi)
-	movl %eax,13*8(%edi)
-	movl %edx,13*8+4(%edi)
-	movl %eax,14*8(%edi)
-	movl %edx,14*8+4(%edi)
-	movl %eax,17*8(%edi)
-	movl %edx,17*8+4(%edi)
 	ret
 
 /* This is the default interrupt "handler" :-) */
 	ALIGN
-ignore_int_error_code:
-	addl $4,%esp
 ignore_int:
 #ifdef CONFIG_PRINTK
 	cld
-	pushl %eax
-	pushl %ecx
-	pushl %edx
-	pushl %es
-	pushl %ds
 	movl $(__KERNEL_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
-	pushl 28(%esp)
-	pushl 28(%esp)
-	pushl 28(%esp)
+	pushl 12(%esp)
+	pushl 12(%esp)
+	pushl 12(%esp)
+	pushl 12(%esp)
 	pushl $int_msg
 #ifdef CONFIG_EARLY_PRINTK
 	call early_printk
 #else
 	call printk
 #endif
-	addl $(4*4),%esp
-	popl %ds
-	popl %es
-	popl %edx
-	popl %ecx
-	popl %eax
 #endif
-	iret
+1:	hlt
+	jmp 1b
 
 .section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
@@ -526,7 +488,7 @@ ENTRY(stack_start)
 	.long __BOOT_DS
 
 int_msg:
-	.asciz "Unknown interrupt or fault at EIP %p %p %p\n"
+	.asciz "Unknown interrupt, stack: %p %p %p %p\n"
 
 /*
  * The IDT and GDT 'descriptors' are a strange 48-bit object

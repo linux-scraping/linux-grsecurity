@@ -8,10 +8,6 @@
  * published by the Free Software Foundation.
  *
  * S3C2440 GPIO J register definitions
- *
- *  Changelog:
- *    11-Aug-2004     BJD     Created file
- *    10-Feb-2005     BJD     Fix GPJ12 definition (Guillaume Gourat)
 */
 
 
@@ -31,6 +27,11 @@
 #define S3C2440_GPJCON	    S3C2410_GPIOREG(0xd0)
 #define S3C2440_GPJDAT	    S3C2410_GPIOREG(0xd4)
 #define S3C2440_GPJUP	    S3C2410_GPIOREG(0xd8)
+
+#define S3C2413_GPJCON		S3C2410_GPIOREG(0x80)
+#define S3C2413_GPJDAT		S3C2410_GPIOREG(0x84)
+#define S3C2413_GPJUP		S3C2410_GPIOREG(0x88)
+#define S3C2413_GPJSLPCON	S3C2410_GPIOREG(0x8C)
 
 #define S3C2440_GPJ0            S3C2410_GPIONO(S3C2440_GPIO_BANKJ, 0)
 #define S3C2440_GPJ0_INP        (0x00 << 0)

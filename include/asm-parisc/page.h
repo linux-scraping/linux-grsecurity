@@ -1,23 +1,14 @@
 #ifndef _PARISC_PAGE_H
 #define _PARISC_PAGE_H
 
-#if !defined(__KERNEL__)
-/* this is for userspace applications (4k page size) */
-# define PAGE_SHIFT	12	/* 4k */
-# define PAGE_SIZE	(1UL << PAGE_SHIFT)
-# define PAGE_MASK	(~(PAGE_SIZE-1))
-#endif
-
-
 #ifdef __KERNEL__
-#include <linux/config.h>
 
 #if defined(CONFIG_PARISC_PAGE_SIZE_4KB)
-# define PAGE_SHIFT	12	/* 4k */
+# define PAGE_SHIFT	12
 #elif defined(CONFIG_PARISC_PAGE_SIZE_16KB)
-# define PAGE_SHIFT	14	/* 16k */
+# define PAGE_SHIFT	14
 #elif defined(CONFIG_PARISC_PAGE_SIZE_64KB)
-# define PAGE_SHIFT	16	/* 64k */
+# define PAGE_SHIFT	16
 #else
 # error "unknown default kernel page size"
 #endif
@@ -198,9 +189,9 @@ extern int npmem_ranges;
 #endif
 #endif
 
-#endif /* __KERNEL__ */
-
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#endif /* __KERNEL__ */
 
 #endif /* _PARISC_PAGE_H */

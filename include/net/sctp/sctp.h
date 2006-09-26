@@ -63,7 +63,6 @@
  */
 
 
-#include <linux/config.h>
 
 #ifdef TEST_FRAME
 #undef CONFIG_PROC_FS
@@ -251,8 +250,8 @@ extern int sctp_debug_flag;
 
 #else	/* SCTP_DEBUG */
 
-#define SCTP_DEBUG_PRINTK(whatever...)
-#define SCTP_DEBUG_PRINTK_IPADDR(whatever...)
+#define SCTP_DEBUG_PRINTK(whatever...) do {} while (0)
+#define SCTP_DEBUG_PRINTK_IPADDR(whatever...) do {} while (0)
 #define SCTP_ENABLE_DEBUG
 #define SCTP_DISABLE_DEBUG
 #define SCTP_ASSERT(expr, str, func)

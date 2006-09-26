@@ -6,7 +6,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
@@ -22,7 +21,7 @@ struct chipset_bus_clock_list_entry {
 	u8 ultra_settings;
 };
 
-static struct chipset_bus_clock_list_entry aec6xxx_33_base [] = {
+static const struct chipset_bus_clock_list_entry aec6xxx_33_base [] = {
 	{	XFER_UDMA_6,	0x31,	0x07	},
 	{	XFER_UDMA_5,	0x31,	0x06	},
 	{	XFER_UDMA_4,	0x31,	0x05	},
@@ -42,7 +41,7 @@ static struct chipset_bus_clock_list_entry aec6xxx_33_base [] = {
 	{	0,		0x00,	0x00	}
 };
 
-static struct chipset_bus_clock_list_entry aec6xxx_34_base [] = {
+static const struct chipset_bus_clock_list_entry aec6xxx_34_base [] = {
 	{	XFER_UDMA_6,	0x41,	0x06	},
 	{	XFER_UDMA_5,	0x41,	0x05	},
 	{	XFER_UDMA_4,	0x41,	0x04	},
@@ -254,7 +253,8 @@ static unsigned int __devinit init_chipset_aec62xx(struct pci_dev *dev, const ch
 
 	if (dev->resource[PCI_ROM_RESOURCE].start) {
 		pci_write_config_dword(dev, PCI_ROM_ADDRESS, dev->resource[PCI_ROM_RESOURCE].start | PCI_ROM_ADDRESS_ENABLE);
-		printk(KERN_INFO "%s: ROM enabled at 0x%08lx\n", name, dev->resource[PCI_ROM_RESOURCE].start);
+		printk(KERN_INFO "%s: ROM enabled at 0x%08lx\n", name,
+			(unsigned long)dev->resource[PCI_ROM_RESOURCE].start);
 	}
 
 	if (bus_speed <= 33)

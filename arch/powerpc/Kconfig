@@ -30,6 +30,10 @@ config GENERIC_HARDIRQS
 	bool
 	default y
 
+config IRQ_PER_CPU
+	bool
+	default y
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 
@@ -42,6 +46,10 @@ config GENERIC_HWEIGHT
 	default y
 
 config GENERIC_CALIBRATE_DELAY
+	bool
+	default y
+
+config GENERIC_FIND_NEXT_BIT
 	bool
 	default y
 
@@ -86,6 +94,10 @@ config GENERIC_TBSYNC
 	bool
 	default y if PPC32 && SMP
 	default n
+
+config AUDIT_ARCH
+	bool
+	default y
 
 config DEFAULT_UIMAGE
 	bool
@@ -136,6 +148,15 @@ config PPC_85xx
 	select E500
 	select FSL_SOC
 	select 85xx
+
+config PPC_86xx
+	bool "Freescale 86xx"
+	select 6xx
+	select FSL_SOC
+	select PPC_FPU
+	select ALTIVEC
+	help
+	  The Freescale E600 SoCs have 74xx cores.
 
 config 40x
 	bool "AMCC 40x"
@@ -323,7 +344,7 @@ config PPC_ISERIES
 
 config EMBEDDED6xx
 	bool "Embedded 6xx/7xx/7xxx-based board"
-	depends on PPC32 && BROKEN
+	depends on PPC32 && (BROKEN||BROKEN_ON_SMP)
 
 config APUS
 	bool "Amiga-APUS"
@@ -336,7 +357,8 @@ endchoice
 
 config PPC_PSERIES
 	depends on PPC_MULTIPLATFORM && PPC64
-	bool "  IBM pSeries & new (POWER5-based) iSeries"
+	bool "IBM pSeries & new (POWER5-based) iSeries"
+	select MPIC
 	select PPC_I8259
 	select PPC_RTAS
 	select RTAS_ERROR_LOGGING
@@ -344,8 +366,9 @@ config PPC_PSERIES
 	default y
 
 config PPC_CHRP
-	bool "  Common Hardware Reference Platform (CHRP) based machines"
+	bool "Common Hardware Reference Platform (CHRP) based machines"
 	depends on PPC_MULTIPLATFORM && PPC32
+	select MPIC
 	select PPC_I8259
 	select PPC_INDIRECT_PCI
 	select PPC_RTAS
@@ -354,8 +377,9 @@ config PPC_CHRP
 	default y
 
 config PPC_PMAC
-	bool "  Apple PowerMac based machines"
+	bool "Apple PowerMac based machines"
 	depends on PPC_MULTIPLATFORM
+	select MPIC
 	select PPC_INDIRECT_PCI if PPC32
 	select PPC_MPC106 if PPC32
 	default y
@@ -363,6 +387,7 @@ config PPC_PMAC
 config PPC_PMAC64
 	bool
 	depends on PPC_PMAC && POWER4
+	select MPIC
 	select U3_DART
 	select MPIC_BROKEN_U3
 	select GENERIC_TBSYNC
@@ -370,8 +395,9 @@ config PPC_PMAC64
 	default y
 
 config PPC_PREP
-	bool "  PowerPC Reference Platform (PReP) based machines"
+	bool "PowerPC Reference Platform (PReP) based machines"
 	depends on PPC_MULTIPLATFORM && PPC32 && BROKEN
+	select MPIC
 	select PPC_I8259
 	select PPC_INDIRECT_PCI
 	select PPC_UDBG_16550
@@ -379,7 +405,8 @@ config PPC_PREP
 
 config PPC_MAPLE
 	depends on PPC_MULTIPLATFORM && PPC64
-	bool "  Maple 970FX Evaluation Board"
+	bool "Maple 970FX Evaluation Board"
+	select MPIC
 	select U3_DART
 	select MPIC_BROKEN_U3
 	select GENERIC_TBSYNC
@@ -391,11 +418,26 @@ config PPC_MAPLE
 	  For more informations, refer to <http://www.970eval.com>
 
 config PPC_CELL
-	bool "  Cell Broadband Processor Architecture"
+	bool
+	default n
+
+config PPC_CELL_NATIVE
+	bool
+	select PPC_CELL
+	default n
+
+config PPC_IBM_CELL_BLADE
+	bool "IBM Cell Blade"
 	depends on PPC_MULTIPLATFORM && PPC64
+	select PPC_CELL_NATIVE
 	select PPC_RTAS
 	select MMIO_NVRAM
 	select PPC_UDBG_16550
+	select UDBG_RTAS_CONSOLE
+
+config UDBG_RTAS_CONSOLE
+	bool
+	default n
 
 config XICS
 	depends on PPC_PSERIES
@@ -406,11 +448,6 @@ config U3_DART
 	bool 
 	depends on PPC_MULTIPLATFORM && PPC64
 	default n
-
-config MPIC
-	depends on PPC_PSERIES || PPC_PMAC || PPC_MAPLE || PPC_CHRP
-	bool
-	default y
 
 config PPC_RTAS
 	bool
@@ -437,11 +474,6 @@ config MMIO_NVRAM
 config MPIC_BROKEN_U3
 	bool
 	depends on PPC_MAPLE
-	default y
-
-config CELL_IIC
-	depends on PPC_CELL
-	bool
 	default y
 
 config IBMVIO
@@ -476,7 +508,7 @@ config CPU_FREQ_PMAC
 
 config CPU_FREQ_PMAC64
 	bool "Support for some Apple G5s"
-	depends on CPU_FREQ && PMAC_SMU && PPC64
+	depends on CPU_FREQ && PPC64
 	select CPU_FREQ_TABLE
 	help
 	  This adds support for frequency switching on Apple iMac G5,
@@ -539,12 +571,20 @@ config TAU_AVERAGE
 	  /proc/cpuinfo.
 
 	  If in doubt, say N here.
+
+config PPC_TODC
+	depends on EMBEDDED6xx
+	bool "Generic Time-of-day Clock (TODC) support"
+	---help---
+	  This adds support for many TODC/RTC chips.
+
 endmenu
 
 source arch/powerpc/platforms/embedded6xx/Kconfig
 source arch/powerpc/platforms/4xx/Kconfig
 source arch/powerpc/platforms/83xx/Kconfig
 source arch/powerpc/platforms/85xx/Kconfig
+source arch/powerpc/platforms/86xx/Kconfig
 source arch/powerpc/platforms/8xx/Kconfig
 source arch/powerpc/platforms/cell/Kconfig
 
@@ -608,10 +648,10 @@ config KEXEC
 	help
 	  kexec is a system call that implements the ability to shutdown your
 	  current kernel, and to start another kernel.  It is like a reboot
-	  but it is indepedent of the system firmware.   And like a reboot
+	  but it is independent of the system firmware.   And like a reboot
 	  you can start any kernel with it, not just Linux.
 
-	  The name comes from the similiarity to the exec system call.
+	  The name comes from the similarity to the exec system call.
 
 	  It is an ongoing process to be certain the hardware in a machine
 	  is properly shutdown, so do not be surprised if this code does not
@@ -702,7 +742,6 @@ config PPC_64K_PAGES
 config SCHED_SMT
 	bool "SMT (Hyperthreading) scheduler support"
 	depends on PPC64 && SMP
-	default off
 	help
 	  SMT scheduler support improves the CPU scheduler's decision making
 	  when dealing with POWER5 cpus at a cost of slightly increased
@@ -777,6 +816,14 @@ config GENERIC_ISA_DMA
 	depends on PPC64 || POWER4 || 6xx && !CPM2
 	default y
 
+config MPIC
+	bool
+	default n
+
+config MPIC_WEIRD
+	bool
+	default n
+
 config PPC_I8259
 	bool
 	default n
@@ -801,8 +848,10 @@ config MCA
 	bool
 
 config PCI
-	bool "PCI support" if 40x || CPM2 || PPC_83xx || PPC_85xx || PPC_MPC52xx || (EMBEDDED && PPC_ISERIES)
-	default y if !40x && !CPM2 && !8xx && !APUS && !PPC_83xx && !PPC_85xx
+	bool "PCI support" if 40x || CPM2 || PPC_83xx || PPC_85xx || PPC_86xx \
+		|| PPC_MPC52xx || (EMBEDDED && PPC_ISERIES) || MPC7448HPC2
+	default y if !40x && !CPM2 && !8xx && !APUS && !PPC_83xx \
+		&& !PPC_85xx && !PPC_86xx
 	default PCI_PERMEDIA if !4xx && !CPM2 && !8xx && APUS
 	default PCI_QSPAN if !4xx && !CPM2 && 8xx
 	help
@@ -830,12 +879,12 @@ config PCI_8260
 	default y
 
 config 8260_PCI9
-	bool "  Enable workaround for MPC826x erratum PCI 9"
+	bool "Enable workaround for MPC826x erratum PCI 9"
 	depends on PCI_8260 && !ADS8272
 	default y
 
 choice
-	prompt "  IDMA channel for PCI 9 workaround"
+	prompt "IDMA channel for PCI 9 workaround"
 	depends on 8260_PCI9
 
 config 8260_PCI9_IDMA1
@@ -851,6 +900,8 @@ config 8260_PCI9_IDMA4
 	bool "IDMA4"
 
 endchoice
+
+source "drivers/pci/pcie/Kconfig"
 
 source "drivers/pci/Kconfig"
 

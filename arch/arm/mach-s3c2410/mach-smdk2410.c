@@ -27,10 +27,6 @@
  * derived from linux/arch/arm/mach-s3c2410/mach-bast.c, written by
  * Ben Dooks <ben@simtec.co.uk>
  *
- * 10-Mar-2005 LCVR  Changed S3C2410_VA to S3C24XX_VA
- * 20-Sep-2005 BJD   Added static to non-exported items
- * 01-Apr-2006 BJD   Moved init code to common smdk
- *
  ***********************************************************************/
 
 #include <linux/kernel.h>
@@ -65,7 +61,7 @@ static struct map_desc smdk2410_iodesc[] __initdata = {
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
 
-static struct s3c2410_uartcfg smdk2410_uartcfgs[] = {
+static struct s3c2410_uartcfg smdk2410_uartcfgs[] __initdata = {
 	[0] = {
 		.hwport	     = 0,
 		.flags	     = 0,

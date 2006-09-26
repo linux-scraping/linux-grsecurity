@@ -1,22 +1,14 @@
 /* linux/arch/arm/mach-s3c2410/devs.c
  *
  * Copyright (c) 2004 Simtec Electronics
- * Ben Dooks <ben@simtec.co.uk>
+ *	Ben Dooks <ben@simtec.co.uk>
  *
- * Base S3C2410 platform device definitions
+ * Base S3C24XX platform device definitions
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Modifications:
- *     15-Jan-2006 LCVR Using S3C24XX_PA_##x macro for common S3C24XX devices
- *     10-Mar-2005 LCVR Changed S3C2410_{VA,SZ} to S3C24XX_{VA,SZ}
- *     10-Feb-2005 BJD  Added camera from guillaume.gourat@nexvision.tv
- *     29-Aug-2004 BJD  Added timers 0 through 3
- *     29-Aug-2004 BJD  Changed index of devices we only have one of to -1
- *     21-Aug-2004 BJD  Added IRQ_TICK to RTC resources
- *     18-Aug-2004 BJD  Created initial version
 */
 
 #include <linux/kernel.h>
@@ -38,10 +30,86 @@
 #include <asm/arch/regs-serial.h>
 
 #include "devs.h"
+#include "cpu.h"
 
 /* Serial port registrations */
 
-struct platform_device *s3c24xx_uart_devs[3];
+static struct resource s3c2410_uart0_resource[] = {
+	[0] = {
+		.start = S3C2410_PA_UART0,
+		.end   = S3C2410_PA_UART0 + 0x3fff,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_S3CUART_RX0,
+		.end   = IRQ_S3CUART_ERR0,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct resource s3c2410_uart1_resource[] = {
+	[0] = {
+		.start = S3C2410_PA_UART1,
+		.end   = S3C2410_PA_UART1 + 0x3fff,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_S3CUART_RX1,
+		.end   = IRQ_S3CUART_ERR1,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+static struct resource s3c2410_uart2_resource[] = {
+	[0] = {
+		.start = S3C2410_PA_UART2,
+		.end   = S3C2410_PA_UART2 + 0x3fff,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_S3CUART_RX2,
+		.end   = IRQ_S3CUART_ERR2,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct s3c24xx_uart_resources s3c2410_uart_resources[] __initdata = {
+	[0] = {
+		.resources	= s3c2410_uart0_resource,
+		.nr_resources	= ARRAY_SIZE(s3c2410_uart0_resource),
+	},
+	[1] = {
+		.resources	= s3c2410_uart1_resource,
+		.nr_resources	= ARRAY_SIZE(s3c2410_uart1_resource),
+	},
+	[2] = {
+		.resources	= s3c2410_uart2_resource,
+		.nr_resources	= ARRAY_SIZE(s3c2410_uart2_resource),
+	},
+};
+
+/* yart devices */
+
+static struct platform_device s3c24xx_uart_device0 = {
+	.id		= 0,
+};
+
+static struct platform_device s3c24xx_uart_device1 = {
+	.id		= 1,
+};
+
+static struct platform_device s3c24xx_uart_device2 = {
+	.id		= 2,
+};
+
+struct platform_device *s3c24xx_uart_src[3] = {
+	&s3c24xx_uart_device0,
+	&s3c24xx_uart_device1,
+	&s3c24xx_uart_device2,
+};
+
+struct platform_device *s3c24xx_uart_devs[3] = {
+};
 
 /* USB Host Controller */
 

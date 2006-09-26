@@ -1,7 +1,6 @@
 #ifndef _X86_64_PAGE_H
 #define _X86_64_PAGE_H
 
-#include <linux/config.h>
 
 /* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT	12
@@ -20,7 +19,7 @@
 #define EXCEPTION_STACK_ORDER 0
 #define EXCEPTION_STKSZ (PAGE_SIZE << EXCEPTION_STACK_ORDER)
 
-#define DEBUG_STACK_ORDER EXCEPTION_STACK_ORDER
+#define DEBUG_STACK_ORDER (EXCEPTION_STACK_ORDER + 1)
 #define DEBUG_STKSZ (PAGE_SIZE << DEBUG_STACK_ORDER)
 
 #define IRQSTACK_ORDER 2
@@ -89,6 +88,8 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define __PAGE_OFFSET           0xffff810000000000
 #endif /* !__ASSEMBLY__ */
 
+#define __KERNEL_TEXT_OFFSET	(0)
+
 /* to align the pointer to the (next) page boundary */
 #define PAGE_ALIGN(addr)	(((addr)+PAGE_SIZE-1)&PAGE_MASK)
 
@@ -145,9 +146,9 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #define __HAVE_ARCH_GATE_AREA 1	
 
-#endif /* __KERNEL__ */
-
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#endif /* __KERNEL__ */
 
 #endif /* _X86_64_PAGE_H */

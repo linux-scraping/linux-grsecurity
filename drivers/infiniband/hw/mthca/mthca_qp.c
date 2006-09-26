@@ -99,6 +99,10 @@ enum {
 	MTHCA_QP_BIT_RSC = 1 <<  3
 };
 
+enum {
+	MTHCA_SEND_DOORBELL_FENCE = 1 << 5
+};
+
 struct mthca_qp_path {
 	__be32 port_pkey;
 	u8     rnr_retry;
@@ -222,9 +226,8 @@ static void *get_send_wqe(struct mthca_qp *qp, int n)
 			 (PAGE_SIZE - 1));
 }
 
-static void mthca_wq_init(struct mthca_wq *wq)
+static void mthca_wq_reset(struct mthca_wq *wq)
 {
-	spin_lock_init(&wq->lock);
 	wq->next_ind  = 0;
 	wq->last_comp = wq->max - 1;
 	wq->head      = 0;
@@ -534,7 +537,9 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 	struct mthca_qp_context *qp_context;
 	u32 sqd_event = 0;
 	u8 status;
-	int err;
+	int err = -EINVAL;
+
+	mutex_lock(&qp->mutex);
 
 	if (attr_mask & IB_QP_CUR_STATE) {
 		cur_state = attr->cur_qp_state;
@@ -553,39 +558,41 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 			  "%d->%d with attr 0x%08x\n",
 			  qp->transport, cur_state, new_state,
 			  attr_mask);
-		return -EINVAL;
+		goto out;
 	}
 
 	if ((attr_mask & IB_QP_PKEY_INDEX) &&
 	     attr->pkey_index >= dev->limits.pkey_table_len) {
 		mthca_dbg(dev, "P_Key index (%u) too large. max is %d\n",
 			  attr->pkey_index, dev->limits.pkey_table_len-1);
-		return -EINVAL;
+		goto out;
 	}
 
 	if ((attr_mask & IB_QP_PORT) &&
 	    (attr->port_num == 0 || attr->port_num > dev->limits.num_ports)) {
 		mthca_dbg(dev, "Port number (%u) is invalid\n", attr->port_num);
-		return -EINVAL;
+		goto out;
 	}
 
 	if (attr_mask & IB_QP_MAX_QP_RD_ATOMIC &&
 	    attr->max_rd_atomic > dev->limits.max_qp_init_rdma) {
 		mthca_dbg(dev, "Max rdma_atomic as initiator %u too large (max is %d)\n",
 			  attr->max_rd_atomic, dev->limits.max_qp_init_rdma);
-		return -EINVAL;
+		goto out;
 	}
 
 	if (attr_mask & IB_QP_MAX_DEST_RD_ATOMIC &&
 	    attr->max_dest_rd_atomic > 1 << dev->qp_table.rdb_shift) {
 		mthca_dbg(dev, "Max rdma_atomic as responder %u too large (max %d)\n",
 			  attr->max_dest_rd_atomic, 1 << dev->qp_table.rdb_shift);
-		return -EINVAL;
+		goto out;
 	}
 
 	mailbox = mthca_alloc_mailbox(dev, GFP_KERNEL);
-	if (IS_ERR(mailbox))
-		return PTR_ERR(mailbox);
+	if (IS_ERR(mailbox)) {
+		err = PTR_ERR(mailbox);
+		goto out;
+	}
 	qp_param = mailbox->buf;
 	qp_context = &qp_param->context;
 	memset(qp_param, 0, sizeof *qp_param);
@@ -618,7 +625,7 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 		if (attr->path_mtu < IB_MTU_256 || attr->path_mtu > IB_MTU_2048) {
 			mthca_dbg(dev, "path MTU (%u) is invalid\n",
 				  attr->path_mtu);
-			return -EINVAL;
+			goto out_mailbox;
 		}
 		qp_context->mtu_msgmax = (attr->path_mtu << 5) | 31;
 	}
@@ -672,7 +679,7 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 	if (attr_mask & IB_QP_AV) {
 		if (mthca_path_set(dev, &attr->ah_attr, &qp_context->pri_path,
 				   attr_mask & IB_QP_PORT ? attr->port_num : qp->port))
-			return -EINVAL;
+			goto out_mailbox;
 
 		qp_param->opt_param_mask |= cpu_to_be32(MTHCA_QP_OPTPAR_PRIMARY_ADDR_PATH);
 	}
@@ -686,18 +693,18 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 		if (attr->alt_pkey_index >= dev->limits.pkey_table_len) {
 			mthca_dbg(dev, "Alternate P_Key index (%u) too large. max is %d\n",
 				  attr->alt_pkey_index, dev->limits.pkey_table_len-1);
-			return -EINVAL;
+			goto out_mailbox;
 		}
 
 		if (attr->alt_port_num == 0 || attr->alt_port_num > dev->limits.num_ports) {
 			mthca_dbg(dev, "Alternate port number (%u) is invalid\n",
 				attr->alt_port_num);
-			return -EINVAL;
+			goto out_mailbox;
 		}
 
 		if (mthca_path_set(dev, &attr->alt_ah_attr, &qp_context->alt_path,
 				   attr->alt_ah_attr.port_num))
-			return -EINVAL;
+			goto out_mailbox;
 
 		qp_context->alt_path.port_pkey |= cpu_to_be32(attr->alt_pkey_index |
 							      attr->alt_port_num << 24);
@@ -793,12 +800,12 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 	err = mthca_MODIFY_QP(dev, cur_state, new_state, qp->qpn, 0,
 			      mailbox, sqd_event, &status);
 	if (err)
-		goto out;
+		goto out_mailbox;
 	if (status) {
 		mthca_warn(dev, "modify QP %d->%d returned status %02x.\n",
 			   cur_state, new_state, status);
 		err = -EINVAL;
-		goto out;
+		goto out_mailbox;
 	}
 
 	qp->state = new_state;
@@ -841,10 +848,10 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 			mthca_cq_clean(dev, to_mcq(qp->ibqp.recv_cq), qp->qpn,
 				       qp->ibqp.srq ? to_msrq(qp->ibqp.srq) : NULL);
 
-		mthca_wq_init(&qp->sq);
+		mthca_wq_reset(&qp->sq);
 		qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
 
-		mthca_wq_init(&qp->rq);
+		mthca_wq_reset(&qp->rq);
 		qp->rq.last = get_recv_wqe(qp, qp->rq.max - 1);
 
 		if (mthca_is_memfree(dev)) {
@@ -853,8 +860,11 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 		}
 	}
 
-out:
+out_mailbox:
 	mthca_free_mailbox(dev, mailbox);
+
+out:
+	mutex_unlock(&qp->mutex);
 	return err;
 }
 
@@ -1100,12 +1110,16 @@ static int mthca_alloc_qp_common(struct mthca_dev *dev,
 
 	qp->refcount = 1;
 	init_waitqueue_head(&qp->wait);
+	mutex_init(&qp->mutex);
 	qp->state    	 = IB_QPS_RESET;
 	qp->atomic_rd_en = 0;
 	qp->resp_depth   = 0;
 	qp->sq_policy    = send_policy;
-	mthca_wq_init(&qp->sq);
-	mthca_wq_init(&qp->rq);
+	mthca_wq_reset(&qp->sq);
+	mthca_wq_reset(&qp->rq);
+
+	spin_lock_init(&qp->sq.lock);
+	spin_lock_init(&qp->rq.lock);
 
 	ret = mthca_map_memfree(dev, qp);
 	if (ret)
@@ -1249,6 +1263,32 @@ int mthca_alloc_qp(struct mthca_dev *dev,
 	return 0;
 }
 
+static void mthca_lock_cqs(struct mthca_cq *send_cq, struct mthca_cq *recv_cq)
+{
+	if (send_cq == recv_cq)
+		spin_lock_irq(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		spin_lock_irq(&send_cq->lock);
+		spin_lock_nested(&recv_cq->lock, SINGLE_DEPTH_NESTING);
+	} else {
+		spin_lock_irq(&recv_cq->lock);
+		spin_lock_nested(&send_cq->lock, SINGLE_DEPTH_NESTING);
+	}
+}
+
+static void mthca_unlock_cqs(struct mthca_cq *send_cq, struct mthca_cq *recv_cq)
+{
+	if (send_cq == recv_cq)
+		spin_unlock_irq(&send_cq->lock);
+	else if (send_cq->cqn < recv_cq->cqn) {
+		spin_unlock(&recv_cq->lock);
+		spin_unlock_irq(&send_cq->lock);
+	} else {
+		spin_unlock(&send_cq->lock);
+		spin_unlock_irq(&recv_cq->lock);
+	}
+}
+
 int mthca_alloc_sqp(struct mthca_dev *dev,
 		    struct mthca_pd *pd,
 		    struct mthca_cq *send_cq,
@@ -1301,17 +1341,13 @@ int mthca_alloc_sqp(struct mthca_dev *dev,
 	 * Lock CQs here, so that CQ polling code can do QP lookup
 	 * without taking a lock.
 	 */
-	spin_lock_irq(&send_cq->lock);
-	if (send_cq != recv_cq)
-		spin_lock(&recv_cq->lock);
+	mthca_lock_cqs(send_cq, recv_cq);
 
 	spin_lock(&dev->qp_table.lock);
 	mthca_array_clear(&dev->qp_table.qp, mqpn);
 	spin_unlock(&dev->qp_table.lock);
 
-	if (send_cq != recv_cq)
-		spin_unlock(&recv_cq->lock);
-	spin_unlock_irq(&send_cq->lock);
+	mthca_unlock_cqs(send_cq, recv_cq);
 
  err_out:
 	dma_free_coherent(&dev->pdev->dev, sqp->header_buf_size,
@@ -1345,9 +1381,7 @@ void mthca_free_qp(struct mthca_dev *dev,
 	 * Lock CQs here, so that CQ polling code can do QP lookup
 	 * without taking a lock.
 	 */
-	spin_lock_irq(&send_cq->lock);
-	if (send_cq != recv_cq)
-		spin_lock(&recv_cq->lock);
+	mthca_lock_cqs(send_cq, recv_cq);
 
 	spin_lock(&dev->qp_table.lock);
 	mthca_array_clear(&dev->qp_table.qp,
@@ -1355,9 +1389,7 @@ void mthca_free_qp(struct mthca_dev *dev,
 	--qp->refcount;
 	spin_unlock(&dev->qp_table.lock);
 
-	if (send_cq != recv_cq)
-		spin_unlock(&recv_cq->lock);
-	spin_unlock_irq(&send_cq->lock);
+	mthca_unlock_cqs(send_cq, recv_cq);
 
 	wait_event(qp->wait, !get_qp_refcount(dev, qp));
 
@@ -1492,7 +1524,7 @@ int mthca_tavor_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
 	int i;
 	int size;
 	int size0 = 0;
-	u32 f0 = 0;
+	u32 f0;
 	int ind;
 	u8 op0 = 0;
 
@@ -1676,6 +1708,8 @@ int mthca_tavor_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
 		if (!size0) {
 			size0 = size;
 			op0   = mthca_opcode[wr->opcode];
+			f0    = wr->send_flags & IB_SEND_FENCE ?
+				MTHCA_SEND_DOORBELL_FENCE : 0;
 		}
 
 		++ind;
@@ -1833,7 +1867,7 @@ int mthca_arbel_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
 	int i;
 	int size;
 	int size0 = 0;
-	u32 f0 = 0;
+	u32 f0;
 	int ind;
 	u8 op0 = 0;
 
@@ -2041,6 +2075,8 @@ int mthca_arbel_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
 		if (!size0) {
 			size0 = size;
 			op0   = mthca_opcode[wr->opcode];
+			f0    = wr->send_flags & IB_SEND_FENCE ?
+				MTHCA_SEND_DOORBELL_FENCE : 0;
 		}
 
 		++ind;

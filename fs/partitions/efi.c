@@ -91,7 +91,6 @@
  * - Code works, detects all the partitions.
  *
  ************************************************************/
-#include <linux/config.h>
 #include <linux/crc32.h>
 #include "check.h"
 #include "efi.h"
@@ -100,7 +99,7 @@
 #ifdef EFI_DEBUG
 #define Dprintk(x...) printk(KERN_DEBUG x)
 #else
-#define Dprintk(x...)
+#define Dprintk(x...) do {} while (0)
 #endif
 
 /* This allows a kernel command line option 'gpt' to override

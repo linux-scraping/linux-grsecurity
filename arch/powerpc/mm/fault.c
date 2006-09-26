@@ -15,7 +15,6 @@
  *  2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -30,6 +29,11 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/binfmts.h>
+#include <linux/slab.h>
+#include <linux/pagemap.h>
+#include <linux/compiler.h>
+#include <linux/binfmts.h>
+#include <linux/unistd.h>
 
 #include <asm/page.h>
 #include <asm/pgtable.h>
@@ -40,6 +44,398 @@
 #include <asm/tlbflush.h>
 #include <asm/kdebug.h>
 #include <asm/siginfo.h>
+
+#ifdef CONFIG_KPROBES
+ATOMIC_NOTIFIER_HEAD(notify_page_fault_chain);
+
+/* Hook to register for page fault notifications */
+int register_page_fault_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&notify_page_fault_chain, nb);
+}
+
+int unregister_page_fault_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&notify_page_fault_chain, nb);
+}
+
+static inline int notify_page_fault(enum die_val val, const char *str,
+			struct pt_regs *regs, long err, int trap, int sig)
+{
+	struct die_args args = {
+		.regs = regs,
+		.str = str,
+		.err = err,
+		.trapnr = trap,
+		.signr = sig
+	};
+	return atomic_notifier_call_chain(&notify_page_fault_chain, val, &args);
+}
+#else
+static inline int notify_page_fault(enum die_val val, const char *str,
+			struct pt_regs *regs, long err, int trap, int sig)
+{
+	return NOTIFY_DONE;
+}
+#endif
+
+#ifdef CONFIG_PAX_EMUSIGRT
+void pax_syscall_close(struct vm_area_struct * vma)
+{
+	vma->vm_mm->call_syscall = 0UL;
+}
+
+static struct page* pax_syscall_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
+{
+	struct page* page;
+	unsigned int *kaddr;
+
+	page = alloc_page(GFP_HIGHUSER);
+	if (!page)
+		return NOPAGE_OOM;
+
+	kaddr = kmap(page);
+	memset(kaddr, 0, PAGE_SIZE);
+	kaddr[0] = 0x44000002U; /* sc */
+	__flush_dcache_icache(kaddr);
+	kunmap(page);
+	if (type)
+		*type = VM_FAULT_MAJOR;
+	return page;
+}
+
+static struct vm_operations_struct pax_vm_ops = {
+	.close = pax_syscall_close,
+	.nopage = pax_syscall_nopage,
+};
+
+static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
+{
+	int ret;
+
+	memset(vma, 0, sizeof(*vma));
+	vma->vm_mm = current->mm;
+	vma->vm_start = addr;
+	vma->vm_end = addr + PAGE_SIZE;
+	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
+	vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+	vma->vm_ops = &pax_vm_ops;
+
+	ret = insert_vm_struct(current->mm, vma);
+	if (ret)
+		return ret;
+
+	++current->mm->total_vm;
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_PAX_PAGEEXEC
+/*
+ * PaX: decide what to do with offenders (regs->nip = fault address)
+ *
+ * returns 1 when task should be killed
+ *         2 when patched GOT trampoline was detected
+ *         3 when patched PLT trampoline was detected
+ *         4 when unpatched PLT trampoline was detected
+ *         5 when sigreturn trampoline was detected
+ *         7 when rt_sigreturn trampoline was detected
+ */
+static int pax_handle_fetch_fault(struct pt_regs *regs)
+{
+
+#if defined(CONFIG_PAX_EMUPLT) || defined(CONFIG_PAX_EMUSIGRT)
+	int err;
+#endif
+
+#ifdef CONFIG_PAX_EMUPLT
+	do { /* PaX: patched GOT emulation */
+		unsigned int blrl;
+
+		err = get_user(blrl, (unsigned int*)regs->nip);
+
+		if (!err && blrl == 0x4E800021U) {
+			unsigned long temp = regs->nip;
+
+			regs->nip = regs->link & 0xFFFFFFFCUL;
+			regs->link = temp + 4UL;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: patched PLT emulation #1 */
+		unsigned int b;
+
+		err = get_user(b, (unsigned int *)regs->nip);
+
+		if (!err && (b & 0xFC000003U) == 0x48000000U) {
+			regs->nip += (((b | 0xFC000000UL) ^ 0x02000000UL) + 0x02000000UL);
+			return 3;
+		}
+	} while (0);
+
+	do { /* PaX: unpatched PLT emulation #1 */
+		unsigned int li, b;
+
+		err = get_user(li, (unsigned int *)regs->nip);
+		err |= get_user(b, (unsigned int *)(regs->nip+4));
+
+		if (!err && (li & 0xFFFF0000U) == 0x39600000U && (b & 0xFC000003U) == 0x48000000U) {
+			unsigned int rlwinm, add, li2, addis2, mtctr, li3, addis3, bctr;
+			unsigned long addr = b | 0xFC000000UL;
+
+			addr = regs->nip + 4 + ((addr ^ 0x02000000UL) + 0x02000000UL);
+			err = get_user(rlwinm, (unsigned int*)addr);
+			err |= get_user(add, (unsigned int*)(addr+4));
+			err |= get_user(li2, (unsigned int*)(addr+8));
+			err |= get_user(addis2, (unsigned int*)(addr+12));
+			err |= get_user(mtctr, (unsigned int*)(addr+16));
+			err |= get_user(li3, (unsigned int*)(addr+20));
+			err |= get_user(addis3, (unsigned int*)(addr+24));
+			err |= get_user(bctr, (unsigned int*)(addr+28));
+
+			if (err)
+				break;
+
+			if (rlwinm == 0x556C083CU &&
+			    add == 0x7D6C5A14U &&
+			    (li2 & 0xFFFF0000U) == 0x39800000U &&
+			    (addis2 & 0xFFFF0000U) == 0x3D8C0000U &&
+			    mtctr == 0x7D8903A6U &&
+			    (li3 & 0xFFFF0000U) == 0x39800000U &&
+			    (addis3 & 0xFFFF0000U) == 0x3D8C0000U &&
+			    bctr == 0x4E800420U)
+			{
+				regs->gpr[PT_R11] = 3 * (((li | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->gpr[PT_R12] = (((li3 | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->gpr[PT_R12] += (addis3 & 0xFFFFU) << 16;
+				regs->ctr = (((li2 | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->ctr += (addis2 & 0xFFFFU) << 16;
+				regs->nip = regs->ctr;
+				return 4;
+			}
+		}
+	} while (0);
+
+#if 0
+	do { /* PaX: unpatched PLT emulation #2 */
+		unsigned int lis, lwzu, b, bctr;
+
+		err = get_user(lis, (unsigned int *)regs->nip);
+		err |= get_user(lwzu, (unsigned int *)(regs->nip+4));
+		err |= get_user(b, (unsigned int *)(regs->nip+8));
+		err |= get_user(bctr, (unsigned int *)(regs->nip+12));
+
+		if (err)
+			break;
+
+		if ((lis & 0xFFFF0000U) == 0x39600000U &&
+		    (lwzu & 0xU) == 0xU &&
+		    (b & 0xFC000003U) == 0x48000000U &&
+		    bctr == 0x4E800420U)
+		{
+			unsigned int addis, addi, rlwinm, add, li2, addis2, mtctr, li3, addis3, bctr;
+			unsigned long addr = b | 0xFC000000UL;
+
+			addr = regs->nip + 12 + ((addr ^ 0x02000000UL) + 0x02000000UL);
+			err = get_user(addis, (unsigned int*)addr);
+			err |= get_user(addi, (unsigned int*)(addr+4));
+			err |= get_user(rlwinm, (unsigned int*)(addr+8));
+			err |= get_user(add, (unsigned int*)(addr+12));
+			err |= get_user(li2, (unsigned int*)(addr+16));
+			err |= get_user(addis2, (unsigned int*)(addr+20));
+			err |= get_user(mtctr, (unsigned int*)(addr+24));
+			err |= get_user(li3, (unsigned int*)(addr+28));
+			err |= get_user(addis3, (unsigned int*)(addr+32));
+			err |= get_user(bctr, (unsigned int*)(addr+36));
+
+			if (err)
+				break;
+
+			if ((addis & 0xFFFF0000U) == 0x3D6B0000U &&
+			    (addi & 0xFFFF0000U) == 0x396B0000U &&
+			    rlwinm == 0x556C083CU &&
+			    add == 0x7D6C5A14U &&
+			    (li2 & 0xFFFF0000U) == 0x39800000U &&
+			    (addis2 & 0xFFFF0000U) == 0x3D8C0000U &&
+			    mtctr == 0x7D8903A6U &&
+			    (li3 & 0xFFFF0000U) == 0x39800000U &&
+			    (addis3 & 0xFFFF0000U) == 0x3D8C0000U &&
+			    bctr == 0x4E800420U)
+			{
+				regs->gpr[PT_R11] = 
+				regs->gpr[PT_R11] = 3 * (((li | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->gpr[PT_R12] = (((li3 | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->gpr[PT_R12] += (addis3 & 0xFFFFU) << 16;
+				regs->ctr = (((li2 | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				regs->ctr += (addis2 & 0xFFFFU) << 16;
+				regs->nip = regs->ctr;
+				return 4;
+			}
+		}
+	} while (0);
+#endif
+
+	do { /* PaX: unpatched PLT emulation #3 */
+		unsigned int li, b;
+
+		err = get_user(li, (unsigned int *)regs->nip);
+		err |= get_user(b, (unsigned int *)(regs->nip+4));
+
+		if (!err && (li & 0xFFFF0000U) == 0x39600000U && (b & 0xFC000003U) == 0x48000000U) {
+			unsigned int addis, lwz, mtctr, bctr;
+			unsigned long addr = b | 0xFC000000UL;
+
+			addr = regs->nip + 4 + ((addr ^ 0x02000000UL) + 0x02000000UL);
+			err = get_user(addis, (unsigned int*)addr);
+			err |= get_user(lwz, (unsigned int*)(addr+4));
+			err |= get_user(mtctr, (unsigned int*)(addr+8));
+			err |= get_user(bctr, (unsigned int*)(addr+12));
+
+			if (err)
+				break;
+
+			if ((addis & 0xFFFF0000U) == 0x3D6B0000U &&
+			    (lwz & 0xFFFF0000U) == 0x816B0000U &&
+			    mtctr == 0x7D6903A6U &&
+			    bctr == 0x4E800420U)
+			{
+				unsigned int r11;
+
+				addr = (addis << 16) + (((li | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+				addr += (((lwz | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
+
+				err = get_user(r11, (unsigned int*)addr);
+				if (err)
+					break;
+
+				regs->gpr[PT_R11] = r11;
+				regs->ctr = r11;
+				regs->nip = r11;
+				return 4;
+			}
+		}
+	} while (0);
+#endif
+
+#ifdef CONFIG_PAX_EMUSIGRT
+	do { /* PaX: sigreturn emulation */
+		unsigned int li, sc;
+
+		err = get_user(li, (unsigned int *)regs->nip);
+		err |= get_user(sc, (unsigned int *)(regs->nip+4));
+
+		if (!err && li == 0x38000000U + __NR_sigreturn && sc == 0x44000002U) {
+			struct vm_area_struct *vma;
+			unsigned long call_syscall;
+
+			down_read(&current->mm->mmap_sem);
+			call_syscall = current->mm->call_syscall;
+			up_read(&current->mm->mmap_sem);
+			if (likely(call_syscall))
+				goto emulate;
+
+			vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+
+			down_write(&current->mm->mmap_sem);
+			if (current->mm->call_syscall) {
+				call_syscall = current->mm->call_syscall;
+				up_write(&current->mm->mmap_sem);
+				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				goto emulate;
+			}
+
+			call_syscall = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
+			if (!vma || (call_syscall & ~PAGE_MASK)) {
+				up_write(&current->mm->mmap_sem);
+				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				return 1;
+			}
+
+			if (pax_insert_vma(vma, call_syscall)) {
+				up_write(&current->mm->mmap_sem);
+				kmem_cache_free(vm_area_cachep, vma);
+				return 1;
+			}
+
+			current->mm->call_syscall = call_syscall;
+			up_write(&current->mm->mmap_sem);
+
+emulate:
+			regs->gpr[PT_R0] = __NR_sigreturn;
+			regs->nip = call_syscall;
+			return 5;
+		}
+	} while (0);
+
+	do { /* PaX: rt_sigreturn emulation */
+		unsigned int li, sc;
+
+		err = get_user(li, (unsigned int *)regs->nip);
+		err |= get_user(sc, (unsigned int *)(regs->nip+4));
+
+		if (!err && li == 0x38000000U + __NR_rt_sigreturn && sc == 0x44000002U) {
+			struct vm_area_struct *vma;
+			unsigned int call_syscall;
+
+			down_read(&current->mm->mmap_sem);
+			call_syscall = current->mm->call_syscall;
+			up_read(&current->mm->mmap_sem);
+			if (likely(call_syscall))
+				goto rt_emulate;
+
+			vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+
+			down_write(&current->mm->mmap_sem);
+			if (current->mm->call_syscall) {
+				call_syscall = current->mm->call_syscall;
+				up_write(&current->mm->mmap_sem);
+				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				goto rt_emulate;
+			}
+
+			call_syscall = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
+			if (!vma || (call_syscall & ~PAGE_MASK)) {
+				up_write(&current->mm->mmap_sem);
+				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				return 1;
+			}
+
+			if (pax_insert_vma(vma, call_syscall)) {
+				up_write(&current->mm->mmap_sem);
+				kmem_cache_free(vm_area_cachep, vma);
+				return 1;
+			}
+
+			current->mm->call_syscall = call_syscall;
+			up_write(&current->mm->mmap_sem);
+
+rt_emulate:
+			regs->gpr[PT_R0] = __NR_rt_sigreturn;
+			regs->nip = call_syscall;
+			return 6;
+		}
+	} while (0);
+#endif
+
+	return 1;
+}
+
+void pax_report_insns(void *pc, void *sp)
+{
+	unsigned long i;
+
+	printk(KERN_ERR "PAX: bytes at PC: ");
+	for (i = 0; i < 5; i++) {
+		unsigned int c;
+		if (get_user(c, (unsigned int*)pc+i))
+			printk("???????? ");
+		else
+			printk("%08x ", c);
+	}
+	printk("\n");
+}
+#endif
 
 /*
  * Check whether the instruction at regs->nip is a store using
@@ -104,38 +500,6 @@ static void do_dabr(struct pt_regs *regs, unsigned long address,
 }
 #endif /* !(CONFIG_4xx || CONFIG_BOOKE)*/
 
-#ifdef CONFIG_PAX_PAGEEXEC
-/*
- * PaX: decide what to do with offenders (regs->nip = fault address)
- *
- * returns 1 when task should be killed
- */
-static int pax_handle_fetch_fault(struct pt_regs *regs)
-{
-
-#if defined(CONFIG_PAX_EMUPLT) || defined(CONFIG_PAX_EMUSIGRT)
-	int err;
-#endif
-
-	return 1;
-}
-
-void pax_report_insns(void *pc, void *sp)
-{
-	unsigned long i;
-
-	printk(KERN_ERR "PAX: bytes at PC: ");
-	for (i = 0; i < 5; i++) {
-		unsigned int c;
-		if (get_user(c, (unsigned int*)pc+i))
-			printk("???????? ");
-		else
-			printk("%08x ", c);
-	}
-	printk("\n");
-}
-#endif
-
 /*
  * For 600- and 800-family processors, the error_code parameter is DSISR
  * for a data fault, SRR1 for an instruction fault. For 400-family processors
@@ -168,14 +532,14 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	 * indicate errors in DSISR but can validly be set in SRR1.
 	 */
 	if (trap == 0x400)
-		error_code &= 0x48200000;
+		error_code &= 0x58200000;
 	else
 		is_write = error_code & DSISR_ISSTORE;
 #else
 	is_write = error_code & ESR_DST;
 #endif /* CONFIG_4xx || CONFIG_BOOKE */
 
-	if (notify_die(DIE_PAGE_FAULT, "page_fault", regs, error_code,
+	if (notify_page_fault(DIE_PAGE_FAULT, "page_fault", regs, error_code,
 				11, SIGSEGV) == NOTIFY_STOP)
 		return 0;
 
@@ -295,9 +659,9 @@ good_area:
 		/* protection fault */
 		if (error_code & DSISR_PROTFAULT)
 			goto bad_area;
+#endif
 		if (!(vma->vm_flags & VM_EXEC))
 			goto bad_area;
-#endif
 #if defined(CONFIG_4xx) || defined(CONFIG_BOOKE)
 		pte_t *ptep;
 		pmd_t *pmdp;
@@ -371,8 +735,26 @@ bad_area_nosemaphore:
 
 #ifdef CONFIG_PAX_PAGEEXEC
 		if (mm->pax_flags & MF_PAX_PAGEEXEC) {
+#ifdef CONFIG_PPC64
 			if (is_exec && (error_code & DSISR_PROTFAULT)) {
+#else
+			if (is_exec && regs->nip == address) {
+#endif
 				switch (pax_handle_fetch_fault(regs)) {
+
+#ifdef CONFIG_PAX_EMUPLT
+				case 2:
+				case 3:
+				case 4:
+					return 0;
+#endif
+
+#ifdef CONFIG_PAX_EMUSIGRT
+				case 5:
+				case 6:
+					return 0;
+#endif
+
 				}
 
 				pax_report_fault(regs, (void*)regs->nip, (void*)regs->gpr[1]);

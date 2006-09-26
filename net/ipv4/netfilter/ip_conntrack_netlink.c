@@ -399,42 +399,55 @@ nfattr_failure:
 static int ctnetlink_done(struct netlink_callback *cb)
 {
 	DEBUGP("entered %s\n", __FUNCTION__);
+	if (cb->args[1])
+		ip_conntrack_put((struct ip_conntrack *)cb->args[1]);
 	return 0;
 }
 
 static int
 ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct ip_conntrack *ct = NULL;
+	struct ip_conntrack *ct, *last;
 	struct ip_conntrack_tuple_hash *h;
 	struct list_head *i;
-	u_int32_t *id = (u_int32_t *) &cb->args[1];
 
 	DEBUGP("entered %s, last bucket=%lu id=%u\n", __FUNCTION__, 
 			cb->args[0], *id);
 
 	read_lock_bh(&ip_conntrack_lock);
-	for (; cb->args[0] < ip_conntrack_htable_size; cb->args[0]++, *id = 0) {
+	last = (struct ip_conntrack *)cb->args[1];
+	for (; cb->args[0] < ip_conntrack_htable_size; cb->args[0]++) {
+restart:
 		list_for_each_prev(i, &ip_conntrack_hash[cb->args[0]]) {
 			h = (struct ip_conntrack_tuple_hash *) i;
 			if (DIRECTION(h) != IP_CT_DIR_ORIGINAL)
 				continue;
 			ct = tuplehash_to_ctrack(h);
-			if (ct->id <= *id)
-				continue;
+			if (cb->args[1]) {
+				if (ct != last)
+					continue;
+				cb->args[1] = 0;
+			}
 			if (ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).pid,
 		                        	cb->nlh->nlmsg_seq,
 						IPCTNL_MSG_CT_NEW,
-						1, ct) < 0)
+						1, ct) < 0) {
+				nf_conntrack_get(&ct->ct_general);
+				cb->args[1] = (unsigned long)ct;
 				goto out;
-			*id = ct->id;
+			}
+		}
+		if (cb->args[1]) {
+			cb->args[1] = 0;
+			goto restart;
 		}
 	}
-out:	
+out:
 	read_unlock_bh(&ip_conntrack_lock);
+	if (last)
+		ip_conntrack_put(last);
 
 	DEBUGP("leaving, last bucket=%lu id=%u\n", cb->args[0], *id);
-
 	return skb->len;
 }
 
@@ -629,7 +642,7 @@ static const size_t cta_min_nat[CTA_NAT_MAX] = {
 };
 
 static inline int
-ctnetlink_parse_nat(struct nfattr *cda[],
+ctnetlink_parse_nat(struct nfattr *nat,
 		    const struct ip_conntrack *ct, struct ip_nat_range *range)
 {
 	struct nfattr *tb[CTA_NAT_MAX];
@@ -639,7 +652,7 @@ ctnetlink_parse_nat(struct nfattr *cda[],
 
 	memset(range, 0, sizeof(*range));
 	
-	nfattr_parse_nested(tb, CTA_NAT_MAX, cda[CTA_NAT-1]);
+	nfattr_parse_nested(tb, CTA_NAT_MAX, nat);
 
 	if (nfattr_bad_size(tb, CTA_NAT_MAX, cta_min_nat))
 		return -EINVAL;
@@ -854,39 +867,30 @@ ctnetlink_change_status(struct ip_conntrack *ct, struct nfattr *cda[])
 		/* ASSURED bit can only be set */
 		return -EINVAL;
 
-	if (cda[CTA_NAT-1]) {
+	if (cda[CTA_NAT_SRC-1] || cda[CTA_NAT_DST-1]) {
 #ifndef CONFIG_IP_NF_NAT_NEEDED
 		return -EINVAL;
 #else
-		unsigned int hooknum;
 		struct ip_nat_range range;
 
-		if (ctnetlink_parse_nat(cda, ct, &range) < 0)
-			return -EINVAL;
-
-		DEBUGP("NAT: %u.%u.%u.%u-%u.%u.%u.%u:%u-%u\n", 
-		       NIPQUAD(range.min_ip), NIPQUAD(range.max_ip),
-		       htons(range.min.all), htons(range.max.all));
-		
-		/* This is tricky but it works. ip_nat_setup_info needs the
-		 * hook number as parameter, so let's do the correct 
-		 * conversion and run away */
-		if (status & IPS_SRC_NAT_DONE)
-			hooknum = NF_IP_POST_ROUTING; /* IP_NAT_MANIP_SRC */
-		else if (status & IPS_DST_NAT_DONE)
-			hooknum = NF_IP_PRE_ROUTING;  /* IP_NAT_MANIP_DST */
-		else 
-			return -EINVAL; /* Missing NAT flags */
-
-		DEBUGP("NAT status: %lu\n", 
-		       status & (IPS_NAT_MASK | IPS_NAT_DONE_MASK));
-		
-		if (ip_nat_initialized(ct, HOOK2MANIP(hooknum)))
-			return -EEXIST;
-		ip_nat_setup_info(ct, &range, hooknum);
-
-                DEBUGP("NAT status after setup_info: %lu\n",
-                       ct->status & (IPS_NAT_MASK | IPS_NAT_DONE_MASK));
+		if (cda[CTA_NAT_DST-1]) {
+			if (ctnetlink_parse_nat(cda[CTA_NAT_DST-1], ct,
+						&range) < 0)
+				return -EINVAL;
+			if (ip_nat_initialized(ct,
+					       HOOK2MANIP(NF_IP_PRE_ROUTING)))
+				return -EEXIST;
+			ip_nat_setup_info(ct, &range, NF_IP_PRE_ROUTING);
+		}
+		if (cda[CTA_NAT_SRC-1]) {
+			if (ctnetlink_parse_nat(cda[CTA_NAT_SRC-1], ct,
+						&range) < 0)
+				return -EINVAL;
+			if (ip_nat_initialized(ct,
+					       HOOK2MANIP(NF_IP_POST_ROUTING)))
+				return -EEXIST;
+			ip_nat_setup_info(ct, &range, NF_IP_POST_ROUTING);
+		}
 #endif
 	}
 
@@ -1106,7 +1110,7 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
 	/* implicit 'else' */
 
 	/* we only allow nat config for new conntracks */
-	if (cda[CTA_NAT-1]) {
+	if (cda[CTA_NAT_SRC-1] || cda[CTA_NAT_DST-1]) {
 		err = -EINVAL;
 		goto out_unlock;
 	}

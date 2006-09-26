@@ -55,7 +55,6 @@
 
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
@@ -1008,7 +1007,7 @@ he_init_irq(struct he_dev *he_dev)
 	he_writel(he_dev, 0x0, GRP_54_MAP);
 	he_writel(he_dev, 0x0, GRP_76_MAP);
 
-	if (request_irq(he_dev->pci_dev->irq, he_irq_handler, SA_INTERRUPT|SA_SHIRQ, DEV_LABEL, he_dev)) {
+	if (request_irq(he_dev->pci_dev->irq, he_irq_handler, IRQF_DISABLED|IRQF_SHARED, DEV_LABEL, he_dev)) {
 		hprintk("irq %d already in use\n", he_dev->pci_dev->irq);
 		return -EINVAL;
 	}   
@@ -1018,7 +1017,7 @@ he_init_irq(struct he_dev *he_dev)
 	return 0;
 }
 
-static int __init
+static int __devinit
 he_start(struct atm_dev *dev)
 {
 	struct he_dev *he_dev;
@@ -1929,7 +1928,9 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 #ifdef notdef
 		ATM_SKB(skb)->vcc = vcc;
 #endif
+		spin_unlock(&he_dev->global_lock);
 		vcc->push(vcc, skb);
+		spin_lock(&he_dev->global_lock);
 
 		atomic_inc(&vcc->stats->rx);
 
@@ -2283,6 +2284,8 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
 				TPDRQ_MASK(he_readl(he_dev, TPDRQ_B_H)));
 
 		if (new_tail == he_dev->tpdrq_head) {
+			int slot;
+
 			hprintk("tpdrq full (cid 0x%x)\n", cid);
 			/*
 			 * FIXME
@@ -2290,6 +2293,13 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
 			 * after service_tbrq, service the backlog
 			 * for now, we just drop the pdu
 			 */
+			for (slot = 0; slot < TPD_MAXIOV; ++slot) {
+				if (tpd->iovec[slot].addr)
+					pci_unmap_single(he_dev->pci_dev,
+						tpd->iovec[slot].addr,
+						tpd->iovec[slot].len & TPD_LEN_MASK,
+								PCI_DMA_TODEVICE);
+			}
 			if (tpd->skb) {
 				if (tpd->vcc->pop)
 					tpd->vcc->pop(tpd->vcc, tpd->skb);

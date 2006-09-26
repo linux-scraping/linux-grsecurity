@@ -9,7 +9,6 @@
  * option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/stddef.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -44,6 +43,15 @@ int mpc83xx_exclude_device(u_char bus, u_char devfn)
 		if (bus == (mpc83xx_pci2_busno) && PCI_SLOT(devfn) == 0)
 			return PCIBIOS_DEVICE_NOT_FOUND;
 	return PCIBIOS_SUCCESSFUL;
+}
+
+void __init mpc83xx_pcibios_fixup(void)
+{
+	struct pci_dev *dev = NULL;
+
+	/* map all the PCI irqs */
+	for_each_pci_dev(dev)
+		pci_read_irq_line(dev);
 }
 
 int __init add_bridge(struct device_node *dev)
@@ -91,9 +99,10 @@ int __init add_bridge(struct device_node *dev)
 		mpc83xx_pci2_busno = hose->first_busno;
 	}
 
-	printk(KERN_INFO "Found MPC83xx PCI host bridge at 0x%08lx. "
+	printk(KERN_INFO "Found MPC83xx PCI host bridge at 0x%016llx. "
 	       "Firmware bus number: %d->%d\n",
-	       rsrc.start, hose->first_busno, hose->last_busno);
+	       (unsigned long long)rsrc.start, hose->first_busno,
+	       hose->last_busno);
 
 	DBG(" ->Hose at 0x%p, cfg_addr=0x%p,cfg_data=0x%p\n",
 	    hose, hose->cfg_addr, hose->cfg_data);

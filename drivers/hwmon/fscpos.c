@@ -230,7 +230,6 @@ static ssize_t set_pwm(struct i2c_client *client, struct fscpos_data *data,
 	unsigned long v = simple_strtoul(buf, NULL, 10);
 
 	/* Range: 0..255 */
-	if (v < 0) v = 0;
 	if (v > 255) v = 255;
 
 	mutex_lock(&data->update_lock);

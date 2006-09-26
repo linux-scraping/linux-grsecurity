@@ -19,7 +19,7 @@
 
 static void minix_read_inode(struct inode * inode);
 static int minix_write_inode(struct inode * inode, int wait);
-static int minix_statfs(struct super_block *sb, struct kstatfs *buf);
+static int minix_statfs(struct dentry *dentry, struct kstatfs *buf);
 static int minix_remount (struct super_block * sb, int * flags, char * data);
 
 static void minix_delete_inode(struct inode *inode)
@@ -204,6 +204,8 @@ static int minix_fill_super(struct super_block *s, void *data, int silent)
 	/*
 	 * Allocate the buffer map to keep the superblock small.
 	 */
+	if (sbi->s_imap_blocks == 0 || sbi->s_zmap_blocks == 0)
+		goto out_illegal_sb;
 	i = (sbi->s_imap_blocks + sbi->s_zmap_blocks) * sizeof(bh);
 	map = kmalloc(i, GFP_KERNEL);
 	if (!map)
@@ -263,7 +265,7 @@ out_no_root:
 
 out_no_bitmap:
 	printk("MINIX-fs: bad superblock or unable to read bitmaps\n");
-    out_freemap:
+out_freemap:
 	for (i = 0; i < sbi->s_imap_blocks; i++)
 		brelse(sbi->s_imap[i]);
 	for (i = 0; i < sbi->s_zmap_blocks; i++)
@@ -276,11 +278,16 @@ out_no_map:
 		printk("MINIX-fs: can't allocate map\n");
 	goto out_release;
 
+out_illegal_sb:
+	if (!silent)
+		printk("MINIX-fs: bad superblock\n");
+	goto out_release;
+
 out_no_fs:
 	if (!silent)
 		printk("VFS: Can't find a Minix or Minix V2 filesystem "
 			"on device %s\n", s->s_id);
-    out_release:
+out_release:
 	brelse(bh);
 	goto out;
 
@@ -290,17 +297,17 @@ out_bad_hblock:
 
 out_bad_sb:
 	printk("MINIX-fs: unable to read superblock\n");
- out:
+out:
 	s->s_fs_info = NULL;
 	kfree(sbi);
 	return -EINVAL;
 }
 
-static int minix_statfs(struct super_block *sb, struct kstatfs *buf)
+static int minix_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
-	struct minix_sb_info *sbi = minix_sb(sb);
-	buf->f_type = sb->s_magic;
-	buf->f_bsize = sb->s_blocksize;
+	struct minix_sb_info *sbi = minix_sb(dentry->d_sb);
+	buf->f_type = dentry->d_sb->s_magic;
+	buf->f_bsize = dentry->d_sb->s_blocksize;
 	buf->f_blocks = (sbi->s_nzones - sbi->s_firstdatazone) << sbi->s_log_zone_size;
 	buf->f_bfree = minix_count_free_blocks(sbi);
 	buf->f_bavail = buf->f_bfree;
@@ -335,7 +342,7 @@ static sector_t minix_bmap(struct address_space *mapping, sector_t block)
 {
 	return generic_block_bmap(mapping,block,minix_get_block);
 }
-static struct address_space_operations minix_aops = {
+static const struct address_space_operations minix_aops = {
 	.readpage = minix_readpage,
 	.writepage = minix_writepage,
 	.sync_page = block_sync_page,
@@ -559,10 +566,11 @@ void minix_truncate(struct inode * inode)
 		V2_minix_truncate(inode);
 }
 
-static struct super_block *minix_get_sb(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static int minix_get_sb(struct file_system_type *fs_type,
+	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
 {
-	return get_sb_bdev(fs_type, flags, dev_name, data, minix_fill_super);
+	return get_sb_bdev(fs_type, flags, dev_name, data, minix_fill_super,
+			   mnt);
 }
 
 static struct file_system_type minix_fs_type = {

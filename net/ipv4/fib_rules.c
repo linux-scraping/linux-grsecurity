@@ -19,7 +19,6 @@
  *		Marc Boucher	:	routing by fwmark
  */
 
-#include <linux/config.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <linux/bitops.h>
@@ -197,10 +196,9 @@ int inet_rtm_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
 		}
 	}
 
-	new_r = kmalloc(sizeof(*new_r), GFP_KERNEL);
+	new_r = kzalloc(sizeof(*new_r), GFP_KERNEL);
 	if (!new_r)
 		return -ENOMEM;
-	memset(new_r, 0, sizeof(*new_r));
 
 	if (rta[RTA_SRC-1])
 		memcpy(&new_r->r_src, RTA_DATA(rta[RTA_SRC-1]), 4);

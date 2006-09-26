@@ -39,7 +39,6 @@ extern ctxd_t *srmmu_ctx_table_phys;
 
 extern void calibrate_delay(void);
 
-extern volatile int smp_processors_ready;
 extern volatile unsigned long cpu_callin_map[NR_CPUS];
 extern unsigned char boot_cpu_id;
 
@@ -66,7 +65,7 @@ static inline unsigned long swap(volatile unsigned long *ptr, unsigned long val)
 static void smp_setup_percpu_timer(void);
 extern void cpu_probe(void);
 
-void __init smp4m_callin(void)
+void __cpuinit smp4m_callin(void)
 {
 	int cpuid = hard_smp_processor_id();
 
@@ -112,12 +111,7 @@ void __init smp4m_callin(void)
 	local_irq_enable();
 
 	cpu_set(cpuid, cpu_online_map);
-	/* last one in gets all the interrupts (for testing) */
-	set_irq_udt(boot_cpu_id);
 }
-
-extern void init_IRQ(void);
-extern void cpu_panic(void);
 
 /*
  *	Cycle through the processors asking the PROM to start each one.
@@ -134,7 +128,7 @@ void __init smp4m_boot_cpus(void)
 	local_flush_cache_all();
 }
 
-int smp4m_boot_one_cpu(int i)
+int __cpuinit smp4m_boot_one_cpu(int i)
 {
 	extern unsigned long sun4m_cpu_startup;
 	unsigned long *entry = &sun4m_cpu_startup;
@@ -222,7 +216,6 @@ void __init smp4m_smp_done(void)
 	}
 
 	/* Ok, they are spinning and ready to go. */
-	smp_processors_ready = 1;
 }
 
 /* At each hardware IRQ, we get this called to forward IRQ reception

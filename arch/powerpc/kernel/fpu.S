@@ -2,6 +2,11 @@
  *  FPU support code, moved here from head.S so that it can be used
  *  by chips which use other head-whatever.S files.
  *
+ *    Copyright (C) 1995-1996 Gary Thomas (gdt@linuxppc.org)
+ *    Copyright (C) 1996 Cort Dougan <cort@cs.nmt.edu>
+ *    Copyright (C) 1996 Paul Mackerras.
+ *    Copyright (C) 1997 Dan Malek (dmalek@jlc.net).
+ *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version
@@ -9,7 +14,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <asm/reg.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
@@ -72,7 +76,7 @@ _GLOBAL(load_up_fpu)
 	std	r12,_MSR(r1)
 #endif
 	lfd	fr0,THREAD_FPSCR(r5)
-	mtfsf	0xff,fr0
+	MTFSF_L(fr0)
 	REST_32FPRS(0, r5)
 #ifndef CONFIG_SMP
 	subi	r4,r5,THREAD
@@ -127,7 +131,7 @@ _GLOBAL(giveup_fpu)
 
 _GLOBAL(cvt_fd)
 	lfd	0,THREAD_FPSCR(r5)	/* load up fpscr value */
-	mtfsf	0xff,0
+	MTFSF_L(0)
 	lfs	0,0(r3)
 	stfd	0,0(r4)
 	mffs	0
@@ -136,7 +140,7 @@ _GLOBAL(cvt_fd)
 
 _GLOBAL(cvt_df)
 	lfd	0,THREAD_FPSCR(r5)	/* load up fpscr value */
-	mtfsf	0xff,0
+	MTFSF_L(0)
 	lfd	0,0(r3)
 	stfs	0,0(r4)
 	mffs	0

@@ -202,7 +202,7 @@ xpc_setup_infrastructure(struct xpc_partition *part)
 	init_waitqueue_head(&part->channel_mgr_wq);
 
 	sprintf(part->IPI_owner, "xpc%02d", partid);
-	ret = request_irq(SGI_XPC_NOTIFY, xpc_notify_IRQ_handler, SA_SHIRQ,
+	ret = request_irq(SGI_XPC_NOTIFY, xpc_notify_IRQ_handler, IRQF_SHARED,
 				part->IPI_owner, (void *) (u64) partid);
 	if (ret != 0) {
 		dev_err(xpc_chan, "can't register NOTIFY IRQ handler, "
@@ -279,8 +279,8 @@ xpc_pull_remote_cachelines(struct xpc_partition *part, void *dst,
 		return part->reason;
 	}
 
-	bte_ret = xp_bte_copy((u64) src, (u64) ia64_tpa((u64) dst),
-				(u64) cnt, (BTE_NORMAL | BTE_WACQUIRE), NULL);
+	bte_ret = xp_bte_copy((u64) src, (u64) dst, (u64) cnt,
+					(BTE_NORMAL | BTE_WACQUIRE), NULL);
 	if (bte_ret == BTE_SUCCESS) {
 		return xpcSuccess;
 	}

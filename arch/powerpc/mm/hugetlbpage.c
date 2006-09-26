@@ -153,7 +153,7 @@ static void free_hugepte_range(struct mmu_gather *tlb, hugepd_t *hpdp)
 	hpdp->pd = 0;
 	tlb->need_flush = 1;
 	pgtable_free_tlb(tlb, pgtable_free_cache(hugepte, HUGEPTE_CACHE_NUM,
-						 HUGEPTE_TABLE_SIZE-1));
+						 PGF_CACHENUM_MASK));
 }
 
 #ifdef CONFIG_PPC_64K_PAGES
@@ -562,6 +562,10 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
@@ -573,7 +577,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > mm->cached_hole_size) {
 	        start_addr = addr = mm->free_area_cache;
 	} else {
-	        start_addr = addr = TASK_UNMAPPED_BASE;
+	        start_addr = addr = mm->mmap_base;
 	        mm->cached_hole_size = 0;
 	}
 
@@ -606,8 +610,8 @@ full_search:
 	}
 
 	/* Make sure we didn't miss any holes */
-	if (start_addr != TASK_UNMAPPED_BASE) {
-		start_addr = addr = TASK_UNMAPPED_BASE;
+	if (start_addr != mm->mmap_base) {
+		start_addr = addr = mm->mmap_base;
 		mm->cached_hole_size = 0;
 		goto full_search;
 	}
@@ -642,6 +646,11 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		mm->free_area_cache = base;
 
 	/* requesting a specific address */
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
@@ -721,12 +730,20 @@ fail:
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
-	mm->free_area_cache = TASK_UNMAPPED_BASE;
+	mm->mmap_base = TASK_UNMAPPED_BASE;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
+		mm->mmap_base += mm->delta_mmap;
+#endif
+
+	mm->free_area_cache = mm->mmap_base;
 	mm->cached_hole_size = ~0UL;
 	addr = arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
 	/*
 	 * Restore the topdown base:
 	 */
+	mm->mmap_base = base;
 	mm->free_area_cache = base;
 	mm->cached_hole_size = ~0UL;
 

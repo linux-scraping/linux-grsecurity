@@ -10,7 +10,6 @@
  *  Check put/get_user, cleanups - acme@conectiva.com.br - Jun 2001
  */
 
-#include <linux/config.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
@@ -1025,6 +1024,8 @@ int vt_ioctl(struct tty_struct *tty, struct file * file,
 		   return -EPERM;
 		vt_dont_switch = 0;
 		return 0;
+	case VT_GETHIFONTMASK:
+		return put_user(vc->vc_hi_font_mask, (unsigned short __user *)arg);
 	default:
 		return -ENOIOCTLCMD;
 	}

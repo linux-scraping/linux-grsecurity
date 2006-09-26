@@ -19,6 +19,8 @@
 #include <linux/mempolicy.h>
 #include <linux/personality.h>
 #include <linux/syscalls.h>
+#include <linux/swap.h>
+#include <linux/swapops.h>
 #include <linux/grsecurity.h>
 
 #ifdef CONFIG_PAX_MPROTECT
@@ -35,12 +37,13 @@
 static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot)
 {
-	pte_t *pte;
+	pte_t *pte, oldpte;
 	spinlock_t *ptl;
 
 	pte = pte_offset_map_lock(mm, pmd, addr, &ptl);
 	do {
-		if (pte_present(*pte)) {
+		oldpte = *pte;
+		if (pte_present(oldpte)) {
 			pte_t ptent;
 
 			/* Avoid an SMP race with hardware updated dirty/clean
@@ -50,7 +53,22 @@ static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 			ptent = pte_modify(ptep_get_and_clear(mm, addr, pte), newprot);
 			set_pte_at(mm, addr, pte, ptent);
 			lazy_mmu_prot_update(ptent);
+#ifdef CONFIG_MIGRATION
+		} else if (!pte_file(oldpte)) {
+			swp_entry_t entry = pte_to_swp_entry(oldpte);
+
+			if (is_write_migration_entry(entry)) {
+				/*
+				 * A protection check is difficult so
+				 * just be safe and disable write
+				 */
+				make_migration_entry_read(&entry);
+				set_pte_at(mm, addr, pte,
+					swp_entry_to_pte(entry));
+			}
+#endif
 		}
+
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 	pte_unmap_unlock(pte - 1, ptl);
 }
@@ -189,6 +207,7 @@ static int __mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **
 	unsigned long oldflags = vma->vm_flags;
 	long nrpages = (end - start) >> PAGE_SHIFT;
 	unsigned long charged = 0;
+	unsigned int mask;
 	pgprot_t newprot;
 	pgoff_t pgoff;
 	int error;
@@ -201,6 +220,7 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	unsigned long oldflags = vma->vm_flags;
 	long nrpages = (end - start) >> PAGE_SHIFT;
 	unsigned long charged = 0;
+	unsigned int mask;
 	pgprot_t newprot;
 	pgoff_t pgoff;
 	int error;
@@ -228,14 +248,6 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 		}
 	}
 
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
-	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
-		newprot = protection_map[(newflags | VM_EXEC) & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
-	else
-#endif
-
-	newprot = protection_map[newflags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
-
 	/*
 	 * First try to merge with previous and/or next vma.
 	 */
@@ -262,6 +274,20 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	}
 
 success:
+	/* Don't make the VMA automatically writable if it's shared, but the
+	 * backer wishes to know when pages are first written to */
+	mask = VM_READ|VM_WRITE|VM_EXEC|VM_SHARED;
+	if (vma->vm_ops && vma->vm_ops->page_mkwrite)
+		mask &= ~VM_SHARED;
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
+		newprot = protection_map[(newflags | VM_EXEC) & mask];
+	else
+#endif
+
+	newprot = protection_map[newflags & mask];
+
 	/*
 	 * vm_flags and vm_page_prot are protected by the mmap_sem
 	 * held in write mode.
@@ -381,8 +407,7 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC:
 	 */
-	if (unlikely((prot & (PROT_READ | PROT_WRITE)) &&
-			(current->personality & READ_IMPLIES_EXEC)))
+	if ((prot & (PROT_READ | PROT_WRITE)) && (current->personality & READ_IMPLIES_EXEC))
 		prot |= PROT_EXEC;
 
 	vm_flags = calc_vm_prot_bits(prot);
@@ -414,15 +439,15 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	if (start > vma->vm_start)
 		prev = vma;
 
-#ifdef CONFIG_PAX_MPROTECT
-	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
-		pax_handle_maywrite(vma, start);
-#endif
-
 	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
 		error = -EACCES;
 		goto out;
 	}
+
+#ifdef CONFIG_PAX_MPROTECT
+	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
+		pax_handle_maywrite(vma, start);
+#endif
 
 	for (nstart = start ; ; ) {
 		unsigned long newflags;

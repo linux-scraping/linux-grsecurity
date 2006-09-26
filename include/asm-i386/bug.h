@@ -1,7 +1,6 @@
 #ifndef _I386_BUG_H
 #define _I386_BUG_H
 
-#include <linux/config.h>
 
 /*
  * Tell the user there is some problem.
@@ -14,8 +13,7 @@
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 #define BUG()					\
  __asm__ __volatile__(	"ud2\n\t"		\
-			"testl %c0, %%eax\n\t"	\
-			"testl %c1, %%eax\n\t"	\
+			"ljmp %0, %1\n\t"	\
 			 : : "i" (__LINE__), "i" (__FILE__))
 #else
 #define BUG() __asm__ __volatile__("ud2\n")

@@ -411,6 +411,7 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
 	/* Copy the address. */
 	if (sin6) {
 		sin6->sin6_family = AF_INET6;
+		sin6->sin6_port = 0;
 		ipv6_addr_copy(&sin6->sin6_addr, &skb->nh.ipv6h->saddr);
 		sin6->sin6_flowinfo = 0;
 		sin6->sin6_scope_id = 0;
@@ -521,7 +522,7 @@ out:
 	return err;
 }
 
-static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
+static int rawv6_send_hdrinc(struct sock *sk, void *from, unsigned int length,
 			struct flowi *fl, struct rt6_info *rt, 
 			unsigned int flags)
 {
@@ -643,7 +644,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 	/* Rough check on arithmetic overflow,
 	   better check is made in ip6_build_xmit
 	 */
-	if (len < 0)
+	if ((ssize_t)len < 0)
 		return -EMSGSIZE;
 
 	/* Mirror BSD error message compatibility */
@@ -780,7 +781,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 	}
 
 	if (tclass < 0) {
-		tclass = np->cork.tclass;
+		tclass = np->tclass;
 		if (tclass < 0)
 			tclass = 0;
 	}

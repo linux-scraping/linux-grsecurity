@@ -47,7 +47,8 @@ comma = ,
 # testing for a specific architecture or later rather impossible.
 arch-$(CONFIG_CPU_32v6)		:=-D__LINUX_ARM_ARCH__=6 $(call cc-option,-march=armv6,-march=armv5t -Wa$(comma)-march=armv6)
 arch-$(CONFIG_CPU_32v6K)	:=-D__LINUX_ARM_ARCH__=6 $(call cc-option,-march=armv6k,-march=armv5t -Wa$(comma)-march=armv6k)
-arch-$(CONFIG_CPU_32v5)		:=-D__LINUX_ARM_ARCH__=5 $(call cc-option,-march=armv5te,-march=armv4)
+arch-$(CONFIG_CPU_32v5)		:=-D__LINUX_ARM_ARCH__=5 $(call cc-option,-march=armv5te,-march=armv4t)
+arch-$(CONFIG_CPU_32v4T)	:=-D__LINUX_ARM_ARCH__=4 -march=armv4t
 arch-$(CONFIG_CPU_32v4)		:=-D__LINUX_ARM_ARCH__=4 -march=armv4
 arch-$(CONFIG_CPU_32v3)		:=-D__LINUX_ARM_ARCH__=3 -march=armv3
 
@@ -114,8 +115,10 @@ endif
  machine-$(CONFIG_ARCH_H720X)	   := h720x
  machine-$(CONFIG_ARCH_AAEC2000)   := aaec2000
  machine-$(CONFIG_ARCH_REALVIEW)   := realview
- machine-$(CONFIG_ARCH_AT91RM9200) := at91rm9200
+ machine-$(CONFIG_ARCH_AT91)       := at91rm9200
  machine-$(CONFIG_ARCH_EP93XX)     := ep93xx
+ machine-$(CONFIG_ARCH_PNX4008)    := pnx4008
+ machine-$(CONFIG_ARCH_NETX)       := netx
 
 ifeq ($(CONFIG_ARCH_EBSA110),y)
 # This is what happens if you forget the IOCS16 line.
@@ -175,7 +178,7 @@ boot := arch/arm/boot
 #	them changed.  We use .arch to indicate when they were updated
 #	last, otherwise make uses the target directory mtime.
 
-include/asm-arm/.arch: $(wildcard include/config/arch/*.h) include/config/MARKER
+include/asm-arm/.arch: $(wildcard include/config/arch/*.h) include/config/auto.conf
 	@echo '  SYMLINK include/asm-arm/arch -> include/asm-arm/$(INCDIR)'
 ifneq ($(KBUILD_SRC),)
 	$(Q)mkdir -p include/asm-arm

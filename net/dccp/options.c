@@ -4,14 +4,13 @@
  *  An implementation of the DCCP protocol
  *  Copyright (c) 2005 Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
  *  Copyright (c) 2005 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
- *  Copyright (c) 2005 Ian McDonald <iam4@cs.waikato.ac.nz>
+ *  Copyright (c) 2005 Ian McDonald <ian.mcdonald@jandi.co.nz>
  *
  *      This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
  *      as published by the Free Software Foundation; either version
  *      2 of the License, or (at your option) any later version.
  */
-#include <linux/config.h>
 #include <linux/dccp.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -29,6 +28,8 @@ int dccp_feat_default_tx_ccid	      = DCCPF_INITIAL_CCID;
 int dccp_feat_default_ack_ratio	      = DCCPF_INITIAL_ACK_RATIO;
 int dccp_feat_default_send_ack_vector = DCCPF_INITIAL_SEND_ACK_VECTOR;
 int dccp_feat_default_send_ndp_count  = DCCPF_INITIAL_SEND_NDP_COUNT;
+
+EXPORT_SYMBOL_GPL(dccp_feat_default_sequence_window);
 
 void dccp_minisock_init(struct dccp_minisock *dmsk)
 {

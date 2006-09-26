@@ -568,7 +568,7 @@ static void snd_hammerfall_free_buffer(struct snd_dma_buffer *dmab, struct pci_d
 }
 
 
-static struct pci_device_id snd_hdsp_ids[] __devinitdata = {
+static struct pci_device_id snd_hdsp_ids[] = {
 	{
 		.vendor = PCI_VENDOR_ID_XILINX,
 		.device = PCI_DEVICE_ID_XILINX_HAMMERFALL_DSP, 
@@ -1356,7 +1356,7 @@ static struct snd_rawmidi_ops snd_hdsp_midi_input =
 	.trigger =	snd_hdsp_midi_input_trigger,
 };
 
-static int __devinit snd_hdsp_create_midi (struct snd_card *card, struct hdsp *hdsp, int id)
+static int snd_hdsp_create_midi (struct snd_card *card, struct hdsp *hdsp, int id)
 {
 	char buf[32];
 
@@ -3471,7 +3471,7 @@ static void __devinit snd_hdsp_proc_init(struct hdsp *hdsp)
 	struct snd_info_entry *entry;
 
 	if (! snd_card_proc_new(hdsp->card, "hdsp", &entry))
-		snd_info_set_text_ops(entry, hdsp, 1024, snd_hdsp_proc_read);
+		snd_info_set_text_ops(entry, hdsp, snd_hdsp_proc_read);
 }
 
 static void snd_hdsp_free_buffers(struct hdsp *hdsp)
@@ -4912,7 +4912,7 @@ static int __devinit snd_hdsp_create(struct snd_card *card,
 		return -EBUSY;
 	}
 
-	if (request_irq(pci->irq, snd_hdsp_interrupt, SA_INTERRUPT|SA_SHIRQ, "hdsp", (void *)hdsp)) {
+	if (request_irq(pci->irq, snd_hdsp_interrupt, IRQF_DISABLED|IRQF_SHARED, "hdsp", (void *)hdsp)) {
 		snd_printk(KERN_ERR "Hammerfall-DSP: unable to use IRQ %d\n", pci->irq);
 		return -EBUSY;
 	}

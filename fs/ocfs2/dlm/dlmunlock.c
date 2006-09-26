@@ -155,7 +155,7 @@ static enum dlm_status dlmunlock_common(struct dlm_ctxt *dlm,
 	else
 		status = dlm_get_unlock_actions(dlm, res, lock, lksb, &actions);
 
-	if (status != DLM_NORMAL)
+	if (status != DLM_NORMAL && (status != DLM_CANCELGRANT || !master_node))
 		goto leave;
 
 	/* By now this has been masked out of cancel requests. */
@@ -183,8 +183,7 @@ static enum dlm_status dlmunlock_common(struct dlm_ctxt *dlm,
 		spin_lock(&lock->spinlock);
 		/* if the master told us the lock was already granted,
 		 * let the ast handle all of these actions */
-		if (status == DLM_NORMAL &&
-		    lksb->status == DLM_CANCELGRANT) {
+		if (status == DLM_CANCELGRANT) {
 			actions &= ~(DLM_UNLOCK_REMOVE_LOCK|
 				     DLM_UNLOCK_REGRANT_LOCK|
 				     DLM_UNLOCK_CLEAR_CONVERT_TYPE);
@@ -271,8 +270,7 @@ void dlm_commit_pending_unlock(struct dlm_lock_resource *res,
 void dlm_commit_pending_cancel(struct dlm_lock_resource *res,
 			       struct dlm_lock *lock)
 {
-	list_del_init(&lock->list);
-	list_add_tail(&lock->list, &res->granted);
+	list_move_tail(&lock->list, &res->granted);
 	lock->ml.convert_type = LKM_IVMODE;
 }
 
@@ -319,6 +317,16 @@ static enum dlm_status dlm_send_remote_unlock_request(struct dlm_ctxt *dlm,
 
 	mlog_entry("%.*s\n", res->lockname.len, res->lockname.name);
 
+	if (owner == dlm->node_num) {
+		/* ended up trying to contact ourself.  this means
+		 * that the lockres had been remote but became local
+		 * via a migration.  just retry it, now as local */
+		mlog(0, "%s:%.*s: this node became the master due to a "
+		     "migration, re-evaluate now\n", dlm->name,
+		     res->lockname.len, res->lockname.name);
+		return DLM_FORWARD;
+	}
+
 	memset(&unlock, 0, sizeof(unlock));
 	unlock.node_idx = dlm->node_num;
 	unlock.flags = cpu_to_be32(flags);
@@ -340,14 +348,9 @@ static enum dlm_status dlm_send_remote_unlock_request(struct dlm_ctxt *dlm,
 					vec, veclen, owner, &status);
 	if (tmpret >= 0) {
 		// successfully sent and received
-		if (status == DLM_CANCELGRANT)
-			ret = DLM_NORMAL;
-		else if (status == DLM_FORWARD) {
+		if (status == DLM_FORWARD)
 			mlog(0, "master was in-progress.  retry\n");
-			ret = DLM_FORWARD;
-		} else
-			ret = status;
-		lksb->status = status;
+		ret = status;
 	} else {
 		mlog_errno(tmpret);
 		if (dlm_is_host_down(tmpret)) {
@@ -363,7 +366,6 @@ static enum dlm_status dlm_send_remote_unlock_request(struct dlm_ctxt *dlm,
 			/* something bad.  this will BUG in ocfs2 */
 			ret = dlm_err_to_dlm_status(tmpret);
 		}
-		lksb->status = ret;
 	}
 
 	return ret;
@@ -474,6 +476,10 @@ int dlm_unlock_lock_handler(struct o2net_msg *msg, u32 len, void *data)
 
 	/* lock was found on queue */
 	lksb = lock->lksb;
+	if (flags & (LKM_VALBLK|LKM_PUT_LVB) &&
+	    lock->ml.type != LKM_EXMODE)
+		flags &= ~(LKM_VALBLK|LKM_PUT_LVB);
+
 	/* unlockast only called on originating node */
 	if (flags & LKM_PUT_LVB) {
 		lksb->flags |= DLM_LKSB_PUT_LVB;
@@ -498,11 +504,8 @@ not_found:
 			       "cookie=%u:%llu\n",
 			       dlm_get_lock_cookie_node(unlock->cookie),
 			       dlm_get_lock_cookie_seq(unlock->cookie));
-	else {
-		/* send the lksb->status back to the other node */
-		status = lksb->status;
+	else
 		dlm_lock_put(lock);
-	}
 
 leave:
 	if (res)
@@ -524,26 +527,22 @@ static enum dlm_status dlm_get_cancel_actions(struct dlm_ctxt *dlm,
 
 	if (dlm_lock_on_list(&res->blocked, lock)) {
 		/* cancel this outright */
-		lksb->status = DLM_NORMAL;
 		status = DLM_NORMAL;
 		*actions = (DLM_UNLOCK_CALL_AST |
 			    DLM_UNLOCK_REMOVE_LOCK);
 	} else if (dlm_lock_on_list(&res->converting, lock)) {
 		/* cancel the request, put back on granted */
-		lksb->status = DLM_NORMAL;
 		status = DLM_NORMAL;
 		*actions = (DLM_UNLOCK_CALL_AST |
 			    DLM_UNLOCK_REMOVE_LOCK |
 			    DLM_UNLOCK_REGRANT_LOCK |
 			    DLM_UNLOCK_CLEAR_CONVERT_TYPE);
 	} else if (dlm_lock_on_list(&res->granted, lock)) {
-		/* too late, already granted.  DLM_CANCELGRANT */
-		lksb->status = DLM_CANCELGRANT;
-		status = DLM_NORMAL;
+		/* too late, already granted. */
+		status = DLM_CANCELGRANT;
 		*actions = DLM_UNLOCK_CALL_AST;
 	} else {
 		mlog(ML_ERROR, "lock to cancel is not on any list!\n");
-		lksb->status = DLM_IVLOCKID;
 		status = DLM_IVLOCKID;
 		*actions = 0;
 	}
@@ -560,13 +559,11 @@ static enum dlm_status dlm_get_unlock_actions(struct dlm_ctxt *dlm,
 
 	/* unlock request */
 	if (!dlm_lock_on_list(&res->granted, lock)) {
-		lksb->status = DLM_DENIED;
 		status = DLM_DENIED;
 		dlm_error(status);
 		*actions = 0;
 	} else {
 		/* unlock granted lock */
-		lksb->status = DLM_NORMAL;
 		status = DLM_NORMAL;
 		*actions = (DLM_UNLOCK_FREE_LOCK |
 			    DLM_UNLOCK_CALL_AST |
@@ -623,6 +620,8 @@ retry:
 
 	spin_lock(&res->spinlock);
 	is_master = (res->owner == dlm->node_num);
+	if (flags & LKM_VALBLK && lock->ml.type != LKM_EXMODE)
+		flags &= ~LKM_VALBLK;
 	spin_unlock(&res->spinlock);
 
 	if (is_master) {
@@ -656,7 +655,7 @@ retry:
 	}
 
 	if (call_ast) {
-		mlog(0, "calling unlockast(%p, %d)\n", data, lksb->status);
+		mlog(0, "calling unlockast(%p, %d)\n", data, status);
 		if (is_master) {
 			/* it is possible that there is one last bast 
 			 * pending.  make sure it is flushed, then
@@ -668,8 +667,11 @@ retry:
 			wait_event(dlm->ast_wq, 
 				   dlm_lock_basts_flushed(dlm, lock));
 		}
-		(*unlockast)(data, lksb->status);
+		(*unlockast)(data, status);
 	}
+
+	if (status == DLM_CANCELGRANT)
+		status = DLM_NORMAL;
 
 	if (status == DLM_NORMAL) {
 		mlog(0, "kicking the thread\n");

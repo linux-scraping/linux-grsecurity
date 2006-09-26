@@ -396,8 +396,7 @@ static int seeq8005_send_packet(struct sk_buff *skb, struct net_device *dev)
 	unsigned char *buf;
 
 	if (length < ETH_ZLEN) {
-		skb = skb_padto(skb, ETH_ZLEN);
-		if (skb == NULL)
+		if (skb_padto(skb, ETH_ZLEN))
 			return 0;
 		length = ETH_ZLEN;
 	}
@@ -743,7 +742,7 @@ module_param(irq, int, 0);
 MODULE_PARM_DESC(io, "SEEQ 8005 I/O base address");
 MODULE_PARM_DESC(irq, "SEEQ 8005 IRQ number");
 
-int init_module(void)
+int __init init_module(void)
 {
 	dev_seeq = seeq8005_probe(-1);
 	if (IS_ERR(dev_seeq))

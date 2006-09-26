@@ -12,7 +12,7 @@ obj-y		:= process.o setup.o cpu.o idprom.o \
 		   irq.o ptrace.o time.o sys_sparc.o signal.o \
 		   unaligned.o central.o pci.o starfire.o semaphore.o \
 		   power.o sbus.o iommu_common.o sparc64_ksyms.o chmc.o \
-		   visemul.o
+		   visemul.o prom.o of_device.o
 
 obj-$(CONFIG_PCI)	 += ebus.o isa.o pci_common.o pci_iommu.o \
 			    pci_psycho.o pci_sabre.o pci_schizo.o \
@@ -25,6 +25,9 @@ obj-$(CONFIG_MODULES) += module.o
 obj-$(CONFIG_US3_FREQ) += us3_cpufreq.o
 obj-$(CONFIG_US2E_FREQ) += us2e_cpufreq.o
 obj-$(CONFIG_KPROBES) += kprobes.o
+obj-$(CONFIG_AUDIT) += audit.o
+obj-$(CONFIG_AUDIT)$(CONFIG_SPARC32_COMPAT) += compat_audit.o
+obj-y += $(obj-yy)
 
 ifdef CONFIG_SUNOS_EMUL
   obj-y += sys_sunos32.o sunos_ioctl32.o

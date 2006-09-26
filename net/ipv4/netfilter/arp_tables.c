@@ -9,7 +9,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
@@ -1121,7 +1120,8 @@ int arpt_register_table(struct arpt_table *table,
 		return ret;
 	}
 
-	if (xt_register_table(table, &bootstrap, newinfo) != 0) {
+	ret = xt_register_table(table, &bootstrap, newinfo);
+	if (ret != 0) {
 		xt_free_table_info(newinfo);
 		return ret;
 	}
@@ -1171,21 +1171,34 @@ static int __init arp_tables_init(void)
 {
 	int ret;
 
-	xt_proto_init(NF_ARP);
+	ret = xt_proto_init(NF_ARP);
+	if (ret < 0)
+		goto err1;
 
 	/* Noone else will be downing sem now, so we won't sleep */
-	xt_register_target(&arpt_standard_target);
-	xt_register_target(&arpt_error_target);
+	ret = xt_register_target(&arpt_standard_target);
+	if (ret < 0)
+		goto err2;
+	ret = xt_register_target(&arpt_error_target);
+	if (ret < 0)
+		goto err3;
 
 	/* Register setsockopt */
 	ret = nf_register_sockopt(&arpt_sockopts);
-	if (ret < 0) {
-		duprintf("Unable to register sockopts.\n");
-		return ret;
-	}
+	if (ret < 0)
+		goto err4;
 
 	printk("arp_tables: (C) 2002 David S. Miller\n");
 	return 0;
+
+err4:
+	xt_unregister_target(&arpt_error_target);
+err3:
+	xt_unregister_target(&arpt_standard_target);
+err2:
+	xt_proto_fini(NF_ARP);
+err1:
+	return ret;
 }
 
 static void __exit arp_tables_fini(void)

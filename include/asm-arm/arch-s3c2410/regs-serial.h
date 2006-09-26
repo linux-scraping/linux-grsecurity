@@ -27,10 +27,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Modifications:
- *     10-Mar-2005 LCVR  Changed S3C2410_VA to S3C24XX_VA (s3c2400 support)
- */
+*/
 
 #ifndef __ASM_ARM_REGS_SERIAL_H
 #define __ASM_ARM_REGS_SERIAL_H
@@ -82,6 +79,12 @@
 #define S3C2440_UCON2_DIVMASK	  (7 << 12)
 #define S3C2440_UCON_DIVSHIFT	  (12)
 
+#define S3C2412_UCON_CLKMASK	(3<<10)
+#define S3C2412_UCON_UCLK	(1<<10)
+#define S3C2412_UCON_USYSCLK	(3<<10)
+#define S3C2412_UCON_PCLK	(0<<10)
+#define S3C2412_UCON_PCLK2	(2<<10)
+
 #define S3C2410_UCON_UCLK	  (1<<10)
 #define S3C2410_UCON_SBREAK	  (1<<4)
 
@@ -123,6 +126,15 @@
 
 #define	S3C2410_UMCOM_AFC	  (1<<4)
 #define	S3C2410_UMCOM_RTS_LOW	  (1<<0)
+
+#define S3C2412_UMCON_AFC_63	(0<<5)
+#define S3C2412_UMCON_AFC_56	(1<<5)
+#define S3C2412_UMCON_AFC_48	(2<<5)
+#define S3C2412_UMCON_AFC_40	(3<<5)
+#define S3C2412_UMCON_AFC_32	(4<<5)
+#define S3C2412_UMCON_AFC_24	(5<<5)
+#define S3C2412_UMCON_AFC_16	(6<<5)
+#define S3C2412_UMCON_AFC_8	(7<<5)
 
 #define S3C2410_UFSTAT_TXFULL	  (1<<9)
 #define S3C2410_UFSTAT_RXFULL	  (1<<8)

@@ -19,7 +19,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -44,13 +43,12 @@
 /*-------------------------------------------------------------------------*/
 
 #define	DRIVER_VERSION	"2 May 2005"
-#define	DRIVER_NAME	(tps65010_driver.name)
+#define	DRIVER_NAME	(tps65010_driver.driver.name)
 
 MODULE_DESCRIPTION("TPS6501x Power Management Driver");
 MODULE_LICENSE("GPL");
 
 static unsigned short normal_i2c[] = { 0x48, /* 0x49, */ I2C_CLIENT_END };
-static unsigned short normal_i2c_range[] = { I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD;
 
@@ -101,7 +99,7 @@ struct tps65010 {
 	/* not currently tracking GPIO state */
 };
 
-#define	POWER_POLL_DELAY	msecs_to_jiffies(800)
+#define	POWER_POLL_DELAY	msecs_to_jiffies(5000)
 
 /*-------------------------------------------------------------------------*/
 
@@ -521,15 +519,18 @@ tps65010_probe(struct i2c_adapter *bus, int address, int kind)
 		goto fail1;
 	}
 
+	/* the IRQ is active low, but many gpio lines can't support that
+	 * so this driver can use falling-edge triggers instead.
+	 */
+	irqflags = IRQF_SAMPLE_RANDOM;
 #ifdef	CONFIG_ARM
-	irqflags = SA_SAMPLE_RANDOM | SA_TRIGGER_LOW;
 	if (machine_is_omap_h2()) {
 		tps->model = TPS65010;
 		omap_cfg_reg(W4_GPIO58);
 		tps->irq = OMAP_GPIO_IRQ(58);
 		omap_request_gpio(58);
 		omap_set_gpio_direction(58, 1);
-		irqflags |= SA_TRIGGER_FALLING;
+		irqflags |= IRQF_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_osk()) {
 		tps->model = TPS65010;
@@ -537,15 +538,13 @@ tps65010_probe(struct i2c_adapter *bus, int address, int kind)
 		tps->irq = OMAP_GPIO_IRQ(OMAP_MPUIO(1));
 		omap_request_gpio(OMAP_MPUIO(1));
 		omap_set_gpio_direction(OMAP_MPUIO(1), 1);
-		irqflags |= SA_TRIGGER_FALLING;
+		irqflags |= IRQF_TRIGGER_FALLING;
 	}
 	if (machine_is_omap_h3()) {
 		tps->model = TPS65013;
 
 		// FIXME set up this board's IRQ ...
 	}
-#else
-	irqflags = SA_SAMPLE_RANDOM;
 #endif
 
 	if (tps->irq > 0) {

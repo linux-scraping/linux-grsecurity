@@ -2,6 +2,8 @@
  * linux/arch/i386/kernel/sysenter.c
  *
  * (C) Copyright 2002 Linus Torvalds
+ * Portions based on the vdso-randomization code from exec-shield:
+ * Copyright(C) 2005-2006, Red Hat, Inc., Ingo Molnar
  *
  * This file contains the needed initializations to support sysenter.
  */
@@ -13,11 +15,30 @@
 #include <linux/gfp.h>
 #include <linux/string.h>
 #include <linux/elf.h>
+#include <linux/mm.h>
+#include <linux/module.h>
 
 #include <asm/cpufeature.h>
 #include <asm/msr.h>
 #include <asm/pgtable.h>
 #include <asm/unistd.h>
+
+/*
+ * Should the kernel map a VDSO page into processes and pass its
+ * address down to glibc upon exec()?
+ */
+unsigned int __read_mostly vdso_enabled = 1;
+
+EXPORT_SYMBOL_GPL(vdso_enabled);
+
+static int __init vdso_setup(char *s)
+{
+	vdso_enabled = simple_strtoul(s, NULL, 0);
+
+	return 1;
+}
+
+__setup("vdso=", vdso_setup);
 
 extern asmlinkage void sysenter_entry(void);
 
@@ -45,25 +66,180 @@ void enable_sep_cpu(void)
  */
 extern const char vsyscall_int80_start, vsyscall_int80_end;
 extern const char vsyscall_sysenter_start, vsyscall_sysenter_end;
+static void *syscall_page;
 
 int __init sysenter_setup(void)
 {
-#ifndef CONFIG_PAX_NOVSYSCALL
-	void *page = (void *)get_zeroed_page(GFP_ATOMIC);
+	syscall_page = (void *)get_zeroed_page(GFP_ATOMIC);
 
-	__set_fixmap(FIX_VSYSCALL, __pa(page), PAGE_READONLY_EXEC);
+#ifdef CONFIG_COMPAT_VDSO
+	__set_fixmap(FIX_VDSO, __pa(syscall_page), PAGE_READONLY);
+	printk("Compat vDSO mapped to %08lx.\n", __fix_to_virt(FIX_VDSO));
+#else
+	/*
+	 * In the non-compat case the ELF coredumping code needs the fixmap:
+	 */
+	__set_fixmap(FIX_VDSO, __pa(syscall_page), PAGE_KERNEL_RO);
+#endif
 
 	if (!boot_cpu_has(X86_FEATURE_SEP)) {
-		memcpy(page,
+		memcpy(syscall_page,
 		       &vsyscall_int80_start,
 		       &vsyscall_int80_end - &vsyscall_int80_start);
 		return 0;
 	}
 
-	memcpy(page,
+	memcpy(syscall_page,
 	       &vsyscall_sysenter_start,
 	       &vsyscall_sysenter_end - &vsyscall_sysenter_start);
+
+	return 0;
+}
+
+static struct page *syscall_nopage(struct vm_area_struct *vma,
+				unsigned long adr, int *type)
+{
+	struct page *p = virt_to_page(adr - vma->vm_start + syscall_page);
+	get_page(p);
+	return p;
+}
+
+/* Prevent VMA merging */
+static void syscall_vma_close(struct vm_area_struct *vma)
+{
+}
+
+static struct vm_operations_struct syscall_vm_ops = {
+	.close = syscall_vma_close,
+	.nopage = syscall_nopage,
+};
+
+/* Defined in vsyscall-sysenter.S */
+extern void SYSENTER_RETURN;
+
+/* Setup a VMA at program startup for the vsyscall page */
+int arch_setup_additional_pages(struct linux_binprm *bprm, int exstack)
+{
+	struct vm_area_struct *vma;
+	struct mm_struct *mm = current->mm;
+	unsigned long addr;
+	int ret;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m = NULL;
 #endif
 
+	vma = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+	if (!vma)
+		return -ENOMEM;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
+		vma_m = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+		if (!vma_m) {
+			kmem_cache_free(vm_area_cachep, vma);
+			return -ENOMEM;
+		}
+	}
+#endif
+
+	down_write(&mm->mmap_sem);
+	addr = get_unmapped_area(NULL, 0, PAGE_SIZE, 0, MAP_EXECUTABLE);
+	if (IS_ERR_VALUE(addr)) {
+		ret = addr;
+
+		kmem_cache_free(vm_area_cachep, vma);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m)
+			kmem_cache_free(vm_area_cachep, vma_m);
+#endif
+
+		goto up_fail;
+	}
+
+	vma->vm_start = addr;
+	vma->vm_end = addr + PAGE_SIZE;
+	/* MAYWRITE to allow gdb to COW and set breakpoints */
+	vma->vm_flags = VM_READ|VM_EXEC|VM_MAYREAD|VM_MAYEXEC|VM_MAYWRITE;
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (mm->pax_flags & MF_PAX_MPROTECT)
+		vma->vm_flags &= ~VM_MAYWRITE;
+#endif
+
+	vma->vm_flags |= mm->def_flags;
+	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
+	vma->vm_ops = &syscall_vm_ops;
+	vma->vm_mm = mm;
+
+	ret = insert_vm_struct(mm, vma);
+	if (unlikely(ret)) {
+		kmem_cache_free(vm_area_cachep, vma);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m)
+			kmem_cache_free(vm_area_cachep, vma_m);
+#endif
+
+		goto up_fail;
+	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma_m) {
+		*vma_m = *vma;
+		vma_m->vm_start += SEGMEXEC_TASK_SIZE;
+		vma_m->vm_end += SEGMEXEC_TASK_SIZE;
+		ret = insert_vm_struct(mm, vma_m);
+		if (unlikely(ret)) {
+			kmem_cache_free(vm_area_cachep, vma_m);
+			goto up_fail;
+		}
+		vma_m->vm_flags |= VM_MIRROR;
+		vma->vm_flags |= VM_MIRROR;
+		vma_m->vm_mirror = vma->vm_start - vma_m->vm_start;
+		vma->vm_mirror = vma_m->vm_start - vma->vm_start;
+		vma_m->vm_pgoff = vma->vm_pgoff;
+		mm->total_vm++;
+	}
+#endif
+
+	current->mm->context.vdso = (void *)addr;
+	current_thread_info()->sysenter_return =
+				    (void *)VDSO_SYM(&SYSENTER_RETURN);
+	mm->total_vm++;
+up_fail:
+	up_write(&mm->mmap_sem);
+	return ret;
+}
+
+const char *arch_vma_name(struct vm_area_struct *vma)
+{
+	if (vma->vm_start == (unsigned long)vma->vm_mm->context.vdso)
+		return "[vdso]";
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC) || !(vma->vm_flags & VM_MIRROR))
+		return NULL;
+
+	if (vma->vm_start + vma->vm_mirror == (unsigned long)vma->vm_mm->context.vdso)
+		return "[vdso]";
+#endif
+
+	return NULL;
+}
+
+struct vm_area_struct *get_gate_vma(struct task_struct *tsk)
+{
+	return NULL;
+}
+
+int in_gate_area(struct task_struct *task, unsigned long addr)
+{
+	return 0;
+}
+
+int in_gate_area_no_task(unsigned long addr)
+{
 	return 0;
 }

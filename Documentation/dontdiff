@@ -115,6 +115,7 @@ mkdep
 mktables
 modpost
 modversions.h*
+netfilter*
 offset.h
 offsets.h
 oui.c*
@@ -142,4 +143,5 @@ vmlinux.lds
 vsyscall.lds
 wanxlfw.inc
 uImage
+utsrelease.h
 zImage

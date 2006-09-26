@@ -7,7 +7,6 @@
 #ifndef __MTD_CFI_H__
 #define __MTD_CFI_H__
 
-#include <linux/config.h>
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>
@@ -198,6 +197,18 @@ struct cfi_pri_amdstd {
 	uint8_t  VppMin;
 	uint8_t  VppMax;
 	uint8_t  TopBottom;
+} __attribute__((packed));
+
+/* Vendor-Specific PRI for Atmel chips (command set 0x0002) */
+
+struct cfi_pri_atmel {
+	uint8_t pri[3];
+	uint8_t MajorVersion;
+	uint8_t MinorVersion;
+	uint8_t Features;
+	uint8_t BottomBoot;
+	uint8_t BurstMode;
+	uint8_t PageMode;
 } __attribute__((packed));
 
 struct cfi_pri_query {
@@ -465,6 +476,7 @@ struct cfi_fixup {
 #define CFI_ID_ANY  0xffff
 
 #define CFI_MFR_AMD 0x0001
+#define CFI_MFR_ATMEL 0x001F
 #define CFI_MFR_ST  0x0020 	/* STMicroelectronics */
 
 void cfi_fixup(struct mtd_info *mtd, struct cfi_fixup* fixups);

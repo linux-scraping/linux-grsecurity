@@ -11,8 +11,8 @@
  */
 
 #ifdef __KERNEL__
-#include <linux/config.h>
 #include <asm/asm-compat.h>
+#include <asm/kdump.h>
 
 /*
  * On PPC32 page size is 4K. For PPC64 we support either 4K or 64K software
@@ -52,13 +52,6 @@
  * If you want to test if something's a kernel address, use is_kernel_addr().
  */
 
-#ifdef CONFIG_CRASH_DUMP
-/* Kdump kernel runs at 32 MB, change at your peril. */
-#define PHYSICAL_START	0x2000000
-#else
-#define PHYSICAL_START	0x0
-#endif
-
 #define PAGE_OFFSET     ASM_CONST(CONFIG_KERNEL_START)
 #define KERNELBASE      (PAGE_OFFSET + PHYSICAL_START)
 
@@ -84,8 +77,9 @@
  * and needs to be executable.  This means the whole heap ends
  * up being executable.
  */
-#define VM_DATA_DEFAULT_FLAGS32	(VM_READ | VM_WRITE | VM_EXEC | \
-				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
+#define VM_DATA_DEFAULT_FLAGS32 \
+	(((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
+	 VM_READ | VM_WRITE | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
 #define VM_DATA_DEFAULT_FLAGS64	(VM_READ | VM_WRITE | \
 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
@@ -94,6 +88,15 @@
 #include <asm/page_64.h>
 #else
 #include <asm/page_32.h>
+#endif
+
+#ifdef CONFIG_PAX_PAGEEXEC
+#ifdef CONFIG_PAX_MPROTECT
+#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
+			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#else
+#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+#endif
 #endif
 
 /* align addr on a size boundary - adjust address up/down if needed */
@@ -197,6 +200,9 @@ extern void clear_user_page(void *page, unsigned long vaddr, struct page *pg);
 extern void copy_user_page(void *to, void *from, unsigned long vaddr,
 		struct page *p);
 extern int page_is_ram(unsigned long pfn);
+
+struct vm_area_struct;
+extern const char *arch_vma_name(struct vm_area_struct *vma);
 
 #include <asm-generic/memory_model.h>
 #endif /* __ASSEMBLY__ */

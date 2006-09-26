@@ -7,8 +7,6 @@
 
 #include <asm/ptrace.h>
 #include <asm/user.h>
-#include <asm/processor.h>
-#include <asm/system.h>		/* for savesegment */
 #include <asm/auxvec.h>
 
 #include <linux/utsname.h>
@@ -46,6 +44,12 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
 #define ELF_CLASS	ELFCLASS32
 #define ELF_DATA	ELFDATA2LSB
 #define ELF_ARCH	EM_386
+
+#ifdef __KERNEL__
+
+#include <asm/processor.h>
+#include <asm/system.h>		/* for savesegment */
+#include <asm/desc.h>
 
 /* SVR4/i386 ABI (pages 3-31, 3-32) says that when the program starts %edx
    contains a pointer to a function which might be registered using `atexit'.
@@ -125,7 +129,6 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
 
 #define ELF_PLATFORM  (system_utsname.machine)
 
-#ifdef __KERNEL__
 #define SET_PERSONALITY(ex, ibcs2) do { } while (0)
 
 /*
@@ -144,22 +147,41 @@ extern int dump_task_extended_fpu (struct task_struct *, struct user_fxsr_struct
 #define ELF_CORE_COPY_FPREGS(tsk, elf_fpregs) dump_task_fpu(tsk, elf_fpregs)
 #define ELF_CORE_COPY_XFPREGS(tsk, elf_xfpregs) dump_task_extended_fpu(tsk, elf_xfpregs)
 
-#define VSYSCALL_BASE	(__fix_to_virt(FIX_VSYSCALL))
-#define VSYSCALL_EHDR	((const struct elfhdr *) VSYSCALL_BASE)
+#define VDSO_HIGH_BASE		(__fix_to_virt(FIX_VDSO))
+#define VDSO_BASE		((unsigned long)current->mm->context.vdso)
 
-#ifndef CONFIG_PAX_NOVSYSCALL
-#ifdef CONFIG_PAX_SEGMEXEC
-#define VSYSCALL_ENTRY	((current->mm->pax_flags & MF_PAX_SEGMEXEC) ? (unsigned long) &__kernel_vsyscall - SEGMEXEC_TASK_SIZE : (unsigned long) &__kernel_vsyscall)
+#ifdef CONFIG_COMPAT_VDSO
+# define VDSO_COMPAT_BASE	VDSO_HIGH_BASE
+# define VDSO_PRELINK		VDSO_HIGH_BASE
 #else
-#define VSYSCALL_ENTRY	((unsigned long) &__kernel_vsyscall)
+# define VDSO_COMPAT_BASE	VDSO_BASE
+# define VDSO_PRELINK		0
 #endif
+
+#define VDSO_COMPAT_SYM(x) \
+		(VDSO_COMPAT_BASE + (unsigned long)(x) - VDSO_PRELINK)
+
+#define VDSO_SYM(x) \
+		(VDSO_BASE + (unsigned long)(x) - VDSO_PRELINK)
+
+#define VDSO_HIGH_EHDR		((const struct elfhdr *) VDSO_HIGH_BASE)
+#define VDSO_EHDR		((const struct elfhdr *) VDSO_COMPAT_BASE)
 
 extern void __kernel_vsyscall;
 
+#define VDSO_ENTRY		VDSO_SYM(&__kernel_vsyscall)
+
+#define ARCH_HAS_SETUP_ADDITIONAL_PAGES
+struct linux_binprm;
+extern int arch_setup_additional_pages(struct linux_binprm *bprm,
+                                       int executable_stack);
+
+extern unsigned int vdso_enabled;
+
 #define ARCH_DLINFO						\
-do {								\
-		NEW_AUX_ENT(AT_SYSINFO,	VSYSCALL_ENTRY);	\
-		NEW_AUX_ENT(AT_SYSINFO_EHDR, VSYSCALL_BASE);	\
+do if (vdso_enabled) {						\
+		NEW_AUX_ENT(AT_SYSINFO,	VDSO_ENTRY);		\
+		NEW_AUX_ENT(AT_SYSINFO_EHDR, VDSO_COMPAT_BASE);	\
 } while (0)
 
 /*
@@ -170,15 +192,15 @@ do {								\
  * Dumping its extra ELF program headers includes all the other information
  * a debugger needs to easily find how the vsyscall DSO was being used.
  */
-#define ELF_CORE_EXTRA_PHDRS		(VSYSCALL_EHDR->e_phnum)
+#define ELF_CORE_EXTRA_PHDRS		(VDSO_HIGH_EHDR->e_phnum)
 #define ELF_CORE_WRITE_EXTRA_PHDRS					      \
 do {									      \
 	const struct elf_phdr *const vsyscall_phdrs =			      \
-		(const struct elf_phdr *) (VSYSCALL_BASE		      \
-					   + VSYSCALL_EHDR->e_phoff);	      \
+		(const struct elf_phdr *) (VDSO_HIGH_BASE		      \
+					   + VDSO_HIGH_EHDR->e_phoff);    \
 	int i;								      \
 	Elf32_Off ofs = 0;						      \
-	for (i = 0; i < VSYSCALL_EHDR->e_phnum; ++i) {			      \
+	for (i = 0; i < VDSO_HIGH_EHDR->e_phnum; ++i) {		      \
 		struct elf_phdr phdr = vsyscall_phdrs[i];		      \
 		if (phdr.p_type == PT_LOAD) {				      \
 			BUG_ON(ofs != 0);				      \
@@ -196,17 +218,15 @@ do {									      \
 #define ELF_CORE_WRITE_EXTRA_DATA					      \
 do {									      \
 	const struct elf_phdr *const vsyscall_phdrs =			      \
-		(const struct elf_phdr *) (VSYSCALL_BASE		      \
-					   + VSYSCALL_EHDR->e_phoff);	      \
+		(const struct elf_phdr *) (VDSO_HIGH_BASE		      \
+					   + VDSO_HIGH_EHDR->e_phoff);    \
 	int i;								      \
-	for (i = 0; i < VSYSCALL_EHDR->e_phnum; ++i) {			      \
+	for (i = 0; i < VDSO_HIGH_EHDR->e_phnum; ++i) {		      \
 		if (vsyscall_phdrs[i].p_type == PT_LOAD)		      \
 			DUMP_WRITE((void *) vsyscall_phdrs[i].p_vaddr,	      \
 				   PAGE_ALIGN(vsyscall_phdrs[i].p_memsz));    \
 	}								      \
 } while (0)
-
-#endif
 
 #endif
 

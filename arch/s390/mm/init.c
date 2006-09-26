@@ -9,7 +9,6 @@
  *    Copyright (C) 1995  Linus Torvalds
  */
 
-#include <linux/config.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -24,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/pagemap.h>
 #include <linux/bootmem.h>
+#include <linux/pfn.h>
 
 #include <asm/processor.h>
 #include <asm/system.h>
@@ -34,6 +34,7 @@
 #include <asm/lowcore.h>
 #include <asm/tlb.h>
 #include <asm/tlbflush.h>
+#include <asm/sections.h>
 
 DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
 
@@ -90,17 +91,6 @@ void show_mem(void)
         printk("%d pages swap cached\n",cached);
 }
 
-/* References to section boundaries */
-
-extern unsigned long _text;
-extern unsigned long _etext;
-extern unsigned long _edata;
-extern unsigned long __bss_start;
-extern unsigned long _end;
-
-extern unsigned long __init_begin;
-extern unsigned long __init_end;
-
 extern unsigned long __initdata zholes_size[];
 /*
  * paging_init() sets up the page tables
@@ -117,6 +107,10 @@ void __init paging_init(void)
         unsigned long pfn = 0;
         unsigned long pgdir_k = (__pa(swapper_pg_dir) & PAGE_MASK) | _KERNSEG_TABLE;
         static const int ssm_mask = 0x04000000L;
+	unsigned long ro_start_pfn, ro_end_pfn;
+
+	ro_start_pfn = PFN_DOWN((unsigned long)&__start_rodata);
+	ro_end_pfn = PFN_UP((unsigned long)&__end_rodata);
 
 	/* unmap whole virtual address space */
 	
@@ -135,7 +129,7 @@ void __init paging_init(void)
                 /*
                  * pg_table is physical at this point
                  */
-		pg_table = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
+		pg_table = (pte_t *) alloc_bootmem_pages(PAGE_SIZE);
 
                 pg_dir->pgd0 =  (_PAGE_TABLE | __pa(pg_table));
                 pg_dir->pgd1 =  (_PAGE_TABLE | (__pa(pg_table)+1024));
@@ -144,7 +138,10 @@ void __init paging_init(void)
                 pg_dir++;
 
                 for (tmp = 0 ; tmp < PTRS_PER_PTE ; tmp++,pg_table++) {
-                        pte = pfn_pte(pfn, PAGE_KERNEL);
+			if (pfn >= ro_start_pfn && pfn < ro_end_pfn)
+				pte = pfn_pte(pfn, __pgprot(_PAGE_RO));
+			else
+				pte = pfn_pte(pfn, PAGE_KERNEL);
                         if (pfn >= max_low_pfn)
                                 pte_clear(&init_mm, 0, &pte);
                         set_pte(pg_table, pte);
@@ -176,6 +173,7 @@ void __init paging_init(void)
 }
 
 #else /* CONFIG_64BIT */
+
 void __init paging_init(void)
 {
         pgd_t * pg_dir;
@@ -187,13 +185,15 @@ void __init paging_init(void)
         unsigned long pgdir_k = (__pa(swapper_pg_dir) & PAGE_MASK) |
           _KERN_REGION_TABLE;
 	static const int ssm_mask = 0x04000000L;
-
 	unsigned long zones_size[MAX_NR_ZONES];
 	unsigned long dma_pfn, high_pfn;
+	unsigned long ro_start_pfn, ro_end_pfn;
 
 	memset(zones_size, 0, sizeof(zones_size));
 	dma_pfn = MAX_DMA_ADDRESS >> PAGE_SHIFT;
 	high_pfn = max_low_pfn;
+	ro_start_pfn = PFN_DOWN((unsigned long)&__start_rodata);
+	ro_end_pfn = PFN_UP((unsigned long)&__end_rodata);
 
 	if (dma_pfn > high_pfn)
 		zones_size[ZONE_DMA] = high_pfn;
@@ -219,7 +219,7 @@ void __init paging_init(void)
                         continue;
                 }          
         
-	        pm_dir = (pmd_t *) alloc_bootmem_low_pages(PAGE_SIZE*4);
+		pm_dir = (pmd_t *) alloc_bootmem_pages(PAGE_SIZE * 4);
                 pgd_populate(&init_mm, pg_dir, pm_dir);
 
                 for (j = 0 ; j < PTRS_PER_PMD ; j++,pm_dir++) {
@@ -228,11 +228,14 @@ void __init paging_init(void)
                                 continue; 
                         }          
                         
-                        pt_dir = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
+			pt_dir = (pte_t *) alloc_bootmem_pages(PAGE_SIZE);
                         pmd_populate_kernel(&init_mm, pm_dir, pt_dir);
 	
                         for (k = 0 ; k < PTRS_PER_PTE ; k++,pt_dir++) {
-                                pte = pfn_pte(pfn, PAGE_KERNEL);
+				if (pfn >= ro_start_pfn && pfn < ro_end_pfn)
+					pte = pfn_pte(pfn, __pgprot(_PAGE_RO));
+				else
+					pte = pfn_pte(pfn, PAGE_KERNEL);
                                 if (pfn >= max_low_pfn) {
                                         pte_clear(&init_mm, 0, &pte); 
                                         continue;
@@ -283,6 +286,9 @@ void __init mem_init(void)
                 reservedpages << (PAGE_SHIFT-10),
                 datasize >>10,
                 initsize >> 10);
+	printk("Write protected kernel read-only data: %#lx - %#lx\n",
+	       (unsigned long)&__start_rodata,
+	       PFN_ALIGN((unsigned long)&__end_rodata) - 1);
 }
 
 void free_initmem(void)

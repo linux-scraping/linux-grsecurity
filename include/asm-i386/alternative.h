@@ -5,6 +5,8 @@
 
 #include <asm/types.h>
 
+#include <linux/types.h>
+
 struct alt_instr {
 	u8 *instr; 		/* original instruction */
 	u8 *replacement;
@@ -17,11 +19,19 @@ struct alt_instr {
 extern void apply_alternatives(struct alt_instr *start, struct alt_instr *end);
 
 struct module;
+#ifdef CONFIG_SMP
 extern void alternatives_smp_module_add(struct module *mod, char *name,
 					void *locks, void *locks_end,
 					void *text, void *text_end);
 extern void alternatives_smp_module_del(struct module *mod);
 extern void alternatives_smp_switch(int smp);
+#else
+static inline void alternatives_smp_module_add(struct module *mod, char *name,
+					void *locks, void *locks_end,
+					void *text, void *text_end) {}
+static inline void alternatives_smp_module_del(struct module *mod) {}
+static inline void alternatives_smp_switch(int smp) {}
+#endif
 
 #endif
 
@@ -78,9 +88,6 @@ extern void alternatives_smp_switch(int smp);
 /*
  * Alternative inline assembly for SMP.
  *
- * alternative_smp() takes two versions (SMP first, UP second) and is
- * for more complex stuff such as spinlocks.
- *
  * The LOCK_PREFIX macro defined here replaces the LOCK and
  * LOCK_PREFIX macros used everywhere in the source tree.
  *
@@ -100,21 +107,6 @@ extern void alternatives_smp_switch(int smp);
  */
 
 #ifdef CONFIG_SMP
-#define alternative_smp(smpinstr, upinstr, args...)			\
-	asm volatile ("661:\n\t" smpinstr "\n662:\n" 			\
-		      ".section .smp_altinstructions,\"a\"\n"		\
-		      "  .align 4\n"					\
-		      "  .long 661b\n"            /* label */		\
-		      "  .long 663f\n"		  /* new instruction */	\
-		      "  .byte 0x68\n"            /* X86_FEATURE_UP */	\
-		      "  .byte 662b-661b\n"       /* sourcelen */	\
-		      "  .byte 664f-663f\n"       /* replacementlen */	\
-		      ".previous\n"					\
-		      ".section .smp_altinstr_replacement,\"aw\"\n"   	\
-		      "663:\n\t" upinstr "\n"     /* replacement */	\
-		      "664:\n\t.fill 662b-661b,1,0x42\n" /* space for original */ \
-		      ".previous" : args)
-
 #define LOCK_PREFIX \
 		".section .smp_locks,\"a\"\n"	\
 		"  .align 4\n"			\
@@ -123,8 +115,6 @@ extern void alternatives_smp_switch(int smp);
 	       	"661:\n\tlock; "
 
 #else /* ! CONFIG_SMP */
-#define alternative_smp(smpinstr, upinstr, args...) \
-	asm volatile (upinstr : args)
 #define LOCK_PREFIX ""
 #endif
 

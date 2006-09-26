@@ -29,7 +29,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/fcntl.h>
@@ -532,7 +531,7 @@ static int __init smctr_chk_mca(struct net_device *dev)
 			dev->irq = 15;
                		break;
 	}
-	if (request_irq(dev->irq, smctr_interrupt, SA_SHIRQ, smctr_name, dev)) {
+	if (request_irq(dev->irq, smctr_interrupt, IRQF_SHARED, smctr_name, dev)) {
 		release_region(dev->base_addr, SMCTR_IO_EXTENT);
 		return -ENODEV;
 	}
@@ -1062,7 +1061,7 @@ static int __init smctr_chk_isa(struct net_device *dev)
                         goto out2;
          }
 
-        if (request_irq(dev->irq, smctr_interrupt, SA_SHIRQ, smctr_name, dev))
+        if (request_irq(dev->irq, smctr_interrupt, IRQF_SHARED, smctr_name, dev))
                 goto out2;
 
         /* Get 58x Rom Base */
@@ -5667,7 +5666,7 @@ module_param_array(io, int, NULL, 0);
 module_param_array(irq, int, NULL, 0);
 module_param(ringspeed, int, 0);
 
-static struct net_device *setup_card(int n)
+static struct net_device * __init setup_card(int n)
 {
 	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
 	int err;
@@ -5697,9 +5696,8 @@ out:
 	free_netdev(dev);
 	return ERR_PTR(err);
 }
-			
 
-int init_module(void)
+int __init init_module(void)
 {
         int i, found = 0;
 	struct net_device *dev;

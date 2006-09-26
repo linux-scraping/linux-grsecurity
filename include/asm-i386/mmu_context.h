@@ -1,7 +1,6 @@
 #ifndef __I386_SCHED_H
 #define __I386_SCHED_H
 
-#include <linux/config.h>
 #include <asm/desc.h>
 #include <asm/atomic.h>
 #include <asm/pgalloc.h>
@@ -53,10 +52,9 @@ static inline void switch_mm(struct mm_struct *prev,
 #endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-		if (prev->context.user_cs_base != next->context.user_cs_base ||
-		    prev->context.user_cs_limit != next->context.user_cs_limit)
+		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
+			     prev->context.user_cs_limit != next->context.user_cs_limit))
 #endif
-
 			set_user_cs(next, cpu);
 	}
 #ifdef CONFIG_SMP

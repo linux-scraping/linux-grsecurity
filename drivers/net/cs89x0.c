@@ -100,7 +100,6 @@
 
 /* Always include 'config.h' first in case the user wants to turn on
    or override something. */
-#include <linux/config.h>
 #include <linux/module.h>
 
 /*
@@ -1906,8 +1905,7 @@ MODULE_LICENSE("GPL");
 
 */
 
-int
-init_module(void)
+int __init init_module(void)
 {
 	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
 	struct net_local *lp;

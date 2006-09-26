@@ -1,18 +1,17 @@
 #ifndef _I386_PGALLOC_H
 #define _I386_PGALLOC_H
 
-#include <linux/config.h>
 #include <asm/fixmap.h>
 #include <asm/desc.h>
 #include <linux/threads.h>
 #include <linux/mm.h>		/* for struct page */
 
-#ifdef CONFIG_PAX_NOVSYSCALL
-#define pmd_populate_kernel(mm, pmd, pte) \
-		set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)))
-#else
+#ifdef CONFIG_COMPAT_VDSO
 #define pmd_populate_kernel(mm, pmd, pte) \
 		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
+#else
+#define pmd_populate_kernel(mm, pmd, pte) \
+		set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)))
 #endif
 
 #define pmd_populate(mm, pmd, pte) 				\

@@ -67,7 +67,7 @@ config PAX_PT_PAX_FLAGS
 
 choice
 	prompt 'MAC system integration'
-	default PAX_HAVE_ACL_FLAGS
+	default PAX_NO_ACL_FLAGS
 	help
 	  Mandatory Access Control systems have the option of controlling
 	  PaX flags on a per executable basis, choose the method supported
@@ -124,8 +124,7 @@ config PAX_NOEXEC
 
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
-	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
-	select PAX_NOVSYSCALL if X86_32
+	depends on !COMPAT_VDSO && PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
 	help
 	  This implementation is based on the paging feature of the CPU.
 	  On i386 and ppc there is a variable but usually low performance
@@ -134,8 +133,7 @@ config PAX_PAGEEXEC
 
 config PAX_SEGMEXEC
 	bool "Segmentation based non-executable pages"
-	depends on PAX_NOEXEC && X86_32
-	select PAX_NOVSYSCALL
+	depends on !COMPAT_VDSO && PAX_NOEXEC && X86_32
 	help
 	  This implementation is based on the segmentation feature of the
 	  CPU and has little performance impact, however applications will
@@ -294,8 +292,7 @@ config PAX_SYSCALL
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !DEBUG_RODATA
-	select PAX_NOVSYSCALL
+	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !DEBUG_RODATA && !COMPAT_VDSO
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
@@ -384,23 +381,6 @@ config PAX_RANDMMAP
 	  NOTE: you can use the 'chpax' or 'paxctl' utilities to control this
 	  feature on a per file basis.
 
-config PAX_NOVSYSCALL
-	bool "Disable the vsyscall page"
-	depends on PAX_ASLR && X86_32
-	help
-	  The Linux 2.6 kernel introduced a new feature that speeds up or
-	  simplifies certain operations, such as system calls or returns
-	  from signal handlers.
-
-	  Unfortunately the implementation also gives a powerful instrument
-	  into the hands of exploit writers: the so-called vsyscall page exists
-	  in every task at the same fixed address and it contains machine code
-	  that is very useful in performing the return-to-libc style attack.
-
-	  Since this exploit technique cannot in general be protected against
-	  via kernel solutions, this option will allow you to disable the use
-	  of the vsyscall page and revert back to the old behaviour.
-
 endmenu
 
 menu "Miscellaneous hardening features"
@@ -428,8 +408,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
-	depends on X86_32
-	select PAX_NOVSYSCALL
+	depends on X86_32 && !COMPAT_VDSO
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
 	  userland pointers in contexts where the kernel expects only kernel
@@ -469,16 +448,22 @@ config KEYS
 	  If you are unsure as to whether this is required, answer N.
 
 config KEYS_DEBUG_PROC_KEYS
-	bool "Enable the /proc/keys file by which all keys may be viewed"
+	bool "Enable the /proc/keys file by which keys may be viewed"
 	depends on KEYS
 	help
-	  This option turns on support for the /proc/keys file through which
-	  all the keys on the system can be listed.
+	  This option turns on support for the /proc/keys file - through which
+	  can be listed all the keys on the system that are viewable by the
+	  reading process.
 
-	  This option is a slight security risk in that it makes it possible
-	  for anyone to see all the keys on the system. Normally the manager
-	  pretends keys that are inaccessible to a process don't exist as far
-	  as that process is concerned.
+	  The only keys included in the list are those that grant View
+	  permission to the reading process whether or not it possesses them.
+	  Note that LSM security checks are still performed, and may further
+	  filter out keys that the current process is not authorised to view.
+
+	  Only key attributes are listed here; key payloads are not included in
+	  the resulting table.
+
+	  If you are unsure as to whether this is required, answer N.
 
 config SECURITY
 	bool "Enable different security models"

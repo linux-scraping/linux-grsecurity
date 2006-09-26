@@ -14,7 +14,6 @@
  * 08 Oct 2005 Harald Welte <lafore@netfilter.org>
  * 	- Generalize into "x_tables" layer and "{ip,ip6,arp}_tables"
  */
-#include <linux/config.h>
 #include <linux/cache.h>
 #include <linux/capability.h>
 #include <linux/skbuff.h>
@@ -1762,7 +1761,7 @@ translate_compat_table(const char *name,
 		goto free_newinfo;
 
 	/* And one copy for every other CPU */
-	for_each_cpu(i)
+	for_each_possible_cpu(i)
 		if (newinfo->entries[i] && newinfo->entries[i] != entry1)
 			memcpy(newinfo->entries[i], entry1, newinfo->size);
 
@@ -2114,7 +2113,8 @@ int ipt_register_table(struct xt_table *table, const struct ipt_replace *repl)
 		return ret;
 	}
 
-	if (xt_register_table(table, &bootstrap, newinfo) != 0) {
+	ret = xt_register_table(table, &bootstrap, newinfo);
+	if (ret != 0) {
 		xt_free_table_info(newinfo);
 		return ret;
 	}
@@ -2240,22 +2240,39 @@ static int __init ip_tables_init(void)
 {
 	int ret;
 
-	xt_proto_init(AF_INET);
+	ret = xt_proto_init(AF_INET);
+	if (ret < 0)
+		goto err1;
 
 	/* Noone else will be downing sem now, so we won't sleep */
-	xt_register_target(&ipt_standard_target);
-	xt_register_target(&ipt_error_target);
-	xt_register_match(&icmp_matchstruct);
+	ret = xt_register_target(&ipt_standard_target);
+	if (ret < 0)
+		goto err2;
+	ret = xt_register_target(&ipt_error_target);
+	if (ret < 0)
+		goto err3;
+	ret = xt_register_match(&icmp_matchstruct);
+	if (ret < 0)
+		goto err4;
 
 	/* Register setsockopt */
 	ret = nf_register_sockopt(&ipt_sockopts);
-	if (ret < 0) {
-		duprintf("Unable to register sockopts.\n");
-		return ret;
-	}
+	if (ret < 0)
+		goto err5;
 
 	printk("ip_tables: (C) 2000-2006 Netfilter Core Team\n");
 	return 0;
+
+err5:
+	xt_unregister_match(&icmp_matchstruct);
+err4:
+	xt_unregister_target(&ipt_error_target);
+err3:
+	xt_unregister_target(&ipt_standard_target);
+err2:
+	xt_proto_fini(AF_INET);
+err1:
+	return ret;
 }
 
 static void __exit ip_tables_fini(void)

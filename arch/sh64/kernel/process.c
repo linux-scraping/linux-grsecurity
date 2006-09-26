@@ -35,7 +35,6 @@
 #define __KERNEL_SYSCALLS__
 #include <stdarg.h>
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/rwsem.h>
 #include <linux/mm.h>
@@ -355,6 +354,9 @@ void machine_power_off(void)
 
 	enter_deep_standby();
 }
+
+void (*pm_power_off)(void) = machine_power_off;
+EXPORT_SYMBOL(pm_power_off);
 
 void show_regs(struct pt_regs * regs)
 {

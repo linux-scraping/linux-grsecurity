@@ -385,6 +385,8 @@ static int mv643xx_eth_receive_queue(struct net_device *dev, int budget)
 	struct pkt_info pkt_info;
 
 	while (budget-- > 0 && eth_port_receive(mp, &pkt_info) == ETH_OK) {
+		dma_unmap_single(NULL, pkt_info.buf_ptr, RX_SKB_SIZE,
+							DMA_FROM_DEVICE);
 		mp->rx_desc_count--;
 		received_packets++;
 
@@ -778,7 +780,7 @@ static int mv643xx_eth_open(struct net_device *dev)
 	int err;
 
 	err = request_irq(dev->irq, mv643xx_eth_int_handler,
-			SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
+			IRQF_SHARED | IRQF_SAMPLE_RANDOM, dev->name, dev);
 	if (err) {
 		printk(KERN_ERR "Can not assign IRQ number to MV643XX_eth%d\n",
 								port_num);
@@ -1200,7 +1202,7 @@ static int mv643xx_eth_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	if (has_tiny_unaligned_frags(skb)) {
-		if ((skb_linearize(skb, GFP_ATOMIC) != 0)) {
+		if (__skb_linearize(skb)) {
 			stats->tx_dropped++;
 			printk(KERN_DEBUG "%s: failed to linearize tiny "
 					"unaligned fragment\n", dev->name);

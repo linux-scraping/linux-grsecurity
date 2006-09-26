@@ -326,7 +326,7 @@ MODULE_PARM_DESC(dma, "LANCE/PCnet ISA DMA channel (ignored for some devices)");
 MODULE_PARM_DESC(irq, "LANCE/PCnet IRQ number (ignored for some devices)");
 MODULE_PARM_DESC(lance_debug, "LANCE/PCnet debug level (0-7)");
 
-int init_module(void)
+int __init init_module(void)
 {
 	struct net_device *dev;
 	int this_dev, found = 0;
@@ -968,8 +968,7 @@ static int lance_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* The old LANCE chips doesn't automatically pad buffers to min. size. */
 	if (chip_table[lp->chip_version].flags & LANCE_MUST_PAD) {
 		if (skb->len < ETH_ZLEN) {
-			skb = skb_padto(skb, ETH_ZLEN);
-			if (skb == NULL)
+			if (skb_padto(skb, ETH_ZLEN))
 				goto out;
 			lp->tx_ring[entry].length = -ETH_ZLEN;
 		}

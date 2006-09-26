@@ -13,7 +13,6 @@
  *  2 of the License, or (at your option) any later version.
  */
 
-#include <linux/config.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -391,6 +390,21 @@ rt_emulate:
 			return 6;
 		}
 	} while (0);
+#endif
+
+	return 1;
+}
+
+/*
+ * PaX: decide what to do with offenders (regs->nip = fault address)
+ *
+ * returns 1 when task should be killed
+ */
+static int pax_handle_fetch_fault(struct pt_regs *regs)
+{
+
+#if defined(CONFIG_PAX_EMUPLT) || defined(CONFIG_PAX_EMUSIGRT)
+	int err;
 #endif
 
 	return 1;

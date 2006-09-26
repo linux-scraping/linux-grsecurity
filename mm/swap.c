@@ -54,6 +54,26 @@ void put_page(struct page *page)
 }
 EXPORT_SYMBOL(put_page);
 
+/**
+ * put_pages_list(): release a list of pages
+ *
+ * Release a list of pages which are strung together on page.lru.  Currently
+ * used by read_cache_pages() and related error recovery code.
+ *
+ * @pages: list of pages threaded on page->lru
+ */
+void put_pages_list(struct list_head *pages)
+{
+	while (!list_empty(pages)) {
+		struct page *victim;
+
+		victim = list_entry(pages->prev, struct page, lru);
+		list_del(&victim->lru);
+		page_cache_release(victim);
+	}
+}
+EXPORT_SYMBOL(put_pages_list);
+
 /*
  * Writeback is about to end against a page which has been marked for immediate
  * reclaim.  If it still appears to be reclaimable, move it to the tail of the
@@ -86,9 +106,8 @@ int rotate_reclaimable_page(struct page *page)
 	zone = page_zone(page);
 	spin_lock_irqsave(&zone->lru_lock, flags);
 	if (PageLRU(page) && !PageActive(page)) {
-		list_del(&page->lru);
-		list_add_tail(&page->lru, &zone->inactive_list);
-		inc_page_state(pgrotated);
+		list_move_tail(&page->lru, &zone->inactive_list);
+		__count_vm_event(PGROTATED);
 	}
 	if (!test_clear_page_writeback(page))
 		BUG();
@@ -108,7 +127,7 @@ void fastcall activate_page(struct page *page)
 		del_page_from_inactive_list(zone, page);
 		SetPageActive(page);
 		add_page_to_active_list(zone, page);
-		inc_page_state(pgactivate);
+		__count_vm_event(PGACTIVATE);
 	}
 	spin_unlock_irq(&zone->lru_lock);
 }
@@ -479,48 +498,6 @@ static int cpu_swap_callback(struct notifier_block *nfb,
 }
 #endif /* CONFIG_HOTPLUG_CPU */
 #endif /* CONFIG_SMP */
-
-#ifdef CONFIG_SMP
-void percpu_counter_mod(struct percpu_counter *fbc, long amount)
-{
-	long count;
-	long *pcount;
-	int cpu = get_cpu();
-
-	pcount = per_cpu_ptr(fbc->counters, cpu);
-	count = *pcount + amount;
-	if (count >= FBC_BATCH || count <= -FBC_BATCH) {
-		spin_lock(&fbc->lock);
-		fbc->count += count;
-		*pcount = 0;
-		spin_unlock(&fbc->lock);
-	} else {
-		*pcount = count;
-	}
-	put_cpu();
-}
-EXPORT_SYMBOL(percpu_counter_mod);
-
-/*
- * Add up all the per-cpu counts, return the result.  This is a more accurate
- * but much slower version of percpu_counter_read_positive()
- */
-long percpu_counter_sum(struct percpu_counter *fbc)
-{
-	long ret;
-	int cpu;
-
-	spin_lock(&fbc->lock);
-	ret = fbc->count;
-	for_each_possible_cpu(cpu) {
-		long *pcount = per_cpu_ptr(fbc->counters, cpu);
-		ret += *pcount;
-	}
-	spin_unlock(&fbc->lock);
-	return ret < 0 ? 0 : ret;
-}
-EXPORT_SYMBOL(percpu_counter_sum);
-#endif
 
 /*
  * Perform any setup for the swap system

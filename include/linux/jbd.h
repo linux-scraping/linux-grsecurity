@@ -68,10 +68,13 @@ extern int journal_enable_debug;
 		}							\
 	} while (0)
 #else
-#define jbd_debug(f, a...)	/**/
+#define jbd_debug(f, a...)	do {} while (0)
 #endif
 
 extern void * __jbd_kmalloc (const char *where, size_t size, gfp_t flags, int retry);
+extern void * jbd_slab_alloc(size_t size, gfp_t flags);
+extern void jbd_slab_free(void *ptr, size_t size);
+
 #define jbd_kmalloc(size, flags) \
 	__jbd_kmalloc(__FUNCTION__, (size), (flags), journal_oom_retry)
 #define jbd_rep_kmalloc(size, flags) \
@@ -501,6 +504,12 @@ struct transaction_s
 	struct journal_head	*t_checkpoint_list;
 
 	/*
+	 * Doubly-linked circular list of all buffers submitted for IO while
+	 * checkpointing. [j_list_lock]
+	 */
+	struct journal_head	*t_checkpoint_io_list;
+
+	/*
 	 * Doubly-linked circular list of temporary buffers currently undergoing
 	 * IO in the log [j_list_lock]
 	 */
@@ -849,7 +858,7 @@ extern void journal_commit_transaction(journal_t *);
 
 /* Checkpoint list management */
 int __journal_clean_checkpoint_list(journal_t *journal);
-void __journal_remove_checkpoint(struct journal_head *);
+int __journal_remove_checkpoint(struct journal_head *);
 void __journal_insert_checkpoint(struct journal_head *, transaction_t *);
 
 /* Buffer IO */

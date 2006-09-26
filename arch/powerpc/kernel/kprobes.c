@@ -26,7 +26,6 @@
  *		for PPC64
  */
 
-#include <linux/config.h>
 #include <linux/kprobes.h>
 #include <linux/ptrace.h>
 #include <linux/preempt.h>
@@ -62,6 +61,8 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	if (!ret) {
 		memcpy(p->ainsn.insn, p->addr, MAX_INSN_SIZE * sizeof(kprobe_opcode_t));
 		p->opcode = *p->addr;
+		flush_icache_range((unsigned long)p->ainsn.insn,
+			(unsigned long)p->ainsn.insn + sizeof(kprobe_opcode_t));
 	}
 
 	return ret;

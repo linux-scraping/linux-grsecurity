@@ -29,8 +29,10 @@ static int
 match(const struct sk_buff *skb,
       const struct net_device *in,
       const struct net_device *out,
+      const struct xt_match *match,
       const void *matchinfo,
       int offset,
+      unsigned int protoff,
       int *hotdrop)
 {
 	struct iphdr *ip = skb->nh.iph;
@@ -71,11 +73,13 @@ match(const struct sk_buff *skb,
 /* Called when user tries to insert an entry of this type. */
 static int
 checkentry(const char *tablename,
-           const struct ipt_ip *ip,
+           const void *nip,
+	   const struct xt_match *match,
            void *matchinfo,
            unsigned int matchsize,
            unsigned int hook_mask)
 {
+	const struct ipt_ip *ip = (const struct ipt_ip *)nip;
         if (matchsize != IPT_ALIGN(0))
                 return 0;
 

@@ -1,19 +1,8 @@
 /*
+ * This file is part of the zfcp device driver for
+ * FCP adapters for IBM System z9 and zSeries.
  *
- * linux/drivers/s390/scsi/zfcp_fsf.c
- *
- * FCP adapter driver for IBM eServer zSeries
- *
- * (C) Copyright IBM Corp. 2002, 2004
- *
- * Author(s): Martin Peschke <mpeschke@de.ibm.com>
- *            Raimund Schroeder <raimund.schroeder@de.ibm.com>
- *            Aron Zeh
- *            Wolfgang Taphorn
- *            Stefan Bader <stefan.bader@de.ibm.com>
- *            Heiko Carstens <heiko.carstens@de.ibm.com>
- *            Andreas Herrmann <aherrman@de.ibm.com>
- *            Volker Sameske <sameske@de.ibm.com>
+ * (C) Copyright IBM Corp. 2002, 2006
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,7 +49,6 @@ static int zfcp_fsf_fsfstatus_qual_eval(struct zfcp_fsf_req *);
 static void zfcp_fsf_link_down_info_eval(struct zfcp_adapter *,
 	struct fsf_link_down_info *);
 static int zfcp_fsf_req_dispatch(struct zfcp_fsf_req *);
-static void zfcp_fsf_req_dismiss(struct zfcp_fsf_req *);
 
 /* association between FSF command and FSF QTCB type */
 static u32 fsf_qtcb_type[] = {
@@ -157,47 +145,48 @@ zfcp_fsf_req_free(struct zfcp_fsf_req *fsf_req)
 		kfree(fsf_req);
 }
 
-/*
- * function:	
- *
- * purpose:	
- *
- * returns:
- *
- * note: qdio queues shall be down (no ongoing inbound processing)
+/**
+ * zfcp_fsf_req_dismiss - dismiss a single fsf request
  */
-int
-zfcp_fsf_req_dismiss_all(struct zfcp_adapter *adapter)
+static void zfcp_fsf_req_dismiss(struct zfcp_adapter *adapter,
+				 struct zfcp_fsf_req *fsf_req,
+				 unsigned int counter)
 {
-	struct zfcp_fsf_req *fsf_req, *tmp;
-	unsigned long flags;
-	LIST_HEAD(remove_queue);
+	u64 dbg_tmp[2];
 
-	spin_lock_irqsave(&adapter->fsf_req_list_lock, flags);
-	list_splice_init(&adapter->fsf_req_list_head, &remove_queue);
-	atomic_set(&adapter->fsf_reqs_active, 0);
-	spin_unlock_irqrestore(&adapter->fsf_req_list_lock, flags);
-
-	list_for_each_entry_safe(fsf_req, tmp, &remove_queue, list) {
-		list_del(&fsf_req->list);
-		zfcp_fsf_req_dismiss(fsf_req);
-	}
-
-	return 0;
-}
-
-/*
- * function:	
- *
- * purpose:	
- *
- * returns:
- */
-static void
-zfcp_fsf_req_dismiss(struct zfcp_fsf_req *fsf_req)
-{
+	dbg_tmp[0] = (u64) atomic_read(&adapter->reqs_active);
+	dbg_tmp[1] = (u64) counter;
+	debug_event(adapter->erp_dbf, 4, (void *) dbg_tmp, 16);
+	list_del(&fsf_req->list);
 	fsf_req->status |= ZFCP_STATUS_FSFREQ_DISMISSED;
 	zfcp_fsf_req_complete(fsf_req);
+}
+
+/**
+ * zfcp_fsf_req_dismiss_all - dismiss all remaining fsf requests
+ */
+int zfcp_fsf_req_dismiss_all(struct zfcp_adapter *adapter)
+{
+	struct zfcp_fsf_req *request, *tmp;
+	unsigned long flags;
+	unsigned int i, counter;
+
+	spin_lock_irqsave(&adapter->req_list_lock, flags);
+	atomic_set(&adapter->reqs_active, 0);
+	for (i=0; i<REQUEST_LIST_SIZE; i++) {
+		if (list_empty(&adapter->req_list[i]))
+			continue;
+
+		counter = 0;
+		list_for_each_entry_safe(request, tmp,
+					 &adapter->req_list[i], list) {
+			zfcp_fsf_req_dismiss(adapter, request, counter);
+			counter++;
+		}
+	}
+	spin_unlock_irqrestore(&adapter->req_list_lock, flags);
+
+	return 0;
 }
 
 /*
@@ -877,6 +866,7 @@ zfcp_fsf_status_read_handler(struct zfcp_fsf_req *fsf_req)
 	struct zfcp_adapter *adapter = fsf_req->adapter;
 	struct fsf_status_read_buffer *status_buffer =
 		(struct fsf_status_read_buffer *) fsf_req->data;
+	struct fsf_bit_error_payload *fsf_bit_error;
 
 	if (fsf_req->status & ZFCP_STATUS_FSFREQ_DISMISSED) {
 		zfcp_hba_dbf_event_fsf_unsol("dism", adapter, status_buffer);
@@ -903,10 +893,37 @@ zfcp_fsf_status_read_handler(struct zfcp_fsf_req *fsf_req)
 		break;
 
 	case FSF_STATUS_READ_BIT_ERROR_THRESHOLD:
-		ZFCP_LOG_NORMAL("Bit error threshold data received:\n");
-		ZFCP_HEX_DUMP(ZFCP_LOG_LEVEL_NORMAL,
-			      (char *) status_buffer,
-			      sizeof (struct fsf_status_read_buffer));
+		fsf_bit_error = (struct fsf_bit_error_payload *)
+			status_buffer->payload;
+		ZFCP_LOG_NORMAL("Warning: bit error threshold data "
+		    "received (adapter %s, "
+		    "link failures = %i, loss of sync errors = %i, "
+		    "loss of signal errors = %i, "
+		    "primitive sequence errors = %i, "
+		    "invalid transmission word errors = %i, "
+		    "CRC errors = %i)\n",
+		    zfcp_get_busid_by_adapter(adapter),
+		    fsf_bit_error->link_failure_error_count,
+		    fsf_bit_error->loss_of_sync_error_count,
+		    fsf_bit_error->loss_of_signal_error_count,
+		    fsf_bit_error->primitive_sequence_error_count,
+		    fsf_bit_error->invalid_transmission_word_error_count,
+		    fsf_bit_error->crc_error_count);
+		ZFCP_LOG_INFO("Additional bit error threshold data "
+		    "(adapter %s, "
+		    "primitive sequence event time-outs = %i, "
+		    "elastic buffer overrun errors = %i, "
+		    "advertised receive buffer-to-buffer credit = %i, "
+		    "current receice buffer-to-buffer credit = %i, "
+		    "advertised transmit buffer-to-buffer credit = %i, "
+		    "current transmit buffer-to-buffer credit = %i)\n",
+		    zfcp_get_busid_by_adapter(adapter),
+		    fsf_bit_error->primitive_sequence_event_timeout_count,
+		    fsf_bit_error->elastic_buffer_overrun_error_count,
+		    fsf_bit_error->advertised_receive_b2b_credit,
+		    fsf_bit_error->current_receive_b2b_credit,
+		    fsf_bit_error->advertised_transmit_b2b_credit,
+		    fsf_bit_error->current_transmit_b2b_credit);
 		break;
 
 	case FSF_STATUS_READ_LINK_DOWN:
@@ -1427,7 +1444,8 @@ zfcp_fsf_send_ct(struct zfcp_send_ct *ct, mempool_t *pool,
 
 	/* settings in QTCB */
 	fsf_req->qtcb->header.port_handle = port->handle;
-	fsf_req->qtcb->bottom.support.service_class = adapter->fc_service_class;
+	fsf_req->qtcb->bottom.support.service_class =
+		ZFCP_FC_SERVICE_CLASS_DEFAULT;
 	fsf_req->qtcb->bottom.support.timeout = ct->timeout;
         fsf_req->data = (unsigned long) ct;
 
@@ -1496,18 +1514,10 @@ zfcp_fsf_send_ct_handler(struct zfcp_fsf_req *fsf_req)
 		break;
 
         case FSF_SERVICE_CLASS_NOT_SUPPORTED:
-		if (adapter->fc_service_class <= 3) {
-			ZFCP_LOG_INFO("error: adapter %s does not support fc "
-				      "class %d.\n",
-				      zfcp_get_busid_by_port(port),
-				      adapter->fc_service_class);
-		} else {
-			ZFCP_LOG_INFO("bug: The fibre channel class at the "
-				      "adapter %s is invalid. "
-				      "(debug info %d)\n",
-				      zfcp_get_busid_by_port(port),
-				      adapter->fc_service_class);
-		}
+		ZFCP_LOG_INFO("error: adapter %s does not support fc "
+			      "class %d.\n",
+			      zfcp_get_busid_by_port(port),
+			      ZFCP_FC_SERVICE_CLASS_DEFAULT);
 		/* stop operation for this adapter */
 		debug_text_exception(adapter->erp_dbf, 0, "fsf_s_class_nsup");
 		zfcp_erp_adapter_shutdown(adapter, 0);
@@ -1730,7 +1740,8 @@ zfcp_fsf_send_els(struct zfcp_send_els *els)
 
 	/* settings in QTCB */
 	fsf_req->qtcb->bottom.support.d_id = d_id;
-	fsf_req->qtcb->bottom.support.service_class = adapter->fc_service_class;
+	fsf_req->qtcb->bottom.support.service_class =
+		ZFCP_FC_SERVICE_CLASS_DEFAULT;
 	fsf_req->qtcb->bottom.support.timeout = ZFCP_ELS_TIMEOUT;
 	fsf_req->data = (unsigned long) els;
 
@@ -1800,18 +1811,10 @@ static int zfcp_fsf_send_els_handler(struct zfcp_fsf_req *fsf_req)
 		break;
 
 	case FSF_SERVICE_CLASS_NOT_SUPPORTED:
-		if (adapter->fc_service_class <= 3) {
-			ZFCP_LOG_INFO("error: adapter %s does "
-				      "not support fibrechannel class %d.\n",
-				      zfcp_get_busid_by_adapter(adapter),
-				      adapter->fc_service_class);
-		} else {
-			ZFCP_LOG_INFO("bug: The fibrechannel class at "
-				      "adapter %s is invalid. "
-				      "(debug info %d)\n",
-				      zfcp_get_busid_by_adapter(adapter),
-				      adapter->fc_service_class);
-		}
+		ZFCP_LOG_INFO("error: adapter %s does not support fc "
+			      "class %d.\n",
+			      zfcp_get_busid_by_adapter(adapter),
+			      ZFCP_FC_SERVICE_CLASS_DEFAULT);
 		/* stop operation for this adapter */
 		debug_text_exception(adapter->erp_dbf, 0, "fsf_s_class_nsup");
 		zfcp_erp_adapter_shutdown(adapter, 0);
@@ -1940,14 +1943,6 @@ skip_fsfstatus:
 	return retval;
 }
 
-/*
- * function:
- *
- * purpose:
- *
- * returns:	address of initiated FSF request
- *		NULL - request could not be initiated
- */
 int
 zfcp_fsf_exchange_config_data(struct zfcp_erp_action *erp_action)
 {
@@ -2232,7 +2227,7 @@ zfcp_fsf_exchange_port_data(struct zfcp_erp_action *erp_action,
 	/* setup new FSF request */
 	retval = zfcp_fsf_req_create(adapter, FSF_QTCB_EXCHANGE_PORT_DATA,
 				     erp_action ? ZFCP_REQ_AUTO_CLEANUP : 0,
-				     0, &lock_flags, &fsf_req);
+				     NULL, &lock_flags, &fsf_req);
 	if (retval < 0) {
 		ZFCP_LOG_INFO("error: Out of resources. Could not create an "
                               "exchange port data request for"
@@ -2565,8 +2560,7 @@ zfcp_fsf_open_port_handler(struct zfcp_fsf_req *fsf_req)
 		if (!atomic_test_mask(ZFCP_STATUS_PORT_NO_WWPN, &port->status))
 		{
 			if (fsf_req->qtcb->bottom.support.els1_length <
-			    ((((unsigned long) &plogi->serv_param.wwpn) -
-			      ((unsigned long) plogi)) + sizeof (u64))) {
+			    sizeof (struct fsf_plogi)) {
 				ZFCP_LOG_INFO(
 					"warning: insufficient length of "
 					"PLOGI payload (%i)\n",
@@ -2585,8 +2579,10 @@ zfcp_fsf_open_port_handler(struct zfcp_fsf_req *fsf_req)
 					atomic_clear_mask(
 						ZFCP_STATUS_PORT_DID_DID,
 						&port->status);
-				} else
+				} else {
 					port->wwnn = plogi->serv_param.wwnn;
+					zfcp_plogi_evaluate(port, plogi);
+				}
 			}
 		}
 		break;
@@ -2993,8 +2989,8 @@ zfcp_fsf_open_unit(struct zfcp_erp_action *erp_action)
 	erp_action->fsf_req->qtcb->bottom.support.fcp_lun =
 		erp_action->unit->fcp_lun;
 	if (!(erp_action->adapter->connection_features & FSF_FEATURE_NPIV_MODE))
-	erp_action->fsf_req->qtcb->bottom.support.option =
-		FSF_OPEN_LUN_SUPPRESS_BOXING;
+		erp_action->fsf_req->qtcb->bottom.support.option =
+			FSF_OPEN_LUN_SUPPRESS_BOXING;
 	atomic_set_mask(ZFCP_STATUS_COMMON_OPENING, &erp_action->unit->status);
 	erp_action->fsf_req->data = (unsigned long) erp_action->unit;
 	erp_action->fsf_req->erp_action = erp_action;
@@ -3569,7 +3565,7 @@ zfcp_fsf_send_fcp_command_task(struct zfcp_adapter *adapter,
 	}
 
 	/* set FC service class in QTCB (3 per default) */
-	fsf_req->qtcb->bottom.io.service_class = adapter->fc_service_class;
+	fsf_req->qtcb->bottom.io.service_class = ZFCP_FC_SERVICE_CLASS_DEFAULT;
 
 	/* set FCP_LUN in FCP_CMND IU in QTCB */
 	fcp_cmnd_iu->fcp_lun = unit->fcp_lun;
@@ -3667,18 +3663,6 @@ zfcp_fsf_send_fcp_command_task(struct zfcp_adapter *adapter,
 	return retval;
 }
 
-/*
- * function:    zfcp_fsf_send_fcp_command_task_management
- *
- * purpose:
- *
- * returns:
- *
- * FIXME(design): should be watched by a timeout!!!
- * FIXME(design) shouldn't this be modified to return an int
- *               also...don't know how though
- *
- */
 struct zfcp_fsf_req *
 zfcp_fsf_send_fcp_command_task_management(struct zfcp_adapter *adapter,
 					  struct zfcp_unit *unit,
@@ -3720,7 +3704,7 @@ zfcp_fsf_send_fcp_command_task_management(struct zfcp_adapter *adapter,
 	fsf_req->qtcb->header.lun_handle = unit->handle;
 	fsf_req->qtcb->header.port_handle = unit->port->handle;
 	fsf_req->qtcb->bottom.io.data_direction = FSF_DATADIR_CMND;
-	fsf_req->qtcb->bottom.io.service_class = adapter->fc_service_class;
+	fsf_req->qtcb->bottom.io.service_class = ZFCP_FC_SERVICE_CLASS_DEFAULT;
 	fsf_req->qtcb->bottom.io.fcp_cmnd_length =
 		sizeof (struct fcp_cmnd_iu) + sizeof (fcp_dl_t);
 
@@ -3843,18 +3827,10 @@ zfcp_fsf_send_fcp_command_handler(struct zfcp_fsf_req *fsf_req)
 		break;
 
 	case FSF_SERVICE_CLASS_NOT_SUPPORTED:
-		if (fsf_req->adapter->fc_service_class <= 3) {
-			ZFCP_LOG_NORMAL("error: The adapter %s does "
-					"not support fibrechannel class %d.\n",
-					zfcp_get_busid_by_unit(unit),
-					fsf_req->adapter->fc_service_class);
-		} else {
-			ZFCP_LOG_NORMAL("bug: The fibrechannel class at "
-					"adapter %s is invalid. "
-					"(debug info %d)\n",
-					zfcp_get_busid_by_unit(unit),
-					fsf_req->adapter->fc_service_class);
-		}
+		ZFCP_LOG_INFO("error: adapter %s does not support fc "
+			      "class %d.\n",
+			      zfcp_get_busid_by_unit(unit),
+			      ZFCP_FC_SERVICE_CLASS_DEFAULT);
 		/* stop operation for this adapter */
 		debug_text_exception(fsf_req->adapter->erp_dbf, 0,
 				     "fsf_s_class_nsup");
@@ -4616,12 +4592,14 @@ static inline void
 zfcp_fsf_req_qtcb_init(struct zfcp_fsf_req *fsf_req)
 {
 	if (likely(fsf_req->qtcb != NULL)) {
-		fsf_req->qtcb->prefix.req_seq_no = fsf_req->adapter->fsf_req_seq_no;
-		fsf_req->qtcb->prefix.req_id = (unsigned long)fsf_req;
+		fsf_req->qtcb->prefix.req_seq_no =
+			fsf_req->adapter->fsf_req_seq_no;
+		fsf_req->qtcb->prefix.req_id = fsf_req->req_id;
 		fsf_req->qtcb->prefix.ulp_info = ZFCP_ULP_INFO_VERSION;
-		fsf_req->qtcb->prefix.qtcb_type = fsf_qtcb_type[fsf_req->fsf_command];
+		fsf_req->qtcb->prefix.qtcb_type =
+			fsf_qtcb_type[fsf_req->fsf_command];
 		fsf_req->qtcb->prefix.qtcb_version = ZFCP_QTCB_VERSION;
-		fsf_req->qtcb->header.req_handle = (unsigned long)fsf_req;
+		fsf_req->qtcb->header.req_handle = fsf_req->req_id;
 		fsf_req->qtcb->header.fsf_command = fsf_req->fsf_command;
 	}
 }
@@ -4678,6 +4656,7 @@ zfcp_fsf_req_create(struct zfcp_adapter *adapter, u32 fsf_cmd, int req_flags,
 {
 	volatile struct qdio_buffer_element *sbale;
 	struct zfcp_fsf_req *fsf_req = NULL;
+	unsigned long flags;
 	int ret = 0;
 	struct zfcp_qdio_queue *req_queue = &adapter->request_queue;
 
@@ -4692,6 +4671,12 @@ zfcp_fsf_req_create(struct zfcp_adapter *adapter, u32 fsf_cmd, int req_flags,
 
 	fsf_req->adapter = adapter;
 	fsf_req->fsf_command = fsf_cmd;
+	INIT_LIST_HEAD(&fsf_req->list);
+	
+	/* unique request id */
+	spin_lock_irqsave(&adapter->req_list_lock, flags);
+	fsf_req->req_id = adapter->req_no++;
+	spin_unlock_irqrestore(&adapter->req_list_lock, flags);
 
         zfcp_fsf_req_qtcb_init(fsf_req);
 
@@ -4731,7 +4716,7 @@ zfcp_fsf_req_create(struct zfcp_adapter *adapter, u32 fsf_cmd, int req_flags,
 	sbale = zfcp_qdio_sbale_req(fsf_req, fsf_req->sbal_curr, 0);
 
 	/* setup common SBALE fields */
-	sbale[0].addr = fsf_req;
+	sbale[0].addr = (void *) fsf_req->req_id;
 	sbale[0].flags |= SBAL_FLAGS0_COMMAND;
 	if (likely(fsf_req->qtcb != NULL)) {
 		sbale[1].addr = (void *) fsf_req->qtcb;
@@ -4771,7 +4756,7 @@ zfcp_fsf_req_send(struct zfcp_fsf_req *fsf_req, struct timer_list *timer)
 	volatile struct qdio_buffer_element *sbale;
 	int inc_seq_no;
 	int new_distance_from_int;
-	unsigned long flags;
+	u64 dbg_tmp[2];
 	int retval = 0;
 
 	adapter = fsf_req->adapter;
@@ -4785,10 +4770,10 @@ zfcp_fsf_req_send(struct zfcp_fsf_req *fsf_req, struct timer_list *timer)
 	ZFCP_HEX_DUMP(ZFCP_LOG_LEVEL_TRACE, (char *) sbale[1].addr,
 		      sbale[1].length);
 
-	/* put allocated FSF request at list tail */
-	spin_lock_irqsave(&adapter->fsf_req_list_lock, flags);
-	list_add_tail(&fsf_req->list, &adapter->fsf_req_list_head);
-	spin_unlock_irqrestore(&adapter->fsf_req_list_lock, flags);
+	/* put allocated FSF request into hash table */
+	spin_lock(&adapter->req_list_lock);
+	zfcp_reqlist_add(adapter, fsf_req);
+	spin_unlock(&adapter->req_list_lock);
 
 	inc_seq_no = (fsf_req->qtcb != NULL);
 
@@ -4827,6 +4812,10 @@ zfcp_fsf_req_send(struct zfcp_fsf_req *fsf_req, struct timer_list *timer)
 			 QDIO_FLAG_SYNC_OUTPUT,
 			 0, fsf_req->sbal_first, fsf_req->sbal_number, NULL);
 
+	dbg_tmp[0] = (unsigned long) sbale[0].addr;
+	dbg_tmp[1] = (u64) retval;
+	debug_event(adapter->erp_dbf, 4, (void *) dbg_tmp, 16);
+
 	if (unlikely(retval)) {
 		/* Queues are down..... */
 		retval = -EIO;
@@ -4836,22 +4825,17 @@ zfcp_fsf_req_send(struct zfcp_fsf_req *fsf_req, struct timer_list *timer)
 		 */
 		if (timer)
 			del_timer(timer);
-		spin_lock_irqsave(&adapter->fsf_req_list_lock, flags);
-		list_del(&fsf_req->list);
-		spin_unlock_irqrestore(&adapter->fsf_req_list_lock, flags);
-		/*
-		 * adjust the number of free SBALs in request queue as well as
-		 * position of first one
-		 */
+		spin_lock(&adapter->req_list_lock);
+		zfcp_reqlist_remove(adapter, fsf_req->req_id);
+		spin_unlock(&adapter->req_list_lock);
+		/* undo changes in request queue made for this request */
 		zfcp_qdio_zero_sbals(req_queue->buffer,
 				     fsf_req->sbal_first, fsf_req->sbal_number);
 		atomic_add(fsf_req->sbal_number, &req_queue->free_count);
-		req_queue->free_index -= fsf_req->sbal_number;	 /* increase */
+		req_queue->free_index -= fsf_req->sbal_number;
 		req_queue->free_index += QDIO_MAX_BUFFERS_PER_Q;
 		req_queue->free_index %= QDIO_MAX_BUFFERS_PER_Q; /* wrap */
-		ZFCP_LOG_DEBUG
-			("error: do_QDIO failed. Buffers could not be enqueued "
-			 "to request queue.\n");
+		zfcp_erp_adapter_reopen(adapter, 0);
 	} else {
 		req_queue->distance_from_int = new_distance_from_int;
 		/*
@@ -4867,7 +4851,7 @@ zfcp_fsf_req_send(struct zfcp_fsf_req *fsf_req, struct timer_list *timer)
 			adapter->fsf_req_seq_no++;
 
 		/* count FSF requests pending */
-		atomic_inc(&adapter->fsf_reqs_active);
+		atomic_inc(&adapter->reqs_active);
 	}
 	return retval;
 }

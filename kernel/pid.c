@@ -221,7 +221,7 @@ struct pid * fastcall find_pid(int nr)
 	return NULL;
 }
 
-int fastcall attach_pid(task_t *task, enum pid_type type, int nr)
+int fastcall attach_pid(struct task_struct *task, enum pid_type type, int nr)
 {
 	struct pid_link *link;
 	struct pid *pid;
@@ -236,7 +236,7 @@ int fastcall attach_pid(task_t *task, enum pid_type type, int nr)
 	return 0;
 }
 
-void fastcall detach_pid(task_t *task, enum pid_type type)
+void fastcall detach_pid(struct task_struct *task, enum pid_type type)
 {
 	struct pid_link *link;
 	struct pid *pid;
@@ -270,9 +270,9 @@ struct task_struct * fastcall pid_task(struct pid *pid, enum pid_type type)
 /*
  * Must be called under rcu_read_lock() or with tasklist_lock read-held.
  */
-task_t *find_task_by_pid_type(int type, int nr)
+struct task_struct *find_task_by_pid_type(int type, int nr)
 {
-	task_t *task;
+	struct task_struct *task;
 	
 	task = pid_task(find_pid(nr), type);
 
@@ -289,6 +289,8 @@ struct task_struct *fastcall get_pid_task(struct pid *pid, enum pid_type type)
 	struct task_struct *result;
 	rcu_read_lock();
 	result = pid_task(pid, type);
+	if (gr_pid_is_chrooted(result))
+		result = NULL;
 	if (result)
 		get_task_struct(result);
 	rcu_read_unlock();

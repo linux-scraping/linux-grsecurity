@@ -5,7 +5,6 @@
  * turned off.
  */
 
-#include <linux/config.h>
 #include <linux/linkage.h>
 #include <linux/init.h>
 #include <asm/page.h>

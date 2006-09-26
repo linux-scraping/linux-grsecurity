@@ -8,7 +8,6 @@
  * This function is used through-out the kernel (including mm and fs)
  * to indicate a major problem.
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
@@ -19,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/nmi.h>
 #include <linux/kexec.h>
+#include <linux/debug_locks.h>
 
 int panic_on_oops;
 int tainted;
@@ -173,6 +173,7 @@ const char *print_tainted(void)
 
 void add_taint(unsigned flag)
 {
+	debug_locks = 0; /* can't trust the integrity of the kernel anymore */
 	tainted |= flag;
 }
 EXPORT_SYMBOL(add_taint);
@@ -257,6 +258,7 @@ int oops_may_print(void)
  */
 void oops_enter(void)
 {
+	debug_locks_off(); /* can't trust the integrity of the kernel anymore */
 	do_oops_enter_exit();
 }
 

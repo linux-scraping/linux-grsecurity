@@ -8,12 +8,6 @@
  *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
  */
 
-#ifdef __KERNEL__
-#define arch_mmap_check	ia64_map_check_rgn
-int ia64_map_check_rgn(unsigned long addr, unsigned long len,
-		unsigned long flags);
-#endif
-
 #include <asm-generic/mman.h>
 
 #define MAP_GROWSDOWN	0x00100		/* stack-like segment */
@@ -27,5 +21,13 @@ int ia64_map_check_rgn(unsigned long addr, unsigned long len,
 
 #define MCL_CURRENT	1		/* lock all current mappings */
 #define MCL_FUTURE	2		/* lock all future mappings */
+
+#ifdef __KERNEL__
+#ifndef __ASSEMBLY__
+#define arch_mmap_check	ia64_mmap_check
+int ia64_mmap_check(unsigned long addr, unsigned long len,
+		unsigned long flags);
+#endif
+#endif
 
 #endif /* _ASM_IA64_MMAN_H */

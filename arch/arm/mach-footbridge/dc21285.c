@@ -35,7 +35,6 @@
 
 extern int setup_arm_irq(int, struct irqaction *);
 extern void pcibios_report_status(u_int status_mask, int warn);
-extern void register_isa_ports(unsigned int, unsigned int, unsigned int);
 
 static unsigned long
 dc21285_base_address(struct pci_bus *bus, unsigned int devfn)
@@ -332,15 +331,15 @@ void __init dc21285_preinit(void)
 	/*
 	 * We don't care if these fail.
 	 */
-	request_irq(IRQ_PCI_SERR, dc21285_serr_irq, SA_INTERRUPT,
+	request_irq(IRQ_PCI_SERR, dc21285_serr_irq, IRQF_DISABLED,
 		    "PCI system error", &serr_timer);
-	request_irq(IRQ_PCI_PERR, dc21285_parity_irq, SA_INTERRUPT,
+	request_irq(IRQ_PCI_PERR, dc21285_parity_irq, IRQF_DISABLED,
 		    "PCI parity error", &perr_timer);
-	request_irq(IRQ_PCI_ABORT, dc21285_abort_irq, SA_INTERRUPT,
+	request_irq(IRQ_PCI_ABORT, dc21285_abort_irq, IRQF_DISABLED,
 		    "PCI abort", NULL);
-	request_irq(IRQ_DISCARD_TIMER, dc21285_discard_irq, SA_INTERRUPT,
+	request_irq(IRQ_DISCARD_TIMER, dc21285_discard_irq, IRQF_DISABLED,
 		    "Discard timer", NULL);
-	request_irq(IRQ_PCI_DPERR, dc21285_dparity_irq, SA_INTERRUPT,
+	request_irq(IRQ_PCI_DPERR, dc21285_dparity_irq, IRQF_DISABLED,
 		    "PCI data parity", NULL);
 
 	if (cfn_mode) {

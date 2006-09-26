@@ -132,7 +132,7 @@ static sector_t udf_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping,block,udf_get_block);
 }
 
-struct address_space_operations udf_aops = {
+const struct address_space_operations udf_aops = {
 	.readpage		= udf_readpage,
 	.writepage		= udf_writepage,
 	.sync_page		= block_sync_page,
@@ -300,9 +300,6 @@ static int udf_get_block(struct inode *inode, sector_t block, struct buffer_head
 
 	lock_kernel();
 
-	if (block < 0)
-		goto abort_negative;
-
 	if (block == UDF_I_NEXT_ALLOC_BLOCK(inode) + 1)
 	{
 		UDF_I_NEXT_ALLOC_BLOCK(inode) ++;
@@ -323,10 +320,6 @@ static int udf_get_block(struct inode *inode, sector_t block, struct buffer_head
 abort:
 	unlock_kernel();
 	return err;
-
-abort_negative:
-	udf_warning(inode->i_sb, "udf_get_block", "block < 0");
-	goto abort;
 }
 
 static struct buffer_head *

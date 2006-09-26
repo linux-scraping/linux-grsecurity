@@ -44,7 +44,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/config.h>
 #include <linux/version.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -73,6 +72,7 @@
 			     )
 
 #include <linux/videodev.h>
+#include <media/v4l2-common.h>
 #include "videocodec.h"
 
 #include <asm/io.h>
@@ -86,7 +86,7 @@
 #include "zoran_device.h"
 #include "zoran_card.h"
 
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 	/* we declare some card type definitions here, they mean
 	 * the same as the v4l1 ZORAN_VID_TYPE above, except it's v4l2 */
 #define ZORAN_V4L2_VID_FLAGS ( \
@@ -103,7 +103,7 @@ const struct zoran_format zoran_formats[] = {
 	{
 		.name = "15-bit RGB",
 		.palette = VIDEO_PALETTE_RGB555,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 #ifdef __LITTLE_ENDIAN
 		.fourcc = V4L2_PIX_FMT_RGB555,
 #else
@@ -117,7 +117,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "16-bit RGB",
 		.palette = VIDEO_PALETTE_RGB565,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 #ifdef __LITTLE_ENDIAN
 		.fourcc = V4L2_PIX_FMT_RGB565,
 #else
@@ -131,7 +131,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "24-bit RGB",
 		.palette = VIDEO_PALETTE_RGB24,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 #ifdef __LITTLE_ENDIAN
 		.fourcc = V4L2_PIX_FMT_BGR24,
 #else
@@ -145,7 +145,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "32-bit RGB",
 		.palette = VIDEO_PALETTE_RGB32,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 #ifdef __LITTLE_ENDIAN
 		.fourcc = V4L2_PIX_FMT_BGR32,
 #else
@@ -159,7 +159,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "4:2:2, packed, YUYV",
 		.palette = VIDEO_PALETTE_YUV422,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 		.fourcc = V4L2_PIX_FMT_YUYV,
 		.colorspace = V4L2_COLORSPACE_SMPTE170M,
 #endif
@@ -169,7 +169,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "Hardware-encoded Motion-JPEG",
 		.palette = -1,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 		.fourcc = V4L2_PIX_FMT_MJPEG,
 		.colorspace = V4L2_COLORSPACE_SMPTE170M,
 #endif
@@ -210,7 +210,7 @@ static int lock_norm = 0;	/* 1=Don't change TV standard (norm) */
 module_param(lock_norm, int, 0);
 MODULE_PARM_DESC(lock_norm, "Users can't change norm");
 
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 	/* small helper function for calculating buffersizes for v4l2
 	 * we calculate the nearest higher power-of-two, which
 	 * will be the recommended buffersize */
@@ -1761,7 +1761,7 @@ setup_overlay (struct file *file,
 	return wait_grab_pending(zr);
 }
 
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 	/* get the status of a buffer in the clients buffer queue */
 static int
 zoran_v4l2_buffer_status (struct file        *file,
@@ -2047,7 +2047,7 @@ zoran_do_ioctl (struct inode *inode,
 		dprintk(3, KERN_DEBUG "%s: VIDIOCGCAP\n", ZR_DEVNAME(zr));
 
 		memset(vcap, 0, sizeof(struct video_capability));
-		strncpy(vcap->name, ZR_DEVNAME(zr), sizeof(vcap->name));
+		strncpy(vcap->name, ZR_DEVNAME(zr), sizeof(vcap->name)-1);
 		vcap->type = ZORAN_VID_TYPE;
 
 		vcap->channels = zr->card.inputs;
@@ -2676,7 +2676,7 @@ zoran_do_ioctl (struct inode *inode,
 	}
 		break;
 
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 
 		/* The new video4linux2 capture interface - much nicer than video4linux1, since
 		 * it allows for integrating the JPEG capturing calls inside standard v4l2
@@ -2689,8 +2689,8 @@ zoran_do_ioctl (struct inode *inode,
 		dprintk(3, KERN_DEBUG "%s: VIDIOC_QUERYCAP\n", ZR_DEVNAME(zr));
 
 		memset(cap, 0, sizeof(*cap));
-		strncpy(cap->card, ZR_DEVNAME(zr), sizeof(cap->card));
-		strncpy(cap->driver, "zoran", sizeof(cap->driver));
+		strncpy(cap->card, ZR_DEVNAME(zr), sizeof(cap->card)-1);
+		strncpy(cap->driver, "zoran", sizeof(cap->driver)-1);
 		snprintf(cap->bus_info, sizeof(cap->bus_info), "PCI:%s",
 			 pci_name(zr->pci_dev));
 		cap->version =
@@ -2742,7 +2742,7 @@ zoran_do_ioctl (struct inode *inode,
 		memset(fmt, 0, sizeof(*fmt));
 		fmt->index = index;
 		fmt->type = type;
-		strncpy(fmt->description, zoran_formats[i].name, 31);
+		strncpy(fmt->description, zoran_formats[i].name, sizeof(fmt->description)-1);
 		fmt->pixelformat = zoran_formats[i].fourcc;
 		if (zoran_formats[i].flags & ZORAN_FORMAT_COMPRESSED)
 			fmt->flags |= V4L2_FMT_FLAG_COMPRESSED;
@@ -3566,16 +3566,16 @@ zoran_do_ioctl (struct inode *inode,
 
 		switch (ctrl->id) {
 		case V4L2_CID_BRIGHTNESS:
-			strncpy(ctrl->name, "Brightness", 31);
+			strncpy(ctrl->name, "Brightness", sizeof(ctrl->name)-1);
 			break;
 		case V4L2_CID_CONTRAST:
-			strncpy(ctrl->name, "Contrast", 31);
+			strncpy(ctrl->name, "Contrast", sizeof(ctrl->name)-1);
 			break;
 		case V4L2_CID_SATURATION:
-			strncpy(ctrl->name, "Saturation", 31);
+			strncpy(ctrl->name, "Saturation", sizeof(ctrl->name)-1);
 			break;
 		case V4L2_CID_HUE:
-			strncpy(ctrl->name, "Hue", 31);
+			strncpy(ctrl->name, "Hue", sizeof(ctrl->name)-1);
 			break;
 		}
 
@@ -3693,7 +3693,7 @@ zoran_do_ioctl (struct inode *inode,
 					&caps);
 			if (caps.flags & VIDEO_DECODER_AUTO) {
 				std->id = V4L2_STD_ALL;
-				strncpy(std->name, "Autodetect", 31);
+				strncpy(std->name, "Autodetect", sizeof(std->name)-1);
 				return 0;
 			} else
 				return -EINVAL;
@@ -3701,21 +3701,21 @@ zoran_do_ioctl (struct inode *inode,
 		switch (std->index) {
 		case 0:
 			std->id = V4L2_STD_PAL;
-			strncpy(std->name, "PAL", 31);
+			strncpy(std->name, "PAL", sizeof(std->name)-1);
 			std->frameperiod.numerator = 1;
 			std->frameperiod.denominator = 25;
 			std->framelines = zr->card.tvn[0]->Ht;
 			break;
 		case 1:
 			std->id = V4L2_STD_NTSC;
-			strncpy(std->name, "NTSC", 31);
+			strncpy(std->name, "NTSC", sizeof(std->name)-1);
 			std->frameperiod.numerator = 1001;
 			std->frameperiod.denominator = 30000;
 			std->framelines = zr->card.tvn[1]->Ht;
 			break;
 		case 2:
 			std->id = V4L2_STD_SECAM;
-			strncpy(std->name, "SECAM", 31);
+			strncpy(std->name, "SECAM", sizeof(std->name)-1);
 			std->frameperiod.numerator = 1;
 			std->frameperiod.denominator = 25;
 			std->framelines = zr->card.tvn[2]->Ht;
@@ -3871,7 +3871,7 @@ zoran_do_ioctl (struct inode *inode,
 		memset(outp, 0, sizeof(*outp));
 		outp->index = 0;
 		outp->type = V4L2_OUTPUT_TYPE_ANALOGVGAOVERLAY;
-		strncpy(outp->name, "Autodetect", 31);
+		strncpy(outp->name, "Autodetect", sizeof(outp->name)-1);
 
 		return 0;
 	}
@@ -4689,7 +4689,7 @@ static struct file_operations zoran_fops = {
 struct video_device zoran_template __devinitdata = {
 	.name = ZORAN_NAME,
 	.type = ZORAN_VID_TYPE,
-#ifdef HAVE_V4L2
+#ifdef CONFIG_VIDEO_V4L2
 	.type2 = ZORAN_V4L2_VID_FLAGS,
 #endif
 	.hardware = ZORAN_HARDWARE,

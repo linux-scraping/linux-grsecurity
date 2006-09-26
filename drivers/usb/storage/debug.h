@@ -44,7 +44,6 @@
 #ifndef _DEBUG_H_
 #define _DEBUG_H_
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 
 #define USB_STORAGE "usb-storage: "
@@ -57,9 +56,9 @@ void usb_stor_show_sense( unsigned char key,
 #define US_DEBUGPX(x...) printk( x )
 #define US_DEBUG(x) x 
 #else
-#define US_DEBUGP(x...)
-#define US_DEBUGPX(x...)
-#define US_DEBUG(x)
+#define US_DEBUGP(x...) do {} while (0)
+#define US_DEBUGPX(x...) do {} while (0)
+#define US_DEBUG(x) do {} while (0)
 #endif
 
 #endif

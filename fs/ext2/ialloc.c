@@ -12,7 +12,6 @@
  *        David S. Miller (davem@caip.rutgers.edu), 1995
  */
 
-#include <linux/config.h>
 #include <linux/quotaops.h>
 #include <linux/sched.h>
 #include <linux/backing-dev.h>
@@ -649,7 +648,6 @@ unsigned long ext2_count_free_inodes (struct super_block * sb)
 	unsigned long bitmap_count = 0;
 	struct buffer_head *bitmap_bh = NULL;
 
-	lock_super (sb);
 	es = EXT2_SB(sb)->s_es;
 	for (i = 0; i < EXT2_SB(sb)->s_groups_count; i++) {
 		unsigned x;
@@ -672,7 +670,6 @@ unsigned long ext2_count_free_inodes (struct super_block * sb)
 	printk("ext2_count_free_inodes: stored = %lu, computed = %lu, %lu\n",
 		percpu_counter_read(&EXT2_SB(sb)->s_freeinodes_counter),
 		desc_count, bitmap_count);
-	unlock_super(sb);
 	return desc_count;
 #else
 	for (i = 0; i < EXT2_SB(sb)->s_groups_count; i++) {

@@ -24,20 +24,29 @@
 #include <linux/blkdev.h>
 #include <linux/capability.h>
 #include <linux/syscalls.h>
+#include <linux/security.h>
 
 static int set_task_ioprio(struct task_struct *task, int ioprio)
 {
+	int err;
 	struct io_context *ioc;
 
 	if (task->uid != current->euid &&
 	    task->uid != current->uid && !capable(CAP_SYS_NICE))
 		return -EPERM;
 
+	err = security_task_setioprio(task, ioprio);
+	if (err)
+		return err;
+
 	task_lock(task);
 
 	task->ioprio = ioprio;
 
 	ioc = task->io_context;
+	/* see wmb() in current_io_context() */
+	smp_read_barrier_depends();
+
 	if (ioc && ioc->set_ioprio)
 		ioc->set_ioprio(ioc, ioprio);
 
@@ -105,9 +114,9 @@ asmlinkage long sys_ioprio_set(int which, int who, int ioprio)
 					continue;
 				ret = set_task_ioprio(p, ioprio);
 				if (ret)
-					break;
+					goto free_uid;
 			} while_each_thread(g, p);
-
+free_uid:
 			if (who)
 				free_uid(user);
 			break;
@@ -119,11 +128,47 @@ asmlinkage long sys_ioprio_set(int which, int who, int ioprio)
 	return ret;
 }
 
+static int get_task_ioprio(struct task_struct *p)
+{
+	int ret;
+
+	ret = security_task_getioprio(p);
+	if (ret)
+		goto out;
+	ret = p->ioprio;
+out:
+	return ret;
+}
+
+int ioprio_best(unsigned short aprio, unsigned short bprio)
+{
+	unsigned short aclass = IOPRIO_PRIO_CLASS(aprio);
+	unsigned short bclass = IOPRIO_PRIO_CLASS(bprio);
+
+	if (!ioprio_valid(aprio))
+		return bprio;
+	if (!ioprio_valid(bprio))
+		return aprio;
+
+	if (aclass == IOPRIO_CLASS_NONE)
+		aclass = IOPRIO_CLASS_BE;
+	if (bclass == IOPRIO_CLASS_NONE)
+		bclass = IOPRIO_CLASS_BE;
+
+	if (aclass == bclass)
+		return min(aprio, bprio);
+	if (aclass > bclass)
+		return bprio;
+	else
+		return aprio;
+}
+
 asmlinkage long sys_ioprio_get(int which, int who)
 {
 	struct task_struct *g, *p;
 	struct user_struct *user;
 	int ret = -ESRCH;
+	int tmpio;
 
 	read_lock_irq(&tasklist_lock);
 	switch (which) {
@@ -133,16 +178,19 @@ asmlinkage long sys_ioprio_get(int which, int who)
 			else
 				p = find_task_by_pid(who);
 			if (p)
-				ret = p->ioprio;
+				ret = get_task_ioprio(p);
 			break;
 		case IOPRIO_WHO_PGRP:
 			if (!who)
 				who = process_group(current);
 			do_each_task_pid(who, PIDTYPE_PGID, p) {
+				tmpio = get_task_ioprio(p);
+				if (tmpio < 0)
+					continue;
 				if (ret == -ESRCH)
-					ret = p->ioprio;
+					ret = tmpio;
 				else
-					ret = ioprio_best(ret, p->ioprio);
+					ret = ioprio_best(ret, tmpio);
 			} while_each_task_pid(who, PIDTYPE_PGID, p);
 			break;
 		case IOPRIO_WHO_USER:
@@ -157,10 +205,13 @@ asmlinkage long sys_ioprio_get(int which, int who)
 			do_each_thread(g, p) {
 				if (p->uid != user->uid)
 					continue;
+				tmpio = get_task_ioprio(p);
+				if (tmpio < 0)
+					continue;
 				if (ret == -ESRCH)
-					ret = p->ioprio;
+					ret = tmpio;
 				else
-					ret = ioprio_best(ret, p->ioprio);
+					ret = ioprio_best(ret, tmpio);
 			} while_each_thread(g, p);
 
 			if (who)

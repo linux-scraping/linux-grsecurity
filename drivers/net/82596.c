@@ -40,7 +40,6 @@
 
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -900,7 +899,7 @@ memory_squeeze:
 }
 
 
-static inline void i596_cleanup_cmd(struct net_device *dev, struct i596_private *lp)
+static void i596_cleanup_cmd(struct net_device *dev, struct i596_private *lp)
 {
 	struct i596_cmd *ptr;
 
@@ -933,7 +932,8 @@ static inline void i596_cleanup_cmd(struct net_device *dev, struct i596_private 
 	lp->scb.cmd = I596_NULL;
 }
 
-static inline void i596_reset(struct net_device *dev, struct i596_private *lp, int ioaddr)
+static void i596_reset(struct net_device *dev, struct i596_private *lp,
+			int ioaddr)
 {
 	unsigned long flags;
 
@@ -1070,8 +1070,7 @@ static int i596_start_xmit(struct sk_buff *skb, struct net_device *dev)
 				skb->len, (unsigned int)skb->data));
 
 	if (skb->len < ETH_ZLEN) {
-		skb = skb_padto(skb, ETH_ZLEN);
-		if (skb == NULL)
+		if (skb_padto(skb, ETH_ZLEN))
 			return 0;
 		length = ETH_ZLEN;
 	}
@@ -1580,7 +1579,7 @@ static int debug = -1;
 module_param(debug, int, 0);
 MODULE_PARM_DESC(debug, "i82596 debug mask");
 
-int init_module(void)
+int __init init_module(void)
 {
 	if (debug >= 0)
 		i596_debug = debug;
@@ -1590,7 +1589,7 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+void __exit cleanup_module(void)
 {
 	unregister_netdev(dev_82596);
 #ifdef __mc68000__

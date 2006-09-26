@@ -20,7 +20,6 @@
 
 #undef DEBUG
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/signal.h>
@@ -842,7 +841,7 @@ static int sci_request_irq(struct sci_port *port)
 			printk(KERN_ERR "sci: Cannot allocate irq.(IRQ=0)\n");
 			return -ENODEV;
 		}
-		if (request_irq(port->irqs[0], sci_mpxed_interrupt, SA_INTERRUPT,
+		if (request_irq(port->irqs[0], sci_mpxed_interrupt, IRQF_DISABLED,
 				"sci", port)) {
 			printk(KERN_ERR "sci: Cannot allocate irq.\n");
 			return -ENODEV;
@@ -851,7 +850,7 @@ static int sci_request_irq(struct sci_port *port)
 		for (i = 0; i < ARRAY_SIZE(handlers); i++) {
 			if (!port->irqs[i])
 				continue;
-			if (request_irq(port->irqs[i], handlers[i], SA_INTERRUPT,
+			if (request_irq(port->irqs[i], handlers[i], IRQF_DISABLED,
 					desc[i], port)) {
 				printk(KERN_ERR "sci: Cannot allocate irq.\n");
 				return -ENODEV;
@@ -1580,7 +1579,7 @@ static int __init serial_console_setup(struct console *co, char *options)
 	h8300_sci_enable(port, sci_enable);
 #endif
 #elif defined(CONFIG_SUPERH64)
-	port->uartclk = current_cpu_info.module_clock * 16;
+	port->uartclk = current_cpu_data.module_clock * 16;
 #else
 	{
 		struct clk *clk = clk_get("module_clk");
@@ -1699,9 +1698,6 @@ static char banner[] __initdata =
 static struct uart_driver sci_uart_driver = {
 	.owner		= THIS_MODULE,
 	.driver_name	= "sci",
-#ifdef CONFIG_DEVFS_FS
-	.devfs_name	= "ttsc/",
-#endif
 	.dev_name	= "ttySC",
 	.major		= SCI_MAJOR,
 	.minor		= SCI_MINOR_START,
@@ -1724,7 +1720,7 @@ static int __init sci_init(void)
 #if defined(__H8300H__) || defined(__H8300S__)
 			sciport->port.uartclk = CONFIG_CPU_CLOCK;
 #elif defined(CONFIG_SUPERH64)
-			sciport->port.uartclk = current_cpu_info.module_clock * 16;
+			sciport->port.uartclk = current_cpu_data.module_clock * 16;
 #else
 			struct clk *clk = clk_get("module_clk");
 			sciport->port.uartclk = clk_get_rate(clk) * 16;

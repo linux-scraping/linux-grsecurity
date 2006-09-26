@@ -12,7 +12,6 @@
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
 
-#include <linux/config.h>
 
 #ifdef CONFIG_X86_USE_3DNOW
 
@@ -52,7 +51,7 @@ typedef struct { unsigned long long pgprot; } pgprot_t;
 #define pmd_val(x)	((x).pmd)
 #define pte_val(x)	((x).pte_low | ((unsigned long long)(x).pte_high << 32))
 #define __pmd(x) ((pmd_t) { (x) } )
-#define __pte(x) ({ pte_t __pte = {(x), (x) >> 32}; __pte;})
+#define __pte(x) ({ pte_t __pte = {(x), (x) >> 32}; __pte; })
 #define HPAGE_SHIFT	21
 #else
 typedef struct { unsigned long pte_low; } pte_t;
@@ -96,6 +95,8 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  */
 
 #ifndef __ASSEMBLY__
+
+struct vm_area_struct;
 
 /*
  * This much address space is reserved for vmalloc() and iomap()
@@ -159,9 +160,10 @@ extern unsigned char MODULES_END[];
 #define CONFIG_ARCH_TRACK_EXEC_LIMIT 1
 #endif
 
-#endif /* __KERNEL__ */
-
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#define __HAVE_ARCH_GATE_AREA 1
+#endif /* __KERNEL__ */
 
 #endif /* _I386_PAGE_H */

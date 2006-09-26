@@ -1,4 +1,4 @@
-/* Rewritten by Rusty Russell, on the backs of many others...
+/*
    Copyright (C) 2002 Richard Henderson
    Copyright (C) 2001 Rusty Russell, 2002 Rusty Russell IBM.
 
@@ -16,7 +16,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/moduleloader.h>
 #include <linux/init.h>
@@ -40,7 +39,7 @@
 #include <linux/string.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
-#include <linux/kallsyms.h>
+#include <linux/unwind.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
 #include <asm/cacheflush.h>
@@ -48,6 +47,8 @@
 #ifdef CONFIG_PAX_KERNEXEC
 #include <asm/desc.h>
 #endif
+
+#include <linux/license.h>
 
 #if 0
 #define DEBUGP printk
@@ -127,9 +128,17 @@ extern const struct kernel_symbol __start___ksymtab_gpl[];
 extern const struct kernel_symbol __stop___ksymtab_gpl[];
 extern const struct kernel_symbol __start___ksymtab_gpl_future[];
 extern const struct kernel_symbol __stop___ksymtab_gpl_future[];
+extern const struct kernel_symbol __start___ksymtab_unused[];
+extern const struct kernel_symbol __stop___ksymtab_unused[];
+extern const struct kernel_symbol __start___ksymtab_unused_gpl[];
+extern const struct kernel_symbol __stop___ksymtab_unused_gpl[];
+extern const struct kernel_symbol __start___ksymtab_gpl_future[];
+extern const struct kernel_symbol __stop___ksymtab_gpl_future[];
 extern const unsigned long __start___kcrctab[];
 extern const unsigned long __start___kcrctab_gpl[];
 extern const unsigned long __start___kcrctab_gpl_future[];
+extern const unsigned long __start___kcrctab_unused[];
+extern const unsigned long __start___kcrctab_unused_gpl[];
 
 #ifndef CONFIG_MODVERSIONS
 #define symversion(base, idx) NULL
@@ -147,6 +156,17 @@ static const struct kernel_symbol *lookup_symbol(const char *name,
 		if (strcmp(ks->name, name) == 0)
 			return ks;
 	return NULL;
+}
+
+static void printk_unused_warning(const char *name)
+{
+	printk(KERN_WARNING "Symbol %s is marked as UNUSED, "
+		"however this module is using it.\n", name);
+	printk(KERN_WARNING "This symbol will go away in the future.\n");
+	printk(KERN_WARNING "Please evalute if this is the right api to use, "
+		"and if it really is, submit a report the linux kernel "
+		"mailinglist together with submitting your code for "
+		"inclusion.\n");
 }
 
 /* Find a symbol, return value, crc and module which owns it */
@@ -191,6 +211,25 @@ static unsigned long __find_symbol(const char *name,
 		return ks->value;
 	}
 
+	ks = lookup_symbol(name, __start___ksymtab_unused,
+				 __stop___ksymtab_unused);
+	if (ks) {
+		printk_unused_warning(name);
+		*crc = symversion(__start___kcrctab_unused,
+				  (ks - __start___ksymtab_unused));
+		return ks->value;
+	}
+
+	if (gplok)
+		ks = lookup_symbol(name, __start___ksymtab_unused_gpl,
+				 __stop___ksymtab_unused_gpl);
+	if (ks) {
+		printk_unused_warning(name);
+		*crc = symversion(__start___kcrctab_unused_gpl,
+				  (ks - __start___ksymtab_unused_gpl));
+		return ks->value;
+	}
+
 	/* Now try modules. */ 
 	list_for_each_entry(mod, &modules, list) {
 		*owner = mod;
@@ -206,6 +245,23 @@ static unsigned long __find_symbol(const char *name,
 			if (ks) {
 				*crc = symversion(mod->gpl_crcs,
 						  (ks - mod->gpl_syms));
+				return ks->value;
+			}
+		}
+		ks = lookup_symbol(name, mod->unused_syms, mod->unused_syms + mod->num_unused_syms);
+		if (ks) {
+			printk_unused_warning(name);
+			*crc = symversion(mod->unused_crcs, (ks - mod->unused_syms));
+			return ks->value;
+		}
+
+		if (gplok) {
+			ks = lookup_symbol(name, mod->unused_gpl_syms,
+					   mod->unused_gpl_syms + mod->num_unused_gpl_syms);
+			if (ks) {
+				printk_unused_warning(name);
+				*crc = symversion(mod->unused_gpl_crcs,
+						  (ks - mod->unused_gpl_syms));
 				return ks->value;
 			}
 		}
@@ -1061,6 +1117,8 @@ static void free_module(struct module *mod)
 	remove_sect_attrs(mod);
 	mod_kobject_remove(mod);
 
+	unwind_remove_table(mod->unwind_info, 0);
+
 	/* Arch-specific cleanup. */
 	module_arch_cleanup(mod);
 
@@ -1073,6 +1131,9 @@ static void free_module(struct module *mod)
 	kfree(mod->args);
 	if (mod->percpu)
 		percpu_modfree(mod->percpu);
+
+	/* Free lock-classes: */
+	lockdep_free_key_range(mod->module_core, mod->core_size);
 
 	/* Finally, free the core (containing the module structure) */
 	module_free_exec(mod, mod->module_core_rx);
@@ -1266,16 +1327,6 @@ static void layout_sections(struct module *mod,
 	}
 }
 
-static inline int license_is_gpl_compatible(const char *license)
-{
-	return (strcmp(license, "GPL") == 0
-		|| strcmp(license, "GPL v2") == 0
-		|| strcmp(license, "GPL and additional rights") == 0
-		|| strcmp(license, "Dual BSD/GPL") == 0
-		|| strcmp(license, "Dual MIT/GPL") == 0
-		|| strcmp(license, "Dual MPL/GPL") == 0);
-}
-
 static void set_license(struct module *mod, const char *license)
 {
 	if (!license)
@@ -1344,7 +1395,7 @@ int is_exported(const char *name, const struct module *mod)
 	if (!mod && lookup_symbol(name, __start___ksymtab, __stop___ksymtab))
 		return 1;
 	else
-		if (lookup_symbol(name, mod->syms, mod->syms + mod->num_syms))
+		if (mod && lookup_symbol(name, mod->syms, mod->syms + mod->num_syms))
 			return 1;
 		else
 			return 0;
@@ -1427,10 +1478,27 @@ static struct module *load_module(void __user *umod,
 	Elf_Ehdr *hdr;
 	Elf_Shdr *sechdrs;
 	char *secstrings, *args, *modmagic, *strtab = NULL;
-	unsigned int i, symindex = 0, strindex = 0, setupindex, exindex,
-		exportindex, modindex, obsparmindex, infoindex, gplindex,
-		crcindex, gplcrcindex, versindex, pcpuindex, gplfutureindex,
-		gplfuturecrcindex;
+	unsigned int i;
+	unsigned int symindex = 0;
+	unsigned int strindex = 0;
+	unsigned int setupindex;
+	unsigned int exindex;
+	unsigned int exportindex;
+	unsigned int modindex;
+	unsigned int obsparmindex;
+	unsigned int infoindex;
+	unsigned int gplindex;
+	unsigned int crcindex;
+	unsigned int gplcrcindex;
+	unsigned int versindex;
+	unsigned int pcpuindex;
+	unsigned int gplfutureindex;
+	unsigned int gplfuturecrcindex;
+	unsigned int unwindex = 0;
+	unsigned int unusedindex;
+	unsigned int unusedcrcindex;
+	unsigned int unusedgplindex;
+	unsigned int unusedgplcrcindex;
 	struct module *mod;
 	long err = 0;
 	void *percpu = NULL, *ptr = NULL; /* Stops spurious gcc warning */
@@ -1515,15 +1583,22 @@ static struct module *load_module(void __user *umod,
 	exportindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab");
 	gplindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_gpl");
 	gplfutureindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_gpl_future");
+	unusedindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_unused");
+	unusedgplindex = find_sec(hdr, sechdrs, secstrings, "__ksymtab_unused_gpl");
 	crcindex = find_sec(hdr, sechdrs, secstrings, "__kcrctab");
 	gplcrcindex = find_sec(hdr, sechdrs, secstrings, "__kcrctab_gpl");
 	gplfuturecrcindex = find_sec(hdr, sechdrs, secstrings, "__kcrctab_gpl_future");
+	unusedcrcindex = find_sec(hdr, sechdrs, secstrings, "__kcrctab_unused");
+	unusedgplcrcindex = find_sec(hdr, sechdrs, secstrings, "__kcrctab_unused_gpl");
 	setupindex = find_sec(hdr, sechdrs, secstrings, "__param");
 	exindex = find_sec(hdr, sechdrs, secstrings, "__ex_table");
 	obsparmindex = find_sec(hdr, sechdrs, secstrings, "__obsparm");
 	versindex = find_sec(hdr, sechdrs, secstrings, "__versions");
 	infoindex = find_sec(hdr, sechdrs, secstrings, ".modinfo");
 	pcpuindex = find_pcpusec(hdr, sechdrs, secstrings);
+#ifdef ARCH_UNWIND_SECTION_NAME
+	unwindex = find_sec(hdr, sechdrs, secstrings, ARCH_UNWIND_SECTION_NAME);
+#endif
 
 	/* Don't keep modinfo section */
 	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
@@ -1532,6 +1607,8 @@ static struct module *load_module(void __user *umod,
 	sechdrs[symindex].sh_flags |= SHF_ALLOC;
 	sechdrs[strindex].sh_flags |= SHF_ALLOC;
 #endif
+	if (unwindex)
+		sechdrs[unwindex].sh_flags |= SHF_ALLOC;
 
 	/* Check module struct version now, before we try to use module. */
 	if (!check_modstruct_version(sechdrs, versindex, mod)) {
@@ -1734,14 +1811,27 @@ static struct module *load_module(void __user *umod,
 		mod->gpl_crcs = (void *)sechdrs[gplcrcindex].sh_addr;
 	mod->num_gpl_future_syms = sechdrs[gplfutureindex].sh_size /
 					sizeof(*mod->gpl_future_syms);
+	mod->num_unused_syms = sechdrs[unusedindex].sh_size /
+					sizeof(*mod->unused_syms);
+	mod->num_unused_gpl_syms = sechdrs[unusedgplindex].sh_size /
+					sizeof(*mod->unused_gpl_syms);
 	mod->gpl_future_syms = (void *)sechdrs[gplfutureindex].sh_addr;
 	if (gplfuturecrcindex)
 		mod->gpl_future_crcs = (void *)sechdrs[gplfuturecrcindex].sh_addr;
 
+	mod->unused_syms = (void *)sechdrs[unusedindex].sh_addr;
+	if (unusedcrcindex)
+		mod->unused_crcs = (void *)sechdrs[unusedcrcindex].sh_addr;
+	mod->unused_gpl_syms = (void *)sechdrs[unusedgplindex].sh_addr;
+	if (unusedgplcrcindex)
+		mod->unused_crcs = (void *)sechdrs[unusedgplcrcindex].sh_addr;
+
 #ifdef CONFIG_MODVERSIONS
 	if ((mod->num_syms && !crcindex) || 
 	    (mod->num_gpl_syms && !gplcrcindex) ||
-	    (mod->num_gpl_future_syms && !gplfuturecrcindex)) {
+	    (mod->num_gpl_future_syms && !gplfuturecrcindex) ||
+	    (mod->num_unused_syms && !unusedcrcindex) ||
+	    (mod->num_unused_gpl_syms && !unusedgplcrcindex)) {
 		printk(KERN_WARNING "%s: No versions for exported symbols."
 		       " Tainting kernel.\n", mod->name);
 		add_taint(TAINT_FORCED_MODULE);
@@ -1859,6 +1949,11 @@ static struct module *load_module(void __user *umod,
 		goto arch_cleanup;
 	add_sect_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
 
+	/* Size of section 0 is 0, so this works well if no unwind info. */
+	mod->unwind_info = unwind_add_table(mod,
+	                                    (void *)sechdrs[unwindex].sh_addr,
+	                                    sechdrs[unwindex].sh_size);
+
 	/* Get rid of temporary copy */
 	vfree(hdr);
 
@@ -1964,6 +2059,7 @@ sys_init_module(void __user *umod,
 	mod->state = MODULE_STATE_LIVE;
 	/* Drop initial reference. */
 	module_put(mod);
+	unwind_remove_table(mod->unwind_info, 1);
 	module_free(mod, mod->module_init_rw);
 	module_free_exec(mod, mod->module_init_rx);
 	mod->module_init_rw = NULL;
@@ -2059,10 +2155,8 @@ const char *module_address_lookup(unsigned long addr,
 	return NULL;
 }
 
-struct module *module_get_kallsym(unsigned int symnum,
-				  unsigned long *value,
-				  char *type,
-				  char namebuf[KSYM_NAME_LEN+1])
+struct module *module_get_kallsym(unsigned int symnum, unsigned long *value,
+				char *type, char *name, size_t namelen)
 {
 	struct module *mod;
 
@@ -2071,9 +2165,8 @@ struct module *module_get_kallsym(unsigned int symnum,
 		if (symnum < mod->num_symtab) {
 			*value = mod->symtab[symnum].st_value;
 			*type = mod->symtab[symnum].st_info;
-			strncpy(namebuf,
-				mod->strtab + mod->symtab[symnum].st_name,
-				KSYM_NAME_LEN);
+			strlcpy(name, mod->strtab + mod->symtab[symnum].st_name,
+				namelen);
 			mutex_unlock(&module_mutex);
 			return mod;
 		}
@@ -2201,6 +2294,30 @@ const struct exception_table_entry *search_module_extables(unsigned long addr)
            we cannot unload the module, hence no refcnt needed. */
 	return e;
 }
+
+/*
+ * Is this a valid module address?
+ */
+int is_module_address(unsigned long addr)
+{
+	unsigned long flags;
+	struct module *mod;
+
+	spin_lock_irqsave(&modlist_lock, flags);
+
+	list_for_each_entry(mod, &modules, list) {
+		if (within(addr, mod->module_core_rx, mod->core_size_rx) ||
+		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+			spin_unlock_irqrestore(&modlist_lock, flags);
+			return 1;
+		}
+	}
+
+	spin_unlock_irqrestore(&modlist_lock, flags);
+
+	return 0;
+}
+
 
 /* Is this a valid kernel address?  We don't grab the lock: we are oopsing. */
 struct module *__module_text_address(unsigned long addr)

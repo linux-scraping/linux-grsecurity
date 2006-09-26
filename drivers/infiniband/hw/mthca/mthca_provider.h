@@ -136,8 +136,8 @@ struct mthca_ah {
  * We have one global lock that protects dev->cq/qp_table.  Each
  * struct mthca_cq/qp also has its own lock.  An individual qp lock
  * may be taken inside of an individual cq lock.  Both cqs attached to
- * a qp may be locked, with the send cq locked first.  No other
- * nesting should be done.
+ * a qp may be locked, with the cq with the lower cqn locked first.
+ * No other nesting should be done.
  *
  * Each struct mthca_cq/qp also has an ref count, protected by the
  * corresponding table lock.  The pointer from the cq/qp_table to the
@@ -214,6 +214,7 @@ struct mthca_cq {
 	int			arm_sn;
 
 	wait_queue_head_t	wait;
+	struct mutex		mutex;
 };
 
 struct mthca_srq {
@@ -237,6 +238,7 @@ struct mthca_srq {
 	struct mthca_mr		mr;
 
 	wait_queue_head_t	wait;
+	struct mutex		mutex;
 };
 
 struct mthca_wq {
@@ -278,6 +280,7 @@ struct mthca_qp {
 	union mthca_buf	       queue;
 
 	wait_queue_head_t      wait;
+	struct mutex	       mutex;
 };
 
 struct mthca_sqp {

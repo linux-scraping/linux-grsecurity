@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 
 #include <asm/uaccess.h>
@@ -376,6 +375,8 @@ static int proc_ide_read_media
 		case ide_tape:	media = "tape\n";
 				break;
 		case ide_floppy:media = "floppy\n";
+				break;
+		case ide_optical:media = "optical\n";
 				break;
 		default:	media = "UNKNOWN\n";
 				break;

@@ -154,6 +154,13 @@ SECTIONS
 
   RODATA
 
+  . = ALIGN(4);
+  __tracedata_start = .;
+  .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
+	*(.tracedata)
+  }
+  __tracedata_end = .;
+
 #ifdef CONFIG_PAX_KERNEXEC
   . = ALIGN(4096);
   MODULES_VADDR = .;
@@ -190,6 +197,15 @@ SECTIONS
   /* rarely changed data like cpu maps */
   . = ALIGN(32);
   .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) { *(.data.read_mostly) }
+
+#ifdef CONFIG_STACK_UNWIND
+  . = ALIGN(4);
+  .eh_frame : AT(ADDR(.eh_frame) - LOAD_OFFSET) {
+	__start_unwind = .;
+  	*(.eh_frame)
+	__end_unwind = .;
+  }
+#endif
 
   . = ALIGN(THREAD_SIZE);	/* init_task */
   .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {

@@ -351,17 +351,7 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 			goto give_sigsegv;
 	}
 
-#ifdef CONFIG_PAX_NOVSYSCALL
-	restorer = frame->retcode;
-#else
-	restorer = &__kernel_sigreturn;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
-		restorer -= SEGMEXEC_TASK_SIZE;
-#endif
-#endif
-
+	restorer = (void *)VDSO_SYM(&__kernel_sigreturn);
 	if (ka->sa.sa_flags & SA_RESTORER)
 		restorer = ka->sa.sa_restorer;
 
@@ -458,17 +448,7 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 
 	/* Set up to return from userspace.  */
 
-#ifdef CONFIG_PAX_NOVSYSCALL
-	restorer = frame->retcode;
-#else
-	restorer = &__kernel_rt_sigreturn;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
-		restorer -= SEGMEXEC_TASK_SIZE;
-#endif
-#endif
-
+	restorer = (void *)VDSO_SYM(&__kernel_rt_sigreturn);
 	if (ka->sa.sa_flags & SA_RESTORER)
 		restorer = ka->sa.sa_restorer;
 	err |= __put_user(restorer, &frame->pretcode);

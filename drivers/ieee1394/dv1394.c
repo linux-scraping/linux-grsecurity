@@ -83,7 +83,6 @@
 
 */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/slab.h>
@@ -143,7 +142,7 @@
 #if DV1394_DEBUG_LEVEL >= 1
 #define debug_printk( args... ) printk( args)
 #else
-#define debug_printk( args... )
+#define debug_printk( args... ) do {} while (0)
 #endif
 
 /* issue a dummy PCI read to force the preceding write
@@ -740,7 +739,7 @@ static void frame_prepare(struct video_card *video, unsigned int this_frame)
 	based upon DIF section and sequence
 */
 
-static void inline
+static inline void
 frame_put_packet (struct frame *f, struct packet *p)
 {
 	int section_type = p->data[0] >> 5;           /* section type is in bits 5 - 7 */
@@ -919,7 +918,7 @@ static int do_dv1394_init(struct video_card *video, struct dv1394_init *init)
 		/* default SYT offset is 3 cycles */
 		init->syt_offset = 3;
 
-	if ( (init->channel > 63) || (init->channel < 0) )
+	if (init->channel > 63)
 		init->channel = 63;
 
 	chan_mask = (u64)1 << init->channel;

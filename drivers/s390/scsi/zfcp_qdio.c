@@ -1,18 +1,8 @@
 /*
- * linux/drivers/s390/scsi/zfcp_qdio.c
+ * This file is part of the zfcp device driver for
+ * FCP adapters for IBM System z9 and zSeries.
  *
- * FCP adapter driver for IBM eServer zSeries
- *
- * QDIO related routines
- *
- * (C) Copyright IBM Corp. 2002, 2004
- *
- * Authors:
- *      Martin Peschke <mpeschke@de.ibm.com>
- *      Raimund Schroeder <raimund.schroeder@de.ibm.com>
- *      Wolfgang Taphorn
- *      Heiko Carstens <heiko.carstens@de.ibm.com>
- *      Andreas Herrmann <aherrman@de.ibm.com>
+ * (C) Copyright IBM Corp. 2002, 2006
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -178,7 +168,8 @@ zfcp_qdio_allocate(struct zfcp_adapter *adapter)
 
 	init_data->cdev = adapter->ccw_device;
 	init_data->q_format = QDIO_SCSI_QFMT;
-	memcpy(init_data->adapter_name, &adapter->name, 8);
+	memcpy(init_data->adapter_name, zfcp_get_busid_by_adapter(adapter), 8);
+	ASCEBC(init_data->adapter_name, 8);
 	init_data->qib_param_field_format = 0;
 	init_data->qib_param_field = NULL;
 	init_data->input_slib_elements = NULL;
@@ -291,6 +282,37 @@ zfcp_qdio_request_handler(struct ccw_device *ccw_device,
 	return;
 }
 
+/**
+ * zfcp_qdio_reqid_check - checks for valid reqids or unsolicited status
+ */
+static int zfcp_qdio_reqid_check(struct zfcp_adapter *adapter, 
+				 unsigned long req_id)
+{
+	struct zfcp_fsf_req *fsf_req;
+	unsigned long flags;
+
+	debug_long_event(adapter->erp_dbf, 4, req_id);
+
+	spin_lock_irqsave(&adapter->req_list_lock, flags);
+	fsf_req = zfcp_reqlist_ismember(adapter, req_id);
+
+	if (!fsf_req) {
+		spin_unlock_irqrestore(&adapter->req_list_lock, flags);
+		ZFCP_LOG_NORMAL("error: unknown request id (%ld).\n", req_id);
+		zfcp_erp_adapter_reopen(adapter, 0);
+		return -EINVAL;
+	}
+
+	zfcp_reqlist_remove(adapter, req_id);
+	atomic_dec(&adapter->reqs_active);
+	spin_unlock_irqrestore(&adapter->req_list_lock, flags);
+
+	/* finish the FSF request */
+	zfcp_fsf_req_complete(fsf_req);
+
+	return 0;
+}
+
 /*
  * function:   	zfcp_qdio_response_handler
  *
@@ -353,7 +375,7 @@ zfcp_qdio_response_handler(struct ccw_device *ccw_device,
 			/* look for QDIO request identifiers in SB */
 			buffere = &buffer->element[buffere_index];
 			retval = zfcp_qdio_reqid_check(adapter,
-						       (void *) buffere->addr);
+					(unsigned long) buffere->addr);
 
 			if (retval) {
 				ZFCP_LOG_NORMAL("bug: unexpected inbound "
@@ -422,51 +444,6 @@ zfcp_qdio_response_handler(struct ccw_device *ccw_device,
 	}
  out:
 	return;
-}
-
-/*
- * function:	zfcp_qdio_reqid_check
- *
- * purpose:	checks for valid reqids or unsolicited status
- *
- * returns:	0 - valid request id or unsolicited status
- *		!0 - otherwise
- */
-int
-zfcp_qdio_reqid_check(struct zfcp_adapter *adapter, void *sbale_addr)
-{
-	struct zfcp_fsf_req *fsf_req;
-
-	/* invalid (per convention used in this driver) */
-	if (unlikely(!sbale_addr)) {
-		ZFCP_LOG_NORMAL("bug: invalid reqid\n");
-		return -EINVAL;
-	}
-
-	/* valid request id and thus (hopefully :) valid fsf_req address */
-	fsf_req = (struct zfcp_fsf_req *) sbale_addr;
-
-	/* serialize with zfcp_fsf_req_dismiss_all */
-	spin_lock(&adapter->fsf_req_list_lock);
-	if (list_empty(&adapter->fsf_req_list_head)) {
-		spin_unlock(&adapter->fsf_req_list_lock);
-		return 0;
-	}
-	list_del(&fsf_req->list);
-	atomic_dec(&adapter->fsf_reqs_active);
-	spin_unlock(&adapter->fsf_req_list_lock);
-	
-	if (unlikely(adapter != fsf_req->adapter)) {
-		ZFCP_LOG_NORMAL("bug: invalid reqid (fsf_req=%p, "
-				"fsf_req->adapter=%p, adapter=%p)\n",
-				fsf_req, fsf_req->adapter, adapter);
-		return -EINVAL;
-	}
-
-	/* finish the FSF request */
-	zfcp_fsf_req_complete(fsf_req);
-
-	return 0;
 }
 
 /**

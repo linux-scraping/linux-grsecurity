@@ -8,7 +8,6 @@
 #ifndef __ASM_PPC_MPC8260_H__
 #define __ASM_PPC_MPC8260_H__
 
-#include <linux/config.h>
 
 #ifdef CONFIG_8260
 
@@ -83,6 +82,7 @@ enum ppc_sys_devices {
 	MPC82xx_CPM_SMC2,
 	MPC82xx_CPM_USB,
 	MPC82xx_SEC1,
+	MPC82xx_MDIO_BB,
 	NUM_PPC_SYS_DEVS,
 };
 

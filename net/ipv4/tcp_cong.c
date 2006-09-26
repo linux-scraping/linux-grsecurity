@@ -6,7 +6,6 @@
  * Copyright (C) 2005 Stephen Hemminger <shemminger@osdl.org>
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/types.h>
@@ -38,7 +37,7 @@ int tcp_register_congestion_control(struct tcp_congestion_ops *ca)
 	int ret = 0;
 
 	/* all algorithms must implement ssthresh and cong_avoid ops */
-	if (!ca->ssthresh || !ca->cong_avoid || !ca->min_cwnd) {
+	if (!ca->ssthresh || !ca->cong_avoid) {
 		printk(KERN_ERR "TCP %s does not implement required ops\n",
 		       ca->name);
 		return -EINVAL;
@@ -190,7 +189,7 @@ void tcp_slow_start(struct tcp_sock *tp)
 			return;
 
 		/* We MAY increase by 2 if discovered delayed ack */
-		if (sysctl_tcp_abc > 1 && tp->bytes_acked > 2*tp->mss_cache) {
+		if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache) {
 			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
 				tp->snd_cwnd++;
 		}
@@ -251,8 +250,8 @@ u32 tcp_reno_ssthresh(struct sock *sk)
 }
 EXPORT_SYMBOL_GPL(tcp_reno_ssthresh);
 
-/* Lower bound on congestion window. */
-u32 tcp_reno_min_cwnd(struct sock *sk)
+/* Lower bound on congestion window with halving. */
+u32 tcp_reno_min_cwnd(const struct sock *sk)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
 	return tp->snd_ssthresh/2;

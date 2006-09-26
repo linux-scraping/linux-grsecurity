@@ -29,7 +29,6 @@
  *      version         : 5.1
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/mm.h>
@@ -143,6 +142,7 @@ typedef struct _moxa_board_conf {
 
 static moxa_board_conf moxa_boards[MAX_BOARDS];
 static void __iomem *moxaBaseAddr[MAX_BOARDS];
+static int loadstat[MAX_BOARDS];
 
 struct moxa_str {
 	int type;
@@ -301,7 +301,7 @@ static struct tty_operations moxa_ops = {
 	.tiocmset = moxa_tiocmset,
 };
 
-static spinlock_t moxa_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(moxa_lock);
 
 #ifdef CONFIG_PCI
 static int moxa_get_PCI_conf(struct pci_dev *p, int board_type, moxa_board_conf * board)
@@ -342,7 +342,6 @@ static int __init moxa_init(void)
 	init_MUTEX(&moxaBuffSem);
 	moxaDriver->owner = THIS_MODULE;
 	moxaDriver->name = "ttyMX";
-	moxaDriver->devfs_name = "tts/a";
 	moxaDriver->major = ttymajor;
 	moxaDriver->minor_start = 0;
 	moxaDriver->type = TTY_DRIVER_TYPE_SERIAL;
@@ -1690,6 +1689,8 @@ int MoxaDriverPoll(void)
 	if (moxaCard == 0)
 		return (-1);
 	for (card = 0; card < MAX_BOARDS; card++) {
+	        if (loadstat[card] == 0)
+			continue;
 		if ((ports = moxa_boards[card].numPorts) == 0)
 			continue;
 		if (readb(moxaIntPend[card]) == 0xff) {
@@ -2905,6 +2906,7 @@ static int moxaloadcode(int cardno, unsigned char __user *tmp, int len)
 		}
 		break;
 	}
+	loadstat[cardno] = 1;
 	return (0);
 }
 
@@ -2922,7 +2924,7 @@ static int moxaloadc218(int cardno, void __iomem *baseAddr, int len)
 	len1 = len >> 1;
 	ptr = (ushort *) moxaBuff;
 	for (i = 0; i < len1; i++)
-		usum += *(ptr + i);
+		usum += le16_to_cpu(*(ptr + i));
 	retry = 0;
 	do {
 		len1 = len >> 1;
@@ -2994,7 +2996,7 @@ static int moxaloadc320(int cardno, void __iomem *baseAddr, int len, int *numPor
 	wlen = len >> 1;
 	uptr = (ushort *) moxaBuff;
 	for (i = 0; i < wlen; i++)
-		usum += uptr[i];
+		usum += le16_to_cpu(uptr[i]);
 	retry = 0;
 	j = 0;
 	do {
