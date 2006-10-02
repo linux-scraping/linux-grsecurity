@@ -745,7 +745,7 @@ static ssize_t mem_read(struct file * file, char __user * buf,
 	if (!task)
 		goto out_no_task;
 
-	if (!MAY_PTRACE(task) || !ptrace_may_attach(task))
+	if (!MAY_PTRACE(task) || !ptrace_may_attach(task) || gr_acl_handle_procpidmem(task))
 		goto out;
 
 	ret = -ENOMEM;
@@ -815,7 +815,7 @@ static ssize_t mem_write(struct file * file, const char * buf,
 	if (!task)
 		goto out_no_task;
 
-	if (!MAY_PTRACE(task) || !ptrace_may_attach(task))
+	if (!MAY_PTRACE(task) || !ptrace_may_attach(task) || gr_acl_handle_procpidmem(task))
 		goto out;
 
 	copied = -ENOMEM;
@@ -1174,6 +1174,8 @@ static int proc_readfd(struct file * filp, void * dirent, filldir_t filldir)
 				goto out;
 			filp->f_pos++;
 		default:
+			if (gr_acl_handle_procpidmem(p))
+				goto out;
 			files = get_files_struct(p);
 			if (!files)
 				goto out;
@@ -1330,10 +1332,11 @@ static struct inode *proc_pid_make_inode(struct super_block * sb, struct task_st
 	if (task_dumpable(task)) {
 		inode->i_uid = task->euid;
 		inode->i_gid = task->egid;
-	}
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+		inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
 #endif
+	}
+
 	security_task_to_inode(task, inode);
 
 out:
@@ -1365,12 +1368,30 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode *inode = dentry->d_inode;
 	struct task_struct *task = get_proc_task(inode);
-	if (task) {
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	struct task_struct *tmp = current;
+#endif
+
+	if (task &&
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	    (!tmp->uid || (tmp->uid == task->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+	    || in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+	    ) &&
+#endif
+	    !gr_check_hidden_task(task)) {
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP)) ||
+#endif
 		    task_dumpable(task)) {
 			inode->i_uid = task->euid;
-#ifndef CONFIG_GRKERNSEC_PROC_USERGROUP
 			inode->i_gid = task->egid;
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+			inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
 #endif
 		} else {
 			inode->i_uid = 0;
@@ -1397,9 +1418,17 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 	task = pid_task(proc_pid(inode), PIDTYPE_PID);
 	if (task) {
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP)) ||
+#endif
 		    task_dumpable(task)) {
 			stat->uid = task->euid;
 			stat->gid = task->egid;
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+			stat->gid = CONFIG_GRKERNSEC_PROC_GID;
+#endif
 		}
 	}
 	rcu_read_unlock();
@@ -1500,6 +1529,9 @@ static struct dentry *proc_lookupfd(struct inode * dir, struct dentry * dentry, 
 	if (!task)
 		goto out_no_task;
 	if (fd == ~0U)
+		goto out;
+
+	if (gr_acl_handle_procpidmem(task))
 		goto out;
 
 	inode = proc_pid_make_inode(dir->i_sb, task, PROC_TID_FD_DIR+fd);
@@ -2077,27 +2109,21 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 	if (!task)
 		goto out;
 
-	if (gr_check_hidden_task(task)) {
-		put_task_struct(task);
-		goto out;
-	}
-
-#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	if (current->uid && (task->uid != current->uid)
-#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-	    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
-#endif
-	) {
-		put_task_struct(task);
-		goto out;
-	}
-#endif
+	if (gr_check_hidden_task(task))
+		goto out_put_task;
 
 	inode = proc_pid_make_inode(dir->i_sb, task, PROC_TGID_INO);
 	if (!inode)
 		goto out_put_task;
 
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR;
+#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP;
+#else
 	inode->i_mode = S_IFDIR|S_IRUGO|S_IXUGO;
+#endif
 	inode->i_op = &proc_tgid_base_inode_operations;
 	inode->i_fop = &proc_tgid_base_operations;
 	inode->i_flags|=S_IMMUTABLE;
@@ -2191,12 +2217,27 @@ out_no_task:
 static struct task_struct *first_tgid(int tgid, unsigned int nr)
 {
 	struct task_struct *pos;
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	struct task_struct *tmp = current;
+#endif
 	rcu_read_lock();
 	if (tgid && nr) {
 		pos = find_task_by_pid(tgid);
+		if (pos && (gr_pid_is_chrooted(pos) || gr_check_hidden_task(pos)
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		    || (tmp->uid && (pos->uid != tmp->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+			&& !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+			)
+#endif
+		))
+			goto not_found;
+
 		if (pos && thread_group_leader(pos))
 			goto found;
 	}
+not_found:
 	/* If nr exceeds the number of processes get out quickly */
 	pos = NULL;
 	if (nr && nr >= nr_processes())
@@ -2211,6 +2252,16 @@ static struct task_struct *first_tgid(int tgid, unsigned int nr)
 			pos = NULL;
 			goto done;
 		}
+		if (pos && (gr_pid_is_chrooted(pos) || gr_check_hidden_task(pos)
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		    || (tmp->uid && (pos->uid != tmp->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+			&& !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+			)
+#endif
+		))
+			nr++;
 	}
 found:
 	get_task_struct(pos);
@@ -2248,6 +2299,9 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 {
 	char buf[PROC_NUMBUF];
 	unsigned int nr = filp->f_pos - FIRST_PROCESS_ENTRY;
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	struct task_struct *tmp = current;
+#endif
 	struct task_struct *task;
 	int tgid;
 
@@ -2270,6 +2324,19 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 	     task = next_tgid(task), filp->f_pos++) {
 		int len;
 		ino_t ino;
+
+		if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task)
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		    || (tmp->uid && (task->uid != tmp->uid)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+			&& !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+#endif
+			)
+#endif
+		) {
+			continue;
+		}
+
 		tgid = task->pid;
 		len = snprintf(buf, sizeof(buf), "%d", tgid);
 		ino = fake_ino(tgid, PROC_TGID_INO);

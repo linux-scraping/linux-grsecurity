@@ -33,7 +33,6 @@ static void __init __boot_ioremap(unsigned long phys_addr, unsigned long nrpages
 	pmd = pmd_offset(pud, vaddr);
 	pte = pte_offset_kernel(pmd, vaddr);
 
-	pte = boot_vaddr_to_pte(virtual_source);
 	for (i=0; i < nrpages; i++, phys_addr += PAGE_SIZE, pte++) {
 		set_pte(pte, pfn_pte(phys_addr>>PAGE_SHIFT, PAGE_KERNEL));
 		__flush_tlb_one(&virtual_source[i*PAGE_SIZE]);
