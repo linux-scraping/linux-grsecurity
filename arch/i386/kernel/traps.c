@@ -59,9 +59,6 @@
 
 asmlinkage int system_call(void);
 
-const struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
-		{ 0, 0 }, { 0, 0 } };
-
 /* Do we ignore FPU interrupts ? */
 char ignore_fpu_irq = 0;
 

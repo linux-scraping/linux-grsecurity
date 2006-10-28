@@ -113,7 +113,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
  *         3 when patched PLT trampoline was detected
  *         4 when unpatched PLT trampoline was detected
  *         5 when sigreturn trampoline was detected
- *         7 when rt_sigreturn trampoline was detected
+ *         6 when rt_sigreturn trampoline was detected
  */
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {

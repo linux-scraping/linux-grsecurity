@@ -237,7 +237,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm,
 	vdso_base = VDSO32_MBASE;
 #endif
 
-	current->mm->context.vdso_base = 0;
+	current->mm->context.vdso_base = ~0UL;
 
 	/* vDSO has a problem and was disabled, just don't "enable" it for the
 	 * process
@@ -282,6 +282,12 @@ int arch_setup_additional_pages(struct linux_binprm *bprm,
 	 * pages though
 	 */
 	vma->vm_flags = VM_READ|VM_EXEC|VM_MAYREAD|VM_MAYWRITE|VM_MAYEXEC;
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (mm->pax_flags & MF_PAX_MPROTECT)
+		vma->vm_flags &= ~VM_MAYWRITE;
+#endif
+
 	vma->vm_flags |= mm->def_flags;
 	vma->vm_page_prot = protection_map[vma->vm_flags & 0x7];
 	vma->vm_ops = &vdso_vmops;

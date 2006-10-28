@@ -139,10 +139,10 @@ VM_MASK		= 0x00020000
 	orl $0x10000, %edx; \
 	xorl %edx, %esi; \
 	movl %edx, %cr0;
-#elif defined(CONFIG_COMPAT_VDSO)
-#define SAVE_ALL __SAVE_ALL(__USER_DS)
-#else
+#elif defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 #define SAVE_ALL __SAVE_ALL(__KERNEL_DS)
+#else
+#define SAVE_ALL __SAVE_ALL(__USER_DS)
 #endif
 
 #define RESTORE_INT_REGS \
@@ -317,7 +317,7 @@ sysenter_past_esp:
 	 * Push current_thread_info()->sysenter_return to the stack.
 	 */
 	GET_THREAD_INFO(%ebp)
-	pushl TI_sysenter_return(%esp)
+	pushl TI_sysenter_return(%ebp)
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET eip, 0
 

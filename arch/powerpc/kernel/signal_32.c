@@ -759,7 +759,7 @@ static int handle_rt_signal(unsigned long sig, struct k_sigaction *ka,
 
 	/* Save user registers on the stack */
 	frame = &rt_sf->uc.uc_mcontext;
-	if (vdso32_rt_sigtramp && current->mm->context.vdso_base) {
+	if (vdso32_rt_sigtramp && current->mm->context.vdso_base != ~0UL) {
 		if (save_user_regs(regs, frame, 0))
 			goto badframe;
 		regs->link = current->mm->context.vdso_base + vdso32_rt_sigtramp;

@@ -8,6 +8,8 @@
 #ifndef _SPARC_PAGE_H
 #define _SPARC_PAGE_H
 
+#ifdef __KERNEL__
+
 #ifdef CONFIG_SUN4
 #define PAGE_SHIFT   13
 #else
@@ -20,8 +22,6 @@
 #define PAGE_SIZE    (1 << PAGE_SHIFT)
 #endif
 #define PAGE_MASK    (~(PAGE_SIZE-1))
-
-#ifdef __KERNEL__
 
 #include <asm/btfixup.h>
 
@@ -163,15 +163,15 @@ extern unsigned long pfn_base;
 #ifdef CONFIG_PAX_PAGEEXEC
 #ifdef CONFIG_PAX_MPROTECT
 #define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
-			 ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
+			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
 #else
 #define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
 #endif
 #endif
 
-#endif /* __KERNEL__ */
-
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
+
+#endif /* __KERNEL__ */
 
 #endif /* _SPARC_PAGE_H */

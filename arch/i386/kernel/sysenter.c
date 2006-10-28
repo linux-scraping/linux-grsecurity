@@ -204,7 +204,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int exstack)
 	}
 #endif
 
-	current->mm->context.vdso = (void *)addr;
+	current->mm->context.vdso = addr;
 	current_thread_info()->sysenter_return =
 				    (void *)VDSO_SYM(&SYSENTER_RETURN);
 	mm->total_vm++;
@@ -215,14 +215,14 @@ up_fail:
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	if (vma->vm_start == (unsigned long)vma->vm_mm->context.vdso)
+	if (vma->vm_start == vma->vm_mm->context.vdso)
 		return "[vdso]";
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC) || !(vma->vm_flags & VM_MIRROR))
 		return NULL;
 
-	if (vma->vm_start + vma->vm_mirror == (unsigned long)vma->vm_mm->context.vdso)
+	if (vma->vm_start + vma->vm_mirror == vma->vm_mm->context.vdso)
 		return "[vdso]";
 #endif
 

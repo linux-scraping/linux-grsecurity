@@ -148,7 +148,7 @@ extern int dump_task_extended_fpu (struct task_struct *, struct user_fxsr_struct
 #define ELF_CORE_COPY_XFPREGS(tsk, elf_xfpregs) dump_task_extended_fpu(tsk, elf_xfpregs)
 
 #define VDSO_HIGH_BASE		(__fix_to_virt(FIX_VDSO))
-#define VDSO_BASE		((unsigned long)current->mm->context.vdso)
+#define VDSO_BASE		(current->mm->context.vdso)
 
 #ifdef CONFIG_COMPAT_VDSO
 # define VDSO_COMPAT_BASE	VDSO_HIGH_BASE

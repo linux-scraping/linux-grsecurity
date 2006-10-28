@@ -20,6 +20,9 @@
 #include <asm/desc.h>
 #include <asm/mmu_context.h>
 
+const struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
+		{ 0, 0 }, { 0, 0 } };
+
 #ifdef CONFIG_SMP /* avoids "defined but not used" warnig */
 static void flush_ldt(void *null)
 {
@@ -104,8 +107,10 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 		up(&old_mm->context.sem);
 	}
 
+	if (tsk == current) {
+		mm->context.vdso = ~0UL;
+
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (!mm->context.user_cs_limit) {
 		mm->context.user_cs_base = 0UL;
 		mm->context.user_cs_limit = ~0UL;
 
@@ -113,8 +118,9 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 		cpus_clear(mm->context.cpu_user_cs_mask);
 #endif
 
-	}
 #endif
+
+	}
 
 	return retval;
 }
@@ -177,7 +183,7 @@ static int read_default_ldt(void __user * ptr, unsigned long bytecount)
 
 	err = 0;
 	address = &default_ldt[0];
-	size = 5*sizeof(struct desc_struct);
+	size = sizeof default_ldt;
 	if (size > bytecount)
 		size = bytecount;
 

@@ -109,7 +109,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		if (err)
 			break;
 
-		if ((ldah & 0xFFFF0000U)== 0x277B0000U &&
+		if ((ldah & 0xFFFF0000U) == 0x277B0000U &&
 		    (lda & 0xFFFF0000U) == 0xA77B0000U &&
 		    (br & 0xFFE00000U) == 0xC3E00000U)
 		{

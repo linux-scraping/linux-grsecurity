@@ -115,7 +115,6 @@ mkdep
 mktables
 modpost
 modversions.h*
-netfilter*
 offset.h
 offsets.h
 oui.c*
@@ -136,6 +135,7 @@ tags
 times.h*
 tkparse
 trix_boot.h
+utsrelease.h*
 version.h*
 vmlinux
 vmlinux-*

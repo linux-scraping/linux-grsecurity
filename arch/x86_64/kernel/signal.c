@@ -285,8 +285,8 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	err |= setup_sigcontext(&frame->uc.uc_mcontext, regs, set->sig[0], me);
 	err |= __put_user(fp, &frame->uc.uc_mcontext.fpstate);
 	if (sizeof(*set) == 16) { 
-		__put_user(set->sig[0], &frame->uc.uc_sigmask.sig[0]);
-		__put_user(set->sig[1], &frame->uc.uc_sigmask.sig[1]); 
+		err |= __put_user(set->sig[0], &frame->uc.uc_sigmask.sig[0]);
+		err |= __put_user(set->sig[1], &frame->uc.uc_sigmask.sig[1]); 
 	} else
 		err |= __copy_to_user(&frame->uc.uc_sigmask, set, sizeof(*set));
 
