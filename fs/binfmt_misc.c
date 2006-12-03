@@ -217,10 +217,8 @@ _error:
 	bprm->interp_flags = 0;
 	bprm->interp_data = 0;
 _unshare:
-	if (files) {
-		put_files_struct(current->files);
-		current->files = files;
-	}
+	if (files)
+		reset_files_struct(current, files);
 	goto _ret;
 }
 
@@ -509,7 +507,6 @@ static struct inode *bm_get_inode(struct super_block *sb, int mode)
 		inode->i_mode = mode;
 		inode->i_uid = 0;
 		inode->i_gid = 0;
-		inode->i_blksize = PAGE_CACHE_SIZE;
 		inode->i_blocks = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime =
 			current_fs_time(inode->i_sb);
@@ -519,7 +516,7 @@ static struct inode *bm_get_inode(struct super_block *sb, int mode)
 
 static void bm_clear_inode(struct inode *inode)
 {
-	kfree(inode->u.generic_ip);
+	kfree(inode->i_private);
 }
 
 static void kill_node(Node *e)
@@ -547,7 +544,7 @@ static void kill_node(Node *e)
 static ssize_t
 bm_entry_read(struct file * file, char __user * buf, size_t nbytes, loff_t *ppos)
 {
-	Node *e = file->f_dentry->d_inode->u.generic_ip;
+	Node *e = file->f_dentry->d_inode->i_private;
 	loff_t pos = *ppos;
 	ssize_t res;
 	char *page;
@@ -581,7 +578,7 @@ static ssize_t bm_entry_write(struct file *file, const char __user *buffer,
 				size_t count, loff_t *ppos)
 {
 	struct dentry *root;
-	Node *e = file->f_dentry->d_inode->u.generic_ip;
+	Node *e = file->f_dentry->d_inode->i_private;
 	int res = parse_command(buffer, count);
 
 	switch (res) {
@@ -648,7 +645,7 @@ static ssize_t bm_register_write(struct file *file, const char __user *buffer,
 	}
 
 	e->dentry = dget(dentry);
-	inode->u.generic_ip = e;
+	inode->i_private = e;
 	inode->i_fop = &bm_entry_operations;
 
 	d_instantiate(dentry, inode);

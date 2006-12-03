@@ -96,22 +96,6 @@ struct _xt_align
 /* Error verdict. */
 #define XT_ERROR_TARGET "ERROR"
 
-/*
- * New IP firewall options for [gs]etsockopt at the RAW IP level.
- * Unlike BSD Linux inherits IP options so you don't have to use a raw
- * socket for this. Instead we check rights in the calls. */
-#define XT_BASE_CTL		64	/* base for firewall socket options */
-
-#define XT_SO_SET_REPLACE	(XT_BASE_CTL)
-#define XT_SO_SET_ADD_COUNTERS	(XT_BASE_CTL + 1)
-#define XT_SO_SET_MAX		XT_SO_SET_ADD_COUNTERS
-
-#define XT_SO_GET_INFO			(XT_BASE_CTL)
-#define XT_SO_GET_ENTRIES		(XT_BASE_CTL + 1)
-#define XT_SO_GET_REVISION_MATCH	(XT_BASE_CTL + 2)
-#define XT_SO_GET_REVISION_TARGET	(XT_BASE_CTL + 3)
-#define XT_SO_GET_MAX			XT_SO_GET_REVISION_TARGET
-
 #define SET_COUNTER(c,b,p) do { (c).bcnt = (b); (c).pcnt = (p); } while(0)
 #define ADD_COUNTER(c,b,p) do { (c).bcnt += (b); (c).pcnt += (p); } while(0)
 
@@ -137,16 +121,6 @@ struct xt_counters_info
 #ifdef __KERNEL__
 
 #include <linux/netdevice.h>
-
-#define ASSERT_READ_LOCK(x)
-#define ASSERT_WRITE_LOCK(x)
-#include <linux/netfilter_ipv4/listhelp.h>
-
-#ifdef CONFIG_COMPAT
-#define COMPAT_TO_USER		1
-#define COMPAT_FROM_USER	-1
-#define COMPAT_CALC_SIZE	0
-#endif
 
 struct xt_match
 {
@@ -174,21 +148,24 @@ struct xt_match
 			  const void *ip,
 			  const struct xt_match *match,
 			  void *matchinfo,
-			  unsigned int matchinfosize,
 			  unsigned int hook_mask);
 
 	/* Called when entry of this type deleted. */
-	void (*destroy)(const struct xt_match *match, void *matchinfo,
-			unsigned int matchinfosize);
+	void (*destroy)(const struct xt_match *match, void *matchinfo);
 
 	/* Called when userspace align differs from kernel space one */
-	int (*compat)(void *match, void **dstptr, int *size, int convert);
+	void (*compat_from_user)(void *dst, void *src);
+	int (*compat_to_user)(void __user *dst, void *src);
 
 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
 	struct module *me;
 
+	/* Free to use by each match */
+	unsigned long data;
+
 	char *table;
 	unsigned int matchsize;
+	unsigned int compatsize;
 	unsigned int hooks;
 	unsigned short proto;
 
@@ -211,8 +188,7 @@ struct xt_target
 			       const struct net_device *out,
 			       unsigned int hooknum,
 			       const struct xt_target *target,
-			       const void *targinfo,
-			       void *userdata);
+			       const void *targinfo);
 
 	/* Called when user tries to insert an entry of this type:
            hook_mask is a bitmask of hooks from which it can be
@@ -222,21 +198,21 @@ struct xt_target
 			  const void *entry,
 			  const struct xt_target *target,
 			  void *targinfo,
-			  unsigned int targinfosize,
 			  unsigned int hook_mask);
 
 	/* Called when entry of this type deleted. */
-	void (*destroy)(const struct xt_target *target, void *targinfo,
-			unsigned int targinfosize);
+	void (*destroy)(const struct xt_target *target, void *targinfo);
 
 	/* Called when userspace align differs from kernel space one */
-	int (*compat)(void *target, void **dstptr, int *size, int convert);
+	void (*compat_from_user)(void *dst, void *src);
+	int (*compat_to_user)(void __user *dst, void *src);
 
 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
 	struct module *me;
 
 	char *table;
 	unsigned int targetsize;
+	unsigned int compatsize;
 	unsigned int hooks;
 	unsigned short proto;
 
@@ -290,8 +266,13 @@ struct xt_table_info
 
 extern int xt_register_target(struct xt_target *target);
 extern void xt_unregister_target(struct xt_target *target);
+extern int xt_register_targets(struct xt_target *target, unsigned int n);
+extern void xt_unregister_targets(struct xt_target *target, unsigned int n);
+
 extern int xt_register_match(struct xt_match *target);
 extern void xt_unregister_match(struct xt_match *target);
+extern int xt_register_matches(struct xt_match *match, unsigned int n);
+extern void xt_unregister_matches(struct xt_match *match, unsigned int n);
 
 extern int xt_check_match(const struct xt_match *match, unsigned short family,
 			  unsigned int size, const char *table, unsigned int hook,
@@ -388,9 +369,18 @@ struct compat_xt_counters_info
 
 extern void xt_compat_lock(int af);
 extern void xt_compat_unlock(int af);
-extern int xt_compat_match(void *match, void **dstptr, int *size, int convert);
-extern int xt_compat_target(void *target, void **dstptr, int *size,
-		int convert);
+
+extern int xt_compat_match_offset(struct xt_match *match);
+extern void xt_compat_match_from_user(struct xt_entry_match *m,
+				      void **dstptr, int *size);
+extern int xt_compat_match_to_user(struct xt_entry_match *m,
+				   void __user **dstptr, int *size);
+
+extern int xt_compat_target_offset(struct xt_target *target);
+extern void xt_compat_target_from_user(struct xt_entry_target *t,
+				       void **dstptr, int *size);
+extern int xt_compat_target_to_user(struct xt_entry_target *t,
+				    void __user **dstptr, int *size);
 
 #endif /* CONFIG_COMPAT */
 #endif /* __KERNEL__ */

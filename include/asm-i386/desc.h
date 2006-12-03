@@ -48,79 +48,64 @@ do {					\
 	preempt_enable_no_resched();	\
 } while(0)
 
-static inline void set_user_cs(struct mm_struct *mm, int cpu)
+/*
+ * This is the ldt that every process will get unless we need
+ * something other than this.
+ */
+extern const struct desc_struct default_ldt[];
+extern struct desc_struct idt_table[];
+extern void set_intr_gate(unsigned int irq, void * addr);
+
+static inline void pack_descriptor(__u32 *a, __u32 *b,
+	unsigned long base, unsigned long limit, unsigned char type, unsigned char flags)
 {
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	unsigned long base = mm->context.user_cs_base;
-	unsigned long limit = mm->context.user_cs_limit;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-	if (likely(limit)) {
-		limit -= 1UL;
-		limit >>= 12;
-	}
-
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_CS].a = (limit & 0xFFFFUL) | (base << 16);
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_CS].b = (limit & 0xF0000UL) | 0xC0FB00UL | (base & 0xFF000000UL) | ((base >> 16) & 0xFFUL);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-#endif
+	*a = ((base & 0xffff) << 16) | (limit & 0xffff);
+	*b = (base & 0xff000000) | ((base & 0xff0000) >> 16) |
+		(limit & 0x000f0000) | ((type & 0xff) << 8) | ((flags & 0xf) << 20);
 }
+
+static inline void pack_gate(__u32 *a, __u32 *b,
+	unsigned long base, unsigned short seg, unsigned char type, unsigned char flags)
+{
+	*a = (seg << 16) | (base & 0xffff);
+	*b = (base & 0xffff0000) | ((type & 0xff) << 8) | (flags & 0xff);
+}
+
+#define DESCTYPE_LDT 	0x82	/* present, system, DPL-0, LDT */
+#define DESCTYPE_TSS 	0x89	/* present, system, DPL-0, 32-bit TSS */
+#define DESCTYPE_TASK	0x85	/* present, system, DPL-0, task gate */
+#define DESCTYPE_INT	0x8e	/* present, system, DPL-0, interrupt gate */
+#define DESCTYPE_TRAP	0x8f	/* present, system, DPL-0, trap gate */
+#define DESCTYPE_DPL3	0x60	/* DPL-3 */
+#define DESCTYPE_S	0x10	/* !system */
 
 #define load_TR_desc() __asm__ __volatile__("ltr %w0"::"q" (GDT_ENTRY_TSS*8))
 #define load_LDT_desc() __asm__ __volatile__("lldt %w0"::"q" (GDT_ENTRY_LDT*8))
 
 #define load_gdt(dtr) __asm__ __volatile("lgdt %0"::"m" (*dtr))
 #define load_idt(dtr) __asm__ __volatile("lidt %0"::"m" (*dtr))
-#define load_tr(tr) __asm__ __volatile("ltr %0"::"mr" (tr))
-#define load_ldt(ldt) __asm__ __volatile("lldt %0"::"mr" (ldt))
+#define load_tr(tr) __asm__ __volatile("ltr %0"::"m" (tr))
+#define load_ldt(ldt) __asm__ __volatile("lldt %0"::"m" (ldt))
 
 #define store_gdt(dtr) __asm__ ("sgdt %0":"=m" (*dtr))
 #define store_idt(dtr) __asm__ ("sidt %0":"=m" (*dtr))
-#define store_tr(tr) __asm__ ("str %0":"=mr" (tr))
-#define store_ldt(ldt) __asm__ ("sldt %0":"=mr" (ldt))
+#define store_tr(tr) __asm__ ("str %0":"=m" (tr))
+#define store_ldt(ldt) __asm__ ("sldt %0":"=m" (ldt))
 
-/*
- * This is the ldt that every process will get unless we need
- * something other than this.
- */
-extern const struct desc_struct default_ldt[];
-extern void set_intr_gate(unsigned int irq, void * addr);
+#if TLS_SIZE != 24
+# error update this code.
+#endif
 
-#define _set_tssldt_desc(n,addr,limit,type) \
-__asm__ __volatile__ ("movw %w3,0(%2)\n\t" \
-	"movw %w1,2(%2)\n\t" \
-	"rorl $16,%1\n\t" \
-	"movb %b1,4(%2)\n\t" \
-	"movb %4,5(%2)\n\t" \
-	"movb $0,6(%2)\n\t" \
-	"movb %h1,7(%2)\n\t" \
-	"rorl $16,%1" \
-	: "=m"(*(n)) : "q" (addr), "r"(n), "ir"(limit), "i"(type))
-
-static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const void *addr)
+static inline void load_TLS(struct thread_struct *t, unsigned int cpu)
 {
-	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[entry], (int)addr,
-		offsetof(struct tss_struct, __cacheline_filler) - 1, 0x89);
+#define C(i) get_cpu_gdt_table(cpu)[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
+	C(0); C(1); C(2);
+#undef C
 }
 
-#define set_tss_desc(cpu,addr) __set_tss_desc(cpu, GDT_ENTRY_TSS, addr)
-
-static inline void __set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
+static inline void write_dt_entry(void *dt, int entry, __u32 entry_a, __u32 entry_b)
 {
-	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
-}
-
-static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int size)
-{
+	__u32 *lp = (__u32 *)((char *)dt + entry*8);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -128,13 +113,45 @@ static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int
 	pax_open_kernel(cr0);
 #endif
 
-	_set_tssldt_desc(&get_cpu_gdt_table(cpu)[GDT_ENTRY_LDT], (int)addr, ((size << 3)-1), 0x82);
+	*lp = entry_a;
+	*(lp+1) = entry_b;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);
 #endif
 
 }
+
+#define write_ldt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
+#define write_gdt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
+#define write_idt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
+
+static inline void _set_gate(int gate, unsigned int type, void *addr, unsigned short seg)
+{
+	__u32 a, b;
+	pack_gate(&a, &b, (unsigned long)addr, seg, type, 0);
+	write_idt_entry(idt_table, gate, a, b);
+}
+
+static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const void *addr)
+{
+	__u32 a, b;
+	pack_descriptor(&a, &b, (unsigned long)addr,
+			offsetof(struct tss_struct, __cacheline_filler) - 1,
+			DESCTYPE_TSS, 0);
+	write_gdt_entry(get_cpu_gdt_table(cpu), entry, a, b);
+}
+
+static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int entries)
+{
+	__u32 a, b;
+	pack_descriptor(&a, &b, (unsigned long)addr,
+			entries * sizeof(struct desc_struct) - 1,
+			DESCTYPE_LDT, 0);
+	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_LDT, a, b);
+}
+
+#define set_tss_desc(cpu,addr) __set_tss_desc(cpu, GDT_ENTRY_TSS, addr)
 
 #define LDT_entry_a(info) \
 	((((info)->base_addr & 0x0000ffff) << 16) | ((info)->limit & 0x0ffff))
@@ -160,24 +177,6 @@ static inline void set_ldt_desc(unsigned int cpu, const void *addr, unsigned int
 	(info)->limit_in_pages	== 0	&& \
 	(info)->seg_not_present	== 1	&& \
 	(info)->useable		== 0	)
-
-static inline void write_ldt_entry(void *ldt, int entry, __u32 entry_a, __u32 entry_b)
-{
-	__u32 *lp = (__u32 *)((char *)ldt + entry*8);
-	*lp = entry_a;
-	*(lp+1) = entry_b;
-}
-
-#if TLS_SIZE != 24
-# error update this code.
-#endif
-
-static inline void load_TLS(struct thread_struct *t, unsigned int cpu)
-{
-#define C(i) get_cpu_gdt_table(cpu)[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
-	C(0); C(1); C(2);
-#undef C
-}
 
 static inline void clear_LDT(void)
 {
@@ -212,29 +211,23 @@ static inline void load_LDT(mm_context_t *pc)
 	put_cpu();
 }
 
-static inline unsigned long get_desc_base(unsigned long *desc)
+static inline unsigned long get_desc_base(struct desc_struct *desc)
 {
 	unsigned long base;
-	base = ((desc[0] >> 16)  & 0x0000ffff) |
-		((desc[1] << 16) & 0x00ff0000) |
-		(desc[1] & 0xff000000);
+	base = ((desc->a >> 16)  & 0x0000ffff) |
+		((desc->b << 16) & 0x00ff0000) |
+		(desc->b & 0xff000000);
 	return base;
 }
 
-static inline void _load_LDT(mm_context_t *pc)
+static inline void set_user_cs(struct mm_struct *mm, int cpu)
 {
-	int cpu = get_cpu();
-	const void *segments = pc->ldt;
-	int count = pc->size;
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+	__u32 a, b;
 
-	if (likely(!count)) {
-		segments = &default_ldt[0];
-		count = 5;
-	}
-		
-	__set_ldt_desc(cpu, segments, count);
-	load_LDT_desc();
-	put_cpu();
+	pack_descriptor(&a, &b, mm->context.user_cs_base, mm->context.user_cs_limit - 1, 0xFB, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_CS, a, b);
+#endif
 }
 
 #endif /* !__ASSEMBLY__ */

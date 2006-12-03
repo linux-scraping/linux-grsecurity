@@ -270,7 +270,7 @@ static int hid_add_field(struct hid_parser *parser, unsigned report_type, unsign
  * Read data value from item.
  */
 
-static __inline__ __u32 item_udata(struct hid_item *item)
+static u32 item_udata(struct hid_item *item)
 {
 	switch (item->size) {
 		case 1: return item->data.u8;
@@ -280,7 +280,7 @@ static __inline__ __u32 item_udata(struct hid_item *item)
 	return 0;
 }
 
-static __inline__ __s32 item_sdata(struct hid_item *item)
+static s32 item_sdata(struct hid_item *item)
 {
 	switch (item->size) {
 		case 1: return item->data.s8;
@@ -543,8 +543,6 @@ static void hid_free_device(struct hid_device *device)
 {
 	unsigned i,j;
 
-	hid_ff_exit(device);
-
 	for (i = 0; i < HID_REPORT_TYPES; i++) {
 		struct hid_report_enum *report_enum = device->report_enum + i;
 
@@ -729,7 +727,7 @@ static struct hid_device *hid_parse_report(__u8 *start, unsigned size)
  * done by hand.
  */
 
-static __inline__ __s32 snto32(__u32 value, unsigned n)
+static s32 snto32(__u32 value, unsigned n)
 {
 	switch (n) {
 		case 8:  return ((__s8)value);
@@ -743,30 +741,65 @@ static __inline__ __s32 snto32(__u32 value, unsigned n)
  * Convert a signed 32-bit integer to a signed n-bit integer.
  */
 
-static __inline__ __u32 s32ton(__s32 value, unsigned n)
+static u32 s32ton(__s32 value, unsigned n)
 {
-	__s32 a = value >> (n - 1);
+	s32 a = value >> (n - 1);
 	if (a && a != -1)
 		return value < 0 ? 1 << (n - 1) : (1 << (n - 1)) - 1;
 	return value & ((1 << n) - 1);
 }
 
 /*
- * Extract/implement a data field from/to a report.
+ * Extract/implement a data field from/to a little endian report (bit array).
+ *
+ * Code sort-of follows HID spec:
+ *     http://www.usb.org/developers/devclass_docs/HID1_11.pdf
+ *
+ * While the USB HID spec allows unlimited length bit fields in "report
+ * descriptors", most devices never use more than 16 bits.
+ * One model of UPS is claimed to report "LINEV" as a 32-bit field.
+ * Search linux-kernel and linux-usb-devel archives for "hid-core extract".
  */
 
 static __inline__ __u32 extract(__u8 *report, unsigned offset, unsigned n)
 {
-	report += (offset >> 5) << 2; offset &= 31;
-	return (le64_to_cpu(get_unaligned((__le64*)report)) >> offset) & ((1ULL << n) - 1);
+	u64 x;
+
+	WARN_ON(n > 32);
+
+	report += offset >> 3;  /* adjust byte index */
+	offset &= 7;		/* now only need bit offset into one byte */
+	x = get_unaligned((u64 *) report);
+	x = le64_to_cpu(x);
+	x = (x >> offset) & ((1ULL << n) - 1);	/* extract bit field */
+	return (u32) x;
 }
 
+/*
+ * "implement" : set bits in a little endian bit stream.
+ * Same concepts as "extract" (see comments above).
+ * The data mangled in the bit stream remains in little endian
+ * order the whole time. It make more sense to talk about
+ * endianness of register values by considering a register
+ * a "cached" copy of the little endiad bit stream.
+ */
 static __inline__ void implement(__u8 *report, unsigned offset, unsigned n, __u32 value)
 {
-	report += (offset >> 5) << 2; offset &= 31;
-	put_unaligned((get_unaligned((__le64*)report)
-		& cpu_to_le64(~((((__u64) 1 << n) - 1) << offset)))
-		| cpu_to_le64((__u64)value << offset), (__le64*)report);
+	u64 x;
+	u64 m = (1ULL << n) - 1;
+
+	WARN_ON(n > 32);
+
+	WARN_ON(value > m);
+	value &= m;
+
+	report += offset >> 3;
+	offset &= 7;
+
+	x = get_unaligned((u64 *)report);
+	x &= cpu_to_le64(~(m << offset));
+	x |= cpu_to_le64(((u64) value) << offset);
+	put_unaligned(x, (u64 *) report);
 }
 
 /*
@@ -782,13 +815,13 @@ static __inline__ int search(__s32 *array, __s32 value, unsigned n)
 	return -1;
 }
 
-static void hid_process_event(struct hid_device *hid, struct hid_field *field, struct hid_usage *usage, __s32 value, int interrupt, struct pt_regs *regs)
+static void hid_process_event(struct hid_device *hid, struct hid_field *field, struct hid_usage *usage, __s32 value, int interrupt)
 {
 	hid_dump_input(usage, value);
 	if (hid->claimed & HID_CLAIMED_INPUT)
-		hidinput_hid_event(hid, field, usage, value, regs);
+		hidinput_hid_event(hid, field, usage, value);
 	if (hid->claimed & HID_CLAIMED_HIDDEV && interrupt)
-		hiddev_hid_event(hid, field, usage, value, regs);
+		hiddev_hid_event(hid, field, usage, value);
 }
 
 /*
@@ -797,7 +830,7 @@ static void hid_process_event(struct hid_device *hid, struct hid_field *field, s
  * reporting to the layer).
  */
 
-static void hid_input_field(struct hid_device *hid, struct hid_field *field, __u8 *data, int interrupt, struct pt_regs *regs)
+static void hid_input_field(struct hid_device *hid, struct hid_field *field, __u8 *data, int interrupt)
 {
 	unsigned n;
 	unsigned count = field->report_count;
@@ -824,19 +857,19 @@ static void hid_input_field(struct hid_device *hid, struct hid_field *field, __u
 	for (n = 0; n < count; n++) {
 
 		if (HID_MAIN_ITEM_VARIABLE & field->flags) {
-			hid_process_event(hid, field, &field->usage[n], value[n], interrupt, regs);
+			hid_process_event(hid, field, &field->usage[n], value[n], interrupt);
 			continue;
 		}
 
 		if (field->value[n] >= min && field->value[n] <= max
 			&& field->usage[field->value[n] - min].hid
 			&& search(value, field->value[n], count))
-				hid_process_event(hid, field, &field->usage[field->value[n] - min], 0, interrupt, regs);
+				hid_process_event(hid, field, &field->usage[field->value[n] - min], 0, interrupt);
 
 		if (value[n] >= min && value[n] <= max
 			&& field->usage[value[n] - min].hid
 			&& search(field->value, value[n], count))
-				hid_process_event(hid, field, &field->usage[value[n] - min], 1, interrupt, regs);
+				hid_process_event(hid, field, &field->usage[value[n] - min], 1, interrupt);
 	}
 
 	memcpy(field->value, value, count * sizeof(__s32));
@@ -844,7 +877,7 @@ exit:
 	kfree(value);
 }
 
-static int hid_input_report(int type, struct urb *urb, int interrupt, struct pt_regs *regs)
+static int hid_input_report(int type, struct urb *urb, int interrupt)
 {
 	struct hid_device *hid = urb->context;
 	struct hid_report_enum *report_enum = hid->report_enum + type;
@@ -894,7 +927,7 @@ static int hid_input_report(int type, struct urb *urb, int interrupt, struct pt_
 		hiddev_report_event(hid, report);
 
 	for (n = 0; n < report->maxfield; n++)
-		hid_input_field(hid, report->field[n], data, interrupt, regs);
+		hid_input_field(hid, report->field[n], data, interrupt);
 
 	if (hid->claimed & HID_CLAIMED_INPUT)
 		hidinput_report_event(hid, report);
@@ -1006,7 +1039,7 @@ done:
  * Input interrupt completion handler.
  */
 
-static void hid_irq_in(struct urb *urb, struct pt_regs *regs)
+static void hid_irq_in(struct urb *urb)
 {
 	struct hid_device	*hid = urb->context;
 	int			status;
@@ -1014,7 +1047,7 @@ static void hid_irq_in(struct urb *urb, struct pt_regs *regs)
 	switch (urb->status) {
 		case 0:			/* success */
 			hid->retry_delay = 0;
-			hid_input_report(HID_INPUT_REPORT, urb, 1, regs);
+			hid_input_report(HID_INPUT_REPORT, urb, 1);
 			break;
 		case -ECONNRESET:	/* unlink */
 		case -ENOENT:
@@ -1023,7 +1056,8 @@ static void hid_irq_in(struct urb *urb, struct pt_regs *regs)
 			return;
 		case -EILSEQ:		/* protocol error or unplug */
 		case -EPROTO:		/* protocol error or unplug */
-		case -ETIMEDOUT:	/* NAK */
+		case -ETIME:		/* protocol error or unplug */
+		case -ETIMEDOUT:	/* Should never happen, but... */
 			clear_bit(HID_IN_RUNNING, &hid->iofl);
 			hid_io_error(hid);
 			return;
@@ -1108,7 +1142,7 @@ int hid_set_field(struct hid_field *field, unsigned offset, __s32 value)
 /*
  * Find a report field with a specified HID usage.
  */
-
+#if 0
 struct hid_field *hid_find_field_by_usage(struct hid_device *hid, __u32 wanted_usage, int type)
 {
 	struct hid_report *report;
@@ -1120,6 +1154,7 @@ struct hid_field *hid_find_field_by_usage(struct hid_device *hid, __u32 wanted_u
 				return report->field[i];
 	return NULL;
 }
+#endif  /*  0  */
 
 static int hid_submit_out(struct hid_device *hid)
 {
@@ -1193,7 +1228,7 @@ static int hid_submit_ctrl(struct hid_device *hid)
  * Output interrupt completion handler.
  */
 
-static void hid_irq_out(struct urb *urb, struct pt_regs *regs)
+static void hid_irq_out(struct urb *urb)
 {
 	struct hid_device *hid = urb->context;
 	unsigned long flags;
@@ -1238,7 +1273,7 @@ static void hid_irq_out(struct urb *urb, struct pt_regs *regs)
  * Control pipe completion handler.
  */
 
-static void hid_ctrl(struct urb *urb, struct pt_regs *regs)
+static void hid_ctrl(struct urb *urb)
 {
 	struct hid_device *hid = urb->context;
 	unsigned long flags;
@@ -1249,7 +1284,7 @@ static void hid_ctrl(struct urb *urb, struct pt_regs *regs)
 	switch (urb->status) {
 		case 0:			/* success */
 			if (hid->ctrl[hid->ctrltail].dir == USB_DIR_IN)
-				hid_input_report(hid->ctrl[hid->ctrltail].report->type, urb, 0, regs);
+				hid_input_report(hid->ctrl[hid->ctrltail].report->type, urb, 0);
 			break;
 		case -ESHUTDOWN:	/* unplug */
 			unplug = 1;
@@ -1380,6 +1415,9 @@ void hid_close(struct hid_device *hid)
 }
 
 #define USB_VENDOR_ID_PANJIT		0x134c
+
+#define USB_VENDOR_ID_TURBOX		0x062a
+#define USB_DEVICE_ID_TURBOX_KEYBOARD	0x0201
 
 /*
  * Initialize all reports
@@ -1535,13 +1573,17 @@ void hid_init_reports(struct hid_device *hid)
 #define USB_VENDOR_ID_GLAB		0x06c2
 #define USB_DEVICE_ID_4_PHIDGETSERVO_30	0x0038
 #define USB_DEVICE_ID_1_PHIDGETSERVO_30	0x0039
-#define USB_DEVICE_ID_8_8_8_IF_KIT	0x0045
 #define USB_DEVICE_ID_0_0_4_IF_KIT	0x0040
+#define USB_DEVICE_ID_0_16_16_IF_KIT	0x0044
+#define USB_DEVICE_ID_8_8_8_IF_KIT	0x0045
+#define USB_DEVICE_ID_0_8_7_IF_KIT	0x0051
 #define USB_DEVICE_ID_0_8_8_IF_KIT	0x0053
+#define USB_DEVICE_ID_PHIDGET_MOTORCONTROL	0x0058
 
 #define USB_VENDOR_ID_WISEGROUP		0x0925
 #define USB_DEVICE_ID_1_PHIDGETSERVO_20	0x8101
 #define USB_DEVICE_ID_4_PHIDGETSERVO_20	0x8104
+#define USB_DEVICE_ID_8_8_4_IF_KIT	0x8201
 #define USB_DEVICE_ID_DUAL_USB_JOYPAD   0x8866
 
 #define USB_VENDOR_ID_WISEGROUP_LTD	0x6677
@@ -1591,6 +1633,16 @@ void hid_init_reports(struct hid_device *hid)
 
 #define USB_VENDOR_ID_YEALINK		0x6993
 #define USB_DEVICE_ID_YEALINK_P1K_P4K_B2K	0xb001
+
+#define USB_VENDOR_ID_ALCOR		0x058f
+#define USB_DEVICE_ID_ALCOR_USBRS232	0x9720
+
+#define USB_VENDOR_ID_SUN		0x0430
+#define USB_DEVICE_ID_RARITAN_KVM_DONGLE	0xcdab
+
+#define USB_VENDOR_ID_AIRCABLE		0x16CA
+#define USB_DEVICE_ID_AIRCABLE1		0x1502
+
 /*
  * Alphabetically sorted blacklist by quirk type.
  */
@@ -1608,6 +1660,8 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_AIPTEK, USB_DEVICE_ID_AIPTEK_22, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_AIPTEK, USB_DEVICE_ID_AIPTEK_23, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_AIPTEK, USB_DEVICE_ID_AIPTEK_24, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_AIRCABLE, USB_DEVICE_ID_AIRCABLE1, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_ALCOR, USB_DEVICE_ID_ALCOR_USBRS232, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_BERKSHIRE, USB_DEVICE_ID_BERKSHIRE_PCWD, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_CODEMERCS, USB_DEVICE_ID_CODEMERCS_IOW40, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_CODEMERCS, USB_DEVICE_ID_CODEMERCS_IOW24, HID_QUIRK_IGNORE },
@@ -1620,9 +1674,12 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_ESSENTIAL_REALITY, USB_DEVICE_ID_ESSENTIAL_REALITY_P5, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_4_PHIDGETSERVO_30, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_1_PHIDGETSERVO_30, HID_QUIRK_IGNORE },
-	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_8_8_8_IF_KIT, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_0_0_4_IF_KIT, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_0_16_16_IF_KIT, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_8_8_8_IF_KIT, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_0_8_7_IF_KIT, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_0_8_8_IF_KIT, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_GLAB, USB_DEVICE_ID_PHIDGET_MOTORCONTROL, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GRIFFIN, USB_DEVICE_ID_POWERMATE, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GRIFFIN, USB_DEVICE_ID_SOUNDKNOB, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_GTCO, USB_DEVICE_ID_GTCO_90, HID_QUIRK_IGNORE },
@@ -1690,7 +1747,11 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_MGE, USB_DEVICE_ID_MGE_UPS, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_MGE, USB_DEVICE_ID_MGE_UPS1, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 20, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 30, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 100, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 108, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 118, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 200, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 300, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_ONTRAK, USB_DEVICE_ID_ONTRAK_ADU100 + 400, HID_QUIRK_IGNORE },
@@ -1701,6 +1762,7 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_VERNIER, USB_DEVICE_ID_VERNIER_CYCLOPS, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_4_PHIDGETSERVO_20, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_1_PHIDGETSERVO_20, HID_QUIRK_IGNORE },
+	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_8_8_4_IF_KIT, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_YEALINK, USB_DEVICE_ID_YEALINK_P1K_P4K_B2K, HID_QUIRK_IGNORE },
 
 	{ USB_VENDOR_ID_ACECAD, USB_DEVICE_ID_ACECAD_FLAIR, HID_QUIRK_IGNORE },
@@ -1711,6 +1773,7 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_ATEN, USB_DEVICE_ID_ATEN_2PORTKVM, HID_QUIRK_NOGET },
 	{ USB_VENDOR_ID_ATEN, USB_DEVICE_ID_ATEN_4PORTKVM, HID_QUIRK_NOGET },
 	{ USB_VENDOR_ID_ATEN, USB_DEVICE_ID_ATEN_4PORTKVMC, HID_QUIRK_NOGET },
+	{ USB_VENDOR_ID_SUN, USB_DEVICE_ID_RARITAN_KVM_DONGLE, HID_QUIRK_NOGET },
 	{ USB_VENDOR_ID_WISEGROUP, USB_DEVICE_ID_DUAL_USB_JOYPAD, HID_QUIRK_NOGET | HID_QUIRK_MULTI_INPUT },
 	{ USB_VENDOR_ID_WISEGROUP_LTD, USB_DEVICE_ID_SMARTJOY_DUAL_PLUS, HID_QUIRK_NOGET | HID_QUIRK_MULTI_INPUT },
 
@@ -1734,11 +1797,12 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_APPLE, 0x020E, HID_QUIRK_POWERBOOK_HAS_FN },
 	{ USB_VENDOR_ID_APPLE, 0x020F, HID_QUIRK_POWERBOOK_HAS_FN },
 	{ USB_VENDOR_ID_APPLE, 0x0214, HID_QUIRK_POWERBOOK_HAS_FN },
-	{ USB_VENDOR_ID_APPLE, 0x0215, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x0215, HID_QUIRK_POWERBOOK_HAS_FN | HID_QUIRK_POWERBOOK_ISO_KEYBOARD},
 	{ USB_VENDOR_ID_APPLE, 0x0216, HID_QUIRK_POWERBOOK_HAS_FN },
 	{ USB_VENDOR_ID_APPLE, 0x0217, HID_QUIRK_POWERBOOK_HAS_FN },
-	{ USB_VENDOR_ID_APPLE, 0x0218, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x0218, HID_QUIRK_POWERBOOK_HAS_FN | HID_QUIRK_POWERBOOK_ISO_KEYBOARD},
 	{ USB_VENDOR_ID_APPLE, 0x0219, HID_QUIRK_POWERBOOK_HAS_FN },
+	{ USB_VENDOR_ID_APPLE, 0x021B, HID_QUIRK_POWERBOOK_HAS_FN },
 	{ USB_VENDOR_ID_APPLE, 0x030A, HID_QUIRK_POWERBOOK_HAS_FN },
 	{ USB_VENDOR_ID_APPLE, 0x030B, HID_QUIRK_POWERBOOK_HAS_FN },
 
@@ -1747,6 +1811,8 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_PANJIT, 0x0003, HID_QUIRK_IGNORE },
 	{ USB_VENDOR_ID_PANJIT, 0x0004, HID_QUIRK_IGNORE },
 
+	{ USB_VENDOR_ID_TURBOX, USB_DEVICE_ID_TURBOX_KEYBOARD, HID_QUIRK_NOGET },
+	
 	{ 0, 0 }
 };
 
@@ -1818,7 +1884,7 @@ static struct hid_device *usb_hid_configure(struct usb_interface *intf)
 	int n, len, insize = 0;
 
         /* Ignore all Wacom devices */
-        if (dev->descriptor.idVendor == USB_VENDOR_ID_WACOM)
+        if (le16_to_cpu(dev->descriptor.idVendor) == USB_VENDOR_ID_WACOM)
                 return NULL;
 
 	for (n = 0; hid_blacklist[n].idVendor; n++)

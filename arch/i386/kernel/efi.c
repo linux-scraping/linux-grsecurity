@@ -65,7 +65,7 @@ static unsigned long efi_rt_eflags;
 static DEFINE_SPINLOCK(efi_rt_lock);
 static pgd_t __initdata efi_bak_pg_dir_pointer[KERNEL_PGD_PTRS] __attribute__ ((aligned (4096)));
 
-static void __init efi_call_phys_prelog(void)
+static void efi_call_phys_prelog(void) __acquires(efi_rt_lock)
 {
 	spin_lock(&efi_rt_lock);
 	local_irq_save(efi_rt_eflags);
@@ -83,7 +83,7 @@ static void __init efi_call_phys_prelog(void)
 	load_gdt((struct Xgt_desc_struct *) __pa(&cpu_gdt_descr[0]));
 }
 
-static void __init efi_call_phys_epilog(void)
+static void efi_call_phys_epilog(void) __releases(efi_rt_lock)
 {
 	cpu_gdt_descr[0].address = (unsigned long) __va(cpu_gdt_descr[0].address);
 	load_gdt(&cpu_gdt_descr[0]);
@@ -459,8 +459,7 @@ void __init efi_enter_virtual_mode(void)
 		check_range_for_systab(md);
 	}
 
-	if (!efi.systab)
-		BUG();
+	BUG_ON(!efi.systab);
 
 	status = phys_efi_set_virtual_address_map(
 			memmap.desc_size * memmap.nr_map,

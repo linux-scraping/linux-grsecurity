@@ -262,6 +262,11 @@ int xip_file_mmap(struct file * file, struct vm_area_struct * vma)
 {
 	BUG_ON(!file->f_mapping->a_ops->get_xip_page);
 
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	if ((vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
+		vma->vm_page_prot = __pgprot(pte_val(pte_exprotect(__pte(pgprot_val(vma->vm_page_prot)))));
+#endif
+
 	file_accessed(file);
 	vma->vm_ops = &xip_file_vm_ops;
 	return 0;

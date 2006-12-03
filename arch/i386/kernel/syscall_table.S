@@ -318,3 +318,5 @@ ENTRY(sys_call_table)
 	.long sys_tee			/* 315 */
 	.long sys_vmsplice
 	.long sys_move_pages
+	.long sys_getcpu
+	.long sys_epoll_pwait

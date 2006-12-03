@@ -261,7 +261,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
 	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
-	vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 	vma->vm_ops = &pax_vm_ops;
 
 	ret = insert_vm_struct(current->mm, vma);

@@ -23,10 +23,10 @@ void snd_use_lock_sync_helper(snd_use_lock_t *lock, const char *file, int line);
 #else /* SMP || CONFIG_SND_DEBUG */
 
 typedef spinlock_t snd_use_lock_t;	/* dummy */
-#define snd_use_lock_init(lockp) /**/
-#define snd_use_lock_use(lockp) /**/
-#define snd_use_lock_free(lockp) /**/
-#define snd_use_lock_sync(lockp) /**/
+#define snd_use_lock_init(lockp) do {} while (0)
+#define snd_use_lock_use(lockp) do {} while (0)
+#define snd_use_lock_free(lockp) do {} while (0)
+#define snd_use_lock_sync(lockp) do {} while (0)
 
 #endif /* SMP || CONFIG_SND_DEBUG */
 

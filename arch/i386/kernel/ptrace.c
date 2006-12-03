@@ -170,15 +170,15 @@ static unsigned long convert_eip_to_linear(struct task_struct *child, struct pt_
 	 * and APM bios ones we just ignore here.
 	 */
 	if (seg & LDT_SEGMENT) {
-		u32 *desc;
+		struct desc_struct *desc;
 		unsigned long base;
 
 		down(&child->mm->context.sem);
-		desc = child->mm->context.ldt + (seg & ~7);
-		base = (desc[0] >> 16) | ((desc[1] & 0xff) << 16) | (desc[1] & 0xff000000);
+		desc = &child->mm->context.ldt[seg >> 3];
+		base = (desc->a >> 16) | ((desc->b & 0xff) << 16) | (desc->b & 0xff000000);
 
 		/* 16-bit code segment? */
-		if (!((desc[1] >> 22) & 1))
+		if (!((desc->b >> 22) & 1))
 			addr &= 0xffff;
 		addr += base;
 		up(&child->mm->context.sem);
@@ -186,17 +186,17 @@ static unsigned long convert_eip_to_linear(struct task_struct *child, struct pt_
 	return addr;
 }
 
-static inline int is_at_popf(struct task_struct *child, struct pt_regs *regs)
+static inline int is_setting_trap_flag(struct task_struct *child, struct pt_regs *regs)
 {
 	int i, copied;
-	unsigned char opcode[16];
+	unsigned char opcode[15];
 	unsigned long addr = convert_eip_to_linear(child, regs);
 
 	copied = access_process_vm(child, addr, opcode, sizeof(opcode), 0);
 	for (i = 0; i < copied; i++) {
 		switch (opcode[i]) {
-		/* popf */
-		case 0x9d:
+		/* popf and iret */
+		case 0x9d: case 0xcf:
 			return 1;
 		/* opcode and address size prefixes */
 		case 0x66: case 0x67:
@@ -248,7 +248,7 @@ static void set_singlestep(struct task_struct *child)
 	 * don't mark it as being "us" that set it, so that we
 	 * won't clear it by hand later.
 	 */
-	if (is_at_popf(child, regs))
+	if (is_setting_trap_flag(child, regs))
 		return;
 	
 	child->ptrace |= PT_DTRACE;

@@ -30,21 +30,24 @@
 #include <asm/uaccess.h>
 #include <asm/desc.h>
 #include <asm/kdebug.h>
+#include <asm/segment.h>
 
 extern void die(const char *,struct pt_regs *,long);
 
-#ifdef CONFIG_KPROBES
-ATOMIC_NOTIFIER_HEAD(notify_page_fault_chain);
+static ATOMIC_NOTIFIER_HEAD(notify_page_fault_chain);
+
 int register_page_fault_notifier(struct notifier_block *nb)
 {
 	vmalloc_sync_all();
 	return atomic_notifier_chain_register(&notify_page_fault_chain, nb);
 }
+EXPORT_SYMBOL_GPL(register_page_fault_notifier);
 
 int unregister_page_fault_notifier(struct notifier_block *nb)
 {
 	return atomic_notifier_chain_unregister(&notify_page_fault_chain, nb);
 }
+EXPORT_SYMBOL_GPL(unregister_page_fault_notifier);
 
 static inline int notify_page_fault(enum die_val val, const char *str,
 			struct pt_regs *regs, long err, int trap, int sig)
@@ -58,14 +61,6 @@ static inline int notify_page_fault(enum die_val val, const char *str,
 	};
 	return atomic_notifier_call_chain(&notify_page_fault_chain, val, &args);
 }
-#else
-static inline int notify_page_fault(enum die_val val, const char *str,
-			struct pt_regs *regs, long err, int trap, int sig)
-{
-	return NOTIFY_DONE;
-}
-#endif
-
 
 /*
  * Unlock any spinlocks which will prevent us from getting the
@@ -112,7 +107,8 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 {
 	unsigned long eip = regs->eip;
 	unsigned seg = regs->xcs & 0xffff;
-	u32 seg_ar, seg_limit, base, *desc;
+	u32 seg_ar, seg_limit, base;
+	struct desc_struct *desc;
 
 	/* Unlikely, but must come before segment checks. */
 	if (unlikely(regs->eflags & VM_MASK)) {
@@ -122,14 +118,11 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 	}
 
 	/* The standard kernel/user address space limit. */
-	*eip_limit = (seg & 3) ? USER_DS.seg : KERNEL_DS.seg;
+	*eip_limit = user_mode(regs) ? USER_DS.seg : KERNEL_DS.seg;
 	
 	/* By far the most common cases. */
-	if (likely(seg == __USER_CS))
-		return eip;
-
-	if (likely(seg == __KERNEL_CS))
-		return eip + __KERNEL_TEXT_OFFSET;
+	if (likely(SEGMENT_IS_FLAT_CODE(seg)))
+		return eip + (seg == __KERNEL_CS ? __KERNEL_TEXT_OFFSET : 0);
 
 	/* Check the segment exists, is within the current LDT/GDT size,
 	   that kernel/user (ring 0..3) has the appropriate privilege,
@@ -147,16 +140,14 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 	if (seg & (1<<2)) {
 		/* Must lock the LDT while reading it. */
 		down(&current->mm->context.sem);
-		desc = current->mm->context.ldt;
-		desc = (void *)desc + (seg & ~7);
+		desc = &current->mm->context.ldt[seg >> 3];
 	} else {
 		/* Must disable preemption while reading the GDT. */
- 		desc = (u32 *)get_cpu_gdt_table(get_cpu());
-		desc = (void *)desc + (seg & ~7);
+		desc = &get_cpu_gdt_table(get_cpu())[seg >> 3];
 	}
 
 	/* Decode the code segment base from the descriptor */
-	base = get_desc_base((unsigned long *)desc);
+	base = get_desc_base(desc);
 
 	if (seg & (1<<2)) { 
 		up(&current->mm->context.sem);
@@ -361,7 +352,6 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	struct task_struct *tsk;
 	struct mm_struct *mm;
 	struct vm_area_struct * vma;
-	unsigned long address;
 	int write, si_code;
 
 #ifdef CONFIG_PAX_PAGEEXEC
@@ -372,7 +362,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 #endif
 
 	/* get the address */
-        address = read_cr2();
+	const unsigned long address = read_cr2();
 
 	tsk = current;
 	mm = tsk->mm;
@@ -455,14 +445,14 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	if (unlikely(!(error_code & 2) && (regs->eip == address))) {
 		/* instruction fetch attempt from a protected page in user mode */
 		up_read(&mm->mmap_sem);
-		switch (pax_handle_fetch_fault(regs)) {
 
 #ifdef CONFIG_PAX_EMUTRAMP
+		switch (pax_handle_fetch_fault(regs)) {
 		case 2:
 			return;
+		}
 #endif
 
-		}
 		pax_report_fault(regs, (void*)regs->eip, (void*)regs->esp);
 		do_exit(SIGKILL);
 	}
@@ -562,11 +552,7 @@ good_area:
 	write = 0;
 	switch (error_code & 3) {
 		default:	/* 3: write, present */
-#ifdef TEST_VERIFY_AREA
-			if (regs->cs == KERNEL_CS)
-				printk("WP fault at %08lx\n", regs->eip);
-#endif
-			/* fall through */
+				/* fall through */
 		case 2:		/* write, not present */
 			if (!(vma->vm_flags & VM_WRITE))
 				goto bad_area;
@@ -575,7 +561,7 @@ good_area:
 		case 1:		/* read, present */
 			goto bad_area;
 		case 0:		/* read, not present */
-			if (!(vma->vm_flags & (VM_READ | VM_EXEC)))
+			if (!(vma->vm_flags & (VM_READ | VM_EXEC | VM_WRITE)))
 				goto bad_area;
 	}
 
@@ -633,14 +619,13 @@ bad_area_nosemaphore:
 #ifdef CONFIG_PAX_SEGMEXEC
 		if ((mm->pax_flags & MF_PAX_SEGMEXEC) && !(error_code & 3) && (regs->eip + SEGMEXEC_TASK_SIZE == address)) {
 
-			switch (pax_handle_fetch_fault(regs)) {
-
 #ifdef CONFIG_PAX_EMUTRAMP
+			switch (pax_handle_fetch_fault(regs)) {
 			case 2:
 				return;
+			}
 #endif
 
-			}
 			pax_report_fault(regs, (void*)regs->eip, (void*)regs->esp);
 			do_exit(SIGKILL);
 		}
@@ -720,9 +705,9 @@ no_context:
 
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_MODULES
-		else if (init_mm.start_code <= address && address < (unsigned long)MODULES_END)
+		else if (init_mm.start_code <= address && address < (unsigned long)MODULES_END) {
 #else
-		else if (init_mm.start_code <= address && address < init_mm.end_code)
+		else if (init_mm.start_code <= address && address < init_mm.end_code) {
 #endif
 			if (tsk->signal->curr_ip)
 				printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
@@ -730,6 +715,7 @@ no_context:
 			else
 				printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
 						 tsk->comm, tsk->pid, tsk->uid, tsk->euid);
+		}
 #endif
 
 		else
@@ -780,7 +766,7 @@ no_context:
  */
 out_of_memory:
 	up_read(&mm->mmap_sem);
-	if (tsk->pid == 1) {
+	if (is_init(tsk)) {
 		yield();
 		down_read(&mm->mmap_sem);
 		goto survive;
@@ -844,7 +830,7 @@ void vmalloc_sync_all(void)
 }
 #endif
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+#ifdef CONFIG_PAX_EMUTRAMP
 /*
  * PaX: decide what to do with offenders (regs->eip = fault address)
  *
@@ -854,15 +840,12 @@ void vmalloc_sync_all(void)
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {
 
-#ifdef CONFIG_PAX_EMUTRAMP
 	static const unsigned char trans[8] = {6, 1, 2, 0, 13, 5, 3, 4};
 	int err;
-#endif
 
 	if (regs->eflags & X86_EFLAGS_VM)
 		return 1;
 
-#ifdef CONFIG_PAX_EMUTRAMP
 	if (!(current->mm->pax_flags & MF_PAX_EMUTRAMP))
 		return 1;
 
@@ -913,7 +896,6 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			return 2;
 		}
 	} while (0);
-#endif
 
 	return 1; /* PaX in action */
 }

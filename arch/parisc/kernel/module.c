@@ -27,7 +27,7 @@
  *    - SEGREL32 handling
  *      We are not doing SEGREL32 handling correctly. According to the ABI, we
  *      should do a value offset, like this:
- *			if (is_init(me, (void *)val))
+ *			if (in_init(me, (void *)val))
  *				val -= (uint32_t)me->module_init;
  *			else
  *				val -= (uint32_t)me->module_core;
@@ -72,49 +72,49 @@
 
 /* three functions to determine where in the module core
  * or init pieces the location is */
-static inline int is_init_rx(struct module *me, void *loc)
+static inline int in_init_rx(struct module *me, void *loc)
 {
 	return (loc >= me->module_init_rx &&
 		loc < (me->module_init_rx + me->init_size_rx));
 }
 
-static inline int is_init_rw(struct module *me, void *loc)
+static inline int in_init_rw(struct module *me, void *loc)
 {
 	return (loc >= me->module_init_rw &&
 		loc < (me->module_init_rw + me->init_size_rw));
 }
 
-static inline int is_init(struct module *me, void *loc)
+static inline int in_init(struct module *me, void *loc)
 {
-	return is_init_rx(me, loc) || is_init_rw(me, loc);
+	return in_init_rx(me, loc) || in_init_rw(me, loc);
 }
 
-static inline int is_core_rx(struct module *me, void *loc)
+static inline int in_core_rx(struct module *me, void *loc)
 {
 	return (loc >= me->module_core_rx &&
 		loc < (me->module_core_rx + me->core_size_rx));
 }
 
-static inline int is_core_rw(struct module *me, void *loc)
+static inline int in_core_rw(struct module *me, void *loc)
 {
 	return (loc >= me->module_core_rw &&
 		loc < (me->module_core_rw + me->core_size_rw));
 }
 
-static inline int is_core(struct module *me, void *loc)
+static inline int in_core(struct module *me, void *loc)
 {
-	return is_core_rx(me, loc) || is_core_rw(me, loc);
+	return in_core_rx(me, loc) || in_core_rw(me, loc);
 }
 
-static inline int is_local(struct module *me, void *loc)
+static inline int in_local(struct module *me, void *loc)
 {
-	return is_init(me, loc) || is_core(me, loc);
+	return in_init(me, loc) || in_core(me, loc);
 }
 
-static inline int is_local_section(struct module *me, void *loc, void *dot)
+static inline int in_local_section(struct module *me, void *loc, void *dot)
 {
-	return (is_init(me, loc) && is_init(me, dot)) ||
-		(is_core(me, loc) && is_core(me, dot));
+	return (in_init(me, loc) && in_init(me, dot)) ||
+		(in_core(me, loc) && in_core(me, dot));
 }
 
 
@@ -588,14 +588,14 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 			break;
 		case R_PARISC_PCREL17F:
 			/* 17-bit PC relative address */
-			val = get_stub(me, val, addend, ELF_STUB_GOT, is_init(me, loc));
+			val = get_stub(me, val, addend, ELF_STUB_GOT, in_init(me, loc));
 			val = (val - dot - 8)/4;
 			CHECK_RELOC(val, 17)
 			*loc = (*loc & ~0x1f1ffd) | reassemble_17(val);
 			break;
 		case R_PARISC_PCREL22F:
 			/* 22-bit PC relative address; only defined for pa20 */
-			val = get_stub(me, val, addend, ELF_STUB_GOT, is_init(me, loc));
+			val = get_stub(me, val, addend, ELF_STUB_GOT, in_init(me, loc));
 			DEBUGP("STUB FOR %s loc %lx+%lx at %lx\n", 
 			       strtab + sym->st_name, (unsigned long)loc, addend, 
 			       val)
@@ -692,9 +692,9 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 			       strtab + sym->st_name,
 			       loc, val);
 			/* can we reach it locally? */
-			if(!is_local_section(me, (void *)val, (void *)dot)) {
+			if(!in_local_section(me, (void *)val, (void *)dot)) {
 
-				if (is_local(me, (void *)val))
+				if (in_local(me, (void *)val))
 					/* this is the case where the
 					 * symbol is local to the
 					 * module, but in a different
@@ -702,14 +702,14 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 					 * in case it's more than 22
 					 * bits away */
 					val = get_stub(me, val, addend, ELF_STUB_DIRECT,
-						       is_init(me, loc));
+						       in_init(me, loc));
 				else if (strncmp(strtab + sym->st_name, "$$", 2)
 				    == 0)
 					val = get_stub(me, val, addend, ELF_STUB_MILLI,
-						       is_init(me, loc));
+						       in_init(me, loc));
 				else
 					val = get_stub(me, val, addend, ELF_STUB_GOT,
-						       is_init(me, loc));
+						       in_init(me, loc));
 			}
 			DEBUGP("STUB FOR %s loc %lx, val %lx+%lx at %lx\n", 
 			       strtab + sym->st_name, loc, sym->st_value,
@@ -742,7 +742,7 @@ int apply_relocate_add(Elf_Shdr *sechdrs,
 			break;
 		case R_PARISC_FPTR64:
 			/* 64-bit function address */
-			if(is_local(me, (void *)(val + addend))) {
+			if(in_local(me, (void *)(val + addend))) {
 				*loc64 = get_fdesc(me, val+addend);
 				DEBUGP("FDESC for %s at %p points to %lx\n",
 				       strtab + sym->st_name, *loc64,

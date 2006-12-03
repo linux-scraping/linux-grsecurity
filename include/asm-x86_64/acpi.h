@@ -155,8 +155,6 @@ extern void acpi_reserve_bootmem(void);
 
 #endif /*CONFIG_ACPI_SLEEP*/
 
-#define boot_cpu_physical_apicid boot_cpu_id
-
 extern int acpi_disabled;
 extern int acpi_pci_disabled;
 
@@ -165,6 +163,7 @@ extern u8 x86_acpiid_to_apicid[];
 #define ARCH_HAS_POWER_INIT 1
 
 extern int acpi_skip_timer_override;
+extern int acpi_use_timer_override;
 
 #endif /*__KERNEL__*/
 

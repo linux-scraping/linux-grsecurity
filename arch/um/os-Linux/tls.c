@@ -1,5 +1,7 @@
 #include <errno.h>
+#include <unistd.h>
 #include <sys/ptrace.h>
+#include <sys/syscall.h>
 #include <asm/ldt.h>
 #include "sysdep/tls.h"
 #include "uml-config.h"
@@ -52,7 +54,7 @@ int do_set_thread_area_tt(user_desc_t *info)
 {
 	int ret;
 
-	ret = syscall(__NR_set_thread_area, info);
+	ret = syscall(__NR_set_thread_area,info);
 	if (ret < 0) {
 		ret = -errno;
 	}
@@ -63,7 +65,7 @@ int do_get_thread_area_tt(user_desc_t *info)
 {
 	int ret;
 
-	ret = syscall(__NR_get_thread_area, info);
+	ret = syscall(__NR_get_thread_area,info);
 	if (ret < 0) {
 		ret = -errno;
 	}

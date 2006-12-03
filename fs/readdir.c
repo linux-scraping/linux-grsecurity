@@ -72,13 +72,17 @@ struct readdir_callback {
 };
 
 static int fillonedir(void * __buf, const char * name, int namlen, loff_t offset,
-		      ino_t ino, unsigned int d_type)
+		      u64 ino, unsigned int d_type)
 {
 	struct readdir_callback * buf = (struct readdir_callback *) __buf;
 	struct old_linux_dirent __user * dirent;
+	unsigned long d_ino;
 
 	if (buf->result)
 		return -EINVAL;
+	d_ino = ino;
+	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+		return -EOVERFLOW;
 
 	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
 		return 0;
@@ -89,7 +93,7 @@ static int fillonedir(void * __buf, const char * name, int namlen, loff_t offset
 			(unsigned long)(dirent->d_name + namlen + 1) -
 				(unsigned long)dirent))
 		goto efault;
-	if (	__put_user(ino, &dirent->d_ino) ||
+	if (	__put_user(d_ino, &dirent->d_ino) ||
 		__put_user(offset, &dirent->d_offset) ||
 		__put_user(namlen, &dirent->d_namlen) ||
 		__copy_to_user(dirent->d_name, name, namlen) ||
@@ -147,15 +151,19 @@ struct getdents_callback {
 };
 
 static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
-		   ino_t ino, unsigned int d_type)
+		   u64 ino, unsigned int d_type)
 {
 	struct linux_dirent __user * dirent;
 	struct getdents_callback * buf = (struct getdents_callback *) __buf;
+	unsigned long d_ino;
 	int reclen = ROUND_UP(NAME_OFFSET(dirent) + namlen + 2);
 
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
+	d_ino = ino;
+	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+		return -EOVERFLOW;
 
 	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
 		return 0;
@@ -166,7 +174,7 @@ static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 			goto efault;
 	}
 	dirent = buf->current_dir;
-	if (__put_user(ino, &dirent->d_ino))
+	if (__put_user(d_ino, &dirent->d_ino))
 		goto efault;
 	if (__put_user(reclen, &dirent->d_reclen))
 		goto efault;
@@ -204,7 +212,6 @@ asmlinkage long sys_getdents(unsigned int fd, struct linux_dirent __user * diren
 
 	buf.current_dir = dirent;
 	buf.previous = NULL;
-	buf.file = file;
 	buf.count = count;
 	buf.error = 0;
 
@@ -231,13 +238,13 @@ out:
 struct getdents_callback64 {
 	struct linux_dirent64 __user * current_dir;
 	struct linux_dirent64 __user * previous;
-	struct file * file;
+	struct file *file;
 	int count;
 	int error;
 };
 
 static int filldir64(void * __buf, const char * name, int namlen, loff_t offset,
-		     ino_t ino, unsigned int d_type)
+		     u64 ino, unsigned int d_type)
 {
 	struct linux_dirent64 __user *dirent;
 	struct getdents_callback64 * buf = (struct getdents_callback64 *) __buf;

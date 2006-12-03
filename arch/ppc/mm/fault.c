@@ -92,7 +92,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
 	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
-	vma->vm_page_prot = protection_map[vma->vm_flags & 0x0f];
+	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 	vma->vm_ops = &pax_vm_ops;
 
 	ret = insert_vm_struct(current->mm, vma);
@@ -617,7 +617,7 @@ good_area:
 		/* protection fault */
 		if (error_code & 0x08000000)
 			goto bad_area;
-		if (!(vma->vm_flags & (VM_READ | VM_EXEC)))
+		if (!(vma->vm_flags & (VM_READ | VM_EXEC | VM_WRITE)))
 			goto bad_area;
 	}
 
@@ -696,7 +696,7 @@ bad_area:
  */
 out_of_memory:
 	up_read(&mm->mmap_sem);
-	if (current->pid == 1) {
+	if (is_init(current)) {
 		yield();
 		down_read(&mm->mmap_sem);
 		goto survive;

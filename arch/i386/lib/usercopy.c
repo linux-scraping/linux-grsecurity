@@ -9,6 +9,7 @@
 #include <linux/highmem.h>
 #include <linux/blkdev.h>
 #include <linux/module.h>
+#include <linux/backing-dev.h>
 #include <asm/uaccess.h>
 #include <asm/mmx.h>
 
@@ -189,7 +190,7 @@ __clear_user(void __user *to, unsigned long n)
 EXPORT_SYMBOL(__clear_user);
 
 /**
- * strlen_user: - Get the size of a string in user space.
+ * strnlen_user: - Get the size of a string in user space.
  * @s: The string to measure.
  * @n: The maximum valid length
  *
@@ -930,9 +931,9 @@ survive:
 			retval = get_user_pages(current, current->mm,
 					(unsigned long )to, 1, 1, 0, &pg, NULL);
 
-			if (retval == -ENOMEM && current->pid == 1) {
+			if (retval == -ENOMEM && is_init(current)) {
 				up_read(&current->mm->mmap_sem);
-				blk_congestion_wait(WRITE, HZ/50);
+				congestion_wait(WRITE, HZ/50);
 				goto survive;
 			}
 
@@ -1072,15 +1073,14 @@ EXPORT_SYMBOL(copy_from_user);
 void __set_fs(mm_segment_t x, int cpu)
 {
 	unsigned long limit = x.seg;
+	__u32 a, b;
 
 	current_thread_info()->addr_limit = x;
-	if (likely(limit)) {
+	if (likely(limit))
 		limit -= 1UL;
-		limit >>= 12;
-	}
 
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].a = (limit & 0xFFFFUL);
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].b = (limit & 0xF0000UL) | 0xC0F300UL;
+	pack_descriptor(&a, &b, 0UL, limit, 0xF3, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_DS, a, b);
 }
 
 void set_fs(mm_segment_t x)

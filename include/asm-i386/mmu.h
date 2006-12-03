@@ -11,7 +11,7 @@
 typedef struct { 
 	int size;
 	struct semaphore sem;
-	void *ldt;
+	struct desc_struct *ldt;
 	unsigned long vdso;
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)

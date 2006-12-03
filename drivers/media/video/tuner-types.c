@@ -650,6 +650,7 @@ static struct tuner_params tuner_microtune_4049_fm5_params[] = {
 		.count  = ARRAY_SIZE(tuner_temic_4009f_5_pal_ranges),
 		.has_tda9887 = 1,
 		.port1_invert_for_secam_lc = 1,
+		.default_pll_gating_18 = 1,
 	},
 };
 
@@ -1045,7 +1046,6 @@ static struct tuner_params tuner_samsung_tcpn_2121p30a_params[] = {
 		.type   = TUNER_PARAM_TYPE_NTSC,
 		.ranges = tuner_samsung_tcpn_2121p30a_ntsc_ranges,
 		.count  = ARRAY_SIZE(tuner_samsung_tcpn_2121p30a_ntsc_ranges),
-		.has_tda9887 = 1,
 	},
 };
 

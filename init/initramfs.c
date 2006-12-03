@@ -236,7 +236,7 @@ static int __init maybe_link(void)
 	if (nlink >= 2) {
 		char *old = find_link(major, minor, ino, mode, collected);
 		if (old)
-			return (sys_link(old, collected) < 0) ? -1 : 1;
+			return (sys_link((char __user *)old, (char __user *)collected) < 0) ? -1 : 1;
 	}
 	return 0;
 }
@@ -245,11 +245,11 @@ static void __init clean_path(char *path, mode_t mode)
 {
 	struct stat st;
 
-	if (!sys_newlstat(path, &st) && (st.st_mode^mode) & S_IFMT) {
+	if (!sys_newlstat((char __user *)path, (struct stat __user *)&st) && (st.st_mode^mode) & S_IFMT) {
 		if (S_ISDIR(st.st_mode))
-			sys_rmdir(path);
+			sys_rmdir((char __user *)path);
 		else
-			sys_unlink(path);
+			sys_unlink((char __user *)path);
 	}
 }
 
@@ -272,7 +272,7 @@ static int __init do_name(void)
 			int openflags = O_WRONLY|O_CREAT;
 			if (ml != 1)
 				openflags |= O_TRUNC;
-			wfd = sys_open(collected, openflags, mode);
+			wfd = sys_open((char __user *)collected, openflags, mode);
 
 			if (wfd >= 0) {
 				sys_fchown(wfd, uid, gid);
@@ -281,15 +281,15 @@ static int __init do_name(void)
 			}
 		}
 	} else if (S_ISDIR(mode)) {
-		sys_mkdir(collected, mode);
-		sys_chown(collected, uid, gid);
-		sys_chmod(collected, mode);
+		sys_mkdir((char __user *)collected, mode);
+		sys_chown((char __user *)collected, uid, gid);
+		sys_chmod((char __user *)collected, mode);
 	} else if (S_ISBLK(mode) || S_ISCHR(mode) ||
 		   S_ISFIFO(mode) || S_ISSOCK(mode)) {
 		if (maybe_link() == 0) {
-			sys_mknod(collected, mode, rdev);
-			sys_chown(collected, uid, gid);
-			sys_chmod(collected, mode);
+			sys_mknod((char __user *)collected, mode, rdev);
+			sys_chown((char __user *)collected, uid, gid);
+			sys_chmod((char __user *)collected, mode);
 		}
 	}
 	return 0;
@@ -298,13 +298,13 @@ static int __init do_name(void)
 static int __init do_copy(void)
 {
 	if (count >= body_len) {
-		sys_write(wfd, victim, body_len);
+		sys_write(wfd, (char __user *)victim, body_len);
 		sys_close(wfd);
 		eat(body_len);
 		state = SkipIt;
 		return 0;
 	} else {
-		sys_write(wfd, victim, count);
+		sys_write(wfd, (char __user *)victim, count);
 		body_len -= count;
 		eat(count);
 		return 1;
@@ -315,8 +315,8 @@ static int __init do_symlink(void)
 {
 	collected[N_ALIGN(name_len) + body_len] = '\0';
 	clean_path(collected, 0);
-	sys_symlink(collected + N_ALIGN(name_len), collected);
-	sys_lchown(collected, uid, gid);
+	sys_symlink((char __user *)collected + N_ALIGN(name_len), (char __user *)collected);
+	sys_lchown((char __user *)collected, uid, gid);
 	state = SkipIt;
 	next_state = Reset;
 	return 0;

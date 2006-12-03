@@ -240,9 +240,6 @@ static int atyfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 static int atyfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
 static int atyfb_blank(int blank, struct fb_info *info);
 static int atyfb_ioctl(struct fb_info *info, u_int cmd, u_long arg);
-extern void atyfb_fillrect(struct fb_info *info, const struct fb_fillrect *rect);
-extern void atyfb_copyarea(struct fb_info *info, const struct fb_copyarea *area);
-extern void atyfb_imageblit(struct fb_info *info, const struct fb_image *image);
 #ifdef __sparc__
 static int atyfb_mmap(struct fb_info *info, struct vm_area_struct *vma);
 #endif
@@ -409,7 +406,7 @@ static struct {
 	{ PCI_CHIP_MACH64LB, "3D RAGE LT PRO (Mach64 LB, AGP)", 236, 75, 100, 135, ATI_CHIP_264LTPRO },
 	{ PCI_CHIP_MACH64LD, "3D RAGE LT PRO (Mach64 LD, AGP)", 230, 100, 100, 135, ATI_CHIP_264LTPRO },
 	{ PCI_CHIP_MACH64LI, "3D RAGE LT PRO (Mach64 LI, PCI)", 230, 100, 100, 135, ATI_CHIP_264LTPRO | M64F_G3_PB_1_1 | M64F_G3_PB_1024x768 },
-	{ PCI_CHIP_MACH64LP, "3D RAGE LT PRO (Mach64 LP, PCI)", 230, 100, 100, 135, ATI_CHIP_264LTPRO },
+	{ PCI_CHIP_MACH64LP, "3D RAGE LT PRO (Mach64 LP, PCI)", 230, 100, 100, 135, ATI_CHIP_264LTPRO | M64F_G3_PB_1024x768 },
 	{ PCI_CHIP_MACH64LQ, "3D RAGE LT PRO (Mach64 LQ, PCI)", 230, 100, 100, 135, ATI_CHIP_264LTPRO },
 
 	{ PCI_CHIP_MACH64GM, "3D RAGE XL (Mach64 GM, AGP 2x)", 230, 83, 63, 135, ATI_CHIP_264XL },
@@ -1535,7 +1532,7 @@ static int atyfb_open(struct fb_info *info, int user)
 	return (0);
 }
 
-static irqreturn_t aty_irq(int irq, void *dev_id, struct pt_regs *fp)
+static irqreturn_t aty_irq(int irq, void *dev_id)
 {
 	struct atyfb_par *par = dev_id;
 	int handled = 0;
@@ -3863,6 +3860,7 @@ static int __devinit atyfb_setup(char *options)
 
 static int __devinit atyfb_init(void)
 {
+    int err1 = 1, err2 = 1;
 #ifndef MODULE
     char *option = NULL;
 
@@ -3872,12 +3870,13 @@ static int __devinit atyfb_init(void)
 #endif
 
 #ifdef CONFIG_PCI
-    pci_register_driver(&atyfb_driver);
+    err1 = pci_register_driver(&atyfb_driver);
 #endif
 #ifdef CONFIG_ATARI
-    atyfb_atari_probe();
+    err2 = atyfb_atari_probe();
 #endif
-    return 0;
+
+    return (err1 && err2) ? -ENODEV : 0;
 }
 
 static void __exit atyfb_exit(void)

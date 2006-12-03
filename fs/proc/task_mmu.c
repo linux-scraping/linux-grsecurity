@@ -134,11 +134,6 @@ struct mem_size_stats
 	unsigned long private_dirty;
 };
 
-__attribute__((weak)) const char *arch_vma_name(struct vm_area_struct *vma)
-{
-	return NULL;
-}
-
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 #define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
 			    (_mm->pax_flags & MF_PAX_RANDMMAP || \

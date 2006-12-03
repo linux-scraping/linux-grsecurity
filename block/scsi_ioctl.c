@@ -246,10 +246,10 @@ static int sg_io(struct file *file, request_queue_t *q,
 		switch (hdr->dxfer_direction) {
 		default:
 			return -EINVAL;
-		case SG_DXFER_TO_FROM_DEV:
 		case SG_DXFER_TO_DEV:
 			writing = 1;
 			break;
+		case SG_DXFER_TO_FROM_DEV:
 		case SG_DXFER_FROM_DEV:
 			break;
 		}
@@ -286,15 +286,14 @@ static int sg_io(struct file *file, request_queue_t *q,
 	 * fill in request structure
 	 */
 	rq->cmd_len = hdr->cmd_len;
+	memset(rq->cmd, 0, BLK_MAX_CDB); /* ATAPI hates garbage after CDB */
 	memcpy(rq->cmd, cmd, hdr->cmd_len);
-	if (sizeof(rq->cmd) != hdr->cmd_len)
-		memset(rq->cmd + hdr->cmd_len, 0, sizeof(rq->cmd) - hdr->cmd_len);
 
 	memset(sense, 0, sizeof(sense));
 	rq->sense = sense;
 	rq->sense_len = 0;
 
-	rq->flags |= REQ_BLOCK_PC;
+	rq->cmd_type = REQ_TYPE_BLOCK_PC;
 	bio = rq->bio;
 
 	/*
@@ -470,7 +469,7 @@ int sg_scsi_ioctl(struct file *file, struct request_queue *q,
 	memset(sense, 0, sizeof(sense));
 	rq->sense = sense;
 	rq->sense_len = 0;
-	rq->flags |= REQ_BLOCK_PC;
+	rq->cmd_type = REQ_TYPE_BLOCK_PC;
 
 	blk_execute_rq(q, disk, rq, 0);
 
@@ -502,7 +501,7 @@ static int __blk_send_generic(request_queue_t *q, struct gendisk *bd_disk, int c
 	int err;
 
 	rq = blk_get_request(q, WRITE, __GFP_WAIT);
-	rq->flags |= REQ_BLOCK_PC;
+	rq->cmd_type = REQ_TYPE_BLOCK_PC;
 	rq->data = NULL;
 	rq->data_len = 0;
 	rq->timeout = BLK_DEFAULT_TIMEOUT;

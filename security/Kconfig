@@ -292,7 +292,7 @@ config PAX_SYSCALL
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !COMPAT_VDSO
+	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !COMPAT_VDSO && X86_WP_WORKS_OK
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
@@ -517,18 +517,6 @@ config SECURITY_ROOTPLUG
 	  See <http://www.linuxjournal.com/article.php?sid=6279> for
 	  more information about this module.
 	  
-	  If you are unsure how to answer this question, answer N.
-
-config SECURITY_SECLVL
-	tristate "BSD Secure Levels"
-	depends on SECURITY
-	select CRYPTO
-	select CRYPTO_SHA1
-	help
-	  Implements BSD Secure Levels as an LSM.  See
-	  <file:Documentation/seclvl.txt> for instructions on how to use this
-	  module.
-
 	  If you are unsure how to answer this question, answer N.
 
 source security/selinux/Kconfig

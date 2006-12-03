@@ -39,6 +39,8 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 
+#include <asm/io.h>
+
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_cache.h>
 #include <rdma/ib_pack.h>
@@ -408,7 +410,7 @@ static void to_ib_ah_attr(struct mthca_dev *dev, struct ib_ah_attr *ib_ah_attr,
 	ib_ah_attr->sl       	  = be32_to_cpu(path->sl_tclass_flowlabel) >> 28;
 	ib_ah_attr->src_path_bits = path->g_mylmc & 0x7f;
 	ib_ah_attr->static_rate   = mthca_rate_to_ib(dev,
-						     path->static_rate & 0x7,
+						     path->static_rate & 0xf,
 						     ib_ah_attr->port_num);
 	ib_ah_attr->ah_flags      = (path->g_mylmc & (1 << 7)) ? IB_AH_GRH : 0;
 	if (ib_ah_attr->ah_flags) {
@@ -472,10 +474,14 @@ int mthca_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr, int qp_attr_m
 	if (qp->transport == RC || qp->transport == UC) {
 		to_ib_ah_attr(dev, &qp_attr->ah_attr, &context->pri_path);
 		to_ib_ah_attr(dev, &qp_attr->alt_ah_attr, &context->alt_path);
+		qp_attr->alt_pkey_index =
+			be32_to_cpu(context->alt_path.port_pkey) & 0x7f;
+		qp_attr->alt_port_num 	= qp_attr->alt_ah_attr.port_num;
 	}
 
-	qp_attr->pkey_index     = be32_to_cpu(context->pri_path.port_pkey) & 0x7f;
-	qp_attr->alt_pkey_index = be32_to_cpu(context->alt_path.port_pkey) & 0x7f;
+	qp_attr->pkey_index = be32_to_cpu(context->pri_path.port_pkey) & 0x7f;
+	qp_attr->port_num   =
+		(be32_to_cpu(context->pri_path.port_pkey) >> 24) & 0x3;
 
 	/* qp_attr->en_sqd_async_notify is only applicable in modify qp */
 	qp_attr->sq_draining = mthca_state == MTHCA_QP_STATE_DRAINING;
@@ -486,11 +492,9 @@ int mthca_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *qp_attr, int qp_attr_m
 		1 << ((be32_to_cpu(context->params2) >> 21) & 0x7);
 	qp_attr->min_rnr_timer 	    =
 		(be32_to_cpu(context->rnr_nextrecvpsn) >> 24) & 0x1f;
-	qp_attr->port_num 	    = qp_attr->ah_attr.port_num;
 	qp_attr->timeout 	    = context->pri_path.ackto >> 3;
 	qp_attr->retry_cnt 	    = (be32_to_cpu(context->params1) >> 16) & 0x7;
 	qp_attr->rnr_retry 	    = context->pri_path.rnr_retry >> 5;
-	qp_attr->alt_port_num 	    = qp_attr->alt_ah_attr.port_num;
 	qp_attr->alt_timeout 	    = context->alt_path.ackto >> 3;
 	qp_init_attr->cap 	    = qp_attr->cap;
 
@@ -527,7 +531,8 @@ static int mthca_path_set(struct mthca_dev *dev, struct ib_ah_attr *ah,
 	return 0;
 }
 
-int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
+int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask,
+		    struct ib_udata *udata)
 {
 	struct mthca_dev *dev = to_mdev(ibqp->device);
 	struct mthca_qp *qp = to_mqp(ibqp);
@@ -842,11 +847,10 @@ int mthca_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr, int attr_mask)
 	 * entries and reinitialize the QP.
 	 */
 	if (new_state == IB_QPS_RESET && !qp->ibqp.uobject) {
-		mthca_cq_clean(dev, to_mcq(qp->ibqp.send_cq), qp->qpn,
+		mthca_cq_clean(dev, to_mcq(qp->ibqp.recv_cq), qp->qpn,
 			       qp->ibqp.srq ? to_msrq(qp->ibqp.srq) : NULL);
 		if (qp->ibqp.send_cq != qp->ibqp.recv_cq)
-			mthca_cq_clean(dev, to_mcq(qp->ibqp.recv_cq), qp->qpn,
-				       qp->ibqp.srq ? to_msrq(qp->ibqp.srq) : NULL);
+			mthca_cq_clean(dev, to_mcq(qp->ibqp.send_cq), qp->qpn, NULL);
 
 		mthca_wq_reset(&qp->sq);
 		qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
@@ -1730,6 +1734,11 @@ out:
 		mthca_write64(doorbell,
 			      dev->kar + MTHCA_SEND_DOORBELL,
 			      MTHCA_GET_DOORBELL_LOCK(&dev->doorbell_lock));
+		/*
+		 * Make sure doorbells don't leak out of SQ spinlock
+		 * and reach the HCA out of order:
+		 */
+		mmiowb();
 	}
 
 	qp->sq.next_ind = ind;
@@ -1848,6 +1857,12 @@ out:
 
 	qp->rq.next_ind = ind;
 	qp->rq.head    += nreq;
+
+	/*
+	 * Make sure doorbells don't leak out of RQ spinlock and reach
+	 * the HCA out of order:
+	 */
+	mmiowb();
 
 	spin_unlock_irqrestore(&qp->rq.lock, flags);
 	return err;
@@ -2109,6 +2124,12 @@ out:
 			      dev->kar + MTHCA_SEND_DOORBELL,
 			      MTHCA_GET_DOORBELL_LOCK(&dev->doorbell_lock));
 	}
+
+	/*
+	 * Make sure doorbells don't leak out of SQ spinlock and reach
+	 * the HCA out of order:
+	 */
+	mmiowb();
 
 	spin_unlock_irqrestore(&qp->sq.lock, flags);
 	return err;

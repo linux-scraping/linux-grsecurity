@@ -96,6 +96,10 @@ static int mptfc_qcmd(struct scsi_cmnd *SCpnt,
 static void mptfc_target_destroy(struct scsi_target *starget);
 static void mptfc_set_rport_loss_tmo(struct fc_rport *rport, uint32_t timeout);
 static void __devexit mptfc_remove(struct pci_dev *pdev);
+static int mptfc_abort(struct scsi_cmnd *SCpnt);
+static int mptfc_dev_reset(struct scsi_cmnd *SCpnt);
+static int mptfc_bus_reset(struct scsi_cmnd *SCpnt);
+static int mptfc_host_reset(struct scsi_cmnd *SCpnt);
 
 static struct scsi_host_template mptfc_driver_template = {
 	.module				= THIS_MODULE,
@@ -110,10 +114,10 @@ static struct scsi_host_template mptfc_driver_template = {
 	.target_destroy			= mptfc_target_destroy,
 	.slave_destroy			= mptscsih_slave_destroy,
 	.change_queue_depth 		= mptscsih_change_queue_depth,
-	.eh_abort_handler		= mptscsih_abort,
-	.eh_device_reset_handler	= mptscsih_dev_reset,
-	.eh_bus_reset_handler		= mptscsih_bus_reset,
-	.eh_host_reset_handler		= mptscsih_host_reset,
+	.eh_abort_handler		= mptfc_abort,
+	.eh_device_reset_handler	= mptfc_dev_reset,
+	.eh_bus_reset_handler		= mptfc_bus_reset,
+	.eh_host_reset_handler		= mptfc_host_reset,
 	.bios_param			= mptscsih_bios_param,
 	.can_queue			= MPT_FC_CAN_QUEUE,
 	.this_id			= -1,
@@ -162,8 +166,85 @@ static struct fc_function_template mptfc_transport_functions = {
 	.show_starget_port_id = 1,
 	.set_rport_dev_loss_tmo = mptfc_set_rport_loss_tmo,
 	.show_rport_dev_loss_tmo = 1,
-
+	.show_host_supported_speeds = 1,
+	.show_host_maxframe_size = 1,
+	.show_host_speed = 1,
+	.show_host_fabric_name = 1,
+	.show_host_port_type = 1,
+	.show_host_port_state = 1,
+	.show_host_symbolic_name = 1,
 };
+
+static int
+mptfc_block_error_handler(struct scsi_cmnd *SCpnt,
+			  int (*func)(struct scsi_cmnd *SCpnt),
+			  const char *caller)
+{
+	struct scsi_device	*sdev = SCpnt->device;
+	struct Scsi_Host	*shost = sdev->host;
+	struct fc_rport		*rport = starget_to_rport(scsi_target(sdev));
+	unsigned long		flags;
+	int			ready;
+
+	spin_lock_irqsave(shost->host_lock, flags);
+	while ((ready = fc_remote_port_chkready(rport) >> 16) == DID_IMM_RETRY) {
+		spin_unlock_irqrestore(shost->host_lock, flags);
+		dfcprintk ((MYIOC_s_INFO_FMT
+			"mptfc_block_error_handler.%d: %d:%d, port status is "
+			"DID_IMM_RETRY, deferring %s recovery.\n",
+			((MPT_SCSI_HOST *) shost->hostdata)->ioc->name,
+			((MPT_SCSI_HOST *) shost->hostdata)->ioc->sh->host_no,
+			SCpnt->device->id,SCpnt->device->lun,caller));
+		msleep(1000);
+		spin_lock_irqsave(shost->host_lock, flags);
+	}
+	spin_unlock_irqrestore(shost->host_lock, flags);
+
+	if (ready == DID_NO_CONNECT || !SCpnt->device->hostdata) {
+		dfcprintk ((MYIOC_s_INFO_FMT
+			"%s.%d: %d:%d, failing recovery, "
+			"port state %d, vdev %p.\n", caller,
+			((MPT_SCSI_HOST *) shost->hostdata)->ioc->name,
+			((MPT_SCSI_HOST *) shost->hostdata)->ioc->sh->host_no,
+			SCpnt->device->id,SCpnt->device->lun,ready,
+			SCpnt->device->hostdata));
+		return FAILED;
+	}
+	dfcprintk ((MYIOC_s_INFO_FMT
+		"%s.%d: %d:%d, executing recovery.\n", caller,
+		((MPT_SCSI_HOST *) shost->hostdata)->ioc->name,
+		((MPT_SCSI_HOST *) shost->hostdata)->ioc->sh->host_no,
+		SCpnt->device->id,SCpnt->device->lun));
+	return (*func)(SCpnt);
+}
+
+static int
+mptfc_abort(struct scsi_cmnd *SCpnt)
+{
+	return
+	    mptfc_block_error_handler(SCpnt, mptscsih_abort, __FUNCTION__);
+}
+
+static int
+mptfc_dev_reset(struct scsi_cmnd *SCpnt)
+{
+	return
+	    mptfc_block_error_handler(SCpnt, mptscsih_dev_reset, __FUNCTION__);
+}
+
+static int
+mptfc_bus_reset(struct scsi_cmnd *SCpnt)
+{
+	return
+	    mptfc_block_error_handler(SCpnt, mptscsih_bus_reset, __FUNCTION__);
+}
+
+static int
+mptfc_host_reset(struct scsi_cmnd *SCpnt)
+{
+	return
+	    mptfc_block_error_handler(SCpnt, mptscsih_host_reset, __FUNCTION__);
+}
 
 static void
 mptfc_set_rport_loss_tmo(struct fc_rport *rport, uint32_t timeout)
@@ -556,6 +637,12 @@ mptfc_qcmd(struct scsi_cmnd *SCpnt, void (*done)(struct scsi_cmnd *))
 		return 0;
 	}
 
+	if (!SCpnt->device->hostdata) {	/* vdev */
+		SCpnt->result = DID_NO_CONNECT << 16;
+		done(SCpnt);
+		return 0;
+	}
+
 	/* dd_data is null until finished adding target */
 	ri = *((struct mptfc_rport_info **)rport->dd_data);
 	if (unlikely(!ri)) {
@@ -839,33 +926,95 @@ mptfc_SetFcPortPage1_defaults(MPT_ADAPTER *ioc)
 static void
 mptfc_init_host_attr(MPT_ADAPTER *ioc,int portnum)
 {
-	unsigned class = 0, cos = 0;
+	unsigned	class = 0;
+	unsigned	cos = 0;
+	unsigned	speed;
+	unsigned	port_type;
+	unsigned	port_state;
+	FCPortPage0_t	*pp0;
+	struct Scsi_Host *sh;
+	char		*sn;
 
 	/* don't know what to do as only one scsi (fc) host was allocated */
 	if (portnum != 0)
 		return;
 
-	class = ioc->fc_port_page0[portnum].SupportedServiceClass;
+	pp0 = &ioc->fc_port_page0[portnum];
+	sh = ioc->sh;
+
+	sn = fc_host_symbolic_name(sh);
+	snprintf(sn, FC_SYMBOLIC_NAME_SIZE, "%s %s%08xh",
+	    ioc->prod_name,
+	    MPT_FW_REV_MAGIC_ID_STRING,
+	    ioc->facts.FWVersion.Word);
+
+	fc_host_tgtid_bind_type(sh) = FC_TGTID_BIND_BY_WWPN;
+
+	fc_host_maxframe_size(sh) = pp0->MaxFrameSize;
+
+	fc_host_node_name(sh) =
+	    	(u64)pp0->WWNN.High << 32 | (u64)pp0->WWNN.Low;
+
+	fc_host_port_name(sh) =
+	    	(u64)pp0->WWPN.High << 32 | (u64)pp0->WWPN.Low;
+
+	fc_host_port_id(sh) = pp0->PortIdentifier;
+
+	class = pp0->SupportedServiceClass;
 	if (class & MPI_FCPORTPAGE0_SUPPORT_CLASS_1)
 		cos |= FC_COS_CLASS1;
 	if (class & MPI_FCPORTPAGE0_SUPPORT_CLASS_2)
 		cos |= FC_COS_CLASS2;
 	if (class & MPI_FCPORTPAGE0_SUPPORT_CLASS_3)
 		cos |= FC_COS_CLASS3;
+	fc_host_supported_classes(sh) = cos;
 
-	fc_host_node_name(ioc->sh) =
-	    	(u64)ioc->fc_port_page0[portnum].WWNN.High << 32
-		    | (u64)ioc->fc_port_page0[portnum].WWNN.Low;
+	if (pp0->CurrentSpeed == MPI_FCPORTPAGE0_CURRENT_SPEED_1GBIT)
+		speed = FC_PORTSPEED_1GBIT;
+	else if (pp0->CurrentSpeed == MPI_FCPORTPAGE0_CURRENT_SPEED_2GBIT)
+		speed = FC_PORTSPEED_2GBIT;
+	else if (pp0->CurrentSpeed == MPI_FCPORTPAGE0_CURRENT_SPEED_4GBIT)
+		speed = FC_PORTSPEED_4GBIT;
+	else if (pp0->CurrentSpeed == MPI_FCPORTPAGE0_CURRENT_SPEED_10GBIT)
+		speed = FC_PORTSPEED_10GBIT;
+	else
+		speed = FC_PORTSPEED_UNKNOWN;
+	fc_host_speed(sh) = speed;
 
-	fc_host_port_name(ioc->sh) =
-	    	(u64)ioc->fc_port_page0[portnum].WWPN.High << 32
-		    | (u64)ioc->fc_port_page0[portnum].WWPN.Low;
+	speed = 0;
+	if (pp0->SupportedSpeeds & MPI_FCPORTPAGE0_SUPPORT_1GBIT_SPEED)
+		speed |= FC_PORTSPEED_1GBIT;
+	if (pp0->SupportedSpeeds & MPI_FCPORTPAGE0_SUPPORT_2GBIT_SPEED)
+		speed |= FC_PORTSPEED_2GBIT;
+	if (pp0->SupportedSpeeds & MPI_FCPORTPAGE0_SUPPORT_4GBIT_SPEED)
+		speed |= FC_PORTSPEED_4GBIT;
+	if (pp0->SupportedSpeeds & MPI_FCPORTPAGE0_SUPPORT_10GBIT_SPEED)
+		speed |= FC_PORTSPEED_10GBIT;
+	fc_host_supported_speeds(sh) = speed;
 
-	fc_host_port_id(ioc->sh) = ioc->fc_port_page0[portnum].PortIdentifier;
+	port_state = FC_PORTSTATE_UNKNOWN;
+	if (pp0->PortState == MPI_FCPORTPAGE0_PORTSTATE_ONLINE)
+		port_state = FC_PORTSTATE_ONLINE;
+	else if (pp0->PortState == MPI_FCPORTPAGE0_PORTSTATE_OFFLINE)
+		port_state = FC_PORTSTATE_LINKDOWN;
+	fc_host_port_state(sh) = port_state;
 
-	fc_host_supported_classes(ioc->sh) = cos;
+	port_type = FC_PORTTYPE_UNKNOWN;
+	if (pp0->Flags & MPI_FCPORTPAGE0_FLAGS_ATTACH_POINT_TO_POINT)
+		port_type = FC_PORTTYPE_PTP;
+	else if (pp0->Flags & MPI_FCPORTPAGE0_FLAGS_ATTACH_PRIVATE_LOOP)
+		port_type = FC_PORTTYPE_LPORT;
+	else if (pp0->Flags & MPI_FCPORTPAGE0_FLAGS_ATTACH_PUBLIC_LOOP)
+		port_type = FC_PORTTYPE_NLPORT;
+	else if (pp0->Flags & MPI_FCPORTPAGE0_FLAGS_ATTACH_FABRIC_DIRECT)
+		port_type = FC_PORTTYPE_NPORT;
+	fc_host_port_type(sh) = port_type;
 
-	fc_host_tgtid_bind_type(ioc->sh) = FC_TGTID_BIND_BY_WWPN;
+	fc_host_fabric_name(sh) =
+	    (pp0->Flags & MPI_FCPORTPAGE0_FLAGS_FABRIC_WWN_VALID) ?
+		(u64) pp0->FabricWWNN.High << 32 | (u64) pp0->FabricWWPN.Low :
+		(u64)pp0->WWNN.High << 32 | (u64)pp0->WWNN.Low;
+
 }
 
 static void

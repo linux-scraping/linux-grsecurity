@@ -402,6 +402,7 @@ void alternatives_smp_switch(int smp)
 
 void __init alternative_instructions(void)
 {
+	unsigned long flags;
 	if (no_replacement) {
 		printk(KERN_INFO "(SMP-)alternatives turned off\n");
 		free_init_pages("SMP alternatives",
@@ -409,6 +410,8 @@ void __init alternative_instructions(void)
 				(unsigned long)__smp_alt_end);
 		return;
 	}
+
+	local_irq_save(flags);
 	apply_alternatives(__alt_instructions, __alt_instructions_end);
 
 	/* switch to patch-once-at-boottime-only mode and free the
@@ -444,4 +447,5 @@ void __init alternative_instructions(void)
 		alternatives_smp_switch(0);
 	}
 #endif
+	local_irq_restore(flags);
 }
