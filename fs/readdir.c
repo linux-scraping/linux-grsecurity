@@ -214,6 +214,7 @@ asmlinkage long sys_getdents(unsigned int fd, struct linux_dirent __user * diren
 	buf.previous = NULL;
 	buf.count = count;
 	buf.error = 0;
+	buf.file = file;
 
 	error = vfs_readdir(file, filldir, &buf);
 	if (error < 0)
