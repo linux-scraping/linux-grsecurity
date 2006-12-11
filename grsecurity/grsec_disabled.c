@@ -1,6 +1,5 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/file.h>
 #include <linux/fs.h>
