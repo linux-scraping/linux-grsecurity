@@ -338,10 +338,11 @@ ebt_check_match(struct ebt_entry_match *m, struct ebt_entry *e,
    const char *name, unsigned int hookmask, unsigned int *cnt)
 {
 	struct ebt_match *match;
+	size_t left = ((char *)e + e->watchers_offset) - (char *)m;
 	int ret;
 
-	if (((char *)m) + m->match_size + sizeof(struct ebt_entry_match) >
-	   ((char *)e) + e->watchers_offset)
+	if (left < sizeof(struct ebt_entry_match) ||
+	    left - sizeof(struct ebt_entry_match) < m->match_size)
 		return -EINVAL;
 	match = find_match_lock(m->u.name, &ret, &ebt_mutex);
 	if (!match)
@@ -367,10 +368,11 @@ ebt_check_watcher(struct ebt_entry_watcher *w, struct ebt_entry *e,
    const char *name, unsigned int hookmask, unsigned int *cnt)
 {
 	struct ebt_watcher *watcher;
+	size_t left = ((char *)e + e->target_offset) - (char *)w;
 	int ret;
 
-	if (((char *)w) + w->watcher_size + sizeof(struct ebt_entry_watcher) >
-	   ((char *)e) + e->target_offset)
+	if (left < sizeof(struct ebt_entry_watcher) ||
+	   left - sizeof(struct ebt_entry_watcher) < w->watcher_size)
 		return -EINVAL;
 	watcher = find_watcher_lock(w->u.name, &ret, &ebt_mutex);
 	if (!watcher)
@@ -401,19 +403,23 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
    struct ebt_entries **hook_entries, unsigned int *n, unsigned int *cnt,
    unsigned int *totalcnt, unsigned int *udc_cnt, unsigned int valid_hooks)
 {
+	unsigned int offset = (char *)e - newinfo->entries;
+	size_t left = (limit - base) - offset;
 	int i;
+
+	if (left < sizeof(unsigned int))
+		goto Esmall;
 
 	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
 		if ((valid_hooks & (1 << i)) == 0)
 			continue;
-		if ( (char *)hook_entries[i] - base ==
-		   (char *)e - newinfo->entries)
+		if ((char *)hook_entries[i] == base + offset)
 			break;
 	}
 	/* beginning of a new chain
 	   if i == NF_BR_NUMHOOKS it must be a user defined chain */
 	if (i != NF_BR_NUMHOOKS || !(e->bitmask & EBT_ENTRY_OR_ENTRIES)) {
-		if ((e->bitmask & EBT_ENTRY_OR_ENTRIES) != 0) {
+		if (e->bitmask != 0) {
 			/* we make userspace set this right,
 			   so there is no misunderstanding */
 			BUGPRINT("EBT_ENTRY_OR_ENTRIES shouldn't be set "
@@ -428,11 +434,8 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 			return -EINVAL;
 		}
 		/* before we look at the struct, be sure it is not too big */
-		if ((char *)hook_entries[i] + sizeof(struct ebt_entries)
-		   > limit) {
-			BUGPRINT("entries_size too small\n");
-			return -EINVAL;
-		}
+		if (left < sizeof(struct ebt_entries))
+			goto Esmall;
 		if (((struct ebt_entries *)e)->policy != EBT_DROP &&
 		   ((struct ebt_entries *)e)->policy != EBT_ACCEPT) {
 			/* only RETURN from udc */
@@ -455,6 +458,8 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		return 0;
 	}
 	/* a plain old entry, heh */
+	if (left < sizeof(struct ebt_entry))
+		goto Esmall;
 	if (sizeof(struct ebt_entry) > e->watchers_offset ||
 	   e->watchers_offset > e->target_offset ||
 	   e->target_offset >= e->next_offset) {
@@ -466,10 +471,16 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		BUGPRINT("target size too small\n");
 		return -EINVAL;
 	}
+	if (left < e->next_offset)
+		goto Esmall;
 
 	(*cnt)++;
 	(*totalcnt)++;
 	return 0;
+
+Esmall:
+	BUGPRINT("entries_size too small\n");
+	return -EINVAL;
 }
 
 struct ebt_cl_stack
@@ -491,7 +502,7 @@ ebt_get_udc_positions(struct ebt_entry *e, struct ebt_table_info *newinfo,
 	int i;
 
 	/* we're only interested in chain starts */
-	if (e->bitmask & EBT_ENTRY_OR_ENTRIES)
+	if (e->bitmask)
 		return 0;
 	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
 		if ((valid_hooks & (1 << i)) == 0)
@@ -541,7 +552,7 @@ ebt_cleanup_entry(struct ebt_entry *e, unsigned int *cnt)
 {
 	struct ebt_entry_target *t;
 
-	if ((e->bitmask & EBT_ENTRY_OR_ENTRIES) == 0)
+	if (e->bitmask == 0)
 		return 0;
 	/* we're done */
 	if (cnt && (*cnt)-- == 0)
@@ -564,10 +575,11 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 	struct ebt_entry_target *t;
 	struct ebt_target *target;
 	unsigned int i, j, hook = 0, hookmask = 0;
+	size_t gap = e->next_offset - e->target_offset;
 	int ret;
 
 	/* don't mess with the struct ebt_entries */
-	if ((e->bitmask & EBT_ENTRY_OR_ENTRIES) == 0)
+	if (e->bitmask == 0)
 		return 0;
 
 	if (e->bitmask & ~EBT_F_MASK) {
@@ -625,8 +637,7 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 
 	t->u.target = target;
 	if (t->u.target == &ebt_standard_target) {
-		if (e->target_offset + sizeof(struct ebt_standard_target) >
-		   e->next_offset) {
+		if (gap < sizeof(struct ebt_standard_target)) {
 			BUGPRINT("Standard target size too big\n");
 			ret = -EFAULT;
 			goto cleanup_watchers;
@@ -637,8 +648,7 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 			ret = -EFAULT;
 			goto cleanup_watchers;
 		}
-	} else if ((e->target_offset + t->target_size +
-	   sizeof(struct ebt_entry_target) > e->next_offset) ||
+	} else if (t->target_size > gap - sizeof(struct ebt_entry_target) ||
 	   (t->u.target->check &&
 	   t->u.target->check(name, hookmask, e, t->data, t->target_size) != 0)){
 		module_put(t->u.target->me);
@@ -708,7 +718,9 @@ static int check_chainloops(struct ebt_entries *chain, struct ebt_cl_stack *cl_s
 				BUGPRINT("loop\n");
 				return -1;
 			}
-			/* this can't be 0, so the above test is correct */
+			if (cl_s[i].hookmask & (1 << hooknr))
+				goto letscontinue;
+			/* this can't be 0, so the loop test is correct */
 			cl_s[i].cs.n = pos + 1;
 			pos = 0;
 			cl_s[i].cs.e = ((void *)e + e->next_offset);
@@ -1300,7 +1312,7 @@ static inline int ebt_make_names(struct ebt_entry *e, char *base, char *ubase)
 	char *hlp;
 	struct ebt_entry_target *t;
 
-	if ((e->bitmask & EBT_ENTRY_OR_ENTRIES) == 0)
+	if (e->bitmask == 0)
 		return 0;
 
 	hlp = ubase - base + (char *)e + e->target_offset;

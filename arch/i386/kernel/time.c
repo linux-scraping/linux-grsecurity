@@ -345,7 +345,7 @@ static struct sys_device device_timer = {
 	.cls	= &timer_sysclass,
 };
 
-static int time_init_device(void)
+static int __init time_init_device(void)
 {
 	int error = sysdev_class_register(&timer_sysclass);
 	if (!error)

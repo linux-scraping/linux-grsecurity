@@ -41,8 +41,16 @@ asmlinkage long sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 
 	if ((from + num <= from) || (from + num > IO_BITMAP_BITS))
 		return -EINVAL;
+
+#ifdef CONFIG_GRKERNSEC_IO
+	if (turn_on) {
+		gr_handle_ioperm();
+		return -EPERM;
+	}
+#else
 	if (turn_on && !capable(CAP_SYS_RAWIO))
 		return -EPERM;
+#endif
 
 	/*
 	 * If it's the first ioperm() call in this thread's lifetime, set the
@@ -111,8 +119,13 @@ asmlinkage long sys_iopl(unsigned int level, struct pt_regs *regs)
 		return -EINVAL;
 	/* Trying to gain more privileges? */
 	if (level > old) {
+#ifdef CONFIG_GRKERNSEC_IO
+		gr_handle_iopl();
+		return -EPERM;
+#else
 		if (!capable(CAP_SYS_RAWIO))
 			return -EPERM;
+#endif
 	}
 	regs->eflags = (regs->eflags &~ 0x3000UL) | (level << 12);
 	return 0;

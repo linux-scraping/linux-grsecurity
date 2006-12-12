@@ -2664,7 +2664,7 @@ static struct scsi_host_template scsi_driver_template = {
 	.sdev_attrs =			sbp2_sysfs_sdev_attrs,
 };
 
-static int sbp2_module_init(void)
+static int __init sbp2_module_init(void)
 {
 	int ret;
 
