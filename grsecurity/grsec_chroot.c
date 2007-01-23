@@ -79,7 +79,7 @@ int
 gr_pid_is_chrooted(struct task_struct *p)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
-	if (!grsec_enable_chroot_findtask || !proc_is_chrooted(current) || !p)
+	if (!grsec_enable_chroot_findtask || !proc_is_chrooted(current) || p == NULL)
 		return 0;
 
 	task_lock(p);

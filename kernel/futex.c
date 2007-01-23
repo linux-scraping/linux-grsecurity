@@ -200,7 +200,7 @@ static int get_futex_key(u32 __user *uaddr, union futex_key *key)
 	 * The futex is hashed differently depending on whether
 	 * it's in a shared or private mapping.  So check vma first.
 	 */
-	vma = find_extend_vma(mm, address);
+	vma = find_vma(mm, address);
 	if (unlikely(!vma))
 		return -EFAULT;
 

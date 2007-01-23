@@ -1010,7 +1010,7 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 #endif
 	    ) &&
 #endif
-	    !gr_check_hidden_task(task)) {
+ 	    !gr_pid_is_chrooted(task) && !gr_check_hidden_task(task)) {
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||

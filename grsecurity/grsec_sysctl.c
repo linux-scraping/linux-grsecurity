@@ -33,7 +33,7 @@ GS_FORKFAIL, GS_TIME, GS_CHROOT_SHMAT, GS_CHROOT_UNIX, GS_CHROOT_MNT,
 GS_CHROOT_FCHDIR, GS_CHROOT_DBL, GS_CHROOT_PVT, GS_CHROOT_CD, GS_CHROOT_CM,
 GS_CHROOT_MK, GS_CHROOT_NI, GS_CHROOT_EXECLOG, GS_CHROOT_CAPS,
 GS_CHROOT_SYSCTL, GS_TPE, GS_TPE_GID, GS_TPE_ALL, GS_SIDCAPS,
-GS_RANDPID, GS_SOCKET_ALL, GS_SOCKET_ALL_GID, GS_SOCKET_CLIENT,
+GS_SOCKET_ALL, GS_SOCKET_ALL_GID, GS_SOCKET_CLIENT,
 GS_SOCKET_CLIENT_GID, GS_SOCKET_SERVER, GS_SOCKET_SERVER_GID, 
 GS_GROUP, GS_GID, GS_ACHDIR, GS_AMOUNT, GS_AIPC, GS_DMSG,
 GS_TEXTREL, GS_FINDTASK, GS_SHM, GS_LOCK, GS_MODSTOP, GS_RESLOG};
@@ -264,16 +264,6 @@ ctl_table grsecurity_table[] = {
 		.ctl_name	= GS_TPE_ALL,
 		.procname	= "tpe_restrict_all",
 		.data		= &grsec_enable_tpe_all,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
-#ifdef CONFIG_GRKERNSEC_RANDPID
-	{
-		.ctl_name	= GS_RANDPID,
-		.procname	= "rand_pids",
-		.data		= &grsec_enable_randpid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,

@@ -541,6 +541,12 @@ not_pax_fault:
 		if (address + 65536 + 32 * sizeof(unsigned long) < regs->esp)
 			goto bad_area;
 	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && vma->vm_end - SEGMEXEC_TASK_SIZE - 1 < address - SEGMEXEC_TASK_SIZE - 1)
+		goto bad_area;
+#endif
+
 	if (expand_stack(vma, address))
 		goto bad_area;
 /*

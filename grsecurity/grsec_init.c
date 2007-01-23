@@ -39,7 +39,6 @@ int grsec_enable_chroot_unix;
 int grsec_enable_tpe;
 int grsec_tpe_gid;
 int grsec_enable_tpe_all;
-int grsec_enable_randpid;
 int grsec_enable_socket_all;
 int grsec_socket_all_gid;
 int grsec_enable_socket_client;
@@ -214,9 +213,6 @@ grsecurity_init(void)
 #ifdef CONFIG_GRKERNSEC_TPE_ALL
 	grsec_enable_tpe_all = 1;
 #endif
-#endif
-#ifdef CONFIG_GRKERNSEC_RANDPID
-	grsec_enable_randpid = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_ALL
 	grsec_enable_socket_all = 1;

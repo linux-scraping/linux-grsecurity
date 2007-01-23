@@ -6,7 +6,7 @@
 # are copyright Brad Spengler, and released under the GPL v2 or higher
 
 obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
-	grsec_mount.o grsec_rand.o grsec_sig.o grsec_sock.o grsec_sysctl.o \
+	grsec_mount.o grsec_sig.o grsec_sock.o grsec_sysctl.o \
 	grsec_time.o grsec_tpe.o grsec_ipc.o grsec_link.o grsec_textrel.o
 
 obj-$(CONFIG_GRKERNSEC) += grsec_init.o grsum.o gracl.o gracl_ip.o gracl_segv.o \

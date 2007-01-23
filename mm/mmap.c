@@ -1703,23 +1703,6 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
 {
 	return expand_upwards(vma, address);
 }
-
-struct vm_area_struct *
-find_extend_vma(struct mm_struct *mm, unsigned long addr)
-{
-	struct vm_area_struct *vma, *prev;
-
-	addr &= PAGE_MASK;
-	vma = find_vma_prev(mm, addr, &prev);
-	if (vma && (vma->vm_start <= addr))
-		return vma;
-	if (!prev || expand_stack(prev, addr))
-		return NULL;
-	if (prev->vm_flags & VM_LOCKED) {
-		make_pages_present(addr, prev->vm_end);
-	}
-	return prev;
-}
 #else
 /*
  * vma is the first one with address < vma->vm_start.  Have to extend vma.
@@ -1795,29 +1778,6 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
 	}
 	anon_vma_unlock(vma);
 	return error;
-}
-
-struct vm_area_struct *
-find_extend_vma(struct mm_struct * mm, unsigned long addr)
-{
-	struct vm_area_struct * vma;
-	unsigned long start;
-
-	addr &= PAGE_MASK;
-	vma = find_vma(mm,addr);
-	if (!vma)
-		return NULL;
-	if (vma->vm_start <= addr)
-		return vma;
-	if (!(vma->vm_flags & VM_GROWSDOWN))
-		return NULL;
-	start = vma->vm_start;
-	if (expand_stack(vma, addr))
-		return NULL;
-	if (vma->vm_flags & VM_LOCKED) {
-		make_pages_present(addr, start);
-	}
-	return vma;
 }
 #endif
 

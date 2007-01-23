@@ -36,7 +36,7 @@ static kmem_cache_t *pid_cachep;
 
 int pid_max = PID_MAX_DEFAULT;
 
-#define RESERVED_PIDS		500
+#define RESERVED_PIDS		300
 
 int pid_max_min = RESERVED_PIDS + 1;
 int pid_max_max = PID_MAX_LIMIT;
@@ -95,9 +95,7 @@ static int alloc_pidmap(struct pspace *pspace)
 	int i, offset, max_scan, pid, last = pspace->last_pid;
 	struct pidmap *map;
 
-	pid = gr_random_pid();
-	if (!pid)
-		pid = pspace->last_pid + 1;
+	pid = last + 1;
 	if (pid >= pid_max)
 		pid = RESERVED_PIDS;
 	offset = pid & BITS_PER_PAGE_MASK;
@@ -328,8 +326,6 @@ struct task_struct *fastcall get_pid_task(struct pid *pid, enum pid_type type)
 	struct task_struct *result;
 	rcu_read_lock();
 	result = pid_task(pid, type);
-	if (gr_pid_is_chrooted(result))
-		result = NULL;
 	if (result)
 		get_task_struct(result);
 	rcu_read_unlock();

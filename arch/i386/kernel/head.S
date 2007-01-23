@@ -261,6 +261,7 @@ ENTRY(startup_32_smp)
 	/* Make changes effective */
 	wrmsr
 	btsl $63,__supported_pte_mask-__PAGE_OFFSET
+	movl $1,nx_enabled-__PAGE_OFFSET
 
 4:
 	movl %edi,%ebx

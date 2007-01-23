@@ -1392,7 +1392,10 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	write_lock_irq(&tasklist_lock);
 
 	err = -ESRCH;
-	p = find_task_by_pid(pid);
+	/* grsec: replaced find_task_by_pid with equivalent call
+	   which lacks the chroot restriction
+	*/
+	p = pid_task(find_pid(pid), PIDTYPE_PID);
 	if (!p)
 		goto out;
 

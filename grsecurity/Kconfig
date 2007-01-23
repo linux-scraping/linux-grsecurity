@@ -24,7 +24,6 @@ config GRKERNSEC_LOW
 	bool "Low"
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_RANDPID
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_RANDNET
 	select GRKERNSEC_DMESG
@@ -42,7 +41,6 @@ config GRKERNSEC_LOW
 
 	  - Linking restrictions
 	  - FIFO restrictions
-	  - Randomized PIDs
 	  - Enforcing RLIMIT_NPROC on execve
 	  - Restricted dmesg
 	  - Enforced chdir("/") on chroot
@@ -58,7 +56,6 @@ config GRKERNSEC_MEDIUM
 	select GRKERNSEC_CHROOT_SYSCTL
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_RANDPID
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_RANDNET
@@ -107,7 +104,6 @@ config GRKERNSEC_HIGH
 	bool "High"
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_RANDPID
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_FORKFAIL
@@ -498,8 +494,8 @@ config GRKERNSEC_CHROOT_FINDTASK
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to
-	  kill, send signals with fcntl, ptrace, capget, setpgid, getpgid,
-	  getsid, or view any process outside of the chroot.  If the sysctl
+	  kill, send signals with fcntl, ptrace, capget, getpgid, getsid,
+	  or view any process outside of the chroot.  If the sysctl
 	  option is enabled, a sysctl option with name "chroot_findtask" is
 	  created.
 
@@ -684,18 +680,6 @@ config GRKERNSEC_DMESG
 	  to view up to the last 4kb of messages in the kernel's log buffer.
 	  If the sysctl option is enabled, a sysctl option with name "dmesg" is
 	  created.
-
-config GRKERNSEC_RANDPID
-	bool "Randomized PIDs"
-	help
-	  If you say Y here, all PIDs created on the system will be
-	  pseudo-randomly generated.  This is extremely effective along
-	  with the /proc restrictions to disallow an attacker from guessing
-	  pids of daemons, etc.  PIDs are also used in some cases as part
-	  of a naming system for temporary files, so this option would keep
-	  those filenames from being predicted as well.  We also use code
-	  to make sure that PID numbers aren't reused too soon.  If the sysctl
-	  option is enabled, a sysctl option with name "rand_pids" is created.
 
 config GRKERNSEC_TPE
 	bool "Trusted Path Execution (TPE)"

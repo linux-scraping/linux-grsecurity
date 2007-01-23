@@ -57,7 +57,6 @@ extern int grsec_enable_tpe;
 extern int grsec_tpe_gid;
 extern int grsec_enable_tpe_all;
 extern int grsec_enable_sidcaps;
-extern int grsec_enable_randpid;
 extern int grsec_enable_socket_all;
 extern int grsec_socket_all_gid;
 extern int grsec_enable_socket_client;
