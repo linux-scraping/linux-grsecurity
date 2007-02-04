@@ -74,6 +74,13 @@ alloc_zeroed_user_highpage(struct vm_area_struct *vma, unsigned long vaddr)
 
 static inline void clear_highpage(struct page *page)
 {
+	void *kaddr = kmap_atomic(page, KM_USER0);
+	clear_page(kaddr);
+	kunmap_atomic(kaddr, KM_USER0);
+}
+
+static inline void sanitize_highpage(struct page *page)
+{
 	void *kaddr = kmap_atomic(page, KM_CLEARPAGE);
 	clear_page(kaddr);
 	kunmap_atomic(kaddr, KM_CLEARPAGE);

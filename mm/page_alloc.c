@@ -403,7 +403,7 @@ static inline void __free_one_page(struct page *page,
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
 	for (index = order_size; index; --index)
-		clear_highpage(page + index - 1);
+		sanitize_highpage(page + index - 1);
 #endif
 
 	zone->free_pages += order_size;

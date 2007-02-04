@@ -1002,15 +1002,22 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 	stat->uid = 0;
 	stat->gid = 0;
 	task = pid_task(proc_pid(inode), PIDTYPE_PID);
-	if (task &&
+
+	if (task && (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))) {
+		rcu_read_unlock();
+		return -ENOENT;
+	}
+
+
+	if (task
 #if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	    (!tmp->uid || (tmp->uid == task->uid)
+	    && (!tmp->uid || (tmp->uid == task->uid)
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
 	    || in_group_p(CONFIG_GRKERNSEC_PROC_GID)
 #endif
-	    ) &&
+	    )
 #endif
- 	    !gr_pid_is_chrooted(task) && !gr_check_hidden_task(task)) {
+	) {
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||
@@ -1051,6 +1058,12 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 {
 	struct inode *inode = dentry->d_inode;
 	struct task_struct *task = get_proc_task(inode);
+
+	if (task && (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))) {
+		put_task_struct(task);
+		goto out;
+	}
+
 	if (task) {
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
@@ -1074,6 +1087,7 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 		put_task_struct(task);
 		return 1;
 	}
+out:
 	d_drop(dentry);
 	return 0;
 }
@@ -1446,6 +1460,9 @@ static struct dentry *proc_pident_lookup(struct inode *dir,
 	if (!task)
 		goto out_no_task;
 
+	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
+		goto out;
+
 	/*
 	 * Yes, it does not scale. And it should not. Don't add
 	 * new entries into /proc/<tgid>/ without very good reasons.
@@ -1490,6 +1507,9 @@ static int proc_pident_readdir(struct file *filp,
 	ret = -ENOENT;
 	if (!task)
 		goto out_no_task;
+
+	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
+		goto out;
 
 	ret = 0;
 	pid = task->pid;
@@ -1768,6 +1788,9 @@ static struct dentry *proc_base_lookup(struct inode *dir, struct dentry *dentry)
 			break;
 	}
 	if (p > last)
+		goto out;
+
+	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
 		goto out;
 
 	error = proc_base_instantiate(dir, dentry, task, p);

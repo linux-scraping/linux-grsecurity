@@ -1,6 +1,6 @@
 /* Kernel module to add stealth support.
  *
- * Copyright (C) 2002,2005 Brad Spengler  <spender@grsecurity.net>
+ * Copyright (C) 2002-2006 Brad Spengler  <spender@grsecurity.net>
  *
  */
 
@@ -76,12 +76,9 @@ checkentry(const char *tablename,
            const void *nip,
 	   const struct xt_match *match,
            void *matchinfo,
-           unsigned int matchsize,
            unsigned int hook_mask)
 {
 	const struct ipt_ip *ip = (const struct ipt_ip *)nip;
-        if (matchsize != IPT_ALIGN(0))
-                return 0;
 
 	if(((ip->proto == IPPROTO_TCP && !(ip->invflags & IPT_INV_PROTO)) ||
 		((ip->proto == IPPROTO_UDP) && !(ip->invflags & IPT_INV_PROTO)))
