@@ -507,7 +507,7 @@ static __init int intel_router_probe(struct irq_router *r, struct pci_dev *route
 	static struct pci_device_id __initdata pirq_440gx[] = {
 		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443GX_0) },
 		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443GX_2) },
-		{ },
+		{ PCI_DEVICE(0, 0) }
 	};
 
 	/* 440GX has a proprietary PIRQ router -- don't use it */
@@ -543,6 +543,12 @@ static __init int intel_router_probe(struct irq_router *r, struct pci_dev *route
 		case PCI_DEVICE_ID_INTEL_ICH8_2:
 		case PCI_DEVICE_ID_INTEL_ICH8_3:
 		case PCI_DEVICE_ID_INTEL_ICH8_4:
+		case PCI_DEVICE_ID_INTEL_ICH9_0:
+		case PCI_DEVICE_ID_INTEL_ICH9_1:
+		case PCI_DEVICE_ID_INTEL_ICH9_2:
+		case PCI_DEVICE_ID_INTEL_ICH9_3:
+		case PCI_DEVICE_ID_INTEL_ICH9_4:
+		case PCI_DEVICE_ID_INTEL_ICH9_5:
 			r->name = "PIIX/ICH";
 			r->get = pirq_piix_get;
 			r->set = pirq_piix_set;
@@ -758,7 +764,7 @@ static void __init pirq_find_router(struct irq_router *r)
 	DBG(KERN_DEBUG "PCI: Attempting to find IRQ router for %04x:%04x\n",
 	    rt->rtr_vendor, rt->rtr_device);
 
-	pirq_router_dev = pci_find_slot(rt->rtr_bus, rt->rtr_devfn);
+	pirq_router_dev = pci_get_bus_and_slot(rt->rtr_bus, rt->rtr_devfn);
 	if (!pirq_router_dev) {
 		DBG(KERN_DEBUG "PCI: Interrupt router not found at "
 			"%02x:%02x\n", rt->rtr_bus, rt->rtr_devfn);
@@ -778,6 +784,8 @@ static void __init pirq_find_router(struct irq_router *r)
 		pirq_router_dev->vendor,
 		pirq_router_dev->device,
 		pci_name(pirq_router_dev));
+
+	/* The device remains referenced for the kernel lifetime */
 }
 
 static struct irq_info *pirq_get_info(struct pci_dev *dev)
@@ -1041,7 +1049,7 @@ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 360"),
 		},
 	},
-	{ }
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
 };
 
 static int __init pcibios_irq_init(void)

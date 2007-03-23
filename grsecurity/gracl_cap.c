@@ -79,7 +79,6 @@ gr_task_is_capable(struct task_struct *task, const int cap)
 
 	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(task->cap_effective, cap))
 		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);
-
 	return 0;
 }
 

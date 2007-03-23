@@ -23,7 +23,7 @@ static struct fuse_conn *fuse_ctl_file_conn_get(struct file *file)
 {
 	struct fuse_conn *fc;
 	mutex_lock(&fuse_mutex);
-	fc = file->f_dentry->d_inode->i_private;
+	fc = file->f_path.dentry->d_inode->i_private;
 	if (fc)
 		fc = fuse_conn_get(fc);
 	mutex_unlock(&fuse_mutex);
@@ -159,7 +159,7 @@ void fuse_ctl_remove_conn(struct fuse_conn *fc)
 
 static int fuse_ctl_fill_super(struct super_block *sb, void *data, int silent)
 {
-	struct tree_descr empty_descr = {""};
+	struct tree_descr empty_descr = {"", NULL, 0};
 	struct fuse_conn *fc;
 	int err;
 
@@ -193,8 +193,12 @@ static int fuse_ctl_get_sb(struct file_system_type *fs_type, int flags,
 
 static void fuse_ctl_kill_sb(struct super_block *sb)
 {
+	struct fuse_conn *fc;
+
 	mutex_lock(&fuse_mutex);
 	fuse_control_sb = NULL;
+	list_for_each_entry(fc, &fuse_conn_list, entry)
+		fc->ctl_ndents = 0;
 	mutex_unlock(&fuse_mutex);
 
 	kill_litter_super(sb);

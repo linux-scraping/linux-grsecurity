@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/fs.h>
+#include <linux/err.h>
 #include <linux/mount.h>
 #include <linux/jffs2.h>
 #include <linux/pagemap.h>
@@ -28,12 +29,12 @@
 
 static void jffs2_put_super(struct super_block *);
 
-static kmem_cache_t *jffs2_inode_cachep;
+static struct kmem_cache *jffs2_inode_cachep;
 
 static struct inode *jffs2_alloc_inode(struct super_block *sb)
 {
 	struct jffs2_inode_info *ei;
-	ei = (struct jffs2_inode_info *)kmem_cache_alloc(jffs2_inode_cachep, SLAB_KERNEL);
+	ei = (struct jffs2_inode_info *)kmem_cache_alloc(jffs2_inode_cachep, GFP_KERNEL);
 	if (!ei)
 		return NULL;
 	return &ei->vfs_inode;
@@ -44,7 +45,7 @@ static void jffs2_destroy_inode(struct inode *inode)
 	kmem_cache_free(jffs2_inode_cachep, JFFS2_INODE_INFO(inode));
 }
 
-static void jffs2_i_init_once(void * foo, kmem_cache_t * cachep, unsigned long flags)
+static void jffs2_i_init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
 {
 	struct jffs2_inode_info *ei = (struct jffs2_inode_info *) foo;
 
@@ -184,9 +185,9 @@ static int jffs2_get_sb_mtdnr(struct file_system_type *fs_type,
 	struct mtd_info *mtd;
 
 	mtd = get_mtd_device(NULL, mtdnr);
-	if (!mtd) {
+	if (IS_ERR(mtd)) {
 		D1(printk(KERN_DEBUG "jffs2: MTD device #%u doesn't appear to exist\n", mtdnr));
-		return -EINVAL;
+		return PTR_ERR(mtd);
 	}
 
 	return jffs2_get_sb_mtd(fs_type, flags, dev_name, data, mtd, mnt);
@@ -221,7 +222,7 @@ static int jffs2_get_sb(struct file_system_type *fs_type,
 			D1(printk(KERN_DEBUG "jffs2_get_sb(): mtd:%%s, name \"%s\"\n", dev_name+4));
 			for (mtdnr = 0; mtdnr < MAX_MTD_DEVICES; mtdnr++) {
 				mtd = get_mtd_device(NULL, mtdnr);
-				if (mtd) {
+				if (!IS_ERR(mtd)) {
 					if (!strcmp(mtd->name, dev_name+4))
 						return jffs2_get_sb_mtd(fs_type, flags, dev_name, data, mtd, mnt);
 					put_mtd_device(mtd);

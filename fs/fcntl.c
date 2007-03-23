@@ -79,10 +79,9 @@ repeat:
 		start = files->next_fd;
 
 	newfd = start;
-	if (start < fdt->max_fdset) {
+	if (start < fdt->max_fds)
 		newfd = find_next_zero_bit(fdt->open_fds->fds_bits,
-			fdt->max_fdset, start);
-	}
+					   fdt->max_fds, start);
 	
 	error = -EMFILE;
 	gr_learn_resource(current, RLIMIT_NOFILE, newfd, 0);
@@ -209,7 +208,7 @@ asmlinkage long sys_dup(unsigned int fildes)
 
 static int setfl(int fd, struct file * filp, unsigned long arg)
 {
-	struct inode * inode = filp->f_dentry->d_inode;
+	struct inode * inode = filp->f_path.dentry->d_inode;
 	int error = 0;
 
 	/*
@@ -559,7 +558,7 @@ int send_sigurg(struct fown_struct *fown)
 }
 
 static DEFINE_RWLOCK(fasync_lock);
-static kmem_cache_t *fasync_cache __read_mostly;
+static struct kmem_cache *fasync_cache __read_mostly;
 
 /*
  * fasync_helper() is used by some character device drivers (mainly mice)
@@ -573,7 +572,7 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
 	int result = 0;
 
 	if (on) {
-		new = kmem_cache_alloc(fasync_cache, SLAB_KERNEL);
+		new = kmem_cache_alloc(fasync_cache, GFP_KERNEL);
 		if (!new)
 			return -ENOMEM;
 	}

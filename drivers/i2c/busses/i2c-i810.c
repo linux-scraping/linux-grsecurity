@@ -196,7 +196,7 @@ static struct pci_device_id i810_ids[] __devinitdata = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82810E_IG) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82815_CGC) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82845G_IG) },
-	{ 0, },
+	{ 0, 0, 0, 0, 0, 0, 0 },
 };
 
 MODULE_DEVICE_TABLE (pci, i810_ids);
@@ -219,14 +219,14 @@ static int __devinit i810_probe(struct pci_dev *dev, const struct pci_device_id 
 		return retval;
 	retval = i2c_bit_add_bus(&i810_ddc_adapter);
 	if (retval)
-		i2c_bit_del_bus(&i810_i2c_adapter);
+		i2c_del_adapter(&i810_i2c_adapter);
 	return retval;
 }
 
 static void __devexit i810_remove(struct pci_dev *dev)
 {
-	i2c_bit_del_bus(&i810_ddc_adapter);
-	i2c_bit_del_bus(&i810_i2c_adapter);
+	i2c_del_adapter(&i810_ddc_adapter);
+	i2c_del_adapter(&i810_i2c_adapter);
 	iounmap(ioaddr);
 }
 

@@ -308,8 +308,8 @@ static int mmap_kmem(struct file * file, struct vm_area_struct * vma)
 {
 	unsigned long pfn;
 
-	/* Turn a pfn offset into an absolute pfn */
-	pfn = PFN_DOWN(virt_to_phys((void *)PAGE_OFFSET)) + vma->vm_pgoff;
+	/* Turn a kernel-virtual address into a physical page frame */
+	pfn = __pa((u64)vma->vm_pgoff << PAGE_SHIFT) >> PAGE_SHIFT;
 
 	/*
 	 * RED-PEN: on some architectures there is more mapped memory
@@ -814,7 +814,7 @@ static loff_t memory_lseek(struct file * file, loff_t offset, int orig)
 {
 	loff_t ret;
 
-	mutex_lock(&file->f_dentry->d_inode->i_mutex);
+	mutex_lock(&file->f_path.dentry->d_inode->i_mutex);
 	switch (orig) {
 		case 0:
 			file->f_pos = offset;
@@ -829,7 +829,7 @@ static loff_t memory_lseek(struct file * file, loff_t offset, int orig)
 		default:
 			ret = -EINVAL;
 	}
-	mutex_unlock(&file->f_dentry->d_inode->i_mutex);
+	mutex_unlock(&file->f_path.dentry->d_inode->i_mutex);
 	return ret;
 }
 
@@ -1037,10 +1037,10 @@ static int __init chr_dev_init(void)
 
 	mem_class = class_create(THIS_MODULE, "mem");
 	for (i = 0; i < ARRAY_SIZE(devlist); i++)
-		class_device_create(mem_class, NULL,
-					MKDEV(MEM_MAJOR, devlist[i].minor),
-					NULL, devlist[i].name);
-	
+		device_create(mem_class, NULL,
+			      MKDEV(MEM_MAJOR, devlist[i].minor),
+			      devlist[i].name);
+
 	return 0;
 }
 

@@ -12,6 +12,7 @@
 #include <linux/dmi.h>
 #include <linux/ctype.h>
 #include <linux/pm.h>
+#include <linux/reboot.h>
 #include <asm/uaccess.h>
 #include <asm/apic.h>
 #include <asm/desc.h>
@@ -119,7 +120,7 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP Compaq"),
 		},
 	},
-	{ }
+	{ NULL, NULL, {{0, NULL}}, NULL}
 };
 
 static int __init reboot_init(void)
@@ -137,18 +138,18 @@ core_initcall(reboot_init);
    doesn't work with at least one type of 486 motherboard.  It is easy
    to stop this code working; hence the copious comments. */
 
-static const unsigned long long
+static const struct desc_struct
 real_mode_gdt_entries [3] =
 {
-	0x0000000000000000ULL,	/* Null descriptor */
-	0x00009b000000ffffULL,	/* 16-bit real-mode 64k code at 0x00000000 */
-	0x000093000100ffffULL	/* 16-bit real-mode 64k data at 0x00000100 */
+	{0x00000000, 0x00000000},	/* Null descriptor */
+	{0x0000ffff, 0x00009b00},	/* 16-bit real-mode 64k code at 0x00000000 */
+	{0x0100ffff, 0x00009300}	/* 16-bit real-mode 64k data at 0x00000100 */
 };
 
 static const struct Xgt_desc_struct
-real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, (long)real_mode_gdt_entries },
-real_mode_idt = { 0x3ff, 0 },
-no_idt = { 0, 0 };
+real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, real_mode_gdt_entries, 0 },
+real_mode_idt = { 0x3ff, NULL, 0 },
+no_idt = { 0, NULL, 0 };
 
 
 /* This is 16-bit protected mode code to disable paging and the cache,

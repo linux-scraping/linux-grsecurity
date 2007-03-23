@@ -57,9 +57,9 @@ static void put_compound_page(struct page *page)
 {
 	page = (struct page *)page_private(page);
 	if (put_page_testzero(page)) {
-		void (*dtor)(struct page *page);
+		compound_page_dtor *dtor;
 
-		dtor = (void (*)(struct page *))page[1].lru.next;
+		dtor = get_compound_page_dtor(page);
 		(*dtor)(page);
 	}
 }
@@ -174,8 +174,8 @@ EXPORT_SYMBOL(mark_page_accessed);
  * lru_cache_add: add a page to the page lists
  * @page: the page to add
  */
-static DEFINE_PER_CPU(struct pagevec, lru_add_pvecs) = { 0, };
-static DEFINE_PER_CPU(struct pagevec, lru_add_active_pvecs) = { 0, };
+static DEFINE_PER_CPU(struct pagevec, lru_add_pvecs) = { 0, 0, {NULL} };
+static DEFINE_PER_CPU(struct pagevec, lru_add_active_pvecs) = { 0, 0, {NULL} };
 
 void fastcall lru_cache_add(struct page *page)
 {
@@ -216,7 +216,7 @@ void lru_add_drain(void)
 }
 
 #ifdef CONFIG_NUMA
-static void lru_add_drain_per_cpu(void *dummy)
+static void lru_add_drain_per_cpu(struct work_struct *dummy)
 {
 	lru_add_drain();
 }
@@ -226,7 +226,7 @@ static void lru_add_drain_per_cpu(void *dummy)
  */
 int lru_add_drain_all(void)
 {
-	return schedule_on_each_cpu(lru_add_drain_per_cpu, NULL);
+	return schedule_on_each_cpu(lru_add_drain_per_cpu);
 }
 
 #else
@@ -514,5 +514,7 @@ void __init swap_setup(void)
 	 * Right now other parts of the system means that we
 	 * _really_ don't want to cluster much more
 	 */
+#ifdef CONFIG_HOTPLUG_CPU
 	hotcpu_notifier(cpu_swap_callback, 0);
+#endif
 }

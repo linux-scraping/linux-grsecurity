@@ -197,7 +197,7 @@ static struct dmi_system_id __initdata acpisleep_dmi_table[] = {
 	 .ident = "Toshiba Satellite 4030cdt",
 	 .matches = {DMI_MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),},
 	 },
-	{},
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL},
 };
 
 static int __init acpi_sleep_init(void)

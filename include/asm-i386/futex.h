@@ -11,8 +11,11 @@
 
 #define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg) \
   __asm__ __volatile (						\
+	"movw	%w6, %%ds\n"\
 "1:	" insn "\n"						\
-"2:	.section .fixup,\"ax\"\n\
+"2:	pushl	%%ss\n\
+	popl	%%ds\n\
+	.section .fixup,\"ax\"\n\
 3:	mov	%3, %1\n\
 	jmp	2b\n\
 	.previous\n\
@@ -21,16 +24,19 @@
 	.long	1b,3b\n\
 	.previous"						\
 	: "=r" (oldval), "=r" (ret), "+m" (*uaddr)		\
-	: "i" (-EFAULT), "0" (oparg), "1" (0))
+	: "i" (-EFAULT), "0" (oparg), "1" (0), "r" (__USER_DS))
 
 #define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg) \
   __asm__ __volatile (						\
-"1:	movl	%2, %0\n\
+"	movw	%w7, %%es\n\
+1:	movl	%%es:%2, %0\n\
 	movl	%0, %3\n"					\
 	insn "\n"						\
-"2:	" LOCK_PREFIX "cmpxchgl %3, %2\n\
+"2:	" LOCK_PREFIX "cmpxchgl %3, %%es:%2\n\
 	jnz	1b\n\
-3:	.section .fixup,\"ax\"\n\
+3:	pushl	%%ss\n\
+	popl	%%es\n\
+	.section .fixup,\"ax\"\n\
 4:	mov	%5, %1\n\
 	jmp	3b\n\
 	.previous\n\
@@ -40,7 +46,7 @@
 	.previous"						\
 	: "=&a" (oldval), "=&r" (ret), "+m" (*uaddr),		\
 	  "=&r" (tem)						\
-	: "r" (oparg), "i" (-EFAULT), "1" (0))
+	: "r" (oparg), "i" (-EFAULT), "1" (0), "r" (__USER_DS))
 
 static inline int
 futex_atomic_op_inuser (int encoded_op, int __user *uaddr)
@@ -56,10 +62,10 @@ futex_atomic_op_inuser (int encoded_op, int __user *uaddr)
 	if (! access_ok (VERIFY_WRITE, uaddr, sizeof(int)))
 		return -EFAULT;
 
-	inc_preempt_count();
+	pagefault_disable();
 
 	if (op == FUTEX_OP_SET)
-		__futex_atomic_op1("xchgl %0, %2", ret, oldval, uaddr, oparg);
+		__futex_atomic_op1("xchgl %0, %%ds:%2", ret, oldval, uaddr, oparg);
 	else {
 #ifndef CONFIG_X86_BSWAP
 		if (boot_cpu_data.x86 == 3)
@@ -68,7 +74,7 @@ futex_atomic_op_inuser (int encoded_op, int __user *uaddr)
 #endif
 		switch (op) {
 		case FUTEX_OP_ADD:
-			__futex_atomic_op1(LOCK_PREFIX "xaddl %0, %2", ret,
+			__futex_atomic_op1(LOCK_PREFIX "xaddl %0, %%ds:%2", ret,
 					   oldval, uaddr, oparg);
 			break;
 		case FUTEX_OP_OR:
@@ -88,7 +94,7 @@ futex_atomic_op_inuser (int encoded_op, int __user *uaddr)
 		}
 	}
 
-	dec_preempt_count();
+	pagefault_enable();
 
 	if (!ret) {
 		switch (cmp) {
@@ -111,9 +117,11 @@ futex_atomic_cmpxchg_inatomic(int __user *uaddr, int oldval, int newval)
 		return -EFAULT;
 
 	__asm__ __volatile__(
-		"1:	" LOCK_PREFIX "cmpxchgl %3, %1		\n"
-
-		"2:	.section .fixup, \"ax\"			\n"
+		"	movw %w5, %%ds				\n"
+		"1:	" LOCK_PREFIX "cmpxchgl %3, %%ds:%1	\n"
+		"2:	pushl   %%ss				\n"
+		"	popl    %%ds				\n"
+		"	.section .fixup, \"ax\"			\n"
 		"3:	mov     %2, %0				\n"
 		"	jmp     2b				\n"
 		"	.previous				\n"
@@ -124,7 +132,7 @@ futex_atomic_cmpxchg_inatomic(int __user *uaddr, int oldval, int newval)
 		"	.previous				\n"
 
 		: "=a" (oldval), "+m" (*uaddr)
-		: "i" (-EFAULT), "r" (newval), "0" (oldval)
+		: "i" (-EFAULT), "r" (newval), "0" (oldval), "r" (__USER_DS)
 		: "memory"
 	);
 

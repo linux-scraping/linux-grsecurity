@@ -361,6 +361,10 @@ static int snd_card_do_free(struct snd_card *card)
 		snd_printk(KERN_WARNING "unable to free card info\n");
 		/* Not fatal error */
 	}
+#ifndef CONFIG_SYSFS_DEPRECATED
+	if (card->card_dev)
+		device_unregister(card->card_dev);
+#endif
 	kfree(card);
 	return 0;
 }
@@ -495,6 +499,14 @@ int snd_card_register(struct snd_card *card)
 	int err;
 
 	snd_assert(card != NULL, return -EINVAL);
+#ifndef CONFIG_SYSFS_DEPRECATED
+	if (!card->card_dev) {
+		card->card_dev = device_create(sound_class, card->dev, 0,
+					       "card%i", card->number);
+		if (IS_ERR(card->card_dev))
+			card->card_dev = NULL;
+	}
+#endif
 	if ((err = snd_device_register_all(card)) < 0)
 		return err;
 	mutex_lock(&snd_card_mutex);

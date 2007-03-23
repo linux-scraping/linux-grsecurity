@@ -96,6 +96,7 @@ static int pio_mask = 0x1F;		/* PIO range for autospeed devices */
 /**
  *	legacy_set_mode		-	mode setting
  *	@ap: IDE interface
+ *	@unused: Device that failed when error is returned
  *
  *	Use a non standard set_mode function. We don't want to be tuned.
  *
@@ -105,7 +106,7 @@ static int pio_mask = 0x1F;		/* PIO range for autospeed devices */
  *	expand on this as per hdparm in the base kernel.
  */
 
-static void legacy_set_mode(struct ata_port *ap)
+static int legacy_set_mode(struct ata_port *ap, struct ata_device **unused)
 {
 	int i;
 
@@ -118,6 +119,7 @@ static void legacy_set_mode(struct ata_port *ap)
 			dev->flags |= ATA_DFLAG_PIO;
 		}
 	}
+	return 0;
 }
 
 static struct scsi_host_template legacy_sht = {
@@ -128,13 +130,13 @@ static struct scsi_host_template legacy_sht = {
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
 	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.emulated		= ATA_SHT_EMULATED,
 	.use_clustering		= ATA_SHT_USE_CLUSTERING,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
 };
 
@@ -698,8 +700,10 @@ static __init int legacy_init_one(int port, unsigned long io, unsigned long ctrl
 		goto fail_io;
 
 	pdev = platform_device_register_simple(DRV_NAME, nr_legacy_host, NULL, 0);
-	if (pdev == NULL)
+	if (IS_ERR(pdev)) {
+		ret = PTR_ERR(pdev);
 		goto fail_dev;
+	}
 
 	if (ht6560a & mask) {
 		ops = &ht6560a_port_ops;

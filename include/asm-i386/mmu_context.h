@@ -44,7 +44,7 @@ static inline void switch_mm(struct mm_struct *prev,
 		 * load the LDT, if the LDT is different:
 		 */
 		if (unlikely(prev->context.ldt != next->context.ldt))
-			load_LDT_nolock(&next->context, cpu);
+			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
 		cpu_clear(cpu, prev->context.cpu_user_cs_mask);
@@ -55,7 +55,8 @@ static inline void switch_mm(struct mm_struct *prev,
 		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
 			     prev->context.user_cs_limit != next->context.user_cs_limit))
 #endif
-			set_user_cs(next, cpu);
+			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+
 	}
 #ifdef CONFIG_SMP
 	else {
@@ -67,20 +68,20 @@ static inline void switch_mm(struct mm_struct *prev,
 			 * tlb flush IPI delivery. We must reload %cr3.
 			 */
 			load_cr3(next->pgd);
-			load_LDT_nolock(&next->context, cpu);
+			load_LDT_nolock(&next->context);
 
 #ifdef CONFIG_PAX_PAGEEXEC
 			cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
-			set_user_cs(next, cpu);
+			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
 		}
 	}
 #endif
 }
 
-#define deactivate_mm(tsk, mm) \
-	asm("movl %0,%%fs ; movl %0,%%gs": :"r" (0))
+#define deactivate_mm(tsk, mm)			\
+	asm("movl %0,%%fs": :"r" (0));
 
 #define activate_mm(prev, next) \
 	switch_mm((prev),(next),NULL)

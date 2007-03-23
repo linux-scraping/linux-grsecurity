@@ -15,6 +15,8 @@
 #include <asm/processor.h>
 #include <asm/thread_info.h>
 #include <asm/elf.h>
+#include <asm/pda.h>
+#include <asm/pgtable.h>
 
 #define DEFINE(sym, val) \
         asm volatile("\n->" #sym " %0 " #val : : "i" (val))
@@ -58,6 +60,29 @@ void foo(void)
 	OFFSET(TI_sysenter_return, thread_info, sysenter_return);
 	BLANK();
 
+	OFFSET(GDS_size, Xgt_desc_struct, size);
+	OFFSET(GDS_address, Xgt_desc_struct, address);
+	OFFSET(GDS_pad, Xgt_desc_struct, pad);
+	BLANK();
+
+	OFFSET(PT_EBX, pt_regs, ebx);
+	OFFSET(PT_ECX, pt_regs, ecx);
+	OFFSET(PT_EDX, pt_regs, edx);
+	OFFSET(PT_ESI, pt_regs, esi);
+	OFFSET(PT_EDI, pt_regs, edi);
+	OFFSET(PT_EBP, pt_regs, ebp);
+	OFFSET(PT_EAX, pt_regs, eax);
+	OFFSET(PT_DS,  pt_regs, xds);
+	OFFSET(PT_ES,  pt_regs, xes);
+	OFFSET(PT_GS,  pt_regs, xgs);
+	OFFSET(PT_ORIG_EAX, pt_regs, orig_eax);
+	OFFSET(PT_EIP, pt_regs, eip);
+	OFFSET(PT_CS,  pt_regs, xcs);
+	OFFSET(PT_EFLAGS, pt_regs, eflags);
+	OFFSET(PT_OLDESP, pt_regs, esp);
+	OFFSET(PT_OLDSS,  pt_regs, xss);
+	BLANK();
+
 	OFFSET(EXEC_DOMAIN_handler, exec_domain, handler);
 	OFFSET(RT_SIGFRAME_sigcontext, rt_sigframe, uc.uc_mcontext);
 	BLANK();
@@ -75,4 +100,20 @@ void foo(void)
 	DEFINE(VDSO_PRELINK, VDSO_PRELINK);
 
 	OFFSET(crypto_tfm_ctx_offset, crypto_tfm, __crt_ctx);
+
+	BLANK();
+	DEFINE(PDA_size, sizeof __cpu_pda[0]);
+	OFFSET(PDA_cpu, i386_pda, cpu_number);
+	OFFSET(PDA_pcurrent, i386_pda, pcurrent);
+
+#ifdef CONFIG_PARAVIRT
+	BLANK();
+	OFFSET(PARAVIRT_enabled, paravirt_ops, paravirt_enabled);
+	OFFSET(PARAVIRT_irq_disable, paravirt_ops, irq_disable);
+	OFFSET(PARAVIRT_irq_enable, paravirt_ops, irq_enable);
+	OFFSET(PARAVIRT_irq_enable_sysexit, paravirt_ops, irq_enable_sysexit);
+	OFFSET(PARAVIRT_iret, paravirt_ops, iret);
+	OFFSET(PARAVIRT_read_cr0, paravirt_ops, read_cr0);
+	OFFSET(PARAVIRT_write_cr0, paravirt_ops, write_cr0);
+#endif
 }

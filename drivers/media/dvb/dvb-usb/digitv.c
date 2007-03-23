@@ -119,6 +119,8 @@ static int digitv_nxt6000_tuner_set_params(struct dvb_frontend *fe, struct dvb_f
 	struct dvb_usb_adapter *adap = fe->dvb->priv;
 	u8 b[5];
 	dvb_usb_tuner_calc_regs(fe,fep,b, 5);
+	if (fe->ops.i2c_gate_ctrl)
+		fe->ops.i2c_gate_ctrl(fe, 1);
 	return digitv_ctrl_msg(adap->dev, USB_WRITE_TUNER, 0, &b[1], 4, NULL, 0);
 }
 
@@ -274,20 +276,20 @@ static struct dvb_usb_device_properties digitv_properties = {
 	.num_adapters = 1,
 	.adapter = {
 		{
-	.frontend_attach  = digitv_frontend_attach,
-	.tuner_attach     = digitv_tuner_attach,
+			.frontend_attach  = digitv_frontend_attach,
+			.tuner_attach     = digitv_tuner_attach,
 
-	/* parameter for the MPEG2-data transfer */
+			/* parameter for the MPEG2-data transfer */
 			.stream = {
 				.type = USB_BULK,
-		.count = 7,
-		.endpoint = 0x02,
-		.u = {
-			.bulk = {
-				.buffersize = 4096,
-			}
-		}
-	},
+				.count = 7,
+				.endpoint = 0x02,
+				.u = {
+					.bulk = {
+						.buffersize = 4096,
+					}
+				}
+			},
 		}
 	},
 	.identify_state   = digitv_identify_state,

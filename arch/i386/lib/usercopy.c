@@ -1085,20 +1085,7 @@ void __set_fs(mm_segment_t x, int cpu)
 
 void set_fs(mm_segment_t x)
 {
-	int cpu = get_cpu();
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-	__set_fs(x, cpu);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	__set_fs(x, get_cpu());
 	put_cpu_no_resched();
 }
 #else

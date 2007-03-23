@@ -113,7 +113,7 @@ static struct dmi_system_id __devinitdata piix4_dmi_table[] = {
 		.ident = "IBM",
 		.matches = { DMI_MATCH(DMI_SYS_VENDOR, "IBM"), },
 	},
-	{ },
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL },
 };
 
 static int __devinit piix4_setup(struct pci_dev *PIIX4_dev,
@@ -408,7 +408,7 @@ static struct pci_device_id piix4_ids[] = {
 	  .driver_data = 3 },
 	{ PCI_DEVICE(PCI_VENDOR_ID_EFAR, PCI_DEVICE_ID_EFAR_SLC90E66_3),
 	  .driver_data = 0 },
-	{ 0, }
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 MODULE_DEVICE_TABLE (pci, piix4_ids);

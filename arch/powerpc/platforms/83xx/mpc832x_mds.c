@@ -97,15 +97,13 @@ static void __init mpc832x_sys_setup_arch(void)
 #ifdef CONFIG_PCI
 	for (np = NULL; (np = of_find_node_by_type(np, "pci")) != NULL;)
 		add_bridge(np);
-
-	ppc_md.pci_swizzle = common_swizzle;
 	ppc_md.pci_exclude_device = mpc83xx_exclude_device;
 #endif
 
 #ifdef CONFIG_QUICC_ENGINE
 	qe_reset();
 
-	if ((np = of_find_node_by_name(np, "par_io")) != NULL) {
+	if ((np = of_find_node_by_name(NULL, "par_io")) != NULL) {
 		par_io_init(np);
 		of_node_put(np);
 

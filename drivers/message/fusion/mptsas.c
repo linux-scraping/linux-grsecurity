@@ -3,9 +3,9 @@
  *      For use with LSI Logic PCI chip/adapter(s)
  *      running LSI Logic Fusion MPT (Message Passing Technology) firmware.
  *
- *  Copyright (c) 1999-2005 LSI Logic Corporation
+ *  Copyright (c) 1999-2007 LSI Logic Corporation
  *  (mailto:mpt_linux_developer@lsil.com)
- *  Copyright (c) 2005-2006 Dell
+ *  Copyright (c) 2005-2007 Dell
  */
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /*
@@ -75,6 +75,7 @@
 MODULE_AUTHOR(MODULEAUTHOR);
 MODULE_DESCRIPTION(my_NAME);
 MODULE_LICENSE("GPL");
+MODULE_VERSION(my_VERSION);
 
 static int mpt_pt_clear;
 module_param(mpt_pt_clear, int, 0);
@@ -245,7 +246,8 @@ static void mptsas_print_device_pg0(SasDevicePage0_t *pg0)
 	printk("Parent Handle=0x%X\n" ,le16_to_cpu(pg0->ParentDevHandle));
 	printk("Enclosure Handle=0x%X\n", le16_to_cpu(pg0->EnclosureHandle));
 	printk("Slot=0x%X\n", le16_to_cpu(pg0->Slot));
-	printk("SAS Address=0x%llX\n", le64_to_cpu(sas_address));
+	printk("SAS Address=0x%llX\n", (unsigned long long)
+	    le64_to_cpu(sas_address));
 	printk("Target ID=0x%X\n", pg0->TargetID);
 	printk("Bus=0x%X\n", pg0->Bus);
 	/* The PhyNum field specifies the PHY number of the parent
@@ -349,9 +351,9 @@ mptsas_port_delete(struct mptsas_portinfo_details * port_details)
 	phy_info = port_info->phy_info;
 
 	dsaswideprintk((KERN_DEBUG "%s: [%p]: num_phys=%02d "
-	    	"bitmask=0x%016llX\n",
-		__FUNCTION__, port_details, port_details->num_phys,
-		    port_details->phy_bitmask));
+	    "bitmask=0x%016llX\n", __FUNCTION__, port_details,
+	    port_details->num_phys, (unsigned long long)
+	    port_details->phy_bitmask));
 
 	for (i = 0; i < port_info->num_phys; i++, phy_info++) {
 		if(phy_info->port_details != port_details)
@@ -476,7 +478,7 @@ mptsas_setup_wide_ports(MPT_ADAPTER *ioc, struct mptsas_portinfo *port_info)
 	for (i = 0 ; i < port_info->num_phys ; i++, phy_info++) {
 		sas_address = phy_info->attached.sas_address;
 		dsaswideprintk((KERN_DEBUG "phy_id=%d sas_address=0x%018llX\n",
-			i, sas_address));
+		    i, (unsigned long long)sas_address));
 		if (!sas_address)
 			continue;
 		port_details = phy_info->port_details;
@@ -495,8 +497,8 @@ mptsas_setup_wide_ports(MPT_ADAPTER *ioc, struct mptsas_portinfo *port_info)
 				    (1 << phy_info->phy_id);
 			phy_info->sas_port_add_phy=1;
 			dsaswideprintk((KERN_DEBUG "\t\tForming port\n\t\t"
-				"phy_id=%d sas_address=0x%018llX\n",
-				i, sas_address));
+			    "phy_id=%d sas_address=0x%018llX\n",
+			    i, (unsigned long long)sas_address));
 			phy_info->port_details = port_details;
 		}
 
@@ -512,8 +514,9 @@ mptsas_setup_wide_ports(MPT_ADAPTER *ioc, struct mptsas_portinfo *port_info)
 			if (phy_info_cmp->port_details == port_details )
 				continue;
 			dsaswideprintk((KERN_DEBUG
-				"\t\tphy_id=%d sas_address=0x%018llX\n",
-				j, phy_info_cmp->attached.sas_address));
+			    "\t\tphy_id=%d sas_address=0x%018llX\n",
+			    j, (unsigned long long)
+			    phy_info_cmp->attached.sas_address));
 			if (phy_info_cmp->port_details) {
 				port_details->rphy =
 				    mptsas_get_rphy(phy_info_cmp);
@@ -546,11 +549,10 @@ mptsas_setup_wide_ports(MPT_ADAPTER *ioc, struct mptsas_portinfo *port_info)
 		if (!port_details)
 			continue;
 		dsaswideprintk((KERN_DEBUG
-			"%s: [%p]: phy_id=%02d num_phys=%02d "
-		    	"bitmask=0x%016llX\n",
-			__FUNCTION__,
-			port_details, i, port_details->num_phys,
-			port_details->phy_bitmask));
+		    "%s: [%p]: phy_id=%02d num_phys=%02d "
+		    "bitmask=0x%016llX\n", __FUNCTION__,
+		    port_details, i, port_details->num_phys,
+		    (unsigned long long)port_details->phy_bitmask));
 		dsaswideprintk((KERN_DEBUG"\t\tport = %p rphy=%p\n",
 			port_details->port, port_details->rphy));
 	}
@@ -2006,9 +2008,10 @@ __mptsas_discovery_work(MPT_ADAPTER *ioc)
  *(Mutex LOCKED)
  */
 static void
-mptsas_discovery_work(void * arg)
+mptsas_discovery_work(struct work_struct *work)
 {
-	struct mptsas_discovery_event *ev = arg;
+	struct mptsas_discovery_event *ev =
+		container_of(work, struct mptsas_discovery_event, work);
 	MPT_ADAPTER *ioc = ev->ioc;
 
 	mutex_lock(&ioc->sas_discovery_mutex);
@@ -2068,9 +2071,9 @@ mptsas_find_phyinfo_by_target(MPT_ADAPTER *ioc, u32 id)
  * Work queue thread to clear the persitency table
  */
 static void
-mptsas_persist_clear_table(void * arg)
+mptsas_persist_clear_table(struct work_struct *work)
 {
-	MPT_ADAPTER *ioc = (MPT_ADAPTER *)arg;
+	MPT_ADAPTER *ioc = container_of(work, MPT_ADAPTER, sas_persist_task);
 
 	mptbase_sas_persist_operation(ioc, MPI_SAS_OP_CLEAR_NOT_PRESENT);
 }
@@ -2078,8 +2081,10 @@ mptsas_persist_clear_table(void * arg)
 static void
 mptsas_reprobe_lun(struct scsi_device *sdev, void *data)
 {
+	int rc;
+
 	sdev->no_uld_attach = data ? 1 : 0;
-	scsi_device_reprobe(sdev);
+	rc = scsi_device_reprobe(sdev);
 }
 
 static void
@@ -2093,9 +2098,10 @@ mptsas_reprobe_target(struct scsi_target *starget, int uld_attach)
  * Work queue thread to handle SAS hotplug events
  */
 static void
-mptsas_hotplug_work(void *arg)
+mptsas_hotplug_work(struct work_struct *work)
 {
-	struct mptsas_hotplug_event *ev = arg;
+	struct mptsas_hotplug_event *ev =
+		container_of(work, struct mptsas_hotplug_event, work);
 	MPT_ADAPTER *ioc = ev->ioc;
 	struct mptsas_phyinfo *phy_info;
 	struct sas_rphy *rphy;
@@ -2341,7 +2347,7 @@ mptsas_send_sas_event(MPT_ADAPTER *ioc,
 			break;
 		}
 
-		INIT_WORK(&ev->work, mptsas_hotplug_work, ev);
+		INIT_WORK(&ev->work, mptsas_hotplug_work);
 		ev->ioc = ioc;
 		ev->handle = le16_to_cpu(sas_event_data->DevHandle);
 		ev->parent_handle =
@@ -2366,7 +2372,7 @@ mptsas_send_sas_event(MPT_ADAPTER *ioc,
 	 * Persistent table is full.
 	 */
 		INIT_WORK(&ioc->sas_persist_task,
-		    mptsas_persist_clear_table, (void *)ioc);
+		    mptsas_persist_clear_table);
 		schedule_work(&ioc->sas_persist_task);
 		break;
 	case MPI_EVENT_SAS_DEV_STAT_RC_SMART_DATA:
@@ -2395,7 +2401,7 @@ mptsas_send_raid_event(MPT_ADAPTER *ioc,
 		return;
 	}
 
-	INIT_WORK(&ev->work, mptsas_hotplug_work, ev);
+	INIT_WORK(&ev->work, mptsas_hotplug_work);
 	ev->ioc = ioc;
 	ev->id = raid_event_data->VolumeID;
 	ev->event_type = MPTSAS_IGNORE_EVENT;
@@ -2474,7 +2480,7 @@ mptsas_send_discovery_event(MPT_ADAPTER *ioc,
 	ev = kzalloc(sizeof(*ev), GFP_ATOMIC);
 	if (!ev)
 		return;
-	INIT_WORK(&ev->work, mptsas_discovery_work, ev);
+	INIT_WORK(&ev->work, mptsas_discovery_work);
 	ev->ioc = ioc;
 	schedule_work(&ev->work);
 };
@@ -2511,8 +2517,7 @@ mptsas_event_process(MPT_ADAPTER *ioc, EventNotificationReply_t *reply)
 		break;
 	case MPI_EVENT_PERSISTENT_TABLE_FULL:
 		INIT_WORK(&ioc->sas_persist_task,
-		    mptsas_persist_clear_table,
-		    (void *)ioc);
+		    mptsas_persist_clear_table);
 		schedule_work(&ioc->sas_persist_task);
 		break;
 	 case MPI_EVENT_SAS_DISCOVERY:

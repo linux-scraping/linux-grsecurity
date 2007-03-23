@@ -666,7 +666,7 @@ static struct i2c_driver vt8231_driver = {
 
 static struct pci_device_id vt8231_pci_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_8231_4) },
-	{ 0, }
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 MODULE_DEVICE_TABLE(pci, vt8231_pci_ids);

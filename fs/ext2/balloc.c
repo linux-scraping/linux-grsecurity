@@ -111,7 +111,7 @@ static int reserve_blocks(struct super_block *sb, int count)
 	if (free_blocks < count)
 		count = free_blocks;
 
-	if (free_blocks < root_blocks + count && !capable(CAP_SYS_RESOURCE) &&
+	if (free_blocks < root_blocks + count && !capable_nolog(CAP_SYS_RESOURCE) &&
 	    sbi->s_resuid != current->fsuid &&
 	    (sbi->s_resgid == 0 || !in_group_p (sbi->s_resgid))) {
 		/*

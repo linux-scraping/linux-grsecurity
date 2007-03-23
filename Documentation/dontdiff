@@ -127,6 +127,7 @@ pss_boot.h
 raid6altivec*.c
 raid6int*.c
 raid6tables.c
+relocs
 setup
 sim710_d.h*
 sm_tbl*
@@ -139,7 +140,9 @@ utsrelease.h*
 version.h*
 vmlinux
 vmlinux-*
+vmlinux.bin.all
 vmlinux.lds
+vmlinux.relocs
 vsyscall.lds
 wanxlfw.inc
 uImage

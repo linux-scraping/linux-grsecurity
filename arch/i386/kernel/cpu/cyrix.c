@@ -187,7 +187,7 @@ static void __cpuinit geode_configure(void)
 static struct pci_device_id __cpuinitdata cyrix_55x0[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5510) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_CYRIX, PCI_DEVICE_ID_CYRIX_5520) },
-	{ },
+	{ PCI_DEVICE(0, 0) },
 };
 #endif
 

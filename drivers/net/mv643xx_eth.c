@@ -277,9 +277,11 @@ static void mv643xx_eth_tx_timeout(struct net_device *dev)
  *
  * Actual routine to reset the adapter when a timeout on Tx has occurred
  */
-static void mv643xx_eth_tx_timeout_task(struct net_device *dev)
+static void mv643xx_eth_tx_timeout_task(struct work_struct *ugly)
 {
-	struct mv643xx_private *mp = netdev_priv(dev);
+	struct mv643xx_private *mp = container_of(ugly, struct mv643xx_private,
+						  tx_timeout_task);
+	struct net_device *dev = mp->mii.dev; /* yuck */
 
 	if (!netif_running(dev))
 		return;
@@ -312,6 +314,13 @@ int mv643xx_eth_free_tx_descs(struct net_device *dev, int force)
 
 	while (mp->tx_desc_count > 0) {
 		spin_lock_irqsave(&mp->lock, flags);
+
+		/* tx_desc_count might have changed before acquiring the lock */
+		if (mp->tx_desc_count <= 0) {
+			spin_unlock_irqrestore(&mp->lock, flags);
+			return released;
+		}
+
 		tx_index = mp->tx_used_desc_q;
 		desc = &mp->p_tx_desc_area[tx_index];
 		cmd_sts = desc->cmd_sts;
@@ -330,12 +339,12 @@ int mv643xx_eth_free_tx_descs(struct net_device *dev, int force)
 		if (skb)
 			mp->tx_skb[tx_index] = NULL;
 
-		spin_unlock_irqrestore(&mp->lock, flags);
-
 		if (cmd_sts & ETH_ERROR_SUMMARY) {
 			printk("%s: Error in TX\n", dev->name);
 			mp->stats.tx_errors++;
 		}
+
+		spin_unlock_irqrestore(&mp->lock, flags);
 
 		if (cmd_sts & ETH_TX_FIRST_DESC)
 			dma_unmap_single(NULL, addr, count, DMA_TO_DEVICE);
@@ -1098,7 +1107,7 @@ static void eth_tx_fill_frag_descs(struct mv643xx_private *mp,
 					 ETH_TX_ENABLE_INTERRUPT;
 			mp->tx_skb[tx_index] = skb;
 		} else
-			mp->tx_skb[tx_index] = 0;
+			mp->tx_skb[tx_index] = NULL;
 
 		desc = &mp->p_tx_desc_area[tx_index];
 		desc->l4i_chk = 0;
@@ -1134,7 +1143,7 @@ static void eth_tx_submit_descs_for_skb(struct mv643xx_private *mp,
 		eth_tx_fill_frag_descs(mp, skb);
 
 		length = skb_headlen(skb);
-		mp->tx_skb[tx_index] = 0;
+		mp->tx_skb[tx_index] = NULL;
 	} else {
 		cmd_sts |= ETH_ZERO_PADDING |
 			   ETH_TX_LAST_DESC |
@@ -1360,8 +1369,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
 #endif
 
 	/* Configure the timeout task */
-	INIT_WORK(&mp->tx_timeout_task,
-			(void (*)(void *))mv643xx_eth_tx_timeout_task, dev);
+	INIT_WORK(&mp->tx_timeout_task, mv643xx_eth_tx_timeout_task);
 
 	spin_lock_init(&mp->lock);
 

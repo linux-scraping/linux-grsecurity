@@ -7,6 +7,7 @@
  * Written by Dave Hansen <haveblue@us.ibm.com>
  */
 
+#undef CONFIG_PARAVIRT
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>

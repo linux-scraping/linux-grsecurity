@@ -3,7 +3,7 @@
 #
 
 EXTRA_AFLAGS := -ansi
-EXTRA_CFLAGS := -Werror
+#EXTRA_CFLAGS := -Werror
 
 obj-y    := ultra.o tlb.o tsb.o fault.o init.o generic.o
 

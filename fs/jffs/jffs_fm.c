@@ -17,6 +17,7 @@
  *
  */
 #include <linux/slab.h>
+#include <linux/err.h>
 #include <linux/blkdev.h>
 #include <linux/jffs.h>
 #include "jffs_fm.h"
@@ -29,8 +30,8 @@ static int jffs_mark_obsolete(struct jffs_fmcontrol *fmc, __u32 fm_offset);
 static struct jffs_fm *jffs_alloc_fm(void);
 static void jffs_free_fm(struct jffs_fm *n);
 
-extern kmem_cache_t     *fm_cache;
-extern kmem_cache_t     *node_cache;
+extern struct kmem_cache     *fm_cache;
+extern struct kmem_cache     *node_cache;
 
 #if CONFIG_JFFS_FS_VERBOSE > 0
 void
@@ -104,7 +105,7 @@ jffs_build_begin(struct jffs_control *c, int unit)
 
 	mtd = get_mtd_device(NULL, unit);
 
-	if (!mtd) {
+	if (IS_ERR(mtd)) {
 		kfree(fmc);
 		DJM(no_jffs_fmcontrol--);
 		return NULL;

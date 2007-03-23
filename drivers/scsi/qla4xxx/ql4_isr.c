@@ -433,7 +433,6 @@ static void qla4xxx_isr_decode_mailbox(struct scsi_qla_host * ha,
 					readl(&ha->reg->mailbox[i]);
 
 			set_bit(AF_MBOX_COMMAND_DONE, &ha->flags);
-			wake_up(&ha->mailbox_wait_queue);
 		}
 	} else if (mbox_status >> 12 == MBOX_ASYNC_EVENT_STATUS) {
 		/* Immediately process the AENs that don't require much work.
@@ -627,6 +626,7 @@ irqreturn_t qla4xxx_intr_handler(int irq, void *dev_id)
 
 	spin_lock_irqsave(&ha->hardware_lock, flags);
 
+	ha->isr_count++;
 	/*
 	 * Repeatedly service interrupts up to a maximum of
 	 * MAX_REQS_SERVICED_PER_INTR
@@ -685,7 +685,8 @@ irqreturn_t qla4xxx_intr_handler(int irq, void *dev_id)
 			       &ha->reg->ctrl_status);
 			readl(&ha->reg->ctrl_status);
 
-			set_bit(DPC_RESET_HA_INTR, &ha->dpc_flags);
+			if (!ql4_mod_unload)
+				set_bit(DPC_RESET_HA_INTR, &ha->dpc_flags);
 
 			break;
 		} else if (intr_status & INTR_PENDING) {

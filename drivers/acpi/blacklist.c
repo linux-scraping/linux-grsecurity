@@ -70,7 +70,7 @@ static struct acpi_blacklist_item acpi_blacklist[] __initdata = {
 	{"ASUS\0\0", "P2B-S   ", 0, ACPI_DSDT, all_versions,
 	 "Bogus PCI routing", 1},
 
-	{""}
+	{"", "", 0, 0, 0, all_versions, 0}
 };
 
 #if	CONFIG_ACPI_BLACKLIST_YEAR

@@ -45,15 +45,15 @@ EXPORT_SYMBOL(cap_netlink_recv);
 int cap_capable (struct task_struct *tsk, int cap)
 {
 	/* Derived from include/linux/sched.h:capable. */
-	if (cap_raised (tsk->cap_effective, cap) && gr_task_is_capable(tsk, cap))
+	if (cap_raised (tsk->cap_effective, cap))
 		return 0;
 	return -EPERM;
 }
 
 int cap_capable_nolog (struct task_struct *tsk, int cap)
 {
-	/* Derived from include/linux/sched.h:capable. */
-	if (cap_raised (tsk->cap_effective, cap))
+	/* tsk = current for all callers */
+	if (cap_raised(tsk->cap_effective, cap) && gr_is_capable_nolog(cap))
 		return 0;
 	return -EPERM;
 }

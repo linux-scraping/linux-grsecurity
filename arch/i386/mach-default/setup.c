@@ -35,7 +35,7 @@ void __init pre_intr_init_hook(void)
 /*
  * IRQ2 is cascade interrupt to second interrupt controller
  */
-static struct irqaction irq2 = { no_action, 0, CPU_MASK_NONE, "cascade", NULL, NULL};
+static struct irqaction irq2 = { no_action, 0, CPU_MASK_NONE, "cascade", NULL, NULL, 0, NULL};
 
 /**
  * intr_init_hook - post gate setup interrupt initialisation
@@ -79,7 +79,7 @@ void __init trap_init_hook(void)
 {
 }
 
-static struct irqaction irq0  = { timer_interrupt, IRQF_DISABLED, CPU_MASK_NONE, "timer", NULL, NULL};
+static struct irqaction irq0  = { timer_interrupt, IRQF_DISABLED, CPU_MASK_NONE, "timer", NULL, NULL, 0, NULL};
 
 /**
  * time_init_hook - do any specific initialisations for the system timer.
@@ -102,7 +102,7 @@ void __init time_init_hook(void)
  *	along the MCA bus.  Use this to hook into that chain if you will need
  *	it.
  **/
-void __init mca_nmi_hook(void)
+void mca_nmi_hook(void)
 {
 	/* If I recall correctly, there's a whole bunch of other things that
 	 * we can do to check for NMI problems, but that's all I know about

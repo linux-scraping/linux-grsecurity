@@ -116,7 +116,7 @@ int usbnet_get_endpoints(struct usbnet *dev, struct usb_interface *intf)
 			e = alt->endpoint + ep;
 			switch (e->desc.bmAttributes) {
 			case USB_ENDPOINT_XFER_INT:
-				if (!(e->desc.bEndpointAddress & USB_DIR_IN))
+				if (!usb_endpoint_dir_in(&e->desc))
 					continue;
 				intr = 1;
 				/* FALLTHROUGH */
@@ -125,7 +125,7 @@ int usbnet_get_endpoints(struct usbnet *dev, struct usb_interface *intf)
 			default:
 				continue;
 			}
-			if (e->desc.bEndpointAddress & USB_DIR_IN) {
+			if (usb_endpoint_dir_in(&e->desc)) {
 				if (!intr && !in)
 					in = e;
 				else if (intr && !status)
@@ -179,9 +179,9 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
 	period = max ((int) dev->status->desc.bInterval,
 		(dev->udev->speed == USB_SPEED_HIGH) ? 7 : 3);
 
-	buf = kmalloc (maxp, SLAB_KERNEL);
+	buf = kmalloc (maxp, GFP_KERNEL);
 	if (buf) {
-		dev->interrupt = usb_alloc_urb (0, SLAB_KERNEL);
+		dev->interrupt = usb_alloc_urb (0, GFP_KERNEL);
 		if (!dev->interrupt) {
 			kfree (buf);
 			return -ENOMEM;
@@ -782,9 +782,10 @@ static struct ethtool_ops usbnet_ethtool_ops = {
  * especially now that control transfers can be queued.
  */
 static void
-kevent (void *data)
+kevent (struct work_struct *work)
 {
-	struct usbnet		*dev = data;
+	struct usbnet		*dev =
+		container_of(work, struct usbnet, kevent);
 	int			status;
 
 	/* usb_clear_halt() needs a thread context */
@@ -1146,7 +1147,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	skb_queue_head_init (&dev->done);
 	dev->bh.func = usbnet_bh;
 	dev->bh.data = (unsigned long) dev;
-	INIT_WORK (&dev->kevent, kevent, dev);
+	INIT_WORK (&dev->kevent, kevent);
 	dev->delay.function = usbnet_bh;
 	dev->delay.data = (unsigned long) dev;
 	init_timer (&dev->delay);
@@ -1181,6 +1182,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	// NOTE net->name still not usable ...
 	if (info->bind) {
 		status = info->bind (dev, udev);
+		if (status < 0)
+			goto out1;
+
 		// heuristic:  "usb%d" for links we know are two-host,
 		// else "eth%d" when there's reasonable doubt.  userspace
 		// can rename the link if it knows better.
@@ -1207,12 +1211,12 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (status == 0 && dev->status)
 		status = init_status (dev, udev);
 	if (status < 0)
-		goto out1;
+		goto out3;
 
 	if (!dev->rx_urb_size)
 		dev->rx_urb_size = dev->hard_mtu;
 	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
-	
+
 	SET_NETDEV_DEV(net, &udev->dev);
 	status = register_netdev (net);
 	if (status)

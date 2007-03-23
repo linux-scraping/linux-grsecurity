@@ -360,7 +360,7 @@ spi_alloc_master(struct device *dev, unsigned size)
 	if (!dev)
 		return NULL;
 
-	master = kzalloc(size + sizeof *master, SLAB_KERNEL);
+	master = kzalloc(size + sizeof *master, GFP_KERNEL);
 	if (!master)
 		return NULL;
 
@@ -447,7 +447,9 @@ static int __unregister(struct device *dev, void *unused)
  */
 void spi_unregister_master(struct spi_master *master)
 {
-	(void) device_for_each_child(master->cdev.dev, NULL, __unregister);
+	int dummy;
+
+	dummy = device_for_each_child(master->cdev.dev, NULL, __unregister);
 	class_device_unregister(&master->cdev);
 }
 EXPORT_SYMBOL_GPL(spi_unregister_master);
@@ -463,16 +465,20 @@ EXPORT_SYMBOL_GPL(spi_unregister_master);
  */
 struct spi_master *spi_busnum_to_master(u16 bus_num)
 {
-	if (bus_num) {
-		char			name[8];
-		struct kobject		*bus;
+	struct class_device	*cdev;
+	struct spi_master	*master = NULL;
+	struct spi_master	*m;
 
-		snprintf(name, sizeof name, "spi%u", bus_num);
-		bus = kset_find_obj(&spi_master_class.subsys.kset, name);
-		if (bus)
-			return container_of(bus, struct spi_master, cdev.kobj);
+	down(&spi_master_class.sem);
+	list_for_each_entry(cdev, &spi_master_class.children, node) {
+		m = container_of(cdev, struct spi_master, cdev);
+		if (m->bus_num == bus_num) {
+			master = spi_master_get(m);
+			break;
+		}
 	}
-	return NULL;
+	up(&spi_master_class.sem);
+	return master;
 }
 EXPORT_SYMBOL_GPL(spi_busnum_to_master);
 
@@ -607,7 +613,7 @@ static int __init spi_init(void)
 {
 	int	status;
 
-	buf = kmalloc(SPI_BUFSIZ, SLAB_KERNEL);
+	buf = kmalloc(SPI_BUFSIZ, GFP_KERNEL);
 	if (!buf) {
 		status = -ENOMEM;
 		goto err0;

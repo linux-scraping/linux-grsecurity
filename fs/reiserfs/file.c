@@ -48,6 +48,11 @@ static int reiserfs_file_release(struct inode *inode, struct file *filp)
 	}
 
 	mutex_lock(&inode->i_mutex);
+
+	mutex_lock(&(REISERFS_I(inode)->i_mmap));
+	if (REISERFS_I(inode)->i_flags & i_ever_mapped)
+		REISERFS_I(inode)->i_flags &= ~i_pack_on_close_mask;
+
 	reiserfs_write_lock(inode->i_sb);
 	/* freeing preallocation only involves relogging blocks that
 	 * are already in the current transaction.  preallocation gets
@@ -100,9 +105,22 @@ static int reiserfs_file_release(struct inode *inode, struct file *filp)
 		err = reiserfs_truncate_file(inode, 0);
 	}
       out:
+	mutex_unlock(&(REISERFS_I(inode)->i_mmap));
 	mutex_unlock(&inode->i_mutex);
 	reiserfs_write_unlock(inode->i_sb);
 	return err;
+}
+
+static int reiserfs_file_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct inode *inode;
+
+	inode = file->f_path.dentry->d_inode;
+	mutex_lock(&(REISERFS_I(inode)->i_mmap));
+	REISERFS_I(inode)->i_flags |= i_ever_mapped;
+	mutex_unlock(&(REISERFS_I(inode)->i_mmap));
+
+	return generic_file_mmap(file, vma);
 }
 
 static void reiserfs_vfs_truncate_file(struct inode *inode)
@@ -317,12 +335,11 @@ static int reiserfs_allocate_blocks_for_region(struct reiserfs_transaction_handl
 			/* area filled with zeroes, to supply as list of zero blocknumbers
 			   We allocate it outside of loop just in case loop would spin for
 			   several iterations. */
-			char *zeros = kmalloc(to_paste * UNFM_P_SIZE, GFP_ATOMIC);	// We cannot insert more than MAX_ITEM_LEN bytes anyway.
+			char *zeros = kzalloc(to_paste * UNFM_P_SIZE, GFP_ATOMIC);	// We cannot insert more than MAX_ITEM_LEN bytes anyway.
 			if (!zeros) {
 				res = -ENOMEM;
 				goto error_exit_free_blocks;
 			}
-			memset(zeros, 0, to_paste * UNFM_P_SIZE);
 			do {
 				to_paste =
 				    min_t(__u64, hole_size,
@@ -407,6 +424,8 @@ static int reiserfs_allocate_blocks_for_region(struct reiserfs_transaction_handl
 				   we restart it. This will also free the path. */
 				if (journal_transaction_should_end
 				    (th, th->t_blocks_allocated)) {
+					inode->i_size = cpu_key_k_offset(&key) +
+						(to_paste << inode->i_blkbits);
 					res =
 					    restart_transaction(th, inode,
 								&path);
@@ -1045,6 +1064,7 @@ static int reiserfs_prepare_file_region_for_write(struct inode *inode
 			char *kaddr = kmap_atomic(prepared_pages[0], KM_USER0);
 			memset(kaddr, 0, from);
 			kunmap_atomic(kaddr, KM_USER0);
+			flush_dcache_page(prepared_pages[0]);
 		}
 		if (to != PAGE_CACHE_SIZE) {	/* Last page needs to be partially zeroed */
 			char *kaddr =
@@ -1052,6 +1072,7 @@ static int reiserfs_prepare_file_region_for_write(struct inode *inode
 					KM_USER0);
 			memset(kaddr + to, 0, PAGE_CACHE_SIZE - to);
 			kunmap_atomic(kaddr, KM_USER0);
+			flush_dcache_page(prepared_pages[num_pages - 1]);
 		}
 
 		/* Since all blocks are new - use already calculated value */
@@ -1185,6 +1206,7 @@ static int reiserfs_prepare_file_region_for_write(struct inode *inode
 					memset(kaddr + block_start, 0,
 					       from - block_start);
 					kunmap_atomic(kaddr, KM_USER0);
+					flush_dcache_page(prepared_pages[0]);
 					set_buffer_uptodate(bh);
 				}
 			}
@@ -1222,6 +1244,7 @@ static int reiserfs_prepare_file_region_for_write(struct inode *inode
 							KM_USER0);
 					memset(kaddr + to, 0, block_end - to);
 					kunmap_atomic(kaddr, KM_USER0);
+					flush_dcache_page(prepared_pages[num_pages - 1]);
 					set_buffer_uptodate(bh);
 				}
 			}
@@ -1283,7 +1306,7 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 	loff_t pos;		// Current position in the file.
 	ssize_t res;		// return value of various functions that we call.
 	int err = 0;
-	struct inode *inode = file->f_dentry->d_inode;	// Inode of the file that we are writing to.
+	struct inode *inode = file->f_path.dentry->d_inode;	// Inode of the file that we are writing to.
 	/* To simplify coding at this time, we store
 	   locked pages in array for now */
 	struct page *prepared_pages[REISERFS_WRITE_PAGES_AT_A_TIME];
@@ -1307,56 +1330,8 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 			count = MAX_NON_LFS - (unsigned long)*ppos;
 	}
 
-	if (file->f_flags & O_DIRECT) {	// Direct IO needs treatment
-		ssize_t result, after_file_end = 0;
-		if ((*ppos + count >= inode->i_size)
-		    || (file->f_flags & O_APPEND)) {
-			/* If we are appending a file, we need to put this savelink in here.
-			   If we will crash while doing direct io, finish_unfinished will
-			   cut the garbage from the file end. */
-			reiserfs_write_lock(inode->i_sb);
-			err =
-			    journal_begin(&th, inode->i_sb,
-					  JOURNAL_PER_BALANCE_CNT);
-			if (err) {
-				reiserfs_write_unlock(inode->i_sb);
-				return err;
-			}
-			reiserfs_update_inode_transaction(inode);
-			add_save_link(&th, inode, 1 /* Truncate */ );
-			after_file_end = 1;
-			err =
-			    journal_end(&th, inode->i_sb,
-					JOURNAL_PER_BALANCE_CNT);
-			reiserfs_write_unlock(inode->i_sb);
-			if (err)
-				return err;
-		}
-		result = do_sync_write(file, buf, count, ppos);
-
-		if (after_file_end) {	/* Now update i_size and remove the savelink */
-			struct reiserfs_transaction_handle th;
-			reiserfs_write_lock(inode->i_sb);
-			err = journal_begin(&th, inode->i_sb, 1);
-			if (err) {
-				reiserfs_write_unlock(inode->i_sb);
-				return err;
-			}
-			reiserfs_update_inode_transaction(inode);
-			mark_inode_dirty(inode);
-			err = journal_end(&th, inode->i_sb, 1);
-			if (err) {
-				reiserfs_write_unlock(inode->i_sb);
-				return err;
-			}
-			err = remove_save_link(inode, 1 /* truncate */ );
-			reiserfs_write_unlock(inode->i_sb);
-			if (err)
-				return err;
-		}
-
-		return result;
-	}
+	if (file->f_flags & O_DIRECT)
+		return do_sync_write(file, buf, count, ppos);
 
 	if (unlikely((ssize_t) count < 0))
 		return -EINVAL;
@@ -1378,7 +1353,7 @@ static ssize_t reiserfs_file_write(struct file *file,	/* the file we are going t
 	if (count == 0)
 		goto out;
 
-	res = remove_suid(file->f_dentry);
+	res = remove_suid(file->f_path.dentry);
 	if (res)
 		goto out;
 
@@ -1570,7 +1545,7 @@ const struct file_operations reiserfs_file_operations = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = reiserfs_compat_ioctl,
 #endif
-	.mmap = generic_file_mmap,
+	.mmap = reiserfs_file_mmap,
 	.open = generic_file_open,
 	.release = reiserfs_file_release,
 	.fsync = reiserfs_sync_file,

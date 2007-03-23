@@ -29,25 +29,25 @@ static u32 kexec_pmd1[1024] PAGE_ALIGNED;
 static u32 kexec_pte0[1024] PAGE_ALIGNED;
 static u32 kexec_pte1[1024] PAGE_ALIGNED;
 
-static void set_idt(void *newidt, __u16 limit)
+static void set_idt(struct desc_struct *newidt, __u16 limit)
 {
 	struct Xgt_desc_struct curidt;
 
 	/* ia32 supports unaliged loads & stores */
 	curidt.size    = limit;
-	curidt.address = (unsigned long)newidt;
+	curidt.address = newidt;
 
 	load_idt(&curidt);
 };
 
 
-static void set_gdt(void *newgdt, __u16 limit)
+static void set_gdt(struct desc_struct *newgdt, __u16 limit)
 {
 	struct Xgt_desc_struct curgdt;
 
 	/* ia32 supports unaligned loads & stores */
 	curgdt.size    = limit;
-	curgdt.address = (unsigned long)newgdt;
+	curgdt.address = newgdt;
 
 	load_gdt(&curgdt);
 };

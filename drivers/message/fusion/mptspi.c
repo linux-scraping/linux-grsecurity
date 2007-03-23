@@ -3,7 +3,7 @@
  *      For use with LSI Logic PCI chip/adapter(s)
  *      running LSI Logic Fusion MPT (Message Passing Technology) firmware.
  *
- *  Copyright (c) 1999-2005 LSI Logic Corporation
+ *  Copyright (c) 1999-2007 LSI Logic Corporation
  *  (mailto:mpt_linux_developer@lsil.com)
  *
  */
@@ -77,6 +77,7 @@
 MODULE_AUTHOR(MODULEAUTHOR);
 MODULE_DESCRIPTION(my_NAME);
 MODULE_LICENSE("GPL");
+MODULE_VERSION(my_VERSION);
 
 /* Command line args */
 static int mpt_saf_te = MPTSCSIH_SAF_TE;
@@ -646,9 +647,10 @@ struct work_queue_wrapper {
 	int			disk;
 };
 
-static void mpt_work_wrapper(void *data)
+static void mpt_work_wrapper(struct work_struct *work)
 {
-	struct work_queue_wrapper *wqw = (struct work_queue_wrapper *)data;
+	struct work_queue_wrapper *wqw =
+		container_of(work, struct work_queue_wrapper, work);
 	struct _MPT_SCSI_HOST *hd = wqw->hd;
 	struct Scsi_Host *shost = hd->ioc->sh;
 	struct scsi_device *sdev;
@@ -695,7 +697,7 @@ static void mpt_dv_raid(struct _MPT_SCSI_HOST *hd, int disk)
 			   disk);
 		return;
 	}
-	INIT_WORK(&wqw->work, mpt_work_wrapper, wqw);
+	INIT_WORK(&wqw->work, mpt_work_wrapper);
 	wqw->hd = hd;
 	wqw->disk = disk;
 
@@ -784,9 +786,10 @@ MODULE_DEVICE_TABLE(pci, mptspi_pci_table);
  * renegotiate for a given target
  */
 static void
-mptspi_dv_renegotiate_work(void *data)
+mptspi_dv_renegotiate_work(struct work_struct *work)
 {
-	struct work_queue_wrapper *wqw = (struct work_queue_wrapper *)data;
+	struct work_queue_wrapper *wqw =
+		container_of(work, struct work_queue_wrapper, work);
 	struct _MPT_SCSI_HOST *hd = wqw->hd;
 	struct scsi_device *sdev;
 
@@ -804,7 +807,7 @@ mptspi_dv_renegotiate(struct _MPT_SCSI_HOST *hd)
 	if (!wqw)
 		return;
 
-	INIT_WORK(&wqw->work, mptspi_dv_renegotiate_work, wqw);
+	INIT_WORK(&wqw->work, mptspi_dv_renegotiate_work);
 	wqw->hd = hd;
 
 	schedule_work(&wqw->work);
@@ -1098,8 +1101,7 @@ static struct pci_driver mptspi_driver = {
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
- *	mptspi_init - Register MPT adapter(s) as SCSI host(s) with
- *	linux scsi mid-layer.
+ *	mptspi_init - Register MPT adapter(s) as SCSI host(s) with SCSI mid-layer.
  *
  *	Returns 0 for success, non-zero for failure.
  */
@@ -1133,7 +1135,6 @@ mptspi_init(void)
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
  *	mptspi_exit - Unregisters MPT adapter(s)
- *
  */
 static void __exit
 mptspi_exit(void)

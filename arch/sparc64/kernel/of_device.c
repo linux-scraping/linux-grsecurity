@@ -144,9 +144,12 @@ void __iomem *of_ioremap(struct resource *res, unsigned long offset, unsigned lo
 }
 EXPORT_SYMBOL(of_ioremap);
 
-void of_iounmap(void __iomem *base, unsigned long size)
+void of_iounmap(struct resource *res, void __iomem *base, unsigned long size)
 {
-	release_region((unsigned long) base, size);
+	if (res->flags & IORESOURCE_MEM)
+		release_mem_region((unsigned long) base, size);
+	else
+		release_region((unsigned long) base, size);
 }
 EXPORT_SYMBOL(of_iounmap);
 
@@ -578,7 +581,7 @@ static void __init build_device_resources(struct of_device *op,
 		u32 *reg = (preg + (index * ((na + ns) * 4)));
 		struct device_node *dp = op->node;
 		struct device_node *pp = p_op->node;
-		struct of_bus *pbus;
+		struct of_bus *pbus, *dbus;
 		u64 size, result = OF_BAD_ADDR;
 		unsigned long flags;
 		int dna, dns;
@@ -596,6 +599,7 @@ static void __init build_device_resources(struct of_device *op,
 
 		dna = na;
 		dns = ns;
+		dbus = bus;
 
 		while (1) {
 			dp = pp;
@@ -608,13 +612,13 @@ static void __init build_device_resources(struct of_device *op,
 			pbus = of_match_bus(pp);
 			pbus->count_cells(dp, &pna, &pns);
 
-			if (build_one_resource(dp, bus, pbus, addr,
+			if (build_one_resource(dp, dbus, pbus, addr,
 					       dna, dns, pna))
 				break;
 
 			dna = pna;
 			dns = pns;
-			bus = pbus;
+			dbus = pbus;
 		}
 
 	build_res:
@@ -705,7 +709,7 @@ static unsigned int __init pci_irq_swizzle(struct device_node *dp,
 					   unsigned int irq)
 {
 	struct linux_prom_pci_registers *regs;
-	unsigned int devfn, slot, ret;
+	unsigned int bus, devfn, slot, ret;
 
 	if (irq < 1 || irq > 4)
 		return irq;
@@ -714,10 +718,46 @@ static unsigned int __init pci_irq_swizzle(struct device_node *dp,
 	if (!regs)
 		return irq;
 
+	bus = (regs->phys_hi >> 16) & 0xff;
 	devfn = (regs->phys_hi >> 8) & 0xff;
 	slot = (devfn >> 3) & 0x1f;
 
-	ret = ((irq - 1 + (slot & 3)) & 3) + 1;
+	if (pp->irq_trans) {
+		/* Derived from Table 8-3, U2P User's Manual.  This branch
+		 * is handling a PCI controller that lacks a proper set of
+		 * interrupt-map and interrupt-map-mask properties.  The
+		 * Ultra-E450 is one example.
+		 *
+		 * The bit layout is BSSLL, where:
+		 * B: 0 on bus A, 1 on bus B
+		 * D: 2-bit slot number, derived from PCI device number as
+		 *    (dev - 1) for bus A, or (dev - 2) for bus B
+		 * L: 2-bit line number
+		 *
+		 * Actually, more "portable" way to calculate the funky
+		 * slot number is to subtract pbm->pci_first_slot from the
+		 * device number, and that's exactly what the pre-OF
+		 * sparc64 code did, but we're building this stuff generically
+		 * using the OBP tree, not in the PCI controller layer.
+		 */
+		if (bus & 0x80) {
+			/* PBM-A */
+			bus  = 0x00;
+			slot = (slot - 1) << 2;
+		} else {
+			/* PBM-B */
+			bus  = 0x10;
+			slot = (slot - 2) << 2;
+		}
+		irq -= 1;
+
+		ret = (bus | slot | irq);
+	} else {
+		/* Going through a PCI-PCI bridge that lacks a set of
+		 * interrupt-map and interrupt-map-mask properties.
+		 */
+		ret = ((irq - 1 + (slot & 3)) & 3) + 1;
+	}
 
 	return ret;
 }
@@ -1007,10 +1047,9 @@ struct of_device* of_platform_device_create(struct device_node *np,
 {
 	struct of_device *dev;
 
-	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return NULL;
-	memset(dev, 0, sizeof(*dev));
 
 	dev->dev.parent = parent;
 	dev->dev.bus = bus;

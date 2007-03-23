@@ -10,7 +10,6 @@
 #include <linux/string.h>
 #include <asm/page.h>
 #include <asm/segment.h>
-#include <asm/desc.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1

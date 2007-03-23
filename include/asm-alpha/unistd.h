@@ -342,9 +342,14 @@
 #define __NR_io_cancel			402
 #define __NR_exit_group			405
 #define __NR_lookup_dcookie		406
-#define __NR_sys_epoll_create		407
-#define __NR_sys_epoll_ctl		408
-#define __NR_sys_epoll_wait		409
+#define __NR_epoll_create		407
+#define __NR_epoll_ctl			408
+#define __NR_epoll_wait			409
+/* Feb 2007: These three sys_epoll defines shouldn't be here but culling
+ * them would break userspace apps ... we'll kill them off in 2010 :) */
+#define __NR_sys_epoll_create		__NR_epoll_create
+#define __NR_sys_epoll_ctl		__NR_epoll_ctl
+#define __NR_sys_epoll_wait		__NR_epoll_wait
 #define __NR_remap_file_pages		410
 #define __NR_set_tid_address		411
 #define __NR_restart_syscall		412
@@ -386,188 +391,6 @@
 #ifdef __KERNEL__
 
 #define NR_SYSCALLS			447
-
-#if defined(__GNUC__)
-
-#define _syscall_return(type)						\
-	return (_sc_err ? errno = _sc_ret, _sc_ret = -1L : 0), (type) _sc_ret
-
-#define _syscall_clobbers						\
-	"$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",			\
-	"$22", "$23", "$24", "$25", "$27", "$28" 			\
-
-#define _syscall0(type, name)						\
-type name(void)								\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_19 __asm__("$19");			\
-									\
-		_sc_0 = __NR_##name;					\
-		__asm__("callsys # %0 %1 %2"				\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0)					\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#define _syscall1(type,name,type1,arg1)					\
-type name(type1 arg1)							\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_19 __asm__("$19");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		__asm__("callsys # %0 %1 %2 %3"				\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16)			\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#define _syscall2(type,name,type1,arg1,type2,arg2)			\
-type name(type1 arg1,type2 arg2)					\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_17 __asm__("$17");			\
-		register long _sc_19 __asm__("$19");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		_sc_17 = (long) (arg2);					\
-		__asm__("callsys # %0 %1 %2 %3 %4"			\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16), "r"(_sc_17)		\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#define _syscall3(type,name,type1,arg1,type2,arg2,type3,arg3)		\
-type name(type1 arg1,type2 arg2,type3 arg3)				\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_17 __asm__("$17");			\
-		register long _sc_18 __asm__("$18");			\
-		register long _sc_19 __asm__("$19");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		_sc_17 = (long) (arg2);					\
-		_sc_18 = (long) (arg3);					\
-		__asm__("callsys # %0 %1 %2 %3 %4 %5"			\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16), "r"(_sc_17),		\
-			  "r"(_sc_18)					\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#define _syscall4(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4) \
-type name (type1 arg1, type2 arg2, type3 arg3, type4 arg4)		 \
-{									 \
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_17 __asm__("$17");			\
-		register long _sc_18 __asm__("$18");			\
-		register long _sc_19 __asm__("$19");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		_sc_17 = (long) (arg2);					\
-		_sc_18 = (long) (arg3);					\
-		_sc_19 = (long) (arg4);					\
-		__asm__("callsys # %0 %1 %2 %3 %4 %5 %6"		\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16), "r"(_sc_17),		\
-			  "r"(_sc_18), "1"(_sc_19)			\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-} 
-
-#define _syscall5(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-	  type5,arg5)							 \
-type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5)	\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_17 __asm__("$17");			\
-		register long _sc_18 __asm__("$18");			\
-		register long _sc_19 __asm__("$19");			\
-		register long _sc_20 __asm__("$20");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		_sc_17 = (long) (arg2);					\
-		_sc_18 = (long) (arg3);					\
-		_sc_19 = (long) (arg4);					\
-		_sc_20 = (long) (arg5);					\
-		__asm__("callsys # %0 %1 %2 %3 %4 %5 %6 %7"		\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16), "r"(_sc_17),		\
-			  "r"(_sc_18), "1"(_sc_19), "r"(_sc_20)		\
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#define _syscall6(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
-	  type5,arg5,type6,arg6)					 \
-type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5, type6 arg6)\
-{									\
-	long _sc_ret, _sc_err;						\
-	{								\
-		register long _sc_0 __asm__("$0");			\
-		register long _sc_16 __asm__("$16");			\
-		register long _sc_17 __asm__("$17");			\
-		register long _sc_18 __asm__("$18");			\
-		register long _sc_19 __asm__("$19");			\
-		register long _sc_20 __asm__("$20");			\
-		register long _sc_21 __asm__("$21");			\
-									\
-		_sc_0 = __NR_##name;					\
-		_sc_16 = (long) (arg1);					\
-		_sc_17 = (long) (arg2);					\
-		_sc_18 = (long) (arg3);					\
-		_sc_19 = (long) (arg4);					\
-		_sc_20 = (long) (arg5);					\
-		_sc_21 = (long) (arg6);					\
-		__asm__("callsys # %0 %1 %2 %3 %4 %5 %6 %7 %8"		\
-			: "=r"(_sc_0), "=r"(_sc_19)			\
-			: "0"(_sc_0), "r"(_sc_16), "r"(_sc_17),		\
-			  "r"(_sc_18), "1"(_sc_19), "r"(_sc_20), "r"(_sc_21) \
-			: _syscall_clobbers);				\
-		_sc_ret = _sc_0, _sc_err = _sc_19;			\
-	}								\
-	_syscall_return(type);						\
-}
-
-#endif /* __GNUC__ */
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR

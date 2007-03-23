@@ -110,8 +110,8 @@ struct v9fs_mux_rpc {
 };
 
 static int v9fs_poll_proc(void *);
-static void v9fs_read_work(void *);
-static void v9fs_write_work(void *);
+static void v9fs_read_work(struct work_struct *work);
+static void v9fs_write_work(struct work_struct *work);
 static void v9fs_pollwait(struct file *filp, wait_queue_head_t * wait_address,
 			  poll_table * p);
 static u16 v9fs_mux_get_tag(struct v9fs_mux_data *);
@@ -132,8 +132,10 @@ int v9fs_mux_global_init(void)
 		v9fs_mux_poll_tasks[i].task = NULL;
 
 	v9fs_mux_wq = create_workqueue("v9fs");
-	if (!v9fs_mux_wq)
+	if (!v9fs_mux_wq) {
+		printk(KERN_WARNING "v9fs: mux: creating workqueue failed\n");
 		return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -297,8 +299,8 @@ struct v9fs_mux_data *v9fs_mux_init(struct v9fs_transport *trans, int msize,
 	m->rbuf = NULL;
 	m->wpos = m->wsize = 0;
 	m->wbuf = NULL;
-	INIT_WORK(&m->rq, v9fs_read_work, m);
-	INIT_WORK(&m->wq, v9fs_write_work, m);
+	INIT_WORK(&m->rq, v9fs_read_work);
+	INIT_WORK(&m->wq, v9fs_write_work);
 	m->wsched = 0;
 	memset(&m->poll_waddr, 0, sizeof(m->poll_waddr));
 	m->poll_task = NULL;
@@ -458,13 +460,13 @@ static int v9fs_poll_proc(void *a)
 /**
  * v9fs_write_work - called when a transport can send some data
  */
-static void v9fs_write_work(void *a)
+static void v9fs_write_work(struct work_struct *work)
 {
 	int n, err;
 	struct v9fs_mux_data *m;
 	struct v9fs_req *req;
 
-	m = a;
+	m = container_of(work, struct v9fs_mux_data, wq);
 
 	if (m->err < 0) {
 		clear_bit(Wworksched, &m->wsched);
@@ -564,7 +566,7 @@ static void process_request(struct v9fs_mux_data *m, struct v9fs_req *req)
 /**
  * v9fs_read_work - called when there is some data to be read from a transport
  */
-static void v9fs_read_work(void *a)
+static void v9fs_read_work(struct work_struct *work)
 {
 	int n, err;
 	struct v9fs_mux_data *m;
@@ -572,7 +574,7 @@ static void v9fs_read_work(void *a)
 	struct v9fs_fcall *rcall;
 	char *rbuf;
 
-	m = a;
+	m = container_of(work, struct v9fs_mux_data, rq);
 
 	if (m->err < 0)
 		return;

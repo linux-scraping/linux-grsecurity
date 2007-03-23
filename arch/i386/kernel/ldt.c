@@ -20,9 +20,6 @@
 #include <asm/desc.h>
 #include <asm/mmu_context.h>
 
-const struct desc_struct default_ldt[] = { { 0, 0 }, { 0, 0 }, { 0, 0 },
-		{ 0, 0 }, { 0, 0 } };
-
 #ifdef CONFIG_SMP /* avoids "defined but not used" warnig */
 static void flush_ldt(void *null)
 {
@@ -179,16 +176,14 @@ static int read_default_ldt(void __user * ptr, unsigned long bytecount)
 {
 	int err;
 	unsigned long size;
-	const void *address;
 
 	err = 0;
-	address = &default_ldt[0];
-	size = sizeof default_ldt;
+	size = 5*sizeof(struct desc_struct);
 	if (size > bytecount)
 		size = bytecount;
 
 	err = size;
-	if (copy_to_user(ptr, address, size))
+	if (clear_user(ptr, size))
 		err = -EFAULT;
 
 	return err;

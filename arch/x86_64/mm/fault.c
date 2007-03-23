@@ -23,10 +23,10 @@
 #include <linux/compiler.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
+#include <linux/uaccess.h>
 #include <linux/binfmts.h>
 
 #include <asm/system.h>
-#include <asm/uaccess.h>
 #include <asm/pgalloc.h>
 #include <asm/smp.h>
 #include <asm/tlbflush.h>
@@ -97,7 +97,7 @@ void bust_spinlocks(int yes)
 static noinline int is_prefetch(struct pt_regs *regs, unsigned long addr,
 				unsigned long error_code)
 { 
-	unsigned char __user *instr;
+	unsigned char *instr;
 	int scan_more = 1;
 	int prefetch = 0; 
 	unsigned char *max_instr;
@@ -117,7 +117,7 @@ static noinline int is_prefetch(struct pt_regs *regs, unsigned long addr,
 		unsigned char instr_hi;
 		unsigned char instr_lo;
 
-		if (__get_user(opcode, (char __user *)instr))
+		if (probe_kernel_address(instr, opcode))
 			break; 
 
 		instr_hi = opcode & 0xf0; 
@@ -155,7 +155,7 @@ static noinline int is_prefetch(struct pt_regs *regs, unsigned long addr,
 		case 0x00:
 			/* Prefetch instruction is 0x0F0D or 0x0F18 */
 			scan_more = 0;
-			if (__get_user(opcode, (char __user *)instr))
+			if (probe_kernel_address(instr, opcode))
 				break;
 			prefetch = (instr_lo == 0xF) &&
 				(opcode == 0x0D || opcode == 0x18);
@@ -171,7 +171,7 @@ static noinline int is_prefetch(struct pt_regs *regs, unsigned long addr,
 static int bad_address(void *p) 
 { 
 	unsigned long dummy;
-	return __get_user(dummy, (unsigned long __user *)p);
+	return probe_kernel_address((unsigned long *)p, dummy);
 } 
 
 void dump_pagetable(unsigned long address)

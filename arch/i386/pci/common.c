@@ -20,7 +20,7 @@
 unsigned int pci_probe = PCI_PROBE_BIOS | PCI_PROBE_CONF1 | PCI_PROBE_CONF2 |
 				PCI_PROBE_MMCONF;
 
-int pci_bf_sort;
+static int pci_bf_sort;
 int pci_routeirq;
 int pcibios_last_bus = -1;
 unsigned long pirq_table_addr;
@@ -191,7 +191,7 @@ static struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "PowerEdge 2950"),
 		},
 	},
-	{}
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL}
 };
 
 struct pci_bus * __devinit pcibios_scan_root(int busnum)

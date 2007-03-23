@@ -580,7 +580,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 				if (likely(call_dl_resolve))
 					goto emulate;
 
-				vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+				vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 
 				down_write(&current->mm->mmap_sem);
 				if (current->mm->call_dl_resolve) {

@@ -33,6 +33,9 @@ static __u8 root_hub_hub_des[] =
 /* status change bits:  nonzero writes will clear */
 #define RWC_BITS	(USBPORTSC_OCC | USBPORTSC_PEC | USBPORTSC_CSC)
 
+/* suspend/resume bits: port suspended or port resuming */
+#define SUSPEND_BITS	(USBPORTSC_SUSP | USBPORTSC_RD)
+
 /* A port that either is connected or has a changed-bit set will prevent
  * us from AUTO_STOPPING.
  */
@@ -52,10 +55,20 @@ static int any_ports_active(struct uhci_hcd *uhci)
 static inline int get_hub_status_data(struct uhci_hcd *uhci, char *buf)
 {
 	int port;
+	int mask = RWC_BITS;
+
+	/* Some boards (both VIA and Intel apparently) report bogus
+	 * overcurrent indications, causing massive log spam unless
+	 * we completely ignore them.  This doesn't seem to be a problem
+	 * with the chipset so much as with the way it is connected on
+	 * the motherboard; if the overcurrent input is left to float
+	 * then it may constantly register false positives. */
+	if (ignore_oc)
+		mask &= ~USBPORTSC_OCC;
 
 	*buf = 0;
 	for (port = 0; port < uhci->rh_numports; ++port) {
-		if ((inw(uhci->io_addr + USBPORTSC1 + port * 2) & RWC_BITS) ||
+		if ((inw(uhci->io_addr + USBPORTSC1 + port * 2) & mask) ||
 				test_bit(port, &uhci->port_c_suspend))
 			*buf |= (1 << (port + 1));
 	}
@@ -86,8 +99,8 @@ static void uhci_finish_suspend(struct uhci_hcd *uhci, int port,
 	int status;
 	int i;
 
-	if (inw(port_addr) & (USBPORTSC_SUSP | USBPORTSC_RD)) {
-		CLR_RH_PORTSTAT(USBPORTSC_SUSP | USBPORTSC_RD);
+	if (inw(port_addr) & SUSPEND_BITS) {
+		CLR_RH_PORTSTAT(SUSPEND_BITS);
 		if (test_bit(port, &uhci->resuming_ports))
 			set_bit(port, &uhci->port_c_suspend);
 
@@ -97,7 +110,7 @@ static void uhci_finish_suspend(struct uhci_hcd *uhci, int port,
 		 * Experiments show that some controllers take longer, so
 		 * we'll poll for completion. */
 		for (i = 0; i < 10; ++i) {
-			if (!(inw(port_addr) & USBPORTSC_RD))
+			if (!(inw(port_addr) & SUSPEND_BITS))
 				break;
 			udelay(1);
 		}
@@ -263,7 +276,7 @@ static int uhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			wPortChange |= USB_PORT_STAT_C_CONNECTION;
 		if (status & USBPORTSC_PEC)
 			wPortChange |= USB_PORT_STAT_C_ENABLE;
-		if (status & USBPORTSC_OCC)
+		if ((status & USBPORTSC_OCC) && !ignore_oc)
 			wPortChange |= USB_PORT_STAT_C_OVERCURRENT;
 
 		if (test_bit(port, &uhci->port_c_suspend)) {
@@ -279,7 +292,7 @@ static int uhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			wPortStatus |= USB_PORT_STAT_CONNECTION;
 		if (status & USBPORTSC_PE) {
 			wPortStatus |= USB_PORT_STAT_ENABLE;
-			if (status & (USBPORTSC_SUSP | USBPORTSC_RD))
+			if (status & SUSPEND_BITS)
 				wPortStatus |= USB_PORT_STAT_SUSPEND;
 		}
 		if (status & USBPORTSC_OC)

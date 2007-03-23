@@ -3,7 +3,7 @@
  *      For use with LSI Logic PCI chip/adapter(s)
  *      running LSI Logic Fusion MPT (Message Passing Technology) firmware.
  *
- *  Copyright (c) 1999-2005 LSI Logic Corporation
+ *  Copyright (c) 1999-2007 LSI Logic Corporation
  *  (mailto:mpt_linux_developer@lsil.com)
  *
  */
@@ -75,6 +75,7 @@
 MODULE_AUTHOR(MODULEAUTHOR);
 MODULE_DESCRIPTION(my_NAME);
 MODULE_LICENSE("GPL");
+MODULE_VERSION(my_VERSION);
 
 /* Command line args */
 #define MPTFC_DEV_LOSS_TMO (60)
@@ -1018,9 +1019,10 @@ mptfc_init_host_attr(MPT_ADAPTER *ioc,int portnum)
 }
 
 static void
-mptfc_setup_reset(void *arg)
+mptfc_setup_reset(struct work_struct *work)
 {
-	MPT_ADAPTER		*ioc = (MPT_ADAPTER *)arg;
+	MPT_ADAPTER		*ioc =
+		container_of(work, MPT_ADAPTER, fc_setup_reset_work);
 	u64			pn;
 	struct mptfc_rport_info *ri;
 
@@ -1043,9 +1045,10 @@ mptfc_setup_reset(void *arg)
 }
 
 static void
-mptfc_rescan_devices(void *arg)
+mptfc_rescan_devices(struct work_struct *work)
 {
-	MPT_ADAPTER		*ioc = (MPT_ADAPTER *)arg;
+	MPT_ADAPTER		*ioc =
+		container_of(work, MPT_ADAPTER, fc_rescan_work);
 	int			ii;
 	u64			pn;
 	struct mptfc_rport_info *ri;
@@ -1154,8 +1157,8 @@ mptfc_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         }
 
 	spin_lock_init(&ioc->fc_rescan_work_lock);
-	INIT_WORK(&ioc->fc_rescan_work, mptfc_rescan_devices,(void *)ioc);
-	INIT_WORK(&ioc->fc_setup_reset_work, mptfc_setup_reset, (void *)ioc);
+	INIT_WORK(&ioc->fc_rescan_work, mptfc_rescan_devices);
+	INIT_WORK(&ioc->fc_setup_reset_work, mptfc_setup_reset);
 
 	spin_lock_irqsave(&ioc->FreeQlock, flags);
 
@@ -1393,8 +1396,7 @@ mptfc_ioc_reset(MPT_ADAPTER *ioc, int reset_phase)
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
- *	mptfc_init - Register MPT adapter(s) as SCSI host(s) with
- *	linux scsi mid-layer.
+ *	mptfc_init - Register MPT adapter(s) as SCSI host(s) with SCSI mid-layer.
  *
  *	Returns 0 for success, non-zero for failure.
  */
@@ -1438,7 +1440,7 @@ mptfc_init(void)
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
- *	mptfc_remove - Removed fc infrastructure for devices
+ *	mptfc_remove - Remove fc infrastructure for devices
  *	@pdev: Pointer to pci_dev structure
  *
  */

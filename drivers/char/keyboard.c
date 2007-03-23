@@ -720,7 +720,7 @@ static void k_fn(struct vc_data *vc, unsigned char value, char up_flag)
 
 static void k_cur(struct vc_data *vc, unsigned char value, char up_flag)
 {
-	static const char *cur_chars = "BDCA";
+	static const char cur_chars[] = "BDCA";
 
 	if (up_flag)
 		return;
@@ -1364,7 +1364,7 @@ static const struct input_device_id kbd_ids[] = {
                 .evbit = { BIT(EV_SND) },
         },
 
-	{ },    /* Terminating entry */
+	{ 0 },    /* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(input, kbd_ids);

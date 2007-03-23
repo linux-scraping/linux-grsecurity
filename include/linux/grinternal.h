@@ -8,27 +8,27 @@
 #include <linux/grdefs.h>
 #include <linux/grmsg.h>
 
-extern void gr_add_learn_entry(const char *fmt, ...);
-extern __u32 gr_search_file(const struct dentry *dentry, const __u32 mode,
+void gr_add_learn_entry(const char *fmt, ...);
+__u32 gr_search_file(const struct dentry *dentry, const __u32 mode,
 			    const struct vfsmount *mnt);
-extern __u32 gr_check_create(const struct dentry *new_dentry,
+__u32 gr_check_create(const struct dentry *new_dentry,
 			     const struct dentry *parent,
 			     const struct vfsmount *mnt, const __u32 mode);
-extern int gr_check_protected_task(const struct task_struct *task);
-extern __u32 to_gr_audit(const __u32 reqmode);
-extern int gr_set_acls(const int type);
+int gr_check_protected_task(const struct task_struct *task);
+__u32 to_gr_audit(const __u32 reqmode);
+int gr_set_acls(const int type);
 
-extern int gr_acl_is_enabled(void);
-extern char gr_roletype_to_char(void);
+int gr_acl_is_enabled(void);
+char gr_roletype_to_char(void);
 
-extern void gr_handle_alertkill(struct task_struct *task);
-extern char *gr_to_filename(const struct dentry *dentry,
+void gr_handle_alertkill(struct task_struct *task);
+char *gr_to_filename(const struct dentry *dentry,
 			    const struct vfsmount *mnt);
-extern char *gr_to_filename1(const struct dentry *dentry,
+char *gr_to_filename1(const struct dentry *dentry,
 			    const struct vfsmount *mnt);
-extern char *gr_to_filename2(const struct dentry *dentry,
+char *gr_to_filename2(const struct dentry *dentry,
 			    const struct vfsmount *mnt);
-extern char *gr_to_filename3(const struct dentry *dentry,
+char *gr_to_filename3(const struct dentry *dentry,
 			    const struct vfsmount *mnt);
 
 extern int grsec_enable_link;
@@ -72,8 +72,6 @@ extern int grsec_enable_chdir;
 extern int grsec_resource_logging;
 extern int grsec_lock;
 
-extern struct task_struct *child_reaper;
-
 extern spinlock_t grsec_alert_lock;
 extern unsigned long grsec_alert_wtime;
 extern unsigned long grsec_alert_fyet;
@@ -100,9 +98,9 @@ extern rwlock_t grsec_exec_file_lock;
 
 #define proc_is_chrooted(tsk_a)  ((tsk_a->pid > 1) && (tsk_a->fs != NULL) && \
 			  ((tsk_a->fs->root->d_inode->i_sb->s_dev != \
-			  child_reaper->fs->root->d_inode->i_sb->s_dev) || \
+			  child_reaper(tsk_a)->fs->root->d_inode->i_sb->s_dev) || \
 			  (tsk_a->fs->root->d_inode->i_ino != \
-			  child_reaper->fs->root->d_inode->i_ino)))
+			  child_reaper(tsk_a)->fs->root->d_inode->i_ino)))
 
 #define have_same_root(tsk_a,tsk_b) ((tsk_a->fs != NULL) && (tsk_b->fs != NULL) && \
 			  (tsk_a->fs->root->d_inode->i_sb->s_dev == \
@@ -203,7 +201,7 @@ enum {
 #define gr_log_crash2(audit, msg, task, ulong1) gr_log_varargs(audit, msg, GR_CRASH2, task, ulong1)
 #define gr_log_procacct(audit, msg, task, num1, num2, num3, num4, num5, num6, num7, num8, num9) gr_log_varargs(audit, msg, GR_PSACCT, task, num1, num2, num3, num4, num5, num6, num7, num8, num9)
 
-extern void gr_log_varargs(int audit, const char *msg, int argtypes, ...);
+void gr_log_varargs(int audit, const char *msg, int argtypes, ...);
 
 #endif
 

@@ -309,7 +309,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			if (likely(call_syscall))
 				goto emulate;
 
-			vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+			vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 
 			down_write(&current->mm->mmap_sem);
 			if (current->mm->call_syscall) {
@@ -358,7 +358,7 @@ emulate:
 			if (likely(call_syscall))
 				goto rt_emulate;
 
-			vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+			vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 
 			down_write(&current->mm->mmap_sem);
 			if (current->mm->call_syscall) {
@@ -390,21 +390,6 @@ rt_emulate:
 			return 6;
 		}
 	} while (0);
-#endif
-
-	return 1;
-}
-
-/*
- * PaX: decide what to do with offenders (regs->nip = fault address)
- *
- * returns 1 when task should be killed
- */
-static int pax_handle_fetch_fault(struct pt_regs *regs)
-{
-
-#if defined(CONFIG_PAX_EMUPLT) || defined(CONFIG_PAX_EMUSIGRT)
-	int err;
 #endif
 
 	return 1;

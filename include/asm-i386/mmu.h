@@ -14,14 +14,11 @@ typedef struct {
 	struct desc_struct *ldt;
 	unsigned long vdso;
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 	unsigned long user_cs_base;
 	unsigned long user_cs_limit;
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
 	cpumask_t cpu_user_cs_mask;
-#endif
-
 #endif
 
 } mm_context_t;

@@ -556,10 +556,9 @@ static int init_shared_mem(struct s2io_nic *nic)
 		}
 	}
 
-	nic->ufo_in_band_v = kmalloc((sizeof(u64) * size), GFP_KERNEL);
+	nic->ufo_in_band_v = kcalloc(size, sizeof(u64), GFP_KERNEL);
 	if (!nic->ufo_in_band_v)
 		return -ENOMEM;
-	memset(nic->ufo_in_band_v, 0, size);
 
 	/* Allocation and initialization of RXDs in Rings */
 	size = 0;
@@ -5872,9 +5871,9 @@ static void s2io_tasklet(unsigned long dev_addr)
  * Description: Sets the link status for the adapter
  */
 
-static void s2io_set_link(unsigned long data)
+static void s2io_set_link(struct work_struct *work)
 {
-	nic_t *nic = (nic_t *) data;
+	nic_t *nic = container_of(work, nic_t, set_link_task);
 	struct net_device *dev = nic->dev;
 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
 	register u64 val64;
@@ -6379,10 +6378,10 @@ static int s2io_card_up(nic_t * sp)
  * spin lock.
  */
 
-static void s2io_restart_nic(unsigned long data)
+static void s2io_restart_nic(struct work_struct *work)
 {
-	struct net_device *dev = (struct net_device *) data;
-	nic_t *sp = dev->priv;
+	nic_t *sp = container_of(work, nic_t, rst_timer_task);
+	struct net_device *dev = sp->dev;
 
 	s2io_card_down(sp);
 	if (s2io_card_up(sp)) {
@@ -6992,10 +6991,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
 
 	dev->tx_timeout = &s2io_tx_watchdog;
 	dev->watchdog_timeo = WATCH_DOG_TIMEOUT;
-	INIT_WORK(&sp->rst_timer_task,
-		  (void (*)(void *)) s2io_restart_nic, dev);
-	INIT_WORK(&sp->set_link_task,
-		  (void (*)(void *)) s2io_set_link, sp);
+	INIT_WORK(&sp->rst_timer_task, s2io_restart_nic);
+	INIT_WORK(&sp->set_link_task, s2io_set_link);
 
 	pci_save_state(sp->pdev);
 

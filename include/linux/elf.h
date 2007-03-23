@@ -6,6 +6,8 @@
 #include <linux/elf-em.h>
 #include <asm/elf.h>
 
+struct file;
+
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 #undef elf_read_implies_exec
 #endif
@@ -389,6 +391,7 @@ extern Elf32_Dyn _DYNAMIC [];
 #define elfhdr		elf32_hdr
 #define elf_phdr	elf32_phdr
 #define elf_note	elf32_note
+#define elf_addr_t	Elf32_Off
 #define elf_dyn		Elf32_Dyn
 
 #else
@@ -397,9 +400,17 @@ extern Elf64_Dyn _DYNAMIC [];
 #define elfhdr		elf64_hdr
 #define elf_phdr	elf64_phdr
 #define elf_note	elf64_note
+#define elf_addr_t	Elf64_Off
 #define elf_dyn		Elf64_Dyn
 
 #endif
 
+#ifndef ARCH_HAVE_EXTRA_ELF_NOTES
+static inline int arch_notes_size(void) { return 0; }
+static inline void arch_write_notes(struct file *file) { }
+
+#define ELF_CORE_EXTRA_NOTES_SIZE arch_notes_size()
+#define ELF_CORE_WRITE_EXTRA_NOTES arch_write_notes(file)
+#endif /* ARCH_HAVE_EXTRA_ELF_NOTES */
 
 #endif /* _LINUX_ELF_H */

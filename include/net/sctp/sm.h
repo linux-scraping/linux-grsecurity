@@ -134,6 +134,7 @@ sctp_state_fn_t sctp_sf_violation;
 sctp_state_fn_t sctp_sf_discard_chunk;
 sctp_state_fn_t sctp_sf_do_5_2_1_siminit;
 sctp_state_fn_t sctp_sf_do_5_2_2_dupinit;
+sctp_state_fn_t sctp_sf_do_5_2_3_initack;
 sctp_state_fn_t sctp_sf_do_5_2_4_dupcook;
 sctp_state_fn_t sctp_sf_unk_chunk;
 sctp_state_fn_t sctp_sf_do_8_5_1_E_sa;
@@ -213,7 +214,7 @@ struct sctp_chunk *sctp_make_shutdown_ack(const struct sctp_association *asoc,
 					  const struct sctp_chunk *);
 struct sctp_chunk *sctp_make_shutdown_complete(const struct sctp_association *,
 					  const struct sctp_chunk *);
-void sctp_init_cause(struct sctp_chunk *, __u16 cause, const void *, size_t);
+void sctp_init_cause(struct sctp_chunk *, __be16 cause, const void *, size_t);
 struct sctp_chunk *sctp_make_abort(const struct sctp_association *,
 			      const struct sctp_chunk *,
 			      const size_t hint);
@@ -236,14 +237,14 @@ struct sctp_chunk *sctp_make_heartbeat_ack(const struct sctp_association *,
 				      const size_t paylen);
 struct sctp_chunk *sctp_make_op_error(const struct sctp_association *,
 				 const struct sctp_chunk *chunk,
-				 __u16 cause_code,
+				 __be16 cause_code,
 				 const void *payload,
 				 size_t paylen);
 
 struct sctp_chunk *sctp_make_asconf_update_ip(struct sctp_association *,
 					      union sctp_addr *,
 					      struct sockaddr *,
-					      int, __u16);
+					      int, __be16);
 struct sctp_chunk *sctp_make_asconf_set_prim(struct sctp_association *asoc,
 					     union sctp_addr *addr);
 struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,

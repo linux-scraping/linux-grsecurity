@@ -356,28 +356,6 @@ static int ctrl_freq_set(struct pvr2_ctrl *cptr,int m,int v)
 	return 0;
 }
 
-static int ctrl_hres_max_get(struct pvr2_ctrl *cptr,int *vp)
-{
-	/* If we're dealing with a 24xxx device, force the horizontal
-	   maximum to be 720 no matter what, since we can't get the device
-	   to work properly with any other value.  Otherwise just return
-	   the normal value. */
-	*vp = cptr->info->def.type_int.max_value;
-	if (cptr->hdw->hdw_type == PVR2_HDW_TYPE_24XXX) *vp = 720;
-	return 0;
-}
-
-static int ctrl_hres_min_get(struct pvr2_ctrl *cptr,int *vp)
-{
-	/* If we're dealing with a 24xxx device, force the horizontal
-	   minimum to be 720 no matter what, since we can't get the device
-	   to work properly with any other value.  Otherwise just return
-	   the normal value. */
-	*vp = cptr->info->def.type_int.min_value;
-	if (cptr->hdw->hdw_type == PVR2_HDW_TYPE_24XXX) *vp = 720;
-	return 0;
-}
-
 static int ctrl_vres_max_get(struct pvr2_ctrl *cptr,int *vp)
 {
 	/* Actual maximum depends on the video standard in effect. */
@@ -758,10 +736,6 @@ static const struct pvr2_ctl_info control_defs[] = {
 		.default_value = 720,
 		DEFREF(res_hor),
 		DEFINT(19,720),
-		/* Hook in check for clamp on horizontal resolution in
-		   order to avoid unsolved problem involving cx25840. */
-		.get_max_value = ctrl_hres_max_get,
-		.get_min_value = ctrl_hres_min_get,
 	},{
 		.desc = "Vertical capture resolution",
 		.name = "resolution_ver",
@@ -1067,7 +1041,7 @@ int pvr2_upload_firmware2(struct pvr2_hdw *hdw)
 {
 	const struct firmware *fw_entry = NULL;
 	void  *fw_ptr;
-	unsigned int pipe, fw_len, fw_done;
+	unsigned int pipe, fw_len, fw_done, bcnt, icnt;
 	int actual_length;
 	int ret = 0;
 	int fwidx;
@@ -1119,11 +1093,11 @@ int pvr2_upload_firmware2(struct pvr2_hdw *hdw)
 
 	fw_len = fw_entry->size;
 
-	if (fw_len % FIRMWARE_CHUNK_SIZE) {
+	if (fw_len % sizeof(u32)) {
 		pvr2_trace(PVR2_TRACE_ERROR_LEGS,
 			   "size of %s firmware"
-			   " must be a multiple of 8192B",
-			   fw_files[fwidx]);
+			   " must be a multiple of %zu bytes",
+			   fw_files[fwidx],sizeof(u32));
 		release_firmware(fw_entry);
 		return -1;
 	}
@@ -1138,18 +1112,21 @@ int pvr2_upload_firmware2(struct pvr2_hdw *hdw)
 
 	pipe = usb_sndbulkpipe(hdw->usb_dev, PVR2_FIRMWARE_ENDPOINT);
 
-	for (fw_done = 0 ; (fw_done < fw_len) && !ret ;
-	     fw_done += FIRMWARE_CHUNK_SIZE ) {
-		int i;
-		memcpy(fw_ptr, fw_entry->data + fw_done, FIRMWARE_CHUNK_SIZE);
-		/* Usbsnoop log  shows that we must swap bytes... */
-		for (i = 0; i < FIRMWARE_CHUNK_SIZE/4 ; i++)
-			((u32 *)fw_ptr)[i] = ___swab32(((u32 *)fw_ptr)[i]);
+	fw_done = 0;
+	for (fw_done = 0; fw_done < fw_len;) {
+		bcnt = fw_len - fw_done;
+		if (bcnt > FIRMWARE_CHUNK_SIZE) bcnt = FIRMWARE_CHUNK_SIZE;
+		memcpy(fw_ptr, fw_entry->data + fw_done, bcnt);
+		/* Usbsnoop log shows that we must swap bytes... */
+		for (icnt = 0; icnt < bcnt/4 ; icnt++)
+			((u32 *)fw_ptr)[icnt] =
+				___swab32(((u32 *)fw_ptr)[icnt]);
 
-		ret |= usb_bulk_msg(hdw->usb_dev, pipe, fw_ptr,
-				    FIRMWARE_CHUNK_SIZE,
+		ret |= usb_bulk_msg(hdw->usb_dev, pipe, fw_ptr,bcnt,
 				    &actual_length, HZ);
-		ret |= (actual_length != FIRMWARE_CHUNK_SIZE);
+		ret |= (actual_length != bcnt);
+		if (ret) break;
+		fw_done += bcnt;
 	}
 
 	trace_firmware("upload of %s : %i / %i ",
@@ -1953,8 +1930,8 @@ struct pvr2_hdw *pvr2_hdw_create(struct usb_interface *intf,
 	return hdw;
  fail:
 	if (hdw) {
-		if (hdw->ctl_read_urb) usb_free_urb(hdw->ctl_read_urb);
-		if (hdw->ctl_write_urb) usb_free_urb(hdw->ctl_write_urb);
+		usb_free_urb(hdw->ctl_read_urb);
+		usb_free_urb(hdw->ctl_write_urb);
 		if (hdw->ctl_read_buffer) kfree(hdw->ctl_read_buffer);
 		if (hdw->ctl_write_buffer) kfree(hdw->ctl_write_buffer);
 		if (hdw->controls) kfree(hdw->controls);
@@ -2575,12 +2552,10 @@ static void pvr2_ctl_timeout(unsigned long data)
 	struct pvr2_hdw *hdw = (struct pvr2_hdw *)data;
 	if (hdw->ctl_write_pend_flag || hdw->ctl_read_pend_flag) {
 		hdw->ctl_timeout_flag = !0;
-		if (hdw->ctl_write_pend_flag && hdw->ctl_write_urb) {
+		if (hdw->ctl_write_pend_flag)
 			usb_unlink_urb(hdw->ctl_write_urb);
-		}
-		if (hdw->ctl_read_pend_flag && hdw->ctl_read_urb) {
+		if (hdw->ctl_read_pend_flag)
 			usb_unlink_urb(hdw->ctl_read_urb);
-		}
 	}
 }
 

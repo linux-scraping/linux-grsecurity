@@ -17,11 +17,11 @@ static unsigned long doublefault_stack[DOUBLEFAULT_STACKSIZE];
 
 static void doublefault_fn(void)
 {
-	struct Xgt_desc_struct gdt_desc = {0, 0};
+	struct Xgt_desc_struct gdt_desc = {0, NULL, 0};
 	unsigned long gdt, tss;
 
 	store_gdt(&gdt_desc);
-	gdt = gdt_desc.address;
+	gdt = (unsigned long)gdt_desc.address;
 
 	printk("double fault, gdt at %08lx [%d bytes]\n", gdt, gdt_desc.size);
 

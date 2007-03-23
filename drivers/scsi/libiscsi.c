@@ -260,7 +260,7 @@ static int iscsi_scsi_cmd_rsp(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
 	}
 
 	if (rhdr->cmd_status == SAM_STAT_CHECK_CONDITION) {
-		int senselen;
+		uint16_t senselen;
 
 		if (datalen < 2) {
 invalid_datalen:
@@ -270,12 +270,12 @@ invalid_datalen:
 			goto out;
 		}
 
-		senselen = (data[0] << 8) | data[1];
+		senselen = be16_to_cpu(*(uint16_t *)data);
 		if (datalen < senselen)
 			goto invalid_datalen;
 
 		memcpy(sc->sense_buffer, data + 2,
-		       min(senselen, SCSI_SENSE_BUFFERSIZE));
+		       min_t(uint16_t, senselen, SCSI_SENSE_BUFFERSIZE));
 		debug_scsi("copied %d bytes of sense\n",
 			   min(senselen, SCSI_SENSE_BUFFERSIZE));
 	}
@@ -719,9 +719,10 @@ again:
 	return rc;
 }
 
-static void iscsi_xmitworker(void *data)
+static void iscsi_xmitworker(struct work_struct *work)
 {
-	struct iscsi_conn *conn = data;
+	struct iscsi_conn *conn =
+		container_of(work, struct iscsi_conn, xmitwork);
 	int rc;
 	/*
 	 * serialize Xmit worker on a per-connection basis.
@@ -1512,7 +1513,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, uint32_t conn_idx)
 	if (conn->mgmtqueue == ERR_PTR(-ENOMEM))
 		goto mgmtqueue_alloc_fail;
 
-	INIT_WORK(&conn->xmitwork, iscsi_xmitworker, conn);
+	INIT_WORK(&conn->xmitwork, iscsi_xmitworker);
 
 	/* allocate login_mtask used for the login/text sequences */
 	spin_lock_bh(&session->lock);

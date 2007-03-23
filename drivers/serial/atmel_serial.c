@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/char/at91_serial.c
+ *  linux/drivers/char/atmel_serial.c
  *
  *  Driver for Atmel AT91 / AT32 Serial ports
  *  Copyright (C) 2003 Rick Bronson
@@ -36,11 +36,11 @@
 
 #include <asm/io.h>
 
-#include <asm/arch/at91rm9200_pdc.h>
 #include <asm/mach/serial_at91.h>
 #include <asm/arch/board.h>
+#include <asm/arch/at91_pdc.h>
 #ifdef CONFIG_ARM
-#include <asm/arch/system.h>
+#include <asm/arch/cpu.h>
 #include <asm/arch/gpio.h>
 #endif
 
@@ -137,8 +137,8 @@ static void atmel_set_mctrl(struct uart_port *port, u_int mctrl)
 	unsigned int control = 0;
 	unsigned int mode;
 
-#ifdef CONFIG_ARM
-	if (arch_identify() == ARCH_ID_AT91RM9200) {
+#ifdef CONFIG_ARCH_AT91RM9200
+	if (cpu_is_at91rm9200()) {
 		/*
 		 * AT91RM9200 Errata #39: RTS0 is not internally connected to PA21.
 		 *  We need to drive the pin manually.
@@ -478,7 +478,7 @@ static void atmel_serial_pm(struct uart_port *port, unsigned int state, unsigned
 /*
  * Change the port parameters
  */
-static void atmel_set_termios(struct uart_port *port, struct termios * termios, struct termios * old)
+static void atmel_set_termios(struct uart_port *port, struct ktermios * termios, struct ktermios * old)
 {
 	unsigned long flags;
 	unsigned int mode, imr, quot, baud;
@@ -689,9 +689,9 @@ static void __devinit atmel_init_port(struct atmel_uart_port *atmel_port, struct
 	struct atmel_uart_data *data = pdev->dev.platform_data;
 
 	port->iotype	= UPIO_MEM;
-	port->flags     = UPF_BOOT_AUTOCONF;
+	port->flags	= UPF_BOOT_AUTOCONF;
 	port->ops	= &atmel_pops;
-	port->fifosize  = 1;
+	port->fifosize	= 1;
 	port->line	= pdev->id;
 	port->dev	= &pdev->dev;
 
@@ -890,7 +890,6 @@ static int atmel_serial_suspend(struct platform_device *pdev, pm_message_t state
 	if (device_may_wakeup(&pdev->dev) && !at91_suspend_entering_slow_clock())
 		enable_irq_wake(port->irq);
 	else {
-		disable_irq_wake(port->irq);
 		uart_suspend_port(&atmel_uart, port);
 		atmel_port->suspended = 1;
 	}
@@ -907,6 +906,8 @@ static int atmel_serial_resume(struct platform_device *pdev)
 		uart_resume_port(&atmel_uart, port);
 		atmel_port->suspended = 0;
 	}
+	else
+		disable_irq_wake(port->irq);
 
 	return 0;
 }

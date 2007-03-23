@@ -22,7 +22,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME "pata_atiixp"
-#define DRV_VERSION "0.4.3"
+#define DRV_VERSION "0.4.4"
 
 enum {
 	ATIIXP_IDE_PIO_TIMING	= 0x40,
@@ -36,15 +36,22 @@ enum {
 static int atiixp_pre_reset(struct ata_port *ap)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
-	static struct pci_bits atiixp_enable_bits[] = {
+	static const struct pci_bits atiixp_enable_bits[] = {
 		{ 0x48, 1, 0x01, 0x00 },
 		{ 0x48, 1, 0x08, 0x00 }
 	};
+	u8 udma;
 
 	if (!pci_test_config_bits(pdev, &atiixp_enable_bits[ap->port_no]))
 		return -ENOENT;
 
-	ap->cbl = ATA_CBL_PATA80;
+	/* Hack from drivers/ide/pci. Really we want to know how to do the
+	   raw detection not play follow the bios mode guess */
+	pci_read_config_byte(pdev, ATIIXP_IDE_UDMA_MODE + ap->port_no, &udma);
+	if ((udma & 0x07) >= 0x04 || (udma & 0x70) >= 0x40)
+		ap->cbl = ATA_CBL_PATA80;
+	else
+		ap->cbl = ATA_CBL_PATA40;
 	return ata_std_prereset(ap);
 }
 
@@ -209,14 +216,18 @@ static struct scsi_host_template atiixp_sht = {
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
 	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.emulated		= ATA_SHT_EMULATED,
 	.use_clustering		= ATA_SHT_USE_CLUSTERING,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
+#ifdef CONFIG_PM
+	.resume			= ata_scsi_device_resume,
+	.suspend		= ata_scsi_device_suspend,
+#endif
 };
 
 static struct ata_port_operations atiixp_port_ops = {
@@ -280,7 +291,11 @@ static struct pci_driver atiixp_pci_driver = {
 	.name 		= DRV_NAME,
 	.id_table	= atiixp,
 	.probe 		= atiixp_init_one,
-	.remove		= ata_pci_remove_one
+	.remove		= ata_pci_remove_one,
+#ifdef CONFIG_PM
+	.resume		= ata_pci_device_resume,
+	.suspend	= ata_pci_device_suspend,
+#endif
 };
 
 static int __init atiixp_init(void)

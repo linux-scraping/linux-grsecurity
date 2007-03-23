@@ -38,6 +38,7 @@
 #include <linux/binfmts.h>
 #include <linux/swap.h>
 #include <linux/utsname.h>
+#include <linux/pid_namespace.h>
 #include <linux/module.h>
 #include <linux/namei.h>
 #include <linux/proc_fs.h>
@@ -435,13 +436,13 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		bprm->loader += stack_base;
 	bprm->exec += stack_base;
 
-	mpnt = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+	mpnt = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!mpnt)
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (VM_STACK_FLAGS & VM_MAYEXEC)) {
-		mpnt_m = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+		mpnt_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (!mpnt_m) {
 			kmem_cache_free(vm_area_cachep, mpnt);
 			return -ENOMEM;
@@ -704,8 +705,8 @@ static int de_thread(struct task_struct *tsk)
 	 * Reparenting needs write_lock on tasklist_lock,
 	 * so it is safe to do it under read_lock.
 	 */
-	if (unlikely(tsk->group_leader == child_reaper))
-		child_reaper = tsk;
+	if (unlikely(tsk->group_leader == child_reaper(tsk)))
+		tsk->nsproxy->pid_ns->child_reaper = tsk;
 
 	zap_other_threads(tsk);
 	read_unlock(&tasklist_lock);
@@ -866,7 +867,7 @@ static void flush_old_files(struct files_struct * files)
 		j++;
 		i = j * __NFDBITS;
 		fdt = files_fdtable(files);
-		if (i >= fdt->max_fds || i >= fdt->max_fdset)
+		if (i >= fdt->max_fds)
 			break;
 		set = fdt->close_on_exec->fds_bits[j];
 		if (!set)
@@ -996,7 +997,7 @@ EXPORT_SYMBOL(flush_old_exec);
 int prepare_binprm(struct linux_binprm *bprm)
 {
 	int mode;
-	struct inode * inode = bprm->file->f_dentry->d_inode;
+	struct inode * inode = bprm->file->f_path.dentry->d_inode;
 	int retval;
 
 	mode = inode->i_mode;
@@ -1006,7 +1007,7 @@ int prepare_binprm(struct linux_binprm *bprm)
 	bprm->e_uid = current->euid;
 	bprm->e_gid = current->egid;
 
-	if(!(bprm->file->f_vfsmnt->mnt_flags & MNT_NOSUID)) {
+	if(!(bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)) {
 		/* Set-uid? */
 		if (mode & S_ISUID) {
 			current->personality &= ~PER_CLEAR_ON_SETID;
@@ -1578,7 +1579,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			vma = vma->vm_next;
 		}
 		if (vma_exec) {
-			path_exec = d_path(vma_exec->vm_file->f_dentry, vma_exec->vm_file->f_vfsmnt, buffer_exec, PAGE_SIZE);
+			path_exec = d_path(vma_exec->vm_file->f_path.dentry, vma_exec->vm_file->f_path.mnt, buffer_exec, PAGE_SIZE);
 			if (IS_ERR(path_exec))
 				path_exec = "<path too long>";
 		}
@@ -1587,7 +1588,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			end = vma_fault->vm_end;
 			offset = vma_fault->vm_pgoff << PAGE_SHIFT;
 			if (vma_fault->vm_file) {
-				path_fault = d_path(vma_fault->vm_file->f_dentry, vma_fault->vm_file->f_vfsmnt, buffer_fault, PAGE_SIZE);
+				path_fault = d_path(vma_fault->vm_file->f_path.dentry, vma_fault->vm_file->f_path.mnt, buffer_fault, PAGE_SIZE);
 				if (IS_ERR(path_fault))
 					path_fault = "<path too long>";
 			} else
@@ -1777,10 +1778,10 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 				 0600);
 	if (IS_ERR(file))
 		goto fail_unlock;
-	inode = file->f_dentry->d_inode;
+	inode = file->f_path.dentry->d_inode;
 	if (inode->i_nlink > 1)
 		goto close_fail;	/* multiple links - don't dump */
-	if (!ispipe && d_unhashed(file->f_dentry))
+	if (!ispipe && d_unhashed(file->f_path.dentry))
 		goto close_fail;
 
 	/* AK: actually i see no reason to not allow this for named pipes etc.,
@@ -1791,7 +1792,7 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 		goto close_fail;
 	if (!file->f_op->write)
 		goto close_fail;
-	if (!ispipe && do_truncate(file->f_dentry, 0, 0, file) != 0)
+	if (!ispipe && do_truncate(file->f_path.dentry, 0, 0, file) != 0)
 		goto close_fail;
 
 	retval = binfmt->core_dump(signr, regs, file);

@@ -1404,7 +1404,7 @@ static const struct snd_ac97_res_table ad1819_restbl[] = {
 	{ AC97_VIDEO, 0x9f1f },
 	{ AC97_AUX, 0x9f1f },
 	{ AC97_PCM, 0x9f1f },
-	{ } /* terminator */
+	{ 0, 0} /* terminator */
 };
 
 int patch_ad1819(struct snd_ac97 * ac97)
@@ -1467,7 +1467,9 @@ static void patch_ad1881_chained(struct snd_ac97 * ac97, int unchained_idx, int 
 	snd_ac97_write_cache(ac97, AC97_AD_CODEC_CFG, 0x0002);		// ID1C
 	ac97->spec.ad18xx.codec_cfg[unchained_idx] = 0x0002;
 	if (cidx1 >= 0) {
-		if (patch_ad1881_chained1(ac97, cidx1, 0x0006))		// SDIE | ID1C
+		if (cidx2 < 0)
+			patch_ad1881_chained1(ac97, cidx1, 0);
+		else if (patch_ad1881_chained1(ac97, cidx1, 0x0006))	// SDIE | ID1C
 			patch_ad1881_chained1(ac97, cidx2, 0);
 		else if (patch_ad1881_chained1(ac97, cidx2, 0x0006))	// SDIE | ID1C
 			patch_ad1881_chained1(ac97, cidx1, 0);
@@ -2261,7 +2263,8 @@ int patch_alc655(struct snd_ac97 * ac97)
 	else { /* ALC655 */
 		if (ac97->subsystem_vendor == 0x1462 &&
 		    (ac97->subsystem_device == 0x0131 || /* MSI S270 laptop */
-		     ac97->subsystem_device == 0x0161)) /* LG K1 Express */
+		     ac97->subsystem_device == 0x0161 || /* LG K1 Express */
+		     ac97->subsystem_device == 0x0351))  /* MSI L725 laptop */
 			val &= ~(1 << 1); /* Pin 47 is EAPD (for internal speaker) */
 		else
 			val |= (1 << 1); /* Pin 47 is spdif input pin */
@@ -2921,7 +2924,7 @@ static struct snd_ac97_res_table lm4550_restbl[] = {
 	{ AC97_AUX, 0x1f1f },
 	{ AC97_PCM, 0x1f1f },
 	{ AC97_REC_GAIN, 0x0f0f },
-	{ } /* terminator */
+	{ 0, 0 } /* terminator */
 };
 
 int patch_lm4550(struct snd_ac97 *ac97)

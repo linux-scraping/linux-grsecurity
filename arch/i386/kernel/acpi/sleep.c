@@ -94,7 +94,7 @@ static __initdata struct dmi_system_id acpisleep_dmi_table[] = {
 		     DMI_MATCH(DMI_PRODUCT_NAME, "S4030CDT/4.3"),
 		     },
 	 },
-	{}
+	{ NULL, NULL, {{0, NULL}}, NULL}
 };
 
 static int __init acpisleep_dmi_init(void)

@@ -1011,10 +1011,11 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 			for (j = 0; j < i; j++){
 				if (after(ntohl(sp[j].start_seq),
 					  ntohl(sp[j+1].start_seq))){
-					sp[j].start_seq = htonl(tp->recv_sack_cache[j+1].start_seq);
-					sp[j].end_seq = htonl(tp->recv_sack_cache[j+1].end_seq);
-					sp[j+1].start_seq = htonl(tp->recv_sack_cache[j].start_seq);
-					sp[j+1].end_seq = htonl(tp->recv_sack_cache[j].end_seq);
+					struct tcp_sack_block_wire tmp;
+
+					tmp = sp[j];
+					sp[j] = sp[j+1];
+					sp[j+1] = tmp;
 				}
 
 			}
@@ -2677,6 +2678,14 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 					   opt_rx->sack_ok) {
 						TCP_SKB_CB(skb)->sacked = (ptr - 2) - (unsigned char *)th;
 					}
+#ifdef CONFIG_TCP_MD5SIG
+				case TCPOPT_MD5SIG:
+					/*
+					 * The MD5 Hash has already been
+					 * checked (see tcp_v{4,6}_do_rcv()).
+					 */
+					break;
+#endif
 	  			};
 	  			ptr+=opsize-2;
 	  			length-=opsize;
@@ -3782,9 +3791,9 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
 	return err;
 }
 
-static int __tcp_checksum_complete_user(struct sock *sk, struct sk_buff *skb)
+static __sum16 __tcp_checksum_complete_user(struct sock *sk, struct sk_buff *skb)
 {
-	int result;
+	__sum16 result;
 
 	if (sock_owned_by_user(sk)) {
 		local_bh_enable();
@@ -4227,8 +4236,10 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
 		 * Change state from SYN-SENT only after copied_seq
 		 * is initialized. */
 		tp->copied_seq = tp->rcv_nxt;
-		mb();
+		smp_mb();
 		tcp_set_state(sk, TCP_ESTABLISHED);
+
+		security_inet_conn_established(sk, skb);
 
 		/* Make sure socket is routed, for correct metrics.  */
 		icsk->icsk_af_ops->rebuild_header(sk);
@@ -4410,9 +4421,11 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			 * But, this leaves one open to an easy denial of
 		 	 * service attack, and SYN cookies can't defend
 			 * against this problem. So, we drop the data
-			 * in the interest of security over speed.
+			 * in the interest of security over speed unless
+			 * it's still in use.
 			 */
-			goto discard;
+			kfree_skb(skb);
+			return 0;
 		}
 		goto discard;
 
@@ -4473,7 +4486,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		case TCP_SYN_RECV:
 			if (acceptable) {
 				tp->copied_seq = tp->rcv_nxt;
-				mb();
+				smp_mb();
 				tcp_set_state(sk, TCP_ESTABLISHED);
 				sk->sk_state_change(sk);
 

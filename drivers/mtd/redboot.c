@@ -94,9 +94,32 @@ static int parse_redboot_partitions(struct mtd_info *master,
 			 * (NOTE: this is 'size' not 'data_length'; size is
 			 * the full size of the entry.)
 			 */
-			if (swab32(buf[i].size) == master->erasesize) {
+
+			/* RedBoot can combine the FIS directory and
+			   config partitions into a single eraseblock;
+			   we assume wrong-endian if either the swapped
+			   'size' matches the eraseblock size precisely,
+			   or if the swapped size actually fits in an
+			   eraseblock while the unswapped size doesn't. */
+			if (swab32(buf[i].size) == master->erasesize ||
+			    (buf[i].size > master->erasesize
+			     && swab32(buf[i].size) < master->erasesize)) {
 				int j;
-				for (j = 0; j < numslots && buf[j].name[0] != 0xff; ++j) {
+				/* Update numslots based on actual FIS directory size */
+				numslots = swab32(buf[i].size) / sizeof (struct fis_image_desc);
+				for (j = 0; j < numslots; ++j) {
+
+					/* A single 0xff denotes a deleted entry.
+					 * Two of them in a row is the end of the table.
+					 */
+					if (buf[j].name[0] == 0xff) {
+				  		if (buf[j].name[1] == 0xff) {
+							break;
+						} else {
+							continue;
+						}
+					}
+
 					/* The unsigned long fields were written with the
 					 * wrong byte sex, name and pad have no byte sex.
 					 */
@@ -108,6 +131,9 @@ static int parse_redboot_partitions(struct mtd_info *master,
 					swab32s(&buf[j].desc_cksum);
 					swab32s(&buf[j].file_cksum);
 				}
+			} else if (buf[i].size < master->erasesize) {
+				/* Update numslots based on actual FIS directory size */
+				numslots = buf[i].size / sizeof(struct fis_image_desc);
 			}
 			break;
 		}
@@ -123,8 +149,13 @@ static int parse_redboot_partitions(struct mtd_info *master,
 	for (i = 0; i < numslots; i++) {
 		struct fis_list *new_fl, **prev;
 
-		if (buf[i].name[0] == 0xff)
-			continue;
+		if (buf[i].name[0] == 0xff) {
+			if (buf[i].name[1] == 0xff) {
+				break;
+			} else {
+				continue;
+			}
+		}
 		if (!redboot_checksum(&buf[i]))
 			break;
 
@@ -165,14 +196,12 @@ static int parse_redboot_partitions(struct mtd_info *master,
 		}
 	}
 #endif
-	parts = kmalloc(sizeof(*parts)*nrparts + nulllen + namelen, GFP_KERNEL);
+	parts = kzalloc(sizeof(*parts)*nrparts + nulllen + namelen, GFP_KERNEL);
 
 	if (!parts) {
 		ret = -ENOMEM;
 		goto out;
 	}
-
-	memset(parts, 0, sizeof(*parts)*nrparts + nulllen + namelen);
 
 	nullname = (char *)&parts[nrparts];
 #ifdef CONFIG_MTD_REDBOOT_PARTS_UNALLOCATED

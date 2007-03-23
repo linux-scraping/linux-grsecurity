@@ -132,7 +132,10 @@ struct snd_card {
 	int shutdown;			/* this card is going down */
 	int free_on_last_close;		/* free in context of file_release */
 	wait_queue_head_t shutdown_sleep;
-	struct device *dev;
+	struct device *dev;		/* device assigned to this card */
+#ifndef CONFIG_SYSFS_DEPRECATED
+	struct device *card_dev;	/* cardX object for sysfs */
+#endif
 
 #ifdef CONFIG_PM
 	unsigned int power_state;	/* power state */
@@ -187,13 +190,24 @@ struct snd_minor {
 	int device;			/* device number */
 	const struct file_operations *f_ops;	/* file operations */
 	void *private_data;		/* private data for f_ops->open */
-	struct class_device *class_dev;	/* class device for sysfs */
+	struct device *dev;		/* device for sysfs */
 };
+
+/* return a device pointer linked to each sound device as a parent */
+static inline struct device *snd_card_get_device_link(struct snd_card *card)
+{
+#ifdef CONFIG_SYSFS_DEPRECATED
+	return card ? card->dev : NULL;
+#else
+	return card ? card->card_dev : NULL;
+#endif
+}
 
 /* sound.c */
 
 extern int snd_major;
 extern int snd_ecards_limit;
+extern struct class *sound_class;
 
 void snd_request_card(int card);
 
@@ -203,7 +217,7 @@ int snd_register_device(int type, struct snd_card *card, int dev,
 int snd_unregister_device(int type, struct snd_card *card, int dev);
 void *snd_lookup_minor_data(unsigned int minor, int type);
 int snd_add_device_sysfs_file(int type, struct snd_card *card, int dev,
-			      const struct class_device_attribute *attr);
+			      struct device_attribute *attr);
 
 #ifdef CONFIG_SND_OSSEMUL
 int snd_register_oss_device(int type, struct snd_card *card, int dev,

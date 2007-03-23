@@ -60,14 +60,11 @@ static struct dentry *ocfs2_get_dentry(struct super_block *sb, void *vobjp)
 
 	inode = ocfs2_iget(OCFS2_SB(sb), handle->ih_blkno, 0);
 
-	if (IS_ERR(inode)) {
-		mlog_errno(PTR_ERR(inode));
+	if (IS_ERR(inode))
 		return (void *)inode;
-	}
 
 	if (handle->ih_generation != inode->i_generation) {
 		iput(inode);
-		mlog_errno(-ESTALE);
 		return ERR_PTR(-ESTALE);
 	}
 
@@ -100,7 +97,7 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 	mlog(0, "find parent of directory %llu\n",
 	     (unsigned long long)OCFS2_I(dir)->ip_blkno);
 
-	status = ocfs2_meta_lock(dir, NULL, NULL, 0);
+	status = ocfs2_meta_lock(dir, NULL, 0);
 	if (status < 0) {
 		if (status != -ENOENT)
 			mlog_errno(status);

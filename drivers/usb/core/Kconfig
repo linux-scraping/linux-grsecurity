@@ -72,7 +72,6 @@ config USB_SUSPEND
 
 	  If you are unsure about this, say N here.
 
-
 config USB_OTG
 	bool
 	depends on USB && EXPERIMENTAL

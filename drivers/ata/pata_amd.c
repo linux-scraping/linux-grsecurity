@@ -25,7 +25,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME "pata_amd"
-#define DRV_VERSION "0.2.4"
+#define DRV_VERSION "0.2.7"
 
 /**
  *	timing_setup		-	shared timing computation and load
@@ -128,7 +128,7 @@ static void timing_setup(struct ata_port *ap, struct ata_device *adev, int offse
 
 static int amd_pre_reset(struct ata_port *ap)
 {
-	static const u32 bitmask[2] = {0x03, 0xC0};
+	static const u32 bitmask[2] = {0x03, 0x0C};
 	static const struct pci_bits amd_enable_bits[] = {
 		{ 0x40, 1, 0x02, 0x02 },
 		{ 0x40, 1, 0x01, 0x01 }
@@ -247,7 +247,7 @@ static void amd133_set_dmamode(struct ata_port *ap, struct ata_device *adev)
  */
 
 static int nv_pre_reset(struct ata_port *ap) {
-	static const u8 bitmask[2] = {0x03, 0xC0};
+	static const u8 bitmask[2] = {0x03, 0x0C};
 	static const struct pci_bits nv_enable_bits[] = {
 		{ 0x50, 1, 0x02, 0x02 },
 		{ 0x50, 1, 0x01, 0x01 }
@@ -326,14 +326,18 @@ static struct scsi_host_template amd_sht = {
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
 	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.emulated		= ATA_SHT_EMULATED,
 	.use_clustering		= ATA_SHT_USE_CLUSTERING,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
+#ifdef CONFIG_PM
+	.resume			= ata_scsi_device_resume,
+	.suspend		= ata_scsi_device_suspend,
+#endif
 };
 
 static struct ata_port_operations amd33_port_ops = {
@@ -661,6 +665,25 @@ static int amd_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
 	return ata_pci_init_one(pdev, port_info, 2);
 }
 
+#ifdef CONFIG_PM
+static int amd_reinit_one(struct pci_dev *pdev)
+{
+	if (pdev->vendor == PCI_VENDOR_ID_AMD) {
+		u8 fifo;
+		pci_read_config_byte(pdev, 0x41, &fifo);
+		if (pdev->device == PCI_DEVICE_ID_AMD_VIPER_7411)
+			/* FIFO is broken */
+			pci_write_config_byte(pdev, 0x41, fifo & 0x0F);
+		else
+			pci_write_config_byte(pdev, 0x41, fifo | 0xF0);
+		if (pdev->device == PCI_DEVICE_ID_AMD_VIPER_7409 ||
+		    pdev->device == PCI_DEVICE_ID_AMD_COBRA_7401)
+		    	ata_pci_clear_simplex(pdev);
+	}
+	return ata_pci_device_resume(pdev);
+}
+#endif
+
 static const struct pci_device_id amd[] = {
 	{ PCI_VDEVICE(AMD,	PCI_DEVICE_ID_AMD_COBRA_7401),		0 },
 	{ PCI_VDEVICE(AMD,	PCI_DEVICE_ID_AMD_VIPER_7409),		1 },
@@ -688,7 +711,11 @@ static struct pci_driver amd_pci_driver = {
 	.name 		= DRV_NAME,
 	.id_table	= amd,
 	.probe 		= amd_init_one,
-	.remove		= ata_pci_remove_one
+	.remove		= ata_pci_remove_one,
+#ifdef CONFIG_PM
+	.suspend	= ata_pci_device_suspend,
+	.resume		= amd_reinit_one,
+#endif
 };
 
 static int __init amd_init(void)

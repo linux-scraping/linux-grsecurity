@@ -76,8 +76,12 @@ static void send_reset(struct sk_buff *oldskb, int hook)
 
 	/* This packet will not be the same as the other: clear nf fields */
 	nf_reset(nskb);
-	nskb->nfmark = 0;
+	nskb->mark = 0;
 	skb_init_secmark(nskb);
+
+	skb_shinfo(nskb)->gso_size = 0;
+	skb_shinfo(nskb)->gso_segs = 0;
+	skb_shinfo(nskb)->gso_type = 0;
 
 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
 

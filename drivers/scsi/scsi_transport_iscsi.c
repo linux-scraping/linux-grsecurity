@@ -234,9 +234,11 @@ static int iscsi_user_scan(struct Scsi_Host *shost, uint channel,
 	return 0;
 }
 
-static void session_recovery_timedout(void *data)
+static void session_recovery_timedout(struct work_struct *work)
 {
-	struct iscsi_cls_session *session = data;
+	struct iscsi_cls_session *session =
+		container_of(work, struct iscsi_cls_session,
+			     recovery_work.work);
 
 	dev_printk(KERN_INFO, &session->dev, "iscsi: session recovery timed "
 		  "out after %d secs\n", session->recovery_tmo);
@@ -276,7 +278,7 @@ iscsi_alloc_session(struct Scsi_Host *shost,
 
 	session->transport = transport;
 	session->recovery_tmo = 120;
-	INIT_WORK(&session->recovery_work, session_recovery_timedout, session);
+	INIT_DELAYED_WORK(&session->recovery_work, session_recovery_timedout);
 	INIT_LIST_HEAD(&session->host_list);
 	INIT_LIST_HEAD(&session->sess_list);
 
@@ -1414,7 +1416,7 @@ static __init int iscsi_transport_init(void)
 {
 	int err;
 
-	printk(KERN_INFO "Loading iSCSI transport class v%s.",
+	printk(KERN_INFO "Loading iSCSI transport class v%s.\n",
 		ISCSI_TRANSPORT_VERSION);
 
 	err = class_register(&iscsi_transport_class);

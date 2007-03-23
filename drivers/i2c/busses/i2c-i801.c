@@ -33,6 +33,7 @@
     ICH7		27DA
     ESB2		269B
     ICH8		283E
+    ICH9		2930
     This driver supports several versions of Intel's I/O Controller Hubs (ICH).
     For SMBus support, they are similar to the PIIX4 and are part
     of Intel's '810' and other chipsets.
@@ -457,7 +458,8 @@ static struct pci_device_id i801_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH7_17) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ESB2_17) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH8_5) },
-	{ 0, }
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_6) },
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 MODULE_DEVICE_TABLE (pci, i801_ids);
@@ -468,12 +470,20 @@ static int __devinit i801_probe(struct pci_dev *dev, const struct pci_device_id 
 	int err;
 
 	I801_dev = dev;
-	if ((dev->device == PCI_DEVICE_ID_INTEL_82801DB_3) ||
-	    (dev->device == PCI_DEVICE_ID_INTEL_82801EB_3) ||
-	    (dev->device == PCI_DEVICE_ID_INTEL_ESB_4))
+	switch (dev->device) {
+	case PCI_DEVICE_ID_INTEL_82801DB_3:
+	case PCI_DEVICE_ID_INTEL_82801EB_3:
+	case PCI_DEVICE_ID_INTEL_ESB_4:
+	case PCI_DEVICE_ID_INTEL_ICH6_16:
+	case PCI_DEVICE_ID_INTEL_ICH7_17:
+	case PCI_DEVICE_ID_INTEL_ESB2_17:
+	case PCI_DEVICE_ID_INTEL_ICH8_5:
+	case PCI_DEVICE_ID_INTEL_ICH9_6:
 		isich4 = 1;
-	else
+		break;
+	default:
 		isich4 = 0;
+	}
 
 	err = pci_enable_device(dev);
 	if (err) {

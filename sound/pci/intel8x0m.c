@@ -244,7 +244,7 @@ static struct pci_device_id snd_intel8x0m_ids[] = {
 	{ 0x1022, 0x746d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_INTEL },	/* AMD8111 */
 	{ 0x10b9, 0x5455, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DEVICE_ALI },   /* Ali5455 */
 #endif
-	{ 0, }
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 MODULE_DEVICE_TABLE(pci, snd_intel8x0m_ids);
@@ -1071,7 +1071,7 @@ static int intel8x0m_resume(struct pci_dev *pci)
 	}
 	pci_set_master(pci);
 	if (request_irq(pci->irq, snd_intel8x0_interrupt,
-			IRQF_DISABLED|IRQF_SHARED, card->shortname, chip)) {
+			IRQF_SHARED, card->shortname, chip)) {
 		printk(KERN_ERR "intel8x0m: unable to grab IRQ %d, "
 		       "disabling device\n", pci->irq);
 		snd_card_disconnect(card);
@@ -1205,7 +1205,7 @@ static int __devinit snd_intel8x0m_create(struct snd_card *card,
 	}
 
  port_inited:
-	if (request_irq(pci->irq, snd_intel8x0_interrupt, IRQF_DISABLED|IRQF_SHARED,
+	if (request_irq(pci->irq, snd_intel8x0_interrupt, IRQF_SHARED,
 			card->shortname, chip)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", pci->irq);
 		snd_intel8x0_free(chip);
@@ -1297,7 +1297,7 @@ static struct shortname_table {
 	{ 0x5455, "ALi M5455" },
 	{ 0x746d, "AMD AMD8111" },
 #endif
-	{ 0 },
+	{ 0, NULL },
 };
 
 static int __devinit snd_intel8x0m_probe(struct pci_dev *pci,

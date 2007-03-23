@@ -248,7 +248,7 @@ static int
 ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
 {
 	loff_t pos = filp->f_pos;
-	struct inode *inode = filp->f_dentry->d_inode;
+	struct inode *inode = filp->f_path.dentry->d_inode;
 	struct super_block *sb = inode->i_sb;
 	unsigned int offset = pos & ~PAGE_CACHE_MASK;
 	unsigned long n = pos >> PAGE_CACHE_SHIFT;
@@ -368,14 +368,6 @@ struct ext2_dir_entry_2 * ext2_find_entry (struct inode * dir,
 		}
 		if (++n >= npages)
 			n = 0;
-		/* next page is past the blocks we've got */
-		if (unlikely(n > (dir->i_blocks >> (PAGE_CACHE_SHIFT - 9)))) {
-			ext2_error(dir->i_sb, __FUNCTION__,
-				"dir %lu size %lld exceeds block count %llu",
-				dir->i_ino, dir->i_size,
-				(unsigned long long)dir->i_blocks);
-				goto out;
-		}
 	} while (n != start);
 out:
 	return NULL;

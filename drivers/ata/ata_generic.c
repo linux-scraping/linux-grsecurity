@@ -26,7 +26,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME "ata_generic"
-#define DRV_VERSION "0.2.6"
+#define DRV_VERSION "0.2.10"
 
 /*
  *	A generic parallel ATA driver using libata
@@ -64,6 +64,7 @@ static void generic_error_handler(struct ata_port *ap)
 /**
  *	generic_set_mode	-	mode setting
  *	@ap: interface to set up
+ *	@unused: returned device on error
  *
  *	Use a non standard set_mode function. We don't want to be tuned.
  *	The BIOS configured everything. Our job is not to fiddle. We
@@ -71,7 +72,7 @@ static void generic_error_handler(struct ata_port *ap)
  *	and respect them.
  */
 
-static void generic_set_mode(struct ata_port *ap)
+static int generic_set_mode(struct ata_port *ap, struct ata_device **unused)
 {
 	int dma_enabled = 0;
 	int i;
@@ -82,7 +83,7 @@ static void generic_set_mode(struct ata_port *ap)
 
 	for (i = 0; i < ATA_MAX_DEVICES; i++) {
 		struct ata_device *dev = &ap->device[i];
-		if (ata_dev_enabled(dev)) {
+		if (ata_dev_ready(dev)) {
 			/* We don't really care */
 			dev->pio_mode = XFER_PIO_0;
 			dev->dma_mode = XFER_MW_DMA_0;
@@ -99,6 +100,7 @@ static void generic_set_mode(struct ata_port *ap)
 			}
 		}
 	}
+	return 0;
 }
 
 static struct scsi_host_template generic_sht = {
@@ -109,14 +111,18 @@ static struct scsi_host_template generic_sht = {
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
 	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.emulated		= ATA_SHT_EMULATED,
 	.use_clustering		= ATA_SHT_USE_CLUSTERING,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
+#ifdef CONFIG_PM
+	.resume			= ata_scsi_device_resume,
+	.suspend		= ata_scsi_device_suspend,
+#endif
 };
 
 static struct ata_port_operations generic_port_ops = {
@@ -225,12 +231,16 @@ static struct pci_driver ata_generic_pci_driver = {
 	.name 		= DRV_NAME,
 	.id_table	= ata_generic,
 	.probe 		= ata_generic_init_one,
-	.remove		= ata_pci_remove_one
+	.remove		= ata_pci_remove_one,
+#ifdef CONFIG_PM
+	.suspend	= ata_pci_device_suspend,
+	.resume		= ata_pci_device_resume,
+#endif
 };
 
 static int __init ata_generic_init(void)
 {
-	return pci_module_init(&ata_generic_pci_driver);
+	return pci_register_driver(&ata_generic_pci_driver);
 }
 
 

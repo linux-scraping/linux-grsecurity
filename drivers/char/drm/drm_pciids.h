@@ -239,7 +239,7 @@
 	{0x8086, 0x7123, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x7125, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x1132, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0}
+	{0, 0, 0, 0, 0, 0, 0 }
 
 #define i830_PCI_IDS \
 	{0x8086, 0x3577, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \

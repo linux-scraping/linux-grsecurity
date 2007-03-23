@@ -5,6 +5,8 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/types.h>
+#include <linux/pid_namespace.h>
+#include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
 int
@@ -104,12 +106,13 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 	struct vfsmount *realrootmnt;
 	struct dentry *currentroot;
 	struct vfsmount *currentmnt;
+	struct task_struct *reaper = child_reaper(current);
 	int ret = 1;
 
-	read_lock(&child_reaper->fs->lock);
-	realrootmnt = mntget(child_reaper->fs->rootmnt);
-	realroot = dget(child_reaper->fs->root);
-	read_unlock(&child_reaper->fs->lock);
+	read_lock(&reaper->fs->lock);
+	realrootmnt = mntget(reaper->fs->rootmnt);
+	realroot = dget(reaper->fs->root);
+	read_unlock(&reaper->fs->lock);
 
 	read_lock(&current->fs->lock);
 	currentmnt = mntget(current->fs->rootmnt);

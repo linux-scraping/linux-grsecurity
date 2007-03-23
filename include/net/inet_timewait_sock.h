@@ -66,7 +66,7 @@ struct inet_hashinfo;
 struct inet_timewait_death_row {
 	/* Short-time timewait calendar */
 	int			twcal_hand;
-	int			twcal_jiffie;
+	unsigned long		twcal_jiffie;
 	struct timer_list	twcal_timer;
 	struct hlist_head	twcal_row[INET_TWDR_RECYCLE_SLOTS];
 
@@ -84,7 +84,7 @@ struct inet_timewait_death_row {
 };
 
 extern void inet_twdr_hangman(unsigned long data);
-extern void inet_twdr_twkill_work(void *data);
+extern void inet_twdr_twkill_work(struct work_struct *work);
 extern void inet_twdr_twcal_tick(unsigned long data);
 
 #if (BITS_PER_LONG == 64)

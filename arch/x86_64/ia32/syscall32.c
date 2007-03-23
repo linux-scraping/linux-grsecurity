@@ -49,7 +49,7 @@ int syscall32_setup_pages(struct linux_binprm *bprm, int exstack)
 	struct mm_struct *mm = current->mm;
 	int ret;
 
-	vma = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma)
 		return -ENOMEM;
 
@@ -64,6 +64,13 @@ int syscall32_setup_pages(struct linux_binprm *bprm, int exstack)
 		vma->vm_flags &= ~VM_MAYWRITE;
 #endif
 
+	/*
+	 * Make sure the vDSO gets into every core dump.
+	 * Dumping its contents makes post-mortem fully interpretable later
+	 * without matching up the same kernel and hardware config to see
+	 * what PC values meant.
+	 */
+	vma->vm_flags |= VM_ALWAYSDUMP;
 	vma->vm_flags |= mm->def_flags;
 	vma->vm_page_prot = protection_map[vma->vm_flags & 7];
 	vma->vm_ops = &syscall32_vm_ops;
@@ -78,6 +85,14 @@ int syscall32_setup_pages(struct linux_binprm *bprm, int exstack)
 	mm->total_vm += npages;
 	up_write(&mm->mmap_sem);
 	return 0;
+}
+
+const char *arch_vma_name(struct vm_area_struct *vma)
+{
+	if (vma->vm_start == VSYSCALL32_BASE &&
+	    vma->vm_mm && vma->vm_mm->task_size == IA32_PAGE_OFFSET)
+		return "[vdso]";
+	return NULL;
 }
 
 static int __init init_syscall32(void)

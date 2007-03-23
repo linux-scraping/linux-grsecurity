@@ -2,6 +2,7 @@
 #include <linux/fs.h>
 #include <linux/linkage.h>
 #include <linux/namei.h>
+#include <linux/sched.h>
 #include <linux/utime.h>
 #include <linux/grsecurity.h>
 #include <asm/uaccess.h>

@@ -4,7 +4,6 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 #include <asm/cpufeature.h>
-#include <asm/page.h>
 #include <linux/bitops.h> /* for LOCK_PREFIX */
 
 #ifdef __KERNEL__
@@ -89,6 +88,9 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 #define savesegment(seg, value) \
 	asm volatile("mov %%" #seg ",%0":"=rm" (value))
 
+#ifdef CONFIG_PARAVIRT
+#include <asm/paravirt.h>
+#else
 #define read_cr0() ({ \
 	unsigned int __dummy; \
 	__asm__ __volatile__( \
@@ -140,16 +142,32 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 #define write_cr4(x) \
 	__asm__ __volatile__("movl %0,%%cr4": :"r" (x))
 
-/*
- * Clear and set 'TS' bit respectively
- */
-#define clts() __asm__ __volatile__ ("clts")
-#define stts() write_cr0(8 | read_cr0())
-
-#endif	/* __KERNEL__ */
-
 #define wbinvd() \
 	__asm__ __volatile__ ("wbinvd": : :"memory")
+
+/* Clear the 'TS' bit */
+#define clts() __asm__ __volatile__ ("clts")
+#endif/* CONFIG_PARAVIRT */
+
+/* Set the 'TS' bit */
+#define stts() write_cr0(8 | read_cr0())
+
+#define pax_open_kernel(cr0)		\
+do {					\
+	typecheck(unsigned long,cr0);	\
+	preempt_disable();		\
+	cr0 = read_cr0();		\
+	write_cr0(cr0 & ~0x10000UL);	\
+} while(0)
+
+#define pax_close_kernel(cr0)		\
+do {					\
+	typecheck(unsigned long,cr0);	\
+	write_cr0(cr0);			\
+	preempt_enable_no_resched();	\
+} while(0)
+
+#endif	/* __KERNEL__ */
 
 static inline unsigned long get_limit(unsigned long segment)
 {

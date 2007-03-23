@@ -3,7 +3,7 @@
  *      For use with LSI Logic PCI chip/adapter(s)
  *      running LSI Logic Fusion MPT (Message Passing Technology) firmware.
  *
- *  Copyright (c) 1999-2005 LSI Logic Corporation
+ *  Copyright (c) 1999-2007 LSI Logic Corporation
  *  (mailto:mpt_linux_developer@lsil.com)
  *
  */
@@ -76,6 +76,7 @@
 MODULE_AUTHOR(MODULEAUTHOR);
 MODULE_DESCRIPTION(my_NAME);
 MODULE_LICENSE("GPL");
+MODULE_VERSION(my_VERSION);
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
@@ -701,6 +702,17 @@ mptscsih_io_done(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf, MPT_FRAME_HDR *mr)
 						break;
 					}
 				}
+			} else if (ioc->bus_type == FC) {
+				/*
+				 * The FC IOC may kill a request for variety of
+				 * reasons, some of which may be recovered by a
+				 * retry, some which are unlikely to be
+				 * recovered. Return DID_ERROR instead of
+				 * DID_RESET to permit retry of the command,
+				 * just not an infinite number of them
+				 */
+				sc->result = DID_ERROR << 16;
+				break;
 			}
 
 			/*
@@ -1230,15 +1242,15 @@ mptscsih_host_info(MPT_ADAPTER *ioc, char *pbuf, off_t offset, int len)
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
  *	mptscsih_proc_info - Return information about MPT adapter
+ * 	@host:   scsi host struct
+ * 	@buffer: if write, user data; if read, buffer for user
+ *	@start: returns the buffer address
+ * 	@offset: if write, 0; if read, the current offset into the buffer from
+ * 		 the previous read.
+ * 	@length: if write, return length;
+ *	@func:   write = 1; read = 0
  *
  *	(linux scsi_host_template.info routine)
- *
- * 	buffer: if write, user data; if read, buffer for user
- * 	length: if write, return length;
- * 	offset: if write, 0; if read, the current offset into the buffer from
- * 		the previous read.
- * 	hostno: scsi host number
- *	func:   if write = 1; if read = 0
  */
 int
 mptscsih_proc_info(struct Scsi_Host *host, char *buffer, char **start, off_t offset,
@@ -1902,8 +1914,7 @@ mptscsih_bus_reset(struct scsi_cmnd * SCpnt)
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
- *	mptscsih_host_reset - Perform a SCSI host adapter RESET!
- *	new_eh variant
+ *	mptscsih_host_reset - Perform a SCSI host adapter RESET (new_eh variant)
  *	@SCpnt: Pointer to scsi_cmnd structure, IO which reset is due to
  *
  *	(linux scsi_host_template.eh_host_reset_handler routine)
@@ -1949,8 +1960,7 @@ mptscsih_host_reset(struct scsi_cmnd *SCpnt)
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 /**
- *	mptscsih_tm_pending_wait - wait for pending task management request to
- *		complete.
+ *	mptscsih_tm_pending_wait - wait for pending task management request to complete
  *	@hd: Pointer to MPT host structure.
  *
  *	Returns {SUCCESS,FAILED}.
@@ -1982,6 +1992,7 @@ mptscsih_tm_pending_wait(MPT_SCSI_HOST * hd)
 /**
  *	mptscsih_tm_wait_for_completion - wait for completion of TM task
  *	@hd: Pointer to MPT host structure.
+ *	@timeout: timeout in seconds
  *
  *	Returns {SUCCESS,FAILED}.
  */
@@ -2689,7 +2700,8 @@ mptscsih_initTarget(MPT_SCSI_HOST *hd, VirtTarget *vtarget,
 		    struct scsi_device *sdev)
 {
 	dinitprintk((MYIOC_s_INFO_FMT "initTarget bus=%d id=%d lun=%d hd=%p\n",
-		hd->ioc->name, vtarget->bus_id, vtarget->target_id, lun, hd));
+		hd->ioc->name, vtarget->bus_id, vtarget->target_id,
+		sdev->lun, hd));
 
 	/* Is LUN supported? If so, upper 2 bits will be 0
 	* in first byte of inquiry data.
@@ -2771,7 +2783,7 @@ mptscsih_setTargetNegoParms(MPT_SCSI_HOST *hd, VirtTarget *target,
 				else {
 					factor = MPT_ULTRA320;
 					if (scsi_device_qas(sdev)) {
-						ddvtprintk((KERN_INFO "Enabling QAS due to byte56=%02x on id=%d!\n", byte56, id));
+						ddvtprintk((KERN_INFO "Enabling QAS due to byte56=%02x on id=%d!\n", scsi_device_qas(sdev), id));
 						noQas = 0;
 					}
 					if (sdev->type == TYPE_TAPE &&
@@ -3429,8 +3441,7 @@ mptscsih_do_cmd(MPT_SCSI_HOST *hd, INTERNAL_CMD *io)
 /**
  *	mptscsih_synchronize_cache - Send SYNCHRONIZE_CACHE to all disks.
  *	@hd: Pointer to a SCSI HOST structure
- *	@vtarget: per device private data
- *	@lun: lun
+ *	@vdevice: virtual target device
  *
  *	Uses the ISR, but with special processing.
  *	MUST be single-threaded.

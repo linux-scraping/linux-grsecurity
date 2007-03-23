@@ -20,7 +20,7 @@
 #include <linux/err.h>
 #include "internal.h"
 
-static kmem_cache_t	*key_jar;
+static struct kmem_cache	*key_jar;
 struct rb_root		key_serial_tree; /* tree of keys indexed by serial */
 DEFINE_SPINLOCK(key_serial_lock);
 
@@ -30,8 +30,8 @@ DEFINE_SPINLOCK(key_user_lock);
 static LIST_HEAD(key_types_list);
 static DECLARE_RWSEM(key_types_sem);
 
-static void key_cleanup(void *data);
-static DECLARE_WORK(key_cleanup_task, key_cleanup, NULL);
+static void key_cleanup(struct work_struct *work);
+static DECLARE_WORK(key_cleanup_task, key_cleanup);
 
 /* we serialise key instantiation and link */
 DECLARE_RWSEM(key_construction_sem);
@@ -188,6 +188,7 @@ static inline void key_alloc_serial(struct key *key)
 
 	spin_lock(&key_serial_lock);
 
+attempt_insertion:
 	parent = NULL;
 	p = &key_serial_tree.rb_node;
 
@@ -202,38 +203,32 @@ static inline void key_alloc_serial(struct key *key)
 		else
 			goto serial_exists;
 	}
-	goto insert_here;
+
+	/* we've found a suitable hole - arrange for this key to occupy it */
+	rb_link_node(&key->serial_node, parent, p);
+	rb_insert_color(&key->serial_node, &key_serial_tree);
+
+	spin_unlock(&key_serial_lock);
+	return;
 
 	/* we found a key with the proposed serial number - walk the tree from
 	 * that point looking for the next unused serial number */
 serial_exists:
 	for (;;) {
 		key->serial++;
-		if (key->serial < 2)
-			key->serial = 2;
-
-		if (!rb_parent(parent))
-			p = &key_serial_tree.rb_node;
-		else if (rb_parent(parent)->rb_left == parent)
-			p = &(rb_parent(parent)->rb_left);
-		else
-			p = &(rb_parent(parent)->rb_right);
+		if (key->serial < 3) {
+			key->serial = 3;
+			goto attempt_insertion;
+		}
 
 		parent = rb_next(parent);
 		if (!parent)
-			break;
+			goto attempt_insertion;
 
 		xkey = rb_entry(parent, struct key, serial_node);
 		if (key->serial < xkey->serial)
-			goto insert_here;
+			goto attempt_insertion;
 	}
-
-	/* we've found a suitable hole - arrange for this key to occupy it */
-insert_here:
-	rb_link_node(&key->serial_node, parent, p);
-	rb_insert_color(&key->serial_node, &key_serial_tree);
-
-	spin_unlock(&key_serial_lock);
 
 } /* end key_alloc_serial() */
 
@@ -285,16 +280,14 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	}
 
 	/* allocate and initialise the key and its description */
-	key = kmem_cache_alloc(key_jar, SLAB_KERNEL);
+	key = kmem_cache_alloc(key_jar, GFP_KERNEL);
 	if (!key)
 		goto no_memory_2;
 
 	if (desc) {
-		key->description = kmalloc(desclen, GFP_KERNEL);
+		key->description = kmemdup(desc, desclen, GFP_KERNEL);
 		if (!key->description)
 			goto no_memory_3;
-
-		memcpy(key->description, desc, desclen);
 	}
 
 	atomic_set(&key->usage, 1);
@@ -552,7 +545,7 @@ EXPORT_SYMBOL(key_negate_and_link);
  * do cleaning up in process context so that we don't have to disable
  * interrupts all over the place
  */
-static void key_cleanup(void *data)
+static void key_cleanup(struct work_struct *work)
 {
 	struct rb_node *_n;
 	struct key *key;

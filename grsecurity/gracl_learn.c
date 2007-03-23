@@ -151,19 +151,26 @@ open_learn(struct inode *inode, struct file *file)
 	if (file->f_mode & FMODE_READ && gr_learn_attached)
 		return -EBUSY;
 	if (file->f_mode & FMODE_READ) {
+		int retval = 0;
 		down(&gr_learn_user_sem);
 		if (learn_buffer == NULL)
 			learn_buffer = vmalloc(LEARN_BUFFER_SIZE);
 		if (learn_buffer_user == NULL)
 			learn_buffer_user = vmalloc(LEARN_BUFFER_SIZE);
-		if (learn_buffer == NULL)
-			return -ENOMEM;
-		if (learn_buffer_user == NULL)
-			return -ENOMEM;
+		if (learn_buffer == NULL) {
+			retval = -ENOMEM;
+			goto out_error;
+		}
+		if (learn_buffer_user == NULL) {
+			retval = -ENOMEM;
+			goto out_error;
+		}
 		learn_buffer_len = 0;
 		learn_buffer_user_len = 0;
 		gr_learn_attached = 1;
+out_error:
 		up(&gr_learn_user_sem);
+		return retval;
 	}
 	return 0;
 }

@@ -393,39 +393,91 @@ ebt_check_watcher(struct ebt_entry_watcher *w, struct ebt_entry *e,
 	return 0;
 }
 
+static int ebt_verify_pointers(struct ebt_replace *repl,
+			       struct ebt_table_info *newinfo)
+{
+	unsigned int limit = repl->entries_size;
+	unsigned int valid_hooks = repl->valid_hooks;
+	unsigned int offset = 0;
+	int i;
+
+	for (i = 0; i < NF_BR_NUMHOOKS; i++)
+		newinfo->hook_entry[i] = NULL;
+
+	newinfo->entries_size = repl->entries_size;
+	newinfo->nentries = repl->nentries;
+
+	while (offset < limit) {
+		size_t left = limit - offset;
+		struct ebt_entry *e = (void *)newinfo->entries + offset;
+
+		if (left < sizeof(unsigned int))
+			break;
+
+		for (i = 0; i < NF_BR_NUMHOOKS; i++) {
+			if ((valid_hooks & (1 << i)) == 0)
+				continue;
+			if ((char __user *)repl->hook_entry[i] ==
+			     repl->entries + offset)
+				break;
+		}
+
+		if (i != NF_BR_NUMHOOKS || !(e->bitmask & EBT_ENTRY_OR_ENTRIES)) {
+			if (e->bitmask != 0) {
+				/* we make userspace set this right,
+				   so there is no misunderstanding */
+				BUGPRINT("EBT_ENTRY_OR_ENTRIES shouldn't be set "
+					 "in distinguisher\n");
+				return -EINVAL;
+			}
+			if (i != NF_BR_NUMHOOKS)
+				newinfo->hook_entry[i] = (struct ebt_entries *)e;
+			if (left < sizeof(struct ebt_entries))
+				break;
+			offset += sizeof(struct ebt_entries);
+		} else {
+			if (left < sizeof(struct ebt_entry))
+				break;
+			if (left < e->next_offset)
+				break;
+			offset += e->next_offset;
+		}
+	}
+	if (offset != limit) {
+		BUGPRINT("entries_size too small\n");
+		return -EINVAL;
+	}
+
+	/* check if all valid hooks have a chain */
+	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
+		if (!newinfo->hook_entry[i] &&
+		   (valid_hooks & (1 << i))) {
+			BUGPRINT("Valid hook without chain\n");
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 /*
  * this one is very careful, as it is the first function
  * to parse the userspace data
  */
 static inline int
 ebt_check_entry_size_and_hooks(struct ebt_entry *e,
-   struct ebt_table_info *newinfo, char *base, char *limit,
-   struct ebt_entries **hook_entries, unsigned int *n, unsigned int *cnt,
-   unsigned int *totalcnt, unsigned int *udc_cnt, unsigned int valid_hooks)
+   struct ebt_table_info *newinfo,
+   unsigned int *n, unsigned int *cnt,
+   unsigned int *totalcnt, unsigned int *udc_cnt)
 {
-	unsigned int offset = (char *)e - newinfo->entries;
-	size_t left = (limit - base) - offset;
 	int i;
 
-	if (left < sizeof(unsigned int))
-		goto Esmall;
-
 	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
-		if ((valid_hooks & (1 << i)) == 0)
-			continue;
-		if ((char *)hook_entries[i] == base + offset)
+		if ((void *)e == (void *)newinfo->hook_entry[i])
 			break;
 	}
 	/* beginning of a new chain
 	   if i == NF_BR_NUMHOOKS it must be a user defined chain */
-	if (i != NF_BR_NUMHOOKS || !(e->bitmask & EBT_ENTRY_OR_ENTRIES)) {
-		if (e->bitmask != 0) {
-			/* we make userspace set this right,
-			   so there is no misunderstanding */
-			BUGPRINT("EBT_ENTRY_OR_ENTRIES shouldn't be set "
-			         "in distinguisher\n");
-			return -EINVAL;
-		}
+	if (i != NF_BR_NUMHOOKS || !e->bitmask) {
 		/* this checks if the previous chain has as many entries
 		   as it said it has */
 		if (*n != *cnt) {
@@ -433,9 +485,6 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		                 "in the chain\n");
 			return -EINVAL;
 		}
-		/* before we look at the struct, be sure it is not too big */
-		if (left < sizeof(struct ebt_entries))
-			goto Esmall;
 		if (((struct ebt_entries *)e)->policy != EBT_DROP &&
 		   ((struct ebt_entries *)e)->policy != EBT_ACCEPT) {
 			/* only RETURN from udc */
@@ -447,8 +496,6 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		}
 		if (i == NF_BR_NUMHOOKS) /* it's a user defined chain */
 			(*udc_cnt)++;
-		else
-			newinfo->hook_entry[i] = (struct ebt_entries *)e;
 		if (((struct ebt_entries *)e)->counter_offset != *totalcnt) {
 			BUGPRINT("counter_offset != totalcnt");
 			return -EINVAL;
@@ -458,8 +505,6 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		return 0;
 	}
 	/* a plain old entry, heh */
-	if (left < sizeof(struct ebt_entry))
-		goto Esmall;
 	if (sizeof(struct ebt_entry) > e->watchers_offset ||
 	   e->watchers_offset > e->target_offset ||
 	   e->target_offset >= e->next_offset) {
@@ -471,16 +516,9 @@ ebt_check_entry_size_and_hooks(struct ebt_entry *e,
 		BUGPRINT("target size too small\n");
 		return -EINVAL;
 	}
-	if (left < e->next_offset)
-		goto Esmall;
-
 	(*cnt)++;
 	(*totalcnt)++;
 	return 0;
-
-Esmall:
-	BUGPRINT("entries_size too small\n");
-	return -EINVAL;
 }
 
 struct ebt_cl_stack
@@ -496,8 +534,7 @@ struct ebt_cl_stack
  */
 static inline int
 ebt_get_udc_positions(struct ebt_entry *e, struct ebt_table_info *newinfo,
-   struct ebt_entries **hook_entries, unsigned int *n, unsigned int valid_hooks,
-   struct ebt_cl_stack *udc)
+   unsigned int *n, struct ebt_cl_stack *udc)
 {
 	int i;
 
@@ -505,8 +542,6 @@ ebt_get_udc_positions(struct ebt_entry *e, struct ebt_table_info *newinfo,
 	if (e->bitmask)
 		return 0;
 	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
-		if ((valid_hooks & (1 << i)) == 0)
-			continue;
 		if (newinfo->hook_entry[i] == (struct ebt_entries *)e)
 			break;
 	}
@@ -569,7 +604,7 @@ ebt_cleanup_entry(struct ebt_entry *e, unsigned int *cnt)
 
 static inline int
 ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
-   const char *name, unsigned int *cnt, unsigned int valid_hooks,
+   const char *name, unsigned int *cnt,
    struct ebt_cl_stack *cl_s, unsigned int udc_cnt)
 {
 	struct ebt_entry_target *t;
@@ -596,7 +631,7 @@ ebt_check_entry(struct ebt_entry *e, struct ebt_table_info *newinfo,
 	}
 	/* what hook do we belong to? */
 	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
-		if ((valid_hooks & (1 << i)) == 0)
+		if (!newinfo->hook_entry[i])
 			continue;
 		if ((char *)newinfo->hook_entry[i] < (char *)e)
 			hook = i;
@@ -741,41 +776,34 @@ letscontinue:
 }
 
 /* do the parsing of the table/chains/entries/matches/watchers/targets, heh */
-static int translate_table(struct ebt_replace *repl,
-   struct ebt_table_info *newinfo)
+static int translate_table(char *name, struct ebt_table_info *newinfo)
 {
 	unsigned int i, j, k, udc_cnt;
 	int ret;
 	struct ebt_cl_stack *cl_s = NULL; /* used in the checking for chain loops */
 
 	i = 0;
-	while (i < NF_BR_NUMHOOKS && !(repl->valid_hooks & (1 << i)))
+	while (i < NF_BR_NUMHOOKS && !newinfo->hook_entry[i])
 		i++;
 	if (i == NF_BR_NUMHOOKS) {
 		BUGPRINT("No valid hooks specified\n");
 		return -EINVAL;
 	}
-	if (repl->hook_entry[i] != (struct ebt_entries *)repl->entries) {
+	if (newinfo->hook_entry[i] != (struct ebt_entries *)newinfo->entries) {
 		BUGPRINT("Chains don't start at beginning\n");
 		return -EINVAL;
 	}
 	/* make sure chains are ordered after each other in same order
 	   as their corresponding hooks */
 	for (j = i + 1; j < NF_BR_NUMHOOKS; j++) {
-		if (!(repl->valid_hooks & (1 << j)))
+		if (!newinfo->hook_entry[j])
 			continue;
-		if ( repl->hook_entry[j] <= repl->hook_entry[i] ) {
+		if (newinfo->hook_entry[j] <= newinfo->hook_entry[i]) {
 			BUGPRINT("Hook order must be followed\n");
 			return -EINVAL;
 		}
 		i = j;
 	}
-
-	for (i = 0; i < NF_BR_NUMHOOKS; i++)
-		newinfo->hook_entry[i] = NULL;
-
-	newinfo->entries_size = repl->entries_size;
-	newinfo->nentries = repl->nentries;
 
 	/* do some early checkings and initialize some things */
 	i = 0; /* holds the expected nr. of entries for the chain */
@@ -784,9 +812,8 @@ static int translate_table(struct ebt_replace *repl,
 	          newinfo->nentries afterwards */
 	udc_cnt = 0; /* will hold the nr. of user defined chains (udc) */
 	ret = EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
-	   ebt_check_entry_size_and_hooks, newinfo, repl->entries,
-	   repl->entries + repl->entries_size, repl->hook_entry, &i, &j, &k,
-	   &udc_cnt, repl->valid_hooks);
+	   ebt_check_entry_size_and_hooks, newinfo,
+	   &i, &j, &k, &udc_cnt);
 
 	if (ret != 0)
 		return ret;
@@ -799,15 +826,6 @@ static int translate_table(struct ebt_replace *repl,
 	if (k != newinfo->nentries) {
 		BUGPRINT("Total nentries is wrong\n");
 		return -EINVAL;
-	}
-
-	/* check if all valid hooks have a chain */
-	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
-		if (newinfo->hook_entry[i] == NULL &&
-		   (repl->valid_hooks & (1 << i))) {
-			BUGPRINT("Valid hook without chain\n");
-			return -EINVAL;
-		}
 	}
 
 	/* get the location of the udc, put them in an array
@@ -837,8 +855,7 @@ static int translate_table(struct ebt_replace *repl,
 			return -ENOMEM;
 		i = 0; /* the i'th udc */
 		EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
-		   ebt_get_udc_positions, newinfo, repl->hook_entry, &i,
-		   repl->valid_hooks, cl_s);
+		   ebt_get_udc_positions, newinfo, &i, cl_s);
 		/* sanity check */
 		if (i != udc_cnt) {
 			BUGPRINT("i != udc_cnt\n");
@@ -849,7 +866,7 @@ static int translate_table(struct ebt_replace *repl,
 
 	/* Check for loops */
 	for (i = 0; i < NF_BR_NUMHOOKS; i++)
-		if (repl->valid_hooks & (1 << i))
+		if (newinfo->hook_entry[i])
 			if (check_chainloops(newinfo->hook_entry[i],
 			   cl_s, udc_cnt, i, newinfo->entries)) {
 				vfree(cl_s);
@@ -869,8 +886,7 @@ static int translate_table(struct ebt_replace *repl,
 	/* used to know what we need to clean up if something goes wrong */
 	i = 0;
 	ret = EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
-	   ebt_check_entry, newinfo, repl->name, &i, repl->valid_hooks,
-	   cl_s, udc_cnt);
+	   ebt_check_entry, newinfo, name, &i, cl_s, udc_cnt);
 	if (ret != 0) {
 		EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
 		   ebt_cleanup_entry, &i);
@@ -967,7 +983,11 @@ static int do_replace(void __user *user, unsigned int len)
 
 	/* this can get initialized by translate_table() */
 	newinfo->chainstack = NULL;
-	ret = translate_table(&tmp, newinfo);
+	ret = ebt_verify_pointers(&tmp, newinfo);
+	if (ret != 0)
+		goto free_counterstmp;
+
+	ret = translate_table(tmp.name, newinfo);
 
 	if (ret != 0)
 		goto free_counterstmp;
@@ -1138,35 +1158,47 @@ int ebt_register_table(struct ebt_table *table)
 {
 	struct ebt_table_info *newinfo;
 	struct ebt_table *t;
+	struct ebt_replace_kernel *repl;
 	int ret, i, countersize;
+	void *p;
 
-	if (!table || !table->table ||!table->table->entries ||
-	    table->table->entries_size == 0 ||
-	    table->table->counters || table->private) {
+	if (!table || !(repl = table->table) || !repl->entries ||
+	    repl->entries_size == 0 ||
+	    repl->counters || table->private) {
 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
 		return -EINVAL;
 	}
 
-	countersize = COUNTER_OFFSET(table->table->nentries) *
+	countersize = COUNTER_OFFSET(repl->nentries) *
 					(highest_possible_processor_id()+1);
 	newinfo = vmalloc(sizeof(*newinfo) + countersize);
 	ret = -ENOMEM;
 	if (!newinfo)
 		return -ENOMEM;
 
-	newinfo->entries = vmalloc(table->table->entries_size);
-	if (!(newinfo->entries))
+	p = vmalloc(repl->entries_size);
+	if (!p)
 		goto free_newinfo;
 
-	memcpy(newinfo->entries, table->table->entries,
-	   table->table->entries_size);
+	memcpy(p, repl->entries, repl->entries_size);
+	newinfo->entries = p;
+
+	newinfo->entries_size = repl->entries_size;
+	newinfo->nentries = repl->nentries;
 
 	if (countersize)
 		memset(newinfo->counters, 0, countersize);
 
 	/* fill in newinfo and parse the entries */
 	newinfo->chainstack = NULL;
-	ret = translate_table(table->table, newinfo);
+	for (i = 0; i < NF_BR_NUMHOOKS; i++) {
+		if ((repl->valid_hooks & (1 << i)) == 0)
+			newinfo->hook_entry[i] = NULL;
+		else
+			newinfo->hook_entry[i] = p +
+				((char *)repl->hook_entry[i] - repl->entries);
+	}
+	ret = translate_table(repl->name, newinfo);
 	if (ret != 0) {
 		BUGPRINT("Translate_table failed\n");
 		goto free_chainstack;
@@ -1290,33 +1322,33 @@ free_tmp:
 }
 
 static inline int ebt_make_matchname(struct ebt_entry_match *m,
-   char *base, char *ubase)
+   char *base, char __user *ubase)
 {
-	char *hlp = ubase - base + (char *)m;
+	char __user *hlp = ubase + ((char *)m - base);
 	if (copy_to_user(hlp, m->u.match->name, EBT_FUNCTION_MAXNAMELEN))
 		return -EFAULT;
 	return 0;
 }
 
 static inline int ebt_make_watchername(struct ebt_entry_watcher *w,
-   char *base, char *ubase)
+   char *base, char __user *ubase)
 {
-	char *hlp = ubase - base + (char *)w;
+	char __user *hlp = ubase + ((char *)w - base);
 	if (copy_to_user(hlp , w->u.watcher->name, EBT_FUNCTION_MAXNAMELEN))
 		return -EFAULT;
 	return 0;
 }
 
-static inline int ebt_make_names(struct ebt_entry *e, char *base, char *ubase)
+static inline int ebt_make_names(struct ebt_entry *e, char *base, char __user *ubase)
 {
 	int ret;
-	char *hlp;
+	char __user *hlp;
 	struct ebt_entry_target *t;
 
 	if (e->bitmask == 0)
 		return 0;
 
-	hlp = ubase - base + (char *)e + e->target_offset;
+	hlp = ubase + (((char *)e + e->target_offset) - base);
 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
 	
 	ret = EBT_MATCH_ITERATE(e, ebt_make_matchname, base, ubase);

@@ -65,6 +65,12 @@ ENTRY(_stext)
  */
 ENTRY(startup_32)
 
+#ifdef CONFIG_PARAVIRT
+        movl %cs, %eax
+        testl $0x3, %eax
+        jnz startup_paravirt
+#endif
+
 /*
  * Set segments to known values.
  */
@@ -75,6 +81,15 @@ ENTRY(startup_32)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+
+	/* get the PDA pointer */
+	movl $boot_pda, %eax
+
+	/* slot the PDA address into the GDT */
+	mov %ax, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+0+2)		/* base & 0x0000ffff */
+	shr $16, %eax
+	mov %al, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+4+0)		/* base & 0x00ff0000 */
+	mov %ah, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+4+3)		/* base & 0xff000000 */
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	/* check for VMware */
@@ -363,7 +378,9 @@ is386:	movl $2,%ecx		# set MP
 	movl %eax,%cr0
 
 	call check_x87
-	lgdt cpu_gdt_descr
+	GET_THREAD_INFO(%ecx)
+	movl TI_cpu(%ecx),%ecx
+	lgdt cpu_gdt_descr(,%ecx,8)
 	lidt idt_descr
 	ljmp $(__KERNEL_CS),$1f
 1:	movl $(__KERNEL_DS),%eax	# reload all the segment registers
@@ -371,10 +388,13 @@ is386:	movl $2,%ecx		# set MP
 	movl %eax,%ds
 	movl %eax,%es
 
-	xorl %eax,%eax			# Clear FS/GS and LDT
+	xorl %eax,%eax			# Clear FS and LDT
 	movl %eax,%fs
-	movl %eax,%gs
 	lldt %ax
+
+	movl $(__KERNEL_PDA),%eax
+	mov  %eax,%gs
+
 	cld			# gcc2 wants the direction flag cleared at all times
 	pushl $0		# fake return address for unwinder
 #ifdef CONFIG_SMP
@@ -524,6 +544,33 @@ ignore_int:
 #endif
 	iret
 
+#ifdef CONFIG_PARAVIRT
+startup_paravirt:
+	cld
+	movl $(init_thread_union+THREAD_SIZE-8),%esp
+
+	/* We take pains to preserve all the regs. */
+	pushl	%edx
+	pushl	%ecx
+	pushl	%eax
+
+	/* paravirt.o is last in link, and that probe fn never returns */
+	pushl	$__start_paravirtprobe
+1:
+	movl	0(%esp), %eax
+	pushl	(%eax)
+	movl	8(%esp), %eax
+	call	*(%esp)
+	popl	%eax
+
+	movl	4(%esp), %eax
+	movl	8(%esp), %ecx
+	movl	12(%esp), %edx
+
+	addl	$4, (%esp)
+	jmp	1b
+#endif
+
 .section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
@@ -562,11 +609,28 @@ ENTRY(idt_table)
 	.fill 256,8,0
 
 .section .rodata,"a",@progbits
-ready:	.byte 0
+cpu=0
+ENTRY(_cpu_pda)
+.rept NR_CPUS
+	.long __cpu_pda + cpu*PDA_size
+cpu=cpu+1
+.endr
+
+cpu=0
+ENTRY(__cpu_pda)
+.rept NR_CPUS
+1:	.long 1b
+	.long cpu
+	.long 0
+	.long 0
+cpu=cpu+1
+.endr
 
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE-8
 	.long __BOOT_DS
+
+ready:	.byte 0
 
 early_recursion_flag:
 	.long 0
@@ -663,8 +727,8 @@ ENTRY(cpu_gdt_table)
 	.quad 0x00009b000000ffff	/* 0xc0 APM CS 16 code (16 bit) */
 	.quad 0x004093000000ffff	/* 0xc8 APM DS    data */
 
-	.quad 0x0000930000000000	/* 0xd0 - ESPFIX 16-bit SS */
-	.quad 0x0000000000000000	/* 0xd8 - unused */
+	.quad 0x00c0930000000000	/* 0xd0 - ESPFIX SS */
+	.quad 0x00c093000000ffff	/* 0xd8 - PDA */
 	.quad 0x0000000000000000	/* 0xe0 - unused */
 	.quad 0x0000000000000000	/* 0xe8 - unused */
 	.quad 0x0000000000000000	/* 0xf0 - unused */

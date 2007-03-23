@@ -13,8 +13,8 @@
  * Version	: v00.00.03.05
  *
  * Authors:
- * 	Sreenivas Bagalkote	<Sreenivas.Bagalkote@lsil.com>
- * 	Sumant Patro		<Sumant.Patro@lsil.com>
+ * 	Sreenivas Bagalkote	<Sreenivas.Bagalkote@lsi.com>
+ * 	Sumant Patro		<Sumant.Patro@lsi.com>
  *
  * List of supported controllers
  *
@@ -45,7 +45,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_VERSION(MEGASAS_VERSION);
-MODULE_AUTHOR("sreenivas.bagalkote@lsil.com");
+MODULE_AUTHOR("megaraidlinux@lsi.com");
 MODULE_DESCRIPTION("LSI Logic MegaRAID SAS Driver");
 
 /*
@@ -517,7 +517,7 @@ megasas_make_sgl64(struct megasas_instance *instance, struct scsi_cmnd *scp,
  * Returns the number of frames required for numnber of sge's (sge_count)
  */
 
-u32 megasas_get_frame_count(u8 sge_count)
+static u32 megasas_get_frame_count(u8 sge_count)
 {
 	int num_cnt;
 	int sge_bytes;
@@ -1733,7 +1733,7 @@ megasas_get_ctrl_info(struct megasas_instance *instance,
  *
  * Tasklet to complete cmds
  */
-void megasas_complete_cmd_dpc(unsigned long instance_addr)
+static void megasas_complete_cmd_dpc(unsigned long instance_addr)
 {
 	u32 producer;
 	u32 consumer;

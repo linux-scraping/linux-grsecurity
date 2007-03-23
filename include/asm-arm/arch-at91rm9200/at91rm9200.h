@@ -80,6 +80,22 @@
 
 
 /*
+ * System Peripherals (offset from AT91_BASE_SYS)
+ */
+#define AT91_AIC	(0xfffff000 - AT91_BASE_SYS)	/* Advanced Interrupt Controller */
+#define AT91_DBGU	(0xfffff200 - AT91_BASE_SYS)	/* Debug Unit */
+#define AT91_PIOA	(0xfffff400 - AT91_BASE_SYS)	/* PIO Controller A */
+#define AT91_PIOB	(0xfffff600 - AT91_BASE_SYS)	/* PIO Controller B */
+#define AT91_PIOC	(0xfffff800 - AT91_BASE_SYS)	/* PIO Controller C */
+#define AT91_PIOD	(0xfffffa00 - AT91_BASE_SYS)	/* PIO Controller D */
+#define AT91_PMC	(0xfffffc00 - AT91_BASE_SYS)	/* Power Management Controller */
+#define AT91_ST		(0xfffffd00 - AT91_BASE_SYS)	/* System Timer */
+#define AT91_RTC	(0xfffffe00 - AT91_BASE_SYS)	/* Real-Time Clock */
+#define AT91_MC		(0xffffff00 - AT91_BASE_SYS)	/* Memory Controllers */
+
+#define AT91_MATRIX	0	/* not supported */
+
+/*
  * Internal Memory.
  */
 #define AT91RM9200_ROM_BASE	0x00100000	/* Internal ROM base address */
@@ -258,7 +274,7 @@
 #define AT91_PD19_TPK7		(1 << 19)	/* B: ETM Trace Packet Port 7 */
 #define AT91_PD20_NPCS3		(1 << 20)	/* A: SPI Peripheral Chip Select 3 */
 #define AT91_PD20_TPK8		(1 << 20)	/* B: ETM Trace Packet Port 8 */
-#define AT91_PD21_RTS0		(1 << 21)  	/* A: USART Ready To Send 0 */
+#define AT91_PD21_RTS0		(1 << 21)	/* A: USART Ready To Send 0 */
 #define AT91_PD21_TPK9		(1 << 21)	/* B: ETM Trace Packet Port 9 */
 #define AT91_PD22_RTS1		(1 << 22)	/* A: USART Ready To Send 1 */
 #define AT91_PD22_TPK10		(1 << 22)	/* B: ETM Trace Packet Port 10 */

@@ -21,6 +21,7 @@
 #include <linux/fcntl.h>
 #include <linux/init.h>
 #include <linux/poll.h>
+#include <linux/mm.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/sysctl.h>
@@ -1007,7 +1008,7 @@ static struct acpi_driver hpet_acpi_driver = {
 		},
 };
 
-static struct miscdevice hpet_misc = { HPET_MINOR, "hpet", &hpet_fops };
+static struct miscdevice hpet_misc = { HPET_MINOR, "hpet", &hpet_fops, {NULL, NULL}, NULL, NULL };
 
 static int __init hpet_init(void)
 {

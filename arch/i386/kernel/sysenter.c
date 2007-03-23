@@ -27,7 +27,11 @@
  * Should the kernel map a VDSO page into processes and pass its
  * address down to glibc upon exec()?
  */
+#ifdef CONFIG_PARAVIRT
+unsigned int __read_mostly vdso_enabled = 0;
+#else
 unsigned int __read_mostly vdso_enabled = 1;
+#endif
 
 EXPORT_SYMBOL_GPL(vdso_enabled);
 
@@ -73,13 +77,8 @@ int __init sysenter_setup(void)
 	syscall_page = (void *)get_zeroed_page(GFP_ATOMIC);
 
 #ifdef CONFIG_COMPAT_VDSO
-	__set_fixmap(FIX_VDSO, __pa(syscall_page), PAGE_READONLY);
+	__set_fixmap(FIX_VDSO, __pa(syscall_page), PAGE_READONLY_EXEC);
 	printk("Compat vDSO mapped to %08lx.\n", __fix_to_virt(FIX_VDSO));
-#else
-	/*
-	 * In the non-compat case the ELF coredumping code needs the fixmap:
-	 */
-	__set_fixmap(FIX_VDSO, __pa(syscall_page), PAGE_KERNEL_RO);
 #endif
 
 	if (!boot_cpu_has(X86_FEATURE_SEP)) {
@@ -96,6 +95,7 @@ int __init sysenter_setup(void)
 	return 0;
 }
 
+#ifndef CONFIG_COMPAT_VDSO
 static struct page *syscall_nopage(struct vm_area_struct *vma,
 				unsigned long adr, int *type)
 {
@@ -129,13 +129,13 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int exstack)
 	struct vm_area_struct *vma_m = NULL;
 #endif
 
-	vma = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma)
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
-		vma_m = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+		vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (!vma_m) {
 			kmem_cache_free(vm_area_cachep, vma);
 			return -ENOMEM;
@@ -168,6 +168,13 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int exstack)
 		vma->vm_flags &= ~VM_MAYWRITE;
 #endif
 
+	/*
+	 * Make sure the vDSO gets into every core dump.
+	 * Dumping its contents makes post-mortem fully interpretable later
+	 * without matching up the same kernel and hardware config to see
+	 * what PC values meant.
+	 */
+	vma->vm_flags |= VM_ALWAYSDUMP;
 	vma->vm_flags |= mm->def_flags;
 	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 	vma->vm_ops = &syscall_vm_ops;
@@ -243,3 +250,4 @@ int in_gate_area_no_task(unsigned long addr)
 {
 	return 0;
 }
+#endif

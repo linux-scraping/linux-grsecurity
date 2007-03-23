@@ -351,9 +351,6 @@ static void imxmci_start_cmd(struct imxmci_host *host, struct mmc_command *cmd, 
 	case MMC_RSP_R3: /* short */
 		cmdat |= CMD_DAT_CONT_RESPONSE_FORMAT_R3;
 		break;
-	case MMC_RSP_R6: /* short CRC */
-		cmdat |= CMD_DAT_CONT_RESPONSE_FORMAT_R6;
-		break;
 	default:
 		break;
 	}
@@ -877,7 +874,7 @@ static void imxmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 }
 
-static struct mmc_host_ops imxmci_ops = {
+static const struct mmc_host_ops imxmci_ops = {
 	.request	= imxmci_request,
 	.set_ios	= imxmci_set_ios,
 };

@@ -13,7 +13,6 @@
 
 #include <asm/delay.h>
 #include <asm/tsc.h>
-#include <asm/delay.h>
 #include <asm/io.h>
 
 #include "mach_timer.h"
@@ -25,7 +24,7 @@
  */
 unsigned int tsc_khz;
 
-int tsc_disable __cpuinitdata = 0;
+int tsc_disable;
 
 #ifdef CONFIG_X86_TSC
 static int __init tsc_setup(char *str)
@@ -217,7 +216,7 @@ static unsigned int cpufreq_delayed_issched = 0;
 static unsigned int cpufreq_init = 0;
 static struct work_struct cpufreq_delayed_get_work;
 
-static void handle_cpufreq_delayed_get(void *v)
+static void handle_cpufreq_delayed_get(struct work_struct *work)
 {
 	unsigned int cpu;
 
@@ -306,7 +305,7 @@ static int __init cpufreq_tsc(void)
 {
 	int ret;
 
-	INIT_WORK(&cpufreq_delayed_get_work, handle_cpufreq_delayed_get, NULL);
+	INIT_WORK(&cpufreq_delayed_get_work, handle_cpufreq_delayed_get);
 	ret = cpufreq_register_notifier(&time_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
 	if (!ret)
@@ -384,7 +383,7 @@ static struct dmi_system_id __initdata bad_tsc_dmi_table[] = {
 		     DMI_MATCH(DMI_BOARD_NAME, "2635FA0"),
 		     },
 	 },
-	 {}
+	{ NULL, NULL, {{0, NULL}}, NULL}
 };
 
 #define TSC_FREQ_CHECK_INTERVAL (10*MSEC_PER_SEC) /* 10sec in MS */

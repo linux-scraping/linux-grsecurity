@@ -20,6 +20,7 @@
 #include <linux/gralloc.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
+#include <linux/pid_namespace.h>
 #include <linux/percpu.h>
 
 #include <asm/uaccess.h>
@@ -225,12 +226,13 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	char *res;
 	struct dentry *root;
 	struct vfsmount *rootmnt;
+	struct task_struct *reaper = child_reaper(current);
 
 	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
-	read_lock(&child_reaper->fs->lock);
-	root = dget(child_reaper->fs->root);
-	rootmnt = mntget(child_reaper->fs->rootmnt);
-	read_unlock(&child_reaper->fs->lock);
+	read_lock(&reaper->fs->lock);
+	root = dget(reaper->fs->root);
+	rootmnt = mntget(reaper->fs->rootmnt);
+	read_unlock(&reaper->fs->lock);
 
 	spin_lock(&dcache_lock);
 	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, root, rootmnt, buf, buflen);
@@ -666,6 +668,7 @@ create_table(__u32 * len, int elementsize)
 static int
 init_variables(const struct gr_arg *arg)
 {
+	struct task_struct *reaper = child_reaper(current);
 	unsigned int stacksize;
 
 	subj_map_set.s_size = arg->role_db.num_subjects;
@@ -688,10 +691,10 @@ init_variables(const struct gr_arg *arg)
 		return 1;
 
 	/* grab reference for the real root dentry and vfsmount */
-	read_lock(&child_reaper->fs->lock);
-	real_root_mnt = mntget(child_reaper->fs->rootmnt);
-	real_root = dget(child_reaper->fs->root);
-	read_unlock(&child_reaper->fs->lock);
+	read_lock(&reaper->fs->lock);
+	real_root_mnt = mntget(reaper->fs->rootmnt);
+	real_root = dget(reaper->fs->root);
+	read_unlock(&reaper->fs->lock);
 	
 	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
 	if (fakefs_obj == NULL)

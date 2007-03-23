@@ -489,6 +489,9 @@ static void wakeup_dma_ir_ctx(unsigned long l)
 			reset_ir_status(d, i);
 			d->buffer_status[d->buffer_prg_assignment[i]] = VIDEO1394_BUFFER_READY;
 			do_gettimeofday(&d->buffer_time[d->buffer_prg_assignment[i]]);
+			dma_region_sync_for_cpu(&d->dma,
+				d->buffer_prg_assignment[i] * d->buf_size,
+				d->buf_size);
 		}
 	}
 
@@ -714,8 +717,8 @@ static inline unsigned video1394_buffer_state(struct dma_iso_ctx *d,
 	return ret;
 }
 
-static int __video1394_ioctl(struct file *file,
-			     unsigned int cmd, unsigned long arg)
+static long video1394_ioctl(struct file *file,
+			    unsigned int cmd, unsigned long arg)
 {
 	struct file_ctx *ctx = (struct file_ctx *)file->private_data;
 	struct ti_ohci *ohci = ctx->ohci;
@@ -884,13 +887,14 @@ static int __video1394_ioctl(struct file *file,
 		struct dma_iso_ctx *d;
 		int next_prg;
 
-		if (copy_from_user(&v, argp, sizeof(v)))
+		if (unlikely(copy_from_user(&v, argp, sizeof(v))))
 			return -EFAULT;
 
 		d = find_ctx(&ctx->context_list, OHCI_ISO_RECEIVE, v.channel);
-		if (d == NULL) return -EFAULT;
+		if (unlikely(d == NULL))
+			return -EFAULT;
 
-		if (v.buffer>=d->num_desc - 1) {
+		if (unlikely(v.buffer>=d->num_desc - 1)) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -898,7 +902,7 @@ static int __video1394_ioctl(struct file *file,
 
 		spin_lock_irqsave(&d->lock,flags);
 
-		if (d->buffer_status[v.buffer]==VIDEO1394_BUFFER_QUEUED) {
+		if (unlikely(d->buffer_status[v.buffer]==VIDEO1394_BUFFER_QUEUED)) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d is already used",v.buffer);
 			spin_unlock_irqrestore(&d->lock,flags);
@@ -949,13 +953,14 @@ static int __video1394_ioctl(struct file *file,
 		struct dma_iso_ctx *d;
 		int i = 0;
 
-		if (copy_from_user(&v, argp, sizeof(v)))
+		if (unlikely(copy_from_user(&v, argp, sizeof(v))))
 			return -EFAULT;
 
 		d = find_ctx(&ctx->context_list, OHCI_ISO_RECEIVE, v.channel);
-		if (d == NULL) return -EFAULT;
+		if (unlikely(d == NULL))
+			return -EFAULT;
 
-		if (v.buffer>d->num_desc - 1) {
+		if (unlikely(v.buffer>d->num_desc - 1)) {
 			PRINT(KERN_ERR, ohci->host->id,
 			      "Buffer %d out of range",v.buffer);
 			return -EINVAL;
@@ -1008,7 +1013,7 @@ static int __video1394_ioctl(struct file *file,
 		spin_unlock_irqrestore(&d->lock, flags);
 
 		v.buffer=i;
-		if (copy_to_user(argp, &v, sizeof(v)))
+		if (unlikely(copy_to_user(argp, &v, sizeof(v))))
 			return -EFAULT;
 
 		return 0;
@@ -1094,6 +1099,8 @@ static int __video1394_ioctl(struct file *file,
 			DBGMSG(ohci->host->id, "Starting iso transmit DMA ctx=%d",
 			       d->ctx);
 			put_timestamp(ohci, d, d->last_buffer);
+			dma_region_sync_for_device(&d->dma,
+				v.buffer * d->buf_size, d->buf_size);
 
 			/* Tell the controller where the first program is */
 			reg_write(ohci, d->cmdPtr,
@@ -1109,6 +1116,9 @@ static int __video1394_ioctl(struct file *file,
 				      "Waking up iso transmit dma ctx=%d",
 				      d->ctx);
 				put_timestamp(ohci, d, d->last_buffer);
+				dma_region_sync_for_device(&d->dma,
+					v.buffer * d->buf_size, d->buf_size);
+
 				reg_write(ohci, d->ctrlSet, 0x1000);
 			}
 		}
@@ -1156,15 +1166,6 @@ static int __video1394_ioctl(struct file *file,
 	}
 }
 
-static long video1394_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	int err;
-	lock_kernel();
-	err = __video1394_ioctl(file, cmd, arg);
-	unlock_kernel();
-	return err;
-}
-
 /*
  *	This maps the vmalloced and reserved buffer to user space.
  *
@@ -1177,17 +1178,14 @@ static long video1394_ioctl(struct file *file, unsigned int cmd, unsigned long a
 static int video1394_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct file_ctx *ctx = (struct file_ctx *)file->private_data;
-	int res = -EINVAL;
 
-	lock_kernel();
 	if (ctx->current_ctx == NULL) {
 		PRINT(KERN_ERR, ctx->ohci->host->id,
 				"Current iso context not set");
-	} else
-		res = dma_region_mmap(&ctx->current_ctx->dma, file, vma);
-	unlock_kernel();
+		return -EINVAL;
+	}
 
-	return res;
+	return dma_region_mmap(&ctx->current_ctx->dma, file, vma);
 }
 
 static unsigned int video1394_poll(struct file *file, poll_table *pt)
@@ -1198,14 +1196,12 @@ static unsigned int video1394_poll(struct file *file, poll_table *pt)
 	struct dma_iso_ctx *d;
 	int i;
 
-	lock_kernel();
 	ctx = file->private_data;
 	d = ctx->current_ctx;
 	if (d == NULL) {
 		PRINT(KERN_ERR, ctx->ohci->host->id,
 				"Current iso context not set");
-		mask = POLLERR;
-		goto done;
+		return POLLERR;
 	}
 
 	poll_wait(file, &d->waitq, pt);
@@ -1218,8 +1214,6 @@ static unsigned int video1394_poll(struct file *file, poll_table *pt)
 		}
 	}
 	spin_unlock_irqrestore(&d->lock, flags);
-done:
-	unlock_kernel();
 
 	return mask;
 }
@@ -1255,7 +1249,6 @@ static int video1394_release(struct inode *inode, struct file *file)
 	struct list_head *lh, *next;
 	u64 mask;
 
-	lock_kernel();
 	list_for_each_safe(lh, next, &ctx->context_list) {
 		struct dma_iso_ctx *d;
 		d = list_entry(lh, struct dma_iso_ctx, link);
@@ -1276,7 +1269,6 @@ static int video1394_release(struct inode *inode, struct file *file)
 	kfree(ctx);
 	file->private_data = NULL;
 
-	unlock_kernel();
 	return 0;
 }
 
@@ -1318,18 +1310,14 @@ static struct ieee1394_device_id video1394_id_table[] = {
                 .specifier_id   = CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
                 .version        = (CAMERA_SW_VERSION_ENTRY + 2) & 0xffffff
         },
-	{ }
+	{ 0, 0, 0, 0, 0, 0 }
 };
 
 MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);
 
 static struct hpsb_protocol_driver video1394_driver = {
-	.name		= "1394 Digital Camera Driver",
+	.name		= VIDEO1394_DRIVER_NAME,
 	.id_table	= video1394_id_table,
-	.driver		= {
-		.name	= VIDEO1394_DRIVER_NAME,
-		.bus	= &ieee1394_bus_type,
-	},
 };
 
 

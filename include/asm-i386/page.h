@@ -10,6 +10,7 @@
 #define LARGE_PAGE_SIZE (1UL << PMD_SHIFT)
 
 #ifdef __KERNEL__
+#include <asm/boot.h>
 #ifndef __ASSEMBLY__
 
 
@@ -53,6 +54,7 @@ typedef struct { unsigned long long pgprot; } pgprot_t;
 #define __pmd(x) ((pmd_t) { (x) } )
 #define __pte(x) ({ pte_t __pte = {(x), (x) >> 32}; __pte; })
 #define HPAGE_SHIFT	21
+#include <asm-generic/pgtable-nopud.h>
 #else
 typedef struct { unsigned long pte_low; } pte_t;
 typedef struct { unsigned long pgd; } pgd_t;
@@ -60,6 +62,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define pte_val(x)	((x).pte_low)
 #define __pte(x) ((pte_t) { (x) } )
 #define HPAGE_SHIFT	22
+#include <asm-generic/pgtable-nopmd.h>
 #endif
 #define PTE_MASK	PAGE_MASK
 
@@ -112,15 +115,12 @@ extern int page_is_ram(unsigned long pagenr);
 
 #ifdef __ASSEMBLY__
 #define __PAGE_OFFSET		CONFIG_PAGE_OFFSET
-#define __PHYSICAL_START	CONFIG_PHYSICAL_START
 #else
 #define __PAGE_OFFSET		((unsigned long)CONFIG_PAGE_OFFSET)
-#define __PHYSICAL_START	((unsigned long)CONFIG_PHYSICAL_START)
 #endif
-#define __KERNEL_START		(__PAGE_OFFSET + __PHYSICAL_START)
 
 #ifdef CONFIG_PAX_KERNEXEC
-#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + ((__PHYSICAL_START + ~(4*1024*1024)) & (4*1024*1024)))
+#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + ((LOAD_PHYSICAL_ADDR + 4*1024*1024 - 1) & ~(4*1024*1024 - 1)))
 #ifndef __ASSEMBLY__
 extern unsigned char MODULES_VADDR[];
 extern unsigned char MODULES_END[];
@@ -133,6 +133,9 @@ extern unsigned char MODULES_END[];
 #define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)
 #define MAXMEM			(-__PAGE_OFFSET-__VMALLOC_RESERVE)
 #define __pa(x)			((unsigned long)(x)-PAGE_OFFSET)
+/* __pa_symbol should be used for C visible symbols.
+   This seems to be the official gcc blessed way to do such arithmetic. */
+#define __pa_symbol(x)          __pa(RELOC_HIDE((unsigned long)(x),0))
 #define __va(x)			((void *)((unsigned long)(x)+PAGE_OFFSET))
 #define pfn_to_kaddr(pfn)      __va((pfn) << PAGE_SHIFT)
 #ifdef CONFIG_FLATMEM
@@ -163,7 +166,9 @@ extern unsigned char MODULES_END[];
 #include <asm-generic/memory_model.h>
 #include <asm-generic/page.h>
 
+#ifndef CONFIG_COMPAT_VDSO
 #define __HAVE_ARCH_GATE_AREA 1
+#endif
 #endif /* __KERNEL__ */
 
 #endif /* _I386_PAGE_H */

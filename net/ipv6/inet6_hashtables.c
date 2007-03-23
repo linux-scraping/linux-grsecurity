@@ -57,7 +57,7 @@ EXPORT_SYMBOL(__inet6_hash);
  */
 struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
 					   const struct in6_addr *saddr,
-					   const u16 sport,
+					   const __be16 sport,
 					   const struct in6_addr *daddr,
 					   const u16 hnum,
 					   const int dif)
@@ -146,8 +146,8 @@ struct sock *inet6_lookup_listener(struct inet_hashinfo *hashinfo,
 EXPORT_SYMBOL_GPL(inet6_lookup_listener);
 
 struct sock *inet6_lookup(struct inet_hashinfo *hashinfo,
-			  const struct in6_addr *saddr, const u16 sport,
-			  const struct in6_addr *daddr, const u16 dport,
+			  const struct in6_addr *saddr, const __be16 sport,
+			  const struct in6_addr *daddr, const __be16 dport,
 			  const int dif)
 {
 	struct sock *sk;
@@ -172,7 +172,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
 	const struct in6_addr *saddr = &np->daddr;
 	const int dif = sk->sk_bound_dev_if;
 	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
-	const unsigned int hash = inet6_ehashfn(daddr, inet->num, saddr,
+	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
 						inet->dport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
 	struct sock *sk2;

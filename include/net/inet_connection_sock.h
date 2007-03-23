@@ -18,6 +18,7 @@
 #include <linux/compiler.h>
 #include <linux/string.h>
 #include <linux/timer.h>
+#include <linux/poll.h>
 
 #include <net/inet_sock.h>
 #include <net/request_sock.h>
@@ -45,7 +46,8 @@ struct inet_connection_sock_af_ops {
 				      struct request_sock *req,
 				      struct dst_entry *dst);
 	int	    (*remember_stamp)(struct sock *sk);
-	__u16	    net_header_len;
+	u16	    net_header_len;
+	u16	    sockaddr_len;
 	int	    (*setsockopt)(struct sock *sk, int level, int optname, 
 				  char __user *optval, int optlen);
 	int	    (*getsockopt)(struct sock *sk, int level, int optname, 
@@ -57,7 +59,6 @@ struct inet_connection_sock_af_ops {
 				int level, int optname,
 				char __user *optval, int __user *optlen);
 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
-	int sockaddr_len;
 };
 
 /** inet_connection_sock - INET connection oriented sock

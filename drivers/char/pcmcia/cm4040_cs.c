@@ -273,6 +273,7 @@ static ssize_t cm4040_read(struct file *filp, char __user *buf,
 	DEBUGP(6, dev, "BytesToRead=%lu\n", bytes_to_read);
 
 	min_bytes_to_read = min(count, bytes_to_read + 5);
+	min_bytes_to_read = min_t(size_t, min_bytes_to_read, READ_WRITE_BUFFER_SIZE);
 
 	DEBUGP(6, dev, "Min=%lu\n", min_bytes_to_read);
 
@@ -340,7 +341,7 @@ static ssize_t cm4040_write(struct file *filp, const char __user *buf,
 		return 0;
 	}
 
-	if (count < 5) {
+	if ((count < 5) || (count > READ_WRITE_BUFFER_SIZE)) {
 		DEBUGP(2, dev, "<- cm4040_write buffersize=%Zd < 5\n", count);
 		return -EIO;
 	}
@@ -523,28 +524,10 @@ static int reader_config(struct pcmcia_device *link, int devno)
 	int fail_fn, fail_rc;
 	int rc;
 
-	tuple.DesiredTuple = CISTPL_CONFIG;
 	tuple.Attributes = 0;
 	tuple.TupleData = buf;
 	tuple.TupleDataMax = sizeof(buf);
  	tuple.TupleOffset = 0;
-
-	if ((fail_rc = pcmcia_get_first_tuple(link, &tuple)) != CS_SUCCESS) {
-		fail_fn = GetFirstTuple;
-		goto cs_failed;
-	}
-	if ((fail_rc = pcmcia_get_tuple_data(link, &tuple)) != CS_SUCCESS) {
-		fail_fn = GetTupleData;
-		goto cs_failed;
-	}
-	if ((fail_rc = pcmcia_parse_tuple(link, &tuple, &parse))
-							!= CS_SUCCESS) {
-		fail_fn = ParseTuple;
-		goto cs_failed;
-	}
-
-	link->conf.ConfigBase = parse.config.base;
-	link->conf.Present = parse.config.rmask[0];
 
 	link->io.BasePort2 = 0;
 	link->io.NumPorts2 = 0;
@@ -609,8 +592,6 @@ static int reader_config(struct pcmcia_device *link, int devno)
 
 	return 0;
 
-cs_failed:
-	cs_error(link, fail_fn, fail_rc);
 cs_release:
 	reader_release(link);
 	return -ENODEV;
@@ -721,14 +702,14 @@ static int __init cm4040_init(void)
 
 	printk(KERN_INFO "%s\n", version);
 	cmx_class = class_create(THIS_MODULE, "cardman_4040");
-	if (!cmx_class)
-		return -1;
+	if (IS_ERR(cmx_class))
+		return PTR_ERR(cmx_class);
 
 	major = register_chrdev(0, DEVICE_NAME, &reader_fops);
 	if (major < 0) {
 		printk(KERN_WARNING MODULE_NAME
 			": could not get major number\n");
-		return -1;
+		return major;
 	}
 
 	rc = pcmcia_register_driver(&reader_driver);

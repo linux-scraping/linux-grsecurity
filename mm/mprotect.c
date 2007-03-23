@@ -171,7 +171,7 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 		cpu_set(smp_processor_id(), mm->context.cpu_user_cs_mask);
 #endif
 
-		set_user_cs(mm, smp_processor_id());
+		set_user_cs(mm->context.user_cs_base, mm->context.user_cs_limit, smp_processor_id());
 	}
 	spin_unlock(&mm->page_table_lock);
 	if (newlimit == end)
@@ -459,15 +459,15 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	if (start > vma->vm_start)
 		prev = vma;
 
-	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
-		error = -EACCES;
-		goto out;
-	}
-
 #ifdef CONFIG_PAX_MPROTECT
 	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
 		pax_handle_maywrite(vma, start);
 #endif
+
+	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
+		error = -EACCES;
+		goto out;
+	}
 
 	for (nstart = start ; ; ) {
 		unsigned long newflags;

@@ -25,7 +25,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME	"pata_hpt3x2n"
-#define DRV_VERSION	"0.3"
+#define DRV_VERSION	"0.3.2"
 
 enum {
 	HPT_PCI_FAST	=	(1 << 31),
@@ -297,11 +297,11 @@ static int hpt3x2n_pair_idle(struct ata_port *ap)
 	return 0;
 }
 
-static int hpt3x2n_use_dpll(struct ata_port *ap, int reading)
+static int hpt3x2n_use_dpll(struct ata_port *ap, int writing)
 {
 	long flags = (long)ap->host->private_data;
 	/* See if we should use the DPLL */
-	if (reading == 0)
+	if (writing)
 		return USE_DPLL;	/* Needed for write */
 	if (flags & PCI66)
 		return USE_DPLL;	/* Needed at 66Mhz */
@@ -334,13 +334,13 @@ static struct scsi_host_template hpt3x2n_sht = {
 	.can_queue		= ATA_DEF_QUEUE,
 	.this_id		= ATA_SHT_THIS_ID,
 	.sg_tablesize		= LIBATA_MAX_PRD,
-	.max_sectors		= ATA_MAX_SECTORS,
 	.cmd_per_lun		= ATA_SHT_CMD_PER_LUN,
 	.emulated		= ATA_SHT_EMULATED,
 	.use_clustering		= ATA_SHT_USE_CLUSTERING,
 	.proc_name		= DRV_NAME,
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 	.slave_configure	= ata_scsi_slave_config,
+	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
 };
 

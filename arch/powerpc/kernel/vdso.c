@@ -264,7 +264,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm,
 
 
 	/* Allocate a VMA structure and fill it up */
-	vma = kmem_cache_zalloc(vm_area_cachep, SLAB_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (vma == NULL) {
 		rc = -ENOMEM;
 		goto fail_mmapsem;
@@ -290,6 +290,13 @@ int arch_setup_additional_pages(struct linux_binprm *bprm,
 		vma->vm_flags &= ~VM_MAYWRITE;
 #endif
 
+	/*
+	 * Make sure the vDSO gets into every core dump.
+	 * Dumping its contents makes post-mortem fully interpretable later
+	 * without matching up the same kernel and hardware config to see
+	 * what PC values meant.
+	 */
+	vma->vm_flags |= VM_ALWAYSDUMP;
 	vma->vm_flags |= mm->def_flags;
 	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
 	vma->vm_ops = &vdso_vmops;

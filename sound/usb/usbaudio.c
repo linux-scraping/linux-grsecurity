@@ -186,6 +186,7 @@ struct snd_usb_substream {
 	u64 formats;			/* format bitmasks (all or'ed) */
 	unsigned int num_formats;		/* number of supported audio formats (list) */
 	struct list_head fmt_list;	/* format list */
+	struct snd_pcm_hw_constraint_list rate_list;	/* limited rates */
 	spinlock_t lock;
 
 	struct snd_urb_ops ops;		/* callbacks (must be filled at init) */
@@ -1810,28 +1811,33 @@ static int check_hw_params_convention(struct snd_usb_substream *subs)
 static int snd_usb_pcm_check_knot(struct snd_pcm_runtime *runtime,
 				  struct snd_usb_substream *subs)
 {
-	struct list_head *p;
-	struct snd_pcm_hw_constraint_list constraints_rates;
+	struct audioformat *fp;
+	int count = 0, needs_knot = 0;
 	int err;
 
-	list_for_each(p, &subs->fmt_list) {
-		struct audioformat *fp;
-		fp = list_entry(p, struct audioformat, list);
-
-		if (!fp->needs_knot)
-			continue;
-
-		constraints_rates.count = fp->nr_rates;
-		constraints_rates.list = fp->rate_table;
-		constraints_rates.mask = 0;
-
-		err = snd_pcm_hw_constraint_list(runtime, 0,
-			SNDRV_PCM_HW_PARAM_RATE,
-			&constraints_rates);
-
-		if (err < 0)
-			return err;
+	list_for_each_entry(fp, &subs->fmt_list, list) {
+		if (fp->rates & SNDRV_PCM_RATE_CONTINUOUS)
+			return 0;
+		count += fp->nr_rates;
+		if (fp->needs_knot)
+			needs_knot = 1;
 	}
+	if (!needs_knot)
+		return 0;
+
+	subs->rate_list.count = count;
+	subs->rate_list.list = kmalloc(sizeof(int) * count, GFP_KERNEL);
+	subs->rate_list.mask = 0;
+	count = 0;
+	list_for_each_entry(fp, &subs->fmt_list, list) {
+		int i;
+		for (i = 0; i < fp->nr_rates; i++)
+			subs->rate_list.list[count++] = fp->rate_table[i];
+	}
+	err = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
+					 &subs->rate_list);
+	if (err < 0)
+		return err;
 
 	return 0;
 }
@@ -2231,6 +2237,7 @@ static void free_substream(struct snd_usb_substream *subs)
 		kfree(fp->rate_table);
 		kfree(fp);
 	}
+	kfree(subs->rate_list.list);
 }
 
 
@@ -2456,6 +2463,7 @@ static int parse_audio_format_rates(struct snd_usb_audio *chip, struct audioform
 		 * build the rate table and bitmap flags
 		 */
 		int r, idx, c;
+		unsigned int nonzero_rates = 0;
 		/* this table corresponds to the SNDRV_PCM_RATE_XXX bit */
 		static unsigned int conv_rates[] = {
 			5512, 8000, 11025, 16000, 22050, 32000, 44100, 48000,
@@ -2471,7 +2479,14 @@ static int parse_audio_format_rates(struct snd_usb_audio *chip, struct audioform
 		fp->nr_rates = nr_rates;
 		fp->rate_min = fp->rate_max = combine_triple(&fmt[8]);
 		for (r = 0, idx = offset + 1; r < nr_rates; r++, idx += 3) {
-			unsigned int rate = fp->rate_table[r] = combine_triple(&fmt[idx]);
+			unsigned int rate = combine_triple(&fmt[idx]);
+			/* C-Media CM6501 mislabels its 96 kHz altsetting */
+			if (rate == 48000 && nr_rates == 1 &&
+			    chip->usb_id == USB_ID(0x0d8c, 0x0201) &&
+			    fp->altsetting == 5 && fp->maxpacksize == 392)
+				rate = 96000;
+			fp->rate_table[r] = rate;
+			nonzero_rates |= rate;
 			if (rate < fp->rate_min)
 				fp->rate_min = rate;
 			else if (rate > fp->rate_max)
@@ -2486,6 +2501,10 @@ static int parse_audio_format_rates(struct snd_usb_audio *chip, struct audioform
 			}
 			if (!found)
 				fp->needs_knot = 1;
+		}
+		if (!nonzero_rates) {
+			hwc_debug("All rates were zero. Skipping format!\n");
+			return -1;
 		}
 		if (fp->needs_knot)
 			fp->rates |= SNDRV_PCM_RATE_KNOT;
@@ -3280,6 +3299,7 @@ static void snd_usb_audio_create_proc(struct snd_usb_audio *chip)
 
 static int snd_usb_audio_free(struct snd_usb_audio *chip)
 {
+	usb_chip[chip->index] = NULL;
 	kfree(chip);
 	return 0;
 }
@@ -3541,7 +3561,6 @@ static void snd_usb_audio_disconnect(struct usb_device *dev, void *ptr)
 		list_for_each(p, &chip->mixer_list) {
 			snd_usb_mixer_disconnect(p);
 		}
-		usb_chip[chip->index] = NULL;
 		mutex_unlock(&register_mutex);
 		snd_card_free_when_closed(card);
 	} else {
@@ -3577,8 +3596,7 @@ static int __init snd_usb_audio_init(void)
 		printk(KERN_WARNING "invalid nrpacks value.\n");
 		return -EINVAL;
 	}
-	usb_register(&usb_audio_driver);
-	return 0;
+	return usb_register(&usb_audio_driver);
 }
 
 

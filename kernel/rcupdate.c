@@ -63,11 +63,11 @@ static struct rcu_ctrlblk rcu_bh_ctrlblk = {
 	.cpumask = CPU_MASK_NONE,
 };
 
-DEFINE_PER_CPU(struct rcu_data, rcu_data) = { 0L };
-DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
+DEFINE_PER_CPU(struct rcu_data, rcu_data);
+DEFINE_PER_CPU(struct rcu_data, rcu_bh_data);
 
 /* Fake initialization required by compiler */
-static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
+static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet);
 static int blimit = 10;
 static int qhimark = 10000;
 static int qlowmark = 100;
@@ -235,12 +235,14 @@ static void rcu_do_batch(struct rcu_data *rdp)
 
 	list = rdp->donelist;
 	while (list) {
-		next = rdp->donelist = list->next;
+		next = list->next;
+		prefetch(next);
 		list->func(list);
 		list = next;
 		if (++count >= rdp->blimit)
 			break;
 	}
+	rdp->donelist = list;
 
 	local_irq_disable();
 	rdp->qlen -= count;

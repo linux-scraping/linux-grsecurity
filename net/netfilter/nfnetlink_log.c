@@ -217,6 +217,11 @@ _instance_destroy2(struct nfulnl_instance *inst, int lock)
 
 	spin_lock_bh(&inst->lock);
 	if (inst->skb) {
+		/* timer "holds" one reference (we have one more) */
+		if (timer_pending(&inst->timer)) {
+			del_timer(&inst->timer);
+			instance_put(inst);
+		}
 		if (inst->qlen)
 			__nfulnl_send(inst);
 		if (inst->skb) {
@@ -363,9 +368,6 @@ __nfulnl_send(struct nfulnl_instance *inst)
 {
 	int status;
 
-	if (timer_pending(&inst->timer))
-		del_timer(&inst->timer);
-
 	if (!inst->skb)
 		return 0;
 
@@ -392,9 +394,11 @@ static void nfulnl_timer(unsigned long data)
 	UDEBUG("timer function called, flushing buffer\n");
 
 	spin_lock_bh(&inst->lock);
+	if (timer_pending(&inst->timer))	/* is it always true or false here? */
+		del_timer(&inst->timer);
 	__nfulnl_send(inst);
-	instance_put(inst);
 	spin_unlock_bh(&inst->lock);
+	instance_put(inst);
 }
 
 /* This is an inline function, we don't really care about a long
@@ -408,13 +412,13 @@ __build_packet_message(struct nfulnl_instance *inst,
 			const struct net_device *indev,
 			const struct net_device *outdev,
 			const struct nf_loginfo *li,
-			const char *prefix)
+			const char *prefix, unsigned int plen)
 {
 	unsigned char *old_tail;
 	struct nfulnl_msg_packet_hdr pmsg;
 	struct nlmsghdr *nlh;
 	struct nfgenmsg *nfmsg;
-	u_int32_t tmp_uint;
+	__be32 tmp_uint;
 
 	UDEBUG("entered\n");
 		
@@ -432,12 +436,8 @@ __build_packet_message(struct nfulnl_instance *inst,
 
 	NFA_PUT(inst->skb, NFULA_PACKET_HDR, sizeof(pmsg), &pmsg);
 
-	if (prefix) {
-		int slen = strlen(prefix);
-		if (slen > NFULNL_PREFIXLEN)
-			slen = NFULNL_PREFIXLEN;
-		NFA_PUT(inst->skb, NFULA_PREFIX, slen, prefix);
-	}
+	if (prefix)
+		NFA_PUT(inst->skb, NFULA_PREFIX, plen, prefix);
 
 	if (indev) {
 		tmp_uint = htonl(indev->ifindex);
@@ -491,7 +491,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 			 * for physical device (when called from ipv4) */
 			NFA_PUT(inst->skb, NFULA_IFINDEX_OUTDEV,
 				sizeof(tmp_uint), &tmp_uint);
-			if (skb->nf_bridge) {
+			if (skb->nf_bridge && skb->nf_bridge->physoutdev) {
 				tmp_uint = 
 				    htonl(skb->nf_bridge->physoutdev->ifindex);
 				NFA_PUT(inst->skb, NFULA_IFINDEX_PHYSOUTDEV,
@@ -501,18 +501,16 @@ __build_packet_message(struct nfulnl_instance *inst,
 #endif
 	}
 
-	if (skb->nfmark) {
-		tmp_uint = htonl(skb->nfmark);
+	if (skb->mark) {
+		tmp_uint = htonl(skb->mark);
 		NFA_PUT(inst->skb, NFULA_MARK, sizeof(tmp_uint), &tmp_uint);
 	}
 
 	if (indev && skb->dev && skb->dev->hard_header_parse) {
 		struct nfulnl_msg_packet_hw phw;
-
-		phw.hw_addrlen = 
-			skb->dev->hard_header_parse((struct sk_buff *)skb, 
+		int len = skb->dev->hard_header_parse((struct sk_buff *)skb,
 						    phw.hw_addr);
-		phw.hw_addrlen = htons(phw.hw_addrlen);
+		phw.hw_addrlen = htons(len);
 		NFA_PUT(inst->skb, NFULA_HWADDR, sizeof(phw), &phw);
 	}
 
@@ -529,7 +527,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 	if (skb->sk) {
 		read_lock_bh(&skb->sk->sk_callback_lock);
 		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
-			u_int32_t uid = htonl(skb->sk->sk_socket->file->f_uid);
+			__be32 uid = htonl(skb->sk->sk_socket->file->f_uid);
 			/* need to unlock here since NFA_PUT may goto */
 			read_unlock_bh(&skb->sk->sk_callback_lock);
 			NFA_PUT(inst->skb, NFULA_UID, sizeof(uid), &uid);
@@ -566,6 +564,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 	}
 		
 	nlh->nlmsg_len = inst->skb->tail - old_tail;
+	inst->lastnlh = nlh;
 	return 0;
 
 nlmsg_failure:
@@ -603,6 +602,7 @@ nfulnl_log_packet(unsigned int pf,
 	const struct nf_loginfo *li;
 	unsigned int qthreshold;
 	unsigned int nlbufsiz;
+	unsigned int plen;
 
 	if (li_user && li_user->type == NF_LOG_TYPE_ULOG) 
 		li = li_user;
@@ -618,6 +618,10 @@ nfulnl_log_packet(unsigned int pf,
 		return;
 	}
 
+	plen = 0;
+	if (prefix)
+		plen = strlen(prefix) + 1;
+
 	/* all macros expand to constant values at compile time */
 	/* FIXME: do we want to make the size calculation conditional based on
 	 * what is actually present?  way more branches and checks, but more
@@ -632,7 +636,7 @@ nfulnl_log_packet(unsigned int pf,
 #endif
 		+ NFA_SPACE(sizeof(u_int32_t))	/* mark */
 		+ NFA_SPACE(sizeof(u_int32_t))	/* uid */
-		+ NFA_SPACE(NFULNL_PREFIXLEN)	/* prefix */
+		+ NFA_SPACE(plen)		/* prefix */
 		+ NFA_SPACE(sizeof(struct nfulnl_msg_packet_hw))
 		+ NFA_SPACE(sizeof(struct nfulnl_msg_packet_timestamp));
 
@@ -690,6 +694,11 @@ nfulnl_log_packet(unsigned int pf,
 		 * enough room in the skb left. flush to userspace. */
 		UDEBUG("flushing old skb\n");
 
+		/* timer "holds" one reference (we have another one) */
+		if (timer_pending(&inst->timer)) {
+			del_timer(&inst->timer);
+			instance_put(inst);
+		}
 		__nfulnl_send(inst);
 
 		if (!(inst->skb = nfulnl_alloc_skb(nlbufsiz, size))) {
@@ -703,7 +712,7 @@ nfulnl_log_packet(unsigned int pf,
 	inst->qlen++;
 
 	__build_packet_message(inst, skb, data_len, pf,
-				hooknum, in, out, li, prefix);
+				hooknum, in, out, li, prefix, plen);
 
 	/* timer_pending always called within inst->lock, so there
 	 * is no chance of a race here */
@@ -712,15 +721,16 @@ nfulnl_log_packet(unsigned int pf,
 		inst->timer.expires = jiffies + (inst->flushtimeout*HZ/100);
 		add_timer(&inst->timer);
 	}
-	spin_unlock_bh(&inst->lock);
 
+unlock_and_release:
+	spin_unlock_bh(&inst->lock);
+	instance_put(inst);
 	return;
 
 alloc_failure:
-	spin_unlock_bh(&inst->lock);
-	instance_put(inst);
 	UDEBUG("error allocating skb\n");
 	/* FIXME: statistics */
+	goto unlock_and_release;
 }
 
 static int
@@ -857,6 +867,9 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
 			ret = -EINVAL;
 			break;
 		}
+
+		if (!inst)
+			goto out;
 	} else {
 		if (!inst) {
 			UDEBUG("no config command, and no instance for "
@@ -882,15 +895,15 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
 	}
 
 	if (nfula[NFULA_CFG_TIMEOUT-1]) {
-		u_int32_t timeout = 
-			*(u_int32_t *)NFA_DATA(nfula[NFULA_CFG_TIMEOUT-1]);
+		__be32 timeout =
+			*(__be32 *)NFA_DATA(nfula[NFULA_CFG_TIMEOUT-1]);
 
 		nfulnl_set_timeout(inst, ntohl(timeout));
 	}
 
 	if (nfula[NFULA_CFG_NLBUFSIZ-1]) {
-		u_int32_t nlbufsiz = 
-			*(u_int32_t *)NFA_DATA(nfula[NFULA_CFG_NLBUFSIZ-1]);
+		__be32 nlbufsiz =
+			*(__be32 *)NFA_DATA(nfula[NFULA_CFG_NLBUFSIZ-1]);
 
 		nfulnl_set_nlbufsiz(inst, ntohl(nlbufsiz));
 	}
@@ -903,13 +916,14 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
 	}
 
 	if (nfula[NFULA_CFG_FLAGS-1]) {
-		u_int16_t flags =
-			*(u_int16_t *)NFA_DATA(nfula[NFULA_CFG_FLAGS-1]);
+		__be16 flags =
+			*(__be16 *)NFA_DATA(nfula[NFULA_CFG_FLAGS-1]);
 		nfulnl_set_flags(inst, ntohs(flags));
 	}
 
 out_put:
 	instance_put(inst);
+out:
 	return ret;
 }
 

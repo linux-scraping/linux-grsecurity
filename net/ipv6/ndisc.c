@@ -515,7 +515,7 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
 
 	skb->dst = dst;
 	idev = in6_dev_get(dst->dev);
-	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+	IP6_INC_STATS(idev, IPSTATS_MIB_OUTREQUESTS);
 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
 	if (!err) {
 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORADVERTISEMENTS);
@@ -601,7 +601,7 @@ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
 	/* send it! */
 	skb->dst = dst;
 	idev = in6_dev_get(dst->dev);
-	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+	IP6_INC_STATS(idev, IPSTATS_MIB_OUTREQUESTS);
 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
 	if (!err) {
 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORSOLICITS);
@@ -676,7 +676,7 @@ void ndisc_send_rs(struct net_device *dev, struct in6_addr *saddr,
 	/* send it! */
 	skb->dst = dst;
 	idev = in6_dev_get(dst->dev);
-	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);	
+	IP6_INC_STATS(idev, IPSTATS_MIB_OUTREQUESTS);
 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
 	if (!err) {
 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTROUTERSOLICITS);
@@ -1267,10 +1267,11 @@ skip_defrtr:
 	}
 
 	if (ndopts.nd_opts_mtu) {
+		__be32 n;
 		u32 mtu;
 
-		memcpy(&mtu, ((u8*)(ndopts.nd_opts_mtu+1))+2, sizeof(mtu));
-		mtu = ntohl(mtu);
+		memcpy(&n, ((u8*)(ndopts.nd_opts_mtu+1))+2, sizeof(mtu));
+		mtu = ntohl(n);
 
 		if (mtu < IPV6_MIN_MTU || mtu > skb->dev->mtu) {
 			ND_PRINTK2(KERN_WARNING
@@ -1412,6 +1413,13 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
  		return;
  	}
 
+	if (!ipv6_addr_equal(&skb->nh.ipv6h->daddr, target) &&
+	    !(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
+		ND_PRINTK2(KERN_WARNING
+			"ICMPv6 Redirect: target address is not link-local.\n");
+		return;
+	}
+
 	ndisc_flow_init(&fl, NDISC_REDIRECT, &saddr_buf, &skb->nh.ipv6h->saddr,
 			dev->ifindex);
 
@@ -1512,7 +1520,7 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
 
 	buff->dst = dst;
 	idev = in6_dev_get(dst->dev);
-	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+	IP6_INC_STATS(idev, IPSTATS_MIB_OUTREQUESTS);
 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, buff, NULL, dst->dev, dst_output);
 	if (!err) {
 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTREDIRECTS);
@@ -1666,8 +1674,7 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
 static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
 					int nlen, void __user *oldval,
 					size_t __user *oldlenp,
-					void __user *newval, size_t newlen,
-					void **context)
+					void __user *newval, size_t newlen)
 {
 	struct net_device *dev = ctl->extra1;
 	struct inet6_dev *idev;
@@ -1680,14 +1687,12 @@ static int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl, int __user *name,
 	switch (ctl->ctl_name) {
 	case NET_NEIGH_REACHABLE_TIME:
 		ret = sysctl_jiffies(ctl, name, nlen,
-				     oldval, oldlenp, newval, newlen,
-				     context);
+				     oldval, oldlenp, newval, newlen);
 		break;
 	case NET_NEIGH_RETRANS_TIME_MS:
 	case NET_NEIGH_REACHABLE_TIME_MS:
 		 ret = sysctl_ms_jiffies(ctl, name, nlen,
-					 oldval, oldlenp, newval, newlen,
-					 context);
+					 oldval, oldlenp, newval, newlen);
 		 break;
 	default:
 		ret = 0;

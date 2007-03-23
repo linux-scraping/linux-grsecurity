@@ -120,7 +120,7 @@ static struct pci_device_id i810fb_pci_tbl[] = {
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82815_CGC,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5 },
-	{ 0 },
+	{ 0, 0, 0, 0, 0, 0, 0 },
 };
 
 static struct pci_driver i810fb_driver = {

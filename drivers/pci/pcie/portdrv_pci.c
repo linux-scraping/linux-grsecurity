@@ -90,7 +90,7 @@ static int __devinit pcie_portdrv_probe (struct pci_dev *dev,
 		return -ENODEV;
 	
 	pci_set_master(dev);
-        if (!dev->irq) {
+        if (!dev->irq && dev->pin) {
 		printk(KERN_WARNING 
 		"%s->Dev[%04x:%04x] has invalid IRQ. Check vendor BIOS\n", 
 		__FUNCTION__, dev->device, dev->vendor);
@@ -265,7 +265,7 @@ static void pcie_portdrv_err_resume(struct pci_dev *dev)
 static const struct pci_device_id port_pci_ids[] = { {
 	/* handle any PCI-Express port */
 	PCI_DEVICE_CLASS(((PCI_CLASS_BRIDGE_PCI << 8) | 0x00), ~0),
-	}, { /* end: all zeroes */ }
+	}, { 0, 0, 0, 0, 0, 0, 0 }
 };
 MODULE_DEVICE_TABLE(pci, port_pci_ids);
 
