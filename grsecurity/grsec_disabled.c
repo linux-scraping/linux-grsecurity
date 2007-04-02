@@ -409,6 +409,7 @@ gr_check_group_change(int real, int effective, int fs)
 
 
 EXPORT_SYMBOL(gr_task_is_capable);
+EXPORT_SYMBOL(gr_is_capable_nolog);
 EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY

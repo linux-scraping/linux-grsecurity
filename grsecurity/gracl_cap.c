@@ -39,6 +39,7 @@ static const char *captab_log[] = {
 };
 
 EXPORT_SYMBOL(gr_task_is_capable);
+EXPORT_SYMBOL(gr_is_capable_nolog);
 
 int
 gr_task_is_capable(struct task_struct *task, const int cap)

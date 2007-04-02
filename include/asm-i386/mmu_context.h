@@ -47,15 +47,17 @@ static inline void switch_mm(struct mm_struct *prev,
 			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
+		smp_mb__before_clear_bit();
 		cpu_clear(cpu, prev->context.cpu_user_cs_mask);
+		smp_mb__after_clear_bit();
 		cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
 			     prev->context.user_cs_limit != next->context.user_cs_limit))
-#endif
 			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#endif
 
 	}
 #ifdef CONFIG_SMP
@@ -74,7 +76,10 @@ static inline void switch_mm(struct mm_struct *prev,
 			cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#endif
+
 		}
 	}
 #endif

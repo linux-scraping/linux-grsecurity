@@ -31,6 +31,7 @@
 #include <asm/desc.h>
 #include <asm/kdebug.h>
 #include <asm/segment.h>
+#include <asm/tlbflush.h>
 
 extern void die(const char *,struct pt_regs *,long);
 

@@ -208,12 +208,10 @@ static inline unsigned long get_desc_base(struct desc_struct *desc)
 
 static inline void set_user_cs(unsigned long base, unsigned long limit, int cpu)
 {
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 	__u32 a, b;
 
 	pack_descriptor(&a, &b, base, limit - 1, 0xFB, 0xC);
 	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_CS, a, b);
-#endif
 }
 
 #else /* __ASSEMBLY__ */
