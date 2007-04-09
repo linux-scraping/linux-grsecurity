@@ -666,7 +666,7 @@ bad_area_nopax:
 	if (boot_cpu_data.f00f_bug) {
 		unsigned long nr;
 		
-		nr = (address - idt_descr.address) >> 3;
+		nr = (address - (unsigned long)idt_descr.address) >> 3;
 
 		if (nr == 6) {
 			do_invalid_op(regs, 0);

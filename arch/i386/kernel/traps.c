@@ -1095,7 +1095,7 @@ void __init trap_init_f00f_bug(void)
 	 * Update the IDT descriptor and reload the IDT so that
 	 * it uses the read-only mapped virtual address.
 	 */
-	idt_descr.address = fix_to_virt(FIX_F00F_IDT);
+	idt_descr.address = (struct desc_struct *)fix_to_virt(FIX_F00F_IDT);
 	load_idt(&idt_descr);
 }
 #endif
