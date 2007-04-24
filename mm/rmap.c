@@ -105,7 +105,7 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 			if (vma->vm_flags & VM_MIRROR) {
 				struct vm_area_struct *vma_m;
 
-				vma_m = find_vma(vma->vm_mm, vma->vm_start + vma->vm_mirror);
+				vma_m = find_vma(mm, vma->vm_start + vma->vm_mirror);
 				BUG_ON(!vma_m || vma_m->vm_start != vma->vm_start + vma->vm_mirror);
 				BUG_ON(vma_m->anon_vma || vma->vm_pgoff != vma_m->vm_pgoff);
 				vma_m->anon_vma = anon_vma;

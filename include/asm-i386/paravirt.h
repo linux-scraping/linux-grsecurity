@@ -497,20 +497,18 @@ static inline unsigned long __raw_local_irq_save(void)
 	PARA_PATCH(PARAVIRT_STI_SYSEXIT, CLBR_ANY,	\
 	jmp *%ss:paravirt_ops+PARAVIRT_irq_enable_sysexit)
 
-#define GET_CR0_INTO_EAX			\
+#define GET_CR0_INTO_EAX				\
 	call *paravirt_ops+PARAVIRT_read_cr0
 
-#define GET_CR0_INTO_EDX			\
-	pushl %eax;				\
-	call *paravirt_ops+PARAVIRT_read_cr0;	\
-	movl %eax, %edx;			\
-	popl %eax
+#define GET_CR0_INTO_EDX				\
+	movl %eax, %edx;				\
+	call *%ss:paravirt_ops+PARAVIRT_read_cr0;	\
+	xchgl %eax, %edx
 
-#define SET_CR0_FROM_EDX			\
-	pushl %eax;				\
-	movl %edx, %eax;			\
-	call *paravirt_ops+PARAVIRT_write_cr0;	\
-	popl %eax
+#define SET_CR0_FROM_EDX				\
+	xchgl %edx, %eax;				\
+	call *%ss:paravirt_ops+PARAVIRT_write_cr0;	\
+	movl %edx, %eax
 
 #endif /* __ASSEMBLY__ */
 #endif /* CONFIG_PARAVIRT */

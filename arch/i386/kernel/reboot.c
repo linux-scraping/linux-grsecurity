@@ -253,9 +253,9 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	   off paging.  Copy it near the end of the first page, out of the way
 	   of BIOS variables. */
 
-	flags = __copy_to_user ((void __user *) (0x1000 - sizeof (real_mode_switch) - 100),
+	flags = __copy_to_user_inatomic((void __user *) (0x1000 - sizeof (real_mode_switch) - 100),
 		real_mode_switch, sizeof (real_mode_switch));
-	flags = __copy_to_user ((void __user *) (0x1000 - 100), code, length);
+	flags = __copy_to_user_inatomic((void __user *) (0x1000 - 100), code, length);
 
 	/* Set up the IDT for real mode. */
 

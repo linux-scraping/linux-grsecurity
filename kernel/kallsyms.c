@@ -72,8 +72,8 @@ static inline int is_kernel(unsigned long addr)
 
 static int is_ksym_addr(unsigned long addr)
 {
-	if (all_var)
-		return is_kernel(addr);
+	if (all_var && is_kernel(addr))
+		return 1;
 
 	return is_kernel_text(addr) || is_kernel_inittext(addr) ||
 		is_kernel_extratext(addr);

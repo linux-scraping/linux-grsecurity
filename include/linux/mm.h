@@ -207,11 +207,11 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_ALWAYSDUMP	0x04000000	/* Always include in core dumps */
 
 #ifdef CONFIG_PAX_SEGMEXEC
-#define VM_MIRROR	0x04000000	/* vma is mirroring another */
+#define VM_MIRROR	0x08000000	/* vma is mirroring another */
 #endif
 
 #ifdef CONFIG_PAX_MPROTECT
-#define VM_MAYNOTWRITE	0x08000000	/* vma cannot be granted VM_WRITE any more */
+#define VM_MAYNOTWRITE	0x10000000	/* vma cannot be granted VM_WRITE any more */
 #endif
 
 #ifdef __VM_STACK_FLAGS
