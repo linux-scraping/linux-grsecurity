@@ -14,16 +14,13 @@
 /* The native architecture */
 #define KEXEC_ARCH KEXEC_ARCH_IA_64
 
-#define MAX_NOTE_BYTES 1024
-
 #define kexec_flush_icache_page(page) do { \
                 unsigned long page_addr = (unsigned long)page_address(page); \
                 flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
         } while(0)
 
 extern struct kimage *ia64_kimage;
-DECLARE_PER_CPU(u64, ia64_mca_pal_base);
-const extern unsigned int relocate_new_kernel_size;
+extern const unsigned int relocate_new_kernel_size;
 extern void relocate_new_kernel(unsigned long, unsigned long,
 		struct ia64_boot_param *, unsigned long);
 static inline void

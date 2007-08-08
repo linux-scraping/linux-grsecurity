@@ -108,8 +108,8 @@ static void move_ptes(struct vm_area_struct *vma, pmd_t *old_pmd,
 		pte = move_pte(pte, new_vma->vm_page_prot, old_addr, new_addr);
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-		if ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
-			pte_exprotect(pte);
+		if (!nx_enabled && (new_vma->vm_flags & (VM_PAGEEXEC | VM_EXEC)) == VM_PAGEEXEC)
+			pte = pte_exprotect(pte);
 #endif
 
 		set_pte_at(mm, new_addr, new_pte, pte);
@@ -337,7 +337,7 @@ unsigned long do_mremap(unsigned long addr,
 	}
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if (vma->vm_flags & VM_MIRROR) {
+	if (pax_find_mirror_vma(vma)) {
 		ret = -EINVAL;
 		goto out;
 	}

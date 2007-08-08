@@ -15,11 +15,11 @@
 #include <linux/signal.h>
 #include <linux/mm.h>
 #include <linux/module.h>
-#include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kprobes.h>
 #include <linux/kallsyms.h>
+#include <linux/kdebug.h>
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/compiler.h>
@@ -33,40 +33,26 @@
 #include <asm/asi.h>
 #include <asm/lsu.h>
 #include <asm/sections.h>
-#include <asm/kdebug.h>
 #include <asm/mmu_context.h>
 
 #ifdef CONFIG_KPROBES
-ATOMIC_NOTIFIER_HEAD(notify_page_fault_chain);
-
-/* Hook to register for page fault notifications */
-int register_page_fault_notifier(struct notifier_block *nb)
+static inline int notify_page_fault(struct pt_regs *regs)
 {
-	return atomic_notifier_chain_register(&notify_page_fault_chain, nb);
-}
+	int ret = 0;
 
-int unregister_page_fault_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_unregister(&notify_page_fault_chain, nb);
-}
-
-static inline int notify_page_fault(enum die_val val, const char *str,
-			struct pt_regs *regs, long err, int trap, int sig)
-{
-	struct die_args args = {
-		.regs = regs,
-		.str = str,
-		.err = err,
-		.trapnr = trap,
-		.signr = sig
-	};
-	return atomic_notifier_call_chain(&notify_page_fault_chain, val, &args);
+	/* kprobe_running() needs smp_processor_id() */
+	if (!user_mode(regs)) {
+		preempt_disable();
+		if (kprobe_running() && kprobe_fault_handler(regs, 0))
+			ret = 1;
+		preempt_enable();
+	}
+	return ret;
 }
 #else
-static inline int notify_page_fault(enum die_val val, const char *str,
-			struct pt_regs *regs, long err, int trap, int sig)
+static inline int notify_page_fault(struct pt_regs *regs)
 {
-	return NOTIFY_DONE;
+	return 0;
 }
 #endif
 
@@ -125,9 +111,6 @@ static void __kprobes unhandled_fault(unsigned long address,
 	printk(KERN_ALERT "tsk->{mm,active_mm}->pgd = %016lx\n",
 	       (tsk->mm ? (unsigned long) tsk->mm->pgd :
 		          (unsigned long) tsk->active_mm->pgd));
-	if (notify_die(DIE_GPF, "general protection fault", regs,
-		       0, 0, SIGSEGV) == NOTIFY_STOP)
-		return;
 	die_if_kernel("Oops", regs);
 }
 
@@ -296,14 +279,14 @@ cannot_handle:
 
 #ifdef CONFIG_PAX_PAGEEXEC
 #ifdef CONFIG_PAX_EMUPLT
-static void pax_emuplt_close(struct vm_area_struct * vma)
+static void pax_emuplt_close(struct vm_area_struct *vma)
 {
 	vma->vm_mm->call_dl_resolve = 0UL;
 }
 
-static struct page* pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
+static struct page *pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
 {
-	struct page* page;
+	struct page *page;
 	unsigned int *kaddr;
 
 	page = alloc_page(GFP_HIGHUSER);
@@ -334,7 +317,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
 	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
-	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	vma->vm_ops = &pax_vm_ops;
 
 	ret = insert_vm_struct(current->mm, vma);
@@ -362,9 +345,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #1 */
 		unsigned int sethi1, sethi2, jmpl;
 
-		err = get_user(sethi1, (unsigned int*)regs->tpc);
-		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
-		err |= get_user(jmpl, (unsigned int*)(regs->tpc+8));
+		err = get_user(sethi1, (unsigned int *)regs->tpc);
+		err |= get_user(sethi2, (unsigned int *)(regs->tpc+4));
+		err |= get_user(jmpl, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
@@ -387,7 +370,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	{ /* PaX: patched PLT emulation #2 */
 		unsigned int ba;
 
-		err = get_user(ba, (unsigned int*)regs->tpc);
+		err = get_user(ba, (unsigned int *)regs->tpc);
 
 		if (!err && (ba & 0xFFC00000U) == 0x30800000U) {
 			unsigned long addr;
@@ -402,9 +385,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #3 */
 		unsigned int sethi, jmpl, nop;
 
-		err = get_user(sethi, (unsigned int*)regs->tpc);
-		err |= get_user(jmpl, (unsigned int*)(regs->tpc+4));
-		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+		err = get_user(sethi, (unsigned int *)regs->tpc);
+		err |= get_user(jmpl, (unsigned int *)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
@@ -427,9 +410,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #4 */
 		unsigned int mov1, call, mov2;
 
-		err = get_user(mov1, (unsigned int*)regs->tpc);
-		err |= get_user(call, (unsigned int*)(regs->tpc+4));
-		err |= get_user(mov2, (unsigned int*)(regs->tpc+8));
+		err = get_user(mov1, (unsigned int *)regs->tpc);
+		err |= get_user(call, (unsigned int *)(regs->tpc+4));
+		err |= get_user(mov2, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
@@ -451,13 +434,13 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #5 */
 		unsigned int sethi1, sethi2, or1, or2, sllx, jmpl, nop;
 
-		err = get_user(sethi1, (unsigned int*)regs->tpc);
-		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
-		err |= get_user(or1, (unsigned int*)(regs->tpc+8));
-		err |= get_user(or2, (unsigned int*)(regs->tpc+12));
-		err |= get_user(sllx, (unsigned int*)(regs->tpc+16));
-		err |= get_user(jmpl, (unsigned int*)(regs->tpc+20));
-		err |= get_user(nop, (unsigned int*)(regs->tpc+24));
+		err = get_user(sethi1, (unsigned int *)regs->tpc);
+		err |= get_user(sethi2, (unsigned int *)(regs->tpc+4));
+		err |= get_user(or1, (unsigned int *)(regs->tpc+8));
+		err |= get_user(or2, (unsigned int *)(regs->tpc+12));
+		err |= get_user(sllx, (unsigned int *)(regs->tpc+16));
+		err |= get_user(jmpl, (unsigned int *)(regs->tpc+20));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+24));
 
 		if (err)
 			break;
@@ -485,12 +468,12 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #6 */
 		unsigned int sethi1, sethi2, sllx, or,  jmpl, nop;
 
-		err = get_user(sethi1, (unsigned int*)regs->tpc);
-		err |= get_user(sethi2, (unsigned int*)(regs->tpc+4));
-		err |= get_user(sllx, (unsigned int*)(regs->tpc+8));
-		err |= get_user(or, (unsigned int*)(regs->tpc+12));
-		err |= get_user(jmpl, (unsigned int*)(regs->tpc+16));
-		err |= get_user(nop, (unsigned int*)(regs->tpc+20));
+		err = get_user(sethi1, (unsigned int *)regs->tpc);
+		err |= get_user(sethi2, (unsigned int *)(regs->tpc+4));
+		err |= get_user(sllx, (unsigned int *)(regs->tpc+8));
+		err |= get_user(or, (unsigned int *)(regs->tpc+12));
+		err |= get_user(jmpl, (unsigned int *)(regs->tpc+16));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+20));
 
 		if (err)
 			break;
@@ -517,9 +500,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #7 */
 		unsigned int sethi, ba, nop;
 
-		err = get_user(sethi, (unsigned int*)regs->tpc);
-		err |= get_user(ba, (unsigned int*)(regs->tpc+4));
-		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+		err = get_user(sethi, (unsigned int *)regs->tpc);
+		err |= get_user(ba, (unsigned int *)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
@@ -542,9 +525,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: unpatched PLT emulation step 1 */
 		unsigned int sethi, ba, nop;
 
-		err = get_user(sethi, (unsigned int*)regs->tpc);
-		err |= get_user(ba, (unsigned int*)(regs->tpc+4));
-		err |= get_user(nop, (unsigned int*)(regs->tpc+8));
+		err = get_user(sethi, (unsigned int *)regs->tpc);
+		err |= get_user(ba, (unsigned int *)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
@@ -561,9 +544,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			else
 				addr = regs->tpc + 4 + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
 
-			err = get_user(save, (unsigned int*)addr);
-			err |= get_user(call, (unsigned int*)(addr+4));
-			err |= get_user(nop, (unsigned int*)(addr+8));
+			err = get_user(save, (unsigned int *)addr);
+			err |= get_user(call, (unsigned int *)(addr+4));
+			err |= get_user(nop, (unsigned int *)(addr+8));
 			if (err)
 				break;
 
@@ -618,9 +601,9 @@ emulate:
 	do { /* PaX: unpatched PLT emulation step 2 */
 		unsigned int save, call, nop;
 
-		err = get_user(save, (unsigned int*)(regs->tpc-4));
-		err |= get_user(call, (unsigned int*)regs->tpc);
-		err |= get_user(nop, (unsigned int*)(regs->tpc+4));
+		err = get_user(save, (unsigned int *)(regs->tpc-4));
+		err |= get_user(call, (unsigned int *)regs->tpc);
+		err |= get_user(nop, (unsigned int *)(regs->tpc+4));
 		if (err)
 			break;
 
@@ -648,7 +631,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
-		if (get_user(c, (unsigned int*)pc+i))
+		if (get_user(c, (unsigned int *)pc+i))
 			printk("???????? ");
 		else
 			printk("%08x ", c);
@@ -667,8 +650,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 
 	fault_code = get_thread_fault_code();
 
-	if (notify_page_fault(DIE_PAGE_FAULT, "page_fault", regs,
-		       fault_code, 0, SIGSEGV) == NOTIFY_STOP)
+	if (notify_page_fault(regs))
 		return;
 
 	si_code = SEGV_MAPERR;

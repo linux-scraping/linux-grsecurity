@@ -55,7 +55,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 	uint16_t __iomem *optr;
 	uint32_t	cnt;
 	uint32_t	mboxes;
-	unsigned long	mbx_flags = 0;
 	unsigned long	wait_time;
 
 	rval = QLA_SUCCESS;
@@ -80,10 +79,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 	ha->flags.mbox_busy = 1;
 	/* Save mailbox command for debug */
 	ha->mcp = mcp;
-
-	/* Try to get mailbox register access */
-	if (!abort_active)
-		spin_lock_irqsave(&ha->mbx_reg_lock, mbx_flags);
 
 	DEBUG11(printk("scsi(%ld): prepare to issue mbox cmd=0x%x.\n",
 	    ha->host_no, mcp->mb[0]));
@@ -161,9 +156,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 			WRT_REG_WORD(&reg->isp.hccr, HCCR_SET_HOST_INT);
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
 
-		if (!abort_active)
-			spin_unlock_irqrestore(&ha->mbx_reg_lock, mbx_flags);
-
 		/* Wait for either the timer to expire
 		 * or the mbox completion interrupt
 		 */
@@ -184,8 +176,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 		else
 			WRT_REG_WORD(&reg->isp.hccr, HCCR_SET_HOST_INT);
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
-		if (!abort_active)
-			spin_unlock_irqrestore(&ha->mbx_reg_lock, mbx_flags);
 
 		wait_time = jiffies + mcp->tov * HZ; /* wait at most tov secs */
 		while (!ha->flags.mbox_int) {
@@ -200,9 +190,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 				msleep(10);
 		} /* while */
 	}
-
-	if (!abort_active)
-		spin_lock_irqsave(&ha->mbx_reg_lock, mbx_flags);
 
 	/* Check whether we timed out */
 	if (ha->flags.mbox_int) {
@@ -255,9 +242,6 @@ qla2x00_mailbox_command(scsi_qla_host_t *ha, mbx_cmd_t *mcp)
 
 		rval = QLA_FUNCTION_TIMEOUT;
 	}
-
-	if (!abort_active)
-		spin_unlock_irqrestore(&ha->mbx_reg_lock, mbx_flags);
 
 	ha->flags.mbox_busy = 0;
 
@@ -1296,14 +1280,14 @@ qla2x00_get_port_name(scsi_qla_host_t *ha, uint16_t loop_id, uint8_t *name,
 	} else {
 		if (name != NULL) {
 			/* This function returns name in big endian. */
-			name[0] = LSB(mcp->mb[2]);
-			name[1] = MSB(mcp->mb[2]);
-			name[2] = LSB(mcp->mb[3]);
-			name[3] = MSB(mcp->mb[3]);
-			name[4] = LSB(mcp->mb[6]);
-			name[5] = MSB(mcp->mb[6]);
-			name[6] = LSB(mcp->mb[7]);
-			name[7] = MSB(mcp->mb[7]);
+			name[0] = MSB(mcp->mb[2]);
+			name[1] = LSB(mcp->mb[2]);
+			name[2] = MSB(mcp->mb[3]);
+			name[3] = LSB(mcp->mb[3]);
+			name[4] = MSB(mcp->mb[6]);
+			name[5] = LSB(mcp->mb[6]);
+			name[6] = MSB(mcp->mb[7]);
+			name[7] = LSB(mcp->mb[7]);
 		}
 
 		DEBUG11(printk("qla2x00_get_port_name(%ld): done.\n",
@@ -1713,7 +1697,7 @@ qla24xx_fabric_logout(scsi_qla_host_t *ha, uint16_t loop_id, uint8_t domain,
 	lg->entry_count = 1;
 	lg->nport_handle = cpu_to_le16(loop_id);
 	lg->control_flags =
-	    __constant_cpu_to_le16(LCF_COMMAND_LOGO|LCF_EXPL_LOGO);
+	    __constant_cpu_to_le16(LCF_COMMAND_LOGO|LCF_IMPL_LOGO);
 	lg->port_id[0] = al_pa;
 	lg->port_id[1] = area;
 	lg->port_id[2] = domain;

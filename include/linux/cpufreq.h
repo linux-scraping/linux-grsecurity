@@ -32,7 +32,15 @@
  *                     CPUFREQ NOTIFIER INTERFACE                    *
  *********************************************************************/
 
+#ifdef CONFIG_CPU_FREQ
 int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list);
+#else
+static inline int cpufreq_register_notifier(struct notifier_block *nb,
+						unsigned int list)
+{
+	return 0;
+}
+#endif
 int cpufreq_unregister_notifier(struct notifier_block *nb, unsigned int list);
 
 #define CPUFREQ_TRANSITION_NOTIFIER	(0)
@@ -83,9 +91,6 @@ struct cpufreq_policy {
 					 * governors are used */
         unsigned int		policy; /* see above */
 	struct cpufreq_governor	*governor; /* see below */
-
- 	struct mutex		lock;   /* CPU ->setpolicy or ->target may
-					   only be called once a time */
 
 	struct work_struct	update; /* if update_policy() needs to be
 					 * called, but you're in IRQ context */
@@ -172,10 +177,15 @@ extern int __cpufreq_driver_target(struct cpufreq_policy *policy,
 				   unsigned int relation);
 
 
-extern int cpufreq_driver_getavg(struct cpufreq_policy *policy);
+extern int __cpufreq_driver_getavg(struct cpufreq_policy *policy);
 
 int cpufreq_register_governor(struct cpufreq_governor *governor);
 void cpufreq_unregister_governor(struct cpufreq_governor *governor);
+
+int lock_policy_rwsem_read(int cpu);
+int lock_policy_rwsem_write(int cpu);
+void unlock_policy_rwsem_read(int cpu);
+void unlock_policy_rwsem_write(int cpu);
 
 
 /*********************************************************************
@@ -255,18 +265,22 @@ struct freq_attr {
 /*********************************************************************
  *                        CPUFREQ 2.6. INTERFACE                     *
  *********************************************************************/
-int cpufreq_set_policy(struct cpufreq_policy *policy);
 int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu);
 int cpufreq_update_policy(unsigned int cpu);
 
-/* query the current CPU frequency (in kHz). If zero, cpufreq couldn't detect it */
-unsigned int cpufreq_get(unsigned int cpu);
 
-/* query the last known CPU freq (in kHz). If zero, cpufreq couldn't detect it */
+/*
+ * query the last known CPU freq (in kHz). If zero, cpufreq couldn't detect it
+ */
 #ifdef CONFIG_CPU_FREQ
 unsigned int cpufreq_quick_get(unsigned int cpu);
+unsigned int cpufreq_get(unsigned int cpu);
 #else
 static inline unsigned int cpufreq_quick_get(unsigned int cpu)
+{
+	return 0;
+}
+static inline unsigned int cpufreq_get(unsigned int cpu)
 {
 	return 0;
 }

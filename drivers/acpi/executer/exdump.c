@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,8 +59,6 @@ static void acpi_ex_out_string(char *title, char *value);
 
 static void acpi_ex_out_pointer(char *title, void *value);
 
-static void acpi_ex_out_address(char *title, acpi_physical_address value);
-
 static void
 acpi_ex_dump_object(union acpi_operand_object *obj_desc,
 		    struct acpi_exdump_info *info);
@@ -92,10 +90,11 @@ static struct acpi_exdump_info acpi_ex_dump_string[4] = {
 	{ACPI_EXD_STRING, 0, NULL}
 };
 
-static struct acpi_exdump_info acpi_ex_dump_buffer[4] = {
+static struct acpi_exdump_info acpi_ex_dump_buffer[5] = {
 	{ACPI_EXD_INIT, ACPI_EXD_TABLE_SIZE(acpi_ex_dump_buffer), NULL},
 	{ACPI_EXD_UINT32, ACPI_EXD_OFFSET(buffer.length), "Length"},
 	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(buffer.pointer), "Pointer"},
+	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(buffer.node), "Parent Node"},
 	{ACPI_EXD_BUFFER, 0, NULL}
 };
 
@@ -165,8 +164,8 @@ static struct acpi_exdump_info acpi_ex_dump_power[5] = {
 
 static struct acpi_exdump_info acpi_ex_dump_processor[7] = {
 	{ACPI_EXD_INIT, ACPI_EXD_TABLE_SIZE(acpi_ex_dump_processor), NULL},
-	{ACPI_EXD_UINT32, ACPI_EXD_OFFSET(processor.proc_id), "Processor ID"},
-	{ACPI_EXD_UINT32, ACPI_EXD_OFFSET(processor.length), "Length"},
+	{ACPI_EXD_UINT8, ACPI_EXD_OFFSET(processor.proc_id), "Processor ID"},
+	{ACPI_EXD_UINT8, ACPI_EXD_OFFSET(processor.length), "Length"},
 	{ACPI_EXD_ADDRESS, ACPI_EXD_OFFSET(processor.address), "Address"},
 	{ACPI_EXD_POINTER, ACPI_EXD_OFFSET(processor.system_notify),
 	 "System Notify"},
@@ -379,16 +378,10 @@ acpi_ex_dump_object(union acpi_operand_object *obj_desc,
 			break;
 
 		case ACPI_EXD_POINTER:
+		case ACPI_EXD_ADDRESS:
 
 			acpi_ex_out_pointer(name,
 					    *ACPI_CAST_PTR(void *, target));
-			break;
-
-		case ACPI_EXD_ADDRESS:
-
-			acpi_ex_out_address(name,
-					    *ACPI_CAST_PTR
-					    (acpi_physical_address, target));
 			break;
 
 		case ACPI_EXD_STRING:
@@ -458,9 +451,8 @@ void acpi_ex_dump_operand(union acpi_operand_object *obj_desc, u32 depth)
 
 	ACPI_FUNCTION_NAME(ex_dump_operand)
 
-	    if (!
-		((ACPI_LV_EXEC & acpi_dbg_level)
-		 && (_COMPONENT & acpi_dbg_layer))) {
+	    if (!((ACPI_LV_EXEC & acpi_dbg_level)
+		  && (_COMPONENT & acpi_dbg_layer))) {
 		return;
 	}
 
@@ -834,16 +826,6 @@ static void acpi_ex_out_pointer(char *title, void *value)
 	acpi_os_printf("%20s : %p\n", title, value);
 }
 
-static void acpi_ex_out_address(char *title, acpi_physical_address value)
-{
-
-#if ACPI_MACHINE_WIDTH == 16
-	acpi_os_printf("%20s : %p\n", title, value);
-#else
-	acpi_os_printf("%20s : %8.8X%8.8X\n", title, ACPI_FORMAT_UINT64(value));
-#endif
-}
-
 /*******************************************************************************
  *
  * FUNCTION:    acpi_ex_dump_namespace_node
@@ -861,9 +843,8 @@ void acpi_ex_dump_namespace_node(struct acpi_namespace_node *node, u32 flags)
 	ACPI_FUNCTION_ENTRY();
 
 	if (!flags) {
-		if (!
-		    ((ACPI_LV_OBJECTS & acpi_dbg_level)
-		     && (_COMPONENT & acpi_dbg_layer))) {
+		if (!((ACPI_LV_OBJECTS & acpi_dbg_level)
+		      && (_COMPONENT & acpi_dbg_layer))) {
 			return;
 		}
 	}
@@ -1028,9 +1009,8 @@ acpi_ex_dump_object_descriptor(union acpi_operand_object *obj_desc, u32 flags)
 	}
 
 	if (!flags) {
-		if (!
-		    ((ACPI_LV_OBJECTS & acpi_dbg_level)
-		     && (_COMPONENT & acpi_dbg_layer))) {
+		if (!((ACPI_LV_OBJECTS & acpi_dbg_level)
+		      && (_COMPONENT & acpi_dbg_layer))) {
 			return_VOID;
 		}
 	}

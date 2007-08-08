@@ -639,7 +639,7 @@ typhoon_issue_command(struct typhoon *tp, int num_cmd, struct cmd_desc *cmd,
 
 	typhoon_inc_cmd_index(&ring->lastWrite, num_cmd);
 
-	/* "I feel a presence... another warrior is on the the mesa."
+	/* "I feel a presence... another warrior is on the mesa."
 	 */
 	wmb();
 	iowrite32(ring->lastWrite, tp->ioaddr + TYPHOON_REG_CMD_READY);
@@ -738,16 +738,6 @@ typhoon_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
 
 	/* now make the change visible */
 	tp->vlgrp = grp;
-	spin_unlock_bh(&tp->state_lock);
-}
-
-static void
-typhoon_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct typhoon *tp = netdev_priv(dev);
-	spin_lock_bh(&tp->state_lock);
-	if(tp->vlgrp)
-		tp->vlgrp->vlan_devices[vid] = NULL;
 	spin_unlock_bh(&tp->state_lock);
 }
 
@@ -1709,7 +1699,6 @@ typhoon_rx(struct typhoon *tp, struct basic_ring *rxRing, volatile u32 * ready,
 
 		if(pkt_len < rx_copybreak &&
 		   (new_skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
-			new_skb->dev = tp->dev;
 			skb_reserve(new_skb, 2);
 			pci_dma_sync_single_for_cpu(tp->pdev, dma_addr,
 						    PKT_BUF_SZ,
@@ -2544,7 +2533,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->get_stats		= typhoon_get_stats;
 	dev->set_mac_address	= typhoon_set_mac_address;
 	dev->vlan_rx_register	= typhoon_vlan_rx_register;
-	dev->vlan_rx_kill_vid	= typhoon_vlan_rx_kill_vid;
+
 	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
 
 	/* We can handle scatter gather, up to 16 entries, and

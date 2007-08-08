@@ -33,7 +33,6 @@
 #include <linux/initrd.h>
 #include <linux/bootmem.h>
 #include <linux/seq_file.h>
-#include <linux/platform_device.h>
 #include <linux/console.h>
 #include <linux/mca.h>
 #include <linux/root_dev.h>
@@ -60,6 +59,7 @@
 #include <asm/io_apic.h>
 #include <asm/ist.h>
 #include <asm/io.h>
+#include <asm/vmi.h>
 #include <setup_arch.h>
 #include <bios_ebda.h>
 
@@ -136,7 +136,7 @@ unsigned long saved_videomode;
 #define RAMDISK_PROMPT_FLAG		0x8000
 #define RAMDISK_LOAD_FLAG		0x4000	
 
-static char command_line[COMMAND_LINE_SIZE];
+static char __initdata command_line[COMMAND_LINE_SIZE];
 
 unsigned char __initdata boot_params[PARAM_SIZE];
 
@@ -580,10 +580,18 @@ void __init setup_arch(char **cmdline_p)
 		print_memory_map("user");
 	}
 
-	strlcpy(command_line, saved_command_line, COMMAND_LINE_SIZE);
+	strlcpy(command_line, boot_command_line, COMMAND_LINE_SIZE);
 	*cmdline_p = command_line;
 
 	max_low_pfn = setup_memory();
+
+#ifdef CONFIG_VMI
+	/*
+	 * Must be after max_low_pfn is determined, and before kernel
+	 * pagetables are setup.
+	 */
+	vmi_init();
+#endif
 
 	/*
 	 * NOTE: before this point _nobody_ is allowed to allocate
@@ -653,30 +661,25 @@ void __init setup_arch(char **cmdline_p)
 	conswitchp = &dummy_con;
 #endif
 #endif
-	tsc_init();
 }
 
-static __init int add_pcspkr(void)
+unsigned long __per_cpu_offset[NR_CPUS] __read_only;
+
+EXPORT_SYMBOL(__per_cpu_offset);
+
+void __init setup_per_cpu_areas(void)
 {
-	struct platform_device *pd;
-	int ret;
+	unsigned long size, i;
+	char *ptr;
+	unsigned long nr_possible_cpus = num_possible_cpus();
 
-	pd = platform_device_alloc("pcspkr", -1);
-	if (!pd)
-		return -ENOMEM;
+	/* Copy section for each CPU (we discard the original) */
+	size = ALIGN(PERCPU_ENOUGH_ROOM, PAGE_SIZE);
+	ptr = alloc_bootmem_pages(size * nr_possible_cpus);
 
-	ret = platform_device_add(pd);
-	if (ret)
-		platform_device_put(pd);
-
-	return ret;
+	for_each_possible_cpu(i) {
+		__per_cpu_offset[i] = (unsigned long)ptr;
+		memcpy(ptr, __per_cpu_start, __per_cpu_end - __per_cpu_start);
+		ptr += size;
+	}
 }
-device_initcall(add_pcspkr);
-
-/*
- * Local Variables:
- * mode:c
- * c-file-style:"k&r"
- * c-basic-offset:8
- * End:
- */

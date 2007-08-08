@@ -239,7 +239,8 @@ async_bump(struct net_device *dev,
 
 	if(docopy) {
 		/* Copy data without CRC (lenght already checked) */
-		memcpy(newskb->data, rx_buff->data, rx_buff->len - 2);
+		skb_copy_to_linear_data(newskb, rx_buff->data,
+					rx_buff->len - 2);
 		/* Deliver this skb */
 		dataskb = newskb;
 	} else {
@@ -256,7 +257,7 @@ async_bump(struct net_device *dev,
 
 	/* Feed it to IrLAP layer */
 	dataskb->dev = dev;
-	dataskb->mac.raw  = dataskb->data;
+	skb_reset_mac_header(dataskb);
 	dataskb->protocol = htons(ETH_P_IRDA);
 
 	netif_rx(dataskb);
@@ -295,7 +296,7 @@ async_unwrap_bof(struct net_device *dev,
 	case OUTSIDE_FRAME:
 	case BEGIN_FRAME:
 	default:
-		/* We may receive multiple BOF at the start of frame */ 
+		/* We may receive multiple BOF at the start of frame */
 		break;
 	}
 

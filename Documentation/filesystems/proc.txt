@@ -41,6 +41,7 @@ Table of Contents
   2.11	/proc/sys/fs/mqueue - POSIX message queues filesystem
   2.12	/proc/<pid>/oom_adj - Adjust the oom-killer score
   2.13	/proc/<pid>/oom_score - Display current oom-killer score
+  2.14	/proc/<pid>/io - Display the IO accounting fields
 
 ------------------------------------------------------------------------------
 Preface
@@ -121,21 +122,22 @@ subdirectory has the entries listed in Table 1-1.
 
 Table 1-1: Process specific entries in /proc 
 ..............................................................................
- File    Content                                        
- cmdline Command line arguments                         
- cpu	 Current and last cpu in which it was executed		(2.4)(smp)
- cwd	 Link to the current working directory
- environ Values of environment variables      
- exe	 Link to the executable of this process
- fd      Directory, which contains all file descriptors 
- maps	 Memory maps to executables and library files		(2.4)
- mem     Memory held by this process                    
- root	 Link to the root directory of this process
- stat    Process status                                 
- statm   Process memory status information              
- status  Process status in human readable form          
- wchan   If CONFIG_KALLSYMS is set, a pre-decoded wchan
- smaps	 Extension based on maps, presenting the rss size for each mapped file
+ File		Content
+ clear_refs	Clears page referenced bits shown in smaps output
+ cmdline	Command line arguments
+ cpu		Current and last cpu in which it was executed	(2.4)(smp)
+ cwd		Link to the current working directory
+ environ	Values of environment variables
+ exe		Link to the executable of this process
+ fd		Directory, which contains all file descriptors
+ maps		Memory maps to executables and library files	(2.4)
+ mem		Memory held by this process
+ root		Link to the root directory of this process
+ stat		Process status
+ statm		Process memory status information
+ status		Process status in human readable form
+ wchan		If CONFIG_KALLSYMS is set, a pre-decoded wchan
+ smaps		Extension based on maps, the rss size for each mapped file
 ..............................................................................
 
 For example, to get the status information of a process, all you have to do is
@@ -227,7 +229,7 @@ Table 1-3: Kernel info in /proc
  mounts      Mounted filesystems                               
  net         Networking info (see text)                        
  partitions  Table of partitions known to the system           
- pci	     Depreciated info of PCI bus (new way -> /proc/bus/pci/, 
+ pci	     Deprecated info of PCI bus (new way -> /proc/bus/pci/,
              decoupled by lspci					(2.4)
  rtc         Real time clock                                   
  scsi        SCSI info (see text)                              
@@ -1136,6 +1138,13 @@ determine whether or not they are still functioning properly.
 Because the NMI watchdog shares registers with oprofile, by disabling the NMI
 watchdog, oprofile may have more registers to utilize.
 
+maps_protect
+------------
+
+Enables/Disables the protection of the per-process proc entries "maps" and
+"smaps".  When enabled, the contents of these files are visible only to
+readers that are allowed to ptrace() the given process.
+
 
 2.4 /proc/sys/vm - The virtual memory subsystem
 -----------------------------------------------
@@ -1419,6 +1428,15 @@ denial-of-service attack  impossible. A higher message_cost factor, results in
 fewer messages that will be written. Message_burst controls when messages will
 be dropped.  The  default  settings  limit  warning messages to one every five
 seconds.
+
+warnings
+--------
+
+This controls console messages from the networking stack that can occur because
+of problems on the network like duplicate address or bad checksums. Normally,
+this should be enabled, but if the problem persists the messages can be
+disabled.
+
 
 netdev_max_backlog
 ------------------
@@ -1989,4 +2007,108 @@ need to  recompile  the kernel, or even to reboot the system. The files in the
 /proc/sys tree  can  not only be read, but also modified. You can use the echo
 command to write value into these files, thereby changing the default settings
 of the kernel.
+------------------------------------------------------------------------------
+
+2.14  /proc/<pid>/io - Display the IO accounting fields
+-------------------------------------------------------
+
+This file contains IO statistics for each running process
+
+Example
+-------
+
+test:/tmp # dd if=/dev/zero of=/tmp/test.dat &
+[1] 3828
+
+test:/tmp # cat /proc/3828/io
+rchar: 323934931
+wchar: 323929600
+syscr: 632687
+syscw: 632675
+read_bytes: 0
+write_bytes: 323932160
+cancelled_write_bytes: 0
+
+
+Description
+-----------
+
+rchar
+-----
+
+I/O counter: chars read
+The number of bytes which this task has caused to be read from storage. This
+is simply the sum of bytes which this process passed to read() and pread().
+It includes things like tty IO and it is unaffected by whether or not actual
+physical disk IO was required (the read might have been satisfied from
+pagecache)
+
+
+wchar
+-----
+
+I/O counter: chars written
+The number of bytes which this task has caused, or shall cause to be written
+to disk. Similar caveats apply here as with rchar.
+
+
+syscr
+-----
+
+I/O counter: read syscalls
+Attempt to count the number of read I/O operations, i.e. syscalls like read()
+and pread().
+
+
+syscw
+-----
+
+I/O counter: write syscalls
+Attempt to count the number of write I/O operations, i.e. syscalls like
+write() and pwrite().
+
+
+read_bytes
+----------
+
+I/O counter: bytes read
+Attempt to count the number of bytes which this process really did cause to
+be fetched from the storage layer. Done at the submit_bio() level, so it is
+accurate for block-backed filesystems. <please add status regarding NFS and
+CIFS at a later time>
+
+
+write_bytes
+-----------
+
+I/O counter: bytes written
+Attempt to count the number of bytes which this process caused to be sent to
+the storage layer. This is done at page-dirtying time.
+
+
+cancelled_write_bytes
+---------------------
+
+The big inaccuracy here is truncate. If a process writes 1MB to a file and
+then deletes the file, it will in fact perform no writeout. But it will have
+been accounted as having caused 1MB of write.
+In other words: The number of bytes which this process caused to not happen,
+by truncating pagecache. A task can cause "negative" IO too. If this task
+truncates some dirty pagecache, some IO which another task has been accounted
+for (in it's write_bytes) will not be happening. We _could_ just subtract that
+from the truncating task's write_bytes, but there is information loss in doing
+that.
+
+
+Note
+----
+
+At its current implementation state, this is a bit racy on 32-bit machines: if
+process A reads process B's /proc/pid/io while process B is updating one of
+those 64-bit counters, process A could see an intermediate result.
+
+
+More information about this can be found within the taskstats documentation in
+Documentation/accounting.
+
 ------------------------------------------------------------------------------

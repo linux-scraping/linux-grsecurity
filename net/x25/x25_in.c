@@ -3,7 +3,7 @@
  *
  *	This is ALPHA test software. This code may break your machine,
  *	randomly fail to work with new releases, misbehave and/or generally
- *	screw up. It might even work. 
+ *	screw up. It might even work.
  *
  *	This code REQUIRES 2.1.15 or higher
  *
@@ -17,7 +17,7 @@
  *	X.25 001	Jonathan Naylor	  Started coding.
  *	X.25 002	Jonathan Naylor	  Centralised disconnection code.
  *					  New timer architecture.
- *	2000-03-20	Daniela Squassoni Disabling/enabling of facilities 
+ *	2000-03-20	Daniela Squassoni Disabling/enabling of facilities
  *					  negotiation.
  *	2000-11-10	Henner Eisen	  Check and reset for out-of-sequence
  *					  i-frames.
@@ -53,21 +53,24 @@ static int x25_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
 
 		skb_queue_tail(&x25->fragment_queue, skb);
 
-		skbn->h.raw = skbn->data;
+		skb_reset_transport_header(skbn);
 
 		skbo = skb_dequeue(&x25->fragment_queue);
-		memcpy(skb_put(skbn, skbo->len), skbo->data, skbo->len);
+		skb_copy_from_linear_data(skbo, skb_put(skbn, skbo->len),
+					  skbo->len);
 		kfree_skb(skbo);
 
 		while ((skbo =
 			skb_dequeue(&x25->fragment_queue)) != NULL) {
 			skb_pull(skbo, (x25->neighbour->extended) ?
 					X25_EXT_MIN_LEN : X25_STD_MIN_LEN);
-			memcpy(skb_put(skbn, skbo->len), skbo->data, skbo->len);
+			skb_copy_from_linear_data(skbo,
+						  skb_put(skbn, skbo->len),
+						  skbo->len);
 			kfree_skb(skbo);
 		}
 
-		x25->fraglen = 0;		
+		x25->fraglen = 0;
 	}
 
 	skb_set_owner_r(skbn, sk);
@@ -112,8 +115,9 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
 			 *	Copy any Call User Data.
 			 */
 			if (skb->len >= 0) {
-				memcpy(x25->calluserdata.cuddata, skb->data,
-				       skb->len);
+				skb_copy_from_linear_data(skb,
+					      x25->calluserdata.cuddata,
+					      skb->len);
 				x25->calluserdata.cudlength = skb->len;
 			}
 			if (!sock_flag(sk, SOCK_DEAD))
@@ -167,7 +171,7 @@ static int x25_state3_machine(struct sock *sk, struct sk_buff *skb, int frametyp
 	int queued = 0;
 	int modulus;
 	struct x25_sock *x25 = x25_sk(sk);
-	
+
 	modulus = (x25->neighbour->extended) ? X25_EMODULUS : X25_SMODULUS;
 
 	switch (frametype) {

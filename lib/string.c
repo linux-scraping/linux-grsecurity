@@ -60,6 +60,34 @@ int strnicmp(const char *s1, const char *s2, size_t len)
 EXPORT_SYMBOL(strnicmp);
 #endif
 
+#ifndef __HAVE_ARCH_STRCASECMP
+int strcasecmp(const char *s1, const char *s2)
+{
+	int c1, c2;
+
+	do {
+		c1 = tolower(*s1++);
+		c2 = tolower(*s2++);
+	} while (c1 == c2 && c1 != 0);
+	return c1 - c2;
+}
+EXPORT_SYMBOL(strcasecmp);
+#endif
+
+#ifndef __HAVE_ARCH_STRNCASECMP
+int strncasecmp(const char *s1, const char *s2, size_t n)
+{
+	int c1, c2;
+
+	do {
+		c1 = tolower(*s1++);
+		c2 = tolower(*s2++);
+	} while ((--n > 0) && c1 == c2 && c1 != 0);
+	return c1 - c2;
+}
+EXPORT_SYMBOL(strncasecmp);
+#endif
+
 #ifndef __HAVE_ARCH_STRCPY
 /**
  * strcpy - Copy a %NUL terminated string
@@ -160,7 +188,7 @@ EXPORT_SYMBOL(strcat);
  * @src: The string to append to it
  * @count: The maximum numbers of bytes to copy
  *
- * Note that in contrast to strncpy, strncat ensures the result is
+ * Note that in contrast to strncpy(), strncat() ensures the result is
  * terminated.
  */
 char *strncat(char *dest, const char *src, size_t count)
@@ -366,8 +394,7 @@ EXPORT_SYMBOL(strnlen);
 
 #ifndef __HAVE_ARCH_STRSPN
 /**
- * strspn - Calculate the length of the initial substring of @s which only
- * 	contain letters in @accept
+ * strspn - Calculate the length of the initial substring of @s which only contain letters in @accept
  * @s: The string to be searched
  * @accept: The string to search for
  */
@@ -394,8 +421,7 @@ EXPORT_SYMBOL(strspn);
 
 #ifndef __HAVE_ARCH_STRCSPN
 /**
- * strcspn - Calculate the length of the initial substring of @s which does
- * 	not contain letters in @reject
+ * strcspn - Calculate the length of the initial substring of @s which does not contain letters in @reject
  * @s: The string to be searched
  * @reject: The string to avoid
  */

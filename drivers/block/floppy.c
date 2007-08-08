@@ -297,17 +297,17 @@ static int initialising = 1;
 #define DRS (&drive_state[current_drive])
 #define DRWE (&write_errors[current_drive])
 #define FDCS (&fdc_state[fdc])
-#define CLEARF(x) (clear_bit(x##_BIT, &DRS->flags))
-#define SETF(x) (set_bit(x##_BIT, &DRS->flags))
-#define TESTF(x) (test_bit(x##_BIT, &DRS->flags))
+#define CLEARF(x) clear_bit(x##_BIT, &DRS->flags)
+#define SETF(x) set_bit(x##_BIT, &DRS->flags)
+#define TESTF(x) test_bit(x##_BIT, &DRS->flags)
 
 #define UDP (&drive_params[drive])
 #define UDRS (&drive_state[drive])
 #define UDRWE (&write_errors[drive])
 #define UFDCS (&fdc_state[FDC(drive)])
-#define UCLEARF(x) (clear_bit(x##_BIT, &UDRS->flags))
-#define USETF(x) (set_bit(x##_BIT, &UDRS->flags))
-#define UTESTF(x) (test_bit(x##_BIT, &UDRS->flags))
+#define UCLEARF(x) clear_bit(x##_BIT, &UDRS->flags)
+#define USETF(x) set_bit(x##_BIT, &UDRS->flags)
+#define UTESTF(x) test_bit(x##_BIT, &UDRS->flags)
 
 #define DPRINT(format, args...) printk(DEVICE_NAME "%d: " format, current_drive , ## args)
 
@@ -670,7 +670,7 @@ static void __reschedule_timeout(int drive, const char *message, int marg)
 	if (drive == current_reqD)
 		drive = current_drive;
 	del_timer(&fd_timeout);
-	if (drive < 0 || drive > N_DRIVE) {
+	if (drive < 0 || drive >= N_DRIVE) {
 		fd_timeout.expires = jiffies + 20UL * HZ;
 		drive = 0;
 	} else
@@ -4334,7 +4334,10 @@ static int __init floppy_init(void)
 		if (err)
 			goto out_flush_work;
 
-		device_create_file(&floppy_device[drive].dev,&dev_attr_cmos);
+		err = device_create_file(&floppy_device[drive].dev,&dev_attr_cmos);
+		if (err)
+			goto out_unreg_platform_dev;
+
 		/* to be cleaned up... */
 		disks[drive]->private_data = (void *)(long)drive;
 		disks[drive]->queue = floppy_queue;
@@ -4345,6 +4348,8 @@ static int __init floppy_init(void)
 
 	return 0;
 
+out_unreg_platform_dev:
+	platform_device_unregister(&floppy_device[drive]);
 out_flush_work:
 	flush_scheduled_work();
 	if (usage_count)

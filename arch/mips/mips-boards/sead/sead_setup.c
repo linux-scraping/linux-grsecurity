@@ -43,6 +43,8 @@ const char *get_system_type(void)
 	return "MIPS SEAD";
 }
 
+const char display_string[] = "        LINUX ON SEAD       ";
+
 void __init plat_mem_setup(void)
 {
 	ioport_resource.end = 0x7fffffff;
@@ -66,7 +68,7 @@ static void __init serial_init(void)
 #else
 	s.iobase = SEAD_UART0_REGS_BASE+3;
 #endif
-	s.irq = MIPSCPU_INT_BASE + MIPSCPU_INT_UART0;
+	s.irq = MIPS_CPU_IRQ_BASE + MIPSCPU_INT_UART0;
 	s.uartclk = SEAD_BASE_BAUD * 16;
 	s.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_AUTO_IRQ;
 	s.iotype = UPIO_PORT;

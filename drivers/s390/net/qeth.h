@@ -288,6 +288,7 @@ qeth_is_ipa_enabled(struct qeth_ipa_info *ipa, enum qeth_ipa_funcs func)
  */
 #define IF_NAME_LEN	 	16
 #define QETH_TX_TIMEOUT		100 * HZ
+#define QETH_RCD_TIMEOUT	60 * HZ
 #define QETH_HEADER_SIZE	32
 #define MAX_PORTNO 		15
 #define QETH_FAKE_LL_LEN_ETH	ETH_HLEN
@@ -582,6 +583,8 @@ enum qeth_channel_states {
 	CH_STATE_ACTIVATING,
 	CH_STATE_HALTED,
 	CH_STATE_STOPPED,
+	CH_STATE_RCD,
+	CH_STATE_RCD_DONE,
 };
 /**
  * card state machine
@@ -873,7 +876,7 @@ qeth_realloc_headroom(struct qeth_card *card, struct sk_buff *skb, int size)
 }
 
 static inline struct sk_buff *
-qeth_pskb_unshare(struct sk_buff *skb, int pri)
+qeth_pskb_unshare(struct sk_buff *skb, gfp_t pri)
 {
         struct sk_buff *nskb;
         if (!skb_cloned(skb))

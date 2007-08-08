@@ -20,7 +20,6 @@
 #include <asm/processor.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
-#include <asm/ide.h>
 #include <asm/atomic.h>
 #include <asm/checksum.h>
 #include <asm/pgtable.h>
@@ -44,6 +43,7 @@
 #include <asm/btext.h>
 #include <asm/div64.h>
 #include <asm/signal.h>
+#include <asm/dcr.h>
 
 #ifdef  CONFIG_8xx
 #include <asm/commproc.h>
@@ -66,7 +66,6 @@ EXPORT_SYMBOL(clear_pages);
 EXPORT_SYMBOL(ISA_DMA_THRESHOLD);
 EXPORT_SYMBOL(DMA_MODE_READ);
 EXPORT_SYMBOL(DMA_MODE_WRITE);
-EXPORT_SYMBOL(__div64_32);
 
 EXPORT_SYMBOL(do_signal);
 EXPORT_SYMBOL(transfer_to_handler);
@@ -83,8 +82,6 @@ EXPORT_SYMBOL(strncpy);
 EXPORT_SYMBOL(strcat);
 EXPORT_SYMBOL(strlen);
 EXPORT_SYMBOL(strcmp);
-EXPORT_SYMBOL(strcasecmp);
-EXPORT_SYMBOL(strncasecmp);
 
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(csum_partial_copy_generic);

@@ -41,7 +41,7 @@ struct super_block * configfs_sb = NULL;
 struct kmem_cache *configfs_dir_cachep;
 static int configfs_mnt_count = 0;
 
-static struct super_operations configfs_ops = {
+static const struct super_operations configfs_ops = {
 	.statfs		= simple_statfs,
 	.drop_inode	= generic_delete_inode,
 };
@@ -140,7 +140,7 @@ static int __init configfs_init(void)
 	if (!configfs_dir_cachep)
 		goto out;
 
-	kset_set_kset_s(&config_subsys, kernel_subsys);
+	kobj_set_kset_s(&config_subsys, kernel_subsys);
 	err = subsystem_register(&config_subsys);
 	if (err) {
 		kmem_cache_destroy(configfs_dir_cachep);

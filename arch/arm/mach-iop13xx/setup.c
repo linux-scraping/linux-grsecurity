@@ -24,6 +24,7 @@
 #include <asm/mach/map.h>
 #include <asm/hardware.h>
 #include <asm/irq.h>
+#include <asm/io.h>
 
 #define IOP13XX_UART_XTAL 33334000
 #define IOP13XX_SETUP_DEBUG 0
@@ -257,15 +258,11 @@ void __init iop13xx_platform_init(void)
 
 	if (init_uart == IOP13XX_INIT_UART_DEFAULT) {
 		switch (iop13xx_dev_id()) {
-		/* enable both uarts on iop341 and iop342 */
+		/* enable both uarts on iop341 */
 		case 0x3380:
 		case 0x3384:
 		case 0x3388:
 		case 0x338c:
-		case 0x3382:
-		case 0x3386:
-		case 0x338a:
-		case 0x338e:
 			init_uart |= IOP13XX_INIT_UART_0;
 			init_uart |= IOP13XX_INIT_UART_1;
 			break;

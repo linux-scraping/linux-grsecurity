@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/stat.h>
 #include <linux/time.h>
-#include <linux/smp_lock.h>
 #include <linux/namei.h>
 #include <linux/poll.h>
 
@@ -291,7 +290,7 @@ static int bad_inode_removexattr(struct dentry *dentry, const char *name)
 	return -EIO;
 }
 
-static struct inode_operations bad_inode_ops =
+static const struct inode_operations bad_inode_ops =
 {
 	.create		= bad_inode_create,
 	.lookup		= bad_inode_lookup,

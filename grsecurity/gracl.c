@@ -167,41 +167,79 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 
 	return 1;
 }
-		
+
+static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
+	                   struct dentry *root, struct vfsmount *rootmnt,
+			   char *buffer, int buflen)
+{
+	char * end = buffer+buflen;
+	char * retval;
+	int namelen;
+
+	*--end = '\0';
+	buflen--;
+
+	if (buflen < 1)
+		goto Elong;
+	/* Get '/' right */
+	retval = end-1;
+	*retval = '/';
+
+	for (;;) {
+		struct dentry * parent;
+
+		if (dentry == root && vfsmnt == rootmnt)
+			break;
+		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
+			/* Global root? */
+			spin_lock(&vfsmount_lock);
+			if (vfsmnt->mnt_parent == vfsmnt) {
+				spin_unlock(&vfsmount_lock);
+				goto global_root;
+			}
+			dentry = vfsmnt->mnt_mountpoint;
+			vfsmnt = vfsmnt->mnt_parent;
+			spin_unlock(&vfsmount_lock);
+			continue;
+		}
+		parent = dentry->d_parent;
+		prefetch(parent);
+		namelen = dentry->d_name.len;
+		buflen -= namelen + 1;
+		if (buflen < 0)
+			goto Elong;
+		end -= namelen;
+		memcpy(end, dentry->d_name.name, namelen);
+		*--end = '/';
+		retval = end;
+		dentry = parent;
+	}
+
+	return retval;
+
+global_root:
+	namelen = dentry->d_name.len;
+	buflen -= namelen;
+	if (buflen < 0)
+		goto Elong;
+	retval -= namelen-1;	/* hit the slash */
+	memcpy(retval, dentry->d_name.name, namelen);
+	return retval;
+Elong:
+	return ERR_PTR(-ENAMETOOLONG);
+}
+
 static char *
 gen_full_path(struct dentry *dentry, struct vfsmount *vfsmnt,
               struct dentry *root, struct vfsmount *rootmnt, char *buf, int buflen)
 {
-	char *end = buf + buflen;
 	char *retval;
-	int namelen = 0;
 
-	*--end = '\0';
-
-	retval = end - 1;
-	*retval = '/';
-
-	if (dentry == root && vfsmnt == rootmnt)
-		return retval;
-	if (dentry != vfsmnt->mnt_root && !IS_ROOT(dentry)) {
-		namelen = strlen(dentry->d_name.name);
-		buflen -= namelen;
-		if (buflen < 2)
-			goto err;
-		if (dentry->d_parent != root || vfsmnt != rootmnt)
-			buflen--;
-	}
-
-	retval = __d_path(dentry->d_parent, vfsmnt, root, rootmnt, buf, buflen);
+	retval = __our_d_path(dentry->d_parent, vfsmnt, root, rootmnt, buf, buflen);
 	if (unlikely(IS_ERR(retval)))
-err:
 		retval = strcpy(buf, "<path too long>");
-	else if (namelen != 0) {
-		end = buf + buflen - 1; // accounts for null termination
-		if (dentry->d_parent != root || vfsmnt != rootmnt)
-			*end++ = '/'; // accounted for above with buflen--
-		memcpy(end, dentry->d_name.name, namelen);
-	}
+	else if (unlikely(retval[1] == '/' && retval[2] == '\0'))
+		retval[1] = '\0';
 
 	return retval;
 }
@@ -1682,7 +1720,9 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 	spin_lock(&dcache_lock);
 
-	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt)) {
+	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt ||
+		/* ignore Eric Biederman */
+	    IS_PRIVATE(l_dentry->d_inode))) {
 		retval = fakefs_obj;
 		goto out;
 	}
@@ -1799,6 +1839,17 @@ gr_log_learn(const struct task_struct *task, const struct dentry *dentry, const 
 		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_dentry,
 		       task->exec_file->f_vfsmnt) : task->acl->filename, task->acl->filename,
 		       1, 1, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
+
+	return;
+}
+
+static void
+gr_log_learn_sysctl(const struct task_struct *task, const char *path, const __u32 mode)
+{
+	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
+		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_dentry,
+		       task->exec_file->f_vfsmnt) : task->acl->filename, task->acl->filename,
+		       1, 1, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
 	return;
 }
@@ -3150,15 +3201,73 @@ pax_set_initial_flags(struct linux_binprm *bprm)
 #endif
 
 #ifdef CONFIG_SYSCTL
-extern struct proc_dir_entry *proc_sys_root;
+/* Eric Biederman likes breaking userland ABI and every inode-based security
+   system to save 35kb of memory */
 
-/* the following function is called under the BKL */
-
-__u32
-gr_handle_sysctl(const struct ctl_table *table, const void *oldval,
-		 const void *newval)
+/* we modify the passed in filename, but adjust it back before returning */
+static struct acl_object_label *gr_lookup_by_name(char *name, unsigned int len)
 {
-	struct proc_dir_entry *tmp;
+	struct name_entry *nmatch;
+	char *p, *lastp = NULL;
+	struct acl_object_label *obj = NULL, *tmp;
+	struct acl_subject_label *tmpsubj;
+	int done = 0;
+	char c = '\0';
+
+	read_lock(&gr_inode_lock);
+
+	p = name + len - 1;
+	do {
+		nmatch = lookup_name_entry(name);
+		if (lastp != NULL)
+			*lastp = c;
+
+		if (nmatch == NULL)
+			goto next_component;
+		tmpsubj = current->acl;
+		do {
+			obj = lookup_acl_obj_label(nmatch->inode, nmatch->device, tmpsubj);
+			if (obj != NULL) {
+				tmp = obj->globbed;
+				while (tmp) {
+					if (!glob_match(tmp->filename, name)) {
+						obj = tmp;
+						goto found_obj;
+					}
+					tmp = tmp->next;
+				}
+				goto found_obj;
+			}
+		} while ((tmpsubj = tmpsubj->parent_subject));
+next_component:
+		/* end case */
+		if (p == name)
+			break;
+
+		while (*p != '/')
+			p--;
+		if (p == name)
+			lastp = p + 1;
+		else {
+			lastp = p;
+			p--;
+		}
+		c = *lastp;
+		*lastp = '\0';
+	} while (1);
+found_obj:
+	read_unlock(&gr_inode_lock);
+	/* obj returned will always be non-null */
+	return obj;
+}
+
+/* returns 0 when allowing, non-zero on error
+   op of 0 is used for readdir, so we don't log the names of hidden files
+*/
+__u32
+gr_handle_sysctl(const struct ctl_table *table, const int op)
+{
+	ctl_table *tmp;
 	struct nameidata nd;
 	const char *proc_sys = "/proc/sys";
 	char *path;
@@ -3168,25 +3277,40 @@ gr_handle_sysctl(const struct ctl_table *table, const void *oldval,
 	__u32 mode = 0;
 
 	if (unlikely(!(gr_status & GR_READY)))
-		return 1;
+		return 0;
+
+	/* for now, ignore operations on non-sysctl entries if it's not a
+	   readdir*/
+	if (table->child != NULL && op != 0)
+		return 0;
+
+	mode |= GR_FIND;
+	/* it's only a read if it's an entry, read on dirs is for readdir */
+	if (op & 004)
+		mode |= GR_READ;
+	if (op & 002)
+		mode |= GR_WRITE;
+
+	preempt_disable();
 
 	path = per_cpu_ptr(gr_shared_page[0], smp_processor_id());
 
-	if (oldval)
-		mode |= GR_READ;
-	if (newval)
-		mode |= GR_WRITE;
+	/* it's only a read/write if it's an actual entry, not a dir
+	   (which are opened for readdir)
+	*/
 
 	/* convert the requested sysctl entry into a pathname */
 
-	for (tmp = table->de; tmp != proc_sys_root; tmp = tmp->parent) {
-		len += strlen(tmp->name);
+	for (tmp = (ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
+		len += strlen(tmp->procname);
 		len++;
 		depth++;
 	}
 
-	if ((len + depth + strlen(proc_sys) + 1) > PAGE_SIZE)
-		return 0;	/* deny */
+	if ((len + depth + strlen(proc_sys) + 1) > PAGE_SIZE) {
+		/* deny */
+		goto out;
+	}
 
 	memset(path, 0, PAGE_SIZE);
 
@@ -3197,23 +3321,17 @@ gr_handle_sysctl(const struct ctl_table *table, const void *oldval,
 	for (; depth > 0; depth--) {
 		path[pos] = '/';
 		pos++;
-		for (i = 1, tmp = table->de; tmp != proc_sys_root;
-		     tmp = tmp->parent) {
+		for (i = 1, tmp = (ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
 			if (depth == i) {
-				memcpy(path + pos, tmp->name,
-				       strlen(tmp->name));
-				pos += strlen(tmp->name);
+				memcpy(path + pos, tmp->procname,
+				       strlen(tmp->procname));
+				pos += strlen(tmp->procname);
 			}
 			i++;
 		}
 	}
 
-	err = path_lookup(path, LOOKUP_FOLLOW, &nd);
-
-	if (err)
-		goto out;
-
-	obj = chk_obj_label(nd.dentry, nd.mnt, current->acl);
+	obj = gr_lookup_by_name(path, pos);
 	err = obj->mode & (mode | to_gr_audit(mode) | GR_SUPPRESS);
 
 	if (unlikely((current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) &&
@@ -3222,24 +3340,31 @@ gr_handle_sysctl(const struct ctl_table *table, const void *oldval,
 
 		new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
 
-		err = new_mode;
-		gr_log_learn(current, nd.dentry, nd.mnt, new_mode);
-	} else if ((err & mode) != mode && !(err & GR_SUPPRESS)) {
+		err = 0;
+		gr_log_learn_sysctl(current, path, new_mode);
+	} else if (!(err & GR_FIND) && !(err & GR_SUPPRESS) && op != 0) {
+		gr_log_hidden_sysctl(GR_DONT_AUDIT, GR_HIDDEN_ACL_MSG, path);
+		err = -ENOENT;
+	} else if (!(err & GR_FIND)) {
+		err = -ENOENT;
+	} else if (((err & mode) & ~GR_FIND) != (mode & ~GR_FIND) && !(err & GR_SUPPRESS)) {
 		gr_log_str4(GR_DONT_AUDIT, GR_SYSCTL_ACL_MSG, "denied",
 			       path, (mode & GR_READ) ? " reading" : "",
 			       (mode & GR_WRITE) ? " writing" : "");
-		err = 0;
+		err = -EACCES;
 	} else if ((err & mode) != mode) {
-		err = 0;
-	} else if (((err & mode) == mode) && (err & GR_AUDITS)) {
+		err = -EACCES;
+	} else if ((((err & mode) & ~GR_FIND) == (mode & ~GR_FIND)) && (err & GR_AUDITS)) {
 		gr_log_str4(GR_DO_AUDIT, GR_SYSCTL_ACL_MSG, "successful",
 			       path, (mode & GR_READ) ? " reading" : "",
 			       (mode & GR_WRITE) ? " writing" : "");
-	}
-
-	path_release(&nd);
+		err = 0;
+	} else
+		err = 0;
 
       out:
+	preempt_enable();
+
 	return err;
 }
 #endif
@@ -3496,6 +3621,10 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 		return 1;
 
 	if (task->acl->mode & (GR_LEARN | GR_INHERITLEARN))
+		return 1;
+
+	/* ignore Eric Biederman */
+	if (IS_PRIVATE(dentry->d_inode))
 		return 1;
 
 	subj = task->acl;

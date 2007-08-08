@@ -7,6 +7,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/preempt.h>
+#include <linux/percpu.h>
 #include <linux/smp.h>
 
 #include <asm/mmu.h>
@@ -19,13 +20,12 @@ struct Xgt_desc_struct {
 	unsigned short pad;
 } __attribute__ ((packed));
 
-extern struct Xgt_desc_struct idt_descr, cpu_gdt_descr[NR_CPUS];
-
 static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
 {
 	return cpu_gdt_table[cpu];
 }
 
+extern struct Xgt_desc_struct idt_descr;
 extern struct desc_struct idt_table[];
 extern void set_intr_gate(unsigned int irq, void * addr);
 
@@ -55,48 +55,28 @@ static inline void pack_gate(__u32 *a, __u32 *b,
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
-#define load_TR_desc() __asm__ __volatile__("ltr %w0"::"q" (GDT_ENTRY_TSS*8))
-
-#define load_gdt(dtr) __asm__ __volatile("lgdt %0"::"m" (*dtr))
-#define load_idt(dtr) __asm__ __volatile("lidt %0"::"m" (*dtr))
+#define load_TR_desc() native_load_tr_desc()
+#define load_gdt(dtr) native_load_gdt(dtr)
+#define load_idt(dtr) native_load_idt(dtr)
 #define load_tr(tr) __asm__ __volatile("ltr %0"::"m" (tr))
 #define load_ldt(ldt) __asm__ __volatile("lldt %0"::"m" (ldt))
 
-#define store_gdt(dtr) __asm__ ("sgdt %0":"=m" (*dtr))
-#define store_idt(dtr) __asm__ ("sidt %0":"=m" (*dtr))
-#define store_tr(tr) __asm__ ("str %0":"=m" (tr))
+#define store_gdt(dtr) native_store_gdt(dtr)
+#define store_idt(dtr) native_store_idt(dtr)
+#define store_tr(tr) (tr = native_store_tr())
 #define store_ldt(ldt) __asm__ ("sldt %0":"=m" (ldt))
 
-#if TLS_SIZE != 24
-# error update this code.
-#endif
-
-static inline void load_TLS(struct thread_struct *t, unsigned int cpu)
-{
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-#define C(i) get_cpu_gdt_table(cpu)[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i]
-	C(0); C(1); C(2);
-#undef C
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-}
+#define load_TLS(t, cpu) native_load_tls(t, cpu)
+#define set_ldt native_set_ldt
 
 #define write_ldt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
 #define write_gdt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
 #define write_idt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
+#endif
 
-static inline void write_dt_entry(void *dt, int entry, __u32 entry_a, __u32 entry_b)
+static inline void write_dt_entry(struct desc_struct *dt,
+				  int entry, u32 entry_low, u32 entry_high)
 {
-	__u32 *lp = (__u32 *)((char *)dt + entry*8);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -104,8 +84,8 @@ static inline void write_dt_entry(void *dt, int entry, __u32 entry_a, __u32 entr
 	pax_open_kernel(cr0);
 #endif
 
-	*lp = entry_a;
-	*(lp+1) = entry_b;
+	dt[entry].a = entry_low;
+	dt[entry].b = entry_high;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);
@@ -113,11 +93,7 @@ static inline void write_dt_entry(void *dt, int entry, __u32 entry_a, __u32 entr
 
 }
 
-#define set_ldt native_set_ldt
-#endif /* CONFIG_PARAVIRT */
-
-static inline fastcall void native_set_ldt(const void *addr,
-					   unsigned int entries)
+static inline void native_set_ldt(const void *addr, unsigned int entries)
 {
 	if (likely(entries == 0))
 		__asm__ __volatile__("lldt %w0"::"q" (0));
@@ -131,6 +107,59 @@ static inline fastcall void native_set_ldt(const void *addr,
 		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_LDT, a, b);
 		__asm__ __volatile__("lldt %w0"::"q" (GDT_ENTRY_LDT*8));
 	}
+}
+
+
+static inline void native_load_tr_desc(void)
+{
+	asm volatile("ltr %w0"::"q" (GDT_ENTRY_TSS*8));
+}
+
+static inline void native_load_gdt(const struct Xgt_desc_struct *dtr)
+{
+	asm volatile("lgdt %0"::"m" (*dtr));
+}
+
+static inline void native_load_idt(const struct Xgt_desc_struct *dtr)
+{
+	asm volatile("lidt %0"::"m" (*dtr));
+}
+
+static inline void native_store_gdt(struct Xgt_desc_struct *dtr)
+{
+	asm ("sgdt %0":"=m" (*dtr));
+}
+
+static inline void native_store_idt(struct Xgt_desc_struct *dtr)
+{
+	asm ("sidt %0":"=m" (*dtr));
+}
+
+static inline unsigned long native_store_tr(void)
+{
+	unsigned long tr;
+	asm ("str %0":"=r" (tr));
+	return tr;
+}
+
+static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
+{
+	unsigned int i;
+	struct desc_struct *gdt = get_cpu_gdt_table(cpu);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++)
+		gdt[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i];
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 }
 
 static inline void _set_gate(int gate, unsigned int type, void *addr, unsigned short seg)
@@ -210,7 +239,9 @@ static inline void set_user_cs(unsigned long base, unsigned long limit, int cpu)
 {
 	__u32 a, b;
 
-	pack_descriptor(&a, &b, base, limit - 1, 0xFB, 0xC);
+	if (likely(limit))
+		limit = (limit - 1UL) >> PAGE_SHIFT;
+	pack_descriptor(&a, &b, base, limit, 0xFB, 0xC);
 	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_CS, a, b);
 }
 

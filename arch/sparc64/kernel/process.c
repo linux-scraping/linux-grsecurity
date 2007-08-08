@@ -19,7 +19,6 @@
 #include <linux/kallsyms.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/stddef.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
@@ -28,6 +27,7 @@
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/compat.h>
+#include <linux/tick.h>
 #include <linux/init.h>
 
 #include <asm/oplib.h>
@@ -45,6 +45,7 @@
 #include <asm/mmu_context.h>
 #include <asm/unistd.h>
 #include <asm/hypervisor.h>
+#include <asm/sstate.h>
 
 /* #define VERBOSE_SHOWREGS */
 
@@ -88,12 +89,14 @@ void cpu_idle(void)
 	set_thread_flag(TIF_POLLING_NRFLAG);
 
 	while(1) {
-		if (need_resched()) {
-			preempt_enable_no_resched();
-			schedule();
-			preempt_disable();
-		}
-		sparc64_yield();
+		tick_nohz_stop_sched_tick();
+		while (!need_resched())
+			sparc64_yield();
+		tick_nohz_restart_sched_tick();
+
+		preempt_enable_no_resched();
+		schedule();
+		preempt_disable();
 	}
 }
 
@@ -104,6 +107,7 @@ extern void (*prom_keyboard)(void);
 
 void machine_halt(void)
 {
+	sstate_halt();
 	if (!serial_console && prom_palette)
 		prom_palette (1);
 	if (prom_keyboard)
@@ -114,6 +118,7 @@ void machine_halt(void)
 
 void machine_alt_power_off(void)
 {
+	sstate_poweroff();
 	if (!serial_console && prom_palette)
 		prom_palette(1);
 	if (prom_keyboard)
@@ -126,6 +131,7 @@ void machine_restart(char * cmd)
 {
 	char *p;
 	
+	sstate_reboot();
 	p = strchr (reboot_command, '\n');
 	if (p) *p = 0;
 	if (!serial_console && prom_palette)
@@ -413,8 +419,13 @@ void flush_thread(void)
 	struct thread_info *t = current_thread_info();
 	struct mm_struct *mm;
 
-	if (t->flags & _TIF_ABI_PENDING)
-		t->flags ^= (_TIF_ABI_PENDING | _TIF_32BIT);
+	if (test_ti_thread_flag(t, TIF_ABI_PENDING)) {
+		clear_ti_thread_flag(t, TIF_ABI_PENDING);
+		if (test_ti_thread_flag(t, TIF_32BIT))
+			clear_ti_thread_flag(t, TIF_32BIT);
+		else
+			set_ti_thread_flag(t, TIF_32BIT);
+	}
 
 	mm = t->task->mm;
 	if (mm)
@@ -670,7 +681,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
  * NOTE! Only a kernel-only process(ie the swapper or direct descendants
  * who haven't done an "execve()") should use this: it will work within
  * a system call from a "real" process, but the process memory space will
- * not be free'd until both the parent and the child have exited.
+ * not be freed until both the parent and the child have exited.
  */
 pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {

@@ -121,7 +121,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/signal.h>
 #include <linux/errno.h>
 #include <linux/random.h>
@@ -129,7 +128,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <linux/smp_lock.h>
 #include <linux/usb.h>
 #include <linux/proc_fs.h>
 

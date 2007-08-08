@@ -82,7 +82,7 @@ extern char sb1250_duart_present[];
 #endif
 
 static struct irq_chip bcm1480_irq_type = {
-	.typename = "BCM1480-IMR",
+	.name = "BCM1480-IMR",
 	.ack = ack_bcm1480_irq,
 	.mask = disable_bcm1480_irq,
 	.mask_ack = ack_bcm1480_irq,
@@ -141,11 +141,11 @@ static void bcm1480_set_affinity(unsigned int irq, cpumask_t mask)
 	unsigned long flags;
 	unsigned int irq_dirty;
 
-	i = first_cpu(mask);
-	if (next_cpu(i, mask) <= NR_CPUS) {
+	if (cpus_weight(mask) != 1) {
 		printk("attempted to set irq affinity for irq %d to multiple CPUs\n", irq);
 		return;
 	}
+	i = first_cpu(mask);
 
 	/* Convert logical CPU to physical CPU */
 	cpu = cpu_logical_map(i);
@@ -420,7 +420,7 @@ void __init arch_init_irq(void)
 #ifdef CONFIG_GDB_CONSOLE
 		register_gdb_console();
 #endif
-		prom_printf("Waiting for GDB on UART port %d\n", kgdb_port);
+		printk("Waiting for GDB on UART port %d\n", kgdb_port);
 		set_debug_traps();
 		breakpoint();
 	}

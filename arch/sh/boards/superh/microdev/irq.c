@@ -11,6 +11,7 @@
 
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <asm/system.h>
 #include <asm/io.h>
 #include <asm/microdev.h>
@@ -100,7 +101,7 @@ static void disable_microdev_irq(unsigned int irq)
 
 	fpgaIrq = fpgaIrqTable[irq].fpgaIrq;
 
-	/* disable interupts on the FPGA INTC register */
+	/* disable interrupts on the FPGA INTC register */
 	ctrl_outl(MICRODEV_FPGA_INTC_MASK(fpgaIrq), MICRODEV_FPGA_INTDSB_REG);
 }
 
@@ -125,7 +126,7 @@ static void enable_microdev_irq(unsigned int irq)
 	priorities |= MICRODEV_FPGA_INTPRI_LEVEL(fpgaIrq, pri);
 	ctrl_outl(priorities, priorityReg);
 
-	/* enable interupts on the FPGA INTC register */
+	/* enable interrupts on the FPGA INTC register */
 	ctrl_outl(MICRODEV_FPGA_INTC_MASK(fpgaIrq), MICRODEV_FPGA_INTENB_REG);
 }
 
@@ -152,7 +153,7 @@ extern void __init init_microdev_irq(void)
 {
 	int i;
 
-		/* disable interupts on the FPGA INTC register */
+		/* disable interrupts on the FPGA INTC register */
 	ctrl_outl(~0ul, MICRODEV_FPGA_INTDSB_REG);
 
 	for (i = 0; i < NUM_EXTERNAL_IRQS; i++)

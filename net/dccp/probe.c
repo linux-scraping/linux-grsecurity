@@ -90,15 +90,18 @@ static int jdccp_sendmsg(struct kiocb *iocb, struct sock *sk,
 	if (port == 0 || ntohs(inet->dport) == port ||
 	    ntohs(inet->sport) == port) {
 		if (hctx)
-			printl("%d.%d.%d.%d:%u %d.%d.%d.%d:%u %d %d %d %d %d\n",
-			   NIPQUAD(inet->saddr), ntohs(inet->sport),
-			   NIPQUAD(inet->daddr), ntohs(inet->dport), size,
-			   hctx->ccid3hctx_s, hctx->ccid3hctx_rtt,
-			   hctx->ccid3hctx_p, hctx->ccid3hctx_t_ipi);
+			printl("%d.%d.%d.%d:%u %d.%d.%d.%d:%u %d %d %d %d %u "
+			       "%llu %llu %d\n",
+			       NIPQUAD(inet->saddr), ntohs(inet->sport),
+			       NIPQUAD(inet->daddr), ntohs(inet->dport), size,
+			       hctx->ccid3hctx_s, hctx->ccid3hctx_rtt,
+			       hctx->ccid3hctx_p, hctx->ccid3hctx_x_calc,
+			       hctx->ccid3hctx_x_recv >> 6,
+			       hctx->ccid3hctx_x >> 6, hctx->ccid3hctx_t_ipi);
 		else
 			printl("%d.%d.%d.%d:%u %d.%d.%d.%d:%u %d\n",
-			   NIPQUAD(inet->saddr), ntohs(inet->sport),
-			   NIPQUAD(inet->daddr), ntohs(inet->dport), size);
+			       NIPQUAD(inet->saddr), ntohs(inet->sport),
+			       NIPQUAD(inet->daddr), ntohs(inet->dport), size);
 	}
 
 	jprobe_return();
@@ -125,7 +128,7 @@ static ssize_t dccpprobe_read(struct file *file, char __user *buf,
 	int error = 0, cnt = 0;
 	unsigned char *tbuf;
 
-	if (!buf || len < 0)
+	if (!buf)
 		return -EINVAL;
 
 	if (len == 0)
@@ -149,7 +152,7 @@ out_free:
 	return error ? error : cnt;
 }
 
-static struct file_operations dccpprobe_fops = {
+static const struct file_operations dccpprobe_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = dccpprobe_open,
 	.read    = dccpprobe_read,

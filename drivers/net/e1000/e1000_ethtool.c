@@ -166,7 +166,7 @@ e1000_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 			ecmd->transceiver = XCVR_EXTERNAL;
 	}
 
-	if (netif_carrier_ok(adapter->netdev)) {
+	if (E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_LU) {
 
 		e1000_get_speed_and_duplex(hw, &adapter->link_speed,
 		                                   &adapter->link_duplex);
@@ -338,7 +338,6 @@ e1000_set_tx_csum(struct net_device *netdev, uint32_t data)
 	return 0;
 }
 
-#ifdef NETIF_F_TSO
 static int
 e1000_set_tso(struct net_device *netdev, uint32_t data)
 {
@@ -352,18 +351,15 @@ e1000_set_tso(struct net_device *netdev, uint32_t data)
 	else
 		netdev->features &= ~NETIF_F_TSO;
 
-#ifdef NETIF_F_TSO6
 	if (data)
 		netdev->features |= NETIF_F_TSO6;
 	else
 		netdev->features &= ~NETIF_F_TSO6;
-#endif
 
 	DPRINTK(PROBE, INFO, "TSO is %s\n", data ? "Enabled" : "Disabled");
 	adapter->tso_force = TRUE;
 	return 0;
 }
-#endif /* NETIF_F_TSO */
 
 static uint32_t
 e1000_get_msglevel(struct net_device *netdev)
@@ -658,13 +654,10 @@ e1000_set_ringparam(struct net_device *netdev,
 	e1000_mac_type mac_type = adapter->hw.mac_type;
 	struct e1000_tx_ring *txdr, *tx_old;
 	struct e1000_rx_ring *rxdr, *rx_old;
-	int i, err, tx_ring_size, rx_ring_size;
+	int i, err;
 
 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
 		return -EINVAL;
-
-	tx_ring_size = sizeof(struct e1000_tx_ring) * adapter->num_tx_queues;
-	rx_ring_size = sizeof(struct e1000_rx_ring) * adapter->num_rx_queues;
 
 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
 		msleep(1);
@@ -676,11 +669,11 @@ e1000_set_ringparam(struct net_device *netdev,
 	rx_old = adapter->rx_ring;
 
 	err = -ENOMEM;
-	txdr = kzalloc(tx_ring_size, GFP_KERNEL);
+	txdr = kcalloc(adapter->num_tx_queues, sizeof(struct e1000_tx_ring), GFP_KERNEL);
 	if (!txdr)
 		goto err_alloc_tx;
 
-	rxdr = kzalloc(rx_ring_size, GFP_KERNEL);
+	rxdr = kcalloc(adapter->num_rx_queues, sizeof(struct e1000_rx_ring), GFP_KERNEL);
 	if (!rxdr)
 		goto err_alloc_rx;
 
@@ -690,12 +683,12 @@ e1000_set_ringparam(struct net_device *netdev,
 	rxdr->count = max(ring->rx_pending,(uint32_t)E1000_MIN_RXD);
 	rxdr->count = min(rxdr->count,(uint32_t)(mac_type < e1000_82544 ?
 		E1000_MAX_RXD : E1000_MAX_82544_RXD));
-	E1000_ROUNDUP(rxdr->count, REQ_RX_DESCRIPTOR_MULTIPLE);
+	rxdr->count = ALIGN(rxdr->count, REQ_RX_DESCRIPTOR_MULTIPLE);
 
 	txdr->count = max(ring->tx_pending,(uint32_t)E1000_MIN_TXD);
 	txdr->count = min(txdr->count,(uint32_t)(mac_type < e1000_82544 ?
 		E1000_MAX_TXD : E1000_MAX_82544_TXD));
-	E1000_ROUNDUP(txdr->count, REQ_TX_DESCRIPTOR_MULTIPLE);
+	txdr->count = ALIGN(txdr->count, REQ_TX_DESCRIPTOR_MULTIPLE);
 
 	for (i = 0; i < adapter->num_tx_queues; i++)
 		txdr[i].count = txdr->count;
@@ -746,7 +739,7 @@ err_setup:
 	uint32_t pat, value;                                                   \
 	uint32_t test[] =                                                      \
 		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};              \
-	for (pat = 0; pat < sizeof(test)/sizeof(test[0]); pat++) {              \
+	for (pat = 0; pat < ARRAY_SIZE(test); pat++) {              \
 		E1000_WRITE_REG(&adapter->hw, R, (test[pat] & W));             \
 		value = E1000_READ_REG(&adapter->hw, R);                       \
 		if (value != (test[pat] & W & M)) {                             \
@@ -1057,23 +1050,24 @@ e1000_setup_desc_rings(struct e1000_adapter *adapter)
 	struct e1000_rx_ring *rxdr = &adapter->test_rx_ring;
 	struct pci_dev *pdev = adapter->pdev;
 	uint32_t rctl;
-	int size, i, ret_val;
+	int i, ret_val;
 
 	/* Setup Tx descriptor ring and Tx buffers */
 
 	if (!txdr->count)
 		txdr->count = E1000_DEFAULT_TXD;
 
-	size = txdr->count * sizeof(struct e1000_buffer);
-	if (!(txdr->buffer_info = kmalloc(size, GFP_KERNEL))) {
+	if (!(txdr->buffer_info = kcalloc(txdr->count,
+	                                  sizeof(struct e1000_buffer),
+		                          GFP_KERNEL))) {
 		ret_val = 1;
 		goto err_nomem;
 	}
-	memset(txdr->buffer_info, 0, size);
 
 	txdr->size = txdr->count * sizeof(struct e1000_tx_desc);
-	E1000_ROUNDUP(txdr->size, 4096);
-	if (!(txdr->desc = pci_alloc_consistent(pdev, txdr->size, &txdr->dma))) {
+	txdr->size = ALIGN(txdr->size, 4096);
+	if (!(txdr->desc = pci_alloc_consistent(pdev, txdr->size,
+	                                        &txdr->dma))) {
 		ret_val = 2;
 		goto err_nomem;
 	}
@@ -1120,12 +1114,12 @@ e1000_setup_desc_rings(struct e1000_adapter *adapter)
 	if (!rxdr->count)
 		rxdr->count = E1000_DEFAULT_RXD;
 
-	size = rxdr->count * sizeof(struct e1000_buffer);
-	if (!(rxdr->buffer_info = kmalloc(size, GFP_KERNEL))) {
+	if (!(rxdr->buffer_info = kcalloc(rxdr->count,
+	                                  sizeof(struct e1000_buffer),
+	                                  GFP_KERNEL))) {
 		ret_val = 4;
 		goto err_nomem;
 	}
-	memset(rxdr->buffer_info, 0, size);
 
 	rxdr->size = rxdr->count * sizeof(struct e1000_rx_desc);
 	if (!(rxdr->desc = pci_alloc_consistent(pdev, rxdr->size, &rxdr->dma))) {
@@ -1971,10 +1965,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
 	.set_tx_csum            = e1000_set_tx_csum,
 	.get_sg                 = ethtool_op_get_sg,
 	.set_sg                 = ethtool_op_set_sg,
-#ifdef NETIF_F_TSO
 	.get_tso                = ethtool_op_get_tso,
 	.set_tso                = e1000_set_tso,
-#endif
 	.self_test_count        = e1000_diag_test_count,
 	.self_test              = e1000_diag_test,
 	.get_strings            = e1000_get_strings,

@@ -90,11 +90,9 @@
 #include <linux/ioport.h>
 #include <linux/netdevice.h>
 #include <linux/spinlock.h>
-#include <linux/smp_lock.h>
 #include <linux/device.h>
 
 #undef COSA_SLOW_IO	/* for testing purposes only */
-#undef REALLY_SLOW_IO
 
 #include <asm/io.h>
 #include <asm/dma.h>
@@ -311,7 +309,7 @@ static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
 static int cosa_fasync(struct inode *inode, struct file *file, int on);
 #endif
 
-static struct file_operations cosa_fops = {
+static const struct file_operations cosa_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.read		= cosa_read,
@@ -774,7 +772,7 @@ static int sppp_rx_done(struct channel_data *chan)
 	}
 	chan->rx_skb->protocol = htons(ETH_P_WAN_PPP);
 	chan->rx_skb->dev = chan->pppdev.dev;
-	chan->rx_skb->mac.raw = chan->rx_skb->data;
+	skb_reset_mac_header(chan->rx_skb);
 	chan->stats.rx_packets++;
 	chan->stats.rx_bytes += chan->cosa->rxsize;
 	netif_rx(chan->rx_skb);

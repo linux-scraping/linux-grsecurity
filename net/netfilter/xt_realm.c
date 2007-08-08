@@ -1,7 +1,5 @@
 /* IP tables module for matching the routing realm
  *
- * $Id: ipt_realm.c,v 1.3 2004/03/05 13:25:40 laforge Exp $
- *
  * (C) 2003 by Sampsa Ranta <sampsa@netsonic.fi>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,7 +33,7 @@ match(const struct sk_buff *skb,
 {
 	const struct xt_realm_info *info = matchinfo;
 	struct dst_entry *dst = skb->dst;
-    
+
 	return (info->id == (dst->tclassid & info->mask)) ^ info->invert;
 }
 

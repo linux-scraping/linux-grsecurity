@@ -26,10 +26,7 @@
 #ifndef _MIPS_ATLASINT_H
 #define _MIPS_ATLASINT_H
 
-/*
- * Interrupts 0..7 are used for Atlas CPU interrupts (nonEIC mode)
- */
-#define MIPSCPU_INT_BASE	0
+#include <irq.h>
 
 /* CPU interrupt offsets */
 #define MIPSCPU_INT_SW0		0
@@ -40,7 +37,6 @@
 #define MIPSCPU_INT_MB2		4
 #define MIPSCPU_INT_MB3		5
 #define MIPSCPU_INT_MB4		6
-#define MIPSCPU_INT_CPUCTR	7
 
 /*
  * Interrupts 8..39 are used for Atlas interrupt controller interrupts

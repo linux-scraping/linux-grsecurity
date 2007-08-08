@@ -2,7 +2,7 @@
  * Copyright (C) 1999-2004 Hewlett-Packard Co
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  * Copyright (C) 2003 Fenghua Yu <fenghua.yu@intel.com>
- * 	- Change pt_regs_off() to make it less dependant on pt_regs structure.
+ * 	- Change pt_regs_off() to make it less dependent on pt_regs structure.
  */
 /*
  * This file implements call frame unwind support for the Linux
@@ -60,6 +60,7 @@
 #  define UNW_DEBUG_ON(n)	unw_debug_level >= n
    /* Do not code a printk level, not all debug lines end in newline */
 #  define UNW_DPRINT(n, ...)  if (UNW_DEBUG_ON(n)) printk(__VA_ARGS__)
+#  undef inline
 #  define inline
 #else /* !UNW_DEBUG */
 #  define UNW_DEBUG_ON(n)  0
@@ -145,7 +146,7 @@ static struct {
 # endif
 } unw = {
 	.tables = &unw.kernel_table,
-	.lock = SPIN_LOCK_UNLOCKED,
+	.lock = __SPIN_LOCK_UNLOCKED(unw.lock),
 	.save_order = {
 		UNW_REG_RP, UNW_REG_PFS, UNW_REG_PSP, UNW_REG_PR,
 		UNW_REG_UNAT, UNW_REG_LC, UNW_REG_FPSR, UNW_REG_PRI_UNAT_GR
@@ -1855,6 +1856,14 @@ find_save_locs (struct unw_frame_info *info)
 	return 0;
 }
 
+static int
+unw_valid(const struct unw_frame_info *info, unsigned long* p)
+{
+	unsigned long loc = (unsigned long)p;
+	return (loc >= info->regstk.limit && loc < info->regstk.top) ||
+	       (loc >= info->memstk.top && loc < info->memstk.limit);
+}
+
 int
 unw_unwind (struct unw_frame_info *info)
 {
@@ -1869,14 +1878,15 @@ unw_unwind (struct unw_frame_info *info)
 	prev_sp = info->sp;
 	prev_bsp = info->bsp;
 
-	/* restore the ip */
-	if (!info->rp_loc) {
+	/* validate the return IP pointer */
+	if (!unw_valid(info, info->rp_loc)) {
 		/* FIXME: should really be level 0 but it occurs too often. KAO */
 		UNW_DPRINT(1, "unwind.%s: failed to locate return link (ip=0x%lx)!\n",
 			   __FUNCTION__, info->ip);
 		STAT(unw.stat.api.unwind_time += ia64_get_itc() - start; local_irq_restore(flags));
 		return -1;
 	}
+	/* restore the ip */
 	ip = info->ip = *info->rp_loc;
 	if (ip < GATE_ADDR) {
 		UNW_DPRINT(2, "unwind.%s: reached user-space (ip=0x%lx)\n", __FUNCTION__, ip);
@@ -1884,12 +1894,13 @@ unw_unwind (struct unw_frame_info *info)
 		return -1;
 	}
 
-	/* restore the cfm: */
-	if (!info->pfs_loc) {
+	/* validate the previous stack frame pointer */
+	if (!unw_valid(info, info->pfs_loc)) {
 		UNW_DPRINT(0, "unwind.%s: failed to locate ar.pfs!\n", __FUNCTION__);
 		STAT(unw.stat.api.unwind_time += ia64_get_itc() - start; local_irq_restore(flags));
 		return -1;
 	}
+	/* restore the cfm: */
 	info->cfm_loc = info->pfs_loc;
 
 	/* restore the bsp: */
@@ -1943,9 +1954,9 @@ EXPORT_SYMBOL(unw_unwind);
 int
 unw_unwind_to_user (struct unw_frame_info *info)
 {
-	unsigned long ip, sp, pr = 0;
+	unsigned long ip, sp, pr = info->pr;
 
-	while (unw_unwind(info) >= 0) {
+	do {
 		unw_get_sp(info, &sp);
 		if ((long)((unsigned long)info->task + IA64_STK_OFFSET - sp)
 		    < IA64_PT_REGS_SIZE) {
@@ -1963,7 +1974,7 @@ unw_unwind_to_user (struct unw_frame_info *info)
 				__FUNCTION__, ip);
 			return -1;
 		}
-	}
+	} while (unw_unwind(info) >= 0);
 	unw_get_ip(info, &ip);
 	UNW_DPRINT(0, "unwind.%s: failed to unwind to user-level (ip=0x%lx)\n",
 		   __FUNCTION__, ip);
@@ -1991,13 +2002,16 @@ init_frame_info (struct unw_frame_info *info, struct task_struct *t,
 	memset(info, 0, sizeof(*info));
 
 	rbslimit = (unsigned long) t + IA64_RBS_OFFSET;
+	stklimit = (unsigned long) t + IA64_STK_OFFSET;
+
 	rbstop   = sw->ar_bspstore;
-	if (rbstop - (unsigned long) t >= IA64_STK_OFFSET)
+	if (rbstop > stklimit || rbstop < rbslimit)
 		rbstop = rbslimit;
 
-	stklimit = (unsigned long) t + IA64_STK_OFFSET;
 	if (stktop <= rbstop)
 		stktop = rbstop;
+	if (stktop > stklimit)
+		stktop = stklimit;
 
 	info->regstk.limit = rbslimit;
 	info->regstk.top   = rbstop;

@@ -1,7 +1,7 @@
 /*
  *	intel TCO Watchdog Driver (Used in i82801 and i6300ESB chipsets)
  *
- *	(c) Copyright 2006 Wim Van Sebroeck <wim@iguana.be>.
+ *	(c) Copyright 2006-2007 Wim Van Sebroeck <wim@iguana.be>.
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -49,7 +49,7 @@
 /* Module and version information */
 #define DRV_NAME        "iTCO_wdt"
 #define DRV_VERSION     "1.01"
-#define DRV_RELDATE     "11-Nov-2006"
+#define DRV_RELDATE     "21-Jan-2007"
 #define PFX		DRV_NAME ": "
 
 /* Includes */
@@ -187,7 +187,7 @@ MODULE_PARM_DESC(heartbeat, "Watchdog heartbeat in seconds. (2<heartbeat<39 (TCO
 
 static int nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, int, 0);
-MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=CONFIG_WATCHDOG_NOWAYOUT)");
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=" __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
 /* iTCO Vendor Specific Support hooks */
 #ifdef CONFIG_ITCO_VENDOR_SUPPORT
@@ -539,7 +539,7 @@ static int iTCO_wdt_ioctl (struct inode *inode, struct file *file,
  *	Kernel Interfaces
  */
 
-static struct file_operations iTCO_wdt_fops = {
+static const struct file_operations iTCO_wdt_fops = {
 	.owner =	THIS_MODULE,
 	.llseek =	no_llseek,
 	.write =	iTCO_wdt_write,
@@ -571,7 +571,7 @@ static int iTCO_wdt_init(struct pci_dev *pdev, const struct pci_device_id *ent, 
 	 *      ACPIBASE is bits [15:7] from 0x40-0x43
 	 */
 	pci_read_config_dword(pdev, 0x40, &base_address);
-	base_address &= 0x00007f80;
+	base_address &= 0x0000ff80;
 	if (base_address == 0x00000000) {
 		/* Something's wrong here, ACPIBASE has to be set */
 		printk(KERN_ERR PFX "failed to get TCOBASE address\n");

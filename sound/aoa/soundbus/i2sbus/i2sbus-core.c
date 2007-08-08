@@ -23,9 +23,6 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Johannes Berg <johannes@sipsolutions.net>");
 MODULE_DESCRIPTION("Apple Soundbus: I2S support");
-/* for auto-loading, declare that we handle this weird
- * string that macio puts into the relevant device */
-MODULE_ALIAS("of:Ni2sTi2sC");
 
 static int force;
 module_param(force, int, 0444);
@@ -37,12 +34,14 @@ static struct of_device_id i2sbus_match[] = {
 	{ }
 };
 
+MODULE_DEVICE_TABLE(of, i2sbus_match);
+
 static int alloc_dbdma_descriptor_ring(struct i2sbus_dev *i2sdev,
 				       struct dbdma_command_mem *r,
 				       int numcmds)
 {
-	/* one more for rounding */
-	r->size = (numcmds+1) * sizeof(struct dbdma_cmd);
+	/* one more for rounding, one for branch back, one for stop command */
+	r->size = (numcmds + 3) * sizeof(struct dbdma_cmd);
 	/* We use the PCI APIs for now until the generic one gets fixed
 	 * enough or until we get some macio-specific versions
 	 */
@@ -122,7 +121,7 @@ static int i2sbus_get_and_fixup_rsrc(struct device_node *np, int index,
 {
 	struct device_node *parent;
 	int pindex, rc = -ENXIO;
-	u32 *reg;
+	const u32 *reg;
 
 	/* Machines with layout 76 and 36 (K2 based) have a weird device
 	 * tree what we need to special case.
@@ -141,7 +140,7 @@ static int i2sbus_get_and_fixup_rsrc(struct device_node *np, int index,
 	rc = of_address_to_resource(parent, pindex, res);
 	if (rc)
 		goto bail;
-	reg = (u32 *)get_property(np, "reg", NULL);
+	reg = of_get_property(np, "reg", NULL);
 	if (reg == NULL) {
 		rc = -ENXIO;
 		goto bail;
@@ -188,8 +187,8 @@ static int i2sbus_add_dev(struct macio_dev *macio,
 		}
 	}
 	if (i == 1) {
-		u32 *layout_id;
-		layout_id = (u32*) get_property(sound, "layout-id", NULL);
+		const u32 *layout_id =
+			of_get_property(sound, "layout-id", NULL);
 		if (layout_id) {
 			layout = *layout_id;
 			snprintf(dev->sound.modalias, 32,
@@ -336,8 +335,8 @@ static int i2sbus_probe(struct macio_dev* dev, const struct of_device_id *match)
 	}
 
 	while ((np = of_get_next_child(dev->ofdev.node, np))) {
-		if (device_is_compatible(np, "i2sbus") ||
-		    device_is_compatible(np, "i2s-modem")) {
+		if (of_device_is_compatible(np, "i2sbus") ||
+		    of_device_is_compatible(np, "i2s-modem")) {
 			got += i2sbus_add_dev(dev, control, np);
 		}
 	}
@@ -377,11 +376,8 @@ static int i2sbus_suspend(struct macio_dev* dev, pm_message_t state)
 		if (i2sdev->sound.pcm) {
 			/* Suspend PCM streams */
 			snd_pcm_suspend_all(i2sdev->sound.pcm);
-			/* Probably useless as we handle
-			 * power transitions ourselves */
-			snd_power_change_state(i2sdev->sound.pcm->card,
-					       SNDRV_CTL_POWER_D3hot);
 		}
+
 		/* Notify codecs */
 		list_for_each_entry(cii, &i2sdev->sound.codec_list, list) {
 			err = 0;
@@ -390,7 +386,11 @@ static int i2sbus_suspend(struct macio_dev* dev, pm_message_t state)
 			if (err)
 				ret = err;
 		}
+
+		/* wait until streams are stopped */
+		i2sbus_wait_for_stop_both(i2sdev);
 	}
+
 	return ret;
 }
 
@@ -402,6 +402,9 @@ static int i2sbus_resume(struct macio_dev* dev)
 	int err, ret = 0;
 
 	list_for_each_entry(i2sdev, &control->list, item) {
+		/* reset i2s bus format etc. */
+		i2sbus_pcm_prepare_both(i2sdev);
+
 		/* Notify codecs so they can re-initialize */
 		list_for_each_entry(cii, &i2sdev->sound.codec_list, list) {
 			err = 0;
@@ -409,12 +412,6 @@ static int i2sbus_resume(struct macio_dev* dev)
 				err = cii->codec->resume(cii);
 			if (err)
 				ret = err;
-		}
-		/* Notify Alsa */
-		if (i2sdev->sound.pcm) {
-			/* Same comment as above, probably useless */
-			snd_power_change_state(i2sdev->sound.pcm->card,
-					       SNDRV_CTL_POWER_D0);
 		}
 	}
 

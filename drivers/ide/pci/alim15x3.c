@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/pci/alim15x3.c		Version 0.17	2003/01/02
+ * linux/drivers/ide/pci/alim15x3.c		Version 0.21	2007/02/03
  *
  *  Copyright (C) 1998-2000 Michel Aubry, Maintainer
  *  Copyright (C) 1998-2000 Andrzej Krzysztofowicz, Maintainer
@@ -9,6 +9,7 @@
  *  May be copied or modified under the terms of the GNU General Public License
  *  Copyright (C) 2002 Alan Cox <alan@redhat.com>
  *  ALi (now ULi M5228) support by Clear Zhang <Clear.Zhang@ali.com.tw>
+ *  Copyright (C) 2007 MontaVista Software, Inc. <source@mvista.com>
  *
  *  (U)DMA capable version of ali 1533/1543(C), 1535(D)
  *
@@ -49,7 +50,7 @@ static u8 m5229_revision;
 static u8 chip_is_1543c_e;
 static struct pci_dev *isa_dev;
 
-#if defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_PROC_FS)
+#if defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_IDE_PROC_FS)
 #include <linux/stat.h>
 #include <linux/proc_fs.h>
 
@@ -277,18 +278,20 @@ static int ali_get_info (char *buffer, char **addr, off_t offset, int count)
 
 	return p-buffer; /* => must be less than 4k! */
 }
-#endif  /* defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_PROC_FS) */
+#endif  /* defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_IDE_PROC_FS) */
 
 /**
- *	ali15x3_tune_drive	-	set up a drive
+ *	ali15x3_tune_pio	-	set up chipset for PIO mode
  *	@drive: drive to tune
- *	@pio: unused
+ *	@pio: desired mode
  *
- *	Select the best PIO timing for the drive in question. Then
- *	program the controller for this drive set up
+ *	Select the best PIO mode for the drive in question.
+ *	Then program the controller for this mode.
+ *
+ *	Returns the PIO mode programmed.
  */
  
-static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
+static u8 ali15x3_tune_pio (ide_drive_t *drive, u8 pio)
 {
 	ide_pio_data_t d;
 	ide_hwif_t *hwif = HWIF(drive);
@@ -356,81 +359,54 @@ static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
 	 * { 20,   50,     30  }    PIO Mode 5 with IORDY (nonstandard)
 	 */
 
+	return pio;
 }
 
 /**
- *	ali15x3_can_ultra	-	check for ultra DMA support
- *	@drive: drive to do the check
+ *	ali15x3_tune_drive	-	set up drive for PIO mode
+ *	@drive: drive to tune
+ *	@pio: desired mode
  *
- *	Check the drive and controller revisions. Return 0 if UDMA is
- *	not available, or 1 if UDMA can be used. The actual rules for
- *	the ALi are
+ *	Program the controller with the best PIO timing for the given drive.
+ *	Then set up the drive itself.
+ */
+
+static void ali15x3_tune_drive (ide_drive_t *drive, u8 pio)
+{
+	pio = ali15x3_tune_pio(drive, pio);
+	(void) ide_config_drive_speed(drive, XFER_PIO_0 + pio);
+}
+
+/**
+ *	ali_udma_filter		-	compute UDMA mask
+ *	@drive: IDE device
+ *
+ *	Return available UDMA modes.
+ *
+ *	The actual rules for the ALi are:
  *		No UDMA on revisions <= 0x20
  *		Disk only for revisions < 0xC2
  *		Not WDC drives for revisions < 0xC2
  *
  *	FIXME: WDC ifdef needs to die
  */
- 
-static u8 ali15x3_can_ultra (ide_drive_t *drive)
-{
-#ifndef CONFIG_WDC_ALI15X3
-	struct hd_driveid *id	= drive->id;
-#endif /* CONFIG_WDC_ALI15X3 */
 
-	if (m5229_revision <= 0x20) {
-		return 0;
-	} else if ((m5229_revision < 0xC2) &&
+static u8 ali_udma_filter(ide_drive_t *drive)
+{
+	if (m5229_revision > 0x20 && m5229_revision < 0xC2) {
+		if (drive->media != ide_disk)
+			return 0;
 #ifndef CONFIG_WDC_ALI15X3
-		   ((chip_is_1543c_e && strstr(id->model, "WDC ")) ||
-		    (drive->media!=ide_disk))) {
-#else /* CONFIG_WDC_ALI15X3 */
-		   (drive->media!=ide_disk)) {
-#endif /* CONFIG_WDC_ALI15X3 */
-		return 0;
-	} else {
-		return 1;
+		if (chip_is_1543c_e && strstr(drive->id->model, "WDC "))
+			return 0;
+#endif
 	}
+
+	return drive->hwif->ultra_mask;
 }
 
 /**
- *	ali15x3_ratemask	-	generate DMA mode list
- *	@drive: drive to compute against
- *
- *	Generate a list of the available DMA modes for the drive. 
- *	FIXME: this function contains lots of bogus masking we can dump
- *
- *	Return the highest available mode (UDMA33, UDMA66, UDMA100,..)
- */
- 
-static u8 ali15x3_ratemask (ide_drive_t *drive)
-{
-	u8 mode = 0, can_ultra	= ali15x3_can_ultra(drive);
-
-	if (m5229_revision > 0xC4 && can_ultra) {
-		mode = 4;
-	} else if (m5229_revision == 0xC4 && can_ultra) {
-		mode = 3;
-	} else if (m5229_revision >= 0xC2 && can_ultra) {
-		mode = 2;
-	} else if (can_ultra) {
-		return 1;
-	} else {
-		return 0;
-	}
-
-	/*
-	 *	If the drive sees no suitable cable then UDMA 33
-	 *	is the highest permitted mode
-	 */
-	 
-	if (!eighty_ninty_three(drive))
-		mode = min(mode, (u8)1);
-	return mode;
-}
-
-/**
- *	ali15x3_tune_chipset	-	set up chiset for new speed
+ *	ali15x3_tune_chipset	-	set up chipset/drive for new speed
  *	@drive: drive to configure for
  *	@xferspeed: desired speed
  *
@@ -442,7 +418,7 @@ static int ali15x3_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 {
 	ide_hwif_t *hwif	= HWIF(drive);
 	struct pci_dev *dev	= hwif->pci_dev;
-	u8 speed		= ide_rate_filter(ali15x3_ratemask(drive), xferspeed);
+	u8 speed		= ide_rate_filter(drive, xferspeed);
 	u8 speed1		= speed;
 	u8 unit			= (drive->select.b.unit & 0x01);
 	u8 tmpbyte		= 0x00;
@@ -461,7 +437,7 @@ static int ali15x3_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 		pci_write_config_byte(dev, m5229_udma, tmpbyte);
 
 		if (speed < XFER_SW_DMA_0)
-			ali15x3_tune_drive(drive, speed);
+			(void) ali15x3_tune_pio(drive, speed - XFER_PIO_0);
 	} else {
 		pci_read_config_byte(dev, m5229_udma, &tmpbyte);
 		tmpbyte &= (0x0f << ((1-unit) << 2));
@@ -479,82 +455,24 @@ static int ali15x3_tune_chipset (ide_drive_t *drive, u8 xferspeed)
 	return (ide_config_drive_speed(drive, speed));
 }
 
-
-/**
- *	config_chipset_for_dma	-	set up DMA mode
- *	@drive: drive to configure for
- *
- *	Place a drive into DMA mode and tune the chipset for
- *	the selected speed.
- *
- *	Returns true if DMA mode can be used
- */
- 
-static int config_chipset_for_dma (ide_drive_t *drive)
-{
-	u8 speed = ide_dma_speed(drive, ali15x3_ratemask(drive));
-
-	if (!(speed))
-		return 0;
-
-	(void) ali15x3_tune_chipset(drive, speed);
-	return ide_dma_enable(drive);
-}
-
 /**
  *	ali15x3_config_drive_for_dma	-	configure for DMA
  *	@drive: drive to configure
  *
  *	Configure a drive for DMA operation. If DMA is not possible we
  *	drop the drive into PIO mode instead.
- *
- *	FIXME: exactly what are we trying to return here
  */
- 
+
 static int ali15x3_config_drive_for_dma(ide_drive_t *drive)
 {
-	ide_hwif_t *hwif	= HWIF(drive);
-	struct hd_driveid *id	= drive->id;
-
-	if ((m5229_revision<=0x20) && (drive->media!=ide_disk))
-		return hwif->ide_dma_off_quietly(drive);
-
 	drive->init_speed = 0;
 
-	if ((id != NULL) && ((id->capability & 1) != 0) && drive->autodma) {
-		/* Consult the list of known "bad" drives */
-		if (__ide_dma_bad_drive(drive))
-			goto ata_pio;
-		if ((id->field_valid & 4) && (m5229_revision >= 0xC2)) {
-			if (id->dma_ultra & hwif->ultra_mask) {
-				/* Force if Capable UltraDMA */
-				int dma = config_chipset_for_dma(drive);
-				if ((id->field_valid & 2) && !dma)
-					goto try_dma_modes;
-			}
-		} else if (id->field_valid & 2) {
-try_dma_modes:
-			if ((id->dma_mword & hwif->mwdma_mask) ||
-			    (id->dma_1word & hwif->swdma_mask)) {
-				/* Force if Capable regular DMA modes */
-				if (!config_chipset_for_dma(drive))
-					goto no_dma_set;
-			}
-		} else if (__ide_dma_good_drive(drive) &&
-			   (id->eide_dma_time < 150)) {
-			/* Consult the list of known "good" drives */
-			if (!config_chipset_for_dma(drive))
-				goto no_dma_set;
-		} else {
-			goto ata_pio;
-		}
-	} else {
-ata_pio:
-		hwif->tuneproc(drive, 255);
-no_dma_set:
-		return hwif->ide_dma_off_quietly(drive);
-	}
-	return hwif->ide_dma_on(drive);
+	if (ide_tune_dma(drive))
+		return 0;
+
+	ali15x3_tune_drive(drive, 255);
+
+	return -1;
 }
 
 /**
@@ -592,13 +510,13 @@ static unsigned int __devinit init_chipset_ali15x3 (struct pci_dev *dev, const c
 
 	isa_dev = pci_get_device(PCI_VENDOR_ID_AL, PCI_DEVICE_ID_AL_M1533, NULL);
 
-#if defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_PROC_FS)
+#if defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_IDE_PROC_FS)
 	if (!ali_proc) {
 		ali_proc = 1;
 		bmide_dev = dev;
 		ide_pci_create_host_proc("ali", ali_get_info);
 	}
-#endif  /* defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_PROC_FS) */
+#endif  /* defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_IDE_PROC_FS) */
 
 	local_irq_save(flags);
 
@@ -754,6 +672,7 @@ static void __devinit init_hwif_common_ali15x3 (ide_hwif_t *hwif)
 	hwif->autodma = 0;
 	hwif->tuneproc = &ali15x3_tune_drive;
 	hwif->speedproc = &ali15x3_tune_chipset;
+	hwif->udma_filter = &ali_udma_filter;
 
 	/* don't use LBA48 DMA on ALi devices before rev 0xC5 */
 	hwif->no_lba48_dma = (m5229_revision <= 0xC4) ? 1 : 0;
@@ -764,10 +683,20 @@ static void __devinit init_hwif_common_ali15x3 (ide_hwif_t *hwif)
 		return;
 	}
 
-	hwif->atapi_dma = 1;
-
 	if (m5229_revision > 0x20)
-		hwif->ultra_mask = 0x7f;
+		hwif->atapi_dma = 1;
+
+	if (m5229_revision <= 0x20)
+		hwif->ultra_mask = 0x00; /* no udma */
+	else if (m5229_revision < 0xC2)
+		hwif->ultra_mask = 0x07; /* udma0-2 */
+	else if (m5229_revision == 0xC2 || m5229_revision == 0xC3)
+		hwif->ultra_mask = 0x1f; /* udma0-4 */
+	else if (m5229_revision == 0xC4)
+		hwif->ultra_mask = 0x3f; /* udma0-5 */
+	else
+		hwif->ultra_mask = 0x7f; /* udma0-6 */
+
 	hwif->mwdma_mask = 0x07;
 	hwif->swdma_mask = 0x07;
 
@@ -852,8 +781,8 @@ static void __devinit init_dma_ali15x3 (ide_hwif_t *hwif, unsigned long dmabase)
 {
 	if (m5229_revision < 0x20)
 		return;
-	if (!(hwif->channel))
-		hwif->OUTB(hwif->INB(dmabase+2) & 0x60, dmabase+2);
+	if (!hwif->channel)
+		outb(inb(dmabase + 2) & 0x60, dmabase + 2);
 	ide_setup_dma(hwif, dmabase, 8);
 }
 

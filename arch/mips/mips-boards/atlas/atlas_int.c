@@ -32,6 +32,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
+#include <linux/kernel.h>
 
 #include <asm/gdb-stub.h>
 #include <asm/io.h>
@@ -69,7 +70,7 @@ static void end_atlas_irq(unsigned int irq)
 }
 
 static struct irq_chip atlas_irq_type = {
-	.typename = "Atlas",
+	.name = "Atlas",
 	.ack = disable_atlas_irq,
 	.mask = disable_atlas_irq,
 	.mask_ack = disable_atlas_irq,
@@ -188,7 +189,7 @@ asmlinkage void plat_irq_dispatch(void)
 	if (irq == MIPSCPU_INT_ATLAS)
 		atlas_hw0_irqdispatch();
 	else if (irq >= 0)
-		do_IRQ(MIPSCPU_INT_BASE + irq);
+		do_IRQ(MIPS_CPU_IRQ_BASE + irq);
 	else
 		spurious_interrupt();
 }
@@ -220,7 +221,7 @@ msc_irqmap_t __initdata msc_irqmap[] = {
 	{MSC01C_INT_TMR,		MSC01_IRQ_EDGE, 0},
 	{MSC01C_INT_PCI,		MSC01_IRQ_LEVEL, 0},
 };
-int __initdata msc_nr_irqs = sizeof(msc_irqmap) / sizeof(*msc_irqmap);
+int __initdata msc_nr_irqs = ARRAY_SIZE(msc_irqmap);
 
 msc_irqmap_t __initdata msc_eicirqmap[] = {
 	{MSC01E_INT_SW0,		MSC01_IRQ_LEVEL, 0},
@@ -231,14 +232,14 @@ msc_irqmap_t __initdata msc_eicirqmap[] = {
 	{MSC01E_INT_PERFCTR,		MSC01_IRQ_LEVEL, 0},
 	{MSC01E_INT_CPUCTR,		MSC01_IRQ_LEVEL, 0}
 };
-int __initdata msc_nr_eicirqs = sizeof(msc_eicirqmap) / sizeof(*msc_eicirqmap);
+int __initdata msc_nr_eicirqs = ARRAY_SIZE(msc_eicirqmap);
 
 void __init arch_init_irq(void)
 {
 	init_atlas_irqs(ATLAS_INT_BASE);
 
 	if (!cpu_has_veic)
-		mips_cpu_irq_init(MIPSCPU_INT_BASE);
+		mips_cpu_irq_init();
 
 	switch(mips_revision_corid) {
 	case MIPS_REVISION_CORID_CORE_MSC:
@@ -247,13 +248,12 @@ void __init arch_init_irq(void)
 	case MIPS_REVISION_CORID_CORE_24K:
 	case MIPS_REVISION_CORID_CORE_EMUL_MSC:
 		if (cpu_has_veic)
-			init_msc_irqs (MSC01E_INT_BASE,
+			init_msc_irqs (MSC01E_INT_BASE, MSC01E_INT_BASE,
 				       msc_eicirqmap, msc_nr_eicirqs);
 		else
-			init_msc_irqs (MSC01C_INT_BASE,
+			init_msc_irqs (MSC01E_INT_BASE, MSC01C_INT_BASE,
 				       msc_irqmap, msc_nr_irqs);
 	}
-
 
 	if (cpu_has_veic) {
 		set_vi_handler (MSC01E_INT_ATLAS, atlas_hw0_irqdispatch);
@@ -261,11 +261,11 @@ void __init arch_init_irq(void)
 	} else if (cpu_has_vint) {
 		set_vi_handler (MIPSCPU_INT_ATLAS, atlas_hw0_irqdispatch);
 #ifdef CONFIG_MIPS_MT_SMTC
-		setup_irq_smtc (MIPSCPU_INT_BASE + MIPSCPU_INT_ATLAS,
+		setup_irq_smtc (MIPS_CPU_IRQ_BASE + MIPSCPU_INT_ATLAS,
 				&atlasirq, (0x100 << MIPSCPU_INT_ATLAS));
 #else /* Not SMTC */
-		setup_irq(MIPSCPU_INT_BASE + MIPSCPU_INT_ATLAS, &atlasirq);
+		setup_irq(MIPS_CPU_IRQ_BASE + MIPSCPU_INT_ATLAS, &atlasirq);
 #endif /* CONFIG_MIPS_MT_SMTC */
 	} else
-		setup_irq(MIPSCPU_INT_BASE + MIPSCPU_INT_ATLAS, &atlasirq);
+		setup_irq(MIPS_CPU_IRQ_BASE + MIPSCPU_INT_ATLAS, &atlasirq);
 }

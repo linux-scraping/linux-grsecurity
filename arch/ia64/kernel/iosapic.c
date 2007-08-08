@@ -87,7 +87,6 @@
 #include <linux/list.h>
 #include <linux/pci.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/string.h>
 #include <linux/bootmem.h>
 
@@ -929,6 +928,11 @@ iosapic_unregister_intr (unsigned int gsi)
 			/* Clear the interrupt controller descriptor */
 			idesc->chip = &no_irq_type;
 
+#ifdef CONFIG_SMP
+			/* Clear affinity */
+			cpus_setall(idesc->affinity);
+#endif
+
 			/* Clear the interrupt information */
 			memset(&iosapic_intr_info[vector], 0,
 			       sizeof(struct iosapic_intr_info));
@@ -1008,7 +1012,7 @@ iosapic_register_platform_intr (u32 int_type, unsigned int gsi,
 /*
  * ACPI calls this when it finds an entry for a legacy ISA IRQ override.
  */
-void __init
+void __devinit
 iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
 			  unsigned long polarity,
 			  unsigned long trigger)

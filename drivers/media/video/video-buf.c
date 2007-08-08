@@ -148,6 +148,8 @@ int videobuf_dma_init_user(struct videobuf_dmabuf *dma, int direction,
 	dprintk(1,"init user [0x%lx+0x%lx => %d pages]\n",
 		data,size,dma->nr_pages);
 
+	dma->varea = (void *) data;
+
 	down_read(&current->mm->mmap_sem);
 	err = get_user_pages(current,current->mm,
 			     data & PAGE_MASK, dma->nr_pages,
@@ -285,6 +287,7 @@ int videobuf_dma_free(struct videobuf_dmabuf *dma)
 
 	vfree(dma->vmalloc);
 	dma->vmalloc = NULL;
+	dma->varea = NULL;
 
 	if (dma->bus_addr) {
 		dma->bus_addr = 0;
@@ -699,9 +702,7 @@ videobuf_qbuf(struct videobuf_queue *q,
 		dprintk(1,"qbuf: memory type is wrong.\n");
 		goto done;
 	}
-	if (buf->state == STATE_QUEUED ||
-	    buf->state == STATE_PREPARED ||
-	    buf->state == STATE_ACTIVE) {
+	if (buf->state != STATE_NEEDS_INIT && buf->state != STATE_IDLE) {
 		dprintk(1,"qbuf: buffer is already queued or active.\n");
 		goto done;
 	}

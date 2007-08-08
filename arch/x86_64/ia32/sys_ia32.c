@@ -523,72 +523,6 @@ sys32_sysfs(int option, u32 arg1, u32 arg2)
 	return sys_sysfs(option, arg1, arg2);
 }
 
-struct sysinfo32 {
-        s32 uptime;
-        u32 loads[3];
-        u32 totalram;
-        u32 freeram;
-        u32 sharedram;
-        u32 bufferram;
-        u32 totalswap;
-        u32 freeswap;
-        unsigned short procs;
-	unsigned short pad; 
-        u32 totalhigh;
-        u32 freehigh;
-        u32 mem_unit;
-        char _f[20-2*sizeof(u32)-sizeof(int)];
-};
-
-asmlinkage long
-sys32_sysinfo(struct sysinfo32 __user *info)
-{
-	struct sysinfo s;
-	int ret;
-	mm_segment_t old_fs = get_fs ();
-	int bitcount = 0;
-	
-	set_fs (KERNEL_DS);
-	ret = sys_sysinfo((struct sysinfo __user *)&s);
-	set_fs (old_fs);
-
-        /* Check to see if any memory value is too large for 32-bit and scale
-	 *  down if needed
-	 */
-	if ((s.totalram >> 32) || (s.totalswap >> 32)) {
-		while (s.mem_unit < PAGE_SIZE) {
-			s.mem_unit <<= 1;
-			bitcount++;
-		}
-		s.totalram >>= bitcount;
-		s.freeram >>= bitcount;
-		s.sharedram >>= bitcount;
-		s.bufferram >>= bitcount;
-		s.totalswap >>= bitcount;
-		s.freeswap >>= bitcount;
-		s.totalhigh >>= bitcount;
-		s.freehigh >>= bitcount;
-	}
-
-	if (!access_ok(VERIFY_WRITE, info, sizeof(struct sysinfo32)) ||
-	    __put_user (s.uptime, &info->uptime) ||
-	    __put_user (s.loads[0], &info->loads[0]) ||
-	    __put_user (s.loads[1], &info->loads[1]) ||
-	    __put_user (s.loads[2], &info->loads[2]) ||
-	    __put_user (s.totalram, &info->totalram) ||
-	    __put_user (s.freeram, &info->freeram) ||
-	    __put_user (s.sharedram, &info->sharedram) ||
-	    __put_user (s.bufferram, &info->bufferram) ||
-	    __put_user (s.totalswap, &info->totalswap) ||
-	    __put_user (s.freeswap, &info->freeswap) ||
-	    __put_user (s.procs, &info->procs) ||
-	    __put_user (s.totalhigh, &info->totalhigh) || 
-	    __put_user (s.freehigh, &info->freehigh) ||
-	    __put_user (s.mem_unit, &info->mem_unit))
-		return -EFAULT;
-	return 0;
-}
-                
 asmlinkage long
 sys32_sched_rr_get_interval(compat_pid_t pid, struct compat_timespec __user *interval)
 {
@@ -926,3 +860,22 @@ long sys32_lookup_dcookie(u32 addr_low, u32 addr_high,
 	return sys_lookup_dcookie(((u64)addr_high << 32) | addr_low, buf, len);
 }
 
+asmlinkage ssize_t sys32_readahead(int fd, unsigned off_lo, unsigned off_hi, size_t count)
+{
+	return sys_readahead(fd, ((u64)off_hi << 32) | off_lo, count);
+}
+
+asmlinkage long sys32_sync_file_range(int fd, unsigned off_low, unsigned off_hi,
+			   unsigned n_low, unsigned n_hi,  int flags)
+{
+	return sys_sync_file_range(fd,
+				   ((u64)off_hi << 32) | off_low,
+				   ((u64)n_hi << 32) | n_low, flags);
+}
+
+asmlinkage long sys32_fadvise64(int fd, unsigned offset_lo, unsigned offset_hi, size_t len,
+		     int advice)
+{
+	return sys_fadvise64_64(fd, ((u64)offset_hi << 32) | offset_lo,
+				len, advice);
+}

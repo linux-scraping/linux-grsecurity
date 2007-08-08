@@ -130,7 +130,7 @@ voyager_memory_detect(int region, __u32 *start, __u32 *length)
 	__u8 cmos[4];
 	ClickMap_t *map;
 	unsigned long map_addr;
-	unsigned long old;
+	pte_t old;
 
 	if(region >= CLICK_ENTRIES) {
 		printk("Voyager: Illegal ClickMap region %d\n", region);
@@ -144,7 +144,7 @@ voyager_memory_detect(int region, __u32 *start, __u32 *length)
 
 	/* steal page 0 for this */
 	old = pg0[0];
-	pg0[0] = ((map_addr & PAGE_MASK) | _PAGE_RW | _PAGE_PRESENT);
+	pg0[0] = __pte((map_addr & PAGE_MASK) | _PAGE_RW | _PAGE_PRESENT);
 	local_flush_tlb();
 	/* now clear everything out but page 0 */
 	map = (ClickMap_t *)(map_addr & (~PAGE_MASK));
@@ -292,8 +292,8 @@ machine_emergency_restart(void)
 void
 mca_nmi_hook(void)
 {
-	__u8 dumpval __attribute__((unused)) = inb(0xf823);
-	__u8 swnmi __attribute__((unused)) = inb(0xf813);
+	__u8 dumpval __maybe_unused = inb(0xf823);
+	__u8 swnmi __maybe_unused = inb(0xf813);
 
 	/* FIXME: assume dump switch pressed */
 	/* check to see if the dump switch was pressed */

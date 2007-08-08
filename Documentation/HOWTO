@@ -30,6 +30,7 @@ are not a good substitute for a solid C education and/or years of
 experience, the following books are good for, if anything, reference:
  - "The C Programming Language" by Kernighan and Ritchie [Prentice Hall]
  - "Practical C Programming" by Steve Oualline [O'Reilly]
+ - "C:  A Reference Manual" by Harbison and Steele [Prentice Hall]
 
 The kernel is written using GNU C and the GNU toolchain.  While it
 adheres to the ISO C89 standard, it uses a number of extensions that are
@@ -321,45 +322,43 @@ kernel releases as described above.
 Here is a list of some of the different kernel trees available:
   git trees:
     - Kbuild development tree, Sam Ravnborg <sam@ravnborg.org>
-	kernel.org:/pub/scm/linux/kernel/git/sam/kbuild.git
+	git.kernel.org:/pub/scm/linux/kernel/git/sam/kbuild.git
 
     - ACPI development tree, Len Brown <len.brown@intel.com>
-	kernel.org:/pub/scm/linux/kernel/git/lenb/linux-acpi-2.6.git
+	git.kernel.org:/pub/scm/linux/kernel/git/lenb/linux-acpi-2.6.git
 
     - Block development tree, Jens Axboe <axboe@suse.de>
-	kernel.org:/pub/scm/linux/kernel/git/axboe/linux-2.6-block.git
+	git.kernel.org:/pub/scm/linux/kernel/git/axboe/linux-2.6-block.git
 
     - DRM development tree, Dave Airlie <airlied@linux.ie>
-	kernel.org:/pub/scm/linux/kernel/git/airlied/drm-2.6.git
+	git.kernel.org:/pub/scm/linux/kernel/git/airlied/drm-2.6.git
 
     - ia64 development tree, Tony Luck <tony.luck@intel.com>
-	kernel.org:/pub/scm/linux/kernel/git/aegl/linux-2.6.git
-
-    - ieee1394 development tree, Jody McIntyre <scjody@modernduck.com>
-	kernel.org:/pub/scm/linux/kernel/git/scjody/ieee1394.git
+	git.kernel.org:/pub/scm/linux/kernel/git/aegl/linux-2.6.git
 
     - infiniband, Roland Dreier <rolandd@cisco.com>
-	kernel.org:/pub/scm/linux/kernel/git/roland/infiniband.git
+	git.kernel.org:/pub/scm/linux/kernel/git/roland/infiniband.git
 
     - libata, Jeff Garzik <jgarzik@pobox.com>
-	kernel.org:/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
+	git.kernel.org:/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
 
     - network drivers, Jeff Garzik <jgarzik@pobox.com>
-	kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+	git.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
     - pcmcia, Dominik Brodowski <linux@dominikbrodowski.net>
-	kernel.org:/pub/scm/linux/kernel/git/brodo/pcmcia-2.6.git
+	git.kernel.org:/pub/scm/linux/kernel/git/brodo/pcmcia-2.6.git
 
     - SCSI, James Bottomley <James.Bottomley@SteelEye.com>
-	kernel.org:/pub/scm/linux/kernel/git/jejb/scsi-misc-2.6.git
-
-  Other git kernel trees can be found listed at http://kernel.org/git
+	git.kernel.org:/pub/scm/linux/kernel/git/jejb/scsi-misc-2.6.git
 
   quilt trees:
     - USB, PCI, Driver Core, and I2C, Greg Kroah-Hartman <gregkh@suse.de>
 	kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/
     - x86-64, partly i386, Andi Kleen <ak@suse.de>
         ftp.firstfloor.org:/pub/ak/x86_64/quilt/
+
+  Other kernel trees can be found listed at http://git.kernel.org/ and in
+  the MAINTAINERS file.
 
 Bug Reporting
 -------------
@@ -383,26 +382,6 @@ bugs reported by other people. Not only you will help to make the kernel
 more stable, you'll learn to fix real world problems and you will improve
 your skills, and other developers will be aware of your presence. Fixing
 bugs is one of the best ways to earn merit amongst the developers, because
-not many people like wasting time fixing other people's bugs.
-
-To work in the already reported bug reports, go to http://bugzilla.kernel.org.
-If you want to be advised of the future bug reports, you can subscribe to the
-bugme-new mailing list (only new bug reports are mailed here) or to the
-bugme-janitor mailing list (every change in the bugzilla is mailed here)
-
-	http://lists.osdl.org/mailman/listinfo/bugme-new
-	http://lists.osdl.org/mailman/listinfo/bugme-janitors
-
-
-
-Managing bug reports
---------------------
-
-One of the best ways to put into practice your hacking skills is by fixing
-bugs reported by other people. Not only you will help to make the kernel
-more stable, you'll learn to fix real world problems and you will improve
-your skills, and other developers will be aware of your presence. Fixing
-bugs is one of the best ways to get merits among other developers, because
 not many people like wasting time fixing other people's bugs.
 
 To work in the already reported bug reports, go to http://bugzilla.kernel.org.

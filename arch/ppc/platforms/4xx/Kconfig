@@ -29,6 +29,7 @@ config CPCI405
 
 config EP405
 	bool "EP405/EP405PC"
+	select EMBEDDEDBOOT
 	help
 	  This option enables support for the EP405/EP405PC boards.
 
@@ -54,11 +55,15 @@ config WALNUT
 
 config XILINX_ML300
 	bool "Xilinx-ML300"
+	select XILINX_VIRTEX_II_PRO
+	select EMBEDDEDBOOT
 	help
 	  This option enables support for the Xilinx ML300 evaluation board.
 
 config XILINX_ML403
 	bool "Xilinx-ML403"
+	select XILINX_VIRTEX_4_FX
+	select EMBEDDEDBOOT
 	help
 	  This option enables support for the Xilinx ML403 evaluation board.
 endchoice
@@ -98,6 +103,12 @@ config OCOTEA
 	help
 	  This option enables support for the IBM PPC440GX evaluation board.
 
+config TAISHAN
+	bool "Taishan"
+	select WANT_EARLY_SERIAL
+	help
+	  This option enables support for the AMCC PPC440GX evaluation board.
+
 endchoice
 
 config EP405PC
@@ -126,7 +137,7 @@ config 440GP
 
 config 440GX
 	bool
-	depends on OCOTEA
+	depends on OCOTEA || TAISHAN
 	default y
 
 config 440SP
@@ -173,7 +184,7 @@ config BOOKE
 
 config IBM_OCP
 	bool
-	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || REDWOOD_5 || REDWOOD_6 || SYCAMORE || WALNUT
+	depends on ASH || BAMBOO || BUBINGA || CPCI405 || EBONY || EP405 || LUAN || YUCCA || OCOTEA || REDWOOD_5 || REDWOOD_6 || SYCAMORE || TAISHAN || WALNUT
 	default y
 
 config IBM_EMAC4
@@ -209,18 +220,14 @@ config 405GPR
 
 config XILINX_VIRTEX_II_PRO
 	bool
-	depends on XILINX_ML300
-	default y
+	select XILINX_VIRTEX
 
 config XILINX_VIRTEX_4_FX
 	bool
-	depends on XILINX_ML403
-	default y
+	select XILINX_VIRTEX
 
 config XILINX_VIRTEX
 	bool
-	depends on XILINX_VIRTEX_II_PRO || XILINX_VIRTEX_4_FX
-	default y
 
 config STB03xxx
 	bool
@@ -229,8 +236,6 @@ config STB03xxx
 
 config EMBEDDEDBOOT
 	bool
-	depends on EP405 || XILINX_ML300 || XILINX_ML403
-	default y
 
 config IBM_OPENBIOS
 	bool

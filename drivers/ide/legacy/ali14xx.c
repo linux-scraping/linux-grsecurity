@@ -37,8 +37,6 @@
  * mode 4 for a while now with no trouble.)  -Derek
  */
 
-#undef REALLY_SLOW_IO           /* most systems can safely undef this */
-
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -225,14 +223,23 @@ static int __init ali14xx_probe(void)
 	probe_hwif_init(hwif);
 	probe_hwif_init(mate);
 
-	create_proc_ide_interfaces();
+	ide_proc_register_port(hwif);
+	ide_proc_register_port(mate);
 
 	return 0;
 }
 
+int probe_ali14xx = 0;
+
+module_param_named(probe, probe_ali14xx, bool, 0);
+MODULE_PARM_DESC(probe, "probe for ALI M14xx chipsets");
+
 /* Can be called directly from ide.c. */
 int __init ali14xx_init(void)
 {
+	if (probe_ali14xx == 0)
+		goto out;
+
 	/* auto-detect IDE controller port */
 	if (findPort()) {
 		if (ali14xx_probe())
@@ -240,6 +247,7 @@ int __init ali14xx_init(void)
 		return 0;
 	}
 	printk(KERN_ERR "ali14xx: not found.\n");
+out:
 	return -ENODEV;
 }
 

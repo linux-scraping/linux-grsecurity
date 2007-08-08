@@ -1,14 +1,10 @@
-/* netfilter.c: look after the filters for various protocols. 
+/* netfilter.c: look after the filters for various protocols.
  * Heavily influenced by the old firewall.c by David Bonn and Alan Cox.
  *
  * Thanks to Rob `CmdrTaco' Malda for not influencing this code in any
  * way.
  *
  * Rusty Russell (C)2000 -- This code is GPL.
- *
- * February 2000: Modified by James Morris to have 1 queue per protocol.
- * 15-Mar-2000:   Added NF_REPEAT --RR.
- * 08-May-2003:	  Internal logging interface added by Jozsef Kadlecsik.
  */
 #include <linux/kernel.h>
 #include <linux/netfilter.h>
@@ -22,29 +18,34 @@
 #include <linux/netdevice.h>
 #include <linux/inetdevice.h>
 #include <linux/proc_fs.h>
+#include <linux/mutex.h>
 #include <net/sock.h>
 
 #include "nf_internals.h"
 
-static DEFINE_SPINLOCK(afinfo_lock);
+static DEFINE_MUTEX(afinfo_mutex);
 
 struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
 EXPORT_SYMBOL(nf_afinfo);
 
 int nf_register_afinfo(struct nf_afinfo *afinfo)
 {
-	spin_lock(&afinfo_lock);
+	int err;
+
+	err = mutex_lock_interruptible(&afinfo_mutex);
+	if (err < 0)
+		return err;
 	rcu_assign_pointer(nf_afinfo[afinfo->family], afinfo);
-	spin_unlock(&afinfo_lock);
+	mutex_unlock(&afinfo_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(nf_register_afinfo);
 
 void nf_unregister_afinfo(struct nf_afinfo *afinfo)
 {
-	spin_lock(&afinfo_lock);
+	mutex_lock(&afinfo_mutex);
 	rcu_assign_pointer(nf_afinfo[afinfo->family], NULL);
-	spin_unlock(&afinfo_lock);
+	mutex_unlock(&afinfo_mutex);
 	synchronize_rcu();
 }
 EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
@@ -56,30 +57,31 @@ EXPORT_SYMBOL_GPL(nf_unregister_afinfo);
  * packets come back: if the hook is gone, the packet is discarded. */
 struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS] __read_mostly;
 EXPORT_SYMBOL(nf_hooks);
-static DEFINE_SPINLOCK(nf_hook_lock);
+static DEFINE_MUTEX(nf_hook_mutex);
 
 int nf_register_hook(struct nf_hook_ops *reg)
 {
 	struct list_head *i;
+	int err;
 
-	spin_lock_bh(&nf_hook_lock);
+	err = mutex_lock_interruptible(&nf_hook_mutex);
+	if (err < 0)
+		return err;
 	list_for_each(i, &nf_hooks[reg->pf][reg->hooknum]) {
 		if (reg->priority < ((struct nf_hook_ops *)i)->priority)
 			break;
 	}
 	list_add_rcu(&reg->list, i->prev);
-	spin_unlock_bh(&nf_hook_lock);
-
-	synchronize_net();
+	mutex_unlock(&nf_hook_mutex);
 	return 0;
 }
 EXPORT_SYMBOL(nf_register_hook);
 
 void nf_unregister_hook(struct nf_hook_ops *reg)
 {
-	spin_lock_bh(&nf_hook_lock);
+	mutex_lock(&nf_hook_mutex);
 	list_del_rcu(&reg->list);
-	spin_unlock_bh(&nf_hook_lock);
+	mutex_unlock(&nf_hook_mutex);
 
 	synchronize_net();
 }
@@ -135,14 +137,14 @@ unsigned int nf_iterate(struct list_head *head,
 			continue;
 
 		/* Optimization: we don't need to hold module
-                   reference here, since function can't sleep. --RR */
+		   reference here, since function can't sleep. --RR */
 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
 		if (verdict != NF_ACCEPT) {
 #ifdef CONFIG_NETFILTER_DEBUG
 			if (unlikely((verdict & NF_VERDICT_MASK)
 							> NF_MAX_VERDICT)) {
 				NFDEBUG("Evil return from %p(%u).\n",
-				        elem->hook, hook);
+					elem->hook, hook);
 				continue;
 			}
 #endif
@@ -238,6 +240,7 @@ void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
 }
 EXPORT_SYMBOL(nf_proto_csum_replace4);
 
+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 /* This does not belong here, but locally generated errors need it if connection
    tracking in use: without this, connection may not be in hash table, and hence
    manufactured ICMP or RST packets will not be associated with it. */
@@ -248,12 +251,31 @@ void nf_ct_attach(struct sk_buff *new, struct sk_buff *skb)
 {
 	void (*attach)(struct sk_buff *, struct sk_buff *);
 
-	if (skb->nfct && (attach = ip_ct_attach) != NULL) {
-		mb(); /* Just to be sure: must be read before executing this */
-		attach(new, skb);
+	if (skb->nfct) {
+		rcu_read_lock();
+		attach = rcu_dereference(ip_ct_attach);
+		if (attach)
+			attach(new, skb);
+		rcu_read_unlock();
 	}
 }
 EXPORT_SYMBOL(nf_ct_attach);
+
+void (*nf_ct_destroy)(struct nf_conntrack *);
+EXPORT_SYMBOL(nf_ct_destroy);
+
+void nf_conntrack_destroy(struct nf_conntrack *nfct)
+{
+	void (*destroy)(struct nf_conntrack *);
+
+	rcu_read_lock();
+	destroy = rcu_dereference(nf_ct_destroy);
+	BUG_ON(destroy == NULL);
+	destroy(nfct);
+	rcu_read_unlock();
+}
+EXPORT_SYMBOL(nf_conntrack_destroy);
+#endif /* CONFIG_NF_CONNTRACK */
 
 #ifdef CONFIG_PROC_FS
 struct proc_dir_entry *proc_net_netfilter;

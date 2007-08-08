@@ -19,7 +19,6 @@
 #include <linux/mman.h>
 #include <linux/utsname.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/syscalls.h>
 #include <linux/ipc.h>
@@ -125,7 +124,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 		/* We do not accept a shared mapping if it would violate
 		 * cache aliasing constraints.
 		 */
-		if ((flags & MAP_SHARED) &&
+		if ((filp || (flags & MAP_SHARED)) &&
 		    ((addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1)))
 			return -EINVAL;
 		return addr;
@@ -220,7 +219,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		/* We do not accept a shared mapping if it would violate
 		 * cache aliasing constraints.
 		 */
-		if ((flags & MAP_SHARED) &&
+		if ((filp || (flags & MAP_SHARED)) &&
 		    ((addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1)))
 			return -EINVAL;
 		return addr;

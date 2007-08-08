@@ -21,9 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
 #include <asm/mips-boards/simint.h>
-
-
-extern void mips_cpu_irq_init(int);
+#include <asm/irq_cpu.h>
 
 static inline int clz(unsigned long x)
 {
@@ -79,12 +77,12 @@ asmlinkage void plat_irq_dispatch(void)
 	irq = irq_ffs(pending);
 
 	if (irq > 0)
-		do_IRQ(MIPSCPU_INT_BASE + irq);
+		do_IRQ(MIPS_CPU_IRQ_BASE + irq);
 	else
 		spurious_interrupt();
 }
 
 void __init arch_init_irq(void)
 {
-	mips_cpu_irq_init(MIPSCPU_INT_BASE);
+	mips_cpu_irq_init();
 }

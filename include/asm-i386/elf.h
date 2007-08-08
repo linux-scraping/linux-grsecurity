@@ -9,8 +9,6 @@
 #include <asm/user.h>
 #include <asm/auxvec.h>
 
-#include <linux/utsname.h>
-
 #define R_386_NONE	0
 #define R_386_32	1
 #define R_386_PC32	2
@@ -82,14 +80,10 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
 #endif
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	0x10000000UL
+#define PAX_ELF_ET_DYN_BASE	0x10000000UL
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		((tsk)->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		15
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	((tsk)->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
+#define PAX_DELTA_MMAP_LEN	(current->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
+#define PAX_DELTA_STACK_LEN	(current->mm->pax_flags & MF_PAX_SEGMEXEC ? 15 : 16)
 #endif
 
 /* regs is struct pt_regs, pr_reg is elf_gregset_t (which is
@@ -103,16 +97,16 @@ typedef struct user_fxsr_struct elf_fpxregset_t;
 	pr_reg[4] = regs->edi;				\
 	pr_reg[5] = regs->ebp;				\
 	pr_reg[6] = regs->eax;				\
-	pr_reg[7] = regs->xds;				\
-	pr_reg[8] = regs->xes;				\
-	savesegment(fs,pr_reg[9]);			\
-	pr_reg[10] = regs->xgs;				\
+	pr_reg[7] = regs->xds & 0xffff;			\
+	pr_reg[8] = regs->xes & 0xffff;			\
+	pr_reg[9] = regs->xfs & 0xffff;			\
+	savesegment(gs,pr_reg[10]);			\
 	pr_reg[11] = regs->orig_eax;			\
 	pr_reg[12] = regs->eip;				\
-	pr_reg[13] = regs->xcs;				\
+	pr_reg[13] = regs->xcs & 0xffff;		\
 	pr_reg[14] = regs->eflags;			\
 	pr_reg[15] = regs->esp;				\
-	pr_reg[16] = regs->xss;
+	pr_reg[16] = regs->xss & 0xffff;
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this CPU supports.  This could be done in user space,
@@ -148,39 +142,31 @@ extern int dump_task_extended_fpu (struct task_struct *, struct user_fxsr_struct
 #define ELF_CORE_COPY_XFPREGS(tsk, elf_xfpregs) dump_task_extended_fpu(tsk, elf_xfpregs)
 
 #define VDSO_HIGH_BASE		(__fix_to_virt(FIX_VDSO))
-#define VDSO_BASE		(current->mm->context.vdso)
-
-#ifdef CONFIG_COMPAT_VDSO
-# define VDSO_COMPAT_BASE	VDSO_HIGH_BASE
-# define VDSO_PRELINK		VDSO_HIGH_BASE
-#else
-# define VDSO_COMPAT_BASE	VDSO_BASE
-# define VDSO_PRELINK		0
-#endif
+#define VDSO_CURRENT_BASE	(current->mm->context.vdso)
+#define VDSO_PRELINK		0
 
 #define VDSO_SYM(x) \
-		(VDSO_COMPAT_BASE + (unsigned long)(x) - VDSO_PRELINK)
+		(VDSO_CURRENT_BASE + (unsigned long)(x) - VDSO_PRELINK)
 
 #define VDSO_HIGH_EHDR		((const struct elfhdr *) VDSO_HIGH_BASE)
-#define VDSO_EHDR		((const struct elfhdr *) VDSO_COMPAT_BASE)
+#define VDSO_EHDR		((const struct elfhdr *) VDSO_CURRENT_BASE)
 
 extern void __kernel_vsyscall;
 
 #define VDSO_ENTRY		VDSO_SYM(&__kernel_vsyscall)
 
-#ifndef CONFIG_COMPAT_VDSO
-#define ARCH_HAS_SETUP_ADDITIONAL_PAGES
 struct linux_binprm;
+
+#define ARCH_HAS_SETUP_ADDITIONAL_PAGES
 extern int arch_setup_additional_pages(struct linux_binprm *bprm,
                                        int executable_stack);
-#endif
 
 extern unsigned int vdso_enabled;
 
-#define ARCH_DLINFO						\
-do if (vdso_enabled) {						\
-		NEW_AUX_ENT(AT_SYSINFO,	VDSO_ENTRY);		\
-		NEW_AUX_ENT(AT_SYSINFO_EHDR, VDSO_COMPAT_BASE);	\
+#define ARCH_DLINFO							\
+do if (vdso_enabled) {							\
+		NEW_AUX_ENT(AT_SYSINFO,	VDSO_ENTRY);			\
+		NEW_AUX_ENT(AT_SYSINFO_EHDR, VDSO_CURRENT_BASE);	\
 } while (0)
 
 #endif

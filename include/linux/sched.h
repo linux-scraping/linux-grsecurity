@@ -88,6 +88,7 @@ struct sched_param {
 
 struct exec_domain;
 struct futex_pi_state;
+struct bio;
 struct linux_binprm;
 
 /*
@@ -195,15 +196,23 @@ extern void sched_init_smp(void);
 extern void init_idle(struct task_struct *idle, int cpu);
 
 extern cpumask_t nohz_cpu_mask;
+#if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ)
+extern int select_nohz_load_balancer(int cpu);
+#else
+static inline int select_nohz_load_balancer(int cpu)
+{
+	return 0;
+}
+#endif
 
 /*
- * Only dump TASK_* tasks. (-1 for all tasks)
+ * Only dump TASK_* tasks. (0 for all tasks)
  */
 extern void show_state_filter(unsigned long state_filter);
 
 static inline void show_state(void)
 {
-	show_state_filter(-1);
+	show_state_filter(0);
 }
 
 extern void show_regs(struct pt_regs *);
@@ -227,6 +236,7 @@ extern void scheduler_tick(void);
 extern void softlockup_tick(void);
 extern void spawn_softlockup_task(void);
 extern void touch_softlockup_watchdog(void);
+extern void touch_all_softlockup_watchdogs(void);
 #else
 static inline void softlockup_tick(void)
 {
@@ -235,6 +245,9 @@ static inline void spawn_softlockup_task(void)
 {
 }
 static inline void touch_softlockup_watchdog(void)
+{
+}
+static inline void touch_all_softlockup_watchdogs(void)
 {
 }
 #endif
@@ -375,7 +388,7 @@ struct mm_struct {
 	rwlock_t		ioctx_list_lock;
 	struct kioctx		*ioctx_list;
 
-#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	unsigned long pax_flags;
 #endif
 
@@ -389,23 +402,16 @@ struct mm_struct {
 
 #ifdef CONFIG_PAX_ASLR
 	unsigned long delta_mmap;		/* randomized offset */
-	unsigned long delta_exec;		/* randomized offset */
 	unsigned long delta_stack;		/* randomized offset */
 #endif
 
 };
 
-#define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
-#define MF_PAX_EMUTRAMP		0x02000000	/* Emulate trampolines */
-#define MF_PAX_MPROTECT		0x04000000	/* Restrict mprotect() */
-#define MF_PAX_RANDMMAP		0x08000000	/* Randomize mmap() base */
-/*#define MF_PAX_RANDEXEC		0x10000000*/	/* Randomize ET_EXEC base */
-#define MF_PAX_SEGMEXEC		0x20000000	/* Segmentation based non-executable pages */
-
 struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		siglock;
+	struct list_head        signalfd_list;
 };
 
 struct pacct_struct {
@@ -463,7 +469,7 @@ struct signal_struct {
 
 	/* job control IDs */
 	pid_t pgrp;
-	pid_t tty_old_pgrp;
+	struct pid *tty_old_pgrp;
 
 	union {
 		pid_t session __deprecated;
@@ -484,6 +490,7 @@ struct signal_struct {
 	cputime_t utime, stime, cutime, cstime;
 	unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
 	unsigned long min_flt, maj_flt, cmin_flt, cmaj_flt;
+	unsigned long inblock, oublock, cinblock, coublock;
 
 	/*
 	 * Cumulative ns of scheduled CPU time for dead threads in the
@@ -704,8 +711,14 @@ struct sched_group {
 	/*
 	 * CPU power of this group, SCHED_LOAD_SCALE being max power for a
 	 * single CPU. This is read only (except for setup, hotplug CPU).
+	 * Note : Never change cpu_power without recompute its reciprocal
 	 */
-	unsigned long cpu_power;
+	unsigned int __cpu_power;
+	/*
+	 * reciprocal value of cpu_power to avoid expensive divides
+	 * (see include/linux/reciprocal_div.h)
+	 */
+	u32 reciprocal_cpu_power;
 };
 
 struct sched_domain {
@@ -720,7 +733,6 @@ struct sched_domain {
 	unsigned int imbalance_pct;	/* No balance until over watermark */
 	unsigned long long cache_hot_time; /* Task considered cache hot (ns) */
 	unsigned int cache_nice_tries;	/* Leave cache hot tasks for # tries */
-	unsigned int per_cpu_gain;	/* CPU % gained by adding domain cpus */
 	unsigned int busy_idx;
 	unsigned int idle_idx;
 	unsigned int newidle_idx;
@@ -836,10 +848,10 @@ struct prio_array;
 
 struct task_struct {
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	struct thread_info *thread_info;
+	void *stack;
 	atomic_t usage;
-	unsigned long flags;	/* per process flags, defined below */
-	unsigned long ptrace;
+	unsigned int flags;	/* per process flags, defined below */
+	unsigned int ptrace;
 
 	int lock_depth;		/* BKL lock depth */
 
@@ -862,7 +874,7 @@ struct task_struct {
 	unsigned long long sched_time; /* sched_clock time spent running */
 	enum sleep_type sleep_type;
 
-	unsigned long policy;
+	unsigned int policy;
 	cpumask_t cpus_allowed;
 	unsigned int time_slice, first_time_slice;
 
@@ -882,11 +894,11 @@ struct task_struct {
 
 /* task state */
 	struct linux_binfmt *binfmt;
-	long exit_state;
+	int exit_state;
 	int exit_code, exit_signal;
 	int pdeath_signal;  /*  The signal sent when the parent dies  */
 	/* ??? */
-	unsigned long personality;
+	unsigned int personality;
 	unsigned did_exec:1;
 	pid_t pid;
 	pid_t tgid;
@@ -915,10 +927,10 @@ struct task_struct {
 	struct list_head thread_group;
 
 	struct completion *vfork_done;		/* for vfork() */
-	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
-	int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
+	pid_t __user *set_child_tid;		/* CLONE_CHILD_SETTID */
+	pid_t __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
 
-	unsigned long rt_priority;
+	unsigned int rt_priority;
 	cputime_t utime, stime;
 	unsigned long nvcsw, nivcsw; /* context switch counts */
 	struct timespec start_time;
@@ -1033,6 +1045,9 @@ struct task_struct {
 /* journalling filesystem info */
 	void *journal_info;
 
+/* stacked block device info */
+	struct bio *bio_list, **bio_tail;
+
 /* VM state */
 	struct reclaim_state *reclaim_state;
 
@@ -1049,8 +1064,10 @@ struct task_struct {
  * to a stack based synchronous wait) if its doing sync IO.
  */
 	wait_queue_t *io_wait;
+#ifdef CONFIG_TASK_XACCT
 /* i/o counters(bytes read/written, #syscalls */
 	u64 rchar, wchar, syscr, syscw;
+#endif
 	struct task_io_accounting ioac;
 #if defined(CONFIG_TASK_XACCT)
 	u64 acct_rss_mem1;	/* accumulated rss usage */
@@ -1099,6 +1116,46 @@ struct task_struct {
 	int make_it_fail;
 #endif
 };
+
+#define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
+#define MF_PAX_EMUTRAMP		0x02000000	/* Emulate trampolines */
+#define MF_PAX_MPROTECT		0x04000000	/* Restrict mprotect() */
+#define MF_PAX_RANDMMAP		0x08000000	/* Randomize mmap() base */
+/*#define MF_PAX_RANDEXEC		0x10000000*/	/* Randomize ET_EXEC base */
+#define MF_PAX_SEGMEXEC		0x20000000	/* Segmentation based non-executable pages */
+
+#ifdef CONFIG_PAX_SOFTMODE
+extern unsigned int pax_softmode;
+#endif
+
+extern int pax_check_flags(unsigned long *);
+
+/* if tsk != current then task_lock must be held on it */
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+static inline unsigned long pax_get_flags(struct task_struct *tsk)
+{
+	if (likely(tsk->mm))
+		return tsk->mm->pax_flags;
+	else
+		return 0UL;
+}
+
+/* if tsk != current then task_lock must be held on it */
+static inline long pax_set_flags(struct task_struct *tsk, unsigned long flags)
+{
+	if (likely(tsk->mm)) {
+		tsk->mm->pax_flags = flags;
+		return 0;
+	}
+	return -EINVAL;
+}
+#endif
+
+#ifdef CONFIG_PAX_HAVE_ACL_FLAGS
+extern void pax_set_initial_flags(struct linux_binprm *bprm);
+#elif defined(CONFIG_PAX_HOOK_ACL_FLAGS)
+extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
+#endif
 
 static inline pid_t process_group(struct task_struct *tsk)
 {
@@ -1184,6 +1241,7 @@ static inline void put_task_struct(struct task_struct *t)
 					/* Not implemented yet, only for 486*/
 #define PF_STARTING	0x00000002	/* being created */
 #define PF_EXITING	0x00000004	/* getting shut down */
+#define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
 #define PF_FORKNOEXEC	0x00000040	/* forked but didn't exec */
 #define PF_SUPERPRIV	0x00000100	/* used super-user privileges */
 #define PF_DUMPCORE	0x00000200	/* dumped core */
@@ -1204,6 +1262,7 @@ static inline void put_task_struct(struct task_struct *t)
 #define PF_SPREAD_SLAB	0x02000000	/* Spread some slab caches over cpuset */
 #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
 #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
+#define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezeable */
 
 /*
  * Only the _current_ task can read/write to tsk->flags, but other
@@ -1345,6 +1404,7 @@ extern int in_egroup_p(gid_t);
 
 extern void proc_caches_init(void);
 extern void flush_signals(struct task_struct *);
+extern void ignore_signals(struct task_struct *);
 extern void flush_signal_handlers(struct task_struct *, int force_default);
 extern int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info);
 
@@ -1374,14 +1434,12 @@ extern int kill_pid_info(int sig, struct siginfo *info, struct pid *pid);
 extern int kill_pid_info_as_uid(int, struct siginfo *, struct pid *, uid_t, uid_t, u32);
 extern int kill_pgrp(struct pid *pid, int sig, int priv);
 extern int kill_pid(struct pid *pid, int sig, int priv);
-extern int __kill_pg_info(int sig, struct siginfo *info, pid_t pgrp);
-extern int kill_pg_info(int, struct siginfo *, pid_t);
+extern int kill_proc_info(int, struct siginfo *, pid_t);
 extern void do_notify_parent(struct task_struct *, int);
 extern void force_sig(int, struct task_struct *);
 extern void force_sig_specific(int, struct task_struct *);
 extern int send_sig(int, struct task_struct *, int);
 extern void zap_other_threads(struct task_struct *p);
-extern int kill_pg(pid_t, int, int);
 extern int kill_proc(pid_t, int, int);
 extern struct sigqueue *sigqueue_alloc(void);
 extern void sigqueue_free(struct sigqueue *);
@@ -1542,8 +1600,8 @@ static inline void unlock_task_sighand(struct task_struct *tsk,
 
 #ifndef __HAVE_THREAD_FUNCTIONS
 
-#define task_thread_info(task) (task)->thread_info
-#define task_stack_page(task) ((void*)((task)->thread_info))
+#define task_thread_info(task)	((struct thread_info *)(task)->stack)
+#define task_stack_page(task)	((task)->stack)
 
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
 {
@@ -1553,7 +1611,7 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
 
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
-	return (unsigned long *)(p->thread_info + 1);
+	return (unsigned long *)(task_thread_info(p) + 1);
 }
 
 #endif
@@ -1638,11 +1696,13 @@ static inline int lock_need_resched(spinlock_t *lock)
 	return 0;
 }
 
-/* Reevaluate whether the task has signals pending delivery.
-   This is required every time the blocked sigset_t changes.
-   callers must hold sighand->siglock.  */
-
-extern FASTCALL(void recalc_sigpending_tsk(struct task_struct *t));
+/*
+ * Reevaluate whether the task has signals pending delivery.
+ * Wake the task if so.
+ * This is required every time the blocked sigset_t changes.
+ * callers must hold sighand->siglock.
+ */
+extern void recalc_sigpending_and_wake(struct task_struct *t);
 extern void recalc_sigpending(void);
 
 extern void signal_wake_up(struct task_struct *t, int resume_stopped);
@@ -1695,12 +1755,47 @@ static inline void arch_pick_mmap_layout(struct mm_struct *mm)
 extern long sched_setaffinity(pid_t pid, cpumask_t new_mask);
 extern long sched_getaffinity(pid_t pid, cpumask_t *mask);
 
-#include <linux/sysdev.h>
 extern int sched_mc_power_savings, sched_smt_power_savings;
-extern struct sysdev_attribute attr_sched_mc_power_savings, attr_sched_smt_power_savings;
-extern int sched_create_sysfs_power_savings_entries(struct sysdev_class *cls);
 
 extern void normalize_rt_tasks(void);
+
+#ifdef CONFIG_TASK_XACCT
+static inline void add_rchar(struct task_struct *tsk, ssize_t amt)
+{
+	tsk->rchar += amt;
+}
+
+static inline void add_wchar(struct task_struct *tsk, ssize_t amt)
+{
+	tsk->wchar += amt;
+}
+
+static inline void inc_syscr(struct task_struct *tsk)
+{
+	tsk->syscr++;
+}
+
+static inline void inc_syscw(struct task_struct *tsk)
+{
+	tsk->syscw++;
+}
+#else
+static inline void add_rchar(struct task_struct *tsk, ssize_t amt)
+{
+}
+
+static inline void add_wchar(struct task_struct *tsk, ssize_t amt)
+{
+}
+
+static inline void inc_syscr(struct task_struct *tsk)
+{
+}
+
+static inline void inc_syscw(struct task_struct *tsk)
+{
+}
+#endif
 
 #endif /* __KERNEL__ */
 

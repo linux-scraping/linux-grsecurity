@@ -34,7 +34,7 @@ struct pa_psw {
 	unsigned int i:1;
 };
 
-#ifdef __LP64__
+#ifdef CONFIG_64BIT
 #define pa_psw(task) ((struct pa_psw *) ((char *) (task) + TASK_PT_PSW + 4))
 #else
 #define pa_psw(task) ((struct pa_psw *) ((char *) (task) + TASK_PT_PSW))
@@ -188,7 +188,6 @@ static inline void set_eiem(unsigned long val)
 # define __lock_aligned __attribute__((__section__(".data.lock_aligned")))
 #endif
 
-#define KERNEL_START (0x10100000 - 0x1000)
 #define arch_align_stack(x) (x)
 
 #endif

@@ -134,7 +134,7 @@ set_smp_redirect (int flag)
 	 * interrupt redirection. The reason is this would require that
 	 * All interrupts be stopped and hard bind the irq to a cpu.
 	 * Later when the interrupt is fired we need to set the redir hint
-	 * on again in the vector. This is combersome for something that the
+	 * on again in the vector. This is cumbersome for something that the
 	 * user mode irq balancer will solve anyways.
 	 */
 	no_int_routing=1;
@@ -194,9 +194,8 @@ static void __init
 chk_nointroute_opt(void)
 {
 	char *cp;
-	extern char saved_command_line[];
 
-	for (cp = saved_command_line; *cp; ) {
+	for (cp = boot_command_line; *cp; ) {
 		if (memcmp(cp, "nointroute", 10) == 0) {
 			no_int_routing = 1;
 			printk ("no_int_routing on\n");

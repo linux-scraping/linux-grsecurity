@@ -29,7 +29,6 @@
 #include <linux/ptrace.h>
 #include <linux/delay.h>
 
-#include <asm/i8259.h>
 #include <asm/irq_cpu.h>
 #include <asm/system.h>
 #include <asm/mipsregs.h>
@@ -106,7 +105,7 @@ void __init arch_init_irq(void)
 	emma2rh_irq_init(EMMA2RH_IRQ_BASE);
 	emma2rh_sw_irq_init(EMMA2RH_SW_IRQ_BASE);
 	emma2rh_gpio_irq_init(EMMA2RH_GPIO_IRQ_BASE);
-	mips_cpu_irq_init(CPU_IRQ_BASE);
+	mips_cpu_irq_init();
 
 	/* setup cascade interrupts */
 	setup_irq(EMMA2RH_IRQ_BASE + EMMA2RH_SW_CASCADE, &irq_cascade);
@@ -116,7 +115,7 @@ void __init arch_init_irq(void)
 
 asmlinkage void plat_irq_dispatch(void)
 {
-        unsigned int pending = read_c0_status() & read_c0_cause();
+        unsigned int pending = read_c0_status() & read_c0_cause() & ST0_IM;
 
 	if (pending & STATUSF_IP7)
 		do_IRQ(CPU_IRQ_BASE + 7);

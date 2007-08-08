@@ -60,7 +60,7 @@ acpi_system_write_sleep(struct file *file,
 	state = simple_strtoul(str, NULL, 0);
 #ifdef CONFIG_SOFTWARE_SUSPEND
 	if (state == 4) {
-		error = software_suspend();
+		error = hibernate();
 		goto Done;
 	}
 #endif
@@ -70,10 +70,18 @@ acpi_system_write_sleep(struct file *file,
 }
 #endif				/* CONFIG_ACPI_SLEEP_PROC_SLEEP */
 
+#if defined(CONFIG_RTC_DRV_CMOS) || defined(CONFIG_RTC_DRV_CMOS_MODULE)
+/* use /sys/class/rtc/rtcX/wakealarm instead; it's not ACPI-specific */
+#else
+#define	HAVE_ACPI_LEGACY_ALARM
+#endif
+
+#ifdef	HAVE_ACPI_LEGACY_ALARM
+
 static int acpi_system_alarm_seq_show(struct seq_file *seq, void *offset)
 {
 	u32 sec, min, hr;
-	u32 day, mo, yr;
+	u32 day, mo, yr, cent = 0;
 	unsigned char rtc_control = 0;
 	unsigned long flags;
 
@@ -87,20 +95,19 @@ static int acpi_system_alarm_seq_show(struct seq_file *seq, void *offset)
 	rtc_control = CMOS_READ(RTC_CONTROL);
 
 	/* If we ever get an FACP with proper values... */
-	if (acpi_gbl_FADT->day_alrm)
+	if (acpi_gbl_FADT.day_alarm)
 		/* ACPI spec: only low 6 its should be cared */
-		day = CMOS_READ(acpi_gbl_FADT->day_alrm) & 0x3F;
+		day = CMOS_READ(acpi_gbl_FADT.day_alarm) & 0x3F;
 	else
 		day = CMOS_READ(RTC_DAY_OF_MONTH);
-	if (acpi_gbl_FADT->mon_alrm)
-		mo = CMOS_READ(acpi_gbl_FADT->mon_alrm);
+	if (acpi_gbl_FADT.month_alarm)
+		mo = CMOS_READ(acpi_gbl_FADT.month_alarm);
 	else
 		mo = CMOS_READ(RTC_MONTH);
-	if (acpi_gbl_FADT->century)
-		yr = CMOS_READ(acpi_gbl_FADT->century) * 100 +
-		    CMOS_READ(RTC_YEAR);
-	else
-		yr = CMOS_READ(RTC_YEAR);
+	if (acpi_gbl_FADT.century)
+		cent = CMOS_READ(acpi_gbl_FADT.century);
+
+	yr = CMOS_READ(RTC_YEAR);
 
 	spin_unlock_irqrestore(&rtc_lock, flags);
 
@@ -111,10 +118,11 @@ static int acpi_system_alarm_seq_show(struct seq_file *seq, void *offset)
 		BCD_TO_BIN(day);
 		BCD_TO_BIN(mo);
 		BCD_TO_BIN(yr);
+		BCD_TO_BIN(cent);
 	}
 
 	/* we're trusting the FADT (see above) */
-	if (!acpi_gbl_FADT->century)
+	if (!acpi_gbl_FADT.century)
 		/* If we're not trusting the FADT, we should at least make it
 		 * right for _this_ century... ehm, what is _this_ century?
 		 *
@@ -134,6 +142,8 @@ static int acpi_system_alarm_seq_show(struct seq_file *seq, void *offset)
 		 *
 		 */
 		yr += 2000;
+	else
+		yr += cent * 100;
 
 	seq_printf(seq, "%4.4u-", yr);
 	(mo > 12) ? seq_puts(seq, "**-") : seq_printf(seq, "%2.2u-", mo);
@@ -317,12 +327,12 @@ acpi_system_write_alarm(struct file *file,
 	 * offsets into the CMOS RAM here -- which for some reason are pointing
 	 * to the RTC area of memory.
 	 */
-	if (acpi_gbl_FADT->day_alrm)
-		CMOS_WRITE(day, acpi_gbl_FADT->day_alrm);
-	if (acpi_gbl_FADT->mon_alrm)
-		CMOS_WRITE(mo, acpi_gbl_FADT->mon_alrm);
-	if (acpi_gbl_FADT->century)
-		CMOS_WRITE(yr / 100, acpi_gbl_FADT->century);
+	if (acpi_gbl_FADT.day_alarm)
+		CMOS_WRITE(day, acpi_gbl_FADT.day_alarm);
+	if (acpi_gbl_FADT.month_alarm)
+		CMOS_WRITE(mo, acpi_gbl_FADT.month_alarm);
+	if (acpi_gbl_FADT.century)
+		CMOS_WRITE(yr / 100, acpi_gbl_FADT.century);
 	/* enable the rtc alarm interrupt */
 	rtc_control |= RTC_AIE;
 	CMOS_WRITE(rtc_control, RTC_CONTROL);
@@ -339,6 +349,7 @@ acpi_system_write_alarm(struct file *file,
       end:
 	return_VALUE(result ? result : count);
 }
+#endif				/* HAVE_ACPI_LEGACY_ALARM */
 
 extern struct list_head acpi_wakeup_device_list;
 extern spinlock_t acpi_device_lock;
@@ -348,21 +359,31 @@ acpi_system_wakeup_device_seq_show(struct seq_file *seq, void *offset)
 {
 	struct list_head *node, *next;
 
-	seq_printf(seq, "Device	Sleep state	Status\n");
+	seq_printf(seq, "Device\tS-state\t  Status   Sysfs node\n");
 
 	spin_lock(&acpi_device_lock);
 	list_for_each_safe(node, next, &acpi_wakeup_device_list) {
 		struct acpi_device *dev =
 		    container_of(node, struct acpi_device, wakeup_list);
+		struct device *ldev;
 
 		if (!dev->wakeup.flags.valid)
 			continue;
 		spin_unlock(&acpi_device_lock);
-		seq_printf(seq, "%4s	%4d		%s%8s\n",
+
+		ldev = acpi_get_physical_device(dev->handle);
+		seq_printf(seq, "%s\t  S%d\t%c%-8s  ",
 			   dev->pnp.bus_id,
 			   (u32) dev->wakeup.sleep_state,
-			   dev->wakeup.flags.run_wake ? "*" : "",
+			   dev->wakeup.flags.run_wake ? '*' : ' ',
 			   dev->wakeup.state.enabled ? "enabled" : "disabled");
+		if (ldev)
+			seq_printf(seq, "%s:%s",
+				   ldev->bus ? ldev->bus->name : "no-bus",
+				   ldev->bus_id);
+		seq_printf(seq, "\n");
+		put_device(ldev);
+
 		spin_lock(&acpi_device_lock);
 	}
 	spin_unlock(&acpi_device_lock);
@@ -452,6 +473,7 @@ static const struct file_operations acpi_system_sleep_fops = {
 };
 #endif				/* CONFIG_ACPI_SLEEP_PROC_SLEEP */
 
+#ifdef	HAVE_ACPI_LEGACY_ALARM
 static const struct file_operations acpi_system_alarm_fops = {
 	.open = acpi_system_alarm_open_fs,
 	.read = seq_read,
@@ -467,8 +489,9 @@ static u32 rtc_handler(void *context)
 
 	return ACPI_INTERRUPT_HANDLED;
 }
+#endif				/* HAVE_ACPI_LEGACY_ALARM */
 
-static int acpi_sleep_proc_init(void)
+static int __init acpi_sleep_proc_init(void)
 {
 	struct proc_dir_entry *entry = NULL;
 
@@ -484,12 +507,16 @@ static int acpi_sleep_proc_init(void)
 		entry->proc_fops = &acpi_system_sleep_fops;
 #endif
 
+#ifdef	HAVE_ACPI_LEGACY_ALARM
 	/* 'alarm' [R/W] */
 	entry =
 	    create_proc_entry("alarm", S_IFREG | S_IRUGO | S_IWUSR,
 			      acpi_root_dir);
 	if (entry)
 		entry->proc_fops = &acpi_system_alarm_fops;
+
+	acpi_install_fixed_event_handler(ACPI_EVENT_RTC, rtc_handler, NULL);
+#endif				/* HAVE_ACPI_LEGACY_ALARM */
 
 	/* 'wakeup device' [R/W] */
 	entry =
@@ -498,7 +525,6 @@ static int acpi_sleep_proc_init(void)
 	if (entry)
 		entry->proc_fops = &acpi_system_wakeup_device_fops;
 
-	acpi_install_fixed_event_handler(ACPI_EVENT_RTC, rtc_handler, NULL);
 	return 0;
 }
 

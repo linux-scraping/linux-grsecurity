@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -140,8 +140,6 @@ u8 acpi_ut_valid_object_type(acpi_object_type type);
 acpi_status acpi_ut_hardware_initialize(void);
 
 void acpi_ut_subsystem_shutdown(void);
-
-acpi_status acpi_ut_validate_fadt(void);
 
 /*
  * utclib - Local implementations of C library functions
@@ -392,6 +390,8 @@ void acpi_ut_delete_object_desc(union acpi_operand_object *object);
 
 u8 acpi_ut_valid_internal_object(void *object);
 
+union acpi_operand_object *acpi_ut_create_package_object(u32 count);
+
 union acpi_operand_object *acpi_ut_create_buffer_object(acpi_size buffer_size);
 
 union acpi_operand_object *acpi_ut_create_string_object(acpi_size string_size);
@@ -453,6 +453,8 @@ acpi_ut_short_divide(acpi_integer in_dividend,
 /*
  * utmisc
  */
+const char *acpi_ut_validate_exception(acpi_status status);
+
 u8 acpi_ut_is_aml_table(struct acpi_table_header *table);
 
 acpi_status acpi_ut_allocate_owner_id(acpi_owner_id * owner_id);
@@ -470,7 +472,7 @@ void acpi_ut_print_string(char *string, u8 max_length);
 
 u8 acpi_ut_valid_acpi_name(u32 name);
 
-acpi_name acpi_ut_repair_name(acpi_name name);
+acpi_name acpi_ut_repair_name(char *name);
 
 u8 acpi_ut_valid_acpi_char(char character, acpi_native_uint position);
 
@@ -498,7 +500,8 @@ acpi_ut_display_init_pathname(u8 type,
 acpi_status
 acpi_ut_walk_aml_resources(u8 * aml,
 			   acpi_size aml_length,
-			   acpi_walk_aml_callback user_function, void **context);
+			   acpi_walk_aml_callback user_function,
+			   void **context);
 
 acpi_status acpi_ut_validate_resource(void *aml, u8 * return_index);
 

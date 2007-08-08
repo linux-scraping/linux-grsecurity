@@ -18,7 +18,6 @@
 #include <linux/kdev_t.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
-#include <linux/root_dev.h>
 
 #include <asm/system.h>
 #include <asm/time.h>
@@ -103,7 +102,7 @@ mpc86xx_hpcn_init_irq(void)
 #ifdef CONFIG_PCI
 	/* Initialize i8259 controller */
 	for_each_node_by_type(np, "interrupt-controller")
-		if (device_is_compatible(np, "chrp,iic")) {
+		if (of_device_is_compatible(np, "chrp,iic")) {
 			cascade_node = np;
 			break;
 		}
@@ -120,6 +119,8 @@ mpc86xx_hpcn_init_irq(void)
 	DBG("mpc86xxhpcn: cascade mapped to irq %d\n", cascade_irq);
 
 	i8259_init(cascade_node, 0);
+	of_node_put(cascade_node);
+
 	set_irq_chained_handler(cascade_irq, mpc86xx_8259_cascade);
 #endif
 }
@@ -167,7 +168,7 @@ static void __devinit quirk_uli1575(struct pci_dev *dev)
 {
 	unsigned short temp;
 	struct pci_controller *hose = pci_bus_to_host(dev->bus);
-	unsigned char irq2pin[16];
+	unsigned char irq2pin[16], c;
 	unsigned long pirq_map_word = 0;
 	u32 irq;
 	int i;
@@ -287,6 +288,11 @@ static void __devinit quirk_uli1575(struct pci_dev *dev)
 	outb(0x1e, 0x4d1);
 
 #undef ULI1575_SET_DEV_IRQ
+
+	/* Disable the HD interface and enable the AC97 interface. */
+	pci_read_config_byte(dev, 0xb8, &c);
+	c &= 0x7f;
+	pci_write_config_byte(dev, 0xb8, c);
 }
 
 static void __devinit quirk_uli5288(struct pci_dev *dev)
@@ -348,7 +354,7 @@ mpc86xx_hpcn_setup_arch(void)
 	if (np != 0) {
 		const unsigned int *fp;
 
-		fp = get_property(np, "clock-frequency", NULL);
+		fp = of_get_property(np, "clock-frequency", NULL);
 		if (fp != 0)
 			loops_per_jiffy = *fp / HZ;
 		else
@@ -364,12 +370,6 @@ mpc86xx_hpcn_setup_arch(void)
 #endif
 
 	printk("MPC86xx HPCN board from Freescale Semiconductor\n");
-
-#ifdef  CONFIG_ROOT_NFS
-	ROOT_DEV = Root_NFS;
-#else
-	ROOT_DEV = Root_HDA1;
-#endif
 
 #ifdef CONFIG_SMP
 	mpc86xx_smp_init();
@@ -389,7 +389,7 @@ mpc86xx_hpcn_show_cpuinfo(struct seq_file *m)
 
 	root = of_find_node_by_path("/");
 	if (root)
-		model = get_property(root, "model", NULL);
+		model = of_get_property(root, "model", NULL);
 	seq_printf(m, "Machine\t\t: %s\n", model);
 	of_node_put(root);
 

@@ -36,7 +36,7 @@ module_param(ql2xlogintimeout, int, S_IRUGO|S_IRUSR);
 MODULE_PARM_DESC(ql2xlogintimeout,
 		"Login timeout value in seconds.");
 
-int qlport_down_retry = 30;
+int qlport_down_retry;
 module_param(qlport_down_retry, int, S_IRUGO|S_IRUSR);
 MODULE_PARM_DESC(qlport_down_retry,
 		"Maximum number of command retries to a port that returns "
@@ -62,7 +62,7 @@ MODULE_PARM_DESC(ql2xallocfwdump,
 		"vary by ISP type.  Default is 1 - allocate memory.");
 
 int ql2xextended_error_logging;
-module_param(ql2xextended_error_logging, int, S_IRUGO|S_IRUSR);
+module_param(ql2xextended_error_logging, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(ql2xextended_error_logging,
 		"Option to enable extended error logging, "
 		"Default is 0 - no logging. 1 - log errors.");
@@ -157,6 +157,8 @@ static struct scsi_host_template qla24xx_driver_template = {
 
 	.slave_alloc		= qla2xxx_slave_alloc,
 	.slave_destroy		= qla2xxx_slave_destroy,
+	.scan_finished		= qla2xxx_scan_finished,
+	.scan_start		= qla2xxx_scan_start,
 	.change_queue_depth	= qla2x00_change_queue_depth,
 	.change_queue_type	= qla2x00_change_queue_type,
 	.this_id		= -1,
@@ -1485,6 +1487,7 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 	ha->isp_ops.fw_dump		= qla2100_fw_dump;
 	ha->isp_ops.read_optrom		= qla2x00_read_optrom_data;
 	ha->isp_ops.write_optrom	= qla2x00_write_optrom_data;
+	ha->isp_ops.get_flash_version	= qla2x00_get_flash_version;
 	if (IS_QLA2100(ha)) {
 		host->max_id = MAX_TARGETS_2100;
 		ha->mbx_count = MAILBOX_REGISTER_COUNT_2100;
@@ -1550,6 +1553,7 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 		ha->isp_ops.beacon_on = qla24xx_beacon_on;
 		ha->isp_ops.beacon_off = qla24xx_beacon_off;
 		ha->isp_ops.beacon_blink = qla24xx_beacon_blink;
+		ha->isp_ops.get_flash_version = qla24xx_get_flash_version;
 		ha->gid_list_info_size = 8;
 		ha->optrom_size = OPTROM_SIZE_24XX;
 	}
@@ -1564,14 +1568,6 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 	INIT_LIST_HEAD(&ha->list);
 	INIT_LIST_HEAD(&ha->fcports);
 
-	/*
-	 * These locks are used to prevent more than one CPU
-	 * from modifying the queue at the same time. The
-	 * higher level "host_lock" will reduce most
-	 * contention for these locks.
-	 */
-	spin_lock_init(&ha->mbx_reg_lock);
-
 	qla2x00_config_dma_addressing(ha);
 	if (qla2x00_mem_alloc(ha)) {
 		qla_printk(KERN_WARNING, ha,
@@ -1581,9 +1577,7 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto probe_failed;
 	}
 
-	if (qla2x00_initialize_adapter(ha) &&
-	    !(ha->device_flags & DFLG_NO_CABLE)) {
-
+	if (qla2x00_initialize_adapter(ha)) {
 		qla_printk(KERN_WARNING, ha,
 		    "Failed to initialize adapter\n");
 
@@ -1615,15 +1609,9 @@ qla2x00_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
 	host->max_lun = MAX_LUNS;
 	host->transportt = qla2xxx_transport_template;
 
-	ret = request_irq(pdev->irq, ha->isp_ops.intr_handler,
-	    IRQF_DISABLED|IRQF_SHARED, QLA2XXX_DRIVER_NAME, ha);
-	if (ret) {
-		qla_printk(KERN_WARNING, ha,
-		    "Failed to reserve interrupt %d already in use.\n",
-		    pdev->irq);
+	ret = qla2x00_request_irqs(ha);
+	if (ret)
 		goto probe_failed;
-	}
-	host->irq = pdev->irq;
 
 	/* Initialized the timer */
 	qla2x00_start_timer(ha, qla2x00_timer, WATCH_INTERVAL);
@@ -1717,6 +1705,7 @@ qla2x00_remove_one(struct pci_dev *pdev)
 
 	scsi_host_put(ha->host);
 
+	pci_disable_device(pdev);
 	pci_set_drvdata(pdev, NULL);
 }
 
@@ -1753,16 +1742,12 @@ qla2x00_free_device(scsi_qla_host_t *ha)
 
 	qla2x00_mem_free(ha);
 
-	/* Detach interrupts */
-	if (ha->host->irq)
-		free_irq(ha->host->irq, ha);
+	qla2x00_free_irqs(ha);
 
 	/* release io space registers  */
 	if (ha->iobase)
 		iounmap(ha->iobase);
 	pci_release_regions(ha->pdev);
-
-	pci_disable_device(ha->pdev);
 }
 
 static inline void
@@ -2605,7 +2590,7 @@ qla2x00_down_timeout(struct semaphore *sema, unsigned long timeout)
 			return 0;
 		if (msleep_interruptible(step))
 			break;
-	} while (--iterations >= 0);
+	} while (--iterations > 0);
 
 	return -ETIMEDOUT;
 }

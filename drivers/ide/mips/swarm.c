@@ -115,7 +115,7 @@ static int __devinit swarm_ide_probe(struct device *dev)
 	/* Setup MMIO ops.  */
 	default_hwif_mmiops(hwif);
 	/* Prevent resource map manipulation.  */
-	hwif->mmio = 2;
+	hwif->mmio = 1;
 	hwif->noprobe = 0;
 
 	for (i = IDE_DATA_OFFSET; i <= IDE_STATUS_OFFSET; i++)
@@ -129,6 +129,9 @@ static int __devinit swarm_ide_probe(struct device *dev)
 	hwif->irq = hwif->hw.irq;
 
 	probe_hwif_init(hwif);
+
+	ide_proc_register_port(hwif);
+
 	dev_set_drvdata(dev, hwif);
 
 	return 0;

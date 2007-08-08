@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/moduleloader.h>
 #include <linux/init.h>
+#include <linux/kallsyms.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -49,6 +50,8 @@
 #endif
 
 #include <linux/license.h>
+
+extern int module_sysfs_initialized;
 
 #if 0
 #define DEBUGP printk
@@ -100,9 +103,9 @@ static inline void add_taint_module(struct module *mod, unsigned flag)
 	mod->taints |= flag;
 }
 
-/* A thread that wants to hold a reference to a module only while it
- * is running can call ths to safely exit.
- * nfsd and lockd use this.
+/*
+ * A thread that wants to hold a reference to a module only while it
+ * is running can call this to safely exit.  nfsd and lockd use this.
  */
 void __module_put_and_exit(struct module *mod, long code)
 {
@@ -315,14 +318,14 @@ static int split_block(unsigned int i, unsigned short size)
 {
 	/* Reallocation required? */
 	if (pcpu_num_used + 1 > pcpu_num_allocated) {
-		int *new = kmalloc(sizeof(new[0]) * pcpu_num_allocated*2,
-				   GFP_KERNEL);
+		int *new;
+
+		new = krealloc(pcpu_size, sizeof(new[0])*pcpu_num_allocated*2,
+			       GFP_KERNEL);
 		if (!new)
 			return 0;
 
-		memcpy(new, pcpu_size, sizeof(new[0])*pcpu_num_allocated);
 		pcpu_num_allocated *= 2;
-		kfree(pcpu_size);
 		pcpu_size = new;
 	}
 
@@ -353,10 +356,10 @@ static void *percpu_modalloc(unsigned long size, unsigned long align,
 	unsigned int i;
 	void *ptr;
 
-	if (align > SMP_CACHE_BYTES) {
-		printk(KERN_WARNING "%s: per-cpu alignment %li > %i\n",
-		       name, align, SMP_CACHE_BYTES);
-		align = SMP_CACHE_BYTES;
+	if (align-1 >= PAGE_SIZE) {
+		printk(KERN_WARNING "%s: per-cpu alignment %li > %li\n",
+		       name, align, PAGE_SIZE);
+		align = PAGE_SIZE;
 	}
 
 	ptr = __per_cpu_start;
@@ -437,7 +440,7 @@ static int percpu_modinit(void)
 	pcpu_size = kmalloc(sizeof(pcpu_size[0]) * pcpu_num_allocated,
 			    GFP_KERNEL);
 	/* Static in-kernel percpu data (used). */
-	pcpu_size[0] = -ALIGN(__per_cpu_end-__per_cpu_start, SMP_CACHE_BYTES);
+	pcpu_size[0] = -(__per_cpu_end-__per_cpu_start);
 	/* Free room. */
 	pcpu_size[1] = PERCPU_ENOUGH_ROOM + pcpu_size[0];
 	if (pcpu_size[1] < 0) {
@@ -544,6 +547,8 @@ static int already_uses(struct module *a, struct module *b)
 static int use_module(struct module *a, struct module *b)
 {
 	struct module_use *use;
+	int no_warn;
+
 	if (b == NULL || already_uses(a, b)) return 1;
 
 	if (!strong_try_module_get(b))
@@ -559,6 +564,7 @@ static int use_module(struct module *a, struct module *b)
 
 	use->module_which_uses = a;
 	list_add(&use->list, &b->modules_which_use_me);
+	no_warn = sysfs_create_link(b->holders_dir, &a->mkobj.kobj, a->name);
 	return 1;
 }
 
@@ -576,6 +582,7 @@ static void module_unload_free(struct module *mod)
 				module_put(i);
 				list_del(&use->list);
 				kfree(use);
+				sysfs_remove_link(i->holders_dir, mod->name);
 				/* There can be at most one match. */
 				break;
 			}
@@ -1074,7 +1081,8 @@ static inline void remove_sect_attrs(struct module *mod)
 }
 #endif /* CONFIG_KALLSYMS */
 
-static int module_add_modinfo_attrs(struct module *mod)
+#ifdef CONFIG_SYSFS
+int module_add_modinfo_attrs(struct module *mod)
 {
 	struct module_attribute *attr;
 	struct module_attribute *temp_attr;
@@ -1100,7 +1108,7 @@ static int module_add_modinfo_attrs(struct module *mod)
 	return error;
 }
 
-static void module_remove_modinfo_attrs(struct module *mod)
+void module_remove_modinfo_attrs(struct module *mod)
 {
 	struct module_attribute *attr;
 	int i;
@@ -1115,15 +1123,15 @@ static void module_remove_modinfo_attrs(struct module *mod)
 	}
 	kfree(mod->modinfo_attrs);
 }
+#endif
 
-static int mod_sysfs_setup(struct module *mod,
-			   struct kernel_param *kparam,
-			   unsigned int num_params)
+#ifdef CONFIG_SYSFS
+int mod_sysfs_init(struct module *mod)
 {
 	int err;
 
-	if (!module_subsys.kset.subsys) {
-		printk(KERN_ERR "%s: module_subsys not initialized\n",
+	if (!module_sysfs_initialized) {
+		printk(KERN_ERR "%s: module sysfs not initialized\n",
 		       mod->name);
 		err = -EINVAL;
 		goto out;
@@ -1135,21 +1143,32 @@ static int mod_sysfs_setup(struct module *mod,
 	kobj_set_kset_s(&mod->mkobj, module_subsys);
 	mod->mkobj.mod = mod;
 
-	/* delay uevent until full sysfs population */
 	kobject_init(&mod->mkobj.kobj);
+
+out:
+	return err;
+}
+
+int mod_sysfs_setup(struct module *mod,
+			   struct kernel_param *kparam,
+			   unsigned int num_params)
+{
+	int err;
+
+	/* delay uevent until full sysfs population */
 	err = kobject_add(&mod->mkobj.kobj);
 	if (err)
 		goto out;
 
-	mod->drivers_dir = kobject_add_dir(&mod->mkobj.kobj, "drivers");
-	if (!mod->drivers_dir) {
+	mod->holders_dir = kobject_add_dir(&mod->mkobj.kobj, "holders");
+	if (!mod->holders_dir) {
 		err = -ENOMEM;
 		goto out_unreg;
 	}
 
 	err = module_param_sysfs_setup(mod, kparam, num_params);
 	if (err)
-		goto out_unreg_drivers;
+		goto out_unreg_holders;
 
 	err = module_add_modinfo_attrs(mod);
 	if (err)
@@ -1160,21 +1179,22 @@ static int mod_sysfs_setup(struct module *mod,
 
 out_unreg_param:
 	module_param_sysfs_remove(mod);
-out_unreg_drivers:
-	kobject_unregister(mod->drivers_dir);
+out_unreg_holders:
+	kobject_unregister(mod->holders_dir);
 out_unreg:
 	kobject_del(&mod->mkobj.kobj);
 	kobject_put(&mod->mkobj.kobj);
 out:
 	return err;
 }
+#endif
 
 static void mod_kobject_remove(struct module *mod)
 {
 	module_remove_modinfo_attrs(mod);
 	module_param_sysfs_remove(mod);
-	kobject_unregister(mod->drivers_dir);
-
+	kobject_unregister(mod->mkobj.drivers_dir);
+	kobject_unregister(mod->holders_dir);
 	kobject_unregister(&mod->mkobj.kobj);
 }
 
@@ -1189,7 +1209,7 @@ static int __unlink_module(void *_mod)
 	return 0;
 }
 
-/* Free a module, remove from lists, etc (must hold module mutex). */
+/* Free a module, remove from lists, etc (must hold module_mutex). */
 static void free_module(struct module *mod)
 {
 	/* Delete from various lists */
@@ -1239,7 +1259,7 @@ EXPORT_SYMBOL_GPL(__symbol_get);
 
 /*
  * Ensure that an exported symbol [global namespace] does not already exist
- * in the Kernel or in some other modules exported symbol table.
+ * in the kernel or in some other module's exported symbol table.
  */
 static int verify_export_symbols(struct module *mod)
 {
@@ -1283,6 +1303,10 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 	unsigned int i, n = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
 	int ret = 0;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	for (i = 1; i < n; i++) {
 		switch (sym[i].st_shndx) {
 		case SHN_COMMON:
@@ -1301,9 +1325,18 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 			break;
 
 		case SHN_UNDEF:
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			sym[i].st_value
 			  = resolve_symbol(sechdrs, versindex,
 					   strtab + sym[i].st_name, mod);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
 
 			/* Ok if resolved.  */
 			if (sym[i].st_value != 0)
@@ -1319,11 +1352,27 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 
 		default:
 			/* Divert to percpu allocation if a percpu var. */
-			if (sym[i].st_shndx == pcpuindex)
+			if (sym[i].st_shndx == pcpuindex) {
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
+				secbase = (unsigned long)mod->percpu - (unsigned long)__per_cpu_start;
+#else
 				secbase = (unsigned long)mod->percpu;
-			else
+#endif
+
+			} else
 				secbase = sechdrs[sym[i].st_shndx].sh_addr;
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			sym[i].st_value += secbase;
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
+
 			break;
 		}
 	}
@@ -1471,7 +1520,7 @@ static void setup_modinfo(struct module *mod, Elf_Shdr *sechdrs,
 }
 
 #ifdef CONFIG_KALLSYMS
-int is_exported(const char *name, const struct module *mod)
+static int is_exported(const char *name, const struct module *mod)
 {
 	if (!mod && lookup_symbol(name, __start___ksymtab, __stop___ksymtab))
 		return 1;
@@ -1531,14 +1580,28 @@ static void add_kallsyms(struct module *mod,
 {
 	unsigned int i;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	mod->symtab = (void *)sechdrs[symindex].sh_addr;
 	mod->num_symtab = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
 	mod->strtab = (void *)sechdrs[strindex].sh_addr;
 
 	/* Set types up while we still have access to sections. */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	for (i = 0; i < mod->num_symtab; i++)
 		mod->symtab[i].st_info
 			= elf_type(&mod->symtab[i], sechdrs, secstrings, mod);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 }
 #else
 static inline void add_kallsyms(struct module *mod,
@@ -1854,6 +1917,10 @@ static struct module *load_module(void __user *umod,
 	/* Now we've moved module, initialize linked lists, etc. */
 	module_unload_init(mod);
 
+	/* Initialize kobject, so we can reference it. */
+	if (mod_sysfs_init(mod) != 0)
+		goto cleanup;
+
 	/* Set up license info based on the info section */
 	set_license(mod, get_modinfo(sechdrs, infoindex, "license"));
 
@@ -1866,18 +1933,8 @@ static struct module *load_module(void __user *umod,
 	setup_modinfo(mod, sechdrs, infoindex);
 
 	/* Fix up syms, so that st_value is a pointer to location. */
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,
 			       mod);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
 	if (err < 0)
 		goto cleanup;
 
@@ -1959,30 +2016,13 @@ static struct module *load_module(void __user *umod,
   	/* Set up and sort exception table */
 	mod->num_exentries = sechdrs[exindex].sh_size / sizeof(*mod->extable);
 	mod->extable = extable = (void *)sechdrs[exindex].sh_addr;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 	sort_extable(extable, extable + mod->num_exentries);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
 
 	/* Finally, copy percpu area over. */
 	percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
 		       sechdrs[pcpuindex].sh_size);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
 
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
@@ -2154,6 +2194,13 @@ sys_init_module(void __user *umod,
 
 static inline int within(unsigned long addr, void *start, unsigned long size)
 {
+
+#ifdef CONFIG_PAX_KERNEXEC
+	if (addr + __KERNEL_TEXT_OFFSET >= (unsigned long)start &&
+	    addr + __KERNEL_TEXT_OFFSET < (unsigned long)start + size)
+		return 1;
+#endif
+
 	return ((void *)addr >= start && (void *)addr < start + size);
 }
 
@@ -2178,11 +2225,11 @@ static const char *get_ksymbol(struct module *mod,
 
 	/* At worse, next value is at end of module */
 	if (within(addr, mod->module_init_rx, mod->init_size_rx))
-		nextval = (unsigned long)mod->module_init_rw;
+		nextval = (unsigned long)mod->module_init_rx+mod->init_size_rx;
 	else if (within(addr, mod->module_init_rw, mod->init_size_rw))
-		nextval = (unsigned long)mod->module_core_rx;
+		nextval = (unsigned long)mod->module_init_rw+mod->init_size_rw;
 	else if (within(addr, mod->module_core_rx, mod->core_size_rx))
-		nextval = (unsigned long)mod->module_core_rw;
+		nextval = (unsigned long)mod->module_core_rx+mod->core_size_rx;
 	else
 		nextval = (unsigned long)mod->module_core_rw+mod->core_size_rw;
 
@@ -2209,8 +2256,10 @@ static const char *get_ksymbol(struct module *mod,
 	if (!best)
 		return NULL;
 
-	*size = nextval - mod->symtab[best].st_value;
-	*offset = addr - mod->symtab[best].st_value;
+	if (size)
+		*size = nextval - mod->symtab[best].st_value;
+	if (offset)
+		*offset = addr - mod->symtab[best].st_value;
 	return mod->strtab + mod->symtab[best].st_name;
 }
 
@@ -2225,10 +2274,10 @@ const char *module_address_lookup(unsigned long addr,
 	struct module *mod;
 
 	list_for_each_entry(mod, &modules, list) {
-		if (within(addr, mod->module_init_rx, mod->init_size_rx)
-		    || within(addr, mod->module_init_rw, mod->init_size_rw)
-		    || within(addr, mod->module_core_rx, mod->core_size_rx)
-		    || within(addr, mod->module_core_rw, mod->core_size_rw)) {
+		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
+		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
+		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
+		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
 			if (modname)
 				*modname = mod->name;
 			return get_ksymbol(mod, addr, size, offset);
@@ -2237,8 +2286,62 @@ const char *module_address_lookup(unsigned long addr,
 	return NULL;
 }
 
-struct module *module_get_kallsym(unsigned int symnum, unsigned long *value,
-				char *type, char *name, size_t namelen)
+int lookup_module_symbol_name(unsigned long addr, char *symname)
+{
+	struct module *mod;
+
+	mutex_lock(&module_mutex);
+	list_for_each_entry(mod, &modules, list) {
+		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
+		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
+		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
+		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+			const char *sym;
+
+			sym = get_ksymbol(mod, addr, NULL, NULL);
+			if (!sym)
+				goto out;
+			strlcpy(symname, sym, KSYM_NAME_LEN + 1);
+			mutex_unlock(&module_mutex);
+			return 0;
+		}
+	}
+out:
+	mutex_unlock(&module_mutex);
+	return -ERANGE;
+}
+
+int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
+			unsigned long *offset, char *modname, char *name)
+{
+	struct module *mod;
+
+	mutex_lock(&module_mutex);
+	list_for_each_entry(mod, &modules, list) {
+		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
+		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
+		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
+		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+			const char *sym;
+
+			sym = get_ksymbol(mod, addr, size, offset);
+			if (!sym)
+				goto out;
+			if (modname)
+				strlcpy(modname, mod->name, MODULE_NAME_LEN + 1);
+			if (name)
+				strlcpy(name, sym, KSYM_NAME_LEN + 1);
+			mutex_unlock(&module_mutex);
+			return 0;
+		}
+	}
+out:
+	mutex_unlock(&module_mutex);
+	return -ERANGE;
+}
+
+int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
+			char *name, char *module_name, int *exported)
 {
 	struct module *mod;
 
@@ -2248,14 +2351,16 @@ struct module *module_get_kallsym(unsigned int symnum, unsigned long *value,
 			*value = mod->symtab[symnum].st_value;
 			*type = mod->symtab[symnum].st_info;
 			strlcpy(name, mod->strtab + mod->symtab[symnum].st_name,
-				namelen);
+				KSYM_NAME_LEN + 1);
+			strlcpy(module_name, mod->name, MODULE_NAME_LEN + 1);
+			*exported = is_exported(name, mod);
 			mutex_unlock(&module_mutex);
-			return mod;
+			return 0;
 		}
 		symnum -= mod->num_symtab;
 	}
 	mutex_unlock(&module_mutex);
-	return NULL;
+	return -ERANGE;
 }
 
 static unsigned long mod_find_symname(struct module *mod, const char *name)
@@ -2465,6 +2570,7 @@ void print_modules(void)
 	printk("\n");
 }
 
+#ifdef CONFIG_SYSFS
 static char *make_driver_name(struct device_driver *drv)
 {
 	char *driver_name;
@@ -2478,19 +2584,48 @@ static char *make_driver_name(struct device_driver *drv)
 	return driver_name;
 }
 
+static void module_create_drivers_dir(struct module_kobject *mk)
+{
+	if (!mk || mk->drivers_dir)
+		return;
+
+	mk->drivers_dir = kobject_add_dir(&mk->kobj, "drivers");
+}
+
 void module_add_driver(struct module *mod, struct device_driver *drv)
 {
 	char *driver_name;
 	int no_warn;
+	struct module_kobject *mk = NULL;
 
-	if (!mod || !drv)
+	if (!drv)
+		return;
+
+	if (mod)
+		mk = &mod->mkobj;
+	else if (drv->mod_name) {
+		struct kobject *mkobj;
+
+		/* Lookup built-in module entry in /sys/modules */
+		mkobj = kset_find_obj(&module_subsys, drv->mod_name);
+		if (mkobj) {
+			mk = container_of(mkobj, struct module_kobject, kobj);
+			/* remember our module structure */
+			drv->mkobj = mk;
+			/* kset_find_obj took a reference */
+			kobject_put(mkobj);
+		}
+	}
+
+	if (!mk)
 		return;
 
 	/* Don't check return codes; these calls are idempotent */
-	no_warn = sysfs_create_link(&drv->kobj, &mod->mkobj.kobj, "module");
+	no_warn = sysfs_create_link(&drv->kobj, &mk->kobj, "module");
 	driver_name = make_driver_name(drv);
 	if (driver_name) {
-		no_warn = sysfs_create_link(mod->drivers_dir, &drv->kobj,
+		module_create_drivers_dir(mk);
+		no_warn = sysfs_create_link(mk->drivers_dir, &drv->kobj,
 					    driver_name);
 		kfree(driver_name);
 	}
@@ -2499,22 +2634,28 @@ EXPORT_SYMBOL(module_add_driver);
 
 void module_remove_driver(struct device_driver *drv)
 {
+	struct module_kobject *mk = NULL;
 	char *driver_name;
 
 	if (!drv)
 		return;
 
 	sysfs_remove_link(&drv->kobj, "module");
-	if (drv->owner && drv->owner->drivers_dir) {
+
+	if (drv->owner)
+		mk = &drv->owner->mkobj;
+	else if (drv->mkobj)
+		mk = drv->mkobj;
+	if (mk && mk->drivers_dir) {
 		driver_name = make_driver_name(drv);
 		if (driver_name) {
-			sysfs_remove_link(drv->owner->drivers_dir,
-					  driver_name);
+			sysfs_remove_link(mk->drivers_dir, driver_name);
 			kfree(driver_name);
 		}
 	}
 }
 EXPORT_SYMBOL(module_remove_driver);
+#endif
 
 #ifdef CONFIG_MODVERSIONS
 /* Generate the signature for struct module here, too, for modversions. */

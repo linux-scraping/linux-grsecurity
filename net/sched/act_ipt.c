@@ -16,7 +16,6 @@
 #include <asm/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -31,6 +30,7 @@
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/kmod.h>
+#include <net/netlink.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 #include <linux/tc_act/tc_ipt.h>
@@ -52,7 +52,7 @@ static struct tcf_hashinfo ipt_hash_info = {
 
 static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int hook)
 {
-	struct ipt_target *target;
+	struct xt_target *target;
 	int ret = 0;
 
 	target = xt_request_find_target(AF_INET, t->u.user.name,
@@ -70,7 +70,7 @@ static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int
 	}
 	if (t->u.kernel.target->checkentry
 	    && !t->u.kernel.target->checkentry(table, NULL,
-		    			       t->u.kernel.target, t->data,
+					       t->u.kernel.target, t->data,
 					       hook)) {
 		module_put(t->u.kernel.target->me);
 		ret = -EINVAL;
@@ -83,7 +83,7 @@ static void ipt_destroy_target(struct ipt_entry_target *t)
 {
 	if (t->u.kernel.target->destroy)
 		t->u.kernel.target->destroy(t->u.kernel.target, t->data);
-        module_put(t->u.kernel.target->me);
+	module_put(t->u.kernel.target->me);
 }
 
 static int tcf_ipt_release(struct tcf_ipt *ipt, int bind)
@@ -246,7 +246,7 @@ static int tcf_ipt(struct sk_buff *skb, struct tc_action *a,
 
 static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
 {
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tcf_ipt *ipt = a->priv;
 	struct ipt_entry_target *t;
 	struct tcf_t tm;
@@ -278,7 +278,7 @@ static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int 
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	kfree(t);
 	return -1;
 }

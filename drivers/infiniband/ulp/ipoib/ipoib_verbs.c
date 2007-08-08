@@ -33,8 +33,6 @@
  * $Id: ipoib_verbs.c 1349 2004-12-16 21:09:43Z roland $
  */
 
-#include <rdma/ib_cache.h>
-
 #include "ipoib.h"
 
 int ipoib_mcast_attach(struct net_device *dev, u16 mlid, union ib_gid *mgid)
@@ -49,7 +47,7 @@ int ipoib_mcast_attach(struct net_device *dev, u16 mlid, union ib_gid *mgid)
 	if (!qp_attr)
 		goto out;
 
-	if (ib_find_cached_pkey(priv->ca, priv->port, priv->pkey, &pkey_index)) {
+	if (ib_find_pkey(priv->ca, priv->port, priv->pkey, &pkey_index)) {
 		clear_bit(IPOIB_PKEY_ASSIGNED, &priv->flags);
 		ret = -ENXIO;
 		goto out;
@@ -94,26 +92,16 @@ int ipoib_init_qp(struct net_device *dev)
 {
 	struct ipoib_dev_priv *priv = netdev_priv(dev);
 	int ret;
-	u16 pkey_index;
 	struct ib_qp_attr qp_attr;
 	int attr_mask;
 
-	/*
-	 * Search through the port P_Key table for the requested pkey value.
-	 * The port has to be assigned to the respective IB partition in
-	 * advance.
-	 */
-	ret = ib_find_cached_pkey(priv->ca, priv->port, priv->pkey, &pkey_index);
-	if (ret) {
-		clear_bit(IPOIB_PKEY_ASSIGNED, &priv->flags);
-		return ret;
-	}
-	set_bit(IPOIB_PKEY_ASSIGNED, &priv->flags);
+	if (!test_bit(IPOIB_PKEY_ASSIGNED, &priv->flags))
+		return -1;
 
 	qp_attr.qp_state = IB_QPS_INIT;
 	qp_attr.qkey = 0;
 	qp_attr.port_num = priv->port;
-	qp_attr.pkey_index = pkey_index;
+	qp_attr.pkey_index = priv->pkey_index;
 	attr_mask =
 	    IB_QP_QKEY |
 	    IB_QP_PORT |
@@ -168,27 +156,33 @@ int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca)
 		.qp_type     = IB_QPT_UD
 	};
 
+	int ret, size;
+
 	priv->pd = ib_alloc_pd(priv->ca);
 	if (IS_ERR(priv->pd)) {
 		printk(KERN_WARNING "%s: failed to allocate PD\n", ca->name);
 		return -ENODEV;
 	}
 
-	priv->cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev,
-				ipoib_sendq_size + ipoib_recvq_size + 1);
+	priv->mr = ib_get_dma_mr(priv->pd, IB_ACCESS_LOCAL_WRITE);
+	if (IS_ERR(priv->mr)) {
+		printk(KERN_WARNING "%s: ib_get_dma_mr failed\n", ca->name);
+		goto out_free_pd;
+	}
+
+	size = ipoib_sendq_size + ipoib_recvq_size + 1;
+	ret = ipoib_cm_dev_init(dev);
+	if (!ret)
+		size += ipoib_recvq_size + 1 /* 1 extra for rx_drain_qp */;
+
+	priv->cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev, size, 0);
 	if (IS_ERR(priv->cq)) {
 		printk(KERN_WARNING "%s: failed to create CQ\n", ca->name);
-		goto out_free_pd;
+		goto out_free_mr;
 	}
 
 	if (ib_req_notify_cq(priv->cq, IB_CQ_NEXT_COMP))
 		goto out_free_cq;
-
-	priv->mr = ib_get_dma_mr(priv->pd, IB_ACCESS_LOCAL_WRITE);
-	if (IS_ERR(priv->mr)) {
-		printk(KERN_WARNING "%s: ib_get_dma_mr failed\n", ca->name);
-		goto out_free_cq;
-	}
 
 	init_attr.send_cq = priv->cq;
 	init_attr.recv_cq = priv->cq,
@@ -196,7 +190,7 @@ int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca)
 	priv->qp = ib_create_qp(priv->pd, &init_attr);
 	if (IS_ERR(priv->qp)) {
 		printk(KERN_WARNING "%s: failed to create QP\n", ca->name);
-		goto out_free_mr;
+		goto out_free_cq;
 	}
 
 	priv->dev->dev_addr[1] = (priv->qp->qp_num >> 16) & 0xff;
@@ -212,11 +206,11 @@ int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca)
 
 	return 0;
 
-out_free_mr:
-	ib_dereg_mr(priv->mr);
-
 out_free_cq:
 	ib_destroy_cq(priv->cq);
+
+out_free_mr:
+	ib_dereg_mr(priv->mr);
 
 out_free_pd:
 	ib_dealloc_pd(priv->pd);
@@ -235,11 +229,13 @@ void ipoib_transport_dev_cleanup(struct net_device *dev)
 		clear_bit(IPOIB_PKEY_ASSIGNED, &priv->flags);
 	}
 
-	if (ib_dereg_mr(priv->mr))
-		ipoib_warn(priv, "ib_dereg_mr failed\n");
-
 	if (ib_destroy_cq(priv->cq))
 		ipoib_warn(priv, "ib_cq_destroy failed\n");
+
+	ipoib_cm_dev_cleanup(dev);
+
+	if (ib_dereg_mr(priv->mr))
+		ipoib_warn(priv, "ib_dereg_mr failed\n");
 
 	if (ib_dealloc_pd(priv->pd))
 		ipoib_warn(priv, "ib_dealloc_pd failed\n");
@@ -251,13 +247,18 @@ void ipoib_event(struct ib_event_handler *handler,
 	struct ipoib_dev_priv *priv =
 		container_of(handler, struct ipoib_dev_priv, event_handler);
 
+	if (record->element.port_num != priv->port)
+		return;
+
 	if (record->event == IB_EVENT_PORT_ERR    ||
-	    record->event == IB_EVENT_PKEY_CHANGE ||
 	    record->event == IB_EVENT_PORT_ACTIVE ||
 	    record->event == IB_EVENT_LID_CHANGE  ||
 	    record->event == IB_EVENT_SM_CHANGE   ||
 	    record->event == IB_EVENT_CLIENT_REREGISTER) {
 		ipoib_dbg(priv, "Port state change event\n");
 		queue_work(ipoib_workqueue, &priv->flush_task);
+	} else if (record->event == IB_EVENT_PKEY_CHANGE) {
+		ipoib_dbg(priv, "P_Key change event on port:%d\n", priv->port);
+		queue_work(ipoib_workqueue, &priv->pkey_event_task);
 	}
 }

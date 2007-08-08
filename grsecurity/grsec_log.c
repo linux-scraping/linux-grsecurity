@@ -132,6 +132,10 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		task = va_arg(ap, struct task_struct *);
 		gr_log_middle_varargs(audit, msg, NIPQUAD(task->signal->curr_ip), gr_task_fullpath0(task), task->comm, task->pid, gr_parent_task_fullpath0(task), task->parent->comm, task->parent->pid);
 		break;
+	case GR_SYSCTL_HIDDEN:
+		str1 = va_arg(ap, char *);
+		gr_log_middle_varargs(audit, msg, result, str1);
+		break;
 	case GR_RBAC:
 		dentry = va_arg(ap, struct dentry *);
 		mnt = va_arg(ap, struct vfsmount *);

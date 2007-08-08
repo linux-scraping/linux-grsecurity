@@ -45,6 +45,15 @@ void __init udbg_early_init(void)
 #elif defined(CONFIG_PPC_EARLY_DEBUG_ISERIES)
 	/* For iSeries - hit Ctrl-x Ctrl-x to see the output */
 	udbg_init_iseries();
+#elif defined(CONFIG_PPC_EARLY_DEBUG_BEAT)
+	udbg_init_debug_beat();
+#elif defined(CONFIG_PPC_EARLY_DEBUG_PAS_REALMODE)
+	udbg_init_pas_realmode();
+#elif defined(CONFIG_BOOTX_TEXT)
+	udbg_init_btext();
+#elif defined(CONFIG_PPC_EARLY_DEBUG_44x)
+	/* PPC44x debug */
+	udbg_init_44x_as1();
 #endif
 }
 
@@ -136,29 +145,28 @@ static void udbg_console_write(struct console *con, const char *s,
 static struct console udbg_console = {
 	.name	= "udbg",
 	.write	= udbg_console_write,
-	.flags	= CON_PRINTBUFFER | CON_ENABLED,
+	.flags	= CON_PRINTBUFFER | CON_ENABLED | CON_BOOT,
 	.index	= -1,
 };
 
 static int early_console_initialized;
 
-void __init disable_early_printk(void)
-{
-	if (!early_console_initialized)
-		return;
-	if (strstr(saved_command_line, "udbg-immortal")) {
-		printk(KERN_INFO "early console immortal !\n");
-		return;
-	}
-	unregister_console(&udbg_console);
-	early_console_initialized = 0;
-}
-
-/* called by setup_system */
+/*
+ * Called by setup_system after ppc_md->probe and ppc_md->early_init.
+ * Call it again after setting udbg_putc in ppc_md->setup_arch.
+ */
 void register_early_udbg_console(void)
 {
 	if (early_console_initialized)
 		return;
+
+	if (!udbg_putc)
+		return;
+
+	if (strstr(boot_command_line, "udbg-immortal")) {
+		printk(KERN_INFO "early console immortal !\n");
+		udbg_console.flags &= ~CON_BOOT;
+	}
 	early_console_initialized = 1;
 	register_console(&udbg_console);
 }

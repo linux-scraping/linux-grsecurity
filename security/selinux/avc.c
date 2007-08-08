@@ -217,6 +217,8 @@ static void avc_dump_query(struct audit_buffer *ab, u32 ssid, u32 tsid, u16 tcla
 		audit_log_format(ab, " tcontext=%s", scontext);
 		kfree(scontext);
 	}
+
+	BUG_ON(tclass >= ARRAY_SIZE(class_to_string) || !class_to_string[tclass]);
 	audit_log_format(ab, " tclass=%s", class_to_string[tclass]);
 }
 
@@ -332,11 +334,10 @@ static struct avc_node *avc_alloc_node(void)
 {
 	struct avc_node *node;
 
-	node = kmem_cache_alloc(avc_node_cachep, GFP_ATOMIC);
+	node = kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC);
 	if (!node)
 		goto out;
 
-	memset(node, 0, sizeof(*node));
 	INIT_RCU_HEAD(&node->rhead);
 	INIT_LIST_HEAD(&node->list);
 	atomic_set(&node->ae.used, 1);

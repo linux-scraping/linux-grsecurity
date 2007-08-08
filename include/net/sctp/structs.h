@@ -276,6 +276,7 @@ struct sctp_sock {
 	__u32 default_context;
 	__u32 default_timetolive;
 	__u32 default_rcv_context;
+	int max_burst;
 
 	/* Heartbeat interval: The endpoint sends out a Heartbeat chunk to
 	 * the destination address every heartbeat interval. This value
@@ -304,10 +305,12 @@ struct sctp_sock {
 	__u32 autoclose;
 	__u8 nodelay;
 	__u8 disable_fragments;
-	__u8 pd_mode;
 	__u8 v4mapped;
+	__u8 frag_interleave;
 	__u32 adaptation_ind;
+	__u32 pd_point;
 
+	atomic_t pd_mode;
 	/* Receive to here while partial delivery is in effect. */
 	struct sk_buff_head pd_lobby;
 };
@@ -909,6 +912,9 @@ struct sctp_transport {
 	 */
 	__u16 pathmaxrxt;
 
+	/* is the Path MTU update pending on this tranport */
+	__u8 pmtu_pending;
+
 	/* PMTU	      : The current known path MTU.  */
 	__u32 pathmtu;
 
@@ -1002,6 +1008,8 @@ void sctp_transport_update_rto(struct sctp_transport *, __u32);
 void sctp_transport_raise_cwnd(struct sctp_transport *, __u32, __u32);
 void sctp_transport_lower_cwnd(struct sctp_transport *, sctp_lower_cwnd_t);
 unsigned long sctp_transport_timeout(struct sctp_transport *);
+void sctp_transport_reset(struct sctp_transport *);
+void sctp_transport_update_pmtu(struct sctp_transport *, u32);
 
 
 /* This is the structure we use to queue packets as they come into
@@ -1561,6 +1569,9 @@ struct sctp_association {
 	 */
 	__u16 pathmaxrxt;
 
+	/* Flag that path mtu update is pending */
+	__u8   pmtu_pending;
+
 	/* Association : The smallest PMTU discovered for all of the
 	 * PMTU	       : peer's transport addresses.
 	 */
@@ -1853,6 +1864,7 @@ int sctp_assoc_set_bind_addr_from_ep(struct sctp_association *,
 int sctp_assoc_set_bind_addr_from_cookie(struct sctp_association *,
 					 struct sctp_cookie*,
 					 gfp_t gfp);
+int sctp_assoc_set_id(struct sctp_association *, gfp_t);
 
 int sctp_cmp_addr_exact(const union sctp_addr *ss1,
 			const union sctp_addr *ss2);

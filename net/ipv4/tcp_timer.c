@@ -69,7 +69,7 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
 	struct tcp_sock *tp = tcp_sk(sk);
 	int orphans = atomic_read(&tcp_orphan_count);
 
-	/* If peer does not open window for long time, or did not transmit 
+	/* If peer does not open window for long time, or did not transmit
 	 * anything for long time, penalize it. */
 	if ((s32)(tcp_time_stamp - tp->lsndtime) > 2*TCP_RTO_MAX || !do_reset)
 		orphans <<= 1;
@@ -78,9 +78,7 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
 	if (sk->sk_err_soft)
 		orphans <<= 1;
 
-	if (orphans >= sysctl_tcp_max_orphans ||
-	    (sk->sk_wmem_queued > SOCK_MIN_SNDBUF &&
-	     atomic_read(&tcp_memory_allocated) > sysctl_tcp_mem[2])) {
+	if (tcp_too_many_orphans(sk, orphans)) {
 		if (net_ratelimit())
 			printk(KERN_INFO "Out of socket memory\n");
 
@@ -137,7 +135,7 @@ static int tcp_write_timeout(struct sock *sk)
 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
 				} else {
 					mss = min(sysctl_tcp_base_mss,
-					          tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
+						  tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
 					mss = max(mss, 68 - tp->tcp_header_len);
 					icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
@@ -150,7 +148,7 @@ static int tcp_write_timeout(struct sock *sk)
 		retry_until = sysctl_tcp_retries2;
 		if (sock_flag(sk, SOCK_DEAD)) {
 			const int alive = (icsk->icsk_rto < TCP_RTO_MAX);
- 
+
 			retry_until = tcp_orphan_retries(sk, alive);
 
 			if (tcp_out_of_resources(sk, alive || icsk->icsk_retransmits < retry_until))
@@ -233,7 +231,7 @@ static void tcp_probe_timer(struct sock *sk)
 	struct tcp_sock *tp = tcp_sk(sk);
 	int max_probes;
 
-	if (tp->packets_out || !sk->sk_send_head) {
+	if (tp->packets_out || !tcp_send_head(sk)) {
 		icsk->icsk_probes_out = 0;
 		return;
 	}
@@ -257,7 +255,7 @@ static void tcp_probe_timer(struct sock *sk)
 
 	if (sock_flag(sk, SOCK_DEAD)) {
 		const int alive = ((icsk->icsk_rto << icsk->icsk_backoff) < TCP_RTO_MAX);
- 
+
 		max_probes = tcp_orphan_retries(sk, alive);
 
 		if (tcp_out_of_resources(sk, alive || icsk->icsk_probes_out <= max_probes))
@@ -284,7 +282,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 	if (!tp->packets_out)
 		goto out;
 
-	BUG_TRAP(!skb_queue_empty(&sk->sk_write_queue));
+	BUG_TRAP(!tcp_write_queue_empty(sk));
 
 	if (!tp->snd_wnd && !sock_flag(sk, SOCK_DEAD) &&
 	    !((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))) {
@@ -294,9 +292,9 @@ static void tcp_retransmit_timer(struct sock *sk)
 		 * we cannot allow such beasts to hang infinitely.
 		 */
 #ifdef TCP_DEBUG
-		if (net_ratelimit()) {
+		if (1) {
 			struct inet_sock *inet = inet_sk(sk);
-			printk(KERN_DEBUG "TCP: Treason uncloaked! Peer %u.%u.%u.%u:%u/%u shrinks window %u:%u. Repaired.\n",
+			LIMIT_NETDEBUG(KERN_DEBUG "TCP: Treason uncloaked! Peer %u.%u.%u.%u:%u/%u shrinks window %u:%u. Repaired.\n",
 			       NIPQUAD(inet->daddr), ntohs(inet->dport),
 			       inet->num, tp->snd_una, tp->snd_nxt);
 		}
@@ -306,7 +304,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 			goto out;
 		}
 		tcp_enter_loss(sk, 0);
-		tcp_retransmit_skb(sk, skb_peek(&sk->sk_write_queue));
+		tcp_retransmit_skb(sk, tcp_write_queue_head(sk));
 		__sk_dst_reset(sk);
 		goto out_reset_timer;
 	}
@@ -341,7 +339,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 		tcp_enter_loss(sk, 0);
 	}
 
-	if (tcp_retransmit_skb(sk, skb_peek(&sk->sk_write_queue)) > 0) {
+	if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk)) > 0) {
 		/* Retransmission failed because of local congestion,
 		 * do not backoff.
 		 */
@@ -453,7 +451,7 @@ static void tcp_keepalive_timer (unsigned long data)
 	/* Only process if socket is not in use. */
 	bh_lock_sock(sk);
 	if (sock_owned_by_user(sk)) {
-		/* Try again later. */ 
+		/* Try again later. */
 		inet_csk_reset_keepalive_timer (sk, HZ/20);
 		goto out;
 	}
@@ -482,7 +480,7 @@ static void tcp_keepalive_timer (unsigned long data)
 	elapsed = keepalive_time_when(tp);
 
 	/* It is alive without keepalive 8) */
-	if (tp->packets_out || sk->sk_send_head)
+	if (tp->packets_out || tcp_send_head(sk))
 		goto resched;
 
 	elapsed = tcp_time_stamp - tp->rcv_tstamp;
@@ -515,7 +513,7 @@ resched:
 	inet_csk_reset_keepalive_timer (sk, elapsed);
 	goto out;
 
-death:	
+death:
 	tcp_done(sk);
 
 out:

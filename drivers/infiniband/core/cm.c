@@ -40,7 +40,6 @@
 #include <linux/err.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
-#include <linux/pci.h>
 #include <linux/random.h>
 #include <linux/rbtree.h>
 #include <linux/spinlock.h>
@@ -88,7 +87,6 @@ struct cm_port {
 struct cm_device {
 	struct list_head list;
 	struct ib_device *device;
-	__be64 ca_guid;
 	struct cm_port port[0];
 };
 
@@ -308,7 +306,9 @@ static int cm_alloc_id(struct cm_id_private *cm_id_priv)
 	do {
 		spin_lock_irqsave(&cm.lock, flags);
 		ret = idr_get_new_above(&cm.local_id_table, cm_id_priv,
-					next_id++, &id);
+					next_id, &id);
+		if (!ret)
+			next_id = ((unsigned) id + 1) & MAX_ID_MASK;
 		spin_unlock_irqrestore(&cm.lock, flags);
 	} while( (ret == -EAGAIN) && idr_pre_get(&cm.local_id_table, GFP_KERNEL) );
 
@@ -739,8 +739,8 @@ retest:
 		ib_cancel_mad(cm_id_priv->av.port->mad_agent, cm_id_priv->msg);
 		spin_unlock_irqrestore(&cm_id_priv->lock, flags);
 		ib_send_cm_rej(cm_id, IB_CM_REJ_TIMEOUT,
-			       &cm_id_priv->av.port->cm_dev->ca_guid,
-			       sizeof cm_id_priv->av.port->cm_dev->ca_guid,
+			       &cm_id_priv->id.device->node_guid,
+			       sizeof cm_id_priv->id.device->node_guid,
 			       NULL, 0);
 		break;
 	case IB_CM_REQ_RCVD:
@@ -883,7 +883,7 @@ static void cm_format_req(struct cm_req_msg *req_msg,
 
 	req_msg->local_comm_id = cm_id_priv->id.local_id;
 	req_msg->service_id = param->service_id;
-	req_msg->local_ca_guid = cm_id_priv->av.port->cm_dev->ca_guid;
+	req_msg->local_ca_guid = cm_id_priv->id.device->node_guid;
 	cm_req_set_local_qpn(req_msg, cpu_to_be32(param->qp_num));
 	cm_req_set_resp_res(req_msg, param->responder_resources);
 	cm_req_set_init_depth(req_msg, param->initiator_depth);
@@ -1297,26 +1297,29 @@ static struct cm_id_private * cm_match_req(struct cm_work *work,
 
 	req_msg = (struct cm_req_msg *)work->mad_recv_wc->recv_buf.mad;
 
-	/* Check for duplicate REQ and stale connections. */
+	/* Check for possible duplicate REQ. */
 	spin_lock_irqsave(&cm.lock, flags);
 	timewait_info = cm_insert_remote_id(cm_id_priv->timewait_info);
-	if (!timewait_info)
-		timewait_info = cm_insert_remote_qpn(cm_id_priv->timewait_info);
-
 	if (timewait_info) {
 		cur_cm_id_priv = cm_get_id(timewait_info->work.local_id,
 					   timewait_info->work.remote_id);
-		cm_cleanup_timewait(cm_id_priv->timewait_info);
 		spin_unlock_irqrestore(&cm.lock, flags);
 		if (cur_cm_id_priv) {
 			cm_dup_req_handler(work, cur_cm_id_priv);
 			cm_deref_id(cur_cm_id_priv);
-		} else
-			cm_issue_rej(work->port, work->mad_recv_wc,
-				     IB_CM_REJ_STALE_CONN, CM_MSG_RESPONSE_REQ,
-				     NULL, 0);
-		listen_cm_id_priv = NULL;
-		goto out;
+		}
+		return NULL;
+	}
+
+	/* Check for stale connections. */
+	timewait_info = cm_insert_remote_qpn(cm_id_priv->timewait_info);
+	if (timewait_info) {
+		cm_cleanup_timewait(cm_id_priv->timewait_info);
+		spin_unlock_irqrestore(&cm.lock, flags);
+		cm_issue_rej(work->port, work->mad_recv_wc,
+			     IB_CM_REJ_STALE_CONN, CM_MSG_RESPONSE_REQ,
+			     NULL, 0);
+		return NULL;
 	}
 
 	/* Find matching listen request. */
@@ -1442,7 +1445,7 @@ static void cm_format_rep(struct cm_rep_msg *rep_msg,
 	cm_rep_set_flow_ctrl(rep_msg, param->flow_control);
 	cm_rep_set_rnr_retry_count(rep_msg, param->rnr_retry_count);
 	cm_rep_set_srq(rep_msg, param->srq);
-	rep_msg->local_ca_guid = cm_id_priv->av.port->cm_dev->ca_guid;
+	rep_msg->local_ca_guid = cm_id_priv->id.device->node_guid;
 
 	if (param->private_data && param->private_data_len)
 		memcpy(rep_msg->private_data, param->private_data,
@@ -3385,7 +3388,6 @@ static void cm_add_one(struct ib_device *device)
 		return;
 
 	cm_dev->device = device;
-	cm_dev->ca_guid = device->node_guid;
 
 	set_bit(IB_MGMT_METHOD_SEND, reg_req.method_mask);
 	for (i = 1; i <= device->phys_port_cnt; i++) {

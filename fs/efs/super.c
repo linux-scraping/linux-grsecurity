@@ -72,9 +72,7 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct efs_inode_info *ei = (struct efs_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&ei->vfs_inode);
+	inode_init_once(&ei->vfs_inode);
 }
  
 static int init_inodecache(void)
@@ -105,7 +103,7 @@ static int efs_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
-static struct super_operations efs_superblock_operations = {
+static const struct super_operations efs_superblock_operations = {
 	.alloc_inode	= efs_alloc_inode,
 	.destroy_inode	= efs_destroy_inode,
 	.read_inode	= efs_read_inode,

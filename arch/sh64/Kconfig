@@ -17,6 +17,9 @@ config MMU
 	bool
 	default y
 
+config QUICKLIST
+	def_bool y
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -34,9 +37,6 @@ config GENERIC_CALIBRATE_DELAY
 	default y
 
 config RWSEM_XCHGADD_ALGORITHM
-	bool
-
-config GENERIC_ISA_DMA
 	bool
 
 config ARCH_HAS_ILOG2_U32

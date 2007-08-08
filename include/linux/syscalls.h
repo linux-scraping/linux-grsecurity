@@ -576,6 +576,8 @@ asmlinkage long sys_fstatat64(int dfd, char __user *filename,
 			       struct stat64 __user *statbuf, int flag);
 asmlinkage long sys_readlinkat(int dfd, const char __user *path, char __user *buf,
 			       int bufsiz);
+asmlinkage long sys_utimensat(int dfd, char __user *filename,
+				struct timespec __user *utimes, int flags);
 asmlinkage long compat_sys_futimesat(unsigned int dfd, char __user *filename,
 				     struct compat_timeval __user *t);
 asmlinkage long compat_sys_newfstatat(unsigned int dfd, char __user * filename,
@@ -596,12 +598,18 @@ asmlinkage long sys_tee(int fdin, int fdout, size_t len, unsigned int flags);
 
 asmlinkage long sys_sync_file_range(int fd, loff_t offset, loff_t nbytes,
 					unsigned int flags);
+asmlinkage long sys_sync_file_range2(int fd, unsigned int flags,
+				     loff_t offset, loff_t nbytes);
 asmlinkage long sys_get_robust_list(int pid,
 				    struct robust_list_head __user * __user *head_ptr,
 				    size_t __user *len_ptr);
 asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
 				    size_t len);
 asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
+asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask);
+asmlinkage long sys_timerfd(int ufd, int clockid, int flags,
+			    const struct itimerspec __user *utmr);
+asmlinkage long sys_eventfd(unsigned int count);
 
 int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
 

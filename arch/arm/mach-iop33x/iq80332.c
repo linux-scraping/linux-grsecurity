@@ -32,6 +32,7 @@
 #include <asm/mach-types.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
+#include <asm/arch/time.h>
 
 /*
  * IQ80332 timer tick configuration.
@@ -40,21 +41,21 @@ static void __init iq80332_timer_init(void)
 {
 	/* D-Step parts and the iop333 run at a higher internal bus frequency */
 	if (*IOP3XX_ATURID >= 0xa || *IOP3XX_ATUDID == 0x374)
-		iop3xx_init_time(333000000);
+		iop_init_time(333000000);
 	else
-		iop3xx_init_time(266000000);
+		iop_init_time(266000000);
 }
 
 static struct sys_timer iq80332_timer = {
 	.init		= iq80332_timer_init,
-	.offset		= iop3xx_gettimeoffset,
+	.offset		= iop_gettimeoffset,
 };
 
 
 /*
  * IQ80332 PCI.
  */
-static inline int __init
+static int __init
 iq80332_pci_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq;
@@ -95,7 +96,8 @@ static struct hw_pci iq80332_pci __initdata = {
 
 static int __init iq80332_pci_init(void)
 {
-	if (machine_is_iq80332())
+	if ((iop3xx_get_init_atu() == IOP3XX_INIT_ATU_ENABLE) &&
+		machine_is_iq80332())
 		pci_common_init(&iq80332_pci);
 
 	return 0;

@@ -176,6 +176,7 @@ static const struct pipe_buf_operations user_page_pipe_buf_ops = {
 static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 			      struct splice_pipe_desc *spd)
 {
+	unsigned int spd_pages = spd->nr_pages;
 	int ret, do_wakeup, page_nr;
 
 	ret = 0;
@@ -244,17 +245,18 @@ static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 		pipe->waiting_writers--;
 	}
 
-	if (pipe->inode)
+	if (pipe->inode) {
 		mutex_unlock(&pipe->inode->i_mutex);
 
-	if (do_wakeup) {
-		smp_mb();
-		if (waitqueue_active(&pipe->wait))
-			wake_up_interruptible(&pipe->wait);
-		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+		if (do_wakeup) {
+			smp_mb();
+			if (waitqueue_active(&pipe->wait))
+				wake_up_interruptible(&pipe->wait);
+			kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
+		}
 	}
 
-	while (page_nr < spd->nr_pages)
+	while (page_nr < spd_pages)
 		page_cache_release(spd->pages[page_nr++]);
 
 	return ret;
@@ -272,7 +274,6 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 	struct page *page;
 	pgoff_t index, end_index;
 	loff_t isize;
-	size_t total_len;
 	int error, page_nr;
 	struct splice_pipe_desc spd = {
 		.pages = pages,
@@ -289,18 +290,15 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 		nr_pages = PIPE_BUFFERS;
 
 	/*
-	 * Initiate read-ahead on this page range. however, don't call into
-	 * read-ahead if this is a non-zero offset (we are likely doing small
-	 * chunk splice and the page is already there) for a single page.
+	 * Don't try to 2nd guess the read-ahead logic, call into
+	 * page_cache_readahead() like the page cache reads would do.
 	 */
-	if (!loff || nr_pages > 1)
-		page_cache_readahead(mapping, &in->f_ra, in, index, nr_pages);
+	page_cache_readahead(mapping, &in->f_ra, in, index, nr_pages);
 
 	/*
 	 * Now fill in the holes:
 	 */
 	error = 0;
-	total_len = 0;
 
 	/*
 	 * Lookup the (hopefully) full range of pages we need.
@@ -378,10 +376,11 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 			 * If in nonblock mode then dont block on waiting
 			 * for an in-flight io page
 			 */
-			if (flags & SPLICE_F_NONBLOCK)
-				break;
-
-			lock_page(page);
+			if (flags & SPLICE_F_NONBLOCK) {
+				if (TestSetPageLocked(page))
+					break;
+			} else
+				lock_page(page);
 
 			/*
 			 * page was truncated, stop here. if this isn't the
@@ -416,43 +415,47 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 
 				break;
 			}
+		}
+fill_it:
+		/*
+		 * i_size must be checked after PageUptodate.
+		 */
+		isize = i_size_read(mapping->host);
+		end_index = (isize - 1) >> PAGE_CACHE_SHIFT;
+		if (unlikely(!isize || index > end_index))
+			break;
+
+		/*
+		 * if this is the last page, see if we need to shrink
+		 * the length and stop
+		 */
+		if (end_index == index) {
+			unsigned int plen;
 
 			/*
-			 * i_size must be checked after ->readpage().
+			 * max good bytes in this page
 			 */
-			isize = i_size_read(mapping->host);
-			end_index = (isize - 1) >> PAGE_CACHE_SHIFT;
-			if (unlikely(!isize || index > end_index))
+			plen = ((isize - 1) & ~PAGE_CACHE_MASK) + 1;
+			if (plen <= loff)
 				break;
 
 			/*
-			 * if this is the last page, see if we need to shrink
-			 * the length and stop
+			 * force quit after adding this page
 			 */
-			if (end_index == index) {
-				loff = PAGE_CACHE_SIZE - (isize & ~PAGE_CACHE_MASK);
-				if (total_len + loff > isize)
-					break;
-				/*
-				 * force quit after adding this page
-				 */
-				len = this_len;
-				this_len = min(this_len, loff);
-				loff = 0;
-			}
+			this_len = min(this_len, plen - loff);
+			len = this_len;
 		}
-fill_it:
+
 		partial[page_nr].offset = loff;
 		partial[page_nr].len = this_len;
 		len -= this_len;
-		total_len += this_len;
 		loff = 0;
 		spd.nr_pages++;
 		index++;
 	}
 
 	/*
-	 * Release any pages at the end, if we quit early. 'i' is how far
+	 * Release any pages at the end, if we quit early. 'page_nr' is how far
 	 * we got, 'nr_pages' is how many pages are in the map.
 	 */
 	while (page_nr < nr_pages)
@@ -479,10 +482,18 @@ ssize_t generic_file_splice_read(struct file *in, loff_t *ppos,
 {
 	ssize_t spliced;
 	int ret;
+	loff_t isize, left;
+
+	isize = i_size_read(in->f_mapping->host);
+	if (unlikely(*ppos >= isize))
+		return 0;
+
+	left = isize - *ppos;
+	if (unlikely(left < len))
+		len = left;
 
 	ret = 0;
 	spliced = 0;
-
 	while (len) {
 		ret = __generic_file_splice_read(in, ppos, pipe, len, flags);
 
@@ -576,76 +587,21 @@ static int pipe_to_file(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	if (this_len + offset > PAGE_CACHE_SIZE)
 		this_len = PAGE_CACHE_SIZE - offset;
 
-	/*
-	 * Reuse buf page, if SPLICE_F_MOVE is set and we are doing a full
-	 * page.
-	 */
-	if ((sd->flags & SPLICE_F_MOVE) && this_len == PAGE_CACHE_SIZE) {
-		/*
-		 * If steal succeeds, buf->page is now pruned from the
-		 * pagecache and we can reuse it. The page will also be
-		 * locked on successful return.
-		 */
-		if (buf->ops->steal(pipe, buf))
-			goto find_page;
-
-		page = buf->page;
-		if (add_to_page_cache(page, mapping, index, GFP_KERNEL)) {
-			unlock_page(page);
-			goto find_page;
-		}
-
-		page_cache_get(page);
-
-		if (!(buf->flags & PIPE_BUF_FLAG_LRU))
-			lru_cache_add(page);
-	} else {
 find_page:
-		page = find_lock_page(mapping, index);
-		if (!page) {
-			ret = -ENOMEM;
-			page = page_cache_alloc_cold(mapping);
-			if (unlikely(!page))
-				goto out_ret;
-
-			/*
-			 * This will also lock the page
-			 */
-			ret = add_to_page_cache_lru(page, mapping, index,
-						    GFP_KERNEL);
-			if (unlikely(ret))
-				goto out;
-		}
+	page = find_lock_page(mapping, index);
+	if (!page) {
+		ret = -ENOMEM;
+		page = page_cache_alloc_cold(mapping);
+		if (unlikely(!page))
+			goto out_ret;
 
 		/*
-		 * We get here with the page locked. If the page is also
-		 * uptodate, we don't need to do more. If it isn't, we
-		 * may need to bring it in if we are not going to overwrite
-		 * the full page.
+		 * This will also lock the page
 		 */
-		if (!PageUptodate(page)) {
-			if (this_len < PAGE_CACHE_SIZE) {
-				ret = mapping->a_ops->readpage(file, page);
-				if (unlikely(ret))
-					goto out;
-
-				lock_page(page);
-
-				if (!PageUptodate(page)) {
-					/*
-					 * Page got invalidated, repeat.
-					 */
-					if (!page->mapping) {
-						unlock_page(page);
-						page_cache_release(page);
-						goto find_page;
-					}
-					ret = -EIO;
-					goto out;
-				}
-			} else
-				SetPageUptodate(page);
-		}
+		ret = add_to_page_cache_lru(page, mapping, index,
+					    GFP_KERNEL);
+		if (unlikely(ret))
+			goto out;
 	}
 
 	ret = mapping->a_ops->prepare_write(file, page, offset, offset+this_len);
@@ -682,18 +638,24 @@ find_page:
 	}
 
 	ret = mapping->a_ops->commit_write(file, page, offset, offset+this_len);
-	if (!ret) {
+	if (ret) {
+		if (ret == AOP_TRUNCATED_PAGE) {
+			page_cache_release(page);
+			goto find_page;
+		}
+		if (ret < 0)
+			goto out;
 		/*
-		 * Return the number of bytes written and mark page as
-		 * accessed, we are now done!
+		 * Partial write has happened, so 'ret' already initialized by
+		 * number of bytes written, Where is nothing we have to do here.
 		 */
+	} else
 		ret = this_len;
-		mark_page_accessed(page);
-		balance_dirty_pages_ratelimited(mapping);
-	} else if (ret == AOP_TRUNCATED_PAGE) {
-		page_cache_release(page);
-		goto find_page;
-	}
+	/*
+	 * Return the number of bytes written and mark page as
+	 * accessed, we are now done!
+	 */
+	mark_page_accessed(page);
 out:
 	page_cache_release(page);
 	unlock_page(page);
@@ -706,9 +668,9 @@ out_ret:
  * key here is the 'actor' worker passed in that actually moves the data
  * to the wanted destination. See pipe_to_file/pipe_to_sendpage above.
  */
-static ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
-				  struct file *out, loff_t *ppos, size_t len,
-				  unsigned int flags, splice_actor *actor)
+ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+			   struct file *out, loff_t *ppos, size_t len,
+			   unsigned int flags, splice_actor *actor)
 {
 	int ret, do_wakeup, err;
 	struct splice_desc sd;
@@ -802,6 +764,7 @@ static ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
 
 	return ret;
 }
+EXPORT_SYMBOL(__splice_from_pipe);
 
 ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
 			 loff_t *ppos, size_t len, unsigned int flags,
@@ -850,7 +813,10 @@ generic_file_splice_write_nolock(struct pipe_inode_info *pipe, struct file *out,
 
 	ret = __splice_from_pipe(pipe, out, ppos, len, flags, pipe_to_file);
 	if (ret > 0) {
+		unsigned long nr_pages;
+
 		*ppos += ret;
+		nr_pages = (ret + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
 
 		/*
 		 * If file or inode is SYNC and we actually wrote some data,
@@ -863,6 +829,7 @@ generic_file_splice_write_nolock(struct pipe_inode_info *pipe, struct file *out,
 			if (err)
 				ret = err;
 		}
+		balance_dirty_pages_ratelimited_nr(mapping, nr_pages);
 	}
 
 	return ret;
@@ -901,7 +868,10 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 
 	ret = splice_from_pipe(pipe, out, ppos, len, flags, pipe_to_file);
 	if (ret > 0) {
+		unsigned long nr_pages;
+
 		*ppos += ret;
+		nr_pages = (ret + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
 
 		/*
 		 * If file or inode is SYNC and we actually wrote some data,
@@ -916,6 +886,7 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 			if (err)
 				ret = err;
 		}
+		balance_dirty_pages_ratelimited_nr(mapping, nr_pages);
 	}
 
 	return ret;
@@ -970,7 +941,6 @@ static long do_splice_to(struct file *in, loff_t *ppos,
 			 struct pipe_inode_info *pipe, size_t len,
 			 unsigned int flags)
 {
-	loff_t isize, left;
 	int ret;
 
 	if (unlikely(!in->f_op || !in->f_op->splice_read))
@@ -982,14 +952,6 @@ static long do_splice_to(struct file *in, loff_t *ppos,
 	ret = rw_verify_area(READ, in, ppos, len);
 	if (unlikely(ret < 0))
 		return ret;
-
-	isize = i_size_read(in->f_mapping->host);
-	if (unlikely(*ppos >= isize))
-		return 0;
-	
-	left = isize - *ppos;
-	if (unlikely(left < len))
-		len = left;
 
 	return in->f_op->splice_read(in, ppos, pipe, len, flags);
 }
@@ -1105,8 +1067,6 @@ out_release:
 
 	return ret;
 }
-
-EXPORT_SYMBOL(do_splice_direct);
 
 /*
  * After the inode slimming patch, i_pipe/i_bdev/i_cdev share the same

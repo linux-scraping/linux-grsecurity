@@ -1261,7 +1261,6 @@ isdn_tty_flush_buffer(struct tty_struct *tty)
 	}
 	isdn_tty_cleanup_xmit(info);
 	info->xmit_count = 0;
-	wake_up_interruptible(&tty->write_wait);
 	tty_wakeup(tty);
 }
 
@@ -2694,8 +2693,9 @@ isdn_tty_getdial(char *p, char *q,int cnt)
 	int limit = ISDN_MSNLEN - 1;	/* MUST match the size of interface var to avoid
 					buffer overflow */
 
-	while (strchr(" 0123456789,#.*WPTS-", *p) && *p && --cnt>0) {
+	while (strchr(" 0123456789,#.*WPTSR-", *p) && *p && --cnt>0) {
 		if ((*p >= '0' && *p <= '9') || ((*p == 'S') && first) ||
+		    ((*p == 'R') && first) ||
 		    (*p == '*') || (*p == '#')) {
 			*q++ = *p;
 			limit--;

@@ -55,6 +55,17 @@ void warn(const char *fmt, ...)
 	va_end(arglist);
 }
 
+void merror(const char *fmt, ...)
+{
+	va_list arglist;
+
+	fprintf(stderr, "ERROR: ");
+
+	va_start(arglist, fmt);
+	vfprintf(stderr, fmt, arglist);
+	va_end(arglist);
+}
+
 static int is_vmlinux(const char *modname)
 {
 	const char *myname;
@@ -333,10 +344,10 @@ void release_file(void *file, unsigned long size)
 	munmap(file, size);
 }
 
-static void parse_elf(struct elf_info *info, const char *filename)
+static int parse_elf(struct elf_info *info, const char *filename)
 {
 	unsigned int i;
-	Elf_Ehdr *hdr = info->hdr;
+	Elf_Ehdr *hdr;
 	Elf_Shdr *sechdrs;
 	Elf_Sym  *sym;
 
@@ -346,9 +357,18 @@ static void parse_elf(struct elf_info *info, const char *filename)
 		exit(1);
 	}
 	info->hdr = hdr;
-	if (info->size < sizeof(*hdr))
-		goto truncated;
-
+	if (info->size < sizeof(*hdr)) {
+		/* file too small, assume this is an empty .o file */
+		return 0;
+	}
+	/* Is this a valid ELF file? */
+	if ((hdr->e_ident[EI_MAG0] != ELFMAG0) ||
+	    (hdr->e_ident[EI_MAG1] != ELFMAG1) ||
+	    (hdr->e_ident[EI_MAG2] != ELFMAG2) ||
+	    (hdr->e_ident[EI_MAG3] != ELFMAG3)) {
+		/* Not an ELF file - silently ignore it */
+		return 0;
+	}
 	/* Fix endianness in ELF header */
 	hdr->e_shoff    = TO_NATIVE(hdr->e_shoff);
 	hdr->e_shstrndx = TO_NATIVE(hdr->e_shstrndx);
@@ -371,8 +391,10 @@ static void parse_elf(struct elf_info *info, const char *filename)
 			= (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 		const char *secname;
 
-		if (sechdrs[i].sh_offset > info->size)
-			goto truncated;
+		if (sechdrs[i].sh_offset > info->size) {
+			fatal("%s is truncated. sechdrs[i].sh_offset=%u > sizeof(*hrd)=%ul\n", filename, (unsigned int)sechdrs[i].sh_offset, sizeof(*hdr));
+			return 0;
+		}
 		secname = secstrings + sechdrs[i].sh_name;
 		if (strcmp(secname, ".modinfo") == 0) {
 			info->modinfo = (void *)hdr + sechdrs[i].sh_offset;
@@ -407,10 +429,7 @@ static void parse_elf(struct elf_info *info, const char *filename)
 		sym->st_value = TO_NATIVE(sym->st_value);
 		sym->st_size  = TO_NATIVE(sym->st_size);
 	}
-	return;
-
- truncated:
-	fatal("%s is truncated.\n", filename);
+	return 1;
 }
 
 static void parse_elf_finish(struct elf_info *info)
@@ -563,6 +582,12 @@ static int strrcmp(const char *s, const char *sub)
 
 /**
  * Whitelist to allow certain references to pass with no warning.
+ *
+ * Pattern 0:
+ *   Do not warn if funtion/data are marked with __init_refok/__initdata_refok.
+ *   The pattern is identified by:
+ *   fromsec = .text.init.refok | .data.init.refok
+ *
  * Pattern 1:
  *   If a module parameter is declared __initdata and permissions=0
  *   then this is legal despite the warning generated.
@@ -581,9 +606,17 @@ static int strrcmp(const char *s, const char *sub)
  *   the pattern is identified by:
  *   tosec   = .init.text | .exit.text | .init.data
  *   fromsec = .data
- *   atsym = *driver, *_template, *_sht, *_ops, *_probe, *probe_one
+ *   atsym = *driver, *_template, *_sht, *_ops, *_probe, *probe_one, *_console
  *
  * Pattern 3:
+ *   Whitelist all references from .pci_fixup* section to .init.text
+ *   This is part of the PCI init when built-in
+ *
+ * Pattern 4:
+ *   Whitelist all refereces from .text.head to .init.data
+ *   Whitelist all refereces from .text.head to .init.text
+ *
+ * Pattern 5:
  *   Some symbols belong to init section but still it is ok to reference
  *   these from non-init sections as these symbols don't have any memory
  *   allocated for them and symbol address and value are same. So even
@@ -591,6 +624,27 @@ static int strrcmp(const char *s, const char *sub)
  *   For ex. symbols marking the init section boundaries.
  *   This pattern is identified by
  *   refsymname = __init_begin, _sinittext, _einittext
+ *
+ * Pattern 7:
+ *  Logos used in drivers/video/logo reside in __initdata but the
+ *  funtion that references them are EXPORT_SYMBOL() so cannot be
+ *  marker __init. So we whitelist them here.
+ *  The pattern is:
+ *  tosec      = .init.data
+ *  fromsec    = .text*
+ *  refsymname = logo_
+ *
+ * Pattern 8:
+ *  Symbols contained in .paravirtprobe may safely reference .init.text.
+ *  The pattern is:
+ *  tosec   = .init.text
+ *  fromsec  = .paravirtprobe
+ *
+ * Pattern 10:
+ *  ia64 has machvec table for each platform and
+ *  powerpc has a machine desc table for each platform.
+ *  It is mixture of function pointers of .init.text and .text.
+ *  fromsec  = .machvec | .machine.desc
  **/
 static int secref_whitelist(const char *modname, const char *tosec,
 			    const char *fromsec, const char *atsym,
@@ -606,6 +660,7 @@ static int secref_whitelist(const char *modname, const char *tosec,
 		"_probe",
 		"_probe_one",
 		"_console",
+		"apic_es7000",
 		NULL
 	};
 
@@ -615,6 +670,11 @@ static int secref_whitelist(const char *modname, const char *tosec,
 		"_einittext",
 		NULL
 	};
+
+	/* Check for pattern 0 */
+	if ((strcmp(fromsec, ".text.init.refok") == 0) ||
+	    (strcmp(fromsec, ".data.init.refok") == 0))
+		return 1;
 
 	/* Check for pattern 1 */
 	if (strcmp(tosec, ".init.data") != 0)
@@ -641,17 +701,38 @@ static int secref_whitelist(const char *modname, const char *tosec,
 	if (f1 && f2)
 		return 1;
 
-	/* Whitelist all references from .pci_fixup section if vmlinux */
-	if (is_vmlinux(modname)) {
-		if ((strcmp(fromsec, ".pci_fixup") == 0) &&
-		    (strcmp(tosec, ".init.text") == 0))
+	/* Check for pattern 3 */
+	if ((strncmp(fromsec, ".pci_fixup", strlen(".pci_fixup")) == 0) &&
+	    (strcmp(tosec, ".init.text") == 0))
+	return 1;
+
+	/* Check for pattern 4 */
+	if ((strcmp(fromsec, ".text.head") == 0) &&
+		((strcmp(tosec, ".init.data") == 0) ||
+		(strcmp(tosec, ".init.text") == 0)))
+	return 1;
+
+	/* Check for pattern 5 */
+	for (s = pat3refsym; *s; s++)
+		if (strcmp(refsymname, *s) == 0)
+			return 1;
+
+	/* Check for pattern 7 */
+	if ((strcmp(tosec, ".init.data") == 0) &&
+	    (strncmp(fromsec, ".text", strlen(".text")) == 0) &&
+	    (strncmp(refsymname, "logo_", strlen("logo_")) == 0))
 		return 1;
 
-		/* Check for pattern 3 */
-		for (s = pat3refsym; *s; s++)
-			if (strcmp(refsymname, *s) == 0)
-				return 1;
-	}
+	/* Check for pattern 8 */
+	if ((strcmp(tosec, ".init.text") == 0) &&
+	    (strcmp(fromsec, ".paravirtprobe") == 0))
+		return 1;
+
+	/* Check for pattern 10 */
+	if ((strcmp(fromsec, ".machvec") == 0) ||
+	    (strcmp(fromsec, ".machine.desc") == 0))
+		return 1;
+
 	return 0;
 }
 
@@ -676,6 +757,30 @@ static Elf_Sym *find_elf_symbol(struct elf_info *elf, Elf_Addr addr,
 			return sym;
 	}
 	return NULL;
+}
+
+static inline int is_arm_mapping_symbol(const char *str)
+{
+	return str[0] == '$' && strchr("atd", str[1])
+	       && (str[2] == '\0' || str[2] == '.');
+}
+
+/*
+ * If there's no name there, ignore it; likewise, ignore it if it's
+ * one of the magic symbols emitted used by current ARM tools.
+ *
+ * Otherwise if find_symbols_between() returns those symbols, they'll
+ * fail the whitelist tests and cause lots of false alarms ... fixable
+ * only by merging __exit and __init sections into __text, bloating
+ * the kernel (which is especially evil on embedded platforms).
+ */
+static inline int is_valid_name(struct elf_info *elf, Elf_Sym *sym)
+{
+	const char *name = elf->strtab + sym->st_name;
+
+	if (!name || !strlen(name))
+		return 0;
+	return !is_arm_mapping_symbol(name);
 }
 
 /*
@@ -706,16 +811,15 @@ static void find_symbols_between(struct elf_info *elf, Elf_Addr addr,
 		symsec = secstrings + elf->sechdrs[sym->st_shndx].sh_name;
 		if (strcmp(symsec, sec) != 0)
 			continue;
+		if (!is_valid_name(elf, sym))
+			continue;
 		if (sym->st_value <= addr) {
 			if ((addr - sym->st_value) < beforediff) {
 				beforediff = addr - sym->st_value;
 				*before = sym;
 			}
 			else if ((addr - sym->st_value) == beforediff) {
-				/* equal offset, valid name? */
-				const char *name = elf->strtab + sym->st_name;
-				if (name && strlen(name))
-					*before = sym;
+				*before = sym;
 			}
 		}
 		else
@@ -725,10 +829,7 @@ static void find_symbols_between(struct elf_info *elf, Elf_Addr addr,
 				*after = sym;
 			}
 			else if ((sym->st_value - addr) == afterdiff) {
-				/* equal offset, valid name? */
-				const char *name = elf->strtab + sym->st_name;
-				if (name && strlen(name))
-					*after = sym;
+				*after = sym;
 			}
 		}
 	}
@@ -763,30 +864,34 @@ static void warn_sec_mismatch(const char *modname, const char *fromsec,
 			     elf->strtab + before->st_name, refsymname))
 		return;
 
+	/* fromsec whitelist - without a valid 'before'
+	 * powerpc has a GOT table in .got2 section */
+	if (strcmp(fromsec, ".got2") == 0)
+		return;
+
 	if (before && after) {
-		warn("%s - Section mismatch: reference to %s:%s from %s "
-		     "between '%s' (at offset 0x%llx) and '%s'\n",
-		     modname, secname, refsymname, fromsec,
+		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s "
+		     "(between '%s' and '%s')\n",
+		     modname, fromsec, (unsigned long long)r.r_offset,
+		     secname, refsymname,
 		     elf->strtab + before->st_name,
-		     (long long)r.r_offset,
 		     elf->strtab + after->st_name);
 	} else if (before) {
-		warn("%s - Section mismatch: reference to %s:%s from %s "
-		     "after '%s' (at offset 0x%llx)\n",
-		     modname, secname, refsymname, fromsec,
-		     elf->strtab + before->st_name,
-		     (long long)r.r_offset);
+		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s "
+		     "(after '%s')\n",
+		     modname, fromsec, (unsigned long long)r.r_offset,
+		     secname, refsymname,
+		     elf->strtab + before->st_name);
 	} else if (after) {
-		warn("%s - Section mismatch: reference to %s:%s from %s "
+		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s "
 		     "before '%s' (at offset -0x%llx)\n",
-		     modname, secname, refsymname, fromsec,
-		     elf->strtab + after->st_name,
-		     (long long)r.r_offset);
+		     modname, fromsec, (unsigned long long)r.r_offset,
+		     secname, refsymname,
+		     elf->strtab + after->st_name);
 	} else {
-		warn("%s - Section mismatch: reference to %s:%s from %s "
-		     "(offset 0x%llx)\n",
-		     modname, secname, fromsec, refsymname,
-		     (long long)r.r_offset);
+		warn("%s(%s+0x%llx): Section mismatch: reference to %s:%s\n",
+		     modname, fromsec, (unsigned long long)r.r_offset,
+		     secname, refsymname);
 	}
 }
 
@@ -933,7 +1038,7 @@ static int init_section_ref_ok(const char *name)
 		".opd",   /* see comment [OPD] at exit_section_ref_ok() */
 		".toc1",  /* used by ppc64 */
 		".stab",
-		".rodata",
+		".data.rel.ro", /* used by parisc64 */
 		".parainstructions",
 		".text.lock",
 		"__bug_table", /* used by powerpc for BUG() */
@@ -947,6 +1052,7 @@ static int init_section_ref_ok(const char *name)
 		".plt",  /* seen on ARCH=um build on x86_64. Harmless */
 		"__ftr_fixup",		/* powerpc cpu feature fixup */
 		"__fw_ftr_fixup",	/* powerpc firmware feature fixup */
+		".cranges",	/* used by sh64 */
 		NULL
 	};
 	/* Start of section names */
@@ -956,6 +1062,7 @@ static int init_section_ref_ok(const char *name)
 		".eh_frame",
 		".debug",
 		".parainstructions",
+		".rodata",
 		NULL
 	};
 	/* part of section name */
@@ -1026,6 +1133,7 @@ static int exit_section_ref_ok(const char *name)
 		".fixup",
 		".smp_locks",
 		".plt",  /* seen on ARCH=um build on x86_64. Harmless */
+		".cranges",	/* used by sh64 */
 		NULL
 	};
 	/* Start of section names */
@@ -1060,7 +1168,8 @@ static void read_symbols(char *modname)
 	struct elf_info info = { };
 	Elf_Sym *sym;
 
-	parse_elf(&info, modname);
+	if (!parse_elf(&info, modname))
+		return;
 
 	mod = new_module(modname);
 
@@ -1220,6 +1329,7 @@ static void add_header(struct buffer *b, struct module *mod)
 		buf_printf(b, "#ifdef CONFIG_MODULE_UNLOAD\n"
 			      " .exit = cleanup_module,\n"
 			      "#endif\n");
+	buf_printf(b, " .arch = MODULE_ARCH_INIT,\n");
 	buf_printf(b, "};\n");
 }
 
@@ -1235,9 +1345,14 @@ static int add_versions(struct buffer *b, struct module *mod)
 		exp = find_symbol(s->name);
 		if (!exp || exp->module == mod) {
 			if (have_vmlinux && !s->weak) {
-				warn("\"%s\" [%s.ko] undefined!\n",
-				     s->name, mod->name);
-				err = warn_unresolved ? 0 : 1;
+				if (warn_unresolved) {
+					warn("\"%s\" [%s.ko] undefined!\n",
+					     s->name, mod->name);
+				} else {
+					merror("\"%s\" [%s.ko] undefined!\n",
+					          s->name, mod->name);
+					err = 1;
+				}
 			}
 			continue;
 		}
@@ -1288,6 +1403,7 @@ static void add_depends(struct buffer *b, struct module *mod,
 	buf_printf(b, "__attribute__((section(\".modinfo\"))) =\n");
 	buf_printf(b, "\"depends=");
 	for (s = mod->unres; s; s = s->next) {
+		const char *p;
 		if (!s->module)
 			continue;
 
@@ -1295,8 +1411,11 @@ static void add_depends(struct buffer *b, struct module *mod,
 			continue;
 
 		s->module->seen = 1;
-		buf_printf(b, "%s%s", first ? "" : ",",
-			   strrchr(s->module->name, '/') + 1);
+		if ((p = strrchr(s->module->name, '/')) != NULL)
+			p++;
+		else
+			p = s->module->name;
+		buf_printf(b, "%s%s", first ? "" : ",", p);
 		first = 0;
 	}
 	buf_printf(b, "\";\n");

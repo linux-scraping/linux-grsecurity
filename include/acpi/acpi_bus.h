@@ -59,7 +59,6 @@ acpi_evaluate_reference(acpi_handle handle,
 
 #define ACPI_BUS_FILE_ROOT	"acpi"
 extern struct proc_dir_entry *acpi_root_dir;
-extern struct fadt_descriptor acpi_fadt;
 
 enum acpi_bus_removal_type {
 	ACPI_BUS_REMOVAL_NORMAL = 0,
@@ -92,13 +91,13 @@ typedef int (*acpi_op_remove) (struct acpi_device * device, int type);
 typedef int (*acpi_op_lock) (struct acpi_device * device, int type);
 typedef int (*acpi_op_start) (struct acpi_device * device);
 typedef int (*acpi_op_stop) (struct acpi_device * device, int type);
-typedef int (*acpi_op_suspend) (struct acpi_device * device, int state);
-typedef int (*acpi_op_resume) (struct acpi_device * device, int state);
+typedef int (*acpi_op_suspend) (struct acpi_device * device,
+				pm_message_t state);
+typedef int (*acpi_op_resume) (struct acpi_device * device);
 typedef int (*acpi_op_scan) (struct acpi_device * device);
 typedef int (*acpi_op_bind) (struct acpi_device * device);
 typedef int (*acpi_op_unbind) (struct acpi_device * device);
-typedef int (*acpi_op_match) (struct acpi_device * device,
-			      struct acpi_driver * driver);
+typedef int (*acpi_op_shutdown) (struct acpi_device * device);
 
 struct acpi_bus_ops {
 	u32 acpi_op_add:1;
@@ -111,7 +110,7 @@ struct acpi_bus_ops {
 	u32 acpi_op_scan:1;
 	u32 acpi_op_bind:1;
 	u32 acpi_op_unbind:1;
-	u32 acpi_op_match:1;
+	u32 acpi_op_shutdown:1;
 	u32 reserved:21;
 };
 
@@ -126,16 +125,16 @@ struct acpi_device_ops {
 	acpi_op_scan scan;
 	acpi_op_bind bind;
 	acpi_op_unbind unbind;
-	acpi_op_match match;
+	acpi_op_shutdown shutdown;
 };
 
 struct acpi_driver {
-	struct list_head node;
 	char name[80];
 	char class[80];
-	atomic_t references;
 	char *ids;		/* Supported Hardware IDs */
 	struct acpi_device_ops ops;
+	struct device_driver drv;
+	struct module *owner;
 };
 
 /*
@@ -185,7 +184,7 @@ struct acpi_device_dir {
 
 typedef char acpi_bus_id[5];
 typedef unsigned long acpi_bus_address;
-typedef char acpi_hardware_id[9];
+typedef char acpi_hardware_id[15];
 typedef char acpi_unique_id[9];
 typedef char acpi_device_name[40];
 typedef char acpi_device_class[20];
@@ -296,11 +295,17 @@ struct acpi_device {
 	struct acpi_device_ops ops;
 	struct acpi_driver *driver;
 	void *driver_data;
-	struct kobject kobj;
 	struct device dev;
+	struct acpi_bus_ops bus_ops;	/* workaround for different code path for hotplug */
+	enum acpi_bus_removal_type removal_type;	/* indicate for different removal type */
 };
 
 #define acpi_driver_data(d)	((d)->driver_data)
+#define to_acpi_device(d)	container_of(d, struct acpi_device, dev)
+#define to_acpi_driver(d)	container_of(d, struct acpi_driver, drv)
+
+/* acpi_device.dev.bus == &acpi_bus_type */
+extern struct bus_type acpi_bus_type;
 
 /*
  * Events
@@ -315,7 +320,7 @@ struct acpi_bus_event {
 	u32 data;
 };
 
-extern struct subsystem acpi_subsys;
+extern struct kset acpi_subsys;
 
 /*
  * External Functions
@@ -334,7 +339,7 @@ int acpi_bus_add(struct acpi_device **child, struct acpi_device *parent,
 		 acpi_handle handle, int type);
 int acpi_bus_trim(struct acpi_device *start, int rmdevice);
 int acpi_bus_start(struct acpi_device *device);
-acpi_status acpi_bus_get_ejd(acpi_handle handle, acpi_handle *ejd);
+acpi_status acpi_bus_get_ejd(acpi_handle handle, acpi_handle * ejd);
 int acpi_match_ids(struct acpi_device *device, char *ids);
 int acpi_create_dir(struct acpi_device *);
 void acpi_remove_dir(struct acpi_device *);
@@ -359,6 +364,6 @@ acpi_handle acpi_get_child(acpi_handle, acpi_integer);
 acpi_handle acpi_get_pci_rootbridge_handle(unsigned int, unsigned int);
 #define DEVICE_ACPI_HANDLE(dev) ((acpi_handle)((dev)->archdata.acpi_handle))
 
-#endif /* CONFIG_ACPI */
+#endif				/* CONFIG_ACPI */
 
 #endif /*__ACPI_BUS_H__*/

@@ -192,7 +192,7 @@ static void BusLogic_InitializeCCBs(struct BusLogic_HostAdapter *HostAdapter, vo
   BusLogic_CreateInitialCCBs allocates the initial CCBs for Host Adapter.
 */
 
-static boolean __init BusLogic_CreateInitialCCBs(struct BusLogic_HostAdapter *HostAdapter)
+static bool __init BusLogic_CreateInitialCCBs(struct BusLogic_HostAdapter *HostAdapter)
 {
 	int BlockSize = BusLogic_CCB_AllocationGroupSize * sizeof(struct BusLogic_CCB);
 	void *BlockPointer;
@@ -238,7 +238,7 @@ static void BusLogic_DestroyCCBs(struct BusLogic_HostAdapter *HostAdapter)
   multiple host adapters share the same IRQ Channel.
 */
 
-static void BusLogic_CreateAdditionalCCBs(struct BusLogic_HostAdapter *HostAdapter, int AdditionalCCBs, boolean SuccessMessageP)
+static void BusLogic_CreateAdditionalCCBs(struct BusLogic_HostAdapter *HostAdapter, int AdditionalCCBs, bool SuccessMessageP)
 {
 	int BlockSize = BusLogic_CCB_AllocationGroupSize * sizeof(struct BusLogic_CCB);
 	int PreviouslyAllocated = HostAdapter->AllocatedCCBs;
@@ -362,10 +362,8 @@ static int BusLogic_Command(struct BusLogic_HostAdapter *HostAdapter, enum BusLo
 	   interrupt could occur if the IRQ Channel was previously enabled by another
 	   BusLogic Host Adapter or another driver sharing the same IRQ Channel.
 	 */
-	if (!HostAdapter->IRQ_ChannelAcquired) {
+	if (!HostAdapter->IRQ_ChannelAcquired)
 		local_irq_save(ProcessorFlags);
-		local_irq_disable();
-	}
 	/*
 	   Wait for the Host Adapter Ready bit to be set and the Command/Parameter
 	   Register Busy bit to be reset in the Status Register.
@@ -581,17 +579,17 @@ static void __init BusLogic_InitializeProbeInfoListISA(struct BusLogic_HostAdapt
 	/*
 	   Append the list of standard BusLogic MultiMaster ISA I/O Addresses.
 	 */
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe330 : check_region(0x330, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe330)
 		BusLogic_AppendProbeAddressISA(0x330);
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe334 : check_region(0x334, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe334)
 		BusLogic_AppendProbeAddressISA(0x334);
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe230 : check_region(0x230, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe230)
 		BusLogic_AppendProbeAddressISA(0x230);
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe234 : check_region(0x234, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe234)
 		BusLogic_AppendProbeAddressISA(0x234);
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe130 : check_region(0x130, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe130)
 		BusLogic_AppendProbeAddressISA(0x130);
-	if (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe134 : check_region(0x134, BusLogic_MultiMasterAddressCount) == 0)
+	if (!BusLogic_ProbeOptions.LimitedProbeISA || BusLogic_ProbeOptions.Probe134)
 		BusLogic_AppendProbeAddressISA(0x134);
 }
 
@@ -639,9 +637,9 @@ static int __init BusLogic_InitializeMultiMasterProbeInfo(struct BusLogic_HostAd
 	struct BusLogic_ProbeInfo *PrimaryProbeInfo = &BusLogic_ProbeInfoList[BusLogic_ProbeInfoCount];
 	int NonPrimaryPCIMultiMasterIndex = BusLogic_ProbeInfoCount + 1;
 	int NonPrimaryPCIMultiMasterCount = 0, PCIMultiMasterCount = 0;
-	boolean ForceBusDeviceScanningOrder = false;
-	boolean ForceBusDeviceScanningOrderChecked = false;
-	boolean StandardAddressSeen[6];
+	bool ForceBusDeviceScanningOrder = false;
+	bool ForceBusDeviceScanningOrderChecked = false;
+	bool StandardAddressSeen[6];
 	struct pci_dev *PCI_Device = NULL;
 	int i;
 	if (BusLogic_ProbeInfoCount >= BusLogic_MaxHostAdapters)
@@ -797,7 +795,9 @@ static int __init BusLogic_InitializeMultiMasterProbeInfo(struct BusLogic_HostAd
 	   host adapters are probed.
 	 */
 	if (!BusLogic_ProbeOptions.NoProbeISA)
-		if (PrimaryProbeInfo->IO_Address == 0 && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe330 : check_region(0x330, BusLogic_MultiMasterAddressCount) == 0)) {
+		if (PrimaryProbeInfo->IO_Address == 0 &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe330)) {
 			PrimaryProbeInfo->HostAdapterType = BusLogic_MultiMaster;
 			PrimaryProbeInfo->HostAdapterBusType = BusLogic_ISA_Bus;
 			PrimaryProbeInfo->IO_Address = 0x330;
@@ -807,15 +807,25 @@ static int __init BusLogic_InitializeMultiMasterProbeInfo(struct BusLogic_HostAd
 	   omitting the Primary I/O Address which has already been handled.
 	 */
 	if (!BusLogic_ProbeOptions.NoProbeISA) {
-		if (!StandardAddressSeen[1] && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe334 : check_region(0x334, BusLogic_MultiMasterAddressCount) == 0))
+		if (!StandardAddressSeen[1] &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe334))
 			BusLogic_AppendProbeAddressISA(0x334);
-		if (!StandardAddressSeen[2] && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe230 : check_region(0x230, BusLogic_MultiMasterAddressCount) == 0))
+		if (!StandardAddressSeen[2] &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe230))
 			BusLogic_AppendProbeAddressISA(0x230);
-		if (!StandardAddressSeen[3] && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe234 : check_region(0x234, BusLogic_MultiMasterAddressCount) == 0))
+		if (!StandardAddressSeen[3] &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe234))
 			BusLogic_AppendProbeAddressISA(0x234);
-		if (!StandardAddressSeen[4] && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe130 : check_region(0x130, BusLogic_MultiMasterAddressCount) == 0))
+		if (!StandardAddressSeen[4] &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe130))
 			BusLogic_AppendProbeAddressISA(0x130);
-		if (!StandardAddressSeen[5] && (BusLogic_ProbeOptions.LimitedProbeISA ? BusLogic_ProbeOptions.Probe134 : check_region(0x134, BusLogic_MultiMasterAddressCount) == 0))
+		if (!StandardAddressSeen[5] &&
+				(!BusLogic_ProbeOptions.LimitedProbeISA ||
+				 BusLogic_ProbeOptions.Probe134))
 			BusLogic_AppendProbeAddressISA(0x134);
 	}
 	/*
@@ -1011,7 +1021,7 @@ static void __init BusLogic_InitializeProbeInfoList(struct BusLogic_HostAdapter
   BusLogic_Failure prints a standardized error message, and then returns false.
 */
 
-static boolean BusLogic_Failure(struct BusLogic_HostAdapter *HostAdapter, char *ErrorMessage)
+static bool BusLogic_Failure(struct BusLogic_HostAdapter *HostAdapter, char *ErrorMessage)
 {
 	BusLogic_AnnounceDriver(HostAdapter);
 	if (HostAdapter->HostAdapterBusType == BusLogic_PCI_Bus) {
@@ -1030,7 +1040,7 @@ static boolean BusLogic_Failure(struct BusLogic_HostAdapter *HostAdapter, char *
   BusLogic_ProbeHostAdapter probes for a BusLogic Host Adapter.
 */
 
-static boolean __init BusLogic_ProbeHostAdapter(struct BusLogic_HostAdapter *HostAdapter)
+static bool __init BusLogic_ProbeHostAdapter(struct BusLogic_HostAdapter *HostAdapter)
 {
 	union BusLogic_StatusRegister StatusRegister;
 	union BusLogic_InterruptRegister InterruptRegister;
@@ -1101,8 +1111,8 @@ static boolean __init BusLogic_ProbeHostAdapter(struct BusLogic_HostAdapter *Hos
   SCSI Bus Reset.
 */
 
-static boolean BusLogic_HardwareResetHostAdapter(struct BusLogic_HostAdapter
-						 *HostAdapter, boolean HardReset)
+static bool BusLogic_HardwareResetHostAdapter(struct BusLogic_HostAdapter
+						 *HostAdapter, bool HardReset)
 {
 	union BusLogic_StatusRegister StatusRegister;
 	int TimeoutCounter;
@@ -1205,11 +1215,11 @@ static boolean BusLogic_HardwareResetHostAdapter(struct BusLogic_HostAdapter
   Host Adapter.
 */
 
-static boolean __init BusLogic_CheckHostAdapter(struct BusLogic_HostAdapter *HostAdapter)
+static bool __init BusLogic_CheckHostAdapter(struct BusLogic_HostAdapter *HostAdapter)
 {
 	struct BusLogic_ExtendedSetupInformation ExtendedSetupInformation;
 	unsigned char RequestedReplyLength;
-	boolean Result = true;
+	bool Result = true;
 	/*
 	   FlashPoint Host Adapters do not require this protection.
 	 */
@@ -1239,7 +1249,7 @@ static boolean __init BusLogic_CheckHostAdapter(struct BusLogic_HostAdapter *Hos
   from Host Adapter and initializes the Host Adapter structure.
 */
 
-static boolean __init BusLogic_ReadHostAdapterConfiguration(struct BusLogic_HostAdapter
+static bool __init BusLogic_ReadHostAdapterConfiguration(struct BusLogic_HostAdapter
 							    *HostAdapter)
 {
 	struct BusLogic_BoardID BoardID;
@@ -1686,14 +1696,14 @@ static boolean __init BusLogic_ReadHostAdapterConfiguration(struct BusLogic_Host
   Host Adapter.
 */
 
-static boolean __init BusLogic_ReportHostAdapterConfiguration(struct BusLogic_HostAdapter
+static bool __init BusLogic_ReportHostAdapterConfiguration(struct BusLogic_HostAdapter
 							      *HostAdapter)
 {
 	unsigned short AllTargetsMask = (1 << HostAdapter->MaxTargetDevices) - 1;
 	unsigned short SynchronousPermitted, FastPermitted;
 	unsigned short UltraPermitted, WidePermitted;
 	unsigned short DisconnectPermitted, TaggedQueuingPermitted;
-	boolean CommonSynchronousNegotiation, CommonTaggedQueueDepth;
+	bool CommonSynchronousNegotiation, CommonTaggedQueueDepth;
 	char SynchronousString[BusLogic_MaxTargetDevices + 1];
 	char WideString[BusLogic_MaxTargetDevices + 1];
 	char DisconnectString[BusLogic_MaxTargetDevices + 1];
@@ -1835,7 +1845,7 @@ static boolean __init BusLogic_ReportHostAdapterConfiguration(struct BusLogic_Ho
   Host Adapter.
 */
 
-static boolean __init BusLogic_AcquireResources(struct BusLogic_HostAdapter *HostAdapter)
+static bool __init BusLogic_AcquireResources(struct BusLogic_HostAdapter *HostAdapter)
 {
 	if (HostAdapter->IRQ_Channel == 0) {
 		BusLogic_Error("NO LEGAL INTERRUPT CHANNEL ASSIGNED - DETACHING\n", HostAdapter);
@@ -1903,7 +1913,7 @@ static void BusLogic_ReleaseResources(struct BusLogic_HostAdapter *HostAdapter)
   of the Host Adapter from its initial power on or hard reset state.
 */
 
-static boolean BusLogic_InitializeHostAdapter(struct BusLogic_HostAdapter
+static bool BusLogic_InitializeHostAdapter(struct BusLogic_HostAdapter
 					      *HostAdapter)
 {
 	struct BusLogic_ExtendedMailboxRequest ExtendedMailboxRequest;
@@ -2002,7 +2012,7 @@ static boolean BusLogic_InitializeHostAdapter(struct BusLogic_HostAdapter
   through Host Adapter.
 */
 
-static boolean __init BusLogic_TargetDeviceInquiry(struct BusLogic_HostAdapter
+static bool __init BusLogic_TargetDeviceInquiry(struct BusLogic_HostAdapter
 						   *HostAdapter)
 {
 	u16 InstalledDevices;
@@ -2222,22 +2232,35 @@ static int __init BusLogic_init(void)
 		HostAdapter->PCI_Device = ProbeInfo->PCI_Device;
 		HostAdapter->IRQ_Channel = ProbeInfo->IRQ_Channel;
 		HostAdapter->AddressCount = BusLogic_HostAdapterAddressCount[HostAdapter->HostAdapterType];
+
+		/*
+		   Make sure region is free prior to probing.
+		 */
+		if (!request_region(HostAdapter->IO_Address, HostAdapter->AddressCount,
+					"BusLogic"))
+			continue;
 		/*
 		   Probe the Host Adapter.  If unsuccessful, abort further initialization.
 		 */
-		if (!BusLogic_ProbeHostAdapter(HostAdapter))
+		if (!BusLogic_ProbeHostAdapter(HostAdapter)) {
+			release_region(HostAdapter->IO_Address, HostAdapter->AddressCount);
 			continue;
+		}
 		/*
 		   Hard Reset the Host Adapter.  If unsuccessful, abort further
 		   initialization.
 		 */
-		if (!BusLogic_HardwareResetHostAdapter(HostAdapter, true))
+		if (!BusLogic_HardwareResetHostAdapter(HostAdapter, true)) {
+			release_region(HostAdapter->IO_Address, HostAdapter->AddressCount);
 			continue;
+		}
 		/*
 		   Check the Host Adapter.  If unsuccessful, abort further initialization.
 		 */
-		if (!BusLogic_CheckHostAdapter(HostAdapter))
+		if (!BusLogic_CheckHostAdapter(HostAdapter)) {
+			release_region(HostAdapter->IO_Address, HostAdapter->AddressCount);
 			continue;
+		}
 		/*
 		   Initialize the Driver Options field if provided.
 		 */
@@ -2248,16 +2271,6 @@ static int __init BusLogic_init(void)
 		   and Electronic Mail Address.
 		 */
 		BusLogic_AnnounceDriver(HostAdapter);
-		/*
-		   Register usage of the I/O Address range.  From this point onward, any
-		   failure will be assumed to be due to a problem with the Host Adapter,
-		   rather than due to having mistakenly identified this port as belonging
-		   to a BusLogic Host Adapter.  The I/O Address range will not be
-		   released, thereby preventing it from being incorrectly identified as
-		   any other type of Host Adapter.
-		 */
-		if (!request_region(HostAdapter->IO_Address, HostAdapter->AddressCount, "BusLogic"))
-			continue;
 		/*
 		   Register the SCSI Host structure.
 		 */
@@ -2282,6 +2295,12 @@ static int __init BusLogic_init(void)
 		   Acquire the System Resources necessary to use the Host Adapter, then
 		   Create the Initial CCBs, Initialize the Host Adapter, and finally
 		   perform Target Device Inquiry.
+
+		   From this point onward, any failure will be assumed to be due to a
+		   problem with the Host Adapter, rather than due to having mistakenly
+		   identified this port as belonging to a BusLogic Host Adapter.  The
+		   I/O Address range will not be released, thereby preventing it from
+		   being incorrectly identified as any other type of Host Adapter.
 		 */
 		if (BusLogic_ReadHostAdapterConfiguration(HostAdapter) &&
 		    BusLogic_ReportHostAdapterConfiguration(HostAdapter) &&
@@ -2739,7 +2758,7 @@ static irqreturn_t BusLogic_InterruptHandler(int IRQ_Channel, void *DeviceIdenti
   already have been acquired by the caller.
 */
 
-static boolean BusLogic_WriteOutgoingMailbox(struct BusLogic_HostAdapter
+static bool BusLogic_WriteOutgoingMailbox(struct BusLogic_HostAdapter
 					     *HostAdapter, enum BusLogic_ActionCode ActionCode, struct BusLogic_CCB *CCB)
 {
 	struct BusLogic_OutgoingMailbox *NextOutgoingMailbox;
@@ -3058,7 +3077,7 @@ static int BusLogic_AbortCommand(struct scsi_cmnd *Command)
   currently executing SCSI Commands as having been Reset.
 */
 
-static int BusLogic_ResetHostAdapter(struct BusLogic_HostAdapter *HostAdapter, boolean HardReset)
+static int BusLogic_ResetHostAdapter(struct BusLogic_HostAdapter *HostAdapter, bool HardReset)
 {
 	struct BusLogic_CCB *CCB;
 	int TargetID;
@@ -3309,7 +3328,7 @@ Target	Requested Completed  Requested Completed  Requested Completed\n\
 static void BusLogic_Message(enum BusLogic_MessageLevel MessageLevel, char *Format, struct BusLogic_HostAdapter *HostAdapter, ...)
 {
 	static char Buffer[BusLogic_LineBufferSize];
-	static boolean BeginningOfLine = true;
+	static bool BeginningOfLine = true;
 	va_list Arguments;
 	int Length = 0;
 	va_start(Arguments, HostAdapter);
@@ -3347,7 +3366,7 @@ static void BusLogic_Message(enum BusLogic_MessageLevel MessageLevel, char *Form
   and updates the pointer if the keyword is recognized and false otherwise.
 */
 
-static boolean __init BusLogic_ParseKeyword(char **StringPointer, char *Keyword)
+static bool __init BusLogic_ParseKeyword(char **StringPointer, char *Keyword)
 {
 	char *Pointer = *StringPointer;
 	while (*Keyword != '\0') {
@@ -3600,6 +3619,7 @@ static void __exit BusLogic_exit(void)
 
 __setup("BusLogic=", BusLogic_Setup);
 
+#ifdef MODULE
 static struct pci_device_id BusLogic_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_BUSLOGIC, PCI_DEVICE_ID_BUSLOGIC_MULTIMASTER,
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
@@ -3609,6 +3629,7 @@ static struct pci_device_id BusLogic_pci_tbl[] __devinitdata = {
 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{ }
 };
+#endif
 MODULE_DEVICE_TABLE(pci, BusLogic_pci_tbl);
 
 module_init(BusLogic_init);

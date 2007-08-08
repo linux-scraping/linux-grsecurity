@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
-SUBLEVEL = 20
-EXTRAVERSION = .7
-NAME = Homicidal Dwarf Hamster
+SUBLEVEL = 22
+EXTRAVERSION = .1
+NAME = Holy Dancing Manatees, Batman!
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -576,7 +576,7 @@ libs-y		:= $(libs-y1) $(libs-y2)
 # ---------------------------------------------------------------------------
 # vmlinux is built from the objects selected by $(vmlinux-init) and
 # $(vmlinux-main). Most are built-in.o files from top-level directories
-# in the kernel tree, others are specified in arch/$(ARCH)Makefile.
+# in the kernel tree, others are specified in arch/$(ARCH)/Makefile.
 # Ordering when linking is important, and $(vmlinux-init) must be first.
 #
 # vmlinux
@@ -603,6 +603,7 @@ vmlinux-init := $(head-y) $(init-y)
 vmlinux-main := $(core-y) $(libs-y) $(drivers-y) $(net-y)
 vmlinux-all  := $(vmlinux-init) $(vmlinux-main)
 vmlinux-lds  := arch/$(ARCH)/kernel/vmlinux.lds
+export KBUILD_VMLINUX_OBJS := $(vmlinux-all)
 
 # Rule to link vmlinux - also used during CONFIG_KALLSYMS
 # May be overridden by arch/$(ARCH)/Makefile
@@ -776,7 +777,7 @@ $(vmlinux-dirs): prepare scripts
 #	  $(EXTRAVERSION)		eg, -rc6
 #	$(localver-full)
 #	  $(localver)
-#	    localversion*		(all localversion* files)
+#	    localversion*		(files without backups, containing '~')
 #	    $(CONFIG_LOCALVERSION)	(from kernel config setting)
 #	  $(localver-auto)		(only if CONFIG_LOCALVERSION_AUTO is set)
 #	    ./scripts/setlocalversion	(SCM tag, if one exists)
@@ -787,17 +788,12 @@ $(vmlinux-dirs): prepare scripts
 # moment, only git is supported but other SCMs can edit the script
 # scripts/setlocalversion and add the appropriate checks as needed.
 
-nullstring :=
-space      := $(nullstring) # end of line
+pattern = ".*/localversion[^~]*"
+string  = $(shell cat /dev/null \
+	   `find $(objtree) $(srctree) -maxdepth 1 -regex $(pattern) | sort -u`)
 
-___localver = $(objtree)/localversion* $(srctree)/localversion*
-__localver  = $(sort $(wildcard $(___localver)))
-# skip backup files (containing '~')
-_localver = $(foreach f, $(__localver), $(if $(findstring ~, $(f)),,$(f)))
-
-localver = $(subst $(space),, \
-	   $(shell cat /dev/null $(_localver)) \
-	   $(patsubst "%",%,$(CONFIG_LOCALVERSION)))
+localver = $(subst $(space),, $(string) \
+			      $(patsubst "%",%,$(CONFIG_LOCALVERSION)))
 
 # If CONFIG_LOCALVERSION_AUTO is set scripts/setlocalversion is called
 # and if the SCM is know a tag from the SCM is appended.
@@ -830,9 +826,6 @@ include/config/kernel.release: include/config/auto.conf FORCE
 # Listed in dependency order
 PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
-# prepare-all is deprecated, use prepare as valid replacement
-PHONY += prepare-all
-
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
 # 1) Check that make has not been executed in the kernel src $(srctree)
@@ -863,9 +856,10 @@ archprepare: prepare1 scripts_basic
 
 prepare0: archprepare FORCE
 	$(Q)$(MAKE) $(build)=.
+	$(Q)$(MAKE) $(build)=. missing-syscalls
 
 # All the preparing..
-prepare prepare-all: prepare0
+prepare: prepare0
 
 # Leave this as default for preprocessing vmlinux.lds.S, which is now
 # done in arch/$(ARCH)/kernel/Makefile
@@ -935,6 +929,12 @@ headers_install: include/linux/version.h scripts_basic FORCE
 	  exit 1 ; fi
 	$(Q)$(MAKE) $(build)=scripts scripts/unifdef
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.headersinst obj=include
+
+PHONY += headers_check_all
+headers_check_all: headers_install_all
+	$(Q)for arch in $(HDRARCHES); do \
+	 $(MAKE) ARCH=$$arch -f $(srctree)/scripts/Makefile.headersinst obj=include BIASMDIR=-bi-$$arch HDRCHECK=1 ;\
+	 done
 
 PHONY += headers_check
 headers_check: headers_install
@@ -1279,10 +1279,7 @@ endif
 ALLSOURCE_ARCHS := $(ARCH)
 
 define find-sources
-        ( find $(__srctree) $(RCS_FIND_IGNORE) \
-	       \( -name include -o -name arch \) -prune -o \
-	       -name $1 -print; \
-	  for ARCH in $(ALLSOURCE_ARCHS) ; do \
+        ( for ARCH in $(ALLSOURCE_ARCHS) ; do \
 	       find $(__srctree)arch/$${ARCH} $(RCS_FIND_IGNORE) \
 	            -name $1 -print; \
 	  done ; \
@@ -1296,7 +1293,11 @@ define find-sources
 	            -name $1 -print; \
 	  done ; \
 	  find $(__srctree)include/asm-generic $(RCS_FIND_IGNORE) \
-	       -name $1 -print )
+	       -name $1 -print; \
+	  find $(__srctree) $(RCS_FIND_IGNORE) \
+	       \( -name include -o -name arch \) -prune -o \
+	       -name $1 -print; \
+	  )
 endef
 
 define all-sources

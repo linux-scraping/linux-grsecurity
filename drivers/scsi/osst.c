@@ -87,6 +87,7 @@ MODULE_AUTHOR("Willem Riede");
 MODULE_DESCRIPTION("OnStream {DI-|FW-|SC-|USB}{30|50} Tape Driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_CHARDEV_MAJOR(OSST_MAJOR);
+MODULE_ALIAS_SCSI_DEVICE(TYPE_TAPE);
 
 module_param(max_dev, int, 0444);
 MODULE_PARM_DESC(max_dev, "Maximum number of OnStream Tape Drives to attach (4)");
@@ -521,10 +522,10 @@ static void osst_init_aux(struct osst_tape * STp, int frame_type, int frame_seq_
 		break;
 	  default: ; /* probably FILL */
 	}
-	aux->filemark_cnt = ntohl(STp->filemark_cnt);
-	aux->phys_fm = ntohl(0xffffffff);
-	aux->last_mark_ppos = ntohl(STp->last_mark_ppos);
-	aux->last_mark_lbn  = ntohl(STp->last_mark_lbn);
+	aux->filemark_cnt = htonl(STp->filemark_cnt);
+	aux->phys_fm = htonl(0xffffffff);
+	aux->last_mark_ppos = htonl(STp->last_mark_ppos);
+	aux->last_mark_lbn  = htonl(STp->last_mark_lbn);
 }
 
 /*
@@ -5522,7 +5523,7 @@ __setup("osst=", osst_setup);
 
 #endif
 
-static struct file_operations osst_fops = {
+static const struct file_operations osst_fops = {
 	.owner =        THIS_MODULE,
 	.read =         osst_read,
 	.write =        osst_write,
@@ -5574,14 +5575,14 @@ static ssize_t osst_version_show(struct device_driver *ddd, char *buf)
 
 static DRIVER_ATTR(version, S_IRUGO, osst_version_show, NULL);
 
-static int osst_create_driverfs_files(struct device_driver *driverfs)
+static int osst_create_sysfs_files(struct device_driver *sysfs)
 {
-	return driver_create_file(driverfs, &driver_attr_version);
+	return driver_create_file(sysfs, &driver_attr_version);
 }
 
-static void osst_remove_driverfs_files(struct device_driver *driverfs)
+static void osst_remove_sysfs_files(struct device_driver *sysfs)
 {
-	driver_remove_file(driverfs, &driver_attr_version);
+	driver_remove_file(sysfs, &driver_attr_version);
 }
 
 /*
@@ -5953,7 +5954,7 @@ static int __init init_osst(void)
 	if (err)
 		goto err_out_chrdev;
 
-	err = osst_create_driverfs_files(&osst_template.gendrv);
+	err = osst_create_sysfs_files(&osst_template.gendrv);
 	if (err)
 		goto err_out_scsidrv;
 
@@ -5973,7 +5974,7 @@ static void __exit exit_osst (void)
 	int i;
 	struct osst_tape * STp;
 
-	osst_remove_driverfs_files(&osst_template.gendrv);
+	osst_remove_sysfs_files(&osst_template.gendrv);
 	scsi_unregister_driver(&osst_template.gendrv);
 	unregister_chrdev(OSST_MAJOR, "osst");
 	osst_sysfs_cleanup();

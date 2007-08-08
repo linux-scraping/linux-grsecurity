@@ -1,11 +1,11 @@
-/* 
+/*
  * xfrm algorithm interface
  *
  * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  */
 
@@ -32,14 +32,14 @@ static struct xfrm_algo_desc aalg_list[] = {
 {
 	.name = "hmac(digest_null)",
 	.compat = "digest_null",
-	
+
 	.uinfo = {
 		.auth = {
 			.icv_truncbits = 0,
 			.icv_fullbits = 0,
 		}
 	},
-	
+
 	.desc = {
 		.sadb_alg_id = SADB_X_AALG_NULL,
 		.sadb_alg_ivlen = 0,
@@ -57,7 +57,7 @@ static struct xfrm_algo_desc aalg_list[] = {
 			.icv_fullbits = 128,
 		}
 	},
-	
+
 	.desc = {
 		.sadb_alg_id = SADB_AALG_MD5HMAC,
 		.sadb_alg_ivlen = 0,
@@ -142,14 +142,14 @@ static struct xfrm_algo_desc ealg_list[] = {
 {
 	.name = "ecb(cipher_null)",
 	.compat = "cipher_null",
-	
+
 	.uinfo = {
 		.encr = {
 			.blockbits = 8,
 			.defkeybits = 0,
 		}
 	},
-	
+
 	.desc = {
 		.sadb_alg_id =	SADB_EALG_NULL,
 		.sadb_alg_ivlen = 0,
@@ -248,40 +248,57 @@ static struct xfrm_algo_desc ealg_list[] = {
 	}
 },
 {
-        .name = "cbc(serpent)",
-        .compat = "serpent",
+	.name = "cbc(serpent)",
+	.compat = "serpent",
 
-        .uinfo = {
-                .encr = {
-                        .blockbits = 128,
-                        .defkeybits = 128,
-                }
-        },
+	.uinfo = {
+		.encr = {
+			.blockbits = 128,
+			.defkeybits = 128,
+		}
+	},
 
-        .desc = {
-                .sadb_alg_id = SADB_X_EALG_SERPENTCBC,
-                .sadb_alg_ivlen = 8,
-                .sadb_alg_minbits = 128,
-                .sadb_alg_maxbits = 256,
-        }
+	.desc = {
+		.sadb_alg_id = SADB_X_EALG_SERPENTCBC,
+		.sadb_alg_ivlen = 8,
+		.sadb_alg_minbits = 128,
+		.sadb_alg_maxbits = 256,
+	}
 },
 {
-        .name = "cbc(twofish)",
-        .compat = "twofish",
-                 
-        .uinfo = {
-                .encr = {
-                        .blockbits = 128,
-                        .defkeybits = 128,
-                }
-        },
+	.name = "cbc(camellia)",
 
-        .desc = {
-                .sadb_alg_id = SADB_X_EALG_TWOFISHCBC,
-                .sadb_alg_ivlen = 8,
-                .sadb_alg_minbits = 128,
-                .sadb_alg_maxbits = 256
-        }
+	.uinfo = {
+		.encr = {
+			.blockbits = 128,
+			.defkeybits = 128,
+		}
+	},
+
+	.desc = {
+		.sadb_alg_id = SADB_X_EALG_CAMELLIACBC,
+		.sadb_alg_ivlen = 8,
+		.sadb_alg_minbits = 128,
+		.sadb_alg_maxbits = 256
+	}
+},
+{
+	.name = "cbc(twofish)",
+	.compat = "twofish",
+
+	.uinfo = {
+		.encr = {
+			.blockbits = 128,
+			.defkeybits = 128,
+		}
+	},
+
+	.desc = {
+		.sadb_alg_id = SADB_X_EALG_TWOFISHCBC,
+		.sadb_alg_ivlen = 8,
+		.sadb_alg_minbits = 128,
+		.sadb_alg_maxbits = 256
+	}
 },
 };
 
@@ -330,67 +347,44 @@ static inline int calg_entries(void)
 	return ARRAY_SIZE(calg_list);
 }
 
-/* Todo: generic iterators */
-struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
+struct xfrm_algo_list {
+	struct xfrm_algo_desc *algs;
+	int entries;
+	u32 type;
+	u32 mask;
+};
+
+static const struct xfrm_algo_list xfrm_aalg_list = {
+	.algs = aalg_list,
+	.entries = ARRAY_SIZE(aalg_list),
+	.type = CRYPTO_ALG_TYPE_HASH,
+	.mask = CRYPTO_ALG_TYPE_HASH_MASK | CRYPTO_ALG_ASYNC,
+};
+
+static const struct xfrm_algo_list xfrm_ealg_list = {
+	.algs = ealg_list,
+	.entries = ARRAY_SIZE(ealg_list),
+	.type = CRYPTO_ALG_TYPE_BLKCIPHER,
+	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
+};
+
+static const struct xfrm_algo_list xfrm_calg_list = {
+	.algs = calg_list,
+	.entries = ARRAY_SIZE(calg_list),
+	.type = CRYPTO_ALG_TYPE_COMPRESS,
+	.mask = CRYPTO_ALG_TYPE_MASK | CRYPTO_ALG_ASYNC,
+};
+
+static struct xfrm_algo_desc *xfrm_find_algo(
+	const struct xfrm_algo_list *algo_list,
+	int match(const struct xfrm_algo_desc *entry, const void *data),
+	const void *data, int probe)
 {
-	int i;
-
-	for (i = 0; i < aalg_entries(); i++) {
-		if (aalg_list[i].desc.sadb_alg_id == alg_id) {
-			if (aalg_list[i].available)
-				return &aalg_list[i];
-			else
-				break;
-		}
-	}
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
-
-struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
-{
-	int i;
-
-	for (i = 0; i < ealg_entries(); i++) {
-		if (ealg_list[i].desc.sadb_alg_id == alg_id) {
-			if (ealg_list[i].available)
-				return &ealg_list[i];
-			else
-				break;
-		}
-	}
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
-
-struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
-{
-	int i;
-
-	for (i = 0; i < calg_entries(); i++) {
-		if (calg_list[i].desc.sadb_alg_id == alg_id) {
-			if (calg_list[i].available)
-				return &calg_list[i];
-			else
-				break;
-		}
-	}
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
-
-static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
-					      int entries, u32 type, u32 mask,
-					      char *name, int probe)
-{
+	struct xfrm_algo_desc *list = algo_list->algs;
 	int i, status;
 
-	if (!name)
-		return NULL;
-
-	for (i = 0; i < entries; i++) {
-		if (strcmp(name, list[i].name) &&
-		    (!list[i].compat || strcmp(name, list[i].compat)))
+	for (i = 0; i < algo_list->entries; i++) {
+		if (!match(list + i, data))
 			continue;
 
 		if (list[i].available)
@@ -399,8 +393,8 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
 		if (!probe)
 			break;
 
-		status = crypto_has_alg(list[i].name, type,
-					mask | CRYPTO_ALG_ASYNC);
+		status = crypto_has_alg(list[i].name, algo_list->type,
+					algo_list->mask);
 		if (!status)
 			break;
 
@@ -410,27 +404,60 @@ static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
 	return NULL;
 }
 
+static int xfrm_alg_id_match(const struct xfrm_algo_desc *entry,
+			     const void *data)
+{
+	return entry->desc.sadb_alg_id == (unsigned long)data;
+}
+
+struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id)
+{
+	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_id_match,
+			      (void *)(unsigned long)alg_id, 1);
+}
+EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
+
+struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id)
+{
+	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_id_match,
+			      (void *)(unsigned long)alg_id, 1);
+}
+EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
+
+struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id)
+{
+	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_id_match,
+			      (void *)(unsigned long)alg_id, 1);
+}
+EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
+
+static int xfrm_alg_name_match(const struct xfrm_algo_desc *entry,
+			       const void *data)
+{
+	const char *name = data;
+
+	return name && (!strcmp(name, entry->name) ||
+			(entry->compat && !strcmp(name, entry->compat)));
+}
+
 struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe)
 {
-	return xfrm_get_byname(aalg_list, aalg_entries(),
-			       CRYPTO_ALG_TYPE_HASH, CRYPTO_ALG_TYPE_HASH_MASK,
-			       name, probe);
+	return xfrm_find_algo(&xfrm_aalg_list, xfrm_alg_name_match, name,
+			      probe);
 }
 EXPORT_SYMBOL_GPL(xfrm_aalg_get_byname);
 
 struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe)
 {
-	return xfrm_get_byname(ealg_list, ealg_entries(),
-			       CRYPTO_ALG_TYPE_BLKCIPHER, CRYPTO_ALG_TYPE_MASK,
-			       name, probe);
+	return xfrm_find_algo(&xfrm_ealg_list, xfrm_alg_name_match, name,
+			      probe);
 }
 EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
 
 struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe)
 {
-	return xfrm_get_byname(calg_list, calg_entries(),
-			       CRYPTO_ALG_TYPE_COMPRESS, CRYPTO_ALG_TYPE_MASK,
-			       name, probe);
+	return xfrm_find_algo(&xfrm_calg_list, xfrm_alg_name_match, name,
+			      probe);
 }
 EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
 
@@ -461,7 +488,7 @@ void xfrm_probe_algs(void)
 {
 #ifdef CONFIG_CRYPTO
 	int i, status;
-	
+
 	BUG_ON(in_softirq());
 
 	for (i = 0; i < aalg_entries(); i++) {
@@ -470,14 +497,14 @@ void xfrm_probe_algs(void)
 		if (aalg_list[i].available != status)
 			aalg_list[i].available = status;
 	}
-	
+
 	for (i = 0; i < ealg_entries(); i++) {
 		status = crypto_has_blkcipher(ealg_list[i].name, 0,
 					      CRYPTO_ALG_ASYNC);
 		if (ealg_list[i].available != status)
 			ealg_list[i].available = status;
 	}
-	
+
 	for (i = 0; i < calg_entries(); i++) {
 		status = crypto_has_comp(calg_list[i].name, 0,
 					 CRYPTO_ALG_ASYNC);
@@ -524,15 +551,15 @@ int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *desc,
 	if (copy > 0) {
 		if (copy > len)
 			copy = len;
-		
+
 		sg.page = virt_to_page(skb->data + offset);
 		sg.offset = (unsigned long)(skb->data + offset) % PAGE_SIZE;
 		sg.length = copy;
-		
+
 		err = icv_update(desc, &sg, copy);
 		if (unlikely(err))
 			return err;
-		
+
 		if ((len -= copy) == 0)
 			return 0;
 		offset += copy;
@@ -549,11 +576,11 @@ int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *desc,
 
 			if (copy > len)
 				copy = len;
-			
+
 			sg.page = frag->page;
 			sg.offset = frag->page_offset + offset-start;
 			sg.length = copy;
-			
+
 			err = icv_update(desc, &sg, copy);
 			if (unlikely(err))
 				return err;
@@ -594,175 +621,6 @@ int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *desc,
 EXPORT_SYMBOL_GPL(skb_icv_walk);
 
 #if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
-
-/* Looking generic it is not used in another places. */
-
-int
-skb_to_sgvec(struct sk_buff *skb, struct scatterlist *sg, int offset, int len)
-{
-	int start = skb_headlen(skb);
-	int i, copy = start - offset;
-	int elt = 0;
-
-	if (copy > 0) {
-		if (copy > len)
-			copy = len;
-		sg[elt].page = virt_to_page(skb->data + offset);
-		sg[elt].offset = (unsigned long)(skb->data + offset) % PAGE_SIZE;
-		sg[elt].length = copy;
-		elt++;
-		if ((len -= copy) == 0)
-			return elt;
-		offset += copy;
-	}
-
-	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-		int end;
-
-		BUG_TRAP(start <= offset + len);
-
-		end = start + skb_shinfo(skb)->frags[i].size;
-		if ((copy = end - offset) > 0) {
-			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-
-			if (copy > len)
-				copy = len;
-			sg[elt].page = frag->page;
-			sg[elt].offset = frag->page_offset+offset-start;
-			sg[elt].length = copy;
-			elt++;
-			if (!(len -= copy))
-				return elt;
-			offset += copy;
-		}
-		start = end;
-	}
-
-	if (skb_shinfo(skb)->frag_list) {
-		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-
-		for (; list; list = list->next) {
-			int end;
-
-			BUG_TRAP(start <= offset + len);
-
-			end = start + list->len;
-			if ((copy = end - offset) > 0) {
-				if (copy > len)
-					copy = len;
-				elt += skb_to_sgvec(list, sg+elt, offset - start, copy);
-				if ((len -= copy) == 0)
-					return elt;
-				offset += copy;
-			}
-			start = end;
-		}
-	}
-	BUG_ON(len);
-	return elt;
-}
-EXPORT_SYMBOL_GPL(skb_to_sgvec);
-
-/* Check that skb data bits are writable. If they are not, copy data
- * to newly created private area. If "tailbits" is given, make sure that
- * tailbits bytes beyond current end of skb are writable.
- *
- * Returns amount of elements of scatterlist to load for subsequent
- * transformations and pointer to writable trailer skb.
- */
-
-int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer)
-{
-	int copyflag;
-	int elt;
-	struct sk_buff *skb1, **skb_p;
-
-	/* If skb is cloned or its head is paged, reallocate
-	 * head pulling out all the pages (pages are considered not writable
-	 * at the moment even if they are anonymous).
-	 */
-	if ((skb_cloned(skb) || skb_shinfo(skb)->nr_frags) &&
-	    __pskb_pull_tail(skb, skb_pagelen(skb)-skb_headlen(skb)) == NULL)
-		return -ENOMEM;
-
-	/* Easy case. Most of packets will go this way. */
-	if (!skb_shinfo(skb)->frag_list) {
-		/* A little of trouble, not enough of space for trailer.
-		 * This should not happen, when stack is tuned to generate
-		 * good frames. OK, on miss we reallocate and reserve even more
-		 * space, 128 bytes is fair. */
-
-		if (skb_tailroom(skb) < tailbits &&
-		    pskb_expand_head(skb, 0, tailbits-skb_tailroom(skb)+128, GFP_ATOMIC))
-			return -ENOMEM;
-
-		/* Voila! */
-		*trailer = skb;
-		return 1;
-	}
-
-	/* Misery. We are in troubles, going to mincer fragments... */
-
-	elt = 1;
-	skb_p = &skb_shinfo(skb)->frag_list;
-	copyflag = 0;
-
-	while ((skb1 = *skb_p) != NULL) {
-		int ntail = 0;
-
-		/* The fragment is partially pulled by someone,
-		 * this can happen on input. Copy it and everything
-		 * after it. */
-
-		if (skb_shared(skb1))
-			copyflag = 1;
-
-		/* If the skb is the last, worry about trailer. */
-
-		if (skb1->next == NULL && tailbits) {
-			if (skb_shinfo(skb1)->nr_frags ||
-			    skb_shinfo(skb1)->frag_list ||
-			    skb_tailroom(skb1) < tailbits)
-				ntail = tailbits + 128;
-		}
-
-		if (copyflag ||
-		    skb_cloned(skb1) ||
-		    ntail ||
-		    skb_shinfo(skb1)->nr_frags ||
-		    skb_shinfo(skb1)->frag_list) {
-			struct sk_buff *skb2;
-
-			/* Fuck, we are miserable poor guys... */
-			if (ntail == 0)
-				skb2 = skb_copy(skb1, GFP_ATOMIC);
-			else
-				skb2 = skb_copy_expand(skb1,
-						       skb_headroom(skb1),
-						       ntail,
-						       GFP_ATOMIC);
-			if (unlikely(skb2 == NULL))
-				return -ENOMEM;
-
-			if (skb1->sk)
-				skb_set_owner_w(skb2, skb1->sk);
-
-			/* Looking around. Are we still alive?
-			 * OK, link new skb, drop old one */
-
-			skb2->next = skb1->next;
-			*skb_p = skb2;
-			kfree_skb(skb1);
-			skb1 = skb2;
-		}
-		elt++;
-		*trailer = skb1;
-		skb_p = &skb1->next;
-	}
-
-	return elt;
-}
-EXPORT_SYMBOL_GPL(skb_cow_data);
 
 void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
 {

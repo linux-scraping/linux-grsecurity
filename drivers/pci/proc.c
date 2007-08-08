@@ -11,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <linux/smp_lock.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -287,7 +286,7 @@ static int proc_bus_pci_release(struct inode *inode, struct file *file)
 }
 #endif /* HAVE_PCI_MMAP */
 
-static struct file_operations proc_bus_pci_operations = {
+static const struct file_operations proc_bus_pci_operations = {
 	.llseek		= proc_bus_pci_lseek,
 	.read		= proc_bus_pci_read,
 	.write		= proc_bus_pci_write,
@@ -456,7 +455,7 @@ static int proc_bus_pci_dev_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &proc_bus_pci_devices_op);
 }
-static struct file_operations proc_bus_pci_dev_operations = {
+static const struct file_operations proc_bus_pci_dev_operations = {
 	.open		= proc_bus_pci_dev_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,

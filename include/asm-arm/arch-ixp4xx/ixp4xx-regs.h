@@ -144,9 +144,9 @@
 #define IXP4XX_INTC_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0x3000)
 #define IXP4XX_GPIO_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0x4000)
 #define IXP4XX_TIMER_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0x5000)
-#define IXP4XX_NPEA_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_PHYS + 0x6000)
-#define IXP4XX_NPEB_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_PHYS + 0x7000)
-#define IXP4XX_NPEC_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_PHYS + 0x8000)
+#define IXP4XX_NPEA_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_VIRT + 0x6000)
+#define IXP4XX_NPEB_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_VIRT + 0x7000)
+#define IXP4XX_NPEC_BASE_VIRT   	(IXP4XX_PERIPHERAL_BASE_VIRT + 0x8000)
 #define IXP4XX_EthB_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0x9000)
 #define IXP4XX_EthC_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0xA000)
 #define IXP4XX_USB_BASE_VIRT		(IXP4XX_PERIPHERAL_BASE_VIRT + 0xB000)
@@ -606,20 +606,5 @@
 #define USIR1_IR15	(1 << 7)	/* Interrup request ep 15 */
 
 #define DCMD_LENGTH	0x01fff		/* length mask (max = 8K - 1) */
-
-#ifndef __ASSEMBLY__
-static inline int cpu_is_ixp46x(void)
-{
-#ifdef CONFIG_CPU_IXP46X
-	unsigned int processor_id;
-
-	asm("mrc p15, 0, %0, cr0, cr0, 0;" : "=r"(processor_id) :);
-
-	if ((processor_id & 0xffffff00) == 0x69054200)
-		return 1;
-#endif
-	return 0;
-}
-#endif
 
 #endif

@@ -4,7 +4,7 @@
  *		interface as the means of communication with the user level.
  *
  *		The IP fragmentation functionality.
- *		
+ *
  * Version:	$Id: ip_fragment.c,v 1.59 2002/01/12 07:54:56 davem Exp $
  *
  * Authors:	Fred N. van Kempen <waltje@uWalt.NL.Mugnet.ORG>
@@ -92,7 +92,7 @@ struct ipq {
 	spinlock_t	lock;
 	atomic_t	refcnt;
 	struct timer_list timer;	/* when will this queue expire?		*/
-	struct timeval	stamp;
+	ktime_t		stamp;
 	int             iif;
 	unsigned int    rid;
 	struct inet_peer *peer;
@@ -184,7 +184,7 @@ static __inline__ struct ipq *frag_alloc_queue(void)
 {
 	struct ipq *qp = kmalloc(sizeof(struct ipq), GFP_ATOMIC);
 
-	if(!qp)
+	if (!qp)
 		return NULL;
 	atomic_add(sizeof(struct ipq), &ip_frag_mem);
 	return qp;
@@ -238,7 +238,7 @@ static void ipq_kill(struct ipq *ipq)
 	}
 }
 
-/* Memory limiting on fragments.  Evictor trashes the oldest 
+/* Memory limiting on fragments.  Evictor trashes the oldest
  * fragment queue until we are back under the threshold.
  */
 static void ip_evictor(void)
@@ -321,11 +321,11 @@ static struct ipq *ip_frag_intern(struct ipq *qp_in)
 	 * promoted read lock to write lock.
 	 */
 	hlist_for_each_entry(qp, n, &ipq_hash[hash], list) {
-		if(qp->id == qp_in->id		&&
-		   qp->saddr == qp_in->saddr	&&
-		   qp->daddr == qp_in->daddr	&&
-		   qp->protocol == qp_in->protocol &&
-		   qp->user == qp_in->user) {
+		if (qp->id == qp_in->id		&&
+		    qp->saddr == qp_in->saddr	&&
+		    qp->daddr == qp_in->daddr	&&
+		    qp->protocol == qp_in->protocol &&
+		    qp->user == qp_in->user) {
 			atomic_inc(&qp->refcnt);
 			write_unlock(&ipfrag_lock);
 			qp_in->last_in |= COMPLETE;
@@ -398,11 +398,11 @@ static inline struct ipq *ip_find(struct iphdr *iph, u32 user)
 	read_lock(&ipfrag_lock);
 	hash = ipqhashfn(id, saddr, daddr, protocol);
 	hlist_for_each_entry(qp, n, &ipq_hash[hash], list) {
-		if(qp->id == id		&&
-		   qp->saddr == saddr	&&
-		   qp->daddr == daddr	&&
-		   qp->protocol == protocol &&
-		   qp->user == user) {
+		if (qp->id == id		&&
+		    qp->saddr == saddr	&&
+		    qp->daddr == daddr	&&
+		    qp->protocol == protocol &&
+		    qp->user == user) {
 			atomic_inc(&qp->refcnt);
 			read_unlock(&ipfrag_lock);
 			return qp;
@@ -479,14 +479,14 @@ static void ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
 		goto err;
 	}
 
- 	offset = ntohs(skb->nh.iph->frag_off);
+	offset = ntohs(ip_hdr(skb)->frag_off);
 	flags = offset & ~IP_OFFSET;
 	offset &= IP_OFFSET;
 	offset <<= 3;		/* offset is in 8-byte chunks */
- 	ihl = skb->nh.iph->ihl * 4;
+	ihl = ip_hdrlen(skb);
 
 	/* Determine the position of this fragment. */
- 	end = offset + skb->len - ihl;
+	end = offset + skb->len - ihl;
 
 	/* Is this the final fragment? */
 	if ((flags & IP_MF) == 0) {
@@ -524,7 +524,7 @@ static void ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
 	 * this fragment, right?
 	 */
 	prev = NULL;
-	for(next = qp->fragments; next != NULL; next = next->next) {
+	for (next = qp->fragments; next != NULL; next = next->next) {
 		if (FRAG_CB(next)->offset >= offset)
 			break;	/* bingo! */
 		prev = next;
@@ -589,10 +589,10 @@ static void ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
 	else
 		qp->fragments = skb;
 
- 	if (skb->dev)
- 		qp->iif = skb->dev->ifindex;
+	if (skb->dev)
+		qp->iif = skb->dev->ifindex;
 	skb->dev = NULL;
-	skb_get_timestamp(skb, &qp->stamp);
+	qp->stamp = skb->tstamp;
 	qp->meat += skb->len;
 	atomic_add(skb->truesize, &ip_frag_mem);
 	if (offset == 0)
@@ -624,10 +624,10 @@ static struct sk_buff *ip_frag_reasm(struct ipq *qp, struct net_device *dev)
 	BUG_TRAP(FRAG_CB(head)->offset == 0);
 
 	/* Allocate a new buffer for the datagram. */
-	ihlen = head->nh.iph->ihl*4;
+	ihlen = ip_hdrlen(head);
 	len = ihlen + qp->len;
 
-	if(len > 65535)
+	if (len > 65535)
 		goto out_oversize;
 
 	/* Head of list must not be cloned. */
@@ -658,7 +658,7 @@ static struct sk_buff *ip_frag_reasm(struct ipq *qp, struct net_device *dev)
 	}
 
 	skb_shinfo(head)->frag_list = head->next;
-	skb_push(head, head->data - head->nh.raw);
+	skb_push(head, head->data - skb_network_header(head));
 	atomic_sub(head->truesize, &ip_frag_mem);
 
 	for (fp=head->next; fp; fp = fp->next) {
@@ -674,9 +674,9 @@ static struct sk_buff *ip_frag_reasm(struct ipq *qp, struct net_device *dev)
 
 	head->next = NULL;
 	head->dev = dev;
-	skb_set_timestamp(head, &qp->stamp);
+	head->tstamp = qp->stamp;
 
-	iph = head->nh.iph;
+	iph = ip_hdr(head);
 	iph->frag_off = 0;
 	iph->tot_len = htons(len);
 	IP_INC_STATS_BH(IPSTATS_MIB_REASMOKS);
@@ -684,7 +684,7 @@ static struct sk_buff *ip_frag_reasm(struct ipq *qp, struct net_device *dev)
 	return head;
 
 out_nomem:
- 	LIMIT_NETDEBUG(KERN_ERR "IP: queue_glue: no memory for gluing "
+	LIMIT_NETDEBUG(KERN_ERR "IP: queue_glue: no memory for gluing "
 			      "queue %p\n", qp);
 	goto out_fail;
 out_oversize:
@@ -700,10 +700,9 @@ out_fail:
 /* Process an incoming IP datagram fragment. */
 struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 {
-	struct iphdr *iph = skb->nh.iph;
 	struct ipq *qp;
 	struct net_device *dev;
-	
+
 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
 
 	/* Start by cleaning up the memory. */
@@ -713,7 +712,7 @@ struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 	dev = skb->dev;
 
 	/* Lookup (or create) queue header */
-	if ((qp = ip_find(iph, user)) != NULL) {
+	if ((qp = ip_find(ip_hdr(skb), user)) != NULL) {
 		struct sk_buff *ret = NULL;
 
 		spin_lock(&qp->lock);
@@ -734,7 +733,7 @@ struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 	return NULL;
 }
 
-void ipfrag_init(void)
+void __init ipfrag_init(void)
 {
 	ipfrag_hash_rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
 				 (jiffies ^ (jiffies >> 6)));

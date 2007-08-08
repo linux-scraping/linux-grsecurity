@@ -133,6 +133,7 @@ extern int ext2_get_block(struct inode *, sector_t, struct buffer_head *, int);
 extern void ext2_truncate (struct inode *);
 extern int ext2_setattr (struct dentry *, struct iattr *);
 extern void ext2_set_inode_flags(struct inode *inode);
+extern void ext2_get_inode_flags(struct ext2_inode_info *);
 
 /* ioctl.c */
 extern int ext2_ioctl (struct inode *, struct file *, unsigned int,
@@ -158,7 +159,7 @@ extern void ext2_write_super (struct super_block *);
 extern const struct file_operations ext2_dir_operations;
 
 /* file.c */
-extern struct inode_operations ext2_file_inode_operations;
+extern const struct inode_operations ext2_file_inode_operations;
 extern const struct file_operations ext2_file_operations;
 extern const struct file_operations ext2_xip_file_operations;
 
@@ -168,9 +169,9 @@ extern const struct address_space_operations ext2_aops_xip;
 extern const struct address_space_operations ext2_nobh_aops;
 
 /* namei.c */
-extern struct inode_operations ext2_dir_inode_operations;
-extern struct inode_operations ext2_special_inode_operations;
+extern const struct inode_operations ext2_dir_inode_operations;
+extern const struct inode_operations ext2_special_inode_operations;
 
 /* symlink.c */
-extern struct inode_operations ext2_fast_symlink_inode_operations;
-extern struct inode_operations ext2_symlink_inode_operations;
+extern const struct inode_operations ext2_fast_symlink_inode_operations;
+extern const struct inode_operations ext2_symlink_inode_operations;

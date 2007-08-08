@@ -18,7 +18,6 @@
 #include <linux/interrupt.h>
 #include <asm/irq.h>
 #include <linux/in6.h>
-#include <linux/pci.h>
 #include <linux/ide.h>
 
 #include <asm/uaccess.h>
@@ -39,21 +38,10 @@
 /*
  * String functions
  */
-EXPORT_SYMBOL(memcmp);
 EXPORT_SYMBOL(memset);
 EXPORT_SYMBOL(memcpy);
 EXPORT_SYMBOL(memmove);
-EXPORT_SYMBOL(memchr);
-EXPORT_SYMBOL(strcat);
-EXPORT_SYMBOL(strchr);
-EXPORT_SYMBOL(strlen);
-EXPORT_SYMBOL(strncat);
-EXPORT_SYMBOL(strnlen);
-EXPORT_SYMBOL(strrchr);
-EXPORT_SYMBOL(strstr);
 
-EXPORT_SYMBOL(enable_irq);
-EXPORT_SYMBOL(disable_irq);
 EXPORT_SYMBOL(kernel_thread);
 
 /*

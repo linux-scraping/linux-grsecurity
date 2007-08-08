@@ -79,14 +79,10 @@ static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb);
 /* Calculate the SCTP checksum of an SCTP packet.  */
 static inline int sctp_rcv_checksum(struct sk_buff *skb)
 {
-	struct sctphdr *sh;
-	__u32 cmp, val;
 	struct sk_buff *list = skb_shinfo(skb)->frag_list;
-
-	sh = (struct sctphdr *) skb->h.raw;
-	cmp = ntohl(sh->checksum);
-
-	val = sctp_start_cksum((__u8 *)sh, skb_headlen(skb));
+	struct sctphdr *sh = sctp_hdr(skb);
+	__u32 cmp = ntohl(sh->checksum);
+	__u32 val = sctp_start_cksum((__u8 *)sh, skb_headlen(skb));
 
 	for (; list; list = list->next)
 		val = sctp_update_cksum((__u8 *)list->data, skb_headlen(list),
@@ -138,14 +134,13 @@ int sctp_rcv(struct sk_buff *skb)
 	if (skb_linearize(skb))
 		goto discard_it;
 
-	sh = (struct sctphdr *) skb->h.raw;
+	sh = sctp_hdr(skb);
 
 	/* Pull up the IP and SCTP headers. */
-	__skb_pull(skb, skb->h.raw - skb->data);
+	__skb_pull(skb, skb_transport_offset(skb));
 	if (skb->len < sizeof(struct sctphdr))
 		goto discard_it;
-	if ((skb->ip_summed != CHECKSUM_UNNECESSARY) &&
-	    (sctp_rcv_checksum(skb) < 0))
+	if (!skb_csum_unnecessary(skb) && sctp_rcv_checksum(skb) < 0)
 		goto discard_it;
 
 	skb_pull(skb, sizeof(struct sctphdr));
@@ -154,7 +149,7 @@ int sctp_rcv(struct sk_buff *skb)
 	if (skb->len < sizeof(struct sctp_chunkhdr))
 		goto discard_it;
 
-	family = ipver2af(skb->nh.iph->version);
+	family = ipver2af(ip_hdr(skb)->version);
 	af = sctp_get_af_specific(family);
 	if (unlikely(!af))
 		goto discard_it;
@@ -226,7 +221,7 @@ int sctp_rcv(struct sk_buff *skb)
 	nf_reset(skb);
 
 	if (sk_filter(sk, skb))
-                goto discard_release;
+		goto discard_release;
 
 	/* Create an SCTP packet structure. */
 	chunk = sctp_chunkify(skb, asoc, sk);
@@ -293,11 +288,11 @@ discard_release:
 int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	struct sctp_chunk *chunk = SCTP_INPUT_CB(skb)->chunk;
- 	struct sctp_inq *inqueue = &chunk->rcvr->inqueue;
- 	struct sctp_ep_common *rcvr = NULL;
+	struct sctp_inq *inqueue = &chunk->rcvr->inqueue;
+	struct sctp_ep_common *rcvr = NULL;
 	int backloged = 0;
 
- 	rcvr = chunk->rcvr;
+	rcvr = chunk->rcvr;
 
 	/* If the rcvr is dead then the association or endpoint
 	 * has been deleted and we can safely drop the chunk
@@ -347,7 +342,7 @@ done:
 	else
 		BUG();
 
-        return 0;
+	return 0;
 }
 
 static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
@@ -372,24 +367,18 @@ static void sctp_add_backlog(struct sock *sk, struct sk_buff *skb)
 void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
 			   struct sctp_transport *t, __u32 pmtu)
 {
-	if (sock_owned_by_user(sk) || !t || (t->pathmtu == pmtu))
+	if (!t || (t->pathmtu == pmtu))
 		return;
 
+	if (sock_owned_by_user(sk)) {
+		asoc->pmtu_pending = 1;
+		t->pmtu_pending = 1;
+		return;
+	}
+
 	if (t->param_flags & SPP_PMTUD_ENABLE) {
-		if (unlikely(pmtu < SCTP_DEFAULT_MINSEGMENT)) {
-			printk(KERN_WARNING "%s: Reported pmtu %d too low, "
-			       "using default minimum of %d\n",
-			       __FUNCTION__, pmtu,
-			       SCTP_DEFAULT_MINSEGMENT);
-			/* Use default minimum segment size and disable
-			 * pmtu discovery on this transport.
-			 */
-			t->pathmtu = SCTP_DEFAULT_MINSEGMENT;
-			t->param_flags = (t->param_flags & ~SPP_PMTUD) |
-				SPP_PMTUD_DISABLE;
-		} else {
-			t->pathmtu = pmtu;
-		}
+		/* Update transports view of the MTU */
+		sctp_transport_update_pmtu(t, pmtu);
 
 		/* Update association pmtu. */
 		sctp_assoc_sync_pmtu(asoc);
@@ -399,7 +388,7 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
 	 * Normally, if PMTU discovery is disabled, an ICMP Fragmentation
 	 * Needed will never be sent, but if a message was sent before
 	 * PMTU discovery was disabled that was larger than the PMTU, it
-	 * would not be fragmented, so it must be re-transmitted fragmented.	 
+	 * would not be fragmented, so it must be re-transmitted fragmented.
 	 */
 	sctp_retransmit(&asoc->outqueue, t, SCTP_RTXR_PMTUD);
 }
@@ -416,8 +405,8 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
  *
  */
 void sctp_icmp_proto_unreachable(struct sock *sk,
-                           struct sctp_association *asoc,
-                           struct sctp_transport *t)
+			   struct sctp_association *asoc,
+			   struct sctp_transport *t)
 {
 	SCTP_DEBUG_PRINTK("%s\n",  __FUNCTION__);
 
@@ -510,30 +499,30 @@ void sctp_err_finish(struct sock *sk, struct sctp_association *asoc)
 void sctp_v4_err(struct sk_buff *skb, __u32 info)
 {
 	struct iphdr *iph = (struct iphdr *)skb->data;
-	struct sctphdr *sh = (struct sctphdr *)(skb->data + (iph->ihl <<2));
-	int type = skb->h.icmph->type;
-	int code = skb->h.icmph->code;
+	const int ihlen = iph->ihl * 4;
+	const int type = icmp_hdr(skb)->type;
+	const int code = icmp_hdr(skb)->code;
 	struct sock *sk;
 	struct sctp_association *asoc = NULL;
 	struct sctp_transport *transport;
 	struct inet_sock *inet;
-	char *saveip, *savesctp;
+	sk_buff_data_t saveip, savesctp;
 	int err;
 
-	if (skb->len < ((iph->ihl << 2) + 8)) {
+	if (skb->len < ihlen + 8) {
 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
 		return;
 	}
 
 	/* Fix up skb to look at the embedded net header. */
-	saveip = skb->nh.raw;
-	savesctp  = skb->h.raw;
-	skb->nh.iph = iph;
-	skb->h.raw = (char *)sh;
-	sk = sctp_err_lookup(AF_INET, skb, sh, &asoc, &transport);
-	/* Put back, the original pointers. */
-	skb->nh.raw = saveip;
-	skb->h.raw = savesctp;
+	saveip = skb->network_header;
+	savesctp = skb->transport_header;
+	skb_reset_network_header(skb);
+	skb_set_transport_header(skb, ihlen);
+	sk = sctp_err_lookup(AF_INET, skb, sctp_hdr(skb), &asoc, &transport);
+	/* Put back, the original values. */
+	skb->network_header = saveip;
+	skb->transport_header = savesctp;
 	if (!sk) {
 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
 		return;
@@ -616,7 +605,7 @@ int sctp_rcv_ootb(struct sk_buff *skb)
 			break;
 
 		ch_end = ((__u8 *)ch) + WORD_ROUND(ntohs(ch->length));
-		if (ch_end > skb->tail)
+		if (ch_end > skb_tail_pointer(skb))
 			break;
 
 		/* RFC 8.4, 2) If the OOTB packet contains an ABORT chunk, the
@@ -648,7 +637,7 @@ int sctp_rcv_ootb(struct sk_buff *skb)
 		}
 
 		ch = (sctp_chunkhdr_t *) ch_end;
-	} while (ch_end < skb->tail);
+	} while (ch_end < skb_tail_pointer(skb));
 
 	return 0;
 
@@ -905,7 +894,7 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
 	struct sctp_association *asoc;
 	union sctp_addr addr;
 	union sctp_addr *paddr = &addr;
-	struct sctphdr *sh = (struct sctphdr *) skb->h.raw;
+	struct sctphdr *sh = sctp_hdr(skb);
 	sctp_chunkhdr_t *ch;
 	union sctp_params params;
 	sctp_init_chunk_t *init;

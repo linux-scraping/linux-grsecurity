@@ -49,7 +49,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/smp_lock.h>
 #include <linux/signal.h>
 #include <linux/poll.h>
 #include <linux/init.h>
@@ -202,6 +201,7 @@ struct quirk_printer_struct {
 
 #define USBLP_QUIRK_BIDIR	0x1	/* reports bidir but requires unidirectional mode (no INs/reads) */
 #define USBLP_QUIRK_USB_INIT	0x2	/* needs vendor USB init string */
+#define USBLP_QUIRK_BAD_CLASS	0x4	/* descriptor uses vendor-specific Class or SubClass */
 
 static const struct quirk_printer_struct quirk_printers[] = {
 	{ 0x03f0, 0x0004, USBLP_QUIRK_BIDIR }, /* HP DeskJet 895C */
@@ -218,6 +218,7 @@ static const struct quirk_printer_struct quirk_printers[] = {
 	{ 0x0409, 0xf0be, USBLP_QUIRK_BIDIR }, /* NEC Picty920 (HP OEM) */
 	{ 0x0409, 0xf1be, USBLP_QUIRK_BIDIR }, /* NEC Picty800 (HP OEM) */
 	{ 0x0482, 0x0010, USBLP_QUIRK_BIDIR }, /* Kyocera Mita FS 820, by zut <kernel@zut.de> */
+	{ 0x04b8, 0x0202, USBLP_QUIRK_BAD_CLASS }, /* Seiko Epson Receipt Printer M129C */
 	{ 0, 0, 0 }
 };
 
@@ -346,10 +347,8 @@ static int handle_bidir (struct usblp *usblp)
 	if (usblp->bidir && usblp->used && !usblp->sleeping) {
 		usblp->readcount = 0;
 		usblp->readurb->dev = usblp->dev;
-		if (usb_submit_urb(usblp->readurb, GFP_KERNEL) < 0) {
-			usblp->used = 0;
+		if (usb_submit_urb(usblp->readurb, GFP_KERNEL) < 0)
 			return -EIO;
-		}
 	}
 
 	return 0;
@@ -398,6 +397,9 @@ static int usblp_open(struct inode *inode, struct file *file)
 	retval = 0;
 #endif
 
+	retval = usb_autopm_get_interface(intf);
+	if (retval < 0)
+		goto out;
 	usblp->used = 1;
 	file->private_data = usblp;
 
@@ -408,6 +410,7 @@ static int usblp_open(struct inode *inode, struct file *file)
 	usblp->readurb->status = 0;
 
 	if (handle_bidir(usblp) < 0) {
+		usblp->used = 0;
 		file->private_data = NULL;
 		retval = -EIO;
 	}
@@ -442,6 +445,7 @@ static int usblp_release(struct inode *inode, struct file *file)
 	usblp->used = 0;
 	if (usblp->present) {
 		usblp_unlink_urbs(usblp);
+		usb_autopm_put_interface(usblp->intf);
 	} else 		/* finish cleanup from disconnect */
 		usblp_cleanup (usblp);
 	mutex_unlock (&usblp_mutex);
@@ -998,7 +1002,7 @@ abort:
 				usblp->writebuf, usblp->writeurb->transfer_dma);
 		if (usblp->readbuf)
 			usb_buffer_free (usblp->dev, USBLP_BUF_SIZE,
-				usblp->readbuf, usblp->writeurb->transfer_dma);
+				usblp->readbuf, usblp->readurb->transfer_dma);
 		kfree(usblp->statusbuf);
 		kfree(usblp->device_id_string);
 		usb_free_urb(usblp->writeurb);
@@ -1044,7 +1048,8 @@ static int usblp_select_alts(struct usblp *usblp)
 		ifd = &if_alt->altsetting[i];
 
 		if (ifd->desc.bInterfaceClass != 7 || ifd->desc.bInterfaceSubClass != 1)
-			continue;
+			if (!(usblp->quirks & USBLP_QUIRK_BAD_CLASS))
+				continue;
 
 		if (ifd->desc.bInterfaceProtocol < USBLP_FIRST_PROTOCOL ||
 		    ifd->desc.bInterfaceProtocol > USBLP_LAST_PROTOCOL)
@@ -1203,14 +1208,9 @@ static int usblp_suspend (struct usb_interface *intf, pm_message_t message)
 {
 	struct usblp *usblp = usb_get_intfdata (intf);
 
-	/* this races against normal access and open */
-	mutex_lock (&usblp_mutex);
-	mutex_lock (&usblp->mut);
 	/* we take no more IO */
 	usblp->sleeping = 1;
 	usblp_unlink_urbs(usblp);
-	mutex_unlock (&usblp->mut);
-	mutex_unlock (&usblp_mutex);
 
 	return 0;
 }
@@ -1220,14 +1220,8 @@ static int usblp_resume (struct usb_interface *intf)
 	struct usblp *usblp = usb_get_intfdata (intf);
 	int r;
 
-	mutex_lock (&usblp_mutex);
-	mutex_lock (&usblp->mut);
-
 	usblp->sleeping = 0;
 	r = handle_bidir (usblp);
-
-	mutex_unlock (&usblp->mut);
-	mutex_unlock (&usblp_mutex);
 
 	return r;
 }
@@ -1239,7 +1233,8 @@ static struct usb_device_id usblp_ids [] = {
 	{ USB_INTERFACE_INFO(7, 1, 1) },
 	{ USB_INTERFACE_INFO(7, 1, 2) },
 	{ USB_INTERFACE_INFO(7, 1, 3) },
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }			/* Terminating entry */
+	{ USB_DEVICE(0x04b8, 0x0202) },	/* Seiko Epson Receipt Printer M129C */
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }		/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE (usb, usblp_ids);
@@ -1251,6 +1246,7 @@ static struct usb_driver usblp_driver = {
 	.suspend =	usblp_suspend,
 	.resume =	usblp_resume,
 	.id_table =	usblp_ids,
+	.supports_autosuspend =	1,
 };
 
 static int __init usblp_init(void)

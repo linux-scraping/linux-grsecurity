@@ -15,7 +15,7 @@
  * I changed all the .align's to 4 (16 byte alignment), as that's faster
  * on a 486.
  *
- * Stack layout in 'ret_from_system_call':
+ * Stack layout in 'syscall_exit':
  * 	ptrace needs to have all regs on the stack.
  *	if the order here is changed, it needs to be
  *	updated in fork.c:copy_process, signal.c:do_signal,
@@ -30,7 +30,7 @@
  *	18(%esp) - %eax
  *	1C(%esp) - %ds
  *	20(%esp) - %es
- *	24(%esp) - %gs
+ *	24(%esp) - %fs
  *	28(%esp) - orig_eax
  *	2C(%esp) - %eip
  *	30(%esp) - %cs
@@ -49,6 +49,7 @@
 #include <asm/smp.h>
 #include <asm/page.h>
 #include <asm/desc.h>
+#include <asm/percpu.h>
 #include <asm/dwarf2.h>
 #include "irq_vectors.h"
 
@@ -98,9 +99,9 @@ VM_MASK		= 0x00020000
 
 #define __SAVE_ALL(_DS) \
 	cld; \
-	pushl %gs; \
+	pushl %fs; \
 	CFI_ADJUST_CFA_OFFSET 4;\
-	/*CFI_REL_OFFSET gs, 0;*/\
+	/*CFI_REL_OFFSET fs, 0;*/\
 	pushl %es; \
 	CFI_ADJUST_CFA_OFFSET 4;\
 	/*CFI_REL_OFFSET es, 0;*/\
@@ -131,8 +132,8 @@ VM_MASK		= 0x00020000
 	movl $(_DS), %edx; \
 	movl %edx, %ds; \
 	movl %edx, %es; \
-	movl $(__KERNEL_PDA), %edx; \
-	movl %edx, %gs
+	movl $(__KERNEL_PERCPU), %edx; \
+	movl %edx, %fs
 
 #ifdef CONFIG_PAX_KERNEXEC
 #define SAVE_ALL \
@@ -179,9 +180,9 @@ VM_MASK		= 0x00020000
 2:	popl %es;	\
 	CFI_ADJUST_CFA_OFFSET -4;\
 	/*CFI_RESTORE es;*/\
-3:	popl %gs;	\
+3:	popl %fs;	\
 	CFI_ADJUST_CFA_OFFSET -4;\
-	/*CFI_RESTORE gs;*/\
+	/*CFI_RESTORE fs;*/\
 .pushsection .fixup,"ax";	\
 4:	movl $0,(%esp);	\
 	jmp 1b;		\
@@ -240,6 +241,7 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET -4
 	jmp syscall_exit
 	CFI_ENDPROC
+END(ret_from_fork)
 
 /*
  * Return to user mode is not as complex as all this looks,
@@ -281,6 +283,7 @@ ENTRY(resume_userspace)
 					# int/exception return?
 	jne work_pending
 	jmp restore_all
+END(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
 ENTRY(resume_kernel)
@@ -295,6 +298,7 @@ need_resched:
 	jz restore_all
 	call preempt_schedule_irq
 	jmp need_resched
+END(resume_kernel)
 #endif
 	CFI_ENDPROC
 
@@ -325,15 +329,11 @@ sysenter_past_esp:
 	pushl $(__USER_CS)
 	CFI_ADJUST_CFA_OFFSET 4
 	/*CFI_REL_OFFSET cs, 0*/
-#ifndef CONFIG_COMPAT_VDSO
 	/*
 	 * Push current_thread_info()->sysenter_return to the stack.
 	 */
 	GET_THREAD_INFO(%ebp)
 	pushl TI_sysenter_return(%ebp)
-#else
-	pushl $SYSENTER_RETURN
-#endif
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET eip, 0
 
@@ -344,10 +344,7 @@ sysenter_past_esp:
 	movl 12(%esp),%ebp
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	pushl $(__USER_DS)
-	CFI_ADJUST_CFA_OFFSET 4
-	pop %ds
-	CFI_ADJUST_CFA_OFFSET -4
+	mov 16(%esp),%ds
 1:	movl %ds:(%ebp),%ebp
 #else
 	cmpl $__PAGE_OFFSET-3,%ebp
@@ -372,7 +369,7 @@ sysenter_past_esp:
 	jae syscall_badsys
 	call *sys_call_table(,%eax,4)
 	movl %eax,PT_EAX(%esp)
-	DISABLE_INTERRUPTS(CLBR_ECX|CLBR_EDX)
+	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 	movl TI_flags(%ebp), %ecx
 	testw $_TIF_ALLWORK_MASK, %cx
@@ -391,13 +388,13 @@ sysenter_past_esp:
 	movl PT_OLDESP(%esp), %ecx
 	xorl %ebp,%ebp
 	TRACE_IRQS_ON
-1:	mov  PT_GS(%esp), %gs
+1:	mov  PT_FS(%esp), %fs
 2:	mov  PT_DS(%esp), %ds
 3:	mov  PT_ES(%esp), %es
 	ENABLE_INTERRUPTS_SYSEXIT
 	CFI_ENDPROC
 .pushsection .fixup,"ax"
-4:	movl $0,PT_GS(%esp)
+4:	movl $0,PT_FS(%esp)
 	jmp 1b
 5:	movl $0,PT_DS(%esp)
 	jmp 2b
@@ -409,6 +406,7 @@ sysenter_past_esp:
 	.long 2b,5b
 	.long 3b,6b
 .popsection
+ENDPROC(sysenter_entry)
 
 	# system call handler stub
 ENTRY(system_call)
@@ -417,10 +415,6 @@ ENTRY(system_call)
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
 	GET_THREAD_INFO(%ebp)
-	testl $TF_MASK,PT_EFLAGS(%esp)
-	jz no_singlestep
-	orl $_TIF_SINGLESTEP,TI_flags(%ebp)
-no_singlestep:
 					# system call tracing in operation / emulation
 	/* Note, _TIF_SECCOMP is bit number 8, and so it needs testw and not testb */
 	testw $(_TIF_SYSCALL_EMU|_TIF_SYSCALL_TRACE|_TIF_SECCOMP|_TIF_SYSCALL_AUDIT),TI_flags(%ebp)
@@ -435,6 +429,10 @@ syscall_exit:
 					# setting need_resched or sigpending
 					# between sampling and the iret
 	TRACE_IRQS_OFF
+	testl $TF_MASK,PT_EFLAGS(%esp)	# If tracing set singlestep flag on exit
+	jz no_singlestep
+	orl $_TIF_SINGLESTEP,TI_flags(%ebp)
+no_singlestep:
 	movl TI_flags(%ebp), %ecx
 	testw $_TIF_ALLWORK_MASK, %cx	# current->work
 	jne syscall_exit_work
@@ -513,6 +511,7 @@ ldt_ss:
 	CFI_ADJUST_CFA_OFFSET -8
 	jmp restore_nocheck
 	CFI_ENDPROC
+ENDPROC(system_call)
 
 	# perform work that needs to be done immediately before resumption
 	ALIGN
@@ -558,6 +557,7 @@ work_notifysig_v86:
 	xorl %edx, %edx
 	call do_notify_resume
 	jmp resume_userspace_sig
+END(work_pending)
 
 	# perform syscall exit tracing
 	ALIGN
@@ -573,6 +573,7 @@ syscall_trace_entry:
 	cmpl $(nr_syscalls), %eax
 	jnae syscall_call
 	jmp syscall_exit
+END(syscall_trace_entry)
 
 	# perform syscall exit tracing
 	ALIGN
@@ -586,6 +587,7 @@ syscall_exit_work:
 	movl $1, %edx
 	call do_syscall_trace
 	jmp resume_userspace
+END(syscall_exit_work)
 	CFI_ENDPROC
 
 	RING0_INT_FRAME			# can't unwind into user space anyway
@@ -596,24 +598,32 @@ syscall_fault:
 	GET_THREAD_INFO(%ebp)
 	movl $-EFAULT,PT_EAX(%esp)
 	jmp resume_userspace
+END(syscall_fault)
 
 syscall_badsys:
 	movl $-ENOSYS,PT_EAX(%esp)
 	jmp resume_userspace
+END(syscall_badsys)
 	CFI_ENDPROC
 
-#define FIXUP_ESPFIX_STACK \
-	/* since we are on a wrong stack, we cant make it a C code :( */ \
-	movl %gs:PDA_cpu, %ebx; \
-	movl GDS_address+cpu_gdt_descr(,%ebx,8), %ebx; \
-	GET_DESC_BASE(GDT_ENTRY_ESPFIX_SS, %ebx, %eax, %ax, %al, %ah); \
-	addl %esp, %eax; \
-	pushl $__KERNEL_DS; \
-	CFI_ADJUST_CFA_OFFSET 4; \
-	pushl %eax; \
-	CFI_ADJUST_CFA_OFFSET 4; \
-	lss (%esp), %esp; \
+.macro FIXUP_ESPFIX_STACK
+	/* since we are on a wrong stack, we cant make it a C code :( */
+#ifdef CONFIG_SMP
+	movl PER_CPU_VAR(cpu_number), %ebx;
+	shll $PAGE_SHIFT_asm, %ebx;
+	addl $cpu_gdt_table, %ebx;
+#else
+	movl $cpu_gdt_table, %ebx;
+#endif
+	GET_DESC_BASE(GDT_ENTRY_ESPFIX_SS, %ebx, %eax, %ax, %al, %ah);
+	addl %esp, %eax;
+	pushl $__KERNEL_DS;
+	CFI_ADJUST_CFA_OFFSET 4;
+	pushl %eax;
+	CFI_ADJUST_CFA_OFFSET 4;
+	lss (%esp), %esp;
 	CFI_ADJUST_CFA_OFFSET -8;
+.endm
 #define UNWIND_ESPFIX_STACK \
 	movl %ss, %eax; \
 	/* see if on espfix stack */ \
@@ -634,9 +644,9 @@ syscall_badsys:
 ENTRY(interrupt)
 .text
 
-vector=0
 ENTRY(irq_entries_start)
 	RING0_INT_FRAME
+vector=0
 .rept NR_IRQS
 	ALIGN
  .if vector
@@ -645,11 +655,16 @@ ENTRY(irq_entries_start)
 1:	pushl $~(vector)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp common_interrupt
-.section .rodata,"a",@progbits
+ .previous
 	.long 1b
-.text
+ .text
 vector=vector+1
 .endr
+END(irq_entries_start)
+
+.previous
+END(interrupt)
+.previous
 
 /*
  * the CPU automatically disables interrupts when executing an IRQ vector,
@@ -662,6 +677,7 @@ common_interrupt:
 	movl %esp,%eax
 	call do_IRQ
 	jmp ret_from_intr
+ENDPROC(common_interrupt)
 	CFI_ENDPROC
 
 #define BUILD_INTERRUPT(name, nr)	\
@@ -672,9 +688,10 @@ ENTRY(name)				\
 	SAVE_ALL;			\
 	TRACE_IRQS_OFF			\
 	movl %esp,%eax;			\
-	call smp_/**/name;		\
+	call smp_##name;		\
 	jmp ret_from_intr;		\
-	CFI_ENDPROC
+	CFI_ENDPROC;			\
+ENDPROC(name)
 
 /* The include is where all of the SMP etc. interrupts come from */
 #include "entry_arch.h"
@@ -685,7 +702,7 @@ KPROBE_ENTRY(page_fault)
 	CFI_ADJUST_CFA_OFFSET 4
 	ALIGN
 error_code:
-	/* the function address is in %gs's slot on the stack */
+	/* the function address is in %fs's slot on the stack */
 	pushl %es
 	CFI_ADJUST_CFA_OFFSET 4
 	/*CFI_REL_OFFSET es, 0*/
@@ -714,11 +731,11 @@ error_code:
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET ebx, 0
 	cld
-	pushl %gs
+	pushl %fs
 	CFI_ADJUST_CFA_OFFSET 4
-	/*CFI_REL_OFFSET gs, 0*/
-	movl $(__KERNEL_PDA), %ecx
-	movl %ecx, %gs
+	/*CFI_REL_OFFSET fs, 0*/
+	movl $(__KERNEL_PERCPU), %ecx
+	movl %ecx, %fs
 	UNWIND_ESPFIX_STACK
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
@@ -732,11 +749,11 @@ error_code:
 	SET_CR0_FROM_EDX
 #endif
 
-	movl PT_GS(%esp), %edi		# get the function address
+	movl PT_FS(%esp), %edi		# get the function address
 	movl PT_ORIG_EAX(%esp), %edx	# get the error code
 	movl $-1, PT_ORIG_EAX(%esp)	# no syscall to restart
-	mov  %ecx, PT_GS(%esp)
-	/*CFI_REL_OFFSET gs, ES*/
+	mov  %ecx, PT_FS(%esp)
+	/*CFI_REL_OFFSET fs, ES*/
 	movl $(__KERNEL_DS), %ecx
 	movl %ecx, %ds
 	movl %ecx, %es
@@ -754,6 +771,7 @@ ENTRY(coprocessor_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(coprocessor_error)
 
 ENTRY(simd_coprocessor_error)
 	RING0_INT_FRAME
@@ -763,6 +781,7 @@ ENTRY(simd_coprocessor_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(simd_coprocessor_error)
 
 ENTRY(device_not_available)
 	RING0_INT_FRAME
@@ -783,6 +802,7 @@ device_not_available_emulate:
 	CFI_ADJUST_CFA_OFFSET -4
 	jmp ret_from_exception
 	CFI_ENDPROC
+END(device_not_available)
 
 /*
  * Debug traps and NMI can happen at the one SYSENTER instruction
@@ -940,10 +960,12 @@ ENTRY(native_iret)
 	.align 4
 	.long 1b,iret_exc
 .previous
+END(native_iret)
 
 ENTRY(native_irq_enable_sysexit)
 	sti
 	sysexit
+END(native_irq_enable_sysexit)
 #endif
 
 KPROBE_ENTRY(int3)
@@ -966,6 +988,7 @@ ENTRY(overflow)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(overflow)
 
 ENTRY(bounds)
 	RING0_INT_FRAME
@@ -975,6 +998,7 @@ ENTRY(bounds)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(bounds)
 
 ENTRY(invalid_op)
 	RING0_INT_FRAME
@@ -984,6 +1008,7 @@ ENTRY(invalid_op)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(invalid_op)
 
 ENTRY(coprocessor_segment_overrun)
 	RING0_INT_FRAME
@@ -993,6 +1018,7 @@ ENTRY(coprocessor_segment_overrun)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(coprocessor_segment_overrun)
 
 ENTRY(invalid_TSS)
 	RING0_EC_FRAME
@@ -1000,6 +1026,7 @@ ENTRY(invalid_TSS)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(invalid_TSS)
 
 ENTRY(segment_not_present)
 	RING0_EC_FRAME
@@ -1007,6 +1034,7 @@ ENTRY(segment_not_present)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(segment_not_present)
 
 ENTRY(stack_segment)
 	RING0_EC_FRAME
@@ -1014,6 +1042,7 @@ ENTRY(stack_segment)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(stack_segment)
 
 KPROBE_ENTRY(general_protection)
 	RING0_EC_FRAME
@@ -1029,6 +1058,7 @@ ENTRY(alignment_check)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(alignment_check)
 
 ENTRY(divide_error)
 	RING0_INT_FRAME
@@ -1038,6 +1068,7 @@ ENTRY(divide_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(divide_error)
 
 #ifdef CONFIG_X86_MCE
 ENTRY(machine_check)
@@ -1048,6 +1079,7 @@ ENTRY(machine_check)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(machine_check)
 #endif
 
 ENTRY(spurious_interrupt_bug)
@@ -1058,6 +1090,7 @@ ENTRY(spurious_interrupt_bug)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
+END(spurious_interrupt_bug)
 
 ENTRY(kernel_thread_helper)
 	pushl $0		# fake return address for unwinder

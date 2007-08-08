@@ -44,14 +44,14 @@ unsigned long memory_end;
 EXPORT_SYMBOL(memory_start);
 EXPORT_SYMBOL(memory_end);
 
-char command_line[COMMAND_LINE_SIZE];
+char __initdata command_line[COMMAND_LINE_SIZE];
 
 /* setup some dummy routines */
 static void dummy_waitbut(void)
 {
 }
 
-void (*mach_sched_init) (irqreturn_t (*handler)(int, void *, struct pt_regs *));
+void (*mach_sched_init) (irq_handler_t handler);
 void (*mach_tick)( void );
 /* machine dependent keyboard functions */
 int (*mach_keyb_init) (void);
@@ -66,7 +66,7 @@ void (*mach_trap_init) (void);
 /* machine dependent timer functions */
 unsigned long (*mach_gettimeoffset) (void);
 void (*mach_gettod) (int*, int*, int*, int*, int*, int*);
-int (*mach_hwclk) (int, struct hwclk_time*);
+int (*mach_hwclk) (int, struct rtc_time*);
 int (*mach_set_clock_mmss) (unsigned long);
 void (*mach_mksound)( unsigned int count, unsigned int ticks );
 void (*mach_reset)( void );
@@ -231,8 +231,8 @@ void setup_arch(char **cmdline_p)
 
 	/* Keep a copy of command line */
 	*cmdline_p = &command_line[0];
-	memcpy(saved_command_line, command_line, COMMAND_LINE_SIZE);
-	saved_command_line[COMMAND_LINE_SIZE-1] = 0;
+	memcpy(boot_command_line, command_line, COMMAND_LINE_SIZE);
+	boot_command_line[COMMAND_LINE_SIZE-1] = 0;
 
 #ifdef DEBUG
 	if (strlen(*cmdline_p))

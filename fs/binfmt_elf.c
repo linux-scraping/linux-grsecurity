@@ -31,7 +31,6 @@
 #include <linux/init.h>
 #include <linux/highuid.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/compiler.h>
 #include <linux/highmem.h>
 #include <linux/pagemap.h>
@@ -39,6 +38,7 @@
 #include <linux/syscalls.h>
 #include <linux/random.h>
 #include <linux/elf.h>
+#include <linux/utsname.h>
 #include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
@@ -541,14 +541,13 @@ static unsigned long pax_parse_softmode(const struct elf_phdr * const elf_phdata
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#ifdef CONFIG_PAX_DEFAULT_PAGEEXEC
-	if (pax_flags & MF_PAX_PAGEEXEC)
-		pax_flags &= ~MF_PAX_SEGMEXEC;
-#endif
-
-#ifdef CONFIG_PAX_DEFAULT_SEGMEXEC
-	if (pax_flags & MF_PAX_SEGMEXEC)
-		pax_flags &= ~MF_PAX_PAGEEXEC;
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if (nx_enabled)
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -585,14 +584,13 @@ static unsigned long pax_parse_hardmode(const struct elf_phdr * const elf_phdata
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#ifdef CONFIG_PAX_DEFAULT_PAGEEXEC
-	if (pax_flags & MF_PAX_PAGEEXEC)
-		pax_flags &= ~MF_PAX_SEGMEXEC;
-#endif
-
-#ifdef CONFIG_PAX_DEFAULT_SEGMEXEC
-	if (pax_flags & MF_PAX_SEGMEXEC)
-		pax_flags &= ~MF_PAX_PAGEEXEC;
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if (nx_enabled)
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -629,14 +627,13 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#ifdef CONFIG_PAX_DEFAULT_PAGEEXEC
-	if (pax_flags & MF_PAX_PAGEEXEC)
-		pax_flags &= ~MF_PAX_SEGMEXEC;
-#endif
-
-#ifdef CONFIG_PAX_DEFAULT_SEGMEXEC
-	if (pax_flags & MF_PAX_SEGMEXEC)
-		pax_flags &= ~MF_PAX_PAGEEXEC;
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if (nx_enabled)
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -710,7 +707,7 @@ static long pax_parse_elf_flags(const struct elfhdr * const elf_ex, const struct
 #define INTERPRETER_ELF 2
 
 #ifndef STACK_RND_MASK
-#define STACK_RND_MASK 0x7ff		/* with 4K pages 8MB of VA */
+#define STACK_RND_MASK (0x7ff >> (PAGE_SHIFT - 12))	/* 8MB of VA */
 #endif
 
 static unsigned long randomize_stack_top(unsigned long stack_top)
@@ -749,7 +746,6 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	char passed_fileno[6];
 	struct files_struct *files;
 	int executable_stack = EXSTACK_DEFAULT;
-	unsigned long def_flags = 0;
 	struct {
 		struct elfhdr elf_ex;
 		struct elfhdr interp_elf_ex;
@@ -1001,11 +997,10 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_ASLR
 	current->mm->delta_mmap = 0UL;
-	current->mm->delta_exec = 0UL;
 	current->mm->delta_stack = 0UL;
 #endif
 
-	current->mm->def_flags = def_flags;
+	current->mm->def_flags = 0;
 
 #if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS)
 	if (0 > pax_parse_elf_flags(&loc->elf_ex, elf_phdata)) {
@@ -1022,14 +1017,16 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 #endif
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-	if (current->mm->pax_flags & MF_PAX_PAGEEXEC)
+	if ((current->mm->pax_flags & MF_PAX_PAGEEXEC) && !nx_enabled) {
 		current->mm->context.user_cs_limit = PAGE_SIZE;
+		current->mm->def_flags |= VM_PAGEEXEC;
+	}
 #endif
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
 		current->mm->context.user_cs_base = SEGMEXEC_TASK_SIZE;
-		current->mm->context.user_cs_limit = -SEGMEXEC_TASK_SIZE;
+		current->mm->context.user_cs_limit = TASK_SIZE-SEGMEXEC_TASK_SIZE;
 		task_size = SEGMEXEC_TASK_SIZE;
 	}
 #endif
@@ -1043,11 +1040,8 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_ASLR
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP) {
-#define pax_delta_mask(delta, lsb, len) (((delta) & ((1UL << (len)) - 1)) << (lsb))
-
-		current->mm->delta_mmap = pax_delta_mask(pax_get_random_long(), PAX_DELTA_MMAP_LSB(current), PAX_DELTA_MMAP_LEN(current));
-		current->mm->delta_exec = pax_delta_mask(pax_get_random_long(), PAX_DELTA_EXEC_LSB(current), PAX_DELTA_EXEC_LEN(current));
-		current->mm->delta_stack = pax_delta_mask(pax_get_random_long(), PAX_DELTA_STACK_LSB(current), PAX_DELTA_STACK_LEN(current));
+		current->mm->delta_mmap = (pax_get_random_long() & ((1UL << PAX_DELTA_MMAP_LEN)-1)) << PAGE_SHIFT;
+		current->mm->delta_stack = (pax_get_random_long() & ((1UL << PAX_DELTA_STACK_LEN)-1)) << PAGE_SHIFT;
 	}
 #endif
 
@@ -1149,8 +1143,13 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_RANDMMAP
 			/* PaX: randomize base address at the default exe base if requested */
-			if (current->mm->pax_flags & MF_PAX_RANDMMAP) {
-				load_bias = ELF_PAGESTART(PAX_ELF_ET_DYN_BASE(current) - vaddr + current->mm->delta_exec);
+			if ((current->mm->pax_flags & MF_PAX_RANDMMAP) && elf_interpreter) {
+#ifdef CONFIG_SPARC64
+				load_bias = (pax_get_random_long() & ((1UL << PAX_DELTA_MMAP_LEN) - 1)) << (PAGE_SHIFT+1);
+#else
+				load_bias = (pax_get_random_long() & ((1UL << PAX_DELTA_MMAP_LEN) - 1)) << PAGE_SHIFT;
+#endif
+				load_bias = ELF_PAGESTART(PAX_ELF_ET_DYN_BASE - vaddr + load_bias);
 				elf_flags |= MAP_FIXED;
 			}
 #endif
@@ -1161,6 +1160,8 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 				elf_prot, elf_flags);
 		if (BAD_ADDR(error)) {
 			send_sig(SIGKILL, current, 0);
+			retval = IS_ERR((void *)error) ?
+				PTR_ERR((void*)error) : -EINVAL;
 			goto out_free_dentry;
 		}
 
@@ -1190,6 +1191,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		    task_size - elf_ppnt->p_memsz < k) {
 			/* set_brk can never work. Avoid overflows. */
 			send_sig(SIGKILL, current, 0);
+			retval = -EINVAL;
 			goto out_free_dentry;
 		}
 
@@ -1216,8 +1218,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
-		elf_brk += PAGE_SIZE + pax_delta_mask(pax_get_random_long(), 4, PAGE_SHIFT);
-#undef pax_delta_mask
+		elf_brk += PAGE_SIZE + ((pax_get_random_long() & ~PAGE_MASK) << 4);
 #endif
 
 	/* Calling set_brk effectively mmaps the pages that we need
@@ -1231,9 +1232,11 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		goto out_free_dentry;
 	}
 	if (likely(elf_bss != elf_brk) && unlikely(padzero(elf_bss))) {
-		send_sig(SIGSEGV, current, 0);
-		retval = -EFAULT; /* Nobody gets to see this, but.. */
-		goto out_free_dentry;
+		/*
+		 * This bss-zeroing can fail if the ELF
+		 * file specifies odd protections. So
+		 * we don't check the return value
+		 */
 	}
 
 	if (elf_interpreter) {
@@ -1466,8 +1469,10 @@ static int dump_seek(struct file *file, loff_t off)
 			unsigned long n = off;
 			if (n > PAGE_SIZE)
 				n = PAGE_SIZE;
-			if (!dump_write(file, buf, n))
+			if (!dump_write(file, buf, n)) {
+				free_page((unsigned long)buf);
 				return 0;
+			}
 			off -= n;
 		}
 		free_page((unsigned long)buf);
@@ -1795,6 +1800,9 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file)
 #endif
 	int thread_status_size = 0;
 	elf_addr_t *auxv;
+#ifdef ELF_CORE_WRITE_EXTRA_NOTES
+	int extra_notes_size;
+#endif
 
 	/*
 	 * We no longer stop all VM operations.
@@ -1924,7 +1932,8 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file)
 		sz += thread_status_size;
 
 #ifdef ELF_CORE_WRITE_EXTRA_NOTES
-		sz += ELF_CORE_EXTRA_NOTES_SIZE;
+		extra_notes_size = ELF_CORE_EXTRA_NOTES_SIZE;
+		sz += extra_notes_size;
 #endif
 
 		fill_elf_note_phdr(&phdr, sz, offset);
@@ -1970,6 +1979,7 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file)
 
 #ifdef ELF_CORE_WRITE_EXTRA_NOTES
 	ELF_CORE_WRITE_EXTRA_NOTES;
+	foffset += extra_notes_size;
 #endif
 
 	/* write out the thread status notes section */

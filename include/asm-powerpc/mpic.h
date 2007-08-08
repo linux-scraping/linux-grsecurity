@@ -3,6 +3,7 @@
 #ifdef __KERNEL__
 
 #include <linux/irq.h>
+#include <linux/sysdev.h>
 #include <asm/dcr.h>
 
 /*
@@ -103,21 +104,6 @@
 #define MPIC_MAX_ISU		32
 
 /*
- * Special vector numbers (internal use only)
- */
-#define MPIC_VEC_SPURRIOUS	255
-#define MPIC_VEC_IPI_3		254
-#define MPIC_VEC_IPI_2		253
-#define MPIC_VEC_IPI_1		252
-#define MPIC_VEC_IPI_0		251
-
-/* unused */
-#define MPIC_VEC_TIMER_3	250
-#define MPIC_VEC_TIMER_2	249
-#define MPIC_VEC_TIMER_1	248
-#define MPIC_VEC_TIMER_0	247
-
-/*
  * Tsi108 implementation of MPIC has many differences from the original one
  */
 
@@ -214,7 +200,7 @@ enum {
 };
 
 
-#ifdef CONFIG_MPIC_BROKEN_U3
+#ifdef CONFIG_MPIC_U3_HT_IRQS
 /* Fixup table entry */
 struct mpic_irq_fixup
 {
@@ -223,7 +209,7 @@ struct mpic_irq_fixup
 	u32		data;
 	unsigned int	index;
 };
-#endif /* CONFIG_MPIC_BROKEN_U3 */
+#endif /* CONFIG_MPIC_U3_HT_IRQS */
 
 
 enum mpic_reg_type {
@@ -243,6 +229,14 @@ struct mpic_reg_bank {
 #endif /* CONFIG_PPC_DCR */
 };
 
+struct mpic_irq_save {
+	u32		vecprio,
+			dest;
+#ifdef CONFIG_MPIC_U3_HT_IRQS
+	u32		fixup_data;
+#endif
+};
+
 /* The instance data of a given MPIC */
 struct mpic
 {
@@ -254,7 +248,7 @@ struct mpic
 
 	/* The "linux" controller struct */
 	struct irq_chip		hc_irq;
-#ifdef CONFIG_MPIC_BROKEN_U3
+#ifdef CONFIG_MPIC_U3_HT_IRQS
 	struct irq_chip		hc_ht_irq;
 #endif
 #ifdef CONFIG_SMP
@@ -276,7 +270,14 @@ struct mpic
 	unsigned char		*senses;
 	unsigned int		senses_count;
 
-#ifdef CONFIG_MPIC_BROKEN_U3
+	/* vector numbers used for internal sources (ipi/timers) */
+	unsigned int		ipi_vecs[4];
+	unsigned int		timer_vecs[4];
+
+	/* Spurious vector to program into unused sources */
+	unsigned int		spurious_vec;
+
+#ifdef CONFIG_MPIC_U3_HT_IRQS
 	/* The fixup table */
 	struct mpic_irq_fixup	*fixups;
 	spinlock_t		fixup_lock;
@@ -300,8 +301,19 @@ struct mpic
 	u32			*hw_set;
 #endif
 
+#ifdef CONFIG_PCI_MSI
+	spinlock_t		bitmap_lock;
+	unsigned long		*hwirq_bitmap;
+#endif
+
 	/* link */
 	struct mpic		*next;
+
+	struct sys_device	sysdev;
+
+#ifdef CONFIG_PM
+	struct mpic_irq_save	*save_data;
+#endif
 };
 
 /*
@@ -321,7 +333,7 @@ struct mpic
 /* Set this for a big-endian MPIC */
 #define MPIC_BIG_ENDIAN			0x00000002
 /* Broken U3 MPIC */
-#define MPIC_BROKEN_U3			0x00000004
+#define MPIC_U3_HT_IRQS			0x00000004
 /* Broken IPI registers (autodetected) */
 #define MPIC_BROKEN_IPI			0x00000008
 /* MPIC wants a reset */
@@ -332,6 +344,8 @@ struct mpic
 #define MPIC_NO_PTHROU_DIS		0x00000040
 /* DCR based MPIC */
 #define MPIC_USES_DCR			0x00000080
+/* MPIC has 11-bit vector fields (or larger) */
+#define MPIC_LARGE_VECTORS		0x00000100
 
 /* MPIC HW modification ID */
 #define MPIC_REGSET_MASK		0xf0000000
@@ -358,7 +372,7 @@ struct mpic
  * @senses_num: number of entries in the array
  *
  * Note about the sense array. If none is passed, all interrupts are
- * setup to be level negative unless MPIC_BROKEN_U3 is set in which
+ * setup to be level negative unless MPIC_U3_HT_IRQS is set in which
  * case they are edge positive (and the array is ignored anyway).
  * The values in the array start at the first source of the MPIC,
  * that is senses[0] correspond to linux irq "irq_offset".

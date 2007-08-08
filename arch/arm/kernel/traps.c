@@ -16,7 +16,6 @@
 #include <linux/signal.h>
 #include <linux/spinlock.h>
 #include <linux/personality.h>
-#include <linux/ptrace.h>
 #include <linux/kallsyms.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -32,13 +31,6 @@
 #include "ptrace.h"
 #include "signal.h"
 
-const char *processor_modes[]=
-{ "USER_26", "FIQ_26" , "IRQ_26" , "SVC_26" , "UK4_26" , "UK5_26" , "UK6_26" , "UK7_26" ,
-  "UK8_26" , "UK9_26" , "UK10_26", "UK11_26", "UK12_26", "UK13_26", "UK14_26", "UK15_26",
-  "USER_32", "FIQ_32" , "IRQ_32" , "SVC_32" , "UK4_32" , "UK5_32" , "UK6_32" , "ABT_32" ,
-  "UK8_32" , "UK9_32" , "UK10_32", "UND_32" , "UK12_32", "UK13_32", "UK14_32", "SYS_32"
-};
-
 static const char *handler[]= { "prefetch abort", "data abort", "address exception", "interrupt" };
 
 #ifdef CONFIG_DEBUG_USER
@@ -52,7 +44,18 @@ static int __init user_debug_setup(char *str)
 __setup("user_debug=", user_debug_setup);
 #endif
 
-void dump_backtrace_entry(unsigned long where, unsigned long from)
+static void dump_mem(const char *str, unsigned long bottom, unsigned long top);
+
+static inline int in_exception_text(unsigned long ptr)
+{
+	extern char __exception_text_start[];
+	extern char __exception_text_end[];
+
+	return ptr >= (unsigned long)&__exception_text_start &&
+	       ptr < (unsigned long)&__exception_text_end;
+}
+
+void dump_backtrace_entry(unsigned long where, unsigned long from, unsigned long frame)
 {
 #ifdef CONFIG_KALLSYMS
 	printk("[<%08lx>] ", where);
@@ -62,6 +65,9 @@ void dump_backtrace_entry(unsigned long where, unsigned long from)
 #else
 	printk("Function entered at [<%08lx>] from [<%08lx>]\n", where, from);
 #endif
+
+	if (in_exception_text(where))
+		dump_mem("Exception stack", frame + 4, frame + 4 + sizeof(struct pt_regs));
 }
 
 /*
@@ -175,9 +181,7 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 
 void dump_stack(void)
 {
-#ifdef CONFIG_DEBUG_ERRORS
 	__backtrace();
-#endif
 }
 
 EXPORT_SYMBOL(dump_stack);
@@ -198,12 +202,24 @@ void show_stack(struct task_struct *tsk, unsigned long *sp)
 	barrier();
 }
 
+#ifdef CONFIG_PREEMPT
+#define S_PREEMPT " PREEMPT"
+#else
+#define S_PREEMPT ""
+#endif
+#ifdef CONFIG_SMP
+#define S_SMP " SMP"
+#else
+#define S_SMP ""
+#endif
+
 static void __die(const char *str, int err, struct thread_info *thread, struct pt_regs *regs)
 {
 	struct task_struct *tsk = thread->task;
 	static int die_counter;
 
-	printk("Internal error: %s: %x [#%d]\n", str, err, ++die_counter);
+	printk("Internal error: %s: %x [#%d]" S_PREEMPT S_SMP "\n",
+	       str, err, ++die_counter);
 	print_modules();
 	__show_regs(regs);
 	printk("Process %s (pid: %d, stack limit = 0x%p)\n",
@@ -226,6 +242,8 @@ NORET_TYPE void die(const char *str, struct pt_regs *regs, int err)
 {
 	struct thread_info *thread = current_thread_info();
 
+	oops_enter();
+
 	console_verbose();
 	spin_lock_irq(&die_lock);
 	bust_spinlocks(1);
@@ -233,14 +251,18 @@ NORET_TYPE void die(const char *str, struct pt_regs *regs, int err)
 	bust_spinlocks(0);
 	spin_unlock_irq(&die_lock);
 
+	if (in_interrupt())
+		panic("Fatal exception in interrupt");
+
 	if (panic_on_oops)
 		panic("Fatal exception");
 
+	oops_exit();
 	do_exit(SIGSEGV);
 }
 
-void notify_die(const char *str, struct pt_regs *regs, struct siginfo *info,
-		unsigned long err, unsigned long trap)
+void arm_notify_die(const char *str, struct pt_regs *regs,
+		struct siginfo *info, unsigned long err, unsigned long trap)
 {
 	if (user_mode(regs)) {
 		current->thread.error_code = err;
@@ -273,13 +295,14 @@ void unregister_undef_hook(struct undef_hook *hook)
 	spin_unlock_irqrestore(&undef_lock, flags);
 }
 
-asmlinkage void do_undefinstr(struct pt_regs *regs)
+asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 {
 	unsigned int correction = thumb_mode(regs) ? 2 : 4;
 	unsigned int instr;
 	struct undef_hook *hook;
 	siginfo_t info;
 	void __user *pc;
+	unsigned long flags;
 
 	/*
 	 * According to the ARM ARM, PC is 2 or 4 bytes ahead,
@@ -289,13 +312,16 @@ asmlinkage void do_undefinstr(struct pt_regs *regs)
 	regs->ARM_pc -= correction;
 
 	pc = (void __user *)instruction_pointer(regs);
-	if (thumb_mode(regs)) {
+
+	if (processor_mode(regs) == SVC_MODE) {
+		instr = *(u32 *) pc;
+	} else if (thumb_mode(regs)) {
 		get_user(instr, (u16 __user *)pc);
 	} else {
 		get_user(instr, (u32 __user *)pc);
 	}
 
-	spin_lock_irq(&undef_lock);
+	spin_lock_irqsave(&undef_lock, flags);
 	list_for_each_entry(hook, &undef_hook, node) {
 		if ((instr & hook->instr_mask) == hook->instr_val &&
 		    (regs->ARM_cpsr & hook->cpsr_mask) == hook->cpsr_val) {
@@ -305,7 +331,7 @@ asmlinkage void do_undefinstr(struct pt_regs *regs)
 			}
 		}
 	}
-	spin_unlock_irq(&undef_lock);
+	spin_unlock_irqrestore(&undef_lock, flags);
 
 #ifdef CONFIG_DEBUG_USER
 	if (user_debug & UDBG_UNDEFINED) {
@@ -320,7 +346,7 @@ asmlinkage void do_undefinstr(struct pt_regs *regs)
 	info.si_code  = ILL_ILLOPC;
 	info.si_addr  = pc;
 
-	notify_die("Oops - undefined instruction", regs, &info, 0, 6);
+	arm_notify_die("Oops - undefined instruction", regs, &info, 0, 6);
 }
 
 asmlinkage void do_unexp_fiq (struct pt_regs *regs)
@@ -337,12 +363,11 @@ asmlinkage void do_unexp_fiq (struct pt_regs *regs)
  * It never returns, and never tries to sync.  We hope that we can at least
  * dump out some state information...
  */
-asmlinkage void bad_mode(struct pt_regs *regs, int reason, int proc_mode)
+asmlinkage void bad_mode(struct pt_regs *regs, int reason)
 {
 	console_verbose();
 
-	printk(KERN_CRIT "Bad mode in %s handler detected: mode %s\n",
-		handler[reason], processor_modes[proc_mode]);
+	printk(KERN_CRIT "Bad mode in %s handler detected\n", handler[reason]);
 
 	die("Oops - bad mode", regs, 0);
 	local_irq_disable();
@@ -375,7 +400,7 @@ static int bad_syscall(int n, struct pt_regs *regs)
 	info.si_addr  = (void __user *)instruction_pointer(regs) -
 			 (thumb_mode(regs) ? 2 : 4);
 
-	notify_die("Oops - bad syscall", regs, &info, n, 0);
+	arm_notify_die("Oops - bad syscall", regs, &info, n, 0);
 
 	return regs->ARM_r0;
 }
@@ -419,7 +444,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		info.si_code  = SEGV_MAPERR;
 		info.si_addr  = NULL;
 
-		notify_die("branch through zero", regs, &info, 0, 0);
+		arm_notify_die("branch through zero", regs, &info, 0, 0);
 		return 0;
 
 	case NR(breakpoint): /* SWI BREAK_POINT */
@@ -555,7 +580,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 	info.si_addr  = (void __user *)instruction_pointer(regs) -
 			 (thumb_mode(regs) ? 2 : 4);
 
-	notify_die("Oops - bad syscall(2)", regs, &info, no, 0);
+	arm_notify_die("Oops - bad syscall(2)", regs, &info, no, 0);
 	return 0;
 }
 
@@ -629,7 +654,7 @@ baddataabort(int code, unsigned long instr, struct pt_regs *regs)
 	info.si_code  = ILL_ILLOPC;
 	info.si_addr  = (void __user *)addr;
 
-	notify_die("unknown data abort code", regs, &info, instr, 0);
+	arm_notify_die("unknown data abort code", regs, &info, instr, 0);
 }
 
 void __attribute__((noreturn)) __bug(const char *file, int line)

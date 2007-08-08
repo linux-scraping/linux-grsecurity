@@ -31,8 +31,6 @@
  *			valid after probe time even with noprobe
  */
 
-#undef REALLY_SLOW_IO		/* most systems can safely undef this */
-
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
@@ -576,11 +574,11 @@ static inline u8 probe_for_drive (ide_drive_t *drive)
 			/* look for ATAPI device */
 			(void) do_probe(drive, WIN_PIDENTIFY);
 		}
-		if (strstr(drive->id->model, "E X A B Y T E N E S T"))
-			enable_nest(drive);
 		if (!drive->present)
 			/* drive not found */
 			return 0;
+		if (strstr(drive->id->model, "E X A B Y T E N E S T"))
+			enable_nest(drive);
 	
 		/* identification failed? */
 		if (!drive->id_read) {
@@ -719,7 +717,7 @@ EXPORT_SYMBOL_GPL(ide_undecoded_slave);
  * This routine only knows how to look for drive units 0 and 1
  * on an interface, so any setting of MAX_DRIVES > 2 won't work here.
  */
-static void probe_hwif(ide_hwif_t *hwif)
+static void probe_hwif(ide_hwif_t *hwif, void (*fixup)(ide_hwif_t *hwif))
 {
 	unsigned int unit;
 	unsigned long flags;
@@ -822,6 +820,9 @@ static void probe_hwif(ide_hwif_t *hwif)
 		return;
 	}
 
+	if (fixup)
+		fixup(hwif);
+
 	for (unit = 0; unit < MAX_DRIVES; ++unit) {
 		ide_drive_t *drive = &hwif->drives[unit];
 
@@ -853,11 +854,11 @@ static void probe_hwif(ide_hwif_t *hwif)
 				 * things, if not checked and cleared.
 				 *   PARANOIA!!!
 				 */
-				hwif->ide_dma_off_quietly(drive);
+				hwif->dma_off_quietly(drive);
 #ifdef CONFIG_IDEDMA_ONLYDISK
 				if (drive->media == ide_disk)
 #endif
-					hwif->ide_dma_check(drive);
+					ide_set_dma(drive);
 			}
 		}
 	}
@@ -876,10 +877,7 @@ static int hwif_init(ide_hwif_t *hwif);
 
 int probe_hwif_init_with_fixup(ide_hwif_t *hwif, void (*fixup)(ide_hwif_t *hwif))
 {
-	probe_hwif(hwif);
-
-	if (fixup)
-		fixup(hwif);
+	probe_hwif(hwif, fixup);
 
 	if (!hwif_init(hwif)) {
 		printk(KERN_INFO "%s: failed to initialize IDE interface\n",
@@ -1384,6 +1382,9 @@ static int hwif_init(ide_hwif_t *hwif)
 
 done:
 	init_gendisk(hwif);
+
+	ide_acpi_init(hwif);
+
 	hwif->present = 1;	/* success */
 	return 1;
 
@@ -1403,7 +1404,7 @@ int ideprobe_init (void)
 
 	for (index = 0; index < MAX_HWIFS; ++index)
 		if (probe[index])
-			probe_hwif(&ide_hwifs[index]);
+			probe_hwif(&ide_hwifs[index], NULL);
 	for (index = 0; index < MAX_HWIFS; ++index)
 		if (probe[index])
 			hwif_init(&ide_hwifs[index]);
@@ -1426,6 +1427,9 @@ int ideprobe_init (void)
 				}
 		}
 	}
+	for (index = 0; index < MAX_HWIFS; ++index)
+		if (probe[index])
+			ide_proc_register_port(&ide_hwifs[index]);
 	return 0;
 }
 

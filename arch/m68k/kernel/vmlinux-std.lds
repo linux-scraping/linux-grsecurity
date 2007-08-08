@@ -11,7 +11,7 @@ SECTIONS
   . = 0x1000;
   _text = .;			/* Text and read-only data */
   .text : {
-	*(.text)
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	*(.fixup)
@@ -28,7 +28,7 @@ SECTIONS
   _etext = .;			/* End of text section */
 
   .data : {			/* Data */
-	*(.data)
+	DATA_DATA
 	CONSTRUCTORS
 	}
 
@@ -60,11 +60,18 @@ SECTIONS
   __con_initcall_start = .;
   .con_initcall.init : { *(.con_initcall.init) }
   __con_initcall_end = .;
+  .m68k_fixup : {
+	__start_fixup = .;
+	*(.m68k_fixup)
+	__stop_fixup = .;
+  }
   SECURITY_INIT
+#ifdef CONFIG_BLK_DEV_INITRD
   . = ALIGN(8192);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
+#endif
   . = ALIGN(8192);
   __init_end = .;
 

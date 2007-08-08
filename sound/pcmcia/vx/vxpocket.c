@@ -91,7 +91,7 @@ static int snd_vxpocket_dev_free(struct snd_device *device)
  * Only output levels can be modified
  */
 
-static DECLARE_TLV_DB_SCALE(db_scale_old_vol, -11350, 50, 0);
+static const DECLARE_TLV_DB_SCALE(db_scale_old_vol, -11350, 50, 0);
 
 static struct snd_vx_hardware vxpocket_hw = {
 	.name = "VXPocket",
@@ -297,7 +297,7 @@ static int vxpocket_probe(struct pcmcia_device *p_dev)
 
 	/* find an empty slot from the card list */
 	for (i = 0; i < SNDRV_CARDS; i++) {
-		if (! card_alloc & (1 << i))
+		if (!(card_alloc & (1 << i)))
 			break;
 	}
 	if (i >= SNDRV_CARDS) {

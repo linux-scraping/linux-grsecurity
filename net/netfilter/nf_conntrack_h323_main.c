@@ -49,7 +49,7 @@ MODULE_PARM_DESC(gkrouted_only, "only accept calls from gatekeeper");
 static int callforward_filter __read_mostly = 1;
 module_param(callforward_filter, bool, 0600);
 MODULE_PARM_DESC(callforward_filter, "only create call forwarding expectations "
-		                     "if both endpoints are on different sides "
+				     "if both endpoints are on different sides "
 				     "(determined by routing information)");
 
 /* Hooks for NAT */
@@ -300,7 +300,7 @@ static int expect_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
 				 IPPROTO_UDP, NULL, &rtcp_port);
 
 	if (memcmp(&ct->tuplehash[dir].tuple.src.u3,
-	   	   &ct->tuplehash[!dir].tuple.dst.u3,
+		   &ct->tuplehash[!dir].tuple.dst.u3,
 		   sizeof(ct->tuplehash[dir].tuple.src.u3)) &&
 		   (nat_rtp_rtcp = rcu_dereference(nat_rtp_rtcp_hook)) &&
 		   ct->status & IPS_NAT_MASK) {
@@ -520,6 +520,16 @@ static int process_olca(struct sk_buff **pskb, struct nf_conn *ct,
 		}
 	}
 
+	if ((olca->options & eOpenLogicalChannelAck_separateStack) &&
+		olca->separateStack.networkAddress.choice ==
+		eNetworkAccessParameters_networkAddress_localAreaAddress) {
+		ret = expect_t120(pskb, ct, ctinfo, data, dataoff,
+				  &olca->separateStack.networkAddress.
+				  localAreaAddress);
+		if (ret < 0)
+			return -1;
+	}
+
 	return 0;
 }
 
@@ -640,7 +650,7 @@ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
 	case eTransportAddress_ip6Address:
 		if (family != AF_INET6)
 			return 0;
-		p = data + taddr->ip6Address.ip6;
+		p = data + taddr->ip6Address.ip;
 		len = 16;
 		break;
 	default:
@@ -743,7 +753,7 @@ static int callforward_do_filter(union nf_conntrack_address *src,
 			rt2 = (struct rt6_info *)ip6_route_output(NULL, &fl2);
 			if (rt2) {
 				if (!memcmp(&rt1->rt6i_gateway, &rt2->rt6i_gateway,
-				 	    sizeof(rt1->rt6i_gateway)) &&
+					    sizeof(rt1->rt6i_gateway)) &&
 				    rt1->u.dst.dev == rt2->u.dst.dev)
 					ret = 1;
 				dst_release(&rt2->u.dst);
@@ -780,7 +790,7 @@ static int expect_callforwarding(struct sk_buff **pskb,
 	 * we don't need to track the second call */
 	if (callforward_filter &&
 	    callforward_do_filter(&addr, &ct->tuplehash[!dir].tuple.src.u3,
-	    			  ct->tuplehash[!dir].tuple.src.l3num)) {
+				  ct->tuplehash[!dir].tuple.src.l3num)) {
 		DEBUGP("nf_ct_q931: Call Forwarding not tracked\n");
 		return 0;
 	}
@@ -840,7 +850,7 @@ static int process_setup(struct sk_buff **pskb, struct nf_conn *ct,
 	if ((setup->options & eSetup_UUIE_destCallSignalAddress) &&
 	    (set_h225_addr) && ct->status && IPS_NAT_MASK &&
 	    get_h225_addr(ct, *data, &setup->destCallSignalAddress,
-	    		  &addr, &port) &&
+			  &addr, &port) &&
 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.src.u3, sizeof(addr))) {
 		DEBUGP("nf_ct_q931: set destCallSignalAddress "
 		       NIP6_FMT ":%hu->" NIP6_FMT ":%hu\n",
@@ -858,7 +868,7 @@ static int process_setup(struct sk_buff **pskb, struct nf_conn *ct,
 	if ((setup->options & eSetup_UUIE_sourceCallSignalAddress) &&
 	    (set_h225_addr) && ct->status & IPS_NAT_MASK &&
 	    get_h225_addr(ct, *data, &setup->sourceCallSignalAddress,
-	    		  &addr, &port) &&
+			  &addr, &port) &&
 	    memcmp(&addr, &ct->tuplehash[!dir].tuple.dst.u3, sizeof(addr))) {
 		DEBUGP("nf_ct_q931: set sourceCallSignalAddress "
 		       NIP6_FMT ":%hu->" NIP6_FMT ":%hu\n",
@@ -977,30 +987,6 @@ static int process_alerting(struct sk_buff **pskb, struct nf_conn *ct,
 }
 
 /****************************************************************************/
-static int process_information(struct sk_buff **pskb,
-			       struct nf_conn *ct,
-			       enum ip_conntrack_info ctinfo,
-			       unsigned char **data, int dataoff,
-			       Information_UUIE *info)
-{
-	int ret;
-	int i;
-
-	DEBUGP("nf_ct_q931: Information\n");
-
-	if (info->options & eInformation_UUIE_fastStart) {
-		for (i = 0; i < info->fastStart.count; i++) {
-			ret = process_olc(pskb, ct, ctinfo, data, dataoff,
-					  &info->fastStart.item[i]);
-			if (ret < 0)
-				return -1;
-		}
-	}
-
-	return 0;
-}
-
-/****************************************************************************/
 static int process_facility(struct sk_buff **pskb, struct nf_conn *ct,
 			    enum ip_conntrack_info ctinfo,
 			    unsigned char **data, int dataoff,
@@ -1095,11 +1081,6 @@ static int process_q931(struct sk_buff **pskb, struct nf_conn *ct,
 	case eH323_UU_PDU_h323_message_body_alerting:
 		ret = process_alerting(pskb, ct, ctinfo, data, dataoff,
 				       &pdu->h323_message_body.alerting);
-		break;
-	case eH323_UU_PDU_h323_message_body_information:
-		ret = process_information(pskb, ct, ctinfo, data, dataoff,
-					  &pdu->h323_message_body.
-					  information);
 		break;
 	case eH323_UU_PDU_h323_message_body_facility:
 		ret = process_facility(pskb, ct, ctinfo, data, dataoff,
@@ -1282,7 +1263,7 @@ static int expect_q931(struct sk_buff **pskb, struct nf_conn *ct,
 	for (i = 0; i < count; i++) {
 		if (get_h225_addr(ct, *data, &taddr[i], &addr, &port) &&
 		    memcmp(&addr, &ct->tuplehash[dir].tuple.src.u3,
-		    	   sizeof(addr)) == 0 && port != 0)
+			   sizeof(addr)) == 0 && port != 0)
 			break;
 	}
 
@@ -1294,7 +1275,7 @@ static int expect_q931(struct sk_buff **pskb, struct nf_conn *ct,
 		return -1;
 	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
 				 gkrouted_only ? /* only accept calls from GK? */
-				 	&ct->tuplehash[!dir].tuple.src.u3 :
+					&ct->tuplehash[!dir].tuple.src.u3 :
 					NULL,
 				 &ct->tuplehash[!dir].tuple.dst.u3,
 				 IPPROTO_TCP, NULL, &port);
@@ -1513,7 +1494,7 @@ static int process_arq(struct sk_buff **pskb, struct nf_conn *ct,
 	set_h225_addr = rcu_dereference(set_h225_addr_hook);
 	if ((arq->options & eAdmissionRequest_destCallSignalAddress) &&
 	    get_h225_addr(ct, *data, &arq->destCallSignalAddress,
-	    		  &addr, &port) &&
+			  &addr, &port) &&
 	    !memcmp(&addr, &ct->tuplehash[dir].tuple.src.u3, sizeof(addr)) &&
 	    port == info->sig_port[dir] &&
 	    set_h225_addr && ct->status & IPS_NAT_MASK) {
@@ -1526,7 +1507,7 @@ static int process_arq(struct sk_buff **pskb, struct nf_conn *ct,
 
 	if ((arq->options & eAdmissionRequest_srcCallSignalAddress) &&
 	    get_h225_addr(ct, *data, &arq->srcCallSignalAddress,
-	    		  &addr, &port) &&
+			  &addr, &port) &&
 	    !memcmp(&addr, &ct->tuplehash[dir].tuple.src.u3, sizeof(addr)) &&
 	    set_h225_addr && ct->status & IPS_NAT_MASK) {
 		/* Calling ARQ */

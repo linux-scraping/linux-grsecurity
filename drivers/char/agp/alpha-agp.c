@@ -91,6 +91,9 @@ static int alpha_core_agp_insert_memory(struct agp_memory *mem, off_t pg_start,
 	int num_entries, status;
 	void *temp;
 
+	if (type >= AGP_USER_TYPES || mem->type >= AGP_USER_TYPES)
+		return -EINVAL;
+
 	temp = agp_bridge->current_size;
 	num_entries = A_SIZE_FIX(temp)->num_entries;
 	if ((pg_start + mem->page_count) > num_entries)
@@ -142,6 +145,7 @@ struct agp_bridge_driver alpha_core_agp_driver = {
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
 	.agp_destroy_page	= agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 };
 
 struct agp_bridge_data *alpha_bridge;
@@ -169,7 +173,7 @@ alpha_core_agp_setup(void)
 	/*
 	 * Build a fake pci_dev struct
 	 */
-	pdev = kmalloc(sizeof(struct pci_dev), GFP_KERNEL);
+	pdev = alloc_pci_dev();
 	if (!pdev)
 		return -ENOMEM;
 	pdev->vendor = 0xffff;

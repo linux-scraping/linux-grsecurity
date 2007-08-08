@@ -11,9 +11,9 @@
 #include <linux/module.h>
 #include <linux/kernel_stat.h>
 #include <linux/seq_file.h>
-#include <linux/io.h>
 #include <linux/irq.h>
 #include <asm/processor.h>
+#include <asm/machvec.h>
 #include <asm/uaccess.h>
 #include <asm/thread_info.h>
 #include <asm/cpu/mmu_context.h>
@@ -45,7 +45,7 @@ int show_interrupts(struct seq_file *p, void *v)
 		seq_putc(p, '\n');
 	}
 
-	if (i < NR_IRQS) {
+	if (i < sh_mv.mv_nr_irqs) {
 		spin_lock_irqsave(&irq_desc[i].lock, flags);
 		action = irq_desc[i].action;
 		if (!action)
@@ -62,7 +62,7 @@ int show_interrupts(struct seq_file *p, void *v)
 		seq_putc(p, '\n');
 unlock:
 		spin_unlock_irqrestore(&irq_desc[i].lock, flags);
-	} else if (i == NR_IRQS)
+	} else if (i == sh_mv.mv_nr_irqs)
 		seq_printf(p, "Err: %10u\n", atomic_read(&irq_err_count));
 
 	return 0;
@@ -82,13 +82,9 @@ static union irq_ctx *hardirq_ctx[NR_CPUS] __read_mostly;
 static union irq_ctx *softirq_ctx[NR_CPUS] __read_mostly;
 #endif
 
-asmlinkage int do_IRQ(unsigned long r4, unsigned long r5,
-		      unsigned long r6, unsigned long r7,
-		      struct pt_regs __regs)
+asmlinkage int do_IRQ(unsigned int irq, struct pt_regs *regs)
 {
-	struct pt_regs *regs = RELOC_HIDE(&__regs, 0);
 	struct pt_regs *old_regs = set_irq_regs(regs);
-	int irq;
 #ifdef CONFIG_4KSTACKS
 	union irq_ctx *curctx, *irqctx;
 #endif
@@ -111,13 +107,7 @@ asmlinkage int do_IRQ(unsigned long r4, unsigned long r5,
 	}
 #endif
 
-#ifdef CONFIG_CPU_HAS_INTEVT
-	irq = evt2irq(ctrl_inl(INTEVT));
-#else
-	irq = r4;
-#endif
-
-	irq = irq_demux(irq);
+	irq = irq_demux(evt2irq(irq));
 
 #ifdef CONFIG_4KSTACKS
 	curctx = (union irq_ctx *)current_thread_info();

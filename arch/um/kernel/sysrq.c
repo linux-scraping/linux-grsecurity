@@ -10,7 +10,6 @@
 #include "asm/page.h"
 #include "asm/processor.h"
 #include "sysrq.h"
-#include "user_util.h"
 
 /* Catch non-i386 SUBARCH's. */
 #if !defined(CONFIG_UML_X86) || defined(CONFIG_64BIT)
@@ -50,7 +49,7 @@ void dump_stack(void)
 EXPORT_SYMBOL(dump_stack);
 
 /*Stolen from arch/i386/kernel/traps.c */
-static int kstack_depth_to_print = 24;
+static const int kstack_depth_to_print = 24;
 
 /* This recently started being used in arch-independent code too, as in
  * kernel/sched.c.*/

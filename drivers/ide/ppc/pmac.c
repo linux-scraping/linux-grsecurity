@@ -24,7 +24,6 @@
  */
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/ide.h>
@@ -49,7 +48,7 @@
 #include <asm/mediabay.h>
 #endif
 
-#include "ide-timing.h"
+#include "../ide-timing.h"
 
 #undef IDE_PMAC_DEBUG
 
@@ -1158,32 +1157,32 @@ pmac_ide_setup_device(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 
 	pmif->cable_80 = 0;
 	pmif->broken_dma = pmif->broken_dma_warn = 0;
-	if (device_is_compatible(np, "shasta-ata"))
+	if (of_device_is_compatible(np, "shasta-ata"))
 		pmif->kind = controller_sh_ata6;
-	else if (device_is_compatible(np, "kauai-ata"))
+	else if (of_device_is_compatible(np, "kauai-ata"))
 		pmif->kind = controller_un_ata6;
-	else if (device_is_compatible(np, "K2-UATA"))
+	else if (of_device_is_compatible(np, "K2-UATA"))
 		pmif->kind = controller_k2_ata6;
-	else if (device_is_compatible(np, "keylargo-ata")) {
+	else if (of_device_is_compatible(np, "keylargo-ata")) {
 		if (strcmp(np->name, "ata-4") == 0)
 			pmif->kind = controller_kl_ata4;
 		else
 			pmif->kind = controller_kl_ata3;
-	} else if (device_is_compatible(np, "heathrow-ata"))
+	} else if (of_device_is_compatible(np, "heathrow-ata"))
 		pmif->kind = controller_heathrow;
 	else {
 		pmif->kind = controller_ohare;
 		pmif->broken_dma = 1;
 	}
 
-	bidp = get_property(np, "AAPL,bus-id", NULL);
+	bidp = of_get_property(np, "AAPL,bus-id", NULL);
 	pmif->aapl_bus_id =  bidp ? *bidp : 0;
 
 	/* Get cable type from device-tree */
 	if (pmif->kind == controller_kl_ata4 || pmif->kind == controller_un_ata6
 	    || pmif->kind == controller_k2_ata6
 	    || pmif->kind == controller_sh_ata6) {
-		const char* cable = get_property(np, "cable-type", NULL);
+		const char* cable = of_get_property(np, "cable-type", NULL);
 		if (cable && !strncmp(cable, "80-", 3))
 			pmif->cable_80 = 1;
 	}
@@ -1191,8 +1190,8 @@ pmac_ide_setup_device(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 	 * they have a 80 conductor cable, this seem to be always the case unless
 	 * the user mucked around
 	 */
-	if (device_is_compatible(np, "K2-UATA") ||
-	    device_is_compatible(np, "shasta-ata"))
+	if (of_device_is_compatible(np, "K2-UATA") ||
+	    of_device_is_compatible(np, "shasta-ata"))
 		pmif->cable_80 = 1;
 
 	/* On Kauai-type controllers, we make sure the FCR is correct */
@@ -1238,7 +1237,7 @@ pmac_ide_setup_device(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
        	hwif->OUTBSYNC = pmac_outbsync;
 
 	/* Tell common code _not_ to mess with resources */
-	hwif->mmio = 2;
+	hwif->mmio = 1;
 	hwif->hwif_data = pmif;
 	pmac_ide_init_hwif_ports(&hwif->hw, pmif->regbase, 0, &hwif->irq);
 	memcpy(hwif->io_ports, hwif->hw.io_ports, sizeof(hwif->io_ports));
@@ -1276,6 +1275,8 @@ pmac_ide_setup_device(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 
 	/* We probe the hwif now */
 	probe_hwif_init(hwif);
+
+	ide_proc_register_port(hwif);
 
 	return 0;
 }
@@ -1552,19 +1553,34 @@ static struct pci_driver pmac_ide_pci_driver = {
 };
 MODULE_DEVICE_TABLE(pci, pmac_ide_pci_match);
 
-void __init
-pmac_ide_probe(void)
+int __init pmac_ide_probe(void)
 {
+	int error;
+
 	if (!machine_is(powermac))
-		return;
+		return -ENODEV;
 
 #ifdef CONFIG_BLK_DEV_IDE_PMAC_ATA100FIRST
-	pci_register_driver(&pmac_ide_pci_driver);
-	macio_register_driver(&pmac_ide_macio_driver);
+	error = pci_register_driver(&pmac_ide_pci_driver);
+	if (error)
+		goto out;
+	error = macio_register_driver(&pmac_ide_macio_driver);
+	if (error) {
+		pci_unregister_driver(&pmac_ide_pci_driver);
+		goto out;
+	}
 #else
-	macio_register_driver(&pmac_ide_macio_driver);
-	pci_register_driver(&pmac_ide_pci_driver);
+	error = macio_register_driver(&pmac_ide_macio_driver);
+	if (error)
+		goto out;
+	error = pci_register_driver(&pmac_ide_pci_driver);
+	if (error) {
+		macio_unregister_driver(&pmac_ide_macio_driver);
+		goto out;
+	}
 #endif
+out:
+	return error;
 }
 
 #ifdef CONFIG_BLK_DEV_IDEDMA_PMAC
@@ -1980,16 +1996,12 @@ pmac_ide_dma_test_irq (ide_drive_t *drive)
 	return 1;
 }
 
-static int
-pmac_ide_dma_host_off (ide_drive_t *drive)
+static void pmac_ide_dma_host_off(ide_drive_t *drive)
 {
-	return 0;
 }
 
-static int
-pmac_ide_dma_host_on (ide_drive_t *drive)
+static void pmac_ide_dma_host_on(ide_drive_t *drive)
 {
-	return 0;
 }
 
 static int
@@ -2035,7 +2047,7 @@ pmac_ide_setup_dma(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 		return;
 	}
 
-	hwif->ide_dma_off_quietly = &__ide_dma_off_quietly;
+	hwif->dma_off_quietly = &ide_dma_off_quietly;
 	hwif->ide_dma_on = &__ide_dma_on;
 	hwif->ide_dma_check = &pmac_ide_dma_check;
 	hwif->dma_setup = &pmac_ide_dma_setup;
@@ -2043,8 +2055,8 @@ pmac_ide_setup_dma(pmac_ide_hwif_t *pmif, ide_hwif_t *hwif)
 	hwif->dma_start = &pmac_ide_dma_start;
 	hwif->ide_dma_end = &pmac_ide_dma_end;
 	hwif->ide_dma_test_irq = &pmac_ide_dma_test_irq;
-	hwif->ide_dma_host_off = &pmac_ide_dma_host_off;
-	hwif->ide_dma_host_on = &pmac_ide_dma_host_on;
+	hwif->dma_host_off = &pmac_ide_dma_host_off;
+	hwif->dma_host_on = &pmac_ide_dma_host_on;
 	hwif->ide_dma_timeout = &__ide_dma_timeout;
 	hwif->ide_dma_lostirq = &pmac_ide_dma_lostirq;
 

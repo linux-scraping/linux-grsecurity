@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,6 @@
 
 #define _COMPONENT          ACPI_UTILITIES
 ACPI_MODULE_NAME("utdebug")
-
 #ifdef ACPI_DEBUG_OUTPUT
 static acpi_thread_id acpi_gbl_prev_thread_id;
 static char *acpi_gbl_fn_entry_str = "----Entry";
@@ -181,8 +180,8 @@ acpi_ut_debug_print(u32 requested_debug_level,
 		if (ACPI_LV_THREADS & acpi_dbg_level) {
 			acpi_os_printf
 			    ("\n**** Context Switch from TID %lX to TID %lX ****\n\n",
-			     (unsigned long) acpi_gbl_prev_thread_id,
-			     (unsigned long) thread_id);
+			     (unsigned long)acpi_gbl_prev_thread_id,
+			     (unsigned long)thread_id);
 		}
 
 		acpi_gbl_prev_thread_id = thread_id;
@@ -195,7 +194,7 @@ acpi_ut_debug_print(u32 requested_debug_level,
 	acpi_os_printf("%8s-%04ld ", module_name, line_number);
 
 	if (ACPI_LV_THREADS & acpi_dbg_level) {
-		acpi_os_printf("[%04lX] ", thread_id);
+		acpi_os_printf("[%04lX] ", (unsigned long)thread_id);
 	}
 
 	acpi_os_printf("[%02ld] %-22.22s: ",

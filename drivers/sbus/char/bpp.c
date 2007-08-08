@@ -15,7 +15,6 @@
 #include <linux/fs.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
-#include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
 #include <linux/ioport.h>
@@ -157,7 +156,7 @@ static unsigned short get_pins(unsigned minor)
 #define BPP_ICR      0x18
 #define BPP_SIZE     0x1A
 
-/* BPP_CSR.  Bits of type RW1 are cleared with writting '1'. */
+/* BPP_CSR.  Bits of type RW1 are cleared with writing '1'. */
 #define P_DEV_ID_MASK   0xf0000000      /* R   */
 #define P_DEV_ID_ZEBRA  0x40000000
 #define P_DEV_ID_L64854 0xa0000000      /*      == NCR 89C100+89C105. Pity. */
@@ -846,7 +845,7 @@ static int bpp_ioctl(struct inode *inode, struct file *f, unsigned int cmd,
       return errno;
 }
 
-static struct file_operations bpp_fops = {
+static const struct file_operations bpp_fops = {
 	.owner =	THIS_MODULE,
 	.read =		bpp_read,
 	.write =	bpp_write,

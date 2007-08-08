@@ -46,7 +46,7 @@ MODULE_LICENSE("GPL");
 
 static struct kmem_cache * jfs_inode_cachep;
 
-static struct super_operations jfs_super_operations;
+static const struct super_operations jfs_super_operations;
 static struct export_operations jfs_export_operations;
 static struct file_system_type jfs_fs_type;
 
@@ -716,7 +716,7 @@ out:
 
 #endif
 
-static struct super_operations jfs_super_operations = {
+static const struct super_operations jfs_super_operations = {
 	.alloc_inode	= jfs_alloc_inode,
 	.destroy_inode	= jfs_destroy_inode,
 	.read_inode	= jfs_read_inode,
@@ -752,21 +752,18 @@ static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags
 {
 	struct jfs_inode_info *jfs_ip = (struct jfs_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY | SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
-		memset(jfs_ip, 0, sizeof(struct jfs_inode_info));
-		INIT_LIST_HEAD(&jfs_ip->anon_inode_list);
-		init_rwsem(&jfs_ip->rdwrlock);
-		mutex_init(&jfs_ip->commit_mutex);
-		init_rwsem(&jfs_ip->xattr_sem);
-		spin_lock_init(&jfs_ip->ag_lock);
-		jfs_ip->active_ag = -1;
+	memset(jfs_ip, 0, sizeof(struct jfs_inode_info));
+	INIT_LIST_HEAD(&jfs_ip->anon_inode_list);
+	init_rwsem(&jfs_ip->rdwrlock);
+	mutex_init(&jfs_ip->commit_mutex);
+	init_rwsem(&jfs_ip->xattr_sem);
+	spin_lock_init(&jfs_ip->ag_lock);
+	jfs_ip->active_ag = -1;
 #ifdef CONFIG_JFS_POSIX_ACL
-		jfs_ip->i_acl = JFS_ACL_NOT_CACHED;
-		jfs_ip->i_default_acl = JFS_ACL_NOT_CACHED;
+	jfs_ip->i_acl = JFS_ACL_NOT_CACHED;
+	jfs_ip->i_default_acl = JFS_ACL_NOT_CACHED;
 #endif
-		inode_init_once(&jfs_ip->vfs_inode);
-	}
+	inode_init_once(&jfs_ip->vfs_inode);
 }
 
 static int __init init_jfs_fs(void)

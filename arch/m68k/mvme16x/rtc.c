@@ -16,7 +16,6 @@
 #include <linux/init.h>
 #include <linux/poll.h>
 #include <linux/mc146818rtc.h>	/* For struct rtc_time and ioctls, etc */
-#include <linux/smp_lock.h>
 #include <linux/bcd.h>
 #include <asm/mvme16xhw.h>
 
@@ -147,7 +146,7 @@ static int rtc_release(struct inode *inode, struct file *file)
  *	The various file operations we support.
  */
 
-static struct file_operations rtc_fops = {
+static const struct file_operations rtc_fops = {
 	.ioctl =	rtc_ioctl,
 	.open =		rtc_open,
 	.release =	rtc_release,

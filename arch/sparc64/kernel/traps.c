@@ -15,10 +15,11 @@
 #include <linux/kallsyms.h>
 #include <linux/signal.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/mm.h>
 #include <linux/init.h>
+#include <linux/kdebug.h>
 
+#include <asm/smp.h>
 #include <asm/delay.h>
 #include <asm/system.h>
 #include <asm/ptrace.h>
@@ -36,26 +37,12 @@
 #include <asm/psrcompat.h>
 #include <asm/processor.h>
 #include <asm/timer.h>
-#include <asm/kdebug.h>
 #include <asm/head.h>
 #ifdef CONFIG_KMOD
 #include <linux/kmod.h>
 #endif
 #include <asm/prom.h>
 
-ATOMIC_NOTIFIER_HEAD(sparc64die_chain);
-
-int register_die_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_register(&sparc64die_chain, nb);
-}
-EXPORT_SYMBOL(register_die_notifier);
-
-int unregister_die_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_unregister(&sparc64die_chain, nb);
-}
-EXPORT_SYMBOL(unregister_die_notifier);
 
 /* When an irrecoverable trap occurs at tl > 0, the trap entry
  * code logs the trap state registers at every level in the trap
@@ -808,8 +795,7 @@ extern unsigned int cheetah_deferred_trap_vector[], cheetah_deferred_trap_vector
 void __init cheetah_ecache_flush_init(void)
 {
 	unsigned long largest_size, smallest_linesize, order, ver;
-	struct device_node *dp;
-	int i, instance, sz;
+	int i, sz;
 
 	/* Scan all cpu device tree nodes, note two values:
 	 * 1) largest E-cache size
@@ -818,18 +804,20 @@ void __init cheetah_ecache_flush_init(void)
 	largest_size = 0UL;
 	smallest_linesize = ~0UL;
 
-	instance = 0;
-	while (!cpu_find_by_instance(instance, &dp, NULL)) {
+	for (i = 0; i < NR_CPUS; i++) {
 		unsigned long val;
 
-		val = of_getintprop_default(dp, "ecache-size",
-					    (2 * 1024 * 1024));
+		val = cpu_data(i).ecache_size;
+		if (!val)
+			continue;
+
 		if (val > largest_size)
 			largest_size = val;
-		val = of_getintprop_default(dp, "ecache-line-size", 64);
+
+		val = cpu_data(i).ecache_line_size;
 		if (val < smallest_linesize)
 			smallest_linesize = val;
-		instance++;
+
 	}
 
 	if (largest_size == 0UL || smallest_linesize == ~0UL) {
@@ -2577,7 +2565,15 @@ void __init trap_init(void)
 	    (TRAP_PER_CPU_TSB_HUGE_TEMP !=
 	     offsetof(struct trap_per_cpu, tsb_huge_temp)) ||
 	    (TRAP_PER_CPU_IRQ_WORKLIST !=
-	     offsetof(struct trap_per_cpu, irq_worklist)))
+	     offsetof(struct trap_per_cpu, irq_worklist)) ||
+	    (TRAP_PER_CPU_CPU_MONDO_QMASK !=
+	     offsetof(struct trap_per_cpu, cpu_mondo_qmask)) ||
+	    (TRAP_PER_CPU_DEV_MONDO_QMASK !=
+	     offsetof(struct trap_per_cpu, dev_mondo_qmask)) ||
+	    (TRAP_PER_CPU_RESUM_QMASK !=
+	     offsetof(struct trap_per_cpu, resum_qmask)) ||
+	    (TRAP_PER_CPU_NONRESUM_QMASK !=
+	     offsetof(struct trap_per_cpu, nonresum_qmask)))
 		trap_per_cpu_offsets_are_bolixed_dave();
 
 	if ((TSB_CONFIG_TSB !=

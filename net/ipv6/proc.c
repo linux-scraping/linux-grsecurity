@@ -17,19 +17,18 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#include <linux/sched.h>
 #include <linux/socket.h>
 #include <linux/net.h>
 #include <linux/ipv6.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/stddef.h>
+#include <net/ip.h>
 #include <net/sock.h>
 #include <net/tcp.h>
 #include <net/transp_v6.h>
 #include <net/ipv6.h>
 
-#ifdef CONFIG_PROC_FS
 static struct proc_dir_entry *proc_net_devsnmp6;
 
 static int fold_prot_inuse(struct proto *proto)
@@ -50,7 +49,7 @@ static int sockstat6_seq_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "UDP6: inuse %d\n",
 		       fold_prot_inuse(&udpv6_prot));
 	seq_printf(seq, "UDPLITE6: inuse %d\n",
-		        fold_prot_inuse(&udplitev6_prot));
+			fold_prot_inuse(&udplitev6_prot));
 	seq_printf(seq, "RAW6: inuse %d\n",
 		       fold_prot_inuse(&rawv6_prot));
 	seq_printf(seq, "FRAG6: inuse %d memory %d\n",
@@ -89,7 +88,7 @@ static struct snmp_mib snmp6_icmp6_list[] = {
 /* icmpv6 mib according to RFC 2466
 
    Exceptions:  {In|Out}AdminProhibs are removed, because I see
-                no good reasons to account them separately
+		no good reasons to account them separately
 		of another dest.unreachs.
 		OutErrs is zero identically.
 		OutEchos too.
@@ -143,26 +142,13 @@ static struct snmp_mib snmp6_udplite6_list[] = {
 	SNMP_MIB_SENTINEL
 };
 
-static unsigned long
-fold_field(void *mib[], int offt)
-{
-        unsigned long res = 0;
-        int i;
- 
-        for_each_possible_cpu(i) {
-                res += *(((unsigned long *)per_cpu_ptr(mib[0], i)) + offt);
-                res += *(((unsigned long *)per_cpu_ptr(mib[1], i)) + offt);
-        }
-        return res;
-}
-
 static inline void
 snmp6_seq_show_item(struct seq_file *seq, void **mib, struct snmp_mib *itemlist)
 {
 	int i;
 	for (i=0; itemlist[i].name; i++)
-		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, 
-				fold_field(mib, itemlist[i].entry));
+		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name,
+			   snmp_fold_field(mib, itemlist[i].entry));
 }
 
 static int snmp6_seq_show(struct seq_file *seq, void *v)
@@ -187,7 +173,7 @@ static int sockstat6_seq_open(struct inode *inode, struct file *file)
 	return single_open(file, sockstat6_seq_show, NULL);
 }
 
-static struct file_operations sockstat6_seq_fops = {
+static const struct file_operations sockstat6_seq_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = sockstat6_seq_open,
 	.read	 = seq_read,
@@ -200,7 +186,7 @@ static int snmp6_seq_open(struct inode *inode, struct file *file)
 	return single_open(file, snmp6_seq_show, PDE(inode)->data);
 }
 
-static struct file_operations snmp6_seq_fops = {
+static const struct file_operations snmp6_seq_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = snmp6_seq_open,
 	.read	 = seq_read,
@@ -237,6 +223,7 @@ int snmp6_unregister_dev(struct inet6_dev *idev)
 		return -EINVAL;
 	remove_proc_entry(idev->stats.proc_dir_entry->name,
 			  proc_net_devsnmp6);
+	idev->stats.proc_dir_entry = NULL;
 	return 0;
 }
 
@@ -271,48 +258,4 @@ void ipv6_misc_proc_exit(void)
 	proc_net_remove("dev_snmp6");
 	proc_net_remove("snmp6");
 }
-
-#else	/* CONFIG_PROC_FS */
-
-
-int snmp6_register_dev(struct inet6_dev *idev)
-{
-	return 0;
-}
-
-int snmp6_unregister_dev(struct inet6_dev *idev)
-{
-	return 0;
-}
-#endif	/* CONFIG_PROC_FS */
-
-int snmp6_alloc_dev(struct inet6_dev *idev)
-{
-	int err = -ENOMEM;
-
-	if (!idev || !idev->dev)
-		return -EINVAL;
-
-	if (snmp6_mib_init((void **)idev->stats.ipv6, sizeof(struct ipstats_mib),
-			   __alignof__(struct ipstats_mib)) < 0)
-		goto err_ip;
-	if (snmp6_mib_init((void **)idev->stats.icmpv6, sizeof(struct icmpv6_mib),
-			   __alignof__(struct icmpv6_mib)) < 0)
-		goto err_icmp;
-
-	return 0;
-
-err_icmp:
-	snmp6_mib_free((void **)idev->stats.ipv6);
-err_ip:
-	return err;
-}
-
-int snmp6_free_dev(struct inet6_dev *idev)
-{
-	snmp6_mib_free((void **)idev->stats.icmpv6);
-	snmp6_mib_free((void **)idev->stats.ipv6);
-	return 0;
-}
-
 

@@ -18,7 +18,6 @@
 #include <linux/raw.h>
 #include <linux/tty.h>
 #include <linux/capability.h>
-#include <linux/smp_lock.h>
 #include <linux/ptrace.h>
 #include <linux/device.h>
 #include <linux/highmem.h>
@@ -258,7 +257,7 @@ static unsigned long get_unmapped_area_mem(struct file *file,
 {
 	if (!valid_mmap_phys_addr_range(pgoff, len))
 		return (unsigned long) -EINVAL;
-	return pgoff;
+	return pgoff << PAGE_SHIFT;
 }
 
 /* can't do an in-place private mapping if there's no MMU */
@@ -572,7 +571,7 @@ static ssize_t write_kmem(struct file * file, const char __user * buf,
  	return virtr + wrote;
 }
 
-#if (defined(CONFIG_ISA) || defined(CONFIG_PCI)) && !defined(__mc68000__)
+#ifdef CONFIG_DEVPORT
 static ssize_t read_port(struct file * file, char __user * buf,
 			 size_t count, loff_t *ppos)
 {
@@ -649,6 +648,10 @@ static inline size_t read_zero_pagealigned(char __user * buf, size_t size)
 	struct vm_area_struct * vma;
 	unsigned long addr=(unsigned long)buf;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+#endif
+
 	mm = current->mm;
 	/* Oops, this was forgotten before. -ben */
 	down_read(&mm->mmap_sem);
@@ -666,19 +669,9 @@ static inline size_t read_zero_pagealigned(char __user * buf, size_t size)
 			count = size;
 
 #ifdef CONFIG_PAX_SEGMEXEC
-		if (vma->vm_flags & VM_MIRROR) {
-			unsigned long addr_m;
-			struct vm_area_struct * vma_m;
-
-			addr_m = vma->vm_start + vma->vm_mirror;
-			vma_m = find_vma(mm, addr_m);
-			if (vma_m && vma_m->vm_start == addr_m && (vma_m->vm_flags & VM_MIRROR)) {
-				addr_m = addr + vma->vm_mirror;
-				zap_page_range(vma_m, addr_m, count, NULL);
-			} else
-				printk(KERN_ERR "PAX: VMMIRROR: read_zero bug, %08lx, %08lx\n",
-				       addr, vma->vm_start);
-		}
+		vma_m = pax_find_mirror_vma(vma);
+		if (vma_m)
+			zap_page_range(vma_m, addr + SEGMEXEC_TASK_SIZE, count, NULL);
 #endif
 
 		zap_page_range(vma, addr, count, NULL);
@@ -880,7 +873,7 @@ static const struct file_operations null_fops = {
 	.splice_write	= splice_write_null,
 };
 
-#if (defined(CONFIG_ISA) || defined(CONFIG_PCI)) && !defined(__mc68000__)
+#ifdef CONFIG_DEVPORT
 static const struct file_operations port_fops = {
 	.llseek		= memory_lseek,
 	.read		= read_port,
@@ -958,7 +951,7 @@ static int memory_open(struct inode * inode, struct file * filp)
 		case 3:
 			filp->f_op = &null_fops;
 			break;
-#if (defined(CONFIG_ISA) || defined(CONFIG_PCI)) && !defined(__mc68000__)
+#ifdef CONFIG_DEVPORT
 		case 4:
 			filp->f_op = &port_fops;
 			break;
@@ -1010,7 +1003,7 @@ static const struct {
 	{1, "mem",     S_IRUSR | S_IWUSR | S_IRGRP, &mem_fops},
 	{2, "kmem",    S_IRUSR | S_IWUSR | S_IRGRP, &kmem_fops},
 	{3, "null",    S_IRUGO | S_IWUGO,           &null_fops},
-#if (defined(CONFIG_ISA) || defined(CONFIG_PCI)) && !defined(__mc68000__)
+#ifdef CONFIG_DEVPORT
 	{4, "port",    S_IRUSR | S_IWUSR | S_IRGRP, &port_fops},
 #endif
 	{5, "zero",    S_IRUGO | S_IWUGO,           &zero_fops},

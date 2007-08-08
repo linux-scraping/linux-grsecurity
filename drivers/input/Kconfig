@@ -3,6 +3,7 @@
 #
 
 menu "Input device support"
+	depends on !S390
 
 config INPUT
 	tristate "Generic input layer (needed for keyboard, mouse, ...)" if EMBEDDED
@@ -37,6 +38,19 @@ config INPUT_FF_MEMLESS
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ff-memless.
+
+config INPUT_POLLDEV
+	tristate "Polled input device skeleton"
+	help
+	  Say Y here if you are using a driver for an input
+	  device that periodically polls hardware state. This
+	  option is only useful for out-of-tree drivers since
+	  in-tree drivers select it automatically.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called input-polldev.
 
 comment "Userland interfaces"
 
@@ -152,6 +166,8 @@ source "drivers/input/keyboard/Kconfig"
 source "drivers/input/mouse/Kconfig"
 
 source "drivers/input/joystick/Kconfig"
+
+source "drivers/input/tablet/Kconfig"
 
 source "drivers/input/touchscreen/Kconfig"
 

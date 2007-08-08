@@ -45,6 +45,19 @@
 #define __exitdata	__attribute__ ((__section__(".exit.data")))
 #define __exit_call	__attribute_used__ __attribute__ ((__section__ (".exitcall.exit")))
 
+/* modpost check for section mismatches during the kernel build.
+ * A section mismatch happens when there are references from a
+ * code or data section to an init section (both code or data).
+ * The init sections are (for most archs) discarded by the kernel
+ * when early init has completed so all such references are potential bugs.
+ * For exit sections the same issue exists.
+ * The following markers are used for the cases where the reference to
+ * the init/exit section (code or data) is valid and will teach modpost
+ * not to issue a warning.
+ * The markers follow same syntax rules as __init / __initdata. */
+#define __init_refok     noinline __attribute__ ((__section__ (".text.init.refok")))
+#define __initdata_refok          __attribute__ ((__section__ (".data.init.refok")))
+
 #ifdef MODULE
 #define __exit		__attribute__ ((__section__(".exit.text")))
 #else
@@ -67,11 +80,13 @@ extern initcall_t __con_initcall_start[], __con_initcall_end[];
 extern initcall_t __security_initcall_start[], __security_initcall_end[];
 
 /* Defined in init/main.c */
-extern char saved_command_line[];
+extern char __initdata boot_command_line[];
+extern char *saved_command_line;
 extern unsigned int reset_devices;
 
 /* used by init/main.c */
-extern void setup_arch(char **);
+void setup_arch(char **);
+void prepare_namespace(void);
 
 #endif
   
@@ -164,7 +179,7 @@ struct obs_kernel_param {
 #define early_param(str, fn)					\
 	__setup_param(str, fn, fn, 1)
 
-/* Relies on saved_command_line being set */
+/* Relies on boot_command_line being set */
 void __init parse_early_param(void);
 #endif /* __ASSEMBLY__ */
 
@@ -172,7 +187,7 @@ void __init parse_early_param(void);
  * module_init() - driver initialization entry point
  * @x: function to be run at kernel boot time or module insertion
  * 
- * module_init() will either be called during do_initcalls (if
+ * module_init() will either be called during do_initcalls() (if
  * builtin) or at module insertion time (if a module).  There can only
  * be one per module.
  */
@@ -227,7 +242,7 @@ void __init parse_early_param(void);
 #define __obsolete_setup(str) 			/* nothing */
 #endif
 
-/* Data marked not to be saved by software_suspend() */
+/* Data marked not to be saved by software suspend */
 #define __nosavedata __attribute__ ((__section__ (".data.nosave")))
 
 /* This means "can be init if no module support, otherwise module load

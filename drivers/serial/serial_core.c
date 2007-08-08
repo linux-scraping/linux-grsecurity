@@ -37,13 +37,6 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
-#undef	DEBUG
-#ifdef DEBUG
-#define DPRINTK(x...)	printk(x)
-#else
-#define DPRINTK(x...)	do { } while (0)
-#endif
-
 /*
  * This is used to lock changes in serial line configuration.
  */
@@ -552,7 +545,7 @@ static void uart_flush_buffer(struct tty_struct *tty)
 		return;
 	}
 
-	DPRINTK("uart_flush_buffer(%d) called\n", tty->index);
+	pr_debug("uart_flush_buffer(%d) called\n", tty->index);
 
 	spin_lock_irqsave(&port->lock, flags);
 	uart_circ_clear(&state->info->xmit);
@@ -672,19 +665,21 @@ static int uart_set_info(struct uart_state *state,
 	 */
 	mutex_lock(&state->mutex);
 
-	change_irq  = new_serial.irq != port->irq;
+	change_irq  = !(port->flags & UPF_FIXED_PORT)
+		&& new_serial.irq != port->irq;
 
 	/*
 	 * Since changing the 'type' of the port changes its resource
 	 * allocations, we should treat type changes the same as
 	 * IO port changes.
 	 */
-	change_port = new_port != port->iobase ||
-		      (unsigned long)new_serial.iomem_base != port->mapbase ||
-		      new_serial.hub6 != port->hub6 ||
-		      new_serial.io_type != port->iotype ||
-		      new_serial.iomem_reg_shift != port->regshift ||
-		      new_serial.type != port->type;
+	change_port = !(port->flags & UPF_FIXED_PORT)
+		&& (new_port != port->iobase ||
+		    (unsigned long)new_serial.iomem_base != port->mapbase ||
+		    new_serial.hub6 != port->hub6 ||
+		    new_serial.io_type != port->iotype ||
+		    new_serial.iomem_reg_shift != port->regshift ||
+		    new_serial.type != port->type);
 
 	old_flags = port->flags;
 	new_flags = new_serial.flags;
@@ -796,8 +791,10 @@ static int uart_set_info(struct uart_state *state,
 		}
 	}
 
-	port->irq              = new_serial.irq;
-	port->uartclk          = new_serial.baud_base * 16;
+	if (change_irq)
+		port->irq      = new_serial.irq;
+	if (!(port->flags & UPF_FIXED_PORT))
+		port->uartclk  = new_serial.baud_base * 16;
 	port->flags            = (port->flags & ~UPF_CHANGE_MASK) |
 				 (new_flags & UPF_CHANGE_MASK);
 	port->custom_divisor   = new_serial.custom_divisor;
@@ -1220,7 +1217,7 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 
 	port = state->port;
 
-	DPRINTK("uart_close(%d) called\n", port->line);
+	pr_debug("uart_close(%d) called\n", port->line);
 
 	mutex_lock(&state->mutex);
 
@@ -1339,7 +1336,7 @@ static void uart_wait_until_sent(struct tty_struct *tty, int timeout)
 
 	expire = jiffies + timeout;
 
-	DPRINTK("uart_wait_until_sent(%d), jiffies=%lu, expire=%lu...\n",
+	pr_debug("uart_wait_until_sent(%d), jiffies=%lu, expire=%lu...\n",
 	        port->line, jiffies, expire);
 
 	/*
@@ -1368,7 +1365,7 @@ static void uart_hangup(struct tty_struct *tty)
 	struct uart_state *state = tty->driver_data;
 
 	BUG_ON(!kernel_locked());
-	DPRINTK("uart_hangup(%d)\n", state->port->line);
+	pr_debug("uart_hangup(%d)\n", state->port->line);
 
 	mutex_lock(&state->mutex);
 	if (state->info && state->info->flags & UIF_NORMAL_ACTIVE) {
@@ -1523,9 +1520,8 @@ static struct uart_state *uart_get(struct uart_driver *drv, int line)
 	}
 
 	if (!state->info) {
-		state->info = kmalloc(sizeof(struct uart_info), GFP_KERNEL);
+		state->info = kzalloc(sizeof(struct uart_info), GFP_KERNEL);
 		if (state->info) {
-			memset(state->info, 0, sizeof(struct uart_info));
 			init_waitqueue_head(&state->info->open_wait);
 			init_waitqueue_head(&state->info->delta_msr_wait);
 
@@ -1567,7 +1563,7 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 	int retval, line = tty->index;
 
 	BUG_ON(!kernel_locked());
-	DPRINTK("uart_open(%d) called\n", line);
+	pr_debug("uart_open(%d) called\n", line);
 
 	/*
 	 * tty->driver->num won't change, so we won't fail here with
@@ -1660,6 +1656,7 @@ static const char *uart_type(struct uart_port *port)
 static int uart_line_info(char *buf, struct uart_driver *drv, int i)
 {
 	struct uart_state *state = drv->state + i;
+	int pm_state;
 	struct uart_port *port = state->port;
 	char stat_buf[32];
 	unsigned int status;
@@ -1682,9 +1679,16 @@ static int uart_line_info(char *buf, struct uart_driver *drv, int i)
 
 	if(capable(CAP_SYS_ADMIN))
 	{
+		mutex_lock(&state->mutex);
+		pm_state = state->pm_state;
+		if (pm_state)
+			uart_change_pm(state, 0);
 		spin_lock_irq(&port->lock);
 		status = port->ops->get_mctrl(port);
 		spin_unlock_irq(&port->lock);
+		if (pm_state)
+			uart_change_pm(state, pm_state);
+		mutex_unlock(&state->mutex);
 
 		ret += sprintf(buf + ret, " tx:%d rx:%d",
 				port->icount.tx, port->icount.rx);
@@ -2057,6 +2061,7 @@ uart_report_port(struct uart_driver *drv, struct uart_port *port)
 	case UPIO_MEM32:
 	case UPIO_AU:
 	case UPIO_TSI:
+	case UPIO_DWAPB:
 		snprintf(address, sizeof(address),
 			 "MMIO 0x%lx", port->mapbase);
 		break;
@@ -2099,6 +2104,9 @@ uart_configure_port(struct uart_driver *drv, struct uart_state *state,
 		unsigned long flags;
 
 		uart_report_port(drv, port);
+
+		/* Power up port for set_mctrl() */
+		uart_change_pm(state, 0);
 
 		/*
 		 * Ensure that the modem control lines are de-activated.
@@ -2167,12 +2175,10 @@ int uart_register_driver(struct uart_driver *drv)
 	 * Maybe we should be using a slab cache for this, especially if
 	 * we have a large number of ports to handle.
 	 */
-	drv->state = kmalloc(sizeof(struct uart_state) * drv->nr, GFP_KERNEL);
+	drv->state = kzalloc(sizeof(struct uart_state) * drv->nr, GFP_KERNEL);
 	retval = -ENOMEM;
 	if (!drv->state)
 		goto out;
-
-	memset(drv->state, 0, sizeof(struct uart_state) * drv->nr);
 
 	normal  = alloc_tty_driver(drv->nr);
 	if (!normal)
@@ -2401,6 +2407,7 @@ int uart_match_port(struct uart_port *port1, struct uart_port *port2)
 	case UPIO_MEM32:
 	case UPIO_AU:
 	case UPIO_TSI:
+	case UPIO_DWAPB:
 		return (port1->mapbase == port2->mapbase);
 	}
 	return 0;

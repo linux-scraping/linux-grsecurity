@@ -21,22 +21,22 @@
 
 #include "zfcp_ext.h"
 
-static inline void zfcp_qdio_sbal_limit(struct zfcp_fsf_req *, int);
+static void zfcp_qdio_sbal_limit(struct zfcp_fsf_req *, int);
 static inline volatile struct qdio_buffer_element *zfcp_qdio_sbale_get
 	(struct zfcp_qdio_queue *, int, int);
 static inline volatile struct qdio_buffer_element *zfcp_qdio_sbale_resp
 	(struct zfcp_fsf_req *, int, int);
-static inline volatile struct qdio_buffer_element *zfcp_qdio_sbal_chain
+static volatile struct qdio_buffer_element *zfcp_qdio_sbal_chain
 	(struct zfcp_fsf_req *, unsigned long);
-static inline volatile struct qdio_buffer_element *zfcp_qdio_sbale_next
+static volatile struct qdio_buffer_element *zfcp_qdio_sbale_next
 	(struct zfcp_fsf_req *, unsigned long);
-static inline int zfcp_qdio_sbals_zero(struct zfcp_qdio_queue *, int, int);
+static int zfcp_qdio_sbals_zero(struct zfcp_qdio_queue *, int, int);
 static inline int zfcp_qdio_sbals_wipe(struct zfcp_fsf_req *);
-static inline void zfcp_qdio_sbale_fill
+static void zfcp_qdio_sbale_fill
 	(struct zfcp_fsf_req *, unsigned long, void *, int);
-static inline int zfcp_qdio_sbals_from_segment
+static int zfcp_qdio_sbals_from_segment
 	(struct zfcp_fsf_req *, unsigned long, void *, unsigned long);
-static inline int zfcp_qdio_sbals_from_buffer
+static int zfcp_qdio_sbals_from_buffer
 	(struct zfcp_fsf_req *, unsigned long, void *, unsigned long, int);
 
 static qdio_handler_t zfcp_qdio_request_handler;
@@ -201,7 +201,7 @@ zfcp_qdio_allocate(struct zfcp_adapter *adapter)
  * returns:	error flag
  *
  */
-static inline int
+static int
 zfcp_qdio_handler_error_check(struct zfcp_adapter *adapter, unsigned int status,
 			      unsigned int qdio_error, unsigned int siga_error,
 			      int first_element, int elements_processed)
@@ -222,7 +222,7 @@ zfcp_qdio_handler_error_check(struct zfcp_adapter *adapter, unsigned int status,
                 * Since we have been using this adapter, it is save to assume
                 * that it is not failed but recoverable. The card seems to
                 * report link-up events by self-initiated queue shutdown.
-                * That is why we need to clear the the link-down flag
+                * That is why we need to clear the link-down flag
                 * which is set again in case we have missed by a mile.
                 */
                zfcp_erp_adapter_reopen(
@@ -283,10 +283,10 @@ zfcp_qdio_request_handler(struct ccw_device *ccw_device,
 }
 
 /**
- * zfcp_qdio_reqid_check - checks for valid reqids or unsolicited status
+ * zfcp_qdio_reqid_check - checks for valid reqids.
  */
-static int zfcp_qdio_reqid_check(struct zfcp_adapter *adapter, 
-				 unsigned long req_id)
+static void zfcp_qdio_reqid_check(struct zfcp_adapter *adapter,
+				  unsigned long req_id)
 {
 	struct zfcp_fsf_req *fsf_req;
 	unsigned long flags;
@@ -294,23 +294,22 @@ static int zfcp_qdio_reqid_check(struct zfcp_adapter *adapter,
 	debug_long_event(adapter->erp_dbf, 4, req_id);
 
 	spin_lock_irqsave(&adapter->req_list_lock, flags);
-	fsf_req = zfcp_reqlist_ismember(adapter, req_id);
+	fsf_req = zfcp_reqlist_find(adapter, req_id);
 
-	if (!fsf_req) {
-		spin_unlock_irqrestore(&adapter->req_list_lock, flags);
-		ZFCP_LOG_NORMAL("error: unknown request id (%ld).\n", req_id);
-		zfcp_erp_adapter_reopen(adapter, 0);
-		return -EINVAL;
-	}
+	if (!fsf_req)
+		/*
+		 * Unknown request means that we have potentially memory
+		 * corruption and must stop the machine immediatly.
+		 */
+		panic("error: unknown request id (%ld) on adapter %s.\n",
+		      req_id, zfcp_get_busid_by_adapter(adapter));
 
-	zfcp_reqlist_remove(adapter, req_id);
+	zfcp_reqlist_remove(adapter, fsf_req);
 	atomic_dec(&adapter->reqs_active);
 	spin_unlock_irqrestore(&adapter->req_list_lock, flags);
 
 	/* finish the FSF request */
 	zfcp_fsf_req_complete(fsf_req);
-
-	return 0;
 }
 
 /*
@@ -374,27 +373,9 @@ zfcp_qdio_response_handler(struct ccw_device *ccw_device,
 
 			/* look for QDIO request identifiers in SB */
 			buffere = &buffer->element[buffere_index];
-			retval = zfcp_qdio_reqid_check(adapter,
-					(unsigned long) buffere->addr);
+			zfcp_qdio_reqid_check(adapter,
+					      (unsigned long) buffere->addr);
 
-			if (retval) {
-				ZFCP_LOG_NORMAL("bug: unexpected inbound "
-						"packet on adapter %s "
-						"(reqid=0x%lx, "
-						"first_element=%d, "
-						"elements_processed=%d)\n",
-						zfcp_get_busid_by_adapter(adapter),
-						(unsigned long) buffere->addr,
-						first_element,
-						elements_processed);
-				ZFCP_LOG_NORMAL("hex dump of inbound buffer "
-						"at address %p "
-						"(buffer_index=%d, "
-						"buffere_index=%d)\n", buffer,
-						buffer_index, buffere_index);
-				ZFCP_HEX_DUMP(ZFCP_LOG_LEVEL_NORMAL,
-					      (char *) buffer, SBAL_SIZE);
-			}
 			/*
 			 * A single used SBALE per inbound SBALE has been
 			 * implemented by QDIO so far. Hope they will
@@ -462,7 +443,7 @@ zfcp_qdio_sbale_get(struct zfcp_qdio_queue *queue, int sbal, int sbale)
  * zfcp_qdio_sbale_req - return pointer to SBALE of request_queue for
  *	a struct zfcp_fsf_req
  */
-inline volatile struct qdio_buffer_element *
+volatile struct qdio_buffer_element *
 zfcp_qdio_sbale_req(struct zfcp_fsf_req *fsf_req, int sbal, int sbale)
 {
 	return zfcp_qdio_sbale_get(&fsf_req->adapter->request_queue,
@@ -484,7 +465,7 @@ zfcp_qdio_sbale_resp(struct zfcp_fsf_req *fsf_req, int sbal, int sbale)
  * zfcp_qdio_sbale_curr - return current SBALE on request_queue for
  *	a struct zfcp_fsf_req
  */
-inline volatile struct qdio_buffer_element *
+volatile struct qdio_buffer_element *
 zfcp_qdio_sbale_curr(struct zfcp_fsf_req *fsf_req)
 {
 	return zfcp_qdio_sbale_req(fsf_req, fsf_req->sbal_curr,
@@ -499,7 +480,7 @@ zfcp_qdio_sbale_curr(struct zfcp_fsf_req *fsf_req)
  *
  * Note: We can assume at least one free SBAL in the request_queue when called.
  */
-static inline void
+static void
 zfcp_qdio_sbal_limit(struct zfcp_fsf_req *fsf_req, int max_sbals)
 {
 	int count = atomic_read(&fsf_req->adapter->request_queue.free_count);
@@ -517,7 +498,7 @@ zfcp_qdio_sbal_limit(struct zfcp_fsf_req *fsf_req, int max_sbals)
  *
  * This function changes sbal_curr, sbale_curr, sbal_number of fsf_req.
  */
-static inline volatile struct qdio_buffer_element *
+static volatile struct qdio_buffer_element *
 zfcp_qdio_sbal_chain(struct zfcp_fsf_req *fsf_req, unsigned long sbtype)
 {
 	volatile struct qdio_buffer_element *sbale;
@@ -554,7 +535,7 @@ zfcp_qdio_sbal_chain(struct zfcp_fsf_req *fsf_req, unsigned long sbtype)
 /**
  * zfcp_qdio_sbale_next - switch to next SBALE, chain SBALs if needed
  */
-static inline volatile struct qdio_buffer_element *
+static volatile struct qdio_buffer_element *
 zfcp_qdio_sbale_next(struct zfcp_fsf_req *fsf_req, unsigned long sbtype)
 {
 	if (fsf_req->sbale_curr == ZFCP_LAST_SBALE_PER_SBAL)
@@ -569,7 +550,7 @@ zfcp_qdio_sbale_next(struct zfcp_fsf_req *fsf_req, unsigned long sbtype)
  * zfcp_qdio_sbals_zero - initialize SBALs between first and last in queue
  *	with zero from
  */
-static inline int
+static int
 zfcp_qdio_sbals_zero(struct zfcp_qdio_queue *queue, int first, int last)
 {
 	struct qdio_buffer **buf = queue->buffer;
@@ -603,7 +584,7 @@ zfcp_qdio_sbals_wipe(struct zfcp_fsf_req *fsf_req)
  * zfcp_qdio_sbale_fill - set address and lenght in current SBALE
  *	on request_queue
  */
-static inline void
+static void
 zfcp_qdio_sbale_fill(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
 		     void *addr, int length)
 {
@@ -624,7 +605,7 @@ zfcp_qdio_sbale_fill(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
  * Alignment and length of the segment determine how many SBALEs are needed
  * for the memory segment.
  */
-static inline int
+static int
 zfcp_qdio_sbals_from_segment(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
 			     void *start_addr, unsigned long total_length)
 {
@@ -659,7 +640,7 @@ zfcp_qdio_sbals_from_segment(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
  * @sg_count: number of elements in scatter-gather list
  * @max_sbals: upper bound for number of SBALs to be used
  */
-inline int
+int
 zfcp_qdio_sbals_from_sg(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
                         struct scatterlist *sg,	int sg_count, int max_sbals)
 {
@@ -707,7 +688,7 @@ out:
  * @length: length of buffer
  * @max_sbals: upper bound for number of SBALs to be used
  */
-static inline int
+static int
 zfcp_qdio_sbals_from_buffer(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
 			    void *buffer, unsigned long length, int max_sbals)
 {
@@ -728,7 +709,7 @@ zfcp_qdio_sbals_from_buffer(struct zfcp_fsf_req *fsf_req, unsigned long sbtype,
  * @scsi_cmnd: either scatter-gather list or buffer contained herein is used
  *	to fill SBALs
  */
-inline int
+int
 zfcp_qdio_sbals_from_scsicmnd(struct zfcp_fsf_req *fsf_req,
 			      unsigned long sbtype, struct scsi_cmnd *scsi_cmnd)
 {

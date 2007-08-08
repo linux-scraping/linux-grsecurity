@@ -331,7 +331,6 @@ static int lance_rx (struct net_device *dev)
                                 return 0;
                         }
 
-                        skb->dev = dev;
                         skb_reserve (skb, 2);           /* 16 byte align */
                         skb_put (skb, len);             /* make room */
                         eth_copy_and_sum(skb,
@@ -500,7 +499,7 @@ int lance_open (struct net_device *dev)
 	int res;
 
         /* Install the Interrupt handler. Or we could shunt this out to specific drivers? */
-        if (request_irq(lp->irq, lance_interrupt, SA_SHIRQ, lp->name, dev))
+        if (request_irq(lp->irq, lance_interrupt, IRQF_SHARED, lp->name, dev))
                 return -EAGAIN;
 
         res = lance_reset(dev);
@@ -566,9 +565,9 @@ int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
         ib->btx_ring [entry].length = (-len) | 0xf000;
         ib->btx_ring [entry].misc = 0;
 
-    	if (skb->len < ETH_ZLEN)
-    		memset((char *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
-        memcpy ((char *)&ib->tx_buf [entry][0], skb->data, skblen);
+	if (skb->len < ETH_ZLEN)
+		memset((void *)&ib->tx_buf[entry][0], 0, ETH_ZLEN);
+        skb_copy_from_linear_data(skb, (void *)&ib->tx_buf[entry][0], skblen);
 
         /* Now, give the packet to the lance */
         ib->btx_ring [entry].tmd1_bits = (LE_T1_POK|LE_T1_OWN);

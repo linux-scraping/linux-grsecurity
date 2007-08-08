@@ -50,7 +50,7 @@ u32 num_var_ranges = 0;
 unsigned int *usage_table;
 static DEFINE_MUTEX(mtrr_mutex);
 
-u32 size_or_mask, size_and_mask;
+u64 size_or_mask, size_and_mask;
 
 static struct mtrr_ops * mtrr_ops[X86_VENDOR_NUM] = {};
 
@@ -229,6 +229,8 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 	data.smp_size = size;
 	data.smp_type = type;
 	atomic_set(&data.count, num_booting_cpus() - 1);
+	/* make sure data.count is visible before unleashing other CPUs */
+	smp_wmb();
 	atomic_set(&data.gate,0);
 
 	/*  Start the ball rolling on other CPUs  */
@@ -242,6 +244,7 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 
 	/* ok, reset count and toggle gate */
 	atomic_set(&data.count, num_booting_cpus() - 1);
+	smp_wmb();
 	atomic_set(&data.gate,1);
 
 	/* do our MTRR business */
@@ -260,6 +263,7 @@ static void set_mtrr(unsigned int reg, unsigned long base,
 		cpu_relax();
 
 	atomic_set(&data.count, num_booting_cpus() - 1);
+	smp_wmb();
 	atomic_set(&data.gate,0);
 
 	/*
@@ -639,7 +643,7 @@ static struct sysdev_driver mtrr_sysdev_driver = {
  * initialized (i.e. before smp_init()).
  * 
  */
-void __init mtrr_bp_init(void)
+__init void mtrr_bp_init(void)
 {
 	init_ifs();
 
@@ -662,8 +666,8 @@ void __init mtrr_bp_init(void)
 			     boot_cpu_data.x86_mask == 0x4))
 				phys_addr = 36;
 
-			size_or_mask = ~((1 << (phys_addr - PAGE_SHIFT)) - 1);
-			size_and_mask = ~size_or_mask & 0xfff00000;
+			size_or_mask = ~((1ULL << (phys_addr - PAGE_SHIFT)) - 1);
+			size_and_mask = ~size_or_mask & 0xfffff00000ULL;
 		} else if (boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR &&
 			   boot_cpu_data.x86 == 6) {
 			/* VIA C* family have Intel style MTRRs, but
@@ -727,6 +731,20 @@ void mtrr_ap_init(void)
 	mtrr_if->set_all();
 
 	local_irq_restore(flags);
+}
+
+/**
+ * Save current fixed-range MTRR state of the BSP
+ */
+void mtrr_save_state(void)
+{
+	int cpu = get_cpu();
+
+	if (cpu == 0)
+		mtrr_save_fixed_ranges(NULL);
+	else
+		smp_call_function_single(0, mtrr_save_fixed_ranges, NULL, 1, 1);
+	put_cpu();
 }
 
 static int __init mtrr_init_finialize(void)

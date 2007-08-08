@@ -1,4 +1,4 @@
-/* Cluster IP hashmark target 
+/* Cluster IP hashmark target
  * (C) 2003-2004 by Harald Welte <laforge@netfilter.org>
  * based on ideas of Fabio Olive Leite <olive@unixforge.org>
  *
@@ -21,14 +21,12 @@
 #include <linux/if_arp.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-
-#include <net/checksum.h>
-
 #include <linux/netfilter_arp.h>
-
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4/ipt_CLUSTERIP.h>
-#include <net/netfilter/nf_conntrack_compat.h>
+#include <net/netfilter/nf_conntrack.h>
+#include <net/checksum.h>
 
 #define CLUSTERIP_VERSION "0.8"
 
@@ -69,7 +67,7 @@ static LIST_HEAD(clusterip_configs);
 static DEFINE_RWLOCK(clusterip_lock);
 
 #ifdef CONFIG_PROC_FS
-static struct file_operations clusterip_proc_fops;
+static const struct file_operations clusterip_proc_fops;
 static struct proc_dir_entry *clusterip_procdir;
 #endif
 
@@ -122,7 +120,7 @@ __clusterip_config_find(__be32 clusterip)
 	struct list_head *pos;
 
 	list_for_each(pos, &clusterip_configs) {
-		struct clusterip_config *c = list_entry(pos, 
+		struct clusterip_config *c = list_entry(pos,
 					struct clusterip_config, list);
 		if (c->clusterip == clusterip) {
 			return c;
@@ -228,7 +226,7 @@ clusterip_del_node(struct clusterip_config *c, u_int16_t nodenum)
 	if (nodenum == 0 ||
 	    nodenum > c->num_total_nodes)
 		return 1;
-		
+
 	if (test_and_clear_bit(nodenum - 1, &c->local_nodes))
 		return 0;
 
@@ -239,7 +237,7 @@ clusterip_del_node(struct clusterip_config *c, u_int16_t nodenum)
 static inline u_int32_t
 clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
 {
-	struct iphdr *iph = skb->nh.iph;
+	struct iphdr *iph = ip_hdr(skb);
 	unsigned long hashval;
 	u_int16_t sport, dport;
 	u_int16_t *ports;
@@ -247,6 +245,7 @@ clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
 	switch (iph->protocol) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
 	case IPPROTO_SCTP:
 	case IPPROTO_DCCP:
 	case IPPROTO_ICMP:
@@ -268,7 +267,7 @@ clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
 				      config->hash_initval);
 		break;
 	case CLUSTERIP_HASHMODE_SIP_SPT:
-		hashval = jhash_2words(ntohl(iph->saddr), sport, 
+		hashval = jhash_2words(ntohl(iph->saddr), sport,
 				       config->hash_initval);
 		break;
 	case CLUSTERIP_HASHMODE_SIP_SPT_DPT:
@@ -295,8 +294,8 @@ clusterip_responsible(struct clusterip_config *config, u_int32_t hash)
 	return test_bit(hash - 1, &config->local_nodes);
 }
 
-/*********************************************************************** 
- * IPTABLES TARGET 
+/***********************************************************************
+ * IPTABLES TARGET
  ***********************************************************************/
 
 static unsigned int
@@ -308,30 +307,31 @@ target(struct sk_buff **pskb,
        const void *targinfo)
 {
 	const struct ipt_clusterip_tgt_info *cipinfo = targinfo;
+	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
-	u_int32_t *mark, hash;
+	u_int32_t hash;
 
 	/* don't need to clusterip_config_get() here, since refcount
 	 * is only decremented by destroy() - and ip_tables guarantees
 	 * that the ->target() function isn't called after ->destroy() */
 
-	mark = nf_ct_get_mark((*pskb), &ctinfo);
-	if (mark == NULL) {
+	ct = nf_ct_get(*pskb, &ctinfo);
+	if (ct == NULL) {
 		printk(KERN_ERR "CLUSTERIP: no conntrack!\n");
 			/* FIXME: need to drop invalid ones, since replies
-			 * to outgoing connections of other nodes will be 
+			 * to outgoing connections of other nodes will be
 			 * marked as INVALID */
 		return NF_DROP;
 	}
 
 	/* special case: ICMP error handling. conntrack distinguishes between
 	 * error messages (RELATED) and information requests (see below) */
-	if ((*pskb)->nh.iph->protocol == IPPROTO_ICMP
-	    && (ctinfo == IP_CT_RELATED 
+	if (ip_hdr(*pskb)->protocol == IPPROTO_ICMP
+	    && (ctinfo == IP_CT_RELATED
 		|| ctinfo == IP_CT_RELATED+IP_CT_IS_REPLY))
-		return IPT_CONTINUE;
+		return XT_CONTINUE;
 
-	/* ip_conntrack_icmp guarantees us that we only have ICMP_ECHO, 
+	/* ip_conntrack_icmp guarantees us that we only have ICMP_ECHO,
 	 * TIMESTAMP, INFO_REQUEST or ADDRESS type icmp packets from here
 	 * on, which all have an ID field [relevant for hashing]. */
 
@@ -339,7 +339,7 @@ target(struct sk_buff **pskb,
 
 	switch (ctinfo) {
 		case IP_CT_NEW:
-			*mark = hash;
+			ct->mark = hash;
 			break;
 		case IP_CT_RELATED:
 		case IP_CT_RELATED+IP_CT_IS_REPLY:
@@ -356,7 +356,7 @@ target(struct sk_buff **pskb,
 #ifdef DEBUG_CLUSTERP
 	DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
 #endif
-	DEBUGP("hash=%u ct_hash=%u ", hash, *mark);
+	DEBUGP("hash=%u ct_hash=%u ", hash, ct->mark);
 	if (!clusterip_responsible(cipinfo->config, hash)) {
 		DEBUGP("not responsible\n");
 		return NF_DROP;
@@ -367,15 +367,15 @@ target(struct sk_buff **pskb,
 	 * actually a unicast IP packet. TCP doesn't like PACKET_MULTICAST */
 	(*pskb)->pkt_type = PACKET_HOST;
 
-	return IPT_CONTINUE;
+	return XT_CONTINUE;
 }
 
 static int
 checkentry(const char *tablename,
 	   const void *e_void,
 	   const struct xt_target *target,
-           void *targinfo,
-           unsigned int hook_mask)
+	   void *targinfo,
+	   unsigned int hook_mask)
 {
 	struct ipt_clusterip_tgt_info *cipinfo = targinfo;
 	const struct ipt_entry *e = e_void;
@@ -433,7 +433,7 @@ checkentry(const char *tablename,
 				return 0;
 			}
 
-			config = clusterip_config_init(cipinfo, 
+			config = clusterip_config_init(cipinfo,
 							e->ip.dst.s_addr, dev);
 			if (!config) {
 				printk(KERN_WARNING "CLUSTERIP: cannot allocate config\n");
@@ -468,8 +468,9 @@ static void destroy(const struct xt_target *target, void *targinfo)
 	nf_ct_l3proto_module_put(target->family);
 }
 
-static struct ipt_target clusterip_tgt = {
+static struct xt_target clusterip_tgt = {
 	.name		= "CLUSTERIP",
+	.family		= AF_INET,
 	.target		= target,
 	.targetsize	= sizeof(struct ipt_clusterip_tgt_info),
 	.checkentry	= checkentry,
@@ -478,8 +479,8 @@ static struct ipt_target clusterip_tgt = {
 };
 
 
-/*********************************************************************** 
- * ARP MANGLING CODE 
+/***********************************************************************
+ * ARP MANGLING CODE
  ***********************************************************************/
 
 /* hardcoded for 48bit ethernet and 32bit ipv4 addresses */
@@ -491,7 +492,7 @@ struct arp_payload {
 } __attribute__ ((packed));
 
 #ifdef CLUSTERIP_DEBUG
-static void arp_print(struct arp_payload *payload) 
+static void arp_print(struct arp_payload *payload)
 {
 #define HBUFFERLEN 30
 	char hbuffer[HBUFFERLEN];
@@ -505,7 +506,7 @@ static void arp_print(struct arp_payload *payload)
 	}
 	hbuffer[--k]='\0';
 
-	printk("src %u.%u.%u.%u@%s, dst %u.%u.%u.%u\n", 
+	printk("src %u.%u.%u.%u@%s, dst %u.%u.%u.%u\n",
 		NIPQUAD(payload->src_ip), hbuffer,
 		NIPQUAD(payload->dst_ip));
 }
@@ -518,7 +519,7 @@ arp_mangle(unsigned int hook,
 	   const struct net_device *out,
 	   int (*okfn)(struct sk_buff *))
 {
-	struct arphdr *arp = (*pskb)->nh.arph;
+	struct arphdr *arp = arp_hdr(*pskb);
 	struct arp_payload *payload;
 	struct clusterip_config *c;
 
@@ -535,13 +536,13 @@ arp_mangle(unsigned int hook,
 
 	payload = (void *)(arp+1);
 
-	/* if there is no clusterip configuration for the arp reply's 
+	/* if there is no clusterip configuration for the arp reply's
 	 * source ip, we don't want to mangle it */
 	c = clusterip_config_find_get(payload->src_ip, 0);
 	if (!c)
 		return NF_ACCEPT;
 
-	/* normally the linux kernel always replies to arp queries of 
+	/* normally the linux kernel always replies to arp queries of
 	 * addresses on different interfacs.  However, in the CLUSTERIP case
 	 * this wouldn't work, since we didn't subscribe the mcast group on
 	 * other interfaces */
@@ -572,8 +573,8 @@ static struct nf_hook_ops cip_arp_ops = {
 	.priority = -1
 };
 
-/*********************************************************************** 
- * PROC DIR HANDLING 
+/***********************************************************************
+ * PROC DIR HANDLING
  ***********************************************************************/
 
 #ifdef CONFIG_PROC_FS
@@ -635,7 +636,7 @@ static int clusterip_seq_show(struct seq_file *s, void *v)
 {
 	struct clusterip_seq_position *idx = (struct clusterip_seq_position *)v;
 
-	if (idx->pos != 0) 
+	if (idx->pos != 0)
 		seq_putc(s, ',');
 
 	seq_printf(s, "%u", idx->bit);
@@ -710,7 +711,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
 	return size;
 }
 
-static struct file_operations clusterip_proc_fops = {
+static const struct file_operations clusterip_proc_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = clusterip_proc_open,
 	.read	 = seq_read,
@@ -725,7 +726,7 @@ static int __init ipt_clusterip_init(void)
 {
 	int ret;
 
-	ret = ipt_register_target(&clusterip_tgt);
+	ret = xt_register_target(&clusterip_tgt);
 	if (ret < 0)
 		return ret;
 
@@ -751,7 +752,7 @@ cleanup_hook:
 	nf_unregister_hook(&cip_arp_ops);
 #endif /* CONFIG_PROC_FS */
 cleanup_target:
-	ipt_unregister_target(&clusterip_tgt);
+	xt_unregister_target(&clusterip_tgt);
 	return ret;
 }
 
@@ -763,7 +764,7 @@ static void __exit ipt_clusterip_fini(void)
 	remove_proc_entry(clusterip_procdir->name, clusterip_procdir->parent);
 #endif
 	nf_unregister_hook(&cip_arp_ops);
-	ipt_unregister_target(&clusterip_tgt);
+	xt_unregister_target(&clusterip_tgt);
 }
 
 module_init(ipt_clusterip_init);

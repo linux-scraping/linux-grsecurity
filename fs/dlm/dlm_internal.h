@@ -2,7 +2,7 @@
 *******************************************************************************
 **
 **  Copyright (C) Sistina Software, Inc.  1997-2003  All rights reserved.
-**  Copyright (C) 2004-2005 Red Hat, Inc.  All rights reserved.
+**  Copyright (C) 2004-2007 Red Hat, Inc.  All rights reserved.
 **
 **  This copyrighted material is made available to anyone wishing to use,
 **  modify, copy, or redistribute it subject to the terms and conditions
@@ -41,6 +41,7 @@
 #include <asm/uaccess.h>
 
 #include <linux/dlm.h>
+#include "config.h"
 
 #define DLM_LOCKSPACE_LEN	64
 
@@ -69,12 +70,12 @@ struct dlm_mhandle;
 #define log_error(ls, fmt, args...) \
 	printk(KERN_ERR "dlm: %s: " fmt "\n", (ls)->ls_name , ##args)
 
-#define DLM_LOG_DEBUG
-#ifdef DLM_LOG_DEBUG
-#define log_debug(ls, fmt, args...) log_error(ls, fmt, ##args)
-#else
-#define log_debug(ls, fmt, args...)
-#endif
+#define log_debug(ls, fmt, args...) \
+do { \
+	if (dlm_config.ci_log_debug) \
+		printk(KERN_DEBUG "dlm: %s: " fmt "\n", \
+		       (ls)->ls_name , ##args); \
+} while (0)
 
 #define DLM_ASSERT(x, do) \
 { \
@@ -209,6 +210,9 @@ struct dlm_args {
 #define DLM_IFL_MSTCPY		0x00010000
 #define DLM_IFL_RESEND		0x00020000
 #define DLM_IFL_DEAD		0x00040000
+#define DLM_IFL_OVERLAP_UNLOCK  0x00080000
+#define DLM_IFL_OVERLAP_CANCEL  0x00100000
+#define DLM_IFL_ENDOFLIFE	0x00200000
 #define DLM_IFL_USER		0x00000001
 #define DLM_IFL_ORPHAN		0x00000002
 
@@ -229,8 +233,8 @@ struct dlm_lkb {
 	int8_t			lkb_grmode;	/* granted lock mode */
 	int8_t			lkb_bastmode;	/* requested mode */
 	int8_t			lkb_highbast;	/* highest mode bast sent for */
-
 	int8_t			lkb_wait_type;	/* type of reply waiting for */
+	int8_t			lkb_wait_count;
 	int8_t			lkb_ast_type;	/* type of ast queued for */
 
 	struct list_head	lkb_idtbl_list;	/* lockspace lkbtbl */
@@ -309,8 +313,8 @@ static inline int rsb_flag(struct dlm_rsb *r, enum rsb_flags flag)
 
 /* dlm_header is first element of all structs sent between nodes */
 
-#define DLM_HEADER_MAJOR	0x00020000
-#define DLM_HEADER_MINOR	0x00000001
+#define DLM_HEADER_MAJOR	0x00030000
+#define DLM_HEADER_MINOR	0x00000000
 
 #define DLM_MSG			1
 #define DLM_RCOM		2
@@ -338,6 +342,7 @@ struct dlm_header {
 #define DLM_MSG_LOOKUP		11
 #define DLM_MSG_REMOVE		12
 #define DLM_MSG_LOOKUP_REPLY	13
+#define DLM_MSG_PURGE		14
 
 struct dlm_message {
 	struct dlm_header	m_header;
@@ -386,6 +391,8 @@ struct dlm_rcom {
 	uint32_t		rc_type;	/* DLM_RCOM_ */
 	int			rc_result;	/* multi-purpose */
 	uint64_t		rc_id;		/* match reply with request */
+	uint64_t		rc_seq;		/* sender's ls_recover_seq */
+	uint64_t		rc_seq_reply;	/* remote ls_recover_seq */
 	char			rc_buf[0];
 };
 
@@ -436,6 +443,9 @@ struct dlm_ls {
 
 	struct mutex		ls_waiters_mutex;
 	struct list_head	ls_waiters;	/* lkbs needing a reply */
+
+	struct mutex		ls_orphans_mutex;
+	struct list_head	ls_orphans;
 
 	struct list_head	ls_nodes;	/* current nodes in ls */
 	struct list_head	ls_nodes_gone;	/* dead node list, recovery */
@@ -523,6 +533,7 @@ struct dlm_user_proc {
 	spinlock_t		asts_spin;
 	struct list_head	locks;
 	spinlock_t		locks_spin;
+	struct list_head	unlocking;
 	wait_queue_head_t	wait;
 };
 

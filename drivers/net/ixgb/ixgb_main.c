@@ -227,7 +227,7 @@ int
 ixgb_up(struct ixgb_adapter *adapter)
 {
 	struct net_device *netdev = adapter->netdev;
-	int err;
+	int err, irq_flags = IRQF_SHARED;
 	int max_frame = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
 	struct ixgb_hw *hw = &adapter->hw;
 
@@ -246,26 +246,21 @@ ixgb_up(struct ixgb_adapter *adapter)
 	/* disable interrupts and get the hardware into a known state */
 	IXGB_WRITE_REG(&adapter->hw, IMC, 0xffffffff);
 
-#ifdef CONFIG_PCI_MSI
-	{
-	boolean_t pcix = (IXGB_READ_REG(&adapter->hw, STATUS) & 
-						  IXGB_STATUS_PCIX_MODE) ? TRUE : FALSE;
-	adapter->have_msi = TRUE;
-
-	if (!pcix)
-	   adapter->have_msi = FALSE;
-	else if((err = pci_enable_msi(adapter->pdev))) {
-		DPRINTK(PROBE, ERR,
-		 "Unable to allocate MSI interrupt Error: %d\n", err);
-		adapter->have_msi = FALSE;
+	/* only enable MSI if bus is in PCI-X mode */
+	if (IXGB_READ_REG(&adapter->hw, STATUS) & IXGB_STATUS_PCIX_MODE) {
+		err = pci_enable_msi(adapter->pdev);
+		if (!err) {
+			adapter->have_msi = 1;
+			irq_flags = 0;
+		}
 		/* proceed to try to request regular interrupt */
 	}
-	}
 
-#endif
-	if((err = request_irq(adapter->pdev->irq, &ixgb_intr,
-				  IRQF_SHARED | IRQF_SAMPLE_RANDOM,
-			          netdev->name, netdev))) {
+	err = request_irq(adapter->pdev->irq, &ixgb_intr, irq_flags,
+	                  netdev->name, netdev);
+	if (err) {
+		if (adapter->have_msi)
+			pci_disable_msi(adapter->pdev);
 		DPRINTK(PROBE, ERR,
 		 "Unable to allocate interrupt Error: %d\n", err);
 		return err;
@@ -307,11 +302,10 @@ ixgb_down(struct ixgb_adapter *adapter, boolean_t kill_watchdog)
 
 	ixgb_irq_disable(adapter);
 	free_irq(adapter->pdev->irq, netdev);
-#ifdef CONFIG_PCI_MSI
-	if(adapter->have_msi == TRUE)
+
+	if (adapter->have_msi)
 		pci_disable_msi(adapter->pdev);
 
-#endif
 	if(kill_watchdog)
 		del_timer_sync(&adapter->watchdog_timer);
 #ifdef CONFIG_IXGB_NAPI
@@ -456,9 +450,7 @@ ixgb_probe(struct pci_dev *pdev,
 			   NETIF_F_HW_VLAN_TX |
 			   NETIF_F_HW_VLAN_RX |
 			   NETIF_F_HW_VLAN_FILTER;
-#ifdef NETIF_F_TSO
 	netdev->features |= NETIF_F_TSO;
-#endif
 #ifdef NETIF_F_LLTX
 	netdev->features |= NETIF_F_LLTX;
 #endif
@@ -687,7 +679,7 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
 	/* round up to nearest 4K */
 
 	txdr->size = txdr->count * sizeof(struct ixgb_tx_desc);
-	IXGB_ROUNDUP(txdr->size, 4096);
+	txdr->size = ALIGN(txdr->size, 4096);
 
 	txdr->desc = pci_alloc_consistent(pdev, txdr->size, &txdr->dma);
 	if(!txdr->desc) {
@@ -776,7 +768,7 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
 	/* Round up to nearest 4K */
 
 	rxdr->size = rxdr->count * sizeof(struct ixgb_rx_desc);
-	IXGB_ROUNDUP(rxdr->size, 4096);
+	rxdr->size = ALIGN(rxdr->size, 4096);
 
 	rxdr->desc = pci_alloc_consistent(pdev, rxdr->size, &rxdr->dma);
 
@@ -1176,7 +1168,6 @@ ixgb_watchdog(unsigned long data)
 static int
 ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
 {
-#ifdef NETIF_F_TSO
 	struct ixgb_context_desc *context_desc;
 	unsigned int i;
 	uint8_t ipcss, ipcso, tucss, tucso, hdr_len;
@@ -1185,24 +1176,27 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
 
 	if (likely(skb_is_gso(skb))) {
 		struct ixgb_buffer *buffer_info;
+		struct iphdr *iph;
+
 		if (skb_header_cloned(skb)) {
 			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
 			if (err)
 				return err;
 		}
 
-		hdr_len = ((skb->h.raw - skb->data) + (skb->h.th->doff << 2));
+		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
 		mss = skb_shinfo(skb)->gso_size;
-		skb->nh.iph->tot_len = 0;
-		skb->nh.iph->check = 0;
-		skb->h.th->check = ~csum_tcpudp_magic(skb->nh.iph->saddr,
-						      skb->nh.iph->daddr,
-						      0, IPPROTO_TCP, 0);
-		ipcss = skb->nh.raw - skb->data;
-		ipcso = (void *)&(skb->nh.iph->check) - (void *)skb->data;
-		ipcse = skb->h.raw - skb->data - 1;
-		tucss = skb->h.raw - skb->data;
-		tucso = (void *)&(skb->h.th->check) - (void *)skb->data;
+		iph = ip_hdr(skb);
+		iph->tot_len = 0;
+		iph->check = 0;
+		tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
+							 iph->daddr, 0,
+							 IPPROTO_TCP, 0);
+		ipcss = skb_network_offset(skb);
+		ipcso = (void *)&(iph->check) - (void *)skb->data;
+		ipcse = skb_transport_offset(skb) - 1;
+		tucss = skb_transport_offset(skb);
+		tucso = (void *)&(tcp_hdr(skb)->check) - (void *)skb->data;
 		tucse = 0;
 
 		i = adapter->tx_ring.next_to_use;
@@ -1233,7 +1227,6 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
 
 		return 1;
 	}
-#endif
 
 	return 0;
 }
@@ -1247,7 +1240,7 @@ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
 
 	if(likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
 		struct ixgb_buffer *buffer_info;
-		css = skb->h.raw - skb->data;
+		css = skb_transport_offset(skb);
 		cso = css + skb->csum_offset;
 
 		i = adapter->tx_ring.next_to_use;
@@ -1609,7 +1602,7 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
 	struct pci_dev *pdev = adapter->pdev;
 
 	/* Prevent stats update while adapter is being reset */
-	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
+	if (pci_channel_offline(pdev))
 		return;
 
 	if((netdev->flags & IFF_PROMISC) || (netdev->flags & IFF_ALLMULTI) ||
@@ -2018,9 +2011,12 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter)
 			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
 			if (new_skb) {
 				skb_reserve(new_skb, NET_IP_ALIGN);
-				memcpy(new_skb->data - NET_IP_ALIGN,
-				       skb->data - NET_IP_ALIGN,
-				       length + NET_IP_ALIGN);
+				skb_copy_to_linear_data_offset(new_skb,
+							       -NET_IP_ALIGN,
+							       (skb->data -
+							        NET_IP_ALIGN),
+							       (length +
+							        NET_IP_ALIGN));
 				/* save the skb in buffer_info as good */
 				buffer_info->skb = skb;
 				skb = new_skb;
@@ -2217,8 +2213,7 @@ ixgb_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid)
 
 	ixgb_irq_disable(adapter);
 
-	if(adapter->vlgrp)
-		adapter->vlgrp->vlan_devices[vid] = NULL;
+	vlan_group_set_device(adapter->vlgrp, vid, NULL);
 
 	ixgb_irq_enable(adapter);
 
@@ -2238,7 +2233,7 @@ ixgb_restore_vlan(struct ixgb_adapter *adapter)
 	if(adapter->vlgrp) {
 		uint16_t vid;
 		for(vid = 0; vid < VLAN_GROUP_ARRAY_LEN; vid++) {
-			if(!adapter->vlgrp->vlan_devices[vid])
+			if(!vlan_group_get_device(adapter->vlgrp, vid))
 				continue;
 			ixgb_vlan_rx_add_vid(adapter->netdev, vid);
 		}

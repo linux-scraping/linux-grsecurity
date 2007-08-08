@@ -46,7 +46,7 @@ struct cpi_sccb {
 /* Event type structure for write message and write priority message */
 static struct sclp_register sclp_cpi_event =
 {
-	.send_mask = EvTyp_CtlProgIdent_Mask
+	.send_mask = EVTYP_CTLPROGIDENT_MASK
 };
 
 MODULE_LICENSE("GPL");
@@ -169,7 +169,7 @@ cpi_prepare_req(void)
 	}
 
 	/* prepare request data structure presented to SCLP driver */
-	req->command = SCLP_CMDW_WRITEDATA;
+	req->command = SCLP_CMDW_WRITE_EVENT_DATA;
 	req->sccb = sccb;
 	req->status = SCLP_REQ_FILLED;
 	req->callback = cpi_callback;
@@ -201,7 +201,7 @@ cpi_module_init(void)
 		       "console.\n");
 		return -EINVAL;
 	}
-	if (!(sclp_cpi_event.sclp_send_mask & EvTyp_CtlProgIdent_Mask)) {
+	if (!(sclp_cpi_event.sclp_send_mask & EVTYP_CTLPROGIDENT_MASK)) {
 		printk(KERN_WARNING "cpi: no control program identification "
 		       "support\n");
 		sclp_unregister(&sclp_cpi_event);

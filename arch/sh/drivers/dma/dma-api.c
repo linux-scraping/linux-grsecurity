@@ -16,6 +16,7 @@
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/mm.h>
+#include <linux/sched.h>
 #include <asm/dma.h>
 
 DEFINE_SPINLOCK(dma_spin_lock);
@@ -115,7 +116,7 @@ static int search_cap(const char **haystack, const char *needle)
 /**
  * request_dma_bycap - Allocate a DMA channel based on its capabilities
  * @dmac: List of DMA controllers to search
- * @caps: List of capabilites
+ * @caps: List of capabilities
  *
  * Search all channels of all DMA controllers to find a channel which
  * matches the requested capabilities. The result is the channel

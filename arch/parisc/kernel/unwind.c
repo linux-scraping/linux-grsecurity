@@ -10,11 +10,14 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/kallsyms.h>
 
 #include <asm/uaccess.h>
 #include <asm/assembly.h>
+#include <asm/asm-offsets.h>
+#include <asm/ptrace.h>
 
 #include <asm/unwind.h>
 
@@ -24,6 +27,8 @@
 #else
 #define dbg(x...)
 #endif
+
+#define KERNEL_START (KERNEL_BINARY_TEXT_START - 0x1000)
 
 extern struct unwind_table_entry __start___unwind[];
 extern struct unwind_table_entry __stop___unwind[];
@@ -196,6 +201,29 @@ static int unwind_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_64BIT
+#define get_func_addr(fptr) fptr[2]
+#else
+#define get_func_addr(fptr) fptr[0]
+#endif
+
+static int unwind_special(struct unwind_frame_info *info, unsigned long pc, int frame_size)
+{
+	void handle_interruption(int, struct pt_regs *);
+	static unsigned long *hi = (unsigned long)&handle_interruption;
+
+	if (pc == get_func_addr(hi)) {
+		struct pt_regs *regs = (struct pt_regs *)(info->sp - frame_size - PT_SZ_ALGN);
+		dbg("Unwinding through handle_interruption()\n");
+		info->prev_sp = regs->gr[30];
+		info->prev_ip = regs->iaoq[0];
+
+		return 1;
+	}
+
+	return 0;
+}
+
 static void unwind_frame_regs(struct unwind_frame_info *info)
 {
 	const struct unwind_table_entry *e;
@@ -216,10 +244,9 @@ static void unwind_frame_regs(struct unwind_frame_info *info)
 		{
 			char symname[KSYM_NAME_LEN+1];
 			char *modname;
-			unsigned long symsize, offset;
 
-			kallsyms_lookup(info->ip, &symsize, &offset,
-					&modname, symname);
+			kallsyms_lookup(info->ip, NULL, NULL, &modname,
+				symname);
 
 			dbg("info->ip = 0x%lx, name = %s\n", info->ip, symname);
 
@@ -310,13 +337,15 @@ static void unwind_frame_regs(struct unwind_frame_info *info)
 			}
 		}
 
-		info->prev_sp = info->sp - frame_size;
-		if (e->Millicode)
-			info->rp = info->r31;
-		else if (rpoffset)
-			info->rp = *(unsigned long *)(info->prev_sp - rpoffset);
-		info->prev_ip = info->rp;
-		info->rp = 0;
+		if (!unwind_special(info, e->region_start, frame_size)) {
+			info->prev_sp = info->sp - frame_size;
+			if (e->Millicode)
+				info->rp = info->r31;
+			else if (rpoffset)
+				info->rp = *(unsigned long *)(info->prev_sp - rpoffset);
+			info->prev_ip = info->rp;
+			info->rp = 0;
+		}
 
 		dbg("analyzing func @ %lx, setting prev_sp=%lx "
 		    "prev_ip=%lx npc=%lx\n", info->ip, info->prev_sp, 

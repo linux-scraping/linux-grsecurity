@@ -1102,7 +1102,7 @@ static struct net_device * __init veth_probe_one(int vlan,
 	}
 
 	kobject_init(&port->kobject);
-	port->kobject.parent = &dev->class_dev.kobj;
+	port->kobject.parent = &dev->dev.kobj;
 	port->kobject.ktype  = &veth_port_ktype;
 	kobject_set_name(&port->kobject, "veth_port");
 	if (0 != kobject_add(&port->kobject))
@@ -1540,7 +1540,6 @@ static void veth_receive(struct veth_lpar_connection *cnx,
 		}
 
 		skb_put(skb, length);
-		skb->dev = dev;
 		skb->protocol = eth_type_trans(skb, dev);
 		skb->ip_summed = CHECKSUM_NONE;
 		netif_rx(skb);	/* send it up */

@@ -63,7 +63,7 @@ use_swiotlb (struct device *dev)
 	return dev && dev->dma_mask && !hwiommu_dma_supported(dev, *dev->dma_mask);
 }
 
-void
+void __init
 hwsw_init (void)
 {
 	/* default to a smallish 2MB sw I/O TLB */
@@ -192,3 +192,7 @@ EXPORT_SYMBOL(hwsw_unmap_sg);
 EXPORT_SYMBOL(hwsw_dma_supported);
 EXPORT_SYMBOL(hwsw_alloc_coherent);
 EXPORT_SYMBOL(hwsw_free_coherent);
+EXPORT_SYMBOL(hwsw_sync_single_for_cpu);
+EXPORT_SYMBOL(hwsw_sync_single_for_device);
+EXPORT_SYMBOL(hwsw_sync_sg_for_cpu);
+EXPORT_SYMBOL(hwsw_sync_sg_for_device);

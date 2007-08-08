@@ -34,16 +34,15 @@ struct vm_area_struct;
  */
 #define ZERO_PAGE(vaddr) (virt_to_page(empty_zero_page))
 extern unsigned long empty_zero_page[1024];
-extern struct kmem_cache *pgd_cache;
 extern struct kmem_cache *pmd_cache;
 extern spinlock_t pgd_lock;
 extern struct page *pgd_list;
+void check_pgt_cache(void);
 
 void pmd_ctor(void *, struct kmem_cache *, unsigned long);
-void pgd_ctor(void *, struct kmem_cache *, unsigned long);
-void pgd_dtor(void *, struct kmem_cache *, unsigned long);
 void pgtable_cache_init(void);
 void paging_init(void);
+
 
 /*
  * The Linux x86 paging architecture is 'compile-time dual-mode', it
@@ -140,33 +139,33 @@ extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 #define _KERNPG_TABLE	(_PAGE_PRESENT | _PAGE_RW | _PAGE_ACCESSED | _PAGE_DIRTY)
 #define _PAGE_CHG_MASK	(PTE_MASK | _PAGE_ACCESSED | _PAGE_DIRTY)
 
-#define PAGE_NONE \
+#define __PAGE_NONE \
 	__pgprot(_PAGE_PROTNONE | _PAGE_ACCESSED)
-#define PAGE_SHARED \
+#define __PAGE_SHARED \
 	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
 
-#define PAGE_SHARED_EXEC \
+#define __PAGE_SHARED_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_COPY_EXEC \
-	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
-#define PAGE_READONLY \
+#define __PAGE_COPY_NOEXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
-#define PAGE_READONLY_EXEC \
+#define __PAGE_COPY_EXEC \
+	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
+#define __PAGE_COPY \
+	__PAGE_COPY_NOEXEC
+#define __PAGE_READONLY \
+	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
+#define __PAGE_READONLY_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
 
-#ifdef CONFIG_PAX_PAGEEXEC
-# define PAGE_SHARED_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_ACCESSED)
-# define PAGE_COPY_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
-# define PAGE_READONLY_NOEXEC	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
-#else
-# define PAGE_SHARED_NOEXEC	PAGE_SHARED
-# define PAGE_COPY_NOEXEC \
-	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
-# define PAGE_READONLY_NOEXEC	PAGE_READONLY
-#endif
+#define PAGE_NONE		(protection_map[0x0])
+#define PAGE_SHARED		(protection_map[0xb])
+#define PAGE_SHARED_EXEC	(protection_map[0xf])
+#define PAGE_COPY_NOEXEC	(protection_map[0x3])
+#define PAGE_COPY 		PAGE_COPY_NOEXEC
+#define PAGE_COPY_EXEC		(protection_map[0x7])
+#define PAGE_READONLY		(protection_map[0x1])
+#define PAGE_READONLY_EXEC	(protection_map[0x5])
 
-#define PAGE_COPY \
-	PAGE_COPY_NOEXEC
 #define _PAGE_KERNEL \
 	(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY | _PAGE_ACCESSED | _PAGE_NX)
 #define _PAGE_KERNEL_EXEC \
@@ -174,6 +173,7 @@ extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 
 extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
 #define __PAGE_KERNEL_RO		(__PAGE_KERNEL & ~_PAGE_RW)
+#define __PAGE_KERNEL_RX		(__PAGE_KERNEL_EXEC & ~_PAGE_RW)
 #define __PAGE_KERNEL_NOCACHE		(__PAGE_KERNEL | _PAGE_PCD)
 #define __PAGE_KERNEL_LARGE		(__PAGE_KERNEL | _PAGE_PSE)
 #define __PAGE_KERNEL_LARGE_EXEC	(__PAGE_KERNEL_EXEC | _PAGE_PSE)
@@ -181,6 +181,7 @@ extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
 #define PAGE_KERNEL		__pgprot(__PAGE_KERNEL)
 #define PAGE_KERNEL_RO		__pgprot(__PAGE_KERNEL_RO)
 #define PAGE_KERNEL_EXEC	__pgprot(__PAGE_KERNEL_EXEC)
+#define PAGE_KERNEL_RX		__pgprot(__PAGE_KERNEL_RX)
 #define PAGE_KERNEL_NOCACHE	__pgprot(__PAGE_KERNEL_NOCACHE)
 #define PAGE_KERNEL_LARGE	__pgprot(__PAGE_KERNEL_LARGE)
 #define PAGE_KERNEL_LARGE_EXEC	__pgprot(__PAGE_KERNEL_LARGE_EXEC)
@@ -190,23 +191,23 @@ extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
  * the same are read. Also, write permissions imply read permissions.
  * This is the closest we can get..
  */
-#define __P000	PAGE_NONE
-#define __P001	PAGE_READONLY_NOEXEC
-#define __P010	PAGE_COPY_NOEXEC
-#define __P011	PAGE_COPY_NOEXEC
-#define __P100	PAGE_READONLY_EXEC
-#define __P101	PAGE_READONLY_EXEC
-#define __P110	PAGE_COPY_EXEC
-#define __P111	PAGE_COPY_EXEC
+#define __P000	__PAGE_NONE
+#define __P001	__PAGE_READONLY
+#define __P010	__PAGE_COPY
+#define __P011	__PAGE_COPY
+#define __P100	__PAGE_READONLY_EXEC
+#define __P101	__PAGE_READONLY_EXEC
+#define __P110	__PAGE_COPY_EXEC
+#define __P111	__PAGE_COPY_EXEC
 
-#define __S000	PAGE_NONE
-#define __S001	PAGE_READONLY_NOEXEC
-#define __S010	PAGE_SHARED_NOEXEC
-#define __S011	PAGE_SHARED_NOEXEC
-#define __S100	PAGE_READONLY_EXEC
-#define __S101	PAGE_READONLY_EXEC
-#define __S110	PAGE_SHARED_EXEC
-#define __S111	PAGE_SHARED_EXEC
+#define __S000	__PAGE_NONE
+#define __S001	__PAGE_READONLY
+#define __S010	__PAGE_SHARED
+#define __S011	__PAGE_SHARED
+#define __S100	__PAGE_READONLY_EXEC
+#define __S101	__PAGE_READONLY_EXEC
+#define __S110	__PAGE_SHARED_EXEC
+#define __S111	__PAGE_SHARED_EXEC
 
 /*
  * Define this if things work differently on an i386 and an i486:
@@ -216,7 +217,7 @@ extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
 #undef TEST_ACCESS_OK
 
 /* The boot page tables (all created as a single array) */
-extern unsigned long pg0[];
+extern pte_t pg0[];
 
 #define pte_present(x)	((x).pte_low & (_PAGE_PRESENT | _PAGE_PROTNONE))
 
@@ -239,28 +240,50 @@ static inline int pte_young(pte_t pte)		{ return (pte).pte_low & _PAGE_ACCESSED;
 static inline int pte_write(pte_t pte)		{ return (pte).pte_low & _PAGE_RW; }
 static inline int pte_huge(pte_t pte)		{ return (pte).pte_low & _PAGE_PSE; }
 
+#ifdef CONFIG_X86_PAE
+# include <asm/pgtable-3level.h>
+#else
+# include <asm/pgtable-2level.h>
+#endif
+
 /*
  * The following only works if pte_present() is not true.
  */
 static inline int pte_file(pte_t pte)		{ return (pte).pte_low & _PAGE_FILE; }
 
 static inline pte_t pte_rdprotect(pte_t pte)	{ (pte).pte_low &= ~_PAGE_USER; return pte; }
-static inline pte_t pte_exprotect(pte_t pte)	{ (pte).pte_low &= ~_PAGE_USER; return pte; }
+
+static inline pte_t pte_exprotect(pte_t pte)
+{
+#ifdef CONFIG_X86_PAE
+	if (__supported_pte_mask & _PAGE_NX)
+		set_pte(&pte, __pte(pte_val(pte) | _PAGE_NX));
+	else
+#endif
+		set_pte(&pte, __pte(pte_val(pte) & ~_PAGE_USER));
+	return pte;
+}
+
 static inline pte_t pte_mkclean(pte_t pte)	{ (pte).pte_low &= ~_PAGE_DIRTY; return pte; }
 static inline pte_t pte_mkold(pte_t pte)	{ (pte).pte_low &= ~_PAGE_ACCESSED; return pte; }
 static inline pte_t pte_wrprotect(pte_t pte)	{ (pte).pte_low &= ~_PAGE_RW; return pte; }
 static inline pte_t pte_mkread(pte_t pte)	{ (pte).pte_low |= _PAGE_USER; return pte; }
-static inline pte_t pte_mkexec(pte_t pte)	{ (pte).pte_low |= _PAGE_USER; return pte; }
+
+static inline pte_t pte_mkexec(pte_t pte)
+{
+#ifdef CONFIG_X86_PAE
+	if (__supported_pte_mask & _PAGE_NX)
+		set_pte(&pte, __pte(pte_val(pte) & ~_PAGE_NX));
+	else
+#endif
+		set_pte(&pte, __pte(pte_val(pte) | _PAGE_USER));
+	return pte;
+}
+
 static inline pte_t pte_mkdirty(pte_t pte)	{ (pte).pte_low |= _PAGE_DIRTY; return pte; }
 static inline pte_t pte_mkyoung(pte_t pte)	{ (pte).pte_low |= _PAGE_ACCESSED; return pte; }
 static inline pte_t pte_mkwrite(pte_t pte)	{ (pte).pte_low |= _PAGE_RW; return pte; }
 static inline pte_t pte_mkhuge(pte_t pte)	{ (pte).pte_low |= _PAGE_PSE; return pte; }
-
-#ifdef CONFIG_X86_PAE
-# include <asm/pgtable-3level.h>
-#else
-# include <asm/pgtable-2level.h>
-#endif
 
 #ifndef CONFIG_PARAVIRT
 /*
@@ -280,6 +303,16 @@ static inline pte_t pte_mkhuge(pte_t pte)	{ (pte).pte_low |= _PAGE_PSE; return p
 #define pte_update_defer(mm, addr, ptep)	do { } while (0)
 #endif
 
+/* local pte updates need not use xchg for locking */
+static inline pte_t native_local_ptep_get_and_clear(pte_t *ptep)
+{
+	pte_t res = *ptep;
+
+	/* Pure native function needs no input for mm, addr */
+	native_pte_clear(NULL, 0, ptep);
+	return res;
+}
+
 /*
  * We only update the dirty/accessed state if we set
  * the dirty bit by hand in the kernel, since the hardware
@@ -289,20 +322,37 @@ static inline pte_t pte_mkhuge(pte_t pte)	{ (pte).pte_low |= _PAGE_PSE; return p
  */
 #define  __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 #define ptep_set_access_flags(vma, address, ptep, entry, dirty)		\
-do {									\
-	if (dirty) {							\
+({									\
+	int __changed = !pte_same(*(ptep), entry);			\
+	if (__changed && dirty) {					\
 		(ptep)->pte_low = (entry).pte_low;			\
 		pte_update_defer((vma)->vm_mm, (address), (ptep));	\
 		flush_tlb_page(vma, address);				\
 	}								\
-} while (0)
+	__changed;							\
+})
 
-/*
- * We don't actually have these, but we want to advertise them so that
- * we can encompass the flush here.
- */
 #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY
+#define ptep_test_and_clear_dirty(vma, addr, ptep) ({			\
+	int __ret = 0;							\
+	if (pte_dirty(*(ptep)))						\
+		__ret = test_and_clear_bit(_PAGE_BIT_DIRTY,		\
+						&(ptep)->pte_low);	\
+	if (__ret)							\
+		pte_update((vma)->vm_mm, addr, ptep);			\
+	__ret;								\
+})
+
 #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
+#define ptep_test_and_clear_young(vma, addr, ptep) ({			\
+	int __ret = 0;							\
+	if (pte_young(*(ptep)))						\
+		__ret = test_and_clear_bit(_PAGE_BIT_ACCESSED,		\
+						&(ptep)->pte_low);	\
+	if (__ret)							\
+		pte_update((vma)->vm_mm, addr, ptep);			\
+	__ret;								\
+})
 
 /*
  * Rules for using ptep_establish: the pte MUST be a user pte, and
@@ -319,12 +369,9 @@ do {									\
 #define ptep_clear_flush_dirty(vma, address, ptep)			\
 ({									\
 	int __dirty;							\
-	__dirty = pte_dirty(*(ptep));					\
-	if (__dirty) {							\
-		clear_bit(_PAGE_BIT_DIRTY, &(ptep)->pte_low);		\
-		pte_update_defer((vma)->vm_mm, (address), (ptep));	\
+	__dirty = ptep_test_and_clear_dirty((vma), (address), (ptep));	\
+	if (__dirty)							\
 		flush_tlb_page(vma, address);				\
-	}								\
 	__dirty;							\
 })
 
@@ -332,19 +379,16 @@ do {									\
 #define ptep_clear_flush_young(vma, address, ptep)			\
 ({									\
 	int __young;							\
-	__young = pte_young(*(ptep));					\
-	if (__young) {							\
-		clear_bit(_PAGE_BIT_ACCESSED, &(ptep)->pte_low);	\
-		pte_update_defer((vma)->vm_mm, (address), (ptep));	\
+	__young = ptep_test_and_clear_young((vma), (address), (ptep));	\
+	if (__young)							\
 		flush_tlb_page(vma, address);				\
-	}								\
 	__young;							\
 })
 
 #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
 static inline pte_t ptep_get_and_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
-	pte_t pte = raw_ptep_get_and_clear(ptep);
+	pte_t pte = native_ptep_get_and_clear(ptep);
 	pte_update(mm, addr, ptep);
 	return pte;
 }
@@ -354,8 +398,11 @@ static inline pte_t ptep_get_and_clear_full(struct mm_struct *mm, unsigned long 
 {
 	pte_t pte;
 	if (full) {
-		pte = *ptep;
-		pte_clear(mm, addr, ptep);
+		/*
+		 * Full address destruction in progress; paravirt does not
+		 * care about updates and native needs no locking
+		 */
+		pte = native_local_ptep_get_and_clear(ptep);
 	} else {
 		pte = ptep_get_and_clear(mm, addr, ptep);
 	}
@@ -485,9 +532,9 @@ extern pte_t *lookup_address(unsigned long address);
 
 #if defined(CONFIG_HIGHPTE)
 #define pte_offset_map(dir, address) \
-	((pte_t *)kmap_atomic(pmd_page(*(dir)),KM_PTE0) + pte_index(address))
+	((pte_t *)kmap_atomic_pte(pmd_page(*(dir)),KM_PTE0) + pte_index(address))
 #define pte_offset_map_nested(dir, address) \
-	((pte_t *)kmap_atomic(pmd_page(*(dir)),KM_PTE1) + pte_index(address))
+	((pte_t *)kmap_atomic_pte(pmd_page(*(dir)),KM_PTE1) + pte_index(address))
 #define pte_unmap(pte) kunmap_atomic(pte, KM_PTE0)
 #define pte_unmap_nested(pte) kunmap_atomic(pte, KM_PTE1)
 #else
@@ -510,6 +557,22 @@ do {									\
  * tables contain all the necessary information.
  */
 #define update_mmu_cache(vma,address,pte) do { } while (0)
+
+void native_pagetable_setup_start(pgd_t *base);
+void native_pagetable_setup_done(pgd_t *base);
+
+#ifndef CONFIG_PARAVIRT
+static inline void paravirt_pagetable_setup_start(pgd_t *base)
+{
+	native_pagetable_setup_start(base);
+}
+
+static inline void paravirt_pagetable_setup_done(pgd_t *base)
+{
+	native_pagetable_setup_done(base);
+}
+#endif	/* !CONFIG_PARAVIRT */
+
 #endif /* !__ASSEMBLY__ */
 
 #define HAVE_ARCH_UNMAPPED_AREA
@@ -521,10 +584,6 @@ do {									\
 
 #define io_remap_pfn_range(vma, vaddr, pfn, size, prot)		\
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
-
-#define MK_IOSPACE_PFN(space, pfn)	(pfn)
-#define GET_IOSPACE(pfn)		0
-#define GET_PFN(pfn)			(pfn)
 
 #include <asm-generic/pgtable.h>
 

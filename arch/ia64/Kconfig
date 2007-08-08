@@ -11,7 +11,10 @@ menu "Processor type and features"
 
 config IA64
 	bool
-	select ATA_NONSTANDARD if ATA
+	select PCI if (!IA64_HP_SIM)
+	select ACPI if (!IA64_HP_SIM)
+	select PM if (!IA64_HP_SIM)
+	select ARCH_SUPPORTS_MSI
 	default y
 	help
 	  The Itanium Processor Family is Intel's 64-bit successor to
@@ -21,6 +24,15 @@ config IA64
 
 config 64BIT
 	bool
+	select ATA_NONSTANDARD if ATA
+	default y
+
+config ZONE_DMA
+	def_bool y
+	depends on !IA64_SGI_SN2
+
+config QUICKLIST
+	bool
 	default y
 
 config MMU
@@ -29,7 +41,6 @@ config MMU
 
 config SWIOTLB
        bool
-       default y
 
 config RWSEM_XCHGADD_ALGORITHM
 	bool
@@ -85,10 +96,9 @@ choice
 
 config IA64_GENERIC
 	bool "generic"
-	select ACPI
-	select PCI
 	select NUMA
 	select ACPI_NUMA
+	select SWIOTLB
 	help
 	  This selects the system type of your hardware.  A "generic" kernel
 	  will run on any supported IA-64 system.  However, if you configure
@@ -105,6 +115,7 @@ config IA64_GENERIC
 
 config IA64_DIG
 	bool "DIG-compliant"
+	select SWIOTLB
 
 config IA64_HP_ZX1
 	bool "HP-zx1/sx1000"
@@ -114,6 +125,7 @@ config IA64_HP_ZX1
 
 config IA64_HP_ZX1_SWIOTLB
 	bool "HP-zx1/sx1000 with software I/O TLB"
+	select SWIOTLB
 	help
 	  Build a kernel that runs on HP zx1 and sx1000 systems even when they
 	  have broken PCI devices which cannot DMA to full 32 bits.  Apart
@@ -132,6 +144,7 @@ config IA64_SGI_SN2
 
 config IA64_HP_SIM
 	bool "Ski-simulator"
+	select SWIOTLB
 
 endchoice
 
@@ -430,6 +443,16 @@ config IA64_PALINFO
 	  To use this option, you have to ensure that the "/proc file system
 	  support" (CONFIG_PROC_FS) is enabled, too.
 
+config IA64_MC_ERR_INJECT
+	tristate "MC error injection support"
+	help
+	  Selets whether support for MC error injection. By enabling the
+	  support, kernel provide sysfs interface for user application to
+	  call MC error injection PAL procedure to inject various errors.
+	  This is a useful tool for MCA testing.
+
+	  If you're unsure, do not select this option.
+
 config SGI_SN
 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
 
@@ -449,7 +472,7 @@ config KEXEC
 	help
 	  kexec is a system call that implements the ability to shutdown your
 	  current kernel, and to start another kernel.  It is like a reboot
-	  but it is indepedent of the system firmware.   And like a reboot
+	  but it is independent of the system firmware.   And like a reboot
 	  you can start any kernel with it, not just Linux.
 
 	  The name comes from the similiarity to the exec system call.

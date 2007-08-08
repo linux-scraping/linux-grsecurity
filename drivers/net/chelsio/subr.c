@@ -223,13 +223,13 @@ static int fpga_slow_intr(adapter_t *adapter)
 		t1_sge_intr_error_handler(adapter->sge);
 
 	if (cause & FPGA_PCIX_INTERRUPT_GMAC)
-                fpga_phy_intr_handler(adapter);
+		fpga_phy_intr_handler(adapter);
 
 	if (cause & FPGA_PCIX_INTERRUPT_TP) {
-                /*
+		/*
 		 * FPGA doesn't support MC4 interrupts and it requires
 		 * this odd layer of indirection for MC5.
-                 */
+		 */
 		u32 tp_cause = readl(adapter->regs + FPGA_TP_ADDR_INTERRUPT_CAUSE);
 
 		/* Clear TP interrupt */
@@ -262,8 +262,7 @@ static int mi1_wait_until_ready(adapter_t *adapter, int mi1_reg)
 			udelay(10);
 	} while (busy && --attempts);
 	if (busy)
-		CH_ALERT("%s: MDIO operation timed out\n",
-			 adapter->name);
+		CH_ALERT("%s: MDIO operation timed out\n", adapter->name);
 	return busy;
 }
 
@@ -322,10 +321,10 @@ static int mi1_mdio_write(adapter_t *adapter, int phy_addr, int mmd_addr,
 }
 
 #if defined(CONFIG_CHELSIO_T1_1G) || defined(CONFIG_CHELSIO_T1_COUGAR)
-static struct mdio_ops mi1_mdio_ops = {
-	mi1_mdio_init,
-	mi1_mdio_read,
-	mi1_mdio_write
+static const struct mdio_ops mi1_mdio_ops = {
+	.init = mi1_mdio_init,
+	.read = mi1_mdio_read,
+	.write = mi1_mdio_write
 };
 #endif
 
@@ -378,10 +377,10 @@ static int mi1_mdio_ext_write(adapter_t *adapter, int phy_addr, int mmd_addr,
 	return 0;
 }
 
-static struct mdio_ops mi1_mdio_ext_ops = {
-	mi1_mdio_init,
-	mi1_mdio_ext_read,
-	mi1_mdio_ext_write
+static const struct mdio_ops mi1_mdio_ext_ops = {
+	.init = mi1_mdio_init,
+	.read = mi1_mdio_ext_read,
+	.write = mi1_mdio_ext_write
 };
 
 enum {
@@ -393,63 +392,136 @@ enum {
 	CH_BRD_N204_4CU,
 };
 
-static struct board_info t1_board[] = {
+static const struct board_info t1_board[] = {
+	{
+		.board		= CHBT_BOARD_CHT110,
+		.port_number	= 1,
+		.caps		= SUPPORTED_10000baseT_Full,
+		.chip_term	= CHBT_TERM_T1,
+		.chip_mac	= CHBT_MAC_PM3393,
+		.chip_phy	= CHBT_PHY_MY3126,
+		.clock_core	= 125000000,
+		.clock_mc3	= 150000000,
+		.clock_mc4	= 125000000,
+		.espi_nports	= 1,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 1,
+		.mdio_mdiinv	= 1,
+		.mdio_mdc	= 1,
+		.mdio_phybaseaddr = 1,
+		.gmac		= &t1_pm3393_ops,
+		.gphy		= &t1_my3126_ops,
+		.mdio_ops	= &mi1_mdio_ext_ops,
+		.desc		= "Chelsio T110 1x10GBase-CX4 TOE",
+	},
 
-{ CHBT_BOARD_CHT110, 1/*ports#*/,
-  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T1,
-  CHBT_MAC_PM3393, CHBT_PHY_MY3126,
-  125000000/*clk-core*/, 150000000/*clk-mc3*/, 125000000/*clk-mc4*/,
-  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 1/*mdien*/,
-  1/*mdiinv*/, 1/*mdc*/, 1/*phybaseaddr*/, &t1_pm3393_ops,
-  &t1_my3126_ops, &mi1_mdio_ext_ops,
-  "Chelsio T110 1x10GBase-CX4 TOE" },
+	{
+		.board		= CHBT_BOARD_N110,
+		.port_number	= 1,
+		.caps		= SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE,
+		.chip_term	= CHBT_TERM_T1,
+		.chip_mac	= CHBT_MAC_PM3393,
+		.chip_phy	= CHBT_PHY_88X2010,
+		.clock_core	= 125000000,
+		.espi_nports	= 1,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 0,
+		.mdio_mdiinv	= 0,
+		.mdio_mdc	= 1,
+		.mdio_phybaseaddr = 0,
+		.gmac		= &t1_pm3393_ops,
+		.gphy		= &t1_mv88x201x_ops,
+		.mdio_ops	= &mi1_mdio_ext_ops,
+		.desc		= "Chelsio N110 1x10GBaseX NIC",
+	},
 
-{ CHBT_BOARD_N110, 1/*ports#*/,
-  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T1,
-  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
-  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
-  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
-  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
-  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
-  "Chelsio N110 1x10GBaseX NIC" },
+	{
+		.board		= CHBT_BOARD_N210,
+		.port_number	= 1,
+		.caps		= SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE,
+		.chip_term	= CHBT_TERM_T2,
+		.chip_mac	= CHBT_MAC_PM3393,
+		.chip_phy	= CHBT_PHY_88X2010,
+		.clock_core	= 125000000,
+		.espi_nports	= 1,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 0,
+		.mdio_mdiinv	= 0,
+		.mdio_mdc	= 1,
+		.mdio_phybaseaddr = 0,
+		.gmac		= &t1_pm3393_ops,
+		.gphy		= &t1_mv88x201x_ops,
+		.mdio_ops	= &mi1_mdio_ext_ops,
+		.desc		= "Chelsio N210 1x10GBaseX NIC",
+	},
 
-{ CHBT_BOARD_N210, 1/*ports#*/,
-  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T2,
-  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
-  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
-  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
-  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
-  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
-  "Chelsio N210 1x10GBaseX NIC" },
+	{
+		.board		= CHBT_BOARD_CHT210,
+		.port_number	= 1,
+		.caps		= SUPPORTED_10000baseT_Full,
+		.chip_term	= CHBT_TERM_T2,
+		.chip_mac	= CHBT_MAC_PM3393,
+		.chip_phy	= CHBT_PHY_88X2010,
+		.clock_core	= 125000000,
+		.clock_mc3	= 133000000,
+		.clock_mc4	= 125000000,
+		.espi_nports	= 1,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 0,
+		.mdio_mdiinv	= 0,
+		.mdio_mdc	= 1,
+		.mdio_phybaseaddr = 0,
+		.gmac		= &t1_pm3393_ops,
+		.gphy		= &t1_mv88x201x_ops,
+		.mdio_ops	= &mi1_mdio_ext_ops,
+		.desc		= "Chelsio T210 1x10GBaseX TOE",
+	},
 
-{ CHBT_BOARD_CHT210, 1/*ports#*/,
-  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T2,
-  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
-  125000000/*clk-core*/, 133000000/*clk-mc3*/, 125000000/*clk-mc4*/,
-  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
-  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
-  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
-  "Chelsio T210 1x10GBaseX TOE" },
-
-{ CHBT_BOARD_CHT210, 1/*ports#*/,
-  SUPPORTED_10000baseT_Full /*caps*/, CHBT_TERM_T2,
-  CHBT_MAC_PM3393, CHBT_PHY_MY3126,
-  125000000/*clk-core*/, 133000000/*clk-mc3*/, 125000000/*clk-mc4*/,
-  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 1/*mdien*/,
-  1/*mdiinv*/, 1/*mdc*/, 1/*phybaseaddr*/, &t1_pm3393_ops,
-  &t1_my3126_ops, &mi1_mdio_ext_ops,
-  "Chelsio T210 1x10GBase-CX4 TOE" },
+	{
+		.board		= CHBT_BOARD_CHT210,
+		.port_number	= 1,
+		.caps		= SUPPORTED_10000baseT_Full,
+		.chip_term	= CHBT_TERM_T2,
+		.chip_mac	= CHBT_MAC_PM3393,
+		.chip_phy	= CHBT_PHY_MY3126,
+		.clock_core	= 125000000,
+		.clock_mc3	= 133000000,
+		.clock_mc4	= 125000000,
+		.espi_nports	= 1,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 1,
+		.mdio_mdiinv	= 1,
+		.mdio_mdc	= 1,
+		.mdio_phybaseaddr = 1,
+		.gmac		= &t1_pm3393_ops,
+		.gphy		= &t1_my3126_ops,
+		.mdio_ops	= &mi1_mdio_ext_ops,
+		.desc		= "Chelsio T210 1x10GBase-CX4 TOE",
+	},
 
 #ifdef CONFIG_CHELSIO_T1_1G
-{ CHBT_BOARD_CHN204, 4/*ports#*/,
-  SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Half |
-  SUPPORTED_100baseT_Full | SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
-  SUPPORTED_PAUSE | SUPPORTED_TP /*caps*/, CHBT_TERM_T2, CHBT_MAC_VSC7321, CHBT_PHY_88E1111,
-  100000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
-  4/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
-  0/*mdiinv*/, 1/*mdc*/, 4/*phybaseaddr*/, &t1_vsc7326_ops,
-  &t1_mv88e1xxx_ops, &mi1_mdio_ops,
-  "Chelsio N204 4x100/1000BaseT NIC" },
+	{
+		.board		= CHBT_BOARD_CHN204,
+		.port_number	= 4,
+		.caps		= SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full
+				| SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full
+				| SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
+				  SUPPORTED_PAUSE | SUPPORTED_TP,
+		.chip_term	= CHBT_TERM_T2,
+		.chip_mac	= CHBT_MAC_VSC7321,
+		.chip_phy	= CHBT_PHY_88E1111,
+		.clock_core	= 100000000,
+		.espi_nports	= 4,
+		.clock_elmer0	= 44,
+		.mdio_mdien	= 0,
+		.mdio_mdiinv	= 0,
+		.mdio_mdc	= 0,
+		.mdio_phybaseaddr = 4,
+		.gmac		= &t1_vsc7326_ops,
+		.gphy		= &t1_mv88e1xxx_ops,
+		.mdio_ops	= &mi1_mdio_ops,
+		.desc		= "Chelsio N204 4x100/1000BaseT NIC",
+	},
 #endif
 
 };
@@ -605,22 +677,23 @@ int t1_elmer0_ext_intr_handler(adapter_t *adapter)
 
 	switch (board_info(adapter)->board) {
 #ifdef CONFIG_CHELSIO_T1_1G
-        case CHBT_BOARD_CHT204:
-        case CHBT_BOARD_CHT204E:
-        case CHBT_BOARD_CHN204:
-        case CHBT_BOARD_CHT204V: {
-                int i, port_bit;
+	case CHBT_BOARD_CHT204:
+	case CHBT_BOARD_CHT204E:
+	case CHBT_BOARD_CHN204:
+	case CHBT_BOARD_CHT204V: {
+		int i, port_bit;
 		for_each_port(adapter, i) {
 			port_bit = i + 1;
-			if (!(cause & (1 << port_bit))) continue;
+			if (!(cause & (1 << port_bit)))
+				continue;
 
-	                phy = adapter->port[i].phy;
+			phy = adapter->port[i].phy;
 			phy_cause = phy->ops->interrupt_handler(phy);
 			if (phy_cause & cphy_cause_link_change)
 				t1_link_changed(adapter, i);
 		}
-                break;
-        }
+		break;
+	}
 	case CHBT_BOARD_CHT101:
 		if (cause & ELMER0_GP_BIT1) { /* Marvell 88E1111 interrupt */
 			phy = adapter->port[0].phy;
@@ -631,13 +704,13 @@ int t1_elmer0_ext_intr_handler(adapter_t *adapter)
 		break;
 	case CHBT_BOARD_7500: {
 		int p;
-    		/*
+		/*
 		 * Elmer0's interrupt cause isn't useful here because there is
 		 * only one bit that can be set for all 4 ports.  This means
 		 * we are forced to check every PHY's interrupt status
 		 * register to see who initiated the interrupt.
-     		 */
-    		for_each_port(adapter, p) {
+		 */
+		for_each_port(adapter, p) {
 			phy = adapter->port[p].phy;
 			phy_cause = phy->ops->interrupt_handler(phy);
 			if (phy_cause & cphy_cause_link_change)
@@ -658,7 +731,7 @@ int t1_elmer0_ext_intr_handler(adapter_t *adapter)
 		break;
 	case CHBT_BOARD_8000:
 	case CHBT_BOARD_CHT110:
-    		CH_DBG(adapter, INTR, "External interrupt cause 0x%x\n",
+		CH_DBG(adapter, INTR, "External interrupt cause 0x%x\n",
 		       cause);
 		if (cause & ELMER0_GP_BIT1) {        /* PMC3393 INTB */
 			struct cmac *mac = adapter->port[0].mac;
@@ -670,9 +743,9 @@ int t1_elmer0_ext_intr_handler(adapter_t *adapter)
 
 			t1_tpi_read(adapter,
 					A_ELMER0_GPI_STAT, &mod_detect);
-	    		CH_MSG(adapter, INFO, LINK, "XPAK %s\n",
+			CH_MSG(adapter, INFO, LINK, "XPAK %s\n",
 			       mod_detect ? "removed" : "inserted");
-    		}
+		}
 		break;
 #ifdef CONFIG_CHELSIO_T1_COUGAR
 	case CHBT_BOARD_COUGAR:
@@ -688,7 +761,8 @@ int t1_elmer0_ext_intr_handler(adapter_t *adapter)
 
 			for_each_port(adapter, i) {
 				port_bit = i ? i + 1 : 0;
-				if (!(cause & (1 << port_bit))) continue;
+				if (!(cause & (1 << port_bit)))
+					continue;
 
 				phy = adapter->port[i].phy;
 				phy_cause = phy->ops->interrupt_handler(phy);
@@ -755,7 +829,7 @@ void t1_interrupts_disable(adapter_t* adapter)
 
 	/* Disable PCIX & external chip interrupts. */
 	if (t1_is_asic(adapter))
-	    	writel(0, adapter->regs + A_PL_ENABLE);
+		writel(0, adapter->regs + A_PL_ENABLE);
 
 	/* PCI-X interrupts */
 	pci_write_config_dword(adapter->pdev, A_PCICFG_INTR_ENABLE, 0);
@@ -830,11 +904,11 @@ int t1_slow_intr_handler(adapter_t *adapter)
 /* Power sequencing is a work-around for Intel's XPAKs. */
 static void power_sequence_xpak(adapter_t* adapter)
 {
-    	u32 mod_detect;
-    	u32 gpo;
+	u32 mod_detect;
+	u32 gpo;
 
-    	/* Check for XPAK */
-    	t1_tpi_read(adapter, A_ELMER0_GPI_STAT, &mod_detect);
+	/* Check for XPAK */
+	t1_tpi_read(adapter, A_ELMER0_GPI_STAT, &mod_detect);
 	if (!(ELMER0_GP_BIT5 & mod_detect)) {
 		/* XPAK is present */
 		t1_tpi_read(adapter, A_ELMER0_GPO, &gpo);
@@ -877,31 +951,31 @@ static int board_init(adapter_t *adapter, const struct board_info *bi)
 	case CHBT_BOARD_N210:
 	case CHBT_BOARD_CHT210:
 	case CHBT_BOARD_COUGAR:
-    		t1_tpi_par(adapter, 0xf);
-    		t1_tpi_write(adapter, A_ELMER0_GPO, 0x800);
+		t1_tpi_par(adapter, 0xf);
+		t1_tpi_write(adapter, A_ELMER0_GPO, 0x800);
 		break;
 	case CHBT_BOARD_CHT110:
-    		t1_tpi_par(adapter, 0xf);
-    		t1_tpi_write(adapter, A_ELMER0_GPO, 0x1800);
+		t1_tpi_par(adapter, 0xf);
+		t1_tpi_write(adapter, A_ELMER0_GPO, 0x1800);
 
-    		/* TBD XXX Might not need.  This fixes a problem
-     		 *         described in the Intel SR XPAK errata.
-     		 */
-    		power_sequence_xpak(adapter);
+		/* TBD XXX Might not need.  This fixes a problem
+		 *         described in the Intel SR XPAK errata.
+		 */
+		power_sequence_xpak(adapter);
 		break;
 #ifdef CONFIG_CHELSIO_T1_1G
-    case CHBT_BOARD_CHT204E:
-		        /* add config space write here */
+	case CHBT_BOARD_CHT204E:
+		/* add config space write here */
 	case CHBT_BOARD_CHT204:
 	case CHBT_BOARD_CHT204V:
 	case CHBT_BOARD_CHN204:
-                t1_tpi_par(adapter, 0xf);
-                t1_tpi_write(adapter, A_ELMER0_GPO, 0x804);
-                break;
+		t1_tpi_par(adapter, 0xf);
+		t1_tpi_write(adapter, A_ELMER0_GPO, 0x804);
+		break;
 	case CHBT_BOARD_CHT101:
 	case CHBT_BOARD_7500:
-    		t1_tpi_par(adapter, 0xf);
-    		t1_tpi_write(adapter, A_ELMER0_GPO, 0x1804);
+		t1_tpi_par(adapter, 0xf);
+		t1_tpi_write(adapter, A_ELMER0_GPO, 0x1804);
 		break;
 #endif
 	}
@@ -941,7 +1015,7 @@ int t1_init_hw_modules(adapter_t *adapter)
 		goto out_err;
 
 	err = 0;
- out_err:
+out_err:
 	return err;
 }
 
@@ -983,7 +1057,7 @@ void t1_free_sw_modules(adapter_t *adapter)
 	if (adapter->espi)
 		t1_espi_destroy(adapter->espi);
 #ifdef CONFIG_CHELSIO_T1_COUGAR
-        if (adapter->cspi)
+	if (adapter->cspi)
 		t1_cspi_destroy(adapter->cspi);
 #endif
 }
@@ -1010,7 +1084,7 @@ static void __devinit init_link_config(struct link_config *lc,
 		CH_ERR("%s: CSPI initialization failed\n",
 		       adapter->name);
 		goto error;
-        }
+	}
 #endif
 
 /*

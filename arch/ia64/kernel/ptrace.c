@@ -608,7 +608,7 @@ find_thread_for_addr (struct task_struct *child, unsigned long addr)
 	 */
  	list_for_each_safe(this, next, &current->children) {
 		p = list_entry(this, struct task_struct, sibling);
-		if (p->mm != mm)
+		if (p->tgid != child->tgid)
 			continue;
 		if (thread_matches(p, addr)) {
 			child = p;
@@ -1406,6 +1406,7 @@ ptrace_disable (struct task_struct *child)
 	struct ia64_psr *child_psr = ia64_psr(task_pt_regs(child));
 
 	/* make sure the single step/taken-branch trap bits are not set: */
+	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
 	child_psr->ss = 0;
 	child_psr->tb = 0;
 }
@@ -1529,6 +1530,7 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
 		 * Make sure the single step/taken-branch trap bits
 		 * are not set:
 		 */
+		clear_tsk_thread_flag(child, TIF_SINGLESTEP);
 		ia64_psr(pt)->ss = 0;
 		ia64_psr(pt)->tb = 0;
 
@@ -1560,6 +1562,7 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
 			goto out_tsk;
 
 		clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
+		set_tsk_thread_flag(child, TIF_SINGLESTEP);
 		if (request == PTRACE_SINGLESTEP) {
 			ia64_psr(pt)->ss = 1;
 		} else {
@@ -1574,6 +1577,7 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
 
 	      case PTRACE_DETACH:
 		/* detach a process that was attached. */
+		clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
 		ret = ptrace_detach(child, data);
 		goto out_tsk;
 
@@ -1599,13 +1603,9 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
 }
 
 
-void
+static void
 syscall_trace (void)
 {
-	if (!test_thread_flag(TIF_SYSCALL_TRACE))
-		return;
-	if (!(current->ptrace & PT_PTRACED))
-		return;
 	/*
 	 * The 0x80 provides a way for the tracing parent to
 	 * distinguish between a syscall stop and SIGTRAP delivery.
@@ -1668,7 +1668,8 @@ syscall_trace_leave (long arg0, long arg1, long arg2, long arg3,
 		audit_syscall_exit(success, result);
 	}
 
-	if (test_thread_flag(TIF_SYSCALL_TRACE)
+	if ((test_thread_flag(TIF_SYSCALL_TRACE)
+	    || test_thread_flag(TIF_SINGLESTEP))
 	    && (current->ptrace & PT_PTRACED))
 		syscall_trace();
 }

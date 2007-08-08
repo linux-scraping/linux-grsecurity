@@ -11,8 +11,7 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/rtnetlink.h>
-#include <net/netlink.h>
+#include <net/rtnetlink.h>
 #include "br_private.h"
 
 static inline size_t br_nlmsg_size(void)
@@ -45,7 +44,7 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
 
 	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*hdr), flags);
 	if (nlh == NULL)
-		return -ENOBUFS;
+		return -EMSGSIZE;
 
 	hdr = nlmsg_data(nlh);
 	hdr->ifi_family = AF_BRIDGE;
@@ -72,7 +71,8 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
 	return nlmsg_end(skb, nlh);
 
 nla_put_failure:
-	return nlmsg_cancel(skb, nlh);
+	nlmsg_cancel(skb, nlh);
+	return -EMSGSIZE;
 }
 
 /*
@@ -89,9 +89,12 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
 		goto errout;
 
 	err = br_fill_ifinfo(skb, port, 0, 0, event, 0);
-	/* failure implies BUG in br_nlmsg_size() */
-	BUG_ON(err < 0);
-
+	if (err < 0) {
+		/* -EMSGSIZE implies BUG in br_nlmsg_size() */
+		WARN_ON(err == -EMSGSIZE);
+		kfree_skb(skb);
+		goto errout;
+	}
 	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
 errout:
 	if (err < 0)
@@ -106,8 +109,8 @@ static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 	struct net_device *dev;
 	int idx;
 
-	read_lock(&dev_base_lock);
-	for (dev = dev_base, idx = 0; dev; dev = dev->next) {
+	idx = 0;
+	for_each_netdev(dev) {
 		/* not a bridge port */
 		if (dev->br_port == NULL || idx < cb->args[0])
 			goto skip;
@@ -119,7 +122,6 @@ static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 skip:
 		++idx;
 	}
-	read_unlock(&dev_base_lock);
 
 	cb->args[0] = idx;
 
@@ -162,7 +164,7 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 		return -EINVAL;
 
 	/* if kernel STP is running, don't allow changes */
-	if (p->br->stp_enabled)
+	if (p->br->stp_enabled == BR_KERNEL_STP)
 		return -EBUSY;
 
 	if (!netif_running(dev) ||
@@ -175,18 +177,19 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 }
 
 
-static struct rtnetlink_link bridge_rtnetlink_table[RTM_NR_MSGTYPES] = {
-	[RTM_GETLINK - RTM_BASE] = { .dumpit	= br_dump_ifinfo, },
-	[RTM_SETLINK - RTM_BASE] = { .doit      = br_rtm_setlink, },
-};
-
-void __init br_netlink_init(void)
+int __init br_netlink_init(void)
 {
-	rtnetlink_links[PF_BRIDGE] = bridge_rtnetlink_table;
+	if (__rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, br_dump_ifinfo))
+		return -ENOBUFS;
+
+	/* Only the first call to __rtnl_register can fail */
+	__rtnl_register(PF_BRIDGE, RTM_SETLINK, br_rtm_setlink, NULL);
+
+	return 0;
 }
 
 void __exit br_netlink_fini(void)
 {
-	rtnetlink_links[PF_BRIDGE] = NULL;
+	rtnl_unregister_all(PF_BRIDGE);
 }
 

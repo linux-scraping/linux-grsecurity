@@ -22,7 +22,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/smp_lock.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <asm/uaccess.h>
@@ -269,7 +268,7 @@ static int idmouse_release(struct inode *inode, struct file *file)
 	/* prevent a race condition with open() */
 	mutex_lock(&disconnect_mutex);
 
-	dev = (struct usb_idmouse *) file->private_data;
+	dev = file->private_data;
 
 	if (dev == NULL) {
 		mutex_unlock(&disconnect_mutex);
@@ -304,17 +303,15 @@ static int idmouse_release(struct inode *inode, struct file *file)
 static ssize_t idmouse_read(struct file *file, char __user *buffer, size_t count,
 				loff_t * ppos)
 {
-	struct usb_idmouse *dev;
+	struct usb_idmouse *dev = file->private_data;
 	int result;
 
-	dev = (struct usb_idmouse *) file->private_data;
-
 	/* lock this object */
-	down (&dev->sem);
+	down(&dev->sem);
 
 	/* verify that the device wasn't unplugged */
 	if (!dev->present) {
-		up (&dev->sem);
+		up(&dev->sem);
 		return -ENODEV;
 	}
 

@@ -1,4 +1,3 @@
-//kernel/linux-omap-fsample/arch/arm/mach-omap1/pm.c#3 - integrate change 4545 (text)
 /*
  * linux/arch/arm/mach-omap1/pm.c
  *
@@ -72,12 +71,12 @@ static unsigned int mpui1610_sleep_save[MPUI1610_SLEEP_SAVE_SIZE];
 
 static unsigned short enable_dyn_sleep = 1;
 
-static ssize_t omap_pm_sleep_while_idle_show(struct subsystem * subsys, char *buf)
+static ssize_t omap_pm_sleep_while_idle_show(struct kset *kset, char *buf)
 {
 	return sprintf(buf, "%hu\n", enable_dyn_sleep);
 }
 
-static ssize_t omap_pm_sleep_while_idle_store(struct subsystem * subsys,
+static ssize_t omap_pm_sleep_while_idle_store(struct kset *kset,
 					      const char * buf,
 					      size_t n)
 {
@@ -100,7 +99,7 @@ static struct subsys_attribute sleep_while_idle_attr = {
 	.store  = omap_pm_sleep_while_idle_store,
 };
 
-extern struct subsystem power_subsys;
+extern struct kset power_subsys;
 static void (*omap_sram_idle)(void) = NULL;
 static void (*omap_sram_suspend)(unsigned long r0, unsigned long r1) = NULL;
 
@@ -256,7 +255,8 @@ void omap_pm_suspend(void)
 		tps65010_set_led(LED1, OFF);
 	}
 
-	omap_writew(0xffff, ULPD_SOFT_DISABLE_REQ_REG);
+	if (!cpu_is_omap15xx())
+		omap_writew(0xffff, ULPD_SOFT_DISABLE_REQ_REG);
 
 	/*
 	 * Step 1: turn off interrupts (FIXME: NOTE: already disabled)
@@ -376,7 +376,7 @@ void omap_pm_suspend(void)
 	 * Jump to assembly code. The processor will stay there
 	 * until wake up.
 	 */
-        omap_sram_suspend(arg0, arg1);
+	omap_sram_suspend(arg0, arg1);
 
 	/*
 	 * If we are here, processor is woken up!
@@ -434,10 +434,11 @@ void omap_pm_suspend(void)
 		MPUI1610_RESTORE(OMAP_IH2_3_MIR);
 	}
 
-	omap_writew(0, ULPD_SOFT_DISABLE_REQ_REG);
+	if (!cpu_is_omap15xx())
+		omap_writew(0, ULPD_SOFT_DISABLE_REQ_REG);
 
 	/*
-	 * Reenable interrupts
+	 * Re-enable interrupts
 	 */
 
 	local_irq_enable();
@@ -629,10 +630,6 @@ static int omap_pm_prepare(suspend_state_t state)
 	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
 		break;
-
-	case PM_SUSPEND_DISK:
-		return -ENOTSUPP;
-
 	default:
 		return -EINVAL;
 	}
@@ -655,10 +652,6 @@ static int omap_pm_enter(suspend_state_t state)
 	case PM_SUSPEND_MEM:
 		omap_pm_suspend();
 		break;
-
-	case PM_SUSPEND_DISK:
-		return -ENOTSUPP;
-
 	default:
 		return -EINVAL;
 	}
@@ -696,14 +689,16 @@ static struct irqaction omap_wakeup_irq = {
 
 
 static struct pm_ops omap_pm_ops ={
-	.pm_disk_mode	= 0,
 	.prepare	= omap_pm_prepare,
 	.enter		= omap_pm_enter,
 	.finish		= omap_pm_finish,
+	.valid		= pm_valid_only_mem,
 };
 
 static int __init omap_pm_init(void)
 {
+	int error;
+
 	printk("Power Management for TI OMAP.\n");
 
 	/*
@@ -760,7 +755,9 @@ static int __init omap_pm_init(void)
 	omap_pm_init_proc();
 #endif
 
-	subsys_create_file(&power_subsys, &sleep_while_idle_attr);
+	error = subsys_create_file(&power_subsys, &sleep_while_idle_attr);
+	if (error)
+		printk(KERN_ERR "subsys_create_file failed: %d\n", error);
 
 	if (cpu_is_omap16xx()) {
 		/* configure LOW_PWR pin */

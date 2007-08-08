@@ -37,8 +37,6 @@
 #include <asm/pci-bridge.h>
 #endif
 
-#define PDC202_DEBUG_CABLE	0
-
 #undef DEBUG
 
 #ifdef DEBUG
@@ -82,36 +80,6 @@ static u8 max_dma_rate(struct pci_dev *pdev)
 	return mode;
 }
 
-static u8 pdcnew_ratemask(ide_drive_t *drive)
-{
-	u8 mode = max_dma_rate(HWIF(drive)->pci_dev);
-
-	if (!eighty_ninty_three(drive))
-		mode = min_t(u8, mode, 1);
-
-	return	mode;
-}
-
-static int check_in_drive_lists(ide_drive_t *drive, const char **list)
-{
-	struct hd_driveid *id = drive->id;
-
-	if (pdc_quirk_drives == list) {
-		while (*list) {
-			if (strstr(id->model, *list++)) {
-				return 2;
-			}
-		}
-	} else {
-		while (*list) {
-			if (!strcmp(*list++,id->model)) {
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
 /**
  * get_indexed_reg - Get indexed register
  * @hwif: for the port address
@@ -121,8 +89,8 @@ static u8 get_indexed_reg(ide_hwif_t *hwif, u8 index)
 {
 	u8 value;
 
-	hwif->OUTB(index, hwif->dma_vendor1);
-	value = hwif->INB(hwif->dma_vendor3);
+	outb(index, hwif->dma_vendor1);
+	value = inb(hwif->dma_vendor3);
 
 	DBG("index[%02X] value[%02X]\n", index, value);
 	return value;
@@ -135,8 +103,8 @@ static u8 get_indexed_reg(ide_hwif_t *hwif, u8 index)
  */
 static void set_indexed_reg(ide_hwif_t *hwif, u8 index, u8 value)
 {
-	hwif->OUTB(index, hwif->dma_vendor1);
-	hwif->OUTB(value, hwif->dma_vendor3);
+	outb(index, hwif->dma_vendor1);
+	outb(value, hwif->dma_vendor3);
 	DBG("index[%02X] value[%02X]\n", index, value);
 }
 
@@ -184,7 +152,7 @@ static int pdcnew_tune_chipset(ide_drive_t *drive, u8 speed)
 	u8 adj			= (drive->dn & 1) ? 0x08 : 0x00;
 	int			err;
 
-	speed = ide_rate_filter(pdcnew_ratemask(drive), speed);
+	speed = ide_rate_filter(drive, speed);
 
 	/*
 	 * Issue SETFEATURES_XFER to the drive first. PDC202xx hardware will
@@ -249,13 +217,6 @@ static int pdcnew_tune_chipset(ide_drive_t *drive, u8 speed)
 	return err;
 }
 
-/*   0    1    2    3    4    5    6   7   8
- * 960, 480, 390, 300, 240, 180, 120, 90, 60
- *           180, 150, 120,  90,  60
- * DMA_Speed
- * 180, 120,  90,  90,  90,  60,  30
- *  11,   5,   4,   3,   2,   1,   0
- */
 static void pdcnew_tune_drive(ide_drive_t *drive, u8 pio)
 {
 	pio = ide_get_best_pio_mode(drive, pio, 4, NULL);
@@ -267,87 +228,27 @@ static u8 pdcnew_cable_detect(ide_hwif_t *hwif)
 	return get_indexed_reg(hwif, 0x0b) & 0x04;
 }
 
-static int config_chipset_for_dma(ide_drive_t *drive)
-{
-	struct hd_driveid *id	= drive->id;
-	ide_hwif_t *hwif	= HWIF(drive);
-	u8 ultra_66		= (id->dma_ultra & 0x0078) ? 1 : 0;
-	u8 cable		= pdcnew_cable_detect(hwif);
-	u8 speed;
-
-	if (ultra_66 && cable) {
-		printk(KERN_WARNING "Warning: %s channel "
-		       "requires an 80-pin cable for operation.\n",
-		       hwif->channel ? "Secondary" : "Primary");
-		printk(KERN_WARNING "%s reduced to Ultra33 mode.\n", drive->name);
-	}
-
-	if (drive->media != ide_disk)
-		return 0;
-
-	if (id->capability & 4) {
-		/*
-		 * Set IORDY_EN & PREFETCH_EN (this seems to have
-		 * NO real effect since this register is reloaded
-		 * by hardware when the transfer mode is selected)
-		 */
-		u8 tmp, adj = (drive->dn & 1) ? 0x08 : 0x00;
-
-		tmp = get_indexed_reg(hwif, 0x13 + adj);
-		set_indexed_reg(hwif, 0x13 + adj, tmp | 0x03);
-	}
-
-	speed = ide_dma_speed(drive, pdcnew_ratemask(drive));
-
-	if (!speed)
-		return 0;
-
-	(void) hwif->speedproc(drive, speed);
-	return ide_dma_enable(drive);
-}
-
 static int pdcnew_config_drive_xfer_rate(ide_drive_t *drive)
 {
-	ide_hwif_t *hwif	= HWIF(drive);
-	struct hd_driveid *id	= drive->id;
-
 	drive->init_speed = 0;
 
-	if (id && (id->capability & 1) && drive->autodma) {
+	if (ide_tune_dma(drive))
+		return 0;
 
-		if (ide_use_dma(drive)) {
-			if (config_chipset_for_dma(drive))
-				return hwif->ide_dma_on(drive);
-		}
+	if (ide_use_fast_pio(drive))
+		pdcnew_tune_drive(drive, 255);
 
-		goto fast_ata_pio;
-
-	} else if ((id->capability & 8) || (id->field_valid & 2)) {
-fast_ata_pio:
-		hwif->tuneproc(drive, 255);
-		return hwif->ide_dma_off_quietly(drive);
-	}
-	/* IORDY not supported */
-	return 0;
+	return -1;
 }
 
 static int pdcnew_quirkproc(ide_drive_t *drive)
 {
-	return check_in_drive_lists(drive, pdc_quirk_drives);
-}
+	const char **list, *model = drive->id->model;
 
-static int pdcnew_ide_dma_lostirq(ide_drive_t *drive)
-{
-	if (HWIF(drive)->resetproc != NULL)
-		HWIF(drive)->resetproc(drive);
-	return __ide_dma_lostirq(drive);
-}
-
-static int pdcnew_ide_dma_timeout(ide_drive_t *drive)
-{
-	if (HWIF(drive)->resetproc != NULL)
-		HWIF(drive)->resetproc(drive);
-	return __ide_dma_timeout(drive);
+	for (list = pdc_quirk_drives; *list != NULL; list++)
+		if (strstr(model, *list) != NULL)
+			return 2;
+	return 0;
 }
 
 static void pdcnew_reset(ide_drive_t *drive)
@@ -405,11 +306,13 @@ static long __devinit read_counter(u32 dma_base)
  */
 static long __devinit detect_pll_input_clock(unsigned long dma_base)
 {
+	struct timeval start_time, end_time;
 	long start_count, end_count;
-	long pll_input;
+	long pll_input, usec_elapsed;
 	u8 scr1;
 
 	start_count = read_counter(dma_base);
+	do_gettimeofday(&start_time);
 
 	/* Start the test mode */
 	outb(0x01, dma_base + 0x01);
@@ -421,6 +324,7 @@ static long __devinit detect_pll_input_clock(unsigned long dma_base)
 	mdelay(10);
 
 	end_count = read_counter(dma_base);
+	do_gettimeofday(&end_time);
 
 	/* Stop the test mode */
 	outb(0x01, dma_base + 0x01);
@@ -432,7 +336,10 @@ static long __devinit detect_pll_input_clock(unsigned long dma_base)
 	 * Calculate the input clock in Hz
 	 * (the clock counter is 30 bit wide and counts down)
 	 */
-	pll_input = ((start_count - end_count) & 0x3ffffff) * 100;
+	usec_elapsed = (end_time.tv_sec - start_time.tv_sec) * 1000000 +
+		(end_time.tv_usec - start_time.tv_usec);
+	pll_input = ((start_count - end_count) & 0x3ffffff) / 10 *
+		(10000000 / usec_elapsed);
 
 	DBG("start[%ld] end[%ld]\n", start_count, end_count);
 
@@ -446,7 +353,7 @@ static void __devinit apple_kiwi_init(struct pci_dev *pdev)
 	unsigned int class_rev = 0;
 	u8 conf;
 
-	if (np == NULL || !device_is_compatible(np, "kiwi-root"))
+	if (np == NULL || !of_device_is_compatible(np, "kiwi-root"))
 		return;
 
 	pci_read_config_dword(pdev, PCI_CLASS_REVISION, &class_rev);
@@ -593,14 +500,14 @@ static void __devinit init_hwif_pdc202new(ide_hwif_t *hwif)
 
 	hwif->drives[0].autotune = hwif->drives[1].autotune = 1;
 
-	hwif->ultra_mask = 0x7f;
+	hwif->atapi_dma  = 1;
+
+	hwif->ultra_mask = hwif->cds->udma_mask;
 	hwif->mwdma_mask = 0x07;
 
 	hwif->err_stops_fifo = 1;
 
 	hwif->ide_dma_check = &pdcnew_config_drive_xfer_rate;
-	hwif->ide_dma_lostirq = &pdcnew_ide_dma_lostirq;
-	hwif->ide_dma_timeout = &pdcnew_ide_dma_timeout;
 
 	if (!hwif->udma_four)
 		hwif->udma_four = pdcnew_cable_detect(hwif) ? 0 : 1;
@@ -608,11 +515,6 @@ static void __devinit init_hwif_pdc202new(ide_hwif_t *hwif)
 	if (!noautodma)
 		hwif->autodma = 1;
 	hwif->drives[0].autodma = hwif->drives[1].autodma = hwif->autodma;
-
-#if PDC202_DEBUG_CABLE
-	printk(KERN_DEBUG "%s: %s-pin cable\n",
-		hwif->name, hwif->udma_four ? "80" : "40");
-#endif /* PDC202_DEBUG_CABLE */
 }
 
 static int __devinit init_setup_pdcnew(struct pci_dev *dev, ide_pci_device_t *d)
@@ -671,6 +573,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x3f, /* udma0-5 */
 	},{	/* 1 */
 		.name		= "PDC20269",
 		.init_setup	= init_setup_pdcnew,
@@ -679,6 +582,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x7f, /* udma0-6*/
 	},{	/* 2 */
 		.name		= "PDC20270",
 		.init_setup	= init_setup_pdc20270,
@@ -687,6 +591,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x3f, /* udma0-5 */
 	},{	/* 3 */
 		.name		= "PDC20271",
 		.init_setup	= init_setup_pdcnew,
@@ -695,6 +600,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x7f, /* udma0-6*/
 	},{	/* 4 */
 		.name		= "PDC20275",
 		.init_setup	= init_setup_pdcnew,
@@ -703,6 +609,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x7f, /* udma0-6*/
 	},{	/* 5 */
 		.name		= "PDC20276",
 		.init_setup	= init_setup_pdc20276,
@@ -711,6 +618,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x7f, /* udma0-6*/
 	},{	/* 6 */
 		.name		= "PDC20277",
 		.init_setup	= init_setup_pdcnew,
@@ -719,6 +627,7 @@ static ide_pci_device_t pdcnew_chipsets[] __devinitdata = {
 		.channels	= 2,
 		.autodma	= AUTODMA,
 		.bootable	= OFF_BOARD,
+		.udma_mask	= 0x7f, /* udma0-6*/
 	}
 };
 

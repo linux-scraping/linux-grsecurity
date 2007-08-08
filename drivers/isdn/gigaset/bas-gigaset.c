@@ -54,7 +54,7 @@ MODULE_PARM_DESC(cidmode, "Call-ID mode");
 #define USB_SX353_PRODUCT_ID    0x0022
 
 /* table of devices that work with this driver */
-static struct usb_device_id gigaset_table [] = {
+static const struct usb_device_id gigaset_table [] = {
 	{ USB_DEVICE(USB_GIGA_VENDOR_ID, USB_3070_PRODUCT_ID) },
 	{ USB_DEVICE(USB_GIGA_VENDOR_ID, USB_3075_PRODUCT_ID) },
 	{ USB_DEVICE(USB_GIGA_VENDOR_ID, USB_SX303_PRODUCT_ID) },
@@ -257,10 +257,10 @@ static inline void dump_urb(enum debuglevel level, const char *tag,
 			urb->transfer_flags);
 		gig_dbg(level,
 			"  transfer_buffer=0x%08lx[%d], actual_length=%d, "
-			"bandwidth=%d, setup_packet=0x%08lx,",
+			"setup_packet=0x%08lx,",
 			(unsigned long) urb->transfer_buffer,
 			urb->transfer_buffer_length, urb->actual_length,
-			urb->bandwidth, (unsigned long) urb->setup_packet);
+			(unsigned long) urb->setup_packet);
 		gig_dbg(level,
 			"  start_frame=%d, number_of_packets=%d, interval=%d, "
 			"error_count=%d,",
@@ -2305,7 +2305,7 @@ static void gigaset_disconnect(struct usb_interface *interface)
 	gigaset_unassign(cs);
 }
 
-static struct gigaset_ops gigops = {
+static const struct gigaset_ops gigops = {
 	gigaset_write_cmd,
 	gigaset_write_room,
 	gigaset_chars_in_buffer,

@@ -2,7 +2,7 @@
  * $Id: hid-input.c,v 1.2 2002/04/23 00:59:25 rdamazio Exp $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik
- *  Copyright (c) 2006 Jiri Kosina
+ *  Copyright (c) 2006-2007 Jiri Kosina
  *
  *  HID to Linux Input mapping
  */
@@ -31,9 +31,8 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 
-#undef DEBUG
-
 #include <linux/hid.h>
+#include <linux/hid-debug.h>
 
 static int hid_pb_fnmode = 1;
 module_param_named(pb_fnmode, hid_pb_fnmode, int, 0644);
@@ -72,7 +71,6 @@ static const struct {
 #define map_led(c)	do { usage->code = c; usage->type = EV_LED; bit = input->ledbit; max = LED_MAX; } while (0)
 
 #define map_abs_clear(c)	do { map_abs(c); clear_bit(c, bit); } while (0)
-#define map_rel_clear(c)	do { map_rel(c); clear_bit(c, bit); } while (0)
 #define map_key_clear(c)	do { map_key(c); clear_bit(c, bit); } while (0)
 
 #ifdef CONFIG_USB_HIDINPUT_POWERBOOK
@@ -242,19 +240,102 @@ static inline void hidinput_pb_setup(struct input_dev *input)
 }
 #endif
 
+static inline int match_scancode(int code, int scancode)
+{
+	if (scancode == 0)
+		return 1;
+	return ((code & (HID_USAGE_PAGE | HID_USAGE)) == scancode);
+}
+
+static inline int match_keycode(int code, int keycode)
+{
+	if (keycode == 0)
+		return 1;
+	return (code == keycode);
+}
+
+static struct hid_usage *hidinput_find_key(struct hid_device *hid,
+		int scancode, int keycode)
+{
+	int i, j, k;
+	struct hid_report *report;
+	struct hid_usage *usage;
+
+	for (k = HID_INPUT_REPORT; k <= HID_OUTPUT_REPORT; k++) {
+		list_for_each_entry(report, &hid->report_enum[k].report_list, list) {
+			for (i = 0; i < report->maxfield; i++) {
+				for ( j = 0; j < report->field[i]->maxusage; j++) {
+					usage = report->field[i]->usage + j;
+					if (usage->type == EV_KEY &&
+						match_scancode(usage->hid, scancode) &&
+						match_keycode(usage->code, keycode))
+						return usage;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
+static int hidinput_getkeycode(struct input_dev *dev, int scancode,
+				int *keycode)
+{
+	struct hid_device *hid = dev->private;
+	struct hid_usage *usage;
+	
+	usage = hidinput_find_key(hid, scancode, 0);
+	if (usage) {
+		*keycode = usage->code;
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int hidinput_setkeycode(struct input_dev *dev, int scancode,
+				int keycode)
+{
+	struct hid_device *hid = dev->private;
+	struct hid_usage *usage;
+	int old_keycode;
+	
+	if (keycode < 0 || keycode > KEY_MAX)
+		return -EINVAL;
+	
+	usage = hidinput_find_key(hid, scancode, 0);
+	if (usage) {
+		old_keycode = usage->code;
+		usage->code = keycode;
+		
+		clear_bit(old_keycode, dev->keybit);
+		set_bit(usage->code, dev->keybit);
+#ifdef CONFIG_HID_DEBUG
+		printk (KERN_DEBUG "Assigned keycode %d to HID usage code %x\n", keycode, scancode);
+#endif
+		/* Set the keybit for the old keycode if the old keycode is used
+		 * by another key */
+		if (hidinput_find_key (hid, 0, old_keycode))
+			set_bit(old_keycode, dev->keybit);
+		
+		return 0;
+	}
+	
+	return -EINVAL;
+}
+
+
 static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_field *field,
 				     struct hid_usage *usage)
 {
 	struct input_dev *input = hidinput->input;
-	struct hid_device *device = input->private;
+	struct hid_device *device = input_get_drvdata(input);
 	int max = 0, code;
 	unsigned long *bit = NULL;
 
 	field->hidinput = hidinput;
 
-#ifdef DEBUG
+#ifdef CONFIG_HID_DEBUG
 	printk(KERN_DEBUG "Mapping: ");
-	resolv_usage(usage->hid);
+	hid_resolv_usage(usage->hid);
 	printk(" ---> ");
 #endif
 
@@ -297,7 +378,7 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 					}
 			}
 
-			map_key_clear(code);
+			map_key(code);
 			break;
 
 
@@ -348,9 +429,9 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 				case HID_GD_RX: case HID_GD_RY: case HID_GD_RZ:
 				case HID_GD_SLIDER: case HID_GD_DIAL: case HID_GD_WHEEL:
 					if (field->flags & HID_MAIN_ITEM_RELATIVE)
-						map_rel_clear(usage->hid & 0xf);
+						map_rel(usage->hid & 0xf);
 					else
-						map_abs_clear(usage->hid & 0xf);
+						map_abs(usage->hid & 0xf);
 					break;
 
 				case HID_GD_HATSWITCH:
@@ -433,6 +514,15 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 				case 0x000: goto ignore;
 				case 0x034: map_key_clear(KEY_SLEEP);		break;
 				case 0x036: map_key_clear(BTN_MISC);		break;
+				/*
+				 * The next three are reported by Belkin wireless
+				 * keyboard (1020:0006). These values are "reserved"
+				 * in HUT 1.12.
+				 */
+				case 0x03a: map_key_clear(KEY_SOUND);           break;
+				case 0x03b: map_key_clear(KEY_CAMERA);          break;
+				case 0x03c: map_key_clear(KEY_DOCUMENTS);       break;
+
 				case 0x040: map_key_clear(KEY_MENU);		break;
 				case 0x045: map_key_clear(KEY_RADIO);		break;
 
@@ -520,7 +610,7 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 				case 0x22f: map_key_clear(KEY_ZOOMRESET);	break;
 				case 0x233: map_key_clear(KEY_SCROLLUP);	break;
 				case 0x234: map_key_clear(KEY_SCROLLDOWN);	break;
-				case 0x238: map_rel_clear(REL_HWHEEL);		break;
+				case 0x238: map_rel(REL_HWHEEL);		break;
 				case 0x25f: map_key_clear(KEY_CANCEL);		break;
 				case 0x279: map_key_clear(KEY_REDO);		break;
 
@@ -532,6 +622,46 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 				case 0x301: map_key_clear(KEY_PROG1);		break;
 				case 0x302: map_key_clear(KEY_PROG2);		break;
 				case 0x303: map_key_clear(KEY_PROG3);		break;
+
+				/* Reported on certain Logitech wireless keyboards */
+				case 0x1001: map_key_clear(KEY_MESSENGER);	break;
+				case 0x1003: map_key_clear(KEY_SOUND);		break;
+				case 0x1004: map_key_clear(KEY_VIDEO);		break;
+				case 0x1005: map_key_clear(KEY_AUDIO);		break;
+				case 0x100a: map_key_clear(KEY_DOCUMENTS);	break;
+				case 0x1011: map_key_clear(KEY_PREVIOUSSONG);	break;
+				case 0x1012: map_key_clear(KEY_NEXTSONG);	break;
+				case 0x1013: map_key_clear(KEY_CAMERA);		break;
+				case 0x1014: map_key_clear(KEY_MESSENGER);	break;
+				case 0x1015: map_key_clear(KEY_RECORD);		break;
+				case 0x1016: map_key_clear(KEY_PLAYER);		break;
+				case 0x1017: map_key_clear(KEY_EJECTCD);	break;
+				case 0x1018: map_key_clear(KEY_MEDIA);          break;
+				case 0x1019: map_key_clear(KEY_PROG1);		break;
+				case 0x101a: map_key_clear(KEY_PROG2);		break;
+				case 0x101b: map_key_clear(KEY_PROG3);		break;
+				case 0x101f: map_key_clear(KEY_ZOOMIN);		break;
+				case 0x1020: map_key_clear(KEY_ZOOMOUT);	break;
+				case 0x1021: map_key_clear(KEY_ZOOMRESET);	break;
+				case 0x1023: map_key_clear(KEY_CLOSE);		break;
+				case 0x1027: map_key_clear(KEY_MENU);           break;
+				/* this one is marked as 'Rotate' */
+				case 0x1028: map_key_clear(KEY_ANGLE);		break;
+				case 0x1029: map_key_clear(KEY_SHUFFLE);	break;
+				case 0x102a: map_key_clear(KEY_BACK);           break;
+				case 0x102b: map_key_clear(KEY_CYCLEWINDOWS);   break;
+				case 0x1041: map_key_clear(KEY_BATTERY);	break;
+				case 0x1042: map_key_clear(KEY_WORDPROCESSOR);	break;
+				case 0x1043: map_key_clear(KEY_SPREADSHEET);	break;
+				case 0x1044: map_key_clear(KEY_PRESENTATION);	break;
+				case 0x1045: map_key_clear(KEY_UNDO);		break;
+				case 0x1046: map_key_clear(KEY_REDO);		break;
+				case 0x1047: map_key_clear(KEY_PRINT);		break;
+				case 0x1048: map_key_clear(KEY_SAVE);		break;
+				case 0x1049: map_key_clear(KEY_PROG1);		break;
+				case 0x104a: map_key_clear(KEY_PROG2);		break;
+				case 0x104b: map_key_clear(KEY_PROG3);		break;
+				case 0x104c: map_key_clear(KEY_PROG4);		break;
 
 				default:    goto ignore;
 			}
@@ -648,6 +778,12 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 
 	set_bit(usage->type, input->evbit);
 
+	if (device->quirks & HID_QUIRK_DUPLICATE_USAGES &&
+			(usage->type == EV_KEY ||
+			 usage->type == EV_REL ||
+			 usage->type == EV_ABS))
+		clear_bit(usage->code, bit);
+
 	while (usage->code <= max && test_and_set_bit(usage->code, bit))
 		usage->code = find_next_zero_bit(bit, max + 1, usage->code);
 
@@ -682,14 +818,14 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 			field->dpad = usage->code;
 	}
 
-#ifdef DEBUG
-	resolv_event(usage->type, usage->code);
+	hid_resolv_event(usage->type, usage->code);
+#ifdef CONFIG_HID_DEBUG
 	printk("\n");
 #endif
 	return;
 
 ignore:
-#ifdef DEBUG
+#ifdef CONFIG_HID_DEBUG
 	printk("IGNORED\n");
 #endif
 	return;
@@ -804,6 +940,20 @@ int hidinput_find_field(struct hid_device *hid, unsigned int type, unsigned int 
 }
 EXPORT_SYMBOL_GPL(hidinput_find_field);
 
+static int hidinput_open(struct input_dev *dev)
+{
+	struct hid_device *hid = input_get_drvdata(dev);
+
+	return hid->hid_open(hid);
+}
+
+static void hidinput_close(struct input_dev *dev)
+{
+	struct hid_device *hid = input_get_drvdata(dev);
+
+	hid->hid_close(hid);
+}
+
 /*
  * Register the input device; print a message.
  * Configure the input layer interface
@@ -816,6 +966,7 @@ int hidinput_connect(struct hid_device *hid)
 	struct hid_input *hidinput = NULL;
 	struct input_dev *input_dev;
 	int i, j, k;
+	int max_report_type = HID_OUTPUT_REPORT;
 
 	INIT_LIST_HEAD(&hid->inputs);
 
@@ -828,7 +979,10 @@ int hidinput_connect(struct hid_device *hid)
 	if (i == hid->maxcollection)
 		return -1;
 
-	for (k = HID_INPUT_REPORT; k <= HID_OUTPUT_REPORT; k++)
+	if (hid->quirks & HID_QUIRK_SKIP_OUTPUT_REPORTS)
+		max_report_type = HID_INPUT_REPORT;
+
+	for (k = HID_INPUT_REPORT; k <= max_report_type; k++)
 		list_for_each_entry(report, &hid->report_enum[k].report_list, list) {
 
 			if (!report->maxfield)
@@ -844,10 +998,12 @@ int hidinput_connect(struct hid_device *hid)
 					return -1;
 				}
 
-				input_dev->private = hid;
+				input_set_drvdata(input_dev, hid);
 				input_dev->event = hid->hidinput_input_event;
-				input_dev->open = hid->hidinput_open;
-				input_dev->close = hid->hidinput_close;
+				input_dev->open = hidinput_open;
+				input_dev->close = hidinput_close;
+				input_dev->setkeycode = hidinput_setkeycode;
+				input_dev->getkeycode = hidinput_getkeycode;
 
 				input_dev->name = hid->name;
 				input_dev->phys = hid->phys;
@@ -856,7 +1012,7 @@ int hidinput_connect(struct hid_device *hid)
 				input_dev->id.vendor  = hid->vendor;
 				input_dev->id.product = hid->product;
 				input_dev->id.version = hid->version;
-				input_dev->cdev.dev = hid->dev;
+				input_dev->dev.parent = hid->dev;
 				hidinput->input = input_dev;
 				list_add_tail(&hidinput->list, &hid->inputs);
 			}

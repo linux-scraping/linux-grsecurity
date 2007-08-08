@@ -34,16 +34,16 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
-#include <linux/sched.h>
 #include <linux/device.h>
 #include <scsi/scsi_host.h>
-#include <asm/io.h>
 #include <linux/libata.h>
 
 #define DRV_NAME	"sata_qstor"
-#define DRV_VERSION	"0.06"
+#define DRV_VERSION	"0.08"
 
 enum {
+	QS_MMIO_BAR		= 4,
+
 	QS_PORTS		= 4,
 	QS_MAX_PRD		= LIBATA_MAX_PRD,
 	QS_CPB_ORDER		= 6,
@@ -114,10 +114,8 @@ struct qs_port_priv {
 static u32 qs_scr_read (struct ata_port *ap, unsigned int sc_reg);
 static void qs_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val);
 static int qs_ata_init_one (struct pci_dev *pdev, const struct pci_device_id *ent);
-static irqreturn_t qs_intr (int irq, void *dev_instance);
 static int qs_port_start(struct ata_port *ap);
 static void qs_host_stop(struct ata_host *host);
-static void qs_port_stop(struct ata_port *ap);
 static void qs_phy_reset(struct ata_port *ap);
 static void qs_qc_prep(struct ata_queued_cmd *qc);
 static unsigned int qs_qc_issue(struct ata_queued_cmd *qc);
@@ -157,14 +155,14 @@ static const struct ata_port_operations qs_ata_ops = {
 	.phy_reset		= qs_phy_reset,
 	.qc_prep		= qs_qc_prep,
 	.qc_issue		= qs_qc_issue,
-	.data_xfer		= ata_mmio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 	.eng_timeout		= qs_eng_timeout,
-	.irq_handler		= qs_intr,
 	.irq_clear		= qs_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 	.scr_read		= qs_scr_read,
 	.scr_write		= qs_scr_write,
 	.port_start		= qs_port_start,
-	.port_stop		= qs_port_stop,
 	.host_stop		= qs_host_stop,
 	.bmdma_stop		= qs_bmdma_stop,
 	.bmdma_status		= qs_bmdma_status,
@@ -173,7 +171,6 @@ static const struct ata_port_operations qs_ata_ops = {
 static const struct ata_port_info qs_port_info[] = {
 	/* board_2068_idx */
 	{
-		.sht		= &qs_ata_sht,
 		.flags		= ATA_FLAG_SATA | ATA_FLAG_NO_LEGACY |
 				  ATA_FLAG_SATA_RESET |
 				  //FIXME ATA_FLAG_SRST |
@@ -197,6 +194,11 @@ static struct pci_driver qs_ata_pci_driver = {
 	.remove			= ata_pci_remove_one,
 };
 
+static void __iomem *qs_mmio_base(struct ata_host *host)
+{
+	return host->iomap[QS_MMIO_BAR];
+}
+
 static int qs_check_atapi_dma(struct ata_queued_cmd *qc)
 {
 	return 1;	/* ATAPI DMA not supported */
@@ -219,7 +221,7 @@ static void qs_irq_clear(struct ata_port *ap)
 
 static inline void qs_enter_reg_mode(struct ata_port *ap)
 {
-	u8 __iomem *chan = ap->host->mmio_base + (ap->port_no * 0x4000);
+	u8 __iomem *chan = qs_mmio_base(ap->host) + (ap->port_no * 0x4000);
 
 	writeb(QS_CTR0_REG, chan + QS_CCT_CTR0);
 	readb(chan + QS_CCT_CTR0);        /* flush */
@@ -227,7 +229,7 @@ static inline void qs_enter_reg_mode(struct ata_port *ap)
 
 static inline void qs_reset_channel_logic(struct ata_port *ap)
 {
-	u8 __iomem *chan = ap->host->mmio_base + (ap->port_no * 0x4000);
+	u8 __iomem *chan = qs_mmio_base(ap->host) + (ap->port_no * 0x4000);
 
 	writeb(QS_CTR1_RCHN, chan + QS_CCT_CTR1);
 	readb(chan + QS_CCT_CTR0);        /* flush */
@@ -257,14 +259,14 @@ static u32 qs_scr_read (struct ata_port *ap, unsigned int sc_reg)
 {
 	if (sc_reg > SCR_CONTROL)
 		return ~0U;
-	return readl((void __iomem *)(ap->ioaddr.scr_addr + (sc_reg * 8)));
+	return readl(ap->ioaddr.scr_addr + (sc_reg * 8));
 }
 
 static void qs_scr_write (struct ata_port *ap, unsigned int sc_reg, u32 val)
 {
 	if (sc_reg > SCR_CONTROL)
 		return;
-	writel(val, (void __iomem *)(ap->ioaddr.scr_addr + (sc_reg * 8)));
+	writel(val, ap->ioaddr.scr_addr + (sc_reg * 8));
 }
 
 static unsigned int qs_fill_sg(struct ata_queued_cmd *qc)
@@ -325,7 +327,7 @@ static void qs_qc_prep(struct ata_queued_cmd *qc)
 	/* host control block (HCB) */
 	buf[ 0] = QS_HCB_HDR;
 	buf[ 1] = hflags;
-	*(__le32 *)(&buf[ 4]) = cpu_to_le32(qc->nsect * ATA_SECT_SIZE);
+	*(__le32 *)(&buf[ 4]) = cpu_to_le32(qc->nbytes);
 	*(__le32 *)(&buf[ 8]) = cpu_to_le32(nelem);
 	addr = ((u64)pp->pkt_dma) + QS_CPB_BYTES;
 	*(__le64 *)(&buf[16]) = cpu_to_le64(addr);
@@ -341,7 +343,7 @@ static void qs_qc_prep(struct ata_queued_cmd *qc)
 static inline void qs_packet_start(struct ata_queued_cmd *qc)
 {
 	struct ata_port *ap = qc->ap;
-	u8 __iomem *chan = ap->host->mmio_base + (ap->port_no * 0x4000);
+	u8 __iomem *chan = qs_mmio_base(ap->host) + (ap->port_no * 0x4000);
 
 	VPRINTK("ENTER, ap %p\n", ap);
 
@@ -378,7 +380,7 @@ static inline unsigned int qs_intr_pkt(struct ata_host *host)
 {
 	unsigned int handled = 0;
 	u8 sFFE;
-	u8 __iomem *mmio_base = host->mmio_base;
+	u8 __iomem *mmio_base = qs_mmio_base(host);
 
 	do {
 		u32 sff0 = readl(mmio_base + QS_HST_SFF);
@@ -441,7 +443,7 @@ static inline unsigned int qs_intr_mmio(struct ata_host *host)
 				if ((status & ATA_BUSY))
 					continue;
 				DPRINTK("ata%u: protocol %d (dev_stat 0x%X)\n",
-					ap->id, qc->tf.protocol, status);
+					ap->print_id, qc->tf.protocol, status);
 
 				/* complete taskfile transaction */
 				pp->state = qs_state_idle;
@@ -470,7 +472,7 @@ static irqreturn_t qs_intr(int irq, void *dev_instance)
 	return IRQ_RETVAL(handled);
 }
 
-static void qs_ata_setup_port(struct ata_ioports *port, unsigned long base)
+static void qs_ata_setup_port(struct ata_ioports *port, void __iomem *base)
 {
 	port->cmd_addr		=
 	port->data_addr		= base + 0x400;
@@ -492,7 +494,7 @@ static int qs_port_start(struct ata_port *ap)
 {
 	struct device *dev = ap->host->dev;
 	struct qs_port_priv *pp;
-	void __iomem *mmio_base = ap->host->mmio_base;
+	void __iomem *mmio_base = qs_mmio_base(ap->host);
 	void __iomem *chan = mmio_base + (ap->port_no * 0x4000);
 	u64 addr;
 	int rc;
@@ -501,17 +503,13 @@ static int qs_port_start(struct ata_port *ap)
 	if (rc)
 		return rc;
 	qs_enter_reg_mode(ap);
-	pp = kzalloc(sizeof(*pp), GFP_KERNEL);
-	if (!pp) {
-		rc = -ENOMEM;
-		goto err_out;
-	}
-	pp->pkt = dma_alloc_coherent(dev, QS_PKT_BYTES, &pp->pkt_dma,
-								GFP_KERNEL);
-	if (!pp->pkt) {
-		rc = -ENOMEM;
-		goto err_out_kfree;
-	}
+	pp = devm_kzalloc(dev, sizeof(*pp), GFP_KERNEL);
+	if (!pp)
+		return -ENOMEM;
+	pp->pkt = dmam_alloc_coherent(dev, QS_PKT_BYTES, &pp->pkt_dma,
+				      GFP_KERNEL);
+	if (!pp->pkt)
+		return -ENOMEM;
 	memset(pp->pkt, 0, QS_PKT_BYTES);
 	ap->private_data = pp;
 
@@ -519,50 +517,26 @@ static int qs_port_start(struct ata_port *ap)
 	writel((u32) addr,        chan + QS_CCF_CPBA);
 	writel((u32)(addr >> 32), chan + QS_CCF_CPBA + 4);
 	return 0;
-
-err_out_kfree:
-	kfree(pp);
-err_out:
-	ata_port_stop(ap);
-	return rc;
-}
-
-static void qs_port_stop(struct ata_port *ap)
-{
-	struct device *dev = ap->host->dev;
-	struct qs_port_priv *pp = ap->private_data;
-
-	if (pp != NULL) {
-		ap->private_data = NULL;
-		if (pp->pkt != NULL)
-			dma_free_coherent(dev, QS_PKT_BYTES, pp->pkt,
-								pp->pkt_dma);
-		kfree(pp);
-	}
-	ata_port_stop(ap);
 }
 
 static void qs_host_stop(struct ata_host *host)
 {
-	void __iomem *mmio_base = host->mmio_base;
-	struct pci_dev *pdev = to_pci_dev(host->dev);
+	void __iomem *mmio_base = qs_mmio_base(host);
 
 	writeb(0, mmio_base + QS_HCT_CTRL); /* disable host interrupts */
 	writeb(QS_CNFG3_GSRST, mmio_base + QS_HCF_CNFG3); /* global reset */
-
-	pci_iounmap(pdev, mmio_base);
 }
 
-static void qs_host_init(unsigned int chip_id, struct ata_probe_ent *pe)
+static void qs_host_init(struct ata_host *host, unsigned int chip_id)
 {
-	void __iomem *mmio_base = pe->mmio_base;
+	void __iomem *mmio_base = host->iomap[QS_MMIO_BAR];
 	unsigned int port_no;
 
 	writeb(0, mmio_base + QS_HCT_CTRL); /* disable host interrupts */
 	writeb(QS_CNFG3_GSRST, mmio_base + QS_HCF_CNFG3); /* global reset */
 
 	/* reset each channel in turn */
-	for (port_no = 0; port_no < pe->n_ports; ++port_no) {
+	for (port_no = 0; port_no < host->n_ports; ++port_no) {
 		u8 __iomem *chan = mmio_base + (port_no * 0x4000);
 		writeb(QS_CTR1_RDEV|QS_CTR1_RCHN, chan + QS_CCT_CTR1);
 		writeb(QS_CTR0_REG, chan + QS_CCT_CTR0);
@@ -570,7 +544,7 @@ static void qs_host_init(unsigned int chip_id, struct ata_probe_ent *pe)
 	}
 	writeb(QS_SERD3_PHY_ENA, mmio_base + QS_HVS_SERD3); /* enable phy */
 
-	for (port_no = 0; port_no < pe->n_ports; ++port_no) {
+	for (port_no = 0; port_no < host->n_ports; ++port_no) {
 		u8 __iomem *chan = mmio_base + (port_no * 0x4000);
 		/* set FIFO depths to same settings as Windows driver */
 		writew(32, chan + QS_CFC_HUFT);
@@ -630,83 +604,48 @@ static int qs_ata_init_one(struct pci_dev *pdev,
 				const struct pci_device_id *ent)
 {
 	static int printed_version;
-	struct ata_probe_ent *probe_ent = NULL;
-	void __iomem *mmio_base;
 	unsigned int board_idx = (unsigned int) ent->driver_data;
+	const struct ata_port_info *ppi[] = { &qs_port_info[board_idx], NULL };
+	struct ata_host *host;
 	int rc, port_no;
 
 	if (!printed_version++)
 		dev_printk(KERN_DEBUG, &pdev->dev, "version " DRV_VERSION "\n");
 
-	rc = pci_enable_device(pdev);
+	/* alloc host */
+	host = ata_host_alloc_pinfo(&pdev->dev, ppi, QS_PORTS);
+	if (!host)
+		return -ENOMEM;
+
+	/* acquire resources and fill host */
+	rc = pcim_enable_device(pdev);
 	if (rc)
 		return rc;
 
-	rc = pci_request_regions(pdev, DRV_NAME);
+	if ((pci_resource_flags(pdev, QS_MMIO_BAR) & IORESOURCE_MEM) == 0)
+		return -ENODEV;
+
+	rc = pcim_iomap_regions(pdev, 1 << QS_MMIO_BAR, DRV_NAME);
 	if (rc)
-		goto err_out;
+		return rc;
+	host->iomap = pcim_iomap_table(pdev);
 
-	if ((pci_resource_flags(pdev, 4) & IORESOURCE_MEM) == 0) {
-		rc = -ENODEV;
-		goto err_out_regions;
-	}
-
-	mmio_base = pci_iomap(pdev, 4, 0);
-	if (mmio_base == NULL) {
-		rc = -ENOMEM;
-		goto err_out_regions;
-	}
-
-	rc = qs_set_dma_masks(pdev, mmio_base);
+	rc = qs_set_dma_masks(pdev, host->iomap[QS_MMIO_BAR]);
 	if (rc)
-		goto err_out_iounmap;
+		return rc;
 
-	probe_ent = kmalloc(sizeof(*probe_ent), GFP_KERNEL);
-	if (probe_ent == NULL) {
-		rc = -ENOMEM;
-		goto err_out_iounmap;
+	for (port_no = 0; port_no < host->n_ports; ++port_no) {
+		void __iomem *chan =
+			host->iomap[QS_MMIO_BAR] + (port_no * 0x4000);
+		qs_ata_setup_port(&host->ports[port_no]->ioaddr, chan);
 	}
-
-	memset(probe_ent, 0, sizeof(*probe_ent));
-	probe_ent->dev = pci_dev_to_dev(pdev);
-	INIT_LIST_HEAD(&probe_ent->node);
-
-	probe_ent->sht		= qs_port_info[board_idx].sht;
-	probe_ent->port_flags	= qs_port_info[board_idx].flags;
-	probe_ent->pio_mask	= qs_port_info[board_idx].pio_mask;
-	probe_ent->mwdma_mask	= qs_port_info[board_idx].mwdma_mask;
-	probe_ent->udma_mask	= qs_port_info[board_idx].udma_mask;
-	probe_ent->port_ops	= qs_port_info[board_idx].port_ops;
-
-	probe_ent->irq		= pdev->irq;
-	probe_ent->irq_flags	= IRQF_SHARED;
-	probe_ent->mmio_base	= mmio_base;
-	probe_ent->n_ports	= QS_PORTS;
-
-	for (port_no = 0; port_no < probe_ent->n_ports; ++port_no) {
-		unsigned long chan = (unsigned long)mmio_base +
-							(port_no * 0x4000);
-		qs_ata_setup_port(&probe_ent->port[port_no], chan);
-	}
-
-	pci_set_master(pdev);
 
 	/* initialize adapter */
-	qs_host_init(board_idx, probe_ent);
+	qs_host_init(host, board_idx);
 
-	rc = ata_device_add(probe_ent);
-	kfree(probe_ent);
-	if (rc != QS_PORTS)
-		goto err_out_iounmap;
-	return 0;
-
-err_out_iounmap:
-	pci_iounmap(pdev, mmio_base);
-err_out_regions:
-	pci_release_regions(pdev);
-err_out:
-	pci_disable_device(pdev);
-	return rc;
+	pci_set_master(pdev);
+	return ata_host_activate(host, pdev->irq, qs_intr, IRQF_SHARED,
+				 &qs_ata_sht);
 }
 
 static int __init qs_ata_init(void)

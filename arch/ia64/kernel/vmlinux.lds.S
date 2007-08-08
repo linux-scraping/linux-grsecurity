@@ -44,7 +44,7 @@ SECTIONS
   .text : AT(ADDR(.text) - LOAD_OFFSET)
     {
 	IVT_TEXT
-	*(.text)
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	KPROBES_TEXT
@@ -76,6 +76,13 @@ SECTIONS
 	  __start___mca_table = .;
 	  *(__mca_table)
 	  __stop___mca_table = .;
+	}
+
+  .data.patch.phys_stack_reg : AT(ADDR(.data.patch.phys_stack_reg) - LOAD_OFFSET)
+	{
+	  __start___phys_stack_reg_patchlist = .;
+	  *(.data.patch.phys_stack_reg)
+	  __end___phys_stack_reg_patchlist = .;
 	}
 
   /* Global data */
@@ -111,12 +118,14 @@ SECTIONS
   .init.data : AT(ADDR(.init.data) - LOAD_OFFSET)
 	{ *(.init.data) }
 
+#ifdef CONFIG_BLK_DEV_INITRD
   .init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET)
 	{
 	  __initramfs_start = .;
 	  *(.init.ramfs)
 	  __initramfs_end = .;
 	}
+#endif
 
    . = ALIGN(16);
   .init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET)
@@ -157,6 +166,7 @@ SECTIONS
 	}
 #endif
 
+  . = ALIGN(8);
    __con_initcall_start = .;
   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
 	{ *(.con_initcall.init) }
@@ -204,7 +214,12 @@ SECTIONS
 
   data : { } :data
   .data : AT(ADDR(.data) - LOAD_OFFSET)
-	{ *(.data) *(.data1) *(.gnu.linkonce.d*) CONSTRUCTORS }
+	{
+		DATA_DATA
+		*(.data1)
+		*(.gnu.linkonce.d*)
+		CONSTRUCTORS
+	}
 
   . = ALIGN(16);	/* gp must be 16-byte aligned for exc. table */
   .got : AT(ADDR(.got) - LOAD_OFFSET)

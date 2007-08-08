@@ -481,11 +481,7 @@ ia32_sys_call_table:
 	.quad sys_symlink
 	.quad sys_lstat
 	.quad sys_readlink		/* 85 */
-#ifdef CONFIG_IA32_AOUT
 	.quad sys_uselib
-#else
-	.quad quiet_ni_syscall
-#endif
 	.quad sys_swapon
 	.quad sys_reboot
 	.quad compat_sys_old_readdir
@@ -515,7 +511,7 @@ ia32_sys_call_table:
 	.quad sys32_vm86_warning	/* vm86old */ 
 	.quad compat_sys_wait4
 	.quad sys_swapoff		/* 115 */
-	.quad sys32_sysinfo
+	.quad compat_sys_sysinfo
 	.quad sys32_ipc
 	.quad sys_fsync
 	.quad stub32_sigreturn
@@ -560,7 +556,7 @@ ia32_sys_call_table:
 	.quad sys_sched_yield
 	.quad sys_sched_get_priority_max
 	.quad sys_sched_get_priority_min  /* 160 */
-	.quad sys_sched_rr_get_interval
+	.quad sys32_sched_rr_get_interval
 	.quad compat_sys_nanosleep
 	.quad sys_mremap
 	.quad sys_setresuid16
@@ -624,7 +620,7 @@ ia32_sys_call_table:
 	.quad quiet_ni_syscall		/* tux */
 	.quad quiet_ni_syscall    	/* security */
 	.quad sys_gettid	
-	.quad sys_readahead	/* 225 */
+	.quad sys32_readahead	/* 225 */
 	.quad sys_setxattr
 	.quad sys_lsetxattr
 	.quad sys_fsetxattr
@@ -649,7 +645,7 @@ ia32_sys_call_table:
 	.quad compat_sys_io_getevents
 	.quad compat_sys_io_submit
 	.quad sys_io_cancel
-	.quad sys_fadvise64		/* 250 */
+	.quad sys32_fadvise64		/* 250 */
 	.quad quiet_ni_syscall 	/* free_huge_pages */
 	.quad sys_exit_group
 	.quad sys32_lookup_dcookie
@@ -713,9 +709,14 @@ ia32_sys_call_table:
 	.quad compat_sys_set_robust_list
 	.quad compat_sys_get_robust_list
 	.quad sys_splice
-	.quad sys_sync_file_range
-	.quad sys_tee
+	.quad sys32_sync_file_range
+	.quad sys_tee			/* 315 */
 	.quad compat_sys_vmsplice
 	.quad compat_sys_move_pages
 	.quad sys_getcpu
-ia32_syscall_end:		
+	.quad sys_epoll_pwait
+	.quad compat_sys_utimensat	/* 320 */
+	.quad compat_sys_signalfd
+	.quad compat_sys_timerfd
+	.quad sys_eventfd
+ia32_syscall_end:

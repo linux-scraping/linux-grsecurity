@@ -309,7 +309,7 @@ rpc_pipe_ioctl(struct inode *ino, struct file *filp,
 	}
 }
 
-static struct file_operations rpc_pipe_fops = {
+static const struct file_operations rpc_pipe_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.read		= rpc_pipe_read,
@@ -366,7 +366,7 @@ rpc_info_release(struct inode *inode, struct file *file)
 	return single_release(inode, file);
 }
 
-static struct file_operations rpc_info_operations = {
+static const struct file_operations rpc_info_operations = {
 	.owner		= THIS_MODULE,
 	.open		= rpc_info_open,
 	.read		= seq_read,
@@ -589,7 +589,7 @@ __rpc_mkdir(struct inode *dir, struct dentry *dentry)
 {
 	struct inode *inode;
 
-	inode = rpc_get_inode(dir->i_sb, S_IFDIR | S_IRUSR | S_IXUSR);
+	inode = rpc_get_inode(dir->i_sb, S_IFDIR | S_IRUGO | S_IXUGO);
 	if (!inode)
 		goto out_err;
 	inode->i_ino = iunique(dir->i_sb, 100);
@@ -828,24 +828,23 @@ init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
 {
 	struct rpc_inode *rpci = (struct rpc_inode *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
-		inode_init_once(&rpci->vfs_inode);
-		rpci->private = NULL;
-		rpci->nreaders = 0;
-		rpci->nwriters = 0;
-		INIT_LIST_HEAD(&rpci->in_upcall);
-		INIT_LIST_HEAD(&rpci->pipe);
-		rpci->pipelen = 0;
-		init_waitqueue_head(&rpci->waitq);
-		INIT_DELAYED_WORK(&rpci->queue_timeout,
-				    rpc_timeout_upcall_queue);
-		rpci->ops = NULL;
-	}
+	inode_init_once(&rpci->vfs_inode);
+	rpci->private = NULL;
+	rpci->nreaders = 0;
+	rpci->nwriters = 0;
+	INIT_LIST_HEAD(&rpci->in_upcall);
+	INIT_LIST_HEAD(&rpci->pipe);
+	rpci->pipelen = 0;
+	init_waitqueue_head(&rpci->waitq);
+	INIT_DELAYED_WORK(&rpci->queue_timeout,
+			    rpc_timeout_upcall_queue);
+	rpci->ops = NULL;
 }
 
 int register_rpc_pipefs(void)
 {
+	int err;
+
 	rpc_inode_cachep = kmem_cache_create("rpc_inode_cache",
 				sizeof(struct rpc_inode),
 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
@@ -853,7 +852,12 @@ int register_rpc_pipefs(void)
 				init_once, NULL);
 	if (!rpc_inode_cachep)
 		return -ENOMEM;
-	register_filesystem(&rpc_pipe_fs_type);
+	err = register_filesystem(&rpc_pipe_fs_type);
+	if (err) {
+		kmem_cache_destroy(rpc_inode_cachep);
+		return err;
+	}
+
 	return 0;
 }
 

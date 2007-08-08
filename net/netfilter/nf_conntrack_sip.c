@@ -341,7 +341,7 @@ int ct_sip_get_info(struct nf_conn *ct,
 			continue;
 		}
 		aux = ct_sip_search(hnfo->ln_str, dptr, hnfo->ln_strlen,
-		                    ct_sip_lnlen(dptr, limit),
+				    ct_sip_lnlen(dptr, limit),
 				    hnfo->case_sensitive);
 		if (!aux) {
 			DEBUGP("'%s' not found in '%s'.\n", hnfo->ln_str,
@@ -442,6 +442,9 @@ static int sip_help(struct sk_buff **pskb,
 
 	/* RTP info only in some SDP pkts */
 	if (memcmp(dptr, "INVITE", sizeof("INVITE") - 1) != 0 &&
+	    memcmp(dptr, "UPDATE", sizeof("UPDATE") - 1) != 0 &&
+	    memcmp(dptr, "SIP/2.0 180", sizeof("SIP/2.0 180") - 1) != 0 &&
+	    memcmp(dptr, "SIP/2.0 183", sizeof("SIP/2.0 183") - 1) != 0 &&
 	    memcmp(dptr, "SIP/2.0 200", sizeof("SIP/2.0 200") - 1) != 0) {
 		goto out;
 	}
@@ -451,12 +454,12 @@ static int sip_help(struct sk_buff **pskb,
 
 		/* We'll drop only if there are parse problems. */
 		if (!parse_addr(ct, dptr + matchoff, NULL, &addr,
-			        dptr + datalen)) {
+				dptr + datalen)) {
 			ret = NF_DROP;
 			goto out;
 		}
 		if (ct_sip_get_info(ct, dptr, datalen, &matchoff, &matchlen,
-		                    POS_MEDIA) > 0) {
+				    POS_MEDIA) > 0) {
 
 			port = simple_strtoul(dptr + matchoff, NULL, 10);
 			if (port < 1024) {

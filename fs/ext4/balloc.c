@@ -30,15 +30,15 @@
 void ext4_get_group_no_and_offset(struct super_block *sb, ext4_fsblk_t blocknr,
 		unsigned long *blockgrpp, ext4_grpblk_t *offsetp)
 {
-        struct ext4_super_block *es = EXT4_SB(sb)->s_es;
+	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
 	ext4_grpblk_t offset;
 
-        blocknr = blocknr - le32_to_cpu(es->s_first_data_block);
+	blocknr = blocknr - le32_to_cpu(es->s_first_data_block);
 	offset = do_div(blocknr, EXT4_BLOCKS_PER_GROUP(sb));
 	if (offsetp)
 		*offsetp = offset;
 	if (blockgrpp)
-	        *blockgrpp = blocknr;
+		*blockgrpp = blocknr;
 
 }
 
@@ -50,7 +50,7 @@ void ext4_get_group_no_and_offset(struct super_block *sb, ext4_fsblk_t blocknr,
  * The file system contains group descriptors which are located after the
  * super block.  Each descriptor contains the number of the bitmap block and
  * the free blocks count in the block.  The descriptors are loaded in memory
- * when a file system is mounted (see ext4_read_super).
+ * when a file system is mounted (see ext4_fill_super).
  */
 
 

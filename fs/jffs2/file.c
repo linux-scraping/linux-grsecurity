@@ -1,13 +1,11 @@
 /*
  * JFFS2 -- Journalling Flash File System, Version 2.
  *
- * Copyright (C) 2001-2003 Red Hat, Inc.
+ * Copyright © 2001-2007 Red Hat, Inc.
  *
  * Created by David Woodhouse <dwmw2@infradead.org>
  *
  * For licensing information, see the file 'LICENCE' in this directory.
- *
- * $Id: file.c,v 1.104 2005/10/18 23:29:35 tpoynor Exp $
  *
  */
 
@@ -54,7 +52,7 @@ const struct file_operations jffs2_file_operations =
 
 /* jffs2_file_inode_operations */
 
-struct inode_operations jffs2_file_inode_operations =
+const struct inode_operations jffs2_file_inode_operations =
 {
 	.permission =	jffs2_permission,
 	.setattr =	jffs2_setattr,

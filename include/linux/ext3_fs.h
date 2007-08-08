@@ -824,6 +824,7 @@ extern int ext3_change_inode_journal_flag(struct inode *, int);
 extern int ext3_get_inode_loc(struct inode *, struct ext3_iloc *);
 extern void ext3_truncate (struct inode *);
 extern void ext3_set_inode_flags(struct inode *);
+extern void ext3_get_inode_flags(struct ext3_inode_info *);
 extern void ext3_set_aops(struct inode *inode);
 
 /* ioctl.c */
@@ -868,16 +869,16 @@ do {								\
 extern const struct file_operations ext3_dir_operations;
 
 /* file.c */
-extern struct inode_operations ext3_file_inode_operations;
+extern const struct inode_operations ext3_file_inode_operations;
 extern const struct file_operations ext3_file_operations;
 
 /* namei.c */
-extern struct inode_operations ext3_dir_inode_operations;
-extern struct inode_operations ext3_special_inode_operations;
+extern const struct inode_operations ext3_dir_inode_operations;
+extern const struct inode_operations ext3_special_inode_operations;
 
 /* symlink.c */
-extern struct inode_operations ext3_symlink_inode_operations;
-extern struct inode_operations ext3_fast_symlink_inode_operations;
+extern const struct inode_operations ext3_symlink_inode_operations;
+extern const struct inode_operations ext3_fast_symlink_inode_operations;
 
 
 #endif	/* __KERNEL__ */

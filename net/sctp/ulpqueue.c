@@ -73,7 +73,7 @@ struct sctp_ulpq *sctp_ulpq_init(struct sctp_ulpq *ulpq,
 
 
 /* Flush the reassembly and ordering queues.  */
-static void sctp_ulpq_flush(struct sctp_ulpq *ulpq)
+void sctp_ulpq_flush(struct sctp_ulpq *ulpq)
 {
 	struct sk_buff *skb;
 	struct sctp_ulpevent *event;
@@ -138,26 +138,59 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
 /* Clear the partial delivery mode for this socket.   Note: This
  * assumes that no association is currently in partial delivery mode.
  */
-int sctp_clear_pd(struct sock *sk)
+int sctp_clear_pd(struct sock *sk, struct sctp_association *asoc)
 {
 	struct sctp_sock *sp = sctp_sk(sk);
 
-	sp->pd_mode = 0;
-	if (!skb_queue_empty(&sp->pd_lobby)) {
-		struct list_head *list;
-		sctp_skb_list_tail(&sp->pd_lobby, &sk->sk_receive_queue);
-		list = (struct list_head *)&sctp_sk(sk)->pd_lobby;
-		INIT_LIST_HEAD(list);
-		return 1;
+	if (atomic_dec_and_test(&sp->pd_mode)) {
+		/* This means there are no other associations in PD, so
+		 * we can go ahead and clear out the lobby in one shot
+		 */
+		if (!skb_queue_empty(&sp->pd_lobby)) {
+			struct list_head *list;
+			sctp_skb_list_tail(&sp->pd_lobby, &sk->sk_receive_queue);
+			list = (struct list_head *)&sctp_sk(sk)->pd_lobby;
+			INIT_LIST_HEAD(list);
+			return 1;
+		}
+	} else {
+		/* There are other associations in PD, so we only need to
+		 * pull stuff out of the lobby that belongs to the
+		 * associations that is exiting PD (all of its notifications
+		 * are posted here).
+		 */
+		if (!skb_queue_empty(&sp->pd_lobby) && asoc) {
+			struct sk_buff *skb, *tmp;
+			struct sctp_ulpevent *event;
+
+			sctp_skb_for_each(skb, &sp->pd_lobby, tmp) {
+				event = sctp_skb2event(skb);
+				if (event->asoc == asoc) {
+					__skb_unlink(skb, &sp->pd_lobby);
+					__skb_queue_tail(&sk->sk_receive_queue,
+							 skb);
+				}
+			}
+		}
 	}
+
 	return 0;
+}
+
+/* Set the pd_mode on the socket and ulpq */
+static void sctp_ulpq_set_pd(struct sctp_ulpq *ulpq)
+{
+	struct sctp_sock *sp = sctp_sk(ulpq->asoc->base.sk);
+
+	atomic_inc(&sp->pd_mode);
+	ulpq->pd_mode = 1;
 }
 
 /* Clear the pd_mode and restart any pending messages waiting for delivery. */
 static int sctp_ulpq_clear_pd(struct sctp_ulpq *ulpq)
 {
 	ulpq->pd_mode = 0;
-	return sctp_clear_pd(ulpq->asoc->base.sk);
+	return sctp_clear_pd(ulpq->asoc->base.sk, ulpq->asoc);
 }
 
 /* If the SKB of 'event' is on a list, it is the first such member
@@ -187,18 +220,35 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
 	 * the association the cause of the partial delivery.
 	 */
 
-	if (!sctp_sk(sk)->pd_mode) {
+	if (atomic_read(&sctp_sk(sk)->pd_mode) == 0) {
 		queue = &sk->sk_receive_queue;
-	} else if (ulpq->pd_mode) {
-		if (event->msg_flags & MSG_NOTIFICATION)
-		       	queue = &sctp_sk(sk)->pd_lobby;
-		else {
-			clear_pd = event->msg_flags & MSG_EOR;
-			queue = &sk->sk_receive_queue;
+	} else {
+		if (ulpq->pd_mode) {
+			/* If the association is in partial delivery, we
+			 * need to finish delivering the partially processed
+			 * packet before passing any other data.  This is
+			 * because we don't truly support stream interleaving.
+			 */
+			if ((event->msg_flags & MSG_NOTIFICATION) ||
+			    (SCTP_DATA_NOT_FRAG ==
+				    (event->msg_flags & SCTP_DATA_FRAG_MASK)))
+				queue = &sctp_sk(sk)->pd_lobby;
+			else {
+				clear_pd = event->msg_flags & MSG_EOR;
+				queue = &sk->sk_receive_queue;
+			}
+		} else {
+			/*
+			 * If fragment interleave is enabled, we
+			 * can queue this to the recieve queue instead
+			 * of the lobby.
+			 */
+			if (sctp_sk(sk)->frag_interleave)
+				queue = &sk->sk_receive_queue;
+			else
+				queue = &sctp_sk(sk)->pd_lobby;
 		}
-	} else
-		queue = &sctp_sk(sk)->pd_lobby;
-
+	}
 
 	/* If we are harvesting multiple skbs they will be
 	 * collected on a list.
@@ -298,32 +348,32 @@ static struct sctp_ulpevent *sctp_make_reassembled_event(struct sk_buff_head *qu
 	 */
 	if (last)
 		last->next = pos;
- 	else {
- 		if (skb_cloned(f_frag)) {
- 			/* This is a cloned skb, we can't just modify
- 			 * the frag_list.  We need a new skb to do that.
- 			 * Instead of calling skb_unshare(), we'll do it
- 			 * ourselves since we need to delay the free.
- 			 */
- 			new = skb_copy(f_frag, GFP_ATOMIC);
- 			if (!new)
- 				return NULL;	/* try again later */
+	else {
+		if (skb_cloned(f_frag)) {
+			/* This is a cloned skb, we can't just modify
+			 * the frag_list.  We need a new skb to do that.
+			 * Instead of calling skb_unshare(), we'll do it
+			 * ourselves since we need to delay the free.
+			 */
+			new = skb_copy(f_frag, GFP_ATOMIC);
+			if (!new)
+				return NULL;	/* try again later */
 
- 			sctp_skb_set_owner_r(new, f_frag->sk);
+			sctp_skb_set_owner_r(new, f_frag->sk);
 
- 			skb_shinfo(new)->frag_list = pos;
- 		} else
- 			skb_shinfo(f_frag)->frag_list = pos;
- 	}
+			skb_shinfo(new)->frag_list = pos;
+		} else
+			skb_shinfo(f_frag)->frag_list = pos;
+	}
 
 	/* Remove the first fragment from the reassembly queue.  */
 	__skb_unlink(f_frag, queue);
 
- 	/* if we did unshare, then free the old skb and re-assign */
- 	if (new) {
- 		kfree_skb(f_frag);
- 		f_frag = new;
- 	}
+	/* if we did unshare, then free the old skb and re-assign */
+	if (new) {
+		kfree_skb(f_frag);
+		f_frag = new;
+	}
 
 	while (pos) {
 
@@ -335,13 +385,13 @@ static struct sctp_ulpevent *sctp_make_reassembled_event(struct sk_buff_head *qu
 
 		/* Remove the fragment from the reassembly queue.  */
 		__skb_unlink(pos, queue);
-	
+
 		/* Break if we have reached the last fragment.  */
 		if (pos == l_frag)
 			break;
 		pos->next = pnext;
 		pos = pnext;
-	};
+	}
 
 	event = sctp_skb2event(f_frag);
 	SCTP_INC_STATS(SCTP_MIB_REASMUSRMSGS);
@@ -360,6 +410,11 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_reassembled(struct sctp_u
 	struct sk_buff *first_frag = NULL;
 	__u32 ctsn, next_tsn;
 	struct sctp_ulpevent *retval = NULL;
+	struct sk_buff *pd_first = NULL;
+	struct sk_buff *pd_last = NULL;
+	size_t pd_len = 0;
+	struct sctp_association *asoc;
+	u32 pd_point;
 
 	/* Initialized to 0 just to avoid compiler warning message.  Will
 	 * never be used with this value. It is referenced only after it
@@ -375,6 +430,10 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_reassembled(struct sctp_u
 	 * we expect to find the remaining middle fragments and the last
 	 * fragment in order. If not, first_frag is reset to NULL and we
 	 * start the next pass when we find another first fragment.
+	 *
+	 * There is a potential to do partial delivery if user sets
+	 * SCTP_PARTIAL_DELIVERY_POINT option. Lets count some things here
+	 * to see if can do PD.
 	 */
 	skb_queue_walk(&ulpq->reasm, pos) {
 		cevent = sctp_skb2event(pos);
@@ -382,14 +441,32 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_reassembled(struct sctp_u
 
 		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
 		case SCTP_DATA_FIRST_FRAG:
+			/* If this "FIRST_FRAG" is the first
+			 * element in the queue, then count it towards
+			 * possible PD.
+			 */
+			if (pos == ulpq->reasm.next) {
+			    pd_first = pos;
+			    pd_last = pos;
+			    pd_len = pos->len;
+			} else {
+			    pd_first = NULL;
+			    pd_last = NULL;
+			    pd_len = 0;
+			}
+
 			first_frag = pos;
 			next_tsn = ctsn + 1;
 			break;
 
 		case SCTP_DATA_MIDDLE_FRAG:
-			if ((first_frag) && (ctsn == next_tsn))
+			if ((first_frag) && (ctsn == next_tsn)) {
 				next_tsn++;
-			else
+				if (pd_first) {
+				    pd_last = pos;
+				    pd_len += pos->len;
+				}
+			} else
 				first_frag = NULL;
 			break;
 
@@ -399,8 +476,29 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_reassembled(struct sctp_u
 			else
 				first_frag = NULL;
 			break;
-		};
+		}
+	}
 
+	asoc = ulpq->asoc;
+	if (pd_first) {
+		/* Make sure we can enter partial deliver.
+		 * We can trigger partial delivery only if framgent
+		 * interleave is set, or the socket is not already
+		 * in  partial delivery.
+		 */
+		if (!sctp_sk(asoc->base.sk)->frag_interleave &&
+		    atomic_read(&sctp_sk(asoc->base.sk)->pd_mode))
+			goto done;
+
+		cevent = sctp_skb2event(pd_first);
+		pd_point = sctp_sk(asoc->base.sk)->pd_point;
+		if (pd_point && pd_point <= pd_len) {
+			retval = sctp_make_reassembled_event(&ulpq->reasm,
+							     pd_first,
+							     pd_last);
+			if (retval)
+				sctp_ulpq_set_pd(ulpq);
+		}
 	}
 done:
 	return retval;
@@ -458,7 +556,7 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_partial(struct sctp_ulpq 
 			goto done;
 		default:
 			return NULL;
-		};
+		}
 	}
 
 	/* We have the reassembled event. There is no need to look
@@ -550,7 +648,7 @@ static inline struct sctp_ulpevent *sctp_ulpq_retrieve_first(struct sctp_ulpq *u
 			break;
 		default:
 			return NULL;
-		};
+		}
 	}
 
 	/* We have the reassembled event. There is no need to look
@@ -624,7 +722,7 @@ static inline void sctp_ulpq_store_ordered(struct sctp_ulpq *ulpq,
 
 	sid = event->stream;
 	ssn = event->ssn;
-	
+
 	cevent = (struct sctp_ulpevent *) pos->cb;
 	csid = cevent->stream;
 	cssn = cevent->ssn;
@@ -718,11 +816,11 @@ static inline void sctp_ulpq_reap_ordered(struct sctp_ulpq *ulpq)
 		if (cssn != sctp_ssn_peek(in, csid))
 			break;
 
-		/* Found it, so mark in the ssnmap. */	       
+		/* Found it, so mark in the ssnmap. */
 		sctp_ssn_next(in, csid);
 
 		__skb_unlink(pos, &ulpq->lobby);
-		if (!event) {						
+		if (!event) {
 			/* Create a temporary list to collect chunks on.  */
 			event = sctp_skb2event(pos);
 			__skb_queue_tail(&temp, sctp_event2skb(event));
@@ -755,7 +853,7 @@ void sctp_ulpq_skip(struct sctp_ulpq *ulpq, __u16 sid, __u16 ssn)
 	sctp_ssn_skip(in, sid, ssn);
 
 	/* Go find any other chunks that were waiting for
-	 * ordering and deliver them if needed. 
+	 * ordering and deliver them if needed.
 	 */
 	sctp_ulpq_reap_ordered(ulpq);
 	return;
@@ -819,19 +917,29 @@ void sctp_ulpq_partial_delivery(struct sctp_ulpq *ulpq,
 {
 	struct sctp_ulpevent *event;
 	struct sctp_association *asoc;
+	struct sctp_sock *sp;
 
 	asoc = ulpq->asoc;
+	sp = sctp_sk(asoc->base.sk);
 
-	/* Are we already in partial delivery mode?  */
-	if (!sctp_sk(asoc->base.sk)->pd_mode) {
+	/* If the association is already in Partial Delivery mode
+	 * we have noting to do.
+	 */
+	if (ulpq->pd_mode)
+		return;
 
+	/* If the user enabled fragment interleave socket option,
+	 * multiple associations can enter partial delivery.
+	 * Otherwise, we can only enter partial delivery if the
+	 * socket is not in partial deliver mode.
+	 */
+	if (sp->frag_interleave || atomic_read(&sp->pd_mode) == 0) {
 		/* Is partial delivery possible?  */
 		event = sctp_ulpq_retrieve_first(ulpq);
 		/* Send event to the ULP.   */
 		if (event) {
 			sctp_ulpq_tail_event(ulpq, event);
-			sctp_sk(asoc->base.sk)->pd_mode = 1;
-			ulpq->pd_mode = 1;
+			sctp_ulpq_set_pd(ulpq);
 			return;
 		}
 	}
@@ -849,7 +957,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
 	if (chunk) {
 		needed = ntohs(chunk->chunk_hdr->length);
 		needed -= sizeof(sctp_data_chunk_t);
-	} else 
+	} else
 		needed = SCTP_DEFAULT_MAXWINDOW;
 
 	freed = 0;
@@ -866,7 +974,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
 		tsn = ntohl(chunk->subh.data_hdr->tsn);
 		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn);
 		sctp_ulpq_tail_data(ulpq, chunk, gfp);
-		
+
 		sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
 	}
 

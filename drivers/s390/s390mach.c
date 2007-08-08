@@ -13,21 +13,18 @@
 #include <linux/errno.h>
 #include <linux/workqueue.h>
 #include <linux/time.h>
+#include <linux/device.h>
 #include <linux/kthread.h>
-
+#include <asm/etr.h>
 #include <asm/lowcore.h>
-
+#include <asm/cio.h>
+#include "cio/cio.h"
+#include "cio/chsc.h"
+#include "cio/css.h"
+#include "cio/chp.h"
 #include "s390mach.h"
 
 static struct semaphore m_sem;
-
-extern int css_process_crw(int, int);
-extern int chsc_process_crw(void);
-extern int chp_process_crw(int, int);
-extern void css_reiterate_subchannels(void);
-
-extern struct workqueue_struct *slow_path_wq;
-extern struct work_struct slow_path_work;
 
 static NORET_TYPE void
 s390_handle_damage(char *msg)
@@ -48,14 +45,13 @@ static int
 s390_collect_crw_info(void *param)
 {
 	struct crw crw[2];
-	int ccode, ret, slow;
+	int ccode;
 	struct semaphore *sem;
 	unsigned int chain;
 
 	sem = (struct semaphore *)param;
 repeat:
 	down_interruptible(sem);
-	slow = 0;
 	chain = 0;
 	while (1) {
 		if (unlikely(chain > 1)) {
@@ -88,9 +84,8 @@ repeat:
 		/* Check for overflows. */
 		if (crw[chain].oflw) {
 			pr_debug("%s: crw overflow detected!\n", __FUNCTION__);
-			css_reiterate_subchannels();
+			css_schedule_eval_all();
 			chain = 0;
-			slow = 1;
 			continue;
 		}
 		switch (crw[chain].rsc) {
@@ -98,10 +93,7 @@ repeat:
 			if (crw[0].chn && !chain)
 				break;
 			pr_debug("source is subchannel %04X\n", crw[0].rsid);
-			ret = css_process_crw (crw[0].rsid,
-					       chain ? crw[1].rsid : 0);
-			if (ret == -EAGAIN)
-				slow = 1;
+			css_process_crw(crw[0].rsid, chain ? crw[1].rsid : 0);
 			break;
 		case CRW_RSC_MONITOR:
 			pr_debug("source is monitoring facility\n");
@@ -120,28 +112,23 @@ repeat:
 			}
 			switch (crw[0].erc) {
 			case CRW_ERC_IPARM: /* Path has come. */
-				ret = chp_process_crw(crw[0].rsid, 1);
+				chp_process_crw(crw[0].rsid, 1);
 				break;
 			case CRW_ERC_PERRI: /* Path has gone. */
 			case CRW_ERC_PERRN:
-				ret = chp_process_crw(crw[0].rsid, 0);
+				chp_process_crw(crw[0].rsid, 0);
 				break;
 			default:
 				pr_debug("Don't know how to handle erc=%x\n",
 					 crw[0].erc);
-				ret = 0;
 			}
-			if (ret == -EAGAIN)
-				slow = 1;
 			break;
 		case CRW_RSC_CONFIG:
 			pr_debug("source is configuration-alert facility\n");
 			break;
 		case CRW_RSC_CSS:
 			pr_debug("source is channel subsystem\n");
-			ret = chsc_process_crw();
-			if (ret == -EAGAIN)
-				slow = 1;
+			chsc_process_crw();
 			break;
 		default:
 			pr_debug("unknown source\n");
@@ -150,8 +137,6 @@ repeat:
 		/* chain is always 0 or 1 here. */
 		chain = crw[chain].chn ? chain + 1 : 0;
 	}
-	if (slow)
-		queue_work(slow_path_wq, &slow_path_work);
 	goto repeat;
 	return 0;
 }
@@ -470,6 +455,19 @@ s390_do_machine_check(struct pt_regs *regs)
 			s390_handle_damage("unable to revalidate registers.");
 	}
 
+	if (mci->cd) {
+		/* Timing facility damage */
+		s390_handle_damage("TOD clock damaged");
+	}
+
+	if (mci->ed && mci->ec) {
+		/* External damage */
+		if (S390_lowcore.external_damage_code & (1U << ED_ETR_SYNC))
+			etr_sync_check();
+		if (S390_lowcore.external_damage_code & (1U << ED_ETR_SWITCH))
+			etr_switch_to_local();
+	}
+
 	if (mci->se)
 		/* Storage error uncorrected */
 		s390_handle_damage("received storage error uncorrected "
@@ -508,7 +506,7 @@ static int
 machine_check_init(void)
 {
 	init_MUTEX_LOCKED(&m_sem);
-	ctl_clear_bit(14, 25);	/* disable external damage MCH */
+	ctl_set_bit(14, 25);	/* enable external damage MCH */
 	ctl_set_bit(14, 27);    /* enable system recovery MCH */
 #ifdef CONFIG_MACHCHK_WARNING
 	ctl_set_bit(14, 24);	/* enable warning MCH */
@@ -529,7 +527,11 @@ arch_initcall(machine_check_init);
 static int __init
 machine_check_crw_init (void)
 {
-	kthread_run(s390_collect_crw_info, &m_sem, "kmcheck");
+	struct task_struct *task;
+
+	task = kthread_run(s390_collect_crw_info, &m_sem, "kmcheck");
+	if (IS_ERR(task))
+		return PTR_ERR(task);
 	ctl_set_bit(14, 28);	/* enable channel report MCH */
 	return 0;
 }

@@ -160,22 +160,14 @@ typedef elf_vrreg_t elf_vrregset_t32[ELF_NVRREG32];
 #endif
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	(0x10000000UL)
+#define PAX_ELF_ET_DYN_BASE	(0x10000000UL)
 
 #ifdef __powerpc64__
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		(test_thread_flag(TIF_32BIT) ? 16 : 28)
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		(test_thread_flag(TIF_32BIT) ? 16 : 28)
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	(test_thread_flag(TIF_32BIT) ? 16 : 28)
+#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
+#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
 #else
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		15
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		15
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	15
+#define PAX_DELTA_MMAP_LEN	15
+#define PAX_DELTA_STACK_LEN	15
 #endif
 #endif
 
@@ -193,7 +185,7 @@ typedef elf_vrreg_t elf_vrregset_t32[ELF_NVRREG32];
    the loader.  We need to make sure that it is out of the way of the program
    that it will "exec", and that there is sufficient room for the brk.  */
 
-#define ELF_ET_DYN_BASE         (0x08000000)
+#define ELF_ET_DYN_BASE         (0x20000000)
 
 /* Common routine for both 32-bit and 64-bit processes */
 static inline void ppc_elf_core_copy_regs(elf_gregset_t elf_regs,

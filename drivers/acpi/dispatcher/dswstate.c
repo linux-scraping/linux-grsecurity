@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -630,12 +630,9 @@ struct acpi_walk_state *acpi_ds_pop_walk_state(struct acpi_thread_state *thread)
  *
  ******************************************************************************/
 
-struct acpi_walk_state *acpi_ds_create_walk_state(acpi_owner_id owner_id,
-						  union acpi_parse_object
-						  *origin,
-						  union acpi_operand_object
-						  *method_desc,
-						  struct acpi_thread_state
+struct acpi_walk_state *acpi_ds_create_walk_state(acpi_owner_id owner_id, union acpi_parse_object
+						  *origin, union acpi_operand_object
+						  *method_desc, struct acpi_thread_state
 						  *thread)
 {
 	struct acpi_walk_state *walk_state;

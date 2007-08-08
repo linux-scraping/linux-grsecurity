@@ -65,7 +65,6 @@ not be guaranteed. There are several ways to assure this:
 #include <linux/time.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
-#include <linux/smp_lock.h>
 
 #include <asm/pgtable.h>
 #include <asm/system.h>
@@ -269,7 +268,7 @@ static int slm_get_pagesize( int device, int *w, int *h );
 
 static DEFINE_TIMER(slm_timer, slm_test_ready, 0, 0);
 
-static struct file_operations slm_fops = {
+static const struct file_operations slm_fops = {
 	.owner =	THIS_MODULE,
 	.read =		slm_read,
 	.write =	slm_write,

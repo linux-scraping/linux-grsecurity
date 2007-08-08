@@ -53,14 +53,10 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 #define ELF_ET_DYN_BASE         (TASK32_SIZE / 3 * 2)
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	(((tsk)->thread.mflags & MF_32BIT_ADDR) ? 0x00400000UL : 0x00400000UL)
+#define PAX_ELF_ET_DYN_BASE	((current->thread.mflags & MF_32BIT_ADDR) ? 0x00400000UL : 0x00400000UL)
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		(((tsk)->thread.mflags & MF_32BIT_ADDR) ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		(((tsk)->thread.mflags & MF_32BIT_ADDR) ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	(((tsk)->thread.mflags & MF_32BIT_ADDR) ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
+#define PAX_DELTA_MMAP_LEN	((current->thread.mflags & MF_32BIT_ADDR) ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
+#define PAX_DELTA_STACK_LEN	((current->thread.mflags & MF_32BIT_ADDR) ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
 #endif
 
 #include <asm/processor.h>

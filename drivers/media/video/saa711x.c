@@ -30,12 +30,10 @@
 #include <linux/major.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
-#include <linux/pci.h>
 #include <linux/signal.h>
 #include <asm/io.h>
 #include <asm/pgtable.h>
 #include <asm/page.h>
-#include <linux/sched.h>
 #include <linux/types.h>
 #include <asm/uaccess.h>
 #include <linux/videodev.h>

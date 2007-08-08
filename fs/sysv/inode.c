@@ -142,7 +142,7 @@ static inline void write3byte(struct sysv_sb_info *sbi,
 	}
 }
 
-static struct inode_operations sysv_symlink_inode_operations = {
+static const struct inode_operations sysv_symlink_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= page_follow_link_light,
 	.put_link	= page_put_link,
@@ -322,12 +322,10 @@ static void init_once(void *p, struct kmem_cache *cachep, unsigned long flags)
 {
 	struct sysv_inode_info *si = (struct sysv_inode_info *)p;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-			SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&si->vfs_inode);
+	inode_init_once(&si->vfs_inode);
 }
 
-struct super_operations sysv_sops = {
+const struct super_operations sysv_sops = {
 	.alloc_inode	= sysv_alloc_inode,
 	.destroy_inode	= sysv_destroy_inode,
 	.read_inode	= sysv_read_inode,

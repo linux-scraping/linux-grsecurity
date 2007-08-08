@@ -344,7 +344,7 @@ static int btaudio_mixer_ioctl(struct inode *inode, struct file *file,
 	if (cmd == SOUND_OLD_MIXER_INFO) {
 		_old_mixer_info info;
 		memset(&info,0,sizeof(info));
-                strlcpy(info.id,"bt878",sizeof(info.id)-1);
+                strlcpy(info.id, "bt878", sizeof(info.id));
                 strlcpy(info.name,"Brooktree Bt878 audio",sizeof(info.name));
                 if (copy_to_user(argp, &info, sizeof(info)))
                         return -EFAULT;
@@ -429,7 +429,7 @@ static int btaudio_mixer_ioctl(struct inode *inode, struct file *file,
 	return 0;
 }
 
-static struct file_operations btaudio_mixer_fops = {
+static const struct file_operations btaudio_mixer_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.open		= btaudio_mixer_open,
@@ -796,7 +796,7 @@ static unsigned int btaudio_dsp_poll(struct file *file, struct poll_table_struct
 	return mask;
 }
 
-static struct file_operations btaudio_digital_dsp_fops = {
+static const struct file_operations btaudio_digital_dsp_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.open		= btaudio_dsp_open_digital,
@@ -807,7 +807,7 @@ static struct file_operations btaudio_digital_dsp_fops = {
 	.poll		= btaudio_dsp_poll,
 };
 
-static struct file_operations btaudio_analog_dsp_fops = {
+static const struct file_operations btaudio_analog_dsp_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.open		= btaudio_dsp_open_analog,
@@ -915,12 +915,11 @@ static int __devinit btaudio_probe(struct pci_dev *pci_dev,
 		return -EBUSY;
 	}
 
-	bta = kmalloc(sizeof(*bta),GFP_ATOMIC);
+	bta = kzalloc(sizeof(*bta),GFP_ATOMIC);
 	if (!bta) {
 		rc = -ENOMEM;
 		goto fail0;
 	}
-	memset(bta,0,sizeof(*bta));
 
 	bta->pci  = pci_dev;
 	bta->irq  = pci_dev->irq;

@@ -76,8 +76,7 @@
 #include <linux/module.h>
 #include <linux/signal.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
-
+#include <linux/sched.h>
 #include <asm/asm.h>
 #include <asm/branch.h>
 #include <asm/byteorder.h>
@@ -515,7 +514,7 @@ asmlinkage void do_ade(struct pt_regs *regs)
 		goto sigbus;
 
 	pc = (unsigned int __user *) exception_epc(regs);
-	if ((current->thread.mflags & MF_FIXADE) == 0)
+	if (user_mode(regs) && (current->thread.mflags & MF_FIXADE) == 0)
 		goto sigbus;
 
 	/*

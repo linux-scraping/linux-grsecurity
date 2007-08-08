@@ -439,7 +439,8 @@ static void c2_rx_error(struct c2_port *c2_port, struct c2_element *elem)
 	}
 
 	/* Setup the skb for reuse since we're dropping this pkt */
-	elem->skb->tail = elem->skb->data = elem->skb->head;
+	elem->skb->data = elem->skb->head;
+	skb_reset_tail_pointer(elem->skb);
 
 	/* Zero out the rxp hdr in the sk_buff */
 	memset(elem->skb->data, 0, sizeof(*rxp_hdr));
@@ -521,9 +522,8 @@ static void c2_rx_interrupt(struct net_device *netdev)
 		 * "sizeof(struct c2_rxp_hdr)".
 		 */
 		skb->data += sizeof(*rxp_hdr);
-		skb->tail = skb->data + buflen;
+		skb_set_tail_pointer(skb, buflen);
 		skb->len = buflen;
-		skb->dev = netdev;
 		skb->protocol = eth_type_trans(skb, netdev);
 
 		netif_rx(skb);
@@ -672,7 +672,7 @@ static int c2_up(struct net_device *netdev)
 	 * rdma interface.
 	 */
 	in_dev = in_dev_get(netdev);
-	in_dev->cnf.arp_ignore = 1;
+	IN_DEV_CONF_SET(in_dev, ARP_IGNORE, 1);
 	in_dev_put(in_dev);
 
 	return 0;
@@ -1073,7 +1073,7 @@ static int __devinit c2_probe(struct pci_dev *pcidev,
 	     0xffffc000) / sizeof(struct c2_rxp_desc);
 
 	/* Request an interrupt line for the driver */
-	ret = request_irq(pcidev->irq, c2_interrupt, SA_SHIRQ, DRV_NAME, c2dev);
+	ret = request_irq(pcidev->irq, c2_interrupt, IRQF_SHARED, DRV_NAME, c2dev);
 	if (ret) {
 		printk(KERN_ERR PFX "%s: requested IRQ %u is busy\n",
 			pci_name(pcidev), pcidev->irq);

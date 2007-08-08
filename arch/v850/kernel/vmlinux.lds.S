@@ -92,7 +92,7 @@
 #define TEXT_CONTENTS							      \
 		_text = .;						      \
 		__stext = . ;						      \
-        	*(.text)						      \
+		TEXT_TEXT						      \
 		SCHED_TEXT						      \
 			*(.exit.text)	/* 2.5 convention */		      \
 			*(.text.exit)	/* 2.4 convention */		      \
@@ -113,7 +113,7 @@
 /* Kernel data segment.  */
 #define DATA_CONTENTS							      \
 		__sdata = . ;						      \
-        	*(.data)						      \
+		DATA_DATA						      \
 			*(.exit.data)	/* 2.5 convention */		      \
 			*(.data.exit)	/* 2.4 convention */		      \
 		. = ALIGN (16) ;					      \
@@ -190,12 +190,16 @@
 		__root_fs_image_start = . ;				      \
 		*(.root)						      \
 		__root_fs_image_end = . ;
+
+#ifdef CONFIG_BLK_DEV_INITRD
 /* The initramfs archive.  */
 #define INITRAMFS_CONTENTS						      \
 		. = ALIGN (4) ;						      \
 		___initramfs_start = . ;				      \
 			*(.init.ramfs)					      \
 		___initramfs_end = . ;
+#endif
+
 /* Where the initial bootmap (bitmap for the boot-time memory allocator) 
    should be place.  */
 #define BOOTMAP_CONTENTS						      \

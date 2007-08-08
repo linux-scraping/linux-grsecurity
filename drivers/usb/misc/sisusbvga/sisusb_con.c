@@ -51,7 +51,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
-#include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/tty.h>
 #include <linux/console.h>
@@ -63,7 +62,6 @@
 #include <linux/selection.h>
 #include <linux/spinlock.h>
 #include <linux/kref.h>
-#include <linux/smp_lock.h>
 #include <linux/ioport.h>
 #include <linux/interrupt.h>
 #include <linux/vmalloc.h>
@@ -323,7 +321,7 @@ sisusbcon_deinit(struct vc_data *c)
 /* interface routine */
 static u8
 sisusbcon_build_attr(struct vc_data *c, u8 color, u8 intensity,
-			    u8 blink, u8 underline, u8 reverse)
+			    u8 blink, u8 underline, u8 reverse, u8 unused)
 {
 	u8 attr = color;
 

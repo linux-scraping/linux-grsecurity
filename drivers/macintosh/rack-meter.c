@@ -171,11 +171,11 @@ static void rackmeter_setup_dbdma(struct rackmeter *rm)
 	/* Make sure dbdma is reset */
 	DBDMA_DO_RESET(rm->dma_regs);
 
-	pr_debug("rackmeter: mark offset=0x%lx\n",
+	pr_debug("rackmeter: mark offset=0x%zx\n",
 		 offsetof(struct rackmeter_dma, mark));
-	pr_debug("rackmeter: buf1 offset=0x%lx\n",
+	pr_debug("rackmeter: buf1 offset=0x%zx\n",
 		 offsetof(struct rackmeter_dma, buf1));
-	pr_debug("rackmeter: buf2 offset=0x%lx\n",
+	pr_debug("rackmeter: buf2 offset=0x%zx\n",
 		 offsetof(struct rackmeter_dma, buf2));
 
 	/* Prepare 4 dbdma commands for the 2 buffers */
@@ -387,7 +387,7 @@ static int __devinit rackmeter_probe(struct macio_dev* mdev,
 	       if (strcmp(np->name, "lightshow") == 0)
 		       break;
 	       if ((strcmp(np->name, "sound") == 0) &&
-		   get_property(np, "virtual", NULL) != NULL)
+		   of_get_property(np, "virtual", NULL) != NULL)
 		       break;
 	}
 	if (np == NULL) {

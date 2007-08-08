@@ -84,8 +84,8 @@ struct mqueue_inode_info {
 	unsigned long qsize; /* size of queue in memory (sum of all msgs) */
 };
 
-static struct inode_operations mqueue_dir_inode_operations;
-static struct file_operations mqueue_file_operations;
+static const struct inode_operations mqueue_dir_inode_operations;
+static const struct file_operations mqueue_file_operations;
 static struct super_operations mqueue_super_ops;
 static void remove_notification(struct mqueue_inode_info *info);
 
@@ -215,9 +215,7 @@ static void init_once(void *foo, struct kmem_cache * cachep, unsigned long flags
 {
 	struct mqueue_inode_info *p = (struct mqueue_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY | SLAB_CTOR_CONSTRUCTOR)) ==
-		SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&p->vfs_inode);
+	inode_init_once(&p->vfs_inode);
 }
 
 static struct inode *mqueue_alloc_inode(struct super_block *sb)
@@ -682,6 +680,7 @@ asmlinkage long sys_mq_open(const char __user *u_name, int oflag, mode_t mode,
 
 	if (oflag & O_CREAT) {
 		if (dentry->d_inode) {	/* entry already exists */
+			audit_inode(name, dentry->d_inode);
 			error = -EEXIST;
 			if (oflag & O_EXCL)
 				goto out;
@@ -694,6 +693,7 @@ asmlinkage long sys_mq_open(const char __user *u_name, int oflag, mode_t mode,
 		error = -ENOENT;
 		if (!dentry->d_inode)
 			goto out;
+		audit_inode(name, dentry->d_inode);
 		filp = do_open(dentry, oflag);
 	}
 
@@ -731,7 +731,8 @@ asmlinkage long sys_mq_unlink(const char __user *u_name)
 	if (IS_ERR(name))
 		return PTR_ERR(name);
 
-	mutex_lock(&mqueue_mnt->mnt_root->d_inode->i_mutex);
+	mutex_lock_nested(&mqueue_mnt->mnt_root->d_inode->i_mutex,
+			I_MUTEX_PARENT);
 	dentry = lookup_one_len(name, mqueue_mnt->mnt_root, strlen(name));
 	if (IS_ERR(dentry)) {
 		err = PTR_ERR(dentry);
@@ -840,6 +841,7 @@ asmlinkage long sys_mq_timedsend(mqd_t mqdes, const char __user *u_msg_ptr,
 	if (unlikely(filp->f_op != &mqueue_file_operations))
 		goto out_fput;
 	info = MQUEUE_I(inode);
+	audit_inode(NULL, inode);
 
 	if (unlikely(!(filp->f_mode & FMODE_WRITE)))
 		goto out_fput;
@@ -923,6 +925,7 @@ asmlinkage ssize_t sys_mq_timedreceive(mqd_t mqdes, char __user *u_msg_ptr,
 	if (unlikely(filp->f_op != &mqueue_file_operations))
 		goto out_fput;
 	info = MQUEUE_I(inode);
+	audit_inode(NULL, inode);
 
 	if (unlikely(!(filp->f_mode & FMODE_READ)))
 		goto out_fput;
@@ -1160,13 +1163,13 @@ out:
 	return ret;
 }
 
-static struct inode_operations mqueue_dir_inode_operations = {
+static const struct inode_operations mqueue_dir_inode_operations = {
 	.lookup = simple_lookup,
 	.create = mqueue_create,
 	.unlink = mqueue_unlink,
 };
 
-static struct file_operations mqueue_file_operations = {
+static const struct file_operations mqueue_file_operations = {
 	.flush = mqueue_flush_file,
 	.poll = mqueue_poll_file,
 	.read = mqueue_read_file,
@@ -1255,7 +1258,7 @@ static int __init init_mqueue_fs(void)
 		return -ENOMEM;
 
 	/* ignore failues - they are not fatal */
-	mq_sysctl_table = register_sysctl_table(mq_sysctl_root, 0);
+	mq_sysctl_table = register_sysctl_table(mq_sysctl_root);
 
 	error = register_filesystem(&mqueue_fs_type);
 	if (error)

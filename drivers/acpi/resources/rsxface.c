@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -217,7 +217,6 @@ acpi_get_current_resources(acpi_handle device_handle,
 }
 
 ACPI_EXPORT_SYMBOL(acpi_get_current_resources)
-
 #ifdef ACPI_FUTURE_USAGE
 /*******************************************************************************
  *
@@ -261,7 +260,6 @@ acpi_get_possible_resources(acpi_handle device_handle,
 
 ACPI_EXPORT_SYMBOL(acpi_get_possible_resources)
 #endif				/*  ACPI_FUTURE_USAGE  */
-
 /*******************************************************************************
  *
  * FUNCTION:    acpi_set_current_resources
@@ -496,7 +494,6 @@ ACPI_EXPORT_SYMBOL(acpi_rs_match_vendor_resource)
  *              each resource in the list.
  *
  ******************************************************************************/
-
 acpi_status
 acpi_walk_resources(acpi_handle device_handle,
 		    char *name,

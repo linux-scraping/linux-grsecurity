@@ -104,7 +104,7 @@ static void dac_audio_set_rate(void)
 	unsigned long interval;
  	struct clk *clk;
 
- 	clk = clk_get("module_clk");
+ 	clk = clk_get(NULL, "module_clk");
  	interval = (clk_get_rate(clk) / 4) / rate;
  	clk_put(clk);
 	ctrl_outl(interval, TMU1_TCOR);
@@ -255,7 +255,7 @@ static int dac_audio_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-struct file_operations dac_audio_fops = {
+const struct file_operations dac_audio_fops = {
       .read =		dac_audio_read,
       .write =	dac_audio_write,
       .ioctl =	dac_audio_ioctl,

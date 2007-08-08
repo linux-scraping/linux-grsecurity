@@ -813,12 +813,6 @@ con3215_unblank(void)
 	spin_unlock_irqrestore(get_ccwdev_lock(raw->cdev), flags);
 }
 
-static int __init 
-con3215_consetup(struct console *co, char *options)
-{
-	return 0;
-}
-
 /*
  *  The console structure for the 3215 console
  */
@@ -827,7 +821,6 @@ static struct console con3215 = {
 	.write	 = con3215_write,
 	.device	 = con3215_device,
 	.unblank = con3215_unblank,
-	.setup	 = con3215_consetup,
 	.flags	 = CON_PRINTBUFFER,
 };
 
@@ -1121,7 +1114,7 @@ static const struct tty_operations tty3215_ops = {
  * 3215 tty registration code called from tty_init().
  * Most kernel services (incl. kmalloc) are available at this poimt.
  */
-int __init
+static int __init
 tty3215_init(void)
 {
 	struct tty_driver *driver;

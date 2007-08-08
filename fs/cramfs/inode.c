@@ -27,8 +27,8 @@
 
 #include <asm/uaccess.h>
 
-static struct super_operations cramfs_ops;
-static struct inode_operations cramfs_dir_inode_operations;
+static const struct super_operations cramfs_ops;
+static const struct inode_operations cramfs_dir_inode_operations;
 static const struct file_operations cramfs_directory_operations;
 static const struct address_space_operations cramfs_aops;
 
@@ -180,7 +180,8 @@ static void *cramfs_read(struct super_block *sb, unsigned int offset, unsigned i
 		struct page *page = NULL;
 
 		if (blocknr + i < devsize) {
-			page = read_mapping_page(mapping, blocknr + i, NULL);
+			page = read_mapping_page_async(mapping, blocknr + i,
+									NULL);
 			/* synchronous error? */
 			if (IS_ERR(page))
 				page = NULL;
@@ -518,11 +519,11 @@ static const struct file_operations cramfs_directory_operations = {
 	.readdir	= cramfs_readdir,
 };
 
-static struct inode_operations cramfs_dir_inode_operations = {
+static const struct inode_operations cramfs_dir_inode_operations = {
 	.lookup		= cramfs_lookup,
 };
 
-static struct super_operations cramfs_ops = {
+static const struct super_operations cramfs_ops = {
 	.put_super	= cramfs_put_super,
 	.remount_fs	= cramfs_remount,
 	.statfs		= cramfs_statfs,

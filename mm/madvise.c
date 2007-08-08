@@ -10,56 +10,42 @@
 #include <linux/syscalls.h>
 #include <linux/mempolicy.h>
 #include <linux/hugetlb.h>
+#include <linux/sched.h>
+
+/*
+ * Any behaviour which results in changes to the vma->vm_flags needs to
+ * take mmap_sem for writing. Others, which simply traverse vmas, need
+ * to only take it for reading.
+ */
+static int madvise_need_mmap_write(int behavior)
+{
+	switch (behavior) {
+	case MADV_REMOVE:
+	case MADV_WILLNEED:
+	case MADV_DONTNEED:
+		return 0;
+	default:
+		/* be safe, default to 1. list exceptions explicitly */
+		return 1;
+	}
+}
 
 /*
  * We can potentially split a vm area into separate
  * areas, each area with its own behavior.
  */
-
-#ifdef CONFIG_PAX_SEGMEXEC
-static long __madvise_behavior(struct vm_area_struct * vma,
-		     struct vm_area_struct **prev,
-		     unsigned long start, unsigned long end, int behavior);
-
 static long madvise_behavior(struct vm_area_struct * vma,
 		     struct vm_area_struct **prev,
 		     unsigned long start, unsigned long end, int behavior)
-{
-	if (vma->vm_flags & VM_MIRROR) {
-		struct vm_area_struct * vma_m, * prev_m;
-		unsigned long start_m, end_m;
-		int error;
-
-		start_m = vma->vm_start + vma->vm_mirror;
-		vma_m = find_vma_prev(vma->vm_mm, start_m, &prev_m);
-		if (vma_m && vma_m->vm_start == start_m && (vma_m->vm_flags & VM_MIRROR)) {
-			start_m = start + vma->vm_mirror;
-			end_m = end + vma->vm_mirror;
-			error = __madvise_behavior(vma_m, &prev_m, start_m, end_m, behavior);
-			if (error)
-				return error;
-		} else {
-			printk("PAX: VMMIRROR: madvise bug in %s, %08lx\n", current->comm, vma->vm_start);
-			return -ENOMEM;
-		}
-	}
-
-	return __madvise_behavior(vma, prev, start, end, behavior);
-}
-
-static long __madvise_behavior(struct vm_area_struct * vma,
-		     struct vm_area_struct **prev,
-		     unsigned long start, unsigned long end, int behavior)
-#else
-static long madvise_behavior(struct vm_area_struct * vma,
-		     struct vm_area_struct **prev,
-		     unsigned long start, unsigned long end, int behavior)
-#endif
 {
 	struct mm_struct * mm = vma->vm_mm;
 	int error = 0;
 	pgoff_t pgoff;
 	int new_flags = vma->vm_flags;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+#endif
 
 	switch (behavior) {
 	case MADV_NORMAL:
@@ -110,6 +96,13 @@ success:
 	/*
 	 * vm_flags is protected by the mmap_sem held in write mode.
 	 */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	vma_m = pax_find_mirror_vma(vma);
+	if (vma_m)
+		vma_m->vm_flags = new_flags & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT);
+#endif
+
 	vma->vm_flags = new_flags;
 
 out:
@@ -196,9 +189,10 @@ static long madvise_remove(struct vm_area_struct *vma,
 				unsigned long start, unsigned long end)
 {
 	struct address_space *mapping;
-        loff_t offset, endoff;
+	loff_t offset, endoff;
+	int error;
 
-	*prev = vma;
+	*prev = NULL;	/* tell sys_madvise we drop mmap_sem */
 
 	if (vma->vm_flags & (VM_LOCKED|VM_NONLINEAR|VM_HUGETLB))
 		return -EINVAL;
@@ -217,7 +211,12 @@ static long madvise_remove(struct vm_area_struct *vma,
 			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
 	endoff = (loff_t)(end - vma->vm_start - 1)
 			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
-	return  vmtruncate_range(mapping->host, offset, endoff);
+
+	/* vmtruncate_range needs to take i_mutex and i_alloc_sem */
+	up_read(&current->mm->mmap_sem);
+	error = vmtruncate_range(mapping->host, offset, endoff);
+	down_read(&current->mm->mmap_sem);
+	return error;
 }
 
 static long
@@ -248,6 +247,17 @@ madvise_vma(struct vm_area_struct *vma, struct vm_area_struct **prev,
 
 	case MADV_DONTNEED:
 		error = madvise_dontneed(vma, prev, start, end);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (!error) {
+			struct vm_area_struct *vma_m, *prev_m;
+
+			vma_m = pax_find_mirror_vma(vma);
+			if (vma_m)
+				error = madvise_dontneed(vma_m, &prev_m, start + SEGMEXEC_TASK_SIZE, end + SEGMEXEC_TASK_SIZE);
+		}
+#endif
+
 		break;
 
 	default:
@@ -301,7 +311,10 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
 	int error = -EINVAL;
 	size_t len;
 
-	down_write(&current->mm->mmap_sem);
+	if (madvise_need_mmap_write(behavior))
+		down_write(&current->mm->mmap_sem);
+	else
+		down_read(&current->mm->mmap_sem);
 
 	if (start & ~PAGE_MASK)
 		goto out;
@@ -313,6 +326,16 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
 
 	end = start + len;
 	if (end < start)
+		goto out;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
+		if (end > SEGMEXEC_TASK_SIZE)
+			goto out;
+	} else
+#endif
+
+	if (end > TASK_SIZE)
 		goto out;
 
 	error = 0;
@@ -352,14 +375,21 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
 		if (error)
 			goto out;
 		start = tmp;
-		if (start < prev->vm_end)
+		if (prev && start < prev->vm_end)
 			start = prev->vm_end;
 		error = unmapped_error;
 		if (start >= end)
 			goto out;
-		vma = prev->vm_next;
+		if (prev)
+			vma = prev->vm_next;
+		else	/* madvise_remove dropped mmap_sem */
+			vma = find_vma(current->mm, start);
 	}
 out:
-	up_write(&current->mm->mmap_sem);
+	if (madvise_need_mmap_write(behavior))
+		up_write(&current->mm->mmap_sem);
+	else
+		up_read(&current->mm->mmap_sem);
+
 	return error;
 }

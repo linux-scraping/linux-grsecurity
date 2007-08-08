@@ -32,7 +32,6 @@
 #include <linux/poll.h>
 #include <linux/soundcard.h>
 #include <linux/ac97_codec.h>
-#include <linux/smp_lock.h>
 #include <linux/ioport.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
@@ -1619,7 +1618,7 @@ out:
 }
 
 
-static struct file_operations via_mixer_fops = {
+static const struct file_operations via_mixer_fops = {
 	.owner		= THIS_MODULE,
 	.open		= via_mixer_open,
 	.llseek		= no_llseek,
@@ -2042,7 +2041,7 @@ static int via_interrupt_init (struct via_info *card)
  *
  */
 
-static struct file_operations via_dsp_fops = {
+static const struct file_operations via_dsp_fops = {
 	.owner		= THIS_MODULE,
 	.open		= via_dsp_open,
 	.release	= via_dsp_release,

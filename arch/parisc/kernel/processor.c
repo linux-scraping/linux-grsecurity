@@ -33,7 +33,7 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/cpu.h>
-
+#include <asm/param.h>
 #include <asm/cache.h>
 #include <asm/hardware.h>	/* for register_parisc_driver() stuff */
 #include <asm/processor.h>
@@ -48,6 +48,8 @@ EXPORT_SYMBOL(boot_cpu_data);
 
 struct cpuinfo_parisc cpu_data[NR_CPUS] __read_mostly;
 
+extern int update_cr16_clocksource(void);	/* from time.c */
+
 /*
 **  	PARISC CPU driver - claim "device" and initialize CPU data structures.
 **
@@ -61,7 +63,7 @@ struct cpuinfo_parisc cpu_data[NR_CPUS] __read_mostly;
 ** will call register_parisc_driver(&cpu_driver) before calling do_inventory().
 **
 ** The goal of consolidating CPU initialization into one place is
-** to make sure all CPU's get initialized the same way.
+** to make sure all CPUs get initialized the same way.
 ** The code path not shared is how PDC hands control of the CPU to the OS.
 ** The initialization of OS data structures is the same (done below).
 */
@@ -74,7 +76,7 @@ struct cpuinfo_parisc cpu_data[NR_CPUS] __read_mostly;
  * (return 1).  If so, initialize the chip and tell other partners in crime 
  * they have work to do.
  */
-static int __init processor_probe(struct parisc_device *dev)
+static int __cpuinit processor_probe(struct parisc_device *dev)
 {
 	unsigned long txn_addr;
 	unsigned long cpuid;
@@ -93,7 +95,7 @@ static int __init processor_probe(struct parisc_device *dev)
 	cpuid = boot_cpu_data.cpu_count;
 	txn_addr = dev->hpa.start;	/* for legacy PDC */
 
-#ifdef __LP64__
+#ifdef CONFIG_64BIT
 	if (is_pdc_pat()) {
 		ulong status;
 		unsigned long bytecnt;
@@ -153,8 +155,6 @@ static int __init processor_probe(struct parisc_device *dev)
 	p->cpuid = cpuid;	/* save CPU id */
 	p->txn_addr = txn_addr;	/* save CPU IRQ address */
 #ifdef CONFIG_SMP
-	spin_lock_init(&p->lock);
-
 	/*
 	** FIXME: review if any other initialization is clobbered
 	**	for boot_cpu by the above memset().
@@ -166,7 +166,7 @@ static int __init processor_probe(struct parisc_device *dev)
 #endif
 
 	/*
-	** CONFIG_SMP: init_smp_config() will attempt to get CPU's into
+	** CONFIG_SMP: init_smp_config() will attempt to get CPUs into
 	** OS control. RENDEZVOUS is the default state - see mem_set above.
 	**	p->state = STATE_RENDEZVOUS;
 	*/
@@ -199,6 +199,12 @@ static int __init processor_probe(struct parisc_device *dev)
 		cpu_up(cpuid);
 	}
 #endif
+
+	/* If we've registered more than one cpu,
+	 * we'll use the jiffies clocksource since cr16
+	 * is not synchronized between CPUs.
+	 */
+	update_cr16_clocksource();
 
 	return 0;
 }
@@ -311,11 +317,11 @@ int __init init_per_cpu(int cpunum)
 	} else {
 		printk(KERN_WARNING  "WARNING: No FP CoProcessor?!"
 			" (coproc_cfg.ccr_functional == 0x%lx, expected 0xc0)\n"
-#ifdef __LP64__
+#ifdef CONFIG_64BIT
 			"Halting Machine - FP required\n"
 #endif
 			, coproc_cfg.ccr_functional);
-#ifdef __LP64__
+#ifdef CONFIG_64BIT
 		mdelay(100);	/* previous chars get pushed to console */
 		panic("FP CoProc not reported");
 #endif
@@ -328,7 +334,7 @@ int __init init_per_cpu(int cpunum)
 }
 
 /*
- * Display cpu info for all cpu's.
+ * Display CPU info for all CPUs.
  */
 int
 show_cpuinfo (struct seq_file *m, void *v)
@@ -339,9 +345,6 @@ show_cpuinfo (struct seq_file *m, void *v)
 #ifdef CONFIG_SMP
 		if (0 == cpu_data[n].hpa)
 			continue;
-#ifdef ENTRY_SYS_CPUS
-#error iCOD support wants to show CPU state here
-#endif
 #endif
 		seq_printf(m, "processor\t: %d\n"
 				"cpu family\t: PA-RISC %s\n",
@@ -378,19 +381,19 @@ show_cpuinfo (struct seq_file *m, void *v)
 	return 0;
 }
 
-static struct parisc_device_id processor_tbl[] __read_mostly = {
+static const struct parisc_device_id processor_tbl[] = {
 	{ HPHW_NPROC, HVERSION_REV_ANY_ID, HVERSION_ANY_ID, SVERSION_ANY_ID },
 	{ 0, }
 };
 
-static struct parisc_driver cpu_driver __read_mostly = {
+static struct parisc_driver cpu_driver = {
 	.name		= "CPU",
 	.id_table	= processor_tbl,
 	.probe		= processor_probe
 };
 
 /**
- * processor_init - Processor initalization procedure.
+ * processor_init - Processor initialization procedure.
  *
  * Register this driver.
  */

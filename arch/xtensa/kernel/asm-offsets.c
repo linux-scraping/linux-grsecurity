@@ -39,6 +39,7 @@ int main(void)
 	DEFINE(PT_LEND, offsetof (struct pt_regs, lend));
 	DEFINE(PT_LCOUNT, offsetof (struct pt_regs, lcount));
 	DEFINE(PT_SAR, offsetof (struct pt_regs, sar));
+	DEFINE(PT_ICOUNTLEVEL, offsetof (struct pt_regs, icountlevel));
 	DEFINE(PT_SYSCALL, offsetof (struct pt_regs, syscall));
 	DEFINE(PT_AREG, offsetof (struct pt_regs, areg[0]));
 	DEFINE(PT_AREG0, offsetof (struct pt_regs, areg[0]));
@@ -70,7 +71,7 @@ int main(void)
 	DEFINE(TASK_ACTIVE_MM, offsetof (struct task_struct, active_mm));
 	DEFINE(TASK_PID, offsetof (struct task_struct, pid));
 	DEFINE(TASK_THREAD, offsetof (struct task_struct, thread));
-	DEFINE(TASK_THREAD_INFO, offsetof (struct task_struct, thread_info));
+	DEFINE(TASK_THREAD_INFO, offsetof (struct task_struct, stack));
 	DEFINE(TASK_STRUCT_SIZE, sizeof (struct task_struct));
 	BLANK();
 

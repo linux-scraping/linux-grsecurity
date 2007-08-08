@@ -164,6 +164,7 @@ static int at91_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	tm.tm_min = alrm->time.tm_min;
 	tm.tm_sec = alrm->time.tm_sec;
 
+	at91_sys_write(AT91_RTC_IDR, AT91_RTC_ALARM);
 	at91_sys_write(AT91_RTC_TIMALR,
 		  BIN2BCD(tm.tm_sec) << 0
 		| BIN2BCD(tm.tm_min) << 8
@@ -173,6 +174,9 @@ static int at91_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 		  BIN2BCD(tm.tm_mon + 1) << 16		/* tm_mon starts at zero */
 		| BIN2BCD(tm.tm_mday) << 24
 		| AT91_RTC_DATEEN | AT91_RTC_MTHEN);
+
+	if (alrm->enabled)
+		at91_sys_write(AT91_RTC_IER, AT91_RTC_ALARM);
 
 	pr_debug("%s(): %4d-%02d-%02d %02d:%02d:%02d\n", __FUNCTION__,
 		at91_alarm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour,
@@ -259,7 +263,7 @@ static irqreturn_t at91_rtc_interrupt(int irq, void *dev_id)
 
 		at91_sys_write(AT91_RTC_SCCR, rtsr);	/* clear status reg */
 
-		rtc_update_irq(&rtc->class_dev, 1, events);
+		rtc_update_irq(rtc, 1, events);
 
 		pr_debug("%s(): num=%ld, events=0x%02lx\n", __FUNCTION__,
 			events >> 8, events & 0x000000FF);
@@ -303,6 +307,12 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* cpu init code should really have flagged this device as
+	 * being wake-capable; if it didn't, do that here.
+	 */
+	if (!device_can_wakeup(&pdev->dev))
+		device_init_wakeup(&pdev->dev, 1);
+
 	rtc = rtc_device_register(pdev->name, &pdev->dev,
 				&at91_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc)) {
@@ -310,7 +320,6 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 		return PTR_ERR(rtc);
 	}
 	platform_set_drvdata(pdev, rtc);
-	device_init_wakeup(&pdev->dev, 1);
 
 	printk(KERN_INFO "AT91 Real Time Clock driver.\n");
 	return 0;
@@ -319,7 +328,7 @@ static int __init at91_rtc_probe(struct platform_device *pdev)
 /*
  * Disable and remove the RTC driver
  */
-static int __devexit at91_rtc_remove(struct platform_device *pdev)
+static int __exit at91_rtc_remove(struct platform_device *pdev)
 {
 	struct rtc_device *rtc = platform_get_drvdata(pdev);
 
@@ -331,7 +340,6 @@ static int __devexit at91_rtc_remove(struct platform_device *pdev)
 
 	rtc_device_unregister(rtc);
 	platform_set_drvdata(pdev, NULL);
-	device_init_wakeup(&pdev->dev, 0);
 
 	return 0;
 }
@@ -340,21 +348,10 @@ static int __devexit at91_rtc_remove(struct platform_device *pdev)
 
 /* AT91RM9200 RTC Power management control */
 
-static struct timespec at91_rtc_delta;
 static u32 at91_rtc_imr;
 
 static int at91_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct rtc_time tm;
-	struct timespec time;
-
-	time.tv_nsec = 0;
-
-	/* calculate time delta for suspend */
-	at91_rtc_readtime(&pdev->dev, &tm);
-	rtc_tm_to_time(&tm, &time.tv_sec);
-	save_time_delta(&at91_rtc_delta, &time);
-
 	/* this IRQ is shared with DBGU and other hardware which isn't
 	 * necessarily doing PM like we are...
 	 */
@@ -366,36 +363,17 @@ static int at91_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 		else
 			at91_sys_write(AT91_RTC_IDR, at91_rtc_imr);
 	}
-
-	pr_debug("%s(): %4d-%02d-%02d %02d:%02d:%02d\n", __FUNCTION__,
-		1900 + tm.tm_year, tm.tm_mon, tm.tm_mday,
-		tm.tm_hour, tm.tm_min, tm.tm_sec);
-
 	return 0;
 }
 
 static int at91_rtc_resume(struct platform_device *pdev)
 {
-	struct rtc_time tm;
-	struct timespec time;
-
-	time.tv_nsec = 0;
-
-	at91_rtc_readtime(&pdev->dev, &tm);
-	rtc_tm_to_time(&tm, &time.tv_sec);
-	restore_time_delta(&at91_rtc_delta, &time);
-
 	if (at91_rtc_imr) {
 		if (device_may_wakeup(&pdev->dev))
 			disable_irq_wake(AT91_ID_SYS);
 		else
 			at91_sys_write(AT91_RTC_IER, at91_rtc_imr);
 	}
-
-	pr_debug("%s(): %4d-%02d-%02d %02d:%02d:%02d\n", __FUNCTION__,
-		1900 + tm.tm_year, tm.tm_mon, tm.tm_mday,
-		tm.tm_hour, tm.tm_min, tm.tm_sec);
-
 	return 0;
 }
 #else
@@ -404,8 +382,7 @@ static int at91_rtc_resume(struct platform_device *pdev)
 #endif
 
 static struct platform_driver at91_rtc_driver = {
-	.probe		= at91_rtc_probe,
-	.remove		= at91_rtc_remove,
+	.remove		= __exit_p(at91_rtc_remove),
 	.suspend	= at91_rtc_suspend,
 	.resume		= at91_rtc_resume,
 	.driver		= {
@@ -416,7 +393,7 @@ static struct platform_driver at91_rtc_driver = {
 
 static int __init at91_rtc_init(void)
 {
-	return platform_driver_register(&at91_rtc_driver);
+	return platform_driver_probe(&at91_rtc_driver, at91_rtc_probe);
 }
 
 static void __exit at91_rtc_exit(void)

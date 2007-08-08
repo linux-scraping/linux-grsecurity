@@ -220,7 +220,7 @@ typedef struct elf64_fdesc {
  * macros, and then it includes fs/binfmt_elf.c to provide an alternate
  * elf binary handler for 32 bit binaries (on the 64 bit kernel).
  */
-#ifdef __LP64__
+#ifdef CONFIG_64BIT
 #define ELF_CLASS       ELFCLASS64
 #else
 #define ELF_CLASS	ELFCLASS32
@@ -338,14 +338,10 @@ struct pt_regs;	/* forward declaration... */
 #define ELF_ET_DYN_BASE         (TASK_UNMAPPED_BASE + 0x01000000)
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	0x10000UL
+#define PAX_ELF_ET_DYN_BASE	0x10000UL
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		16
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		16
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	16
+#define PAX_DELTA_MMAP_LEN	16
+#define PAX_DELTA_STACK_LEN	16
 #endif
 
 /* This yields a mask that user programs can use to figure out what

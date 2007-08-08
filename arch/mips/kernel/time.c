@@ -199,6 +199,35 @@ int (*perf_irq)(void) = null_perf_irq;
 EXPORT_SYMBOL(null_perf_irq);
 EXPORT_SYMBOL(perf_irq);
 
+/*
+ * Timer interrupt
+ */
+int cp0_compare_irq;
+
+/*
+ * Performance counter IRQ or -1 if shared with timer
+ */
+int cp0_perfcount_irq;
+EXPORT_SYMBOL_GPL(cp0_perfcount_irq);
+
+/*
+ * Possibly handle a performance counter interrupt.
+ * Return true if the timer interrupt should not be checked
+ */
+static inline int handle_perf_irq (int r2)
+{
+	/*
+	 * The performance counter overflow interrupt may be shared with the
+	 * timer interrupt (cp0_perfcount_irq < 0). If it is and a
+	 * performance counter has overflowed (perf_irq() == IRQ_HANDLED)
+	 * and we can't reliably determine if a counter interrupt has also
+	 * happened (!r2) then don't check for a timer interrupt.
+	 */
+	return (cp0_perfcount_irq < 0) &&
+		perf_irq() == IRQ_HANDLED &&
+		!r2;
+}
+
 asmlinkage void ll_timer_interrupt(int irq)
 {
 	int r2 = cpu_has_mips_r2;
@@ -206,19 +235,13 @@ asmlinkage void ll_timer_interrupt(int irq)
 	irq_enter();
 	kstat_this_cpu.irqs[irq]++;
 
-	/*
-	 * Suckage alert:
-	 * Before R2 of the architecture there was no way to see if a
-	 * performance counter interrupt was pending, so we have to run the
-	 * performance counter interrupt handler anyway.
-	 */
-	if (!r2 || (read_c0_cause() & (1 << 26)))
-		if (perf_irq())
-			goto out;
+	if (handle_perf_irq(r2))
+		goto out;
 
-	/* we keep interrupt disabled all the time */
-	if (!r2 || (read_c0_cause() & (1 << 30)))
-		timer_interrupt(irq, NULL);
+	if (r2 && ((read_c0_cause() & (1 << 30)) == 0))
+		goto out;
+
+	timer_interrupt(irq, NULL);
 
 out:
 	irq_exit();
@@ -258,7 +281,7 @@ unsigned int mips_hpt_frequency;
 
 static struct irqaction timer_irqaction = {
 	.handler = timer_interrupt,
-	.flags = IRQF_DISABLED,
+	.flags = IRQF_DISABLED | IRQF_PERCPU,
 	.name = "timer",
 };
 
@@ -306,8 +329,8 @@ static unsigned int __init calibrate_hpt(void)
 
 struct clocksource clocksource_mips = {
 	.name		= "MIPS",
-	.mask		= 0xffffffff,
-	.is_continuous	= 1,
+	.mask		= CLOCKSOURCE_MASK(32),
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
 static void __init init_mips_clocksource(void)
@@ -455,8 +478,3 @@ EXPORT_SYMBOL(rtc_lock);
 EXPORT_SYMBOL(to_tm);
 EXPORT_SYMBOL(rtc_mips_set_time);
 EXPORT_SYMBOL(rtc_mips_get_time);
-
-unsigned long long sched_clock(void)
-{
-	return (unsigned long long)jiffies*(1000000000/HZ);
-}

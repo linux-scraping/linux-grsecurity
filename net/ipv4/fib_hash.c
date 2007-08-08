@@ -20,7 +20,6 @@
 #include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/string.h>
 #include <linux/socket.h>
@@ -146,7 +145,7 @@ static void fn_rehash_zone(struct fn_zone *fz)
 	struct hlist_head *ht, *old_ht;
 	int old_divisor, new_divisor;
 	u32 new_hashmask;
-		
+
 	old_divisor = fz->fz_divisor;
 
 	switch (old_divisor) {
@@ -457,6 +456,8 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 			fib_release_info(fi_drop);
 			if (state & FA_S_ACCESSED)
 				rt_cache_flush(-1);
+			rtmsg_fib(RTM_NEWROUTE, key, fa, cfg->fc_dst_len, tb->tb_id,
+				  &cfg->fc_nlinfo, NLM_F_REPLACE);
 			return 0;
 		}
 
@@ -524,7 +525,7 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 	rt_cache_flush(-1);
 
 	rtmsg_fib(RTM_NEWROUTE, key, new_fa, cfg->fc_dst_len, tb->tb_id,
-		  &cfg->fc_nlinfo);
+		  &cfg->fc_nlinfo, 0);
 	return 0;
 
 out_free_new_fa:
@@ -590,7 +591,7 @@ static int fn_hash_delete(struct fib_table *tb, struct fib_config *cfg)
 
 		fa = fa_to_delete;
 		rtmsg_fib(RTM_DELROUTE, key, fa, cfg->fc_dst_len,
-			  tb->tb_id, &cfg->fc_nlinfo);
+			  tb->tb_id, &cfg->fc_nlinfo, 0);
 
 		kill_fn = 0;
 		write_lock_bh(&fib_hash_lock);
@@ -911,7 +912,7 @@ static struct fib_alias *fib_get_next(struct seq_file *seq)
 
 		if (!iter->zone)
 			goto out;
-		
+
 		iter->bucket = 0;
 		iter->hash_head = iter->zone->fz_hash;
 
@@ -932,7 +933,7 @@ static struct fib_alias *fib_get_idx(struct seq_file *seq, loff_t pos)
 {
 	struct fib_iter_state *iter = seq->private;
 	struct fib_alias *fa;
-	
+
 	if (iter->valid && pos >= iter->pos && iter->genid == fib_hash_genid) {
 		fa   = iter->fa;
 		pos -= iter->pos;
@@ -981,7 +982,7 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
 	return flags;
 }
 
-/* 
+/*
  *	This outputs /proc/net/route.
  *
  *	It always works in backward compatibility mode.
@@ -1028,7 +1029,7 @@ out:
 	return 0;
 }
 
-static struct seq_operations fib_seq_ops = {
+static const struct seq_operations fib_seq_ops = {
 	.start  = fib_seq_start,
 	.next   = fib_seq_next,
 	.stop   = fib_seq_stop,
@@ -1040,7 +1041,7 @@ static int fib_seq_open(struct inode *inode, struct file *file)
 	struct seq_file *seq;
 	int rc = -ENOMEM;
 	struct fib_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
-       
+
 	if (!s)
 		goto out;
 
@@ -1057,7 +1058,7 @@ out_kfree:
 	goto out;
 }
 
-static struct file_operations fib_seq_fops = {
+static const struct file_operations fib_seq_fops = {
 	.owner		= THIS_MODULE,
 	.open           = fib_seq_open,
 	.read           = seq_read,

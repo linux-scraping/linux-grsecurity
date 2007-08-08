@@ -88,7 +88,7 @@ ahd_compose_id(u_int device, u_int vendor, u_int subdevice, u_int subvendor)
 
 #define SUBID_9005_LEGACYCONN_FUNC(id) ((id) & 0x20)
 
-#define SUBID_9005_SEEPTYPE(id) ((id) & 0x0C0) >> 6)
+#define SUBID_9005_SEEPTYPE(id) (((id) & 0x0C0) >> 6)
 #define		SUBID_9005_SEEPTYPE_NONE	0x0
 #define		SUBID_9005_SEEPTYPE_4K		0x1
 
@@ -966,7 +966,7 @@ ahd_aic790X_setup(struct ahd_softc *ahd)
 			      |  AHD_BUSFREEREV_BUG;
 		ahd->bugs |= AHD_LQOOVERRUN_BUG|AHD_EARLY_REQ_BUG;
 
-		/* If the user requested the the SLOWCRC bit to be set. */
+		/* If the user requested that the SLOWCRC bit to be set. */
 		if (aic79xx_slowcrc)
 			ahd->features |= AHD_AIC79XXB_SLOWCRC;
 

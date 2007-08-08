@@ -21,6 +21,7 @@
  *	Skip non-WB memory and ignore empty memory ranges.
  */
 #include <linux/module.h>
+#include <linux/bootmem.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/types.h>
@@ -380,7 +381,7 @@ efi_get_pal_addr (void)
 #endif
 		return __va(md->phys_addr);
 	}
-	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found",
+	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found\n",
 	       __FUNCTION__);
 	return NULL;
 }
@@ -413,11 +414,10 @@ efi_init (void)
 	efi_char16_t *c16;
 	u64 efi_desc_size;
 	char *cp, vendor[100] = "unknown";
-	extern char saved_command_line[];
 	int i;
 
 	/* it's too early to be able to use the standard kernel command line support... */
-	for (cp = saved_command_line; *cp; ) {
+	for (cp = boot_command_line; *cp; ) {
 		if (memcmp(cp, "mem=", 4) == 0) {
 			mem_limit = memparse(cp + 4, &cp);
 		} else if (memcmp(cp, "max_addr=", 9) == 0) {
@@ -445,11 +445,11 @@ efi_init (void)
 		panic("Woah! Can't find EFI system table.\n");
 	if (efi.systab->hdr.signature != EFI_SYSTEM_TABLE_SIGNATURE)
 		panic("Woah! EFI system table signature incorrect\n");
-	if ((efi.systab->hdr.revision ^ EFI_SYSTEM_TABLE_REVISION) >> 16 != 0)
-		printk(KERN_WARNING "Warning: EFI system table major version mismatch: "
-		       "got %d.%02d, expected %d.%02d\n",
-		       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff,
-		       EFI_SYSTEM_TABLE_REVISION >> 16, EFI_SYSTEM_TABLE_REVISION & 0xffff);
+	if ((efi.systab->hdr.revision >> 16) == 0)
+		printk(KERN_WARNING "Warning: EFI system table version "
+		       "%d.%02d, expected 1.00 or greater\n",
+		       efi.systab->hdr.revision >> 16,
+		       efi.systab->hdr.revision & 0xffff);
 
 	config_tables = __va(efi.systab->tables);
 
@@ -660,6 +660,29 @@ efi_memory_descriptor (unsigned long phys_addr)
 	return NULL;
 }
 
+static int
+efi_memmap_intersects (unsigned long phys_addr, unsigned long size)
+{
+	void *efi_map_start, *efi_map_end, *p;
+	efi_memory_desc_t *md;
+	u64 efi_desc_size;
+	unsigned long end;
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	end = phys_addr + size;
+
+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+		md = p;
+
+		if (md->phys_addr < end && efi_md_end(md) > phys_addr)
+			return 1;
+	}
+	return 0;
+}
+
 u32
 efi_mem_type (unsigned long phys_addr)
 {
@@ -766,11 +789,28 @@ valid_phys_addr_range (unsigned long phys_addr, unsigned long size)
 int
 valid_mmap_phys_addr_range (unsigned long pfn, unsigned long size)
 {
+	unsigned long phys_addr = pfn << PAGE_SHIFT;
+	u64 attr;
+
+	attr = efi_mem_attribute(phys_addr, size);
+
 	/*
-	 * MMIO regions are often missing from the EFI memory map.
-	 * We must allow mmap of them for programs like X, so we
-	 * currently can't do any useful validation.
+	 * /dev/mem mmap uses normal user pages, so we don't need the entire
+	 * granule, but the entire region we're mapping must support the same
+	 * attribute.
 	 */
+	if (attr & EFI_MEMORY_WB || attr & EFI_MEMORY_UC)
+		return 1;
+
+	/*
+	 * Intel firmware doesn't tell us about all the MMIO regions, so
+	 * in general we have to allow mmap requests.  But if EFI *does*
+	 * tell us about anything inside this region, we should deny it.
+	 * The user can always map a smaller region to avoid the overlap.
+	 */
+	if (efi_memmap_intersects(phys_addr, size))
+		return 0;
+
 	return 1;
 }
 
@@ -971,6 +1011,11 @@ efi_memmap_init(unsigned long *s, unsigned long *e)
 		if (!is_memory_available(md))
 			continue;
 
+#ifdef CONFIG_CRASH_DUMP
+		/* saved_max_pfn should ignore max_addr= command line arg */
+		if (saved_max_pfn < (efi_md_end(md) >> PAGE_SHIFT))
+			saved_max_pfn = (efi_md_end(md) >> PAGE_SHIFT);
+#endif
 		/*
 		 * Round ends inward to granule boundaries
 		 * Give trimmings to uncached allocator
@@ -1137,7 +1182,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
 /* find a block of memory aligned to 64M exclude reserved regions
    rsvd_regions are sorted
  */
-unsigned long
+unsigned long __init
 kdump_find_rsvd_region (unsigned long size,
 		struct rsvd_region *r, int n)
 {
@@ -1176,5 +1221,35 @@ kdump_find_rsvd_region (unsigned long size,
   printk(KERN_WARNING "Cannot reserve 0x%lx byte of memory for crashdump\n",
 	size);
   return ~0UL;
+}
+#endif
+
+#ifdef CONFIG_PROC_VMCORE
+/* locate the size find a the descriptor at a certain address */
+unsigned long
+vmcore_find_descriptor_size (unsigned long address)
+{
+	void *efi_map_start, *efi_map_end, *p;
+	efi_memory_desc_t *md;
+	u64 efi_desc_size;
+	unsigned long ret = 0;
+
+	efi_map_start = __va(ia64_boot_param->efi_memmap);
+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+
+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+		md = p;
+		if (efi_wb(md) && md->type == EFI_LOADER_DATA
+		    && md->phys_addr == address) {
+			ret = efi_md_size(md);
+			break;
+		}
+	}
+
+	if (ret == 0)
+		printk(KERN_WARNING "Cannot locate EFI vmcore descriptor\n");
+
+	return ret;
 }
 #endif

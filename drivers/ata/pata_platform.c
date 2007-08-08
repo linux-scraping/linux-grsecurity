@@ -22,7 +22,7 @@
 #include <linux/pata_platform.h>
 
 #define DRV_NAME "pata_platform"
-#define DRV_VERSION "0.1.2"
+#define DRV_VERSION "1.0"
 
 static int pio_mask = 1;
 
@@ -42,27 +42,13 @@ static int pata_platform_set_mode(struct ata_port *ap, struct ata_device **unuse
 			dev->pio_mode = dev->xfer_mode = XFER_PIO_0;
 			dev->xfer_shift = ATA_SHIFT_PIO;
 			dev->flags |= ATA_DFLAG_PIO;
+			ata_dev_printk(dev, KERN_INFO, "configured for PIO\n");
 		}
 	}
 	return 0;
 }
 
-static void pata_platform_host_stop(struct ata_host *host)
-{
-	int i;
-
-	/*
-	 * Unmap the bases for MMIO
-	 */
-	for (i = 0; i < host->n_ports; i++) {
-		struct ata_port *ap = host->ports[i];
-
-		if (ap->flags & ATA_FLAG_MMIO) {
-			iounmap((void __iomem *)ap->ioaddr.ctl_addr);
-			iounmap((void __iomem *)ap->ioaddr.cmd_addr);
-		}
-	}
-}
+static int ata_dummy_ret0(struct ata_port *ap)	{ return 0; }
 
 static struct scsi_host_template pata_platform_sht = {
 	.module			= THIS_MODULE,
@@ -96,18 +82,18 @@ static struct ata_port_operations pata_platform_port_ops = {
 	.thaw			= ata_bmdma_thaw,
 	.error_handler		= ata_bmdma_error_handler,
 	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
+	.cable_detect		= ata_cable_unknown,
 
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
 
-	.data_xfer		= ata_pio_data_xfer_noirq,
+	.data_xfer		= ata_data_xfer_noirq,
 
-	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
-	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= pata_platform_host_stop
+	.port_start		= ata_dummy_ret0,
 };
 
 static void pata_platform_setup_port(struct ata_ioports *ioaddr,
@@ -151,9 +137,9 @@ static void pata_platform_setup_port(struct ata_ioports *ioaddr,
 static int __devinit pata_platform_probe(struct platform_device *pdev)
 {
 	struct resource *io_res, *ctl_res;
-	struct ata_probe_ent ae;
+	struct ata_host *host;
+	struct ata_port *ap;
 	unsigned int mmio;
-	int ret;
 
 	/*
 	 * Simple resource validation ..
@@ -192,61 +178,41 @@ static int __devinit pata_platform_probe(struct platform_device *pdev)
 	/*
 	 * Now that that's out of the way, wire up the port..
 	 */
-	memset(&ae, 0, sizeof(struct ata_probe_ent));
-	INIT_LIST_HEAD(&ae.node);
-	ae.dev = &pdev->dev;
-	ae.port_ops = &pata_platform_port_ops;
-	ae.sht = &pata_platform_sht;
-	ae.n_ports = 1;
-	ae.pio_mask = pio_mask;
-	ae.irq = platform_get_irq(pdev, 0);
-	ae.irq_flags = 0;
-	ae.port_flags = ATA_FLAG_SLAVE_POSS | ATA_FLAG_SRST;
+	host = ata_host_alloc(&pdev->dev, 1);
+	if (!host)
+		return -ENOMEM;
+	ap = host->ports[0];
+
+	ap->ops = &pata_platform_port_ops;
+	ap->pio_mask = pio_mask;
+	ap->flags |= ATA_FLAG_SLAVE_POSS;
 
 	/*
 	 * Handle the MMIO case
 	 */
 	if (mmio) {
-		ae.port_flags |= ATA_FLAG_MMIO;
-
-		ae.port[0].cmd_addr = (unsigned long)ioremap(io_res->start,
+		ap->ioaddr.cmd_addr = devm_ioremap(&pdev->dev, io_res->start,
 				io_res->end - io_res->start + 1);
-		if (unlikely(!ae.port[0].cmd_addr)) {
-			dev_err(&pdev->dev, "failed to remap IO base\n");
-			return -ENXIO;
-		}
-
-		ae.port[0].ctl_addr = (unsigned long)ioremap(ctl_res->start,
+		ap->ioaddr.ctl_addr = devm_ioremap(&pdev->dev, ctl_res->start,
 				ctl_res->end - ctl_res->start + 1);
-		if (unlikely(!ae.port[0].ctl_addr)) {
-			dev_err(&pdev->dev, "failed to remap CTL base\n");
-			ret = -ENXIO;
-			goto bad_remap;
-		}
 	} else {
-		ae.port[0].cmd_addr = io_res->start;
-		ae.port[0].ctl_addr = ctl_res->start;
+		ap->ioaddr.cmd_addr = devm_ioport_map(&pdev->dev, io_res->start,
+				io_res->end - io_res->start + 1);
+		ap->ioaddr.ctl_addr = devm_ioport_map(&pdev->dev, ctl_res->start,
+				ctl_res->end - ctl_res->start + 1);
+	}
+	if (!ap->ioaddr.cmd_addr || !ap->ioaddr.ctl_addr) {
+		dev_err(&pdev->dev, "failed to map IO/CTL base\n");
+		return -ENOMEM;
 	}
 
-	ae.port[0].altstatus_addr = ae.port[0].ctl_addr;
+	ap->ioaddr.altstatus_addr = ap->ioaddr.ctl_addr;
 
-	pata_platform_setup_port(&ae.port[0], pdev->dev.platform_data);
+	pata_platform_setup_port(&ap->ioaddr, pdev->dev.platform_data);
 
-	if (unlikely(ata_device_add(&ae) == 0)) {
-		ret = -ENODEV;
-		goto add_failed;
-	}
-
-	return 0;
-
-add_failed:
-	if (ae.port[0].ctl_addr && mmio)
-		iounmap((void __iomem *)ae.port[0].ctl_addr);
-bad_remap:
-	if (ae.port[0].cmd_addr && mmio)
-		iounmap((void __iomem *)ae.port[0].cmd_addr);
-
-	return ret;
+	/* activate */
+	return ata_host_activate(host, platform_get_irq(pdev, 0), ata_interrupt,
+				 0, &pata_platform_sht);
 }
 
 /**
@@ -261,8 +227,7 @@ static int __devexit pata_platform_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct ata_host *host = dev_get_drvdata(dev);
 
-	ata_host_remove(host);
-	dev_set_drvdata(dev, NULL);
+	ata_host_detach(host);
 
 	return 0;
 }

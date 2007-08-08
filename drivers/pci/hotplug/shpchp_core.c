@@ -136,7 +136,7 @@ static int init_slots(struct controller *ctrl)
 		slot->hpc_ops = ctrl->hpc_ops;
 		slot->number = ctrl->first_slot + (ctrl->slot_num_inc * i);
 		mutex_init(&slot->lock);
-		INIT_DELAYED_WORK(&slot->work, queue_pushbutton_work);
+		INIT_DELAYED_WORK(&slot->work, shpchp_queue_pushbutton_work);
 
 		/* register this slot with the hotplug pci core */
 		hotplug_slot->private = slot;
@@ -400,10 +400,6 @@ static struct pci_driver shpc_driver = {
 static int __init shpcd_init(void)
 {
 	int retval = 0;
-
-#ifdef CONFIG_HOTPLUG_PCI_SHPC_POLL_EVENT_MODE
-	shpchp_poll_mode = 1;
-#endif
 
 	retval = pci_register_driver(&shpc_driver);
 	dbg("%s: pci_register_driver = %d\n", __FUNCTION__, retval);

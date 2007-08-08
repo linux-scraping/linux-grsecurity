@@ -17,7 +17,8 @@
 #include <asm/apic.h>
 #include <asm/desc.h>
 #include "mach_reboot.h"
-#include <linux/reboot_fixups.h>
+#include <asm/reboot_fixups.h>
+#include <asm/reboot.h>
 
 /*
  * Power off function, if any
@@ -88,6 +89,14 @@ static int __init set_bios_reboot(struct dmi_system_id *d)
 }
 
 static struct dmi_system_id __initdata reboot_dmi_table[] = {
+	{	/* Handle problems with rebooting on Dell E520's */
+		.callback = set_bios_reboot,
+		.ident = "Dell E520",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Dell DM061"),
+		},
+	},
 	{	/* Handle problems with rebooting on Dell 1300's */
 		.callback = set_bios_reboot,
 		.ident = "Dell PowerEdge 1300",
@@ -138,8 +147,8 @@ core_initcall(reboot_init);
    doesn't work with at least one type of 486 motherboard.  It is easy
    to stop this code working; hence the copious comments. */
 
-static const struct desc_struct
-real_mode_gdt_entries [3] =
+static struct desc_struct
+real_mode_gdt_entries [3] __read_only =
 {
 	{0x00000000, 0x00000000},	/* Null descriptor */
 	{0x0000ffff, 0x00009b00},	/* 16-bit real-mode 64k code at 0x00000000 */
@@ -147,7 +156,7 @@ real_mode_gdt_entries [3] =
 };
 
 static const struct Xgt_desc_struct
-real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, real_mode_gdt_entries, 0 },
+real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, (struct desc_struct *)__pa(real_mode_gdt_entries), 0 },
 real_mode_idt = { 0x3ff, NULL, 0 },
 no_idt = { 0, NULL, 0 };
 
@@ -197,7 +206,6 @@ static const unsigned char jump_to_bios [] =
  */
 void machine_real_restart(const unsigned char *code, unsigned int length)
 {
-	unsigned long flags;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -215,9 +223,9 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	   safe side.  (Yes, CMOS_WRITE does outb_p's. -  Paul G.)
 	 */
 
-	spin_lock_irqsave(&rtc_lock, flags);
+	spin_lock(&rtc_lock);
 	CMOS_WRITE(0x00, 0x8f);
-	spin_unlock_irqrestore(&rtc_lock, flags);
+	spin_unlock(&rtc_lock);
 
 	/* Remap the kernel at virtual address zero, as well as offset zero
 	   from the kernel segment.  This assumes the kernel segment starts at
@@ -245,7 +253,7 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	   REBOOT.COM programs, and the previous reset routine did this
 	   too. */
 
-	__put_user(reboot_mode, (unsigned short __user *)0x472);
+	*(unsigned short *)(__va(0x472)) = reboot_mode;
 
 	/* For the switch to real mode, copy some code to low memory.  It has
 	   to be in the first 64k because it is running in 16-bit mode, and it
@@ -253,9 +261,8 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	   off paging.  Copy it near the end of the first page, out of the way
 	   of BIOS variables. */
 
-	flags = __copy_to_user_inatomic((void __user *) (0x1000 - sizeof (real_mode_switch) - 100),
-		real_mode_switch, sizeof (real_mode_switch));
-	flags = __copy_to_user_inatomic((void __user *) (0x1000 - 100), code, length);
+	memcpy(__va(0x1000 - sizeof (real_mode_switch) - 100), real_mode_switch, sizeof (real_mode_switch));
+	memcpy(__va(0x1000 - 100), code, length);
 
 	/* Set up the IDT for real mode. */
 
@@ -292,7 +299,7 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 EXPORT_SYMBOL(machine_real_restart);
 #endif
 
-void machine_shutdown(void)
+static void native_machine_shutdown(void)
 {
 #ifdef CONFIG_SMP
 	int reboot_cpu_id;
@@ -328,7 +335,11 @@ void machine_shutdown(void)
 #endif
 }
 
-void machine_emergency_restart(void)
+void __attribute__((weak)) mach_reboot_fixups(void)
+{
+}
+
+static void native_machine_emergency_restart(void)
 {
 	if (!reboot_thru_bios) {
 		if (efi_enabled) {
@@ -337,7 +348,7 @@ void machine_emergency_restart(void)
 			__asm__ __volatile__("int3");
 		}
 		/* rebooting needs to touch the page at absolute addr 0 */
-		__put_user(reboot_mode, (unsigned short __user *)0x472);
+		*(unsigned short *)(__va(0x472)) = reboot_mode;
 		for (;;) {
 			mach_reboot_fixups(); /* for board specific fixups */
 			mach_reboot();
@@ -352,17 +363,17 @@ void machine_emergency_restart(void)
 	machine_real_restart(jump_to_bios, sizeof(jump_to_bios));
 }
 
-void machine_restart(char * __unused)
+static void native_machine_restart(char * __unused)
 {
 	machine_shutdown();
 	machine_emergency_restart();
 }
 
-void machine_halt(void)
+static void native_machine_halt(void)
 {
 }
 
-void machine_power_off(void)
+static void native_machine_power_off(void)
 {
 	if (pm_power_off) {
 		machine_shutdown();
@@ -371,3 +382,35 @@ void machine_power_off(void)
 }
 
 
+struct machine_ops machine_ops = {
+	.power_off = native_machine_power_off,
+	.shutdown = native_machine_shutdown,
+	.emergency_restart = native_machine_emergency_restart,
+	.restart = native_machine_restart,
+	.halt = native_machine_halt,
+};
+
+void machine_power_off(void)
+{
+	machine_ops.power_off();
+}
+
+void machine_shutdown(void)
+{
+	machine_ops.shutdown();
+}
+
+void machine_emergency_restart(void)
+{
+	machine_ops.emergency_restart();
+}
+
+void machine_restart(char *cmd)
+{
+	machine_ops.restart(cmd);
+}
+
+void machine_halt(void)
+{
+	machine_ops.halt();
+}

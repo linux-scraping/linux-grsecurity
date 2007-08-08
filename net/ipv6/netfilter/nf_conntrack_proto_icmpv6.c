@@ -7,17 +7,9 @@
  *
  * Author:
  *	Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *
- * 16 Dec 2003: Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *	- ICMPv6 tracking support. Derived from the original ip_conntrack code
- *	  net/ipv4/netfilter/ip_conntrack_proto_icmp.c which had the following
- *	  copyright information:
- *		(C) 1999-2001 Paul `Rusty' Russell
- *		(C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
  */
 
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/module.h>
 #include <linux/netfilter.h>
@@ -104,9 +96,9 @@ static int icmpv6_packet(struct nf_conn *ct,
 		       unsigned int hooknum)
 {
 	/* Try to delete connection immediately after all replies:
-           won't actually vanish as we still have skb, and del_timer
-           means this will only run once even if count hits zero twice
-           (theoretically possible with SMP) */
+	   won't actually vanish as we still have skb, and del_timer
+	   means this will only run once even if count hits zero twice
+	   (theoretically possible with SMP) */
 	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
 		if (atomic_dec_and_test(&ct->proto.icmp.count)
 		    && del_timer(&ct->timeout))
@@ -176,12 +168,12 @@ icmpv6_error_message(struct sk_buff *skb,
 					   skb->len - inip6off
 						    - sizeof(struct ipv6hdr));
 
-	if ((inprotoff < 0) || (inprotoff > skb->len) ||
-	    (inprotonum == NEXTHDR_FRAGMENT)) {
+	if ((inprotoff > skb->len) || (inprotonum == NEXTHDR_FRAGMENT)) {
 		DEBUGP("icmpv6_error: Can't get protocol header in ICMPv6 payload.\n");
 		return -NF_ACCEPT;
 	}
 
+	/* rcu_read_lock()ed by nf_hook_slow */
 	inproto = __nf_ct_l4proto_find(PF_INET6, inprotonum);
 
 	/* Are they talking about one of our connections? */
@@ -244,8 +236,7 @@ icmpv6_error(struct sk_buff *skb, unsigned int dataoff,
 	return icmpv6_error_message(skb, dataoff, ctinfo, hooknum);
 }
 
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
@@ -327,8 +318,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 =
 	.packet			= icmpv6_packet,
 	.new			= icmpv6_new,
 	.error			= icmpv6_error,
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.tuple_to_nfattr	= icmpv6_tuple_to_nfattr,
 	.nfattr_to_tuple	= icmpv6_nfattr_to_tuple,
 #endif

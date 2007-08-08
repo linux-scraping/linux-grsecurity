@@ -1,20 +1,9 @@
-/* This file contains all the functions required for the standalone
-   nf_conntrack module.
-
-   These are not required by the compatibility layer.
-*/
-
 /* (C) 1999-2001 Paul `Rusty' Russell
  * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
- * 16 Dec 2003: Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *	- generalize L3 protocol dependent part.
- *
- * Derived from net/ipv4/netfilter/ip_conntrack_standalone.c
  */
 
 #include <linux/types.h>
@@ -229,7 +218,7 @@ out_free:
 	return ret;
 }
 
-static struct file_operations ct_file_ops = {
+static const struct file_operations ct_file_ops = {
 	.owner   = THIS_MODULE,
 	.open    = ct_open,
 	.read    = seq_read,
@@ -317,7 +306,7 @@ static int ct_cpu_seq_open(struct inode *inode, struct file *file)
 	return seq_open(file, &ct_cpu_seq_ops);
 }
 
-static struct file_operations ct_cpu_seq_fops = {
+static const struct file_operations ct_cpu_seq_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = ct_cpu_seq_open,
 	.read	 = seq_read,
@@ -445,7 +434,7 @@ static int __init nf_conntrack_standalone_init(void)
 	proc_stat->owner = THIS_MODULE;
 #endif
 #ifdef CONFIG_SYSCTL
-	nf_ct_sysctl_header = register_sysctl_table(nf_ct_net_table, 0);
+	nf_ct_sysctl_header = register_sysctl_table(nf_ct_net_table);
 	if (nf_ct_sysctl_header == NULL) {
 		printk("nf_conntrack: can't register to sysctl.\n");
 		ret = -ENOMEM;
@@ -472,7 +461,7 @@ static int __init nf_conntrack_standalone_init(void)
 static void __exit nf_conntrack_standalone_fini(void)
 {
 #ifdef CONFIG_SYSCTL
- 	unregister_sysctl_table(nf_ct_sysctl_header);
+	unregister_sysctl_table(nf_ct_sysctl_header);
 #endif
 #ifdef CONFIG_PROC_FS
 	remove_proc_entry("nf_conntrack", proc_net_stat);

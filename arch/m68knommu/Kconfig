@@ -17,6 +17,10 @@ config FPU
 	bool
 	default n
 
+config ZONE_DMA
+	bool
+	default y
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -48,6 +52,9 @@ config GENERIC_CALIBRATE_DELAY
 config TIME_LOW_RES
 	bool
 	default y
+
+config NO_IOPORT
+	def_bool y
 
 source "init/Kconfig"
 
@@ -462,14 +469,6 @@ config AVNET
 	bool
 	default y
 	depends on (AVNET5282)
-
-config LARGE_ALLOCS
-	bool "Allow allocating large blocks (> 1MB) of memory"
-	help
-	  Allow the slab memory allocator to keep chains for very large
-	  memory sizes - upto 32MB. You may need this if your system has
-	  a lot of RAM, and you need to able to allocate very large
-	  contiguous chunks. If unsure, say N.
 
 config 4KSTACKS
 	bool "Use 4Kb for kernel stacks instead of 8Kb"

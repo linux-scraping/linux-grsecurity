@@ -26,10 +26,6 @@
 			 /*  dumped to the console via printk)          */
 
 
-/* Defines for parisc_acctyp()	*/
-#define READ		0
-#define WRITE		1
-
 /* Various important other fields */
 #define bit22set(x)		(x & 0x00000200)
 #define bits23_25set(x)		(x & 0x000001c0)
@@ -162,8 +158,8 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: unpatched PLT emulation */
 		unsigned int bl, depwi;
 
-		err = get_user(bl, (unsigned int*)instruction_pointer(regs));
-		err |= get_user(depwi, (unsigned int*)(instruction_pointer(regs)+4));
+		err = get_user(bl, (unsigned int *)instruction_pointer(regs));
+		err |= get_user(depwi, (unsigned int *)(instruction_pointer(regs)+4));
 
 		if (err)
 			break;
@@ -171,9 +167,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		if (bl == 0xEA9F1FDDU && depwi == 0xD6801C1EU) {
 			unsigned int ldw, bv, ldw2, addr = instruction_pointer(regs)-12;
 
-			err = get_user(ldw, (unsigned int*)addr);
-			err |= get_user(bv, (unsigned int*)(addr+4));
-			err |= get_user(ldw2, (unsigned int*)(addr+8));
+			err = get_user(ldw, (unsigned int *)addr);
+			err |= get_user(bv, (unsigned int *)(addr+4));
+			err |= get_user(ldw2, (unsigned int *)(addr+8));
 
 			if (err)
 				break;
@@ -184,8 +180,8 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			{
 				unsigned int resolver, map;
 
-				err = get_user(resolver, (unsigned int*)(instruction_pointer(regs)+8));
-				err |= get_user(map, (unsigned int*)(instruction_pointer(regs)+12));
+				err = get_user(resolver, (unsigned int *)(instruction_pointer(regs)+8));
+				err |= get_user(map, (unsigned int *)(instruction_pointer(regs)+12));
 				if (err)
 					break;
 
@@ -246,7 +242,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
-		if (get_user(c, (unsigned int*)pc+i))
+		if (get_user(c, (unsigned int *)pc+i))
 			printk("???????? ");
 		else
 			printk("%08x ", c);
@@ -287,7 +283,7 @@ good_area:
 		    (address & ~3UL) == instruction_pointer(regs))
 		{
 			up_read(&mm->mmap_sem);
-			switch(pax_handle_fetch_fault(regs)) {
+			switch (pax_handle_fetch_fault(regs)) {
 
 #ifdef CONFIG_PAX_EMUPLT
 			case 3:
@@ -300,7 +296,7 @@ good_area:
 #endif
 
 			}
-			pax_report_fault(regs, (void*)instruction_pointer(regs), (void*)regs->gr[30]);
+			pax_report_fault(regs, (void *)instruction_pointer(regs), (void *)regs->gr[30]);
 			do_exit(SIGKILL);
 		}
 #endif

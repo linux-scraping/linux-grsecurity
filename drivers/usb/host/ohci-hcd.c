@@ -26,7 +26,6 @@
 #include <linux/ioport.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/smp_lock.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/timer.h>
@@ -42,6 +41,9 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 #include <asm/byteorder.h>
+#ifdef CONFIG_PPC_PS3
+#include <asm/firmware.h>
+#endif
 
 #include "../core/hcd.h"
 
@@ -483,9 +485,6 @@ static int ohci_run (struct ohci_hcd *ohci)
 	 * or if bus glue did the same (e.g. for PCI add-in cards with
 	 * PCI PM support).
 	 */
-	ohci_dbg (ohci, "resetting from state '%s', control = 0x%x\n",
-			hcfs2string (ohci->hc_control & OHCI_CTRL_HCFS),
-			ohci_readl (ohci, &ohci->regs->control));
 	if ((ohci->hc_control & OHCI_CTRL_RWC) != 0
 			&& !device_may_wakeup(hcd->self.controller))
 		device_init_wakeup(hcd->self.controller, 1);
@@ -741,9 +740,6 @@ static void ohci_stop (struct usb_hcd *hcd)
 {
 	struct ohci_hcd		*ohci = hcd_to_ohci (hcd);
 
-	ohci_dbg (ohci, "stop %s controller (state 0x%02x)\n",
-		hcfs2string (ohci->hc_control & OHCI_CTRL_HCFS),
-		hcd->state);
 	ohci_dump (ohci, 1);
 
 	flush_scheduled_work();
@@ -855,63 +851,172 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_PCI
 #include "ohci-pci.c"
+#define PCI_DRIVER		ohci_pci_driver
 #endif
 
 #ifdef CONFIG_SA1111
 #include "ohci-sa1111.c"
+#define SA1111_DRIVER		ohci_hcd_sa1111_driver
 #endif
 
 #ifdef CONFIG_ARCH_S3C2410
 #include "ohci-s3c2410.c"
+#define PLATFORM_DRIVER		ohci_hcd_s3c2410_driver
 #endif
 
 #ifdef CONFIG_ARCH_OMAP
 #include "ohci-omap.c"
+#define PLATFORM_DRIVER		ohci_hcd_omap_driver
 #endif
 
 #ifdef CONFIG_ARCH_LH7A404
 #include "ohci-lh7a404.c"
+#define PLATFORM_DRIVER		ohci_hcd_lh7a404_driver
 #endif
 
 #ifdef CONFIG_PXA27x
 #include "ohci-pxa27x.c"
+#define PLATFORM_DRIVER		ohci_hcd_pxa27x_driver
 #endif
 
 #ifdef CONFIG_ARCH_EP93XX
 #include "ohci-ep93xx.c"
+#define PLATFORM_DRIVER		ohci_hcd_ep93xx_driver
 #endif
 
 #ifdef CONFIG_SOC_AU1X00
 #include "ohci-au1xxx.c"
+#define PLATFORM_DRIVER		ohci_hcd_au1xxx_driver
 #endif
 
 #ifdef CONFIG_PNX8550
 #include "ohci-pnx8550.c"
+#define PLATFORM_DRIVER		ohci_hcd_pnx8550_driver
 #endif
 
 #ifdef CONFIG_USB_OHCI_HCD_PPC_SOC
 #include "ohci-ppc-soc.c"
+#define PLATFORM_DRIVER		ohci_hcd_ppc_soc_driver
 #endif
 
 #ifdef CONFIG_ARCH_AT91
 #include "ohci-at91.c"
+#define PLATFORM_DRIVER		ohci_hcd_at91_driver
 #endif
 
 #ifdef CONFIG_ARCH_PNX4008
 #include "ohci-pnx4008.c"
+#define PLATFORM_DRIVER		usb_hcd_pnx4008_driver
 #endif
 
-#if !(defined(CONFIG_PCI) \
-      || defined(CONFIG_SA1111) \
-      || defined(CONFIG_ARCH_S3C2410) \
-      || defined(CONFIG_ARCH_OMAP) \
-      || defined (CONFIG_ARCH_LH7A404) \
-      || defined (CONFIG_PXA27x) \
-      || defined (CONFIG_ARCH_EP93XX) \
-      || defined (CONFIG_SOC_AU1X00) \
-      || defined (CONFIG_USB_OHCI_HCD_PPC_SOC) \
-      || defined (CONFIG_ARCH_AT91) \
-      || defined (CONFIG_ARCH_PNX4008) \
-	)
+
+#ifdef CONFIG_USB_OHCI_HCD_PPC_OF
+#include "ohci-ppc-of.c"
+#define OF_PLATFORM_DRIVER	ohci_hcd_ppc_of_driver
+#endif
+
+#ifdef CONFIG_PPC_PS3
+#include "ohci-ps3.c"
+#define PS3_SYSTEM_BUS_DRIVER	ps3_ohci_sb_driver
+#endif
+
+#if	!defined(PCI_DRIVER) &&		\
+	!defined(PLATFORM_DRIVER) &&	\
+	!defined(OF_PLATFORM_DRIVER) &&	\
+	!defined(SA1111_DRIVER) &&	\
+	!defined(PS3_SYSTEM_BUS_DRIVER)
 #error "missing bus glue for ohci-hcd"
 #endif
+
+static int __init ohci_hcd_mod_init(void)
+{
+	int retval = 0;
+
+	if (usb_disabled())
+		return -ENODEV;
+
+	printk (KERN_DEBUG "%s: " DRIVER_INFO "\n", hcd_name);
+	pr_debug ("%s: block sizes: ed %Zd td %Zd\n", hcd_name,
+		sizeof (struct ed), sizeof (struct td));
+
+#ifdef PS3_SYSTEM_BUS_DRIVER
+	if (firmware_has_feature(FW_FEATURE_PS3_LV1)) {
+		retval = ps3_system_bus_driver_register(
+				&PS3_SYSTEM_BUS_DRIVER);
+		if (retval < 0)
+			goto error_ps3;
+	}
+#endif
+
+#ifdef PLATFORM_DRIVER
+	retval = platform_driver_register(&PLATFORM_DRIVER);
+	if (retval < 0)
+		goto error_platform;
+#endif
+
+#ifdef OF_PLATFORM_DRIVER
+	retval = of_register_platform_driver(&OF_PLATFORM_DRIVER);
+	if (retval < 0)
+		goto error_of_platform;
+#endif
+
+#ifdef SA1111_DRIVER
+	retval = sa1111_driver_register(&SA1111_DRIVER);
+	if (retval < 0)
+		goto error_sa1111;
+#endif
+
+#ifdef PCI_DRIVER
+	retval = pci_register_driver(&PCI_DRIVER);
+	if (retval < 0)
+		goto error_pci;
+#endif
+
+	return retval;
+
+	/* Error path */
+#ifdef PCI_DRIVER
+ error_pci:
+#endif
+#ifdef SA1111_DRIVER
+	sa1111_driver_unregister(&SA1111_DRIVER);
+ error_sa1111:
+#endif
+#ifdef OF_PLATFORM_DRIVER
+	of_unregister_platform_driver(&OF_PLATFORM_DRIVER);
+ error_of_platform:
+#endif
+#ifdef PLATFORM_DRIVER
+	platform_driver_unregister(&PLATFORM_DRIVER);
+ error_platform:
+#endif
+#ifdef PS3_SYSTEM_BUS_DRIVER
+	if (firmware_has_feature(FW_FEATURE_PS3_LV1))
+		ps3_system_bus_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
+ error_ps3:
+#endif
+	return retval;
+}
+module_init(ohci_hcd_mod_init);
+
+static void __exit ohci_hcd_mod_exit(void)
+{
+#ifdef PCI_DRIVER
+	pci_unregister_driver(&PCI_DRIVER);
+#endif
+#ifdef SA1111_DRIVER
+	sa1111_driver_unregister(&SA1111_DRIVER);
+#endif
+#ifdef OF_PLATFORM_DRIVER
+	of_unregister_platform_driver(&OF_PLATFORM_DRIVER);
+#endif
+#ifdef PLATFORM_DRIVER
+	platform_driver_unregister(&PLATFORM_DRIVER);
+#endif
+#ifdef PS3_SYSTEM_BUS_DRIVER
+	if (firmware_has_feature(FW_FEATURE_PS3_LV1))
+		ps3_system_bus_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
+#endif
+}
+module_exit(ohci_hcd_mod_exit);
+

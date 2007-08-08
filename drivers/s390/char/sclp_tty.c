@@ -13,7 +13,6 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
-#include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
 #include <linux/err.h>
@@ -649,7 +648,7 @@ sclp_eval_textcmd(struct gds_subvector *start,
 	subvec = start;
 	while (subvec < end) {
 		subvec = find_gds_subvector(subvec, end,
-					    GDS_KEY_SelfDefTextMsg);
+					    GDS_KEY_SELFDEFTEXTMSG);
 		if (!subvec)
 			break;
 		sclp_eval_selfdeftextmsg((struct gds_subvector *)(subvec + 1),
@@ -665,7 +664,7 @@ sclp_eval_cpmsu(struct gds_vector *start, struct gds_vector *end)
 
 	vec = start;
 	while (vec < end) {
-		vec = find_gds_vector(vec, end, GDS_ID_TextCmd);
+		vec = find_gds_vector(vec, end, GDS_ID_TEXTCMD);
 		if (!vec)
 			break;
 		sclp_eval_textcmd((struct gds_subvector *)(vec + 1),
@@ -704,7 +703,7 @@ sclp_tty_state_change(struct sclp_register *reg)
 
 static struct sclp_register sclp_input_event =
 {
-	.receive_mask = EvTyp_OpCmd_Mask | EvTyp_PMsgCmd_Mask,
+	.receive_mask = EVTYP_OPCMD_MASK | EVTYP_PMSGCMD_MASK,
 	.state_change_fn = sclp_tty_state_change,
 	.receiver_fn = sclp_tty_receiver
 };
@@ -721,7 +720,7 @@ static const struct tty_operations sclp_ops = {
 	.ioctl = sclp_tty_ioctl,
 };
 
-int __init
+static int __init
 sclp_tty_init(void)
 {
 	struct tty_driver *driver;

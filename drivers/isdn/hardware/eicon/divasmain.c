@@ -12,13 +12,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/ioport.h>
 #include <linux/workqueue.h>
 #include <linux/pci.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/poll.h>
@@ -663,7 +661,7 @@ static unsigned int divas_poll(struct file *file, poll_table * wait)
 	return (POLLIN | POLLRDNORM);
 }
 
-static struct file_operations divas_fops = {
+static const struct file_operations divas_fops = {
 	.owner   = THIS_MODULE,
 	.llseek  = no_llseek,
 	.read    = divas_read,

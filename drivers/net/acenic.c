@@ -480,12 +480,10 @@ static int __devinit acenic_probe_one(struct pci_dev *pdev,
 #if ACENIC_DO_VLAN
 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 	dev->vlan_rx_register = ace_vlan_rx_register;
-	dev->vlan_rx_kill_vid = ace_vlan_rx_kill_vid;
 #endif
-	if (1) {
-		dev->tx_timeout = &ace_watchdog;
-		dev->watchdog_timeo = 5*HZ;
-	}
+
+	dev->tx_timeout = &ace_watchdog;
+	dev->watchdog_timeo = 5*HZ;
 
 	dev->open = &ace_open;
 	dev->stop = &ace_close;
@@ -2027,7 +2025,6 @@ static void ace_rx_int(struct net_device *dev, u32 rxretprd, u32 rxretcsm)
 		 */
 		csum = retdesc->tcp_udp_csum;
 
-		skb->dev = dev;
 		skb->protocol = eth_type_trans(skb, dev);
 
 		/*
@@ -2280,22 +2277,6 @@ static void ace_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
 	ace_mask_irq(dev);
 
 	ap->vlgrp = grp;
-
-	ace_unmask_irq(dev);
-	local_irq_restore(flags);
-}
-
-
-static void ace_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct ace_private *ap = netdev_priv(dev);
-	unsigned long flags;
-
-	local_irq_save(flags);
-	ace_mask_irq(dev);
-
-	if (ap->vlgrp)
-		ap->vlgrp->vlan_devices[vid] = NULL;
 
 	ace_unmask_irq(dev);
 	local_irq_restore(flags);

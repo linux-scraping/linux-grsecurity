@@ -43,8 +43,6 @@
 #include "xfs_itable.h"
 #include "xfs_rw.h"
 #include "xfs_acl.h"
-#include "xfs_cap.h"
-#include "xfs_mac.h"
 #include "xfs_attr.h"
 #include "xfs_buf_item.h"
 #include "xfs_trans_space.h"
@@ -460,7 +458,7 @@ xfs_iomap_write_direct(
 		extsz = ip->i_d.di_extsize;
 	}
 
-	isize = ip->i_d.di_size;
+	isize = ip->i_size;
 	if (io->io_new_size > isize)
 		isize = io->io_new_size;
 
@@ -526,7 +524,7 @@ xfs_iomap_write_direct(
 	xfs_trans_ihold(tp, ip);
 
 	bmapi_flag = XFS_BMAPI_WRITE;
-	if ((flags & BMAPI_DIRECT) && (offset < ip->i_d.di_size || extsz))
+	if ((flags & BMAPI_DIRECT) && (offset < ip->i_size || extsz))
 		bmapi_flag |= XFS_BMAPI_PREALLOC;
 
 	/*
@@ -542,10 +540,10 @@ xfs_iomap_write_direct(
 	/*
 	 * Complete the transaction
 	 */
-	error = xfs_bmap_finish(&tp, &free_list, firstfsb, &committed);
+	error = xfs_bmap_finish(&tp, &free_list, &committed);
 	if (error)
 		goto error0;
-	error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES, NULL);
+	error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES);
 	if (error)
 		goto error_out;
 
@@ -678,7 +676,7 @@ xfs_iomap_write_delay(
 	offset_fsb = XFS_B_TO_FSBT(mp, offset);
 
 retry:
-	isize = ip->i_d.di_size;
+	isize = ip->i_size;
 	if (io->io_new_size > isize)
 		isize = io->io_new_size;
 
@@ -819,7 +817,7 @@ xfs_iomap_write_allocate(
 			 * we dropped the ilock in the interim.
 			 */
 
-			end_fsb = XFS_B_TO_FSB(mp, ip->i_d.di_size);
+			end_fsb = XFS_B_TO_FSB(mp, ip->i_size);
 			xfs_bmap_last_offset(NULL, ip, &last_block,
 				XFS_DATA_FORK);
 			last_block = XFS_FILEOFF_MAX(last_block, end_fsb);
@@ -838,13 +836,11 @@ xfs_iomap_write_allocate(
 			if (error)
 				goto trans_cancel;
 
-			error = xfs_bmap_finish(&tp, &free_list,
-					first_block, &committed);
+			error = xfs_bmap_finish(&tp, &free_list, &committed);
 			if (error)
 				goto trans_cancel;
 
-			error = xfs_trans_commit(tp,
-					XFS_TRANS_RELEASE_LOG_RES, NULL);
+			error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES);
 			if (error)
 				goto error0;
 
@@ -947,12 +943,11 @@ xfs_iomap_write_unwritten(
 		if (error)
 			goto error_on_bmapi_transaction;
 
-		error = xfs_bmap_finish(&(tp), &(free_list),
-				firstfsb, &committed);
+		error = xfs_bmap_finish(&(tp), &(free_list), &committed);
 		if (error)
 			goto error_on_bmapi_transaction;
 
-		error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES, NULL);
+		error = xfs_trans_commit(tp, XFS_TRANS_RELEASE_LOG_RES);
 		xfs_iunlock(ip, XFS_ILOCK_EXCL);
 		if (error)
 			return XFS_ERROR(error);

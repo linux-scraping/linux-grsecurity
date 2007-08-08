@@ -44,12 +44,12 @@ static int __init add_legacy_port(struct device_node *np, int want_index,
 	int index;
 
 	/* get clock freq. if present */
-	clk = get_property(np, "clock-frequency", NULL);
+	clk = of_get_property(np, "clock-frequency", NULL);
 	if (clk && *clk)
 		clock = *clk;
 
 	/* get default speed if present */
-	spd = get_property(np, "current-speed", NULL);
+	spd = of_get_property(np, "current-speed", NULL);
 
 	/* If we have a location index, then try to use it */
 	if (want_index >= 0 && want_index < MAX_LEGACY_SERIAL_PORTS)
@@ -115,13 +115,18 @@ static int __init add_legacy_soc_port(struct device_node *np,
 {
 	u64 addr;
 	const u32 *addrp;
-	upf_t flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_SHARE_IRQ;
+	upf_t flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_SHARE_IRQ
+		| UPF_FIXED_PORT;
 	struct device_node *tsi = of_get_parent(np);
 
 	/* We only support ports that have a clock frequency properly
 	 * encoded in the device-tree.
 	 */
-	if (get_property(np, "clock-frequency", NULL) == NULL)
+	if (of_get_property(np, "clock-frequency", NULL) == NULL)
+		return -1;
+
+	/* if rtas uses this device, don't try to use it as well */
+	if (of_get_property(np, "used-by-rtas", NULL) != NULL)
 		return -1;
 
 	/* Get the address */
@@ -153,7 +158,7 @@ static int __init add_legacy_isa_port(struct device_node *np,
 	DBG(" -> add_legacy_isa_port(%s)\n", np->full_name);
 
 	/* Get the ISA port number */
-	reg = get_property(np, "reg", NULL);
+	reg = of_get_property(np, "reg", NULL);
 	if (reg == NULL)
 		return -1;
 
@@ -164,7 +169,7 @@ static int __init add_legacy_isa_port(struct device_node *np,
 	/* Now look for an "ibm,aix-loc" property that gives us ordering
 	 * if any...
 	 */
-	typep = get_property(np, "ibm,aix-loc", NULL);
+	typep = of_get_property(np, "ibm,aix-loc", NULL);
 
 	/* If we have a location index, then use it */
 	if (typep && *typep == 'S')
@@ -202,7 +207,7 @@ static int __init add_legacy_pci_port(struct device_node *np,
 	 * compatible UARTs on PCI need all sort of quirks (port offsets
 	 * etc...) that this code doesn't know about
 	 */
-	if (get_property(np, "clock-frequency", NULL) == NULL)
+	if (of_get_property(np, "clock-frequency", NULL) == NULL)
 		return -1;
 
 	/* Get the PCI address. Assume BAR 0 */
@@ -228,7 +233,7 @@ static int __init add_legacy_pci_port(struct device_node *np,
 	 * we get to their "reg" property
 	 */
 	if (np != pci_dev) {
-		const u32 *reg = get_property(np, "reg", NULL);
+		const u32 *reg = of_get_property(np, "reg", NULL);
 		if (reg && (*reg < 4))
 			index = lindex = *reg;
 	}
@@ -239,9 +244,9 @@ static int __init add_legacy_pci_port(struct device_node *np,
 	 * doesn't work for these settings, you'll have to add your own special
 	 * cases here
 	 */
-	if (device_is_compatible(pci_dev, "pci13a8,152") ||
-	    device_is_compatible(pci_dev, "pci13a8,154") ||
-	    device_is_compatible(pci_dev, "pci13a8,158")) {
+	if (of_device_is_compatible(pci_dev, "pci13a8,152") ||
+	    of_device_is_compatible(pci_dev, "pci13a8,154") ||
+	    of_device_is_compatible(pci_dev, "pci13a8,158")) {
 		addr += 0x200 * lindex;
 		base += 0x200 * lindex;
 	} else {
@@ -292,7 +297,7 @@ void __init find_legacy_serial_ports(void)
 	DBG(" -> find_legacy_serial_port()\n");
 
 	/* Now find out if one of these is out firmware console */
-	path = get_property(of_chosen, "linux,stdout-path", NULL);
+	path = of_get_property(of_chosen, "linux,stdout-path", NULL);
 	if (path != NULL) {
 		stdout = of_find_node_by_path(path);
 		if (stdout)
@@ -334,6 +339,17 @@ void __init find_legacy_serial_ports(void)
 		of_node_put(tsi);
 	}
 
+	/* First fill our array with opb bus ports */
+	for (np = NULL; (np = of_find_compatible_node(np, "serial", "ns16750")) != NULL;) {
+		struct device_node *opb = of_get_parent(np);
+		if (opb && !strcmp(opb->type, "opb")) {
+			index = add_legacy_soc_port(np, np);
+			if (index >= 0 && np == stdout)
+				legacy_serial_console = index;
+		}
+		of_node_put(opb);
+	}
+
 #ifdef CONFIG_PCI
 	/* Next, try to locate PCI ports */
 	for (np = NULL; (np = of_find_all_nodes(np));) {
@@ -349,11 +365,11 @@ void __init find_legacy_serial_ports(void)
 		/* Check for known pciclass, and also check wether we have
 		 * a device with child nodes for ports or not
 		 */
-		if (device_is_compatible(np, "pciclass,0700") ||
-		    device_is_compatible(np, "pciclass,070002"))
+		if (of_device_is_compatible(np, "pciclass,0700") ||
+		    of_device_is_compatible(np, "pciclass,070002"))
 			pci = np;
-		else if (device_is_compatible(parent, "pciclass,0700") ||
-			 device_is_compatible(parent, "pciclass,070002"))
+		else if (of_device_is_compatible(parent, "pciclass,0700") ||
+			 of_device_is_compatible(parent, "pciclass,070002"))
 			pci = parent;
 		else {
 			of_node_put(parent);
@@ -498,7 +514,7 @@ static int __init check_legacy_serial_console(void)
 	DBG(" -> check_legacy_serial_console()\n");
 
 	/* The user has requested a console so this is already set up. */
-	if (strstr(saved_command_line, "console=")) {
+	if (strstr(boot_command_line, "console=")) {
 		DBG(" console was specified !\n");
 		return -EBUSY;
 	}
@@ -514,7 +530,7 @@ static int __init check_legacy_serial_console(void)
 	}
 	/* We are getting a weird phandle from OF ... */
 	/* ... So use the full path instead */
-	name = get_property(of_chosen, "linux,stdout-path", NULL);
+	name = of_get_property(of_chosen, "linux,stdout-path", NULL);
 	if (name == NULL) {
 		DBG(" no linux,stdout-path !\n");
 		return -ENODEV;
@@ -526,12 +542,12 @@ static int __init check_legacy_serial_console(void)
 	}
 	DBG("stdout is %s\n", prom_stdout->full_name);
 
-	name = get_property(prom_stdout, "name", NULL);
+	name = of_get_property(prom_stdout, "name", NULL);
 	if (!name) {
 		DBG(" stdout package has no name !\n");
 		goto not_found;
 	}
-	spd = get_property(prom_stdout, "current-speed", NULL);
+	spd = of_get_property(prom_stdout, "current-speed", NULL);
 	if (spd)
 		speed = *spd;
 

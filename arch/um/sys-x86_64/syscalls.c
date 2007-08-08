@@ -59,18 +59,20 @@ static long arch_prctl_tt(int code, unsigned long addr)
 
 #ifdef CONFIG_MODE_SKAS
 
-static long arch_prctl_skas(int code, unsigned long __user *addr)
+long arch_prctl_skas(struct task_struct *task, int code,
+                     unsigned long __user *addr)
 {
-	unsigned long *ptr = addr, tmp;
+        unsigned long *ptr = addr, tmp;
 	long ret;
-	int pid = current->mm->context.skas.id.u.pid;
+	int pid = task->mm->context.skas.id.u.pid;
 
 	/*
 	 * With ARCH_SET_FS (and ARCH_SET_GS is treated similarly to
 	 * be safe), we need to call arch_prctl on the host because
 	 * setting %fs may result in something else happening (like a
-	 * GDT being set instead).  So, we let the host fiddle the
-	 * registers and restore them afterwards.
+	 * GDT or thread.fs being set instead).  So, we let the host
+	 * fiddle the registers and thread struct and restore the
+	 * registers afterwards.
 	 *
 	 * So, the saved registers are stored to the process (this
 	 * needed because a stub may have been the last thing to run),
@@ -80,39 +82,39 @@ static long arch_prctl_skas(int code, unsigned long __user *addr)
 	switch(code){
 	case ARCH_SET_FS:
 	case ARCH_SET_GS:
-		restore_registers(pid, &current->thread.regs.regs);
-		break;
-	case ARCH_GET_FS:
-	case ARCH_GET_GS:
-		/*
-		 * With these two, we read to a local pointer and
-		 * put_user it to the userspace pointer that we were
-		 * given.  If addr isn't valid (because it hasn't been
-		 * faulted in or is just bogus), we want put_user to
-		 * fault it in (or return -EFAULT) instead of having
-		 * the host return -EFAULT.
-		 */
-		ptr = &tmp;
-	}
+                restore_registers(pid, &current->thread.regs.regs);
+                break;
+        case ARCH_GET_FS:
+        case ARCH_GET_GS:
+                /*
+                 * With these two, we read to a local pointer and
+                 * put_user it to the userspace pointer that we were
+                 * given.  If addr isn't valid (because it hasn't been
+                 * faulted in or is just bogus), we want put_user to
+                 * fault it in (or return -EFAULT) instead of having
+                 * the host return -EFAULT.
+                 */
+                ptr = &tmp;
+        }
 
-	ret = os_arch_prctl(pid, code, ptr);
-	if(ret)
-		return ret;
+        ret = os_arch_prctl(pid, code, ptr);
+        if(ret)
+                return ret;
 
-	switch(code){
+        switch(code){
 	case ARCH_SET_FS:
 		current->thread.arch.fs = (unsigned long) ptr;
 		save_registers(pid, &current->thread.regs.regs);
 		break;
 	case ARCH_SET_GS:
-		save_registers(pid, &current->thread.regs.regs);
+                save_registers(pid, &current->thread.regs.regs);
 		break;
 	case ARCH_GET_FS:
 		ret = put_user(tmp, addr);
-		break;
+	        break;
 	case ARCH_GET_GS:
 		ret = put_user(tmp, addr);
-		break;
+	        break;
 	}
 
 	return ret;
@@ -121,8 +123,8 @@ static long arch_prctl_skas(int code, unsigned long __user *addr)
 
 long sys_arch_prctl(int code, unsigned long addr)
 {
-	return CHOOSE_MODE_PROC(arch_prctl_tt, arch_prctl_skas, code,
-				(unsigned long __user *) addr);
+	return CHOOSE_MODE_PROC(arch_prctl_tt, arch_prctl_skas, current, code,
+                                (unsigned long __user *) addr);
 }
 
 long sys_clone(unsigned long clone_flags, unsigned long newsp,
@@ -141,9 +143,8 @@ long sys_clone(unsigned long clone_flags, unsigned long newsp,
 
 void arch_switch_to_skas(struct task_struct *from, struct task_struct *to)
 {
-	if((to->thread.arch.fs == 0) || (to->mm == NULL))
-		return;
+        if((to->thread.arch.fs == 0) || (to->mm == NULL))
+                return;
 
-	arch_prctl_skas(ARCH_SET_FS, (void __user *) to->thread.arch.fs);
+        arch_prctl_skas(to, ARCH_SET_FS, (void __user *) to->thread.arch.fs);
 }
-

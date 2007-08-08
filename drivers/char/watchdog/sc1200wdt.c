@@ -38,7 +38,6 @@
 #include <linux/init.h>
 #include <linux/pnp.h>
 #include <linux/fs.h>
-#include <linux/pci.h>
 
 #include <asm/semaphore.h>
 #include <asm/io.h>
@@ -92,7 +91,7 @@ MODULE_PARM_DESC(timeout, "range is 0-255 minutes, default is 1");
 
 static int nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, int, 0);
-MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=CONFIG_WATCHDOG_NOWAYOUT)");
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=" __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
 
 

@@ -505,11 +505,6 @@ static void ide_hwif_setup_dma(struct pci_dev *dev, ide_pci_device_t *d, ide_hwi
 		}
 	}
 }
-
-#ifndef CONFIG_IDEDMA_PCI_AUTO
-#warning CONFIG_IDEDMA_PCI_AUTO=n support is obsolete, and will be removed soon.
-#endif
-
 #endif /* CONFIG_BLK_DEV_IDEDMA_PCI*/
 
 /**
@@ -707,6 +702,7 @@ out:
 
 int ide_setup_pci_device(struct pci_dev *dev, ide_pci_device_t *d)
 {
+	ide_hwif_t *hwif = NULL, *mate = NULL;
 	ata_index_t index_list;
 	int ret;
 
@@ -715,11 +711,19 @@ int ide_setup_pci_device(struct pci_dev *dev, ide_pci_device_t *d)
 		goto out;
 
 	if ((index_list.b.low & 0xf0) != 0xf0)
-		probe_hwif_init_with_fixup(&ide_hwifs[index_list.b.low], d->fixup);
+		hwif = &ide_hwifs[index_list.b.low];
 	if ((index_list.b.high & 0xf0) != 0xf0)
-		probe_hwif_init_with_fixup(&ide_hwifs[index_list.b.high], d->fixup);
+		mate = &ide_hwifs[index_list.b.high];
 
-	create_proc_ide_interfaces();
+	if (hwif)
+		probe_hwif_init_with_fixup(hwif, d->fixup);
+	if (mate)
+		probe_hwif_init_with_fixup(mate, d->fixup);
+
+	if (hwif)
+		ide_proc_register_port(hwif);
+	if (mate)
+		ide_proc_register_port(mate);
 out:
 	return ret;
 }
@@ -753,13 +757,22 @@ int ide_setup_pci_devices(struct pci_dev *dev1, struct pci_dev *dev2,
 		}
 	}
 
-	create_proc_ide_interfaces();
+	for (i = 0; i < 2; i++) {
+		u8 idx[2] = { index_list[i].b.low, index_list[i].b.high };
+		int j;
+
+		for (j = 0; j < 2; j++) {
+			if ((idx[j] & 0xf0) != 0xf0)
+				ide_proc_register_port(ide_hwifs + idx[j]);
+		}
+	}
 out:
 	return ret;
 }
 
 EXPORT_SYMBOL_GPL(ide_setup_pci_devices);
 
+#ifdef CONFIG_IDEPCI_PCIBUS_ORDER
 /*
  *	Module interfaces
  */
@@ -783,10 +796,11 @@ static LIST_HEAD(ide_pci_drivers);
  *	Returns are the same as for pci_register_driver
  */
 
-int __ide_pci_register_driver(struct pci_driver *driver, struct module *module)
+int __ide_pci_register_driver(struct pci_driver *driver, struct module *module,
+			      const char *mod_name)
 {
 	if(!pre_init)
-		return __pci_register_driver(driver, module);
+		return __pci_register_driver(driver, module, mod_name);
 	driver->driver.owner = module;
 	list_add_tail(&driver->node, &ide_pci_drivers);
 	return 0;
@@ -858,10 +872,15 @@ void __init ide_scan_pcibus (int scan_direction)
 	 *	are post init.
 	 */
 
-	list_for_each_safe(l, n, &ide_pci_drivers)
-	{
+	list_for_each_safe(l, n, &ide_pci_drivers) {
 		list_del(l);
 		d = list_entry(l, struct pci_driver, node);
-		__pci_register_driver(d, d->driver.owner);
+		if (__pci_register_driver(d, d->driver.owner,
+					d->driver.mod_name)) {
+			printk(KERN_ERR "%s: failed to register driver "
+					"for %s\n", __FUNCTION__,
+					 d->driver.mod_name);
+		}
 	}
 }
+#endif

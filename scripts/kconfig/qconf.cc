@@ -89,6 +89,7 @@ void ConfigItem::okRename(int col)
 {
 	Parent::okRename(col);
 	sym_set_string_value(menu->sym, text(dataColIdx).latin1());
+	listView()->updateList(this);
 }
 #endif
 
@@ -605,6 +606,8 @@ void ConfigList::updateMenuList(P* parent, struct menu* menu)
 
 		visible = menu_is_visible(child);
 		if (showAll || visible) {
+			if (!child->sym && !child->list && !child->prompt)
+				continue;
 			if (!item || item->menu != child)
 				item = new ConfigItem(parent, last, child, visible);
 			else
@@ -1179,7 +1182,7 @@ void ConfigInfoView::contentsContextMenuEvent(QContextMenuEvent *e)
 	Parent::contentsContextMenuEvent(e);
 }
 
-ConfigSearchWindow::ConfigSearchWindow(QWidget* parent, const char *name)
+ConfigSearchWindow::ConfigSearchWindow(ConfigMainWindow* parent, const char *name)
 	: Parent(parent, name), result(NULL)
 {
 	setCaption("Search Config");
@@ -1203,6 +1206,9 @@ ConfigSearchWindow::ConfigSearchWindow(QWidget* parent, const char *name)
 	info = new ConfigInfoView(split, name);
 	connect(list->list, SIGNAL(menuChanged(struct menu *)),
 		info, SLOT(setInfo(struct menu *)));
+	connect(list->list, SIGNAL(menuChanged(struct menu *)),
+		parent, SLOT(setMenuLink(struct menu *)));
+
 	layout1->addWidget(split);
 
 	if (name) {
@@ -1247,6 +1253,7 @@ void ConfigSearchWindow::search(void)
 
 	free(result);
 	list->list->clear();
+	info->clear();
 
 	result = sym_re_search(editField->text().latin1());
 	if (!result)
@@ -1316,7 +1323,7 @@ ConfigMainWindow::ConfigMainWindow(void)
 	conf_changed();
 	QAction *saveAsAction = new QAction("Save As...", "Save &As...", 0, this);
 	  connect(saveAsAction, SIGNAL(activated()), SLOT(saveConfigAs()));
-	QAction *searchAction = new QAction("Search", "&Search", CTRL+Key_F, this);
+	QAction *searchAction = new QAction("Find", "&Find", CTRL+Key_F, this);
 	  connect(searchAction, SIGNAL(activated()), SLOT(searchConfig()));
 	QAction *singleViewAction = new QAction("Single View", QPixmap(xpm_single_view), "Split View", 0, this);
 	  connect(singleViewAction, SIGNAL(activated()), SLOT(showSingleView()));
@@ -1373,9 +1380,12 @@ ConfigMainWindow::ConfigMainWindow(void)
 	saveAction->addTo(config);
 	saveAsAction->addTo(config);
 	config->insertSeparator();
-	searchAction->addTo(config);
-	config->insertSeparator();
 	quitAction->addTo(config);
+
+	// create edit menu
+	QPopupMenu* editMenu = new QPopupMenu(this);
+	menu->insertItem("&Edit", editMenu);
+	searchAction->addTo(editMenu);
 
 	// create options menu
 	QPopupMenu* optionMenu = new QPopupMenu(this);
@@ -1467,7 +1477,10 @@ void ConfigMainWindow::searchConfig(void)
 void ConfigMainWindow::changeMenu(struct menu *menu)
 {
 	configList->setRootMenu(menu);
-	backAction->setEnabled(TRUE);
+	if (configList->rootEntry->parent == &rootmenu)
+		backAction->setEnabled(FALSE);
+	else
+		backAction->setEnabled(TRUE);
 }
 
 void ConfigMainWindow::setMenuLink(struct menu *menu)

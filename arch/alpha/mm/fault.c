@@ -21,7 +21,6 @@
 #include <linux/ptrace.h>
 #include <linux/mman.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/binfmts.h>
@@ -89,7 +88,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			unsigned long addrl = ldq | 0xFFFFFFFFFFFF0000UL;
 
 			addr = regs->r27 + ((addrh ^ 0x80000000UL) + 0x80000000UL) + ((addrl ^ 0x8000UL) + 0x8000UL);
-			err = get_user(r27, (unsigned long*)addr);
+			err = get_user(r27, (unsigned long *)addr);
 			if (err)
 				break;
 
@@ -166,7 +165,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
-		if (get_user(c, (unsigned int*)pc+i))
+		if (get_user(c, (unsigned int *)pc+i))
 			printk("???????? ");
 		else
 			printk("%08x ", c);
@@ -258,7 +257,7 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
 				goto bad_area;
 
 			up_read(&mm->mmap_sem);
-			switch(pax_handle_fetch_fault(regs)) {
+			switch (pax_handle_fetch_fault(regs)) {
 
 #ifdef CONFIG_PAX_EMUPLT
 			case 2:
@@ -267,7 +266,7 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
 #endif
 
 			}
-			pax_report_fault(regs, (void*)regs->pc, (void*)rdusp());
+			pax_report_fault(regs, (void *)regs->pc, (void *)rdusp());
 			do_exit(SIGKILL);
 #else
 			goto bad_area;

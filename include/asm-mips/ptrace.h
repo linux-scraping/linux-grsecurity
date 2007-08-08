@@ -21,6 +21,7 @@
 #define FPC_EIR		70
 #define DSP_BASE	71		/* 3 more hi / lo register pairs */
 #define DSP_CONTROL	77
+#define ACX		78
 
 /*
  * This struct defines the way the registers are stored on the stack during a
@@ -39,6 +40,9 @@ struct pt_regs {
 	unsigned long cp0_status;
 	unsigned long hi;
 	unsigned long lo;
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+	unsigned long acx;
+#endif
 	unsigned long cp0_badvaddr;
 	unsigned long cp0_cause;
 	unsigned long cp0_epc;
@@ -82,7 +86,7 @@ struct pt_regs {
 
 extern asmlinkage void do_syscall_trace(struct pt_regs *regs, int entryexit);
 
-extern NORET_TYPE void die(const char *, struct pt_regs *);
+extern NORET_TYPE void die(const char *, struct pt_regs *) ATTRIB_NORET;
 
 static inline void die_if_kernel(const char *str, struct pt_regs *regs)
 {

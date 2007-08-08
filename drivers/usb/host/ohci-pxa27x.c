@@ -80,7 +80,7 @@ static int pxa27x_start_hc(struct device *dev)
 
 	inf = dev->platform_data;
 
-	pxa_set_cken(CKEN10_USBHOST, 1);
+	pxa_set_cken(CKEN_USBHOST, 1);
 
 	UHCHR |= UHCHR_FHR;
 	udelay(11);
@@ -123,7 +123,7 @@ static void pxa27x_stop_hc(struct device *dev)
 	UHCCOMS |= 1;
 	udelay(10);
 
-	pxa_set_cken(CKEN10_USBHOST, 0);
+	pxa_set_cken(CKEN_USBHOST, 0);
 }
 
 
@@ -369,19 +369,3 @@ static struct platform_driver ohci_hcd_pxa27x_driver = {
 	},
 };
 
-static int __init ohci_hcd_pxa27x_init (void)
-{
-	pr_debug (DRIVER_INFO " (pxa27x)");
-	pr_debug ("block sizes: ed %d td %d\n",
-		sizeof (struct ed), sizeof (struct td));
-
-	return platform_driver_register(&ohci_hcd_pxa27x_driver);
-}
-
-static void __exit ohci_hcd_pxa27x_cleanup (void)
-{
-	platform_driver_unregister(&ohci_hcd_pxa27x_driver);
-}
-
-module_init (ohci_hcd_pxa27x_init);
-module_exit (ohci_hcd_pxa27x_cleanup);

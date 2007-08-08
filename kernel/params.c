@@ -269,13 +269,13 @@ int param_get_invbool(char *buffer, struct kernel_param *kp)
 	return param_get_bool(buffer, &dummy);
 }
 
-/* We cheat here and temporarily mangle the string. */
+/* We break the rule and mangle the string. */
 static int param_array(const char *name,
 		       const char *val,
 		       unsigned int min, unsigned int max,
 		       void *elem, int elemsize,
 		       int (*set)(const char *, struct kernel_param *kp),
-		       int *num)
+		       unsigned int *num)
 {
 	int ret;
 	struct kernel_param kp;
@@ -356,6 +356,10 @@ int param_set_copystring(const char *val, struct kernel_param *kp)
 {
 	struct kparam_string *kps = kp->arg;
 
+	if (!val) {
+		printk(KERN_ERR "%s: missing param set value\n", kp->name);
+		return -EINVAL;
+	}
 	if (strlen(val)+1 > kps->maxlen) {
 		printk(KERN_ERR "%s: string doesn't fit in %u chars.\n",
 		       kp->name, kps->maxlen-1);
@@ -389,6 +393,7 @@ struct module_param_attrs
 	struct param_attribute attrs[0];
 };
 
+#ifdef CONFIG_SYSFS
 #define to_param_attr(n) container_of(n, struct param_attribute, mattr);
 
 static ssize_t param_attr_show(struct module_attribute *mattr,
@@ -424,6 +429,7 @@ static ssize_t param_attr_store(struct module_attribute *mattr,
 		return len;
 	return err;
 }
+#endif
 
 #ifdef CONFIG_MODULES
 #define __modinit
@@ -431,6 +437,7 @@ static ssize_t param_attr_store(struct module_attribute *mattr,
 #define __modinit __init
 #endif
 
+#ifdef CONFIG_SYSFS
 /*
  * param_sysfs_setup - setup sysfs support for one module or KBUILD_MODNAME
  * @mk: struct module_kobject (contains parent kobject)
@@ -498,9 +505,7 @@ param_sysfs_setup(struct module_kobject *mk,
 	return mp;
 }
 
-
 #ifdef CONFIG_MODULES
-
 /*
  * module_param_sysfs_setup - setup sysfs support for one module
  * @mod: module
@@ -561,14 +566,11 @@ static void __init kernel_param_sysfs_setup(const char *name,
 	mk->mod = THIS_MODULE;
 	kobj_set_kset_s(mk, module_subsys);
 	kobject_set_name(&mk->kobj, name);
-	ret = kobject_register(&mk->kobj);
+	kobject_init(&mk->kobj);
+	ret = kobject_add(&mk->kobj);
 	BUG_ON(ret < 0);
-
-	/* no need to keep the kobject if no parameter is exported */
-	if (!param_sysfs_setup(mk, kparam, num_params, name_skip)) {
-		kobject_unregister(&mk->kobj);
-		kfree(mk);
-	}
+	param_sysfs_setup(mk, kparam, num_params, name_skip);
+	kobject_uevent(&mk->kobj, KOBJ_ADD);
 }
 
 /*
@@ -626,7 +628,6 @@ static void __init param_sysfs_builtin(void)
 
 
 /* module-related sysfs stuff */
-#ifdef CONFIG_SYSFS
 
 #define to_module_attr(n) container_of(n, struct module_attribute, attr);
 #define to_module_kobject(n) container_of(n, struct module_kobject, kobj);
@@ -674,18 +675,27 @@ static struct sysfs_ops module_sysfs_ops = {
 	.store = module_attr_store,
 };
 
-#else
-static struct sysfs_ops module_sysfs_ops = {
-	.show = NULL,
-	.store = NULL,
+static struct kobj_type module_ktype;
+
+static int uevent_filter(struct kset *kset, struct kobject *kobj)
+{
+	struct kobj_type *ktype = get_ktype(kobj);
+
+	if (ktype == &module_ktype)
+		return 1;
+	return 0;
+}
+
+static struct kset_uevent_ops module_uevent_ops = {
+	.filter = uevent_filter,
 };
-#endif
+
+decl_subsys(module, &module_ktype, &module_uevent_ops);
+int module_sysfs_initialized;
 
 static struct kobj_type module_ktype = {
 	.sysfs_ops =	&module_sysfs_ops,
 };
-
-decl_subsys(module, &module_ktype, NULL);
 
 /*
  * param_sysfs_init - wrapper for built-in params support
@@ -700,12 +710,22 @@ static int __init param_sysfs_init(void)
 			__FILE__, __LINE__, ret);
 		return ret;
 	}
+	module_sysfs_initialized = 1;
 
 	param_sysfs_builtin();
 
 	return 0;
 }
 subsys_initcall(param_sysfs_init);
+
+#else
+#if 0
+static struct sysfs_ops module_sysfs_ops = {
+	.show = NULL,
+	.store = NULL,
+};
+#endif
+#endif
 
 EXPORT_SYMBOL(param_set_byte);
 EXPORT_SYMBOL(param_get_byte);

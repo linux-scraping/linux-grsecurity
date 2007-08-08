@@ -115,6 +115,11 @@ static void __init ixdp425_init(void)
 	ixdp425_flash_resource.end =
 		IXP4XX_EXP_BUS_BASE(0) + ixp4xx_exp_bus_size - 1;
 
+	if (cpu_is_ixp43x()) {
+		ixdp425_uart.num_resources = 1;
+		ixdp425_uart_data[1].flags = 0;
+	}
+
 	platform_add_devices(ixdp425_devices, ARRAY_SIZE(ixdp425_devices));
 }
 
@@ -157,15 +162,9 @@ MACHINE_START(IXCDP1100, "Intel IXCDP1100 Development Platform")
 MACHINE_END
 #endif
 
-/*
- * Avila is functionally equivalent to IXDP425 except that it adds
- * a CF IDE slot hanging off the expansion bus. When we have a 
- * driver for IXP4xx CF IDE with driver model support we'll move
- * Avila to it's own setup file.
- */
-#ifdef CONFIG_ARCH_AVILA
-MACHINE_START(AVILA, "Gateworks Avila Network Platform")
-	/* Maintainer: Deepak Saxena <dsaxena@plexity.net> */
+#ifdef CONFIG_MACH_KIXRP435
+MACHINE_START(KIXRP435, "Intel KIXRP435 Reference Platform")
+	/* Maintainer: MontaVista Software, Inc. */
 	.phys_io	= IXP4XX_PERIPHERAL_BASE_PHYS,
 	.io_pg_offst	= ((IXP4XX_PERIPHERAL_BASE_VIRT) >> 18) & 0xfffc,
 	.map_io		= ixp4xx_map_io,
@@ -175,4 +174,3 @@ MACHINE_START(AVILA, "Gateworks Avila Network Platform")
 	.init_machine	= ixdp425_init,
 MACHINE_END
 #endif
-

@@ -6,14 +6,12 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/skbuff.h>
-#include <linux/pci.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/mm.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <asm/io.h>

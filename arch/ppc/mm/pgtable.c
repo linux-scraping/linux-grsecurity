@@ -92,7 +92,7 @@ void pgd_free(pgd_t *pgd)
 	free_pages((unsigned long)pgd, PGDIR_ORDER);
 }
 
-pte_t *pte_alloc_one_kernel(struct mm_struct *mm, unsigned long address)
+__init_refok pte_t *pte_alloc_one_kernel(struct mm_struct *mm, unsigned long address)
 {
 	pte_t *pte;
 	extern int mem_init_done;
@@ -313,11 +313,8 @@ void __init mapin_ram(void)
 	}
 }
 
-/* is x a power of 2? */
-#define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
-
 /* is x a power of 4? */
-#define is_power_of_4(x)	((x) != 0 && (((x) & (x-1)) == 0) && (ffs(x) & 1))
+#define is_power_of_4(x)	is_power_of_2(x) && (ffs(x) & 1)
 
 /*
  * Set up a mapping for a block of I/O.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001 Lennert Buytenhek (buytenh@gnu.org) and 
+ * Copyright (C) 2001 Lennert Buytenhek (buytenh@gnu.org) and
  * James Leu (jleu@mindspring.net).
  * Copyright (C) 2001 by various other people who didn't put their name here.
  * Licensed under the GPL.
@@ -21,7 +21,6 @@
 #include "linux/ethtool.h"
 #include "linux/platform_device.h"
 #include "asm/uaccess.h"
-#include "user_util.h"
 #include "kern_util.h"
 #include "net_kern.h"
 #include "net_user.h"
@@ -55,7 +54,7 @@ static int uml_net_rx(struct net_device *dev)
 
 	skb->dev = dev;
 	skb_put(skb, dev->mtu);
-	skb->mac.raw = skb->data;
+	skb_reset_mac_header(skb);
 	pkt_len = (*lp->read)(lp->fd, &skb, lp);
 
 	if (pkt_len > 0) {
@@ -91,8 +90,8 @@ irqreturn_t uml_net_interrupt(int irq, void *dev_id)
 	spin_lock(&lp->lock);
 	while((err = uml_net_rx(dev)) > 0) ;
 	if(err < 0) {
-		printk(KERN_ERR 
-		       "Device '%s' read returned %d, shutting it down\n", 
+		printk(KERN_ERR
+		       "Device '%s' read returned %d, shutting it down\n",
 		       dev->name, err);
 		/* dev_close can't be called in interrupt context, and takes
 		 * again lp->lock.
@@ -108,7 +107,7 @@ irqreturn_t uml_net_interrupt(int irq, void *dev_id)
 
 out:
 	spin_unlock(&lp->lock);
-	return(IRQ_HANDLED);
+	return IRQ_HANDLED;
 }
 
 static int uml_net_open(struct net_device *dev)
@@ -159,7 +158,7 @@ out:
 static int uml_net_close(struct net_device *dev)
 {
 	struct uml_net_private *lp = dev->priv;
-	
+
 	netif_stop_queue(dev);
 
 	free_irq(dev->irq, dev);
@@ -194,7 +193,7 @@ static int uml_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		/* this is normally done in the interrupt when tx finishes */
 		netif_wake_queue(dev);
-	} 
+	}
 	else if(len == 0){
 		netif_start_queue(dev);
 		lp->stats.tx_dropped++;
@@ -239,7 +238,7 @@ static int uml_net_set_mac(struct net_device *dev, void *addr)
 	set_ether_mac(dev, hwaddr->sa_data);
 	spin_unlock_irq(&lp->lock);
 
-	return(0);
+	return 0;
 }
 
 static int uml_net_change_mtu(struct net_device *dev, int new_mtu)
@@ -284,7 +283,7 @@ void uml_net_user_timer_expire(unsigned long _conn)
 #endif
 }
 
-static void setup_etheraddr(char *str, unsigned char *addr)
+static void setup_etheraddr(char *str, unsigned char *addr, char *name)
 {
 	char *end;
 	int i;
@@ -303,15 +302,34 @@ static void setup_etheraddr(char *str, unsigned char *addr)
 		}
 		str = end + 1;
 	}
-	if(addr[0] & 1){
+	if (is_multicast_ether_addr(addr)) {
 		printk(KERN_ERR
-		       "Attempt to assign a broadcast ethernet address to a "
+		       "Attempt to assign a multicast ethernet address to a "
 		       "device disallowed\n");
+		goto random;
+	}
+	if (!is_valid_ether_addr(addr)) {
+		printk(KERN_ERR
+		       "Attempt to assign an invalid ethernet address to a "
+		       "device disallowed\n");
+		goto random;
+	}
+	if (!is_local_ether_addr(addr)) {
+		printk(KERN_WARNING
+		       "Warning: attempt to assign a globally valid ethernet "
+		       "address to a device\n");
+		printk(KERN_WARNING "You should better enable the 2nd "
+		       "rightmost bit in the first byte of the MAC,\n");
+		printk(KERN_WARNING "i.e. %02x:%02x:%02x:%02x:%02x:%02x\n",
+		       addr[0] | 0x02, addr[1], addr[2], addr[3], addr[4],
+		       addr[5]);
 		goto random;
 	}
 	return;
 
 random:
+	printk(KERN_INFO
+	       "Choosing a random ethernet address for device %s\n", name);
 	random_ether_addr(addr);
 }
 
@@ -325,31 +343,53 @@ static struct platform_driver uml_net_driver = {
 };
 static int driver_registered;
 
-static int eth_configure(int n, void *init, char *mac,
-			 struct transport *transport)
+static void net_device_release(struct device *dev)
+{
+	struct uml_net *device = dev->driver_data;
+	struct net_device *netdev = device->dev;
+	struct uml_net_private *lp = netdev->priv;
+
+	if(lp->remove != NULL)
+		(*lp->remove)(&lp->user);
+	list_del(&device->list);
+	kfree(device);
+	free_netdev(netdev);
+}
+
+static void eth_configure(int n, void *init, char *mac,
+			  struct transport *transport)
 {
 	struct uml_net *device;
 	struct net_device *dev;
 	struct uml_net_private *lp;
-	int save, err, size;
+	int err, size;
 
-	size = transport->private_size + sizeof(struct uml_net_private) + 
-		sizeof(((struct uml_net_private *) 0)->user);
+	size = transport->private_size + sizeof(struct uml_net_private);
 
 	device = kzalloc(sizeof(*device), GFP_KERNEL);
 	if (device == NULL) {
-		printk(KERN_ERR "eth_configure failed to allocate uml_net\n");
-		return(1);
+		printk(KERN_ERR "eth_configure failed to allocate struct "
+		       "uml_net\n");
+		return;
+	}
+
+	dev = alloc_etherdev(size);
+	if (dev == NULL) {
+		printk(KERN_ERR "eth_configure: failed to allocate struct "
+		       "net_device for eth%d\n", n);
+		goto out_free_device;
 	}
 
 	INIT_LIST_HEAD(&device->list);
 	device->index = n;
 
-	spin_lock(&devices_lock);
-	list_add(&device->list, &devices);
-	spin_unlock(&devices_lock);
+	/* If this name ends up conflicting with an existing registered
+	 * netdevice, that is OK, register_netdev{,ice}() will notice this
+	 * and fail.
+	 */
+	snprintf(dev->name, sizeof(dev->name), "eth%d", n);
 
-	setup_etheraddr(mac, device->mac);
+	setup_etheraddr(mac, device->mac, dev->name);
 
 	printk(KERN_INFO "Netdevice %d ", n);
 	printk("(%02x:%02x:%02x:%02x:%02x:%02x) ",
@@ -357,11 +397,6 @@ static int eth_configure(int n, void *init, char *mac,
 	       device->mac[2], device->mac[3],
 	       device->mac[4], device->mac[5]);
 	printk(": ");
-	dev = alloc_etherdev(size);
-	if (dev == NULL) {
-		printk(KERN_ERR "eth_configure: failed to allocate device\n");
-		return 1;
-	}
 
 	lp = dev->priv;
 	/* This points to the transport private data. It's still clear, but we
@@ -376,18 +411,45 @@ static int eth_configure(int n, void *init, char *mac,
 	}
 	device->pdev.id = n;
 	device->pdev.name = DRIVER_NAME;
-	platform_device_register(&device->pdev);
+	device->pdev.dev.release = net_device_release;
+	device->pdev.dev.driver_data = device;
+	if(platform_device_register(&device->pdev))
+		goto out_free_netdev;
 	SET_NETDEV_DEV(dev,&device->pdev.dev);
 
-	/* If this name ends up conflicting with an existing registered
-	 * netdevice, that is OK, register_netdev{,ice}() will notice this
-	 * and fail.
-	 */
-	snprintf(dev->name, sizeof(dev->name), "eth%d", n);
 	device->dev = dev;
 
+	/*
+	 * These just fill in a data structure, so there's no failure
+	 * to be worried about.
+	 */
 	(*transport->kern->init)(dev, init);
 
+	*lp = ((struct uml_net_private)
+		{ .list  		= LIST_HEAD_INIT(lp->list),
+		  .dev 			= dev,
+		  .fd 			= -1,
+		  .mac 			= { 0xfe, 0xfd, 0x0, 0x0, 0x0, 0x0},
+		  .protocol 		= transport->kern->protocol,
+		  .open 		= transport->user->open,
+		  .close 		= transport->user->close,
+		  .remove 		= transport->user->remove,
+		  .read 		= transport->kern->read,
+		  .write 		= transport->kern->write,
+		  .add_address 		= transport->user->add_address,
+		  .delete_address  	= transport->user->delete_address,
+		  .set_mtu 		= transport->user->set_mtu });
+
+	init_timer(&lp->tl);
+	spin_lock_init(&lp->lock);
+	lp->tl.function = uml_net_user_timer_expire;
+	memcpy(lp->mac, device->mac, sizeof(lp->mac));
+
+	if ((transport->user->init != NULL) &&
+	    ((*transport->user->init)(&lp->user, dev) != 0))
+		goto out_unregister;
+
+	set_ether_mac(dev, device->mac);
 	dev->mtu = transport->user->max_packet;
 	dev->open = uml_net_open;
 	dev->hard_start_xmit = uml_net_start_xmit;
@@ -404,46 +466,25 @@ static int eth_configure(int n, void *init, char *mac,
 	rtnl_lock();
 	err = register_netdevice(dev);
 	rtnl_unlock();
-	if (err) {
-		device->dev = NULL;
-		/* XXX: should we call ->remove() here? */
-		free_netdev(dev);
-		return 1;
-	}
+	if (err)
+		goto out_undo_user_init;
 
-	/* lp.user is the first four bytes of the transport data, which
-	 * has already been initialized.  This structure assignment will
-	 * overwrite that, so we make sure that .user gets overwritten with
-	 * what it already has.
-	 */
-	save = lp->user[0];
-	*lp = ((struct uml_net_private)
-		{ .list  		= LIST_HEAD_INIT(lp->list),
-		  .dev 			= dev,
-		  .fd 			= -1,
-		  .mac 			= { 0xfe, 0xfd, 0x0, 0x0, 0x0, 0x0},
-		  .protocol 		= transport->kern->protocol,
-		  .open 		= transport->user->open,
-		  .close 		= transport->user->close,
-		  .remove 		= transport->user->remove,
-		  .read 		= transport->kern->read,
-		  .write 		= transport->kern->write,
-		  .add_address 		= transport->user->add_address,
-		  .delete_address  	= transport->user->delete_address,
-		  .set_mtu 		= transport->user->set_mtu,
-		  .user  		= { save } });
+	spin_lock(&devices_lock);
+	list_add(&device->list, &devices);
+	spin_unlock(&devices_lock);
 
-	init_timer(&lp->tl);
-	spin_lock_init(&lp->lock);
-	lp->tl.function = uml_net_user_timer_expire;
-	memcpy(lp->mac, device->mac, sizeof(lp->mac));
+	return;
 
-	if (transport->user->init) 
-		(*transport->user->init)(&lp->user, dev);
-
-	set_ether_mac(dev, device->mac);
-
-	return 0;
+out_undo_user_init:
+	if (transport->user->remove != NULL)
+		(*transport->user->remove)(&lp->user);
+out_unregister:
+	platform_device_unregister(&device->pdev);
+	return; /* platform_device_unregister frees dev and device */
+out_free_netdev:
+	free_netdev(dev);
+out_free_device:
+	kfree(device);
 }
 
 static struct uml_net *find_device(int n)
@@ -460,38 +501,36 @@ static struct uml_net *find_device(int n)
 	device = NULL;
  out:
 	spin_unlock(&devices_lock);
-	return(device);
+	return device;
 }
 
-static int eth_parse(char *str, int *index_out, char **str_out)
+static int eth_parse(char *str, int *index_out, char **str_out,
+		     char **error_out)
 {
 	char *end;
-	int n;
+	int n, err = -EINVAL;;
 
 	n = simple_strtoul(str, &end, 0);
 	if(end == str){
-		printk(KERN_ERR "eth_setup: Failed to parse '%s'\n", str);
-		return(1);
+		*error_out = "Bad device number";
+		return err;
 	}
-	if(n < 0){
-		printk(KERN_ERR "eth_setup: device %d is negative\n", n);
-		return(1);
-	}
+
 	str = end;
 	if(*str != '='){
-		printk(KERN_ERR 
-		       "eth_setup: expected '=' after device number\n");
-		return(1);
+		*error_out = "Expected '=' after device number";
+		return err;
 	}
+
 	str++;
 	if(find_device(n)){
-		printk(KERN_ERR "eth_setup: Device %d already configured\n",
-		       n);
-		return(1);
+		*error_out = "Device already configured";
+		return err;
 	}
-	if(index_out) *index_out = n;
+
+	*index_out = n;
 	*str_out = str;
-	return(0);
+	return 0;
 }
 
 struct eth_init {
@@ -500,13 +539,11 @@ struct eth_init {
 	int index;
 };
 
-/* Filled in at boot time.  Will need locking if the transports become
- * modular.
- */
-struct list_head transports = LIST_HEAD_INIT(transports);
+static DEFINE_SPINLOCK(transports_lock);
+static LIST_HEAD(transports);
 
 /* Filled in during early boot */
-struct list_head eth_cmd_line = LIST_HEAD_INIT(eth_cmd_line);
+static LIST_HEAD(eth_cmd_line);
 
 static int check_transport(struct transport *transport, char *eth, int n,
 			   void **init_out, char **mac_out)
@@ -515,23 +552,23 @@ static int check_transport(struct transport *transport, char *eth, int n,
 
 	len = strlen(transport->name);
 	if(strncmp(eth, transport->name, len))
-		return(0);
+		return 0;
 
 	eth += len;
 	if(*eth == ',')
 		eth++;
 	else if(*eth != '\0')
-		return(0);
+		return 0;
 
 	*init_out = kmalloc(transport->setup_size, GFP_KERNEL);
 	if(*init_out == NULL)
-		return(1);
+		return 1;
 
 	if(!transport->setup(eth, mac_out, *init_out)){
 		kfree(*init_out);
 		*init_out = NULL;
 	}
-	return(1);
+	return 1;
 }
 
 void register_transport(struct transport *new)
@@ -542,7 +579,10 @@ void register_transport(struct transport *new)
 	char *mac = NULL;
 	int match;
 
+	spin_lock(&transports_lock);
+	BUG_ON(!list_empty(&new->list));
 	list_add(&new->list, &transports);
+	spin_unlock(&transports_lock);
 
 	list_for_each_safe(ele, next, &eth_cmd_line){
 		eth = list_entry(ele, struct eth_init, list);
@@ -564,7 +604,9 @@ static int eth_setup_common(char *str, int index)
 	struct transport *transport;
 	void *init;
 	char *mac = NULL;
+	int found = 0;
 
+	spin_lock(&transports_lock);
 	list_for_each(ele, &transports){
 		transport = list_entry(ele, struct transport, list);
 	        if(!check_transport(transport, str, index, &init, &mac))
@@ -573,19 +615,26 @@ static int eth_setup_common(char *str, int index)
 			eth_configure(index, init, mac, transport);
 			kfree(init);
 		}
-		return(1);
+		found = 1;
+		break;
 	}
-	return(0);
+
+	spin_unlock(&transports_lock);
+	return found;
 }
 
 static int eth_setup(char *str)
 {
 	struct eth_init *new;
+	char *error;
 	int n, err;
 
-	err = eth_parse(str, &n, &str);
-	if(err)
+	err = eth_parse(str, &n, &str, &error);
+	if(err){
+		printk(KERN_ERR "eth_setup - Couldn't parse '%s' : %s\n",
+		       str, error);
 		return 1;
+	}
 
 	new = alloc_bootmem(sizeof(*new));
 	if (new == NULL){
@@ -607,38 +656,24 @@ __uml_help(eth_setup,
 "    Configure a network device.\n\n"
 );
 
-#if 0
-static int eth_init(void)
-{
-	struct list_head *ele, *next;
-	struct eth_init *eth;
-
-	list_for_each_safe(ele, next, &eth_cmd_line){
-		eth = list_entry(ele, struct eth_init, list);
-
-		if(eth_setup_common(eth->init, eth->index))
-			list_del(&eth->list);
-	}
-	
-	return(1);
-}
-__initcall(eth_init);
-#endif
-
-static int net_config(char *str)
+static int net_config(char *str, char **error_out)
 {
 	int n, err;
 
-	err = eth_parse(str, &n, &str);
-	if(err) return(err);
+	err = eth_parse(str, &n, &str, error_out);
+	if(err)
+		return err;
 
+	/* This string is broken up and the pieces used by the underlying
+	 * driver.  So, it is freed only if eth_setup_common fails.
+	 */
 	str = kstrdup(str, GFP_KERNEL);
 	if(str == NULL){
-		printk(KERN_ERR "net_config failed to strdup string\n");
-		return(-1);
+	        *error_out = "net_config failed to strdup string";
+		return -ENOMEM;
 	}
 	err = !eth_setup_common(str, n);
-	if(err) 
+	if(err)
 		kfree(str);
 	return(err);
 }
@@ -658,7 +693,7 @@ static int net_id(char **str, int *start_out, int *end_out)
         return n;
 }
 
-static int net_remove(int n)
+static int net_remove(int n, char **error_out)
 {
 	struct uml_net *device;
 	struct net_device *dev;
@@ -671,22 +706,19 @@ static int net_remove(int n)
 	dev = device->dev;
 	lp = dev->priv;
 	if(lp->fd > 0)
-                return -EBUSY;
-	if(lp->remove != NULL) (*lp->remove)(&lp->user);
+		return -EBUSY;
 	unregister_netdev(dev);
 	platform_device_unregister(&device->pdev);
 
-	list_del(&device->list);
-	kfree(device);
-	free_netdev(dev);
 	return 0;
 }
 
 static struct mc_device net_mc = {
+	.list		= LIST_HEAD_INIT(net_mc.list),
 	.name		= "eth",
 	.config		= net_config,
 	.get_config	= NULL,
-        .id		= net_id,
+	.id		= net_id,
 	.remove		= net_remove,
 };
 
@@ -699,7 +731,8 @@ static int uml_inetaddr_event(struct notifier_block *this, unsigned long event,
 	void (*proc)(unsigned char *, unsigned char *, void *);
 	unsigned char addr_buf[4], netmask_buf[4];
 
-	if(dev->open != uml_net_open) return(NOTIFY_DONE);
+	if(dev->open != uml_net_open)
+		return NOTIFY_DONE;
 
 	lp = dev->priv;
 
@@ -717,9 +750,10 @@ static int uml_inetaddr_event(struct notifier_block *this, unsigned long event,
 		memcpy(netmask_buf, &ifa->ifa_mask, sizeof(netmask_buf));
 		(*proc)(addr_buf, netmask_buf, &lp->user);
 	}
-	return(NOTIFY_DONE);
+	return NOTIFY_DONE;
 }
 
+/* uml_net_init shouldn't be called twice on two CPUs at the same time */
 struct notifier_block uml_inetaddr_notifier = {
 	.notifier_call		= uml_inetaddr_event,
 };
@@ -727,7 +761,7 @@ struct notifier_block uml_inetaddr_notifier = {
 static int uml_net_init(void)
 {
 	struct list_head *ele;
-	struct uml_net_private *lp;	
+	struct uml_net_private *lp;
 	struct in_device *ip;
 	struct in_ifaddr *in;
 
@@ -738,18 +772,21 @@ static int uml_net_init(void)
 	 * didn't get a chance to run for them.  This fakes it so that
 	 * addresses which have already been set up get handled properly.
 	 */
+	spin_lock(&opened_lock);
 	list_for_each(ele, &opened){
 		lp = list_entry(ele, struct uml_net_private, list);
 		ip = lp->dev->ip_ptr;
-		if(ip == NULL) continue;
+		if(ip == NULL)
+			continue;
 		in = ip->ifa_list;
 		while(in != NULL){
 			uml_inetaddr_event(NULL, NETDEV_UP, in);
 			in = in->ifa_next;
 		}
-	}	
+	}
+	spin_unlock(&opened_lock);
 
-	return(0);
+	return 0;
 }
 
 __initcall(uml_net_init);
@@ -759,13 +796,16 @@ static void close_devices(void)
 	struct list_head *ele;
 	struct uml_net_private *lp;
 
+	spin_lock(&opened_lock);
 	list_for_each(ele, &opened){
 		lp = list_entry(ele, struct uml_net_private, list);
 		free_irq(lp->dev->irq, lp->dev);
 		if((lp->close != NULL) && (lp->fd >= 0))
 			(*lp->close)(lp->fd, &lp->user);
-		if(lp->remove != NULL) (*lp->remove)(&lp->user);
+		if(lp->remove != NULL)
+			(*lp->remove)(&lp->user);
 	}
+	spin_unlock(&opened_lock);
 }
 
 __uml_exitcall(close_devices);
@@ -783,8 +823,8 @@ struct sk_buff *ether_adjust_skb(struct sk_buff *skb, int extra)
 	return(skb);
 }
 
-void iter_addresses(void *d, void (*cb)(unsigned char *, unsigned char *, 
-					void *), 
+void iter_addresses(void *d, void (*cb)(unsigned char *, unsigned char *,
+					void *),
 		    void *arg)
 {
 	struct net_device *dev = d;
@@ -809,11 +849,11 @@ int dev_netmask(void *d, void *m)
 	struct in_ifaddr *in;
 	__be32 *mask_out = m;
 
-	if(ip == NULL) 
+	if(ip == NULL)
 		return(1);
 
 	in = ip->ifa_list;
-	if(in == NULL) 
+	if(in == NULL)
 		return(1);
 
 	*mask_out = in->ifa_mask;
@@ -827,7 +867,7 @@ void *get_output_buffer(int *len_out)
 	ret = (void *) __get_free_pages(GFP_KERNEL, 0);
 	if(ret) *len_out = PAGE_SIZE;
 	else *len_out = 0;
-	return(ret);
+	return ret;
 }
 
 void free_output_buffer(void *buffer)
@@ -835,7 +875,7 @@ void free_output_buffer(void *buffer)
 	free_pages((unsigned long) buffer, 0);
 }
 
-int tap_setup_common(char *str, char *type, char **dev_name, char **mac_out, 
+int tap_setup_common(char *str, char *type, char **dev_name, char **mac_out,
 		     char **gate_addr)
 {
 	char *remain;
@@ -854,14 +894,3 @@ unsigned short eth_protocol(struct sk_buff *skb)
 {
 	return(eth_type_trans(skb, skb->dev));
 }
-
-/*
- * Overrides for Emacs so that we follow Linus's tabbing style.
- * Emacs will notice this stuff at the end of the file and automatically
- * adjust the settings for this buffer only.  This must remain at the end
- * of the file.
- * ---------------------------------------------------------------------------
- * Local variables:
- * c-file-style: "linux"
- * End:
- */

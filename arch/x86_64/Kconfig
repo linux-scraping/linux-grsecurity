@@ -24,6 +24,14 @@ config X86
 	bool
 	default y
 
+config GENERIC_TIME
+	bool
+	default y
+
+config GENERIC_TIME_VSYSCALL
+	bool
+	default y
+
 config ZONE_DMA32
 	bool
 	default y
@@ -41,6 +49,10 @@ config SEMAPHORE_SLEEPERS
 	default y
 
 config MMU
+	bool
+	default y
+
+config ZONE_DMA
 	bool
 	default y
 
@@ -148,18 +160,18 @@ config MPSC
 	  Optimize for Intel Pentium 4 and older Nocona/Dempsey Xeon CPUs
 	  with Intel Extended Memory 64 Technology(EM64T). For details see
 	  <http://www.intel.com/technology/64bitextensions/>.
-	  Note the the latest Xeons (Xeon 51xx and 53xx) are not based on the
-          Netburst core and shouldn't use this option. You can distingush them
+	  Note that the latest Xeons (Xeon 51xx and 53xx) are not based on the
+          Netburst core and shouldn't use this option. You can distinguish them
 	  using the cpu family field
-	  in /proc/cpuinfo. Family 15 is a older Xeon, Family 6 a newer one
-	  (this rule only applies to system that support EM64T)
+	  in /proc/cpuinfo. Family 15 is an older Xeon, Family 6 a newer one
+	  (this rule only applies to systems that support EM64T)
 
 config MCORE2
 	bool "Intel Core2 / newer Xeon"
 	help
 	  Optimize for Intel Core2 and newer Xeons (51xx)
-	  You can distingush the newer Xeons from the older ones using
-	  the cpu family field in /proc/cpuinfo. 15 is a older Xeon
+	  You can distinguish the newer Xeons from the older ones using
+	  the cpu family field in /proc/cpuinfo. 15 is an older Xeon
 	  (use CONFIG_MPSC then), 6 is a newer one. This rule only
 	  applies to CPUs that support EM64T.
 
@@ -403,25 +415,28 @@ config OUT_OF_LINE_PFN_TO_PAGE
 	depends on DISCONTIGMEM
 
 config NR_CPUS
-	int "Maximum number of CPUs (2-256)"
+	int "Maximum number of CPUs (2-255)"
 	range 2 255
 	depends on SMP
 	default "8"
 	help
 	  This allows you to specify the maximum number of CPUs which this
-	  kernel will support. Current maximum is 256 CPUs due to
+	  kernel will support. Current maximum is 255 CPUs due to
 	  APIC addressing limits. Less depending on the hardware.
 
 	  This is purely to save memory - each supported CPU requires
 	  memory in the static kernel configuration.
 
 config HOTPLUG_CPU
-	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
+	bool "Support for suspend on SMP and hot-pluggable CPUs (EXPERIMENTAL)"
 	depends on SMP && HOTPLUG && EXPERIMENTAL
 	help
 		Say Y here to experiment with turning CPUs off and on.  CPUs
 		can be controlled through /sys/devices/system/cpu/cpu#.
-		Say N if you want to disable CPU hotplug.
+		This is also required for suspend/hibernation on SMP systems.
+
+		Say N if you want to disable CPU hotplug and don't need to
+		suspend.
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
 	def_bool y
@@ -454,8 +469,8 @@ config IOMMU
 	  on systems with more than 3GB. This is usually needed for USB,
 	  sound, many IDE/SATA chipsets and some other devices.
 	  Provides a driver for the AMD Athlon64/Opteron/Turion/Sempron GART
-	  based IOMMU and a software bounce buffer based IOMMU used on Intel
-	  systems and as fallback.
+	  based hardware IOMMU and a software bounce buffer based IOMMU used
+	  on Intel systems and as fallback.
 	  The code is only active when needed (enough memory and limited
 	  device) unless CONFIG_IOMMU_DEBUG or iommu=force is specified
 	  too.
@@ -492,6 +507,12 @@ config CALGARY_IOMMU_ENABLED_BY_DEFAULT
 # need this always selected by IOMMU for the VIA workaround
 config SWIOTLB
 	bool
+	help
+	  Support for software bounce buffers used on x86-64 systems
+	  which don't have a hardware IOMMU (e.g. the current generation
+	  of Intel's x86-64 CPUs). Using this PCI devices which can only
+	  access 32-bits of memory can be used on systems with more than
+	  3 GB of memory. If unsure, say Y.
 
 config X86_MCE
 	bool "Machine check support" if EMBEDDED
@@ -547,22 +568,55 @@ config CRASH_DUMP
 	  PHYSICAL_START.
           For more details see Documentation/kdump/kdump.txt
 
+config RELOCATABLE
+	bool "Build a relocatable kernel(EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	help
+	  Builds a relocatable kernel. This enables loading and running
+	  a kernel binary from a different physical address than it has
+	  been compiled for.
+
+	  One use is for the kexec on panic case where the recovery kernel
+	  must live at a different physical address than the primary
+	  kernel.
+
+	  Note: If CONFIG_RELOCATABLE=y, then kernel run from the address
+	  it has been loaded at and compile time physical address
+	  (CONFIG_PHYSICAL_START) is ignored.
+
 config PHYSICAL_START
 	hex "Physical address where the kernel is loaded" if (EMBEDDED || CRASH_DUMP)
-	default "0x1000000" if CRASH_DUMP
 	default "0x200000"
 	help
-	  This gives the physical address where the kernel is loaded. Normally
-	  for regular kernels this value is 0x200000 (2MB). But in the case
-	  of kexec on panic the fail safe kernel needs to run at a different
-	  address than the panic-ed kernel. This option is used to set the load
-	  address for kernels used to capture crash dump on being kexec'ed
-	  after panic. The default value for crash dump kernels is
-	  0x1000000 (16MB). This can also be set based on the "X" value as
+	  This gives the physical address where the kernel is loaded. It
+	  should be aligned to 2MB boundary.
+
+	  If kernel is a not relocatable (CONFIG_RELOCATABLE=n) then
+	  bzImage will decompress itself to above physical address and
+	  run from there. Otherwise, bzImage will run from the address where
+	  it has been loaded by the boot loader and will ignore above physical
+	  address.
+
+	  In normal kdump cases one does not have to set/change this option
+	  as now bzImage can be compiled as a completely relocatable image
+	  (CONFIG_RELOCATABLE=y) and be used to load and run from a different
+	  address. This option is mainly useful for the folks who don't want
+	  to use a bzImage for capturing the crash dump and want to use a
+	  vmlinux instead.
+
+	  So if you are using bzImage for capturing the crash dump, leave
+	  the value here unchanged to 0x200000 and set CONFIG_RELOCATABLE=y.
+	  Otherwise if you plan to use vmlinux for capturing the crash dump
+	  change this value to start of the reserved region (Typically 16MB
+	  0x1000000). In other words, it can be set based on the "X" value as
 	  specified in the "crashkernel=YM@XM" command line boot parameter
 	  passed to the panic-ed kernel. Typically this parameter is set as
 	  crashkernel=64M@16M. Please take a look at
 	  Documentation/kdump/kdump.txt for more details about crash dumps.
+
+	  Usage of bzImage for capturing the crash dump is advantageous as
+	  one does not have to build two kernels. Same kernel can be used
+	  as production kernel and capture kernel.
 
 	  Don't change this unless you know what you are doing.
 
@@ -609,14 +663,6 @@ config CC_STACKPROTECTOR_ALL
 
 source kernel/Kconfig.hz
 
-config REORDER
-	bool "Function reordering"
-	default n
-	help
-         This option enables the toolchain to reorder functions for a more 
-         optimal TLB usage. If you have pretty much any version of binutils, 
-	 this can increase your kernel build time by roughly one minute.
-
 config K8_NB
 	def_bool y
 	depends on AGP_AMD64 || IOMMU || (PCI && NUMA)
@@ -658,6 +704,7 @@ menu "Bus options (PCI etc.)"
 
 config PCI
 	bool "PCI support"
+	select ARCH_SUPPORTS_MSI if (X86_LOCAL_APIC && X86_IO_APIC)
 
 # x86-64 doesn't support PCI BIOS access from long mode so always go direct.
 config PCI_DIRECT

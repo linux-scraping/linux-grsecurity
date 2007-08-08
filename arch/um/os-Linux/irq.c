@@ -11,7 +11,6 @@
 #include <sys/poll.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include "user_util.h"
 #include "kern_util.h"
 #include "user.h"
 #include "process.h"
@@ -20,6 +19,10 @@
 #include "os.h"
 #include "um_malloc.h"
 
+/*
+ * Locked by irq_lock in arch/um/kernel/irq.c.  Changed by os_create_pollfd
+ * and os_free_irq_by_cb, which are called under irq_lock.
+ */
 static struct pollfd *pollfds = NULL;
 static int pollfds_num = 0;
 static int pollfds_size = 0;
@@ -58,7 +61,7 @@ int os_create_pollfd(int fd, int events, void *tmp_pfd, int size_tmpfds)
 	if (pollfds_num == pollfds_size) {
 		if (size_tmpfds <= pollfds_size * sizeof(pollfds[0])) {
 			/* return min size needed for new pollfds area */
-			return((pollfds_size + 1) * sizeof(pollfds[0]));
+			return (pollfds_size + 1) * sizeof(pollfds[0]);
 		}
 
 		if (pollfds != NULL) {

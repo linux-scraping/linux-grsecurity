@@ -76,12 +76,14 @@ register struct thread_info *__current_thread_info __asm__("$8");
 #define TIF_UAC_NOFIX		7
 #define TIF_UAC_SIGBUS		8
 #define TIF_MEMDIE		9
+#define TIF_RESTORE_SIGMASK	10	/* restore signal mask in do_signal */
 
 #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
 #define _TIF_NOTIFY_RESUME	(1<<TIF_NOTIFY_RESUME)
 #define _TIF_SIGPENDING		(1<<TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1<<TIF_NEED_RESCHED)
 #define _TIF_POLLING_NRFLAG	(1<<TIF_POLLING_NRFLAG)
+#define _TIF_RESTORE_SIGMASK	(1<<TIF_RESTORE_SIGMASK)
 
 /* Work to do on interrupt/exception return.  */
 #define _TIF_WORK_MASK		(_TIF_NOTIFY_RESUME	\
@@ -91,6 +93,28 @@ register struct thread_info *__current_thread_info __asm__("$8");
 /* Work to do on any return to userspace.  */
 #define _TIF_ALLWORK_MASK	(_TIF_WORK_MASK		\
 				 | _TIF_SYSCALL_TRACE)
+
+#define ALPHA_UAC_SHIFT		6
+#define ALPHA_UAC_MASK		(1 << TIF_UAC_NOPRINT | 1 << TIF_UAC_NOFIX | \
+				 1 << TIF_UAC_SIGBUS)
+
+#define SET_UNALIGN_CTL(task,value)	({				     \
+	task_thread_info(task)->flags = ((task_thread_info(task)->flags &    \
+		~ALPHA_UAC_MASK)					     \
+		| (((value) << ALPHA_UAC_SHIFT)       & (1<<TIF_UAC_NOPRINT))\
+		| (((value) << (ALPHA_UAC_SHIFT + 1)) & (1<<TIF_UAC_SIGBUS)) \
+		| (((value) << (ALPHA_UAC_SHIFT - 1)) & (1<<TIF_UAC_NOFIX)));\
+	0; })
+
+#define GET_UNALIGN_CTL(task,value)	({				\
+	put_user((task_thread_info(task)->flags & (1 << TIF_UAC_NOPRINT))\
+		  >> ALPHA_UAC_SHIFT					\
+		 | (task_thread_info(task)->flags & (1 << TIF_UAC_SIGBUS))\
+		 >> (ALPHA_UAC_SHIFT + 1)				\
+		 | (task_thread_info(task)->flags & (1 << TIF_UAC_NOFIX))\
+		 >> (ALPHA_UAC_SHIFT - 1),				\
+		 (int __user *)(value));				\
+	})
 
 #endif /* __KERNEL__ */
 #endif /* _ALPHA_THREAD_INFO_H */

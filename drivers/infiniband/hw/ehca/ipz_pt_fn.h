@@ -79,7 +79,7 @@ static inline void *ipz_qeit_calc(struct ipz_queue *queue, u64 q_offset)
 	if (q_offset >= queue->queue_length)
 		return NULL;
 	current_page = (queue->queue_pages)[q_offset >> EHCA_PAGESHIFT];
-	return  &current_page->entries[q_offset & (EHCA_PAGESIZE - 1)];
+	return &current_page->entries[q_offset & (EHCA_PAGESIZE - 1)];
 }
 
 /*
@@ -138,6 +138,14 @@ static inline void *ipz_qeit_get_inc_valid(struct ipz_queue *queue)
 
 	ipz_qeit_get_inc(queue);
 	return cqe;
+}
+
+static inline int ipz_qeit_is_valid(struct ipz_queue *queue)
+{
+	struct ehca_cqe *cqe = ipz_qeit_get(queue);
+	u32 cqe_flags = cqe->cqe_flags;
+
+	return cqe_flags >> 7 == (queue->toggle_state & 1);
 }
 
 /*
@@ -244,6 +252,15 @@ static inline void *ipz_eqit_eq_get_inc_valid(struct ipz_queue *queue)
 	if ((qe >> 7) != (queue->toggle_state & 1))
 		return NULL;
 	ipz_qeit_eq_get_inc(queue); /* this is a good one */
+	return ret;
+}
+
+static inline void *ipz_eqit_eq_peek_valid(struct ipz_queue *queue)
+{
+	void *ret = ipz_qeit_get(queue);
+	u32 qe = *(u8 *) ret;
+	if ((qe >> 7) != (queue->toggle_state & 1))
+		return NULL;
 	return ret;
 }
 

@@ -16,6 +16,10 @@
 #define __read_mostly
 #endif
 
+#ifndef __read_only
+#define __read_only
+#endif
+
 #ifndef ____cacheline_aligned
 #define ____cacheline_aligned __attribute__((__aligned__(SMP_CACHE_BYTES)))
 #endif

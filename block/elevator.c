@@ -134,13 +134,13 @@ static struct elevator_type *elevator_get(const char *name)
 {
 	struct elevator_type *e;
 
-	spin_lock_irq(&elv_list_lock);
+	spin_lock(&elv_list_lock);
 
 	e = elevator_find(name);
 	if (e && !try_module_get(e->elevator_owner))
 		e = NULL;
 
-	spin_unlock_irq(&elv_list_lock);
+	spin_unlock(&elv_list_lock);
 
 	return e;
 }
@@ -268,6 +268,22 @@ void elevator_exit(elevator_t *e)
 }
 
 EXPORT_SYMBOL(elevator_exit);
+
+static void elv_activate_rq(request_queue_t *q, struct request *rq)
+{
+	elevator_t *e = q->elevator;
+
+	if (e->ops->elevator_activate_req_fn)
+		e->ops->elevator_activate_req_fn(q, rq);
+}
+
+static void elv_deactivate_rq(request_queue_t *q, struct request *rq)
+{
+	elevator_t *e = q->elevator;
+
+	if (e->ops->elevator_deactivate_req_fn)
+		e->ops->elevator_deactivate_req_fn(q, rq);
+}
 
 static inline void __elv_rqhash_del(struct request *rq)
 {
@@ -397,6 +413,8 @@ void elv_dispatch_sort(request_queue_t *q, struct request *rq)
 	list_for_each_prev(entry, &q->queue_head) {
 		struct request *pos = list_entry_rq(entry);
 
+		if (rq_data_dir(rq) != rq_data_dir(pos))
+			break;
 		if (pos->cmd_flags & (REQ_SOFTBARRIER|REQ_HARDBARRIER|REQ_STARTED))
 			break;
 		if (rq->sector >= boundary) {
@@ -498,16 +516,14 @@ void elv_merge_requests(request_queue_t *q, struct request *rq,
 
 void elv_requeue_request(request_queue_t *q, struct request *rq)
 {
-	elevator_t *e = q->elevator;
-
 	/*
 	 * it already went through dequeue, we need to decrement the
 	 * in_flight count again
 	 */
 	if (blk_account_rq(rq)) {
 		q->in_flight--;
-		if (blk_sorted_rq(rq) && e->ops->elevator_deactivate_req_fn)
-			e->ops->elevator_deactivate_req_fn(q, rq);
+		if (blk_sorted_rq(rq))
+			elv_deactivate_rq(q, rq);
 	}
 
 	rq->cmd_flags &= ~REQ_STARTED;
@@ -700,16 +716,13 @@ struct request *elv_next_request(request_queue_t *q)
 
 	while ((rq = __elv_next_request(q)) != NULL) {
 		if (!(rq->cmd_flags & REQ_STARTED)) {
-			elevator_t *e = q->elevator;
-
 			/*
 			 * This is the first time the device driver
 			 * sees this request (possibly after
 			 * requeueing).  Notify IO scheduler.
 			 */
-			if (blk_sorted_rq(rq) &&
-			    e->ops->elevator_activate_req_fn)
-				e->ops->elevator_activate_req_fn(q, rq);
+			if (blk_sorted_rq(rq))
+				elv_activate_rq(q, rq);
 
 			/*
 			 * just mark as started even if we don't start
@@ -951,17 +964,19 @@ void elv_unregister_queue(struct request_queue *q)
 
 int elv_register(struct elevator_type *e)
 {
-	spin_lock_irq(&elv_list_lock);
+	char *def = "";
+
+	spin_lock(&elv_list_lock);
 	BUG_ON(elevator_find(e->elevator_name));
 	list_add_tail(&e->list, &elv_list);
-	spin_unlock_irq(&elv_list_lock);
+	spin_unlock(&elv_list_lock);
 
-	printk(KERN_INFO "io scheduler %s registered", e->elevator_name);
 	if (!strcmp(e->elevator_name, chosen_elevator) ||
 			(!*chosen_elevator &&
 			 !strcmp(e->elevator_name, CONFIG_DEFAULT_IOSCHED)))
-				printk(" (default)");
-	printk("\n");
+				def = " (default)";
+
+	printk(KERN_INFO "io scheduler %s registered%s\n", e->elevator_name, def);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(elv_register);
@@ -984,9 +999,9 @@ void elv_unregister(struct elevator_type *e)
 		read_unlock(&tasklist_lock);
 	}
 
-	spin_lock_irq(&elv_list_lock);
+	spin_lock(&elv_list_lock);
 	list_del_init(&e->list);
-	spin_unlock_irq(&elv_list_lock);
+	spin_unlock(&elv_list_lock);
 }
 EXPORT_SYMBOL_GPL(elv_unregister);
 
@@ -1104,7 +1119,7 @@ ssize_t elv_iosched_show(request_queue_t *q, char *name)
 	struct list_head *entry;
 	int len = 0;
 
-	spin_lock_irq(&elv_list_lock);
+	spin_lock(&elv_list_lock);
 	list_for_each(entry, &elv_list) {
 		struct elevator_type *__e;
 
@@ -1114,7 +1129,7 @@ ssize_t elv_iosched_show(request_queue_t *q, char *name)
 		else
 			len += sprintf(name+len, "%s ", __e->elevator_name);
 	}
-	spin_unlock_irq(&elv_list_lock);
+	spin_unlock(&elv_list_lock);
 
 	len += sprintf(len+name, "\n");
 	return len;

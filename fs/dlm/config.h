@@ -2,7 +2,7 @@
 *******************************************************************************
 **
 **  Copyright (C) Sistina Software, Inc.  1997-2003  All rights reserved.
-**  Copyright (C) 2004-2005 Red Hat, Inc.  All rights reserved.
+**  Copyright (C) 2004-2007 Red Hat, Inc.  All rights reserved.
 **
 **  This copyrighted material is made available to anyone wishing to use,
 **  modify, copy, or redistribute it subject to the terms and conditions
@@ -17,14 +17,16 @@
 #define DLM_MAX_ADDR_COUNT 3
 
 struct dlm_config_info {
-	int tcp_port;
-	int buffer_size;
-	int rsbtbl_size;
-	int lkbtbl_size;
-	int dirtbl_size;
-	int recover_timer;
-	int toss_secs;
-	int scan_secs;
+	int ci_tcp_port;
+	int ci_buffer_size;
+	int ci_rsbtbl_size;
+	int ci_lkbtbl_size;
+	int ci_dirtbl_size;
+	int ci_recover_timer;
+	int ci_toss_secs;
+	int ci_scan_secs;
+	int ci_log_debug;
+	int ci_protocol;
 };
 
 extern struct dlm_config_info dlm_config;

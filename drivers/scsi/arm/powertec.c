@@ -12,7 +12,6 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/ioport.h>
-#include <linux/sched.h>
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -149,10 +148,10 @@ powertecscsi_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
 			map_dir = DMA_FROM_DEVICE,
 			dma_dir = DMA_MODE_READ;
 
-		dma_map_sg(dev, info->sg, bufs + 1, map_dir);
+		dma_map_sg(dev, info->sg, bufs, map_dir);
 
 		disable_dma(dmach);
-		set_dma_sg(dmach, info->sg, bufs + 1);
+		set_dma_sg(dmach, info->sg, bufs);
 		set_dma_mode(dmach, dma_dir);
 		enable_dma(dmach);
 		return fasdma_real_all;
@@ -314,7 +313,6 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 {
 	struct Scsi_Host *host;
 	struct powertec_info *info;
-	unsigned long resbase, reslen;
 	void __iomem *base;
 	int ret;
 
@@ -322,9 +320,7 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 	if (ret)
 		goto out;
 
-	resbase = ecard_resource_start(ec, ECARD_RES_IOCFAST);
-	reslen = ecard_resource_len(ec, ECARD_RES_IOCFAST);
-	base = ioremap(resbase, reslen);
+	base = ecardm_iomap(ec, ECARD_RES_IOCFAST, 0, 0);
 	if (!base) {
 		ret = -ENOMEM;
 		goto out_region;
@@ -334,7 +330,7 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 			       sizeof (struct powertec_info));
 	if (!host) {
 		ret = -ENOMEM;
-		goto out_unmap;
+		goto out_region;
 	}
 
 	ecard_set_drvdata(ec, host);
@@ -343,6 +339,7 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 	info->base = base;
 	powertecscsi_terminator_ctl(host, term[ec->slot_no]);
 
+	info->ec = ec;
 	info->info.scsi.io_base		= base + POWERTEC_FAS216_OFFSET;
 	info->info.scsi.io_shift	= POWERTEC_FAS216_SHIFT;
 	info->info.scsi.irq		= ec->irq;
@@ -361,8 +358,8 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 
 	ec->irqaddr	= base + POWERTEC_INTR_STATUS;
 	ec->irqmask	= POWERTEC_INTR_BIT;
-	ec->irq_data	= info;
-	ec->ops		= &powertecscsi_ops;
+
+	ecard_setirq(ec, &powertecscsi_ops, info);
 
 	device_create_file(&ec->dev, &dev_attr_bus_term);
 
@@ -404,9 +401,6 @@ powertecscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 	device_remove_file(&ec->dev, &dev_attr_bus_term);
 	scsi_host_put(host);
 
- out_unmap:
-	iounmap(base);
-
  out_region:
 	ecard_release_resources(ec);
 
@@ -427,8 +421,6 @@ static void __devexit powertecscsi_remove(struct expansion_card *ec)
 	if (info->info.scsi.dma != NO_DMA)
 		free_dma(info->info.scsi.dma);
 	free_irq(ec->irq, info);
-
-	iounmap(info->base);
 
 	fas216_release(host);
 	scsi_host_put(host);

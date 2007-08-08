@@ -14,22 +14,23 @@
 #include <linux/mman.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/tty.h>
 #include <linux/vt_kern.h>		/* For unblank_screen() */
 #include <linux/highmem.h>
+#include <linux/bootmem.h>		/* for max_low_pfn */
+#include <linux/vmalloc.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
+#include <linux/kdebug.h>
 #include <linux/unistd.h>
 #include <linux/compiler.h>
 #include <linux/binfmts.h>
 
 #include <asm/system.h>
 #include <asm/desc.h>
-#include <asm/kdebug.h>
 #include <asm/segment.h>
 #include <asm/tlbflush.h>
 
@@ -50,43 +51,17 @@ int unregister_page_fault_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(unregister_page_fault_notifier);
 
-static inline int notify_page_fault(enum die_val val, const char *str,
-			struct pt_regs *regs, long err, int trap, int sig)
+static inline int notify_page_fault(struct pt_regs *regs, long err)
 {
 	struct die_args args = {
 		.regs = regs,
-		.str = str,
+		.str = "page fault",
 		.err = err,
-		.trapnr = trap,
-		.signr = sig
+		.trapnr = 14,
+		.signr = SIGSEGV
 	};
-	return atomic_notifier_call_chain(&notify_page_fault_chain, val, &args);
-}
-
-/*
- * Unlock any spinlocks which will prevent us from getting the
- * message out 
- */
-void bust_spinlocks(int yes)
-{
-	int loglevel_save = console_loglevel;
-
-	if (yes) {
-		oops_in_progress = 1;
-		return;
-	}
-#ifdef CONFIG_VT
-	unblank_screen();
-#endif
-	oops_in_progress = 0;
-	/*
-	 * OK, the message is on the console.  Now we call printk()
-	 * without oops_in_progress set so that printk will give klogd
-	 * a poke.  Hold onto your hats...
-	 */
-	console_loglevel = 15;		/* NMI oopser may have shut the console up */
-	printk(" ");
-	console_loglevel = loglevel_save;
+	return atomic_notifier_call_chain(&notify_page_fault_chain,
+	                                  DIE_PAGE_FAULT, &args);
 }
 
 /*
@@ -141,6 +116,11 @@ static inline unsigned long get_segment_eip(struct pt_regs *regs,
 	if (seg & (1<<2)) {
 		/* Must lock the LDT while reading it. */
 		down(&current->mm->context.sem);
+		if ((seg >> 3) >= current->mm->context.size) {
+			up(&current->mm->context.sem);
+			*eip_limit = 0;
+			return 1;	 /* So that returned eip > *eip_limit. */
+		}
 		desc = &current->mm->context.ldt[seg >> 3];
 	} else {
 		/* Must disable preemption while reading the GDT. */
@@ -354,10 +334,10 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	struct mm_struct *mm;
 	struct vm_area_struct * vma;
 	int write, si_code;
+	pte_t *pte;
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	pmd_t *pmd;
-	pte_t *pte;
 	spinlock_t *ptl;
 	unsigned char pte_mask;
 #endif
@@ -386,8 +366,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	if (unlikely(address >= TASK_SIZE)) {
 		if (!(error_code & 0x0000000d) && vmalloc_fault(address) >= 0)
 			return;
-		if (notify_page_fault(DIE_PAGE_FAULT, "page fault", regs, error_code, 14,
-						SIGSEGV) == NOTIFY_STOP)
+		if (notify_page_fault(regs, error_code) == NOTIFY_STOP)
 			return;
 		/*
 		 * Don't take the mm semaphore here. If we fixup a prefetch
@@ -396,8 +375,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		goto bad_area_nosemaphore;
 	}
 
-	if (notify_page_fault(DIE_PAGE_FAULT, "page fault", regs, error_code, 14,
-					SIGSEGV) == NOTIFY_STOP)
+	if (notify_page_fault(regs, error_code) == NOTIFY_STOP)
 		return;
 
 	/* It's safe to allow irq's after cr2 has been saved and the vmalloc
@@ -435,9 +413,8 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	}
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if (unlikely((error_code & 5) != 5 ||
-		     (regs->eflags & X86_EFLAGS_VM) ||
-		     !(mm->pax_flags & MF_PAX_PAGEEXEC)))
+	if (nx_enabled || (error_code & 5) != 5 || (regs->eflags & X86_EFLAGS_VM) ||
+	    !(mm->pax_flags & MF_PAX_PAGEEXEC))
 		goto not_pax_fault;
 
 	/* PaX: it's our fault, let's handle it if we can */
@@ -454,7 +431,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 		}
 #endif
 
-		pax_report_fault(regs, (void*)regs->eip, (void*)regs->esp);
+		pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
 		do_exit(SIGKILL);
 	}
 
@@ -493,8 +470,10 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	 * PaX: fill DTLB with user rights and retry
 	 */
 	__asm__ __volatile__ (
-		"movw %w4,%%ds\n"
-		"orb %2,%%ss:(%1)\n"
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+		"movw %w4,%%es\n"
+#endif
+		"orb %2,(%1)\n"
 #if defined(CONFIG_M586) || defined(CONFIG_M586TSC)
 /*
  * PaX: let this uncommented 'invlpg' remind us on the behaviour of Intel's
@@ -511,12 +490,14 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
  */
 		"invlpg (%0)\n"
 #endif
-		"testb $0,(%0)\n"
-		"xorb %3,%%ss:(%1)\n"
+		"testb $0,%%es:(%0)\n"
+		"xorb %3,(%1)\n"
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		"pushl %%ss\n"
-		"popl %%ds\n"
+		"popl %%es\n"
+#endif
 		:
-		: "q" (address), "r" (pte), "q" (pte_mask), "i" (_PAGE_USER), "r" (__USER_DS)
+		: "r" (address), "r" (pte), "q" (pte_mask), "i" (_PAGE_USER), "r" (__USER_DS)
 		: "memory", "cc");
 	pte_unmap_unlock(pte, ptl);
 	up_read(&mm->mmap_sem);
@@ -557,6 +538,8 @@ not_pax_fault:
 good_area:
 	si_code = SEGV_ACCERR;
 	write = 0;
+	if (nx_enabled && (error_code & 16) && !(vma->vm_flags & VM_EXEC))
+		goto bad_area;
 	switch (error_code & 3) {
 		default:	/* 3: write, present */
 				/* fall through */
@@ -615,10 +598,15 @@ bad_area_nosemaphore:
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 	if (mm && (error_code & 4) && !(regs->eflags & X86_EFLAGS_VM)) {
+		/*
+		 * It's possible to have interrupts off here.
+		 */
+		local_irq_enable();
 
 #ifdef CONFIG_PAX_PAGEEXEC
-		if ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(error_code & 3) && (regs->eip == address)) {
-			pax_report_fault(regs, (void*)regs->eip, (void*)regs->esp);
+		if ((nx_enabled && (error_code & 16)) ||
+		    ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(error_code & 3) && (regs->eip == address))) {
+			pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
 			do_exit(SIGKILL);
 		}
 #endif
@@ -633,7 +621,7 @@ bad_area_nosemaphore:
 			}
 #endif
 
-			pax_report_fault(regs, (void*)regs->eip, (void*)regs->esp);
+			pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
 			do_exit(SIGKILL);
 		}
 #endif
@@ -644,6 +632,11 @@ bad_area_nosemaphore:
 bad_area_nopax:
 	/* User mode accesses just cause a SIGSEGV */
 	if (error_code & 4) {
+		/*
+		 * It's possible to have interrupts off here.
+		 */
+		local_irq_enable();
+
 		/* 
 		 * Valid to do another page fault here because this one came 
 		 * from user space.
@@ -696,25 +689,28 @@ no_context:
 	bust_spinlocks(1);
 
 	if (oops_may_print()) {
-	#ifdef CONFIG_X86_PAE
-		if (error_code & 16) {
-			pte_t *pte = lookup_address(address);
+		__typeof__(pte_val(__pte(0))) page;
+
+#ifdef CONFIG_X86_PAE
+		if (nx_enabled && (error_code & 16)) {
+			pte = lookup_address(address);
 
 			if (pte && pte_present(*pte) && !pte_exec_kernel(*pte))
 				printk(KERN_CRIT "kernel tried to execute "
 					"NX-protected page - exploit attempt? "
-					"(uid: %d)\n", current->uid);
+					"(uid: %d, task: %s, pid: %d)\n",
+					current->uid, current->comm, current->pid);
 		}
-	#endif
+#endif
 		if (address < PAGE_SIZE)
 			printk(KERN_ALERT "BUG: unable to handle kernel NULL "
 					"pointer dereference");
 
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_MODULES
-		else if (init_mm.start_code <= address && address < (unsigned long)MODULES_END) {
+		else if (init_mm.start_code <= address && address < (unsigned long)MODULES_END)
 #else
-		else if (init_mm.start_code <= address && address < init_mm.end_code) {
+		else if (init_mm.start_code <= address && address < init_mm.end_code)
 #endif
 			if (tsk->signal->curr_ip)
 				printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
@@ -722,7 +718,6 @@ no_context:
 			else
 				printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
 					 tsk->comm, tsk->pid, tsk->uid, tsk->euid);
-		}
 #endif
 
 		else
@@ -731,35 +726,38 @@ no_context:
 		printk(" at virtual address %08lx\n",address);
 		printk(KERN_ALERT " printing eip:\n");
 		printk("%08lx\n", regs->eip);
-	}
 
-	if (oops_may_print()) {
-		unsigned long index = pgd_index(address);
-		pgd_t *pgd;
-		pud_t *pud;
-		pmd_t *pmd;
-		pte_t *pte;
-
-		pgd = index + (pgd_t *)__va(read_cr3());
-		printk(KERN_ALERT "*pgd = %*llx\n", sizeof(*pgd), (unsigned long long)pgd_val(*pgd));
-		if (pgd_present(*pgd)) {
-			pud = pud_offset(pgd, address);
-			pmd = pmd_offset(pud, address);
-			printk(KERN_ALERT "*pmd = %*llx\n", sizeof(*pmd), (unsigned long long)pmd_val(*pmd));
-			/*
-			 * We must not directly access the pte in the highpte
-			 * case, the page table might be allocated in highmem.
-			 * And lets rather not kmap-atomic the pte, just in case
-			 * it's allocated already.
-			 */
-#ifndef CONFIG_HIGHPTE
-			if (pmd_present(*pmd) && !pmd_large(*pmd)) {
-				pte = pte_offset_kernel(pmd, address);
-				printk(KERN_ALERT "*pte = %*llx\n", sizeof(*pte), (unsigned long long)pte_val(*pte));
-			}
+		page = read_cr3();
+		page = ((__typeof__(page) *) __va(page))[address >> PGDIR_SHIFT];
+#ifdef CONFIG_X86_PAE
+		printk(KERN_ALERT "*pdpt = %016Lx\n", page);
+		if ((page >> PAGE_SHIFT) < max_low_pfn
+		    && page & _PAGE_PRESENT) {
+			page &= PAGE_MASK;
+			page = ((__typeof__(page) *) __va(page))[(address >> PMD_SHIFT)
+			                                         & (PTRS_PER_PMD - 1)];
+			printk(KERN_ALERT "*pde = %016Lx\n", page);
+			page &= ~_PAGE_NX;
+		}
+#else
+		printk(KERN_ALERT "*pde = %08lx\n", page);
 #endif
+
+		/*
+		 * We must not directly access the pte in the highpte
+		 * case if the page table is located in highmem.
+		 * And let's rather not kmap-atomic the pte, just in case
+		 * it's allocated already.
+		 */
+		if ((page >> PAGE_SHIFT) < max_low_pfn
+		    && (page & _PAGE_PRESENT)) {
+			page &= PAGE_MASK;
+			page = ((__typeof__(page) *) __va(page))[(address >> PAGE_SHIFT)
+			                                         & (PTRS_PER_PTE - 1)];
+			printk(KERN_ALERT "*pte = %0*Lx\n", sizeof(page)*2, (u64)page);
 		}
 	}
+
 	tsk->thread.cr2 = address;
 	tsk->thread.trap_no = 14;
 	tsk->thread.error_code = error_code;
@@ -800,7 +798,6 @@ do_sigbus:
 	force_sig_info_fault(SIGBUS, BUS_ADRERR, address, tsk);
 }
 
-#ifndef CONFIG_X86_PAE
 void vmalloc_sync_all(void)
 {
 	/*
@@ -812,6 +809,9 @@ void vmalloc_sync_all(void)
 	static DECLARE_BITMAP(insync, PTRS_PER_PGD);
 	static unsigned long start = TASK_SIZE;
 	unsigned long address;
+
+	if (SHARED_KERNEL_PMD)
+		return;
 
 	BUILD_BUG_ON(TASK_SIZE & ~PGDIR_MASK);
 	for (address = start; address >= TASK_SIZE; address += PGDIR_SIZE) {
@@ -835,7 +835,6 @@ void vmalloc_sync_all(void)
 			start = address + PGDIR_SIZE;
 	}
 }
-#endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
 /*
@@ -847,7 +846,16 @@ void vmalloc_sync_all(void)
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {
 
-	static const unsigned char trans[8] = {6, 1, 2, 0, 13, 5, 3, 4};
+	static const unsigned char trans[8] = {
+		offsetof(struct pt_regs, eax) / 4,
+		offsetof(struct pt_regs, ecx) / 4,
+		offsetof(struct pt_regs, edx) / 4,
+		offsetof(struct pt_regs, ebx) / 4,
+		offsetof(struct pt_regs, esp) / 4,
+		offsetof(struct pt_regs, ebp) / 4,
+		offsetof(struct pt_regs, esi) / 4,
+		offsetof(struct pt_regs, edi) / 4,
+	};
 	int err;
 
 	if (regs->eflags & X86_EFLAGS_VM)

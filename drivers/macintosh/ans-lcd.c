@@ -121,7 +121,7 @@ anslcd_open( struct inode * inode, struct file * file )
 	return 0;
 }
 
-struct file_operations anslcd_fops = {
+const struct file_operations anslcd_fops = {
 	.write	= anslcd_write,
 	.ioctl	= anslcd_ioctl,
 	.open	= anslcd_open,
@@ -145,11 +145,12 @@ anslcd_init(void)
 	int retval;
 	struct device_node* node;
 
-	node = find_devices("lcd");
-	if (!node || !node->parent)
+	node = of_find_node_by_name(NULL, "lcd");
+	if (!node || !node->parent || strcmp(node->parent->name, "gc")) {
+		of_node_put(node);
 		return -ENODEV;
-	if (strcmp(node->parent->name, "gc"))
-		return -ENODEV;
+	}
+	of_node_put(node);
 
 	anslcd_ptr = ioremap(ANSLCD_ADDR, 0x20);
 	

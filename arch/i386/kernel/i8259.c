@@ -5,7 +5,6 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/random.h>
-#include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/kernel_stat.h>
 #include <linux/sysdev.h>
@@ -41,6 +40,7 @@ static void mask_and_ack_8259A(unsigned int);
 static struct irq_chip i8259A_chip = {
 	.name		= "XT-PIC",
 	.mask		= disable_8259A_irq,
+	.disable	= disable_8259A_irq,
 	.unmask		= enable_8259A_irq,
 	.mask_ack	= mask_and_ack_8259A,
 };
@@ -408,12 +408,6 @@ void __init native_init_IRQ(void)
 	 * the architecture specific gates)
 	 */
 	intr_init_hook();
-
-	/*
-	 * Set the clock to HZ Hz, we already have a valid
-	 * vector now:
-	 */
-	setup_pit_timer();
 
 	/*
 	 * External FPU? Set up irq13 if so, for

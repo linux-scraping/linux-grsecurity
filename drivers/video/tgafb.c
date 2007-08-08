@@ -5,27 +5,44 @@
  *	Copyright (C) 1997 Geert Uytterhoeven
  *	Copyright (C) 1999,2000 Martin Lucina, Tom Zerucha
  *	Copyright (C) 2002 Richard Henderson
+ *	Copyright (C) 2006 Maciej W. Rozycki
  *
  *  This file is subject to the terms and conditions of the GNU General Public
  *  License. See the file COPYING in the main directory of this archive for
  *  more details.
  */
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/sched.h>
-#include <linux/errno.h>
-#include <linux/string.h>
-#include <linux/mm.h>
-#include <linux/slab.h>
+#include <linux/bitrev.h>
 #include <linux/delay.h>
-#include <linux/init.h>
+#include <linux/device.h>
+#include <linux/errno.h>
 #include <linux/fb.h>
+#include <linux/init.h>
+#include <linux/ioport.h>
+#include <linux/kernel.h>
+#include <linux/mm.h>
+#include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/selection.h>
-#include <linux/bitrev.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/tc.h>
+
 #include <asm/io.h>
+
 #include <video/tgafb.h>
+
+#ifdef CONFIG_PCI
+#define TGA_BUS_PCI(dev) (dev->bus == &pci_bus_type)
+#else
+#define TGA_BUS_PCI(dev) 0
+#endif
+
+#ifdef CONFIG_TC
+#define TGA_BUS_TC(dev) (dev->bus == &tc_bus_type)
+#else
+#define TGA_BUS_TC(dev) 0
+#endif
 
 /*
  * Local functions.
@@ -42,12 +59,18 @@ static void tgafb_init_fix(struct fb_info *);
 static void tgafb_imageblit(struct fb_info *, const struct fb_image *);
 static void tgafb_fillrect(struct fb_info *, const struct fb_fillrect *);
 static void tgafb_copyarea(struct fb_info *, const struct fb_copyarea *);
+static int tgafb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info);
 
-static int tgafb_pci_register(struct pci_dev *, const struct pci_device_id *);
-static void tgafb_pci_unregister(struct pci_dev *);
+static int __devinit tgafb_register(struct device *dev);
+static void __devexit tgafb_unregister(struct device *dev);
 
-static const char *mode_option = "640x480@60";
+static const char *mode_option;
+static const char *mode_option_pci = "640x480@60";
+static const char *mode_option_tc = "1280x1024@72";
 
+
+static struct pci_driver tgafb_pci_driver;
+static struct tc_driver tgafb_tc_driver;
 
 /*
  *  Frame buffer operations
@@ -59,27 +82,88 @@ static struct fb_ops tgafb_ops = {
 	.fb_set_par		= tgafb_set_par,
 	.fb_setcolreg		= tgafb_setcolreg,
 	.fb_blank		= tgafb_blank,
+	.fb_pan_display		= tgafb_pan_display,
 	.fb_fillrect		= tgafb_fillrect,
 	.fb_copyarea		= tgafb_copyarea,
 	.fb_imageblit		= tgafb_imageblit,
 };
 
 
+#ifdef CONFIG_PCI
 /*
  *  PCI registration operations
  */
+static int __devinit tgafb_pci_register(struct pci_dev *,
+					const struct pci_device_id *);
+static void __devexit tgafb_pci_unregister(struct pci_dev *);
 
 static struct pci_device_id const tgafb_pci_table[] = {
-	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TGA, PCI_ANY_ID, PCI_ANY_ID,
-	  0, 0, 0 }
+	{ PCI_DEVICE(PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TGA) },
+	{ }
 };
+MODULE_DEVICE_TABLE(pci, tgafb_pci_table);
 
-static struct pci_driver tgafb_driver = {
+static struct pci_driver tgafb_pci_driver = {
 	.name			= "tgafb",
 	.id_table		= tgafb_pci_table,
 	.probe			= tgafb_pci_register,
 	.remove			= __devexit_p(tgafb_pci_unregister),
 };
+
+static int __devinit
+tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
+{
+	return tgafb_register(&pdev->dev);
+}
+
+static void __devexit
+tgafb_pci_unregister(struct pci_dev *pdev)
+{
+	tgafb_unregister(&pdev->dev);
+}
+#endif /* CONFIG_PCI */
+
+#ifdef CONFIG_TC
+/*
+ *  TC registration operations
+ */
+static int __devinit tgafb_tc_register(struct device *);
+static int __devexit tgafb_tc_unregister(struct device *);
+
+static struct tc_device_id const tgafb_tc_table[] = {
+	{ "DEC     ", "PMAGD-AA" },
+	{ "DEC     ", "PMAGD   " },
+	{ }
+};
+MODULE_DEVICE_TABLE(tc, tgafb_tc_table);
+
+static struct tc_driver tgafb_tc_driver = {
+	.id_table		= tgafb_tc_table,
+	.driver			= {
+		.name		= "tgafb",
+		.bus		= &tc_bus_type,
+		.probe		= tgafb_tc_register,
+		.remove		= __devexit_p(tgafb_tc_unregister),
+	},
+};
+
+static int __devinit
+tgafb_tc_register(struct device *dev)
+{
+	int status = tgafb_register(dev);
+	if (!status)
+		get_device(dev);
+	return status;
+}
+
+static int __devexit
+tgafb_tc_unregister(struct device *dev)
+{
+	put_device(dev);
+	tgafb_unregister(dev);
+	return 0;
+}
+#endif /* CONFIG_TC */
 
 
 /**
@@ -98,6 +182,12 @@ tgafb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	} else {
 		if (var->bits_per_pixel != 32)
 			return -EINVAL;
+	}
+	var->red.length = var->green.length = var->blue.length = 8;
+	if (var->bits_per_pixel == 32) {
+		var->red.offset = 16;
+		var->green.offset = 8;
+		var->blue.offset = 0;
 	}
 
 	if (var->xres_virtual != var->xres || var->yres_virtual != var->yres)
@@ -125,10 +215,10 @@ static int
 tgafb_set_par(struct fb_info *info)
 {
 	static unsigned int const deep_presets[4] = {
-		0x00014000,
-		0x0001440d,
+		0x00004000,
+		0x0000440d,
 		0xffffffff,
-		0x0001441d
+		0x0000441d
 	};
 	static unsigned int const rasterop_presets[4] = {
 		0x00000003,
@@ -137,10 +227,10 @@ tgafb_set_par(struct fb_info *info)
 		0x00000303
 	};
 	static unsigned int const mode_presets[4] = {
-		0x00002000,
-		0x00002300,
+		0x00000000,
+		0x00000300,
 		0xffffffff,
-		0x00002300
+		0x00000300
 	};
 	static unsigned int const base_addr_presets[4] = {
 		0x00000000,
@@ -150,9 +240,11 @@ tgafb_set_par(struct fb_info *info)
 	};
 
 	struct tga_par *par = (struct tga_par *) info->par;
+	int tga_bus_pci = TGA_BUS_PCI(par->dev);
+	int tga_bus_tc = TGA_BUS_TC(par->dev);
 	u32 htimings, vtimings, pll_freq;
 	u8 tga_type;
-	int i, j;
+	int i;
 
 	/* Encode video timings.  */
 	htimings = (((info->var.xres/4) & TGA_HORIZ_ACT_LSB)
@@ -190,7 +282,9 @@ tgafb_set_par(struct fb_info *info)
 	while (TGA_READ_REG(par, TGA_CMD_STAT_REG) & 1) /* wait for not busy */
 		continue;
 	mb();
-	TGA_WRITE_REG(par, deep_presets[tga_type], TGA_DEEP_REG);
+	TGA_WRITE_REG(par, deep_presets[tga_type] |
+			   (par->sync_on_green ? 0x0 : 0x00010000),
+		      TGA_DEEP_REG);
 	while (TGA_READ_REG(par, TGA_CMD_STAT_REG) & 1) /* wait for not busy */
 		continue;
 	mb();
@@ -212,7 +306,7 @@ tgafb_set_par(struct fb_info *info)
 	TGA_WRITE_REG(par, vtimings, TGA_VERT_REG);
 
 	/* Initalise RAMDAC. */
-	if (tga_type == TGA_TYPE_8PLANE) {
+	if (tga_type == TGA_TYPE_8PLANE && tga_bus_pci) {
 
 		/* Init BT485 RAMDAC registers.  */
 		BT485_WRITE(par, 0xa2 | (par->sync_on_green ? 0x8 : 0x0),
@@ -227,33 +321,45 @@ tgafb_set_par(struct fb_info *info)
 		BT485_WRITE(par, 0x00, BT485_ADDR_PAL_WRITE);
 		TGA_WRITE_REG(par, BT485_DATA_PAL, TGA_RAMDAC_SETUP_REG);
 
-		for (i = 0; i < 16; i++) {
-			j = color_table[i];
-			TGA_WRITE_REG(par, default_red[j]|(BT485_DATA_PAL<<8),
+		for (i = 0; i < 256 * 3; i += 4) {
+			TGA_WRITE_REG(par, 0x55 | (BT485_DATA_PAL << 8),
 				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, default_grn[j]|(BT485_DATA_PAL<<8),
+			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
 				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, default_blu[j]|(BT485_DATA_PAL<<8),
+			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
+				      TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00 | (BT485_DATA_PAL << 8),
 				      TGA_RAMDAC_REG);
 		}
-		for (i = 0; i < 240*3; i += 4) {
-			TGA_WRITE_REG(par, 0x55|(BT485_DATA_PAL<<8),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT485_DATA_PAL<<8),
-				      TGA_RAMDAC_REG);
+
+	} else if (tga_type == TGA_TYPE_8PLANE && tga_bus_tc) {
+
+		/* Init BT459 RAMDAC registers.  */
+		BT459_WRITE(par, BT459_REG_ACC, BT459_CMD_REG_0, 0x40);
+		BT459_WRITE(par, BT459_REG_ACC, BT459_CMD_REG_1, 0x00);
+		BT459_WRITE(par, BT459_REG_ACC, BT459_CMD_REG_2,
+			    (par->sync_on_green ? 0xc0 : 0x40));
+
+		BT459_WRITE(par, BT459_REG_ACC, BT459_CUR_CMD_REG, 0x00);
+
+		/* Fill the palette.  */
+		BT459_LOAD_ADDR(par, 0x0000);
+		TGA_WRITE_REG(par, BT459_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
+
+		for (i = 0; i < 256 * 3; i += 4) {
+			TGA_WRITE_REG(par, 0x55, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
 		}
 
 	} else { /* 24-plane or 24plusZ */
 
-		/* Init BT463 registers.  */
+		/* Init BT463 RAMDAC registers.  */
 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_0, 0x40);
 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_1, 0x08);
 		BT463_WRITE(par, BT463_REG_ACC, BT463_CMD_REG_2,
-			    (par->sync_on_green ? 0x80 : 0x40));
+			    (par->sync_on_green ? 0xc0 : 0x40));
 
 		BT463_WRITE(par, BT463_REG_ACC, BT463_READ_MASK_0, 0xff);
 		BT463_WRITE(par, BT463_REG_ACC, BT463_READ_MASK_1, 0xff);
@@ -267,26 +373,24 @@ tgafb_set_par(struct fb_info *info)
 
 		/* Fill the palette.  */
 		BT463_LOAD_ADDR(par, 0x0000);
-		TGA_WRITE_REG(par, BT463_PALETTE<<2, TGA_RAMDAC_REG);
+		TGA_WRITE_REG(par, BT463_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
 
+#ifdef CONFIG_HW_CONSOLE
 		for (i = 0; i < 16; i++) {
-			j = color_table[i];
-			TGA_WRITE_REG(par, default_red[j]|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, default_grn[j]|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, default_blu[j]|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
+			int j = color_table[i];
+
+			TGA_WRITE_REG(par, default_red[j], TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, default_grn[j], TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, default_blu[j], TGA_RAMDAC_REG);
 		}
-		for (i = 0; i < 512*3; i += 4) {
-			TGA_WRITE_REG(par, 0x55|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x00|(BT463_PALETTE<<10),
-				      TGA_RAMDAC_REG);
+		for (i = 0; i < 512 * 3; i += 4) {
+#else
+		for (i = 0; i < 528 * 3; i += 4) {
+#endif
+			TGA_WRITE_REG(par, 0x55, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
 		}
 
 		/* Fill window type table after start of vertical retrace.  */
@@ -299,15 +403,12 @@ tgafb_set_par(struct fb_info *info)
 		TGA_WRITE_REG(par, 0x01, TGA_INTR_STAT_REG);
 
 		BT463_LOAD_ADDR(par, BT463_WINDOW_TYPE_BASE);
-		TGA_WRITE_REG(par, BT463_REG_ACC<<2, TGA_RAMDAC_SETUP_REG);
+		TGA_WRITE_REG(par, BT463_REG_ACC << 2, TGA_RAMDAC_SETUP_REG);
 
 		for (i = 0; i < 16; i++) {
-			TGA_WRITE_REG(par, 0x00|(BT463_REG_ACC<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x01|(BT463_REG_ACC<<10),
-				      TGA_RAMDAC_REG);
-			TGA_WRITE_REG(par, 0x80|(BT463_REG_ACC<<10),
-				      TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x01, TGA_RAMDAC_REG);
+			TGA_WRITE_REG(par, 0x00, TGA_RAMDAC_REG);
 		}
 
 	}
@@ -422,6 +523,8 @@ tgafb_setcolreg(unsigned regno, unsigned red, unsigned green, unsigned blue,
 		unsigned transp, struct fb_info *info)
 {
 	struct tga_par *par = (struct tga_par *) info->par;
+	int tga_bus_pci = TGA_BUS_PCI(par->dev);
+	int tga_bus_tc = TGA_BUS_TC(par->dev);
 
 	if (regno > 255)
 		return 1;
@@ -429,15 +532,28 @@ tgafb_setcolreg(unsigned regno, unsigned red, unsigned green, unsigned blue,
 	green >>= 8;
 	blue >>= 8;
 
-	if (par->tga_type == TGA_TYPE_8PLANE) {
+	if (par->tga_type == TGA_TYPE_8PLANE && tga_bus_pci) {
 		BT485_WRITE(par, regno, BT485_ADDR_PAL_WRITE);
 		TGA_WRITE_REG(par, BT485_DATA_PAL, TGA_RAMDAC_SETUP_REG);
 		TGA_WRITE_REG(par, red|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
 		TGA_WRITE_REG(par, green|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
 		TGA_WRITE_REG(par, blue|(BT485_DATA_PAL<<8),TGA_RAMDAC_REG);
-	} else if (regno < 16) {
-		u32 value = (red << 16) | (green << 8) | blue;
-		((u32 *)info->pseudo_palette)[regno] = value;
+	} else if (par->tga_type == TGA_TYPE_8PLANE && tga_bus_tc) {
+		BT459_LOAD_ADDR(par, regno);
+		TGA_WRITE_REG(par, BT459_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
+		TGA_WRITE_REG(par, red, TGA_RAMDAC_REG);
+		TGA_WRITE_REG(par, green, TGA_RAMDAC_REG);
+		TGA_WRITE_REG(par, blue, TGA_RAMDAC_REG);
+	} else {
+		if (regno < 16) {
+			u32 value = (regno << 16) | (regno << 8) | regno;
+			((u32 *)info->pseudo_palette)[regno] = value;
+		}
+		BT463_LOAD_ADDR(par, regno);
+		TGA_WRITE_REG(par, BT463_PALETTE << 2, TGA_RAMDAC_SETUP_REG);
+		TGA_WRITE_REG(par, red, TGA_RAMDAC_REG);
+		TGA_WRITE_REG(par, green, TGA_RAMDAC_REG);
+		TGA_WRITE_REG(par, blue, TGA_RAMDAC_REG);
 	}
 
 	return 0;
@@ -507,16 +623,8 @@ tgafb_blank(int blank, struct fb_info *info)
  *  Acceleration.
  */
 
-/**
- *      tgafb_imageblit - REQUIRED function. Can use generic routines if
- *                        non acclerated hardware and packed pixel based.
- *                        Copies a image from system memory to the screen. 
- *
- *      @info: frame buffer structure that represents a single frame buffer
- *      @image: structure defining the image.
- */
 static void
-tgafb_imageblit(struct fb_info *info, const struct fb_image *image)
+tgafb_mono_imageblit(struct fb_info *info, const struct fb_image *image)
 {
 	struct tga_par *par = (struct tga_par *) info->par;
 	u32 fgcolor, bgcolor, dx, dy, width, height, vxres, vyres, pixelmask;
@@ -525,6 +633,17 @@ tgafb_imageblit(struct fb_info *info, const struct fb_image *image)
 	const unsigned char *data;
 	void __iomem *regs_base;
 	void __iomem *fb_base;
+
+	is8bpp = info->var.bits_per_pixel == 8;
+
+	/* For copies that aren't pixel expansion, there's little we
+	   can do better than the generic code.  */
+	/* ??? There is a DMA write mode; I wonder if that could be
+	   made to pull the data from the image buffer...  */
+	if (image->depth > 1) {
+		cfb_imageblit(info, image);
+		return;
+	}
 
 	dx = image->dx;
 	dy = image->dy;
@@ -543,18 +662,8 @@ tgafb_imageblit(struct fb_info *info, const struct fb_image *image)
 	if (dy + height > vyres)
 		height = vyres - dy;
 
-	/* For copies that aren't pixel expansion, there's little we
-	   can do better than the generic code.  */
-	/* ??? There is a DMA write mode; I wonder if that could be
-	   made to pull the data from the image buffer...  */
-	if (image->depth > 1) {
-		cfb_imageblit(info, image);
-		return;
-	}
-
 	regs_base = par->tga_regs_base;
 	fb_base = par->tga_fb_base;
-	is8bpp = info->var.bits_per_pixel == 8;
 
 	/* Expand the color values to fill 32-bits.  */
 	/* ??? Would be nice to notice colour changes elsewhere, so
@@ -732,6 +841,85 @@ tgafb_imageblit(struct fb_info *info, const struct fb_image *image)
 		     regs_base + TGA_MODE_REG);
 }
 
+static void
+tgafb_clut_imageblit(struct fb_info *info, const struct fb_image *image)
+{
+	struct tga_par *par = (struct tga_par *) info->par;
+	u32 color, dx, dy, width, height, vxres, vyres;
+	u32 *palette = ((u32 *)info->pseudo_palette);
+	unsigned long pos, line_length, i, j;
+	const unsigned char *data;
+	void *regs_base, *fb_base;
+
+	dx = image->dx;
+	dy = image->dy;
+	width = image->width;
+	height = image->height;
+	vxres = info->var.xres_virtual;
+	vyres = info->var.yres_virtual;
+	line_length = info->fix.line_length;
+
+	/* Crop the image to the screen.  */
+	if (dx > vxres || dy > vyres)
+		return;
+	if (dx + width > vxres)
+		width = vxres - dx;
+	if (dy + height > vyres)
+		height = vyres - dy;
+
+	regs_base = par->tga_regs_base;
+	fb_base = par->tga_fb_base;
+
+	pos = dy * line_length + (dx * 4);
+	data = image->data;
+
+	/* Now copy the image, color_expanding via the palette. */
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			color = palette[*data++];
+			__raw_writel(color, fb_base + pos + j*4);
+		}
+		pos += line_length;
+	}
+}
+
+/**
+ *      tgafb_imageblit - REQUIRED function. Can use generic routines if
+ *                        non acclerated hardware and packed pixel based.
+ *                        Copies a image from system memory to the screen.
+ *
+ *      @info: frame buffer structure that represents a single frame buffer
+ *      @image: structure defining the image.
+ */
+static void
+tgafb_imageblit(struct fb_info *info, const struct fb_image *image)
+{
+	unsigned int is8bpp = info->var.bits_per_pixel == 8;
+
+	/* If a mono image, regardless of FB depth, go do it. */
+	if (image->depth == 1) {
+		tgafb_mono_imageblit(info, image);
+		return;
+	}
+
+	/* For copies that aren't pixel expansion, there's little we
+	   can do better than the generic code.  */
+	/* ??? There is a DMA write mode; I wonder if that could be
+	   made to pull the data from the image buffer...  */
+	if (image->depth == info->var.bits_per_pixel) {
+		cfb_imageblit(info, image);
+		return;
+	}
+
+	/* If 24-plane FB and the image is 8-plane with CLUT, we can do it. */
+	if (!is8bpp && image->depth == 8) {
+		tgafb_clut_imageblit(info, image);
+		return;
+	}
+
+	/* Silently return... */
+}
+
 /**
  *      tgafb_fillrect - REQUIRED function. Can use generic routines if 
  *                       non acclerated hardware and packed pixel based.
@@ -885,7 +1073,7 @@ copyarea_line_8bpp(struct fb_info *info, u32 dy, u32 sy,
 
 	n64 = (height * width) / 64;
 
-	if (dy < sy) {
+	if (sy < dy) {
 		spos = (sy + height) * width;
 		dpos = (dy + height) * width;
 
@@ -933,7 +1121,7 @@ copyarea_line_32bpp(struct fb_info *info, u32 dy, u32 sy,
 
 	n16 = (height * width) / 16;
 
-	if (dy < sy) {
+	if (sy < dy) {
 		src = tga_fb + (sy + height) * width * 4;
 		dst = tga_fb + (dy + height) * width * 4;
 
@@ -1293,18 +1481,29 @@ static void
 tgafb_init_fix(struct fb_info *info)
 {
 	struct tga_par *par = (struct tga_par *)info->par;
+	int tga_bus_pci = TGA_BUS_PCI(par->dev);
+	int tga_bus_tc = TGA_BUS_TC(par->dev);
 	u8 tga_type = par->tga_type;
-	const char *tga_type_name;
+	const char *tga_type_name = NULL;
 
 	switch (tga_type) {
 	case TGA_TYPE_8PLANE:
-		tga_type_name = "Digital ZLXp-E1";
+		if (tga_bus_pci)
+			tga_type_name = "Digital ZLXp-E1";
+		if (tga_bus_tc)
+			tga_type_name = "Digital ZLX-E1";
 		break;
 	case TGA_TYPE_24PLANE:
-		tga_type_name = "Digital ZLXp-E2";
+		if (tga_bus_pci)
+			tga_type_name = "Digital ZLXp-E2";
+		if (tga_bus_tc)
+			tga_type_name = "Digital ZLX-E2";
 		break;
 	case TGA_TYPE_24PLUSZ:
-		tga_type_name = "Digital ZLXp-E3";
+		if (tga_bus_pci)
+			tga_type_name = "Digital ZLXp-E3";
+		if (tga_bus_tc)
+			tga_type_name = "Digital ZLX-E3";
 		break;
 	default:
 		tga_type_name = "Unknown";
@@ -1317,7 +1516,7 @@ tgafb_init_fix(struct fb_info *info)
 	info->fix.type_aux = 0;
 	info->fix.visual = (tga_type == TGA_TYPE_8PLANE
 			    ? FB_VISUAL_PSEUDOCOLOR
-			    : FB_VISUAL_TRUECOLOR);
+			    : FB_VISUAL_DIRECTCOLOR);
 
 	info->fix.line_length = par->xres * (par->bits_per_pixel >> 3);
 	info->fix.smem_start = (size_t) par->tga_fb_base;
@@ -1330,11 +1529,37 @@ tgafb_init_fix(struct fb_info *info)
 	info->fix.ywrapstep = 0;
 
 	info->fix.accel = FB_ACCEL_DEC_TGA;
+
+	/*
+	 * These are needed by fb_set_logo_truepalette(), so we
+	 * set them here for 24-plane cards.
+	 */
+	if (tga_type != TGA_TYPE_8PLANE) {
+		info->var.red.length = 8;
+		info->var.green.length = 8;
+		info->var.blue.length = 8;
+		info->var.red.offset = 16;
+		info->var.green.offset = 8;
+		info->var.blue.offset = 0;
+	}
 }
 
-static __devinit int
-tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
+static int tgafb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
+	/* We just use this to catch switches out of graphics mode. */
+	tgafb_set_par(info); /* A bit of overkill for BASE_ADDR reset. */
+	return 0;
+}
+
+static int __devinit
+tgafb_register(struct device *dev)
+{
+	static const struct fb_videomode modedb_tc = {
+		/* 1280x1024 @ 72 Hz, 76.8 kHz hsync */
+		"1280x1024@72", 0, 1280, 1024, 7645, 224, 28, 33, 3, 160, 3,
+		FB_SYNC_ON_GREEN, FB_VMODE_NONINTERLACED
+	};
+
 	static unsigned int const fb_offset_presets[4] = {
 		TGA_8PLANE_FB_OFFSET,
 		TGA_24PLANE_FB_OFFSET,
@@ -1342,43 +1567,51 @@ tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
 		TGA_24PLUSZ_FB_OFFSET
 	};
 
-	struct all_info {
-		struct fb_info info;
-		struct tga_par par;
-		u32 pseudo_palette[16];
-	} *all;
-
+	const struct fb_videomode *modedb_tga = NULL;
+	resource_size_t bar0_start = 0, bar0_len = 0;
+	const char *mode_option_tga = NULL;
+	int tga_bus_pci = TGA_BUS_PCI(dev);
+	int tga_bus_tc = TGA_BUS_TC(dev);
+	unsigned int modedbsize_tga = 0;
 	void __iomem *mem_base;
-	unsigned long bar0_start, bar0_len;
+	struct fb_info *info;
+	struct tga_par *par;
 	u8 tga_type;
-	int ret;
+	int ret = 0;
 
 	/* Enable device in PCI config.  */
-	if (pci_enable_device(pdev)) {
+	if (tga_bus_pci && pci_enable_device(to_pci_dev(dev))) {
 		printk(KERN_ERR "tgafb: Cannot enable PCI device\n");
 		return -ENODEV;
 	}
 
 	/* Allocate the fb and par structures.  */
-	all = kmalloc(sizeof(*all), GFP_KERNEL);
-	if (!all) {
+	info = framebuffer_alloc(sizeof(struct tga_par), dev);
+	if (!info) {
 		printk(KERN_ERR "tgafb: Cannot allocate memory\n");
 		return -ENOMEM;
 	}
-	memset(all, 0, sizeof(*all));
-	pci_set_drvdata(pdev, all);
+
+	par = info->par;
+	dev_set_drvdata(dev, info);
 
 	/* Request the mem regions.  */
-	bar0_start = pci_resource_start(pdev, 0);
-	bar0_len = pci_resource_len(pdev, 0);
 	ret = -ENODEV;
+	if (tga_bus_pci) {
+		bar0_start = pci_resource_start(to_pci_dev(dev), 0);
+		bar0_len = pci_resource_len(to_pci_dev(dev), 0);
+	}
+	if (tga_bus_tc) {
+		bar0_start = to_tc_dev(dev)->resource.start;
+		bar0_len = to_tc_dev(dev)->resource.end - bar0_start + 1;
+	}
 	if (!request_mem_region (bar0_start, bar0_len, "tgafb")) {
 		printk(KERN_ERR "tgafb: cannot reserve FB region\n");
 		goto err0;
 	}
 
 	/* Map the framebuffer.  */
-	mem_base = ioremap(bar0_start, bar0_len);
+	mem_base = ioremap_nocache(bar0_start, bar0_len);
 	if (!mem_base) {
 		printk(KERN_ERR "tgafb: Cannot map MMIO\n");
 		goto err1;
@@ -1386,25 +1619,36 @@ tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* Grab info about the card.  */
 	tga_type = (readl(mem_base) >> 12) & 0x0f;
-	all->par.pdev = pdev;
-	all->par.tga_mem_base = mem_base;
-	all->par.tga_fb_base = mem_base + fb_offset_presets[tga_type];
-	all->par.tga_regs_base = mem_base + TGA_REGS_OFFSET;
-	all->par.tga_type = tga_type;
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &all->par.tga_chip_rev);
+	par->dev = dev;
+	par->tga_mem_base = mem_base;
+	par->tga_fb_base = mem_base + fb_offset_presets[tga_type];
+	par->tga_regs_base = mem_base + TGA_REGS_OFFSET;
+	par->tga_type = tga_type;
+	if (tga_bus_pci)
+		pci_read_config_byte(to_pci_dev(dev), PCI_REVISION_ID,
+				     &par->tga_chip_rev);
+	if (tga_bus_tc)
+		par->tga_chip_rev = TGA_READ_REG(par, TGA_START_REG) & 0xff;
 
 	/* Setup framebuffer.  */
-	all->info.flags = FBINFO_DEFAULT | FBINFO_HWACCEL_COPYAREA |
-                          FBINFO_HWACCEL_IMAGEBLIT | FBINFO_HWACCEL_FILLRECT;
-	all->info.fbops = &tgafb_ops;
-	all->info.screen_base = all->par.tga_fb_base;
-	all->info.par = &all->par;
-	all->info.pseudo_palette = all->pseudo_palette;
+	info->flags = FBINFO_DEFAULT | FBINFO_HWACCEL_COPYAREA |
+		      FBINFO_HWACCEL_IMAGEBLIT | FBINFO_HWACCEL_FILLRECT;
+	info->fbops = &tgafb_ops;
+	info->screen_base = par->tga_fb_base;
+	info->pseudo_palette = (void *)(par + 1);
 
 	/* This should give a reasonable default video mode.  */
-
-	ret = fb_find_mode(&all->info.var, &all->info, mode_option,
-			   NULL, 0, NULL,
+	if (tga_bus_pci) {
+		mode_option_tga = mode_option_pci;
+	}
+	if (tga_bus_tc) {
+		mode_option_tga = mode_option_tc;
+		modedb_tga = &modedb_tc;
+		modedbsize_tga = 1;
+	}
+	ret = fb_find_mode(&info->var, info,
+			   mode_option ? mode_option : mode_option_tga,
+			   modedb_tga, modedbsize_tga, NULL,
 			   tga_type == TGA_TYPE_8PLANE ? 8 : 32);
 	if (ret == 0 || ret == 4) {
 		printk(KERN_ERR "tgafb: Could not find valid video mode\n");
@@ -1412,29 +1656,34 @@ tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err1;
 	}
 
-	if (fb_alloc_cmap(&all->info.cmap, 256, 0)) {
+	if (fb_alloc_cmap(&info->cmap, 256, 0)) {
 		printk(KERN_ERR "tgafb: Could not allocate color map\n");
 		ret = -ENOMEM;
 		goto err1;
 	}
 
-	tgafb_set_par(&all->info);
-	tgafb_init_fix(&all->info);
+	tgafb_set_par(info);
+	tgafb_init_fix(info);
 
-	all->info.device = &pdev->dev;
-	if (register_framebuffer(&all->info) < 0) {
+	if (register_framebuffer(info) < 0) {
 		printk(KERN_ERR "tgafb: Could not register framebuffer\n");
 		ret = -EINVAL;
 		goto err1;
 	}
 
-	printk(KERN_INFO "tgafb: DC21030 [TGA] detected, rev=0x%02x\n",
-	       all->par.tga_chip_rev);
-	printk(KERN_INFO "tgafb: at PCI bus %d, device %d, function %d\n",
-	       pdev->bus->number, PCI_SLOT(pdev->devfn),
-	       PCI_FUNC(pdev->devfn));
-	printk(KERN_INFO "fb%d: %s frame buffer device at 0x%lx\n",
-	       all->info.node, all->info.fix.id, bar0_start);
+	if (tga_bus_pci) {
+		pr_info("tgafb: DC21030 [TGA] detected, rev=0x%02x\n",
+			par->tga_chip_rev);
+		pr_info("tgafb: at PCI bus %d, device %d, function %d\n",
+			to_pci_dev(dev)->bus->number,
+			PCI_SLOT(to_pci_dev(dev)->devfn),
+			PCI_FUNC(to_pci_dev(dev)->devfn));
+	}
+	if (tga_bus_tc)
+		pr_info("tgafb: SFB+ detected, rev=0x%02x\n",
+			par->tga_chip_rev);
+	pr_info("fb%d: %s frame buffer device at 0x%lx\n",
+		info->node, info->fix.id, (long)bar0_start);
 
 	return 0;
 
@@ -1443,35 +1692,48 @@ tgafb_pci_register(struct pci_dev *pdev, const struct pci_device_id *ent)
 		iounmap(mem_base);
 	release_mem_region(bar0_start, bar0_len);
  err0:
-	kfree(all);
+	framebuffer_release(info);
 	return ret;
 }
 
-static void __exit
-tgafb_pci_unregister(struct pci_dev *pdev)
+static void __devexit
+tgafb_unregister(struct device *dev)
 {
-	struct fb_info *info = pci_get_drvdata(pdev);
-	struct tga_par *par = info->par;
+	resource_size_t bar0_start = 0, bar0_len = 0;
+	int tga_bus_pci = TGA_BUS_PCI(dev);
+	int tga_bus_tc = TGA_BUS_TC(dev);
+	struct fb_info *info = NULL;
+	struct tga_par *par;
 
+	info = dev_get_drvdata(dev);
 	if (!info)
 		return;
+
+	par = info->par;
 	unregister_framebuffer(info);
+	fb_dealloc_cmap(&info->cmap);
 	iounmap(par->tga_mem_base);
-	release_mem_region(pci_resource_start(pdev, 0),
-			   pci_resource_len(pdev, 0));
-	kfree(info);
+	if (tga_bus_pci) {
+		bar0_start = pci_resource_start(to_pci_dev(dev), 0);
+		bar0_len = pci_resource_len(to_pci_dev(dev), 0);
+	}
+	if (tga_bus_tc) {
+		bar0_start = to_tc_dev(dev)->resource.start;
+		bar0_len = to_tc_dev(dev)->resource.end - bar0_start + 1;
+	}
+	release_mem_region(bar0_start, bar0_len);
+	framebuffer_release(info);
 }
 
-#ifdef MODULE
-static void __exit
+static void __devexit
 tgafb_exit(void)
 {
-	pci_unregister_driver(&tgafb_driver);
+	tc_unregister_driver(&tgafb_tc_driver);
+	pci_unregister_driver(&tgafb_pci_driver);
 }
-#endif /* MODULE */
 
 #ifndef MODULE
-int __init
+static int __devinit
 tgafb_setup(char *arg)
 {
 	char *this_opt;
@@ -1493,9 +1755,10 @@ tgafb_setup(char *arg)
 }
 #endif /* !MODULE */
 
-int __init
+static int __devinit
 tgafb_init(void)
 {
+	int status;
 #ifndef MODULE
 	char *option = NULL;
 
@@ -1503,7 +1766,10 @@ tgafb_init(void)
 		return -ENODEV;
 	tgafb_setup(option);
 #endif
-	return pci_register_driver(&tgafb_driver);
+	status = pci_register_driver(&tgafb_pci_driver);
+	if (!status)
+		status = tc_register_driver(&tgafb_tc_driver);
+	return status;
 }
 
 /*
@@ -1511,10 +1777,7 @@ tgafb_init(void)
  */
 
 module_init(tgafb_init);
-
-#ifdef MODULE
 module_exit(tgafb_exit);
-#endif
 
-MODULE_DESCRIPTION("framebuffer driver for TGA chipset");
+MODULE_DESCRIPTION("Framebuffer driver for TGA/SFB+ chipset");
 MODULE_LICENSE("GPL");

@@ -3,48 +3,48 @@
  * Copyright (c) 1999-2000 Cisco, Inc.
  * Copyright (c) 1999-2001 Motorola, Inc.
  * Copyright (c) 2001 Intel Corp.
- * 
+ *
  * This file is part of the SCTP kernel reference Implementation
- * 
+ *
  * This file is part of the implementation of the add-IP extension,
  * based on <draft-ietf-tsvwg-addip-sctp-02.txt> June 29, 2001,
  * for the SCTP kernel reference Implementation.
- * 
+ *
  * This file converts numerical ID value to alphabetical names for SCTP
  * terms such as chunk type, parameter time, event type, etc.
- * 
- * The SCTP reference implementation is free software; 
- * you can redistribute it and/or modify it under the terms of 
+ *
+ * The SCTP reference implementation is free software;
+ * you can redistribute it and/or modify it under the terms of
  * the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
  * any later version.
- * 
- * The SCTP reference implementation is distributed in the hope that it 
+ *
+ * The SCTP reference implementation is distributed in the hope that it
  * will be useful, but WITHOUT ANY WARRANTY; without even the implied
  *                 ************************
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with GNU CC; see the file COPYING.  If not, write to
  * the Free Software Foundation, 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.  
- * 
+ * Boston, MA 02111-1307, USA.
+ *
  * Please send any bug reports or fixes you make to the
  * email address(es):
  *    lksctp developers <lksctp-developers@lists.sourceforge.net>
- * 
+ *
  * Or submit a bug report through the following website:
  *    http://www.sf.net/projects/lksctp
  *
- * Written or modified by: 
+ * Written or modified by:
  *    La Monte H.P. Yarroll <piggy@acm.org>
  *    Karl Knutson          <karl@athena.chicago.il.us>
  *    Xingang Guo           <xingang.guo@intel.com>
  *    Jon Grimm             <jgrimm@us.ibm.com>
  *    Daisy Chang	    <daisyc@us.ibm.com>
  *    Sridhar Samudrala	    <sri@us.ibm.com>
- * 
+ *
  * Any bugs reported given to us we will try to fix... any fixes shared will
  * be incorporated into the next SCTP release.
  */
@@ -77,11 +77,9 @@ static const char *sctp_cid_tbl[SCTP_NUM_BASE_CHUNK_TYPES] = {
 /* Lookup "chunk type" debug name. */
 const char *sctp_cname(const sctp_subtype_t cid)
 {
-	if (cid.chunk < 0)
-		return "illegal chunk id";
 	if (cid.chunk <= SCTP_CID_BASE_MAX)
 		return sctp_cid_tbl[cid.chunk];
-	
+
 	switch (cid.chunk) {
 	case SCTP_CID_ASCONF:
 		return "ASCONF";
@@ -93,8 +91,9 @@ const char *sctp_cname(const sctp_subtype_t cid)
 		return "FWD_TSN";
 
 	default:
-		return "unknown chunk";
-	};
+		break;
+	}
+
 	return "unknown chunk";
 }
 
@@ -145,8 +144,6 @@ static const char *sctp_primitive_tbl[SCTP_NUM_PRIMITIVE_TYPES] = {
 /* Lookup primitive debug name. */
 const char *sctp_pname(const sctp_subtype_t id)
 {
-	if (id.primitive < 0)
-		return "illegal primitive";
 	if (id.primitive <= SCTP_EVENT_PRIMITIVE_MAX)
 		return sctp_primitive_tbl[id.primitive];
 	return "unknown_primitive";
@@ -154,14 +151,12 @@ const char *sctp_pname(const sctp_subtype_t id)
 
 static const char *sctp_other_tbl[] = {
 	"NO_PENDING_TSN",
-        "ICMP_PROTO_UNREACH",
+	"ICMP_PROTO_UNREACH",
 };
 
 /* Lookup "other" debug name. */
 const char *sctp_oname(const sctp_subtype_t id)
 {
-	if (id.other < 0)
-		return "illegal 'other' event";
 	if (id.other <= SCTP_EVENT_OTHER_MAX)
 		return sctp_other_tbl[id.other];
 	return "unknown 'other' event";
@@ -183,8 +178,6 @@ static const char *sctp_timer_tbl[] = {
 /* Lookup timer debug name. */
 const char *sctp_tname(const sctp_subtype_t id)
 {
-	if (id.timeout < 0)
-		return "illegal 'timer' event";
 	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
 		return sctp_timer_tbl[id.timeout];
 	return "unknown_timer";

@@ -45,7 +45,6 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/timer.h>
-#include <linux/sched.h>
 #include <linux/bitops.h>
 
 #include <linux/signal.h>
@@ -369,7 +368,7 @@ ctc_dump_skb(struct sk_buff *skb, int offset)
  * @param ch The channel where this skb has been received.
  * @param pskb The received skb.
  */
-static __inline__ void
+static void
 ctc_unpack_skb(struct channel *ch, struct sk_buff *pskb)
 {
 	struct net_device *dev = ch->netdev;
@@ -456,7 +455,7 @@ ctc_unpack_skb(struct channel *ch, struct sk_buff *pskb)
 			return;
 		}
 		skb_put(pskb, header->length);
-		pskb->mac.raw = pskb->data;
+		skb_reset_mac_header(pskb);
 		len -= header->length;
 		skb = dev_alloc_skb(pskb->len);
 		if (!skb) {
@@ -473,8 +472,9 @@ ctc_unpack_skb(struct channel *ch, struct sk_buff *pskb)
 			privptr->stats.rx_dropped++;
 			return;
 		}
-		memcpy(skb_put(skb, pskb->len), pskb->data, pskb->len);
-		skb->mac.raw = skb->data;
+		skb_copy_from_linear_data(pskb, skb_put(skb, pskb->len),
+					  pskb->len);
+		skb_reset_mac_header(skb);
 		skb->dev = pskb->dev;
 		skb->protocol = pskb->protocol;
 		pskb->ip_summed = CHECKSUM_UNNECESSARY;
@@ -512,7 +512,7 @@ ctc_unpack_skb(struct channel *ch, struct sk_buff *pskb)
  * @param ch          The channel, the error belongs to.
  * @param return_code The error code to inspect.
  */
-static void inline
+static void
 ccw_check_return_code(struct channel *ch, int return_code, char *msg)
 {
 	DBF_TEXT(trace, 5, __FUNCTION__);
@@ -547,7 +547,7 @@ ccw_check_return_code(struct channel *ch, int return_code, char *msg)
  * @param ch    The channel, the sense code belongs to.
  * @param sense The sense code to inspect.
  */
-static void inline
+static void
 ccw_unit_check(struct channel *ch, unsigned char sense)
 {
 	DBF_TEXT(trace, 5, __FUNCTION__);
@@ -603,7 +603,7 @@ ctc_purge_skb_queue(struct sk_buff_head *q)
 	}
 }
 
-static __inline__ int
+static int
 ctc_checkalloc_buffer(struct channel *ch, int warn)
 {
 	DBF_TEXT(trace, 5, __FUNCTION__);
@@ -707,7 +707,8 @@ ch_action_txdone(fsm_instance * fi, int event, void *arg)
 			spin_unlock(&ch->collect_lock);
 			return;
 		}
-		ch->trans_skb->tail = ch->trans_skb->data = ch->trans_skb_data;
+		ch->trans_skb->data = ch->trans_skb_data;
+		skb_reset_tail_pointer(ch->trans_skb);
 		ch->trans_skb->len = 0;
 		if (ch->prof.maxmulti < (ch->collect_len + 2))
 			ch->prof.maxmulti = ch->collect_len + 2;
@@ -716,8 +717,9 @@ ch_action_txdone(fsm_instance * fi, int event, void *arg)
 		*((__u16 *) skb_put(ch->trans_skb, 2)) = ch->collect_len + 2;
 		i = 0;
 		while ((skb = skb_dequeue(&ch->collect_queue))) {
-			memcpy(skb_put(ch->trans_skb, skb->len), skb->data,
-			       skb->len);
+			skb_copy_from_linear_data(skb, skb_put(ch->trans_skb,
+							       skb->len),
+						  skb->len);
 			privptr->stats.tx_packets++;
 			privptr->stats.tx_bytes += skb->len - LL_HEADER_LENGTH;
 			atomic_dec(&skb->users);
@@ -832,7 +834,8 @@ ch_action_rx(fsm_instance * fi, int event, void *arg)
 		ctc_unpack_skb(ch, skb);
 	}
  again:
-	skb->data = skb->tail = ch->trans_skb_data;
+	skb->data = ch->trans_skb_data;
+	skb_reset_tail_pointer(skb);
 	skb->len = 0;
 	if (ctc_checkalloc_buffer(ch, 1))
 		return;
@@ -1639,21 +1642,19 @@ add_channel(struct ccw_device *cdev, enum channel_types type)
 	struct channel *ch;
 
 	DBF_TEXT(trace, 2, __FUNCTION__);
-	if ((ch =
-	     (struct channel *) kmalloc(sizeof (struct channel),
-					GFP_KERNEL)) == NULL) {
+	ch = kzalloc(sizeof(struct channel), GFP_KERNEL);
+	if (!ch) {
 		ctc_pr_warn("ctc: Out of memory in add_channel\n");
 		return -1;
 	}
-	memset(ch, 0, sizeof (struct channel));
-	if ((ch->ccw = kmalloc(8*sizeof(struct ccw1),
-					       GFP_KERNEL | GFP_DMA)) == NULL) {
+	/* assure all flags and counters are reset */
+	ch->ccw = kzalloc(8 * sizeof(struct ccw1), GFP_KERNEL | GFP_DMA);
+	if (!ch->ccw) {
 		kfree(ch);
 		ctc_pr_warn("ctc: Out of memory in add_channel\n");
 		return -1;
 	}
 
-	memset(ch->ccw, 0, 8*sizeof(struct ccw1));	// assure all flags and counters are reset
 
 	/**
 	 * "static" ccws are used in the following way:
@@ -1693,15 +1694,14 @@ add_channel(struct ccw_device *cdev, enum channel_types type)
 		return -1;
 	}
 	fsm_newstate(ch->fsm, CH_STATE_IDLE);
-	if ((ch->irb = kmalloc(sizeof (struct irb),
-					      GFP_KERNEL)) == NULL) {
+	ch->irb = kzalloc(sizeof(struct irb), GFP_KERNEL);
+	if (!ch->irb) {
 		ctc_pr_warn("ctc: Out of memory in add_channel\n");
 		kfree_fsm(ch->fsm);
 		kfree(ch->ccw);
 		kfree(ch);
 		return -1;
 	}
-	memset(ch->irb, 0, sizeof (struct irb));
 	while (*c && less_than((*c)->id, ch->id))
 		c = &(*c)->next;
 	if (*c && (!strncmp((*c)->id, ch->id, CTC_ID_SIZE))) {
@@ -2227,7 +2227,8 @@ transmit_skb(struct channel *ch, struct sk_buff *skb)
 		 * IDAL support in CTC is broken, so we have to
 		 * care about skb's above 2G ourselves.
 		 */
-		hi = ((unsigned long) skb->tail + LL_HEADER_LENGTH) >> 31;
+		hi = ((unsigned long)skb_tail_pointer(skb) +
+		      LL_HEADER_LENGTH) >> 31;
 		if (hi) {
 			nskb = alloc_skb(skb->len, GFP_ATOMIC | GFP_DMA);
 			if (!nskb) {
@@ -2263,11 +2264,12 @@ transmit_skb(struct channel *ch, struct sk_buff *skb)
 				return -EBUSY;
 			}
 
-			ch->trans_skb->tail = ch->trans_skb->data;
+			skb_reset_tail_pointer(ch->trans_skb);
 			ch->trans_skb->len = 0;
 			ch->ccw[1].count = skb->len;
-			memcpy(skb_put(ch->trans_skb, skb->len), skb->data,
-			       skb->len);
+			skb_copy_from_linear_data(skb, skb_put(ch->trans_skb,
+							       skb->len),
+						  skb->len);
 			atomic_dec(&skb->users);
 			dev_kfree_skb_irq(skb);
 			ccw_idx = 0;
@@ -2746,14 +2748,13 @@ ctc_probe_device(struct ccwgroup_device *cgdev)
 	if (!get_device(&cgdev->dev))
 		return -ENODEV;
 
-	priv = kmalloc(sizeof (struct ctc_priv), GFP_KERNEL);
+	priv = kzalloc(sizeof(struct ctc_priv), GFP_KERNEL);
 	if (!priv) {
 		ctc_pr_err("%s: Out of memory\n", __func__);
 		put_device(&cgdev->dev);
 		return -ENOMEM;
 	}
 
-	memset(priv, 0, sizeof (struct ctc_priv));
 	rc = ctc_add_files(&cgdev->dev);
 	if (rc) {
 		kfree(priv);
@@ -2794,10 +2795,9 @@ ctc_init_netdevice(struct net_device * dev, int alloc_device,
 	DBF_TEXT(setup, 3, __FUNCTION__);
 
 	if (alloc_device) {
-		dev = kmalloc(sizeof (struct net_device), GFP_KERNEL);
+		dev = kzalloc(sizeof(struct net_device), GFP_KERNEL);
 		if (!dev)
 			return NULL;
-		memset(dev, 0, sizeof (struct net_device));
 	}
 
 	dev->priv = privptr;

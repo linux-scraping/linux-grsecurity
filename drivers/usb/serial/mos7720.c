@@ -103,11 +103,9 @@ static void mos7720_interrupt_callback(struct urb *urb)
 {
 	int result;
 	int length;
-	__u32 *data;
-	unsigned int status;
+	__u8 *data;
 	__u8 sp1;
 	__u8 sp2;
-	__u8 st;
 
 	dbg("%s"," : Entering\n");
 
@@ -141,18 +139,19 @@ static void mos7720_interrupt_callback(struct urb *urb)
 	 * Byte 2 IIR Port 2 (port.number is 1)
 	 * Byte 3 --------------
 	 * Byte 4 FIFO status for both */
-	if (length && length > 4) {
+
+	/* the above description is inverted
+	 * 	oneukum 2007-03-14 */
+
+	if (unlikely(length != 4)) {
 		dbg("Wrong data !!!");
 		return;
 	}
 
-	status = *data;
+	sp1 = data[3];
+	sp2 = data[2];
 
-	sp1 = (status & 0xff000000)>>24;
-	sp2 = (status & 0x00ff0000)>>16;
-	st = status & 0x000000ff;
-
-	if ((sp1 & 0x01) || (sp2 & 0x01)) {
+	if ((sp1 | sp2) & 0x01) {
 		/* No Interrupt Pending in both the ports */
 		dbg("No Interrupt !!!");
 	} else {
@@ -269,18 +268,8 @@ static void mos7720_bulk_out_data_callback(struct urb *urb)
 
 	tty = mos7720_port->port->tty;
 
-	if (tty && mos7720_port->open) {
-		/* let the tty driver wakeup if it has a special *
-		 * write_wakeup function */
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		     tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-
-		/* tell the tty driver that something has changed */
-		wake_up_interruptible(&tty->write_wait);
-	}
-
-	/* schedule_work(&mos7720_port->port->work); */
+	if (tty && mos7720_port->open)
+		tty_wakeup(tty);
 }
 
 /*
@@ -343,6 +332,7 @@ static int mos7720_open(struct usb_serial_port *port, struct file * filp)
 	int response;
 	int port_number;
 	char data;
+	int allocated_urbs = 0;
 	int j;
 
 	serial = port->serial;
@@ -363,7 +353,7 @@ static int mos7720_open(struct usb_serial_port *port, struct file * filp)
 
 	/* Initialising the write urb pool */
 	for (j = 0; j < NUM_URBS; ++j) {
-		urb = usb_alloc_urb(0,GFP_ATOMIC);
+		urb = usb_alloc_urb(0,GFP_KERNEL);
 		mos7720_port->write_urb_pool[j] = urb;
 
 		if (urb == NULL) {
@@ -375,9 +365,15 @@ static int mos7720_open(struct usb_serial_port *port, struct file * filp)
 					       GFP_KERNEL);
 		if (!urb->transfer_buffer) {
 			err("%s-out of memory for urb buffers.", __FUNCTION__);
+			usb_free_urb(mos7720_port->write_urb_pool[j]);
+			mos7720_port->write_urb_pool[j] = NULL;
 			continue;
 		}
+		allocated_urbs++;
 	}
+
+	if (!allocated_urbs)
+		return -ENOMEM;
 
 	 /* Initialize MCS7720 -- Write Init values to corresponding Registers
 	  *
@@ -536,7 +532,7 @@ static int mos7720_chars_in_buffer(struct usb_serial_port *port)
 	}
 
 	for (i = 0; i < NUM_URBS; ++i) {
-		if (mos7720_port->write_urb_pool[i]->status == -EINPROGRESS)
+		if (mos7720_port->write_urb_pool[i] && mos7720_port->write_urb_pool[i]->status == -EINPROGRESS)
 			chars += URB_TRANSFER_BUFFER_SIZE;
 	}
 	dbg("%s - returns %d", __FUNCTION__, chars);
@@ -639,7 +635,7 @@ static int mos7720_write_room(struct usb_serial_port *port)
 	}
 
 	for (i = 0; i < NUM_URBS; ++i) {
-		if (mos7720_port->write_urb_pool[i]->status != -EINPROGRESS)
+		if (mos7720_port->write_urb_pool[i] && mos7720_port->write_urb_pool[i]->status != -EINPROGRESS)
 			room += URB_TRANSFER_BUFFER_SIZE;
 	}
 
@@ -674,7 +670,7 @@ static int mos7720_write(struct usb_serial_port *port,
 	urb = NULL;
 
 	for (i = 0; i < NUM_URBS; ++i) {
-		if (mos7720_port->write_urb_pool[i]->status != -EINPROGRESS) {
+		if (mos7720_port->write_urb_pool[i] && mos7720_port->write_urb_pool[i]->status != -EINPROGRESS) {
 			urb = mos7720_port->write_urb_pool[i];
 			dbg("URB:%d",i);
 			break;
@@ -1605,12 +1601,21 @@ static void mos7720_shutdown(struct usb_serial *serial)
 	usb_set_serial_data(serial, NULL);
 }
 
+static struct usb_driver usb_driver = {
+	.name =		"moschip7720",
+	.probe =	usb_serial_probe,
+	.disconnect =	usb_serial_disconnect,
+	.id_table =	moschip_port_id_table,
+	.no_dynamic_id =	1,
+};
+
 static struct usb_serial_driver moschip7720_2port_driver = {
 	.driver = {
 		.owner =	THIS_MODULE,
 		.name =		"moschip7720",
 	},
 	.description		= "Moschip 2 port adapter",
+	.usb_driver		= &usb_driver,
 	.id_table		= moschip_port_id_table,
 	.num_interrupt_in	= 1,
 	.num_bulk_in		= 2,
@@ -1629,13 +1634,7 @@ static struct usb_serial_driver moschip7720_2port_driver = {
 	.chars_in_buffer	= mos7720_chars_in_buffer,
 	.break_ctl		= mos7720_break,
 	.read_bulk_callback	= mos7720_bulk_in_callback,
-};
-
-static struct usb_driver usb_driver = {
-	.name =		"moschip7720",
-	.probe =	usb_serial_probe,
-	.disconnect =	usb_serial_disconnect,
-	.id_table =	moschip_port_id_table,
+	.read_int_callback	= mos7720_interrupt_callback,
 };
 
 static int __init moschip7720_init(void)

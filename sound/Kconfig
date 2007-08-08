@@ -2,6 +2,7 @@
 #
 
 menu "Sound"
+	depends on HAS_IOMEM
 
 config SOUND
 	tristate "Sound card support"
@@ -75,6 +76,8 @@ source "sound/pcmcia/Kconfig"
 source "sound/sparc/Kconfig"
 
 source "sound/parisc/Kconfig"
+
+source "sound/soc/Kconfig"
 
 endmenu
 

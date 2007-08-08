@@ -11,6 +11,10 @@
 
 #include "qla_devtbl.h"
 
+#ifdef CONFIG_SPARC
+#include <asm/prom.h>
+#endif
+
 /* XXX(hch): this is ugly, but we don't want to pull in exioctl.h */
 #ifndef EXT_IS_LUN_BIT_SET
 #define EXT_IS_LUN_BIT_SET(P,L) \
@@ -65,7 +69,7 @@ qla2x00_initialize_adapter(scsi_qla_host_t *ha)
 	ha->flags.reset_active = 0;
 	atomic_set(&ha->loop_down_timer, LOOP_DOWN_TIME);
 	atomic_set(&ha->loop_state, LOOP_DOWN);
-	ha->device_flags = 0;
+	ha->device_flags = DFLG_NO_CABLE;
 	ha->dpc_flags = 0;
 	ha->flags.management_server_logged_in = 0;
 	ha->marker_needed = 0;
@@ -77,12 +81,14 @@ qla2x00_initialize_adapter(scsi_qla_host_t *ha)
 	qla_printk(KERN_INFO, ha, "Configuring PCI space...\n");
 	rval = ha->isp_ops.pci_config(ha);
 	if (rval) {
-		DEBUG2(printk("scsi(%ld): Unable to configure PCI space=n",
+		DEBUG2(printk("scsi(%ld): Unable to configure PCI space.\n",
 		    ha->host_no));
 		return (rval);
 	}
 
 	ha->isp_ops.reset_chip(ha);
+
+	ha->isp_ops.get_flash_version(ha, ha->request_ring);
 
 	qla_printk(KERN_INFO, ha, "Configure NVRAM parameters...\n");
 
@@ -123,18 +129,17 @@ qla2x00_initialize_adapter(scsi_qla_host_t *ha)
 int
 qla2100_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t w, mwi;
+	int ret;
+	uint16_t w;
 	uint32_t d;
 	unsigned long flags;
 	struct device_reg_2xxx __iomem *reg = &ha->iobase->isp;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	/* Reset expansion ROM address decode enable */
@@ -159,22 +164,22 @@ qla2100_pci_config(scsi_qla_host_t *ha)
 int
 qla2300_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t	w, mwi;
+	int		ret;
+	uint16_t	w;
 	uint32_t	d;
 	unsigned long   flags = 0;
 	uint32_t	cnt;
 	struct device_reg_2xxx __iomem *reg = &ha->iobase->isp;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 
 	if (IS_QLA2322(ha) || IS_QLA6322(ha))
 		w &= ~PCI_COMMAND_INTX_DISABLE;
+	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	/*
 	 * If this is a 2300 card and not 2312, reset the
@@ -203,7 +208,7 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 		ha->fb_rev = RD_FB_CMD_REG(ha, reg);
 
 		if (ha->fb_rev == FPM_2300)
-			w &= ~PCI_COMMAND_INVALIDATE;
+			pci_clear_mwi(ha->pdev);
 
 		/* Deselect FPM registers. */
 		WRT_REG_WORD(&reg->ctrl_status, 0x0);
@@ -220,7 +225,6 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
 	}
-	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
 	pci_write_config_byte(ha->pdev, PCI_LATENCY_TIMER, 0x80);
 
@@ -246,19 +250,18 @@ qla2300_pci_config(scsi_qla_host_t *ha)
 int
 qla24xx_pci_config(scsi_qla_host_t *ha)
 {
-	uint16_t w, mwi;
+	int ret;
+	uint16_t w;
 	uint32_t d;
 	unsigned long flags = 0;
 	struct device_reg_24xx __iomem *reg = &ha->iobase->isp24;
 	int pcix_cmd_reg, pcie_dctl_reg;
 
 	pci_set_master(ha->pdev);
-	mwi = 0;
-	if (pci_set_mwi(ha->pdev))
-		mwi = PCI_COMMAND_INVALIDATE;
+	ret = pci_set_mwi(ha->pdev);
 
 	pci_read_config_word(ha->pdev, PCI_COMMAND, &w);
-	w |= mwi | (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
+	w |= (PCI_COMMAND_PARITY | PCI_COMMAND_SERR);
 	w &= ~PCI_COMMAND_INTX_DISABLE;
 	pci_write_config_word(ha->pdev, PCI_COMMAND, w);
 
@@ -292,6 +295,8 @@ qla24xx_pci_config(scsi_qla_host_t *ha)
 	pci_read_config_dword(ha->pdev, PCI_ROM_ADDRESS, &d);
 	d &= ~PCI_ROM_ADDRESS_ENABLE;
 	pci_write_config_dword(ha->pdev, PCI_ROM_ADDRESS, d);
+
+	pci_read_config_word(ha->pdev, PCI_REVISION_ID, &ha->chip_revision);
 
 	/* Get PCI bus information. */
 	spin_lock_irqsave(&ha->hardware_lock, flags);
@@ -1351,6 +1356,60 @@ qla2x00_configure_hba(scsi_qla_host_t *ha)
 	return(rval);
 }
 
+static inline void
+qla2x00_set_model_info(scsi_qla_host_t *ha, uint8_t *model, size_t len, char *def)
+{
+	char *st, *en;
+	uint16_t index;
+
+	if (memcmp(model, BINZERO, len) != 0) {
+		strncpy(ha->model_number, model, len);
+		st = en = ha->model_number;
+		en += len - 1;
+		while (en > st) {
+			if (*en != 0x20 && *en != 0x00)
+				break;
+			*en-- = '\0';
+		}
+
+		index = (ha->pdev->subsystem_device & 0xff);
+		if (ha->pdev->subsystem_vendor == PCI_VENDOR_ID_QLOGIC &&
+		    index < QLA_MODEL_NAMES)
+			ha->model_desc = qla2x00_model_name[index * 2 + 1];
+	} else {
+		index = (ha->pdev->subsystem_device & 0xff);
+		if (ha->pdev->subsystem_vendor == PCI_VENDOR_ID_QLOGIC &&
+		    index < QLA_MODEL_NAMES) {
+			strcpy(ha->model_number,
+			    qla2x00_model_name[index * 2]);
+			ha->model_desc = qla2x00_model_name[index * 2 + 1];
+		} else {
+			strcpy(ha->model_number, def);
+		}
+	}
+}
+
+/* On sparc systems, obtain port and node WWN from firmware
+ * properties.
+ */
+static void qla2xxx_nvram_wwn_from_ofw(scsi_qla_host_t *ha, nvram_t *nv)
+{
+#ifdef CONFIG_SPARC
+	struct pci_dev *pdev = ha->pdev;
+	struct device_node *dp = pci_device_to_OF_node(pdev);
+	const u8 *val;
+	int len;
+
+	val = of_get_property(dp, "port-wwn", &len);
+	if (val && len >= WWN_SIZE)
+		memcpy(nv->port_name, val, WWN_SIZE);
+
+	val = of_get_property(dp, "node-wwn", &len);
+	if (val && len >= WWN_SIZE)
+		memcpy(nv->node_name, val, WWN_SIZE);
+#endif
+}
+
 /*
 * NVRAM configuration for ISP 2xxx
 *
@@ -1438,6 +1497,8 @@ qla2x00_nvram_config(scsi_qla_host_t *ha)
 		nv->port_name[3] = 224;
 		nv->port_name[4] = 139;
 
+		qla2xxx_nvram_wwn_from_ofw(ha, nv);
+
 		nv->login_timeout = 4;
 
 		/*
@@ -1489,33 +1550,8 @@ qla2x00_nvram_config(scsi_qla_host_t *ha)
 				strcpy(ha->model_number, "QLA2300");
 			}
 		} else {
-			if (rval == 0 &&
-			    memcmp(nv->model_number, BINZERO,
-				    sizeof(nv->model_number)) != 0) {
-				char *st, *en;
-
-				strncpy(ha->model_number, nv->model_number,
-				    sizeof(nv->model_number));
-				st = en = ha->model_number;
-				en += sizeof(nv->model_number) - 1;
-				while (en > st) {
-					if (*en != 0x20 && *en != 0x00)
-						break;
-					*en-- = '\0';
-				}
-			} else {
-				uint16_t        index;
-
-				index = (ha->pdev->subsystem_device & 0xff);
-				if (index < QLA_MODEL_NAMES) {
-					strcpy(ha->model_number,
-					    qla2x00_model_name[index * 2]);
-					ha->model_desc =
-					    qla2x00_model_name[index * 2 + 1];
-				} else {
-					strcpy(ha->model_number, "QLA23xx");
-				}
-			}
+			qla2x00_set_model_info(ha, nv->model_number,
+			    sizeof(nv->model_number), "QLA23xx");
 		}
 	} else if (IS_QLA2200(ha)) {
 		nv->firmware_options[0] |= BIT_2;
@@ -3107,6 +3143,8 @@ qla2x00_abort_isp(scsi_qla_host_t *ha)
 		}
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
 
+		ha->isp_ops.get_flash_version(ha, ha->request_ring);
+
 		ha->isp_ops.nvram_config(ha);
 
 		if (!qla2x00_restart_isp(ha)) {
@@ -3323,6 +3361,27 @@ qla24xx_reset_adapter(scsi_qla_host_t *ha)
 	spin_unlock_irqrestore(&ha->hardware_lock, flags);
 }
 
+/* On sparc systems, obtain port and node WWN from firmware
+ * properties.
+ */
+static void qla24xx_nvram_wwn_from_ofw(scsi_qla_host_t *ha, struct nvram_24xx *nv)
+{
+#ifdef CONFIG_SPARC
+	struct pci_dev *pdev = ha->pdev;
+	struct device_node *dp = pci_device_to_OF_node(pdev);
+	const u8 *val;
+	int len;
+
+	val = of_get_property(dp, "port-wwn", &len);
+	if (val && len >= WWN_SIZE)
+		memcpy(nv->port_name, val, WWN_SIZE);
+
+	val = of_get_property(dp, "node-wwn", &len);
+	if (val && len >= WWN_SIZE)
+		memcpy(nv->node_name, val, WWN_SIZE);
+#endif
+}
+
 int
 qla24xx_nvram_config(scsi_qla_host_t *ha)
 {
@@ -3396,6 +3455,7 @@ qla24xx_nvram_config(scsi_qla_host_t *ha)
 		nv->node_name[5] = 0x1c;
 		nv->node_name[6] = 0x55;
 		nv->node_name[7] = 0x86;
+		qla24xx_nvram_wwn_from_ofw(ha, nv);
 		nv->login_retry_count = __constant_cpu_to_le16(8);
 		nv->interrupt_delay_timer = __constant_cpu_to_le16(0);
 		nv->login_timeout = __constant_cpu_to_le16(0);
@@ -3438,25 +3498,8 @@ qla24xx_nvram_config(scsi_qla_host_t *ha)
 	/*
 	 * Setup driver NVRAM options.
 	 */
-	if (memcmp(nv->model_name, BINZERO, sizeof(nv->model_name)) != 0) {
-		char *st, *en;
-		uint16_t index;
-
-		strncpy(ha->model_number, nv->model_name,
-		    sizeof(nv->model_name));
-		st = en = ha->model_number;
-		en += sizeof(nv->model_name) - 1;
-		while (en > st) {
-			if (*en != 0x20 && *en != 0x00)
-				break;
-			*en-- = '\0';
-		}
-
-		index = (ha->pdev->subsystem_device & 0xff);
-		if (index < QLA_MODEL_NAMES)
-			ha->model_desc = qla2x00_model_name[index * 2 + 1];
-	} else
-		strcpy(ha->model_number, "QLA2462");
+	qla2x00_set_model_info(ha, nv->model_name, sizeof(nv->model_name),
+	    "QLA2462");
 
 	/* Use alternate WWN? */
 	if (nv->host_p & __constant_cpu_to_le32(BIT_15)) {
@@ -3881,6 +3924,8 @@ qla2x00_try_to_stop_firmware(scsi_qla_host_t *ha)
 	int ret, retries;
 
 	if (!IS_QLA24XX(ha) && !IS_QLA54XX(ha))
+		return;
+	if (!ha->fw_major_version)
 		return;
 
 	ret = qla2x00_stop_firmware(ha);

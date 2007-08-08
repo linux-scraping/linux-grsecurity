@@ -1,6 +1,46 @@
+Version 1.49
+------------
+IPv6 support.  Enable ipv6 addresses to be passed on mount (put the ipv6
+address after the "ip=" mount option, at least until mount.cifs is fixed to
+handle DNS host to ipv6 name translation).  Accept override of uid or gid
+on mount even when Unix Extensions are negotiated (it used to be ignored
+when Unix Extensions were ignored).  This allows users to override the
+default uid and gid for files when they are certain that the uids or
+gids on the server do not match those of the client.  Make "sec=none"
+mount override username (so that null user connection is attempted)
+to match what documentation said.
+
+Version 1.48
+------------
+Fix mtime bouncing around from local idea of last write times to remote time.
+Fix hang (in i_size_read) when simultaneous size update of same remote file
+on smp system corrupts sequence number. Do not reread unnecessarily partial page
+(which we are about to overwrite anyway) when writing out file opened rw.
+When DOS attribute of file on non-Unix server's file changes on the server side
+from read-only back to read-write, reflect this change in default file mode
+(we had been leaving a file's mode read-only until the inode were reloaded).
+Allow setting of attribute back to ATTR_NORMAL (removing readonly dos attribute
+when archive dos attribute not set and we are changing mode back to writeable
+on server which does not support the Unix Extensions).  Remove read only dos
+attribute on chmod when adding any write permission (ie on any of
+user/group/other (not all of user/group/other ie  0222) when
+mounted to windows.  Add support for POSIX MkDir (slight performance
+enhancement and eliminates the network race between the mkdir and set 
+path info of the mode).
+
+
 Version 1.47
 ------------
 Fix oops in list_del during mount caused by unaligned string.
+Fix file corruption which could occur on some large file
+copies caused by writepages page i/o completion bug.
+Seek to SEEK_END forces check for update of file size for non-cached
+files. Allow file size to be updated on remote extend of locally open,
+non-cached file.  Fix reconnect to newer Samba servers (or other servers
+which support the CIFS Unix/POSIX extensions) so that we again tell the
+server the Unix/POSIX cifs capabilities which we support (SetFSInfo).
+Add experimental support for new POSIX Open/Mkdir (which returns
+stat information on the open, and allows setting the mode).
 
 Version 1.46
 ------------

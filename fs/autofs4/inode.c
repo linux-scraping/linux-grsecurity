@@ -18,7 +18,6 @@
 #include <linux/pagemap.h>
 #include <linux/parser.h>
 #include <linux/bitops.h>
-#include <linux/smp_lock.h>
 #include <linux/magic.h>
 #include "autofs_i.h"
 #include <linux/module.h>
@@ -47,6 +46,8 @@ struct autofs_info *autofs4_init_ino(struct autofs_info *ino,
 	ino->inode = NULL;
 	ino->dentry = NULL;
 	ino->size = 0;
+
+	INIT_LIST_HEAD(&ino->rehash);
 
 	ino->last_used = jiffies;
 	atomic_set(&ino->count, 0);
@@ -158,14 +159,13 @@ void autofs4_kill_sb(struct super_block *sb)
 	if (!sbi)
 		goto out_kill_sb;
 
-	sb->s_fs_info = NULL;
-
-	if ( !sbi->catatonic )
+	if (!sbi->catatonic)
 		autofs4_catatonic_mode(sbi); /* Free wait queues, close pipe */
 
 	/* Clean up and release dangling references */
 	autofs4_force_release(sbi);
 
+	sb->s_fs_info = NULL;
 	kfree(sbi);
 
 out_kill_sb:
@@ -196,7 +196,7 @@ static int autofs4_show_options(struct seq_file *m, struct vfsmount *mnt)
 	return 0;
 }
 
-static struct super_operations autofs4_sops = {
+static const struct super_operations autofs4_sops = {
 	.statfs		= simple_statfs,
 	.show_options	= autofs4_show_options,
 };
@@ -218,8 +218,7 @@ static match_table_t tokens = {
 };
 
 static int parse_options(char *options, int *pipefd, uid_t *uid, gid_t *gid,
-			 pid_t *pgrp, unsigned int *type,
-			 int *minproto, int *maxproto)
+		pid_t *pgrp, unsigned int *type, int *minproto, int *maxproto)
 {
 	char *p;
 	substring_t args[MAX_OPT_ARGS];
@@ -314,7 +313,7 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	struct autofs_info *ino;
 
 	sbi = kmalloc(sizeof(*sbi), GFP_KERNEL);
-	if ( !sbi )
+	if (!sbi)
 		goto fail_unlock;
 	DPRINTK("starting up, sbi = %p",sbi);
 
@@ -336,6 +335,8 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	mutex_init(&sbi->wq_mutex);
 	spin_lock_init(&sbi->fs_lock);
 	sbi->queues = NULL;
+	spin_lock_init(&sbi->rehash_lock);
+	INIT_LIST_HEAD(&sbi->rehash_list);
 	s->s_blocksize = 1024;
 	s->s_blocksize_bits = 10;
 	s->s_magic = AUTOFS_SUPER_MAGIC;
@@ -361,10 +362,9 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	root->d_fsdata = ino;
 
 	/* Can this call block? */
-	if (parse_options(data, &pipefd,
-			  &root_inode->i_uid, &root_inode->i_gid,
-			  &sbi->oz_pgrp, &sbi->type,
-			  &sbi->min_proto, &sbi->max_proto)) {
+	if (parse_options(data, &pipefd, &root_inode->i_uid, &root_inode->i_gid,
+				&sbi->oz_pgrp, &sbi->type, &sbi->min_proto,
+				&sbi->max_proto)) {
 		printk("autofs: called with bogus options\n");
 		goto fail_dput;
 	}
@@ -394,11 +394,11 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	DPRINTK("pipe fd = %d, pgrp = %u", pipefd, sbi->oz_pgrp);
 	pipe = fget(pipefd);
 	
-	if ( !pipe ) {
+	if (!pipe) {
 		printk("autofs: could not open pipe file descriptor\n");
 		goto fail_dput;
 	}
-	if ( !pipe->f_op || !pipe->f_op->write )
+	if (!pipe->f_op || !pipe->f_op->write)
 		goto fail_fput;
 	sbi->pipe = pipe;
 	sbi->pipefd = pipefd;

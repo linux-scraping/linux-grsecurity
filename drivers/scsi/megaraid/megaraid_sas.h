@@ -15,12 +15,12 @@
 #ifndef LSI_MEGARAID_SAS_H
 #define LSI_MEGARAID_SAS_H
 
-/**
+/*
  * MegaRAID SAS Driver meta data
  */
-#define MEGASAS_VERSION				"00.00.03.05"
-#define MEGASAS_RELDATE				"Oct 02, 2006"
-#define MEGASAS_EXT_VERSION			"Mon Oct 02 11:21:32 PDT 2006"
+#define MEGASAS_VERSION				"00.00.03.10-rc5"
+#define MEGASAS_RELDATE				"May 17, 2007"
+#define MEGASAS_EXT_VERSION			"Thu May 17 10:09:32 PDT 2007"
 
 /*
  * Device IDs
@@ -40,7 +40,7 @@
  * "message frames"
  */
 
-/**
+/*
  * FW posts its state in upper 4 bits of outbound_msg_0 register
  */
 #define MFI_STATE_MASK				0xF0000000
@@ -58,7 +58,7 @@
 
 #define MEGAMFI_FRAME_SIZE			64
 
-/**
+/*
  * During FW init, clear pending cmds & reset state using inbound_msg_0
  *
  * ABORT	: Abort all pending cmds
@@ -78,7 +78,7 @@
 						MFI_INIT_MFIMODE| \
 						MFI_INIT_ABORT
 
-/**
+/*
  * MFI frame flags
  */
 #define MFI_FRAME_POST_IN_REPLY_QUEUE		0x0000
@@ -92,12 +92,12 @@
 #define MFI_FRAME_DIR_READ			0x0010
 #define MFI_FRAME_DIR_BOTH			0x0018
 
-/**
+/*
  * Definition for cmd_status
  */
 #define MFI_CMD_STATUS_POLL_MODE		0xFF
 
-/**
+/*
  * MFI command opcodes
  */
 #define MFI_CMD_INIT				0x00
@@ -128,7 +128,7 @@
 #define MR_DCMD_CLUSTER_RESET_ALL		0x08010100
 #define MR_DCMD_CLUSTER_RESET_LD		0x08010200
 
-/**
+/*
  * MFI command completion codes
  */
 enum MFI_STAT {
@@ -539,6 +539,8 @@ struct megasas_ctrl_info {
 
 #define MEGASAS_DBG_LVL				1
 
+#define MEGASAS_FW_BUSY				1
+
 /*
  * When SCSI mid-layer calls driver's reset routine, driver waits for
  * MEGASAS_RESET_WAIT_TIME seconds for all outstanding IO to complete. Note
@@ -549,8 +551,8 @@ struct megasas_ctrl_info {
 #define MEGASAS_RESET_WAIT_TIME			180
 #define MEGASAS_INTERNAL_CMD_WAIT_TIME		180
 #define	MEGASAS_RESET_NOTICE_INTERVAL		5
-
 #define MEGASAS_IOCTL_CMD			0
+#define MEGASAS_DEFAULT_CMD_TIMEOUT		90
 
 /*
  * FW reports the maximum of number of commands that it can accept (maximum
@@ -1073,7 +1075,6 @@ struct megasas_instance {
 	struct megasas_register_set __iomem *reg_set;
 
 	s8 init_id;
-	u8 reserved[3];
 
 	u16 max_num_sge;
 	u16 max_fw_cmds;
@@ -1104,6 +1105,9 @@ struct megasas_instance {
 
 	struct megasas_instance_template *instancet;
 	struct tasklet_struct isr_tasklet;
+
+	u8 flag;
+	unsigned long last_time;
 };
 
 #define MEGASAS_IS_LOGICAL(scp)						\

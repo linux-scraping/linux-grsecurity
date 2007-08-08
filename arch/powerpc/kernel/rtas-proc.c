@@ -160,7 +160,7 @@ static int sensors_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_sensors_show, NULL);
 }
 
-struct file_operations ppc_rtas_sensors_operations = {
+const struct file_operations ppc_rtas_sensors_operations = {
 	.open		= sensors_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -172,7 +172,7 @@ static int poweron_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_poweron_show, NULL);
 }
 
-struct file_operations ppc_rtas_poweron_operations = {
+const struct file_operations ppc_rtas_poweron_operations = {
 	.open		= poweron_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -185,7 +185,7 @@ static int progress_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_progress_show, NULL);
 }
 
-struct file_operations ppc_rtas_progress_operations = {
+const struct file_operations ppc_rtas_progress_operations = {
 	.open		= progress_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -198,7 +198,7 @@ static int clock_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_clock_show, NULL);
 }
 
-struct file_operations ppc_rtas_clock_operations = {
+const struct file_operations ppc_rtas_clock_operations = {
 	.open		= clock_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -211,7 +211,7 @@ static int tone_freq_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_tone_freq_show, NULL);
 }
 
-struct file_operations ppc_rtas_tone_freq_operations = {
+const struct file_operations ppc_rtas_tone_freq_operations = {
 	.open		= tone_freq_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -224,7 +224,7 @@ static int tone_volume_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_tone_volume_show, NULL);
 }
 
-struct file_operations ppc_rtas_tone_volume_operations = {
+const struct file_operations ppc_rtas_tone_volume_operations = {
 	.open		= tone_volume_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -237,7 +237,7 @@ static int rmo_buf_open(struct inode *inode, struct file *file)
 	return single_open(file, ppc_rtas_rmo_buf_show, NULL);
 }
 
-struct file_operations ppc_rtas_rmo_buf_ops = {
+const struct file_operations ppc_rtas_rmo_buf_ops = {
 	.open		= rmo_buf_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -379,7 +379,7 @@ static ssize_t ppc_rtas_progress_write(struct file *file,
 /* ****************************************************************** */
 static int ppc_rtas_progress_show(struct seq_file *m, void *v)
 {
-	if (progress_led)
+	if (progress_led[0])
 		seq_printf(m, "%s\n", progress_led);
 	return 0;
 }
@@ -450,7 +450,7 @@ static int ppc_rtas_sensors_show(struct seq_file *m, void *v)
 		int llen, offs;
 
 		sprintf (rstr, SENSOR_PREFIX"%04d", p->token);
-		loc = get_property(rtas_node, rstr, &llen);
+		loc = of_get_property(rtas_node, rstr, &llen);
 
 		/* A sensor may have multiple instances */
 		for (j = 0, offs = 0; j <= p->quant; j++) {
@@ -477,7 +477,7 @@ static int ppc_rtas_find_all_sensors(void)
 	const unsigned int *utmp;
 	int len, i;
 
-	utmp = get_property(rtas_node, "rtas-sensors", &len);
+	utmp = of_get_property(rtas_node, "rtas-sensors", &len);
 	if (utmp == NULL) {
 		printk (KERN_ERR "error: could not get rtas-sensors\n");
 		return 1;

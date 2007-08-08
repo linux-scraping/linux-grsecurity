@@ -824,10 +824,17 @@ asmlinkage int sunos_wait4(compat_pid_t pid, compat_uint_t __user *stat_addr, in
 	return ret;
 }
 
-extern int kill_pg(int, int, int);
 asmlinkage int sunos_killpg(int pgrp, int sig)
 {
-	return kill_pg(pgrp, sig, 0);
+	int ret;
+
+	rcu_read_lock();
+	ret = -EINVAL;
+	if (pgrp > 0)
+		ret = kill_pgrp(find_pid(pgrp), sig, 0);
+	rcu_read_unlock();
+
+	return ret;
 }
 
 asmlinkage int sunos_audit(void)
@@ -864,7 +871,7 @@ asmlinkage s32 sunos_sysconf (int name)
 		ret = ARG_MAX;
 		break;
 	case _SC_CHILD_MAX:
-		ret = -1; /* no limit */
+		ret = current->signal->rlim[RLIMIT_NPROC].rlim_cur;
 		break;
 	case _SC_CLK_TCK:
 		ret = HZ;
@@ -873,7 +880,7 @@ asmlinkage s32 sunos_sysconf (int name)
 		ret = NGROUPS_MAX;
 		break;
 	case _SC_OPEN_MAX:
-		ret = OPEN_MAX;
+		ret = current->signal->rlim[RLIMIT_NOFILE].rlim_cur;
 		break;
 	case _SC_JOB_CONTROL:
 		ret = 1;	/* yes, we do support job control */

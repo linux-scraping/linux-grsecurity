@@ -85,7 +85,7 @@
 #define __NR_sigpending		 73
 #define __NR_sethostname	 74
 #define __NR_setrlimit		 75
-#define __NR_getrlimit	 	 76	/* Back compatible 2Gig limited rlimit */
+#define __NR_getrlimit		 76	/* Back compatible 2Gig limited rlimit */
 #define __NR_getrusage		 77
 #define __NR_gettimeofday	 78
 #define __NR_settimeofday	 79
@@ -233,6 +233,7 @@
 #define __NR_fcntl64		221
 /* 223 is unused */
 #define __NR_gettid		224
+#define __NR_readahead		225
 #define __NR_setxattr		226
 #define __NR_lsetxattr		227
 #define __NR_fsetxattr		228
@@ -292,22 +293,22 @@
 #define __NR_mq_getsetattr      (__NR_mq_open+5)
 #define __NR_kexec_load		283
 #define __NR_waitid		284
-/* #define __NR_sys_setaltroot	285 */
-#define __NR_add_key		286
-#define __NR_request_key	287
-#define __NR_keyctl		288
-#define __NR_ioprio_set		289
-#define __NR_ioprio_get		290
-#define __NR_inotify_init	291
-#define __NR_inotify_add_watch	292
-#define __NR_inotify_rm_watch	293
+#define __NR_add_key		285
+#define __NR_request_key	286
+#define __NR_keyctl		287
+#define __NR_ioprio_set		288
+#define __NR_ioprio_get		289
+#define __NR_inotify_init	290
+#define __NR_inotify_add_watch	291
+#define __NR_inotify_rm_watch	292
+/* 293 is unused */
 #define __NR_migrate_pages	294
 #define __NR_openat		295
 #define __NR_mkdirat		296
 #define __NR_mknodat		297
 #define __NR_fchownat		298
 #define __NR_futimesat		299
-#define __NR_newfstatat		300
+#define __NR_fstatat64		300
 #define __NR_unlinkat		301
 #define __NR_renameat		302
 #define __NR_linkat		303
@@ -327,8 +328,12 @@
 #define __NR_move_pages		317
 #define __NR_getcpu		318
 #define __NR_epoll_pwait	319
+#define __NR_utimensat		320
+#define __NR_signalfd		321
+#define __NR_timerfd		322
+#define __NR_eventfd		323
 
-#define NR_syscalls 320
+#define NR_syscalls 324
 
 #ifdef __KERNEL__
 

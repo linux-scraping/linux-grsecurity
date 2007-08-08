@@ -12,6 +12,8 @@
 #ifndef __ASM_COBALT_H
 #define __ASM_COBALT_H
 
+#include <irq.h>
+
 /*
  * i8259 legacy interrupts used on Cobalt:
  *
@@ -25,7 +27,7 @@
 /*
  * CPU IRQs  are 16 ... 23
  */
-#define COBALT_CPU_IRQ		16
+#define COBALT_CPU_IRQ		MIPS_CPU_IRQ_BASE
 
 #define COBALT_GALILEO_IRQ	(COBALT_CPU_IRQ + 2)
 #define COBALT_SCC_IRQ          (COBALT_CPU_IRQ + 3)	/* pre-production has 85C30 */
@@ -66,6 +68,8 @@
 #define COBALT_BRD_ID_RAQ1     0x4
 #define COBALT_BRD_ID_QUBE2    0x5
 #define COBALT_BRD_ID_RAQ2     0x6
+
+extern int cobalt_board_id;
 
 #define PCI_CFG_SET(devfn,where)					\
 	GT_WRITE(GT_PCI0_CFGADDR_OFS, (0x80000000 | (PCI_SLOT (devfn) << 11) |		\

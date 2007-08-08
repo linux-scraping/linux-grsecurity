@@ -47,15 +47,14 @@ serial_card_probe(struct expansion_card *ec, const struct ecard_id *id)
 	unsigned long bus_addr;
 	unsigned int i;
 
-	info = kmalloc(sizeof(struct serial_card_info), GFP_KERNEL);
+	info = kzalloc(sizeof(struct serial_card_info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 
-	memset(info, 0, sizeof(struct serial_card_info));
 	info->num_ports = type->num_ports;
 
 	bus_addr = ecard_resource_start(ec, type->type);
-	info->vaddr = ioremap(bus_addr, ecard_resource_len(ec, type->type));
+	info->vaddr = ecardm_iomap(ec, type->type, 0, 0);
 	if (!info->vaddr) {
 		kfree(info);
 		return -ENOMEM;
@@ -92,7 +91,6 @@ static void __devexit serial_card_remove(struct expansion_card *ec)
 		if (info->ports[i] > 0)
 			serial8250_unregister_port(info->ports[i]);
 
-	iounmap(info->vaddr);
 	kfree(info);
 }
 

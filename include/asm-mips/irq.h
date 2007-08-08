@@ -18,7 +18,7 @@
 #ifdef CONFIG_I8259
 static inline int irq_canonicalize(int irq)
 {
-	return ((irq == 2) ? 9 : irq);
+	return ((irq == I8259A_IRQ_BASE + 2) ? I8259A_IRQ_BASE + 9 : irq);
 }
 #else
 #define irq_canonicalize(irq) (irq)	/* Sane hardware, sane code ... */
@@ -71,5 +71,14 @@ extern int setup_irq_smtc(unsigned int irq, struct irqaction * new,
 extern int allocate_irqno(void);
 extern void alloc_legacy_irqno(void);
 extern void free_irqno(unsigned int irq);
+
+/*
+ * Before R2 the timer and performance counter interrupts were both fixed to
+ * IE7.  Since R2 their number has to be read from the c0_intctl register.
+ */
+#define CP0_LEGACY_COMPARE_IRQ 7
+
+extern int cp0_compare_irq;
+extern int cp0_perfcount_irq;
 
 #endif /* _ASM_IRQ_H */

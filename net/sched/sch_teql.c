@@ -14,7 +14,6 @@
 #include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -95,14 +94,13 @@ teql_enqueue(struct sk_buff *skb, struct Qdisc* sch)
 	struct net_device *dev = sch->dev;
 	struct teql_sched_data *q = qdisc_priv(sch);
 
-	__skb_queue_tail(&q->q, skb);
-	if (q->q.qlen <= dev->tx_queue_len) {
+	if (q->q.qlen < dev->tx_queue_len) {
+		__skb_queue_tail(&q->q, skb);
 		sch->bstats.bytes += skb->len;
 		sch->bstats.packets++;
 		return 0;
 	}
 
-	__skb_unlink(skb, &q->q);
 	kfree_skb(skb);
 	sch->qstats.drops++;
 	return NET_XMIT_DROP;
@@ -178,7 +176,7 @@ teql_destroy(struct Qdisc* sch)
 				teql_neigh_release(xchg(&dat->ncache, NULL));
 				break;
 			}
-				
+
 		} while ((prev = q) != master->slaves);
 	}
 }
@@ -292,7 +290,7 @@ restart:
 
 	do {
 		struct net_device *slave = q->dev;
-		
+
 		if (slave->qdisc_sleeping != q)
 			continue;
 		if (netif_queue_stopped(slave) || ! netif_running(slave)) {
@@ -324,7 +322,7 @@ restart:
 			nores = 1;
 			break;
 		}
-		__skb_pull(skb, skb->nh.raw - skb->data);
+		__skb_pull(skb, skb_network_offset(skb));
 	} while ((q = NEXT_SLAVE(q)) != start);
 
 	if (nores && skb_res == NULL) {
@@ -425,7 +423,7 @@ static __init void teql_master_setup(struct net_device *dev)
 
 	master->dev	= dev;
 	ops->priv_size  = sizeof(struct teql_sched_data);
-	
+
 	ops->enqueue	=	teql_enqueue;
 	ops->dequeue	=	teql_dequeue;
 	ops->requeue	=	teql_requeue;
@@ -489,7 +487,7 @@ static int __init teql_init(void)
 	return i ? 0 : err;
 }
 
-static void __exit teql_exit(void) 
+static void __exit teql_exit(void)
 {
 	struct teql_master *master, *nxt;
 

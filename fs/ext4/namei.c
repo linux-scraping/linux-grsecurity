@@ -36,7 +36,6 @@
 #include <linux/quotaops.h>
 #include <linux/buffer_head.h>
 #include <linux/bio.h>
-#include <linux/smp_lock.h>
 
 #include "namei.h"
 #include "xattr.h"
@@ -47,7 +46,7 @@
  */
 #define NAMEI_RA_CHUNKS  2
 #define NAMEI_RA_BLOCKS  4
-#define NAMEI_RA_SIZE        (NAMEI_RA_CHUNKS * NAMEI_RA_BLOCKS)
+#define NAMEI_RA_SIZE	     (NAMEI_RA_CHUNKS * NAMEI_RA_BLOCKS)
 #define NAMEI_RA_INDEX(c,b)  (((c) * NAMEI_RA_BLOCKS) + (b))
 
 static struct buffer_head *ext4_append(handle_t *handle,
@@ -242,7 +241,7 @@ static inline unsigned dx_node_limit (struct inode *dir)
 static void dx_show_index (char * label, struct dx_entry *entries)
 {
 	int i, n = dx_get_count (entries);
-        printk("%s index ", label);
+	printk("%s index ", label);
 	for (i = 0; i < n; i++) {
 		printk("%x->%u ", i? dx_get_hash(entries + i) :
 				0, dx_get_block(entries + i));
@@ -967,6 +966,7 @@ static struct buffer_head * ext4_dx_find_entry(struct dentry *dentry,
 				  (block<<EXT4_BLOCK_SIZE_BITS(sb))
 					  +((char *)de - bh->b_data))) {
 				brelse (bh);
+				*err = ERR_BAD_DX_DIR;
 				goto errout;
 			}
 			*res_dir = de;
@@ -1132,9 +1132,9 @@ static struct ext4_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
 	char *data1 = (*bh)->b_data, *data2;
 	unsigned split;
 	struct ext4_dir_entry_2 *de = NULL, *de2;
-	int	err;
+	int	err = 0;
 
-	bh2 = ext4_append (handle, dir, &newblock, error);
+	bh2 = ext4_append (handle, dir, &newblock, &err);
 	if (!(bh2)) {
 		brelse(*bh);
 		*bh = NULL;
@@ -1143,14 +1143,9 @@ static struct ext4_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
 
 	BUFFER_TRACE(*bh, "get_write_access");
 	err = ext4_journal_get_write_access(handle, *bh);
-	if (err) {
-	journal_error:
-		brelse(*bh);
-		brelse(bh2);
-		*bh = NULL;
-		ext4_std_error(dir->i_sb, err);
-		goto errout;
-	}
+	if (err)
+		goto journal_error;
+
 	BUFFER_TRACE(frame->bh, "get_write_access");
 	err = ext4_journal_get_write_access(handle, frame->bh);
 	if (err)
@@ -1193,8 +1188,16 @@ static struct ext4_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
 		goto journal_error;
 	brelse (bh2);
 	dxtrace(dx_show_index ("frame", frame->entries));
-errout:
 	return de;
+
+journal_error:
+	brelse(*bh);
+	brelse(bh2);
+	*bh = NULL;
+	ext4_std_error(dir->i_sb, err);
+errout:
+	*error = err;
+	return NULL;
 }
 #endif
 
@@ -1616,21 +1619,6 @@ static int ext4_delete_entry (handle_t *handle,
 	return -ENOENT;
 }
 
-/*
- * ext4_mark_inode_dirty is somewhat expensive, so unlike ext2 we
- * do not perform it in these functions.  We perform it at the call site,
- * if it is needed.
- */
-static inline void ext4_inc_count(handle_t *handle, struct inode *inode)
-{
-	inc_nlink(inode);
-}
-
-static inline void ext4_dec_count(handle_t *handle, struct inode *inode)
-{
-	drop_nlink(inode);
-}
-
 static int ext4_add_nondir(handle_t *handle,
 		struct dentry *dentry, struct inode *inode)
 {
@@ -1640,7 +1628,7 @@ static int ext4_add_nondir(handle_t *handle,
 		d_instantiate(dentry, inode);
 		return 0;
 	}
-	ext4_dec_count(handle, inode);
+	drop_nlink(inode);
 	iput(inode);
 	return err;
 }
@@ -2161,7 +2149,7 @@ retry:
 		err = __page_symlink(inode, symname, l,
 				mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS);
 		if (err) {
-			ext4_dec_count(handle, inode);
+			drop_nlink(inode);
 			ext4_mark_inode_dirty(handle, inode);
 			iput (inode);
 			goto out_stop;
@@ -2189,6 +2177,12 @@ static int ext4_link (struct dentry * old_dentry,
 
 	if (inode->i_nlink >= EXT4_LINK_MAX)
 		return -EMLINK;
+	/*
+	 * Return -ENOENT if we've raced with unlink and i_nlink is 0.  Doing
+	 * otherwise has the potential to corrupt the orphan inode list.
+	 */
+	if (inode->i_nlink == 0)
+		return -ENOENT;
 
 retry:
 	handle = ext4_journal_start(dir, EXT4_DATA_TRANS_BLOCKS(dir->i_sb) +
@@ -2200,7 +2194,7 @@ retry:
 		handle->h_sync = 1;
 
 	inode->i_ctime = CURRENT_TIME_SEC;
-	ext4_inc_count(handle, inode);
+	inc_nlink(inode);
 	atomic_inc(&inode->i_count);
 
 	err = ext4_add_nondir(handle, dentry, inode);
@@ -2372,7 +2366,7 @@ end_rename:
 /*
  * directories can handle most operations...
  */
-struct inode_operations ext4_dir_inode_operations = {
+const struct inode_operations ext4_dir_inode_operations = {
 	.create		= ext4_create,
 	.lookup		= ext4_lookup,
 	.link		= ext4_link,
@@ -2392,7 +2386,7 @@ struct inode_operations ext4_dir_inode_operations = {
 	.permission	= ext4_permission,
 };
 
-struct inode_operations ext4_special_inode_operations = {
+const struct inode_operations ext4_special_inode_operations = {
 	.setattr	= ext4_setattr,
 #ifdef CONFIG_EXT4DEV_FS_XATTR
 	.setxattr	= generic_setxattr,

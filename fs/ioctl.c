@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/security.h>
 #include <linux/module.h>
+#include <linux/kallsyms.h>
 
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
@@ -20,6 +21,7 @@ static long do_ioctl(struct file *filp, unsigned int cmd,
 		unsigned long arg)
 {
 	int error = -ENOTTY;
+	void *f;
 
 	if (!filp->f_op)
 		goto out;
@@ -29,10 +31,16 @@ static long do_ioctl(struct file *filp, unsigned int cmd,
 		if (error == -ENOIOCTLCMD)
 			error = -EINVAL;
 		goto out;
-	} else if (filp->f_op->ioctl) {
+	} else if ((f = filp->f_op->ioctl)) {
 		lock_kernel();
-		error = filp->f_op->ioctl(filp->f_path.dentry->d_inode,
-					  filp, cmd, arg);
+		if (!filp->f_op->ioctl) {
+			printk("%s: ioctl %p disappeared\n", __FUNCTION__, f);
+			print_symbol("symbol: %s\n", (unsigned long)f);
+			dump_stack();
+		} else {
+			error = filp->f_op->ioctl(filp->f_path.dentry->d_inode,
+						  filp, cmd, arg);
+		}
 		unlock_kernel();
 	}
 
@@ -67,8 +75,6 @@ static int file_ioctl(struct file *filp, unsigned int cmd,
 			return put_user(res, p);
 		}
 		case FIGETBSZ:
-			if (inode->i_sb == NULL)
-				return -EBADF;
 			return put_user(inode->i_sb->s_blocksize, p);
 		case FIONREAD:
 			return put_user(i_size_read(inode) - filp->f_pos, p);

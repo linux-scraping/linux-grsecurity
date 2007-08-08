@@ -69,6 +69,15 @@ static inline void i8042_write_command(int val)
 
 static struct dmi_system_id __initdata i8042_dmi_noloop_table[] = {
 	{
+		/* AUX LOOP command does not raise AUX IRQ */
+		.ident = "ASUS P65UP5",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
+			DMI_MATCH(DMI_BOARD_NAME, "P/I-P65UP5"),
+			DMI_MATCH(DMI_BOARD_VERSION, "REV 2.X"),
+		},
+	},
+	{
 		.ident = "Compaq Proliant 8500",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Compaq"),
@@ -90,6 +99,15 @@ static struct dmi_system_id __initdata i8042_dmi_noloop_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "OQO"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "ZEPTO"),
 			DMI_MATCH(DMI_PRODUCT_VERSION, "00"),
+		},
+	},
+	{
+		/* AUX LOOP does not work properly */
+		.ident = "ULI EV4873",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ULI"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "EV4873"),
+			DMI_MATCH(DMI_PRODUCT_VERSION, "5a"),
 		},
 	},
 	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
@@ -157,6 +175,39 @@ static struct dmi_system_id __initdata i8042_dmi_nomux_table[] = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "FUJITSU SIEMENS"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "LIFEBOOK E4010"),
+		},
+	},
+	{
+		/*
+		 * No data is coming from the touchscreen unless KBC
+		 * is in legacy mode.
+		 */
+		.ident = "Panasonic CF-29",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Matsushita"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "CF-29"),
+		},
+	},
+	{
+		/*
+		 * Errors on MUX ports are reported without raising AUXDATA
+		 * causing "spurious NAK" messages.
+		 */
+		.ident = "HP Pavilion DV4017EA",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Pavilion dv4000 (EA032EA#ABF)"),
+		},
+	},
+	{
+		/*
+		 * Like DV4017EA does not raise AUXERR for errors on MUX ports.
+		 */
+		.ident = "HP Pavilion ZT1000",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP Pavilion Notebook PC"),
+			DMI_MATCH(DMI_PRODUCT_VERSION, "HP Pavilion Notebook ZT1000"),
 		},
 	},
 	{
@@ -280,6 +331,8 @@ static struct pnp_driver i8042_pnp_kbd_driver = {
 };
 
 static struct pnp_device_id pnp_aux_devids[] = {
+	{ .id = "FJC6000", .driver_data = 0 },
+	{ .id = "FJC6001", .driver_data = 0 },
 	{ .id = "PNP0f03", .driver_data = 0 },
 	{ .id = "PNP0f0b", .driver_data = 0 },
 	{ .id = "PNP0f0e", .driver_data = 0 },

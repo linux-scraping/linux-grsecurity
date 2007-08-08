@@ -197,7 +197,7 @@ static int srp_create_target_ib(struct srp_target_port *target)
 		return -ENOMEM;
 
 	target->cq = ib_create_cq(target->srp_host->dev->dev, srp_completion,
-				  NULL, target, SRP_CQ_SIZE);
+				  NULL, target, SRP_CQ_SIZE, 0);
 	if (IS_ERR(target->cq)) {
 		ret = PTR_ERR(target->cq);
 		goto out;
@@ -548,6 +548,7 @@ static int srp_reconnect_target(struct srp_target_port *target)
 	target->tx_head	 = 0;
 	target->tx_tail  = 0;
 
+	target->qp_in_error = 0;
 	ret = srp_connect_target(target);
 	if (ret)
 		goto err;
@@ -878,6 +879,7 @@ static void srp_completion(struct ib_cq *cq, void *target_ptr)
 			printk(KERN_ERR PFX "failed %s status %d\n",
 			       wc.wr_id & SRP_OP_RECV ? "receive" : "send",
 			       wc.status);
+			target->qp_in_error = 1;
 			break;
 		}
 
@@ -1337,6 +1339,8 @@ static int srp_abort(struct scsi_cmnd *scmnd)
 
 	printk(KERN_ERR "SRP abort called\n");
 
+	if (target->qp_in_error)
+		return FAILED;
 	if (srp_find_req(target, scmnd, &req))
 		return FAILED;
 	if (srp_send_tsk_mgmt(target, req, SRP_TSK_ABORT_TASK))
@@ -1365,6 +1369,8 @@ static int srp_reset_device(struct scsi_cmnd *scmnd)
 
 	printk(KERN_ERR "SRP reset_device called\n");
 
+	if (target->qp_in_error)
+		return FAILED;
 	if (srp_find_req(target, scmnd, &req))
 		return FAILED;
 	if (srp_send_tsk_mgmt(target, req, SRP_TSK_LUN_RESET))
@@ -1462,6 +1468,25 @@ static ssize_t show_dgid(struct class_device *cdev, char *buf)
 		       be16_to_cpu(((__be16 *) target->path.dgid.raw)[7]));
 }
 
+static ssize_t show_orig_dgid(struct class_device *cdev, char *buf)
+{
+	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
+
+	if (target->state == SRP_TARGET_DEAD ||
+	    target->state == SRP_TARGET_REMOVED)
+		return -ENODEV;
+
+	return sprintf(buf, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+		       be16_to_cpu(target->orig_dgid[0]),
+		       be16_to_cpu(target->orig_dgid[1]),
+		       be16_to_cpu(target->orig_dgid[2]),
+		       be16_to_cpu(target->orig_dgid[3]),
+		       be16_to_cpu(target->orig_dgid[4]),
+		       be16_to_cpu(target->orig_dgid[5]),
+		       be16_to_cpu(target->orig_dgid[6]),
+		       be16_to_cpu(target->orig_dgid[7]));
+}
+
 static ssize_t show_zero_req_lim(struct class_device *cdev, char *buf)
 {
 	struct srp_target_port *target = host_to_target(class_to_shost(cdev));
@@ -1492,6 +1517,7 @@ static CLASS_DEVICE_ATTR(ioc_guid,	  S_IRUGO, show_ioc_guid,	 NULL);
 static CLASS_DEVICE_ATTR(service_id,	  S_IRUGO, show_service_id,	 NULL);
 static CLASS_DEVICE_ATTR(pkey,		  S_IRUGO, show_pkey,		 NULL);
 static CLASS_DEVICE_ATTR(dgid,		  S_IRUGO, show_dgid,		 NULL);
+static CLASS_DEVICE_ATTR(orig_dgid,	  S_IRUGO, show_orig_dgid,	 NULL);
 static CLASS_DEVICE_ATTR(zero_req_lim,	  S_IRUGO, show_zero_req_lim,	 NULL);
 static CLASS_DEVICE_ATTR(local_ib_port,   S_IRUGO, show_local_ib_port,	 NULL);
 static CLASS_DEVICE_ATTR(local_ib_device, S_IRUGO, show_local_ib_device, NULL);
@@ -1502,6 +1528,7 @@ static struct class_device_attribute *srp_host_attrs[] = {
 	&class_device_attr_service_id,
 	&class_device_attr_pkey,
 	&class_device_attr_dgid,
+	&class_device_attr_orig_dgid,
 	&class_device_attr_zero_req_lim,
 	&class_device_attr_local_ib_port,
 	&class_device_attr_local_ib_device,
@@ -1510,7 +1537,8 @@ static struct class_device_attribute *srp_host_attrs[] = {
 
 static struct scsi_host_template srp_template = {
 	.module				= THIS_MODULE,
-	.name				= DRV_NAME,
+	.name				= "InfiniBand SRP initiator",
+	.proc_name			= DRV_NAME,
 	.info				= srp_target_info,
 	.queuecommand			= srp_queuecommand,
 	.eh_abort_handler		= srp_abort,
@@ -1656,6 +1684,7 @@ static int srp_parse_options(const char *buf, struct srp_target_port *target)
 				target->path.dgid.raw[i] = simple_strtoul(dgid, NULL, 16);
 			}
 			kfree(p);
+			memcpy(target->orig_dgid, target->path.dgid.raw, 16);
 			break;
 
 		case SRP_OPT_PKEY:
@@ -1801,6 +1830,7 @@ static ssize_t srp_create_target(struct class_device *class_dev,
 		goto err_free;
 	}
 
+	target->qp_in_error = 0;
 	ret = srp_connect_target(target);
 	if (ret) {
 		printk(KERN_ERR PFX "Connection failed\n");

@@ -62,10 +62,8 @@ extern __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,
 extern u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
 				       __be16 sport, __be16 dport);
 
-extern unsigned long pax_get_random_long(void);
-
 #ifndef MODULE
-extern struct file_operations random_fops, urandom_fops;
+extern const struct file_operations random_fops, urandom_fops;
 #endif
 
 unsigned int get_random_int(void);
@@ -73,6 +71,11 @@ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned l
 
 u32 random32(void);
 void srandom32(u32 seed);
+
+static inline unsigned long pax_get_random_long(void)
+{
+	return random32() + (sizeof(long) > 4 ? (unsigned long)random32() << 32 : 0);
+}
 
 #endif /* __KERNEL___ */
 

@@ -19,7 +19,7 @@
 #include <linux/ata.h>
 
 #define DRV_NAME	"pata_jmicron"
-#define DRV_VERSION	"0.1.4"
+#define DRV_VERSION	"0.1.5"
 
 typedef enum {
 	PORT_PATA0 = 0,
@@ -30,16 +30,17 @@ typedef enum {
 /**
  *	jmicron_pre_reset	-	check for 40/80 pin
  *	@ap: Port
+ *	@deadline: deadline jiffies for the operation
  *
  *	Perform the PATA port setup we need.
-
+ *
  *	On the Jmicron 361/363 there is a single PATA port that can be mapped
  *	either as primary or secondary (or neither). We don't do any policy
  *	and setup here. We assume that has been done by init_one and the
  *	BIOS.
  */
 
-static int jmicron_pre_reset(struct ata_port *ap)
+static int jmicron_pre_reset(struct ata_port *ap, unsigned long deadline)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	u32 control;
@@ -102,7 +103,7 @@ static int jmicron_pre_reset(struct ata_port *ap)
 		ap->cbl = ATA_CBL_SATA;
 		break;
 	}
-	return ata_std_prereset(ap);
+	return ata_std_prereset(ap, deadline);
 }
 
 /**
@@ -137,10 +138,6 @@ static struct scsi_host_template jmicron_sht = {
 	.slave_destroy		= ata_scsi_slave_destroy,
 	/* Use standard CHS mapping rules */
 	.bios_param		= ata_std_bios_param,
-#ifdef CONFIG_PM
-	.suspend		= ata_scsi_device_suspend,
-	.resume			= ata_scsi_device_resume,
-#endif
 };
 
 static const struct ata_port_operations jmicron_ops = {
@@ -165,16 +162,16 @@ static const struct ata_port_operations jmicron_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
-	.data_xfer		= ata_pio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 
 	/* IRQ-related hooks */
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
 	/* Generic PATA PCI ATA helpers */
 	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= ata_host_stop,
 };
 
 
@@ -194,7 +191,7 @@ static const struct ata_port_operations jmicron_ops = {
 
 static int jmicron_init_one (struct pci_dev *pdev, const struct pci_device_id *id)
 {
-	static struct ata_port_info info = {
+	static const struct ata_port_info info = {
 		.sht		= &jmicron_sht,
 		.flags	= ATA_FLAG_SLAVE_POSS | ATA_FLAG_SRST,
 
@@ -204,53 +201,22 @@ static int jmicron_init_one (struct pci_dev *pdev, const struct pci_device_id *i
 
 		.port_ops	= &jmicron_ops,
 	};
-	struct ata_port_info *port_info[2] = { &info, &info };
+	const struct ata_port_info *ppi[] = { &info, NULL };
 
-	u32 reg;
-
-	/* PATA controller is fn 1, AHCI is fn 0 */
-	if (id->driver_data != 368 && PCI_FUNC(pdev->devfn) != 1)
-		return -ENODEV;
-
-	/* The 365/66 have two PATA channels, redirect the second */
-	if (id->driver_data == 365 || id->driver_data == 366) {
-		pci_read_config_dword(pdev, 0x80, &reg);
-		reg |= (1 << 24);	/* IDE1 to PATA IDE secondary */
-		pci_write_config_dword(pdev, 0x80, reg);
-	}
-
-	return ata_pci_init_one(pdev, port_info, 2);
+	return ata_pci_init_one(pdev, ppi);
 }
-
-#ifdef CONFIG_PM
-static int jmicron_reinit_one(struct pci_dev *pdev)
-{
-	u32 reg;
-	
-	switch(pdev->device) {
-		case PCI_DEVICE_ID_JMICRON_JMB368:
-			break;
-		case PCI_DEVICE_ID_JMICRON_JMB365:
-		case PCI_DEVICE_ID_JMICRON_JMB366:
-			/* Restore mapping or disks swap and boy does it get ugly */
-			pci_read_config_dword(pdev, 0x80, &reg);
-			reg |= (1 << 24);	/* IDE1 to PATA IDE secondary */
-			pci_write_config_dword(pdev, 0x80, reg);
-			/* Fall through */
-		default:
-			/* Make sure AHCI is turned back on */
-			pci_write_config_byte(pdev, 0x41, 0xa1);
-	}
-	return ata_pci_device_resume(pdev);
-}
-#endif
 
 static const struct pci_device_id jmicron_pci_tbl[] = {
-	{ PCI_VDEVICE(JMICRON, PCI_DEVICE_ID_JMICRON_JMB361), 361},
-	{ PCI_VDEVICE(JMICRON, PCI_DEVICE_ID_JMICRON_JMB363), 363},
-	{ PCI_VDEVICE(JMICRON, PCI_DEVICE_ID_JMICRON_JMB365), 365},
-	{ PCI_VDEVICE(JMICRON, PCI_DEVICE_ID_JMICRON_JMB366), 366},
-	{ PCI_VDEVICE(JMICRON, PCI_DEVICE_ID_JMICRON_JMB368), 368},
+	{ PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB361,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE << 8, 0xffff00, 361 },
+	{ PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB363,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE << 8, 0xffff00, 363 },
+	{ PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB365,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE << 8, 0xffff00, 365 },
+	{ PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB366,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE << 8, 0xffff00, 366 },
+	{ PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB368,
+	  PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE << 8, 0xffff00, 368 },
 
 	{ }	/* terminate list */
 };
@@ -262,7 +228,7 @@ static struct pci_driver jmicron_pci_driver = {
 	.remove			= ata_pci_remove_one,
 #ifdef CONFIG_PM
 	.suspend		= ata_pci_device_suspend,
-	.resume			= jmicron_reinit_one,
+	.resume			= ata_pci_device_resume,
 #endif
 };
 

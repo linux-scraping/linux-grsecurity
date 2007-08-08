@@ -53,7 +53,6 @@ struct __sysctl_args {
 
 /* For internal pattern-matching use only: */
 #ifdef __KERNEL__
-#define CTL_ANY		-1	/* Matches any name */
 #define CTL_NONE	0
 #define CTL_UNNUMBERED	CTL_NONE	/* sysctl without a binary number */
 #endif
@@ -69,7 +68,13 @@ enum
 	CTL_DEV=7,		/* Devices */
 	CTL_BUS=8,		/* Busses */
 	CTL_ABI=9,		/* Binary emulation */
-	CTL_CPU=10		/* CPU stuff (speed scaling, etc) */
+	CTL_CPU=10,		/* CPU stuff (speed scaling, etc) */
+	CTL_ARLAN=254,		/* arlan wireless driver */
+	CTL_APPLDATA=2120,	/* s390 appldata */
+	CTL_S390DBF=5677,	/* s390 debug */
+	CTL_SUNRPC=7249,	/* sunrpc debug */
+	CTL_PM=9899,		/* frv power management */
+	CTL_FRV=9898,		/* frv specific sysctls */
 };
 
 /* CTL_BUS names: */
@@ -214,6 +219,11 @@ enum
 	VM_PANIC_ON_OOM=33,	/* panic at out-of-memory */
 	VM_VDSO_ENABLED=34,	/* map VDSO into new processes? */
 	VM_MIN_SLAB=35,		 /* Percent pages ignored by zone reclaim */
+
+	/* s390 vm cmm sysctls */
+	VM_CMM_PAGES=1111,
+	VM_CMM_TIMED_PAGES=1112,
+	VM_CMM_TIMEOUT=1113,
 };
 
 
@@ -292,6 +302,7 @@ enum
 	NET_CORE_BUDGET=19,
 	NET_CORE_AEVENT_ETIME=20,
 	NET_CORE_AEVENT_RSEQTH=21,
+	NET_CORE_WARNINGS=22,
 };
 
 /* /proc/sys/net/ethernet */
@@ -440,6 +451,8 @@ enum
 	NET_CIPSOV4_RBM_STRICTVALID=121,
 	NET_TCP_AVAIL_CONG_CONTROL=122,
 	NET_TCP_ALLOWED_CONG_CONTROL=123,
+	NET_TCP_MAX_SSTHRESH=124,
+	NET_TCP_FRTO_RESPONSE=125,
 };
 
 enum {
@@ -582,6 +595,7 @@ enum {
 	NET_IPV6_RTR_PROBE_INTERVAL=21,
 	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
 	NET_IPV6_PROXY_NDP=23,
+	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
 	__NET_IPV6_MAX
 };
 
@@ -711,7 +725,8 @@ enum {
 	NET_X25_CALL_REQUEST_TIMEOUT=2,
 	NET_X25_RESET_REQUEST_TIMEOUT=3,
 	NET_X25_CLEAR_REQUEST_TIMEOUT=4,
-	NET_X25_ACK_HOLD_BACK_TIMEOUT=5
+	NET_X25_ACK_HOLD_BACK_TIMEOUT=5,
+	NET_X25_FORWARD=6
 };
 
 /* /proc/sys/net/token-ring */
@@ -789,6 +804,7 @@ enum {
 	NET_BRIDGE_NF_CALL_IPTABLES = 2,
 	NET_BRIDGE_NF_CALL_IP6TABLES = 3,
 	NET_BRIDGE_NF_FILTER_VLAN_TAGGED = 4,
+	NET_BRIDGE_NF_FILTER_PPPOE_TAGGED = 5,
 };
 
 /* CTL_FS names: */
@@ -814,6 +830,7 @@ enum
 	FS_AIO_NR=18,	/* current system-wide number of aio requests */
 	FS_AIO_MAX_NR=19,	/* system-wide maximum number of aio requests */
 	FS_INOTIFY=20,	/* inotify submenu */
+	FS_OCFS2=988,	/* ocfs2 */
 };
 
 /* /proc/sys/fs/quota/ */
@@ -924,7 +941,11 @@ enum
 #ifdef __KERNEL__
 #include <linux/list.h>
 
-extern void sysctl_init(void);
+/* For the /proc/sys support */
+struct ctl_table;
+extern struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev);
+extern void sysctl_head_finish(struct ctl_table_header *prev);
+extern int sysctl_perm(struct ctl_table *table, int op);
 
 typedef struct ctl_table ctl_table;
 
@@ -1018,9 +1039,9 @@ struct ctl_table
 	int maxlen;
 	mode_t mode;
 	ctl_table *child;
+	ctl_table *parent;		/* Automatically set */
 	proc_handler *proc_handler;	/* Callback for text formatting */
 	ctl_handler *strategy;		/* Callback function for all r/w */
-	struct proc_dir_entry *de;	/* /proc control block */
 	void *extra1;
 	void *extra2;
 };
@@ -1035,8 +1056,8 @@ struct ctl_table_header
 	struct completion *unregistering;
 };
 
-struct ctl_table_header * register_sysctl_table(ctl_table * table, 
-						int insert_at_head);
+struct ctl_table_header * register_sysctl_table(ctl_table * table);
+
 void unregister_sysctl_table(struct ctl_table_header * table);
 
 #else /* __KERNEL__ */

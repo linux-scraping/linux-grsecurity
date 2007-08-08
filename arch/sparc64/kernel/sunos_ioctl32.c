@@ -11,6 +11,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/termios.h>
+#include <linux/tty.h>
 #include <linux/ioctl.h>
 #include <linux/route.h>
 #include <linux/sockios.h>
@@ -21,7 +22,6 @@
 #include <linux/file.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/syscalls.h>
 #include <linux/compat.h>
 

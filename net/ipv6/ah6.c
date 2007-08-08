@@ -1,26 +1,26 @@
 /*
  * Copyright (C)2002 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Authors
  *
- *	Mitsuru KANDA @USAGI       : IPv6 Support 
+ *	Mitsuru KANDA @USAGI       : IPv6 Support
  * 	Kazunori MIYAZAWA @USAGI   :
  * 	Kunihiro Ishiguro <kunihiro@ipinfusion.com>
- * 	
+ *
  * 	This file is derived from net/ipv4/ah.c.
  */
 
@@ -54,7 +54,7 @@ static int zero_out_mutable_opts(struct ipv6_opt_hdr *opthdr)
 			optlen = 1;
 			break;
 		default:
-			if (len < 2) 
+			if (len < 2)
 				goto bad;
 			optlen = opt[off+1]+2;
 			if (len < optlen)
@@ -152,7 +152,7 @@ static void ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
 	segments_left = rthdr->segments_left;
 	if (segments_left == 0)
 		return;
-	rthdr->segments_left = 0; 
+	rthdr->segments_left = 0;
 
 	/* The value of rthdr->hdrlen has been verified either by the system
 	 * call if it is locally generated, or by ipv6_rthdr_rcv() for incoming
@@ -238,8 +238,8 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
 	top_iph = (struct ipv6hdr *)skb->data;
 	top_iph->payload_len = htons(skb->len - sizeof(*top_iph));
 
-	nexthdr = *skb->nh.raw;
-	*skb->nh.raw = IPPROTO_AH;
+	nexthdr = *skb_network_header(skb);
+	*skb_network_header(skb) = IPPROTO_AH;
 
 	/* When there are no extension headers, we only need to save the first
 	 * 8 bytes of the base IP header.
@@ -247,7 +247,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
 	memcpy(tmp_base, top_iph, sizeof(tmp_base));
 
 	tmp_ext = NULL;
-	extlen = skb->h.raw - (unsigned char *)(top_iph + 1);
+	extlen = skb_transport_offset(skb) - sizeof(struct ipv6hdr);
 	if (extlen) {
 		extlen += sizeof(*tmp_ext);
 		tmp_ext = kmalloc(extlen, GFP_ATOMIC);
@@ -268,7 +268,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
 			goto error_free_iph;
 	}
 
-	ah = (struct ip_auth_hdr *)skb->h.raw;
+	ah = (struct ip_auth_hdr *)skb_transport_header(skb);
 	ah->nexthdr = nexthdr;
 
 	top_iph->priority    = 0;
@@ -278,7 +278,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
 	top_iph->hop_limit   = 0;
 
 	ahp = x->data;
-	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + 
+	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) +
 				   ahp->icv_trunc_len) >> 2) - 2;
 
 	ah->reserved = 0;
@@ -316,15 +316,16 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
 	 *
 	 * To erase AH:
 	 * Keeping copy of cleared headers. After AH processing,
-	 * Moving the pointer of skb->nh.raw by using skb_pull as long as AH
-	 * header length. Then copy back the copy as long as hdr_len
+	 * Moving the pointer of skb->network_header by using skb_pull as long
+	 * as AH header length. Then copy back the copy as long as hdr_len
 	 * If destination header following AH exists, copy it into after [Ext2].
-	 * 
+	 *
 	 * |<>|[IPv6][Ext1][Ext2][Dest][Payload]
 	 * There is offset of AH before IPv6 header after the process.
 	 */
 
 	struct ipv6_auth_hdr *ah;
+	struct ipv6hdr *ip6h;
 	struct ah_data *ahp;
 	unsigned char *tmp_hdr = NULL;
 	u16 hdr_len;
@@ -341,31 +342,32 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
 		goto out;
 
-	hdr_len = skb->data - skb->nh.raw;
+	hdr_len = skb->data - skb_network_header(skb);
 	ah = (struct ipv6_auth_hdr*)skb->data;
 	ahp = x->data;
 	nexthdr = ah->nexthdr;
 	ah_hlen = (ah->hdrlen + 2) << 2;
 
-        if (ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_full_len) &&
-            ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len))
-                goto out;
+	if (ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_full_len) &&
+	    ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len))
+		goto out;
 
 	if (!pskb_may_pull(skb, ah_hlen))
 		goto out;
 
-	tmp_hdr = kmemdup(skb->nh.raw, hdr_len, GFP_ATOMIC);
+	tmp_hdr = kmemdup(skb_network_header(skb), hdr_len, GFP_ATOMIC);
 	if (!tmp_hdr)
 		goto out;
-	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
+	ip6h = ipv6_hdr(skb);
+	if (ipv6_clear_mutable_options(ip6h, hdr_len, XFRM_POLICY_IN))
 		goto free_out;
-	skb->nh.ipv6h->priority    = 0;
-	skb->nh.ipv6h->flow_lbl[0] = 0;
-	skb->nh.ipv6h->flow_lbl[1] = 0;
-	skb->nh.ipv6h->flow_lbl[2] = 0;
-	skb->nh.ipv6h->hop_limit   = 0;
+	ip6h->priority    = 0;
+	ip6h->flow_lbl[0] = 0;
+	ip6h->flow_lbl[1] = 0;
+	ip6h->flow_lbl[2] = 0;
+	ip6h->hop_limit   = 0;
 
-        {
+	{
 		u8 auth_data[MAX_AH_AUTH_LEN];
 
 		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
@@ -382,7 +384,9 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
 		}
 	}
 
-	skb->h.raw = memcpy(skb->nh.raw += ah_hlen, tmp_hdr, hdr_len);
+	skb->network_header += ah_hlen;
+	memcpy(skb_network_header(skb), tmp_hdr, hdr_len);
+	skb->transport_header = skb->network_header;
 	__skb_pull(skb, ah_hlen + hdr_len);
 
 	kfree(tmp_hdr);
@@ -395,8 +399,8 @@ out:
 	return err;
 }
 
-static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt, 
-                    int type, int code, int offset, __be32 info)
+static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+		    int type, int code, int offset, __be32 info)
 {
 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
 	struct ip_auth_hdr *ah = (struct ip_auth_hdr*)(skb->data+offset);
@@ -445,7 +449,7 @@ static int ah6_init_state(struct xfrm_state *x)
 	ahp->tfm = tfm;
 	if (crypto_hash_setkey(tfm, ahp->key, ahp->key_len))
 		goto error;
-	
+
 	/*
 	 * Lookup the algorithm description maintained by xfrm_algo,
 	 * verify crypto transform properties, and store information
@@ -462,16 +466,16 @@ static int ah6_init_state(struct xfrm_state *x)
 		       aalg_desc->uinfo.auth.icv_fullbits/8);
 		goto error;
 	}
-	
+
 	ahp->icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
 	ahp->icv_trunc_len = aalg_desc->uinfo.auth.icv_truncbits/8;
-	
+
 	BUG_ON(ahp->icv_trunc_len > MAX_AH_AUTH_LEN);
-	
+
 	ahp->work_icv = kmalloc(ahp->icv_full_len, GFP_KERNEL);
 	if (!ahp->work_icv)
 		goto error;
-	
+
 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len);
 	if (x->props.mode == XFRM_MODE_TUNNEL)
 		x->props.header_len += sizeof(struct ipv6hdr);

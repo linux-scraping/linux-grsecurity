@@ -24,6 +24,7 @@
 #include <linux/syscalls.h>
 #include <linux/percpu.h>
 #include <linux/init.h>
+#include <linux/rwsem.h>
 #include <net/compat.h>
 
 #include <asm/oplib.h>
@@ -58,7 +59,6 @@
 #include <asm/ns87303.h>
 #include <asm/timer.h>
 #include <asm/cpudata.h>
-#include <asm/rwsem.h>
 
 struct poll {
 	int fd;
@@ -212,7 +212,6 @@ EXPORT_SYMBOL(insl);
 #ifdef CONFIG_PCI
 EXPORT_SYMBOL(ebus_chain);
 EXPORT_SYMBOL(isa_chain);
-EXPORT_SYMBOL(pci_memspace_mask);
 EXPORT_SYMBOL(pci_alloc_consistent);
 EXPORT_SYMBOL(pci_free_consistent);
 EXPORT_SYMBOL(pci_map_single);

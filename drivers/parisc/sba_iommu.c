@@ -109,11 +109,9 @@ static unsigned long piranha_bad_128k = 0;
 
 #ifdef SBA_AGP_SUPPORT
 static int sba_reserve_agpgart = 1;
-module_param(sba_reserve_agpgart, int, 1);
+module_param(sba_reserve_agpgart, int, 0444);
 MODULE_PARM_DESC(sba_reserve_agpgart, "Reserve half of IO pdir as AGPGART");
 #endif
-
-#define ROUNDUP(x,y) ((x + ((y)-1)) & ~((y)-1))
 
 
 /************************************
@@ -352,7 +350,7 @@ sba_search_bitmap(struct ioc *ioc, unsigned long bits_wanted)
 		** SBA HW features in the unmap path.
 		*/
 		unsigned long o = 1 << get_order(bits_wanted << PAGE_SHIFT);
-		uint bitshiftcnt = ROUNDUP(ioc->res_bitshift, o);
+		uint bitshiftcnt = ALIGN(ioc->res_bitshift, o);
 		unsigned long mask;
 
 		if (bitshiftcnt >= BITS_PER_LONG) {
@@ -779,7 +777,7 @@ sba_unmap_single(struct device *dev, dma_addr_t iova, size_t size,
 	offset = iova & ~IOVP_MASK;
 	iova ^= offset;        /* clear offset bits */
 	size += offset;
-	size = ROUNDUP(size, IOVP_SIZE);
+	size = ALIGN(size, IOVP_SIZE);
 
 	spin_lock_irqsave(&ioc->res_lock, flags);
 
@@ -846,7 +844,7 @@ static void *sba_alloc_consistent(struct device *hwdev, size_t size,
 	if (!hwdev) {
 		/* only support PCI */
 		*dma_handle = 0;
-		return 0;
+		return NULL;
 	}
 
         ret = (void *) __get_free_pages(gfp, get_order(size));
@@ -1799,7 +1797,7 @@ sba_proc_open(struct inode *i, struct file *f)
 	return single_open(f, &sba_proc_info, NULL);
 }
 
-static struct file_operations sba_proc_fops = {
+static const struct file_operations sba_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = sba_proc_open,
 	.read = seq_read,
@@ -1831,7 +1829,7 @@ sba_proc_bitmap_open(struct inode *i, struct file *f)
 	return single_open(f, &sba_proc_bitmap_info, NULL);
 }
 
-static struct file_operations sba_proc_bitmap_fops = {
+static const struct file_operations sba_proc_bitmap_fops = {
 	.owner = THIS_MODULE,
 	.open = sba_proc_bitmap_open,
 	.read = seq_read,

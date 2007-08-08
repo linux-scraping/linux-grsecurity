@@ -56,10 +56,10 @@ extern struct movsl_mask {
  * This needs 33-bit arithmetic. We have a carry...
  */
 #define __range_ok(addr,size) ({ \
-	unsigned long flag,sum; \
+	unsigned long flag,roksum; \
 	__chk_user_ptr(addr); \
 	asm("addl %3,%1 ; sbbl %0,%0; cmpl %1,%4; sbbl $0,%0" \
-		:"=&r" (flag), "=r" (sum) \
+		:"=&r" (flag), "=r" (roksum) \
 		:"1" (addr),"g" ((int)(size)),"rm" (current_thread_info()->addr_limit.seg)); \
 	flag; })
 
@@ -410,7 +410,19 @@ unsigned long __must_check __copy_from_user_ll_nocache(void *to,
 unsigned long __must_check __copy_from_user_ll_nocache_nozero(void *to,
 				const void __user *from, unsigned long n);
 
-/*
+/**
+ * __copy_to_user_inatomic: - Copy a block of data into user space, with less checking.
+ * @to:   Destination address, in user space.
+ * @from: Source address, in kernel space.
+ * @n:    Number of bytes to copy.
+ *
+ * Context: User context only.
+ *
+ * Copy data from kernel space to user space.  Caller must check
+ * the specified block with access_ok() before calling this function.
+ * The caller should also make sure he pins the user space address
+ * so that the we don't result in page fault and sleep.
+ *
  * Here we special-case 1, 2 and 4-byte copy_*_user invocations.  On a fault
  * we return the initial request size (1, 2 or 4), as copy_*_user should do.
  * If a store crosses a page boundary and gets a fault, the x86 will not write

@@ -22,6 +22,7 @@
 #define _SYSDEV_H_
 
 #include <linux/kobject.h>
+#include <linux/module.h>
 #include <linux/pm.h>
 
 
@@ -98,12 +99,16 @@ struct sysdev_attribute {
 };
 
 
-#define SYSDEV_ATTR(_name,_mode,_show,_store) 		\
-struct sysdev_attribute attr_##_name = { 			\
-	.attr = {.name = __stringify(_name), .mode = _mode },	\
+#define _SYSDEV_ATTR(_name,_mode,_show,_store)			\
+{								\
+	.attr = { .name = __stringify(_name), .mode = _mode,	\
+		 .owner = THIS_MODULE },			\
 	.show	= _show,					\
 	.store	= _store,					\
-};
+}
+
+#define SYSDEV_ATTR(_name,_mode,_show,_store)		\
+struct sysdev_attribute attr_##_name = _SYSDEV_ATTR(_name,_mode,_show,_store);
 
 extern int sysdev_create_file(struct sys_device *, struct sysdev_attribute *);
 extern void sysdev_remove_file(struct sys_device *, struct sysdev_attribute *);

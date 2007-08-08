@@ -22,6 +22,7 @@
 #define ZFCP_LOG_AREA			ZFCP_LOG_AREA_SCSI
 
 #include "zfcp_ext.h"
+#include <asm/atomic.h>
 
 static void zfcp_scsi_slave_destroy(struct scsi_device *sdp);
 static int zfcp_scsi_slave_alloc(struct scsi_device *sdp);
@@ -90,7 +91,7 @@ zfcp_get_fcp_sns_info_ptr(struct fcp_rsp_iu *fcp_rsp_iu)
 	return fcp_sns_info_ptr;
 }
 
-fcp_dl_t *
+static fcp_dl_t *
 zfcp_get_fcp_dl_ptr(struct fcp_cmnd_iu * fcp_cmd)
 {
 	int additional_length = fcp_cmd->add_fcp_cdb_length << 2;
@@ -124,19 +125,19 @@ zfcp_set_fcp_dl(struct fcp_cmnd_iu *fcp_cmd, fcp_dl_t fcp_dl)
  * regarding the specified byte
  */
 static inline void
-set_byte(u32 * result, char status, char pos)
+set_byte(int *result, char status, char pos)
 {
 	*result |= status << (pos * 8);
 }
 
 void
-set_host_byte(u32 * result, char status)
+set_host_byte(int *result, char status)
 {
 	set_byte(result, status, 2);
 }
 
 void
-set_driver_byte(u32 * result, char status)
+set_driver_byte(int *result, char status)
 {
 	set_byte(result, status, 3);
 }
@@ -179,6 +180,10 @@ static void zfcp_scsi_slave_destroy(struct scsi_device *sdpnt)
 	struct zfcp_unit *unit = (struct zfcp_unit *) sdpnt->hostdata;
 
 	if (unit) {
+		zfcp_erp_wait(unit->port->adapter);
+		wait_event(unit->scsi_scan_wq,
+			   atomic_test_mask(ZFCP_STATUS_UNIT_SCSI_WORK_PENDING,
+					    &unit->status) == 0);
 		atomic_clear_mask(ZFCP_STATUS_UNIT_REGISTERED, &unit->status);
 		sdpnt->hostdata = NULL;
 		unit->device = NULL;
@@ -280,7 +285,7 @@ out:
 	return retval;
 }
 
-void
+static void
 zfcp_scsi_command_sync_handler(struct scsi_cmnd *scpnt)
 {
 	struct completion *wait = (struct completion *) scpnt->SCp.ptr;
@@ -324,7 +329,7 @@ zfcp_scsi_command_sync(struct zfcp_unit *unit, struct scsi_cmnd *scpnt,
  * returns:	0 - success, SCSI command enqueued
  *		!0 - failure
  */
-int
+static int
 zfcp_scsi_queuecommand(struct scsi_cmnd *scpnt,
 		       void (*done) (struct scsi_cmnd *))
 {
@@ -380,7 +385,7 @@ zfcp_unit_lookup(struct zfcp_adapter *adapter, int channel, unsigned int id,
  * will handle late commands.  (Usually, the normal completion of late
  * commands is ignored with respect to the running abort operation.)
  */
-int zfcp_scsi_eh_abort_handler(struct scsi_cmnd *scpnt)
+static int zfcp_scsi_eh_abort_handler(struct scsi_cmnd *scpnt)
 {
  	struct Scsi_Host *scsi_host;
  	struct zfcp_adapter *adapter;
@@ -402,8 +407,8 @@ int zfcp_scsi_eh_abort_handler(struct scsi_cmnd *scpnt)
 
 	/* Check whether corresponding fsf_req is still pending */
 	spin_lock(&adapter->req_list_lock);
-	fsf_req = zfcp_reqlist_ismember(adapter, (unsigned long)
-					scpnt->host_scribble);
+	fsf_req = zfcp_reqlist_find(adapter,
+				    (unsigned long) scpnt->host_scribble);
 	spin_unlock(&adapter->req_list_lock);
 	if (!fsf_req) {
 		write_unlock_irqrestore(&adapter->abort_lock, flags);
@@ -445,7 +450,7 @@ int zfcp_scsi_eh_abort_handler(struct scsi_cmnd *scpnt)
 	return retval;
 }
 
-int
+static int
 zfcp_scsi_eh_device_reset_handler(struct scsi_cmnd *scpnt)
 {
 	int retval;
@@ -541,7 +546,7 @@ zfcp_task_management_function(struct zfcp_unit *unit, u8 tm_flags,
 /**
  * zfcp_scsi_eh_host_reset_handler - handler for host and bus reset
  */
-int zfcp_scsi_eh_host_reset_handler(struct scsi_cmnd *scpnt)
+static int zfcp_scsi_eh_host_reset_handler(struct scsi_cmnd *scpnt)
 {
 	struct zfcp_unit *unit;
 	struct zfcp_adapter *adapter;
@@ -563,6 +568,9 @@ zfcp_adapter_scsi_register(struct zfcp_adapter *adapter)
 {
 	int retval = 0;
 	static unsigned int unique_id = 0;
+
+	if (adapter->scsi_host)
+		goto out;
 
 	/* register adapter as SCSI host with mid layer of SCSI stack */
 	adapter->scsi_host = scsi_host_alloc(&zfcp_data.scsi_host_template,

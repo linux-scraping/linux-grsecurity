@@ -90,8 +90,8 @@ static struct omap_dm_timer dm_timers[] = {
 	{ .phys_base = 0xfffb2c00, .irq = INT_1610_GPTIMER4 },
 	{ .phys_base = 0xfffb3400, .irq = INT_1610_GPTIMER5 },
 	{ .phys_base = 0xfffb3c00, .irq = INT_1610_GPTIMER6 },
-	{ .phys_base = 0xfffb4400, .irq = INT_1610_GPTIMER7 },
-	{ .phys_base = 0xfffb4c00, .irq = INT_1610_GPTIMER8 },
+	{ .phys_base = 0xfffb7400, .irq = INT_1610_GPTIMER7 },
+	{ .phys_base = 0xfffbd400, .irq = INT_1610_GPTIMER8 },
 };
 
 #elif defined(CONFIG_ARCH_OMAP2)
@@ -314,6 +314,8 @@ struct clk *omap_dm_timer_get_fclk(struct omap_dm_timer *timer)
 __u32 omap_dm_timer_modify_idlect_mask(__u32 inputmask)
 {
 	BUG();
+
+	return 0;
 }
 
 #endif
@@ -370,7 +372,7 @@ void omap_dm_timer_set_source(struct omap_dm_timer *timer, int source)
 
 	/* When the functional clock disappears, too quick writes seem to
 	 * cause an abort. */
-	__delay(15000);
+	__delay(150000);
 }
 
 #endif
@@ -504,6 +506,8 @@ int omap_dm_timer_init(void)
 		BUG_ON(dm_source_clocks[i] == NULL);
 	}
 #endif
+	if (cpu_is_omap243x())
+		dm_timers[0].phys_base = 0x49018000;
 
 	for (i = 0; i < dm_timer_count; i++) {
 #ifdef CONFIG_ARCH_OMAP2

@@ -2,20 +2,6 @@
  * netfilter module for userspace packet logging daemons
  *
  * (C) 2000-2004 by Harald Welte <laforge@netfilter.org>
- *
- * 2000/09/22 ulog-cprange feature added
- * 2001/01/04 in-kernel queue as proposed by Sebastian Zander 
- * 						<zander@fokus.gmd.de>
- * 2001/01/30 per-rule nlgroup conflicts with global queue. 
- *            nlgroup now global (sysctl)
- * 2001/04/19 ulog-queue reworked, now fixed buffer size specified at
- * 	      module loadtime -HW
- * 2002/07/07 remove broken nflog_rcv() function -HW
- * 2002/08/29 fix shifted/unshifted nlgroup bug -HW
- * 2002/10/30 fix uninitialized mac_len field - <Anders K. Pedersen>
- * 2004/10/25 fix erroneous calculation of 'len' parameter to NLMSG_PUT
- *	      resulting in bogus 'error during NLMSG_PUT' messages.
- *
  * (C) 1999-2001 Paul `Rusty' Russell
  * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
  *
@@ -23,8 +9,8 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * This module accepts two parameters: 
- * 
+ * This module accepts two parameters:
+ *
  * nlbufsiz:
  *   The parameter specifies how big the buffer for each netlink multicast
  * group is. e.g. If you say nlbufsiz=8192, up to eight kb of packets will
@@ -42,8 +28,6 @@
  * flushtimeout:
  *   Specify, after how many hundredths of a second the queue should be
  *   flushed even if it is not full yet.
- *
- * ipt_ULOG.c,v 1.22 2002/10/30 09:07:31 laforge Exp
  */
 
 #include <linux/module.h>
@@ -57,10 +41,11 @@
 #include <linux/mm.h>
 #include <linux/moduleparam.h>
 #include <linux/netfilter.h>
-#include <linux/netfilter_ipv4/ip_tables.h>
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ipt_ULOG.h>
 #include <net/sock.h>
 #include <linux/bitops.h>
+#include <asm/unaligned.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
@@ -72,7 +57,7 @@ MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_NFLOG);
 
 #if 0
 #define DEBUGP(format, args...) printk("%s:%s:" format, \
-                                       __FILE__, __FUNCTION__ , ## args)
+				       __FILE__, __FUNCTION__ , ## args)
 #else
 #define DEBUGP(format, args...)
 #endif
@@ -132,7 +117,6 @@ static void ulog_send(unsigned int nlgroupnum)
 	ub->qlen = 0;
 	ub->skb = NULL;
 	ub->lastnlh = NULL;
-
 }
 
 
@@ -163,7 +147,7 @@ static struct sk_buff *ulog_alloc_skb(unsigned int size)
 		PRINTR("ipt_ULOG: can't alloc whole buffer %ub!\n", n);
 
 		if (n > size) {
-			/* try to allocate only as much as we need for 
+			/* try to allocate only as much as we need for
 			 * current packet */
 
 			skb = alloc_skb(size, GFP_ATOMIC);
@@ -187,6 +171,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
 	ulog_packet_msg_t *pm;
 	size_t size, copy_len;
 	struct nlmsghdr *nlh;
+	struct timeval tv;
 
 	/* ffs == find first bit set, necessary because userspace
 	 * is already shifting groupnumber, but we need unshifted.
@@ -204,7 +189,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
 	size = NLMSG_SPACE(sizeof(*pm) + copy_len);
 
 	ub = &ulog_buffers[groupnum];
-	
+
 	spin_lock_bh(&ulog_lock);
 
 	if (!ub->skb) {
@@ -212,7 +197,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
 			goto alloc_failure;
 	} else if (ub->qlen >= loginfo->qthreshold ||
 		   size > skb_tailroom(ub->skb)) {
-		/* either the queue len is too high or we don't have 
+		/* either the queue len is too high or we don't have
 		 * enough room in nlskb left. send it to userspace. */
 
 		ulog_send(groupnum);
@@ -221,25 +206,26 @@ static void ipt_ulog_packet(unsigned int hooknum,
 			goto alloc_failure;
 	}
 
-	DEBUGP("ipt_ULOG: qlen %d, qthreshold %d\n", ub->qlen, 
+	DEBUGP("ipt_ULOG: qlen %d, qthreshold %d\n", ub->qlen,
 		loginfo->qthreshold);
 
 	/* NLMSG_PUT contains a hidden goto nlmsg_failure !!! */
-	nlh = NLMSG_PUT(ub->skb, 0, ub->qlen, ULOG_NL_EVENT, 
+	nlh = NLMSG_PUT(ub->skb, 0, ub->qlen, ULOG_NL_EVENT,
 			sizeof(*pm)+copy_len);
 	ub->qlen++;
 
 	pm = NLMSG_DATA(nlh);
 
 	/* We might not have a timestamp, get one */
-	if (skb->tstamp.off_sec == 0)
+	if (skb->tstamp.tv64 == 0)
 		__net_timestamp((struct sk_buff *)skb);
 
 	/* copy hook, prefix, timestamp, payload, etc. */
 	pm->data_len = copy_len;
-	pm->timestamp_sec = skb->tstamp.off_sec;
-	pm->timestamp_usec = skb->tstamp.off_usec;
-	pm->mark = skb->mark;
+	tv = ktime_to_timeval(skb->tstamp);
+	put_unaligned(tv.tv_sec, &pm->timestamp_sec);
+	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
+	put_unaligned(skb->mark, &pm->mark);
 	pm->hook = hooknum;
 	if (prefix != NULL)
 		strncpy(pm->prefix, prefix, sizeof(pm->prefix));
@@ -249,9 +235,9 @@ static void ipt_ulog_packet(unsigned int hooknum,
 		*(pm->prefix) = '\0';
 
 	if (in && in->hard_header_len > 0
-	    && skb->mac.raw != (void *) skb->nh.iph
+	    && skb->mac_header != skb->network_header
 	    && in->hard_header_len <= ULOG_MAC_LEN) {
-		memcpy(pm->mac, skb->mac.raw, in->hard_header_len);
+		memcpy(pm->mac, skb_mac_header(skb), in->hard_header_len);
 		pm->mac_len = in->hard_header_len;
 	} else
 		pm->mac_len = 0;
@@ -269,7 +255,7 @@ static void ipt_ulog_packet(unsigned int hooknum,
 	/* copy_len <= skb->len, so can't fail. */
 	if (skb_copy_bits(skb, 0, pm->payload, copy_len) < 0)
 		BUG();
-	
+
 	/* check if we are building multi-part messages */
 	if (ub->qlen > 1) {
 		ub->lastnlh->nlmsg_flags |= NLM_F_MULTI;
@@ -313,10 +299,10 @@ static unsigned int ipt_ulog_target(struct sk_buff **pskb,
 	struct ipt_ulog_info *loginfo = (struct ipt_ulog_info *) targinfo;
 
 	ipt_ulog_packet(hooknum, *pskb, in, out, loginfo, NULL);
- 
- 	return IPT_CONTINUE;
+
+	return XT_CONTINUE;
 }
- 
+
 static void ipt_logfn(unsigned int pf,
 		      unsigned int hooknum,
 		      const struct sk_buff *skb,
@@ -363,11 +349,52 @@ static int ipt_ulog_checkentry(const char *tablename,
 	return 1;
 }
 
-static struct ipt_target ipt_ulog_reg = {
+#ifdef CONFIG_COMPAT
+struct compat_ipt_ulog_info {
+	compat_uint_t	nl_group;
+	compat_size_t	copy_range;
+	compat_size_t	qthreshold;
+	char		prefix[ULOG_PREFIX_LEN];
+};
+
+static void compat_from_user(void *dst, void *src)
+{
+	struct compat_ipt_ulog_info *cl = src;
+	struct ipt_ulog_info l = {
+		.nl_group	= cl->nl_group,
+		.copy_range	= cl->copy_range,
+		.qthreshold	= cl->qthreshold,
+	};
+
+	memcpy(l.prefix, cl->prefix, sizeof(l.prefix));
+	memcpy(dst, &l, sizeof(l));
+}
+
+static int compat_to_user(void __user *dst, void *src)
+{
+	struct ipt_ulog_info *l = src;
+	struct compat_ipt_ulog_info cl = {
+		.nl_group	= l->nl_group,
+		.copy_range	= l->copy_range,
+		.qthreshold	= l->qthreshold,
+	};
+
+	memcpy(cl.prefix, l->prefix, sizeof(cl.prefix));
+	return copy_to_user(dst, &cl, sizeof(cl)) ? -EFAULT : 0;
+}
+#endif /* CONFIG_COMPAT */
+
+static struct xt_target ipt_ulog_reg = {
 	.name		= "ULOG",
+	.family		= AF_INET,
 	.target		= ipt_ulog_target,
 	.targetsize	= sizeof(struct ipt_ulog_info),
 	.checkentry	= ipt_ulog_checkentry,
+#ifdef CONFIG_COMPAT
+	.compatsize	= sizeof(struct compat_ipt_ulog_info),
+	.compat_from_user = compat_from_user,
+	.compat_to_user	= compat_to_user,
+#endif
 	.me		= THIS_MODULE,
 };
 
@@ -379,7 +406,7 @@ static struct nf_logger ipt_ulog_logger = {
 
 static int __init ipt_ulog_init(void)
 {
-	int i;
+	int ret, i;
 
 	DEBUGP("ipt_ULOG: init module\n");
 
@@ -389,24 +416,22 @@ static int __init ipt_ulog_init(void)
 	}
 
 	/* initialize ulog_buffers */
-	for (i = 0; i < ULOG_MAXNLGROUPS; i++) {
-		init_timer(&ulog_buffers[i].timer);
-		ulog_buffers[i].timer.function = ulog_timer;
-		ulog_buffers[i].timer.data = i;
-	}
+	for (i = 0; i < ULOG_MAXNLGROUPS; i++)
+		setup_timer(&ulog_buffers[i].timer, ulog_timer, i);
 
 	nflognl = netlink_kernel_create(NETLINK_NFLOG, ULOG_MAXNLGROUPS, NULL,
-	                                THIS_MODULE);
+					NULL, THIS_MODULE);
 	if (!nflognl)
 		return -ENOMEM;
 
-	if (ipt_register_target(&ipt_ulog_reg) != 0) {
+	ret = xt_register_target(&ipt_ulog_reg);
+	if (ret < 0) {
 		sock_release(nflognl->sk_socket);
-		return -EINVAL;
+		return ret;
 	}
 	if (nflog)
 		nf_log_register(PF_INET, &ipt_ulog_logger);
-	
+
 	return 0;
 }
 
@@ -418,8 +443,8 @@ static void __exit ipt_ulog_fini(void)
 	DEBUGP("ipt_ULOG: cleanup_module\n");
 
 	if (nflog)
-		nf_log_unregister_logger(&ipt_ulog_logger);
-	ipt_unregister_target(&ipt_ulog_reg);
+		nf_log_unregister(&ipt_ulog_logger);
+	xt_unregister_target(&ipt_ulog_reg);
 	sock_release(nflognl->sk_socket);
 
 	/* remove pending timers and free allocated skb's */
@@ -435,7 +460,6 @@ static void __exit ipt_ulog_fini(void)
 			ub->skb = NULL;
 		}
 	}
-
 }
 
 module_init(ipt_ulog_init);

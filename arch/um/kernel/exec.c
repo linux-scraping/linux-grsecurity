@@ -10,8 +10,8 @@
 #include "asm/pgtable.h"
 #include "asm/tlbflush.h"
 #include "asm/uaccess.h"
-#include "user_util.h"
 #include "kern_util.h"
+#include "as-layout.h"
 #include "mem_user.h"
 #include "kern.h"
 #include "irq_user.h"
@@ -39,9 +39,9 @@ static long execve1(char *file, char __user * __user *argv,
 		    char __user *__user *env)
 {
         long error;
+#ifdef CONFIG_TTY_LOG
 	struct tty_struct *tty;
 
-#ifdef CONFIG_TTY_LOG
 	mutex_lock(&tty_mutex);
 	tty = get_current_tty();
 	if (tty)

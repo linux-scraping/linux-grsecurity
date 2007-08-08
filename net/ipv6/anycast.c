@@ -1,6 +1,6 @@
 /*
  *	Anycast support for IPv6
- *	Linux INET6 implementation 
+ *	Linux INET6 implementation
  *
  *	Authors:
  *	David L Stevens (dlstevens@us.ibm.com)
@@ -21,7 +21,6 @@
 #include <linux/string.h>
 #include <linux/socket.h>
 #include <linux/sockios.h>
-#include <linux/sched.h>
 #include <linux/net.h>
 #include <linux/in6.h>
 #include <linux/netdevice.h>
@@ -397,7 +396,7 @@ static int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr)
 	in6_dev_put(idev);
 	return ret;
 }
-	
+
 /*
  *	check if the interface has this anycast address
  */
@@ -424,14 +423,18 @@ static int ipv6_chk_acast_dev(struct net_device *dev, struct in6_addr *addr)
  */
 int ipv6_chk_acast_addr(struct net_device *dev, struct in6_addr *addr)
 {
+	int found = 0;
+
 	if (dev)
 		return ipv6_chk_acast_dev(dev, addr);
 	read_lock(&dev_base_lock);
-	for (dev=dev_base; dev; dev=dev->next)
-		if (ipv6_chk_acast_dev(dev, addr))
+	for_each_netdev(dev)
+		if (ipv6_chk_acast_dev(dev, addr)) {
+			found = 1;
 			break;
+		}
 	read_unlock(&dev_base_lock);
-	return dev != 0;
+	return found;
 }
 
 
@@ -448,9 +451,8 @@ static inline struct ifacaddr6 *ac6_get_first(struct seq_file *seq)
 	struct ifacaddr6 *im = NULL;
 	struct ac6_iter_state *state = ac6_seq_private(seq);
 
-	for (state->dev = dev_base, state->idev = NULL;
-	     state->dev;
-	     state->dev = state->dev->next) {
+	state->idev = NULL;
+	for_each_netdev(state->dev) {
 		struct inet6_dev *idev;
 		idev = in6_dev_get(state->dev);
 		if (!idev)
@@ -477,7 +479,7 @@ static struct ifacaddr6 *ac6_get_next(struct seq_file *seq, struct ifacaddr6 *im
 			read_unlock_bh(&state->idev->lock);
 			in6_dev_put(state->idev);
 		}
-		state->dev = state->dev->next;
+		state->dev = next_net_device(state->dev);
 		if (!state->dev) {
 			state->idev = NULL;
 			break;
@@ -566,7 +568,7 @@ out_kfree:
 	goto out;
 }
 
-static struct file_operations ac6_seq_fops = {
+static const struct file_operations ac6_seq_fops = {
 	.owner		=	THIS_MODULE,
 	.open		=	ac6_seq_open,
 	.read		=	seq_read,

@@ -32,6 +32,7 @@
 #include <linux/namei.h>
 #include <linux/backing-dev.h>
 #include <linux/capability.h>
+#include <linux/sched.h>
 
 #include <linux/configfs.h>
 #include "configfs_internal.h"
@@ -49,7 +50,7 @@ static struct backing_dev_info configfs_backing_dev_info = {
 	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
 };
 
-static struct inode_operations configfs_inode_operations ={
+static const struct inode_operations configfs_inode_operations ={
 	.setattr	= configfs_setattr,
 };
 

@@ -94,7 +94,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/smp_lock.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
 
@@ -565,11 +564,15 @@ static void mdc800_usb_disconnect (struct usb_interface *intf)
 
 		usb_deregister_dev(intf, &mdc800_class);
 
+		/* must be under lock to make sure no URB
+		   is submitted after usb_kill_urb() */
+		mutex_lock(&mdc800->io_lock);
 		mdc800->state=NOT_CONNECTED;
 
 		usb_kill_urb(mdc800->irq_urb);
 		usb_kill_urb(mdc800->write_urb);
 		usb_kill_urb(mdc800->download_urb);
+		mutex_unlock(&mdc800->io_lock);
 
 		mdc800->dev = NULL;
 		usb_set_intfdata(intf, NULL);

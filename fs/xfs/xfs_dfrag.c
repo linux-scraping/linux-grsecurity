@@ -41,7 +41,6 @@
 #include "xfs_itable.h"
 #include "xfs_dfrag.h"
 #include "xfs_error.h"
-#include "xfs_mac.h"
 #include "xfs_rw.h"
 
 /*
@@ -200,7 +199,9 @@ xfs_swap_extents(
 
 	if (VN_CACHED(tvp) != 0) {
 		xfs_inval_cached_trace(&tip->i_iocore, 0, -1, 0, -1);
-		bhv_vop_flushinval_pages(tvp, 0, -1, FI_REMAPF_LOCKED);
+		error = bhv_vop_flushinval_pages(tvp, 0, -1, FI_REMAPF_LOCKED);
+		if (error)
+			goto error0;
 	}
 
 	/* Verify O_DIRECT for ftmp */
@@ -383,7 +384,7 @@ xfs_swap_extents(
 		xfs_trans_set_sync(tp);
 	}
 
-	error = xfs_trans_commit(tp, XFS_TRANS_SWAPEXT, NULL);
+	error = xfs_trans_commit(tp, XFS_TRANS_SWAPEXT);
 	locked = 0;
 
  error0:

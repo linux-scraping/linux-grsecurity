@@ -65,6 +65,7 @@ ssize_t oprofilefs_ulong_to_user(unsigned long val, char __user * buf, size_t co
 int oprofilefs_ulong_from_user(unsigned long * val, char const __user * buf, size_t count)
 {
 	char tmpbuf[TMPBUFSIZE];
+	unsigned long flags;
 
 	if (!count)
 		return 0;
@@ -77,9 +78,9 @@ int oprofilefs_ulong_from_user(unsigned long * val, char const __user * buf, siz
 	if (copy_from_user(tmpbuf, buf, count))
 		return -EFAULT;
 
-	spin_lock(&oprofilefs_lock);
+	spin_lock_irqsave(&oprofilefs_lock, flags);
 	*val = simple_strtoul(tmpbuf, NULL, 0);
-	spin_unlock(&oprofilefs_lock);
+	spin_unlock_irqrestore(&oprofilefs_lock, flags);
 	return 0;
 }
 
@@ -115,14 +116,14 @@ static int default_open(struct inode * inode, struct file * filp)
 }
 
 
-static struct file_operations ulong_fops = {
+static const struct file_operations ulong_fops = {
 	.read		= ulong_read_file,
 	.write		= ulong_write_file,
 	.open		= default_open,
 };
 
 
-static struct file_operations ulong_ro_fops = {
+static const struct file_operations ulong_ro_fops = {
 	.read		= ulong_read_file,
 	.open		= default_open,
 };
@@ -182,7 +183,7 @@ static ssize_t atomic_read_file(struct file * file, char __user * buf, size_t co
 }
  
 
-static struct file_operations atomic_ro_fops = {
+static const struct file_operations atomic_ro_fops = {
 	.read		= atomic_read_file,
 	.open		= default_open,
 };

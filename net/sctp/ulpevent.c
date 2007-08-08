@@ -131,19 +131,47 @@ static inline void sctp_ulpevent_release_owner(struct sctp_ulpevent *event)
 struct sctp_ulpevent  *sctp_ulpevent_make_assoc_change(
 	const struct sctp_association *asoc,
 	__u16 flags, __u16 state, __u16 error, __u16 outbound,
-	__u16 inbound, gfp_t gfp)
+	__u16 inbound, struct sctp_chunk *chunk, gfp_t gfp)
 {
 	struct sctp_ulpevent *event;
 	struct sctp_assoc_change *sac;
 	struct sk_buff *skb;
 
-	event = sctp_ulpevent_new(sizeof(struct sctp_assoc_change),
+	/* If the lower layer passed in the chunk, it will be
+	 * an ABORT, so we need to include it in the sac_info.
+	 */
+	if (chunk) {
+		/* Copy the chunk data to a new skb and reserve enough
+		 * head room to use as notification.
+		 */
+		skb = skb_copy_expand(chunk->skb,
+				      sizeof(struct sctp_assoc_change), 0, gfp);
+
+		if (!skb)
+			goto fail;
+
+		/* Embed the event fields inside the cloned skb.  */
+		event = sctp_skb2event(skb);
+		sctp_ulpevent_init(event, MSG_NOTIFICATION, skb->truesize);
+
+		/* Include the notification structure */
+		sac = (struct sctp_assoc_change *)
+			skb_push(skb, sizeof(struct sctp_assoc_change));
+
+		/* Trim the buffer to the right length.  */
+		skb_trim(skb, sizeof(struct sctp_assoc_change) +
+			 ntohs(chunk->chunk_hdr->length) -
+			 sizeof(sctp_chunkhdr_t));
+	} else {
+		event = sctp_ulpevent_new(sizeof(struct sctp_assoc_change),
 				  MSG_NOTIFICATION, gfp);
-	if (!event)
-		goto fail;
-	skb = sctp_event2skb(event);
-	sac = (struct sctp_assoc_change *)
-		skb_put(skb, sizeof(struct sctp_assoc_change));
+		if (!event)
+			goto fail;
+
+		skb = sctp_event2skb(event);
+		sac = (struct sctp_assoc_change *) skb_put(skb,
+					sizeof(struct sctp_assoc_change));
+	}
 
 	/* Socket Extensions for SCTP
 	 * 5.3.1.1 SCTP_ASSOC_CHANGE
@@ -749,7 +777,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_pdapi(
 	 */
 	pd->pdapi_length = sizeof(struct sctp_pdapi_event);
 
-        /*  pdapi_indication: 32 bits (unsigned integer)
+	/*  pdapi_indication: 32 bits (unsigned integer)
 	 *
 	 * This field holds the indication being sent to the application.
 	 */
@@ -790,13 +818,13 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
 		return;
 
 	/* Sockets API Extensions for SCTP
- 	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
- 	 *
- 	 * sinfo_stream: 16 bits (unsigned integer)
- 	 *
- 	 * For recvmsg() the SCTP stack places the message's stream number in
- 	 * this value.
- 	*/
+	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+	 *
+	 * sinfo_stream: 16 bits (unsigned integer)
+	 *
+	 * For recvmsg() the SCTP stack places the message's stream number in
+	 * this value.
+	*/
 	sinfo.sinfo_stream = event->stream;
 	/* sinfo_ssn: 16 bits (unsigned integer)
 	 *
@@ -828,7 +856,7 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
 	sinfo.sinfo_flags = event->flags;
 	/* sinfo_tsn: 32 bit (unsigned integer)
 	 *
-	 * For the receiving side, this field holds a TSN that was 
+	 * For the receiving side, this field holds a TSN that was
 	 * assigned to one of the SCTP Data Chunks.
 	 */
 	sinfo.sinfo_tsn = event->tsn;
@@ -879,7 +907,7 @@ static void sctp_ulpevent_receive_data(struct sctp_ulpevent *event,
 	 * fragment of the real event.  However, we still need to do rwnd
 	 * accounting.
 	 * In general, the skb passed from IP can have only 1 level of
-	 * fragments. But we allow multiple levels of fragments. 
+	 * fragments. But we allow multiple levels of fragments.
 	 */
 	for (frag = skb_shinfo(skb)->frag_list; frag; frag = frag->next) {
 		sctp_ulpevent_receive_data(sctp_skb2event(frag), asoc);
@@ -888,7 +916,7 @@ static void sctp_ulpevent_receive_data(struct sctp_ulpevent *event,
 
 /* Do accounting for bytes just read by user and release the references to
  * the association.
- */ 
+ */
 static void sctp_ulpevent_release_data(struct sctp_ulpevent *event)
 {
 	struct sk_buff *skb, *frag;

@@ -13,10 +13,8 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <linux/miscdevice.h>
-#include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/bitops.h>
@@ -349,7 +347,6 @@ void DoCMil_init(struct mtd_info *mtd)
 
 	mtd->type = MTD_NANDFLASH;
 	mtd->flags = MTD_CAP_NANDFLASH;
-	mtd->ecctype = MTD_ECC_RS_DiskOnChip;
 	mtd->size = 0;
 
 	/* FIXME: erase size is not always 8KiB */

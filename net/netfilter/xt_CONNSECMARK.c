@@ -19,7 +19,7 @@
 #include <linux/skbuff.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_CONNSECMARK.h>
-#include <net/netfilter/nf_conntrack_compat.h>
+#include <net/netfilter/nf_conntrack.h>
 
 #define PFX "CONNSECMARK: "
 
@@ -36,13 +36,12 @@ MODULE_ALIAS("ip6t_CONNSECMARK");
 static void secmark_save(struct sk_buff *skb)
 {
 	if (skb->secmark) {
-		u32 *connsecmark;
+		struct nf_conn *ct;
 		enum ip_conntrack_info ctinfo;
 
-		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
-		if (connsecmark && !*connsecmark)
-			if (*connsecmark != skb->secmark)
-				*connsecmark = skb->secmark;
+		ct = nf_ct_get(skb, &ctinfo);
+		if (ct && !ct->secmark)
+			ct->secmark = skb->secmark;
 	}
 }
 
@@ -53,13 +52,12 @@ static void secmark_save(struct sk_buff *skb)
 static void secmark_restore(struct sk_buff *skb)
 {
 	if (!skb->secmark) {
-		u32 *connsecmark;
+		struct nf_conn *ct;
 		enum ip_conntrack_info ctinfo;
 
-		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
-		if (connsecmark && *connsecmark)
-			if (skb->secmark != *connsecmark)
-				skb->secmark = *connsecmark;
+		ct = nf_ct_get(skb, &ctinfo);
+		if (ct && ct->secmark)
+			skb->secmark = ct->secmark;
 	}
 }
 

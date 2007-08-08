@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,6 @@
 
 #define _COMPONENT          ACPI_UTILITIES
 ACPI_MODULE_NAME("utcache")
-
 #ifdef ACPI_USE_LOCAL_CACHE
 /*******************************************************************************
  *
@@ -64,7 +63,7 @@ ACPI_MODULE_NAME("utcache")
 acpi_status
 acpi_os_create_cache(char *cache_name,
 		     u16 object_size,
-		     u16 max_depth, struct acpi_memory_list **return_cache)
+		     u16 max_depth, struct acpi_memory_list ** return_cache)
 {
 	struct acpi_memory_list *cache;
 
@@ -288,6 +287,14 @@ void *acpi_os_acquire_object(struct acpi_memory_list *cache)
 		/* The cache is empty, create a new object */
 
 		ACPI_MEM_TRACKING(cache->total_allocated++);
+
+#ifdef ACPI_DBG_TRACK_ALLOCATIONS
+		if ((cache->total_allocated - cache->total_freed) >
+		    cache->max_occupied) {
+			cache->max_occupied =
+			    cache->total_allocated - cache->total_freed;
+		}
+#endif
 
 		/* Avoid deadlock with ACPI_ALLOCATE_ZEROED */
 

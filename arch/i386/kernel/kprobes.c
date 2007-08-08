@@ -31,8 +31,8 @@
 #include <linux/kprobes.h>
 #include <linux/ptrace.h>
 #include <linux/preempt.h>
+#include <linux/kdebug.h>
 #include <asm/cacheflush.h>
-#include <asm/kdebug.h>
 #include <asm/desc.h>
 #include <asm/uaccess.h>
 
@@ -226,24 +226,15 @@ static void __kprobes prepare_singlestep(struct kprobe *p, struct pt_regs *regs)
 }
 
 /* Called with kretprobe_lock held */
-void __kprobes arch_prepare_kretprobe(struct kretprobe *rp,
+void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 				      struct pt_regs *regs)
 {
 	unsigned long *sara = (unsigned long *)&regs->esp;
 
-	struct kretprobe_instance *ri;
+	ri->ret_addr = (kprobe_opcode_t *) *sara;
 
-	if ((ri = get_free_rp_inst(rp)) != NULL) {
-		ri->rp = rp;
-		ri->task = current;
-		ri->ret_addr = (kprobe_opcode_t *) *sara;
-
-		/* Replace the return addr with trampoline addr */
-		*sara = (unsigned long) &kretprobe_trampoline;
-		add_rp_inst(ri);
-	} else {
-		rp->nmissed++;
-	}
+	/* Replace the return addr with trampoline addr */
+	*sara = (unsigned long) &kretprobe_trampoline;
 }
 
 /*
@@ -363,7 +354,7 @@ no_kprobe:
 			"	pushf\n"
 			/* skip cs, eip, orig_eax */
 			"	subl $12, %esp\n"
-			"	pushl %gs\n"
+			"	pushl %fs\n"
 			"	pushl %ds\n"
 			"	pushl %es\n"
 			"	pushl %eax\n"
@@ -387,7 +378,7 @@ no_kprobe:
 			"	popl %edi\n"
 			"	popl %ebp\n"
 			"	popl %eax\n"
-			/* skip eip, orig_eax, es, ds, gs */
+			/* skip eip, orig_eax, es, ds, fs */
 			"	addl $20, %esp\n"
 			"	popf\n"
 			"	ret\n");
@@ -408,7 +399,7 @@ fastcall void *__kprobes trampoline_handler(struct pt_regs *regs)
 	spin_lock_irqsave(&kretprobe_lock, flags);
 	head = kretprobe_inst_table_head(current);
 	/* fixup registers */
-	regs->xcs = __KERNEL_CS;
+	regs->xcs = __KERNEL_CS | get_kernel_rpl();
 	regs->eip = trampoline_address;
 	regs->orig_eax = 0xffffffff;
 
@@ -449,8 +440,7 @@ fastcall void *__kprobes trampoline_handler(struct pt_regs *regs)
 			break;
 	}
 
-	BUG_ON(!orig_ret_address || (orig_ret_address == trampoline_address));
-
+	kretprobe_assert(ri, orig_ret_address, trampoline_address);
 	spin_unlock_irqrestore(&kretprobe_lock, flags);
 
 	hlist_for_each_entry_safe(ri, node, tmp, &empty_rp, hlist) {
@@ -750,6 +740,11 @@ int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
 		preempt_enable_no_resched();
 		return 1;
 	}
+	return 0;
+}
+
+int __kprobes arch_trampoline_kprobe(struct kprobe *p)
+{
 	return 0;
 }
 

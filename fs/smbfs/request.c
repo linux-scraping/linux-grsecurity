@@ -6,10 +6,12 @@
  *  Please add a note about your changes to smbfs in the ChangeLog file.
  */
 
+#include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/net.h>
+#include <linux/sched.h>
 
 #include <linux/smb_fs.h>
 #include <linux/smbno.h>
@@ -21,8 +23,6 @@
 
 /* #define SMB_SLAB_DEBUG	(SLAB_RED_ZONE | SLAB_POISON) */
 #define SMB_SLAB_DEBUG	0
-
-#define ROUND_UP(x) (((x)+3) & ~3)
 
 /* cache for request structures */
 static struct kmem_cache *req_cachep;
@@ -61,7 +61,7 @@ static struct smb_request *smb_do_alloc_request(struct smb_sb_info *server,
 	struct smb_request *req;
 	unsigned char *buf = NULL;
 
-	req = kmem_cache_alloc(req_cachep, GFP_KERNEL);
+	req = kmem_cache_zalloc(req_cachep, GFP_KERNEL);
 	VERBOSE("allocating request: %p\n", req);
 	if (!req)
 		goto out;
@@ -74,7 +74,6 @@ static struct smb_request *smb_do_alloc_request(struct smb_sb_info *server,
 		}
 	}
 
-	memset(req, 0, sizeof(struct smb_request));
 	req->rq_buffer = buf;
 	req->rq_bufsize = bufsize;
 	req->rq_server = server;
@@ -182,6 +181,7 @@ static int smb_setup_request(struct smb_request *req)
 	req->rq_errno = 0;
 	req->rq_fragment = 0;
 	kfree(req->rq_trans2buffer);
+	req->rq_trans2buffer = NULL;
 
 	return 0;
 }
@@ -200,8 +200,8 @@ static int smb_setup_trans2request(struct smb_request *req)
 
 	const int smb_parameters = 15;
 	const int header = SMB_HEADER_LEN + 2 * smb_parameters + 2;
-	const int oparam = ROUND_UP(header + 3);
-	const int odata  = ROUND_UP(oparam + req->rq_lparm);
+	const int oparam = ALIGN(header + 3, sizeof(u32));
+	const int odata  = ALIGN(oparam + req->rq_lparm, sizeof(u32));
 	const int bcc = (req->rq_data ? odata + req->rq_ldata :
 					oparam + req->rq_lparm) - header;
 

@@ -86,7 +86,6 @@
 #include <linux/module.h>
 #include <asm/uaccess.h>
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
@@ -651,7 +650,7 @@ MODULE_DESCRIPTION(PMC551_VERSION);
  */
 static int msize = 0;
 #if defined(CONFIG_MTD_PMC551_APERTURE_SIZE)
-static int asize = CONFIG_MTD_PMC551_APERTURE_SIZE
+static int asize = CONFIG_MTD_PMC551_APERTURE_SIZE;
 #else
 static int asize = 0;
 #endif

@@ -25,7 +25,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
-struct mm_struct;
+#include <linux/sched.h>
 struct vm_area_struct;
 #endif
 
@@ -70,7 +70,11 @@ static inline int pte_file(pte_t pte) { return 0; }
 
 #define swapper_pg_dir		((pgd_t *) NULL)
 
-#define pgtable_cache_init()	do {} while(0)
+#define pgtable_cache_init()		do {} while (0)
+#define arch_enter_lazy_mmu_mode()	do {} while (0)
+#define arch_leave_lazy_mmu_mode()	do {} while (0)
+#define arch_enter_lazy_cpu_mode()	do {} while (0)
+#define arch_leave_lazy_cpu_mode()	do {} while (0)
 
 #else /* !CONFIG_MMU */
 /*****************************************************************************/
@@ -504,10 +508,6 @@ static inline int pte_file(pte_t pte)
 
 #define io_remap_pfn_range(vma, vaddr, pfn, size, prot)		\
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
-
-#define MK_IOSPACE_PFN(space, pfn)	(pfn)
-#define GET_IOSPACE(pfn)		0
-#define GET_PFN(pfn)			(pfn)
 
 #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
 #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY

@@ -14,7 +14,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
-#include <linux/smp_lock.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/skbuff.h>
@@ -131,7 +130,7 @@ static void remove_um_idi_proc(void)
 	}
 }
 
-static struct file_operations divas_idi_fops = {
+static const struct file_operations divas_idi_fops = {
 	.owner   = THIS_MODULE,
 	.llseek  = no_llseek,
 	.read    = um_idi_read,

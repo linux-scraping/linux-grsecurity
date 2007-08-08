@@ -9,25 +9,25 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* 
+/*
  * [Memo]
  *
  * Outbound:
- *  The compression of IP datagram MUST be done before AH/ESP processing, 
- *  fragmentation, and the addition of Hop-by-Hop/Routing header. 
+ *  The compression of IP datagram MUST be done before AH/ESP processing,
+ *  fragmentation, and the addition of Hop-by-Hop/Routing header.
  *
  * Inbound:
- *  The decompression of IP datagram MUST be done after the reassembly, 
+ *  The decompression of IP datagram MUST be done after the reassembly,
  *  AH/ESP processing.
  */
 #include <linux/module.h>
@@ -79,9 +79,9 @@ static int ipcomp6_input(struct xfrm_state *x, struct sk_buff *skb)
 	skb->ip_summed = CHECKSUM_NONE;
 
 	/* Remove ipcomp header and decompress original payload */
-	iph = skb->nh.ipv6h;
+	iph = ipv6_hdr(skb);
 	ipch = (void *)skb->data;
-	skb->h.raw = skb->nh.raw + sizeof(*ipch);
+	skb->transport_header = skb->network_header + sizeof(*ipch);
 	__skb_pull(skb, sizeof(*ipch));
 
 	/* decompression */
@@ -111,7 +111,7 @@ static int ipcomp6_input(struct xfrm_state *x, struct sk_buff *skb)
 
 	skb->truesize += dlen - plen;
 	__skb_put(skb, dlen - plen);
-	memcpy(skb->data, scratch, dlen);
+	skb_copy_to_linear_data(skb, scratch, dlen);
 	err = ipch->nexthdr;
 
 out_put_cpu:
@@ -124,15 +124,13 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
 {
 	int err;
 	struct ipv6hdr *top_iph;
-	int hdr_len;
 	struct ipv6_comp_hdr *ipch;
 	struct ipcomp_data *ipcd = x->data;
 	int plen, dlen;
 	u8 *start, *scratch;
 	struct crypto_comp *tfm;
 	int cpu;
-
-	hdr_len = skb->h.raw - skb->data;
+	int hdr_len = skb_transport_offset(skb);
 
 	/* check whether datagram len is larger than threshold */
 	if ((skb->len - hdr_len) < ipcd->threshold) {
@@ -145,7 +143,7 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	/* compression */
 	plen = skb->len - hdr_len;
 	dlen = IPCOMP_SCRATCH_SIZE;
-	start = skb->h.raw;
+	start = skb_transport_header(skb);
 
 	cpu = get_cpu();
 	scratch = *per_cpu_ptr(ipcomp6_scratches, cpu);
@@ -166,17 +164,17 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	top_iph->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
 
 	ipch = (struct ipv6_comp_hdr *)start;
-	ipch->nexthdr = *skb->nh.raw;
+	ipch->nexthdr = *skb_network_header(skb);
 	ipch->flags = 0;
 	ipch->cpi = htons((u16 )ntohl(x->id.spi));
-	*skb->nh.raw = IPPROTO_COMP;
+	*skb_network_header(skb) = IPPROTO_COMP;
 
 out_ok:
 	return 0;
 }
 
 static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-		                int type, int code, int offset, __be32 info)
+				int type, int code, int offset, __be32 info)
 {
 	__be32 spi;
 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
@@ -422,7 +420,7 @@ static int ipcomp6_init_state(struct xfrm_state *x)
 	x->props.header_len = 0;
 	if (x->props.mode == XFRM_MODE_TUNNEL)
 		x->props.header_len += sizeof(struct ipv6hdr);
-	
+
 	mutex_lock(&ipcomp6_resource_mutex);
 	if (!ipcomp6_alloc_scratches())
 		goto error;
@@ -455,7 +453,7 @@ error:
 	goto out;
 }
 
-static struct xfrm_type ipcomp6_type = 
+static struct xfrm_type ipcomp6_type =
 {
 	.description	= "IPCOMP6",
 	.owner		= THIS_MODULE,
@@ -467,7 +465,7 @@ static struct xfrm_type ipcomp6_type =
 	.hdr_offset	= xfrm6_find_1stfragopt,
 };
 
-static struct inet6_protocol ipcomp6_protocol = 
+static struct inet6_protocol ipcomp6_protocol =
 {
 	.handler	= xfrm6_rcv,
 	.err_handler	= ipcomp6_err,
@@ -490,7 +488,7 @@ static int __init ipcomp6_init(void)
 
 static void __exit ipcomp6_fini(void)
 {
-	if (inet6_del_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0) 
+	if (inet6_del_protocol(&ipcomp6_protocol, IPPROTO_COMP) < 0)
 		printk(KERN_INFO "ipv6 ipcomp close: can't remove protocol\n");
 	if (xfrm_unregister_type(&ipcomp6_type, AF_INET6) < 0)
 		printk(KERN_INFO "ipv6 ipcomp close: can't remove xfrm type\n");

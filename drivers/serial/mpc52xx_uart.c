@@ -127,8 +127,7 @@ static irqreturn_t mpc52xx_uart_int(int irq,void *dev_id);
 
 #if defined(CONFIG_PPC_MERGE)
 static struct of_device_id mpc52xx_uart_of_match[] = {
-	{ .type = "serial", .compatible = "mpc52xx-psc-uart", },
-	{ .type = "serial", .compatible = "mpc5200-psc", }, /* Efika only! */
+	{ .type = "serial", .compatible = "mpc5200-psc-uart", },
 	{},
 };
 #endif
@@ -258,9 +257,10 @@ mpc52xx_uart_shutdown(struct uart_port *port)
 {
 	struct mpc52xx_psc __iomem *psc = PSC(port);
 
-	/* Shut down the port, interrupt and all */
+	/* Shut down the port.  Leave TX active if on a console port */
 	out_8(&psc->command,MPC52xx_PSC_RST_RX);
-	out_8(&psc->command,MPC52xx_PSC_RST_TX);
+	if (!uart_console(port))
+		out_8(&psc->command,MPC52xx_PSC_RST_TX);
 
 	port->read_status_mask = 0;
 	out_be16(&psc->mpc52xx_psc_imr,port->read_status_mask);
@@ -996,8 +996,10 @@ mpc52xx_uart_of_remove(struct of_device *op)
 	struct uart_port *port = dev_get_drvdata(&op->dev);
 	dev_set_drvdata(&op->dev, NULL);
 
-	if (port)
+	if (port) {
 		uart_remove_one_port(&mpc52xx_uart_driver, port);
+		irq_dispose_mapping(port->irq);
+	}
 
 	return 0;
 }
@@ -1068,7 +1070,7 @@ mpc52xx_uart_of_enumerate(void)
 			continue;
 
 		/* Is a particular device number requested? */
-		devno = get_property(np, "device_no", NULL);
+		devno = of_get_property(np, "port-number", NULL);
 		mpc52xx_uart_of_assign(of_node_get(np), devno ? *devno : -1);
 	}
 

@@ -5,6 +5,11 @@
  * This tricks binfmt_elf.c into loading 32bit binaries using lots 
  * of ugly preprocessor tricks. Talk about very very poor man's inheritance.
  */ 
+#define __ASM_X86_64_ELF_H 1
+
+#undef ELF_CLASS
+#define ELF_CLASS ELFCLASS32
+
 #include <linux/types.h>
 #include <linux/stddef.h>
 #include <linux/rwsem.h>
@@ -49,9 +54,6 @@ struct elf_phdr;
 
 #undef ELF_ARCH
 #define ELF_ARCH EM_386
-
-#undef ELF_CLASS
-#define ELF_CLASS ELFCLASS32
 
 #define ELF_DATA	ELFDATA2LSB
 
@@ -136,20 +138,16 @@ struct elf_prpsinfo
 
 #define user user32
 
-#define __ASM_X86_64_ELF_H 1
+#undef elf_read_implies_exec
 #define elf_read_implies_exec(ex, executable_stack)     (executable_stack != EXSTACK_DISABLE_X)
 //#include <asm/ia32.h>
 #include <linux/elf.h>
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	0x08048000UL
+#define PAX_ELF_ET_DYN_BASE	0x08048000UL
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		16
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		16
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	16
+#define PAX_DELTA_MMAP_LEN	16
+#define PAX_DELTA_STACK_LEN	16
 #endif
 
 typedef struct user_i387_ia32_struct elf_fpregset_t;
@@ -311,11 +309,9 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 		bprm->loader += stack_base;
 	bprm->exec += stack_base;
 
-	mpnt = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	mpnt = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!mpnt) 
 		return -ENOMEM; 
-
-	memset(mpnt, 0, sizeof(*mpnt));
 
 	down_write(&mm->mmap_sem);
 	{
@@ -340,15 +336,18 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 
 	for (i = 0 ; i < MAX_ARG_PAGES ; i++) {
 		struct page *page = bprm->page[i];
+		int retval;
 		if (page) {
 			bprm->page[i] = NULL;
-			install_arg_page(mpnt, page, stack_base);
+			retval = install_arg_page(mpnt, page, stack_base);
+			if (!ret)
+				ret = retval;
 		}
 		stack_base += PAGE_SIZE;
 	}
 	up_write(&mm->mmap_sem);
-	
-	return 0;
+
+	return ret;
 }
 EXPORT_SYMBOL(ia32_setup_arg_pages);
 
@@ -357,20 +356,30 @@ EXPORT_SYMBOL(ia32_setup_arg_pages);
 #include <linux/sysctl.h>
 
 static ctl_table abi_table2[] = {
-	{ 99, "vsyscall32", &sysctl_vsyscall32, sizeof(int), 0644, NULL,
-	  proc_dointvec },
-	{ 0, }
-}; 
+	{
+		.ctl_name	= 99,
+		.procname	= "vsyscall32",
+		.data		= &sysctl_vsyscall32,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec
+	},
+	{}
+};
 
-static ctl_table abi_root_table2[] = { 
-	{ .ctl_name = CTL_ABI, .procname = "abi", .mode = 0555, 
-	  .child = abi_table2 }, 
-	{ 0 }, 
-}; 
+static ctl_table abi_root_table2[] = {
+	{
+		.ctl_name = CTL_ABI,
+		.procname = "abi",
+		.mode = 0555,
+		.child = abi_table2
+	},
+	{}
+};
 
 static __init int ia32_binfmt_init(void)
 { 
-	register_sysctl_table(abi_root_table2, 1);
+	register_sysctl_table(abi_root_table2);
 	return 0;
 }
 __initcall(ia32_binfmt_init);

@@ -78,7 +78,9 @@ sys_call_table:
 /*285*/	.long sys_mkdirat, sys_mknodat, sys_fchownat, sys_futimesat, sys_fstatat64
 /*290*/	.long sys_unlinkat, sys_renameat, sys_linkat, sys_symlinkat, sys_readlinkat
 /*295*/	.long sys_fchmodat, sys_faccessat, sys_pselect6, sys_ppoll, sys_unshare
-/*300*/	.long sys_set_robust_list, sys_get_robust_list, sys_migrate_pages
+/*300*/	.long sys_set_robust_list, sys_get_robust_list, sys_migrate_pages, sys_mbind, sys_get_mempolicy
+/*305*/	.long sys_set_mempolicy, sys_kexec_load, sys_move_pages, sys_getcpu, sys_epoll_pwait
+/*310*/	.long sys_utimensat, sys_signalfd, sys_timerfd, sys_eventfd
 
 #ifdef CONFIG_SUNOS_EMUL
 	/* Now the SunOS syscall table. */
@@ -192,5 +194,10 @@ sunos_sys_table:
 	.long sunos_nosys, sunos_nosys, sunos_nosys
 	.long sunos_nosys
 /*300*/	.long sunos_nosys, sunos_nosys, sunos_nosys
+	.long sunos_nosys, sunos_nosys, sunos_nosys
+	.long sunos_nosys, sunos_nosys, sunos_nosys
+	.long sunos_nosys
+/*310*/	.long sunos_nosys, sunos_nosys, sunos_nosys
+	.long sunos_nosys
 
 #endif

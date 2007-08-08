@@ -19,10 +19,11 @@
 #include <linux/cpu.h>
 #include <linux/percpu.h>
 #include <linux/ctype.h>
+#include <linux/kmod.h>
+#include <linux/kdebug.h>
 #include <asm/processor.h> 
 #include <asm/msr.h>
 #include <asm/mce.h>
-#include <asm/kdebug.h>
 #include <asm/uaccess.h>
 #include <asm/smp.h>
 
@@ -42,6 +43,10 @@ static unsigned long console_logged;
 static int notify_user;
 static int rip_msr;
 static int mce_bootlog = 1;
+static atomic_t mce_events;
+
+static char trigger[128];
+static char *trigger_argv[2] = { trigger, NULL };
 
 /*
  * Lockless MCE logging infrastructure.
@@ -57,6 +62,7 @@ struct mce_log mcelog = {
 void mce_log(struct mce *mce)
 {
 	unsigned next, entry;
+	atomic_inc(&mce_events);
 	mce->finished = 0;
 	wmb();
 	for (;;) {
@@ -161,6 +167,17 @@ static inline void mce_get_rip(struct mce *m, struct pt_regs *regs)
 	}
 }
 
+static void do_mce_trigger(void)
+{
+	static atomic_t mce_logged;
+	int events = atomic_read(&mce_events);
+	if (events != atomic_read(&mce_logged) && trigger[0]) {
+		/* Small race window, but should be harmless.  */
+		atomic_set(&mce_logged, events);
+		call_usermodehelper(trigger, trigger_argv, NULL, -1);
+	}
+}
+
 /* 
  * The actual machine check handler
  */
@@ -234,8 +251,12 @@ void do_machine_check(struct pt_regs * regs, long error_code)
 	}
 
 	/* Never do anything final in the polling timer */
-	if (!regs)
+	if (!regs) {
+		/* Normal interrupt context here. Call trigger for any new
+		   events. */
+		do_mce_trigger();
 		goto out;
+	}
 
 	/* If we didn't find an uncorrectable error, pick
 	   the last one (shouldn't happen, just being safe). */
@@ -302,10 +323,13 @@ void mce_log_therm_throt_event(unsigned int cpu, __u64 status)
 #endif /* CONFIG_X86_MCE_INTEL */
 
 /*
- * Periodic polling timer for "silent" machine check errors.
+ * Periodic polling timer for "silent" machine check errors.  If the
+ * poller finds an MCE, poll 2x faster.  When the poller finds no more
+ * errors, poll 2x slower (up to check_interval seconds).
  */
 
 static int check_interval = 5 * 60; /* 5 minutes */
+static int next_interval; /* in jiffies */
 static void mcheck_timer(struct work_struct *work);
 static DECLARE_DELAYED_WORK(mcheck_work, mcheck_timer);
 
@@ -318,7 +342,6 @@ static void mcheck_check_cpu(void *info)
 static void mcheck_timer(struct work_struct *work)
 {
 	on_each_cpu(mcheck_check_cpu, NULL, 1, 1);
-	schedule_delayed_work(&mcheck_work, check_interval * HZ);
 
 	/*
 	 * It's ok to read stale data here for notify_user and
@@ -328,17 +351,30 @@ static void mcheck_timer(struct work_struct *work)
 	 * writes.
 	 */
 	if (notify_user && console_logged) {
+		static unsigned long last_print;
+		unsigned long now = jiffies;
+
+		/* if we logged an MCE, reduce the polling interval */
+		next_interval = max(next_interval/2, HZ/100);
 		notify_user = 0;
 		clear_bit(0, &console_logged);
-		printk(KERN_INFO "Machine check events logged\n");
+		if (time_after_eq(now, last_print + (check_interval*HZ))) {
+			last_print = now;
+			printk(KERN_INFO "Machine check events logged\n");
+		}
+	} else {
+		next_interval = min(next_interval*2, check_interval*HZ);
 	}
+
+	schedule_delayed_work(&mcheck_work, next_interval);
 }
 
 
 static __init int periodic_mcheck_init(void)
 { 
-	if (check_interval)
-		schedule_delayed_work(&mcheck_work, check_interval*HZ);
+	next_interval = check_interval * HZ;
+	if (next_interval)
+		schedule_delayed_work(&mcheck_work, next_interval);
 	return 0;
 } 
 __initcall(periodic_mcheck_init);
@@ -461,15 +497,17 @@ static ssize_t mce_read(struct file *filp, char __user *ubuf, size_t usize, loff
 	for (i = 0; i < next; i++) {		
 		unsigned long start = jiffies;
 		while (!mcelog.entry[i].finished) {
-			if (!time_before(jiffies, start + 2)) {
+			if (time_after_eq(jiffies, start + 2)) {
 				memset(mcelog.entry + i,0, sizeof(struct mce));
-				continue;
+				goto timeout;
 			}
 			cpu_relax();
 		}
 		smp_rmb();
 		err |= copy_to_user(buf, mcelog.entry + i, sizeof(struct mce));
 		buf += sizeof(struct mce); 
+ timeout:
+		;
 	} 
 
 	memset(mcelog.entry, 0, next * sizeof(struct mce));
@@ -516,7 +554,7 @@ static int mce_ioctl(struct inode *i, struct file *f,unsigned int cmd, unsigned 
 	} 
 }
 
-static struct file_operations mce_chrdev_ops = {
+static const struct file_operations mce_chrdev_ops = {
 	.read = mce_read,
 	.ioctl = mce_ioctl,
 };
@@ -576,12 +614,13 @@ static int mce_resume(struct sys_device *dev)
 /* Reinit MCEs after user configuration changes */
 static void mce_restart(void) 
 { 
-	if (check_interval)
+	if (next_interval)
 		cancel_delayed_work(&mcheck_work);
 	/* Timer race is harmless here */
 	on_each_cpu(mce_init, NULL, 1, 1);       
-	if (check_interval)
-		schedule_delayed_work(&mcheck_work, check_interval*HZ);
+	next_interval = check_interval * HZ;
+	if (next_interval)
+		schedule_delayed_work(&mcheck_work, next_interval);
 }
 
 static struct sysdev_class mce_sysclass = {
@@ -606,17 +645,42 @@ DEFINE_PER_CPU(struct sys_device, device_mce);
 	}									   \
 	static SYSDEV_ATTR(name, 0644, show_ ## name, set_ ## name);
 
+/* TBD should generate these dynamically based on number of available banks */
 ACCESSOR(bank0ctl,bank[0],mce_restart())
 ACCESSOR(bank1ctl,bank[1],mce_restart())
 ACCESSOR(bank2ctl,bank[2],mce_restart())
 ACCESSOR(bank3ctl,bank[3],mce_restart())
 ACCESSOR(bank4ctl,bank[4],mce_restart())
 ACCESSOR(bank5ctl,bank[5],mce_restart())
-static struct sysdev_attribute * bank_attributes[NR_BANKS] = {
-	&attr_bank0ctl, &attr_bank1ctl, &attr_bank2ctl,
-	&attr_bank3ctl, &attr_bank4ctl, &attr_bank5ctl};
+
+static ssize_t show_trigger(struct sys_device *s, char *buf)
+{
+	strcpy(buf, trigger);
+	strcat(buf, "\n");
+	return strlen(trigger) + 1;
+}
+
+static ssize_t set_trigger(struct sys_device *s,const char *buf,size_t siz)
+{
+	char *p;
+	int len;
+	strncpy(trigger, buf, sizeof(trigger));
+	trigger[sizeof(trigger)-1] = 0;
+	len = strlen(trigger);
+	p = strchr(trigger, '\n');
+	if (*p) *p = 0;
+	return len;
+}
+
+static SYSDEV_ATTR(trigger, 0644, show_trigger, set_trigger);
 ACCESSOR(tolerant,tolerant,)
 ACCESSOR(check_interval,check_interval,mce_restart())
+static struct sysdev_attribute *mce_attributes[] = {
+	&attr_bank0ctl, &attr_bank1ctl, &attr_bank2ctl,
+	&attr_bank3ctl, &attr_bank4ctl, &attr_bank5ctl,
+	&attr_tolerant, &attr_check_interval, &attr_trigger,
+	NULL
+};
 
 /* Per cpu sysdev init.  All of the cpus still share the same ctl bank */
 static __cpuinit int mce_create_device(unsigned int cpu)
@@ -632,11 +696,9 @@ static __cpuinit int mce_create_device(unsigned int cpu)
 	err = sysdev_register(&per_cpu(device_mce,cpu));
 
 	if (!err) {
-		for (i = 0; i < banks; i++)
+		for (i = 0; mce_attributes[i]; i++)
 			sysdev_create_file(&per_cpu(device_mce,cpu),
-				bank_attributes[i]);
-		sysdev_create_file(&per_cpu(device_mce,cpu), &attr_tolerant);
-		sysdev_create_file(&per_cpu(device_mce,cpu), &attr_check_interval);
+				mce_attributes[i]);
 	}
 	return err;
 }
@@ -645,11 +707,9 @@ static void mce_remove_device(unsigned int cpu)
 {
 	int i;
 
-	for (i = 0; i < banks; i++)
+	for (i = 0; mce_attributes[i]; i++)
 		sysdev_remove_file(&per_cpu(device_mce,cpu),
-			bank_attributes[i]);
-	sysdev_remove_file(&per_cpu(device_mce,cpu), &attr_tolerant);
-	sysdev_remove_file(&per_cpu(device_mce,cpu), &attr_check_interval);
+			mce_attributes[i]);
 	sysdev_unregister(&per_cpu(device_mce,cpu));
 	memset(&per_cpu(device_mce, cpu).kobj, 0, sizeof(struct kobject));
 }
@@ -662,9 +722,11 @@ mce_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 
 	switch (action) {
 	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
 		mce_create_device(cpu);
 		break;
 	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
 		mce_remove_device(cpu);
 		break;
 	}

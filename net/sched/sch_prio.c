@@ -7,7 +7,7 @@
  *		2 of the License, or (at your option) any later version.
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- * Fixes:       19990609: J Hadi Salim <hadi@nortelnetworks.com>: 
+ * Fixes:       19990609: J Hadi Salim <hadi@nortelnetworks.com>:
  *              Init --  EINVAL when opt undefined
  */
 
@@ -17,7 +17,6 @@
 #include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -33,6 +32,7 @@
 #include <net/ip.h>
 #include <net/route.h>
 #include <linux/skbuff.h>
+#include <net/netlink.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
@@ -62,7 +62,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
 			*qerr = NET_XMIT_SUCCESS;
 		case TC_ACT_SHOT:
 			return NULL;
-		};
+		}
 
 		if (!q->filter_list ) {
 #else
@@ -75,7 +75,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
 		band = res.classid;
 	}
 	band = TC_H_MIN(band) - 1;
-	if (band > q->bands)
+	if (band >= q->bands)
 		return q->queues[q->prio2band[0]];
 
 	return q->queues[band];
@@ -105,7 +105,7 @@ prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		return NET_XMIT_SUCCESS;
 	}
 	sch->qstats.drops++;
-	return ret; 
+	return ret;
 }
 
 
@@ -189,13 +189,8 @@ prio_destroy(struct Qdisc* sch)
 {
 	int prio;
 	struct prio_sched_data *q = qdisc_priv(sch);
-	struct tcf_proto *tp;
 
-	while ((tp = q->filter_list) != NULL) {
-		q->filter_list = tp->next;
-		tcf_destroy(tp);
-	}
-
+	tcf_destroy_chain(q->filter_list);
 	for (prio=0; prio<q->bands; prio++)
 		qdisc_destroy(q->queues[prio]);
 }
@@ -272,7 +267,7 @@ static int prio_init(struct Qdisc *sch, struct rtattr *opt)
 static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct prio_sched_data *q = qdisc_priv(sch);
-	unsigned char	 *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tc_prio_qopt opt;
 
 	opt.bands = q->bands;
@@ -281,7 +276,7 @@ static int prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -372,6 +367,20 @@ static int prio_dump_class(struct Qdisc *sch, unsigned long cl, struct sk_buff *
 	return 0;
 }
 
+static int prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+				 struct gnet_dump *d)
+{
+	struct prio_sched_data *q = qdisc_priv(sch);
+	struct Qdisc *cl_q;
+
+	cl_q = q->queues[cl - 1];
+	if (gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
+	    gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
+		return -1;
+
+	return 0;
+}
+
 static void prio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 {
 	struct prio_sched_data *q = qdisc_priv(sch);
@@ -414,6 +423,7 @@ static struct Qdisc_class_ops prio_class_ops = {
 	.bind_tcf	=	prio_bind,
 	.unbind_tcf	=	prio_put,
 	.dump		=	prio_dump_class,
+	.dump_stats	=	prio_dump_class_stats,
 };
 
 static struct Qdisc_ops prio_qdisc_ops = {
@@ -438,7 +448,7 @@ static int __init prio_module_init(void)
 	return register_qdisc(&prio_qdisc_ops);
 }
 
-static void __exit prio_module_exit(void) 
+static void __exit prio_module_exit(void)
 {
 	unregister_qdisc(&prio_qdisc_ops);
 }

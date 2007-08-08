@@ -93,7 +93,7 @@ static void ibmveth_proc_unregister_driver(void);
 static void ibmveth_proc_register_adapter(struct ibmveth_adapter *adapter);
 static void ibmveth_proc_unregister_adapter(struct ibmveth_adapter *adapter);
 static irqreturn_t ibmveth_interrupt(int irq, void *dev_instance);
-static inline void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter);
+static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter);
 static struct kobj_type ktype_veth_pool;
 
 #ifdef CONFIG_PROC_FS
@@ -389,7 +389,7 @@ static void ibmveth_rxq_recycle_buffer(struct ibmveth_adapter *adapter)
 	}
 }
 
-static inline void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
+static void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter)
 {
 	ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
 
@@ -798,7 +798,6 @@ static int ibmveth_poll(struct net_device *netdev, int *budget)
 
 				skb_reserve(skb, offset);
 				skb_put(skb, length);
-				skb->dev = netdev;
 				skb->protocol = eth_type_trans(skb, netdev);
 
 				netif_receive_skb(skb);	/* send it up */
@@ -916,17 +915,36 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct ibmveth_adapter *adapter = dev->priv;
 	int new_mtu_oh = new_mtu + IBMVETH_BUFF_OH;
-	int i;
+	int reinit = 0;
+	int i, rc;
 
 	if (new_mtu < IBMVETH_MAX_MTU)
 		return -EINVAL;
 
+	for (i = 0; i < IbmVethNumBufferPools; i++)
+		if (new_mtu_oh < adapter->rx_buff_pool[i].buff_size)
+			break;
+
+	if (i == IbmVethNumBufferPools)
+		return -EINVAL;
+
 	/* Look for an active buffer pool that can hold the new MTU */
 	for(i = 0; i<IbmVethNumBufferPools; i++) {
-		if (!adapter->rx_buff_pool[i].active)
-			continue;
+		if (!adapter->rx_buff_pool[i].active) {
+			adapter->rx_buff_pool[i].active = 1;
+			reinit = 1;
+		}
+
 		if (new_mtu_oh < adapter->rx_buff_pool[i].buff_size) {
-			dev->mtu = new_mtu;
+			if (reinit && netif_running(adapter->netdev)) {
+				adapter->pool_config = 1;
+				ibmveth_close(adapter->netdev);
+				adapter->pool_config = 0;
+				dev->mtu = new_mtu;
+				if ((rc = ibmveth_open(adapter->netdev)))
+					return rc;
+			} else
+				dev->mtu = new_mtu;
 			return 0;
 		}
 	}
@@ -954,14 +972,16 @@ static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_
 	ibmveth_debug_printk_no_adapter("entering ibmveth_probe for UA 0x%x\n",
 					dev->unit_address);
 
-	mac_addr_p = (unsigned char *) vio_get_attribute(dev, VETH_MAC_ADDR, 0);
+	mac_addr_p = (unsigned char *) vio_get_attribute(dev,
+						VETH_MAC_ADDR, NULL);
 	if(!mac_addr_p) {
 		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find VETH_MAC_ADDR "
 				"attribute\n", __FILE__, __LINE__);
 		return 0;
 	}
 
-	mcastFilterSize_p= (unsigned int *) vio_get_attribute(dev, VETH_MCAST_FILTER_SIZE, 0);
+	mcastFilterSize_p = (unsigned int *) vio_get_attribute(dev,
+						VETH_MCAST_FILTER_SIZE, NULL);
 	if(!mcastFilterSize_p) {
 		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find "
 				"VETH_MCAST_FILTER_SIZE attribute\n",
@@ -1156,7 +1176,7 @@ static int ibmveth_proc_open(struct inode *inode, struct file *file)
 	return rc;
 }
 
-static struct file_operations ibmveth_proc_fops = {
+static const struct file_operations ibmveth_proc_fops = {
 	.owner	 = THIS_MODULE,
 	.open    = ibmveth_proc_open,
 	.read    = seq_read,
@@ -1242,16 +1262,19 @@ const char * buf, size_t count)
 
 	if (attr == &veth_active_attr) {
 		if (value && !pool->active) {
-			if(ibmveth_alloc_buffer_pool(pool)) {
-                                ibmveth_error_printk("unable to alloc pool\n");
-                                return -ENOMEM;
-                        }
-			pool->active = 1;
-			adapter->pool_config = 1;
-			ibmveth_close(netdev);
-			adapter->pool_config = 0;
-			if ((rc = ibmveth_open(netdev)))
-				return rc;
+			if (netif_running(netdev)) {
+				if(ibmveth_alloc_buffer_pool(pool)) {
+					ibmveth_error_printk("unable to alloc pool\n");
+					return -ENOMEM;
+				}
+				pool->active = 1;
+				adapter->pool_config = 1;
+				ibmveth_close(netdev);
+				adapter->pool_config = 0;
+				if ((rc = ibmveth_open(netdev)))
+					return rc;
+			} else
+				pool->active = 1;
 		} else if (!value && pool->active) {
 			int mtu = netdev->mtu + IBMVETH_BUFF_OH;
 			int i;
@@ -1280,23 +1303,29 @@ const char * buf, size_t count)
 		if (value <= 0 || value > IBMVETH_MAX_POOL_COUNT)
 			return -EINVAL;
 		else {
-			adapter->pool_config = 1;
-			ibmveth_close(netdev);
-			adapter->pool_config = 0;
-			pool->size = value;
-			if ((rc = ibmveth_open(netdev)))
-				return rc;
+			if (netif_running(netdev)) {
+				adapter->pool_config = 1;
+				ibmveth_close(netdev);
+				adapter->pool_config = 0;
+				pool->size = value;
+				if ((rc = ibmveth_open(netdev)))
+					return rc;
+			} else
+				pool->size = value;
 		}
 	} else if (attr == &veth_size_attr) {
 		if (value <= IBMVETH_BUFF_OH || value > IBMVETH_MAX_BUF_SIZE)
 			return -EINVAL;
 		else {
-			adapter->pool_config = 1;
-			ibmveth_close(netdev);
-			adapter->pool_config = 0;
-			pool->buff_size = value;
-			if ((rc = ibmveth_open(netdev)))
-				return rc;
+			if (netif_running(netdev)) {
+				adapter->pool_config = 1;
+				ibmveth_close(netdev);
+				adapter->pool_config = 0;
+				pool->buff_size = value;
+				if ((rc = ibmveth_open(netdev)))
+					return rc;
+			} else
+				pool->buff_size = value;
 		}
 	}
 

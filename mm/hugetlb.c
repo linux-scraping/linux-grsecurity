@@ -140,6 +140,8 @@ static struct page *alloc_huge_page(struct vm_area_struct *vma,
 	return page;
 
 fail:
+	if (vma->vm_flags & VM_MAYSHARE)
+		resv_huge_pages++;
 	spin_unlock(&hugetlb_lock);
 	return NULL;
 }
@@ -171,6 +173,17 @@ static int __init hugetlb_setup(char *s)
 	return 1;
 }
 __setup("hugepages=", hugetlb_setup);
+
+static unsigned int cpuset_mems_nr(unsigned int *array)
+{
+	int node;
+	unsigned int nr = 0;
+
+	for_each_node_mask(node, cpuset_current_mems_allowed)
+		nr += array[node];
+
+	return nr;
+}
 
 #ifdef CONFIG_SYSCTL
 static void update_and_free_page(struct page *page)
@@ -313,9 +326,10 @@ static void set_huge_ptep_writable(struct vm_area_struct *vma,
 	pte_t entry;
 
 	entry = pte_mkwrite(pte_mkdirty(*ptep));
-	ptep_set_access_flags(vma, address, ptep, entry, 1);
-	update_mmu_cache(vma, address, entry);
-	lazy_mmu_prot_update(entry);
+	if (ptep_set_access_flags(vma, address, ptep, entry, 1)) {
+		update_mmu_cache(vma, address, entry);
+		lazy_mmu_prot_update(entry);
+	}
 }
 
 
@@ -419,6 +433,26 @@ void unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
 	}
 }
 
+#ifdef CONFIG_PAX_SEGMEXEC
+static void pax_mirror_huge_pte(struct vm_area_struct *vma, unsigned long address, struct page *page_m)
+{
+	struct mm_struct *mm = vma->vm_mm;
+	struct vm_area_struct *vma_m;
+	unsigned long address_m;
+	pte_t *ptep_m;
+
+	vma_m = pax_find_mirror_vma(vma);
+	if (!vma_m)
+		return;
+
+	BUG_ON(address >= SEGMEXEC_TASK_SIZE);
+	address_m = address + SEGMEXEC_TASK_SIZE;
+	ptep_m = huge_pte_offset(mm, address_m & HPAGE_MASK);
+	get_page(page_m);
+	set_huge_pte_at(mm, address_m, ptep_m, make_huge_pte(vma_m, page_m, 0));
+}
+#endif
+
 static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
 			unsigned long address, pte_t *ptep, pte_t pte)
 {
@@ -452,6 +486,11 @@ static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
 		/* Break COW */
 		set_huge_pte_at(mm, address, ptep,
 				make_huge_pte(vma, new_page, 1));
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		pax_mirror_huge_pte(vma, address, new_page);
+#endif
+
 		/* Make the old page be freed below */
 		new_page = old_page;
 	}
@@ -460,7 +499,7 @@ static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
 	return VM_FAULT_MINOR;
 }
 
-int hugetlb_no_page(struct mm_struct *mm, struct vm_area_struct *vma,
+static int hugetlb_no_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			unsigned long address, pte_t *ptep, int write_access)
 {
 	int ret = VM_FAULT_SIGBUS;
@@ -522,6 +561,10 @@ retry:
 				&& (vma->vm_flags & VM_SHARED)));
 	set_huge_pte_at(mm, address, ptep, new_pte);
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	pax_mirror_huge_pte(vma, address, page);
+#endif
+
 	if (write_access && !(vma->vm_flags & VM_SHARED)) {
 		/* Optimization, do the COW without a second fault */
 		ret = hugetlb_cow(mm, vma, address, ptep, new_pte);
@@ -547,6 +590,27 @@ int hugetlb_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	pte_t entry;
 	int ret;
 	static DEFINE_MUTEX(hugetlb_instantiation_mutex);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+
+	vma_m = pax_find_mirror_vma(vma);
+	if (vma_m) {
+		unsigned long address_m;
+
+		if (vma->vm_start > vma_m->vm_start) {
+			address_m = address;
+			address -= SEGMEXEC_TASK_SIZE;
+			vma = vma_m;
+		} else
+			address_m = address + SEGMEXEC_TASK_SIZE;
+
+		if (!huge_pte_alloc(mm, address_m))
+			return VM_FAULT_OOM;
+		address_m &= HPAGE_MASK;
+		unmap_hugepage_range(vma, address_m, address_m + HPAGE_SIZE);
+	}
+#endif
 
 	ptep = huge_pte_alloc(mm, address);
 	if (!ptep)
@@ -817,6 +881,26 @@ int hugetlb_reserve_pages(struct inode *inode, long from, long to)
 	chg = region_chg(&inode->i_mapping->private_list, from, to);
 	if (chg < 0)
 		return chg;
+	/*
+	 * When cpuset is configured, it breaks the strict hugetlb page
+	 * reservation as the accounting is done on a global variable. Such
+	 * reservation is completely rubbish in the presence of cpuset because
+	 * the reservation is not checked against page availability for the
+	 * current cpuset. Application can still potentially OOM'ed by kernel
+	 * with lack of free htlb page in cpuset that the task is in.
+	 * Attempt to enforce strict accounting with cpuset is almost
+	 * impossible (or too ugly) because cpuset is too fluid that
+	 * task or memory node can be dynamically moved between cpusets.
+	 *
+	 * The change of semantics for shared hugetlb mapping with cpuset is
+	 * undesirable. However, in order to preserve some of the semantics,
+	 * we fall back to check against current free page availability as
+	 * a best attempt and hopefully to minimize the impact of changing
+	 * semantics that cpuset has.
+	 */
+	if (chg > cpuset_mems_nr(free_huge_pages_node))
+		return -ENOMEM;
+
 	ret = hugetlb_acct_memory(chg);
 	if (ret < 0)
 		return ret;

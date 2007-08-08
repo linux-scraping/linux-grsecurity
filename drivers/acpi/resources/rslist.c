@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -153,10 +153,9 @@ acpi_rs_convert_resources_to_aml(struct acpi_resource *resource,
 
 		/* Perform the conversion */
 
-		status = acpi_rs_convert_resource_to_aml(resource,
-							 ACPI_CAST_PTR(union
-								       aml_resource,
-								       aml),
+		status = acpi_rs_convert_resource_to_aml(resource, ACPI_CAST_PTR(union
+										 aml_resource,
+										 aml),
 							 acpi_gbl_set_resource_dispatch
 							 [resource->type]);
 		if (ACPI_FAILURE(status)) {

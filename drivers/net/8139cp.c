@@ -435,21 +435,12 @@ static void cp_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
 
 	spin_lock_irqsave(&cp->lock, flags);
 	cp->vlgrp = grp;
-	cp->cpcmd |= RxVlanOn;
-	cpw16(CpCmd, cp->cpcmd);
-	spin_unlock_irqrestore(&cp->lock, flags);
-}
+	if (grp)
+		cp->cpcmd |= RxVlanOn;
+	else
+		cp->cpcmd &= ~RxVlanOn;
 
-static void cp_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct cp_private *cp = netdev_priv(dev);
-	unsigned long flags;
-
-	spin_lock_irqsave(&cp->lock, flags);
-	cp->cpcmd &= ~RxVlanOn;
 	cpw16(CpCmd, cp->cpcmd);
-	if (cp->vlgrp)
-		cp->vlgrp->vlan_devices[vid] = NULL;
 	spin_unlock_irqrestore(&cp->lock, flags);
 }
 #endif /* CP_VLAN_TAG_USED */
@@ -574,7 +565,6 @@ rx_status_loop:
 		}
 
 		skb_reserve(new_skb, RX_OFFSET);
-		new_skb->dev = dev;
 
 		pci_unmap_single(cp->pdev, mapping,
 				 buflen, PCI_DMA_FROMDEVICE);
@@ -808,7 +798,7 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 		if (mss)
 			flags |= LargeSend | ((mss & MSSMask) << MSSShift);
 		else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-			const struct iphdr *ip = skb->nh.iph;
+			const struct iphdr *ip = ip_hdr(skb);
 			if (ip->protocol == IPPROTO_TCP)
 				flags |= IPCS | TCPCS;
 			else if (ip->protocol == IPPROTO_UDP)
@@ -827,7 +817,7 @@ static int cp_start_xmit (struct sk_buff *skb, struct net_device *dev)
 		u32 first_len, first_eor;
 		dma_addr_t first_mapping;
 		int frag, first_entry = entry;
-		const struct iphdr *ip = skb->nh.iph;
+		const struct iphdr *ip = ip_hdr(skb);
 
 		/* We must give this initial chunk to the device last.
 		 * Otherwise we could race with the device.
@@ -1083,7 +1073,6 @@ static int cp_refill_rx (struct cp_private *cp)
 		if (!skb)
 			goto err_out;
 
-		skb->dev = cp->dev;
 		skb_reserve(skb, RX_OFFSET);
 
 		mapping = pci_map_single(cp->pdev, skb->data, cp->rx_buf_sz,
@@ -1947,7 +1936,6 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 #if CP_VLAN_TAG_USED
 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 	dev->vlan_rx_register = cp_vlan_rx_register;
-	dev->vlan_rx_kill_vid = cp_vlan_rx_kill_vid;
 #endif
 
 	if (pci_using_dac)

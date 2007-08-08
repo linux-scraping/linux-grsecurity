@@ -27,7 +27,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
@@ -64,6 +63,7 @@
 MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>, Jose Orlando Pereira <jop@di.uminho.pt>");
 MODULE_DESCRIPTION("Bluetooth driver for the 3Com Bluetooth PCMCIA card");
 MODULE_LICENSE("GPL");
+MODULE_FIRMWARE("BT3CPCC.bin");
 
 
 
@@ -303,20 +303,20 @@ static void bt3c_receive(bt3c_info_t *info)
 				switch (info->rx_state) {
 
 				case RECV_WAIT_EVENT_HEADER:
-					eh = (struct hci_event_hdr *)(info->rx_skb->data);
+					eh = hci_event_hdr(info->rx_skb);
 					info->rx_state = RECV_WAIT_DATA;
 					info->rx_count = eh->plen;
 					break;
 
 				case RECV_WAIT_ACL_HEADER:
-					ah = (struct hci_acl_hdr *)(info->rx_skb->data);
+					ah = hci_acl_hdr(info->rx_skb);
 					dlen = __le16_to_cpu(ah->dlen);
 					info->rx_state = RECV_WAIT_DATA;
 					info->rx_count = dlen;
 					break;
 
 				case RECV_WAIT_SCO_HEADER:
-					sh = (struct hci_sco_hdr *)(info->rx_skb->data);
+					sh = hci_sco_hdr(info->rx_skb);
 					info->rx_state = RECV_WAIT_DATA;
 					info->rx_count = sh->dlen;
 					break;

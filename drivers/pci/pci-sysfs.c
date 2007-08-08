@@ -143,6 +143,14 @@ static ssize_t is_enabled_show(struct device *dev,
 	return sprintf (buf, "%u\n", atomic_read(&pdev->enable_cnt));
 }
 
+#ifdef CONFIG_NUMA
+static ssize_t
+numa_node_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf (buf, "%d\n", dev->numa_node);
+}
+#endif
+
 static ssize_t
 msi_bus_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -194,6 +202,9 @@ struct device_attribute pci_dev_attrs[] = {
 	__ATTR_RO(irq),
 	__ATTR_RO(local_cpus),
 	__ATTR_RO(modalias),
+#ifdef CONFIG_NUMA
+	__ATTR_RO(numa_node),
+#endif
 	__ATTR(enable, 0600, is_enabled_show, is_enabled_store),
 	__ATTR(broken_parity_status,(S_IRUGO|S_IWUSR),
 		broken_parity_status_show,broken_parity_status_store),
@@ -609,7 +620,8 @@ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 		goto err_bin_file;
 
 	/* If the device has a ROM, try to expose it in sysfs. */
-	if (pci_resource_len(pdev, PCI_ROM_RESOURCE)) {
+	if (pci_resource_len(pdev, PCI_ROM_RESOURCE) ||
+	    (pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW)) {
 		rom_attr = kzalloc(sizeof(*rom_attr), GFP_ATOMIC);
 		if (rom_attr) {
 			pdev->rom_attr = rom_attr;
@@ -624,7 +636,7 @@ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 				goto err_rom;
 		} else {
 			retval = -ENOMEM;
-			goto err_bin_file;
+			goto err_resource_files;
 		}
 	}
 	/* add platform-specific attributes */
@@ -634,6 +646,8 @@ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 
 err_rom:
 	kfree(rom_attr);
+err_resource_files:
+	pci_remove_resource_files(pdev);
 err_bin_file:
 	if (pdev->cfg_size < 4096)
 		sysfs_remove_bin_file(&pdev->dev.kobj, &pci_config_attr);
@@ -684,4 +698,4 @@ static int __init pci_sysfs_init(void)
 	return 0;
 }
 
-__initcall(pci_sysfs_init);
+late_initcall(pci_sysfs_init);

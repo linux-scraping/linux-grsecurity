@@ -42,8 +42,15 @@
 
 #include "common.h"
 
-enum { MAC_STATS_UPDATE_FAST, MAC_STATS_UPDATE_FULL };
-enum { MAC_DIRECTION_RX = 1, MAC_DIRECTION_TX = 2 };
+enum {
+	MAC_STATS_UPDATE_FAST,
+	MAC_STATS_UPDATE_FULL
+};
+
+enum {
+	MAC_DIRECTION_RX = 1,
+	MAC_DIRECTION_TX = 2
+};
 
 struct cmac_statistics {
 	/* Transmit */
@@ -119,7 +126,7 @@ typedef struct _cmac_instance cmac_instance;
 struct cmac {
 	struct cmac_statistics stats;
 	adapter_t *adapter;
-	struct cmac_ops *ops;
+	const struct cmac_ops *ops;
 	cmac_instance *instance;
 };
 
@@ -129,11 +136,7 @@ struct gmac {
 	int (*reset)(adapter_t *);
 };
 
-extern struct gmac t1_pm3393_ops;
-extern struct gmac t1_chelsio_mac_ops;
-extern struct gmac t1_vsc7321_ops;
-extern struct gmac t1_vsc7326_ops;
-extern struct gmac t1_ixf1010_ops;
-extern struct gmac t1_dummy_mac_ops;
+extern const struct gmac t1_pm3393_ops;
+extern const struct gmac t1_vsc7326_ops;
 
 #endif /* _CXGB_GMAC_H_ */

@@ -277,11 +277,14 @@
 #define BCM43xx_SBTMSTATELOW_REJECT		0x02
 #define BCM43xx_SBTMSTATELOW_CLOCK		0x10000
 #define BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK	0x20000
+#define BCM43xx_SBTMSTATELOW_G_MODE_ENABLE	0x20000000
 
 /* sbtmstatehigh state flags */
 #define BCM43xx_SBTMSTATEHIGH_SERROR		0x00000001
 #define BCM43xx_SBTMSTATEHIGH_BUSY		0x00000004
 #define BCM43xx_SBTMSTATEHIGH_TIMEOUT		0x00000020
+#define BCM43xx_SBTMSTATEHIGH_G_PHY_AVAIL	0x00010000
+#define BCM43xx_SBTMSTATEHIGH_A_PHY_AVAIL	0x00020000
 #define BCM43xx_SBTMSTATEHIGH_COREFLAGS		0x1FFF0000
 #define BCM43xx_SBTMSTATEHIGH_DMA64BIT		0x10000000
 #define BCM43xx_SBTMSTATEHIGH_GATEDCLK		0x20000000
@@ -333,7 +336,7 @@
 #define BCM43xx_SBF_PS2			0x04000000
 #define BCM43xx_SBF_NO_SSID_BCAST	0x08000000
 #define BCM43xx_SBF_TIME_UPDATE		0x10000000
-#define BCM43xx_SBF_80000000		0x80000000 /*FIXME: fix name*/
+#define BCM43xx_SBF_MODE_G		0x80000000
 
 /* Microcode */
 #define BCM43xx_UCODE_REVISION		0x0000
@@ -351,6 +354,10 @@
 #define BCM43xx_UCODEFLAG_UNKGPHY	0x0020
 #define BCM43xx_UCODEFLAG_UNKPACTRL	0x0040
 #define BCM43xx_UCODEFLAG_JAPAN		0x0080
+
+/* Hardware Radio Enable masks */
+#define BCM43xx_MMIO_RADIO_HWENABLED_HI_MASK (1 << 16)
+#define BCM43xx_MMIO_RADIO_HWENABLED_LO_MASK (1 << 4)
 
 /* Generic-Interrupt reasons. */
 #define BCM43xx_IRQ_READY		(1 << 0)
@@ -503,8 +510,6 @@ struct bcm43xx_sprominfo {
 	u8 et1macaddr[6];
 	u8 et0phyaddr:5;
 	u8 et1phyaddr:5;
-	u8 et0mdcport:1;
-	u8 et1mdcport:1;
 	u8 boardrev;
 	u8 locale:4;
 	u8 antennas_aphy:2;
@@ -538,7 +543,7 @@ struct bcm43xx_lopair {
 
 struct bcm43xx_phyinfo {
 	/* Hardware Data */
-	u8 version;
+	u8 analog;
 	u8 type;
 	u8 rev;
 	u16 antenna_diversity;
@@ -653,12 +658,6 @@ struct bcm43xx_pio {
 
 #define BCM43xx_MAX_80211_CORES		2
 
-#ifdef CONFIG_BCM947XX
-#define core_offset(bcm) (bcm)->current_core_offset
-#else
-#define core_offset(bcm) 0
-#endif
-
 /* Generic information about a core. */
 struct bcm43xx_coreinfo {
 	u8 available:1,
@@ -758,7 +757,8 @@ struct bcm43xx_private {
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
 	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
 	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
-	    firmware_norelease:1;	/* Do not release the firmware. Used on suspend. */
+	    firmware_norelease:1,	/* Do not release the firmware. Used on suspend. */
+	    radio_hw_enable:1;		/* TRUE if radio is hardware enabled */
 
 	struct bcm43xx_stats stats;
 
@@ -783,10 +783,6 @@ struct bcm43xx_private {
 
 	/* The currently active core. */
 	struct bcm43xx_coreinfo *current_core;
-#ifdef CONFIG_BCM947XX
-	/** current core memory offset */
-	u32 current_core_offset;
-#endif
 	struct bcm43xx_coreinfo *active_80211_core;
 	/* coreinfo structs for all possible cores follow.
 	 * Note that a core might not exist.
@@ -937,25 +933,25 @@ struct bcm43xx_lopair * bcm43xx_get_lopair(struct bcm43xx_phyinfo *phy,
 static inline
 u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
 {
-	return ioread16(bcm->mmio_addr + core_offset(bcm) + offset);
+	return ioread16(bcm->mmio_addr + offset);
 }
 
 static inline
 void bcm43xx_write16(struct bcm43xx_private *bcm, u16 offset, u16 value)
 {
-	iowrite16(value, bcm->mmio_addr + core_offset(bcm) + offset);
+	iowrite16(value, bcm->mmio_addr + offset);
 }
 
 static inline
 u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
 {
-	return ioread32(bcm->mmio_addr + core_offset(bcm) + offset);
+	return ioread32(bcm->mmio_addr + offset);
 }
 
 static inline
 void bcm43xx_write32(struct bcm43xx_private *bcm, u16 offset, u32 value)
 {
-	iowrite32(value, bcm->mmio_addr + core_offset(bcm) + offset);
+	iowrite32(value, bcm->mmio_addr + offset);
 }
 
 static inline

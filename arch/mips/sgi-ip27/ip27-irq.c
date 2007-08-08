@@ -19,7 +19,6 @@
 #include <linux/timex.h>
 #include <linux/slab.h>
 #include <linux/random.h>
-#include <linux/smp_lock.h>
 #include <linux/kernel.h>
 #include <linux/kernel_stat.h>
 #include <linux/delay.h>
@@ -333,7 +332,7 @@ static inline void disable_bridge_irq(unsigned int irq)
 }
 
 static struct irq_chip bridge_irq_type = {
-	.typename	= "bridge",
+	.name		= "bridge",
 	.startup	= startup_bridge_irq,
 	.shutdown	= shutdown_bridge_irq,
 	.ack		= disable_bridge_irq,

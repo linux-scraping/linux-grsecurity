@@ -733,6 +733,15 @@ static int cdrom_decode_status(ide_drive_t *drive, int good_stat, int *stat_ret)
 			cdrom_saw_media_change (drive);
 			/*printk("%s: media changed\n",drive->name);*/
 			return 0;
+ 		} else if ((sense_key == ILLEGAL_REQUEST) &&
+ 			   (rq->cmd[0] == GPCMD_START_STOP_UNIT)) {
+ 			/*
+ 			 * Don't print error message for this condition--
+ 			 * SFF8090i indicates that 5/24/00 is the correct
+ 			 * response to a request to close the tray if the
+ 			 * drive doesn't have that capability.
+ 			 * cdrom_log_sense() knows this!
+ 			 */
 		} else if (!(rq->cmd_flags & REQ_QUIET)) {
 			/* Otherwise, print an error. */
 			ide_dump_status(drive, "packet command error", stat);
@@ -1102,7 +1111,7 @@ static ide_startstop_t cdrom_read_intr (ide_drive_t *drive)
 	if (dma) {
 		info->dma = 0;
 		if ((dma_error = HWIF(drive)->ide_dma_end(drive)))
-			__ide_dma_off(drive);
+			ide_dma_off(drive);
 	}
 
 	if (cdrom_decode_status(drive, 0, &stat))
@@ -1698,7 +1707,7 @@ static ide_startstop_t cdrom_newpc_intr(ide_drive_t *drive)
 	if (dma) {
 		if (dma_error) {
 			printk(KERN_ERR "ide-cd: dma error\n");
-			__ide_dma_off(drive);
+			ide_dma_off(drive);
 			return ide_error(drive, "dma error", stat);
 		}
 
@@ -1824,7 +1833,7 @@ static ide_startstop_t cdrom_write_intr(ide_drive_t *drive)
 		info->dma = 0;
 		if ((dma_error = HWIF(drive)->ide_dma_end(drive))) {
 			printk(KERN_ERR "ide-cd: write dma error\n");
-			__ide_dma_off(drive);
+			ide_dma_off(drive);
 		}
 	}
 
@@ -3048,10 +3057,14 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
 	return nslots;
 }
 
+#ifdef CONFIG_IDE_PROC_FS
 static void ide_cdrom_add_settings(ide_drive_t *drive)
 {
-	ide_add_setting(drive,	"dsc_overlap",		SETTING_RW, -1, -1, TYPE_BYTE, 0, 1, 1,	1, &drive->dsc_overlap, NULL);
+	ide_add_setting(drive, "dsc_overlap", SETTING_RW, TYPE_BYTE, 0, 1, 1, 1, &drive->dsc_overlap, NULL);
 }
+#else
+static inline void ide_cdrom_add_settings(ide_drive_t *drive) { ; }
+#endif
 
 /*
  * standard prep_rq_fn that builds 10 byte cmds
@@ -3253,14 +3266,6 @@ int ide_cdrom_setup (ide_drive_t *drive)
 	if (drive->autotune == IDE_TUNE_DEFAULT ||
 	    drive->autotune == IDE_TUNE_AUTO)
 		drive->dsc_overlap = (drive->next != drive);
-#if 0
-	drive->dsc_overlap = (HWIF(drive)->no_dsc) ? 0 : 1;
-	if (HWIF(drive)->no_dsc) {
-		printk(KERN_INFO "ide-cd: %s: disabling DSC overlap\n",
-			drive->name);
-		drive->dsc_overlap = 0;
-	}
-#endif
 
 	if (ide_cdrom_register(drive, nslots)) {
 		printk (KERN_ERR "%s: ide_cdrom_setup failed to register device with the cdrom driver.\n", drive->name);
@@ -3271,7 +3276,7 @@ int ide_cdrom_setup (ide_drive_t *drive)
 	return 0;
 }
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_IDE_PROC_FS
 static
 sector_t ide_cdrom_capacity (ide_drive_t *drive)
 {
@@ -3288,7 +3293,7 @@ static void ide_cd_remove(ide_drive_t *drive)
 {
 	struct cdrom_info *info = drive->driver_data;
 
-	ide_unregister_subdriver(drive, info->driver);
+	ide_proc_unregister_driver(drive, info->driver);
 
 	del_gendisk(info->disk);
 
@@ -3318,7 +3323,7 @@ static void ide_cd_release(struct kref *kref)
 
 static int ide_cd_probe(ide_drive_t *);
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_IDE_PROC_FS
 static int proc_idecd_read_capacity
 	(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
@@ -3333,8 +3338,6 @@ static ide_proc_entry_t idecd_proc[] = {
 	{ "capacity", S_IFREG|S_IRUGO, proc_idecd_read_capacity, NULL },
 	{ NULL, 0, NULL, NULL }
 };
-#else
-# define idecd_proc	NULL
 #endif
 
 static ide_driver_t ide_cdrom_driver = {
@@ -3352,28 +3355,25 @@ static ide_driver_t ide_cdrom_driver = {
 	.end_request		= ide_end_request,
 	.error			= __ide_error,
 	.abort			= __ide_abort,
+#ifdef CONFIG_IDE_PROC_FS
 	.proc			= idecd_proc,
+#endif
 };
 
 static int idecd_open(struct inode * inode, struct file * file)
 {
 	struct gendisk *disk = inode->i_bdev->bd_disk;
 	struct cdrom_info *info;
-	ide_drive_t *drive;
 	int rc = -ENOMEM;
 
 	if (!(info = ide_cd_get(disk)))
 		return -ENXIO;
 
-	drive = info->drive;
-
-	drive->usage++;
-
 	if (!info->buffer)
-		info->buffer = kmalloc(SECTOR_BUFFER_SIZE,
-					GFP_KERNEL|__GFP_REPEAT);
-        if (!info->buffer || (rc = cdrom_open(&info->devinfo, inode, file)))
-		drive->usage--;
+		info->buffer = kmalloc(SECTOR_BUFFER_SIZE, GFP_KERNEL|__GFP_REPEAT);
+
+	if (info->buffer)
+		rc = cdrom_open(&info->devinfo, inode, file);
 
 	if (rc < 0)
 		ide_cd_put(info);
@@ -3385,10 +3385,8 @@ static int idecd_release(struct inode * inode, struct file * file)
 {
 	struct gendisk *disk = inode->i_bdev->bd_disk;
 	struct cdrom_info *info = ide_cd_g(disk);
-	ide_drive_t *drive = info->drive;
 
 	cdrom_release (&info->devinfo, file);
-	drive->usage--;
 
 	ide_cd_put(info);
 
@@ -3521,7 +3519,7 @@ static int ide_cd_probe(ide_drive_t *drive)
 
 	ide_init_disk(g, drive);
 
-	ide_register_subdriver(drive, &ide_cdrom_driver);
+	ide_proc_register_driver(drive, &ide_cdrom_driver);
 
 	kref_init(&info->kref);
 
@@ -3538,7 +3536,7 @@ static int ide_cd_probe(ide_drive_t *drive)
 	g->flags = GENHD_FL_CD | GENHD_FL_REMOVABLE;
 	if (ide_cdrom_setup(drive)) {
 		struct cdrom_device_info *devinfo = &info->devinfo;
-		ide_unregister_subdriver(drive, &ide_cdrom_driver);
+		ide_proc_unregister_driver(drive, &ide_cdrom_driver);
 		kfree(info->buffer);
 		kfree(info->toc);
 		kfree(info->changer_info);

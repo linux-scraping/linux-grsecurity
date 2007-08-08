@@ -1816,7 +1816,6 @@ static void hp100_rx(struct net_device *dev)
 			u_char *ptr;
 
 			skb_reserve(skb,2);
-			skb->dev = dev;
 
 			/* ptr to start of the sk_buff data area */
 			skb_put(skb, pkt_len);
@@ -3006,7 +3005,7 @@ static int __init hp100_isa_init(void)
 	return cards > 0 ? 0 : -ENODEV;
 }
 
-static void __exit hp100_isa_cleanup(void)
+static void hp100_isa_cleanup(void)
 {
 	int i;
 
@@ -3034,7 +3033,7 @@ static int __init hp100_module_init(void)
 		goto out2;
 #endif
 #ifdef CONFIG_PCI
-	err = pci_module_init(&hp100_pci_driver);
+	err = pci_register_driver(&hp100_pci_driver);
 	if (err && err != -ENODEV)
 		goto out3;
 #endif

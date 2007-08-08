@@ -33,8 +33,8 @@
 #include <linux/kexec.h>
 #include <linux/backlight.h>
 #include <linux/bug.h>
+#include <linux/kdebug.h>
 
-#include <asm/kdebug.h>
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -72,69 +72,84 @@ EXPORT_SYMBOL(__debugger_dabr_match);
 EXPORT_SYMBOL(__debugger_fault_handler);
 #endif
 
-ATOMIC_NOTIFIER_HEAD(powerpc_die_chain);
-
-int register_die_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_register(&powerpc_die_chain, nb);
-}
-EXPORT_SYMBOL(register_die_notifier);
-
-int unregister_die_notifier(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_unregister(&powerpc_die_chain, nb);
-}
-EXPORT_SYMBOL(unregister_die_notifier);
-
 /*
  * Trap & Exception support
  */
 
-static DEFINE_SPINLOCK(die_lock);
+#ifdef CONFIG_PMAC_BACKLIGHT
+static void pmac_backlight_unblank(void)
+{
+	mutex_lock(&pmac_backlight_mutex);
+	if (pmac_backlight) {
+		struct backlight_properties *props;
+
+		props = &pmac_backlight->props;
+		props->brightness = props->max_brightness;
+		props->power = FB_BLANK_UNBLANK;
+		backlight_update_status(pmac_backlight);
+	}
+	mutex_unlock(&pmac_backlight_mutex);
+}
+#else
+static inline void pmac_backlight_unblank(void) { }
+#endif
 
 int die(const char *str, struct pt_regs *regs, long err)
 {
+	static struct {
+		spinlock_t lock;
+		u32 lock_owner;
+		int lock_owner_depth;
+	} die = {
+		.lock =			__SPIN_LOCK_UNLOCKED(die.lock),
+		.lock_owner =		-1,
+		.lock_owner_depth =	0
+	};
 	static int die_counter;
+	unsigned long flags;
 
 	if (debugger(regs))
 		return 1;
 
-	console_verbose();
-	spin_lock_irq(&die_lock);
-	bust_spinlocks(1);
-#ifdef CONFIG_PMAC_BACKLIGHT
-	mutex_lock(&pmac_backlight_mutex);
-	if (machine_is(powermac) && pmac_backlight) {
-		struct backlight_properties *props;
+	oops_enter();
 
-		down(&pmac_backlight->sem);
-		props = pmac_backlight->props;
-		props->brightness = props->max_brightness;
-		props->power = FB_BLANK_UNBLANK;
-		props->update_status(pmac_backlight);
-		up(&pmac_backlight->sem);
+	if (die.lock_owner != raw_smp_processor_id()) {
+		console_verbose();
+		spin_lock_irqsave(&die.lock, flags);
+		die.lock_owner = smp_processor_id();
+		die.lock_owner_depth = 0;
+		bust_spinlocks(1);
+		if (machine_is(powermac))
+			pmac_backlight_unblank();
+	} else {
+		local_save_flags(flags);
 	}
-	mutex_unlock(&pmac_backlight_mutex);
-#endif
-	printk("Oops: %s, sig: %ld [#%d]\n", str, err, ++die_counter);
+
+	if (++die.lock_owner_depth < 3) {
+		printk("Oops: %s, sig: %ld [#%d]\n", str, err, ++die_counter);
 #ifdef CONFIG_PREEMPT
-	printk("PREEMPT ");
+		printk("PREEMPT ");
 #endif
 #ifdef CONFIG_SMP
-	printk("SMP NR_CPUS=%d ", NR_CPUS);
+		printk("SMP NR_CPUS=%d ", NR_CPUS);
 #endif
 #ifdef CONFIG_DEBUG_PAGEALLOC
-	printk("DEBUG_PAGEALLOC ");
+		printk("DEBUG_PAGEALLOC ");
 #endif
 #ifdef CONFIG_NUMA
-	printk("NUMA ");
+		printk("NUMA ");
 #endif
-	printk("%s\n", ppc_md.name ? "" : ppc_md.name);
+		printk("%s\n", ppc_md.name ? ppc_md.name : "");
 
-	print_modules();
-	show_regs(regs);
+		print_modules();
+		show_regs(regs);
+	} else {
+		printk("Recursive die() failure, output suppressed\n");
+	}
+
 	bust_spinlocks(0);
-	spin_unlock_irq(&die_lock);
+	die.lock_owner = -1;
+	spin_unlock_irqrestore(&die.lock, flags);
 
 	if (kexec_should_crash(current) ||
 		kexec_sr_activated(smp_processor_id()))
@@ -147,6 +162,7 @@ int die(const char *str, struct pt_regs *regs, long err)
 	if (panic_on_oops)
 		panic("Fatal exception");
 
+	oops_exit();
 	do_exit(err);
 
 	return 0;
@@ -174,7 +190,7 @@ void _exception(int signr, struct pt_regs *regs, int code, unsigned long addr)
 	 * generate the same exception over and over again and we get
 	 * nowhere.  Better to kill it and let the kernel panic.
 	 */
-	if (current->pid == 1) {
+	if (is_init(current)) {
 		__sighandler_t handler;
 
 		spin_lock_irq(&current->sighand->siglock);
@@ -535,34 +551,40 @@ static void emulate_single_step(struct pt_regs *regs)
 	}
 }
 
-static void parse_fpe(struct pt_regs *regs)
+static inline int __parse_fpscr(unsigned long fpscr)
 {
-	int code = 0;
-	unsigned long fpscr;
-
-	flush_fp_to_thread(current);
-
-	fpscr = current->thread.fpscr.val;
+	int ret = 0;
 
 	/* Invalid operation */
 	if ((fpscr & FPSCR_VE) && (fpscr & FPSCR_VX))
-		code = FPE_FLTINV;
+		ret = FPE_FLTINV;
 
 	/* Overflow */
 	else if ((fpscr & FPSCR_OE) && (fpscr & FPSCR_OX))
-		code = FPE_FLTOVF;
+		ret = FPE_FLTOVF;
 
 	/* Underflow */
 	else if ((fpscr & FPSCR_UE) && (fpscr & FPSCR_UX))
-		code = FPE_FLTUND;
+		ret = FPE_FLTUND;
 
 	/* Divide by zero */
 	else if ((fpscr & FPSCR_ZE) && (fpscr & FPSCR_ZX))
-		code = FPE_FLTDIV;
+		ret = FPE_FLTDIV;
 
 	/* Inexact result */
 	else if ((fpscr & FPSCR_XE) && (fpscr & FPSCR_XX))
-		code = FPE_FLTRES;
+		ret = FPE_FLTRES;
+
+	return ret;
+}
+
+static void parse_fpe(struct pt_regs *regs)
+{
+	int code = 0;
+
+	flush_fp_to_thread(current);
+
+	code = __parse_fpscr(current->thread.fpscr.val);
 
 	_exception(SIGFPE, regs, code, regs->nip);
 }
@@ -739,20 +761,7 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 	extern int do_mathemu(struct pt_regs *regs);
 
 	/* We can now get here via a FP Unavailable exception if the core
-	 * has no FPU, in that case no reason flags will be set */
-#ifdef CONFIG_MATH_EMULATION
-	/* (reason & REASON_ILLEGAL) would be the obvious thing here,
-	 * but there seems to be a hardware bug on the 405GP (RevD)
-	 * that means ESR is sometimes set incorrectly - either to
-	 * ESR_DST (!?) or 0.  In the process of chasing this with the
-	 * hardware people - not sure if it can happen on any illegal
-	 * instruction or only on FP instructions, whether there is a
-	 * pattern to occurences etc. -dgibson 31/Mar/2003 */
-	if (!(reason & REASON_TRAP) && do_mathemu(regs) == 0) {
-		emulate_single_step(regs);
-		return;
-	}
-#endif /* CONFIG_MATH_EMULATION */
+	 * has no FPU, in that case the reason flags will be 0 */
 
 	if (reason & REASON_FP) {
 		/* IEEE FP exception */
@@ -777,6 +786,31 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 	}
 
 	local_irq_enable();
+
+#ifdef CONFIG_MATH_EMULATION
+	/* (reason & REASON_ILLEGAL) would be the obvious thing here,
+	 * but there seems to be a hardware bug on the 405GP (RevD)
+	 * that means ESR is sometimes set incorrectly - either to
+	 * ESR_DST (!?) or 0.  In the process of chasing this with the
+	 * hardware people - not sure if it can happen on any illegal
+	 * instruction or only on FP instructions, whether there is a
+	 * pattern to occurences etc. -dgibson 31/Mar/2003 */
+	switch (do_mathemu(regs)) {
+	case 0:
+		emulate_single_step(regs);
+		return;
+	case 1: {
+			int code = 0;
+			code = __parse_fpscr(current->thread.fpscr.val);
+			_exception(SIGFPE, regs, code, regs->nip);
+			return;
+		}
+	case -EFAULT:
+		_exception(SIGSEGV, regs, SEGV_MAPERR, regs->nip);
+		return;
+	}
+	/* fall through on any other errors */
+#endif /* CONFIG_MATH_EMULATION */
 
 	/* Try to emulate it if we should. */
 	if (reason & (REASON_ILLEGAL | REASON_PRIVILEGED)) {
@@ -891,18 +925,39 @@ void SoftwareEmulation(struct pt_regs *regs)
 
 #ifdef CONFIG_MATH_EMULATION
 	errcode = do_mathemu(regs);
+
+	switch (errcode) {
+	case 0:
+		emulate_single_step(regs);
+		return;
+	case 1: {
+			int code = 0;
+			code = __parse_fpscr(current->thread.fpscr.val);
+			_exception(SIGFPE, regs, code, regs->nip);
+			return;
+		}
+	case -EFAULT:
+		_exception(SIGSEGV, regs, SEGV_MAPERR, regs->nip);
+		return;
+	default:
+		_exception(SIGILL, regs, ILL_ILLOPC, regs->nip);
+		return;
+	}
+
 #else
 	errcode = Soft_emulate_8xx(regs);
-#endif
-	if (errcode) {
-		if (errcode > 0)
-			_exception(SIGFPE, regs, 0, 0);
-		else if (errcode == -EFAULT)
-			_exception(SIGSEGV, regs, 0, 0);
-		else
-			_exception(SIGILL, regs, ILL_ILLOPC, regs->nip);
-	} else
+	switch (errcode) {
+	case 0:
 		emulate_single_step(regs);
+		return;
+	case 1:
+		_exception(SIGILL, regs, ILL_ILLOPC, regs->nip);
+		return;
+	case -EFAULT:
+		_exception(SIGSEGV, regs, SEGV_MAPERR, regs->nip);
+		return;
+	}
+#endif
 }
 #endif /* CONFIG_8xx */
 

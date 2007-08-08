@@ -557,7 +557,7 @@ int omap_request_dma(int dev_id, const char *dev_name,
 		omap_enable_channel_irq(free_ch);
 		/* Clear the CSR register and IRQ status register */
 		OMAP_DMA_CSR_REG(free_ch) = OMAP2_DMA_CSR_CLEAR_MASK;
-		omap_writel(~0x0, OMAP_DMA4_IRQSTATUS_L0);
+		omap_writel(1 << free_ch, OMAP_DMA4_IRQSTATUS_L0);
 	}
 
 	*dma_ch_out = free_ch;
@@ -597,10 +597,7 @@ void omap_free_dma(int lch)
 
 		/* Clear the CSR register and IRQ status register */
 		OMAP_DMA_CSR_REG(lch) = OMAP2_DMA_CSR_CLEAR_MASK;
-
-		val = omap_readl(OMAP_DMA4_IRQSTATUS_L0);
-		val |= 1 << lch;
-		omap_writel(val, OMAP_DMA4_IRQSTATUS_L0);
+		omap_writel(1 << lch, OMAP_DMA4_IRQSTATUS_L0);
 
 		/* Disable all DMA interrupts for the channel. */
 		OMAP_DMA_CICR_REG(lch) = 0;
@@ -750,7 +747,7 @@ int omap_set_dma_callback(int lch,
  */
 dma_addr_t omap_get_dma_src_pos(int lch)
 {
-	dma_addr_t offset;
+	dma_addr_t offset = 0;
 
 	if (cpu_class_is_omap1())
 		offset = (dma_addr_t) (OMAP1_DMA_CSSA_L_REG(lch) |
@@ -772,7 +769,7 @@ dma_addr_t omap_get_dma_src_pos(int lch)
  */
 dma_addr_t omap_get_dma_dst_pos(int lch)
 {
-	dma_addr_t offset;
+	dma_addr_t offset = 0;
 
 	if (cpu_class_is_omap1())
 		offset = (dma_addr_t) (OMAP1_DMA_CDSA_L_REG(lch) |
@@ -927,12 +924,18 @@ static irqreturn_t omap1_dma_irq_handler(int irq, void *dev_id)
 static int omap2_dma_handle_ch(int ch)
 {
 	u32 status = OMAP_DMA_CSR_REG(ch);
-	u32 val;
 
-	if (!status)
+	if (!status) {
+		if (printk_ratelimit())
+			printk(KERN_WARNING "Spurious DMA IRQ for lch %d\n", ch);
 		return 0;
-	if (unlikely(dma_chan[ch].dev_id == -1))
+	}
+	if (unlikely(dma_chan[ch].dev_id == -1)) {
+		if (printk_ratelimit())
+			printk(KERN_WARNING "IRQ %04x for non-allocated DMA"
+					"channel %d\n", status, ch);
 		return 0;
+	}
 	if (unlikely(status & OMAP_DMA_DROP_IRQ))
 		printk(KERN_INFO
 		       "DMA synchronization event drop occurred with device "
@@ -948,11 +951,7 @@ static int omap2_dma_handle_ch(int ch)
 		       dma_chan[ch].dev_id);
 
 	OMAP_DMA_CSR_REG(ch) = OMAP2_DMA_CSR_CLEAR_MASK;
-
-	val = omap_readl(OMAP_DMA4_IRQSTATUS_L0);
-	/* ch in this function is from 0-31 while in register it is 1-32 */
-	val = 1 << (ch);
-	omap_writel(val, OMAP_DMA4_IRQSTATUS_L0);
+	omap_writel(1 << ch, OMAP_DMA4_IRQSTATUS_L0);
 
 	if (likely(dma_chan[ch].callback != NULL))
 		dma_chan[ch].callback(ch, status, dma_chan[ch].data);
@@ -967,11 +966,15 @@ static irqreturn_t omap2_dma_irq_handler(int irq, void *dev_id)
 	int i;
 
 	val = omap_readl(OMAP_DMA4_IRQSTATUS_L0);
-
-	for (i = 1; i <= OMAP_LOGICAL_DMA_CH_COUNT; i++) {
-		int active = val & (1 << (i - 1));
-		if (active)
-			omap2_dma_handle_ch(i - 1);
+	if (val == 0) {
+		if (printk_ratelimit())
+			printk(KERN_WARNING "Spurious DMA IRQ\n");
+		return IRQ_HANDLED;
+	}
+	for (i = 0; i < OMAP_LOGICAL_DMA_CH_COUNT && val != 0; i++) {
+		if (val & 1)
+			omap2_dma_handle_ch(i);
+		val >>= 1;
 	}
 
 	return IRQ_HANDLED;
@@ -1169,7 +1172,7 @@ static void set_b1_regs(void)
 		break;
 	default:
 		BUG();
-		return;	/* Supress warning about uninitialized vars */
+		return;	/* Suppress warning about uninitialized vars */
 	}
 
 	if (omap_dma_in_1510_mode()) {

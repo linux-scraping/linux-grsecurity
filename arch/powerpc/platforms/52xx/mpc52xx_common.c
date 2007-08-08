@@ -60,7 +60,7 @@ mpc52xx_find_ipb_freq(struct device_node *node)
 
 	of_node_get(node);
 	while (node) {
-		p_ipb_freq = get_property(node, "bus-frequency", NULL);
+		p_ipb_freq = of_get_property(node, "bus-frequency", NULL);
 		if (p_ipb_freq)
 			break;
 
@@ -83,8 +83,8 @@ mpc52xx_setup_cpu(void)
 	struct mpc52xx_xlb  __iomem *xlb;
 
 	/* Map zones */
-	cdm = mpc52xx_find_and_map("mpc52xx-cdm");
-	xlb = mpc52xx_find_and_map("mpc52xx-xlb");
+	cdm = mpc52xx_find_and_map("mpc5200-cdm");
+	xlb = mpc52xx_find_and_map("mpc5200-xlb");
 
 	if (!cdm || !xlb) {
 		printk(KERN_ERR __FILE__ ": "

@@ -15,12 +15,14 @@
 #include <asm/sn/pcibus_provider_defs.h>
 #include <asm/sn/pcidev.h>
 #include <asm/sn/sn_sal.h>
+#include <asm/sn/pic.h>
 #include <asm/sn/sn2/sn_hwperf.h>
 #include "xtalk/xwidgetdev.h"
 #include "xtalk/hubdev.h"
 
 int
-sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp)
+sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp,
+                      char **ssdt)
 {
 	struct ia64_sal_retval ret_stuff;
 	u64 busnum;
@@ -32,7 +34,8 @@ sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp)
 	segment = soft->pbi_buscommon.bs_persist_segment;
 	busnum = soft->pbi_buscommon.bs_persist_busnum;
 	SAL_CALL_NOLOCK(ret_stuff, (u64) SN_SAL_IOIF_SLOT_ENABLE, segment,
-			busnum, (u64) device, (u64) resp, 0, 0, 0);
+			busnum, (u64) device, (u64) resp, (u64)ia64_tpa(ssdt),
+			0, 0);
 
 	return (int)ret_stuff.v0;
 }
@@ -128,9 +131,9 @@ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
 	}
 
 	memcpy(soft, prom_bussoft, sizeof(struct pcibus_info));
-	soft->pbi_buscommon.bs_base =
-	    (((u64) soft->pbi_buscommon.
-	      bs_base << 4) >> 4) | __IA64_UNCACHED_OFFSET;
+	soft->pbi_buscommon.bs_base = (unsigned long)
+		ioremap(REGION_OFFSET(soft->pbi_buscommon.bs_base),
+			sizeof(struct pic));
 
 	spin_lock_init(&soft->pbi_lock);
 

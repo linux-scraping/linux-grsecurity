@@ -113,6 +113,7 @@ static inline unsigned long virt_to_bus(void *address)
 	unsigned long bus = phys + __direct_map_base;
 	return phys <= __direct_map_size ? bus : 0;
 }
+#define isa_virt_to_bus virt_to_bus
 
 static inline void *bus_to_virt(unsigned long address)
 {
@@ -523,15 +524,6 @@ extern void insl (unsigned long port, void *dst, unsigned long count);
 extern void outsb (unsigned long port, const void *src, unsigned long count);
 extern void outsw (unsigned long port, const void *src, unsigned long count);
 extern void outsl (unsigned long port, const void *src, unsigned long count);
-
-/*
- * XXX - We don't have csum_partial_copy_fromio() yet, so we cheat here and 
- * just copy it. The net code will then do the checksum later. Presently 
- * only used by some shared memory 8390 Ethernet cards anyway.
- */
-
-#define eth_io_copy_and_sum(skb,src,len,unused) \
-  memcpy_fromio((skb)->data,src,len)
 
 /*
  * The Alpha Jensen hardware for some rather strange reason puts

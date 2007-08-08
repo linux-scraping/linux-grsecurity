@@ -40,6 +40,7 @@
 #include <asm/smp.h>
 #include <asm/apicdef.h>
 #include "es7000.h"
+#include <mach_mpparse.h>
 
 /*
  * ES7000 Globals
@@ -160,56 +161,66 @@ parse_unisys_oem (char *oemptr)
 int __init
 find_unisys_acpi_oem_table(unsigned long *oem_addr)
 {
-	struct acpi_table_rsdp		*rsdp = NULL;
-	unsigned long			rsdp_phys = 0;
-	struct acpi_table_header 	*header = NULL;
-	int				i;
-	struct acpi_table_sdt		sdt;
-
-	rsdp_phys = acpi_find_rsdp();
-	rsdp = __va(rsdp_phys);
-	if (rsdp->rsdt_address) {
-		struct acpi_table_rsdt	*mapped_rsdt = NULL;
-		sdt.pa = rsdp->rsdt_address;
-
-		header = (struct acpi_table_header *)
-			__acpi_map_table(sdt.pa, sizeof(struct acpi_table_header));
-		if (!header)
-			return -ENODEV;
-
-		sdt.count = (header->length - sizeof(struct acpi_table_header)) >> 3;
-		mapped_rsdt = (struct acpi_table_rsdt *)
-			__acpi_map_table(sdt.pa, header->length);
-		if (!mapped_rsdt)
-			return -ENODEV;
-
-		header = &mapped_rsdt->header;
-
-		for (i = 0; i < sdt.count; i++)
-			sdt.entry[i].pa = (unsigned long) mapped_rsdt->entry[i];
-	};
-	for (i = 0; i < sdt.count; i++) {
-
-		header = (struct acpi_table_header *)
-			__acpi_map_table(sdt.entry[i].pa,
-				sizeof(struct acpi_table_header));
-		if (!header)
-			continue;
-		if (!strncmp((char *) &header->signature, "OEM1", 4)) {
-			if (!strncmp((char *) &header->oem_id, "UNISYS", 6)) {
-				void *addr;
-				struct oem_table *t;
-				acpi_table_print(header, sdt.entry[i].pa);
-				t = (struct oem_table *) __acpi_map_table(sdt.entry[i].pa, header->length);
-				addr = (void *) __acpi_map_table(t->OEMTableAddr, t->OEMTableSize);
-				*oem_addr = (unsigned long) addr;
-				return 0;
-			}
+	struct acpi_table_header *header = NULL;
+	int i = 0;
+	while (ACPI_SUCCESS(acpi_get_table("OEM1", i++, &header))) {
+		if (!memcmp((char *) &header->oem_id, "UNISYS", 6)) {
+			struct oem_table *t = (struct oem_table *)header;
+			*oem_addr = (unsigned long)__acpi_map_table(t->OEMTableAddr,
+								    t->OEMTableSize);
+			return 0;
 		}
 	}
 	return -1;
 }
 #endif
+
+/*
+ * This file also gets compiled if CONFIG_X86_GENERICARCH is set. Generic
+ * arch already has got following function definitions (asm-generic/es7000.c)
+ * hence no need to define these for that case.
+ */
+#ifndef CONFIG_X86_GENERICARCH
+void es7000_sw_apic(void);
+void __init enable_apic_mode(void)
+{
+	es7000_sw_apic();
+	return;
+}
+
+__init int mps_oem_check(struct mp_config_table *mpc, char *oem,
+		char *productid)
+{
+	if (mpc->mpc_oemptr) {
+		struct mp_config_oemtable *oem_table =
+			(struct mp_config_oemtable *)mpc->mpc_oemptr;
+		if (!strncmp(oem, "UNISYS", 6))
+			return parse_unisys_oem((char *)oem_table);
+	}
+	return 0;
+}
+#ifdef CONFIG_ACPI
+/* Hook from generic ACPI tables.c */
+int __init acpi_madt_oem_check(char *oem_id, char *oem_table_id)
+{
+	unsigned long oem_addr;
+	if (!find_unisys_acpi_oem_table(&oem_addr)) {
+		if (es7000_check_dsdt())
+			return parse_unisys_oem((char *)oem_addr);
+		else {
+			setup_unisys();
+			return 1;
+		}
+	}
+	return 0;
+}
+#else
+int __init acpi_madt_oem_check(char *oem_id, char *oem_table_id)
+{
+	return 0;
+}
+#endif
+#endif /* COFIG_X86_GENERICARCH */
 
 static void
 es7000_spin(int n)

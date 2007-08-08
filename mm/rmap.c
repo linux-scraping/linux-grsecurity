@@ -53,24 +53,6 @@
 
 struct kmem_cache *anon_vma_cachep;
 
-static inline void validate_anon_vma(struct vm_area_struct *find_vma)
-{
-#ifdef CONFIG_DEBUG_VM
-	struct anon_vma *anon_vma = find_vma->anon_vma;
-	struct vm_area_struct *vma;
-	unsigned int mapcount = 0;
-	int found = 0;
-
-	list_for_each_entry(vma, &anon_vma->head, anon_vma_node) {
-		mapcount++;
-		BUG_ON(mapcount > 100000);
-		if (vma == find_vma)
-			found = 1;
-	}
-	BUG_ON(!found);
-#endif
-}
-
 /* This must be called under the mmap_sem. */
 int anon_vma_prepare(struct vm_area_struct *vma)
 {
@@ -80,6 +62,10 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 	if (unlikely(!anon_vma)) {
 		struct mm_struct *mm = vma->vm_mm;
 		struct anon_vma *allocated, *locked;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		struct vm_area_struct *vma_m;
+#endif
 
 		anon_vma = find_mergeable_anon_vma(vma);
 		if (anon_vma) {
@@ -97,22 +83,18 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 		/* page_table_lock to protect against threads */
 		spin_lock(&mm->page_table_lock);
 		if (likely(!vma->anon_vma)) {
-			vma->anon_vma = anon_vma;
-			list_add_tail(&vma->anon_vma_node, &anon_vma->head);
-			allocated = NULL;
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			if (vma->vm_flags & VM_MIRROR) {
-				struct vm_area_struct *vma_m;
-
-				vma_m = find_vma(mm, vma->vm_start + vma->vm_mirror);
-				BUG_ON(!vma_m || vma_m->vm_start != vma->vm_start + vma->vm_mirror);
-				BUG_ON(vma_m->anon_vma || vma->vm_pgoff != vma_m->vm_pgoff);
+			vma_m = pax_find_mirror_vma(vma);
+			if (vma_m) {
 				vma_m->anon_vma = anon_vma;
 				__anon_vma_link(vma_m);
 			}
 #endif
 
+			vma->anon_vma = anon_vma;
+			list_add_tail(&vma->anon_vma_node, &anon_vma->head);
+			allocated = NULL;
 		}
 		spin_unlock(&mm->page_table_lock);
 
@@ -134,10 +116,8 @@ void __anon_vma_link(struct vm_area_struct *vma)
 {
 	struct anon_vma *anon_vma = vma->anon_vma;
 
-	if (anon_vma) {
+	if (anon_vma)
 		list_add_tail(&vma->anon_vma_node, &anon_vma->head);
-		validate_anon_vma(vma);
-	}
 }
 
 void anon_vma_link(struct vm_area_struct *vma)
@@ -147,7 +127,6 @@ void anon_vma_link(struct vm_area_struct *vma)
 	if (anon_vma) {
 		spin_lock(&anon_vma->lock);
 		list_add_tail(&vma->anon_vma_node, &anon_vma->head);
-		validate_anon_vma(vma);
 		spin_unlock(&anon_vma->lock);
 	}
 }
@@ -161,7 +140,6 @@ void anon_vma_unlink(struct vm_area_struct *vma)
 		return;
 
 	spin_lock(&anon_vma->lock);
-	validate_anon_vma(vma);
 	list_del(&vma->anon_vma_node);
 
 	/* We must garbage collect the anon_vma if it's empty */
@@ -175,13 +153,10 @@ void anon_vma_unlink(struct vm_area_struct *vma)
 static void anon_vma_ctor(void *data, struct kmem_cache *cachep,
 			  unsigned long flags)
 {
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-						SLAB_CTOR_CONSTRUCTOR) {
-		struct anon_vma *anon_vma = data;
+	struct anon_vma *anon_vma = data;
 
-		spin_lock_init(&anon_vma->lock);
-		INIT_LIST_HEAD(&anon_vma->head);
-	}
+	spin_lock_init(&anon_vma->lock);
+	INIT_LIST_HEAD(&anon_vma->head);
 }
 
 void __init anon_vma_init(void)
@@ -196,7 +171,7 @@ void __init anon_vma_init(void)
  */
 static struct anon_vma *page_lock_anon_vma(struct page *page)
 {
-	struct anon_vma *anon_vma = NULL;
+	struct anon_vma *anon_vma;
 	unsigned long anon_mapping;
 
 	rcu_read_lock();
@@ -208,9 +183,16 @@ static struct anon_vma *page_lock_anon_vma(struct page *page)
 
 	anon_vma = (struct anon_vma *) (anon_mapping - PAGE_MAPPING_ANON);
 	spin_lock(&anon_vma->lock);
+	return anon_vma;
 out:
 	rcu_read_unlock();
-	return anon_vma;
+	return NULL;
+}
+
+static void page_unlock_anon_vma(struct anon_vma *anon_vma)
+{
+	spin_unlock(&anon_vma->lock);
+	rcu_read_unlock();
 }
 
 /*
@@ -346,7 +328,8 @@ static int page_referenced_anon(struct page *page)
 		if (!mapcount)
 			break;
 	}
-	spin_unlock(&anon_vma->lock);
+
+	page_unlock_anon_vma(anon_vma);
 	return referenced;
 }
 
@@ -503,12 +486,15 @@ int page_mkclean(struct page *page)
 		struct address_space *mapping = page_mapping(page);
 		if (mapping)
 			ret = page_mkclean_file(mapping, page);
+		if (page_test_dirty(page)) {
+			page_clear_dirty(page);
+			ret = 1;
+		}
 	}
-	if (page_test_and_clear_dirty(page))
-		ret = 1;
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(page_mkclean);
 
 /**
  * page_set_anon_rmap - setup new anonymous rmap
@@ -535,19 +521,51 @@ static void __page_set_anon_rmap(struct page *page,
 }
 
 /**
+ * page_set_anon_rmap - sanity check anonymous rmap addition
+ * @page:	the page to add the mapping to
+ * @vma:	the vm area in which the mapping is added
+ * @address:	the user virtual address mapped
+ */
+static void __page_check_anon_rmap(struct page *page,
+	struct vm_area_struct *vma, unsigned long address)
+{
+#ifdef CONFIG_DEBUG_VM
+	/*
+	 * The page's anon-rmap details (mapping and index) are guaranteed to
+	 * be set up correctly at this point.
+	 *
+	 * We have exclusion against page_add_anon_rmap because the caller
+	 * always holds the page locked, except if called from page_dup_rmap,
+	 * in which case the page is already known to be setup.
+	 *
+	 * We have exclusion against page_add_new_anon_rmap because those pages
+	 * are initially only visible via the pagetables, and the pte is locked
+	 * over the call to page_add_new_anon_rmap.
+	 */
+	struct anon_vma *anon_vma = vma->anon_vma;
+	anon_vma = (void *) anon_vma + PAGE_MAPPING_ANON;
+	BUG_ON(page->mapping != (struct address_space *)anon_vma);
+	BUG_ON(page->index != linear_page_index(vma, address));
+#endif
+}
+
+/**
  * page_add_anon_rmap - add pte mapping to an anonymous page
  * @page:	the page to add the mapping to
  * @vma:	the vm area in which the mapping is added
  * @address:	the user virtual address mapped
  *
- * The caller needs to hold the pte lock.
+ * The caller needs to hold the pte lock and the page must be locked.
  */
 void page_add_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address)
 {
+	VM_BUG_ON(!PageLocked(page));
+	VM_BUG_ON(address < vma->vm_start || address >= vma->vm_end);
 	if (atomic_inc_and_test(&page->_mapcount))
 		__page_set_anon_rmap(page, vma, address);
-	/* else checking page index and mapping is racy */
+	else
+		__page_check_anon_rmap(page, vma, address);
 }
 
 /*
@@ -558,10 +576,12 @@ void page_add_anon_rmap(struct page *page,
  *
  * Same as page_add_anon_rmap but must only be called on *new* pages.
  * This means the inc-and-test can be bypassed.
+ * Page does not have to be locked.
  */
 void page_add_new_anon_rmap(struct page *page,
 	struct vm_area_struct *vma, unsigned long address)
 {
+	BUG_ON(address < vma->vm_start || address >= vma->vm_end);
 	atomic_set(&page->_mapcount, 0); /* elevate count by 1 (starts at -1) */
 	__page_set_anon_rmap(page, vma, address);
 }
@@ -577,6 +597,26 @@ void page_add_file_rmap(struct page *page)
 	if (atomic_inc_and_test(&page->_mapcount))
 		__inc_zone_page_state(page, NR_FILE_MAPPED);
 }
+
+#ifdef CONFIG_DEBUG_VM
+/**
+ * page_dup_rmap - duplicate pte mapping to a page
+ * @page:	the page to add the mapping to
+ *
+ * For copy_page_range only: minimal extract from page_add_file_rmap /
+ * page_add_anon_rmap, avoiding unnecessary tests (already checked) so it's
+ * quicker.
+ *
+ * The caller needs to hold the pte lock.
+ */
+void page_dup_rmap(struct page *page, struct vm_area_struct *vma, unsigned long address)
+{
+	BUG_ON(page_mapcount(page) == 0);
+	if (PageAnon(page))
+		__page_check_anon_rmap(page, vma, address);
+	atomic_inc(&page->_mapcount);
+}
+#endif
 
 /**
  * page_remove_rmap - take down pte mapping from a page
@@ -610,8 +650,10 @@ void page_remove_rmap(struct page *page, struct vm_area_struct *vma)
 		 * Leaving it set also helps swapoff to reinstate ptes
 		 * faster for those pages still in swapcache.
 		 */
-		if (page_test_and_clear_dirty(page))
+		if (page_test_dirty(page)) {
+			page_clear_dirty(page);
 			set_page_dirty(page);
+		}
 		__dec_zone_page_state(page,
 				PageAnon(page) ? NR_ANON_PAGES : NR_FILE_MAPPED);
 	}
@@ -815,7 +857,8 @@ static int try_to_unmap_anon(struct page *page, int migration)
 		if (ret == SWAP_FAIL || !page_mapped(page))
 			break;
 	}
-	spin_unlock(&anon_vma->lock);
+
+	page_unlock_anon_vma(anon_vma);
 	return ret;
 }
 

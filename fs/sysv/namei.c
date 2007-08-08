@@ -13,7 +13,6 @@
  */
 
 #include <linux/pagemap.h>
-#include <linux/smp_lock.h>
 #include "sysv.h"
 
 static int add_nondir(struct dentry *dentry, struct inode *inode)
@@ -292,7 +291,7 @@ out:
 /*
  * directories can handle most operations...
  */
-struct inode_operations sysv_dir_inode_operations = {
+const struct inode_operations sysv_dir_inode_operations = {
 	.create		= sysv_create,
 	.lookup		= sysv_lookup,
 	.link		= sysv_link,

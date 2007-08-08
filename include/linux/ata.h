@@ -40,13 +40,14 @@ enum {
 	ATA_MAX_DEVICES		= 2,	/* per bus/port */
 	ATA_MAX_PRD		= 256,	/* we could make these 256/256 */
 	ATA_SECT_SIZE		= 512,
+	ATA_MAX_SECTORS_128	= 128,
 	ATA_MAX_SECTORS		= 256,
 	ATA_MAX_SECTORS_LBA48	= 65535,/* TODO: 65536? */
 
 	ATA_ID_WORDS		= 256,
-	ATA_ID_SERNO_OFS	= 10,
-	ATA_ID_FW_REV_OFS	= 23,
-	ATA_ID_PROD_OFS		= 27,
+	ATA_ID_SERNO		= 10,
+	ATA_ID_FW_REV		= 23,
+	ATA_ID_PROD		= 27,
 	ATA_ID_OLD_PIO_MODES	= 51,
 	ATA_ID_FIELD_VALID	= 53,
 	ATA_ID_MWDMA_MODES	= 63,
@@ -58,8 +59,11 @@ enum {
 	ATA_ID_MAJOR_VER	= 80,
 	ATA_ID_PIO4		= (1 << 1),
 
+	ATA_ID_SERNO_LEN	= 20,
+	ATA_ID_FW_REV_LEN	= 8,
+	ATA_ID_PROD_LEN		= 40,
+
 	ATA_PCI_CTL_OFS		= 2,
-	ATA_SERNO_LEN		= 20,
 	ATA_UDMA0		= (1 << 0),
 	ATA_UDMA1		= ATA_UDMA0 | (1 << 1),
 	ATA_UDMA2		= ATA_UDMA1 | (1 << 2),
@@ -147,6 +151,7 @@ enum {
 	ATA_CMD_WRITE_MULTI_EXT	= 0x39,
 	ATA_CMD_WRITE_MULTI_FUA_EXT = 0xCE,
 	ATA_CMD_SET_FEATURES	= 0xEF,
+	ATA_CMD_SET_MULTI	= 0xC6,
 	ATA_CMD_PACKET		= 0xA0,
 	ATA_CMD_VERIFY		= 0x40,
 	ATA_CMD_VERIFY_EXT	= 0x42,
@@ -155,10 +160,18 @@ enum {
 	ATA_CMD_INIT_DEV_PARAMS	= 0x91,
 	ATA_CMD_READ_NATIVE_MAX	= 0xF8,
 	ATA_CMD_READ_NATIVE_MAX_EXT = 0x27,
+	ATA_CMD_SET_MAX		= 0xF9,
+	ATA_CMD_SET_MAX_EXT	= 0x37,
 	ATA_CMD_READ_LOG_EXT	= 0x2f,
 
 	/* READ_LOG_EXT pages */
 	ATA_LOG_SATA_NCQ	= 0x10,
+
+	/* READ/WRITE LONG (obsolete) */
+	ATA_CMD_READ_LONG	= 0x22,
+	ATA_CMD_READ_LONG_ONCE	= 0x23,
+	ATA_CMD_WRITE_LONG	= 0x32,
+	ATA_CMD_WRITE_LONG_ONCE	= 0x33,
 
 	/* SETFEATURES stuff */
 	SETFEATURES_XFER	= 0x03,
@@ -189,6 +202,8 @@ enum {
 
 	SETFEATURES_WC_ON	= 0x02, /* Enable write cache */
 	SETFEATURES_WC_OFF	= 0x82, /* Disable write cache */
+
+	SETFEATURES_SPINUP	= 0x07, /* Spin-up drive */
 
 	/* ATAPI stuff */
 	ATAPI_PKT_DMA		= (1 << 0),
@@ -235,7 +250,7 @@ enum ata_tf_protocols {
 	/* ATA taskfile protocols */
 	ATA_PROT_UNKNOWN,	/* unknown/invalid */
 	ATA_PROT_NODATA,	/* no data */
-	ATA_PROT_PIO,		/* PIO single sector */
+	ATA_PROT_PIO,		/* PIO data xfer */
 	ATA_PROT_DMA,		/* DMA */
 	ATA_PROT_NCQ,		/* NCQ */
 	ATA_PROT_ATAPI,		/* packet command, PIO data xfer*/
@@ -279,7 +294,6 @@ struct ata_taskfile {
 };
 
 #define ata_id_is_ata(id)	(((id)[0] & (1 << 15)) == 0)
-#define ata_id_is_sata(id)	((id)[93] == 0)
 #define ata_id_rahead_enabled(id) ((id)[85] & (1 << 6))
 #define ata_id_wcache_enabled(id) ((id)[85] & (1 << 5))
 #define ata_id_hpa_enabled(id)	((id)[85] & (1 << 10))
@@ -296,6 +310,8 @@ struct ata_taskfile {
 #define ata_id_queue_depth(id)	(((id)[75] & 0x1f) + 1)
 #define ata_id_removeable(id)	((id)[0] & (1 << 7))
 #define ata_id_has_dword_io(id)	((id)[50] & (1 << 0))
+#define ata_id_iordy_disable(id) ((id)[49] & (1 << 10))
+#define ata_id_has_iordy(id) ((id)[49] & (1 << 9))
 #define ata_id_u32(id,n)	\
 	(((u32) (id)[(n) + 1] << 16) | ((u32) (id)[(n)]))
 #define ata_id_u64(id,n)	\
@@ -317,6 +333,11 @@ static inline unsigned int ata_id_major_version(const u16 *id)
 		if (id[ATA_ID_MAJOR_VER] & (1 << mver))
 			break;
 	return mver;
+}
+
+static inline int ata_id_is_sata(const u16 *id)
+{
+	return ata_id_major_version(id) >= 5 && id[93] == 0;
 }
 
 static inline int ata_id_current_chs_valid(const u16 *id)
@@ -345,9 +366,9 @@ static inline int ata_id_is_cfa(const u16 *id)
 
 static inline int ata_drive_40wire(const u16 *dev_id)
 {
-	if (ata_id_major_version(dev_id) >= 5 && ata_id_is_sata(dev_id))
+	if (ata_id_is_sata(dev_id))
 		return 0;	/* SATA */
-	if (dev_id[93] & 0x4000)
+	if ((dev_id[93] & 0xE000) == 0x6000)
 		return 0;	/* 80 wire */
 	return 1;
 }

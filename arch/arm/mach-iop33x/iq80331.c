@@ -32,6 +32,7 @@
 #include <asm/mach-types.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
+#include <asm/arch/time.h>
 
 /*
  * IQ80331 timer tick configuration.
@@ -40,21 +41,21 @@ static void __init iq80331_timer_init(void)
 {
 	/* D-Step parts run at a higher internal bus frequency */
 	if (*IOP3XX_ATURID >= 0xa)
-		iop3xx_init_time(333000000);
+		iop_init_time(333000000);
 	else
-		iop3xx_init_time(266000000);
+		iop_init_time(266000000);
 }
 
 static struct sys_timer iq80331_timer = {
 	.init		= iq80331_timer_init,
-	.offset		= iop3xx_gettimeoffset,
+	.offset		= iop_gettimeoffset,
 };
 
 
 /*
  * IQ80331 PCI.
  */
-static inline int __init
+static int __init
 iq80331_pci_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq;
@@ -95,7 +96,8 @@ static struct hw_pci iq80331_pci __initdata = {
 
 static int __init iq80331_pci_init(void)
 {
-	if (machine_is_iq80331())
+	if ((iop3xx_get_init_atu() == IOP3XX_INIT_ATU_ENABLE) &&
+		machine_is_iq80331())
 		pci_common_init(&iq80331_pci);
 
 	return 0;

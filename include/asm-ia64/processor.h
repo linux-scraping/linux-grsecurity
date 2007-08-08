@@ -19,6 +19,7 @@
 #include <asm/ptrace.h>
 #include <asm/ustack.h>
 
+#define IA64_NUM_PHYS_STACK_REG	96
 #define IA64_NUM_DBG_REGS	8
 
 #define DEFAULT_MAP_BASE	__IA64_UL_CONST(0x2000000000000000)
@@ -210,7 +211,7 @@ struct desc_struct {
 	unsigned int a, b;
 };
 
-#define desc_empty(desc)		(!((desc)->a + (desc)->b))
+#define desc_empty(desc)		(!((desc)->a | (desc)->b))
 #define desc_equal(desc1, desc2)	(((desc1)->a == (desc2)->a) && ((desc1)->b == (desc2)->b))
 
 #define GDT_ENTRY_TLS_ENTRIES	3

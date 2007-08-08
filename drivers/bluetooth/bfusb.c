@@ -27,7 +27,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/skbuff.h>
 
@@ -528,7 +527,7 @@ static int bfusb_send_frame(struct sk_buff *skb)
 		buf[2] = (size == BFUSB_MAX_BLOCK_SIZE) ? 0 : size;
 
 		memcpy(skb_put(nskb, 3), buf, 3);
-		memcpy(skb_put(nskb, size), skb->data + sent, size);
+		skb_copy_from_linear_data_offset(skb, sent, skb_put(nskb, size), size);
 
 		sent  += size;
 		count -= size;
@@ -802,3 +801,4 @@ MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
 MODULE_DESCRIPTION("BlueFRITZ! USB driver ver " VERSION);
 MODULE_VERSION(VERSION);
 MODULE_LICENSE("GPL");
+MODULE_FIRMWARE("bfubase.frm");

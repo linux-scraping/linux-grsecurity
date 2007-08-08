@@ -31,9 +31,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
-#include <linux/sched.h>
 #include <linux/delay.h>
-#include <linux/smp_lock.h>
 #include <linux/fs.h>
 
 #include "av7110.h"
@@ -881,8 +879,8 @@ static int dvb_video_get_event (struct av7110 *av7110, struct video_event *event
 
 static unsigned int dvb_video_poll(struct file *file, poll_table *wait)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned int mask = 0;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -909,8 +907,8 @@ static unsigned int dvb_video_poll(struct file *file, poll_table *wait)
 static ssize_t dvb_video_write(struct file *file, const char __user *buf,
 			       size_t count, loff_t *ppos)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -925,8 +923,8 @@ static ssize_t dvb_video_write(struct file *file, const char __user *buf,
 
 static unsigned int dvb_audio_poll(struct file *file, poll_table *wait)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned int mask = 0;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -945,8 +943,8 @@ static unsigned int dvb_audio_poll(struct file *file, poll_table *wait)
 static ssize_t dvb_audio_write(struct file *file, const char __user *buf,
 			       size_t count, loff_t *ppos)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -990,8 +988,8 @@ static int play_iframe(struct av7110 *av7110, u8 __user *buf, unsigned int len, 
 static int dvb_video_ioctl(struct inode *inode, struct file *file,
 			   unsigned int cmd, void *parg)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned long arg = (unsigned long) parg;
 	int ret = 0;
 
@@ -1010,7 +1008,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 		if (av7110->videostate.stream_source == VIDEO_SOURCE_MEMORY)
 			ret = av7110_av_stop(av7110, RP_VIDEO);
 		else
-			ret = vidcom(av7110, VIDEO_CMD_STOP,
+			ret = vidcom(av7110, AV_VIDEO_CMD_STOP,
 			       av7110->videostate.video_blank ? 0 : 1);
 		if (!ret)
 			av7110->trickmode = TRICK_NONE;
@@ -1020,7 +1018,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 		av7110->trickmode = TRICK_NONE;
 		if (av7110->videostate.play_state == VIDEO_FREEZED) {
 			av7110->videostate.play_state = VIDEO_PLAYING;
-			ret = vidcom(av7110, VIDEO_CMD_PLAY, 0);
+			ret = vidcom(av7110, AV_VIDEO_CMD_PLAY, 0);
 			if (ret)
 				break;
 		}
@@ -1035,7 +1033,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 			ret = av7110_av_start_play(av7110, RP_VIDEO);
 		}
 		if (!ret)
-			ret = vidcom(av7110, VIDEO_CMD_PLAY, 0);
+			ret = vidcom(av7110, AV_VIDEO_CMD_PLAY, 0);
 		if (!ret)
 			av7110->videostate.play_state = VIDEO_PLAYING;
 		break;
@@ -1045,7 +1043,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 		if (av7110->playing & RP_VIDEO)
 			ret = av7110_fw_cmd(av7110, COMTYPE_REC_PLAY, __Pause, 0);
 		else
-			ret = vidcom(av7110, VIDEO_CMD_FREEZE, 1);
+			ret = vidcom(av7110, AV_VIDEO_CMD_FREEZE, 1);
 		if (!ret)
 			av7110->trickmode = TRICK_FREEZE;
 		break;
@@ -1054,7 +1052,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 		if (av7110->playing & RP_VIDEO)
 			ret = av7110_fw_cmd(av7110, COMTYPE_REC_PLAY, __Continue, 0);
 		if (!ret)
-			ret = vidcom(av7110, VIDEO_CMD_PLAY, 0);
+			ret = vidcom(av7110, AV_VIDEO_CMD_PLAY, 0);
 		if (!ret) {
 			av7110->videostate.play_state = VIDEO_PLAYING;
 			av7110->trickmode = TRICK_NONE;
@@ -1137,7 +1135,7 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 			ret = av7110_fw_cmd(av7110, COMTYPE_REC_PLAY,
 					    __Scan_I, 2, AV_PES, 0);
 		else
-			ret = vidcom(av7110, VIDEO_CMD_FFWD, arg);
+			ret = vidcom(av7110, AV_VIDEO_CMD_FFWD, arg);
 		if (!ret) {
 			av7110->trickmode = TRICK_FAST;
 			av7110->videostate.play_state = VIDEO_PLAYING;
@@ -1148,13 +1146,13 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 		if (av7110->playing&RP_VIDEO) {
 			ret = av7110_fw_cmd(av7110, COMTYPE_REC_PLAY, __Slow, 2, 0, 0);
 			if (!ret)
-				ret = vidcom(av7110, VIDEO_CMD_SLOW, arg);
+				ret = vidcom(av7110, AV_VIDEO_CMD_SLOW, arg);
 		} else {
-			ret = vidcom(av7110, VIDEO_CMD_PLAY, 0);
+			ret = vidcom(av7110, AV_VIDEO_CMD_PLAY, 0);
 			if (!ret)
-				ret = vidcom(av7110, VIDEO_CMD_STOP, 0);
+				ret = vidcom(av7110, AV_VIDEO_CMD_STOP, 0);
 			if (!ret)
-				ret = vidcom(av7110, VIDEO_CMD_SLOW, arg);
+				ret = vidcom(av7110, AV_VIDEO_CMD_SLOW, arg);
 		}
 		if (!ret) {
 			av7110->trickmode = TRICK_SLOW;
@@ -1183,10 +1181,10 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 				ret = av7110_fw_cmd(av7110, COMTYPE_REC_PLAY,
 						    __Slow, 2, 0, 0);
 				if (!ret)
-					ret = vidcom(av7110, VIDEO_CMD_SLOW, arg);
+					ret = vidcom(av7110, AV_VIDEO_CMD_SLOW, arg);
 			}
 			if (av7110->trickmode == TRICK_FREEZE)
-				ret = vidcom(av7110, VIDEO_CMD_STOP, 1);
+				ret = vidcom(av7110, AV_VIDEO_CMD_STOP, 1);
 		}
 		break;
 
@@ -1204,8 +1202,8 @@ static int dvb_video_ioctl(struct inode *inode, struct file *file,
 static int dvb_audio_ioctl(struct inode *inode, struct file *file,
 			   unsigned int cmd, void *parg)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	unsigned long arg = (unsigned long) parg;
 	int ret = 0;
 
@@ -1350,8 +1348,8 @@ static int dvb_audio_ioctl(struct inode *inode, struct file *file,
 
 static int dvb_video_open(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 	int err;
 
 	dprintk(2, "av7110:%p, \n", av7110);
@@ -1375,8 +1373,8 @@ static int dvb_video_open(struct inode *inode, struct file *file)
 
 static int dvb_video_release(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -1389,9 +1387,9 @@ static int dvb_video_release(struct inode *inode, struct file *file)
 
 static int dvb_audio_open(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
-	int err=dvb_generic_open(inode, file);
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
+	int err = dvb_generic_open(inode, file);
 
 	dprintk(2, "av7110:%p, \n", av7110);
 
@@ -1404,8 +1402,8 @@ static int dvb_audio_open(struct inode *inode, struct file *file)
 
 static int dvb_audio_release(struct inode *inode, struct file *file)
 {
-	struct dvb_device *dvbdev = (struct dvb_device *) file->private_data;
-	struct av7110 *av7110 = (struct av7110 *) dvbdev->priv;
+	struct dvb_device *dvbdev = file->private_data;
+	struct av7110 *av7110 = dvbdev->priv;
 
 	dprintk(2, "av7110:%p, \n", av7110);
 

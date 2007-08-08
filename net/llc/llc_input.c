@@ -112,7 +112,7 @@ static inline int llc_fixup_skb(struct sk_buff *skb)
 	if (unlikely(!pskb_may_pull(skb, llc_len)))
 		return 0;
 
-	skb->h.raw += llc_len;
+	skb->transport_header += llc_len;
 	skb_pull(skb, llc_len);
 	if (skb->protocol == htons(ETH_P_802_2)) {
 		__be16 pdulen = eth_hdr(skb)->h_proto;
@@ -164,7 +164,7 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
 	sap = llc_sap_find(pdu->dsap);
 	if (unlikely(!sap)) {/* unknown SAP */
 		dprintk("%s: llc_sap_find(%02X) failed!\n", __FUNCTION__,
-		        pdu->dsap);
+			pdu->dsap);
 		goto drop;
 	}
 	/*
@@ -173,9 +173,9 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
 	 */
 	rcv = rcu_dereference(sap->rcv_func);
 	if (rcv) {
- 		struct sk_buff *cskb = skb_clone(skb, GFP_ATOMIC);
- 		if (cskb)
- 			rcv(cskb, dev, pt, orig_dev);
+		struct sk_buff *cskb = skb_clone(skb, GFP_ATOMIC);
+		if (cskb)
+			rcv(cskb, dev, pt, orig_dev);
 	}
 	dest = llc_pdu_type(skb);
 	if (unlikely(!dest || !llc_type_handlers[dest - 1]))

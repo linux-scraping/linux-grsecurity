@@ -75,20 +75,21 @@ spkm3_make_token(struct spkm3_ctx *ctx,
 	now = jiffies;
 
 	if (ctx->ctx_id.len != 16) {
-		dprintk("RPC: spkm3_make_token BAD ctx_id.len %d\n",
+		dprintk("RPC:       spkm3_make_token BAD ctx_id.len %d\n",
 				ctx->ctx_id.len);
 		goto out_err;
 	}
 
 	if (!g_OID_equal(&ctx->intg_alg, &hmac_md5_oid)) {
-		dprintk("RPC: gss_spkm3_seal: unsupported I-ALG algorithm."
-				"only support hmac-md5 I-ALG.\n");
+		dprintk("RPC:       gss_spkm3_seal: unsupported I-ALG "
+				"algorithm.  only support hmac-md5 I-ALG.\n");
 		goto out_err;
 	} else
 		checksum_type = CKSUMTYPE_HMAC_MD5;
 
 	if (!g_OID_equal(&ctx->conf_alg, &cast5_cbc_oid)) {
-		dprintk("RPC: gss_spkm3_seal: unsupported C-ALG algorithm\n");
+		dprintk("RPC:       gss_spkm3_seal: unsupported C-ALG "
+				"algorithm\n");
 		goto out_err;
 	}
 
@@ -113,7 +114,8 @@ spkm3_make_token(struct spkm3_ctx *ctx,
 
 		spkm3_make_mic_token(&ptr, tokenlen, &mic_hdr, &md5cksum, md5elen, md5zbit);
 	} else if (toktype == SPKM_WRAP_TOK) { /* Not Supported */
-		dprintk("RPC: gss_spkm3_seal: SPKM_WRAP_TOK not supported\n");
+		dprintk("RPC:       gss_spkm3_seal: SPKM_WRAP_TOK "
+				"not supported\n");
 		goto out_err;
 	}
 
@@ -121,9 +123,6 @@ spkm3_make_token(struct spkm3_ctx *ctx,
 
 	return  GSS_S_COMPLETE;
 out_err:
-	if (md5cksum.data)
-		kfree(md5cksum.data);
-
 	token->data = NULL;
 	token->len = 0;
 	return GSS_S_FAILURE;
@@ -150,10 +149,10 @@ make_spkm3_checksum(s32 cksumtype, struct xdr_netobj *key, char *header,
 
 	switch (cksumtype) {
 		case CKSUMTYPE_HMAC_MD5:
-			cksumname = "md5";
+			cksumname = "hmac(md5)";
 			break;
 		default:
-			dprintk("RPC:      spkm3_make_checksum:"
+			dprintk("RPC:       spkm3_make_checksum:"
 					" unsupported checksum %d", cksumtype);
 			return GSS_S_FAILURE;
 	}
@@ -170,8 +169,12 @@ make_spkm3_checksum(s32 cksumtype, struct xdr_netobj *key, char *header,
 	if (err)
 		goto out;
 
+	err = crypto_hash_init(&desc);
+	if (err)
+		goto out;
+
 	sg_set_buf(sg, header, hdrlen);
-	crypto_hash_update(&desc, sg, 1);
+	crypto_hash_update(&desc, sg, sg->length);
 
 	xdr_process_buf(body, body_offset, body->len - body_offset,
 			spkm3_checksummer, &desc);
@@ -182,5 +185,3 @@ out:
 
 	return err ? GSS_S_FAILURE : 0;
 }
-
-EXPORT_SYMBOL(make_spkm3_checksum);

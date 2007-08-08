@@ -1,4 +1,4 @@
-/***********************************************************************
+/* linux/arch/arm/mach-s3c2410/mach-smdk2410.c
  *
  * linux/arch/arm/mach-s3c2410/mach-smdk2410.c
  *
@@ -49,10 +49,10 @@
 
 #include <asm/arch/regs-serial.h>
 
-#include "devs.h"
-#include "cpu.h"
+#include <asm/plat-s3c24xx/devs.h>
+#include <asm/plat-s3c24xx/cpu.h>
 
-#include "common-smdk.h"
+#include <asm/plat-s3c24xx/common-smdk.h>
 
 static struct map_desc smdk2410_iodesc[] __initdata = {
   /* nothing here yet */
@@ -94,17 +94,17 @@ static struct platform_device *smdk2410_devices[] __initdata = {
 	&s3c_device_iis,
 };
 
-static struct s3c24xx_board smdk2410_board __initdata = {
-	.devices       = smdk2410_devices,
-	.devices_count = ARRAY_SIZE(smdk2410_devices)
-};
-
 static void __init smdk2410_map_io(void)
 {
 	s3c24xx_init_io(smdk2410_iodesc, ARRAY_SIZE(smdk2410_iodesc));
 	s3c24xx_init_clocks(0);
 	s3c24xx_init_uarts(smdk2410_uartcfgs, ARRAY_SIZE(smdk2410_uartcfgs));
-	s3c24xx_set_board(&smdk2410_board);
+}
+
+static void __init smdk2410_init(void)
+{
+	platform_add_devices(smdk2410_devices, ARRAY_SIZE(smdk2410_devices));
+	smdk_machine_init();
 }
 
 MACHINE_START(SMDK2410, "SMDK2410") /* @TODO: request a new identifier and switch
@@ -115,7 +115,7 @@ MACHINE_START(SMDK2410, "SMDK2410") /* @TODO: request a new identifier and switc
 	.boot_params	= S3C2410_SDRAM_PA + 0x100,
 	.map_io		= smdk2410_map_io,
 	.init_irq	= s3c24xx_init_irq,
-	.init_machine	= smdk_machine_init,
+	.init_machine	= smdk2410_init,
 	.timer		= &s3c24xx_timer,
 MACHINE_END
 

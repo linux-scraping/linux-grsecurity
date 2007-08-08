@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,6 @@
 
 #define _COMPONENT          ACPI_RESOURCES
 ACPI_MODULE_NAME("rsdump")
-
 #if defined(ACPI_DEBUG_OUTPUT) || defined(ACPI_DEBUGGER)
 /* Local prototypes */
 static void acpi_rs_out_string(char *title, char *value);
@@ -489,10 +488,9 @@ acpi_rs_dump_descriptor(void *resource, struct acpi_rsdump_info *table)
 			/*
 			 * Optional resource_source for Address resources
 			 */
-			acpi_rs_dump_resource_source(ACPI_CAST_PTR
-						     (struct
-						      acpi_resource_source,
-						      target));
+			acpi_rs_dump_resource_source(ACPI_CAST_PTR(struct
+								   acpi_resource_source,
+								   target));
 			break;
 
 		default:

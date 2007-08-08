@@ -134,22 +134,6 @@ spider_net_ethtool_set_rx_csum(struct net_device *netdev, u32 n)
 	return 0;
 }
 
-static uint32_t
-spider_net_ethtool_get_tx_csum(struct net_device *netdev)
-{
-        return (netdev->features & NETIF_F_HW_CSUM) != 0;
-}
-
-static int
-spider_net_ethtool_set_tx_csum(struct net_device *netdev, uint32_t data)
-{
-        if (data)
-                netdev->features |= NETIF_F_HW_CSUM;
-        else
-                netdev->features &= ~NETIF_F_HW_CSUM;
-
-        return 0;
-}
 
 static void
 spider_net_ethtool_get_ringparam(struct net_device *netdev,
@@ -158,9 +142,9 @@ spider_net_ethtool_get_ringparam(struct net_device *netdev,
 	struct spider_net_card *card = netdev->priv;
 
 	ering->tx_max_pending = SPIDER_NET_TX_DESCRIPTORS_MAX;
-	ering->tx_pending = card->num_tx_desc;
+	ering->tx_pending = card->tx_chain.num_desc;
 	ering->rx_max_pending = SPIDER_NET_RX_DESCRIPTORS_MAX;
-	ering->rx_pending = card->num_rx_desc;
+	ering->rx_pending = card->rx_chain.num_desc;
 }
 
 static int spider_net_get_stats_count(struct net_device *netdev)
@@ -200,11 +184,12 @@ const struct ethtool_ops spider_net_ethtool_ops = {
 	.get_wol		= spider_net_ethtool_get_wol,
 	.get_msglevel		= spider_net_ethtool_get_msglevel,
 	.set_msglevel		= spider_net_ethtool_set_msglevel,
+	.get_link		= ethtool_op_get_link,
 	.nway_reset		= spider_net_ethtool_nway_reset,
 	.get_rx_csum		= spider_net_ethtool_get_rx_csum,
 	.set_rx_csum		= spider_net_ethtool_set_rx_csum,
-	.get_tx_csum		= spider_net_ethtool_get_tx_csum,
-	.set_tx_csum		= spider_net_ethtool_set_tx_csum,
+	.get_tx_csum		= ethtool_op_get_tx_csum,
+	.set_tx_csum		= ethtool_op_set_tx_csum,
 	.get_ringparam          = spider_net_ethtool_get_ringparam,
 	.get_strings		= spider_net_get_strings,
 	.get_stats_count	= spider_net_get_stats_count,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Red Hat, Inc.  All rights reserved.
+ * Copyright (C) 2006-2007 Red Hat, Inc.  All rights reserved.
  *
  * This copyrighted material is made available to anyone wishing to use,
  * modify, copy, or redistribute it subject to the terms and conditions
@@ -22,10 +22,11 @@
 #include "lockspace.h"
 #include "lock.h"
 #include "lvb_table.h"
+#include "user.h"
 
 static const char *name_prefix="dlm";
 static struct miscdevice ctl_device;
-static struct file_operations device_fops;
+static const struct file_operations device_fops;
 
 #ifdef CONFIG_COMPAT
 
@@ -55,6 +56,7 @@ struct dlm_write_request32 {
 	union  {
 		struct dlm_lock_params32 lock;
 		struct dlm_lspace_params lspace;
+		struct dlm_purge_params purge;
 	} i;
 };
 
@@ -91,6 +93,9 @@ static void compat_input(struct dlm_write_request *kb,
 		kb->i.lspace.flags = kb32->i.lspace.flags;
 		kb->i.lspace.minor = kb32->i.lspace.minor;
 		strcpy(kb->i.lspace.name, kb32->i.lspace.name);
+	} else if (kb->cmd == DLM_USER_PURGE) {
+		kb->i.purge.nodeid = kb32->i.purge.nodeid;
+		kb->i.purge.pid = kb32->i.purge.pid;
 	} else {
 		kb->i.lock.mode = kb32->i.lock.mode;
 		kb->i.lock.namelen = kb32->i.lock.namelen;
@@ -110,8 +115,6 @@ static void compat_input(struct dlm_write_request *kb,
 static void compat_output(struct dlm_lock_result *res,
 			  struct dlm_lock_result32 *res32)
 {
-	res32->length = res->length - (sizeof(struct dlm_lock_result) -
-				       sizeof(struct dlm_lock_result32));
 	res32->user_astaddr = (__u32)(long)res->user_astaddr;
 	res32->user_astparam = (__u32)(long)res->user_astparam;
 	res32->user_lksb = (__u32)(long)res->user_lksb;
@@ -127,35 +130,30 @@ static void compat_output(struct dlm_lock_result *res,
 }
 #endif
 
+/* we could possibly check if the cancel of an orphan has resulted in the lkb
+   being removed and then remove that lkb from the orphans list and free it */
 
 void dlm_user_add_ast(struct dlm_lkb *lkb, int type)
 {
 	struct dlm_ls *ls;
 	struct dlm_user_args *ua;
 	struct dlm_user_proc *proc;
-	int remove_ownqueue = 0;
+	int eol = 0, ast_type;
 
-	/* dlm_clear_proc_locks() sets ORPHAN/DEAD flag on each
-	   lkb before dealing with it.  We need to check this
-	   flag before taking ls_clear_proc_locks mutex because if
-	   it's set, dlm_clear_proc_locks() holds the mutex. */
-
-	if (lkb->lkb_flags & (DLM_IFL_ORPHAN | DLM_IFL_DEAD)) {
-		/* log_print("user_add_ast skip1 %x", lkb->lkb_flags); */
+	if (lkb->lkb_flags & (DLM_IFL_ORPHAN | DLM_IFL_DEAD))
 		return;
-	}
 
 	ls = lkb->lkb_resource->res_ls;
 	mutex_lock(&ls->ls_clear_proc_locks);
 
 	/* If ORPHAN/DEAD flag is set, it means the process is dead so an ast
 	   can't be delivered.  For ORPHAN's, dlm_clear_proc_locks() freed
-	   lkb->ua so we can't try to use it. */
+	   lkb->ua so we can't try to use it.  This second check is necessary
+	   for cases where a completion ast is received for an operation that
+	   began before clear_proc_locks did its cancel/unlock. */
 
-	if (lkb->lkb_flags & (DLM_IFL_ORPHAN | DLM_IFL_DEAD)) {
-		/* log_print("user_add_ast skip2 %x", lkb->lkb_flags); */
+	if (lkb->lkb_flags & (DLM_IFL_ORPHAN | DLM_IFL_DEAD))
 		goto out;
-	}
 
 	DLM_ASSERT(lkb->lkb_astparam, dlm_print_lkb(lkb););
 	ua = (struct dlm_user_args *)lkb->lkb_astparam;
@@ -165,20 +163,42 @@ void dlm_user_add_ast(struct dlm_lkb *lkb, int type)
 		goto out;
 
 	spin_lock(&proc->asts_spin);
-	if (!(lkb->lkb_ast_type & (AST_COMP | AST_BAST))) {
+
+	ast_type = lkb->lkb_ast_type;
+	lkb->lkb_ast_type |= type;
+
+	if (!ast_type) {
 		kref_get(&lkb->lkb_ref);
 		list_add_tail(&lkb->lkb_astqueue, &proc->asts);
-		lkb->lkb_ast_type |= type;
 		wake_up_interruptible(&proc->wait);
 	}
+	if (type == AST_COMP && (ast_type & AST_COMP))
+		log_debug(ls, "ast overlap %x status %x %x",
+			  lkb->lkb_id, ua->lksb.sb_status, lkb->lkb_flags);
 
-	/* noqueue requests that fail may need to be removed from the
-	   proc's locks list, there should be a better way of detecting
-	   this situation than checking all these things... */
+	/* Figure out if this lock is at the end of its life and no longer
+	   available for the application to use.  The lkb still exists until
+	   the final ast is read.  A lock becomes EOL in three situations:
+	     1. a noqueue request fails with EAGAIN
+	     2. an unlock completes with EUNLOCK
+	     3. a cancel of a waiting request completes with ECANCEL
+	   An EOL lock needs to be removed from the process's list of locks.
+	   And we can't allow any new operation on an EOL lock.  This is
+	   not related to the lifetime of the lkb struct which is managed
+	   entirely by refcount. */
 
-	if (type == AST_COMP && lkb->lkb_grmode == DLM_LOCK_IV &&
-	    ua->lksb.sb_status == -EAGAIN && !list_empty(&lkb->lkb_ownqueue))
-		remove_ownqueue = 1;
+	if (type == AST_COMP &&
+	    lkb->lkb_grmode == DLM_LOCK_IV &&
+	    ua->lksb.sb_status == -EAGAIN)
+		eol = 1;
+	else if (ua->lksb.sb_status == -DLM_EUNLOCK ||
+	    (ua->lksb.sb_status == -DLM_ECANCEL &&
+	     lkb->lkb_grmode == DLM_LOCK_IV))
+		eol = 1;
+	if (eol) {
+		lkb->lkb_ast_type &= ~AST_BAST;
+		lkb->lkb_flags |= DLM_IFL_ENDOFLIFE;
+	}
 
 	/* We want to copy the lvb to userspace when the completion
 	   ast is read if the status is 0, the lock has an lvb and
@@ -195,11 +215,13 @@ void dlm_user_add_ast(struct dlm_lkb *lkb, int type)
 
 	spin_unlock(&proc->asts_spin);
 
-	if (remove_ownqueue) {
+	if (eol) {
 		spin_lock(&ua->proc->locks_spin);
-		list_del_init(&lkb->lkb_ownqueue);
+		if (!list_empty(&lkb->lkb_ownqueue)) {
+			list_del_init(&lkb->lkb_ownqueue);
+			dlm_put_lkb(lkb);
+		}
 		spin_unlock(&ua->proc->locks_spin);
-		dlm_put_lkb(lkb);
 	}
  out:
 	mutex_unlock(&ls->ls_clear_proc_locks);
@@ -277,11 +299,50 @@ static int device_user_unlock(struct dlm_user_proc *proc,
 	return error;
 }
 
+static int create_misc_device(struct dlm_ls *ls, char *name)
+{
+	int error, len;
+
+	error = -ENOMEM;
+	len = strlen(name) + strlen(name_prefix) + 2;
+	ls->ls_device.name = kzalloc(len, GFP_KERNEL);
+	if (!ls->ls_device.name)
+		goto fail;
+
+	snprintf((char *)ls->ls_device.name, len, "%s_%s", name_prefix,
+		 name);
+	ls->ls_device.fops = &device_fops;
+	ls->ls_device.minor = MISC_DYNAMIC_MINOR;
+
+	error = misc_register(&ls->ls_device);
+	if (error) {
+		kfree(ls->ls_device.name);
+	}
+fail:
+	return error;
+}
+
+static int device_user_purge(struct dlm_user_proc *proc,
+			     struct dlm_purge_params *params)
+{
+	struct dlm_ls *ls;
+	int error;
+
+	ls = dlm_find_lockspace_local(proc->lockspace);
+	if (!ls)
+		return -ENOENT;
+
+	error = dlm_user_purge(ls, proc, params->nodeid, params->pid);
+
+	dlm_put_lockspace(ls);
+	return error;
+}
+
 static int device_create_lockspace(struct dlm_lspace_params *params)
 {
 	dlm_lockspace_t *lockspace;
 	struct dlm_ls *ls;
-	int error, len;
+	int error;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
@@ -295,29 +356,14 @@ static int device_create_lockspace(struct dlm_lspace_params *params)
 	if (!ls)
 		return -ENOENT;
 
-	error = -ENOMEM;
-	len = strlen(params->name) + strlen(name_prefix) + 2;
-	ls->ls_device.name = kzalloc(len, GFP_KERNEL);
-	if (!ls->ls_device.name)
-		goto fail;
-	snprintf((char *)ls->ls_device.name, len, "%s_%s", name_prefix,
-		 params->name);
-	ls->ls_device.fops = &device_fops;
-	ls->ls_device.minor = MISC_DYNAMIC_MINOR;
-
-	error = misc_register(&ls->ls_device);
-	if (error) {
-		kfree(ls->ls_device.name);
-		goto fail;
-	}
-
-	error = ls->ls_device.minor;
+	error = create_misc_device(ls, params->name);
 	dlm_put_lockspace(ls);
-	return error;
 
- fail:
-	dlm_put_lockspace(ls);
-	dlm_release_lockspace(lockspace, 0);
+	if (error)
+		dlm_release_lockspace(lockspace, 0);
+	else
+		error = ls->ls_device.minor;
+
 	return error;
 }
 
@@ -334,6 +380,10 @@ static int device_remove_lockspace(struct dlm_lspace_params *params)
 	if (!ls)
 		return -ENOENT;
 
+	/* Deregister the misc device first, so we don't have
+	 * a device that's not attached to a lockspace. If
+	 * dlm_release_lockspace fails then we can recreate it
+	 */
 	error = misc_deregister(&ls->ls_device);
 	if (error) {
 		dlm_put_lockspace(ls);
@@ -352,6 +402,8 @@ static int device_remove_lockspace(struct dlm_lspace_params *params)
 
 	dlm_put_lockspace(ls);
 	error = dlm_release_lockspace(lockspace, force);
+	if (error)
+		create_misc_device(ls, ls->ls_name);
  out:
 	return error;
 }
@@ -488,6 +540,14 @@ static ssize_t device_write(struct file *file, const char __user *buf,
 		error = device_remove_lockspace(&kbuf->i.lspace);
 		break;
 
+	case DLM_USER_PURGE:
+		if (!proc) {
+			log_print("no locking on control device");
+			goto out_sig;
+		}
+		error = device_user_purge(proc, &kbuf->i.purge);
+		break;
+
 	default:
 		log_print("Unknown command passed to DLM device : %d\n",
 			  kbuf->cmd);
@@ -523,6 +583,7 @@ static int device_open(struct inode *inode, struct file *file)
 	proc->lockspace = ls->ls_local_handle;
 	INIT_LIST_HEAD(&proc->asts);
 	INIT_LIST_HEAD(&proc->locks);
+	INIT_LIST_HEAD(&proc->unlocking);
 	spin_lock_init(&proc->asts_spin);
 	spin_lock_init(&proc->locks_spin);
 	init_waitqueue_head(&proc->wait);
@@ -750,7 +811,7 @@ static int ctl_device_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static struct file_operations device_fops = {
+static const struct file_operations device_fops = {
 	.open    = device_open,
 	.release = device_close,
 	.read    = device_read,
@@ -759,7 +820,7 @@ static struct file_operations device_fops = {
 	.owner   = THIS_MODULE,
 };
 
-static struct file_operations ctl_device_fops = {
+static const struct file_operations ctl_device_fops = {
 	.open    = ctl_device_open,
 	.release = ctl_device_close,
 	.write   = device_write,

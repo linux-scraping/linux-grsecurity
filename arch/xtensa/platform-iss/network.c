@@ -251,7 +251,7 @@ static int tuntap_open(struct iss_net_private *lp)
 
 	memset(&ifr, 0, sizeof ifr);
 	ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-	strlcpy(ifr.ifr_name, dev_name, sizeof ifr.ifr_name - 1);
+	strlcpy(ifr.ifr_name, dev_name, sizeof ifr.ifr_name);
 
 	if ((err = simc_ioctl(fd, TUNSETIFF, (void*) &ifr)) < 0) {
 		printk("Failed to set interface, returned %d "
@@ -386,7 +386,7 @@ static int iss_net_rx(struct net_device *dev)
 	/* Setup skb */
 
 	skb->dev = dev;
-	skb->mac.raw = skb->data;
+	skb_reset_mac_header(skb);
 	pkt_len = lp->tp.read(lp, &skb);
 	skb_put(skb, pkt_len);
 
@@ -473,7 +473,7 @@ static int iss_net_open(struct net_device *dev)
 	netif_start_queue(dev);
 
 	/* clear buffer - it can happen that the host side of the interface
-	 * is full when we gethere. In this case, new data is never queued,
+	 * is full when we get here. In this case, new data is never queued,
 	 * SIGIOs never arrive, and the net never works.
 	 */
 	while ((err = iss_net_rx(dev)) > 0)

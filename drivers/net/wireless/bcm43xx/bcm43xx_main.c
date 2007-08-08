@@ -61,10 +61,6 @@ MODULE_AUTHOR("Stefano Brivio");
 MODULE_AUTHOR("Michael Buesch");
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_BCM947XX
-extern char *nvram_get(char *name);
-#endif
-
 #if defined(CONFIG_BCM43XX_DMA) && defined(CONFIG_BCM43XX_PIO)
 static int modparam_pio;
 module_param_named(pio, modparam_pio, int, 0444);
@@ -95,13 +91,9 @@ static int modparam_noleds;
 module_param_named(noleds, modparam_noleds, int, 0444);
 MODULE_PARM_DESC(noleds, "Turn off all LED activity");
 
-#ifdef CONFIG_BCM43XX_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
-MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
-#else
-# define modparam_fwpostfix  ""
-#endif /* CONFIG_BCM43XX_DEBUG*/
+MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for using multiple firmware image versions.");
 
 
 /* If you want to debug with just a single device, enable this,
@@ -146,10 +138,6 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 	{ PCI_VENDOR_ID_BROADCOM, 0x4324, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 	/* Broadcom 43XG 802.11b/g */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4325, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-#ifdef CONFIG_BCM947XX
-	/* SB bus on BCM947xx */
-	{ PCI_VENDOR_ID_BROADCOM, 0x0800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-#endif
 	{ 0 },
 };
 MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
@@ -790,9 +778,6 @@ static int bcm43xx_sprom_extract(struct bcm43xx_private *bcm)
 {
 	u16 value;
 	u16 *sprom;
-#ifdef CONFIG_BCM947XX
-	char *c;
-#endif
 
 	sprom = kzalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
 			GFP_KERNEL);
@@ -800,28 +785,7 @@ static int bcm43xx_sprom_extract(struct bcm43xx_private *bcm)
 		printk(KERN_ERR PFX "sprom_extract OOM\n");
 		return -ENOMEM;
 	}
-#ifdef CONFIG_BCM947XX
-	sprom[BCM43xx_SPROM_BOARDFLAGS2] = atoi(nvram_get("boardflags2"));
-	sprom[BCM43xx_SPROM_BOARDFLAGS] = atoi(nvram_get("boardflags"));
-
-	if ((c = nvram_get("il0macaddr")) != NULL)
-		e_aton(c, (char *) &(sprom[BCM43xx_SPROM_IL0MACADDR]));
-
-	if ((c = nvram_get("et1macaddr")) != NULL)
-		e_aton(c, (char *) &(sprom[BCM43xx_SPROM_ET1MACADDR]));
-
-	sprom[BCM43xx_SPROM_PA0B0] = atoi(nvram_get("pa0b0"));
-	sprom[BCM43xx_SPROM_PA0B1] = atoi(nvram_get("pa0b1"));
-	sprom[BCM43xx_SPROM_PA0B2] = atoi(nvram_get("pa0b2"));
-
-	sprom[BCM43xx_SPROM_PA1B0] = atoi(nvram_get("pa1b0"));
-	sprom[BCM43xx_SPROM_PA1B1] = atoi(nvram_get("pa1b1"));
-	sprom[BCM43xx_SPROM_PA1B2] = atoi(nvram_get("pa1b2"));
-
-	sprom[BCM43xx_SPROM_BOARDREV] = atoi(nvram_get("boardrev"));
-#else
 	bcm43xx_sprom_read(bcm, sprom);
-#endif
 
 	/* boardflags2 */
 	value = sprom[BCM43xx_SPROM_BOARDFLAGS2];
@@ -855,8 +819,6 @@ static int bcm43xx_sprom_extract(struct bcm43xx_private *bcm)
 	value = sprom[BCM43xx_SPROM_ETHPHY];
 	bcm->sprom.et0phyaddr = (value & 0x001F);
 	bcm->sprom.et1phyaddr = (value & 0x03E0) >> 5;
-	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
-	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
 
 	/* boardrev, antennas, locale */
 	value = sprom[BCM43xx_SPROM_BOARDREV];
@@ -952,6 +914,7 @@ static int bcm43xx_geo_init(struct bcm43xx_private *bcm)
 	u8 channel;
 	struct bcm43xx_phyinfo *phy;
 	const char *iso_country;
+	u8 max_bg_channel;
 
 	geo = kzalloc(sizeof(*geo), GFP_KERNEL);
 	if (!geo)
@@ -973,6 +936,23 @@ static int bcm43xx_geo_init(struct bcm43xx_private *bcm)
 	}
 	iso_country = bcm43xx_locale_iso(bcm->sprom.locale);
 
+/* set the maximum channel based on locale set in sprom or witle locale option */
+	switch (bcm->sprom.locale) {
+	case BCM43xx_LOCALE_THAILAND:
+	case BCM43xx_LOCALE_ISRAEL:
+	case BCM43xx_LOCALE_JORDAN:
+	case BCM43xx_LOCALE_USA_CANADA_ANZ:
+	case BCM43xx_LOCALE_USA_LOW:
+		max_bg_channel = 11;
+		break;
+	case BCM43xx_LOCALE_JAPAN:
+	case BCM43xx_LOCALE_JAPAN_HIGH:
+		max_bg_channel = 14;
+		break;
+	default:
+		max_bg_channel = 13;
+	}
+
  	if (have_a) {
 		for (i = 0, channel = IEEE80211_52GHZ_MIN_CHANNEL;
 		      channel <= IEEE80211_52GHZ_MAX_CHANNEL; channel++) {
@@ -984,7 +964,7 @@ static int bcm43xx_geo_init(struct bcm43xx_private *bcm)
 	}
 	if (have_bg) {
 		for (i = 0, channel = IEEE80211_24GHZ_MIN_CHANNEL;
-		      channel <= IEEE80211_24GHZ_MAX_CHANNEL; channel++) {
+		      channel <= max_bg_channel; channel++) {
 			chan = &geo->bg[i++];
 			chan->freq = bcm43xx_channel_to_freq_bg(channel);
 			chan->channel = channel;
@@ -1213,12 +1193,6 @@ static int _switch_core(struct bcm43xx_private *bcm, int core)
 			goto error;
 		udelay(10);
 	}
-#ifdef CONFIG_BCM947XX
-	if (bcm->pci_dev->bus->number == 0)
-		bcm->current_core_offset = 0x1000 * core;
-	else
-		bcm->current_core_offset = 0;
-#endif
 
 	return 0;
 error:
@@ -1375,19 +1349,6 @@ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
 
 	if ((bcm43xx_core_enabled(bcm)) &&
 	    !bcm43xx_using_pio(bcm)) {
-//FIXME: Do we _really_ want #ifndef CONFIG_BCM947XX here?
-#if 0
-#ifndef CONFIG_BCM947XX
-		/* reset all used DMA controllers. */
-		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
-		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA2_BASE);
-		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA3_BASE);
-		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
-		bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
-		if (bcm->current_core->rev < 5)
-			bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
-#endif
-#endif
 	}
 	if (bcm43xx_status(bcm) == BCM43xx_STAT_SHUTTINGDOWN) {
 		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
@@ -1395,7 +1356,7 @@ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
 				& ~(BCM43xx_SBF_MAC_ENABLED | 0x00000002));
 	} else {
 		if (connect_phy)
-			flags |= 0x20000000;
+			flags |= BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
 		bcm43xx_phy_connect(bcm, connect_phy);
 		bcm43xx_core_enable(bcm, flags);
 		bcm43xx_write16(bcm, 0x03E6, 0x0000);
@@ -2128,32 +2089,11 @@ out:
 	return err;
 }
 
-#ifdef CONFIG_BCM947XX
-static struct pci_device_id bcm43xx_47xx_ids[] = {
-	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
-	{ 0 }
-};
-#endif
-
 static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
 {
 	int err;
 
 	bcm->irq = bcm->pci_dev->irq;
-#ifdef CONFIG_BCM947XX
-	if (bcm->pci_dev->bus->number == 0) {
-		struct pci_dev *d;
-		struct pci_device_id *id;
-		for (id = bcm43xx_47xx_ids; id->vendor; id++) {
-			d = pci_get_device(id->vendor, id->device, NULL);
-			if (d != NULL) {
-				bcm->irq = d->irq;
-				pci_dev_put(d);
-				break;
-			}
-		}
-	}
-#endif
 	err = request_irq(bcm->irq, bcm43xx_interrupt_handler,
 			  IRQF_SHARED, KBUILD_MODNAME, bcm);
 	if (err)
@@ -2439,6 +2379,9 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	if (err)
 		goto err_gpio_cleanup;
 	bcm43xx_radio_turn_on(bcm);
+	bcm->radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
+	dprintk(KERN_INFO PFX "Radio %s by hardware\n",
+		(bcm->radio_hw_enable == 0) ? "disabled" : "enabled");
 
 	bcm43xx_write16(bcm, 0x03E6, 0x0000);
 	err = bcm43xx_phy_init(bcm);
@@ -2630,10 +2573,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 			chip_id_16 = 0x4610;
 		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
 			chip_id_16 = 0x4710;
-#ifdef CONFIG_BCM947XX
-		else if ((pci_device >= 0x4320) && (pci_device <= 0x4325))
-			chip_id_16 = 0x4309;
-#endif
 		else {
 			printk(KERN_ERR PFX "Could not determine Chip ID\n");
 			return -ENODEV;
@@ -2979,8 +2918,10 @@ static int bcm43xx_chipset_attach(struct bcm43xx_private *bcm)
 	err = bcm43xx_pctl_set_crystal(bcm, 1);
 	if (err)
 		goto out;
-	bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
-	bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+	err = bcm43xx_pci_read_config16(bcm, PCI_STATUS, &pci_status);
+	if (err)
+		goto out;
+	err = bcm43xx_pci_write_config16(bcm, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
 
 out:
 	return err;
@@ -3174,9 +3115,24 @@ static void bcm43xx_periodic_every30sec(struct bcm43xx_private *bcm)
 
 static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
 {
+	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
+	//TODO for APHY (temperature?)
+}
+
+static void bcm43xx_periodic_every1sec(struct bcm43xx_private *bcm)
+{
 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+	int radio_hw_enable;
 
+	/* check if radio hardware enabled status changed */
+	radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
+	if (unlikely(bcm->radio_hw_enable != radio_hw_enable)) {
+		bcm->radio_hw_enable = radio_hw_enable;
+		dprintk(KERN_INFO PFX "Radio hardware status changed to %s\n",
+		       (radio_hw_enable == 0) ? "disabled" : "enabled");
+		bcm43xx_leds_update(bcm, 0);
+	}
 	if (phy->type == BCM43xx_PHYTYPE_G) {
 		//TODO: update_aci_moving_average
 		if (radio->aci_enable && radio->aci_wlan_automatic) {
@@ -3200,21 +3156,21 @@ static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
 			//TODO: implement rev1 workaround
 		}
 	}
-	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
-	//TODO for APHY (temperature?)
 }
 
 static void do_periodic_work(struct bcm43xx_private *bcm)
 {
-	if (bcm->periodic_state % 8 == 0)
+	if (bcm->periodic_state % 120 == 0)
 		bcm43xx_periodic_every120sec(bcm);
-	if (bcm->periodic_state % 4 == 0)
+	if (bcm->periodic_state % 60 == 0)
 		bcm43xx_periodic_every60sec(bcm);
-	if (bcm->periodic_state % 2 == 0)
+	if (bcm->periodic_state % 30 == 0)
 		bcm43xx_periodic_every30sec(bcm);
-	bcm43xx_periodic_every15sec(bcm);
+	if (bcm->periodic_state % 15 == 0)
+		bcm43xx_periodic_every15sec(bcm);
+	bcm43xx_periodic_every1sec(bcm);
 
-	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
+	schedule_delayed_work(&bcm->periodic_work, HZ);
 }
 
 static void bcm43xx_periodic_work_handler(struct work_struct *work)
@@ -3227,7 +3183,7 @@ static void bcm43xx_periodic_work_handler(struct work_struct *work)
 	unsigned long orig_trans_start = 0;
 
 	mutex_lock(&bcm->mutex);
-	if (unlikely(bcm->periodic_state % 4 == 0)) {
+	if (unlikely(bcm->periodic_state % 60 == 0)) {
 		/* Periodic work will take a long time, so we want it to
 		 * be preemtible.
 		 */
@@ -3259,7 +3215,7 @@ static void bcm43xx_periodic_work_handler(struct work_struct *work)
 
 	do_periodic_work(bcm);
 
-	if (unlikely(bcm->periodic_state % 4 == 0)) {
+	if (unlikely(bcm->periodic_state % 60 == 0)) {
 		spin_lock_irqsave(&bcm->irq_lock, flags);
 		tasklet_enable(&bcm->isr_tasklet);
 		bcm43xx_interrupt_enable(bcm, savedirqs);
@@ -3572,7 +3528,7 @@ int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
 		u32 sbtmstatelow;
 
 		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
-		sbtmstatelow |= 0x20000000;
+		sbtmstatelow |= BCM43xx_SBTMSTATELOW_G_MODE_ENABLE;
 		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	}
 	err = wireless_core_up(bcm, 1);
@@ -3679,7 +3635,7 @@ static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
 	u16 value;
-	u8 phy_version;
+	u8 phy_analog;
 	u8 phy_type;
 	u8 phy_rev;
 	int phy_rev_ok = 1;
@@ -3687,12 +3643,12 @@ static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 
 	value = bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_VER);
 
-	phy_version = (value & 0xF000) >> 12;
+	phy_analog = (value & 0xF000) >> 12;
 	phy_type = (value & 0x0F00) >> 8;
 	phy_rev = (value & 0x000F);
 
-	dprintk(KERN_INFO PFX "Detected PHY: Version: %x, Type %x, Revision %x\n",
-		phy_version, phy_type, phy_rev);
+	dprintk(KERN_INFO PFX "Detected PHY: Analog: %x, Type %x, Revision %x\n",
+		phy_analog, phy_type, phy_rev);
 
 	switch (phy_type) {
 	case BCM43xx_PHYTYPE_A:
@@ -3735,7 +3691,7 @@ static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 		       phy_rev);
 	}
 
-	phy->version = phy_version;
+	phy->analog = phy_analog;
 	phy->type = phy_type;
 	phy->rev = phy_rev;
 	if ((phy_type == BCM43xx_PHYTYPE_B) || (phy_type == BCM43xx_PHYTYPE_G)) {
@@ -3777,12 +3733,18 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 	}
 	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
 
-	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
+	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
 	                          &bcm->board_vendor);
-	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
+	if (err)
+		goto err_iounmap;
+	err = bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
 	                          &bcm->board_type);
-	bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
+	if (err)
+		goto err_iounmap;
+	err = bcm43xx_pci_read_config16(bcm, PCI_REVISION_ID,
 	                          &bcm->board_revision);
+	if (err)
+		goto err_iounmap;
 
 	err = bcm43xx_chipset_attach(bcm);
 	if (err)
@@ -3873,6 +3835,7 @@ err_pci_release:
 	pci_release_regions(pci_dev);
 err_pci_disable:
 	pci_disable_device(pci_dev);
+	printk(KERN_ERR PFX "Unable to attach board\n");
 	goto out;
 }
 
@@ -4104,11 +4067,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	struct net_device *net_dev;
 	struct bcm43xx_private *bcm;
 	int err;
-
-#ifdef CONFIG_BCM947XX
-	if ((pdev->bus->number == 0) && (pdev->device != 0x0800))
-		return -ENODEV;
-#endif
 
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))

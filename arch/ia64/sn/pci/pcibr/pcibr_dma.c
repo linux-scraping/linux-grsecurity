@@ -96,10 +96,14 @@ pcibr_dmamap_ate32(struct pcidev_info *info,
 	}
 
 	/*
-	 * If we're mapping for MSI, set the MSI bit in the ATE
+	 * If we're mapping for MSI, set the MSI bit in the ATE.  If it's a
+	 * TIOCP based pci bus, we also need to set the PIO bit in the ATE.
 	 */
-	if (dma_flags & SN_DMA_MSI)
+	if (dma_flags & SN_DMA_MSI) {
 		ate |= PCI32_ATE_MSI;
+		if (IS_TIOCP_SOFT(pcibus_info))
+			ate |= PCI32_ATE_PIO;
+	}
 
 	ate_write(pcibus_info, ate_index, ate_count, ate);
 
@@ -197,7 +201,7 @@ pcibr_dmatrans_direct32(struct pcidev_info * info,
 }
 
 /*
- * Wrapper routine for free'ing DMA maps
+ * Wrapper routine for freeing DMA maps
  * DMA mappings for Direct 64 and 32 do not have any DMA maps.
  */
 void

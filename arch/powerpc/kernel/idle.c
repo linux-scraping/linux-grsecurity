@@ -33,8 +33,11 @@
 #include <asm/smp.h>
 
 #ifdef CONFIG_HOTPLUG_CPU
+/* this is used for software suspend, and that shuts down
+ * CPUs even while the system is still booting... */
 #define cpu_should_die()	(cpu_is_offline(smp_processor_id()) && \
-				 system_state == SYSTEM_RUNNING)
+				   (system_state == SYSTEM_RUNNING     \
+				 || system_state == SYSTEM_BOOTING))
 #else
 #define cpu_should_die()	0
 #endif
@@ -110,17 +113,22 @@ static ctl_table powersave_nap_ctl_table[]={
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
-	{ 0, },
+	{}
 };
 static ctl_table powersave_nap_sysctl_root[] = {
-	{ 1, "kernel", NULL, 0, 0755, powersave_nap_ctl_table, },
- 	{ 0,},
+	{
+		.ctl_name	= CTL_KERN,
+		.procname	= "kernel",
+		.mode		= 0755,
+		.child		= powersave_nap_ctl_table,
+	},
+	{}
 };
 
 static int __init
 register_powersave_nap_sysctl(void)
 {
-	register_sysctl_table(powersave_nap_sysctl_root, 0);
+	register_sysctl_table(powersave_nap_sysctl_root);
 
 	return 0;
 }

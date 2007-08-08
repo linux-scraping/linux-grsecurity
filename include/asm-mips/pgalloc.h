@@ -11,6 +11,7 @@
 
 #include <linux/highmem.h>
 #include <linux/mm.h>
+#include <linux/sched.h>
 
 static inline void pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd,
 	pte_t *pte)
@@ -129,5 +130,7 @@ static inline void pmd_free(pmd_t *pmd)
 #endif
 
 #define check_pgt_cache()	do { } while (0)
+
+extern void pagetable_init(void);
 
 #endif /* _ASM_PGALLOC_H */

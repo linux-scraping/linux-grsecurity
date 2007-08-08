@@ -56,8 +56,6 @@ xfs_count_page_state(
 	do {
 		if (buffer_uptodate(bh) && !buffer_mapped(bh))
 			(*unmapped) = 1;
-		else if (buffer_unwritten(bh) && !buffer_delay(bh))
-			clear_buffer_unwritten(bh);
 		else if (buffer_unwritten(bh))
 			(*unwritten) = 1;
 		else if (buffer_delay(bh))
@@ -143,9 +141,46 @@ xfs_destroy_ioend(
 }
 
 /*
+ * Update on-disk file size now that data has been written to disk.
+ * The current in-memory file size is i_size.  If a write is beyond
+ * eof io_new_size will be the intended file size until i_size is
+ * updated.  If this write does not extend all the way to the valid
+ * file size then restrict this update to the end of the write.
+ */
+STATIC void
+xfs_setfilesize(
+	xfs_ioend_t		*ioend)
+{
+	xfs_inode_t		*ip;
+	xfs_fsize_t		isize;
+	xfs_fsize_t		bsize;
+
+	ip = xfs_vtoi(ioend->io_vnode);
+
+	ASSERT((ip->i_d.di_mode & S_IFMT) == S_IFREG);
+	ASSERT(ioend->io_type != IOMAP_READ);
+
+	if (unlikely(ioend->io_error))
+		return;
+
+	bsize = ioend->io_offset + ioend->io_size;
+
+	xfs_ilock(ip, XFS_ILOCK_EXCL);
+
+	isize = MAX(ip->i_size, ip->i_iocore.io_new_size);
+	isize = MIN(isize, bsize);
+
+	if (ip->i_d.di_size < isize) {
+		ip->i_d.di_size = isize;
+		ip->i_update_core = 1;
+		ip->i_update_size = 1;
+	}
+
+	xfs_iunlock(ip, XFS_ILOCK_EXCL);
+}
+
+/*
  * Buffered IO write completion for delayed allocate extents.
- * TODO: Update ondisk isize now that we know the file data
- * has been flushed (i.e. the notorious "NULL file" problem).
  */
 STATIC void
 xfs_end_bio_delalloc(
@@ -154,6 +189,7 @@ xfs_end_bio_delalloc(
 	xfs_ioend_t		*ioend =
 		container_of(work, xfs_ioend_t, io_work);
 
+	xfs_setfilesize(ioend);
 	xfs_destroy_ioend(ioend);
 }
 
@@ -167,6 +203,7 @@ xfs_end_bio_written(
 	xfs_ioend_t		*ioend =
 		container_of(work, xfs_ioend_t, io_work);
 
+	xfs_setfilesize(ioend);
 	xfs_destroy_ioend(ioend);
 }
 
@@ -186,8 +223,23 @@ xfs_end_bio_unwritten(
 	xfs_off_t		offset = ioend->io_offset;
 	size_t			size = ioend->io_size;
 
-	if (likely(!ioend->io_error))
+	if (likely(!ioend->io_error)) {
 		bhv_vop_bmap(vp, offset, size, BMAPI_UNWRITTEN, NULL, NULL);
+		xfs_setfilesize(ioend);
+	}
+	xfs_destroy_ioend(ioend);
+}
+
+/*
+ * IO read completion for regular, written extents.
+ */
+STATIC void
+xfs_end_bio_read(
+	struct work_struct	*work)
+{
+	xfs_ioend_t		*ioend =
+		container_of(work, xfs_ioend_t, io_work);
+
 	xfs_destroy_ioend(ioend);
 }
 
@@ -226,6 +278,8 @@ xfs_alloc_ioend(
 		INIT_WORK(&ioend->io_work, xfs_end_bio_unwritten);
 	else if (type == IOMAP_DELAY)
 		INIT_WORK(&ioend->io_work, xfs_end_bio_delalloc);
+	else if (type == IOMAP_READ)
+		INIT_WORK(&ioend->io_work, xfs_end_bio_read);
 	else
 		INIT_WORK(&ioend->io_work, xfs_end_bio_written);
 
@@ -249,7 +303,7 @@ xfs_map_blocks(
 	return -error;
 }
 
-STATIC inline int
+STATIC_INLINE int
 xfs_iomap_valid(
 	xfs_iomap_t		*iomapp,
 	loff_t			offset)
@@ -647,7 +701,7 @@ xfs_is_delayed_page(
 			else if (buffer_delay(bh))
 				acceptable = (type == IOMAP_DELAY);
 			else if (buffer_dirty(bh) && buffer_mapped(bh))
-				acceptable = (type == 0);
+				acceptable = (type == IOMAP_NEW);
 			else
 				break;
 		} while ((bh = bh->b_this_page) != head);
@@ -756,7 +810,7 @@ xfs_convert_page(
 			page_dirty--;
 			count++;
 		} else {
-			type = 0;
+			type = IOMAP_NEW;
 			if (buffer_mapped(bh) && all_bh && startio) {
 				lock_buffer(bh);
 				xfs_add_to_ioend(inode, bh, offset,
@@ -914,8 +968,8 @@ xfs_page_state_convert(
 
 	bh = head = page_buffers(page);
 	offset = page_offset(page);
-	flags = -1;
-	type = 0;
+	flags = BMAPI_READ;
+	type = IOMAP_NEW;
 
 	/* TODO: cleanup count and page_dirty */
 
@@ -945,14 +999,14 @@ xfs_page_state_convert(
 		 *
 		 * Third case, an unmapped buffer was found, and we are
 		 * in a path where we need to write the whole page out.
- 		 */
+		 */
 		if (buffer_unwritten(bh) || buffer_delay(bh) ||
 		    ((buffer_uptodate(bh) || PageUptodate(page)) &&
 		     !buffer_mapped(bh) && (unmapped || startio))) {
-		     	/*
+			/*
 			 * Make sure we don't use a read-only iomap
 			 */
-		     	if (flags == BMAPI_READ)
+			if (flags == BMAPI_READ)
 				iomap_valid = 0;
 
 			if (buffer_unwritten(bh)) {
@@ -1001,7 +1055,7 @@ xfs_page_state_convert(
 			 * That means it must already have extents allocated
 			 * underneath it. Map the extent by reading it.
 			 */
-			if (!iomap_valid || type != 0) {
+			if (!iomap_valid || flags != BMAPI_READ) {
 				flags = BMAPI_READ;
 				size = xfs_probe_cluster(inode, page, bh,
 								head, 1);
@@ -1012,7 +1066,15 @@ xfs_page_state_convert(
 				iomap_valid = xfs_iomap_valid(&iomap, offset);
 			}
 
-			type = 0;
+			/*
+			 * We set the type to IOMAP_NEW in case we are doing a
+			 * small write at EOF that is extending the file but
+			 * without needing an allocation. We need to update the
+			 * file size on I/O completion in this case so it is
+			 * the same case as having just allocated a new extent
+			 * that we are writing into for the first time.
+			 */
+			type = IOMAP_NEW;
 			if (!test_and_set_bit(BH_Lock, &bh->b_state)) {
 				ASSERT(buffer_mapped(bh));
 				if (iomap_valid)
@@ -1272,7 +1334,6 @@ __xfs_get_blocks(
 			if (direct)
 				bh_result->b_private = inode;
 			set_buffer_unwritten(bh_result);
-			set_buffer_delay(bh_result);
 		}
 	}
 
@@ -1283,13 +1344,18 @@ __xfs_get_blocks(
 	bh_result->b_bdev = iomap.iomap_target->bt_bdev;
 
 	/*
-	 * If we previously allocated a block out beyond eof and we are
-	 * now coming back to use it then we will need to flag it as new
-	 * even if it has a disk address.
+	 * If we previously allocated a block out beyond eof and we are now
+	 * coming back to use it then we will need to flag it as new even if it
+	 * has a disk address.
+	 *
+	 * With sub-block writes into unwritten extents we also need to mark
+	 * the buffer as new so that the unwritten parts of the buffer gets
+	 * correctly zeroed.
 	 */
 	if (create &&
 	    ((!buffer_mapped(bh_result) && !buffer_uptodate(bh_result)) ||
-	     (offset >= i_size_read(inode)) || (iomap.iomap_flags & IOMAP_NEW)))
+	     (offset >= i_size_read(inode)) ||
+	     (iomap.iomap_flags & (IOMAP_NEW|IOMAP_UNWRITTEN))))
 		set_buffer_new(bh_result);
 
 	if (iomap.iomap_flags & IOMAP_DELAY) {
@@ -1354,12 +1420,21 @@ xfs_end_io_direct(
 	 * completion handler in the future, in which case all this can
 	 * go away.
 	 */
-	if (private && size > 0) {
-		ioend->io_offset = offset;
-		ioend->io_size = size;
+	ioend->io_offset = offset;
+	ioend->io_size = size;
+	if (ioend->io_type == IOMAP_READ) {
+		xfs_finish_ioend(ioend);
+	} else if (private && size > 0) {
 		xfs_finish_ioend(ioend);
 	} else {
-		xfs_destroy_ioend(ioend);
+		/*
+		 * A direct I/O write ioend starts it's life in unwritten
+		 * state in case they map an unwritten extent.  This write
+		 * didn't map an unwritten extent so switch it's completion
+		 * handler.
+		 */
+		INIT_WORK(&ioend->io_work, xfs_end_bio_written);
+		xfs_finish_ioend(ioend);
 	}
 
 	/*
@@ -1390,15 +1465,15 @@ xfs_vm_direct_IO(
 	if (error)
 		return -error;
 
-	iocb->private = xfs_alloc_ioend(inode, IOMAP_UNWRITTEN);
-
 	if (rw == WRITE) {
+		iocb->private = xfs_alloc_ioend(inode, IOMAP_UNWRITTEN);
 		ret = blockdev_direct_IO_own_locking(rw, iocb, inode,
 			iomap.iomap_target->bt_bdev,
 			iov, offset, nr_segs,
 			xfs_get_blocks_direct,
 			xfs_end_io_direct);
 	} else {
+		iocb->private = xfs_alloc_ioend(inode, IOMAP_READ);
 		ret = blockdev_direct_IO_no_locking(rw, iocb, inode,
 			iomap.iomap_target->bt_bdev,
 			iov, offset, nr_segs,

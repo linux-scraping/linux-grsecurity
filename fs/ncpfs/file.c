@@ -17,7 +17,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <linux/smp_lock.h>
+#include <linux/sched.h>
 
 #include <linux/ncp_fs.h>
 #include "ncplib_kernel.h"
@@ -297,7 +297,7 @@ const struct file_operations ncp_file_operations =
 	.fsync		= ncp_fsync,
 };
 
-struct inode_operations ncp_file_inode_operations =
+const struct inode_operations ncp_file_inode_operations =
 {
 	.setattr	= ncp_notify_change,
 };

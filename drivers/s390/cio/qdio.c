@@ -66,11 +66,9 @@ MODULE_LICENSE("GPL");
 /******************** HERE WE GO ***********************************/
 
 static const char version[] = "QDIO base support version 2";
-extern struct bus_type ccw_bus_type;
 
 static int qdio_performance_stats = 0;
 static int proc_perf_file_registration;
-static unsigned long i_p_c, i_p_nc, o_p_c, o_p_nc, ii_p_c, ii_p_nc;
 static struct qdio_perf_stats perf_stats;
 
 static int hydra_thinints;
@@ -112,6 +110,31 @@ qdio_min(int a,int b)
 }
 
 /***************** SCRUBBER HELPER ROUTINES **********************/
+#ifdef CONFIG_64BIT
+static inline void qdio_perf_stat_inc(atomic64_t *count)
+{
+	if (qdio_performance_stats)
+		atomic64_inc(count);
+}
+
+static inline void qdio_perf_stat_dec(atomic64_t *count)
+{
+	if (qdio_performance_stats)
+		atomic64_dec(count);
+}
+#else /* CONFIG_64BIT */
+static inline void qdio_perf_stat_inc(atomic_t *count)
+{
+	if (qdio_performance_stats)
+		atomic_inc(count);
+}
+
+static inline void qdio_perf_stat_dec(atomic_t *count)
+{
+	if (qdio_performance_stats)
+		atomic_dec(count);
+}
+#endif /* CONFIG_64BIT */
 
 static inline __u64 
 qdio_get_micros(void)
@@ -138,7 +161,7 @@ qdio_release_q(struct qdio_q *q)
 }
 
 /*check ccq  */
-static inline int
+static int
 qdio_check_ccq(struct qdio_q *q, unsigned int ccq)
 {
 	char dbf_text[15];
@@ -153,7 +176,7 @@ qdio_check_ccq(struct qdio_q *q, unsigned int ccq)
 	return -EIO;
 }
 /* EQBS: extract buffer states */
-static inline int
+static int
 qdio_do_eqbs(struct qdio_q *q, unsigned char *state,
 	     unsigned int *start, unsigned int *cnt)
 {
@@ -188,7 +211,7 @@ again:
 }
 
 /* SQBS: set buffer states */
-static inline int
+static int
 qdio_do_sqbs(struct qdio_q *q, unsigned char state,
 	     unsigned int *start, unsigned int *cnt)
 {
@@ -211,9 +234,11 @@ again:
 		goto again;
 	}
 	if (rc < 0) {
-                QDIO_DBF_TEXT3(1,trace,"sqberr");
-                sprintf(dbf_text,"%2x,%2x,%d,%d",tmp_cnt,*cnt,ccq,q_no);
-                QDIO_DBF_TEXT3(1,trace,dbf_text);
+		QDIO_DBF_TEXT3(1,trace,"sqberr");
+		sprintf(dbf_text,"%2x,%2x",tmp_cnt,*cnt);
+		QDIO_DBF_TEXT3(1,trace,dbf_text);
+		sprintf(dbf_text,"%d,%d",ccq,q_no);
+		QDIO_DBF_TEXT3(1,trace,dbf_text);
 		q->handler(q->cdev,QDIO_STATUS_ACTIVATE_CHECK_CONDITION|
 				QDIO_STATUS_LOOK_FOR_ERROR,
 				0, 0, 0, -1, -1, q->int_parm);
@@ -276,8 +301,7 @@ qdio_siga_sync(struct qdio_q *q, unsigned int gpr2,
 	QDIO_DBF_TEXT4(0,trace,"sigasync");
 	QDIO_DBF_HEX4(0,trace,&q,sizeof(void*));
 
-	if (qdio_performance_stats)
-		perf_stats.siga_syncs++;
+	qdio_perf_stat_inc(&perf_stats.siga_syncs);
 
 	cc = do_siga_sync(q->schid, gpr2, gpr3);
 	if (cc)
@@ -315,15 +339,14 @@ __do_siga_output(struct qdio_q *q, unsigned int *busy_bit)
  * returns QDIO_SIGA_ERROR_ACCESS_EXCEPTION as cc, when SIGA returns
  * an access exception 
  */
-static inline int 
+static int
 qdio_siga_output(struct qdio_q *q)
 {
 	int cc;
 	__u32 busy_bit;
 	__u64 start_time=0;
 
-	if (qdio_performance_stats)
-		perf_stats.siga_outs++;
+	qdio_perf_stat_inc(&perf_stats.siga_outs);
 
 	QDIO_DBF_TEXT4(0,trace,"sigaout");
 	QDIO_DBF_HEX4(0,trace,&q,sizeof(void*));
@@ -349,7 +372,7 @@ qdio_siga_output(struct qdio_q *q)
 	return cc;
 }
 
-static inline int 
+static int
 qdio_siga_input(struct qdio_q *q)
 {
 	int cc;
@@ -357,8 +380,7 @@ qdio_siga_input(struct qdio_q *q)
 	QDIO_DBF_TEXT4(0,trace,"sigain");
 	QDIO_DBF_HEX4(0,trace,&q,sizeof(void*));
 
-	if (qdio_performance_stats)
-		perf_stats.siga_ins++;
+	qdio_perf_stat_inc(&perf_stats.siga_ins);
 
 	cc = do_siga_input(q->schid, q->mask);
 	
@@ -421,7 +443,7 @@ tiqdio_sched_tl(void)
 	tasklet_hi_schedule(&tiqdio_tasklet);
 }
 
-static inline void
+static void
 qdio_mark_tiq(struct qdio_q *q)
 {
 	unsigned long flags;
@@ -471,7 +493,7 @@ qdio_mark_q(struct qdio_q *q)
 	tasklet_schedule(&q->tasklet);
 }
 
-static inline int
+static int
 qdio_stop_polling(struct qdio_q *q)
 {
 #ifdef QDIO_USE_PROCESSING_STATE
@@ -525,7 +547,7 @@ qdio_stop_polling(struct qdio_q *q)
  * sophisticated locking outside of unmark_q, so that we don't need to
  * disable the interrupts :-) 
 */
-static inline void
+static void
 qdio_unmark_q(struct qdio_q *q)
 {
 	unsigned long flags;
@@ -691,7 +713,7 @@ qdio_qebsm_get_inbound_buffer_frontier(struct qdio_q *q)
         return q->first_to_check;
 }
 
-static inline int
+static int
 qdio_get_outbound_buffer_frontier(struct qdio_q *q)
 {
 	struct qdio_irq *irq;
@@ -774,7 +796,7 @@ out:
 }
 
 /* all buffers are processed */
-static inline int
+static int
 qdio_is_outbound_q_done(struct qdio_q *q)
 {
 	int no_used;
@@ -796,7 +818,7 @@ qdio_is_outbound_q_done(struct qdio_q *q)
 	return (no_used==0);
 }
 
-static inline int
+static int
 qdio_has_outbound_q_moved(struct qdio_q *q)
 {
 	int i;
@@ -816,7 +838,7 @@ qdio_has_outbound_q_moved(struct qdio_q *q)
 	}
 }
 
-static inline void
+static void
 qdio_kick_outbound_q(struct qdio_q *q)
 {
 	int result;
@@ -905,7 +927,7 @@ qdio_kick_outbound_q(struct qdio_q *q)
 	}
 }
 
-static inline void
+static void
 qdio_kick_outbound_handler(struct qdio_q *q)
 {
 	int start, end, real_end, count;
@@ -942,7 +964,7 @@ qdio_kick_outbound_handler(struct qdio_q *q)
 	q->error_status_flags=0;
 }
 
-static inline void
+static void
 __qdio_outbound_processing(struct qdio_q *q)
 {
 	int siga_attempts;
@@ -952,8 +974,7 @@ __qdio_outbound_processing(struct qdio_q *q)
 
 	if (unlikely(qdio_reserve_q(q))) {
 		qdio_release_q(q);
-		if (qdio_performance_stats)
-			o_p_c++;
+		qdio_perf_stat_inc(&perf_stats.outbound_tl_runs_resched);
 		/* as we're sissies, we'll check next time */
 		if (likely(!atomic_read(&q->is_in_shutdown))) {
 			qdio_mark_q(q);
@@ -961,10 +982,8 @@ __qdio_outbound_processing(struct qdio_q *q)
 		}
 		return;
 	}
-	if (qdio_performance_stats) {
-		o_p_nc++;
-		perf_stats.tl_runs++;
-	}
+	qdio_perf_stat_inc(&perf_stats.outbound_tl_runs);
+	qdio_perf_stat_inc(&perf_stats.tl_runs);
 
 	/* see comment in qdio_kick_outbound_q */
 	siga_attempts=atomic_read(&q->busy_siga_counter);
@@ -977,18 +996,25 @@ __qdio_outbound_processing(struct qdio_q *q)
 	if (qdio_has_outbound_q_moved(q))
 		qdio_kick_outbound_handler(q);
 
-	if (q->is_iqdio_q) {
+	if (q->queue_type == QDIO_ZFCP_QFMT) {
+		if ((!q->hydra_gives_outbound_pcis) &&
+		    (!qdio_is_outbound_q_done(q)))
+			qdio_mark_q(q);
+	}
+	else if (((!q->is_iqdio_q) && (!q->is_pci_out)) ||
+		 (q->queue_type == QDIO_IQDIO_QFMT_ASYNCH)) {
 		/* 
-		 * for asynchronous queues, we better check, if the sent
-		 * buffer is already switched from PRIMED to EMPTY.
+		 * make sure buffer switch from PRIMED to EMPTY is noticed
+		 * and outbound_handler is called
 		 */
-		if ((q->queue_type == QDIO_IQDIO_QFMT_ASYNCH) &&
-		    !qdio_is_outbound_q_done(q))
-			qdio_mark_q(q);
-
-	} else if (!q->hydra_gives_outbound_pcis)
-		if (!qdio_is_outbound_q_done(q))
-			qdio_mark_q(q);
+		if (qdio_is_outbound_q_done(q)) {
+			del_timer(&q->timer);
+		} else {
+			if (!timer_pending(&q->timer))
+				mod_timer(&q->timer, jiffies +
+					  QDIO_FORCE_CHECK_TIMEOUT);
+		}
+	}
 
 	qdio_release_q(q);
 }
@@ -1002,7 +1028,7 @@ qdio_outbound_processing(struct qdio_q *q)
 /************************* INBOUND ROUTINES *******************************/
 
 
-static inline int
+static int
 qdio_get_inbound_buffer_frontier(struct qdio_q *q)
 {
 	struct qdio_irq *irq;
@@ -1133,21 +1159,10 @@ out:
 	return q->first_to_check;
 }
 
-static inline int
+static int
 qdio_has_inbound_q_moved(struct qdio_q *q)
 {
 	int i;
-
-	static int old_pcis=0;
-	static int old_thinints=0;
-
-	if (qdio_performance_stats) {
-		if ((old_pcis==perf_stats.pcis)&&
-		    (old_thinints==perf_stats.thinints))
-			perf_stats.start_time_inbound=NOW;
-		else
-			old_pcis=perf_stats.pcis;
-	}
 
 	i=qdio_get_inbound_buffer_frontier(q);
 	if ( (i!=GET_SAVED_FRONTIER(q)) ||
@@ -1167,7 +1182,7 @@ qdio_has_inbound_q_moved(struct qdio_q *q)
 }
 
 /* means, no more buffers to be filled */
-static inline int
+static int
 tiqdio_is_inbound_q_done(struct qdio_q *q)
 {
 	int no_used;
@@ -1228,7 +1243,7 @@ tiqdio_is_inbound_q_done(struct qdio_q *q)
 	return 0;
 }
 
-static inline int
+static int
 qdio_is_inbound_q_done(struct qdio_q *q)
 {
 	int no_used;
@@ -1251,7 +1266,6 @@ qdio_is_inbound_q_done(struct qdio_q *q)
 	if (!no_used) {
 		QDIO_DBF_TEXT4(0,trace,"inqisdnA");
 		QDIO_DBF_HEX4(0,trace,&q,sizeof(void*));
-		QDIO_DBF_TEXT4(0,trace,dbf_text);
 		return 1;
 	}
 	if (irq->is_qebsm) {
@@ -1296,7 +1310,7 @@ qdio_is_inbound_q_done(struct qdio_q *q)
 	}
 }
 
-static inline void
+static void
 qdio_kick_inbound_handler(struct qdio_q *q)
 {
 	int count, start, end, real_end, i;
@@ -1337,13 +1351,10 @@ qdio_kick_inbound_handler(struct qdio_q *q)
 	q->siga_error=0;
 	q->error_status_flags=0;
 
-	if (qdio_performance_stats) {
-		perf_stats.inbound_time+=NOW-perf_stats.start_time_inbound;
-		perf_stats.inbound_cnt++;
-	}
+	qdio_perf_stat_inc(&perf_stats.inbound_cnt);
 }
 
-static inline void
+static void
 __tiqdio_inbound_processing(struct qdio_q *q, int spare_ind_was_set)
 {
 	struct qdio_irq *irq_ptr;
@@ -1360,8 +1371,7 @@ __tiqdio_inbound_processing(struct qdio_q *q, int spare_ind_was_set)
 	 */
 	if (unlikely(qdio_reserve_q(q))) {
 		qdio_release_q(q);
-		if (qdio_performance_stats)
-			ii_p_c++;
+		qdio_perf_stat_inc(&perf_stats.inbound_thin_tl_runs_resched);
 		/* 
 		 * as we might just be about to stop polling, we make
 		 * sure that we check again at least once more 
@@ -1369,8 +1379,7 @@ __tiqdio_inbound_processing(struct qdio_q *q, int spare_ind_was_set)
 		tiqdio_sched_tl();
 		return;
 	}
-	if (qdio_performance_stats)
-		ii_p_nc++;
+	qdio_perf_stat_inc(&perf_stats.inbound_thin_tl_runs);
 	if (unlikely(atomic_read(&q->is_in_shutdown))) {
 		qdio_unmark_q(q);
 		goto out;
@@ -1412,8 +1421,7 @@ __tiqdio_inbound_processing(struct qdio_q *q, int spare_ind_was_set)
 		for (i=0;i<irq_ptr->no_output_qs;i++) {
 			oq = irq_ptr->output_qs[i];
 			if (!qdio_is_outbound_q_done(oq)) {
-				if (qdio_performance_stats)
-					perf_stats.tl_runs--;
+				qdio_perf_stat_dec(&perf_stats.tl_runs);
 				__qdio_outbound_processing(oq);
 			}
 		}
@@ -1442,7 +1450,7 @@ tiqdio_inbound_processing(struct qdio_q *q)
 	__tiqdio_inbound_processing(q, atomic_read(&spare_indicator_usecount));
 }
 
-static inline void
+static void
 __qdio_inbound_processing(struct qdio_q *q)
 {
 	int q_laps=0;
@@ -1452,8 +1460,7 @@ __qdio_inbound_processing(struct qdio_q *q)
 
 	if (unlikely(qdio_reserve_q(q))) {
 		qdio_release_q(q);
-		if (qdio_performance_stats)
-			i_p_c++;
+		qdio_perf_stat_inc(&perf_stats.inbound_tl_runs_resched);
 		/* as we're sissies, we'll check next time */
 		if (likely(!atomic_read(&q->is_in_shutdown))) {
 			qdio_mark_q(q);
@@ -1461,10 +1468,8 @@ __qdio_inbound_processing(struct qdio_q *q)
 		}
 		return;
 	}
-	if (qdio_performance_stats) {
-		i_p_nc++;
-		perf_stats.tl_runs++;
-	}
+	qdio_perf_stat_inc(&perf_stats.inbound_tl_runs);
+	qdio_perf_stat_inc(&perf_stats.tl_runs);
 
 again:
 	if (qdio_has_inbound_q_moved(q)) {
@@ -1493,7 +1498,7 @@ qdio_inbound_processing(struct qdio_q *q)
 /************************* MAIN ROUTINES *******************************/
 
 #ifdef QDIO_USE_PROCESSING_STATE
-static inline int
+static int
 tiqdio_reset_processing_state(struct qdio_q *q, int q_laps)
 {
 	if (!q) {
@@ -1510,8 +1515,7 @@ tiqdio_reset_processing_state(struct qdio_q *q, int q_laps)
 
 	if (unlikely(qdio_reserve_q(q))) {
 		qdio_release_q(q);
-		if (qdio_performance_stats)
-			ii_p_c++;
+		qdio_perf_stat_inc(&perf_stats.inbound_thin_tl_runs_resched);
 		/* 
 		 * as we might just be about to stop polling, we make
 		 * sure that we check again at least once more 
@@ -1545,7 +1549,7 @@ tiqdio_reset_processing_state(struct qdio_q *q, int q_laps)
 }
 #endif /* QDIO_USE_PROCESSING_STATE */
 
-static inline void
+static void
 tiqdio_inbound_checks(void)
 {
 	struct qdio_q *q;
@@ -1602,8 +1606,7 @@ tiqdio_tl(unsigned long data)
 {
 	QDIO_DBF_TEXT4(0,trace,"iqdio_tl");
 
-	if (qdio_performance_stats)
-		perf_stats.tl_runs++;
+	qdio_perf_stat_inc(&perf_stats.tl_runs);
 
 	tiqdio_inbound_checks();
 }
@@ -1830,6 +1833,7 @@ qdio_fill_qs(struct qdio_irq *irq_ptr, struct ccw_device *cdev,
 			q->queue_type = QDIO_IQDIO_QFMT_ASYNCH;
 		q->int_parm=int_parm;
 		q->is_input_q=0;
+		q->is_pci_out = 0;
 		q->schid = irq_ptr->schid;
 		q->cdev = cdev;
 		q->irq_ptr = irq_ptr;
@@ -1842,6 +1846,10 @@ qdio_fill_qs(struct qdio_irq *irq_ptr, struct ccw_device *cdev,
 		q->tasklet.data=(unsigned long)q;
 		q->tasklet.func=(void(*)(unsigned long))
 			&qdio_outbound_processing;
+		q->timer.function=(void(*)(unsigned long))
+			&qdio_outbound_processing;
+		q->timer.data = (long)q;
+		init_timer(&q->timer);
 
 		atomic_set(&q->busy_siga_counter,0);
 		q->timing.busy_start=0;
@@ -1914,10 +1922,7 @@ tiqdio_thinint_handler(void)
 {
 	QDIO_DBF_TEXT4(0,trace,"thin_int");
 
-	if (qdio_performance_stats) {
-		perf_stats.thinints++;
-		perf_stats.start_time_inbound=NOW;
-	}
+	qdio_perf_stat_inc(&perf_stats.thinints);
 
 	/* SVS only when needed:
 	 * issue SVS to benefit from iqdio interrupt avoidance
@@ -1949,7 +1954,7 @@ qdio_set_state(struct qdio_irq *irq_ptr, enum qdio_irq_states state)
 	mb();
 }
 
-static inline void
+static void
 qdio_irq_check_sense(struct subchannel_id schid, struct irb *irb)
 {
 	char dbf_text[15];
@@ -1966,23 +1971,19 @@ qdio_irq_check_sense(struct subchannel_id schid, struct irb *irb)
 		
 }
 
-static inline void
+static void
 qdio_handle_pci(struct qdio_irq *irq_ptr)
 {
 	int i;
 	struct qdio_q *q;
 
-	if (qdio_performance_stats) {
-		perf_stats.pcis++;
-		perf_stats.start_time_inbound=NOW;
-	}
+	qdio_perf_stat_inc(&perf_stats.pcis);
 	for (i=0;i<irq_ptr->no_input_qs;i++) {
 		q=irq_ptr->input_qs[i];
 		if (q->is_input_q&QDIO_FLAG_NO_INPUT_INTERRUPT_CONTEXT)
 			qdio_mark_q(q);
 		else {
-			if (qdio_performance_stats)
-				perf_stats.tl_runs--;
+			qdio_perf_stat_dec(&perf_stats.tl_runs);
 			__qdio_inbound_processing(q);
 		}
 	}
@@ -1992,8 +1993,7 @@ qdio_handle_pci(struct qdio_irq *irq_ptr)
 		q=irq_ptr->output_qs[i];
 		if (qdio_is_outbound_q_done(q))
 			continue;
-		if (qdio_performance_stats)
-			perf_stats.tl_runs--;
+		qdio_perf_stat_dec(&perf_stats.tl_runs);
 		if (!irq_ptr->sync_done_on_outb_pcis)
 			SYNC_MEMORY;
 		__qdio_outbound_processing(q);
@@ -2002,7 +2002,7 @@ qdio_handle_pci(struct qdio_irq *irq_ptr)
 
 static void qdio_establish_handle_irq(struct ccw_device*, int, int);
 
-static inline void
+static void
 qdio_handle_activate_check(struct ccw_device *cdev, unsigned long intparm,
 			   int cstat, int dstat)
 {
@@ -2229,7 +2229,7 @@ qdio_synchronize(struct ccw_device *cdev, unsigned int flags,
 	return cc;
 }
 
-static inline void
+static void
 qdio_check_subchannel_qebsm(struct qdio_irq *irq_ptr, unsigned char qdioac,
 			    unsigned long token)
 {
@@ -2648,6 +2648,7 @@ qdio_shutdown(struct ccw_device *cdev, int how)
 
 	for (i=0;i<irq_ptr->no_output_qs;i++) {
 		tasklet_kill(&irq_ptr->output_qs[i]->tasklet);
+		del_timer(&irq_ptr->output_qs[i]->timer);
 		wait_event_interruptible_timeout(cdev->private->wait_q,
 						 !atomic_read(&irq_ptr->
 							      output_qs[i]->
@@ -2740,7 +2741,7 @@ qdio_free(struct ccw_device *cdev)
 	return 0;
 }
 
-static inline void
+static void
 qdio_allocate_do_dbf(struct qdio_initialize *init_data)
 {
 	char dbf_text[20]; /* if a printf printed out more than 8 chars */
@@ -2773,7 +2774,7 @@ qdio_allocate_do_dbf(struct qdio_initialize *init_data)
 	QDIO_DBF_HEX0(0,setup,&init_data->output_sbal_addr_array,sizeof(void*));
 }
 
-static inline void
+static void
 qdio_allocate_fill_input_desc(struct qdio_irq *irq_ptr, int i, int iqfmt)
 {
 	irq_ptr->input_qs[i]->is_iqdio_q = iqfmt;
@@ -2792,7 +2793,7 @@ qdio_allocate_fill_input_desc(struct qdio_irq *irq_ptr, int i, int iqfmt)
 	irq_ptr->qdr->qdf0[i].dkey=QDIO_STORAGE_KEY;
 }
 
-static inline void
+static void
 qdio_allocate_fill_output_desc(struct qdio_irq *irq_ptr, int i,
 			       int j, int iqfmt)
 {
@@ -2813,7 +2814,7 @@ qdio_allocate_fill_output_desc(struct qdio_irq *irq_ptr, int i,
 }
 
 
-static inline void
+static void
 qdio_initialize_set_siga_flags_input(struct qdio_irq *irq_ptr)
 {
 	int i;
@@ -2839,7 +2840,7 @@ qdio_initialize_set_siga_flags_input(struct qdio_irq *irq_ptr)
 	}
 }
 
-static inline void
+static void
 qdio_initialize_set_siga_flags_output(struct qdio_irq *irq_ptr)
 {
 	int i;
@@ -2865,7 +2866,7 @@ qdio_initialize_set_siga_flags_output(struct qdio_irq *irq_ptr)
 	}
 }
 
-static inline int
+static int
 qdio_establish_irq_check_for_errors(struct ccw_device *cdev, int cstat,
 				    int dstat)
 {
@@ -3014,7 +3015,7 @@ qdio_allocate(struct qdio_initialize *init_data)
 	return 0;
 }
 
-int qdio_fill_irq(struct qdio_initialize *init_data)
+static int qdio_fill_irq(struct qdio_initialize *init_data)
 {
 	int i;
 	char dbf_text[15];
@@ -3195,7 +3196,7 @@ qdio_establish(struct qdio_initialize *init_data)
 
 	spin_lock_irqsave(get_ccwdev_lock(cdev),saveflags);
 
-	ccw_device_set_options(cdev, 0);
+	ccw_device_set_options_mask(cdev, 0);
 	result=ccw_device_start_timeout(cdev,&irq_ptr->ccw,
 					QDIO_DOING_ESTABLISH,0, 0,
 					QDIO_ESTABLISH_TIMEOUT);
@@ -3367,15 +3368,20 @@ qdio_activate(struct ccw_device *cdev, int flags)
 }
 
 /* buffers filled forwards again to make Rick happy */
-static inline void
+static void
 qdio_do_qdio_fill_input(struct qdio_q *q, unsigned int qidx,
 			unsigned int count, struct qdio_buffer *buffers)
 {
 	struct qdio_irq *irq = (struct qdio_irq *) q->irq_ptr;
+	int tmp = 0;
+
 	qidx &= (QDIO_MAX_BUFFERS_PER_Q - 1);
 	if (irq->is_qebsm) {
-		while (count)
-			set_slsb(q, &qidx, SLSB_CU_INPUT_EMPTY, &count);
+		while (count) {
+			tmp = set_slsb(q, &qidx, SLSB_CU_INPUT_EMPTY, &count);
+			if (!tmp)
+				return;
+		}
 		return;
 	}
 	for (;;) {
@@ -3386,16 +3392,20 @@ qdio_do_qdio_fill_input(struct qdio_q *q, unsigned int qidx,
 	}
 }
 
-static inline void
+static void
 qdio_do_qdio_fill_output(struct qdio_q *q, unsigned int qidx,
 			 unsigned int count, struct qdio_buffer *buffers)
 {
 	struct qdio_irq *irq = (struct qdio_irq *) q->irq_ptr;
+	int tmp = 0;
 
 	qidx &= (QDIO_MAX_BUFFERS_PER_Q - 1);
 	if (irq->is_qebsm) {
-		while (count)
-			set_slsb(q, &qidx, SLSB_CU_OUTPUT_PRIMED, &count);
+		while (count) {
+			tmp = set_slsb(q, &qidx, SLSB_CU_OUTPUT_PRIMED, &count);
+			if (!tmp)
+				return;
+		}
 		return;
 	}
 
@@ -3407,7 +3417,7 @@ qdio_do_qdio_fill_output(struct qdio_q *q, unsigned int qidx,
 	}
 }
 
-static inline void
+static void
 do_qdio_handle_inbound(struct qdio_q *q, unsigned int callflags,
 		       unsigned int qidx, unsigned int count,
 		       struct qdio_buffer *buffers)
@@ -3443,7 +3453,7 @@ do_qdio_handle_inbound(struct qdio_q *q, unsigned int callflags,
 	qdio_mark_q(q);
 }
 
-static inline void
+static void
 do_qdio_handle_outbound(struct qdio_q *q, unsigned int callflags,
 			unsigned int qidx, unsigned int count,
 			struct qdio_buffer *buffers)
@@ -3454,20 +3464,18 @@ do_qdio_handle_outbound(struct qdio_q *q, unsigned int callflags,
 	struct qdio_irq *irq = (struct qdio_irq *) q->irq_ptr;
 
 	/* This is the outbound handling of queues */
-	if (qdio_performance_stats)
-		perf_stats.start_time_outbound=NOW;
-
 	qdio_do_qdio_fill_output(q,qidx,count,buffers);
 
 	used_elements=atomic_add_return(count, &q->number_of_buffers_used) - count;
 
 	if (callflags&QDIO_FLAG_DONT_SIGA) {
-		if (qdio_performance_stats) {
-			perf_stats.outbound_time+=NOW-perf_stats.start_time_outbound;
-			perf_stats.outbound_cnt++;
-		}
+		qdio_perf_stat_inc(&perf_stats.outbound_cnt);
 		return;
 	}
+	if (callflags & QDIO_FLAG_PCI_OUT)
+		q->is_pci_out = 1;
+	else
+		q->is_pci_out = 0;
 	if (q->is_iqdio_q) {
 		/* one siga for every sbal */
 		while (count--)
@@ -3495,8 +3503,7 @@ do_qdio_handle_outbound(struct qdio_q *q, unsigned int callflags,
 				qdio_kick_outbound_q(q);
 			} else {
 				QDIO_DBF_TEXT3(0,trace, "fast-req");
-				if (qdio_performance_stats)
-					perf_stats.fast_reqs++;
+				qdio_perf_stat_inc(&perf_stats.fast_reqs);
 			}
 		}
 		/* 
@@ -3507,10 +3514,7 @@ do_qdio_handle_outbound(struct qdio_q *q, unsigned int callflags,
 		__qdio_outbound_processing(q);
 	}
 
-	if (qdio_performance_stats) {
-		perf_stats.outbound_time+=NOW-perf_stats.start_time_outbound;
-		perf_stats.outbound_cnt++;
-	}
+	qdio_perf_stat_inc(&perf_stats.outbound_cnt);
 }
 
 /* count must be 1 in iqdio */
@@ -3580,33 +3584,67 @@ qdio_perf_procfile_read(char *buffer, char **buffer_location, off_t offset,
 		return 0;
 
 #define _OUTP_IT(x...) c+=sprintf(buffer+c,x)
-	_OUTP_IT("i_p_nc/c=%lu/%lu\n",i_p_nc,i_p_c);
-	_OUTP_IT("ii_p_nc/c=%lu/%lu\n",ii_p_nc,ii_p_c);
-	_OUTP_IT("o_p_nc/c=%lu/%lu\n",o_p_nc,o_p_c);
-	_OUTP_IT("Number of tasklet runs (total)                  : %lu\n",
-		 perf_stats.tl_runs);
+#ifdef CONFIG_64BIT
+	_OUTP_IT("Number of tasklet runs (total)                  : %li\n",
+		 (long)atomic64_read(&perf_stats.tl_runs));
+	_OUTP_IT("Inbound tasklet runs      tried/retried         : %li/%li\n",
+		 (long)atomic64_read(&perf_stats.inbound_tl_runs),
+		 (long)atomic64_read(&perf_stats.inbound_tl_runs_resched));
+	_OUTP_IT("Inbound-thin tasklet runs tried/retried         : %li/%li\n",
+		 (long)atomic64_read(&perf_stats.inbound_thin_tl_runs),
+		 (long)atomic64_read(&perf_stats.inbound_thin_tl_runs_resched));
+	_OUTP_IT("Outbound tasklet runs     tried/retried         : %li/%li\n",
+		 (long)atomic64_read(&perf_stats.outbound_tl_runs),
+		 (long)atomic64_read(&perf_stats.outbound_tl_runs_resched));
 	_OUTP_IT("\n");
-	_OUTP_IT("Number of SIGA sync's issued                    : %lu\n",
-		 perf_stats.siga_syncs);
-	_OUTP_IT("Number of SIGA in's issued                      : %lu\n",
-		 perf_stats.siga_ins);
-	_OUTP_IT("Number of SIGA out's issued                     : %lu\n",
-		 perf_stats.siga_outs);
-	_OUTP_IT("Number of PCIs caught                           : %lu\n",
-		 perf_stats.pcis);
-	_OUTP_IT("Number of adapter interrupts caught             : %lu\n",
-		 perf_stats.thinints);
-	_OUTP_IT("Number of fast requeues (outg. SBALs w/o SIGA)  : %lu\n",
-		 perf_stats.fast_reqs);
+	_OUTP_IT("Number of SIGA sync's issued                    : %li\n",
+		 (long)atomic64_read(&perf_stats.siga_syncs));
+	_OUTP_IT("Number of SIGA in's issued                      : %li\n",
+		 (long)atomic64_read(&perf_stats.siga_ins));
+	_OUTP_IT("Number of SIGA out's issued                     : %li\n",
+		 (long)atomic64_read(&perf_stats.siga_outs));
+	_OUTP_IT("Number of PCIs caught                           : %li\n",
+		 (long)atomic64_read(&perf_stats.pcis));
+	_OUTP_IT("Number of adapter interrupts caught             : %li\n",
+		 (long)atomic64_read(&perf_stats.thinints));
+	_OUTP_IT("Number of fast requeues (outg. SBALs w/o SIGA)  : %li\n",
+		 (long)atomic64_read(&perf_stats.fast_reqs));
 	_OUTP_IT("\n");
-	_OUTP_IT("Total time of all inbound actions (us) incl. UL : %lu\n",
-		 perf_stats.inbound_time);
-	_OUTP_IT("Number of inbound transfers                     : %lu\n",
-		 perf_stats.inbound_cnt);
-	_OUTP_IT("Total time of all outbound do_QDIOs (us)        : %lu\n",
-		 perf_stats.outbound_time);
-	_OUTP_IT("Number of do_QDIOs outbound                     : %lu\n",
-		 perf_stats.outbound_cnt);
+	_OUTP_IT("Number of inbound transfers                     : %li\n",
+		 (long)atomic64_read(&perf_stats.inbound_cnt));
+	_OUTP_IT("Number of do_QDIOs outbound                     : %li\n",
+		 (long)atomic64_read(&perf_stats.outbound_cnt));
+#else /* CONFIG_64BIT */
+	_OUTP_IT("Number of tasklet runs (total)                  : %i\n",
+		 atomic_read(&perf_stats.tl_runs));
+	_OUTP_IT("Inbound tasklet runs      tried/retried         : %i/%i\n",
+		 atomic_read(&perf_stats.inbound_tl_runs),
+		 atomic_read(&perf_stats.inbound_tl_runs_resched));
+	_OUTP_IT("Inbound-thin tasklet runs tried/retried         : %i/%i\n",
+		 atomic_read(&perf_stats.inbound_thin_tl_runs),
+		 atomic_read(&perf_stats.inbound_thin_tl_runs_resched));
+	_OUTP_IT("Outbound tasklet runs     tried/retried         : %i/%i\n",
+		 atomic_read(&perf_stats.outbound_tl_runs),
+		 atomic_read(&perf_stats.outbound_tl_runs_resched));
+	_OUTP_IT("\n");
+	_OUTP_IT("Number of SIGA sync's issued                    : %i\n",
+		 atomic_read(&perf_stats.siga_syncs));
+	_OUTP_IT("Number of SIGA in's issued                      : %i\n",
+		 atomic_read(&perf_stats.siga_ins));
+	_OUTP_IT("Number of SIGA out's issued                     : %i\n",
+		 atomic_read(&perf_stats.siga_outs));
+	_OUTP_IT("Number of PCIs caught                           : %i\n",
+		 atomic_read(&perf_stats.pcis));
+	_OUTP_IT("Number of adapter interrupts caught             : %i\n",
+		 atomic_read(&perf_stats.thinints));
+	_OUTP_IT("Number of fast requeues (outg. SBALs w/o SIGA)  : %i\n",
+		 atomic_read(&perf_stats.fast_reqs));
+	_OUTP_IT("\n");
+	_OUTP_IT("Number of inbound transfers                     : %i\n",
+		 atomic_read(&perf_stats.inbound_cnt));
+	_OUTP_IT("Number of do_QDIOs outbound                     : %i\n",
+		 atomic_read(&perf_stats.outbound_cnt));
+#endif /* CONFIG_64BIT */
 	_OUTP_IT("\n");
 
         return c;
@@ -3633,8 +3671,6 @@ qdio_add_procfs_entry(void)
 static void
 qdio_remove_procfs_entry(void)
 {
-	perf_stats.tl_runs=0;
-
         if (!proc_perf_file_registration) /* means if it went ok earlier */
 		remove_proc_entry(QDIO_PERF,&proc_root);
 }
@@ -3662,13 +3698,38 @@ qdio_performance_stats_store(struct bus_type *bus, const char *buf, size_t count
 		qdio_performance_stats = i;
 		if (i==0) {
 			/* reset perf. stat. info */
-			i_p_nc = 0;
-			i_p_c = 0;
-			ii_p_nc = 0;
-			ii_p_c = 0;
-			o_p_nc = 0;
-			o_p_c = 0;
-			memset(&perf_stats, 0, sizeof(struct qdio_perf_stats));
+#ifdef CONFIG_64BIT
+			atomic64_set(&perf_stats.tl_runs, 0);
+			atomic64_set(&perf_stats.outbound_tl_runs, 0);
+			atomic64_set(&perf_stats.inbound_tl_runs, 0);
+			atomic64_set(&perf_stats.inbound_tl_runs_resched, 0);
+			atomic64_set(&perf_stats.inbound_thin_tl_runs, 0);
+			atomic64_set(&perf_stats.inbound_thin_tl_runs_resched,
+				     0);
+			atomic64_set(&perf_stats.siga_outs, 0);
+			atomic64_set(&perf_stats.siga_ins, 0);
+			atomic64_set(&perf_stats.siga_syncs, 0);
+			atomic64_set(&perf_stats.pcis, 0);
+			atomic64_set(&perf_stats.thinints, 0);
+			atomic64_set(&perf_stats.fast_reqs, 0);
+			atomic64_set(&perf_stats.outbound_cnt, 0);
+			atomic64_set(&perf_stats.inbound_cnt, 0);
+#else /* CONFIG_64BIT */
+			atomic_set(&perf_stats.tl_runs, 0);
+			atomic_set(&perf_stats.outbound_tl_runs, 0);
+			atomic_set(&perf_stats.inbound_tl_runs, 0);
+			atomic_set(&perf_stats.inbound_tl_runs_resched, 0);
+			atomic_set(&perf_stats.inbound_thin_tl_runs, 0);
+			atomic_set(&perf_stats.inbound_thin_tl_runs_resched, 0);
+			atomic_set(&perf_stats.siga_outs, 0);
+			atomic_set(&perf_stats.siga_ins, 0);
+			atomic_set(&perf_stats.siga_syncs, 0);
+			atomic_set(&perf_stats.pcis, 0);
+			atomic_set(&perf_stats.thinints, 0);
+			atomic_set(&perf_stats.fast_reqs, 0);
+			atomic_set(&perf_stats.outbound_cnt, 0);
+			atomic_set(&perf_stats.inbound_cnt, 0);
+#endif /* CONFIG_64BIT */
 		}
 	} else {
 		QDIO_PRINT_WARN("QDIO performance_stats: write 0 or 1 to this file!\n");

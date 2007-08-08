@@ -75,7 +75,7 @@ SECTIONS
 	*(.int_redirect)
 #endif
 	__stext = . ;
-        	*(.text)
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	__etext = . ;
@@ -103,7 +103,7 @@ SECTIONS
 	. = ALIGN(0x2000) ;
 		*(.data.init_task)
 	. = ALIGN(0x4) ;
-		*(.data)
+		DATA_DATA
 	. = ALIGN(0x4) ;
 		*(.data.*)	
 
@@ -126,10 +126,12 @@ SECTIONS
 	___con_initcall_end = .;
 		*(.exit.text)
 		*(.exit.data)
+#if defined(CONFIG_BLK_DEV_INITRD)
 		. = ALIGN(4);
 	___initramfs_start = .;
   		*(.init.ramfs)
   	___initramfs_end = .;
+#endif
 	. = ALIGN(0x4) ;
 	___init_end = .;
 	__edata = . ;

@@ -15,6 +15,7 @@
 #include <linux/statfs.h>
 #include <linux/parser.h>
 #include <linux/magic.h>
+#include <linux/sched.h>
 #include "affs.h"
 
 extern struct timezone sys_tz;
@@ -87,12 +88,9 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct affs_inode_info *ei = (struct affs_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
-		init_MUTEX(&ei->i_link_lock);
-		init_MUTEX(&ei->i_ext_lock);
-		inode_init_once(&ei->vfs_inode);
-	}
+	init_MUTEX(&ei->i_link_lock);
+	init_MUTEX(&ei->i_ext_lock);
+	inode_init_once(&ei->vfs_inode);
 }
 
 static int init_inodecache(void)
@@ -112,12 +110,13 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(affs_inode_cachep);
 }
 
-static struct super_operations affs_sops = {
+static const struct super_operations affs_sops = {
 	.alloc_inode	= affs_alloc_inode,
 	.destroy_inode	= affs_destroy_inode,
 	.read_inode	= affs_read_inode,
 	.write_inode	= affs_write_inode,
 	.put_inode	= affs_put_inode,
+	.drop_inode	= affs_drop_inode,
 	.delete_inode	= affs_delete_inode,
 	.clear_inode	= affs_clear_inode,
 	.put_super	= affs_put_super,

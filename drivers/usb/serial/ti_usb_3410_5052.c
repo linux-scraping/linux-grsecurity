@@ -262,6 +262,7 @@ static struct usb_serial_driver ti_1port_device = {
 		.name		= "ti_usb_3410_5052_1",
 	},
 	.description		= "TI USB 3410 1 port adapter",
+	.usb_driver		= &ti_usb_driver,
 	.id_table		= ti_id_table_3410,
 	.num_interrupt_in	= 1,
 	.num_bulk_in		= 1,
@@ -292,6 +293,7 @@ static struct usb_serial_driver ti_2port_device = {
 		.name		= "ti_usb_3410_5052_2",
 	},
 	.description		= "TI USB 5052 2 port adapter",
+	.usb_driver		= &ti_usb_driver,
 	.id_table		= ti_id_table_5052,
 	.num_interrupt_in	= 1,
 	.num_bulk_in		= 2,
@@ -1553,15 +1555,17 @@ static int ti_restart_read(struct ti_port *tport, struct tty_struct *tty)
 	spin_lock_irqsave(&tport->tp_lock, flags);
 
 	if (tport->tp_read_urb_state == TI_READ_URB_STOPPED) {
+		tport->tp_read_urb_state = TI_READ_URB_RUNNING;
 		urb = tport->tp_port->read_urb;
+		spin_unlock_irqrestore(&tport->tp_lock, flags);
 		urb->complete = ti_bulk_in_callback;
 		urb->context = tport;
 		urb->dev = tport->tp_port->serial->dev;
 		status = usb_submit_urb(urb, GFP_KERNEL);
+	} else  {
+		tport->tp_read_urb_state = TI_READ_URB_RUNNING;
+		spin_unlock_irqrestore(&tport->tp_lock, flags);
 	}
-	tport->tp_read_urb_state = TI_READ_URB_RUNNING;
-
-	spin_unlock_irqrestore(&tport->tp_lock, flags);
 
 	return status;
 }

@@ -209,13 +209,13 @@ void __init find_udbg_vterm(void)
 	/* find the boot console from /chosen/stdout */
 	if (!of_chosen)
 		return;
-	name = get_property(of_chosen, "linux,stdout-path", NULL);
+	name = of_get_property(of_chosen, "linux,stdout-path", NULL);
 	if (name == NULL)
 		return;
 	stdout_node = of_find_node_by_path(name);
 	if (!stdout_node)
 		return;
-	name = get_property(stdout_node, "name", NULL);
+	name = of_get_property(stdout_node, "name", NULL);
 	if (!name) {
 		printk(KERN_WARNING "stdout node missing 'name' property!\n");
 		goto out;
@@ -226,18 +226,18 @@ void __init find_udbg_vterm(void)
 	/* Check if it's a virtual terminal */
 	if (strncmp(name, "vty", 3) != 0)
 		goto out;
-	termno = get_property(stdout_node, "reg", NULL);
+	termno = of_get_property(stdout_node, "reg", NULL);
 	if (termno == NULL)
 		goto out;
 	vtermno = termno[0];
 
-	if (device_is_compatible(stdout_node, "hvterm1")) {
+	if (of_device_is_compatible(stdout_node, "hvterm1")) {
 		udbg_putc = udbg_putcLP;
 		udbg_getc = udbg_getcLP;
 		udbg_getc_poll = udbg_getc_pollLP;
 		if (add_console)
 			add_preferred_console("hvc", termno[0] & 0xff, NULL);
-	} else if (device_is_compatible(stdout_node, "hvterm-protocol")) {
+	} else if (of_device_is_compatible(stdout_node, "hvterm-protocol")) {
 		vtermno = termno[0];
 		udbg_putc = udbg_hvsi_putc;
 		udbg_getc = udbg_hvsi_getc;
@@ -378,7 +378,7 @@ static void pSeries_lpar_hptab_clear(void)
 
 	/* TODO: Use bulk call */
 	for (i = 0; i < hpte_count; i++)
-		plpar_pte_remove(0, i, 0, &dummy1, &dummy2);
+		plpar_pte_remove_raw(0, i, 0, &dummy1, &dummy2);
 }
 
 /*
@@ -502,23 +502,70 @@ static void pSeries_lpar_hpte_invalidate(unsigned long slot, unsigned long va,
 	BUG_ON(lpar_rc != H_SUCCESS);
 }
 
+/* Flag bits for H_BULK_REMOVE */
+#define HBR_REQUEST	0x4000000000000000UL
+#define HBR_RESPONSE	0x8000000000000000UL
+#define HBR_END		0xc000000000000000UL
+#define HBR_AVPN	0x0200000000000000UL
+#define HBR_ANDCOND	0x0100000000000000UL
+
 /*
  * Take a spinlock around flushes to avoid bouncing the hypervisor tlbie
  * lock.
  */
 static void pSeries_lpar_flush_hash_range(unsigned long number, int local)
 {
-	int i;
+	unsigned long i, pix, rc;
 	unsigned long flags = 0;
 	struct ppc64_tlb_batch *batch = &__get_cpu_var(ppc64_tlb_batch);
 	int lock_tlbie = !cpu_has_feature(CPU_FTR_LOCKLESS_TLBIE);
+	unsigned long param[9];
+	unsigned long va;
+	unsigned long hash, index, shift, hidx, slot;
+	real_pte_t pte;
+	int psize;
 
 	if (lock_tlbie)
 		spin_lock_irqsave(&pSeries_lpar_tlbie_lock, flags);
 
-	for (i = 0; i < number; i++)
-		flush_hash_page(batch->vaddr[i], batch->pte[i],
-				batch->psize, local);
+	psize = batch->psize;
+	pix = 0;
+	for (i = 0; i < number; i++) {
+		va = batch->vaddr[i];
+		pte = batch->pte[i];
+		pte_iterate_hashed_subpages(pte, psize, va, index, shift) {
+			hash = hpt_hash(va, shift);
+			hidx = __rpte_to_hidx(pte, index);
+			if (hidx & _PTEIDX_SECONDARY)
+				hash = ~hash;
+			slot = (hash & htab_hash_mask) * HPTES_PER_GROUP;
+			slot += hidx & _PTEIDX_GROUP_IX;
+			if (!firmware_has_feature(FW_FEATURE_BULK_REMOVE)) {
+				pSeries_lpar_hpte_invalidate(slot, va, psize,
+							     local);
+			} else {
+				param[pix] = HBR_REQUEST | HBR_AVPN | slot;
+				param[pix+1] = hpte_encode_v(va, psize) &
+					HPTE_V_AVPN;
+				pix += 2;
+				if (pix == 8) {
+					rc = plpar_hcall9(H_BULK_REMOVE, param,
+						param[0], param[1], param[2],
+						param[3], param[4], param[5],
+						param[6], param[7]);
+					BUG_ON(rc != H_SUCCESS);
+					pix = 0;
+				}
+			}
+		} pte_iterate_hashed_end();
+	}
+	if (pix) {
+		param[pix] = HBR_END;
+		rc = plpar_hcall9(H_BULK_REMOVE, param, param[0], param[1],
+				  param[2], param[3], param[4], param[5],
+				  param[6], param[7]);
+		BUG_ON(rc != H_SUCCESS);
+	}
 
 	if (lock_tlbie)
 		spin_unlock_irqrestore(&pSeries_lpar_tlbie_lock, flags);

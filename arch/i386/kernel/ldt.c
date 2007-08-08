@@ -10,7 +10,6 @@
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 
@@ -59,7 +58,7 @@ static int alloc_ldt(mm_context_t *pc, int mincount, int reload)
 #ifdef CONFIG_SMP
 		cpumask_t mask;
 		preempt_disable();
-		load_LDT(pc);
+		load_LDT_nolock(pc);
 		mask = cpumask_of_cpu(smp_processor_id());
 		if (!cpus_equal(current->mm->cpu_vm_mask, mask))
 			smp_call_function(flush_ldt, NULL, 1, 1);

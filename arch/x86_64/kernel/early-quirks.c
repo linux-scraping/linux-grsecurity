@@ -16,7 +16,7 @@
 #include <asm/proto.h>
 #include <asm/dma.h>
 
-static void via_bugs(void)
+static void __init via_bugs(void)
 {
 #ifdef CONFIG_IOMMU
 	if ((end_pfn > MAX_DMA32_PFN ||  force_iommu) &&
@@ -30,16 +30,13 @@ static void via_bugs(void)
 
 #ifdef CONFIG_ACPI
 
-static int nvidia_hpet_detected __initdata;
-
-static int __init nvidia_hpet_check(unsigned long phys, unsigned long size)
+static int __init nvidia_hpet_check(struct acpi_table_header *header)
 {
-	nvidia_hpet_detected = 1;
 	return 0;
 }
 #endif
 
-static void nvidia_bugs(void)
+static void __init nvidia_bugs(void)
 {
 #ifdef CONFIG_ACPI
 	/*
@@ -52,9 +49,7 @@ static void nvidia_bugs(void)
 	if (acpi_use_timer_override)
 		return;
 
-	nvidia_hpet_detected = 0;
-	acpi_table_parse(ACPI_HPET, nvidia_hpet_check);
-	if (nvidia_hpet_detected == 0) {
+	if (acpi_table_parse(ACPI_SIG_HPET, nvidia_hpet_check)) {
 		acpi_skip_timer_override = 1;
 		printk(KERN_INFO "Nvidia board "
 		       "detected. Ignoring ACPI "
@@ -67,7 +62,7 @@ static void nvidia_bugs(void)
 
 }
 
-static void ati_bugs(void)
+static void __init ati_bugs(void)
 {
 	if (timer_over_8254 == 1) {
 		timer_over_8254 = 0;
@@ -76,28 +71,15 @@ static void ati_bugs(void)
 	}
 }
 
-static void intel_bugs(void)
-{
-	u16 device = read_pci_config_16(0, 0, 0, PCI_DEVICE_ID);
-
-#ifdef CONFIG_SMP
-	if (device == PCI_DEVICE_ID_INTEL_E7320_MCH ||
-	    device == PCI_DEVICE_ID_INTEL_E7520_MCH ||
-	    device == PCI_DEVICE_ID_INTEL_E7525_MCH)
-		quirk_intel_irqbalance();
-#endif
-}
-
 struct chipset {
 	u16 vendor;
 	void (*f)(void);
 };
 
-static struct chipset early_qrk[] = {
+static struct chipset early_qrk[] __initdata = {
 	{ PCI_VENDOR_ID_NVIDIA, nvidia_bugs },
 	{ PCI_VENDOR_ID_VIA, via_bugs },
 	{ PCI_VENDOR_ID_ATI, ati_bugs },
-	{ PCI_VENDOR_ID_INTEL, intel_bugs},
 	{}
 };
 

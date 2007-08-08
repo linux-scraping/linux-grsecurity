@@ -4,15 +4,9 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
- * 16 Dec 2003: Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *	- enable working with Layer 3 protocol independent connection tracking.
- *
- * Derived from net/ipv4/netfilter/ip_conntrack_proto_icmp.c
  */
 
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/netfilter.h>
 #include <linux/in.h>
@@ -101,9 +95,9 @@ static int icmp_packet(struct nf_conn *ct,
 		       unsigned int hooknum)
 {
 	/* Try to delete connection immediately after all replies:
-           won't actually vanish as we still have skb, and del_timer
-           means this will only run once even if count hits zero twice
-           (theoretically possible with SMP) */
+	   won't actually vanish as we still have skb, and del_timer
+	   means this will only run once even if count hits zero twice
+	   (theoretically possible with SMP) */
 	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
 		if (atomic_dec_and_test(&ct->proto.icmp.count)
 		    && del_timer(&ct->timeout))
@@ -144,8 +138,8 @@ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4;
 /* Returns conntrack if it dealt with ICMP, and filled in skb fields */
 static int
 icmp_error_message(struct sk_buff *skb,
-                 enum ip_conntrack_info *ctinfo,
-                 unsigned int hooknum)
+		 enum ip_conntrack_info *ctinfo,
+		 unsigned int hooknum)
 {
 	struct nf_conntrack_tuple innertuple, origtuple;
 	struct {
@@ -159,7 +153,7 @@ icmp_error_message(struct sk_buff *skb,
 	NF_CT_ASSERT(skb->nfct == NULL);
 
 	/* Not enough header? */
-	inside = skb_header_pointer(skb, skb->nh.iph->ihl*4, sizeof(_in), &_in);
+	inside = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_in), &_in);
 	if (inside == NULL)
 		return -NF_ACCEPT;
 
@@ -170,8 +164,10 @@ icmp_error_message(struct sk_buff *skb,
 		return -NF_ACCEPT;
 	}
 
+	/* rcu_read_lock()ed by nf_hook_slow */
 	innerproto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
-	dataoff = skb->nh.iph->ihl*4 + sizeof(inside->icmp);
+
+	dataoff = ip_hdrlen(skb) + sizeof(inside->icmp);
 	/* Are they talking about one of our connections? */
 	if (!nf_ct_get_tuple(skb, dataoff, dataoff + inside->ip.ihl*4, PF_INET,
 			     inside->ip.protocol, &origtuple,
@@ -181,9 +177,9 @@ icmp_error_message(struct sk_buff *skb,
 		return -NF_ACCEPT;
 	}
 
-        /* Ordinarily, we'd expect the inverted tupleproto, but it's
-           been preserved inside the ICMP. */
-        if (!nf_ct_invert_tuple(&innertuple, &origtuple,
+	/* Ordinarily, we'd expect the inverted tupleproto, but it's
+	   been preserved inside the ICMP. */
+	if (!nf_ct_invert_tuple(&innertuple, &origtuple,
 				&nf_conntrack_l3proto_ipv4, innerproto)) {
 		DEBUGP("icmp_error_message: no match\n");
 		return -NF_ACCEPT;
@@ -212,10 +208,10 @@ icmp_error_message(struct sk_buff *skb,
 			*ctinfo += IP_CT_IS_REPLY;
 	}
 
-        /* Update skb to refer to this connection */
-        skb->nfct = &nf_ct_tuplehash_to_ctrack(h)->ct_general;
-        skb->nfctinfo = *ctinfo;
-        return -NF_ACCEPT;
+	/* Update skb to refer to this connection */
+	skb->nfct = &nf_ct_tuplehash_to_ctrack(h)->ct_general;
+	skb->nfctinfo = *ctinfo;
+	return -NF_ACCEPT;
 }
 
 /* Small and modified version of icmp_rcv */
@@ -226,7 +222,7 @@ icmp_error(struct sk_buff *skb, unsigned int dataoff,
 	struct icmphdr _ih, *icmph;
 
 	/* Not enough header? */
-	icmph = skb_header_pointer(skb, skb->nh.iph->ihl*4, sizeof(_ih), &_ih);
+	icmph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_ih), &_ih);
 	if (icmph == NULL) {
 		if (LOG_INVALID(IPPROTO_ICMP))
 			nf_log_packet(PF_INET, 0, skb, NULL, NULL, NULL,
@@ -267,8 +263,7 @@ icmp_error(struct sk_buff *skb, unsigned int dataoff,
 	return icmp_error_message(skb, ctinfo, hooknum);
 }
 
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
@@ -306,7 +301,7 @@ static int icmp_nfattr_to_tuple(struct nfattr *tb[],
 	if (nfattr_bad_size(tb, CTA_PROTO_MAX, cta_min_proto))
 		return -EINVAL;
 
-	tuple->dst.u.icmp.type = 
+	tuple->dst.u.icmp.type =
 			*(u_int8_t *)NFA_DATA(tb[CTA_PROTO_ICMP_TYPE-1]);
 	tuple->dst.u.icmp.code =
 			*(u_int8_t *)NFA_DATA(tb[CTA_PROTO_ICMP_CODE-1]);
@@ -332,7 +327,7 @@ static struct ctl_table icmp_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec_jiffies,
 	},
-        {
+	{
 		.ctl_name = 0
 	}
 };
@@ -346,7 +341,7 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec_jiffies,
 	},
-        {
+	{
 		.ctl_name = 0
 	}
 };
@@ -367,8 +362,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp =
 	.error			= icmp_error,
 	.destroy		= NULL,
 	.me			= NULL,
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.tuple_to_nfattr	= icmp_tuple_to_nfattr,
 	.nfattr_to_tuple	= icmp_nfattr_to_tuple,
 #endif

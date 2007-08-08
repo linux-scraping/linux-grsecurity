@@ -68,7 +68,7 @@ static const struct file_operations befs_dir_operations = {
 	.readdir	= befs_readdir,
 };
 
-static struct inode_operations befs_dir_inode_operations = {
+static const struct inode_operations befs_dir_inode_operations = {
 	.lookup		= befs_lookup,
 };
 
@@ -78,7 +78,7 @@ static const struct address_space_operations befs_aops = {
 	.bmap		= befs_bmap,
 };
 
-static struct inode_operations befs_symlink_inode_operations = {
+static const struct inode_operations befs_symlink_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= befs_follow_link,
 	.put_link	= befs_put_link,
@@ -292,11 +292,8 @@ befs_destroy_inode(struct inode *inode)
 static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
 {
         struct befs_inode_info *bi = (struct befs_inode_info *) foo;
-	
-	        if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-		            SLAB_CTOR_CONSTRUCTOR) {
-			inode_init_once(&bi->vfs_inode);
-		}
+
+	inode_init_once(&bi->vfs_inode);
 }
 
 static void

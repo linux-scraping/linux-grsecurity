@@ -19,6 +19,7 @@
 #include <linux/swap.h>
 #include <linux/proc_fs.h>
 #include <linux/bitops.h>
+#include <linux/kexec.h>
 #include <linux/a.out.h>
 
 #include <asm/dma.h>
@@ -38,9 +39,6 @@
 
 DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
 
-DEFINE_PER_CPU(unsigned long *, __pgtable_quicklist);
-DEFINE_PER_CPU(long, __pgtable_quicklist_size);
-
 extern void ia64_tlb_init (void);
 
 unsigned long MAX_DMA_ADDRESS = PAGE_OFFSET + 0x100000000UL;
@@ -54,54 +52,6 @@ EXPORT_SYMBOL(vmem_map);
 
 struct page *zero_page_memmap_ptr;	/* map entry for zero page */
 EXPORT_SYMBOL(zero_page_memmap_ptr);
-
-#define MIN_PGT_PAGES			25UL
-#define MAX_PGT_FREES_PER_PASS		16L
-#define PGT_FRACTION_OF_NODE_MEM	16
-
-static inline long
-max_pgt_pages(void)
-{
-	u64 node_free_pages, max_pgt_pages;
-
-#ifndef	CONFIG_NUMA
-	node_free_pages = nr_free_pages();
-#else
-	node_free_pages = nr_free_pages_pgdat(NODE_DATA(numa_node_id()));
-#endif
-	max_pgt_pages = node_free_pages / PGT_FRACTION_OF_NODE_MEM;
-	max_pgt_pages = max(max_pgt_pages, MIN_PGT_PAGES);
-	return max_pgt_pages;
-}
-
-static inline long
-min_pages_to_free(void)
-{
-	long pages_to_free;
-
-	pages_to_free = pgtable_quicklist_size - max_pgt_pages();
-	pages_to_free = min(pages_to_free, MAX_PGT_FREES_PER_PASS);
-	return pages_to_free;
-}
-
-void
-check_pgt_cache(void)
-{
-	long pages_to_free;
-
-	if (unlikely(pgtable_quicklist_size <= MIN_PGT_PAGES))
-		return;
-
-	preempt_disable();
-	while (unlikely((pages_to_free = min_pages_to_free()) > 0)) {
-		while (pages_to_free--) {
-			free_page((unsigned long)pgtable_quicklist_alloc());
-		}
-		preempt_enable();
-		preempt_disable();
-	}
-	preempt_enable();
-}
 
 void
 lazy_mmu_prot_update (pte_t pte)
@@ -120,12 +70,31 @@ lazy_mmu_prot_update (pte_t pte)
 		return;				/* i-cache is already coherent with d-cache */
 
 	if (PageCompound(page)) {
-		order = (unsigned long) (page[1].lru.prev);
+		order = compound_order(page);
 		flush_icache_range(addr, addr + (1UL << order << PAGE_SHIFT));
 	}
 	else
 		flush_icache_range(addr, addr + PAGE_SIZE);
 	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
+}
+
+/*
+ * Since DMA is i-cache coherent, any (complete) pages that were written via
+ * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+ * flush them when they get mapped into an executable vm-area.
+ */
+void
+dma_mark_clean(void *addr, size_t size)
+{
+	unsigned long pg_addr, end;
+
+	pg_addr = PAGE_ALIGN((unsigned long) addr);
+	end = (unsigned long) addr + size;
+	while (pg_addr + PAGE_SIZE <= end) {
+		struct page *page = virt_to_page(pg_addr);
+		set_bit(PG_arch_1, &page->flags);
+		pg_addr += PAGE_SIZE;
+	}
 }
 
 inline void
@@ -135,7 +104,7 @@ ia64_set_rbs_bot (void)
 
 	if (stack_size > MAX_USER_STACK_SIZE)
 		stack_size = MAX_USER_STACK_SIZE;
-	current->thread.rbs_bot = STACK_TOP - stack_size;
+	current->thread.rbs_bot = PAGE_ALIGN(current->mm->start_stack - stack_size);
 }
 
 /*
@@ -156,13 +125,12 @@ ia64_init_addr_space (void)
 	 * the problem.  When the process attempts to write to the register backing store
 	 * for the first time, it will get a SEGFAULT in this case.
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (vma) {
-		memset(vma, 0, sizeof(*vma));
 		vma->vm_mm = current->mm;
 		vma->vm_start = current->thread.rbs_bot & PAGE_MASK;
 		vma->vm_end = vma->vm_start + PAGE_SIZE;
-		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
+		vma->vm_page_prot = vm_get_page_prot(VM_DATA_DEFAULT_FLAGS);
 		vma->vm_flags = VM_DATA_DEFAULT_FLAGS|VM_GROWSUP|VM_ACCOUNT;
 		down_write(&current->mm->mmap_sem);
 		if (insert_vm_struct(current->mm, vma)) {
@@ -175,9 +143,8 @@ ia64_init_addr_space (void)
 
 	/* map NaT-page at address zero to speed up speculative dereferencing of NULL: */
 	if (!(current->personality & MMAP_PAGE_ZERO)) {
-		vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+		vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (vma) {
-			memset(vma, 0, sizeof(*vma));
 			vma->vm_mm = current->mm;
 			vma->vm_end = PAGE_SIZE;
 			vma->vm_page_prot = __pgprot(pgprot_val(PAGE_READONLY) | _PAGE_MA_NAT);
@@ -337,7 +304,7 @@ setup_gate (void)
 void __devinit
 ia64_mmu_init (void *my_cpu_data)
 {
-	unsigned long psr, pta, impl_va_bits;
+	unsigned long pta, impl_va_bits;
 	extern void __devinit tlb_init (void);
 
 #ifdef CONFIG_DISABLE_VHPT
@@ -345,15 +312,6 @@ ia64_mmu_init (void *my_cpu_data)
 #else
 #	define VHPT_ENABLE_BIT	1
 #endif
-
-	/* Pin mapping for percpu area into TLB */
-	psr = ia64_clear_ic();
-	ia64_itr(0x2, IA64_TR_PERCPU_DATA, PERCPU_ADDR,
-		 pte_val(pfn_pte(__pa(my_cpu_data) >> PAGE_SHIFT, PAGE_KERNEL)),
-		 PERCPU_PAGE_SHIFT);
-
-	ia64_set_psr(psr);
-	ia64_srlz_i();
 
 	/*
 	 * Check if the virtually mapped linear page table (VMLPT) overlaps with a mapped
@@ -595,13 +553,27 @@ find_largest_hole (u64 start, u64 end, void *arg)
 	return 0;
 }
 
+#endif /* CONFIG_VIRTUAL_MEM_MAP */
+
 int __init
 register_active_ranges(u64 start, u64 end, void *arg)
 {
-	add_active_range(0, __pa(start) >> PAGE_SHIFT, __pa(end) >> PAGE_SHIFT);
+	int nid = paddr_to_nid(__pa(start));
+
+	if (nid < 0)
+		nid = 0;
+#ifdef CONFIG_KEXEC
+	if (start > crashk_res.start && start < crashk_res.end)
+		start = crashk_res.end;
+	if (end > crashk_res.start && end < crashk_res.end)
+		end = crashk_res.start;
+#endif
+
+	if (start < end)
+		add_active_range(nid, __pa(start) >> PAGE_SHIFT,
+			__pa(end) >> PAGE_SHIFT);
 	return 0;
 }
-#endif /* CONFIG_VIRTUAL_MEM_MAP */
 
 static int __init
 count_reserved_pages (u64 start, u64 end, void *arg)
@@ -613,6 +585,22 @@ count_reserved_pages (u64 start, u64 end, void *arg)
 		if (PageReserved(virt_to_page(start)))
 			++num_reserved;
 	*count += num_reserved;
+	return 0;
+}
+
+int
+find_max_min_low_pfn (unsigned long start, unsigned long end, void *arg)
+{
+	unsigned long pfn_start, pfn_end;
+#ifdef CONFIG_FLATMEM
+	pfn_start = (PAGE_ALIGN(__pa(start))) >> PAGE_SHIFT;
+	pfn_end = (PAGE_ALIGN(__pa(end - 1))) >> PAGE_SHIFT;
+#else
+	pfn_start = GRANULEROUNDDOWN(__pa(start)) >> PAGE_SHIFT;
+	pfn_end = GRANULEROUNDUP(__pa(end - 1)) >> PAGE_SHIFT;
+#endif
+	min_low_pfn = min(min_low_pfn, pfn_start);
+	max_low_pfn = max(max_low_pfn, pfn_end);
 	return 0;
 }
 

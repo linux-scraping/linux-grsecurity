@@ -130,9 +130,9 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
 struct sctp_transport *sctp_transport_new(const union sctp_addr *addr,
 					  gfp_t gfp)
 {
-        struct sctp_transport *transport;
+	struct sctp_transport *transport;
 
-        transport = t_new(struct sctp_transport, gfp);
+	transport = t_new(struct sctp_transport, gfp);
 	if (!transport)
 		goto fail;
 
@@ -185,7 +185,7 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
 	if (transport->asoc)
 		sctp_association_put(transport->asoc);
 
-        sctp_packet_free(&transport->packet);
+	sctp_packet_free(&transport->packet);
 
 	dst_release(transport->dst);
 	kfree(transport);
@@ -241,6 +241,45 @@ void sctp_transport_pmtu(struct sctp_transport *transport)
 		transport->pathmtu = SCTP_DEFAULT_MAXSEGMENT;
 }
 
+/* this is a complete rip-off from __sk_dst_check
+ * the cookie is always 0 since this is how it's used in the
+ * pmtu code
+ */
+static struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
+{
+	struct dst_entry *dst = t->dst;
+
+	if (dst && dst->obsolete && dst->ops->check(dst, 0) == NULL) {
+		dst_release(t->dst);
+		t->dst = NULL;
+		return NULL;
+	}
+
+	return dst;
+}
+
+void sctp_transport_update_pmtu(struct sctp_transport *t, u32 pmtu)
+{
+	struct dst_entry *dst;
+
+	if (unlikely(pmtu < SCTP_DEFAULT_MINSEGMENT)) {
+		printk(KERN_WARNING "%s: Reported pmtu %d too low, "
+		       "using default minimum of %d\n",
+		       __FUNCTION__, pmtu,
+		       SCTP_DEFAULT_MINSEGMENT);
+		/* Use default minimum segment size and disable
+		 * pmtu discovery on this transport.
+		 */
+		t->pathmtu = SCTP_DEFAULT_MINSEGMENT;
+	} else {
+		t->pathmtu = pmtu;
+	}
+
+	dst = sctp_transport_dst_check(t);
+	if (dst)
+		dst->ops->update_pmtu(dst, pmtu);
+}
+
 /* Caches the dst entry and source address for a transport's destination
  * address.
  */
@@ -268,7 +307,7 @@ void sctp_transport_route(struct sctp_transport *transport,
 
 		/* Initialize sk->sk_rcv_saddr, if the transport is the
 		 * association's active path for getsockname().
-		 */ 
+		 */
 		if (asoc && (transport == asoc->peer.active_path))
 			opt->pf->af->to_sk_saddr(&transport->saddr,
 						 asoc->base.sk);
@@ -459,8 +498,8 @@ void sctp_transport_lower_cwnd(struct sctp_transport *transport,
 		 * destination address(es) to which the missing DATA chunks
 		 * were last sent, according to the formula described in
 		 * Section 7.2.3.
-	 	 *
-	 	 * RFC 2960 7.2.3, sctpimpguide Upon detection of packet
+		 *
+		 * RFC 2960 7.2.3, sctpimpguide Upon detection of packet
 		 * losses from SACK (see Section 7.2.4), An endpoint
 		 * should do the following:
 		 *      ssthresh = max(cwnd/2, 4*MTU)
@@ -488,7 +527,7 @@ void sctp_transport_lower_cwnd(struct sctp_transport *transport,
 		if ((jiffies - transport->last_time_ecne_reduced) >
 		    transport->rtt) {
 			transport->ssthresh = max(transport->cwnd/2,
-					  	  4*transport->asoc->pathmtu);
+						  4*transport->asoc->pathmtu);
 			transport->cwnd = transport->ssthresh;
 			transport->last_time_ecne_reduced = jiffies;
 		}
@@ -507,7 +546,7 @@ void sctp_transport_lower_cwnd(struct sctp_transport *transport,
 			transport->cwnd = max(transport->cwnd/2,
 						 4*transport->asoc->pathmtu);
 		break;
-	};
+	}
 
 	transport->partial_bytes_acked = 0;
 	SCTP_DEBUG_PRINTK("%s: transport: %p reason: %d cwnd: "
@@ -525,4 +564,36 @@ unsigned long sctp_transport_timeout(struct sctp_transport *t)
 		timeout += t->hbinterval;
 	timeout += jiffies;
 	return timeout;
+}
+
+/* Reset transport variables to their initial values */
+void sctp_transport_reset(struct sctp_transport *t)
+{
+	struct sctp_association *asoc = t->asoc;
+
+	/* RFC 2960 (bis), Section 5.2.4
+	 * All the congestion control parameters (e.g., cwnd, ssthresh)
+	 * related to this peer MUST be reset to their initial values
+	 * (see Section 6.2.1)
+	 */
+	t->cwnd = min(4*asoc->pathmtu, max_t(__u32, 2*asoc->pathmtu, 4380));
+	t->ssthresh = asoc->peer.i.a_rwnd;
+	t->rto = asoc->rto_initial;
+	t->rtt = 0;
+	t->srtt = 0;
+	t->rttvar = 0;
+
+	/* Reset these additional varibles so that we have a clean
+	 * slate.
+	 */
+	t->partial_bytes_acked = 0;
+	t->flight_size = 0;
+	t->error_count = 0;
+	t->rto_pending = 0;
+
+	/* Initialize the state information for SFR-CACC */
+	t->cacc.changeover_active = 0;
+	t->cacc.cycling_changeover = 0;
+	t->cacc.next_tsn_at_change = 0;
+	t->cacc.cacc_saw_newack = 0;
 }

@@ -8,7 +8,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/pci.h>
 #include <linux/pci_ids.h>
 #include <linux/crypto.h>
@@ -100,14 +99,18 @@ do_crypt(void *src, void *dst, int len, u32 flags)
 static unsigned int
 geode_aes_crypt(struct geode_aes_op *op)
 {
-
 	u32 flags = 0;
-	int iflags;
+	unsigned long iflags;
 
-	if (op->len == 0 || op->src == op->dst)
+	if (op->len == 0)
 		return 0;
 
-	if (op->flags & AES_FLAGS_COHERENT)
+	/* If the source and destination is the same, then
+	 * we need to turn on the coherent flags, otherwise
+	 * we don't need to worry
+	 */
+
+	if (op->src == op->dst)
 		flags |= (AES_CTRL_DCA | AES_CTRL_SCA);
 
 	if (op->dir == AES_DIR_ENCRYPT)
@@ -122,7 +125,7 @@ geode_aes_crypt(struct geode_aes_op *op)
 		_writefield(AES_WRITEIV0_REG, op->iv);
 	}
 
-	if (op->flags & AES_FLAGS_USRKEY) {
+	if (!(op->flags & AES_FLAGS_HIDDENKEY)) {
 		flags |= AES_CTRL_WRKEY;
 		_writefield(AES_WRITEKEY0_REG, op->key);
 	}
@@ -291,6 +294,7 @@ static struct crypto_alg geode_cbc_alg = {
 			.setkey			=	geode_setkey,
 			.encrypt		=	geode_cbc_encrypt,
 			.decrypt		=	geode_cbc_decrypt,
+			.ivsize			=	AES_IV_LENGTH,
 		}
 	}
 };
@@ -457,7 +461,7 @@ static struct pci_driver geode_aes_driver = {
 static int __init
 geode_aes_init(void)
 {
-	return pci_module_init(&geode_aes_driver);
+	return pci_register_driver(&geode_aes_driver);
 }
 
 static void __exit

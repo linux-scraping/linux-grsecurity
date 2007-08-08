@@ -527,10 +527,8 @@ static void do_softint(unsigned long private_)
 	if (!tty)
 		return;
 
-	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
+	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event))
 		tty_wakeup(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
 }
 
 /*
@@ -904,8 +902,7 @@ static int rs_write(struct tty_struct * tty, const unsigned char *buf, int count
 	if (!info->xmit.buf)
 		return 0;
 
-	local_save_flags(flags);
-	local_irq_disable();
+	local_irq_save(flags);
 	while (1) {
 		c = CIRC_SPACE_TO_END(info->xmit.head,
 				      info->xmit.tail,
@@ -968,7 +965,6 @@ static void rs_flush_buffer(struct tty_struct *tty)
 	local_irq_save(flags);
 	info->xmit.head = info->xmit.tail = 0;
 	local_irq_restore(flags);
-	wake_up_interruptible(&tty->write_wait);
 	tty_wakeup(tty);
 }
 
@@ -1578,7 +1574,7 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 		if (timeout && time_after(jiffies, orig_jiffies + timeout))
 			break;
 	}
-	current->state = TASK_RUNNING;
+	__set_current_state(TASK_RUNNING);
 #ifdef SERIAL_DEBUG_RS_WAIT_UNTIL_SENT
 	printk("lsr = %d (jiff=%lu)...done\n", lsr, jiffies);
 #endif
@@ -1704,7 +1700,7 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 #endif
 		schedule();
 	}
-	current->state = TASK_RUNNING;
+	__set_current_state(TASK_RUNNING);
 	remove_wait_queue(&info->open_wait, &wait);
 	if (extra_count)
 		state->count++;

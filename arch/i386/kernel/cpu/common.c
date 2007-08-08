@@ -17,20 +17,17 @@
 #include <asm/apic.h>
 #include <mach_apic.h>
 #endif
-#include <asm/pda.h>
 
 #include "cpu.h"
-
-EXPORT_SYMBOL(_cpu_pda);
 
 static int cachesize_override __cpuinitdata = -1;
 static int disable_x86_fxsr __cpuinitdata;
 static int disable_x86_serial_nr __cpuinitdata = 1;
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC)
-static int disable_x86_sep __cpuinitdata = 1;
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+int disable_x86_sep __cpuinitdata = 1;
 #else
-static int disable_x86_sep __cpuinitdata;
+int disable_x86_sep __cpuinitdata;
 #endif
 
 struct cpu_dev * cpu_devs[X86_VENDOR_NUM] = {};
@@ -239,10 +236,10 @@ static int __cpuinit have_cpuid_p(void)
 void __init cpu_detect(struct cpuinfo_x86 *c)
 {
 	/* Get vendor name */
-	cpuid(0x00000000, &c->cpuid_level,
-	      (int *)&c->x86_vendor_id[0],
-	      (int *)&c->x86_vendor_id[8],
-	      (int *)&c->x86_vendor_id[4]);
+	cpuid(0x00000000, (unsigned int *)&c->cpuid_level,
+	      (unsigned int *)&c->x86_vendor_id[0],
+	      (unsigned int *)&c->x86_vendor_id[8],
+	      (unsigned int *)&c->x86_vendor_id[4]);
 
 	c->x86 = 4;
 	if (c->cpuid_level >= 0x00000001) {
@@ -282,15 +279,14 @@ static void __init early_cpu_detect(void)
 
 static void __cpuinit generic_identify(struct cpuinfo_x86 * c)
 {
-	u32 tfms, xlvl;
-	int ebx;
+	u32 tfms, xlvl, ebx;
 
 	if (have_cpuid_p()) {
 		/* Get vendor name */
-		cpuid(0x00000000, &c->cpuid_level,
-		      (int *)&c->x86_vendor_id[0],
-		      (int *)&c->x86_vendor_id[8],
-		      (int *)&c->x86_vendor_id[4]);
+		cpuid(0x00000000, (unsigned int *)&c->cpuid_level,
+		      (unsigned int *)&c->x86_vendor_id[0],
+		      (unsigned int *)&c->x86_vendor_id[8],
+		      (unsigned int *)&c->x86_vendor_id[4]);
 		
 		get_cpu_vendor(c, 0);
 		/* Initialize the standard set of capabilities */
@@ -368,7 +364,7 @@ __setup("serialnumber", x86_serial_nr_setup);
 /*
  * This does the hard work of actually picking apart the CPU stuff...
  */
-void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 {
 	int i;
 
@@ -479,15 +475,22 @@ void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 
 	/* Init Machine Check Exception if available. */
 	mcheck_init(c);
+}
 
-	if (c == &boot_cpu_data)
-		sysenter_setup();
+void __init identify_boot_cpu(void)
+{
+	identify_cpu(&boot_cpu_data);
+	sysenter_setup();
 	enable_sep_cpu();
+	mtrr_bp_init();
+}
 
-	if (c == &boot_cpu_data)
-		mtrr_bp_init();
-	else
-		mtrr_ap_init();
+void __cpuinit identify_secondary_cpu(struct cpuinfo_x86 *c)
+{
+	BUG_ON(c == &boot_cpu_data);
+	identify_cpu(c);
+	enable_sep_cpu();
+	mtrr_ap_init();
 }
 
 #ifdef CONFIG_X86_HT
@@ -601,68 +604,37 @@ void __init early_cpu_init(void)
 #endif
 }
 
-/* Make sure %gs is initialized properly in idle threads */
+/* Make sure %fs is initialized properly in idle threads */
 struct pt_regs * __devinit idle_regs(struct pt_regs *regs)
 {
 	memset(regs, 0, sizeof(struct pt_regs));
-	regs->xgs = __KERNEL_PDA;
+	regs->xfs = __KERNEL_PERCPU;
 	return regs;
 }
 
-/* Initial PDA used by boot CPU */
-struct i386_pda boot_pda = {
-	._pda = &boot_pda,
-	.cpu_number = 0,
-	.pcurrent = &init_task,
-};
-
-static inline void set_kernel_gs(void)
+/* Current gdt points %fs at the "master" per-cpu area: after this,
+ * it's on the real one. */
+void switch_to_new_gdt(void)
 {
-	/* Set %gs for this CPU's PDA.  Memory clobber is to create a
-	   barrier with respect to any PDA operations, so the compiler
-	   doesn't move any before here. */
-	asm volatile ("mov %0, %%gs" : : "r" (__KERNEL_PDA) : "memory");
+	struct Xgt_desc_struct gdt_descr;
+
+	gdt_descr.address = get_cpu_gdt_table(smp_processor_id());
+	gdt_descr.size = GDT_SIZE - 1;
+	load_gdt(&gdt_descr);
+	asm("mov %0, %%fs" : : "r" (__KERNEL_PERCPU) : "memory");
 }
 
-/* Initialize the CPU's GDT and PDA.  The boot CPU does this for
-   itself, but secondaries find this done for them. */
-__cpuinit void init_gdt(int cpu, struct task_struct *idle)
+/*
+ * cpu_init() initializes state that is per-CPU. Some data is already
+ * initialized (naturally) in the bootstrap process, such as the GDT
+ * and IDT. We reload them nevertheless, this function acts as a
+ * 'CPU state barrier', nothing should get across.
+ */
+void __cpuinit cpu_init(void)
 {
-	struct desc_struct *gdt = get_cpu_gdt_table(cpu);
-	struct i386_pda *pda = __cpu_pda + cpu;
-
-	cpu_gdt_descr[cpu].address = gdt;
-
-	/*
-	 * Initialize the per-CPU GDT with the boot GDT,
-	 * and set up the GDT descriptor:
-	 */
-	if (cpu)
-		memcpy(gdt, cpu_gdt_table, GDT_SIZE);
-	cpu_gdt_descr[cpu].size = GDT_SIZE - 1;
-
-	pack_descriptor((u32 *)&gdt[GDT_ENTRY_PDA].a,
-			(u32 *)&gdt[GDT_ENTRY_PDA].b,
-			(unsigned long)pda, sizeof(*pda) - 1,
-			0x80 | DESCTYPE_S | 0x3, 0); /* present read-write data segment */
-
-	pda->pcurrent = idle;
-	pda->irq_regs = NULL;
-}
-
-void __cpuinit cpu_set_gdt(int cpu)
-{
-	/* Reinit these anyway, even if they've already been done (on
-	   the boot CPU, this will transition from the boot gdt+pda to
-	   the real ones). */
-	load_gdt(&cpu_gdt_descr[cpu]);
-	set_kernel_gs();
-}
-
-/* Common CPU init for both boot and secondary CPUs */
-static void __cpuinit _cpu_init(int cpu, struct task_struct *curr)
-{
-	struct tss_struct * t = init_tss + cpu;
+	int cpu = smp_processor_id();
+	struct task_struct *curr = current;
+	struct tss_struct *t = init_tss + cpu;
 	struct thread_struct *thread = &curr->thread;
 
 	if (cpu_test_and_set(cpu, cpu_initialized)) {
@@ -682,6 +654,7 @@ static void __cpuinit _cpu_init(int cpu, struct task_struct *curr)
 	}
 
 	load_idt(&idt_descr);
+	switch_to_new_gdt();
 
 	/*
 	 * Set up and load the per-CPU TSS and LDT
@@ -702,8 +675,8 @@ static void __cpuinit _cpu_init(int cpu, struct task_struct *curr)
 	__set_tss_desc(cpu, GDT_ENTRY_DOUBLEFAULT_TSS, &doublefault_tss);
 #endif
 
-	/* Clear %fs. */
-	asm volatile ("mov %0, %%fs" : : "r" (0));
+	/* Clear %gs. */
+	asm volatile ("mov %0, %%gs" : : "r" (0));
 
 	/* Clear all 6 debug registers: */
 	set_debugreg(0, 0);
@@ -719,33 +692,6 @@ static void __cpuinit _cpu_init(int cpu, struct task_struct *curr)
 	current_thread_info()->status = 0;
 	clear_used_math();
 	mxcsr_feature_mask_init();
-}
-
-/* Entrypoint to initialize secondary CPU */
-void __cpuinit secondary_cpu_init(void)
-{
-	int cpu = smp_processor_id();
-	struct task_struct *curr = current;
-
-	_cpu_init(cpu, curr);
-}
-
-/*
- * cpu_init() initializes state that is per-CPU. Some data is already
- * initialized (naturally) in the bootstrap process, such as the GDT
- * and IDT. We reload them nevertheless, this function acts as a
- * 'CPU state barrier', nothing should get across.
- */
-void __cpuinit cpu_init(void)
-{
-	int cpu = smp_processor_id();
-	struct task_struct *curr = current;
-
-	/* Set up the real GDT and PDA, so we can transition from the
-	   boot versions. */
-	init_gdt(cpu, curr);
-	cpu_set_gdt(cpu);
-	_cpu_init(cpu, curr);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU

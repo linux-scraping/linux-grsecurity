@@ -16,7 +16,7 @@ host bridges to peripheral buses, and most controllers integrated
 into system-on-chip platforms.  What they usually have in common
 is direct addressing from a CPU bus.  Rarely, a platform_device will
 be connected through a segment of some other kind of bus; but its
-registers will still be directly addressible.
+registers will still be directly addressable.
 
 Platform devices are given a name, used in driver binding, and a
 list of resources such as addresses and IRQs.
@@ -66,7 +66,7 @@ runtime memory footprint:
 
 Device Enumeration
 ~~~~~~~~~~~~~~~~~~
-As a rule, platform specific (and often board-specific) setup code wil
+As a rule, platform specific (and often board-specific) setup code will
 register platform devices:
 
 	int platform_device_register(struct platform_device *pdev);
@@ -96,6 +96,46 @@ System setup also associates those clocks with the device, so that that
 calls to clk_get(&pdev->dev, clock_name) return them as needed.
 
 
+Legacy Drivers:  Device Probing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Some drivers are not fully converted to the driver model, because they take
+on a non-driver role:  the driver registers its platform device, rather than
+leaving that for system infrastructure.  Such drivers can't be hotplugged
+or coldplugged, since those mechanisms require device creation to be in a
+different system component than the driver.
+
+The only "good" reason for this is to handle older system designs which, like
+original IBM PCs, rely on error-prone "probe-the-hardware" models for hardware
+configuration.  Newer systems have largely abandoned that model, in favor of
+bus-level support for dynamic configuration (PCI, USB), or device tables
+provided by the boot firmware (e.g. PNPACPI on x86).  There are too many
+conflicting options about what might be where, and even educated guesses by
+an operating system will be wrong often enough to make trouble.
+
+This style of driver is discouraged.  If you're updating such a driver,
+please try to move the device enumeration to a more appropriate location,
+outside the driver.  This will usually be cleanup, since such drivers
+tend to already have "normal" modes, such as ones using device nodes that
+were created by PNP or by platform device setup.
+
+None the less, there are some APIs to support such legacy drivers.  Avoid
+using these calls except with such hotplug-deficient drivers.
+
+	struct platform_device *platform_device_alloc(
+			char *name, unsigned id);
+
+You can use platform_device_alloc() to dynamically allocate a device, which
+you will then initialize with resources and platform_device_register().
+A better solution is usually:
+
+	struct platform_device *platform_device_register_simple(
+			char *name, unsigned id,
+			struct resource *res, unsigned nres);
+
+You can use platform_device_register_simple() as a one-step call to allocate
+and register a device.
+
+
 Device Naming and Driver Binding
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The platform_device.dev.bus_id is the canonical name for the devices.
@@ -106,7 +146,7 @@ It's built from two components:
     * platform_device.id ... the device instance number, or else "-1"
       to indicate there's only one.
 
-These are catenated, so name/id "serial"/0 indicates bus_id "serial.0", and
+These are concatenated, so name/id "serial"/0 indicates bus_id "serial.0", and
 "serial/3" indicates bus_id "serial.3"; both would use the platform_driver
 named "serial".  While "my_rtc"/-1 would be bus_id "my_rtc" (no instance id)
 and use the platform_driver called "my_rtc".
@@ -125,7 +165,7 @@ three different ways to find such a match:
       usually register later during booting, or by module loading.
 
     - Registering a driver using platform_driver_probe() works just like
-      using platform_driver_register(), except that the the driver won't
+      using platform_driver_register(), except that the driver won't
       be probed later if another device registers.  (Which is OK, since
       this interface is only for use with non-hotpluggable devices.)
 

@@ -12,6 +12,7 @@
  * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
+ * 2006-12-07 Added SHA384 HMAC and SHA512 HMAC tests
  * 2004-08-09 Added cipher speed tests (Reyk Floeter <reyk@vantronix.net>)
  * 2003-09-14 Rewritten by Kartikey Mahendra Bhatt
  *
@@ -56,6 +57,11 @@
 #define ENCRYPT 1
 #define DECRYPT 0
 
+struct tcrypt_result {
+	struct completion completion;
+	int err;
+};
+
 static unsigned int IDX[8] = { IDX1, IDX2, IDX3, IDX4, IDX5, IDX6, IDX7, IDX8 };
 
 /*
@@ -71,7 +77,8 @@ static char *check[] = {
 	"des", "md5", "des3_ede", "rot13", "sha1", "sha256", "blowfish",
 	"twofish", "serpent", "sha384", "sha512", "md4", "aes", "cast6",
 	"arc4", "michael_mic", "deflate", "crc32c", "tea", "xtea",
-	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta", NULL
+	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta",  "fcrypt",
+	"camellia", NULL
 };
 
 static void hexdump(unsigned char *buf, unsigned int len)
@@ -80,6 +87,17 @@ static void hexdump(unsigned char *buf, unsigned int len)
 		printk("%02x", *buf++);
 
 	printk("\n");
+}
+
+static void tcrypt_complete(struct crypto_async_request *req, int err)
+{
+	struct tcrypt_result *res = req->data;
+
+	if (err == -EINPROGRESS)
+		return;
+
+	res->err = err;
+	complete(&res->completion);
 }
 
 static void test_hash(char *algo, struct hash_testvec *template,
@@ -201,15 +219,14 @@ static void test_cipher(char *algo, int enc,
 {
 	unsigned int ret, i, j, k, temp;
 	unsigned int tsize;
-	unsigned int iv_len;
-	unsigned int len;
 	char *q;
-	struct crypto_blkcipher *tfm;
+	struct crypto_ablkcipher *tfm;
 	char *key;
 	struct cipher_testvec *cipher_tv;
-	struct blkcipher_desc desc;
+	struct ablkcipher_request *req;
 	struct scatterlist sg[8];
 	const char *e;
+	struct tcrypt_result result;
 
 	if (enc == ENCRYPT)
 	        e = "encryption";
@@ -230,15 +247,24 @@ static void test_cipher(char *algo, int enc,
 	memcpy(tvmem, template, tsize);
 	cipher_tv = (void *)tvmem;
 
-	tfm = crypto_alloc_blkcipher(algo, 0, CRYPTO_ALG_ASYNC);
+	init_completion(&result.completion);
+
+	tfm = crypto_alloc_ablkcipher(algo, 0, 0);
 
 	if (IS_ERR(tfm)) {
 		printk("failed to load transform for %s: %ld\n", algo,
 		       PTR_ERR(tfm));
 		return;
 	}
-	desc.tfm = tfm;
-	desc.flags = 0;
+
+	req = ablkcipher_request_alloc(tfm, GFP_KERNEL);
+	if (!req) {
+		printk("failed to allocate request for %s\n", algo);
+		goto out;
+	}
+
+	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+					tcrypt_complete, &result);
 
 	j = 0;
 	for (i = 0; i < tcount; i++) {
@@ -247,17 +273,17 @@ static void test_cipher(char *algo, int enc,
 			printk("test %u (%d bit key):\n",
 			j, cipher_tv[i].klen * 8);
 
-			crypto_blkcipher_clear_flags(tfm, ~0);
+			crypto_ablkcipher_clear_flags(tfm, ~0);
 			if (cipher_tv[i].wk)
-				crypto_blkcipher_set_flags(
+				crypto_ablkcipher_set_flags(
 					tfm, CRYPTO_TFM_REQ_WEAK_KEY);
 			key = cipher_tv[i].key;
 
-			ret = crypto_blkcipher_setkey(tfm, key,
-						      cipher_tv[i].klen);
+			ret = crypto_ablkcipher_setkey(tfm, key,
+						       cipher_tv[i].klen);
 			if (ret) {
 				printk("setkey() failed flags=%x\n",
-				       crypto_blkcipher_get_flags(tfm));
+				       crypto_ablkcipher_get_flags(tfm));
 
 				if (!cipher_tv[i].fail)
 					goto out;
@@ -266,19 +292,28 @@ static void test_cipher(char *algo, int enc,
 			sg_set_buf(&sg[0], cipher_tv[i].input,
 				   cipher_tv[i].ilen);
 
-			iv_len = crypto_blkcipher_ivsize(tfm);
-			if (iv_len)
-				crypto_blkcipher_set_iv(tfm, cipher_tv[i].iv,
-							iv_len);
+			ablkcipher_request_set_crypt(req, sg, sg,
+						     cipher_tv[i].ilen,
+						     cipher_tv[i].iv);
 
-			len = cipher_tv[i].ilen;
 			ret = enc ?
-				crypto_blkcipher_encrypt(&desc, sg, sg, len) :
-				crypto_blkcipher_decrypt(&desc, sg, sg, len);
+				crypto_ablkcipher_encrypt(req) :
+				crypto_ablkcipher_decrypt(req);
 
-			if (ret) {
-				printk("%s () failed flags=%x\n", e,
-				       desc.flags);
+			switch (ret) {
+			case 0:
+				break;
+			case -EINPROGRESS:
+			case -EBUSY:
+				ret = wait_for_completion_interruptible(
+					&result.completion);
+				if (!ret && !((ret = result.err))) {
+					INIT_COMPLETION(result.completion);
+					break;
+				}
+				/* fall through */
+			default:
+				printk("%s () failed err=%d\n", e, -ret);
 				goto out;
 			}
 
@@ -301,17 +336,17 @@ static void test_cipher(char *algo, int enc,
 			printk("test %u (%d bit key):\n",
 			j, cipher_tv[i].klen * 8);
 
-			crypto_blkcipher_clear_flags(tfm, ~0);
+			crypto_ablkcipher_clear_flags(tfm, ~0);
 			if (cipher_tv[i].wk)
-				crypto_blkcipher_set_flags(
+				crypto_ablkcipher_set_flags(
 					tfm, CRYPTO_TFM_REQ_WEAK_KEY);
 			key = cipher_tv[i].key;
 
-			ret = crypto_blkcipher_setkey(tfm, key,
-						      cipher_tv[i].klen);
+			ret = crypto_ablkcipher_setkey(tfm, key,
+						       cipher_tv[i].klen);
 			if (ret) {
 				printk("setkey() failed flags=%x\n",
-				       crypto_blkcipher_get_flags(tfm));
+				       crypto_ablkcipher_get_flags(tfm));
 
 				if (!cipher_tv[i].fail)
 					goto out;
@@ -327,19 +362,28 @@ static void test_cipher(char *algo, int enc,
 					   cipher_tv[i].tap[k]);
 			}
 
-			iv_len = crypto_blkcipher_ivsize(tfm);
-			if (iv_len)
-				crypto_blkcipher_set_iv(tfm, cipher_tv[i].iv,
-							iv_len);
+			ablkcipher_request_set_crypt(req, sg, sg,
+						     cipher_tv[i].ilen,
+						     cipher_tv[i].iv);
 
-			len = cipher_tv[i].ilen;
 			ret = enc ?
-				crypto_blkcipher_encrypt(&desc, sg, sg, len) :
-				crypto_blkcipher_decrypt(&desc, sg, sg, len);
+				crypto_ablkcipher_encrypt(req) :
+				crypto_ablkcipher_decrypt(req);
 
-			if (ret) {
-				printk("%s () failed flags=%x\n", e,
-				       desc.flags);
+			switch (ret) {
+			case 0:
+				break;
+			case -EINPROGRESS:
+			case -EBUSY:
+				ret = wait_for_completion_interruptible(
+					&result.completion);
+				if (!ret && !((ret = result.err))) {
+					INIT_COMPLETION(result.completion);
+					break;
+				}
+				/* fall through */
+			default:
+				printk("%s () failed err=%d\n", e, -ret);
 				goto out;
 			}
 
@@ -358,7 +402,8 @@ static void test_cipher(char *algo, int enc,
 	}
 
 out:
-	crypto_free_blkcipher(tfm);
+	crypto_free_ablkcipher(tfm);
+	ablkcipher_request_free(req);
 }
 
 static int test_cipher_jiffies(struct blkcipher_desc *desc, int enc, char *p,
@@ -646,7 +691,7 @@ static int test_hash_cycles(struct hash_desc *desc, char *p, int blen,
 			if (ret)
 				goto out;
 		}
-		crypto_hash_final(desc, out);
+		ret = crypto_hash_final(desc, out);
 		if (ret)
 			goto out;
 	}
@@ -765,8 +810,8 @@ static void test_deflate(void)
 	memcpy(tvmem, deflate_comp_tv_template, tsize);
 	tv = (void *)tvmem;
 
-	tfm = crypto_alloc_tfm("deflate", 0);
-	if (tfm == NULL) {
+	tfm = crypto_alloc_comp("deflate", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(tfm)) {
 		printk("failed to load transform for deflate\n");
 		return;
 	}
@@ -830,7 +875,7 @@ static void test_available(void)
 
 	while (*name) {
 		printk("alg %s ", *name);
-		printk(crypto_has_alg(*name, 0, CRYPTO_ALG_ASYNC) ?
+		printk(crypto_has_alg(*name, 0, 0) ?
 		       "found\n" : "not found\n");
 		name++;
 	}
@@ -964,6 +1009,26 @@ static void do_test(void)
 		test_cipher("ecb(xeta)", DECRYPT, xeta_dec_tv_template,
 			    XETA_DEC_TEST_VECTORS);
 
+		//FCrypt
+		test_cipher("pcbc(fcrypt)", ENCRYPT, fcrypt_pcbc_enc_tv_template,
+			    FCRYPT_ENC_TEST_VECTORS);
+		test_cipher("pcbc(fcrypt)", DECRYPT, fcrypt_pcbc_dec_tv_template,
+			    FCRYPT_DEC_TEST_VECTORS);
+
+		//CAMELLIA
+		test_cipher("ecb(camellia)", ENCRYPT,
+			    camellia_enc_tv_template,
+			    CAMELLIA_ENC_TEST_VECTORS);
+		test_cipher("ecb(camellia)", DECRYPT,
+			    camellia_dec_tv_template,
+			    CAMELLIA_DEC_TEST_VECTORS);
+		test_cipher("cbc(camellia)", ENCRYPT,
+			    camellia_cbc_enc_tv_template,
+			    CAMELLIA_CBC_ENC_TEST_VECTORS);
+		test_cipher("cbc(camellia)", DECRYPT,
+			    camellia_cbc_dec_tv_template,
+			    CAMELLIA_CBC_DEC_TEST_VECTORS);
+
 		test_hash("sha384", sha384_tv_template, SHA384_TEST_VECTORS);
 		test_hash("sha512", sha512_tv_template, SHA512_TEST_VECTORS);
 		test_hash("wp512", wp512_tv_template, WP512_TEST_VECTORS);
@@ -980,6 +1045,10 @@ static void do_test(void)
 			  HMAC_SHA1_TEST_VECTORS);
 		test_hash("hmac(sha256)", hmac_sha256_tv_template,
 			  HMAC_SHA256_TEST_VECTORS);
+		test_hash("hmac(sha384)", hmac_sha384_tv_template,
+			  HMAC_SHA384_TEST_VECTORS);
+		test_hash("hmac(sha512)", hmac_sha512_tv_template,
+			  HMAC_SHA512_TEST_VECTORS);
 
 		test_hash("xcbc(aes)", aes_xcbc128_tv_template,
 			  XCBC_AES_TEST_VECTORS);
@@ -1177,6 +1246,28 @@ static void do_test(void)
 			    XETA_DEC_TEST_VECTORS);
 		break;
 
+	case 31:
+		test_cipher("pcbc(fcrypt)", ENCRYPT, fcrypt_pcbc_enc_tv_template,
+			    FCRYPT_ENC_TEST_VECTORS);
+		test_cipher("pcbc(fcrypt)", DECRYPT, fcrypt_pcbc_dec_tv_template,
+			    FCRYPT_DEC_TEST_VECTORS);
+		break;
+
+	case 32:
+		test_cipher("ecb(camellia)", ENCRYPT,
+			    camellia_enc_tv_template,
+			    CAMELLIA_ENC_TEST_VECTORS);
+		test_cipher("ecb(camellia)", DECRYPT,
+			    camellia_dec_tv_template,
+			    CAMELLIA_DEC_TEST_VECTORS);
+		test_cipher("cbc(camellia)", ENCRYPT,
+			    camellia_cbc_enc_tv_template,
+			    CAMELLIA_CBC_ENC_TEST_VECTORS);
+		test_cipher("cbc(camellia)", DECRYPT,
+			    camellia_cbc_dec_tv_template,
+			    CAMELLIA_CBC_DEC_TEST_VECTORS);
+		break;
+
 	case 100:
 		test_hash("hmac(md5)", hmac_md5_tv_template,
 			  HMAC_MD5_TEST_VECTORS);
@@ -1190,6 +1281,16 @@ static void do_test(void)
 	case 102:
 		test_hash("hmac(sha256)", hmac_sha256_tv_template,
 			  HMAC_SHA256_TEST_VECTORS);
+		break;
+
+	case 103:
+		test_hash("hmac(sha384)", hmac_sha384_tv_template,
+			  HMAC_SHA384_TEST_VECTORS);
+		break;
+
+	case 104:
+		test_hash("hmac(sha512)", hmac_sha512_tv_template,
+			  HMAC_SHA512_TEST_VECTORS);
 		break;
 
 
@@ -1258,6 +1359,17 @@ static void do_test(void)
 				  des_speed_template);
 		test_cipher_speed("cbc(des)", DECRYPT, sec, NULL, 0,
 				  des_speed_template);
+		break;
+
+	case 205:
+		test_cipher_speed("ecb(camellia)", ENCRYPT, sec, NULL, 0,
+				camellia_speed_template);
+		test_cipher_speed("ecb(camellia)", DECRYPT, sec, NULL, 0,
+				camellia_speed_template);
+		test_cipher_speed("cbc(camellia)", ENCRYPT, sec, NULL, 0,
+				camellia_speed_template);
+		test_cipher_speed("cbc(camellia)", DECRYPT, sec, NULL, 0,
+				camellia_speed_template);
 		break;
 
 	case 300:

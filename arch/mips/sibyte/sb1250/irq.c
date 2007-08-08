@@ -67,7 +67,7 @@ extern char sb1250_duart_present[];
 #endif
 
 static struct irq_chip sb1250_irq_type = {
-	.typename = "SB1250-IMR",
+	.name = "SB1250-IMR",
 	.ack = ack_sb1250_irq,
 	.mask = disable_sb1250_irq,
 	.mask_ack = ack_sb1250_irq,
@@ -421,7 +421,7 @@ asmlinkage void plat_irq_dispatch(void)
 	 * blasting the high 32 bits.
 	 */
 
-	pending = read_c0_cause() & read_c0_status();
+	pending = read_c0_cause() & read_c0_status() & ST0_IM;
 
 #ifdef CONFIG_SIBYTE_SB1250_PROF
 	if (pending & CAUSEF_IP7) /* Cpu performance counter interrupt */

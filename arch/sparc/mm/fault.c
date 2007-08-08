@@ -18,9 +18,9 @@
 #include <linux/signal.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/kdebug.h>
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/compiler.h>
@@ -34,7 +34,6 @@
 #include <asm/oplib.h>
 #include <asm/smp.h>
 #include <asm/traps.h>
-#include <asm/kdebug.h>
 #include <asm/uaccess.h>
 
 extern int prom_node_root;
@@ -222,14 +221,14 @@ static unsigned long compute_si_addr(struct pt_regs *regs, int text_fault)
 }
 
 #ifdef CONFIG_PAX_PAGEEXEC
-void pax_emuplt_close(struct vm_area_struct * vma)
+void pax_emuplt_close(struct vm_area_struct *vma)
 {
 	vma->vm_mm->call_dl_resolve = 0UL;
 }
 
-static struct page* pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
+static struct page *pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
 {
-	struct page* page;
+	struct page *page;
 	unsigned int *kaddr;
 
 	page = alloc_page(GFP_HIGHUSER);
@@ -261,7 +260,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
 	vma->vm_flags = VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC;
-	vma->vm_page_prot = protection_map[vma->vm_flags & (VM_READ|VM_WRITE|VM_EXEC)];
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	vma->vm_ops = &pax_vm_ops;
 
 	ret = insert_vm_struct(current->mm, vma);
@@ -288,9 +287,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #1 */
 		unsigned int sethi1, sethi2, jmpl;
 
-		err = get_user(sethi1, (unsigned int*)regs->pc);
-		err |= get_user(sethi2, (unsigned int*)(regs->pc+4));
-		err |= get_user(jmpl, (unsigned int*)(regs->pc+8));
+		err = get_user(sethi1, (unsigned int *)regs->pc);
+		err |= get_user(sethi2, (unsigned int *)(regs->pc+4));
+		err |= get_user(jmpl, (unsigned int *)(regs->pc+8));
 
 		if (err)
 			break;
@@ -313,7 +312,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	{ /* PaX: patched PLT emulation #2 */
 		unsigned int ba;
 
-		err = get_user(ba, (unsigned int*)regs->pc);
+		err = get_user(ba, (unsigned int *)regs->pc);
 
 		if (!err && (ba & 0xFFC00000U) == 0x30800000U) {
 			unsigned int addr;
@@ -328,9 +327,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: patched PLT emulation #3 */
 		unsigned int sethi, jmpl, nop;
 
-		err = get_user(sethi, (unsigned int*)regs->pc);
-		err |= get_user(jmpl, (unsigned int*)(regs->pc+4));
-		err |= get_user(nop, (unsigned int*)(regs->pc+8));
+		err = get_user(sethi, (unsigned int *)regs->pc);
+		err |= get_user(jmpl, (unsigned int *)(regs->pc+4));
+		err |= get_user(nop, (unsigned int *)(regs->pc+8));
 
 		if (err)
 			break;
@@ -353,9 +352,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	do { /* PaX: unpatched PLT emulation step 1 */
 		unsigned int sethi, ba, nop;
 
-		err = get_user(sethi, (unsigned int*)regs->pc);
-		err |= get_user(ba, (unsigned int*)(regs->pc+4));
-		err |= get_user(nop, (unsigned int*)(regs->pc+8));
+		err = get_user(sethi, (unsigned int *)regs->pc);
+		err |= get_user(ba, (unsigned int *)(regs->pc+4));
+		err |= get_user(nop, (unsigned int *)(regs->pc+8));
 
 		if (err)
 			break;
@@ -371,9 +370,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			else
 				addr = regs->pc + 4 + ((((ba | 0xFFF80000U) ^ 0x00040000U) + 0x00040000U) << 2);
 
-			err = get_user(save, (unsigned int*)addr);
-			err |= get_user(call, (unsigned int*)(addr+4));
-			err |= get_user(nop, (unsigned int*)(addr+8));
+			err = get_user(save, (unsigned int *)addr);
+			err |= get_user(call, (unsigned int *)(addr+4));
+			err |= get_user(nop, (unsigned int *)(addr+8));
 			if (err)
 				break;
 
@@ -428,9 +427,9 @@ emulate:
 	do { /* PaX: unpatched PLT emulation step 2 */
 		unsigned int save, call, nop;
 
-		err = get_user(save, (unsigned int*)(regs->pc-4));
-		err |= get_user(call, (unsigned int*)regs->pc);
-		err |= get_user(nop, (unsigned int*)(regs->pc+4));
+		err = get_user(save, (unsigned int *)(regs->pc-4));
+		err |= get_user(call, (unsigned int *)regs->pc);
+		err |= get_user(nop, (unsigned int *)(regs->pc+4));
 		if (err)
 			break;
 
@@ -458,7 +457,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
-		if (get_user(c, (unsigned int*)pc+i))
+		if (get_user(c, (unsigned int *)pc+i))
 			printk("???????? ");
 		else
 			printk("%08x ", c);
@@ -543,7 +542,7 @@ good_area:
 #endif
 
 			}
-			pax_report_fault(regs, (void*)regs->pc, (void*)regs->u_regs[UREG_FP]);
+			pax_report_fault(regs, (void *)regs->pc, (void *)regs->u_regs[UREG_FP]);
 			do_exit(SIGKILL);
 		}
 #endif

@@ -12,51 +12,17 @@
 #include <linux/tty_flip.h>
 #include <asm/irq.h>
 #include "chan_kern.h"
-#include "user_util.h"
 #include "kern.h"
 #include "irq_user.h"
 #include "sigio.h"
 #include "line.h"
 #include "os.h"
 
-/* XXX: could well be moved to somewhere else, if needed. */
-static int my_printf(const char * fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
-
-static int my_printf(const char * fmt, ...)
-{
-	/* Yes, can be called on atomic context.*/
-	char *buf = kmalloc(4096, GFP_ATOMIC);
-	va_list args;
-	int r;
-
-	if (!buf) {
-		/* We print directly fmt.
-		 * Yes, yes, yes, feel free to complain. */
-		r = strlen(fmt);
-	} else {
-		va_start(args, fmt);
-		r = vsprintf(buf, fmt, args);
-		va_end(args);
-		fmt = buf;
-	}
-
-	if (r)
-		r = os_write_file(1, fmt, r);
-	return r;
-
-}
-
 #ifdef CONFIG_NOCONFIG_CHAN
-/* Despite its name, there's no added trailing newline. */
-static int my_puts(const char * buf)
+static void *not_configged_init(char *str, int device,
+				const struct chan_opts *opts)
 {
-	return os_write_file(1, buf, strlen(buf));
-}
-
-static void *not_configged_init(char *str, int device, struct chan_opts *opts)
-{
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return NULL;
 }
@@ -64,34 +30,34 @@ static void *not_configged_init(char *str, int device, struct chan_opts *opts)
 static int not_configged_open(int input, int output, int primary, void *data,
 			      char **dev_out)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return -ENODEV;
 }
 
 static void not_configged_close(int fd, void *data)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 }
 
 static int not_configged_read(int fd, char *c_out, void *data)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return -EIO;
 }
 
 static int not_configged_write(int fd, const char *buf, int len, void *data)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return -EIO;
 }
 
 static int not_configged_console_write(int fd, const char *buf, int len)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return -EIO;
 }
@@ -99,14 +65,14 @@ static int not_configged_console_write(int fd, const char *buf, int len)
 static int not_configged_window_size(int fd, void *data, unsigned short *rows,
 				     unsigned short *cols)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 	return -ENODEV;
 }
 
 static void not_configged_free(void *data)
 {
-	my_puts("Using a channel type which is configured out of "
+	printk("Using a channel type which is configured out of "
 	       "UML\n");
 }
 
@@ -255,15 +221,28 @@ void enable_chan(struct line *line)
 	}
 }
 
+/* Items are added in IRQ context, when free_irq can't be called, and
+ * removed in process context, when it can.
+ * This handles interrupt sources which disappear, and which need to
+ * be permanently disabled.  This is discovered in IRQ context, but
+ * the freeing of the IRQ must be done later.
+ */
+static DEFINE_SPINLOCK(irqs_to_free_lock);
 static LIST_HEAD(irqs_to_free);
 
 void free_irqs(void)
 {
 	struct chan *chan;
+	LIST_HEAD(list);
+	struct list_head *ele;
+	unsigned long flags;
 
-	while(!list_empty(&irqs_to_free)){
-		chan = list_entry(irqs_to_free.next, struct chan, free_list);
-		list_del(&chan->free_list);
+	spin_lock_irqsave(&irqs_to_free_lock, flags);
+	list_splice_init(&irqs_to_free, &list);
+	spin_unlock_irqrestore(&irqs_to_free_lock, flags);
+
+	list_for_each(ele, &list){
+		chan = list_entry(ele, struct chan, free_list);
 
 		if(chan->input)
 			free_irq(chan->line->driver->read_irq, chan);
@@ -275,11 +254,15 @@ void free_irqs(void)
 
 static void close_one_chan(struct chan *chan, int delay_free_irq)
 {
+	unsigned long flags;
+
 	if(!chan->opened)
 		return;
 
 	if(delay_free_irq){
+		spin_lock_irqsave(&irqs_to_free_lock, flags);
 		list_add(&chan->free_list, &irqs_to_free);
+		spin_unlock_irqrestore(&irqs_to_free_lock, flags);
 	}
 	else {
 		if(chan->input)
@@ -372,8 +355,7 @@ int console_write_chan(struct list_head *chans, const char *buf, int len)
 	return ret;
 }
 
-int console_open_chan(struct line *line, struct console *co,
-		      const struct chan_opts *opts)
+int console_open_chan(struct line *line, struct console *co)
 {
 	int err;
 
@@ -381,7 +363,7 @@ int console_open_chan(struct line *line, struct console *co,
 	if(err)
 		return err;
 
-	printk("Console initialized on /dev/%s%d\n",co->name,co->index);
+	printk("Console initialized on /dev/%s%d\n", co->name, co->index);
 	return 0;
 }
 
@@ -534,7 +516,7 @@ static const struct chan_type chan_table[] = {
 };
 
 static struct chan *parse_chan(struct line *line, char *str, int device,
-			       const struct chan_opts *opts)
+			       const struct chan_opts *opts, char **error_out)
 {
 	const struct chan_type *entry;
 	const struct chan_ops *ops;
@@ -553,19 +535,21 @@ static struct chan *parse_chan(struct line *line, char *str, int device,
 		}
 	}
 	if(ops == NULL){
-		my_printf("parse_chan couldn't parse \"%s\"\n",
-		       str);
+		*error_out = "No match for configured backends";
 		return NULL;
 	}
-	if(ops->init == NULL)
-		return NULL;
+
 	data = (*ops->init)(str, device, opts);
-	if(data == NULL)
+	if(data == NULL){
+		*error_out = "Configuration failed";
 		return NULL;
+	}
 
 	chan = kmalloc(sizeof(*chan), GFP_ATOMIC);
-	if(chan == NULL)
+	if(chan == NULL){
+		*error_out = "Memory allocation failed";
 		return NULL;
+	}
 	*chan = ((struct chan) { .list	 	= LIST_HEAD_INIT(chan->list),
 				 .free_list 	=
 				 	LIST_HEAD_INIT(chan->free_list),
@@ -582,7 +566,7 @@ static struct chan *parse_chan(struct line *line, char *str, int device,
 }
 
 int parse_chan_pair(char *str, struct line *line, int device,
-		    const struct chan_opts *opts)
+		    const struct chan_opts *opts, char **error_out)
 {
 	struct list_head *chans = &line->chan_list;
 	struct chan *new, *chan;
@@ -599,14 +583,14 @@ int parse_chan_pair(char *str, struct line *line, int device,
 		in = str;
 		*out = '\0';
 		out++;
-		new = parse_chan(line, in, device, opts);
+		new = parse_chan(line, in, device, opts, error_out);
 		if(new == NULL)
 			return -1;
 
 		new->input = 1;
 		list_add(&new->list, chans);
 
-		new = parse_chan(line, out, device, opts);
+		new = parse_chan(line, out, device, opts, error_out);
 		if(new == NULL)
 			return -1;
 
@@ -614,7 +598,7 @@ int parse_chan_pair(char *str, struct line *line, int device,
 		new->output = 1;
 	}
 	else {
-		new = parse_chan(line, str, device, opts);
+		new = parse_chan(line, str, device, opts, error_out);
 		if(new == NULL)
 			return -1;
 

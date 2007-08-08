@@ -562,7 +562,6 @@ jpg_fbuffer_alloc (struct file *file)
 			jpg_fbuffer_free(file);
 			return -ENOBUFS;
 		}
-		memset((void *) mem, 0, PAGE_SIZE);
 		fh->jpg_buffers.buffer[i].frag_tab = (u32 *) mem;
 		fh->jpg_buffers.buffer[i].frag_tab_bus =
 		    virt_to_bus((void *) mem);
@@ -2035,7 +2034,7 @@ zoran_do_ioctl (struct inode *inode,
 	 * but moving the free code outside the munmap() handler fixes
 	 * all this... If someone knows why, please explain me (Ronald)
 	 */
-	if (!!mutex_trylock(&zr->resource_lock)) {
+	if (mutex_trylock(&zr->resource_lock)) {
 		/* we obtained it! Let's try to free some things */
 		if (fh->jpg_buffers.ready_to_be_freed)
 			jpg_fbuffer_free(file);
@@ -4680,7 +4679,7 @@ zoran_mmap (struct file           *file,
 	return 0;
 }
 
-static struct file_operations zoran_fops = {
+static const struct file_operations zoran_fops = {
 	.owner = THIS_MODULE,
 	.open = zoran_open,
 	.release = zoran_close,

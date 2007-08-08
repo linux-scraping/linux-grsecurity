@@ -14,10 +14,12 @@
 #define _XTENSA_MMU_CONTEXT_H
 
 #include <linux/stringify.h>
+#include <linux/sched.h>
 
 #include <asm/pgtable.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
+#include <asm-generic/mm_hooks.h>
 
 #define XCHAL_MMU_ASID_BITS	8
 

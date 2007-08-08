@@ -155,7 +155,7 @@ This function will write into PHY registers.
 */
 static int amd8111e_write_phy(struct amd8111e_priv* lp,int phy_id, int reg, u32 val)
 {
-	unsigned int repeat = REPEAT_CNT
+	unsigned int repeat = REPEAT_CNT;
 	void __iomem *mmio = lp->mmio;
 	unsigned int reg_val;
 
@@ -798,9 +798,7 @@ static int amd8111e_rx_poll(struct net_device *dev, int * budget)
 			pci_unmap_single(lp->pci_dev,lp->rx_dma_addr[rx_index],
 					 lp->rx_buff_len-2, PCI_DMA_FROMDEVICE);
 			skb_put(skb, pkt_len);
-			skb->dev = dev;
 			lp->rx_skbuff[rx_index] = new_skb;
-			new_skb->dev = dev;
 			lp->rx_dma_addr[rx_index] = pci_map_single(lp->pci_dev,
 								   new_skb->data,
 								   lp->rx_buff_len-2,
@@ -926,9 +924,7 @@ static int amd8111e_rx(struct net_device *dev)
 		pci_unmap_single(lp->pci_dev,lp->rx_dma_addr[rx_index],
 			lp->rx_buff_len-2, PCI_DMA_FROMDEVICE);
 		skb_put(skb, pkt_len);
-		skb->dev = dev;
 		lp->rx_skbuff[rx_index] = new_skb;
-		new_skb->dev = dev;
 		lp->rx_dma_addr[rx_index] = pci_map_single(lp->pci_dev,
 			new_skb->data, lp->rx_buff_len-2,PCI_DMA_FROMDEVICE);
 
@@ -1334,8 +1330,7 @@ err_no_interrupt:
 static void amd8111e_poll(struct net_device *dev)
 {
 	unsigned long flags;
-	local_save_flags(flags);
-	local_irq_disable();
+	local_irq_save(flags);
 	amd8111e_interrupt(0, dev);
 	local_irq_restore(flags);
 }
@@ -1733,16 +1728,8 @@ static void amd8111e_vlan_rx_register(struct net_device *dev, struct vlan_group 
 	lp->vlgrp = grp;
 	spin_unlock_irq(&lp->lock);
 }
-
-static void amd8111e_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct amd8111e_priv *lp = netdev_priv(dev);
-	spin_lock_irq(&lp->lock);
-	if (lp->vlgrp)
-		lp->vlgrp->vlan_devices[vid] = NULL;
-	spin_unlock_irq(&lp->lock);
-}
 #endif
+
 static int amd8111e_enable_magicpkt(struct amd8111e_priv* lp)
 {
 	writel( VAL1|MPPLBA, lp->mmio + CMD3);
@@ -2002,7 +1989,6 @@ static int __devinit amd8111e_probe_one(struct pci_dev *pdev,
 #if AMD8111E_VLAN_TAG_USED
 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX ;
 	dev->vlan_rx_register =amd8111e_vlan_rx_register;
-	dev->vlan_rx_kill_vid = amd8111e_vlan_rx_kill_vid;
 #endif
 
 	lp = netdev_priv(dev);
@@ -2055,7 +2041,6 @@ static int __devinit amd8111e_probe_one(struct pci_dev *pdev,
 #if AMD8111E_VLAN_TAG_USED
 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 	dev->vlan_rx_register =amd8111e_vlan_rx_register;
-	dev->vlan_rx_kill_vid = amd8111e_vlan_rx_kill_vid;
 #endif
 	/* Probe the external PHY */
 	amd8111e_probe_ext_phy(dev);

@@ -64,7 +64,7 @@ extern void ll_cpci_irq(void);
 
 asmlinkage void plat_irq_dispatch(void)
 {
-	unsigned int pending = read_c0_cause() & read_c0_status();
+	unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
 
 	if (pending & STATUSF_IP0)
 		do_IRQ(0);
@@ -94,7 +94,7 @@ void __init arch_init_irq(void)
 	 */
 	clear_c0_status(ST0_IM);
 
-	mips_cpu_irq_init(0);
+	mips_cpu_irq_init();
 
 	/* set up the cascading interrupts */
 	setup_irq(3, &cascade_fpga);

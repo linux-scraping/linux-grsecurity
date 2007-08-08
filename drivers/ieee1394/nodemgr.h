@@ -70,12 +70,12 @@ struct unit_directory {
 
 	quadlet_t vendor_id;
 	struct csr1212_keyval *vendor_name_kv;
-	const char *vendor_oui;
 
 	quadlet_t model_id;
 	struct csr1212_keyval *model_name_kv;
 	quadlet_t specifier_id;
 	quadlet_t version;
+	quadlet_t directory_id;
 
 	unsigned int id;
 
@@ -93,7 +93,6 @@ struct unit_directory {
 struct node_entry {
 	u64 guid;			/* GUID of this node */
 	u32 guid_vendor_id;		/* Top 24bits of guid */
-	const char *guid_vendor_oui;	/* OUI name of guid vendor id */
 
 	struct hpsb_host *host;		/* Host this node is attached to */
 	nodeid_t nodeid;		/* NodeID */
@@ -104,7 +103,6 @@ struct node_entry {
 	/* The following is read from the config rom */
 	u32 vendor_id;
 	struct csr1212_keyval *vendor_name_kv;
-	const char *vendor_oui;
 
 	u32 capabilities;
 
@@ -156,30 +154,10 @@ static inline int hpsb_node_entry_valid(struct node_entry *ne)
 {
 	return ne->generation == get_hpsb_generation(ne->host);
 }
-
-/*
- * This will fill in the given, pre-initialised hpsb_packet with the current
- * information from the node entry (host, node ID, generation number).  It will
- * return false if the node owning the GUID is not accessible (and not modify
- * the hpsb_packet) and return true otherwise.
- *
- * Note that packet sending may still fail in hpsb_send_packet if a bus reset
- * happens while you are trying to set up the packet (due to obsolete generation
- * number).  It will at least reliably fail so that you don't accidentally and
- * unknowingly send your packet to the wrong node.
- */
-void hpsb_node_fill_packet(struct node_entry *ne, struct hpsb_packet *pkt);
-
-int hpsb_node_read(struct node_entry *ne, u64 addr,
-		   quadlet_t *buffer, size_t length);
+void hpsb_node_fill_packet(struct node_entry *ne, struct hpsb_packet *packet);
 int hpsb_node_write(struct node_entry *ne, u64 addr,
 		    quadlet_t *buffer, size_t length);
-int hpsb_node_lock(struct node_entry *ne, u64 addr,
-		   int extcode, quadlet_t *data, quadlet_t arg);
-
-/* Iterate the hosts, calling a given function with supplied data for each
- * host. */
-int nodemgr_for_each_host(void *__data, int (*cb)(struct hpsb_host *, void *));
+int nodemgr_for_each_host(void *data, int (*cb)(struct hpsb_host *, void *));
 
 int init_ieee1394_nodemgr(void);
 void cleanup_ieee1394_nodemgr(void);

@@ -27,6 +27,7 @@
 
 #include <asm/arch/clock.h>
 #include <asm/arch/sram.h>
+#include <asm/div64.h>
 
 #include "prcm-regs.h"
 #include "memory.h"
@@ -442,7 +443,7 @@ static long omap2_clk_round_rate(struct clk *clk, unsigned long rate)
 
 /*
  * Check the DLL lock state, and return tue if running in unlock mode.
- * This is needed to compenste for the shifted DLL value in unlock mode.
+ * This is needed to compensate for the shifted DLL value in unlock mode.
  */
 static u32 omap2_dll_force_needed(void)
 {

@@ -45,6 +45,7 @@
 #include <net/cipso_ipv4.h>
 #include <asm/atomic.h>
 #include <asm/bug.h>
+#include <asm/unaligned.h>
 
 struct cipso_v4_domhsh_entry {
 	char *domain;
@@ -90,6 +91,33 @@ static struct cipso_v4_map_cache_bkt *cipso_v4_cache = NULL;
 /* Restricted bitmap (tag #1) flags */
 int cipso_v4_rbm_optfmt = 0;
 int cipso_v4_rbm_strictvalid = 1;
+
+/*
+ * Protocol Constants
+ */
+
+/* Maximum size of the CIPSO IP option, derived from the fact that the maximum
+ * IPv4 header size is 60 bytes and the base IPv4 header is 20 bytes long. */
+#define CIPSO_V4_OPT_LEN_MAX          40
+
+/* Length of the base CIPSO option, this includes the option type (1 byte), the
+ * option length (1 byte), and the DOI (4 bytes). */
+#define CIPSO_V4_HDR_LEN              6
+
+/* Base length of the restrictive category bitmap tag (tag #1). */
+#define CIPSO_V4_TAG_RBM_BLEN         4
+
+/* Base length of the enumerated category tag (tag #2). */
+#define CIPSO_V4_TAG_ENUM_BLEN        4
+
+/* Base length of the ranged categories bitmap tag (tag #5). */
+#define CIPSO_V4_TAG_RNG_BLEN         4
+/* The maximum number of category ranges permitted in the ranged category tag
+ * (tag #5).  You may note that the IETF draft states that the maximum number
+ * of category ranges is 7, but if the low end of the last category range is
+ * zero then it is possibile to fit 8 category ranges because the zero should
+ * be omitted. */
+#define CIPSO_V4_TAG_RNG_CAT_MAX      8
 
 /*
  * Helper Functions
@@ -602,7 +630,7 @@ doi_walk_return:
  * @domain: the domain to add
  *
  * Description:
- * Adds the @domain to the the DOI specified by @doi_def, this function
+ * Adds the @domain to the DOI specified by @doi_def, this function
  * should only be called by external functions (i.e. NetLabel).  This function
  * does allocate memory.  Returns zero on success, negative values on failure.
  *
@@ -973,7 +1001,7 @@ static int cipso_v4_map_cat_enum_valid(const struct cipso_v4_doi *doi_def,
 		return -EFAULT;
 
 	for (iter = 0; iter < enumcat_len; iter += 2) {
-		cat = ntohs(*((__be16 *)&enumcat[iter]));
+		cat = ntohs(get_unaligned((__be16 *)&enumcat[iter]));
 		if (cat <= cat_prev)
 			return -EFAULT;
 		cat_prev = cat;
@@ -1041,8 +1069,8 @@ static int cipso_v4_map_cat_enum_ntoh(const struct cipso_v4_doi *doi_def,
 
 	for (iter = 0; iter < net_cat_len; iter += 2) {
 		ret_val = netlbl_secattr_catmap_setbit(secattr->mls_cat,
-					    ntohs(*((__be16 *)&net_cat[iter])),
-					    GFP_ATOMIC);
+				ntohs(get_unaligned((__be16 *)&net_cat[iter])),
+				GFP_ATOMIC);
 		if (ret_val != 0)
 			return ret_val;
 	}
@@ -1075,9 +1103,10 @@ static int cipso_v4_map_cat_rng_valid(const struct cipso_v4_doi *doi_def,
 		return -EFAULT;
 
 	for (iter = 0; iter < rngcat_len; iter += 4) {
-		cat_high = ntohs(*((__be16 *)&rngcat[iter]));
+		cat_high = ntohs(get_unaligned((__be16 *)&rngcat[iter]));
 		if ((iter + 4) <= rngcat_len)
-			cat_low = ntohs(*((__be16 *)&rngcat[iter + 2]));
+			cat_low = ntohs(
+				get_unaligned((__be16 *)&rngcat[iter + 2]));
 		else
 			cat_low = 0;
 
@@ -1109,16 +1138,15 @@ static int cipso_v4_map_cat_rng_hton(const struct cipso_v4_doi *doi_def,
 				     unsigned char *net_cat,
 				     u32 net_cat_len)
 {
-	/* The constant '16' is not random, it is the maximum number of
-	 * high/low category range pairs as permitted by the CIPSO draft based
-	 * on a maximum IPv4 header length of 60 bytes - the BUG_ON() assertion
-	 * does a sanity check to make sure we don't overflow the array. */
 	int iter = -1;
-	u16 array[16];
+	u16 array[CIPSO_V4_TAG_RNG_CAT_MAX * 2];
 	u32 array_cnt = 0;
 	u32 cat_size = 0;
 
-	BUG_ON(net_cat_len > 30);
+	/* make sure we don't overflow the 'array[]' variable */
+	if (net_cat_len >
+	    (CIPSO_V4_OPT_LEN_MAX - CIPSO_V4_HDR_LEN - CIPSO_V4_TAG_RNG_BLEN))
+		return -ENOSPC;
 
 	for (;;) {
 		iter = netlbl_secattr_catmap_walk(secattr->mls_cat, iter + 1);
@@ -1174,10 +1202,11 @@ static int cipso_v4_map_cat_rng_ntoh(const struct cipso_v4_doi *doi_def,
 	u16 cat_low;
 	u16 cat_high;
 
-	for(net_iter = 0; net_iter < net_cat_len; net_iter += 4) {
-		cat_high = ntohs(*((__be16 *)&net_cat[net_iter]));
+	for (net_iter = 0; net_iter < net_cat_len; net_iter += 4) {
+		cat_high = ntohs(get_unaligned((__be16 *)&net_cat[net_iter]));
 		if ((net_iter + 4) <= net_cat_len)
-			cat_low = ntohs(*((__be16 *)&net_cat[net_iter + 2]));
+			cat_low = ntohs(
+			      get_unaligned((__be16 *)&net_cat[net_iter + 2]));
 		else
 			cat_low = 0;
 
@@ -1195,9 +1224,6 @@ static int cipso_v4_map_cat_rng_ntoh(const struct cipso_v4_doi *doi_def,
 /*
  * Protocol Handling Functions
  */
-
-#define CIPSO_V4_OPT_LEN_MAX          40
-#define CIPSO_V4_HDR_LEN              6
 
 /**
  * cipso_v4_gentag_hdr - Generate a CIPSO option header
@@ -1542,7 +1568,7 @@ int cipso_v4_validate(unsigned char **option)
 	}
 
 	rcu_read_lock();
-	doi_def = cipso_v4_doi_search(ntohl(*((__be32 *)&opt[2])));
+	doi_def = cipso_v4_doi_search(ntohl(get_unaligned((__be32 *)&opt[2])));
 	if (doi_def == NULL) {
 		err_offset = 2;
 		goto validate_return_locked;
@@ -1676,7 +1702,7 @@ validate_return:
  */
 void cipso_v4_error(struct sk_buff *skb, int error, u32 gateway)
 {
-	if (skb->nh.iph->protocol == IPPROTO_ICMP || error != -EACCES)
+	if (ip_hdr(skb)->protocol == IPPROTO_ICMP || error != -EACCES)
 		return;
 
 	if (gateway)
@@ -1686,22 +1712,22 @@ void cipso_v4_error(struct sk_buff *skb, int error, u32 gateway)
 }
 
 /**
- * cipso_v4_socket_setattr - Add a CIPSO option to a socket
- * @sock: the socket
+ * cipso_v4_sock_setattr - Add a CIPSO option to a socket
+ * @sk: the socket
  * @doi_def: the CIPSO DOI to use
  * @secattr: the specific security attributes of the socket
  *
  * Description:
  * Set the CIPSO option on the given socket using the DOI definition and
  * security attributes passed to the function.  This function requires
- * exclusive access to @sock->sk, which means it either needs to be in the
- * process of being created or locked via lock_sock(sock->sk).  Returns zero on
- * success and negative values on failure.
+ * exclusive access to @sk, which means it either needs to be in the
+ * process of being created or locked.  Returns zero on success and negative
+ * values on failure.
  *
  */
-int cipso_v4_socket_setattr(const struct socket *sock,
-			    const struct cipso_v4_doi *doi_def,
-			    const struct netlbl_lsm_secattr *secattr)
+int cipso_v4_sock_setattr(struct sock *sk,
+			  const struct cipso_v4_doi *doi_def,
+			  const struct netlbl_lsm_secattr *secattr)
 {
 	int ret_val = -EPERM;
 	u32 iter;
@@ -1709,7 +1735,6 @@ int cipso_v4_socket_setattr(const struct socket *sock,
 	u32 buf_len = 0;
 	u32 opt_len;
 	struct ip_options *opt = NULL;
-	struct sock *sk;
 	struct inet_sock *sk_inet;
 	struct inet_connection_sock *sk_conn;
 
@@ -1717,7 +1742,6 @@ int cipso_v4_socket_setattr(const struct socket *sock,
 	 * defined yet but it is not a problem as the only users of these
 	 * "lite" PF_INET sockets are functions which do an accept() call
 	 * afterwards so we will label the socket as part of the accept(). */
-	sk = sock->sk;
 	if (sk == NULL)
 		return 0;
 
@@ -1835,7 +1859,7 @@ int cipso_v4_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
 	if (ret_val == 0)
 		return ret_val;
 
-	doi = ntohl(*(__be32 *)&cipso_ptr[2]);
+	doi = ntohl(get_unaligned((__be32 *)&cipso_ptr[2]));
 	rcu_read_lock();
 	doi_def = cipso_v4_doi_search(doi);
 	if (doi_def == NULL) {
@@ -1869,29 +1893,6 @@ int cipso_v4_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
 }
 
 /**
- * cipso_v4_socket_getattr - Get the security attributes from a socket
- * @sock: the socket
- * @secattr: the security attributes
- *
- * Description:
- * Query @sock to see if there is a CIPSO option attached to the socket and if
- * there is return the CIPSO security attributes in @secattr.  Returns zero on
- * success and negative values on failure.
- *
- */
-int cipso_v4_socket_getattr(const struct socket *sock,
-			    struct netlbl_lsm_secattr *secattr)
-{
-	int ret_val;
-
-	lock_sock(sock->sk);
-	ret_val = cipso_v4_sock_getattr(sock->sk, secattr);
-	release_sock(sock->sk);
-
-	return ret_val;
-}
-
-/**
  * cipso_v4_skbuff_getattr - Get the security attributes from the CIPSO option
  * @skb: the packet
  * @secattr: the security attributes
@@ -1913,7 +1914,7 @@ int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
 	if (cipso_v4_cache_check(cipso_ptr, cipso_ptr[1], secattr) == 0)
 		return 0;
 
-	doi = ntohl(*(__be32 *)&cipso_ptr[2]);
+	doi = ntohl(get_unaligned((__be32 *)&cipso_ptr[2]));
 	rcu_read_lock();
 	doi_def = cipso_v4_doi_search(doi);
 	if (doi_def == NULL)
@@ -1932,6 +1933,11 @@ int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
 		ret_val = cipso_v4_parsetag_enum(doi_def,
 						 &cipso_ptr[6],
 						 secattr);
+		break;
+	case CIPSO_V4_TAG_RANGE:
+		ret_val = cipso_v4_parsetag_rng(doi_def,
+						&cipso_ptr[6],
+						secattr);
 		break;
 	}
 

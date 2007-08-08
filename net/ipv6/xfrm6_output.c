@@ -2,7 +2,7 @@
  * xfrm6_output.c - Common IPsec encapsulation code for IPv6.
  * Copyright (C) 2002 USAGI/WIDE Project
  * Copyright (c) 2004 Herbert Xu <herbert@gondor.apana.org.au>
- * 
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version
@@ -22,6 +22,8 @@ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
 {
 	return ip6_find_1stfragopt(skb, prevhdr);
 }
+
+EXPORT_SYMBOL(xfrm6_find_1stfragopt);
 
 static int xfrm6_tunnel_check_size(struct sk_buff *skb)
 {
@@ -46,7 +48,7 @@ static int xfrm6_output_one(struct sk_buff *skb)
 	struct dst_entry *dst = skb->dst;
 	struct xfrm_state *x = dst->xfrm;
 	int err;
-	
+
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		err = skb_checksum_help(skb);
 		if (err)
@@ -76,12 +78,12 @@ static int xfrm6_output_one(struct sk_buff *skb)
 		x->curlft.bytes += skb->len;
 		x->curlft.packets++;
 		if (x->props.mode == XFRM_MODE_ROUTEOPTIMIZATION)
-			x->lastused = (u64)xtime.tv_sec;
+			x->lastused = get_seconds();
 
 		spin_unlock_bh(&x->lock);
 
-		skb->nh.raw = skb->data;
-		
+		skb_reset_network_header(skb);
+
 		if (!(skb->dst = dst_pop(dst))) {
 			err = -EHOSTUNREACH;
 			goto error_nolock;
@@ -108,7 +110,7 @@ static int xfrm6_output_finish2(struct sk_buff *skb)
 
 	while (likely((err = xfrm6_output_one(skb)) == 0)) {
 		nf_reset(skb);
-	
+
 		err = nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, &skb, NULL,
 			      skb->dst->dev, dst_output);
 		if (unlikely(err != 1))

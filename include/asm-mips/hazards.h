@@ -52,6 +52,7 @@ ASMMACRO(tlb_probe_hazard,
 	 _ehb
 	)
 ASMMACRO(irq_enable_hazard,
+	 _ehb
 	)
 ASMMACRO(irq_disable_hazard,
 	_ehb
@@ -175,6 +176,38 @@ ASMMACRO(back_to_back_c0_hazard,
 	)
 #define instruction_hazard() do { } while (0)
 
+#endif
+
+
+/* FPU hazards */
+
+#if defined(CONFIG_CPU_SB1)
+ASMMACRO(enable_fpu_hazard,
+	 .set	push;
+	 .set	mips64;
+	 .set	noreorder;
+	 _ssnop;
+	 bnezl	$0,.+4;
+	 _ssnop;
+	 .set	pop
+)
+ASMMACRO(disable_fpu_hazard,
+)
+
+#elif defined(CONFIG_CPU_MIPSR2)
+ASMMACRO(enable_fpu_hazard,
+	 _ehb
+)
+ASMMACRO(disable_fpu_hazard,
+	 _ehb
+)
+#else
+ASMMACRO(enable_fpu_hazard,
+	 nop; nop; nop; nop
+)
+ASMMACRO(disable_fpu_hazard,
+	 _ehb
+)
 #endif
 
 #endif /* _ASM_HAZARDS_H */

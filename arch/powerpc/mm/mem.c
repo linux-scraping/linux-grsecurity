@@ -31,6 +31,7 @@
 #include <linux/highmem.h>
 #include <linux/initrd.h>
 #include <linux/pagemap.h>
+#include <linux/suspend.h>
 
 #include <asm/pgalloc.h>
 #include <asm/prom.h>
@@ -58,13 +59,6 @@ int init_bootmem_done;
 int mem_init_done;
 unsigned long memory_limit;
 
-extern void hash_preload(struct mm_struct *mm, unsigned long ea,
-			 unsigned long access, unsigned long trap);
-
-/*
- * This is called by /dev/mem to know if a given address has to
- * be mapped non-cacheable or not
- */
 int page_is_ram(unsigned long pfn)
 {
 	unsigned long paddr = (pfn << PAGE_SHIFT);
@@ -87,7 +81,6 @@ int page_is_ram(unsigned long pfn)
 	return 0;
 #endif
 }
-EXPORT_SYMBOL(page_is_ram);
 
 pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 			      unsigned long size, pgprot_t vma_prot)
@@ -284,6 +277,28 @@ void __init do_init_bootmem(void)
 	init_bootmem_done = 1;
 }
 
+/* mark pages that don't exist as nosave */
+static int __init mark_nonram_nosave(void)
+{
+	unsigned long lmb_next_region_start_pfn,
+		      lmb_region_max_pfn;
+	int i;
+
+	for (i = 0; i < lmb.memory.cnt - 1; i++) {
+		lmb_region_max_pfn =
+			(lmb.memory.region[i].base >> PAGE_SHIFT) +
+			(lmb.memory.region[i].size >> PAGE_SHIFT);
+		lmb_next_region_start_pfn =
+			lmb.memory.region[i+1].base >> PAGE_SHIFT;
+
+		if (lmb_region_max_pfn < lmb_next_region_start_pfn)
+			register_nosave_region(lmb_region_max_pfn,
+					       lmb_next_region_start_pfn);
+	}
+
+	return 0;
+}
+
 /*
  * paging_init() sets up the page tables - in fact we've already done this.
  */
@@ -295,11 +310,12 @@ void __init paging_init(void)
 
 #ifdef CONFIG_HIGHMEM
 	map_page(PKMAP_BASE, 0, 0);	/* XXX gross */
-	pkmap_page_table = pte_offset_kernel(pmd_offset(pgd_offset_k
-			(PKMAP_BASE), PKMAP_BASE), PKMAP_BASE);
+	pkmap_page_table = pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k
+			(PKMAP_BASE), PKMAP_BASE), PKMAP_BASE), PKMAP_BASE);
 	map_page(KMAP_FIX_BEGIN, 0, 0);	/* XXX gross */
-	kmap_pte = pte_offset_kernel(pmd_offset(pgd_offset_k
-			(KMAP_FIX_BEGIN), KMAP_FIX_BEGIN), KMAP_FIX_BEGIN);
+	kmap_pte = pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k
+			(KMAP_FIX_BEGIN), KMAP_FIX_BEGIN), KMAP_FIX_BEGIN),
+			 KMAP_FIX_BEGIN);
 	kmap_prot = PAGE_KERNEL;
 #endif /* CONFIG_HIGHMEM */
 
@@ -315,6 +331,8 @@ void __init paging_init(void)
 	max_zone_pfns[ZONE_DMA] = top_of_ram >> PAGE_SHIFT;
 #endif
 	free_area_init_nodes(max_zone_pfns);
+
+	mark_nonram_nosave();
 }
 #endif /* ! CONFIG_NEED_MULTIPLE_NODES */
 
@@ -388,9 +406,6 @@ void __init mem_init(void)
 		initsize >> 10);
 
 	mem_init_done = 1;
-
-	/* Initialize the vDSO */
-	vdso_init();
 }
 
 /*
@@ -490,19 +505,19 @@ void update_mmu_cache(struct vm_area_struct *vma, unsigned long address,
 	    !cpu_has_feature(CPU_FTR_NOEXECUTE) &&
 	    pfn_valid(pfn)) {
 		struct page *page = pfn_to_page(pfn);
+#ifdef CONFIG_8xx
+		/* On 8xx, cache control instructions (particularly
+		 * "dcbst" from flush_dcache_icache) fault as write
+		 * operation if there is an unpopulated TLB entry
+		 * for the address in question. To workaround that,
+		 * we invalidate the TLB here, thus avoiding dcbst
+		 * misbehaviour.
+		 */
+		_tlbie(address);
+#endif
 		if (!PageReserved(page)
 		    && !test_bit(PG_arch_1, &page->flags)) {
 			if (vma->vm_mm == current->active_mm) {
-#ifdef CONFIG_8xx
-			/* On 8xx, cache control instructions (particularly 
-		 	 * "dcbst" from flush_dcache_icache) fault as write 
-			 * operation if there is an unpopulated TLB entry 
-			 * for the address in question. To workaround that, 
-			 * we invalidate the TLB here, thus avoiding dcbst 
-			 * misbehaviour.
-			 */
-				_tlbie(address);
-#endif
 				__flush_dcache_icache((void *) address);
 			} else
 				flush_dcache_icache_page(page);

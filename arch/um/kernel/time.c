@@ -18,7 +18,6 @@
 #include "asm/param.h"
 #include "asm/current.h"
 #include "kern_util.h"
-#include "user_util.h"
 #include "mode.h"
 #include "os.h"
 
@@ -35,31 +34,31 @@ unsigned long long sched_clock(void)
 	return (unsigned long long)jiffies_64 * (1000000000 / HZ);
 }
 
-static unsigned long long prev_nsecs;
 #ifdef CONFIG_UML_REAL_TIME_CLOCK
-static long long delta;   		/* Deviation per interval */
+static unsigned long long prev_nsecs[NR_CPUS];
+static long long delta[NR_CPUS];		/* Deviation per interval */
 #endif
 
 void timer_irq(union uml_pt_regs *regs)
 {
 	unsigned long long ticks = 0;
-
 #ifdef CONFIG_UML_REAL_TIME_CLOCK
-	if(prev_nsecs){
+	int c = cpu();
+	if(prev_nsecs[c]){
 		/* We've had 1 tick */
 		unsigned long long nsecs = os_nsecs();
 
-		delta += nsecs - prev_nsecs;
-		prev_nsecs = nsecs;
+		delta[c] += nsecs - prev_nsecs[c];
+		prev_nsecs[c] = nsecs;
 
 		/* Protect against the host clock being set backwards */
-		if(delta < 0)
-			delta = 0;
+		if(delta[c] < 0)
+			delta[c] = 0;
 
-		ticks += (delta * HZ) / BILLION;
-		delta -= (ticks * BILLION) / HZ;
+		ticks += (delta[c] * HZ) / BILLION;
+		delta[c] -= (ticks * BILLION) / HZ;
 	}
-	else prev_nsecs = os_nsecs();
+	else prev_nsecs[c] = os_nsecs();
 #else
 	ticks = 1;
 #endif
@@ -69,8 +68,8 @@ void timer_irq(union uml_pt_regs *regs)
 	}
 }
 
+/* Protects local_offset */
 static DEFINE_SPINLOCK(timer_spinlock);
-
 static unsigned long long local_offset = 0;
 
 static inline unsigned long long get_time(void)
@@ -95,7 +94,12 @@ irqreturn_t um_timer(int irq, void *dev)
 
 	do_timer(1);
 
+#ifdef CONFIG_UML_REAL_TIME_CLOCK
 	nsecs = get_time();
+#else
+	nsecs = (unsigned long long) xtime.tv_sec * BILLION + xtime.tv_nsec +
+		BILLION / HZ;
+#endif
 	xtime.tv_sec = nsecs / NSEC_PER_SEC;
 	xtime.tv_nsec = nsecs - xtime.tv_sec * NSEC_PER_SEC;
 
@@ -128,13 +132,18 @@ void time_init(void)
 	nsecs = os_nsecs();
 	set_normalized_timespec(&wall_to_monotonic, -nsecs / BILLION,
 				-nsecs % BILLION);
+	set_normalized_timespec(&xtime, nsecs / BILLION, nsecs % BILLION);
 	late_time_init = register_timer;
 }
 
 void do_gettimeofday(struct timeval *tv)
 {
+#ifdef CONFIG_UML_REAL_TIME_CLOCK
 	unsigned long long nsecs = get_time();
-
+#else
+	unsigned long long nsecs = (unsigned long long) xtime.tv_sec * BILLION +
+		xtime.tv_nsec;
+#endif
 	tv->tv_sec = nsecs / NSEC_PER_SEC;
 	/* Careful about calculations here - this was originally done as
 	 * (nsecs - tv->tv_sec * NSEC_PER_SEC) / NSEC_PER_USEC
@@ -168,6 +177,8 @@ int do_settimeofday(struct timespec *tv)
 
 void timer_handler(int sig, union uml_pt_regs *regs)
 {
+	if(current_thread->cpu == 0)
+		timer_irq(regs);
 	local_irq_disable();
 	irq_enter();
 	update_process_times(CHOOSE_MODE(
@@ -175,6 +186,4 @@ void timer_handler(int sig, union uml_pt_regs *regs)
 			     (regs)->skas.is_user));
 	irq_exit();
 	local_irq_enable();
-	if(current_thread->cpu == 0)
-		timer_irq(regs);
 }

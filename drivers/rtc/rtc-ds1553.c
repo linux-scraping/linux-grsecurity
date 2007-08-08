@@ -203,7 +203,7 @@ static irqreturn_t ds1553_rtc_interrupt(int irq, void *dev_id)
 		events |= RTC_UF;
 	else
 		events |= RTC_AF;
-	rtc_update_irq(&pdata->rtc->class_dev, 1, events);
+	rtc_update_irq(pdata->rtc, 1, events);
 	return IRQ_HANDLED;
 }
 
@@ -297,7 +297,7 @@ static struct bin_attribute ds1553_nvram_attr = {
 	.write = ds1553_nvram_write,
 };
 
-static int __init ds1553_rtc_probe(struct platform_device *pdev)
+static int __devinit ds1553_rtc_probe(struct platform_device *pdev)
 {
 	struct rtc_device *rtc;
 	struct resource *res;

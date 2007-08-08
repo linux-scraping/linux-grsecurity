@@ -37,7 +37,6 @@
 #include "nv_proto.h"
 #include "nv_dma.h"
 
-#undef CONFIG_FB_NVIDIA_DEBUG
 #ifdef CONFIG_FB_NVIDIA_DEBUG
 #define NVTRACE          printk
 #else
@@ -82,6 +81,11 @@ static int vram __devinitdata = 0;
 static int bpp __devinitdata = 8;
 #ifdef CONFIG_MTRR
 static int nomtrr __devinitdata = 0;
+#endif
+#ifdef CONFIG_PMAC_BACKLIGHT
+static int backlight __devinitdata = 1;
+#else
+static int backlight __devinitdata = 0;
 #endif
 
 static char *mode_option __devinitdata = NULL;
@@ -195,7 +199,7 @@ static int nvidia_panel_tweak(struct nvidia_par *par,
    return tweak;
 }
 
-static void nvidia_vga_protect(struct nvidia_par *par, int on)
+static void nvidia_screen_off(struct nvidia_par *par, int on)
 {
 	unsigned char tmp;
 
@@ -644,7 +648,7 @@ static int nvidiafb_set_par(struct fb_info *info)
 		NVLockUnlock(par, 0);
 	}
 
-	nvidia_vga_protect(par, 1);
+	nvidia_screen_off(par, 1);
 
 	nvidia_write_regs(par, &par->ModeReg);
 	NVSetStartAddress(par, 0);
@@ -682,7 +686,7 @@ static int nvidiafb_set_par(struct fb_info *info)
 
 	par->cursor_reset = 1;
 
-	nvidia_vga_protect(par, 0);
+	nvidia_screen_off(par, 0);
 
 #ifdef CONFIG_BOOTX_TEXT
 	/* Update debug text engine */
@@ -691,6 +695,7 @@ static int nvidiafb_set_par(struct fb_info *info)
 			     info->var.bits_per_pixel, info->fix.line_length);
 #endif
 
+	NVLockUnlock(par, 0);
 	NVTRACE_LEAVE();
 	return 0;
 }
@@ -829,7 +834,7 @@ static int nvidiafb_check_var(struct fb_var_screeninfo *var,
 	}
 
 	if (!mode_valid) {
-		struct fb_videomode *mode;
+		const struct fb_videomode *mode;
 
 		mode = fb_find_best_mode(var, &info->modelist);
 		if (mode) {
@@ -938,15 +943,85 @@ static int nvidiafb_blank(int blank, struct fb_info *info)
 	NVWriteSeq(par, 0x01, tmp);
 	NVWriteCrtc(par, 0x1a, vesa);
 
-	nvidia_bl_set_power(info, blank);
-
 	NVTRACE_LEAVE();
 
 	return 0;
 }
 
+/*
+ * Because the VGA registers are not mapped linearly in its MMIO space,
+ * restrict VGA register saving and restore to x86 only, where legacy VGA IO
+ * access is legal. Consequently, we must also check if the device is the
+ * primary display.
+ */
+#ifdef CONFIG_X86
+static void save_vga_x86(struct nvidia_par *par)
+{
+	struct resource *res= &par->pci_dev->resource[PCI_ROM_RESOURCE];
+
+	if (res && res->flags & IORESOURCE_ROM_SHADOW) {
+		memset(&par->vgastate, 0, sizeof(par->vgastate));
+		par->vgastate.flags = VGA_SAVE_MODE | VGA_SAVE_FONTS |
+			VGA_SAVE_CMAP;
+		save_vga(&par->vgastate);
+	}
+}
+
+static void restore_vga_x86(struct nvidia_par *par)
+{
+	struct resource *res= &par->pci_dev->resource[PCI_ROM_RESOURCE];
+
+	if (res && res->flags & IORESOURCE_ROM_SHADOW)
+		restore_vga(&par->vgastate);
+}
+#else
+#define save_vga_x86(x) do {} while (0)
+#define restore_vga_x86(x) do {} while (0)
+#endif /* X86 */
+
+static int nvidiafb_open(struct fb_info *info, int user)
+{
+	struct nvidia_par *par = info->par;
+
+	mutex_lock(&par->open_lock);
+
+	if (!par->open_count) {
+		save_vga_x86(par);
+		nvidia_save_vga(par, &par->initial_state);
+	}
+
+	par->open_count++;
+	mutex_unlock(&par->open_lock);
+	return 0;
+}
+
+static int nvidiafb_release(struct fb_info *info, int user)
+{
+	struct nvidia_par *par = info->par;
+	int err = 0;
+
+	mutex_lock(&par->open_lock);
+
+	if (!par->open_count) {
+		err = -EINVAL;
+		goto done;
+	}
+
+	if (par->open_count == 1) {
+		nvidia_write_regs(par, &par->initial_state);
+		restore_vga_x86(par);
+	}
+
+	par->open_count--;
+done:
+	mutex_unlock(&par->open_lock);
+	return err;
+}
+
 static struct fb_ops nvidia_fb_ops = {
 	.owner          = THIS_MODULE,
+	.fb_open        = nvidiafb_open,
+	.fb_release     = nvidiafb_release,
 	.fb_check_var   = nvidiafb_check_var,
 	.fb_set_par     = nvidiafb_set_par,
 	.fb_setcolreg   = nvidiafb_setcolreg,
@@ -1046,10 +1121,10 @@ static int __devinit nvidia_set_fbinfo(struct fb_info *info)
 	}
 
 	if (specs->modedb != NULL) {
-		struct fb_videomode *modedb;
+		const struct fb_videomode *mode;
 
-		modedb = fb_find_best_display(specs, &info->modelist);
-		fb_videomode_to_var(&nvidiafb_default_var, modedb);
+		mode = fb_find_best_display(specs, &info->modelist);
+		fb_videomode_to_var(&nvidiafb_default_var, mode);
 		nvidiafb_default_var.bits_per_pixel = bpp;
 	} else if (par->fpWidth && par->fpHeight) {
 		char buf[16];
@@ -1167,6 +1242,7 @@ static u32 __devinit nvidia_get_arch(struct fb_info *info)
 	case 0x0140:		/* GeForce 6600 */
 	case 0x0160:		/* GeForce 6200 */
 	case 0x01D0:		/* GeForce 7200, 7300, 7400 */
+	case 0x02E0:		/* GeForce 7300 GT */
 	case 0x0090:		/* GeForce 7800 */
 	case 0x0210:		/* GeForce 6800 */
 	case 0x0220:		/* GeForce 6200 */
@@ -1204,13 +1280,11 @@ static int __devinit nvidiafb_probe(struct pci_dev *pd,
 
 	par = info->par;
 	par->pci_dev = pd;
-
-	info->pixmap.addr = kmalloc(8 * 1024, GFP_KERNEL);
+	mutex_init(&par->open_lock);
+	info->pixmap.addr = kzalloc(8 * 1024, GFP_KERNEL);
 
 	if (info->pixmap.addr == NULL)
 		goto err_out_kfree;
-
-	memset(info->pixmap.addr, 0, 8 * 1024);
 
 	if (pci_enable_device(pd)) {
 		printk(KERN_ERR PFX "cannot enable PCI device\n");
@@ -1315,7 +1389,10 @@ static int __devinit nvidiafb_probe(struct pci_dev *pd,
 	nvidia_save_vga(par, &par->SavedReg);
 
 	pci_set_drvdata(pd, info);
-	nvidia_bl_init(par);
+
+	if (backlight)
+		nvidia_bl_init(par);
+
 	if (register_framebuffer(info) < 0) {
 		printk(KERN_ERR PFX "error registering nVidia framebuffer\n");
 		goto err_out_iounmap_fb;
@@ -1347,16 +1424,17 @@ err_out:
 	return -ENODEV;
 }
 
-static void __exit nvidiafb_remove(struct pci_dev *pd)
+static void __devexit nvidiafb_remove(struct pci_dev *pd)
 {
 	struct fb_info *info = pci_get_drvdata(pd);
 	struct nvidia_par *par = info->par;
 
 	NVTRACE_ENTER();
 
+	unregister_framebuffer(info);
+
 	nvidia_bl_exit(par);
 
-	unregister_framebuffer(info);
 #ifdef CONFIG_MTRR
 	if (par->mtrr.vram_valid)
 		mtrr_del(par->mtrr.vram, info->fix.smem_start,
@@ -1411,6 +1489,8 @@ static int __devinit nvidiafb_setup(char *options)
 			paneltweak = simple_strtoul(this_opt+11, NULL, 0);
 		} else if (!strncmp(this_opt, "vram:", 5)) {
 			vram = simple_strtoul(this_opt+5, NULL, 0);
+		} else if (!strncmp(this_opt, "backlight:", 10)) {
+			backlight = simple_strtoul(this_opt+10, NULL, 0);
 #ifdef CONFIG_MTRR
 		} else if (!strncmp(this_opt, "nomtrr", 6)) {
 			nomtrr = 1;
@@ -1433,7 +1513,7 @@ static struct pci_driver nvidiafb_driver = {
 	.probe    = nvidiafb_probe,
 	.suspend  = nvidiafb_suspend,
 	.resume   = nvidiafb_resume,
-	.remove   = __exit_p(nvidiafb_remove),
+	.remove   = __devexit_p(nvidiafb_remove),
 };
 
 /* ------------------------------------------------------------------------- *

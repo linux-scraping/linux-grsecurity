@@ -48,6 +48,7 @@ parameter is applicable:
 	ISAPNP	ISA PnP code is enabled.
 	ISDN	Appropriate ISDN support is enabled.
 	JOY	Appropriate joystick support is enabled.
+	LIBATA  Libata driver is enabled
 	LP	Printer support is enabled.
 	LOOP	Loopback device support is enabled.
 	M68k	M68k architecture is enabled.
@@ -63,6 +64,7 @@ parameter is applicable:
 	GENERIC_TIME The generic timeofday code is enabled.
 	NFS	Appropriate NFS support is enabled.
 	OSS	OSS sound support is enabled.
+	PV_OPS	A paravirtualized kernel
 	PARIDE	The ParIDE subsystem is enabled.
 	PARISC	The PA-RISC architecture is enabled.
 	PCI	PCI bus support is enabled.
@@ -78,6 +80,7 @@ parameter is applicable:
 			Documentation/scsi/.
 	SELINUX SELinux support is enabled.
 	SERIAL	Serial support is enabled.
+	SH	SuperH architecture is enabled.
 	SMP	The kernel is an SMP kernel.
 	SPARC	Sparc architecture is enabled.
 	SWSUSP	Software suspend is enabled.
@@ -104,6 +107,9 @@ loader, and have no meaning to the kernel directly.
 Do not modify the syntax of boot loader parameters without extreme
 need or coordination with <Documentation/i386/boot.txt>.
 
+There are also arch-specific kernel-parameters not documented here.
+See for example <Documentation/x86_64/boot-options.txt>.
+
 Note that ALL kernel parameters listed below are CASE SENSITIVE, and that
 a trailing = on the name of any parameter states that that parameter will
 be entered as an environment variable, whereas its absence indicates that
@@ -121,7 +127,8 @@ and is between 256 and 4096 characters. It is defined in the file
 			See header of drivers/scsi/53c7xx.c.
 			See also Documentation/scsi/ncr53c7xx.txt.
 
-	acpi=		[HW,ACPI] Advanced Configuration and Power Interface
+	acpi=		[HW,ACPI,X86-64,i386]
+			Advanced Configuration and Power Interface
 			Format: { force | off | ht | strict | noirq }
 			force -- enable ACPI if default was off
 			off -- disable ACPI if default was on
@@ -131,6 +138,12 @@ and is between 256 and 4096 characters. It is defined in the file
 				strictly ACPI specification compliant.
 
 			See also Documentation/pm.txt, pci=noacpi
+
+	acpi_apic_instance=	[ACPI, IOAPIC]
+			Format: <int>
+			2: use 2nd APIC table, if available
+			1,0: use 1st APIC table
+			default: 0
 
 	acpi_sleep=	[HW,ACPI] Sleep options
 			Format: { s3_bios, s3_mode }
@@ -157,7 +170,10 @@ and is between 256 and 4096 characters. It is defined in the file
 	acpi_os_name=	[HW,ACPI] Tell ACPI BIOS the name of the OS
 			Format: To spoof as Windows 98: ="Microsoft Windows"
 
-	acpi_osi=	[HW,ACPI] empty param disables _OSI
+	acpi_osi=	[HW,ACPI] Modify list of supported OS interface strings
+			acpi_osi="string1"	# add string1 -- only one string
+			acpi_osi="!string2"	# remove built-in string2
+			acpi_osi=		# disable all strings
 
 	acpi_serialize	[HW,ACPI] force serialization of AML methods
 
@@ -169,26 +185,43 @@ and is between 256 and 4096 characters. It is defined in the file
 			that require a timer override, but don't have
 			HPET
 
-	acpi_dbg_layer=	[HW,ACPI]
+	acpi.debug_layer=	[HW,ACPI]
 			Format: <int>
 			Each bit of the <int> indicates an ACPI debug layer,
 			1: enable, 0: disable. It is useful for boot time
 			debugging. After system has booted up, it can be set
-			via /proc/acpi/debug_layer.
+			via /sys/module/acpi/parameters/debug_layer.
+			CONFIG_ACPI_DEBUG must be enabled for this to produce any output.
+			Available bits (add the numbers together) to enable debug output
+			for specific parts of the ACPI subsystem:
+			0x01 utilities 0x02 hardware 0x04 events 0x08 tables
+			0x10 namespace 0x20 parser 0x40 dispatcher
+			0x80 executer 0x100 resources 0x200 acpica debugger
+			0x400 os services 0x800 acpica disassembler.
+			The number can be in decimal or prefixed with 0x in hex.
+			Warning: Many of these options can produce a lot of
+			output and make your system unusable. Be very careful.
 
-	acpi_dbg_level=	[HW,ACPI]
+	acpi.debug_level=	[HW,ACPI]
 			Format: <int>
 			Each bit of the <int> indicates an ACPI debug level,
 			1: enable, 0: disable. It is useful for boot time
 			debugging. After system has booted up, it can be set
-			via /proc/acpi/debug_level.
+			via /sys/module/acpi/parameters/debug_level.
+			CONFIG_ACPI_DEBUG must be enabled for this to produce any output.
+			Available bits (add the numbers together) to enable different
+			debug output levels of the ACPI subsystem:
+			0x01 error 0x02 warn 0x04 init 0x08 debug object
+			0x10 info 0x20 init names 0x40 parse 0x80 load
+			0x100 dispatch 0x200 execute 0x400 names 0x800 operation region
+			0x1000 bfield 0x2000 tables 0x4000 values 0x8000 objects
+			0x10000 resources 0x20000 user requests 0x40000 package.
+			The number can be in decimal or prefixed with 0x in hex.
+			Warning: Many of these options can produce a lot of
+			output and make your system unusable. Be very careful.
+
 
 	acpi_fake_ecdt	[HW,ACPI] Workaround failure due to BIOS lacking ECDT
-
-	acpi_generic_hotkey [HW,ACPI]
-			Allow consolidated generic hotkey driver to
-			override platform specific driver.
-			See also Documentation/acpi-hotkey.txt.
 
 	acpi_pm_good	[IA-32,X86-64]
 			Override the pmtimer bug detection: force the kernel
@@ -361,6 +394,31 @@ and is between 256 and 4096 characters. It is defined in the file
 			clocksource is not available, it defaults to PIT.
 			Format: { pit | tsc | cyclone | pmtmr }
 
+	clocksource=	[GENERIC_TIME] Override the default clocksource
+			Format: <string>
+			Override the default clocksource and use the clocksource
+			with the name specified.
+			Some clocksource names to choose from, depending on
+			the platform:
+			[all] jiffies (this is the base, fallback clocksource)
+			[ACPI] acpi_pm
+			[ARM] imx_timer1,OSTS,netx_timer,mpu_timer2,
+				pxa_timer,timer3,32k_counter,timer0_1
+			[AVR32] avr32
+			[IA-32] pit,hpet,tsc,vmi-timer;
+				scx200_hrt on Geode; cyclone on IBM x440
+			[MIPS] MIPS
+			[PARISC] cr16
+			[S390] tod
+			[SH] SuperH
+			[SPARC64] tick
+			[X86-64] hpet,tsc
+
+	code_bytes	[IA32] How many bytes of object code to print in an
+			oops report.
+			Range: 0 - 8192
+			Default: 64
+
 	disable_8254_timer
 	enable_8254_timer
 			[IA32/X86_64] Disable/Enable interrupt 0 timer routing
@@ -456,6 +514,30 @@ and is between 256 and 4096 characters. It is defined in the file
 			Format: <area>[,<node>]
 			See also Documentation/networking/decnet.txt.
 
+	default_blu=	[VT]
+			Format: <blue0>,<blue1>,<blue2>,...,<blue15>
+			Change the default blue palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_grn=	[VT]
+			Format: <green0>,<green1>,<green2>,...,<green15>
+			Change the default green palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_red=	[VT]
+			Format: <red0>,<red1>,<red2>,...,<red15>
+			Change the default red palette of the console.
+			This is a 16-member array composed of values
+			ranging from 0-255.
+
+	default_utf8=   [VT]
+			Format=<0|1>
+			Set system-wide default UTF-8 mode for all tty's.
+			Default is 0 and by setting to 1, it enables UTF-8
+			mode for all newly opened or allocated terminals.
+
 	dhash_entries=	[KNL]
 			Set number of hash buckets for dentry cache.
 
@@ -476,7 +558,7 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	dtc3181e=	[HW,SCSI]
 
-	earlyprintk=	[IA-32,X86-64]
+	earlyprintk=	[IA-32,X86-64,SH]
 			earlyprintk=vga
 			earlyprintk=serial[,ttySn[,baudrate]]
 
@@ -601,6 +683,10 @@ and is between 256 and 4096 characters. It is defined in the file
 			highmem otherwise. This also works to reduce highmem
 			size on bigger boxes.
 
+	highres=	[KNL] Enable/disable high resolution timer mode.
+			Valid parameters: "on", "off"
+			Default: "on"
+
 	hisax=		[HW,ISDN]
 			See Documentation/isdn/README.HiSax.
 
@@ -652,8 +738,15 @@ and is between 256 and 4096 characters. It is defined in the file
 	idebus=		[HW] (E)IDE subsystem - VLB/PCI bus speed
 			See Documentation/ide.txt.
 
-	idle=		[HW]
-			Format: idle=poll or idle=halt
+	idle=		[X86]
+			Format: idle=poll or idle=mwait
+			Poll forces a polling idle loop that can slightly improves the performance
+			of waking up a idle CPU, but will use a lot of power and make the system
+			run hot. Not recommended.
+			idle=mwait. On systems which support MONITOR/MWAIT but the kernel chose
+			to not use it because it doesn't save as much power as a normal idle
+			loop use the MONITOR/MWAIT idle loop anyways. Performance should be the same
+			as idle=poll.
 
 	ignore_loglevel	[KNL]
 			Ignore loglevel setting - this will print /all/
@@ -678,14 +771,6 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	inport.irq=	[HW] Inport (ATI XL and Microsoft) busmouse driver
 			Format: <irq>
-
-	combined_mode=	[HW] control which driver uses IDE ports in combined
-			mode: legacy IDE driver, libata, or both
-			(in the libata case, libata.atapi_enabled=1 may be
-			useful as well).  Note that using the ide or libata
-			options may affect your device naming (e.g. by
-			changing hdc to sdb).
-			Format: combined (default), ide, or libata
 
 	inttest=	[IA64]
 
@@ -759,8 +844,16 @@ and is between 256 and 4096 characters. It is defined in the file
 	lapic		[IA-32,APIC] Enable the local APIC even if BIOS
 			disabled it.
 
+	lapic_timer_c2_ok	[IA-32,x86-64,APIC] trust the local apic timer in
+			C2 power state.
+
 	lasi=		[HW,SCSI] PARISC LASI driver for the 53c700 chip
 			Format: addr:<io>,irq:<irq>
+
+	legacy_serial.force [HW,IA-32,X86-64]
+			Probe for COM ports at legacy addresses even
+			if PNPBIOS or ACPI should describe them.  This
+			is for working around firmware defects.
 
 	llsc*=		[IA64] See function print_params() in
 			arch/ia64/sn/kernel/llsc4.c.
@@ -851,7 +944,14 @@ and is between 256 and 4096 characters. It is defined in the file
 			Format: <1-256>
 
 	maxcpus=	[SMP] Maximum number of processors that	an SMP kernel
-			should make use of
+			should make use of.
+			Using "nosmp" or "maxcpus=0" will disable SMP
+			entirely (the MPS table probe still happens, though).
+			A command-line option of "maxcpus=<NUM>", where <NUM>
+			is an integer greater than 0, limits the maximum number
+			of CPUs activated in SMP mode to <NUM>.
+			Using "maxcpus=1" on an SMP kernel is the trivial
+			case of an SMP kernel with only one CPU.
 
 	max_addr=[KMG]	[KNL,BOOT,ia64] All physical memory greater than or
 			equal to this physical address is ignored.
@@ -1026,9 +1126,13 @@ and is between 256 and 4096 characters. It is defined in the file
 			emulation library even if a 387 maths coprocessor
 			is present.
 
-	noaliencache	[MM, NUMA] Disables the allcoation of alien caches in
-			the slab allocator.  Saves per-node memory, but will
-			impact performance on real NUMA hardware.
+	noacpi		[LIBATA] Disables use of ACPI in libata suspend/resume
+			when set.
+			Format: <int>
+
+	noaliencache	[MM, NUMA, SLAB] Disables the allocation of alien
+			caches in the slab allocator.  Saves per-node memory,
+			but will impact performance.
 
 	noalign		[KNL,ARM]
 
@@ -1070,6 +1174,10 @@ and is between 256 and 4096 characters. It is defined in the file
 			in certain environments such as networked servers or
 			real-time systems.
 
+	nohz=		[KNL] Boottime enable/disable dynamic ticks
+			Valid arguments: on, off
+			Default: on
+
 	noirqbalance	[IA-32,SMP,KNL] Disable kernel irq balancing
 
 	noirqdebug	[IA-32] Disables the code which attempts to detect and
@@ -1087,12 +1195,19 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	nolapic		[IA-32,APIC] Do not enable or use the local APIC.
 
+	nolapic_timer	[IA-32,APIC] Do not use the local APIC timer.
+
 	noltlbs		[PPC] Do not use large page/tlb entries for kernel
 			lowmem mapping on PPC40x.
 
 	nomca		[IA-64] Disable machine check abort handling
 
 	nomce		[IA-32] Machine Check Exception
+
+	noreplace-paravirt	[IA-32,PV_OPS] Don't patch paravirt_ops
+
+	noreplace-smp	[IA-32,SMP] Don't replace SMP instructions
+			with UP alternatives
 
 	noresidual	[PPC] Don't use residual data on PReP machines.
 
@@ -1259,6 +1374,12 @@ and is between 256 and 4096 characters. It is defined in the file
 				This sorting is done to get a device
 				order compatible with older (<= 2.4) kernels.
 		nobfsort	Don't sort PCI devices into breadth-first order.
+		cbiosize=nn[KMG]	The fixed amount of bus space which is
+				reserved for the CardBus bridge's IO window.
+				The default value is 256 bytes.
+		cbmemsize=nn[KMG]	The fixed amount of bus space which is
+				reserved for the CardBus bridge's memory
+				window. The default value is 64 megabytes.
 
 	pcmv=		[HW,PCMCIA] BadgePAD 4
 
@@ -1396,6 +1517,8 @@ and is between 256 and 4096 characters. It is defined in the file
 			in <PAGE_SIZE> units (needed only for swap files).
 			See  Documentation/power/swsusp-and-swap-files.txt
 
+	retain_initrd	[RAM] Keep initrd memory after extraction
+
 	rhash_entries=	[KNL,NET]
 			Set number of hash buckets for route cache
 
@@ -1488,8 +1611,53 @@ and is between 256 and 4096 characters. It is defined in the file
 
 	slram=		[HW,MTD]
 
+	slub_debug	[MM, SLUB]
+			Enabling slub_debug allows one to determine the culprit
+			if slab objects become corrupted. Enabling slub_debug
+			creates guard zones around objects and poisons objects
+			when not in use. Also tracks the last alloc / free.
+			For more information see Documentation/vm/slub.txt.
+
+	slub_max_order= [MM, SLUB]
+			Determines the maximum allowed order for slabs. Setting
+			this too high may cause fragmentation.
+			For more information see Documentation/vm/slub.txt.
+
+	slub_min_objects=	[MM, SLUB]
+			The minimum objects per slab. SLUB will increase the
+			slab order up to slub_max_order to generate a
+			sufficiently big slab to satisfy the number of objects.
+			The higher the number of objects the smaller the overhead
+			of tracking slabs.
+			For more information see Documentation/vm/slub.txt.
+
+	slub_min_order=	[MM, SLUB]
+			Determines the mininum page order for slabs. Must be
+			lower than slub_max_order
+			For more information see Documentation/vm/slub.txt.
+
+	slub_nomerge	[MM, SLUB]
+			Disable merging of slabs of similar size. May be
+			necessary if there is some reason to distinguish
+			allocs to different slabs.
+			For more information see Documentation/vm/slub.txt.
+
 	smart2=		[HW]
 			Format: <io1>[,<io2>[,...,<io8>]]
+
+	smp-alt-once	[IA-32,SMP] On a hotplug CPU system, only
+			attempt to substitute SMP alternatives once at boot.
+
+	smsc-ircc2.nopnp	[HW] Don't use PNP to discover SMC devices
+	smsc-ircc2.ircc_cfg=	[HW] Device configuration I/O port
+	smsc-ircc2.ircc_sir=	[HW] SIR base I/O port
+	smsc-ircc2.ircc_fir=	[HW] FIR base I/O port
+	smsc-ircc2.ircc_irq=	[HW] IRQ line
+	smsc-ircc2.ircc_dma=	[HW] DMA channel
+	smsc-ircc2.ircc_transceiver= [HW] Transceiver type:
+				0: Toshiba Satellite 1800 (GP data pin select)
+				1: Fast pin select (default)
+				2: ATC IRMode
 
 	snd-ad1816a=	[HW,ALSA]
 
@@ -1649,6 +1817,22 @@ and is between 256 and 4096 characters. It is defined in the file
 	stifb=		[HW]
 			Format: bpp:<bpp1>[:<bpp2>[:<bpp3>...]]
 
+	sunrpc.pool_mode=
+			[NFS]
+			Control how the NFS server code allocates CPUs to
+			service thread pools.  Depending on how many NICs
+			you have and where their interrupts are bound, this
+			option will affect which CPUs will do NFS serving.
+			Note: this parameter cannot be changed while the
+			NFS server is running.
+
+			auto	    the server chooses an appropriate mode
+				    automatically using heuristics
+			global	    a single global pool contains all CPUs
+			percpu	    one pool for each CPU
+			pernode	    one pool for each NUMA node (equivalent
+				    to global on non-NUMA machines)
+
 	swiotlb=	[IA-64] Number of I/O TLB slabs
 
 	switches=	[HW,M68k]
@@ -1671,10 +1855,6 @@ and is between 256 and 4096 characters. It is defined in the file
 			Set number of hash buckets for TCP connection
 
 	time		Show timing data prefixed to each printk message line
-
-	clocksource=	[GENERIC_TIME] Override the default clocksource
-			Override the default clocksource and use the clocksource
-			with the name specified.
 
 	tipar.timeout=	[HW,PPT]
 			Set communications timeout in tenths of a second
@@ -1722,10 +1902,18 @@ and is between 256 and 4096 characters. It is defined in the file
 			Note that genuine overcurrent events won't be
 			reported either.
 
+	usbcore.autosuspend=
+			[USB] The autosuspend time delay (in seconds) used
+			for newly-detected USB devices (default 2).  This
+			is the time required before an idle device will be
+			autosuspended.  Devices for which the delay is set
+			to a negative value won't be autosuspended at all.
+
 	usbhid.mousepoll=
 			[USBHID] The interval which mice are to be polled at.
 
-	vdso=		[IA-32]
+	vdso=		[IA-32,SH]
+			vdso=2: enable compat VDSO (default with COMPAT_VDSO)
 			vdso=1: enable VDSO (default)
 			vdso=0: disable VDSO mapping
 

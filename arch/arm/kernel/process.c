@@ -16,7 +16,6 @@
 #include <linux/mm.h>
 #include <linux/stddef.h>
 #include <linux/unistd.h>
-#include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/user.h>
 #include <linux/a.out.h>
@@ -28,6 +27,8 @@
 #include <linux/cpu.h>
 #include <linux/elfcore.h>
 #include <linux/pm.h>
+#include <linux/tick.h>
+#include <linux/utsname.h>
 
 #include <asm/leds.h>
 #include <asm/processor.h>
@@ -36,7 +37,13 @@
 #include <asm/uaccess.h>
 #include <asm/mach/time.h>
 
-extern const char *processor_modes[];
+static const char *processor_modes[] = {
+  "USER_26", "FIQ_26" , "IRQ_26" , "SVC_26" , "UK4_26" , "UK5_26" , "UK6_26" , "UK7_26" ,
+  "UK8_26" , "UK9_26" , "UK10_26", "UK11_26", "UK12_26", "UK13_26", "UK14_26", "UK15_26",
+  "USER_32", "FIQ_32" , "IRQ_32" , "SVC_32" , "UK4_32" , "UK5_32" , "UK6_32" , "ABT_32" ,
+  "UK8_32" , "UK9_32" , "UK10_32", "UND_32" , "UK12_32", "UK13_32", "UK14_32", "SYS_32"
+};
+
 extern void setup_mm_for_reboot(char mode);
 
 static volatile int hlt_counter;
@@ -154,9 +161,11 @@ void cpu_idle(void)
 		if (!idle)
 			idle = default_idle;
 		leds_event(led_idle_start);
+		tick_nohz_stop_sched_tick();
 		while (!need_resched())
 			idle();
 		leds_event(led_idle_end);
+		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
@@ -191,16 +200,19 @@ void machine_restart(char * __unused)
 
 void __show_regs(struct pt_regs *regs)
 {
-	unsigned long flags = condition_codes(regs);
+	unsigned long flags;
+	char buf[64];
 
-	printk("CPU: %d\n", smp_processor_id());
+	printk("CPU: %d    %s  (%s %.*s)\n",
+		smp_processor_id(), print_tainted(), init_utsname()->release,
+		(int)strcspn(init_utsname()->version, " "),
+		init_utsname()->version);
 	print_symbol("PC is at %s\n", instruction_pointer(regs));
 	print_symbol("LR is at %s\n", regs->ARM_lr);
-	printk("pc : [<%08lx>]    lr : [<%08lx>]    %s\n"
+	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
-		instruction_pointer(regs),
-		regs->ARM_lr, print_tainted(), regs->ARM_sp,
-		regs->ARM_ip, regs->ARM_fp);
+		regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr,
+		regs->ARM_sp, regs->ARM_ip, regs->ARM_fp);
 	printk("r10: %08lx  r9 : %08lx  r8 : %08lx\n",
 		regs->ARM_r10, regs->ARM_r9,
 		regs->ARM_r8);
@@ -210,36 +222,39 @@ void __show_regs(struct pt_regs *regs)
 	printk("r3 : %08lx  r2 : %08lx  r1 : %08lx  r0 : %08lx\n",
 		regs->ARM_r3, regs->ARM_r2,
 		regs->ARM_r1, regs->ARM_r0);
-	printk("Flags: %c%c%c%c",
-		flags & PSR_N_BIT ? 'N' : 'n',
-		flags & PSR_Z_BIT ? 'Z' : 'z',
-		flags & PSR_C_BIT ? 'C' : 'c',
-		flags & PSR_V_BIT ? 'V' : 'v');
-	printk("  IRQs o%s  FIQs o%s  Mode %s%s  Segment %s\n",
-		interrupts_enabled(regs) ? "n" : "ff",
+
+	flags = regs->ARM_cpsr;
+	buf[0] = flags & PSR_N_BIT ? 'N' : 'n';
+	buf[1] = flags & PSR_Z_BIT ? 'Z' : 'z';
+	buf[2] = flags & PSR_C_BIT ? 'C' : 'c';
+	buf[3] = flags & PSR_V_BIT ? 'V' : 'v';
+	buf[4] = '\0';
+
+	printk("Flags: %s  IRQs o%s  FIQs o%s  Mode %s%s  Segment %s\n",
+		buf, interrupts_enabled(regs) ? "n" : "ff",
 		fast_interrupts_enabled(regs) ? "n" : "ff",
 		processor_modes[processor_mode(regs)],
 		thumb_mode(regs) ? " (T)" : "",
 		get_fs() == get_ds() ? "kernel" : "user");
-#if CONFIG_CPU_CP15
+#ifdef CONFIG_CPU_CP15
 	{
 		unsigned int ctrl;
-		  __asm__ (
-		"	mrc p15, 0, %0, c1, c0\n"
-		: "=r" (ctrl));
-		printk("Control: %04X\n", ctrl);
-	}
+
+		buf[0] = '\0';
 #ifdef CONFIG_CPU_CP15_MMU
-	{
-		unsigned int transbase, dac;
-		  __asm__ (
-		"	mrc p15, 0, %0, c2, c0\n"
-		"	mrc p15, 0, %1, c3, c0\n"
-		: "=r" (transbase), "=r" (dac));
-		printk("Table: %08X  DAC: %08X\n",
-		  	transbase, dac);
-	}
+		{
+			unsigned int transbase, dac;
+			asm("mrc p15, 0, %0, c2, c0\n\t"
+			    "mrc p15, 0, %1, c3, c0\n"
+			    : "=r" (transbase), "=r" (dac));
+			snprintf(buf, sizeof(buf), "  Table: %08x  DAC: %08x",
+			  	transbase, dac);
+		}
 #endif
+		asm("mrc p15, 0, %0, c1, c0\n" : "=r" (ctrl));
+
+		printk("Control: %08x%s\n", ctrl, buf);
+	}
 #endif
 }
 

@@ -11,7 +11,6 @@
 
 #include <linux/module.h>
 #include <linux/poll.h>
-#include <linux/smp_lock.h>
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #else
@@ -256,7 +255,7 @@ isdn_divert_ioctl(struct inode *inode, struct file *file,
 
 
 #ifdef CONFIG_PROC_FS
-static struct file_operations isdn_fops =
+static const struct file_operations isdn_fops =
 {
 	.owner          = THIS_MODULE,
 	.llseek         = no_llseek,

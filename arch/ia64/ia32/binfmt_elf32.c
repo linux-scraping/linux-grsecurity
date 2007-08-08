@@ -46,14 +46,10 @@ randomize_stack_top(unsigned long stack_top);
 #define elf_read_implies_exec(ex, have_pt_gnu_stack)	(!(have_pt_gnu_stack))
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	((tsk)->personality == PER_LINUX32 ? 0x08048000UL : 0x4000000000000000UL)
+#define PAX_ELF_ET_DYN_BASE	(current->personality == PER_LINUX32 ? 0x08048000UL : 0x4000000000000000UL)
 
-#define PAX_DELTA_MMAP_LSB(tsk)		IA32_PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - IA32_PAGE_SHIFT)
-#define PAX_DELTA_EXEC_LSB(tsk)		IA32_PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - IA32_PAGE_SHIFT)
-#define PAX_DELTA_STACK_LSB(tsk)	IA32_PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	((tsk)->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - IA32_PAGE_SHIFT)
+#define PAX_DELTA_MMAP_LEN	(current->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - 13)
+#define PAX_DELTA_STACK_LEN	(current->personality == PER_LINUX32 ? 16 : 3*PAGE_SHIFT - 13)
 #endif
 
 /* Ugly but avoids duplication */
@@ -102,9 +98,8 @@ ia64_elf32_init (struct pt_regs *regs)
 	 * it with privilege level 3 because the IVE uses non-privileged accesses to these
 	 * tables.  IA-32 segmentation is used to protect against IA-32 accesses to them.
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (vma) {
-		memset(vma, 0, sizeof(*vma));
 		vma->vm_mm = current->mm;
 		vma->vm_start = IA32_GDT_OFFSET;
 		vma->vm_end = vma->vm_start + PAGE_SIZE;
@@ -128,9 +123,8 @@ ia64_elf32_init (struct pt_regs *regs)
 	 * code is locked in specific gate page, which is pointed by pretcode
 	 * when setup_frame_ia32
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (vma) {
-		memset(vma, 0, sizeof(*vma));
 		vma->vm_mm = current->mm;
 		vma->vm_start = IA32_GATE_OFFSET;
 		vma->vm_end = vma->vm_start + PAGE_SIZE;
@@ -153,9 +147,8 @@ ia64_elf32_init (struct pt_regs *regs)
 	 * Install LDT as anonymous memory.  This gives us all-zero segment descriptors
 	 * until a task modifies them via modify_ldt().
 	 */
-	vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (vma) {
-		memset(vma, 0, sizeof(*vma));
 		vma->vm_mm = current->mm;
 		vma->vm_start = IA32_LDT_OFFSET;
 		vma->vm_end = vma->vm_start + PAGE_ALIGN(IA32_LDT_ENTRIES*IA32_LDT_ENTRY_SIZE);
@@ -225,11 +218,9 @@ ia32_setup_arg_pages (struct linux_binprm *bprm, int executable_stack)
 		bprm->loader += stack_base;
 	bprm->exec += stack_base;
 
-	mpnt = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+	mpnt = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!mpnt)
 		return -ENOMEM;
-
-	memset(mpnt, 0, sizeof(*mpnt));
 
 	down_write(&current->mm->mmap_sem);
 	{

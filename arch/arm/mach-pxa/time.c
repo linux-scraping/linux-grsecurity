@@ -97,7 +97,7 @@ pxa_timer_interrupt(int irq, void *dev_id)
 
 static struct irqaction pxa_timer_irq = {
 	.name		= "PXA Timer Tick",
-	.flags		= IRQF_DISABLED | IRQF_TIMER,
+	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
 	.handler	= pxa_timer_interrupt,
 };
 
@@ -112,7 +112,7 @@ static struct clocksource clocksource_pxa = {
 	.read           = pxa_get_cycles,
 	.mask           = CLOCKSOURCE_MASK(32),
 	.shift          = 20,
-	.is_continuous  = 1,
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
 static void __init pxa_timer_init(void)

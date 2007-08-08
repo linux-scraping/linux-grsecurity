@@ -128,8 +128,10 @@ static int FNAME(walk_addr)(struct guest_walker *walker,
 			goto access_error;
 #endif
 
-		if (!(*ptep & PT_ACCESSED_MASK))
-			*ptep |= PT_ACCESSED_MASK; 	/* avoid rmw */
+		if (!(*ptep & PT_ACCESSED_MASK)) {
+			mark_page_dirty(vcpu->kvm, table_gfn);
+			*ptep |= PT_ACCESSED_MASK;
+		}
 
 		if (walker->level == PT_PAGE_TABLE_LEVEL) {
 			walker->gfn = (*ptep & PT_BASE_ADDR_MASK)
@@ -146,8 +148,7 @@ static int FNAME(walk_addr)(struct guest_walker *walker,
 			break;
 		}
 
-		if (walker->level != 3 || is_long_mode(vcpu))
-			walker->inherited_ar &= walker->table[index];
+		walker->inherited_ar &= walker->table[index];
 		table_gfn = (*ptep & PT_BASE_ADDR_MASK) >> PAGE_SHIFT;
 		paddr = safe_gpa_to_hpa(vcpu, *ptep & PT_BASE_ADDR_MASK);
 		kunmap_atomic(walker->table, KM_USER0);
@@ -183,6 +184,12 @@ static void FNAME(release_walker)(struct guest_walker *walker)
 {
 	if (walker->table)
 		kunmap_atomic(walker->table, KM_USER0);
+}
+
+static void FNAME(mark_pagetable_dirty)(struct kvm *kvm,
+					struct guest_walker *walker)
+{
+	mark_page_dirty(kvm, walker->table_gfn[walker->level - 1]);
 }
 
 static void FNAME(set_pte)(struct kvm_vcpu *vcpu, u64 guest_pte,
@@ -240,6 +247,7 @@ static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 		u64 shadow_pte;
 		int metaphysical;
 		gfn_t table_gfn;
+		unsigned hugepage_access = 0;
 
 		if (is_present_pte(*shadow_ent) || is_io_pte(*shadow_ent)) {
 			if (level == PT_PAGE_TABLE_LEVEL)
@@ -269,6 +277,9 @@ static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 		if (level - 1 == PT_PAGE_TABLE_LEVEL
 		    && walker->level == PT_DIRECTORY_LEVEL) {
 			metaphysical = 1;
+			hugepage_access = *guest_ent;
+			hugepage_access &= PT_USER_MASK | PT_WRITABLE_MASK;
+			hugepage_access >>= PT_WRITABLE_SHIFT;
 			table_gfn = (*guest_ent & PT_BASE_ADDR_MASK)
 				>> PAGE_SHIFT;
 		} else {
@@ -276,7 +287,8 @@ static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 			table_gfn = walker->table_gfn[level - 2];
 		}
 		shadow_page = kvm_mmu_get_page(vcpu, table_gfn, addr, level-1,
-					       metaphysical, shadow_ent);
+					       metaphysical, hugepage_access,
+					       shadow_ent);
 		shadow_addr = shadow_page->page_hpa;
 		shadow_pte = shadow_addr | PT_PRESENT_MASK | PT_ACCESSED_MASK
 			| PT_WRITABLE_MASK | PT_USER_MASK;
@@ -348,12 +360,15 @@ static int FNAME(fix_write_pf)(struct kvm_vcpu *vcpu,
 	} else if (kvm_mmu_lookup_page(vcpu, gfn)) {
 		pgprintk("%s: found shadow page for %lx, marking ro\n",
 			 __FUNCTION__, gfn);
+		mark_page_dirty(vcpu->kvm, gfn);
+		FNAME(mark_pagetable_dirty)(vcpu->kvm, walker);
 		*guest_ent |= PT_DIRTY_MASK;
 		*write_pt = 1;
 		return 0;
 	}
 	mark_page_dirty(vcpu->kvm, gfn);
 	*shadow_ent |= PT_WRITABLE_MASK;
+	FNAME(mark_pagetable_dirty)(vcpu->kvm, walker);
 	*guest_ent |= PT_DIRTY_MASK;
 	rmap_add(vcpu, shadow_ent);
 
@@ -430,11 +445,10 @@ static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr,
 	/*
 	 * mmio: emulate if accessible, otherwise its a guest fault.
 	 */
-	if (is_io_pte(*shadow_pte)) {
+	if (is_io_pte(*shadow_pte))
 		return 1;
-	}
 
-	++kvm_stat.pf_fixed;
+	++vcpu->stat.pf_fixed;
 	kvm_mmu_audit(vcpu, "post page fault (fixed)");
 
 	return write_pt;
@@ -443,31 +457,17 @@ static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr,
 static gpa_t FNAME(gva_to_gpa)(struct kvm_vcpu *vcpu, gva_t vaddr)
 {
 	struct guest_walker walker;
-	pt_element_t guest_pte;
-	gpa_t gpa;
+	gpa_t gpa = UNMAPPED_GVA;
+	int r;
 
-	FNAME(walk_addr)(&walker, vcpu, vaddr, 0, 0, 0);
-	guest_pte = *walker.ptep;
-	FNAME(release_walker)(&walker);
+	r = FNAME(walk_addr)(&walker, vcpu, vaddr, 0, 0, 0);
 
-	if (!is_present_pte(guest_pte))
-		return UNMAPPED_GVA;
-
-	if (walker.level == PT_DIRECTORY_LEVEL) {
-		ASSERT((guest_pte & PT_PAGE_SIZE_MASK));
-		ASSERT(PTTYPE == 64 || is_pse(vcpu));
-
-		gpa = (guest_pte & PT_DIR_BASE_ADDR_MASK) | (vaddr &
-			(PT_LEVEL_MASK(PT_PAGE_TABLE_LEVEL) | ~PAGE_MASK));
-
-		if (PTTYPE == 32 && is_cpuid_PSE36())
-			gpa |= (guest_pte & PT32_DIR_PSE36_MASK) <<
-					(32 - PT32_DIR_PSE36_SHIFT);
-	} else {
-		gpa = (guest_pte & PT_BASE_ADDR_MASK);
-		gpa |= (vaddr & ~PAGE_MASK);
+	if (r) {
+		gpa = (gpa_t)walker.gfn << PAGE_SHIFT;
+		gpa |= vaddr & ~PAGE_MASK;
 	}
 
+	FNAME(release_walker)(&walker);
 	return gpa;
 }
 

@@ -93,7 +93,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME	"ata_piix"
-#define DRV_VERSION	"2.00ac7"
+#define DRV_VERSION	"2.11"
 
 enum {
 	PIIX_IOCFG		= 0x54, /* IDE I/O configuration register */
@@ -118,7 +118,7 @@ enum {
 	PIIX_80C_SEC		= (1 << 7) | (1 << 6),
 
 	/* controller IDs */
-	piix_pata_33		= 0,	/* PIIX3 or 4 at 33Mhz */
+	piix_pata_33		= 0,	/* PIIX4 at 33Mhz */
 	ich_pata_33		= 1,	/* ICH up to UDMA 33 only */
 	ich_pata_66		= 2,	/* ICH up to 66 Mhz */
 	ich_pata_100		= 3,	/* ICH up to UDMA 100 */
@@ -128,6 +128,7 @@ enum {
 	ich6_sata_ahci		= 7,
 	ich6m_sata_ahci		= 8,
 	ich8_sata_ahci		= 9,
+	piix_pata_mwdma		= 10,	/* PIIX3 MWDMA only */
 
 	/* constants for mapping table */
 	P0			= 0,  /* port 0 */
@@ -153,23 +154,20 @@ struct piix_host_priv {
 
 static int piix_init_one (struct pci_dev *pdev,
 				    const struct pci_device_id *ent);
-static void piix_host_stop(struct ata_host *host);
 static void piix_pata_error_handler(struct ata_port *ap);
-static void ich_pata_error_handler(struct ata_port *ap);
-static void piix_sata_error_handler(struct ata_port *ap);
 static void piix_set_piomode (struct ata_port *ap, struct ata_device *adev);
 static void piix_set_dmamode (struct ata_port *ap, struct ata_device *adev);
 static void ich_set_dmamode (struct ata_port *ap, struct ata_device *adev);
+static int ich_pata_cable_detect(struct ata_port *ap);
 
 static unsigned int in_module_init = 1;
 
 static const struct pci_device_id piix_pci_tbl[] = {
-#ifdef ATA_ENABLE_PATA
+	/* Intel PIIX3 for the 430HX etc */
+	{ 0x8086, 0x7010, PCI_ANY_ID, PCI_ANY_ID, 0, 0, piix_pata_mwdma },
 	/* Intel PIIX4 for the 430TX/440BX/MX chipset: UDMA 33 */
 	/* Also PIIX4E (fn3 rev 2) and PIIX4M (fn3 rev 3) */
 	{ 0x8086, 0x7111, PCI_ANY_ID, PCI_ANY_ID, 0, 0, piix_pata_33 },
-	{ 0x8086, 0x24db, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich_pata_100 },
-	{ 0x8086, 0x25a2, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich_pata_100 },
 	/* Intel PIIX4 */
 	{ 0x8086, 0x7199, PCI_ANY_ID, PCI_ANY_ID, 0, 0, piix_pata_33 },
 	/* Intel PIIX4 */
@@ -202,7 +200,6 @@ static const struct pci_device_id piix_pci_tbl[] = {
 	/* ICH7/7-R (i945, i975) UDMA 100*/
 	{ 0x8086, 0x27DF, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich_pata_133 },
 	{ 0x8086, 0x269E, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich_pata_100 },
-#endif
 
 	/* NOTE: The following PCI ids must be kept in sync with the
 	 * list in drivers/pci/quirks.c.
@@ -277,10 +274,6 @@ static struct scsi_host_template piix_sht = {
 	.slave_configure	= ata_scsi_slave_config,
 	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
-#ifdef CONFIG_PM
-	.resume			= ata_scsi_device_resume,
-	.suspend		= ata_scsi_device_suspend,
-#endif
 };
 
 static const struct ata_port_operations piix_pata_ops = {
@@ -301,19 +294,20 @@ static const struct ata_port_operations piix_pata_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
-	.data_xfer		= ata_pio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 
 	.freeze			= ata_bmdma_freeze,
 	.thaw			= ata_bmdma_thaw,
 	.error_handler		= piix_pata_error_handler,
 	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
+	.cable_detect		= ata_cable_40wire,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
 	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= piix_host_stop,
 };
 
 static const struct ata_port_operations ich_pata_ops = {
@@ -334,19 +328,20 @@ static const struct ata_port_operations ich_pata_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
-	.data_xfer		= ata_pio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 
 	.freeze			= ata_bmdma_freeze,
 	.thaw			= ata_bmdma_thaw,
-	.error_handler		= ich_pata_error_handler,
+	.error_handler		= piix_pata_error_handler,
 	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
+	.cable_detect		= ich_pata_cable_detect,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
 	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= piix_host_stop,
 };
 
 static const struct ata_port_operations piix_sata_ops = {
@@ -364,19 +359,19 @@ static const struct ata_port_operations piix_sata_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
-	.data_xfer		= ata_pio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 
 	.freeze			= ata_bmdma_freeze,
 	.thaw			= ata_bmdma_thaw,
-	.error_handler		= piix_sata_error_handler,
+	.error_handler		= ata_bmdma_error_handler,
 	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
 	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= piix_host_stop,
 };
 
 static const struct piix_map_db ich5_map_db = {
@@ -445,7 +440,7 @@ static const struct piix_map_db *piix_map_db_table[] = {
 };
 
 static struct ata_port_info piix_port_info[] = {
-	/* piix_pata_33: 0:  PIIX3 or 4 at 33MHz */
+	/* piix_pata_33: 0:  PIIX4 at 33MHz */
 	{
 		.sht		= &piix_sht,
 		.flags		= PIIX_PATA_FLAGS,
@@ -547,6 +542,14 @@ static struct ata_port_info piix_port_info[] = {
 		.port_ops	= &piix_sata_ops,
 	},
 
+	/* piix_pata_mwdma: 10:  PIIX3 MWDMA only */
+	{
+		.sht		= &piix_sht,
+		.flags		= PIIX_PATA_FLAGS,
+		.pio_mask	= 0x1f,	/* pio0-4 */
+		.mwdma_mask	= 0x06, /* mwdma1-2 ?? CHECK 0 should be ok but slow */
+		.port_ops	= &piix_pata_ops,
+	},
 };
 
 static struct pci_bits piix_enable_bits[] = {
@@ -573,12 +576,15 @@ struct ich_laptop {
 static const struct ich_laptop ich_laptop[] = {
 	/* devid, subvendor, subdev */
 	{ 0x27DF, 0x0005, 0x0280 },	/* ICH7 on Acer 5602WLMi */
+	{ 0x27DF, 0x1025, 0x0110 },	/* ICH7 on Acer 3682WLMi */
+	{ 0x27DF, 0x1043, 0x1267 },	/* ICH7 on Asus W5F */
+	{ 0x24CA, 0x1025, 0x0061 },	/* ICH4 on ACER Aspire 2023WLMi */
 	/* end marker */
 	{ 0, 0, 0 }
 };
 
 /**
- *	piix_pata_cbl_detect - Probe host controller cable detect info
+ *	ich_pata_cable_detect - Probe host controller cable detect info
  *	@ap: Port for which cable detect info is desired
  *
  *	Read 80c cable indicator from ATA PCI device's PCI config
@@ -588,23 +594,18 @@ static const struct ich_laptop ich_laptop[] = {
  *	None (inherited from caller).
  */
 
-static void ich_pata_cbl_detect(struct ata_port *ap)
+static int ich_pata_cable_detect(struct ata_port *ap)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	const struct ich_laptop *lap = &ich_laptop[0];
 	u8 tmp, mask;
-
-	/* no 80c support in host controller? */
-	if ((ap->udma_mask & ~ATA_UDMA_MASK_40C) == 0)
-		goto cbl40;
 
 	/* Check for specials - Acer Aspire 5602WLMi */
 	while (lap->device) {
 		if (lap->device == pdev->device &&
 		    lap->subvendor == pdev->subsystem_vendor &&
 		    lap->subdevice == pdev->subsystem_device) {
-			ap->cbl = ATA_CBL_PATA40_SHORT;
-		    	return;
+			return ATA_CBL_PATA40_SHORT;
 		}
 		lap++;
 	}
@@ -613,73 +614,30 @@ static void ich_pata_cbl_detect(struct ata_port *ap)
 	mask = ap->port_no == 0 ? PIIX_80C_PRI : PIIX_80C_SEC;
 	pci_read_config_byte(pdev, PIIX_IOCFG, &tmp);
 	if ((tmp & mask) == 0)
-		goto cbl40;
-
-	ap->cbl = ATA_CBL_PATA80;
-	return;
-
-cbl40:
-	ap->cbl = ATA_CBL_PATA40;
+		return ATA_CBL_PATA40;
+	return ATA_CBL_PATA80;
 }
 
 /**
  *	piix_pata_prereset - prereset for PATA host controller
  *	@ap: Target port
- *
+ *	@deadline: deadline jiffies for the operation
  *
  *	LOCKING:
  *	None (inherited from caller).
  */
-static int piix_pata_prereset(struct ata_port *ap)
+static int piix_pata_prereset(struct ata_port *ap, unsigned long deadline)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 
 	if (!pci_test_config_bits(pdev, &piix_enable_bits[ap->port_no]))
 		return -ENOENT;
-		
-	ap->cbl = ATA_CBL_PATA40;
-	return ata_std_prereset(ap);
+	return ata_std_prereset(ap, deadline);
 }
 
 static void piix_pata_error_handler(struct ata_port *ap)
 {
 	ata_bmdma_drive_eh(ap, piix_pata_prereset, ata_std_softreset, NULL,
-			   ata_std_postreset);
-}
-
-
-/**
- *	ich_pata_prereset - prereset for PATA host controller
- *	@ap: Target port
- *
- *
- *	LOCKING:
- *	None (inherited from caller).
- */
-static int ich_pata_prereset(struct ata_port *ap)
-{
-	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
-
-	if (!pci_test_config_bits(pdev, &piix_enable_bits[ap->port_no])) {
-		ata_port_printk(ap, KERN_INFO, "port disabled. ignoring.\n");
-		ap->eh_context.i.action &= ~ATA_EH_RESET_MASK;
-		return 0;
-	}
-
-	ich_pata_cbl_detect(ap);
-
-	return ata_std_prereset(ap);
-}
-
-static void ich_pata_error_handler(struct ata_port *ap)
-{
-	ata_bmdma_drive_eh(ap, ich_pata_prereset, ata_std_softreset, NULL,
-			   ata_std_postreset);
-}
-
-static void piix_sata_error_handler(struct ata_port *ap)
-{
-	ata_bmdma_drive_eh(ap, ata_std_prereset, ata_std_softreset, NULL,
 			   ata_std_postreset);
 }
 
@@ -780,7 +738,7 @@ static void do_pata_set_dmamode (struct ata_port *ap, struct ata_device *adev, i
 	u16 master_data;
 	u8 speed		= adev->dma_mode;
 	int devid		= adev->devno + 2 * ap->port_no;
-	u8 udma_enable;
+	u8 udma_enable		= 0;
 
 	static const	 /* ISP  RTC */
 	u8 timings[][2]	= { { 0, 0 },
@@ -790,7 +748,8 @@ static void do_pata_set_dmamode (struct ata_port *ap, struct ata_device *adev, i
 			    { 2, 3 }, };
 
 	pci_read_config_word(dev, master_port, &master_data);
-	pci_read_config_byte(dev, 0x48, &udma_enable);
+	if (ap->udma_mask)
+		pci_read_config_byte(dev, 0x48, &udma_enable);
 
 	if (speed >= XFER_UDMA_0) {
 		unsigned int udma = adev->dma_mode - XFER_UDMA_0;
@@ -1063,8 +1022,9 @@ static void __devinit piix_init_sata_map(struct pci_dev *pdev,
 static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	static int printed_version;
+	struct device *dev = &pdev->dev;
 	struct ata_port_info port_info[2];
-	struct ata_port_info *ppinfo[2] = { &port_info[0], &port_info[1] };
+	const struct ata_port_info *ppi[] = { &port_info[0], &port_info[1] };
 	struct piix_host_priv *hpriv;
 	unsigned long port_flags;
 
@@ -1076,7 +1036,7 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (!in_module_init)
 		return -ENODEV;
 
-	hpriv = kzalloc(sizeof(*hpriv), GFP_KERNEL);
+	hpriv = devm_kzalloc(dev, sizeof(*hpriv), GFP_KERNEL);
 	if (!hpriv)
 		return -ENOMEM;
 
@@ -1123,16 +1083,7 @@ static int piix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		port_info[1].mwdma_mask = 0;
 		port_info[1].udma_mask = 0;
 	}
-	return ata_pci_init_one(pdev, ppinfo, 2);
-}
-
-static void piix_host_stop(struct ata_host *host)
-{
-	struct piix_host_priv *hpriv = host->private_data;
-
-	ata_host_stop(host);
-
-	kfree(hpriv);
+	return ata_pci_init_one(pdev, ppi);
 }
 
 static int __init piix_init(void)

@@ -10,7 +10,6 @@
 #include <linux/pagemap.h>
 #include <linux/threads.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
 #include <linux/delay.h>
@@ -41,15 +40,20 @@
 #include <asm/tlb.h>
 #include <asm/sections.h>
 #include <asm/prom.h>
+#include <asm/mdesc.h>
 
 extern void calibrate_delay(void);
 
+int sparc64_multi_core __read_mostly;
+
 /* Please don't make this stuff initdata!!!  --DaveM */
-static unsigned char boot_cpu_id;
+unsigned char boot_cpu_id;
 
 cpumask_t cpu_online_map __read_mostly = CPU_MASK_NONE;
 cpumask_t phys_cpu_present_map __read_mostly = CPU_MASK_NONE;
 cpumask_t cpu_sibling_map[NR_CPUS] __read_mostly =
+	{ [0 ... NR_CPUS-1] = CPU_MASK_NONE };
+cpumask_t cpu_core_map[NR_CPUS] __read_mostly =
 	{ [0 ... NR_CPUS-1] = CPU_MASK_NONE };
 static cpumask_t smp_commenced_mask;
 static cpumask_t cpu_callout_map;
@@ -76,56 +80,7 @@ void smp_bogo(struct seq_file *m)
 			   i, cpu_data(i).clock_tick);
 }
 
-void __init smp_store_cpu_info(int id)
-{
-	struct device_node *dp;
-	int def;
-
-	/* multiplier and counter set by
-	   smp_setup_percpu_timer()  */
-	cpu_data(id).udelay_val			= loops_per_jiffy;
-
-	cpu_find_by_mid(id, &dp);
-	cpu_data(id).clock_tick =
-		of_getintprop_default(dp, "clock-frequency", 0);
-
-	def = ((tlb_type == hypervisor) ? (8 * 1024) : (16 * 1024));
-	cpu_data(id).dcache_size =
-		of_getintprop_default(dp, "dcache-size", def);
-
-	def = 32;
-	cpu_data(id).dcache_line_size =
-		of_getintprop_default(dp, "dcache-line-size", def);
-
-	def = 16 * 1024;
-	cpu_data(id).icache_size =
-		of_getintprop_default(dp, "icache-size", def);
-
-	def = 32;
-	cpu_data(id).icache_line_size =
-		of_getintprop_default(dp, "icache-line-size", def);
-
-	def = ((tlb_type == hypervisor) ?
-	       (3 * 1024 * 1024) :
-	       (4 * 1024 * 1024));
-	cpu_data(id).ecache_size =
-		of_getintprop_default(dp, "ecache-size", def);
-
-	def = 64;
-	cpu_data(id).ecache_line_size =
-		of_getintprop_default(dp, "ecache-line-size", def);
-
-	printk("CPU[%d]: Caches "
-	       "D[sz(%d):line_sz(%d)] "
-	       "I[sz(%d):line_sz(%d)] "
-	       "E[sz(%d):line_sz(%d)]\n",
-	       id,
-	       cpu_data(id).dcache_size, cpu_data(id).dcache_line_size,
-	       cpu_data(id).icache_size, cpu_data(id).icache_line_size,
-	       cpu_data(id).ecache_size, cpu_data(id).ecache_line_size);
-}
-
-static void smp_setup_percpu_timer(void);
+extern void setup_sparc64_timer(void);
 
 static volatile unsigned long callin_flag = 0;
 
@@ -140,7 +95,7 @@ void __init smp_callin(void)
 
 	__flush_tlb_all();
 
-	smp_setup_percpu_timer();
+	setup_sparc64_timer();
 
 	if (cheetah_pcache_forced_on)
 		cheetah_enable_pcache();
@@ -148,7 +103,7 @@ void __init smp_callin(void)
 	local_irq_enable();
 
 	calibrate_delay();
-	smp_store_cpu_info(cpuid);
+	cpu_data(cpuid).udelay_val = loops_per_jiffy;
 	callin_flag = 1;
 	__asm__ __volatile__("membar #Sync\n\t"
 			     "flush  %%g6" : : : "memory");
@@ -176,8 +131,6 @@ void cpu_panic(void)
 	printk("CPU[%d]: Returns from cpu_idle!\n", smp_processor_id());
 	panic("SMP bolixed\n");
 }
-
-static unsigned long current_tick_offset __read_mostly;
 
 /* This tick register synchronization scheme is taken entirely from
  * the ia64 port, see arch/ia64/kernel/smpboot.c for details and credit.
@@ -261,7 +214,7 @@ void smp_synchronize_tick_client(void)
 				} else
 					adj = -delta;
 
-				tick_ops->add_tick(adj, current_tick_offset);
+				tick_ops->add_tick(adj);
 			}
 #if DEBUG_TICK_SYNC
 			t[i].rt = rt;
@@ -345,9 +298,8 @@ static int __devinit smp_boot_one_cpu(unsigned int cpu)
 
 		prom_startcpu_cpuid(cpu, entry, cookie);
 	} else {
-		struct device_node *dp;
+		struct device_node *dp = of_find_node_by_cpuid(cpu);
 
-		cpu_find_by_mid(cpu, &dp);
 		prom_startcpu(dp->node, entry, cookie);
 	}
 
@@ -452,7 +404,7 @@ static __inline__ void spitfire_xcall_deliver(u64 data0, u64 data1, u64 data2, c
 static void cheetah_xcall_deliver(u64 data0, u64 data1, u64 data2, cpumask_t mask)
 {
 	u64 pstate, ver;
-	int nack_busy_id, is_jbus;
+	int nack_busy_id, is_jbus, need_more;
 
 	if (cpus_empty(mask))
 		return;
@@ -468,6 +420,7 @@ static void cheetah_xcall_deliver(u64 data0, u64 data1, u64 data2, cpumask_t mas
 	__asm__ __volatile__("rdpr %%pstate, %0" : "=r" (pstate));
 
 retry:
+	need_more = 0;
 	__asm__ __volatile__("wrpr %0, %1, %%pstate\n\t"
 			     : : "r" (pstate), "i" (PSTATE_IE));
 
@@ -496,6 +449,10 @@ retry:
 				: /* no outputs */
 				: "r" (target), "i" (ASI_INTR_W));
 			nack_busy_id++;
+			if (nack_busy_id == 32) {
+				need_more = 1;
+				break;
+			}
 		}
 	}
 
@@ -512,6 +469,16 @@ retry:
 			if (dispatch_stat == 0UL) {
 				__asm__ __volatile__("wrpr %0, 0x0, %%pstate"
 						     : : "r" (pstate));
+				if (unlikely(need_more)) {
+					int i, cnt = 0;
+					for_each_cpu_mask(i, mask) {
+						cpu_clear(i, mask);
+						cnt++;
+						if (cnt == 32)
+							break;
+					}
+					goto retry;
+				}
 				return;
 			}
 			if (!--stuck)
@@ -549,6 +516,8 @@ retry:
 				if ((dispatch_stat & check_mask) == 0)
 					cpu_clear(i, mask);
 				this_busy_nack += 2;
+				if (this_busy_nack == 64)
+					break;
 			}
 
 			goto retry;
@@ -565,6 +534,9 @@ static void hypervisor_xcall_deliver(u64 data0, u64 data1, u64 data2, cpumask_t 
 	cpumask_t error_mask;
 	unsigned long flags, status;
 	int cnt, retries, this_cpu, prev_sent, i;
+
+	if (cpus_empty(mask))
+		return;
 
 	/* We have to do this whole thing with interrupts fully disabled.
 	 * Otherwise if we send an xcall from interrupt context it will
@@ -1180,138 +1152,27 @@ void smp_penguin_jailcell(int irq, struct pt_regs *regs)
 	preempt_enable();
 }
 
-#define prof_multiplier(__cpu)		cpu_data(__cpu).multiplier
-#define prof_counter(__cpu)		cpu_data(__cpu).counter
-
-void smp_percpu_timer_interrupt(struct pt_regs *regs)
-{
-	unsigned long compare, tick, pstate;
-	int cpu = smp_processor_id();
-	int user = user_mode(regs);
-	struct pt_regs *old_regs;
-
-	/*
-	 * Check for level 14 softint.
-	 */
-	{
-		unsigned long tick_mask = tick_ops->softint_mask;
-
-		if (!(get_softint() & tick_mask)) {
-			extern void handler_irq(int, struct pt_regs *);
-
-			handler_irq(14, regs);
-			return;
-		}
-		clear_softint(tick_mask);
-	}
-
-	old_regs = set_irq_regs(regs);
-	do {
-		profile_tick(CPU_PROFILING);
-		if (!--prof_counter(cpu)) {
-			irq_enter();
-
-			if (cpu == boot_cpu_id) {
-				kstat_this_cpu.irqs[0]++;
-				timer_tick_interrupt(regs);
-			}
-
-			update_process_times(user);
-
-			irq_exit();
-
-			prof_counter(cpu) = prof_multiplier(cpu);
-		}
-
-		/* Guarantee that the following sequences execute
-		 * uninterrupted.
-		 */
-		__asm__ __volatile__("rdpr	%%pstate, %0\n\t"
-				     "wrpr	%0, %1, %%pstate"
-				     : "=r" (pstate)
-				     : "i" (PSTATE_IE));
-
-		compare = tick_ops->add_compare(current_tick_offset);
-		tick = tick_ops->get_tick();
-
-		/* Restore PSTATE_IE. */
-		__asm__ __volatile__("wrpr	%0, 0x0, %%pstate"
-				     : /* no outputs */
-				     : "r" (pstate));
-	} while (time_after_eq(tick, compare));
-	set_irq_regs(old_regs);
-}
-
-static void __init smp_setup_percpu_timer(void)
-{
-	int cpu = smp_processor_id();
-	unsigned long pstate;
-
-	prof_counter(cpu) = prof_multiplier(cpu) = 1;
-
-	/* Guarantee that the following sequences execute
-	 * uninterrupted.
-	 */
-	__asm__ __volatile__("rdpr	%%pstate, %0\n\t"
-			     "wrpr	%0, %1, %%pstate"
-			     : "=r" (pstate)
-			     : "i" (PSTATE_IE));
-
-	tick_ops->init_tick(current_tick_offset);
-
-	/* Restore PSTATE_IE. */
-	__asm__ __volatile__("wrpr	%0, 0x0, %%pstate"
-			     : /* no outputs */
-			     : "r" (pstate));
-}
-
 void __init smp_tick_init(void)
 {
 	boot_cpu_id = hard_smp_processor_id();
-	current_tick_offset = timer_tick_offset;
-
-	prof_counter(boot_cpu_id) = prof_multiplier(boot_cpu_id) = 1;
 }
 
 /* /proc/profile writes can call this, don't __init it please. */
-static DEFINE_SPINLOCK(prof_setup_lock);
-
 int setup_profiling_timer(unsigned int multiplier)
 {
-	unsigned long flags;
-	int i;
-
-	if ((!multiplier) || (timer_tick_offset / multiplier) < 1000)
-		return -EINVAL;
-
-	spin_lock_irqsave(&prof_setup_lock, flags);
-	for_each_possible_cpu(i)
-		prof_multiplier(i) = multiplier;
-	current_tick_offset = (timer_tick_offset / multiplier);
-	spin_unlock_irqrestore(&prof_setup_lock, flags);
-
-	return 0;
+	return -EINVAL;
 }
 
 static void __init smp_tune_scheduling(void)
 {
-	struct device_node *dp;
-	int instance;
-	unsigned int def, smallest = ~0U;
+	unsigned int smallest = ~0U;
+	int i;
 
-	def = ((tlb_type == hypervisor) ?
-	       (3 * 1024 * 1024) :
-	       (4 * 1024 * 1024));
+	for (i = 0; i < NR_CPUS; i++) {
+		unsigned int val = cpu_data(i).ecache_size;
 
-	instance = 0;
-	while (!cpu_find_by_instance(instance, &dp, NULL)) {
-		unsigned int val;
-
-		val = of_getintprop_default(dp, "ecache-size", def);
-		if (val < smallest)
+		if (val && val < smallest)
 			smallest = val;
-
-		instance++;
 	}
 
 	/* Any value less than 256K is nonsense.  */
@@ -1334,58 +1195,57 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	int i;
 
 	if (num_possible_cpus() > max_cpus) {
-		int instance, mid;
-
-		instance = 0;
-		while (!cpu_find_by_instance(instance, NULL, &mid)) {
-			if (mid != boot_cpu_id) {
-				cpu_clear(mid, phys_cpu_present_map);
-				cpu_clear(mid, cpu_present_map);
+		for_each_possible_cpu(i) {
+			if (i != boot_cpu_id) {
+				cpu_clear(i, phys_cpu_present_map);
+				cpu_clear(i, cpu_present_map);
 				if (num_possible_cpus() <= max_cpus)
 					break;
 			}
-			instance++;
 		}
 	}
 
-	for_each_possible_cpu(i) {
-		if (tlb_type == hypervisor) {
-			int j;
-
-			/* XXX get this mapping from machine description */
-			for_each_possible_cpu(j) {
-				if ((j >> 2) == (i >> 2))
-					cpu_set(j, cpu_sibling_map[i]);
-			}
-		} else {
-			cpu_set(i, cpu_sibling_map[i]);
-		}
-	}
-
-	smp_store_cpu_info(boot_cpu_id);
+	cpu_data(boot_cpu_id).udelay_val = loops_per_jiffy;
 	smp_tune_scheduling();
-}
-
-/* Set this up early so that things like the scheduler can init
- * properly.  We use the same cpu mask for both the present and
- * possible cpu map.
- */
-void __init smp_setup_cpu_possible_map(void)
-{
-	int instance, mid;
-
-	instance = 0;
-	while (!cpu_find_by_instance(instance, NULL, &mid)) {
-		if (mid < NR_CPUS) {
-			cpu_set(mid, phys_cpu_present_map);
-			cpu_set(mid, cpu_present_map);
-		}
-		instance++;
-	}
 }
 
 void __devinit smp_prepare_boot_cpu(void)
 {
+}
+
+void __devinit smp_fill_in_sib_core_maps(void)
+{
+	unsigned int i;
+
+	for_each_possible_cpu(i) {
+		unsigned int j;
+
+		if (cpu_data(i).core_id == 0) {
+			cpu_set(i, cpu_core_map[i]);
+			continue;
+		}
+
+		for_each_possible_cpu(j) {
+			if (cpu_data(i).core_id ==
+			    cpu_data(j).core_id)
+				cpu_set(j, cpu_core_map[i]);
+		}
+	}
+
+	for_each_possible_cpu(i) {
+		unsigned int j;
+
+		if (cpu_data(i).proc_id == -1) {
+			cpu_set(i, cpu_sibling_map[i]);
+			continue;
+		}
+
+		for_each_possible_cpu(j) {
+			if (cpu_data(i).proc_id ==
+			    cpu_data(j).proc_id)
+				cpu_set(j, cpu_sibling_map[i]);
+		}
+	}
 }
 
 int __cpuinit __cpu_up(unsigned int cpu)
@@ -1441,7 +1301,7 @@ unsigned long __per_cpu_shift __read_mostly;
 EXPORT_SYMBOL(__per_cpu_base);
 EXPORT_SYMBOL(__per_cpu_shift);
 
-void __init setup_per_cpu_areas(void)
+void __init real_setup_per_cpu_areas(void)
 {
 	unsigned long goal, size, i;
 	char *ptr;
@@ -1449,11 +1309,11 @@ void __init setup_per_cpu_areas(void)
 	/* Copy section for each CPU (we discard the original) */
 	goal = PERCPU_ENOUGH_ROOM;
 
-	__per_cpu_shift = 0;
-	for (size = 1UL; size < goal; size <<= 1UL)
+	__per_cpu_shift = PAGE_SHIFT;
+	for (size = PAGE_SIZE; size < goal; size <<= 1UL)
 		__per_cpu_shift++;
 
-	ptr = alloc_bootmem(size * NR_CPUS);
+	ptr = alloc_bootmem_pages(size * NR_CPUS);
 
 	__per_cpu_base = ptr - __per_cpu_start;
 

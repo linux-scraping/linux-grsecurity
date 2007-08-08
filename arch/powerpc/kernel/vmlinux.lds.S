@@ -34,7 +34,7 @@ SECTIONS
 	/* Text and gots */
 	.text : {
 		_text = .;
-		*(.text .text.*)
+		TEXT_TEXT
 		SCHED_TEXT
 		LOCK_TEXT
 		KPROBES_TEXT
@@ -131,19 +131,15 @@ SECTIONS
 		__stop___fw_ftr_fixup = .;
 	}
 #endif
-
+#ifdef CONFIG_BLK_DEV_INITRD
 	. = ALIGN(PAGE_SIZE);
 	.init.ramfs : {
 		__initramfs_start = .;
 		*(.init.ramfs)
 		__initramfs_end = .;
 	}
-
-#ifdef CONFIG_PPC32
-	. = ALIGN(32);
-#else
-	. = ALIGN(128);
 #endif
+	. = ALIGN(PAGE_SIZE);
 	.data.percpu : {
 		__per_cpu_start = .;
 		*(.data.percpu)
@@ -171,7 +167,7 @@ SECTIONS
 #ifdef CONFIG_PPC32
 	.data    :
 	{
-		*(.data)
+		DATA_DATA
 		*(.sdata)
 		*(.got.plt) *(.got)
 	}

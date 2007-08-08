@@ -69,7 +69,6 @@
 #include <linux/file.h>
 #include <linux/slab.h>
 #include <linux/sysctl.h>
-#include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -79,6 +78,7 @@
 #include <linux/buffer_head.h>
 #include <linux/capability.h>
 #include <linux/quotaops.h>
+#include <linux/writeback.h> /* for inode_lock, oddly enough.. */
 
 #include <asm/uaccess.h>
 
@@ -474,7 +474,7 @@ int vfs_quota_sync(struct super_block *sb, int type)
 		spin_lock(&dq_list_lock);
 		dirty = &dqopt->info[cnt].dqi_dirty_list;
 		while (!list_empty(dirty)) {
-			dquot = list_entry(dirty->next, struct dquot, dq_dirty);
+			dquot = list_first_entry(dirty, struct dquot, dq_dirty);
 			/* Dirty and inactive can be only bad dquot... */
 			if (!test_bit(DQ_ACTIVE_B, &dquot->dq_flags)) {
 				clear_dquot_dirty(dquot);
@@ -600,11 +600,10 @@ static struct dquot *get_empty_dquot(struct super_block *sb, int type)
 {
 	struct dquot *dquot;
 
-	dquot = kmem_cache_alloc(dquot_cachep, GFP_NOFS);
+	dquot = kmem_cache_zalloc(dquot_cachep, GFP_NOFS);
 	if(!dquot)
 		return NODQUOT;
 
-	memset((caddr_t)dquot, 0, sizeof(struct dquot));
 	mutex_init(&dquot->dq_lock);
 	INIT_LIST_HEAD(&dquot->dq_free);
 	INIT_LIST_HEAD(&dquot->dq_inuse);
@@ -688,23 +687,27 @@ static int dqinit_needed(struct inode *inode, int type)
 /* This routine is guarded by dqonoff_mutex mutex */
 static void add_dquot_ref(struct super_block *sb, int type)
 {
-	struct list_head *p;
+	struct inode *inode;
 
 restart:
-	file_list_lock();
-	list_for_each(p, &sb->s_files) {
-		struct file *filp = list_entry(p, struct file, f_u.fu_list);
-		struct inode *inode = filp->f_path.dentry->d_inode;
-		if (filp->f_mode & FMODE_WRITE && dqinit_needed(inode, type)) {
-			struct dentry *dentry = dget(filp->f_path.dentry);
-			file_list_unlock();
-			sb->dq_op->initialize(inode, type);
-			dput(dentry);
-			/* As we may have blocked we had better restart... */
-			goto restart;
-		}
+	spin_lock(&inode_lock);
+	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
+		if (!atomic_read(&inode->i_writecount))
+			continue;
+		if (!dqinit_needed(inode, type))
+			continue;
+		if (inode->i_state & (I_FREEING|I_WILL_FREE))
+			continue;
+
+		__iget(inode);
+		spin_unlock(&inode_lock);
+
+		sb->dq_op->initialize(inode, type);
+		iput(inode);
+		/* As we may have blocked we had better restart... */
+		goto restart;
 	}
-	file_list_unlock();
+	spin_unlock(&inode_lock);
 }
 
 /* Return 0 if dqput() won't block (note that 1 doesn't necessarily mean blocking) */
@@ -717,7 +720,8 @@ static inline int dqput_blocks(struct dquot *dquot)
 
 /* Remove references to dquots from inode - add dquot to list for freeing if needed */
 /* We can't race with anybody because we hold dqptr_sem for writing... */
-int remove_inode_dquot_ref(struct inode *inode, int type, struct list_head *tofree_head)
+static int remove_inode_dquot_ref(struct inode *inode, int type,
+				  struct list_head *tofree_head)
 {
 	struct dquot *dquot = inode->i_dquot[type];
 
@@ -756,15 +760,30 @@ static void put_dquot_list(struct list_head *tofree_head)
 	}
 }
 
+static void remove_dquot_ref(struct super_block *sb, int type,
+		struct list_head *tofree_head)
+{
+	struct inode *inode;
+
+	spin_lock(&inode_lock);
+	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
+		if (!IS_NOQUOTA(inode))
+			remove_inode_dquot_ref(inode, type, tofree_head);
+	}
+	spin_unlock(&inode_lock);
+}
+
 /* Gather all references from inodes and drop them */
 static void drop_dquot_ref(struct super_block *sb, int type)
 {
 	LIST_HEAD(tofree_head);
 
-	down_write(&sb_dqopt(sb)->dqptr_sem);
-	remove_dquot_ref(sb, type, &tofree_head);
-	up_write(&sb_dqopt(sb)->dqptr_sem);
-	put_dquot_list(&tofree_head);
+	if (sb->dq_op) {
+		down_write(&sb_dqopt(sb)->dqptr_sem);
+		remove_dquot_ref(sb, type, &tofree_head);
+		up_write(&sb_dqopt(sb)->dqptr_sem);
+		put_dquot_list(&tofree_head);
+	}
 }
 
 static inline void dquot_incr_inodes(struct dquot *dquot, unsigned long number)
@@ -1402,7 +1421,7 @@ int vfs_quota_off(struct super_block *sb, int type)
 			/* If quota was reenabled in the meantime, we have
 			 * nothing to do */
 			if (!sb_has_quota_enabled(sb, cnt)) {
-				mutex_lock(&toputinode[cnt]->i_mutex);
+				mutex_lock_nested(&toputinode[cnt]->i_mutex, I_MUTEX_QUOTA);
 				toputinode[cnt]->i_flags &= ~(S_IMMUTABLE |
 				  S_NOATIME | S_NOQUOTA);
 				truncate_inode_pages(&toputinode[cnt]->i_data, 0);
@@ -1413,7 +1432,7 @@ int vfs_quota_off(struct super_block *sb, int type)
 			mutex_unlock(&dqopt->dqonoff_mutex);
 		}
 	if (sb->s_bdev)
-		invalidate_bdev(sb->s_bdev, 0);
+		invalidate_bdev(sb->s_bdev);
 	return 0;
 }
 
@@ -1449,7 +1468,7 @@ static int vfs_quota_on_inode(struct inode *inode, int type, int format_id)
 	 * we see all the changes from userspace... */
 	write_inode_now(inode, 1);
 	/* And now flush the block cache so that kernel sees the changes */
-	invalidate_bdev(sb->s_bdev, 0);
+	invalidate_bdev(sb->s_bdev);
 	mutex_lock(&inode->i_mutex);
 	mutex_lock(&dqopt->dqonoff_mutex);
 	if (sb_has_quota_enabled(sb, type)) {
@@ -1822,7 +1841,7 @@ static int __init dquot_init(void)
 
 	printk(KERN_NOTICE "VFS: Disk quotas %s\n", __DQUOT_VERSION__);
 
-	register_sysctl_table(sys_table, 0);
+	register_sysctl_table(sys_table);
 
 	dquot_cachep = kmem_cache_create("dquot", 
 			sizeof(struct dquot), sizeof(unsigned long) * 4,

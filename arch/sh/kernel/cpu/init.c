@@ -3,7 +3,7 @@
  *
  * CPU init code
  *
- * Copyright (C) 2002, 2003  Paul Mundt
+ * Copyright (C) 2002 - 2007  Paul Mundt
  * Copyright (C) 2003  Richard Curnow
  *
  * This file is subject to the terms and conditions of the GNU General Public
@@ -12,6 +12,8 @@
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/mm.h>
+#include <asm/mmu_context.h>
 #include <asm/processor.h>
 #include <asm/uaccess.h>
 #include <asm/page.h>
@@ -39,6 +41,23 @@ __setup("no" __stringify(x), x##_setup);
 onchip_setup(fpu);
 onchip_setup(dsp);
 
+#ifdef CONFIG_SPECULATIVE_EXECUTION
+#define CPUOPM		0xff2f0000
+#define CPUOPM_RABD	(1 << 5)
+
+static void __init speculative_execution_init(void)
+{
+	/* Clear RABD */
+	ctrl_outl(ctrl_inl(CPUOPM) & ~CPUOPM_RABD, CPUOPM);
+
+	/* Flush the update */
+	(void)ctrl_inl(CPUOPM);
+	ctrl_barrier();
+}
+#else
+#define speculative_execution_init()	do { } while (0)
+#endif
+
 /*
  * Generic first-level cache init
  */
@@ -46,8 +65,19 @@ static void __init cache_init(void)
 {
 	unsigned long ccr, flags;
 
-	if (cpu_data->type == CPU_SH_NONE)
-		panic("Unknown CPU");
+	/* First setup the rest of the I-cache info */
+	current_cpu_data.icache.entry_mask = current_cpu_data.icache.way_incr -
+				      current_cpu_data.icache.linesz;
+
+	current_cpu_data.icache.way_size = current_cpu_data.icache.sets *
+				    current_cpu_data.icache.linesz;
+
+	/* And the D-cache too */
+	current_cpu_data.dcache.entry_mask = current_cpu_data.dcache.way_incr -
+				      current_cpu_data.dcache.linesz;
+
+	current_cpu_data.dcache.way_size = current_cpu_data.dcache.sets *
+				    current_cpu_data.dcache.linesz;
 
 	jump_to_P2();
 	ccr = ctrl_inl(CCR);
@@ -66,7 +96,7 @@ static void __init cache_init(void)
 	if (ccr & CCR_CACHE_ENABLE) {
 		unsigned long ways, waysize, addrstart;
 
-		waysize = cpu_data->dcache.sets;
+		waysize = current_cpu_data.dcache.sets;
 
 #ifdef CCR_CACHE_ORA
 		/*
@@ -77,7 +107,7 @@ static void __init cache_init(void)
 			waysize >>= 1;
 #endif
 
-		waysize <<= cpu_data->dcache.entry_shift;
+		waysize <<= current_cpu_data.dcache.entry_shift;
 
 #ifdef CCR_CACHE_EMODE
 		/* If EMODE is not set, we only have 1 way to flush. */
@@ -85,7 +115,7 @@ static void __init cache_init(void)
 			ways = 1;
 		else
 #endif
-			ways = cpu_data->dcache.ways;
+			ways = current_cpu_data.dcache.ways;
 
 		addrstart = CACHE_OC_ADDRESS_ARRAY;
 		do {
@@ -93,10 +123,10 @@ static void __init cache_init(void)
 
 			for (addr = addrstart;
 			     addr < addrstart + waysize;
-			     addr += cpu_data->dcache.linesz)
+			     addr += current_cpu_data.dcache.linesz)
 				ctrl_outl(0, addr);
 
-			addrstart += cpu_data->dcache.way_incr;
+			addrstart += current_cpu_data.dcache.way_incr;
 		} while (--ways);
 	}
 
@@ -108,7 +138,7 @@ static void __init cache_init(void)
 
 #ifdef CCR_CACHE_EMODE
 	/* Force EMODE if possible */
-	if (cpu_data->dcache.ways > 1)
+	if (current_cpu_data.dcache.ways > 1)
 		flags |= CCR_CACHE_EMODE;
 	else
 		flags &= ~CCR_CACHE_EMODE;
@@ -125,10 +155,10 @@ static void __init cache_init(void)
 #ifdef CONFIG_SH_OCRAM
 	/* Turn on OCRAM -- halve the OC */
 	flags |= CCR_CACHE_ORA;
-	cpu_data->dcache.sets >>= 1;
+	current_cpu_data.dcache.sets >>= 1;
 
-	cpu_data->dcache.way_size = cpu_data->dcache.sets *
-				    cpu_data->dcache.linesz;
+	current_cpu_data.dcache.way_size = current_cpu_data.dcache.sets *
+				    current_cpu_data.dcache.linesz;
 #endif
 
 	ctrl_outl(flags, CCR);
@@ -170,7 +200,7 @@ static void __init dsp_init(void)
 
 	/* If the DSP bit is still set, this CPU has a DSP */
 	if (sr & SR_DSP)
-		cpu_data->flags |= CPU_HAS_DSP;
+		current_cpu_data.flags |= CPU_HAS_DSP;
 
 	/* Now that we've determined the DSP status, clear the DSP bit. */
 	release_dsp();
@@ -198,25 +228,34 @@ asmlinkage void __init sh_cpu_init(void)
 	/* First, probe the CPU */
 	detect_cpu_and_cache_system();
 
+	if (current_cpu_data.type == CPU_SH_NONE)
+		panic("Unknown CPU");
+
 	/* Init the cache */
 	cache_init();
 
 	shm_align_mask = max_t(unsigned long,
-			       cpu_data->dcache.way_size - 1,
+			       current_cpu_data.dcache.way_size - 1,
 			       PAGE_SIZE - 1);
 
 	/* Disable the FPU */
 	if (fpu_disabled) {
 		printk("FPU Disabled\n");
-		cpu_data->flags &= ~CPU_HAS_FPU;
+		current_cpu_data.flags &= ~CPU_HAS_FPU;
 		disable_fpu();
 	}
 
 	/* FPU initialization */
-	if ((cpu_data->flags & CPU_HAS_FPU)) {
+	if ((current_cpu_data.flags & CPU_HAS_FPU)) {
 		clear_thread_flag(TIF_USEDFPU);
 		clear_used_math();
 	}
+
+	/*
+	 * Initialize the per-CPU ASID cache very early, since the
+	 * TLB flushing routines depend on this being setup.
+	 */
+	current_cpu_data.asid_cache = NO_CONTEXT;
 
 #ifdef CONFIG_SH_DSP
 	/* Probe for DSP */
@@ -225,7 +264,7 @@ asmlinkage void __init sh_cpu_init(void)
 	/* Disable the DSP */
 	if (dsp_disabled) {
 		printk("DSP Disabled\n");
-		cpu_data->flags &= ~CPU_HAS_DSP;
+		current_cpu_data.flags &= ~CPU_HAS_DSP;
 		release_dsp();
 	}
 #endif
@@ -239,5 +278,6 @@ asmlinkage void __init sh_cpu_init(void)
 	 */
 	ubc_wakeup();
 #endif
-}
 
+	speculative_execution_init();
+}

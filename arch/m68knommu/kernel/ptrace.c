@@ -14,7 +14,6 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
 #include <linux/user.h>
@@ -62,7 +61,7 @@ static inline long get_reg(struct task_struct *task, int regno)
 
 	if (regno == PT_USP)
 		addr = &task->thread.usp;
-	else if (regno < sizeof(regoff)/sizeof(regoff[0]))
+	else if (regno < ARRAY_SIZE(regoff))
 		addr = (unsigned long *)(task->thread.esp0 + regoff[regno]);
 	else
 		return 0;
@@ -79,7 +78,7 @@ static inline int put_reg(struct task_struct *task, int regno,
 
 	if (regno == PT_USP)
 		addr = &task->thread.usp;
-	else if (regno < sizeof(regoff)/sizeof(regoff[0]))
+	else if (regno < ARRAY_SIZE(regoff))
 		addr = (unsigned long *) (task->thread.esp0 + regoff[regno]);
 	else
 		return -1;

@@ -57,7 +57,8 @@ int *_prom_argv, *_prom_envp;
 
 int init_debug = 0;
 
-unsigned int mips_revision_corid;
+int mips_revision_corid;
+int mips_revision_sconid;
 
 /* Bonito64 system controller register base. */
 unsigned long _pcictrl_bonito;
@@ -145,7 +146,7 @@ static void __init console_config(void)
 	char parity = '\0', bits = '\0', flow = '\0';
 	char *s;
 
-	if ((strstr(prom_getcmdline(), "console=ttyS")) == NULL) {
+	if ((strstr(prom_getcmdline(), "console=")) == NULL) {
 		s = prom_getenv("modetty0");
 		if (s) {
 			while (*s >= '0' && *s <= '9')
@@ -167,7 +168,7 @@ static void __init console_config(void)
 			flow = 'r';
 		sprintf (console_string, " console=ttyS0,%d%c%c%c", baud, parity, bits, flow);
 		strcat (prom_getcmdline(), console_string);
-		prom_printf("Config serial console:%s\n", console_string);
+		pr_info("Config serial console:%s\n", console_string);
 	}
 }
 #endif
@@ -210,8 +211,9 @@ void __init kgdb_config (void)
 			generic_getDebugChar = rs_getDebugChar;
 		}
 
-		prom_printf("KGDB: Using serial line /dev/ttyS%d at %d for session, "
-			    "please connect your debugger\n", line ? 1 : 0, speed);
+		pr_info("KGDB: Using serial line /dev/ttyS%d at %d for "
+		        "session, please connect your debugger\n",
+		        line ? 1 : 0, speed);
 
 		{
 			char *s;
@@ -250,8 +252,6 @@ void __init mips_ejtag_setup (void)
 
 void __init prom_init(void)
 {
-	u32 start, map, mask, data;
-
 	prom_argc = fw_arg0;
 	_prom_argv = (int *) fw_arg1;
 	_prom_envp = (int *) fw_arg2;
@@ -276,11 +276,38 @@ void __init prom_init(void)
 		else
 			mips_revision_corid = MIPS_REVISION_CORID_CORE_EMUL_MSC;
 	}
-	switch(mips_revision_corid) {
-	case MIPS_REVISION_CORID_QED_RM5261:
-	case MIPS_REVISION_CORID_CORE_LV:
-	case MIPS_REVISION_CORID_CORE_FPGA:
-	case MIPS_REVISION_CORID_CORE_FPGAR2:
+
+	mips_revision_sconid = MIPS_REVISION_SCONID;
+	if (mips_revision_sconid == MIPS_REVISION_SCON_OTHER) {
+		switch (mips_revision_corid) {
+		case MIPS_REVISION_CORID_QED_RM5261:
+		case MIPS_REVISION_CORID_CORE_LV:
+		case MIPS_REVISION_CORID_CORE_FPGA:
+		case MIPS_REVISION_CORID_CORE_FPGAR2:
+			mips_revision_sconid = MIPS_REVISION_SCON_GT64120;
+			break;
+		case MIPS_REVISION_CORID_CORE_EMUL_BON:
+		case MIPS_REVISION_CORID_BONITO64:
+		case MIPS_REVISION_CORID_CORE_20K:
+			mips_revision_sconid = MIPS_REVISION_SCON_BONITO;
+			break;
+		case MIPS_REVISION_CORID_CORE_MSC:
+		case MIPS_REVISION_CORID_CORE_FPGA2:
+		case MIPS_REVISION_CORID_CORE_FPGA3:
+		case MIPS_REVISION_CORID_CORE_24K:
+		case MIPS_REVISION_CORID_CORE_EMUL_MSC:
+			mips_revision_sconid = MIPS_REVISION_SCON_SOCIT;
+			break;
+		default:
+			mips_display_message("CC Error");
+			while (1);   /* We die here... */
+		}
+	}
+
+	switch (mips_revision_sconid) {
+		u32 start, map, mask, data;
+
+	case MIPS_REVISION_SCON_GT64120:
 		/*
 		 * Setup the North bridge to do Master byte-lane swapping
 		 * when running in bigendian.
@@ -304,9 +331,7 @@ void __init prom_init(void)
 		set_io_port_base(MALTA_GT_PORT_BASE);
 		break;
 
-	case MIPS_REVISION_CORID_CORE_EMUL_BON:
-	case MIPS_REVISION_CORID_BONITO64:
-	case MIPS_REVISION_CORID_CORE_20K:
+	case MIPS_REVISION_SCON_BONITO:
 		_pcictrl_bonito_pcicfg = (unsigned long)ioremap(BONITO_PCICFG_BASE, BONITO_PCICFG_SIZE);
 
 		/*
@@ -333,13 +358,10 @@ void __init prom_init(void)
 		set_io_port_base(MALTA_BONITO_PORT_BASE);
 		break;
 
-	case MIPS_REVISION_CORID_CORE_MSC:
-	case MIPS_REVISION_CORID_CORE_FPGA2:
-	case MIPS_REVISION_CORID_CORE_FPGA3:
-	case MIPS_REVISION_CORID_CORE_24K:
-	case MIPS_REVISION_CORID_CORE_EMUL_MSC:
+	case MIPS_REVISION_SCON_SOCIT:
+	case MIPS_REVISION_SCON_ROCIT:
 		_pcictrl_msc = (unsigned long)ioremap(MIPS_MSC01_PCI_REG_BASE, 0x2000);
-
+	mips_pci_controller:
 		mb();
 		MSC_READ(MSC01_PCI_CFG, data);
 		MSC_WRITE(MSC01_PCI_CFG, data & ~MSC01_PCI_CFG_EN_BIT);
@@ -373,16 +395,21 @@ void __init prom_init(void)
 		set_io_port_base(MALTA_MSC_PORT_BASE);
 		break;
 
+	case MIPS_REVISION_SCON_SOCITSC:
+	case MIPS_REVISION_SCON_SOCITSCP:
+		_pcictrl_msc = (unsigned long)ioremap(MIPS_SOCITSC_PCI_REG_BASE, 0x2000);
+		goto mips_pci_controller;
+
 	default:
-		/* Unknown Core card */
-		mips_display_message("CC Error");
-		while(1);   /* We die here... */
+		/* Unknown system controller */
+		mips_display_message("SC Error");
+		while (1);   /* We die here... */
 	}
 #endif
 	board_nmi_handler_setup = mips_nmi_setup;
 	board_ejtag_handler_setup = mips_ejtag_setup;
 
-	prom_printf("\nLINUX started...\n");
+	pr_info("\nLINUX started...\n");
 	prom_init_cmdline();
 	prom_meminit();
 #ifdef CONFIG_SERIAL_8250_CONSOLE

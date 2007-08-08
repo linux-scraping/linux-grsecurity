@@ -101,7 +101,7 @@ struct ddpehdr {
 
 static __inline__ struct ddpehdr *ddp_hdr(struct sk_buff *skb)
 {
-	return (struct ddpehdr *)skb->h.raw;
+	return (struct ddpehdr *)skb_transport_header(skb);
 }
 
 /* AppleTalk AARP headers */
@@ -129,7 +129,7 @@ struct elapaarp {
 
 static __inline__ struct elapaarp *aarp_hdr(struct sk_buff *skb)
 {
-	return (struct elapaarp *)skb->h.raw;
+	return (struct elapaarp *)skb_transport_header(skb);
 }
 
 /* Not specified - how long till we drop a resolved entry */
@@ -182,7 +182,7 @@ extern rwlock_t atalk_interfaces_lock;
 
 extern struct atalk_route atrtr_default;
 
-extern struct file_operations atalk_seq_arp_fops;
+extern const struct file_operations atalk_seq_arp_fops;
 
 extern int sysctl_aarp_expiry_time;
 extern int sysctl_aarp_tick_time;

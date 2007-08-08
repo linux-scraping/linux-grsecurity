@@ -37,12 +37,12 @@
  *                     --------<-POP---------
  *
  * where B is a virtual ematch referencing to sequence starting with B1.
- * 
+ *
  * ==========================================================================
  *
  * How to write an ematch in 60 seconds
  * ------------------------------------
- * 
+ *
  *   1) Provide a matcher function:
  *      static int my_match(struct sk_buff *skb, struct tcf_ematch *m,
  *                          struct tcf_pkt_info *info)
@@ -84,7 +84,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
@@ -115,7 +114,7 @@ static inline struct tcf_ematch_ops * tcf_em_lookup(u16 kind)
 
 /**
  * tcf_em_register - register an extended match
- * 
+ *
  * @ops: ematch operations lookup table
  *
  * This function must be called by ematches to announce their presence.
@@ -211,7 +210,7 @@ static int tcf_em_validate(struct tcf_proto *tp,
 		if (ref <= idx)
 			goto errout;
 
-		
+
 		em->data = ref;
 	} else {
 		/* Note: This lookup will increase the module refcnt
@@ -327,7 +326,7 @@ int tcf_em_tree_validate(struct tcf_proto *tp, struct rtattr *rta,
 	/* We do not use rtattr_parse_nested here because the maximum
 	 * number of attributes is unknown. This saves us the allocation
 	 * for a tb buffer which would serve no purpose at all.
-	 * 
+	 *
 	 * The array of rt attributes is parsed in the order as they are
 	 * provided, their type must be incremental from 1 to n. Even
 	 * if it does not serve any real purpose, a failure of sticking
@@ -399,7 +398,7 @@ void tcf_em_tree_destroy(struct tcf_proto *tp, struct tcf_ematch_tree *tree)
 			module_put(em->ops->owner);
 		}
 	}
-	
+
 	tree->hdr.nmatches = 0;
 	kfree(tree->matches);
 }
@@ -419,17 +418,19 @@ void tcf_em_tree_destroy(struct tcf_proto *tp, struct tcf_ematch_tree *tree)
 int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
 {
 	int i;
-	struct rtattr * top_start = (struct rtattr*) skb->tail;
-	struct rtattr * list_start;
+	u8 *tail;
+	struct rtattr *top_start = (struct rtattr *)skb_tail_pointer(skb);
+	struct rtattr *list_start;
 
 	RTA_PUT(skb, tlv, 0, NULL);
 	RTA_PUT(skb, TCA_EMATCH_TREE_HDR, sizeof(tree->hdr), &tree->hdr);
 
-	list_start = (struct rtattr *) skb->tail;
+	list_start = (struct rtattr *)skb_tail_pointer(skb);
 	RTA_PUT(skb, TCA_EMATCH_TREE_LIST, 0, NULL);
 
+	tail = skb_tail_pointer(skb);
 	for (i = 0; i < tree->hdr.nmatches; i++) {
-		struct rtattr *match_start = (struct rtattr*) skb->tail;
+		struct rtattr *match_start = (struct rtattr *)tail;
 		struct tcf_ematch *em = tcf_em_get_match(tree, i);
 		struct tcf_ematch_hdr em_hdr = {
 			.kind = em->ops ? em->ops->kind : TCF_EM_CONTAINER,
@@ -448,11 +449,12 @@ int tcf_em_tree_dump(struct sk_buff *skb, struct tcf_ematch_tree *tree, int tlv)
 		} else if (em->datalen > 0)
 			RTA_PUT_NOHDR(skb, em->datalen, (void *) em->data);
 
-		match_start->rta_len = skb->tail - (u8*) match_start;
+		tail = skb_tail_pointer(skb);
+		match_start->rta_len = tail - (u8 *)match_start;
 	}
 
-	list_start->rta_len = skb->tail - (u8 *) list_start;
-	top_start->rta_len = skb->tail - (u8 *) top_start;
+	list_start->rta_len = tail - (u8 *)list_start;
+	top_start->rta_len = tail - (u8 *)top_start;
 
 	return 0;
 

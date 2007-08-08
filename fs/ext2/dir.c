@@ -23,7 +23,6 @@
 
 #include "ext2.h"
 #include <linux/pagemap.h>
-#include <linux/smp_lock.h>
 
 typedef struct ext2_dir_entry_2 ext2_dirent;
 
@@ -161,10 +160,7 @@ static struct page * ext2_get_page(struct inode *dir, unsigned long n)
 	struct address_space *mapping = dir->i_mapping;
 	struct page *page = read_mapping_page(mapping, n, NULL);
 	if (!IS_ERR(page)) {
-		wait_on_page_locked(page);
 		kmap(page);
-		if (!PageUptodate(page))
-			goto fail;
 		if (!PageChecked(page))
 			ext2_check_page(page);
 		if (PageError(page))
@@ -368,6 +364,14 @@ struct ext2_dir_entry_2 * ext2_find_entry (struct inode * dir,
 		}
 		if (++n >= npages)
 			n = 0;
+		/* next page is past the blocks we've got */
+		if (unlikely(n > (dir->i_blocks >> (PAGE_CACHE_SHIFT - 9)))) {
+			ext2_error(dir->i_sb, __FUNCTION__,
+				"dir %lu size %lld exceeds block count %llu",
+				dir->i_ino, dir->i_size,
+				(unsigned long long)dir->i_blocks);
+			goto out;
+		}
 	} while (n != start);
 out:
 	return NULL;

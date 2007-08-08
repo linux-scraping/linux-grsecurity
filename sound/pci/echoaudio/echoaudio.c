@@ -34,6 +34,7 @@ module_param_array(enable, bool, NULL, 0444);
 MODULE_PARM_DESC(enable, "Enable " ECHOCARD_NAME " soundcard.");
 
 static unsigned int channels_list[10] = {1, 2, 4, 6, 8, 10, 12, 14, 16, 999999};
+static const DECLARE_TLV_DB_SCALE(db_scale_output_gain, -12800, 100, 1);
 
 static int get_firmware(const struct firmware **fw_entry,
 			const struct firmware *frm, struct echoaudio *chip)
@@ -704,11 +705,9 @@ static int pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct audiopipe *pipe = runtime->private_data;
 	int i, err;
 	u32 channelmask = 0;
-	struct list_head *pos;
 	struct snd_pcm_substream *s;
 
-	snd_pcm_group_for_each(pos, substream) {
-		s = snd_pcm_group_substream_entry(pos);
+	snd_pcm_group_for_each_entry(s, substream) {
 		for (i = 0; i < DSP_MAXPIPES; i++) {
 			if (s == chip->substream[i]) {
 				channelmask |= 1 << i;
@@ -1011,17 +1010,21 @@ static int snd_echo_output_gain_put(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new snd_echo_line_output_gain __devinitdata = {
 	.name = "Line Playback Volume",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_output_gain_info,
 	.get = snd_echo_output_gain_get,
 	.put = snd_echo_output_gain_put,
+	.tlv = {.p = db_scale_output_gain},
 };
 #else
 static struct snd_kcontrol_new snd_echo_pcm_output_gain __devinitdata = {
 	.name = "PCM Playback Volume",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_output_gain_info,
 	.get = snd_echo_output_gain_get,
 	.put = snd_echo_output_gain_put,
+	.tlv = {.p = db_scale_output_gain},
 };
 #endif
 
@@ -1080,12 +1083,16 @@ static int snd_echo_input_gain_put(struct snd_kcontrol *kcontrol,
 	return changed;
 }
 
+static const DECLARE_TLV_DB_SCALE(db_scale_input_gain, -2500, 50, 0);
+
 static struct snd_kcontrol_new snd_echo_line_input_gain __devinitdata = {
 	.name = "Line Capture Volume",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_input_gain_info,
 	.get = snd_echo_input_gain_get,
 	.put = snd_echo_input_gain_put,
+	.tlv = {.p = db_scale_input_gain},
 };
 
 #endif /* ECHOCARD_HAS_INPUT_GAIN */
@@ -1277,9 +1284,11 @@ static int snd_echo_mixer_put(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new snd_echo_monitor_mixer __devinitdata = {
 	.name = "Monitor Mixer Volume",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_mixer_info,
 	.get = snd_echo_mixer_get,
 	.put = snd_echo_mixer_put,
+	.tlv = {.p = db_scale_output_gain},
 };
 
 #endif /* ECHOCARD_HAS_MONITOR */
@@ -1343,9 +1352,11 @@ static int snd_echo_vmixer_put(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new snd_echo_vmixer __devinitdata = {
 	.name = "VMixer Volume",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_vmixer_info,
 	.get = snd_echo_vmixer_get,
 	.put = snd_echo_vmixer_put,
+	.tlv = {.p = db_scale_output_gain},
 };
 
 #endif /* ECHOCARD_HAS_VMIXER */
@@ -1753,9 +1764,12 @@ static int snd_echo_vumeters_get(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new snd_echo_vumeters __devinitdata = {
 	.name = "VU-meters",
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	.access = SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+	.access = SNDRV_CTL_ELEM_ACCESS_READ |
+		  SNDRV_CTL_ELEM_ACCESS_VOLATILE |
+		  SNDRV_CTL_ELEM_ACCESS_TLV_READ,
 	.info = snd_echo_vumeters_info,
 	.get = snd_echo_vumeters_get,
+	.tlv = {.p = db_scale_output_gain},
 };
 
 
@@ -2016,6 +2030,8 @@ static int __devinit snd_echo_probe(struct pci_dev *pci,
 	card = snd_card_new(index[dev], id[dev], THIS_MODULE, 0);
 	if (card == NULL)
 		return -ENOMEM;
+
+	snd_card_set_dev(card, &pci->dev);
 
 	if ((err = snd_echo_create(card, pci, &chip)) < 0) {
 		snd_card_free(card);

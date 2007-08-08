@@ -431,7 +431,6 @@ reterror:
 	return(ret);
 }
 
-extern void BChannel_bh(struct BCState *);
 #define B_LL_NOCARRIER	8
 #define B_LL_CONNECT	9
 #define B_LL_OK		10
@@ -441,7 +440,7 @@ isar_bh(struct work_struct *work)
 {
 	struct BCState *bcs = container_of(work, struct BCState, tqueue);
 
-	BChannel_bh(bcs);
+	BChannel_bh(work);
 	if (test_and_clear_bit(B_LL_NOCARRIER, &bcs->event))
 		ll_deliver_faxstat(bcs, ISDN_FAX_CLASS1_NOCARR);
 	if (test_and_clear_bit(B_LL_CONNECT, &bcs->event))

@@ -32,7 +32,7 @@
 #define PAL_CACHE_FLUSH		1	/* flush i/d cache */
 #define PAL_CACHE_INFO		2	/* get detailed i/d cache info */
 #define PAL_CACHE_INIT		3	/* initialize i/d cache */
-#define PAL_CACHE_SUMMARY	4	/* get summary of cache heirarchy */
+#define PAL_CACHE_SUMMARY	4	/* get summary of cache hierarchy */
 #define PAL_MEM_ATTRIB		5	/* list supported memory attributes */
 #define PAL_PTCE_INFO		6	/* purge TLB info */
 #define PAL_VM_INFO		7	/* return supported virtual memory features */
@@ -89,6 +89,8 @@
 #define PAL_GET_PSTATE_TYPE_AVGNORESET	2
 #define PAL_GET_PSTATE_TYPE_INSTANT	3
 
+#define PAL_MC_ERROR_INJECT	276	/* Injects processor error or returns injection capabilities */
+
 #ifndef __ASSEMBLY__
 
 #include <linux/types.h>
@@ -113,14 +115,14 @@ typedef s64				pal_status_t;
 						 */
 #define PAL_STATUS_REQUIRES_MEMORY	(-9)	/* Call requires PAL memory buffer */
 
-/* Processor cache level in the heirarchy */
+/* Processor cache level in the hierarchy */
 typedef u64				pal_cache_level_t;
 #define PAL_CACHE_LEVEL_L0		0	/* L0 */
 #define PAL_CACHE_LEVEL_L1		1	/* L1 */
 #define PAL_CACHE_LEVEL_L2		2	/* L2 */
 
 
-/* Processor cache type at a particular level in the heirarchy */
+/* Processor cache type at a particular level in the hierarchy */
 
 typedef u64				pal_cache_type_t;
 #define PAL_CACHE_TYPE_INSTRUCTION	1	/* Instruction cache */
@@ -272,14 +274,14 @@ typedef struct pal_cache_protection_info_s {
 #define PAL_CACHE_PROT_METHOD_ECC		3	/* ECC protection */
 
 
-/* Processor cache line identification in the heirarchy */
+/* Processor cache line identification in the hierarchy */
 typedef union pal_cache_line_id_u {
 	u64			pclid_data;
 	struct {
 		u64		cache_type	: 8,	/* 7-0 cache type */
 				level		: 8,	/* 15-8 level of the
 							 * cache in the
-							 * heirarchy.
+							 * hierarchy.
 							 */
 				way		: 8,	/* 23-16 way in the set
 							 */
@@ -292,7 +294,7 @@ typedef union pal_cache_line_id_u {
 		u64		cache_type	: 8,	/* 7-0 cache type */
 				level		: 8,	/* 15-8 level of the
 							 * cache in the
-							 * heirarchy.
+							 * hierarchy.
 							 */
 				way		: 8,	/* 23-16 way in the set
 							 */
@@ -371,6 +373,7 @@ typedef u64					pal_mc_info_index_t;
 							 * dependent
 							 */
 
+#define PAL_TLB_CHECK_OP_PURGE			8
 
 typedef struct pal_process_state_info_s {
 	u64		reserved1	: 2,
@@ -978,7 +981,7 @@ ia64_pal_cache_read (pal_cache_line_id_u_t line_id, u64 physical_addr)
 	return iprv.status;
 }
 
-/* Return summary information about the heirarchy of caches controlled by the processor */
+/* Return summary information about the hierarchy of caches controlled by the processor */
 static inline s64
 ia64_pal_cache_summary (u64 *cache_levels, u64 *unique_caches)
 {
@@ -1231,6 +1234,37 @@ ia64_pal_mc_error_info (u64 info_index, u64 type_index, u64 *size, u64 *error_in
 		*size = iprv.v0;
 	if (error_info)
 		*error_info = iprv.v1;
+	return iprv.status;
+}
+
+/* Injects the requested processor error or returns info on
+ * supported injection capabilities for current processor implementation
+ */
+static inline s64
+ia64_pal_mc_error_inject_phys (u64 err_type_info, u64 err_struct_info,
+			u64 err_data_buffer, u64 *capabilities, u64 *resources)
+{
+	struct ia64_pal_retval iprv;
+	PAL_CALL_PHYS_STK(iprv, PAL_MC_ERROR_INJECT, err_type_info,
+			  err_struct_info, err_data_buffer);
+	if (capabilities)
+		*capabilities= iprv.v0;
+	if (resources)
+		*resources= iprv.v1;
+	return iprv.status;
+}
+
+static inline s64
+ia64_pal_mc_error_inject_virt (u64 err_type_info, u64 err_struct_info,
+			u64 err_data_buffer, u64 *capabilities, u64 *resources)
+{
+	struct ia64_pal_retval iprv;
+	PAL_CALL_STK(iprv, PAL_MC_ERROR_INJECT, err_type_info,
+			  err_struct_info, err_data_buffer);
+	if (capabilities)
+		*capabilities= iprv.v0;
+	if (resources)
+		*resources= iprv.v1;
 	return iprv.status;
 }
 

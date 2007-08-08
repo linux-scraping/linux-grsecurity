@@ -3,8 +3,6 @@
 
 #ifndef __ASSEMBLER__
 #include <linux/types.h>
-#include <asm/system.h> /* local_irq_save */
-#include <asm/arch/iop13xx.h> /* iop13xx_cp6_* */
 
 /* INTPND0 CP6 R0 Page 3
  */
@@ -40,21 +38,6 @@ static inline u32 read_intpnd_3(void)
 	u32 val;
 	asm volatile("mrc p6, 0, %0, c3, c3, 0":"=r" (val));
 	return val;
-}
-
-static inline void
-iop13xx_cp6_enable_irq_save(unsigned long *cp_flags, unsigned long *irq_flags)
-{
-	local_irq_save(*irq_flags);
-	*cp_flags = iop13xx_cp6_save();
-}
-
-static inline void
-iop13xx_cp6_irq_restore(unsigned long *cp_flags,
-	unsigned long *irq_flags)
-{
-	iop13xx_cp6_restore(*cp_flags);
-	local_irq_restore(*irq_flags);
 }
 #endif
 
@@ -185,7 +168,7 @@ iop13xx_cp6_irq_restore(unsigned long *cp_flags,
 #define IRQ_IOP13XX_ATUE_IMD	(110) /* 14 */
 #define IRQ_IOP13XX_MU_MSI_TB	(111) /* 15 */
 #define IRQ_IOP13XX_RSVD_112	(112) /* 16 */
-#define IRQ_IOP13XX_RSVD_113	(113) /* 17 */
+#define IRQ_IOP13XX_INBD_MSI	(113) /* 17 */
 #define IRQ_IOP13XX_RSVD_114	(114) /* 18 */
 #define IRQ_IOP13XX_RSVD_115	(115) /* 19 */
 #define IRQ_IOP13XX_RSVD_116	(116) /* 20 */
@@ -201,7 +184,13 @@ iop13xx_cp6_irq_restore(unsigned long *cp_flags,
 #define IRQ_IOP13XX_RSVD_126	(126) /* 30 */
 #define IRQ_IOP13XX_HPI	(127) /* 31 */
 
+#ifdef CONFIG_PCI_MSI
+#define IRQ_IOP13XX_MSI_0	(IRQ_IOP13XX_HPI + 1)
+#define NR_IOP13XX_IRQS 	(IRQ_IOP13XX_MSI_0 + 128)
+#else
 #define NR_IOP13XX_IRQS	(IRQ_IOP13XX_HPI + 1)
+#endif
+
 #define NR_IRQS		NR_IOP13XX_IRQS
 
 #endif /* _IOP13XX_IRQ_H_ */

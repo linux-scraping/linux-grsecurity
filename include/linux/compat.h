@@ -225,6 +225,11 @@ static inline int compat_timespec_compare(struct compat_timespec *lhs,
 	return lhs->tv_nsec - rhs->tv_nsec;
 }
 
+extern int get_compat_itimerspec(struct itimerspec *dst,
+				 const struct compat_itimerspec __user *src);
+extern int put_compat_itimerspec(struct compat_itimerspec __user *dst,
+				 const struct itimerspec *src);
+
 asmlinkage long compat_sys_adjtimex(struct compat_timex __user *utp);
 
 extern int compat_printk(const char *fmt, ...);
@@ -233,6 +238,34 @@ extern void sigset_from_compat(sigset_t *set, compat_sigset_t *compat);
 asmlinkage long compat_sys_migrate_pages(compat_pid_t pid,
 		compat_ulong_t maxnode, const compat_ulong_t __user *old_nodes,
 		const compat_ulong_t __user *new_nodes);
+
+/*
+ * epoll (fs/eventpoll.c) compat bits follow ...
+ */
+#ifndef CONFIG_HAS_COMPAT_EPOLL_EVENT
+struct epoll_event;
+#define compat_epoll_event	epoll_event
+#else
+asmlinkage long compat_sys_epoll_ctl(int epfd, int op, int fd,
+			struct compat_epoll_event __user *event);
+asmlinkage long compat_sys_epoll_wait(int epfd,
+			struct compat_epoll_event __user *events,
+			int maxevents, int timeout);
+#endif
+asmlinkage long compat_sys_epoll_pwait(int epfd,
+			struct compat_epoll_event __user *events,
+			int maxevents, int timeout,
+			const compat_sigset_t __user *sigmask,
+			compat_size_t sigsetsize);
+
+asmlinkage long compat_sys_utimensat(unsigned int dfd, char __user *filename,
+				struct compat_timespec __user *t, int flags);
+
+asmlinkage long compat_sys_signalfd(int ufd,
+				const compat_sigset_t __user *sigmask,
+                                compat_size_t sigsetsize);
+asmlinkage long compat_sys_timerfd(int ufd, int clockid, int flags,
+				const struct compat_itimerspec __user *utmr);
 
 #endif /* CONFIG_COMPAT */
 #endif /* _LINUX_COMPAT_H */

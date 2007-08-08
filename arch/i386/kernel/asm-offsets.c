@@ -11,12 +11,11 @@
 #include <linux/suspend.h>
 #include <asm/ucontext.h>
 #include "sigframe.h"
+#include <asm/pgtable.h>
 #include <asm/fixmap.h>
 #include <asm/processor.h>
 #include <asm/thread_info.h>
 #include <asm/elf.h>
-#include <asm/pda.h>
-#include <asm/pgtable.h>
 
 #define DEFINE(sym, val) \
         asm volatile("\n->" #sym " %0 " #val : : "i" (val))
@@ -25,6 +24,9 @@
 
 #define OFFSET(sym, str, mem) \
 	DEFINE(sym, offsetof(struct str, mem));
+
+/* workaround for a warning with -Wmissing-prototypes */
+void foo(void);
 
 void foo(void)
 {
@@ -74,7 +76,7 @@ void foo(void)
 	OFFSET(PT_EAX, pt_regs, eax);
 	OFFSET(PT_DS,  pt_regs, xds);
 	OFFSET(PT_ES,  pt_regs, xes);
-	OFFSET(PT_GS,  pt_regs, xgs);
+	OFFSET(PT_FS,  pt_regs, xfs);
 	OFFSET(PT_ORIG_EAX, pt_regs, orig_eax);
 	OFFSET(PT_EIP, pt_regs, eip);
 	OFFSET(PT_CS,  pt_regs, xcs);
@@ -92,19 +94,19 @@ void foo(void)
 	OFFSET(pbe_next, pbe, next);
 
 	/* Offset from the sysenter stack to tss.esp0 */
-	DEFINE(TSS_sysenter_esp0, offsetof(struct tss_struct, esp0) -
+	DEFINE(TSS_sysenter_esp0, offsetof(struct tss_struct, x86_tss.esp0) -
 		 sizeof(struct tss_struct));
 
 	DEFINE(PAGE_SIZE_asm, PAGE_SIZE);
-	DEFINE(PTRS_PER_PTE_asm, PTRS_PER_PTE);
-	DEFINE(VDSO_PRELINK, VDSO_PRELINK);
+	DEFINE(PAGE_SHIFT_asm, PAGE_SHIFT);
+	DEFINE(PTRS_PER_PTE, PTRS_PER_PTE);
+	DEFINE(PTRS_PER_PMD, PTRS_PER_PMD);
+	DEFINE(PTRS_PER_PGD, PTRS_PER_PGD);
+	DEFINE(PERCPU_MODULE_RESERVE, PERCPU_MODULE_RESERVE);
+
+	DEFINE(VDSO_PRELINK_asm, VDSO_PRELINK);
 
 	OFFSET(crypto_tfm_ctx_offset, crypto_tfm, __crt_ctx);
-
-	BLANK();
-	DEFINE(PDA_size, sizeof __cpu_pda[0]);
-	OFFSET(PDA_cpu, i386_pda, cpu_number);
-	OFFSET(PDA_pcurrent, i386_pda, pcurrent);
 
 #ifdef CONFIG_PARAVIRT
 	BLANK();

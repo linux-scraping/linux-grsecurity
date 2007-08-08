@@ -54,7 +54,6 @@
 #include <linux/gfp.h>
 #include <linux/ioport.h>
 #include <linux/mm.h>
-#include <linux/smp_lock.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 
@@ -321,8 +320,6 @@ struct mxser_struct {
 	unsigned long event;
 	int count;		/* # of fd on device */
 	int blocked_open;	/* # of blocked opens */
-	long session;		/* Session of opening process */
-	long pgrp;		/* pgrp of opening process */
 	unsigned char *xmit_buf;
 	int xmit_head;
 	int xmit_tail;
@@ -1001,15 +998,12 @@ static int mxser_open(struct tty_struct *tty, struct file *filp)
 		mxser_change_speed(info, NULL);
 	}
 
-	info->session = process_session(current);
-	info->pgrp = process_group(current);
-
 	/*
 	status = mxser_get_msr(info->base, 0, info->port);
 	mxser_check_modem_status(info, status);
 	*/
 
-/* unmark here for very high baud rate (ex. 921600 bps) used */
+	/* unmark here for very high baud rate (ex. 921600 bps) used */
 	tty->low_latency = 1;
 	return 0;
 }
@@ -1254,9 +1248,7 @@ static void mxser_flush_buffer(struct tty_struct *tty)
 	spin_unlock_irqrestore(&info->slock, flags);
 	/* above added by shinhay */
 
-	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup) (tty);
+	tty_wakeup(tty);
 }
 
 static int mxser_ioctl(struct tty_struct *tty, struct file *file, unsigned int cmd, unsigned long arg)
@@ -1345,43 +1337,23 @@ static int mxser_ioctl(struct tty_struct *tty, struct file *file, unsigned int c
 		 *   (use |'ed TIOCM_RNG/DSR/CD/CTS for masking)
 		 * Caller should use TIOCGICOUNT to see which one it was
 		 */
-	case TIOCMIWAIT: {
-			DECLARE_WAITQUEUE(wait, current);
-			int ret;
+	case TIOCMIWAIT:
+		spin_lock_irqsave(&info->slock, flags);
+		cnow = info->icount;	/* note the counters on entry */
+		spin_unlock_irqrestore(&info->slock, flags);
+
+		wait_event_interruptible(info->delta_msr_wait, ({
+			cprev = cnow;
 			spin_lock_irqsave(&info->slock, flags);
-			cprev = info->icount;	/* note the counters on entry */
+			cnow = info->icount;	/* atomic copy */
 			spin_unlock_irqrestore(&info->slock, flags);
 
-			add_wait_queue(&info->delta_msr_wait, &wait);
-			while (1) {
-				spin_lock_irqsave(&info->slock, flags);
-				cnow = info->icount;	/* atomic copy */
-				spin_unlock_irqrestore(&info->slock, flags);
-
-				set_current_state(TASK_INTERRUPTIBLE);
-				if (((arg & TIOCM_RNG) &&
-						(cnow.rng != cprev.rng)) ||
-						((arg & TIOCM_DSR) &&
-						(cnow.dsr != cprev.dsr)) ||
-						((arg & TIOCM_CD) &&
-						(cnow.dcd != cprev.dcd)) ||
-						((arg & TIOCM_CTS) &&
-						(cnow.cts != cprev.cts))) {
-					ret = 0;
-					break;
-				}
-				/* see if a signal did it */
-				if (signal_pending(current)) {
-					ret = -ERESTARTSYS;
-					break;
-				}
-				cprev = cnow;
-			}
-			current->state = TASK_RUNNING;
-			remove_wait_queue(&info->delta_msr_wait, &wait);
-			break;
-		}
-		/* NOTREACHED */
+			((arg & TIOCM_RNG) && (cnow.rng != cprev.rng)) ||
+			((arg & TIOCM_DSR) && (cnow.dsr != cprev.dsr)) ||
+			((arg & TIOCM_CD)  && (cnow.dcd != cprev.dcd)) ||
+			((arg & TIOCM_CTS) && (cnow.cts != cprev.cts));
+		}));
+		break;
 		/*
 		 * Get counter of input serial line interrupts (DCD,RI,DSR,CTS)
 		 * Return: write counters to the user passed counter struct

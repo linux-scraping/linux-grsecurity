@@ -51,13 +51,13 @@
  */
 
 static void __init
-lite52xx_setup_cpu(void)
+lite5200_setup_cpu(void)
 {
 	struct mpc52xx_gpio __iomem *gpio;
 	u32 port_config;
 
 	/* Map zones */
-	gpio = mpc52xx_find_and_map("mpc52xx-gpio");
+	gpio = mpc52xx_find_and_map("mpc5200-gpio");
 	if (!gpio) {
 		printk(KERN_ERR __FILE__ ": "
 			"Error while mapping GPIO register for port config. "
@@ -85,17 +85,39 @@ error:
 	iounmap(gpio);
 }
 
-static void __init lite52xx_setup_arch(void)
+#ifdef CONFIG_PM
+static u32 descr_a;
+static void lite5200_suspend_prepare(void __iomem *mbar)
+{
+	u8 pin = 1;	/* GPIO_WKUP_1 (GPIO_PSC2_4) */
+	u8 level = 0;	/* wakeup on low level */
+	mpc52xx_set_wakeup_gpio(pin, level);
+
+	/*
+	 * power down usb port
+	 * this needs to be called before of-ohci suspend code
+	 */
+	descr_a = in_be32(mbar + 0x1048);
+	out_be32(mbar + 0x1048, (descr_a & ~0x200) | 0x100);
+}
+
+static void lite5200_resume_finish(void __iomem *mbar)
+{
+	out_be32(mbar + 0x1048, descr_a);
+}
+#endif
+
+static void __init lite5200_setup_arch(void)
 {
 	struct device_node *np;
 
 	if (ppc_md.progress)
-		ppc_md.progress("lite52xx_setup_arch()", 0);
+		ppc_md.progress("lite5200_setup_arch()", 0);
 
 	np = of_find_node_by_type(NULL, "cpu");
 	if (np) {
-		unsigned int *fp =
-		    (int *)get_property(np, "clock-frequency", NULL);
+		const unsigned int *fp =
+			of_get_property(np, "clock-frequency", NULL);
 		if (fp != 0)
 			loops_per_jiffy = *fp / HZ;
 		else
@@ -105,7 +127,21 @@ static void __init lite52xx_setup_arch(void)
 
 	/* CPU & Port mux setup */
 	mpc52xx_setup_cpu();	/* Generic */
-	lite52xx_setup_cpu();	/* Platorm specific */
+	lite5200_setup_cpu();	/* Platorm specific */
+
+#ifdef CONFIG_PM
+	mpc52xx_suspend.board_suspend_prepare = lite5200_suspend_prepare;
+	mpc52xx_suspend.board_resume_finish = lite5200_resume_finish;
+	mpc52xx_pm_init();
+#endif
+
+#ifdef CONFIG_PCI
+	np = of_find_node_by_type(NULL, "pci");
+	if (np) {
+		mpc52xx_add_bridge(np);
+		of_node_put(np);
+	}
+#endif
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (initrd_start)
@@ -120,13 +156,13 @@ static void __init lite52xx_setup_arch(void)
 
 }
 
-void lite52xx_show_cpuinfo(struct seq_file *m)
+void lite5200_show_cpuinfo(struct seq_file *m)
 {
 	struct device_node* np = of_find_all_nodes(NULL);
 	const char *model = NULL;
 
 	if (np)
-		model = get_property(np, "model", NULL);
+		model = of_get_property(np, "model", NULL);
 
 	seq_printf(m, "vendor\t\t:	Freescale Semiconductor\n");
 	seq_printf(m, "machine\t\t:	%s\n", model ? model : "unknown");
@@ -137,25 +173,26 @@ void lite52xx_show_cpuinfo(struct seq_file *m)
 /*
  * Called very early, MMU is off, device-tree isn't unflattened
  */
-static int __init lite52xx_probe(void)
+static int __init lite5200_probe(void)
 {
 	unsigned long node = of_get_flat_dt_root();
 	const char *model = of_get_flat_dt_prop(node, "model", NULL);
 
-	if (!of_flat_dt_is_compatible(node, "lite52xx"))
+	if (!of_flat_dt_is_compatible(node, "fsl,lite5200") &&
+	    !of_flat_dt_is_compatible(node, "fsl,lite5200b"))
 		return 0;
-	pr_debug("%s board w/ mpc52xx found\n", model ? model : "unknown");
+	pr_debug("%s board found\n", model ? model : "unknown");
 
 	return 1;
 }
 
-define_machine(lite52xx) {
-	.name 		= "lite52xx",
-	.probe 		= lite52xx_probe,
-	.setup_arch 	= lite52xx_setup_arch,
+define_machine(lite5200) {
+	.name 		= "lite5200",
+	.probe 		= lite5200_probe,
+	.setup_arch 	= lite5200_setup_arch,
 	.init		= mpc52xx_declare_of_platform_devices,
 	.init_IRQ 	= mpc52xx_init_irq,
 	.get_irq 	= mpc52xx_get_irq,
-	.show_cpuinfo	= lite52xx_show_cpuinfo,
+	.show_cpuinfo	= lite5200_show_cpuinfo,
 	.calibrate_decr	= generic_calibrate_decr,
 };

@@ -12,6 +12,12 @@
 		.macro	disable_fiq
 		.endm
 
+		.macro  get_irqnr_preamble, base, tmp
+		.endm
+
+		.macro  arch_ret_to_user, tmp1, tmp2
+		.endm
+
 		.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
 		ldr	\irqstat, =(IXP4XX_INTC_BASE_VIRT+IXP4XX_ICIP_OFFSET)
 		ldr	\irqstat, [\irqstat]		@ get interrupts
@@ -25,9 +31,9 @@
 
 1001:
 		/*
-		 * IXP465 has an upper IRQ status register
+		 * IXP465/IXP435 has an upper IRQ status register
 		 */
-#if defined(CONFIG_CPU_IXP46X)
+#if defined(CONFIG_CPU_IXP46X) || defined(CONFIG_CPU_IXP43X)
 		ldr	\irqstat, =(IXP4XX_INTC_BASE_VIRT+IXP4XX_ICIP2_OFFSET)
 		ldr	\irqstat, [\irqstat]		@ get upper interrupts
 		mov	\irqnr, #63

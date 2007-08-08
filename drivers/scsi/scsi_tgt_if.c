@@ -33,6 +33,14 @@
 
 #include "scsi_tgt_priv.h"
 
+#if TGT_RING_SIZE < PAGE_SIZE
+#  define TGT_RING_SIZE PAGE_SIZE
+#endif
+
+#define TGT_RING_PAGES (TGT_RING_SIZE >> PAGE_SHIFT)
+#define TGT_EVENT_PER_PAGE (PAGE_SIZE / sizeof(struct tgt_event))
+#define TGT_MAX_EVENTS (TGT_EVENT_PER_PAGE * TGT_RING_PAGES)
+
 struct tgt_ring {
 	u32 tr_idx;
 	unsigned long tr_pages[TGT_RING_PAGES];
@@ -171,10 +179,12 @@ static int event_recv_msg(struct tgt_event *ev)
 	switch (ev->hdr.type) {
 	case TGT_UEVENT_CMD_RSP:
 		err = scsi_tgt_kspace_exec(ev->p.cmd_rsp.host_no,
-					   ev->p.cmd_rsp.tag,
 					   ev->p.cmd_rsp.result,
-					   ev->p.cmd_rsp.len,
+					   ev->p.cmd_rsp.tag,
 					   ev->p.cmd_rsp.uaddr,
+					   ev->p.cmd_rsp.len,
+					   ev->p.cmd_rsp.sense_uaddr,
+					   ev->p.cmd_rsp.sense_len,
 					   ev->p.cmd_rsp.rw);
 		break;
 	case TGT_UEVENT_TSK_MGMT_RSP:
@@ -280,7 +290,7 @@ static int tgt_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static struct file_operations tgt_fops = {
+static const struct file_operations tgt_fops = {
 	.owner		= THIS_MODULE,
 	.open		= tgt_open,
 	.poll		= tgt_poll,

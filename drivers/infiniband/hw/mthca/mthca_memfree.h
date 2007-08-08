@@ -38,7 +38,6 @@
 #define MTHCA_MEMFREE_H
 
 #include <linux/list.h>
-#include <linux/pci.h>
 #include <linux/mutex.h>
 
 #define MTHCA_ICM_CHUNK_LEN \
@@ -69,6 +68,7 @@ struct mthca_icm_table {
 	int               num_obj;
 	int               obj_size;
 	int               lowmem;
+	int               coherent;
 	struct mutex      mutex;
 	struct mthca_icm *icm[0];
 };
@@ -82,17 +82,17 @@ struct mthca_icm_iter {
 struct mthca_dev;
 
 struct mthca_icm *mthca_alloc_icm(struct mthca_dev *dev, int npages,
-				  gfp_t gfp_mask);
-void mthca_free_icm(struct mthca_dev *dev, struct mthca_icm *icm);
+				  gfp_t gfp_mask, int coherent);
+void mthca_free_icm(struct mthca_dev *dev, struct mthca_icm *icm, int coherent);
 
 struct mthca_icm_table *mthca_alloc_icm_table(struct mthca_dev *dev,
 					      u64 virt, int obj_size,
 					      int nobj, int reserved,
-					      int use_lowmem);
+					      int use_lowmem, int use_coherent);
 void mthca_free_icm_table(struct mthca_dev *dev, struct mthca_icm_table *table);
 int mthca_table_get(struct mthca_dev *dev, struct mthca_icm_table *table, int obj);
 void mthca_table_put(struct mthca_dev *dev, struct mthca_icm_table *table, int obj);
-void *mthca_table_find(struct mthca_icm_table *table, int obj);
+void *mthca_table_find(struct mthca_icm_table *table, int obj, dma_addr_t *dma_handle);
 int mthca_table_get_range(struct mthca_dev *dev, struct mthca_icm_table *table,
 			  int start, int end);
 void mthca_table_put_range(struct mthca_dev *dev, struct mthca_icm_table *table,

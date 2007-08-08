@@ -11,11 +11,15 @@
 #define MAP_POPULATE	0x8000		/* populate (prefault) pagetables */
 #define MAP_NONBLOCK	0x10000		/* do not block on IO */
 
-#ifdef CONFIG_PAX_SEGMEXEC
-#define MAP_MIRROR	0x20000
-#endif
-
 #define MCL_CURRENT	1		/* lock all current mappings */
 #define MCL_FUTURE	2		/* lock all future mappings */
+
+#ifdef __KERNEL__
+#ifndef __ASSEMBLY__
+#define arch_mmap_check	i386_mmap_check
+int i386_mmap_check(unsigned long addr, unsigned long len,
+		unsigned long flags);
+#endif
+#endif
 
 #endif /* __I386_MMAN_H__ */

@@ -55,8 +55,8 @@ struct proc_dir_entry {
 	uid_t uid;
 	gid_t gid;
 	loff_t size;
-	struct inode_operations * proc_iops;
-	const struct file_operations * proc_fops;
+	const struct inode_operations *proc_iops;
+	const struct file_operations *proc_fops;
 	get_info_t *get_info;
 	struct module *owner;
 	struct proc_dir_entry *next, *parent, *subdir;
@@ -104,6 +104,10 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir);
 unsigned long task_vsize(struct mm_struct *);
 int task_statm(struct mm_struct *, int *, int *, int *, int *);
 char *task_mem(struct mm_struct *, char *);
+void clear_refs_smap(struct mm_struct *mm);
+
+struct proc_dir_entry *de_get(struct proc_dir_entry *de);
+void de_put(struct proc_dir_entry *de);
 
 extern struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 						struct proc_dir_entry *parent);
@@ -112,8 +116,6 @@ extern void remove_proc_entry(const char *name, struct proc_dir_entry *parent);
 extern struct vfsmount *proc_mnt;
 extern int proc_fill_super(struct super_block *,void *,int);
 extern struct inode *proc_get_inode(struct super_block *, unsigned int, struct proc_dir_entry *);
-
-extern int proc_match(int, const char *,struct proc_dir_entry *);
 
 /*
  * These are generic /proc routines that use the internal

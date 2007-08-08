@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 PA Semi, Inc
+ * Copyright (C) 2006-2007 PA Semi, Inc
  *
  * Authors: Kip Walker, PA Semi
  *	    Olof Johansson, PA Semi
@@ -35,34 +35,50 @@
 #include <asm/mpic.h>
 #include <asm/smp.h>
 #include <asm/time.h>
+#include <asm/of_platform.h>
 
 #include "pasemi.h"
 
+static void __iomem *reset_reg;
+
 static void pas_restart(char *cmd)
 {
-	printk("restart unimplemented, looping...\n");
-	for (;;) ;
-}
-
-static void pas_power_off(void)
-{
-	printk("power off unimplemented, looping...\n");
-	for (;;) ;
-}
-
-static void pas_halt(void)
-{
-	pas_power_off();
+	printk("Restarting...\n");
+	while (1)
+		out_le32(reset_reg, 0x6000000);
 }
 
 #ifdef CONFIG_SMP
+static DEFINE_SPINLOCK(timebase_lock);
+
+static void __devinit pas_give_timebase(void)
+{
+	unsigned long tb;
+
+	spin_lock(&timebase_lock);
+	mtspr(SPRN_TBCTL, TBCTL_FREEZE);
+	tb = mftb();
+	mtspr(SPRN_TBCTL, TBCTL_UPDATE_LOWER | (tb & 0xffffffff));
+	mtspr(SPRN_TBCTL, TBCTL_UPDATE_UPPER | (tb >> 32));
+	mtspr(SPRN_TBCTL, TBCTL_RESTART);
+	spin_unlock(&timebase_lock);
+	pr_debug("pas_give_timebase: cpu %d gave tb %lx\n",
+		 smp_processor_id(), tb);
+}
+
+static void __devinit pas_take_timebase(void)
+{
+	pr_debug("pas_take_timebase: cpu %d has tb %lx\n",
+		 smp_processor_id(), mftb());
+}
+
 struct smp_ops_t pas_smp_ops = {
 	.probe		= smp_mpic_probe,
 	.message_pass	= smp_mpic_message_pass,
 	.kick_cpu	= smp_generic_kick_cpu,
 	.setup_cpu	= smp_mpic_setup_cpu,
-	.give_timebase	= smp_generic_give_timebase,
-	.take_timebase	= smp_generic_take_timebase,
+	.give_timebase	= pas_give_timebase,
+	.take_timebase	= pas_take_timebase,
 };
 #endif /* CONFIG_SMP */
 
@@ -72,9 +88,6 @@ void __init pas_setup_arch(void)
 	/* Setup SMP callback */
 	smp_ops = &pas_smp_ops;
 #endif
-	/* no iommu yet */
-	pci_dma_ops = &dma_direct_ops;
-
 	/* Lookup PCI hosts */
 	pas_pci_init();
 
@@ -82,13 +95,11 @@ void __init pas_setup_arch(void)
 	conswitchp = &dummy_con;
 #endif
 
-	printk(KERN_DEBUG "Using default idle loop\n");
-}
+	/* Remap SDC register for doing reset */
+	/* XXXOJN This should maybe come out of the device tree */
+	reset_reg = ioremap(0xfc101100, 4);
 
-/* No legacy IO on our parts */
-static int pas_check_legacy_ioport(unsigned int baseport)
-{
-	return -ENODEV;
+	pasemi_idle_init();
 }
 
 static __init void pas_init_IRQ(void)
@@ -103,7 +114,7 @@ static __init void pas_init_IRQ(void)
 	mpic_node = NULL;
 
 	for_each_node_by_type(np, "interrupt-controller")
-		if (device_is_compatible(np, "open-pic")) {
+		if (of_device_is_compatible(np, "open-pic")) {
 			mpic_node = np;
 			break;
 		}
@@ -120,8 +131,8 @@ static __init void pas_init_IRQ(void)
 
 	/* Find address list in /platform-open-pic */
 	root = of_find_node_by_path("/");
-	naddr = prom_n_addr_cells(root);
-	opprop = get_property(root, "platform-open-pic", &opplen);
+	naddr = of_n_addr_cells(root);
+	opprop = of_get_property(root, "platform-open-pic", &opplen);
 	if (!opprop) {
 		printk(KERN_ERR "No platform-open-pic property.\n");
 		of_node_put(root);
@@ -130,8 +141,9 @@ static __init void pas_init_IRQ(void)
 	openpic_addr = of_read_number(opprop, naddr);
 	printk(KERN_DEBUG "OpenPIC addr: %lx\n", openpic_addr);
 
-	mpic = mpic_alloc(mpic_node, openpic_addr, MPIC_PRIMARY, 0, 0,
-			  " PAS-OPIC  ");
+	mpic = mpic_alloc(mpic_node, openpic_addr,
+			  MPIC_PRIMARY|MPIC_LARGE_VECTORS|MPIC_WANTS_RESET,
+			  0, 0, " PAS-OPIC  ");
 	BUG_ON(!mpic);
 
 	mpic_assign_isu(mpic, 0, openpic_addr + 0x10000);
@@ -146,6 +158,70 @@ static void __init pas_progress(char *s, unsigned short hex)
 }
 
 
+static int pas_machine_check_handler(struct pt_regs *regs)
+{
+	int cpu = smp_processor_id();
+	unsigned long srr0, srr1, dsisr;
+
+	srr0 = regs->nip;
+	srr1 = regs->msr;
+	dsisr = mfspr(SPRN_DSISR);
+	printk(KERN_ERR "Machine Check on CPU %d\n", cpu);
+	printk(KERN_ERR "SRR0 0x%016lx SRR1 0x%016lx\n", srr0, srr1);
+	printk(KERN_ERR "DSISR 0x%016lx DAR 0x%016lx\n", dsisr, regs->dar);
+	printk(KERN_ERR "Cause:\n");
+
+	if (srr1 & 0x200000)
+		printk(KERN_ERR "Signalled by SDC\n");
+	if (srr1 & 0x100000) {
+		printk(KERN_ERR "Load/Store detected error:\n");
+		if (dsisr & 0x8000)
+			printk(KERN_ERR "D-cache ECC double-bit error or bus error\n");
+		if (dsisr & 0x4000)
+			printk(KERN_ERR "LSU snoop response error\n");
+		if (dsisr & 0x2000)
+			printk(KERN_ERR "MMU SLB multi-hit or invalid B field\n");
+		if (dsisr & 0x1000)
+			printk(KERN_ERR "Recoverable Duptags\n");
+		if (dsisr & 0x800)
+			printk(KERN_ERR "Recoverable D-cache parity error count overflow\n");
+		if (dsisr & 0x400)
+			printk(KERN_ERR "TLB parity error count overflow\n");
+	}
+	if (srr1 & 0x80000)
+		printk(KERN_ERR "Bus Error\n");
+	if (srr1 & 0x40000)
+		printk(KERN_ERR "I-side SLB multiple hit\n");
+	if (srr1 & 0x20000)
+		printk(KERN_ERR "I-cache parity error hit\n");
+
+	/* SRR1[62] is from MSR[62] if recoverable, so pass that back */
+	return !!(srr1 & 0x2);
+}
+
+static void __init pas_init_early(void)
+{
+	iommu_init_early_pasemi();
+}
+
+static struct of_device_id pasemi_bus_ids[] = {
+	{ .type = "sdc", },
+	{},
+};
+
+static int __init pasemi_publish_devices(void)
+{
+	if (!machine_is(pasemi))
+		return 0;
+
+	/* Publish OF platform devices for SDC and other non-PCI devices */
+	of_platform_bus_probe(NULL, pasemi_bus_ids, NULL);
+
+	return 0;
+}
+device_initcall(pasemi_publish_devices);
+
+
 /*
  * Called very early, MMU is off, device-tree isn't unflattened
  */
@@ -158,6 +234,8 @@ static int __init pas_probe(void)
 
 	hpte_init_native();
 
+	alloc_iobmap_l2();
+
 	return 1;
 }
 
@@ -165,13 +243,12 @@ define_machine(pas) {
 	.name			= "PA Semi PA6T-1682M",
 	.probe			= pas_probe,
 	.setup_arch		= pas_setup_arch,
+	.init_early		= pas_init_early,
 	.init_IRQ		= pas_init_IRQ,
 	.get_irq		= mpic_get_irq,
 	.restart		= pas_restart,
-	.power_off		= pas_power_off,
-	.halt			= pas_halt,
 	.get_boot_time		= pas_get_boot_time,
 	.calibrate_decr		= generic_calibrate_decr,
-	.check_legacy_ioport    = pas_check_legacy_ioport,
 	.progress		= pas_progress,
+	.machine_check_exception = pas_machine_check_handler,
 };

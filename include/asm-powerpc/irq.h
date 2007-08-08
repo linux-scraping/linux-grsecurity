@@ -89,6 +89,9 @@ struct irq_host_ops {
 	/* Dispose of such a mapping */
 	void (*unmap)(struct irq_host *h, unsigned int virq);
 
+	/* Update of such a mapping  */
+	void (*remap)(struct irq_host *h, unsigned int virq, irq_hw_number_t hw);
+
 	/* Translate device-tree interrupt specifier from raw format coming
 	 * from the firmware to a irq_hw_number_t (interrupt line number) and
 	 * type (sense) that can be passed to set_irq_type(). In the absence
@@ -135,10 +138,7 @@ struct irq_map_entry {
 
 extern struct irq_map_entry irq_map[NR_IRQS];
 
-static inline irq_hw_number_t virq_to_hw(unsigned int virq)
-{
-	return irq_map[virq].hwirq;
-}
+extern irq_hw_number_t virq_to_hw(unsigned int virq);
 
 /**
  * irq_alloc_host - Allocate a new irq_host data structure

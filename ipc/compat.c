@@ -225,7 +225,7 @@ static inline int put_compat_semid_ds(struct semid64_ds *s,
 	int err;
 
 	if (!access_ok (VERIFY_WRITE, up, sizeof(*up)))
-		err = -EFAULT;
+		return -EFAULT;
 	err  = __put_compat_ipc_perm(&s->sem_perm, &up->sem_perm);
 	err |= __put_user(s->sem_otime, &up->sem_otime);
 	err |= __put_user(s->sem_ctime, &up->sem_ctime);
@@ -542,6 +542,8 @@ static inline int put_compat_shminfo64(struct shminfo64 *smi,
 
 	if (!access_ok(VERIFY_WRITE, up64, sizeof(*up64)))
 		return -EFAULT;
+	if (smi->shmmax > INT_MAX)
+		smi->shmmax = INT_MAX;
 	err  = __put_user(smi->shmmax, &up64->shmmax);
 	err |= __put_user(smi->shmmin, &up64->shmmin);
 	err |= __put_user(smi->shmmni, &up64->shmmni);
@@ -557,6 +559,8 @@ static inline int put_compat_shminfo(struct shminfo64 *smi,
 
 	if (!access_ok(VERIFY_WRITE, up, sizeof(*up)))
 		return -EFAULT;
+	if (smi->shmmax > INT_MAX)
+		smi->shmmax = INT_MAX;
 	err  = __put_user(smi->shmmax, &up->shmmax);
 	err |= __put_user(smi->shmmin, &up->shmmin);
 	err |= __put_user(smi->shmmni, &up->shmmni);

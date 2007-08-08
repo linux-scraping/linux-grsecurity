@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -567,7 +567,8 @@ acpi_rs_get_pci_routing_table_length(union acpi_operand_object *package_object,
 						     (*sub_object_list)->string.
 						     length + 1);
 			} else {
-				temp_size_needed += acpi_ns_get_pathname_length((*sub_object_list)->reference.node);
+				temp_size_needed +=
+				    acpi_ns_get_pathname_length((*sub_object_list)->reference.node);
 			}
 		} else {
 			/*

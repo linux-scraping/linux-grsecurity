@@ -42,14 +42,14 @@ static void complete_last_send(struct ipath_qp *qp, struct ipath_swqe *wqe,
 {
 	if (++qp->s_last == qp->s_size)
 		qp->s_last = 0;
-	if (!test_bit(IPATH_S_SIGNAL_REQ_WR, &qp->s_flags) ||
+	if (!(qp->s_flags & IPATH_S_SIGNAL_REQ_WR) ||
 	    (wqe->wr.send_flags & IB_SEND_SIGNALED)) {
 		wc->wr_id = wqe->wr.wr_id;
 		wc->status = IB_WC_SUCCESS;
 		wc->opcode = ib_ipath_wc_opcode[wqe->wr.opcode];
 		wc->vendor_err = 0;
 		wc->byte_len = wqe->length;
-		wc->qp_num = qp->ibqp.qp_num;
+		wc->qp = &qp->ibqp;
 		wc->src_qp = qp->remote_qpn;
 		wc->pkey_index = 0;
 		wc->slid = qp->remote_ah_attr.dlid;
@@ -344,13 +344,13 @@ void ipath_uc_rcv(struct ipath_ibdev *dev, struct ipath_ib_header *hdr,
 	send_first:
 		if (qp->r_reuse_sge) {
 			qp->r_reuse_sge = 0;
-			qp->r_sge = qp->s_rdma_sge;
+			qp->r_sge = qp->s_rdma_read_sge;
 		} else if (!ipath_get_rwqe(qp, 0)) {
 			dev->n_pkt_drops++;
 			goto done;
 		}
 		/* Save the WQE so we can reuse it in case of an error. */
-		qp->s_rdma_sge = qp->r_sge;
+		qp->s_rdma_read_sge = qp->r_sge;
 		qp->r_rcv_len = 0;
 		if (opcode == OP(SEND_ONLY))
 			goto send_last;
@@ -411,7 +411,7 @@ void ipath_uc_rcv(struct ipath_ibdev *dev, struct ipath_ib_header *hdr,
 		wc.status = IB_WC_SUCCESS;
 		wc.opcode = IB_WC_RECV;
 		wc.vendor_err = 0;
-		wc.qp_num = qp->ibqp.qp_num;
+		wc.qp = &qp->ibqp;
 		wc.src_qp = qp->remote_qpn;
 		wc.pkey_index = 0;
 		wc.slid = qp->remote_ah_attr.dlid;

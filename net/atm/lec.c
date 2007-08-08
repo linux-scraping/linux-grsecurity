@@ -1,5 +1,5 @@
 /*
- * lec.c: Lan Emulation driver 
+ * lec.c: Lan Emulation driver
  *
  * Marko Kiiskila <mkiiskila@yahoo.com>
  */
@@ -283,8 +283,8 @@ static int lec_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	DPRINTK("skbuff head:%lx data:%lx tail:%lx end:%lx\n",
-		(long)skb->head, (long)skb->data, (long)skb->tail,
-		(long)skb->end);
+		(long)skb->head, (long)skb->data, (long)skb_tail_pointer(skb),
+		(long)skb_end_pointer(skb));
 #if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
 	if (memcmp(skb->data, bridge_ula_lec, sizeof(bridge_ula_lec)) == 0)
 		lec_handle_bridge(skb, dev);
@@ -576,8 +576,8 @@ static int lec_atm_send(struct atm_vcc *vcc, struct sk_buff *skb)
 					break;
 				}
 				skb2->len = sizeof(struct atmlec_msg);
-				memcpy(skb2->data, mesg,
-				       sizeof(struct atmlec_msg));
+				skb_copy_to_linear_data(skb2, mesg,
+							sizeof(*mesg));
 				atm_force_charge(priv->lecd, skb2->truesize);
 				sk = sk_atm(priv->lecd);
 				skb_queue_tail(&sk->sk_receive_queue, skb2);
@@ -630,7 +630,7 @@ static struct atm_dev lecatm_dev = {
 	.ops = &lecdev_ops,
 	.type = "lec",
 	.number = 999,		/* dummy device number */
-	.lock = SPIN_LOCK_UNLOCKED
+	.lock = __SPIN_LOCK_UNLOCKED(lecatm_dev.lock)
 };
 
 /*
@@ -825,7 +825,6 @@ static void lec_push(struct atm_vcc *vcc, struct sk_buff *skb)
 		if (!hlist_empty(&priv->lec_arp_empty_ones)) {
 			lec_arp_check_empties(priv, vcc, skb);
 		}
-		skb->dev = dev;
 		skb_pull(skb, 2);	/* skip lec_id */
 #ifdef CONFIG_TR
 		if (priv->is_trdev)
@@ -1212,7 +1211,7 @@ static int lec_seq_release(struct inode *inode, struct file *file)
 	return seq_release_private(inode, file);
 }
 
-static struct file_operations lec_seq_fops = {
+static const struct file_operations lec_seq_fops = {
 	.owner = THIS_MODULE,
 	.open = lec_seq_open,
 	.read = seq_read,
@@ -1338,7 +1337,7 @@ static int lane2_resolve(struct net_device *dev, u8 *dst_mac, int force,
 		if (skb == NULL)
 			return -1;
 		skb->len = *sizeoftlvs;
-		memcpy(skb->data, *tlvs, *sizeoftlvs);
+		skb_copy_to_linear_data(skb, *tlvs, *sizeoftlvs);
 		retval = send_to_lecd(priv, l_arp_xmt, dst_mac, NULL, skb);
 	}
 	return retval;
@@ -1372,7 +1371,7 @@ static int lane2_associate_req(struct net_device *dev, u8 *lan_dst,
 	if (skb == NULL)
 		return 0;
 	skb->len = sizeoftlvs;
-	memcpy(skb->data, tlvs, sizeoftlvs);
+	skb_copy_to_linear_data(skb, tlvs, sizeoftlvs);
 	retval = send_to_lecd(priv, l_associate_req, NULL, NULL, skb);
 	if (retval != 0)
 		printk("lec.c: lane2_associate_req() failed\n");
@@ -1437,7 +1436,6 @@ static void lane2_associate_ind(struct net_device *dev, u8 *mac_addr,
  */
 
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <asm/param.h>
 #include <asm/atomic.h>
@@ -1457,7 +1455,7 @@ static void lane2_associate_ind(struct net_device *dev, u8 *mac_addr,
 static void lec_arp_check_expire(struct work_struct *work);
 static void lec_arp_expire_arp(unsigned long data);
 
-/* 
+/*
  * Arp table funcs
  */
 
@@ -1473,9 +1471,9 @@ static void lec_arp_init(struct lec_priv *priv)
 	for (i = 0; i < LEC_ARP_TABLE_SIZE; i++) {
 		INIT_HLIST_HEAD(&priv->lec_arp_tables[i]);
 	}
-        INIT_HLIST_HEAD(&priv->lec_arp_empty_ones);
-        INIT_HLIST_HEAD(&priv->lec_no_forward);
-        INIT_HLIST_HEAD(&priv->mcast_fwds);
+	INIT_HLIST_HEAD(&priv->lec_arp_empty_ones);
+	INIT_HLIST_HEAD(&priv->lec_no_forward);
+	INIT_HLIST_HEAD(&priv->mcast_fwds);
 	spin_lock_init(&priv->lec_arp_lock);
 	INIT_DELAYED_WORK(&priv->lec_arp_work, lec_arp_check_expire);
 	schedule_delayed_work(&priv->lec_arp_work, LEC_ARP_REFRESH_INTERVAL);
@@ -1770,7 +1768,7 @@ static void lec_arp_destroy(struct lec_priv *priv)
 	spin_unlock_irqrestore(&priv->lec_arp_lock, flags);
 }
 
-/* 
+/*
  * Find entry by mac_address
  */
 static struct lec_arp_table *lec_arp_find(struct lec_priv *priv,
@@ -1949,7 +1947,7 @@ restart:
 
 /*
  * Try to find vcc where mac_address is attached.
- * 
+ *
  */
 static struct atm_vcc *lec_arp_resolve(struct lec_priv *priv,
 				       unsigned char *mac_to_find, int is_rdesc,
@@ -2075,7 +2073,7 @@ lec_addr_delete(struct lec_priv *priv, unsigned char *atm_addr,
 }
 
 /*
- * Notifies:  Response to arp_request (atm_addr != NULL) 
+ * Notifies:  Response to arp_request (atm_addr != NULL)
  */
 static void
 lec_arp_update(struct lec_priv *priv, unsigned char *mac_addr,
@@ -2176,7 +2174,7 @@ out:
 }
 
 /*
- * Notifies: Vcc setup ready 
+ * Notifies: Vcc setup ready
  */
 static void
 lec_vcc_added(struct lec_priv *priv, struct atmlec_ioc *ioc_data,
@@ -2380,7 +2378,7 @@ lec_set_flush_tran_id(struct lec_priv *priv,
 			if (!memcmp(atm_addr, entry->atm_addr, ATM_ESA_LEN)) {
 				entry->flush_tran_id = tran_id;
 				DPRINTK("Set flush transaction id to %lx for %p\n",
-				        tran_id, entry);
+					tran_id, entry);
 			}
 		}
 	spin_unlock_irqrestore(&priv->lec_arp_lock, flags);

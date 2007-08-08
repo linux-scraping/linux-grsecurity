@@ -133,7 +133,7 @@
 /* Masks (AND ops) and OR's */
 #define FB_START_MASK               (0x3f << (32 - 6))
 #define MMIO_ADDR_MASK              (0x1FFF << (32 - 13))
-#define FREQ_MASK                   0x1EF
+#define FREQ_MASK                   (1 << 4)
 #define SCR_OFF                     0x20
 #define DRAM_ON                     0x08            
 #define DRAM_OFF                    0xE7
@@ -264,7 +264,8 @@ struct i810fb_par {
 	struct heap_data         cursor_heap;
 	struct vgastate          state;
 	struct i810fb_i2c_chan   chan[3];
-	atomic_t                 use_count;
+	struct mutex		 open_lock;
+	unsigned int		 use_count;
 	u32 pseudo_palette[17];
 	unsigned long mmio_start_phys;
 	u8 __iomem *mmio_start_virtual;

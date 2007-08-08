@@ -111,14 +111,10 @@ extern char elf_platform[];
 #define ELF_ET_DYN_BASE	(2 * TASK_SIZE / 3)
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	0x00008000UL
+#define PAX_ELF_ET_DYN_BASE	0x00008000UL
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		((tsk->personality == PER_LINUX_32BIT) ? 16 : 10)
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		((tsk->personality == PER_LINUX_32BIT) ? 16 : 10)
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	((tsk->personality == PER_LINUX_32BIT) ? 16 : 10)
+#define PAX_DELTA_MMAP_LEN	((current->personality == PER_LINUX_32BIT) ? 16 : 10)
+#define PAX_DELTA_STACK_LEN	((current->personality == PER_LINUX_32BIT) ? 16 : 10)
 #endif
 
 /* When the program starts, a1 contains a pointer to a function to be 

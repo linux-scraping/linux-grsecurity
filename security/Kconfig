@@ -4,11 +4,13 @@
 
 menu "Security options"
 
+source grsecurity/Kconfig
+
 menu "PaX"
 
 config PAX
 	bool "Enable various PaX features"
-	depends on GRKERNSEC && (ALPHA || ARM || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86 || X86_64)
+	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86 || X86_64)
 	help
 	  This allows you to enable various PaX features.  PaX adds
 	  intrusion prevention mechanisms to the kernel that reduce
@@ -67,7 +69,7 @@ config PAX_PT_PAX_FLAGS
 
 choice
 	prompt 'MAC system integration'
-	default PAX_NO_ACL_FLAGS
+	default PAX_HAVE_ACL_FLAGS
 	help
 	  Mandatory Access Control systems have the option of controlling
 	  PaX flags on a per executable basis, choose the method supported
@@ -124,35 +126,31 @@ config PAX_NOEXEC
 
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
-	depends on !COMPAT_VDSO && PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
+	depends on !COMPAT_VDSO && PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MPENTIUM4 || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2)
 	help
 	  This implementation is based on the paging feature of the CPU.
-	  On i386 and ppc there is a variable but usually low performance
-	  impact on applications.  On alpha, ia64, parisc, sparc, sparc64
-	  and x86_64 there is no performance impact.
+	  On i386 without hardware non-executable bit support there is a
+	  variable but usually low performance impact, however on Intel's
+	  P4 core based CPUs it is very high so you should not enable this
+	  for kernels meant to be used on such CPUs.
+
+	  On alpha, avr32, ia64, parisc, sparc, sparc64, x86_64 and i386
+	  with hardware non-executable bit support there is no performance
+	  impact, on ppc the impact is negligible.
+
+	  Note that several architectures require various emulations due to
+	  badly designed userland ABIs, this will cause a performance impact
+	  but will disappear as soon as userland is fixed (e.g., ppc users
+	  can make use of the secure-plt feature found in binutils).
 
 config PAX_SEGMEXEC
 	bool "Segmentation based non-executable pages"
 	depends on !COMPAT_VDSO && PAX_NOEXEC && X86_32
 	help
 	  This implementation is based on the segmentation feature of the
-	  CPU and has little performance impact, however applications will
-	  be limited to a 1.5 GB address space instead of the normal 3 GB.
-
-choice
-	prompt "Default non-executable page method"
-	depends on PAX_PAGEEXEC && PAX_SEGMEXEC
-	default PAX_DEFAULT_SEGMEXEC
-	help
-	  Select the default non-executable page method applied to applications
-	  that do not select one themselves.
-
-config	PAX_DEFAULT_PAGEEXEC
-	bool "PAGEEXEC"
-
-config	PAX_DEFAULT_SEGMEXEC
-	bool "SEGMEXEC"
-endchoice
+	  CPU and has a very small performance impact, however applications
+	  will be limited to a 1.5 GB address space instead of the normal
+	  3 GB.
 
 config PAX_EMUTRAMP
 	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86_32)
@@ -272,8 +270,9 @@ config PAX_EMUPLT
 	  and emulate the Procedure Linkage Table entries in ELF files.
 	  On some architectures such entries are in writable memory, and
 	  become non-executable leading to task termination.  Therefore
-	  it is mandatory that you enable this option on alpha, parisc, ppc,
-	  sparc and sparc64, otherwise your system would not even boot.
+	  it is mandatory that you enable this option on alpha, parisc,
+	  ppc (if secure-plt is not used throughout in userland), sparc
+	  and sparc64, otherwise your system would not even boot.
 
 	  NOTE: this feature *does* open up a loophole in the protection
 	  provided by the non-executable pages, therefore the proper
@@ -292,7 +291,7 @@ config PAX_SYSCALL
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !PCI_BIOS && !EFI && !COMPAT_VDSO && X86_WP_WORKS_OK
+	depends on PAX_NOEXEC && X86_32 && !HOTPLUG_PCI_COMPAQ_NVRAM && !EFI && !COMPAT_VDSO && X86_WP_WORKS_OK && !PARAVIRT
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
@@ -427,8 +426,6 @@ config PAX_MEMORY_UDEREF
 endmenu
 
 endmenu
-
-source grsecurity/Kconfig
 
 config KEYS
 	bool "Enable access key retention support"

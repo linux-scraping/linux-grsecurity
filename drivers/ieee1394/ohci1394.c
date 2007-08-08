@@ -102,7 +102,6 @@
 #include <asm/pgtable.h>
 #include <asm/page.h>
 #include <asm/irq.h>
-#include <linux/sched.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
 #include <linux/init.h>
@@ -161,7 +160,7 @@ printk(level "%s: " fmt "\n" , OHCI1394_DRIVER_NAME , ## args)
 printk(level "%s: fw-host%d: " fmt "\n" , OHCI1394_DRIVER_NAME, ohci->host->id , ## args)
 
 /* Module Parameters */
-static int phys_dma = 0;
+static int phys_dma;
 module_param(phys_dma, int, 0444);
 MODULE_PARM_DESC(phys_dma, "Enable physical dma (default = 0).");
 
@@ -181,7 +180,7 @@ static int alloc_dma_trm_ctx(struct ti_ohci *ohci, struct dma_trm_ctx *d,
 static void ohci1394_pci_remove(struct pci_dev *pdev);
 
 #ifndef __LITTLE_ENDIAN
-const static size_t hdr_sizes[] = {
+static const size_t hdr_sizes[] = {
 	3,	/* TCODE_WRITEQ */
 	4,	/* TCODE_WRITEB */
 	3,	/* TCODE_WRITE_RESPONSE */
@@ -508,9 +507,8 @@ static void ohci_initialize(struct ti_ohci *ohci)
 	/* Set up self-id dma buffer */
 	reg_write(ohci, OHCI1394_SelfIDBuffer, ohci->selfid_buf_bus);
 
-	/* enable self-id and phys */
-	reg_write(ohci, OHCI1394_LinkControlSet, OHCI1394_LinkControl_RcvSelfID |
-		  OHCI1394_LinkControl_RcvPhyPkt);
+	/* enable self-id */
+	reg_write(ohci, OHCI1394_LinkControlSet, OHCI1394_LinkControl_RcvSelfID);
 
 	/* Set the Config ROM mapping register */
 	reg_write(ohci, OHCI1394_ConfigROMmap, ohci->csr_config_rom_bus);
@@ -519,9 +517,6 @@ static void ohci_initialize(struct ti_ohci *ohci)
 	ohci->max_packet_size =
 		1<<(((reg_read(ohci, OHCI1394_BusOptions)>>12)&0xf)+1);
 		
-	/* Don't accept phy packets into AR request context */
-	reg_write(ohci, OHCI1394_LinkControlClear, 0x00000400);
-
 	/* Clear the interrupt mask */
 	reg_write(ohci, OHCI1394_IsoRecvIntMaskClear, 0xffffffff);
 	reg_write(ohci, OHCI1394_IsoRecvIntEventClear, 0xffffffff);
@@ -618,7 +613,7 @@ static void ohci_initialize(struct ti_ohci *ohci)
 #endif
 
 		PRINT(KERN_DEBUG, "Serial EEPROM has suspicious values, "
-                      "attempting to setting max_packet_size to 512 bytes");
+                      "attempting to set max_packet_size to 512 bytes");
 		reg_write(ohci, OHCI1394_BusOptions,
 			  (reg_read(ohci, OHCI1394_BusOptions) & 0xf007) | 0x8002);
 		ohci->max_packet_size = 512;
@@ -2378,6 +2373,7 @@ static irqreturn_t ohci_irq_handler(int irq, void *dev_id)
 	if (event & OHCI1394_postedWriteErr) {
 		PRINT(KERN_ERR, "physical posted write error");
 		/* no recovery strategy yet, had to involve protocol drivers */
+		event &= ~OHCI1394_postedWriteErr;
 	}
 	if (event & OHCI1394_cycleTooLong) {
 		if(printk_ratelimit())
@@ -3281,14 +3277,11 @@ static int __devinit ohci1394_pci_probe(struct pci_dev *dev,
 		PRINT(KERN_WARNING, "PCI resource length of 0x%llx too small!",
 		      (unsigned long long)pci_resource_len(dev, 0));
 
-	/* Seems PCMCIA handles this internally. Not sure why. Seems
-	 * pretty bogus to force a driver to special case this.  */
-#ifndef PCMCIA
-	if (!request_mem_region (ohci_base, OHCI1394_REGISTER_SIZE, OHCI1394_DRIVER_NAME))
+	if (!request_mem_region(ohci_base, OHCI1394_REGISTER_SIZE,
+				OHCI1394_DRIVER_NAME))
 		FAIL(-ENOMEM, "MMIO resource (0x%llx - 0x%llx) unavailable",
 			(unsigned long long)ohci_base,
 			(unsigned long long)ohci_base + OHCI1394_REGISTER_SIZE);
-#endif
 	ohci->init_state = OHCI_INIT_HAVE_MEM_REGION;
 
 	ohci->registers = ioremap(ohci_base, OHCI1394_REGISTER_SIZE);
@@ -3509,10 +3502,8 @@ static void ohci1394_pci_remove(struct pci_dev *pdev)
 		iounmap(ohci->registers);
 
 	case OHCI_INIT_HAVE_MEM_REGION:
-#ifndef PCMCIA
 		release_mem_region(pci_resource_start(ohci->dev, 0),
 				   OHCI1394_REGISTER_SIZE);
-#endif
 
 #ifdef CONFIG_PPC_PMAC
 	/* On UniNorth, power down the cable and turn off the chip clock
@@ -3540,9 +3531,6 @@ static int ohci1394_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	int err;
 	struct ti_ohci *ohci = pci_get_drvdata(pdev);
-
-	printk(KERN_INFO "%s does not fully support suspend and resume yet\n",
-	       OHCI1394_DRIVER_NAME);
 
 	if (!ohci) {
 		printk(KERN_ERR "%s: tried to suspend nonexisting host\n",
@@ -3630,15 +3618,14 @@ static int ohci1394_pci_resume(struct pci_dev *pdev)
 	mdelay(50);
 	ohci_initialize(ohci);
 
+	hpsb_resume_host(ohci->host);
 	return 0;
 }
 #endif /* CONFIG_PM */
 
-#define PCI_CLASS_FIREWIRE_OHCI     ((PCI_CLASS_SERIAL_FIREWIRE << 8) | 0x10)
-
 static struct pci_device_id ohci1394_pci_tbl[] = {
 	{
-		.class = 	PCI_CLASS_FIREWIRE_OHCI,
+		.class = 	PCI_CLASS_SERIAL_FIREWIRE_OHCI,
 		.class_mask = 	PCI_ANY_ID,
 		.vendor =	PCI_ANY_ID,
 		.device =	PCI_ANY_ID,
@@ -3668,6 +3655,7 @@ static struct pci_driver ohci1394_pci_driver = {
 /* essentially the only purpose of this code is to allow another
    module to hook into ohci's interrupt handler */
 
+/* returns zero if successful, one if DMA context is locked up */
 int ohci1394_stop_context(struct ti_ohci *ohci, int reg, char *msg)
 {
 	int i=0;

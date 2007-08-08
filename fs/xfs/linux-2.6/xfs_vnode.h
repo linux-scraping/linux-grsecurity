@@ -194,7 +194,7 @@ typedef	int	(*vop_attr_list_t)(bhv_desc_t *, char *, int, int,
 typedef void	(*vop_link_removed_t)(bhv_desc_t *, bhv_vnode_t *, int);
 typedef void	(*vop_vnode_change_t)(bhv_desc_t *, bhv_vchange_t, __psint_t);
 typedef void	(*vop_ptossvp_t)(bhv_desc_t *, xfs_off_t, xfs_off_t, int);
-typedef void	(*vop_pflushinvalvp_t)(bhv_desc_t *, xfs_off_t, xfs_off_t, int);
+typedef int	(*vop_pflushinvalvp_t)(bhv_desc_t *, xfs_off_t, xfs_off_t, int);
 typedef int	(*vop_pflushvp_t)(bhv_desc_t *, xfs_off_t, xfs_off_t,
 				uint64_t, int);
 typedef int	(*vop_iflush_t)(bhv_desc_t *, int);
@@ -489,14 +489,14 @@ static inline struct bhv_vnode *vn_grab(struct bhv_vnode *vp)
 #define VN_LOCK(vp)		mutex_spinlock(&(vp)->v_lock)
 #define VN_UNLOCK(vp, s)	mutex_spinunlock(&(vp)->v_lock, s)
 
-static __inline__ void vn_flagset(struct bhv_vnode *vp, uint flag)
+STATIC_INLINE void vn_flagset(struct bhv_vnode *vp, uint flag)
 {
 	spin_lock(&vp->v_lock);
 	vp->v_flag |= flag;
 	spin_unlock(&vp->v_lock);
 }
 
-static __inline__ uint vn_flagclr(struct bhv_vnode *vp, uint flag)
+STATIC_INLINE uint vn_flagclr(struct bhv_vnode *vp, uint flag)
 {
 	uint	cleared;
 

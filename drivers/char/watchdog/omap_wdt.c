@@ -34,7 +34,6 @@
 #include <linux/miscdevice.h>
 #include <linux/watchdog.h>
 #include <linux/reboot.h>
-#include <linux/smp_lock.h>
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
@@ -230,7 +229,7 @@ omap_wdt_ioctl(struct inode *inode, struct file *file,
 	}
 }
 
-static struct file_operations omap_wdt_fops = {
+static const struct file_operations omap_wdt_fops = {
 	.owner = THIS_MODULE,
 	.write = omap_wdt_write,
 	.ioctl = omap_wdt_ioctl,

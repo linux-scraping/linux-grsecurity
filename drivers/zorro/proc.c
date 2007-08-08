@@ -75,7 +75,7 @@ proc_bus_zorro_read(struct file *file, char __user *buf, size_t nbytes, loff_t *
 	return nbytes;
 }
 
-static struct file_operations proc_bus_zorro_operations = {
+static const struct file_operations proc_bus_zorro_operations = {
 	.llseek		= proc_bus_zorro_lseek,
 	.read		= proc_bus_zorro_read,
 };
@@ -90,8 +90,9 @@ get_zorro_dev_info(char *buf, char **start, off_t pos, int count)
 	for (slot = cnt = 0; slot < zorro_num_autocon && count > cnt; slot++) {
 		struct zorro_dev *z = &zorro_autocon[slot];
 		len = sprintf(buf, "%02x\t%08x\t%08lx\t%08lx\t%02x\n", slot,
-			      z->id, zorro_resource_start(z),
-			      zorro_resource_len(z), z->rom.er_Type);
+			      z->id, (unsigned long)zorro_resource_start(z),
+			      (unsigned long)zorro_resource_len(z),
+			      z->rom.er_Type);
 		at += len;
 		if (at >= pos) {
 			if (!*start) {

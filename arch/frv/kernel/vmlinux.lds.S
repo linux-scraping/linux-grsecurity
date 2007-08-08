@@ -57,14 +57,17 @@ SECTIONS
   __alt_instructions_end = .;
  .altinstr_replacement : { *(.altinstr_replacement) }
 
+  . = ALIGN(4096);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;
 
+#ifdef CONFIG_BLK_DEV_INITRD
   . = ALIGN(4096);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
+#endif
 
   . = ALIGN(THREAD_SIZE);
   __init_end = .;
@@ -98,13 +101,14 @@ SECTIONS
   _stext = .;
   .text : {
 	*(
-		.text.start .text .text.*
+		.text.start .text.*
 #ifdef CONFIG_DEBUG_INFO
 	.init.text
 	.exit.text
 	.exitcall.exit
 #endif
 	)
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	*(.fixup)
@@ -132,7 +136,8 @@ SECTIONS
 
   _sdata = .;
   .data : {			/* Data */
-	*(.data .data.*)
+	DATA_DATA
+	*(.data.*)
 	*(.exit.data)
 	CONSTRUCTORS
 	}

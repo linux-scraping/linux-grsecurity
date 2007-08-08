@@ -37,7 +37,6 @@ typedef unsigned char	__u8;
  * even potentially has different endianness and word sizes, since
  * we handle those differences explicitly below */
 #include "../../include/linux/mod_devicetable.h"
-#include "../../include/linux/input.h"
 
 #define ADD(str, sep, cond, field)                              \
 do {                                                            \
@@ -354,11 +353,16 @@ static int do_pcmcia_entry(const char *filename,
 
 static int do_of_entry (const char *filename, struct of_device_id *of, char *alias)
 {
+    int len;
     char *tmp;
-    sprintf (alias, "of:N%sT%sC%s",
+    len = sprintf (alias, "of:N%sT%s",
                     of->name[0] ? of->name : "*",
-                    of->type[0] ? of->type : "*",
-                    of->compatible[0] ? of->compatible : "*");
+                    of->type[0] ? of->type : "*");
+
+    if (of->compatible[0])
+        sprintf (&alias[len], "%sC%s",
+                     of->type[0] ? "*" : "",
+                     of->compatible);
 
     /* Replace all whitespace with underscores */
     for (tmp = alias; tmp && *tmp; tmp++)
@@ -416,31 +420,33 @@ static int do_input_entry(const char *filename, struct input_device_id *id,
 
 	sprintf(alias + strlen(alias), "-e*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_EVBIT)
-		do_input(alias, id->evbit, 0, EV_MAX);
+		do_input(alias, id->evbit, 0, INPUT_DEVICE_ID_EV_MAX);
 	sprintf(alias + strlen(alias), "k*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_KEYBIT)
-		do_input(alias, id->keybit, KEY_MIN_INTERESTING, KEY_MAX);
+		do_input(alias, id->keybit,
+			 INPUT_DEVICE_ID_KEY_MIN_INTERESTING,
+			 INPUT_DEVICE_ID_KEY_MAX);
 	sprintf(alias + strlen(alias), "r*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_RELBIT)
-		do_input(alias, id->relbit, 0, REL_MAX);
+		do_input(alias, id->relbit, 0, INPUT_DEVICE_ID_REL_MAX);
 	sprintf(alias + strlen(alias), "a*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_ABSBIT)
-		do_input(alias, id->absbit, 0, ABS_MAX);
+		do_input(alias, id->absbit, 0, INPUT_DEVICE_ID_ABS_MAX);
 	sprintf(alias + strlen(alias), "m*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_MSCIT)
-		do_input(alias, id->mscbit, 0, MSC_MAX);
+		do_input(alias, id->mscbit, 0, INPUT_DEVICE_ID_MSC_MAX);
 	sprintf(alias + strlen(alias), "l*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_LEDBIT)
-		do_input(alias, id->ledbit, 0, LED_MAX);
+		do_input(alias, id->ledbit, 0, INPUT_DEVICE_ID_LED_MAX);
 	sprintf(alias + strlen(alias), "s*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_SNDBIT)
-		do_input(alias, id->sndbit, 0, SND_MAX);
+		do_input(alias, id->sndbit, 0, INPUT_DEVICE_ID_SND_MAX);
 	sprintf(alias + strlen(alias), "f*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_FFBIT)
-		do_input(alias, id->ffbit, 0, FF_MAX);
+		do_input(alias, id->ffbit, 0, INPUT_DEVICE_ID_FF_MAX);
 	sprintf(alias + strlen(alias), "w*");
 	if (id->flags & INPUT_DEVICE_ID_MATCH_SWBIT)
-		do_input(alias, id->swbit, 0, SW_MAX);
+		do_input(alias, id->swbit, 0, INPUT_DEVICE_ID_SW_MAX);
 	return 1;
 }
 
@@ -449,6 +455,24 @@ static int do_eisa_entry(const char *filename, struct eisa_device_id *eisa,
 {
 	if (eisa->sig[0])
 		sprintf(alias, EISA_DEVICE_MODALIAS_FMT "*", eisa->sig);
+	return 1;
+}
+
+/* Looks like: parisc:tNhvNrevNsvN */
+static int do_parisc_entry(const char *filename, struct parisc_device_id *id,
+		char *alias)
+{
+	id->hw_type = TO_NATIVE(id->hw_type);
+	id->hversion = TO_NATIVE(id->hversion);
+	id->hversion_rev = TO_NATIVE(id->hversion_rev);
+	id->sversion = TO_NATIVE(id->sversion);
+
+	strcpy(alias, "parisc:");
+	ADD(alias, "t", id->hw_type != PA_HWTYPE_ANY_ID, id->hw_type);
+	ADD(alias, "hv", id->hversion != PA_HVERSION_ANY_ID, id->hversion);
+	ADD(alias, "rev", id->hversion_rev != PA_HVERSION_REV_ANY_ID, id->hversion_rev);
+	ADD(alias, "sv", id->sversion != PA_SVERSION_ANY_ID, id->sversion);
+
 	return 1;
 }
 
@@ -559,6 +583,10 @@ void handle_moddevtable(struct module *mod, struct elf_info *info,
 		do_table(symval, sym->st_size,
 			 sizeof(struct eisa_device_id), "eisa",
 			 do_eisa_entry, mod);
+	else if (sym_is(symname, "__mod_parisc_device_table"))
+		do_table(symval, sym->st_size,
+			 sizeof(struct parisc_device_id), "parisc",
+			 do_parisc_entry, mod);
 }
 
 /* Now add out buffered information to the generated C source */

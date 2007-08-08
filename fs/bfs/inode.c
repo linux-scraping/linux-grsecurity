@@ -248,9 +248,7 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct bfs_inode_info *bi = foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&bi->vfs_inode);
+	inode_init_once(&bi->vfs_inode);
 }
  
 static int init_inodecache(void)
@@ -270,7 +268,7 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(bfs_inode_cachep);
 }
 
-static struct super_operations bfs_sops = {
+static const struct super_operations bfs_sops = {
 	.alloc_inode	= bfs_alloc_inode,
 	.destroy_inode	= bfs_destroy_inode,
 	.read_inode	= bfs_read_inode,

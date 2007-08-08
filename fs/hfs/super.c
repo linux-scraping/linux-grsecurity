@@ -154,7 +154,7 @@ static void hfs_destroy_inode(struct inode *inode)
 	kmem_cache_free(hfs_inode_cachep, HFS_I(inode));
 }
 
-static struct super_operations hfs_super_operations = {
+static const struct super_operations hfs_super_operations = {
 	.alloc_inode	= hfs_alloc_inode,
 	.destroy_inode	= hfs_destroy_inode,
 	.write_inode	= hfs_write_inode,
@@ -434,8 +434,7 @@ static void hfs_init_once(void *p, struct kmem_cache *cachep, unsigned long flag
 {
 	struct hfs_inode_info *i = p;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) == SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&i->vfs_inode);
+	inode_init_once(&i->vfs_inode);
 }
 
 static int __init init_hfs_fs(void)

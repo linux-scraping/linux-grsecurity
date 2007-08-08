@@ -18,6 +18,7 @@
 #include <asm/barrier.h>
 #include <asm/cpu-features.h>
 #include <asm/war.h>
+#include <asm/system.h>
 
 typedef struct { volatile int counter; } atomic_t;
 
@@ -69,16 +70,19 @@ static __inline__ void atomic_add(int i, atomic_t * v)
 		"1:	ll	%0, %1		# atomic_add		\n"
 		"	addu	%0, %2					\n"
 		"	sc	%0, %1					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter));
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		v->counter += i;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 }
 
@@ -111,16 +115,19 @@ static __inline__ void atomic_sub(int i, atomic_t * v)
 		"1:	ll	%0, %1		# atomic_sub		\n"
 		"	subu	%0, %2					\n"
 		"	sc	%0, %1					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter));
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		v->counter -= i;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 }
 
@@ -155,8 +162,11 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 		"1:	ll	%1, %2		# atomic_add_return	\n"
 		"	addu	%0, %1, %3				\n"
 		"	sc	%0, %2					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	addu	%0, %1, %3				\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -164,11 +174,11 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result += i;
 		v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
@@ -204,8 +214,11 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 		"1:	ll	%1, %2		# atomic_sub_return	\n"
 		"	subu	%0, %1, %3				\n"
 		"	sc	%0, %2					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	subu	%0, %1, %3				\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -213,11 +226,11 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result -= i;
 		v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
@@ -267,10 +280,13 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 		"	bltz	%0, 1f					\n"
 		"	sc	%0, %2					\n"
 		"	.set	noreorder				\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	 subu	%0, %1, %3				\n"
 		"	.set	reorder					\n"
 		"1:							\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -278,12 +294,12 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result -= i;
 		if (result >= 0)
 			v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
@@ -291,8 +307,8 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 	return result;
 }
 
-#define atomic_cmpxchg(v, o, n) ((int)cmpxchg(&((v)->counter), (o), (n)))
-#define atomic_xchg(v, new) (xchg(&((v)->counter), new))
+#define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
+#define atomic_xchg(v, new) (xchg(&((v)->counter), (new)))
 
 /**
  * atomic_add_unless - add unless the number is a given value
@@ -303,14 +319,20 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
  * Atomically adds @a to @v, so long as it was not @u.
  * Returns non-zero if @v was not @u, and zero otherwise.
  */
-#define atomic_add_unless(v, a, u)				\
-({								\
-	int c, old;						\
-	c = atomic_read(v);					\
-	while (c != (u) && (old = atomic_cmpxchg((v), c, c + (a))) != c) \
-		c = old;					\
-	c != (u);						\
-})
+static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
+{
+	int c, old;
+	c = atomic_read(v);
+	for (;;) {
+		if (unlikely(c == (u)))
+			break;
+		old = atomic_cmpxchg((v), c, c + (a));
+		if (likely(old == c))
+			break;
+		c = old;
+	}
+	return c != (u);
+}
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
 #define atomic_dec_return(v) atomic_sub_return(1,(v))
@@ -429,16 +451,19 @@ static __inline__ void atomic64_add(long i, atomic64_t * v)
 		"1:	lld	%0, %1		# atomic64_add		\n"
 		"	addu	%0, %2					\n"
 		"	scd	%0, %1					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter));
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		v->counter += i;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 }
 
@@ -471,16 +496,19 @@ static __inline__ void atomic64_sub(long i, atomic64_t * v)
 		"1:	lld	%0, %1		# atomic64_sub		\n"
 		"	subu	%0, %2					\n"
 		"	scd	%0, %1					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter));
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		v->counter -= i;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 }
 
@@ -515,8 +543,11 @@ static __inline__ long atomic64_add_return(long i, atomic64_t * v)
 		"1:	lld	%1, %2		# atomic64_add_return	\n"
 		"	addu	%0, %1, %3				\n"
 		"	scd	%0, %2					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	addu	%0, %1, %3				\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -524,11 +555,11 @@ static __inline__ long atomic64_add_return(long i, atomic64_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result += i;
 		v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
@@ -564,8 +595,11 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 		"1:	lld	%1, %2		# atomic64_sub_return	\n"
 		"	subu	%0, %1, %3				\n"
 		"	scd	%0, %2					\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	subu	%0, %1, %3				\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -573,11 +607,11 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result -= i;
 		v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
@@ -627,10 +661,13 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t * v)
 		"	bltz	%0, 1f					\n"
 		"	scd	%0, %2					\n"
 		"	.set	noreorder				\n"
-		"	beqz	%0, 1b					\n"
+		"	beqz	%0, 2f					\n"
 		"	 dsubu	%0, %1, %3				\n"
 		"	.set	reorder					\n"
 		"1:							\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
 		: "Ir" (i), "m" (v->counter)
@@ -638,18 +675,48 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t * v)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		result = v->counter;
 		result -= i;
 		if (result >= 0)
 			v->counter = result;
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 	}
 
 	smp_mb();
 
 	return result;
 }
+
+#define atomic64_cmpxchg(v, o, n) \
+	((__typeof__((v)->counter))cmpxchg(&((v)->counter), (o), (n)))
+#define atomic64_xchg(v, new) (xchg(&((v)->counter), (new)))
+
+/**
+ * atomic64_add_unless - add unless the number is a given value
+ * @v: pointer of type atomic64_t
+ * @a: the amount to add to v...
+ * @u: ...unless v is equal to u.
+ *
+ * Atomically adds @a to @v, so long as it was not @u.
+ * Returns non-zero if @v was not @u, and zero otherwise.
+ */
+static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
+{
+	long c, old;
+	c = atomic64_read(v);
+	for (;;) {
+		if (unlikely(c == (u)))
+			break;
+		old = atomic64_cmpxchg((v), c, c + (a));
+		if (likely(old == c))
+			break;
+		c = old;
+	}
+	return c != (u);
+}
+
+#define atomic64_inc_not_zero(v) atomic64_add_unless((v), 1, 0)
 
 #define atomic64_dec_return(v) atomic64_sub_return(1,(v))
 #define atomic64_inc_return(v) atomic64_add_return(1,(v))

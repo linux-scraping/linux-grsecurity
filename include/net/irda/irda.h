@@ -17,7 +17,7 @@
  *     published by the Free Software Foundation; either version 2 of 
  *     the License, or (at your option) any later version.
  *  
- *     Neither Dag Brattli nor University of Tromsø admit liability nor
+ *     Neither Dag Brattli nor University of TromsÃ¸ admit liability nor
  *     provide warranty for any of this software. This material is 
  *     provided "AS-IS" and at no charge.
  *     
@@ -112,5 +112,21 @@ do { if(!(expr)) { \
 #define IAS_IRLAN_ID  0x34234
 #define IAS_IRCOMM_ID 0x2343
 #define IAS_IRLPT_ID  0x9876
+
+struct net_device;
+struct packet_type;
+
+extern void irda_proc_register(void);
+extern void irda_proc_unregister(void);
+
+extern int irda_sysctl_register(void);
+extern void irda_sysctl_unregister(void);
+
+extern int irsock_init(void);
+extern void irsock_cleanup(void);
+
+extern int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
+			    struct packet_type *ptype,
+			    struct net_device *orig_dev);
 
 #endif /* NET_IRDA_H */

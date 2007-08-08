@@ -143,14 +143,13 @@ static inline void establish_user_cs_limit(struct mm_struct *mm, unsigned long s
 
 	for (; vma && vma->vm_start < end; vma = vma->vm_next)
 		change_protection(vma, vma->vm_start, vma->vm_end, vma->vm_page_prot, vma_wants_writenotify(vma));
-
 }
 
 void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot)
 {
 	unsigned long oldlimit, newlimit = 0UL;
 
-	if (!(mm->pax_flags & MF_PAX_PAGEEXEC))
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) || nx_enabled)
 		return;
 
 	spin_lock(&mm->page_table_lock);
@@ -179,50 +178,6 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 }
 #endif
 
-#ifdef CONFIG_PAX_SEGMEXEC
-static int __mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
-	unsigned long start, unsigned long end, unsigned int newflags);
-
-static int mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
-	unsigned long start, unsigned long end, unsigned int newflags)
-{
-	if (vma->vm_flags & VM_MIRROR) {
-		struct vm_area_struct * vma_m, * prev_m;
-		unsigned long start_m, end_m;
-		int error;
-
-		start_m = vma->vm_start + vma->vm_mirror;
-		vma_m = find_vma_prev(vma->vm_mm, start_m, &prev_m);
-		if (vma_m && vma_m->vm_start == start_m && (vma_m->vm_flags & VM_MIRROR)) {
-			start_m = start + vma->vm_mirror;
-			end_m = end + vma->vm_mirror;
-
-			if (vma_m->vm_start >= SEGMEXEC_TASK_SIZE && !(newflags & VM_EXEC))
-				error = __mprotect_fixup(vma_m, &prev_m, start_m, end_m, vma_m->vm_flags & ~(VM_READ | VM_WRITE | VM_EXEC));
-			else
-				error = __mprotect_fixup(vma_m, &prev_m, start_m, end_m, newflags);
-			if (error)
-				return error;
-		} else {
-			printk("PAX: VMMIRROR: mprotect bug in %s, %08lx\n", current->comm, vma->vm_start);
-			return -ENOMEM;
-		}
-	}
-
-	return __mprotect_fixup(vma, pprev, start, end, newflags);
-}
-
-static int __mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
-	unsigned long start, unsigned long end, unsigned int newflags)
-{
-	struct mm_struct * mm = vma->vm_mm;
-	unsigned long oldflags = vma->vm_flags;
-	long nrpages = (end - start) >> PAGE_SHIFT;
-	unsigned long charged = 0;
-	pgoff_t pgoff;
-	int error;
-	int dirty_accountable = 0;
-#else
 static int
 mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	unsigned long start, unsigned long end, unsigned long newflags)
@@ -235,9 +190,36 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	int error;
 	int dirty_accountable = 0;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m = NULL;
+	unsigned long start_m, end_m;
+
+	start_m = start + SEGMEXEC_TASK_SIZE;
+	end_m = end + SEGMEXEC_TASK_SIZE;
+#endif
+
 	if (newflags == oldflags) {
 		*pprev = vma;
 		return 0;
+	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (pax_find_mirror_vma(vma) && !(newflags & VM_EXEC)) {
+		if (start != vma->vm_start) {
+			error = split_vma(mm, vma, start, 1);
+			if (error)
+				return -ENOMEM;
+		}
+
+		if (end != vma->vm_end) {
+			error = split_vma(mm, vma, end, 0);
+			if (error)
+				return -ENOMEM;
+		}
+
+		error = __do_munmap(mm, start_m, end_m - start_m);
+		if (error)
+			return -ENOMEM;
 	}
 #endif
 
@@ -283,41 +265,38 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 			goto fail;
 	}
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && !(oldflags & VM_EXEC) && (newflags & VM_EXEC)) {
+		vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
+		if (!vma_m) {
+			error = -ENOMEM;
+			goto fail;
+		}
+	}
+#endif
+
 success:
 	/*
 	 * vm_flags and vm_page_prot are protected by the mmap_sem
 	 * held in write mode.
 	 */
 	vma->vm_flags = newflags;
+	vma->vm_page_prot = vm_get_page_prot(newflags);
 	if (vma_wants_writenotify(vma)) {
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
-		if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
-			vma->vm_page_prot = protection_map[(newflags | VM_EXEC) &
-				(VM_READ|VM_WRITE|VM_EXEC)];
-		else
-#endif
-
-		vma->vm_page_prot = protection_map[newflags &
-			(VM_READ|VM_WRITE|VM_EXEC)];
+		vma->vm_page_prot = vm_get_page_prot(newflags & ~VM_SHARED);
 		dirty_accountable = 1;
-	} else {
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
-		if (!(mm->pax_flags & MF_PAX_PAGEEXEC) && (newflags & (VM_READ|VM_WRITE)))
-			vma->vm_page_prot = protection_map[(newflags | VM_EXEC) &
-				(VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
-		else
-#endif
-
-		vma->vm_page_prot = protection_map[newflags &
-			(VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
 	}
 
 	if (is_vm_hugetlb_page(vma))
 		hugetlb_change_protection(vma, start, end, vma->vm_page_prot);
 	else
 		change_protection(vma, start, end, vma->vm_page_prot, dirty_accountable);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma_m)
+		pax_mirror_vma(vma_m, vma);
+#endif
+
 	vm_stat_account(mm, oldflags, vma->vm_file, -nrpages);
 	vm_stat_account(mm, newflags, vma->vm_file, nrpages);
 	return 0;
@@ -334,10 +313,11 @@ fail:
  * The checks favour ld-linux.so behaviour which operates on a per ELF segment
  * basis because we want to allow the common case and not the special ones.
  */
-static inline void pax_handle_maywrite(struct vm_area_struct * vma, unsigned long start)
+static inline void pax_handle_maywrite(struct vm_area_struct *vma, unsigned long start)
 {
 	struct elfhdr elf_h;
-	struct elf_phdr elf_p, p_dyn;
+	struct elf_phdr elf_p;
+	elf_addr_t dyn_offset = 0UL;
 	elf_dyn dyn;
 	unsigned long i, j = 65536UL / sizeof(struct elf_phdr);
 
@@ -350,7 +330,7 @@ static inline void pax_handle_maywrite(struct vm_area_struct * vma, unsigned lon
 
 		return;
 
-	if (sizeof(elf_h) != kernel_read(vma->vm_file, 0UL, (char*)&elf_h, sizeof(elf_h)) ||
+	if (sizeof(elf_h) != kernel_read(vma->vm_file, 0UL, (char *)&elf_h, sizeof(elf_h)) ||
 	    memcmp(elf_h.e_ident, ELFMAG, SELFMAG) ||
 
 #ifdef CONFIG_PAX_ETEXECRELOCS
@@ -365,10 +345,10 @@ static inline void pax_handle_maywrite(struct vm_area_struct * vma, unsigned lon
 		return;
 
 	for (i = 0UL; i < elf_h.e_phnum; i++) {
-		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char*)&elf_p, sizeof(elf_p)))
+		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char *)&elf_p, sizeof(elf_p)))
 			return;
 		if (elf_p.p_type == PT_DYNAMIC) {
-			p_dyn = elf_p;
+			dyn_offset = elf_p.p_offset;
 			j = i;
 		}
 	}
@@ -377,7 +357,7 @@ static inline void pax_handle_maywrite(struct vm_area_struct * vma, unsigned lon
 
 	i = 0UL;
 	do {
-		if (sizeof(dyn) != kernel_read(vma->vm_file, p_dyn.p_offset + i*sizeof(dyn), (char*)&dyn, sizeof(dyn)))
+		if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
 			return;
 		if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
 			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
@@ -459,15 +439,15 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	if (start > vma->vm_start)
 		prev = vma;
 
-#ifdef CONFIG_PAX_MPROTECT
-	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
-		pax_handle_maywrite(vma, start);
-#endif
-
 	if (!gr_acl_handle_mprotect(vma->vm_file, prot)) {
 		error = -EACCES;
 		goto out;
 	}
+
+#ifdef CONFIG_PAX_MPROTECT
+	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
+		pax_handle_maywrite(vma, start);
+#endif
 
 	for (nstart = start ; ; ) {
 		unsigned long newflags;
@@ -498,6 +478,9 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 		error = mprotect_fixup(vma, &prev, nstart, tmp, newflags);
 		if (error)
 			goto out;
+
+		track_exec_limit(current->mm, nstart, tmp, vm_flags);
+
 		nstart = tmp;
 
 		if (nstart < prev->vm_end)
@@ -511,9 +494,6 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 			goto out;
 		}
 	}
-
-	track_exec_limit(current->mm, start, end, vm_flags);
-
 out:
 	up_write(&current->mm->mmap_sem);
 	return error;

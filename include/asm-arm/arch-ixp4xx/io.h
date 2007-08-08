@@ -59,10 +59,10 @@ extern int ixp4xx_pci_write(u32 addr, u32 cmd, u32 data);
  * fallback to the default.
  */
 static inline void __iomem *
-__ixp4xx_ioremap(unsigned long addr, size_t size, unsigned long flags)
+__ixp4xx_ioremap(unsigned long addr, size_t size, unsigned int mtype)
 {
-	if((addr < 0x48000000) || (addr > 0x4fffffff))
-		return __ioremap(addr, size, flags);
+	if((addr < PCIBIOS_MIN_MEM) || (addr > 0x4fffffff))
+		return __arm_ioremap(addr, size, mtype);
 
 	return (void *)addr;
 }
@@ -237,26 +237,6 @@ __ixp4xx_readsl(const volatile void __iomem *bus_addr, u32 *vaddr, u32 count)
 #define memset_io(c,v,l)		_memset_io((c),(v),(l))
 #define memcpy_fromio(a,c,l)		_memcpy_fromio((a),(c),(l))
 #define memcpy_toio(c,a,l)		_memcpy_toio((c),(a),(l))
-
-#define eth_io_copy_and_sum(s,c,l,b) \
-				eth_copy_and_sum((s),__mem_pci(c),(l),(b))
-
-static inline int
-check_signature(const unsigned char __iomem *bus_addr, const unsigned char *signature,
-		int length)
-{
-	int retval = 0;
-	do {
-		if (readb(bus_addr) != *signature)
-			goto out;
-		bus_addr++;
-		signature++;
-		length--;
-	} while (length);
-	retval = 1;
-out:
-	return retval;
-}
 
 #endif
 

@@ -8,8 +8,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.10"
-#define GRSECURITY_VERSION 0x2110
+#define GR_VERSION  "grsecurity 2.1.11"
+#define GRSECURITY_VERSION 0x2111
 
 enum {
 

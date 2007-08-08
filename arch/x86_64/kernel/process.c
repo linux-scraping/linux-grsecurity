@@ -36,6 +36,7 @@
 #include <linux/random.h>
 #include <linux/notifier.h>
 #include <linux/kprobes.h>
+#include <linux/kdebug.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -46,7 +47,6 @@
 #include <asm/mmu_context.h>
 #include <asm/pda.h>
 #include <asm/prctl.h>
-#include <asm/kdebug.h>
 #include <asm/desc.h>
 #include <asm/proto.h>
 #include <asm/ia32.h>
@@ -288,16 +288,18 @@ void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
 
 static int __init idle_setup (char *str)
 {
-	if (!strncmp(str, "poll", 4)) {
+	if (!strcmp(str, "poll")) {
 		printk("using polling idle threads.\n");
 		pm_idle = poll_idle;
-	}
+	} else if (!strcmp(str, "mwait"))
+		force_mwait = 1;
+	else
+		return -1;
 
 	boot_option_idle_override = 1;
-	return 1;
+	return 0;
 }
-
-__setup("idle=", idle_setup);
+early_param("idle", idle_setup);
 
 /* Prints also some state that isn't saved in the pt_regs */ 
 void __show_regs(struct pt_regs * regs)
@@ -382,14 +384,17 @@ void exit_thread(void)
 void flush_thread(void)
 {
 	struct task_struct *tsk = current;
-	struct thread_info *t = current_thread_info();
 
-	if (t->flags & _TIF_ABI_PENDING) {
-		t->flags ^= (_TIF_ABI_PENDING | _TIF_IA32);
-		if (t->flags & _TIF_IA32)
+	if (test_tsk_thread_flag(tsk, TIF_ABI_PENDING)) {
+		clear_tsk_thread_flag(tsk, TIF_ABI_PENDING);
+		if (test_tsk_thread_flag(tsk, TIF_IA32)) {
+			clear_tsk_thread_flag(tsk, TIF_IA32);
+		} else {
+			set_tsk_thread_flag(tsk, TIF_IA32);
 			current_thread_info()->status |= TS_COMPAT;
+		}
 	}
-	t->flags &= ~_TIF_DEBUG;
+	clear_tsk_thread_flag(tsk, TIF_DEBUG);
 
 	tsk->thread.debugreg0 = 0;
 	tsk->thread.debugreg1 = 0;

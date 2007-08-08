@@ -26,6 +26,7 @@
 #include <linux/spinlock.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <asm/machdep.h>
 #include <asm/types.h>
 #include <asm/bitops.h>
 
@@ -99,6 +100,7 @@ extern void iommu_unmap_single(struct iommu_table *tbl, dma_addr_t dma_handle,
 extern void iommu_init_early_pSeries(void);
 extern void iommu_init_early_iSeries(void);
 extern void iommu_init_early_dart(void);
+extern void iommu_init_early_pasemi(void);
 
 #ifdef CONFIG_PCI
 extern void pci_iommu_init(void);
@@ -108,6 +110,19 @@ static inline void pci_iommu_init(void) { }
 #endif
 
 extern void alloc_dart_table(void);
+#if defined(CONFIG_PPC64) && defined(CONFIG_PM)
+static inline void iommu_save(void)
+{
+	if (ppc_md.iommu_save)
+		ppc_md.iommu_save();
+}
+
+static inline void iommu_restore(void)
+{
+	if (ppc_md.iommu_restore)
+		ppc_md.iommu_restore();
+}
+#endif
 
 #endif /* __KERNEL__ */
 #endif /* _ASM_IOMMU_H */

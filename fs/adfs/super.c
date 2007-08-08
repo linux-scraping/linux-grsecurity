@@ -232,9 +232,7 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct adfs_inode_info *ei = (struct adfs_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&ei->vfs_inode);
+	inode_init_once(&ei->vfs_inode);
 }
  
 static int init_inodecache(void)
@@ -254,7 +252,7 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(adfs_inode_cachep);
 }
 
-static struct super_operations adfs_sops = {
+static const struct super_operations adfs_sops = {
 	.alloc_inode	= adfs_alloc_inode,
 	.destroy_inode	= adfs_destroy_inode,
 	.write_inode	= adfs_write_inode,

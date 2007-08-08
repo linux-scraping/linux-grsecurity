@@ -37,7 +37,6 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/stddef.h>
-#include <linux/sched.h>
 #include <linux/ioport.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
@@ -249,13 +248,14 @@ static const struct i2c_algorithm smbus_algorithm = {
 
 static struct i2c_adapter sis96x_adapter = {
 	.owner		= THIS_MODULE,
+	.id		= I2C_HW_SMBUS_SIS96X,
 	.class		= I2C_CLASS_HWMON,
 	.algo		= &smbus_algorithm,
 };
 
 static struct pci_device_id sis96x_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_SMBUS) },
-	{ 0, }
+	{ PCI_DEVICE(0, 0) }
 };
 
 MODULE_DEVICE_TABLE (pci, sis96x_ids);
@@ -297,10 +297,10 @@ static int __devinit sis96x_probe(struct pci_dev *dev,
 		return -EINVAL;
 	}
 
-	/* set up the driverfs linkage to our parent device */
+	/* set up the sysfs linkage to our parent device */
 	sis96x_adapter.dev.parent = &dev->dev;
 
-	snprintf(sis96x_adapter.name, I2C_NAME_SIZE,
+	snprintf(sis96x_adapter.name, sizeof(sis96x_adapter.name),
 		"SiS96x SMBus adapter at 0x%04x", sis96x_smbus_base);
 
 	if ((retval = i2c_add_adapter(&sis96x_adapter))) {

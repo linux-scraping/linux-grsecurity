@@ -12,7 +12,7 @@
  *  BOOTP rewritten to construct and analyse packets itself instead
  *  of misusing the IP layer. num_bugs_causing_wrong_arp_replies--;
  *					     -- MJ, December 1998
- *  
+ *
  *  Fixed ip_auto_config_setup calling at startup in the new "Linker Magic"
  *  initialization scheme.
  *	- Arnaldo Carvalho de Melo <acme@conectiva.com.br>, 08/11/1999
@@ -98,8 +98,8 @@
 #define CONF_TIMEOUT_RANDOM	(HZ)	/* Maximum amount of randomization */
 #define CONF_TIMEOUT_MULT	*7/4	/* Rate of timeout growth */
 #define CONF_TIMEOUT_MAX	(HZ*30)	/* Maximum allowed timeout */
-#define CONF_NAMESERVERS_MAX   3       /* Maximum number of nameservers  
-                                           - '3' from resolv.h */
+#define CONF_NAMESERVERS_MAX   3       /* Maximum number of nameservers
+					   - '3' from resolv.h */
 
 #define NONE __constant_htonl(INADDR_NONE)
 
@@ -192,7 +192,7 @@ static int __init ic_open_devs(void)
 	if (dev_change_flags(&loopback_dev, loopback_dev.flags | IFF_UP) < 0)
 		printk(KERN_ERR "IP-Config: Failed to open %s\n", loopback_dev.name);
 
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 		if (dev == &loopback_dev)
 			continue;
 		if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
@@ -365,7 +365,7 @@ static int __init ic_defaults(void)
 	 *	At this point we have no userspace running so need not
 	 *	claim locks on system_utsname
 	 */
-	 
+
 	if (!ic_host_name_set)
 		sprintf(init_utsname()->nodename, "%u.%u.%u.%u", NIPQUAD(ic_myaddr));
 
@@ -432,7 +432,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 		goto drop;
 
 	/* Basic sanity checks can be done without the lock.  */
-	rarp = (struct arphdr *)skb->h.raw;
+	rarp = (struct arphdr *)skb_transport_header(skb);
 
 	/* If this test doesn't pass, it's not IP, or we should
 	 * ignore it anyway.
@@ -455,7 +455,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 		goto drop;
 
 	/* OK, it is all there and looks valid, process... */
-	rarp = (struct arphdr *)skb->h.raw;
+	rarp = (struct arphdr *)skb_transport_header(skb);
 	rarp_ptr = (unsigned char *) (rarp + 1);
 
 	/* One reply at a time, please. */
@@ -650,9 +650,9 @@ static void __init ic_bootp_init_ext(u8 *e)
 	*e++ = 40;
 	e += 40;
 
-	*e++ = 57;		/* set extension buffer size for reply */ 
+	*e++ = 57;		/* set extension buffer size for reply */
 	*e++ = 2;
-	*e++ = 1;		/* 128+236+8+20+14, see dhcpd sources */ 
+	*e++ = 1;		/* 128+236+8+20+14, see dhcpd sources */
 	*e++ = 150;
 
 	*e++ = 255;		/* End of the list */
@@ -702,7 +702,8 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
 	memset(b, 0, sizeof(struct bootp_pkt));
 
 	/* Construct IP header */
-	skb->nh.iph = h = &b->iph;
+	skb_reset_network_header(skb);
+	h = ip_hdr(skb);
 	h->version = 4;
 	h->ihl = 5;
 	h->tot_len = htons(sizeof(struct bootp_pkt));
@@ -782,7 +783,7 @@ static void __init ic_do_bootp_ext(u8 *ext)
 	u8 *c;
 
 	printk("DHCP/BOOTP: Got extension %d:",*ext);
-	for(c=ext+2; c<ext+2+ext[1]; c++)
+	for (c=ext+2; c<ext+2+ext[1]; c++)
 		printk(" %02x", *c);
 	printk("\n");
 #endif
@@ -845,7 +846,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 			   sizeof(struct udphdr)))
 		goto drop;
 
-	b = (struct bootp_pkt *) skb->nh.iph;
+	b = (struct bootp_pkt *)skb_network_header(skb);
 	h = &b->iph;
 
 	if (h->ihl != 5 || h->version != 4 || h->protocol != IPPROTO_UDP)
@@ -883,7 +884,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 	if (!pskb_may_pull(skb, skb->len))
 		goto drop;
 
-	b = (struct bootp_pkt *) skb->nh.iph;
+	b = (struct bootp_pkt *)skb_network_header(skb);
 	h = &b->iph;
 
 	/* One reply at a time, please. */
@@ -913,7 +914,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 	/* Parse extensions */
 	if (ext_len >= 4 &&
 	    !memcmp(b->exten, ic_bootp_cookie, 4)) { /* Check magic cookie */
-                u8 *end = (u8 *) b + ntohs(b->iph.tot_len);
+		u8 *end = (u8 *) b + ntohs(b->iph.tot_len);
 		u8 *ext;
 
 #ifdef IPCONFIG_DHCP
@@ -938,7 +939,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 					if (opt[1] >= 4)
 						memcpy(&server_id, opt + 2, 4);
 					break;
-				};
+				}
 			}
 
 #ifdef IPCONFIG_DEBUG
@@ -983,7 +984,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 				ic_myaddr = NONE;
 				ic_servaddr = NONE;
 				goto drop_unlock;
-			};
+			}
 
 			ic_dhcp_msgtype = mt;
 
@@ -1020,7 +1021,7 @@ drop:
 	kfree_skb(skb);
 
 	return 0;
-}	
+}
 
 
 #endif
@@ -1080,7 +1081,7 @@ static int __init ic_dynamic(void)
 	 * seems to be a terrible waste of CPU time, but actually there is
 	 * only one process running at all, so we don't need to use any
 	 * scheduler functions.
-	 * [Actually we could now, but the nothing else running note still 
+	 * [Actually we could now, but the nothing else running note still
 	 *  applies.. - AC]
 	 */
 	printk(KERN_NOTICE "Sending %s%s%s requests .",
@@ -1094,7 +1095,7 @@ static int __init ic_dynamic(void)
 	retries = CONF_SEND_RETRIES;
 	get_random_bytes(&timeout, sizeof(timeout));
 	timeout = CONF_BASE_TIMEOUT + (timeout % (unsigned) CONF_TIMEOUT_RANDOM);
-	for(;;) {
+	for (;;) {
 #ifdef IPCONFIG_BOOTP
 		if (do_bootp && (d->able & IC_BOOTP))
 			ic_bootp_send_if(d, jiffies - start_jiffies);
@@ -1156,7 +1157,7 @@ static int __init ic_dynamic(void)
 	}
 
 	printk("IP-Config: Got %s answer from %u.%u.%u.%u, ",
-		((ic_got_reply & IC_RARP) ? "RARP" 
+		((ic_got_reply & IC_RARP) ? "RARP"
 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
 		NIPQUAD(ic_servaddr));
 	printk("my address is %u.%u.%u.%u\n", NIPQUAD(ic_myaddr));
@@ -1200,7 +1201,7 @@ static int pnp_seq_open(struct inode *indoe, struct file *file)
 	return single_open(file, pnp_seq_show, NULL);
 }
 
-static struct file_operations pnp_seq_fops = {
+static const struct file_operations pnp_seq_fops = {
 	.owner		= THIS_MODULE,
 	.open		= pnp_seq_open,
 	.read		= seq_read,
@@ -1286,7 +1287,7 @@ static int __init ip_auto_config(void)
 #endif
 	    ic_first_dev->next) {
 #ifdef IPCONFIG_DYNAMIC
-	
+
 		int retries = CONF_OPEN_RETRIES;
 
 		if (ic_dynamic() < 0) {
@@ -1308,14 +1309,14 @@ static int __init ip_auto_config(void)
 			 */
 #ifdef CONFIG_ROOT_NFS
 			if (ROOT_DEV ==  Root_NFS) {
-				printk(KERN_ERR 
+				printk(KERN_ERR
 					"IP-Config: Retrying forever (NFS root)...\n");
 				goto try_try_again;
 			}
 #endif
 
 			if (--retries) {
-				printk(KERN_ERR 
+				printk(KERN_ERR
 				       "IP-Config: Reopening network devices...\n");
 				goto try_try_again;
 			}
@@ -1443,8 +1444,8 @@ static int __init ip_auto_config_setup(char *addrs)
 
 	ic_set_manually = 1;
 
-	ic_enable = (*addrs && 
-		(strcmp(addrs, "off") != 0) && 
+	ic_enable = (*addrs &&
+		(strcmp(addrs, "off") != 0) &&
 		(strcmp(addrs, "none") != 0));
 	if (!ic_enable)
 		return 1;

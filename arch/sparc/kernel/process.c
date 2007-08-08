@@ -23,7 +23,6 @@
 #include <linux/user.h>
 #include <linux/a.out.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
@@ -348,7 +347,7 @@ void exit_thread(void)
 #ifndef CONFIG_SMP
 	if(last_task_used_math == current) {
 #else
-	if(current_thread_info()->flags & _TIF_USEDFPU) {
+	if (test_thread_flag(TIF_USEDFPU)) {
 #endif
 		/* Keep process from leaving FPU in a bogon state. */
 		put_psr(get_psr() | PSR_EF);
@@ -357,7 +356,7 @@ void exit_thread(void)
 #ifndef CONFIG_SMP
 		last_task_used_math = NULL;
 #else
-		current_thread_info()->flags &= ~_TIF_USEDFPU;
+		clear_thread_flag(TIF_USEDFPU);
 #endif
 	}
 }
@@ -371,7 +370,7 @@ void flush_thread(void)
 #ifndef CONFIG_SMP
 	if(last_task_used_math == current) {
 #else
-	if(current_thread_info()->flags & _TIF_USEDFPU) {
+	if (test_thread_flag(TIF_USEDFPU)) {
 #endif
 		/* Clean the fpu. */
 		put_psr(get_psr() | PSR_EF);
@@ -380,7 +379,7 @@ void flush_thread(void)
 #ifndef CONFIG_SMP
 		last_task_used_math = NULL;
 #else
-		current_thread_info()->flags &= ~_TIF_USEDFPU;
+		clear_thread_flag(TIF_USEDFPU);
 #endif
 	}
 
@@ -466,13 +465,13 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 #ifndef CONFIG_SMP
 	if(last_task_used_math == current) {
 #else
-	if(current_thread_info()->flags & _TIF_USEDFPU) {
+	if (test_thread_flag(TIF_USEDFPU)) {
 #endif
 		put_psr(get_psr() | PSR_EF);
 		fpsave(&p->thread.float_regs[0], &p->thread.fsr,
 		       &p->thread.fpqueue[0], &p->thread.fpqdepth);
 #ifdef CONFIG_SMP
-		current_thread_info()->flags &= ~_TIF_USEDFPU;
+		clear_thread_flag(TIF_USEDFPU);
 #endif
 	}
 
@@ -609,13 +608,13 @@ int dump_fpu (struct pt_regs * regs, elf_fpregset_t * fpregs)
 		return 1;
 	}
 #ifdef CONFIG_SMP
-	if (current_thread_info()->flags & _TIF_USEDFPU) {
+	if (test_thread_flag(TIF_USEDFPU)) {
 		put_psr(get_psr() | PSR_EF);
 		fpsave(&current->thread.float_regs[0], &current->thread.fsr,
 		       &current->thread.fpqueue[0], &current->thread.fpqdepth);
 		if (regs != NULL) {
 			regs->psr &= ~(PSR_EF);
-			current_thread_info()->flags &= ~(_TIF_USEDFPU);
+			clear_thread_flag(TIF_USEDFPU);
 		}
 	}
 #else
@@ -684,7 +683,7 @@ out:
  * NOTE! Only a kernel-only process(ie the swapper or direct descendants
  * who haven't done an "execve()") should use this: it will work within
  * a system call from a "real" process, but the process memory space will
- * not be free'd until both the parent and the child have exited.
+ * not be freed until both the parent and the child have exited.
  */
 pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {

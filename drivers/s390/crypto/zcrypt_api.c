@@ -298,14 +298,14 @@ static long zcrypt_rsa_modexpo(struct ica_rsa_modexpo *mex)
 		get_device(&zdev->ap_dev->device);
 		zdev->request_count++;
 		__zcrypt_decrease_preference(zdev);
-		spin_unlock_bh(&zcrypt_device_lock);
 		if (try_module_get(zdev->ap_dev->drv->driver.owner)) {
+			spin_unlock_bh(&zcrypt_device_lock);
 			rc = zdev->ops->rsa_modexpo(zdev, mex);
+			spin_lock_bh(&zcrypt_device_lock);
 			module_put(zdev->ap_dev->drv->driver.owner);
 		}
 		else
 			rc = -EAGAIN;
-		spin_lock_bh(&zcrypt_device_lock);
 		zdev->request_count--;
 		__zcrypt_increase_preference(zdev);
 		put_device(&zdev->ap_dev->device);
@@ -373,14 +373,14 @@ static long zcrypt_rsa_crt(struct ica_rsa_modexpo_crt *crt)
 		get_device(&zdev->ap_dev->device);
 		zdev->request_count++;
 		__zcrypt_decrease_preference(zdev);
-		spin_unlock_bh(&zcrypt_device_lock);
 		if (try_module_get(zdev->ap_dev->drv->driver.owner)) {
+			spin_unlock_bh(&zcrypt_device_lock);
 			rc = zdev->ops->rsa_modexpo_crt(zdev, crt);
+			spin_lock_bh(&zcrypt_device_lock);
 			module_put(zdev->ap_dev->drv->driver.owner);
 		}
 		else
 			rc = -EAGAIN;
-		spin_lock_bh(&zcrypt_device_lock);
 		zdev->request_count--;
 		__zcrypt_increase_preference(zdev);
 		put_device(&zdev->ap_dev->device);
@@ -408,14 +408,14 @@ static long zcrypt_send_cprb(struct ica_xcRB *xcRB)
 		get_device(&zdev->ap_dev->device);
 		zdev->request_count++;
 		__zcrypt_decrease_preference(zdev);
-		spin_unlock_bh(&zcrypt_device_lock);
 		if (try_module_get(zdev->ap_dev->drv->driver.owner)) {
+			spin_unlock_bh(&zcrypt_device_lock);
 			rc = zdev->ops->send_cprb(zdev, xcRB);
+			spin_lock_bh(&zcrypt_device_lock);
 			module_put(zdev->ap_dev->drv->driver.owner);
 		}
 		else
 			rc = -EAGAIN;
-		spin_lock_bh(&zcrypt_device_lock);
 		zdev->request_count--;
 		__zcrypt_increase_preference(zdev);
 		put_device(&zdev->ap_dev->device);
@@ -791,7 +791,7 @@ static long trans_xcRB32(struct file *filp, unsigned int cmd,
 	return rc;
 }
 
-long zcrypt_compat_ioctl(struct file *filp, unsigned int cmd,
+static long zcrypt_compat_ioctl(struct file *filp, unsigned int cmd,
 			 unsigned long arg)
 {
 	if (cmd == ICARSAMODEXPO)
@@ -807,7 +807,7 @@ long zcrypt_compat_ioctl(struct file *filp, unsigned int cmd,
 /**
  * Misc device file operations.
  */
-static struct file_operations zcrypt_fops = {
+static const struct file_operations zcrypt_fops = {
 	.owner		= THIS_MODULE,
 	.read		= zcrypt_read,
 	.write		= zcrypt_write,
@@ -833,8 +833,8 @@ static struct miscdevice zcrypt_misc_device = {
  */
 static struct proc_dir_entry *zcrypt_entry;
 
-static inline int sprintcl(unsigned char *outaddr, unsigned char *addr,
-			   unsigned int len)
+static int sprintcl(unsigned char *outaddr, unsigned char *addr,
+		    unsigned int len)
 {
 	int hl, i;
 
@@ -845,8 +845,8 @@ static inline int sprintcl(unsigned char *outaddr, unsigned char *addr,
 	return hl;
 }
 
-static inline int sprintrw(unsigned char *outaddr, unsigned char *addr,
-			   unsigned int len)
+static int sprintrw(unsigned char *outaddr, unsigned char *addr,
+		    unsigned int len)
 {
 	int hl, inl, c, cx;
 
@@ -865,8 +865,8 @@ static inline int sprintrw(unsigned char *outaddr, unsigned char *addr,
 	return hl;
 }
 
-static inline int sprinthx(unsigned char *title, unsigned char *outaddr,
-			   unsigned char *addr, unsigned int len)
+static int sprinthx(unsigned char *title, unsigned char *outaddr,
+		    unsigned char *addr, unsigned int len)
 {
 	int hl, inl, r, rx;
 
@@ -885,8 +885,8 @@ static inline int sprinthx(unsigned char *title, unsigned char *outaddr,
 	return hl;
 }
 
-static inline int sprinthx4(unsigned char *title, unsigned char *outaddr,
-			    unsigned int *array, unsigned int len)
+static int sprinthx4(unsigned char *title, unsigned char *outaddr,
+		     unsigned int *array, unsigned int len)
 {
 	int hl, r;
 
@@ -943,7 +943,7 @@ static int zcrypt_status_read(char *resp_buff, char **start, off_t offset,
 	zcrypt_qdepth_mask(workarea);
 	len += sprinthx("Waiting work element counts",
 			resp_buff+len, workarea, AP_DEVICES);
-	zcrypt_perdev_reqcnt((unsigned int *) workarea);
+	zcrypt_perdev_reqcnt((int *) workarea);
 	len += sprinthx4("Per-device successfully completed request counts",
 			 resp_buff+len,(unsigned int *) workarea, AP_DEVICES);
 	*eof = 1;
@@ -1063,7 +1063,6 @@ int __init zcrypt_api_init(void)
 		rc = -ENOMEM;
 		goto out_misc;
 	}
-	zcrypt_entry->nlink = 1;
 	zcrypt_entry->data = NULL;
 	zcrypt_entry->read_proc = zcrypt_status_read;
 	zcrypt_entry->write_proc = zcrypt_status_write;

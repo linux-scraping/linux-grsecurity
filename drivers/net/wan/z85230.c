@@ -331,8 +331,7 @@ static void z8530_rtsdtr(struct z8530_channel *c, int set)
 static void z8530_rx(struct z8530_channel *c)
 {
 	u8 ch,stat;
-	spin_lock(c->lock);
- 
+
 	while(1)
 	{
 		/* FIFO empty ? */
@@ -390,7 +389,6 @@ static void z8530_rx(struct z8530_channel *c)
 	 */
 	write_zsctrl(c, ERR_RES);
 	write_zsctrl(c, RES_H_IUS);
-	spin_unlock(c->lock);
 }
 
 
@@ -406,11 +404,10 @@ static void z8530_rx(struct z8530_channel *c)
  
 static void z8530_tx(struct z8530_channel *c)
 {
-	spin_lock(c->lock);
 	while(c->txcount) {
 		/* FIFO full ? */
 		if(!(read_zsreg(c, R0)&4))
-			break;
+			return;
 		c->txcount--;
 		/*
 		 *	Shovel out the byte
@@ -434,7 +431,6 @@ static void z8530_tx(struct z8530_channel *c)
 
 	z8530_tx_done(c);	 
 	write_zsctrl(c, RES_H_IUS);
-	spin_unlock(c->lock);
 }
 
 /**
@@ -452,7 +448,6 @@ static void z8530_status(struct z8530_channel *chan)
 {
 	u8 status, altered;
 
-	spin_lock(chan->lock);
 	status=read_zsreg(chan, R0);
 	altered=chan->status^status;
 	
@@ -487,7 +482,6 @@ static void z8530_status(struct z8530_channel *chan)
 	}	
 	write_zsctrl(chan, RES_EXT_INT);
 	write_zsctrl(chan, RES_H_IUS);
-	spin_unlock(chan->lock);
 }
 
 struct z8530_irqhandler z8530_sync=
@@ -511,7 +505,6 @@ EXPORT_SYMBOL(z8530_sync);
  
 static void z8530_dma_rx(struct z8530_channel *chan)
 {
-	spin_lock(chan->lock);
 	if(chan->rxdma_on)
 	{
 		/* Special condition check only */
@@ -534,7 +527,6 @@ static void z8530_dma_rx(struct z8530_channel *chan)
 		/* DMA is off right now, drain the slow way */
 		z8530_rx(chan);
 	}	
-	spin_unlock(chan->lock);
 }
 
 /**
@@ -547,7 +539,6 @@ static void z8530_dma_rx(struct z8530_channel *chan)
  
 static void z8530_dma_tx(struct z8530_channel *chan)
 {
-	spin_lock(chan->lock);
 	if(!chan->dma_tx)
 	{
 		printk(KERN_WARNING "Hey who turned the DMA off?\n");
@@ -557,7 +548,6 @@ static void z8530_dma_tx(struct z8530_channel *chan)
 	/* This shouldnt occur in DMA mode */
 	printk(KERN_ERR "DMA tx - bogus event!\n");
 	z8530_tx(chan);
-	spin_unlock(chan->lock);
 }
 
 /**
@@ -596,7 +586,6 @@ static void z8530_dma_status(struct z8530_channel *chan)
 		}
 	}
 
-	spin_lock(chan->lock);
 	if(altered&chan->dcdcheck)
 	{
 		if(status&chan->dcdcheck)
@@ -618,7 +607,6 @@ static void z8530_dma_status(struct z8530_channel *chan)
 
 	write_zsctrl(chan, RES_EXT_INT);
 	write_zsctrl(chan, RES_H_IUS);
-	spin_unlock(chan->lock);
 }
 
 struct z8530_irqhandler z8530_dma_sync=
@@ -1668,7 +1656,7 @@ static void z8530_rx_done(struct z8530_channel *c)
 		else
 		{
 			skb_put(skb, ct);
-			memcpy(skb->data, rxb, ct);
+			skb_copy_to_linear_data(skb, rxb, ct);
 			c->stats.rx_packets++;
 			c->stats.rx_bytes+=ct;
 		}
@@ -1794,7 +1782,7 @@ int z8530_queue_xmit(struct z8530_channel *c, struct sk_buff *skb)
 		 */
 		c->tx_next_ptr=c->tx_dma_buf[c->tx_dma_used];
 		c->tx_dma_used^=1;	/* Flip temp buffer */
-		memcpy(c->tx_next_ptr, skb->data, skb->len);
+		skb_copy_from_linear_data(skb, c->tx_next_ptr, skb->len);
 	}
 	else
 		c->tx_next_ptr=skb->data;	

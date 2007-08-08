@@ -36,11 +36,12 @@ struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev)
 	struct sk_buff *skb = alloc_skb(128, GFP_ATOMIC);
 
 	if (skb) {
+		skb_reset_mac_header(skb);
 		skb_reserve(skb, 50);
-		skb->nh.raw   = skb->h.raw = skb->data;
+		skb_reset_network_header(skb);
+		skb_reset_transport_header(skb);
 		skb->protocol = htons(ETH_P_802_2);
 		skb->dev      = dev;
-		skb->mac.raw  = skb->head;
 		if (sk != NULL)
 			skb_set_owner_w(skb, sk);
 	}
@@ -201,7 +202,7 @@ static void llc_sap_state_process(struct llc_sap *sap, struct sk_buff *skb)
 			if (sock_queue_rcv_skb(skb->sk, skb))
 				kfree_skb(skb);
 		}
-	} 
+	}
 	kfree_skb(skb);
 }
 
@@ -215,7 +216,7 @@ static void llc_sap_state_process(struct llc_sap *sap, struct sk_buff *skb)
  *	This function is called when upper layer wants to send a TEST pdu.
  *	Returns 0 for success, 1 otherwise.
  */
-void llc_build_and_send_test_pkt(struct llc_sap *sap, 
+void llc_build_and_send_test_pkt(struct llc_sap *sap,
 				 struct sk_buff *skb, u8 *dmac, u8 dsap)
 {
 	struct llc_sap_state_ev *ev = llc_sap_ev(skb);
@@ -224,7 +225,7 @@ void llc_build_and_send_test_pkt(struct llc_sap *sap,
 	ev->daddr.lsap = dsap;
 	memcpy(ev->saddr.mac, skb->dev->dev_addr, IFHWADDRLEN);
 	memcpy(ev->daddr.mac, dmac, IFHWADDRLEN);
-	
+
 	ev->type      = LLC_SAP_EV_TYPE_PRIM;
 	ev->prim      = LLC_TEST_PRIM;
 	ev->prim_type = LLC_PRIM_TYPE_REQ;

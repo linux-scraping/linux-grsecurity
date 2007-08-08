@@ -146,6 +146,13 @@ UNUSUAL_DEV(  0x0420, 0x0001, 0x0100, 0x0100,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE ),
 
+/* Reported by Andrew Nayenko <relan@bk.ru> */
+UNUSUAL_DEV(  0x0421, 0x0019, 0x0592, 0x0592,
+		"Nokia",
+		"Nokia 6288",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_MAX_SECTORS_64 ),
+
 /* Reported by Mario Rettig <mariorettig@web.de> */
 UNUSUAL_DEV(  0x0421, 0x042e, 0x0100, 0x0100,
 		"Nokia",
@@ -317,6 +324,13 @@ UNUSUAL_DEV(  0x04b0, 0x0405, 0x0100, 0x0100,
 UNUSUAL_DEV(  0x04b0, 0x040d, 0x0100, 0x0100,
 		"NIKON",
 		"NIKON DSC D70s",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
+/* Reported by Emil Larsson <emil@swip.net> */
+UNUSUAL_DEV(  0x04b0, 0x0411, 0x0100, 0x0100,
+		"NIKON",
+		"NIKON DSC D80",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY),
 
@@ -573,7 +587,7 @@ UNUSUAL_DEV(  0x054c, 0x002b, 0x0100, 0x0110,
 #endif
 
 /* Submitted by Olaf Hering, <olh@suse.de> SuSE Bugzilla #49049 */
-UNUSUAL_DEV(  0x054c, 0x002c, 0x0501, 0x0501,
+UNUSUAL_DEV(  0x054c, 0x002c, 0x0501, 0x2000,
 		"Sony",
 		"USB Floppy Drive",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -1101,6 +1115,15 @@ UNUSUAL_DEV(  0x08bd, 0x1100, 0x0000, 0x0000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_SINGLE_LUN),
 
+/* Submitted by Dylan Taft <d13f00l@gmail.com>
+ * US_FL_IGNORE_RESIDUE Needed
+ */
+UNUSUAL_DEV(  0x08ca, 0x3103, 0x0100, 0x0100,
+                "AIPTEK",
+                "Aiptek USB Keychain MP3 Player",
+                US_SC_DEVICE, US_PR_DEVICE, NULL,
+                US_FL_IGNORE_RESIDUE),
+
 /* Entry needed for flags. Moreover, all devices with this ID use
  * bulk-only transport, but _some_ falsely report Control/Bulk instead.
  * One example is "Trumpion Digital Research MYMP3".
@@ -1156,13 +1179,27 @@ UNUSUAL_DEV( 0x0a17, 0x006, 0x0000, 0xffff,
                 US_SC_DEVICE, US_PR_DEVICE, NULL,
                 US_FL_FIX_INQUIRY ),
 
-/* This is a virtual windows driver CD, which the zd1211rw driver automatically
- * converts into a WLAN device. */
+/* These are virtual windows driver CDs, which the zd1211rw driver
+ * automatically converts into WLAN devices. */
 UNUSUAL_DEV( 0x0ace, 0x2011, 0x0101, 0x0101,
                 "ZyXEL",
                 "G-220F USB-WLAN Install",
                 US_SC_DEVICE, US_PR_DEVICE, NULL,
                 US_FL_IGNORE_DEVICE ),
+
+UNUSUAL_DEV( 0x0ace, 0x20ff, 0x0101, 0x0101,
+		"SiteCom",
+		"WL-117 USB-WLAN Install",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_DEVICE ),
+
+/* SanDisk that has a second LUN for a driver ISO, reported by
+ * Ben Collins <bcollins@ubuntu.com> */
+UNUSUAL_DEV( 0x0781, 0x5406, 0x0000, 0xffff,
+		"SanDisk",
+		"U3 Cruzer Micro driver ISO",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SINGLE_LUN ),
 
 #ifdef CONFIG_USB_STORAGE_ISD200
 UNUSUAL_DEV(  0x0bf6, 0xa001, 0x0100, 0x0110,
@@ -1242,6 +1279,15 @@ UNUSUAL_DEV( 0x0dd8, 0x1060, 0x0000, 0xffff,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
+/* Reported by Edward Chapman (taken from linux-usb mailing list)
+   Netac OnlyDisk Mini U2CV2 512MB USB 2.0 Flash Drive */
+UNUSUAL_DEV( 0x0dd8, 0xd202, 0x0000, 0x9999,
+		"Netac",
+		"USB Flash Disk",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE ),
+
+
 /* Patch by Stephan Walter <stephan.walter@epfl.ch>
  * I don't know why, but it works... */
 UNUSUAL_DEV( 0x0dda, 0x0001, 0x0012, 0x0012,
@@ -1311,24 +1357,18 @@ UNUSUAL_DEV(  0x0fce, 0xd008, 0x0000, 0x0000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_NO_WP_DETECT ),
 
-/* Reported by Jan Mate <mate@fiit.stuba.sk> */
+/* Reported by Jan Mate <mate@fiit.stuba.sk>
+ * and by Soeren Sonnenburg <kernel@nn7.de> */
 UNUSUAL_DEV(  0x0fce, 0xe030, 0x0000, 0x0000,
 		"Sony Ericsson",
 		"P990i",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
+		US_FL_FIX_CAPACITY | US_FL_IGNORE_RESIDUE ),
 
 /* Reported by Emmanuel Vasilakis <evas@forthnet.gr> */
 UNUSUAL_DEV(  0x0fce, 0xe031, 0x0000, 0x0000,
 		"Sony Ericsson",
 		"M600i",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Reported by Jan Mate <mate@fiit.stuba.sk> */
-UNUSUAL_DEV(  0x0fce, 0xe030, 0x0000, 0x0000,
-		"Sony Ericsson",
-		"P990i",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
 
@@ -1353,15 +1393,6 @@ UNUSUAL_DEV(  0x1210, 0x0003, 0x0100, 0x0100,
 		"DigiTech Mass Storage",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE ),
-
-/* This prevents the kernel from detecting the virtual cd-drive with the
- * Windows drivers.  <johann.wilhelm@student.tugraz.at>
-*/
-UNUSUAL_DEV( 0x12d1, 0x1003, 0x0000, 0xffff,
-		"HUAWEI",
-		"E220 USB-UMTS Install",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_DEVICE),
 
 /* Reported by Vilius Bilinkevicius <vilisas AT xxx DOT lt) */
 UNUSUAL_DEV(  0x132b, 0x000b, 0x0001, 0x0001,
@@ -1401,6 +1432,16 @@ UNUSUAL_DEV(  0x22b8, 0x3010, 0x0001, 0x0001,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY | US_FL_IGNORE_RESIDUE ),
 
+/*
+ * Patch by Pete Zaitcev <zaitcev@redhat.com>
+ * Report by Mark Patton. Red Hat bz#208928.
+ */
+UNUSUAL_DEV(  0x22b8, 0x4810, 0x0001, 0x0001,
+		"Motorola",
+		"RAZR V3i",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
 /* Reported by Radovan Garabik <garabik@kassiopeia.juls.savba.sk> */
 UNUSUAL_DEV(  0x2735, 0x100b, 0x0000, 0x9999,
 		"MPIO",
@@ -1430,7 +1471,7 @@ UNUSUAL_DEV(  0xed06, 0x4500, 0x0001, 0x0001,
 		"DataStor",
 		"USB4500 FW1.04",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
+		US_FL_CAPACITY_HEURISTICS),
 
 /* Control/Bulk transport for all SubClass values */
 USUAL_DEV(US_SC_RBC, US_PR_CB, USB_US_TYPE_STOR),

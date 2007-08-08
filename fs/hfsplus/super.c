@@ -11,7 +11,6 @@
 #include <linux/init.h>
 #include <linux/pagemap.h>
 #include <linux/fs.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/vfs.h>
 #include <linux/nls.h>
@@ -260,7 +259,7 @@ static int hfsplus_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
-static struct super_operations hfsplus_sops = {
+static const struct super_operations hfsplus_sops = {
 	.alloc_inode	= hfsplus_alloc_inode,
 	.destroy_inode	= hfsplus_destroy_inode,
 	.read_inode	= hfsplus_read_inode,
@@ -471,8 +470,7 @@ static void hfsplus_init_once(void *p, struct kmem_cache *cachep, unsigned long 
 {
 	struct hfsplus_inode_info *i = p;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) == SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&i->vfs_inode);
+	inode_init_once(&i->vfs_inode);
 }
 
 static int __init init_hfsplus_fs(void)

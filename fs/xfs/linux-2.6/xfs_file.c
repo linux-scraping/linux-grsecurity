@@ -46,7 +46,7 @@ static struct vm_operations_struct xfs_file_vm_ops;
 static struct vm_operations_struct xfs_dmapi_file_vm_ops;
 #endif
 
-STATIC inline ssize_t
+STATIC_INLINE ssize_t
 __xfs_file_read(
 	struct kiocb		*iocb,
 	const struct iovec	*iov,
@@ -84,7 +84,7 @@ xfs_file_aio_read_invis(
 	return __xfs_file_read(iocb, iov, nr_segs, IO_ISAIO|IO_INVIS, pos);
 }
 
-STATIC inline ssize_t
+STATIC_INLINE ssize_t
 __xfs_file_write(
 	struct kiocb		*iocb,
 	const struct iovec	*iov,
@@ -342,12 +342,6 @@ xfs_file_mmap(
 	struct file	*filp,
 	struct vm_area_struct *vma)
 {
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
-	if ((vma->vm_mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_EXEC))
-		vma->vm_page_prot = __pgprot(pte_val(pte_exprotect(__pte(pgprot_val(vma->vm_page_prot)))));
-#endif
-
 	vma->vm_ops = &xfs_file_vm_ops;
 
 #ifdef CONFIG_XFS_DMAPI

@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
+#include <net/ip.h>
 #include <linux/udp.h>
 
 #include <net/netfilter/nf_nat.h>
@@ -90,9 +91,9 @@ static int map_sip_addr(struct sk_buff **pskb, enum ip_conntrack_info ctinfo,
 		return 1;
 
 	if (!nf_nat_mangle_udp_packet(pskb, ct, ctinfo,
-	                              matchoff, matchlen, addr, addrlen))
+				      matchoff, matchlen, addr, addrlen))
 		return 0;
-	*dptr = (*pskb)->data + (*pskb)->nh.iph->ihl*4 + sizeof(struct udphdr);
+	*dptr = (*pskb)->data + ip_hdrlen(*pskb) + sizeof(struct udphdr);
 	return 1;
 
 }
@@ -106,7 +107,7 @@ static unsigned int ip_nat_sip(struct sk_buff **pskb,
 	struct addr_map map;
 	int dataoff, datalen;
 
-	dataoff = (*pskb)->nh.iph->ihl*4 + sizeof(struct udphdr);
+	dataoff = ip_hdrlen(*pskb) + sizeof(struct udphdr);
 	datalen = (*pskb)->len - dataoff;
 	if (datalen < sizeof("SIP/2.0") - 1)
 		return NF_DROP;
@@ -151,11 +152,11 @@ static unsigned int mangle_sip_packet(struct sk_buff **pskb,
 		return 0;
 
 	if (!nf_nat_mangle_udp_packet(pskb, ct, ctinfo,
-	                              matchoff, matchlen, buffer, bufflen))
+				      matchoff, matchlen, buffer, bufflen))
 		return 0;
 
 	/* We need to reload this. Thanks Patrick. */
-	*dptr = (*pskb)->data + (*pskb)->nh.iph->ihl*4 + sizeof(struct udphdr);
+	*dptr = (*pskb)->data + ip_hdrlen(*pskb) + sizeof(struct udphdr);
 	return 1;
 }
 
@@ -168,11 +169,11 @@ static int mangle_content_len(struct sk_buff **pskb,
 	char buffer[sizeof("65536")];
 	int bufflen;
 
-	dataoff = (*pskb)->nh.iph->ihl*4 + sizeof(struct udphdr);
+	dataoff = ip_hdrlen(*pskb) + sizeof(struct udphdr);
 
 	/* Get actual SDP lenght */
 	if (ct_sip_get_info(ct, dptr, (*pskb)->len - dataoff, &matchoff,
-	                    &matchlen, POS_SDP_HEADER) > 0) {
+			    &matchlen, POS_SDP_HEADER) > 0) {
 
 		/* since ct_sip_get_info() give us a pointer passing 'v='
 		   we need to add 2 bytes in this count. */
@@ -180,7 +181,7 @@ static int mangle_content_len(struct sk_buff **pskb,
 
 		/* Now, update SDP length */
 		if (ct_sip_get_info(ct, dptr, (*pskb)->len - dataoff, &matchoff,
-		                    &matchlen, POS_CONTENT) > 0) {
+				    &matchlen, POS_CONTENT) > 0) {
 
 			bufflen = sprintf(buffer, "%u", c_len);
 			return nf_nat_mangle_udp_packet(pskb, ct, ctinfo,
@@ -200,25 +201,48 @@ static unsigned int mangle_sdp(struct sk_buff **pskb,
 	char buffer[sizeof("nnn.nnn.nnn.nnn")];
 	unsigned int dataoff, bufflen;
 
-	dataoff = (*pskb)->nh.iph->ihl*4 + sizeof(struct udphdr);
+	dataoff = ip_hdrlen(*pskb) + sizeof(struct udphdr);
 
 	/* Mangle owner and contact info. */
 	bufflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(newip));
 	if (!mangle_sip_packet(pskb, ctinfo, ct, &dptr, (*pskb)->len - dataoff,
-	                       buffer, bufflen, POS_OWNER_IP4))
+			       buffer, bufflen, POS_OWNER_IP4))
 		return 0;
 
 	if (!mangle_sip_packet(pskb, ctinfo, ct, &dptr, (*pskb)->len - dataoff,
-	                       buffer, bufflen, POS_CONNECTION_IP4))
+			       buffer, bufflen, POS_CONNECTION_IP4))
 		return 0;
 
 	/* Mangle media port. */
 	bufflen = sprintf(buffer, "%u", port);
 	if (!mangle_sip_packet(pskb, ctinfo, ct, &dptr, (*pskb)->len - dataoff,
-	                       buffer, bufflen, POS_MEDIA))
+			       buffer, bufflen, POS_MEDIA))
 		return 0;
 
 	return mangle_content_len(pskb, ctinfo, ct, dptr);
+}
+
+static void ip_nat_sdp_expect(struct nf_conn *ct,
+			      struct nf_conntrack_expect *exp)
+{
+	struct nf_nat_range range;
+
+	/* This must be a fresh one. */
+	BUG_ON(ct->status & IPS_NAT_DONE_MASK);
+
+	/* Change src to where master sends to */
+	range.flags = IP_NAT_RANGE_MAP_IPS;
+	range.min_ip = range.max_ip
+		= ct->master->tuplehash[!exp->dir].tuple.dst.u3.ip;
+	/* hook doesn't matter, but it has to do source manip */
+	nf_nat_setup_info(ct, &range, NF_IP_POST_ROUTING);
+
+	/* For DST manip, map port here to where it's expected. */
+	range.flags = (IP_NAT_RANGE_MAP_IPS | IP_NAT_RANGE_PROTO_SPECIFIED);
+	range.min = range.max = exp->saved_proto;
+	range.min_ip = range.max_ip = exp->saved_ip;
+	/* hook doesn't matter, but it has to do destination manip */
+	nf_nat_setup_info(ct, &range, NF_IP_PRE_ROUTING);
 }
 
 /* So, this packet has hit the connection tracking matching code.
@@ -238,13 +262,14 @@ static unsigned int ip_nat_sdp(struct sk_buff **pskb,
 	/* Connection will come from reply */
 	newip = ct->tuplehash[!dir].tuple.dst.u3.ip;
 
+	exp->saved_ip = exp->tuple.dst.u3.ip;
 	exp->tuple.dst.u3.ip = newip;
 	exp->saved_proto.udp.port = exp->tuple.dst.u.udp.port;
 	exp->dir = !dir;
 
 	/* When you see the packet, we need to NAT it the same as the
 	   this one. */
-	exp->expectfn = nf_nat_follow_master;
+	exp->expectfn = ip_nat_sdp_expect;
 
 	/* Try to get same port: if not, try to change it. */
 	for (port = ntohs(exp->saved_proto.udp.port); port != 0; port++) {

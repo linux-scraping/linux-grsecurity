@@ -21,6 +21,8 @@
 #include <asm/irq_regs.h>
 #include <asm/setup.h>
 #include <asm/reset.h>
+#include <asm/ipl.h>
+#include <asm/chpid.h>
 #include "airq.h"
 #include "cio.h"
 #include "css.h"
@@ -28,6 +30,7 @@
 #include "ioasm.h"
 #include "blacklist.h"
 #include "cio_debug.h"
+#include "chp.h"
 #include "../s390mach.h"
 
 debug_info_t *cio_debug_msg_id;
@@ -122,7 +125,7 @@ cio_get_options (struct subchannel *sch)
  * Use tpi to get a pending interrupt, call the interrupt handler and
  * return a pointer to the subchannel structure.
  */
-static inline int
+static int
 cio_tpi(void)
 {
 	struct tpi_info *tpi_info;
@@ -152,7 +155,7 @@ cio_tpi(void)
 	return 1;
 }
 
-static inline int
+static int
 cio_start_handle_notoper(struct subchannel *sch, __u8 lpm)
 {
 	char dbf_text[15];
@@ -585,15 +588,16 @@ cio_validate_subchannel (struct subchannel *sch, struct subchannel_id schid)
 		 * This device must not be known to Linux. So we simply
 		 * say that there is no device and return ENODEV.
 		 */
-		CIO_MSG_EVENT(0, "Blacklisted device detected "
+		CIO_MSG_EVENT(4, "Blacklisted device detected "
 			      "at devno %04X, subchannel set %x\n",
 			      sch->schib.pmcw.dev, sch->schid.ssid);
 		err = -ENODEV;
 		goto out;
 	}
-	sch->opm = 0xff;
-	if (!cio_is_console(sch->schid))
-		chsc_validate_chpids(sch);
+	if (cio_is_console(sch->schid))
+		sch->opm = 0xff;
+	else
+		sch->opm = chp_get_sch_opm(sch);
 	sch->lpm = sch->schib.pmcw.pam & sch->opm;
 
 	CIO_DEBUG(KERN_INFO, 0,
@@ -646,7 +650,7 @@ do_IRQ (struct pt_regs *regs)
 		 * Make sure that the i/o interrupt did not "overtake"
 		 * the last HZ timer interrupt.
 		 */
-		account_ticks();
+		account_ticks(S390_lowcore.int_clock);
 	/*
 	 * Get interrupt information from lowcore
 	 */
@@ -832,7 +836,7 @@ cio_get_console_subchannel(void)
 }
 
 #endif
-static inline int
+static int
 __disable_subchannel_easy(struct subchannel_id schid, struct schib *schib)
 {
 	int retry, cc;
@@ -850,7 +854,20 @@ __disable_subchannel_easy(struct subchannel_id schid, struct schib *schib)
 	return -EBUSY; /* uhm... */
 }
 
-static inline int
+/* we can't use the normal udelay here, since it enables external interrupts */
+
+static void udelay_reset(unsigned long usecs)
+{
+	uint64_t start_cc, end_cc;
+
+	asm volatile ("STCK %0" : "=m" (start_cc));
+	do {
+		cpu_relax();
+		asm volatile ("STCK %0" : "=m" (end_cc));
+	} while (((end_cc - start_cc)/4096) < usecs);
+}
+
+static int
 __clear_subchannel_easy(struct subchannel_id schid)
 {
 	int retry;
@@ -865,7 +882,7 @@ __clear_subchannel_easy(struct subchannel_id schid)
 			if (schid_equal(&ti.schid, &schid))
 				return 0;
 		}
-		udelay(100);
+		udelay_reset(100);
 	}
 	return -EBUSY;
 }
@@ -882,11 +899,11 @@ static int stsch_reset(struct subchannel_id schid, volatile struct schib *addr)
 	int rc;
 
 	pgm_check_occured = 0;
-	s390_reset_pgm_handler = cio_reset_pgm_check_handler;
+	s390_base_pgm_handler_fn = cio_reset_pgm_check_handler;
 	rc = stsch(schid, addr);
-	s390_reset_pgm_handler = NULL;
+	s390_base_pgm_handler_fn = NULL;
 
-	/* The program check handler could have changed pgm_check_occured */
+	/* The program check handler could have changed pgm_check_occured. */
 	barrier();
 
 	if (pgm_check_occured)
@@ -940,17 +957,20 @@ static void css_reset(void)
 {
 	int i, ret;
 	unsigned long long timeout;
+	struct chp_id chpid;
 
 	/* Reset subchannels. */
 	for_each_subchannel(__shutdown_subchannel_easy,  NULL);
 	/* Reset channel paths. */
-	s390_reset_mcck_handler = s390_reset_chpids_mcck_handler;
+	s390_base_mcck_handler_fn = s390_reset_chpids_mcck_handler;
 	/* Enable channel report machine checks. */
 	__ctl_set_bit(14, 28);
 	/* Temporarily reenable machine checks. */
 	local_mcck_enable();
+	chp_id_init(&chpid);
 	for (i = 0; i <= __MAX_CHPID; i++) {
-		ret = rchp(i);
+		chpid.id = i;
+		ret = rchp(chpid);
 		if ((ret == 0) || (ret == 2))
 			/*
 			 * rchp either succeeded, or another rchp is already
@@ -969,7 +989,7 @@ static void css_reset(void)
 	local_mcck_disable();
 	/* Disable channel report machine checks. */
 	__ctl_clear_bit(14, 28);
-	s390_reset_mcck_handler = NULL;
+	s390_base_mcck_handler_fn = NULL;
 }
 
 static struct reset_call css_reset_call = {
@@ -1034,37 +1054,19 @@ void reipl_ccw_dev(struct ccw_dev_id *devid)
 	do_reipl_asm(*((__u32*)&schid));
 }
 
-extern struct schib ipl_schib;
-
-/*
- * ipl_save_parameters gets called very early. It is not allowed to access
- * anything in the bss section at all. The bss section is not cleared yet,
- * but may contain some ipl parameters written by the firmware.
- * These parameters (if present) are copied to 0x2000.
- * To avoid corruption of the ipl parameters, all variables used by this
- * function must reside on the stack or in the data section.
- */
-void ipl_save_parameters(void)
+int __init cio_get_iplinfo(struct cio_iplinfo *iplinfo)
 {
 	struct subchannel_id schid;
-	unsigned int *ipl_ptr;
-	void *src, *dst;
+	struct schib schib;
 
 	schid = *(struct subchannel_id *)__LC_SUBCHANNEL_ID;
 	if (!schid.one)
-		return;
-	if (stsch(schid, &ipl_schib))
-		return;
-	if (!ipl_schib.pmcw.dnv)
-		return;
-	ipl_devno = ipl_schib.pmcw.dev;
-	ipl_flags |= IPL_DEVNO_VALID;
-	if (!ipl_schib.pmcw.qf)
-		return;
-	ipl_flags |= IPL_PARMBLOCK_VALID;
-	ipl_ptr = (unsigned int *)__LC_IPL_PARMBLOCK_PTR;
-	src = (void *)(unsigned long)*ipl_ptr;
-	dst = (void *)IPL_PARMBLOCK_ORIGIN;
-	memmove(dst, src, PAGE_SIZE);
-	*ipl_ptr = IPL_PARMBLOCK_ORIGIN;
+		return -ENODEV;
+	if (stsch(schid, &schib))
+		return -ENODEV;
+	if (!schib.pmcw.dnv)
+		return -ENODEV;
+	iplinfo->devno = schib.pmcw.dev;
+	iplinfo->is_qdio = schib.pmcw.qf;
+	return 0;
 }

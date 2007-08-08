@@ -107,7 +107,7 @@ module_param_array(dxr_enable, int, NULL, 0444);
 MODULE_PARM_DESC(dxr_enable, "Enable DXR support for Terratec DMX6FIRE.");
 
 
-static struct pci_device_id snd_ice1712_ids[] = {
+static const struct pci_device_id snd_ice1712_ids[] = {
 	{ PCI_VENDOR_ID_ICE, PCI_DEVICE_ID_ICE_1712, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },   /* ICE1712 */
 	{ 0, }
 };
@@ -719,7 +719,7 @@ static snd_pcm_uframes_t snd_ice1712_capture_pointer(struct snd_pcm_substream *s
 	return bytes_to_frames(substream->runtime, ptr);
 }
 
-static struct snd_pcm_hardware snd_ice1712_playback =
+static const struct snd_pcm_hardware snd_ice1712_playback =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -739,7 +739,7 @@ static struct snd_pcm_hardware snd_ice1712_playback =
 	.fifo_size =		0,
 };
 
-static struct snd_pcm_hardware snd_ice1712_playback_ds =
+static const struct snd_pcm_hardware snd_ice1712_playback_ds =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -759,7 +759,7 @@ static struct snd_pcm_hardware snd_ice1712_playback_ds =
 	.fifo_size =		0,
 };
 
-static struct snd_pcm_hardware snd_ice1712_capture =
+static const struct snd_pcm_hardware snd_ice1712_capture =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -977,11 +977,9 @@ static int snd_ice1712_pro_trigger(struct snd_pcm_substream *substream,
 	{
 		unsigned int what = 0;
 		unsigned int old;
-		struct list_head *pos;
 		struct snd_pcm_substream *s;
 
-		snd_pcm_group_for_each(pos, substream) {
-			s = snd_pcm_group_substream_entry(pos);
+		snd_pcm_group_for_each_entry(s, substream) {
 			if (s == ice->playback_pro_substream) {
 				what |= ICE1712_PLAYBACK_START;
 				snd_pcm_trigger_done(s, substream);
@@ -1133,7 +1131,7 @@ static snd_pcm_uframes_t snd_ice1712_capture_pro_pointer(struct snd_pcm_substrea
 	return bytes_to_frames(substream->runtime, ptr);
 }
 
-static struct snd_pcm_hardware snd_ice1712_playback_pro =
+static const struct snd_pcm_hardware snd_ice1712_playback_pro =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -1153,7 +1151,7 @@ static struct snd_pcm_hardware snd_ice1712_playback_pro =
 	.fifo_size =		0,
 };
 
-static struct snd_pcm_hardware snd_ice1712_capture_pro =
+static const struct snd_pcm_hardware snd_ice1712_capture_pro =
 {
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -1378,7 +1376,7 @@ static int snd_ice1712_pro_mixer_volume_put(struct snd_kcontrol *kcontrol, struc
 	return change;
 }
 
-static DECLARE_TLV_DB_SCALE(db_scale_playback, -14400, 150, 0);
+static const DECLARE_TLV_DB_SCALE(db_scale_playback, -14400, 150, 0);
 
 static struct snd_kcontrol_new snd_ice1712_multi_playback_ctrls[] __devinitdata = {
 	{
@@ -1811,7 +1809,7 @@ int snd_ice1712_gpio_put(struct snd_kcontrol *kcontrol,
 static int snd_ice1712_pro_internal_clock_info(struct snd_kcontrol *kcontrol,
 					       struct snd_ctl_elem_info *uinfo)
 {
-	static char *texts[] = {
+	static const char * const texts[] = {
 		"8000",		/* 0: 6 */
 		"9600",		/* 1: 3 */
 		"11025",	/* 2: 10 */
@@ -1840,7 +1838,7 @@ static int snd_ice1712_pro_internal_clock_get(struct snd_kcontrol *kcontrol,
 					      struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
-	static unsigned char xlate[16] = {
+	static const unsigned char xlate[16] = {
 		9, 6, 3, 1, 7, 4, 0, 12, 8, 5, 2, 11, 255, 255, 255, 10
 	};
 	unsigned char val;
@@ -1864,7 +1862,7 @@ static int snd_ice1712_pro_internal_clock_put(struct snd_kcontrol *kcontrol,
 					      struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
-	static unsigned int xrate[13] = {
+	static const unsigned int xrate[13] = {
 		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
@@ -1902,7 +1900,7 @@ static struct snd_kcontrol_new snd_ice1712_pro_internal_clock __devinitdata = {
 static int snd_ice1712_pro_internal_clock_default_info(struct snd_kcontrol *kcontrol,
 						       struct snd_ctl_elem_info *uinfo)
 {
-	static char *texts[] = {
+	static const char * const texts[] = {
 		"8000",		/* 0: 6 */
 		"9600",		/* 1: 3 */
 		"11025",	/* 2: 10 */
@@ -1931,7 +1929,7 @@ static int snd_ice1712_pro_internal_clock_default_get(struct snd_kcontrol *kcont
 						      struct snd_ctl_elem_value *ucontrol)
 {
 	int val;
-	static unsigned int xrate[13] = {
+	static const unsigned int xrate[13] = {
 		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
@@ -1948,7 +1946,7 @@ static int snd_ice1712_pro_internal_clock_default_get(struct snd_kcontrol *kcont
 static int snd_ice1712_pro_internal_clock_default_put(struct snd_kcontrol *kcontrol,
 						      struct snd_ctl_elem_value *ucontrol)
 {
-	static unsigned int xrate[13] = {
+	static const unsigned int xrate[13] = {
 		8000, 9600, 11025, 12000, 16000, 22050, 24000,
 		32000, 44100, 48000, 64000, 88200, 96000
 	};
@@ -2054,7 +2052,7 @@ static struct snd_kcontrol_new snd_ice1712_pro_rate_reset __devinitdata = {
 static int snd_ice1712_pro_route_info(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_info *uinfo)
 {
-	static char *texts[] = {
+	static const char * const texts[] = {
 		"PCM Out", /* 0 */
 		"H/W In 0", "H/W In 1", "H/W In 2", "H/W In 3", /* 1-4 */
 		"H/W In 4", "H/W In 5", "H/W In 6", "H/W In 7", /* 5-8 */
@@ -2329,7 +2327,7 @@ static int __devinit snd_ice1712_read_eeprom(struct snd_ice1712 *ice,
 {
 	int dev = 0xa0;		/* EEPROM device address */
 	unsigned int i, size;
-	struct snd_ice1712_card_info **tbl, *c;
+	struct snd_ice1712_card_info * const *tbl, *c;
 
 	if (! modelname || ! *modelname) {
 		ice->eeprom.subvendor = 0;
@@ -2667,7 +2665,7 @@ static int __devinit snd_ice1712_probe(struct pci_dev *pci,
 	struct snd_card *card;
 	struct snd_ice1712 *ice;
 	int pcm_dev = 0, err;
-	struct snd_ice1712_card_info **tbl, *c;
+	struct snd_ice1712_card_info * const *tbl, *c;
 
 	if (dev >= SNDRV_CARDS)
 		return -ENODEV;

@@ -10,15 +10,11 @@
 #include <asm/pci-direct.h>
 #include <asm/acpi.h>
 #include <asm/apic.h>
-#include <asm/irq.h>
 
 #ifdef CONFIG_ACPI
 
-static int nvidia_hpet_detected __initdata;
-
-static int __init nvidia_hpet_check(unsigned long phys, unsigned long size)
+static int __init nvidia_hpet_check(struct acpi_table_header *header)
 {
-	nvidia_hpet_detected = 1;
 	return 0;
 }
 #endif
@@ -26,12 +22,13 @@ static int __init nvidia_hpet_check(unsigned long phys, unsigned long size)
 static int __init check_bridge(int vendor, int device)
 {
 #ifdef CONFIG_ACPI
+	static int warned;
 	/* According to Nvidia all timer overrides are bogus unless HPET
 	   is enabled. */
 	if (!acpi_use_timer_override && vendor == PCI_VENDOR_ID_NVIDIA) {
-		nvidia_hpet_detected = 0;
-		acpi_table_parse(ACPI_HPET, nvidia_hpet_check);
-		if (nvidia_hpet_detected == 0) {
+		if (!warned && acpi_table_parse(ACPI_SIG_HPET,
+						nvidia_hpet_check)) {
+			warned = 1;
 			acpi_skip_timer_override = 1;
 			  printk(KERN_INFO "Nvidia board "
                        "detected. Ignoring ACPI "
@@ -50,24 +47,6 @@ static int __init check_bridge(int vendor, int device)
 	return 0;
 }
 
-static void check_intel(void)
-{
-	u16 vendor, device;
-
-	vendor = read_pci_config_16(0, 0, 0, PCI_VENDOR_ID);
-
-	if (vendor != PCI_VENDOR_ID_INTEL)
-		return;
-
-	device = read_pci_config_16(0, 0, 0, PCI_DEVICE_ID);
-#ifdef CONFIG_SMP
-	if (device == PCI_DEVICE_ID_INTEL_E7320_MCH ||
-	    device == PCI_DEVICE_ID_INTEL_E7520_MCH ||
-	    device == PCI_DEVICE_ID_INTEL_E7525_MCH)
-		quirk_intel_irqbalance();
-#endif
-}
-
 void __init check_acpi_pci(void)
 {
 	int num, slot, func;
@@ -78,8 +57,6 @@ void __init check_acpi_pci(void)
 	   to disable it by command line option at least -AK */
 	if (!early_pci_allowed())
 		return;
-
-	check_intel();
 
 	/* Poor man's PCI discovery */
 	for (num = 0; num < 32; num++) {

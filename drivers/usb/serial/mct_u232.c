@@ -137,6 +137,7 @@ static struct usb_serial_driver mct_u232_device = {
 		.name =		"mct_u232",
 	},
 	.description =	     "MCT U232",
+	.usb_driver = 	     &mct_u232_driver,
 	.id_table =	     id_table_combined,
 	.num_interrupt_in =  2,
 	.num_bulk_in =	     0,
@@ -437,17 +438,21 @@ static int  mct_u232_open (struct usb_serial_port *port, struct file *filp)
 	if (retval) {
 		err("usb_submit_urb(read bulk) failed pipe 0x%x err %d",
 		    port->read_urb->pipe, retval);
-		goto exit;
+		goto error;
 	}
 
 	port->interrupt_in_urb->dev = port->serial->dev;
 	retval = usb_submit_urb(port->interrupt_in_urb, GFP_KERNEL);
-	if (retval)
+	if (retval) {
+		usb_kill_urb(port->read_urb);
 		err(" usb_submit_urb(read int) failed pipe 0x%x err %d",
 		    port->interrupt_in_urb->pipe, retval);
-
-exit:
+		goto error;
+	}
 	return 0;
+
+error:
+	return retval;
 } /* mct_u232_open */
 
 

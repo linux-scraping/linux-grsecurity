@@ -22,6 +22,7 @@
 #include <linux/backing-dev.h>
 #include <linux/hugetlb.h>
 #include <linux/pagevec.h>
+#include <linux/mman.h>
 #include <linux/quotaops.h>
 #include <linux/slab.h>
 #include <linux/dnotify.h>
@@ -33,11 +34,11 @@
 /* some random number */
 #define HUGETLBFS_MAGIC	0x958458f6
 
-static struct super_operations hugetlbfs_ops;
+static const struct super_operations hugetlbfs_ops;
 static const struct address_space_operations hugetlbfs_aops;
 const struct file_operations hugetlbfs_file_operations;
-static struct inode_operations hugetlbfs_dir_inode_operations;
-static struct inode_operations hugetlbfs_inode_operations;
+static const struct inode_operations hugetlbfs_dir_inode_operations;
+static const struct inode_operations hugetlbfs_inode_operations;
 
 static struct backing_dev_info hugetlbfs_backing_dev_info = {
 	.ra_pages	= 0,	/* No readahead */
@@ -98,10 +99,7 @@ out:
  * Called under down_write(mmap_sem).
  */
 
-#ifdef HAVE_ARCH_HUGETLB_UNMAPPED_AREA
-unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
-		unsigned long len, unsigned long pgoff, unsigned long flags);
-#else
+#ifndef HAVE_ARCH_HUGETLB_UNMAPPED_AREA
 static unsigned long
 hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		unsigned long len, unsigned long pgoff, unsigned long flags)
@@ -114,6 +112,12 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		return -EINVAL;
 	if (len > TASK_SIZE)
 		return -ENOMEM;
+
+	if (flags & MAP_FIXED) {
+		if (prepare_hugepage_range(addr, len, pgoff))
+			return -EINVAL;
+		return addr;
+	}
 
 	if (addr) {
 		addr = ALIGN(addr, HPAGE_SIZE);
@@ -453,7 +457,7 @@ static int hugetlbfs_symlink(struct inode *dir,
  */
 static int hugetlbfs_set_page_dirty(struct page *page)
 {
-	struct page *head = (struct page *)page_private(page);
+	struct page *head = compound_head(page);
 
 	SetPageDirty(head);
 	return 0;
@@ -552,9 +556,7 @@ static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
 {
 	struct hugetlbfs_inode_info *ei = (struct hugetlbfs_inode_info *)foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&ei->vfs_inode);
+	inode_init_once(&ei->vfs_inode);
 }
 
 const struct file_operations hugetlbfs_file_operations = {
@@ -563,7 +565,7 @@ const struct file_operations hugetlbfs_file_operations = {
 	.get_unmapped_area	= hugetlb_get_unmapped_area,
 };
 
-static struct inode_operations hugetlbfs_dir_inode_operations = {
+static const struct inode_operations hugetlbfs_dir_inode_operations = {
 	.create		= hugetlbfs_create,
 	.lookup		= simple_lookup,
 	.link		= simple_link,
@@ -576,11 +578,11 @@ static struct inode_operations hugetlbfs_dir_inode_operations = {
 	.setattr	= hugetlbfs_setattr,
 };
 
-static struct inode_operations hugetlbfs_inode_operations = {
+static const struct inode_operations hugetlbfs_inode_operations = {
 	.setattr	= hugetlbfs_setattr,
 };
 
-static struct super_operations hugetlbfs_ops = {
+static const struct super_operations hugetlbfs_ops = {
 	.alloc_inode    = hugetlbfs_alloc_inode,
 	.destroy_inode  = hugetlbfs_destroy_inode,
 	.statfs		= hugetlbfs_statfs,
@@ -734,15 +736,16 @@ static int can_do_hugetlb_shm(void)
 			can_do_mlock());
 }
 
-struct file *hugetlb_zero_setup(size_t size)
+struct file *hugetlb_file_setup(const char *name, size_t size)
 {
 	int error = -ENOMEM;
 	struct file *file;
 	struct inode *inode;
 	struct dentry *dentry, *root;
 	struct qstr quick_string;
-	char buf[16];
-	static atomic_t counter;
+
+	if (!hugetlbfs_vfsmount)
+		return ERR_PTR(-ENOENT);
 
 	if (!can_do_hugetlb_shm())
 		return ERR_PTR(-EPERM);
@@ -751,8 +754,7 @@ struct file *hugetlb_zero_setup(size_t size)
 		return ERR_PTR(-ENOMEM);
 
 	root = hugetlbfs_vfsmount->mnt_root;
-	snprintf(buf, 16, "%u", atomic_inc_return(&counter));
-	quick_string.name = buf;
+	quick_string.name = name;
 	quick_string.len = strlen(quick_string.name);
 	quick_string.hash = 0;
 	dentry = d_alloc(root, &quick_string);

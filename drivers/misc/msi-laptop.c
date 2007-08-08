@@ -85,7 +85,7 @@ static int set_lcd_level(int level)
 	buf[0] = 0x80;
 	buf[1] = (u8) (level*31);
 
-	return ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, buf, sizeof(buf), NULL, 0);
+	return ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, buf, sizeof(buf), NULL, 0, 1);
 }
 
 static int get_lcd_level(void)
@@ -93,7 +93,7 @@ static int get_lcd_level(void)
 	u8 wdata = 0, rdata;
 	int result;
 
-	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, &wdata, 1, &rdata, 1);
+	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, &wdata, 1, &rdata, 1, 1);
 	if (result < 0)
 		return result;
 
@@ -105,7 +105,7 @@ static int get_auto_brightness(void)
 	u8 wdata = 4, rdata;
 	int result;
 
-	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, &wdata, 1, &rdata, 1);
+	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, &wdata, 1, &rdata, 1, 1);
 	if (result < 0)
 		return result;
 
@@ -119,14 +119,14 @@ static int set_auto_brightness(int enable)
 
 	wdata[0] = 4;
 
-	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, wdata, 1, &rdata, 1);
+	result = ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, wdata, 1, &rdata, 1, 1);
 	if (result < 0)
 		return result;
 
 	wdata[0] = 0x84;
 	wdata[1] = (rdata & 0xF7) | (enable ? 8 : 0);
 
-	return ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, wdata, 2, NULL, 0);
+	return ec_transaction(MSI_EC_COMMAND_LCD_LEVEL, wdata, 2, NULL, 0, 1);
 }
 
 static int get_wireless_state(int *wlan, int *bluetooth)
@@ -134,7 +134,7 @@ static int get_wireless_state(int *wlan, int *bluetooth)
 	u8 wdata = 0, rdata;
 	int result;
 
-	result = ec_transaction(MSI_EC_COMMAND_WIRELESS, &wdata, 1, &rdata, 1);
+	result = ec_transaction(MSI_EC_COMMAND_WIRELESS, &wdata, 1, &rdata, 1, 1);
 	if (result < 0)
 		return -1;
 
@@ -157,14 +157,12 @@ static int bl_get_brightness(struct backlight_device *b)
 
 static int bl_update_status(struct backlight_device *b)
 {
-	return set_lcd_level(b->props->brightness);
+	return set_lcd_level(b->props.brightness);
 }
 
-static struct backlight_properties msibl_props = {
-	.owner		= THIS_MODULE,
+static struct backlight_ops msibl_ops = {
 	.get_brightness = bl_get_brightness,
 	.update_status  = bl_update_status,
-	.max_brightness = MSI_LCD_LEVEL_MAX-1,
 };
 
 static struct backlight_device *msibl_device;
@@ -318,9 +316,11 @@ static int __init msi_init(void)
 	/* Register backlight stuff */
 
 	msibl_device = backlight_device_register("msi-laptop-bl", NULL, NULL,
-						&msibl_props);
+						&msibl_ops);
 	if (IS_ERR(msibl_device))
 		return PTR_ERR(msibl_device);
+
+	msibl_device->props.max_brightness = MSI_LCD_LEVEL_MAX-1,
 
 	ret = platform_driver_register(&msipf_driver);
 	if (ret)

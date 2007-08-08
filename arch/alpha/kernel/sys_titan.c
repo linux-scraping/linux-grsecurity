@@ -257,8 +257,7 @@ titan_dispatch_irqs(u64 mask)
 	 */
 	while (mask) {
 		/* convert to SRM vector... priority is <63> -> <0> */
-		__asm__("ctlz %1, %0" : "=r"(vector) : "r"(mask));
-		vector = 63 - vector;
+		vector = 63 - __kernel_ctlz(mask);
 		mask &= ~(1UL << vector);	/* clear it out 	 */
 		vector = 0x900 + (vector << 4);	/* convert to SRM vector */
 		
@@ -332,9 +331,7 @@ titan_init_pci(void)
 	pci_probe_only = 1;
 	common_init_pci();
 	SMC669_Init(0);
-#ifdef CONFIG_VGA_HOSE
 	locate_and_init_vga(NULL);
-#endif
 }
 
 

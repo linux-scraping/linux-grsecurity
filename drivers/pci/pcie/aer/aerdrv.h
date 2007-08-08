@@ -8,6 +8,7 @@
 #ifndef _AERDRV_H_
 #define _AERDRV_H_
 
+#include <linux/workqueue.h>
 #include <linux/pcieport_if.h>
 #include <linux/aer.h>
 
@@ -85,7 +86,7 @@ struct aer_rpc {
 	struct mutex rpc_mutex;		/*
 					 * only one thread could do
 					 * recovery on the same
-					 * root port hierachy
+					 * root port hierarchy
 					 */
 	wait_queue_head_t wait_release;
 };

@@ -58,7 +58,7 @@ static inline unsigned int serial_in(struct IsdnCardState *cs, int offset)
 static inline unsigned int serial_inp(struct IsdnCardState *cs, int offset)
 {
 #ifdef SERIAL_DEBUG_REG
-#ifdef CONFIG_SERIAL_NOPAUSE_IO
+#ifdef ELSA_SERIAL_NOPAUSE_IO
 	u_int val = inb(cs->hw.elsa.base + 8 + offset);
 	debugl1(cs,"inp  %s %02x",ModemIn[offset], val);
 #else
@@ -67,7 +67,7 @@ static inline unsigned int serial_inp(struct IsdnCardState *cs, int offset)
 #endif
 	return(val);
 #else
-#ifdef CONFIG_SERIAL_NOPAUSE_IO
+#ifdef ELSA_SERIAL_NOPAUSE_IO
 	return inb(cs->hw.elsa.base + 8 + offset);
 #else
 	return inb_p(cs->hw.elsa.base + 8 + offset);
@@ -87,13 +87,13 @@ static inline void serial_outp(struct IsdnCardState *cs, int offset,
 			       int value)
 {
 #ifdef SERIAL_DEBUG_REG
-#ifdef CONFIG_SERIAL_NOPAUSE_IO
+#ifdef ELSA_SERIAL_NOPAUSE_IO
 	debugl1(cs,"outp %s %02x",ModemOut[offset], value);
 #else
 	debugl1(cs,"outP %s %02x",ModemOut[offset], value);
 #endif
 #endif
-#ifdef CONFIG_SERIAL_NOPAUSE_IO
+#ifdef ELSA_SERIAL_NOPAUSE_IO
 	outb(value, cs->hw.elsa.base + 8 + offset);
 #else
     	outb_p(value, cs->hw.elsa.base + 8 + offset);
@@ -254,14 +254,16 @@ write_modem(struct BCState *bcs) {
 	count = len;
 	if (count > MAX_MODEM_BUF - fp) {
 		count = MAX_MODEM_BUF - fp;
-		memcpy(cs->hw.elsa.transbuf + fp, bcs->tx_skb->data, count);
+		skb_copy_from_linear_data(bcs->tx_skb,
+					  cs->hw.elsa.transbuf + fp, count);
 		skb_pull(bcs->tx_skb, count);
 		cs->hw.elsa.transcnt += count;
 		ret = count;
 		count = len - count;
 		fp = 0;
 	}
-	memcpy((cs->hw.elsa.transbuf + fp), bcs->tx_skb->data, count);
+	skb_copy_from_linear_data(bcs->tx_skb,
+				  cs->hw.elsa.transbuf + fp, count);
 	skb_pull(bcs->tx_skb, count);
 	cs->hw.elsa.transcnt += count;
 	ret += count;

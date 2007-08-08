@@ -229,23 +229,29 @@ asmlinkage long sys_sync_file_range(int fd, loff_t offset, loff_t nbytes,
 			!S_ISLNK(i_mode))
 		goto out_put;
 
-	ret = do_sync_file_range(file, offset, endbyte, flags);
+	ret = do_sync_mapping_range(file->f_mapping, offset, endbyte, flags);
 out_put:
 	fput_light(file, fput_needed);
 out:
 	return ret;
 }
 
+/* It would be nice if people remember that not all the world's an i386
+   when they introduce new system calls */
+asmlinkage long sys_sync_file_range2(int fd, unsigned int flags,
+				     loff_t offset, loff_t nbytes)
+{
+	return sys_sync_file_range(fd, offset, nbytes, flags);
+}
+
 /*
  * `endbyte' is inclusive
  */
-int do_sync_file_range(struct file *file, loff_t offset, loff_t endbyte,
-			unsigned int flags)
+int do_sync_mapping_range(struct address_space *mapping, loff_t offset,
+			  loff_t endbyte, unsigned int flags)
 {
 	int ret;
-	struct address_space *mapping;
 
-	mapping = file->f_mapping;
 	if (!mapping) {
 		ret = -EINVAL;
 		goto out;
@@ -275,4 +281,4 @@ int do_sync_file_range(struct file *file, loff_t offset, loff_t endbyte,
 out:
 	return ret;
 }
-EXPORT_SYMBOL_GPL(do_sync_file_range);
+EXPORT_SYMBOL_GPL(do_sync_mapping_range);

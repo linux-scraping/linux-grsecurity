@@ -221,8 +221,6 @@ struct spu_priv2_collapsed {
  * @spu_chnlcnt_RW: Array of saved channel counts.
  * @spu_chnldata_RW: Array of saved channel data.
  * @suspend_time: Time stamp when decrementer disabled.
- * @slb_esid_RW: Array of saved SLB esid entries.
- * @slb_vsid_RW: Array of saved SLB vsid entries.
  *
  * Structure representing the whole of the SPU
  * context save area (CSA).  This struct contains
@@ -237,6 +235,12 @@ struct spu_priv2_collapsed {
  */
 struct spu_state {
 	struct spu_lscsa *lscsa;
+#ifdef CONFIG_SPU_FS_64K_LS
+	int		use_big_pages;
+	/* One struct page per 64k page */
+#define SPU_LSCSA_NUM_BIG_PAGES	(sizeof(struct spu_lscsa) / 0x10000)
+	struct page	*lscsa_pages[SPU_LSCSA_NUM_BIG_PAGES];
+#endif
 	struct spu_problem_collapsed prob;
 	struct spu_priv1_collapsed priv1;
 	struct spu_priv2_collapsed priv2;
@@ -244,18 +248,19 @@ struct spu_state {
 	u64 spu_chnldata_RW[32];
 	u32 spu_mailbox_data[4];
 	u32 pu_mailbox_data[1];
+	u64 dar, dsisr;
 	unsigned long suspend_time;
-	u64 slb_esid_RW[8];
-	u64 slb_vsid_RW[8];
 	spinlock_t register_lock;
 };
 
-extern void spu_init_csa(struct spu_state *csa);
+extern int spu_init_csa(struct spu_state *csa);
 extern void spu_fini_csa(struct spu_state *csa);
 extern int spu_save(struct spu_state *prev, struct spu *spu);
 extern int spu_restore(struct spu_state *new, struct spu *spu);
 extern int spu_switch(struct spu_state *prev, struct spu_state *new,
 		      struct spu *spu);
+extern int spu_alloc_lscsa(struct spu_state *csa);
+extern void spu_free_lscsa(struct spu_state *csa);
 
 #endif /* !__SPU__ */
 #endif /* __KERNEL__ */

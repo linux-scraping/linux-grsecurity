@@ -7,17 +7,6 @@
  *
  * Author:
  *	Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *
- * 16 Dec 2003: Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *	- support Layer 3 protocol independent connection tracking.
- *	  Based on the original ip_conntrack code which	had the following
- *	  copyright information:
- *		(C) 1999-2001 Paul `Rusty' Russell
- *		(C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
- *
- * 23 Mar 2004: Yasuyuki Kozakai @USAGI <yasuyuki.kozakai@toshiba.co.jp>
- *	- add get_features() to support various size of conntrack
- *	  structures.
  */
 
 #include <linux/types.h>
@@ -138,24 +127,18 @@ static int
 ipv6_prepare(struct sk_buff **pskb, unsigned int hooknum, unsigned int *dataoff,
 	     u_int8_t *protonum)
 {
-	unsigned int extoff;
-	unsigned char pnum;
-	int protoff;
-
-	extoff = (u8*)((*pskb)->nh.ipv6h + 1) - (*pskb)->data;
-	pnum = (*pskb)->nh.ipv6h->nexthdr;
-
-	protoff = nf_ct_ipv6_skip_exthdr(*pskb, extoff, &pnum,
-					 (*pskb)->len - extoff);
-
+	unsigned int extoff = (u8 *)(ipv6_hdr(*pskb) + 1) - (*pskb)->data;
+	unsigned char pnum = ipv6_hdr(*pskb)->nexthdr;
+	int protoff = nf_ct_ipv6_skip_exthdr(*pskb, extoff, &pnum,
+					     (*pskb)->len - extoff);
 	/*
 	 * (protoff == (*pskb)->len) mean that the packet doesn't have no data
 	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
 	 */
 	if ((protoff < 0) || (protoff > (*pskb)->len)) {
 		DEBUGP("ip6_conntrack_core: can't find proto in pkt\n");
-		NF_CT_STAT_INC(error);
-		NF_CT_STAT_INC(invalid);
+		NF_CT_STAT_INC_ATOMIC(error);
+		NF_CT_STAT_INC_ATOMIC(invalid);
 		return -NF_ACCEPT;
 	}
 
@@ -177,11 +160,11 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
 {
 	struct nf_conn *ct;
 	struct nf_conn_help *help;
+	struct nf_conntrack_helper *helper;
 	enum ip_conntrack_info ctinfo;
 	unsigned int ret, protoff;
-	unsigned int extoff = (u8*)((*pskb)->nh.ipv6h + 1)
-			      - (*pskb)->data;
-	unsigned char pnum = (*pskb)->nh.ipv6h->nexthdr;
+	unsigned int extoff = (u8 *)(ipv6_hdr(*pskb) + 1) - (*pskb)->data;
+	unsigned char pnum = ipv6_hdr(*pskb)->nexthdr;
 
 
 	/* This is where we call the helper: as the packet goes out. */
@@ -190,18 +173,21 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
 		goto out;
 
 	help = nfct_help(ct);
-	if (!help || !help->helper)
+	if (!help)
+		goto out;
+	/* rcu_read_lock()ed by nf_hook_slow */
+	helper = rcu_dereference(help->helper);
+	if (!helper)
 		goto out;
 
 	protoff = nf_ct_ipv6_skip_exthdr(*pskb, extoff, &pnum,
 					 (*pskb)->len - extoff);
-	if (protoff < 0 || protoff > (*pskb)->len ||
-	    pnum == NEXTHDR_FRAGMENT) {
+	if (protoff > (*pskb)->len || pnum == NEXTHDR_FRAGMENT) {
 		DEBUGP("proto header not found\n");
 		return NF_ACCEPT;
 	}
 
-	ret = help->helper->help(pskb, protoff, ct, ctinfo);
+	ret = helper->help(pskb, protoff, ct, ctinfo);
 	if (ret != NF_ACCEPT)
 		return ret;
 out:
@@ -350,12 +336,11 @@ static ctl_table nf_ct_ipv6_sysctl_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
-        { .ctl_name = 0 }
+	{ .ctl_name = 0 }
 };
 #endif
 
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
@@ -387,7 +372,7 @@ static int ipv6_nfattr_to_tuple(struct nfattr *tb[],
 	if (nfattr_bad_size(tb, CTA_IP_MAX, cta_min_ip))
 		return -EINVAL;
 
-	memcpy(&t->src.u3.ip6, NFA_DATA(tb[CTA_IP_V6_SRC-1]), 
+	memcpy(&t->src.u3.ip6, NFA_DATA(tb[CTA_IP_V6_SRC-1]),
 	       sizeof(u_int32_t) * 4);
 	memcpy(&t->dst.u3.ip6, NFA_DATA(tb[CTA_IP_V6_DST-1]),
 	       sizeof(u_int32_t) * 4);
@@ -404,8 +389,7 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 = {
 	.print_tuple		= ipv6_print_tuple,
 	.print_conntrack	= ipv6_print_conntrack,
 	.prepare		= ipv6_prepare,
-#if defined(CONFIG_NF_CT_NETLINK) || \
-    defined(CONFIG_NF_CT_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.tuple_to_nfattr	= ipv6_tuple_to_nfattr,
 	.nfattr_to_tuple	= ipv6_nfattr_to_tuple,
 #endif

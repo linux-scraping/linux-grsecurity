@@ -57,6 +57,7 @@
 #include <sound/core.h>
 #include <sound/info.h>
 #include <sound/control.h>
+#include <sound/tlv.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/asoundef.h>
@@ -64,6 +65,12 @@
 #include <asm/io.h>
 #include <asm/atomic.h>
 #include "echoaudio.h"
+
+MODULE_FIRMWARE("ea/loader_dsp.fw");
+MODULE_FIRMWARE("ea/gina24_301_dsp.fw");
+MODULE_FIRMWARE("ea/gina24_361_dsp.fw");
+MODULE_FIRMWARE("ea/gina24_301_asic.fw");
+MODULE_FIRMWARE("ea/gina24_361_asic.fw");
 
 #define FW_361_LOADER		0
 #define FW_GINA24_301_DSP	1

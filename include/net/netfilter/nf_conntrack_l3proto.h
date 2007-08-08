@@ -56,9 +56,6 @@ struct nf_conntrack_l3proto
 	 */
 	int (*new)(struct nf_conn *conntrack, const struct sk_buff *skb);
 
-	/* Called when a conntrack entry is destroyed */
-	void (*destroy)(struct nf_conn *conntrack);
-
 	/*
 	 * Called before tracking. 
 	 *	*dataoff: offset of protocol header (TCP, UDP,...) in *pskb
@@ -89,11 +86,8 @@ extern struct nf_conntrack_l3proto *nf_ct_l3protos[AF_MAX];
 
 /* Protocol registration. */
 extern int nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto);
-extern int nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto);
-
-extern struct nf_conntrack_l3proto *
-nf_ct_l3proto_find_get(u_int16_t l3proto);
-
+extern void nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto);
+extern struct nf_conntrack_l3proto *nf_ct_l3proto_find_get(u_int16_t l3proto);
 extern void nf_ct_l3proto_put(struct nf_conntrack_l3proto *p);
 
 /* Existing built-in protocols */
@@ -106,7 +100,7 @@ __nf_ct_l3proto_find(u_int16_t l3proto)
 {
 	if (unlikely(l3proto >= AF_MAX))
 		return &nf_conntrack_l3proto_generic;
-	return nf_ct_l3protos[l3proto];
+	return rcu_dereference(nf_ct_l3protos[l3proto]);
 }
 
 #endif /*_NF_CONNTRACK_L3PROTO_H*/

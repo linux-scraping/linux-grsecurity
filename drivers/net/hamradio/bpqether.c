@@ -282,7 +282,7 @@ static int bpq_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	skb->protocol = ax25_type_trans(skb, dev);
-	skb->nh.raw = skb->data;
+	skb_reset_network_header(skb);
 	dev->hard_header(skb, dev, ETH_P_BPQ, bpq->dest_addr, NULL, 0);
 	bpq->stats.tx_packets++;
 	bpq->stats.tx_bytes+=skb->len;
@@ -459,7 +459,7 @@ static int bpq_info_open(struct inode *inode, struct file *file)
 	return seq_open(file, &bpq_seqops);
 }
 
-static struct file_operations bpq_info_fops = {
+static const struct file_operations bpq_info_fops = {
 	.owner = THIS_MODULE,
 	.open = bpq_info_open,
 	.read = seq_read,

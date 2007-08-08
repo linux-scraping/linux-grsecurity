@@ -10,7 +10,6 @@
  * we simulate an x86-style page table for the linux mm code
  */
 
-#include <linux/spinlock.h>
 #include <linux/mm.h>		/* for vm_area_struct */
 #include <asm/processor.h>
 #include <asm/cache.h>
@@ -539,10 +538,6 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr, 
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
 
 #define pgprot_noncached(prot) __pgprot(pgprot_val(prot) | _PAGE_NO_CACHE)
-
-#define MK_IOSPACE_PFN(space, pfn)	(pfn)
-#define GET_IOSPACE(pfn)		0
-#define GET_PFN(pfn)			(pfn)
 
 /* We provide our own get_unmapped_area to provide cache coherency */
 

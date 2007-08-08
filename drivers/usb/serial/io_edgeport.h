@@ -19,12 +19,6 @@
 #define MAX_RS232_PORTS		8	/* Max # of RS-232 ports per device */
 
 /* typedefs that the insideout headers need */
-#ifndef TRUE
-	#define TRUE		(1)
-#endif
-#ifndef FALSE
-	#define FALSE		(0)
-#endif
 #ifndef LOW8
 	#define LOW8(a)		((unsigned char)(a & 0xff))
 #endif
@@ -111,10 +105,12 @@ struct edgeport_product_info {
 	__le16	FirmwareBuildNumber;		/*				zzzz (LE format) */
 
 	__u8	ManufactureDescDate[3];		/* MM/DD/YY when descriptor template was compiled */
-	__u8	Unused1[1];			/* Available */
+	__u8	HardwareType;
 
 	__u8	iDownloadFile;			/* What to download to EPiC device */
-	__u8	Unused2[2];			/* Available */
+	__u8	EpicVer;			/* What version of EPiC spec this device supports */
+
+	struct edge_compatibility_bits Epic;
 };
 
 /*

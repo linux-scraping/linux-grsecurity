@@ -242,7 +242,7 @@ can generate: PAL , NTSC , SECAM
 
 Conexant bt866 TV encoder
 is used in AVS6EYES, and
-can generate: NTSC/PAL, PAL­M, PAL­N
+can generate: NTSC/PAL, PALÂ­M, PALÂ­N
 
 The adv717x, should be able to produce PAL N. But you find nothing PAL N
 specific in the registers. Seem that you have to reuse a other standard
@@ -339,9 +339,9 @@ Information - video4linux/mjpeg extensions:
 (also see below)
 
 Information - video4linux2:
-http://www.thedirks.org/v4l2/
+http://linuxtv.org
+http://v4l2spec.bytesex.org/
 /usr/include/linux/videodev2.h
-http://www.bytesex.org/v4l/
 
 More information on the video4linux/mjpeg extensions, by Serguei
 Miridonovi and Rainer Johanni:

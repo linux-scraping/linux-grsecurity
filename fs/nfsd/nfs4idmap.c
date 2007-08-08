@@ -46,11 +46,9 @@
 #include <linux/nfs4.h>
 #include <linux/nfs_fs.h>
 #include <linux/nfs_page.h>
-#include <linux/smp_lock.h>
 #include <linux/sunrpc/cache.h>
 #include <linux/nfsd_idmap.h>
 #include <linux/list.h>
-#include <linux/sched.h>
 #include <linux/time.h>
 #include <linux/seq_file.h>
 #include <linux/sunrpc/svcauth.h>

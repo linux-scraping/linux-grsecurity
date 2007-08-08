@@ -163,13 +163,19 @@ static __inline__ int
 gr_fake_force_sig(int sig, struct task_struct *t)
 {
 	unsigned long int flags;
-	int ret;
+	int ret, blocked, ignored;
+	struct k_sigaction *action;
 
 	spin_lock_irqsave(&t->sighand->siglock, flags);
-	if (sigismember(&t->blocked, sig) || t->sighand->action[sig-1].sa.sa_handler == SIG_IGN) {
-		t->sighand->action[sig-1].sa.sa_handler = SIG_DFL;
-		sigdelset(&t->blocked, sig);
-		recalc_sigpending_tsk(t);
+	action = &t->sighand->action[sig-1];
+	ignored = action->sa.sa_handler == SIG_IGN;
+	blocked = sigismember(&t->blocked, sig);
+	if (blocked || ignored) {
+		action->sa.sa_handler = SIG_DFL;
+		if (blocked) {
+			sigdelset(&t->blocked, sig);
+			recalc_sigpending_and_wake(t);
+		}
 	}
 	ret = specific_send_sig_info(sig, (void*)1L, t);
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);

@@ -35,7 +35,7 @@ match(const struct sk_buff *skb,
       unsigned int protoff,
       int *hotdrop)
 {
-	struct iphdr *ip = skb->nh.iph;
+	struct iphdr *ip = ip_hdr(skb);
 	struct tcphdr th;
 	struct udphdr uh;
 	struct sock *sk = NULL;
@@ -44,15 +44,15 @@ match(const struct sk_buff *skb,
 
 	switch(ip->protocol) {
 	case IPPROTO_TCP:
-		if (skb_copy_bits(skb, skb->nh.iph->ihl*4, &th, sizeof(th)) < 0) {
+		if (skb_copy_bits(skb, (ip_hdr(skb))->ihl*4, &th, sizeof(th)) < 0) {
 			*hotdrop = 1;
 			return 0;
 		}
 		if (!(th.syn && !th.ack)) return 0;
-		sk = inet_lookup_listener(&tcp_hashinfo, ip->daddr, ntohs(th.dest), ((struct rtable*)skb->dst)->rt_iif);	
+		sk = inet_lookup_listener(&tcp_hashinfo, ip->daddr, th.dest, inet_iif(skb));	
 		break;
 	case IPPROTO_UDP:
-		if (skb_copy_bits(skb, skb->nh.iph->ihl*4, &uh, sizeof(uh)) < 0) {
+		if (skb_copy_bits(skb, (ip_hdr(skb))->ihl*4, &uh, sizeof(uh)) < 0) {
 			*hotdrop = 1;
 			return 0;
 		}
@@ -91,8 +91,9 @@ checkentry(const char *tablename,
 }
 
 
-static struct ipt_match stealth_match = {
+static struct xt_match stealth_match = {
 	.name = "stealth",
+	.family = AF_INET,
 	.match = match,
 	.checkentry = checkentry,
 	.destroy = NULL,
@@ -101,12 +102,12 @@ static struct ipt_match stealth_match = {
 
 static int __init init(void)
 {
-	return ipt_register_match(&stealth_match);
+	return xt_register_match(&stealth_match);
 }
 
 static void __exit fini(void)
 {
-	ipt_unregister_match(&stealth_match);
+	xt_unregister_match(&stealth_match);
 }
 
 module_init(init);

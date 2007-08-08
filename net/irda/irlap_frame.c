@@ -93,7 +93,9 @@ void irlap_queue_xmit(struct irlap_cb *self, struct sk_buff *skb)
 {
 	/* Some common init stuff */
 	skb->dev = self->netdev;
-	skb->h.raw = skb->nh.raw = skb->mac.raw = skb->data;
+	skb_reset_mac_header(skb);
+	skb_reset_network_header(skb);
+	skb_reset_transport_header(skb);
 	skb->protocol = htons(ETH_P_IRDA);
 	skb->priority = TC_PRIO_BESTEFFORT;
 
@@ -411,10 +413,10 @@ static void irlap_recv_discovery_xid_rsp(struct irlap_cb *self,
 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
 
 	if (!pskb_may_pull(skb, sizeof(struct xid_frame))) {
-		IRDA_ERROR("%s: frame to short!\n", __FUNCTION__);
+		IRDA_ERROR("%s: frame too short!\n", __FUNCTION__);
 		return;
 	}
-		
+
 	xid = (struct xid_frame *) skb->data;
 
 	info->daddr = le32_to_cpu(xid->saddr);
@@ -482,10 +484,10 @@ static void irlap_recv_discovery_xid_cmd(struct irlap_cb *self,
 	char *text;
 
 	if (!pskb_may_pull(skb, sizeof(struct xid_frame))) {
-		IRDA_ERROR("%s: frame to short!\n", __FUNCTION__);
+		IRDA_ERROR("%s: frame too short!\n", __FUNCTION__);
 		return;
 	}
-	
+
 	xid = (struct xid_frame *) skb->data;
 
 	info->daddr = le32_to_cpu(xid->saddr);
@@ -524,9 +526,9 @@ static void irlap_recv_discovery_xid_cmd(struct irlap_cb *self,
 	 */
 	if (info->s == 0xff) {
 		/* Check if things are sane at this point... */
-		if((discovery_info == NULL) || 
+		if((discovery_info == NULL) ||
 		   !pskb_may_pull(skb, 3)) {
-			IRDA_ERROR("%s: discovery frame to short!\n",
+			IRDA_ERROR("%s: discovery frame too short!\n",
 				   __FUNCTION__);
 			return;
 		}
@@ -796,16 +798,19 @@ void irlap_send_data_primary_poll(struct irlap_cb *self, struct sk_buff *skb)
 		self->vs = (self->vs + 1) % 8;
 		self->ack_required = FALSE;
 
+		irlap_next_state(self, LAP_NRM_P);
 		irlap_send_i_frame(self, tx_skb, CMD_FRAME);
 	} else {
 		IRDA_DEBUG(4, "%s(), sending unreliable frame\n", __FUNCTION__);
 
 		if (self->ack_required) {
 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
+			irlap_next_state(self, LAP_NRM_P);
 			irlap_send_rr_frame(self, CMD_FRAME);
 			self->ack_required = FALSE;
 		} else {
 			skb->data[1] |= PF_BIT;
+			irlap_next_state(self, LAP_NRM_P);
 			irlap_send_ui_frame(self, skb_get(skb), self->caddr, CMD_FRAME);
 		}
 	}
@@ -1171,7 +1176,7 @@ static void irlap_recv_frmr_frame(struct irlap_cb *self, struct sk_buff *skb,
 	IRDA_ASSERT(info != NULL, return;);
 
 	if (!pskb_may_pull(skb, 4)) {
-		IRDA_ERROR("%s: frame to short!\n", __FUNCTION__);
+		IRDA_ERROR("%s: frame too short!\n", __FUNCTION__);
 		return;
 	}
 
@@ -1260,7 +1265,7 @@ static void irlap_recv_test_frame(struct irlap_cb *self, struct sk_buff *skb,
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
 	if (!pskb_may_pull(skb, sizeof(*frame))) {
-		IRDA_ERROR("%s: frame to short!\n", __FUNCTION__);
+		IRDA_ERROR("%s: frame too short!\n", __FUNCTION__);
 		return;
 	}
 	frame = (struct test_frame *) skb->data;
@@ -1268,7 +1273,7 @@ static void irlap_recv_test_frame(struct irlap_cb *self, struct sk_buff *skb,
 	/* Broadcast frames must carry saddr and daddr fields */
 	if (info->caddr == CBROADCAST) {
 		if (skb->len < sizeof(struct test_frame)) {
-			IRDA_DEBUG(0, "%s() test frame to short!\n",
+			IRDA_DEBUG(0, "%s() test frame too short!\n",
 				   __FUNCTION__);
 			return;
 		}
@@ -1334,7 +1339,7 @@ int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	/* Check if frame is large enough for parsing */
 	if (!pskb_may_pull(skb, 2)) {
-		IRDA_ERROR("%s: frame to short!\n", __FUNCTION__);
+		IRDA_ERROR("%s: frame too short!\n", __FUNCTION__);
 		dev_kfree_skb(skb);
 		return -1;
 	}

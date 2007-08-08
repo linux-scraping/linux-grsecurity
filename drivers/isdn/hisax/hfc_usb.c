@@ -37,8 +37,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/usb.h>
 #include <linux/kernel.h>
-#include <linux/smp_lock.h>
-#include <linux/sched.h>
 #include "hisax.h"
 #include "hisax_if.h"
 #include "hfc_usb.h"
@@ -183,7 +181,7 @@ typedef struct hfcusb_data {
 	int vend_idx;		/* vendor found */
 	int b_mode[2];		/* B-channel mode */
 	int l1_activated;	/* layer 1 activated */
-	int disc_flag;		/* TRUE if device was disonnected to avoid some USB actions */
+	int disc_flag;		/* 'true' if device was disonnected to avoid some USB actions */
 	int packet_size, iso_packet_size;
 
 	/* control pipe background handling */
@@ -392,7 +390,7 @@ l1_timer_expire_t3(hfcusb_data * hfc)
 	DBG(ISDN_DBG,
 	    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (T3 expire)");
 #endif
-	hfc->l1_activated = FALSE;
+	hfc->l1_activated = false;
 	handle_led(hfc, LED_S0_OFF);
 	/* deactivate : */
 	queue_control_request(hfc, HFCUSB_STATES, 0x10, 1);
@@ -411,7 +409,7 @@ l1_timer_expire_t4(hfcusb_data * hfc)
 	DBG(ISDN_DBG,
 	    "HFC-S USB: PH_DEACTIVATE | INDICATION sent (T4 expire)");
 #endif
-	hfc->l1_activated = FALSE;
+	hfc->l1_activated = false;
 	handle_led(hfc, LED_S0_OFF);
 }
 
@@ -452,7 +450,7 @@ state_handler(hfcusb_data * hfc, __u8 state)
 #ifdef CONFIG_HISAX_DEBUG
 		DBG(ISDN_DBG, "HFC-S USB: PH_ACTIVATE | INDICATION sent");
 #endif
-		hfc->l1_activated = TRUE;
+		hfc->l1_activated = true;
 		handle_led(hfc, LED_S0_ON);
 	} else if (state <= 3 /* && activated */ ) {
 		if (old_state == 7 || old_state == 8) {
@@ -472,7 +470,7 @@ state_handler(hfcusb_data * hfc, __u8 state)
 			DBG(ISDN_DBG,
 			    "HFC-S USB: PH_DEACTIVATE | INDICATION sent");
 #endif
-			hfc->l1_activated = FALSE;
+			hfc->l1_activated = false;
 			handle_led(hfc, LED_S0_OFF);
 		}
 	}
@@ -487,7 +485,6 @@ fill_isoc_urb(struct urb *urb, struct usb_device *dev, unsigned int pipe,
 {
 	int k;
 
-	spin_lock_init(&urb->lock);
 	urb->dev = dev;
 	urb->pipe = pipe;
 	urb->complete = complete;
@@ -580,16 +577,14 @@ stop_isoc_chain(usb_fifo * fifo)
 			    "HFC-S USB: Stopping iso chain for fifo %i.%i",
 			    fifo->fifonum, i);
 #endif
-			usb_unlink_urb(fifo->iso[i].purb);
+			usb_kill_urb(fifo->iso[i].purb);
 			usb_free_urb(fifo->iso[i].purb);
 			fifo->iso[i].purb = NULL;
 		}
 	}
-	if (fifo->urb) {
-		usb_unlink_urb(fifo->urb);
-		usb_free_urb(fifo->urb);
-		fifo->urb = NULL;
-	}
+	usb_kill_urb(fifo->urb);
+	usb_free_urb(fifo->urb);
+	fifo->urb = NULL;
 	fifo->active = 0;
 }
 
@@ -622,7 +617,7 @@ tx_iso_complete(struct urb *urb)
 	if (fifo->active && !status) {
 		transp_mode = 0;
 		if (fifon < 4 && hfc->b_mode[fifon / 2] == L1_MODE_TRANS)
-			transp_mode = TRUE;
+			transp_mode = true;
 
 		/* is FifoFull-threshold set for our channel? */
 		threshbit = threshtable[fifon] & hfc->threshold_mask;
@@ -640,7 +635,7 @@ tx_iso_complete(struct urb *urb)
 			      tx_iso_complete, urb->context);
 		memset(context_iso_urb->buffer, 0,
 		       sizeof(context_iso_urb->buffer));
-		frame_complete = FALSE;
+		frame_complete = false;
 		/* Generate next Iso Packets */
 		for (k = 0; k < num_isoc_packets; ++k) {
 			if (fifo->skbuff) {
@@ -666,7 +661,7 @@ tx_iso_complete(struct urb *urb)
 						/* add 2 byte flags and 16bit CRC at end of ISDN frame */
 						fifo->bit_line += 32;
 					}
-					frame_complete = TRUE;
+					frame_complete = true;
 				}
 
 				memcpy(context_iso_urb->buffer +
@@ -693,7 +688,7 @@ tx_iso_complete(struct urb *urb)
 			}
 
 			if (frame_complete) {
-				fifo->delete_flg = TRUE;
+				fifo->delete_flg = true;
 				fifo->hif->l1l2(fifo->hif,
 						PH_DATA | CONFIRM,
 						(void *) (unsigned long) fifo->skbuff->
@@ -701,9 +696,9 @@ tx_iso_complete(struct urb *urb)
 				if (fifo->skbuff && fifo->delete_flg) {
 					dev_kfree_skb_any(fifo->skbuff);
 					fifo->skbuff = NULL;
-					fifo->delete_flg = FALSE;
+					fifo->delete_flg = false;
 				}
-				frame_complete = FALSE;
+				frame_complete = false;
 			}
 		}
 		errcode = usb_submit_urb(urb, GFP_ATOMIC);
@@ -837,7 +832,7 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 	fifon = fifo->fifonum;
 	transp_mode = 0;
 	if (fifon < 4 && hfc->b_mode[fifon / 2] == L1_MODE_TRANS)
-		transp_mode = TRUE;
+		transp_mode = true;
 
 	if (!fifo->skbuff) {
 		fifo->skbuff = dev_alloc_skb(fifo->max_size + 3);
@@ -1176,7 +1171,7 @@ hfc_usb_l2l1(struct hisax_if *my_hisax_if, int pr, void *arg)
 			if (fifo->skbuff && fifo->delete_flg) {
 				dev_kfree_skb_any(fifo->skbuff);
 				fifo->skbuff = NULL;
-				fifo->delete_flg = FALSE;
+				fifo->delete_flg = false;
 			}
 			fifo->skbuff = arg;	/* we have a new buffer */
 			break;
@@ -1219,11 +1214,11 @@ usb_init(hfcusb_data * hfc)
 	/* aux = output, reset off */
 	write_usb(hfc, HFCUSB_CIRM, 0x10);
 
-	/* set USB_SIZE to match the the wMaxPacketSize for INT or BULK transfers */
+	/* set USB_SIZE to match the wMaxPacketSize for INT or BULK transfers */
 	write_usb(hfc, HFCUSB_USB_SIZE,
 		  (hfc->packet_size / 8) | ((hfc->packet_size / 8) << 4));
 
-	/* set USB_SIZE_I to match the the wMaxPacketSize for ISO transfers */
+	/* set USB_SIZE_I to match the wMaxPacketSize for ISO transfers */
 	write_usb(hfc, HFCUSB_USB_SIZE_I, hfc->iso_packet_size);
 
 	/* enable PCM/GCI master mode */
@@ -1262,8 +1257,8 @@ usb_init(hfcusb_data * hfc)
 	hfc->b_mode[0] = L1_MODE_NULL;
 	hfc->b_mode[1] = L1_MODE_NULL;
 
-	hfc->l1_activated = FALSE;
-	hfc->disc_flag = FALSE;
+	hfc->l1_activated = false;
+	hfc->disc_flag = false;
 	hfc->led_state = 0;
 	hfc->led_new_data = 0;
 	hfc->old_led_state = 0;
@@ -1307,7 +1302,11 @@ usb_init(hfcusb_data * hfc)
 	}
 	/* default Prot: EURO ISDN, should be a module_param */
 	hfc->protocol = 2;
-	hisax_register(&hfc->d_if, p_b_if, "hfc_usb", hfc->protocol);
+	i = hisax_register(&hfc->d_if, p_b_if, "hfc_usb", hfc->protocol);
+	if (i) {
+		printk(KERN_INFO "HFC-S USB: hisax_register -> %d\n", i);
+		return i;
+	}
 
 #ifdef CONFIG_HISAX_DEBUG
 	hfc_debug = debug;
@@ -1404,7 +1403,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 			/* check for config EOL element */
 			while (validconf[cfg_used][0]) {
-				cfg_found = TRUE;
+				cfg_found = true;
 				vcf = validconf[cfg_used];
 				/* first endpoint descriptor */
 				ep = iface->endpoint;
@@ -1426,7 +1425,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 						idx++;
 					attr = ep->desc.bmAttributes;
 					if (cmptbl[idx] == EP_NUL) {
-						cfg_found = FALSE;
+						cfg_found = false;
 					}
 					if (attr == USB_ENDPOINT_XFER_INT
 					    && cmptbl[idx] == EP_INT)
@@ -1448,7 +1447,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 							    "HFC-S USB: Interrupt Endpoint interval < %d found - skipping config",
 							    vcf[17]);
 #endif
-						cfg_found = FALSE;
+						cfg_found = false;
 					}
 					ep++;
 				}
@@ -1456,7 +1455,7 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 					/* all entries must be EP_NOP or EP_NUL for a valid config */
 					if (cmptbl[i] != EP_NOP
 					    && cmptbl[i] != EP_NUL)
-						cfg_found = FALSE;
+						cfg_found = false;
 				}
 				if (cfg_found) {
 					if (cfg_used < small_match) {
@@ -1628,11 +1627,9 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 #endif
 			/* init the chip and register the driver */
 			if (usb_init(context)) {
-				if (context->ctrl_urb) {
-					usb_unlink_urb(context->ctrl_urb);
-					usb_free_urb(context->ctrl_urb);
-					context->ctrl_urb = NULL;
-				}
+				usb_kill_urb(context->ctrl_urb);
+				usb_free_urb(context->ctrl_urb);
+				context->ctrl_urb = NULL;
 				kfree(context);
 				return (-EIO);
 			}
@@ -1656,7 +1653,7 @@ hfc_usb_disconnect(struct usb_interface
 	hfcusb_data *context = usb_get_intfdata(intf);
 	int i;
 	printk(KERN_INFO "HFC-S USB: device disconnect\n");
-	context->disc_flag = TRUE;
+	context->disc_flag = true;
 	usb_set_intfdata(intf, NULL);
 	if (!context)
 		return;
@@ -1684,21 +1681,15 @@ hfc_usb_disconnect(struct usb_interface
 				    i);
 #endif
 			}
-			if (context->fifos[i].urb) {
-				usb_unlink_urb(context->fifos[i].urb);
-				usb_free_urb(context->fifos[i].urb);
-				context->fifos[i].urb = NULL;
-			}
+			usb_kill_urb(context->fifos[i].urb);
+			usb_free_urb(context->fifos[i].urb);
+			context->fifos[i].urb = NULL;
 		}
 		context->fifos[i].active = 0;
 	}
-	/* wait for all URBS to terminate */
-	mdelay(10);
-	if (context->ctrl_urb) {
-		usb_unlink_urb(context->ctrl_urb);
-		usb_free_urb(context->ctrl_urb);
-		context->ctrl_urb = NULL;
-	}
+	usb_kill_urb(context->ctrl_urb);
+	usb_free_urb(context->ctrl_urb);
+	context->ctrl_urb = NULL;
 	hisax_unregister(&context->d_if);
 	kfree(context);		/* free our structure again */
 }				/* hfc_usb_disconnect */

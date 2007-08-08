@@ -367,11 +367,17 @@
 #define __NR_get_robust_list		(__NR_SYSCALL_BASE+339)
 #define __NR_splice			(__NR_SYSCALL_BASE+340)
 #define __NR_arm_sync_file_range	(__NR_SYSCALL_BASE+341)
+#define __NR_sync_file_range2		__NR_arm_sync_file_range
 #define __NR_tee			(__NR_SYSCALL_BASE+342)
 #define __NR_vmsplice			(__NR_SYSCALL_BASE+343)
 #define __NR_move_pages			(__NR_SYSCALL_BASE+344)
 #define __NR_getcpu			(__NR_SYSCALL_BASE+345)
 					/* 346 for epoll_pwait */
+#define __NR_kexec_load			(__NR_SYSCALL_BASE+347)
+#define __NR_utimensat			(__NR_SYSCALL_BASE+348)
+#define __NR_signalfd			(__NR_SYSCALL_BASE+349)
+#define __NR_timerfd			(__NR_SYSCALL_BASE+350)
+#define __NR_eventfd			(__NR_SYSCALL_BASE+351)
 
 /*
  * The following SWIs are ARM private.
@@ -431,6 +437,12 @@
  * but it doesn't work on all toolchains, so we just do it by hand
  */
 #define cond_syscall(x) asm(".weak\t" #x "\n\t.set\t" #x ",sys_ni_syscall")
+
+/*
+ * Unimplemented (or alternatively implemented) syscalls
+ */
+#define __IGNORE_sync_file_range	1
+#define __IGNORE_fadvise64_64		1
 
 #endif /* __KERNEL__ */
 #endif /* __ASM_ARM_UNISTD_H */

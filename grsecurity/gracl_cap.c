@@ -35,7 +35,9 @@ static const char *captab_log[] = {
 	"CAP_SYS_TIME",
 	"CAP_SYS_TTY_CONFIG",
 	"CAP_MKNOD",
-	"CAP_LEASE"
+	"CAP_LEASE",
+	"CAP_AUDIT_WRITE",
+	"CAP_AUDIT_CONTROL"
 };
 
 EXPORT_SYMBOL(gr_task_is_capable);

@@ -1,4 +1,4 @@
-/* 
+/*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2000-2001 Qualcomm Incorporated
 
@@ -12,13 +12,13 @@
    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
    IN NO EVENT SHALL THE COPYRIGHT HOLDER(S) AND AUTHOR(S) BE LIABLE FOR ANY
-   CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES 
-   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN 
-   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF 
+   CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-   ALL LIABILITY, INCLUDING LIABILITY FOR INFRINGEMENT OF ANY PATENTS, 
-   COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS 
+   ALL LIABILITY, INCLUDING LIABILITY FOR INFRINGEMENT OF ANY PATENTS,
+   COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS
    SOFTWARE IS DISCLAIMED.
 */
 
@@ -29,7 +29,6 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
 #include <linux/fcntl.h>
@@ -100,7 +99,7 @@ static void hci_cc_link_policy(struct hci_dev *hdev, __u16 ocf, struct sk_buff *
 	BT_DBG("%s ocf 0x%x", hdev->name, ocf);
 
 	switch (ocf) {
-	case OCF_ROLE_DISCOVERY: 
+	case OCF_ROLE_DISCOVERY:
 		rd = (void *) skb->data;
 
 		if (rd->status)
@@ -141,7 +140,7 @@ static void hci_cc_link_policy(struct hci_dev *hdev, __u16 ocf, struct sk_buff *
 		break;
 
 	default:
-		BT_DBG("%s: Command complete: ogf LINK_POLICY ocf %x", 
+		BT_DBG("%s: Command complete: ogf LINK_POLICY ocf %x",
 				hdev->name, ocf);
 		break;
 	}
@@ -237,10 +236,10 @@ static void hci_cc_host_ctl(struct hci_dev *hdev, __u16 ocf, struct sk_buff *skb
 		if (!status) {
 			clear_bit(HCI_PSCAN, &hdev->flags);
 			clear_bit(HCI_ISCAN, &hdev->flags);
-			if (param & SCAN_INQUIRY) 
+			if (param & SCAN_INQUIRY)
 				set_bit(HCI_ISCAN, &hdev->flags);
 
-			if (param & SCAN_PAGE) 
+			if (param & SCAN_PAGE)
 				set_bit(HCI_PSCAN, &hdev->flags);
 		}
 		hci_req_complete(hdev, status);
@@ -343,7 +342,7 @@ static void hci_cc_info_param(struct hci_dev *hdev, __u16 ocf, struct sk_buff *s
 
 		memcpy(hdev->features, lf->features, sizeof(hdev->features));
 
-		/* Adjust default settings according to features 
+		/* Adjust default settings according to features
 		 * supported by device. */
 		if (hdev->features[0] & LMP_3SLOT)
 			hdev->pkt_type |= (HCI_DM3 | HCI_DH3);
@@ -491,7 +490,7 @@ static void hci_cs_link_ctl(struct hci_dev *hdev, __u16 ocf, __u8 status)
 		break;
 
 	default:
-		BT_DBG("%s Command status: ogf LINK_CTL ocf %x status %d", 
+		BT_DBG("%s Command status: ogf LINK_CTL ocf %x status %d",
 			hdev->name, ocf, status);
 		break;
 	}
@@ -784,7 +783,7 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		if (conn->type == ACL_LINK && hdev->link_policy) {
 			struct hci_cp_write_link_policy cp;
 			cp.handle = ev->handle;
-			cp.policy = __cpu_to_le16(hdev->link_policy);
+			cp.policy = cpu_to_le16(hdev->link_policy);
 			hci_send_cmd(hdev, OGF_LINK_POLICY,
 				OCF_WRITE_LINK_POLICY, sizeof(cp), &cp);
 		}
@@ -793,9 +792,9 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		if (!conn->out) {
 			struct hci_cp_change_conn_ptype cp;
 			cp.handle = ev->handle;
-			cp.pkt_type = (conn->type == ACL_LINK) ? 
-				__cpu_to_le16(hdev->pkt_type & ACL_PTYPE_MASK):
-				__cpu_to_le16(hdev->pkt_type & SCO_PTYPE_MASK);
+			cp.pkt_type = (conn->type == ACL_LINK) ?
+				cpu_to_le16(hdev->pkt_type & ACL_PTYPE_MASK):
+				cpu_to_le16(hdev->pkt_type & SCO_PTYPE_MASK);
 
 			hci_send_cmd(hdev, OGF_LINK_CTL,
 				OCF_CHANGE_CONN_PTYPE, sizeof(cp), &cp);
@@ -971,7 +970,7 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
 			if (!ev->status) {
 				struct hci_cp_set_conn_encrypt cp;
-				cp.handle  = __cpu_to_le16(conn->handle);
+				cp.handle  = cpu_to_le16(conn->handle);
 				cp.encrypt = 1;
 				hci_send_cmd(conn->hdev, OGF_LINK_CTL,
 					OCF_SET_CONN_ENCRYPT, sizeof(cp), &cp);

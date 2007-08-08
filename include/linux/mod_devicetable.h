@@ -262,6 +262,7 @@ struct i2c_device_id {
 
 /* Input */
 #define INPUT_DEVICE_ID_EV_MAX		0x1f
+#define INPUT_DEVICE_ID_KEY_MIN_INTERESTING	0x71
 #define INPUT_DEVICE_ID_KEY_MAX		0x1ff
 #define INPUT_DEVICE_ID_REL_MAX		0x0f
 #define INPUT_DEVICE_ID_ABS_MAX		0x3f
@@ -319,5 +320,17 @@ struct eisa_device_id {
 };
 
 #define EISA_DEVICE_MODALIAS_FMT "eisa:s%s"
+
+struct parisc_device_id {
+	__u8	hw_type;	/* 5 bits used */
+	__u8	hversion_rev;	/* 4 bits */
+	__u16	hversion;	/* 12 bits */
+	__u32	sversion;	/* 20 bits */
+};
+
+#define PA_HWTYPE_ANY_ID	0xff
+#define PA_HVERSION_REV_ANY_ID	0xff
+#define PA_HVERSION_ANY_ID	0xffff
+#define PA_SVERSION_ANY_ID	0xffffffff
 
 #endif /* LINUX_MOD_DEVICETABLE_H */

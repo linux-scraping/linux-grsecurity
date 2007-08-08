@@ -5,6 +5,16 @@
 #include <asm/atomic.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
+#include <asm/paravirt.h>
+#ifndef CONFIG_PARAVIRT
+#include <asm-generic/mm_hooks.h>
+
+static inline void paravirt_activate_mm(struct mm_struct *prev,
+					struct mm_struct *next)
+{
+}
+#endif	/* !CONFIG_PARAVIRT */
+
 
 /*
  * Used for LDT copy/destruction.
@@ -47,10 +57,12 @@ static inline void switch_mm(struct mm_struct *prev,
 			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
-		smp_mb__before_clear_bit();
-		cpu_clear(cpu, prev->context.cpu_user_cs_mask);
-		smp_mb__after_clear_bit();
-		cpu_set(cpu, next->context.cpu_user_cs_mask);
+		if (!nx_enabled) {
+			smp_mb__before_clear_bit();
+			cpu_clear(cpu, prev->context.cpu_user_cs_mask);
+			smp_mb__after_clear_bit();
+			cpu_set(cpu, next->context.cpu_user_cs_mask);
+		}
 #endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
@@ -73,11 +85,15 @@ static inline void switch_mm(struct mm_struct *prev,
 			load_LDT_nolock(&next->context);
 
 #ifdef CONFIG_PAX_PAGEEXEC
-			cpu_set(cpu, next->context.cpu_user_cs_mask);
+			if (!nx_enabled)
+				cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#ifdef CONFIG_PAX_PAGEEXEC
+			if (!((next->pax_flags & MF_PAX_PAGEEXEC) && nx_enabled))
+#endif
+				set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
 #endif
 
 		}
@@ -86,9 +102,12 @@ static inline void switch_mm(struct mm_struct *prev,
 }
 
 #define deactivate_mm(tsk, mm)			\
-	asm("movl %0,%%fs": :"r" (0));
+	asm("movl %0,%%gs": :"r" (0));
 
-#define activate_mm(prev, next) \
-	switch_mm((prev),(next),NULL)
+#define activate_mm(prev, next)				\
+	do {						\
+		paravirt_activate_mm(prev, next);	\
+		switch_mm((prev),(next),NULL);		\
+	} while(0);
 
 #endif

@@ -305,7 +305,7 @@ int posix_cpu_clock_get(const clockid_t which_clock, struct timespec *tp)
 		 * should be able to see it.
 		 */
 		struct task_struct *p;
-		read_lock(&tasklist_lock);
+		rcu_read_lock();
 		p = find_task_by_pid(pid);
 		if (p) {
 			if (CPUCLOCK_PERTHREAD(which_clock)) {
@@ -313,12 +313,17 @@ int posix_cpu_clock_get(const clockid_t which_clock, struct timespec *tp)
 					error = cpu_clock_sample(which_clock,
 								 p, &rtn);
 				}
-			} else if (p->tgid == pid && p->signal) {
-				error = cpu_clock_sample_group(which_clock,
-							       p, &rtn);
+			} else {
+				read_lock(&tasklist_lock);
+				if (p->tgid == pid && p->signal) {
+					error =
+					    cpu_clock_sample_group(which_clock,
+							           p, &rtn);
+				}
+				read_unlock(&tasklist_lock);
 			}
 		}
-		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
 	}
 
 	if (error)
@@ -967,7 +972,7 @@ static void check_thread_timers(struct task_struct *tsk,
 	maxfire = 20;
 	tsk->it_prof_expires = cputime_zero;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || cputime_lt(prof_ticks(tsk), t->expires.cpu)) {
@@ -982,7 +987,7 @@ static void check_thread_timers(struct task_struct *tsk,
 	maxfire = 20;
 	tsk->it_virt_expires = cputime_zero;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || cputime_lt(virt_ticks(tsk), t->expires.cpu)) {
@@ -997,7 +1002,7 @@ static void check_thread_timers(struct task_struct *tsk,
 	maxfire = 20;
 	tsk->it_sched_expires = 0;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || tsk->sched_time < t->expires.sched) {
@@ -1053,7 +1058,7 @@ static void check_process_timers(struct task_struct *tsk,
 	maxfire = 20;
 	prof_expires = cputime_zero;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || cputime_lt(ptime, t->expires.cpu)) {
@@ -1068,7 +1073,7 @@ static void check_process_timers(struct task_struct *tsk,
 	maxfire = 20;
 	virt_expires = cputime_zero;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || cputime_lt(utime, t->expires.cpu)) {
@@ -1083,7 +1088,7 @@ static void check_process_timers(struct task_struct *tsk,
 	maxfire = 20;
 	sched_expires = 0;
 	while (!list_empty(timers)) {
-		struct cpu_timer_list *t = list_entry(timers->next,
+		struct cpu_timer_list *t = list_first_entry(timers,
 						      struct cpu_timer_list,
 						      entry);
 		if (!--maxfire || sched_time < t->expires.sched) {
@@ -1397,7 +1402,7 @@ void set_process_cpu_timer(struct task_struct *tsk, unsigned int clock_idx,
 	 */
 	head = &tsk->signal->cpu_timers[clock_idx];
 	if (list_empty(head) ||
-	    cputime_ge(list_entry(head->next,
+	    cputime_ge(list_first_entry(head,
 				  struct cpu_timer_list, entry)->expires.cpu,
 		       *newval)) {
 		/*

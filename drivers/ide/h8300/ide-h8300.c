@@ -76,13 +76,11 @@ static inline void hwif_setup(ide_hwif_t *hwif)
 {
 	default_hwif_iops(hwif);
 
-	hwif->mmio  = 2;
+	hwif->mmio  = 1;
 	hwif->OUTW  = mm_outw;
 	hwif->OUTSW = mm_outsw;
 	hwif->INW   = mm_inw;
 	hwif->INSW  = mm_insw;
-	hwif->OUTL  = NULL;
-	hwif->INL   = NULL;
 	hwif->OUTSL = NULL;
 	hwif->INSL  = NULL;
 }
@@ -103,7 +101,7 @@ void __init h8300_ide_init(void)
 	hw_setup(&hw);
 
 	/* register if */
-	idx = ide_register_hw(&hw, &hwif);
+	idx = ide_register_hw(&hw, 1, &hwif);
 	if (idx == -1) {
 		printk(KERN_ERR "ide-h8300: IDE I/F register failed\n");
 		return;

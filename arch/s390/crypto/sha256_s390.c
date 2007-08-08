@@ -4,7 +4,7 @@
  * s390 implementation of the SHA256 Secure Hash Algorithm.
  *
  * s390 Version:
- *   Copyright (C) 2005 IBM Deutschland GmbH, IBM Corporation
+ *   Copyright IBM Corp. 2005,2007
  *   Author(s): Jan Glauber (jang@de.ibm.com)
  *
  * Derived from "crypto/sha256.c"
@@ -26,7 +26,7 @@
 #define SHA256_BLOCK_SIZE	64
 
 struct s390_sha256_ctx {
-	u64 count;
+	u64 count;		/* message length */
 	u32 state[8];
 	u8 buf[2 * SHA256_BLOCK_SIZE];
 };
@@ -54,10 +54,9 @@ static void sha256_update(struct crypto_tfm *tfm, const u8 *data,
 	int ret;
 
 	/* how much is already in the buffer? */
-	index = sctx->count / 8 & 0x3f;
+	index = sctx->count & 0x3f;
 
-	/* update message bit length */
-	sctx->count += len * 8;
+	sctx->count += len;
 
 	if ((index + len) < SHA256_BLOCK_SIZE)
 		goto store;
@@ -87,12 +86,17 @@ store:
 		memcpy(sctx->buf + index , data, len);
 }
 
-static void pad_message(struct s390_sha256_ctx* sctx)
+/* Add padding and return the message digest */
+static void sha256_final(struct crypto_tfm *tfm, u8 *out)
 {
-	int index, end;
+	struct s390_sha256_ctx *sctx = crypto_tfm_ctx(tfm);
+	u64 bits;
+	unsigned int index, end;
+	int ret;
 
-	index = sctx->count / 8 & 0x3f;
-	end = index < 56 ? SHA256_BLOCK_SIZE : 2 * SHA256_BLOCK_SIZE;
+	/* must perform manual padding */
+	index = sctx->count & 0x3f;
+	end = (index < 56) ? SHA256_BLOCK_SIZE : (2 * SHA256_BLOCK_SIZE);
 
 	/* start pad with 1 */
 	sctx->buf[index] = 0x80;
@@ -102,21 +106,11 @@ static void pad_message(struct s390_sha256_ctx* sctx)
 	memset(sctx->buf + index, 0x00, end - index - 8);
 
 	/* append message length */
-	memcpy(sctx->buf + end - 8, &sctx->count, sizeof sctx->count);
+	bits = sctx->count * 8;
+	memcpy(sctx->buf + end - 8, &bits, sizeof(bits));
 
-	sctx->count = end * 8;
-}
-
-/* Add padding and return the message digest */
-static void sha256_final(struct crypto_tfm *tfm, u8 *out)
-{
-	struct s390_sha256_ctx *sctx = crypto_tfm_ctx(tfm);
-
-	/* must perform manual padding */
-	pad_message(sctx);
-
-	crypt_s390_kimd(KIMD_SHA_256, sctx->state, sctx->buf,
-			sctx->count / 8);
+	ret = crypt_s390_kimd(KIMD_SHA_256, sctx->state, sctx->buf, end);
+	BUG_ON(ret != end);
 
 	/* copy digest to out */
 	memcpy(out, sctx->state, SHA256_DIGEST_SIZE);
@@ -143,15 +137,10 @@ static struct crypto_alg alg = {
 
 static int init(void)
 {
-	int ret;
-
 	if (!crypt_s390_func_available(KIMD_SHA_256))
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 
-	ret = crypto_register_alg(&alg);
-	if (ret != 0)
-		printk(KERN_INFO "crypt_s390: sha256_s390 couldn't be loaded.");
-	return ret;
+	return crypto_register_alg(&alg);
 }
 
 static void __exit fini(void)

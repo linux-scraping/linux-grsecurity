@@ -56,6 +56,12 @@ const char *get_system_type(void)
 	return "MIPS Malta";
 }
 
+#if defined(CONFIG_MIPS_MT_SMTC)
+const char display_string[] = "       SMTC LINUX ON MALTA       ";
+#else
+const char display_string[] = "        LINUX ON MALTA       ";
+#endif /* CONFIG_MIPS_MT_SMTC */
+
 #ifdef CONFIG_BLK_DEV_FD
 void __init fd_activate(void)
 {
@@ -97,9 +103,7 @@ void __init plat_mem_setup(void)
 	kgdb_config ();
 #endif
 
-	if ((mips_revision_corid == MIPS_REVISION_CORID_BONITO64) ||
-	    (mips_revision_corid == MIPS_REVISION_CORID_CORE_20K) ||
-	    (mips_revision_corid == MIPS_REVISION_CORID_CORE_EMUL_BON)) {
+	if (mips_revision_sconid == MIPS_REVISION_SCON_BONITO) {
 		char *argptr;
 
 		argptr = prom_getcmdline();
@@ -145,7 +149,8 @@ void __init plat_mem_setup(void)
 #ifdef CONFIG_BLK_DEV_IDE
 	/* Check PCI clock */
 	{
-		int jmpr = (*((volatile unsigned int *)ioremap(MALTA_JMPRS_REG, sizeof(unsigned int))) >> 2) & 0x07;
+		unsigned int __iomem *jmpr_p = (unsigned int *) ioremap(MALTA_JMPRS_REG, sizeof(unsigned int));
+		int jmpr = (readw(jmpr_p) >> 2) & 0x07;
 		static const int pciclocks[] __initdata = {
 			33, 20, 25, 30, 12, 16, 37, 10
 		};
@@ -179,7 +184,6 @@ void __init plat_mem_setup(void)
 	};
 #endif
 #endif
-
 	mips_reboot_setup();
 
 	board_time_init = mips_time_init;

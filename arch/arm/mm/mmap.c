@@ -5,7 +5,7 @@
 #include <linux/mm.h>
 #include <linux/mman.h>
 #include <linux/shm.h>
-
+#include <linux/sched.h>
 #include <asm/system.h>
 
 #define COLOUR_ALIGN(addr,pgoff)		\
@@ -49,8 +49,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 #endif
 
 	/*
-	 * We should enforce the MAP_FIXED case.  However, currently
-	 * the generic kernel code doesn't allow us to handle this.
+	 * We enforce the MAP_FIXED case.
 	 */
 	if (flags & MAP_FIXED) {
 		if (aliasing && flags & MAP_SHARED && addr & (SHMLBA - 1))
@@ -77,10 +76,10 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 			return addr;
 	}
 	if (len > mm->cached_hole_size) {
-	        start_addr = addr = mm->free_area_cache;
+		start_addr = addr = mm->free_area_cache;
 	} else {
-	        start_addr = addr = mm->mmap_base;
-	        mm->cached_hole_size = 0;
+		start_addr = addr = mm->mmap_base;
+		mm->cached_hole_size = 0;
 	}
 
 full_search:

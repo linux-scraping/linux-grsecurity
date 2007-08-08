@@ -1,5 +1,5 @@
-#ifndef _ASM_PPC_UNISTD_H_
-#define _ASM_PPC_UNISTD_H_
+#ifndef _ASM_POWERPC_UNISTD_H_
+#define _ASM_POWERPC_UNISTD_H_
 
 /*
  * This file contains the system call numbers.
@@ -324,10 +324,17 @@
 #define __NR_get_robust_list	299
 #define __NR_set_robust_list	300
 #define __NR_move_pages		301
+#define __NR_getcpu		302
+#define __NR_epoll_pwait	303
+#define __NR_utimensat		304
+#define __NR_signalfd		305
+#define __NR_timerfd		306
+#define __NR_eventfd		307
+#define __NR_sync_file_range2	308
 
 #ifdef __KERNEL__
 
-#define __NR_syscalls		302
+#define __NR_syscalls		309
 
 #define __NR__exit __NR_exit
 #define NR_syscalls	__NR_syscalls
@@ -378,4 +385,4 @@
 #endif		/* __ASSEMBLY__ */
 #endif		/* __KERNEL__ */
 
-#endif /* _ASM_PPC_UNISTD_H_ */
+#endif /* _ASM_POWERPC_UNISTD_H_ */

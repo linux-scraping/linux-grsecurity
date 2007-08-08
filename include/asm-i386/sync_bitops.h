@@ -24,7 +24,7 @@
  * if you do not require the atomic guarantees.
  *
  * Note: there are no guarantees that this function will not be reordered
- * on non x86 architectures, so if you are writting portable code,
+ * on non-x86 architectures, so if you are writing portable code,
  * make sure not to rely on its reordering guarantees.
  *
  * Note that @nr may be almost arbitrarily large; this function is not
@@ -130,7 +130,7 @@ static inline int sync_test_and_change_bit(int nr, volatile unsigned long* addr)
 	return oldbit;
 }
 
-static __always_inline int sync_const_test_bit(int nr, const volatile unsigned long *addr)
+static __always_inline int sync_constant_test_bit(int nr, const volatile unsigned long *addr)
 {
 	return ((1UL << (nr & 31)) &
 		(((const volatile unsigned int *)addr)[nr >> 5])) != 0;

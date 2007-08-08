@@ -12,12 +12,12 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/errno.h>
 #include <linux/rtnetlink.h>
 #include <linux/skbuff.h>
+#include <net/netlink.h>
 #include <net/act_api.h>
 #include <net/pkt_cls.h>
 
@@ -105,11 +105,12 @@ static void basic_destroy(struct tcf_proto *tp)
 {
 	struct basic_head *head = (struct basic_head *) xchg(&tp->root, NULL);
 	struct basic_filter *f, *n;
-	
+
 	list_for_each_entry_safe(f, n, &head->flist, link) {
 		list_del(&f->link);
 		basic_delete_filter(tp, f);
 	}
+	kfree(head);
 }
 
 static int basic_delete(struct tcf_proto *tp, unsigned long arg)
@@ -164,7 +165,7 @@ errout:
 }
 
 static int basic_change(struct tcf_proto *tp, unsigned long base, u32 handle,
-		        struct rtattr **tca, unsigned long *arg)
+			struct rtattr **tca, unsigned long *arg)
 {
 	int err = -EINVAL;
 	struct basic_head *head = (struct basic_head *) tp->root;
@@ -245,7 +246,7 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
 		      struct sk_buff *skb, struct tcmsg *t)
 {
 	struct basic_filter *f = (struct basic_filter *) fh;
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct rtattr *rta;
 
 	if (f == NULL)
@@ -263,11 +264,11 @@ static int basic_dump(struct tcf_proto *tp, unsigned long fh,
 	    tcf_em_tree_dump(skb, &f->ematches, TCA_BASIC_EMATCHES) < 0)
 		goto rtattr_failure;
 
-	rta->rta_len = (skb->tail - b);
+	rta->rta_len = skb_tail_pointer(skb) - b;
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -290,7 +291,7 @@ static int __init init_basic(void)
 	return register_tcf_proto_ops(&cls_basic_ops);
 }
 
-static void __exit exit_basic(void) 
+static void __exit exit_basic(void)
 {
 	unregister_tcf_proto_ops(&cls_basic_ops);
 }

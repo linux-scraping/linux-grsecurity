@@ -10,6 +10,9 @@ mainmenu "uClinux/v850 (w/o MMU) Kernel Configuration"
 config MMU
        	bool
 	default n
+config ZONE_DMA
+	bool
+	default y
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -31,6 +34,10 @@ config GENERIC_HARDIRQS
 	default y
 
 config GENERIC_IRQ_PROBE
+	bool
+	default y
+
+config GENERIC_TIME
 	bool
 	default y
 
@@ -214,7 +221,7 @@ menu "Processor type and features"
    # Some platforms pre-zero memory, in which case the kernel doesn't need to
    config ZERO_BSS
    	  bool
-	  depends !V850E2_SIM85E2C
+	  depends on !V850E2_SIM85E2C
 	  default y
 
    # The crappy-ass zone allocator requires that the start of allocatable
@@ -232,14 +239,6 @@ menu "Processor type and features"
 
    config RESET_GUARD
    	  bool "Reset Guard"
-
-   config LARGE_ALLOCS
-	  bool "Allow allocating large blocks (> 1MB) of memory"
-	  help
-	     Allow the slab memory allocator to keep chains for very large
-	     memory sizes - upto 32MB. You may need this if your system has
-	     a lot of RAM, and you need to able to allocate very large
-	     contiguous chunks. If unsure, say N.
 
 source "mm/Kconfig"
 

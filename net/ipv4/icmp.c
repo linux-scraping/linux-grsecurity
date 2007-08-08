@@ -304,7 +304,7 @@ static inline int icmpv4_xrlim_allow(struct rtable *rt, int type, int code)
 
 	/* No rate limit on loopback */
 	if (dst->dev && (dst->dev->flags&IFF_LOOPBACK))
- 		goto out;
+		goto out;
 
 	/* Limit if icmp type is enabled in ratemask. */
 	if ((1 << type) & sysctl_icmp_ratemask)
@@ -350,12 +350,12 @@ static void icmp_push_reply(struct icmp_bxm *icmp_param,
 	struct sk_buff *skb;
 
 	if (ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
-		           icmp_param->data_len+icmp_param->head_len,
-		           icmp_param->head_len,
-		           ipc, rt, MSG_DONTWAIT) < 0)
+			   icmp_param->data_len+icmp_param->head_len,
+			   icmp_param->head_len,
+			   ipc, rt, MSG_DONTWAIT) < 0)
 		ip_flush_pending_frames(icmp_socket->sk);
 	else if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
-		struct icmphdr *icmph = skb->h.icmph;
+		struct icmphdr *icmph = icmp_hdr(skb);
 		__wsum csum = 0;
 		struct sk_buff *skb1;
 
@@ -392,7 +392,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
 	icmp_param->data.icmph.checksum = 0;
 	icmp_out_count(icmp_param->data.icmph.type);
 
-	inet->tos = skb->nh.iph->tos;
+	inet->tos = ip_hdr(skb)->tos;
 	daddr = ipc.addr = rt->rt_src;
 	ipc.opt = NULL;
 	if (icmp_param->replyopts.optlen) {
@@ -404,7 +404,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
 		struct flowi fl = { .nl_u = { .ip4_u =
 					      { .daddr = daddr,
 						.saddr = rt->rt_spec_dst,
-						.tos = RT_TOS(skb->nh.iph->tos) } },
+						.tos = RT_TOS(ip_hdr(skb)->tos) } },
 				    .proto = IPPROTO_ICMP };
 		security_skb_classify_flow(skb, &fl);
 		if (ip_route_output_key(&rt, &fl))
@@ -448,9 +448,10 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 	 *	Check this, icmp_send is called from the most obscure devices
 	 *	sometimes.
 	 */
-	iph = skb_in->nh.iph;
+	iph = ip_hdr(skb_in);
 
-	if ((u8 *)iph < skb_in->head || (u8 *)(iph + 1) > skb_in->tail)
+	if ((u8 *)iph < skb_in->head ||
+	    (skb_in->network_header + sizeof(*iph)) > skb_in->tail)
 		goto out;
 
 	/*
@@ -484,7 +485,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 			u8 _inner_type, *itp;
 
 			itp = skb_header_pointer(skb_in,
-						 skb_in->nh.raw +
+						 skb_network_header(skb_in) +
 						 (iph->ihl << 2) +
 						 offsetof(struct icmphdr,
 							  type) -
@@ -513,9 +514,15 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 
 	saddr = iph->daddr;
 	if (!(rt->rt_flags & RTCF_LOCAL)) {
-		if (sysctl_icmp_errors_use_inbound_ifaddr)
-			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
-		else
+		struct net_device *dev = NULL;
+
+		if (rt->fl.iif && sysctl_icmp_errors_use_inbound_ifaddr)
+			dev = dev_get_by_index(rt->fl.iif);
+
+		if (dev) {
+			saddr = inet_select_addr(dev, 0, RT_SCOPE_LINK);
+			dev_put(dev);
+		} else
 			saddr = 0;
 	}
 
@@ -536,7 +543,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 	icmp_param.data.icmph.un.gateway = info;
 	icmp_param.data.icmph.checksum	 = 0;
 	icmp_param.skb	  = skb_in;
-	icmp_param.offset = skb_in->nh.raw - skb_in->data;
+	icmp_param.offset = skb_network_offset(skb_in);
 	icmp_out_count(icmp_param.data.icmph.type);
 	inet_sk(icmp_socket->sk)->tos = tos;
 	ipc.addr = iph->saddr;
@@ -613,7 +620,7 @@ static void icmp_unreach(struct sk_buff *skb)
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
 		goto out_err;
 
-	icmph = skb->h.icmph;
+	icmph = icmp_hdr(skb);
 	iph   = (struct iphdr *)skb->data;
 
 	if (iph->ihl < 5) /* Mangled header, drop. */
@@ -676,7 +683,7 @@ static void icmp_unreach(struct sk_buff *skb)
 			printk(KERN_WARNING "%u.%u.%u.%u sent an invalid ICMP "
 					    "type %u, code %u "
 					    "error to a broadcast: %u.%u.%u.%u on %s\n",
-			       NIPQUAD(skb->nh.iph->saddr),
+			       NIPQUAD(ip_hdr(skb)->saddr),
 			       icmph->type, icmph->code,
 			       NIPQUAD(iph->daddr),
 			       skb->dev->name);
@@ -743,7 +750,7 @@ static void icmp_redirect(struct sk_buff *skb)
 
 	iph = (struct iphdr *)skb->data;
 
-	switch (skb->h.icmph->code & 7) {
+	switch (icmp_hdr(skb)->code & 7) {
 	case ICMP_REDIR_NET:
 	case ICMP_REDIR_NETTOS:
 		/*
@@ -751,11 +758,11 @@ static void icmp_redirect(struct sk_buff *skb)
 		 */
 	case ICMP_REDIR_HOST:
 	case ICMP_REDIR_HOSTTOS:
-		ip_rt_redirect(skb->nh.iph->saddr, iph->daddr,
-			       skb->h.icmph->un.gateway,
+		ip_rt_redirect(ip_hdr(skb)->saddr, iph->daddr,
+			       icmp_hdr(skb)->un.gateway,
 			       iph->saddr, skb->dev);
 		break;
-  	}
+	}
 out:
 	return;
 out_err:
@@ -780,7 +787,7 @@ static void icmp_echo(struct sk_buff *skb)
 	if (!sysctl_icmp_echo_ignore_all) {
 		struct icmp_bxm icmp_param;
 
-		icmp_param.data.icmph	   = *skb->h.icmph;
+		icmp_param.data.icmph	   = *icmp_hdr(skb);
 		icmp_param.data.icmph.type = ICMP_ECHOREPLY;
 		icmp_param.skb		   = skb;
 		icmp_param.offset	   = 0;
@@ -816,7 +823,7 @@ static void icmp_timestamp(struct sk_buff *skb)
 	icmp_param.data.times[2] = icmp_param.data.times[1];
 	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
 		BUG();
-	icmp_param.data.icmph	   = *skb->h.icmph;
+	icmp_param.data.icmph	   = *icmp_hdr(skb);
 	icmp_param.data.icmph.type = ICMP_TIMESTAMPREPLY;
 	icmp_param.data.icmph.code = 0;
 	icmp_param.skb		   = skb;
@@ -943,7 +950,7 @@ int icmp_rcv(struct sk_buff *skb)
 	if (!pskb_pull(skb, sizeof(struct icmphdr)))
 		goto error;
 
-	icmph = skb->h.icmph;
+	icmph = icmp_hdr(skb);
 
 	/*
 	 *	18 is the highest 'known' ICMP type. Anything else is a mystery
@@ -959,7 +966,7 @@ int icmp_rcv(struct sk_buff *skb)
 	 *	Parse the ICMP message
 	 */
 
- 	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
+	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
 		/*
 		 *	RFC 1122: 3.2.2.6 An ICMP_ECHO to broadcast MAY be
 		 *	  silently ignored (we let user decide with a sysctl).
@@ -976,7 +983,7 @@ int icmp_rcv(struct sk_buff *skb)
 		    icmph->type != ICMP_ADDRESS &&
 		    icmph->type != ICMP_ADDRESSREPLY) {
 			goto error;
-  		}
+		}
 	}
 
 	ICMP_INC_STATS_BH(icmp_pointers[icmph->type].input_entry);
@@ -1085,7 +1092,7 @@ static const struct icmp_control icmp_pointers[NR_ICMP_TYPES + 1] = {
 		.input_entry = ICMP_MIB_DUMMY,
 		.handler = icmp_discard,
 	},
- 	[ICMP_INFO_REPLY] = {
+	[ICMP_INFO_REPLY] = {
 		.output_entry = ICMP_MIB_DUMMY,
 		.input_entry = ICMP_MIB_DUMMY,
 		.handler = icmp_discard,

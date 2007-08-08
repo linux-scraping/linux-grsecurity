@@ -62,7 +62,6 @@
 #include <linux/init.h>		/* for __init, module_{init,exit} */
 #include <linux/poll.h>		/* for POLLIN, etc. */
 #include <linux/dtlk.h>		/* local header file for DoubleTalk values */
-#include <linux/smp_lock.h>
 
 #ifdef TRACING
 #define TRACE_TEXT(str) printk(str);
@@ -72,6 +71,7 @@
 #define TRACE_RET ((void) 0)
 #endif				/* TRACING */
 
+static void dtlk_timer_tick(unsigned long data);
 
 static int dtlk_major;
 static int dtlk_port_lpc;
@@ -81,7 +81,7 @@ static int dtlk_has_indexing;
 static unsigned int dtlk_portlist[] =
 {0x25e, 0x29e, 0x2de, 0x31e, 0x35e, 0x39e, 0};
 static wait_queue_head_t dtlk_process_list;
-static struct timer_list dtlk_timer;
+static DEFINE_TIMER(dtlk_timer, dtlk_timer_tick, 0, 0);
 
 /* prototypes for file_operations struct */
 static ssize_t dtlk_read(struct file *, char __user *,
@@ -117,7 +117,6 @@ static char dtlk_write_tts(char);
 /*
    static void dtlk_handle_error(char, char, unsigned int);
  */
-static void dtlk_timer_tick(unsigned long data);
 
 static ssize_t dtlk_read(struct file *file, char __user *buf,
 			 size_t count, loff_t * ppos)
@@ -318,26 +317,30 @@ static int dtlk_release(struct inode *inode, struct file *file)
 	}
 	TRACE_RET;
 	
-	del_timer(&dtlk_timer);
+	del_timer_sync(&dtlk_timer);
 
 	return 0;
 }
 
 static int __init dtlk_init(void)
 {
+	int err;
+
 	dtlk_port_lpc = 0;
 	dtlk_port_tts = 0;
 	dtlk_busy = 0;
 	dtlk_major = register_chrdev(0, "dtlk", &dtlk_fops);
-	if (dtlk_major == 0) {
+	if (dtlk_major < 0) {
 		printk(KERN_ERR "DoubleTalk PC - cannot register device\n");
-		return 0;
+		return dtlk_major;
 	}
-	if (dtlk_dev_probe() == 0)
-		printk(", MAJOR %d\n", dtlk_major);
+	err = dtlk_dev_probe();
+	if (err) {
+		unregister_chrdev(dtlk_major, "dtlk");
+		return err;
+	}
+	printk(", MAJOR %d\n", dtlk_major);
 
-	init_timer(&dtlk_timer);
-	dtlk_timer.function = dtlk_timer_tick;
 	init_waitqueue_head(&dtlk_process_list);
 
 	return 0;

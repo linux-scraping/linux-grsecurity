@@ -47,7 +47,6 @@
 #include <linux/delay.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -496,8 +495,6 @@ ahd_insb(struct ahd_softc * ahd, long port, uint8_t *array, int count)
 int		ahd_linux_register_host(struct ahd_softc *,
 					struct scsi_host_template *);
 
-uint64_t	ahd_linux_get_memsize(void);
-
 /*************************** Pretty Printing **********************************/
 struct info_str {
 	char *buffer;
@@ -839,8 +836,6 @@ int	ahd_platform_alloc(struct ahd_softc *ahd, void *platform_arg);
 void	ahd_platform_free(struct ahd_softc *ahd);
 void	ahd_platform_init(struct ahd_softc *ahd);
 void	ahd_platform_freeze_devq(struct ahd_softc *ahd, struct scb *scb);
-void	ahd_freeze_simq(struct ahd_softc *ahd);
-void	ahd_release_simq(struct ahd_softc *ahd);
 
 static __inline void
 ahd_freeze_scb(struct scb *scb)

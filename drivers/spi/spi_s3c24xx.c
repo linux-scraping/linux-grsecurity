@@ -41,7 +41,7 @@ struct s3c24xx_spi {
 	int			 len;
 	int			 count;
 
-	int			(*set_cs)(struct s3c2410_spi_info *spi,
+	void			(*set_cs)(struct s3c2410_spi_info *spi,
 					  int cs, int pol);
 
 	/* data buffers */
@@ -77,7 +77,7 @@ static void s3c24xx_spi_chipsel(struct spi_device *spi, int value)
 
 	switch (value) {
 	case BITBANG_CS_INACTIVE:
-		hw->pdata->set_cs(hw->pdata, spi->chip_select, cspol^1);
+		hw->set_cs(hw->pdata, spi->chip_select, cspol^1);
 		break;
 
 	case BITBANG_CS_ACTIVE:
@@ -98,7 +98,7 @@ static void s3c24xx_spi_chipsel(struct spi_device *spi, int value)
 		/* write new configration */
 
 		writeb(spcon, hw->regs + S3C2410_SPCON);
-		hw->pdata->set_cs(hw->pdata, spi->chip_select, cspol);
+		hw->set_cs(hw->pdata, spi->chip_select, cspol);
 
 		break;
 	}
@@ -341,8 +341,6 @@ static int s3c24xx_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register SPI master\n");
 		goto err_register;
 	}
-
-	dev_dbg(hw->dev, "shutdown=%d\n", hw->bitbang.shutdown);
 
 	/* register all the devices associated */
 

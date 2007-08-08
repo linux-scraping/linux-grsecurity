@@ -27,7 +27,7 @@
 #include <linux/ctype.h>
 #include <linux/string.h>
 
-#include <linux/usb_ch9.h>
+#include <linux/usb/ch9.h>
 #include <linux/usb_gadget.h>
 
 #include "gadget_chips.h"
@@ -132,7 +132,7 @@ ep_matches (
 	 * where it's an output parameter representing the full speed limit.
 	 * the usb spec fixes high speed bulk maxpacket at 512 bytes.
 	 */
-	max = 0x7ff & le16_to_cpup (&desc->wMaxPacketSize);
+	max = 0x7ff & le16_to_cpu(desc->wMaxPacketSize);
 	switch (type) {
 	case USB_ENDPOINT_XFER_INT:
 		/* INT:  limit 64 bytes full speed, 1024 high speed */

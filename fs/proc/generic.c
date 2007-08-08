@@ -32,14 +32,14 @@ static loff_t proc_file_lseek(struct file *, loff_t, int);
 
 DEFINE_SPINLOCK(proc_subdir_lock);
 
-int proc_match(int len, const char *name, struct proc_dir_entry *de)
+static int proc_match(int len, const char *name, struct proc_dir_entry *de)
 {
 	if (de->namelen != len)
 		return 0;
 	return !memcmp(name, de->name, len);
 }
 
-static struct file_operations proc_file_operations = {
+static const struct file_operations proc_file_operations = {
 	.llseek		= proc_file_lseek,
 	.read		= proc_file_read,
 	.write		= proc_file_write,
@@ -265,7 +265,7 @@ static int proc_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	return 0;
 }
 
-static struct inode_operations proc_file_inode_operations = {
+static const struct inode_operations proc_file_inode_operations = {
 	.setattr	= proc_notify_change,
 };
 
@@ -357,7 +357,7 @@ static void *proc_follow_link(struct dentry *dentry, struct nameidata *nd)
 	return NULL;
 }
 
-static struct inode_operations proc_link_inode_operations = {
+static const struct inode_operations proc_link_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= proc_follow_link,
 };
@@ -398,6 +398,7 @@ struct dentry *proc_lookup(struct inode * dir, struct dentry *dentry, struct nam
 			if (!memcmp(dentry->d_name.name, de->name, de->namelen)) {
 				unsigned int ino = de->low_ino;
 
+				de_get(de);
 				spin_unlock(&proc_subdir_lock);
 				error = -EINVAL;
 				inode = proc_get_inode(dir->i_sb, ino, de);
@@ -414,6 +415,7 @@ struct dentry *proc_lookup(struct inode * dir, struct dentry *dentry, struct nam
 		d_add(dentry, inode);
 		return NULL;
 	}
+	de_put(de);
 	return ERR_PTR(error);
 }
 
@@ -476,14 +478,21 @@ int proc_readdir(struct file * filp,
 			}
 
 			do {
+				struct proc_dir_entry *next;
+
 				/* filldir passes info to user space */
+				de_get(de);
 				spin_unlock(&proc_subdir_lock);
 				if (filldir(dirent, de->name, de->namelen, filp->f_pos,
-					    de->low_ino, de->mode >> 12) < 0)
+					    de->low_ino, de->mode >> 12) < 0) {
+					de_put(de);
 					goto out;
+				}
 				spin_lock(&proc_subdir_lock);
 				filp->f_pos++;
-				de = de->next;
+				next = de->next;
+				de_put(de);
+				de = next;
 			} while (de);
 			spin_unlock(&proc_subdir_lock);
 	}
@@ -497,7 +506,7 @@ out:	unlock_kernel();
  * use the in-memory "struct proc_dir_entry" tree to parse
  * the /proc directory.
  */
-static struct file_operations proc_dir_operations = {
+static const struct file_operations proc_dir_operations = {
 	.read			= generic_read_dir,
 	.readdir		= proc_readdir,
 };
@@ -505,7 +514,7 @@ static struct file_operations proc_dir_operations = {
 /*
  * proc directories can do almost nothing..
  */
-static struct inode_operations proc_dir_inode_operations = {
+static const struct inode_operations proc_dir_inode_operations = {
 	.lookup		= proc_lookup,
 	.getattr	= proc_getattr,
 	.setattr	= proc_notify_change,

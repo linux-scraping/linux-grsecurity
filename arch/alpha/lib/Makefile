@@ -36,9 +36,9 @@ lib-y =	__divqu.o __remqu.o __divlu.o __remlu.o \
 	$(ev6-y)csum_ipv6_magic.o \
 	$(ev6-y)clear_page.o \
 	$(ev6-y)copy_page.o \
-	strcasecmp.o \
 	fpreg.o \
-	callback_srm.o srm_puts.o srm_printk.o
+	callback_srm.o srm_puts.o srm_printk.o \
+	fls.o
 
 lib-$(CONFIG_SMP) += dec_and_lock.o
 

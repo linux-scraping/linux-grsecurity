@@ -463,9 +463,6 @@
  * Serial Audio Controller
  */
 
-/* FIXME: This clash with SA1111 defines */
-#ifndef _ASM_ARCH_SA1111
-
 #define SACR0		__REG(0x40400000)  /* Global Control Register */
 #define SACR1		__REG(0x40400004)  /* Serial Audio I 2 S/MSB-Justified Control Register */
 #define SASR0		__REG(0x4040000C)  /* Serial Audio I 2 S/MSB-Justified Interface and FIFO Status Register */
@@ -474,8 +471,8 @@
 #define SADIV		__REG(0x40400060)  /* Audio Clock Divider Register. */
 #define SADR		__REG(0x40400080)  /* Serial Audio Data Register (TX and RX FIFO access Register). */
 
-#define SACR0_RFTH(x)	(x << 12)	/* Rx FIFO Interrupt or DMA Trigger Threshold */
-#define SACR0_TFTH(x)	(x << 8)	/* Tx FIFO Interrupt or DMA Trigger Threshold */
+#define SACR0_RFTH(x)	((x) << 12)	/* Rx FIFO Interrupt or DMA Trigger Threshold */
+#define SACR0_TFTH(x)	((x) << 8)	/* Tx FIFO Interrupt or DMA Trigger Threshold */
 #define SACR0_STRF	(1 << 5)	/* FIFO Select for EFWR Special Function */
 #define SACR0_EFWR	(1 << 4)	/* Enable EFWR Function  */
 #define SACR0_RST	(1 << 3)	/* FIFO, i2s Register Reset */
@@ -502,8 +499,6 @@
 #define SAIMR_TUR	(1 << 5)	/* Enable Tx FIFO Underrun Condition Interrupt */
 #define SAIMR_RFS	(1 << 4)	/* Enable Rx FIFO Service Interrupt */
 #define SAIMR_TFS	(1 << 3)	/* Enable Tx FIFO Service Interrupt */
-
-#endif
 
 /*
  * AC97 Controller registers
@@ -1481,7 +1476,7 @@
 #define GPIO112_MMCCMD_MD	(112 | GPIO_ALT_FN_1_OUT)
 #define GPIO113_I2S_SYSCLK_MD	(113 | GPIO_ALT_FN_1_OUT)
 #define GPIO113_AC97_RESET_N_MD	(113 | GPIO_ALT_FN_2_OUT)
-#define GPIO117_I2CSCL_MD	(117 | GPIO_ALT_FN_1_OUT)
+#define GPIO117_I2CSCL_MD	(117 | GPIO_ALT_FN_1_IN)
 #define GPIO118_I2CSDA_MD	(118 | GPIO_ALT_FN_1_IN)
 
 /*
@@ -1682,15 +1677,18 @@
 #define SSSR_PINT		(1 << 18)	/* Peripheral Trailing Byte Interrupt */
 
 #define SSPSP_FSRT		(1 << 25)	/* Frame Sync Relative Timing */
-#define SSPSP_DMYSTOP(x)	(x << 23)	/* Dummy Stop */
-#define SSPSP_SFRMWDTH(x)	(x << 16)	/* Serial Frame Width */
-#define SSPSP_SFRMDLY(x)	(x << 9)	/* Serial Frame Delay */
-#define SSPSP_DMYSTRT(x)	(x << 7)	/* Dummy Start */
-#define SSPSP_STRTDLY(x)	(x << 4)	/* Start Delay */
+#define SSPSP_DMYSTOP(x)	((x) << 23)	/* Dummy Stop */
+#define SSPSP_SFRMWDTH(x)	((x) << 16)	/* Serial Frame Width */
+#define SSPSP_SFRMDLY(x)	((x) << 9)	/* Serial Frame Delay */
+#define SSPSP_DMYSTRT(x)	((x) << 7)	/* Dummy Start */
+#define SSPSP_STRTDLY(x)	((x) << 4)	/* Start Delay */
 #define SSPSP_ETDS			(1 << 3)	/* End of Transfer data State */
 #define SSPSP_SFRMP			(1 << 2)	/* Serial Frame Polarity */
-#define SSPSP_SCMODE(x)		(x << 0)	/* Serial Bit Rate Clock Mode */
+#define SSPSP_SCMODE(x)		((x) << 0)	/* Serial Bit Rate Clock Mode */
 
+#define SSACD_SCDB		(1 << 3)	/* SSPSYSCLK Divider Bypass */
+#define SSACD_ACPS(x)		((x) << 4)	/* Audio clock PLL select */
+#define SSACD_ACDS(x)		((x) << 0)	/* Audio clock divider select */
 
 #define SSCR0_P1	__REG(0x41000000)  /* SSP Port 1 Control Register 0 */
 #define SSCR1_P1	__REG(0x41000004)  /* SSP Port 1 Control Register 1 */
@@ -1803,35 +1801,35 @@
 #define CCCR_M_MASK	0x0060		/* Memory Frequency to Run Mode Frequency Multiplier */
 #define CCCR_L_MASK	0x001f		/* Crystal Frequency to Memory Frequency Multiplier */
 
-#define CKEN24_CAMERA	(1 << 24)	/* Camera Interface Clock Enable */
-#define CKEN23_SSP1	(1 << 23)	/* SSP1 Unit Clock Enable */
-#define CKEN22_MEMC	(1 << 22)	/* Memory Controller Clock Enable */
-#define CKEN21_MEMSTK	(1 << 21)	/* Memory Stick Host Controller */
-#define CKEN20_IM	(1 << 20)	/* Internal Memory Clock Enable */
-#define CKEN19_KEYPAD	(1 << 19)	/* Keypad Interface Clock Enable */
-#define CKEN18_USIM	(1 << 18)	/* USIM Unit Clock Enable */
-#define CKEN17_MSL	(1 << 17)	/* MSL Unit Clock Enable */
-#define CKEN16_LCD	(1 << 16)	/* LCD Unit Clock Enable */
-#define CKEN15_PWRI2C	(1 << 15)	/* PWR I2C Unit Clock Enable */
-#define CKEN14_I2C	(1 << 14)	/* I2C Unit Clock Enable */
-#define CKEN13_FICP	(1 << 13)	/* FICP Unit Clock Enable */
-#define CKEN12_MMC	(1 << 12)	/* MMC Unit Clock Enable */
-#define CKEN11_USB	(1 << 11)	/* USB Unit Clock Enable */
-#define CKEN10_ASSP	(1 << 10)	/* ASSP (SSP3) Clock Enable */
-#define CKEN10_USBHOST	(1 << 10)	/* USB Host Unit Clock Enable */
-#define CKEN9_OSTIMER	(1 << 9)	/* OS Timer Unit Clock Enable */
-#define CKEN9_NSSP	(1 << 9)	/* NSSP (SSP2) Clock Enable */
-#define CKEN8_I2S	(1 << 8)	/* I2S Unit Clock Enable */
-#define CKEN7_BTUART	(1 << 7)	/* BTUART Unit Clock Enable */
-#define CKEN6_FFUART	(1 << 6)	/* FFUART Unit Clock Enable */
-#define CKEN5_STUART	(1 << 5)	/* STUART Unit Clock Enable */
-#define CKEN4_HWUART	(1 << 4)	/* HWUART Unit Clock Enable */
-#define CKEN4_SSP3	(1 << 4)	/* SSP3 Unit Clock Enable */
-#define CKEN3_SSP	(1 << 3)	/* SSP Unit Clock Enable */
-#define CKEN3_SSP2	(1 << 3)	/* SSP2 Unit Clock Enable */
-#define CKEN2_AC97	(1 << 2)	/* AC97 Unit Clock Enable */
-#define CKEN1_PWM1	(1 << 1)	/* PWM1 Clock Enable */
-#define CKEN0_PWM0	(1 << 0)	/* PWM0 Clock Enable */
+#define CKEN_CAMERA	(24)	/* Camera Interface Clock Enable */
+#define CKEN_SSP1	(23)	/* SSP1 Unit Clock Enable */
+#define CKEN_MEMC	(22)	/* Memory Controller Clock Enable */
+#define CKEN_MEMSTK	(21)	/* Memory Stick Host Controller */
+#define CKEN_IM		(20)	/* Internal Memory Clock Enable */
+#define CKEN_KEYPAD	(19)	/* Keypad Interface Clock Enable */
+#define CKEN_USIM	(18)	/* USIM Unit Clock Enable */
+#define CKEN_MSL	(17)	/* MSL Unit Clock Enable */
+#define CKEN_LCD	(16)	/* LCD Unit Clock Enable */
+#define CKEN_PWRI2C	(15)	/* PWR I2C Unit Clock Enable */
+#define CKEN_I2C	(14)	/* I2C Unit Clock Enable */
+#define CKEN_FICP	(13)	/* FICP Unit Clock Enable */
+#define CKEN_MMC	(12)	/* MMC Unit Clock Enable */
+#define CKEN_USB	(11)	/* USB Unit Clock Enable */
+#define CKEN_ASSP	(10)	/* ASSP (SSP3) Clock Enable */
+#define CKEN_USBHOST	(10)	/* USB Host Unit Clock Enable */
+#define CKEN_OSTIMER	(9)	/* OS Timer Unit Clock Enable */
+#define CKEN_NSSP	(9)	/* NSSP (SSP2) Clock Enable */
+#define CKEN_I2S	(8)	/* I2S Unit Clock Enable */
+#define CKEN_BTUART	(7)	/* BTUART Unit Clock Enable */
+#define CKEN_FFUART	(6)	/* FFUART Unit Clock Enable */
+#define CKEN_STUART	(5)	/* STUART Unit Clock Enable */
+#define CKEN_HWUART	(4)	/* HWUART Unit Clock Enable */
+#define CKEN_SSP3	(4)	/* SSP3 Unit Clock Enable */
+#define CKEN_SSP	(3)	/* SSP Unit Clock Enable */
+#define CKEN_SSP2	(3)	/* SSP2 Unit Clock Enable */
+#define CKEN_AC97	(2)	/* AC97 Unit Clock Enable */
+#define CKEN_PWM1	(1)	/* PWM1 Clock Enable */
+#define CKEN_PWM0	(0)	/* PWM0 Clock Enable */
 
 #define OSCC_OON	(1 << 1)	/* 32.768kHz OON (write-once only bit) */
 #define OSCC_OOK	(1 << 0)	/* 32.768kHz OOK (read-only bit) */

@@ -172,15 +172,16 @@ static int hmac_digest(struct hash_desc *pdesc, struct scatterlist *sg,
 
 static int hmac_init_tfm(struct crypto_tfm *tfm)
 {
+	struct crypto_hash *hash;
 	struct crypto_instance *inst = (void *)tfm->__crt_alg;
 	struct crypto_spawn *spawn = crypto_instance_ctx(inst);
 	struct hmac_ctx *ctx = hmac_ctx(__crypto_hash_cast(tfm));
 
-	tfm = crypto_spawn_tfm(spawn);
-	if (IS_ERR(tfm))
-		return PTR_ERR(tfm);
+	hash = crypto_spawn_hash(spawn);
+	if (IS_ERR(hash))
+		return PTR_ERR(hash);
 
-	ctx->child = crypto_hash_cast(tfm);
+	ctx->child = hash;
 	return 0;
 }
 
@@ -196,13 +197,18 @@ static void hmac_free(struct crypto_instance *inst)
 	kfree(inst);
 }
 
-static struct crypto_instance *hmac_alloc(void *param, unsigned int len)
+static struct crypto_instance *hmac_alloc(struct rtattr **tb)
 {
 	struct crypto_instance *inst;
 	struct crypto_alg *alg;
+	int err;
 
-	alg = crypto_get_attr_alg(param, len, CRYPTO_ALG_TYPE_HASH,
-				  CRYPTO_ALG_TYPE_HASH_MASK | CRYPTO_ALG_ASYNC);
+	err = crypto_check_attr_type(tb, CRYPTO_ALG_TYPE_HASH);
+	if (err)
+		return ERR_PTR(err);
+
+	alg = crypto_get_attr_alg(tb, CRYPTO_ALG_TYPE_HASH,
+				  CRYPTO_ALG_TYPE_HASH_MASK);
 	if (IS_ERR(alg))
 		return ERR_PTR(PTR_ERR(alg));
 

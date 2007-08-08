@@ -36,6 +36,8 @@ unsigned char apicid_to_node[MAX_LOCAL_APIC] __cpuinitdata = {
 cpumask_t node_to_cpumask[MAX_NUMNODES] __read_mostly;
 
 int numa_off __initdata;
+unsigned long __initdata nodemap_addr;
+unsigned long __initdata nodemap_size;
 
 
 /*
@@ -52,34 +54,88 @@ populate_memnodemap(const struct bootnode *nodes, int numnodes, int shift)
 	int res = -1;
 	unsigned long addr, end;
 
-	if (shift >= 64)
-		return -1;
-	memset(memnodemap, 0xff, sizeof(memnodemap));
+	memset(memnodemap, 0xff, memnodemapsize);
 	for (i = 0; i < numnodes; i++) {
 		addr = nodes[i].start;
 		end = nodes[i].end;
 		if (addr >= end)
 			continue;
-		if ((end >> shift) >= NODEMAPSIZE)
+		if ((end >> shift) >= memnodemapsize)
 			return 0;
 		do {
 			if (memnodemap[addr >> shift] != 0xff)
 				return -1;
 			memnodemap[addr >> shift] = i;
-                       addr += (1UL << shift);
+			addr += (1UL << shift);
 		} while (addr < end);
 		res = 1;
 	} 
 	return res;
 }
 
+static int __init allocate_cachealigned_memnodemap(void)
+{
+	unsigned long pad, pad_addr;
+
+	memnodemap = memnode.embedded_map;
+	if (memnodemapsize <= 48)
+		return 0;
+
+	pad = L1_CACHE_BYTES - 1;
+	pad_addr = 0x8000;
+	nodemap_size = pad + memnodemapsize;
+	nodemap_addr = find_e820_area(pad_addr, end_pfn<<PAGE_SHIFT,
+				      nodemap_size);
+	if (nodemap_addr == -1UL) {
+		printk(KERN_ERR
+		       "NUMA: Unable to allocate Memory to Node hash map\n");
+		nodemap_addr = nodemap_size = 0;
+		return -1;
+	}
+	pad_addr = (nodemap_addr + pad) & ~pad;
+	memnodemap = phys_to_virt(pad_addr);
+
+	printk(KERN_DEBUG "NUMA: Allocated memnodemap from %lx - %lx\n",
+	       nodemap_addr, nodemap_addr + nodemap_size);
+	return 0;
+}
+
+/*
+ * The LSB of all start and end addresses in the node map is the value of the
+ * maximum possible shift.
+ */
+static int __init
+extract_lsb_from_nodes (const struct bootnode *nodes, int numnodes)
+{
+	int i, nodes_used = 0;
+	unsigned long start, end;
+	unsigned long bitfield = 0, memtop = 0;
+
+	for (i = 0; i < numnodes; i++) {
+		start = nodes[i].start;
+		end = nodes[i].end;
+		if (start >= end)
+			continue;
+		bitfield |= start;
+		nodes_used++;
+		if (end > memtop)
+			memtop = end;
+	}
+	if (nodes_used <= 1)
+		i = 63;
+	else
+		i = find_first_bit(&bitfield, sizeof(unsigned long)*8);
+	memnodemapsize = (memtop >> i)+1;
+	return i;
+}
+
 int __init compute_hash_shift(struct bootnode *nodes, int numnodes)
 {
-	int shift = 20;
+	int shift;
 
-	while (populate_memnodemap(nodes, numnodes, shift + 1) >= 0)
-		shift++;
-
+	shift = extract_lsb_from_nodes(nodes, numnodes);
+	if (allocate_cachealigned_memnodemap())
+		return -1;
 	printk(KERN_DEBUG "NUMA: Using %d for the hash shift.\n",
 		shift);
 
@@ -216,44 +272,214 @@ void __init numa_init_array(void)
 }
 
 #ifdef CONFIG_NUMA_EMU
-int numa_fake __initdata = 0;
-
 /* Numa emulation */
+#define E820_ADDR_HOLE_SIZE(start, end)					\
+	(e820_hole_size((start) >> PAGE_SHIFT, (end) >> PAGE_SHIFT) <<	\
+	PAGE_SHIFT)
+char *cmdline __initdata;
+
+/*
+ * Setups up nid to range from addr to addr + size.  If the end boundary is
+ * greater than max_addr, then max_addr is used instead.  The return value is 0
+ * if there is additional memory left for allocation past addr and -1 otherwise.
+ * addr is adjusted to be at the end of the node.
+ */
+static int __init setup_node_range(int nid, struct bootnode *nodes, u64 *addr,
+				   u64 size, u64 max_addr)
+{
+	int ret = 0;
+	nodes[nid].start = *addr;
+	*addr += size;
+	if (*addr >= max_addr) {
+		*addr = max_addr;
+		ret = -1;
+	}
+	nodes[nid].end = *addr;
+	node_set(nid, node_possible_map);
+	printk(KERN_INFO "Faking node %d at %016Lx-%016Lx (%LuMB)\n", nid,
+	       nodes[nid].start, nodes[nid].end,
+	       (nodes[nid].end - nodes[nid].start) >> 20);
+	return ret;
+}
+
+/*
+ * Splits num_nodes nodes up equally starting at node_start.  The return value
+ * is the number of nodes split up and addr is adjusted to be at the end of the
+ * last node allocated.
+ */
+static int __init split_nodes_equally(struct bootnode *nodes, u64 *addr,
+				      u64 max_addr, int node_start,
+				      int num_nodes)
+{
+	unsigned int big;
+	u64 size;
+	int i;
+
+	if (num_nodes <= 0)
+		return -1;
+	if (num_nodes > MAX_NUMNODES)
+		num_nodes = MAX_NUMNODES;
+	size = (max_addr - *addr - E820_ADDR_HOLE_SIZE(*addr, max_addr)) /
+	       num_nodes;
+	/*
+	 * Calculate the number of big nodes that can be allocated as a result
+	 * of consolidating the leftovers.
+	 */
+	big = ((size & ~FAKE_NODE_MIN_HASH_MASK) * num_nodes) /
+	      FAKE_NODE_MIN_SIZE;
+
+	/* Round down to nearest FAKE_NODE_MIN_SIZE. */
+	size &= FAKE_NODE_MIN_HASH_MASK;
+	if (!size) {
+		printk(KERN_ERR "Not enough memory for each node.  "
+		       "NUMA emulation disabled.\n");
+		return -1;
+	}
+
+	for (i = node_start; i < num_nodes + node_start; i++) {
+		u64 end = *addr + size;
+		if (i < big)
+			end += FAKE_NODE_MIN_SIZE;
+		/*
+		 * The final node can have the remaining system RAM.  Other
+		 * nodes receive roughly the same amount of available pages.
+		 */
+		if (i == num_nodes + node_start - 1)
+			end = max_addr;
+		else
+			while (end - *addr - E820_ADDR_HOLE_SIZE(*addr, end) <
+			       size) {
+				end += FAKE_NODE_MIN_SIZE;
+				if (end > max_addr) {
+					end = max_addr;
+					break;
+				}
+			}
+		if (setup_node_range(i, nodes, addr, end - *addr, max_addr) < 0)
+			break;
+	}
+	return i - node_start + 1;
+}
+
+/*
+ * Splits the remaining system RAM into chunks of size.  The remaining memory is
+ * always assigned to a final node and can be asymmetric.  Returns the number of
+ * nodes split.
+ */
+static int __init split_nodes_by_size(struct bootnode *nodes, u64 *addr,
+				      u64 max_addr, int node_start, u64 size)
+{
+	int i = node_start;
+	size = (size << 20) & FAKE_NODE_MIN_HASH_MASK;
+	while (!setup_node_range(i++, nodes, addr, size, max_addr))
+		;
+	return i - node_start;
+}
+
+/*
+ * Sets up the system RAM area from start_pfn to end_pfn according to the
+ * numa=fake command-line option.
+ */
 static int __init numa_emulation(unsigned long start_pfn, unsigned long end_pfn)
 {
- 	int i;
- 	struct bootnode nodes[MAX_NUMNODES];
- 	unsigned long sz = ((end_pfn - start_pfn)<<PAGE_SHIFT) / numa_fake;
+	struct bootnode nodes[MAX_NUMNODES];
+	u64 addr = start_pfn << PAGE_SHIFT;
+	u64 max_addr = end_pfn << PAGE_SHIFT;
+	int num_nodes = 0;
+	int coeff_flag;
+	int coeff = -1;
+	int num = 0;
+	u64 size;
+	int i;
 
- 	/* Kludge needed for the hash function */
- 	if (hweight64(sz) > 1) {
- 		unsigned long x = 1;
- 		while ((x << 1) < sz)
- 			x <<= 1;
- 		if (x < sz/2)
- 			printk(KERN_ERR "Numa emulation unbalanced. Complain to maintainer\n");
- 		sz = x;
- 	}
+	memset(&nodes, 0, sizeof(nodes));
+	/*
+	 * If the numa=fake command-line is just a single number N, split the
+	 * system RAM into N fake nodes.
+	 */
+	if (!strchr(cmdline, '*') && !strchr(cmdline, ',')) {
+		num_nodes = split_nodes_equally(nodes, &addr, max_addr, 0,
+						simple_strtol(cmdline, NULL, 0));
+		if (num_nodes < 0)
+			return num_nodes;
+		goto out;
+	}
 
- 	memset(&nodes,0,sizeof(nodes));
- 	for (i = 0; i < numa_fake; i++) {
- 		nodes[i].start = (start_pfn<<PAGE_SHIFT) + i*sz;
- 		if (i == numa_fake-1)
- 			sz = (end_pfn<<PAGE_SHIFT) - nodes[i].start;
- 		nodes[i].end = nodes[i].start + sz;
- 		printk(KERN_INFO "Faking node %d at %016Lx-%016Lx (%LuMB)\n",
- 		       i,
- 		       nodes[i].start, nodes[i].end,
- 		       (nodes[i].end - nodes[i].start) >> 20);
-		node_set_online(i);
- 	}
- 	memnode_shift = compute_hash_shift(nodes, numa_fake);
- 	if (memnode_shift < 0) {
- 		memnode_shift = 0;
- 		printk(KERN_ERR "No NUMA hash function found. Emulation disabled.\n");
- 		return -1;
- 	}
- 	for_each_online_node(i) {
+	/* Parse the command line. */
+	for (coeff_flag = 0; ; cmdline++) {
+		if (*cmdline && isdigit(*cmdline)) {
+			num = num * 10 + *cmdline - '0';
+			continue;
+		}
+		if (*cmdline == '*') {
+			if (num > 0)
+				coeff = num;
+			coeff_flag = 1;
+		}
+		if (!*cmdline || *cmdline == ',') {
+			if (!coeff_flag)
+				coeff = 1;
+			/*
+			 * Round down to the nearest FAKE_NODE_MIN_SIZE.
+			 * Command-line coefficients are in megabytes.
+			 */
+			size = ((u64)num << 20) & FAKE_NODE_MIN_HASH_MASK;
+			if (size)
+				for (i = 0; i < coeff; i++, num_nodes++)
+					if (setup_node_range(num_nodes, nodes,
+						&addr, size, max_addr) < 0)
+						goto done;
+			if (!*cmdline)
+				break;
+			coeff_flag = 0;
+			coeff = -1;
+		}
+		num = 0;
+	}
+done:
+	if (!num_nodes)
+		return -1;
+	/* Fill remainder of system RAM, if appropriate. */
+	if (addr < max_addr) {
+		if (coeff_flag && coeff < 0) {
+			/* Split remaining nodes into num-sized chunks */
+			num_nodes += split_nodes_by_size(nodes, &addr, max_addr,
+							 num_nodes, num);
+			goto out;
+		}
+		switch (*(cmdline - 1)) {
+		case '*':
+			/* Split remaining nodes into coeff chunks */
+			if (coeff <= 0)
+				break;
+			num_nodes += split_nodes_equally(nodes, &addr, max_addr,
+							 num_nodes, coeff);
+			break;
+		case ',':
+			/* Do not allocate remaining system RAM */
+			break;
+		default:
+			/* Give one final node */
+			setup_node_range(num_nodes, nodes, &addr,
+					 max_addr - addr, max_addr);
+			num_nodes++;
+		}
+	}
+out:
+	memnode_shift = compute_hash_shift(nodes, num_nodes);
+	if (memnode_shift < 0) {
+		memnode_shift = 0;
+		printk(KERN_ERR "No NUMA hash function found.  NUMA emulation "
+		       "disabled.\n");
+		return -1;
+	}
+
+	/*
+	 * We need to vacate all active ranges that may have been registered by
+	 * SRAT.
+	 */
+	remove_all_active_ranges();
+	for_each_node_mask(i, node_possible_map) {
 		e820_register_active_regions(i, nodes[i].start >> PAGE_SHIFT,
 						nodes[i].end >> PAGE_SHIFT);
  		setup_node_bootmem(i, nodes[i].start, nodes[i].end);
@@ -261,26 +487,32 @@ static int __init numa_emulation(unsigned long start_pfn, unsigned long end_pfn)
  	numa_init_array();
  	return 0;
 }
-#endif
+#undef E820_ADDR_HOLE_SIZE
+#endif /* CONFIG_NUMA_EMU */
 
 void __init numa_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
 { 
 	int i;
 
+	nodes_clear(node_possible_map);
+
 #ifdef CONFIG_NUMA_EMU
-	if (numa_fake && !numa_emulation(start_pfn, end_pfn))
+	if (cmdline && !numa_emulation(start_pfn, end_pfn))
  		return;
+	nodes_clear(node_possible_map);
 #endif
 
 #ifdef CONFIG_ACPI_NUMA
 	if (!numa_off && !acpi_scan_nodes(start_pfn << PAGE_SHIFT,
 					  end_pfn << PAGE_SHIFT))
  		return;
+	nodes_clear(node_possible_map);
 #endif
 
 #ifdef CONFIG_K8_NUMA
 	if (!numa_off && !k8_scan_nodes(start_pfn<<PAGE_SHIFT, end_pfn<<PAGE_SHIFT))
 		return;
+	nodes_clear(node_possible_map);
 #endif
 	printk(KERN_INFO "%s\n",
 	       numa_off ? "NUMA turned off" : "No NUMA configuration found");
@@ -290,9 +522,11 @@ void __init numa_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
 	       end_pfn << PAGE_SHIFT); 
 		/* setup dummy node covering all memory */ 
 	memnode_shift = 63; 
+	memnodemap = memnode.embedded_map;
 	memnodemap[0] = 0;
 	nodes_clear(node_online_map);
 	node_set_online(0);
+	node_set(0, node_possible_map);
 	for (i = 0; i < NR_CPUS; i++)
 		numa_set_node(i, 0);
 	node_to_cpumask[0] = cpumask_of_cpu(0);
@@ -321,20 +555,6 @@ unsigned long __init numa_free_all_bootmem(void)
 	return pages;
 } 
 
-#ifdef CONFIG_SPARSEMEM
-static void __init arch_sparse_init(void)
-{
-	int i;
-
-	for_each_online_node(i)
-		memory_present(i, node_start_pfn(i), node_end_pfn(i));
-
-	sparse_init();
-}
-#else
-#define arch_sparse_init() do {} while (0)
-#endif
-
 void __init paging_init(void)
 { 
 	int i;
@@ -344,7 +564,8 @@ void __init paging_init(void)
 	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
 	max_zone_pfns[ZONE_NORMAL] = end_pfn;
 
-	arch_sparse_init();
+	sparse_memory_present_with_active_regions(MAX_NUMNODES);
+	sparse_init();
 
 	for_each_online_node(i) {
 		setup_node_zones(i); 
@@ -360,11 +581,8 @@ static __init int numa_setup(char *opt)
 	if (!strncmp(opt,"off",3))
 		numa_off = 1;
 #ifdef CONFIG_NUMA_EMU
-	if(!strncmp(opt, "fake=", 5)) {
-		numa_fake = simple_strtoul(opt+5,NULL,0); ;
-		if (numa_fake >= MAX_NUMNODES)
-			numa_fake = MAX_NUMNODES;
-	}
+	if (!strncmp(opt, "fake=", 5))
+		cmdline = opt + 5;
 #endif
 #ifdef CONFIG_ACPI_NUMA
  	if (!strncmp(opt,"noacpi",6))

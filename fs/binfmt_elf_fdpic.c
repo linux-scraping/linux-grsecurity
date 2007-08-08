@@ -30,7 +30,6 @@
 #include <linux/personality.h>
 #include <linux/ptrace.h>
 #include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <linux/elf.h>
 #include <linux/elf-fdpic.h>
 #include <linux/elfcore.h>
@@ -178,6 +177,8 @@ static int load_elf_fdpic_binary(struct linux_binprm *bprm,
 	char *interpreter_name = NULL;
 	int executable_stack;
 	int retval, i;
+
+	kdebug("____ LOAD %d ____", current->pid);
 
 	memset(&exec_params, 0, sizeof(exec_params));
 	memset(&interp_params, 0, sizeof(interp_params));
@@ -372,7 +373,7 @@ static int load_elf_fdpic_binary(struct linux_binprm *bprm,
 	down_write(&current->mm->mmap_sem);
 	current->mm->start_brk = do_mmap(NULL, 0, stack_size,
 					 PROT_READ | PROT_WRITE | PROT_EXEC,
-					 MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN,
+					 MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN,
 					 0);
 
 	if (IS_ERR_VALUE(current->mm->start_brk)) {
@@ -941,8 +942,11 @@ static int elf_fdpic_map_file_constdisp_on_uclinux(
 
 		if (mm) {
 			if (phdr->p_flags & PF_X) {
-				mm->start_code = seg->addr;
-				mm->end_code = seg->addr + phdr->p_memsz;
+				if (!mm->start_code) {
+					mm->start_code = seg->addr;
+					mm->end_code = seg->addr +
+						phdr->p_memsz;
+				}
 			} else if (!mm->start_data) {
 				mm->start_data = seg->addr;
 #ifndef CONFIG_MMU
@@ -1123,8 +1127,10 @@ static int elf_fdpic_map_file_by_direct_mmap(struct elf_fdpic_params *params,
 
 		if (mm) {
 			if (phdr->p_flags & PF_X) {
-				mm->start_code = maddr;
-				mm->end_code = maddr + phdr->p_memsz;
+				if (!mm->start_code) {
+					mm->start_code = maddr;
+					mm->end_code = maddr + phdr->p_memsz;
+				}
 			} else if (!mm->start_data) {
 				mm->start_data = maddr;
 				mm->end_data = maddr + phdr->p_memsz;

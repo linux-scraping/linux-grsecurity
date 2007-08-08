@@ -18,8 +18,6 @@
 #ifndef _ZD_RF_H
 #define _ZD_RF_H
 
-#include "zd_types.h"
-
 #define UW2451_RF			0x2
 #define UCHIP_RF			0x3
 #define AL2230_RF			0x4
@@ -28,7 +26,7 @@
 #define AL2210_RF			0x7
 #define MAXIM_NEW_RF			0x8
 #define UW2453_RF			0x9
-#define AL2230S_RF			0xa
+#define UNKNOWN_A_RF			0xa
 #define RALINK_RF			0xb
 #define INTERSIL_RF			0xc
 #define RF2959_RF			0xd
@@ -49,17 +47,13 @@ struct zd_rf {
 	u8 type;
 
 	u8 channel;
-	/*
-	 * Whether this RF should patch the 6M band edge
-	 * (assuming E2P_POD agrees)
-	 */
-	u8 patch_6m_band_edge:1;
 
 	/* RF-specific functions */
 	int (*init_hw)(struct zd_rf *rf);
 	int (*set_channel)(struct zd_rf *rf, u8 channel);
 	int (*switch_radio_on)(struct zd_rf *rf);
 	int (*switch_radio_off)(struct zd_rf *rf);
+	int (*patch_6m_band_edge)(struct zd_rf *rf, u8 channel);
 };
 
 const char *zd_rf_name(u8 type);
@@ -73,6 +67,9 @@ int zd_rf_set_channel(struct zd_rf *rf, u8 channel);
 
 int zd_switch_radio_on(struct zd_rf *rf);
 int zd_switch_radio_off(struct zd_rf *rf);
+
+int zd_rf_patch_6m_band_edge(struct zd_rf *rf, u8 channel);
+int zd_rf_generic_patch_6m(struct zd_rf *rf, u8 channel);
 
 /* Functions for individual RF chips */
 

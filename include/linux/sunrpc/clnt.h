@@ -40,6 +40,7 @@ struct rpc_clnt {
 
 	unsigned int		cl_softrtry : 1,/* soft timeouts */
 				cl_intr     : 1,/* interruptible */
+				cl_discrtry : 1,/* disconnect before retry */
 				cl_autobind : 1,/* use getport() */
 				cl_oneshot  : 1,/* dispose after use */
 				cl_dead     : 1;/* abandoned */
@@ -83,7 +84,8 @@ struct rpc_procinfo {
 	u32			p_proc;		/* RPC procedure number */
 	kxdrproc_t		p_encode;	/* XDR encode function */
 	kxdrproc_t		p_decode;	/* XDR decode function */
-	unsigned int		p_bufsiz;	/* req. buffer size */
+	unsigned int		p_arglen;	/* argument hdr length (u32) */
+	unsigned int		p_replen;	/* reply hdr length (u32) */
 	unsigned int		p_count;	/* call count */
 	unsigned int		p_timer;	/* Which RTT timer to use */
 	u32			p_statidx;	/* Which procedure to account */
@@ -111,6 +113,7 @@ struct rpc_create_args {
 #define RPC_CLNT_CREATE_ONESHOT		(1UL << 3)
 #define RPC_CLNT_CREATE_NONPRIVPORT	(1UL << 4)
 #define RPC_CLNT_CREATE_NOPING		(1UL << 5)
+#define RPC_CLNT_CREATE_DISCRTRY	(1UL << 6)
 
 struct rpc_clnt *rpc_create(struct rpc_create_args *args);
 struct rpc_clnt	*rpc_bind_new_program(struct rpc_clnt *,
@@ -119,8 +122,8 @@ struct rpc_clnt *rpc_clone_client(struct rpc_clnt *);
 int		rpc_shutdown_client(struct rpc_clnt *);
 int		rpc_destroy_client(struct rpc_clnt *);
 void		rpc_release_client(struct rpc_clnt *);
-void		rpc_getport(struct rpc_task *);
-int		rpc_register(u32, u32, int, unsigned short, int *);
+int		rpcb_register(u32, u32, int, unsigned short, int *);
+void		rpcb_getport(struct rpc_task *);
 
 void		rpc_call_setup(struct rpc_task *, struct rpc_message *, int);
 
@@ -142,7 +145,7 @@ char *		rpc_peeraddr2str(struct rpc_clnt *, enum rpc_display_format_t);
 /*
  * Helper function for NFSroot support
  */
-int		rpc_getport_external(struct sockaddr_in *, __u32, __u32, int);
+int		rpcb_getport_external(struct sockaddr_in *, __u32, __u32, int);
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_SUNRPC_CLNT_H */

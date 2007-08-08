@@ -138,7 +138,7 @@ static const struct ethtool_ops netdev_ethtool_ops = {
 
 ======================================================================*/
 
-static int ibmtr_attach(struct pcmcia_device *link)
+static int __devinit ibmtr_attach(struct pcmcia_device *link)
 {
     ibmtr_dev_t *info;
     struct net_device *dev;
@@ -189,16 +189,20 @@ static void ibmtr_detach(struct pcmcia_device *link)
 {
     struct ibmtr_dev_t *info = link->priv;
     struct net_device *dev = info->dev;
+     struct tok_info *ti = netdev_priv(dev);
 
     DEBUG(0, "ibmtr_detach(0x%p)\n", link);
+    
+    /* 
+     * When the card removal interrupt hits tok_interrupt(), 
+     * bail out early, so we don't crash the machine 
+     */
+    ti->sram_phys |= 1;
 
     if (link->dev_node)
 	unregister_netdev(dev);
-
-    {
-	struct tok_info *ti = netdev_priv(dev);
-	del_timer_sync(&(ti->tr_timer));
-    }
+    
+    del_timer_sync(&(ti->tr_timer));
 
     ibmtr_release(link);
 
@@ -217,7 +221,7 @@ static void ibmtr_detach(struct pcmcia_device *link)
 #define CS_CHECK(fn, ret) \
 do { last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; } while (0)
 
-static int ibmtr_config(struct pcmcia_device *link)
+static int __devinit ibmtr_config(struct pcmcia_device *link)
 {
     ibmtr_dev_t *info = link->priv;
     struct net_device *dev = info->dev;

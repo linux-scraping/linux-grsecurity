@@ -13,7 +13,6 @@
 #include <linux/socket.h>
 #include <linux/in.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/string.h>
 #include <linux/sockios.h>
@@ -599,7 +598,7 @@ struct net_device *nr_dev_first(void)
 	struct net_device *dev, *first = NULL;
 
 	read_lock(&dev_base_lock);
-	for (dev = dev_base; dev != NULL; dev = dev->next) {
+	for_each_netdev(dev) {
 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM)
 			if (first == NULL || strncmp(dev->name, first->name, 3) < 0)
 				first = dev;
@@ -619,12 +618,13 @@ struct net_device *nr_dev_get(ax25_address *addr)
 	struct net_device *dev;
 
 	read_lock(&dev_base_lock);
-	for (dev = dev_base; dev != NULL; dev = dev->next) {
+	for_each_netdev(dev) {
 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM && ax25cmp(addr, (ax25_address *)dev->dev_addr) == 0) {
 			dev_hold(dev);
 			goto out;
 		}
 	}
+	dev = NULL;
 out:
 	read_unlock(&dev_base_lock);
 	return dev;
@@ -781,8 +781,8 @@ int nr_route_frame(struct sk_buff *skb, ax25_cb *ax25)
 
 	if (ax25 != NULL) {
 		ret = nr_add_node(nr_src, "", &ax25->dest_addr, ax25->digipeat,
-		                  ax25->ax25_dev->dev, 0,
-		                  sysctl_netrom_obsolescence_count_initialiser);
+				  ax25->ax25_dev->dev, 0,
+				  sysctl_netrom_obsolescence_count_initialiser);
 		if (ret)
 			return ret;
 	}
@@ -861,8 +861,8 @@ static void *nr_node_start(struct seq_file *seq, loff_t *pos)
 	struct nr_node *nr_node;
 	struct hlist_node *node;
 	int i = 1;
- 
- 	spin_lock_bh(&nr_node_list_lock);
+
+	spin_lock_bh(&nr_node_list_lock);
 	if (*pos == 0)
 		return SEQ_START_TOKEN;
 
@@ -879,8 +879,8 @@ static void *nr_node_next(struct seq_file *seq, void *v, loff_t *pos)
 {
 	struct hlist_node *node;
 	++*pos;
-	
-	node = (v == SEQ_START_TOKEN)  
+
+	node = (v == SEQ_START_TOKEN)
 		? nr_node_list.first
 		: ((struct nr_node *)v)->node_node.next;
 
@@ -934,7 +934,7 @@ static int nr_node_info_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nr_node_seqops);
 }
 
-struct file_operations nr_nodes_fops = {
+const struct file_operations nr_nodes_fops = {
 	.owner = THIS_MODULE,
 	.open = nr_node_info_open,
 	.read = seq_read,
@@ -963,8 +963,8 @@ static void *nr_neigh_next(struct seq_file *seq, void *v, loff_t *pos)
 {
 	struct hlist_node *node;
 	++*pos;
-	
-	node = (v == SEQ_START_TOKEN)  
+
+	node = (v == SEQ_START_TOKEN)
 		? nr_neigh_list.first
 		: ((struct nr_neigh *)v)->neigh_node.next;
 
@@ -997,7 +997,7 @@ static int nr_neigh_show(struct seq_file *seq, void *v)
 
 		if (nr_neigh->digipeat != NULL) {
 			for (i = 0; i < nr_neigh->digipeat->ndigi; i++)
-				seq_printf(seq, " %s", 
+				seq_printf(seq, " %s",
 					   ax2asc(buf, &nr_neigh->digipeat->calls[i]));
 		}
 
@@ -1018,7 +1018,7 @@ static int nr_neigh_info_open(struct inode *inode, struct file *file)
 	return seq_open(file, &nr_neigh_seqops);
 }
 
-struct file_operations nr_neigh_fops = {
+const struct file_operations nr_neigh_fops = {
 	.owner = THIS_MODULE,
 	.open = nr_neigh_info_open,
 	.read = seq_read,

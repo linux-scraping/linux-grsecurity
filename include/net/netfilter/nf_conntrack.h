@@ -45,6 +45,7 @@ union nf_conntrack_expect_proto {
 #include <linux/netfilter/nf_conntrack_ftp.h>
 #include <linux/netfilter/nf_conntrack_pptp.h>
 #include <linux/netfilter/nf_conntrack_h323.h>
+#include <linux/netfilter/nf_conntrack_sane.h>
 
 /* per conntrack: application helper private data */
 union nf_conntrack_help {
@@ -52,6 +53,7 @@ union nf_conntrack_help {
 	struct nf_ct_ftp_master ct_ftp_info;
 	struct nf_ct_pptp_master ct_pptp_info;
 	struct nf_ct_h323_master ct_h323_info;
+	struct nf_ct_sane_master ct_sane_info;
 };
 
 #include <linux/types.h>
@@ -181,13 +183,6 @@ extern void nf_conntrack_hash_insert(struct nf_conn *ct);
 
 extern void nf_conntrack_flush(void);
 
-extern struct nf_conntrack_helper *
-nf_ct_helper_find_get( const struct nf_conntrack_tuple *tuple);
-extern void nf_ct_helper_put(struct nf_conntrack_helper *helper);
-
-extern struct nf_conntrack_helper *
-__nf_conntrack_helper_find_byname(const char *name);
-
 extern int nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 				const struct nf_conntrack_tuple *orig);
 
@@ -248,6 +243,11 @@ static inline int nf_ct_is_dying(struct nf_conn *ct)
 	return test_bit(IPS_DYING_BIT, &ct->status);
 }
 
+static inline int nf_ct_is_untracked(const struct sk_buff *skb)
+{
+	return (skb->nfct == &nf_conntrack_untracked.ct_general);
+}
+
 extern unsigned int nf_conntrack_htable_size;
 extern int nf_conntrack_checksum;
 extern atomic_t nf_conntrack_count;
@@ -255,6 +255,12 @@ extern int nf_conntrack_max;
 
 DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 #define NF_CT_STAT_INC(count) (__get_cpu_var(nf_conntrack_stat).count++)
+#define NF_CT_STAT_INC_ATOMIC(count)			\
+do {							\
+	local_bh_disable();				\
+	__get_cpu_var(nf_conntrack_stat).count++;	\
+	local_bh_enable();				\
+} while (0)
 
 /* no helper, no nat */
 #define	NF_CT_F_BASIC	0

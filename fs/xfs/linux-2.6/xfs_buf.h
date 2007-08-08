@@ -69,8 +69,8 @@ typedef enum {
 } xfs_buf_flags_t;
 
 typedef enum {
-	XBT_FORCE_SLEEP = (0 << 1),
-	XBT_FORCE_FLUSH = (1 << 1),
+	XBT_FORCE_SLEEP = 0,
+	XBT_FORCE_FLUSH = 1,
 } xfs_buftarg_flags_t;
 
 typedef struct xfs_bufhash {
@@ -411,6 +411,9 @@ extern void xfs_free_buftarg(xfs_buftarg_t *, int);
 extern void xfs_wait_buftarg(xfs_buftarg_t *);
 extern int xfs_setsize_buftarg(xfs_buftarg_t *, unsigned int, unsigned int);
 extern int xfs_flush_buftarg(xfs_buftarg_t *, int);
+#ifdef CONFIG_KDB_MODULES
+extern struct list_head *xfs_get_buftarg_list(void);
+#endif
 
 #define xfs_getsize_buftarg(buftarg)	block_size((buftarg)->bt_bdev)
 #define xfs_readonly_buftarg(buftarg)	bdev_read_only((buftarg)->bt_bdev)

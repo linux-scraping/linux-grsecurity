@@ -8,9 +8,10 @@
  * return an error value in addition to the "real"
  * return value.
  */
+#include <linux/linkage.h>
+#include <asm/dwarf2.h>
 #include <asm/thread_info.h>
 #include <asm/segment.h>
-
 
 /*
  * __put_user_X
@@ -24,13 +25,19 @@
  * as they get called from within inline assembly.
  */
 
-#define ENTER	pushl %ebx ; GET_THREAD_INFO(%ebx)
-#define EXIT	popl %ebx ; ret
+#define ENTER	CFI_STARTPROC ; \
+		pushl %ebx ; \
+		CFI_ADJUST_CFA_OFFSET 4 ; \
+		CFI_REL_OFFSET ebx, 0 ; \
+		GET_THREAD_INFO(%ebx)
+#define EXIT	popl %ebx ; \
+		CFI_ADJUST_CFA_OFFSET -4 ; \
+		CFI_RESTORE ebx ; \
+		ret ; \
+		CFI_ENDPROC
 
 .text
-.align 4
-.globl __put_user_1
-__put_user_1:
+ENTRY(__put_user_1)
 	ENTER
 	cmpl TI_addr_limit(%ebx),%ecx
 	jae bad_put_user
@@ -41,10 +48,9 @@ __put_user_1:
 	popl %ds
 	xorl %eax,%eax
 	EXIT
+ENDPROC(__put_user_1)
 
-.align 4
-.globl __put_user_2
-__put_user_2:
+ENTRY(__put_user_2)
 	ENTER
 	movl TI_addr_limit(%ebx),%ebx
 	subl $1,%ebx
@@ -57,10 +63,9 @@ __put_user_2:
 	popl %ds
 	xorl %eax,%eax
 	EXIT
+ENDPROC(__put_user_2)
 
-.align 4
-.globl __put_user_4
-__put_user_4:
+ENTRY(__put_user_4)
 	ENTER
 	movl TI_addr_limit(%ebx),%ebx
 	subl $3,%ebx
@@ -73,10 +78,9 @@ __put_user_4:
 	popl %ds
 	xorl %eax,%eax
 	EXIT
+ENDPROC(__put_user_4)
 
-.align 4
-.globl __put_user_8
-__put_user_8:
+ENTRY(__put_user_8)
 	ENTER
 	movl TI_addr_limit(%ebx),%ebx
 	subl $7,%ebx
@@ -90,12 +94,20 @@ __put_user_8:
 	popl %ds
 	xorl %eax,%eax
 	EXIT
+ENDPROC(__put_user_8)
 
 bad_put_user:
+	CFI_STARTPROC simple
+	CFI_DEF_CFA esp, 2*4
+	CFI_OFFSET eip, -1*4
+	CFI_OFFSET ebx, -2*4
 	pushl %ss
+	CFI_ADJUST_CFA_OFFSET 4
 	popl %ds
+	CFI_ADJUST_CFA_OFFSET -4
 	movl $-14,%eax
 	EXIT
+END(bad_put_user)
 
 .section __ex_table,"a"
 	.long 1b,bad_put_user

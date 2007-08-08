@@ -15,6 +15,7 @@
 #include <linux/signal.h>
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
+#include <linux/kdebug.h>
 
 #include <asm/delay.h>
 #include <asm/system.h>
@@ -22,7 +23,6 @@
 #include <asm/oplib.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
-#include <asm/kdebug.h>
 #include <asm/unistd.h>
 #include <asm/traps.h>
 
@@ -259,7 +259,7 @@ void do_fpd_trap(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 	} else {
 		fpload(&current->thread.float_regs[0], &current->thread.fsr);
 	}
-	current_thread_info()->flags |= _TIF_USEDFPU;
+	set_thread_flag(TIF_USEDFPU);
 #endif
 }
 
@@ -290,7 +290,7 @@ void do_fpe_trap(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 #ifndef CONFIG_SMP
 	if(!fpt) {
 #else
-        if(!(task_thread_info(fpt)->flags & _TIF_USEDFPU)) {
+	if (!test_tsk_thread_flag(fpt, TIF_USEDFPU)) {
 #endif
 		fpsave(&fake_regs[0], &fake_fsr, &fake_queue[0], &fake_depth);
 		regs->psr &= ~PSR_EF;
@@ -333,7 +333,7 @@ void do_fpe_trap(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 	/* nope, better SIGFPE the offending process... */
 	       
 #ifdef CONFIG_SMP
-	task_thread_info(fpt)->flags &= ~_TIF_USEDFPU;
+	clear_tsk_thread_flag(fpt, TIF_USEDFPU);
 #endif
 	if(psr & PSR_PS) {
 		/* The first fsr store/load we tried trapped,

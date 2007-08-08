@@ -22,7 +22,6 @@
 #include <linux/ptrace.h>
 #include <linux/audit.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/user.h>
 #include <linux/security.h>
 #include <linux/signal.h>
@@ -236,6 +235,11 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 		case MMLO:
 			tmp = regs->lo;
 			break;
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+		case ACX:
+			tmp = regs->acx;
+			break;
+#endif
 		case FPC_CSR:
 			tmp = child->thread.fpu.fcr31;
 			break;
@@ -362,6 +366,11 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 		case MMLO:
 			regs->lo = data;
 			break;
+#ifdef CONFIG_CPU_HAS_SMARTMIPS
+		case ACX:
+			regs->acx = data;
+			break;
+#endif
 		case FPC_CSR:
 			child->thread.fpu.fcr31 = data;
 			break;

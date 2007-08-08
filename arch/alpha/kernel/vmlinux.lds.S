@@ -15,7 +15,7 @@ SECTIONS
 
   _text = .;					/* Text and read-only data */
   .text : { 
-	*(.text) 
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	*(.fixup)
@@ -52,10 +52,12 @@ SECTIONS
   }
   __initcall_end = .;
 
+#ifdef CONFIG_BLK_DEV_INITRD
   . = ALIGN(8192);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
+#endif
 
   . = ALIGN(8);
   .con_initcall.init : {
@@ -67,7 +69,7 @@ SECTIONS
   . = ALIGN(8);
   SECURITY_INIT
 
-  . = ALIGN(64);
+  . = ALIGN(8192);
   __per_cpu_start = .;
   .data.percpu : { *(.data.percpu) }
   __per_cpu_end = .;
@@ -87,7 +89,7 @@ SECTIONS
 
   _data = .;
   .data : {					/* Data */
-	*(.data)
+	DATA_DATA
 	CONSTRUCTORS
   }
 

@@ -27,7 +27,7 @@ SECTIONS
   /* read-only */
   _text = .;			/* Text and read-only data */
   .text : {
-    *(.text)
+    TEXT_TEXT
     SCHED_TEXT
     LOCK_TEXT
     *(.fixup)
@@ -62,7 +62,7 @@ SECTIONS
     . = ALIGN(_PAGE_SIZE);
     *(.data.init_task)
 
-    *(.data)
+    DATA_DATA
 
     CONSTRUCTORS
   }
@@ -113,11 +113,13 @@ SECTIONS
      references from .rodata */
   .exit.text : { *(.exit.text) }
   .exit.data : { *(.exit.data) }
+#if defined(CONFIG_BLK_DEV_INITRD)
   . = ALIGN(_PAGE_SIZE);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
-  . = ALIGN(32);
+#endif
+  . = ALIGN(_PAGE_SIZE);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;

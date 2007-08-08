@@ -21,6 +21,7 @@
 #include <linux/module.h>
 
 #include <linux/netdevice.h>
+#include <linux/ethtool.h>
 #include <linux/pci.h>
 #include <linux/etherdevice.h>
 #include <linux/delay.h>
@@ -114,7 +115,7 @@ isl_upload_firmware(islpci_private *priv)
 			    ISL38XX_MEMORY_WINDOW_SIZE : fw_len;
 			u32 __iomem *dev_fw_ptr = device_base + ISL38XX_DIRECT_MEM_WIN;
 
-			/* set the cards base address for writting the data */
+			/* set the card's base address for writing the data */
 			isl38xx_w32_flush(device_base, reg,
 					  ISL38XX_DIR_MEM_BASE_REG);
 			wmb();	/* be paranoid */
@@ -787,6 +788,17 @@ islpci_set_multicast_list(struct net_device *dev)
 }
 #endif
 
+static void islpci_ethtool_get_drvinfo(struct net_device *dev,
+                                       struct ethtool_drvinfo *info)
+{
+	strcpy(info->driver, DRV_NAME);
+	strcpy(info->version, DRV_VERSION);
+}
+
+static struct ethtool_ops islpci_ethtool_ops = {
+	.get_drvinfo = islpci_ethtool_get_drvinfo,
+};
+
 struct net_device *
 islpci_setup(struct pci_dev *pdev)
 {
@@ -813,6 +825,7 @@ islpci_setup(struct pci_dev *pdev)
 	ndev->do_ioctl = &prism54_ioctl;
 	ndev->wireless_handlers =
 	    (struct iw_handler_def *) &prism54_handler_def;
+	ndev->ethtool_ops = &islpci_ethtool_ops;
 
 	ndev->hard_start_xmit = &islpci_eth_transmit;
 	/* ndev->set_multicast_list = &islpci_set_multicast_list; */

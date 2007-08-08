@@ -128,7 +128,7 @@ static void mpc52xx_main_mask(unsigned int virq)
 
 	pr_debug("%s: irq=%x. l2=%d\n", __func__, irq, l2irq);
 
-	io_be_setbit(&intr->main_mask, 15 - l2irq);
+	io_be_setbit(&intr->main_mask, 16 - l2irq);
 }
 
 static void mpc52xx_main_unmask(unsigned int virq)
@@ -141,7 +141,7 @@ static void mpc52xx_main_unmask(unsigned int virq)
 
 	pr_debug("%s: irq=%x. l2=%d\n", __func__, irq, l2irq);
 
-	io_be_clrbit(&intr->main_mask, 15 - l2irq);
+	io_be_clrbit(&intr->main_mask, 16 - l2irq);
 }
 
 static struct irq_chip mpc52xx_main_irqchip = {
@@ -383,16 +383,16 @@ void __init mpc52xx_init_irq(void)
 	struct device_node *picnode;
 
 	/* Remap the necessary zones */
-	picnode = of_find_compatible_node(NULL, NULL, "mpc52xx-pic");
+	picnode = of_find_compatible_node(NULL, NULL, "mpc5200-pic");
 
-	intr = mpc52xx_find_and_map("mpc52xx-pic");
+	intr = mpc52xx_find_and_map("mpc5200-pic");
 	if (!intr)
-		panic(__FILE__	": find_and_map failed on 'mpc52xx-pic'. "
+		panic(__FILE__	": find_and_map failed on 'mpc5200-pic'. "
 				"Check node !");
 
-	sdma = mpc52xx_find_and_map("mpc52xx-bestcomm");
+	sdma = mpc52xx_find_and_map("mpc5200-bestcomm");
 	if (!sdma)
-		panic(__FILE__	": find_and_map failed on 'mpc52xx-bestcomm'. "
+		panic(__FILE__	": find_and_map failed on 'mpc5200-bestcomm'. "
 				"Check node !");
 
 	/* Disable all interrupt sources. */

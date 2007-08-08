@@ -35,6 +35,7 @@
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/sysfs.h>
+#include <linux/ioport.h>
 #include <asm/io.h>
 
 static struct platform_device *pdev;
@@ -146,7 +147,6 @@ superio_exit(int base)
 struct f71805f_data {
 	unsigned short addr;
 	const char *name;
-	struct mutex lock;
 	struct class_device *class_dev;
 
 	struct mutex update_lock;
@@ -271,50 +271,42 @@ static inline u8 temp_to_reg(long val)
  * Device I/O access
  */
 
+/* Must be called with data->update_lock held, except during initialization */
 static u8 f71805f_read8(struct f71805f_data *data, u8 reg)
 {
-	u8 val;
-
-	mutex_lock(&data->lock);
 	outb(reg, data->addr + ADDR_REG_OFFSET);
-	val = inb(data->addr + DATA_REG_OFFSET);
-	mutex_unlock(&data->lock);
-
-	return val;
+	return inb(data->addr + DATA_REG_OFFSET);
 }
 
+/* Must be called with data->update_lock held, except during initialization */
 static void f71805f_write8(struct f71805f_data *data, u8 reg, u8 val)
 {
-	mutex_lock(&data->lock);
 	outb(reg, data->addr + ADDR_REG_OFFSET);
 	outb(val, data->addr + DATA_REG_OFFSET);
-	mutex_unlock(&data->lock);
 }
 
 /* It is important to read the MSB first, because doing so latches the
-   value of the LSB, so we are sure both bytes belong to the same value. */
+   value of the LSB, so we are sure both bytes belong to the same value.
+   Must be called with data->update_lock held, except during initialization */
 static u16 f71805f_read16(struct f71805f_data *data, u8 reg)
 {
 	u16 val;
 
-	mutex_lock(&data->lock);
 	outb(reg, data->addr + ADDR_REG_OFFSET);
 	val = inb(data->addr + DATA_REG_OFFSET) << 8;
 	outb(++reg, data->addr + ADDR_REG_OFFSET);
 	val |= inb(data->addr + DATA_REG_OFFSET);
-	mutex_unlock(&data->lock);
 
 	return val;
 }
 
+/* Must be called with data->update_lock held, except during initialization */
 static void f71805f_write16(struct f71805f_data *data, u8 reg, u16 val)
 {
-	mutex_lock(&data->lock);
 	outb(reg, data->addr + ADDR_REG_OFFSET);
 	outb(val >> 8, data->addr + DATA_REG_OFFSET);
 	outb(++reg, data->addr + ADDR_REG_OFFSET);
 	outb(val & 0xff, data->addr + DATA_REG_OFFSET);
-	mutex_unlock(&data->lock);
 }
 
 static struct f71805f_data *f71805f_update_device(struct device *dev)
@@ -1149,8 +1141,14 @@ static int __devinit f71805f_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
+	if (!request_region(res->start + ADDR_REG_OFFSET, 2, DRVNAME)) {
+		err = -EBUSY;
+		dev_err(&pdev->dev, "Failed to request region 0x%lx-0x%lx\n",
+			(unsigned long)(res->start + ADDR_REG_OFFSET),
+			(unsigned long)(res->start + ADDR_REG_OFFSET + 1));
+		goto exit_free;
+	}
 	data->addr = res->start;
-	mutex_init(&data->lock);
 	data->name = names[sio_data->kind];
 	mutex_init(&data->update_lock);
 
@@ -1175,7 +1173,7 @@ static int __devinit f71805f_probe(struct platform_device *pdev)
 
 	/* Register sysfs interface files */
 	if ((err = sysfs_create_group(&pdev->dev.kobj, &f71805f_group)))
-		goto exit_free;
+		goto exit_release_region;
 	if (data->has_in & (1 << 4)) { /* in4 */
 		if ((err = sysfs_create_group(&pdev->dev.kobj,
 					      &f71805f_group_optin[0])))
@@ -1229,6 +1227,8 @@ exit_remove_files:
 	for (i = 0; i < 4; i++)
 		sysfs_remove_group(&pdev->dev.kobj, &f71805f_group_optin[i]);
 	sysfs_remove_group(&pdev->dev.kobj, &f71805f_group_pwm_freq);
+exit_release_region:
+	release_region(res->start + ADDR_REG_OFFSET, 2);
 exit_free:
 	platform_set_drvdata(pdev, NULL);
 	kfree(data);
@@ -1239,6 +1239,7 @@ exit:
 static int __devexit f71805f_remove(struct platform_device *pdev)
 {
 	struct f71805f_data *data = platform_get_drvdata(pdev);
+	struct resource *res;
 	int i;
 
 	platform_set_drvdata(pdev, NULL);
@@ -1248,6 +1249,9 @@ static int __devexit f71805f_remove(struct platform_device *pdev)
 		sysfs_remove_group(&pdev->dev.kobj, &f71805f_group_optin[i]);
 	sysfs_remove_group(&pdev->dev.kobj, &f71805f_group_pwm_freq);
 	kfree(data);
+
+	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
+	release_region(res->start + ADDR_REG_OFFSET, 2);
 
 	return 0;
 }
@@ -1300,14 +1304,11 @@ static int __init f71805f_device_add(unsigned short address,
 	if (err) {
 		printk(KERN_ERR DRVNAME ": Device addition failed (%d)\n",
 		       err);
-		goto exit_kfree_data;
+		goto exit_device_put;
 	}
 
 	return 0;
 
-exit_kfree_data:
-	kfree(pdev->dev.platform_data);
-	pdev->dev.platform_data = NULL;
 exit_device_put:
 	platform_device_put(pdev);
 exit:
@@ -1400,10 +1401,7 @@ exit:
 
 static void __exit f71805f_exit(void)
 {
-	kfree(pdev->dev.platform_data);
-	pdev->dev.platform_data = NULL;
 	platform_device_unregister(pdev);
-
 	platform_driver_unregister(&f71805f_driver);
 }
 

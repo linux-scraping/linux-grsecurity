@@ -99,7 +99,6 @@ extern struct resource ioport_resource;
 extern struct resource iomem_resource;
 
 extern int request_resource(struct resource *root, struct resource *new);
-extern struct resource * ____request_resource(struct resource *root, struct resource *new);
 extern int release_resource(struct resource *new);
 extern int insert_resource(struct resource *parent, struct resource *new);
 extern int allocate_resource(struct resource *root, struct resource *new,
@@ -137,4 +136,24 @@ static inline int __deprecated check_region(resource_size_t s,
 {
 	return __check_region(&ioport_resource, s, n);
 }
+
+/* Wrappers for managed devices */
+struct device;
+#define devm_request_region(dev,start,n,name) \
+	__devm_request_region(dev, &ioport_resource, (start), (n), (name))
+#define devm_request_mem_region(dev,start,n,name) \
+	__devm_request_region(dev, &iomem_resource, (start), (n), (name))
+
+extern struct resource * __devm_request_region(struct device *dev,
+				struct resource *parent, resource_size_t start,
+				resource_size_t n, const char *name);
+
+#define devm_release_region(start,n) \
+	__devm_release_region(dev, &ioport_resource, (start), (n))
+#define devm_release_mem_region(start,n) \
+	__devm_release_region(dev, &iomem_resource, (start), (n))
+
+extern void __devm_release_region(struct device *dev, struct resource *parent,
+				  resource_size_t start, resource_size_t n);
+
 #endif	/* _LINUX_IOPORT_H */

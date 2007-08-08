@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -31,6 +30,7 @@
 #include <linux/init.h>
 #include <net/sock.h>
 #include <net/act_api.h>
+#include <net/netlink.h>
 
 #define L2T(p,L)   ((p)->tcfp_R_tab->data[(L)>>(p)->tcfp_R_tab->rate.cell_log])
 #define L2T_P(p,L) ((p)->tcfp_P_tab->data[(L)>>(p)->tcfp_P_tab->rate.cell_log])
@@ -62,7 +62,7 @@ struct tc_police_compat
 
 #ifdef CONFIG_NET_CLS_ACT
 static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *cb,
-                              int type, struct tc_action *a)
+			      int type, struct tc_action *a)
 {
 	struct tcf_common *p;
 	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
@@ -81,7 +81,7 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
 				continue;
 			a->priv = p;
 			a->order = index;
-			r = (struct rtattr*) skb->tail;
+			r = (struct rtattr *)skb_tail_pointer(skb);
 			RTA_PUT(skb, a->order, 0, NULL);
 			if (type == RTM_DELACTION)
 				err = tcf_action_dump_1(skb, a, 0, 1);
@@ -89,10 +89,10 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
 				err = tcf_action_dump_1(skb, a, 0, 0);
 			if (err < 0) {
 				index--;
-				skb_trim(skb, (u8*)r - skb->data);
+				nlmsg_trim(skb, r);
 				goto done;
 			}
-			r->rta_len = skb->tail - (u8*)r;
+			r->rta_len = skb_tail_pointer(skb) - (u8 *)r;
 			n_i++;
 		}
 	}
@@ -103,7 +103,7 @@ done:
 	return n_i;
 
 rtattr_failure:
-	skb_trim(skb, (u8*)r - skb->data);
+	nlmsg_trim(skb, r);
 	goto done;
 }
 #endif
@@ -112,7 +112,7 @@ void tcf_police_destroy(struct tcf_police *p)
 {
 	unsigned int h = tcf_hash(p->tcf_index, POL_TAB_MASK);
 	struct tcf_common **p1p;
-	
+
 	for (p1p = &tcf_police_ht[h]; *p1p; p1p = &(*p1p)->tcfc_next) {
 		if (*p1p == &p->common) {
 			write_lock_bh(&police_lock);
@@ -135,7 +135,7 @@ void tcf_police_destroy(struct tcf_police *p)
 
 #ifdef CONFIG_NET_CLS_ACT
 static int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,
-                                 struct tc_action *a, int ovr, int bind)
+				 struct tc_action *a, int ovr, int bind)
 {
 	unsigned h;
 	int ret = 0, err;
@@ -241,7 +241,7 @@ override:
 	if (ret != ACT_P_CREATED)
 		return ret;
 
-	PSCHED_GET_TIME(police->tcfp_t_c);
+	police->tcfp_t_c = psched_get_time();
 	police->tcf_index = parm->index ? parm->index :
 		tcf_hash_new_index(&police_idx_gen, &police_hash_info);
 	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
@@ -269,7 +269,7 @@ static int tcf_act_police_cleanup(struct tc_action *a, int bind)
 }
 
 static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
-                          struct tcf_result *res)
+			  struct tcf_result *res)
 {
 	struct tcf_police *police = a->priv;
 	psched_time_t now;
@@ -296,10 +296,9 @@ static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
 			return police->tcfp_result;
 		}
 
-		PSCHED_GET_TIME(now);
-
-		toks = PSCHED_TDIFF_SAFE(now, police->tcfp_t_c,
-					 police->tcfp_burst);
+		now = psched_get_time();
+		toks = psched_tdiff_bounded(now, police->tcfp_t_c,
+					    police->tcfp_burst);
 		if (police->tcfp_P_tab) {
 			ptoks = toks + police->tcfp_ptoks;
 			if (ptoks > (long)L2T_P(police, police->tcfp_mtu))
@@ -327,7 +326,7 @@ static int tcf_act_police(struct sk_buff *skb, struct tc_action *a,
 static int
 tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
 {
-	unsigned char	 *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tcf_police *police = a->priv;
 	struct tc_police opt;
 
@@ -356,7 +355,7 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -495,7 +494,7 @@ struct tcf_police *tcf_police_locate(struct rtattr *rta, struct rtattr *est)
 	}
 	if (police->tcfp_P_tab)
 		police->tcfp_ptoks = L2T_P(police, police->tcfp_mtu);
-	PSCHED_GET_TIME(police->tcfp_t_c);
+	police->tcfp_t_c = psched_get_time();
 	police->tcf_index = parm->index ? parm->index :
 		tcf_police_new_index();
 	police->tcf_action = parm->action;
@@ -543,9 +542,9 @@ int tcf_police(struct sk_buff *skb, struct tcf_police *police)
 			return police->tcfp_result;
 		}
 
-		PSCHED_GET_TIME(now);
-		toks = PSCHED_TDIFF_SAFE(now, police->tcfp_t_c,
-					 police->tcfp_burst);
+		now = psched_get_time();
+		toks = psched_tdiff_bounded(now, police->tcfp_t_c,
+					    police->tcfp_burst);
 		if (police->tcfp_P_tab) {
 			ptoks = toks + police->tcfp_ptoks;
 			if (ptoks > (long)L2T_P(police, police->tcfp_mtu))
@@ -573,7 +572,7 @@ EXPORT_SYMBOL(tcf_police);
 
 int tcf_police_dump(struct sk_buff *skb, struct tcf_police *police)
 {
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tc_police opt;
 
 	opt.index = police->tcf_index;
@@ -599,19 +598,19 @@ int tcf_police_dump(struct sk_buff *skb, struct tcf_police *police)
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
 int tcf_police_dump_stats(struct sk_buff *skb, struct tcf_police *police)
 {
 	struct gnet_dump d;
-	
+
 	if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS,
 					 TCA_XSTATS, police->tcf_stats_lock,
 					 &d) < 0)
 		goto errout;
-	
+
 	if (gnet_stats_copy_basic(&d, &police->tcf_bstats) < 0 ||
 #ifdef CONFIG_NET_ESTIMATOR
 	    gnet_stats_copy_rate_est(&d, &police->tcf_rate_est) < 0 ||

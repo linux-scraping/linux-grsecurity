@@ -22,7 +22,7 @@
  *	Fixes:
  *		Alan Cox	:	Missing nonblock feature in ip_build_xmit.
  *		Mike Kilburn	:	htons() missing in ip_build_xmit.
- *		Bradford Johnson:	Fix faulty handling of some frames when 
+ *		Bradford Johnson:	Fix faulty handling of some frames when
  *					no route is found.
  *		Alexander Demenshin:	Missing sk/skb free in ip_queue_xmit
  *					(in case if packet not accepted by
@@ -33,9 +33,9 @@
  *					some redundant tests.
  *	Vitaly E. Lavrov	:	Transparent proxy revived after year coma.
  *		Andi Kleen	: 	Replace ip_reply with ip_send_reply.
- *		Andi Kleen	:	Split fast and slow ip_build_xmit path 
- *					for decreased register pressure on x86 
- *					and more readibility. 
+ *		Andi Kleen	:	Split fast and slow ip_build_xmit path
+ *					for decreased register pressure on x86
+ *					and more readibility.
  *		Marc Boucher	:	When call_out_firewall returns FW_QUEUE,
  *					silently drop skb instead of failing with -EPERM.
  *		Detlev Wengorz	:	Copy protocol for fragments.
@@ -49,7 +49,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/string.h>
 #include <linux/errno.h>
@@ -96,8 +95,8 @@ __inline__ void ip_send_check(struct iphdr *iph)
 /* dev_loopback_xmit for use with netfilter. */
 static int ip_dev_loopback_xmit(struct sk_buff *newskb)
 {
-	newskb->mac.raw = newskb->data;
-	__skb_pull(newskb, newskb->nh.raw - newskb->data);
+	skb_reset_mac_header(newskb);
+	__skb_pull(newskb, skb_network_offset(newskb));
 	newskb->pkt_type = PACKET_LOOPBACK;
 	newskb->ip_summed = CHECKSUM_UNNECESSARY;
 	BUG_TRAP(newskb->dst);
@@ -114,7 +113,7 @@ static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
 	return ttl;
 }
 
-/* 
+/*
  *		Add an ip header to a skbuff and send it out.
  *
  */
@@ -126,11 +125,9 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
 	struct iphdr *iph;
 
 	/* Build the IP header. */
-	if (opt)
-		iph=(struct iphdr *)skb_push(skb,sizeof(struct iphdr) + opt->optlen);
-	else
-		iph=(struct iphdr *)skb_push(skb,sizeof(struct iphdr));
-
+	skb_push(skb, sizeof(struct iphdr) + (opt ? opt->optlen : 0));
+	skb_reset_network_header(skb);
+	iph = ip_hdr(skb);
 	iph->version  = 4;
 	iph->ihl      = 5;
 	iph->tos      = inet->tos;
@@ -144,7 +141,6 @@ int ip_build_and_send_pkt(struct sk_buff *skb, struct sock *sk,
 	iph->protocol = sk->sk_protocol;
 	iph->tot_len  = htons(skb->len);
 	ip_select_ident(iph, &rt->u.dst, sk);
-	skb->nh.iph   = iph;
 
 	if (opt && opt->optlen) {
 		iph->ihl += opt->optlen>>2;
@@ -164,8 +160,14 @@ EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
 static inline int ip_finish_output2(struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb->dst;
+	struct rtable *rt = (struct rtable *)dst;
 	struct net_device *dev = dst->dev;
 	int hh_len = LL_RESERVED_SPACE(dev);
+
+	if (rt->rt_type == RTN_MULTICAST)
+		IP_INC_STATS(IPSTATS_MIB_OUTMCASTPKTS);
+	else if (rt->rt_type == RTN_BROADCAST)
+		IP_INC_STATS(IPSTATS_MIB_OUTBCASTPKTS);
 
 	/* Be paranoid, rather than too clever. */
 	if (unlikely(skb_headroom(skb) < hh_len && dev->hard_header)) {
@@ -193,6 +195,14 @@ static inline int ip_finish_output2(struct sk_buff *skb)
 	return -EINVAL;
 }
 
+static inline int ip_skb_dst_mtu(struct sk_buff *skb)
+{
+	struct inet_sock *inet = skb->sk ? inet_sk(skb->sk) : NULL;
+
+	return (inet && inet->pmtudisc == IP_PMTUDISC_PROBE) ?
+	       skb->dst->dev->mtu : dst_mtu(skb->dst);
+}
+
 static inline int ip_finish_output(struct sk_buff *skb)
 {
 #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
@@ -202,7 +212,7 @@ static inline int ip_finish_output(struct sk_buff *skb)
 		return dst_output(skb);
 	}
 #endif
-	if (skb->len > dst_mtu(skb->dst) && !skb_is_gso(skb))
+	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
 		return ip_fragment(skb, ip_finish_output2);
 	else
 		return ip_finish_output2(skb);
@@ -243,13 +253,13 @@ int ip_mc_output(struct sk_buff *skb)
 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
 			if (newskb)
 				NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
-					newskb->dev, 
+					newskb->dev,
 					ip_dev_loopback_xmit);
 		}
 
 		/* Multicasts with ttl 0 must not go beyond the host */
 
-		if (skb->nh.iph->ttl == 0) {
+		if (ip_hdr(skb)->ttl == 0) {
 			kfree_skb(skb);
 			return 0;
 		}
@@ -277,7 +287,7 @@ int ip_output(struct sk_buff *skb)
 	skb->protocol = htons(ETH_P_IP);
 
 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, dev,
-		            ip_finish_output,
+			    ip_finish_output,
 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
 }
 
@@ -334,7 +344,9 @@ packet_routed:
 		goto no_route;
 
 	/* OK, we know where to send it, allocate and build IP header. */
-	iph = (struct iphdr *) skb_push(skb, sizeof(struct iphdr) + (opt ? opt->optlen : 0));
+	skb_push(skb, sizeof(struct iphdr) + (opt ? opt->optlen : 0));
+	skb_reset_network_header(skb);
+	iph = ip_hdr(skb);
 	*((__be16 *)iph) = htons((4 << 12) | (5 << 8) | (inet->tos & 0xff));
 	iph->tot_len = htons(skb->len);
 	if (ip_dont_fragment(sk, &rt->u.dst) && !ipfragok)
@@ -345,7 +357,6 @@ packet_routed:
 	iph->protocol = sk->sk_protocol;
 	iph->saddr    = rt->rt_src;
 	iph->daddr    = rt->rt_dst;
-	skb->nh.iph   = iph;
 	/* Transport layer set skb->h.foo itself. */
 
 	if (opt && opt->optlen) {
@@ -387,20 +398,9 @@ static void ip_copy_metadata(struct sk_buff *to, struct sk_buff *from)
 #ifdef CONFIG_NET_SCHED
 	to->tc_index = from->tc_index;
 #endif
-#ifdef CONFIG_NETFILTER
-	/* Connection association is same as pre-frag packet */
-	nf_conntrack_put(to->nfct);
-	to->nfct = from->nfct;
-	nf_conntrack_get(to->nfct);
-	to->nfctinfo = from->nfctinfo;
+	nf_copy(to, from);
 #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
 	to->ipvs_property = from->ipvs_property;
-#endif
-#ifdef CONFIG_BRIDGE_NETFILTER
-	nf_bridge_put(to->nf_bridge);
-	to->nf_bridge = from->nf_bridge;
-	nf_bridge_get(to->nf_bridge);
-#endif
 #endif
 	skb_copy_secmark(to, from);
 }
@@ -431,12 +431,12 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	 *	Point into the IP datagram header.
 	 */
 
-	iph = skb->nh.iph;
+	iph = ip_hdr(skb);
 
 	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-			  htonl(dst_mtu(&rt->u.dst)));
+			  htonl(ip_skb_dst_mtu(skb)));
 		kfree_skb(skb);
 		return -EMSGSIZE;
 	}
@@ -503,10 +503,11 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 			 * before previous one went down. */
 			if (frag) {
 				frag->ip_summed = CHECKSUM_NONE;
-				frag->h.raw = frag->data;
-				frag->nh.raw = __skb_push(frag, hlen);
-				memcpy(frag->nh.raw, iph, hlen);
-				iph = frag->nh.iph;
+				skb_reset_transport_header(frag);
+				__skb_push(frag, hlen);
+				skb_reset_network_header(frag);
+				memcpy(skb_network_header(frag), iph, hlen);
+				iph = ip_hdr(frag);
 				iph->tot_len = htons(frag->len);
 				ip_copy_metadata(frag, skb);
 				if (offset == 0)
@@ -567,7 +568,7 @@ slow_path:
 	 *	Keep copying data until we run out.
 	 */
 
-	while(left > 0)	{
+	while (left > 0) {
 		len = left;
 		/* IF: it doesn't fit, use 'mtu' - the data space left */
 		if (len > mtu)
@@ -594,8 +595,8 @@ slow_path:
 		ip_copy_metadata(skb2, skb);
 		skb_reserve(skb2, ll_rs);
 		skb_put(skb2, len + hlen);
-		skb2->nh.raw = skb2->data;
-		skb2->h.raw = skb2->data + hlen;
+		skb_reset_network_header(skb2);
+		skb2->transport_header = skb2->network_header + hlen;
 
 		/*
 		 *	Charge the memory for the fragment to any owner
@@ -609,19 +610,19 @@ slow_path:
 		 *	Copy the packet header into the new buffer.
 		 */
 
-		memcpy(skb2->nh.raw, skb->data, hlen);
+		skb_copy_from_linear_data(skb, skb_network_header(skb2), hlen);
 
 		/*
 		 *	Copy a block of the IP datagram.
 		 */
-		if (skb_copy_bits(skb, ptr, skb2->h.raw, len))
+		if (skb_copy_bits(skb, ptr, skb_transport_header(skb2), len))
 			BUG();
 		left -= len;
 
 		/*
 		 *	Fill in the new header fields.
 		 */
-		iph = skb2->nh.iph;
+		iph = ip_hdr(skb2);
 		iph->frag_off = htons((offset >> 3));
 
 		/* ANK: dirty, but effective trick. Upgrade options only if
@@ -660,7 +661,7 @@ slow_path:
 	return err;
 
 fail:
-	kfree_skb(skb); 
+	kfree_skb(skb);
 	IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
 	return err;
 }
@@ -723,10 +724,10 @@ static inline int ip_ufo_append_data(struct sock *sk,
 		skb_put(skb,fragheaderlen + transhdrlen);
 
 		/* initialize network header pointer */
-		skb->nh.raw = skb->data;
+		skb_reset_network_header(skb);
 
 		/* initialize protocol header pointer */
-		skb->h.raw = skb->data + fragheaderlen;
+		skb->transport_header = skb->network_header + fragheaderlen;
 
 		skb->ip_summed = CHECKSUM_PARTIAL;
 		skb->csum = 0;
@@ -755,7 +756,7 @@ static inline int ip_ufo_append_data(struct sock *sk,
  *	from many pieces of data. Each pieces will be holded on the socket
  *	until ip_push_pending_frames() is called. Each piece can be a page
  *	or non-page data.
- *	
+ *
  *	Not only UDP, other transport protocols - e.g. raw sockets - can use
  *	this interface potentially.
  *
@@ -800,7 +801,9 @@ int ip_append_data(struct sock *sk,
 			inet->cork.addr = ipc->addr;
 		}
 		dst_hold(&rt->u.dst);
-		inet->cork.fragsize = mtu = dst_mtu(rt->u.dst.path);
+		inet->cork.fragsize = mtu = inet->pmtudisc == IP_PMTUDISC_PROBE ?
+					    rt->u.dst.dev->mtu :
+					    dst_mtu(rt->u.dst.path);
 		inet->cork.rt = rt;
 		inet->cork.length = 0;
 		sk->sk_sndmsg_page = NULL;
@@ -888,7 +891,7 @@ alloc_new_skb:
 				datalen = maxfraglen - fragheaderlen;
 			fraglen = datalen + fragheaderlen;
 
-			if ((flags & MSG_MORE) && 
+			if ((flags & MSG_MORE) &&
 			    !(rt->u.dst.dev->features&NETIF_F_SG))
 				alloclen = mtu;
 			else
@@ -903,14 +906,14 @@ alloc_new_skb:
 				alloclen += rt->u.dst.trailer_len;
 
 			if (transhdrlen) {
-				skb = sock_alloc_send_skb(sk, 
+				skb = sock_alloc_send_skb(sk,
 						alloclen + hh_len + 15,
 						(flags & MSG_DONTWAIT), &err);
 			} else {
 				skb = NULL;
 				if (atomic_read(&sk->sk_wmem_alloc) <=
 				    2 * sk->sk_sndbuf)
-					skb = sock_wmalloc(sk, 
+					skb = sock_wmalloc(sk,
 							   alloclen + hh_len + 15, 1,
 							   sk->sk_allocation);
 				if (unlikely(skb == NULL))
@@ -930,9 +933,10 @@ alloc_new_skb:
 			 *	Find where to start putting bytes.
 			 */
 			data = skb_put(skb, fraglen);
-			skb->nh.raw = data + exthdrlen;
+			skb_set_network_header(skb, exthdrlen);
+			skb->transport_header = (skb->network_header +
+						 fragheaderlen);
 			data += fragheaderlen;
-			skb->h.raw = data + exthdrlen;
 
 			if (fraggap) {
 				skb->csum = skb_copy_and_csum_bits(
@@ -971,7 +975,7 @@ alloc_new_skb:
 			unsigned int off;
 
 			off = skb->len;
-			if (getfrag(from, skb_put(skb, copy), 
+			if (getfrag(from, skb_put(skb, copy),
 					offset, copy, off, skb) < 0) {
 				__skb_trim(skb, off);
 				err = -EFAULT;
@@ -993,7 +997,7 @@ alloc_new_skb:
 						goto error;
 					}
 					get_page(page);
-	 				skb_fill_page_desc(skb, i, page, sk->sk_sndmsg_off, 0);
+					skb_fill_page_desc(skb, i, page, sk->sk_sndmsg_off, 0);
 					frag = &skb_shinfo(skb)->frags[i];
 				}
 			} else if (i < MAX_SKB_FRAGS) {
@@ -1033,7 +1037,7 @@ alloc_new_skb:
 error:
 	inet->cork.length -= length;
 	IP_INC_STATS(IPSTATS_MIB_OUTDISCARDS);
-	return err; 
+	return err;
 }
 
 ssize_t	ip_append_page(struct sock *sk, struct page *page,
@@ -1101,8 +1105,6 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
 		}
 		if (len <= 0) {
 			struct sk_buff *skb_prev;
-			char *data;
-			struct iphdr *iph;
 			int alloclen;
 
 			skb_prev = skb;
@@ -1125,15 +1127,15 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
 			/*
 			 *	Find where to start putting bytes.
 			 */
-			data = skb_put(skb, fragheaderlen + fraggap);
-			skb->nh.iph = iph = (struct iphdr *)data;
-			data += fragheaderlen;
-			skb->h.raw = data;
-
+			skb_put(skb, fragheaderlen + fraggap);
+			skb_reset_network_header(skb);
+			skb->transport_header = (skb->network_header +
+						 fragheaderlen);
 			if (fraggap) {
-				skb->csum = skb_copy_and_csum_bits(
-					skb_prev, maxfraglen,
-					data, fraggap, 0);
+				skb->csum = skb_copy_and_csum_bits(skb_prev,
+								   maxfraglen,
+						    skb_transport_header(skb),
+								   fraggap, 0);
 				skb_prev->csum = csum_sub(skb_prev->csum,
 							  skb->csum);
 				pskb_trim_unique(skb_prev, maxfraglen);
@@ -1199,10 +1201,10 @@ int ip_push_pending_frames(struct sock *sk)
 	tail_skb = &(skb_shinfo(skb)->frag_list);
 
 	/* move skb->data to ip header from ext header */
-	if (skb->data < skb->nh.raw)
-		__skb_pull(skb, skb->nh.raw - skb->data);
+	if (skb->data < skb_network_header(skb))
+		__skb_pull(skb, skb_network_offset(skb));
 	while ((tmp_skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
-		__skb_pull(tmp_skb, skb->h.raw - skb->nh.raw);
+		__skb_pull(tmp_skb, skb_network_header_len(skb));
 		*tail_skb = tmp_skb;
 		tail_skb = &(tmp_skb->next);
 		skb->len += tmp_skb->len;
@@ -1217,13 +1219,13 @@ int ip_push_pending_frames(struct sock *sk)
 	 * to fragment the frame generated here. No matter, what transforms
 	 * how transforms change size of the packet, it will come out.
 	 */
-	if (inet->pmtudisc != IP_PMTUDISC_DO)
+	if (inet->pmtudisc < IP_PMTUDISC_DO)
 		skb->local_df = 1;
 
 	/* DF bit is set when we want to see DF on outgoing frames.
 	 * If local_df is set too, we still allow to fragment this frame
 	 * locally. */
-	if (inet->pmtudisc == IP_PMTUDISC_DO ||
+	if (inet->pmtudisc >= IP_PMTUDISC_DO ||
 	    (skb->len <= dst_mtu(&rt->u.dst) &&
 	     ip_dont_fragment(sk, &rt->u.dst)))
 		df = htons(IP_DF);
@@ -1257,7 +1259,7 @@ int ip_push_pending_frames(struct sock *sk)
 	skb->dst = dst_clone(&rt->u.dst);
 
 	/* Netfilter gets whole the not fragmented skb. */
-	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, 
+	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
 		      skb->dst->dev, dst_output);
 	if (err) {
 		if (err > 0)
@@ -1305,21 +1307,21 @@ void ip_flush_pending_frames(struct sock *sk)
 /*
  *	Fetch data from kernel space and fill in checksum if needed.
  */
-static int ip_reply_glue_bits(void *dptr, char *to, int offset, 
+static int ip_reply_glue_bits(void *dptr, char *to, int offset,
 			      int len, int odd, struct sk_buff *skb)
 {
 	__wsum csum;
 
 	csum = csum_partial_copy_nocheck(dptr+offset, to, len, 0);
 	skb->csum = csum_block_add(skb->csum, csum, odd);
-	return 0;  
+	return 0;
 }
 
-/* 
+/*
  *	Generic function to send a packet as reply to another packet.
  *	Used to send TCP resets so far. ICMP should use this function too.
  *
- *	Should run single threaded per socket because it uses the sock 
+ *	Should run single threaded per socket because it uses the sock
  *     	structure to pass arguments.
  *
  *	LATER: switch from ip_build_xmit to ip_append_*
@@ -1350,14 +1352,15 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
 	}
 
 	{
-		struct flowi fl = { .nl_u = { .ip4_u =
+		struct flowi fl = { .oif = arg->bound_dev_if,
+				    .nl_u = { .ip4_u =
 					      { .daddr = daddr,
 						.saddr = rt->rt_spec_dst,
-						.tos = RT_TOS(skb->nh.iph->tos) } },
+						.tos = RT_TOS(ip_hdr(skb)->tos) } },
 				    /* Not quite clean, but right. */
 				    .uli_u = { .ports =
-					       { .sport = skb->h.th->dest,
-					         .dport = skb->h.th->source } },
+					       { .sport = tcp_hdr(skb)->dest,
+						 .dport = tcp_hdr(skb)->source } },
 				    .proto = sk->sk_protocol };
 		security_skb_classify_flow(skb, &fl);
 		if (ip_route_output_key(&rt, &fl))
@@ -1371,14 +1374,17 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
 	   with locally disabled BH and that sk cannot be already spinlocked.
 	 */
 	bh_lock_sock(sk);
-	inet->tos = skb->nh.iph->tos;
+	inet->tos = ip_hdr(skb)->tos;
 	sk->sk_priority = skb->priority;
-	sk->sk_protocol = skb->nh.iph->protocol;
+	sk->sk_protocol = ip_hdr(skb)->protocol;
+	sk->sk_bound_dev_if = arg->bound_dev_if;
 	ip_append_data(sk, ip_reply_glue_bits, arg->iov->iov_base, len, 0,
 		       &ipc, rt, MSG_DONTWAIT);
 	if ((skb = skb_peek(&sk->sk_write_queue)) != NULL) {
 		if (arg->csumoffset >= 0)
-			*((__sum16 *)skb->h.raw + arg->csumoffset) = csum_fold(csum_add(skb->csum, arg->csum));
+			*((__sum16 *)skb_transport_header(skb) +
+			  arg->csumoffset) = csum_fold(csum_add(skb->csum,
+								arg->csum));
 		skb->ip_summed = CHECKSUM_NONE;
 		ip_push_pending_frames(sk);
 	}

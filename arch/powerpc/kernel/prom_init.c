@@ -635,6 +635,12 @@ static void __init early_cmdline_parse(void)
 /* ibm,dynamic-reconfiguration-memory property supported */
 #define OV5_DRCONF_MEMORY	0x20
 #define OV5_LARGE_PAGES		0x10	/* large pages supported */
+/* PCIe/MSI support.  Without MSI full PCIe is not supported */
+#ifdef CONFIG_PCI_MSI
+#define OV5_MSI			0x01	/* PCIe/MSI support */
+#else
+#define OV5_MSI			0x00
+#endif /* CONFIG_PCI_MSI */
 
 /*
  * The architecture vector has an array of PVR mask/value pairs,
@@ -679,7 +685,7 @@ static unsigned char ibm_architecture_vec[] = {
 	/* option vector 5: PAPR/OF options */
 	3 - 2,				/* length */
 	0,				/* don't ignore, don't halt */
-	OV5_LPAR | OV5_SPLPAR | OV5_LARGE_PAGES | OV5_DRCONF_MEMORY,
+	OV5_LPAR | OV5_SPLPAR | OV5_LARGE_PAGES | OV5_DRCONF_MEMORY | OV5_MSI,
 };
 
 /* Old method - ELF header with PT_NOTE sections */
@@ -967,7 +973,7 @@ static unsigned long __init prom_next_cell(int s, cell_t **cellp)
  * If problems seem to show up, it would be a good start to track
  * them down.
  */
-static void reserve_mem(u64 base, u64 size)
+static void __init reserve_mem(u64 base, u64 size)
 {
 	u64 top = base + size;
 	unsigned long cnt = RELOC(mem_reserve_cnt);
@@ -2035,39 +2041,50 @@ static void __init fixup_device_tree_maple(void)
 #endif
 
 #ifdef CONFIG_PPC_CHRP
-/* Pegasos and BriQ lacks the "ranges" property in the isa node */
+/*
+ * Pegasos and BriQ lacks the "ranges" property in the isa node
+ * Pegasos needs decimal IRQ 14/15, not hexadecimal
+ */
 static void __init fixup_device_tree_chrp(void)
 {
-	phandle isa;
-	u32 isa_ranges[6];
+	phandle ph;
+	u32 prop[6];
 	u32 rloc = 0x01006000; /* IO space; PCI device = 12 */
 	char *name;
 	int rc;
 
 	name = "/pci@80000000/isa@c";
-	isa = call_prom("finddevice", 1, 1, ADDR(name));
-	if (!PHANDLE_VALID(isa)) {
+	ph = call_prom("finddevice", 1, 1, ADDR(name));
+	if (!PHANDLE_VALID(ph)) {
 		name = "/pci@ff500000/isa@6";
-		isa = call_prom("finddevice", 1, 1, ADDR(name));
+		ph = call_prom("finddevice", 1, 1, ADDR(name));
 		rloc = 0x01003000; /* IO space; PCI device = 6 */
 	}
-	if (!PHANDLE_VALID(isa))
-		return;
+	if (PHANDLE_VALID(ph)) {
+		rc = prom_getproplen(ph, "ranges");
+		if (rc == 0 || rc == PROM_ERROR) {
+			prom_printf("Fixing up missing ISA range on Pegasos...\n");
 
-	rc = prom_getproplen(isa, "ranges");
-	if (rc != 0 && rc != PROM_ERROR)
-		return;
+			prop[0] = 0x1;
+			prop[1] = 0x0;
+			prop[2] = rloc;
+			prop[3] = 0x0;
+			prop[4] = 0x0;
+			prop[5] = 0x00010000;
+			prom_setprop(ph, name, "ranges", prop, sizeof(prop));
+		}
+	}
 
-	prom_printf("Fixing up missing ISA range on Pegasos...\n");
-
-	isa_ranges[0] = 0x1;
-	isa_ranges[1] = 0x0;
-	isa_ranges[2] = rloc;
-	isa_ranges[3] = 0x0;
-	isa_ranges[4] = 0x0;
-	isa_ranges[5] = 0x00010000;
-	prom_setprop(isa, name, "ranges",
-			isa_ranges, sizeof(isa_ranges));
+	name = "/pci@80000000/ide@C,1";
+	ph = call_prom("finddevice", 1, 1, ADDR(name));
+	if (PHANDLE_VALID(ph)) {
+		prom_printf("Fixing up IDE interrupt on Pegasos...\n");
+		prop[0] = 14;
+		prop[1] = 0x0;
+		prop[2] = 15;
+		prop[3] = 0x0;
+		prom_setprop(ph, name, "interrupts", prop, 4*sizeof(u32));
+	}
 }
 #else
 #define fixup_device_tree_chrp()
@@ -2117,11 +2134,92 @@ static void __init fixup_device_tree_pmac(void)
 #define fixup_device_tree_pmac()
 #endif
 
+#ifdef CONFIG_PPC_EFIKA
+/* The current fw of the Efika has a device tree needs quite a few
+ * fixups to be compliant with the mpc52xx bindings. It's currently
+ * unknown if it will ever be compliant (come on bPlan ...) so we do fixups.
+ * NOTE that we (barely) tolerate it because the EFIKA was out before
+ * the bindings were finished, for any new boards -> RTFM ! */
+
+struct subst_entry {
+	char *path;
+	char *property;
+	void *value;
+	int value_len;
+};
+
+static void __init fixup_device_tree_efika(void)
+{
+	/* Substitution table */
+	#define prop_cstr(x) x, sizeof(x)
+	int prop_sound_irq[3] = { 2, 2, 0 };
+	int prop_bcomm_irq[3*16] = { 3,0,0, 3,1,0, 3,2,0, 3,3,0,
+	                             3,4,0, 3,5,0, 3,6,0, 3,7,0,
+	                             3,8,0, 3,9,0, 3,10,0, 3,11,0,
+	                             3,12,0, 3,13,0, 3,14,0, 3,15,0 };
+	struct subst_entry efika_subst_table[] = {
+		{ "/",			"device_type",	prop_cstr("efika") },
+		{ "/builtin",		"device_type",	prop_cstr("soc") },
+		{ "/builtin/ata",	"compatible",	prop_cstr("mpc5200b-ata\0mpc5200-ata"), },
+		{ "/builtin/bestcomm",	"compatible",	prop_cstr("mpc5200b-bestcomm\0mpc5200-bestcomm") },
+		{ "/builtin/bestcomm",	"interrupts",	prop_bcomm_irq, sizeof(prop_bcomm_irq) },
+		{ "/builtin/ethernet",	"compatible",	prop_cstr("mpc5200b-fec\0mpc5200-fec") },
+		{ "/builtin/pic",	"compatible",	prop_cstr("mpc5200b-pic\0mpc5200-pic") },
+		{ "/builtin/serial",	"compatible",	prop_cstr("mpc5200b-psc-uart\0mpc5200-psc-uart") },
+		{ "/builtin/sound",	"compatible",	prop_cstr("mpc5200b-psc-ac97\0mpc5200-psc-ac97") },
+		{ "/builtin/sound",	"interrupts",	prop_sound_irq, sizeof(prop_sound_irq) },
+		{ "/builtin/sram",	"compatible",	prop_cstr("mpc5200b-sram\0mpc5200-sram") },
+		{ "/builtin/sram",	"device_type",	prop_cstr("sram") },
+		{}
+	};
+	#undef prop_cstr
+
+	/* Vars */
+	u32 node;
+	char prop[64];
+	int rv, i;
+
+	/* Check if we're really running on a EFIKA */
+	node = call_prom("finddevice", 1, 1, ADDR("/"));
+	if (!PHANDLE_VALID(node))
+		return;
+
+	rv = prom_getprop(node, "model", prop, sizeof(prop));
+	if (rv == PROM_ERROR)
+		return;
+	if (strcmp(prop, "EFIKA5K2"))
+		return;
+
+	prom_printf("Applying EFIKA device tree fixups\n");
+
+	/* Process substitution table */
+	for (i=0; efika_subst_table[i].path; i++) {
+		struct subst_entry *se = &efika_subst_table[i];
+
+		node = call_prom("finddevice", 1, 1, ADDR(se->path));
+		if (!PHANDLE_VALID(node)) {
+			prom_printf("fixup_device_tree_efika: ",
+				"skipped entry %x - not found\n", i);
+			continue;
+		}
+
+		rv = prom_setprop(node, se->path, se->property,
+					se->value, se->value_len );
+		if (rv == PROM_ERROR)
+			prom_printf("fixup_device_tree_efika: ",
+				"skipped entry %x - setprop error\n", i);
+	}
+}
+#else
+#define fixup_device_tree_efika()
+#endif
+
 static void __init fixup_device_tree(void)
 {
 	fixup_device_tree_maple();
 	fixup_device_tree_chrp();
 	fixup_device_tree_pmac();
+	fixup_device_tree_efika();
 }
 
 static void __init prom_find_boot_cpu(void)

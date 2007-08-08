@@ -35,7 +35,6 @@
 #include <asm/mipsregs.h>
 #include <asm/mipsmtregs.h>
 #include <asm/mips_mt.h>
-#include <asm/mips-boards/maltaint.h>  /* This is f*cking wrong */
 
 #define MIPS_CPU_IPI_RESCHED_IRQ 0
 #define MIPS_CPU_IPI_CALL_IRQ 1
@@ -108,12 +107,12 @@ void __init sanitize_tlb_entries(void)
 
 static void ipi_resched_dispatch(void)
 {
-	do_IRQ(MIPSCPU_INT_BASE + MIPS_CPU_IPI_RESCHED_IRQ);
+	do_IRQ(MIPS_CPU_IRQ_BASE + MIPS_CPU_IPI_RESCHED_IRQ);
 }
 
 static void ipi_call_dispatch(void)
 {
-	do_IRQ(MIPSCPU_INT_BASE + MIPS_CPU_IPI_CALL_IRQ);
+	do_IRQ(MIPS_CPU_IRQ_BASE + MIPS_CPU_IPI_CALL_IRQ);
 }
 
 static irqreturn_t ipi_resched_interrupt(int irq, void *dev_id)
@@ -130,13 +129,13 @@ static irqreturn_t ipi_call_interrupt(int irq, void *dev_id)
 
 static struct irqaction irq_resched = {
 	.handler	= ipi_resched_interrupt,
-	.flags		= IRQF_DISABLED,
+	.flags		= IRQF_DISABLED|IRQF_PERCPU,
 	.name		= "IPI_resched"
 };
 
 static struct irqaction irq_call = {
 	.handler	= ipi_call_interrupt,
-	.flags		= IRQF_DISABLED,
+	.flags		= IRQF_DISABLED|IRQF_PERCPU,
 	.name		= "IPI_call"
 };
 
@@ -237,8 +236,6 @@ void __init plat_smp_setup(void)
 	dvpe();
 	dmt();
 
-	mips_mt_set_cpuoptions();
-
 	/* Put MVPE's into 'configuration state' */
 	set_c0_mvpcontrol(MVPCONTROL_VPC);
 
@@ -264,22 +261,21 @@ void __init plat_smp_setup(void)
 
 void __init plat_prepare_cpus(unsigned int max_cpus)
 {
+	mips_mt_set_cpuoptions();
+
 	/* set up ipi interrupts */
 	if (cpu_has_vint) {
 		set_vi_handler(MIPS_CPU_IPI_RESCHED_IRQ, ipi_resched_dispatch);
 		set_vi_handler(MIPS_CPU_IPI_CALL_IRQ, ipi_call_dispatch);
 	}
 
-	cpu_ipi_resched_irq = MIPSCPU_INT_BASE + MIPS_CPU_IPI_RESCHED_IRQ;
-	cpu_ipi_call_irq = MIPSCPU_INT_BASE + MIPS_CPU_IPI_CALL_IRQ;
+	cpu_ipi_resched_irq = MIPS_CPU_IRQ_BASE + MIPS_CPU_IPI_RESCHED_IRQ;
+	cpu_ipi_call_irq = MIPS_CPU_IRQ_BASE + MIPS_CPU_IPI_CALL_IRQ;
 
 	setup_irq(cpu_ipi_resched_irq, &irq_resched);
 	setup_irq(cpu_ipi_call_irq, &irq_call);
 
-	/* need to mark IPI's as IRQ_PER_CPU */
-	irq_desc[cpu_ipi_resched_irq].status |= IRQ_PER_CPU;
 	set_irq_handler(cpu_ipi_resched_irq, handle_percpu_irq);
-	irq_desc[cpu_ipi_call_irq].status |= IRQ_PER_CPU;
 	set_irq_handler(cpu_ipi_call_irq, handle_percpu_irq);
 }
 
@@ -327,8 +323,11 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 
 void prom_init_secondary(void)
 {
+	/* Enable per-cpu interrupts */
+
+	/* This is Malta specific: IPI,performance and timer inetrrupts */
 	write_c0_status((read_c0_status() & ~ST0_IM ) |
-	                (STATUSF_IP0 | STATUSF_IP1 | STATUSF_IP7));
+	                (STATUSF_IP0 | STATUSF_IP1 | STATUSF_IP6 | STATUSF_IP7));
 }
 
 void prom_smp_finish(void)

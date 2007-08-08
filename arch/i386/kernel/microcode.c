@@ -384,7 +384,7 @@ static int do_microcode_update (void)
 {
 	long cursor = 0;
 	int error = 0;
-	void *new_mc;
+	void *new_mc = NULL;
 	int cpu;
 	cpumask_t old;
 
@@ -451,7 +451,7 @@ static ssize_t microcode_write (struct file *file, const char __user *buf, size_
 	return ret;
 }
 
-static struct file_operations microcode_fops = {
+static const struct file_operations microcode_fops = {
 	.owner		= THIS_MODULE,
 	.write		= microcode_write,
 	.open		= microcode_open,
@@ -478,7 +478,7 @@ static int __init microcode_dev_init (void)
 	return 0;
 }
 
-static void __exit microcode_dev_exit (void)
+static void microcode_dev_exit (void)
 {
 	misc_deregister(&microcode_dev);
 }
@@ -567,7 +567,55 @@ static int cpu_request_microcode(int cpu)
 	return error;
 }
 
-static void microcode_init_cpu(int cpu)
+static int apply_microcode_check_cpu(int cpu)
+{
+	struct cpuinfo_x86 *c = cpu_data + cpu;
+	struct ucode_cpu_info *uci = ucode_cpu_info + cpu;
+	cpumask_t old;
+	unsigned int val[2];
+	int err = 0;
+
+	/* Check if the microcode is available */
+	if (!uci->mc)
+		return 0;
+
+	old = current->cpus_allowed;
+	set_cpus_allowed(current, cpumask_of_cpu(cpu));
+
+	/* Check if the microcode we have in memory matches the CPU */
+	if (c->x86_vendor != X86_VENDOR_INTEL || c->x86 < 6 ||
+	    cpu_has(c, X86_FEATURE_IA64) || uci->sig != cpuid_eax(0x00000001))
+		err = -EINVAL;
+
+	if (!err && ((c->x86_model >= 5) || (c->x86 > 6))) {
+		/* get processor flags from MSR 0x17 */
+		rdmsr(MSR_IA32_PLATFORM_ID, val[0], val[1]);
+		if (uci->pf != (1 << ((val[1] >> 18) & 7)))
+			err = -EINVAL;
+	}
+
+	if (!err) {
+		wrmsr(MSR_IA32_UCODE_REV, 0, 0);
+		/* see notes above for revision 1.07.  Apparent chip bug */
+		sync_core();
+		/* get the current revision from MSR 0x8B */
+		rdmsr(MSR_IA32_UCODE_REV, val[0], val[1]);
+		if (uci->rev != val[1])
+			err = -EINVAL;
+	}
+
+	if (!err)
+		apply_microcode(cpu);
+	else
+		printk(KERN_ERR "microcode: Could not apply microcode to CPU%d:"
+			" sig=0x%x, pf=0x%x, rev=0x%x\n",
+			cpu, uci->sig, uci->pf, uci->rev);
+
+	set_cpus_allowed(current, old);
+	return err;
+}
+
+static void microcode_init_cpu(int cpu, int resume)
 {
 	cpumask_t old;
 	struct ucode_cpu_info *uci = ucode_cpu_info + cpu;
@@ -577,7 +625,7 @@ static void microcode_init_cpu(int cpu)
 	set_cpus_allowed(current, cpumask_of_cpu(cpu));
 	mutex_lock(&microcode_mutex);
 	collect_cpu_info(cpu);
-	if (uci->valid && system_state == SYSTEM_RUNNING)
+	if (uci->valid && system_state == SYSTEM_RUNNING && !resume)
 		cpu_request_microcode(cpu);
 	mutex_unlock(&microcode_mutex);
 	set_cpus_allowed(current, old);
@@ -654,7 +702,7 @@ static struct attribute_group mc_attr_group = {
 	.name = "microcode",
 };
 
-static int mc_sysdev_add(struct sys_device *sys_dev)
+static int __mc_sysdev_add(struct sys_device *sys_dev, int resume)
 {
 	int err, cpu = sys_dev->id;
 	struct ucode_cpu_info *uci = ucode_cpu_info + cpu;
@@ -669,8 +717,14 @@ static int mc_sysdev_add(struct sys_device *sys_dev)
 	if (err)
 		return err;
 
-	microcode_init_cpu(cpu);
+	microcode_init_cpu(cpu, resume);
+
 	return 0;
+}
+
+static int mc_sysdev_add(struct sys_device *sys_dev)
+{
+	return __mc_sysdev_add(sys_dev, 0);
 }
 
 static int mc_sysdev_remove(struct sys_device *sys_dev)
@@ -679,6 +733,7 @@ static int mc_sysdev_remove(struct sys_device *sys_dev)
 
 	if (!cpu_online(cpu))
 		return 0;
+
 	pr_debug("Microcode:CPU %d removed\n", cpu);
 	microcode_fini_cpu(cpu);
 	sysfs_remove_group(&sys_dev->kobj, &mc_attr_group);
@@ -711,12 +766,33 @@ mc_cpu_callback(struct notifier_block *nb, unsigned long action, void *hcpu)
 
 	sys_dev = get_cpu_sysdev(cpu);
 	switch (action) {
+	case CPU_UP_CANCELED_FROZEN:
+		/* The CPU refused to come up during a system resume */
+		microcode_fini_cpu(cpu);
+		break;
 	case CPU_ONLINE:
 	case CPU_DOWN_FAILED:
 		mc_sysdev_add(sys_dev);
 		break;
+	case CPU_ONLINE_FROZEN:
+		/* System-wide resume is in progress, try to apply microcode */
+		if (apply_microcode_check_cpu(cpu)) {
+			/* The application of microcode failed */
+			microcode_fini_cpu(cpu);
+			__mc_sysdev_add(sys_dev, 1);
+			break;
+		}
+	case CPU_DOWN_FAILED_FROZEN:
+		if (sysfs_create_group(&sys_dev->kobj, &mc_attr_group))
+			printk(KERN_ERR "Microcode: Failed to create the sysfs "
+				"group for CPU%d\n", cpu);
+		break;
 	case CPU_DOWN_PREPARE:
 		mc_sysdev_remove(sys_dev);
+		break;
+	case CPU_DOWN_PREPARE_FROZEN:
+		/* Suspend is in progress, only remove the interface */
+		sysfs_remove_group(&sys_dev->kobj, &mc_attr_group);
 		break;
 	}
 	return NOTIFY_OK;

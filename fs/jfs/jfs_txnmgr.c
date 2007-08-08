@@ -44,7 +44,6 @@
 
 #include <linux/fs.h>
 #include <linux/vmalloc.h>
-#include <linux/smp_lock.h>
 #include <linux/completion.h>
 #include <linux/freezer.h>
 #include <linux/module.h>
@@ -135,8 +134,8 @@ static inline void TXN_SLEEP_DROP_LOCK(wait_queue_head_t * event)
 	add_wait_queue(event, &wait);
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	TXN_UNLOCK();
-	schedule();
-	current->state = TASK_RUNNING;
+	io_schedule();
+	__set_current_state(TASK_RUNNING);
 	remove_wait_queue(event, &wait);
 }
 
@@ -1919,7 +1918,8 @@ static void xtLog(struct jfs_log * log, struct tblock * tblk, struct lrd * lrd,
 	 * header ?
 	 */
 	if (tlck->type & tlckTRUNCATE) {
-		pxd_t pxd;	/* truncated extent of xad */
+		/* This odd declaration suppresses a bogus gcc warning */
+		pxd_t pxd = pxd;	/* truncated extent of xad */
 		int twm;
 
 		/*
@@ -2797,7 +2797,7 @@ int jfs_lazycommit(void *arg)
 			set_current_state(TASK_INTERRUPTIBLE);
 			LAZY_UNLOCK(flags);
 			schedule();
-			current->state = TASK_RUNNING;
+			__set_current_state(TASK_RUNNING);
 			remove_wait_queue(&jfs_commit_thread_wait, &wq);
 		}
 	} while (!kthread_should_stop());
@@ -2989,7 +2989,7 @@ int jfs_sync(void *arg)
 			set_current_state(TASK_INTERRUPTIBLE);
 			TXN_UNLOCK();
 			schedule();
-			current->state = TASK_RUNNING;
+			__set_current_state(TASK_RUNNING);
 		}
 	} while (!kthread_should_stop());
 

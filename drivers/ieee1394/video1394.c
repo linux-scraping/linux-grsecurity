@@ -39,7 +39,6 @@
 #include <linux/pci.h>
 #include <linux/fs.h>
 #include <linux/poll.h>
-#include <linux/smp_lock.h>
 #include <linux/delay.h>
 #include <linux/bitops.h>
 #include <linux/types.h>
@@ -1277,7 +1276,7 @@ static long video1394_compat_ioctl(struct file *f, unsigned cmd, unsigned long a
 #endif
 
 static struct cdev video1394_cdev;
-static struct file_operations video1394_fops=
+static const struct file_operations video1394_fops=
 {
 	.owner =	THIS_MODULE,
 	.unlocked_ioctl = video1394_ioctl,

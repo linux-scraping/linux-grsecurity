@@ -7,8 +7,6 @@
  *    Copyright (C) 1995  Linus Torvalds
  */
 
-/* $Id: fault-nommu.c,v 1.1 2004/03/30 06:40:59 sakugawa Exp $ */
-
 #include <linux/signal.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
@@ -19,7 +17,6 @@
 #include <linux/mman.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/vt_kern.h>              /* For unblank_screen() */
@@ -45,32 +42,6 @@ unsigned int tlb_entry_d_dat[NR_CPUS];
 #define tlb_entry_i tlb_entry_i_dat[smp_processor_id()]
 #define tlb_entry_d tlb_entry_d_dat[smp_processor_id()]
 #endif
-
-/*
- * Unlock any spinlocks which will prevent us from getting the
- * message out
- */
-void bust_spinlocks(int yes)
-{
-	int loglevel_save = console_loglevel;
-
-	if (yes) {
-		oops_in_progress = 1;
-		return;
-	}
-#ifdef CONFIG_VT
-	unblank_screen();
-#endif
-	oops_in_progress = 0;
-	/*
-	 * OK, the message is on the console.  Now we call printk()
-	 * without oops_in_progress set so that printk will give klogd
-	 * a poke.  Hold onto your hats...
-	 */
-	console_loglevel = 15;		/* NMI oopser may have shut the console up */
-	printk(" ");
-	console_loglevel = loglevel_save;
-}
 
 void do_BUG(const char *file, int line)
 {
@@ -161,4 +132,3 @@ void local_flush_tlb_all(void)
 {
 	BUG();
 }
-

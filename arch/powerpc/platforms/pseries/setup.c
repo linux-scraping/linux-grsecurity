@@ -55,7 +55,6 @@
 #include <asm/dma.h>
 #include <asm/machdep.h>
 #include <asm/irq.h>
-#include <asm/kexec.h>
 #include <asm/time.h>
 #include <asm/nvram.h>
 #include "xics.h"
@@ -65,10 +64,11 @@
 #include <asm/i8259.h>
 #include <asm/udbg.h>
 #include <asm/smp.h>
+#include <asm/firmware.h>
+#include <asm/eeh.h>
 
 #include "plpar_wrappers.h"
-#include "ras.h"
-#include "firmware.h"
+#include "pseries.h"
 
 #ifdef DEBUG
 #define DBG(fmt...) udbg_printf(fmt)
@@ -77,8 +77,6 @@
 #endif
 
 /* move those away to a .h */
-extern void smp_init_pseries_mpic(void);
-extern void smp_init_pseries_xics(void);
 extern void find_udbg_vterm(void);
 
 int fwnmi_active;  /* TRUE if an FWNMI handler is present */
@@ -95,7 +93,7 @@ static void pSeries_show_cpuinfo(struct seq_file *m)
 
 	root = of_find_node_by_path("/");
 	if (root)
-		model = get_property(root, "model", NULL);
+		model = of_get_property(root, "model", NULL);
 	seq_printf(m, "machine\t\t: CHRP %s\n", model);
 	of_node_put(root);
 }
@@ -141,8 +139,8 @@ static void __init pseries_mpic_init_IRQ(void)
 	struct mpic *mpic;
 
 	np = of_find_node_by_path("/");
-	naddr = prom_n_addr_cells(np);
-	opprop = get_property(np, "platform-open-pic", &opplen);
+	naddr = of_n_addr_cells(np);
+	opprop = of_get_property(np, "platform-open-pic", &opplen);
 	if (opprop != 0) {
 		openpic_addr = of_read_number(opprop, naddr);
 		printk(KERN_DEBUG "OpenPIC addr: %lx\n", openpic_addr);
@@ -170,7 +168,7 @@ static void __init pseries_mpic_init_IRQ(void)
 
 	/* Look for cascade */
 	for_each_node_by_type(np, "interrupt-controller")
-		if (device_is_compatible(np, "chrp,iic")) {
+		if (of_device_is_compatible(np, "chrp,iic")) {
 			cascade = np;
 			break;
 		}
@@ -191,11 +189,11 @@ static void __init pseries_mpic_init_IRQ(void)
 			break;
 		if (strcmp(np->name, "pci") != 0)
 			continue;
-		addrp = get_property(np, "8259-interrupt-acknowledge",
+		addrp = of_get_property(np, "8259-interrupt-acknowledge",
 					    NULL);
 		if (addrp == NULL)
 			continue;
-		naddr = prom_n_addr_cells(np);
+		naddr = of_n_addr_cells(np);
 		intack = addrp[naddr-1];
 		if (naddr > 1)
 			intack |= ((unsigned long)addrp[naddr-2]) << 32;
@@ -221,42 +219,6 @@ static void pseries_lpar_enable_pmcs(void)
 		get_lppaca()->pmcregs_in_use = 1;
 }
 
-#ifdef CONFIG_KEXEC
-static void pseries_kexec_cpu_down(int crash_shutdown, int secondary)
-{
-	/* Don't risk a hypervisor call if we're crashing */
-	if (firmware_has_feature(FW_FEATURE_SPLPAR) && !crash_shutdown) {
-		unsigned long addr;
-
-		addr = __pa(get_slb_shadow());
-		if (unregister_slb_shadow(hard_smp_processor_id(), addr))
-			printk("SLB shadow buffer deregistration of "
-			       "cpu %u (hw_cpu_id %d) failed\n",
-			       smp_processor_id(),
-			       hard_smp_processor_id());
-
-		addr = __pa(get_lppaca());
-		if (unregister_vpa(hard_smp_processor_id(), addr)) {
-			printk("VPA deregistration of cpu %u (hw_cpu_id %d) "
-					"failed\n", smp_processor_id(),
-					hard_smp_processor_id());
-		}
-	}
-}
-
-static void pseries_kexec_cpu_down_mpic(int crash_shutdown, int secondary)
-{
-	pseries_kexec_cpu_down(crash_shutdown, secondary);
-	mpic_teardown_this_cpu(secondary);
-}
-
-static void pseries_kexec_cpu_down_xics(int crash_shutdown, int secondary)
-{
-	pseries_kexec_cpu_down(crash_shutdown, secondary);
-	xics_teardown_cpu(secondary);
-}
-#endif /* CONFIG_KEXEC */
-
 static void __init pseries_discover_pic(void)
 {
 	struct device_node *np;
@@ -264,26 +226,18 @@ static void __init pseries_discover_pic(void)
 
 	for (np = NULL; (np = of_find_node_by_name(np,
 						   "interrupt-controller"));) {
-		typep = get_property(np, "compatible", NULL);
+		typep = of_get_property(np, "compatible", NULL);
 		if (strstr(typep, "open-pic")) {
 			pSeries_mpic_node = of_node_get(np);
 			ppc_md.init_IRQ       = pseries_mpic_init_IRQ;
 			ppc_md.get_irq        = mpic_get_irq;
-#ifdef CONFIG_KEXEC
-			ppc_md.kexec_cpu_down = pseries_kexec_cpu_down_mpic;
-#endif
-#ifdef CONFIG_SMP
+			setup_kexec_cpu_down_mpic();
 			smp_init_pseries_mpic();
-#endif
 			return;
 		} else if (strstr(typep, "ppc-xicp")) {
 			ppc_md.init_IRQ       = xics_init_IRQ;
-#ifdef CONFIG_KEXEC
-			ppc_md.kexec_cpu_down = pseries_kexec_cpu_down_xics;
-#endif
-#ifdef CONFIG_SMP
+			setup_kexec_cpu_down_xics();
 			smp_init_pseries_xics();
-#endif
 			return;
 		}
 	}
@@ -379,32 +333,6 @@ static void __init pSeries_init_early(void)
 	iommu_init_early_pSeries();
 
 	DBG(" <- pSeries_init_early()\n");
-}
-
-
-static int pSeries_check_legacy_ioport(unsigned int baseport)
-{
-	struct device_node *np;
-
-#define I8042_DATA_REG	0x60
-#define FDC_BASE	0x3f0
-
-
-	switch(baseport) {
-	case I8042_DATA_REG:
-		np = of_find_node_by_type(NULL, "8042");
-		if (np == NULL)
-			return -ENODEV;
-		of_node_put(np);
-		break;
-	case FDC_BASE:
-		np = of_find_node_by_type(NULL, "fdc");
-		if (np == NULL)
-			return -ENODEV;
-		of_node_put(np);
-		break;
-	}
-	return 0;
 }
 
 /*
@@ -533,6 +461,38 @@ static int pSeries_pci_probe_mode(struct pci_bus *bus)
 	return PCI_PROBE_NORMAL;
 }
 
+/**
+ * pSeries_power_off - tell firmware about how to power off the system.
+ *
+ * This function calls either the power-off rtas token in normal cases
+ * or the ibm,power-off-ups token (if present & requested) in case of
+ * a power failure. If power-off token is used, power on will only be
+ * possible with power button press. If ibm,power-off-ups token is used
+ * it will allow auto poweron after power is restored.
+ */
+void pSeries_power_off(void)
+{
+	int rc;
+	int rtas_poweroff_ups_token = rtas_token("ibm,power-off-ups");
+
+	if (rtas_flash_term_hook)
+		rtas_flash_term_hook(SYS_POWER_OFF);
+
+	if (rtas_poweron_auto == 0 ||
+		rtas_poweroff_ups_token == RTAS_UNKNOWN_SERVICE) {
+		rc = rtas_call(rtas_token("power-off"), 2, 1, NULL, -1, -1);
+		printk(KERN_INFO "RTAS power-off returned %d\n", rc);
+	} else {
+		rc = rtas_call(rtas_poweroff_ups_token, 0, 1, NULL);
+		printk(KERN_INFO "RTAS ibm,power-off-ups returned %d\n", rc);
+	}
+	for (;;);
+}
+
+#ifndef CONFIG_PCI
+void pSeries_final_fixup(void) { }
+#endif
+
 define_machine(pseries) {
 	.name			= "pSeries",
 	.probe			= pSeries_probe,
@@ -543,7 +503,7 @@ define_machine(pseries) {
 	.pcibios_fixup		= pSeries_final_fixup,
 	.pci_probe_mode		= pSeries_pci_probe_mode,
 	.restart		= rtas_restart,
-	.power_off		= rtas_power_off,
+	.power_off		= pSeries_power_off,
 	.halt			= rtas_halt,
 	.panic			= rtas_os_term,
 	.get_boot_time		= rtas_get_boot_time,
@@ -551,12 +511,6 @@ define_machine(pseries) {
 	.set_rtc_time		= rtas_set_rtc_time,
 	.calibrate_decr		= generic_calibrate_decr,
 	.progress		= rtas_progress,
-	.check_legacy_ioport	= pSeries_check_legacy_ioport,
 	.system_reset_exception = pSeries_system_reset_exception,
 	.machine_check_exception = pSeries_machine_check_exception,
-#ifdef CONFIG_KEXEC
-	.machine_kexec		= default_machine_kexec,
-	.machine_kexec_prepare	= default_machine_kexec_prepare,
-	.machine_crash_shutdown	= default_machine_crash_shutdown,
-#endif
 };

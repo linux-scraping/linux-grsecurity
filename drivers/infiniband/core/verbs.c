@@ -167,7 +167,7 @@ int ib_init_ah_from_wc(struct ib_device *device, u8 port_num, struct ib_wc *wc,
 		ah_attr->grh.sgid_index = (u8) gid_index;
 		flow_class = be32_to_cpu(grh->version_tclass_flow);
 		ah_attr->grh.flow_label = flow_class & 0xFFFFF;
-		ah_attr->grh.hop_limit = grh->hop_limit;
+		ah_attr->grh.hop_limit = 0xFF;
 		ah_attr->grh.traffic_class = (flow_class >> 20) & 0xFF;
 	}
 	return 0;
@@ -609,11 +609,11 @@ EXPORT_SYMBOL(ib_destroy_qp);
 struct ib_cq *ib_create_cq(struct ib_device *device,
 			   ib_comp_handler comp_handler,
 			   void (*event_handler)(struct ib_event *, void *),
-			   void *cq_context, int cqe)
+			   void *cq_context, int cqe, int comp_vector)
 {
 	struct ib_cq *cq;
 
-	cq = device->create_cq(device, cqe, NULL, NULL);
+	cq = device->create_cq(device, cqe, comp_vector, NULL, NULL);
 
 	if (!IS_ERR(cq)) {
 		cq->device        = device;

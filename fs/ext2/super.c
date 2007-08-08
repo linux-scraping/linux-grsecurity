@@ -160,14 +160,11 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct ext2_inode_info *ei = (struct ext2_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
-		rwlock_init(&ei->i_meta_lock);
+	rwlock_init(&ei->i_meta_lock);
 #ifdef CONFIG_EXT2_FS_XATTR
-		init_rwsem(&ei->xattr_sem);
+	init_rwsem(&ei->xattr_sem);
 #endif
-		inode_init_once(&ei->vfs_inode);
-	}
+	inode_init_once(&ei->vfs_inode);
 }
  
 static int init_inodecache(void)
@@ -231,7 +228,7 @@ static ssize_t ext2_quota_read(struct super_block *sb, int type, char *data, siz
 static ssize_t ext2_quota_write(struct super_block *sb, int type, const char *data, size_t len, loff_t off);
 #endif
 
-static struct super_operations ext2_sops = {
+static const struct super_operations ext2_sops = {
 	.alloc_inode	= ext2_alloc_inode,
 	.destroy_inode	= ext2_destroy_inode,
 	.read_inode	= ext2_read_inode,
@@ -1040,6 +1037,15 @@ static int ext2_remount (struct super_block * sb, int * flags, char * data)
 
 	sb->s_flags = (sb->s_flags & ~MS_POSIXACL) |
 		((sbi->s_mount_opt & EXT2_MOUNT_POSIX_ACL) ? MS_POSIXACL : 0);
+
+	ext2_xip_verify_sb(sb); /* see if bdev supports xip, unset
+				    EXT2_MOUNT_XIP if not */
+
+	if ((ext2_use_xip(sb)) && (sb->s_blocksize != PAGE_SIZE)) {
+		printk("XIP: Unsupported blocksize\n");
+		err = -EINVAL;
+		goto restore_opts;
+	}
 
 	es = sbi->s_es;
 	if (((sbi->s_mount_opt & EXT2_MOUNT_XIP) !=

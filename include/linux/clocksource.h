@@ -12,11 +12,14 @@
 #include <linux/timex.h>
 #include <linux/time.h>
 #include <linux/list.h>
+#include <linux/cache.h>
+#include <linux/timer.h>
 #include <asm/div64.h>
 #include <asm/io.h>
 
 /* clocksource cycle base type */
 typedef u64 cycle_t;
+struct clocksource;
 
 /**
  * struct clocksource - hardware abstraction for a free running counter
@@ -44,12 +47,16 @@ typedef u64 cycle_t;
  *			subtraction of non 64 bit counters
  * @mult:		cycle to nanosecond multiplier
  * @shift:		cycle to nanosecond divisor (power of two)
- * @update_callback:	called when safe to alter clocksource values
- * @is_continuous:	defines if clocksource is free-running.
+ * @flags:		flags describing special properties
+ * @vread:		vsyscall based read
+ * @resume:		resume function for the clocksource, if necessary
  * @cycle_interval:	Used internally by timekeeping core, please ignore.
  * @xtime_interval:	Used internally by timekeeping core, please ignore.
  */
 struct clocksource {
+	/*
+	 * First part of structure is read mostly
+	 */
 	char *name;
 	struct list_head list;
 	int rating;
@@ -57,14 +64,37 @@ struct clocksource {
 	cycle_t mask;
 	u32 mult;
 	u32 shift;
-	int (*update_callback)(void);
-	int is_continuous;
+	unsigned long flags;
+	cycle_t (*vread)(void);
+	void (*resume)(void);
 
 	/* timekeeping specific data, ignore */
-	cycle_t cycle_last, cycle_interval;
-	u64 xtime_nsec, xtime_interval;
+	cycle_t cycle_interval;
+	u64	xtime_interval;
+	/*
+	 * Second part is written at each timer interrupt
+	 * Keep it in a different cache line to dirty no
+	 * more than one cache line.
+	 */
+	cycle_t cycle_last ____cacheline_aligned_in_smp;
+	u64 xtime_nsec;
 	s64 error;
+
+#ifdef CONFIG_CLOCKSOURCE_WATCHDOG
+	/* Watchdog related data, used by the framework */
+	struct list_head wd_list;
+	cycle_t wd_last;
+#endif
 };
+
+/*
+ * Clock source flags bits::
+ */
+#define CLOCK_SOURCE_IS_CONTINUOUS		0x01
+#define CLOCK_SOURCE_MUST_VERIFY		0x02
+
+#define CLOCK_SOURCE_WATCHDOG			0x10
+#define CLOCK_SOURCE_VALID_FOR_HRES		0x20
 
 /* simplify initialization of mask field */
 #define CLOCKSOURCE_MASK(bits) (cycle_t)(bits<64 ? ((1ULL<<bits)-1) : -1)
@@ -178,8 +208,17 @@ static inline void clocksource_calculate_interval(struct clocksource *c,
 
 
 /* used to install a new clocksource */
-int clocksource_register(struct clocksource*);
-void clocksource_reselect(void);
-struct clocksource* clocksource_get_next(void);
+extern int clocksource_register(struct clocksource*);
+extern struct clocksource* clocksource_get_next(void);
+extern void clocksource_change_rating(struct clocksource *cs, int rating);
+extern void clocksource_resume(void);
+
+#ifdef CONFIG_GENERIC_TIME_VSYSCALL
+extern void update_vsyscall(struct timespec *ts, struct clocksource *c);
+#else
+static inline void update_vsyscall(struct timespec *ts, struct clocksource *c)
+{
+}
+#endif
 
 #endif /* _LINUX_CLOCKSOURCE_H */

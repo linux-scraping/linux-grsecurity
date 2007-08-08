@@ -1,7 +1,7 @@
 /*
  * firmware_class.c - Multi purpose firmware loading support
  *
- * Copyright (c) 2003 Manuel Estrada Sainz <ranty@debian.org>
+ * Copyright (c) 2003 Manuel Estrada Sainz
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -23,7 +23,7 @@
 
 #define to_dev(obj) container_of(obj, struct device, kobj)
 
-MODULE_AUTHOR("Manuel Estrada Sainz <ranty@debian.org>");
+MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
 
@@ -31,11 +31,9 @@ enum {
 	FW_STATUS_LOADING,
 	FW_STATUS_DONE,
 	FW_STATUS_ABORT,
-	FW_STATUS_READY,
-	FW_STATUS_READY_NOHOTPLUG,
 };
 
-static int loading_timeout = 10;	/* In seconds */
+static int loading_timeout = 60;	/* In seconds */
 
 /* fw_lock could be moved to 'struct firmware_priv' but since it is just
  * guarding for corner cases a global lock should be OK */
@@ -95,9 +93,6 @@ static int firmware_uevent(struct device *dev, char **envp, int num_envp,
 {
 	struct firmware_priv *fw_priv = dev_get_drvdata(dev);
 	int i = 0, len = 0;
-
-	if (!test_bit(FW_STATUS_READY, &fw_priv->status))
-		return -ENODEV;
 
 	if (add_uevent_var(envp, num_envp, &i, buffer, buffer_size, &len,
 			   "FIRMWARE=%s", fw_priv->fw_id))
@@ -333,6 +328,7 @@ static int fw_register_device(struct device **dev_p, const char *fw_name,
 	f_dev->parent = device;
 	f_dev->class = &firmware_class;
 	dev_set_drvdata(f_dev, fw_priv);
+	f_dev->uevent_suppress = 1;
 	retval = device_register(f_dev);
 	if (retval) {
 		printk(KERN_ERR "%s: device_register failed\n",
@@ -382,9 +378,7 @@ static int fw_setup_device(struct firmware *fw, struct device **dev_p,
 	}
 
 	if (uevent)
-                set_bit(FW_STATUS_READY, &fw_priv->status);
-        else
-                set_bit(FW_STATUS_READY_NOHOTPLUG, &fw_priv->status);
+		f_dev->uevent_suppress = 0;
 	*dev_p = f_dev;
 	goto out;
 

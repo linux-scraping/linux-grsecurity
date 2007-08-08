@@ -24,6 +24,8 @@ extern int sysctl_core_destroy_delay;
 #ifdef CONFIG_XFRM
 extern u32 sysctl_xfrm_aevent_etime;
 extern u32 sysctl_xfrm_aevent_rseqth;
+extern int sysctl_xfrm_larval_drop;
+extern u32 sysctl_xfrm_acq_expires;
 #endif
 
 ctl_table core_table[] = {
@@ -118,6 +120,22 @@ ctl_table core_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
 	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "xfrm_larval_drop",
+		.data		= &sysctl_xfrm_larval_drop,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "xfrm_acq_expires",
+		.data		= &sysctl_xfrm_acq_expires,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
 #endif /* CONFIG_XFRM */
 #endif /* CONFIG_NET */
 	{
@@ -132,6 +150,14 @@ ctl_table core_table[] = {
 		.ctl_name	= NET_CORE_BUDGET,
 		.procname	= "netdev_budget",
 		.data		= &netdev_budget,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
+	{
+		.ctl_name	= NET_CORE_WARNINGS,
+		.procname	= "warnings",
+		.data		= &net_msg_warn,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec

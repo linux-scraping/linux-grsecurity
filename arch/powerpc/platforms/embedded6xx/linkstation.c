@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/initrd.h>
-#include <linux/root_dev.h>
 #include <linux/mtd/physmap.h>
 
 #include <asm/time.h>
@@ -59,11 +58,11 @@ static int __init add_bridge(struct device_node *dev)
 {
 	int len;
 	struct pci_controller *hose;
-	int *bus_range;
+	const int *bus_range;
 
 	printk("Adding PCI host bridge %s\n", dev->full_name);
 
-	bus_range = (int *) get_property(dev, "bus-range", &len);
+	bus_range = of_get_property(dev, "bus-range", &len);
 	if (bus_range == NULL || len < 2 * sizeof(int))
 		printk(KERN_WARNING "Can't get bus-range for %s, assume"
 				" bus 0\n", dev->full_name);
@@ -91,17 +90,6 @@ static void __init linkstation_setup_arch(void)
 			       ARRAY_SIZE(linkstation_physmap_partitions));
 #endif
 
-#ifdef CONFIG_BLK_DEV_INITRD
-	if (initrd_start)
-		ROOT_DEV = Root_RAM0;
-	else
-#endif
-#ifdef	CONFIG_ROOT_NFS
-		ROOT_DEV = Root_NFS;
-#else
-		ROOT_DEV = Root_HDA1;
-#endif
-
 	/* Lookup PCI host bridges */
 	for (np = NULL; (np = of_find_node_by_type(np, "pci")) != NULL;)
 		add_bridge(np);
@@ -118,7 +106,7 @@ static void __init linkstation_init_IRQ(void)
 {
 	struct mpic *mpic;
 	struct device_node *dnp;
-	void *prop;
+	const u32 *prop;
 	int size;
 	phys_addr_t paddr;
 
@@ -126,7 +114,7 @@ static void __init linkstation_init_IRQ(void)
 	if (dnp == NULL)
 		return;
 
-	prop = (struct device_node *)get_property(dnp, "reg", &size);
+	prop = of_get_property(dnp, "reg", &size);
 	paddr = (phys_addr_t)of_translate_address(dnp, prop);
 
 	mpic = mpic_alloc(dnp, paddr, MPIC_PRIMARY | MPIC_WANTS_RESET, 4, 32, " EPIC     ");

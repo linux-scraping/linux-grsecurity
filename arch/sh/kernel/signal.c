@@ -11,7 +11,6 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/kernel.h>
 #include <linux/signal.h>
 #include <linux/errno.h>
@@ -24,7 +23,7 @@
 #include <linux/personality.h>
 #include <linux/binfmts.h>
 #include <linux/freezer.h>
-
+#include <asm/system.h>
 #include <asm/ucontext.h>
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -127,7 +126,7 @@ static inline int restore_sigcontext_fpu(struct sigcontext __user *sc)
 {
 	struct task_struct *tsk = current;
 
-	if (!(cpu_data->flags & CPU_HAS_FPU))
+	if (!(current_cpu_data.flags & CPU_HAS_FPU))
 		return 0;
 
 	set_used_math();
@@ -140,7 +139,7 @@ static inline int save_sigcontext_fpu(struct sigcontext __user *sc,
 {
 	struct task_struct *tsk = current;
 
-	if (!(cpu_data->flags & CPU_HAS_FPU))
+	if (!(current_cpu_data.flags & CPU_HAS_FPU))
 		return 0;
 
 	if (!used_math()) {
@@ -181,7 +180,7 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc, int *r0_p
 #undef COPY
 
 #ifdef CONFIG_SH_FPU
-	if (cpu_data->flags & CPU_HAS_FPU) {
+	if (current_cpu_data.flags & CPU_HAS_FPU) {
 		int owned_fp;
 		struct task_struct *tsk = current;
 
@@ -269,7 +268,7 @@ asmlinkage int sys_rt_sigreturn(unsigned long r4, unsigned long r5,
 badframe:
 	force_sig(SIGSEGV, current);
 	return 0;
-}	
+}
 
 /*
  * Set up a signal frame.
@@ -482,7 +481,7 @@ give_sigsegv:
 
 static int
 handle_signal(unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
-	      sigset_t *oldset, struct pt_regs *regs)
+	      sigset_t *oldset, struct pt_regs *regs, unsigned int save_r0)
 {
 	int ret;
 
@@ -490,6 +489,7 @@ handle_signal(unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
 	if (regs->tra >= 0) {
 		/* If so, check system call restarting.. */
 		switch (regs->regs[0]) {
+			case -ERESTART_RESTARTBLOCK:
 			case -ERESTARTNOHAND:
 				regs->regs[0] = -EINTR;
 				break;
@@ -501,7 +501,10 @@ handle_signal(unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
 				}
 			/* fallthrough */
 			case -ERESTARTNOINTR:
-				regs->pc -= 2;
+				regs->regs[0] = save_r0;
+				regs->pc -= instruction_size(
+						ctrl_inw(regs->pc - 4));
+				break;
 		}
 	} else {
 		/* gUSA handling */
@@ -517,7 +520,8 @@ handle_signal(unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
 			regs->regs[15] = regs->regs[1];
 			if (regs->pc < regs->regs[0])
 				/* Go to rewind point #1 */
-				regs->pc = regs->regs[0] + offset - 2;
+				regs->pc = regs->regs[0] + offset -
+					instruction_size(ctrl_inw(regs->pc-4));
 		}
 #ifdef CONFIG_PREEMPT
 		local_irq_restore(flags);
@@ -581,7 +585,8 @@ static void do_signal(struct pt_regs *regs, unsigned int save_r0)
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
 	if (signr > 0) {
 		/* Whee!  Actually deliver the signal.  */
-		if (handle_signal(signr, &ka, &info, oldset, regs) == 0) {
+		if (handle_signal(signr, &ka, &info, oldset,
+				  regs, save_r0) == 0) {
 			/* a signal was successfully delivered; the saved
 			 * sigmask will have been stored in the signal frame,
 			 * and will be restored by sigreturn, so we can simply
@@ -589,6 +594,8 @@ static void do_signal(struct pt_regs *regs, unsigned int save_r0)
 			if (test_thread_flag(TIF_RESTORE_SIGMASK))
 				clear_thread_flag(TIF_RESTORE_SIGMASK);
 		}
+
+		return;
 	}
 
  no_signal:
@@ -598,10 +605,10 @@ static void do_signal(struct pt_regs *regs, unsigned int save_r0)
 		if (regs->regs[0] == -ERESTARTNOHAND ||
 		    regs->regs[0] == -ERESTARTSYS ||
 		    regs->regs[0] == -ERESTARTNOINTR) {
-		    	regs->regs[0] = save_r0;
-			regs->pc -= 2;
+			regs->regs[0] = save_r0;
+			regs->pc -= instruction_size(ctrl_inw(regs->pc - 4));
 		} else if (regs->regs[0] == -ERESTART_RESTARTBLOCK) {
-			regs->pc -= 2;
+			regs->pc -= instruction_size(ctrl_inw(regs->pc - 4));
 			regs->regs[3] = __NR_restart_syscall;
 		}
 	}

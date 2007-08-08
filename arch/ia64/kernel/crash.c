@@ -16,14 +16,14 @@
 #include <linux/elfcore.h>
 #include <linux/sysctl.h>
 #include <linux/init.h>
+#include <linux/kdebug.h>
 
-#include <asm/kdebug.h>
 #include <asm/mca.h>
 
 int kdump_status[NR_CPUS];
-atomic_t kdump_cpu_freezed;
+static atomic_t kdump_cpu_frozen;
 atomic_t kdump_in_progress;
-int kdump_on_init = 1;
+static int kdump_on_init = 1;
 
 static inline Elf64_Word
 *append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
@@ -52,7 +52,7 @@ extern void ia64_dump_cpu_regs(void *);
 static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
 
 void
-crash_save_this_cpu()
+crash_save_this_cpu(void)
 {
 	void *buf;
 	unsigned long cfm, sof, sol;
@@ -74,7 +74,7 @@ crash_save_this_cpu()
 	buf = (u64 *) per_cpu_ptr(crash_notes, cpu);
 	if (!buf)
 		return;
-	buf = append_elf_note(buf, "CORE", NT_PRSTATUS, prstatus,
+	buf = append_elf_note(buf, KEXEC_CORE_NOTE_NAME, NT_PRSTATUS, prstatus,
 			sizeof(*prstatus));
 	final_note(buf);
 }
@@ -86,7 +86,7 @@ kdump_wait_cpu_freeze(void)
 	int cpu_num = num_online_cpus() - 1;
 	int timeout = 1000;
 	while(timeout-- > 0) {
-		if (atomic_read(&kdump_cpu_freezed) == cpu_num)
+		if (atomic_read(&kdump_cpu_frozen) == cpu_num)
 			return 0;
 		udelay(1000);
 	}
@@ -108,8 +108,8 @@ machine_crash_shutdown(struct pt_regs *pt)
 	kexec_disable_iosapic();
 #ifdef CONFIG_SMP
 	kdump_smp_send_stop();
+	/* not all cpu response to IPI, send INIT to freeze them */
 	if (kdump_wait_cpu_freeze() && kdump_on_init) 	{
-		//not all cpu response to IPI, send INIT to freeze them
 		kdump_smp_send_init();
 	}
 #endif
@@ -118,6 +118,11 @@ machine_crash_shutdown(struct pt_regs *pt)
 static void
 machine_kdump_on_init(void)
 {
+	if (!ia64_kimage) {
+		printk(KERN_NOTICE "machine_kdump_on_init(): "
+				"kdump not configured\n");
+		return;
+	}
 	local_irq_disable();
 	kexec_disable_iosapic();
 	machine_kexec(ia64_kimage);
@@ -131,7 +136,7 @@ kdump_cpu_freeze(struct unw_frame_info *info, void *arg)
 	cpuid = smp_processor_id();
 	crash_save_this_cpu();
 	current->thread.ksp = (__u64)info->sw - 16;
-	atomic_inc(&kdump_cpu_freezed);
+	atomic_inc(&kdump_cpu_frozen);
 	kdump_status[cpuid] = 1;
 	mb();
 #ifdef CONFIG_HOTPLUG_CPU
@@ -151,24 +156,30 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
 	if (!kdump_on_init)
 		return NOTIFY_DONE;
 
-	if (val != DIE_INIT_MONARCH_ENTER &&
-	    val != DIE_INIT_SLAVE_ENTER &&
+	if (val != DIE_INIT_MONARCH_LEAVE &&
+	    val != DIE_INIT_SLAVE_LEAVE &&
+	    val != DIE_INIT_MONARCH_PROCESS &&
 	    val != DIE_MCA_RENDZVOUS_LEAVE &&
 	    val != DIE_MCA_MONARCH_LEAVE)
 		return NOTIFY_DONE;
 
 	nd = (struct ia64_mca_notify_die *)args->err;
-	/* Reason code 1 means machine check rendezous*/
-	if ((val == DIE_INIT_MONARCH_ENTER || DIE_INIT_SLAVE_ENTER) &&
-		 nd->sos->rv_rc == 1)
+	/* Reason code 1 means machine check rendezvous*/
+	if ((val == DIE_INIT_MONARCH_LEAVE || val == DIE_INIT_SLAVE_LEAVE
+	    || val == DIE_INIT_MONARCH_PROCESS) && nd->sos->rv_rc == 1)
 		return NOTIFY_DONE;
 
 	switch (val) {
-		case DIE_INIT_MONARCH_ENTER:
+		case DIE_INIT_MONARCH_PROCESS:
+			atomic_set(&kdump_in_progress, 1);
+			*(nd->monarch_cpu) = -1;
+			break;
+		case DIE_INIT_MONARCH_LEAVE:
 			machine_kdump_on_init();
 			break;
-		case DIE_INIT_SLAVE_ENTER:
-			unw_init_running(kdump_cpu_freeze, NULL);
+		case DIE_INIT_SLAVE_LEAVE:
+			if (atomic_read(&kdump_in_progress))
+				unw_init_running(kdump_cpu_freeze, NULL);
 			break;
 		case DIE_MCA_RENDZVOUS_LEAVE:
 			if (atomic_read(&kdump_in_progress))
@@ -210,14 +221,16 @@ static ctl_table sys_table[] = {
 static int
 machine_crash_setup(void)
 {
+	/* be notified before default_monarch_init_process */
 	static struct notifier_block kdump_init_notifier_nb = {
 		.notifier_call = kdump_init_notifier,
+		.priority = 1,
 	};
 	int ret;
 	if((ret = register_die_notifier(&kdump_init_notifier_nb)) != 0)
 		return ret;
 #ifdef CONFIG_SYSCTL
-	register_sysctl_table(sys_table, 0);
+	register_sysctl_table(sys_table);
 #endif
 	return 0;
 }

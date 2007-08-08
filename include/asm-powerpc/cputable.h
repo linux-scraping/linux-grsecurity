@@ -48,6 +48,13 @@ enum powerpc_oprofile_type {
 	PPC_OPROFILE_G4 = 3,
 	PPC_OPROFILE_BOOKE = 4,
 	PPC_OPROFILE_CELL = 5,
+	PPC_OPROFILE_PA6T = 6,
+};
+
+enum powerpc_pmc_type {
+	PPC_PMC_DEFAULT = 0,
+	PPC_PMC_IBM = 1,
+	PPC_PMC_PA6T = 2,
 };
 
 struct cpu_spec {
@@ -65,6 +72,7 @@ struct cpu_spec {
 
 	/* number of performance monitor counters */
 	unsigned int	num_pmcs;
+	enum powerpc_pmc_type pmc_type;
 
 	/* this is called to initialize various CPU bits like L1 cache,
 	 * BHT, SPD, etc... from head.S before branching to identify_machine
@@ -216,6 +224,10 @@ extern void do_feature_fixups(unsigned long value, void *fixup_start,
 	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
 	    CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
 	    CPU_FTR_PPC_LE)
+#define CPU_FTRS_750CL	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
+	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
+	    CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
+	    CPU_FTR_HAS_HIGH_BATS | CPU_FTR_PPC_LE)
 #define CPU_FTRS_750FX1	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
 	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
 	    CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
@@ -228,9 +240,9 @@ extern void do_feature_fixups(unsigned long value, void *fixup_start,
 	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
 	    CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
 	    CPU_FTR_DUAL_PLL_750FX | CPU_FTR_HAS_HIGH_BATS | CPU_FTR_PPC_LE)
-#define CPU_FTRS_750GX	(CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_MAYBE_CAN_DOZE | \
-	    CPU_FTR_USE_TB | CPU_FTR_L2CR | CPU_FTR_TAU | \
-	    CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
+#define CPU_FTRS_750GX	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
+	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
+	    CPU_FTR_TAU | CPU_FTR_HPTE_TABLE | CPU_FTR_MAYBE_CAN_NAP | \
 	    CPU_FTR_DUAL_PLL_750FX | CPU_FTR_HAS_HIGH_BATS | CPU_FTR_PPC_LE)
 #define CPU_FTRS_7400_NOTAU	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
 	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB | CPU_FTR_L2CR | \
@@ -290,6 +302,12 @@ extern void do_feature_fixups(unsigned long value, void *fixup_start,
 	    CPU_FTR_HPTE_TABLE | CPU_FTR_SPEC7450 | \
 	    CPU_FTR_NAP_DISABLE_L2_PR | CPU_FTR_HAS_HIGH_BATS | \
 	    CPU_FTR_NEED_COHERENT | CPU_FTR_PPC_LE)
+#define CPU_FTRS_7448	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
+	    CPU_FTR_USE_TB | \
+	    CPU_FTR_MAYBE_CAN_NAP | CPU_FTR_L2CR | CPU_FTR_ALTIVEC_COMP | \
+	    CPU_FTR_HPTE_TABLE | CPU_FTR_SPEC7450 | \
+	    CPU_FTR_NAP_DISABLE_L2_PR | CPU_FTR_HAS_HIGH_BATS | \
+	    CPU_FTR_PPC_LE)
 #define CPU_FTRS_82XX	(CPU_FTR_COMMON | CPU_FTR_SPLIT_ID_CACHE | \
 	    CPU_FTR_MAYBE_CAN_DOZE | CPU_FTR_USE_TB)
 #define CPU_FTRS_G2_LE	(CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_MAYBE_CAN_DOZE | \
@@ -337,12 +355,6 @@ extern void do_feature_fixups(unsigned long value, void *fixup_start,
 	    CPU_FTR_COHERENT_ICACHE | CPU_FTR_LOCKLESS_TLBIE | \
 	    CPU_FTR_PURR | CPU_FTR_SPURR | CPU_FTR_REAL_LE | \
 	    CPU_FTR_DSCR)
-#define CPU_FTRS_POWER6X (CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | \
-	    CPU_FTR_HPTE_TABLE | CPU_FTR_PPCAS_ARCH_V2 | CPU_FTR_CTRL | \
-	    CPU_FTR_MMCRA | CPU_FTR_SMT | \
-	    CPU_FTR_COHERENT_ICACHE | CPU_FTR_LOCKLESS_TLBIE | \
-	    CPU_FTR_PURR | CPU_FTR_CI_LARGE_PAGE | \
-	    CPU_FTR_SPURR | CPU_FTR_REAL_LE | CPU_FTR_DSCR)
 #define CPU_FTRS_CELL	(CPU_FTR_SPLIT_ID_CACHE | CPU_FTR_USE_TB | \
 	    CPU_FTR_HPTE_TABLE | CPU_FTR_PPCAS_ARCH_V2 | CPU_FTR_CTRL | \
 	    CPU_FTR_ALTIVEC_COMP | CPU_FTR_MMCRA | CPU_FTR_SMT | \

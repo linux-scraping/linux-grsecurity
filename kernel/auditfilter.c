@@ -311,6 +311,45 @@ int audit_match_class(int class, unsigned syscall)
 	return classes[class][AUDIT_WORD(syscall)] & AUDIT_BIT(syscall);
 }
 
+#ifdef CONFIG_AUDITSYSCALL
+static inline int audit_match_class_bits(int class, u32 *mask)
+{
+	int i;
+
+	if (classes[class]) {
+		for (i = 0; i < AUDIT_BITMASK_SIZE; i++)
+			if (mask[i] & classes[class][i])
+				return 0;
+	}
+	return 1;
+}
+
+static int audit_match_signal(struct audit_entry *entry)
+{
+	struct audit_field *arch = entry->rule.arch_f;
+
+	if (!arch) {
+		/* When arch is unspecified, we must check both masks on biarch
+		 * as syscall number alone is ambiguous. */
+		return (audit_match_class_bits(AUDIT_CLASS_SIGNAL,
+					       entry->rule.mask) &&
+			audit_match_class_bits(AUDIT_CLASS_SIGNAL_32,
+					       entry->rule.mask));
+	}
+
+	switch(audit_classify_arch(arch->val)) {
+	case 0: /* native */
+		return (audit_match_class_bits(AUDIT_CLASS_SIGNAL,
+					       entry->rule.mask));
+	case 1: /* 32bit on biarch */
+		return (audit_match_class_bits(AUDIT_CLASS_SIGNAL_32,
+					       entry->rule.mask));
+	default:
+		return 1;
+	}
+}
+#endif
+
 /* Common user-space to kernel rule translation. */
 static inline struct audit_entry *audit_to_entry_common(struct audit_rule *rule)
 {
@@ -429,6 +468,7 @@ static struct audit_entry *audit_rule_to_entry(struct audit_rule *rule)
 				err = -EINVAL;
 				goto exit_free;
 			}
+			entry->rule.arch_f = f;
 			break;
 		case AUDIT_PERM:
 			if (f->val & ~15)
@@ -519,7 +559,6 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 		case AUDIT_FSGID:
 		case AUDIT_LOGINUID:
 		case AUDIT_PERS:
-		case AUDIT_ARCH:
 		case AUDIT_MSGTYPE:
 		case AUDIT_PPID:
 		case AUDIT_DEVMAJOR:
@@ -530,6 +569,9 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 		case AUDIT_ARG1:
 		case AUDIT_ARG2:
 		case AUDIT_ARG3:
+			break;
+		case AUDIT_ARCH:
+			entry->rule.arch_f = f;
 			break;
 		case AUDIT_SUBJ_USER:
 		case AUDIT_SUBJ_ROLE:
@@ -905,7 +947,7 @@ static void audit_update_watch(struct audit_parent *parent,
 
 		/* If the update involves invalidating rules, do the inode-based
 		 * filtering now, so we don't omit records. */
-		if (invalidating &&
+		if (invalidating && current->audit_context &&
 		    audit_filter_inodes(current, current->audit_context) == AUDIT_RECORD_CONTEXT)
 			audit_set_auditable(current->audit_context);
 
@@ -937,9 +979,10 @@ static void audit_update_watch(struct audit_parent *parent,
 		}
 
 		ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
-		audit_log_format(ab, "audit updated rules specifying path=");
+		audit_log_format(ab, "op=updated rules specifying path=");
 		audit_log_untrustedstring(ab, owatch->path);
 		audit_log_format(ab, " with dev=%u ino=%lu\n", dev, ino);
+		audit_log_format(ab, " list=%d res=1", r->listnr);
 		audit_log_end(ab);
 
 		audit_remove_watch(owatch);
@@ -969,14 +1012,14 @@ static void audit_remove_parent_watches(struct audit_parent *parent)
 			e = container_of(r, struct audit_entry, rule);
 
 			ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
-			audit_log_format(ab, "audit implicitly removed rule path=");
+			audit_log_format(ab, "op=remove rule path=");
 			audit_log_untrustedstring(ab, w->path);
 			if (r->filterkey) {
 				audit_log_format(ab, " key=");
 				audit_log_untrustedstring(ab, r->filterkey);
 			} else
 				audit_log_format(ab, " key=(null)");
-			audit_log_format(ab, " list=%d", r->listnr);
+			audit_log_format(ab, " list=%d res=1", r->listnr);
 			audit_log_end(ab);
 
 			list_del(&r->rlist);
@@ -1220,6 +1263,9 @@ static inline int audit_add_rule(struct audit_entry *entry,
 #ifdef CONFIG_AUDITSYSCALL
 	if (!dont_count)
 		audit_n_rules++;
+
+	if (!audit_match_signal(entry))
+		audit_signals++;
 #endif
 	mutex_unlock(&audit_filter_mutex);
 
@@ -1293,6 +1339,9 @@ static inline int audit_del_rule(struct audit_entry *entry,
 #ifdef CONFIG_AUDITSYSCALL
 	if (!dont_count)
 		audit_n_rules--;
+
+	if (!audit_match_signal(entry))
+		audit_signals--;
 #endif
 	mutex_unlock(&audit_filter_mutex);
 
@@ -1410,7 +1459,7 @@ static void audit_log_rule_change(uid_t loginuid, u32 sid, char *action,
 			audit_log_format(ab, " subj=%s", ctx);
 		kfree(ctx);
 	}
-	audit_log_format(ab, " %s rule key=", action);
+	audit_log_format(ab, " op=%s rule key=", action);
 	if (rule->filterkey)
 		audit_log_untrustedstring(ab, rule->filterkey);
 	else
@@ -1601,8 +1650,8 @@ static int audit_filter_user_rules(struct netlink_skb_parms *cb,
 
 int audit_filter_user(struct netlink_skb_parms *cb, int type)
 {
+	enum audit_state state = AUDIT_DISABLED;
 	struct audit_entry *e;
-	enum audit_state   state;
 	int ret = 1;
 
 	rcu_read_lock();

@@ -19,7 +19,6 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 #include <linux/bootmem.h>
-#include <linux/smp_lock.h>
 #include <linux/interrupt.h>
 #include <linux/mc146818rtc.h>
 #include <linux/kernel_stat.h>
@@ -37,6 +36,7 @@
 #include <asm/idle.h>
 #include <asm/proto.h>
 #include <asm/timex.h>
+#include <asm/hpet.h>
 #include <asm/apic.h>
 
 int apic_mapped;
@@ -45,6 +45,10 @@ int apic_runs_main_timer;
 int apic_calibrate_pmtmr __initdata;
 
 int disable_apic_timer __initdata;
+
+/* Local APIC timer works in C2? */
+int local_apic_timer_c2_ok;
+EXPORT_SYMBOL_GPL(local_apic_timer_c2_ok);
 
 static struct resource *ioapic_resources;
 static struct resource lapic_resource = {
@@ -62,6 +66,28 @@ static cpumask_t timer_interrupt_broadcast_ipi_mask;
 int using_apic_timer __read_mostly = 0;
 
 static void apic_pm_activate(void);
+
+void apic_wait_icr_idle(void)
+{
+	while (apic_read(APIC_ICR) & APIC_ICR_BUSY)
+		cpu_relax();
+}
+
+unsigned int safe_apic_wait_icr_idle(void)
+{
+	unsigned int send_status;
+	int timeout;
+
+	timeout = 0;
+	do {
+		send_status = apic_read(APIC_ICR) & APIC_ICR_BUSY;
+		if (!send_status)
+			break;
+		udelay(100);
+	} while (timeout++ < 1000);
+
+	return send_status;
+}
 
 void enable_NMI_through_LVT0 (void * dummy)
 {
@@ -763,7 +789,7 @@ static void setup_APIC_timer(unsigned int clocks)
 	local_irq_save(flags);
 
 	/* wait for irq slice */
- 	if (vxtime.hpet_address && hpet_use_timer) {
+ 	if (hpet_address && hpet_use_timer) {
  		int trigger = hpet_readl(HPET_T0_CMP);
  		while (hpet_readl(HPET_COUNTER) >= trigger)
  			/* do nothing */ ;
@@ -785,7 +811,7 @@ static void setup_APIC_timer(unsigned int clocks)
 	/* Turn off PIT interrupt if we use APIC timer as main timer.
 	   Only works with the PM timer right now
 	   TBD fix it for HPET too. */
-	if (vxtime.mode == VXTIME_PMTMR &&
+	if ((pmtmr_ioport != 0) &&
 		smp_processor_id() == boot_cpu_id &&
 		apic_runs_main_timer == 1 &&
 		!cpu_isset(boot_cpu_id, timer_interrupt_broadcast_ipi_mask)) {
@@ -812,14 +838,15 @@ static void setup_APIC_timer(unsigned int clocks)
 
 static int __init calibrate_APIC_clock(void)
 {
-	int apic, apic_start, tsc, tsc_start;
+	unsigned apic, apic_start;
+	unsigned long tsc, tsc_start;
 	int result;
 	/*
 	 * Put whatever arbitrary (but long enough) timeout
 	 * value into the APIC clock, we just want to get the
 	 * counter running for calibration.
 	 */
-	__setup_APIC_LVTT(1000000000);
+	__setup_APIC_LVTT(4000000000);
 
 	apic_start = apic_read(APIC_TMCCT);
 #ifdef CONFIG_X86_PM_TIMER
@@ -830,15 +857,15 @@ static int __init calibrate_APIC_clock(void)
 	} else
 #endif
 	{
-		rdtscl(tsc_start);
+		rdtscll(tsc_start);
 
 		do {
 			apic = apic_read(APIC_TMCCT);
-			rdtscl(tsc);
+			rdtscll(tsc);
 		} while ((tsc - tsc_start) < TICK_COUNT &&
-				(apic - apic_start) < TICK_COUNT);
+				(apic_start - apic) < TICK_COUNT);
 
-		result = (apic_start - apic) * 1000L * cpu_khz /
+		result = (apic_start - apic) * 1000L * tsc_khz /
 					(tsc - tsc_start);
 	}
 	printk("result %d\n", result);
@@ -929,9 +956,17 @@ EXPORT_SYMBOL(switch_APIC_timer_to_ipi);
 
 void smp_send_timer_broadcast_ipi(void)
 {
+	int cpu = smp_processor_id();
 	cpumask_t mask;
 
 	cpus_and(mask, cpu_online_map, timer_interrupt_broadcast_ipi_mask);
+
+	if (cpu_isset(cpu, mask)) {
+		cpu_clear(cpu, mask);
+		add_pda(apic_timer_irqs, 1);
+		smp_local_timer_interrupt();
+	}
+
 	if (!cpus_empty(mask)) {
 		send_IPI_mask(mask, LOCAL_TIMER_VECTOR);
 	}
@@ -1190,6 +1225,13 @@ static __init int setup_nolapic(char *str)
 	return setup_disableapic(str);
 } 
 early_param("nolapic", setup_nolapic);
+
+static int __init parse_lapic_timer_c2_ok(char *arg)
+{
+	local_apic_timer_c2_ok = 1;
+	return 0;
+}
+early_param("lapic_timer_c2_ok", parse_lapic_timer_c2_ok);
 
 static __init int setup_noapictimer(char *str) 
 { 

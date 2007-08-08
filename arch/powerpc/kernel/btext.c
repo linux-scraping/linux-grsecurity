@@ -18,6 +18,7 @@
 #include <asm/io.h>
 #include <asm/lmb.h>
 #include <asm/processor.h>
+#include <asm/udbg.h>
 
 #define NO_SCROLL
 
@@ -160,33 +161,33 @@ int btext_initialize(struct device_node *np)
 	unsigned long address = 0;
 	const u32 *prop;
 
-	prop = get_property(np, "linux,bootx-width", NULL);
+	prop = of_get_property(np, "linux,bootx-width", NULL);
 	if (prop == NULL)
-		prop = get_property(np, "width", NULL);
+		prop = of_get_property(np, "width", NULL);
 	if (prop == NULL)
 		return -EINVAL;
 	width = *prop;
-	prop = get_property(np, "linux,bootx-height", NULL);
+	prop = of_get_property(np, "linux,bootx-height", NULL);
 	if (prop == NULL)
-		prop = get_property(np, "height", NULL);
+		prop = of_get_property(np, "height", NULL);
 	if (prop == NULL)
 		return -EINVAL;
 	height = *prop;
-	prop = get_property(np, "linux,bootx-depth", NULL);
+	prop = of_get_property(np, "linux,bootx-depth", NULL);
 	if (prop == NULL)
-		prop = get_property(np, "depth", NULL);
+		prop = of_get_property(np, "depth", NULL);
 	if (prop == NULL)
 		return -EINVAL;
 	depth = *prop;
 	pitch = width * ((depth + 7) / 8);
-	prop = get_property(np, "linux,bootx-linebytes", NULL);
+	prop = of_get_property(np, "linux,bootx-linebytes", NULL);
 	if (prop == NULL)
-		prop = get_property(np, "linebytes", NULL);
+		prop = of_get_property(np, "linebytes", NULL);
 	if (prop && *prop != 0xffffffffu)
 		pitch = *prop;
 	if (pitch == 1)
 		pitch = 0x1000;
-	prop = get_property(np, "address", NULL);
+	prop = of_get_property(np, "address", NULL);
 	if (prop)
 		address = *prop;
 
@@ -218,7 +219,7 @@ int __init btext_find_display(int allow_nonstdout)
 	struct device_node *np = NULL; 
 	int rc = -ENODEV;
 
-	name = get_property(of_chosen, "linux,stdout-path", NULL);
+	name = of_get_property(of_chosen, "linux,stdout-path", NULL);
 	if (name != NULL) {
 		np = of_find_node_by_path(name);
 		if (np != NULL) {
@@ -235,7 +236,7 @@ int __init btext_find_display(int allow_nonstdout)
 		return rc;
 
 	for (np = NULL; (np = of_find_node_by_type(np, "display"));) {
-		if (get_property(np, "linux,opened", NULL)) {
+		if (of_get_property(np, "linux,opened", NULL)) {
 			printk("trying %s ...\n", np->full_name);
 			rc = btext_initialize(np);
 			printk("result: %d\n", rc);
@@ -912,3 +913,11 @@ static unsigned char vga_font[cmapsz] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00,
 };
+
+void __init udbg_init_btext(void)
+{
+	/* If btext is enabled, we might have a BAT setup for early display,
+	 * thus we do enable some very basic udbg output
+	 */
+	udbg_putc = btext_drawchar;
+}

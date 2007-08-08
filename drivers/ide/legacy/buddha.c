@@ -213,9 +213,9 @@ fail_base2:
 						IRQ_AMIGA_PORTS);
 			}	
 			
-			index = ide_register_hw(&hw, &hwif);
+			index = ide_register_hw(&hw, 1, &hwif);
 			if (index != -1) {
-				hwif->mmio = 2;
+				hwif->mmio = 1;
 				printk("ide%d: ", index);
 				switch(type) {
 				case BOARD_BUDDHA:

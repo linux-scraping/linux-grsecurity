@@ -35,7 +35,6 @@
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/swap.h>
-#include <linux/smp_lock.h>
 #include <linux/spinlock.h>
 #include <linux/syscalls.h>
 #include <linux/file.h>
@@ -77,7 +76,7 @@
 #include "objsec.h"
 #include "netif.h"
 #include "xfrm.h"
-#include "selinux_netlabel.h"
+#include "netlabel.h"
 
 #define XATTR_SELINUX_SUFFIX "selinux"
 #define XATTR_NAME_SELINUX XATTR_SECURITY_PREFIX XATTR_SELINUX_SUFFIX
@@ -181,11 +180,10 @@ static int inode_alloc_security(struct inode *inode)
 	struct task_security_struct *tsec = current->security;
 	struct inode_security_struct *isec;
 
-	isec = kmem_cache_alloc(sel_inode_cache, GFP_KERNEL);
+	isec = kmem_cache_zalloc(sel_inode_cache, GFP_KERNEL);
 	if (!isec)
 		return -ENOMEM;
 
-	memset(isec, 0, sizeof(*isec));
 	mutex_init(&isec->lock);
 	INIT_LIST_HEAD(&isec->list);
 	isec->inode = inode;
@@ -654,11 +652,11 @@ static int superblock_doinit(struct super_block *sb, void *data)
 	sbsec->initialized = 1;
 
 	if (sbsec->behavior > ARRAY_SIZE(labeling_behaviors)) {
-		printk(KERN_INFO "SELinux: initialized (dev %s, type %s), unknown behavior\n",
+		printk(KERN_ERR "SELinux: initialized (dev %s, type %s), unknown behavior\n",
 		       sb->s_id, sb->s_type->name);
 	}
 	else {
-		printk(KERN_INFO "SELinux: initialized (dev %s, type %s), %s\n",
+		printk(KERN_DEBUG "SELinux: initialized (dev %s, type %s), %s\n",
 		       sb->s_id, sb->s_type->name,
 		       labeling_behaviors[sbsec->behavior-1]);
 	}
@@ -1078,6 +1076,9 @@ static int inode_has_perm(struct task_struct *tsk,
 	struct inode_security_struct *isec;
 	struct avc_audit_data ad;
 
+	if (unlikely (IS_PRIVATE (inode)))
+		return 0;
+
 	tsec = tsk->security;
 	isec = inode->i_security;
 
@@ -1424,6 +1425,47 @@ static int selinux_capable(struct task_struct *tsk, int cap)
 	return task_has_capability(tsk,cap);
 }
 
+static int selinux_sysctl_get_sid(ctl_table *table, u16 tclass, u32 *sid)
+{
+	int buflen, rc;
+	char *buffer, *path, *end;
+
+	rc = -ENOMEM;
+	buffer = (char*)__get_free_page(GFP_KERNEL);
+	if (!buffer)
+		goto out;
+
+	buflen = PAGE_SIZE;
+	end = buffer+buflen;
+	*--end = '\0';
+	buflen--;
+	path = end-1;
+	*path = '/';
+	while (table) {
+		const char *name = table->procname;
+		size_t namelen = strlen(name);
+		buflen -= namelen + 1;
+		if (buflen < 0)
+			goto out_free;
+		end -= namelen;
+		memcpy(end, name, namelen);
+		*--end = '/';
+		path = end;
+		table = table->parent;
+	}
+	buflen -= 4;
+	if (buflen < 0)
+		goto out_free;
+	end -= 4;
+	memcpy(end, "/sys", 4);
+	path = end;
+	rc = security_genfs_sid("proc", path, tclass, sid);
+out_free:
+	free_page((unsigned long)buffer);
+out:
+	return rc;
+}
+
 static int selinux_sysctl(ctl_table *table, int op)
 {
 	int error = 0;
@@ -1438,8 +1480,8 @@ static int selinux_sysctl(ctl_table *table, int op)
 
 	tsec = current->security;
 
-	rc = selinux_proc_get_sid(table->de, (op == 001) ?
-	                          SECCLASS_DIR : SECCLASS_FILE, &tsid);
+	rc = selinux_sysctl_get_sid(table, (op == 0001) ?
+				    SECCLASS_DIR : SECCLASS_FILE, &tsid);
 	if (rc) {
 		/* Default to the well-defined sysctl SID. */
 		tsid = SECINITSID_SYSCTL;
@@ -1715,12 +1757,11 @@ static inline void flush_unauthorized_files(struct files_struct * files)
 			}
 		}
 		file_list_unlock();
-
-		/* Reset controlling tty. */
-		if (drop_tty)
-			proc_set_tty(current, NULL);
 	}
 	mutex_unlock(&tty_mutex);
+	/* Reset controlling tty. */
+	if (drop_tty)
+		no_tty();
 
 	/* Revalidate access to inherited open files. */
 
@@ -2655,7 +2696,7 @@ static int selinux_file_send_sigiotask(struct task_struct *tsk,
 	struct file_security_struct *fsec;
 
 	/* struct fown_struct is never outside the context of a struct file */
-        file = (struct file *)((long)fown - offsetof(struct file,f_owner));
+        file = container_of(fown, struct file, f_owner);
 
 	tsec = tsk->security;
 	fsec = file->f_security;
@@ -2901,7 +2942,7 @@ static int selinux_parse_skb_ipv4(struct sk_buff *skb,
 	int offset, ihlen, ret = -EINVAL;
 	struct iphdr _iph, *ih;
 
-	offset = skb->nh.raw - skb->data;
+	offset = skb_network_offset(skb);
 	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
 	if (ih == NULL)
 		goto out;
@@ -2983,7 +3024,7 @@ static int selinux_parse_skb_ipv6(struct sk_buff *skb,
 	int ret = -EINVAL, offset;
 	struct ipv6hdr _ipv6h, *ip6;
 
-	offset = skb->nh.raw - skb->data;
+	offset = skb_network_offset(skb);
 	ip6 = skb_header_pointer(skb, offset, sizeof(_ipv6h), &_ipv6h);
 	if (ip6 == NULL)
 		goto out;
@@ -3078,6 +3119,34 @@ static int selinux_parse_skb(struct sk_buff *skb, struct avc_audit_data *ad,
 	}
 
 	return ret;
+}
+
+/**
+ * selinux_skb_extlbl_sid - Determine the external label of a packet
+ * @skb: the packet
+ * @base_sid: the SELinux SID to use as a context for MLS only external labels
+ * @sid: the packet's SID
+ *
+ * Description:
+ * Check the various different forms of external packet labeling and determine
+ * the external SID for the packet.
+ *
+ */
+static void selinux_skb_extlbl_sid(struct sk_buff *skb,
+				   u32 base_sid,
+				   u32 *sid)
+{
+	u32 xfrm_sid;
+	u32 nlbl_sid;
+
+	selinux_skb_xfrm_sid(skb, &xfrm_sid);
+	if (selinux_netlbl_skbuff_getsid(skb,
+					 (xfrm_sid == SECSID_NULL ?
+					  base_sid : xfrm_sid),
+					 &nlbl_sid) != 0)
+		nlbl_sid = SECSID_NULL;
+
+	*sid = (nlbl_sid == SECSID_NULL ? xfrm_sid : nlbl_sid);
 }
 
 /* socket security operations */
@@ -3621,9 +3690,7 @@ static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *
 	if (sock && sock->sk->sk_family == PF_UNIX)
 		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
 	else if (skb)
-		security_skb_extlbl_sid(skb,
-					SECINITSID_UNLABELED,
-					&peer_secid);
+		selinux_skb_extlbl_sid(skb, SECINITSID_UNLABELED, &peer_secid);
 
 	if (peer_secid == SECSID_NULL)
 		err = -EINVAL;
@@ -3684,7 +3751,7 @@ static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	u32 newsid;
 	u32 peersid;
 
-	security_skb_extlbl_sid(skb, SECINITSID_UNLABELED, &peersid);
+	selinux_skb_extlbl_sid(skb, SECINITSID_UNLABELED, &peersid);
 	if (peersid == SECSID_NULL) {
 		req->secid = sksec->sid;
 		req->peer_secid = SECSID_NULL;
@@ -3722,7 +3789,7 @@ static void selinux_inet_conn_established(struct sock *sk,
 {
 	struct sk_security_struct *sksec = sk->sk_security;
 
-	security_skb_extlbl_sid(skb, SECINITSID_UNLABELED, &sksec->peer_sid);
+	selinux_skb_extlbl_sid(skb, SECINITSID_UNLABELED, &sksec->peer_sid);
 }
 
 static void selinux_req_classify_flow(const struct request_sock *req,
@@ -3743,7 +3810,7 @@ static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
 		err = -EINVAL;
 		goto out;
 	}
-	nlh = (struct nlmsghdr *)skb->data;
+	nlh = nlmsg_hdr(skb);
 	
 	err = selinux_nlmsg_lookup(isec->sclass, nlh->nlmsg_type, &perm);
 	if (err) {
@@ -4391,7 +4458,7 @@ static int selinux_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 static int selinux_register_security (const char *name, struct security_operations *ops)
 {
 	if (secondary_ops != original_ops) {
-		printk(KERN_INFO "%s:  There is already a secondary security "
+		printk(KERN_ERR "%s:  There is already a secondary security "
 		       "module registered.\n", __FUNCTION__);
 		return -EINVAL;
  	}
@@ -4408,7 +4475,7 @@ static int selinux_register_security (const char *name, struct security_operatio
 static int selinux_unregister_security (const char *name, struct security_operations *ops)
 {
 	if (ops != secondary_ops) {
-		printk (KERN_INFO "%s:  trying to unregister a security module "
+		printk(KERN_ERR "%s:  trying to unregister a security module "
 		        "that is not registered.\n", __FUNCTION__);
 		return -EINVAL;
 	}
@@ -4425,11 +4492,12 @@ static void selinux_d_instantiate (struct dentry *dentry, struct inode *inode)
 }
 
 static int selinux_getprocattr(struct task_struct *p,
-			       char *name, void *value, size_t size)
+			       char *name, char **value)
 {
 	struct task_security_struct *tsec;
 	u32 sid;
 	int error;
+	unsigned len;
 
 	if (current != p) {
 		error = task_has_perm(current, p, PROCESS__GETATTR);
@@ -4457,7 +4525,10 @@ static int selinux_getprocattr(struct task_struct *p,
 	if (!sid)
 		return 0;
 
-	return selinux_getsecurity(sid, value, size);
+	error = security_sid_to_context(sid, value, &len);
+	if (error)
+		return error;
+	return len;
 }
 
 static int selinux_setprocattr(struct task_struct *p,
@@ -4846,9 +4917,9 @@ static __init int selinux_init(void)
 		panic("SELinux: Unable to register with kernel.\n");
 
 	if (selinux_enforcing) {
-		printk(KERN_INFO "SELinux:  Starting in enforcing mode\n");
+		printk(KERN_DEBUG "SELinux:  Starting in enforcing mode\n");
 	} else {
-		printk(KERN_INFO "SELinux:  Starting in permissive mode\n");
+		printk(KERN_DEBUG "SELinux:  Starting in permissive mode\n");
 	}
 
 #ifdef CONFIG_KEYS
@@ -4864,10 +4935,10 @@ static __init int selinux_init(void)
 
 void selinux_complete_init(void)
 {
-	printk(KERN_INFO "SELinux:  Completing initialization.\n");
+	printk(KERN_DEBUG "SELinux:  Completing initialization.\n");
 
 	/* Set up any superblocks initialized prior to the policy load. */
-	printk(KERN_INFO "SELinux:  Setting up existing superblocks.\n");
+	printk(KERN_DEBUG "SELinux:  Setting up existing superblocks.\n");
 	spin_lock(&sb_lock);
 	spin_lock(&sb_security_lock);
 next_sb:
@@ -4925,9 +4996,9 @@ static int __init selinux_nf_ip_init(void)
 
 	if (!selinux_enabled)
 		goto out;
-		
-	printk(KERN_INFO "SELinux:  Registering netfilter hooks\n");
-	
+
+	printk(KERN_DEBUG "SELinux:  Registering netfilter hooks\n");
+
 	err = nf_register_hook(&selinux_ipv4_op);
 	if (err)
 		panic("SELinux: nf_register_hook for IPv4: error %d\n", err);
@@ -4949,7 +5020,7 @@ __initcall(selinux_nf_ip_init);
 #ifdef CONFIG_SECURITY_SELINUX_DISABLE
 static void selinux_nf_ip_exit(void)
 {
-	printk(KERN_INFO "SELinux:  Unregistering netfilter hooks\n");
+	printk(KERN_DEBUG "SELinux:  Unregistering netfilter hooks\n");
 
 	nf_unregister_hook(&selinux_ipv4_op);
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)

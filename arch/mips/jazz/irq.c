@@ -40,7 +40,7 @@ void disable_r4030_irq(unsigned int irq)
 }
 
 static struct irq_chip r4030_irq_type = {
-	.typename = "R4030",
+	.name = "R4030",
 	.ack = disable_r4030_irq,
 	.mask = disable_r4030_irq,
 	.mask_ack = disable_r4030_irq,
@@ -122,7 +122,7 @@ static void ll_local_dev(void)
 
 asmlinkage void plat_irq_dispatch(void)
 {
-	unsigned int pending = read_c0_cause() & read_c0_status() & ST0_IM;
+	unsigned int pending = read_c0_cause() & read_c0_status();
 
 	if (pending & IE_IRQ5)
 		write_c0_compare(0);

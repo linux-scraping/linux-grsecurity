@@ -6,7 +6,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -242,7 +242,7 @@ acpi_ex_decode_field_access(union acpi_operand_object *obj_desc,
 					    obj_desc->common_field.bit_length,
 					    0xFFFFFFFF
 					    /* Temp until we pass region_length as parameter */
-					    );
+		    );
 		bit_length = byte_alignment * 8;
 #endif
 

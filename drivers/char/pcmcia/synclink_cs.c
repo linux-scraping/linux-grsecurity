@@ -42,7 +42,6 @@
 #include <linux/timer.h>
 #include <linux/time.h>
 #include <linux/interrupt.h>
-#include <linux/pci.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/serial.h>
@@ -887,10 +886,8 @@ static void bh_transmit(MGSLPC_INFO *info)
 	if (debug_level >= DEBUG_LEVEL_BH)
 		printk("bh_transmit() entry on %s\n", info->device_name);
 
-	if (tty) {
+	if (tty)
 		tty_wakeup(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
 }
 
 static void bh_status(MGSLPC_INFO *info)
@@ -1363,9 +1360,7 @@ static int startup(MGSLPC_INFO * info)
 	
 	memset(&info->icount, 0, sizeof(info->icount));
 
-	init_timer(&info->tx_timer);
-	info->tx_timer.data = (unsigned long)info;
-	info->tx_timer.function = tx_timeout;
+	setup_timer(&info->tx_timer, tx_timeout, (unsigned long)info);
 
 	/* Allocate and claim adapter resources */
 	retval = claim_resources(info);
@@ -1410,7 +1405,7 @@ static void shutdown(MGSLPC_INFO * info)
 	wake_up_interruptible(&info->status_event_wait_q);
 	wake_up_interruptible(&info->event_wait_q);
 
-	del_timer(&info->tx_timer);	
+	del_timer_sync(&info->tx_timer);
 
 	if (info->tx_buf) {
 		free_page((unsigned long) info->tx_buf);
@@ -3551,8 +3546,8 @@ static void tx_start(MGSLPC_INFO *info)
 		} else {
 			info->tx_active = 1;
 			tx_ready(info);
-			info->tx_timer.expires = jiffies + msecs_to_jiffies(5000);
-			add_timer(&info->tx_timer);	
+			mod_timer(&info->tx_timer, jiffies +
+					msecs_to_jiffies(5000));
 		}
 	}
 
@@ -4173,7 +4168,7 @@ static int hdlcdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	netif_stop_queue(dev);
 
 	/* copy data to device buffers */
-	memcpy(info->tx_buf, skb->data, skb->len);
+	skb_copy_from_linear_data(skb, info->tx_buf, skb->len);
 	info->tx_get = 0;
 	info->tx_put = info->tx_count = skb->len;
 

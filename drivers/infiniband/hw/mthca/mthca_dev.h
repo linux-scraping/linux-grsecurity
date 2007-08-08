@@ -464,6 +464,8 @@ void mthca_uar_free(struct mthca_dev *dev, struct mthca_uar *uar);
 int mthca_pd_alloc(struct mthca_dev *dev, int privileged, struct mthca_pd *pd);
 void mthca_pd_free(struct mthca_dev *dev, struct mthca_pd *pd);
 
+int mthca_write_mtt_size(struct mthca_dev *dev);
+
 struct mthca_mtt *mthca_alloc_mtt(struct mthca_dev *dev, int size);
 void mthca_free_mtt(struct mthca_dev *dev, struct mthca_mtt *mtt);
 int mthca_write_mtt(struct mthca_dev *dev, struct mthca_mtt *mtt,
@@ -493,8 +495,8 @@ void mthca_unmap_eq_icm(struct mthca_dev *dev);
 
 int mthca_poll_cq(struct ib_cq *ibcq, int num_entries,
 		  struct ib_wc *entry);
-int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify);
-int mthca_arbel_arm_cq(struct ib_cq *cq, enum ib_cq_notify notify);
+int mthca_tavor_arm_cq(struct ib_cq *cq, enum ib_cq_notify_flags flags);
+int mthca_arbel_arm_cq(struct ib_cq *cq, enum ib_cq_notify_flags flags);
 int mthca_init_cq(struct mthca_dev *dev, int nent,
 		  struct mthca_ucontext *ctx, u32 pdn,
 		  struct mthca_cq *cq);

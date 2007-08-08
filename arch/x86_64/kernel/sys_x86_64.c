@@ -7,7 +7,6 @@
 #include <linux/syscalls.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/sem.h>
 #include <linux/msg.h>
 #include <linux/shm.h>
@@ -93,7 +92,10 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long start_addr;
 	unsigned long begin, end;
 	
-	find_start_end(mm, flags, &begin, &end); 
+	if (flags & MAP_FIXED)
+		return addr;
+
+	find_start_end(mm, flags, &begin, &end);
 
 	if (len > end)
 		return -ENOMEM;

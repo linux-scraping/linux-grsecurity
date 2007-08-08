@@ -1,22 +1,42 @@
 #ifndef _I386_PGALLOC_H
 #define _I386_PGALLOC_H
 
-#include <asm/fixmap.h>
 #include <linux/threads.h>
 #include <linux/mm.h>		/* for struct page */
 
-#ifdef CONFIG_COMPAT_VDSO
-#define pmd_populate_kernel(mm, pmd, pte) \
-		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
+#ifdef CONFIG_PARAVIRT
+#include <asm/paravirt.h>
 #else
-#define pmd_populate_kernel(mm, pmd, pte) \
-		set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)))
+#define paravirt_alloc_pt(pfn) do { } while (0)
+#define paravirt_alloc_pd(pfn) do { } while (0)
+#define paravirt_alloc_pd(pfn) do { } while (0)
+#define paravirt_alloc_pd_clone(pfn, clonepfn, start, count) do { } while (0)
+#define paravirt_release_pt(pfn) do { } while (0)
+#define paravirt_release_pd(pfn) do { } while (0)
+#endif
+
+#ifdef CONFIG_COMPAT_VDSO
+#define pmd_populate_kernel(mm, pmd, pte)			\
+do {								\
+	paravirt_alloc_pt(__pa(pte) >> PAGE_SHIFT);		\
+	set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)));		\
+} while (0)
+#else
+#define pmd_populate_kernel(mm, pmd, pte)			\
+do {								\
+	paravirt_alloc_pt(__pa(pte) >> PAGE_SHIFT);		\
+	set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)));		\
+} while (0)
 #endif
 
 #define pmd_populate(mm, pmd, pte) 				\
+do {								\
+	paravirt_alloc_pt(page_to_pfn(pte));			\
 	set_pmd(pmd, __pmd(_PAGE_TABLE +			\
 		((unsigned long long)page_to_pfn(pte) <<	\
-			(unsigned long long) PAGE_SHIFT)))
+			(unsigned long long) PAGE_SHIFT)));	\
+} while (0)
+
 /*
  * Allocate and free page tables.
  */
@@ -37,7 +57,11 @@ static inline void pte_free(struct page *pte)
 }
 
 
-#define __pte_free_tlb(tlb,pte) tlb_remove_page((tlb),(pte))
+#define __pte_free_tlb(tlb,pte) 					\
+do {									\
+	paravirt_release_pt(page_to_pfn(pte));				\
+	tlb_remove_page((tlb),(pte));					\
+} while (0)
 
 #ifdef CONFIG_X86_PAE
 /*
@@ -48,7 +72,5 @@ static inline void pte_free(struct page *pte)
 #define __pmd_free_tlb(tlb,x)		do { } while (0)
 #define pud_populate(mm, pmd, pte)	BUG()
 #endif
-
-#define check_pgt_cache()	do { } while (0)
 
 #endif /* _I386_PGALLOC_H */

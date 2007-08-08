@@ -110,7 +110,7 @@ romfs_checksum(void *data, int size)
 	return sum;
 }
 
-static struct super_operations romfs_ops;
+static const struct super_operations romfs_ops;
 
 static int romfs_fill_super(struct super_block *s, void *data, int silent)
 {
@@ -468,7 +468,7 @@ static const struct file_operations romfs_dir_operations = {
 	.readdir	= romfs_readdir,
 };
 
-static struct inode_operations romfs_dir_inode_operations = {
+static const struct inode_operations romfs_dir_inode_operations = {
 	.lookup		= romfs_lookup,
 };
 
@@ -566,13 +566,11 @@ static void romfs_destroy_inode(struct inode *inode)
 	kmem_cache_free(romfs_inode_cachep, ROMFS_I(inode));
 }
 
-static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flags)
+static void init_once(void *foo, struct kmem_cache *cachep, unsigned long flags)
 {
-	struct romfs_inode_info *ei = (struct romfs_inode_info *) foo;
+	struct romfs_inode_info *ei = foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&ei->vfs_inode);
+	inode_init_once(&ei->vfs_inode);
 }
  
 static int init_inodecache(void)
@@ -598,7 +596,7 @@ static int romfs_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
-static struct super_operations romfs_ops = {
+static const struct super_operations romfs_ops = {
 	.alloc_inode	= romfs_alloc_inode,
 	.destroy_inode	= romfs_destroy_inode,
 	.read_inode	= romfs_read_inode,

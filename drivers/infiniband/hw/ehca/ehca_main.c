@@ -52,7 +52,7 @@
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Christoph Raisch <raisch@de.ibm.com>");
 MODULE_DESCRIPTION("IBM eServer HCA InfiniBand Device Driver");
-MODULE_VERSION("SVNEHCA_0019");
+MODULE_VERSION("SVNEHCA_0023");
 
 int ehca_open_aqp1     = 0;
 int ehca_debug_level   = 0;
@@ -62,6 +62,7 @@ int ehca_use_hp_mr     = 0;
 int ehca_port_act_time = 30;
 int ehca_poll_all_eqs  = 1;
 int ehca_static_rate   = -1;
+int ehca_scaling_code  = 0;
 
 module_param_named(open_aqp1,     ehca_open_aqp1,     int, 0);
 module_param_named(debug_level,   ehca_debug_level,   int, 0);
@@ -71,6 +72,7 @@ module_param_named(use_hp_mr,     ehca_use_hp_mr,     int, 0);
 module_param_named(port_act_time, ehca_port_act_time, int, 0);
 module_param_named(poll_all_eqs,  ehca_poll_all_eqs,  int, 0);
 module_param_named(static_rate,   ehca_static_rate,   int, 0);
+module_param_named(scaling_code,   ehca_scaling_code,   int, 0);
 
 MODULE_PARM_DESC(open_aqp1,
 		 "AQP1 on startup (0: no (default), 1: yes)");
@@ -91,9 +93,12 @@ MODULE_PARM_DESC(poll_all_eqs,
 		 " (0: no, 1: yes (default))");
 MODULE_PARM_DESC(static_rate,
 		 "set permanent static rate (default: disabled)");
+MODULE_PARM_DESC(scaling_code,
+		 "set scaling code (0: disabled, 1: enabled/default)");
 
 spinlock_t ehca_qp_idr_lock;
 spinlock_t ehca_cq_idr_lock;
+spinlock_t hcall_lock;
 DEFINE_IDR(ehca_qp_idr);
 DEFINE_IDR(ehca_cq_idr);
 
@@ -288,7 +293,7 @@ int ehca_init_device(struct ehca_shca *shca)
 	strlcpy(shca->ib_device.name, "ehca%d", IB_DEVICE_NAME_MAX);
 	shca->ib_device.owner               = THIS_MODULE;
 
-	shca->ib_device.uverbs_abi_ver	    = 5;
+	shca->ib_device.uverbs_abi_ver	    = 6;
 	shca->ib_device.uverbs_cmd_mask	    =
 		(1ull << IB_USER_VERBS_CMD_GET_CONTEXT)		|
 		(1ull << IB_USER_VERBS_CMD_QUERY_DEVICE)	|
@@ -309,6 +314,7 @@ int ehca_init_device(struct ehca_shca *shca)
 
 	shca->ib_device.node_type           = RDMA_NODE_IB_CA;
 	shca->ib_device.phys_port_cnt       = shca->num_ports;
+	shca->ib_device.num_comp_vectors    = 1;
 	shca->ib_device.dma_device          = &shca->ibmebus_dev->ofdev.dev;
 	shca->ib_device.query_device        = ehca_query_device;
 	shca->ib_device.query_port          = ehca_query_port;
@@ -371,7 +377,7 @@ static int ehca_create_aqp1(struct ehca_shca *shca, u32 port)
 		return -EPERM;
 	}
 
-	ibcq = ib_create_cq(&shca->ib_device, NULL, NULL, (void*)(-1), 10);
+	ibcq = ib_create_cq(&shca->ib_device, NULL, NULL, (void*)(-1), 10, 0);
 	if (IS_ERR(ibcq)) {
 		ehca_err(&shca->ib_device, "Cannot create AQP1 CQ.");
 		return PTR_ERR(ibcq);
@@ -432,8 +438,8 @@ static int ehca_destroy_aqp1(struct ehca_sport *sport)
 
 static ssize_t ehca_show_debug_level(struct device_driver *ddp, char *buf)
 {
-	return  snprintf(buf, PAGE_SIZE, "%d\n",
-			 ehca_debug_level);
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			ehca_debug_level);
 }
 
 static ssize_t ehca_store_debug_level(struct device_driver *ddp,
@@ -448,15 +454,14 @@ static ssize_t ehca_store_debug_level(struct device_driver *ddp,
 DRIVER_ATTR(debug_level, S_IRUSR | S_IWUSR,
 	    ehca_show_debug_level, ehca_store_debug_level);
 
-void ehca_create_driver_sysfs(struct ibmebus_driver *drv)
-{
-	driver_create_file(&drv->driver, &driver_attr_debug_level);
-}
+static struct attribute *ehca_drv_attrs[] = {
+	&driver_attr_debug_level.attr,
+	NULL
+};
 
-void ehca_remove_driver_sysfs(struct ibmebus_driver *drv)
-{
-	driver_remove_file(&drv->driver, &driver_attr_debug_level);
-}
+static struct attribute_group ehca_drv_attr_grp = {
+	.attrs = ehca_drv_attrs
+};
 
 #define EHCA_RESOURCE_ATTR(name)                                           \
 static ssize_t  ehca_show_##name(struct device *dev,                       \
@@ -518,54 +523,38 @@ static ssize_t ehca_show_adapter_handle(struct device *dev,
 }
 static DEVICE_ATTR(adapter_handle, S_IRUGO, ehca_show_adapter_handle, NULL);
 
+static struct attribute *ehca_dev_attrs[] = {
+	&dev_attr_adapter_handle.attr,
+	&dev_attr_num_ports.attr,
+	&dev_attr_hw_ver.attr,
+	&dev_attr_max_eq.attr,
+	&dev_attr_cur_eq.attr,
+	&dev_attr_max_cq.attr,
+	&dev_attr_cur_cq.attr,
+	&dev_attr_max_qp.attr,
+	&dev_attr_cur_qp.attr,
+	&dev_attr_max_mr.attr,
+	&dev_attr_cur_mr.attr,
+	&dev_attr_max_mw.attr,
+	&dev_attr_cur_mw.attr,
+	&dev_attr_max_pd.attr,
+	&dev_attr_max_ah.attr,
+	NULL
+};
 
-void ehca_create_device_sysfs(struct ibmebus_dev *dev)
-{
-	device_create_file(&dev->ofdev.dev, &dev_attr_adapter_handle);
-	device_create_file(&dev->ofdev.dev, &dev_attr_num_ports);
-	device_create_file(&dev->ofdev.dev, &dev_attr_hw_ver);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_eq);
-	device_create_file(&dev->ofdev.dev, &dev_attr_cur_eq);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_cq);
-	device_create_file(&dev->ofdev.dev, &dev_attr_cur_cq);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_qp);
-	device_create_file(&dev->ofdev.dev, &dev_attr_cur_qp);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_mr);
-	device_create_file(&dev->ofdev.dev, &dev_attr_cur_mr);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_mw);
-	device_create_file(&dev->ofdev.dev, &dev_attr_cur_mw);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_pd);
-	device_create_file(&dev->ofdev.dev, &dev_attr_max_ah);
-}
-
-void ehca_remove_device_sysfs(struct ibmebus_dev *dev)
-{
-	device_remove_file(&dev->ofdev.dev, &dev_attr_adapter_handle);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_num_ports);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_hw_ver);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_eq);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_cur_eq);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_cq);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_cur_cq);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_qp);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_cur_qp);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_mr);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_cur_mr);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_mw);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_cur_mw);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_pd);
-	device_remove_file(&dev->ofdev.dev, &dev_attr_max_ah);
-}
+static struct attribute_group ehca_dev_attr_grp = {
+	.attrs = ehca_dev_attrs
+};
 
 static int __devinit ehca_probe(struct ibmebus_dev *dev,
 				const struct of_device_id *id)
 {
 	struct ehca_shca *shca;
-	u64 *handle;
+	const u64 *handle;
 	struct ib_pd *ibpd;
 	int ret;
 
-	handle = (u64 *)get_property(dev->ofdev.node, "ibm,hca-handle", NULL);
+	handle = of_get_property(dev->ofdev.node, "ibm,hca-handle", NULL);
 	if (!handle) {
 		ehca_gen_err("Cannot get eHCA handle for adapter: %s.",
 			     dev->ofdev.node->full_name);
@@ -583,6 +572,7 @@ static int __devinit ehca_probe(struct ibmebus_dev *dev,
 		ehca_gen_err("Cannot allocate shca memory.");
 		return -ENOMEM;
 	}
+	mutex_init(&shca->modify_mutex);
 
 	shca->ibmebus_dev = dev;
 	shca->ipz_hca_handle.handle = *handle;
@@ -662,7 +652,10 @@ static int __devinit ehca_probe(struct ibmebus_dev *dev,
 		}
 	}
 
-	ehca_create_device_sysfs(dev);
+	ret = sysfs_create_group(&dev->ofdev.dev.kobj, &ehca_dev_attr_grp);
+	if (ret) /* only complain; we can live without attributes */
+		ehca_err(&shca->ib_device,
+			 "Cannot create device attributes  ret=%d", ret);
 
 	spin_lock(&shca_list_lock);
 	list_add(&shca->shca_list, &shca_list);
@@ -714,7 +707,7 @@ static int __devexit ehca_remove(struct ibmebus_dev *dev)
 	struct ehca_shca *shca = dev->ofdev.dev.driver_data;
 	int ret;
 
-	ehca_remove_device_sysfs(dev);
+	sysfs_remove_group(&dev->ofdev.dev.kobj, &ehca_dev_attr_grp);
 
 	if (ehca_open_aqp1 == 1) {
 		int i;
@@ -778,8 +771,24 @@ void ehca_poll_eqs(unsigned long data)
 
 	spin_lock(&shca_list_lock);
 	list_for_each_entry(shca, &shca_list, shca_list) {
-		if (shca->eq.is_initialized)
-			ehca_tasklet_eq((unsigned long)(void*)shca);
+		if (shca->eq.is_initialized) {
+			/* call deadman proc only if eq ptr does not change */
+			struct ehca_eq *eq = &shca->eq;
+			int max = 3;
+			volatile u64 q_ofs, q_ofs2;
+			u64 flags;
+			spin_lock_irqsave(&eq->spinlock, flags);
+			q_ofs = eq->ipz_queue.current_q_offset;
+			spin_unlock_irqrestore(&eq->spinlock, flags);
+			do {
+				spin_lock_irqsave(&eq->spinlock, flags);
+				q_ofs2 = eq->ipz_queue.current_q_offset;
+				spin_unlock_irqrestore(&eq->spinlock, flags);
+				max--;
+			} while (q_ofs == q_ofs2 && max > 0);
+			if (q_ofs == q_ofs2)
+				ehca_process_eq(shca, 0);
+		}
 	}
 	mod_timer(&poll_eqs_timer, jiffies + HZ);
 	spin_unlock(&shca_list_lock);
@@ -790,11 +799,12 @@ int __init ehca_module_init(void)
 	int ret;
 
 	printk(KERN_INFO "eHCA Infiniband Device Driver "
-	                 "(Rel.: SVNEHCA_0019)\n");
+	       "(Rel.: SVNEHCA_0023)\n");
 	idr_init(&ehca_qp_idr);
 	idr_init(&ehca_cq_idr);
 	spin_lock_init(&ehca_qp_idr_lock);
 	spin_lock_init(&ehca_cq_idr_lock);
+	spin_lock_init(&hcall_lock);
 
 	INIT_LIST_HEAD(&shca_list);
 	spin_lock_init(&shca_list_lock);
@@ -816,7 +826,9 @@ int __init ehca_module_init(void)
 		goto module_init2;
 	}
 
-	ehca_create_driver_sysfs(&ehca_driver);
+	ret = sysfs_create_group(&ehca_driver.driver.kobj, &ehca_drv_attr_grp);
+	if (ret) /* only complain; we can live without attributes */
+		ehca_gen_err("Cannot create driver attributes  ret=%d", ret);
 
 	if (ehca_poll_all_eqs != 1) {
 		ehca_gen_err("WARNING!!!");
@@ -843,7 +855,7 @@ void __exit ehca_module_exit(void)
 	if (ehca_poll_all_eqs == 1)
 		del_timer_sync(&poll_eqs_timer);
 
-	ehca_remove_driver_sysfs(&ehca_driver);
+	sysfs_remove_group(&ehca_driver.driver.kobj, &ehca_drv_attr_grp);
 	ibmebus_unregister_driver(&ehca_driver);
 
 	ehca_destroy_slab_caches();

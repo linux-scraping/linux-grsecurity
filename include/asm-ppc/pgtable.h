@@ -704,10 +704,14 @@ static inline void __ptep_set_access_flags(pte_t *ptep, pte_t entry, int dirty)
 }
 
 #define  ptep_set_access_flags(__vma, __address, __ptep, __entry, __dirty) \
-	do {								   \
-		__ptep_set_access_flags(__ptep, __entry, __dirty);	   \
-		flush_tlb_page_nohash(__vma, __address);	       	   \
-	} while(0)
+({									   \
+	int __changed = !pte_same(*(__ptep), __entry);			   \
+	if (__changed) {						   \
+		__ptep_set_access_flags(__ptep, __entry, __dirty);    	   \
+		flush_tlb_page_nohash(__vma, __address);		   \
+	}								   \
+	__changed;							   \
+})
 
 /*
  * Macro to mark a page protection value as "uncacheable".
@@ -836,10 +840,6 @@ static inline int io_remap_pfn_range(struct vm_area_struct *vma,
 #define io_remap_pfn_range(vma, vaddr, pfn, size, prot)		\
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
 #endif
-
-#define MK_IOSPACE_PFN(space, pfn)	(pfn)
-#define GET_IOSPACE(pfn)		0
-#define GET_PFN(pfn)			(pfn)
 
 /*
  * No page table caches to initialise

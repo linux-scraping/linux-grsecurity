@@ -22,13 +22,13 @@
 #include <linux/topology.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
+#include <linux/kdebug.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
 #include <asm/mtrr.h>
 #include <asm/pgtable.h>
 #include <asm/proto.h>
 #include <asm/cacheflush.h>
-#include <asm/kdebug.h>
 #include <asm/swiotlb.h>
 #include <asm/dma.h>
 #include <asm/k8.h>
@@ -185,7 +185,7 @@ static void iommu_full(struct device *dev, size_t size, int dir)
 static inline int need_iommu(struct device *dev, unsigned long addr, size_t size)
 { 
 	u64 mask = *dev->dma_mask;
-	int high = addr + size >= mask;
+	int high = addr + size > mask;
 	int mmu = high;
 	if (force_iommu) 
 		mmu = 1; 
@@ -195,7 +195,7 @@ static inline int need_iommu(struct device *dev, unsigned long addr, size_t size
 static inline int nonforced_iommu(struct device *dev, unsigned long addr, size_t size)
 { 
 	u64 mask = *dev->dma_mask;
-	int high = addr + size >= mask;
+	int high = addr + size > mask;
 	int mmu = high;
 	return mmu; 
 }
@@ -476,7 +476,7 @@ static __init unsigned read_aperture(struct pci_dev *dev, u32 *size)
 	aper_base <<= 25;
 
 	aper_size = (32 * 1024 * 1024) << aper_order; 
-	if (aper_base + aper_size >= 0xffffffff || !aper_size)
+       if (aper_base + aper_size > 0x100000000UL || !aper_size)
 		aper_base = 0;
 
 	*size = aper_size;
@@ -519,7 +519,11 @@ static __init int init_k8_gatt(struct agp_kern_info *info)
 	gatt_size = (aper_size >> PAGE_SHIFT) * sizeof(u32); 
 	gatt = (void *)__get_free_pages(GFP_KERNEL, get_order(gatt_size)); 
 	if (!gatt) 
-		panic("Cannot allocate GATT table"); 
+		panic("Cannot allocate GATT table");
+	if (change_page_attr_addr((unsigned long)gatt, gatt_size >> PAGE_SHIFT, PAGE_KERNEL_NOCACHE))
+		panic("Could not set GART PTEs to uncacheable pages");
+	global_flush_tlb();
+
 	memset(gatt, 0, gatt_size); 
 	agp_gatt_table = gatt;
 
@@ -552,7 +556,7 @@ static __init int init_k8_gatt(struct agp_kern_info *info)
 
 extern int agp_amd64_init(void);
 
-static struct dma_mapping_ops gart_dma_ops = {
+static const struct dma_mapping_ops gart_dma_ops = {
 	.mapping_error = NULL,
 	.map_single = gart_map_single,
 	.map_simple = gart_map_simple,
@@ -675,7 +679,7 @@ void __init gart_iommu_init(void)
 	dma_ops = &gart_dma_ops;
 } 
 
-void gart_parse_options(char *p)
+void __init gart_parse_options(char *p)
 {
 	int arg;
 

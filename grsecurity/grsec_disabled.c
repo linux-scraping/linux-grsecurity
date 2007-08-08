@@ -20,9 +20,9 @@ pax_set_initial_flags(struct linux_binprm *bprm)
 
 #ifdef CONFIG_SYSCTL
 __u32
-gr_handle_sysctl(const struct ctl_table * table, __u32 mode)
+gr_handle_sysctl(const struct ctl_table * table, const int op)
 {
-	return mode;
+	return 0;
 }
 #endif
 

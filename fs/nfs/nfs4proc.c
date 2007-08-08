@@ -493,7 +493,7 @@ static int _nfs4_do_open_reclaim(struct nfs4_state_owner *sp, struct nfs4_state 
 static int nfs4_do_open_reclaim(struct nfs4_state_owner *sp, struct nfs4_state *state, struct dentry *dentry)
 {
 	struct nfs_server *server = NFS_SERVER(state->inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = _nfs4_do_open_reclaim(sp, state, dentry);
@@ -538,7 +538,7 @@ static int _nfs4_open_delegation_recall(struct dentry *dentry, struct nfs4_state
 
 int nfs4_open_delegation_recall(struct dentry *dentry, struct nfs4_state *state)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	struct nfs_server *server = NFS_SERVER(dentry->d_inode);
 	int err;
 	do {
@@ -790,7 +790,7 @@ out:
 	return -EACCES;
 }
 
-int nfs4_recover_expired_lease(struct nfs_server *server)
+static int nfs4_recover_expired_lease(struct nfs_server *server)
 {
 	struct nfs_client *clp = server->nfs_client;
 	int ret;
@@ -843,7 +843,7 @@ static int _nfs4_open_expired(struct nfs4_state_owner *sp, struct nfs4_state *st
 static inline int nfs4_do_open_expired(struct nfs4_state_owner *sp, struct nfs4_state *state, struct dentry *dentry)
 {
 	struct nfs_server *server = NFS_SERVER(dentry->d_inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -938,7 +938,7 @@ out_put_state_owner:
 
 static struct nfs4_state *nfs4_open_delegated(struct inode *inode, int flags, struct rpc_cred *cred)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	struct nfs4_state *res = ERR_PTR(-EIO);
 	int err;
 
@@ -1008,7 +1008,7 @@ out_err:
 
 static struct nfs4_state *nfs4_do_open(struct inode *dir, struct dentry *dentry, int flags, struct iattr *sattr, struct rpc_cred *cred)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	struct nfs4_state *res;
 	int status;
 
@@ -1090,7 +1090,7 @@ static int nfs4_do_setattr(struct inode *inode, struct nfs_fattr *fattr,
                 struct iattr *sattr, struct nfs4_state *state)
 {
 	struct nfs_server *server = NFS_SERVER(inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -1140,7 +1140,6 @@ static void nfs4_close_done(struct rpc_task *task, void *data)
 			break;
 		case -NFS4ERR_STALE_STATEID:
 		case -NFS4ERR_EXPIRED:
-			nfs4_schedule_state_recovery(server->nfs_client);
 			break;
 		default:
 			if (nfs4_async_handle_error(task, server) == -EAGAIN) {
@@ -1355,7 +1354,7 @@ static int _nfs4_server_capabilities(struct nfs_server *server, struct nfs_fh *f
 
 int nfs4_server_capabilities(struct nfs_server *server, struct nfs_fh *fhandle)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -1388,7 +1387,7 @@ static int _nfs4_lookup_root(struct nfs_server *server, struct nfs_fh *fhandle,
 static int nfs4_lookup_root(struct nfs_server *server, struct nfs_fh *fhandle,
 		struct nfs_fsinfo *info)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -1424,7 +1423,6 @@ static int nfs4_get_referral(struct inode *dir, struct qstr *name, struct nfs_fa
 	int status = -ENOMEM;
 	struct page *page = NULL;
 	struct nfs4_fs_locations *locations = NULL;
-	struct dentry dentry = {};
 
 	page = alloc_page(GFP_KERNEL);
 	if (page == NULL)
@@ -1433,9 +1431,7 @@ static int nfs4_get_referral(struct inode *dir, struct qstr *name, struct nfs_fa
 	if (locations == NULL)
 		goto out;
 
-	dentry.d_name.name = name->name;
-	dentry.d_name.len = name->len;
-	status = nfs4_proc_fs_locations(dir, &dentry, locations, page);
+	status = nfs4_proc_fs_locations(dir, name, locations, page);
 	if (status != 0)
 		goto out;
 	/* Make sure server returned a different fsid for the referral */
@@ -1480,7 +1476,7 @@ static int _nfs4_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle,
 
 static int nfs4_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle, struct nfs_fattr *fattr)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -1572,7 +1568,7 @@ static int nfs4_proc_lookupfh(struct nfs_server *server, struct nfs_fh *dirfh,
 			      struct qstr *name, struct nfs_fh *fhandle,
 			      struct nfs_fattr *fattr)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -1616,7 +1612,7 @@ static int _nfs4_proc_lookup(struct inode *dir, struct qstr *name,
 
 static int nfs4_proc_lookup(struct inode *dir, struct qstr *name, struct nfs_fh *fhandle, struct nfs_fattr *fattr)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dir),
@@ -1672,7 +1668,7 @@ static int _nfs4_proc_access(struct inode *inode, struct nfs_access_entry *entry
 
 static int nfs4_proc_access(struct inode *inode, struct nfs_access_entry *entry)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(inode),
@@ -1727,49 +1723,11 @@ static int _nfs4_proc_readlink(struct inode *inode, struct page *page,
 static int nfs4_proc_readlink(struct inode *inode, struct page *page,
 		unsigned int pgbase, unsigned int pglen)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(inode),
 				_nfs4_proc_readlink(inode, page, pgbase, pglen),
-				&exception);
-	} while (exception.retry);
-	return err;
-}
-
-static int _nfs4_proc_read(struct nfs_read_data *rdata)
-{
-	int flags = rdata->flags;
-	struct inode *inode = rdata->inode;
-	struct nfs_fattr *fattr = rdata->res.fattr;
-	struct nfs_server *server = NFS_SERVER(inode);
-	struct rpc_message msg = {
-		.rpc_proc	= &nfs4_procedures[NFSPROC4_CLNT_READ],
-		.rpc_argp	= &rdata->args,
-		.rpc_resp	= &rdata->res,
-		.rpc_cred	= rdata->cred,
-	};
-	unsigned long timestamp = jiffies;
-	int status;
-
-	dprintk("NFS call  read %d @ %Ld\n", rdata->args.count,
-			(long long) rdata->args.offset);
-
-	nfs_fattr_init(fattr);
-	status = rpc_call_sync(server->client, &msg, flags);
-	if (!status)
-		renew_lease(server, timestamp);
-	dprintk("NFS reply read: %d\n", status);
-	return status;
-}
-
-static int nfs4_proc_read(struct nfs_read_data *rdata)
-{
-	struct nfs4_exception exception = { };
-	int err;
-	do {
-		err = nfs4_handle_exception(NFS_SERVER(rdata->inode),
-				_nfs4_proc_read(rdata),
 				&exception);
 	} while (exception.retry);
 	return err;
@@ -1855,7 +1813,7 @@ static int _nfs4_proc_remove(struct inode *dir, struct qstr *name)
 
 static int nfs4_proc_remove(struct inode *dir, struct qstr *name)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dir),
@@ -1949,7 +1907,7 @@ static int _nfs4_proc_rename(struct inode *old_dir, struct qstr *old_name,
 static int nfs4_proc_rename(struct inode *old_dir, struct qstr *old_name,
 		struct inode *new_dir, struct qstr *new_name)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(old_dir),
@@ -1996,7 +1954,7 @@ static int _nfs4_proc_link(struct inode *inode, struct inode *dir, struct qstr *
 
 static int nfs4_proc_link(struct inode *inode, struct inode *dir, struct qstr *name)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(inode),
@@ -2053,7 +2011,7 @@ static int _nfs4_proc_symlink(struct inode *dir, struct dentry *dentry,
 static int nfs4_proc_symlink(struct inode *dir, struct dentry *dentry,
 		struct page *page, unsigned int len, struct iattr *sattr)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dir),
@@ -2106,7 +2064,7 @@ static int _nfs4_proc_mkdir(struct inode *dir, struct dentry *dentry,
 static int nfs4_proc_mkdir(struct inode *dir, struct dentry *dentry,
 		struct iattr *sattr)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dir),
@@ -2152,7 +2110,7 @@ static int _nfs4_proc_readdir(struct dentry *dentry, struct rpc_cred *cred,
 static int nfs4_proc_readdir(struct dentry *dentry, struct rpc_cred *cred,
                   u64 cookie, struct page *page, unsigned int count, int plus)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dentry->d_inode),
@@ -2222,7 +2180,7 @@ static int _nfs4_proc_mknod(struct inode *dir, struct dentry *dentry,
 static int nfs4_proc_mknod(struct inode *dir, struct dentry *dentry,
 		struct iattr *sattr, dev_t rdev)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(dir),
@@ -2251,7 +2209,7 @@ static int _nfs4_proc_statfs(struct nfs_server *server, struct nfs_fh *fhandle,
 
 static int nfs4_proc_statfs(struct nfs_server *server, struct nfs_fh *fhandle, struct nfs_fsstat *fsstat)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(server,
@@ -2279,7 +2237,7 @@ static int _nfs4_do_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle,
 
 static int nfs4_do_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle, struct nfs_fsinfo *fsinfo)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -2322,7 +2280,7 @@ static int _nfs4_proc_pathconf(struct nfs_server *server, struct nfs_fh *fhandle
 static int nfs4_proc_pathconf(struct nfs_server *server, struct nfs_fh *fhandle,
 		struct nfs_pathconf *pathconf)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -2641,7 +2599,7 @@ out_free:
 
 static ssize_t nfs4_get_acl_uncached(struct inode *inode, void *buf, size_t buflen)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	ssize_t ret;
 	do {
 		ret = __nfs4_get_acl_uncached(inode, buf, buflen);
@@ -2689,14 +2647,13 @@ static int __nfs4_proc_set_acl(struct inode *inode, const void *buf, size_t bufl
 	nfs_inode_return_delegation(inode);
 	buf_to_pages(buf, buflen, arg.acl_pages, &arg.acl_pgbase);
 	ret = rpc_call_sync(NFS_CLIENT(inode), &msg, 0);
-	if (ret == 0)
-		nfs4_write_cached_acl(inode, buf, buflen);
+	nfs_zap_caches(inode);
 	return ret;
 }
 
 static int nfs4_proc_set_acl(struct inode *inode, const void *buf, size_t buflen)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = nfs4_handle_exception(NFS_SERVER(inode),
@@ -2753,11 +2710,15 @@ static int nfs4_wait_clnt_recover(struct rpc_clnt *clnt, struct nfs_client *clp)
 
 	might_sleep();
 
+	rwsem_acquire(&clp->cl_sem.dep_map, 0, 0, _RET_IP_);
+
 	rpc_clnt_sigmask(clnt, &oldset);
 	res = wait_on_bit(&clp->cl_state, NFS4CLNT_STATE_RECOVER,
 			nfs4_wait_bit_interruptible,
 			TASK_INTERRUPTIBLE);
 	rpc_clnt_sigunmask(clnt, &oldset);
+
+	rwsem_release(&clp->cl_sem.dep_map, 1, _RET_IP_);
 	return res;
 }
 
@@ -2787,7 +2748,7 @@ static int nfs4_delay(struct rpc_clnt *clnt, long *timeout)
 /* This is the error handling routine for processes that are allowed
  * to sleep.
  */
-int nfs4_handle_exception(const struct nfs_server *server, int errorcode, struct nfs4_exception *exception)
+static int nfs4_handle_exception(const struct nfs_server *server, int errorcode, struct nfs4_exception *exception)
 {
 	struct nfs_client *clp = server->nfs_client;
 	int ret = errorcode;
@@ -2989,14 +2950,13 @@ static int _nfs4_proc_delegreturn(struct inode *inode, struct rpc_cred *cred, co
 int nfs4_proc_delegreturn(struct inode *inode, struct rpc_cred *cred, const nfs4_stateid *stateid)
 {
 	struct nfs_server *server = NFS_SERVER(inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 	do {
 		err = _nfs4_proc_delegreturn(inode, cred, stateid);
 		switch (err) {
 			case -NFS4ERR_STALE_STATEID:
 			case -NFS4ERR_EXPIRED:
-				nfs4_schedule_state_recovery(server->nfs_client);
 			case 0:
 				return 0;
 		}
@@ -3057,6 +3017,7 @@ static int _nfs4_proc_getlk(struct nfs4_state *state, int cmd, struct file_lock 
 		case -NFS4ERR_DENIED:
 			status = 0;
 	}
+	request->fl_ops->fl_release_private(request);
 out:
 	up_read(&clp->cl_sem);
 	return status;
@@ -3064,7 +3025,7 @@ out:
 
 static int nfs4_proc_getlk(struct nfs4_state *state, int cmd, struct file_lock *request)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -3150,12 +3111,10 @@ static void nfs4_locku_done(struct rpc_task *task, void *data)
 			break;
 		case -NFS4ERR_STALE_STATEID:
 		case -NFS4ERR_EXPIRED:
-			nfs4_schedule_state_recovery(calldata->server->nfs_client);
 			break;
 		default:
-			if (nfs4_async_handle_error(task, calldata->server) == -EAGAIN) {
+			if (nfs4_async_handle_error(task, calldata->server) == -EAGAIN)
 				rpc_restart_call(task);
-			}
 	}
 }
 
@@ -3395,7 +3354,7 @@ static int _nfs4_do_setlk(struct nfs4_state *state, int cmd, struct file_lock *f
 static int nfs4_lock_reclaim(struct nfs4_state *state, struct file_lock *request)
 {
 	struct nfs_server *server = NFS_SERVER(state->inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -3413,7 +3372,7 @@ static int nfs4_lock_reclaim(struct nfs4_state *state, struct file_lock *request
 static int nfs4_lock_expired(struct nfs4_state *state, struct file_lock *request)
 {
 	struct nfs_server *server = NFS_SERVER(state->inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	err = nfs4_set_lock_state(state, request);
@@ -3474,7 +3433,7 @@ out:
 
 static int nfs4_proc_setlk(struct nfs4_state *state, int cmd, struct file_lock *request)
 {
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	do {
@@ -3524,7 +3483,7 @@ nfs4_proc_lock(struct file *filp, int cmd, struct file_lock *request)
 int nfs4_lock_delegation_recall(struct nfs4_state *state, struct file_lock *fl)
 {
 	struct nfs_server *server = NFS_SERVER(state->inode);
-	struct nfs4_exception exception = { };
+	struct nfs4_exception exception = {0, 0};
 	int err;
 
 	err = nfs4_set_lock_state(state, fl);
@@ -3585,7 +3544,7 @@ ssize_t nfs4_listxattr(struct dentry *dentry, char *buf, size_t buflen)
 	return len;
 }
 
-int nfs4_proc_fs_locations(struct inode *dir, struct dentry *dentry,
+int nfs4_proc_fs_locations(struct inode *dir, struct qstr *name,
 		struct nfs4_fs_locations *fs_locations, struct page *page)
 {
 	struct nfs_server *server = NFS_SERVER(dir);
@@ -3595,7 +3554,7 @@ int nfs4_proc_fs_locations(struct inode *dir, struct dentry *dentry,
 	};
 	struct nfs4_fs_locations_arg args = {
 		.dir_fh = NFS_FH(dir),
-		.name = &dentry->d_name,
+		.name = name,
 		.page = page,
 		.bitmask = bitmask,
 	};
@@ -3607,7 +3566,7 @@ int nfs4_proc_fs_locations(struct inode *dir, struct dentry *dentry,
 	int status;
 
 	dprintk("%s: start\n", __FUNCTION__);
-	fs_locations->fattr.valid = 0;
+	nfs_fattr_init(&fs_locations->fattr);
 	fs_locations->server = server;
 	fs_locations->nlocations = 0;
 	status = rpc_call_sync(server->client, &msg, 0);
@@ -3625,7 +3584,7 @@ struct nfs4_state_recovery_ops nfs4_network_partition_recovery_ops = {
 	.recover_lock	= nfs4_lock_expired,
 };
 
-static struct inode_operations nfs4_file_inode_operations = {
+static const struct inode_operations nfs4_file_inode_operations = {
 	.permission	= nfs_permission,
 	.getattr	= nfs_getattr,
 	.setattr	= nfs_setattr,
@@ -3646,7 +3605,6 @@ const struct nfs_rpc_ops nfs_v4_clientops = {
 	.lookup		= nfs4_proc_lookup,
 	.access		= nfs4_proc_access,
 	.readlink	= nfs4_proc_readlink,
-	.read		= nfs4_proc_read,
 	.create		= nfs4_proc_create,
 	.remove		= nfs4_proc_remove,
 	.unlink_setup	= nfs4_proc_unlink_setup,

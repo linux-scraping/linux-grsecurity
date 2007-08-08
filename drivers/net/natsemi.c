@@ -81,6 +81,8 @@ static const int multicast_filter_limit = 100;
    Setting to > 1518 effectively disables this feature. */
 static int rx_copybreak;
 
+static int dspcfg_workaround = 1;
+
 /* Used to pass the media type, etc.
    Both 'options[]' and 'full_duplex[]' should exist for driver
    interoperability.
@@ -129,7 +131,6 @@ static const char version[] __devinitdata =
   KERN_INFO DRV_NAME " dp8381x driver, version "
       DRV_VERSION ", " DRV_RELDATE "\n"
   KERN_INFO "  originally by Donald Becker <becker@scyld.com>\n"
-  KERN_INFO "  http://www.scyld.com/network/natsemi.html\n"
   KERN_INFO "  2.4.x kernel port by Jeff Garzik, Tjeerd Mulder\n";
 
 MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
@@ -139,12 +140,14 @@ MODULE_LICENSE("GPL");
 module_param(mtu, int, 0);
 module_param(debug, int, 0);
 module_param(rx_copybreak, int, 0);
+module_param(dspcfg_workaround, int, 1);
 module_param_array(options, int, NULL, 0);
 module_param_array(full_duplex, int, NULL, 0);
 MODULE_PARM_DESC(mtu, "DP8381x MTU (all boards)");
 MODULE_PARM_DESC(debug, "DP8381x default debug level");
 MODULE_PARM_DESC(rx_copybreak,
 	"DP8381x copy breakpoint for copy-only-tiny-frames");
+MODULE_PARM_DESC(dspcfg_workaround, "DP8381x: control DspCfg workaround");
 MODULE_PARM_DESC(options,
 	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
 MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
@@ -244,6 +247,9 @@ enum {
 	MII_EN_SCRM	= 0x0004,	/* enable scrambler (tp) */
 };
 
+enum {
+	NATSEMI_FLAG_IGNORE_PHY		= 0x1,
+};
 
 /* array of board data directly indexed by pci_tbl[x].driver_data */
 static const struct {
@@ -251,11 +257,13 @@ static const struct {
 	unsigned long flags;
 	unsigned int eeprom_size;
 } natsemi_pci_info[] __devinitdata = {
+	{ "Aculab E1/T1 PMXc cPCI carrier card", NATSEMI_FLAG_IGNORE_PHY, 128 },
 	{ "NatSemi DP8381[56]", 0, 24 },
 };
 
 static const struct pci_device_id natsemi_pci_tbl[] __devinitdata = {
-	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ PCI_VENDOR_ID_NS, 0x0020, 0x12d9,     0x000c,     0, 0, 0 },
+	{ PCI_VENDOR_ID_NS, 0x0020, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1 },
 	{ }	/* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
@@ -568,6 +576,8 @@ struct netdev_private {
 	u32 intr_status;
 	/* Do not touch the nic registers */
 	int hands_off;
+	/* Don't pay attention to the reported link state. */
+	int ignore_phy;
 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
 	int mii;
 	int phy_addr_external;
@@ -583,6 +593,7 @@ struct netdev_private {
 	u32 srr;
 	/* expected DSPCFG value */
 	u16 dspcfg;
+	int dspcfg_workaround;
 	/* parms saved in ethtool format */
 	u16	speed;		/* The forced speed, 10Mb, 100Mb, gigabit */
 	u8	duplex;		/* Duplex, half or full */
@@ -649,6 +660,56 @@ static int netdev_get_regs(struct net_device *dev, u8 *buf);
 static int netdev_get_eeprom(struct net_device *dev, u8 *buf);
 static const struct ethtool_ops ethtool_ops;
 
+#define NATSEMI_ATTR(_name) \
+static ssize_t natsemi_show_##_name(struct device *dev, \
+         struct device_attribute *attr, char *buf); \
+	 static ssize_t natsemi_set_##_name(struct device *dev, \
+		struct device_attribute *attr, \
+	        const char *buf, size_t count); \
+	 static DEVICE_ATTR(_name, 0644, natsemi_show_##_name, natsemi_set_##_name)
+
+#define NATSEMI_CREATE_FILE(_dev, _name) \
+         device_create_file(&_dev->dev, &dev_attr_##_name)
+#define NATSEMI_REMOVE_FILE(_dev, _name) \
+         device_create_file(&_dev->dev, &dev_attr_##_name)
+
+NATSEMI_ATTR(dspcfg_workaround);
+
+static ssize_t natsemi_show_dspcfg_workaround(struct device *dev,
+				  	      struct device_attribute *attr, 
+					      char *buf)
+{
+	struct netdev_private *np = netdev_priv(to_net_dev(dev));
+
+	return sprintf(buf, "%s\n", np->dspcfg_workaround ? "on" : "off");
+}
+
+static ssize_t natsemi_set_dspcfg_workaround(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct netdev_private *np = netdev_priv(to_net_dev(dev));
+	int new_setting;
+	unsigned long flags;
+
+        /* Find out the new setting */
+        if (!strncmp("on", buf, count - 1) || !strncmp("1", buf, count - 1))
+                new_setting = 1;
+        else if (!strncmp("off", buf, count - 1)
+                 || !strncmp("0", buf, count - 1))
+		new_setting = 0;
+	else
+                 return count; 
+
+	spin_lock_irqsave(&np->lock, flags);
+
+	np->dspcfg_workaround = new_setting;
+
+	spin_unlock_irqrestore(&np->lock, flags);
+
+	return count;
+}
+
 static inline void __iomem *ns_ioaddr(struct net_device *dev)
 {
 	return (void __iomem *) dev->base_addr;
@@ -696,7 +757,10 @@ static void __devinit natsemi_init_media (struct net_device *dev)
 	struct netdev_private *np = netdev_priv(dev);
 	u32 tmp;
 
-	netif_carrier_off(dev);
+	if (np->ignore_phy)
+		netif_carrier_on(dev);
+	else
+		netif_carrier_off(dev);
 
 	/* get the initial settings from hardware */
 	tmp            = mdio_read(dev, MII_BMCR);
@@ -806,8 +870,14 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	np->hands_off = 0;
 	np->intr_status = 0;
 	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
+	if (natsemi_pci_info[chip_idx].flags & NATSEMI_FLAG_IGNORE_PHY)
+		np->ignore_phy = 1;
+	else
+		np->ignore_phy = 0;
+	np->dspcfg_workaround = dspcfg_workaround;
 
 	/* Initial port:
+	 * - If configured to ignore the PHY set up for external.
 	 * - If the nic was configured to use an external phy and if find_mii
 	 *   finds a phy: use external port, first phy that replies.
 	 * - Otherwise: internal port.
@@ -815,7 +885,7 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	 * The address would be used to access a phy over the mii bus, but
 	 * the internal phy is accessed through mapped registers.
 	 */
-	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
+	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
 		dev->if_port = PORT_MII;
 	else
 		dev->if_port = PORT_TP;
@@ -825,7 +895,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 
 	if (dev->if_port != PORT_TP) {
 		np->phy_addr_external = find_mii(dev);
-		if (np->phy_addr_external == PHY_ADDR_NONE) {
+		/* If we're ignoring the PHY it doesn't matter if we can't
+		 * find one. */
+		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
 			dev->if_port = PORT_TP;
 			np->phy_addr_external = PHY_ADDR_INTERNAL;
 		}
@@ -882,6 +954,9 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 	if (i)
 		goto err_register_netdev;
 
+	if (NATSEMI_CREATE_FILE(pdev, dspcfg_workaround))
+		goto err_create_file;
+
 	if (netif_msg_drv(np)) {
 		printk(KERN_INFO "natsemi %s: %s at %#08lx (%s), ",
 			dev->name, natsemi_pci_info[chip_idx].name, iostart,
@@ -891,10 +966,15 @@ static int __devinit natsemi_probe1 (struct pci_dev *pdev,
 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
 		if (dev->if_port == PORT_TP)
 			printk(", port TP.\n");
+		else if (np->ignore_phy)
+			printk(", port MII, ignoring PHY\n");
 		else
 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
 	}
 	return 0;
+
+ err_create_file:
+ 	unregister_netdev(dev);
 
  err_register_netdev:
 	iounmap(ioaddr);
@@ -1571,8 +1651,12 @@ static void check_link(struct net_device *dev)
 {
 	struct netdev_private *np = netdev_priv(dev);
 	void __iomem * ioaddr = ns_ioaddr(dev);
-	int duplex;
+	int duplex = np->duplex;
 	u16 bmsr;
+
+	/* If we are ignoring the PHY then don't try reading it. */
+	if (np->ignore_phy)
+		goto propagate_state;
 
 	/* The link status field is latched: it remains low after a temporary
 	 * link failure until it's read. We need the current link status,
@@ -1585,7 +1669,7 @@ static void check_link(struct net_device *dev)
 		if (netif_carrier_ok(dev)) {
 			if (netif_msg_link(np))
 				printk(KERN_NOTICE "%s: link down.\n",
-					dev->name);
+				       dev->name);
 			netif_carrier_off(dev);
 			undo_cable_magic(dev);
 		}
@@ -1609,6 +1693,7 @@ static void check_link(struct net_device *dev)
 			duplex = 1;
 	}
 
+propagate_state:
 	/* if duplex is set then bit 28 must be set, too */
 	if (duplex ^ !!(np->rx_config & RxAcceptTx)) {
 		if (netif_msg_link(np))
@@ -1688,7 +1773,7 @@ static void init_registers(struct net_device *dev)
 
 	/* Enable interrupts by setting the interrupt mask. */
 	writel(DEFAULT_INTR, ioaddr + IntrMask);
-	writel(1, ioaddr + IntrEnable);
+	natsemi_irq_enable(dev);
 
 	writel(RxOn | TxOn, ioaddr + ChipCmd);
 	writel(StatsClear, ioaddr + StatsCtrl); /* Clear Stats */
@@ -1703,7 +1788,8 @@ static void init_registers(struct net_device *dev)
  *    It seems that a reference set for this chip went out with incorrect info,
  *    and there exist boards that aren't quite right.  An unexpected voltage
  *    drop can cause the PHY to get itself in a weird state (basically reset).
- *    NOTE: this only seems to affect revC chips.
+ *    NOTE: this only seems to affect revC chips.  The user can disable
+ *    this check via dspcfg_workaround sysfs option.
  * 3) check of death of the RX path due to OOM
  */
 static void netdev_timer(unsigned long data)
@@ -1729,10 +1815,10 @@ static void netdev_timer(unsigned long data)
 		writew(1, ioaddr+PGSEL);
 		dspcfg = readw(ioaddr+DSPCFG);
 		writew(0, ioaddr+PGSEL);
-		if (dspcfg != np->dspcfg) {
+		if (np->dspcfg_workaround && dspcfg != np->dspcfg) {
 			if (!netif_queue_stopped(dev)) {
 				spin_unlock_irq(&np->lock);
-				if (netif_msg_hw(np))
+				if (netif_msg_drv(np))
 					printk(KERN_NOTICE "%s: possible phy reset: "
 						"re-initializing\n", dev->name);
 				disable_irq(dev->irq);
@@ -2000,6 +2086,7 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 	struct netdev_private *np = netdev_priv(dev);
 	void __iomem * ioaddr = ns_ioaddr(dev);
 	unsigned entry;
+	unsigned long flags;
 
 	/* Note: Ordering is important here, set the field with the
 	   "ownership" bit last, and only then increment cur_tx. */
@@ -2013,7 +2100,7 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 
 	np->tx_ring[entry].addr = cpu_to_le32(np->tx_dma[entry]);
 
-	spin_lock_irq(&np->lock);
+	spin_lock_irqsave(&np->lock, flags);
 
 	if (!np->hands_off) {
 		np->tx_ring[entry].cmd_status = cpu_to_le32(DescOwn | skb->len);
@@ -2032,7 +2119,7 @@ static int start_tx(struct sk_buff *skb, struct net_device *dev)
 		dev_kfree_skb_irq(skb);
 		np->stats.tx_dropped++;
 	}
-	spin_unlock_irq(&np->lock);
+	spin_unlock_irqrestore(&np->lock, flags);
 
 	dev->trans_start = jiffies;
 
@@ -2094,11 +2181,16 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 	struct netdev_private *np = netdev_priv(dev);
 	void __iomem * ioaddr = ns_ioaddr(dev);
 
-	if (np->hands_off)
+	/* Reading IntrStatus automatically acknowledges so don't do
+	 * that while interrupts are disabled, (for example, while a
+	 * poll is scheduled).  */
+	if (np->hands_off || !readl(ioaddr + IntrEnable))
 		return IRQ_NONE;
 
-	/* Reading automatically acknowledges. */
 	np->intr_status = readl(ioaddr + IntrStatus);
+
+	if (!np->intr_status)
+		return IRQ_NONE;
 
 	if (netif_msg_intr(np))
 		printk(KERN_DEBUG
@@ -2106,16 +2198,18 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 		       dev->name, np->intr_status,
 		       readl(ioaddr + IntrMask));
 
-	if (!np->intr_status)
-		return IRQ_NONE;
-
 	prefetch(&np->rx_skbuff[np->cur_rx % RX_RING_SIZE]);
 
 	if (netif_rx_schedule_prep(dev)) {
 		/* Disable interrupts and register for poll */
 		natsemi_irq_disable(dev);
 		__netif_rx_schedule(dev);
-	}
+	} else
+		printk(KERN_WARNING
+	       	       "%s: Ignoring interrupt, status %#08x, mask %#08x.\n",
+		       dev->name, np->intr_status,
+		       readl(ioaddr + IntrMask));
+
 	return IRQ_HANDLED;
 }
 
@@ -2131,6 +2225,20 @@ static int natsemi_poll(struct net_device *dev, int *budget)
 	int work_done = 0;
 
 	do {
+		if (netif_msg_intr(np))
+			printk(KERN_DEBUG
+			       "%s: Poll, status %#08x, mask %#08x.\n",
+			       dev->name, np->intr_status,
+			       readl(ioaddr + IntrMask));
+
+		/* netdev_rx() may read IntrStatus again if the RX state
+		 * machine falls over so do it first. */
+		if (np->intr_status &
+		    (IntrRxDone | IntrRxIntr | RxStatusFIFOOver |
+		     IntrRxErr | IntrRxOverrun)) {
+			netdev_rx(dev, &work_done, work_to_do);
+		}
+
 		if (np->intr_status &
 		    (IntrTxDone | IntrTxIntr | IntrTxIdle | IntrTxErr)) {
 			spin_lock(&np->lock);
@@ -2141,12 +2249,6 @@ static int natsemi_poll(struct net_device *dev, int *budget)
 		/* Abnormal error summary/uncommon events handlers. */
 		if (np->intr_status & IntrAbnormalSummary)
 			netdev_error(dev, np->intr_status);
-
-		if (np->intr_status &
-		    (IntrRxDone | IntrRxIntr | RxStatusFIFOOver |
-		     IntrRxErr | IntrRxOverrun)) {
-			netdev_rx(dev, &work_done, work_to_do);
-		}
 
 		*budget -= work_done;
 		dev->quota -= work_done;
@@ -2198,6 +2300,8 @@ static void netdev_rx(struct net_device *dev, int *work_done, int work_to_do)
 		pkt_len = (desc_status & DescSizeMask) - 4;
 		if ((desc_status&(DescMore|DescPktOK|DescRxLong)) != DescPktOK){
 			if (desc_status & DescMore) {
+				unsigned long flags;
+
 				if (netif_msg_rx_err(np))
 					printk(KERN_WARNING
 						"%s: Oversized(?) Ethernet "
@@ -2212,12 +2316,12 @@ static void netdev_rx(struct net_device *dev, int *work_done, int work_to_do)
 				 * reset procedure documented in
 				 * AN-1287. */
 
-				spin_lock_irq(&np->lock);
+				spin_lock_irqsave(&np->lock, flags);
 				reset_rx(dev);
 				reinit_rx(dev);
 				writel(np->ring_dma, ioaddr + RxRingPtr);
 				check_link(dev);
-				spin_unlock_irq(&np->lock);
+				spin_unlock_irqrestore(&np->lock, flags);
 
 				/* We'll enable RX on exit from this
 				 * function. */
@@ -2247,7 +2351,6 @@ static void netdev_rx(struct net_device *dev, int *work_done, int work_to_do)
 			 * without copying to a minimally-sized skbuff. */
 			if (pkt_len < rx_copybreak
 			    && (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
-				skb->dev = dev;
 				/* 16 byte align the IP header */
 				skb_reserve(skb, RX_OFFSET);
 				pci_dma_sync_single_for_cpu(np->pci_dev,
@@ -2819,6 +2922,15 @@ static int netdev_set_ecmd(struct net_device *dev, struct ethtool_cmd *ecmd)
 	}
 
 	/*
+	 * If we're ignoring the PHY then autoneg and the internal
+	 * transciever are really not going to work so don't let the
+	 * user select them.
+	 */
+	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
+			       ecmd->port == PORT_TP))
+		return -EINVAL;
+
+	/*
 	 * maxtxpkt, maxrxpkt: ignored for now.
 	 *
 	 * transceiver:
@@ -3024,7 +3136,7 @@ static void enable_wol_mode(struct net_device *dev, int enable_intr)
 		 * Could be used to send a netlink message.
 		 */
 		writel(WOLPkt | LinkChange, ioaddr + IntrMask);
-		writel(1, ioaddr + IntrEnable);
+		natsemi_irq_enable(dev);
 	}
 }
 
@@ -3107,6 +3219,7 @@ static void __devexit natsemi_remove1 (struct pci_dev *pdev)
 	struct net_device *dev = pci_get_drvdata(pdev);
 	void __iomem * ioaddr = ns_ioaddr(dev);
 
+	NATSEMI_REMOVE_FILE(pdev, dspcfg_workaround);
 	unregister_netdev (dev);
 	pci_release_regions (pdev);
 	iounmap(ioaddr);
@@ -3155,7 +3268,7 @@ static int natsemi_suspend (struct pci_dev *pdev, pm_message_t state)
 		disable_irq(dev->irq);
 		spin_lock_irq(&np->lock);
 
-		writel(0, ioaddr + IntrEnable);
+		natsemi_irq_disable(dev);
 		np->hands_off = 1;
 		natsemi_stop_rxtx(dev);
 		netif_stop_queue(dev);

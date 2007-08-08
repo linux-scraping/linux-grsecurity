@@ -54,7 +54,7 @@ SECTIONS
 	} = 0
 
   .text : C_PHYS(.text) {
-	*(.text)
+	TEXT_TEXT
 	*(.text64)
         *(.text..SHmedia32)
 	SCHED_TEXT
@@ -78,14 +78,14 @@ SECTIONS
   _etext = .;			/* End of text section */
 
   .data : C_PHYS(.data) {			/* Data */
-	*(.data)
+	DATA_DATA
 	CONSTRUCTORS
 	}
 
   . = ALIGN(PAGE_SIZE);
   .data.page_aligned : C_PHYS(.data.page_aligned) { *(.data.page_aligned) }
 
-  . = ALIGN(L1_CACHE_BYTES);
+  . = ALIGN(PAGE_SIZE);
   __per_cpu_start = .;
   .data.percpu : C_PHYS(.data.percpu) { *(.data.percpu) }
   __per_cpu_end = . ;
@@ -115,9 +115,13 @@ SECTIONS
   .con_initcall.init : C_PHYS(.con_initcall.init) { *(.con_initcall.init) }
   __con_initcall_end = .;
   SECURITY_INIT
+
+#ifdef CONFIG_BLK_DEV_INITRD
   __initramfs_start = .;
   .init.ramfs : C_PHYS(.init.ramfs) { *(.init.ramfs) }
   __initramfs_end = .;
+#endif
+
   . = ALIGN(PAGE_SIZE);
   __init_end = .;
 

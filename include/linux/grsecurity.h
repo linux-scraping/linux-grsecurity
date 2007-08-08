@@ -185,9 +185,6 @@ void gr_handle_open_port(void);
 int gr_handle_mem_mmap(const unsigned long offset,
 			      struct vm_area_struct *vma);
 
-unsigned long pax_get_random_long(void);
-#define get_random_long() pax_get_random_long()
-
 extern int grsec_enable_dmesg;
 extern int grsec_enable_randsrc;
 extern int grsec_enable_shm;

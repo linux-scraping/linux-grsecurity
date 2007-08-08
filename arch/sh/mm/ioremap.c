@@ -22,6 +22,7 @@
 #include <asm/addrspace.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
+#include <asm/mmu.h>
 
 /*
  * Remap an arbitrary physical address space into the kernel virtual
@@ -43,12 +44,6 @@ void __iomem *__ioremap(unsigned long phys_addr, unsigned long size,
 	last_addr = phys_addr + size - 1;
 	if (!size || last_addr < phys_addr)
 		return NULL;
-
-	/*
-	 * Don't remap the low PCI/ISA area, it's always mapped..
-	 */
-	if (phys_addr >= 0xA0000 && last_addr < 0x100000)
-		return (void __iomem *)phys_to_virt(phys_addr);
 
 	/*
 	 * If we're on an SH7751 or SH7780 PCI controller, PCI memory is

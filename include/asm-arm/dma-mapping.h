@@ -17,7 +17,7 @@
  * platforms with CONFIG_DMABOUNCE.
  * Use the driver DMA support - see dma-mapping.h (dma_sync_*)
  */
-extern void consistent_sync(void *kaddr, size_t size, int rw);
+extern void consistent_sync(const void *kaddr, size_t size, int rw);
 
 /*
  * Return whether the given device DMA address mask can be supported
@@ -59,6 +59,22 @@ static inline int dma_is_consistent(struct device *dev, dma_addr_t handle)
 static inline int dma_mapping_error(dma_addr_t dma_addr)
 {
 	return dma_addr == ~0;
+}
+
+/*
+ * Dummy noncoherent implementation.  We don't provide a dma_cache_sync
+ * function so drivers using this API are highlighted with build warnings.
+ */
+static inline void *
+dma_alloc_noncoherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp)
+{
+	return NULL;
+}
+
+static inline void
+dma_free_noncoherent(struct device *dev, size_t size, void *cpu_addr,
+		     dma_addr_t handle)
+{
 }
 
 /**
@@ -429,7 +445,7 @@ extern void dmabounce_unregister_dev(struct device *);
  *
  * The dmabounce routines call this function whenever a dma-mapping
  * is requested to determine whether a given buffer needs to be bounced
- * or not. The function must return 0 if the the buffer is OK for
+ * or not. The function must return 0 if the buffer is OK for
  * DMA access and 1 if the buffer needs to be bounced.
  *
  */

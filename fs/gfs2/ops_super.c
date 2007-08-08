@@ -173,6 +173,9 @@ static void gfs2_write_super_lockfs(struct super_block *sb)
 	struct gfs2_sbd *sdp = sb->s_fs_info;
 	int error;
 
+	if (test_bit(SDF_SHUTDOWN, &sdp->sd_flags))
+		return;
+
 	for (;;) {
 		error = gfs2_freeze_fs(sdp);
 		if (!error)
@@ -278,6 +281,31 @@ static int gfs2_remount_fs(struct super_block *sb, int *flags, char *data)
 	*flags |= MS_NOATIME | MS_NODIRATIME;
 
 	return error;
+}
+
+/**
+ * gfs2_drop_inode - Drop an inode (test for remote unlink)
+ * @inode: The inode to drop
+ *
+ * If we've received a callback on an iopen lock then its because a
+ * remote node tried to deallocate the inode but failed due to this node
+ * still having the inode open. Here we mark the link count zero
+ * since we know that it must have reached zero if the GLF_DEMOTE flag
+ * is set on the iopen glock. If we didn't do a disk read since the
+ * remote node removed the final link then we might otherwise miss
+ * this event. This check ensures that this node will deallocate the
+ * inode's blocks, or alternatively pass the baton on to another
+ * node for later deallocation.
+ */
+static void gfs2_drop_inode(struct inode *inode)
+{
+	if (inode->i_private && inode->i_nlink) {
+		struct gfs2_inode *ip = GFS2_I(inode);
+		struct gfs2_glock *gl = ip->i_iopen_gh.gh_gl;
+		if (gl && test_bit(GLF_DEMOTE, &gl->gl_flags))
+			clear_nlink(inode);
+	}
+	generic_drop_inode(inode);
 }
 
 /**
@@ -426,13 +454,19 @@ static void gfs2_delete_inode(struct inode *inode)
 	}
 
 	error = gfs2_dinode_dealloc(ip);
+	/*
+	 * Must do this before unlock to avoid trying to write back
+	 * potentially dirty data now that inode no longer exists
+	 * on disk.
+	 */
+	truncate_inode_pages(&inode->i_data, 0);
 
 out_unlock:
 	gfs2_glock_dq(&ip->i_iopen_gh);
 out_uninit:
 	gfs2_holder_uninit(&ip->i_iopen_gh);
 	gfs2_glock_dq_uninit(&gh);
-	if (error)
+	if (error && error != GLR_TRYFAILED)
 		fs_warn(sdp, "gfs2_delete_inode: %d\n", error);
 out:
 	truncate_inode_pages(&inode->i_data, 0);
@@ -443,14 +477,12 @@ out:
 
 static struct inode *gfs2_alloc_inode(struct super_block *sb)
 {
-	struct gfs2_sbd *sdp = sb->s_fs_info;
 	struct gfs2_inode *ip;
 
 	ip = kmem_cache_alloc(gfs2_inode_cachep, GFP_KERNEL);
 	if (ip) {
 		ip->i_flags = 0;
 		ip->i_gl = NULL;
-		ip->i_greedy = gfs2_tune_get(sdp, gt_greedy_default);
 		ip->i_last_pfault = jiffies;
 	}
 	return &ip->i_inode;
@@ -461,7 +493,7 @@ static void gfs2_destroy_inode(struct inode *inode)
 	kmem_cache_free(gfs2_inode_cachep, inode);
 }
 
-struct super_operations gfs2_super_ops = {
+const struct super_operations gfs2_super_ops = {
 	.alloc_inode		= gfs2_alloc_inode,
 	.destroy_inode		= gfs2_destroy_inode,
 	.write_inode		= gfs2_write_inode,
@@ -474,6 +506,7 @@ struct super_operations gfs2_super_ops = {
 	.statfs			= gfs2_statfs,
 	.remount_fs		= gfs2_remount_fs,
 	.clear_inode		= gfs2_clear_inode,
+	.drop_inode		= gfs2_drop_inode,
 	.show_options		= gfs2_show_options,
 };
 

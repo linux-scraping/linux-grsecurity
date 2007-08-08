@@ -526,7 +526,6 @@ am79c961_rx(struct net_device *dev, struct dev_priv *priv)
 		skb = dev_alloc_skb(len + 2);
 
 		if (skb) {
-			skb->dev = dev;
 			skb_reserve(skb, 2);
 
 			am_readbuffer(dev, pktaddr, skb_put(skb, len), len);
@@ -635,7 +634,7 @@ static void am79c961_poll_controller(struct net_device *dev)
 {
 	unsigned long flags;
 	local_irq_save(flags);
-	am79c961_interrupt(dev->irq, dev, NULL);
+	am79c961_interrupt(dev->irq, dev);
 	local_irq_restore(flags);
 }
 #endif

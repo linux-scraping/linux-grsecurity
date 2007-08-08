@@ -22,7 +22,7 @@ struct frame_head {
 static struct frame_head *
 dump_kernel_backtrace(struct frame_head * head)
 {
-	oprofile_add_trace(head->ret);
+	oprofile_add_trace(head->ret + __KERNEL_TEXT_OFFSET);
 
 	/* frame pointers should strictly progress back up the stack
 	 * (towards higher addresses) */

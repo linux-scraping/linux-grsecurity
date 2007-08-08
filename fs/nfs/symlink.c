@@ -22,7 +22,6 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <linux/smp_lock.h>
 #include <linux/namei.h>
 
 /* Symlink caching in the page cache is even more simplistic
@@ -61,15 +60,9 @@ static void *nfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 		err = page;
 		goto read_failed;
 	}
-	if (!PageUptodate(page)) {
-		err = ERR_PTR(-EIO);
-		goto getlink_read_error;
-	}
 	nd_set_link(nd, kmap(page));
 	return page;
 
-getlink_read_error:
-	page_cache_release(page);
 read_failed:
 	nd_set_link(nd, err);
 	return NULL;
@@ -78,7 +71,7 @@ read_failed:
 /*
  * symlinks can't do much...
  */
-struct inode_operations nfs_symlink_inode_operations = {
+const struct inode_operations nfs_symlink_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= nfs_follow_link,
 	.put_link	= page_put_link,

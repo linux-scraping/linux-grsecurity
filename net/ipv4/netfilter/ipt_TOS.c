@@ -13,7 +13,7 @@
 #include <linux/ip.h>
 #include <net/checksum.h>
 
-#include <linux/netfilter_ipv4/ip_tables.h>
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ipt_TOS.h>
 
 MODULE_LICENSE("GPL");
@@ -29,26 +29,26 @@ target(struct sk_buff **pskb,
        const void *targinfo)
 {
 	const struct ipt_tos_target_info *tosinfo = targinfo;
-	struct iphdr *iph = (*pskb)->nh.iph;
+	struct iphdr *iph = ip_hdr(*pskb);
 
 	if ((iph->tos & IPTOS_TOS_MASK) != tosinfo->tos) {
 		__u8 oldtos;
 		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
 			return NF_DROP;
-		iph = (*pskb)->nh.iph;
+		iph = ip_hdr(*pskb);
 		oldtos = iph->tos;
 		iph->tos = (iph->tos & IPTOS_PREC_MASK) | tosinfo->tos;
 		nf_csum_replace2(&iph->check, htons(oldtos), htons(iph->tos));
 	}
-	return IPT_CONTINUE;
+	return XT_CONTINUE;
 }
 
 static int
 checkentry(const char *tablename,
 	   const void *e_void,
 	   const struct xt_target *target,
-           void *targinfo,
-           unsigned int hook_mask)
+	   void *targinfo,
+	   unsigned int hook_mask)
 {
 	const u_int8_t tos = ((struct ipt_tos_target_info *)targinfo)->tos;
 
@@ -63,8 +63,9 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct ipt_target ipt_tos_reg = {
+static struct xt_target ipt_tos_reg = {
 	.name		= "TOS",
+	.family		= AF_INET,
 	.target		= target,
 	.targetsize	= sizeof(struct ipt_tos_target_info),
 	.table		= "mangle",
@@ -74,12 +75,12 @@ static struct ipt_target ipt_tos_reg = {
 
 static int __init ipt_tos_init(void)
 {
-	return ipt_register_target(&ipt_tos_reg);
+	return xt_register_target(&ipt_tos_reg);
 }
 
 static void __exit ipt_tos_fini(void)
 {
-	ipt_unregister_target(&ipt_tos_reg);
+	xt_unregister_target(&ipt_tos_reg);
 }
 
 module_init(ipt_tos_init);

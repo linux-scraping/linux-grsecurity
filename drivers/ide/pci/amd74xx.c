@@ -1,5 +1,5 @@
 /*
- * Version 2.13
+ * Version 2.16
  *
  * AMD 755/756/766/8111 and nVidia nForce/2/2s/3/3s/CK804/MCP04
  * IDE driver for Linux.
@@ -76,6 +76,8 @@ static struct amd_ide_chip {
 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	0x50, AMD_UDMA_133 },
 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP65_IDE,	0x50, AMD_UDMA_133 },
 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP67_IDE,	0x50, AMD_UDMA_133 },
+	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP73_IDE,	0x50, AMD_UDMA_133 },
+	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP77_IDE,	0x50, AMD_UDMA_133 },
 	{ PCI_DEVICE_ID_AMD_CS5536_IDE,			0x40, AMD_UDMA_100 },
 	{ 0 }
 };
@@ -92,7 +94,7 @@ static unsigned char amd_cyc2udma[] = { 6, 6, 5, 4, 0, 1, 1, 2, 2, 3, 3, 3, 3, 3
  * AMD /proc entry.
  */
 
-#ifdef CONFIG_PROC_FS
+#ifdef CONFIG_IDE_PROC_FS
 
 #include <linux/stat.h>
 #include <linux/proc_fs.h>
@@ -242,10 +244,8 @@ static int amd_set_drive(ide_drive_t *drive, u8 speed)
 	struct ide_timing t, p;
 	int T, UT;
 
-	if (speed != XFER_PIO_SLOW && speed != drive->current_speed)
-		if (ide_config_drive_speed(drive, speed))
-			printk(KERN_WARNING "ide%d: Drive %d didn't accept speed setting. Oh, well.\n",
-				drive->dn >> 1, drive->dn & 1);
+	if (speed != XFER_PIO_SLOW)
+		ide_config_drive_speed(drive, speed);
 
 	T = 1000000000 / amd_clock;
 	UT = T / min_t(int, max_t(int, amd_config->flags & AMD_UDMA, 1), 2);
@@ -304,8 +304,9 @@ static int amd74xx_ide_dma_check(ide_drive_t *drive)
 	amd_set_drive(drive, speed);
 
 	if (drive->autodma && (speed & XFER_MODE) != XFER_PIO)
-		return HWIF(drive)->ide_dma_on(drive);
-	return HWIF(drive)->ide_dma_off_quietly(drive);
+		return 0;
+
+	return -1;
 }
 
 /*
@@ -401,14 +402,14 @@ static unsigned int __devinit init_chipset_amd74xx(struct pci_dev *dev, const ch
  * Register /proc/ide/amd74xx entry
  */
 
-#if defined(DISPLAY_AMD_TIMINGS) && defined(CONFIG_PROC_FS)
+#if defined(DISPLAY_AMD_TIMINGS) && defined(CONFIG_IDE_PROC_FS)
         if (!amd74xx_proc) {
                 amd_base = pci_resource_start(dev, 4);
                 bmide_dev = dev;
 		ide_pci_create_host_proc("amd74xx", amd74xx_get_info);
                 amd74xx_proc = 1;
         }
-#endif /* DISPLAY_AMD_TIMINGS && CONFIG_PROC_FS */
+#endif /* DISPLAY_AMD_TIMINGS && CONFIG_IDE_PROC_FS */
 
 	return dev->irq;
 }
@@ -493,7 +494,9 @@ static ide_pci_device_t amd74xx_chipsets[] __devinitdata = {
 	/* 17 */ DECLARE_NV_DEV("NFORCE-MCP61"),
 	/* 18 */ DECLARE_NV_DEV("NFORCE-MCP65"),
 	/* 19 */ DECLARE_NV_DEV("NFORCE-MCP67"),
-	/* 20 */ DECLARE_AMD_DEV("AMD5536"),
+	/* 20 */ DECLARE_NV_DEV("NFORCE-MCP73"),
+	/* 21 */ DECLARE_NV_DEV("NFORCE-MCP77"),
+	/* 22 */ DECLARE_AMD_DEV("AMD5536"),
 };
 
 static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_id *id)
@@ -533,7 +536,9 @@ static struct pci_device_id amd74xx_pci_tbl[] = {
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 17 },
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP65_IDE,  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 18 },
 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP67_IDE,  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 19 },
-	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 20 },
+	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP73_IDE,  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 20 },
+	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP77_IDE,  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 21 },
+	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 22 },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE(pci, amd74xx_pci_tbl);

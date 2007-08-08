@@ -67,15 +67,8 @@ static char *ocfs2_page_getlink(struct dentry * dentry,
 	page = read_mapping_page(mapping, 0, NULL);
 	if (IS_ERR(page))
 		goto sync_fail;
-	wait_on_page_locked(page);
-	if (!PageUptodate(page))
-		goto async_fail;
 	*ppage = page;
 	return kmap(page);
-
-async_fail:
-	page_cache_release(page);
-	return ERR_PTR(-EIO);
 
 sync_fail:
 	return (char*)page;
@@ -170,12 +163,12 @@ bail:
 	return ERR_PTR(status);
 }
 
-struct inode_operations ocfs2_symlink_inode_operations = {
+const struct inode_operations ocfs2_symlink_inode_operations = {
 	.readlink	= page_readlink,
 	.follow_link	= ocfs2_follow_link,
 	.getattr	= ocfs2_getattr,
 };
-struct inode_operations ocfs2_fast_symlink_inode_operations = {
+const struct inode_operations ocfs2_fast_symlink_inode_operations = {
 	.readlink	= ocfs2_readlink,
 	.follow_link	= ocfs2_follow_link,
 	.getattr	= ocfs2_getattr,

@@ -22,7 +22,6 @@
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
-#include <linux/root_dev.h>
 #include <linux/initrd.h>
 #include <linux/module.h>
 #include <linux/fsl_devices.h>
@@ -56,7 +55,6 @@ unsigned long isa_mem_base = 0;
 static int cds_pci_slot = 2;
 static volatile u8 *cadmus;
 
-
 #ifdef CONFIG_PCI
 
 #define ARCADIA_HOST_BRIDGE_IDSEL	17
@@ -64,8 +62,7 @@ static volatile u8 *cadmus;
 
 extern int mpc85xx_pci2_busno;
 
-int
-mpc85xx_exclude_device(u_char bus, u_char devfn)
+static int mpc85xx_exclude_device(u_char bus, u_char devfn)
 {
 	if (bus == 0 && PCI_SLOT(devfn) == 0)
 		return PCIBIOS_DEVICE_NOT_FOUND;
@@ -81,8 +78,7 @@ mpc85xx_exclude_device(u_char bus, u_char devfn)
 		return PCIBIOS_SUCCESSFUL;
 }
 
-void __init
-mpc85xx_cds_pcibios_fixup(void)
+static void __init mpc85xx_cds_pcibios_fixup(void)
 {
 	struct pci_dev *dev;
 	u_char		c;
@@ -144,7 +140,7 @@ static void mpc85xx_8259_cascade(unsigned int irq, struct irq_desc *desc)
 #endif /* PPC_I8259 */
 #endif /* CONFIG_PCI */
 
-void __init mpc85xx_cds_pic_init(void)
+static void __init mpc85xx_cds_pic_init(void)
 {
 	struct mpic *mpic;
 	struct resource r;
@@ -201,7 +197,7 @@ void __init mpc85xx_cds_pic_init(void)
 #ifdef CONFIG_PPC_I8259
 	/* Initialize the i8259 controller */
 	for_each_node_by_type(np, "interrupt-controller")
-		if (device_is_compatible(np, "chrp,iic")) {
+		if (of_device_is_compatible(np, "chrp,iic")) {
 			cascade_node = np;
 			break;
 		}
@@ -224,12 +220,10 @@ void __init mpc85xx_cds_pic_init(void)
 #endif /* CONFIG_PPC_I8259 */
 }
 
-
 /*
  * Setup the architecture
  */
-static void __init
-mpc85xx_cds_setup_arch(void)
+static void __init mpc85xx_cds_setup_arch(void)
 {
 	struct device_node *cpu;
 #ifdef CONFIG_PCI
@@ -243,7 +237,7 @@ mpc85xx_cds_setup_arch(void)
 	if (cpu != 0) {
 		const unsigned int *fp;
 
-		fp = get_property(cpu, "clock-frequency", NULL);
+		fp = of_get_property(cpu, "clock-frequency", NULL);
 		if (fp != 0)
 			loops_per_jiffy = *fp / HZ;
 		else
@@ -268,17 +262,9 @@ mpc85xx_cds_setup_arch(void)
 	ppc_md.pcibios_fixup = mpc85xx_cds_pcibios_fixup;
 	ppc_md.pci_exclude_device = mpc85xx_exclude_device;
 #endif
-
-#ifdef  CONFIG_ROOT_NFS
-	ROOT_DEV = Root_NFS;
-#else
-	ROOT_DEV = Root_HDA1;
-#endif
 }
 
-
-void
-mpc85xx_cds_show_cpuinfo(struct seq_file *m)
+static void mpc85xx_cds_show_cpuinfo(struct seq_file *m)
 {
 	uint pvid, svid, phid1;
 	uint memsize = total_memory;
@@ -305,11 +291,9 @@ mpc85xx_cds_show_cpuinfo(struct seq_file *m)
  */
 static int __init mpc85xx_cds_probe(void)
 {
-	/* We always match for now, eventually we should look at
-	 * the flat dev tree to ensure this is the board we are
-	 * supposed to run on
-	 */
-	return 1;
+        unsigned long root = of_get_flat_dt_root();
+
+        return of_flat_dt_is_compatible(root, "MPC85xxCDS");
 }
 
 define_machine(mpc85xx_cds) {

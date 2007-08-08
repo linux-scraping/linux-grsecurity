@@ -7,13 +7,13 @@
 #include <linux/kobject.h>
 #include <linux/namei.h>
 #include <linux/poll.h>
+#include <linux/list.h>
 #include <asm/uaccess.h>
 #include <asm/semaphore.h>
 
 #include "sysfs.h"
 
-#define to_subsys(k) container_of(k,struct subsystem,kset.kobj)
-#define to_sattr(a) container_of(a,struct subsys_attribute,attr)
+#define to_sattr(a) container_of(a,struct subsys_attribute, attr)
 
 /*
  * Subsystem file operations.
@@ -23,12 +23,12 @@
 static ssize_t 
 subsys_attr_show(struct kobject * kobj, struct attribute * attr, char * page)
 {
-	struct subsystem * s = to_subsys(kobj);
+	struct kset *kset = to_kset(kobj);
 	struct subsys_attribute * sattr = to_sattr(attr);
 	ssize_t ret = -EIO;
 
 	if (sattr->show)
-		ret = sattr->show(s,page);
+		ret = sattr->show(kset, page);
 	return ret;
 }
 
@@ -36,12 +36,12 @@ static ssize_t
 subsys_attr_store(struct kobject * kobj, struct attribute * attr, 
 		  const char * page, size_t count)
 {
-	struct subsystem * s = to_subsys(kobj);
+	struct kset *kset = to_kset(kobj);
 	struct subsys_attribute * sattr = to_sattr(attr);
 	ssize_t ret = -EIO;
 
 	if (sattr->store)
-		ret = sattr->store(s,page,count);
+		ret = sattr->store(kset, page, count);
 	return ret;
 }
 
@@ -50,17 +50,29 @@ static struct sysfs_ops subsys_sysfs_ops = {
 	.store	= subsys_attr_store,
 };
 
+/**
+ *	add_to_collection - add buffer to a collection
+ *	@buffer:	buffer to be added
+ *	@node:		inode of set to add to
+ */
 
-struct sysfs_buffer {
-	size_t			count;
-	loff_t			pos;
-	char			* page;
-	struct sysfs_ops	* ops;
-	struct semaphore	sem;
-	int			needs_read_fill;
-	int			event;
-};
+static inline void
+add_to_collection(struct sysfs_buffer *buffer, struct inode *node)
+{
+	struct sysfs_buffer_collection *set = node->i_private;
 
+	mutex_lock(&node->i_mutex);
+	list_add(&buffer->associates, &set->associates);
+	mutex_unlock(&node->i_mutex);
+}
+
+static inline void
+remove_from_collection(struct sysfs_buffer *buffer, struct inode *node)
+{
+	mutex_lock(&node->i_mutex);
+	list_del(&buffer->associates);
+	mutex_unlock(&node->i_mutex);
+}
 
 /**
  *	fill_read_buffer - allocate and fill buffer from object.
@@ -70,7 +82,8 @@ struct sysfs_buffer {
  *	Allocate @buffer->page, if it hasn't been already, then call the
  *	kobject's show() method to fill the buffer with this attribute's 
  *	data. 
- *	This is called only once, on the file's first read. 
+ *	This is called only once, on the file's first read unless an error
+ *	is returned.
  */
 static int fill_read_buffer(struct dentry * dentry, struct sysfs_buffer * buffer)
 {
@@ -88,43 +101,14 @@ static int fill_read_buffer(struct dentry * dentry, struct sysfs_buffer * buffer
 
 	buffer->event = atomic_read(&sd->s_event);
 	count = ops->show(kobj,attr,buffer->page);
-	buffer->needs_read_fill = 0;
 	BUG_ON(count > (ssize_t)PAGE_SIZE);
-	if (count >= 0)
+	if (count >= 0) {
+		buffer->needs_read_fill = 0;
 		buffer->count = count;
-	else
+	} else {
 		ret = count;
+	}
 	return ret;
-}
-
-
-/**
- *	flush_read_buffer - push buffer to userspace.
- *	@buffer:	data buffer for file.
- *	@buf:		user-passed buffer.
- *	@count:		number of bytes requested.
- *	@ppos:		file position.
- *
- *	Copy the buffer we filled in fill_read_buffer() to userspace.
- *	This is done at the reader's leisure, copying and advancing 
- *	the amount they specify each time.
- *	This may be called continuously until the buffer is empty.
- */
-static int flush_read_buffer(struct sysfs_buffer * buffer, char __user * buf,
-			     size_t count, loff_t * ppos)
-{
-	int error;
-
-	if (*ppos > buffer->count)
-		return 0;
-
-	if (count > (buffer->count - *ppos))
-		count = buffer->count - *ppos;
-
-	error = copy_to_user(buf,buffer->page + *ppos,count);
-	if (!error)
-		*ppos += count;
-	return error ? -EFAULT : count;
 }
 
 /**
@@ -154,17 +138,21 @@ sysfs_read_file(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 
 	down(&buffer->sem);
 	if (buffer->needs_read_fill) {
-		if ((retval = fill_read_buffer(file->f_path.dentry,buffer)))
+		if (buffer->orphaned)
+			retval = -ENODEV;
+		else
+			retval = fill_read_buffer(file->f_path.dentry,buffer);
+		if (retval)
 			goto out;
 	}
 	pr_debug("%s: count = %zd, ppos = %lld, buf = %s\n",
 		 __FUNCTION__, count, *ppos, buffer->page);
-	retval = flush_read_buffer(buffer,buf,count,ppos);
+	retval = simple_read_from_buffer(buf, count, ppos, buffer->page,
+					 buffer->count);
 out:
 	up(&buffer->sem);
 	return retval;
 }
-
 
 /**
  *	fill_write_buffer - copy buffer from userspace.
@@ -243,19 +231,25 @@ sysfs_write_file(struct file *file, const char __user *buf, size_t count, loff_t
 	ssize_t len;
 
 	down(&buffer->sem);
+	if (buffer->orphaned) {
+		len = -ENODEV;
+		goto out;
+	}
 	len = fill_write_buffer(buffer, buf, count);
 	if (len > 0)
 		len = flush_write_buffer(file->f_path.dentry, buffer, len);
 	if (len > 0)
 		*ppos += len;
+out:
 	up(&buffer->sem);
 	return len;
 }
 
-static int check_perm(struct inode * inode, struct file * file)
+static int sysfs_open_file(struct inode *inode, struct file *file)
 {
 	struct kobject *kobj = sysfs_get_kobject(file->f_path.dentry->d_parent);
 	struct attribute * attr = to_attr(file->f_path.dentry);
+	struct sysfs_buffer_collection *set;
 	struct sysfs_buffer * buffer;
 	struct sysfs_ops * ops = NULL;
 	int error = 0;
@@ -285,6 +279,18 @@ static int check_perm(struct inode * inode, struct file * file)
 	if (!ops)
 		goto Eaccess;
 
+	/* make sure we have a collection to add our buffers to */
+	mutex_lock(&inode->i_mutex);
+	if (!(set = inode->i_private)) {
+		if (!(set = inode->i_private = kmalloc(sizeof(struct sysfs_buffer_collection), GFP_KERNEL))) {
+			error = -ENOMEM;
+			goto Done;
+		} else {
+			INIT_LIST_HEAD(&set->associates);
+		}
+	}
+	mutex_unlock(&inode->i_mutex);
+
 	/* File needs write support.
 	 * The inode's perms must say it's ok, 
 	 * and we must have a store method.
@@ -310,9 +316,11 @@ static int check_perm(struct inode * inode, struct file * file)
 	 */
 	buffer = kzalloc(sizeof(struct sysfs_buffer), GFP_KERNEL);
 	if (buffer) {
+		INIT_LIST_HEAD(&buffer->associates);
 		init_MUTEX(&buffer->sem);
 		buffer->needs_read_fill = 1;
 		buffer->ops = ops;
+		add_to_collection(buffer, inode);
 		file->private_data = buffer;
 	} else
 		error = -ENOMEM;
@@ -325,14 +333,9 @@ static int check_perm(struct inode * inode, struct file * file)
 	error = -EACCES;
 	module_put(attr->owner);
  Done:
-	if (error && kobj)
+	if (error)
 		kobject_put(kobj);
 	return error;
-}
-
-static int sysfs_open_file(struct inode * inode, struct file * filp)
-{
-	return check_perm(inode,filp);
 }
 
 static int sysfs_release(struct inode * inode, struct file * filp)
@@ -342,8 +345,9 @@ static int sysfs_release(struct inode * inode, struct file * filp)
 	struct module * owner = attr->owner;
 	struct sysfs_buffer * buffer = filp->private_data;
 
-	if (kobj) 
-		kobject_put(kobj);
+	if (buffer)
+		remove_from_collection(buffer, inode);
+	kobject_put(kobj);
 	/* After this point, attr should not be accessed. */
 	module_put(owner);
 
@@ -468,6 +472,30 @@ int sysfs_create_file(struct kobject * kobj, const struct attribute * attr)
 
 
 /**
+ * sysfs_add_file_to_group - add an attribute file to a pre-existing group.
+ * @kobj: object we're acting for.
+ * @attr: attribute descriptor.
+ * @group: group name.
+ */
+int sysfs_add_file_to_group(struct kobject *kobj,
+		const struct attribute *attr, const char *group)
+{
+	struct dentry *dir;
+	int error;
+
+	dir = lookup_one_len(group, kobj->dentry, strlen(group));
+	if (IS_ERR(dir))
+		error = PTR_ERR(dir);
+	else {
+		error = sysfs_add_file(dir, attr, SYSFS_KOBJ_ATTR);
+		dput(dir);
+	}
+	return error;
+}
+EXPORT_SYMBOL_GPL(sysfs_add_file_to_group);
+
+
+/**
  * sysfs_update_file - update the modified timestamp on an object attribute.
  * @kobj: object we're acting for.
  * @attr: attribute descriptor.
@@ -548,8 +576,90 @@ EXPORT_SYMBOL_GPL(sysfs_chmod_file);
 
 void sysfs_remove_file(struct kobject * kobj, const struct attribute * attr)
 {
-	sysfs_hash_and_remove(kobj->dentry,attr->name);
+	sysfs_hash_and_remove(kobj->dentry, attr->name);
 }
+
+
+/**
+ * sysfs_remove_file_from_group - remove an attribute file from a group.
+ * @kobj: object we're acting for.
+ * @attr: attribute descriptor.
+ * @group: group name.
+ */
+void sysfs_remove_file_from_group(struct kobject *kobj,
+		const struct attribute *attr, const char *group)
+{
+	struct dentry *dir;
+
+	dir = lookup_one_len(group, kobj->dentry, strlen(group));
+	if (!IS_ERR(dir)) {
+		sysfs_hash_and_remove(dir, attr->name);
+		dput(dir);
+	}
+}
+EXPORT_SYMBOL_GPL(sysfs_remove_file_from_group);
+
+struct sysfs_schedule_callback_struct {
+	struct kobject 		*kobj;
+	void			(*func)(void *);
+	void			*data;
+	struct module		*owner;
+	struct work_struct	work;
+};
+
+static void sysfs_schedule_callback_work(struct work_struct *work)
+{
+	struct sysfs_schedule_callback_struct *ss = container_of(work,
+			struct sysfs_schedule_callback_struct, work);
+
+	(ss->func)(ss->data);
+	kobject_put(ss->kobj);
+	module_put(ss->owner);
+	kfree(ss);
+}
+
+/**
+ * sysfs_schedule_callback - helper to schedule a callback for a kobject
+ * @kobj: object we're acting for.
+ * @func: callback function to invoke later.
+ * @data: argument to pass to @func.
+ * @owner: module owning the callback code
+ *
+ * sysfs attribute methods must not unregister themselves or their parent
+ * kobject (which would amount to the same thing).  Attempts to do so will
+ * deadlock, since unregistration is mutually exclusive with driver
+ * callbacks.
+ *
+ * Instead methods can call this routine, which will attempt to allocate
+ * and schedule a workqueue request to call back @func with @data as its
+ * argument in the workqueue's process context.  @kobj will be pinned
+ * until @func returns.
+ *
+ * Returns 0 if the request was submitted, -ENOMEM if storage could not
+ * be allocated, -ENODEV if a reference to @owner isn't available.
+ */
+int sysfs_schedule_callback(struct kobject *kobj, void (*func)(void *),
+		void *data, struct module *owner)
+{
+	struct sysfs_schedule_callback_struct *ss;
+
+	if (!try_module_get(owner))
+		return -ENODEV;
+	ss = kmalloc(sizeof(*ss), GFP_KERNEL);
+	if (!ss) {
+		module_put(owner);
+		return -ENOMEM;
+	}
+	kobject_get(kobj);
+	ss->kobj = kobj;
+	ss->func = func;
+	ss->data = data;
+	ss->owner = owner;
+	INIT_WORK(&ss->work, sysfs_schedule_callback_work);
+	schedule_work(&ss->work);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sysfs_schedule_callback);
 
 
 EXPORT_SYMBOL_GPL(sysfs_create_file);

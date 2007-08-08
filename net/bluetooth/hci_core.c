@@ -1,4 +1,4 @@
-/* 
+/*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2000-2001 Qualcomm Incorporated
 
@@ -12,13 +12,13 @@
    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
    IN NO EVENT SHALL THE COPYRIGHT HOLDER(S) AND AUTHOR(S) BE LIABLE FOR ANY
-   CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES 
-   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN 
-   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF 
+   CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
    OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-   ALL LIABILITY, INCLUDING LIABILITY FOR INFRINGEMENT OF ANY PATENTS, 
-   COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS 
+   ALL LIABILITY, INCLUDING LIABILITY FOR INFRINGEMENT OF ANY PATENTS,
+   COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS
    SOFTWARE IS DISCLAIMED.
 */
 
@@ -116,7 +116,7 @@ static void hci_req_cancel(struct hci_dev *hdev, int err)
 }
 
 /* Execute request and wait for completion. */
-static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev, unsigned long opt), 
+static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev, unsigned long opt),
 				unsigned long opt, __u32 timeout)
 {
 	DECLARE_WAITQUEUE(wait, current);
@@ -149,7 +149,7 @@ static int __hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *hdev,
 	default:
 		err = -ETIMEDOUT;
 		break;
-	};
+	}
 
 	hdev->req_status = hdev->req_result = 0;
 
@@ -216,10 +216,10 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 	/* Host buffer size */
 	{
 		struct hci_cp_host_buffer_size cp;
-		cp.acl_mtu = __cpu_to_le16(HCI_MAX_ACL_SIZE);
+		cp.acl_mtu = cpu_to_le16(HCI_MAX_ACL_SIZE);
 		cp.sco_mtu = HCI_MAX_SCO_SIZE;
-		cp.acl_max_pkt = __cpu_to_le16(0xffff);
-		cp.sco_max_pkt = __cpu_to_le16(0xffff);
+		cp.acl_max_pkt = cpu_to_le16(0xffff);
+		cp.sco_max_pkt = cpu_to_le16(0xffff);
 		hci_send_cmd(hdev, OGF_HOST_CTL, OCF_HOST_BUFFER_SIZE, sizeof(cp), &cp);
 	}
 #endif
@@ -240,11 +240,11 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 	}
 
 	/* Page timeout ~20 secs */
-	param = __cpu_to_le16(0x8000);
+	param = cpu_to_le16(0x8000);
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_PG_TIMEOUT, 2, &param);
 
 	/* Connection accept timeout ~20 secs */
-	param = __cpu_to_le16(0x7d00);
+	param = cpu_to_le16(0x7d00);
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_CA_TIMEOUT, 2, &param);
 }
 
@@ -278,7 +278,7 @@ static void hci_encrypt_req(struct hci_dev *hdev, unsigned long opt)
 	hci_send_cmd(hdev, OGF_HOST_CTL, OCF_WRITE_ENCRYPT_MODE, 1, &encrypt);
 }
 
-/* Get HCI device by index. 
+/* Get HCI device by index.
  * Device is held on return. */
 struct hci_dev *hci_dev_get(int index)
 {
@@ -405,7 +405,7 @@ int hci_inquiry(void __user *arg)
 		return -ENODEV;
 
 	hci_dev_lock_bh(hdev);
-	if (inquiry_cache_age(hdev) > INQUIRY_CACHE_AGE_MAX || 
+	if (inquiry_cache_age(hdev) > INQUIRY_CACHE_AGE_MAX ||
 					inquiry_cache_empty(hdev) ||
 					ir.flags & IREQ_CACHE_FLUSH) {
 		inquiry_cache_flush(hdev);
@@ -439,7 +439,7 @@ int hci_inquiry(void __user *arg)
 		if (copy_to_user(ptr, buf, sizeof(struct inquiry_info) *
 					ir.num_rsp))
 			err = -EFAULT;
-	} else 
+	} else
 		err = -EFAULT;
 
 	kfree(buf);
@@ -491,7 +491,7 @@ int hci_dev_open(__u16 dev)
 		hci_dev_hold(hdev);
 		set_bit(HCI_UP, &hdev->flags);
 		hci_notify(hdev, HCI_DEV_UP);
-	} else {	
+	} else {
 		/* Init failed, cleanup */
 		tasklet_kill(&hdev->rx_task);
 		tasklet_kill(&hdev->tx_task);
@@ -619,7 +619,7 @@ int hci_dev_reset(__u16 dev)
 	if (hdev->flush)
 		hdev->flush(hdev);
 
-	atomic_set(&hdev->cmd_cnt, 1); 
+	atomic_set(&hdev->cmd_cnt, 1);
 	hdev->acl_cnt = 0; hdev->sco_cnt = 0;
 
 	if (!test_bit(HCI_RAW, &hdev->flags))
@@ -841,7 +841,7 @@ int hci_register_dev(struct hci_dev *hdev)
 			break;
 		head = p; id++;
 	}
-	
+
 	sprintf(hdev->name, "hci%d", id);
 	hdev->id = id;
 	list_add(&hdev->list, head);
@@ -1034,7 +1034,7 @@ int hci_send_cmd(struct hci_dev *hdev, __u16 ogf, __u16 ocf, __u32 plen, void *p
 	}
 
 	hdr = (struct hci_command_hdr *) skb_put(skb, HCI_COMMAND_HDR_SIZE);
-	hdr->opcode = __cpu_to_le16(hci_opcode_pack(ogf, ocf));
+	hdr->opcode = cpu_to_le16(hci_opcode_pack(ogf, ocf));
 	hdr->plen   = plen;
 
 	if (plen)
@@ -1060,7 +1060,7 @@ void *hci_sent_cmd_data(struct hci_dev *hdev, __u16 ogf, __u16 ocf)
 
 	hdr = (void *) hdev->sent_cmd->data;
 
-	if (hdr->opcode != __cpu_to_le16(hci_opcode_pack(ogf, ocf)))
+	if (hdr->opcode != cpu_to_le16(hci_opcode_pack(ogf, ocf)))
 		return NULL;
 
 	BT_DBG("%s ogf 0x%x ocf 0x%x", hdev->name, ogf, ocf);
@@ -1074,11 +1074,11 @@ static void hci_add_acl_hdr(struct sk_buff *skb, __u16 handle, __u16 flags)
 	struct hci_acl_hdr *hdr;
 	int len = skb->len;
 
-	hdr = (struct hci_acl_hdr *) skb_push(skb, HCI_ACL_HDR_SIZE);
-	hdr->handle = __cpu_to_le16(hci_handle_pack(handle, flags));
-	hdr->dlen   = __cpu_to_le16(len);
-
-	skb->h.raw = (void *) hdr;
+	skb_push(skb, HCI_ACL_HDR_SIZE);
+	skb_reset_transport_header(skb);
+	hdr = (struct hci_acl_hdr *)skb_transport_header(skb);
+	hdr->handle = cpu_to_le16(hci_handle_pack(handle, flags));
+	hdr->dlen   = cpu_to_le16(len);
 }
 
 int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags)
@@ -1109,7 +1109,7 @@ int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 flags)
 		__skb_queue_tail(&conn->data_q, skb);
 		do {
 			skb = list; list = list->next;
-			
+
 			skb->dev = (void *) hdev;
 			bt_cb(skb)->pkt_type = HCI_ACLDATA_PKT;
 			hci_add_acl_hdr(skb, conn->handle, flags | ACL_CONT);
@@ -1140,11 +1140,12 @@ int hci_send_sco(struct hci_conn *conn, struct sk_buff *skb)
 		return -EINVAL;
 	}
 
-	hdr.handle = __cpu_to_le16(conn->handle);
+	hdr.handle = cpu_to_le16(conn->handle);
 	hdr.dlen   = skb->len;
 
-	skb->h.raw = skb_push(skb, HCI_SCO_HDR_SIZE);
-	memcpy(skb->h.raw, &hdr, HCI_SCO_HDR_SIZE);
+	skb_push(skb, HCI_SCO_HDR_SIZE);
+	skb_reset_transport_header(skb);
+	memcpy(skb_transport_header(skb), &hdr, HCI_SCO_HDR_SIZE);
 
 	skb->dev = (void *) hdev;
 	bt_cb(skb)->pkt_type = HCI_SCODATA_PKT;
@@ -1164,7 +1165,7 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 	int num = 0, min = ~0;
 	struct list_head *p;
 
-	/* We don't have to lock device here. Connections are always 
+	/* We don't have to lock device here. Connections are always
 	 * added and removed with TX task disabled. */
 	list_for_each(p, &h->list) {
 		struct hci_conn *c;
@@ -1306,7 +1307,7 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 	hci_dev_lock(hdev);
 	conn = hci_conn_hash_lookup_handle(hdev, handle);
 	hci_dev_unlock(hdev);
-	
+
 	if (conn) {
 		register struct hci_proto *hp;
 
@@ -1318,7 +1319,7 @@ static inline void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			return;
 		}
 	} else {
-		BT_ERR("%s ACL packet for unknown connection handle %d", 
+		BT_ERR("%s ACL packet for unknown connection handle %d",
 			hdev->name, handle);
 	}
 
@@ -1353,7 +1354,7 @@ static inline void hci_scodata_packet(struct hci_dev *hdev, struct sk_buff *skb)
 			return;
 		}
 	} else {
-		BT_ERR("%s SCO packet for unknown connection handle %d", 
+		BT_ERR("%s SCO packet for unknown connection handle %d",
 			hdev->name, handle);
 	}
 
@@ -1387,7 +1388,7 @@ static void hci_rx_task(unsigned long arg)
 			case HCI_SCODATA_PKT:
 				kfree_skb(skb);
 				continue;
-			};
+			}
 		}
 
 		/* Process frame */

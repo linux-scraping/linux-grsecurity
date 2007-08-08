@@ -27,7 +27,6 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 #include <linux/sockios.h>
-#include <linux/sched.h>
 #include <linux/net.h>
 #include <linux/in6.h>
 #include <linux/netdevice.h>
@@ -61,10 +60,12 @@ int inet6_add_protocol(struct inet6_protocol *prot, unsigned char protocol)
 	return ret;
 }
 
+EXPORT_SYMBOL(inet6_add_protocol);
+
 /*
  *	Remove a protocol from the hash tables.
  */
- 
+
 int inet6_del_protocol(struct inet6_protocol *prot, unsigned char protocol)
 {
 	int ret, hash = protocol & (MAX_INET_PROTOS - 1);
@@ -84,3 +85,5 @@ int inet6_del_protocol(struct inet6_protocol *prot, unsigned char protocol)
 
 	return ret;
 }
+
+EXPORT_SYMBOL(inet6_del_protocol);

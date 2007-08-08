@@ -26,6 +26,7 @@
 #include <net/ip6_fib.h>
 #include <net/ip6_route.h>
 #include <net/flow.h>
+#include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <linux/netfilter_ipv6/ip6t_REJECT.h>
 
@@ -46,7 +47,7 @@ static void send_reset(struct sk_buff *oldskb)
 	struct tcphdr otcph, *tcph;
 	unsigned int otcplen, hh_len;
 	int tcphoff, needs_ack;
-	struct ipv6hdr *oip6h = oldskb->nh.ipv6h, *ip6h;
+	struct ipv6hdr *oip6h = ipv6_hdr(oldskb), *ip6h;
 	struct dst_entry *dst = NULL;
 	u8 proto;
 	struct flowi fl;
@@ -119,8 +120,9 @@ static void send_reset(struct sk_buff *oldskb)
 
 	skb_reserve(nskb, hh_len + dst->header_len);
 
-	ip6h = nskb->nh.ipv6h = (struct ipv6hdr *)
-					skb_put(nskb, sizeof(struct ipv6hdr));
+	skb_put(nskb, sizeof(struct ipv6hdr));
+	skb_reset_network_header(nskb);
+	ip6h = ipv6_hdr(nskb);
 	ip6h->version = 6;
 	ip6h->hop_limit = dst_metric(dst, RTAX_HOPLIMIT);
 	ip6h->nexthdr = IPPROTO_TCP;
@@ -154,8 +156,8 @@ static void send_reset(struct sk_buff *oldskb)
 	tcph->check = 0;
 
 	/* Adjust TCP checksum */
-	tcph->check = csum_ipv6_magic(&nskb->nh.ipv6h->saddr,
-				      &nskb->nh.ipv6h->daddr,
+	tcph->check = csum_ipv6_magic(&ipv6_hdr(nskb)->saddr,
+				      &ipv6_hdr(nskb)->daddr,
 				      sizeof(struct tcphdr), IPPROTO_TCP,
 				      csum_partial((char *)tcph,
 						   sizeof(struct tcphdr), 0));
@@ -188,23 +190,23 @@ static unsigned int reject6_target(struct sk_buff **pskb,
 	/* WARNING: This code causes reentry within ip6tables.
 	   This means that the ip6tables jump stack is now crap.  We
 	   must return an absolute verdict. --RR */
-    	switch (reject->with) {
-    	case IP6T_ICMP6_NO_ROUTE:
-    		send_unreach(*pskb, ICMPV6_NOROUTE, hooknum);
-    		break;
-    	case IP6T_ICMP6_ADM_PROHIBITED:
-    		send_unreach(*pskb, ICMPV6_ADM_PROHIBITED, hooknum);
-    		break;
-    	case IP6T_ICMP6_NOT_NEIGHBOUR:
-    		send_unreach(*pskb, ICMPV6_NOT_NEIGHBOUR, hooknum);
-    		break;
-    	case IP6T_ICMP6_ADDR_UNREACH:
-    		send_unreach(*pskb, ICMPV6_ADDR_UNREACH, hooknum);
-    		break;
-    	case IP6T_ICMP6_PORT_UNREACH:
-    		send_unreach(*pskb, ICMPV6_PORT_UNREACH, hooknum);
-    		break;
-    	case IP6T_ICMP6_ECHOREPLY:
+	switch (reject->with) {
+	case IP6T_ICMP6_NO_ROUTE:
+		send_unreach(*pskb, ICMPV6_NOROUTE, hooknum);
+		break;
+	case IP6T_ICMP6_ADM_PROHIBITED:
+		send_unreach(*pskb, ICMPV6_ADM_PROHIBITED, hooknum);
+		break;
+	case IP6T_ICMP6_NOT_NEIGHBOUR:
+		send_unreach(*pskb, ICMPV6_NOT_NEIGHBOUR, hooknum);
+		break;
+	case IP6T_ICMP6_ADDR_UNREACH:
+		send_unreach(*pskb, ICMPV6_ADDR_UNREACH, hooknum);
+		break;
+	case IP6T_ICMP6_PORT_UNREACH:
+		send_unreach(*pskb, ICMPV6_PORT_UNREACH, hooknum);
+		break;
+	case IP6T_ICMP6_ECHOREPLY:
 		/* Do nothing */
 		break;
 	case IP6T_TCP_RESET:
@@ -225,7 +227,7 @@ static int check(const char *tablename,
 		 void *targinfo,
 		 unsigned int hook_mask)
 {
- 	const struct ip6t_reject_info *rejinfo = targinfo;
+	const struct ip6t_reject_info *rejinfo = targinfo;
 	const struct ip6t_entry *e = entry;
 
 	if (rejinfo->with == IP6T_ICMP6_ECHOREPLY) {
@@ -234,7 +236,7 @@ static int check(const char *tablename,
 	} else if (rejinfo->with == IP6T_TCP_RESET) {
 		/* Must specify that it's a TCP packet */
 		if (e->ipv6.proto != IPPROTO_TCP
-		    || (e->ipv6.invflags & IP6T_INV_PROTO)) {
+		    || (e->ipv6.invflags & XT_INV_PROTO)) {
 			DEBUGP("ip6t_REJECT: TCP_RESET illegal for non-tcp\n");
 			return 0;
 		}
@@ -242,8 +244,9 @@ static int check(const char *tablename,
 	return 1;
 }
 
-static struct ip6t_target ip6t_reject_reg = {
+static struct xt_target ip6t_reject_reg = {
 	.name		= "REJECT",
+	.family		= AF_INET6,
 	.target		= reject6_target,
 	.targetsize	= sizeof(struct ip6t_reject_info),
 	.table		= "filter",
@@ -255,12 +258,12 @@ static struct ip6t_target ip6t_reject_reg = {
 
 static int __init ip6t_reject_init(void)
 {
-	return ip6t_register_target(&ip6t_reject_reg);
+	return xt_register_target(&ip6t_reject_reg);
 }
 
 static void __exit ip6t_reject_fini(void)
 {
-	ip6t_unregister_target(&ip6t_reject_reg);
+	xt_unregister_target(&ip6t_reject_reg);
 }
 
 module_init(ip6t_reject_init);

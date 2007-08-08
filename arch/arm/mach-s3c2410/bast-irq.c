@@ -24,7 +24,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/ioport.h>
-#include <linux/ptrace.h>
 #include <linux/sysdev.h>
 
 #include <asm/mach-types.h>
@@ -39,7 +38,7 @@
 #include <asm/arch/bast-map.h>
 #include <asm/arch/bast-irq.h>
 
-#include "irq.h"
+#include <asm/plat-s3c24xx/irq.h>
 
 #if 0
 #include <asm/debug-ll.h>

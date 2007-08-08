@@ -476,7 +476,7 @@ struct cmb_area {
 };
 
 static struct cmb_area cmb_area = {
-	.lock = SPIN_LOCK_UNLOCKED,
+	.lock = __SPIN_LOCK_UNLOCKED(cmb_area.lock),
 	.list = LIST_HEAD_INIT(cmb_area.list),
 	.num_channels  = 1024,
 };
@@ -519,8 +519,8 @@ struct cmb {
 /* insert a single device into the cmb_area list
  * called with cmb_area.lock held from alloc_cmb
  */
-static inline int alloc_cmb_single (struct ccw_device *cdev,
-				    struct cmb_data *cmb_data)
+static int alloc_cmb_single(struct ccw_device *cdev,
+			    struct cmb_data *cmb_data)
 {
 	struct cmb *cmb;
 	struct ccw_device_private *node;

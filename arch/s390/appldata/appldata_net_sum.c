@@ -34,7 +34,7 @@
  * book:
  * http://oss.software.ibm.com/developerworks/opensource/linux390/index.shtml
  */
-struct appldata_net_sum_data {
+static struct appldata_net_sum_data {
 	u64 timestamp;
 	u32 sync_count_1;	/* after VM collected the record data, */
 	u32 sync_count_2;	/* sync_count_1 and sync_count_2 should be the
@@ -107,10 +107,7 @@ static void appldata_get_net_sum_data(void *data)
 	tx_dropped = 0;
 	collisions = 0;
 	read_lock(&dev_base_lock);
-	for (dev = dev_base; dev != NULL; dev = dev->next) {
-		if (dev->get_stats == NULL) {
-			continue;
-		}
+	for_each_netdev(dev) {
 		stats = dev->get_stats(dev);
 		rx_packets += stats->rx_packets;
 		tx_packets += stats->tx_packets;

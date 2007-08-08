@@ -62,9 +62,7 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct coda_inode_info *ei = (struct coda_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR)
-		inode_init_once(&ei->vfs_inode);
+	inode_init_once(&ei->vfs_inode);
 }
  
 int coda_init_inodecache(void)
@@ -90,7 +88,7 @@ static int coda_remount(struct super_block *sb, int *flags, char *data)
 }
 
 /* exported operations */
-static struct super_operations coda_super_operations =
+static const struct super_operations coda_super_operations =
 {
 	.alloc_inode	= coda_alloc_inode,
 	.destroy_inode	= coda_destroy_inode,
@@ -271,7 +269,7 @@ int coda_setattr(struct dentry *de, struct iattr *iattr)
 	return error;
 }
 
-struct inode_operations coda_file_inode_operations = {
+const struct inode_operations coda_file_inode_operations = {
 	.permission	= coda_permission,
 	.getattr	= coda_getattr,
 	.setattr	= coda_setattr,

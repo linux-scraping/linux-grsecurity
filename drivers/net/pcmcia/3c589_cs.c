@@ -629,9 +629,9 @@ static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	outw(SetTxThreshold + 1536, ioaddr + EL3_CMD);
     }
 
-    dev_kfree_skb(skb);
     pop_tx_status(dev);
     spin_unlock_irqrestore(&priv->lock, flags);    
+    dev_kfree_skb(skb);
     
     return 0;
 }
@@ -883,7 +883,6 @@ static int el3_rx(struct net_device *dev)
 	    DEBUG(3, "    Receiving packet size %d status %4.4x.\n",
 		  pkt_len, rx_status);
 	    if (skb != NULL) {
-		skb->dev = dev;
 		skb_reserve(skb, 2);
 		insl(ioaddr+RX_FIFO, skb_put(skb, pkt_len),
 			(pkt_len+3)>>2);

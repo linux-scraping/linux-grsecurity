@@ -26,7 +26,6 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
@@ -426,7 +425,7 @@ static int dtl1_hci_send_frame(struct sk_buff *skb)
 		return -ENOMEM;
 
 	skb_reserve(s, NSHL);
-	memcpy(skb_put(s, skb->len), skb->data, skb->len);
+	skb_copy_from_linear_data(skb, skb_put(s, skb->len), skb->len);
 	if (skb->len & 0x0001)
 		*skb_put(s, 1) = 0;	/* PAD */
 

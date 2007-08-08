@@ -10,86 +10,31 @@
 #include <linux/mm.h>
 #include <linux/mempolicy.h>
 #include <linux/syscalls.h>
+#include <linux/sched.h>
+#include <linux/module.h>
 #include <linux/grsecurity.h>
 
-static int __mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
-	unsigned long start, unsigned long end, unsigned int newflags);
+int can_do_mlock(void)
+{
+	if (capable(CAP_IPC_LOCK))
+		return 1;
+	if (current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur != 0)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(can_do_mlock);
 
 static int mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	unsigned long start, unsigned long end, unsigned int newflags)
 {
 	struct mm_struct * mm = vma->vm_mm;
-	int pages;
-	int ret;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	struct vm_area_struct * vma_m = NULL, *prev_m;
-	unsigned long start_m = 0UL, end_m = 0UL, newflags_m = 0UL;
-
-	if (vma->vm_flags & VM_MIRROR) {
-		start_m = vma->vm_start + vma->vm_mirror;
-		vma_m = find_vma_prev(mm, start_m, &prev_m);
-		if (!vma_m || vma_m->vm_start != start_m || !(vma_m->vm_flags & VM_MIRROR)) {
-			printk("PAX: VMMIRROR: mlock bug in %s, %08lx\n", current->comm, vma->vm_start);
-			return -ENOMEM;
-		}
-
-		start_m = start + vma->vm_mirror;
-		end_m = end + vma->vm_mirror;
-		if (newflags & VM_LOCKED)
-			newflags_m = vma_m->vm_flags | VM_LOCKED;
-		else
-			newflags_m = vma_m->vm_flags & ~VM_LOCKED;
-		ret = __mlock_fixup(vma_m, &prev_m, start_m, end_m, newflags_m);
-		if (ret)
-			return ret;
-	}
-#endif
-
-	ret = __mlock_fixup(vma, prev, start, end, newflags);
-	if (ret)
-		return ret;
-
-	/*
-	 * vm_flags is protected by the mmap_sem held in write mode.
-	 * It's okay if try_to_unmap_one unmaps a page just after we
-	 * set VM_LOCKED, make_pages_present below will bring it back.
-	 */
-	vma->vm_flags = newflags;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (vma->vm_flags & VM_MIRROR)
-		vma_m->vm_flags = newflags_m;
-#endif
-
-	/*
-	 * Keep track of amount of locked VM.
-	 */
-	pages = (end - start) >> PAGE_SHIFT;
-	if (newflags & VM_LOCKED) {
-		pages = -pages;
-		if (!(newflags & VM_IO))
-			ret = make_pages_present(start, end);
-	}
-
-	mm->locked_vm -= pages;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (vma->vm_flags & VM_MIRROR)
-		mm->locked_vm -= pages;
-#endif
-
-	if (ret == -ENOMEM)
-		ret = -EAGAIN;
-	return ret;
-}
-
-static int __mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
-	unsigned long start, unsigned long end, unsigned int newflags)
-{
-	struct mm_struct * mm = vma->vm_mm;
 	pgoff_t pgoff;
+	int pages;
 	int ret = 0;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+#endif
 
 	if (newflags == vma->vm_flags) {
 		*prev = vma;
@@ -101,7 +46,7 @@ static int __mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **pre
 			  vma->vm_file, pgoff, vma_policy(vma));
 	if (*prev) {
 		vma = *prev;
-		goto out;
+		goto success;
 	}
 
 	*prev = vma;
@@ -112,9 +57,43 @@ static int __mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **pre
 			goto out;
 	}
 
-	if (end != vma->vm_end)
+	if (end != vma->vm_end) {
 		ret = split_vma(mm, vma, end, 0);
+		if (ret)
+			goto out;
+	}
 
+success:
+	/*
+	 * vm_flags is protected by the mmap_sem held in write mode.
+	 * It's okay if try_to_unmap_one unmaps a page just after we
+	 * set VM_LOCKED, make_pages_present below will bring it back.
+	 */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	vma_m = pax_find_mirror_vma(vma);
+	if (vma_m)
+		vma_m->vm_flags = newflags & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT);
+#endif
+
+	vma->vm_flags = newflags;
+
+	/*
+	 * Keep track of amount of locked VM.
+	 */
+	pages = (end - start) >> PAGE_SHIFT;
+	if (newflags & VM_LOCKED) {
+		pages = -pages;
+		if (!(newflags & VM_IO))
+			ret = make_pages_present(start, end);
+	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma_m)
+		pages *= 2;
+#endif
+
+	mm->locked_vm -= pages;
 out:
 	if (ret == -ENOMEM)
 		ret = -EAGAIN;
@@ -223,10 +202,10 @@ asmlinkage long sys_munlock(unsigned long start, size_t len)
 static int do_mlockall(int flags)
 {
 	struct vm_area_struct * vma, * prev = NULL;
-	unsigned int def_flags = 0;
+	unsigned int def_flags = current->mm->def_flags & ~VM_LOCKED;
 
 	if (flags & MCL_FUTURE)
-		def_flags = VM_LOCKED;
+		def_flags |= VM_LOCKED;
 	current->mm->def_flags = def_flags;
 	if (flags == MCL_FUTURE)
 		goto out;
@@ -234,16 +213,7 @@ static int do_mlockall(int flags)
 	for (vma = current->mm->mmap; vma ; vma = prev->vm_next) {
 		unsigned int newflags;
 
-#ifdef CONFIG_PAX_SEGMEXEC
-		if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
-			if (vma->vm_end > SEGMEXEC_TASK_SIZE)
-				break;
-		} else
-#endif
-
-		if (vma->vm_end > TASK_SIZE)
-			break;
-
+		BUG_ON(vma->vm_end > TASK_SIZE);
 		newflags = vma->vm_flags | VM_LOCKED;
 		if (!(flags & MCL_CURRENT))
 			newflags &= ~VM_LOCKED;

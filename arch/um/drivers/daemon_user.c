@@ -14,7 +14,6 @@
 #include "net_user.h"
 #include "daemon.h"
 #include "kern_util.h"
-#include "user_util.h"
 #include "user.h"
 #include "os.h"
 #include "um_malloc.h"
@@ -39,11 +38,11 @@ static struct sockaddr_un *new_addr(void *name, int len)
 	sun = um_kmalloc(sizeof(struct sockaddr_un));
 	if(sun == NULL){
 		printk("new_addr: allocation of sockaddr_un failed\n");
-		return(NULL);
+		return NULL;
 	}
 	sun->sun_family = AF_UNIX;
 	memcpy(sun->sun_path, name, len);
-	return(sun);
+	return sun;
 }
 
 static int connect_to_switch(struct daemon_data *pri)
@@ -56,30 +55,31 @@ static int connect_to_switch(struct daemon_data *pri)
 
 	pri->control = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(pri->control < 0){
+		err = -errno;
 		printk("daemon_open : control socket failed, errno = %d\n", 
-		       errno);		
-		return(-errno);
+		       -err);
+		return err;
 	}
 
 	if(connect(pri->control, (struct sockaddr *) ctl_addr, 
 		   sizeof(*ctl_addr)) < 0){
-		printk("daemon_open : control connect failed, errno = %d\n",
-		       errno);
 		err = -errno;
+		printk("daemon_open : control connect failed, errno = %d\n",
+		       -err);
 		goto out;
 	}
 
 	fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if(fd < 0){
-		printk("daemon_open : data socket failed, errno = %d\n", 
-		       errno);
 		err = -errno;
+		printk("daemon_open : data socket failed, errno = %d\n",
+		       -err);
 		goto out;
 	}
 	if(bind(fd, (struct sockaddr *) local_addr, sizeof(*local_addr)) < 0){
-		printk("daemon_open : data bind failed, errno = %d\n", 
-		       errno);
 		err = -errno;
+		printk("daemon_open : data bind failed, errno = %d\n",
+		       -err);
 		goto out_close;
 	}
 
@@ -111,7 +111,7 @@ static int connect_to_switch(struct daemon_data *pri)
 	}
 
 	pri->data_addr = sun;
-	return(fd);
+	return fd;
 
  out_free:
 	kfree(sun);
@@ -119,10 +119,10 @@ static int connect_to_switch(struct daemon_data *pri)
 	os_close_file(fd);
  out:
 	os_close_file(pri->control);
-	return(err);
+	return err;
 }
 
-static void daemon_user_init(void *data, void *dev)
+static int daemon_user_init(void *data, void *dev)
 {
 	struct daemon_data *pri = data;
 	struct timeval tv;
@@ -145,13 +145,16 @@ static void daemon_user_init(void *data, void *dev)
 	if(pri->fd < 0){
 		kfree(pri->local_addr);
 		pri->local_addr = NULL;
+		return pri->fd;
 	}
+
+	return 0;
 }
 
 static int daemon_open(void *data)
 {
 	struct daemon_data *pri = data;
-	return(pri->fd);
+	return pri->fd;
 }
 
 static void daemon_remove(void *data)
@@ -175,12 +178,12 @@ int daemon_user_write(int fd, void *buf, int len, struct daemon_data *pri)
 {
 	struct sockaddr_un *data_addr = pri->data_addr;
 
-	return(net_sendto(fd, buf, len, data_addr, sizeof(*data_addr)));
+	return net_sendto(fd, buf, len, data_addr, sizeof(*data_addr));
 }
 
 static int daemon_set_mtu(int mtu, void *data)
 {
-	return(mtu);
+	return mtu;
 }
 
 const struct net_user_info daemon_user_info = {
@@ -193,14 +196,3 @@ const struct net_user_info daemon_user_info = {
 	.delete_address = NULL,
 	.max_packet	= MAX_PACKET - ETH_HEADER_OTHER
 };
-
-/*
- * Overrides for Emacs so that we follow Linus's tabbing style.
- * Emacs will notice this stuff at the end of the file and automatically
- * adjust the settings for this buffer only.  This must remain at the end
- * of the file.
- * ---------------------------------------------------------------------------
- * Local variables:
- * c-file-style: "linux"
- * End:
- */

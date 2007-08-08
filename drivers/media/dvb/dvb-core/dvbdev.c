@@ -27,7 +27,6 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -201,12 +200,12 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 {
 	struct dvb_device *dvbdev;
 	struct file_operations *dvbdevfops;
-
+	struct class_device *clsdev;
 	int id;
 
 	mutex_lock(&dvbdev_register_lock);
 
-	if ((id = dvbdev_get_free_id (adap, type)) < 0) {
+	if ((id = dvbdev_get_free_id (adap, type)) < 0){
 		mutex_unlock(&dvbdev_register_lock);
 		*pdvbdev = NULL;
 		printk ("%s: could get find free device id...\n", __FUNCTION__);
@@ -215,14 +214,14 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 
 	*pdvbdev = dvbdev = kmalloc(sizeof(struct dvb_device), GFP_KERNEL);
 
-	if (!dvbdev) {
+	if (!dvbdev){
 		mutex_unlock(&dvbdev_register_lock);
 		return -ENOMEM;
 	}
 
 	dvbdevfops = kzalloc(sizeof(struct file_operations), GFP_KERNEL);
 
-	if (!dvbdevfops) {
+	if (!dvbdevfops){
 		kfree (dvbdev);
 		mutex_unlock(&dvbdev_register_lock);
 		return -ENOMEM;
@@ -234,6 +233,7 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 	dvbdev->adapter = adap;
 	dvbdev->priv = priv;
 	dvbdev->fops = dvbdevfops;
+	init_waitqueue_head (&dvbdev->wait_queue);
 
 	memcpy(dvbdev->fops, template->fops, sizeof(struct file_operations));
 	dvbdev->fops->owner = adap->module;
@@ -242,8 +242,15 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 
 	mutex_unlock(&dvbdev_register_lock);
 
-	class_device_create(dvb_class, NULL, MKDEV(DVB_MAJOR, nums2minor(adap->num, type, id)),
-			    adap->device, "dvb%d.%s%d", adap->num, dnames[type], id);
+	clsdev = class_device_create(dvb_class, NULL, MKDEV(DVB_MAJOR,
+				     nums2minor(adap->num, type, id)),
+				     adap->device, "dvb%d.%s%d", adap->num,
+				     dnames[type], id);
+	if (IS_ERR(clsdev)) {
+		printk(KERN_ERR "%s: failed to create device dvb%d.%s%d (%ld)\n",
+		       __FUNCTION__, adap->num, dnames[type], id, PTR_ERR(clsdev));
+		return PTR_ERR(clsdev);
+	}
 
 	dprintk("DVB: register adapter%d/%s%d @ minor: %i (0x%02x)\n",
 		adap->num, dnames[type], id, nums2minor(adap->num, type, id),
@@ -431,7 +438,7 @@ static void __exit exit_dvbdev(void)
 	unregister_chrdev_region(MKDEV(DVB_MAJOR, 0), MAX_DVB_MINORS);
 }
 
-module_init(init_dvbdev);
+subsys_initcall(init_dvbdev);
 module_exit(exit_dvbdev);
 
 MODULE_DESCRIPTION("DVB Core Driver");

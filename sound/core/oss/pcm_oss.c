@@ -28,7 +28,6 @@
 
 #include <sound/driver.h>
 #include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
@@ -2889,7 +2888,7 @@ static void snd_pcm_oss_proc_done(struct snd_pcm *pcm)
  *  ENTRY functions
  */
 
-static struct file_operations snd_pcm_oss_f_reg =
+static const struct file_operations snd_pcm_oss_f_reg =
 {
 	.owner =	THIS_MODULE,
 	.read =		snd_pcm_oss_read,

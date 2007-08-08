@@ -53,9 +53,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/ioport.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/smp_lock.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/timer.h>
@@ -63,7 +61,7 @@
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
 #include <linux/device.h>
-#include <linux/usb_ch9.h>
+#include <linux/usb/ch9.h>
 #include <linux/usb_gadget.h>
 
 #include <asm/byteorder.h>
@@ -2442,9 +2440,9 @@ static void handle_stat0_irqs (struct net2280 *dev, u32 stat)
 
 		tmp = 0;
 
-#define	w_value		le16_to_cpup (&u.r.wValue)
-#define	w_index		le16_to_cpup (&u.r.wIndex)
-#define	w_length	le16_to_cpup (&u.r.wLength)
+#define	w_value		le16_to_cpu(u.r.wValue)
+#define	w_index		le16_to_cpu(u.r.wIndex)
+#define	w_length	le16_to_cpu(u.r.wLength)
 
 		/* ack the irq */
 		writel (1 << SETUP_PACKET_INTERRUPT, &dev->regs->irqstat0);

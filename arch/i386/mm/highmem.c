@@ -26,23 +26,30 @@ void kunmap(struct page *page)
  * However when holding an atomic kmap is is not legal to sleep, so atomic
  * kmaps are appropriate for short, tight code paths only.
  */
-void *kmap_atomic(struct page *page, enum km_type type)
+void *kmap_atomic_prot(struct page *page, enum km_type type, pgprot_t prot)
 {
 	enum fixed_addresses idx;
 	unsigned long vaddr;
 
 	/* even !CONFIG_PREEMPT needs this, for in_atomic in do_page_fault */
 	pagefault_disable();
+
+	idx = type + KM_TYPE_NR*smp_processor_id();
+	BUG_ON(!pte_none(*(kmap_pte-idx)));
+
 	if (!PageHighMem(page))
 		return page_address(page);
 
-	idx = type + KM_TYPE_NR*smp_processor_id();
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
-	if (!pte_none(*(kmap_pte-idx)))
-		BUG();
-	set_pte(kmap_pte-idx, mk_pte(page, kmap_prot));
+	set_pte(kmap_pte-idx, mk_pte(page, prot));
+	arch_flush_lazy_mmu_mode();
 
 	return (void*) vaddr;
+}
+
+void *kmap_atomic(struct page *page, enum km_type type)
+{
+	return kmap_atomic_prot(page, type, kmap_prot);
 }
 
 void kunmap_atomic(void *kvaddr, enum km_type type)
@@ -65,6 +72,7 @@ void kunmap_atomic(void *kvaddr, enum km_type type)
 #endif
 	}
 
+	arch_flush_lazy_mmu_mode();
 	pagefault_enable();
 }
 
@@ -81,6 +89,7 @@ void *kmap_atomic_pfn(unsigned long pfn, enum km_type type)
 	idx = type + KM_TYPE_NR*smp_processor_id();
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 	set_pte(kmap_pte-idx, pfn_pte(pfn, kmap_prot));
+	arch_flush_lazy_mmu_mode();
 
 	return (void*) vaddr;
 }

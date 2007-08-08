@@ -59,6 +59,7 @@ extern void *__alloc_bootmem_core(struct bootmem_data *bdata,
 				  unsigned long align,
 				  unsigned long goal,
 				  unsigned long limit);
+extern void *alloc_bootmem_high_node(pg_data_t *pgdat, unsigned long size);
 
 #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
 extern void reserve_bootmem(unsigned long addr, unsigned long size);
@@ -108,7 +109,7 @@ static inline void *alloc_remap(int nid, unsigned long size)
 #endif /* CONFIG_HAVE_ARCH_ALLOC_REMAP */
 
 extern unsigned long __meminitdata nr_kernel_pages;
-extern unsigned long nr_all_pages;
+extern unsigned long __meminitdata nr_all_pages;
 
 extern void *alloc_large_system_hash(const char *tablename,
 				     unsigned long bucketsize,
@@ -122,9 +123,9 @@ extern void *alloc_large_system_hash(const char *tablename,
 #define HASH_EARLY	0x00000001	/* Allocating during early boot? */
 
 /* Only NUMA needs hash distribution.
- * IA64 is known to have sufficient vmalloc space.
+ * IA64 and x86_64 have sufficient vmalloc space.
  */
-#if defined(CONFIG_NUMA) && defined(CONFIG_IA64)
+#if defined(CONFIG_NUMA) && (defined(CONFIG_IA64) || defined(CONFIG_X86_64))
 #define HASHDIST_DEFAULT 1
 #else
 #define HASHDIST_DEFAULT 0

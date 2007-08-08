@@ -115,6 +115,9 @@
 #define I2C_DRIVERID_KS0127	86	/* Samsung ks0127 video decoder */
 #define I2C_DRIVERID_TLV320AIC23B 87	/* TI TLV320AIC23B audio codec  */
 #define I2C_DRIVERID_ISL1208	88	/* Intersil ISL1208 RTC		*/
+#define I2C_DRIVERID_WM8731		89	/* Wolfson WM8731 audio codec */
+#define I2C_DRIVERID_WM8750		90	/* Wolfson WM8750 audio codec */
+#define I2C_DRIVERID_WM8753		91	/* Wolfson WM8753 audio codec */
 
 #define I2C_DRIVERID_I2CDEV	900
 #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
@@ -230,7 +233,6 @@
 #define I2C_HW_SMBUS_PIIX4	0x040000
 #define I2C_HW_SMBUS_ALI15X3	0x040001
 #define I2C_HW_SMBUS_VIA2	0x040002
-#define I2C_HW_SMBUS_VOODOO3	0x040003
 #define I2C_HW_SMBUS_I801	0x040004
 #define I2C_HW_SMBUS_AMD756	0x040005
 #define I2C_HW_SMBUS_SIS5595	0x040006
@@ -246,12 +248,10 @@
 #define I2C_HW_SMBUS_OV519	0x040010 /* OV519 USB 1.1 webcam IC */
 #define I2C_HW_SMBUS_OVFX2	0x040011 /* Cypress/OmniVision FX2 webcam */
 #define I2C_HW_SMBUS_CAFE	0x040012 /* Marvell 88ALP01 "CAFE" cam  */
+#define I2C_HW_SMBUS_ALI1563	0x040013
 
 /* --- ISA pseudo-adapter						*/
 #define I2C_HW_ISA		0x050000
-
-/* --- IPMI pseudo-adapter						*/
-#define I2C_HW_IPMI		0x0b0000
 
 /* --- IPMB adapter						*/
 #define I2C_HW_IPMB		0x0c0000
@@ -259,8 +259,9 @@
 /* --- MCP107 adapter */
 #define I2C_HW_MPC107		0x0d0000
 
-/* --- Marvell mv64xxx i2c adapter */
+/* --- Embedded adapters */
 #define I2C_HW_MV64XXX		0x190000
+#define I2C_HW_BLACKFIN		0x190001 /* ADI Blackfin I2C TWI driver */
 
 /* --- Miscellaneous adapters */
 #define I2C_HW_SAA7146		0x060000 /* SAA7146 video decoder bus */

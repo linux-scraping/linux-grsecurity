@@ -28,7 +28,6 @@
 #include <linux/module.h>
 
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/timer.h>
 #include <linux/types.h>
@@ -37,7 +36,6 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/proc_fs.h>
-#include <linux/smp_lock.h>
 #include <linux/vmalloc.h>
 #include <linux/moduleparam.h>
 
@@ -51,10 +49,10 @@
 #include "scsi_logging.h"
 #include "scsi_debug.h"
 
-#define SCSI_DEBUG_VERSION "1.80"
-static const char * scsi_debug_version_date = "20061018";
+#define SCSI_DEBUG_VERSION "1.81"
+static const char * scsi_debug_version_date = "20070104";
 
-/* Additional Sense Code (ASC) used */
+/* Additional Sense Code (ASC) */
 #define NO_ADDITIONAL_SENSE 0x0
 #define LOGICAL_UNIT_NOT_READY 0x4
 #define UNRECOVERED_READ_ERR 0x11
@@ -65,8 +63,12 @@ static const char * scsi_debug_version_date = "20061018";
 #define INVALID_FIELD_IN_PARAM_LIST 0x26
 #define POWERON_RESET 0x29
 #define SAVING_PARAMS_UNSUP 0x39
+#define TRANSPORT_PROBLEM 0x4b
 #define THRESHOLD_EXCEEDED 0x5d
 #define LOW_POWER_COND_ON 0x5e
+
+/* Additional Sense Code Qualifier (ASCQ) */
+#define ACK_NAK_TO 0x3
 
 #define SDEBUG_TAGGED_QUEUING 0 /* 0 | MSG_SIMPLE_TAG | MSG_ORDERED_TAG */
 
@@ -95,15 +97,20 @@ static const char * scsi_debug_version_date = "20061018";
 #define SCSI_DEBUG_OPT_MEDIUM_ERR   2
 #define SCSI_DEBUG_OPT_TIMEOUT   4
 #define SCSI_DEBUG_OPT_RECOVERED_ERR   8
+#define SCSI_DEBUG_OPT_TRANSPORT_ERR   16
 /* When "every_nth" > 0 then modulo "every_nth" commands:
  *   - a no response is simulated if SCSI_DEBUG_OPT_TIMEOUT is set
  *   - a RECOVERED_ERROR is simulated on successful read and write
  *     commands if SCSI_DEBUG_OPT_RECOVERED_ERR is set.
+ *   - a TRANSPORT_ERROR is simulated on successful read and write
+ *     commands if SCSI_DEBUG_OPT_TRANSPORT_ERR is set.
  *
  * When "every_nth" < 0 then after "- every_nth" commands:
  *   - a no response is simulated if SCSI_DEBUG_OPT_TIMEOUT is set
  *   - a RECOVERED_ERROR is simulated on successful read and write
  *     commands if SCSI_DEBUG_OPT_RECOVERED_ERR is set.
+ *   - a TRANSPORT_ERROR is simulated on successful read and write
+ *     commands if SCSI_DEBUG_OPT_TRANSPORT_ERR is set.
  * This will continue until some other action occurs (e.g. the user
  * writing a new value (other than -1 or 1) to every_nth via sysfs).
  */
@@ -315,6 +322,7 @@ int scsi_debug_queuecommand(struct scsi_cmnd * SCpnt, done_funct_t done)
 	int target = SCpnt->device->id;
 	struct sdebug_dev_info * devip = NULL;
 	int inj_recovered = 0;
+	int inj_transport = 0;
 	int delay_override = 0;
 
 	if (done == NULL)
@@ -352,6 +360,8 @@ int scsi_debug_queuecommand(struct scsi_cmnd * SCpnt, done_funct_t done)
 			return 0; /* ignore command causing timeout */
 		else if (SCSI_DEBUG_OPT_RECOVERED_ERR & scsi_debug_opts)
 			inj_recovered = 1; /* to reads and writes below */
+		else if (SCSI_DEBUG_OPT_TRANSPORT_ERR & scsi_debug_opts)
+			inj_transport = 1; /* to reads and writes below */
         }
 
 	if (devip->wlun) {
@@ -468,7 +478,11 @@ int scsi_debug_queuecommand(struct scsi_cmnd * SCpnt, done_funct_t done)
 			mk_sense_buffer(devip, RECOVERED_ERROR,
 					THRESHOLD_EXCEEDED, 0);
 			errsts = check_condition_result;
-		}
+		} else if (inj_transport && (0 == errsts)) {
+                        mk_sense_buffer(devip, ABORTED_COMMAND,
+                                        TRANSPORT_PROBLEM, ACK_NAK_TO);
+                        errsts = check_condition_result;
+                }
 		break;
 	case REPORT_LUNS:	/* mandatory, ignore unit attention */
 		delay_override = 1;
@@ -530,6 +544,9 @@ int scsi_debug_queuecommand(struct scsi_cmnd * SCpnt, done_funct_t done)
 	case SYNCHRONIZE_CACHE:
 		delay_override = 1;
 		errsts = check_readiness(SCpnt, 0, devip);
+		break;
+	case WRITE_BUFFER:
+		errsts = check_readiness(SCpnt, 1, devip);
 		break;
 	default:
 		if (SCSI_DEBUG_OPT_NOISE & scsi_debug_opts)
@@ -2001,7 +2018,7 @@ static int scsi_debug_slave_configure(struct scsi_device * sdp)
 		sdp->host->max_cmd_len = SCSI_DEBUG_MAX_CMD_LEN;
 	devip = devInfoReg(sdp);
 	if (NULL == devip)
-		return 1;       /* no resources, will be marked offline */
+		return 1;	/* no resources, will be marked offline */
 	sdp->hostdata = devip;
 	if (sdp->host->cmd_per_lun)
 		scsi_adjust_queue_depth(sdp, SDEBUG_TAGGED_QUEUING,
@@ -2394,7 +2411,7 @@ MODULE_PARM_DESC(max_luns, "number of LUNs per target to simulate(def=1)");
 MODULE_PARM_DESC(no_lun_0, "no LU number 0 (def=0 -> have lun 0)");
 MODULE_PARM_DESC(num_parts, "number of partitions(def=0)");
 MODULE_PARM_DESC(num_tgts, "number of targets per host to simulate(def=1)");
-MODULE_PARM_DESC(opts, "1->noise, 2->medium_error, 4->... (def=0)");
+MODULE_PARM_DESC(opts, "1->noise, 2->medium_err, 4->timeout, 8->recovered_err... (def=0)");
 MODULE_PARM_DESC(ptype, "SCSI peripheral type(def=0[disk])");
 MODULE_PARM_DESC(scsi_level, "SCSI level to simulate(def=5[SPC-3])");
 MODULE_PARM_DESC(virtual_gb, "virtual gigabyte size (def=0 -> use dev_size_mb)");
@@ -2949,7 +2966,6 @@ static int sdebug_add_adapter(void)
         struct list_head *lh, *lh_sf;
 
         sdbg_host = kzalloc(sizeof(*sdbg_host),GFP_KERNEL);
-
         if (NULL == sdbg_host) {
                 printk(KERN_ERR "%s: out of memory at line %d\n",
                        __FUNCTION__, __LINE__);

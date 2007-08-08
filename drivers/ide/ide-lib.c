@@ -69,123 +69,41 @@ char *ide_xfer_verbose (u8 xfer_rate)
 EXPORT_SYMBOL(ide_xfer_verbose);
 
 /**
- *	ide_dma_speed	-	compute DMA speed
- *	@drive: drive
- *	@mode:	modes available
- *
- *	Checks the drive capabilities and returns the speed to use
- *	for the DMA transfer.  Returns 0 if the drive is incapable
- *	of DMA transfers.
- */
- 
-u8 ide_dma_speed(ide_drive_t *drive, u8 mode)
-{
-	struct hd_driveid *id   = drive->id;
-	ide_hwif_t *hwif	= HWIF(drive);
-	u8 ultra_mask, mwdma_mask, swdma_mask;
-	u8 speed = 0;
-
-	if (drive->media != ide_disk && hwif->atapi_dma == 0)
-		return 0;
-
-	/* Capable of UltraDMA modes? */
-	ultra_mask = id->dma_ultra & hwif->ultra_mask;
-
-	if (!(id->field_valid & 4))
-		mode = 0;	/* fallback to MW/SW DMA if no UltraDMA */
-
-	switch (mode) {
-	case 4:
-		if (ultra_mask & 0x40) {
-			speed = XFER_UDMA_6;
-			break;
-		}
-	case 3:
-		if (ultra_mask & 0x20) {
-			speed = XFER_UDMA_5;
-			break;
-		}
-	case 2:
-		if (ultra_mask & 0x10) {
-			speed = XFER_UDMA_4;
-			break;
-		}
-		if (ultra_mask & 0x08) {
-			speed = XFER_UDMA_3;
-			break;
-		}
-	case 1:
-		if (ultra_mask & 0x04) {
-			speed = XFER_UDMA_2;
-			break;
-		}
-		if (ultra_mask & 0x02) {
-			speed = XFER_UDMA_1;
-			break;
-		}
-		if (ultra_mask & 0x01) {
-			speed = XFER_UDMA_0;
-			break;
-		}
-	case 0:
-		mwdma_mask = id->dma_mword & hwif->mwdma_mask;
-
-		if (mwdma_mask & 0x04) {
-			speed = XFER_MW_DMA_2;
-			break;
-		}
-		if (mwdma_mask & 0x02) {
-			speed = XFER_MW_DMA_1;
-			break;
-		}
-		if (mwdma_mask & 0x01) {
-			speed = XFER_MW_DMA_0;
-			break;
-		}
-
-		swdma_mask = id->dma_1word & hwif->swdma_mask;
-
-		if (swdma_mask & 0x04) {
-			speed = XFER_SW_DMA_2;
-			break;
-		}
-		if (swdma_mask & 0x02) {
-			speed = XFER_SW_DMA_1;
-			break;
-		}
-		if (swdma_mask & 0x01) {
-			speed = XFER_SW_DMA_0;
-			break;
-		}
-	}
-
-	return speed;
-}
-EXPORT_SYMBOL(ide_dma_speed);
-
-
-/**
- *	ide_rate_filter		-	return best speed for mode
- *	@mode: modes available
+ *	ide_rate_filter		-	filter transfer mode
+ *	@drive: IDE device
  *	@speed: desired speed
  *
- *	Given the available DMA/UDMA mode this function returns
+ *	Given the available transfer modes this function returns
  *	the best available speed at or below the speed requested.
+ *
+ *	FIXME: filter also PIO/SWDMA/MWDMA modes
  */
 
-u8 ide_rate_filter (u8 mode, u8 speed) 
+u8 ide_rate_filter(ide_drive_t *drive, u8 speed)
 {
 #ifdef CONFIG_BLK_DEV_IDEDMA
-	static u8 speed_max[] = {
-		XFER_MW_DMA_2, XFER_UDMA_2, XFER_UDMA_4,
-		XFER_UDMA_5, XFER_UDMA_6
-	};
+	ide_hwif_t *hwif = drive->hwif;
+	u8 mask = hwif->ultra_mask, mode = XFER_MW_DMA_2;
+
+	if (hwif->udma_filter)
+		mask = hwif->udma_filter(drive);
+
+	/*
+	 * TODO: speed > XFER_UDMA_2 extra check is needed to avoid false
+	 * cable warning from eighty_ninty_three(), moving ide_rate_filter()
+	 * calls from ->speedproc to core code will make this hack go away
+	 */
+	if (speed > XFER_UDMA_2) {
+		if ((mask & 0x78) && (eighty_ninty_three(drive) == 0))
+			mask &= 0x07;
+	}
+
+	if (mask)
+		mode = fls(mask) - 1 + XFER_UDMA_0;
 
 //	printk("%s: mode 0x%02x, speed 0x%02x\n", __FUNCTION__, mode, speed);
 
-	/* So that we remember to update this if new modes appear */
-	BUG_ON(mode > 4);
-	return min(speed, speed_max[mode]);
+	return min(speed, mode);
 #else /* !CONFIG_BLK_DEV_IDEDMA */
 	return min(speed, (u8)XFER_PIO_4);
 #endif /* CONFIG_BLK_DEV_IDEDMA */
@@ -193,17 +111,20 @@ u8 ide_rate_filter (u8 mode, u8 speed)
 
 EXPORT_SYMBOL(ide_rate_filter);
 
-int ide_dma_enable (ide_drive_t *drive)
+int ide_use_fast_pio(ide_drive_t *drive)
 {
-	ide_hwif_t *hwif	= HWIF(drive);
-	struct hd_driveid *id	= drive->id;
+	struct hd_driveid *id = drive->id;
 
-	return ((int)	((((id->dma_ultra >> 8) & hwif->ultra_mask) ||
-			  ((id->dma_mword >> 8) & hwif->mwdma_mask) ||
-			  ((id->dma_1word >> 8) & hwif->swdma_mask)) ? 1 : 0));
+	if ((id->capability & 1) && drive->autodma)
+		return 1;
+
+	if ((id->capability & 8) || (id->field_valid & 2))
+		return 1;
+
+	return 0;
 }
 
-EXPORT_SYMBOL(ide_dma_enable);
+EXPORT_SYMBOL_GPL(ide_use_fast_pio);
 
 /*
  * Standard (generic) timings for PIO modes, from ATA2 specification.
@@ -330,16 +251,16 @@ static int ide_scan_pio_blacklist (char *model)
 
 /**
  *	ide_get_best_pio_mode	-	get PIO mode from drive
- *	@driver: drive to consider
+ *	@drive: drive to consider
  *	@mode_wanted: preferred mode
- *	@max_mode: highest allowed
- *	@d: pio data
+ *	@max_mode: highest allowed mode
+ *	@d: PIO data
  *
  *	This routine returns the recommended PIO settings for a given drive,
  *	based on the drive->id information and the ide_pio_blacklist[].
- *	This is used by most chipset support modules when "auto-tuning".
  *
- *	Drive PIO mode auto selection
+ *	Drive PIO mode is auto-selected if 255 is passed as mode_wanted.
+ *	This is used by most chipset support modules when "auto-tuning".
  */
 
 u8 ide_get_best_pio_mode (ide_drive_t *drive, u8 mode_wanted, u8 max_mode, ide_pio_data_t *d)
@@ -349,15 +270,14 @@ u8 ide_get_best_pio_mode (ide_drive_t *drive, u8 mode_wanted, u8 max_mode, ide_p
 	int use_iordy = 0;
 	struct hd_driveid* id = drive->id;
 	int overridden  = 0;
-	int blacklisted = 0;
 
 	if (mode_wanted != 255) {
 		pio_mode = mode_wanted;
+		use_iordy = (pio_mode > 2);
 	} else if (!drive->id) {
 		pio_mode = 0;
 	} else if ((pio_mode = ide_scan_pio_blacklist(id->model)) != -1) {
 		overridden = 1;
-		blacklisted = 1;
 		use_iordy = (pio_mode > 2);
 	} else {
 		pio_mode = id->tPIO;
@@ -383,19 +303,12 @@ u8 ide_get_best_pio_mode (ide_drive_t *drive, u8 mode_wanted, u8 max_mode, ide_p
 			}
 		}
 
-#if 0
-		if (drive->id->major_rev_num & 0x0004) printk("ATA-2 ");
-#endif
-
 		/*
 		 * Conservative "downgrade" for all pre-ATA2 drives
 		 */
 		if (pio_mode && pio_mode < 4) {
 			pio_mode--;
 			overridden = 1;
-#if 0
-			use_iordy = (pio_mode > 2);
-#endif
 			if (cycle_time && cycle_time < ide_pio_timings[pio_mode].cycle_time)
 				cycle_time = 0; /* use standard timing */
 		}
@@ -409,7 +322,6 @@ u8 ide_get_best_pio_mode (ide_drive_t *drive, u8 mode_wanted, u8 max_mode, ide_p
 		d->cycle_time = cycle_time ? cycle_time : ide_pio_timings[pio_mode].cycle_time;
 		d->use_iordy = use_iordy;
 		d->overridden = overridden;
-		d->blacklisted = blacklisted;
 	}
 	return pio_mode;
 }
@@ -461,8 +373,6 @@ int ide_set_xfer_rate(ide_drive_t *drive, u8 rate)
 	else
 		return -1;
 }
-
-EXPORT_SYMBOL_GPL(ide_set_xfer_rate);
 
 static void ide_dump_opcode(ide_drive_t *drive)
 {

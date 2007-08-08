@@ -407,28 +407,17 @@ static ssize_t ib_ucm_event(struct ib_ucm_file *file,
 
 	mutex_lock(&file->file_mutex);
 	while (list_empty(&file->events)) {
-
-		if (file->filp->f_flags & O_NONBLOCK) {
-			result = -EAGAIN;
-			break;
-		}
-
-		if (signal_pending(current)) {
-			result = -ERESTARTSYS;
-			break;
-		}
-
-		prepare_to_wait(&file->poll_wait, &wait, TASK_INTERRUPTIBLE);
-
 		mutex_unlock(&file->file_mutex);
-		schedule();
+
+		if (file->filp->f_flags & O_NONBLOCK)
+			return -EAGAIN;
+
+		if (wait_event_interruptible(file->poll_wait,
+					     !list_empty(&file->events)))
+			return -ERESTARTSYS;
+
 		mutex_lock(&file->file_mutex);
-
-		finish_wait(&file->poll_wait, &wait);
 	}
-
-	if (result)
-		goto done;
 
 	uevent = list_entry(file->events.next, struct ib_ucm_event, file_list);
 
@@ -1221,7 +1210,7 @@ static void ib_ucm_release_class_dev(struct class_device *class_dev)
 	kfree(dev);
 }
 
-static struct file_operations ucm_fops = {
+static const struct file_operations ucm_fops = {
 	.owner 	 = THIS_MODULE,
 	.open 	 = ib_ucm_open,
 	.release = ib_ucm_close,

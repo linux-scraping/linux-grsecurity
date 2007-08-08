@@ -11,7 +11,6 @@
 #include <linux/socket.h>
 #include <linux/in.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/string.h>
 #include <linux/sockios.h>
@@ -57,7 +56,7 @@ void nr_frames_acked(struct sock *sk, unsigned short nr)
 	 */
 	if (nrom->va != nr) {
 		while (skb_peek(&nrom->ack_queue) != NULL && nrom->va != nr) {
-		        skb = skb_dequeue(&nrom->ack_queue);
+			skb = skb_dequeue(&nrom->ack_queue);
 			kfree_skb(skb);
 			nrom->va = (nrom->va + 1) % NR_MODULUS;
 		}
@@ -227,13 +226,13 @@ void __nr_transmit_reply(struct sk_buff *skb, int mine, unsigned char cmdflags)
 
 	dptr = skb_put(skbn, NR_NETWORK_LEN + NR_TRANSPORT_LEN);
 
-	memcpy(dptr, skb->data + 7, AX25_ADDR_LEN);
+	skb_copy_from_linear_data_offset(skb, 7, dptr, AX25_ADDR_LEN);
 	dptr[6] &= ~AX25_CBIT;
 	dptr[6] &= ~AX25_EBIT;
 	dptr[6] |= AX25_SSSID_SPARE;
 	dptr += AX25_ADDR_LEN;
 
-	memcpy(dptr, skb->data + 0, AX25_ADDR_LEN);
+	skb_copy_from_linear_data(skb, dptr, AX25_ADDR_LEN);
 	dptr[6] &= ~AX25_CBIT;
 	dptr[6] |= AX25_EBIT;
 	dptr[6] |= AX25_SSSID_SPARE;

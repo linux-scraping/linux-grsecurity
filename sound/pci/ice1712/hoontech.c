@@ -325,4 +325,3 @@ struct snd_ice1712_card_info snd_ice1712_hoontech_cards[] __devinitdata = {
 	},
 	{ } /* terminator */
 };
-

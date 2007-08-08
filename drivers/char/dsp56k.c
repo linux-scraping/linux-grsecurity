@@ -25,7 +25,6 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>	/* for kmalloc() and kfree() */
-#include <linux/sched.h>	/* for struct wait_queue etc */
 #include <linux/major.h>
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -33,7 +32,6 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <linux/device.h>
 
 #include <asm/atarihw.h>

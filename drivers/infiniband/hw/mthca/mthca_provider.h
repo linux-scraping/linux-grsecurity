@@ -73,6 +73,7 @@ struct mthca_mtt;
 
 struct mthca_mr {
 	struct ib_mr      ibmr;
+	struct ib_umem   *umem;
 	struct mthca_mtt *mtt;
 };
 
@@ -89,6 +90,7 @@ struct mthca_fmr {
 		struct {
 			struct mthca_mpt_entry *mpt;
 			__be64 *mtts;
+			dma_addr_t dma_handle;
 		} arbel;
 	} mem;
 };

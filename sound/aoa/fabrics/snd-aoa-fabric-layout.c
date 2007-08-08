@@ -724,7 +724,7 @@ static int check_codec(struct aoa_codec *codec,
 		       struct layout_dev *ldev,
 		       struct codec_connect_info *cci)
 {
-	u32 *ref;
+	const u32 *ref;
 	char propname[32];
 	struct codec_connection *cc;
 
@@ -732,7 +732,7 @@ static int check_codec(struct aoa_codec *codec,
 	if (codec->node && (strcmp(codec->node->name, "codec") == 0)) {
 		snprintf(propname, sizeof(propname),
 			 "platform-%s-codec-ref", codec->name);
-		ref = (u32*)get_property(ldev->sound, propname, NULL);
+		ref = of_get_property(ldev->sound, propname, NULL);
 		if (!ref) {
 			printk(KERN_INFO "snd-aoa-fabric-layout: "
 				"required property %s not present\n", propname);
@@ -946,7 +946,7 @@ static struct aoa_fabric layout_fabric = {
 static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 {
 	struct device_node *sound = NULL;
-	unsigned int *layout_id;
+	const unsigned int *layout_id;
 	struct layout *layout;
 	struct layout_dev *ldev = NULL;
 	int err;
@@ -962,7 +962,7 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	}
 	if (!sound) return -ENODEV;
 
-	layout_id = (unsigned int *) get_property(sound, "layout-id", NULL);
+	layout_id = of_get_property(sound, "layout-id", NULL);
 	if (!layout_id)
 		goto outnodev;
 	printk(KERN_INFO "snd-aoa-fabric-layout: found bus with layout %d\n",
@@ -1014,7 +1014,7 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 
 	ldev->gpio.methods->init(&ldev->gpio);
 
-	err = aoa_fabric_register(&layout_fabric);
+	err = aoa_fabric_register(&layout_fabric, &sdev->ofdev.dev);
 	if (err && err != -EALREADY) {
 		printk(KERN_INFO "snd-aoa-fabric-layout: can't use,"
 				 " another fabric is active!\n");
@@ -1034,9 +1034,9 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	list_del(&ldev->list);
 	layouts_list_items--;
  outnodev:
- 	if (sound) of_node_put(sound);
+ 	of_node_put(sound);
  	layout_device = NULL;
- 	if (ldev) kfree(ldev);
+ 	kfree(ldev);
 	return -ENODEV;
 }
 
@@ -1077,8 +1077,6 @@ static int aoa_fabric_layout_suspend(struct soundbus_dev *sdev, pm_message_t sta
 {
 	struct layout_dev *ldev = sdev->ofdev.dev.driver_data;
 
-	printk("aoa_fabric_layout_suspend()\n");
-
 	if (ldev->gpio.methods && ldev->gpio.methods->all_amps_off)
 		ldev->gpio.methods->all_amps_off(&ldev->gpio);
 
@@ -1088,8 +1086,6 @@ static int aoa_fabric_layout_suspend(struct soundbus_dev *sdev, pm_message_t sta
 static int aoa_fabric_layout_resume(struct soundbus_dev *sdev)
 {
 	struct layout_dev *ldev = sdev->ofdev.dev.driver_data;
-
-	printk("aoa_fabric_layout_resume()\n");
 
 	if (ldev->gpio.methods && ldev->gpio.methods->all_amps_off)
 		ldev->gpio.methods->all_amps_restore(&ldev->gpio);
@@ -1107,6 +1103,9 @@ static struct soundbus_driver aoa_soundbus_driver = {
 	.suspend = aoa_fabric_layout_suspend,
 	.resume = aoa_fabric_layout_resume,
 #endif
+	.driver = {
+		.owner = THIS_MODULE,
+	}
 };
 
 static int __init aoa_fabric_layout_init(void)

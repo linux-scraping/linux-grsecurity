@@ -60,6 +60,12 @@ MODULE_LICENSE("GPL");
 MODULE_SUPPORTED_DEVICE("{{RME Hammerfall-DSP},"
 	        "{RME HDSP-9652},"
 		"{RME HDSP-9632}}");
+#ifdef HDSP_FW_LOADER
+MODULE_FIRMWARE("multiface_firmware.bin");
+MODULE_FIRMWARE("multiface_firmware_rev11.bin");
+MODULE_FIRMWARE("digiface_firmware.bin");
+MODULE_FIRMWARE("digiface_firmware_rev11.bin");
+#endif
 
 #define HDSP_MAX_CHANNELS        26
 #define HDSP_MAX_DS_CHANNELS     14
@@ -80,6 +86,7 @@ MODULE_SUPPORTED_DEVICE("{{RME Hammerfall-DSP},"
 /* Write registers. These are defined as byte-offsets from the iobase value.
  */
 #define HDSP_resetPointer               0
+#define HDSP_freqReg			0
 #define HDSP_outputBufferAddress	32
 #define HDSP_inputBufferAddress		36
 #define HDSP_controlRegister		64
@@ -274,6 +281,11 @@ MODULE_SUPPORTED_DEVICE("{{RME Hammerfall-DSP},"
 #define HDSP_Frequency128KHz   (HDSP_QuadSpeed|HDSP_DoubleSpeed|HDSP_Frequency0)
 #define HDSP_Frequency176_4KHz (HDSP_QuadSpeed|HDSP_DoubleSpeed|HDSP_Frequency1)
 #define HDSP_Frequency192KHz   (HDSP_QuadSpeed|HDSP_DoubleSpeed|HDSP_Frequency1|HDSP_Frequency0)
+/* RME says n = 104857600000000, but in the windows MADI driver, I see:
+	return 104857600000000 / rate; // 100 MHz
+	return 110100480000000 / rate; // 105 MHz
+*/
+#define DDS_NUMERATOR 104857600000000ULL;  /*  =  2^20 * 10^8 */
 
 #define hdsp_encode_latency(x)       (((x)<<1) & HDSP_LatencyMask)
 #define hdsp_decode_latency(x)       (((x) & HDSP_LatencyMask)>>1)
@@ -469,6 +481,7 @@ struct hdsp {
 	struct pci_dev       *pci;
 	struct snd_kcontrol *spdif_ctl;
         unsigned short        mixer_matrix[HDSP_MATRIX_MIXER_SIZE];
+	unsigned int          dds_value; /* last value written to freq register */
 };
 
 /* These tables map the ALSA channels 1..N to the channels that we
@@ -598,6 +611,7 @@ static int hdsp_playback_to_output_key (struct hdsp *hdsp, int in, int out)
 		return (64 * out) + (32 + (in));
 	case 0x96:
 	case 0x97:
+	case 0x98:
 		return (32 * out) + (16 + (in));
 	default:
 		return (52 * out) + (26 + (in));
@@ -611,6 +625,7 @@ static int hdsp_input_to_output_key (struct hdsp *hdsp, int in, int out)
 		return (64 * out) + in;
 	case 0x96:
 	case 0x97:
+	case 0x98:
 		return (32 * out) + in;
 	default:
 		return (52 * out) + in;
@@ -938,6 +953,11 @@ static snd_pcm_uframes_t hdsp_hw_pointer(struct hdsp *hdsp)
 static void hdsp_reset_hw_pointer(struct hdsp *hdsp)
 {
 	hdsp_write (hdsp, HDSP_resetPointer, 0);
+	if (hdsp->io_type == H9632 && hdsp->firmware_rev >= 152)
+		/* HDSP_resetPointer = HDSP_freqReg, which is strange and
+		 * requires (?) to write again DDS value after a reset pointer
+		 * (at least, it works like this) */
+		hdsp_write (hdsp, HDSP_freqReg, hdsp->dds_value);
 }
 
 static void hdsp_start_audio(struct hdsp *s)
@@ -980,6 +1000,26 @@ static int hdsp_set_interrupt_interval(struct hdsp *s, unsigned int frames)
 	spin_unlock_irq(&s->lock);
 
 	return 0;
+}
+
+static void hdsp_set_dds_value(struct hdsp *hdsp, int rate)
+{
+	u64 n;
+	u32 r;
+	
+	if (rate >= 112000)
+		rate /= 4;
+	else if (rate >= 56000)
+		rate /= 2;
+
+	n = DDS_NUMERATOR;
+	div64_32(&n, rate, &r);
+	/* n should be less than 2^32 for being written to FREQ register */
+	snd_assert((n >> 32) == 0);
+	/* HDSP_freqReg and HDSP_resetPointer are the same, so keep the DDS
+	   value to write it after a reset */
+	hdsp->dds_value = n;
+	hdsp_write(hdsp, HDSP_freqReg, hdsp->dds_value);
 }
 
 static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
@@ -1089,6 +1129,10 @@ static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
 	hdsp->control_register &= ~HDSP_FrequencyMask;
 	hdsp->control_register |= rate_bits;
 	hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+
+	/* For HDSP9632 rev 152, need to set DDS value in FREQ register */
+	if (hdsp->io_type == H9632 && hdsp->firmware_rev >= 152)
+		hdsp_set_dds_value(hdsp, rate);
 
 	if (rate >= 128000) {
 		hdsp->channel_map = channel_map_H9632_qs;
@@ -3048,11 +3092,83 @@ static int snd_hdsp_get_adat_sync_check(struct snd_kcontrol *kcontrol, struct sn
 	return 0;
 }
 
+#define HDSP_DDS_OFFSET(xname, xindex) \
+{ .iface = SNDRV_CTL_ELEM_IFACE_MIXER, \
+  .name = xname, \
+  .index = xindex, \
+  .info = snd_hdsp_info_dds_offset, \
+  .get = snd_hdsp_get_dds_offset, \
+  .put = snd_hdsp_put_dds_offset \
+}
+
+static int hdsp_dds_offset(struct hdsp *hdsp)
+{
+	u64 n;
+	u32 r;
+	unsigned int dds_value = hdsp->dds_value;
+	int system_sample_rate = hdsp->system_sample_rate;
+
+	n = DDS_NUMERATOR;
+	/*
+	 * dds_value = n / rate
+	 * rate = n / dds_value
+	 */
+	div64_32(&n, dds_value, &r);
+	if (system_sample_rate >= 112000)
+		n *= 4;
+	else if (system_sample_rate >= 56000)
+		n *= 2;
+	return ((int)n) - system_sample_rate;
+}
+
+static int hdsp_set_dds_offset(struct hdsp *hdsp, int offset_hz)
+{
+	int rate = hdsp->system_sample_rate + offset_hz;
+	hdsp_set_dds_value(hdsp, rate);
+	return 0;
+}
+
+static int snd_hdsp_info_dds_offset(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = -5000;
+	uinfo->value.integer.max = 5000;
+	return 0;
+}
+
+static int snd_hdsp_get_dds_offset(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	struct hdsp *hdsp = snd_kcontrol_chip(kcontrol);
+	
+	ucontrol->value.enumerated.item[0] = hdsp_dds_offset(hdsp);
+	return 0;
+}
+
+static int snd_hdsp_put_dds_offset(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	struct hdsp *hdsp = snd_kcontrol_chip(kcontrol);
+	int change;
+	int val;
+	
+	if (!snd_hdsp_use_is_exclusive(hdsp))
+		return -EBUSY;
+	val = ucontrol->value.enumerated.item[0];
+	spin_lock_irq(&hdsp->lock);
+	if (val != hdsp_dds_offset(hdsp))
+		change = (hdsp_set_dds_offset(hdsp, val) == 0) ? 1 : 0;
+	else
+		change = 0;
+	spin_unlock_irq(&hdsp->lock);
+	return change;
+}
+
 static struct snd_kcontrol_new snd_hdsp_9632_controls[] = {
 HDSP_DA_GAIN("DA Gain", 0),
 HDSP_AD_GAIN("AD Gain", 0),
 HDSP_PHONE_GAIN("Phones Gain", 0),
-HDSP_XLR_BREAKOUT_CABLE("XLR Breakout Cable", 0)
+HDSP_XLR_BREAKOUT_CABLE("XLR Breakout Cable", 0),
+HDSP_DDS_OFFSET("DDS Sample Rate Offset", 0)
 };
 
 static struct snd_kcontrol_new snd_hdsp_controls[] = {
@@ -3743,11 +3859,9 @@ static int snd_hdsp_reset(struct snd_pcm_substream *substream)
 	else
 		runtime->status->hw_ptr = 0;
 	if (other) {
-		struct list_head *pos;
 		struct snd_pcm_substream *s;
 		struct snd_pcm_runtime *oruntime = other->runtime;
-		snd_pcm_group_for_each(pos, substream) {
-			s = snd_pcm_group_substream_entry(pos);
+		snd_pcm_group_for_each_entry(s, substream) {
 			if (s == other) {
 				oruntime->status->hw_ptr = runtime->status->hw_ptr;
 				break;
@@ -3896,10 +4010,8 @@ static int snd_hdsp_trigger(struct snd_pcm_substream *substream, int cmd)
 		other = hdsp->playback_substream;
 
 	if (other) {
-		struct list_head *pos;
 		struct snd_pcm_substream *s;
-		snd_pcm_group_for_each(pos, substream) {
-			s = snd_pcm_group_substream_entry(pos);
+		snd_pcm_group_for_each_entry(s, substream) {
 			if (s == other) {
 				snd_pcm_trigger_done(s, substream);
 				if (cmd == SNDRV_PCM_TRIGGER_START)
@@ -4943,6 +5055,7 @@ static int __devinit snd_hdsp_create(struct snd_card *card,
 	hdsp->irq = pci->irq;
 	hdsp->precise_ptr = 0;
 	hdsp->use_midi_tasklet = 1;
+	hdsp->dds_value = 0;
 
 	if ((err = snd_hdsp_initialize_memory(hdsp)) < 0)
 		return err;

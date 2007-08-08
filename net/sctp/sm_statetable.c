@@ -101,7 +101,7 @@ const sctp_sm_table_entry_t *sctp_sm_lookup_event(sctp_event_t event_type,
 	default:
 		/* Yikes!  We got an illegal event type.  */
 		return &bug;
-	};
+	}
 }
 
 #define TYPE_SCTP_FUNC(func) {.fn = func, .name = #func}
@@ -954,7 +954,7 @@ static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][S
 	TYPE_SCTP_EVENT_TIMEOUT_AUTOCLOSE,
 };
 
-static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid, 
+static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid,
 							    sctp_state_t state)
 {
 	if (state > SCTP_STATE_MAX)

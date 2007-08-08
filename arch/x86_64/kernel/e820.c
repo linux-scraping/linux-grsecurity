@@ -17,6 +17,8 @@
 #include <linux/kexec.h>
 #include <linux/module.h>
 #include <linux/mm.h>
+#include <linux/suspend.h>
+#include <linux/pfn.h>
 
 #include <asm/pgtable.h>
 #include <asm/page.h>
@@ -25,7 +27,7 @@
 #include <asm/bootsetup.h>
 #include <asm/sections.h>
 
-struct e820map e820 __initdata;
+struct e820map e820;
 
 /* 
  * PFN of last memory page.
@@ -83,6 +85,13 @@ static inline int bad_addr(unsigned long *addrp, unsigned long size)
 		return 1;
 	}
 
+#ifdef CONFIG_NUMA
+	/* NUMA memory to node map */
+	if (last >= nodemap_addr && addr < nodemap_addr + nodemap_size) {
+		*addrp = nodemap_addr + nodemap_size;
+		return 1;
+	}
+#endif
 	/* XXX ramdisk image here? */ 
 	return 0;
 } 
@@ -91,7 +100,7 @@ static inline int bad_addr(unsigned long *addrp, unsigned long size)
  * This function checks if any part of the range <start,end> is mapped
  * with type.
  */
-int __meminit
+int
 e820_any_mapped(unsigned long start, unsigned long end, unsigned type)
 { 
 	int i;
@@ -105,6 +114,7 @@ e820_any_mapped(unsigned long start, unsigned long end, unsigned type)
 	} 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(e820_any_mapped);
 
 /*
  * This function checks if the entire range <start,end> is mapped with type.
@@ -184,6 +194,37 @@ unsigned long __init e820_end_of_ram(void)
 }
 
 /*
+ * Find the hole size in the range.
+ */
+unsigned long __init e820_hole_size(unsigned long start, unsigned long end)
+{
+	unsigned long ram = 0;
+	int i;
+
+	for (i = 0; i < e820.nr_map; i++) {
+		struct e820entry *ei = &e820.map[i];
+		unsigned long last, addr;
+
+		if (ei->type != E820_RAM ||
+		    ei->addr+ei->size <= start ||
+		    ei->addr >= end)
+			continue;
+
+		addr = round_up(ei->addr, PAGE_SIZE);
+		if (addr < start)
+			addr = start;
+
+		last = round_down(ei->addr + ei->size, PAGE_SIZE);
+		if (last >= end)
+			last = end;
+
+		if (last > addr)
+			ram += last - addr;
+	}
+	return ((end - start) - ram);
+}
+
+/*
  * Mark e820 reserved areas as busy for the resource manager.
  */
 void __init e820_reserve_resources(void)
@@ -217,22 +258,6 @@ void __init e820_reserve_resources(void)
 	}
 }
 
-/* Mark pages corresponding to given address range as nosave */
-static void __init
-e820_mark_nosave_range(unsigned long start, unsigned long end)
-{
-	unsigned long pfn, max_pfn;
-
-	if (start >= end)
-		return;
-
-	printk("Nosave address range: %016lx - %016lx\n", start, end);
-	max_pfn = end >> PAGE_SHIFT;
-	for (pfn = start >> PAGE_SHIFT; pfn < max_pfn; pfn++)
-		if (pfn_valid(pfn))
-			SetPageNosave(pfn_to_page(pfn));
-}
-
 /*
  * Find the ranges of physical addresses that do not correspond to
  * e820 RAM areas and mark the corresponding pages as nosave for software
@@ -251,13 +276,13 @@ void __init e820_mark_nosave_regions(void)
 		struct e820entry *ei = &e820.map[i];
 
 		if (paddr < ei->addr)
-			e820_mark_nosave_range(paddr,
-					round_up(ei->addr, PAGE_SIZE));
+			register_nosave_region(PFN_DOWN(paddr),
+						PFN_UP(ei->addr));
 
 		paddr = round_down(ei->addr + ei->size, PAGE_SIZE);
 		if (ei->type != E820_RAM)
-			e820_mark_nosave_range(round_up(ei->addr, PAGE_SIZE),
-					paddr);
+			register_nosave_region(PFN_UP(ei->addr),
+						PFN_DOWN(paddr));
 
 		if (paddr >= (end_pfn << PAGE_SHIFT))
 			break;
@@ -624,7 +649,7 @@ static int __init parse_memmap_opt(char *p)
 }
 early_param("memmap", parse_memmap_opt);
 
-void finish_e820_parsing(void)
+void __init finish_e820_parsing(void)
 {
 	if (userdef) {
 		printk(KERN_INFO "user-defined physical RAM map:\n");

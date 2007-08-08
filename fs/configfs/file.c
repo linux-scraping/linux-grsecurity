@@ -77,36 +77,6 @@ static int fill_read_buffer(struct dentry * dentry, struct configfs_buffer * buf
 	return ret;
 }
 
-
-/**
- *	flush_read_buffer - push buffer to userspace.
- *	@buffer:	data buffer for file.
- *	@userbuf:	user-passed buffer.
- *	@count:		number of bytes requested.
- *	@ppos:		file position.
- *
- *	Copy the buffer we filled in fill_read_buffer() to userspace.
- *	This is done at the reader's leisure, copying and advancing
- *	the amount they specify each time.
- *	This may be called continuously until the buffer is empty.
- */
-static int flush_read_buffer(struct configfs_buffer * buffer, char __user * buf,
-			     size_t count, loff_t * ppos)
-{
-	int error;
-
-	if (*ppos > buffer->count)
-		return 0;
-
-	if (count > (buffer->count - *ppos))
-		count = buffer->count - *ppos;
-
-	error = copy_to_user(buf,buffer->page + *ppos,count);
-	if (!error)
-		*ppos += count;
-	return error ? -EFAULT : count;
-}
-
 /**
  *	configfs_read_file - read an attribute.
  *	@file:	file pointer.
@@ -139,7 +109,8 @@ configfs_read_file(struct file *file, char __user *buf, size_t count, loff_t *pp
 	}
 	pr_debug("%s: count = %zd, ppos = %lld, buf = %s\n",
 		 __FUNCTION__, count, *ppos, buffer->page);
-	retval = flush_read_buffer(buffer,buf,count,ppos);
+	retval = simple_read_from_buffer(buf, count, ppos, buffer->page,
+					 buffer->count);
 out:
 	up(&buffer->sem);
 	return retval;
@@ -162,14 +133,17 @@ fill_write_buffer(struct configfs_buffer * buffer, const char __user * buf, size
 	int error;
 
 	if (!buffer->page)
-		buffer->page = (char *)get_zeroed_page(GFP_KERNEL);
+		buffer->page = (char *)__get_free_pages(GFP_KERNEL, 0);
 	if (!buffer->page)
 		return -ENOMEM;
 
-	if (count > PAGE_SIZE)
-		count = PAGE_SIZE;
+	if (count >= PAGE_SIZE)
+		count = PAGE_SIZE - 1;
 	error = copy_from_user(buffer->page,buf,count);
 	buffer->needs_read_fill = 1;
+	/* if buf is assumed to contain a string, terminate it by \0,
+	 * so e.g. sscanf() can scan the string easily */
+	buffer->page[count] = 0;
 	return error ? -EFAULT : count;
 }
 

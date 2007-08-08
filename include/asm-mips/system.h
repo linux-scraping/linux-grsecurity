@@ -55,7 +55,7 @@ do {									\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
 	next->thread.emulated_fp = 0;					\
-	(last) = resume(prev, next, next->thread_info);			\
+	(last) = resume(prev, next, task_thread_info(next));		\
 	if (cpu_has_dsp)						\
 		__restore_dsp(current);					\
 } while(0)
@@ -110,7 +110,10 @@ static inline unsigned long __xchg_u32(volatile int * m, unsigned int val)
 		"	move	%2, %z4					\n"
 		"	.set	mips3					\n"
 		"	sc	%2, %1					\n"
-		"	beqz	%2, 1b					\n"
+		"	beqz	%2, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
@@ -118,10 +121,10 @@ static inline unsigned long __xchg_u32(volatile int * m, unsigned int val)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		retval = *m;
 		*m = val;
-		local_irq_restore(flags);	/* implies memory barrier  */
+		raw_local_irq_restore(flags);	/* implies memory barrier  */
 	}
 
 	smp_mb();
@@ -155,7 +158,10 @@ static inline __u64 __xchg_u64(volatile __u64 * m, __u64 val)
 		"1:	lld	%0, %3			# xchg_u64	\n"
 		"	move	%2, %z4					\n"
 		"	scd	%2, %1					\n"
-		"	beqz	%2, 1b					\n"
+		"	beqz	%2, 2f					\n"
+		"	.subsection 2					\n"
+		"2:	b	1b					\n"
+		"	.previous					\n"
 		"	.set	mips0					\n"
 		: "=&r" (retval), "=m" (*m), "=&r" (dummy)
 		: "R" (*m), "Jr" (val)
@@ -163,10 +169,10 @@ static inline __u64 __xchg_u64(volatile __u64 * m, __u64 val)
 	} else {
 		unsigned long flags;
 
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		retval = *m;
 		*m = val;
-		local_irq_restore(flags);	/* implies memory barrier  */
+		raw_local_irq_restore(flags);	/* implies memory barrier  */
 	}
 
 	smp_mb();
@@ -195,12 +201,68 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 }
 
 #define xchg(ptr,x) ((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
-#define tas(ptr) (xchg((ptr),1))
 
 #define __HAVE_ARCH_CMPXCHG 1
 
 static inline unsigned long __cmpxchg_u32(volatile int * m, unsigned long old,
 	unsigned long new)
+{
+	__u32 retval;
+
+	if (cpu_has_llsc && R10000_LLSC_WAR) {
+		__asm__ __volatile__(
+		"	.set	push					\n"
+		"	.set	noat					\n"
+		"	.set	mips3					\n"
+		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+		"	bne	%0, %z3, 2f				\n"
+		"	.set	mips0					\n"
+		"	move	$1, %z4					\n"
+		"	.set	mips3					\n"
+		"	sc	$1, %1					\n"
+		"	beqzl	$1, 1b					\n"
+		"2:							\n"
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
+		: "R" (*m), "Jr" (old), "Jr" (new)
+		: "memory");
+	} else if (cpu_has_llsc) {
+		__asm__ __volatile__(
+		"	.set	push					\n"
+		"	.set	noat					\n"
+		"	.set	mips3					\n"
+		"1:	ll	%0, %2			# __cmpxchg_u32	\n"
+		"	bne	%0, %z3, 2f				\n"
+		"	.set	mips0					\n"
+		"	move	$1, %z4					\n"
+		"	.set	mips3					\n"
+		"	sc	$1, %1					\n"
+		"	beqz	$1, 3f					\n"
+		"2:							\n"
+		"	.subsection 2					\n"
+		"3:	b	1b					\n"
+		"	.previous					\n"
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
+		: "R" (*m), "Jr" (old), "Jr" (new)
+		: "memory");
+	} else {
+		unsigned long flags;
+
+		raw_local_irq_save(flags);
+		retval = *m;
+		if (retval == old)
+			*m = new;
+		raw_local_irq_restore(flags);	/* implies memory barrier  */
+	}
+
+	smp_mb();
+
+	return retval;
+}
+
+static inline unsigned long __cmpxchg_u32_local(volatile int * m,
+	unsigned long old, unsigned long new)
 {
 	__u32 retval;
 
@@ -248,14 +310,65 @@ static inline unsigned long __cmpxchg_u32(volatile int * m, unsigned long old,
 		local_irq_restore(flags);	/* implies memory barrier  */
 	}
 
-	smp_mb();
-
 	return retval;
 }
 
 #ifdef CONFIG_64BIT
 static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
 	unsigned long new)
+{
+	__u64 retval;
+
+	if (cpu_has_llsc && R10000_LLSC_WAR) {
+		__asm__ __volatile__(
+		"	.set	push					\n"
+		"	.set	noat					\n"
+		"	.set	mips3					\n"
+		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+		"	bne	%0, %z3, 2f				\n"
+		"	move	$1, %z4					\n"
+		"	scd	$1, %1					\n"
+		"	beqzl	$1, 1b					\n"
+		"2:							\n"
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
+		: "R" (*m), "Jr" (old), "Jr" (new)
+		: "memory");
+	} else if (cpu_has_llsc) {
+		__asm__ __volatile__(
+		"	.set	push					\n"
+		"	.set	noat					\n"
+		"	.set	mips3					\n"
+		"1:	lld	%0, %2			# __cmpxchg_u64	\n"
+		"	bne	%0, %z3, 2f				\n"
+		"	move	$1, %z4					\n"
+		"	scd	$1, %1					\n"
+		"	beqz	$1, 3f					\n"
+		"2:							\n"
+		"	.subsection 2					\n"
+		"3:	b	1b					\n"
+		"	.previous					\n"
+		"	.set	pop					\n"
+		: "=&r" (retval), "=R" (*m)
+		: "R" (*m), "Jr" (old), "Jr" (new)
+		: "memory");
+	} else {
+		unsigned long flags;
+
+		raw_local_irq_save(flags);
+		retval = *m;
+		if (retval == old)
+			*m = new;
+		raw_local_irq_restore(flags);	/* implies memory barrier  */
+	}
+
+	smp_mb();
+
+	return retval;
+}
+
+static inline unsigned long __cmpxchg_u64_local(volatile int * m,
+	unsigned long old, unsigned long new)
 {
 	__u64 retval;
 
@@ -299,14 +412,16 @@ static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
 		local_irq_restore(flags);	/* implies memory barrier  */
 	}
 
-	smp_mb();
-
 	return retval;
 }
+
 #else
 extern unsigned long __cmpxchg_u64_unsupported_on_32bit_kernels(
 	volatile int * m, unsigned long old, unsigned long new);
 #define __cmpxchg_u64 __cmpxchg_u64_unsupported_on_32bit_kernels
+extern unsigned long __cmpxchg_u64_local_unsupported_on_32bit_kernels(
+	volatile int * m, unsigned long old, unsigned long new);
+#define __cmpxchg_u64_local __cmpxchg_u64_local_unsupported_on_32bit_kernels
 #endif
 
 /* This function doesn't exist, so you'll get a linker error
@@ -326,11 +441,33 @@ static inline unsigned long __cmpxchg(volatile void * ptr, unsigned long old,
 	return old;
 }
 
-#define cmpxchg(ptr,old,new) ((__typeof__(*(ptr)))__cmpxchg((ptr), (unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
+static inline unsigned long __cmpxchg_local(volatile void * ptr,
+	unsigned long old, unsigned long new, int size)
+{
+	switch (size) {
+	case 4:
+		return __cmpxchg_u32_local(ptr, old, new);
+	case 8:
+		return __cmpxchg_u64_local(ptr, old, new);
+	}
+	__cmpxchg_called_with_bad_pointer();
+	return old;
+}
+
+#define cmpxchg(ptr,old,new) \
+	((__typeof__(*(ptr)))__cmpxchg((ptr), \
+		(unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
+
+#define cmpxchg_local(ptr,old,new) \
+	((__typeof__(*(ptr)))__cmpxchg_local((ptr), \
+		(unsigned long)(old), (unsigned long)(new),sizeof(*(ptr))))
 
 extern void set_handler (unsigned long offset, void *addr, unsigned long len);
 extern void set_uncached_handler (unsigned long offset, void *addr, unsigned long len);
-extern void *set_vi_handler (int n, void *addr);
+
+typedef void (*vi_handler_t)(void);
+extern void *set_vi_handler (int n, vi_handler_t addr);
+
 extern void *set_except_vector(int n, void *addr);
 extern unsigned long ebase;
 extern void per_cpu_trap_init(void);

@@ -93,14 +93,10 @@ typedef struct user_i387_struct elf_fpregset_t;
 #define ELF_ET_DYN_BASE         (2 * TASK_SIZE / 3)
 
 #ifdef CONFIG_PAX_ASLR
-#define PAX_ELF_ET_DYN_BASE(tsk)	(test_thread_flag(TIF_IA32) ? 0x08048000UL : 0x400000UL)
+#define PAX_ELF_ET_DYN_BASE	(test_thread_flag(TIF_IA32) ? 0x08048000UL : 0x400000UL)
 
-#define PAX_DELTA_MMAP_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_MMAP_LEN(tsk)		(test_thread_flag(TIF_IA32) ? 16 : 32)
-#define PAX_DELTA_EXEC_LSB(tsk)		PAGE_SHIFT
-#define PAX_DELTA_EXEC_LEN(tsk)		(test_thread_flag(TIF_IA32) ? 16 : 32)
-#define PAX_DELTA_STACK_LSB(tsk)	PAGE_SHIFT
-#define PAX_DELTA_STACK_LEN(tsk)	(test_thread_flag(TIF_IA32) ? 16 : 32)
+#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_IA32) ? 16 : 32)
+#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_IA32) ? 16 : 32)
 #endif
 
 /* regs is struct pt_regs, pr_reg is elf_gregset_t (which is

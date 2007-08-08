@@ -13,7 +13,6 @@
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <linux/miscdevice.h>
-#include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
@@ -569,7 +568,6 @@ void DoC2k_init(struct mtd_info *mtd)
 
 	mtd->type = MTD_NANDFLASH;
 	mtd->flags = MTD_CAP_NANDFLASH;
-	mtd->ecctype = MTD_ECC_RS_DiskOnChip;
 	mtd->size = 0;
 	mtd->erasesize = 0;
 	mtd->writesize = 512;

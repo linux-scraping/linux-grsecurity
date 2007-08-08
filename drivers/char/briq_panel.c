@@ -8,7 +8,6 @@
 
 #include <linux/types.h>
 #include <linux/errno.h>
-#include <linux/sched.h>
 #include <linux/tty.h>
 #include <linux/timer.h>
 #include <linux/kernel.h>
@@ -187,7 +186,7 @@ static ssize_t briq_panel_write(struct file *file, const char __user *buf, size_
 	return len;
 }
 
-static struct file_operations briq_panel_fops = {
+static const struct file_operations briq_panel_fops = {
 	.owner		= THIS_MODULE,
 	.read		= briq_panel_read,
 	.write		= briq_panel_write,
@@ -203,13 +202,16 @@ static struct miscdevice briq_panel_miscdev = {
 
 static int __init briq_panel_init(void)
 {
-	struct device_node *root = find_path_device("/");
+	struct device_node *root = of_find_node_by_path("/");
 	const char *machine;
 	int i;
 
-	machine = get_property(root, "model", NULL);
-	if (!machine || strncmp(machine, "TotalImpact,BRIQ-1", 18) != 0)
+	machine = of_get_property(root, "model", NULL);
+	if (!machine || strncmp(machine, "TotalImpact,BRIQ-1", 18) != 0) {
+		of_node_put(root);
 		return -ENODEV;
+	}
+	of_node_put(root);
 
 	printk(KERN_INFO
 		"briq_panel: v%s Dr. Karsten Jeppesen (kj@totalimpact.com)\n",

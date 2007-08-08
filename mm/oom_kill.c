@@ -147,9 +147,11 @@ unsigned long badness(struct task_struct *p, unsigned long uptime)
 	 * Adjust the score by oomkilladj.
 	 */
 	if (p->oomkilladj) {
-		if (p->oomkilladj > 0)
+		if (p->oomkilladj > 0) {
+			if (!points)
+				points = 1;
 			points <<= p->oomkilladj;
-		else
+		} else
 			points >>= -(p->oomkilladj);
 	}
 
@@ -176,6 +178,8 @@ static inline int constrained_alloc(struct zonelist *zonelist, gfp_t gfp_mask)
 	struct zone **z;
 	nodemask_t nodes;
 	int node;
+
+	nodes_clear(nodes);
 	/* node has memory ? */
 	for_each_online_node(node)
 		if (NODE_DATA(node)->node_present_pages)
@@ -333,7 +337,7 @@ static int oom_kill_task(struct task_struct *p)
 	 */
 	do_each_thread(g, q) {
 		if (q->mm == mm && q->tgid != p->tgid)
-			force_sig(SIGKILL, p);
+			force_sig(SIGKILL, q);
 	} while_each_thread(g, q);
 
 	return 0;
@@ -395,6 +399,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask, int order)
 	struct task_struct *p;
 	unsigned long points = 0;
 	unsigned long freed = 0;
+	int constraint;
 
 	blocking_notifier_call_chain(&oom_notify_list, 0, &freed);
 	if (freed > 0)
@@ -409,14 +414,18 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask, int order)
 		show_mem();
 	}
 
-	cpuset_lock();
-	read_lock(&tasklist_lock);
+	if (sysctl_panic_on_oom == 2)
+		panic("out of memory. Compulsory panic_on_oom is selected.\n");
 
 	/*
 	 * Check if there were limitations on the allocation (only relevant for
 	 * NUMA) that may require different handling.
 	 */
-	switch (constrained_alloc(zonelist, gfp_mask)) {
+	constraint = constrained_alloc(zonelist, gfp_mask);
+	cpuset_lock();
+	read_lock(&tasklist_lock);
+
+	switch (constraint) {
 	case CONSTRAINT_MEMORY_POLICY:
 		oom_kill_process(current, points,
 				"No available memory (MPOL_BIND)");

@@ -17,7 +17,7 @@
 #define RPCDBG_DEBUG		0x0004
 #define RPCDBG_NFS		0x0008
 #define RPCDBG_AUTH		0x0010
-#define RPCDBG_PMAP		0x0020
+#define RPCDBG_BIND		0x0020
 #define RPCDBG_SCHED		0x0040
 #define RPCDBG_TRANS		0x0080
 #define RPCDBG_SVCSOCK		0x0100
@@ -78,7 +78,6 @@ void		rpc_unregister_sysctl(void);
  * module currently registers its sysctl table dynamically, the sysctl path
  * for module FOO is <CTL_SUNRPC, CTL_FOODEBUG>.
  */
-#define CTL_SUNRPC	7249	/* arbitrary and hopefully unused */
 
 enum {
 	CTL_RPCDEBUG = 1,

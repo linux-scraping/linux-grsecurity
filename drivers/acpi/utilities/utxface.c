@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,12 +61,13 @@ ACPI_MODULE_NAME("utxface")
  *              called, so any early initialization belongs here.
  *
  ******************************************************************************/
-acpi_status acpi_initialize_subsystem(void)
+acpi_status __init acpi_initialize_subsystem(void)
 {
 	acpi_status status;
 
 	ACPI_FUNCTION_TRACE(acpi_initialize_subsystem);
 
+	acpi_gbl_startup_flags = ACPI_SUBSYSTEM_INITIALIZE;
 	ACPI_DEBUG_EXEC(acpi_ut_init_stack_ptr_trace());
 
 	/* Initialize the OS-Dependent layer */
@@ -107,8 +108,6 @@ acpi_status acpi_initialize_subsystem(void)
 	return_ACPI_STATUS(status);
 }
 
-ACPI_EXPORT_SYMBOL(acpi_initialize_subsystem)
-
 /*******************************************************************************
  *
  * FUNCTION:    acpi_enable_subsystem
@@ -126,20 +125,6 @@ acpi_status acpi_enable_subsystem(u32 flags)
 	acpi_status status = AE_OK;
 
 	ACPI_FUNCTION_TRACE(acpi_enable_subsystem);
-
-	/*
-	 * We must initialize the hardware before we can enable ACPI.
-	 * The values from the FADT are validated here.
-	 */
-	if (!(flags & ACPI_NO_HARDWARE_INIT)) {
-		ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
-				  "[Init] Initializing ACPI hardware\n"));
-
-		status = acpi_hw_initialize();
-		if (ACPI_FAILURE(status)) {
-			return_ACPI_STATUS(status);
-		}
-	}
 
 	/* Enable ACPI mode */
 
@@ -350,7 +335,6 @@ acpi_status acpi_terminate(void)
 }
 
 ACPI_EXPORT_SYMBOL(acpi_terminate)
-
 #ifdef ACPI_FUTURE_USAGE
 /*******************************************************************************
  *
@@ -398,7 +382,6 @@ acpi_status acpi_get_system_info(struct acpi_buffer * out_buffer)
 {
 	struct acpi_system_info *info_ptr;
 	acpi_status status;
-	u32 i;
 
 	ACPI_FUNCTION_TRACE(acpi_get_system_info);
 
@@ -431,9 +414,7 @@ acpi_status acpi_get_system_info(struct acpi_buffer * out_buffer)
 
 	/* Timer resolution - 24 or 32 bits  */
 
-	if (!acpi_gbl_FADT) {
-		info_ptr->timer_resolution = 0;
-	} else if (acpi_gbl_FADT->tmr_val_ext == 0) {
+	if (acpi_gbl_FADT.flags & ACPI_FADT_32BIT_TIMER) {
 		info_ptr->timer_resolution = 24;
 	} else {
 		info_ptr->timer_resolution = 32;
@@ -448,13 +429,6 @@ acpi_status acpi_get_system_info(struct acpi_buffer * out_buffer)
 
 	info_ptr->debug_layer = acpi_dbg_layer;
 	info_ptr->debug_level = acpi_dbg_level;
-
-	/* Current status of the ACPI tables, per table type */
-
-	info_ptr->num_table_types = ACPI_TABLE_ID_MAX + 1;
-	for (i = 0; i < (ACPI_TABLE_ID_MAX + 1); i++) {
-		info_ptr->table_info[i].count = acpi_gbl_table_lists[i].count;
-	}
 
 	return_ACPI_STATUS(AE_OK);
 }
@@ -493,7 +467,6 @@ acpi_install_initialization_handler(acpi_init_handler handler, u32 function)
 
 ACPI_EXPORT_SYMBOL(acpi_install_initialization_handler)
 #endif				/*  ACPI_FUTURE_USAGE  */
-
 /*****************************************************************************
  *
  * FUNCTION:    acpi_purge_cached_objects

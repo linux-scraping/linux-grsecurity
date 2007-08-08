@@ -1,19 +1,16 @@
 /*
  * JFFS2 -- Journalling Flash File System, Version 2.
  *
- * Copyright (C) 2001-2003 Red Hat, Inc.
+ * Copyright © 2001-2007 Red Hat, Inc.
  *
  * Created by David Woodhouse <dwmw2@infradead.org>
  *
  * For licensing information, see the file 'LICENCE' in this directory.
  *
- * $Id: dir.c,v 1.90 2005/11/07 11:14:39 gleixner Exp $
- *
  */
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/crc32.h>
 #include <linux/jffs2.h>
@@ -46,7 +43,7 @@ const struct file_operations jffs2_dir_operations =
 };
 
 
-struct inode_operations jffs2_dir_inode_operations =
+const struct inode_operations jffs2_dir_inode_operations =
 {
 	.create =	jffs2_create,
 	.lookup =	jffs2_lookup,

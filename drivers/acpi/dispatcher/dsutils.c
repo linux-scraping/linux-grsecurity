@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -556,10 +556,9 @@ acpi_ds_create_operand(struct acpi_walk_state *walk_state,
 					 * indicate this to the interpreter, set the
 					 * object to the root
 					 */
-					obj_desc =
-					    ACPI_CAST_PTR(union
-							  acpi_operand_object,
-							  acpi_gbl_root_node);
+					obj_desc = ACPI_CAST_PTR(union
+								 acpi_operand_object,
+								 acpi_gbl_root_node);
 					status = AE_OK;
 				} else {
 					/*

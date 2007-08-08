@@ -470,7 +470,7 @@ static void ext4_put_super (struct super_block * sb)
 		dump_orphan_list(sb, sbi);
 	J_ASSERT(list_empty(&sbi->s_orphan));
 
-	invalidate_bdev(sb->s_bdev, 0);
+	invalidate_bdev(sb->s_bdev);
 	if (sbi->journal_bdev && sbi->journal_bdev != sb->s_bdev) {
 		/*
 		 * Invalidate the journal device's buffers.  We don't want them
@@ -478,7 +478,7 @@ static void ext4_put_super (struct super_block * sb)
 		 * hotswapped, and it breaks the `ro-after' testing code.
 		 */
 		sync_blockdev(sbi->journal_bdev);
-		invalidate_bdev(sbi->journal_bdev, 0);
+		invalidate_bdev(sbi->journal_bdev);
 		ext4_blkdev_remove(sbi);
 	}
 	sb->s_fs_info = NULL;
@@ -517,15 +517,12 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
 {
 	struct ext4_inode_info *ei = (struct ext4_inode_info *) foo;
 
-	if ((flags & (SLAB_CTOR_VERIFY|SLAB_CTOR_CONSTRUCTOR)) ==
-	    SLAB_CTOR_CONSTRUCTOR) {
-		INIT_LIST_HEAD(&ei->i_orphan);
+	INIT_LIST_HEAD(&ei->i_orphan);
 #ifdef CONFIG_EXT4DEV_FS_XATTR
-		init_rwsem(&ei->xattr_sem);
+	init_rwsem(&ei->xattr_sem);
 #endif
-		mutex_init(&ei->truncate_mutex);
-		inode_init_once(&ei->vfs_inode);
-	}
+	mutex_init(&ei->truncate_mutex);
+	inode_init_once(&ei->vfs_inode);
 }
 
 static int init_inodecache(void)
@@ -690,7 +687,7 @@ static struct quotactl_ops ext4_qctl_operations = {
 };
 #endif
 
-static struct super_operations ext4_sops = {
+static const struct super_operations ext4_sops = {
 	.alloc_inode	= ext4_alloc_inode,
 	.destroy_inode	= ext4_destroy_inode,
 	.read_inode	= ext4_read_inode,
@@ -1988,7 +1985,7 @@ static journal_t *ext4_get_dev_journal(struct super_block *sb,
 
 	if (bd_claim(bdev, sb)) {
 		printk(KERN_ERR
-		        "EXT4: failed to claim external journal device.\n");
+			"EXT4: failed to claim external journal device.\n");
 		blkdev_put(bdev);
 		return NULL;
 	}
@@ -2423,6 +2420,22 @@ static int ext4_remount (struct super_block * sb, int * flags, char * data)
 				err = -EROFS;
 				goto restore_opts;
 			}
+
+			/*
+			 * If we have an unprocessed orphan list hanging
+			 * around from a previously readonly bdev mount,
+			 * require a full umount/remount for now.
+			 */
+			if (es->s_last_orphan) {
+				printk(KERN_WARNING "EXT4-fs: %s: couldn't "
+				       "remount RDWR because of unprocessed "
+				       "orphan inode list.  Please "
+				       "umount/remount instead.\n",
+				       sb->s_id);
+				err = -EINVAL;
+				goto restore_opts;
+			}
+
 			/*
 			 * Mounting a RDONLY partition read-write, so reread
 			 * and store the current valid flag.  (It may have

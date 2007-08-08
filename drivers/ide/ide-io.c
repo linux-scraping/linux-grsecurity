@@ -172,15 +172,6 @@ static ide_startstop_t ide_start_power_step(ide_drive_t *drive, struct request *
 
 	memset(args, 0, sizeof(*args));
 
-	if (drive->media != ide_disk) {
-		/*
-		 * skip idedisk_pm_restore_pio and idedisk_pm_idle for ATAPI
-		 * devices
-		 */
-		if (pm->pm_step == idedisk_pm_restore_pio)
-			pm->pm_step = ide_pm_restore_dma;
-	}
-
 	switch (pm->pm_step) {
 	case ide_pm_flush_cache:	/* Suspend step 1 (flush cache) */
 		if (drive->media != ide_disk)
@@ -207,7 +198,13 @@ static ide_startstop_t ide_start_power_step(ide_drive_t *drive, struct request *
 	case idedisk_pm_restore_pio:	/* Resume step 1 (restore PIO) */
 		if (drive->hwif->tuneproc != NULL)
 			drive->hwif->tuneproc(drive, 255);
-		ide_complete_power_step(drive, rq, 0, 0);
+		/*
+		 * skip idedisk_pm_idle for ATAPI devices
+		 */
+		if (drive->media != ide_disk)
+			pm->pm_step = ide_pm_restore_dma;
+		else
+			ide_complete_power_step(drive, rq, 0, 0);
 		return ide_stopped;
 
 	case idedisk_pm_idle:		/* Resume step 2 (idle) */
@@ -226,7 +223,8 @@ static ide_startstop_t ide_start_power_step(ide_drive_t *drive, struct request *
 			break;
 		if (drive->hwif->ide_dma_check == NULL)
 			break;
-		drive->hwif->ide_dma_check(drive);
+		drive->hwif->dma_off_quietly(drive);
+		ide_set_dma(drive);
 		break;
 	}
 	pm->pm_step = ide_pm_state_completed;
@@ -1226,6 +1224,7 @@ static void ide_do_request (ide_hwgroup_t *hwgroup, int masked_irq)
 #endif
 				/* so that ide_timer_expiry knows what to do */
 				hwgroup->sleeping = 1;
+				hwgroup->req_gen_timer = hwgroup->req_gen;
 				mod_timer(&hwgroup->timer, sleep);
 				/* we purposely leave hwgroup->busy==1
 				 * while sleeping */
@@ -1361,7 +1360,7 @@ static ide_startstop_t ide_dma_timeout_retry(ide_drive_t *drive, int error)
 	 */
 	drive->retry_pio++;
 	drive->state = DMA_PIO_RETRY;
-	(void) hwif->ide_dma_off_quietly(drive);
+	hwif->dma_off_quietly(drive);
 
 	/*
 	 * un-busy drive etc (hwgroup->busy is cleared on return) and
@@ -1411,7 +1410,8 @@ void ide_timer_expiry (unsigned long data)
 
 	spin_lock_irqsave(&ide_lock, flags);
 
-	if ((handler = hwgroup->handler) == NULL) {
+	if (((handler = hwgroup->handler) == NULL) ||
+	    (hwgroup->req_gen != hwgroup->req_gen_timer)) {
 		/*
 		 * Either a marginal timeout occurred
 		 * (got the interrupt just as timer expired),
@@ -1439,6 +1439,7 @@ void ide_timer_expiry (unsigned long data)
 				if ((wait = expiry(drive)) > 0) {
 					/* reset timer */
 					hwgroup->timer.expires  = jiffies + wait;
+					hwgroup->req_gen_timer = hwgroup->req_gen;
 					add_timer(&hwgroup->timer);
 					spin_unlock_irqrestore(&ide_lock, flags);
 					return;
@@ -1653,6 +1654,7 @@ irqreturn_t ide_intr (int irq, void *dev_id)
 		printk(KERN_ERR "%s: ide_intr: hwgroup->busy was 0 ??\n", drive->name);
 	}
 	hwgroup->handler = NULL;
+	hwgroup->req_gen++;
 	del_timer(&hwgroup->timer);
 	spin_unlock(&ide_lock);
 

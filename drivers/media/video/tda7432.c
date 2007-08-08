@@ -38,7 +38,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/delay.h>
@@ -46,7 +45,6 @@
 #include <linux/slab.h>
 #include <linux/videodev.h>
 #include <linux/i2c.h>
-#include <linux/i2c-algo-bit.h>
 
 #include <media/v4l2-common.h>
 #include <media/i2c-addr.h>

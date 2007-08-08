@@ -27,13 +27,20 @@ do {				  					\
  * Largely same as above, but only sets the access flags (dirty,
  * accessed, and writable). Furthermore, we know it always gets set
  * to a "more permissive" setting, which allows most architectures
- * to optimize this.
+ * to optimize this. We return whether the PTE actually changed, which
+ * in turn instructs the caller to do things like update__mmu_cache.
+ * This used to be done in the caller, but sparc needs minor faults to
+ * force that call on sun4c so we changed this macro slightly
  */
 #define ptep_set_access_flags(__vma, __address, __ptep, __entry, __dirty) \
-do {				  					  \
-	set_pte_at((__vma)->vm_mm, (__address), __ptep, __entry);	  \
-	flush_tlb_page(__vma, __address);				  \
-} while (0)
+({									  \
+	int __changed = !pte_same(*(__ptep), __entry);			  \
+	if (__changed) {						  \
+		set_pte_at((__vma)->vm_mm, (__address), __ptep, __entry); \
+		flush_tlb_page(__vma, __address);			  \
+	}								  \
+	__changed;							  \
+})
 #endif
 
 #ifndef __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
@@ -139,8 +146,15 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addres
 #define pte_same(A,B)	(pte_val(A) == pte_val(B))
 #endif
 
-#ifndef __HAVE_ARCH_PAGE_TEST_AND_CLEAR_DIRTY
-#define page_test_and_clear_dirty(page) (0)
+#ifndef __HAVE_ARCH_PAGE_TEST_DIRTY
+#define page_test_dirty(page)		(0)
+#endif
+
+#ifndef __HAVE_ARCH_PAGE_CLEAR_DIRTY
+#define page_clear_dirty(page)		do { } while (0)
+#endif
+
+#ifndef __HAVE_ARCH_PAGE_TEST_DIRTY
 #define pte_maybe_dirty(pte)		pte_dirty(pte)
 #else
 #define pte_maybe_dirty(pte)		(1)
@@ -180,6 +194,21 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addres
 #ifndef __HAVE_ARCH_ENTER_LAZY_MMU_MODE
 #define arch_enter_lazy_mmu_mode()	do {} while (0)
 #define arch_leave_lazy_mmu_mode()	do {} while (0)
+#define arch_flush_lazy_mmu_mode()	do {} while (0)
+#endif
+
+/*
+ * A facility to provide batching of the reload of page tables with the
+ * actual context switch code for paravirtualized guests.  By convention,
+ * only one of the lazy modes (CPU, MMU) should be active at any given
+ * time, entry should never be nested, and entry and exits should always
+ * be paired.  This is for sanity of maintaining and reasoning about the
+ * kernel code.
+ */
+#ifndef __HAVE_ARCH_ENTER_LAZY_CPU_MODE
+#define arch_enter_lazy_cpu_mode()	do {} while (0)
+#define arch_leave_lazy_cpu_mode()	do {} while (0)
+#define arch_flush_lazy_cpu_mode()	do {} while (0)
 #endif
 
 /*

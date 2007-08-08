@@ -27,7 +27,7 @@
  * if you do not require the atomic guarantees.
  *
  * Note: there are no guarantees that this function will not be reordered
- * on non x86 architectures, so if you are writting portable code,
+ * on non x86 architectures, so if you are writing portable code,
  * make sure not to rely on its reordering guarantees.
  *
  * Note that @nr may be almost arbitrarily large; this function is not
@@ -371,7 +371,7 @@ static inline unsigned long ffz(unsigned long word)
  *
  * This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
- * differs in spirit from the above ffz (man ffs).
+ * differs in spirit from the above ffz() (man ffs).
  */
 static inline int ffs(int x)
 {
@@ -388,7 +388,7 @@ static inline int ffs(int x)
  * fls - find last bit set
  * @x: the word to search
  *
- * This is defined the same way as ffs.
+ * This is defined the same way as ffs().
  */
 static inline int fls(int x)
 {

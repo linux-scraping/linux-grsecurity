@@ -101,9 +101,9 @@ void __init setup_per_cpu_areas(void)
 		if (!NODE_DATA(cpu_to_node(i))) {
 			printk("cpu with no node %d, num_online_nodes %d\n",
 			       i, num_online_nodes());
-			ptr = alloc_bootmem(size);
+			ptr = alloc_bootmem_pages(size);
 		} else { 
-			ptr = alloc_bootmem_node(NODE_DATA(cpu_to_node(i)), size);
+			ptr = alloc_bootmem_pages_node(NODE_DATA(cpu_to_node(i)), size);
 		}
 		if (!ptr)
 			panic("Cannot allocate cpu data for CPU %d\n", i);
@@ -148,6 +148,8 @@ void pda_init(int cpu)
 char boot_exception_stacks[(N_EXCEPTION_STACKS - 1) * EXCEPTION_STKSZ + DEBUG_STKSZ]
 __attribute__((section(".bss.page_aligned")));
 
+extern asmlinkage void ignore_sysret(void);
+
 /* May not be marked __init: used by software suspend */
 void syscall_init(void)
 {
@@ -158,6 +160,7 @@ void syscall_init(void)
 	 */ 
 	wrmsrl(MSR_STAR,  ((u64)__USER32_CS)<<48  | ((u64)__KERNEL_CS)<<32); 
 	wrmsrl(MSR_LSTAR, system_call); 
+	wrmsrl(MSR_CSTAR, ignore_sysret);
 
 #ifdef CONFIG_IA32_EMULATION   		
 	syscall32_cpu_init ();
@@ -199,7 +202,6 @@ void __cpuinit cpu_init (void)
 	/* CPU 0 is initialised in head64.c */
 	if (cpu != 0) {
 		pda_init(cpu);
-		zap_low_mappings(cpu);
 	} else 
 		estacks = boot_exception_stacks; 
 

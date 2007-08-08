@@ -14,10 +14,10 @@
 #include <linux/sysdev.h>
 #include <linux/slab.h>
 #include <linux/moduleparam.h>
+#include <linux/kdebug.h>
 #include <asm/nmi.h>
 #include <asm/msr.h>
 #include <asm/apic.h>
-#include <asm/kdebug.h>
  
 #include "op_counter.h"
 #include "op_x86_model.h"
@@ -63,7 +63,7 @@ static struct sys_device device_oprofile = {
 };
 
 
-static int __init init_driverfs(void)
+static int __init init_sysfs(void)
 {
 	int error;
 	if (!(error = sysdev_class_register(&oprofile_sysclass)))
@@ -72,15 +72,15 @@ static int __init init_driverfs(void)
 }
 
 
-static void exit_driverfs(void)
+static void exit_sysfs(void)
 {
 	sysdev_unregister(&device_oprofile);
 	sysdev_class_unregister(&oprofile_sysclass);
 }
 
 #else
-#define init_driverfs() do { } while (0)
-#define exit_driverfs() do { } while (0)
+#define init_sysfs() do { } while (0)
+#define exit_sysfs() do { } while (0)
 #endif /* CONFIG_PM */
 
 static int profile_exceptions_notify(struct notifier_block *self,
@@ -131,7 +131,6 @@ static void nmi_save_registers(void * dummy)
 {
 	int cpu = smp_processor_id();
 	struct op_msrs * msrs = &cpu_msrs[cpu];
-	model->fill_in_addresses(msrs);
 	nmi_cpu_save_registers(msrs);
 }
 
@@ -155,7 +154,7 @@ static int allocate_msrs(void)
 	size_t counters_size = sizeof(struct op_msr) * model->num_counters;
 
 	int i;
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
 		cpu_msrs[i].counters = kmalloc(counters_size, GFP_KERNEL);
 		if (!cpu_msrs[i].counters) {
 			success = 0;
@@ -195,6 +194,7 @@ static struct notifier_block profile_exceptions_nb = {
 static int nmi_setup(void)
 {
 	int err=0;
+	int cpu;
 
 	if (!allocate_msrs())
 		return -ENOMEM;
@@ -207,6 +207,19 @@ static int nmi_setup(void)
 	/* We need to serialize save and setup for HT because the subset
 	 * of msrs are distinct for save and setup operations
 	 */
+
+	/* Assume saved/restored counters are the same on all CPUs */
+	model->fill_in_addresses(&cpu_msrs[0]);
+	for_each_possible_cpu (cpu) {
+		if (cpu != 0) {
+			memcpy(cpu_msrs[cpu].counters, cpu_msrs[0].counters,
+				sizeof(struct op_msr) * model->num_counters);
+
+			memcpy(cpu_msrs[cpu].controls, cpu_msrs[0].controls,
+				sizeof(struct op_msr) * model->num_controls);
+		}
+
+	}
 	on_each_cpu(nmi_save_registers, NULL, 0, 1);
 	on_each_cpu(nmi_cpu_setup, NULL, 0, 1);
 	nmi_enabled = 1;
@@ -385,7 +398,7 @@ static int __init ppro_init(char ** cpu_type)
 	return 1;
 }
 
-/* in order to get driverfs right */
+/* in order to get sysfs right */
 static int using_nmi;
 
 int __init op_nmi_init(struct oprofile_operations *ops)
@@ -414,6 +427,10 @@ int __init op_nmi_init(struct oprofile_operations *ops)
 				   user space an consistent name. */
 				cpu_type = "x86-64/hammer";
 				break;
+			case 0x10:
+				model = &op_athlon_spec;
+				cpu_type = "x86-64/family10";
+				break;
 			}
 			break;
  
@@ -440,7 +457,7 @@ int __init op_nmi_init(struct oprofile_operations *ops)
 			return -ENODEV;
 	}
 
-	init_driverfs();
+	init_sysfs();
 	using_nmi = 1;
 	ops->create_files = nmi_create_files;
 	ops->setup = nmi_setup;
@@ -456,5 +473,5 @@ int __init op_nmi_init(struct oprofile_operations *ops)
 void op_nmi_exit(void)
 {
 	if (using_nmi)
-		exit_driverfs();
+		exit_sysfs();
 }

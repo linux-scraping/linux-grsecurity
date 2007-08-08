@@ -47,8 +47,13 @@ comma = ,
 # Note that GCC does not numerically define an architecture version
 # macro, but instead defines a whole series of macros which makes
 # testing for a specific architecture or later rather impossible.
+arch-$(CONFIG_CPU_32v7)		:=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-march=armv7a,-march=armv5t -Wa$(comma)-march=armv7a)
 arch-$(CONFIG_CPU_32v6)		:=-D__LINUX_ARM_ARCH__=6 $(call cc-option,-march=armv6,-march=armv5t -Wa$(comma)-march=armv6)
+# Only override the compiler option if ARMv6. The ARMv6K extensions are
+# always available in ARMv7
+ifeq ($(CONFIG_CPU_32v6),y)
 arch-$(CONFIG_CPU_32v6K)	:=-D__LINUX_ARM_ARCH__=6 $(call cc-option,-march=armv6k,-march=armv5t -Wa$(comma)-march=armv6k)
+endif
 arch-$(CONFIG_CPU_32v5)		:=-D__LINUX_ARM_ARCH__=5 $(call cc-option,-march=armv5te,-march=armv4t)
 arch-$(CONFIG_CPU_32v4T)	:=-D__LINUX_ARM_ARCH__=4 -march=armv4t
 arch-$(CONFIG_CPU_32v4)		:=-D__LINUX_ARM_ARCH__=4 -march=armv4
@@ -124,10 +129,14 @@ endif
  machine-$(CONFIG_ARCH_H720X)	   := h720x
  machine-$(CONFIG_ARCH_AAEC2000)   := aaec2000
  machine-$(CONFIG_ARCH_REALVIEW)   := realview
- machine-$(CONFIG_ARCH_AT91)       := at91rm9200
- machine-$(CONFIG_ARCH_EP93XX)     := ep93xx
- machine-$(CONFIG_ARCH_PNX4008)    := pnx4008
- machine-$(CONFIG_ARCH_NETX)       := netx
+ machine-$(CONFIG_ARCH_AT91)	   := at91
+ machine-$(CONFIG_ARCH_EP93XX)	   := ep93xx
+ machine-$(CONFIG_ARCH_PNX4008)	   := pnx4008
+ machine-$(CONFIG_ARCH_NETX)	   := netx
+ machine-$(CONFIG_ARCH_NS9XXX)	   := ns9xxx
+ textofs-$(CONFIG_ARCH_NS9XXX)	   := 0x00108000
+ machine-$(CONFIG_ARCH_DAVINCI)	   := davinci
+ machine-$(CONFIG_ARCH_KS8695)     := ks8695
 
 ifeq ($(CONFIG_ARCH_EBSA110),y)
 # This is what happens if you forget the IOCS16 line.
@@ -149,7 +158,7 @@ MACHINE  := arch/arm/mach-$(machine-y)/
 else
 MACHINE  :=
 endif
-  
+
 export	TEXT_OFFSET GZFLAGS MMUEXT
 
 # Do we have FASTFPE?
@@ -161,6 +170,11 @@ endif
 # If we have a machine-specific directory, then include it in the build.
 core-y				+= arch/arm/kernel/ arch/arm/mm/ arch/arm/common/
 core-y				+= $(MACHINE)
+core-$(CONFIG_ARCH_S3C2410)	+= arch/arm/mach-s3c2400/
+core-$(CONFIG_ARCH_S3C2410)	+= arch/arm/mach-s3c2412/
+core-$(CONFIG_ARCH_S3C2410)	+= arch/arm/mach-s3c2440/
+core-$(CONFIG_ARCH_S3C2410)	+= arch/arm/mach-s3c2442/
+core-$(CONFIG_ARCH_S3C2410)	+= arch/arm/mach-s3c2443/
 core-$(CONFIG_FPE_NWFPE)	+= arch/arm/nwfpe/
 core-$(CONFIG_FPE_FASTFPE)	+= $(FASTFPE_OBJ)
 core-$(CONFIG_VFP)		+= arch/arm/vfp/
@@ -168,6 +182,7 @@ core-$(CONFIG_VFP)		+= arch/arm/vfp/
 # If we have a common platform directory, then include it in the build.
 core-$(CONFIG_PLAT_IOP)		+= arch/arm/plat-iop/
 core-$(CONFIG_ARCH_OMAP)	+= arch/arm/plat-omap/
+core-$(CONFIG_PLAT_S3C24XX)		+= arch/arm/plat-s3c24xx/
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/
 drivers-$(CONFIG_ARCH_CLPS7500)	+= drivers/acorn/char/

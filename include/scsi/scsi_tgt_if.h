@@ -45,11 +45,13 @@ struct tgt_event {
 		/* user-> kernel */
 		struct {
 			int host_no;
-			uint32_t len;
 			int result;
-			aligned_u64 uaddr;
-			uint8_t rw;
 			aligned_u64 tag;
+			aligned_u64 uaddr;
+			aligned_u64 sense_uaddr;
+			uint32_t len;
+			uint32_t sense_len;
+			uint8_t rw;
 		} cmd_rsp;
 		struct {
 			int host_no;
@@ -83,8 +85,5 @@ struct tgt_event {
 } __attribute__ ((aligned (sizeof(uint64_t))));
 
 #define TGT_RING_SIZE (1UL << 16)
-#define TGT_RING_PAGES (TGT_RING_SIZE >> PAGE_SHIFT)
-#define TGT_EVENT_PER_PAGE (PAGE_SIZE / sizeof(struct tgt_event))
-#define TGT_MAX_EVENTS (TGT_EVENT_PER_PAGE * TGT_RING_PAGES)
 
 #endif

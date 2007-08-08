@@ -18,7 +18,6 @@
 #include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/bootmem.h>
-#include <linux/smp_lock.h>
 #include <linux/kernel_stat.h>
 #include <linux/mc146818rtc.h>
 #include <linux/bitops.h>
@@ -477,7 +476,7 @@ static int __init smp_read_mpc(struct mp_config_table *mpc)
 		}
 		++mpc_record;
 	}
-	clustered_apic_check();
+	setup_apic_routing();
 	if (!num_processors)
 		printk(KERN_ERR "SMP mptable: no processors registered!\n");
 	return num_processors;
@@ -1057,7 +1056,7 @@ int mp_register_gsi(u32 gsi, int triggering, int polarity)
 	static int		gsi_to_irq[MAX_GSI_NUM];
 
 	/* Don't set up the ACPI SCI because it's already set up */
-	if (acpi_fadt.sci_int == gsi)
+	if (acpi_gbl_FADT.sci_interrupt == gsi)
 		return gsi;
 
 	ioapic = mp_find_ioapic(gsi);
@@ -1114,7 +1113,7 @@ int mp_register_gsi(u32 gsi, int triggering, int polarity)
 			/*
 			 * Don't assign IRQ used by ACPI SCI
 			 */
-			if (gsi == acpi_fadt.sci_int)
+			if (gsi == acpi_gbl_FADT.sci_interrupt)
 				gsi = pci_irq++;
 			gsi_to_irq[irq] = gsi;
 		} else {

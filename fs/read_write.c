@@ -37,10 +37,10 @@ loff_t generic_file_llseek(struct file *file, loff_t offset, int origin)
 
 	mutex_lock(&inode->i_mutex);
 	switch (origin) {
-		case 2:
+		case SEEK_END:
 			offset += inode->i_size;
 			break;
-		case 1:
+		case SEEK_CUR:
 			offset += file->f_pos;
 	}
 	retval = -EINVAL;
@@ -63,10 +63,10 @@ loff_t remote_llseek(struct file *file, loff_t offset, int origin)
 
 	lock_kernel();
 	switch (origin) {
-		case 2:
+		case SEEK_END:
 			offset += i_size_read(file->f_path.dentry->d_inode);
 			break;
-		case 1:
+		case SEEK_CUR:
 			offset += file->f_pos;
 	}
 	retval = -EINVAL;
@@ -94,10 +94,10 @@ loff_t default_llseek(struct file *file, loff_t offset, int origin)
 
 	lock_kernel();
 	switch (origin) {
-		case 2:
+		case SEEK_END:
 			offset += i_size_read(file->f_path.dentry->d_inode);
 			break;
-		case 1:
+		case SEEK_CUR:
 			offset += file->f_pos;
 	}
 	retval = -EINVAL;
@@ -139,7 +139,7 @@ asmlinkage off_t sys_lseek(unsigned int fd, off_t offset, unsigned int origin)
 		goto bad;
 
 	retval = -EINVAL;
-	if (origin <= 2) {
+	if (origin <= SEEK_MAX) {
 		loff_t res = vfs_llseek(file, offset, origin);
 		retval = res;
 		if (res != (loff_t)retval)
@@ -166,7 +166,7 @@ asmlinkage long sys_llseek(unsigned int fd, unsigned long offset_high,
 		goto bad;
 
 	retval = -EINVAL;
-	if (origin > 2)
+	if (origin > SEEK_MAX)
 		goto out_putf;
 
 	offset = vfs_llseek(file, ((loff_t) offset_high << 32) | offset_low,
@@ -197,13 +197,13 @@ int rw_verify_area(int read_write, struct file *file, loff_t *ppos, size_t count
 	struct inode *inode;
 	loff_t pos;
 
+	inode = file->f_path.dentry->d_inode;
 	if (unlikely((ssize_t) count < 0))
 		goto Einval;
 	pos = *ppos;
 	if (unlikely((pos < 0) || (loff_t) (pos + count) < 0))
 		goto Einval;
 
-	inode = file->f_path.dentry->d_inode;
 	if (unlikely(inode->i_flock && MANDATORY_LOCK(inode))) {
 		int retval = locks_mandatory_area(
 			read_write == READ ? FLOCK_VERIFY_READ : FLOCK_VERIFY_WRITE,
@@ -274,9 +274,9 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 				ret = do_sync_read(file, buf, count, pos);
 			if (ret > 0) {
 				fsnotify_access(file->f_path.dentry);
-				current->rchar += ret;
+				add_rchar(current, ret);
 			}
-			current->syscr++;
+			inc_syscr(current);
 		}
 	}
 
@@ -332,9 +332,9 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 				ret = do_sync_write(file, buf, count, pos);
 			if (ret > 0) {
 				fsnotify_modify(file->f_path.dentry);
-				current->wchar += ret;
+				add_wchar(current, ret);
 			}
-			current->syscw++;
+			inc_syscw(current);
 		}
 	}
 
@@ -675,8 +675,8 @@ sys_readv(unsigned long fd, const struct iovec __user *vec, unsigned long vlen)
 	}
 
 	if (ret > 0)
-		current->rchar += ret;
-	current->syscr++;
+		add_rchar(current, ret);
+	inc_syscr(current);
 	return ret;
 }
 
@@ -696,8 +696,8 @@ sys_writev(unsigned long fd, const struct iovec __user *vec, unsigned long vlen)
 	}
 
 	if (ret > 0)
-		current->wchar += ret;
-	current->syscw++;
+		add_wchar(current, ret);
+	inc_syscw(current);
 	return ret;
 }
 
@@ -779,12 +779,12 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
 	retval = in_file->f_op->sendfile(in_file, ppos, count, file_send_actor, out_file);
 
 	if (retval > 0) {
-		current->rchar += retval;
-		current->wchar += retval;
+		add_rchar(current, retval);
+		add_wchar(current, retval);
 	}
-	current->syscr++;
-	current->syscw++;
 
+	inc_syscr(current);
+	inc_syscw(current);
 	if (*ppos > max)
 		retval = -EOVERFLOW;
 

@@ -1,9 +1,9 @@
 /*
  *	PF_INET6 socket protocol family
- *	Linux INET6 implementation 
+ *	Linux INET6 implementation
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>	
+ *	Pedro Roque		<roque@di.fc.ul.pt>
  *
  *	Adapted from linux/net/ipv4/af_inet.c
  *
@@ -28,7 +28,6 @@
 #include <linux/socket.h>
 #include <linux/in.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/timer.h>
 #include <linux/string.h>
 #include <linux/sockios.h>
@@ -43,7 +42,6 @@
 #include <linux/inet.h>
 #include <linux/netdevice.h>
 #include <linux/icmpv6.h>
-#include <linux/smp_lock.h>
 #include <linux/netfilter_ipv6.h>
 
 #include <net/ip.h>
@@ -98,6 +96,11 @@ static int inet6_create(struct socket *sock, int protocol)
 	char answer_no_check;
 	int try_loading_module = 0;
 	int err;
+
+	if (sock->type != SOCK_RAW &&
+	    sock->type != SOCK_DGRAM &&
+	    !inet_ehash_secret)
+		build_ehash_secret();
 
 	/* Look for the requested type/protocol pair. */
 	answer = NULL;
@@ -191,7 +194,7 @@ lookup_protocol:
 	np->mc_loop	= 1;
 	np->pmtudisc	= IPV6_PMTUDISC_WANT;
 	np->ipv6only	= sysctl_ipv6_bindv6only;
-	
+
 	/* Init the ipv4 part of the socket since we can have sockets
 	 * using v6 API for ipv4.
 	 */
@@ -206,7 +209,7 @@ lookup_protocol:
 		inet->pmtudisc = IP_PMTUDISC_DONT;
 	else
 		inet->pmtudisc = IP_PMTUDISC_WANT;
-	/* 
+	/*
 	 * Increment only the relevant sk_prot->socks debug field, this changes
 	 * the previous behaviour of incrementing both the equivalent to
 	 * answer->prot->socks (inet6_sock_nr) and inet_sock_nr.
@@ -293,7 +296,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 					 */
 					sk->sk_bound_dev_if = addr->sin6_scope_id;
 				}
-				
+
 				/* Binding to link-local address requires an interface */
 				if (!sk->sk_bound_dev_if) {
 					err = -EINVAL;
@@ -327,7 +330,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	inet->saddr = v4addr;
 
 	ipv6_addr_copy(&np->rcv_saddr, &addr->sin6_addr);
-		
+
 	if (!(addr_type & IPV6_ADDR_MULTICAST))
 		ipv6_addr_copy(&np->saddr, &addr->sin6_addr);
 
@@ -350,6 +353,8 @@ out:
 	return err;
 }
 
+EXPORT_SYMBOL(inet6_bind);
+
 int inet6_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
@@ -365,6 +370,8 @@ int inet6_release(struct socket *sock)
 
 	return inet_release(sock);
 }
+
+EXPORT_SYMBOL(inet6_release);
 
 int inet6_destroy_sock(struct sock *sk)
 {
@@ -393,7 +400,7 @@ EXPORT_SYMBOL_GPL(inet6_destroy_sock);
 /*
  *	This does both peername and sockname.
  */
- 
+
 int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
 		 int *uaddr_len, int peer)
 {
@@ -401,7 +408,7 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
 	struct sock *sk = sock->sk;
 	struct inet_sock *inet = inet_sk(sk);
 	struct ipv6_pinfo *np = inet6_sk(sk);
-  
+
 	sin->sin6_family = AF_INET6;
 	sin->sin6_flowinfo = 0;
 	sin->sin6_scope_id = 0;
@@ -429,18 +436,23 @@ int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
 	return(0);
 }
 
+EXPORT_SYMBOL(inet6_getname);
+
 int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk = sock->sk;
 
-	switch(cmd) 
+	switch(cmd)
 	{
 	case SIOCGSTAMP:
 		return sock_get_timestamp(sk, (struct timeval __user *)arg);
 
+	case SIOCGSTAMPNS:
+		return sock_get_timestampns(sk, (struct timespec __user *)arg);
+
 	case SIOCADDRT:
 	case SIOCDELRT:
-	  
+
 		return(ipv6_route_ioctl(cmd,(void __user *)arg));
 
 	case SIOCSIFADDR:
@@ -457,6 +469,8 @@ int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	/*NOTREACHED*/
 	return(0);
 }
+
+EXPORT_SYMBOL(inet6_ioctl);
 
 const struct proto_ops inet6_stream_ops = {
 	.family		   = PF_INET6,
@@ -584,7 +598,7 @@ inet6_register_protosw(struct inet_protosw *p)
 	/* Add the new entry after the last permanent entry if any, so that
 	 * the new entry does not override a permanent entry when matched with
 	 * a wild-card protocol. But it is allowed to override any existing
-	 * non-permanent entry.  This means that when we remove this entry, the 
+	 * non-permanent entry.  This means that when we remove this entry, the
 	 * system automatically returns to the old behavior.
 	 */
 	list_add_rcu(&p->list, last_perm);
@@ -604,6 +618,8 @@ out_illegal:
 	goto out;
 }
 
+EXPORT_SYMBOL(inet6_register_protosw);
+
 void
 inet6_unregister_protosw(struct inet_protosw *p)
 {
@@ -619,6 +635,8 @@ inet6_unregister_protosw(struct inet_protosw *p)
 		synchronize_net();
 	}
 }
+
+EXPORT_SYMBOL(inet6_unregister_protosw);
 
 int inet6_sk_rebuild_header(struct sock *sk)
 {
@@ -679,7 +697,8 @@ int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb)
 	if (np->rxopt.all) {
 		if ((opt->hop && (np->rxopt.bits.hopopts ||
 				  np->rxopt.bits.ohopopts)) ||
-		    ((IPV6_FLOWINFO_MASK & *(__be32*)skb->nh.raw) &&
+		    ((IPV6_FLOWINFO_MASK &
+		      *(__be32 *)skb_network_header(skb)) &&
 		     np->rxopt.bits.rxflow) ||
 		    (opt->srcrt && (np->rxopt.bits.srcrt ||
 		     np->rxopt.bits.osrcrt)) ||
@@ -692,78 +711,45 @@ int ipv6_opt_accepted(struct sock *sk, struct sk_buff *skb)
 
 EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
 
-int
-snmp6_mib_init(void *ptr[2], size_t mibsize, size_t mibalign)
-{
-	if (ptr == NULL)
-		return -EINVAL;
-
-	ptr[0] = __alloc_percpu(mibsize);
-	if (!ptr[0])
-		goto err0;
-
-	ptr[1] = __alloc_percpu(mibsize);
-	if (!ptr[1])
-		goto err1;
-
-	return 0;
-
-err1:
-	free_percpu(ptr[0]);
-	ptr[0] = NULL;
-err0:
-	return -ENOMEM;
-}
-
-void
-snmp6_mib_free(void *ptr[2])
-{
-	if (ptr == NULL)
-		return;
-	free_percpu(ptr[0]);
-	free_percpu(ptr[1]);
-	ptr[0] = ptr[1] = NULL;
-}
-
 static int __init init_ipv6_mibs(void)
 {
-	if (snmp6_mib_init((void **)ipv6_statistics, sizeof (struct ipstats_mib),
-			   __alignof__(struct ipstats_mib)) < 0)
+	if (snmp_mib_init((void **)ipv6_statistics, sizeof (struct ipstats_mib),
+			  __alignof__(struct ipstats_mib)) < 0)
 		goto err_ip_mib;
-	if (snmp6_mib_init((void **)icmpv6_statistics, sizeof (struct icmpv6_mib),
-			   __alignof__(struct icmpv6_mib)) < 0)
+	if (snmp_mib_init((void **)icmpv6_statistics, sizeof (struct icmpv6_mib),
+			  __alignof__(struct icmpv6_mib)) < 0)
 		goto err_icmp_mib;
-	if (snmp6_mib_init((void **)udp_stats_in6, sizeof (struct udp_mib),
-			   __alignof__(struct udp_mib)) < 0)
+	if (snmp_mib_init((void **)udp_stats_in6, sizeof (struct udp_mib),
+			  __alignof__(struct udp_mib)) < 0)
 		goto err_udp_mib;
-	if (snmp6_mib_init((void **)udplite_stats_in6, sizeof (struct udp_mib),
-			   __alignof__(struct udp_mib)) < 0)
+	if (snmp_mib_init((void **)udplite_stats_in6, sizeof (struct udp_mib),
+			  __alignof__(struct udp_mib)) < 0)
 		goto err_udplite_mib;
 	return 0;
 
 err_udplite_mib:
-	snmp6_mib_free((void **)udp_stats_in6);
+	snmp_mib_free((void **)udp_stats_in6);
 err_udp_mib:
-	snmp6_mib_free((void **)icmpv6_statistics);
+	snmp_mib_free((void **)icmpv6_statistics);
 err_icmp_mib:
-	snmp6_mib_free((void **)ipv6_statistics);
+	snmp_mib_free((void **)ipv6_statistics);
 err_ip_mib:
 	return -ENOMEM;
-	
+
 }
 
 static void cleanup_ipv6_mibs(void)
 {
-	snmp6_mib_free((void **)ipv6_statistics);
-	snmp6_mib_free((void **)icmpv6_statistics);
-	snmp6_mib_free((void **)udp_stats_in6);
-	snmp6_mib_free((void **)udplite_stats_in6);
+	snmp_mib_free((void **)ipv6_statistics);
+	snmp_mib_free((void **)icmpv6_statistics);
+	snmp_mib_free((void **)udp_stats_in6);
+	snmp_mib_free((void **)udplite_stats_in6);
 }
 
 static int __init inet6_init(void)
 {
 	struct sk_buff *dummy_skb;
-        struct list_head *r;
+	struct list_head *r;
 	int err;
 
 	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
@@ -814,7 +800,7 @@ static int __init inet6_init(void)
 	err = init_ipv6_mibs();
 	if (err)
 		goto out_unregister_sock;
-	
+
 	/*
 	 *	ipngwg API draft makes clear that the correct semantics
 	 *	for TCP and UDP is to consider one TCP and UDP instance
@@ -930,32 +916,38 @@ static void __exit inet6_exit(void)
 {
 	/* First of all disallow new sockets creation. */
 	sock_unregister(PF_INET6);
-#ifdef CONFIG_PROC_FS
-	if6_proc_exit();
-	ac6_proc_exit();
- 	ipv6_misc_proc_exit();
- 	udp6_proc_exit();
- 	udplite6_proc_exit();
- 	tcp6_proc_exit();
- 	raw6_proc_exit();
-#endif
+	/* Disallow any further netlink messages */
+	rtnl_unregister_all(PF_INET6);
+
+	/* Cleanup code parts. */
+	ipv6_packet_cleanup();
 #ifdef CONFIG_IPV6_MIP6
 	mip6_fini();
 #endif
-	/* Cleanup code parts. */
-	ip6_flowlabel_cleanup();
 	addrconf_cleanup();
+	ip6_flowlabel_cleanup();
 	ip6_route_cleanup();
-	ipv6_packet_cleanup();
-	igmp6_cleanup();
+#ifdef CONFIG_PROC_FS
+
+	/* Cleanup code parts. */
+	if6_proc_exit();
+	ac6_proc_exit();
+	ipv6_misc_proc_exit();
+	udplite6_proc_exit();
+	udp6_proc_exit();
+	tcp6_proc_exit();
+	raw6_proc_exit();
+#endif
 	ipv6_netfilter_fini();
+	igmp6_cleanup();
 	ndisc_cleanup();
 	icmpv6_cleanup();
 #ifdef CONFIG_SYSCTL
-	ipv6_sysctl_unregister();	
+	ipv6_sysctl_unregister();
 #endif
 	cleanup_ipv6_mibs();
 	proto_unregister(&rawv6_prot);
+	proto_unregister(&udplitev6_prot);
 	proto_unregister(&udpv6_prot);
 	proto_unregister(&tcpv6_prot);
 }

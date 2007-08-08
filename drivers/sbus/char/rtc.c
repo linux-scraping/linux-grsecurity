@@ -19,7 +19,6 @@
 #include <linux/fcntl.h>
 #include <linux/poll.h>
 #include <linux/init.h>
-#include <linux/smp_lock.h>
 #include <asm/io.h>
 #include <asm/mostek.h>
 #include <asm/system.h>
@@ -233,7 +232,7 @@ static int rtc_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static struct file_operations rtc_fops = {
+static const struct file_operations rtc_fops = {
 	.owner =	THIS_MODULE,
 	.llseek =	no_llseek,
 	.ioctl =	rtc_ioctl,

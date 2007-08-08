@@ -58,18 +58,7 @@ unsigned long acpi_wakeup_address = 0;
 unsigned long acpi_video_flags;
 extern char wakeup_start, wakeup_end;
 
-extern unsigned long FASTCALL(acpi_copy_wakeup_routine(unsigned long));
-
-static pgd_t low_ptr;
-
-static void init_low_mapping(void)
-{
-	pgd_t *slot0 = pgd_offset(current->mm, 0UL);
-	low_ptr = *slot0;
-	set_pgd(slot0, *pgd_offset(current->mm, PAGE_OFFSET));
-	WARN_ON(num_online_cpus() != 1);
-	local_flush_tlb();
-}
+extern unsigned long acpi_copy_wakeup_routine(unsigned long);
 
 /**
  * acpi_save_state_mem - save kernel state
@@ -79,8 +68,6 @@ static void init_low_mapping(void)
  */
 int acpi_save_state_mem(void)
 {
-	init_low_mapping();
-
 	memcpy((void *)acpi_wakeup_address, &wakeup_start,
 	       &wakeup_end - &wakeup_start);
 	acpi_copy_wakeup_routine(acpi_wakeup_address);
@@ -93,8 +80,6 @@ int acpi_save_state_mem(void)
  */
 void acpi_restore_state_mem(void)
 {
-	set_pgd(pgd_offset(current->mm, 0UL), low_ptr);
-	local_flush_tlb();
 }
 
 /**
@@ -107,10 +92,11 @@ void acpi_restore_state_mem(void)
  */
 void __init acpi_reserve_bootmem(void)
 {
-	acpi_wakeup_address = (unsigned long)alloc_bootmem_low(PAGE_SIZE);
-	if ((&wakeup_end - &wakeup_start) > PAGE_SIZE)
+	acpi_wakeup_address = (unsigned long)alloc_bootmem_low(PAGE_SIZE*2);
+	if ((&wakeup_end - &wakeup_start) > (PAGE_SIZE*2))
 		printk(KERN_CRIT
-		       "ACPI: Wakeup code way too big, will crash on attempt to suspend\n");
+		       "ACPI: Wakeup code way too big, will crash on attempt"
+		       " to suspend\n");
 }
 
 static int __init acpi_sleep_setup(char *str)

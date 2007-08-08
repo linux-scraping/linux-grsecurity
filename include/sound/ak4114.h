@@ -73,7 +73,7 @@
 
 /* AK4114_REQ_FORMAT bits */
 #define AK4114_MONO		(1<<7)	/* Double Sampling Frequency Mode: 0 = stereo, 1 = mono */
-#define AK4114_DIF2		(1<<5)	/* Audio Data Control */
+#define AK4114_DIF2		(1<<6)	/* Audio Data Control */
 #define AK4114_DIF1		(1<<5)	/* Audio Data Control */
 #define AK4114_DIF0		(1<<4)	/* Audio Data Control */
 #define AK4114_DIF_16R		(0)				/* STDO: 16-bit, right justified */
@@ -158,7 +158,7 @@
 #define AK4114_CHECK_NO_STAT	(1<<0)	/* no statistics */
 #define AK4114_CHECK_NO_RATE	(1<<1)	/* no rate check */
 
-#define AK4114_CONTROLS		14
+#define AK4114_CONTROLS		15
 
 typedef void (ak4114_write_t)(void *private_data, unsigned char addr, unsigned char data);
 typedef unsigned char (ak4114_read_t)(void *private_data, unsigned char addr);
@@ -181,7 +181,6 @@ struct ak4114 {
 	unsigned long ccrc_errors;
 	unsigned char rcs0;
 	unsigned char rcs1;
-	struct workqueue_struct *workqueue;
 	struct delayed_work work;
 	void *change_callback_private;
 	void (*change_callback)(struct ak4114 *ak4114, unsigned char c0, unsigned char c1);
@@ -189,7 +188,7 @@ struct ak4114 {
 
 int snd_ak4114_create(struct snd_card *card,
 		      ak4114_read_t *read, ak4114_write_t *write,
-		      unsigned char pgm[7], unsigned char txcsb[5],
+		      const unsigned char pgm[7], const unsigned char txcsb[5],
 		      void *private_data, struct ak4114 **r_ak4114);
 void snd_ak4114_reg_write(struct ak4114 *ak4114, unsigned char reg, unsigned char mask, unsigned char val);
 void snd_ak4114_reinit(struct ak4114 *ak4114);

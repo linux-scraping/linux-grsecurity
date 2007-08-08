@@ -70,7 +70,6 @@
 #include <asm/dec/machtype.h>
 #include <asm/dec/serial.h>
 #include <asm/dec/system.h>
-#include <asm/dec/tc.h>
 
 #ifdef CONFIG_KGDB
 #include <asm/kgdb.h>
@@ -626,10 +625,8 @@ static void do_softint(unsigned long private_)
 	if (!tty)
 		return;
 
-	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event)) {
+	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &info->event))
 		tty_wakeup(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
 }
 
 static int zs_startup(struct dec_serial * info)
@@ -2185,7 +2182,7 @@ struct dec_serial_hook zs_kgdbhook = {
 	.init_info	= kgdbhook_init_info,
 	.rx_char	= kgdbhook_rx_char,
 	.cflags		= B38400 | CS8 | CLOCAL,
-}
+};
 
 void __init zs_kgdb_hook(int tty_num)
 {

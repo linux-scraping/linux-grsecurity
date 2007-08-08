@@ -14,6 +14,8 @@
 
 extern u8 real_readb(volatile u8 __iomem  *addr);
 extern void real_writeb(u8 data, volatile u8 __iomem *addr);
+extern u8 real_205_readb(volatile u8 __iomem  *addr);
+extern void real_205_writeb(u8 data, volatile u8 __iomem *addr);
 
 struct NS16550 {
 	/* this struct must be packed */
@@ -167,3 +169,48 @@ void __init udbg_init_maple_realmode(void)
 	udbg_getc_poll = NULL;
 }
 #endif /* CONFIG_PPC_MAPLE */
+
+#ifdef CONFIG_PPC_PASEMI
+void udbg_pas_real_putc(char c)
+{
+	if (udbg_comport) {
+		while ((real_205_readb(&udbg_comport->lsr) & LSR_THRE) == 0)
+			/* wait for idle */;
+		real_205_writeb(c, &udbg_comport->thr); eieio();
+		if (c == '\n')
+			udbg_pas_real_putc('\r');
+	}
+}
+
+void udbg_init_pas_realmode(void)
+{
+	udbg_comport = (volatile struct NS16550 __iomem *)0xfcff03f8UL;
+
+	udbg_putc = udbg_pas_real_putc;
+	udbg_getc = NULL;
+	udbg_getc_poll = NULL;
+}
+#endif /* CONFIG_PPC_MAPLE */
+
+#ifdef CONFIG_PPC_EARLY_DEBUG_44x
+#include <platforms/44x/44x.h>
+
+static void udbg_44x_as1_putc(char c)
+{
+	if (udbg_comport) {
+		while ((as1_readb(&udbg_comport->lsr) & LSR_THRE) == 0)
+			/* wait for idle */;
+		as1_writeb(c, &udbg_comport->thr); eieio();
+		if (c == '\n')
+			udbg_44x_as1_putc('\r');
+	}
+}
+
+void __init udbg_init_44x_as1(void)
+{
+	udbg_comport =
+		(volatile struct NS16550 __iomem *)PPC44x_EARLY_DEBUG_VIRTADDR;
+
+	udbg_putc = udbg_44x_as1_putc;
+}
+#endif /* CONFIG_PPC_EARLY_DEBUG_44x */

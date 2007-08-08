@@ -27,6 +27,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/input.h>
+#include <linux/workqueue.h>
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
@@ -325,7 +326,7 @@ static struct omap_lcd_config h2_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 
-static struct omap_board_config_kernel h2_config[] = {
+static struct omap_board_config_kernel h2_config[] __initdata = {
 	{ OMAP_TAG_USB,           &h2_usb_config },
 	{ OMAP_TAG_MMC,           &h2_mmc_config },
 	{ OMAP_TAG_UART,	&h2_uart_config },

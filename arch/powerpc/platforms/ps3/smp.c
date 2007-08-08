@@ -23,7 +23,6 @@
 
 #include <asm/machdep.h>
 #include <asm/udbg.h>
-#include <asm/ps3.h>
 
 #include "platform.h"
 
@@ -111,7 +110,7 @@ static void __init ps3_smp_setup_cpu(int cpu)
 	BUILD_BUG_ON(PPC_MSG_DEBUGGER_BREAK != 3);
 
 	for (i = 0; i < MSG_COUNT; i++) {
-		result = ps3_alloc_event_irq(&virqs[i]);
+		result = ps3_event_receive_port_setup(cpu, &virqs[i]);
 
 		if (result)
 			continue;
@@ -119,9 +118,11 @@ static void __init ps3_smp_setup_cpu(int cpu)
 		DBG("%s:%d: (%d, %d) => virq %u\n",
 			__func__, __LINE__, cpu, i, virqs[i]);
 
+		result = request_irq(virqs[i], ipi_function_handler,
+			IRQF_DISABLED, names[i], (void*)(long)i);
 
-		request_irq(virqs[i], ipi_function_handler, IRQF_DISABLED,
-			names[i], (void*)(long)i);
+		if (result)
+			virqs[i] = NO_IRQ;
 	}
 
 	ps3_register_ipi_debug_brk(cpu, virqs[PPC_MSG_DEBUGGER_BREAK]);
@@ -135,11 +136,13 @@ void ps3_smp_cleanup_cpu(int cpu)
 	int i;
 
 	DBG(" -> %s:%d: (%d)\n", __func__, __LINE__, cpu);
+
 	for (i = 0; i < MSG_COUNT; i++) {
-		ps3_free_event_irq(virqs[i]);
 		free_irq(virqs[i], (void*)(long)i);
+		ps3_event_receive_port_destroy(virqs[i]);
 		virqs[i] = NO_IRQ;
 	}
+
 	DBG(" <- %s:%d: (%d)\n", __func__, __LINE__, cpu);
 }
 

@@ -341,11 +341,11 @@ static void irda_task_timer_expired(void *data)
  */
 static void irda_device_setup(struct net_device *dev)
 {
-        dev->hard_header_len = 0;
-        dev->addr_len        = LAP_ALEN;
+	dev->hard_header_len = 0;
+	dev->addr_len        = LAP_ALEN;
 
-        dev->type            = ARPHRD_IRDA;
-        dev->tx_queue_len    = 8; /* Window size + 1 s-frame */
+	dev->type            = ARPHRD_IRDA;
+	dev->tx_queue_len    = 8; /* Window size + 1 s-frame */
 
 	memset(dev->broadcast, 0xff, LAP_ALEN);
 
@@ -354,7 +354,7 @@ static void irda_device_setup(struct net_device *dev)
 }
 
 /*
- * Funciton  alloc_irdadev 
+ * Funciton  alloc_irdadev
  * 	Allocates and sets up an IRDA device in a manner similar to
  * 	alloc_etherdev.
  */
@@ -375,7 +375,7 @@ EXPORT_SYMBOL(alloc_irdadev);
 dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
 {
 	struct dongle_reg *reg;
-	dongle_t *dongle = NULL;
+	dongle_t *dongle = kzalloc(sizeof(dongle_t), GFP_KERNEL);
 
 	might_sleep();
 
@@ -386,9 +386,9 @@ dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
 	/* Try to load the module needed */
 	if (!reg && capable(CAP_SYS_MODULE)) {
 		spin_unlock(&dongles->hb_spinlock);
-	
+
 		request_module("irda-dongle-%d", type);
-		
+
 		spin_lock(&dongles->hb_spinlock);
 		reg = hashbin_find(dongles, type, NULL);
 	}
@@ -397,19 +397,14 @@ dongle_t *irda_device_dongle_init(struct net_device *dev, int type)
 	if (!reg || !try_module_get(reg->owner) ) {
 		IRDA_ERROR("IrDA: Unable to find requested dongle type %x\n",
 			   type);
-		goto out;
+		kfree(dongle);
+		dongle = NULL;
 	}
-
-	/* Allocate dongle info for this instance */
-	dongle = kzalloc(sizeof(dongle_t), GFP_KERNEL);
-	if (!dongle)
-		goto out;
-
-	/* Bind the registration info to this particular instance */
-	dongle->issue = reg;
-	dongle->dev = dev;
-
- out:
+	if (dongle) {
+		/* Bind the registration info to this particular instance */
+		dongle->issue = reg;
+		dongle->dev = dev;
+	}
 	spin_unlock(&dongles->hb_spinlock);
 	return dongle;
 }
@@ -438,15 +433,15 @@ int irda_device_register_dongle(struct dongle_reg *new)
 	spin_lock(&dongles->hb_spinlock);
 	/* Check if this dongle has been registered before */
 	if (hashbin_find(dongles, new->type, NULL)) {
-		IRDA_MESSAGE("%s: Dongle type %x already registered\n", 
+		IRDA_MESSAGE("%s: Dongle type %x already registered\n",
 			     __FUNCTION__, new->type);
-        } else {
+	} else {
 		/* Insert IrDA dongle into hashbin */
 		hashbin_insert(dongles, (irda_queue_t *) new, new->type, NULL);
 	}
 	spin_unlock(&dongles->hb_spinlock);
 
-        return 0;
+	return 0;
 }
 EXPORT_SYMBOL(irda_device_register_dongle);
 
@@ -462,7 +457,7 @@ void irda_device_unregister_dongle(struct dongle_reg *dongle)
 
 	spin_lock(&dongles->hb_spinlock);
 	node = hashbin_remove(dongles, dongle->type, NULL);
-	if (!node) 
+	if (!node)
 		IRDA_ERROR("%s: dongle not found!\n", __FUNCTION__);
 	spin_unlock(&dongles->hb_spinlock);
 }

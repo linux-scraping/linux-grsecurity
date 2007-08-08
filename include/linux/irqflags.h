@@ -84,10 +84,10 @@
 
 #define irqs_disabled()						\
 ({								\
-	unsigned long flags;					\
+	unsigned long __flags;					\
 								\
-	raw_local_save_flags(flags);				\
-	raw_irqs_disabled_flags(flags);				\
+	raw_local_save_flags(__flags);				\
+	raw_irqs_disabled_flags(__flags);			\
 })
 
 #define irqs_disabled_flags(flags)	raw_irqs_disabled_flags(flags)

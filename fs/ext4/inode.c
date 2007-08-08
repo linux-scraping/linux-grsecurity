@@ -27,7 +27,6 @@
 #include <linux/time.h>
 #include <linux/ext4_jbd2.h>
 #include <linux/jbd2.h>
-#include <linux/smp_lock.h>
 #include <linux/highuid.h>
 #include <linux/pagemap.h>
 #include <linux/quotaops.h>
@@ -256,8 +255,8 @@ static int verify_chain(Indirect *from, Indirect *to)
  *	@inode: inode in question (we are only interested in its superblock)
  *	@i_block: block number to be parsed
  *	@offsets: array to store the offsets in
- *      @boundary: set this non-zero if the referred-to block is likely to be
- *             followed (on disk) by an indirect block.
+ *	@boundary: set this non-zero if the referred-to block is likely to be
+ *	       followed (on disk) by an indirect block.
  *
  *	To store the locations of file's data ext4 uses a data structure common
  *	for UNIX filesystems - tree of pointers anchored in the inode, with
@@ -946,7 +945,7 @@ out:
 static int ext4_get_block(struct inode *inode, sector_t iblock,
 			struct buffer_head *bh_result, int create)
 {
-	handle_t *handle = journal_current_handle();
+	handle_t *handle = ext4_journal_current_handle();
 	int ret = 0;
 	unsigned max_blocks = bh_result->b_size >> inode->i_blkbits;
 
@@ -1651,7 +1650,7 @@ static ssize_t ext4_direct_IO(int rw, struct kiocb *iocb,
 	/*
 	 * Reacquire the handle: ext4_get_block() can restart the transaction
 	 */
-	handle = journal_current_handle();
+	handle = ext4_journal_current_handle();
 
 out_stop:
 	if (handle) {
@@ -2611,9 +2610,9 @@ void ext4_read_inode(struct inode * inode)
 	}
 	inode->i_nlink = le16_to_cpu(raw_inode->i_links_count);
 	inode->i_size = le32_to_cpu(raw_inode->i_size);
-	inode->i_atime.tv_sec = le32_to_cpu(raw_inode->i_atime);
-	inode->i_ctime.tv_sec = le32_to_cpu(raw_inode->i_ctime);
-	inode->i_mtime.tv_sec = le32_to_cpu(raw_inode->i_mtime);
+	inode->i_atime.tv_sec = (signed)le32_to_cpu(raw_inode->i_atime);
+	inode->i_ctime.tv_sec = (signed)le32_to_cpu(raw_inode->i_ctime);
+	inode->i_mtime.tv_sec = (signed)le32_to_cpu(raw_inode->i_mtime);
 	inode->i_atime.tv_nsec = inode->i_ctime.tv_nsec = inode->i_mtime.tv_nsec = 0;
 
 	ei->i_state = 0;
@@ -2674,8 +2673,10 @@ void ext4_read_inode(struct inode * inode)
 		 */
 		ei->i_extra_isize = le16_to_cpu(raw_inode->i_extra_isize);
 		if (EXT4_GOOD_OLD_INODE_SIZE + ei->i_extra_isize >
-		    EXT4_INODE_SIZE(inode->i_sb))
+		    EXT4_INODE_SIZE(inode->i_sb)) {
+			brelse (bh);
 			goto bad_inode;
+		}
 		if (ei->i_extra_isize == 0) {
 			/* The extra space is currently unused. Use it. */
 			ei->i_extra_isize = sizeof(struct ext4_inode) -

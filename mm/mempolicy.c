@@ -105,7 +105,7 @@ static struct kmem_cache *sn_cache;
 
 /* Highest zone. An specific allocation for a zone below that is not
    policied. */
-enum zone_type policy_zone = ZONE_DMA;
+enum zone_type policy_zone = 0;
 
 struct mempolicy default_policy = {
 	.refcnt = ATOMIC_INIT(1), /* never free it */
@@ -144,7 +144,7 @@ static struct zonelist *bind_zonelist(nodemask_t *nodes)
 	max++;			/* space for zlcache_ptr (see mmzone.h) */
 	zl = kmalloc(sizeof(struct zone *) * max, GFP_KERNEL);
 	if (!zl)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	zl->zlcache_ptr = NULL;
 	num = 0;
 	/* First put in the highest zones from all nodes, then all the next 
@@ -161,6 +161,10 @@ static struct zonelist *bind_zonelist(nodemask_t *nodes)
 		if (k == 0)
 			break;
 		k--;
+	}
+	if (num == 0) {
+		kfree(zl);
+		return ERR_PTR(-EINVAL);
 	}
 	zl->zones[num] = NULL;
 	return zl;
@@ -193,9 +197,10 @@ static struct mempolicy *mpol_new(int mode, nodemask_t *nodes)
 		break;
 	case MPOL_BIND:
 		policy->v.zonelist = bind_zonelist(nodes);
-		if (policy->v.zonelist == NULL) {
+		if (IS_ERR(policy->v.zonelist)) {
+			void *error_code = policy->v.zonelist;
 			kmem_cache_free(policy_cache, policy);
-			return ERR_PTR(-ENOMEM);
+			return error_code;
 		}
 		break;
 	}
@@ -316,15 +321,6 @@ static inline int check_pgd_range(struct vm_area_struct *vma,
 	return 0;
 }
 
-/* Check if a vma is migratable */
-static inline int vma_migratable(struct vm_area_struct *vma)
-{
-	if (vma->vm_flags & (
-		VM_LOCKED|VM_IO|VM_HUGETLB|VM_PFNMAP|VM_RESERVED))
-		return 0;
-	return 1;
-}
-
 /*
  * Check if all pages in a range are on a set of nodes.
  * If pagelist != NULL then isolate pages from the LRU and
@@ -355,12 +351,6 @@ check_range(struct mm_struct *mm, unsigned long start, unsigned long end,
 			if (prev && prev->vm_end < vma->vm_start)
 				return ERR_PTR(-EFAULT);
 		}
-
-#ifdef CONFIG_PAX_SEGMEXEC
-		if (vma->vm_flags & VM_MIRROR)
-			return ERR_PTR(-EFAULT);
-#endif
-
 		if (!is_vm_hugetlb_page(vma) &&
 		    ((flags & MPOL_MF_STRICT) ||
 		     ((flags & (MPOL_MF_MOVE | MPOL_MF_MOVE_ALL)) &&
@@ -411,6 +401,10 @@ static int mbind_range(struct vm_area_struct *vma, unsigned long start,
 	struct vm_area_struct *next;
 	int err;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+#endif
+
 	err = 0;
 	for (; vma && vma->vm_start < end; vma = next) {
 		next = vma->vm_next;
@@ -422,6 +416,16 @@ static int mbind_range(struct vm_area_struct *vma, unsigned long start,
 			err = policy_vma(vma, new);
 		if (err)
 			break;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		vma_m = pax_find_mirror_vma(vma);
+		if (vma_m) {
+			err = policy_vma(vma_m, new);
+			if (err)
+				break;
+		}
+#endif
+
 	}
 	return err;
 }
@@ -741,7 +745,7 @@ static struct page *new_vma_page(struct page *page, unsigned long private, int *
 }
 #endif
 
-long do_mbind(unsigned long start, unsigned long len,
+static long do_mbind(unsigned long start, unsigned long len,
 		unsigned long mode, nodemask_t *nmask, unsigned long flags)
 {
 	struct vm_area_struct *vma;
@@ -769,6 +773,17 @@ long do_mbind(unsigned long start, unsigned long len,
 
 	if (end < start)
 		return -EINVAL;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
+		if (end > SEGMEXEC_TASK_SIZE)
+			return -EINVAL;
+	} else
+#endif
+
+	if (end > TASK_SIZE)
+		return -EINVAL;
+
 	if (end == start)
 		return 0;
 
@@ -1673,7 +1688,7 @@ void mpol_rebind_policy(struct mempolicy *pol, const nodemask_t *newmask)
 		 * then zonelist_policy() will "FALL THROUGH" to MPOL_DEFAULT.
 		 */
 
-		if (zonelist) {
+		if (!IS_ERR(zonelist)) {
 			/* Good - got mem - substitute new zonelist */
 			kfree(pol->v.zonelist);
 			pol->v.zonelist = zonelist;

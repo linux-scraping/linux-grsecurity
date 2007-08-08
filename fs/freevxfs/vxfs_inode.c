@@ -44,7 +44,7 @@
 extern const struct address_space_operations vxfs_aops;
 extern const struct address_space_operations vxfs_immed_aops;
 
-extern struct inode_operations vxfs_immed_symlink_iops;
+extern const struct inode_operations vxfs_immed_symlink_iops;
 
 struct kmem_cache		*vxfs_inode_cachep;
 
@@ -99,7 +99,7 @@ vxfs_blkiget(struct super_block *sbp, u_long extent, ino_t ino)
 	offset = ((ino % (sbp->s_blocksize / VXFS_ISIZE)) * VXFS_ISIZE);
 	bp = sb_bread(sbp, block);
 
-	if (buffer_mapped(bp)) {
+	if (bp && buffer_mapped(bp)) {
 		struct vxfs_inode_info	*vip;
 		struct vxfs_dinode	*dip;
 

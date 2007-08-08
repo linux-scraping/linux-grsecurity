@@ -104,7 +104,6 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/delay.h>
-#include <linux/smp_lock.h>
 #include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/ip.h>	/* for iph */
@@ -507,18 +506,6 @@ static void ns83820_vlan_rx_register(struct net_device *ndev, struct vlan_group 
 	spin_unlock(&dev->tx_lock);
 	spin_unlock_irq(&dev->misc_lock);
 }
-
-static void ns83820_vlan_rx_kill_vid(struct net_device *ndev, unsigned short vid)
-{
-	struct ns83820 *dev = PRIV(ndev);
-
-	spin_lock_irq(&dev->misc_lock);
-	spin_lock(&dev->tx_lock);
-	if (dev->vlgrp)
-		dev->vlgrp->vlan_devices[vid] = NULL;
-	spin_unlock(&dev->tx_lock);
-	spin_unlock_irq(&dev->misc_lock);
-}
 #endif
 
 /* Packet Receiver
@@ -608,7 +595,6 @@ static inline int rx_refill(struct net_device *ndev, gfp_t gfp)
 		res &= 0xf;
 		skb_reserve(skb, res);
 
-		skb->dev = ndev;
 		if (gfp != GFP_ATOMIC)
 			spin_lock_irqsave(&dev->rx_info.lock, flags);
 		res = ns83820_add_rx_skb(dev, skb);
@@ -1158,9 +1144,9 @@ again:
 	extsts = 0;
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		extsts |= EXTSTS_IPPKT;
-		if (IPPROTO_TCP == skb->nh.iph->protocol)
+		if (IPPROTO_TCP == ip_hdr(skb)->protocol)
 			extsts |= EXTSTS_TCPPKT;
-		else if (IPPROTO_UDP == skb->nh.iph->protocol)
+		else if (IPPROTO_UDP == ip_hdr(skb)->protocol)
 			extsts |= EXTSTS_UDPPKT;
 	}
 
@@ -1845,10 +1831,12 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 
 	ndev = alloc_etherdev(sizeof(struct ns83820));
 	dev = PRIV(ndev);
-	dev->ndev = ndev;
+
 	err = -ENOMEM;
 	if (!dev)
 		goto out;
+
+	dev->ndev = ndev;
 
 	spin_lock_init(&dev->rx_info.lock);
 	spin_lock_init(&dev->tx_lock);
@@ -2086,7 +2074,6 @@ static int __devinit ns83820_init_one(struct pci_dev *pci_dev, const struct pci_
 	/* We also support hardware vlan acceleration */
 	ndev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 	ndev->vlan_rx_register = ns83820_vlan_rx_register;
-	ndev->vlan_rx_kill_vid = ns83820_vlan_rx_kill_vid;
 #endif
 
 	if (using_dac) {

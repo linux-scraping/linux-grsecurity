@@ -25,6 +25,7 @@
 #include <asm/mach/arch.h>
 #include <asm/arch/pci.h>
 #include <asm/mach/time.h>
+#include <asm/arch/time.h>
 
 extern int init_atu;
 
@@ -76,16 +77,19 @@ static void __init iq81340sc_init(void)
 {
 	iop13xx_platform_init();
 	iq81340sc_pci_init();
+	iop13xx_add_tpmi_devices();
 }
 
 static void __init iq81340sc_timer_init(void)
 {
-	iop13xx_init_time(400000000);
+	unsigned long bus_freq = iop13xx_core_freq() / iop13xx_xsi_bus_ratio();
+	printk(KERN_DEBUG "%s: bus frequency: %lu\n", __FUNCTION__, bus_freq);
+	iop_init_time(bus_freq);
 }
 
 static struct sys_timer iq81340sc_timer = {
        .init       = iq81340sc_timer_init,
-       .offset     = iop13xx_gettimeoffset,
+       .offset     = iop_gettimeoffset,
 };
 
 MACHINE_START(IQ81340SC, "Intel IQ81340SC")

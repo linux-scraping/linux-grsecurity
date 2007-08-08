@@ -26,13 +26,13 @@ struct eth_platform_data {
 struct platform_device *
 at32_add_device_eth(unsigned int id, struct eth_platform_data *data);
 
-struct platform_device *at32_add_device_spi(unsigned int id);
-
-struct lcdc_platform_data {
-	unsigned long fbmem_start;
-	unsigned long fbmem_size;
-};
+struct spi_board_info;
 struct platform_device *
-at32_add_device_lcdc(unsigned int id, struct lcdc_platform_data *data);
+at32_add_device_spi(unsigned int id, struct spi_board_info *b, unsigned int n);
+
+struct atmel_lcdfb_info;
+struct platform_device *
+at32_add_device_lcdc(unsigned int id, struct atmel_lcdfb_info *data,
+		     unsigned long fbmem_start, unsigned long fbmem_len);
 
 #endif /* __ASM_ARCH_BOARD_H */

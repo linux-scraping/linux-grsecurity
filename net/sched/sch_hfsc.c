@@ -59,19 +59,17 @@
 #include <linux/skbuff.h>
 #include <linux/string.h>
 #include <linux/slab.h>
-#include <linux/timer.h>
 #include <linux/list.h>
 #include <linux/rbtree.h>
 #include <linux/init.h>
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
+#include <net/netlink.h>
 #include <net/pkt_sched.h>
 #include <net/pkt_cls.h>
 #include <asm/system.h>
 #include <asm/div64.h>
-
-#define HFSC_DEBUG 1
 
 /*
  * kernel internal service curve representation:
@@ -194,33 +192,8 @@ struct hfsc_sched
 	struct list_head droplist;		/* active leaf class list (for
 						   dropping) */
 	struct sk_buff_head requeue;		/* requeued packet */
-	struct timer_list wd_timer;		/* watchdog timer */
+	struct qdisc_watchdog watchdog;		/* watchdog timer */
 };
-
-/*
- * macros
- */
-#ifdef CONFIG_NET_SCH_CLK_GETTIMEOFDAY
-#include <linux/time.h>
-#undef PSCHED_GET_TIME
-#define PSCHED_GET_TIME(stamp)						\
-do {									\
-	struct timeval tv;						\
-	do_gettimeofday(&tv);						\
-	(stamp) = 1ULL * USEC_PER_SEC * tv.tv_sec + tv.tv_usec;		\
-} while (0)
-#endif
-
-#if HFSC_DEBUG
-#define ASSERT(cond)							\
-do {									\
-	if (unlikely(!(cond)))						\
-		printk("assertion %s failed at %s:%i (%s)\n",		\
-		       #cond, __FILE__, __LINE__, __FUNCTION__);	\
-} while (0)
-#else
-#define ASSERT(cond)
-#endif /* HFSC_DEBUG */
 
 #define	HT_INFINITY	0xffffffffffffffffULL	/* infinite time value */
 
@@ -284,7 +257,7 @@ static inline struct hfsc_class *
 eltree_get_minel(struct hfsc_sched *q)
 {
 	struct rb_node *n;
-	
+
 	n = rb_first(&q->eligible);
 	if (n == NULL)
 		return NULL;
@@ -407,28 +380,17 @@ cftree_update(struct hfsc_class *cl)
  *	ism: (psched_us/byte) << ISM_SHIFT
  *	dx: psched_us
  *
- * Clock source resolution (CONFIG_NET_SCH_CLK_*)
- *  JIFFIES: for 48<=HZ<=1534 resolution is between 0.63us and 1.27us.
- *  CPU: resolution is between 0.5us and 1us.
- *  GETTIMEOFDAY: resolution is exactly 1us.
+ * The clock source resolution with ktime is 1.024us.
  *
  * sm and ism are scaled in order to keep effective digits.
  * SM_SHIFT and ISM_SHIFT are selected to keep at least 4 effective
  * digits in decimal using the following table.
  *
- * Note: We can afford the additional accuracy (altq hfsc keeps at most
- * 3 effective digits) thanks to the fact that linux clock is bounded
- * much more tightly.
- *
  *  bits/sec      100Kbps     1Mbps     10Mbps     100Mbps    1Gbps
  *  ------------+-------------------------------------------------------
- *  bytes/0.5us   6.25e-3    62.5e-3    625e-3     6250e-e    62500e-3
- *  bytes/us      12.5e-3    125e-3     1250e-3    12500e-3   125000e-3
- *  bytes/1.27us  15.875e-3  158.75e-3  1587.5e-3  15875e-3   158750e-3
+ *  bytes/1.024us 12.8e-3    128e-3     1280e-3    12800e-3   128000e-3
  *
- *  0.5us/byte    160        16         1.6        0.16       0.016
- *  us/byte       80         8          0.8        0.08       0.008
- *  1.27us/byte   63         6.3        0.63       0.063      0.0063
+ *  1.024us/byte  78.125     7.8125     0.78125    0.078125   0.0078125
  */
 #define	SM_SHIFT	20
 #define	ISM_SHIFT	18
@@ -473,8 +435,8 @@ m2sm(u32 m)
 	u64 sm;
 
 	sm = ((u64)m << SM_SHIFT);
-	sm += PSCHED_JIFFIE2US(HZ) - 1;
-	do_div(sm, PSCHED_JIFFIE2US(HZ));
+	sm += PSCHED_TICKS_PER_SEC - 1;
+	do_div(sm, PSCHED_TICKS_PER_SEC);
 	return sm;
 }
 
@@ -487,7 +449,7 @@ m2ism(u32 m)
 	if (m == 0)
 		ism = HT_INFINITY;
 	else {
-		ism = ((u64)PSCHED_JIFFIE2US(HZ) << ISM_SHIFT);
+		ism = ((u64)PSCHED_TICKS_PER_SEC << ISM_SHIFT);
 		ism += m - 1;
 		do_div(ism, m);
 	}
@@ -500,7 +462,7 @@ d2dx(u32 d)
 {
 	u64 dx;
 
-	dx = ((u64)d * PSCHED_JIFFIE2US(HZ));
+	dx = ((u64)d * PSCHED_TICKS_PER_SEC);
 	dx += USEC_PER_SEC - 1;
 	do_div(dx, USEC_PER_SEC);
 	return dx;
@@ -512,7 +474,7 @@ sm2m(u64 sm)
 {
 	u64 m;
 
-	m = (sm * PSCHED_JIFFIE2US(HZ)) >> SM_SHIFT;
+	m = (sm * PSCHED_TICKS_PER_SEC) >> SM_SHIFT;
 	return (u32)m;
 }
 
@@ -523,7 +485,7 @@ dx2d(u64 dx)
 	u64 d;
 
 	d = dx * USEC_PER_SEC;
-	do_div(d, PSCHED_JIFFIE2US(HZ));
+	do_div(d, PSCHED_TICKS_PER_SEC);
 	return (u32)d;
 }
 
@@ -667,9 +629,7 @@ rtsc_min(struct runtime_sc *rtsc, struct internal_sc *isc, u64 x, u64 y)
 static void
 init_ed(struct hfsc_class *cl, unsigned int next_len)
 {
-	u64 cur_time;
-
-	PSCHED_GET_TIME(cur_time);
+	u64 cur_time = psched_get_time();
 
 	/* update the deadline curve */
 	rtsc_min(&cl->cl_deadline, &cl->cl_rsc, cur_time, cl->cl_cumul);
@@ -773,7 +733,7 @@ init_vf(struct hfsc_class *cl, unsigned int len)
 			/* update the virtual curve */
 			vt = cl->cl_vt + cl->cl_vtoff;
 			rtsc_min(&cl->cl_virtual, &cl->cl_fsc, vt,
-			                              cl->cl_total);
+						      cl->cl_total);
 			if (cl->cl_virtual.x == vt) {
 				cl->cl_virtual.x -= cl->cl_vtoff;
 				cl->cl_vtoff = 0;
@@ -792,14 +752,14 @@ init_vf(struct hfsc_class *cl, unsigned int len)
 			if (cl->cl_flags & HFSC_USC) {
 				/* class has upper limit curve */
 				if (cur_time == 0)
-					PSCHED_GET_TIME(cur_time);
+					cur_time = psched_get_time();
 
 				/* update the ulimit curve */
 				rtsc_min(&cl->cl_ulimit, &cl->cl_usc, cur_time,
-				         cl->cl_total);
+					 cl->cl_total);
 				/* compute myf */
 				cl->cl_myf = rtsc_y2x(&cl->cl_ulimit,
-				                      cl->cl_total);
+						      cl->cl_total);
 				cl->cl_myfadj = 0;
 			}
 		}
@@ -853,7 +813,7 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
 		 * update vt and f
 		 */
 		cl->cl_vt = rtsc_y2x(&cl->cl_virtual, cl->cl_total)
-		            - cl->cl_vtoff + cl->cl_vtadj;
+			    - cl->cl_vtoff + cl->cl_vtadj;
 
 		/*
 		 * if vt of the class is smaller than cvtmin,
@@ -870,7 +830,7 @@ update_vf(struct hfsc_class *cl, unsigned int len, u64 cur_time)
 
 		if (cl->cl_flags & HFSC_USC) {
 			cl->cl_myf = cl->cl_myfadj + rtsc_y2x(&cl->cl_ulimit,
-			                                      cl->cl_total);
+							      cl->cl_total);
 #if 0
 			/*
 			 * This code causes classes to stay way under their
@@ -1001,7 +961,7 @@ hfsc_find_class(u32 classid, struct Qdisc *sch)
 
 static void
 hfsc_change_rsc(struct hfsc_class *cl, struct tc_service_curve *rsc,
-                u64 cur_time)
+		u64 cur_time)
 {
 	sc2isc(rsc, &cl->cl_rsc);
 	rtsc_init(&cl->cl_deadline, &cl->cl_rsc, cur_time, cl->cl_cumul);
@@ -1023,7 +983,7 @@ hfsc_change_fsc(struct hfsc_class *cl, struct tc_service_curve *fsc)
 
 static void
 hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
-                u64 cur_time)
+		u64 cur_time)
 {
 	sc2isc(usc, &cl->cl_usc);
 	rtsc_init(&cl->cl_ulimit, &cl->cl_usc, cur_time, cl->cl_total);
@@ -1032,7 +992,7 @@ hfsc_change_usc(struct hfsc_class *cl, struct tc_service_curve *usc,
 
 static int
 hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
-                  struct rtattr **tca, unsigned long *arg)
+		  struct rtattr **tca, unsigned long *arg)
 {
 	struct hfsc_sched *q = qdisc_priv(sch);
 	struct hfsc_class *cl = (struct hfsc_class *)*arg;
@@ -1076,7 +1036,7 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 			if (cl->cl_parent == NULL && parentid != TC_H_ROOT)
 				return -EINVAL;
 		}
-		PSCHED_GET_TIME(cur_time);
+		cur_time = psched_get_time();
 
 		sch_tree_lock(sch);
 		if (rsc != NULL)
@@ -1162,22 +1122,11 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 }
 
 static void
-hfsc_destroy_filters(struct tcf_proto **fl)
-{
-	struct tcf_proto *tp;
-
-	while ((tp = *fl) != NULL) {
-		*fl = tp->next;
-		tcf_destroy(tp);
-	}
-}
-
-static void
 hfsc_destroy_class(struct Qdisc *sch, struct hfsc_class *cl)
 {
 	struct hfsc_sched *q = qdisc_priv(sch);
 
-	hfsc_destroy_filters(&cl->filter_list);
+	tcf_destroy_chain(cl->filter_list);
 	qdisc_destroy(cl->qdisc);
 #ifdef CONFIG_NET_ESTIMATOR
 	gen_kill_estimator(&cl->bstats, &cl->rate_est);
@@ -1197,10 +1146,12 @@ hfsc_delete_class(struct Qdisc *sch, unsigned long arg)
 
 	sch_tree_lock(sch);
 
-	list_del(&cl->hlist);
 	list_del(&cl->siblings);
 	hfsc_adjust_levels(cl->cl_parent);
+
 	hfsc_purge_queue(sch, cl);
+	list_del(&cl->hlist);
+
 	if (--cl->refcnt == 0)
 		hfsc_destroy_class(sch, cl);
 
@@ -1228,9 +1179,9 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
 #ifdef CONFIG_NET_CLS_ACT
 		switch (result) {
 		case TC_ACT_QUEUED:
-		case TC_ACT_STOLEN: 
+		case TC_ACT_STOLEN:
 			*qerr = NET_XMIT_SUCCESS;
-		case TC_ACT_SHOT: 
+		case TC_ACT_SHOT:
 			return NULL;
 		}
 #elif defined(CONFIG_NET_CLS_POLICE)
@@ -1259,7 +1210,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
 
 static int
 hfsc_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
-                 struct Qdisc **old)
+		 struct Qdisc **old)
 {
 	struct hfsc_class *cl = (struct hfsc_class *)arg;
 
@@ -1397,10 +1348,10 @@ hfsc_dump_curves(struct sk_buff *skb, struct hfsc_class *cl)
 
 static int
 hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
-                struct tcmsg *tcm)
+		struct tcmsg *tcm)
 {
 	struct hfsc_class *cl = (struct hfsc_class *)arg;
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct rtattr *rta = (struct rtattr *)b;
 
 	tcm->tcm_parent = cl->cl_parent ? cl->cl_parent->classid : TC_H_ROOT;
@@ -1411,11 +1362,11 @@ hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
 	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
 	if (hfsc_dump_curves(skb, cl) < 0)
 		goto rtattr_failure;
-	rta->rta_len = skb->tail - b;
+	rta->rta_len = skb_tail_pointer(skb) - b;
 	return skb->len;
 
  rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -1470,21 +1421,11 @@ hfsc_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 }
 
 static void
-hfsc_watchdog(unsigned long arg)
-{
-	struct Qdisc *sch = (struct Qdisc *)arg;
-
-	sch->flags &= ~TCQ_F_THROTTLED;
-	netif_schedule(sch->dev);
-}
-
-static void
-hfsc_schedule_watchdog(struct Qdisc *sch, u64 cur_time)
+hfsc_schedule_watchdog(struct Qdisc *sch)
 {
 	struct hfsc_sched *q = qdisc_priv(sch);
 	struct hfsc_class *cl;
 	u64 next_time = 0;
-	long delay;
 
 	if ((cl = eltree_get_minel(q)) != NULL)
 		next_time = cl->cl_e;
@@ -1492,12 +1433,8 @@ hfsc_schedule_watchdog(struct Qdisc *sch, u64 cur_time)
 		if (next_time == 0 || next_time > q->root.cl_cfmin)
 			next_time = q->root.cl_cfmin;
 	}
-	ASSERT(next_time != 0);
-	delay = next_time - cur_time;
-	delay = PSCHED_US2JIFFIE(delay);
-
-	sch->flags |= TCQ_F_THROTTLED;
-	mod_timer(&q->wd_timer, jiffies + delay);
+	WARN_ON(next_time == 0);
+	qdisc_watchdog_schedule(&q->watchdog, next_time);
 }
 
 static int
@@ -1534,9 +1471,7 @@ hfsc_init_qdisc(struct Qdisc *sch, struct rtattr *opt)
 
 	list_add(&q->root.hlist, &q->clhash[hfsc_hash(q->root.classid)]);
 
-	init_timer(&q->wd_timer);
-	q->wd_timer.function = hfsc_watchdog;
-	q->wd_timer.data = (unsigned long)sch;
+	qdisc_watchdog_init(&q->watchdog, sch);
 
 	return 0;
 }
@@ -1606,8 +1541,7 @@ hfsc_reset_qdisc(struct Qdisc *sch)
 	__skb_queue_purge(&q->requeue);
 	q->eligible = RB_ROOT;
 	INIT_LIST_HEAD(&q->droplist);
-	del_timer(&q->wd_timer);
-	sch->flags &= ~TCQ_F_THROTTLED;
+	qdisc_watchdog_cancel(&q->watchdog);
 	sch->q.qlen = 0;
 }
 
@@ -1623,14 +1557,14 @@ hfsc_destroy_qdisc(struct Qdisc *sch)
 			hfsc_destroy_class(sch, cl);
 	}
 	__skb_queue_purge(&q->requeue);
-	del_timer(&q->wd_timer);
+	qdisc_watchdog_cancel(&q->watchdog);
 }
 
 static int
 hfsc_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct hfsc_sched *q = qdisc_priv(sch);
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tc_hfsc_qopt qopt;
 
 	qopt.defcls = q->defcls;
@@ -1638,7 +1572,7 @@ hfsc_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
 	return skb->len;
 
  rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -1692,7 +1626,7 @@ hfsc_dequeue(struct Qdisc *sch)
 	if ((skb = __skb_dequeue(&q->requeue)))
 		goto out;
 
-	PSCHED_GET_TIME(cur_time);
+	cur_time = psched_get_time();
 
 	/*
 	 * if there are eligible classes, use real-time criteria.
@@ -1709,7 +1643,7 @@ hfsc_dequeue(struct Qdisc *sch)
 		cl = vttree_get_minvt(&q->root, cur_time);
 		if (cl == NULL) {
 			sch->qstats.overlimits++;
-			hfsc_schedule_watchdog(sch, cur_time);
+			hfsc_schedule_watchdog(sch);
 			return NULL;
 		}
 	}

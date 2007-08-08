@@ -44,6 +44,7 @@
 #include <linux/vfs.h>
 #include <linux/inet.h>
 #include <linux/nfs_xdr.h>
+#include <linux/magic.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -81,7 +82,7 @@ struct file_system_type nfs_xdev_fs_type = {
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_REVAL_DOT|FS_BINARY_MOUNTDATA,
 };
 
-static struct super_operations nfs_sops = {
+static const struct super_operations nfs_sops = {
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs_write_inode,
@@ -125,7 +126,7 @@ struct file_system_type nfs4_referral_fs_type = {
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_REVAL_DOT|FS_BINARY_MOUNTDATA,
 };
 
-static struct super_operations nfs4_sops = {
+static const struct super_operations nfs4_sops = {
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs_write_inode,
@@ -150,10 +151,10 @@ int __init register_nfs_fs(void)
 	if (ret < 0)
 		goto error_0;
 
-#ifdef CONFIG_NFS_V4
 	ret = nfs_register_sysctl();
 	if (ret < 0)
 		goto error_1;
+#ifdef CONFIG_NFS_V4
 	ret = register_filesystem(&nfs4_fs_type);
 	if (ret < 0)
 		goto error_2;
@@ -164,9 +165,9 @@ int __init register_nfs_fs(void)
 #ifdef CONFIG_NFS_V4
 error_2:
 	nfs_unregister_sysctl();
+#endif
 error_1:
 	unregister_filesystem(&nfs_fs_type);
-#endif
 error_0:
 	return ret;
 }
@@ -203,9 +204,9 @@ static int nfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	lock_kernel();
 
 	error = server->nfs_client->rpc_ops->statfs(server, fh, &res);
-	buf->f_type = NFS_SUPER_MAGIC;
 	if (error < 0)
 		goto out_err;
+	buf->f_type = NFS_SUPER_MAGIC;
 
 	/*
 	 * Current versions of glibc do not correctly handle the
@@ -232,15 +233,14 @@ static int nfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_ffree = res.afiles;
 
 	buf->f_namelen = server->namelen;
- out:
+
 	unlock_kernel();
 	return 0;
 
  out_err:
 	dprintk("%s: statfs error = %d\n", __FUNCTION__, -error);
-	buf->f_bsize = buf->f_blocks = buf->f_bfree = buf->f_bavail = -1;
-	goto out;
-
+	unlock_kernel();
+	return error;
 }
 
 /*
@@ -290,6 +290,7 @@ static void nfs_show_mount_options(struct seq_file *m, struct nfs_server *nfss, 
 		{ NFS_MOUNT_NOAC, ",noac", "" },
 		{ NFS_MOUNT_NONLM, ",nolock", "" },
 		{ NFS_MOUNT_NOACL, ",noacl", "" },
+		{ NFS_MOUNT_NORDIRPLUS, ",nordirplus", "" },
 		{ 0, NULL, NULL }
 	};
 	const struct proc_nfs_info *nfs_infop;
@@ -1044,7 +1045,7 @@ static int nfs4_referral_get_sb(struct file_system_type *fs_type, int flags,
 		nfs4_fill_super(s);
 	}
 
-	mntroot = nfs4_get_root(s, data->fh);
+	mntroot = nfs4_get_root(s, &mntfh);
 	if (IS_ERR(mntroot)) {
 		error = PTR_ERR(mntroot);
 		goto error_splat_super;

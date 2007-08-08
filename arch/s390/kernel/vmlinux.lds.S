@@ -21,7 +21,7 @@ SECTIONS
   . = 0x00000000;
   _text = .;			/* Text and read-only data */
   .text : {
-	*(.text)
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	KPROBES_TEXT
@@ -31,21 +31,24 @@ SECTIONS
 
   _etext = .;			/* End of text section */
 
+  RODATA
+
+#ifdef CONFIG_SHARED_KERNEL
+  . = ALIGN(1048576);		/* VM shared segments are 1MB aligned */
+#endif
+
+  . = ALIGN(4096);
+  _eshared = .;			/* End of shareable data */
+
   . = ALIGN(16);		/* Exception table */
   __start___ex_table = .;
   __ex_table : { *(__ex_table) }
   __stop___ex_table = .;
 
-  RODATA
-
-#ifdef CONFIG_SHARED_KERNEL
-  . = ALIGN(1048576);		/* VM shared segments are 1MB aligned */
-
-  _eshared = .;			/* End of shareable data */
-#endif
+  BUG_TABLE
 
   .data : {			/* Data */
-	*(.data)
+	DATA_DATA
 	CONSTRUCTORS
 	}
 
@@ -76,6 +79,12 @@ SECTIONS
 	*(.init.text)
 	_einittext = .;
   }
+  /*
+   * .exit.text is discarded at runtime, not link time,
+   * to deal with references from __bug_table
+   */
+  .exit.text :	 { *(.exit.text) }
+
   .init.data : { *(.init.data) }
   . = ALIGN(256);
   __setup_start = .;
@@ -90,12 +99,15 @@ SECTIONS
   .con_initcall.init : { *(.con_initcall.init) }
   __con_initcall_end = .;
   SECURITY_INIT
+
+#ifdef CONFIG_BLK_DEV_INITRD
   . = ALIGN(256);
   __initramfs_start = .;
   .init.ramfs : { *(.init.initramfs) }
   . = ALIGN(2);
   __initramfs_end = .;
-  . = ALIGN(256);
+#endif
+  . = ALIGN(4096);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;
@@ -112,7 +124,7 @@ SECTIONS
 
   /* Sections to be discarded */
   /DISCARD/ : {
-	*(.exit.text) *(.exit.data) *(.exitcall.exit)
+	*(.exit.data) *(.exitcall.exit)
 	}
 
   /* Stabs debugging sections.  */

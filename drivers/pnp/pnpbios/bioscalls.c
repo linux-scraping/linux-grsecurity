@@ -528,15 +528,25 @@ static int pnp_bios_write_escd(char *data, u32 nvram_base)
  * Initialization
  */
 
-void pnpbios_calls_init(union pnp_bios_install_struct *header)
+void __init pnpbios_calls_init(union pnp_bios_install_struct *header)
 {
 	int i;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	spin_lock_init(&pnp_bios_lock);
 	pnp_bios_callpoint.offset = header->fields.pm16offset;
 	pnp_bios_callpoint.segment = PNP_CS16;
 
 	set_base(bad_bios_desc, __va((unsigned long)0x40 << 4));
 	_set_limit((char *)&bad_bios_desc, 4095 - (0x40 << 4));
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
  	for (i = 0; i < NR_CPUS; i++) {
   		struct desc_struct *gdt = get_cpu_gdt_table(i);
   		if (!gdt)
@@ -545,4 +555,9 @@ void pnpbios_calls_init(union pnp_bios_install_struct *header)
  		set_base(gdt[GDT_ENTRY_PNPBIOS_CS16], __va(header->fields.pm16cseg));
  		set_base(gdt[GDT_ENTRY_PNPBIOS_DS], __va(header->fields.pm16dseg));
   	}
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 }

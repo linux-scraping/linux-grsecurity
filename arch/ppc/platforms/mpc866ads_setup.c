@@ -1,4 +1,4 @@
-/*arch/ppc/platforms/mpc866ads-setup.c
+/*arch/ppc/platforms/mpc866ads_setup.c
  *
  * Platform setup for the Freescale mpc866ads board
  *
@@ -21,6 +21,7 @@
 #include <linux/fs_enet_pd.h>
 #include <linux/fs_uart_pd.h>
 #include <linux/mii.h>
+#include <linux/phy.h>
 
 #include <asm/delay.h>
 #include <asm/io.h>
@@ -37,10 +38,10 @@
 
 extern unsigned char __res[];
 
-static void setup_fec1_ioports(void);
-static void setup_scc1_ioports(void);
-static void setup_smc1_ioports(void);
-static void setup_smc2_ioports(void);
+static void setup_fec1_ioports(struct fs_platform_info*);
+static void setup_scc1_ioports(struct fs_platform_info*);
+static void setup_smc1_ioports(struct fs_uart_platform_info*);
+static void setup_smc2_ioports(struct fs_uart_platform_info*);
 
 static struct fs_mii_fec_platform_info	mpc8xx_mdio_fec_pdata;
 
@@ -137,7 +138,7 @@ void __init board_init(void)
 	iounmap(bcsr_io);
 }
 
-static void setup_fec1_ioports(struct fs_platform_info*)
+static void setup_fec1_ioports(struct fs_platform_info* pdata)
 {
 	immap_t *immap = (immap_t *) IMAP_ADDR;
 
@@ -145,7 +146,7 @@ static void setup_fec1_ioports(struct fs_platform_info*)
 	setbits16(&immap->im_ioport.iop_pddir, 0x1fff);
 }
 
-static void setup_scc1_ioports(struct fs_platform_info*)
+static void setup_scc1_ioports(struct fs_platform_info* pdata)
 {
 	immap_t *immap = (immap_t *) IMAP_ADDR;
 	unsigned *bcsr_io;
@@ -194,7 +195,7 @@ static void setup_scc1_ioports(struct fs_platform_info*)
 
 }
 
-static void setup_smc1_ioports(struct fs_uart_platform_info*)
+static void setup_smc1_ioports(struct fs_uart_platform_info* pdata)
 {
 	immap_t *immap = (immap_t *) IMAP_ADDR;
 	unsigned *bcsr_io;
@@ -216,7 +217,7 @@ static void setup_smc1_ioports(struct fs_uart_platform_info*)
 
 }
 
-static void setup_smc2_ioports(struct fs_uart_platform_info*)
+static void setup_smc2_ioports(struct fs_uart_platform_info* pdata)
 {
 	immap_t *immap = (immap_t *) IMAP_ADDR;
 	unsigned *bcsr_io;
@@ -369,7 +370,7 @@ int __init mpc866ads_init(void)
 	ppc_sys_device_setfunc(MPC8xx_CPM_SMC1, PPC_SYS_FUNC_UART);
 #endif
 
-#ifdef CONFIG_SERIAL_CPM_SMC
+#ifdef CONFIG_SERIAL_CPM_SMC2
 	ppc_sys_device_enable(MPC8xx_CPM_SMC2);
 	ppc_sys_device_setfunc(MPC8xx_CPM_SMC2, PPC_SYS_FUNC_UART);
 #endif

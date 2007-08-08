@@ -33,12 +33,15 @@ OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
 ENTRY(phys_startup_32)
 jiffies = jiffies_64;
-_proxy_pda = 0;
 
 PHDRS {
-	text PT_LOAD FLAGS(5);	/* R_E */
-	data PT_LOAD FLAGS(6);	/* RW_ */
-	note PT_NOTE FLAGS(4);	/* R__ */
+	initdata PT_LOAD FLAGS(6);	/* RW_ */
+	percpu   PT_LOAD FLAGS(6);	/* RW_ */
+	inittext PT_LOAD FLAGS(5);	/* R_E */
+	text     PT_LOAD FLAGS(5);	/* R_E */
+	rodata   PT_LOAD FLAGS(4);	/* R__ */
+	data     PT_LOAD FLAGS(6);	/* RW_ */
+	note     PT_NOTE FLAGS(0);	/* ___ */
 }
 SECTIONS
 {
@@ -49,25 +52,14 @@ SECTIONS
 	BYTE(0xEA) /* jmp far */
 	LONG(phys_startup_32)
 	SHORT(__BOOT_CS)
-	} :text = 0x9090
+	} :initdata
 
   /* might get freed after init */
   . = ALIGN(4096);
-  .smp_altinstructions : AT(ADDR(.smp_altinstructions) - LOAD_OFFSET) {
-	__smp_alt_begin = .;
-	__smp_alt_instructions = .;
-	*(.smp_altinstructions)
-	__smp_alt_instructions_end = .;
-  }
-  . = ALIGN(4);
   .smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
   	__smp_locks = .;
 	*(.smp_locks)
 	__smp_locks_end = .;
-  }
-  .smp_altinstr_replacement : AT(ADDR(.smp_altinstr_replacement) - LOAD_OFFSET) {
-	*(.smp_altinstr_replacement)
-  	__smp_alt_end = .;
   }
   /* will be freed after init
    * Following ALIGN() is required to make sure no other data falls on the
@@ -110,23 +102,28 @@ SECTIONS
   }
   . = ALIGN(4);
   .parainstructions : AT(ADDR(.parainstructions) - LOAD_OFFSET) {
-  	__start_parainstructions = .;
+  	__parainstructions = .;
 	*(.parainstructions)
-  	__stop_parainstructions = .;
+  	__parainstructions_end = .;
   }
   .exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) { *(.exit.data) }
+#if defined(CONFIG_BLK_DEV_INITRD)
   . = ALIGN(4096);
   .init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET) {
 	__initramfs_start = .;
 	*(.init.ramfs)
 	__initramfs_end = .;
   }
-  . = ALIGN(L1_CACHE_BYTES);
-  .data.percpu  : AT(ADDR(.data.percpu) - LOAD_OFFSET) {
-	__per_cpu_start = .;
+#endif
+  . = ALIGN(4096);
+  per_cpu_start = .;
+  .data.percpu (0) : AT(ADDR(.data.percpu) - LOAD_OFFSET + per_cpu_start) {
+	__per_cpu_start = . + per_cpu_start;
+	LONG(0)
 	*(.data.percpu)
-	__per_cpu_end = .;
-  }
+	__per_cpu_end = . + per_cpu_start;
+  } :percpu
+  . += per_cpu_start;
 
   /* read-only */
 
@@ -135,27 +132,28 @@ SECTIONS
 	_sinittext = .;
 	*(.init.text)
 	_einittext = .;
-  }
+  } :inittext
 
   /* .exit.text is discard at runtime, not link time, to deal with references
      from .altinstructions and .eh_frame */
   .exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) { *(.exit.text) }
 
-#ifdef CONFIG_PAX_KERNEXEC
-  .text.align : AT(ADDR(.text.align) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
-	. = ALIGN(__KERNEL_TEXT_OFFSET - LOAD_OFFSET) - 1;
+  .filler : AT(ADDR(.filler) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 	BYTE(0)
+	. = ALIGN(4*1024*1024) - 1;
   }
-#else
-  . = ALIGN(4096);
-#endif
 
   /* freed after init ends here */
 
-  .text : AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+  .text.head : AT(ADDR(.text.head) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 	__init_end = . + __KERNEL_TEXT_OFFSET;
 	_text = .;			/* Text and read-only data */
-	*(.text)
+	*(.text.head)
+  } :text = 0x9090
+
+  /* read-only */
+  .text : AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
 	KPROBES_TEXT
@@ -170,7 +168,18 @@ SECTIONS
   	__start___ex_table = .;
 	 *(__ex_table)
   	__stop___ex_table = .;
+  } :rodata
+
+  BUG_TABLE
+
+  . = ALIGN(4);
+  .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
+  	__tracedata_start = .;
+	*(.tracedata)
+  	__tracedata_end = .;
   }
+
+  RODATA
 
   . = ALIGN(4096);
   .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
@@ -184,25 +193,14 @@ SECTIONS
 	*(.idt)
 	}
 
-  RODATA
-
-  BUG_TABLE
-
-  . = ALIGN(4);
-  .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
-  	__tracedata_start = .;
-	*(.tracedata)
-  	__tracedata_end = .;
-  }
-
 #ifdef CONFIG_PAX_KERNEXEC
   . = ALIGN(4096);
 
   .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 	MODULES_VADDR = .;
+	BYTE(0)
 	. += (4 * 1024 * 1024);
 	. = ALIGN(1 << PMD_SHIFT) - 1;
-	BYTE(0)
 	MODULES_END = .;
   }
 
@@ -214,15 +212,9 @@ SECTIONS
   . = ALIGN(4096);
   .data : AT(ADDR(.data) - LOAD_OFFSET) {	/* Data */
 	_data = .;
-	*(.data)
+	DATA_DATA
 	CONSTRUCTORS
 	} :data
-
-  .paravirtprobe : AT(ADDR(.paravirtprobe) - LOAD_OFFSET) {
-  	__start_paravirtprobe = .;
-	*(.paravirtprobe)
-  	__stop_paravirtprobe = .;
-  }
 
   . = ALIGN(4096);
   .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) {

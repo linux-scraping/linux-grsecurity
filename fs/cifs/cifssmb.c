@@ -1,7 +1,7 @@
 /*
  *   fs/cifs/cifssmb.c
  *
- *   Copyright (C) International Business Machines  Corp., 2002,2006
+ *   Copyright (C) International Business Machines  Corp., 2002,2007
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   Contains the routines for constructing the SMB PDUs themselves
@@ -24,8 +24,8 @@
  /* SMB/CIFS PDU handling routines here - except for leftovers in connect.c   */
  /* These are mostly routines that operate on a pathname, or on a tree id     */
  /* (mounted volume), but there are eight handle based routines which must be */
- /* treated slightly different for reconnection purposes since we never want  */
- /* to reuse a stale file handle and the caller knows the file handle */
+ /* treated slightly differently for reconnection purposes since we never     */
+ /* want to reuse a stale file handle and only the caller knows the file info */
 
 #include <linux/fs.h>
 #include <linux/kernel.h>
@@ -158,9 +158,15 @@ small_smb_init(int smb_command, int wct, struct cifsTconInfo *tcon,
 							nls_codepage);
 			if(!rc && (tcon->tidStatus == CifsNeedReconnect)) {
 				mark_open_files_invalid(tcon);
-				rc = CIFSTCon(0, tcon->ses, tcon->treeName, tcon
-					, nls_codepage);
+				rc = CIFSTCon(0, tcon->ses, tcon->treeName, 
+					      tcon, nls_codepage);
 				up(&tcon->ses->sesSem);
+				/* tell server which Unix caps we support */
+				if (tcon->ses->capabilities & CAP_UNIX)
+					reset_cifs_unix_caps(0 /* no xid */,
+						tcon, 
+						NULL /* we do not know sb */,
+						NULL /* no vol info */);	
 				/* BB FIXME add code to check if wsize needs
 				   update due to negotiated smb buffer size
 				   shrinking */
@@ -298,6 +304,12 @@ smb_init(int smb_command, int wct, struct cifsTconInfo *tcon,
 				rc = CIFSTCon(0, tcon->ses, tcon->treeName,
 					      tcon, nls_codepage);
 				up(&tcon->ses->sesSem);
+				/* tell server which Unix caps we support */
+				if (tcon->ses->capabilities & CAP_UNIX)
+					reset_cifs_unix_caps(0 /* no xid */,
+						tcon, 
+						NULL /* do not know sb */,
+						NULL /* no vol info */);
 				/* BB FIXME add code to check if wsize needs
 				update due to negotiated smb buffer size
 				shrinking */
@@ -421,8 +433,8 @@ CIFSSMBNegotiate(unsigned int xid, struct cifsSesInfo *ses)
 	cFYI(1,("secFlags 0x%x",secFlags));
 
 	pSMB->hdr.Mid = GetNextMid(server);
-	pSMB->hdr.Flags2 |= SMBFLG2_UNICODE;
-	if((secFlags & CIFSSEC_MUST_KRB5) == CIFSSEC_MUST_KRB5)
+	pSMB->hdr.Flags2 |= (SMBFLG2_UNICODE | SMBFLG2_ERR_STATUS);
+	if ((secFlags & CIFSSEC_MUST_KRB5) == CIFSSEC_MUST_KRB5)
 		pSMB->hdr.Flags2 |= SMBFLG2_EXT_SEC;
 	
 	count = 0;
@@ -899,6 +911,130 @@ MkDirRetry:
 	if (rc == -EAGAIN)
 		goto MkDirRetry;
 	return rc;
+}
+
+int
+CIFSPOSIXCreate(const int xid, struct cifsTconInfo *tcon, __u32 posix_flags,
+		__u64 mode, __u16 * netfid, FILE_UNIX_BASIC_INFO *pRetData,
+		__u32 *pOplock, const char *name, 
+		const struct nls_table *nls_codepage, int remap)
+{
+	TRANSACTION2_SPI_REQ *pSMB = NULL;
+	TRANSACTION2_SPI_RSP *pSMBr = NULL;
+	int name_len;
+	int rc = 0;
+	int bytes_returned = 0;
+	char *data_offset;
+	__u16 params, param_offset, offset, byte_count, count;
+	OPEN_PSX_REQ * pdata;
+	OPEN_PSX_RSP * psx_rsp;
+
+	cFYI(1, ("In POSIX Create"));
+PsxCreat:
+	rc = smb_init(SMB_COM_TRANSACTION2, 15, tcon, (void **) &pSMB,
+		      (void **) &pSMBr);
+	if (rc)
+		return rc;
+
+	if (pSMB->hdr.Flags2 & SMBFLG2_UNICODE) {
+		name_len =
+		    cifsConvertToUCS((__le16 *) pSMB->FileName, name,
+				     PATH_MAX, nls_codepage, remap);
+		name_len++;	/* trailing null */
+		name_len *= 2;
+	} else {	/* BB improve the check for buffer overruns BB */
+		name_len = strnlen(name, PATH_MAX);
+		name_len++;	/* trailing null */
+		strncpy(pSMB->FileName, name, name_len);
+	}
+
+	params = 6 + name_len;
+	count = sizeof(OPEN_PSX_REQ);
+	pSMB->MaxParameterCount = cpu_to_le16(2);
+	pSMB->MaxDataCount = cpu_to_le16(1000);	/* large enough */
+	pSMB->MaxSetupCount = 0;
+	pSMB->Reserved = 0;
+	pSMB->Flags = 0;
+	pSMB->Timeout = 0;
+	pSMB->Reserved2 = 0;
+	param_offset = offsetof(struct smb_com_transaction2_spi_req,
+                                     InformationLevel) - 4;
+	offset = param_offset + params;
+	data_offset = (char *) (&pSMB->hdr.Protocol) + offset;
+	pdata = (OPEN_PSX_REQ *)(((char *)&pSMB->hdr.Protocol) + offset);
+	pdata->Level = SMB_QUERY_FILE_UNIX_BASIC;
+	pdata->Permissions = cpu_to_le64(mode);
+	pdata->PosixOpenFlags = cpu_to_le32(posix_flags); 
+	pdata->OpenFlags =  cpu_to_le32(*pOplock);
+	pSMB->ParameterOffset = cpu_to_le16(param_offset);
+	pSMB->DataOffset = cpu_to_le16(offset);
+	pSMB->SetupCount = 1;
+	pSMB->Reserved3 = 0;
+	pSMB->SubCommand = cpu_to_le16(TRANS2_SET_PATH_INFORMATION);
+	byte_count = 3 /* pad */  + params + count;
+
+	pSMB->DataCount = cpu_to_le16(count);
+	pSMB->ParameterCount = cpu_to_le16(params);
+	pSMB->TotalDataCount = pSMB->DataCount;
+	pSMB->TotalParameterCount = pSMB->ParameterCount;
+	pSMB->InformationLevel = cpu_to_le16(SMB_POSIX_OPEN);
+	pSMB->Reserved4 = 0;
+	pSMB->hdr.smb_buf_length += byte_count; 
+	pSMB->ByteCount = cpu_to_le16(byte_count);
+	rc = SendReceive(xid, tcon->ses, (struct smb_hdr *) pSMB,
+			 (struct smb_hdr *) pSMBr, &bytes_returned, 0);
+	if (rc) {
+		cFYI(1, ("Posix create returned %d", rc));
+		goto psx_create_err;
+	}
+
+	cFYI(1,("copying inode info"));
+	rc = validate_t2((struct smb_t2_rsp *)pSMBr);
+
+	if (rc || (pSMBr->ByteCount < sizeof(OPEN_PSX_RSP))) {
+		rc = -EIO;	/* bad smb */
+		goto psx_create_err;
+	}
+
+	/* copy return information to pRetData */
+	psx_rsp = (OPEN_PSX_RSP *)((char *) &pSMBr->hdr.Protocol 
+			+ le16_to_cpu(pSMBr->t2.DataOffset));
+		
+	*pOplock = le16_to_cpu(psx_rsp->OplockFlags);
+	if(netfid)
+		*netfid = psx_rsp->Fid;   /* cifs fid stays in le */
+	/* Let caller know file was created so we can set the mode. */
+	/* Do we care about the CreateAction in any other cases? */
+	if(cpu_to_le32(FILE_CREATE) == psx_rsp->CreateAction)
+		*pOplock |= CIFS_CREATE_ACTION;
+	/* check to make sure response data is there */
+	if(psx_rsp->ReturnedLevel != SMB_QUERY_FILE_UNIX_BASIC) {
+		pRetData->Type = -1; /* unknown */
+#ifdef CONFIG_CIFS_DEBUG2
+		cFYI(1,("unknown type"));
+#endif
+	} else {
+		if(pSMBr->ByteCount < sizeof(OPEN_PSX_RSP) 
+					+ sizeof(FILE_UNIX_BASIC_INFO)) {
+			cERROR(1,("Open response data too small"));
+			pRetData->Type = -1;
+			goto psx_create_err;
+		}
+		memcpy((char *) pRetData, 
+			(char *)psx_rsp + sizeof(OPEN_PSX_RSP),
+			sizeof (FILE_UNIX_BASIC_INFO));
+	}
+			
+
+psx_create_err:
+	cifs_buf_release(pSMB);
+
+	cifs_stats_inc(&tcon->num_mkdirs);
+
+	if (rc == -EAGAIN)
+		goto PsxCreat;
+
+	return rc;	
 }
 
 static __u16 convert_disposition(int disposition)
@@ -2812,10 +2948,10 @@ GetExtAttrOut:
 
 
 /* security id for everyone */
-static const struct cifs_sid sid_everyone = 
+static const struct cifs_sid sid_everyone =
 		{1, 1, {0, 0, 0, 0, 0, 0}, {0, 0, 0, 0}};
 /* group users */
-static const struct cifs_sid sid_user = 
+static const struct cifs_sid sid_user =
 		{1, 2 , {0, 0, 0, 0, 0, 5}, {32, 545, 0, 0}};
 
 /* Convert CIFS ACL to POSIX form */
@@ -4791,6 +4927,16 @@ setPermsRetry:
 	pSMB->InformationLevel = cpu_to_le16(SMB_SET_FILE_UNIX_BASIC);
 	pSMB->Reserved4 = 0;
 	pSMB->hdr.smb_buf_length += byte_count;
+	/* Samba server ignores set of file size to zero due to bugs in some
+	older clients, but we should be precise - we use SetFileSize to
+	set file size and do not want to truncate file size to zero
+	accidently as happened on one Samba server beta by putting
+	zero instead of -1 here */ 
+	data_offset->EndOfFile = NO_CHANGE_64;
+	data_offset->NumOfBytes = NO_CHANGE_64;
+	data_offset->LastStatusChange = NO_CHANGE_64;
+	data_offset->LastAccessTime = NO_CHANGE_64;
+	data_offset->LastModificationTime = NO_CHANGE_64;
 	data_offset->Uid = cpu_to_le64(uid);
 	data_offset->Gid = cpu_to_le64(gid);
 	/* better to leave device as zero when it is  */

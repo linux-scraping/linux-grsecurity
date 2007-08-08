@@ -25,6 +25,7 @@
 #include <linux/types.h>
 #include <linux/ip.h>
 #include <linux/in.h>
+#include <linux/skbuff.h>
 
 #include <net/inet_sock.h>
 #include <net/snmp.h>
@@ -42,6 +43,11 @@ struct inet_skb_parm
 #define IPSKB_FRAG_COMPLETE	8
 #define IPSKB_REROUTED		16
 };
+
+static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
+{
+	return ip_hdr(skb)->ihl * 4;
+}
 
 struct ipcm_cookie
 {
@@ -74,7 +80,6 @@ struct msghdr;
 struct net_device;
 struct packet_type;
 struct rtable;
-struct sk_buff;
 struct sockaddr;
 
 extern void		ip_mc_dropsocket(struct sock *);
@@ -138,6 +143,7 @@ struct ip_reply_arg {
 	__wsum 	    csum;
 	int	    csumoffset; /* u16 offset of csum in iov[0].iov_base */
 				/* -1 if not needed */ 
+	int	    bound_dev_if;
 }; 
 
 void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
@@ -160,6 +166,10 @@ DECLARE_SNMP_STAT(struct linux_mib, net_statistics);
 #define NET_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(net_statistics, field)
 #define NET_ADD_STATS_BH(field, adnd)	SNMP_ADD_STATS_BH(net_statistics, field, adnd)
 #define NET_ADD_STATS_USER(field, adnd)	SNMP_ADD_STATS_USER(net_statistics, field, adnd)
+
+extern unsigned long snmp_fold_field(void *mib[], int offt);
+extern int snmp_mib_init(void *ptr[2], size_t mibsize, size_t mibalign);
+extern void snmp_mib_free(void *ptr[2]);
 
 extern int sysctl_local_port_range[2];
 extern int sysctl_ip_default_ttl;

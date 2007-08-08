@@ -367,15 +367,14 @@ static int __init ibmasr_init(void)
 	if (!asr_type)
 		return -ENODEV;
 
+	rc = asr_get_base_address();
+	if (rc)
+		return rc;
+
 	rc = misc_register(&asr_miscdev);
 	if (rc < 0) {
+		release_region(asr_base, asr_length);
 		printk(KERN_ERR PFX "failed to register misc device\n");
-		return rc;
-	}
-
-	rc = asr_get_base_address();
-	if (rc) {
-		misc_deregister(&asr_miscdev);
 		return rc;
 	}
 
@@ -396,7 +395,7 @@ module_init(ibmasr_init);
 module_exit(ibmasr_exit);
 
 module_param(nowayout, int, 0);
-MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=CONFIG_WATCHDOG_NOWAYOUT)");
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default=" __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
 MODULE_DESCRIPTION("IBM Automatic Server Restart driver");
 MODULE_AUTHOR("Andrey Panin");

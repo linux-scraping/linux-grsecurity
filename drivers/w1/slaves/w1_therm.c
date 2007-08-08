@@ -141,7 +141,7 @@ static inline int w1_convert_temp(u8 rom[9], u8 fid)
 {
 	int i;
 
-	for (i=0; i<sizeof(w1_therm_families)/sizeof(w1_therm_families[0]); ++i)
+	for (i = 0; i < ARRAY_SIZE(w1_therm_families); ++i)
 		if (w1_therm_families[i].f->fid == fid)
 			return w1_therm_families[i].convert(rom);
 
@@ -191,11 +191,7 @@ static ssize_t w1_therm_read_bin(struct kobject *kobj, char *buf, loff_t off, si
 
 			w1_write_8(dev, W1_CONVERT_TEMP);
 
-			while (tm) {
-				tm = msleep_interruptible(tm);
-				if (signal_pending(current))
-					flush_signals(current);
-			}
+			msleep(tm);
 
 			if (!w1_reset_select_slave(sl)) {
 
@@ -238,7 +234,7 @@ static int __init w1_therm_init(void)
 {
 	int err, i;
 
-	for (i=0; i<sizeof(w1_therm_families)/sizeof(w1_therm_families[0]); ++i) {
+	for (i = 0; i < ARRAY_SIZE(w1_therm_families); ++i) {
 		err = w1_register_family(w1_therm_families[i].f);
 		if (err)
 			w1_therm_families[i].broken = 1;
@@ -251,7 +247,7 @@ static void __exit w1_therm_fini(void)
 {
 	int i;
 
-	for (i=0; i<sizeof(w1_therm_families)/sizeof(w1_therm_families[0]); ++i)
+	for (i = 0; i < ARRAY_SIZE(w1_therm_families); ++i)
 		if (!w1_therm_families[i].broken)
 			w1_unregister_family(w1_therm_families[i].f);
 }

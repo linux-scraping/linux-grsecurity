@@ -183,13 +183,15 @@ int flexcop_i2c_init(struct flexcop_device *fc)
 	mutex_init(&fc->i2c_mutex);
 
 	memset(&fc->i2c_adap, 0, sizeof(struct i2c_adapter));
-	strncpy(fc->i2c_adap.name, "B2C2 FlexCop device",I2C_NAME_SIZE);
+	strncpy(fc->i2c_adap.name, "B2C2 FlexCop device",
+		sizeof(fc->i2c_adap.name));
 
 	i2c_set_adapdata(&fc->i2c_adap,fc);
 
 	fc->i2c_adap.class	    = I2C_CLASS_TV_DIGITAL;
 	fc->i2c_adap.algo       = &flexcop_algo;
 	fc->i2c_adap.algo_data  = NULL;
+	fc->i2c_adap.dev.parent	= fc->dev;
 
 	if ((ret = i2c_add_adapter(&fc->i2c_adap)) < 0)
 		return ret;

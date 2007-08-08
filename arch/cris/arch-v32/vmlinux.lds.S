@@ -91,10 +91,12 @@ SECTIONS
 	}
 	SECURITY_INIT
 
+	. =  ALIGN (8192);
 	__per_cpu_start = .;
 	.data.percpu  : { *(.data.percpu) }
 	__per_cpu_end = .;
 
+#ifdef CONFIG_BLK_DEV_INITRD
 	.init.ramfs : {
 		__initramfs_start = .;
 		*(.init.ramfs)
@@ -107,6 +109,7 @@ SECTIONS
 		FILL (0);
 		. = ALIGN (8192);
 	}
+#endif
 
 	__vmlinux_end = .;	/* Last address of the physical file. */
   	__init_end = .;

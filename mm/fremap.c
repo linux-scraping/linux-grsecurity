@@ -84,6 +84,11 @@ int install_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	page_add_file_rmap(page);
 	update_mmu_cache(vma, addr, pte_val);
 	lazy_mmu_prot_update(pte_val);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	pax_mirror_file_pte(vma, addr, page, ptl);
+#endif
+
 	err = 0;
 unlock:
 	pte_unmap_unlock(pte, ptl);
@@ -176,6 +181,13 @@ asmlinkage long sys_remap_file_pages(unsigned long start, unsigned long size,
 	down_read(&mm->mmap_sem);
  retry:
 	vma = find_vma(mm, start);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (vma && (mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_flags & VM_MAYEXEC)) {
+		up_read(&mm->mmap_sem);
+		return err;
+	}
+#endif
 
 	/*
 	 * Make sure the vma is shared, that it supports prefaulting,

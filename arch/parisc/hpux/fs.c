@@ -21,10 +21,10 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/file.h>
-#include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/ptrace.h>
 #include <asm/errno.h>
@@ -35,13 +35,13 @@ int hpux_execve(struct pt_regs *regs)
 	int error;
 	char *filename;
 
-	filename = getname((char *) regs->gr[26]);
+	filename = getname((char __user *) regs->gr[26]);
 	error = PTR_ERR(filename);
 	if (IS_ERR(filename))
 		goto out;
 
-	error = do_execve(filename, (char **) regs->gr[25],
-		(char **)regs->gr[24], regs);
+	error = do_execve(filename, (char __user * __user *) regs->gr[25],
+		(char __user * __user *) regs->gr[24], regs);
 
 	if (error == 0) {
 		task_lock(current);
@@ -63,22 +63,21 @@ struct hpux_dirent {
 };
 
 struct getdents_callback {
-	struct hpux_dirent *current_dir;
-	struct hpux_dirent *previous;
+	struct hpux_dirent __user *current_dir;
+	struct hpux_dirent __user *previous;
 	int count;
 	int error;
 };
 
-#define NAME_OFFSET(de) ((int) ((de)->d_name - (char *) (de)))
-#define ROUND_UP(x) (((x)+sizeof(long)-1) & ~(sizeof(long)-1))
+#define NAME_OFFSET(de) ((int) ((de)->d_name - (char __user *) (de)))
 
 static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 		u64 ino, unsigned d_type)
 {
-	struct hpux_dirent * dirent;
+	struct hpux_dirent __user * dirent;
 	struct getdents_callback * buf = (struct getdents_callback *) __buf;
 	ino_t d_ino;
-	int reclen = ROUND_UP(NAME_OFFSET(dirent) + namlen + 1);
+	int reclen = ALIGN(NAME_OFFSET(dirent) + namlen + 1, sizeof(long));
 
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
@@ -103,12 +102,11 @@ static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 }
 
 #undef NAME_OFFSET
-#undef ROUND_UP
 
-int hpux_getdents(unsigned int fd, struct hpux_dirent *dirent, unsigned int count)
+int hpux_getdents(unsigned int fd, struct hpux_dirent __user *dirent, unsigned int count)
 {
 	struct file * file;
-	struct hpux_dirent * lastdirent;
+	struct hpux_dirent __user * lastdirent;
 	struct getdents_callback buf;
 	int error = -EBADF;
 
@@ -143,7 +141,7 @@ int hpux_mount(const char *fs, const char *path, int mflag,
 	return -ENOSYS;
 }
 
-static int cp_hpux_stat(struct kstat *stat, struct hpux_stat64 *statbuf)
+static int cp_hpux_stat(struct kstat *stat, struct hpux_stat64 __user *statbuf)
 {
 	struct hpux_stat64 tmp;
 
@@ -169,7 +167,7 @@ static int cp_hpux_stat(struct kstat *stat, struct hpux_stat64 *statbuf)
 	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
 }
 
-long hpux_stat64(char *filename, struct hpux_stat64 *statbuf)
+long hpux_stat64(char __user *filename, struct hpux_stat64 __user *statbuf)
 {
 	struct kstat stat;
 	int error = vfs_stat(filename, &stat);
@@ -180,7 +178,7 @@ long hpux_stat64(char *filename, struct hpux_stat64 *statbuf)
 	return error;
 }
 
-long hpux_fstat64(unsigned int fd, struct hpux_stat64 *statbuf)
+long hpux_fstat64(unsigned int fd, struct hpux_stat64 __user *statbuf)
 {
 	struct kstat stat;
 	int error = vfs_fstat(fd, &stat);
@@ -191,7 +189,7 @@ long hpux_fstat64(unsigned int fd, struct hpux_stat64 *statbuf)
 	return error;
 }
 
-long hpux_lstat64(char *filename, struct hpux_stat64 *statbuf)
+long hpux_lstat64(char __user *filename, struct hpux_stat64 __user *statbuf)
 {
 	struct kstat stat;
 	int error = vfs_lstat(filename, &stat);

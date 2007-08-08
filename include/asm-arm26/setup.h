@@ -70,7 +70,7 @@ struct tag_ramdisk {
 /* describes where the compressed ramdisk image lives */
 /*
  * this one accidentally used virtual addresses - as such,
- * its depreciated.
+ * it's deprecated.
  */
 #define ATAG_INITRD	0x54410005
 
@@ -173,7 +173,7 @@ struct tagtable {
 	int (*parse)(const struct tag *);
 };
 
-#define __tag __attribute_used__ __attribute__((__section__(".taglist")))
+#define __tag __used __attribute__((__section__(".taglist")))
 #define __tagtable(tag, fn) \
 static struct tagtable __tagtable_##fn __tag = { tag, fn }
 

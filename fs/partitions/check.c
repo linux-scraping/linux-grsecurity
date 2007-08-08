@@ -34,6 +34,7 @@
 #include "ultrix.h"
 #include "efi.h"
 #include "karma.h"
+#include "sysv68.h"
 
 #ifdef CONFIG_BLK_DEV_MD
 extern void md_autodetect_dev(dev_t dev);
@@ -104,6 +105,9 @@ static int (*check_part[])(struct parsed_partitions *, struct block_device *) = 
 #endif
 #ifdef CONFIG_KARMA_PARTITION
 	karma_partition,
+#endif
+#ifdef CONFIG_SYSV68_PARTITION
+	sysv68_partition,
 #endif
 	NULL
 };
@@ -180,7 +184,7 @@ check_partition(struct gendisk *hd, struct block_device *bdev)
 	}
 	if (res > 0)
 		return state;
-	if (!err)
+	if (err)
 	/* The partition is unrecognized. So report I/O errors if there were any */
 		res = err;
 	if (!res)
@@ -312,7 +316,7 @@ static struct attribute * default_attrs[] = {
 	NULL,
 };
 
-extern struct subsystem block_subsys;
+extern struct kset block_subsys;
 
 static void part_release(struct kobject *kobj)
 {
@@ -358,14 +362,13 @@ void delete_partition(struct gendisk *disk, int part)
 	p->ios[0] = p->ios[1] = 0;
 	p->sectors[0] = p->sectors[1] = 0;
 	sysfs_remove_link(&p->kobj, "subsystem");
-	if (p->holder_dir)
-		kobject_unregister(p->holder_dir);
+	kobject_unregister(p->holder_dir);
 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
 	kobject_del(&p->kobj);
 	kobject_put(&p->kobj);
 }
 
-void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len)
+void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len, int flags)
 {
 	struct hd_struct *p;
 
@@ -389,7 +392,16 @@ void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len)
 	kobject_add(&p->kobj);
 	if (!disk->part_uevent_suppress)
 		kobject_uevent(&p->kobj, KOBJ_ADD);
-	sysfs_create_link(&p->kobj, &block_subsys.kset.kobj, "subsystem");
+	sysfs_create_link(&p->kobj, &block_subsys.kobj, "subsystem");
+	if (flags & ADDPART_FLAG_WHOLEDISK) {
+		static struct attribute addpartattr = {
+			.name = "whole_disk",
+			.mode = S_IRUSR | S_IRGRP | S_IROTH,
+			.owner = THIS_MODULE,
+		};
+
+		sysfs_create_file(&p->kobj, &addpartattr);
+	}
 	partition_sysfs_add_subdir(p);
 	disk->part[part-1] = p;
 }
@@ -436,7 +448,7 @@ static int disk_sysfs_symlinks(struct gendisk *disk)
 			goto err_out_dev_link;
 	}
 
-	err = sysfs_create_link(&disk->kobj, &block_subsys.kset.kobj,
+	err = sysfs_create_link(&disk->kobj, &block_subsys.kobj,
 				"subsystem");
 	if (err)
 		goto err_out_disk_name_lnk;
@@ -533,7 +545,7 @@ int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
 	if (!get_capacity(disk) || !(state = check_partition(disk, bdev)))
 		return 0;
 	if (IS_ERR(state))	/* I/O error reading the partition table */
-		return PTR_ERR(state);
+		return -EIO;
 	for (p = 1; p < state->limit; p++) {
 		sector_t size = state->parts[p].size;
 		sector_t from = state->parts[p].from;
@@ -543,9 +555,9 @@ int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
 			printk(" %s: p%d exceeds device capacity\n",
 				disk->disk_name, p);
 		}
-		add_partition(disk, p, from, size);
+		add_partition(disk, p, from, size, state->parts[p].flags);
 #ifdef CONFIG_BLK_DEV_MD
-		if (state->parts[p].flags)
+		if (state->parts[p].flags & ADDPART_FLAG_RAID)
 			md_autodetect_dev(bdev->bd_dev+p);
 #endif
 	}
@@ -561,9 +573,6 @@ unsigned char *read_dev_sector(struct block_device *bdev, sector_t n, Sector *p)
 	page = read_mapping_page(mapping, (pgoff_t)(n >> (PAGE_CACHE_SHIFT-9)),
 				 NULL);
 	if (!IS_ERR(page)) {
-		wait_on_page_locked(page);
-		if (!PageUptodate(page))
-			goto fail;
 		if (PageError(page))
 			goto fail;
 		p->v = page;
@@ -594,10 +603,8 @@ void del_gendisk(struct gendisk *disk)
 	disk->stamp = 0;
 
 	kobject_uevent(&disk->kobj, KOBJ_REMOVE);
-	if (disk->holder_dir)
-		kobject_unregister(disk->holder_dir);
-	if (disk->slave_dir)
-		kobject_unregister(disk->slave_dir);
+	kobject_unregister(disk->holder_dir);
+	kobject_unregister(disk->slave_dir);
 	if (disk->driverfs_dev) {
 		char *disk_name = make_block_name(disk);
 		sysfs_remove_link(&disk->kobj, "device");

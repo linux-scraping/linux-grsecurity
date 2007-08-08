@@ -66,8 +66,8 @@ static char lcd_text_default[32]  __read_mostly;
 
 
 static struct workqueue_struct *led_wq;
-static void led_work_func(void *);
-static DECLARE_WORK(led_task, led_work_func, NULL);
+static void led_work_func(struct work_struct *);
+static DECLARE_DELAYED_WORK(led_task, led_work_func);
 
 #if 0
 #define DPRINTK(x)	printk x
@@ -136,7 +136,7 @@ static int start_task(void)
 
 	/* Create the work queue and queue the LED task */
 	led_wq = create_singlethread_workqueue("led_wq");	
-	queue_work(led_wq, &led_task);
+	queue_delayed_work(led_wq, &led_task, 0);
 
 	return 0;
 }
@@ -195,12 +195,6 @@ static int led_proc_write(struct file *file, const char *buf,
 
 	cur = lbuf;
 
-	/* skip initial spaces */
-	while (*cur && isspace(*cur))
-	{
-		cur++;
-	}
-
 	switch ((long)data)
 	{
 	case LED_NOLCD:
@@ -252,7 +246,6 @@ static int __init led_create_procfs(void)
 	proc_pdc_root->owner = THIS_MODULE;
 	ent = create_proc_entry("led", S_IFREG|S_IRUGO|S_IWUSR, proc_pdc_root);
 	if (!ent) return -1;
-	ent->nlink = 1;
 	ent->data = (void *)LED_NOLCD; /* LED */
 	ent->read_proc = led_proc_read;
 	ent->write_proc = led_proc_write;
@@ -262,7 +255,6 @@ static int __init led_create_procfs(void)
 	{
 		ent = create_proc_entry("lcd", S_IFREG|S_IRUGO|S_IWUSR, proc_pdc_root);
 		if (!ent) return -1;
-		ent->nlink = 1;
 		ent->data = (void *)LED_HASLCD; /* LCD */
 		ent->read_proc = led_proc_read;
 		ent->write_proc = led_proc_write;
@@ -367,14 +359,12 @@ static __inline__ int led_get_net_activity(void)
 	 * for reading should be OK */
 	read_lock(&dev_base_lock);
 	rcu_read_lock();
-	for (dev = dev_base; dev; dev = dev->next) {
+	for_each_netdev(dev) {
 	    struct net_device_stats *stats;
 	    struct in_device *in_dev = __in_dev_get_rcu(dev);
 	    if (!in_dev || !in_dev->ifa_list)
 		continue;
 	    if (LOOPBACK(in_dev->ifa_list->ifa_local))
-		continue;
-	    if (!dev->get_stats) 
 		continue;
 	    stats = dev->get_stats(dev);
 	    rx_total += stats->rx_packets;
@@ -443,7 +433,7 @@ static __inline__ int led_get_diskio_activity(void)
 
 #define LED_UPDATE_INTERVAL (1 + (HZ*19/1000))
 
-static void led_work_func (void *unused)
+static void led_work_func (struct work_struct *unused)
 {
 	static unsigned long last_jiffies;
 	static unsigned long count_HZ; /* counter in range 0..HZ */
@@ -590,7 +580,7 @@ int __init register_led_driver(int model, unsigned long cmd_reg, unsigned long d
 
 	/* Ensure the work is queued */
 	if (led_wq) {
-		queue_work(led_wq, &led_task);
+		queue_delayed_work(led_wq, &led_task, 0);
 	}
 
 	return 0;
@@ -631,7 +621,7 @@ void __init register_led_regions(void)
    ** avoid a race condition while writing the CMD/DATA register pair.
    **
  */
-int lcd_print( char *str )
+int lcd_print( const char *str )
 {
 	int i;
 
@@ -660,7 +650,7 @@ int lcd_print( char *str )
 	
 	/* re-queue the work */
 	if (led_wq) {
-		queue_work(led_wq, &led_task);
+		queue_delayed_work(led_wq, &led_task, 0);
 	}
 
 	return lcd_info.lcd_width;

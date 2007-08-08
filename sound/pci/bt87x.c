@@ -781,6 +781,8 @@ static struct pci_device_id snd_bt87x_ids[] = {
 	BT_DEVICE(PCI_DEVICE_ID_BROOKTREE_879, 0x0070, 0x13eb, 32000),
 	/* Viewcast Osprey 200 */
 	BT_DEVICE(PCI_DEVICE_ID_BROOKTREE_878, 0x0070, 0xff01, 44100),
+	/* ATI TV-Wonder */
+	BT_DEVICE(PCI_DEVICE_ID_BROOKTREE_878, 0x1002, 0x0001, 32000),
 	/* Leadtek Winfast tv 2000xp delux */
 	BT_DEVICE(PCI_DEVICE_ID_BROOKTREE_878, 0x107d, 0x6606, 32000),
 	/* Voodoo TV 200 */
@@ -804,6 +806,7 @@ static struct {
 	{0x1822, 0x0001}, /* Twinhan VisionPlus DVB-T */
 	{0x18ac, 0xd500}, /* DVICO FusionHDTV 5 Lite */
 	{0x18ac, 0xdb10}, /* DVICO FusionHDTV DVB-T Lite */
+	{0x18ac, 0xdb11}, /* Ultraview DVB-T Lite */
 	{0x270f, 0xfc00}, /* Chaintech Digitop DST-1000 DVB-S */
 	{0x7063, 0x2000}, /* pcHDTV HD-2000 TV */
 };
@@ -832,7 +835,7 @@ static int __devinit snd_bt87x_detect_card(struct pci_dev *pci)
 	           pci->device, pci->subsystem_vendor, pci->subsystem_device);
 	snd_printk(KERN_DEBUG "please mail id, board name, and, "
 		   "if it works, the correct digital_rate option to "
-		   "<alsa-devel@lists.sf.net>\n");
+		   "<alsa-devel@alsa-project.org>\n");
 	return 32000; /* default rate */
 }
 

@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/poison.h>
+#include <linux/sched.h>
 
 /*
  * Pool allocator ... wraps the dma_alloc_coherent page allocator, so
@@ -37,7 +38,7 @@ struct dma_page {	/* cacheable header for 'allocation' bytes */
 
 #define	POOL_TIMEOUT_JIFFIES	((100 /* msec */ * HZ) / 1000)
 
-static DECLARE_MUTEX (pools_lock);
+static DEFINE_MUTEX (pools_lock);
 
 static ssize_t
 show_pools (struct device *dev, struct device_attribute *attr, char *buf)
@@ -55,7 +56,7 @@ show_pools (struct device *dev, struct device_attribute *attr, char *buf)
 	size -= temp;
 	next += temp;
 
-	down (&pools_lock);
+	mutex_lock(&pools_lock);
 	list_for_each_entry(pool, &dev->dma_pools, pools) {
 		unsigned pages = 0;
 		unsigned blocks = 0;
@@ -73,7 +74,7 @@ show_pools (struct device *dev, struct device_attribute *attr, char *buf)
 		size -= temp;
 		next += temp;
 	}
-	up (&pools_lock);
+	mutex_unlock(&pools_lock);
 
 	return PAGE_SIZE - size;
 }
@@ -143,7 +144,7 @@ dma_pool_create (const char *name, struct device *dev,
 	if (dev) {
 		int ret;
 
-		down (&pools_lock);
+		mutex_lock(&pools_lock);
 		if (list_empty (&dev->dma_pools))
 			ret = device_create_file (dev, &dev_attr_pools);
 		else
@@ -155,7 +156,7 @@ dma_pool_create (const char *name, struct device *dev,
 			kfree(retval);
 			retval = NULL;
 		}
-		up (&pools_lock);
+		mutex_unlock(&pools_lock);
 	} else
 		INIT_LIST_HEAD (&retval->pools);
 
@@ -231,11 +232,11 @@ pool_free_page (struct dma_pool *pool, struct dma_page *page)
 void
 dma_pool_destroy (struct dma_pool *pool)
 {
-	down (&pools_lock);
+	mutex_lock(&pools_lock);
 	list_del (&pool->pools);
 	if (pool->dev && list_empty (&pool->dev->dma_pools))
 		device_remove_file (pool->dev, &dev_attr_pools);
-	up (&pools_lock);
+	mutex_unlock(&pools_lock);
 
 	while (!list_empty (&pool->page_list)) {
 		struct dma_page		*page;
@@ -415,8 +416,67 @@ dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 	spin_unlock_irqrestore (&pool->lock, flags);
 }
 
+/*
+ * Managed DMA pool
+ */
+static void dmam_pool_release(struct device *dev, void *res)
+{
+	struct dma_pool *pool = *(struct dma_pool **)res;
+
+	dma_pool_destroy(pool);
+}
+
+static int dmam_pool_match(struct device *dev, void *res, void *match_data)
+{
+	return *(struct dma_pool **)res == match_data;
+}
+
+/**
+ * dmam_pool_create - Managed dma_pool_create()
+ * @name: name of pool, for diagnostics
+ * @dev: device that will be doing the DMA
+ * @size: size of the blocks in this pool.
+ * @align: alignment requirement for blocks; must be a power of two
+ * @allocation: returned blocks won't cross this boundary (or zero)
+ *
+ * Managed dma_pool_create().  DMA pool created with this function is
+ * automatically destroyed on driver detach.
+ */
+struct dma_pool *dmam_pool_create(const char *name, struct device *dev,
+				  size_t size, size_t align, size_t allocation)
+{
+	struct dma_pool **ptr, *pool;
+
+	ptr = devres_alloc(dmam_pool_release, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
+		return NULL;
+
+	pool = *ptr = dma_pool_create(name, dev, size, align, allocation);
+	if (pool)
+		devres_add(dev, ptr);
+	else
+		devres_free(ptr);
+
+	return pool;
+}
+
+/**
+ * dmam_pool_destroy - Managed dma_pool_destroy()
+ * @pool: dma pool that will be destroyed
+ *
+ * Managed dma_pool_destroy().
+ */
+void dmam_pool_destroy(struct dma_pool *pool)
+{
+	struct device *dev = pool->dev;
+
+	dma_pool_destroy(pool);
+	WARN_ON(devres_destroy(dev, dmam_pool_release, dmam_pool_match, pool));
+}
 
 EXPORT_SYMBOL (dma_pool_create);
 EXPORT_SYMBOL (dma_pool_destroy);
 EXPORT_SYMBOL (dma_pool_alloc);
 EXPORT_SYMBOL (dma_pool_free);
+EXPORT_SYMBOL (dmam_pool_create);
+EXPORT_SYMBOL (dmam_pool_destroy);

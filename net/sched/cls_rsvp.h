@@ -130,7 +130,7 @@ static struct tcf_ext_map rsvp_ext_map = {
 	else if (r > 0)					\
 		return r;				\
 }
-	
+
 static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
 			 struct tcf_result *res)
 {
@@ -143,9 +143,9 @@ static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
 	u8 tunnelid = 0;
 	u8 *xprt;
 #if RSVP_DST_LEN == 4
-	struct ipv6hdr *nhptr = skb->nh.ipv6h;
+	struct ipv6hdr *nhptr = ipv6_hdr(skb);
 #else
-	struct iphdr *nhptr = skb->nh.iph;
+	struct iphdr *nhptr = ip_hdr(skb);
 #endif
 
 restart:
@@ -160,7 +160,7 @@ restart:
 	dst = &nhptr->daddr;
 	protocol = nhptr->protocol;
 	xprt = ((u8*)nhptr) + (nhptr->ihl<<2);
-	if (nhptr->frag_off&__constant_htons(IP_MF|IP_OFFSET))
+	if (nhptr->frag_off & htons(IP_MF|IP_OFFSET))
 		return -1;
 #endif
 
@@ -347,7 +347,7 @@ static int tunnel_bts(struct rsvp_head *data)
 {
 	int n = data->tgenerator>>5;
 	u32 b = 1<<(data->tgenerator&0x1F);
-	
+
 	if (data->tmap[n]&b)
 		return 0;
 	data->tmap[n] |= b;
@@ -547,7 +547,7 @@ insert:
 	s->next = *sp;
 	wmb();
 	*sp = s;
-	
+
 	goto insert;
 
 errout:
@@ -593,7 +593,7 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
 {
 	struct rsvp_filter *f = (struct rsvp_filter*)fh;
 	struct rsvp_session *s;
-	unsigned char	 *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct rtattr *rta;
 	struct tc_rsvp_pinfo pinfo;
 
@@ -623,14 +623,14 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
 	if (tcf_exts_dump(skb, &f->exts, &rsvp_ext_map) < 0)
 		goto rtattr_failure;
 
-	rta->rta_len = skb->tail - b;
+	rta->rta_len = skb_tail_pointer(skb) - b;
 
 	if (tcf_exts_dump_stats(skb, &f->exts, &rsvp_ext_map) < 0)
 		goto rtattr_failure;
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	return -1;
 }
 
@@ -654,7 +654,7 @@ static int __init init_rsvp(void)
 	return register_tcf_proto_ops(&RSVP_OPS);
 }
 
-static void __exit exit_rsvp(void) 
+static void __exit exit_rsvp(void)
 {
 	unregister_tcf_proto_ops(&RSVP_OPS);
 }

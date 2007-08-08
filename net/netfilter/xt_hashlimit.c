@@ -37,7 +37,7 @@ MODULE_ALIAS("ip6t_hashlimit");
 /* need to declare this at the top */
 static struct proc_dir_entry *hashlimit_procdir4;
 static struct proc_dir_entry *hashlimit_procdir6;
-static struct file_operations dl_file_ops;
+static const struct file_operations dl_file_ops;
 
 /* hash table crap */
 struct dsthash_dst {
@@ -208,7 +208,7 @@ static int htable_create(struct xt_hashlimit_info *minfo, int family)
 	spin_lock_init(&hinfo->lock);
 	hinfo->pde = create_proc_entry(minfo->name, 0,
 				       family == AF_INET ? hashlimit_procdir4 :
-				       			   hashlimit_procdir6);
+							   hashlimit_procdir6);
 	if (!hinfo->pde) {
 		vfree(hinfo);
 		return -1;
@@ -216,10 +216,8 @@ static int htable_create(struct xt_hashlimit_info *minfo, int family)
 	hinfo->pde->proc_fops = &dl_file_ops;
 	hinfo->pde->data = hinfo;
 
-	init_timer(&hinfo->timer);
+	setup_timer(&hinfo->timer, htable_gc, (unsigned long )hinfo);
 	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
-	hinfo->timer.data = (unsigned long )hinfo;
-	hinfo->timer.function = htable_gc;
 	add_timer(&hinfo->timer);
 
 	spin_lock_bh(&hashlimit_lock);
@@ -240,7 +238,7 @@ static int select_gc(struct xt_hashlimit_htable *ht, struct dsthash_ent *he)
 }
 
 static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
-		 		int (*select)(struct xt_hashlimit_htable *ht,
+				int (*select)(struct xt_hashlimit_htable *ht,
 					      struct dsthash_ent *he))
 {
 	unsigned int i;
@@ -279,7 +277,7 @@ static void htable_destroy(struct xt_hashlimit_htable *hinfo)
 	/* remove proc entry */
 	remove_proc_entry(hinfo->pde->name,
 			  hinfo->family == AF_INET ? hashlimit_procdir4 :
-			  			     hashlimit_procdir6);
+						     hashlimit_procdir6);
 	htable_selective_cleanup(hinfo, select_all);
 	vfree(hinfo);
 }
@@ -380,22 +378,22 @@ hashlimit_init_dst(struct xt_hashlimit_htable *hinfo, struct dsthash_dst *dst,
 	switch (hinfo->family) {
 	case AF_INET:
 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_DIP)
-			dst->addr.ip.dst = skb->nh.iph->daddr;
+			dst->addr.ip.dst = ip_hdr(skb)->daddr;
 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_SIP)
-			dst->addr.ip.src = skb->nh.iph->saddr;
+			dst->addr.ip.src = ip_hdr(skb)->saddr;
 
 		if (!(hinfo->cfg.mode &
 		      (XT_HASHLIMIT_HASH_DPT | XT_HASHLIMIT_HASH_SPT)))
 			return 0;
-		nexthdr = skb->nh.iph->protocol;
+		nexthdr = ip_hdr(skb)->protocol;
 		break;
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	case AF_INET6:
 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_DIP)
-			memcpy(&dst->addr.ip6.dst, &skb->nh.ipv6h->daddr,
+			memcpy(&dst->addr.ip6.dst, &ipv6_hdr(skb)->daddr,
 			       sizeof(dst->addr.ip6.dst));
 		if (hinfo->cfg.mode & XT_HASHLIMIT_HASH_SIP)
-			memcpy(&dst->addr.ip6.src, &skb->nh.ipv6h->saddr,
+			memcpy(&dst->addr.ip6.src, &ipv6_hdr(skb)->saddr,
 			       sizeof(dst->addr.ip6.src));
 
 		if (!(hinfo->cfg.mode &
@@ -414,6 +412,7 @@ hashlimit_init_dst(struct xt_hashlimit_htable *hinfo, struct dsthash_dst *dst,
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
 	case IPPROTO_SCTP:
 	case IPPROTO_DCCP:
 		ports = skb_header_pointer(skb, protoff, sizeof(_ports),
@@ -482,7 +481,7 @@ hashlimit_match(const struct sk_buff *skb,
 		return 1;
 	}
 
-       	spin_unlock_bh(&hinfo->lock);
+	spin_unlock_bh(&hinfo->lock);
 
 	/* default case: we're overlimit, thus don't match */
 	return 0;
@@ -713,7 +712,7 @@ static int dl_proc_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
-static struct file_operations dl_file_ops = {
+static const struct file_operations dl_file_ops = {
 	.owner   = THIS_MODULE,
 	.open    = dl_proc_open,
 	.read    = seq_read,

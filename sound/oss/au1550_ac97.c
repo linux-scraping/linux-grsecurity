@@ -47,7 +47,6 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/poll.h>
-#include <linux/pci.h>
 #include <linux/bitops.h>
 #include <linux/spinlock.h>
 #include <linux/smp_lock.h>
@@ -1354,11 +1353,11 @@ au1550_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		((file->f_mode & FMODE_READ) && s->dma_adc.mapped);
 
 #ifdef DEBUG
-	for (count=0; count<sizeof(ioctl_str)/sizeof(ioctl_str[0]); count++) {
+	for (count = 0; count < ARRAY_SIZE(ioctl_str); count++) {
 		if (ioctl_str[count].cmd == cmd)
 			break;
 	}
-	if (count < sizeof(ioctl_str) / sizeof(ioctl_str[0]))
+	if (count < ARRAY_SIZE(ioctl_str))
 		pr_debug("ioctl %s, arg=0x%lxn", ioctl_str[count].str, arg);
 	else
 		pr_debug("ioctl 0x%x unknown, arg=0x%lx\n", cmd, arg);

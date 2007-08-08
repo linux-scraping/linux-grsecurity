@@ -161,6 +161,7 @@ static struct usb_serial_driver whiteheat_fake_device = {
 		.name =		"whiteheatnofirm",
 	},
 	.description =		"Connect Tech - WhiteHEAT - (prerenumeration)",
+	.usb_driver =		&whiteheat_driver,
 	.id_table =		id_table_prerenumeration,
 	.num_interrupt_in =	NUM_DONT_CARE,
 	.num_bulk_in =		NUM_DONT_CARE,
@@ -176,6 +177,7 @@ static struct usb_serial_driver whiteheat_device = {
 		.name =		"whiteheat",
 	},
 	.description =		"Connect Tech - WhiteHEAT",
+	.usb_driver =		&whiteheat_driver,
 	.id_table =		id_table_std,
 	.num_interrupt_in =	NUM_DONT_CARE,
 	.num_bulk_in =		NUM_DONT_CARE,
@@ -1107,7 +1109,7 @@ static int firm_send_command (struct usb_serial_port *port, __u8 command, __u8 *
 	command_port = port->serial->port[COMMAND_PORT];
 	command_info = usb_get_serial_port_data(command_port);
 	spin_lock_irqsave(&command_info->lock, flags);
-	command_info->command_finished = FALSE;
+	command_info->command_finished = false;
 	
 	transfer_buffer = (__u8 *)command_port->write_urb->transfer_buffer;
 	transfer_buffer[0] = command;
@@ -1122,12 +1124,12 @@ static int firm_send_command (struct usb_serial_port *port, __u8 command, __u8 *
 	spin_unlock_irqrestore(&command_info->lock, flags);
 
 	/* wait for the command to complete */
-	wait_event_interruptible_timeout(command_info->wait_command, 
-		(command_info->command_finished != FALSE), COMMAND_TIMEOUT);
+	wait_event_interruptible_timeout(command_info->wait_command,
+		(bool)command_info->command_finished, COMMAND_TIMEOUT);
 
 	spin_lock_irqsave(&command_info->lock, flags);
 
-	if (command_info->command_finished == FALSE) {
+	if (command_info->command_finished == false) {
 		dbg("%s - command timed out.", __FUNCTION__);
 		retval = -ETIMEDOUT;
 		goto exit;

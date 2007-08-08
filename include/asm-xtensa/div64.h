@@ -5,15 +5,12 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2001 - 2005 Tensilica Inc.
+ * Copyright (C) 2001 - 2007 Tensilica Inc.
  */
 
 #ifndef _XTENSA_DIV64_H
 #define _XTENSA_DIV64_H
 
-#define do_div(n,base) ({ \
-	int __res = n % ((unsigned int) base); \
-	n /= (unsigned int) base; \
-	__res; })
+#include <asm-generic/div64.h>
 
-#endif
+#endif /* _XTENSA_DIV64_H */

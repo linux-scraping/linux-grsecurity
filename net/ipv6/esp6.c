@@ -1,26 +1,26 @@
 /*
  * Copyright (C)2002 USAGI/WIDE Project
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Authors
  *
- *	Mitsuru KANDA @USAGI       : IPv6 Support 
+ *	Mitsuru KANDA @USAGI       : IPv6 Support
  * 	Kazunori MIYAZAWA @USAGI   :
  * 	Kunihiro Ishiguro <kunihiro@ipinfusion.com>
- * 	
+ *
  * 	This file is derived from net/ipv4/esp.c
  */
 
@@ -42,21 +42,19 @@
 static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 {
 	int err;
-	int hdr_len;
 	struct ipv6hdr *top_iph;
 	struct ipv6_esp_hdr *esph;
 	struct crypto_blkcipher *tfm;
 	struct blkcipher_desc desc;
-	struct esp_data *esp;
 	struct sk_buff *trailer;
 	int blksize;
 	int clen;
 	int alen;
 	int nfrags;
-
-	esp = x->data;
-	hdr_len = skb->h.raw - skb->data +
-		  sizeof(*esph) + esp->conf.ivlen;
+	u8 *tail;
+	struct esp_data *esp = x->data;
+	int hdr_len = (skb_transport_offset(skb) +
+		       sizeof(*esph) + esp->conf.ivlen);
 
 	/* Strip IP+ESP header. */
 	__skb_pull(skb, hdr_len);
@@ -81,19 +79,20 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	}
 
 	/* Fill padding... */
+	tail = skb_tail_pointer(trailer);
 	do {
 		int i;
 		for (i=0; i<clen-skb->len - 2; i++)
-			*(u8*)(trailer->tail + i) = i+1;
+			tail[i] = i + 1;
 	} while (0);
-	*(u8*)(trailer->tail + clen-skb->len - 2) = (clen - skb->len)-2;
+	tail[clen-skb->len - 2] = (clen - skb->len) - 2;
 	pskb_put(skb, trailer, clen - skb->len);
 
 	top_iph = (struct ipv6hdr *)__skb_push(skb, hdr_len);
-	esph = (struct ipv6_esp_hdr *)skb->h.raw;
+	esph = (struct ipv6_esp_hdr *)skb_transport_header(skb);
 	top_iph->payload_len = htons(skb->len + alen - sizeof(*top_iph));
-	*(u8*)(trailer->tail - 1) = *skb->nh.raw;
-	*skb->nh.raw = IPPROTO_ESP;
+	*(skb_tail_pointer(trailer) - 1) = *skb_network_header(skb);
+	*skb_network_header(skb) = IPPROTO_ESP;
 
 	esph->spi = x->id.spi;
 	esph->seq_no = htonl(++x->replay.oseq);
@@ -150,8 +149,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
 	int alen = esp->auth.icv_trunc_len;
 	int elen = skb->len - sizeof(struct ipv6_esp_hdr) - esp->conf.ivlen - alen;
-
-	int hdr_len = skb->h.raw - skb->nh.raw;
+	int hdr_len = skb_network_header_len(skb);
 	int nfrags;
 	int ret = 0;
 
@@ -166,7 +164,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 	}
 
 	/* If integrity check is required, do this. */
-        if (esp->auth.icv_full_len) {
+	if (esp->auth.icv_full_len) {
 		u8 sum[alen];
 
 		ret = esp_mac_digest(esp, skb, 0, skb->len - alen);
@@ -191,13 +189,13 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 	skb->ip_summed = CHECKSUM_NONE;
 
 	esph = (struct ipv6_esp_hdr*)skb->data;
-	iph = skb->nh.ipv6h;
+	iph = ipv6_hdr(skb);
 
 	/* Get ivec. This can be wrong, check against another impls. */
 	if (esp->conf.ivlen)
 		crypto_blkcipher_set_iv(tfm, esph->enc_data, esp->conf.ivlen);
 
-        {
+	{
 		u8 nexthdr[2];
 		struct scatterlist *sg = &esp->sgbuf[0];
 		u8 padlen;
@@ -225,51 +223,53 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
 			ret = -EINVAL;
 			goto out;
 		}
-		/* ... check padding bits here. Silly. :-) */ 
+		/* ... check padding bits here. Silly. :-) */
 
 		pskb_trim(skb, skb->len - alen - padlen - 2);
 		ret = nexthdr[1];
 	}
 
-	skb->h.raw = __skb_pull(skb, sizeof(*esph) + esp->conf.ivlen) - hdr_len;
-
+	__skb_pull(skb, sizeof(*esph) + esp->conf.ivlen);
+	skb_set_transport_header(skb, -hdr_len);
 out:
 	return ret;
 }
 
-static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
+static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
 {
 	struct esp_data *esp = x->data;
 	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
+	u32 align = max_t(u32, blksize, esp->conf.padlen);
+	u32 rem;
 
-	if (x->props.mode == XFRM_MODE_TUNNEL) {
-		mtu = ALIGN(mtu + 2, blksize);
-	} else {
-		/* The worst case. */
+	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
+	rem = mtu & (align - 1);
+	mtu &= ~(align - 1);
+
+	if (x->props.mode != XFRM_MODE_TUNNEL) {
 		u32 padsize = ((blksize - 1) & 7) + 1;
-		mtu = ALIGN(mtu + 2, padsize) + blksize - padsize;
+		mtu -= blksize - padsize;
+		mtu += min_t(u32, blksize - padsize, rem);
 	}
-	if (esp->conf.padlen)
-		mtu = ALIGN(mtu, esp->conf.padlen);
 
-	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
+	return mtu - 2;
 }
 
 static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-                     int type, int code, int offset, __be32 info)
+		     int type, int code, int offset, __be32 info)
 {
 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
 	struct ipv6_esp_hdr *esph = (struct ipv6_esp_hdr*)(skb->data+offset);
 	struct xfrm_state *x;
 
-	if (type != ICMPV6_DEST_UNREACH && 
+	if (type != ICMPV6_DEST_UNREACH &&
 	    type != ICMPV6_PKT_TOOBIG)
 		return;
 
 	x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, esph->spi, IPPROTO_ESP, AF_INET6);
 	if (!x)
 		return;
-	printk(KERN_DEBUG "pmtu discovery on SA ESP/%08x/" NIP6_FMT "\n", 
+	printk(KERN_DEBUG "pmtu discovery on SA ESP/%08x/" NIP6_FMT "\n",
 			ntohl(esph->spi), NIP6(iph->daddr));
 	xfrm_state_put(x);
 }
@@ -326,10 +326,10 @@ static int esp6_init_state(struct xfrm_state *x)
 		esp->auth.tfm = hash;
 		if (crypto_hash_setkey(hash, esp->auth.key, esp->auth.key_len))
 			goto error;
- 
+
 		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
 		BUG_ON(!aalg_desc);
- 
+
 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
 		    crypto_hash_digestsize(hash)) {
 			NETDEBUG(KERN_INFO "ESP: %s digestsize %u != %hu\n",
@@ -338,10 +338,10 @@ static int esp6_init_state(struct xfrm_state *x)
 				 aalg_desc->uinfo.auth.icv_fullbits/8);
 			goto error;
 		}
- 
+
 		esp->auth.icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
 		esp->auth.icv_trunc_len = aalg_desc->uinfo.auth.icv_truncbits/8;
- 
+
 		esp->auth.work_icv = kmalloc(esp->auth.icv_full_len, GFP_KERNEL);
 		if (!esp->auth.work_icv)
 			goto error;
@@ -382,7 +382,7 @@ static struct xfrm_type esp6_type =
 	.proto	     	= IPPROTO_ESP,
 	.init_state	= esp6_init_state,
 	.destructor	= esp6_destroy,
-	.get_max_size	= esp6_get_max_size,
+	.get_mtu	= esp6_get_mtu,
 	.input		= esp6_input,
 	.output		= esp6_output,
 	.hdr_offset	= xfrm6_find_1stfragopt,

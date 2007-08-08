@@ -4,6 +4,7 @@
 #ifdef CONFIG_HUGETLB_PAGE
 
 #include <linux/mempolicy.h>
+#include <linux/shm.h>
 #include <asm/tlbflush.h>
 
 struct ctl_table;
@@ -162,13 +163,18 @@ static inline struct hugetlbfs_sb_info *HUGETLBFS_SB(struct super_block *sb)
 
 extern const struct file_operations hugetlbfs_file_operations;
 extern struct vm_operations_struct hugetlb_vm_ops;
-struct file *hugetlb_zero_setup(size_t);
+struct file *hugetlb_file_setup(const char *name, size_t);
 int hugetlb_get_quota(struct address_space *mapping);
 void hugetlb_put_quota(struct address_space *mapping);
 
 static inline int is_file_hugepages(struct file *file)
 {
-	return file->f_op == &hugetlbfs_file_operations;
+	if (file->f_op == &hugetlbfs_file_operations)
+		return 1;
+	if (is_file_shm_hugepages(file))
+		return 1;
+
+	return 0;
 }
 
 static inline void set_file_hugepages(struct file *file)
@@ -179,8 +185,14 @@ static inline void set_file_hugepages(struct file *file)
 
 #define is_file_hugepages(file)		0
 #define set_file_hugepages(file)	BUG()
-#define hugetlb_zero_setup(size)	ERR_PTR(-ENOSYS)
+#define hugetlb_file_setup(name,size)	ERR_PTR(-ENOSYS)
 
 #endif /* !CONFIG_HUGETLBFS */
+
+#ifdef HAVE_ARCH_HUGETLB_UNMAPPED_AREA
+unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
+					unsigned long len, unsigned long pgoff,
+					unsigned long flags);
+#endif /* HAVE_ARCH_HUGETLB_UNMAPPED_AREA */
 
 #endif /* _LINUX_HUGETLB_H */

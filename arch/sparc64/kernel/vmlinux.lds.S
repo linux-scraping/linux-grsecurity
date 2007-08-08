@@ -1,5 +1,6 @@
 /* ld script to make UltraLinux kernel */
 
+#include <asm/page.h>
 #include <asm-generic/vmlinux.lds.h>
 
 OUTPUT_FORMAT("elf64-sparc", "elf64-sparc", "elf64-sparc")
@@ -14,7 +15,7 @@ SECTIONS
   .text 0x0000000000404000 :
   {
     _text = .;
-    *(.text)
+    TEXT_TEXT
     SCHED_TEXT
     LOCK_TEXT
     KPROBES_TEXT
@@ -23,11 +24,11 @@ SECTIONS
   _etext = .;
   PROVIDE (etext = .);
 
-  RODATA
+  RO_DATA(PAGE_SIZE)
 
   .data    :
   {
-    *(.data)
+    DATA_DATA
     CONSTRUCTORS
   }
   .data1   : { *(.data1) }
@@ -44,7 +45,7 @@ SECTIONS
   __ex_table : { *(__ex_table) }
   __stop___ex_table = .;
 
-  . = ALIGN(8192);
+  . = ALIGN(PAGE_SIZE);
   __init_begin = .;
   .init.text : { 
 	_sinittext = .;
@@ -81,15 +82,19 @@ SECTIONS
   __sun4v_2insn_patch = .;
   .sun4v_2insn_patch : { *(.sun4v_2insn_patch) }
   __sun4v_2insn_patch_end = .;
-  . = ALIGN(8192); 
+
+#ifdef CONFIG_BLK_DEV_INITRD
+  . = ALIGN(PAGE_SIZE);
   __initramfs_start = .;
   .init.ramfs : { *(.init.ramfs) }
   __initramfs_end = .;
-  . = ALIGN(8192);
+#endif
+
+  . = ALIGN(PAGE_SIZE);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
   __per_cpu_end = .;
-  . = ALIGN(8192);
+  . = ALIGN(PAGE_SIZE);
   __init_end = .;
   __bss_start = .;
   .sbss      : { *(.sbss) *(.scommon) }

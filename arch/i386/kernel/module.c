@@ -83,7 +83,7 @@ void module_free_exec(struct module *mod, void *module_region)
 	}
 
 	write_lock(&vmlist_lock);
-	for (p = &vmlist ; (tmp = *p) != NULL ;p = &tmp->next)
+	for (p = &vmlist; (tmp = *p) != NULL; p = &tmp->next)
 		 if (tmp->addr == module_region)
 			break;
 

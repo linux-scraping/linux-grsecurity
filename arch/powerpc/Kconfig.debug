@@ -4,26 +4,35 @@ source "lib/Kconfig.debug"
 
 config DEBUG_STACKOVERFLOW
 	bool "Check for stack overflows"
-	depends on DEBUG_KERNEL && PPC64
+	depends on DEBUG_KERNEL
 	help
 	  This option will cause messages to be printed if free stack space
 	  drops below a certain limit.
 
 config DEBUG_STACK_USAGE
 	bool "Stack utilization instrumentation"
-	depends on DEBUG_KERNEL && PPC64
+	depends on DEBUG_KERNEL
 	help
 	  Enables the display of the minimum amount of free stack which each
 	  task has ever had available in the sysrq-T and sysrq-P debug output.
 
 	  This option will slow down process creation somewhat.
 
+config DEBUG_PAGEALLOC
+        bool "Debug page memory allocations"
+        depends on DEBUG_KERNEL && !SOFTWARE_SUSPEND
+        help
+          Unmap pages from the kernel linear mapping after free_pages().
+          This results in a large slowdown, but helps to find certain types
+          of memory corruptions.
+
+
 config HCALL_STATS
 	bool "Hypervisor call instrumentation"
 	depends on PPC_PSERIES && DEBUG_FS
 	help
 	  Adds code to keep track of the number of hypervisor calls made and
-	  the amount of time spent in hypervisor callsr.  Wall time spent in
+	  the amount of time spent in hypervisor calls.  Wall time spent in
 	  each call is always calculated, and if available CPU cycles spent
 	  are also calculated.  A directory named hcall_inst is added at the
 	  root of the debugfs filesystem.  Within the hcall_inst directory
@@ -130,11 +139,6 @@ config BOOTX_TEXT
 	  Say Y here to see progress messages from the boot firmware in text
 	  mode. Requires either BootX or Open Firmware.
 
-config SERIAL_TEXT_DEBUG
-	bool "Support for early boot texts over serial port"
-	depends on 4xx || LOPEC || MV64X60 || PPLUS || PRPMC800 || \
-		PPC_GEN550 || PPC_MPC52xx
-
 config PPC_EARLY_DEBUG
 	bool "Early debugging (dangerous)"
 
@@ -185,6 +189,38 @@ config PPC_EARLY_DEBUG_ISERIES
 	  Select this to enable early debugging for legacy iSeries. You need
 	  to hit "Ctrl-x Ctrl-x" to see the messages on the console.
 
+config PPC_EARLY_DEBUG_PAS_REALMODE
+	bool "PA Semi real mode"
+	depends on PPC_PASEMI
+	help
+	  Select this to enable early debugging for PA Semi.
+	  Output will be on UART0.
+
+config PPC_EARLY_DEBUG_BEAT
+	bool "Beat HV Console"
+	depends on PPC_CELLEB
+	select PPC_UDBG_BEAT
+	help
+	  Select this to enable early debugging for Celleb with Beat.
+
+config PPC_EARLY_DEBUG_44x
+	bool "Early serial debugging for IBM/AMCC 44x CPUs"
+	depends on 44x
+	select PPC_UDBG_16550
+	help
+	  Select this to enable early debugging for IBM 44x chips via the
+	  inbuilt serial port.
+
 endchoice
+
+config PPC_EARLY_DEBUG_44x_PHYSLOW
+	hex "Low 32 bits of early debug UART physical address"
+	depends PPC_EARLY_DEBUG_44x
+	default "0x40000200"
+
+config PPC_EARLY_DEBUG_44x_PHYSHIGH
+	hex "EPRN of early debug UART physical address"
+	depends PPC_EARLY_DEBUG_44x
+	default "0x1"
 
 endmenu

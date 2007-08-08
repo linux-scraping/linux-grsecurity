@@ -21,7 +21,6 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/ioport.h>
-#include <linux/sched.h>
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -179,10 +178,10 @@ cumanascsi_2_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
 			dma_dir = DMA_MODE_READ,
 			alatch_dir = ALATCH_DMA_IN;
 
-		dma_map_sg(dev, info->sg, bufs + 1, map_dir);
+		dma_map_sg(dev, info->sg, bufs, map_dir);
 
 		disable_dma(dmach);
-		set_dma_sg(dmach, info->sg, bufs + 1);
+		set_dma_sg(dmach, info->sg, bufs);
 		writeb(alatch_dir, info->base + CUMANASCSI2_ALATCH);
 		set_dma_mode(dmach, dma_dir);
 		enable_dma(dmach);
@@ -402,7 +401,6 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
 {
 	struct Scsi_Host *host;
 	struct cumanascsi2_info *info;
-	unsigned long resbase, reslen;
 	void __iomem *base;
 	int ret;
 
@@ -410,9 +408,7 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
 	if (ret)
 		goto out;
 
-	resbase = ecard_resource_start(ec, ECARD_RES_MEMC);
-	reslen = ecard_resource_len(ec, ECARD_RES_MEMC);
-	base = ioremap(resbase, reslen);
+	base = ecardm_iomap(ec, ECARD_RES_MEMC, 0, 0);
 	if (!base) {
 		ret = -ENOMEM;
 		goto out_region;
@@ -422,7 +418,7 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
 			       sizeof(struct cumanascsi2_info));
 	if (!host) {
 		ret = -ENOMEM;
-		goto out_unmap;
+		goto out_region;
 	}
 
 	ecard_set_drvdata(ec, host);
@@ -451,8 +447,8 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
 
 	ec->irqaddr	= info->base + CUMANASCSI2_STATUS;
 	ec->irqmask	= STATUS_INT;
-	ec->irq_data	= info;
-	ec->ops		= &cumanascsi_2_ops;
+
+	ecard_setirq(ec, &cumanascsi_2_ops, info);
 
 	ret = fas216_init(host);
 	if (ret)
@@ -491,9 +487,6 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
  out_free:
 	scsi_host_put(host);
 
- out_unmap:
-	iounmap(base);
-
  out_region:
 	ecard_release_resources(ec);
 
@@ -512,8 +505,6 @@ static void __devexit cumanascsi2_remove(struct expansion_card *ec)
 	if (info->info.scsi.dma != NO_DMA)
 		free_dma(info->info.scsi.dma);
 	free_irq(ec->irq, info);
-
-	iounmap(info->base);
 
 	fas216_release(host);
 	scsi_host_put(host);

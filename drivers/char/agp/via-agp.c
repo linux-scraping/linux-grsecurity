@@ -89,7 +89,7 @@ static void via_tlbflush(struct agp_memory *mem)
 }
 
 
-static struct aper_size_info_8 via_generic_sizes[9] =
+static const struct aper_size_info_8 via_generic_sizes[9] =
 {
 	{256, 65536, 6, 0},
 	{128, 32768, 5, 128},
@@ -170,7 +170,7 @@ static void via_tlbflush_agp3(struct agp_memory *mem)
 }
 
 
-static struct agp_bridge_driver via_agp3_driver = {
+static const struct agp_bridge_driver via_agp3_driver = {
 	.owner			= THIS_MODULE,
 	.aperture_sizes		= agp3_generic_sizes,
 	.size_type		= U8_APER_SIZE,
@@ -191,9 +191,10 @@ static struct agp_bridge_driver via_agp3_driver = {
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
 	.agp_destroy_page	= agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 };
 
-static struct agp_bridge_driver via_driver = {
+static const struct agp_bridge_driver via_driver = {
 	.owner			= THIS_MODULE,
 	.aperture_sizes		= via_generic_sizes,
 	.size_type		= U8_APER_SIZE,
@@ -214,6 +215,7 @@ static struct agp_bridge_driver via_driver = {
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
 	.agp_destroy_page	= agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 };
 
 static struct agp_device_ids via_agp_device_ids[] __devinitdata =
@@ -382,9 +384,9 @@ static struct agp_device_ids via_agp_device_ids[] __devinitdata =
 		.device_id	= PCI_DEVICE_ID_VIA_P4M800CE,
 		.chipset_name	= "VT3314",
 	},
-	/* CX700 */
+	/* VT3324 / CX700 */
 	{
-		.device_id  = PCI_DEVICE_ID_VIA_CX700,
+		.device_id  = PCI_DEVICE_ID_VIA_VT3324,
 		.chipset_name   = "CX700",
 	},
 	/* VT3336 */
@@ -538,7 +540,7 @@ static const struct pci_device_id agp_via_pci_table[] = {
 	ID(PCI_DEVICE_ID_VIA_83_87XX_1),
 	ID(PCI_DEVICE_ID_VIA_3296_0),
 	ID(PCI_DEVICE_ID_VIA_P4M800CE),
-	ID(PCI_DEVICE_ID_VIA_CX700),
+	ID(PCI_DEVICE_ID_VIA_VT3324),
 	ID(PCI_DEVICE_ID_VIA_VT3336),
 	ID(PCI_DEVICE_ID_VIA_P4M890),
 	{ }

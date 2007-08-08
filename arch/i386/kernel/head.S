@@ -18,6 +18,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 #include <asm/setup.h>
+#include <asm/msr-index.h>
 
 /*
  * References to members of the new_cpu_data structure.
@@ -34,16 +35,28 @@
 
 /*
  * This is how much memory *in addition to the memory covered up to
- * and including _end* we need mapped initially.  We need one bit for
- * each possible page, but only in low memory, which means
- * 2^32/4096/8 = 128K worst case (4G/4G split.)
+ * and including _end* we need mapped initially.
+ * We need:
+ *  - one bit for each possible page, but only in low memory, which means
+ *     2^32/4096/8 = 128K worst case (4G/4G split.)
+ *  - enough space to map all low memory, which means
+ *     (2^32/4096) / 1024 pages (worst case, non PAE)
+ *     (2^32/4096) / 512 + 4 pages (worst case for PAE)
+ *  - a few pages for allocator use before the kernel pagetable has
+ *     been set up
  *
  * Modulo rounding, each megabyte assigned here requires a kilobyte of
  * memory, which is currently unreclaimed.
  *
  * This should be a multiple of a page.
  */
-#define INIT_MAP_BEYOND_END	(128*1024)
+LOW_PAGES = 1<<(32-PAGE_SHIFT_asm)
+
+PAGE_TABLE_SIZE = (LOW_PAGES / PTRS_PER_PTE)
+BOOTBITMAP_SIZE = LOW_PAGES / 8
+ALLOCATOR_SLOP = 4
+
+INIT_MAP_BEYOND_END = BOOTBITMAP_SIZE + (PAGE_TABLE_SIZE + ALLOCATOR_SLOP)*PAGE_SIZE_asm
 
 #ifdef CONFIG_PAX_KERNEXEC
 /* PaX: fill first page in .text with int3 to catch NULL derefs in kernel mode */
@@ -63,13 +76,8 @@ ENTRY(_stext)
  * any particular GDT layout, because we load our own as soon as we
  * can.
  */
+.section .text.head,"ax",@progbits
 ENTRY(startup_32)
-
-#ifdef CONFIG_PARAVIRT
-        movl %cs, %eax
-        testl $0x3, %eax
-        jnz startup_paravirt
-#endif
 
 /*
  * Set segments to known values.
@@ -82,14 +90,14 @@ ENTRY(startup_32)
 	movl %eax,%fs
 	movl %eax,%gs
 
-	/* get the PDA pointer */
-	movl $boot_pda, %eax
-
-	/* slot the PDA address into the GDT */
-	mov %ax, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+0+2)		/* base & 0x0000ffff */
-	shr $16, %eax
-	mov %al, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+4+0)		/* base & 0x00ff0000 */
-	mov %ah, (cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PDA+4+3)		/* base & 0xff000000 */
+	movl $__per_cpu_start,%eax
+	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 2)
+	rorl $16,%eax
+	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 4)
+	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 7)
+	movl $__per_cpu_end + PERCPU_MODULE_RESERVE,%eax
+	subl $__per_cpu_start,%eax
+	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 0)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	/* check for VMware */
@@ -103,22 +111,20 @@ ENTRY(startup_32)
 
 	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),%eax
 	movl %eax,(cpu_gdt_table - __PAGE_OFFSET + GDT_ENTRY_KERNEL_DS * 8 + 4)
-	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c0f300),%eax
-	movl %eax,(cpu_gdt_table - __PAGE_OFFSET + GDT_ENTRY_DEFAULT_USER_DS * 8 + 4)
 1:
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
-	movl $ __KERNEL_TEXT_OFFSET,%eax
+	movl $__KERNEL_TEXT_OFFSET,%eax
 	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 2)
 	rorl $16,%eax
 	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 4)
 	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 7)
 
-	movb %al,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 4)
-	movb %ah,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 7)
+	movb %al,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 4)
+	movb %ah,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 7)
 	rorl $16,%eax
-	movw %ax,(boot_gdt_table - __PAGE_OFFSET + __BOOT_CS + 2)
+	movw %ax,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 2)
 #endif
 
 /*
@@ -152,7 +158,7 @@ ENTRY(startup_32)
 	movzwl OLD_CL_OFFSET,%esi
 	addl $(OLD_CL_BASE_ADDR),%esi
 2:
-	movl $(saved_command_line - __PAGE_OFFSET),%edi
+	movl $(boot_command_line - __PAGE_OFFSET),%edi
 	movl $(COMMAND_LINE_SIZE/4),%ecx
 	rep
 	movsl
@@ -169,9 +175,9 @@ ENTRY(startup_32)
  * can be used as a GPR if you really need it...
  */
 #ifdef CONFIG_X86_PAE
-page_pde_offset = ((__PAGE_OFFSET >> 21) * (4096 / PTRS_PER_PTE_asm));
+page_pde_offset = ((__PAGE_OFFSET >> 21) * (PAGE_SIZE_asm / PTRS_PER_PTE));
 #else
-page_pde_offset = ((__PAGE_OFFSET >> 22) * (4096 / PTRS_PER_PTE_asm));
+page_pde_offset = ((__PAGE_OFFSET >> 22) * (PAGE_SIZE_asm / PTRS_PER_PTE));
 #endif
 	movl $(pg0 - __PAGE_OFFSET), %edi
 #ifdef CONFIG_X86_PAE
@@ -208,16 +214,24 @@ page_pde_offset = ((__PAGE_OFFSET >> 22) * (4096 / PTRS_PER_PTE_asm));
 	jb 10b
 	movl %edi,(init_pg_tables_end - __PAGE_OFFSET)
 
-#ifdef CONFIG_SMP
 	xorl %ebx,%ebx				/* This is the boot CPU (BSP) */
 	jmp 3f
-
 /*
  * Non-boot CPU entry point; entered from trampoline.S
  * We can't lgdt here, because lgdt itself uses a data segment, but
- * we know the trampoline has already loaded the boot_gdt_table GDT
- * for us.
+ * we know the trampoline has already loaded the boot_gdt for us.
+ *
+ * If cpu hotplug is not supported then this code can go in init section
+ * which will be freed later
  */
+
+#ifdef CONFIG_HOTPLUG_CPU
+.section .text,"ax",@progbits
+#else
+.section .init.text,"ax",@progbits
+#endif
+
+#ifdef CONFIG_SMP
 ENTRY(startup_32_smp)
 	cld
 	movl $(__BOOT_DS),%eax
@@ -269,14 +283,19 @@ ENTRY(startup_32_smp)
 	jnc 4f
 
 	/* Setup EFER (Extended Feature Enable Register) */
-	movl $0xc0000080, %ecx
+	movl $MSR_EFER, %ecx
 	rdmsr
 
 	btsl $11, %eax
 	/* Make changes effective */
 	wrmsr
-	btsl $63,__supported_pte_mask-__PAGE_OFFSET
+
+	btsl $63-32,__supported_pte_mask+4-__PAGE_OFFSET
 	movl $1,nx_enabled-__PAGE_OFFSET
+
+#if !defined(CONFIG_PAX_SEGMEXEC) && !defined(CONFIG_PAX_KERNEXEC) && !defined(CONFIG_PAX_MEMORY_UDEREF)
+	movl $0,disable_x86_sep-__PAGE_OFFSET
+#endif
 
 4:
 	movl %edi,%ebx
@@ -378,9 +397,7 @@ is386:	movl $2,%ecx		# set MP
 	movl %eax,%cr0
 
 	call check_x87
-	GET_THREAD_INFO(%ecx)
-	movl TI_cpu(%ecx),%ecx
-	lgdt cpu_gdt_descr(,%ecx,8)
+	lgdt early_gdt_descr
 	lidt idt_descr
 	ljmp $(__KERNEL_CS),$1f
 1:	movl $(__KERNEL_DS),%eax	# reload all the segment registers
@@ -388,12 +405,12 @@ is386:	movl $2,%ecx		# set MP
 	movl %eax,%ds
 	movl %eax,%es
 
-	xorl %eax,%eax			# Clear FS and LDT
-	movl %eax,%fs
-	lldt %ax
+	movl $(__KERNEL_PERCPU), %eax
+	movl %eax,%fs		# set this cpu's percpu
 
-	movl $(__KERNEL_PDA),%eax
-	mov  %eax,%gs
+	xorl %eax,%eax			# Clear GS and LDT
+	movl %eax,%gs
+	lldt %ax
 
 	cld			# gcc2 wants the direction flag cleared at all times
 	pushl $0		# fake return address for unwinder
@@ -544,33 +561,9 @@ ignore_int:
 #endif
 	iret
 
-#ifdef CONFIG_PARAVIRT
-startup_paravirt:
-	cld
-	movl $(init_thread_union+THREAD_SIZE-8),%esp
-
-	/* We take pains to preserve all the regs. */
-	pushl	%edx
-	pushl	%ecx
-	pushl	%eax
-
-	/* paravirt.o is last in link, and that probe fn never returns */
-	pushl	$__start_paravirtprobe
-1:
-	movl	0(%esp), %eax
-	pushl	(%eax)
-	movl	8(%esp), %eax
-	call	*(%esp)
-	popl	%eax
-
-	movl	4(%esp), %eax
-	movl	8(%esp), %ecx
-	movl	12(%esp), %edx
-
-	addl	$4, (%esp)
-	jmp	1b
-#endif
-
+/*
+ * BSS section
+ */
 .section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
@@ -608,24 +601,12 @@ ENTRY(empty_zero_page)
 ENTRY(idt_table)
 	.fill 256,8,0
 
+/*
+ * This starts the data section.
+ */
+.data
+
 .section .rodata,"a",@progbits
-cpu=0
-ENTRY(_cpu_pda)
-.rept NR_CPUS
-	.long __cpu_pda + cpu*PDA_size
-cpu=cpu+1
-.endr
-
-cpu=0
-ENTRY(__cpu_pda)
-.rept NR_CPUS
-1:	.long 1b
-	.long cpu
-	.long 0
-	.long 0
-cpu=cpu+1
-.endr
-
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE-8
 	.long __BOOT_DS
@@ -657,7 +638,7 @@ fault_msg:
 	.word 0				# 32 bit align gdt_desc.address
 boot_gdt_descr:
 	.word __BOOT_DS+7
-	.long boot_gdt_table - __PAGE_OFFSET
+	.long boot_gdt - __PAGE_OFFSET
 
 	.word 0				# 32-bit align idt_desc.address
 idt_descr:
@@ -666,25 +647,20 @@ idt_descr:
 
 # boot GDT descriptor (later on used by CPU#0):
 	.word 0				# 32 bit align gdt_desc.address
-ENTRY(cpu_gdt_descr)
+ENTRY(early_gdt_descr)
 	.word GDT_ENTRIES*8-1
-	.long cpu_gdt_table
-
-	.fill NR_CPUS*8-6,1,0		# space for the other GDT descriptors
+	.long cpu_gdt_table		/* Overwritten for secondary CPUs */
 
 /*
- * The boot_gdt_table must mirror the equivalent in setup.S and is
+ * The boot_gdt must mirror the equivalent in setup.S and is
  * used only for booting.
  */
 	.align L1_CACHE_BYTES
-ENTRY(boot_gdt_table)
+ENTRY(boot_gdt)
 	.fill GDT_ENTRY_BOOT_CS,8,0
 	.quad 0x00cf9b000000ffff	/* kernel 4GB code at 0x00000000 */
 	.quad 0x00cf93000000ffff	/* kernel 4GB data at 0x00000000 */
 
-/*
- * The Global Descriptor Table contains 28 quadwords, per-CPU.
- */
 	.align PAGE_SIZE_asm
 ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* NULL descriptor */
@@ -710,7 +686,7 @@ ENTRY(cpu_gdt_table)
 
 	/*
 	 * Segments used for calling PnP BIOS have byte granularity.
-	 * They code segments and data segments have fixed 64k limits,
+	 * The code segments and data segments have fixed 64k limits,
 	 * the transfer segment sizes are set at run time.
 	 */
 	.quad 0x00409b000000ffff	/* 0x90 32-bit code */
@@ -728,15 +704,15 @@ ENTRY(cpu_gdt_table)
 	.quad 0x004093000000ffff	/* 0xc8 APM DS    data */
 
 	.quad 0x00c0930000000000	/* 0xd0 - ESPFIX SS */
-	.quad 0x00c093000000ffff	/* 0xd8 - PDA */
-	.quad 0x0000000000000000	/* 0xe0 - unused */
-	.quad 0x0000000000000000	/* 0xe8 - unused */
+	.quad 0x0040930000000000	/* 0xd8 - PERCPU */
+	.quad 0x0000000000000000	/* 0xe0 - PCIBIOS_CS */
+	.quad 0x0000000000000000	/* 0xe8 - PCIBIOS_DS */
 	.quad 0x0000000000000000	/* 0xf0 - unused */
 	.quad 0x0000000000000000	/* 0xf8 - GDT entry 31: double-fault TSS */
 
 	/* Be sure this is zeroed to avoid false validations in Xen */
-	.fill PAGE_SIZE_asm / 8 - GDT_ENTRIES,8,0
+	.fill PAGE_SIZE_asm - GDT_ENTRIES,1,0
 
 #ifdef CONFIG_SMP
-	.fill (NR_CPUS-1) * (PAGE_SIZE_asm / 8),8,0 /* other CPU's GDT */
+	.fill (NR_CPUS-1) * (PAGE_SIZE_asm),1,0 /* other CPU's GDT */
 #endif

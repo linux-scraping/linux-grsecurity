@@ -12,39 +12,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/cpu.h>
-
-void __get_zone_counts(unsigned long *active, unsigned long *inactive,
-			unsigned long *free, struct pglist_data *pgdat)
-{
-	struct zone *zones = pgdat->node_zones;
-	int i;
-
-	*active = 0;
-	*inactive = 0;
-	*free = 0;
-	for (i = 0; i < MAX_NR_ZONES; i++) {
-		*active += zones[i].nr_active;
-		*inactive += zones[i].nr_inactive;
-		*free += zones[i].free_pages;
-	}
-}
-
-void get_zone_counts(unsigned long *active,
-		unsigned long *inactive, unsigned long *free)
-{
-	struct pglist_data *pgdat;
-
-	*active = 0;
-	*inactive = 0;
-	*free = 0;
-	for_each_online_pgdat(pgdat) {
-		unsigned long l, m, n;
-		__get_zone_counts(&l, &m, &n, pgdat);
-		*active += l;
-		*inactive += m;
-		*free += n;
-	}
-}
+#include <linux/sched.h>
 
 #ifdef CONFIG_VM_EVENT_COUNTERS
 DEFINE_PER_CPU(struct vm_event_state, vm_event_states) = {{0}};
@@ -239,7 +207,7 @@ EXPORT_SYMBOL(mod_zone_page_state);
  * in between and therefore the atomicity vs. interrupt cannot be exploited
  * in a useful way here.
  */
-static void __inc_zone_state(struct zone *zone, enum zone_stat_item item)
+void __inc_zone_state(struct zone *zone, enum zone_stat_item item)
 {
 	struct per_cpu_pageset *pcp = zone_pcp(zone, smp_processor_id());
 	s8 *p = pcp->vm_stat_diff + item;
@@ -260,9 +228,8 @@ void __inc_zone_page_state(struct page *page, enum zone_stat_item item)
 }
 EXPORT_SYMBOL(__inc_zone_page_state);
 
-void __dec_zone_page_state(struct page *page, enum zone_stat_item item)
+void __dec_zone_state(struct zone *zone, enum zone_stat_item item)
 {
-	struct zone *zone = page_zone(page);
 	struct per_cpu_pageset *pcp = zone_pcp(zone, smp_processor_id());
 	s8 *p = pcp->vm_stat_diff + item;
 
@@ -274,6 +241,11 @@ void __dec_zone_page_state(struct page *page, enum zone_stat_item item)
 		zone_page_state_add(*p - overstep, zone, item);
 		*p = overstep;
 	}
+}
+
+void __dec_zone_page_state(struct page *page, enum zone_stat_item item)
+{
+	__dec_zone_state(page_zone(page), item);
 }
 EXPORT_SYMBOL(__dec_zone_page_state);
 
@@ -310,6 +282,17 @@ EXPORT_SYMBOL(dec_zone_page_state);
 
 /*
  * Update the zone counters for one cpu.
+ *
+ * Note that refresh_cpu_vm_stats strives to only access
+ * node local memory. The per cpu pagesets on remote zones are placed
+ * in the memory local to the processor using that pageset. So the
+ * loop over all zones will access a series of cachelines local to
+ * the processor.
+ *
+ * The call to zone_page_state_add updates the cachelines with the
+ * statistics in the remote zone struct as well as the global cachelines
+ * with the global counters. These could cause remote node cache line
+ * bouncing and will have to be only done when necessary.
  */
 void refresh_cpu_vm_stats(int cpu)
 {
@@ -318,21 +301,54 @@ void refresh_cpu_vm_stats(int cpu)
 	unsigned long flags;
 
 	for_each_zone(zone) {
-		struct per_cpu_pageset *pcp;
+		struct per_cpu_pageset *p;
 
 		if (!populated_zone(zone))
 			continue;
 
-		pcp = zone_pcp(zone, cpu);
+		p = zone_pcp(zone, cpu);
 
 		for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
-			if (pcp->vm_stat_diff[i]) {
+			if (p->vm_stat_diff[i]) {
 				local_irq_save(flags);
-				zone_page_state_add(pcp->vm_stat_diff[i],
+				zone_page_state_add(p->vm_stat_diff[i],
 					zone, i);
-				pcp->vm_stat_diff[i] = 0;
+				p->vm_stat_diff[i] = 0;
+#ifdef CONFIG_NUMA
+				/* 3 seconds idle till flush */
+				p->expire = 3;
+#endif
 				local_irq_restore(flags);
 			}
+#ifdef CONFIG_NUMA
+		/*
+		 * Deal with draining the remote pageset of this
+		 * processor
+		 *
+		 * Check if there are pages remaining in this pageset
+		 * if not then there is nothing to expire.
+		 */
+		if (!p->expire || (!p->pcp[0].count && !p->pcp[1].count))
+			continue;
+
+		/*
+		 * We never drain zones local to this processor.
+		 */
+		if (zone_to_nid(zone) == numa_node_id()) {
+			p->expire = 0;
+			continue;
+		}
+
+		p->expire--;
+		if (p->expire)
+			continue;
+
+		if (p->pcp[0].count)
+			drain_zone_pages(zone, p->pcp + 0);
+
+		if (p->pcp[1].count)
+			drain_zone_pages(zone, p->pcp + 1);
+#endif
 	}
 }
 
@@ -437,6 +453,12 @@ const struct seq_operations fragmentation_op = {
 	.show	= frag_show,
 };
 
+#ifdef CONFIG_ZONE_DMA
+#define TEXT_FOR_DMA(xx) xx "_dma",
+#else
+#define TEXT_FOR_DMA(xx)
+#endif
+
 #ifdef CONFIG_ZONE_DMA32
 #define TEXT_FOR_DMA32(xx) xx "_dma32",
 #else
@@ -449,19 +471,22 @@ const struct seq_operations fragmentation_op = {
 #define TEXT_FOR_HIGHMEM(xx)
 #endif
 
-#define TEXTS_FOR_ZONES(xx) xx "_dma", TEXT_FOR_DMA32(xx) xx "_normal", \
+#define TEXTS_FOR_ZONES(xx) TEXT_FOR_DMA(xx) TEXT_FOR_DMA32(xx) xx "_normal", \
 					TEXT_FOR_HIGHMEM(xx)
 
 static const char * const vmstat_text[] = {
 	/* Zoned VM counters */
+	"nr_free_pages",
+	"nr_inactive",
+	"nr_active",
 	"nr_anon_pages",
 	"nr_mapped",
 	"nr_file_pages",
+	"nr_dirty",
+	"nr_writeback",
 	"nr_slab_reclaimable",
 	"nr_slab_unreclaimable",
 	"nr_page_table_pages",
-	"nr_dirty",
-	"nr_writeback",
 	"nr_unstable",
 	"nr_bounce",
 	"nr_vmscan_write",
@@ -529,17 +554,13 @@ static int zoneinfo_show(struct seq_file *m, void *arg)
 			   "\n        min      %lu"
 			   "\n        low      %lu"
 			   "\n        high     %lu"
-			   "\n        active   %lu"
-			   "\n        inactive %lu"
 			   "\n        scanned  %lu (a: %lu i: %lu)"
 			   "\n        spanned  %lu"
 			   "\n        present  %lu",
-			   zone->free_pages,
+			   zone_page_state(zone, NR_FREE_PAGES),
 			   zone->pages_min,
 			   zone->pages_low,
 			   zone->pages_high,
-			   zone->nr_active,
-			   zone->nr_inactive,
 			   zone->pages_scanned,
 			   zone->nr_scan_active, zone->nr_scan_inactive,
 			   zone->spanned_pages,
@@ -562,12 +583,6 @@ static int zoneinfo_show(struct seq_file *m, void *arg)
 			int j;
 
 			pageset = zone_pcp(zone, i);
-			for (j = 0; j < ARRAY_SIZE(pageset->pcp); j++) {
-				if (pageset->pcp[j].count)
-					break;
-			}
-			if (j == ARRAY_SIZE(pageset->pcp))
-				continue;
 			for (j = 0; j < ARRAY_SIZE(pageset->pcp); j++) {
 				seq_printf(m,
 					   "\n    cpu: %i pcp: %i"
@@ -670,6 +685,24 @@ const struct seq_operations vmstat_op = {
 #endif /* CONFIG_PROC_FS */
 
 #ifdef CONFIG_SMP
+static DEFINE_PER_CPU(struct delayed_work, vmstat_work);
+int sysctl_stat_interval __read_mostly = HZ;
+
+static void vmstat_update(struct work_struct *w)
+{
+	refresh_cpu_vm_stats(smp_processor_id());
+	schedule_delayed_work(&__get_cpu_var(vmstat_work),
+		sysctl_stat_interval);
+}
+
+static void __devinit start_cpu_timer(int cpu)
+{
+	struct delayed_work *vmstat_work = &per_cpu(vmstat_work, cpu);
+
+	INIT_DELAYED_WORK_DEFERRABLE(vmstat_work, vmstat_update);
+	schedule_delayed_work_on(cpu, vmstat_work, HZ + cpu);
+}
+
 /*
  * Use the cpu notifier to insure that the thresholds are recalculated
  * when necessary.
@@ -678,10 +711,24 @@ static int __cpuinit vmstat_cpuup_callback(struct notifier_block *nfb,
 		unsigned long action,
 		void *hcpu)
 {
+	long cpu = (long)hcpu;
+
 	switch (action) {
-	case CPU_UP_PREPARE:
-	case CPU_UP_CANCELED:
+	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
+		start_cpu_timer(cpu);
+		break;
+	case CPU_DOWN_PREPARE:
+	case CPU_DOWN_PREPARE_FROZEN:
+		cancel_rearming_delayed_work(&per_cpu(vmstat_work, cpu));
+		per_cpu(vmstat_work, cpu).work.func = NULL;
+		break;
+	case CPU_DOWN_FAILED:
+	case CPU_DOWN_FAILED_FROZEN:
+		start_cpu_timer(cpu);
+		break;
 	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
 		refresh_zone_stat_thresholds();
 		break;
 	default:
@@ -695,8 +742,13 @@ static struct notifier_block __cpuinitdata vmstat_notifier =
 
 int __init setup_vmstat(void)
 {
+	int cpu;
+
 	refresh_zone_stat_thresholds();
 	register_cpu_notifier(&vmstat_notifier);
+
+	for_each_online_cpu(cpu)
+		start_cpu_timer(cpu);
 	return 0;
 }
 module_init(setup_vmstat)

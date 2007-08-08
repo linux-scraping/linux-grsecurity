@@ -25,16 +25,17 @@
 #include <linux/ata.h>
 
 #define DRV_NAME	"pata_oldpiix"
-#define DRV_VERSION	"0.5.2"
+#define DRV_VERSION	"0.5.5"
 
 /**
  *	oldpiix_pre_reset		-	probe begin
  *	@ap: ATA port
+ *	@deadline: deadline jiffies for the operation
  *
  *	Set up cable type and use generic probe init
  */
 
-static int oldpiix_pre_reset(struct ata_port *ap)
+static int oldpiix_pre_reset(struct ata_port *ap, unsigned long deadline)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	static const struct pci_bits oldpiix_enable_bits[] = {
@@ -44,8 +45,8 @@ static int oldpiix_pre_reset(struct ata_port *ap)
 
 	if (!pci_test_config_bits(pdev, &oldpiix_enable_bits[ap->port_no]))
 		return -ENOENT;
-	ap->cbl = ATA_CBL_PATA40;
-	return ata_std_prereset(ap);
+
+	return ata_std_prereset(ap, deadline);
 }
 
 /**
@@ -65,7 +66,7 @@ static void oldpiix_pata_error_handler(struct ata_port *ap)
 /**
  *	oldpiix_set_piomode - Initialize host controller PATA PIO timings
  *	@ap: Port whose timings we are configuring
- *	@adev: um
+ *	@adev: Device whose timings we are configuring
  *
  *	Set PIO mode for device, in host controller PCI config space.
  *
@@ -94,19 +95,21 @@ static void oldpiix_set_piomode (struct ata_port *ap, struct ata_device *adev)
 			    { 2, 1 },
 			    { 2, 3 }, };
 
-	if (pio > 2)
-		control |= 1;	/* TIME1 enable */
+	if (pio > 1)
+		control |= 1;	/* TIME */
 	if (ata_pio_need_iordy(adev))
-		control |= 2;	/* IE IORDY */
+		control |= 2;	/* IE */
 
-	/* Intel specifies that the PPE functionality is for disk only */
+	/* Intel specifies that the prefetch/posting is for disk only */
 	if (adev->class == ATA_DEV_ATA)
-		control |= 4;	/* PPE enable */
+		control |= 4;	/* PPE */
 
 	pci_read_config_word(dev, idetm_port, &idetm_data);
 
-	/* Enable PPE, IE and TIME as appropriate. Clear the other
-	   drive timing bits */
+	/*
+	 * Set PPE, IE and TIME as appropriate.
+	 * Clear the other drive's timing bits.
+	 */
 	if (adev->devno == 0) {
 		idetm_data &= 0xCCE0;
 		idetm_data |= control;
@@ -207,10 +210,9 @@ static unsigned int oldpiix_qc_issue_prot(struct ata_queued_cmd *qc)
 	struct ata_device *adev = qc->dev;
 
 	if (adev != ap->private_data) {
+		oldpiix_set_piomode(ap, adev);
 		if (adev->dma_mode)
 			oldpiix_set_dmamode(ap, adev);
-		else if (adev->pio_mode)
-			oldpiix_set_piomode(ap, adev);
 	}
 	return ata_qc_issue_prot(qc);
 }
@@ -232,10 +234,6 @@ static struct scsi_host_template oldpiix_sht = {
 	.slave_configure	= ata_scsi_slave_config,
 	.slave_destroy		= ata_scsi_slave_destroy,
 	.bios_param		= ata_std_bios_param,
-#ifdef CONFIG_PM
-	.resume			= ata_scsi_device_resume,
-	.suspend		= ata_scsi_device_suspend,
-#endif
 };
 
 static const struct ata_port_operations oldpiix_pata_ops = {
@@ -254,6 +252,7 @@ static const struct ata_port_operations oldpiix_pata_ops = {
 	.thaw			= ata_bmdma_thaw,
 	.error_handler		= oldpiix_pata_error_handler,
 	.post_internal_cmd 	= ata_bmdma_post_internal_cmd,
+	.cable_detect		= ata_cable_40wire,
 
 	.bmdma_setup		= ata_bmdma_setup,
 	.bmdma_start		= ata_bmdma_start,
@@ -261,14 +260,14 @@ static const struct ata_port_operations oldpiix_pata_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= oldpiix_qc_issue_prot,
-	.data_xfer		= ata_pio_data_xfer,
+	.data_xfer		= ata_data_xfer,
 
 	.irq_handler		= ata_interrupt,
 	.irq_clear		= ata_bmdma_irq_clear,
+	.irq_on			= ata_irq_on,
+	.irq_ack		= ata_irq_ack,
 
 	.port_start		= ata_port_start,
-	.port_stop		= ata_port_stop,
-	.host_stop		= ata_host_stop,
 };
 
 
@@ -290,20 +289,20 @@ static const struct ata_port_operations oldpiix_pata_ops = {
 static int oldpiix_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	static int printed_version;
-	static struct ata_port_info info = {
+	static const struct ata_port_info info = {
 		.sht		= &oldpiix_sht,
 		.flags		= ATA_FLAG_SLAVE_POSS | ATA_FLAG_SRST,
 		.pio_mask	= 0x1f,	/* pio0-4 */
 		.mwdma_mask	= 0x07, /* mwdma1-2 */
 		.port_ops	= &oldpiix_pata_ops,
 	};
-	static struct ata_port_info *port_info[2] = { &info, &info };
+	const struct ata_port_info *ppi[] = { &info, NULL };
 
 	if (!printed_version++)
 		dev_printk(KERN_DEBUG, &pdev->dev,
 			   "version " DRV_VERSION "\n");
 
-	return ata_pci_init_one(pdev, port_info, 2);
+	return ata_pci_init_one(pdev, ppi);
 }
 
 static const struct pci_device_id oldpiix_pci_tbl[] = {

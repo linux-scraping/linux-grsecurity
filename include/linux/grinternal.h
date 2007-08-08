@@ -145,6 +145,7 @@ enum {
 	GR_RBAC_MODE2,
 	GR_RBAC_MODE3,
 	GR_FILENAME,
+	GR_SYSCTL_HIDDEN,
 	GR_NOARGS,
 	GR_ONE_INT,
 	GR_ONE_INT_TWO_STR,
@@ -170,6 +171,7 @@ enum {
 	GR_PSACCT
 };
 
+#define gr_log_hidden_sysctl(audit, msg, str) gr_log_varargs(audit, msg, GR_SYSCTL_HIDDEN, str)
 #define gr_log_ttysniff(audit, msg, task) gr_log_varargs(audit, msg, GR_TTYSNIFF, task)
 #define gr_log_fs_rbac_generic(audit, msg, dentry, mnt) gr_log_varargs(audit, msg, GR_RBAC, dentry, mnt)
 #define gr_log_fs_rbac_str(audit, msg, dentry, mnt, str) gr_log_varargs(audit, msg, GR_RBAC_STR, dentry, mnt, str)

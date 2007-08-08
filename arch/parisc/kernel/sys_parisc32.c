@@ -311,14 +311,13 @@ struct readdir32_callback {
 	int count;
 };
 
-#define ROUND_UP(x,a)	((__typeof__(x))(((unsigned long)(x) + ((a) - 1)) & ~((a) - 1)))
 #define NAME_OFFSET(de) ((int) ((de)->d_name - (char __user *) (de)))
 static int filldir32 (void *__buf, const char *name, int namlen,
 			loff_t offset, u64 ino, unsigned int d_type)
 {
 	struct linux32_dirent __user * dirent;
 	struct getdents32_callback * buf = (struct getdents32_callback *) __buf;
-	int reclen = ROUND_UP(NAME_OFFSET(dirent) + namlen + 1, 4);
+	int reclen = ALIGN(NAME_OFFSET(dirent) + namlen + 1, 4);
 	u32 d_ino;
 
 	buf->error = -EINVAL;	/* only used if we fail.. */
@@ -350,6 +349,10 @@ sys32_getdents (unsigned int fd, void __user * dirent, unsigned int count)
 	struct getdents32_callback buf;
 	int error;
 
+	error = -EFAULT;
+	if (!access_ok(VERIFY_WRITE, dirent, count))
+		goto out;
+
 	error = -EBADF;
 	file = fget(fd);
 	if (!file)
@@ -366,8 +369,10 @@ sys32_getdents (unsigned int fd, void __user * dirent, unsigned int count)
 	error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
-		put_user(file->f_pos, &lastdirent->d_off);
-		error = count - buf.count;
+		if (put_user(file->f_pos, &lastdirent->d_off))
+			error = -EFAULT;
+		else
+			error = count - buf.count;
 	}
 
 out_putf:
@@ -576,70 +581,6 @@ asmlinkage int sys32_sendfile64(int out_fd, int in_fd, compat_loff_t __user *off
 		return -EFAULT;
 		
 	return ret;
-}
-
-
-struct sysinfo32 {
-	s32 uptime;
-	u32 loads[3];
-	u32 totalram;
-	u32 freeram;
-	u32 sharedram;
-	u32 bufferram;
-	u32 totalswap;
-	u32 freeswap;
-	unsigned short procs;
-	u32 totalhigh;
-	u32 freehigh;
-	u32 mem_unit;
-	char _f[12];
-};
-
-/* We used to call sys_sysinfo and translate the result.  But sys_sysinfo
- * undoes the good work done elsewhere, and rather than undoing the
- * damage, I decided to just duplicate the code from sys_sysinfo here.
- */
-
-asmlinkage int sys32_sysinfo(struct sysinfo32 __user *info)
-{
-	struct sysinfo val;
-	int err;
-	unsigned long seq;
-
-	/* We don't need a memset here because we copy the
-	 * struct to userspace once element at a time.
-	 */
-
-	do {
-		seq = read_seqbegin(&xtime_lock);
-		val.uptime = jiffies / HZ;
-
-		val.loads[0] = avenrun[0] << (SI_LOAD_SHIFT - FSHIFT);
-		val.loads[1] = avenrun[1] << (SI_LOAD_SHIFT - FSHIFT);
-		val.loads[2] = avenrun[2] << (SI_LOAD_SHIFT - FSHIFT);
-
-		val.procs = nr_threads;
-	} while (read_seqretry(&xtime_lock, seq));
-
-
-	si_meminfo(&val);
-	si_swapinfo(&val);
-	
-	err = put_user (val.uptime, &info->uptime);
-	err |= __put_user (val.loads[0], &info->loads[0]);
-	err |= __put_user (val.loads[1], &info->loads[1]);
-	err |= __put_user (val.loads[2], &info->loads[2]);
-	err |= __put_user (val.totalram, &info->totalram);
-	err |= __put_user (val.freeram, &info->freeram);
-	err |= __put_user (val.sharedram, &info->sharedram);
-	err |= __put_user (val.bufferram, &info->bufferram);
-	err |= __put_user (val.totalswap, &info->totalswap);
-	err |= __put_user (val.freeswap, &info->freeswap);
-	err |= __put_user (val.procs, &info->procs);
-	err |= __put_user (val.totalhigh, &info->totalhigh);
-	err |= __put_user (val.freehigh, &info->freehigh);
-	err |= __put_user (val.mem_unit, &info->mem_unit);
-	return err ? -EFAULT : 0;
 }
 
 

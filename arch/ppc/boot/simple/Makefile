@@ -116,10 +116,6 @@ zimageinitrd-$(CONFIG_WALNUT)		:= zImage.initrd-TREE
      extra.o-$(CONFIG_CHESTNUT)		:= misc-chestnut.o
          end-$(CONFIG_CHESTNUT)		:= chestnut
 
-      zimage-$(CONFIG_GEMINI)		:= zImage-STRIPELF
-zimageinitrd-$(CONFIG_GEMINI)		:= zImage.initrd-STRIPELF
-         end-$(CONFIG_GEMINI)		:= gemini
-
      extra.o-$(CONFIG_KATANA)		:= misc-katana.o
          end-$(CONFIG_KATANA)		:= katana
    cacheflag-$(CONFIG_KATANA)		:= -include $(clear_L2_L3)
@@ -205,6 +201,7 @@ boot-$(CONFIG_8260)		+= m8260_tty.o
 endif
 boot-$(CONFIG_SERIAL_MPC52xx_CONSOLE)	+= mpc52xx_tty.o
 boot-$(CONFIG_SERIAL_MPSC_CONSOLE)	+= mv64x60_tty.o
+boot-$(CONFIG_SERIAL_UARTLITE_CONSOLE)	+= uartlite_tty.o
 
 LIBS				:= $(common)/lib.a $(bootlib)/lib.a
 ifeq ($(CONFIG_PPC_PREP),y)

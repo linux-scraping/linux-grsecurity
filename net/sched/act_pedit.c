@@ -14,7 +14,6 @@
 #include <asm/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -28,6 +27,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/proc_fs.h>
+#include <net/netlink.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 #include <linux/tc_act/tc_pedit.h>
@@ -137,7 +137,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
 		}
 	}
 
-	pptr = skb->nh.raw;
+	pptr = skb_network_header(skb);
 
 	spin_lock(&p->tcf_lock);
 
@@ -153,8 +153,8 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
 			if (tkey->offmask) {
 				if (skb->len > tkey->at) {
 					 char *j = pptr + tkey->at;
-					 offset += ((*j & tkey->offmask) >> 
-					           tkey->shift);
+					 offset += ((*j & tkey->offmask) >>
+						   tkey->shift);
 				} else {
 					goto bad;
 				}
@@ -164,8 +164,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
 				printk("offset must be on 32 bit boundaries\n");
 				goto bad;
 			}
-			if (skb->len < 0 ||
-			    (offset > 0 && offset > skb->len)) {
+			if (offset > 0 && offset > skb->len) {
 				printk("offset %d cant exceed pkt length %d\n",
 				       offset, skb->len);
 				goto bad;
@@ -176,7 +175,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
 			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
 			munged++;
 		}
-		
+
 		if (munged)
 			skb->tc_verd = SET_TC_MUNGED(skb->tc_verd);
 		goto done;
@@ -196,12 +195,12 @@ done:
 static int tcf_pedit_dump(struct sk_buff *skb, struct tc_action *a,
 			  int bind, int ref)
 {
-	unsigned char *b = skb->tail;
+	unsigned char *b = skb_tail_pointer(skb);
 	struct tcf_pedit *p = a->priv;
 	struct tc_pedit *opt;
 	struct tcf_t t;
-	int s; 
-		
+	int s;
+
 	s = sizeof(*opt) + p->tcfp_nkeys * sizeof(struct tc_pedit_key);
 
 	/* netlink spinlocks held above us - must use ATOMIC */
@@ -227,7 +226,7 @@ static int tcf_pedit_dump(struct sk_buff *skb, struct tc_action *a,
 	return skb->len;
 
 rtattr_failure:
-	skb_trim(skb, b - skb->data);
+	nlmsg_trim(skb, b);
 	kfree(opt);
 	return -1;
 }

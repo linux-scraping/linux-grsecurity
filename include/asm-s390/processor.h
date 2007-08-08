@@ -36,6 +36,11 @@ typedef struct
         unsigned int unused  : 16;
 } __attribute__ ((packed)) cpuid_t;
 
+static inline void get_cpu_id(cpuid_t *ptr)
+{
+	asm volatile("stidp 0(%1)" : "=m" (*ptr) : "a" (ptr));
+}
+
 struct cpuinfo_S390
 {
         cpuid_t  cpu_id;
@@ -50,7 +55,9 @@ struct cpuinfo_S390
         unsigned long pgtable_cache_sz;
 };
 
+extern void s390_adjust_jiffies(void);
 extern void print_cpu_info(struct cpuinfo_S390 *);
+extern int get_cpu_capability(unsigned int *);
 
 /* Lazy FPU handling on uni-processor */
 extern struct task_struct *last_task_used_math;
@@ -144,7 +151,8 @@ struct stack_frame {
 #ifndef __s390x__
 
 #define start_thread(regs, new_psw, new_stackp) do {            \
-        regs->psw.mask  = PSW_USER_BITS;                        \
+	set_fs(USER_DS);					\
+	regs->psw.mask	= psw_user_bits;			\
         regs->psw.addr  = new_psw | PSW_ADDR_AMODE;             \
         regs->gprs[15]  = new_stackp ;                          \
 } while (0)
@@ -152,13 +160,15 @@ struct stack_frame {
 #else /* __s390x__ */
 
 #define start_thread(regs, new_psw, new_stackp) do {            \
-        regs->psw.mask  = PSW_USER_BITS;                        \
+	set_fs(USER_DS);					\
+	regs->psw.mask	= psw_user_bits;			\
         regs->psw.addr  = new_psw;                              \
         regs->gprs[15]  = new_stackp;                           \
 } while (0)
 
 #define start_thread31(regs, new_psw, new_stackp) do {          \
-	regs->psw.mask  = PSW_USER32_BITS;			\
+	set_fs(USER_DS);					\
+	regs->psw.mask	= psw_user32_bits;			\
         regs->psw.addr  = new_psw;                              \
         regs->gprs[15]  = new_stackp;                           \
 } while (0)
@@ -187,6 +197,7 @@ extern unsigned long thread_saved_pc(struct task_struct *t);
 extern char *task_show_regs(struct task_struct *task, char *buffer);
 
 extern void show_registers(struct pt_regs *regs);
+extern void show_code(struct pt_regs *regs);
 extern void show_trace(struct task_struct *task, unsigned long *sp);
 
 unsigned long get_wchan(struct task_struct *p);
@@ -201,9 +212,13 @@ unsigned long get_wchan(struct task_struct *p);
 static inline void cpu_relax(void)
 {
 	if (MACHINE_HAS_DIAG44)
-		asm volatile("diag 0,0,68" : : : "memory");
-	else
-		barrier();
+		asm volatile("diag 0,0,68");
+	barrier();
+}
+
+static inline void psw_set_key(unsigned int key)
+{
+	asm volatile("spka 0(%0)" : : "d" (key));
 }
 
 /*
@@ -326,6 +341,18 @@ static inline void disabled_wait(unsigned long code)
 		: "a" (&dw_psw), "a" (&ctl_buf), "m" (dw_psw) : "cc", "0");
 #endif /* __s390x__ */
 }
+
+/*
+ * Basic Machine Check/Program Check Handler.
+ */
+
+extern void s390_base_mcck_handler(void);
+extern void s390_base_pgm_handler(void);
+extern void s390_base_ext_handler(void);
+
+extern void (*s390_base_mcck_handler_fn)(void);
+extern void (*s390_base_pgm_handler_fn)(void);
+extern void (*s390_base_ext_handler_fn)(void);
 
 /*
  * CPU idle notifier chain.

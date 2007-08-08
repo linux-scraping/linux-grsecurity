@@ -272,7 +272,7 @@ static void nvidia_tlbflush(struct agp_memory *mem)
 }
 
 
-static struct aper_size_info_8 nvidia_generic_sizes[5] =
+static const struct aper_size_info_8 nvidia_generic_sizes[5] =
 {
 	{512, 131072, 7, 0},
 	{256, 65536, 6, 8},
@@ -283,13 +283,13 @@ static struct aper_size_info_8 nvidia_generic_sizes[5] =
 };
 
 
-static struct gatt_mask nvidia_generic_masks[] =
+static const struct gatt_mask nvidia_generic_masks[] =
 {
 	{ .mask = 1, .type = 0}
 };
 
 
-static struct agp_bridge_driver nvidia_driver = {
+static const struct agp_bridge_driver nvidia_driver = {
 	.owner			= THIS_MODULE,
 	.aperture_sizes		= nvidia_generic_sizes,
 	.size_type		= U8_APER_SIZE,
@@ -310,6 +310,7 @@ static struct agp_bridge_driver nvidia_driver = {
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
 	.agp_destroy_page	= agp_generic_destroy_page,
+	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 };
 
 static int __devinit agp_nvidia_probe(struct pci_dev *pdev,
@@ -319,11 +320,11 @@ static int __devinit agp_nvidia_probe(struct pci_dev *pdev,
 	u8 cap_ptr;
 
 	nvidia_private.dev_1 =
-		pci_find_slot((unsigned int)pdev->bus->number, PCI_DEVFN(0, 1));
+		pci_get_bus_and_slot((unsigned int)pdev->bus->number, PCI_DEVFN(0, 1));
 	nvidia_private.dev_2 =
-		pci_find_slot((unsigned int)pdev->bus->number, PCI_DEVFN(0, 2));
+		pci_get_bus_and_slot((unsigned int)pdev->bus->number, PCI_DEVFN(0, 2));
 	nvidia_private.dev_3 =
-		pci_find_slot((unsigned int)pdev->bus->number, PCI_DEVFN(30, 0));
+		pci_get_bus_and_slot((unsigned int)pdev->bus->number, PCI_DEVFN(30, 0));
 
 	if (!nvidia_private.dev_1 || !nvidia_private.dev_2 || !nvidia_private.dev_3) {
 		printk(KERN_INFO PFX "Detected an NVIDIA nForce/nForce2 "
@@ -442,6 +443,9 @@ static int __init agp_nvidia_init(void)
 static void __exit agp_nvidia_cleanup(void)
 {
 	pci_unregister_driver(&agp_nvidia_pci_driver);
+	pci_dev_put(nvidia_private.dev_1);
+	pci_dev_put(nvidia_private.dev_2);
+	pci_dev_put(nvidia_private.dev_3);
 }
 
 module_init(agp_nvidia_init);

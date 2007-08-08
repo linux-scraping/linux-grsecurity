@@ -6,7 +6,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2006, R. Byron Moore
+ * Copyright (C) 2000 - 2007, R. Byron Moore
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,7 +114,7 @@ acpi_ds_execute_arguments(struct acpi_namespace_node *node,
 	}
 
 	status = acpi_ds_init_aml_walk(walk_state, op, NULL, aml_start,
-				       aml_length, NULL, 1);
+				       aml_length, NULL, ACPI_IMODE_LOAD_PASS1);
 	if (ACPI_FAILURE(status)) {
 		acpi_ds_delete_walk_state(walk_state);
 		goto cleanup;
@@ -157,7 +157,7 @@ acpi_ds_execute_arguments(struct acpi_namespace_node *node,
 	/* Execute the opcode and arguments */
 
 	status = acpi_ds_init_aml_walk(walk_state, op, NULL, aml_start,
-				       aml_length, NULL, 3);
+				       aml_length, NULL, ACPI_IMODE_EXECUTE);
 	if (ACPI_FAILURE(status)) {
 		acpi_ds_delete_walk_state(walk_state);
 		goto cleanup;
@@ -866,8 +866,7 @@ acpi_ds_eval_data_object_operands(struct acpi_walk_state *walk_state,
 		    ((op->common.parent->common.aml_opcode != AML_PACKAGE_OP) &&
 		     (op->common.parent->common.aml_opcode !=
 		      AML_VAR_PACKAGE_OP)
-		     && (op->common.parent->common.aml_opcode !=
-			 AML_NAME_OP))) {
+		     && (op->common.parent->common.aml_opcode != AML_NAME_OP))) {
 			walk_state->result_obj = obj_desc;
 		}
 	}

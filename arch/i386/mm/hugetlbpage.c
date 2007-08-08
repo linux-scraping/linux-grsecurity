@@ -9,7 +9,6 @@
 #include <linux/mm.h>
 #include <linux/hugetlb.h>
 #include <linux/pagemap.h>
-#include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/sysctl.h>
@@ -238,10 +237,10 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 #endif
 
 	if (len > mm->cached_hole_size) {
-	        start_addr = mm->free_area_cache;
+		start_addr = mm->free_area_cache;
 	} else {
-	        start_addr = TASK_UNMAPPED_BASE;
-	        mm->cached_hole_size = 0;
+		start_addr = mm->mmap_base;
+		mm->cached_hole_size = 0;
 	}
 
 full_search:
@@ -254,8 +253,8 @@ full_search:
 			 * Start a new search - just in case we missed
 			 * some holes.
 			 */
-			if (start_addr != TASK_UNMAPPED_BASE) {
-				start_addr = TASK_UNMAPPED_BASE;
+			if (start_addr != mm->mmap_base) {
+				start_addr = mm->mmap_base;
 				mm->cached_hole_size = 0;
 				goto full_search;
 			}
@@ -335,7 +334,8 @@ fail:
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
-	mm->free_area_cache = TASK_UNMAPPED_BASE;
+	mm->mmap_base = TASK_UNMAPPED_BASE;
+	mm->free_area_cache = mm->mmap_base;
 	mm->cached_hole_size = ~0UL;
 	addr = hugetlb_get_unmapped_area_bottomup(file, addr0,
 			len, pgoff, flags);
@@ -343,6 +343,7 @@ fail:
 	/*
 	 * Restore the topdown base:
 	 */
+	mm->mmap_base = base;
 	mm->free_area_cache = base;
 	mm->cached_hole_size = ~0UL;
 
@@ -365,8 +366,14 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (len > task_size || addr > task_size - len)
+	if (len > task_size)
 		return -ENOMEM;
+
+	if (flags & MAP_FIXED) {
+		if (prepare_hugepage_range(addr, len, pgoff))
+			return -EINVAL;
+		return addr;
+	}
 
 	if (addr) {
 		addr = ALIGN(addr, HPAGE_SIZE);

@@ -328,7 +328,7 @@ qeth_dev_bufcnt_store(struct device *dev, struct device_attribute *attr, const c
 static DEVICE_ATTR(buffer_count, 0644, qeth_dev_bufcnt_show,
 		qeth_dev_bufcnt_store);
 
-static inline ssize_t
+static ssize_t
 qeth_dev_route_show(struct qeth_card *card, struct qeth_routing_info *route,
 		    char *buf)
 {
@@ -368,7 +368,7 @@ qeth_dev_route4_show(struct device *dev, struct device_attribute *attr, char *bu
 	return qeth_dev_route_show(card, &card->options.route4, buf);
 }
 
-static inline ssize_t
+static ssize_t
 qeth_dev_route_store(struct qeth_card *card, struct qeth_routing_info *route,
 		enum qeth_prot_versions prot, const char *buf, size_t count)
 {
@@ -384,8 +384,6 @@ qeth_dev_route_store(struct qeth_card *card, struct qeth_routing_info *route,
 		route->type = PRIMARY_CONNECTOR;
 	} else if (!strcmp(tmp, "secondary_connector")) {
 		route->type = SECONDARY_CONNECTOR;
-	} else if (!strcmp(tmp, "multicast_router")) {
-		route->type = MULTICAST_ROUTER;
 	} else if (!strcmp(tmp, "primary_router")) {
 		route->type = PRIMARY_ROUTER;
 	} else if (!strcmp(tmp, "secondary_router")) {
@@ -998,7 +996,7 @@ struct device_attribute dev_attr_##_id = {				     \
 	.store	= _store,						     \
 };
 
-int
+static int
 qeth_check_layer2(struct qeth_card *card)
 {
 	if (card->options.layer2)
@@ -1100,7 +1098,7 @@ static QETH_DEVICE_ATTR(ipato_invert4, invert4, 0644,
 			qeth_dev_ipato_invert4_show,
 			qeth_dev_ipato_invert4_store);
 
-static inline ssize_t
+static ssize_t
 qeth_dev_ipato_add_show(char *buf, struct qeth_card *card,
 			enum qeth_prot_versions proto)
 {
@@ -1146,7 +1144,7 @@ qeth_dev_ipato_add4_show(struct device *dev, struct device_attribute *attr, char
 	return qeth_dev_ipato_add_show(buf, card, QETH_PROT_IPV4);
 }
 
-static inline int
+static int
 qeth_parse_ipatoe(const char* buf, enum qeth_prot_versions proto,
 		  u8 *addr, int *mask_bits)
 {
@@ -1178,7 +1176,7 @@ qeth_parse_ipatoe(const char* buf, enum qeth_prot_versions proto,
 	return 0;
 }
 
-static inline ssize_t
+static ssize_t
 qeth_dev_ipato_add_store(const char *buf, size_t count,
 			 struct qeth_card *card, enum qeth_prot_versions proto)
 {
@@ -1223,7 +1221,7 @@ static QETH_DEVICE_ATTR(ipato_add4, add4, 0644,
 			qeth_dev_ipato_add4_show,
 			qeth_dev_ipato_add4_store);
 
-static inline ssize_t
+static ssize_t
 qeth_dev_ipato_del_store(const char *buf, size_t count,
 			 struct qeth_card *card, enum qeth_prot_versions proto)
 {
@@ -1361,7 +1359,7 @@ static struct attribute_group qeth_device_ipato_group = {
 	.attrs = (struct attribute **)qeth_ipato_device_attrs,
 };
 
-static inline ssize_t
+static ssize_t
 qeth_dev_vipa_add_show(char *buf, struct qeth_card *card,
 			enum qeth_prot_versions proto)
 {
@@ -1407,7 +1405,7 @@ qeth_dev_vipa_add4_show(struct device *dev, struct device_attribute *attr, char 
 	return qeth_dev_vipa_add_show(buf, card, QETH_PROT_IPV4);
 }
 
-static inline int
+static int
 qeth_parse_vipae(const char* buf, enum qeth_prot_versions proto,
 		 u8 *addr)
 {
@@ -1418,7 +1416,7 @@ qeth_parse_vipae(const char* buf, enum qeth_prot_versions proto,
 	return 0;
 }
 
-static inline ssize_t
+static ssize_t
 qeth_dev_vipa_add_store(const char *buf, size_t count,
 			 struct qeth_card *card, enum qeth_prot_versions proto)
 {
@@ -1451,7 +1449,7 @@ static QETH_DEVICE_ATTR(vipa_add4, add4, 0644,
 			qeth_dev_vipa_add4_show,
 			qeth_dev_vipa_add4_store);
 
-static inline ssize_t
+static ssize_t
 qeth_dev_vipa_del_store(const char *buf, size_t count,
 			 struct qeth_card *card, enum qeth_prot_versions proto)
 {
@@ -1542,7 +1540,7 @@ static struct attribute_group qeth_device_vipa_group = {
 	.attrs = (struct attribute **)qeth_vipa_device_attrs,
 };
 
-static inline ssize_t
+static ssize_t
 qeth_dev_rxip_add_show(char *buf, struct qeth_card *card,
 		       enum qeth_prot_versions proto)
 {
@@ -1588,7 +1586,7 @@ qeth_dev_rxip_add4_show(struct device *dev, struct device_attribute *attr, char 
 	return qeth_dev_rxip_add_show(buf, card, QETH_PROT_IPV4);
 }
 
-static inline int
+static int
 qeth_parse_rxipe(const char* buf, enum qeth_prot_versions proto,
 		 u8 *addr)
 {
@@ -1599,7 +1597,7 @@ qeth_parse_rxipe(const char* buf, enum qeth_prot_versions proto,
 	return 0;
 }
 
-static inline ssize_t
+static ssize_t
 qeth_dev_rxip_add_store(const char *buf, size_t count,
 			struct qeth_card *card, enum qeth_prot_versions proto)
 {
@@ -1632,7 +1630,7 @@ static QETH_DEVICE_ATTR(rxip_add4, add4, 0644,
 			qeth_dev_rxip_add4_show,
 			qeth_dev_rxip_add4_store);
 
-static inline ssize_t
+static ssize_t
 qeth_dev_rxip_del_store(const char *buf, size_t count,
 			struct qeth_card *card, enum qeth_prot_versions proto)
 {

@@ -884,8 +884,8 @@ static int ad_lacpdu_send(struct port *port)
 	}
 
 	skb->dev = slave->dev;
-	skb->mac.raw = skb->data;
-	skb->nh.raw = skb->data + ETH_HLEN;
+	skb_reset_mac_header(skb);
+	skb->network_header = skb->mac_header + ETH_HLEN;
 	skb->protocol = PKT_TYPE_LACPDU;
 	skb->priority = TC_PRIO_CONTROL;
 
@@ -928,8 +928,8 @@ static int ad_marker_send(struct port *port, struct marker *marker)
 	skb_reserve(skb, 16);
 
 	skb->dev = slave->dev;
-	skb->mac.raw = skb->data;
-	skb->nh.raw = skb->data + ETH_HLEN;
+	skb_reset_mac_header(skb);
+	skb->network_header = skb->mac_header + ETH_HLEN;
 	skb->protocol = PKT_TYPE_LACPDU;
 
 	marker_header = (struct marker_header *)skb_put(skb, length);
@@ -2303,19 +2303,18 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
 }
 
 /*
- * set link state for bonding master: if we have an active partnered
+ * set link state for bonding master: if we have an active 
  * aggregator, we're up, if not, we're down.  Presumes that we cannot
  * have an active aggregator if there are no slaves with link up.
+ *
+ * This behavior complies with IEEE 802.3 section 43.3.9.
  *
  * Called by bond_set_carrier(). Return zero if carrier state does not
  * change, nonzero if it does.
  */
 int bond_3ad_set_carrier(struct bonding *bond)
 {
-	struct aggregator *agg;
-
-	agg = __get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator));
-	if (agg && MAC_ADDRESS_COMPARE(&agg->partner_system, &null_mac_addr)) {
+	if (__get_active_agg(&(SLAVE_AD_INFO(bond->first_slave).aggregator))) {
 		if (!netif_carrier_ok(bond->dev)) {
 			netif_carrier_on(bond->dev);
 			return 1;

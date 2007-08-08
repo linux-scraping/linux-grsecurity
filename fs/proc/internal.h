@@ -11,6 +11,12 @@
 
 #include <linux/proc_fs.h>
 
+#ifdef CONFIG_PROC_SYSCTL
+extern int proc_sys_init(void);
+#else
+static inline void proc_sys_init(void) { }
+#endif
+
 struct vmalloc_info {
 	unsigned long	used;
 	unsigned long	largest_chunk;
@@ -31,6 +37,8 @@ do {						\
 extern int nommu_vma_show(struct seq_file *, struct vm_area_struct *);
 #endif
 
+extern int maps_protect;
+
 extern void create_seq_entry(char *name, mode_t mode, const struct file_operations *f);
 extern int proc_exe_link(struct inode *, struct dentry **, struct vfsmount **);
 extern int proc_tid_stat(struct task_struct *,  char *);
@@ -41,13 +49,13 @@ extern int proc_pid_statm(struct task_struct *, char *);
 extern int proc_pid_ipaddr(struct task_struct*,char*);
 #endif
 
-extern struct file_operations proc_maps_operations;
-extern struct file_operations proc_numa_maps_operations;
-extern struct file_operations proc_smaps_operations;
+extern const struct file_operations proc_maps_operations;
+extern const struct file_operations proc_numa_maps_operations;
+extern const struct file_operations proc_smaps_operations;
 
-extern struct file_operations proc_maps_operations;
-extern struct file_operations proc_numa_maps_operations;
-extern struct file_operations proc_smaps_operations;
+extern const struct file_operations proc_maps_operations;
+extern const struct file_operations proc_numa_maps_operations;
+extern const struct file_operations proc_smaps_operations;
 
 
 void free_proc_entry(struct proc_dir_entry *de);

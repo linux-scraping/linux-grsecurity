@@ -3,7 +3,6 @@
 
 #include <linux/device.h>
 #include <linux/list.h>
-#include <linux/skbuff.h>
 #include <linux/timer.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
@@ -25,8 +24,7 @@ struct hpsb_host {
 
 	atomic_t generation;
 
-	struct sk_buff_head pending_packet_queue;
-
+	struct list_head pending_packets;
 	struct timer_list timeout;
 	unsigned long timeout_interval;
 
@@ -61,9 +59,9 @@ struct hpsb_host {
 	struct device device;
 	struct class_device class_dev;
 
-	int update_config_rom;
 	struct delayed_work delayed_reset;
-	unsigned int config_roms;
+	unsigned config_roms:31;
+	unsigned update_config_rom:1;
 
 	struct list_head addr_space;
 	u64 low_addr_space;	/* upper bound of physical DMA area */
@@ -200,13 +198,8 @@ struct hpsb_host_driver {
 struct hpsb_host *hpsb_alloc_host(struct hpsb_host_driver *drv, size_t extra,
 				  struct device *dev);
 int hpsb_add_host(struct hpsb_host *host);
-void hpsb_remove_host(struct hpsb_host *h);
-
-/* Updates the configuration rom image of a host.  rom_version must be the
- * current version, otherwise it will fail with return value -1. If this
- * host does not support config-rom-update, it will return -EINVAL.
- * Return value 0 indicates success.
- */
+void hpsb_resume_host(struct hpsb_host *host);
+void hpsb_remove_host(struct hpsb_host *host);
 int hpsb_update_config_rom_image(struct hpsb_host *host);
 
 #endif /* _IEEE1394_HOSTS_H */

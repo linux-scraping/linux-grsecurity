@@ -20,7 +20,7 @@ config CPU_SH4
 	bool
 	select CPU_HAS_INTEVT
 	select CPU_HAS_SR_RB
-	select CPU_HAS_PTEA if !CPU_SUBTYPE_ST40
+	select CPU_HAS_PTEA if (!CPU_SUBTYPE_ST40 && !CPU_SH4A) || CPU_SHX2
 
 config CPU_SH4A
 	bool
@@ -67,11 +67,13 @@ config CPU_SUBTYPE_SH7300
 config CPU_SUBTYPE_SH7705
 	bool "Support SH7705 processor"
 	select CPU_SH3
+	select CPU_HAS_IPR_IRQ
 	select CPU_HAS_PINT_IRQ
 
 config CPU_SUBTYPE_SH7706
 	bool "Support SH7706 processor"
 	select CPU_SH3
+	select CPU_HAS_IPR_IRQ
 	help
 	  Select SH7706 if you have a 133 Mhz SH-3 HD6417706 CPU.
 
@@ -92,6 +94,7 @@ config CPU_SUBTYPE_SH7708
 config CPU_SUBTYPE_SH7709
 	bool "Support SH7709 processor"
 	select CPU_SH3
+	select CPU_HAS_IPR_IRQ
 	select CPU_HAS_PINT_IRQ
 	help
 	  Select SH7709 if you have a  80 Mhz SH-3 HD6417709 CPU.
@@ -99,8 +102,16 @@ config CPU_SUBTYPE_SH7709
 config CPU_SUBTYPE_SH7710
 	bool "Support SH7710 processor"
 	select CPU_SH3
+	select CPU_HAS_IPR_IRQ
 	help
 	  Select SH7710 if you have a SH3-DSP SH7710 CPU.
+
+config CPU_SUBTYPE_SH7712
+	bool "Support SH7712 processor"
+	select CPU_SH3
+	select CPU_HAS_IPR_IRQ
+	help
+	  Select SH7712 if you have a SH3-DSP SH7712 CPU.
 
 comment "SH-4 Processor Support"
 
@@ -149,6 +160,7 @@ config CPU_SUBTYPE_SH7760
 	bool "Support SH7760 processor"
 	select CPU_SH4
 	select CPU_HAS_INTC2_IRQ
+	select CPU_HAS_IPR_IRQ
 
 config CPU_SUBTYPE_SH4_202
 	bool "Support SH4-202 processor"
@@ -205,6 +217,9 @@ config CPU_SUBTYPE_SH7722
 endmenu
 
 menu "Memory management options"
+
+config QUICKLIST
+	def_bool y
 
 config MMU
         bool "Support for memory management hardware"
@@ -279,6 +294,21 @@ config VSYSCALL
 	  From the kernel side this is used for the signal trampoline.
 	  For systems with an MMU that can afford to give up a page,
 	  (the default value) say Y.
+
+config NODES_SHIFT
+	int
+	default "1"
+	depends on NEED_MULTIPLE_NODES
+
+config ARCH_FLATMEM_ENABLE
+	def_bool y
+
+config MAX_ACTIVE_REGIONS
+	int
+	default "1"
+
+config ARCH_POPULATES_NODE_MAP
+	def_bool y
 
 choice
 	prompt "Kernel page size"

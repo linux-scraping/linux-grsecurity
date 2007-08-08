@@ -249,7 +249,20 @@ extern void mpc52xx_declare_of_platform_devices(void);
 extern void mpc52xx_init_irq(void);
 extern unsigned int mpc52xx_get_irq(void);
 
+extern int __init mpc52xx_add_bridge(struct device_node *node);
+
 #endif /* __ASSEMBLY__ */
+
+#ifdef CONFIG_PM
+struct mpc52xx_suspend {
+	void (*board_suspend_prepare)(void __iomem *mbar);
+	void (*board_resume_finish)(void __iomem *mbar);
+};
+
+extern struct mpc52xx_suspend mpc52xx_suspend;
+extern int __init mpc52xx_pm_init(void);
+extern int mpc52xx_set_wakeup_gpio(u8 pin, u8 level);
+#endif /* CONFIG_PM */
 
 #endif /* __ASM_POWERPC_MPC52xx_H__ */
 

@@ -17,7 +17,6 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/ioctl.h>
 #include <linux/fs.h>
 #include <linux/file.h>
@@ -163,7 +162,7 @@ static unsigned int socksys_poll(struct file * filp, poll_table * wait)
 	return mask;
 }
 	
-static struct file_operations socksys_fops = {
+static const struct file_operations socksys_fops = {
 	.open =		socksys_open,
 	.release =	socksys_release,
 };

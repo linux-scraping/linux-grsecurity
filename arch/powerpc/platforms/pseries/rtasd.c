@@ -331,7 +331,7 @@ static unsigned int rtas_log_poll(struct file *file, poll_table * wait)
 	return 0;
 }
 
-struct file_operations proc_rtas_log_operations = {
+const struct file_operations proc_rtas_log_operations = {
 	.read =		rtas_log_read,
 	.poll =		rtas_log_poll,
 	.open =		rtas_log_open,
@@ -363,7 +363,7 @@ static int get_eventscan_parms(void)
 
 	node = of_find_node_by_path("/rtas");
 
-	ip = get_property(node, "rtas-event-scan-rate", NULL);
+	ip = of_get_property(node, "rtas-event-scan-rate", NULL);
 	if (ip == NULL) {
 		printk(KERN_ERR "rtasd: no rtas-event-scan-rate\n");
 		of_node_put(node);

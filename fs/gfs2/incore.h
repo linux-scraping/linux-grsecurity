@@ -101,17 +101,13 @@ struct gfs2_bufdata {
 };
 
 struct gfs2_glock_operations {
-	void (*go_xmote_th) (struct gfs2_glock *gl, unsigned int state, int flags);
+	void (*go_xmote_th) (struct gfs2_glock *gl);
 	void (*go_xmote_bh) (struct gfs2_glock *gl);
 	void (*go_drop_th) (struct gfs2_glock *gl);
-	void (*go_drop_bh) (struct gfs2_glock *gl);
-	void (*go_sync) (struct gfs2_glock *gl);
 	void (*go_inval) (struct gfs2_glock *gl, int flags);
 	int (*go_demote_ok) (struct gfs2_glock *gl);
 	int (*go_lock) (struct gfs2_holder *gh);
 	void (*go_unlock) (struct gfs2_holder *gh);
-	void (*go_callback) (struct gfs2_glock *gl, unsigned int state);
-	void (*go_greedy) (struct gfs2_glock *gl);
 	const int go_type;
 };
 
@@ -119,38 +115,32 @@ enum {
 	/* Actions */
 	HIF_MUTEX		= 0,
 	HIF_PROMOTE		= 1,
-	HIF_DEMOTE		= 2,
-	HIF_GREEDY		= 3,
 
 	/* States */
-	HIF_ALLOCED		= 4,
-	HIF_DEALLOC		= 5,
 	HIF_HOLDER		= 6,
 	HIF_FIRST		= 7,
 	HIF_ABORTED		= 9,
+	HIF_WAIT		= 10,
 };
 
 struct gfs2_holder {
 	struct list_head gh_list;
 
 	struct gfs2_glock *gh_gl;
-	struct task_struct *gh_owner;
+	pid_t gh_owner_pid;
 	unsigned int gh_state;
 	unsigned gh_flags;
 
 	int gh_error;
 	unsigned long gh_iflags;
-	struct completion gh_wait;
 	unsigned long gh_ip;
 };
 
 enum {
 	GLF_LOCK		= 1,
 	GLF_STICKY		= 2,
-	GLF_PREFETCH		= 3,
+	GLF_DEMOTE		= 3,
 	GLF_DIRTY		= 5,
-	GLF_SKIP_WAITERS2	= 6,
-	GLF_GREEDY		= 7,
 };
 
 struct gfs2_glock {
@@ -163,11 +153,12 @@ struct gfs2_glock {
 
 	unsigned int gl_state;
 	unsigned int gl_hash;
-	struct task_struct *gl_owner;
+	unsigned int gl_demote_state; /* state requested by remote node */
+	unsigned long gl_demote_time; /* time of first demote request */
+	pid_t gl_owner_pid;
 	unsigned long gl_ip;
 	struct list_head gl_holders;
 	struct list_head gl_waiters1;	/* HIF_MUTEX */
-	struct list_head gl_waiters2;	/* HIF_DEMOTE, HIF_GREEDY */
 	struct list_head gl_waiters3;	/* HIF_PROMOTE */
 
 	const struct gfs2_glock_operations *gl_ops;
@@ -236,7 +227,6 @@ struct gfs2_inode {
 
 	spinlock_t i_spin;
 	struct rw_semaphore i_rw_mutex;
-	unsigned int i_greedy;
 	unsigned long i_last_pfault;
 
 	struct buffer_head *i_cache[GFS2_MAX_META_HEIGHT];
@@ -418,17 +408,11 @@ struct gfs2_tune {
 	unsigned int gt_atime_quantum; /* Min secs between atime updates */
 	unsigned int gt_new_files_jdata;
 	unsigned int gt_new_files_directio;
-	unsigned int gt_max_atomic_write; /* Split big writes into this size */
 	unsigned int gt_max_readahead; /* Max bytes to read-ahead from disk */
 	unsigned int gt_lockdump_size;
 	unsigned int gt_stall_secs; /* Detects trouble! */
 	unsigned int gt_complain_secs;
 	unsigned int gt_reclaim_limit; /* Max num of glocks in reclaim list */
-	unsigned int gt_entries_per_readdir;
-	unsigned int gt_prefetch_secs; /* Usage window for prefetched glocks */
-	unsigned int gt_greedy_default;
-	unsigned int gt_greedy_quantum;
-	unsigned int gt_greedy_max;
 	unsigned int gt_statfs_quantum;
 	unsigned int gt_statfs_slow;
 };
@@ -625,6 +609,8 @@ struct gfs2_sbd {
 
 	unsigned long sd_last_warning;
 	struct vfsmount *sd_gfs2mnt;
+	struct dentry *debugfs_dir;    /* debugfs directory */
+	struct dentry *debugfs_dentry_glocks; /* for debugfs */
 };
 
 #endif /* __INCORE_DOT_H__ */

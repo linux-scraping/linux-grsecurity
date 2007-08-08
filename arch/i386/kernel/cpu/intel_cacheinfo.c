@@ -318,8 +318,8 @@ unsigned int __cpuinit init_intel_cacheinfo(struct cpuinfo_x86 *c)
 	 */
 	if ((num_cache_leaves == 0 || c->x86 == 15) && c->cpuid_level > 1) {
 		/* supports eax=2  call */
-		int i, j, n;
-		int regs[4];
+		int j, n;
+		unsigned int regs[4];
 		unsigned char *dp = (unsigned char *)regs;
 		int only_trace = 0;
 
@@ -334,7 +334,7 @@ unsigned int __cpuinit init_intel_cacheinfo(struct cpuinfo_x86 *c)
 
 			/* If bit 31 is set, this is an unknown format */
 			for ( j = 0 ; j < 3 ; j++ ) {
-				if ( regs[j] < 0 ) regs[j] = 0;
+				if ( (int)regs[j] < 0 ) regs[j] = 0;
 			}
 
 			/* Byte 0 is level count, not a descriptor */
@@ -733,9 +733,11 @@ static int __cpuinit cacheinfo_cpu_callback(struct notifier_block *nfb,
 	sys_dev = get_cpu_sysdev(cpu);
 	switch (action) {
 	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
 		cache_add_dev(sys_dev);
 		break;
 	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
 		cache_remove_dev(sys_dev);
 		break;
 	}

@@ -892,13 +892,13 @@ static void __devinit snd_mts64_attach(struct parport *p)
 	struct platform_device *device;
 
 	device = platform_device_alloc(PLATFORM_DRIVER, device_count);
-	if (!device) 
+	if (!device)
 		return;
 
 	/* Temporary assignment to forward the parport */
 	platform_set_drvdata(device, p);
 
-	if (platform_device_register(device) < 0) {
+	if (platform_device_add(device) < 0) {
 		platform_device_put(device);
 		return;
 	}
@@ -1026,7 +1026,7 @@ __err:
 	return err;
 }
 
-static int snd_mts64_remove(struct platform_device *pdev)
+static int __devexit snd_mts64_remove(struct platform_device *pdev)
 {
 	struct snd_card *card = platform_get_drvdata(pdev);
 
@@ -1039,7 +1039,7 @@ static int snd_mts64_remove(struct platform_device *pdev)
 
 static struct platform_driver snd_mts64_driver = {
 	.probe  = snd_mts64_probe,
-	.remove = snd_mts64_remove,
+	.remove = __devexit_p(snd_mts64_remove),
 	.driver = {
 		.name = PLATFORM_DRIVER
 	}

@@ -306,8 +306,8 @@ gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb)
 	if (unlikely(skb->len < sizeof (struct udphdr)))
 		return 1;	// skip this packet
 
-	sin.sin_addr.s_addr = skb->nh.iph->saddr;
-	sin.sin_port = skb->h.uh->source;
+	sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
+	sin.sin_port = udp_hdr(skb)->source;
 
 	return gr_search_connectbind(GR_CONNECT, sk, &sin, SOCK_DGRAM);
 }

@@ -16,12 +16,13 @@
 
 #include "internal.h"
 
-static unsigned int crypto_hash_ctxsize(struct crypto_alg *alg)
+static unsigned int crypto_hash_ctxsize(struct crypto_alg *alg, u32 type,
+					u32 mask)
 {
 	return alg->cra_ctxsize;
 }
 
-static int crypto_init_hash_ops(struct crypto_tfm *tfm)
+static int crypto_init_hash_ops(struct crypto_tfm *tfm, u32 type, u32 mask)
 {
 	struct hash_tfm *crt = &tfm->crt_hash;
 	struct hash_alg *alg = &tfm->__crt_alg->cra_hash;
@@ -40,7 +41,7 @@ static int crypto_init_hash_ops(struct crypto_tfm *tfm)
 }
 
 static void crypto_hash_show(struct seq_file *m, struct crypto_alg *alg)
-	__attribute_used__;
+	__attribute__ ((unused));
 static void crypto_hash_show(struct seq_file *m, struct crypto_alg *alg)
 {
 	seq_printf(m, "type         : hash\n");

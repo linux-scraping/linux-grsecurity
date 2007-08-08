@@ -15,6 +15,7 @@
 #define __ASM_IBM4XX_H__
 
 #include <asm/types.h>
+#include <asm/dcr.h>
 
 #ifdef CONFIG_40x
 
@@ -46,12 +47,8 @@
 #include <platforms/4xx/walnut.h>
 #endif
 
-#if defined(CONFIG_XILINX_ML300)
-#include <platforms/4xx/xilinx_ml300.h>
-#endif
-
-#if defined(CONFIG_XILINX_ML403)
-#include <platforms/4xx/xilinx_ml403.h>
+#if defined(CONFIG_XILINX_VIRTEX)
+#include <platforms/4xx/virtex.h>
 #endif
 
 #ifndef __ASSEMBLY__
@@ -106,6 +103,10 @@ void ppc4xx_init(unsigned long r3, unsigned long r4, unsigned long r5,
 
 #if defined(CONFIG_OCOTEA)
 #include <platforms/4xx/ocotea.h>
+#endif
+
+#if defined(CONFIG_TAISHAN)
+#include <platforms/4xx/taishan.h>
 #endif
 
 #ifndef __ASSEMBLY__

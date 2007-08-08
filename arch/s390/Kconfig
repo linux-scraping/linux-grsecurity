@@ -4,23 +4,23 @@
 #
 
 config MMU
-	bool
-	default y
+	def_bool y
+
+config ZONE_DMA
+	def_bool y
+	depends on 64BIT
 
 config LOCKDEP_SUPPORT
-	bool
-	default y
+	def_bool y
 
 config STACKTRACE_SUPPORT
-	bool
-	default y
+	def_bool y
 
 config RWSEM_GENERIC_SPINLOCK
 	bool
 
 config RWSEM_XCHGADD_ALGORITHM
-	bool
-	default y
+	def_bool y
 
 config ARCH_HAS_ILOG2_U32
 	bool
@@ -31,21 +31,26 @@ config ARCH_HAS_ILOG2_U64
 	default n
 
 config GENERIC_HWEIGHT
-	bool
-	default y
-
-config GENERIC_CALIBRATE_DELAY
-	bool
-	default y
+	def_bool y
 
 config GENERIC_TIME
+	def_bool y
+
+config GENERIC_BUG
+	bool
+	depends on BUG
+	default y
+
+config NO_IOMEM
+	def_bool y
+
+config NO_DMA
 	def_bool y
 
 mainmenu "Linux Kernel Configuration"
 
 config S390
-	bool
-	default y
+	def_bool y
 
 source "init/Kconfig"
 
@@ -133,6 +138,31 @@ config SYSVIPC_COMPAT
 config AUDIT_ARCH
 	bool
 	default y
+
+config S390_SWITCH_AMODE
+	bool "Switch kernel/user addressing modes"
+	help
+	  This option allows to switch the addressing modes of kernel and user
+	  space. The kernel parameter switch_amode=on will enable this feature,
+	  default is disabled. Enabling this (via kernel parameter) on machines
+	  earlier than IBM System z9-109 EC/BC will reduce system performance.
+
+	  Note that this option will also be selected by selecting the execute
+	  protection option below. Enabling the execute protection via the
+	  noexec kernel parameter will also switch the addressing modes,
+	  independent of the switch_amode kernel parameter.
+
+
+config S390_EXEC_PROTECT
+	bool "Data execute protection"
+	select S390_SWITCH_AMODE
+	help
+	  This option allows to enable a buffer overflow protection for user
+	  space programs and it also selects the addressing mode option above.
+	  The kernel parameter noexec=on will enable this feature and also
+	  switch the addressing modes, default is disabled. Enabling this (via
+	  kernel parameter) on machines earlier than IBM System z9-109 EC/BC
+	  will reduce system performance.
 
 comment "Code generation options"
 
@@ -244,6 +274,10 @@ config WARN_STACK_SIZE
 config ARCH_POPULATES_NODE_MAP
 	def_bool y
 
+comment "Kernel preemption"
+
+source "kernel/Kconfig.preempt"
+
 source "mm/Kconfig"
 
 config HOLES_IN_ZONE
@@ -283,17 +317,6 @@ config QDIO_DEBUG
 	  If unsure, say N.
 
 comment "Misc"
-
-config PREEMPT
-	bool "Preemptible Kernel"
-	help
-	  This option reduces the latency of the kernel when reacting to
-	  real-time or interactive events by allowing a low priority process to
-	  be preempted even if it is in kernel mode executing a system call.
-	  This allows applications to run more reliably even when the system is
-	  under load.
-
-	  Say N if you are unsure.
 
 config IPL
 	bool "Builtin IPL record support"
@@ -348,6 +371,8 @@ config SHARED_KERNEL
 	  Select this option, if you want to share the text segment of the
 	  Linux kernel between different VM guests. This reduces memory
 	  usage with lots of guests but greatly increases kernel size.
+	  Also if a kernel was IPL'ed from a shared segment the kexec system
+	  call will not work.
 	  You should only select this option if you know what you are
 	  doing and want to exploit this feature.
 
@@ -450,6 +475,8 @@ config APPLDATA_NET_SUM
 	  This can also be compiled as a module, which will be called
 	  appldata_net_sum.o.
 
+source kernel/Kconfig.hz
+
 config NO_IDLE_HZ
 	bool "No HZ timer ticks in idle"
 	help
@@ -484,23 +511,25 @@ config KEXEC
 	  current kernel, and to start another kernel.  It is like a reboot
 	  but is independent of hardware/microcode support.
 
+config ZFCPDUMP
+	tristate "zfcpdump support"
+	select SMP
+	default n
+	help
+	  Select this option if you want to build an zfcpdump enabled kernel.
+	  Refer to "Documentation/s390/zfcpdump.txt" for more details on this.
+
 endmenu
 
 source "net/Kconfig"
 
 config PCMCIA
-	bool
-	default n
+	def_bool n
 
-source "drivers/base/Kconfig"
+config CCW
+	def_bool y
 
-source "drivers/connector/Kconfig"
-
-source "drivers/scsi/Kconfig"
-
-source "drivers/s390/Kconfig"
-
-source "drivers/net/Kconfig"
+source "drivers/Kconfig"
 
 source "fs/Kconfig"
 

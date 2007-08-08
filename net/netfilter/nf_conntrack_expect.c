@@ -130,7 +130,7 @@ void nf_ct_remove_expectations(struct nf_conn *ct)
 		if (i->master == ct && del_timer(&i->timeout)) {
 			nf_ct_unlink_expect(i);
 			nf_conntrack_expect_put(i);
- 		}
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(nf_ct_remove_expectations);
@@ -177,7 +177,7 @@ void nf_conntrack_unexpect_related(struct nf_conntrack_expect *exp)
 	struct nf_conntrack_expect *i;
 
 	write_lock_bh(&nf_conntrack_lock);
-	/* choose the the oldest expectation to evict */
+	/* choose the oldest expectation to evict */
 	list_for_each_entry_reverse(i, &nf_conntrack_expect_list, list) {
 		if (expect_matches(i, exp) && del_timer(&i->timeout)) {
 			nf_ct_unlink_expect(i);
@@ -290,9 +290,7 @@ static void nf_conntrack_expect_insert(struct nf_conntrack_expect *exp)
 	master_help->expecting++;
 	list_add(&exp->list, &nf_conntrack_expect_list);
 
-	init_timer(&exp->timeout);
-	exp->timeout.data = (unsigned long)exp;
-	exp->timeout.function = expectation_timed_out;
+	setup_timer(&exp->timeout, expectation_timed_out, (unsigned long)exp);
 	exp->timeout.expires = jiffies + master_help->helper->timeout * HZ;
 	add_timer(&exp->timeout);
 
@@ -339,6 +337,10 @@ int nf_conntrack_expect_related(struct nf_conntrack_expect *expect)
 	NF_CT_ASSERT(master_help);
 
 	write_lock_bh(&nf_conntrack_lock);
+	if (!master_help->helper) {
+		ret = -ESHUTDOWN;
+		goto out;
+	}
 	list_for_each_entry(i, &nf_conntrack_expect_list, list) {
 		if (expect_matches(i, expect)) {
 			/* Refresh timer: if it's dying, ignore.. */
@@ -435,7 +437,7 @@ static int exp_open(struct inode *inode, struct file *file)
 	return seq_open(file, &exp_seq_ops);
 }
 
-struct file_operations exp_file_ops = {
+const struct file_operations exp_file_ops = {
 	.owner   = THIS_MODULE,
 	.open    = exp_open,
 	.read    = seq_read,

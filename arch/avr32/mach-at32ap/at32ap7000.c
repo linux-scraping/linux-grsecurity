@@ -6,8 +6,11 @@
  * published by the Free Software Foundation.
  */
 #include <linux/clk.h>
+#include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/spi/spi.h>
 
 #include <asm/io.h>
 
@@ -16,7 +19,10 @@
 #include <asm/arch/portmux.h>
 #include <asm/arch/sm.h>
 
+#include <video/atmel_lcdc.h>
+
 #include "clock.h"
+#include "hmatrix.h"
 #include "pio.h"
 #include "sm.h"
 
@@ -40,19 +46,30 @@
 		.flags		= IORESOURCE_IRQ,	\
 	}
 
+/* REVISIT these assume *every* device supports DMA, but several
+ * don't ... tc, smc, pio, rtc, watchdog, pwm, ps2, and more.
+ */
 #define DEFINE_DEV(_name, _id)					\
-static struct platform_device _name##_id##_device = {		\
-	.name		= #_name,				\
-	.id		= _id,					\
-	.resource	= _name##_id##_resource,		\
-	.num_resources	= ARRAY_SIZE(_name##_id##_resource),	\
-}
-#define DEFINE_DEV_DATA(_name, _id)				\
+static u64 _name##_id##_dma_mask = DMA_32BIT_MASK;		\
 static struct platform_device _name##_id##_device = {		\
 	.name		= #_name,				\
 	.id		= _id,					\
 	.dev		= {					\
+		.dma_mask = &_name##_id##_dma_mask,		\
+		.coherent_dma_mask = DMA_32BIT_MASK,		\
+	},							\
+	.resource	= _name##_id##_resource,		\
+	.num_resources	= ARRAY_SIZE(_name##_id##_resource),	\
+}
+#define DEFINE_DEV_DATA(_name, _id)				\
+static u64 _name##_id##_dma_mask = DMA_32BIT_MASK;		\
+static struct platform_device _name##_id##_device = {		\
+	.name		= #_name,				\
+	.id		= _id,					\
+	.dev		= {					\
+		.dma_mask = &_name##_id##_dma_mask,		\
 		.platform_data	= &_name##_id##_data,		\
+		.coherent_dma_mask = DMA_32BIT_MASK,		\
 	},							\
 	.resource	= _name##_id##_resource,		\
 	.num_resources	= ARRAY_SIZE(_name##_id##_resource),	\
@@ -310,8 +327,6 @@ static void genclk_mode(struct clk *clk, int enabled)
 {
 	u32 control;
 
-	BUG_ON(clk->index > 7);
-
 	control = sm_readl(&system_manager, PM_GCCTRL + 4 * clk->index);
 	if (enabled)
 		control |= SM_BIT(CEN);
@@ -325,11 +340,6 @@ static unsigned long genclk_get_rate(struct clk *clk)
 	u32 control;
 	unsigned long div = 1;
 
-	BUG_ON(clk->index > 7);
-
-	if (!clk->parent)
-		return 0;
-
 	control = sm_readl(&system_manager, PM_GCCTRL + 4 * clk->index);
 	if (control & SM_BIT(DIVEN))
 		div = 2 * (SM_BFEXT(DIV, control) + 1);
@@ -341,11 +351,6 @@ static long genclk_set_rate(struct clk *clk, unsigned long rate, int apply)
 {
 	u32 control;
 	unsigned long parent_rate, actual_rate, div;
-
-	BUG_ON(clk->index > 7);
-
-	if (!clk->parent)
-		return 0;
 
 	parent_rate = clk->parent->get_rate(clk->parent);
 	control = sm_readl(&system_manager, PM_GCCTRL + 4 * clk->index);
@@ -373,11 +378,8 @@ int genclk_set_parent(struct clk *clk, struct clk *parent)
 {
 	u32 control;
 
-	BUG_ON(clk->index > 7);
-
 	printk("clk %s: new parent %s (was %s)\n",
-	       clk->name, parent->name,
-	       clk->parent ? clk->parent->name : "(null)");
+	       clk->name, parent->name, clk->parent->name);
 
 	control = sm_readl(&system_manager, PM_GCCTRL + 4 * clk->index);
 
@@ -399,6 +401,22 @@ int genclk_set_parent(struct clk *clk, struct clk *parent)
 	return 0;
 }
 
+static void __init genclk_init_parent(struct clk *clk)
+{
+	u32 control;
+	struct clk *parent;
+
+	BUG_ON(clk->index > 7);
+
+	control = sm_readl(&system_manager, PM_GCCTRL + 4 * clk->index);
+	if (control & SM_BIT(OSCSEL))
+		parent = (control & SM_BIT(PLLSEL)) ? &pll1 : &osc1;
+	else
+		parent = (control & SM_BIT(PLLSEL)) ? &pll0 : &osc0;
+
+	clk->parent = parent;
+}
+
 /* --------------------------------------------------------------------
  *  System peripherals
  * -------------------------------------------------------------------- */
@@ -414,7 +432,15 @@ struct platform_device at32_sm_device = {
 	.resource	= sm_resource,
 	.num_resources	= ARRAY_SIZE(sm_resource),
 };
-DEV_CLK(pclk, at32_sm, pbb, 0);
+static struct clk at32_sm_pclk = {
+	.name		= "pclk",
+	.dev		= &at32_sm_device.dev,
+	.parent		= &pbb_clk,
+	.mode		= pbb_clk_mode,
+	.get_rate	= pbb_clk_get_rate,
+	.users		= 1,
+	.index		= 0,
+};
 
 static struct resource intc0_resource[] = {
 	PBMEM(0xfff00400),
@@ -440,6 +466,7 @@ static struct clk hramc_clk = {
 	.mode		= hsb_clk_mode,
 	.get_rate	= hsb_clk_get_rate,
 	.users		= 1,
+	.index		= 3,
 };
 
 static struct resource smc0_resource[] = {
@@ -463,6 +490,57 @@ static struct clk pico_clk = {
 	.get_rate	= cpu_clk_get_rate,
 	.users		= 1,
 };
+
+/* --------------------------------------------------------------------
+ * HMATRIX
+ * -------------------------------------------------------------------- */
+
+static struct clk hmatrix_clk = {
+	.name		= "hmatrix_clk",
+	.parent		= &pbb_clk,
+	.mode		= pbb_clk_mode,
+	.get_rate	= pbb_clk_get_rate,
+	.index		= 2,
+	.users		= 1,
+};
+#define HMATRIX_BASE	((void __iomem *)0xfff00800)
+
+#define hmatrix_readl(reg)					\
+	__raw_readl((HMATRIX_BASE) + HMATRIX_##reg)
+#define hmatrix_writel(reg,value)				\
+	__raw_writel((value), (HMATRIX_BASE) + HMATRIX_##reg)
+
+/*
+ * Set bits in the HMATRIX Special Function Register (SFR) used by the
+ * External Bus Interface (EBI). This can be used to enable special
+ * features like CompactFlash support, NAND Flash support, etc. on
+ * certain chipselects.
+ */
+static inline void set_ebi_sfr_bits(u32 mask)
+{
+	u32 sfr;
+
+	clk_enable(&hmatrix_clk);
+	sfr = hmatrix_readl(SFR4);
+	sfr |= mask;
+	hmatrix_writel(SFR4, sfr);
+	clk_disable(&hmatrix_clk);
+}
+
+/* --------------------------------------------------------------------
+ *  System Timer/Counter (TC)
+ * -------------------------------------------------------------------- */
+static struct resource at32_systc0_resource[] = {
+	PBMEM(0xfff00c00),
+	IRQ(22),
+};
+struct platform_device at32_systc0_device = {
+	.name		= "systc",
+	.id		= 0,
+	.resource	= at32_systc0_resource,
+	.num_resources	= ARRAY_SIZE(at32_systc0_resource),
+};
+DEV_CLK(pclk, at32_systc0, pbb, 3);
 
 /* --------------------------------------------------------------------
  *  PIO
@@ -496,19 +574,29 @@ static struct resource pio3_resource[] = {
 DEFINE_DEV(pio, 3);
 DEV_CLK(mck, pio3, pba, 13);
 
+static struct resource pio4_resource[] = {
+	PBMEM(0xffe03800),
+	IRQ(17),
+};
+DEFINE_DEV(pio, 4);
+DEV_CLK(mck, pio4, pba, 14);
+
 void __init at32_add_system_devices(void)
 {
-	system_manager.eim_first_irq = NR_INTERNAL_IRQS;
+	system_manager.eim_first_irq = EIM_IRQ_BASE;
 
 	platform_device_register(&at32_sm_device);
 	platform_device_register(&at32_intc0_device);
 	platform_device_register(&smc0_device);
 	platform_device_register(&pdc_device);
 
+	platform_device_register(&at32_systc0_device);
+
 	platform_device_register(&pio0_device);
 	platform_device_register(&pio1_device);
 	platform_device_register(&pio2_device);
 	platform_device_register(&pio3_device);
+	platform_device_register(&pio4_device);
 }
 
 /* --------------------------------------------------------------------
@@ -521,7 +609,7 @@ static struct atmel_uart_data atmel_usart0_data = {
 };
 static struct resource atmel_usart0_resource[] = {
 	PBMEM(0xffe00c00),
-	IRQ(7),
+	IRQ(6),
 };
 DEFINE_DEV_DATA(atmel_usart, 0);
 DEV_CLK(usart, atmel_usart0, pba, 4);
@@ -583,7 +671,7 @@ static inline void configure_usart3_pins(void)
 	select_peripheral(PB(17), PERIPH_B, 0);	/* TXD	*/
 }
 
-static struct platform_device *at32_usarts[4];
+static struct platform_device *__initdata at32_usarts[4];
 
 void __init at32_map_usart(unsigned int hw_id, unsigned int line)
 {
@@ -728,32 +816,79 @@ at32_add_device_eth(unsigned int id, struct eth_platform_data *data)
 /* --------------------------------------------------------------------
  *  SPI
  * -------------------------------------------------------------------- */
-static struct resource spi0_resource[] = {
+static struct resource atmel_spi0_resource[] = {
 	PBMEM(0xffe00000),
 	IRQ(3),
 };
-DEFINE_DEV(spi, 0);
-DEV_CLK(mck, spi0, pba, 0);
+DEFINE_DEV(atmel_spi, 0);
+DEV_CLK(spi_clk, atmel_spi0, pba, 0);
 
-struct platform_device *__init at32_add_device_spi(unsigned int id)
+static struct resource atmel_spi1_resource[] = {
+	PBMEM(0xffe00400),
+	IRQ(4),
+};
+DEFINE_DEV(atmel_spi, 1);
+DEV_CLK(spi_clk, atmel_spi1, pba, 1);
+
+static void __init
+at32_spi_setup_slaves(unsigned int bus_num, struct spi_board_info *b,
+		      unsigned int n, const u8 *pins)
 {
+	unsigned int pin, mode;
+
+	for (; n; n--, b++) {
+		b->bus_num = bus_num;
+		if (b->chip_select >= 4)
+			continue;
+		pin = (unsigned)b->controller_data;
+		if (!pin) {
+			pin = pins[b->chip_select];
+			b->controller_data = (void *)pin;
+		}
+		mode = AT32_GPIOF_OUTPUT;
+		if (!(b->mode & SPI_CS_HIGH))
+			mode |= AT32_GPIOF_HIGH;
+		at32_select_gpio(pin, mode);
+	}
+}
+
+struct platform_device *__init
+at32_add_device_spi(unsigned int id, struct spi_board_info *b, unsigned int n)
+{
+	/*
+	 * Manage the chipselects as GPIOs, normally using the same pins
+	 * the SPI controller expects; but boards can use other pins.
+	 */
+	static u8 __initdata spi0_pins[] =
+		{ GPIO_PIN_PA(3), GPIO_PIN_PA(4),
+		  GPIO_PIN_PA(5), GPIO_PIN_PA(20), };
+	static u8 __initdata spi1_pins[] =
+		{ GPIO_PIN_PB(2), GPIO_PIN_PB(3),
+		  GPIO_PIN_PB(4), GPIO_PIN_PA(27), };
 	struct platform_device *pdev;
 
 	switch (id) {
 	case 0:
-		pdev = &spi0_device;
+		pdev = &atmel_spi0_device;
 		select_peripheral(PA(0),  PERIPH_A, 0);	/* MISO	 */
 		select_peripheral(PA(1),  PERIPH_A, 0);	/* MOSI	 */
 		select_peripheral(PA(2),  PERIPH_A, 0);	/* SCK	 */
-		select_peripheral(PA(3),  PERIPH_A, 0);	/* NPCS0 */
-		select_peripheral(PA(4),  PERIPH_A, 0);	/* NPCS1 */
-		select_peripheral(PA(5),  PERIPH_A, 0);	/* NPCS2 */
+		at32_spi_setup_slaves(0, b, n, spi0_pins);
+		break;
+
+	case 1:
+		pdev = &atmel_spi1_device;
+		select_peripheral(PB(0),  PERIPH_B, 0);	/* MISO  */
+		select_peripheral(PB(1),  PERIPH_B, 0);	/* MOSI  */
+		select_peripheral(PB(5),  PERIPH_B, 0);	/* SCK   */
+		at32_spi_setup_slaves(1, b, n, spi1_pins);
 		break;
 
 	default:
 		return NULL;
 	}
 
+	spi_register_board_info(b, n);
 	platform_device_register(pdev);
 	return pdev;
 }
@@ -761,20 +896,26 @@ struct platform_device *__init at32_add_device_spi(unsigned int id)
 /* --------------------------------------------------------------------
  *  LCDC
  * -------------------------------------------------------------------- */
-static struct lcdc_platform_data lcdc0_data;
-static struct resource lcdc0_resource[] = {
+static struct atmel_lcdfb_info atmel_lcdfb0_data;
+static struct resource atmel_lcdfb0_resource[] = {
 	{
 		.start		= 0xff000000,
 		.end		= 0xff000fff,
 		.flags		= IORESOURCE_MEM,
 	},
 	IRQ(1),
+	{
+		/* Placeholder for pre-allocated fb memory */
+		.start		= 0x00000000,
+		.end		= 0x00000000,
+		.flags		= 0,
+	},
 };
-DEFINE_DEV_DATA(lcdc, 0);
-DEV_CLK(hclk, lcdc0, hsb, 7);
-static struct clk lcdc0_pixclk = {
-	.name		= "pixclk",
-	.dev		= &lcdc0_device.dev,
+DEFINE_DEV_DATA(atmel_lcdfb, 0);
+DEV_CLK(hck1, atmel_lcdfb0, hsb, 7);
+static struct clk atmel_lcdfb0_pixclk = {
+	.name		= "lcdc_clk",
+	.dev		= &atmel_lcdfb0_device.dev,
 	.mode		= genclk_mode,
 	.get_rate	= genclk_get_rate,
 	.set_rate	= genclk_set_rate,
@@ -783,13 +924,34 @@ static struct clk lcdc0_pixclk = {
 };
 
 struct platform_device *__init
-at32_add_device_lcdc(unsigned int id, struct lcdc_platform_data *data)
+at32_add_device_lcdc(unsigned int id, struct atmel_lcdfb_info *data,
+		     unsigned long fbmem_start, unsigned long fbmem_len)
 {
 	struct platform_device *pdev;
+	struct atmel_lcdfb_info *info;
+	struct fb_monspecs *monspecs;
+	struct fb_videomode *modedb;
+	unsigned int modedb_size;
+
+	/*
+	 * Do a deep copy of the fb data, monspecs and modedb. Make
+	 * sure all allocations are done before setting up the
+	 * portmux.
+	 */
+	monspecs = kmemdup(data->default_monspecs,
+			   sizeof(struct fb_monspecs), GFP_KERNEL);
+	if (!monspecs)
+		return NULL;
+
+	modedb_size = sizeof(struct fb_videomode) * monspecs->modedb_len;
+	modedb = kmemdup(monspecs->modedb, modedb_size, GFP_KERNEL);
+	if (!modedb)
+		goto err_dup_modedb;
+	monspecs->modedb = modedb;
 
 	switch (id) {
 	case 0:
-		pdev = &lcdc0_device;
+		pdev = &atmel_lcdfb0_device;
 		select_peripheral(PC(19), PERIPH_A, 0);	/* CC	  */
 		select_peripheral(PC(20), PERIPH_A, 0);	/* HSYNC  */
 		select_peripheral(PC(21), PERIPH_A, 0);	/* PCLK	  */
@@ -822,20 +984,77 @@ at32_add_device_lcdc(unsigned int id, struct lcdc_platform_data *data)
 		select_peripheral(PD(16), PERIPH_A, 0);	/* DATA22 */
 		select_peripheral(PD(17), PERIPH_A, 0);	/* DATA23 */
 
-		clk_set_parent(&lcdc0_pixclk, &pll0);
-		clk_set_rate(&lcdc0_pixclk, clk_get_rate(&pll0));
+		clk_set_parent(&atmel_lcdfb0_pixclk, &pll0);
+		clk_set_rate(&atmel_lcdfb0_pixclk, clk_get_rate(&pll0));
 		break;
 
 	default:
-		return NULL;
+		goto err_invalid_id;
 	}
 
-	memcpy(pdev->dev.platform_data, data,
-	       sizeof(struct lcdc_platform_data));
+	if (fbmem_len) {
+		pdev->resource[2].start = fbmem_start;
+		pdev->resource[2].end = fbmem_start + fbmem_len - 1;
+		pdev->resource[2].flags = IORESOURCE_MEM;
+	}
+
+	info = pdev->dev.platform_data;
+	memcpy(info, data, sizeof(struct atmel_lcdfb_info));
+	info->default_monspecs = monspecs;
 
 	platform_device_register(pdev);
 	return pdev;
+
+err_invalid_id:
+	kfree(modedb);
+err_dup_modedb:
+	kfree(monspecs);
+	return NULL;
 }
+
+/* --------------------------------------------------------------------
+ *  GCLK
+ * -------------------------------------------------------------------- */
+static struct clk gclk0 = {
+	.name		= "gclk0",
+	.mode		= genclk_mode,
+	.get_rate	= genclk_get_rate,
+	.set_rate	= genclk_set_rate,
+	.set_parent	= genclk_set_parent,
+	.index		= 0,
+};
+static struct clk gclk1 = {
+	.name		= "gclk1",
+	.mode		= genclk_mode,
+	.get_rate	= genclk_get_rate,
+	.set_rate	= genclk_set_rate,
+	.set_parent	= genclk_set_parent,
+	.index		= 1,
+};
+static struct clk gclk2 = {
+	.name		= "gclk2",
+	.mode		= genclk_mode,
+	.get_rate	= genclk_get_rate,
+	.set_rate	= genclk_set_rate,
+	.set_parent	= genclk_set_parent,
+	.index		= 2,
+};
+static struct clk gclk3 = {
+	.name		= "gclk3",
+	.mode		= genclk_mode,
+	.get_rate	= genclk_get_rate,
+	.set_rate	= genclk_set_rate,
+	.set_parent	= genclk_set_parent,
+	.index		= 3,
+};
+static struct clk gclk4 = {
+	.name		= "gclk4",
+	.mode		= genclk_mode,
+	.get_rate	= genclk_get_rate,
+	.set_rate	= genclk_set_rate,
+	.set_parent	= genclk_set_parent,
+	.index		= 4,
+};
 
 struct clk *at32_clock_list[] = {
 	&osc32k,
@@ -849,6 +1068,7 @@ struct clk *at32_clock_list[] = {
 	&pbb_clk,
 	&at32_sm_pclk,
 	&at32_intc0_pclk,
+	&hmatrix_clk,
 	&ebi_clk,
 	&hramc_clk,
 	&smc0_pclk,
@@ -860,6 +1080,8 @@ struct clk *at32_clock_list[] = {
 	&pio1_mck,
 	&pio2_mck,
 	&pio3_mck,
+	&pio4_mck,
+	&at32_systc0_pclk,
 	&atmel_usart0_usart,
 	&atmel_usart1_usart,
 	&atmel_usart2_usart,
@@ -868,9 +1090,15 @@ struct clk *at32_clock_list[] = {
 	&macb0_pclk,
 	&macb1_hclk,
 	&macb1_pclk,
-	&spi0_mck,
-	&lcdc0_hclk,
-	&lcdc0_pixclk,
+	&atmel_spi0_spi_clk,
+	&atmel_spi1_spi_clk,
+	&atmel_lcdfb0_hck1,
+	&atmel_lcdfb0_pixclk,
+	&gclk0,
+	&gclk1,
+	&gclk2,
+	&gclk3,
+	&gclk4,
 };
 unsigned int at32_nr_clocks = ARRAY_SIZE(at32_clock_list);
 
@@ -880,6 +1108,7 @@ void __init at32_portmux_init(void)
 	at32_init_pio(&pio1_device);
 	at32_init_pio(&pio2_device);
 	at32_init_pio(&pio3_device);
+	at32_init_pio(&pio4_device);
 }
 
 void __init at32_clock_init(void)
@@ -898,6 +1127,13 @@ void __init at32_clock_init(void)
 	if (sm_readl(sm, PM_PLL1) & SM_BIT(PLLOSC))
 		pll1.parent = &osc1;
 
+	genclk_init_parent(&gclk0);
+	genclk_init_parent(&gclk1);
+	genclk_init_parent(&gclk2);
+	genclk_init_parent(&gclk3);
+	genclk_init_parent(&gclk4);
+	genclk_init_parent(&atmel_lcdfb0_pixclk);
+
 	/*
 	 * Turn on all clocks that have at least one user already, and
 	 * turn off everything else. We only do this for module
@@ -907,6 +1143,9 @@ void __init at32_clock_init(void)
 	 */
 	for (i = 0; i < ARRAY_SIZE(at32_clock_list); i++) {
 		struct clk *clk = at32_clock_list[i];
+
+		if (clk->users == 0)
+			continue;
 
 		if (clk->mode == &cpu_clk_mode)
 			cpu_mask |= 1 << clk->index;

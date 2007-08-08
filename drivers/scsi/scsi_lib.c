@@ -31,7 +31,7 @@
 
 
 #define SG_MEMPOOL_NR		ARRAY_SIZE(scsi_sg_pools)
-#define SG_MEMPOOL_SIZE		32
+#define SG_MEMPOOL_SIZE		2
 
 struct scsi_host_sg_pool {
 	size_t		size;
@@ -173,7 +173,7 @@ int scsi_queue_insert(struct scsi_cmnd *cmd, int reason)
  * @retries:	number of times to retry request
  * @flags:	or into request flags;
  *
- * returns the req->errors value which is the the scsi_cmnd result
+ * returns the req->errors value which is the scsi_cmnd result
  * field.
  **/
 int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
@@ -388,10 +388,9 @@ int scsi_execute_async(struct scsi_device *sdev, const unsigned char *cmd,
 	int err = 0;
 	int write = (data_direction == DMA_TO_DEVICE);
 
-	sioc = kmem_cache_alloc(scsi_io_context_cache, gfp);
+	sioc = kmem_cache_zalloc(scsi_io_context_cache, gfp);
 	if (!sioc)
 		return DRIVER_ERROR << 24;
-	memset(sioc, 0, sizeof(*sioc));
 
 	req = blk_get_request(sdev->request_queue, write, gfp);
 	if (!req)
@@ -849,8 +848,8 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 				memcpy(req->sense, cmd->sense_buffer,  len);
 				req->sense_len = len;
 			}
-		} else
-			req->data_len = cmd->resid;
+		}
+		req->data_len = cmd->resid;
 	}
 
 	/*
@@ -969,9 +968,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	}
 	if (result) {
 		if (!(req->cmd_flags & REQ_QUIET)) {
-			scmd_printk(KERN_INFO, cmd,
-				    "SCSI error: return code = 0x%08x\n",
-				    result);
+			scsi_print_result(cmd);
 			if (driver_byte(result) & DRIVER_SENSE)
 				scsi_print_sense("", cmd);
 		}
@@ -1400,7 +1397,7 @@ static void scsi_softirq_done(struct request *rq)
 			scsi_finish_command(cmd);
 			break;
 		case NEEDS_RETRY:
-			scsi_retry_command(cmd);
+			scsi_queue_insert(cmd, SCSI_MLQUEUE_EH_RETRY);
 			break;
 		case ADD_TO_MLQUEUE:
 			scsi_queue_insert(cmd, SCSI_MLQUEUE_DEVICE_BUSY);
@@ -2249,6 +2246,8 @@ void *scsi_kmap_atomic_sg(struct scatterlist *sg, int sg_count,
 	int i;
 	size_t sg_len = 0, len_complete = 0;
 	struct page *page;
+
+	WARN_ON(!irqs_disabled());
 
 	for (i = 0; i < sg_count; i++) {
 		len_complete = sg_len; /* Complete sg-entries */

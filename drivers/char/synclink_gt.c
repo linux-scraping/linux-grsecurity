@@ -1045,7 +1045,6 @@ static void flush_buffer(struct tty_struct *tty)
 		info->tx_count = 0;
 	spin_unlock_irqrestore(&info->lock,flags);
 
-	wake_up_interruptible(&tty->write_wait);
 	tty_wakeup(tty);
 }
 
@@ -1170,6 +1169,112 @@ static int ioctl(struct tty_struct *tty, struct file *file,
 	}
 	return 0;
 }
+
+/*
+ * support for 32 bit ioctl calls on 64 bit systems
+ */
+#ifdef CONFIG_COMPAT
+static long get_params32(struct slgt_info *info, struct MGSL_PARAMS32 __user *user_params)
+{
+	struct MGSL_PARAMS32 tmp_params;
+
+	DBGINFO(("%s get_params32\n", info->device_name));
+	tmp_params.mode            = (compat_ulong_t)info->params.mode;
+	tmp_params.loopback        = info->params.loopback;
+	tmp_params.flags           = info->params.flags;
+	tmp_params.encoding        = info->params.encoding;
+	tmp_params.clock_speed     = (compat_ulong_t)info->params.clock_speed;
+	tmp_params.addr_filter     = info->params.addr_filter;
+	tmp_params.crc_type        = info->params.crc_type;
+	tmp_params.preamble_length = info->params.preamble_length;
+	tmp_params.preamble        = info->params.preamble;
+	tmp_params.data_rate       = (compat_ulong_t)info->params.data_rate;
+	tmp_params.data_bits       = info->params.data_bits;
+	tmp_params.stop_bits       = info->params.stop_bits;
+	tmp_params.parity          = info->params.parity;
+	if (copy_to_user(user_params, &tmp_params, sizeof(struct MGSL_PARAMS32)))
+		return -EFAULT;
+	return 0;
+}
+
+static long set_params32(struct slgt_info *info, struct MGSL_PARAMS32 __user *new_params)
+{
+	struct MGSL_PARAMS32 tmp_params;
+
+	DBGINFO(("%s set_params32\n", info->device_name));
+	if (copy_from_user(&tmp_params, new_params, sizeof(struct MGSL_PARAMS32)))
+		return -EFAULT;
+
+	spin_lock(&info->lock);
+	info->params.mode            = tmp_params.mode;
+	info->params.loopback        = tmp_params.loopback;
+	info->params.flags           = tmp_params.flags;
+	info->params.encoding        = tmp_params.encoding;
+	info->params.clock_speed     = tmp_params.clock_speed;
+	info->params.addr_filter     = tmp_params.addr_filter;
+	info->params.crc_type        = tmp_params.crc_type;
+	info->params.preamble_length = tmp_params.preamble_length;
+	info->params.preamble        = tmp_params.preamble;
+	info->params.data_rate       = tmp_params.data_rate;
+	info->params.data_bits       = tmp_params.data_bits;
+	info->params.stop_bits       = tmp_params.stop_bits;
+	info->params.parity          = tmp_params.parity;
+	spin_unlock(&info->lock);
+
+ 	change_params(info);
+
+	return 0;
+}
+
+static long slgt_compat_ioctl(struct tty_struct *tty, struct file *file,
+			 unsigned int cmd, unsigned long arg)
+{
+	struct slgt_info *info = tty->driver_data;
+	int rc = -ENOIOCTLCMD;
+
+	if (sanity_check(info, tty->name, "compat_ioctl"))
+		return -ENODEV;
+	DBGINFO(("%s compat_ioctl() cmd=%08X\n", info->device_name, cmd));
+
+	switch (cmd) {
+
+	case MGSL_IOCSPARAMS32:
+		rc = set_params32(info, compat_ptr(arg));
+		break;
+
+	case MGSL_IOCGPARAMS32:
+		rc = get_params32(info, compat_ptr(arg));
+		break;
+
+	case MGSL_IOCGPARAMS:
+	case MGSL_IOCSPARAMS:
+	case MGSL_IOCGTXIDLE:
+	case MGSL_IOCGSTATS:
+	case MGSL_IOCWAITEVENT:
+	case MGSL_IOCGIF:
+	case MGSL_IOCSGPIO:
+	case MGSL_IOCGGPIO:
+	case MGSL_IOCWAITGPIO:
+	case TIOCGICOUNT:
+		rc = ioctl(tty, file, cmd, (unsigned long)(compat_ptr(arg)));
+		break;
+
+	case MGSL_IOCSTXIDLE:
+	case MGSL_IOCTXENABLE:
+	case MGSL_IOCRXENABLE:
+	case MGSL_IOCTXABORT:
+	case TIOCMIWAIT:
+	case MGSL_IOCSIF:
+		rc = ioctl(tty, file, cmd, arg);
+		break;
+	}
+
+	DBGINFO(("%s compat_ioctl() cmd=%08X rc=%d\n", info->device_name, cmd, rc));
+	return rc;
+}
+#else
+#define slgt_compat_ioctl NULL
+#endif /* ifdef CONFIG_COMPAT */
 
 /*
  * proc fs support
@@ -1826,8 +1931,7 @@ static void rx_async(struct slgt_info *info)
 		if (i < count) {
 			/* receive buffer not completed */
 			info->rbuf_index += i;
-			info->rx_timer.expires = jiffies + 1;
-			add_timer(&info->rx_timer);
+			mod_timer(&info->rx_timer, jiffies + 1);
 			break;
 		}
 
@@ -1933,10 +2037,8 @@ static void bh_transmit(struct slgt_info *info)
 	struct tty_struct *tty = info->tty;
 
 	DBGBH(("%s bh_transmit\n", info->device_name));
-	if (tty) {
+	if (tty)
 		tty_wakeup(tty);
-		wake_up_interruptible(&tty->write_wait);
-	}
 }
 
 static void dsr_change(struct slgt_info *info)
@@ -3343,13 +3445,8 @@ static struct slgt_info *alloc_dev(int adapter_num, int port_num, struct pci_dev
 		info->adapter_num = adapter_num;
 		info->port_num = port_num;
 
-		init_timer(&info->tx_timer);
-		info->tx_timer.data = (unsigned long)info;
-		info->tx_timer.function = tx_timeout;
-
-		init_timer(&info->rx_timer);
-		info->rx_timer.data = (unsigned long)info;
-		info->rx_timer.function = rx_timeout;
+		setup_timer(&info->tx_timer, tx_timeout, (unsigned long)info);
+		setup_timer(&info->rx_timer, rx_timeout, (unsigned long)info);
 
 		/* Copy configuration info to device instance data */
 		info->pdev = pdev;
@@ -3424,6 +3521,9 @@ static void device_init(int adapter_num, struct pci_dev *pdev)
 			}
 		}
 	}
+
+	for (i=0; i < port_count; ++i)
+		tty_register_device(serial_driver, port_array[i]->line, &(port_array[i]->pdev->dev));
 }
 
 static int __devinit init_one(struct pci_dev *dev,
@@ -3452,6 +3552,7 @@ static const struct tty_operations ops = {
 	.chars_in_buffer = chars_in_buffer,
 	.flush_buffer = flush_buffer,
 	.ioctl = ioctl,
+	.compat_ioctl = slgt_compat_ioctl,
 	.throttle = throttle,
 	.unthrottle = unthrottle,
 	.send_xchar = send_xchar,
@@ -3475,6 +3576,8 @@ static void slgt_cleanup(void)
 	printk("unload %s %s\n", driver_name, driver_version);
 
 	if (serial_driver) {
+		for (info=slgt_device_list ; info != NULL ; info=info->next_device)
+			tty_unregister_device(serial_driver, info->line);
 		if ((rc = tty_unregister_driver(serial_driver)))
 			DBGERR(("tty_unregister_driver error=%d\n", rc));
 		put_tty_driver(serial_driver);
@@ -3515,23 +3618,10 @@ static int __init slgt_init(void)
 
  	printk("%s %s\n", driver_name, driver_version);
 
-	slgt_device_count = 0;
-	if ((rc = pci_register_driver(&pci_driver)) < 0) {
-		printk("%s pci_register_driver error=%d\n", driver_name, rc);
-		return rc;
-	}
-	pci_registered = 1;
-
-	if (!slgt_device_list) {
-		printk("%s no devices found\n",driver_name);
-		pci_unregister_driver(&pci_driver);
-		return -ENODEV;
-	}
-
 	serial_driver = alloc_tty_driver(MAX_DEVICES);
 	if (!serial_driver) {
-		rc = -ENOMEM;
-		goto error;
+		printk("%s can't allocate tty driver\n", driver_name);
+		return -ENOMEM;
 	}
 
 	/* Initialize the tty_driver structure */
@@ -3548,7 +3638,7 @@ static int __init slgt_init(void)
 		B9600 | CS8 | CREAD | HUPCL | CLOCAL;
 	serial_driver->init_termios.c_ispeed = 9600;
 	serial_driver->init_termios.c_ospeed = 9600;
-	serial_driver->flags = TTY_DRIVER_REAL_RAW;
+	serial_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
 	tty_set_operations(serial_driver, &ops);
 	if ((rc = tty_register_driver(serial_driver)) < 0) {
 		DBGERR(("%s can't register serial driver\n", driver_name));
@@ -3560,6 +3650,16 @@ static int __init slgt_init(void)
  	printk("%s %s, tty major#%d\n",
 		driver_name, driver_version,
 		serial_driver->major);
+
+	slgt_device_count = 0;
+	if ((rc = pci_register_driver(&pci_driver)) < 0) {
+		printk("%s pci_register_driver error=%d\n", driver_name, rc);
+		goto error;
+	}
+	pci_registered = 1;
+
+	if (!slgt_device_list)
+		printk("%s no devices found\n",driver_name);
 
 	return 0;
 
@@ -3797,10 +3897,9 @@ static void tx_start(struct slgt_info *info)
 				}
 			}
 
-			if (info->params.mode == MGSL_MODE_HDLC) {
-				info->tx_timer.expires = jiffies + msecs_to_jiffies(5000);
-				add_timer(&info->tx_timer);
-			}
+			if (info->params.mode == MGSL_MODE_HDLC)
+				mod_timer(&info->tx_timer, jiffies +
+						msecs_to_jiffies(5000));
 		} else {
 			tdma_reset(info);
 			/* set 1st descriptor address */

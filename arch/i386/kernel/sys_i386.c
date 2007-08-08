@@ -10,7 +10,6 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
-#include <linux/smp_lock.h>
 #include <linux/sem.h>
 #include <linux/msg.h>
 #include <linux/shm.h>
@@ -39,6 +38,21 @@ asmlinkage int sys_pipe(unsigned long __user * fildes)
 			error = -EFAULT;
 	}
 	return error;
+}
+
+int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
+{
+	unsigned long task_size = TASK_SIZE;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
+		task_size = SEGMEXEC_TASK_SIZE;
+#endif
+
+	if (len > task_size || addr > task_size - len)
+		return -EINVAL;
+
+	return 0;
 }
 
 asmlinkage long sys_mmap2(unsigned long addr, unsigned long len,
@@ -116,6 +130,9 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (len > task_size)
 		return -ENOMEM;
 
+	if (flags & MAP_FIXED)
+		return addr;
+
 #ifdef CONFIG_PAX_RANDMMAP
 	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
 #endif
@@ -135,7 +152,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	}
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if ((mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
+	if (!nx_enabled && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
 		start_addr = 0x00110000UL;
 
 #ifdef CONFIG_PAX_RANDMMAP
@@ -200,8 +217,11 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (len > task_size)
 		return -ENOMEM;
 
+	if (flags & MAP_FIXED)
+		return addr;
+
 #ifdef CONFIG_PAX_PAGEEXEC
-	if ((mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE))
+	if (!nx_enabled && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE))
 		goto bottomup;
 #endif
 
@@ -220,7 +240,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 
 	/* check if free_area_cache is useful for us */
 	if (len <= mm->cached_hole_size) {
-	        mm->cached_hole_size = 0;
+		mm->cached_hole_size = 0;
 		mm->free_area_cache = mm->mmap_base;
 	}
 

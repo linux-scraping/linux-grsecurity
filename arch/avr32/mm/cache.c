@@ -22,18 +22,30 @@
 
 void invalidate_dcache_region(void *start, size_t size)
 {
-	unsigned long v, begin, end, linesz;
+	unsigned long v, begin, end, linesz, mask;
 
 	linesz = boot_cpu_data.dcache.linesz;
+	mask = linesz - 1;
 
-	//printk("invalidate dcache: %p + %u\n", start, size);
+	/* when first and/or last cachelines are shared, flush them
+	 * instead of invalidating ... never discard valid data!
+	 */
+	begin = (unsigned long)start;
+	end = begin + size;
 
-	/* You asked for it, you got it */
-	begin = (unsigned long)start & ~(linesz - 1);
-	end = ((unsigned long)start + size + linesz - 1) & ~(linesz - 1);
+	if (begin & mask) {
+		flush_dcache_line(start);
+		begin += linesz;
+	}
+	if (end & mask) {
+		flush_dcache_line((void *)end);
+		end &= ~mask;
+	}
 
+	/* remaining cachelines only need invalidation */
 	for (v = begin; v < end; v += linesz)
 		invalidate_dcache_line((void *)v);
+	flush_write_buffer();
 }
 
 void clean_dcache_region(void *start, size_t size)
@@ -105,9 +117,8 @@ void flush_icache_range(unsigned long start, unsigned long end)
 void flush_icache_page(struct vm_area_struct *vma, struct page *page)
 {
 	if (vma->vm_flags & VM_EXEC) {
-		void *v = kmap(page);
+		void *v = page_address(page);
 		__flush_icache_range((unsigned long)v, (unsigned long)v + PAGE_SIZE);
-		kunmap(v);
 	}
 }
 

@@ -218,7 +218,7 @@ Commands:\n\
 "  ss	stop execution on all spus\n\
   sr	restore execution on stopped spus\n\
   sf  #	dump spu fields for spu # (in hex)\n\
-  sd  #	dump spu local store for spu # (in hex)\
+  sd  #	dump spu local store for spu # (in hex)\n\
   sdi #	disassemble spu local store for spu # (in hex)\n"
 #endif
 "  S	print special registers\n\
@@ -330,18 +330,17 @@ static void release_output_lock(void)
 static int xmon_core(struct pt_regs *regs, int fromipi)
 {
 	int cmd = 0;
-	unsigned long msr;
 	struct bpt *bp;
 	long recurse_jmp[JMP_BUF_LEN];
 	unsigned long offset;
+	unsigned long flags;
 #ifdef CONFIG_SMP
 	int cpu;
 	int secondary;
 	unsigned long timeout;
 #endif
 
-	msr = mfmsr();
-	mtmsr(msr & ~MSR_EE);	/* disable interrupts */
+	local_irq_save(flags);
 
 	bp = in_breakpoint_table(regs->nip, &offset);
 	if (bp != NULL) {
@@ -516,7 +515,7 @@ static int xmon_core(struct pt_regs *regs, int fromipi)
 
 	insert_cpu_bpts();
 
-	mtmsr(msr);		/* restore interrupt enable */
+	local_irq_restore(flags);
 
 	return cmd != 'X' && cmd != EOF;
 }
@@ -1218,7 +1217,6 @@ static void get_function_bounds(unsigned long pc, unsigned long *startp,
 {
 	unsigned long size, offset;
 	const char *name;
-	char *modname;
 
 	*startp = *endp = 0;
 	if (pc == 0)
@@ -1226,7 +1224,7 @@ static void get_function_bounds(unsigned long pc, unsigned long *startp,
 	if (setjmp(bus_error_jmp) == 0) {
 		catch_memory_errors = 1;
 		sync();
-		name = kallsyms_lookup(pc, &size, &offset, &modname, tmpstr);
+		name = kallsyms_lookup(pc, &size, &offset, NULL, tmpstr);
 		if (name != NULL) {
 			*startp = pc - offset;
 			*endp = pc - offset + size;
@@ -1360,8 +1358,12 @@ static void print_bug_trap(struct pt_regs *regs)
 	if (is_warning_bug(bug))
 		return;
 
+#ifdef CONFIG_DEBUG_BUGVERBOSE
 	printf("kernel BUG at %s:%u!\n",
 	       bug->file, bug->line);
+#else
+	printf("kernel BUG at %p!\n", (void *)bug->bug_addr);
+#endif
 }
 
 void excprint(struct pt_regs *fp)
@@ -2811,7 +2813,6 @@ static void dump_spu_fields(struct spu *spu)
 	DUMP_FIELD(spu, "0x%lx", irqs[2]);
 	DUMP_FIELD(spu, "0x%x", slb_replace);
 	DUMP_FIELD(spu, "%d", pid);
-	DUMP_FIELD(spu, "%d", prio);
 	DUMP_FIELD(spu, "0x%p", mm);
 	DUMP_FIELD(spu, "0x%p", ctx);
 	DUMP_FIELD(spu, "0x%p", rq);

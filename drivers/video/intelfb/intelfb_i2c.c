@@ -27,7 +27,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/fb.h>
@@ -105,7 +104,8 @@ static int intelfb_setup_i2c_bus(struct intelfb_info *dinfo,
 
 	chan->dinfo					= dinfo;
 	chan->reg					= reg;
-	snprintf(chan->adapter.name, I2C_NAME_SIZE, "intelfb %s", name);
+	snprintf(chan->adapter.name, sizeof(chan->adapter.name),
+		 "intelfb %s", name);
 	chan->adapter.owner			= THIS_MODULE;
 	chan->adapter.id			= I2C_HW_B_INTELFB;
 	chan->adapter.algo_data		= &chan->algo;

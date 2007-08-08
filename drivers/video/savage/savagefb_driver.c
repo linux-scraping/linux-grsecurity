@@ -384,6 +384,19 @@ SavageSetup2DEngine(struct savagefb_par  *par)
 	BCI_SEND(0);
 	BCI_SEND(BCI_CMD_SETREG | (1 << 16) | BCI_GBD2);
 	BCI_SEND(GlobalBitmapDescriptor);
+
+	/*
+	 * I don't know why, sending this twice fixes the intial black screen,
+	 * prevents X from crashing at least in Toshiba laptops with SavageIX.
+	 * --Tony
+	 */
+	par->bci_ptr = 0;
+	par->SavageWaitFifo(par, 4);
+
+	BCI_SEND(BCI_CMD_SETREG | (1 << 16) | BCI_GBD1);
+	BCI_SEND(0);
+	BCI_SEND(BCI_CMD_SETREG | (1 << 16) | BCI_GBD2);
+	BCI_SEND(GlobalBitmapDescriptor);
 }
 
 static void savagefb_set_clip(struct fb_info *info)
@@ -496,7 +509,7 @@ static int common_calc_clock(long freq, int min_m, int min_n1, int max_n1,
 #ifdef SAVAGEFB_DEBUG
 /* This function is used to debug, it prints out the contents of s3 regs */
 
-static void SavagePrintRegs(void)
+static void SavagePrintRegs(struct savagefb_par *par)
 {
 	unsigned char i;
 	int vgaCRIndex = 0x3d4;
@@ -833,7 +846,8 @@ static void savage_set_default_par(struct savagefb_par *par,
 	vga_out8(0x3d5, cr66, par);
 }
 
-static void savage_update_var(struct fb_var_screeninfo *var, struct fb_videomode *modedb)
+static void savage_update_var(struct fb_var_screeninfo *var,
+			      const struct fb_videomode *modedb)
 {
 	var->xres = var->xres_virtual = modedb->xres;
 	var->yres = modedb->yres;
@@ -902,7 +916,7 @@ static int savagefb_check_var(struct fb_var_screeninfo   *var,
 	}
 
 	if (!mode_valid) {
-		struct fb_videomode *mode;
+		const struct fb_videomode *mode;
 
 		mode = fb_find_best_mode(var, &info->modelist);
 		if (mode) {
@@ -1524,7 +1538,7 @@ static int savagefb_set_par(struct fb_info *info)
 	savagefb_set_fix(info);
 	savagefb_set_clip(info);
 
-	SavagePrintRegs();
+	SavagePrintRegs(par);
 	return 0;
 }
 
@@ -1609,8 +1623,46 @@ static void savagefb_restore_state(struct fb_info *info)
 	savagefb_blank(FB_BLANK_UNBLANK, info);
 }
 
+static int savagefb_open(struct fb_info *info, int user)
+{
+	struct savagefb_par *par = info->par;
+
+	mutex_lock(&par->open_lock);
+
+	if (!par->open_count) {
+		memset(&par->vgastate, 0, sizeof(par->vgastate));
+		par->vgastate.flags = VGA_SAVE_CMAP | VGA_SAVE_FONTS |
+			VGA_SAVE_MODE;
+		par->vgastate.vgabase = par->mmio.vbase + 0x8000;
+		save_vga(&par->vgastate);
+		savage_get_default_par(par, &par->initial);
+	}
+
+	par->open_count++;
+	mutex_unlock(&par->open_lock);
+	return 0;
+}
+
+static int savagefb_release(struct fb_info *info, int user)
+{
+	struct savagefb_par *par = info->par;
+
+	mutex_lock(&par->open_lock);
+
+	if (par->open_count == 1) {
+		savage_set_default_par(par, &par->initial);
+		restore_vga(&par->vgastate);
+	}
+
+	par->open_count--;
+	mutex_unlock(&par->open_lock);
+	return 0;
+}
+
 static struct fb_ops savagefb_ops = {
 	.owner          = THIS_MODULE,
+	.fb_open        = savagefb_open,
+	.fb_release     = savagefb_release,
 	.fb_check_var   = savagefb_check_var,
 	.fb_set_par     = savagefb_set_par,
 	.fb_setcolreg   = savagefb_setcolreg,
@@ -2154,12 +2206,12 @@ static int __devinit savagefb_probe(struct pci_dev* dev,
 	int video_len;
 
 	DBG("savagefb_probe");
-	SavagePrintRegs();
 
 	info = framebuffer_alloc(sizeof(struct savagefb_par), &dev->dev);
 	if (!info)
 		return -ENOMEM;
 	par = info->par;
+	mutex_init(&par->open_lock);
 	err = pci_enable_device(dev);
 	if (err)
 		goto failed_enable;
@@ -2206,11 +2258,10 @@ static int __devinit savagefb_probe(struct pci_dev* dev,
 			     info->monspecs.modedb, info->monspecs.modedb_len,
 			     NULL, 8);
 	} else if (info->monspecs.modedb != NULL) {
-		struct fb_videomode *modedb;
+		const struct fb_videomode *mode;
 
-		modedb = fb_find_best_display(&info->monspecs,
-					      &info->modelist);
-		savage_update_var(&info->var, modedb);
+		mode = fb_find_best_display(&info->monspecs, &info->modelist);
+		savage_update_var(&info->var, mode);
 	}
 
 	/* maximize virtual vertical length */

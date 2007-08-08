@@ -106,7 +106,7 @@ struct controller {
 };
 
 /* Define AMD SHPC ID  */
-#define PCI_DEVICE_ID_AMD_GOLAM_7450	0x7450 
+#define PCI_DEVICE_ID_AMD_GOLAM_7450	0x7450
 #define PCI_DEVICE_ID_AMD_POGO_7458	0x7458
 
 /* AMD PCIX bridge registers */
@@ -166,7 +166,7 @@ extern u8 shpchp_handle_power_fault(u8 hp_slot, struct controller *ctrl);
 extern int shpchp_configure_device(struct slot *p_slot);
 extern int shpchp_unconfigure_device(struct slot *p_slot);
 extern void cleanup_slots(struct controller *ctrl);
-extern void queue_pushbutton_work(struct work_struct *work);
+extern void shpchp_queue_pushbutton_work(struct work_struct *work);
 extern int shpc_init( struct controller *ctrl, struct pci_dev *pdev);
 
 #ifdef CONFIG_ACPI
@@ -221,7 +221,7 @@ enum ctrl_offsets {
 };
 
 static inline struct slot *get_slot(struct hotplug_slot *hotplug_slot)
-{ 
+{
 	return hotplug_slot->private;
 }
 

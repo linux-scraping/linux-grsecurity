@@ -10,8 +10,8 @@
  * Based on ipt_ULOG.c, which is
  * (C) 2000-2002 by Harald Welte <laforge@netfilter.org>
  *
- * This module accepts two parameters: 
- * 
+ * This module accepts two parameters:
+ *
  * nlbufsiz:
  *   The parameter specifies how big the buffer for each netlink multicast
  * group is. e.g. If you say nlbufsiz=8192, up to eight kb of packets will
@@ -43,17 +43,17 @@
 #include "../br_private.h"
 
 #define PRINTR(format, args...) do { if (net_ratelimit()) \
-                                printk(format , ## args); } while (0)
+				printk(format , ## args); } while (0)
 
 static unsigned int nlbufsiz = NLMSG_GOODSIZE;
 module_param(nlbufsiz, uint, 0600);
 MODULE_PARM_DESC(nlbufsiz, "netlink buffer size (number of bytes) "
-                           "(defaults to 4096)");
+			   "(defaults to 4096)");
 
 static unsigned int flushtimeout = 10;
 module_param(flushtimeout, uint, 0600);
 MODULE_PARM_DESC(flushtimeout, "buffer flush timeout (hundredths ofa second) "
-                               "(defaults to 10)");
+			       "(defaults to 10)");
 
 typedef struct {
 	unsigned int qlen;		/* number of nlmsgs' in the skb */
@@ -130,6 +130,7 @@ static void ebt_ulog_packet(unsigned int hooknr, const struct sk_buff *skb,
 	unsigned int group = uloginfo->nlgroup;
 	ebt_ulog_buff_t *ub = &ulog_buffers[group];
 	spinlock_t *lock = &ub->lock;
+	ktime_t kt;
 
 	if ((uloginfo->cprange == 0) ||
 	    (uloginfo->cprange > skb->len + ETH_HLEN))
@@ -157,16 +158,17 @@ static void ebt_ulog_packet(unsigned int hooknr, const struct sk_buff *skb,
 	}
 
 	nlh = NLMSG_PUT(ub->skb, 0, ub->qlen, 0,
-	                size - NLMSG_ALIGN(sizeof(*nlh)));
+			size - NLMSG_ALIGN(sizeof(*nlh)));
 	ub->qlen++;
 
 	pm = NLMSG_DATA(nlh);
 
 	/* Fill in the ulog data */
 	pm->version = EBT_ULOG_VERSION;
-	do_gettimeofday(&pm->stamp);
+	kt = ktime_get_real();
+	pm->stamp = ktime_to_timeval(kt);
 	if (ub->qlen == 1)
-		skb_set_timestamp(ub->skb, &pm->stamp);
+		ub->skb->tstamp = kt;
 	pm->data_len = copy_len;
 	pm->mark = skb->mark;
 	pm->hook = hooknr;
@@ -295,14 +297,12 @@ static int __init ebt_ulog_init(void)
 
 	/* initialize ulog_buffers */
 	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
-		init_timer(&ulog_buffers[i].timer);
-		ulog_buffers[i].timer.function = ulog_timer;
-		ulog_buffers[i].timer.data = i;
+		setup_timer(&ulog_buffers[i].timer, ulog_timer, i);
 		spin_lock_init(&ulog_buffers[i].lock);
 	}
 
 	ebtulognl = netlink_kernel_create(NETLINK_NFLOG, EBT_ULOG_MAXNLGROUPS,
-	                                  NULL, THIS_MODULE);
+					  NULL, NULL, THIS_MODULE);
 	if (!ebtulognl)
 		ret = -ENOMEM;
 	else if ((ret = ebt_register_watcher(&ulog)))
@@ -323,7 +323,7 @@ static void __exit ebt_ulog_fini(void)
 	ebt_ulog_buff_t *ub;
 	int i;
 
-	nf_log_unregister_logger(&ebt_ulog_logger);
+	nf_log_unregister(&ebt_ulog_logger);
 	ebt_unregister_watcher(&ulog);
 	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
 		ub = &ulog_buffers[i];
@@ -344,4 +344,4 @@ module_exit(ebt_ulog_fini);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bart De Schuymer <bdschuym@pandora.be>");
 MODULE_DESCRIPTION("ebtables userspace logging module for bridged Ethernet"
-                   " frames");
+		   " frames");

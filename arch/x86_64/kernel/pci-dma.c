@@ -223,30 +223,10 @@ int dma_set_mask(struct device *dev, u64 mask)
 }
 EXPORT_SYMBOL(dma_set_mask);
 
-/* iommu=[size][,noagp][,off][,force][,noforce][,leak][,memaper[=order]][,merge]
-         [,forcesac][,fullflush][,nomerge][,biomerge]
-   size  set size of iommu (in bytes)
-   noagp don't initialize the AGP driver and use full aperture.
-   off   don't use the IOMMU
-   leak  turn on simple iommu leak tracing (only when CONFIG_IOMMU_LEAK is on)
-   memaper[=order] allocate an own aperture over RAM with size 32MB^order.
-   noforce don't force IOMMU usage. Default.
-   force  Force IOMMU.
-   merge  Do lazy merging. This may improve performance on some block devices.
-          Implies force (experimental)
-   biomerge Do merging at the BIO layer. This is more efficient than merge,
-            but should be only done with very big IOMMUs. Implies merge,force.
-   nomerge Don't do SG merging.
-   forcesac For SAC mode for masks <40bits  (experimental)
-   fullflush Flush IOMMU on each allocation (default)
-   nofullflush Don't use IOMMU fullflush
-   allowed  overwrite iommu off workarounds for specific chipsets.
-   soft	 Use software bounce buffering (default for Intel machines)
-   noaperture Don't touch the aperture for AGP.
-   allowdac Allow DMA >4GB
-   nodac    Forbid DMA >4GB
-   panic    Force panic when IOMMU overflows
-*/
+/*
+ * See <Documentation/x86_64/boot-options.txt> for the iommu kernel parameter
+ * documentation.
+ */
 __init int iommu_setup(char *p)
 {
 	iommu_merge = 1;
@@ -342,5 +322,17 @@ static int __init pci_iommu_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_PCI
+/* Many VIA bridges seem to corrupt data for DAC. Disable it here */
+
+static __devinit void via_no_dac(struct pci_dev *dev)
+{
+	if ((dev->class >> 8) == PCI_CLASS_BRIDGE_PCI && forbid_dac == 0) {
+		printk(KERN_INFO "PCI: VIA PCI bridge detected. Disabling DAC.\n");
+		forbid_dac = 1;
+	}
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, PCI_ANY_ID, via_no_dac);
+#endif
 /* Must execute after PCI subsystem */
 fs_initcall(pci_iommu_init);
