@@ -235,7 +235,7 @@ gen_full_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 {
 	char *retval;
 
-	retval = __our_d_path(dentry->d_parent, vfsmnt, root, rootmnt, buf, buflen);
+	retval = __our_d_path(dentry, vfsmnt, root, rootmnt, buf, buflen);
 	if (unlikely(IS_ERR(retval)))
 		retval = strcpy(buf, "<path too long>");
 	else if (unlikely(retval[1] == '/' && retval[2] == '\0'))
