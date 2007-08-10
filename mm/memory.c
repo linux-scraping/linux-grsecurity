@@ -1637,8 +1637,8 @@ static void pax_unmap_mirror_pte(struct vm_area_struct *vma, unsigned long addre
 	if (!pte_present(entry)) {
 		if (!pte_none(entry)) {
 			BUG_ON(pte_file(entry));
-			ptep_get_and_clear(mm, address, pte);
 			free_swap_and_cache(pte_to_swp_entry(entry));
+			pte_clear_not_present_full(mm, address, pte, 0);
 		}
 	} else {
 		struct page *page;
@@ -1923,16 +1923,17 @@ gotten:
 		cow_user_page(new_page, old_page, address, vma);
 	}
 
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (pax_find_mirror_vma(vma))
-		BUG_ON(TestSetPageLocked(new_page));
-#endif
-
 	/*
 	 * Re-check the pte - we dropped the lock
 	 */
 	page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
 	if (likely(pte_same(*page_table, orig_pte))) {
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (pax_find_mirror_vma(vma))
+			BUG_ON(TestSetPageLocked(new_page));
+#endif
+
 		if (old_page) {
 			page_remove_rmap(old_page, vma);
 			if (!PageAnon(old_page)) {
@@ -2579,12 +2580,6 @@ retry:
 			page_cache_release(new_page);
 			new_page = page;
 			anon = 1;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-			if (pax_find_mirror_vma(vma))
-				BUG_ON(TestSetPageLocked(new_page));
-#endif
-
 		} else {
 			/* if the page will be shareable, see if the backing
 			 * address space wants to know that the page is about
@@ -2625,6 +2620,12 @@ retry:
 	 */
 	/* Only go through if we didn't race with anybody else... */
 	if (pte_none(*page_table)) {
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (anon && pax_find_mirror_vma(vma))
+			BUG_ON(TestSetPageLocked(new_page));
+#endif
+
 		flush_icache_page(vma, new_page);
 		entry = mk_pte(new_page, vma->vm_page_prot);
 		if (write_access)

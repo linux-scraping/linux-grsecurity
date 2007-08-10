@@ -76,8 +76,8 @@ choice
 	  by your particular system.
 
 	  - "none": if your MAC system does not interact with PaX,
-	  - "direct": if your MAC system defines pax_set_flags() itself,
-	  - "hook": if your MAC system uses the pax_set_flags_func callback.
+	  - "direct": if your MAC system defines pax_set_initial_flags() itself,
+	  - "hook": if your MAC system uses the pax_set_initial_flags_func callback.
 
 	  NOTE: this option is for developers/integrators only.
 

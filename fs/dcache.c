@@ -1776,7 +1776,7 @@ shouldnt_be_hashed:
  *
  * "buflen" should be positive. Caller holds the dcache_lock.
  */
-char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
+static char * __d_path( struct dentry *dentry, struct vfsmount *vfsmnt,
 			struct dentry *root, struct vfsmount *rootmnt,
 			char *buffer, int buflen)
 {

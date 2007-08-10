@@ -71,15 +71,6 @@ EXPORT_SYMBOL(suid_dumpable);
 static struct linux_binfmt *formats;
 static DEFINE_RWLOCK(binfmt_lock);
 
-#ifdef CONFIG_PAX_SOFTMODE
-unsigned int pax_softmode;
-#endif
-
-#ifdef CONFIG_PAX_HOOK_ACL_FLAGS
-void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
-EXPORT_SYMBOL(pax_set_initial_flags_func);
-#endif
-
 int register_binfmt(struct linux_binfmt * fmt)
 {
 	struct linux_binfmt ** tmp = &formats;

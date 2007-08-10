@@ -60,10 +60,6 @@ extern void gr_log_resource(const struct task_struct *task,
 			    const int res, const unsigned long wanted, const int gt);
 #endif
 
-extern char * __d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
-                        struct dentry *root, struct vfsmount *rootmnt,
-                        char *buffer, int buflen);
-
 unsigned char *gr_system_salt;
 unsigned char *gr_system_sum;
 

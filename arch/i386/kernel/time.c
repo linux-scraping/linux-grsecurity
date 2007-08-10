@@ -152,6 +152,10 @@ unsigned long profile_pc(struct pt_regs *regs)
 #endif
 	}
 #endif
+
+	if (!v8086_mode(regs) && SEGMENT_IS_KERNEL_CODE(regs->xcs))
+		pc += __KERNEL_TEXT_OFFSET;
+
 	return pc;
 }
 EXPORT_SYMBOL(profile_pc);
