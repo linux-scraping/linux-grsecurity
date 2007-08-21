@@ -134,15 +134,6 @@ extern unsigned long __phys_addr(unsigned long);
 	(((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
 	 VM_READ | VM_WRITE | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
-#ifdef CONFIG_PAX_PAGEEXEC
-#ifdef CONFIG_PAX_MPROTECT
-#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
-			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#else
-#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#endif
-#endif
-
 #define __HAVE_ARCH_GATE_AREA 1	
 
 #include <asm-generic/memory_model.h>

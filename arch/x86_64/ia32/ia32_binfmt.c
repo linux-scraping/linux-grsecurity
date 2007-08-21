@@ -324,8 +324,20 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 			mpnt->vm_flags = VM_STACK_FLAGS & ~VM_EXEC;
 		else
 			mpnt->vm_flags = VM_STACK_FLAGS;
- 		mpnt->vm_page_prot = (mpnt->vm_flags & VM_EXEC) ? 
- 			PAGE_COPY_EXEC : PAGE_COPY;
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+		if (mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+			mpnt->vm_flags &= ~VM_EXEC;
+
+#ifdef CONFIG_PAX_MPROTECT
+			if (mm->pax_flags & MF_PAX_MPROTECT)
+				mpnt->vm_flags &= ~VM_MAYEXEC;
+#endif
+
+	}
+#endif
+
+		mpnt->vm_page_prot = vm_get_page_prot(mpnt->vm_flags);
 		if ((ret = insert_vm_struct(mm, mpnt))) {
 			up_write(&mm->mmap_sem);
 			kmem_cache_free(vm_area_cachep, mpnt);

@@ -173,15 +173,6 @@ extern __inline__ int get_order(unsigned long size)
 /* We do define AT_SYSINFO_EHDR but don't use the gate mechanism */
 #define __HAVE_ARCH_GATE_AREA		1
 
-#ifdef CONFIG_PAX_PAGEEXEC
-#ifdef CONFIG_PAX_MPROTECT
-#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
-			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#else
-#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#endif
-#endif
-
 #include <asm-generic/memory_model.h>
 #endif /* __KERNEL__ */
 #endif /* _PPC_PAGE_H */

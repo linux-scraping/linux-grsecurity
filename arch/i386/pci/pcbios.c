@@ -79,12 +79,21 @@ static unsigned long __devinit bios32_service(unsigned long service)
 	local_irq_save(flags);
 
 	gdt = get_cpu_gdt_table(smp_processor_id());
-	pack_descriptor((u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
-			(u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
+	pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
+			(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
 			0UL, 0xFFFFFUL, 0x9B, 0xC);
-	pack_descriptor((u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
-			(u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
+	pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
+			(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
 			0UL, 0xFFFFFUL, 0x93, 0xC);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	__asm__("movw %w7, %%ds; lcall *(%%edi); push %%ss; pop %%ds; cld"
 		: "=a" (return_code),
@@ -97,10 +106,18 @@ static unsigned long __devinit bios32_service(unsigned long service)
 		  "r"(__PCIBIOS_DS)
 		: "memory");
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	gdt[GDT_ENTRY_PCIBIOS_CS].a = 0;
 	gdt[GDT_ENTRY_PCIBIOS_CS].b = 0;
 	gdt[GDT_ENTRY_PCIBIOS_DS].a = 0;
 	gdt[GDT_ENTRY_PCIBIOS_DS].b = 0;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	local_irq_restore(flags);
 
@@ -123,11 +140,11 @@ static unsigned long __devinit bios32_service(unsigned long service)
 
 		for (cpu = 0; cpu < NR_CPUS; cpu++) {
 			gdt = get_cpu_gdt_table(cpu);
-			pack_descriptor((u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
-					(u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
+			pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
+					(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
 					address, length, 0x9b, flags);
-			pack_descriptor((u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
-					(u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
+			pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
+					(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
 					address, length, 0x93, flags);
 		}
 

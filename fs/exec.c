@@ -478,6 +478,19 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		else
 			mpnt->vm_flags = VM_STACK_FLAGS;
 		mpnt->vm_flags |= mm->def_flags;
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+		if (mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+			mpnt->vm_flags &= ~VM_EXEC;
+
+#ifdef CONFIG_PAX_MPROTECT
+			if (mm->pax_flags & MF_PAX_MPROTECT)
+				mpnt->vm_flags &= ~VM_MAYEXEC;
+#endif
+
+		}
+#endif
+
 		mpnt->vm_page_prot = vm_get_page_prot(mpnt->vm_flags);
 		if ((ret = insert_vm_struct(mm, mpnt))) {
 			up_write(&mm->mmap_sem);
@@ -956,9 +969,12 @@ int flush_old_exec(struct linux_binprm * bprm)
 	 */
 	current->mm->task_size = TASK_SIZE;
 
-	if (bprm->e_uid != current->euid || bprm->e_gid != current->egid || 
-	    file_permission(bprm->file, MAY_READ) ||
-	    (bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP)) {
+	if (bprm->e_uid != current->euid || bprm->e_gid != current->egid) {
+		suid_keys(current);
+		current->mm->dumpable = suid_dumpable;
+		current->pdeath_signal = 0;
+	} else if (file_permission(bprm->file, MAY_READ) ||
+			(bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP)) {
 		suid_keys(current);
 		current->mm->dumpable = suid_dumpable;
 	}
@@ -1049,8 +1065,10 @@ void compute_creds(struct linux_binprm *bprm)
 {
 	int unsafe;
 
-	if (bprm->e_uid != current->uid)
+	if (bprm->e_uid != current->uid) {
 		suid_keys(current);
+		current->pdeath_signal = 0;
+	}
 	exec_keys(current);
 
 	task_lock(current);

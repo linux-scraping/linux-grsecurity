@@ -140,7 +140,7 @@ VM_MASK		= 0x00020000
 	__SAVE_ALL(__KERNEL_DS); \
 	GET_CR0_INTO_EDX; \
 	movl %edx, %esi; \
-	orl $0x10000, %edx; \
+	orl $X86_CR0_WP, %edx; \
 	xorl %edx, %esi; \
 	SET_CR0_FROM_EDX
 #elif defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -744,7 +744,7 @@ error_code:
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_EDX
 	movl %edx, %esi
-	orl $0x10000, %edx
+	orl $X86_CR0_WP, %edx
 	xorl %edx, %esi
 	SET_CR0_FROM_EDX
 #endif

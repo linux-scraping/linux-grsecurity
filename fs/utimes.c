@@ -48,6 +48,7 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 	int error;
 	struct nameidata nd;
 	struct dentry *dentry;
+	struct vfsmount *mnt;
 	struct inode *inode;
 	struct iattr newattrs;
 	struct file *f = NULL;
@@ -66,12 +67,14 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 		if (!f)
 			goto out;
 		dentry = f->f_path.dentry;
+		mnt = f->f_path.mnt;
 	} else {
 		error = __user_walk_fd(dfd, filename, (flags & AT_SYMLINK_NOFOLLOW) ? 0 : LOOKUP_FOLLOW, &nd);
 		if (error)
 			goto out;
 
 		dentry = nd.dentry;
+		mnt = nd.mnt;
 	}
 
 	inode = dentry->d_inode;
@@ -119,7 +122,7 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 		}
 	}
 
-	if (!gr_acl_handle_utime(nd.dentry, nd.mnt)) {
+	if (!gr_acl_handle_utime(dentry, mnt)) {
 		error = -EACCES;
 		goto dput_and_out;
 	}

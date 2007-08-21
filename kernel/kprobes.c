@@ -200,7 +200,7 @@ static int __kprobes collect_one_slot(struct kprobe_insn_page *kip, int idx)
 			hlist_add_head(&kip->hlist,
 				       &kprobe_insn_pages);
 		} else {
-			module_free(NULL, kip->insns);
+			module_free_exec(NULL, kip->insns);
 			kfree(kip);
 		}
 		return 1;

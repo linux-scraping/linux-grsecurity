@@ -978,8 +978,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	unsigned long charged = 0, reqprot = prot;
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	struct vm_area_struct *vma_m = NULL, *prev_m;
-	struct rb_node **rb_link_m, *rb_parent_m;
+	struct vm_area_struct *vma_m = NULL;
 #endif
 
 	/*
@@ -1790,7 +1789,6 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
 		struct vm_area_struct *vma_m;
 
 		vma_m = pax_find_mirror_vma(vma);
-		BUG_ON(vma_m && vma->anon_vma != vma_m->anon_vma);
 #endif
 
 		size = vma->vm_end - address;

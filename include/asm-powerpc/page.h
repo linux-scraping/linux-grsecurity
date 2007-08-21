@@ -84,15 +84,6 @@
 #include <asm/page_32.h>
 #endif
 
-#ifdef CONFIG_PAX_PAGEEXEC
-#ifdef CONFIG_PAX_MPROTECT
-#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
-			  ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#else
-#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & MF_PAX_PAGEEXEC)?0:VM_EXEC))
-#endif
-#endif
-
 /* align addr on a size boundary - adjust address up/down if needed */
 #define _ALIGN_UP(addr,size)	(((addr)+((size)-1))&(~((size)-1)))
 #define _ALIGN_DOWN(addr,size)	((addr)&(~((size)-1)))

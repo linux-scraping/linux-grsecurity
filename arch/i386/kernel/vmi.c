@@ -89,37 +89,50 @@ struct vmi_timer_ops vmi_timer_ops;
 
 static inline void patch_offset(unsigned char *eip, unsigned char *dest)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-	*(unsigned long *)(eip+1) = dest-eip-5;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+        *(unsigned long *)(eip+1) = dest-eip-5;
 }
 
 static unsigned patch_internal(int call, unsigned len, void *insns)
 {
 	u64 reloc;
 	struct vmi_relocation_info *const rel = (struct vmi_relocation_info *)&reloc;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	reloc = call_vrom_long_func(vmi_rom, get_reloc,	call);
 	switch(rel->type) {
 		case VMI_RELOCATION_CALL_REL:
 			BUG_ON(len < 5);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			*(char *)insns = MNEM_CALL;
 			patch_offset(insns, rel->eip);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
+
 			return 5;
 
 		case VMI_RELOCATION_JUMP_REL:
 			BUG_ON(len < 5);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			*(char *)insns = MNEM_JMP;
 			patch_offset(insns, rel->eip);
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
+
 			return 5;
 
 		case VMI_RELOCATION_NOP:

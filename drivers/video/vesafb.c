@@ -9,6 +9,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/moduleloader.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
@@ -224,6 +225,7 @@ static int __init vesafb_probe(struct platform_device *dev)
 	unsigned int size_vmode;
 	unsigned int size_remap;
 	unsigned int size_total;
+	void *pmi_code = NULL;
 
 	if (screen_info.orig_video_isVGA != VIDEO_TYPE_VLFB)
 		return -ENODEV;
@@ -266,10 +268,6 @@ static int __init vesafb_probe(struct platform_device *dev)
 		size_remap = size_total;
 	vesafb_fix.smem_len = size_remap;
 
-#if !defined(__i386__) || defined(CONFIG_PAX_KERNEXEC)
-	screen_info.vesapm_seg = 0;
-#endif
-
 	if (!request_mem_region(vesafb_fix.smem_start, size_total, "vesafb")) {
 		printk(KERN_WARNING
 		       "vesafb: cannot reserve video memory at 0x%lx\n",
@@ -302,9 +300,21 @@ static int __init vesafb_probe(struct platform_device *dev)
 	printk(KERN_INFO "vesafb: mode is %dx%dx%d, linelength=%d, pages=%d\n",
 	       vesafb_defined.xres, vesafb_defined.yres, vesafb_defined.bits_per_pixel, vesafb_fix.line_length, screen_info.pages);
 
+#ifdef __i386__
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pmi_code = module_alloc_exec(screen_info.vesapm_size);
+	if (!pmi_code)
+#else
+	if (0)
+#endif
+
+#endif
+	screen_info.vesapm_seg = 0;
+
 	if (screen_info.vesapm_seg) {
-		printk(KERN_INFO "vesafb: protected mode interface info at %04x:%04x\n",
-		       screen_info.vesapm_seg,screen_info.vesapm_off);
+		printk(KERN_INFO "vesafb: protected mode interface info at %04x:%04x %04x bytes\n",
+		       screen_info.vesapm_seg,screen_info.vesapm_off,screen_info.vesapm_size);
 	}
 
 	if (screen_info.vesapm_seg < 0xc000)
@@ -312,9 +322,29 @@ static int __init vesafb_probe(struct platform_device *dev)
 
 	if (ypan || pmi_setpal) {
 		unsigned short *pmi_base;
-		pmi_base  = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
-		pmi_start = (void*)((char*)pmi_base + pmi_base[1]);
-		pmi_pal   = (void*)((char*)pmi_base + pmi_base[2]);
+
+#ifdef CONFIG_PAX_KERNEXEC
+		unsigned long cr0;
+#endif
+
+		pmi_base = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
+
+#ifdef CONFIG_PAX_KERNEXEC
+		pax_open_kernel(cr0);
+		memcpy(pmi_code, pmi_base, screen_info.vesapm_size);
+		pax_close_kernel(cr0);
+#else
+		pmi_code = pmi_base;
+#endif
+
+		pmi_start = (void*)((char*)pmi_code + pmi_base[1]);
+		pmi_pal   = (void*)((char*)pmi_code + pmi_base[2]);
+
+#ifdef CONFIG_PAX_KERNEXEC
+		pmi_start -= __KERNEL_TEXT_OFFSET;
+		pmi_pal -= __KERNEL_TEXT_OFFSET;
+#endif
+
 		printk(KERN_INFO "vesafb: pmi: set display start = %p, set palette = %p\n",pmi_start,pmi_pal);
 		if (pmi_base[3]) {
 			printk(KERN_INFO "vesafb: pmi: ports = ");
@@ -456,6 +486,11 @@ static int __init vesafb_probe(struct platform_device *dev)
 	       info->node, info->fix.id);
 	return 0;
 err:
+
+#ifdef CONFIG_PAX_KERNEXEC
+	module_free_exec(NULL, pmi_code);
+#endif
+
 	if (info->screen_base)
 		iounmap(info->screen_base);
 	framebuffer_release(info);

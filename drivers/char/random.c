@@ -705,9 +705,14 @@ static void xfer_secondary_pool(struct entropy_store *r, size_t nbytes)
 
 	if (r->pull && r->entropy_count < nbytes * 8 &&
 	    r->entropy_count < r->poolinfo->POOLBITS) {
-		int bytes = min_t(int, max_t(int, random_read_wakeup_thresh / 8,
-				nbytes), sizeof(tmp));
+		/* If we're limited, always leave two wakeup worth's BITS */
 		int rsvd = r->limit ? 0 : random_read_wakeup_thresh/4;
+		int bytes = nbytes;
+
+		/* pull at least as many as BYTES as wakeup BITS */
+		bytes = max_t(int, bytes, random_read_wakeup_thresh / 8);
+		/* but never more than the buffer size */
+		bytes = min_t(int, bytes, sizeof(tmp));
 
 		DEBUG_ENT("going to reseed %s with %d bits "
 			  "(%d of %d requested)\n",
@@ -1179,7 +1184,7 @@ EXPORT_SYMBOL(generate_random_uuid);
 #include <linux/sysctl.h>
 
 static int min_read_thresh = 8, min_write_thresh;
-static int max_read_thresh = OUTPUT_POOL_WORDS * 32;
+static int max_read_thresh = INPUT_POOL_WORDS * 32;
 static int max_write_thresh = INPUT_POOL_WORDS * 32;
 static char sysctl_bootid[16];
 

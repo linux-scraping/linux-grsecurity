@@ -206,15 +206,6 @@ extern unsigned char MODULES_END[];
 	((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
 		 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-#ifdef CONFIG_PAX_MPROTECT
-#define __VM_STACK_FLAGS (((current->mm->pax_flags & MF_PAX_MPROTECT)?0:VM_MAYEXEC) | \
-			  ((current->mm->pax_flags & (MF_PAX_PAGEEXEC|MF_PAX_SEGMEXEC))?0:VM_EXEC))
-#else
-#define __VM_STACK_FLAGS (VM_MAYEXEC | ((current->mm->pax_flags & (MF_PAX_PAGEEXEC|MF_PAX_SEGMEXEC))?0:VM_EXEC))
-#endif
-#endif
-
 #ifdef CONFIG_PAX_PAGEEXEC
 #define CONFIG_ARCH_TRACK_EXEC_LIMIT 1
 #endif

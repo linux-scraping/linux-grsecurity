@@ -96,6 +96,7 @@
 #define PARAM_LFB_PAGES		0x32
 #define PARAM_VESA_ATTRIB	0x34
 #define PARAM_CAPABILITIES	0x36
+#define PARAM_VESAPM_SIZE	0x3a
 
 /* Define DO_STORE according to CONFIG_VIDEO_RETAIN */
 #ifdef CONFIG_VIDEO_RETAIN
@@ -280,6 +281,7 @@ dac_done:
 
 	movw	%es, %fs:(PARAM_VESAPM_SEG)
 	movw	%di, %fs:(PARAM_VESAPM_OFF)
+	movw	%cx, %fs:(PARAM_VESAPM_SIZE)
 no_pm:	ret
 
 # The video mode menu

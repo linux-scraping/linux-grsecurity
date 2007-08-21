@@ -67,9 +67,13 @@ static inline int is_kernel(unsigned long addr)
 {
 
 #ifdef CONFIG_PAX_KERNEXEC
+
+#ifdef CONFIG_MODULES
 	if ((unsigned long)MODULES_VADDR <= addr + __KERNEL_TEXT_OFFSET &&
 	    addr + __KERNEL_TEXT_OFFSET < (unsigned long)MODULES_END)
 		return 0;
+#endif
+
 	if (is_kernel_inittext(addr))
 		return 1;
 #endif

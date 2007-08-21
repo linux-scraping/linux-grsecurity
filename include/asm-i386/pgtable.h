@@ -139,32 +139,23 @@ extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 #define _KERNPG_TABLE	(_PAGE_PRESENT | _PAGE_RW | _PAGE_ACCESSED | _PAGE_DIRTY)
 #define _PAGE_CHG_MASK	(PTE_MASK | _PAGE_ACCESSED | _PAGE_DIRTY)
 
-#define __PAGE_NONE \
+#define PAGE_NONE \
 	__pgprot(_PAGE_PROTNONE | _PAGE_ACCESSED)
-#define __PAGE_SHARED \
+#define PAGE_SHARED \
 	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
 
-#define __PAGE_SHARED_EXEC \
+#define PAGE_SHARED_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER | _PAGE_ACCESSED)
-#define __PAGE_COPY_NOEXEC \
+#define PAGE_COPY_NOEXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
-#define __PAGE_COPY_EXEC \
+#define PAGE_COPY_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
-#define __PAGE_COPY \
-	__PAGE_COPY_NOEXEC
-#define __PAGE_READONLY \
+#define PAGE_COPY \
+	PAGE_COPY_NOEXEC
+#define PAGE_READONLY \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_NX)
-#define __PAGE_READONLY_EXEC \
+#define PAGE_READONLY_EXEC \
 	__pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED)
-
-#define PAGE_NONE		(protection_map[0x0])
-#define PAGE_SHARED		(protection_map[0xb])
-#define PAGE_SHARED_EXEC	(protection_map[0xf])
-#define PAGE_COPY_NOEXEC	(protection_map[0x3])
-#define PAGE_COPY 		PAGE_COPY_NOEXEC
-#define PAGE_COPY_EXEC		(protection_map[0x7])
-#define PAGE_READONLY		(protection_map[0x1])
-#define PAGE_READONLY_EXEC	(protection_map[0x5])
 
 #define _PAGE_KERNEL \
 	(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY | _PAGE_ACCESSED | _PAGE_NX)
@@ -191,23 +182,23 @@ extern unsigned long long __PAGE_KERNEL, __PAGE_KERNEL_EXEC;
  * the same are read. Also, write permissions imply read permissions.
  * This is the closest we can get..
  */
-#define __P000	__PAGE_NONE
-#define __P001	__PAGE_READONLY
-#define __P010	__PAGE_COPY
-#define __P011	__PAGE_COPY
-#define __P100	__PAGE_READONLY_EXEC
-#define __P101	__PAGE_READONLY_EXEC
-#define __P110	__PAGE_COPY_EXEC
-#define __P111	__PAGE_COPY_EXEC
+#define __P000	PAGE_NONE
+#define __P001	PAGE_READONLY
+#define __P010	PAGE_COPY
+#define __P011	PAGE_COPY
+#define __P100	PAGE_READONLY_EXEC
+#define __P101	PAGE_READONLY_EXEC
+#define __P110	PAGE_COPY_EXEC
+#define __P111	PAGE_COPY_EXEC
 
-#define __S000	__PAGE_NONE
-#define __S001	__PAGE_READONLY
-#define __S010	__PAGE_SHARED
-#define __S011	__PAGE_SHARED
-#define __S100	__PAGE_READONLY_EXEC
-#define __S101	__PAGE_READONLY_EXEC
-#define __S110	__PAGE_SHARED_EXEC
-#define __S111	__PAGE_SHARED_EXEC
+#define __S000	PAGE_NONE
+#define __S001	PAGE_READONLY
+#define __S010	PAGE_SHARED
+#define __S011	PAGE_SHARED
+#define __S100	PAGE_READONLY_EXEC
+#define __S101	PAGE_READONLY_EXEC
+#define __S110	PAGE_SHARED_EXEC
+#define __S111	PAGE_SHARED_EXEC
 
 /*
  * Define this if things work differently on an i386 and an i486:

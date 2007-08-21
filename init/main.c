@@ -183,6 +183,8 @@ static int __init set_reset_devices(char *str)
 __setup("reset_devices", set_reset_devices);
 
 #ifdef CONFIG_PAX_SOFTMODE
+unsigned int pax_softmode;
+
 static int __init setup_pax_softmode(char *str)
 {
 	get_option(&str, &pax_softmode);

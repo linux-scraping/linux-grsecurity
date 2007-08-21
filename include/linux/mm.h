@@ -181,10 +181,6 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_MAYNOTWRITE	0x10000000	/* vma cannot be granted VM_WRITE any more */
 #endif
 
-#ifdef __VM_STACK_FLAGS
-#define VM_STACK_DEFAULT_FLAGS (0x00000033 | __VM_STACK_FLAGS)
-#endif
-
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
 #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
 #endif

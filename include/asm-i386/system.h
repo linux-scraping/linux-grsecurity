@@ -188,7 +188,7 @@ do {					\
 	typecheck(unsigned long, cr0);	\
 	preempt_disable();		\
 	cr0 = read_cr0();		\
-	write_cr0(cr0 & ~0x10000UL);	\
+	write_cr0(cr0 & ~X86_CR0_WP);	\
 } while (0)
 
 #define pax_close_kernel(cr0)		\

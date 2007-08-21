@@ -201,7 +201,7 @@ void apply_alternatives(struct alt_instr *start, struct alt_instr *end)
 
 static void alternatives_smp_lock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 {
-	u8 *ptr;
+	u8 **ptr;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -209,14 +209,13 @@ static void alternatives_smp_lock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 	pax_open_kernel(cr0);
 #endif
 
-	for (; start < end; start++) {
-		ptr = *start + __KERNEL_TEXT_OFFSET;
-		if (ptr < text)
+	for (ptr = start; ptr < end; ptr++) {
+		if (*ptr < text)
 			continue;
-		if (ptr > text_end)
+		if (*ptr > text_end)
 			continue;
-		*ptr = 0xf0; /* lock prefix */
-	};
+		*(*ptr + __KERNEL_TEXT_OFFSET) = 0xf0; /* lock prefix */
+	}
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);
@@ -226,7 +225,7 @@ static void alternatives_smp_lock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 
 static void alternatives_smp_unlock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 {
-	u8 *ptr;
+	u8 **ptr;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -239,14 +238,13 @@ static void alternatives_smp_unlock(u8 **start, u8 **end, u8 *text, u8 *text_end
 	pax_open_kernel(cr0);
 #endif
 
-	for (; start < end; start++) {
-		ptr = *start + __KERNEL_TEXT_OFFSET;
-		if (ptr < text)
+	for (ptr = start; ptr < end; ptr++) {
+		if (*ptr < text)
 			continue;
-		if (ptr > text_end)
+		if (*ptr > text_end)
 			continue;
-		nop_out(ptr, 1);
-	};
+		nop_out(*ptr + __KERNEL_TEXT_OFFSET, 1);
+	}
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);

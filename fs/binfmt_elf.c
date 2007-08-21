@@ -49,10 +49,6 @@
 #include <asm/desc.h>
 #endif
 
-#ifdef CONFIG_PAX_SOFTMODE
-unsigned int pax_softmode;
-#endif
-
 #ifdef CONFIG_PAX_HOOK_ACL_FLAGS
 void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 EXPORT_SYMBOL(pax_set_initial_flags_func);
