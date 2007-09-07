@@ -370,7 +370,7 @@ static struct mm_struct * mm_init(struct mm_struct * mm)
 	spin_lock_init(&mm->page_table_lock);
 	rwlock_init(&mm->ioctx_list_lock);
 	mm->ioctx_list = NULL;
-	mm->free_area_cache = ~0UL;
+	mm->free_area_cache = TASK_UNMAPPED_BASE;
 	mm->cached_hole_size = ~0UL;
 
 	if (likely(!mm_alloc_pgd(mm))) {

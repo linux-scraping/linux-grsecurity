@@ -225,11 +225,10 @@ extern int bootloader_type;
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.
  */
+#define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 3))
 
 #ifdef CONFIG_PAX_SEGMEXEC
-#define TASK_UNMAPPED_BASE	(PAGE_ALIGN((current->mm->pax_flags & MF_PAX_SEGMEXEC) ? SEGMEXEC_TASK_SIZE/3 : TASK_SIZE/3))
-#else
-#define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 3))
+#define SEGMEXEC_TASK_UNMAPPED_BASE	(PAGE_ALIGN(SEGMEXEC_TASK_SIZE / 3))
 #endif
 
 #define HAVE_ARCH_PICK_MMAP_LAYOUT

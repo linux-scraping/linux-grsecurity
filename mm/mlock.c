@@ -32,10 +32,6 @@ static int mlock_fixup(struct vm_area_struct *vma, struct vm_area_struct **prev,
 	int pages;
 	int ret = 0;
 
-#ifdef CONFIG_PAX_SEGMEXEC
-	struct vm_area_struct *vma_m;
-#endif
-
 	if (newflags == vma->vm_flags) {
 		*prev = vma;
 		goto out;
@@ -69,13 +65,6 @@ success:
 	 * It's okay if try_to_unmap_one unmaps a page just after we
 	 * set VM_LOCKED, make_pages_present below will bring it back.
 	 */
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	vma_m = pax_find_mirror_vma(vma);
-	if (vma_m)
-		vma_m->vm_flags = newflags & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT);
-#endif
-
 	vma->vm_flags = newflags;
 
 	/*
@@ -87,11 +76,6 @@ success:
 		if (!(newflags & VM_IO))
 			ret = make_pages_present(start, end);
 	}
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (vma_m)
-		pages *= 2;
-#endif
 
 	mm->locked_vm -= pages;
 out:
@@ -212,6 +196,11 @@ static int do_mlockall(int flags)
 
 	for (vma = current->mm->mmap; vma ; vma = prev->vm_next) {
 		unsigned int newflags;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if ((current->mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_start >= SEGMEXEC_TASK_SIZE))
+			break;
+#endif
 
 		BUG_ON(vma->vm_end > TASK_SIZE);
 		newflags = vma->vm_flags | VM_LOCKED;

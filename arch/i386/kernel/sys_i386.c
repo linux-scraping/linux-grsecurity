@@ -194,6 +194,7 @@ full_search:
 		addr = vma->vm_end;
 		if (mm->start_brk <= addr && addr < mm->mmap_base) {
 			start_addr = addr = mm->mmap_base;
+			mm->cached_hole_size = 0;
 			goto full_search;
 		}
 	}
@@ -286,6 +287,13 @@ bottomup:
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC)
+		mm->mmap_base = SEGMEXEC_TASK_UNMAPPED_BASE;
+	else
+#endif
+
 	mm->mmap_base = TASK_UNMAPPED_BASE;
 
 #ifdef CONFIG_PAX_RANDMMAP

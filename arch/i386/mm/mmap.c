@@ -72,6 +72,13 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 	if (sysctl_legacy_va_layout ||
 			(current->personality & ADDR_COMPAT_LAYOUT) ||
 			current->signal->rlim[RLIMIT_STACK].rlim_cur == RLIM_INFINITY) {
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (mm->pax_flags & MF_PAX_SEGMEXEC)
+			mm->mmap_base = SEGMEXEC_TASK_UNMAPPED_BASE;
+		else
+#endif
+
 		mm->mmap_base = TASK_UNMAPPED_BASE;
 
 #ifdef CONFIG_PAX_RANDMMAP

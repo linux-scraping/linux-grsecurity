@@ -334,7 +334,20 @@ fail:
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC)
+		mm->mmap_base = SEGMEXEC_TASK_UNMAPPED_BASE;
+	else
+#endif
+
 	mm->mmap_base = TASK_UNMAPPED_BASE;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
+		mm->mmap_base += mm->delta_mmap;
+#endif
+
 	mm->free_area_cache = mm->mmap_base;
 	mm->cached_hole_size = ~0UL;
 	addr = hugetlb_get_unmapped_area_bottomup(file, addr0,

@@ -498,15 +498,6 @@ int setup_arg_pages(struct linux_binprm *bprm,
 			return ret;
 		}
 		mm->stack_vm = mm->total_vm = vma_pages(mpnt);
-
-#ifdef CONFIG_PAX_SEGMEXEC
-		mpnt_m = pax_find_mirror_vma(mpnt);
-		if (mpnt_m) {
-			mm->stack_vm += vma_pages(mpnt);
-			mm->total_vm += vma_pages(mpnt);
-		}
-#endif
-
 	}
 
 	for (i = 0 ; i < MAX_ARG_PAGES ; i++, stack_base += PAGE_SIZE) {
@@ -665,18 +656,12 @@ static int de_thread(struct task_struct *tsk)
 	int count;
 
 	/*
-	 * Tell all the sighand listeners that this sighand has
-	 * been detached. The signalfd_detach() function grabs the
-	 * sighand lock, if signal listeners are present on the sighand.
-	 */
-	signalfd_detach(tsk);
-
-	/*
 	 * If we don't share sighandlers, then we aren't sharing anything
 	 * and we can just re-use it all.
 	 */
 	if (atomic_read(&oldsighand->count) <= 1) {
 		BUG_ON(atomic_read(&sig->count) != 1);
+		signalfd_detach(tsk);
 		exit_itimers(sig);
 		return 0;
 	}
@@ -815,6 +800,7 @@ static int de_thread(struct task_struct *tsk)
 	sig->flags = 0;
 
 no_thread_group:
+	signalfd_detach(tsk);
 	exit_itimers(sig);
 	if (leader)
 		release_task(leader);

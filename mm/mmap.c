@@ -1631,16 +1631,16 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 		BUG_ON(vma->vm_mirror);
 		return NULL;
 	}
-	BUG_ON(vma->vm_end - SEGMEXEC_TASK_SIZE < vma->vm_start - SEGMEXEC_TASK_SIZE);
+	BUG_ON(vma->vm_end - SEGMEXEC_TASK_SIZE - 1 < vma->vm_start - SEGMEXEC_TASK_SIZE - 1);
 	vma_m = vma->vm_mirror;
 	BUG_ON(!vma_m || vma_m->vm_mirror != vma);
 	BUG_ON(vma->vm_end - vma->vm_start != vma_m->vm_end - vma_m->vm_start);
 	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff || vma->anon_vma != vma_m->anon_vma);
 
 #ifdef CONFIG_PAX_MPROTECT
-	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_MAYNOTWRITE));
+	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED | VM_MAYNOTWRITE));
 #else
-	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT));
+	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED));
 #endif
 
 	return vma_m;
@@ -1826,6 +1826,10 @@ static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 	update_hiwater_vm(mm);
 	do {
 		long nrpages = vma_pages(vma);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_end <= SEGMEXEC_TASK_SIZE))
+#endif
 
 		mm->total_vm -= nrpages;
 		if (vma->vm_flags & VM_LOCKED)
@@ -2452,11 +2456,11 @@ void pax_mirror_vma(struct vm_area_struct *vma_m, struct vm_area_struct *vma)
 	struct rb_node **rb_link_m, *rb_parent_m;
 
 	BUG_ON(!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC) || !(vma->vm_flags & VM_EXEC));
-	BUG_ON(vma->vm_mirror || vma_m->vm_mirror);
+	BUG_ON(vma->vm_mirror || vma_m->vm_mirror || vma_policy(vma));
 	*vma_m = *vma;
 	vma_m->vm_start += SEGMEXEC_TASK_SIZE;
 	vma_m->vm_end += SEGMEXEC_TASK_SIZE;
-	vma_m->vm_flags &= ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT);
+	vma_m->vm_flags &= ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED);
 	vma_m->vm_page_prot = vm_get_page_prot(vma_m->vm_flags);
 	if (vma_m->vm_file)
 		get_file(vma_m->vm_file);
@@ -2562,11 +2566,6 @@ int install_special_mapping(struct mm_struct *mm,
 	}
 
 	mm->total_vm += len >> PAGE_SHIFT;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (pax_find_mirror_vma(vma))
-		mm->total_vm += len >> PAGE_SHIFT;
-#endif
 
 	return 0;
 }
