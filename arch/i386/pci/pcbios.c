@@ -126,8 +126,9 @@ static unsigned long __devinit bios32_service(unsigned long service)
 		int cpu;
 		unsigned char flags;
 
+		printk(KERN_INFO "bios32_service: base:%08lx length:%08lx entry:%08lx\n", address, length, entry);
 		address = address + PAGE_OFFSET;
-		length -= 1UL;
+		length += 16UL; /* some BIOSs underreport this... */
 		flags = 4;
 		if (length >= 64*1024*1024) {
 			length >>= PAGE_SHIFT;

@@ -794,16 +794,12 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 		next = next->vm_next;
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (vm_flags & VM_EXEC)) {
-		find_vma_prev(mm, addr_m, &prev_m);
-		if (prev_m)
-			next_m = prev_m->vm_next;
-		else
-			next_m = mm->mmap;
-		area_m = next_m;
-		if (next_m && next_m->vm_end == end_m)	/* cases 6, 7, 8 */
-			next_m = next_m->vm_next;
-	}
+	if (prev)
+		prev_m = pax_find_mirror_vma(prev);
+	if (area)
+		area_m = pax_find_mirror_vma(area);
+	if (next)
+		next_m = pax_find_mirror_vma(next);
 #endif
 
 	/*
@@ -827,7 +823,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				next->vm_end, prev->vm_pgoff, NULL);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			if (prev->vm_mirror)
+			if (prev_m)
 				vma_adjust(prev_m, prev_m->vm_start,
 					next_m->vm_end, prev_m->vm_pgoff, NULL);
 #endif
@@ -837,7 +833,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				end, prev->vm_pgoff, NULL);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			if (prev->vm_mirror)
+			if (prev_m)
 				vma_adjust(prev_m, prev_m->vm_start,
 					end_m, prev_m->vm_pgoff, NULL);
 #endif
@@ -858,7 +854,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				addr, prev->vm_pgoff, NULL);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			if (area->vm_mirror)
+			if (prev_m)
 				vma_adjust(prev_m, prev_m->vm_start,
 					addr_m, prev_m->vm_pgoff, NULL);
 #endif
@@ -868,7 +864,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				next->vm_pgoff - pglen, NULL);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			if (area->vm_mirror)
+			if (area_m)
 				vma_adjust(area_m, addr_m, next_m->vm_end,
 					next_m->vm_pgoff - pglen, NULL);
 #endif
@@ -1882,6 +1878,7 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 		if (vma->vm_mirror) {
 			BUG_ON(!vma->vm_mirror->vm_mirror || vma->vm_mirror->vm_mirror != vma);
 			vma->vm_mirror->vm_mirror = NULL;
+			vma->vm_mirror->vm_flags &= ~VM_EXEC;
 			vma->vm_mirror = NULL;
 		}
 #endif

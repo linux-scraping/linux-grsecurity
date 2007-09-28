@@ -334,7 +334,7 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm, unsigned long stack_top,
 				mpnt->vm_flags &= ~VM_MAYEXEC;
 #endif
 
-	}
+		}
 #endif
 
 		mpnt->vm_page_prot = vm_get_page_prot(mpnt->vm_flags);

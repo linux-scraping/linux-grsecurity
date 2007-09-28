@@ -311,17 +311,18 @@ void show_registers(struct pt_regs *regs)
 		unsigned int code_prologue = code_bytes * 43 / 64;
 		unsigned int code_len = code_bytes;
 		unsigned char c;
+		unsigned long cs_base = get_desc_base(&get_cpu_gdt_table(smp_processor_id())[(0xffff & regs->xcs) >> 3]);
 
 		printk("\n" KERN_EMERG "Stack: ");
 		show_stack_log_lvl(NULL, regs, (unsigned long *)esp, KERN_EMERG);
 
 		printk(KERN_EMERG "Code: ");
 
-		eip = (u8 *)regs->eip - code_prologue + __KERNEL_TEXT_OFFSET;
+		eip = (u8 *)regs->eip - code_prologue + cs_base;
 		if (eip < (u8 *)PAGE_OFFSET ||
 			probe_kernel_address(eip, c)) {
 			/* try starting at EIP */
-			eip = (u8 *)regs->eip + __KERNEL_TEXT_OFFSET;
+			eip = (u8 *)regs->eip + cs_base;
 			code_len = code_len - code_prologue + 1;
 		}
 		for (i = 0; i < code_len; i++, eip++) {
@@ -330,7 +331,7 @@ void show_registers(struct pt_regs *regs)
 				printk(" Bad EIP value.");
 				break;
 			}
-			if (eip == (u8 *)regs->eip + __KERNEL_TEXT_OFFSET)
+			if (eip == (u8 *)regs->eip + cs_base)
 				printk("<%02x> ", c);
 			else
 				printk("%02x ", c);

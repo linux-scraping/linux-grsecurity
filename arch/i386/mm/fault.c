@@ -846,7 +846,6 @@ void vmalloc_sync_all(void)
  */
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {
-
 	static const unsigned char trans[8] = {
 		offsetof(struct pt_regs, eax) / 4,
 		offsetof(struct pt_regs, ecx) / 4,
