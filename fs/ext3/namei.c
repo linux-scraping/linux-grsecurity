@@ -1052,6 +1052,11 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
 
 		if (!inode)
 			return ERR_PTR(-EACCES);
+
+		if (is_bad_inode(inode)) {
+			iput(inode);
+			return ERR_PTR(-ENOENT);
+		}
 	}
 	return d_splice_alias(inode, dentry);
 }
@@ -1086,6 +1091,11 @@ struct dentry *ext3_get_parent(struct dentry *child)
 
 	if (!inode)
 		return ERR_PTR(-EACCES);
+
+	if (is_bad_inode(inode)) {
+		iput(inode);
+		return ERR_PTR(-ENOENT);
+	}
 
 	parent = d_alloc_anon(inode);
 	if (!parent) {
@@ -1178,9 +1188,9 @@ static struct ext3_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
 	u32 hash2;
 	struct dx_map_entry *map;
 	char *data1 = (*bh)->b_data, *data2;
-	unsigned split, move, size, i;
+	unsigned split, move, size;
 	struct ext3_dir_entry_2 *de = NULL, *de2;
-	int	err = 0;
+	int	i, err = 0;
 
 	bh2 = ext3_append (handle, dir, &newblock, &err);
 	if (!(bh2)) {

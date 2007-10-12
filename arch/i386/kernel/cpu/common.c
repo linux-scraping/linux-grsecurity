@@ -327,6 +327,8 @@ static void __cpuinit generic_identify(struct cpuinfo_x86 * c)
 			if ( xlvl >= 0x80000004 )
 				get_model_name(c); /* Default name */
 		}
+
+		init_scattered_cpuid_features(c);
 	}
 
 	early_intel_workaround(c);
@@ -578,7 +580,6 @@ extern int nsc_init_cpu(void);
 extern int amd_init_cpu(void);
 extern int centaur_init_cpu(void);
 extern int transmeta_init_cpu(void);
-extern int rise_init_cpu(void);
 extern int nexgen_init_cpu(void);
 extern int umc_init_cpu(void);
 
@@ -590,7 +591,6 @@ void __init early_cpu_init(void)
 	amd_init_cpu();
 	centaur_init_cpu();
 	transmeta_init_cpu();
-	rise_init_cpu();
 	nexgen_init_cpu();
 	umc_init_cpu();
 	early_cpu_detect();

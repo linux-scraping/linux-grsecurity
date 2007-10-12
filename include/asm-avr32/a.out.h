@@ -20,6 +20,7 @@ struct exec
 #ifdef __KERNEL__
 
 #define __STACK_TOP	TASK_SIZE
+#define STACK_TOP_MAX	__STACK_TOP
 
 #endif
 

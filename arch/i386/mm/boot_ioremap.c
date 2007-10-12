@@ -13,7 +13,6 @@
 #include <asm/tlbflush.h>
 #include <linux/init.h>
 #include <linux/stddef.h>
-#include <linux/sched.h>
 
 /*
  * This is only for a caller who is clever enough to page-align

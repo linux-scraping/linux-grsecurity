@@ -270,7 +270,7 @@ static int parse_cmdline(char *devname, char *szstart, char *szlength)
 	}
 	T("slram: devname=%s, devstart=0x%lx, devlength=0x%lx\n",
 			devname, devstart, devlength);
-	if ((devstart < 0) || (devlength < 0) || (devlength % SLRAM_BLK_SZ != 0)) {
+	if (devlength % SLRAM_BLK_SZ != 0) {
 		E("slram: Illegal start / length parameter.\n");
 		return(-EINVAL);
 	}

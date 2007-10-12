@@ -178,7 +178,7 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 }
 #endif
 
-static int
+int
 mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	unsigned long start, unsigned long end, unsigned long newflags)
 {

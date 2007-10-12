@@ -18,10 +18,7 @@
 static void *get_uts(ctl_table *table, int write)
 {
 	char *which = table->data;
-#ifdef CONFIG_UTS_NS
-	struct uts_namespace *uts_ns = current->nsproxy->uts_ns;
-	which = (which - (char *)&init_uts_ns) + (char *)uts_ns;
-#endif
+
 	if (!write)
 		down_read(&uts_sem);
 	else
@@ -124,7 +121,7 @@ static struct ctl_table uts_kern_table[] = {
 		.proc_handler	= proc_do_uts_string,
 		.strategy	= sysctl_uts_string,
 	},
-	{}
+	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 static struct ctl_table uts_root_table[] = {
@@ -134,7 +131,7 @@ static struct ctl_table uts_root_table[] = {
 		.mode		= 0555,
 		.child		= uts_kern_table,
 	},
-	{}
+	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 static int __init utsname_sysctl_init(void)

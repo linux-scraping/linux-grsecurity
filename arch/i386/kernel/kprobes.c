@@ -35,6 +35,7 @@
 #include <asm/cacheflush.h>
 #include <asm/desc.h>
 #include <asm/uaccess.h>
+#include <asm/alternative.h>
 
 void jprobe_return_end(void);
 
@@ -187,8 +188,8 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 	pax_close_kernel(cr0);
 #endif
 
-	p->opcode = *p->addr;
-	if (can_boost(p->addr)) {
+	p->opcode = *(p->addr + __KERNEL_TEXT_OFFSET);
+	if (can_boost(p->addr + __KERNEL_TEXT_OFFSET)) {
 		p->ainsn.boostable = 0;
 	} else {
 		p->ainsn.boostable = -1;
@@ -198,16 +199,12 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 
 void __kprobes arch_arm_kprobe(struct kprobe *p)
 {
-	*p->addr = BREAKPOINT_INSTRUCTION;
-	flush_icache_range((unsigned long) p->addr,
-			   (unsigned long) p->addr + sizeof(kprobe_opcode_t));
+	text_poke(p->addr, ((unsigned char []){BREAKPOINT_INSTRUCTION}), 1);
 }
 
 void __kprobes arch_disarm_kprobe(struct kprobe *p)
 {
-	*p->addr = p->opcode;
-	flush_icache_range((unsigned long) p->addr,
-			   (unsigned long) p->addr + sizeof(kprobe_opcode_t));
+	text_poke(p->addr, &p->opcode, 1);
 }
 
 void __kprobes arch_remove_kprobe(struct kprobe *p)

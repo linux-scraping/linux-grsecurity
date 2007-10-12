@@ -15,6 +15,7 @@ typedef struct {
 	rwlock_t ldtlock; 
 	int size;
 	struct semaphore sem; 
+	unsigned long vdso;
 } mm_context_t;
 
 #endif

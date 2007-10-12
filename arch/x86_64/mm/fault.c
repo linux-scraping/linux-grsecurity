@@ -160,7 +160,7 @@ void dump_pagetable(unsigned long address)
 	pmd_t *pmd;
 	pte_t *pte;
 
-	asm("movq %%cr3,%0" : "=r" (pgd));
+	pgd = (pgd_t *)read_cr3();
 
 	pgd = __va((unsigned long)pgd & PHYSICAL_PAGE_MASK); 
 	pgd += pgd_index(address);
@@ -221,16 +221,6 @@ static int is_errata93(struct pt_regs *regs, unsigned long address)
 	}
 	return 0;
 } 
-
-int unhandled_signal(struct task_struct *tsk, int sig)
-{
-	if (is_init(tsk))
-		return 1;
-	if (tsk->ptrace & PT_PTRACED)
-		return 0;
-	return (tsk->sighand->action[sig-1].sa.sa_handler == SIG_IGN) ||
-		(tsk->sighand->action[sig-1].sa.sa_handler == SIG_DFL);
-}
 
 static noinline void pgtable_bad(unsigned long address, struct pt_regs *regs,
 				 unsigned long error_code)
@@ -302,6 +292,180 @@ static int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+#ifdef CONFIG_PAX_EMUTRAMP
+static int pax_handle_fetch_fault_32(struct pt_regs *regs)
+{
+	int err;
+
+	do { /* PaX: gcc trampoline emulation #1 */
+		unsigned char mov1, mov2;
+		unsigned short jmp;
+		unsigned int addr1, addr2;
+
+		if ((regs->rip + 11) >> 32)
+			break;
+
+		err = get_user(mov1, (unsigned char __user *)regs->rip);
+		err |= get_user(addr1, (unsigned int __user *)(regs->rip + 1));
+		err |= get_user(mov2, (unsigned char __user *)(regs->rip + 5));
+		err |= get_user(addr2, (unsigned int __user *)(regs->rip + 6));
+		err |= get_user(jmp, (unsigned short __user *)(regs->rip + 10));
+
+		if (err)
+			break;
+
+		if (mov1 == 0xB9 && mov2 == 0xB8 && jmp == 0xE0FF) {
+			regs->rcx = addr1;
+			regs->rax = addr2;
+			regs->rip = addr2;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: gcc trampoline emulation #2 */
+		unsigned char mov, jmp;
+		unsigned int addr1, addr2;
+
+		if ((regs->rip + 9) >> 32)
+			break;
+
+		err = get_user(mov, (unsigned char __user *)regs->rip);
+		err |= get_user(addr1, (unsigned int __user *)(regs->rip + 1));
+		err |= get_user(jmp, (unsigned char __user *)(regs->rip + 5));
+		err |= get_user(addr2, (unsigned int __user *)(regs->rip + 6));
+
+		if (err)
+			break;
+
+		if (mov == 0xB9 && jmp == 0xE9) {
+			regs->rcx = addr1;
+			regs->rip = (unsigned int)(regs->rip + addr2 + 10);
+			return 2;
+		}
+	} while (0);
+
+	return 1; /* PaX in action */
+}
+
+static int pax_handle_fetch_fault_64(struct pt_regs *regs)
+{
+	int err;
+
+#if 0
+14105     {
+14106       int offset = 0;
+14107       /* Try to load address using shorter movl instead of movabs.
+14108          We may want to support movq for kernel mode, but kernel does not use
+14109          trampolines at the moment.  */
+14110       if (x86_64_zext_immediate_operand (fnaddr, VOIDmode))
+14111 »·······{
+14112 »·······  fnaddr = copy_to_mode_reg (DImode, fnaddr);
+14113 »·······  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
+14114 »·······»·······»·······  gen_int_mode (0xbb41, HImode));
+14115 »·······  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, offset + 2)),
+14116 »·······»·······»·······  gen_lowpart (SImode, fnaddr));
+14117 »·······  offset += 6;
+14118 »·······}
+14119       else
+14120 »·······{
+14121 »·······  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
+14122 »·······»·······»·······  gen_int_mode (0xbb49, HImode));
+14123 »·······  emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
+14124 »·······»·······»·······  fnaddr);
+14125 »·······  offset += 10;
+14126 »·······}
+14127       /* Load static chain using movabs to r10.  */
+14128       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
+14129 »·······»·······      gen_int_mode (0xba49, HImode));
+14130       emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
+14131 »·······»·······      cxt);
+14132       offset += 10;
+14133       /* Jump to the r11 */
+14134       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
+14135 »·······»·······      gen_int_mode (0xff49, HImode));
+14136       emit_move_insn (gen_rtx_MEM (QImode, plus_constant (tramp, offset+2)),
+14137 »·······»·······      gen_int_mode (0xe3, QImode));
+14138       offset += 3;
+14139       gcc_assert (offset <= TRAMPOLINE_SIZE);
+14140     }
+
++  tramp[1] = 0xbb49;		/* mov <code>, %r11	*/
++  tramp[6] = 0xba49;		/* mov <data>, %r10	*/
++  tramp[11] = 0xff49;		/* jmp *%r11	*/
++  tramp[12] = 0x00e3;
+#endif
+
+	do { /* PaX: gcc trampoline emulation #1 */
+		unsigned short mov1, mov2, jmp1;
+		unsigned char jmp2;
+		unsigned int addr1;
+		unsigned long addr2;
+
+		err = get_user(mov1, (unsigned short __user *)regs->rip);
+		err |= get_user(addr1, (unsigned int __user *)(regs->rip + 2));
+		err |= get_user(mov2, (unsigned short __user *)(regs->rip + 6));
+		err |= get_user(addr2, (unsigned long __user *)(regs->rip + 8));
+		err |= get_user(jmp1, (unsigned short __user *)(regs->rip + 16));
+		err |= get_user(jmp2, (unsigned char __user *)(regs->rip + 18));
+
+		if (err)
+			break;
+
+		if (mov1 == 0xBB41 && mov2 == 0xBA49 && jmp1 == 0xFF49 && jmp2 == 0xE3) {
+			regs->r11 = addr1;
+			regs->r10 = addr2;
+			regs->rip = addr1;
+			return 2;
+		}
+	} while (0);
+
+	do { /* PaX: gcc trampoline emulation #2 */
+		unsigned short mov1, mov2, jmp1;
+		unsigned char jmp2;
+		unsigned long addr1, addr2;
+
+		err = get_user(mov1, (unsigned short __user *)regs->rip);
+		err |= get_user(addr1, (unsigned long __user *)(regs->rip + 2));
+		err |= get_user(mov2, (unsigned short __user *)(regs->rip + 10));
+		err |= get_user(addr2, (unsigned long __user *)(regs->rip + 12));
+		err |= get_user(jmp1, (unsigned short __user *)(regs->rip + 20));
+		err |= get_user(jmp2, (unsigned char __user *)(regs->rip + 22));
+
+		if (err)
+			break;
+
+		if (mov1 == 0xBB49 && mov2 == 0xBA49 && jmp1 == 0xFF49 && jmp2 == 0xE3) {
+			regs->r11 = addr1;
+			regs->r10 = addr2;
+			regs->rip = addr1;
+			return 2;
+		}
+	} while (0);
+
+	return 1; /* PaX in action */
+}
+
+/*
+ * PaX: decide what to do with offenders (regs->rip = fault address)
+ *
+ * returns 1 when task should be killed
+ *         2 when gcc trampoline was detected
+ */
+static int pax_handle_fetch_fault(struct pt_regs *regs)
+{
+	if (regs->eflags & X86_EFLAGS_VM)
+		return 1;
+
+	if (!(current->mm->pax_flags & MF_PAX_EMUTRAMP))
+		return 1;
+
+	if (regs->cs == __USER32_CS || (regs->cs & (1<<2)))
+		return pax_handle_fetch_fault_32(regs);
+	else
+		return pax_handle_fetch_fault_64(regs);
+}
+#endif
+
 #ifdef CONFIG_PAX_PAGEEXEC
 void pax_report_insns(void *pc, void *sp)
 {
@@ -329,8 +493,8 @@ void pax_report_insns(void *pc, void *sp)
 }
 #endif
 
-int page_fault_trace = 0;
-int exception_trace = 1;
+static int page_fault_trace;
+int show_unhandled_signals = 1;
 
 /*
  * This routine handles page faults.  It determines the address,
@@ -345,7 +509,7 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 	struct vm_area_struct * vma;
 	unsigned long address;
 	const struct exception_table_entry *fixup;
-	int write;
+	int write, fault;
 	unsigned long flags;
 	siginfo_t info;
 
@@ -354,7 +518,7 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 	prefetchw(&mm->mmap_sem);
 
 	/* get the address */
-	__asm__("movq %%cr2,%0":"=r" (address));
+	address = read_cr2();
 
 	info.si_code = SEGV_MAPERR;
 
@@ -411,6 +575,13 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
 	 */
 	if (unlikely(in_atomic() || !mm))
 		goto bad_area_nosemaphore;
+
+	/*
+	 * User-mode registers count as a user access even for any
+	 * potential system fault or CPU buglet.
+	 */
+	if (user_mode_vm(regs))
+		error_code |= PF_USER;
 
  again:
 	/* When running in the kernel we expect faults to occur only to
@@ -480,19 +651,18 @@ good_area:
 	 * make sure we exit gracefully rather than endlessly redo
 	 * the fault.
 	 */
-	switch (handle_mm_fault(mm, vma, address, write)) {
-	case VM_FAULT_MINOR:
-		tsk->min_flt++;
-		break;
-	case VM_FAULT_MAJOR:
-		tsk->maj_flt++;
-		break;
-	case VM_FAULT_SIGBUS:
-		goto do_sigbus;
-	default:
-		goto out_of_memory;
+	fault = handle_mm_fault(mm, vma, address, write);
+	if (unlikely(fault & VM_FAULT_ERROR)) {
+		if (fault & VM_FAULT_OOM)
+			goto out_of_memory;
+		else if (fault & VM_FAULT_SIGBUS)
+			goto do_sigbus;
+		BUG();
 	}
-
+	if (fault & VM_FAULT_MAJOR)
+		tsk->maj_flt++;
+	else
+		tsk->min_flt++;
 	up_read(&mm->mmap_sem);
 	return;
 
@@ -512,6 +682,21 @@ bad_area_nosemaphore:
 		 */
 		local_irq_enable();
 
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (mm && (mm->pax_flags & MF_PAX_PAGEEXEC) && (error_code & 16)) {
+
+#ifdef CONFIG_PAX_EMUTRAMP
+			switch (pax_handle_fetch_fault(regs)) {
+			case 2:
+				return;
+			}
+#endif
+
+			pax_report_fault(regs, (void*)regs->rip, (void*)regs->rsp);
+			do_exit(SIGKILL);
+		}
+#endif
+
 		if (is_prefetch(regs, address, error_code))
 			return;
 
@@ -525,20 +710,14 @@ bad_area_nosemaphore:
 		    (address >> 32))
 			return;
 
-		if (exception_trace && unhandled_signal(tsk, SIGSEGV)) {
+		if (show_unhandled_signals && unhandled_signal(tsk, SIGSEGV) &&
+		    printk_ratelimit()) {
 			printk(
 		       "%s%s[%d]: segfault at %016lx rip %016lx rsp %016lx error %lx\n",
 					tsk->pid > 1 ? KERN_INFO : KERN_EMERG,
 					tsk->comm, tsk->pid, address, regs->rip,
 					regs->rsp, error_code);
 		}
-
-#ifdef CONFIG_PAX_PAGEEXEC
-		if (mm && (mm->pax_flags & MF_PAX_PAGEEXEC) && (error_code & 16)) {
-			pax_report_fault(regs, (void*)regs->rip, (void*)regs->rsp);
-			do_exit(SIGKILL);
-		}
-#endif
 
 		tsk->thread.cr2 = address;
 		/* Kernel addresses are always protection faults */
@@ -606,7 +785,7 @@ out_of_memory:
 	}
 	printk("VM: killing process %s\n", tsk->comm);
 	if (error_code & 4)
-		do_exit(SIGKILL);
+		do_group_exit(SIGKILL);
 	goto no_context;
 
 do_sigbus:

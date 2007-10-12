@@ -81,14 +81,14 @@ choice
 
 	  NOTE: this option is for developers/integrators only.
 
-config PAX_NO_ACL_FLAGS
-	bool 'none'
+	config PAX_NO_ACL_FLAGS
+		bool 'none'
 
-config PAX_HAVE_ACL_FLAGS
-	bool 'direct'
+	config PAX_HAVE_ACL_FLAGS
+		bool 'direct'
 
-config PAX_HOOK_ACL_FLAGS
-	bool 'hook'
+	config PAX_HOOK_ACL_FLAGS
+		bool 'hook'
 endchoice
 
 endmenu
@@ -153,7 +153,7 @@ config PAX_SEGMEXEC
 	  3 GB.
 
 config PAX_EMUTRAMP
-	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86_32)
+	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86)
 	default y if PARISC || PPC32
 	help
 	  There are some programs and libraries that for one reason or

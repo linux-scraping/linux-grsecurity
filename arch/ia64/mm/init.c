@@ -132,19 +132,19 @@ ia64_init_addr_space (void)
 		vma->vm_end = vma->vm_start + PAGE_SIZE;
 		vma->vm_flags = VM_DATA_DEFAULT_FLAGS|VM_GROWSUP|VM_ACCOUNT;
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-		if (current->mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-			vma->vm_flags &= ~VM_EXEC;
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (current->mm->pax_flags & MF_PAX_PAGEEXEC) {
+			vm->vm_flags &= ~VM_EXEC;
 
 #ifdef CONFIG_PAX_MPROTECT
 			if (current->mm->pax_flags & MF_PAX_MPROTECT)
 				vma->vm_flags &= ~VM_MAYEXEC;
 #endif
 
-	}
+		}
 #endif
 
-		vma->vm_page_prot = vm_get_page_prot(VM_DATA_DEFAULT_FLAGS);
+		vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 		down_write(&current->mm->mmap_sem);
 		if (insert_vm_struct(current->mm, vma)) {
 			up_write(&current->mm->mmap_sem);

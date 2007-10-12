@@ -131,6 +131,11 @@ const struct address_space_operations hfsplus_aops = {
 	.writepages	= hfsplus_writepages,
 };
 
+struct dentry_operations hfsplus_dentry_operations = {
+	.d_hash       = hfsplus_hash_dentry,
+	.d_compare    = hfsplus_compare_dentry,
+};
+
 static struct dentry *hfsplus_file_lookup(struct inode *dir, struct dentry *dentry,
 					  struct nameidata *nd)
 {
@@ -288,7 +293,7 @@ static const struct file_operations hfsplus_file_operations = {
 	.write		= do_sync_write,
 	.aio_write	= generic_file_aio_write,
 	.mmap		= generic_file_mmap,
-	.sendfile	= generic_file_sendfile,
+	.splice_read	= generic_file_splice_read,
 	.fsync		= file_fsync,
 	.open		= hfsplus_file_open,
 	.release	= hfsplus_file_release,
@@ -413,7 +418,7 @@ int hfsplus_cat_read_inode(struct inode *inode, struct hfs_find_data *fd)
 		struct hfsplus_cat_folder *folder = &entry.folder;
 
 		if (fd->entrylength < sizeof(struct hfsplus_cat_folder))
-			/* panic? */;
+			{/* panic? */}
 		hfs_bnode_read(fd->bnode, &entry, fd->entryoffset,
 					sizeof(struct hfsplus_cat_folder));
 		hfsplus_get_perms(inode, &folder->permissions, 1);
@@ -430,7 +435,7 @@ int hfsplus_cat_read_inode(struct inode *inode, struct hfs_find_data *fd)
 		struct hfsplus_cat_file *file = &entry.file;
 
 		if (fd->entrylength < sizeof(struct hfsplus_cat_file))
-			/* panic? */;
+			{/* panic? */}
 		hfs_bnode_read(fd->bnode, &entry, fd->entryoffset,
 					sizeof(struct hfsplus_cat_file));
 
@@ -486,7 +491,7 @@ int hfsplus_cat_write_inode(struct inode *inode)
 		struct hfsplus_cat_folder *folder = &entry.folder;
 
 		if (fd.entrylength < sizeof(struct hfsplus_cat_folder))
-			/* panic? */;
+			{/* panic? */}
 		hfs_bnode_read(fd.bnode, &entry, fd.entryoffset,
 					sizeof(struct hfsplus_cat_folder));
 		/* simple node checks? */
@@ -508,7 +513,7 @@ int hfsplus_cat_write_inode(struct inode *inode)
 		struct hfsplus_cat_file *file = &entry.file;
 
 		if (fd.entrylength < sizeof(struct hfsplus_cat_file))
-			/* panic? */;
+			{/* panic? */}
 		hfs_bnode_read(fd.bnode, &entry, fd.entryoffset,
 					sizeof(struct hfsplus_cat_file));
 		hfsplus_inode_write_fork(inode, &file->data_fork);

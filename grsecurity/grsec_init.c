@@ -73,7 +73,6 @@ grsecurity_init(void)
 	int j;
 	/* create the per-cpu shared pages */
 
-	preempt_disable();
 	for (j = 0; j < 4; j++) {
 		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE);
 		if (gr_shared_page[j] == NULL) {
@@ -81,7 +80,6 @@ grsecurity_init(void)
 			return;
 		}
 	}
-	preempt_enable();
 
 	/* allocate log buffers */
 	gr_alert_log_fmt = kmalloc(512, GFP_KERNEL);

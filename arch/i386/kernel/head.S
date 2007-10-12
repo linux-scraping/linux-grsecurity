@@ -225,11 +225,15 @@ page_pde_offset = ((__PAGE_OFFSET >> 22) * (PAGE_SIZE_asm / PTRS_PER_PTE));
  * which will be freed later
  */
 
-#ifdef CONFIG_HOTPLUG_CPU
-.section .text,"ax",@progbits
-#else
+#ifndef CONFIG_HOTPLUG_CPU
 .section .init.text,"ax",@progbits
 #endif
+
+	/* Do an early initialization of the fixmap area */
+	movl $(swapper_pg_dir - __PAGE_OFFSET), %edx
+	movl $(swapper_pg_pmd - __PAGE_OFFSET), %eax
+	addl $0x007, %eax			/* 0x007 = PRESENT+RW+USER */
+	movl %eax, 4092(%edx)
 
 #ifdef CONFIG_SMP
 ENTRY(startup_32_smp)
@@ -565,6 +569,7 @@ ignore_int:
  * BSS section
  */
 .section .swapper_pg_dir,"a",@progbits
+	.align PAGE_SIZE_asm
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
 	.long swapper_pm_dir-__PAGE_OFFSET+1
@@ -587,6 +592,9 @@ ENTRY(swapper_pm_dir)
 	.fill 512,8,0
 	.fill 512,8,0
 #endif
+
+ENTRY(swapper_pg_pmd)
+	.fill 1024,4,0
 
 .section .empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)
@@ -622,6 +630,8 @@ int_msg:
 fault_msg:
 	.ascii "Int %d: CR2 %p  err %p  EIP %p  CS %p  flags %p\n"
 	.asciz "Stack: %p %p %p %p %p %p %p %p\n"
+
+#include "../xen/xen-head.S"
 
 /*
  * The IDT and GDT 'descriptors' are a strange 48-bit object

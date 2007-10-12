@@ -102,7 +102,7 @@ atomic_t vm_committed_space = ATOMIC_INIT(0);
  * Note this is a helper function intended to be used by LSMs which
  * wish to use this logic.
  */
-int __vm_enough_memory(long pages, int cap_sys_admin)
+int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 {
 	unsigned long free, allowed;
 
@@ -175,7 +175,7 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 
 	/* Don't let a single process grow too big:
 	   leave 3% of the size of this process for other processes */
-	allowed -= current->mm->total_vm / 32;
+	allowed -= mm->total_vm / 32;
 
 	/*
 	 * cast `allowed' as a signed long because vm_committed_space
@@ -964,18 +964,11 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 			unsigned long flags, unsigned long pgoff)
 {
 	struct mm_struct * mm = current->mm;
-	struct vm_area_struct * vma, * prev;
 	struct inode *inode;
 	unsigned int vm_flags;
-	int correct_wcount = 0;
 	int error;
-	struct rb_node ** rb_link, * rb_parent;
 	int accountable = 1;
-	unsigned long charged = 0, reqprot = prot;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	struct vm_area_struct *vma_m = NULL;
-#endif
+	unsigned long reqprot = prot;
 
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
@@ -1118,12 +1111,67 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 		}
 	}
 
-	error = security_file_mmap(file, reqprot, prot, flags);
+	error = security_file_mmap(file, reqprot, prot, flags, addr, 0);
 	if (error)
 		return error;
-		
+
 	if (!gr_acl_handle_mmap(file, prot))
 		return -EACCES;
+
+	return mmap_region(file, addr, len, flags, vm_flags, pgoff,
+			   accountable);
+}
+EXPORT_SYMBOL(do_mmap_pgoff);
+
+/*
+ * Some shared mappigns will want the pages marked read-only
+ * to track write events. If so, we'll downgrade vm_page_prot
+ * to the private version (using protection_map[] without the
+ * VM_SHARED bit).
+ */
+int vma_wants_writenotify(struct vm_area_struct *vma)
+{
+	unsigned long vm_flags = vma->vm_flags;
+
+	/* If it was private or non-writable, the write bit is already clear */
+	if ((vm_flags & (VM_WRITE|VM_SHARED)) != (VM_WRITE|VM_SHARED))
+		return 0;
+
+	/* The backer wishes to know when pages are first written to? */
+	if (vma->vm_ops && vma->vm_ops->page_mkwrite)
+		return 1;
+
+	/* The open routine did something to the protections already? */
+	if (pgprot_val(vma->vm_page_prot) !=
+	    pgprot_val(vm_get_page_prot(vm_flags)))
+		return 0;
+
+	/* Specialty mapping? */
+	if (vm_flags & (VM_PFNMAP|VM_INSERTPAGE))
+		return 0;
+
+	/* Can the mapping track the dirty pages? */
+	return vma->vm_file && vma->vm_file->f_mapping &&
+		mapping_cap_account_dirty(vma->vm_file->f_mapping);
+}
+
+
+unsigned long mmap_region(struct file *file, unsigned long addr,
+			  unsigned long len, unsigned long flags,
+			  unsigned int vm_flags, unsigned long pgoff,
+			  int accountable)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma, *prev;
+	int correct_wcount = 0;
+	int error;
+	struct rb_node **rb_link, *rb_parent;
+	unsigned long charged = 0;
+	struct inode *inode =  file ? file->f_path.dentry->d_inode : NULL;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m = NULL;
+#endif
 
 	/* Clear old maps */
 	error = -ENOMEM;
@@ -1273,12 +1321,8 @@ out:
 		mm->locked_vm += len >> PAGE_SHIFT;
 		make_pages_present(addr, addr + len);
 	}
-	if (flags & MAP_POPULATE) {
-		up_write(&mm->mmap_sem);
-		sys_remap_file_pages(addr, len, 0,
-					pgoff, flags & MAP_NONBLOCK);
-		down_write(&mm->mmap_sem);
-	}
+	if ((flags & MAP_POPULATE) && !(flags & MAP_NONBLOCK))
+		make_pages_present(addr, addr + len);
 	return addr;
 
 unmap_and_free_vma:
@@ -1303,8 +1347,6 @@ unacct_error:
 		vm_unacct_memory(charged);
 	return error;
 }
-
-EXPORT_SYMBOL(do_mmap_pgoff);
 
 /* Get an address range which is currently unmapped.
  * For shmat() with addr=0.
@@ -1748,16 +1790,11 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 }
 #endif /* CONFIG_STACK_GROWSUP || CONFIG_IA64 */
 
-#ifdef CONFIG_STACK_GROWSUP
-int expand_stack(struct vm_area_struct *vma, unsigned long address)
-{
-	return expand_upwards(vma, address);
-}
-#else
 /*
  * vma is the first one with address < vma->vm_start.  Have to extend vma.
  */
-int expand_stack(struct vm_area_struct *vma, unsigned long address)
+static inline int expand_downwards(struct vm_area_struct *vma,
+				   unsigned long address)
 {
 	int error;
 
@@ -1807,6 +1844,60 @@ int expand_stack(struct vm_area_struct *vma, unsigned long address)
 	}
 	anon_vma_unlock(vma);
 	return error;
+}
+
+int expand_stack_downwards(struct vm_area_struct *vma, unsigned long address)
+{
+	return expand_downwards(vma, address);
+}
+
+#ifdef CONFIG_STACK_GROWSUP
+int expand_stack(struct vm_area_struct *vma, unsigned long address)
+{
+	return expand_upwards(vma, address);
+}
+
+struct vm_area_struct *
+find_extend_vma(struct mm_struct *mm, unsigned long addr)
+{
+	struct vm_area_struct *vma, *prev;
+
+	addr &= PAGE_MASK;
+	vma = find_vma_prev(mm, addr, &prev);
+	if (vma && (vma->vm_start <= addr))
+		return vma;
+	if (!prev || expand_stack(prev, addr))
+		return NULL;
+	if (prev->vm_flags & VM_LOCKED)
+		make_pages_present(addr, prev->vm_end);
+	return prev;
+}
+#else
+int expand_stack(struct vm_area_struct *vma, unsigned long address)
+{
+	return expand_downwards(vma, address);
+}
+
+struct vm_area_struct *
+find_extend_vma(struct mm_struct * mm, unsigned long addr)
+{
+	struct vm_area_struct * vma;
+	unsigned long start;
+
+	addr &= PAGE_MASK;
+	vma = find_vma(mm,addr);
+	if (!vma)
+		return NULL;
+	if (vma->vm_start <= addr)
+		return vma;
+	if (!(vma->vm_flags & VM_GROWSDOWN))
+		return NULL;
+	start = vma->vm_start;
+	if (expand_stack(vma, addr))
+		return NULL;
+	if (vma->vm_flags & VM_LOCKED)
+		make_pages_present(addr, start);
+	return vma;
 }
 #endif
 
@@ -2371,7 +2462,7 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 	if (__vma && __vma->vm_start < vma->vm_end)
 		return -ENOMEM;
 	if ((vma->vm_flags & VM_ACCOUNT) &&
-	     security_vm_enough_memory(vma_pages(vma)))
+	     security_vm_enough_memory_mm(mm, vma_pages(vma)))
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_SEGMEXEC

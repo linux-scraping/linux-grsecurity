@@ -7,7 +7,7 @@
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
-#define paravirt_alloc_pt(pfn) do { } while (0)
+#define paravirt_alloc_pt(mm, pfn) do { } while (0)
 #define paravirt_alloc_pd(pfn) do { } while (0)
 #define paravirt_alloc_pd(pfn) do { } while (0)
 #define paravirt_alloc_pd_clone(pfn, clonepfn, start, count) do { } while (0)
@@ -18,20 +18,20 @@
 #ifdef CONFIG_COMPAT_VDSO
 #define pmd_populate_kernel(mm, pmd, pte)			\
 do {								\
-	paravirt_alloc_pt(__pa(pte) >> PAGE_SHIFT);		\
+	paravirt_alloc_pt(mm, __pa(pte) >> PAGE_SHIFT);		\
 	set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)));		\
 } while (0)
 #else
 #define pmd_populate_kernel(mm, pmd, pte)			\
 do {								\
-	paravirt_alloc_pt(__pa(pte) >> PAGE_SHIFT);		\
+	paravirt_alloc_pt(mm, __pa(pte) >> PAGE_SHIFT);		\
 	set_pmd(pmd, __pmd(_KERNPG_TABLE + __pa(pte)));		\
 } while (0)
 #endif
 
 #define pmd_populate(mm, pmd, pte) 				\
 do {								\
-	paravirt_alloc_pt(page_to_pfn(pte));			\
+	paravirt_alloc_pt(mm, page_to_pfn(pte));		\
 	set_pmd(pmd, __pmd(_PAGE_TABLE +			\
 		((unsigned long long)page_to_pfn(pte) <<	\
 			(unsigned long long) PAGE_SHIFT)));	\

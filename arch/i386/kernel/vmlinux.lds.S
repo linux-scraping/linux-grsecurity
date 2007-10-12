@@ -73,7 +73,7 @@ SECTIONS
   .init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {
 	__init_begin = .;
 	*(.init.data)
-	}
+  }
   . = ALIGN(16);
   .init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET) {
   	__setup_start = .;
@@ -121,6 +121,7 @@ SECTIONS
 	__per_cpu_start = . + per_cpu_start;
 	LONG(0)
 	*(.data.percpu)
+	*(.data.percpu.shared_aligned)
 	__per_cpu_end = . + per_cpu_start;
   } :percpu
   . += per_cpu_start;
@@ -170,7 +171,9 @@ SECTIONS
   	__stop___ex_table = .;
   } :rodata
 
-  BUG_TABLE
+  NOTES :rodata :note
+
+  BUG_TABLE :rodata
 
   . = ALIGN(4);
   .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
@@ -194,18 +197,20 @@ SECTIONS
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-  . = ALIGN(4096);
 
+#ifdef CONFIG_MODULES
+  . = ALIGN(4096);
   .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 	MODULES_VADDR = .;
 	BYTE(0)
-	. += (4 * 1024 * 1024);
+	. += (6 * 1024 * 1024);
 	. = ALIGN(1 << PMD_SHIFT) - 1;
 	MODULES_END = .;
   }
-
 #else
-  . = ALIGN(32);
+  . = ALIGN(1 << PMD_SHIFT) - 1;
+#endif
+
 #endif
 
   /* writeable */
@@ -224,6 +229,11 @@ SECTIONS
   	__nosave_end = .;
   }
 
+  . = ALIGN(4096);
+  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
+	*(.data.page_aligned)
+  }
+
   . = ALIGN(32);
   .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
 	*(.data.cacheline_aligned)
@@ -240,8 +250,6 @@ SECTIONS
   .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
 	*(.data.init_task)
   }
-
-  . = ALIGN(4096);
 
   .bss : AT(ADDR(.bss) - LOAD_OFFSET) {
 	__bss_start = .;		/* BSS */
@@ -263,6 +271,4 @@ SECTIONS
   STABS_DEBUG
 
   DWARF_DEBUG
-
-  NOTES
 }

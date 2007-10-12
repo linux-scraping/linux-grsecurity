@@ -2,13 +2,19 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
+#include <linux/kprobes.h>
+#include <linux/mm.h>
+#include <linux/vmalloc.h>
 #include <asm/alternative.h>
 #include <asm/sections.h>
-#include <asm/desc.h>
+#include <asm/pgtable.h>
+#include <asm/mce.h>
+#include <asm/nmi.h>
 
-static int noreplace_smp     = 0;
-static int smp_alt_once      = 0;
-static int debug_alternative = 0;
+#define MAX_PATCH_LEN (255-1)
+
+#ifdef CONFIG_HOTPLUG_CPU
+static int smp_alt_once;
 
 static int __init bootonly(char *str)
 {
@@ -16,6 +22,11 @@ static int __init bootonly(char *str)
 	return 1;
 }
 __setup("smp-alt-boot", bootonly);
+#else
+#define smp_alt_once 1
+#endif
+
+static int debug_alternative;
 
 static int __init debug_alt(char *str)
 {
@@ -23,6 +34,8 @@ static int __init debug_alt(char *str)
 	return 1;
 }
 __setup("debug-alternative", debug_alt);
+
+static int noreplace_smp;
 
 static int __init setup_noreplace_smp(char *str)
 {
@@ -137,7 +150,8 @@ static unsigned char** find_nop_table(void)
 
 #endif /* CONFIG_X86_64 */
 
-static void nop_out(void *insns, unsigned int len)
+/* Use this to add nops to a buffer, then text_poke the whole buffer. */
+static void add_nops(void *insns, unsigned int len)
 {
 	unsigned char **noptable = find_nop_table();
 
@@ -163,21 +177,15 @@ extern u8 *__smp_locks[], *__smp_locks_end[];
 void apply_alternatives(struct alt_instr *start, struct alt_instr *end)
 {
 	struct alt_instr *a;
-	u8 *instr;
-	int diff;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
+	char insnbuf[MAX_PATCH_LEN];
 
 	DPRINTK("%s: alt table %p -> %p\n", __FUNCTION__, start, end);
 	for (a = start; a < end; a++) {
+		u8 *instr = a->instr;
 		BUG_ON(a->replacementlen > a->instrlen);
+		BUG_ON(a->instrlen > sizeof(insnbuf));
 		if (!boot_cpu_has(a->cpuid))
 			continue;
-		instr = a->instr + __KERNEL_TEXT_OFFSET;
 #ifdef CONFIG_X86_64
 		/* vsyscall code is not mapped yet. resolve it manually. */
 		if (instr >= (u8 *)VSYSCALL_START && instr < (u8*)VSYSCALL_END) {
@@ -186,15 +194,11 @@ void apply_alternatives(struct alt_instr *start, struct alt_instr *end)
 				__FUNCTION__, a->instr, instr);
 		}
 #endif
-		memcpy(instr, a->replacement, a->replacementlen);
-		diff = a->instrlen - a->replacementlen;
-		nop_out(instr + a->replacementlen, diff);
+		memcpy(insnbuf, a->replacement, a->replacementlen);
+		add_nops(insnbuf + a->replacementlen,
+			 a->instrlen - a->replacementlen);
+		text_poke(instr, insnbuf, a->instrlen);
 	}
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
 }
 
 #ifdef CONFIG_SMP
@@ -203,53 +207,31 @@ static void alternatives_smp_lock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 {
 	u8 **ptr;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
 	for (ptr = start; ptr < end; ptr++) {
 		if (*ptr < text)
 			continue;
 		if (*ptr > text_end)
 			continue;
-		*(*ptr + __KERNEL_TEXT_OFFSET) = 0xf0; /* lock prefix */
-	}
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+		text_poke(*ptr, ((unsigned char []){0xf0}), 1); /* add lock prefix */
+	};
 }
 
 static void alternatives_smp_unlock(u8 **start, u8 **end, u8 *text, u8 *text_end)
 {
 	u8 **ptr;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
+	char insn[1];
 
 	if (noreplace_smp)
 		return;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	add_nops(insn, 1);
 	for (ptr = start; ptr < end; ptr++) {
 		if (*ptr < text)
 			continue;
 		if (*ptr > text_end)
 			continue;
-		nop_out(*ptr + __KERNEL_TEXT_OFFSET, 1);
-	}
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+		text_poke(*ptr, insn, 1);
+	};
 }
 
 struct smp_alt_module {
@@ -375,38 +357,26 @@ void apply_paravirt(struct paravirt_patch_site *start,
 		    struct paravirt_patch_site *end)
 {
 	struct paravirt_patch_site *p;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
+	char insnbuf[MAX_PATCH_LEN];
 
 	if (noreplace_paravirt)
 		return;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 	for (p = start; p < end; p++) {
 		unsigned int used;
-		u8 *instr = p->instr + __KERNEL_TEXT_OFFSET;
 
-		used = paravirt_ops.patch(p->instrtype, p->clobbers, instr,
-					  p->len);
+		BUG_ON(p->len > MAX_PATCH_LEN);
+		/* prep the buffer with the original instructions */
+		memcpy(insnbuf, p->instr, p->len);
+		used = paravirt_ops.patch(p->instrtype, p->clobbers, insnbuf,
+					  (unsigned long)p->instr, p->len);
 
 		BUG_ON(used > p->len);
 
 		/* Pad the rest with nops */
-		nop_out(instr + used, p->len - used);
+		add_nops(insnbuf + used, p->len - used);
+		text_poke(p->instr, insnbuf, p->len);
 	}
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-	/* Sync to be conservative, in case we patched following
-	 * instructions */
-	sync_core();
 }
 extern struct paravirt_patch_site __start_parainstructions[],
 	__stop_parainstructions[];
@@ -415,6 +385,14 @@ extern struct paravirt_patch_site __start_parainstructions[],
 void __init alternative_instructions(void)
 {
 	unsigned long flags;
+
+	/* The patching is not fully atomic, so try to avoid local interruptions
+	   that might execute the to be patched code.
+	   Other CPUs are not running. */
+	stop_nmi();
+#ifdef CONFIG_X86_MCE
+	stop_mce();
+#endif
 
 	local_irq_save(flags);
 	apply_alternatives(__alt_instructions, __alt_instructions_end);
@@ -425,8 +403,6 @@ void __init alternative_instructions(void)
 #ifdef CONFIG_HOTPLUG_CPU
 	if (num_possible_cpus() < 2)
 		smp_alt_once = 1;
-#else
-	smp_alt_once = 1;
 #endif
 
 #ifdef CONFIG_SMP
@@ -450,4 +426,38 @@ void __init alternative_instructions(void)
 #endif
  	apply_paravirt(__parainstructions, __parainstructions_end);
 	local_irq_restore(flags);
+
+	restart_nmi();
+#ifdef CONFIG_X86_MCE
+	restart_mce();
+#endif
+}
+
+/*
+ * Warning:
+ * When you use this code to patch more than one byte of an instruction
+ * you need to make sure that other CPUs cannot execute this code in parallel.
+ * Also no thread must be currently preempted in the middle of these instructions.
+ * And on the local CPU you need to be protected again NMI or MCE handlers
+ * seeing an inconsistent instruction while you patch.
+ */
+void __kprobes text_poke(void *addr, unsigned char *opcode, int len)
+{
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	addr += __KERNEL_TEXT_OFFSET;
+	memcpy(addr, opcode, len);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+	sync_core();
+	/* Could also do a CLFLUSH here to speed up CPU recovery; but
+	   that causes hangs on some VIA CPUs. */
 }

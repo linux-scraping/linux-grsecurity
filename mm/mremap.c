@@ -126,7 +126,7 @@ static void move_ptes(struct vm_area_struct *vma, pmd_t *old_pmd,
 
 #define LATENCY_LIMIT	(64 * PAGE_SIZE)
 
-static unsigned long move_page_tables(struct vm_area_struct *vma,
+unsigned long move_page_tables(struct vm_area_struct *vma,
 		unsigned long old_addr, struct vm_area_struct *new_vma,
 		unsigned long new_addr, unsigned long len)
 {
@@ -304,6 +304,10 @@ unsigned long do_mremap(unsigned long addr,
 		if (addr + old_len > new_addr && new_addr + new_len > addr)
 			goto out;
 
+		ret = security_file_mmap(0, 0, 0, 0, new_addr, 1);
+		if (ret)
+			goto out;
+
 		ret = do_munmap(mm, new_addr, new_len);
 		if (ret)
 			goto out;
@@ -412,8 +416,13 @@ unsigned long do_mremap(unsigned long addr,
 
 			new_addr = get_unmapped_area(vma->vm_file, 0, new_len,
 						vma->vm_pgoff, map_flags);
-			ret = new_addr;
-			if (new_addr & ~PAGE_MASK)
+			if (new_addr & ~PAGE_MASK) {
+				ret = new_addr;
+				goto out;
+			}
+
+			ret = security_file_mmap(0, 0, 0, 0, new_addr, 1);
+			if (ret)
 				goto out;
 		}
 		map_flags = vma->vm_flags;

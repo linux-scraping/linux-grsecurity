@@ -1,3 +1,4 @@
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>

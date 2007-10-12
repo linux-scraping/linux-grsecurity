@@ -161,7 +161,7 @@ static struct ctl_table ipc_kern_table[] = {
 		.proc_handler	= proc_ipc_dointvec,
 		.strategy	= sysctl_ipc_data,
 	},
-	{}
+	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 static struct ctl_table ipc_root_table[] = {
@@ -171,7 +171,7 @@ static struct ctl_table ipc_root_table[] = {
 		.mode		= 0555,
 		.child		= ipc_kern_table,
 	},
-	{}
+	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 static int __init ipc_sysctl_init(void)

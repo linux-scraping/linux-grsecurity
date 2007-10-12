@@ -30,6 +30,9 @@ int syscall32_setup_pages(struct linux_binprm *bprm, int exstack)
 	struct mm_struct *mm = current->mm;
 	int ret;
 
+	if (!sysctl_vsyscall32)
+		return 0;
+
 	down_write(&mm->mmap_sem);
 	/*
 	 * MAYWRITE to allow gdb to COW and set breakpoints
@@ -47,14 +50,6 @@ int syscall32_setup_pages(struct linux_binprm *bprm, int exstack)
 				      syscall32_pages);
 	up_write(&mm->mmap_sem);
 	return ret;
-}
-
-const char *arch_vma_name(struct vm_area_struct *vma)
-{
-	if (vma->vm_start == VSYSCALL32_BASE &&
-	    vma->vm_mm && vma->vm_mm->task_size == IA32_PAGE_OFFSET)
-		return "[vdso]";
-	return NULL;
 }
 
 static int __init init_syscall32(void)

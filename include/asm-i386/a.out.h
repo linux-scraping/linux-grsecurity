@@ -25,6 +25,8 @@ struct exec
 #define __STACK_TOP TASK_SIZE
 #endif
 
+#define STACK_TOP_MAX	TASK_SIZE
+
 #endif
 
 #endif /* __A_OUT_GNU_H__ */

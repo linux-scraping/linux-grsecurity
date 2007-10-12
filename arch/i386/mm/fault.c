@@ -316,6 +316,8 @@ static inline int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+int show_unhandled_signals = 1;
+
 /*
  * This routine handles page faults.  It determines the address,
  * and the problem, and then passes it off to one of the appropriate
@@ -335,6 +337,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 	struct mm_struct *mm;
 	struct vm_area_struct * vma;
 	int write, si_code;
+	int fault;
 	pte_t *pte;
 
 #ifdef CONFIG_PAX_PAGEEXEC
@@ -562,20 +565,18 @@ good_area:
 	 * make sure we exit gracefully rather than endlessly redo
 	 * the fault.
 	 */
-	switch (handle_mm_fault(mm, vma, address, write)) {
-		case VM_FAULT_MINOR:
-			tsk->min_flt++;
-			break;
-		case VM_FAULT_MAJOR:
-			tsk->maj_flt++;
-			break;
-		case VM_FAULT_SIGBUS:
-			goto do_sigbus;
-		case VM_FAULT_OOM:
+	fault = handle_mm_fault(mm, vma, address, write);
+	if (unlikely(fault & VM_FAULT_ERROR)) {
+		if (fault & VM_FAULT_OOM)
 			goto out_of_memory;
-		default:
-			BUG();
+		else if (fault & VM_FAULT_SIGBUS)
+			goto do_sigbus;
+		BUG();
 	}
+	if (fault & VM_FAULT_MAJOR)
+		tsk->maj_flt++;
+	else
+		tsk->min_flt++;
 
 	/*
 	 * Did it hit the DOS screen memory VA from vm86 mode?
@@ -645,6 +646,14 @@ bad_area_nopax:
 		if (is_prefetch(regs, address, error_code))
 			return;
 
+		if (show_unhandled_signals && unhandled_signal(tsk, SIGSEGV) &&
+		    printk_ratelimit()) {
+			printk("%s%s[%d]: segfault at %08lx eip %08lx "
+			    "esp %08lx error %lx\n",
+			    tsk->pid > 1 ? KERN_INFO : KERN_EMERG,
+			    tsk->comm, tsk->pid, address, regs->eip,
+			    regs->esp, error_code);
+		}
 		tsk->thread.cr2 = address;
 		/* Kernel addresses are always protection faults */
 		tsk->thread.error_code = error_code | (address >= TASK_SIZE);
@@ -715,10 +724,10 @@ no_context:
 #endif
 			if (tsk->signal->curr_ip)
 				printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
-					 NIPQUAD(tsk->signal->curr_ip), tsk->comm, tsk->pid, tsk->uid, tsk->euid);
+					NIPQUAD(tsk->signal->curr_ip), tsk->comm, tsk->pid, tsk->uid, tsk->euid);
 			else
 				printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code",
-					 tsk->comm, tsk->pid, tsk->uid, tsk->euid);
+					tsk->comm, tsk->pid, tsk->uid, tsk->euid);
 #endif
 
 		else
@@ -846,16 +855,6 @@ void vmalloc_sync_all(void)
  */
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {
-	static const unsigned char trans[8] = {
-		offsetof(struct pt_regs, eax) / 4,
-		offsetof(struct pt_regs, ecx) / 4,
-		offsetof(struct pt_regs, edx) / 4,
-		offsetof(struct pt_regs, ebx) / 4,
-		offsetof(struct pt_regs, esp) / 4,
-		offsetof(struct pt_regs, ebp) / 4,
-		offsetof(struct pt_regs, esi) / 4,
-		offsetof(struct pt_regs, edi) / 4,
-	};
 	int err;
 
 	if (regs->eflags & X86_EFLAGS_VM)
@@ -878,14 +877,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		if (err)
 			break;
 
-		if ((mov1 & 0xF8) == 0xB8 &&
-		    (mov2 & 0xF8) == 0xB8 &&
-		    (mov1 & 0x07) != (mov2 & 0x07) &&
-		    (jmp & 0xF8FF) == 0xE0FF &&
-		    (mov2 & 0x07) == ((jmp>>8) & 0x07))
-		{
-			((unsigned long *)regs)[trans[mov1 & 0x07]] = addr1;
-			((unsigned long *)regs)[trans[mov2 & 0x07]] = addr2;
+		if (mov1 == 0xB9 && mov2 == 0xB8 && jmp == 0xE0FF) {
+			regs->ecx = addr1;
+			regs->eax = addr2;
 			regs->eip = addr2;
 			return 2;
 		}
@@ -903,10 +897,8 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		if (err)
 			break;
 
-		if ((mov & 0xF8) == 0xB8 &&
-		    jmp == 0xE9)
-		{
-			((unsigned long *)regs)[trans[mov & 0x07]] = addr1;
+		if (mov == 0xB9 && jmp == 0xE9) {
+			regs->ecx = addr1;
 			regs->eip += addr2 + 10;
 			return 2;
 		}
