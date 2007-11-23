@@ -384,7 +384,19 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr, 
  */
 static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 {
-       memcpy(dst, src, count * sizeof(pgd_t));
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	memcpy(dst, src, count * sizeof(pgd_t));
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 }
 
 /*

@@ -159,9 +159,8 @@ relocated:
  */
 
 1:	subl $4, %edi
-	movl 0(%edi), %ecx
-	testl %ecx, %ecx
-	jz 2f
+	movl (%edi), %ecx
+	jecxz 2f
 	addl %ebx, -__PAGE_OFFSET(%ebx, %ecx)
 	jmp 1b
 2:

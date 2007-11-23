@@ -46,13 +46,11 @@ PHDRS {
 SECTIONS
 {
   . = LOAD_OFFSET + LOAD_PHYSICAL_ADDR;
-  phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 
   .text.startup : AT(ADDR(.text.startup) - LOAD_OFFSET) {
-	BYTE(0xEA) /* jmp far */
-	LONG(phys_startup_32)
-	SHORT(__BOOT_CS)
-	} :initdata
+	phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
+	*(.text.startup)
+  } :initdata
 
   /* might get freed after init */
   . = ALIGN(4096);
@@ -148,6 +146,7 @@ SECTIONS
 
   .text.head : AT(ADDR(.text.head) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 	__init_end = . + __KERNEL_TEXT_OFFSET;
+	KERNEL_TEXT_OFFSET = . + __KERNEL_TEXT_OFFSET;
 	_text = .;			/* Text and read-only data */
 	*(.text.head)
   } :text = 0x9090
@@ -164,7 +163,7 @@ SECTIONS
   } :text = 0x9090
 
   . += __KERNEL_TEXT_OFFSET;
-  . = ALIGN(16);		/* Exception table */
+  . = ALIGN(4096);		/* Exception table */
   __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
   	__start___ex_table = .;
 	 *(__ex_table)
@@ -186,6 +185,8 @@ SECTIONS
 
   . = ALIGN(4096);
   .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
+	*(.idt)
+	. = ALIGN(4096);
 	*(.empty_zero_page)
 
 #ifdef CONFIG_X86_PAE
@@ -193,7 +194,6 @@ SECTIONS
 #endif
 
 	*(.swapper_pg_dir)
-	*(.idt)
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC

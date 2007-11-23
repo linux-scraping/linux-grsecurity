@@ -176,8 +176,11 @@ extern int page_is_ram(unsigned long pagenr);
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
-#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + ((LOAD_PHYSICAL_ADDR + 4*1024*1024 - 1) & ~(4*1024*1024 - 1)))
-#ifndef __ASSEMBLY__
+#ifdef __ASSEMBLY__
+#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + ((LOAD_PHYSICAL_ADDR + 6*1024*1024 - 1) & ~(4*1024*1024 - 1)))
+#else
+extern unsigned char KERNEL_TEXT_OFFSET[];
+#define __KERNEL_TEXT_OFFSET ((unsigned long)KERNEL_TEXT_OFFSET)
 extern unsigned char MODULES_VADDR[];
 extern unsigned char MODULES_END[];
 #endif

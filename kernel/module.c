@@ -1292,7 +1292,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 			    struct module *mod)
 {
 	Elf_Sym *sym = (void *)sechdrs[symindex].sh_addr;
-	unsigned long secbase;
+	unsigned long secbase, symbol;
 	unsigned int i, n = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
 	int ret = 0;
 
@@ -1318,14 +1318,14 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 			break;
 
 		case SHN_UNDEF:
+			symbol = resolve_symbol(sechdrs, versindex,
+					   strtab + sym[i].st_name, mod);
 
 #ifdef CONFIG_PAX_KERNEXEC
 			pax_open_kernel(cr0);
 #endif
 
-			sym[i].st_value
-			  = resolve_symbol(sechdrs, versindex,
-					   strtab + sym[i].st_name, mod);
+			sym[i].st_value = symbol;
 
 #ifdef CONFIG_PAX_KERNEXEC
 			pax_close_kernel(cr0);
@@ -1583,17 +1583,20 @@ static void add_kallsyms(struct module *mod,
 
 	/* Set types up while we still have access to sections. */
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
-	for (i = 0; i < mod->num_symtab; i++)
-		mod->symtab[i].st_info
-			= elf_type(&mod->symtab[i], sechdrs, secstrings, mod);
+	for (i = 0; i < mod->num_symtab; i++) {
+		char type = elf_type(&mod->symtab[i], sechdrs, secstrings, mod);
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
+		pax_open_kernel(cr0);
 #endif
+
+		mod->symtab[i].st_info = type;
+
+#ifdef CONFIG_PAX_KERNEXEC
+		pax_close_kernel(cr0);
+#endif
+
+	}
 
 }
 #else
@@ -1881,17 +1884,14 @@ static struct module *load_module(void __user *umod,
 		if (sechdrs[i].sh_type != SHT_NOBITS) {
 
 #ifdef CONFIG_PAX_KERNEXEC
-			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
+			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC)) {
 				pax_open_kernel(cr0);
+				memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
+				pax_close_kernel(cr0);
+			} else
 #endif
 
 			memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
-
-#ifdef CONFIG_PAX_KERNEXEC
-			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC))
-				pax_close_kernel(cr0);
-#endif
-
 		}
 		/* Update sh_addr to point to copy in image. */
 
@@ -1982,20 +1982,11 @@ static struct module *load_module(void __user *umod,
 		if (!(sechdrs[info].sh_flags & SHF_ALLOC))
 			continue;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 		if (sechdrs[i].sh_type == SHT_REL)
 			err = apply_relocate(sechdrs, strtab, symindex, i,mod);
 		else if (sechdrs[i].sh_type == SHT_RELA)
 			err = apply_relocate_add(sechdrs, strtab, symindex, i,
 						 mod);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
 		if (err < 0)
 			goto cleanup;
 	}

@@ -58,16 +58,14 @@ ALLOCATOR_SLOP = 4
 
 INIT_MAP_BEYOND_END = BOOTBITMAP_SIZE + (PAGE_TABLE_SIZE + ALLOCATOR_SLOP)*PAGE_SIZE_asm
 
-#ifdef CONFIG_PAX_KERNEXEC
-/* PaX: fill first page in .text with int3 to catch NULL derefs in kernel mode */
-.fill 4096,1,0xcc
-#endif
-
 /*
  * Real beginning of normal "text" segment
  */
 ENTRY(stext)
 ENTRY(_stext)
+
+.section .text.startup,"ax",@progbits
+	ljmp $(__BOOT_CS),$phys_startup_32
 
 /*
  * 32-bit kernel entrypoint; only used by the boot CPU.  On entry,
@@ -77,6 +75,12 @@ ENTRY(_stext)
  * can.
  */
 .section .text.head,"ax",@progbits
+
+#ifdef CONFIG_PAX_KERNEXEC
+/* PaX: fill first page in .text with int3 to catch NULL derefs in kernel mode */
+.fill 4096,1,0xcc
+#endif
+
 ENTRY(startup_32)
 
 /*
@@ -115,7 +119,7 @@ ENTRY(startup_32)
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
-	movl $__KERNEL_TEXT_OFFSET,%eax
+	movl $KERNEL_TEXT_OFFSET,%eax
 	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 2)
 	rorl $16,%eax
 	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 4)

@@ -2546,12 +2546,19 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 		 struct vfsmount *mnt, const __u8 replace)
 {
 	struct name_entry *matchn;
+	/* vfs_rename swaps the name and parent link for old_dentry and
+	   new_dentry
+	   at this point, old_dentry has the new name, parent link, and inode
+	   for the renamed file
+	   if a file is being replaced by a rename, new_dentry has the inode
+	   and name for the replaced file
+	*/
 
 	if (unlikely(!(gr_status & GR_READY)))
 		return;
 
 	preempt_disable();
-	matchn = lookup_name_entry(gr_to_filename_rbac(new_dentry, mnt));
+	matchn = lookup_name_entry(gr_to_filename_rbac(old_dentry, mnt));
 
 	/* we wouldn't have to check d_inode if it weren't for
 	   NFS silly-renaming

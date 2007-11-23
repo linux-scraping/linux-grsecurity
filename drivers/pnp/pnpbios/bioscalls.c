@@ -101,14 +101,19 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 
 	cpu = get_cpu();
 	save_desc_40 = get_cpu_gdt_table(cpu)[0x40 / 8];
-	get_cpu_gdt_table(cpu)[0x40 / 8] = bad_bios_desc;
-
-	/* On some boxes IRQ's during PnP BIOS calls are deadly.  */
-	spin_lock_irqsave(&pnp_bios_lock, flags);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_open_kernel(cr0);
 #endif
+
+	get_cpu_gdt_table(cpu)[0x40 / 8] = bad_bios_desc;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+	/* On some boxes IRQ's during PnP BIOS calls are deadly.  */
+	spin_lock_irqsave(&pnp_bios_lock, flags);
 
 	/* The lock prevents us bouncing CPU here */
 	if (ts1_size)
@@ -141,6 +146,11 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 			     "d"((arg6) | (((u32) arg7) << 16)),
 			     "i"(PNP_CS32), "i"(0)
 			     :"memory");
+	spin_unlock_irqrestore(&pnp_bios_lock, flags);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
 
 	get_cpu_gdt_table(cpu)[0x40 / 8] = save_desc_40;
 
@@ -148,7 +158,6 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	pax_close_kernel(cr0);
 #endif
 
-	spin_unlock_irqrestore(&pnp_bios_lock, flags);
 	put_cpu();
 
 	/* If we get here and this is set then the PnP BIOS faulted on us. */

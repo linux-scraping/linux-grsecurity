@@ -239,17 +239,8 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	/* Remap the kernel at virtual address zero, as well as offset zero
 	   from the kernel segment.  This assumes the kernel segment starts at
 	   virtual address PAGE_OFFSET. */
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
 	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + USER_PGD_PTRS,
 			min_t(unsigned long, KERNEL_PGD_PTRS, USER_PGD_PTRS));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
 
 	/*
 	 * Use `swapper_pg_dir' as our page directory.

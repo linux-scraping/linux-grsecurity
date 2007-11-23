@@ -136,15 +136,7 @@ static void change_protection(struct vm_area_struct *vma,
 }
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-/* called while holding the mmap semaphor for writing */
-static inline void establish_user_cs_limit(struct mm_struct *mm, unsigned long start, unsigned long end)
-{
-	struct vm_area_struct *vma = find_vma(mm, start);
-
-	for (; vma && vma->vm_start < end; vma = vma->vm_next)
-		change_protection(vma, vma->vm_start, vma->vm_end, vma->vm_page_prot, vma_wants_writenotify(vma));
-}
-
+/* called while holding the mmap semaphor for writing except stack expansion */
 void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot)
 {
 	unsigned long oldlimit, newlimit = 0UL;
@@ -173,8 +165,15 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 		set_user_cs(mm->context.user_cs_base, mm->context.user_cs_limit, smp_processor_id());
 	}
 	spin_unlock(&mm->page_table_lock);
-	if (newlimit == end)
-		establish_user_cs_limit(mm, oldlimit, end);
+	if (newlimit == end) {
+		struct vm_area_struct *vma = find_vma(mm, oldlimit);
+
+		for (; vma && vma->vm_start < end; vma = vma->vm_next)
+			if (is_vm_hugetlb_page(vma))
+				hugetlb_change_protection(vma, vma->vm_start, vma->vm_end, vma->vm_page_prot);
+			else
+				change_protection(vma, vma->vm_start, vma->vm_end, vma->vm_page_prot, vma_wants_writenotify(vma));
+	}
 }
 #endif
 

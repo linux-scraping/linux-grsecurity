@@ -10,9 +10,13 @@
 #define USE_BSD
 #include <endian.h>
 
+#include "../../../../include/linux/autoconf.h"
+
+#define MAX_PHDRS 100
 #define MAX_SHDRS 100
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 static Elf32_Ehdr ehdr;
+static Elf32_Phdr phdr[MAX_PHDRS];
 static Elf32_Shdr shdr[MAX_SHDRS];
 static Elf32_Sym  *symtab[MAX_SHDRS];
 static Elf32_Rel  *reltab[MAX_SHDRS];
@@ -246,6 +250,34 @@ static void read_ehdr(FILE *fp)
 	}
 }
 
+static void read_phdrs(FILE *fp)
+{
+	int i;
+	if (ehdr.e_phnum > MAX_PHDRS) {
+		die("%d program headers supported: %d\n",
+			ehdr.e_phnum, MAX_PHDRS);
+	}
+	if (fseek(fp, ehdr.e_phoff, SEEK_SET) < 0) {
+		die("Seek to %d failed: %s\n",
+			ehdr.e_phoff, strerror(errno));
+	}
+	if (fread(&phdr, sizeof(phdr[0]), ehdr.e_phnum, fp) != ehdr.e_phnum) {
+		die("Cannot read ELF program headers: %s\n",
+			strerror(errno));
+	}
+	for(i = 0; i < ehdr.e_phnum; i++) {
+		phdr[i].p_type      = elf32_to_cpu(phdr[i].p_type);
+		phdr[i].p_offset    = elf32_to_cpu(phdr[i].p_offset);
+		phdr[i].p_vaddr     = elf32_to_cpu(phdr[i].p_vaddr);
+		phdr[i].p_paddr     = elf32_to_cpu(phdr[i].p_paddr);
+		phdr[i].p_filesz    = elf32_to_cpu(phdr[i].p_filesz);
+		phdr[i].p_memsz     = elf32_to_cpu(phdr[i].p_memsz);
+		phdr[i].p_flags     = elf32_to_cpu(phdr[i].p_flags);
+		phdr[i].p_align     = elf32_to_cpu(phdr[i].p_align);
+	}
+
+}
+
 static void read_shdrs(FILE *fp)
 {
 	int i;
@@ -332,6 +364,8 @@ static void read_symtabs(FILE *fp)
 static void read_relocs(FILE *fp)
 {
 	int i,j;
+	uint32_t base;
+
 	for(i = 0; i < ehdr.e_shnum; i++) {
 		if (shdr[i].sh_type != SHT_REL) {
 			continue;
@@ -349,8 +383,17 @@ static void read_relocs(FILE *fp)
 			die("Cannot read symbol table: %s\n",
 				strerror(errno));
 		}
+		base = 0;
+		for (j = 0; j < ehdr.e_phnum; j++) {
+			if (phdr[j].p_type != PT_LOAD )
+				continue;
+			if (shdr[shdr[i].sh_info].sh_offset < phdr[j].p_offset || shdr[shdr[i].sh_info].sh_offset > phdr[j].p_offset + phdr[j].p_filesz)
+				continue;
+			base = CONFIG_PAGE_OFFSET + phdr[j].p_paddr - phdr[j].p_vaddr;
+			break;
+		}
 		for(j = 0; j < shdr[i].sh_size/sizeof(reltab[0][0]); j++) {
-			reltab[i][j].r_offset = elf32_to_cpu(reltab[i][j].r_offset);
+			reltab[i][j].r_offset = elf32_to_cpu(reltab[i][j].r_offset) + base;
 			reltab[i][j].r_info   = elf32_to_cpu(reltab[i][j].r_info);
 		}
 	}
@@ -487,6 +530,27 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 			if (sym->st_shndx == SHN_ABS) {
 				continue;
 			}
+			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
+			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strncmp(sym_name(sym_strtab, sym), "__per_cpu_", 10)) {
+				continue;
+			}
+#ifdef CONFIG_PAX_KERNEXEC
+			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
+			if (!strcmp(sec_name(sym->st_shndx), ".init.text")) {
+				continue;
+			}
+			if (!strcmp(sec_name(sym->st_shndx), ".exit.text")) {
+				continue;
+			}
+			if (!strcmp(sec_name(sym->st_shndx), ".text.head"))
+				if (strcmp(sym_name(sym_strtab, sym), "__init_end") &&
+				    strcmp(sym_name(sym_strtab, sym), "KERNEL_TEXT_OFFSET")) {
+				continue;
+			}
+			if (!strcmp(sec_name(sym->st_shndx), ".text")) {
+				continue;
+			}
+#endif
 			if (r_type == R_386_PC32) {
 				/* PC relative relocations don't need to be adjusted */
 			}
@@ -614,6 +678,7 @@ int main(int argc, char **argv)
 			fname, strerror(errno));
 	}
 	read_ehdr(fp);
+	read_phdrs(fp);
 	read_shdrs(fp);
 	read_strtabs(fp);
 	read_symtabs(fp);

@@ -93,7 +93,6 @@ static void efi_call_phys_epilog(void) __releases(efi_rt_lock)
 	gdt_descr.address = get_cpu_gdt_table(0);
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
-
 	clone_pgd_range(swapper_pg_dir, efi_bak_pg_dir_pointer, KERNEL_PGD_PTRS);
 
 	/*

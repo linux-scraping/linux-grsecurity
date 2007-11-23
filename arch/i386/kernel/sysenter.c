@@ -320,11 +320,11 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int exstack)
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	if (vma->vm_start == vma->vm_mm->context.vdso)
+	if (vma->vm_mm && vma->vm_start == vma->vm_mm->context.vdso)
 		return "[vdso]";
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if (vma->vm_mirror && vma->vm_mirror->vm_start == vma->vm_mm->context.vdso)
+	if (vma->vm_mm && vma->vm_mirror && vma->vm_mirror->vm_start == vma->vm_mm->context.vdso)
 		return "[vdso]";
 #endif
 

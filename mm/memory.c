@@ -321,11 +321,6 @@ int __pte_alloc(struct mm_struct *mm, pmd_t *pmd, unsigned long address)
 
 int __pte_alloc_kernel(pmd_t *pmd, unsigned long address)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	pte_t *new = pte_alloc_one_kernel(&init_mm, address);
 	if (!new)
 		return -ENOMEM;
@@ -333,19 +328,8 @@ int __pte_alloc_kernel(pmd_t *pmd, unsigned long address)
 	spin_lock(&init_mm.page_table_lock);
 	if (pmd_present(*pmd))		/* Another has populated it */
 		pte_free_kernel(new);
-	else {
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_open_kernel(cr0);
-#endif
-
+	else
 		pmd_populate_kernel(&init_mm, pmd, new);
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_close_kernel(cr0);
-#endif
-
-	}
 	spin_unlock(&init_mm.page_table_lock);
 	return 0;
 }
@@ -1805,14 +1789,16 @@ static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pt
 	page_m  = vm_normal_page(vma, address, entry);
 	if (!page_m)
 		pax_mirror_pfn_pte(vma, address, pte_pfn(entry), ptl);
-	if (PageAnon(page_m)) {
-		spin_unlock(ptl);
-		lock_page(page_m);
-		spin_lock(ptl);
-		if (pte_same(entry, *pte))
-			pax_mirror_anon_pte(vma, address, page_m, ptl);
-		else
-			unlock_page(page_m);
+	else if (PageAnon(page_m)) {
+		if (pax_find_mirror_vma(vma)) {
+			spin_unlock(ptl);
+			lock_page(page_m);
+			spin_lock(ptl);
+			if (pte_same(entry, *pte))
+				pax_mirror_anon_pte(vma, address, page_m, ptl);
+			else
+				unlock_page(page_m);
+		}
 	} else
 		pax_mirror_file_pte(vma, address, page_m, ptl);
 }

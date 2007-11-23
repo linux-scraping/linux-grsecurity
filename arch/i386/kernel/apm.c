@@ -608,20 +608,29 @@ static u8 apm_bios_call(u32 func, u32 ebx_in, u32 ecx_in,
 	cpus = apm_save_cpus();
 	
 	cpu = get_cpu();
+	gdt = get_cpu_gdt_table(cpu);
+	save_desc_40 = gdt[0x40 / 8];
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_open_kernel(cr0);
 #endif
 
-	gdt = get_cpu_gdt_table(cpu);
-	save_desc_40 = gdt[0x40 / 8];
 	gdt[0x40 / 8] = bad_bios_desc;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	apm_irq_save(flags);
 	APM_DO_SAVE_SEGS;
 	apm_bios_call_asm(func, ebx_in, ecx_in, eax, ebx, ecx, edx, esi);
 	APM_DO_RESTORE_SEGS;
 	apm_irq_restore(flags);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	gdt[0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC
@@ -665,20 +674,29 @@ static u8 apm_bios_call_simple(u32 func, u32 ebx_in, u32 ecx_in, u32 *eax)
 	cpus = apm_save_cpus();
 	
 	cpu = get_cpu();
+	gdt = get_cpu_gdt_table(cpu);
+	save_desc_40 = gdt[0x40 / 8];
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_open_kernel(cr0);
 #endif
 
-	gdt = get_cpu_gdt_table(cpu);
-	save_desc_40 = gdt[0x40 / 8];
 	gdt[0x40 / 8] = bad_bios_desc;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	apm_irq_save(flags);
 	APM_DO_SAVE_SEGS;
 	error = apm_bios_call_simple_asm(func, ebx_in, ecx_in, eax);
 	APM_DO_RESTORE_SEGS;
 	apm_irq_restore(flags);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	gdt[0x40 / 8] = save_desc_40;
 
 #ifdef CONFIG_PAX_KERNEXEC

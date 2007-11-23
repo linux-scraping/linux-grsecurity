@@ -103,6 +103,7 @@ struct exception_table_entry
 };
 
 extern int fixup_exception(struct pt_regs *regs);
+#define ARCH_HAS_SORT_EXTABLE
 
 /*
  * These are the main single-value transfer routines.  They automatically

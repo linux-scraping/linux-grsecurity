@@ -36,6 +36,16 @@
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
 
+static inline void verify_mm_writelocked(struct mm_struct *mm)
+{
+#if defined(CONFIG_DEBUG_VM) || defined(CONFIG_PAX)
+	if (unlikely(down_read_trylock(&mm->mmap_sem))) {
+		up_read(&mm->mmap_sem);
+		BUG();
+	}
+#endif
+}
+
 static void unmap_region(struct mm_struct *mm,
 		struct vm_area_struct *vma, struct vm_area_struct *prev,
 		unsigned long start, unsigned long end);
@@ -1173,6 +1183,12 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	struct vm_area_struct *vma_m = NULL;
 #endif
 
+	/*
+	 * mm->mmap_sem is required to protect against another thread
+	 * changing the mappings in case we sleep.
+	 */
+	verify_mm_writelocked(mm);
+
 	/* Clear old maps */
 	error = -ENOMEM;
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
@@ -1747,10 +1763,16 @@ static inline
 #endif
 int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 {
-	int error;
+	int error, locknext;
 
 	if (!(vma->vm_flags & VM_GROWSUP))
 		return -EFAULT;
+
+	/* Also guard against wrapping around to address 0. */
+	if (address < PAGE_ALIGN(address+1))
+		address = PAGE_ALIGN(address+1);
+	else
+		return -ENOMEM;
 
 	/*
 	 * We must make sure the anon_vma is allocated
@@ -1758,24 +1780,23 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 	 */
 	if (unlikely(anon_vma_prepare(vma)))
 		return -ENOMEM;
+	locknext = vma->vm_next && (vma->vm_next->vm_flags & VM_GROWSDOWN);
+	if (locknext && unlikely(anon_vma_prepare(vma->vm_next)))
+		return -ENOMEM;
 	anon_vma_lock(vma);
+	if (locknext)
+		anon_vma_lock(vma->vm_next);
 
 	/*
 	 * vma->vm_start/vm_end cannot change under us because the caller
 	 * is required to hold the mmap_sem in read mode.  We need the
-	 * anon_vma lock to serialize against concurrent expand_stacks.
-	 * Also guard against wrapping around to address 0.
+	 * anon_vma locks to serialize against concurrent expand_stacks
+	 * and expand_upwards.
 	 */
-	if (address < PAGE_ALIGN(address+4))
-		address = PAGE_ALIGN(address+4);
-	else {
-		anon_vma_unlock(vma);
-		return -ENOMEM;
-	}
 	error = 0;
 
 	/* Somebody else might have raced and expanded it already */
-	if (address > vma->vm_end) {
+	if (address > vma->vm_end && (!locknext || vma->vm_next->vm_start >= address)) {
 		unsigned long size, grow;
 
 		size = address - vma->vm_start;
@@ -1785,6 +1806,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 		if (!error)
 			vma->vm_end = address;
 	}
+	if (locknext)
+		anon_vma_unlock(vma->vm_next);
 	anon_vma_unlock(vma);
 	return error;
 }
@@ -1796,7 +1819,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 static inline int expand_downwards(struct vm_area_struct *vma,
 				   unsigned long address)
 {
-	int error;
+	int error, lockprev = 0;
+	struct vm_area_struct *prev = NULL;
 
 	/*
 	 * We must make sure the anon_vma is allocated
@@ -1804,6 +1828,16 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 	 */
 	if (unlikely(anon_vma_prepare(vma)))
 		return -ENOMEM;
+
+#if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
+	find_vma_prev(address, &prev);
+	lockprev = prev && (prev->vm_flags & VM_GROWSUP);
+#endif
+	if (lockprev && unlikely(anon_vma_prepare(prev)))
+		return -ENOMEM;
+	if (lockprev)
+		anon_vma_lock(prev);
+
 	anon_vma_lock(vma);
 
 	/*
@@ -1815,7 +1849,7 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 	error = 0;
 
 	/* Somebody else might have raced and expanded it already */
-	if (address < vma->vm_start) {
+	if (address < vma->vm_start && (!lockprev || prev->vm_end <= address)) {
 		unsigned long size, grow;
 
 #ifdef CONFIG_PAX_SEGMEXEC
@@ -1843,6 +1877,8 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 		}
 	}
 	anon_vma_unlock(vma);
+	if (lockprev)
+		anon_vma_unlock(prev);
 	return error;
 }
 
@@ -1915,7 +1951,10 @@ static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 		long nrpages = vma_pages(vma);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-		if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_end <= SEGMEXEC_TASK_SIZE))
+		if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_start >= SEGMEXEC_TASK_SIZE)) {
+			vma = remove_vma(vma);
+			continue;
+		}
 #endif
 
 		mm->total_vm -= nrpages;
@@ -2171,6 +2210,12 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	unsigned long end;
 	struct vm_area_struct *vma, *prev, *last;
 
+	/*
+	 * mm->mmap_sem is required to protect against another thread
+	 * changing the mappings in case we sleep.
+	 */
+	verify_mm_writelocked(mm);
+
 	if ((start & ~PAGE_MASK) || start > TASK_SIZE || len > TASK_SIZE-start)
 		return -EINVAL;
 
@@ -2244,16 +2289,6 @@ asmlinkage long sys_munmap(unsigned long addr, size_t len)
 	ret = do_munmap(mm, addr, len);
 	up_write(&mm->mmap_sem);
 	return ret;
-}
-
-static inline void verify_mm_writelocked(struct mm_struct *mm)
-{
-#ifdef CONFIG_DEBUG_VM
-	if (unlikely(down_read_trylock(&mm->mmap_sem))) {
-		WARN_ON(1);
-		up_read(&mm->mmap_sem);
-	}
-#endif
 }
 
 /*

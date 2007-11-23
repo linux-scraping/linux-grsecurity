@@ -52,7 +52,7 @@ void *module_alloc_exec(unsigned long size)
 	if (size == 0)
 		return NULL;
 
-	area = __get_vm_area(size, 0, (unsigned long)&MODULES_VADDR, (unsigned long)&MODULES_END);
+	area = __get_vm_area(size, VM_ALLOC, (unsigned long)&MODULES_VADDR, (unsigned long)&MODULES_END);
 	if (area)
 		return area->addr;
 
@@ -127,6 +127,10 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 	Elf32_Sym *sym;
 	uint32_t *plocation, location;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	DEBUGP("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
@@ -142,12 +146,32 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 
 		switch (ELF32_R_TYPE(rel[i].r_info)) {
 		case R_386_32:
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			/* We add the value into the location given */
 			*plocation += sym->st_value;
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
+
 			break;
 		case R_386_PC32:
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_open_kernel(cr0);
+#endif
+
 			/* Add the value, subtract its postition */
 			*plocation += sym->st_value - location;
+
+#ifdef CONFIG_PAX_KERNEXEC
+			pax_close_kernel(cr0);
+#endif
+
 			break;
 		default:
 			printk(KERN_ERR "module %s: Unknown relocation: %u\n",

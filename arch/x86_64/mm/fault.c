@@ -351,50 +351,6 @@ static int pax_handle_fetch_fault_64(struct pt_regs *regs)
 {
 	int err;
 
-#if 0
-14105     {
-14106       int offset = 0;
-14107       /* Try to load address using shorter movl instead of movabs.
-14108          We may want to support movq for kernel mode, but kernel does not use
-14109          trampolines at the moment.  */
-14110       if (x86_64_zext_immediate_operand (fnaddr, VOIDmode))
-14111 »·······{
-14112 »·······  fnaddr = copy_to_mode_reg (DImode, fnaddr);
-14113 »·······  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-14114 »·······»·······»·······  gen_int_mode (0xbb41, HImode));
-14115 »·······  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, offset + 2)),
-14116 »·······»·······»·······  gen_lowpart (SImode, fnaddr));
-14117 »·······  offset += 6;
-14118 »·······}
-14119       else
-14120 »·······{
-14121 »·······  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-14122 »·······»·······»·······  gen_int_mode (0xbb49, HImode));
-14123 »·······  emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
-14124 »·······»·······»·······  fnaddr);
-14125 »·······  offset += 10;
-14126 »·······}
-14127       /* Load static chain using movabs to r10.  */
-14128       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-14129 »·······»·······      gen_int_mode (0xba49, HImode));
-14130       emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
-14131 »·······»·······      cxt);
-14132       offset += 10;
-14133       /* Jump to the r11 */
-14134       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-14135 »·······»·······      gen_int_mode (0xff49, HImode));
-14136       emit_move_insn (gen_rtx_MEM (QImode, plus_constant (tramp, offset+2)),
-14137 »·······»·······      gen_int_mode (0xe3, QImode));
-14138       offset += 3;
-14139       gcc_assert (offset <= TRAMPOLINE_SIZE);
-14140     }
-
-+  tramp[1] = 0xbb49;		/* mov <code>, %r11	*/
-+  tramp[6] = 0xba49;		/* mov <data>, %r10	*/
-+  tramp[11] = 0xff49;		/* jmp *%r11	*/
-+  tramp[12] = 0x00e3;
-#endif
-
 	do { /* PaX: gcc trampoline emulation #1 */
 		unsigned short mov1, mov2, jmp1;
 		unsigned char jmp2;
