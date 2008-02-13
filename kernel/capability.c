@@ -3,23 +3,18 @@
  *
  * Copyright (C) 1997  Andrew Main <zefram@fysh.org>
  *
- * Integrated into 2.1.97+,  Andrew G. Morgan <morgan@transmeta.com>
+ * Integrated into 2.1.97+,  Andrew G. Morgan <morgan@kernel.org>
  * 30 May 2002:	Cleanup, Robert M. Love <rml@tech9.net>
- */ 
+ */
 
 #include <linux/capability.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/security.h>
 #include <linux/syscalls.h>
+#include <linux/pid_namespace.h>
 #include <linux/grsecurity.h>
 #include <asm/uaccess.h>
-
-unsigned securebits = SECUREBITS_DEFAULT; /* systemwide security settings */
-kernel_cap_t cap_bset = CAP_INIT_EFF_SET;
-
-EXPORT_SYMBOL(securebits);
-EXPORT_SYMBOL(cap_bset);
 
 /*
  * This lock protects task->cap_* for all tasks including current.
@@ -44,49 +39,49 @@ static DEFINE_SPINLOCK(task_capability_lock);
  */
 asmlinkage long sys_capget(cap_user_header_t header, cap_user_data_t dataptr)
 {
-     int ret = 0;
-     pid_t pid;
-     __u32 version;
-     struct task_struct *target;
-     struct __user_cap_data_struct data;
+	int ret = 0;
+	pid_t pid;
+	__u32 version;
+	struct task_struct *target;
+	struct __user_cap_data_struct data;
 
-     if (get_user(version, &header->version))
-	     return -EFAULT;
+	if (get_user(version, &header->version))
+		return -EFAULT;
 
-     if (version != _LINUX_CAPABILITY_VERSION) {
-	     if (put_user(_LINUX_CAPABILITY_VERSION, &header->version))
-		     return -EFAULT; 
-             return -EINVAL;
-     }
+	if (version != _LINUX_CAPABILITY_VERSION) {
+		if (put_user(_LINUX_CAPABILITY_VERSION, &header->version))
+			return -EFAULT;
+		return -EINVAL;
+	}
 
-     if (get_user(pid, &header->pid))
-	     return -EFAULT;
+	if (get_user(pid, &header->pid))
+		return -EFAULT;
 
-     if (pid < 0) 
-             return -EINVAL;
+	if (pid < 0)
+		return -EINVAL;
 
-     spin_lock(&task_capability_lock);
-     read_lock(&tasklist_lock); 
+	spin_lock(&task_capability_lock);
+	read_lock(&tasklist_lock);
 
-     if (pid && pid != current->pid) {
-	     target = find_task_by_pid(pid);
-	     if (!target) {
-	          ret = -ESRCH;
-	          goto out;
-	     }
-     } else
-	     target = current;
+	if (pid && pid != task_pid_vnr(current)) {
+		target = find_task_by_vpid(pid);
+		if (!target) {
+			ret = -ESRCH;
+			goto out;
+		}
+	} else
+		target = current;
 
-     ret = security_capget(target, &data.effective, &data.inheritable, &data.permitted);
+	ret = security_capget(target, &data.effective, &data.inheritable, &data.permitted);
 
 out:
-     read_unlock(&tasklist_lock); 
-     spin_unlock(&task_capability_lock);
+	read_unlock(&tasklist_lock);
+	spin_unlock(&task_capability_lock);
 
-     if (!ret && copy_to_user(dataptr, &data, sizeof data))
-          return -EFAULT; 
+	if (!ret && copy_to_user(dataptr, &data, sizeof data))
+		return -EFAULT;
 
-     return ret;
+	return ret;
 }
 
 /*
@@ -102,7 +97,7 @@ static inline int cap_set_pg(int pgrp_nr, kernel_cap_t *effective,
 	int found = 0;
 	struct pid *pgrp;
 
-	pgrp = find_pid(pgrp_nr);
+	pgrp = find_vpid(pgrp_nr);
 	do_each_pid_task(pgrp, PIDTYPE_PGID, g) {
 		target = g;
 		while_each_thread(g, target) {
@@ -119,7 +114,7 @@ static inline int cap_set_pg(int pgrp_nr, kernel_cap_t *effective,
 	} while_each_pid_task(pgrp, PIDTYPE_PGID, g);
 
 	if (!found)
-	     ret = 0;
+		ret = 0;
 	return ret;
 }
 
@@ -136,7 +131,7 @@ static inline int cap_set_all(kernel_cap_t *effective,
      int found = 0;
 
      do_each_thread(g, target) {
-             if (target == current || is_init(target))
+             if (target == current || is_container_init(target->group_leader))
                      continue;
              found = 1;
 	     if (security_capset_check(target, effective, inheritable,
@@ -173,72 +168,69 @@ static inline int cap_set_all(kernel_cap_t *effective,
  */
 asmlinkage long sys_capset(cap_user_header_t header, const cap_user_data_t data)
 {
-     kernel_cap_t inheritable, permitted, effective;
-     __u32 version;
-     struct task_struct *target;
-     int ret;
-     pid_t pid;
+	kernel_cap_t inheritable, permitted, effective;
+	__u32 version;
+	struct task_struct *target;
+	int ret;
+	pid_t pid;
 
-     if (get_user(version, &header->version))
-	     return -EFAULT; 
+	if (get_user(version, &header->version))
+		return -EFAULT;
 
-     if (version != _LINUX_CAPABILITY_VERSION) {
-	     if (put_user(_LINUX_CAPABILITY_VERSION, &header->version))
-		     return -EFAULT; 
-             return -EINVAL;
-     }
+	if (version != _LINUX_CAPABILITY_VERSION) {
+		if (put_user(_LINUX_CAPABILITY_VERSION, &header->version))
+			return -EFAULT;
+		return -EINVAL;
+	}
 
-     if (get_user(pid, &header->pid))
-	     return -EFAULT; 
+	if (get_user(pid, &header->pid))
+		return -EFAULT;
 
-     if (pid && pid != current->pid && !capable(CAP_SETPCAP))
-             return -EPERM;
+	if (pid && pid != task_pid_vnr(current) && !capable(CAP_SETPCAP))
+		return -EPERM;
 
-     if (copy_from_user(&effective, &data->effective, sizeof(effective)) ||
-	 copy_from_user(&inheritable, &data->inheritable, sizeof(inheritable)) ||
-	 copy_from_user(&permitted, &data->permitted, sizeof(permitted)))
-	     return -EFAULT; 
+	if (copy_from_user(&effective, &data->effective, sizeof(effective)) ||
+	    copy_from_user(&inheritable, &data->inheritable, sizeof(inheritable)) ||
+	    copy_from_user(&permitted, &data->permitted, sizeof(permitted)))
+		return -EFAULT;
 
-     spin_lock(&task_capability_lock);
-     read_lock(&tasklist_lock);
+	spin_lock(&task_capability_lock);
+	read_lock(&tasklist_lock);
 
-     if (pid > 0 && pid != current->pid) {
-          target = find_task_by_pid(pid);
-          if (!target) {
-               ret = -ESRCH;
-               goto out;
-          }
-     } else
-               target = current;
+	if (pid > 0 && pid != task_pid_vnr(current)) {
+		target = find_task_by_vpid(pid);
+		if (!target) {
+			ret = -ESRCH;
+			goto out;
+		}
+	} else
+		target = current;
 
-     ret = 0;
+	ret = 0;
 
-     /* having verified that the proposed changes are legal,
-           we now put them into effect. */
-     if (pid < 0) {
-             if (pid == -1)  /* all procs other than current and init */
-                     ret = cap_set_all(&effective, &inheritable, &permitted);
+	/* having verified that the proposed changes are legal,
+	   we now put them into effect. */
+	if (pid < 0) {
+		if (pid == -1)	/* all procs other than current and init */
+			ret = cap_set_all(&effective, &inheritable, &permitted);
 
-             else            /* all procs in process group */
-                     ret = cap_set_pg(-pid, &effective, &inheritable,
-		     					&permitted);
-     } else {
-	     ret = security_capset_check(target, &effective, &inheritable,
-	     						&permitted);
-	     if (!ret)
-		     security_capset_set(target, &effective, &inheritable,
-		     					&permitted);
-     }
+		else		/* all procs in process group */
+			ret = cap_set_pg(-pid, &effective, &inheritable,
+					 &permitted);
+	} else {
+		ret = security_capset_check(target, &effective, &inheritable,
+					    &permitted);
+		if (!ret)
+			security_capset_set(target, &effective, &inheritable,
+					    &permitted);
+	}
 
 out:
-     read_unlock(&tasklist_lock);
-     spin_unlock(&task_capability_lock);
+	read_unlock(&tasklist_lock);
+	spin_unlock(&task_capability_lock);
 
-     return ret;
+	return ret;
 }
-
-extern int gr_task_is_capable(struct task_struct *task, const int cap);
-extern int gr_is_capable_nolog(const int cap);
 
 int __capable(struct task_struct *t, int cap)
 {
@@ -248,6 +240,7 @@ int __capable(struct task_struct *t, int cap)
 	}
 	return 0;
 }
+
 int capable_nolog(int cap)
 {
 	if ((security_capable(current, cap) == 0) && gr_is_capable_nolog(cap)) {
@@ -256,7 +249,6 @@ int capable_nolog(int cap)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(__capable);
 
 int capable(int cap)
 {

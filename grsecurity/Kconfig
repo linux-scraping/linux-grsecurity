@@ -17,7 +17,7 @@ config GRKERNSEC
 
 choice
 	prompt "Security Level"
-	depends GRKERNSEC
+	depends on GRKERNSEC
 	default GRKERNSEC_CUSTOM
 
 config GRKERNSEC_LOW
@@ -86,7 +86,6 @@ config GRKERNSEC_MEDIUM
 	  the following features (in addition to those provided in the 
 	  low additional security level) will be enabled:
 
-	  - Randomized TCP source ports
 	  - Failed fork logging
 	  - Time change logging
 	  - Signal logging
@@ -124,7 +123,6 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_PROC_MEMMAP if (PAX_NOEXEC || PAX_ASLR)
 	select GRKERNSEC_HIDESYM
 	select GRKERNSEC_BRUTE
-	select GRKERNSEC_SHM if (SYSVIPC)
 	select GRKERNSEC_PROC_USERGROUP
 	select GRKERNSEC_KMEM
 	select GRKERNSEC_RESLOG
@@ -143,7 +141,7 @@ config GRKERNSEC_HIGH
 	select PAX_EI_PAX
 	select PAX_PT_PAX_FLAGS
 	select PAX_HAVE_ACL_FLAGS
-	select PAX_KERNEXEC if (!X86_64 && !EFI && !COMPAT_VDSO && !PARAVIRT && X86_WP_WORKS_OK)
+	select PAX_KERNEXEC if (X86 && !EFI && !COMPAT_VDSO && !PARAVIRT && (!X86_32 || X86_WP_WORKS_OK))
 	select PAX_MEMORY_UDEREF if (!X86_64 && !COMPAT_VDSO)
 	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
 	select PAX_SEGMEXEC if (X86 && !X86_64)
@@ -180,7 +178,6 @@ config GRKERNSEC_HIGH
 	  - Kernel stack randomization
 	  - Mount/unmount/remount logging
 	  - Kernel symbol hiding
-	  - Destroy unused shared memory	
 	  - Prevention of memory exhaustion-based exploits
 config GRKERNSEC_CUSTOM
 	bool "Custom"
@@ -662,17 +659,6 @@ config GRKERNSEC_EXECVE
 	  have the value checked during execve() calls.  The current system
 	  only checks the system limit during fork() calls.  If the sysctl option
 	  is enabled, a sysctl option with name "execve_limiting" is created.
-
-config GRKERNSEC_SHM
-	bool "Destroy unused shared memory"
-	depends on SYSVIPC
-	help
-	  If you say Y here, shared memory will be destroyed when no one is
-	  attached to it.  Otherwise, resources involved with the shared
-	  memory can be used up and not be associated with any process (as the
-	  shared memory still exists, and the creating process has exited).  If
-	  the sysctl option is enabled, a sysctl option with name
-	  "destroy_unused_shm" is created.
 
 config GRKERNSEC_DMESG
 	bool "Dmesg(8) restriction"

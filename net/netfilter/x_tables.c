@@ -22,6 +22,7 @@
 #include <linux/vmalloc.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
+#include <net/net_namespace.h>
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_arp.h>
@@ -376,7 +377,9 @@ int xt_compat_match_to_user(struct xt_entry_match *m, void __user **dstptr,
 	u_int16_t msize = m->u.user.match_size - off;
 
 	if (copy_to_user(cm, m, sizeof(*cm)) ||
-	    put_user(msize, &cm->u.user.match_size))
+	    put_user(msize, &cm->u.user.match_size) ||
+	    copy_to_user(cm->u.user.name, m->u.kernel.match->name,
+			 strlen(m->u.kernel.match->name) + 1))
 		return -EFAULT;
 
 	if (match->compat_to_user) {
@@ -467,7 +470,9 @@ int xt_compat_target_to_user(struct xt_entry_target *t, void __user **dstptr,
 	u_int16_t tsize = t->u.user.target_size - off;
 
 	if (copy_to_user(ct, t, sizeof(*ct)) ||
-	    put_user(tsize, &ct->u.user.target_size))
+	    put_user(tsize, &ct->u.user.target_size) ||
+	    copy_to_user(ct->u.user.name, t->u.kernel.target->name,
+			 strlen(t->u.kernel.target->name) + 1))
 		return -EFAULT;
 
 	if (target->compat_to_user) {
@@ -795,7 +800,7 @@ int xt_proto_init(int af)
 #ifdef CONFIG_PROC_FS
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_TABLES, sizeof(buf));
-	proc = proc_net_fops_create(buf, 0440, &xt_file_ops);
+	proc = proc_net_fops_create(&init_net, buf, 0440, &xt_file_ops);
 	if (!proc)
 		goto out;
 	proc->data = (void *) ((unsigned long) af | (TABLE << 16));
@@ -803,14 +808,14 @@ int xt_proto_init(int af)
 
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_MATCHES, sizeof(buf));
-	proc = proc_net_fops_create(buf, 0440, &xt_file_ops);
+	proc = proc_net_fops_create(&init_net, buf, 0440, &xt_file_ops);
 	if (!proc)
 		goto out_remove_tables;
 	proc->data = (void *) ((unsigned long) af | (MATCH << 16));
 
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_TARGETS, sizeof(buf));
-	proc = proc_net_fops_create(buf, 0440, &xt_file_ops);
+	proc = proc_net_fops_create(&init_net, buf, 0440, &xt_file_ops);
 	if (!proc)
 		goto out_remove_matches;
 	proc->data = (void *) ((unsigned long) af | (TARGET << 16));
@@ -822,12 +827,12 @@ int xt_proto_init(int af)
 out_remove_matches:
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_MATCHES, sizeof(buf));
-	proc_net_remove(buf);
+	proc_net_remove(&init_net, buf);
 
 out_remove_tables:
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_TABLES, sizeof(buf));
-	proc_net_remove(buf);
+	proc_net_remove(&init_net, buf);
 out:
 	return -1;
 #endif
@@ -841,15 +846,15 @@ void xt_proto_fini(int af)
 
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_TABLES, sizeof(buf));
-	proc_net_remove(buf);
+	proc_net_remove(&init_net, buf);
 
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_TARGETS, sizeof(buf));
-	proc_net_remove(buf);
+	proc_net_remove(&init_net, buf);
 
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_MATCHES, sizeof(buf));
-	proc_net_remove(buf);
+	proc_net_remove(&init_net, buf);
 #endif /*CONFIG_PROC_FS*/
 }
 EXPORT_SYMBOL_GPL(xt_proto_fini);

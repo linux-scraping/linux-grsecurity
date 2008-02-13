@@ -297,18 +297,13 @@ handle_simple_irq(unsigned int irq, struct irq_desc *desc)
 
 	if (unlikely(desc->status & IRQ_INPROGRESS))
 		goto out_unlock;
+	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
 	kstat_cpu(cpu).irqs[irq]++;
 
 	action = desc->action;
-	if (unlikely(!action || (desc->status & IRQ_DISABLED))) {
-		if (desc->chip->mask)
-			desc->chip->mask(irq);
-		desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
-		desc->status |= IRQ_PENDING;
+	if (unlikely(!action || (desc->status & IRQ_DISABLED)))
 		goto out_unlock;
-	}
 
-	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING | IRQ_PENDING);
 	desc->status |= IRQ_INPROGRESS;
 	spin_unlock(&desc->lock);
 
@@ -503,7 +498,6 @@ out_unlock:
 	spin_unlock(&desc->lock);
 }
 
-#ifdef CONFIG_SMP
 /**
  *	handle_percpu_IRQ - Per CPU local irq handler
  *	@irq:	the interrupt number
@@ -528,8 +522,6 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 	if (desc->chip->eoi)
 		desc->chip->eoi(irq);
 }
-
-#endif /* CONFIG_SMP */
 
 void
 __set_irq_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,

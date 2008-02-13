@@ -309,7 +309,6 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 {
 	int ret;
 
-	memset(vma, 0, sizeof(*vma));
 	vma->vm_mm = current->mm;
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
@@ -560,7 +559,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 				if (likely(call_dl_resolve))
 					goto emulate;
 
-				vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+				vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 
 				down_write(&current->mm->mmap_sem);
 				if (current->mm->call_dl_resolve) {
@@ -855,7 +854,7 @@ out_of_memory:
 	up_read(&mm->mmap_sem);
 	printk("VM: killing process %s\n", current->comm);
 	if (!(regs->tstate & TSTATE_PRIV))
-		do_exit(SIGKILL);
+		do_group_exit(SIGKILL);
 	goto handle_kernel_fault;
 
 intr_or_no_mm:

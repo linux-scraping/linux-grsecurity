@@ -260,7 +260,7 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	char *res;
 	struct dentry *root;
 	struct vfsmount *rootmnt;
-	struct task_struct *reaper = child_reaper(current);
+	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
 
 	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
 	read_lock(&reaper->fs->lock);
@@ -329,7 +329,7 @@ to_gr_audit(const __u32 reqmode)
 	/* masks off auditable permission flags, then shifts them to create
 	   auditing flags, and adds the special case of append auditing if
 	   we're requesting write */
-	return (((reqmode & GR_AUDIT_READ) << 10) | ((reqmode & GR_WRITE) ? GR_AUDIT_APPEND : 0));
+	return (((reqmode & ~GR_AUDITS) << 10) | ((reqmode & GR_WRITE) ? GR_AUDIT_APPEND : 0));
 }
 
 struct acl_subject_label *
@@ -519,6 +519,35 @@ lookup_name_entry(const char *name)
 	return match;
 }
 
+static struct name_entry *
+lookup_name_entry_create(const char *name)
+{
+	unsigned int len = strlen(name);
+	unsigned int key = full_name_hash(name, len);
+	unsigned int index = key % name_set.n_size;
+	struct name_entry *match;
+
+	match = name_set.n_hash[index];
+
+	while (match && (match->key != key || !gr_streq(match->name, name, match->len, len) ||
+			 !match->deleted))
+		match = match->next;
+
+	if (match && match->deleted)
+		return match;
+
+	match = name_set.n_hash[index];
+
+	while (match && (match->key != key || !gr_streq(match->name, name, match->len, len) ||
+			 match->deleted))
+		match = match->next;
+
+	if (match && !match->deleted)
+		return match;
+	else
+		return NULL;
+}
+
 static struct inodev_entry *
 lookup_inodev_entry(const ino_t ino, const dev_t dev)
 {
@@ -584,7 +613,7 @@ insert_acl_role_label(struct acl_role_label *role)
 }
 					
 static int
-insert_name_entry(char *name, const ino_t inode, const dev_t device)
+insert_name_entry(char *name, const ino_t inode, const dev_t device, __u8 deleted)
 {
 	struct name_entry **curr, *nentry;
 	struct inodev_entry *ientry;
@@ -613,6 +642,7 @@ insert_name_entry(char *name, const ino_t inode, const dev_t device)
 	nentry->inode = inode;
 	nentry->device = device;
 	nentry->len = len;
+	nentry->deleted = deleted;
 
 	nentry->prev = NULL;
 	curr = &name_set.n_hash[index];
@@ -702,7 +732,7 @@ create_table(__u32 * len, int elementsize)
 static int
 init_variables(const struct gr_arg *arg)
 {
-	struct task_struct *reaper = child_reaper(current);
+	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
 	unsigned int stacksize;
 
 	subj_map_set.s_size = arg->role_db.num_subjects;
@@ -975,7 +1005,7 @@ copy_user_objs(struct acl_object_label *userp, struct acl_subject_label *subj,
 
 		insert_acl_obj_label(o_tmp, subj);
 		if (!insert_name_entry(o_tmp->filename, o_tmp->inode,
-				       o_tmp->device))
+				       o_tmp->device, (o_tmp->mode & GR_DELETED) ? 1 : 0))
 			return -ENOMEM;
 
 		ret = copy_user_glob(o_tmp);
@@ -1270,7 +1300,7 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 
 insert:
 	if (!insert_name_entry(s_tmp->filename, s_tmp->inode,
-			       s_tmp->device))
+			       s_tmp->device, (s_tmp->mode & GR_DELETED) ? 1 : 0))
 		return ERR_PTR(-ENOMEM);
 
 	return s_tmp;
@@ -1969,7 +1999,7 @@ gr_check_create(const struct dentry * new_dentry, const struct dentry * parent,
 
 	preempt_disable();
 	path = gr_to_filename_rbac(new_dentry, mnt);
-	match = lookup_name_entry(path);
+	match = lookup_name_entry_create(path);
 
 	if (!match)
 		goto check_parent;
@@ -2333,8 +2363,9 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt)
 	return 0;
 }
 
+/* always called with valid inodev ptr */
 static void
-do_handle_delete(const ino_t ino, const dev_t dev)
+do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
 {
 	struct acl_object_label *matchpo;
 	struct acl_subject_label *matchps;
@@ -2355,18 +2386,23 @@ do_handle_delete(const ino_t ino, const dev_t dev)
 			matchps->mode |= GR_DELETED;
 	FOR_EACH_ROLE_END(role,i)
 
+	inodev->nentry->deleted = 1;
+
 	return;
 }
 
 void
 gr_handle_delete(const ino_t ino, const dev_t dev)
 {
+	struct inodev_entry *inodev;
+
 	if (unlikely(!(gr_status & GR_READY)))
 		return;
 
 	write_lock(&gr_inode_lock);
-	if (unlikely((unsigned long)lookup_inodev_entry(ino, dev)))
-		do_handle_delete(ino, dev);
+	inodev = lookup_inodev_entry(ino, dev);
+	if (inodev != NULL)
+		do_handle_delete(inodev, ino, dev);
 	write_unlock(&gr_inode_lock);
 
 	return;
@@ -2460,11 +2496,12 @@ update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 	match = inodev_set.i_hash[index];
 
 	while (match && (match->nentry->inode != oldinode ||
-	       match->nentry->device != olddevice))
+	       match->nentry->device != olddevice || !match->nentry->deleted))
 		match = match->next;
 
 	if (match && (match->nentry->inode == oldinode)
-	    && (match->nentry->device == olddevice)) {
+	    && (match->nentry->device == olddevice) &&
+	    match->nentry->deleted) {
 		if (match->prev == NULL) {
 			inodev_set.i_hash[index] = match->next;
 			if (match->next != NULL)
@@ -2478,6 +2515,7 @@ update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 		match->next = NULL;
 		match->nentry->inode = newinode;
 		match->nentry->device = newdevice;
+		match->nentry->deleted = 0;
 
 		insert_inodev_entry(match);
 	}
@@ -2546,6 +2584,8 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 		 struct vfsmount *mnt, const __u8 replace)
 {
 	struct name_entry *matchn;
+	struct inodev_entry *inodev;
+
 	/* vfs_rename swaps the name and parent link for old_dentry and
 	   new_dentry
 	   at this point, old_dentry has the new name, parent link, and inode
@@ -2566,17 +2606,17 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 
 	write_lock(&gr_inode_lock);
 	if (unlikely(replace && new_dentry->d_inode)) {
-		if (unlikely(lookup_inodev_entry(new_dentry->d_inode->i_ino,
-					new_dentry->d_inode->i_sb->s_dev) &&
-		    (old_dentry->d_inode->i_nlink <= 1)))
-			do_handle_delete(new_dentry->d_inode->i_ino,
+		inodev = lookup_inodev_entry(new_dentry->d_inode->i_ino,
+					     new_dentry->d_inode->i_sb->s_dev);
+		if (inodev != NULL && (new_dentry->d_inode->i_nlink <= 1))
+			do_handle_delete(inodev, new_dentry->d_inode->i_ino,
 					 new_dentry->d_inode->i_sb->s_dev);
 	}
 
-	if (unlikely(lookup_inodev_entry(old_dentry->d_inode->i_ino,
-				old_dentry->d_inode->i_sb->s_dev) &&
-	    (old_dentry->d_inode->i_nlink <= 1)))
-		do_handle_delete(old_dentry->d_inode->i_ino,
+	inodev = lookup_inodev_entry(old_dentry->d_inode->i_ino,
+				     old_dentry->d_inode->i_sb->s_dev);
+	if (inodev != NULL && (old_dentry->d_inode->i_nlink <= 1))
+		do_handle_delete(inodev, old_dentry->d_inode->i_ino,
 				 old_dentry->d_inode->i_sb->s_dev);
 
 	if (unlikely((unsigned long)matchn))
@@ -3214,7 +3254,6 @@ static struct acl_object_label *gr_lookup_by_name(char *name, unsigned int len)
 	char *p, *lastp = NULL;
 	struct acl_object_label *obj = NULL, *tmp;
 	struct acl_subject_label *tmpsubj;
-	int done = 0;
 	char c = '\0';
 
 	read_lock(&gr_inode_lock);
@@ -3271,7 +3310,6 @@ __u32
 gr_handle_sysctl(const struct ctl_table *table, const int op)
 {
 	ctl_table *tmp;
-	struct nameidata nd;
 	const char *proc_sys = "/proc/sys";
 	char *path;
 	struct acl_object_label *obj;

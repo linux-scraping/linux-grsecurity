@@ -35,6 +35,7 @@
 #include <linux/netlink.h>
 #include <linux/init.h>
 
+#include <net/net_namespace.h>
 #include <net/ip.h>
 #include <net/protocol.h>
 #include <net/route.h>
@@ -443,6 +444,9 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 			struct fib_info *fi_drop;
 			u8 state;
 
+			if (fi->fib_treeref > 1)
+				goto out;
+
 			write_lock_bh(&fib_hash_lock);
 			fi_drop = fa->fa_info;
 			fa->fa_info = fi;
@@ -717,19 +721,18 @@ fn_hash_dump_zone(struct sk_buff *skb, struct netlink_callback *cb,
 {
 	int h, s_h;
 
+	if (fz->fz_hash == NULL)
+		return skb->len;
 	s_h = cb->args[3];
-	for (h=0; h < fz->fz_divisor; h++) {
-		if (h < s_h) continue;
-		if (h > s_h)
-			memset(&cb->args[4], 0,
-			       sizeof(cb->args) - 4*sizeof(cb->args[0]));
-		if (fz->fz_hash == NULL ||
-		    hlist_empty(&fz->fz_hash[h]))
+	for (h = s_h; h < fz->fz_divisor; h++) {
+		if (hlist_empty(&fz->fz_hash[h]))
 			continue;
-		if (fn_hash_dump_bucket(skb, cb, tb, fz, &fz->fz_hash[h])<0) {
+		if (fn_hash_dump_bucket(skb, cb, tb, fz, &fz->fz_hash[h]) < 0) {
 			cb->args[3] = h;
 			return -1;
 		}
+		memset(&cb->args[4], 0,
+		       sizeof(cb->args) - 4*sizeof(cb->args[0]));
 	}
 	cb->args[3] = h;
 	return skb->len;
@@ -745,14 +748,13 @@ static int fn_hash_dump(struct fib_table *tb, struct sk_buff *skb, struct netlin
 	read_lock(&fib_hash_lock);
 	for (fz = table->fn_zone_list, m=0; fz; fz = fz->fz_next, m++) {
 		if (m < s_m) continue;
-		if (m > s_m)
-			memset(&cb->args[3], 0,
-			       sizeof(cb->args) - 3*sizeof(cb->args[0]));
 		if (fn_hash_dump_zone(skb, cb, tb, fz) < 0) {
 			cb->args[2] = m;
 			read_unlock(&fib_hash_lock);
 			return -1;
 		}
+		memset(&cb->args[3], 0,
+		       sizeof(cb->args) - 3*sizeof(cb->args[0]));
 	}
 	read_unlock(&fib_hash_lock);
 	cb->args[2] = m;
@@ -1038,24 +1040,8 @@ static const struct seq_operations fib_seq_ops = {
 
 static int fib_seq_open(struct inode *inode, struct file *file)
 {
-	struct seq_file *seq;
-	int rc = -ENOMEM;
-	struct fib_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
-
-	if (!s)
-		goto out;
-
-	rc = seq_open(file, &fib_seq_ops);
-	if (rc)
-		goto out_kfree;
-
-	seq	     = file->private_data;
-	seq->private = s;
-out:
-	return rc;
-out_kfree:
-	kfree(s);
-	goto out;
+	return seq_open_private(file, &fib_seq_ops,
+			sizeof(struct fib_iter_state));
 }
 
 static const struct file_operations fib_seq_fops = {
@@ -1068,13 +1054,13 @@ static const struct file_operations fib_seq_fops = {
 
 int __init fib_proc_init(void)
 {
-	if (!proc_net_fops_create("route", S_IRUGO, &fib_seq_fops))
+	if (!proc_net_fops_create(&init_net, "route", S_IRUGO, &fib_seq_fops))
 		return -ENOMEM;
 	return 0;
 }
 
 void __init fib_proc_exit(void)
 {
-	proc_net_remove("route");
+	proc_net_remove(&init_net, "route");
 }
 #endif /* CONFIG_PROC_FS */

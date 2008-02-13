@@ -410,7 +410,7 @@ static int __init via_pmu_start(void)
 
 	irq = irq_of_parse_and_map(vias, 0);
 	if (irq == NO_IRQ) {
-		printk(KERN_ERR "via-pmu: can't map interruptn");
+		printk(KERN_ERR "via-pmu: can't map interrupt\n");
 		return -ENODEV;
 	}
 	if (request_irq(irq, via_pmu_interrupt, 0, "VIA-PMU", (void *)0)) {
@@ -1521,7 +1521,7 @@ pmu_sr_intr(void)
 			req = current_req;
 			/* 
 			 * For PMU sleep and freq change requests, we lock the
-			 * PMU until it's explicitely unlocked. This avoids any
+			 * PMU until it's explicitly unlocked. This avoids any
 			 * spurrious event polling getting in
 			 */
 			current_req = req->next;
@@ -2336,6 +2336,7 @@ powerbook_sleep_3400(void)
 	ret = pmac_suspend_devices();
 	if (ret) {
 		pbook_free_pci_save();
+		iounmap(mem_ctrl);
 		printk(KERN_ERR "Sleep rejected by devices\n");
 		return ret;
 	}

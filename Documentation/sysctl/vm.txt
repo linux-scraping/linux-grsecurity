@@ -31,8 +31,11 @@ Currently, these files are in /proc/sys/vm:
 - min_unmapped_ratio
 - min_slab_ratio
 - panic_on_oom
+- oom_kill_allocating_task
 - mmap_min_address
 - numa_zonelist_order
+- nr_hugepages
+- nr_overcommit_hugepages
 
 ==============================================================
 
@@ -110,6 +113,12 @@ This is used to force the Linux VM to keep a minimum number
 of kilobytes free.  The VM uses this number to compute a pages_min
 value for each lowmem zone in the system.  Each lowmem zone gets 
 a number of reserved free pages based proportionally on its size.
+
+Some minimal ammount of memory is needed to satisfy PF_MEMALLOC
+allocations; if you set this to lower than 1024KB, your system will
+become subtly broken, and prone to deadlock under high loads.
+
+Setting this too high will OOM your machine instantly.
 
 ==============================================================
 
@@ -220,6 +229,27 @@ The default value is 0.
 1 and 2 are for failover of clustering. Please select either
 according to your policy of failover.
 
+=============================================================
+
+oom_kill_allocating_task
+
+This enables or disables killing the OOM-triggering task in
+out-of-memory situations.
+
+If this is set to zero, the OOM killer will scan through the entire
+tasklist and select a task based on heuristics to kill.  This normally
+selects a rogue memory-hogging task that frees up a large amount of
+memory when killed.
+
+If this is set to non-zero, the OOM killer simply kills the task that
+triggered the out-of-memory condition.  This avoids the expensive
+tasklist scan.
+
+If panic_on_oom is selected, it takes precedence over whatever value
+is used in oom_kill_allocating_task.
+
+The default value is 0.
+
 ==============================================================
 
 mmap_min_addr
@@ -277,3 +307,20 @@ will select "node" order in following case.
 
 Otherwise, "zone" order will be selected. Default order is recommended unless
 this is causing problems for your system/application.
+
+==============================================================
+
+nr_hugepages
+
+Change the minimum size of the hugepage pool.
+
+See Documentation/vm/hugetlbpage.txt
+
+==============================================================
+
+nr_overcommit_hugepages
+
+Change the maximum size of the hugepage pool. The maximum is
+nr_hugepages + nr_overcommit_hugepages.
+
+See Documentation/vm/hugetlbpage.txt

@@ -7,7 +7,6 @@
 #include <linux/vmalloc.h>
 #include <linux/percpu.h>
 
-int grsec_enable_shm;
 int grsec_enable_link;
 int grsec_enable_dmesg;
 int grsec_enable_fifo;
@@ -116,9 +115,6 @@ grsecurity_init(void)
 #if !defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_SYSCTL_ON)
 #ifndef CONFIG_GRKERNSEC_SYSCTL
 	grsec_lock = 1;
-#endif
-#ifdef CONFIG_GRKERNSEC_SHM
-	grsec_enable_shm = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
 	grsec_enable_audit_textrel = 1;

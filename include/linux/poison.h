@@ -7,8 +7,8 @@
  * under normal circumstances, used to verify that nobody uses
  * non-initialized list entries.
  */
-#define LIST_POISON1  ((void *) 0x00100100)
-#define LIST_POISON2  ((void *) 0x00200200)
+#define LIST_POISON1  ((void *) 0xFF1001FFFF1001FFULL)
+#define LIST_POISON2  ((void *) 0xFF2002FFFF2002FFULL)
 
 /********** mm/slab.c **********/
 /*
@@ -36,7 +36,8 @@
  */
 
 /********** fs/jbd/journal.c **********/
-#define JBD_POISON_FREE	0x5b
+#define JBD_POISON_FREE		0x5b
+#define JBD2_POISON_FREE	0x5c
 
 /********** drivers/base/dmapool.c **********/
 #define	POOL_POISON_FREED	0xa7	/* !inuse */

@@ -137,7 +137,7 @@ config CYCLADES
 	  your Linux box, for instance in order to become a dial-in server.
 
 	  For information about the Cyclades-Z card, read
-	  <file:drivers/char/README.cycladesZ>.
+	  <file:Documentation/README.cycladesZ>.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called cyclades.
@@ -457,7 +457,7 @@ config LEGACY_PTYS
 config LEGACY_PTY_COUNT
 	int "Maximum number of legacy PTY in use"
 	depends on LEGACY_PTYS
-	range 1 256
+	range 0 256
 	default "256"
 	---help---
 	  The maximum number of legacy PTYs that can be used at any one time.
@@ -543,33 +543,11 @@ config PPDEV
 
 	  If unsure, say N.
 
-config TIPAR
-	tristate "Texas Instruments parallel link cable support"
-	depends on PARPORT
-	---help---
-	  If you own a Texas Instruments graphing calculator and use a
-	  parallel link cable, then you might be interested in this driver.
-
-	  If you enable this driver, you will be able to communicate with
-	  your calculator through a set of device nodes under /dev. The
-	  main advantage of this driver is that you don't have to be root
-	  to use this precise link cable (depending on the permissions on
-	  the device nodes, though).
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called tipar.
-
-	  If you don't know what a parallel link cable is or what a Texas
-	  Instruments graphing calculator is, then you probably don't need this
-	  driver.
-
-	  If unsure, say N.
-
 config HVC_DRIVER
 	bool
 	help
-	  Users of pSeries machines that want to utilize the hvc console front-end
-	  module for their backend console driver should select this option.
+	  Generic "hypervisor virtual console" infrastructure for various
+	  hypervisors (pSeries, iSeries, Xen, lguest).
 	  It will automatically be selected if one of the back-end console drivers
 	  is selected.
 
@@ -613,6 +591,10 @@ config HVC_XEN
 	help
 	  Xen virtual console device driver
 
+config VIRTIO_CONSOLE
+	bool
+	select HVC_DRIVER
+
 config HVCS
 	tristate "IBM Hypervisor Virtual Console Server support"
 	depends on PPC_PSERIES
@@ -631,8 +613,6 @@ config HVCS
 	  module.
 
 source "drivers/char/ipmi/Kconfig"
-
-source "drivers/char/watchdog/Kconfig"
 
 config DS1620
 	tristate "NetWinder thermometer support"
@@ -895,10 +875,6 @@ config GPIO_TB0219
 	tristate "TANBAC TB0219 GPIO support"
 	depends on TANBAC_TB022X
 	select GPIO_VR41XX
-
-source "drivers/char/agp/Kconfig"
-
-source "drivers/char/drm/Kconfig"
 
 source "drivers/char/pcmcia/Kconfig"
 

@@ -63,17 +63,12 @@ config WAVELAN
 	  a Radio LAN (wireless Ethernet-like Local Area Network) using the
 	  radio frequencies 900 MHz and 2.4 GHz.
 
-	  This driver support the ISA version of the WaveLAN card.  A separate
-	  driver for the PCMCIA (PC-card) hardware is available in David
-	  Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
-	  for location).
-
 	  If you want to use an ISA WaveLAN card under Linux, say Y and read
 	  the Ethernet-HOWTO, available from
 	  <http://www.tldp.org/docs.html#howto>. Some more specific
 	  information is contained in
 	  <file:Documentation/networking/wavelan.txt> and in the source code
-	  <file:drivers/net/wavelan.p.h>.
+	  <file:drivers/net/wireless/wavelan.p.h>.
 
 	  You will also need the wireless tools package available from
 	  <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>.
@@ -269,6 +264,7 @@ config IPW2200_DEBUG
 config LIBERTAS
 	tristate "Marvell 8xxx Libertas WLAN driver support"
 	depends on WLAN_80211
+	select WIRELESS_EXT
 	select IEEE80211
 	select FW_LOADER
 	---help---
@@ -279,6 +275,19 @@ config LIBERTAS_USB
 	depends on LIBERTAS && USB
 	---help---
 	  A driver for Marvell Libertas 8388 USB devices.
+
+config LIBERTAS_CS
+	tristate "Marvell Libertas 8385 CompactFlash 802.11b/g cards"
+	depends on LIBERTAS && PCMCIA && EXPERIMENTAL
+	select FW_LOADER
+	---help---
+	  A driver for Marvell Libertas 8385 CompactFlash devices.
+
+config LIBERTAS_SDIO
+	tristate "Marvell Libertas 8385 and 8686 SDIO 802.11b/g cards"
+	depends on LIBERTAS && MMC
+	---help---
+	  A driver for Marvell Libertas 8385 and 8686 SDIO devices.
 
 config LIBERTAS_DEBUG
 	bool "Enable full debugging output in the Libertas module."
@@ -317,7 +326,7 @@ config HERMES
 	  Cabletron/EnteraSys Roamabout, ELSA AirLancer, MELCO Buffalo, Avaya,
 	  IBM High Rate Wireless, Farralon Syyline, Samsung MagicLAN, Netgear
 	  MA401, LinkSys WPC-11, D-Link DWL-650, 3Com AirConnect, Intel
-	  PRO/Wireless, and Symbol Spectrum24 High Rate amongst others.
+	  IPW2011, and Symbol Spectrum24 High Rate amongst others.
 
 	  This option includes the guts of the driver, but in order to
 	  actually use a card you will also need to enable support for PCMCIA
@@ -379,30 +388,6 @@ config PCI_HERMES
 	  common.  Some of the built-in wireless adaptors in laptops are of
 	  this variety.
 
-config ATMEL
-      tristate "Atmel at76c50x chipset  802.11b support"
-      depends on (PCI || PCMCIA) && WLAN_80211
-      select WIRELESS_EXT
-      select FW_LOADER
-      select CRC32
-       ---help---
-        A driver 802.11b wireless cards based on the Atmel fast-vnet
-        chips. This driver supports standard Linux wireless extensions. 
- 
-        Many  cards based on this chipset do not have flash memory
-        and need their firmware loaded at start-up. If yours is 
-        one of these, you will need to provide a firmware image
-        to be loaded into the card by the driver. The Atmel
-        firmware package can be downloaded from
-        <http://www.thekelleys.org.uk/atmel>
-
-config PCI_ATMEL
-      tristate "Atmel at76c506 PCI cards"
-      depends on ATMEL && PCI
-       ---help---
-        Enable support for PCI and mini-PCI cards containing the
-        Atmel at76c506 chip.
-
 config PCMCIA_HERMES
 	tristate "Hermes PCMCIA card support"
 	depends on PCMCIA && HERMES
@@ -414,12 +399,7 @@ config PCMCIA_HERMES
 	  such as the Linksys, D-Link and Farallon Skyline.  It should also
 	  work on Symbol cards such as the 3Com AirConnect and Ericsson WLAN.
 
-	  To use your PC-cards, you will need supporting software from David
-	  Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
-	  for location).  You also want to check out the PCMCIA-HOWTO,
-	  available from <http://www.tldp.org/docs.html#howto>.
-
-	  You will also very likely also need the Wireless Tools in order to
+	  You will very likely need the Wireless Tools in order to
 	  configure your card and that /etc/pcmcia/wireless.opts works:
 	  <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>.
 
@@ -436,6 +416,40 @@ config PCMCIA_SPECTRUM
 	  This driver requires firmware download on startup.  Utilities
 	  for downloading Symbol firmware are available at
 	  <http://sourceforge.net/projects/orinoco/>
+
+config ATMEL
+      tristate "Atmel at76c50x chipset  802.11b support"
+      depends on (PCI || PCMCIA) && WLAN_80211
+      select WIRELESS_EXT
+      select FW_LOADER
+      select CRC32
+       ---help---
+        A driver 802.11b wireless cards based on the Atmel fast-vnet
+        chips. This driver supports standard Linux wireless extensions.
+
+        Many  cards based on this chipset do not have flash memory
+        and need their firmware loaded at start-up. If yours is
+        one of these, you will need to provide a firmware image
+        to be loaded into the card by the driver. The Atmel
+        firmware package can be downloaded from
+        <http://www.thekelleys.org.uk/atmel>
+
+config PCI_ATMEL
+      tristate "Atmel at76c506 PCI cards"
+      depends on ATMEL && PCI
+       ---help---
+        Enable support for PCI and mini-PCI cards containing the
+        Atmel at76c506 chip.
+
+config PCMCIA_ATMEL
+	tristate "Atmel at76c502/at76c504 PCMCIA cards"
+	depends on ATMEL && PCMCIA
+	select WIRELESS_EXT
+	select FW_LOADER
+	select CRC32
+	---help---
+	  Enable support for PCMCIA cards containing the
+	  Atmel at76c502 and at76c504 chips.
 
 config AIRO_CS
 	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
@@ -456,21 +470,6 @@ config AIRO_CS
 	  This driver support both the standard Linux Wireless Extensions
 	  and Cisco proprietary API, so both the Linux Wireless Tools and the
 	  Cisco Linux utilities can be used to configure the card.
-
-	  To use your PC-cards, you will need supporting software from David
-	  Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
-	  for location).  You also want to check out the PCMCIA-HOWTO,
-	  available from <http://www.tldp.org/docs.html#howto>.
-
-config PCMCIA_ATMEL
-	tristate "Atmel at76c502/at76c504 PCMCIA cards"
-	depends on ATMEL && PCMCIA
-	select WIRELESS_EXT
-	select FW_LOADER
-	select CRC32
-	---help---
-	  Enable support for PCMCIA cards containing the
-	  Atmel at76c502 and at76c504 chips.
 
 config PCMCIA_WL3501
       tristate "Planet WL3501 PCMCIA cards"
@@ -558,8 +557,103 @@ config RTL8187
 
 	  Thanks to Realtek for their support!
 
+config ADM8211
+	tristate "ADMtek ADM8211 support"
+	depends on MAC80211 && PCI && WLAN_80211 && EXPERIMENTAL
+	select CRC32
+	select EEPROM_93CX6
+	---help---
+	  This driver is for ADM8211A, ADM8211B, and ADM8211C based cards.
+	  These are PCI/mini-PCI/Cardbus 802.11b chips found in cards such as:
+
+	  Xterasys Cardbus XN-2411b
+	  Blitz NetWave Point PC
+	  TrendNet 221pc
+	  Belkin F5D6001
+	  SMC 2635W
+	  Linksys WPC11 v1
+	  Fiberline FL-WL-200X
+	  3com Office Connect (3CRSHPW796)
+	  Corega WLPCIB-11
+	  SMC 2602W V2 EU
+	  D-Link DWL-520 Revision C
+
+	  However, some of these cards have been replaced with other chips
+	  like the RTL8180L (Xterasys Cardbus XN-2411b, Belkin F5D6001) or
+	  the Ralink RT2400 (SMC2635W) without a model number change.
+
+	  Thanks to Infineon-ADMtek for their support of this driver.
+
+config P54_COMMON
+	tristate "Softmac Prism54 support"
+	depends on MAC80211 && WLAN_80211 && FW_LOADER && EXPERIMENTAL
+	---help---
+	  This is common code for isl38xx based cards.
+	  This module does nothing by itself - the USB/PCI frontends
+	  also need to be enabled in order to support any devices.
+
+	  These devices require softmac firmware which can be found at
+	  http://prism54.org/
+
+	  If you choose to build a module, it'll be called p54common.
+
+config P54_USB
+	tristate "Prism54 USB support"
+	depends on P54_COMMON && USB
+	select CRC32
+	---help---
+	  This driver is for USB isl38xx based wireless cards.
+	  These are USB based adapters found in devices such as:
+
+	  3COM 3CRWE254G72
+	  SMC 2862W-G
+	  Accton 802.11g WN4501 USB
+	  Siemens Gigaset USB
+	  Netgear WG121
+	  Netgear WG111
+	  Medion 40900, Roper Europe
+	  Shuttle PN15, Airvast WM168g, IOGear GWU513
+	  Linksys WUSB54G
+	  Linksys WUSB54G Portable
+	  DLink DWL-G120 Spinnaker
+	  DLink DWL-G122
+	  Belkin F5D7050 ver 1000
+	  Cohiba Proto board
+	  SMC 2862W-G version 2
+	  U.S. Robotics U5 802.11g Adapter
+	  FUJITSU E-5400 USB D1700
+	  Sagem XG703A
+	  DLink DWL-G120 Cohiba
+	  Spinnaker Proto board
+	  Linksys WUSB54AG
+	  Inventel UR054G
+	  Spinnaker DUT
+
+	  These devices require softmac firmware which can be found at
+	  http://prism54.org/
+
+	  If you choose to build a module, it'll be called p54usb.
+
+config P54_PCI
+	tristate "Prism54 PCI support"
+	depends on P54_COMMON && PCI
+	---help---
+	  This driver is for PCI isl38xx based wireless cards.
+	  This driver supports most devices that are supported by the
+	  fullmac prism54 driver plus many devices which are not
+	  supported by the fullmac driver/firmware.
+
+	  This driver requires softmac firmware which can be found at
+	  http://prism54.org/
+
+	  If you choose to build a module, it'll be called p54pci.
+
+source "drivers/net/wireless/iwlwifi/Kconfig"
 source "drivers/net/wireless/hostap/Kconfig"
 source "drivers/net/wireless/bcm43xx/Kconfig"
+source "drivers/net/wireless/b43/Kconfig"
+source "drivers/net/wireless/b43legacy/Kconfig"
 source "drivers/net/wireless/zd1211rw/Kconfig"
+source "drivers/net/wireless/rt2x00/Kconfig"
 
 endmenu

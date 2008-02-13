@@ -60,7 +60,7 @@
 
 #include <net/irda/af_irda.h>
 
-static int irda_create(struct socket *sock, int protocol);
+static int irda_create(struct net *net, struct socket *sock, int protocol);
 
 static const struct proto_ops irda_stream_ops;
 static const struct proto_ops irda_seqpacket_ops;
@@ -802,12 +802,18 @@ static int irda_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	}
 #endif /* CONFIG_IRDA_ULTRA */
 
+	self->ias_obj = irias_new_object(addr->sir_name, jiffies);
+	if (self->ias_obj == NULL)
+		return -ENOMEM;
+
 	err = irda_open_tsap(self, addr->sir_lsap_sel, addr->sir_name);
-	if (err < 0)
+	if (err < 0) {
+		kfree(self->ias_obj->name);
+		kfree(self->ias_obj);
 		return err;
+	}
 
 	/*  Register with LM-IAS */
-	self->ias_obj = irias_new_object(addr->sir_name, jiffies);
 	irias_add_integer_attrib(self->ias_obj, "IrDA:TinyTP:LsapSel",
 				 self->stsap_sel, IAS_KERNEL_ATTR);
 	irias_insert_object(self->ias_obj);
@@ -831,7 +837,7 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
 
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
 
-	err = irda_create(newsock, sk->sk_protocol);
+	err = irda_create(sk->sk_net, newsock, sk->sk_protocol);
 	if (err)
 		return err;
 
@@ -1057,12 +1063,15 @@ static struct proto irda_proto = {
  *    Create IrDA socket
  *
  */
-static int irda_create(struct socket *sock, int protocol)
+static int irda_create(struct net *net, struct socket *sock, int protocol)
 {
 	struct sock *sk;
 	struct irda_sock *self;
 
 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__);
+
+	if (net != &init_net)
+		return -EAFNOSUPPORT;
 
 	/* Check for valid socket type */
 	switch (sock->type) {
@@ -1075,7 +1084,7 @@ static int irda_create(struct socket *sock, int protocol)
 	}
 
 	/* Allocate networking socket */
-	sk = sk_alloc(PF_IRDA, GFP_ATOMIC, &irda_proto, 1);
+	sk = sk_alloc(net, PF_IRDA, GFP_ATOMIC, &irda_proto);
 	if (sk == NULL)
 		return -ENOMEM;
 
@@ -1115,8 +1124,6 @@ static int irda_create(struct socket *sock, int protocol)
 			self->max_sdu_size_rx = TTP_SAR_UNBOUND;
 			break;
 		default:
-			IRDA_ERROR("%s: protocol not supported!\n",
-				   __FUNCTION__);
 			return -ESOCKTNOSUPPORT;
 		}
 		break;
@@ -1245,18 +1252,17 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct irda_sock *self;
 	struct sk_buff *skb;
-	int err;
+	int err = -EPIPE;
 
 	IRDA_DEBUG(4, "%s(), len=%zd\n", __FUNCTION__, len);
 
 	/* Note : socket.c set MSG_EOR on SEQPACKET sockets */
-	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_CMSG_COMPAT))
+	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_EOR | MSG_CMSG_COMPAT |
+			       MSG_NOSIGNAL))
 		return -EINVAL;
 
-	if (sk->sk_shutdown & SEND_SHUTDOWN) {
-		send_sig(SIGPIPE, current, 0);
-		return -EPIPE;
-	}
+	if (sk->sk_shutdown & SEND_SHUTDOWN)
+		goto out_err;
 
 	if (sk->sk_state != TCP_ESTABLISHED)
 		return -ENOTCONN;
@@ -1283,7 +1289,7 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
 	skb = sock_alloc_send_skb(sk, len + self->max_header_size + 16,
 				  msg->msg_flags & MSG_DONTWAIT, &err);
 	if (!skb)
-		return -ENOBUFS;
+		goto out_err;
 
 	skb_reserve(skb, self->max_header_size + 16);
 	skb_reset_transport_header(skb);
@@ -1291,7 +1297,7 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
 	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
 	if (err) {
 		kfree_skb(skb);
-		return err;
+		goto out_err;
 	}
 
 	/*
@@ -1301,10 +1307,14 @@ static int irda_sendmsg(struct kiocb *iocb, struct socket *sock,
 	err = irttp_data_request(self->tsap, skb);
 	if (err) {
 		IRDA_DEBUG(0, "%s(), err=%d\n", __FUNCTION__, err);
-		return err;
+		goto out_err;
 	}
 	/* Tell client how much data we actually sent */
 	return len;
+
+ out_err:
+	return sk_stream_error(sk, msg->msg_flags, err);
+
 }
 
 /*
@@ -1821,7 +1831,7 @@ static int irda_setsockopt(struct socket *sock, int level, int optname,
 	struct irda_ias_set    *ias_opt;
 	struct ias_object      *ias_obj;
 	struct ias_attrib *	ias_attr;	/* Attribute in IAS object */
-	int opt;
+	int opt, free_ias = 0;
 
 	IRDA_DEBUG(2, "%s(%p)\n", __FUNCTION__, self);
 
@@ -1877,11 +1887,20 @@ static int irda_setsockopt(struct socket *sock, int level, int optname,
 			/* Create a new object */
 			ias_obj = irias_new_object(ias_opt->irda_class_name,
 						   jiffies);
+			if (ias_obj == NULL) {
+				kfree(ias_opt);
+				return -ENOMEM;
+			}
+			free_ias = 1;
 		}
 
 		/* Do we have the attribute already ? */
 		if(irias_find_attrib(ias_obj, ias_opt->irda_attrib_name)) {
 			kfree(ias_opt);
+			if (free_ias) {
+				kfree(ias_obj->name);
+				kfree(ias_obj);
+			}
 			return -EINVAL;
 		}
 
@@ -1900,6 +1919,11 @@ static int irda_setsockopt(struct socket *sock, int level, int optname,
 			if(ias_opt->attribute.irda_attrib_octet_seq.len >
 			   IAS_MAX_OCTET_STRING) {
 				kfree(ias_opt);
+				if (free_ias) {
+					kfree(ias_obj->name);
+					kfree(ias_obj);
+				}
+
 				return -EINVAL;
 			}
 			/* Add an octet sequence attribute */
@@ -1928,6 +1952,10 @@ static int irda_setsockopt(struct socket *sock, int level, int optname,
 			break;
 		default :
 			kfree(ias_opt);
+			if (free_ias) {
+				kfree(ias_obj->name);
+				kfree(ias_obj);
+			}
 			return -EINVAL;
 		}
 		irias_insert_object(ias_obj);

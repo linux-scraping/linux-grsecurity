@@ -131,7 +131,7 @@ static void property_stop(struct seq_file *f, void *v)
 	/* Nothing to do */
 }
 
-static struct seq_operations property_op = {
+static const struct seq_operations property_op = {
 	.start		= property_start,
 	.next		= property_next,
 	.stop		= property_stop,
@@ -415,7 +415,7 @@ static struct file_system_type openprom_fs_type = {
 	.kill_sb	= kill_anon_super,
 };
 
-static void op_inode_init_once(void *data, struct kmem_cache * cachep, unsigned long flags)
+static void op_inode_init_once(struct kmem_cache * cachep, void *data)
 {
 	struct op_inode_info *oi = (struct op_inode_info *) data;
 

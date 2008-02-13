@@ -511,11 +511,11 @@ static void lockdep_print_held_locks(struct task_struct *curr)
 	int i, depth = curr->lockdep_depth;
 
 	if (!depth) {
-		printk("no locks held by %s/%d.\n", curr->comm, curr->pid);
+		printk("no locks held by %s/%d.\n", curr->comm, task_pid_nr(curr));
 		return;
 	}
 	printk("%d lock%s held by %s/%d:\n",
-		depth, depth > 1 ? "s" : "", curr->comm, curr->pid);
+		depth, depth > 1 ? "s" : "", curr->comm, task_pid_nr(curr));
 
 	for (i = 0; i < depth; i++) {
 		printk(" #%d: ", i);
@@ -904,7 +904,7 @@ print_circular_bug_header(struct lock_list *entry, unsigned int depth)
 	print_kernel_version();
 	printk(  "-------------------------------------------------------\n");
 	printk("%s/%d is trying to acquire lock:\n",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	print_lock(check_source);
 	printk("\nbut task is already holding lock:\n");
 	print_lock(check_target);
@@ -1085,7 +1085,7 @@ print_bad_irq_dependency(struct task_struct *curr,
 	print_kernel_version();
 	printk(  "------------------------------------------------------\n");
 	printk("%s/%d [HC%u[%lu]:SC%u[%lu]:HE%u:SE%u] is trying to acquire:\n",
-		curr->comm, curr->pid,
+		curr->comm, task_pid_nr(curr),
 		curr->hardirq_context, hardirq_count() >> HARDIRQ_SHIFT,
 		curr->softirq_context, softirq_count() >> SOFTIRQ_SHIFT,
 		curr->hardirqs_enabled,
@@ -1237,7 +1237,7 @@ print_deadlock_bug(struct task_struct *curr, struct held_lock *prev,
 	print_kernel_version();
 	printk(  "---------------------------------------------\n");
 	printk("%s/%d is trying to acquire lock:\n",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	print_lock(next);
 	printk("\nbut task is already holding lock:\n");
 	print_lock(prev);
@@ -1521,7 +1521,7 @@ cache_hit:
 }
 
 static int validate_chain(struct task_struct *curr, struct lockdep_map *lock,
-	       	struct held_lock *hlock, int chain_head, u64 chain_key)
+		struct held_lock *hlock, int chain_head, u64 chain_key)
 {
 	/*
 	 * Trylock needs to maintain the stack of held locks, but it
@@ -1641,7 +1641,7 @@ print_usage_bug(struct task_struct *curr, struct held_lock *this,
 		usage_str[prev_bit], usage_str[new_bit]);
 
 	printk("%s/%d [HC%u[%lu]:SC%u[%lu]:HE%u:SE%u] takes:\n",
-		curr->comm, curr->pid,
+		curr->comm, task_pid_nr(curr),
 		trace_hardirq_context(curr), hardirq_count() >> HARDIRQ_SHIFT,
 		trace_softirq_context(curr), softirq_count() >> SOFTIRQ_SHIFT,
 		trace_hardirqs_enabled(curr),
@@ -1694,7 +1694,7 @@ print_irq_inversion_bug(struct task_struct *curr, struct lock_class *other,
 	print_kernel_version();
 	printk(  "---------------------------------------------------------\n");
 	printk("%s/%d just changed the state of lock:\n",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	print_lock(this);
 	if (forwards)
 		printk("but this lock took another, %s-irq-unsafe lock in the past:\n", irqclass);
@@ -2424,7 +2424,7 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		return 0;
 
 	/*
-	 * Calculate the chain hash: it's the combined has of all the
+	 * Calculate the chain hash: it's the combined hash of all the
 	 * lock keys along the dependency chain. We save the hash value
 	 * at every step so that we can get the current hash easily
 	 * after unlock. The chain hash is then used to cache dependency
@@ -2487,7 +2487,7 @@ print_unlock_inbalance_bug(struct task_struct *curr, struct lockdep_map *lock,
 	printk(  "[ BUG: bad unlock balance detected! ]\n");
 	printk(  "-------------------------------------\n");
 	printk("%s/%d is trying to release lock (",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	print_lockdep_cache(lock);
 	printk(") at:\n");
 	print_ip_sym(ip);
@@ -2654,10 +2654,15 @@ static void check_flags(unsigned long flags)
 	if (!debug_locks)
 		return;
 
-	if (irqs_disabled_flags(flags))
-		DEBUG_LOCKS_WARN_ON(current->hardirqs_enabled);
-	else
-		DEBUG_LOCKS_WARN_ON(!current->hardirqs_enabled);
+	if (irqs_disabled_flags(flags)) {
+		if (DEBUG_LOCKS_WARN_ON(current->hardirqs_enabled)) {
+			printk("possible reason: unannotated irqs-off.\n");
+		}
+	} else {
+		if (DEBUG_LOCKS_WARN_ON(!current->hardirqs_enabled)) {
+			printk("possible reason: unannotated irqs-on.\n");
+		}
+	}
 
 	/*
 	 * We dont accurately track softirq state in e.g.
@@ -2737,7 +2742,7 @@ print_lock_contention_bug(struct task_struct *curr, struct lockdep_map *lock,
 	printk(  "[ BUG: bad contention detected! ]\n");
 	printk(  "---------------------------------\n");
 	printk("%s/%d is trying to contend lock (",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	print_lockdep_cache(lock);
 	printk(") at:\n");
 	print_ip_sym(ip);
@@ -2927,7 +2932,7 @@ static void zap_class(struct lock_class *class)
 
 }
 
-static inline int within(void *addr, void *start, unsigned long size)
+static inline int within(const void *addr, void *start, unsigned long size)
 {
 	return addr >= start && addr < start + size;
 }
@@ -2938,9 +2943,10 @@ void lockdep_free_key_range(void *start, unsigned long size)
 	struct list_head *head;
 	unsigned long flags;
 	int i;
+	int locked;
 
 	raw_local_irq_save(flags);
-	graph_lock();
+	locked = graph_lock();
 
 	/*
 	 * Unhash all classes that were created by this module:
@@ -2949,12 +2955,16 @@ void lockdep_free_key_range(void *start, unsigned long size)
 		head = classhash_table + i;
 		if (list_empty(head))
 			continue;
-		list_for_each_entry_safe(class, next, head, hash_entry)
+		list_for_each_entry_safe(class, next, head, hash_entry) {
 			if (within(class->key, start, size))
 				zap_class(class);
+			else if (within(class->name, start, size))
+				zap_class(class);
+		}
 	}
 
-	graph_unlock();
+	if (locked)
+		graph_unlock();
 	raw_local_irq_restore(flags);
 }
 
@@ -2964,6 +2974,7 @@ void lockdep_reset_lock(struct lockdep_map *lock)
 	struct list_head *head;
 	unsigned long flags;
 	int i, j;
+	int locked;
 
 	raw_local_irq_save(flags);
 
@@ -2982,7 +2993,7 @@ void lockdep_reset_lock(struct lockdep_map *lock)
 	 * Debug check: in the end all mapped classes should
 	 * be gone.
 	 */
-	graph_lock();
+	locked = graph_lock();
 	for (i = 0; i < CLASSHASH_SIZE; i++) {
 		head = classhash_table + i;
 		if (list_empty(head))
@@ -2995,7 +3006,8 @@ void lockdep_reset_lock(struct lockdep_map *lock)
 			}
 		}
 	}
-	graph_unlock();
+	if (locked)
+		graph_unlock();
 
 out_restore:
 	raw_local_irq_restore(flags);
@@ -3054,11 +3066,6 @@ void __init lockdep_info(void)
 #endif
 }
 
-static inline int in_range(const void *start, const void *addr, const void *end)
-{
-	return addr >= start && addr <= end;
-}
-
 static void
 print_freed_lock_bug(struct task_struct *curr, const void *mem_from,
 		     const void *mem_to, struct held_lock *hlock)
@@ -3072,12 +3079,19 @@ print_freed_lock_bug(struct task_struct *curr, const void *mem_from,
 	printk(  "[ BUG: held lock freed! ]\n");
 	printk(  "-------------------------\n");
 	printk("%s/%d is freeing memory %p-%p, with a lock still held there!\n",
-		curr->comm, curr->pid, mem_from, mem_to-1);
+		curr->comm, task_pid_nr(curr), mem_from, mem_to-1);
 	print_lock(hlock);
 	lockdep_print_held_locks(curr);
 
 	printk("\nstack backtrace:\n");
 	dump_stack();
+}
+
+static inline int not_in_range(const void* mem_from, unsigned long mem_len,
+				const void* lock_from, unsigned long lock_len)
+{
+	return lock_from + lock_len <= mem_from ||
+		mem_from + mem_len <= lock_from;
 }
 
 /*
@@ -3087,7 +3101,6 @@ print_freed_lock_bug(struct task_struct *curr, const void *mem_from,
  */
 void debug_check_no_locks_freed(const void *mem_from, unsigned long mem_len)
 {
-	const void *mem_to = mem_from + mem_len, *lock_from, *lock_to;
 	struct task_struct *curr = current;
 	struct held_lock *hlock;
 	unsigned long flags;
@@ -3100,14 +3113,11 @@ void debug_check_no_locks_freed(const void *mem_from, unsigned long mem_len)
 	for (i = 0; i < curr->lockdep_depth; i++) {
 		hlock = curr->held_locks + i;
 
-		lock_from = (void *)hlock->instance;
-		lock_to = (void *)(hlock->instance + 1);
-
-		if (!in_range(mem_from, lock_from, mem_to) &&
-					!in_range(mem_from, lock_to, mem_to))
+		if (not_in_range(mem_from, mem_len, hlock->instance,
+					sizeof(*hlock->instance)))
 			continue;
 
-		print_freed_lock_bug(curr, mem_from, mem_to, hlock);
+		print_freed_lock_bug(curr, mem_from, mem_from + mem_len, hlock);
 		break;
 	}
 	local_irq_restore(flags);
@@ -3125,7 +3135,7 @@ static void print_held_locks_bug(struct task_struct *curr)
 	printk(  "[ BUG: lock held at task exit time! ]\n");
 	printk(  "-------------------------------------\n");
 	printk("%s/%d is exiting with locks still held!\n",
-		curr->comm, curr->pid);
+		curr->comm, task_pid_nr(curr));
 	lockdep_print_held_locks(curr);
 
 	printk("\nstack backtrace:\n");
@@ -3173,6 +3183,13 @@ retry:
 		printk(" locked it.\n");
 
 	do_each_thread(g, p) {
+		/*
+		 * It's not reliable to print a task's held locks
+		 * if it's not sleeping (or if it's not the current
+		 * task):
+		 */
+		if (p->state == TASK_RUNNING && p != current)
+			continue;
 		if (p->lockdep_depth)
 			lockdep_print_held_locks(p);
 		if (!unlock)
@@ -3199,3 +3216,19 @@ void debug_show_held_locks(struct task_struct *task)
 }
 
 EXPORT_SYMBOL_GPL(debug_show_held_locks);
+
+void lockdep_sys_exit(void)
+{
+	struct task_struct *curr = current;
+
+	if (unlikely(curr->lockdep_depth)) {
+		if (!debug_locks_off())
+			return;
+		printk("\n================================================\n");
+		printk(  "[ BUG: lock held when returning to user space! ]\n");
+		printk(  "------------------------------------------------\n");
+		printk("%s/%d is leaving the kernel with locks still held!\n",
+				curr->comm, curr->pid);
+		lockdep_print_held_locks(curr);
+	}
+}

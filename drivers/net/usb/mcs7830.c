@@ -94,7 +94,7 @@ static int mcs7830_get_reg(struct usbnet *dev, u16 index, u16 size, void *data)
 
 	ret = usb_control_msg(xdev, usb_rcvctrlpipe(xdev, 0), MCS7830_RD_BREQ,
 			      MCS7830_RD_BMREQ, 0x0000, index, data,
-			      size, msecs_to_jiffies(MCS7830_CTRL_TIMEOUT));
+			      size, MCS7830_CTRL_TIMEOUT);
 	return ret;
 }
 
@@ -105,7 +105,7 @@ static int mcs7830_set_reg(struct usbnet *dev, u16 index, u16 size, void *data)
 
 	ret = usb_control_msg(xdev, usb_sndctrlpipe(xdev, 0), MCS7830_WR_BREQ,
 			      MCS7830_WR_BMREQ, 0x0000, index, data,
-			      size, msecs_to_jiffies(MCS7830_CTRL_TIMEOUT));
+			      size, MCS7830_CTRL_TIMEOUT);
 	return ret;
 }
 
@@ -114,8 +114,8 @@ static void mcs7830_async_cmd_callback(struct urb *urb)
 	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
 
 	if (urb->status < 0)
-		printk(KERN_DEBUG "mcs7830_async_cmd_callback() failed with %d",
-			urb->status);
+		printk(KERN_DEBUG "%s() failed with %d\n",
+		       __FUNCTION__, urb->status);
 
 	kfree(req);
 	usb_free_urb(urb);
@@ -129,15 +129,15 @@ static void mcs7830_set_reg_async(struct usbnet *dev, u16 index, u16 size, void 
 
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
-		dev_dbg(&dev->udev->dev, "Error allocating URB "
-				"in write_cmd_async!");
+		dev_dbg(&dev->udev->dev,
+			"Error allocating URB in write_cmd_async!\n");
 		return;
 	}
 
 	req = kmalloc(sizeof *req, GFP_ATOMIC);
 	if (!req) {
-		dev_err(&dev->udev->dev, "Failed to allocate memory for "
-				"control request");
+		dev_err(&dev->udev->dev,
+			"Failed to allocate memory for control request\n");
 		goto out;
 	}
 	req->bRequestType = MCS7830_WR_BMREQ;
@@ -153,8 +153,8 @@ static void mcs7830_set_reg_async(struct usbnet *dev, u16 index, u16 size, void 
 
 	ret = usb_submit_urb(urb, GFP_ATOMIC);
 	if (ret < 0) {
-		dev_err(&dev->udev->dev, "Error submitting the control "
-				"message: ret=%d", ret);
+		dev_err(&dev->udev->dev,
+			"Error submitting the control message: ret=%d\n", ret);
 		goto out;
 	}
 	return;

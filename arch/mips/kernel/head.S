@@ -27,16 +27,6 @@
 
 #include <kernel-entry-init.h>
 
-	.macro	ARC64_TWIDDLE_PC
-#if defined(CONFIG_ARC64) || defined(CONFIG_MAPPED_KERNEL)
-	/* We get launched at a XKPHYS address but the kernel is linked to
-	   run at a KSEG0 address, so jump there.  */
-	PTR_LA	t0, \@f
-	jr	t0
-\@:
-#endif
-	.endm
-
 	/*
 	 * inputs are the text nasid in t1, data nasid in t2.
 	 */
@@ -140,14 +130,17 @@
 
 EXPORT(_stext)
 
-#ifndef CONFIG_BOOT_RAW
+#ifdef CONFIG_BOOT_RAW
 	/*
 	 * Give us a fighting chance of running if execution beings at the
 	 * kernel load address.  This is needed because this platform does
 	 * not have a ELF loader yet.
 	 */
-	__INIT
+FEXPORT(__kernel_entry)
+	j	kernel_entry
 #endif
+
+	__INIT_REFOK
 
 NESTED(kernel_entry, 16, sp)			# kernel entry point
 
@@ -155,7 +148,11 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	setup_c0_status_pri
 
-	ARC64_TWIDDLE_PC
+	/* We might not get launched at the address the kernel is linked to,
+	   so we jump there.  */
+	PTR_LA	t0, 0f
+	jr	t0
+0:
 
 #ifdef CONFIG_MIPS_MT_SMTC
 	/*

@@ -3,6 +3,7 @@
 *.bin
 *.cpio
 *.css
+*.dbg
 *.dvi
 *.eps
 *.gif
@@ -42,6 +43,9 @@
 *.9.gz
 .*
 .cscope
+.gitignore
+.mailmap
+.mm
 53c700_d.h
 53c7xx_d.h
 53c7xx_u.h
@@ -121,7 +125,6 @@ kxgettext
 lkc_defs.h
 lex.c*
 lex.*.c
-lk201-map.c
 logo_*.c
 logo_*_clut224.c
 logo_*_mono.c
@@ -182,9 +185,10 @@ vmlinux
 vmlinux-*
 vmlinux.aout
 vmlinux.bin.all
-vmlinux.lds
+vmlinux*.lds
 vmlinux.relocs
-vsyscall.lds
+vmlinux*.scr
+vsyscall*.lds
 wanxlfw.inc
 uImage
 unifdef

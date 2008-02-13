@@ -51,10 +51,8 @@ EXPORT_SYMBOL(PCI_DMA_BUS_IS_PHYS);
  * These are initialized so they are in the .data section
  */
 unsigned long mips_machtype __read_mostly = MACH_UNKNOWN;
-unsigned long mips_machgroup __read_mostly = MACH_GROUP_UNKNOWN;
 
 EXPORT_SYMBOL(mips_machtype);
-EXPORT_SYMBOL(mips_machgroup);
 
 struct boot_mem_map boot_mem_map;
 
@@ -344,6 +342,34 @@ static void __init bootmem_init(void)
 	 */
 	bootmap_size = init_bootmem_node(NODE_DATA(0), mapstart,
 					 min_low_pfn, max_low_pfn);
+
+
+	for (i = 0; i < boot_mem_map.nr_map; i++) {
+		unsigned long start, end;
+
+		start = PFN_UP(boot_mem_map.map[i].addr);
+		end = PFN_DOWN(boot_mem_map.map[i].addr
+				+ boot_mem_map.map[i].size);
+
+		if (start <= min_low_pfn)
+			start = min_low_pfn;
+		if (start >= end)
+			continue;
+
+#ifndef CONFIG_HIGHMEM
+		if (end > max_low_pfn)
+			end = max_low_pfn;
+
+		/*
+		 * ... finally, is the area going away?
+		 */
+		if (end <= start)
+			continue;
+#endif
+
+		add_active_range(0, start, end);
+	}
+
 	/*
 	 * Register fully available low RAM pages with the bootmem allocator.
 	 */

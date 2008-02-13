@@ -19,6 +19,7 @@
 #include <linux/security.h>
 #include <linux/signal.h>
 #include <linux/audit.h>
+#include <linux/pid_namespace.h>
 #include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
@@ -120,7 +121,7 @@ int ptrace_check_attach(struct task_struct *child, int kill)
 	return ret;
 }
 
-static int may_attach(struct task_struct *task)
+int __ptrace_may_attach(struct task_struct *task)
 {
 	/* May we inspect the given task?
 	 * This check is used both for attaching with ptrace
@@ -154,7 +155,7 @@ int ptrace_may_attach(struct task_struct *task)
 {
 	int err;
 	task_lock(task);
-	err = may_attach(task);
+	err = __ptrace_may_attach(task);
 	task_unlock(task);
 	return !err;
 }
@@ -169,7 +170,7 @@ int ptrace_attach(struct task_struct *task)
 	retval = -EPERM;
 	if (task->pid <= 1)
 		goto out;
-	if (task->tgid == current->tgid)
+	if (same_thread_group(task, current))
 		goto out;
 
 repeat:
@@ -196,7 +197,7 @@ repeat:
 	/* the same process cannot be attached many times */
 	if (task->ptrace & PT_PTRACED)
 		goto bad;
-	retval = may_attach(task);
+	retval = __ptrace_may_attach(task);
 	if (retval)
 		goto bad;
 
@@ -387,6 +388,9 @@ int ptrace_request(struct task_struct *child, long request,
 	case PTRACE_SETSIGINFO:
 		ret = ptrace_setsiginfo(child, (siginfo_t __user *) data);
 		break;
+	case PTRACE_DETACH:	 /* detach a process that was attached. */
+		ret = ptrace_detach(child, data);
+		break;
 	default:
 		break;
 	}
@@ -441,7 +445,7 @@ struct task_struct *ptrace_get_task_struct(pid_t pid)
 		return ERR_PTR(-EPERM);
 
 	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
+	child = find_task_by_vpid(pid);
 	if (child)
 		get_task_struct(child);
 
@@ -450,6 +454,10 @@ struct task_struct *ptrace_get_task_struct(pid_t pid)
 		return ERR_PTR(-ESRCH);
 	return child;
 }
+
+#ifndef arch_ptrace_attach
+#define arch_ptrace_attach(child)	do { } while (0)
+#endif
 
 #ifndef __ARCH_SYS_PTRACE
 asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
@@ -474,6 +482,12 @@ asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
 
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
+		/*
+		 * Some architectures need to do book-keeping after
+		 * a ptrace attach.
+		 */
+		if (!ret)
+			arch_ptrace_attach(child);
 		goto out_put_task_struct;
 	}
 

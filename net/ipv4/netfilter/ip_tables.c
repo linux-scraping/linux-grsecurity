@@ -169,7 +169,7 @@ ip_checkentry(const struct ipt_ip *ip)
 }
 
 static unsigned int
-ipt_error(struct sk_buff **pskb,
+ipt_error(struct sk_buff *skb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
@@ -312,7 +312,7 @@ static void trace_packet(struct sk_buff *skb,
 
 /* Returns one of the generic firewall policies, like NF_ACCEPT. */
 unsigned int
-ipt_do_table(struct sk_buff **pskb,
+ipt_do_table(struct sk_buff *skb,
 	     unsigned int hook,
 	     const struct net_device *in,
 	     const struct net_device *out,
@@ -331,8 +331,8 @@ ipt_do_table(struct sk_buff **pskb,
 	struct xt_table_info *private;
 
 	/* Initialization */
-	ip = ip_hdr(*pskb);
-	datalen = (*pskb)->len - ip->ihl * 4;
+	ip = ip_hdr(skb);
+	datalen = skb->len - ip->ihl * 4;
 	indev = in ? in->name : nulldevname;
 	outdev = out ? out->name : nulldevname;
 	/* We handle fragments by dealing with the first fragment as
@@ -359,7 +359,7 @@ ipt_do_table(struct sk_buff **pskb,
 			struct ipt_entry_target *t;
 
 			if (IPT_MATCH_ITERATE(e, do_match,
-					      *pskb, in, out,
+					      skb, in, out,
 					      offset, &hotdrop) != 0)
 				goto no_match;
 
@@ -371,8 +371,8 @@ ipt_do_table(struct sk_buff **pskb,
 #if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
     defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
 			/* The packet is traced: log it */
-			if (unlikely((*pskb)->nf_trace))
-				trace_packet(*pskb, hook, in, out,
+			if (unlikely(skb->nf_trace))
+				trace_packet(skb, hook, in, out,
 					     table->name, private, e);
 #endif
 			/* Standard target? */
@@ -410,7 +410,7 @@ ipt_do_table(struct sk_buff **pskb,
 				((struct ipt_entry *)table_base)->comefrom
 					= 0xeeeeeeec;
 #endif
-				verdict = t->u.kernel.target->target(pskb,
+				verdict = t->u.kernel.target->target(skb,
 								     in, out,
 								     hook,
 								     t->u.kernel.target,
@@ -428,8 +428,8 @@ ipt_do_table(struct sk_buff **pskb,
 					= 0x57acc001;
 #endif
 				/* Target might have changed stuff. */
-				ip = ip_hdr(*pskb);
-				datalen = (*pskb)->len - ip->ihl * 4;
+				ip = ip_hdr(skb);
+				datalen = skb->len - ip->ihl * 4;
 
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;
@@ -1492,8 +1492,10 @@ static inline int compat_copy_match_to_user(struct ipt_entry_match *m,
 	return xt_compat_match_to_user(m, dstptr, size);
 }
 
-static int compat_copy_entry_to_user(struct ipt_entry *e,
-		void __user **dstptr, compat_uint_t *size)
+static int
+compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
+			  compat_uint_t *size, struct xt_counters *counters,
+			  unsigned int *i)
 {
 	struct ipt_entry_target *t;
 	struct compat_ipt_entry __user *ce;
@@ -1505,6 +1507,9 @@ static int compat_copy_entry_to_user(struct ipt_entry *e,
 	origsize = *size;
 	ce = (struct compat_ipt_entry __user *)*dstptr;
 	if (copy_to_user(ce, e, sizeof(struct ipt_entry)))
+		goto out;
+
+	if (copy_to_user(&ce->counters, &counters[*i], sizeof(counters[*i])))
 		goto out;
 
 	*dstptr += sizeof(struct compat_ipt_entry);
@@ -1522,6 +1527,8 @@ static int compat_copy_entry_to_user(struct ipt_entry *e,
 		goto out;
 	if (put_user(next_offset, &ce->next_offset))
 		goto out;
+
+	(*i)++;
 	return 0;
 out:
 	return ret;
@@ -1937,14 +1944,13 @@ struct compat_ipt_get_entries
 static int compat_copy_entries_to_user(unsigned int total_size,
 		     struct xt_table *table, void __user *userptr)
 {
-	unsigned int off, num;
-	struct compat_ipt_entry e;
 	struct xt_counters *counters;
 	struct xt_table_info *private = table->private;
 	void __user *pos;
 	unsigned int size;
 	int ret = 0;
 	void *loc_cpu_entry;
+	unsigned int i = 0;
 
 	counters = alloc_counters(table);
 	if (IS_ERR(counters))
@@ -1958,48 +1964,9 @@ static int compat_copy_entries_to_user(unsigned int total_size,
 	pos = userptr;
 	size = total_size;
 	ret = IPT_ENTRY_ITERATE(loc_cpu_entry, total_size,
-			compat_copy_entry_to_user, &pos, &size);
-	if (ret)
-		goto free_counters;
+				compat_copy_entry_to_user,
+				&pos, &size, counters, &i);
 
-	/* ... then go back and fix counters and names */
-	for (off = 0, num = 0; off < size; off += e.next_offset, num++) {
-		unsigned int i;
-		struct ipt_entry_match m;
-		struct ipt_entry_target t;
-
-		ret = -EFAULT;
-		if (copy_from_user(&e, userptr + off,
-					sizeof(struct compat_ipt_entry)))
-			goto free_counters;
-		if (copy_to_user(userptr + off +
-			offsetof(struct compat_ipt_entry, counters),
-			 &counters[num], sizeof(counters[num])))
-			goto free_counters;
-
-		for (i = sizeof(struct compat_ipt_entry);
-				i < e.target_offset; i += m.u.match_size) {
-			if (copy_from_user(&m, userptr + off + i,
-					sizeof(struct ipt_entry_match)))
-				goto free_counters;
-			if (copy_to_user(userptr + off + i +
-				offsetof(struct ipt_entry_match, u.user.name),
-				m.u.kernel.match->name,
-				strlen(m.u.kernel.match->name) + 1))
-				goto free_counters;
-		}
-
-		if (copy_from_user(&t, userptr + off + e.target_offset,
-					sizeof(struct ipt_entry_target)))
-			goto free_counters;
-		if (copy_to_user(userptr + off + e.target_offset +
-			offsetof(struct ipt_entry_target, u.user.name),
-			t.u.kernel.target->name,
-			strlen(t.u.kernel.target->name) + 1))
-			goto free_counters;
-	}
-	ret = 0;
-free_counters:
 	vfree(counters);
 	return ret;
 }

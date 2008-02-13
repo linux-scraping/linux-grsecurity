@@ -603,6 +603,7 @@ int netxen_niu_macaddr_set(struct netxen_adapter *adapter,
 	int phy = physical_port[adapter->portnum];
 	unsigned char mac_addr[6];
 	int i;
+	DECLARE_MAC_BUF(mac);
 
 	for (i = 0; i < 10; i++) {
 		temp[0] = temp[1] = 0;
@@ -627,15 +628,10 @@ int netxen_niu_macaddr_set(struct netxen_adapter *adapter,
 	if (i == 10) {
 		printk(KERN_ERR "%s: cannot set Mac addr for %s\n",
 		       netxen_nic_driver_name, adapter->netdev->name);
-		printk(KERN_ERR "MAC address set: "
-		       "%02x:%02x:%02x:%02x:%02x:%02x.\n",
-		       addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-
-		printk(KERN_ERR "MAC address get: "
-		       "%02x:%02x:%02x:%02x:%02x:%02x.\n",
-		       mac_addr[0],
-		       mac_addr[1],
-		       mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+		printk(KERN_ERR "MAC address set: %s.\n",
+		       print_mac(mac, addr));
+		printk(KERN_ERR "MAC address get: %s.\n",
+		       print_mac(mac, mac_addr));
 	}
 	return 0;
 }
@@ -740,12 +736,12 @@ int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
 	__u32 mac_cfg;
 	u32 port = physical_port[adapter->portnum];
 
-	if (port != 0)
+	if (port > NETXEN_NIU_MAX_XG_PORTS)
 		return -EINVAL;
+
 	mac_cfg = 0;
-	netxen_xg_soft_reset(mac_cfg);
-	if (netxen_nic_hw_write_wx(adapter, NETXEN_NIU_XGE_CONFIG_0,
-				   &mac_cfg, 4))
+	if (netxen_nic_hw_write_wx(adapter,
+		NETXEN_NIU_XGE_CONFIG_0 + (0x10000 * port), &mac_cfg, 4))
 		return -EIO;
 	return 0;
 }

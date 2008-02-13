@@ -7,6 +7,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/backing-dev.h>
 #include <linux/mm.h>
 #include <linux/shm.h>
 #include <linux/mman.h>
@@ -198,8 +199,6 @@ error:
 
 	return -ENOMEM;
 }
-
-EXPORT_SYMBOL(__vm_enough_memory);
 
 /*
  * Requires inode->i_mapping->i_mmap_lock
@@ -877,6 +876,22 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 			if (area_m)
 				vma_adjust(area_m, addr_m, next_m->vm_end,
 					next_m->vm_pgoff - pglen, NULL);
+			else if (next_m) {
+				vma_adjust(next_m, addr_m, next_m->vm_end,
+					next_m->vm_pgoff - pglen, NULL);
+				BUG_ON(area == next);
+				BUG_ON(area->vm_mirror);
+				BUG_ON(next_m->anon_vma && next_m->anon_vma != area->anon_vma);
+				BUG_ON(area->vm_file != next_m->vm_file);
+				BUG_ON(area->vm_end - area->vm_start != next_m->vm_end - next_m->vm_start);
+				BUG_ON(area->vm_pgoff != next_m->vm_pgoff);
+				area->vm_mirror = next_m;
+				next_m->vm_mirror = area;
+				if (area->anon_vma && !next_m->anon_vma) {
+					next_m->anon_vma = area->anon_vma;
+					anon_vma_link(next_m);
+				}
+			}
 #endif
 
 		}
@@ -992,6 +1007,9 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 
 	if (!len)
 		return -EINVAL;
+
+	if (!(flags & MAP_FIXED))
+		addr = round_hint_to_min(addr);
 
 	/* Careful about overflows.. */
 	len = PAGE_ALIGN(len);
@@ -1244,9 +1262,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (vm_flags & VM_EXEC)) {
 		vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (!vma_m) {
-			kmem_cache_free(vm_area_cachep, vma);
 			error = -ENOMEM;
-			goto unacct_error;
+			goto free_vma;
 		}
 	}
 #endif
@@ -1273,6 +1290,19 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		error = file->f_op->mmap(file, vma);
 		if (error)
 			goto unmap_and_free_vma;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m) {
+			struct mempolicy *pol;
+
+			pol = mpol_copy(vma_policy(vma));
+			if (IS_ERR(pol)) {
+				mpol_free(vma_policy(vma));
+				goto unmap_and_free_vma;
+			}
+			vma_set_policy(vma_m, pol);
+		}
+#endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
 		if ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_SPECIAL)) {
@@ -1328,6 +1358,14 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		mpol_free(vma_policy(vma));
 		kmem_cache_free(vm_area_cachep, vma);
 		vma = NULL;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m) {
+			mpol_free(vma_policy(vma_m));
+			kmem_cache_free(vm_area_cachep, vma_m);
+		}
+#endif
+
 	}
 out:	
 	mm->total_vm += len >> PAGE_SHIFT;
@@ -1688,6 +1726,7 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 	BUG_ON(vma->vm_end - SEGMEXEC_TASK_SIZE - 1 < vma->vm_start - SEGMEXEC_TASK_SIZE - 1);
 	vma_m = vma->vm_mirror;
 	BUG_ON(!vma_m || vma_m->vm_mirror != vma);
+	BUG_ON(vma->vm_file != vma_m->vm_file);
 	BUG_ON(vma->vm_end - vma->vm_start != vma_m->vm_end - vma_m->vm_start);
 	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff || vma->anon_vma != vma_m->anon_vma);
 
@@ -1742,7 +1781,7 @@ static int acct_stack_growth(struct vm_area_struct * vma, unsigned long size, un
 	 * Overcommit..  This must be the final test, as it will
 	 * update security statistics.
 	 */
-	if (security_vm_enough_memory(grow))
+	if (security_vm_enough_memory_mm(mm, grow))
 		return -ENOMEM;
 
 	/* Ok, everything looks good - let it rip */
@@ -1829,6 +1868,11 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 	if (unlikely(anon_vma_prepare(vma)))
 		return -ENOMEM;
 
+	address &= PAGE_MASK;
+	error = security_file_mmap(0, 0, 0, 0, address, 1);
+	if (error)
+		return error;
+
 #if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
 	find_vma_prev(address, &prev);
 	lockprev = prev && (prev->vm_flags & VM_GROWSUP);
@@ -1845,8 +1889,6 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 	 * is required to hold the mmap_sem in read mode.  We need the
 	 * anon_vma lock to serialize against concurrent expand_stacks.
 	 */
-	address &= PAGE_MASK;
-	error = 0;
 
 	/* Somebody else might have raced and expanded it already */
 	if (address < vma->vm_start && (!lockprev || prev->vm_end <= address)) {
@@ -2320,6 +2362,10 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	if (is_hugepage_only_range(mm, addr, len))
 		return -EINVAL;
 
+	error = security_file_mmap(0, 0, 0, 0, addr, 1);
+	if (error)
+		return error;
+
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
@@ -2532,6 +2578,8 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 	struct rb_node **rb_link, *rb_parent;
 	struct mempolicy *pol;
 
+	BUG_ON(vma->vm_mirror);
+
 	/*
 	 * If anonymous vma has not yet been faulted, update new pgoff
 	 * to match new location, to increase its chance of merging.
@@ -2577,10 +2625,14 @@ void pax_mirror_vma(struct vm_area_struct *vma_m, struct vm_area_struct *vma)
 {
 	struct vm_area_struct *prev_m;
 	struct rb_node **rb_link_m, *rb_parent_m;
+	struct mempolicy *pol_m;
 
 	BUG_ON(!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC) || !(vma->vm_flags & VM_EXEC));
-	BUG_ON(vma->vm_mirror || vma_m->vm_mirror || vma_policy(vma));
+	BUG_ON(vma->vm_mirror || vma_m->vm_mirror);
+	BUG_ON(!vma_mpol_equal(vma, vma_m));
+	pol_m = vma_policy(vma_m);
 	*vma_m = *vma;
+	vma_set_policy(vma_m, pol_m);
 	vma_m->vm_start += SEGMEXEC_TASK_SIZE;
 	vma_m->vm_end += SEGMEXEC_TASK_SIZE;
 	vma_m->vm_flags &= ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED);
@@ -2677,7 +2729,7 @@ int install_special_mapping(struct mm_struct *mm,
 	}
 #endif
 
-	vma->vm_flags = vm_flags | mm->def_flags;
+	vma->vm_flags = vm_flags | mm->def_flags | VM_DONTEXPAND;
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 
 	vma->vm_ops = &special_mapping_vmops;

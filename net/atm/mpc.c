@@ -244,7 +244,7 @@ static struct net_device *find_lec_by_itfnum(int itf)
 	char name[IFNAMSIZ];
 
 	sprintf(name, "lec%d", itf);
-	dev = dev_get_by_name(name);
+	dev = dev_get_by_name(&init_net, name);
 
 	return dev;
 }
@@ -541,6 +541,13 @@ static int mpc_send_packet(struct sk_buff *skb, struct net_device *dev)
 	eth = (struct ethhdr *)skb->data;
 	if (eth->h_proto != htons(ETH_P_IP))
 		goto non_ip; /* Multi-Protocol Over ATM :-) */
+
+	/* Weed out funny packets (e.g., AF_PACKET or raw). */
+	if (skb->len < ETH_HLEN + sizeof(struct iphdr))
+		goto non_ip;
+	skb_set_network_header(skb, ETH_HLEN);
+	if (skb->len < ETH_HLEN + ip_hdr(skb)->ihl * 4 || ip_hdr(skb)->ihl < 5)
+		goto non_ip;
 
 	while (i < mpc->number_of_mps_macs) {
 		if (!compare_ether_addr(eth->h_dest, (mpc->mps_macs + i*ETH_ALEN)))
@@ -956,6 +963,10 @@ static int mpoa_event_listener(struct notifier_block *mpoa_notifier, unsigned lo
 	struct lec_priv *priv;
 
 	dev = (struct net_device *)dev_ptr;
+
+	if (dev->nd_net != &init_net)
+		return NOTIFY_DONE;
+
 	if (dev->name == NULL || strncmp(dev->name, "lec", 3))
 		return NOTIFY_DONE; /* we are only interested in lec:s */
 

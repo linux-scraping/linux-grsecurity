@@ -115,8 +115,8 @@ static int __devinit sparcspkr_probe(struct device *dev)
 	input_dev->id.version = 0x0100;
 	input_dev->dev.parent = dev;
 
-	input_dev->evbit[0] = BIT(EV_SND);
-	input_dev->sndbit[0] = BIT(SND_BELL) | BIT(SND_TONE);
+	input_dev->evbit[0] = BIT_MASK(EV_SND);
+	input_dev->sndbit[0] = BIT_MASK(SND_BELL) | BIT_MASK(SND_TONE);
 
 	input_dev->event = state->event;
 
@@ -195,7 +195,7 @@ static struct of_platform_driver ebus_beep_driver = {
 	.name		= "beep",
 	.match_table	= ebus_beep_match,
 	.probe		= ebus_beep_probe,
-	.remove		= sparcspkr_remove,
+	.remove		= __devexit_p(sparcspkr_remove),
 	.shutdown	= sparcspkr_shutdown,
 };
 
@@ -236,7 +236,7 @@ static struct of_platform_driver isa_beep_driver = {
 	.name		= "beep",
 	.match_table	= isa_beep_match,
 	.probe		= isa_beep_probe,
-	.remove		= sparcspkr_remove,
+	.remove		= __devexit_p(sparcspkr_remove),
 	.shutdown	= sparcspkr_shutdown,
 };
 

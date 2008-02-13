@@ -16,11 +16,18 @@ extern int proc_sys_init(void);
 #else
 static inline void proc_sys_init(void) { }
 #endif
+#ifdef CONFIG_NET
+extern int proc_net_init(void);
+#else
+static inline int proc_net_init(void) { return 0; }
+#endif
 
 struct vmalloc_info {
 	unsigned long	used;
 	unsigned long	largest_chunk;
 };
+
+extern struct mm_struct *mm_for_maps(struct task_struct *);
 
 #ifdef CONFIG_MMU
 #define VMALLOC_TOTAL (VMALLOC_END - VMALLOC_START)

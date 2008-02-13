@@ -16,6 +16,7 @@
 #include <acpi/acpi.h>
 #include <linux/ide.h>
 #include <linux/pci.h>
+#include <linux/dmi.h>
 
 #include <acpi/acpi_bus.h>
 #include <acpi/acnames.h>
@@ -64,6 +65,39 @@ struct ide_acpi_hwif_link {
 extern int ide_noacpi;
 extern int ide_noacpitfs;
 extern int ide_noacpionboot;
+
+static bool ide_noacpi_psx;
+static int no_acpi_psx(const struct dmi_system_id *id)
+{
+	ide_noacpi_psx = true;
+	printk(KERN_NOTICE"%s detected - disable ACPI _PSx.\n", id->ident);
+	return 0;
+}
+
+static const struct dmi_system_id ide_acpi_dmi_table[] = {
+	/* Bug 9673. */
+	/* We should check if this is because ACPI NVS isn't save/restored. */
+	{
+		.callback = no_acpi_psx,
+		.ident    = "HP nx9005",
+		.matches  = {
+			DMI_MATCH(DMI_BIOS_VENDOR, "Phoenix Technologies Ltd."),
+			DMI_MATCH(DMI_BIOS_VERSION, "KAM1.60")
+		},
+	},
+
+	{ }	/* terminate list */
+};
+
+static int ide_acpi_blacklist(void)
+{
+	static int done;
+	if (done)
+		return 0;
+	done = 1;
+	dmi_check_system(ide_acpi_dmi_table);
+	return 0;
+}
 
 /**
  * ide_get_dev_handle - finds acpi_handle and PCI device.function
@@ -350,7 +384,7 @@ static int taskfile_load_raw(ide_drive_t *drive,
 
 	memset(&args, 0, sizeof(ide_task_t));
 	args.command_type = IDE_DRIVE_TASK_NO_DATA;
-	args.data_phase   = TASKFILE_IN;
+	args.data_phase   = TASKFILE_NO_DATA;
 	args.handler      = &task_no_data_intr;
 
 	/* convert gtf to IDE Taskfile */
@@ -612,6 +646,45 @@ void ide_acpi_push_timing(ide_hwif_t *hwif)
 EXPORT_SYMBOL_GPL(ide_acpi_push_timing);
 
 /**
+ * ide_acpi_set_state - set the channel power state
+ * @hwif: target IDE interface
+ * @on: state, on/off
+ *
+ * This function executes the _PS0/_PS3 ACPI method to set the power state.
+ * ACPI spec requires _PS0 when IDE power on and _PS3 when power off
+ */
+void ide_acpi_set_state(ide_hwif_t *hwif, int on)
+{
+	int unit;
+
+	if (ide_noacpi || ide_noacpi_psx)
+		return;
+
+	DEBPRINT("ENTER:\n");
+
+	if (!hwif->acpidata) {
+		DEBPRINT("no ACPI data for %s\n", hwif->name);
+		return;
+	}
+	/* channel first and then drives for power on and verse versa for power off */
+	if (on)
+		acpi_bus_set_power(hwif->acpidata->obj_handle, ACPI_STATE_D0);
+	for (unit = 0; unit < MAX_DRIVES; ++unit) {
+		ide_drive_t *drive = &hwif->drives[unit];
+
+		if (!drive->acpidata->obj_handle)
+			drive->acpidata->obj_handle = ide_acpi_drive_get_handle(drive);
+
+		if (drive->acpidata->obj_handle && drive->present) {
+			acpi_bus_set_power(drive->acpidata->obj_handle,
+				on? ACPI_STATE_D0: ACPI_STATE_D3);
+		}
+	}
+	if (!on)
+		acpi_bus_set_power(hwif->acpidata->obj_handle, ACPI_STATE_D3);
+}
+
+/**
  * ide_acpi_init - initialize the ACPI link for an IDE interface
  * @hwif: target IDE interface (channel)
  *
@@ -628,6 +701,8 @@ void ide_acpi_init(ide_hwif_t *hwif)
 	int			err;
 	struct ide_acpi_drive_link	*master;
 	struct ide_acpi_drive_link	*slave;
+
+	ide_acpi_blacklist();
 
 	hwif->acpidata = kzalloc(sizeof(struct ide_acpi_hwif_link), GFP_KERNEL);
 	if (!hwif->acpidata)
@@ -679,6 +754,8 @@ void ide_acpi_init(ide_hwif_t *hwif)
 		return;
 	}
 
+	/* ACPI _PS0 before _STM */
+	ide_acpi_set_state(hwif, 1);
 	/*
 	 * ACPI requires us to call _STM on startup
 	 */

@@ -102,7 +102,6 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 {
 	int ret;
 
-	memset(vma, 0, sizeof(*vma));
 	vma->vm_mm = current->mm;
 	vma->vm_start = addr;
 	vma->vm_end = addr + PAGE_SIZE;
@@ -324,7 +323,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			if (likely(call_syscall))
 				goto emulate;
 
-			vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+			vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 
 			down_write(&current->mm->mmap_sem);
 			if (current->mm->call_syscall) {
@@ -373,7 +372,7 @@ emulate:
 			if (likely(call_syscall))
 				goto rt_emulate;
 
-			vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
+			vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 
 			down_write(&current->mm->mmap_sem);
 			if (current->mm->call_syscall) {
@@ -673,7 +672,7 @@ good_area:
 					set_bit(PG_arch_1, &page->flags);
 				}
 				pte_update(ptep, 0, _PAGE_HWEXEC);
-				_tlbie(address);
+				_tlbie(address, mm->context.id);
 				pte_unmap_unlock(ptep, ptl);
 				up_read(&mm->mmap_sem);
 				return 0;
@@ -770,7 +769,7 @@ bad_area_nosemaphore:
  */
 out_of_memory:
 	up_read(&mm->mmap_sem);
-	if (is_init(current)) {
+	if (is_global_init(current)) {
 		yield();
 		down_read(&mm->mmap_sem);
 		goto survive;

@@ -238,19 +238,15 @@ extern long spu_sys_callback(struct spu_syscall_block *s);
 
 /* syscalls implemented in spufs */
 struct file;
-extern struct spufs_calls {
-	asmlinkage long (*create_thread)(const char __user *name,
+struct spufs_calls {
+	long (*create_thread)(const char __user *name,
 					unsigned int flags, mode_t mode,
 					struct file *neighbor);
-	asmlinkage long (*spu_run)(struct file *filp, __u32 __user *unpc,
+	long (*spu_run)(struct file *filp, __u32 __user *unpc,
 						__u32 __user *ustatus);
-	struct module *owner;
-} spufs_calls;
-
-/* coredump calls implemented in spufs */
-struct spu_coredump_calls {
-	asmlinkage int (*arch_notes_size)(void);
-	asmlinkage void (*arch_write_notes)(struct file *file);
+	int (*coredump_extra_notes_size)(void);
+	int (*coredump_extra_notes_write)(struct file *file, loff_t *foffset);
+	void (*notify_spus_active)(void);
 	struct module *owner;
 };
 
@@ -274,21 +270,8 @@ struct spu_coredump_calls {
 #define SPU_CREATE_FLAG_ALL		0x003f /* mask of all valid flags */
 
 
-#ifdef CONFIG_SPU_FS_MODULE
 int register_spu_syscalls(struct spufs_calls *calls);
 void unregister_spu_syscalls(struct spufs_calls *calls);
-#else
-static inline int register_spu_syscalls(struct spufs_calls *calls)
-{
-	return 0;
-}
-static inline void unregister_spu_syscalls(struct spufs_calls *calls)
-{
-}
-#endif /* MODULE */
-
-int register_arch_coredump_calls(struct spu_coredump_calls *calls);
-void unregister_arch_coredump_calls(struct spu_coredump_calls *calls);
 
 int spu_add_sysdev_attr(struct sysdev_attribute *attr);
 void spu_remove_sysdev_attr(struct sysdev_attribute *attr);
@@ -315,6 +298,9 @@ void spu_remove_sysdev_attr_group(struct attribute_group *attrs);
 struct notifier_block;
 int spu_switch_event_register(struct notifier_block * n);
 int spu_switch_event_unregister(struct notifier_block * n);
+
+extern void notify_spus_active(void);
+extern void do_notify_spus_active(void);
 
 /*
  * This defines the Local Store, Problem Area and Privlege Area of an SPU.

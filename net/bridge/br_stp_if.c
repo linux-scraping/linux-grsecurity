@@ -148,7 +148,7 @@ static void br_stp_stop(struct net_bridge *br)
 	char *envp[] = { NULL };
 
 	if (br->stp_enabled == BR_USER_STP) {
-		r = call_usermodehelper(BR_STP_PROG, argv, envp, 1);
+		r = call_usermodehelper(BR_STP_PROG, argv, envp, UMH_WAIT_PROC);
 		printk(KERN_INFO "%s: userspace STP stopped, return code %d\n",
 			br->dev->name, r);
 

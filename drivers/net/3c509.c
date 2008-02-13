@@ -299,7 +299,7 @@ static struct isapnp_device_id el3_isapnp_adapters[] __initdata = {
 	{ }	/* terminate list */
 };
 
-static u16 el3_isapnp_phys_addr[8][3];
+static __be16 el3_isapnp_phys_addr[8][3];
 static int nopnp;
 #endif /* __ISAPNP__ */
 
@@ -313,8 +313,9 @@ static int nopnp;
 static int __init el3_common_init(struct net_device *dev)
 {
 	struct el3_private *lp = netdev_priv(dev);
-	short i;
 	int err;
+	DECLARE_MAC_BUF(mac);
+	const char *if_names[] = {"10baseT", "AUI", "undefined", "BNC"};
 
 	spin_lock_init(&lp->lock);
 
@@ -346,17 +347,10 @@ static int __init el3_common_init(struct net_device *dev)
 		return err;
 	}
 
-	{
-		const char *if_names[] = {"10baseT", "AUI", "undefined", "BNC"};
-		printk("%s: 3c5x9 found at %#3.3lx, %s port, address ",
-			dev->name, dev->base_addr,
-			if_names[(dev->if_port & 0x03)]);
-	}
-
-	/* Read in the station address. */
-	for (i = 0; i < 6; i++)
-		printk(" %2.2x", dev->dev_addr[i]);
-	printk(", IRQ %d.\n", dev->irq);
+	printk(KERN_INFO "%s: 3c5x9 found at %#3.3lx, %s port, "
+	       "address %s, IRQ %d.\n",
+	       dev->name, dev->base_addr, if_names[(dev->if_port & 0x03)],
+	       print_mac(mac, dev->dev_addr), dev->irq);
 
 	if (el3_debug > 0)
 		printk(KERN_INFO "%s", version);
@@ -385,12 +379,13 @@ static int __init el3_probe(int card_idx)
 	struct el3_private *lp;
 	short lrs_state = 0xff, i;
 	int ioaddr, irq, if_port;
-	u16 phys_addr[3];
+	__be16 phys_addr[3];
 	static int current_tag;
 	int err = -ENODEV;
 #if defined(__ISAPNP__)
 	static int pnp_cards;
 	struct pnp_dev *idev = NULL;
+	int pnp_found = 0;
 
 	if (nopnp == 1)
 		goto no_pnp;
@@ -432,11 +427,11 @@ __again:
 					return -ENOMEM;
 			}
 
-			SET_MODULE_OWNER(dev);
 			SET_NETDEV_DEV(dev, &idev->dev);
 			pnp_cards++;
 
 			netdev_boot_setup_check(dev);
+			pnp_found = 1;
 			goto found;
 		}
 	}
@@ -524,8 +519,6 @@ no_pnp:
 	if (!dev)
 		return -ENOMEM;
 
-	SET_MODULE_OWNER(dev);
-
 	netdev_boot_setup_check(dev);
 
 	/* Set passed-in IRQ or I/O Addr. */
@@ -569,6 +562,8 @@ no_pnp:
 	lp = netdev_priv(dev);
 #if defined(__ISAPNP__)
 	lp->dev = &idev->dev;
+	if (pnp_found)
+		lp->type = EL3_PNP;
 #endif
 	err = el3_common_init(dev);
 
@@ -644,7 +639,6 @@ static int __init el3_mca_probe(struct device *device)
 			return -ENOMEM;
 	}
 
-	SET_MODULE_OWNER(dev);
 	netdev_boot_setup_check(dev);
 
 	memcpy(dev->dev_addr, phys_addr, sizeof(phys_addr));
@@ -703,8 +697,6 @@ static int __init el3_eisa_probe (struct device *device)
 		release_region(ioaddr, EL3_IO_EXTENT);
 		return -ENOMEM;
 	}
-
-	SET_MODULE_OWNER(dev);
 
 	netdev_boot_setup_check(dev);
 

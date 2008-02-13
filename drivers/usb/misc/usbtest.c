@@ -360,9 +360,9 @@ static void free_sglist (struct scatterlist *sg, int nents)
 	if (!sg)
 		return;
 	for (i = 0; i < nents; i++) {
-		if (!sg [i].page)
+		if (!sg_page(&sg[i]))
 			continue;
-		kfree (page_address (sg [i].page) + sg [i].offset);
+		kfree (sg_virt(&sg[i]));
 	}
 	kfree (sg);
 }
@@ -1151,6 +1151,7 @@ static int verify_halted (int ep, struct urb *urb)
 		dbg ("ep %02x couldn't get halt status, %d", ep, retval);
 		return retval;
 	}
+	le16_to_cpus(&status);
 	if (status != 1) {
 		dbg ("ep %02x bogus status: %04x != 1", ep, status);
 		return -EINVAL;

@@ -115,7 +115,9 @@ struct io_restrictions {
 	unsigned short		max_hw_segments;
 	unsigned short		hardsect_size;
 	unsigned int		max_segment_size;
+	unsigned int		max_hw_sectors;
 	unsigned long		seg_boundary_mask;
+	unsigned long		bounce_pfn;
 	unsigned char		no_cluster; /* inverted so that 0 is default */
 };
 
@@ -183,11 +185,14 @@ int dm_resume(struct mapped_device *md);
  */
 uint32_t dm_get_event_nr(struct mapped_device *md);
 int dm_wait_event(struct mapped_device *md, int event_nr);
+uint32_t dm_next_uevent_seq(struct mapped_device *md);
+void dm_uevent_add(struct mapped_device *md, struct list_head *elist);
 
 /*
  * Info functions.
  */
 const char *dm_device_name(struct mapped_device *md);
+int dm_copy_name_and_uuid(struct mapped_device *md, char *name, char *uuid);
 struct gendisk *dm_disk(struct mapped_device *md);
 int dm_suspended(struct mapped_device *md);
 int dm_noflush_suspending(struct dm_target *ti);

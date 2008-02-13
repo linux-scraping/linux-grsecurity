@@ -15,7 +15,7 @@
 static void *autofs4_follow_link(struct dentry *dentry, struct nameidata *nd)
 {
 	struct autofs_info *ino = autofs4_dentry_ino(dentry);
-	nd_set_link(nd, (char *)ino->u.symlink);
+	nd_set_link(nd, ino->u.symlink);
 	return NULL;
 }
 

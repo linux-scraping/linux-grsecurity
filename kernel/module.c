@@ -20,6 +20,7 @@
 #include <linux/moduleloader.h>
 #include <linux/init.h>
 #include <linux/kallsyms.h>
+#include <linux/sysfs.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -87,7 +88,8 @@ int unregister_module_notifier(struct notifier_block * nb)
 }
 EXPORT_SYMBOL(unregister_module_notifier);
 
-/* We require a truly strong try_module_get() */
+/* We require a truly strong try_module_get(): 0 means failure due to
+   ongoing or failed initialization etc. */
 static inline int strong_try_module_get(struct module *mod)
 {
 	if (mod && mod->state == MODULE_STATE_COMING)
@@ -111,7 +113,7 @@ void __module_put_and_exit(struct module *mod, long code)
 	do_exit(code);
 }
 EXPORT_SYMBOL(__module_put_and_exit);
-	
+
 /* Find a module section: 0 means not found. */
 static unsigned int find_sec(Elf_Ehdr *hdr,
 			     Elf_Shdr *sechdrs,
@@ -185,7 +187,7 @@ static unsigned long __find_symbol(const char *name,
 	struct module *mod;
 	const struct kernel_symbol *ks;
 
-	/* Core kernel first. */ 
+	/* Core kernel first. */
 	*owner = NULL;
 	ks = lookup_symbol(name, __start___ksymtab, __stop___ksymtab);
 	if (ks) {
@@ -237,7 +239,7 @@ static unsigned long __find_symbol(const char *name,
 		return ks->value;
 	}
 
-	/* Now try modules. */ 
+	/* Now try modules. */
 	list_for_each_entry(mod, &modules, list) {
 		*owner = mod;
 		ks = lookup_symbol(name, mod->syms, mod->syms + mod->num_syms);
@@ -291,7 +293,7 @@ static unsigned long __find_symbol(const char *name,
 		}
 	}
 	DEBUGP("Failed to find symbol %s\n", name);
- 	return 0;
+	return 0;
 }
 
 /* Search for module by name: must hold module_mutex. */
@@ -447,7 +449,7 @@ static int percpu_modinit(void)
 	}
 
 	return 0;
-}	
+}
 __initcall(percpu_modinit);
 #else /* ... !CONFIG_SMP */
 static inline void *percpu_modalloc(unsigned long size, unsigned long align,
@@ -489,8 +491,8 @@ static int modinfo_##field##_exists(struct module *mod)               \
 }                                                                     \
 static void free_modinfo_##field(struct module *mod)                  \
 {                                                                     \
-        kfree(mod->field);                                            \
-        mod->field = NULL;                                            \
+	kfree(mod->field);                                            \
+	mod->field = NULL;                                            \
 }                                                                     \
 static struct module_attribute modinfo_##field = {                    \
 	.attr = { .name = __stringify(field), .mode = 0444 },         \
@@ -702,8 +704,7 @@ sys_delete_module(const char __user *name_user, unsigned int flags)
 	}
 
 	/* If it has an init func, it must have an exit func to unload */
-	if ((mod->init != NULL && mod->exit == NULL)
-	    || mod->unsafe) {
+	if (mod->init && !mod->exit) {
 		forced = try_force_unload(flags);
 		if (!forced) {
 			/* This module can't be removed */
@@ -749,11 +750,6 @@ static void print_unload_info(struct seq_file *m, struct module *mod)
 	list_for_each_entry(use, &mod->modules_which_use_me, list) {
 		printed_something = 1;
 		seq_printf(m, "%s,", use->module_which_uses->name);
-	}
-
-	if (mod->unsafe) {
-		printed_something = 1;
-		seq_printf(m, "[unsafe],");
 	}
 
 	if (mod->init != NULL && mod->exit == NULL) {
@@ -967,7 +963,8 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 	ret = __find_symbol(name, &owner, &crc,
 			!(mod->taints & TAINT_PROPRIETARY_MODULE));
 	if (ret) {
-		/* use_module can fail due to OOM, or module unloading */
+		/* use_module can fail due to OOM,
+		   or module initialization or unloading */
 		if (!check_version(sechdrs, versindex, name, mod, crc) ||
 		    !use_module(mod, owner))
 			ret = 0;
@@ -1005,7 +1002,7 @@ static void add_sect_attrs(struct module *mod, unsigned int nsect,
 	struct module_sect_attrs *sect_attrs;
 	struct module_sect_attr *sattr;
 	struct attribute **gattr;
-	
+
 	/* Count loaded sections and allocate structures */
 	for (i = 0; i < nsect; i++)
 		if (sechdrs[i].sh_flags & SHF_ALLOC)
@@ -1063,6 +1060,100 @@ static void remove_sect_attrs(struct module *mod)
 	}
 }
 
+/*
+ * /sys/module/foo/notes/.section.name gives contents of SHT_NOTE sections.
+ */
+
+struct module_notes_attrs {
+	struct kobject *dir;
+	unsigned int notes;
+	struct bin_attribute attrs[0];
+};
+
+static ssize_t module_notes_read(struct kobject *kobj,
+				 struct bin_attribute *bin_attr,
+				 char *buf, loff_t pos, size_t count)
+{
+	/*
+	 * The caller checked the pos and count against our size.
+	 */
+	memcpy(buf, bin_attr->private + pos, count);
+	return count;
+}
+
+static void free_notes_attrs(struct module_notes_attrs *notes_attrs,
+			     unsigned int i)
+{
+	if (notes_attrs->dir) {
+		while (i-- > 0)
+			sysfs_remove_bin_file(notes_attrs->dir,
+					      &notes_attrs->attrs[i]);
+		kobject_del(notes_attrs->dir);
+	}
+	kfree(notes_attrs);
+}
+
+static void add_notes_attrs(struct module *mod, unsigned int nsect,
+			    char *secstrings, Elf_Shdr *sechdrs)
+{
+	unsigned int notes, loaded, i;
+	struct module_notes_attrs *notes_attrs;
+	struct bin_attribute *nattr;
+
+	/* Count notes sections and allocate structures.  */
+	notes = 0;
+	for (i = 0; i < nsect; i++)
+		if ((sechdrs[i].sh_flags & SHF_ALLOC) &&
+		    (sechdrs[i].sh_type == SHT_NOTE))
+			++notes;
+
+	if (notes == 0)
+		return;
+
+	notes_attrs = kzalloc(sizeof(*notes_attrs)
+			      + notes * sizeof(notes_attrs->attrs[0]),
+			      GFP_KERNEL);
+	if (notes_attrs == NULL)
+		return;
+
+	notes_attrs->notes = notes;
+	nattr = &notes_attrs->attrs[0];
+	for (loaded = i = 0; i < nsect; ++i) {
+		if (!(sechdrs[i].sh_flags & SHF_ALLOC))
+			continue;
+		if (sechdrs[i].sh_type == SHT_NOTE) {
+			nattr->attr.name = mod->sect_attrs->attrs[loaded].name;
+			nattr->attr.mode = S_IRUGO;
+			nattr->size = sechdrs[i].sh_size;
+			nattr->private = (void *) sechdrs[i].sh_addr;
+			nattr->read = module_notes_read;
+			++nattr;
+		}
+		++loaded;
+	}
+
+	notes_attrs->dir = kobject_add_dir(&mod->mkobj.kobj, "notes");
+	if (!notes_attrs->dir)
+		goto out;
+
+	for (i = 0; i < notes; ++i)
+		if (sysfs_create_bin_file(notes_attrs->dir,
+					  &notes_attrs->attrs[i]))
+			goto out;
+
+	mod->notes_attrs = notes_attrs;
+	return;
+
+  out:
+	free_notes_attrs(notes_attrs, i);
+}
+
+static void remove_notes_attrs(struct module *mod)
+{
+	if (mod->notes_attrs)
+		free_notes_attrs(mod->notes_attrs, mod->notes_attrs->notes);
+}
+
 #else
 
 static inline void add_sect_attrs(struct module *mod, unsigned int nsect,
@@ -1071,6 +1162,15 @@ static inline void add_sect_attrs(struct module *mod, unsigned int nsect,
 }
 
 static inline void remove_sect_attrs(struct module *mod)
+{
+}
+
+static inline void add_notes_attrs(struct module *mod, unsigned int nsect,
+				   char *sectstrings, Elf_Shdr *sechdrs)
+{
+}
+
+static inline void remove_notes_attrs(struct module *mod)
 {
 }
 #endif /* CONFIG_KALLSYMS */
@@ -1207,6 +1307,7 @@ static void free_module(struct module *mod)
 {
 	/* Delete from various lists */
 	stop_machine_run(__unlink_module, mod, NR_CPUS);
+	remove_notes_attrs(mod);
 	remove_sect_attrs(mod);
 	mod_kobject_remove(mod);
 
@@ -1262,14 +1363,14 @@ static int verify_export_symbols(struct module *mod)
 	const unsigned long *crc;
 
 	for (i = 0; i < mod->num_syms; i++)
-	        if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
+		if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
 			name = mod->syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
 		}
 
 	for (i = 0; i < mod->num_gpl_syms; i++)
-	        if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
+		if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
 			name = mod->gpl_syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
@@ -1283,7 +1384,7 @@ dup:
 	return ret;
 }
 
-/* Change all symbols so that sh_value encodes the pointer directly. */
+/* Change all symbols so that st_value encodes the pointer directly. */
 static int simplify_symbols(Elf_Shdr *sechdrs,
 			    unsigned int symindex,
 			    const char *strtab,
@@ -1639,6 +1740,8 @@ static struct module *load_module(void __user *umod,
 	unsigned int unusedcrcindex;
 	unsigned int unusedgplindex;
 	unsigned int unusedgplcrcindex;
+	unsigned int markersindex;
+	unsigned int markersstringsindex;
 	struct module *mod;
 	long err = 0;
 	void *percpu = NULL, *ptr = NULL; /* Stops spurious gcc warning */
@@ -1897,7 +2000,7 @@ static struct module *load_module(void __user *umod,
 
 #ifdef CONFIG_PAX_KERNEXEC
 		if (sechdrs[i].sh_flags & SHF_EXECINSTR)
-			sechdrs[i].sh_addr = (unsigned long)dest - __KERNEL_TEXT_OFFSET;
+			sechdrs[i].sh_addr = ktva_ktla((unsigned long)dest);
 		else
 #endif
 
@@ -1911,7 +2014,8 @@ static struct module *load_module(void __user *umod,
 	module_unload_init(mod);
 
 	/* Initialize kobject, so we can reference it. */
-	if (mod_sysfs_init(mod) != 0)
+	err = mod_sysfs_init(mod);
+	if (err)
 		goto cleanup;
 
 	/* Set up license info based on the info section */
@@ -1958,7 +2062,7 @@ static struct module *load_module(void __user *umod,
 		mod->unused_crcs = (void *)sechdrs[unusedgplcrcindex].sh_addr;
 
 #ifdef CONFIG_MODVERSIONS
-	if ((mod->num_syms && !crcindex) || 
+	if ((mod->num_syms && !crcindex) ||
 	    (mod->num_gpl_syms && !gplcrcindex) ||
 	    (mod->num_gpl_future_syms && !gplfuturecrcindex) ||
 	    (mod->num_unused_syms && !unusedcrcindex) ||
@@ -1968,6 +2072,9 @@ static struct module *load_module(void __user *umod,
 		add_taint_module(mod, TAINT_FORCED_MODULE);
 	}
 #endif
+	markersindex = find_sec(hdr, sechdrs, secstrings, "__markers");
+ 	markersstringsindex = find_sec(hdr, sechdrs, secstrings,
+					"__markers_strings");
 
 	/* Now do relocations. */
 	for (i = 1; i < hdr->e_shnum; i++) {
@@ -1990,6 +2097,11 @@ static struct module *load_module(void __user *umod,
 		if (err < 0)
 			goto cleanup;
 	}
+#ifdef CONFIG_MARKERS
+	mod->markers = (void *)sechdrs[markersindex].sh_addr;
+	mod->num_markers =
+		sechdrs[markersindex].sh_size / sizeof(*mod->markers);
+#endif
 
         /* Find duplicate symbols */
 	err = verify_export_symbols(mod);
@@ -2008,6 +2120,11 @@ static struct module *load_module(void __user *umod,
 
 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
 
+#ifdef CONFIG_MARKERS
+	if (!mod->taints)
+		marker_update_probe_range(mod->markers,
+			mod->markers + mod->num_markers, NULL, NULL);
+#endif
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
 		goto cleanup;
@@ -2045,7 +2162,7 @@ static struct module *load_module(void __user *umod,
 	if (err < 0)
 		goto arch_cleanup;
 
-	err = mod_sysfs_setup(mod, 
+	err = mod_sysfs_setup(mod,
 			      (struct kernel_param *)
 			      sechdrs[setupindex].sh_addr,
 			      sechdrs[setupindex].sh_size
@@ -2053,11 +2170,12 @@ static struct module *load_module(void __user *umod,
 	if (err < 0)
 		goto arch_cleanup;
 	add_sect_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
+	add_notes_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
 
 	/* Size of section 0 is 0, so this works well if no unwind info. */
 	mod->unwind_info = unwind_add_table(mod,
-	                                    (void *)sechdrs[unwindex].sh_addr,
-	                                    sechdrs[unwindex].sh_size);
+					    (void *)sechdrs[unwindex].sh_addr,
+					    sechdrs[unwindex].sh_size);
 
 	/* Get rid of temporary copy */
 	vfree(hdr);
@@ -2147,15 +2265,10 @@ sys_init_module(void __user *umod,
                    buggy refcounters. */
 		mod->state = MODULE_STATE_GOING;
 		synchronize_sched();
-		if (mod->unsafe)
-			printk(KERN_ERR "%s: module is now stuck!\n",
-			       mod->name);
-		else {
-			module_put(mod);
-			mutex_lock(&module_mutex);
-			free_module(mod);
-			mutex_unlock(&module_mutex);
-		}
+		module_put(mod);
+		mutex_lock(&module_mutex);
+		free_module(mod);
+		mutex_unlock(&module_mutex);
 		return ret;
 	}
 
@@ -2180,8 +2293,8 @@ static inline int within(unsigned long addr, void *start, unsigned long size)
 {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	if (addr + __KERNEL_TEXT_OFFSET >= (unsigned long)start &&
-	    addr + __KERNEL_TEXT_OFFSET < (unsigned long)start + size)
+	if (ktla_ktva(addr) >= (unsigned long)start &&
+	    ktla_ktva(addr) < (unsigned long)start + size)
 		return 1;
 #endif
 
@@ -2195,7 +2308,7 @@ static inline int within(unsigned long addr, void *start, unsigned long size)
  */
 static inline int is_arm_mapping_symbol(const char *str)
 {
-	return str[0] == '$' && strchr("atd", str[1]) 
+	return str[0] == '$' && strchr("atd", str[1])
 	       && (str[2] == '\0' || str[2] == '.');
 }
 
@@ -2218,7 +2331,7 @@ static const char *get_ksymbol(struct module *mod,
 		nextval = (unsigned long)mod->module_core_rw+mod->core_size_rw;
 
 	/* Scan for closest preceeding symbol, and next symbol. (ELF
-           starts real symbols at 1). */
+	   starts real symbols at 1). */
 	for (i = 1; i < mod->num_symtab; i++) {
 		if (mod->symtab[i].st_shndx == SHN_UNDEF)
 			continue;
@@ -2250,13 +2363,16 @@ static const char *get_ksymbol(struct module *mod,
 /* For kallsyms to ask for address resolution.  NULL means not found.
    We don't lock, as this is used for oops resolution and races are a
    lesser concern. */
+/* FIXME: Risky: returns a pointer into a module w/o lock */
 const char *module_address_lookup(unsigned long addr,
 				  unsigned long *size,
 				  unsigned long *offset,
 				  char **modname)
 {
 	struct module *mod;
+	const char *ret = NULL;
 
+	preempt_disable();
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
 		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
@@ -2264,17 +2380,19 @@ const char *module_address_lookup(unsigned long addr,
 		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
 			if (modname)
 				*modname = mod->name;
-			return get_ksymbol(mod, addr, size, offset);
+			ret = get_ksymbol(mod, addr, size, offset);
+			break;
 		}
 	}
-	return NULL;
+	preempt_enable();
+	return ret;
 }
 
 int lookup_module_symbol_name(unsigned long addr, char *symname)
 {
 	struct module *mod;
 
-	mutex_lock(&module_mutex);
+	preempt_disable();
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
 		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
@@ -2286,12 +2404,12 @@ int lookup_module_symbol_name(unsigned long addr, char *symname)
 			if (!sym)
 				goto out;
 			strlcpy(symname, sym, KSYM_NAME_LEN);
-			mutex_unlock(&module_mutex);
+			preempt_enable();
 			return 0;
 		}
 	}
 out:
-	mutex_unlock(&module_mutex);
+	preempt_enable();
 	return -ERANGE;
 }
 
@@ -2300,7 +2418,7 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
 {
 	struct module *mod;
 
-	mutex_lock(&module_mutex);
+	preempt_disable();
 	list_for_each_entry(mod, &modules, list) {
 		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
 		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
@@ -2315,12 +2433,12 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
 				strlcpy(modname, mod->name, MODULE_NAME_LEN);
 			if (name)
 				strlcpy(name, sym, KSYM_NAME_LEN);
-			mutex_unlock(&module_mutex);
+			preempt_enable();
 			return 0;
 		}
 	}
 out:
-	mutex_unlock(&module_mutex);
+	preempt_enable();
 	return -ERANGE;
 }
 
@@ -2329,7 +2447,7 @@ int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
 {
 	struct module *mod;
 
-	mutex_lock(&module_mutex);
+	preempt_disable();
 	list_for_each_entry(mod, &modules, list) {
 		if (symnum < mod->num_symtab) {
 			*value = mod->symtab[symnum].st_value;
@@ -2338,12 +2456,12 @@ int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
 				KSYM_NAME_LEN);
 			strlcpy(module_name, mod->name, MODULE_NAME_LEN);
 			*exported = is_exported(name, mod);
-			mutex_unlock(&module_mutex);
+			preempt_enable();
 			return 0;
 		}
 		symnum -= mod->num_symtab;
 	}
-	mutex_unlock(&module_mutex);
+	preempt_enable();
 	return -ERANGE;
 }
 
@@ -2366,6 +2484,7 @@ unsigned long module_kallsyms_lookup_name(const char *name)
 	unsigned long ret = 0;
 
 	/* Don't lock: we're in enough trouble already. */
+	preempt_disable();
 	if ((colon = strchr(name, ':')) != NULL) {
 		*colon = '\0';
 		if ((mod = find_module(name)) != NULL)
@@ -2376,6 +2495,7 @@ unsigned long module_kallsyms_lookup_name(const char *name)
 			if ((ret = mod_find_symname(mod, name)) != 0)
 				break;
 	}
+	preempt_enable();
 	return ret;
 }
 #endif /* CONFIG_KALLSYMS */
@@ -2466,7 +2586,7 @@ const struct exception_table_entry *search_module_extables(unsigned long addr)
 	list_for_each_entry(mod, &modules, list) {
 		if (mod->num_exentries == 0)
 			continue;
-				
+
 		e = search_extable(mod->extable,
 				   mod->extable + mod->num_exentries - 1,
 				   addr);
@@ -2476,7 +2596,7 @@ const struct exception_table_entry *search_module_extables(unsigned long addr)
 	preempt_enable();
 
 	/* Now, if we found one, we are running inside it now, hence
-           we cannot unload the module, hence no refcnt needed. */
+	   we cannot unload the module, hence no refcnt needed. */
 	return e;
 }
 
@@ -2629,4 +2749,19 @@ EXPORT_SYMBOL(module_remove_driver);
 /* Generate the signature for struct module here, too, for modversions. */
 void struct_module(struct module *mod) { return; }
 EXPORT_SYMBOL(struct_module);
+#endif
+
+#ifdef CONFIG_MARKERS
+void module_update_markers(struct module *probe_module, int *refcount)
+{
+	struct module *mod;
+
+	mutex_lock(&module_mutex);
+	list_for_each_entry(mod, &modules, list)
+		if (!mod->taints)
+			marker_update_probe_range(mod->markers,
+				mod->markers + mod->num_markers,
+				probe_module, refcount);
+	mutex_unlock(&module_mutex);
+}
 #endif

@@ -109,6 +109,15 @@ static struct spi_board_info ek_spi_devices[] = {
 #endif
 };
 
+static struct i2c_board_info __initdata ek_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("ics1523", 0x26),
+	},
+	{
+		I2C_BOARD_INFO("dac3550", 0x4d),
+	}
+};
+
 #define EK_FLASH_BASE	AT91_CHIPSELECT_0
 #define EK_FLASH_SIZE	0x200000
 
@@ -145,7 +154,7 @@ static void __init ek_board_init(void)
 	at91_add_device_udc(&ek_udc_data);
 	at91_set_multi_drive(ek_udc_data.pullup_pin, 1);	/* pullup_pin is connected to reset */
 	/* I2C */
-	at91_add_device_i2c();
+	at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
 	/* SPI */
 	at91_add_device_spi(ek_spi_devices, ARRAY_SIZE(ek_spi_devices));
 #ifdef CONFIG_MTD_AT91_DATAFLASH_CARD

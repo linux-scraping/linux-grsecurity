@@ -10,8 +10,11 @@
  *  - Gunze AHL61
  *  - DMC TSC-10/25
  *  - IRTOUCHSYSTEMS/UNITOP
+ *  - IdealTEK URTC1000
+ *  - General Touch
+ *  - GoTop Super_Q2/GogoPen/PenPower tablets
  *
- * Copyright (C) 2004-2006 by Daniel Ritz <daniel.ritz@gmx.ch>
+ * Copyright (C) 2004-2007 by Daniel Ritz <daniel.ritz@gmx.ch>
  * Copyright (C) by Todd E. Johnson (mtouchusb.c)
  *
  * This program is free software; you can redistribute it and/or
@@ -48,7 +51,7 @@
 #include <linux/usb/input.h>
 
 
-#define DRIVER_VERSION		"v0.5"
+#define DRIVER_VERSION		"v0.6"
 #define DRIVER_AUTHOR		"Daniel Ritz <daniel.ritz@gmx.ch>"
 #define DRIVER_DESC		"USB Touchscreen Driver"
 
@@ -63,16 +66,20 @@ struct usbtouch_device_info {
 	int min_yc, max_yc;
 	int min_press, max_press;
 	int rept_size;
-	int flags;
 
 	void (*process_pkt) (struct usbtouch_usb *usbtouch, unsigned char *pkt, int len);
+
+	/*
+	 * used to get the packet len. possible return values:
+	 * > 0: packet len
+	 * = 0: skip one byte
+	 * < 0: -return value more bytes needed
+	 */
 	int  (*get_pkt_len) (unsigned char *pkt, int len);
+
 	int  (*read_data)   (struct usbtouch_usb *usbtouch, unsigned char *pkt);
 	int  (*init)        (struct usbtouch_usb *usbtouch);
 };
-
-#define USBTOUCH_FLG_BUFFER	0x01
-
 
 /* a usbtouch device */
 struct usbtouch_usb {
@@ -92,15 +99,6 @@ struct usbtouch_usb {
 };
 
 
-#if defined(CONFIG_TOUCHSCREEN_USB_EGALAX) || defined(CONFIG_TOUCHSCREEN_USB_ETURBO)
-#define MULTI_PACKET
-#endif
-
-#ifdef MULTI_PACKET
-static void usbtouch_process_multi(struct usbtouch_usb *usbtouch,
-                                   unsigned char *pkt, int len);
-#endif
-
 /* device types */
 enum {
 	DEVTPYE_DUMMY = -1,
@@ -112,6 +110,9 @@ enum {
 	DEVTYPE_GUNZE,
 	DEVTYPE_DMC_TSC10,
 	DEVTYPE_IRTOUCH,
+	DEVTYPE_IDEALTEK,
+	DEVTYPE_GENERAL_TOUCH,
+	DEVTYPE_GOTOP,
 };
 
 static struct usb_device_id usbtouch_devices[] = {
@@ -157,6 +158,20 @@ static struct usb_device_id usbtouch_devices[] = {
 	{USB_DEVICE(0x6615, 0x0001), .driver_info = DEVTYPE_IRTOUCH},
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_USB_IDEALTEK
+	{USB_DEVICE(0x1391, 0x1000), .driver_info = DEVTYPE_IDEALTEK},
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_USB_GENERAL_TOUCH
+	{USB_DEVICE(0x0dfc, 0x0001), .driver_info = DEVTYPE_GENERAL_TOUCH},
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_USB_GOTOP
+	{USB_DEVICE(0x08f2, 0x007f), .driver_info = DEVTYPE_GOTOP},
+	{USB_DEVICE(0x08f2, 0x00ce), .driver_info = DEVTYPE_GOTOP},
+	{USB_DEVICE(0x08f2, 0x00f4), .driver_info = DEVTYPE_GOTOP},
+#endif
+
 	{}
 };
 
@@ -166,6 +181,10 @@ static struct usb_device_id usbtouch_devices[] = {
  */
 
 #ifdef CONFIG_TOUCHSCREEN_USB_EGALAX
+
+#ifndef MULTI_PACKET
+#define MULTI_PACKET
+#endif
 
 #define EGALAX_PKT_TYPE_MASK		0xFE
 #define EGALAX_PKT_TYPE_REPT		0x80
@@ -304,6 +323,9 @@ static int itm_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
  * eTurboTouch part
  */
 #ifdef CONFIG_TOUCHSCREEN_USB_ETURBO
+#ifndef MULTI_PACKET
+#define MULTI_PACKET
+#endif
 static int eturbo_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
 {
 	unsigned int shift;
@@ -396,7 +418,8 @@ static int dmc_tsc10_init(struct usbtouch_usb *usbtouch)
 	                      TSC10_RATE_150, 0, buf, 2, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0)
 		return ret;
-	if (buf[0] != 0x06 || buf[1] != 0x00)
+	if ((buf[0] != 0x06 || buf[1] != 0x00) &&
+	    (buf[0] != 0x15 || buf[1] != 0x01))
 		return -ENODEV;
 
 	/* start sending data */
@@ -438,8 +461,81 @@ static int irtouch_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
 
 
 /*****************************************************************************
+ * IdealTEK URTC1000 Part
+ */
+#ifdef CONFIG_TOUCHSCREEN_USB_IDEALTEK
+#ifndef MULTI_PACKET
+#define MULTI_PACKET
+#endif
+static int idealtek_get_pkt_len(unsigned char *buf, int len)
+{
+	if (buf[0] & 0x80)
+		return 5;
+	if (buf[0] == 0x01)
+		return len;
+	return 0;
+}
+
+static int idealtek_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
+{
+	switch (pkt[0] & 0x98) {
+	case 0x88:
+		/* touch data in IdealTEK mode */
+		dev->x = (pkt[1] << 5) | (pkt[2] >> 2);
+		dev->y = (pkt[3] << 5) | (pkt[4] >> 2);
+		dev->touch = (pkt[0] & 0x40) ? 1 : 0;
+		return 1;
+
+	case 0x98:
+		/* touch data in MT emulation mode */
+		dev->x = (pkt[2] << 5) | (pkt[1] >> 2);
+		dev->y = (pkt[4] << 5) | (pkt[3] >> 2);
+		dev->touch = (pkt[0] & 0x40) ? 1 : 0;
+		return 1;
+
+	default:
+		return 0;
+	}
+}
+#endif
+
+/*****************************************************************************
+ * General Touch Part
+ */
+#ifdef CONFIG_TOUCHSCREEN_USB_GENERAL_TOUCH
+static int general_touch_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
+{
+	dev->x = ((pkt[2] & 0x0F) << 8) | pkt[1] ;
+	dev->y = ((pkt[4] & 0x0F) << 8) | pkt[3] ;
+	dev->press = pkt[5] & 0xff;
+	dev->touch = pkt[0] & 0x01;
+
+	return 1;
+}
+#endif
+
+/*****************************************************************************
+ * GoTop Part
+ */
+#ifdef CONFIG_TOUCHSCREEN_USB_GOTOP
+static int gotop_read_data(struct usbtouch_usb *dev, unsigned char *pkt)
+{
+	dev->x = ((pkt[1] & 0x38) << 4) | pkt[2];
+	dev->y = ((pkt[1] & 0x07) << 7) | pkt[3];
+	dev->touch = pkt[0] & 0x01;
+	return 1;
+}
+#endif
+
+
+/*****************************************************************************
  * the different device descriptors
  */
+#ifdef MULTI_PACKET
+static void usbtouch_process_multi(struct usbtouch_usb *usbtouch,
+				   unsigned char *pkt, int len);
+#endif
+
 static struct usbtouch_device_info usbtouch_dev_info[] = {
 #ifdef CONFIG_TOUCHSCREEN_USB_EGALAX
 	[DEVTYPE_EGALAX] = {
@@ -448,7 +544,6 @@ static struct usbtouch_device_info usbtouch_dev_info[] = {
 		.min_yc		= 0x0,
 		.max_yc		= 0x07ff,
 		.rept_size	= 16,
-		.flags		= USBTOUCH_FLG_BUFFER,
 		.process_pkt	= usbtouch_process_multi,
 		.get_pkt_len	= egalax_get_pkt_len,
 		.read_data	= egalax_read_data,
@@ -497,7 +592,6 @@ static struct usbtouch_device_info usbtouch_dev_info[] = {
 		.min_yc		= 0x0,
 		.max_yc		= 0x07ff,
 		.rept_size	= 8,
-		.flags		= USBTOUCH_FLG_BUFFER,
 		.process_pkt	= usbtouch_process_multi,
 		.get_pkt_len	= eturbo_get_pkt_len,
 		.read_data	= eturbo_read_data,
@@ -535,6 +629,41 @@ static struct usbtouch_device_info usbtouch_dev_info[] = {
 		.max_yc		= 0x0fff,
 		.rept_size	= 8,
 		.read_data	= irtouch_read_data,
+	},
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_USB_IDEALTEK
+	[DEVTYPE_IDEALTEK] = {
+		.min_xc		= 0x0,
+		.max_xc		= 0x0fff,
+		.min_yc		= 0x0,
+		.max_yc		= 0x0fff,
+		.rept_size	= 8,
+		.process_pkt	= usbtouch_process_multi,
+		.get_pkt_len	= idealtek_get_pkt_len,
+		.read_data	= idealtek_read_data,
+	},
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_USB_GENERAL_TOUCH
+	[DEVTYPE_GENERAL_TOUCH] = {
+		.min_xc		= 0x0,
+		.max_xc		= 0x0500,
+		.min_yc		= 0x0,
+		.max_yc		= 0x0500,
+		.rept_size	= 7,
+		.read_data	= general_touch_read_data,
+	},
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_USB_GOTOP
+	[DEVTYPE_GOTOP] = {
+		.min_xc		= 0x0,
+		.max_xc		= 0x03ff,
+		.min_yc		= 0x0,
+		.max_yc		= 0x03ff,
+		.rept_size	= 4,
+		.read_data	= gotop_read_data,
 	},
 #endif
 };
@@ -617,11 +746,14 @@ static void usbtouch_process_multi(struct usbtouch_usb *usbtouch,
 	pos = 0;
 	while (pos < buf_len) {
 		/* get packet len */
-		pkt_len = usbtouch->type->get_pkt_len(buffer + pos, len);
+		pkt_len = usbtouch->type->get_pkt_len(buffer + pos,
+							buf_len - pos);
 
-		/* unknown packet: drop everything */
-		if (unlikely(!pkt_len))
-			goto out_flush_buf;
+		/* unknown packet: skip one byte */
+		if (unlikely(!pkt_len)) {
+			pos++;
+			continue;
+		}
 
 		/* full packet: process */
 		if (likely((pkt_len > 0) && (pkt_len <= buf_len - pos))) {
@@ -736,7 +868,7 @@ static int usbtouch_probe(struct usb_interface *intf,
 	if (!usbtouch->data)
 		goto out_free;
 
-	if (type->flags & USBTOUCH_FLG_BUFFER) {
+	if (type->get_pkt_len) {
 		usbtouch->buffer = kmalloc(type->rept_size, GFP_KERNEL);
 		if (!usbtouch->buffer)
 			goto out_free_buffers;
@@ -779,8 +911,8 @@ static int usbtouch_probe(struct usb_interface *intf,
 	input_dev->open = usbtouch_open;
 	input_dev->close = usbtouch_close;
 
-	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
-	input_dev->keybit[LONG(BTN_TOUCH)] = BIT(BTN_TOUCH);
+	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 	input_set_abs_params(input_dev, ABS_X, type->min_xc, type->max_xc, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, type->min_yc, type->max_yc, 0, 0);
 	if (type->max_press)

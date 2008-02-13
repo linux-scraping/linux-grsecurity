@@ -463,7 +463,7 @@ static void drm_vm_close(struct vm_area_struct *vma)
 /**
  * mmap DMA memory.
  *
- * \param filp file pointer.
+ * \param file_priv DRM file private.
  * \param vma virtual memory area.
  * \return zero on success or a negative number on failure.
  *
@@ -506,6 +506,7 @@ static int drm_mmap_dma(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = &drm_vm_dma_ops;
 
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 
 	vma->vm_file = filp;	/* Needed for drm_vm_open() */
 	drm_vm_open_locked(vma);
@@ -533,7 +534,7 @@ EXPORT_SYMBOL(drm_core_get_reg_ofs);
 /**
  * mmap DMA memory.
  *
- * \param filp file pointer.
+ * \param file_priv DRM file private.
  * \param vma virtual memory area.
  * \return zero on success or a negative number on failure.
  *
@@ -655,6 +656,7 @@ static int drm_mmap_locked(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;	/* This should never happen. */
 	}
 	vma->vm_flags |= VM_RESERVED;	/* Don't swap */
+	vma->vm_flags |= VM_DONTEXPAND;
 
 	vma->vm_file = filp;	/* Needed for drm_vm_open() */
 	drm_vm_open_locked(vma);

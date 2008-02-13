@@ -40,7 +40,6 @@
 #include <linux/smp_lock.h>
 
 #include <linux/kernel.h>
-#include <linux/moduleparam.h>
 #include <linux/sched.h>
 #include <linux/types.h>
 #include <linux/fcntl.h>
@@ -1543,7 +1542,7 @@ static int get_firmware(struct av7110* av7110)
 	}
 
 	/* check if the firmware is available */
-	av7110->bin_fw = (unsigned char *) vmalloc(fw->size);
+	av7110->bin_fw = vmalloc(fw->size);
 	if (NULL == av7110->bin_fw) {
 		dprintk(1, "out of memory\n");
 		release_firmware(fw);
@@ -2801,12 +2800,12 @@ static void av7110_irq(struct saa7146_dev* dev, u32 *isr)
 }
 
 
-static struct saa7146_extension av7110_extension;
+static struct saa7146_extension av7110_extension_driver;
 
 #define MAKE_AV7110_INFO(x_var,x_name) \
 static struct saa7146_pci_extension_data x_var = { \
 	.ext_priv = x_name, \
-	.ext = &av7110_extension }
+	.ext = &av7110_extension_driver }
 
 MAKE_AV7110_INFO(tts_1_X_fsc,"Technotrend/Hauppauge WinTV DVB-S rev1.X or Fujitsu Siemens DVB-C");
 MAKE_AV7110_INFO(ttt_1_X,    "Technotrend/Hauppauge WinTV DVB-T rev1.X");
@@ -2844,7 +2843,7 @@ static struct pci_device_id pci_tbl[] = {
 MODULE_DEVICE_TABLE(pci, pci_tbl);
 
 
-static struct saa7146_extension av7110_extension = {
+static struct saa7146_extension av7110_extension_driver = {
 	.name		= "dvb",
 	.flags		= SAA7146_USE_I2C_IRQ,
 
@@ -2861,14 +2860,14 @@ static struct saa7146_extension av7110_extension = {
 static int __init av7110_init(void)
 {
 	int retval;
-	retval = saa7146_register_extension(&av7110_extension);
+	retval = saa7146_register_extension(&av7110_extension_driver);
 	return retval;
 }
 
 
 static void __exit av7110_exit(void)
 {
-	saa7146_unregister_extension(&av7110_extension);
+	saa7146_unregister_extension(&av7110_extension_driver);
 }
 
 module_init(av7110_init);

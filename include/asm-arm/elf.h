@@ -88,7 +88,7 @@ extern char elf_platform[];
    the loader.  We need to make sure that it is out of the way of the program
    that it will "exec", and that there is sufficient room for the brk.  */
 
-#define ELF_ET_DYN_BASE	(2 * TASK_SIZE / 3)
+#define ELF_ET_DYN_BASE	(TASK_SIZE / 3 * 2)
 
 #ifdef CONFIG_PAX_ASLR
 #define PAX_ELF_ET_DYN_BASE	0x00008000UL

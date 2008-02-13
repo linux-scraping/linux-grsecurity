@@ -161,7 +161,7 @@ static inline int ip_finish_output2(struct sk_buff *skb)
 	struct dst_entry *dst = skb->dst;
 	struct rtable *rt = (struct rtable *)dst;
 	struct net_device *dev = dst->dev;
-	int hh_len = LL_RESERVED_SPACE(dev);
+	unsigned int hh_len = LL_RESERVED_SPACE(dev);
 
 	if (rt->rt_type == RTN_MULTICAST)
 		IP_INC_STATS(IPSTATS_MIB_OUTMCASTPKTS);
@@ -169,7 +169,7 @@ static inline int ip_finish_output2(struct sk_buff *skb)
 		IP_INC_STATS(IPSTATS_MIB_OUTBCASTPKTS);
 
 	/* Be paranoid, rather than too clever. */
-	if (unlikely(skb_headroom(skb) < hh_len && dev->hard_header)) {
+	if (unlikely(skb_headroom(skb) < hh_len && dev->header_ops)) {
 		struct sk_buff *skb2;
 
 		skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
@@ -202,7 +202,7 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
 	       skb->dst->dev->mtu : dst_mtu(skb->dst);
 }
 
-static inline int ip_finish_output(struct sk_buff *skb)
+static int ip_finish_output(struct sk_buff *skb)
 {
 #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
 	/* Policy lookup after SNAT yielded a new policy */
@@ -1016,8 +1016,6 @@ alloc_new_skb:
 
 				skb_fill_page_desc(skb, i, page, 0, 0);
 				frag = &skb_shinfo(skb)->frags[i];
-				skb->truesize += PAGE_SIZE;
-				atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
 			} else {
 				err = -EMSGSIZE;
 				goto error;
@@ -1030,6 +1028,8 @@ alloc_new_skb:
 			frag->size += copy;
 			skb->len += copy;
 			skb->data_len += copy;
+			skb->truesize += copy;
+			atomic_add(copy, &sk->sk_wmem_alloc);
 		}
 		offset += copy;
 		length -= copy;
@@ -1172,6 +1172,8 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
 
 		skb->len += len;
 		skb->data_len += len;
+		skb->truesize += len;
+		atomic_add(len, &sk->sk_wmem_alloc);
 		offset += len;
 		size -= len;
 	}
@@ -1181,6 +1183,17 @@ error:
 	inet->cork.length -= size;
 	IP_INC_STATS(IPSTATS_MIB_OUTDISCARDS);
 	return err;
+}
+
+static void ip_cork_release(struct inet_sock *inet)
+{
+	inet->cork.flags &= ~IPCORK_OPT;
+	kfree(inet->cork.opt);
+	inet->cork.opt = NULL;
+	if (inet->cork.rt) {
+		ip_rt_put(inet->cork.rt);
+		inet->cork.rt = NULL;
+	}
 }
 
 /*
@@ -1261,6 +1274,10 @@ int ip_push_pending_frames(struct sock *sk)
 	skb->priority = sk->sk_priority;
 	skb->dst = dst_clone(&rt->u.dst);
 
+	if (iph->protocol == IPPROTO_ICMP)
+		icmp_out_count(((struct icmphdr *)
+			skb_transport_header(skb))->type);
+
 	/* Netfilter gets whole the not fragmented skb. */
 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
 		      skb->dst->dev, dst_output);
@@ -1272,13 +1289,7 @@ int ip_push_pending_frames(struct sock *sk)
 	}
 
 out:
-	inet->cork.flags &= ~IPCORK_OPT;
-	kfree(inet->cork.opt);
-	inet->cork.opt = NULL;
-	if (inet->cork.rt) {
-		ip_rt_put(inet->cork.rt);
-		inet->cork.rt = NULL;
-	}
+	ip_cork_release(inet);
 	return err;
 
 error:
@@ -1291,19 +1302,12 @@ error:
  */
 void ip_flush_pending_frames(struct sock *sk)
 {
-	struct inet_sock *inet = inet_sk(sk);
 	struct sk_buff *skb;
 
 	while ((skb = __skb_dequeue_tail(&sk->sk_write_queue)) != NULL)
 		kfree_skb(skb);
 
-	inet->cork.flags &= ~IPCORK_OPT;
-	kfree(inet->cork.opt);
-	inet->cork.opt = NULL;
-	if (inet->cork.rt) {
-		ip_rt_put(inet->cork.rt);
-		inet->cork.rt = NULL;
-	}
+	ip_cork_release(inet_sk(sk));
 }
 
 

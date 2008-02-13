@@ -20,7 +20,7 @@
  *     published by the Free Software Foundation; either version 2 of
  *     the License, or (at your option) any later version.
  *
- *     Neither Dag Brattli nor University of Tromsø admit liability nor
+ *     Neither Dag Brattli nor University of TromsÃ¸ admit liability nor
  *     provide warranty for any of this software. This material is
  *     provided "AS-IS" and at no charge.
  *
@@ -238,7 +238,7 @@ async_bump(struct net_device *dev,
 	skb_reserve(newskb, 1);
 
 	if(docopy) {
-		/* Copy data without CRC (lenght already checked) */
+		/* Copy data without CRC (length already checked) */
 		skb_copy_to_linear_data(newskb, rx_buff->data,
 					rx_buff->len - 2);
 		/* Deliver this skb */

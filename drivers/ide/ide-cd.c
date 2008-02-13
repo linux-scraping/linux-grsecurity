@@ -120,7 +120,7 @@
  *                       Reformat to match kernel tabbing style.
  *                       Add CDROM_GET_UPC ioctl.
  * 3.10  Apr 10, 1996 -- Fix compilation error with STANDARD_ATAPI.
- * 3.11  Apr 29, 1996 -- Patch from Heiko Eissfeldt <heiko@colossus.escape.de>
+ * 3.11  Apr 29, 1996 -- Patch from Heiko Eißfeldt <heiko@colossus.escape.de>
  *                       to remove redundant verify_area calls.
  * 3.12  May  7, 1996 -- Rudimentary changer support.  Based on patches
  *                        from Gerhard Zuber <zuber@berlin.snafu.de>.
@@ -256,7 +256,7 @@
  *			- Minimize the TOC reading - only do it when we
  *			  know a media change has occurred.
  *			- Moved all the CDROMREADx ioctls to the Uniform layer.
- *			- Heiko Eissfeldt <heiko@colossus.escape.de> supplied
+ *			- Heiko Eißfeldt <heiko@colossus.escape.de> supplied
  *			  some fixes for CDI.
  *			- CD-ROM leaving door locked fix from Andries
  *			  Brouwer <Andries.Brouwer@cwi.nl>
@@ -1066,8 +1066,8 @@ int cdrom_read_check_ireason (ide_drive_t *drive, int len, int ireason)
 		return 0;
 	else if (ireason == 0) {
 		/* Whoops... The drive is expecting to receive data from us! */
-		printk(KERN_ERR "%s: read_intr: Drive wants to transfer data the "
-						"wrong way!\n", drive->name);
+		printk(KERN_ERR "%s: %s: wrong transfer direction!\n",
+				drive->name, __FUNCTION__);
 
 		/* Throw some data at the drive so it doesn't hang
 		   and quit this request. */
@@ -1084,8 +1084,8 @@ int cdrom_read_check_ireason (ide_drive_t *drive, int len, int ireason)
 		return 0;
 	} else {
 		/* Drive wants a command packet, or invalid ireason... */
-		printk(KERN_ERR "%s: read_intr: bad interrupt reason %x\n", drive->name,
-								ireason);
+		printk(KERN_ERR "%s: %s: bad interrupt reason 0x%02x\n",
+				drive->name, __FUNCTION__, ireason);
 	}
 
 	cdrom_end_request(drive, 0);
@@ -1110,8 +1110,11 @@ static ide_startstop_t cdrom_read_intr (ide_drive_t *drive)
 	 */
 	if (dma) {
 		info->dma = 0;
-		if ((dma_error = HWIF(drive)->ide_dma_end(drive)))
+		dma_error = HWIF(drive)->ide_dma_end(drive);
+		if (dma_error) {
+			printk(KERN_ERR "%s: DMA read error\n", drive->name);
 			ide_dma_off(drive);
+		}
 	}
 
 	if (cdrom_decode_status(drive, 0, &stat))
@@ -1441,7 +1444,7 @@ static ide_startstop_t cdrom_pc_intr (ide_drive_t *drive)
 		return ide_stopped;
 
 	/* Read the interrupt reason and the transfer length. */
-	ireason = HWIF(drive)->INB(IDE_IREASON_REG);
+	ireason = HWIF(drive)->INB(IDE_IREASON_REG) & 0x3;
 	lowcyl  = HWIF(drive)->INB(IDE_BCOUNTL_REG);
 	highcyl = HWIF(drive)->INB(IDE_BCOUNTH_REG);
 
@@ -1482,7 +1485,7 @@ static ide_startstop_t cdrom_pc_intr (ide_drive_t *drive)
 	if (thislen > len) thislen = len;
 
 	/* The drive wants to be written to. */
-	if ((ireason & 3) == 0) {
+	if (ireason == 0) {
 		if (!rq->data) {
 			blk_dump_rq_flags(rq, "cdrom_pc_intr, write");
 			goto confused;
@@ -1504,9 +1507,9 @@ static ide_startstop_t cdrom_pc_intr (ide_drive_t *drive)
 	}
 
 	/* Same drill for reading. */
-	else if ((ireason & 3) == 2) {
+	else if (ireason == 2) {
 		if (!rq->data) {
-			blk_dump_rq_flags(rq, "cdrom_pc_intr, write");
+			blk_dump_rq_flags(rq, "cdrom_pc_intr, read");
 			goto confused;
 		}
 		/* Transfer the data. */
@@ -1630,8 +1633,8 @@ static int cdrom_write_check_ireason(ide_drive_t *drive, int len, int ireason)
 		return 0;
 	else if (ireason == 2) {
 		/* Whoops... The drive wants to send data. */
-		printk(KERN_ERR "%s: write_intr: wrong transfer direction!\n",
-							drive->name);
+		printk(KERN_ERR "%s: %s: wrong transfer direction!\n",
+				drive->name, __FUNCTION__);
 
 		while (len > 0) {
 			int dum = 0;
@@ -1640,37 +1643,12 @@ static int cdrom_write_check_ireason(ide_drive_t *drive, int len, int ireason)
 		}
 	} else {
 		/* Drive wants a command packet, or invalid ireason... */
-		printk(KERN_ERR "%s: write_intr: bad interrupt reason %x\n",
-							drive->name, ireason);
+		printk(KERN_ERR "%s: %s: bad interrupt reason 0x%02x\n",
+				drive->name, __FUNCTION__, ireason);
 	}
 
 	cdrom_end_request(drive, 0);
 	return 1;
-}
-
-static void post_transform_command(struct request *req)
-{
-	u8 *c = req->cmd;
-	char *ibuf;
-
-	if (!blk_pc_request(req))
-		return;
-
-	if (req->bio)
-		ibuf = bio_data(req->bio);
-	else
-		ibuf = req->data;
-
-	if (!ibuf)
-		return;
-
-	/*
-	 * set ansi-revision and response data as atapi
-	 */
-	if (c[0] == GPCMD_INQUIRY) {
-		ibuf[2] |= 2;
-		ibuf[3] = (ibuf[3] & 0xf0) | 2;
-	}
 }
 
 typedef void (xfer_func_t)(ide_drive_t *, void *, u32);
@@ -1808,9 +1786,6 @@ static ide_startstop_t cdrom_newpc_intr(ide_drive_t *drive)
 	return ide_started;
 
 end_request:
-	if (!rq->data_len)
-		post_transform_command(rq);
-
 	spin_lock_irqsave(&ide_lock, flags);
 	blkdev_dequeue_request(rq);
 	end_that_request_last(rq, 1);
@@ -1831,8 +1806,9 @@ static ide_startstop_t cdrom_write_intr(ide_drive_t *drive)
 	/* Check for errors. */
 	if (dma) {
 		info->dma = 0;
-		if ((dma_error = HWIF(drive)->ide_dma_end(drive))) {
-			printk(KERN_ERR "ide-cd: write dma error\n");
+		dma_error = HWIF(drive)->ide_dma_end(drive);
+		if (dma_error) {
+			printk(KERN_ERR "%s: DMA write error\n", drive->name);
 			ide_dma_off(drive);
 		}
 	}
@@ -1852,7 +1828,7 @@ static ide_startstop_t cdrom_write_intr(ide_drive_t *drive)
 	}
 
 	/* Read the interrupt reason and the transfer length. */
-	ireason = HWIF(drive)->INB(IDE_IREASON_REG);
+	ireason = HWIF(drive)->INB(IDE_IREASON_REG) & 0x3;
 	lowcyl  = HWIF(drive)->INB(IDE_BCOUNTL_REG);
 	highcyl = HWIF(drive)->INB(IDE_BCOUNTH_REG);
 
@@ -1865,8 +1841,9 @@ static ide_startstop_t cdrom_write_intr(ide_drive_t *drive)
 		 */
 		uptodate = 1;
 		if (rq->current_nr_sectors > 0) {
-			printk(KERN_ERR "%s: write_intr: data underrun (%d blocks)\n",
-			drive->name, rq->current_nr_sectors);
+			printk(KERN_ERR "%s: %s: data underrun (%d blocks)\n",
+					drive->name, __FUNCTION__,
+					rq->current_nr_sectors);
 			uptodate = 0;
 		}
 		cdrom_end_request(drive, uptodate);
@@ -1886,7 +1863,8 @@ static ide_startstop_t cdrom_write_intr(ide_drive_t *drive)
 		int this_transfer;
 
 		if (!rq->current_nr_sectors) {
-			printk(KERN_ERR "ide-cd: write_intr: oops\n");
+			printk(KERN_ERR "%s: %s: confused, missing data\n",
+					drive->name, __FUNCTION__);
 			break;
 		}
 
@@ -2339,7 +2317,7 @@ static int cdrom_read_toc(ide_drive_t *drive, struct request_sense *sense)
 		   If we get an error for the regular case, we assume
 		   a CDI without additional audio tracks. In this case
 		   the readable TOC is empty (CDI tracks are not included)
-		   and only holds the Leadout entry. Heiko Ei�feldt */
+		   and only holds the Leadout entry. Heiko Eißfeldt */
 		ntracks = 0;
 		stat = cdrom_read_tocentry(drive, CDROM_LEADOUT, 1, 0,
 					   (char *)&toc->hdr,
@@ -2714,14 +2692,14 @@ void ide_cdrom_update_speed (ide_drive_t *drive, struct atapi_capabilities_page 
 	if (!drive->id->model[0] &&
 	    !strncmp(drive->id->fw_rev, "241N", 4)) {
 		CDROM_STATE_FLAGS(drive)->current_speed  =
-			(((unsigned int)cap->curspeed) + (176/2)) / 176;
+			(le16_to_cpu(cap->curspeed) + (176/2)) / 176;
 		CDROM_CONFIG_FLAGS(drive)->max_speed =
-			(((unsigned int)cap->maxspeed) + (176/2)) / 176;
+			(le16_to_cpu(cap->maxspeed) + (176/2)) / 176;
 	} else {
 		CDROM_STATE_FLAGS(drive)->current_speed  =
-			(ntohs(cap->curspeed) + (176/2)) / 176;
+			(be16_to_cpu(cap->curspeed) + (176/2)) / 176;
 		CDROM_CONFIG_FLAGS(drive)->max_speed =
-			(ntohs(cap->maxspeed) + (176/2)) / 176;
+			(be16_to_cpu(cap->maxspeed) + (176/2)) / 176;
 	}
 }
 
@@ -2935,6 +2913,9 @@ static int ide_cdrom_register (ide_drive_t *drive, int nslots)
 	if (!CDROM_CONFIG_FLAGS(drive)->ram)
 		devinfo->mask |= CDC_RAM;
 
+	if (CDROM_CONFIG_FLAGS(drive)->no_speed_select)
+		devinfo->mask |= CDC_SELECT_SPEED;
+
 	devinfo->disk = info->disk;
 	return register_cdrom(devinfo);
 }
@@ -3047,12 +3028,7 @@ int ide_cdrom_probe_capabilities (ide_drive_t *drive)
         else 	
         	printk(" drive");
 
-	printk(", %dkB Cache", be16_to_cpu(cap.buffer_size));
-
-	if (drive->using_dma)
-		ide_dma_verbose(drive);
-
-	printk("\n");
+	printk(KERN_CONT ", %dkB Cache\n", be16_to_cpu(cap.buffer_size));
 
 	return nslots;
 }
@@ -3192,7 +3168,7 @@ int ide_cdrom_setup (ide_drive_t *drive)
 		CDROM_CONFIG_FLAGS(drive)->limit_nframes = 1;
 	/* the 3231 model does not support the SET_CD_SPEED command */
 	else if (!strcmp(drive->id->model, "SAMSUNG CD-ROM SCR-3231"))
-		cdi->mask |= CDC_SELECT_SPEED;
+		CDROM_CONFIG_FLAGS(drive)->no_speed_select = 1;
 
 #if ! STANDARD_ATAPI
 	/* by default Sanyo 3 CD changer support is turned off and
@@ -3535,15 +3511,8 @@ static int ide_cd_probe(ide_drive_t *drive)
 	g->driverfs_dev = &drive->gendev;
 	g->flags = GENHD_FL_CD | GENHD_FL_REMOVABLE;
 	if (ide_cdrom_setup(drive)) {
-		struct cdrom_device_info *devinfo = &info->devinfo;
 		ide_proc_unregister_driver(drive, &ide_cdrom_driver);
-		kfree(info->buffer);
-		kfree(info->toc);
-		kfree(info->changer_info);
-		if (devinfo->handle == drive && unregister_cdrom(devinfo))
-			printk (KERN_ERR "%s: ide_cdrom_cleanup failed to unregister device from the cdrom driver.\n", drive->name);
-		kfree(info);
-		drive->driver_data = NULL;
+		ide_cd_release(&info->kref);
 		goto failed;
 	}
 

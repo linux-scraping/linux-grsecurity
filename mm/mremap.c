@@ -304,7 +304,7 @@ unsigned long do_mremap(unsigned long addr,
 		if (addr + old_len > new_addr && new_addr + new_len > addr)
 			goto out;
 
-		ret = security_file_mmap(0, 0, 0, 0, new_addr, 1);
+		ret = security_file_mmap(NULL, 0, 0, 0, new_addr, 1);
 		if (ret)
 			goto out;
 
@@ -421,7 +421,7 @@ unsigned long do_mremap(unsigned long addr,
 				goto out;
 			}
 
-			ret = security_file_mmap(0, 0, 0, 0, new_addr, 1);
+			ret = security_file_mmap(NULL, 0, 0, 0, new_addr, 1);
 			if (ret)
 				goto out;
 		}

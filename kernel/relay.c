@@ -92,6 +92,7 @@ static int relay_mmap_buf(struct rchan_buf *buf, struct vm_area_struct *vma)
 		return -EINVAL;
 
 	vma->vm_ops = &relay_file_mmap_ops;
+	vma->vm_flags |= VM_DONTEXPAND;
 	vma->vm_private_data = buf;
 	buf->chan->cb->buf_mapped(buf, filp);
 
@@ -370,7 +371,7 @@ void relay_reset(struct rchan *chan)
 	if (!chan)
 		return;
 
- 	if (chan->is_global && chan->buf[0]) {
+	if (chan->is_global && chan->buf[0]) {
 		__relay_reset(chan->buf[0], 0);
 		return;
 	}
@@ -850,13 +851,13 @@ static int relay_file_read_avail(struct rchan_buf *buf, size_t read_pos)
 		buf->subbufs_consumed = consumed;
 		buf->bytes_consumed = 0;
 	}
-	
+
 	produced = (produced % n_subbufs) * subbuf_size + buf->offset;
 	consumed = (consumed % n_subbufs) * subbuf_size + buf->bytes_consumed;
 
 	if (consumed > produced)
 		produced += n_subbufs * subbuf_size;
-	
+
 	if (consumed == produced)
 		return 0;
 

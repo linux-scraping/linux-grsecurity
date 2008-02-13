@@ -204,8 +204,10 @@ KERN_INFO "   Further modifications by Keith Underwood <keithu@parl.clemson.edu>
 /* Condensed bus+endian portability operations. */
 #if ADDRLEN == 64
 #define cpu_to_leXX(addr)	cpu_to_le64(addr)
+#define leXX_to_cpu(addr)	le64_to_cpu(addr)
 #else
 #define cpu_to_leXX(addr)	cpu_to_le32(addr)
+#define leXX_to_cpu(addr)	le32_to_cpu(addr)
 #endif
 
 
@@ -465,12 +467,12 @@ enum intr_status_bits {
 
 /* The Hamachi Rx and Tx buffer descriptors. */
 struct hamachi_desc {
-	u32 status_n_length;
+	__le32 status_n_length;
 #if ADDRLEN == 64
 	u32 pad;
-	u64 addr;
+	__le64 addr;
 #else
-	u32 addr;
+	__le32 addr;
 #endif
 };
 
@@ -580,6 +582,7 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
 	void *ring_space;
 	dma_addr_t ring_dma;
 	int ret = -ENOMEM;
+	DECLARE_MAC_BUF(mac);
 
 /* when built into the kernel, we only print version if device is found */
 #ifndef MODULE
@@ -613,7 +616,6 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
 	if (!dev)
 		goto err_out_iounmap;
 
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 #ifdef TX_CHECKSUM
@@ -742,12 +744,9 @@ static int __devinit hamachi_init_one (struct pci_dev *pdev,
 		goto err_out_unmap_rx;
 	}
 
-	printk(KERN_INFO "%s: %s type %x at %p, ",
+	printk(KERN_INFO "%s: %s type %x at %p, %s, IRQ %d.\n",
 		   dev->name, chip_tbl[chip_id].name, readl(ioaddr + ChipRev),
-		   ioaddr);
-	for (i = 0; i < 5; i++)
-			printk("%2.2x:", dev->dev_addr[i]);
-	printk("%2.2x, IRQ %d.\n", dev->dev_addr[i], irq);
+		   ioaddr, print_mac(mac, dev->dev_addr), irq);
 	i = readb(ioaddr + PCIClkMeas);
 	printk(KERN_INFO "%s:  %d-bit %d Mhz PCI bus (%d), Virtual Jumpers "
 		   "%2.2x, LPA %4.4x.\n",
@@ -877,13 +876,13 @@ static int hamachi_open(struct net_device *dev)
 
 #if ADDRLEN == 64
 	/* writellll anyone ? */
-	writel(cpu_to_le64(hmp->rx_ring_dma), ioaddr + RxPtr);
-	writel(cpu_to_le64(hmp->rx_ring_dma) >> 32, ioaddr + RxPtr + 4);
-	writel(cpu_to_le64(hmp->tx_ring_dma), ioaddr + TxPtr);
-	writel(cpu_to_le64(hmp->tx_ring_dma) >> 32, ioaddr + TxPtr + 4);
+	writel(hmp->rx_ring_dma, ioaddr + RxPtr);
+	writel(hmp->rx_ring_dma >> 32, ioaddr + RxPtr + 4);
+	writel(hmp->tx_ring_dma, ioaddr + TxPtr);
+	writel(hmp->tx_ring_dma >> 32, ioaddr + TxPtr + 4);
 #else
-	writel(cpu_to_le32(hmp->rx_ring_dma), ioaddr + RxPtr);
-	writel(cpu_to_le32(hmp->tx_ring_dma), ioaddr + TxPtr);
+	writel(hmp->rx_ring_dma, ioaddr + RxPtr);
+	writel(hmp->tx_ring_dma, ioaddr + TxPtr);
 #endif
 
 	/* TODO:  It would make sense to organize this as words since the card
@@ -1020,10 +1019,10 @@ static inline int hamachi_tx(struct net_device *dev)
 			break;
 		/* Free the original skb. */
 		skb = hmp->tx_skbuff[entry];
-		if (skb != 0) {
+		if (skb) {
 			pci_unmap_single(hmp->pci_dev,
-				hmp->tx_ring[entry].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				leXX_to_cpu(hmp->tx_ring[entry].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb(skb);
 			hmp->tx_skbuff[entry] = NULL;
 		}
@@ -1072,13 +1071,12 @@ static void hamachi_tx_timeout(struct net_device *dev)
 		   " resetting...\n", dev->name, (int)readw(ioaddr + TxStatus));
 
 	{
-		int i;
 		printk(KERN_DEBUG "  Rx ring %p: ", hmp->rx_ring);
 		for (i = 0; i < RX_RING_SIZE; i++)
-			printk(" %8.8x", (unsigned int)hmp->rx_ring[i].status_n_length);
+			printk(" %8.8x", le32_to_cpu(hmp->rx_ring[i].status_n_length));
 		printk("\n"KERN_DEBUG"  Tx ring %p: ", hmp->tx_ring);
 		for (i = 0; i < TX_RING_SIZE; i++)
-			printk(" %4.4x", hmp->tx_ring[i].status_n_length);
+			printk(" %4.4x", le32_to_cpu(hmp->tx_ring[i].status_n_length));
 		printk("\n");
 	}
 
@@ -1103,14 +1101,15 @@ static void hamachi_tx_timeout(struct net_device *dev)
 		struct sk_buff *skb;
 
 		if (i >= TX_RING_SIZE - 1)
-			hmp->tx_ring[i].status_n_length = cpu_to_le32(
-				DescEndRing |
-				(hmp->tx_ring[i].status_n_length & 0x0000FFFF));
+			hmp->tx_ring[i].status_n_length =
+				cpu_to_le32(DescEndRing) |
+				(hmp->tx_ring[i].status_n_length &
+				 cpu_to_le32(0x0000ffff));
 		else
-			hmp->tx_ring[i].status_n_length &= 0x0000ffff;
+			hmp->tx_ring[i].status_n_length &= cpu_to_le32(0x0000ffff);
 		skb = hmp->tx_skbuff[i];
 		if (skb){
-			pci_unmap_single(hmp->pci_dev, hmp->tx_ring[i].addr,
+			pci_unmap_single(hmp->pci_dev, leXX_to_cpu(hmp->tx_ring[i].addr),
 				skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb(skb);
 			hmp->tx_skbuff[i] = NULL;
@@ -1132,7 +1131,8 @@ static void hamachi_tx_timeout(struct net_device *dev)
 		struct sk_buff *skb = hmp->rx_skbuff[i];
 
 		if (skb){
-			pci_unmap_single(hmp->pci_dev, hmp->rx_ring[i].addr,
+			pci_unmap_single(hmp->pci_dev,
+				leXX_to_cpu(hmp->rx_ring[i].addr),
 				hmp->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(skb);
 			hmp->rx_skbuff[i] = NULL;
@@ -1424,7 +1424,7 @@ static irqreturn_t hamachi_interrupt(int irq, void *dev_instance)
 					/* Free the original skb. */
 					if (skb){
 						pci_unmap_single(hmp->pci_dev,
-							hmp->tx_ring[entry].addr,
+							leXX_to_cpu(hmp->tx_ring[entry].addr),
 							skb->len,
 							PCI_DMA_TODEVICE);
 						dev_kfree_skb_irq(skb);
@@ -1504,11 +1504,11 @@ static int hamachi_rx(struct net_device *dev)
 		if (desc_status & DescOwn)
 			break;
 		pci_dma_sync_single_for_cpu(hmp->pci_dev,
-					    desc->addr,
+					    leXX_to_cpu(desc->addr),
 					    hmp->rx_buf_sz,
 					    PCI_DMA_FROMDEVICE);
 		buf_addr = (u8 *) hmp->rx_skbuff[entry]->data;
-		frame_status = le32_to_cpu(get_unaligned((s32*)&(buf_addr[data_size - 12])));
+		frame_status = le32_to_cpu(get_unaligned((__le32*)&(buf_addr[data_size - 12])));
 		if (hamachi_debug > 4)
 			printk(KERN_DEBUG "  hamachi_rx() status was %8.8x.\n",
 				frame_status);
@@ -1522,9 +1522,9 @@ static int hamachi_rx(struct net_device *dev)
 				   dev->name, desc, &hmp->rx_ring[hmp->cur_rx % RX_RING_SIZE]);
 			printk(KERN_WARNING "%s: Oversized Ethernet frame -- next status %x/%x last status %x.\n",
 				   dev->name,
-				   hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length & 0xffff0000,
-				   hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length & 0x0000ffff,
-				   hmp->rx_ring[(hmp->cur_rx-1) % RX_RING_SIZE].status_n_length);
+				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length) & 0xffff0000,
+				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length) & 0x0000ffff,
+				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx-1) % RX_RING_SIZE].status_n_length));
 			hmp->stats.rx_length_errors++;
 		} /* else  Omit for prototype errata??? */
 		if (frame_status & 0x00380000) {
@@ -1570,7 +1570,7 @@ static int hamachi_rx(struct net_device *dev)
 #endif
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
 				pci_dma_sync_single_for_cpu(hmp->pci_dev,
-							    hmp->rx_ring[entry].addr,
+							    leXX_to_cpu(hmp->rx_ring[entry].addr),
 							    hmp->rx_buf_sz,
 							    PCI_DMA_FROMDEVICE);
 				/* Call copy + cksum if available. */
@@ -1583,12 +1583,12 @@ static int hamachi_rx(struct net_device *dev)
 					+ entry*sizeof(*desc), pkt_len);
 #endif
 				pci_dma_sync_single_for_device(hmp->pci_dev,
-							       hmp->rx_ring[entry].addr,
+							       leXX_to_cpu(hmp->rx_ring[entry].addr),
 							       hmp->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
 			} else {
 				pci_unmap_single(hmp->pci_dev,
-						 hmp->rx_ring[entry].addr,
+						 leXX_to_cpu(hmp->rx_ring[entry].addr),
 						 hmp->rx_buf_sz, PCI_DMA_FROMDEVICE);
 				skb_put(skb = hmp->rx_skbuff[entry], pkt_len);
 				hmp->rx_skbuff[entry] = NULL;
@@ -1791,21 +1791,21 @@ static int hamachi_close(struct net_device *dev)
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		skb = hmp->rx_skbuff[i];
 		hmp->rx_ring[i].status_n_length = 0;
-		hmp->rx_ring[i].addr = 0xBADF00D0; /* An invalid address. */
 		if (skb) {
 			pci_unmap_single(hmp->pci_dev,
-				hmp->rx_ring[i].addr, hmp->rx_buf_sz,
-				PCI_DMA_FROMDEVICE);
+				leXX_to_cpu(hmp->rx_ring[i].addr),
+				hmp->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(skb);
 			hmp->rx_skbuff[i] = NULL;
 		}
+		hmp->rx_ring[i].addr = cpu_to_leXX(0xBADF00D0); /* An invalid address. */
 	}
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		skb = hmp->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(hmp->pci_dev,
-				hmp->tx_ring[i].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				leXX_to_cpu(hmp->tx_ring[i].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb(skb);
 			hmp->tx_skbuff[i] = NULL;
 		}

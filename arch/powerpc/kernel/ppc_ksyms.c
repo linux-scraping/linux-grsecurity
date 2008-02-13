@@ -12,12 +12,12 @@
 #include <linux/irq.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
-#include <linux/ide.h>
 #include <linux/bitops.h>
 
 #include <asm/page.h>
 #include <asm/semaphore.h>
 #include <asm/processor.h>
+#include <asm/cacheflush.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/atomic.h>
@@ -44,10 +44,6 @@
 #include <asm/div64.h>
 #include <asm/signal.h>
 #include <asm/dcr.h>
-
-#ifdef  CONFIG_8xx
-#include <asm/commproc.h>
-#endif
 
 #ifdef CONFIG_PPC64
 EXPORT_SYMBOL(local_irq_restore);
@@ -93,10 +89,6 @@ EXPORT_SYMBOL(__strncpy_from_user);
 EXPORT_SYMBOL(__strnlen_user);
 #ifdef CONFIG_PPC64
 EXPORT_SYMBOL(copy_4K_page);
-#endif
-
-#if defined(CONFIG_PPC32) && (defined(CONFIG_BLK_DEV_IDE) || defined(CONFIG_BLK_DEV_IDE_MODULE))
-EXPORT_SYMBOL(ppc_ide_md);
 #endif
 
 #if defined(CONFIG_PCI) && defined(CONFIG_PPC32)
@@ -174,14 +166,6 @@ EXPORT_SYMBOL(irq_desc);
 EXPORT_SYMBOL(tb_ticks_per_jiffy);
 EXPORT_SYMBOL(console_drivers);
 EXPORT_SYMBOL(cacheable_memcpy);
-#endif
-
-#ifdef  CONFIG_8xx
-EXPORT_SYMBOL(cpm_install_handler);
-EXPORT_SYMBOL(cpm_free_handler);
-#endif /* CONFIG_8xx */
-#if defined(CONFIG_8xx) || defined(CONFIG_40x)
-EXPORT_SYMBOL(__res);
 #endif
 
 #ifdef CONFIG_PPC32

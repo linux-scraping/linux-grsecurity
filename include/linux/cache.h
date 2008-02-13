@@ -17,7 +17,7 @@
 #endif
 
 #ifndef __read_only
-#define __read_only
+#define __read_only __read_mostly
 #endif
 
 #ifndef ____cacheline_aligned

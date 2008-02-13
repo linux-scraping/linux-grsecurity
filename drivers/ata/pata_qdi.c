@@ -126,7 +126,7 @@ static unsigned int qdi_qc_issue_prot(struct ata_queued_cmd *qc)
 
 static void qdi_data_xfer(struct ata_device *adev, unsigned char *buf, unsigned int buflen, int write_data)
 {
-	struct ata_port *ap = adev->ap;
+	struct ata_port *ap = adev->link->ap;
 	int slop = buflen & 3;
 
 	if (ata_id_has_dword_io(adev->id)) {
@@ -136,14 +136,12 @@ static void qdi_data_xfer(struct ata_device *adev, unsigned char *buf, unsigned 
 			ioread32_rep(ap->ioaddr.data_addr, buf, buflen >> 2);
 
 		if (unlikely(slop)) {
-			u32 pad;
+			__le32 pad = 0;
 			if (write_data) {
 				memcpy(&pad, buf + buflen - slop, slop);
-				pad = le32_to_cpu(pad);
-				iowrite32(pad, ap->ioaddr.data_addr);
+				iowrite32(le32_to_cpu(pad), ap->ioaddr.data_addr);
 			} else {
-				pad = ioread32(ap->ioaddr.data_addr);
-				pad = cpu_to_le32(pad);
+				pad = cpu_to_le32(ioread32(ap->ioaddr.data_addr));
 				memcpy(buf + buflen - slop, &pad, slop);
 			}
 		}
@@ -170,7 +168,6 @@ static struct scsi_host_template qdi_sht = {
 };
 
 static struct ata_port_operations qdi6500_port_ops = {
-	.port_disable	= ata_port_disable,
 	.set_piomode	= qdi6500_set_piomode,
 
 	.tf_load	= ata_tf_load,
@@ -192,13 +189,11 @@ static struct ata_port_operations qdi6500_port_ops = {
 
 	.irq_clear	= ata_bmdma_irq_clear,
 	.irq_on		= ata_irq_on,
-	.irq_ack	= ata_irq_ack,
 
-	.port_start	= ata_port_start,
+	.port_start	= ata_sff_port_start,
 };
 
 static struct ata_port_operations qdi6580_port_ops = {
-	.port_disable	= ata_port_disable,
 	.set_piomode	= qdi6580_set_piomode,
 
 	.tf_load	= ata_tf_load,
@@ -220,9 +215,8 @@ static struct ata_port_operations qdi6580_port_ops = {
 
 	.irq_clear	= ata_bmdma_irq_clear,
 	.irq_on		= ata_irq_on,
-	.irq_ack	= ata_irq_ack,
 
-	.port_start	= ata_port_start,
+	.port_start	= ata_sff_port_start,
 };
 
 /**
@@ -238,6 +232,7 @@ static struct ata_port_operations qdi6580_port_ops = {
 
 static __init int qdi_init_one(unsigned long port, int type, unsigned long io, int irq, int fast)
 {
+	unsigned long ctl = io + 0x206;
 	struct platform_device *pdev;
 	struct ata_host *host;
 	struct ata_port *ap;
@@ -254,7 +249,7 @@ static __init int qdi_init_one(unsigned long port, int type, unsigned long io, i
 
 	ret = -ENOMEM;
 	io_addr = devm_ioport_map(&pdev->dev, io, 8);
-	ctl_addr = devm_ioport_map(&pdev->dev, io + 0x206, 1);
+	ctl_addr = devm_ioport_map(&pdev->dev, ctl, 1);
 	if (!io_addr || !ctl_addr)
 		goto fail;
 
@@ -278,6 +273,8 @@ static __init int qdi_init_one(unsigned long port, int type, unsigned long io, i
 	ap->ioaddr.altstatus_addr = ctl_addr;
 	ap->ioaddr.ctl_addr = ctl_addr;
 	ata_std_ports(&ap->ioaddr);
+
+	ata_port_desc(ap, "cmd %lx ctl %lx", io, ctl);
 
 	/*
 	 *	Hook in a private data structure per channel

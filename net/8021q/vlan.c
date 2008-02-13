@@ -31,6 +31,7 @@
 #include <net/arp.h>
 #include <linux/rtnetlink.h>
 #include <linux/notifier.h>
+#include <net/net_namespace.h>
 
 #include <linux/if_vlan.h>
 #include "vlan.h"
@@ -50,7 +51,7 @@ static char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
 static char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
 
 static int vlan_device_event(struct notifier_block *, unsigned long, void *);
-static int vlan_ioctl_handler(void __user *);
+static int vlan_ioctl_handler(struct net *net, void __user *);
 static int unregister_vlan_dev(struct net_device *, unsigned short );
 
 static struct notifier_block vlan_notifier_block = {
@@ -123,8 +124,8 @@ static void __exit vlan_cleanup_module(void)
 {
 	int i;
 
-	vlan_netlink_fini();
 	vlan_ioctl_set(NULL);
+	vlan_netlink_fini();
 
 	/* Un-register us from receiving netdevice events */
 	unregister_netdevice_notifier(&vlan_notifier_block);
@@ -313,9 +314,16 @@ int unregister_vlan_device(struct net_device *dev)
  */
 static struct lock_class_key vlan_netdev_xmit_lock_key;
 
+static const struct header_ops vlan_header_ops = {
+	.create	 = vlan_dev_hard_header,
+	.rebuild = vlan_dev_rebuild_header,
+	.parse	 = eth_header_parse,
+};
+
 static int vlan_dev_init(struct net_device *dev)
 {
 	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
+	int subclass = 0;
 
 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
 	dev->flags  = real_dev->flags & ~IFF_UP;
@@ -324,33 +332,34 @@ static int vlan_dev_init(struct net_device *dev)
 					  (1<<__LINK_STATE_DORMANT))) |
 		      (1<<__LINK_STATE_PRESENT);
 
+	/* ipv6 shared card related stuff */
+	dev->dev_id = real_dev->dev_id;
+
 	if (is_zero_ether_addr(dev->dev_addr))
 		memcpy(dev->dev_addr, real_dev->dev_addr, dev->addr_len);
 	if (is_zero_ether_addr(dev->broadcast))
 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
 
 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
-		dev->hard_header     = real_dev->hard_header;
+		dev->header_ops      = real_dev->header_ops;
 		dev->hard_header_len = real_dev->hard_header_len;
 		dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
-		dev->rebuild_header  = real_dev->rebuild_header;
 	} else {
-		dev->hard_header     = vlan_dev_hard_header;
+		dev->header_ops      = &vlan_header_ops;
 		dev->hard_header_len = real_dev->hard_header_len + VLAN_HLEN;
 		dev->hard_start_xmit = vlan_dev_hard_start_xmit;
-		dev->rebuild_header  = vlan_dev_rebuild_header;
 	}
-	dev->hard_header_parse = real_dev->hard_header_parse;
-	dev->hard_header_cache = NULL;
 
-	lockdep_set_class(&dev->_xmit_lock, &vlan_netdev_xmit_lock_key);
+	if (real_dev->priv_flags & IFF_802_1Q_VLAN)
+		subclass = 1;
+
+	lockdep_set_class_and_subclass(&dev->_xmit_lock,
+				&vlan_netdev_xmit_lock_key, subclass);
 	return 0;
 }
 
 void vlan_setup(struct net_device *new_dev)
 {
-	SET_MODULE_OWNER(new_dev);
-
 	ether_setup(new_dev);
 
 	/* new_dev->ifindex = 0;  it will be set when added to
@@ -372,6 +381,7 @@ void vlan_setup(struct net_device *new_dev)
 	new_dev->init = vlan_dev_init;
 	new_dev->open = vlan_dev_open;
 	new_dev->stop = vlan_dev_stop;
+	new_dev->set_mac_address = vlan_set_mac_address;
 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
 	new_dev->change_rx_flags = vlan_change_rx_flags;
 	new_dev->destructor = free_netdev;
@@ -603,6 +613,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
 	int i, flgs;
 	struct net_device *vlandev;
 
+	if (dev->nd_net != &init_net)
+		return NOTIFY_DONE;
+
 	if (!grp)
 		goto out;
 
@@ -697,7 +710,7 @@ out:
  *	o execute requested action or pass command to the device driver
  *   arg is really a struct vlan_ioctl_args __user *.
  */
-static int vlan_ioctl_handler(void __user *arg)
+static int vlan_ioctl_handler(struct net *net, void __user *arg)
 {
 	int err;
 	unsigned short vid = 0;
@@ -726,7 +739,7 @@ static int vlan_ioctl_handler(void __user *arg)
 	case GET_VLAN_REALDEV_NAME_CMD:
 	case GET_VLAN_VID_CMD:
 		err = -ENODEV;
-		dev = __dev_get_by_name(args.device1);
+		dev = __dev_get_by_name(&init_net, args.device1);
 		if (!dev)
 			goto out;
 
@@ -768,7 +781,7 @@ static int vlan_ioctl_handler(void __user *arg)
 	case SET_VLAN_NAME_TYPE_CMD:
 		err = -EPERM;
 		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
+			break;
 		if ((args.u.name_type >= 0) &&
 		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
 			vlan_name_type = args.u.name_type;

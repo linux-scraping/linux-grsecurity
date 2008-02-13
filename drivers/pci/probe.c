@@ -455,22 +455,6 @@ struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev, int
 	return child;
 }
 
-static void pci_enable_crs(struct pci_dev *dev)
-{
-	u16 cap, rpctl;
-	int rpcap = pci_find_capability(dev, PCI_CAP_ID_EXP);
-	if (!rpcap)
-		return;
-
-	pci_read_config_word(dev, rpcap + PCI_CAP_FLAGS, &cap);
-	if (((cap & PCI_EXP_FLAGS_TYPE) >> 4) != PCI_EXP_TYPE_ROOT_PORT)
-		return;
-
-	pci_read_config_word(dev, rpcap + PCI_EXP_RTCTL, &rpctl);
-	rpctl |= PCI_EXP_RTCTL_CRSSVE;
-	pci_write_config_word(dev, rpcap + PCI_EXP_RTCTL, rpctl);
-}
-
 static void pci_fixup_parent_subordinate_busnr(struct pci_bus *child, int max)
 {
 	struct pci_bus *parent = child->parent;
@@ -516,8 +500,6 @@ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass
 	pci_read_config_word(dev, PCI_BRIDGE_CONTROL, &bctl);
 	pci_write_config_word(dev, PCI_BRIDGE_CONTROL,
 			      bctl & ~PCI_BRIDGE_CTL_MASTER_ABORT);
-
-	pci_enable_crs(dev);
 
 	if ((buses & 0xffff00) && !pcibios_assign_all_busses() && !is_cardbus) {
 		unsigned int cmax, busnr;
@@ -597,7 +579,7 @@ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev * dev, int max, int pass
 		pci_write_config_dword(dev, PCI_PRIMARY_BUS, buses);
 
 		if (!is_cardbus) {
-			child->bridge_ctl = bctl | PCI_BRIDGE_CTL_NO_ISA;
+			child->bridge_ctl = bctl;
 			/*
 			 * Adjust subordinate busnr in parent buses.
 			 * We do this before scanning for children because
@@ -814,6 +796,19 @@ static void pci_release_dev(struct device *dev)
 	kfree(pci_dev);
 }
 
+static void set_pcie_port_type(struct pci_dev *pdev)
+{
+	int pos;
+	u16 reg16;
+
+	pos = pci_find_capability(pdev, PCI_CAP_ID_EXP);
+	if (!pos)
+		return;
+	pdev->is_pcie = 1;
+	pci_read_config_word(pdev, pos + PCI_EXP_FLAGS, &reg16);
+	pdev->pcie_type = (reg16 & PCI_EXP_FLAGS_TYPE) >> 4;
+}
+
 /**
  * pci_cfg_space_size - get the configuration space size of the PCI device.
  * @dev: PCI device
@@ -928,6 +923,7 @@ pci_scan_device(struct pci_bus *bus, int devfn)
 	dev->device = (l >> 16) & 0xffff;
 	dev->cfg_size = pci_cfg_space_size(dev);
 	dev->error_state = pci_channel_io_normal;
+	set_pcie_port_type(dev);
 
 	/* Assume 32-bit PCI; let 64-bit PCI cards (which are far rarer)
 	   set this higher, assuming the system even supports it.  */

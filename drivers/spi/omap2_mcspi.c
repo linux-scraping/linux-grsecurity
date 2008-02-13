@@ -350,6 +350,7 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 		tx = xfer->tx_buf;
 
 		do {
+			c -= 1;
 			if (tx != NULL) {
 				if (mcspi_wait_for_reg_bit(chstat_reg,
 						OMAP2_MCSPI_CHSTAT_TXS) < 0) {
@@ -380,7 +381,6 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 						word_len, *(rx - 1));
 #endif
 			}
-			c -= 1;
 		} while (c);
 	} else if (word_len <= 16) {
 		u16		*rx;
@@ -389,6 +389,7 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 		rx = xfer->rx_buf;
 		tx = xfer->tx_buf;
 		do {
+			c -= 2;
 			if (tx != NULL) {
 				if (mcspi_wait_for_reg_bit(chstat_reg,
 						OMAP2_MCSPI_CHSTAT_TXS) < 0) {
@@ -419,7 +420,6 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 						word_len, *(rx - 1));
 #endif
 			}
-			c -= 2;
 		} while (c);
 	} else if (word_len <= 32) {
 		u32		*rx;
@@ -428,6 +428,7 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 		rx = xfer->rx_buf;
 		tx = xfer->tx_buf;
 		do {
+			c -= 4;
 			if (tx != NULL) {
 				if (mcspi_wait_for_reg_bit(chstat_reg,
 						OMAP2_MCSPI_CHSTAT_TXS) < 0) {
@@ -458,7 +459,6 @@ omap2_mcspi_txrx_pio(struct spi_device *spi, struct spi_transfer *xfer)
 						word_len, *(rx - 1));
 #endif
 			}
-			c -= 4;
 		} while (c);
 	}
 
@@ -645,7 +645,7 @@ static int omap2_mcspi_setup(struct spi_device *spi)
 
 	clk_enable(mcspi->ick);
 	clk_enable(mcspi->fck);
-	ret =  omap2_mcspi_setup_transfer(spi, NULL);
+	ret = omap2_mcspi_setup_transfer(spi, NULL);
 	clk_disable(mcspi->fck);
 	clk_disable(mcspi->ick);
 
@@ -693,7 +693,6 @@ static void omap2_mcspi_work(struct work_struct *work)
 		struct spi_device		*spi;
 		struct spi_transfer		*t = NULL;
 		int				cs_active = 0;
-		struct omap2_mcspi_device_config *conf;
 		struct omap2_mcspi_cs		*cs;
 		int				par_override = 0;
 		int				status = 0;
@@ -706,7 +705,6 @@ static void omap2_mcspi_work(struct work_struct *work)
 		spin_unlock_irq(&mcspi->lock);
 
 		spi = m->spi;
-		conf = spi->controller_data;
 		cs = spi->controller_state;
 
 		omap2_mcspi_set_enable(spi, 1);

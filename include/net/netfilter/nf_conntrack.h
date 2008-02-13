@@ -116,9 +116,6 @@ struct nf_conn
 	struct ip_conntrack_counter counters[IP_CT_DIR_MAX];
 #endif
 
-	/* Unique ID that identifies this conntrack*/
-	unsigned int id;
-
 #if defined(CONFIG_NF_CONNTRACK_MARK)
 	u_int32_t mark;
 #endif
@@ -252,6 +249,7 @@ static inline int nf_ct_is_untracked(const struct sk_buff *skb)
 	return (skb->nfct == &nf_conntrack_untracked.ct_general);
 }
 
+extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
 extern unsigned int nf_conntrack_htable_size;
 extern int nf_conntrack_checksum;
 extern atomic_t nf_conntrack_count;

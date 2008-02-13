@@ -21,7 +21,7 @@ struct nameidata {
 	unsigned int	flags;
 	int		last_type;
 	unsigned	depth;
-	char *saved_names[MAX_NESTED_LINKS + 1];
+	const char *saved_names[MAX_NESTED_LINKS + 1];
 
 	/* Intent data */
 	union {
@@ -81,8 +81,8 @@ extern struct file *lookup_instantiate_filp(struct nameidata *nd, struct dentry 
 extern struct file *nameidata_to_filp(struct nameidata *nd, int flags);
 extern void release_open_intent(struct nameidata *);
 
-extern struct dentry * lookup_one_len(const char *, struct dentry *, int);
-extern struct dentry *lookup_one_len_kern(const char *, struct dentry *, int);
+extern struct dentry *lookup_one_len(const char *, struct dentry *, int);
+extern struct dentry *lookup_one_noperm(const char *, struct dentry *);
 
 extern int follow_down(struct vfsmount **, struct dentry **);
 extern int follow_up(struct vfsmount **, struct dentry **);
@@ -90,12 +90,12 @@ extern int follow_up(struct vfsmount **, struct dentry **);
 extern struct dentry *lock_rename(struct dentry *, struct dentry *);
 extern void unlock_rename(struct dentry *, struct dentry *);
 
-static inline void nd_set_link(struct nameidata *nd, char *path)
+static inline void nd_set_link(struct nameidata *nd, const char *path)
 {
 	nd->saved_names[nd->depth] = path;
 }
 
-static inline char *nd_get_link(struct nameidata *nd)
+static inline const char *nd_get_link(struct nameidata *nd)
 {
 	return nd->saved_names[nd->depth];
 }

@@ -169,15 +169,6 @@ void gr_acl_handle_psacct(struct task_struct *task, const long code);
 int gr_acl_handle_procpidmem(const struct task_struct *task);
 __u32 gr_cap_rtnetlink(void);
 
-#ifdef CONFIG_SYSVIPC
-void gr_shm_exit(struct task_struct *task);
-#else
-static inline void gr_shm_exit(struct task_struct *task)
-{
-	return;
-}
-#endif
-
 #ifdef CONFIG_GRKERNSEC
 void gr_handle_mem_write(void);
 void gr_handle_kmem_write(void);

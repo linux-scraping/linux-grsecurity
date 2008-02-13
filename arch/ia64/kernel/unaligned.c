@@ -1340,7 +1340,8 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
 			size_t len;
 
 			len = sprintf(buf, "%s(%d): unaligned access to 0x%016lx, "
-				      "ip=0x%016lx\n\r", current->comm, current->pid,
+				      "ip=0x%016lx\n\r", current->comm,
+				      task_pid_nr(current),
 				      ifa, regs->cr_iip + ipsr->ri);
 			/*
 			 * Don't call tty_write_message() if we're in the kernel; we might
@@ -1363,7 +1364,7 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
 				       "administrator\n"
 				       "echo 0 > /proc/sys/kernel/ignore-"
 				       "unaligned-usertrap to re-enable\n",
-				       current->comm, current->pid);
+				       current->comm, task_pid_nr(current));
 			}
 		}
 	} else {
@@ -1487,14 +1488,17 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
 	      case LDFA_OP:
 	      case LDFCCLR_OP:
 	      case LDFCNC_OP:
-	      case LDF_IMM_OP:
-	      case LDFA_IMM_OP:
-	      case LDFCCLR_IMM_OP:
-	      case LDFCNC_IMM_OP:
 		if (u.insn.x)
 			ret = emulate_load_floatpair(ifa, u.insn, regs);
 		else
 			ret = emulate_load_float(ifa, u.insn, regs);
+		break;
+
+	      case LDF_IMM_OP:
+	      case LDFA_IMM_OP:
+	      case LDFCCLR_IMM_OP:
+	      case LDFCNC_IMM_OP:
+		ret = emulate_load_float(ifa, u.insn, regs);
 		break;
 
 	      case STF_OP:

@@ -340,9 +340,9 @@ enum mac_ctrl1_bits {
 /* Note that using only 32 bit fields simplifies conversion to big-endian
    architectures. */
 struct netdev_desc {
-	u32 next_desc;
-	u32 status;
-	struct desc_frag { u32 addr, length; } frag[1];
+	__le32 next_desc;
+	__le32 status;
+	struct desc_frag { __le32 addr, length; } frag[1];
 };
 
 /* Bits in netdev_desc.status */
@@ -466,8 +466,8 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 #else
 	int bar = 1;
 #endif
-	int phy, phy_idx = 0;
-
+	int phy, phy_end, phy_idx = 0;
+	DECLARE_MAC_BUF(mac);
 
 /* when built into the kernel, we only print version if device is found */
 #ifndef MODULE
@@ -485,7 +485,6 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 	dev = alloc_etherdev(sizeof(*np));
 	if (!dev)
 		return -ENOMEM;
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	if (pci_request_regions(pdev, DRV_NAME))
@@ -496,8 +495,8 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 		goto err_out_res;
 
 	for (i = 0; i < 3; i++)
-		((u16 *)dev->dev_addr)[i] =
-			le16_to_cpu(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
+		((__le16 *)dev->dev_addr)[i] =
+			cpu_to_le16(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
 
 	dev->base_addr = (unsigned long)ioaddr;
@@ -547,19 +546,25 @@ static int __devinit sundance_probe1 (struct pci_dev *pdev,
 	if (i)
 		goto err_out_unmap_rx;
 
-	printk(KERN_INFO "%s: %s at %p, ",
-		   dev->name, pci_id_tbl[chip_idx].name, ioaddr);
-	for (i = 0; i < 5; i++)
-			printk("%2.2x:", dev->dev_addr[i]);
-	printk("%2.2x, IRQ %d.\n", dev->dev_addr[i], irq);
+	printk(KERN_INFO "%s: %s at %p, %s, IRQ %d.\n",
+	       dev->name, pci_id_tbl[chip_idx].name, ioaddr,
+	       print_mac(mac, dev->dev_addr), irq);
 
 	np->phys[0] = 1;		/* Default setting */
 	np->mii_preamble_required++;
+
 	/*
 	 * It seems some phys doesn't deal well with address 0 being accessed
-	 * first, so leave address zero to the end of the loop (32 & 31).
+	 * first
 	 */
-	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
+	if (sundance_pci_tbl[np->chip_id].device == 0x0200) {
+		phy = 0;
+		phy_end = 31;
+	} else {
+		phy = 1;
+		phy_end = 32;	/* wraps to zero, due to 'phy & 0x1f' */
+	}
+	for (; phy <= phy_end && phy_idx < MII_CNT; phy++) {
 		int phyx = phy & 0x1f;
 		int mii_status = mdio_read(dev, phyx, MII_BMSR);
 		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
@@ -1085,8 +1090,8 @@ reset_tx (struct net_device *dev)
 		skb = np->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->tx_ring[i].frag[0].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				le32_to_cpu(np->tx_ring[i].frag[0].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			if (irq)
 				dev_kfree_skb_irq (skb);
 			else
@@ -1209,7 +1214,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 				skb = np->tx_skbuff[entry];
 				/* Free the original skb. */
 				pci_unmap_single(np->pci_dev,
-					np->tx_ring[entry].frag[0].addr,
+					le32_to_cpu(np->tx_ring[entry].frag[0].addr),
 					skb->len, PCI_DMA_TODEVICE);
 				dev_kfree_skb_irq (np->tx_skbuff[entry]);
 				np->tx_skbuff[entry] = NULL;
@@ -1228,7 +1233,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
 				skb = np->tx_skbuff[entry];
 				/* Free the original skb. */
 				pci_unmap_single(np->pci_dev,
-					np->tx_ring[entry].frag[0].addr,
+					le32_to_cpu(np->tx_ring[entry].frag[0].addr),
 					skb->len, PCI_DMA_TODEVICE);
 				dev_kfree_skb_irq (np->tx_skbuff[entry]);
 				np->tx_skbuff[entry] = NULL;
@@ -1306,19 +1311,19 @@ static void rx_poll(unsigned long data)
 				&& (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
 				pci_dma_sync_single_for_cpu(np->pci_dev,
-							    desc->frag[0].addr,
+							    le32_to_cpu(desc->frag[0].addr),
 							    np->rx_buf_sz,
 							    PCI_DMA_FROMDEVICE);
 
 				skb_copy_to_linear_data(skb, np->rx_skbuff[entry]->data, pkt_len);
 				pci_dma_sync_single_for_device(np->pci_dev,
-							       desc->frag[0].addr,
+							       le32_to_cpu(desc->frag[0].addr),
 							       np->rx_buf_sz,
 							       PCI_DMA_FROMDEVICE);
 				skb_put(skb, pkt_len);
 			} else {
 				pci_unmap_single(np->pci_dev,
-					desc->frag[0].addr,
+					le32_to_cpu(desc->frag[0].addr),
 					np->rx_buf_sz,
 					PCI_DMA_FROMDEVICE);
 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
@@ -1704,23 +1709,23 @@ static int netdev_close(struct net_device *dev)
 	/* Free all the skbuffs in the Rx queue. */
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		np->rx_ring[i].status = 0;
-		np->rx_ring[i].frag[0].addr = 0xBADF00D0; /* An invalid address. */
 		skb = np->rx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->rx_ring[i].frag[0].addr, np->rx_buf_sz,
-				PCI_DMA_FROMDEVICE);
+				le32_to_cpu(np->rx_ring[i].frag[0].addr),
+				np->rx_buf_sz, PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(skb);
 			np->rx_skbuff[i] = NULL;
 		}
+		np->rx_ring[i].frag[0].addr = cpu_to_le32(0xBADF00D0); /* poison */
 	}
 	for (i = 0; i < TX_RING_SIZE; i++) {
 		np->tx_ring[i].next_desc = 0;
 		skb = np->tx_skbuff[i];
 		if (skb) {
 			pci_unmap_single(np->pci_dev,
-				np->tx_ring[i].frag[0].addr, skb->len,
-				PCI_DMA_TODEVICE);
+				le32_to_cpu(np->tx_ring[i].frag[0].addr),
+				skb->len, PCI_DMA_TODEVICE);
 			dev_kfree_skb(skb);
 			np->tx_skbuff[i] = NULL;
 		}

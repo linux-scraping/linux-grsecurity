@@ -53,6 +53,7 @@ static struct sctp_ulpevent * sctp_ulpq_reasm(struct sctp_ulpq *ulpq,
 					      struct sctp_ulpevent *);
 static struct sctp_ulpevent * sctp_ulpq_order(struct sctp_ulpq *,
 					      struct sctp_ulpevent *);
+static void sctp_ulpq_reasm_drain(struct sctp_ulpq *ulpq);
 
 /* 1st Level Abstractions */
 
@@ -190,6 +191,7 @@ static void sctp_ulpq_set_pd(struct sctp_ulpq *ulpq)
 static int sctp_ulpq_clear_pd(struct sctp_ulpq *ulpq)
 {
 	ulpq->pd_mode = 0;
+	sctp_ulpq_reasm_drain(ulpq);
 	return sctp_clear_pd(ulpq->asoc->base.sk, ulpq->asoc);
 }
 
@@ -699,6 +701,37 @@ void sctp_ulpq_reasm_flushtsn(struct sctp_ulpq *ulpq, __u32 fwd_tsn)
 	}
 }
 
+/*
+ * Drain the reassembly queue.  If we just cleared parted delivery, it
+ * is possible that the reassembly queue will contain already reassembled
+ * messages.  Retrieve any such messages and give them to the user.
+ */
+static void sctp_ulpq_reasm_drain(struct sctp_ulpq *ulpq)
+{
+	struct sctp_ulpevent *event = NULL;
+	struct sk_buff_head temp;
+
+	if (skb_queue_empty(&ulpq->reasm))
+		return;
+
+	while ((event = sctp_ulpq_retrieve_reassembled(ulpq)) != NULL) {
+		/* Do ordering if needed.  */
+		if ((event) && (event->msg_flags & MSG_EOR)){
+			skb_queue_head_init(&temp);
+			__skb_queue_tail(&temp, sctp_event2skb(event));
+
+			event = sctp_ulpq_order(ulpq, event);
+		}
+
+		/* Send event to the ULP.  'event' is the
+		 * sctp_ulpevent for  very first SKB on the  temp' list.
+		 */
+		if (event)
+			sctp_ulpq_tail_event(ulpq, event);
+	}
+}
+
+
 /* Helper function to gather skbs that have possibly become
  * ordered by an an incoming chunk.
  */
@@ -862,7 +895,7 @@ static inline void sctp_ulpq_reap_ordered(struct sctp_ulpq *ulpq, __u16 sid)
 			continue;
 
 		/* see if this ssn has been marked by skipping */
-		if (!SSN_lt(cssn, sctp_ssn_peek(in, csid)))
+		if (!SSN_lte(cssn, sctp_ssn_peek(in, csid)))
 			break;
 
 		__skb_unlink(pos, &ulpq->lobby);
@@ -908,8 +941,8 @@ void sctp_ulpq_skip(struct sctp_ulpq *ulpq, __u16 sid, __u16 ssn)
 	return;
 }
 
-/* Renege 'needed' bytes from the ordering queue. */
-static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
+static __u16 sctp_ulpq_renege_list(struct sctp_ulpq *ulpq,
+		struct sk_buff_head *list, __u16 needed)
 {
 	__u16 freed = 0;
 	__u32 tsn;
@@ -919,7 +952,7 @@ static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
 
 	tsnmap = &ulpq->asoc->peer.tsn_map;
 
-	while ((skb = __skb_dequeue_tail(&ulpq->lobby)) != NULL) {
+	while ((skb = __skb_dequeue_tail(list)) != NULL) {
 		freed += skb_headlen(skb);
 		event = sctp_skb2event(skb);
 		tsn = event->tsn;
@@ -933,30 +966,16 @@ static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
 	return freed;
 }
 
+/* Renege 'needed' bytes from the ordering queue. */
+static __u16 sctp_ulpq_renege_order(struct sctp_ulpq *ulpq, __u16 needed)
+{
+	return sctp_ulpq_renege_list(ulpq, &ulpq->lobby, needed);
+}
+
 /* Renege 'needed' bytes from the reassembly queue. */
 static __u16 sctp_ulpq_renege_frags(struct sctp_ulpq *ulpq, __u16 needed)
 {
-	__u16 freed = 0;
-	__u32 tsn;
-	struct sk_buff *skb;
-	struct sctp_ulpevent *event;
-	struct sctp_tsnmap *tsnmap;
-
-	tsnmap = &ulpq->asoc->peer.tsn_map;
-
-	/* Walk backwards through the list, reneges the newest tsns. */
-	while ((skb = __skb_dequeue_tail(&ulpq->reasm)) != NULL) {
-		freed += skb_headlen(skb);
-		event = sctp_skb2event(skb);
-		tsn = event->tsn;
-
-		sctp_ulpevent_free(event);
-		sctp_tsnmap_renege(tsnmap, tsn);
-		if (freed >= needed)
-			return freed;
-	}
-
-	return freed;
+	return sctp_ulpq_renege_list(ulpq, &ulpq->reasm, needed);
 }
 
 /* Partial deliver the first message as there is pressure on rwnd. */
@@ -1027,6 +1046,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
 		sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
 	}
 
+	sk_stream_mem_reclaim(asoc->base.sk);
 	return;
 }
 

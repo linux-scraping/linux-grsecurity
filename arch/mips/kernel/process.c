@@ -11,6 +11,7 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/tick.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/stddef.h>
@@ -52,6 +53,7 @@ void __noreturn cpu_idle(void)
 {
 	/* endless idle loop with no priority at all */
 	while (1) {
+		tick_nohz_stop_sched_tick();
 		while (!need_resched()) {
 #ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 			extern void smtc_idle_loop_hook(void);
@@ -61,6 +63,7 @@ void __noreturn cpu_idle(void)
 			if (cpu_wait)
 				(*cpu_wait)();
 		}
+		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
@@ -74,9 +77,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	unsigned long status;
 
 	/* New thread loses kernel privileges. */
-	status = regs->cp0_status & ~(ST0_CU0|ST0_CU1|KU_MASK);
+	status = regs->cp0_status & ~(ST0_CU0|ST0_CU1|ST0_FR|KU_MASK);
 #ifdef CONFIG_64BIT
-	status &= ~ST0_FR;
 	status |= test_thread_flag(TIF_32BIT_REGS) ? 0 : ST0_FR;
 #endif
 	status |= KU_USER;
@@ -199,13 +201,13 @@ void elf_dump_regs(elf_greg_t *gp, struct pt_regs *regs)
 #endif
 }
 
-int dump_task_regs (struct task_struct *tsk, elf_gregset_t *regs)
+int dump_task_regs(struct task_struct *tsk, elf_gregset_t *regs)
 {
 	elf_dump_regs(*regs, task_pt_regs(tsk));
 	return 1;
 }
 
-int dump_task_fpu (struct task_struct *t, elf_fpregset_t *fpr)
+int dump_task_fpu(struct task_struct *t, elf_fpregset_t *fpr)
 {
 	memcpy(fpr, &t->thread.fpu, sizeof(current->thread.fpu));
 
@@ -231,8 +233,8 @@ long kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 	regs.cp0_epc = (unsigned long) kernel_thread_helper;
 	regs.cp0_status = read_c0_status();
 #if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
-	regs.cp0_status &= ~(ST0_KUP | ST0_IEC);
-	regs.cp0_status |= ST0_IEP;
+	regs.cp0_status = (regs.cp0_status & ~(ST0_KUP | ST0_IEP | ST0_IEC)) |
+			  ((regs.cp0_status & (ST0_KUC | ST0_IEC)) << 2);
 #else
 	regs.cp0_status |= ST0_EXL;
 #endif

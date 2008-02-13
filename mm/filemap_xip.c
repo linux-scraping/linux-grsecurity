@@ -15,7 +15,6 @@
 #include <linux/rmap.h>
 #include <linux/sched.h>
 #include <asm/tlbflush.h>
-#include "filemap.h"
 
 /*
  * We do use our own empty page to avoid interference with other users
@@ -26,14 +25,15 @@ static struct page *__xip_sparse_page;
 static struct page *xip_sparse_page(void)
 {
 	if (!__xip_sparse_page) {
-		unsigned long zeroes = get_zeroed_page(GFP_HIGHUSER);
-		if (zeroes) {
+		struct page *page = alloc_page(GFP_HIGHUSER | __GFP_ZERO);
+
+		if (page) {
 			static DEFINE_SPINLOCK(xip_alloc_lock);
 			spin_lock(&xip_alloc_lock);
 			if (!__xip_sparse_page)
-				__xip_sparse_page = virt_to_page(zeroes);
+				__xip_sparse_page = page;
 			else
-				free_page(zeroes);
+				__free_page(page);
 			spin_unlock(&xip_alloc_lock);
 		}
 	}
@@ -288,20 +288,13 @@ __xip_file_write(struct file *filp, const char __user *buf,
 		unsigned long index;
 		unsigned long offset;
 		size_t copied;
+		char *kaddr;
 
 		offset = (pos & (PAGE_CACHE_SIZE -1)); /* Within page */
 		index = pos >> PAGE_CACHE_SHIFT;
 		bytes = PAGE_CACHE_SIZE - offset;
 		if (bytes > count)
 			bytes = count;
-
-		/*
-		 * Bring in the user page that we will copy from _first_.
-		 * Otherwise there's a nasty deadlock on copying from the
-		 * same page as we're writing to, without it being marked
-		 * up-to-date.
-		 */
-		fault_in_pages_readable(buf, bytes);
 
 		page = a_ops->get_xip_page(mapping,
 					   index*(PAGE_SIZE/512), 0);
@@ -319,8 +312,13 @@ __xip_file_write(struct file *filp, const char __user *buf,
 			break;
 		}
 
-		copied = filemap_copy_from_user(page, offset, buf, bytes);
+		fault_in_pages_readable(buf, bytes);
+		kaddr = kmap_atomic(page, KM_USER0);
+		copied = bytes -
+			__copy_from_user_inatomic_nocache(kaddr + offset, buf, bytes);
+		kunmap_atomic(kaddr, KM_USER0);
 		flush_dcache_page(page);
+
 		if (likely(copied > 0)) {
 			status = copied;
 

@@ -60,7 +60,6 @@ static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 			if (dirty_accountable && pte_dirty(ptent))
 				ptent = pte_mkwrite(ptent);
 			set_pte_at(mm, addr, pte, ptent);
-			lazy_mmu_prot_update(ptent);
 #ifdef CONFIG_MIGRATION
 		} else if (!pte_file(oldpte)) {
 			swp_entry_t entry = pte_to_swp_entry(oldpte);
@@ -266,11 +265,20 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && !(oldflags & VM_EXEC) && (newflags & VM_EXEC)) {
+		struct mempolicy *pol;
+
 		vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 		if (!vma_m) {
 			error = -ENOMEM;
 			goto fail;
 		}
+		pol = mpol_copy(vma_policy(vma));
+		if (IS_ERR(pol)) {
+			kmem_cache_free(vm_area_cachep, vma_m);
+			error = -ENOMEM;
+			goto fail;
+		}
+		vma_set_policy(vma_m, pol);
 	}
 #endif
 
@@ -359,8 +367,8 @@ static inline void pax_handle_maywrite(struct vm_area_struct *vma, unsigned long
 		if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
 			return;
 		if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
-			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
 			gr_log_textrel(vma);
+			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
 			return;
 		}
 		i++;

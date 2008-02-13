@@ -188,7 +188,7 @@ static int tc589_probe(struct pcmcia_device *link)
     spin_lock_init(&lp->lock);
     link->io.NumPorts1 = 16;
     link->io.Attributes1 = IO_DATA_PATH_WIDTH_16;
-    link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING|IRQ_HANDLE_PRESENT;
     link->irq.IRQInfo1 = IRQ_LEVEL_ID;
     link->irq.Handler = &el3_interrupt;
     link->irq.Instance = dev;
@@ -197,7 +197,6 @@ static int tc589_probe(struct pcmcia_device *link)
     link->conf.ConfigIndex = 1;
 
     /* The EL3-specific entries in the device structure. */
-    SET_MODULE_OWNER(dev);
     dev->hard_start_xmit = &el3_start_xmit;
     dev->set_config = &el3_config;
     dev->get_stats = &el3_get_stats;
@@ -252,14 +251,16 @@ static int tc589_config(struct pcmcia_device *link)
     struct net_device *dev = link->priv;
     struct el3_private *lp = netdev_priv(dev);
     tuple_t tuple;
-    u16 buf[32], *phys_addr;
+    __le16 buf[32];
+    __be16 *phys_addr;
     int last_fn, last_ret, i, j, multi = 0, fifo;
     kio_addr_t ioaddr;
     char *ram_split[] = {"5:3", "3:1", "1:1", "3:5"};
+    DECLARE_MAC_BUF(mac);
     
     DEBUG(0, "3c589_config(0x%p)\n", link);
 
-    phys_addr = (u16 *)dev->dev_addr;
+    phys_addr = (__be16 *)dev->dev_addr;
     tuple.Attributes = 0;
     tuple.TupleData = (cisdata_t *)buf;
     tuple.TupleDataMax = sizeof(buf);
@@ -298,11 +299,11 @@ static int tc589_config(struct pcmcia_device *link)
     if (pcmcia_get_first_tuple(link, &tuple) == CS_SUCCESS) {
 	pcmcia_get_tuple_data(link, &tuple);
 	for (i = 0; i < 3; i++)
-	    phys_addr[i] = htons(buf[i]);
+	    phys_addr[i] = htons(le16_to_cpu(buf[i]));
     } else {
 	for (i = 0; i < 3; i++)
 	    phys_addr[i] = htons(read_eeprom(ioaddr, i));
-	if (phys_addr[0] == 0x6060) {
+	if (phys_addr[0] == htons(0x6060)) {
 	    printk(KERN_ERR "3c589_cs: IO port conflict at 0x%03lx"
 		   "-0x%03lx\n", dev->base_addr, dev->base_addr+15);
 	    goto failed;
@@ -331,11 +332,10 @@ static int tc589_config(struct pcmcia_device *link)
 
     strcpy(lp->node.dev_name, dev->name);
 
-    printk(KERN_INFO "%s: 3Com 3c%s, io %#3lx, irq %d, hw_addr ",
-	   dev->name, (multi ? "562" : "589"), dev->base_addr,
-	   dev->irq);
-    for (i = 0; i < 6; i++)
-	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+    printk(KERN_INFO "%s: 3Com 3c%s, io %#3lx, irq %d, "
+	   "hw_addr %s\n",
+	   dev->name, (multi ? "562" : "589"), dev->base_addr, dev->irq,
+	   print_mac(mac, dev->dev_addr));
     printk(KERN_INFO "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
 	   (fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
 	   if_names[dev->if_port]);

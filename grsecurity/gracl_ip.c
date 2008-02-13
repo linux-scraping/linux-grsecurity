@@ -198,7 +198,7 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 			p = strchr(iface, ':');
 			if (p != NULL)
 				*p = '\0';
-			dev = dev_get_by_name(iface);
+			dev = dev_get_by_name(sk->sk_net, iface);
 			if (dev == NULL)
 				continue;
 			idev = in_dev_get(dev);

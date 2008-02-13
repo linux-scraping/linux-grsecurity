@@ -1,9 +1,6 @@
 /* for use by sys-$SUBARCH/kernel-offsets.c */
 
 DEFINE(KERNEL_MADV_REMOVE, MADV_REMOVE);
-#ifdef CONFIG_MODE_TT
-OFFSET(HOST_TASK_EXTERN_PID, task_struct, thread.mode.tt.extern_pid);
-#endif
 
 OFFSET(HOST_TASK_REGS, task_struct, thread.regs);
 OFFSET(HOST_TASK_PID, task_struct, pid);
@@ -35,3 +32,9 @@ DEFINE(UM_GFP_ATOMIC, GFP_ATOMIC);
 DEFINE(crypto_tfm_ctx_offset, offsetof(struct crypto_tfm, __crt_ctx));
 
 DEFINE(UM_THREAD_SIZE, THREAD_SIZE);
+
+DEFINE(UM_HZ, HZ);
+
+DEFINE(UM_USEC_PER_SEC, USEC_PER_SEC);
+DEFINE(UM_NSEC_PER_SEC, NSEC_PER_SEC);
+DEFINE(UM_NSEC_PER_USEC, NSEC_PER_USEC);

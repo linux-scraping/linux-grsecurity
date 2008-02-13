@@ -98,9 +98,9 @@ extern rwlock_t grsec_exec_file_lock;
 
 #define proc_is_chrooted(tsk_a)  ((tsk_a->pid > 1) && (tsk_a->fs != NULL) && \
 			  ((tsk_a->fs->root->d_inode->i_sb->s_dev != \
-			  child_reaper(tsk_a)->fs->root->d_inode->i_sb->s_dev) || \
+			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root->d_inode->i_sb->s_dev) || \
 			  (tsk_a->fs->root->d_inode->i_ino != \
-			  child_reaper(tsk_a)->fs->root->d_inode->i_ino)))
+			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root->d_inode->i_ino)))
 
 #define have_same_root(tsk_a,tsk_b) ((tsk_a->fs != NULL) && (tsk_b->fs != NULL) && \
 			  (tsk_a->fs->root->d_inode->i_sb->s_dev == \

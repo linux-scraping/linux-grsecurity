@@ -341,8 +341,8 @@ static int __init vesafb_probe(struct platform_device *dev)
 		pmi_pal   = (void*)((char*)pmi_code + pmi_base[2]);
 
 #ifdef CONFIG_PAX_KERNEXEC
-		pmi_start -= __KERNEL_TEXT_OFFSET;
-		pmi_pal -= __KERNEL_TEXT_OFFSET;
+		pmi_start = ktva_ktla(pmi_start);
+		pmi_pal = ktva_ktla(pmi_pal);
 #endif
 
 		printk(KERN_INFO "vesafb: pmi: set display start = %p, set palette = %p\n",pmi_start,pmi_pal);

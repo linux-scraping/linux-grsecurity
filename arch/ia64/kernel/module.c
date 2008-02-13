@@ -531,7 +531,7 @@ in_core_rw (const struct module *mod, uint64_t addr)
 static inline int
 in_core (const struct module *mod, uint64_t addr)
 {
-	return in_core_rx(mod, value) || in_core_rw(mod, value);
+	return in_core_rx(mod, addr) || in_core_rw(mod, addr);
 }
 
 static inline int

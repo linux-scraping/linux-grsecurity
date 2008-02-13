@@ -106,7 +106,7 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 	struct vfsmount *realrootmnt;
 	struct dentry *currentroot;
 	struct vfsmount *currentmnt;
-	struct task_struct *reaper = child_reaper(current);
+	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
 	int ret = 1;
 
 	read_lock(&reaper->fs->lock);

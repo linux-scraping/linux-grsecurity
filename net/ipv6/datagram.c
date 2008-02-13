@@ -123,10 +123,10 @@ ipv4_connected:
 				goto out;
 			}
 			sk->sk_bound_dev_if = usin->sin6_scope_id;
-			if (!sk->sk_bound_dev_if &&
-			    (addr_type & IPV6_ADDR_MULTICAST))
-				fl.oif = np->mcast_oif;
 		}
+
+		if (!sk->sk_bound_dev_if && (addr_type & IPV6_ADDR_MULTICAST))
+			sk->sk_bound_dev_if = np->mcast_oif;
 
 		/* Connect to link-local address requires an interface */
 		if (!sk->sk_bound_dev_if) {
@@ -544,7 +544,7 @@ int datagram_send_ctl(struct msghdr *msg, struct flowi *fl,
 				if (!src_info->ipi6_ifindex)
 					return -EINVAL;
 				else {
-					dev = dev_get_by_index(src_info->ipi6_ifindex);
+					dev = dev_get_by_index(&init_net, src_info->ipi6_ifindex);
 					if (!dev)
 						return -ENODEV;
 				}

@@ -55,6 +55,7 @@
 #include <linux/root_dev.h>
 #include <linux/delay.h>
 #include <linux/nfs_fs.h>
+#include <net/net_namespace.h>
 #include <net/arp.h>
 #include <net/ip.h>
 #include <net/ipconfig.h>
@@ -189,11 +190,15 @@ static int __init ic_open_devs(void)
 	rtnl_lock();
 
 	/* bring loopback device up first */
-	if (dev_change_flags(&loopback_dev, loopback_dev.flags | IFF_UP) < 0)
-		printk(KERN_ERR "IP-Config: Failed to open %s\n", loopback_dev.name);
+	for_each_netdev(&init_net, dev) {
+		if (!(dev->flags & IFF_LOOPBACK))
+			continue;
+		if (dev_change_flags(dev, dev->flags | IFF_UP) < 0)
+			printk(KERN_ERR "IP-Config: Failed to open %s\n", dev->name);
+	}
 
-	for_each_netdev(dev) {
-		if (dev == &loopback_dev)
+	for_each_netdev(&init_net, dev) {
+		if (dev->flags & IFF_LOOPBACK)
 			continue;
 		if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
 		    (!(dev->flags & IFF_LOOPBACK) &&
@@ -424,6 +429,9 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 	__be32 sip, tip;
 	unsigned char *sha, *tha;		/* s for "source", t for "target" */
 	struct ic_device *d;
+
+	if (dev->nd_net != &init_net)
+		goto drop;
 
 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
 		return NET_RX_DROP;
@@ -749,8 +757,8 @@ static void __init ic_bootp_send_if(struct ic_device *d, unsigned long jiffies_d
 	/* Chain packet down the line... */
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_IP);
-	if ((dev->hard_header &&
-	     dev->hard_header(skb, dev, ntohs(skb->protocol), dev->broadcast, dev->dev_addr, skb->len) < 0) ||
+	if (dev_hard_header(skb, dev, ntohs(skb->protocol),
+			    dev->broadcast, dev->dev_addr, skb->len) < 0 ||
 	    dev_queue_xmit(skb) < 0)
 		printk("E");
 }
@@ -833,6 +841,9 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
 	struct iphdr *h;
 	struct ic_device *d;
 	int len, ext_len;
+
+	if (dev->nd_net != &init_net)
+		goto drop;
 
 	/* Perform verifications before taking the lock.  */
 	if (skb->pkt_type == PACKET_OTHERHOST)
@@ -1253,7 +1264,7 @@ static int __init ip_auto_config(void)
 	__be32 addr;
 
 #ifdef CONFIG_PROC_FS
-	proc_net_fops_create("pnp", S_IRUGO, &pnp_seq_fops);
+	proc_net_fops_create(&init_net, "pnp", S_IRUGO, &pnp_seq_fops);
 #endif /* CONFIG_PROC_FS */
 
 	if (!ic_enable)
@@ -1385,30 +1396,15 @@ late_initcall(ip_auto_config);
 
 /*
  *  Decode any IP configuration options in the "ip=" or "nfsaddrs=" kernel
- *  command line parameter. It consists of option fields separated by colons in
- *  the following order:
- *
- *  <client-ip>:<server-ip>:<gw-ip>:<netmask>:<host name>:<device>:<PROTO>
- *
- *  Any of the fields can be empty which means to use a default value:
- *	<client-ip>	- address given by BOOTP or RARP
- *	<server-ip>	- address of host returning BOOTP or RARP packet
- *	<gw-ip>		- none, or the address returned by BOOTP
- *	<netmask>	- automatically determined from <client-ip>, or the
- *			  one returned by BOOTP
- *	<host name>	- <client-ip> in ASCII notation, or the name returned
- *			  by BOOTP
- *	<device>	- use all available devices
- *	<PROTO>:
- *	   off|none	    - don't do autoconfig at all (DEFAULT)
- *	   on|any           - use any configured protocol
- *	   dhcp|bootp|rarp  - use only the specified protocol
- *	   both             - use both BOOTP and RARP (not DHCP)
+ *  command line parameter.  See Documentation/nfsroot.txt.
  */
 static int __init ic_proto_name(char *name)
 {
 	if (!strcmp(name, "on") || !strcmp(name, "any")) {
 		return 1;
+	}
+	if (!strcmp(name, "off") || !strcmp(name, "none")) {
+		return 0;
 	}
 #ifdef CONFIG_IP_PNP_DHCP
 	else if (!strcmp(name, "dhcp")) {
@@ -1443,17 +1439,24 @@ static int __init ip_auto_config_setup(char *addrs)
 	int num = 0;
 
 	ic_set_manually = 1;
+	ic_enable = 1;
 
-	ic_enable = (*addrs &&
-		(strcmp(addrs, "off") != 0) &&
-		(strcmp(addrs, "none") != 0));
-	if (!ic_enable)
-		return 1;
-
+	/*
+	 * If any dhcp, bootp etc options are set, leave autoconfig on
+	 * and skip the below static IP processing.
+	 */
 	if (ic_proto_name(addrs))
 		return 1;
 
-	/* Parse the whole string */
+	/* If no static IP is given, turn off autoconfig and bail.  */
+	if (*addrs == 0 ||
+	    strcmp(addrs, "off") == 0 ||
+	    strcmp(addrs, "none") == 0) {
+		ic_enable = 0;
+		return 1;
+	}
+
+	/* Parse string for static IP assignment.  */
 	ip = addrs;
 	while (ip && *ip) {
 		if ((cp = strchr(ip, ':')))
@@ -1491,7 +1494,10 @@ static int __init ip_auto_config_setup(char *addrs)
 				strlcpy(user_dev_name, ip, sizeof(user_dev_name));
 				break;
 			case 6:
-				ic_proto_name(ip);
+				if (ic_proto_name(ip) == 0 &&
+				    ic_myaddr == NONE) {
+					ic_enable = 0;
+				}
 				break;
 			}
 		}

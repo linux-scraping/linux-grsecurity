@@ -237,7 +237,7 @@ cifs_readlink(struct dentry *direntry, char __user *pBuffer, int buflen)
 	char *tmp_path = NULL;
 	char *tmpbuffer;
 	unsigned char *referrals = NULL;
-	int num_referrals = 0;
+	unsigned int num_referrals = 0;
 	int len;
 	__u16 fid;
 
@@ -355,7 +355,7 @@ cifs_readlink(struct dentry *direntry, char __user *pBuffer, int buflen)
 
 void cifs_put_link(struct dentry *direntry, struct nameidata *nd, void *cookie)
 {
-	char *p = nd_get_link(nd);
+	const char *p = nd_get_link(nd);
 	if (!IS_ERR(p))
 		kfree(p);
 }

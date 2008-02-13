@@ -52,6 +52,7 @@ struct name_entry {
 	dev_t device;
 	char *name;
 	__u16 len;
+	__u8 deleted;
 	struct name_entry *prev;
 	struct name_entry *next;
 };

@@ -319,16 +319,18 @@ static int acpi_bus_match(struct device *dev, struct device_driver *drv)
 	return !acpi_match_device_ids(acpi_dev, acpi_drv->ids);
 }
 
-static int acpi_device_uevent(struct device *dev, char **envp, int num_envp,
-			      char *buffer, int buffer_size)
+static int acpi_device_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct acpi_device *acpi_dev = to_acpi_device(dev);
+	int len;
 
-	strcpy(buffer, "MODALIAS=");
-	if (create_modalias(acpi_dev, buffer + 9, buffer_size - 9) > 0) {
-		envp[0] = buffer;
-		envp[1] = NULL;
-	}
+	if (add_uevent_var(env, "MODALIAS="))
+		return -ENOMEM;
+	len = create_modalias(acpi_dev, &env->buf[env->buflen - 1],
+			      sizeof(env->buf) - env->buflen);
+	if (len >= (sizeof(env->buf) - env->buflen))
+		return -ENOMEM;
+	env->buflen += len;
 	return 0;
 }
 
@@ -1447,6 +1449,8 @@ static int acpi_bus_scan_fixed(struct acpi_device *root)
 	return result;
 }
 
+int __init acpi_boot_ec_enable(void);
+
 static int __init acpi_scan_init(void)
 {
 	int result;
@@ -1478,6 +1482,10 @@ static int __init acpi_scan_init(void)
 	 * Enumerate devices in the ACPI namespace.
 	 */
 	result = acpi_bus_scan_fixed(acpi_root);
+
+	/* EC region might be needed at bus_scan, so enable it now */
+	acpi_boot_ec_enable();
+
 	if (!result)
 		result = acpi_bus_scan(acpi_root, &ops);
 

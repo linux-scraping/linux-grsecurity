@@ -1267,7 +1267,7 @@ static int ipw2100_start_adapter(struct ipw2100_priv *priv)
 				       IPW2100_INTA_FATAL_ERROR |
 				       IPW2100_INTA_PARITY_ERROR);
 		}
-	} while (i--);
+	} while (--i);
 
 	/* Clear out any pending INTAs since we aren't supposed to have
 	 * interrupts enabled at this point... */
@@ -1339,7 +1339,7 @@ static int ipw2100_power_cycle_adapter(struct ipw2100_priv *priv)
 
 		if (reg & IPW_AUX_HOST_RESET_REG_MASTER_DISABLED)
 			break;
-	} while (i--);
+	} while (--i);
 
 	priv->status &= ~STATUS_RESET_PENDING;
 
@@ -1769,7 +1769,7 @@ static int ipw2100_up(struct ipw2100_priv *priv, int deferred)
 		if (priv->stop_rf_kill) {
 			priv->stop_rf_kill = 0;
 			queue_delayed_work(priv->workqueue, &priv->rf_kill,
-					   round_jiffies(HZ));
+					   round_jiffies_relative(HZ));
 		}
 
 		deferred = 1;
@@ -1858,14 +1858,6 @@ static void ipw2100_down(struct ipw2100_priv *priv)
 
 	modify_acceptable_latency("ipw2100", INFINITE_LATENCY);
 
-#ifdef ACPI_CSTATE_LIMIT_DEFINED
-	if (priv->config & CFG_C3_DISABLED) {
-		IPW_DEBUG_INFO(": Resetting C3 transitions.\n");
-		acpi_set_cstate_limit(priv->cstate_limit);
-		priv->config &= ~CFG_C3_DISABLED;
-	}
-#endif
-
 	/* We have to signal any supplicant if we are disassociating */
 	if (associated)
 		wireless_send_event(priv->net_dev, SIOCGIWAP, &wrqu, NULL);
@@ -1922,6 +1914,7 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
 	u32 chan;
 	char *txratename;
 	u8 bssid[ETH_ALEN];
+	DECLARE_MAC_BUF(mac);
 
 	/*
 	 * TBD: BSSID is usually 00:00:00:00:00:00 here and not
@@ -1983,9 +1976,9 @@ static void isr_indicate_associated(struct ipw2100_priv *priv, u32 status)
 	}
 
 	IPW_DEBUG_INFO("%s: Associated with '%s' at %s, channel %d (BSSID="
-		       MAC_FMT ")\n",
+		       "%s)\n",
 		       priv->net_dev->name, escape_essid(essid, essid_len),
-		       txratename, chan, MAC_ARG(bssid));
+		       txratename, chan, print_mac(mac, bssid));
 
 	/* now we copy read ssid into dev */
 	if (!(priv->config & CFG_STATIC_ESSID)) {
@@ -2053,10 +2046,12 @@ static int ipw2100_set_essid(struct ipw2100_priv *priv, char *essid,
 
 static void isr_indicate_association_lost(struct ipw2100_priv *priv, u32 status)
 {
+	DECLARE_MAC_BUF(mac);
+
 	IPW_DEBUG(IPW_DL_NOTIF | IPW_DL_STATE | IPW_DL_ASSOC,
-		  "disassociated: '%s' " MAC_FMT " \n",
+		  "disassociated: '%s' %s \n",
 		  escape_essid(priv->essid, priv->essid_len),
-		  MAC_ARG(priv->bssid));
+		  print_mac(mac, priv->bssid));
 
 	priv->status &= ~(STATUS_ASSOCIATED | STATUS_ASSOCIATING);
 
@@ -2088,18 +2083,11 @@ static void isr_indicate_rf_kill(struct ipw2100_priv *priv, u32 status)
 	/* RF_KILL is now enabled (else we wouldn't be here) */
 	priv->status |= STATUS_RF_KILL_HW;
 
-#ifdef ACPI_CSTATE_LIMIT_DEFINED
-	if (priv->config & CFG_C3_DISABLED) {
-		IPW_DEBUG_INFO(": Resetting C3 transitions.\n");
-		acpi_set_cstate_limit(priv->cstate_limit);
-		priv->config &= ~CFG_C3_DISABLED;
-	}
-#endif
-
 	/* Make sure the RF Kill check timer is running */
 	priv->stop_rf_kill = 0;
 	cancel_delayed_work(&priv->rf_kill);
-	queue_delayed_work(priv->workqueue, &priv->rf_kill, round_jiffies(HZ));
+	queue_delayed_work(priv->workqueue, &priv->rf_kill,
+			   round_jiffies_relative(HZ));
 }
 
 static void send_scan_event(void *data)
@@ -2136,7 +2124,7 @@ static void isr_scan_complete(struct ipw2100_priv *priv, u32 status)
 		if (!delayed_work_pending(&priv->scan_event_later))
 			queue_delayed_work(priv->workqueue,
 					&priv->scan_event_later,
-					round_jiffies(msecs_to_jiffies(4000)));
+					round_jiffies_relative(msecs_to_jiffies(4000)));
 	} else {
 		priv->user_requested_scan = 0;
 		cancel_delayed_work(&priv->scan_event_later);
@@ -2360,22 +2348,9 @@ static void ipw2100_corruption_detected(struct ipw2100_priv *priv, int i)
 	u32 match, reg;
 	int j;
 #endif
-#ifdef ACPI_CSTATE_LIMIT_DEFINED
-	int limit;
-#endif
 
 	IPW_DEBUG_INFO(": PCI latency error detected at 0x%04zX.\n",
 		       i * sizeof(struct ipw2100_status));
-
-#ifdef ACPI_CSTATE_LIMIT_DEFINED
-	IPW_DEBUG_INFO(": Disabling C3 transitions.\n");
-	limit = acpi_get_cstate_limit();
-	if (limit > 2) {
-		priv->cstate_limit = limit;
-		acpi_set_cstate_limit(2);
-		priv->config |= CFG_C3_DISABLED;
-	}
-#endif
 
 #ifdef IPW2100_DEBUG_C3
 	/* Halt the fimrware so we can get a good image */
@@ -4083,6 +4058,7 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
 	char *out = buf;
 	int length;
 	int ret;
+	DECLARE_MAC_BUF(mac);
 
 	if (priv->status & STATUS_RF_KILL_MASK)
 		return 0;
@@ -4110,9 +4086,7 @@ static ssize_t show_bssinfo(struct device *d, struct device_attribute *attr,
 			       __LINE__);
 
 	out += sprintf(out, "ESSID: %s\n", essid);
-	out += sprintf(out, "BSSID:   %02x:%02x:%02x:%02x:%02x:%02x\n",
-		       bssid[0], bssid[1], bssid[2],
-		       bssid[3], bssid[4], bssid[5]);
+	out += sprintf(out, "BSSID:   %s\n", print_mac(mac, bssid));
 	out += sprintf(out, "Channel: %d\n", chan);
 
 	return out - buf;
@@ -4269,7 +4243,7 @@ static int ipw_radio_kill_sw(struct ipw2100_priv *priv, int disable_radio)
 			priv->stop_rf_kill = 0;
 			cancel_delayed_work(&priv->rf_kill);
 			queue_delayed_work(priv->workqueue, &priv->rf_kill,
-					   round_jiffies(HZ));
+					   round_jiffies_relative(HZ));
 		} else
 			schedule_reset(priv);
 	}
@@ -4687,19 +4661,20 @@ static void ipw2100_rx_free(struct ipw2100_priv *priv)
 static int ipw2100_read_mac_address(struct ipw2100_priv *priv)
 {
 	u32 length = ETH_ALEN;
-	u8 mac[ETH_ALEN];
+	u8 addr[ETH_ALEN];
+	DECLARE_MAC_BUF(mac);
 
 	int err;
 
-	err = ipw2100_get_ordinal(priv, IPW_ORD_STAT_ADAPTER_MAC, mac, &length);
+	err = ipw2100_get_ordinal(priv, IPW_ORD_STAT_ADAPTER_MAC, addr, &length);
 	if (err) {
 		IPW_DEBUG_INFO("MAC address read failed\n");
 		return -EIO;
 	}
-	IPW_DEBUG_INFO("card MAC is %02X:%02X:%02X:%02X:%02X:%02X\n",
-		       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-	memcpy(priv->net_dev->dev_addr, mac, ETH_ALEN);
+	memcpy(priv->net_dev->dev_addr, addr, ETH_ALEN);
+	IPW_DEBUG_INFO("card MAC is %s\n",
+		       print_mac(mac, priv->net_dev->dev_addr));
 
 	return 0;
 }
@@ -5078,10 +5053,10 @@ static int ipw2100_set_mandatory_bssid(struct ipw2100_priv *priv, u8 * bssid,
 	int err;
 
 #ifdef CONFIG_IPW2100_DEBUG
+	DECLARE_MAC_BUF(mac);
 	if (bssid != NULL)
-		IPW_DEBUG_HC("MANDATORY_BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n",
-			     bssid[0], bssid[1], bssid[2], bssid[3], bssid[4],
-			     bssid[5]);
+		IPW_DEBUG_HC("MANDATORY_BSSID: %s\n",
+			     print_mac(mac, bssid));
 	else
 		IPW_DEBUG_HC("MANDATORY_BSSID: <clear>\n");
 #endif
@@ -6007,7 +5982,7 @@ static void ipw2100_rf_kill(struct work_struct *work)
 		IPW_DEBUG_RF_KILL("RF Kill active, rescheduling GPIO check\n");
 		if (!priv->stop_rf_kill)
 			queue_delayed_work(priv->workqueue, &priv->rf_kill,
-					   round_jiffies(HZ));
+					   round_jiffies_relative(HZ));
 		goto exit_unlock;
 	}
 
@@ -6073,7 +6048,7 @@ static struct net_device *ipw2100_alloc_device(struct pci_dev *pci_dev,
 	 * ends up causing problems.  So, we just handle
 	 * the WX extensions through the ipw2100_ioctl interface */
 
-	/* memset() puts everything to 0, so we only have explicitely set
+	/* memset() puts everything to 0, so we only have explicitly set
 	 * those values that need to be something else */
 
 	/* If power management is turned on, default to AUTO mode */
@@ -6275,8 +6250,6 @@ static int ipw2100_pci_init_one(struct pci_dev *pci_dev,
 	dev->irq = pci_dev->irq;
 
 	IPW_DEBUG_INFO("Attempting to register device...\n");
-
-	SET_MODULE_OWNER(dev);
 
 	printk(KERN_INFO DRV_NAME
 	       ": Detected Intel PRO/Wireless 2100 Network Connection\n");
@@ -6931,6 +6904,7 @@ static int ipw2100_wx_set_wap(struct net_device *dev,
 	static const unsigned char off[] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 	};
+	DECLARE_MAC_BUF(mac);
 
 	// sanity checks
 	if (wrqu->ap_addr.sa_family != ARPHRD_ETHER)
@@ -6956,13 +6930,8 @@ static int ipw2100_wx_set_wap(struct net_device *dev,
 
 	err = ipw2100_set_mandatory_bssid(priv, wrqu->ap_addr.sa_data, 0);
 
-	IPW_DEBUG_WX("SET BSSID -> %02X:%02X:%02X:%02X:%02X:%02X\n",
-		     wrqu->ap_addr.sa_data[0] & 0xff,
-		     wrqu->ap_addr.sa_data[1] & 0xff,
-		     wrqu->ap_addr.sa_data[2] & 0xff,
-		     wrqu->ap_addr.sa_data[3] & 0xff,
-		     wrqu->ap_addr.sa_data[4] & 0xff,
-		     wrqu->ap_addr.sa_data[5] & 0xff);
+	IPW_DEBUG_WX("SET BSSID -> %s\n",
+		     print_mac(mac, wrqu->ap_addr.sa_data));
 
       done:
 	mutex_unlock(&priv->action_mutex);
@@ -6978,6 +6947,7 @@ static int ipw2100_wx_get_wap(struct net_device *dev,
 	 */
 
 	struct ipw2100_priv *priv = ieee80211_priv(dev);
+	DECLARE_MAC_BUF(mac);
 
 	/* If we are associated, trying to associate, or have a statically
 	 * configured BSSID then return that; otherwise return ANY */
@@ -6987,8 +6957,8 @@ static int ipw2100_wx_get_wap(struct net_device *dev,
 	} else
 		memset(wrqu->ap_addr.sa_data, 0, ETH_ALEN);
 
-	IPW_DEBUG_WX("Getting WAP BSSID: " MAC_FMT "\n",
-		     MAC_ARG(wrqu->ap_addr.sa_data));
+	IPW_DEBUG_WX("Getting WAP BSSID: %s\n",
+		     print_mac(mac, wrqu->ap_addr.sa_data));
 	return 0;
 }
 
@@ -7540,7 +7510,7 @@ static int ipw2100_wx_set_power(struct net_device *dev,
 	switch (wrqu->power.flags & IW_POWER_MODE) {
 	case IW_POWER_ON:	/* If not specified */
 	case IW_POWER_MODE:	/* If set all mask */
-	case IW_POWER_ALL_R:	/* If explicitely state all */
+	case IW_POWER_ALL_R:	/* If explicitly state all */
 		break;
 	default:		/* Otherwise we don't support it */
 		IPW_DEBUG_WX("SET PM Mode: %X not supported.\n",
@@ -8318,10 +8288,9 @@ static struct iw_statistics *ipw2100_wx_wireless_stats(struct net_device *dev)
 
 static struct iw_handler_def ipw2100_wx_handler_def = {
 	.standard = ipw2100_wx_handlers,
-	.num_standard = sizeof(ipw2100_wx_handlers) / sizeof(iw_handler),
-	.num_private = sizeof(ipw2100_private_handler) / sizeof(iw_handler),
-	.num_private_args = sizeof(ipw2100_private_args) /
-	    sizeof(struct iw_priv_args),
+	.num_standard = ARRAY_SIZE(ipw2100_wx_handlers),
+	.num_private = ARRAY_SIZE(ipw2100_private_handler),
+	.num_private_args = ARRAY_SIZE(ipw2100_private_args),
 	.private = (iw_handler *) ipw2100_private_handler,
 	.private_args = (struct iw_priv_args *)ipw2100_private_args,
 	.get_wireless_stats = ipw2100_wx_wireless_stats,

@@ -142,8 +142,8 @@
 
 #define DRV_MODULE_NAME		"cassini"
 #define PFX DRV_MODULE_NAME	": "
-#define DRV_MODULE_VERSION	"1.4"
-#define DRV_MODULE_RELDATE	"1 July 2004"
+#define DRV_MODULE_VERSION	"1.5"
+#define DRV_MODULE_RELDATE	"4 Jan 2008"
 
 #define CAS_DEF_MSG_ENABLE	  \
 	(NETIF_MSG_DRV		| \
@@ -336,30 +336,6 @@ static inline void cas_mask_intr(struct cas *cp)
 		cas_disable_irq(cp, i);
 }
 
-static inline void cas_buffer_init(cas_page_t *cp)
-{
-	struct page *page = cp->buffer;
-	atomic_set((atomic_t *)&page->lru.next, 1);
-}
-
-static inline int cas_buffer_count(cas_page_t *cp)
-{
-	struct page *page = cp->buffer;
-	return atomic_read((atomic_t *)&page->lru.next);
-}
-
-static inline void cas_buffer_inc(cas_page_t *cp)
-{
-	struct page *page = cp->buffer;
-	atomic_inc((atomic_t *)&page->lru.next);
-}
-
-static inline void cas_buffer_dec(cas_page_t *cp)
-{
-	struct page *page = cp->buffer;
-	atomic_dec((atomic_t *)&page->lru.next);
-}
-
 static void cas_enable_irq(struct cas *cp, const int ring)
 {
 	if (ring == 0) { /* all but TX_DONE */
@@ -497,7 +473,6 @@ static int cas_page_free(struct cas *cp, cas_page_t *page)
 {
 	pci_unmap_page(cp->pdev, page->dma_addr, cp->page_size,
 		       PCI_DMA_FROMDEVICE);
-	cas_buffer_dec(page);
 	__free_pages(page->buffer, cp->page_order);
 	kfree(page);
 	return 0;
@@ -527,7 +502,6 @@ static cas_page_t *cas_page_alloc(struct cas *cp, const gfp_t flags)
 	page->buffer = alloc_pages(flags, cp->page_order);
 	if (!page->buffer)
 		goto page_err;
-	cas_buffer_init(page);
 	page->dma_addr = pci_map_page(cp->pdev, page->buffer, 0,
 				      cp->page_size, PCI_DMA_FROMDEVICE);
 	return page;
@@ -606,7 +580,7 @@ static void cas_spare_recover(struct cas *cp, const gfp_t flags)
 	list_for_each_safe(elem, tmp, &list) {
 		cas_page_t *page = list_entry(elem, cas_page_t, list);
 
-		if (cas_buffer_count(page) > 1)
+		if (page_count(page->buffer) > 1)
 			continue;
 
 		list_del(elem);
@@ -1374,7 +1348,7 @@ static inline cas_page_t *cas_page_spare(struct cas *cp, const int index)
 	cas_page_t *page = cp->rx_pages[1][index];
 	cas_page_t *new;
 
-	if (cas_buffer_count(page) == 1)
+	if (page_count(page->buffer) == 1)
 		return page;
 
 	new = cas_page_dequeue(cp);
@@ -1394,7 +1368,7 @@ static cas_page_t *cas_page_swap(struct cas *cp, const int ring,
 	cas_page_t **page1 = cp->rx_pages[1];
 
 	/* swap if buffer is in use */
-	if (cas_buffer_count(page0[index]) > 1) {
+	if (page_count(page0[index]->buffer) > 1) {
 		cas_page_t *new = cas_page_spare(cp, index);
 		if (new) {
 			page1[index] = page0[index];
@@ -1979,6 +1953,7 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 	struct cas_page *page;
 	struct sk_buff *skb;
 	void *addr, *crcaddr;
+	__sum16 csum;
 	char *p;
 
 	hlen = CAS_VAL(RX_COMP2_HDR_SIZE, words[1]);
@@ -2062,10 +2037,10 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 
 		skb_shinfo(skb)->nr_frags++;
 		skb->data_len += hlen - swivel;
+		skb->truesize += hlen - swivel;
 		skb->len      += hlen - swivel;
 
 		get_page(page->buffer);
-		cas_buffer_inc(page);
 		frag->page = page->buffer;
 		frag->page_offset = off;
 		frag->size = hlen - swivel;
@@ -2090,7 +2065,6 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 			frag++;
 
 			get_page(page->buffer);
-			cas_buffer_inc(page);
 			frag->page = page->buffer;
 			frag->page_offset = 0;
 			frag->size = hlen;
@@ -2158,14 +2132,15 @@ end_copy_pkt:
 		skb_put(skb, alloclen);
 	}
 
-	i = CAS_VAL(RX_COMP4_TCP_CSUM, words[3]);
+	csum = (__force __sum16)htons(CAS_VAL(RX_COMP4_TCP_CSUM, words[3]));
 	if (cp->crc_size) {
 		/* checksum includes FCS. strip it out. */
-		i = csum_fold(csum_partial(crcaddr, cp->crc_size, i));
+		csum = csum_fold(csum_partial(crcaddr, cp->crc_size,
+					      csum_unfold(csum)));
 		if (addr)
 			cas_page_unmap(addr);
 	}
-	skb->csum = ntohs(i ^ 0xffff);
+	skb->csum = csum_unfold(~csum);
 	skb->ip_summed = CHECKSUM_COMPLETE;
 	skb->protocol = eth_type_trans(skb, cp->dev);
 	return len;
@@ -2253,7 +2228,7 @@ static int cas_post_rxds_ringN(struct cas *cp, int ring, int num)
 	released = 0;
 	while (entry != last) {
 		/* make a new buffer if it's still in use */
-		if (cas_buffer_count(page[entry]) > 1) {
+		if (page_count(page[entry]->buffer) > 1) {
 			cas_page_t *new = cas_page_dequeue(cp);
 			if (!new) {
 				/* let the timer know that we need to
@@ -2485,7 +2460,7 @@ static irqreturn_t cas_interruptN(int irq, void *dev_id)
 	if (status & INTR_RX_DONE_ALT) { /* handle rx separately */
 #ifdef USE_NAPI
 		cas_mask_intr(cp);
-		netif_rx_schedule(dev);
+		netif_rx_schedule(dev, &cp->napi);
 #else
 		cas_rx_ringN(cp, ring, 0);
 #endif
@@ -2536,7 +2511,7 @@ static irqreturn_t cas_interrupt1(int irq, void *dev_id)
 	if (status & INTR_RX_DONE_ALT) { /* handle rx separately */
 #ifdef USE_NAPI
 		cas_mask_intr(cp);
-		netif_rx_schedule(dev);
+		netif_rx_schedule(dev, &cp->napi);
 #else
 		cas_rx_ringN(cp, 1, 0);
 #endif
@@ -2592,7 +2567,7 @@ static irqreturn_t cas_interrupt(int irq, void *dev_id)
 	if (status & INTR_RX_DONE) {
 #ifdef USE_NAPI
 		cas_mask_intr(cp);
-		netif_rx_schedule(dev);
+		netif_rx_schedule(dev, &cp->napi);
 #else
 		cas_rx_ringN(cp, 0, 0);
 #endif
@@ -2607,10 +2582,11 @@ static irqreturn_t cas_interrupt(int irq, void *dev_id)
 
 
 #ifdef USE_NAPI
-static int cas_poll(struct net_device *dev, int *budget)
+static int cas_poll(struct napi_struct *napi, int budget)
 {
-	struct cas *cp = netdev_priv(dev);
-	int i, enable_intr, todo, credits;
+	struct cas *cp = container_of(napi, struct cas, napi);
+	struct net_device *dev = cp->dev;
+	int i, enable_intr, credits;
 	u32 status = readl(cp->regs + REG_INTR_STATUS);
 	unsigned long flags;
 
@@ -2620,20 +2596,18 @@ static int cas_poll(struct net_device *dev, int *budget)
 
 	/* NAPI rx packets. we spread the credits across all of the
 	 * rxc rings
-	 */
-	todo = min(*budget, dev->quota);
-
-	/* to make sure we're fair with the work we loop through each
+	 *
+	 * to make sure we're fair with the work we loop through each
 	 * ring N_RX_COMP_RING times with a request of
-	 * todo / N_RX_COMP_RINGS
+	 * budget / N_RX_COMP_RINGS
 	 */
 	enable_intr = 1;
 	credits = 0;
 	for (i = 0; i < N_RX_COMP_RINGS; i++) {
 		int j;
 		for (j = 0; j < N_RX_COMP_RINGS; j++) {
-			credits += cas_rx_ringN(cp, j, todo / N_RX_COMP_RINGS);
-			if (credits >= todo) {
+			credits += cas_rx_ringN(cp, j, budget / N_RX_COMP_RINGS);
+			if (credits >= budget) {
 				enable_intr = 0;
 				goto rx_comp;
 			}
@@ -2641,9 +2615,6 @@ static int cas_poll(struct net_device *dev, int *budget)
 	}
 
 rx_comp:
-	*budget    -= credits;
-	dev->quota -= credits;
-
 	/* final rx completion */
 	spin_lock_irqsave(&cp->lock, flags);
 	if (status)
@@ -2674,11 +2645,10 @@ rx_comp:
 #endif
 	spin_unlock_irqrestore(&cp->lock, flags);
 	if (enable_intr) {
-		netif_rx_complete(dev);
+		netif_rx_complete(dev, napi);
 		cas_unmask_intr(cp);
-		return 0;
 	}
-	return 1;
+	return credits;
 }
 #endif
 
@@ -4351,6 +4321,9 @@ static int cas_open(struct net_device *dev)
 		goto err_spare;
 	}
 
+#ifdef USE_NAPI
+	napi_enable(&cp->napi);
+#endif
 	/* init hw */
 	cas_lock_all_save(cp, flags);
 	cas_clean_rings(cp);
@@ -4376,6 +4349,9 @@ static int cas_close(struct net_device *dev)
 	unsigned long flags;
 	struct cas *cp = netdev_priv(dev);
 
+#ifdef USE_NAPI
+	napi_disable(&cp->napi);
+#endif
 	/* Make sure we don't get distracted by suspend/resume */
 	mutex_lock(&cp->pm_mutex);
 
@@ -4442,7 +4418,7 @@ static struct {
 	{REG_MAC_COLL_EXCESS},
 	{REG_MAC_COLL_LATE}
 };
-#define CAS_REG_LEN 	(sizeof(ethtool_register_table)/sizeof(int))
+#define CAS_REG_LEN 	ARRAY_SIZE(ethtool_register_table)
 #define CAS_MAX_REGS 	(sizeof (u32)*CAS_REG_LEN)
 
 static void cas_read_regs(struct cas *cp, u8 *ptr, int len)
@@ -4771,9 +4747,14 @@ static void cas_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 	cas_read_regs(cp, p, regs->len / sizeof(u32));
 }
 
-static int cas_get_stats_count(struct net_device *dev)
+static int cas_get_sset_count(struct net_device *dev, int sset)
 {
-	return CAS_NUM_STAT_KEYS;
+	switch (sset) {
+	case ETH_SS_STATS:
+		return CAS_NUM_STAT_KEYS;
+	default:
+		return -EOPNOTSUPP;
+	}
 }
 
 static void cas_get_strings(struct net_device *dev, u32 stringset, u8 *data)
@@ -4817,7 +4798,7 @@ static const struct ethtool_ops cas_ethtool_ops = {
 	.set_msglevel		= cas_set_msglevel,
 	.get_regs_len		= cas_get_regs_len,
 	.get_regs		= cas_get_regs,
-	.get_stats_count	= cas_get_stats_count,
+	.get_sset_count		= cas_get_sset_count,
 	.get_strings		= cas_get_strings,
 	.get_ethtool_stats	= cas_get_ethtool_stats,
 };
@@ -4866,6 +4847,90 @@ static int cas_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return rc;
 }
 
+/* When this chip sits underneath an Intel 31154 bridge, it is the
+ * only subordinate device and we can tweak the bridge settings to
+ * reflect that fact.
+ */
+static void __devinit cas_program_bridge(struct pci_dev *cas_pdev)
+{
+	struct pci_dev *pdev = cas_pdev->bus->self;
+	u32 val;
+
+	if (!pdev)
+		return;
+
+	if (pdev->vendor != 0x8086 || pdev->device != 0x537c)
+		return;
+
+	/* Clear bit 10 (Bus Parking Control) in the Secondary
+	 * Arbiter Control/Status Register which lives at offset
+	 * 0x41.  Using a 32-bit word read/modify/write at 0x40
+	 * is much simpler so that's how we do this.
+	 */
+	pci_read_config_dword(pdev, 0x40, &val);
+	val &= ~0x00040000;
+	pci_write_config_dword(pdev, 0x40, val);
+
+	/* Max out the Multi-Transaction Timer settings since
+	 * Cassini is the only device present.
+	 *
+	 * The register is 16-bit and lives at 0x50.  When the
+	 * settings are enabled, it extends the GRANT# signal
+	 * for a requestor after a transaction is complete.  This
+	 * allows the next request to run without first needing
+	 * to negotiate the GRANT# signal back.
+	 *
+	 * Bits 12:10 define the grant duration:
+	 *
+	 *	1	--	16 clocks
+	 *	2	--	32 clocks
+	 *	3	--	64 clocks
+	 *	4	--	128 clocks
+	 *	5	--	256 clocks
+	 *
+	 * All other values are illegal.
+	 *
+	 * Bits 09:00 define which REQ/GNT signal pairs get the
+	 * GRANT# signal treatment.  We set them all.
+	 */
+	pci_write_config_word(pdev, 0x50, (5 << 10) | 0x3ff);
+
+	/* The Read Prefecth Policy register is 16-bit and sits at
+	 * offset 0x52.  It enables a "smart" pre-fetch policy.  We
+	 * enable it and max out all of the settings since only one
+	 * device is sitting underneath and thus bandwidth sharing is
+	 * not an issue.
+	 *
+	 * The register has several 3 bit fields, which indicates a
+	 * multiplier applied to the base amount of prefetching the
+	 * chip would do.  These fields are at:
+	 *
+	 *	15:13	---	ReRead Primary Bus
+	 *	12:10	---	FirstRead Primary Bus
+	 *	09:07	---	ReRead Secondary Bus
+	 *	06:04	---	FirstRead Secondary Bus
+	 *
+	 * Bits 03:00 control which REQ/GNT pairs the prefetch settings
+	 * get enabled on.  Bit 3 is a grouped enabler which controls
+	 * all of the REQ/GNT pairs from [8:3].  Bits 2 to 0 control
+	 * the individual REQ/GNT pairs [2:0].
+	 */
+	pci_write_config_word(pdev, 0x52,
+			      (0x7 << 13) |
+			      (0x7 << 10) |
+			      (0x7 <<  7) |
+			      (0x7 <<  4) |
+			      (0xf <<  0));
+
+	/* Force cacheline size to 0x8 */
+	pci_write_config_byte(pdev, PCI_CACHE_LINE_SIZE, 0x08);
+
+	/* Force latency timer to maximum setting so Cassini can
+	 * sit on the bus as long as it likes.
+	 */
+	pci_write_config_byte(pdev, PCI_LATENCY_TIMER, 0xff);
+}
+
 static int __devinit cas_init_one(struct pci_dev *pdev,
 				  const struct pci_device_id *ent)
 {
@@ -4876,6 +4941,7 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 	int i, err, pci_using_dac;
 	u16 pci_cmd;
 	u8 orig_cacheline_size = 0, cas_cacheline_size = 0;
+	DECLARE_MAC_BUF(mac);
 
 	if (cas_version_printed++ == 0)
 		printk(KERN_INFO "%s", version);
@@ -4899,7 +4965,6 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 		err = -ENOMEM;
 		goto err_out_disable_pdev;
 	}
-	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	err = pci_request_regions(pdev, dev->name);
@@ -4920,6 +4985,8 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 	if (pci_try_set_mwi(pdev))
 		printk(KERN_WARNING PFX "Could not enable MWI for %s\n",
 		       pci_name(pdev));
+
+	cas_program_bridge(pdev);
 
 	/*
 	 * On some architectures, the default cache line size set
@@ -5062,8 +5129,7 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 	dev->watchdog_timeo = CAS_TX_TIMEOUT;
 	dev->change_mtu = cas_change_mtu;
 #ifdef USE_NAPI
-	dev->poll = cas_poll;
-	dev->weight = 64;
+	netif_napi_add(dev, &cp->napi, cas_poll, 64);
 #endif
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	dev->poll_controller = cas_netpoll;
@@ -5085,16 +5151,12 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 
 	i = readl(cp->regs + REG_BIM_CFG);
 	printk(KERN_INFO "%s: Sun Cassini%s (%sbit/%sMHz PCI/%s) "
-	       "Ethernet[%d] ",  dev->name,
+	       "Ethernet[%d] %s\n",  dev->name,
 	       (cp->cas_flags & CAS_FLAG_REG_PLUS) ? "+" : "",
 	       (i & BIM_CFG_32BIT) ? "32" : "64",
 	       (i & BIM_CFG_66MHZ) ? "66" : "33",
-	       (cp->phy_type == CAS_PHY_SERDES) ? "Fi" : "Cu", pdev->irq);
-
-	for (i = 0; i < 6; i++)
-		printk("%2.2x%c", dev->dev_addr[i],
-		       i == 5 ? ' ' : ':');
-	printk("\n");
+	       (cp->phy_type == CAS_PHY_SERDES) ? "Fi" : "Cu", pdev->irq,
+	       print_mac(mac, dev->dev_addr));
 
 	pci_set_drvdata(pdev, dev);
 	cp->hw_running = 1;

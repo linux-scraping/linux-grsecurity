@@ -1,7 +1,8 @@
 /*
- *  linux/drivers/ide/pci/trm290.c		Version 1.02	Mar. 18, 2000
+ *  linux/drivers/ide/pci/trm290.c		Version 1.05	Dec. 26, 2007
  *
  *  Copyright (c) 1997-1998  Mark Lord
+ *  Copyright (c) 2007       MontaVista Software, Inc. <source@mvista.com>
  *  May be copied or modified under the terms of the GNU General Public License
  *
  *  June 22, 2004 - get rid of check_region
@@ -177,7 +178,7 @@ static void trm290_selectproc (ide_drive_t *drive)
 	trm290_prepare_drive(drive, drive->using_dma);
 }
 
-static void trm290_ide_dma_exec_cmd(ide_drive_t *drive, u8 command)
+static void trm290_dma_exec_cmd(ide_drive_t *drive, u8 command)
 {
 	BUG_ON(HWGROUP(drive)->handler != NULL);	/* paranoia check */
 	ide_set_handler(drive, &ide_dma_intr, WAIT_CMD, NULL);
@@ -185,7 +186,7 @@ static void trm290_ide_dma_exec_cmd(ide_drive_t *drive, u8 command)
 	outb(command, IDE_COMMAND_REG);
 }
 
-static int trm290_ide_dma_setup(ide_drive_t *drive)
+static int trm290_dma_setup(ide_drive_t *drive)
 {
 	ide_hwif_t *hwif = drive->hwif;
 	struct request *rq = hwif->hwgroup->rq;
@@ -215,7 +216,7 @@ static int trm290_ide_dma_setup(ide_drive_t *drive)
 	return 0;
 }
 
-static void trm290_ide_dma_start(ide_drive_t *drive)
+static void trm290_dma_start(ide_drive_t *drive)
 {
 }
 
@@ -240,9 +241,14 @@ static int trm290_ide_dma_test_irq (ide_drive_t *drive)
 	return (status == 0x00ff);
 }
 
-/*
- * Invoked from ide-dma.c at boot time.
- */
+static void trm290_dma_host_on(ide_drive_t *drive)
+{
+}
+
+static void trm290_dma_host_off(ide_drive_t *drive)
+{
+}
+
 static void __devinit init_hwif_trm290(ide_hwif_t *hwif)
 {
 	unsigned int cfgbase = 0;
@@ -250,8 +256,6 @@ static void __devinit init_hwif_trm290(ide_hwif_t *hwif)
 	u8 reg = 0;
 	struct pci_dev *dev = hwif->pci_dev;
 
-	hwif->no_lba48 = 1;
-	hwif->chipset = ide_trm290;
 	cfgbase = pci_resource_start(dev, 4);
 	if ((dev->class & 5) && cfgbase) {
 		hwif->config_data = cfgbase;
@@ -285,16 +289,15 @@ static void __devinit init_hwif_trm290(ide_hwif_t *hwif)
 
 	ide_setup_dma(hwif, (hwif->config_data + 4) ^ (hwif->channel ? 0x0080 : 0x0000), 3);
 
-	hwif->dma_setup = &trm290_ide_dma_setup;
-	hwif->dma_exec_cmd = &trm290_ide_dma_exec_cmd;
-	hwif->dma_start = &trm290_ide_dma_start;
-	hwif->ide_dma_end = &trm290_ide_dma_end;
-	hwif->ide_dma_test_irq = &trm290_ide_dma_test_irq;
+	hwif->dma_host_off	= &trm290_dma_host_off;
+	hwif->dma_host_on	= &trm290_dma_host_on;
+	hwif->dma_setup 	= &trm290_dma_setup;
+	hwif->dma_exec_cmd	= &trm290_dma_exec_cmd;
+	hwif->dma_start 	= &trm290_dma_start;
+	hwif->ide_dma_end	= &trm290_ide_dma_end;
+	hwif->ide_dma_test_irq	= &trm290_ide_dma_test_irq;
 
 	hwif->selectproc = &trm290_selectproc;
-	hwif->autodma = 0;		/* play it safe for now */
-	hwif->drives[0].autodma = hwif->autodma;
-	hwif->drives[1].autodma = hwif->autodma;
 #if 1
 	{
 	/*
@@ -324,11 +327,17 @@ static void __devinit init_hwif_trm290(ide_hwif_t *hwif)
 #endif
 }
 
-static ide_pci_device_t trm290_chipset __devinitdata = {
+static const struct ide_port_info trm290_chipset __devinitdata = {
 	.name		= "TRM290",
 	.init_hwif	= init_hwif_trm290,
-	.autodma	= NOAUTODMA,
-	.bootable	= ON_BOARD,
+	.chipset	= ide_trm290,
+	.host_flags	= IDE_HFLAG_NO_ATAPI_DMA |
+#if 0 /* play it safe for now */
+			  IDE_HFLAG_TRUST_BIOS_FOR_DMA |
+#endif
+			  IDE_HFLAG_NO_AUTODMA |
+			  IDE_HFLAG_BOOTABLE |
+			  IDE_HFLAG_NO_LBA48,
 };
 
 static int __devinit trm290_init_one(struct pci_dev *dev, const struct pci_device_id *id)
@@ -336,8 +345,8 @@ static int __devinit trm290_init_one(struct pci_dev *dev, const struct pci_devic
 	return ide_setup_pci_device(dev, &trm290_chipset);
 }
 
-static struct pci_device_id trm290_pci_tbl[] = {
-	{ PCI_VENDOR_ID_TEKRAM, PCI_DEVICE_ID_TEKRAM_DC290, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+static const struct pci_device_id trm290_pci_tbl[] = {
+	{ PCI_VDEVICE(TEKRAM, PCI_DEVICE_ID_TEKRAM_DC290), 0 },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE(pci, trm290_pci_tbl);
