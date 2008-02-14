@@ -16,11 +16,9 @@ struct x8664_pda {
 	unsigned long oldrsp; 	    /* 24 user rsp for system call */
         int irqcount;		    /* 32 Irq nesting counter. Starts with -1 */
 	int cpunumber;		    /* 36 Logical CPU number */
-#ifdef CONFIG_CC_STACKPROTECTOR
 	unsigned long stack_canary;	/* 40 stack canary value */
 					/* gcc-ABI: this canary MUST be at
 					   offset 40!!! */
-#endif
 	char *irqstackptr;
 	int nodenumber;		    /* number of current node */
 	unsigned int __softirq_pending;
