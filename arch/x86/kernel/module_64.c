@@ -56,12 +56,12 @@ static void *__module_alloc(unsigned long size, pgprot_t prot)
 	return __vmalloc_area(area, GFP_KERNEL | __GFP_ZERO, prot);
 }
 
+#ifdef CONFIG_PAX_KERNEXEC
 void *module_alloc(unsigned long size)
 {
 	return __module_alloc(size, PAGE_KERNEL);
 }
 
-#ifdef CONFIG_PAX_KERNEXEC
 void module_free_exec(struct module *mod, void *module_region)
 {
 	module_free(mod, module_region);
@@ -70,6 +70,11 @@ void module_free_exec(struct module *mod, void *module_region)
 void *module_alloc_exec(unsigned long size)
 {
 	return __module_alloc(size, PAGE_KERNEL_RX);
+}
+#else
+void *module_alloc(unsigned long size)
+{
+	return __module_alloc(size, PAGE_KERNEL_EXEC);
 }
 #endif
 

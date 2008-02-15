@@ -66,6 +66,7 @@ struct exception_table_entry
 };
 
 #define ARCH_HAS_SEARCH_EXTABLE
+#define ARCH_HAS_SORT_EXTABLE
 
 /*
  * These are the main single-value transfer routines.  They automatically

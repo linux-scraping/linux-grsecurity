@@ -35,4 +35,7 @@ EXPORT_SYMBOL(__read_lock_failed);
 
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(empty_zero_page);
+
+#ifdef CONFIG_PAX_KERNEXEC
 EXPORT_SYMBOL(KERNEL_TEXT_OFFSET);
+#endif
