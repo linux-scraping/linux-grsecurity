@@ -1685,7 +1685,7 @@ static void pax_mirror_pfn_pte(struct vm_area_struct *vma, unsigned long address
 	pte_unmap_nested(pte_m);
 }
 
-static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pte_t *pte, spinlock_t *ptl)
+static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pte_t *pte, pmd_t *pmd, spinlock_t *ptl)
 {
 	struct page *page_m;
 	pte_t entry;
@@ -1699,9 +1699,9 @@ static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pt
 		pax_mirror_pfn_pte(vma, address, pte_pfn(entry), ptl);
 	else if (PageAnon(page_m)) {
 		if (pax_find_mirror_vma(vma)) {
-			spin_unlock(ptl);
+			pte_unmap_unlock(pte, ptl);
 			lock_page(page_m);
-			spin_lock(ptl);
+			pte = pte_offset_map_lock(vma->vm_mm, pmd, address, &ptl);
 			if (pte_same(entry, *pte))
 				pax_mirror_anon_pte(vma, address, page_m, ptl);
 			else
@@ -2756,7 +2756,7 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 	}
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	pax_mirror_pte(vma, address, pte, ptl);
+	pax_mirror_pte(vma, address, pte, pmd, ptl);
 #endif
 
 unlock:

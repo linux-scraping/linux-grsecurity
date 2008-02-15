@@ -210,6 +210,8 @@ static inline void play_dead(void)
 void cpu_idle (void)
 {
 	current_thread_info()->status |= TS_POLLING;
+	current->stack_canary = pax_get_random_long();
+	write_pda(stack_canary, current->stack_canary);
 	/* endless idle loop with no priority at all */
 	while (1) {
 		while (!need_resched()) {

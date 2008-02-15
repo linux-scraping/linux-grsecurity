@@ -810,7 +810,7 @@ static struct ctl_table kern_table[] = {
 	},
 #if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
 	{
-		.ctl_name	= KERN_GRSECURITY,
+		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "grsecurity",
 		.mode		= 0500,
 		.child		= grsecurity_table,
