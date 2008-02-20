@@ -110,6 +110,10 @@ static void revert_page(unsigned long address, pgprot_t ref_prot)
 	pte_t large_pte;
 	unsigned long pfn;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	pgd = pgd_offset_k(address);
 	BUG_ON(pgd_none(*pgd));
 	pud = pud_offset(pgd,address);
@@ -119,8 +123,18 @@ static void revert_page(unsigned long address, pgprot_t ref_prot)
 	pfn = (__pa(address) & LARGE_PAGE_MASK) >> PAGE_SHIFT;
 	large_pte = pfn_pte(pfn, ref_prot);
 	large_pte = pte_mkhuge(large_pte);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	set_pte((pte_t *)pmd, large_pte);
-}      
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+}
 
 static int
 __change_page_attr(unsigned long address, unsigned long pfn, pgprot_t prot,

@@ -1691,7 +1691,7 @@ static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pt
 	pte_t entry;
 
 	if (!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC))
-		return;
+		goto out;
 
 	entry = *pte;
 	page_m  = vm_normal_page(vma, address, entry);
@@ -1709,6 +1709,9 @@ static void pax_mirror_pte(struct vm_area_struct *vma, unsigned long address, pt
 		}
 	} else
 		pax_mirror_file_pte(vma, address, page_m, ptl);
+
+out:
+	pte_unmap_unlock(pte, ptl);
 }
 #endif
 
@@ -2757,6 +2760,7 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	pax_mirror_pte(vma, address, pte, pmd, ptl);
+	return 0;
 #endif
 
 unlock:

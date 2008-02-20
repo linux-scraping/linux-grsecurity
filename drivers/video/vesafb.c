@@ -54,8 +54,8 @@ static int   vram_remap __initdata;		/* Set amount of memory to be used */
 static int   vram_total __initdata;		/* Set total amount of memory */
 static int   pmi_setpal __read_mostly = 1;	/* pmi for palette changes ??? */
 static int   ypan       __read_mostly;		/* 0..nothing, 1..ypan, 2..ywrap */
-static void  (*pmi_start)(void) __read_mostly;
-static void  (*pmi_pal)  (void) __read_mostly;
+static void  (*pmi_start)(void) __read_only;
+static void  (*pmi_pal)  (void) __read_only;
 static int   depth      __read_mostly;
 static int   vga_compat __read_mostly;
 /* --------------------------------------------------------------------- */
@@ -302,10 +302,10 @@ static int __init vesafb_probe(struct platform_device *dev)
 
 #ifdef __i386__
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 	pmi_code = module_alloc_exec(screen_info.vesapm_size);
 	if (!pmi_code)
-#else
+#elif !defined(CONFIG_PAX_KERNEXEC)
 	if (0)
 #endif
 
@@ -323,16 +323,15 @@ static int __init vesafb_probe(struct platform_device *dev)
 	if (ypan || pmi_setpal) {
 		unsigned short *pmi_base;
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		unsigned long cr0;
 #endif
 
 		pmi_base = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		pax_open_kernel(cr0);
 		memcpy(pmi_code, pmi_base, screen_info.vesapm_size);
-		pax_close_kernel(cr0);
 #else
 		pmi_code = pmi_base;
 #endif
@@ -340,9 +339,10 @@ static int __init vesafb_probe(struct platform_device *dev)
 		pmi_start = (void*)((char*)pmi_code + pmi_base[1]);
 		pmi_pal   = (void*)((char*)pmi_code + pmi_base[2]);
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		pmi_start = ktva_ktla(pmi_start);
 		pmi_pal = ktva_ktla(pmi_pal);
+		pax_close_kernel(cr0);
 #endif
 
 		printk(KERN_INFO "vesafb: pmi: set display start = %p, set palette = %p\n",pmi_start,pmi_pal);
@@ -487,7 +487,7 @@ static int __init vesafb_probe(struct platform_device *dev)
 	return 0;
 err:
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 	module_free_exec(NULL, pmi_code);
 #endif
 

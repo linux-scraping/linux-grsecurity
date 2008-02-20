@@ -121,6 +121,10 @@ static __init void set_pte_phys(unsigned long vaddr,
 	pmd_t *pmd;
 	pte_t *pte, new_pte;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	Dprintk("set_pte_phys %lx to %lx\n", vaddr, phys);
 
 	pgd = pgd_offset_k(vaddr);
@@ -152,7 +156,16 @@ static __init void set_pte_phys(unsigned long vaddr,
 	if (!pte_none(*pte) &&
 	    pte_val(*pte) != (pte_val(new_pte) & __supported_pte_mask))
 		pte_ERROR(*pte);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	set_pte(pte, new_pte);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
 
 	/*
 	 * It's enough to flush this one mapping.

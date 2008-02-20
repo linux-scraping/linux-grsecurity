@@ -79,7 +79,7 @@ static void efi_call_phys_prelog(void) __acquires(efi_rt_lock)
 	/*
 	 * After the lock is released, the original page table is restored.
 	 */
-	__local_flush_tlb();
+	local_flush_tlb();
 
 	gdt_descr.address = __pa(get_cpu_gdt_table(0));
 	gdt_descr.size = GDT_SIZE - 1;
@@ -99,7 +99,7 @@ static void efi_call_phys_epilog(void) __releases(efi_rt_lock)
 	/*
 	 * After the lock is released, the original page table is restored.
 	 */
-	__local_flush_tlb();
+	local_flush_tlb();
 
 	local_irq_restore(efi_rt_eflags);
 	spin_unlock(&efi_rt_lock);

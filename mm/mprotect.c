@@ -207,6 +207,8 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 			error = split_vma(mm, vma, start, 1);
 			if (error)
 				return -ENOMEM;
+			BUG_ON(!*pprev || (*pprev)->vm_next == vma);
+			*pprev = (*pprev)->vm_next;
 		}
 
 		if (end != vma->vm_end) {
