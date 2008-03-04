@@ -65,7 +65,7 @@ static unsigned long efi_rt_eflags;
 static DEFINE_SPINLOCK(efi_rt_lock);
 static pgd_t __initdata efi_bak_pg_dir_pointer[KERNEL_PGD_PTRS] __attribute__ ((aligned (4096)));
 
-static void efi_call_phys_prelog(void) __acquires(efi_rt_lock)
+static void __init efi_call_phys_prelog(void) __acquires(efi_rt_lock)
 {
 	struct Xgt_desc_struct gdt_descr;
 
@@ -86,7 +86,7 @@ static void efi_call_phys_prelog(void) __acquires(efi_rt_lock)
 	load_gdt(&gdt_descr);
 }
 
-static void efi_call_phys_epilog(void) __releases(efi_rt_lock)
+static void __init efi_call_phys_epilog(void) __releases(efi_rt_lock)
 {
 	struct Xgt_desc_struct gdt_descr;
 

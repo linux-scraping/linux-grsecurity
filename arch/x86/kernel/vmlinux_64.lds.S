@@ -52,7 +52,7 @@ SECTIONS
 
   BUG_TABLE :text
 
-  RODATA
+  RO_DATA(4096)
 
   . = ALIGN(4);
   .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
@@ -102,8 +102,8 @@ SECTIONS
   _edata = .;			/* End of data section */
 
 #define VSYSCALL_ADDR (-10*1024*1024)
-#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data_nosave) + SIZEOF(.data_nosave) + 2*1024*1024 -1 ) & ~(2*1024*1024 - 1))
-#define VSYSCALL_VIRT_ADDR ((ADDR(.data_nosave) + SIZEOF(.data_nosave) + 2*1024*1024 - 1) & ~(2*1024*1024 - 1))
+#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data_nosave) + SIZEOF(.data_nosave) + 4095) & ~(4095))
+#define VSYSCALL_VIRT_ADDR ((ADDR(.data_nosave) + SIZEOF(.data_nosave) + 4095) & ~(4095))
 
 #define VLOAD_OFFSET (VSYSCALL_ADDR - VSYSCALL_PHYS_ADDR)
 #define VLOAD(x) (ADDR(x) - VLOAD_OFFSET)
@@ -152,7 +152,7 @@ SECTIONS
 #undef VVIRT
 
   /* might get freed after init */
-  . = ALIGN(2*1024*1024);
+  . = ALIGN(4096);
   __smp_alt_begin = .;
   __smp_locks = .;
   .smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
@@ -163,7 +163,6 @@ SECTIONS
   __smp_alt_end = .;
 
   . = ALIGN(4096);		/* Init code and data */
-  . = ALIGN(2*1024*1024);	/* Init code and data */
   __init_begin = .;
   .init.text : AT(ADDR(.init.text) - LOAD_OFFSET) {
 	_sinittext = .;

@@ -189,7 +189,7 @@ SECTIONS
   	__tracedata_end = .;
   }
 
-  RODATA
+  RO_DATA(4096)
 
   . = ALIGN(4096);
   .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
