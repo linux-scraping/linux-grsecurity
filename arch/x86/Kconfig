@@ -1190,7 +1190,7 @@ config HOTPLUG_CPU
 config COMPAT_VDSO
 	bool "Compat VDSO support"
 	default n
-	depends on X86_32
+	depends on X86_32 && !PAX_NOEXEC
 	help
 	  Map the VDSO to the predictable old-style address too.
 	---help---

@@ -4,6 +4,20 @@
 #include <linux/binfmts.h>
 #include <linux/gracl.h>
 
+/* notify of brain-dead configs */
+#if defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_PAGEEXEC) && !defined(CONFIG_PAX_SEGMEXEC)
+#error "CONFIG_PAX_NOEXEC enabled, but neither PAGEEXEC nor SEGMEXEC are enabled."
+#endif
+#if defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_EI_PAX) && !defined(CONFIG_PAX_PT_PAX_FLAGS)
+#error "CONFIG_PAX_NOEXEC enabled, but neither CONFIG_PAX_EI_PAX nor CONFIG_PAX_PT_PAX_FLAGS are enabled."
+#endif
+#if defined(CONFIG_PAX_ASLR) && !defined(CONFIG_PAX_RANDKSTACK) && !defined(CONFIG_PAX_RANDUSTACK) && !defined(CONFIG_PAX_RANDMMAP)
+#error "CONFIG_PAX_ASLR enabled, but RANDKSTACK, RANDUSTACK, and RANDMMAP are disabled."
+#endif
+#if defined(CONFIG_PAX) && !defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_ASLR)
+#error "CONFIG_PAX enabled, but no PaX options are enabled."
+#endif
+
 void gr_handle_brute_attach(struct task_struct *p);
 void gr_handle_brute_check(void);
 
