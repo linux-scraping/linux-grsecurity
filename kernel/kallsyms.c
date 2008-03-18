@@ -501,7 +501,7 @@ static int __init kallsyms_init(void)
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR, NULL);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR | S_IRGRP, NULL);
 #endif
 #else

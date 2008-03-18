@@ -45,9 +45,11 @@ EXPORT_SYMBOL(cap_bset);
 unsigned securebits = SECUREBITS_DEFAULT; /* systemwide security settings */
 EXPORT_SYMBOL(securebits);
 
+extern __u32 gr_cap_rtnetlink(struct sock *sk);
+
 int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
-	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink();
+	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink(sk);
 	return 0;
 }
 

@@ -82,7 +82,7 @@ static int __init ikconfig_init(void)
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	entry = create_proc_entry("config.gz", S_IFREG | S_IRUSR, &proc_root);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	entry = create_proc_entry("config.gz", S_IFREG | S_IRUSR | S_IRGRP, &proc_root);
 #endif
 #else

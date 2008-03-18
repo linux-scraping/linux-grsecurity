@@ -204,7 +204,7 @@ repeat:
 	/* Go */
 	task->ptrace |= PT_PTRACED | ((task->real_parent != current)
 				      ? PT_ATTACHED : 0);
-	if (capable(CAP_SYS_PTRACE))
+	if (capable_nolog(CAP_SYS_PTRACE))
 		task->ptrace |= PT_PTRACE_CAP;
 
 	__ptrace_link(task, current);

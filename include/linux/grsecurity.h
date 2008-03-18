@@ -181,7 +181,6 @@ __u32 gr_acl_handle_unix(const struct dentry *dentry,
 void gr_acl_handle_exit(void);
 void gr_acl_handle_psacct(struct task_struct *task, const long code);
 int gr_acl_handle_procpidmem(const struct task_struct *task);
-__u32 gr_cap_rtnetlink(void);
 
 #ifdef CONFIG_GRKERNSEC
 void gr_handle_mem_write(void);

@@ -1255,7 +1255,7 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP)) ||
 #endif
 		    task_dumpable(task)) {
@@ -1297,7 +1297,7 @@ static int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IXUSR)) ||
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 		    (inode->i_mode == (S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP)) ||
 #endif
 		    task_dumpable(task)) {
@@ -2443,7 +2443,7 @@ static struct dentry *proc_pid_instantiate(struct inode *dir,
 
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR;
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP;
 #else

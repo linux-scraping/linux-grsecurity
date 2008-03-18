@@ -136,7 +136,7 @@ static int __init ioresources_init(void)
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	entry = create_proc_entry("ioports", S_IRUSR, NULL);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	entry = create_proc_entry("ioports", S_IRUSR | S_IRGRP, NULL);
 #endif
 #else
@@ -148,7 +148,7 @@ static int __init ioresources_init(void)
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	entry = create_proc_entry("iomem", S_IRUSR, NULL);
-#elif CONFIG_GRKERNSEC_PROC_USERGROUP
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 	entry = create_proc_entry("iomem", S_IRUSR | S_IRGRP, NULL);
 #endif
 #else
