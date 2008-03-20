@@ -39,7 +39,7 @@ void _paravirt_nop(void)
 {
 }
 
-static void __init default_banner(void)
+static void default_banner(void)
 {
 	printk(KERN_INFO "Booting paravirtualized kernel on %s\n",
 	       pv_info.name);

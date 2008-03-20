@@ -49,11 +49,6 @@
 #include <asm/desc.h>
 #endif
 
-#ifdef CONFIG_PAX_HOOK_ACL_FLAGS
-void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
-EXPORT_SYMBOL(pax_set_initial_flags_func);
-#endif
-
 static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
 static int load_elf_library(struct file *);
 static unsigned long elf_map (struct file *, unsigned long, struct elf_phdr *, int, int);

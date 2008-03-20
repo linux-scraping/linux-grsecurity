@@ -81,7 +81,7 @@ static void __init efi_call_phys_prelog(void) __acquires(efi_rt_lock)
 	 */
 	local_flush_tlb();
 
-	gdt_descr.address = __pa(get_cpu_gdt_table(0));
+	gdt_descr.address = (struct desc_struct *)__pa(get_cpu_gdt_table(0));
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 }
@@ -121,7 +121,7 @@ phys_efi_set_virtual_address_map(unsigned long memory_map_size,
 	return status;
 }
 
-static efi_status_t __init
+static noinline efi_status_t __init
 phys_efi_get_time(efi_time_t *tm, efi_time_cap_t *tc)
 {
 	efi_status_t status;
@@ -165,7 +165,7 @@ inline int efi_set_rtc_mmss(unsigned long nowtime)
  * services have been remapped and also during suspend, therefore,
  * we'll need to call both in physical and virtual modes.
  */
-inline unsigned long efi_get_time(void)
+unsigned long efi_get_time(void)
 {
 	efi_status_t status;
 	efi_time_t eft;

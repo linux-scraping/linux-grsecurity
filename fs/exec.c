@@ -62,6 +62,11 @@
 #include <linux/kmod.h>
 #endif
 
+#ifdef CONFIG_PAX_HOOK_ACL_FLAGS
+void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
+EXPORT_SYMBOL(pax_set_initial_flags_func);
+#endif
+
 int core_uses_pid;
 char core_pattern[CORENAME_MAX_SIZE] = "core";
 int suid_dumpable = 0;
