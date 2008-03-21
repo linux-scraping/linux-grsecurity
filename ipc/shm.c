@@ -455,7 +455,12 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 	shp->shm_atim = shp->shm_dtim = 0;
 	shp->shm_ctim = get_seconds();
 #ifdef CONFIG_GRKERNSEC
-	shp->shm_createtime = get_seconds();
+	{
+		struct timespec timeval;
+		do_posix_clock_monotonic_gettime(&timeval);
+
+		shp->shm_createtime = timeval.tv_sec;
+	}
 #endif
 	shp->shm_segsz = size;
 	shp->shm_nattch = 0;
@@ -993,10 +998,10 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr)
 	if (err)
 		goto out_unlock;
 
-#ifdef CONFIG_GRKERNSEC_
+#ifdef CONFIG_GRKERNSEC
 	if (!gr_handle_shmat(shp->shm_cprid, shp->shm_lapid, shp->shm_createtime,
 			     shp->shm_perm.cuid, shmid) ||
-	    !gr_chroot_shmat(shm->shm_cprid, shp->shm_lapid, shp->shm_createtime)) {
+	    !gr_chroot_shmat(shp->shm_cprid, shp->shm_lapid, shp->shm_createtime)) {
 		err = -EACCES;
 		goto out_unlock;
 	}

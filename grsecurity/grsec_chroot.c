@@ -188,7 +188,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		task_lock(p);
 		starttime = p->start_time.tv_sec;
 		if (unlikely(!have_same_root(current, p) &&
-			     time_before((unsigned long)starttime, (unsigned long)shm_createtime))) {
+			     time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime))) {
 			task_unlock(p);
 			read_unlock(&tasklist_lock);
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);

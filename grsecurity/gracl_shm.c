@@ -21,7 +21,7 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (unlikely(!task))
 		task = find_task_by_pid(shm_lapid);
 
-	if (unlikely(task && (time_before((unsigned long)task->start_time.tv_sec, (unsigned long)shm_createtime) ||
+	if (unlikely(task && (time_before_eq((unsigned long)task->start_time.tv_sec, (unsigned long)shm_createtime) ||
 			      (task->pid == shm_lapid)) &&
 		     (task->acl->mode & GR_PROTSHM) &&
 		     (task->acl != current->acl))) {

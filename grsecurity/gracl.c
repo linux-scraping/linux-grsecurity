@@ -3610,12 +3610,14 @@ gr_acl_handle_psacct(struct task_struct *task, const long code)
 	__u8 whr, chr;
 	__u8 wmin, cmin;
 	__u8 wsec, csec;
+	struct timespec timeval;
 
 	if (unlikely(!(gr_status & GR_READY) || !task->acl ||
 		     !(task->acl->mode & GR_PROCACCT)))
 		return;
 
-	runtime = xtime.tv_sec - task->start_time.tv_sec;
+	do_posix_clock_monotonic_gettime(&timeval);
+	runtime = timeval.tv_sec - task->start_time.tv_sec;
 	wday = runtime / (3600 * 24);
 	runtime -= wday * (3600 * 24);
 	whr = runtime / 3600;
