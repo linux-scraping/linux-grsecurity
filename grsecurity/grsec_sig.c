@@ -1,5 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
+#include <linux/delay.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
@@ -49,10 +50,8 @@ void gr_handle_brute_attach(struct task_struct *p)
 void gr_handle_brute_check(void)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
-	if (current->brute) {
-		set_current_state(TASK_UNINTERRUPTIBLE);
-		schedule_timeout(30 * HZ);
-	}
+	if (current->brute)
+		msleep(30 * 1000);
 #endif
 	return;
 }

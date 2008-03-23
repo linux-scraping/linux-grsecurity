@@ -335,10 +335,24 @@ static void reload_tss(void)
 	struct descriptor_table gdt;
 	struct segment_descriptor *descs;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
+
 	get_gdt(&gdt);
 	descs = (void *)gdt.base;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	descs[GDT_ENTRY_TSS].type = 9; /* available TSS */
 	load_TR_desc();
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
 #endif
 }
 
