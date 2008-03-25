@@ -339,7 +339,7 @@ static struct ctl_table kern_table[] = {
 		.procname	= "sched_nr_migrate",
 		.data		= &sysctl_sched_nr_migrate,
 		.maxlen		= sizeof(unsigned int),
-		.mode		= 644,
+		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
