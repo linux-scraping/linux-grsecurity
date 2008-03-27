@@ -416,7 +416,7 @@ gr_acl_handle_procpidmem(const struct task_struct *task)
 	if (unlikely(!gr_acl_is_enabled()))
 		return 0;
 
-	if (task->acl->mode & GR_PROTPROCFD)
+	if (task != current && task->acl->mode & GR_PROTPROCFD)
 		return -EACCES;
 
 	return 0;

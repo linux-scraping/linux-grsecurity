@@ -543,7 +543,7 @@ good_area:
 
 			}
 			pax_report_fault(regs, (void *)regs->pc, (void *)regs->u_regs[UREG_FP]);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 

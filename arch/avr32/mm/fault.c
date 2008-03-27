@@ -179,7 +179,7 @@ bad_area:
 		if (mm->pax_flags & MF_PAX_PAGEEXEC) {
 			if (ecr == ECR_PROTECTION_X || ecr == ECR_TLB_MISS_X) {
 				pax_report_fault(regs, (void *)regs->pc, (void *)regs->sp);
-				do_exit(SIGKILL);
+				do_group_exit(SIGKILL);
 			}
 		}
 #endif

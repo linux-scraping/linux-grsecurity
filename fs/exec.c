@@ -1935,6 +1935,8 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 
  	if (ispipe) {
 		helper_argv = argv_split(GFP_KERNEL, corename+1, &helper_argc);
+		if (!helper_argv)
+			goto fail_unlock;
 		/* Terminate the string before the first option */
 		delimit = strchr(corename, ' ');
 		if (delimit)

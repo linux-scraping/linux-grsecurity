@@ -267,7 +267,7 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
 
 			}
 			pax_report_fault(regs, (void *)regs->pc, (void *)rdusp());
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 #else
 			goto bad_area;
 #endif

@@ -708,7 +708,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
 
 		}
 		pax_report_fault(regs, (void*)regs->tpc, (void*)(regs->u_regs[UREG_FP] + STACK_BIAS));
-		do_exit(SIGKILL);
+		do_group_exit(SIGKILL);
 	}
 #endif
 

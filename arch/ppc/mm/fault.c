@@ -662,7 +662,7 @@ bad_area:
 				}
 
 				pax_report_fault(regs, (void *)regs->nip, (void *)regs->gpr[1]);
-				do_exit(SIGKILL);
+				do_group_exit(SIGKILL);
 			}
 		}
 #endif

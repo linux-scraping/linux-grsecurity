@@ -436,7 +436,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 #endif
 
 		pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
-		do_exit(SIGKILL);
+		do_group_exit(SIGKILL);
 	}
 
 	pmd = pax_get_pmd(mm, address);
@@ -617,7 +617,7 @@ bad_area_nosemaphore:
 #endif
 
 			pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 
@@ -632,7 +632,7 @@ bad_area_nosemaphore:
 #endif
 
 			pax_report_fault(regs, (void *)regs->eip, (void *)regs->esp);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 
@@ -783,7 +783,7 @@ no_context:
 	tsk->thread.error_code = error_code;
 	die("Oops", regs, error_code);
 	bust_spinlocks(0);
-	do_exit(SIGKILL);
+	do_group_exit(SIGKILL);
 
 /*
  * We ran out of memory, or some other thing happened to us that made

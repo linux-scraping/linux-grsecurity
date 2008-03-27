@@ -643,7 +643,7 @@ bad_area_nosemaphore:
 #endif
 
 			pax_report_fault(regs, (void*)regs->rip, (void*)regs->rsp);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 
@@ -724,7 +724,7 @@ no_context:
 	/* Executive summary in case the body of the oops scrolled away */
 	printk(KERN_EMERG "CR2: %016lx\n", address);
 	oops_end(flags);
-	do_exit(SIGKILL);
+	do_group_exit(SIGKILL);
 
 /*
  * We ran out of memory, or some other thing happened to us that made

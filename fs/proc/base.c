@@ -414,8 +414,6 @@ static int proc_fd_access_allowed(struct inode *inode)
 	task = get_proc_task(inode);
 	if (task) {
 		allowed = ptrace_may_attach(task);
-		if (allowed != 0)
-			allowed = !gr_acl_handle_procpidmem(task);
 		put_task_struct(task);
 	}
 	return allowed;
@@ -1572,9 +1570,6 @@ static struct dentry *proc_lookupfd_common(struct inode *dir,
 	if (fd == ~0U)
 		goto out;
 
-	if (gr_acl_handle_procpidmem(task))
-		goto out;
-
 	result = instantiate(dir, dentry, task, &fd);
 out:
 	put_task_struct(task);
@@ -1610,8 +1605,6 @@ static int proc_readfd_common(struct file * filp, void * dirent,
 				goto out;
 			filp->f_pos++;
 		default:
-			if (gr_acl_handle_procpidmem(p))
-				goto out;
 			files = get_files_struct(p);
 			if (!files)
 				goto out;
@@ -1684,12 +1677,22 @@ static int proc_fd_permission(struct inode *inode, int mask,
 				struct nameidata *nd)
 {
 	int rv;
+	struct task_struct *task;
 
 	rv = generic_permission(inode, mask, NULL);
-	if (rv == 0)
-		return 0;
+
 	if (task_pid(current) == proc_pid(inode))
 		rv = 0;
+
+	task = get_proc_task(inode);
+	if (task == NULL)
+		return rv;
+
+	if (gr_acl_handle_procpidmem(task))
+		rv = -EACCES;
+
+	put_task_struct(task);
+
 	return rv;
 }
 

@@ -172,7 +172,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 
 			up_read(&mm->mmap_sem);
 			pax_report_fault(regs, (void *)regs->cr_iip, (void *)regs->r12);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 

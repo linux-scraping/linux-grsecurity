@@ -298,7 +298,7 @@ good_area:
 
 			}
 			pax_report_fault(regs, (void *)instruction_pointer(regs), (void *)regs->gr[30]);
-			do_exit(SIGKILL);
+			do_group_exit(SIGKILL);
 		}
 #endif
 
