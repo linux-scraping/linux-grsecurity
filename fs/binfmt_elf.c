@@ -336,7 +336,7 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 {
 	struct elf_phdr *elf_phdata;
 	struct elf_phdr *eppnt;
-	unsigned long load_addr = 0, min_addr, max_addr, task_size = TASK_SIZE;
+	unsigned long load_addr = 0, min_addr, max_addr, pax_task_size = TASK_SIZE;
 	unsigned long last_bss = 0, elf_bss = 0;
 	unsigned long error = -EINVAL;
 	int retval, i, size;
@@ -379,11 +379,11 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
 	eppnt = elf_phdata;
-	min_addr = task_size;
+	min_addr = pax_task_size;
 	max_addr = 0;
 	error = -ENOMEM;
 
@@ -404,13 +404,13 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 		if (max_addr < ELF_PAGEALIGN(eppnt->p_vaddr + eppnt->p_memsz))
 			max_addr = ELF_PAGEALIGN(eppnt->p_vaddr + eppnt->p_memsz);
 	}
-	if (min_addr >= max_addr || max_addr > task_size)
+	if (min_addr >= max_addr || max_addr > pax_task_size)
 		goto out_close;
 
 	if (interp_elf_ex->e_type == ET_DYN) {
 		load_addr = get_unmapped_area(interpreter, 0, max_addr - min_addr, 0, MAP_PRIVATE | MAP_EXECUTABLE);
 
-		if (load_addr >= task_size)
+		if (load_addr >= pax_task_size)
 			goto out_close;
 
 		load_addr -= min_addr;
@@ -764,7 +764,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		struct elfhdr interp_elf_ex;
   		struct exec interp_ex;
 	} *loc;
-	unsigned long task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
 
 	loc = kmalloc(sizeof(*loc), GFP_KERNEL);
 	if (!loc) {
@@ -1044,7 +1044,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
 		current->mm->context.user_cs_base = SEGMEXEC_TASK_SIZE;
 		current->mm->context.user_cs_limit = TASK_SIZE-SEGMEXEC_TASK_SIZE;
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 	}
 #endif
 
@@ -1203,9 +1203,9 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		 * allowed task size. Note that p_filesz must always be
 		 * <= p_memsz so it is only necessary to check p_memsz.
 		 */
-		if (k >= task_size || elf_ppnt->p_filesz > elf_ppnt->p_memsz ||
-		    elf_ppnt->p_memsz > task_size ||
-		    task_size - elf_ppnt->p_memsz < k) {
+		if (k >= pax_task_size || elf_ppnt->p_filesz > elf_ppnt->p_memsz ||
+		    elf_ppnt->p_memsz > pax_task_size ||
+		    pax_task_size - elf_ppnt->p_memsz < k) {
 			/* set_brk can never work. Avoid overflows. */
 			send_sig(SIGKILL, current, 0);
 			retval = -EINVAL;

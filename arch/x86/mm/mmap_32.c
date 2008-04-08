@@ -35,17 +35,17 @@
  * Leave an at least ~128 MB hole.
  */
 #define MIN_GAP (128*1024*1024)
-#define MAX_GAP (task_size/6*5)
+#define MAX_GAP (pax_task_size/6*5)
 
 static inline unsigned long mmap_base(struct mm_struct *mm)
 {
 	unsigned long gap = current->signal->rlim[RLIMIT_STACK].rlim_cur;
 	unsigned long random_factor = 0;
-	unsigned long task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
 	if (current->flags & PF_RANDOMIZE)
@@ -56,7 +56,7 @@ static inline unsigned long mmap_base(struct mm_struct *mm)
 	else if (gap > MAX_GAP)
 		gap = MAX_GAP;
 
-	return PAGE_ALIGN(task_size - gap - random_factor);
+	return PAGE_ALIGN(pax_task_size - gap - random_factor);
 }
 
 /*

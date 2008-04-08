@@ -229,11 +229,11 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long start_addr, task_size = TASK_SIZE;
+	unsigned long start_addr, pax_task_size = TASK_SIZE;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
 	if (len > mm->cached_hole_size) {
@@ -248,7 +248,7 @@ full_search:
 
 	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
 		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (task_size - len < addr) {
+		if (pax_task_size - len < addr) {
 			/*
 			 * Start a new search - just in case we missed
 			 * some holes.
@@ -369,17 +369,17 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
 
 	if (len & ~HPAGE_MASK)
 		return -EINVAL;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (len > task_size)
+	if (len > pax_task_size)
 		return -ENOMEM;
 
 	if (flags & MAP_FIXED) {
@@ -391,7 +391,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, HPAGE_SIZE);
 		vma = find_vma(mm, addr);
-		if (task_size - len >= addr &&
+		if (pax_task_size - len >= addr &&
 		    (!vma || addr + len <= vma->vm_start))
 			return addr;
 	}

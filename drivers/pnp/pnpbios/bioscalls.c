@@ -503,13 +503,12 @@ void __init pnpbios_calls_init(union pnp_bios_install_struct *header)
 	pnp_bios_callpoint.offset = header->fields.pm16offset;
 	pnp_bios_callpoint.segment = PNP_CS16;
 
-	set_base(bad_bios_desc, __va((unsigned long)0x40 << 4));
-	_set_limit((char *)&bad_bios_desc, 4095 - (0x40 << 4));
-
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_open_kernel(cr0);
 #endif
 
+	set_base(bad_bios_desc, __va((unsigned long)0x40 << 4));
+	_set_limit((char *)&bad_bios_desc, 4095 - (0x40 << 4));
 	for (i = 0; i < NR_CPUS; i++) {
 		struct desc_struct *gdt = get_cpu_gdt_table(i);
 		if (!gdt)

@@ -41,14 +41,14 @@ asmlinkage int sys_pipe(unsigned long __user * fildes)
 
 int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
 {
-	unsigned long task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (len > task_size || addr > task_size - len)
+	if (len > pax_task_size || addr > pax_task_size - len)
 		return -EINVAL;
 
 	return 0;
@@ -119,14 +119,14 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long start_addr, task_size = TASK_SIZE;
+	unsigned long start_addr, pax_task_size = TASK_SIZE;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (len > task_size)
+	if (len > pax_task_size)
 		return -ENOMEM;
 
 	if (flags & MAP_FIXED)
@@ -139,7 +139,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
-		if (task_size - len >= addr &&
+		if (pax_task_size - len >= addr &&
 		    (!vma || addr + len <= vma->vm_start))
 			return addr;
 	}
@@ -169,7 +169,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 full_search:
 	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
 		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (task_size - len < addr) {
+		if (pax_task_size - len < addr) {
 			/*
 			 * Start a new search - just in case we missed
 			 * some holes.
@@ -206,15 +206,15 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 {
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
-	unsigned long base = mm->mmap_base, addr = addr0, task_size = TASK_SIZE;
+	unsigned long base = mm->mmap_base, addr = addr0, pax_task_size = TASK_SIZE;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
 	/* requested length too big for entire address space */
-	if (len > task_size)
+	if (len > pax_task_size)
 		return -ENOMEM;
 
 	if (flags & MAP_FIXED)
@@ -233,7 +233,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
-		if (task_size - len >= addr &&
+		if (pax_task_size - len >= addr &&
 				(!vma || addr + len <= vma->vm_start))
 			return addr;
 	}

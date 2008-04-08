@@ -260,7 +260,7 @@ unsigned long do_mremap(unsigned long addr,
 	struct vm_area_struct *vma;
 	unsigned long ret = -EINVAL;
 	unsigned long charged = 0;
-	unsigned long task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
 
 	if (flags & ~(MREMAP_FIXED | MREMAP_MAYMOVE))
 		goto out;
@@ -281,11 +281,11 @@ unsigned long do_mremap(unsigned long addr,
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
-		task_size = SEGMEXEC_TASK_SIZE;
+		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
-	if (new_len > task_size || addr > task_size-new_len ||
-	    old_len > task_size || addr > task_size-old_len)
+	if (new_len > pax_task_size || addr > pax_task_size-new_len ||
+	    old_len > pax_task_size || addr > pax_task_size-old_len)
 		goto out;
 
 	/* new_addr is only valid if MREMAP_FIXED is specified */
@@ -295,7 +295,7 @@ unsigned long do_mremap(unsigned long addr,
 		if (!(flags & MREMAP_MAYMOVE))
 			goto out;
 
-		if (new_addr > task_size - new_len)
+		if (new_addr > pax_task_size - new_len)
 			goto out;
 
 		/* Check if the location we're moving into overlaps the
@@ -380,7 +380,7 @@ unsigned long do_mremap(unsigned long addr,
 	if (old_len == vma->vm_end - addr &&
 	    !((flags & MREMAP_FIXED) && (addr != new_addr)) &&
 	    (old_len != new_len || !(flags & MREMAP_MAYMOVE))) {
-		unsigned long max_addr = task_size;
+		unsigned long max_addr = pax_task_size;
 		if (vma->vm_next)
 			max_addr = vma->vm_next->vm_start;
 		/* can we just expand the current mapping? */
