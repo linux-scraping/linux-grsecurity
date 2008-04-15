@@ -1545,13 +1545,10 @@ static void pax_unmap_mirror_pte(struct vm_area_struct *vma, unsigned long addre
 	} else {
 		struct page *page;
 
-		page = vm_normal_page(vma, address, entry);
-		if (page) {
-			flush_cache_page(vma, address, pte_pfn(entry));
-			flush_icache_page(vma, page);
-		}
-		ptep_clear_flush(vma, address, pte);
+		flush_cache_page(vma, address, pte_pfn(entry));
+		entry = ptep_clear_flush(vma, address, pte);
 		BUG_ON(pte_dirty(entry));
+		page = vm_normal_page(vma, address, entry);
 		if (page) {
 			update_hiwater_rss(mm);
 			if (PageAnon(page))
@@ -1593,12 +1590,8 @@ static void pax_mirror_anon_pte(struct vm_area_struct *vma, unsigned long addres
 	ptl_m = pte_lockptr(mm, pmd_m);
 	if (ptl != ptl_m) {
 		spin_lock_nested(ptl_m, SINGLE_DEPTH_NESTING);
-		if (!pte_none(*pte_m)) {
-			spin_unlock(ptl_m);
-			pte_unmap_nested(pte_m);
-			unlock_page(page_m);
-			return;
-		}
+		if (!pte_none(*pte_m))
+			goto out;
 	}
 
 	entry_m = pfn_pte(page_to_pfn(page_m), vma_m->vm_page_prot);
@@ -1607,6 +1600,7 @@ static void pax_mirror_anon_pte(struct vm_area_struct *vma, unsigned long addres
 	inc_mm_counter(mm, anon_rss);
 	set_pte_at(mm, address_m, pte_m, entry_m);
 	update_mmu_cache(vma_m, address_m, entry_m);
+out:
 	if (ptl != ptl_m)
 		spin_unlock(ptl_m);
 	pte_unmap_nested(pte_m);
@@ -1635,11 +1629,8 @@ void pax_mirror_file_pte(struct vm_area_struct *vma, unsigned long address, stru
 	ptl_m = pte_lockptr(mm, pmd_m);
 	if (ptl != ptl_m) {
 		spin_lock_nested(ptl_m, SINGLE_DEPTH_NESTING);
-		if (!pte_none(*pte_m)) {
-			spin_unlock(ptl_m);
-			pte_unmap_nested(pte_m);
-			return;
-		}
+		if (!pte_none(*pte_m))
+			goto out;
 	}
 
 	entry_m = pfn_pte(page_to_pfn(page_m), vma_m->vm_page_prot);
@@ -1648,6 +1639,7 @@ void pax_mirror_file_pte(struct vm_area_struct *vma, unsigned long address, stru
 	inc_mm_counter(mm, file_rss);
 	set_pte_at(mm, address_m, pte_m, entry_m);
 	update_mmu_cache(vma_m, address_m, entry_m);
+out:
 	if (ptl != ptl_m)
 		spin_unlock(ptl_m);
 	pte_unmap_nested(pte_m);
@@ -1673,15 +1665,13 @@ static void pax_mirror_pfn_pte(struct vm_area_struct *vma, unsigned long address
 	ptl_m = pte_lockptr(mm, pmd_m);
 	if (ptl != ptl_m) {
 		spin_lock_nested(ptl_m, SINGLE_DEPTH_NESTING);
-		if (!pte_none(*pte_m)) {
-			spin_unlock(ptl_m);
-			pte_unmap_nested(pte_m);
-			return;
-		}
+		if (!pte_none(*pte_m))
+			goto out;
 	}
 
 	entry_m = pfn_pte(pfn_m, vma_m->vm_page_prot);
 	set_pte_at(mm, address_m, pte_m, entry_m);
+out:
 	if (ptl != ptl_m)
 		spin_unlock(ptl_m);
 	pte_unmap_nested(pte_m);

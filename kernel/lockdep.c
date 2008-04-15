@@ -598,6 +598,10 @@ static int static_obj(void *obj)
 	int i;
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC
+	start = (unsigned long )&_data;
+#endif
+
 	/*
 	 * static variable?
 	 */

@@ -5,7 +5,7 @@
 #include <asm/smp.h>
 #include <asm/sections.h>
 
-DEFINE_PER_CPU(unsigned long, this_cpu_off);
+DEFINE_PER_CPU(unsigned long, this_cpu_off) = (unsigned long)__per_cpu_start;
 EXPORT_PER_CPU_SYMBOL(this_cpu_off);
 
 /* Initialize the CPU's GDT.  This is either the boot CPU doing itself

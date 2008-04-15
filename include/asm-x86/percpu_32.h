@@ -22,7 +22,7 @@
 #define PER_CPU_VAR(var)	%fs:per_cpu__##var
 #else /* ! SMP */
 #define PER_CPU(var, reg)			\
-	movl per_cpu__##var, reg
+	movl $per_cpu__##var, reg
 #define PER_CPU_VAR(var)	per_cpu__##var
 #endif	/* SMP */
 

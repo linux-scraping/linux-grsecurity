@@ -790,12 +790,11 @@ no_context:
  * us unable to handle the page fault gracefully.
  */
 out_of_memory:
-	up_read(&mm->mmap_sem);
 	if (is_global_init(tsk)) {
 		yield();
-		down_read(&mm->mmap_sem);
 		goto survive;
 	}
+	up_read(&mm->mmap_sem);
 	printk("VM: killing process %s\n", tsk->comm);
 	if (error_code & 4)
 		do_group_exit(SIGKILL);
