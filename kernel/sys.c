@@ -986,7 +986,10 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	if (pgid != pid) {
 		struct task_struct *g;
 
-		g = find_task_by_pid_type_ns(PIDTYPE_PGID, pgid, ns);
+		/* grsec: replaced find_task_by_pid_type_ns with equivalent
+		   call which lacks the chroot restriction
+		*/
+		g = pid_task(find_pid_ns(pgid, ns), PIDTYPE_PGID);
 		if (!g || task_session(g) != task_session(group_leader))
 			goto out;
 	}
