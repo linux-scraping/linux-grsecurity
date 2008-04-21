@@ -515,6 +515,10 @@ asmlinkage long sys_setregid(gid_t rgid, gid_t egid)
 		else
 			return -EPERM;
 	}
+
+	if (gr_check_group_change(new_rgid, new_egid, -1))
+		return -EPERM;
+
 	if (new_egid != old_egid) {
 		set_dumpable(current->mm, suid_dumpable);
 		smp_wmb();
@@ -546,6 +550,9 @@ asmlinkage long sys_setgid(gid_t gid)
 	retval = security_task_setgid(gid, (gid_t)-1, (gid_t)-1, LSM_SETID_ID);
 	if (retval)
 		return retval;
+
+	if (gr_check_group_change(gid, gid, gid))
+		return -EPERM;
 
 	if (capable(CAP_SETGID)) {
 		if (old_egid != gid) {
@@ -644,6 +651,9 @@ asmlinkage long sys_setreuid(uid_t ruid, uid_t euid)
 			return -EPERM;
 	}
 
+	if (gr_check_user_change(new_ruid, new_euid, -1))
+		return -EPERM;
+
 	if (new_ruid != old_ruid && set_user(new_ruid, new_euid != old_euid) < 0)
 		return -EAGAIN;
 
@@ -690,14 +700,17 @@ asmlinkage long sys_setuid(uid_t uid)
 	old_suid = current->suid;
 	new_suid = old_suid;
 	
+	if (gr_check_crash_uid(uid))
+		return -EPERM;
+
+	if (gr_check_user_change(uid, uid, uid))
+		return -EPERM;
+
 	if (capable(CAP_SETUID)) {
 		if (uid != old_ruid && set_user(uid, old_euid != uid) < 0)
 			return -EAGAIN;
 		new_suid = uid;
 	} else if ((uid != current->uid) && (uid != new_suid))
-		return -EPERM;
-
-	if (gr_check_crash_uid(uid))
 		return -EPERM;
 
 	if (old_euid != uid) {
@@ -740,6 +753,10 @@ asmlinkage long sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)
 		    (suid != current->euid) && (suid != current->suid))
 			return -EPERM;
 	}
+
+	if (gr_check_user_change(ruid, euid, -1))
+		return -EPERM;
+
 	if (ruid != (uid_t) -1) {
 		if (ruid != current->uid && set_user(ruid, euid != current->euid) < 0)
 			return -EAGAIN;
@@ -794,6 +811,10 @@ asmlinkage long sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)
 		    (sgid != current->egid) && (sgid != current->sgid))
 			return -EPERM;
 	}
+
+	if (gr_check_group_change(rgid, egid, -1))
+		return -EPERM;
+
 	if (egid != (gid_t) -1) {
 		if (egid != current->egid) {
 			set_dumpable(current->mm, suid_dumpable);
@@ -840,6 +861,9 @@ asmlinkage long sys_setfsuid(uid_t uid)
 	if (security_task_setuid(uid, (uid_t)-1, (uid_t)-1, LSM_SETID_FS))
 		return old_fsuid;
 
+	if (gr_check_user_change(-1, -1, uid))
+		return old_fsuid;
+
 	if (uid == current->uid || uid == current->euid ||
 	    uid == current->suid || uid == current->fsuid || 
 	    capable(CAP_SETUID)) {
@@ -872,6 +896,9 @@ asmlinkage long sys_setfsgid(gid_t gid)
 	if (gid == current->gid || gid == current->egid ||
 	    gid == current->sgid || gid == current->fsgid || 
 	    capable(CAP_SETGID)) {
+		if (gr_check_group_change(-1, -1, gid))
+			return old_fsgid;
+
 		if (gid != old_fsgid) {
 			set_dumpable(current->mm, suid_dumpable);
 			smp_wmb();
