@@ -116,7 +116,7 @@ ENTRY(startup_32)
 	rorl $16,%eax
 	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 4)
 	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 7)
-	movl $__per_cpu_end + PERCPU_MODULE_RESERVE,%eax
+	movl $__per_cpu_end + PERCPU_MODULE_RESERVE - 1,%eax
 	subl $__per_cpu_start,%eax
 	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 0)
 

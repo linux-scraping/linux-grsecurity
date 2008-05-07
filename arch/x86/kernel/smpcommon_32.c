@@ -24,7 +24,7 @@ __cpuinit void init_gdt(int cpu)
 	if (cpu)
 		memcpy(gdt, cpu_gdt_table, GDT_SIZE);
 
-	if (PERCPU_ENOUGH_ROOM <= 64*1024*1024)
+	if (PERCPU_ENOUGH_ROOM <= 64*1024)
 		pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PERCPU].a,
 				(__u32 *)&gdt[GDT_ENTRY_PERCPU].b,
 				__per_cpu_offset[cpu], PERCPU_ENOUGH_ROOM-1,

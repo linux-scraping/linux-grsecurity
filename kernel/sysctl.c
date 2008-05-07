@@ -241,15 +241,6 @@ static struct ctl_table root_table[] = {
 		.child		= dev_table,
 	},
 
-#ifdef CONFIG_PAX_SOFTMODE
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "pax",
-		.mode		= 0500,
-		.child		= pax_table,
-	},
-#endif
-
 /*
  * NOTE: do not add new entries to this table unless you have read
  * Documentation/sysctl/ctl_unnumbered.txt
@@ -816,6 +807,17 @@ static struct ctl_table kern_table[] = {
 		.child		= grsecurity_table,
 	},
 #endif
+
+#ifdef CONFIG_PAX_SOFTMODE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "pax",
+		.mode		= 0500,
+		.child		= pax_table,
+	},
+#endif
+
+
 /*
  * NOTE: do not add new entries to this table unless you have read
  * Documentation/sysctl/ctl_unnumbered.txt

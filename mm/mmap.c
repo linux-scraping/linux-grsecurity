@@ -1874,7 +1874,7 @@ static inline int expand_downwards(struct vm_area_struct *vma,
 		return error;
 
 #if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
-	find_vma_prev(address, &prev);
+	find_vma_prev(vma->vm_mm, address, &prev);
 	lockprev = prev && (prev->vm_flags & VM_GROWSUP);
 #endif
 	if (lockprev && unlikely(anon_vma_prepare(prev)))

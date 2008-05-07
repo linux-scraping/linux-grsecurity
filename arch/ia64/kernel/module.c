@@ -513,7 +513,7 @@ in_init_rw (const struct module *mod, uint64_t addr)
 static inline int
 in_init (const struct module *mod, uint64_t addr)
 {
-	return in_init_rx(mod, value) || in_init_rw(mod, value);
+	return in_init_rx(mod, addr) || in_init_rw(mod, addr);
 }
 
 static inline int

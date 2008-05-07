@@ -348,6 +348,7 @@ static inline unsigned int block_size(int val)
 
 /* Created by linker magic */
 extern char __per_cpu_start[], __per_cpu_end[];
+EXPORT_SYMBOL(__per_cpu_start);
 
 static void *percpu_modalloc(unsigned long size, unsigned long align,
 			     const char *name)

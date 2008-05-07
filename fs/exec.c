@@ -620,6 +620,10 @@ int setup_arg_pages(struct linux_binprm *bprm,
 
 	vm_flags = vma->vm_flags;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	vm_flags |= VM_STACK_FLAGS & (VM_EXEC | VM_MAYEXEC);
+#endif
+
 	/*
 	 * Adjust stack execute permissions; explicitly enable for
 	 * EXSTACK_ENABLE_X, disable for EXSTACK_DISABLE_X and leave alone
@@ -629,8 +633,6 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		vm_flags |= VM_EXEC;
 	else if (executable_stack == EXSTACK_DISABLE_X)
 		vm_flags &= ~VM_EXEC;
-	else
-		vm_flags = VM_STACK_FLAGS;
 	vm_flags |= mm->def_flags;
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
