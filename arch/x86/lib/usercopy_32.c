@@ -1004,7 +1004,7 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 	else
 		n = __copy_user_zeroing(to, from, n);
 #else
-        __copy_user_zeroing(to, from, n);
+	n = __copy_user_zeroing(to, from, n);
 #endif
 	return n;
 }
