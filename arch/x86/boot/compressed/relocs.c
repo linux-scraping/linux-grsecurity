@@ -31,11 +31,6 @@ static unsigned long *relocs;
  * absolute relocations present w.r.t these symbols.
  */
 static const char* safe_abs_relocs[] = {
-		"__kernel_vsyscall",
-		"__kernel_rt_sigreturn",
-		"__kernel_sigreturn",
-		"SYSENTER_RETURN",
-		"VDSO_NOTE_MASK",
 		"xen_irq_disable_direct_reloc",
 		"xen_save_fl_direct_reloc",
 };
@@ -49,6 +44,8 @@ static int is_safe_abs_reloc(const char* sym_name)
 			/* Match found */
 			return 1;
 	}
+	if (strncmp(sym_name, "VDSO", 4) == 0)
+		return 1;
 	if (strncmp(sym_name, "__crc_", 6) == 0)
 		return 1;
 	return 0;
@@ -529,25 +526,21 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 				continue;
 			}
 			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
-			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strncmp(sym_name(sym_strtab, sym), "__per_cpu_", 10)) {
+			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strncmp(sym_name(sym_strtab, sym), "__per_cpu_", 10))
 				continue;
-			}
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
-			if (!strcmp(sec_name(sym->st_shndx), ".init.text")) {
+			if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
 				continue;
-			}
-			if (!strcmp(sec_name(sym->st_shndx), ".exit.text")) {
+			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
 				continue;
-			}
 			if (!strcmp(sec_name(sym->st_shndx), ".text.head")) {
 				if (strcmp(sym_name(sym_strtab, sym), "__init_end") &&
 				    strcmp(sym_name(sym_strtab, sym), "KERNEL_TEXT_OFFSET"))
 					continue;
 			}
-			if (!strcmp(sec_name(sym->st_shndx), ".text")) {
+			if (!strcmp(sec_name(sym->st_shndx), ".text"))
 				continue;
-			}
 #endif
 			if (r_type == R_386_PC32) {
 				/* PC relative relocations don't need to be adjusted */

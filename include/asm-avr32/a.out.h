@@ -17,11 +17,4 @@ struct exec
 #define N_DRSIZE(a)	((a).a_drsize)
 #define N_SYMSIZE(a)	((a).a_syms)
 
-#ifdef __KERNEL__
-
-#define __STACK_TOP	TASK_SIZE
-#define STACK_TOP_MAX	__STACK_TOP
-
-#endif
-
 #endif /* __ASM_AVR32_A_OUT_H */

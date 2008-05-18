@@ -6,6 +6,7 @@
 #include <linux/sched.h>
 #include <linux/stat.h>
 #include <linux/utime.h>
+#include <linux/syscalls.h>
 #include <linux/grsecurity.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -39,9 +40,14 @@ asmlinkage long sys_utime(char __user *filename, struct utimbuf __user *times)
 
 #endif
 
+static bool nsec_special(long nsec)
+{
+	return nsec == UTIME_OMIT || nsec == UTIME_NOW;
+}
+
 static bool nsec_valid(long nsec)
 {
-	if (nsec == UTIME_OMIT || nsec == UTIME_NOW)
+	if (nsec_special(nsec))
 		return true;
 
 	return nsec >= 0 && nsec <= 999999999;
@@ -86,8 +92,8 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 		if (error)
 			goto out;
 
-		dentry = nd.dentry;
-		mnt = nd.mnt;
+		dentry = nd.path.dentry;
+		mnt = nd.path.mnt;
 	}
 
 	inode = dentry->d_inode;
@@ -118,7 +124,15 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 			newattrs.ia_mtime.tv_nsec = times[1].tv_nsec;
 			newattrs.ia_valid |= ATTR_MTIME_SET;
 		}
-	} else {
+	}
+
+	/*
+	 * If times is NULL or both times are either UTIME_OMIT or
+	 * UTIME_NOW, then need to check permissions, because
+	 * inode_change_ok() won't do it.
+	 */
+	if (!times || (nsec_special(times[0].tv_nsec) &&
+		       nsec_special(times[1].tv_nsec))) {
 		error = -EACCES;
                 if (IS_IMMUTABLE(inode))
                         goto dput_and_out;
@@ -147,7 +161,7 @@ dput_and_out:
 	if (f)
 		fput(f);
 	else
-		path_release(&nd);
+		path_put(&nd.path);
 out:
 	return error;
 }

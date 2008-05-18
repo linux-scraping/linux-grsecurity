@@ -376,7 +376,7 @@ static int DoC_IdentChip(struct DiskOnChip *doc, int floor, int chip)
 	 * hardware restriction. */
 	if (doc->mfr) {
 		if (doc->mfr == mfr && doc->id == id)
-			return 1;	/* This is another the same the first */
+			return 1;	/* This is the same as the first */
 		else
 			printk(KERN_WARNING
 			       "Flash chip at floor %d, chip %d is different:\n",
@@ -779,7 +779,7 @@ static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 		/* The ECC will not be calculated correctly if less than 512 is written */
 /* DBB-
-		if (len != 0x200 && eccbuf)
+		if (len != 0x200)
 			printk(KERN_WARNING
 			       "ECC needs a full sector write (adr: %lx size %lx)\n",
 			       (long) to, (long) len);
@@ -896,7 +896,7 @@ static int doc_write(struct mtd_info *mtd, loff_t to, size_t len,
 		/* Let the caller know we completed it */
 		*retlen += len;
 
-		if (eccbuf) {
+		{
 			unsigned char x[8];
 			size_t dummy;
 			int ret;

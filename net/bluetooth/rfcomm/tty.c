@@ -429,7 +429,8 @@ static int rfcomm_release_dev(void __user *arg)
 	if (dev->tty)
 		tty_vhangup(dev->tty);
 
-	rfcomm_dev_del(dev);
+	if (!test_bit(RFCOMM_RELEASE_ONHUP, &dev->flags))
+		rfcomm_dev_del(dev);
 	rfcomm_dev_put(dev);
 	return 0;
 }
@@ -569,12 +570,7 @@ static void rfcomm_dev_state_change(struct rfcomm_dlc *dlc, int err)
 					return;
 
 				rfcomm_dev_del(dev);
-				/* We have to drop DLC lock here, otherwise
-				   rfcomm_dev_put() will dead lock if it's
-				   the last reference. */
-				rfcomm_dlc_unlock(dlc);
 				rfcomm_dev_put(dev);
-				rfcomm_dlc_lock(dlc);
 			}
 		} else
 			tty_hangup(dev->tty);

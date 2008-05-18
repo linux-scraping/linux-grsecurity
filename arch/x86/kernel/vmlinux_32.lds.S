@@ -8,12 +8,6 @@
  * put it inside the section definition.
  */
 
-/* Don't define absolute symbols until and unless you know that symbol
- * value is should remain constant even if kernel image is relocated
- * at run time. Absolute symbols are not relocated. If symbol value should
- * change if kernel is relocated, make the symbol section relative and
- * put it inside the section definition.
- */
 #define LOAD_OFFSET __PAGE_OFFSET
 
 #include <asm-generic/vmlinux.lds.h>
@@ -61,7 +55,7 @@ SECTIONS
   } :initdata
 
   /* might get freed after init */
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
   	__smp_locks = .;
 	*(.smp_locks)
@@ -73,12 +67,12 @@ SECTIONS
    * after boot. Always make sure that ALIGN() directive is present after
    * the section which contains __smp_alt_end.
    */
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
 
   /* will be freed after init */
   .init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {
 	__init_begin = .;
-	*(.init.data)
+	INIT_DATA
   }
   . = ALIGN(16);
   .init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET) {
@@ -112,16 +106,18 @@ SECTIONS
 	*(.parainstructions)
   	__parainstructions_end = .;
   }
-  .exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) { *(.exit.data) }
+  .exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) {
+	EXIT_DATA
+  }
 #if defined(CONFIG_BLK_DEV_INITRD)
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET) {
 	__initramfs_start = .;
 	*(.init.ramfs)
 	__initramfs_end = .;
   }
 #endif
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   per_cpu_start = .;
   .data.percpu (0) : AT(ADDR(.data.percpu) - LOAD_OFFSET + per_cpu_start) {
 	__per_cpu_start = . + per_cpu_start;
@@ -131,19 +127,21 @@ SECTIONS
 	__per_cpu_end = . + per_cpu_start;
   } :percpu
   . += per_cpu_start;
+  . = ALIGN(PAGE_SIZE);
+  /* freed after init ends here */
 
-  /* read-only */
-
-  . = ALIGN(4096);		/* Init code and data */
+  . = ALIGN(PAGE_SIZE);		/* Init code and data */
   .init.text (. - __KERNEL_TEXT_OFFSET) : AT(ADDR(.init.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 	_sinittext = .;
-	*(.init.text)
+	INIT_TEXT
 	_einittext = .;
   } :inittext
 
   /* .exit.text is discard at runtime, not link time, to deal with references
      from .altinstructions and .eh_frame */
-  .exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) { *(.exit.text) }
+  .exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	EXIT_TEXT
+  }
 
   .filler : AT(ADDR(.filler) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 	BYTE(0)
@@ -161,6 +159,8 @@ SECTIONS
 
   /* read-only */
   .text : AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	. = ALIGN(PAGE_SIZE); /* not really needed, already page aligned */
+	*(.text.page_aligned)
 	TEXT_TEXT
 	SCHED_TEXT
 	LOCK_TEXT
@@ -189,21 +189,21 @@ SECTIONS
   	__tracedata_end = .;
   }
 
-  RO_DATA(4096)
+  RO_DATA(PAGE_SIZE)
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
 	*(.idt)
-	. = ALIGN(4096);
+	. = ALIGN(PAGE_SIZE);
 	*(.empty_zero_page)
-	*(.swapper_pm_dir)
+	*(.swapper_pg_pmd)
 	*(.swapper_pg_dir)
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
 
 #ifdef CONFIG_MODULES
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 	MODULES_VADDR = .;
 	BYTE(0)
@@ -218,22 +218,22 @@ SECTIONS
 #endif
 
   /* writeable */
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .data : AT(ADDR(.data) - LOAD_OFFSET) {	/* Data */
 	_data = .;
 	DATA_DATA
 	CONSTRUCTORS
 	} :data
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) {
   	__nosave_begin = .;
 	*(.data.nosave)
-  	. = ALIGN(4096);
+  	. = ALIGN(PAGE_SIZE);
   	__nosave_end = .;
   }
 
-  . = ALIGN(4096);
+  . = ALIGN(PAGE_SIZE);
   .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
 	*(.data.page_aligned)
   }
@@ -263,7 +263,7 @@ SECTIONS
 	__bss_stop = .;
   	_end = . ;
 	/* This is where the kernel creates the early boot page tables */
-	. = ALIGN(4096);
+	. = ALIGN(PAGE_SIZE);
 	pg0 = . ;
   }
 

@@ -70,7 +70,7 @@ static unsigned long __devinit bios32_service(unsigned long service)
 	unsigned long length;		/* %ecx */
 	unsigned long entry;		/* %edx */
 	unsigned long flags;
-	struct desc_struct *gdt;
+	struct desc_struct d, *gdt;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
@@ -84,12 +84,10 @@ static unsigned long __devinit bios32_service(unsigned long service)
 	pax_open_kernel(cr0);
 #endif
 
-	pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
-			(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
-			0UL, 0xFFFFFUL, 0x9B, 0xC);
-	pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
-			(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
-			0UL, 0xFFFFFUL, 0x93, 0xC);
+	pack_descriptor(&d, 0UL, 0xFFFFFUL, 0x9B, 0xC);
+	write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_CS, &d, DESCTYPE_S);
+	pack_descriptor(&d, 0UL, 0xFFFFFUL, 0x93, 0xC);
+	write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_DS, &d, DESCTYPE_S);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pax_close_kernel(cr0);
@@ -145,12 +143,10 @@ static unsigned long __devinit bios32_service(unsigned long service)
 
 		for (cpu = 0; cpu < NR_CPUS; cpu++) {
 			gdt = get_cpu_gdt_table(cpu);
-			pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].a,
-					(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_CS].b,
-					address, length, 0x9b, flags);
-			pack_descriptor((__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].a,
-					(__u32 *)&gdt[GDT_ENTRY_PCIBIOS_DS].b,
-					address, length, 0x93, flags);
+			pack_descriptor(&d, address, length, 0x9b, flags);
+			write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_CS, &d, DESCTYPE_S);
+			pack_descriptor(&d, address, length, 0x93, flags);
+			write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_DS, &d, DESCTYPE_S);
 		}
 
 #ifdef CONFIG_PAX_KERNEXEC
@@ -283,6 +279,11 @@ static int pci_bios_read(unsigned int seg, unsigned int bus,
 			  "D" ((long)reg),
 			  "S" (&pci_indirect),
 			  "r" (__PCIBIOS_DS));
+		/*
+		 * Zero-extend the result beyond 8 bits, do not trust the
+		 * BIOS having done it:
+		 */
+		*value &= 0xff;
 		break;
 	case 2:
 		__asm__("movw %w6, %%ds\n\t"
@@ -299,6 +300,11 @@ static int pci_bios_read(unsigned int seg, unsigned int bus,
 			  "D" ((long)reg),
 			  "S" (&pci_indirect),
 			  "r" (__PCIBIOS_DS));
+		/*
+		 * Zero-extend the result beyond 16 bits, do not trust the
+		 * BIOS having done it:
+		 */
+		*value &= 0xffff;
 		break;
 	case 4:
 		__asm__("movw %w6, %%ds\n\t"

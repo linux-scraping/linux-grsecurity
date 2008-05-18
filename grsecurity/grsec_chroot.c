@@ -110,13 +110,13 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 	int ret = 1;
 
 	read_lock(&reaper->fs->lock);
-	realrootmnt = mntget(reaper->fs->rootmnt);
-	realroot = dget(reaper->fs->root);
+	realrootmnt = mntget(reaper->fs->root.mnt);
+	realroot = dget(reaper->fs->root.dentry);
 	read_unlock(&reaper->fs->lock);
 
 	read_lock(&current->fs->lock);
-	currentmnt = mntget(current->fs->rootmnt);
-	currentroot = dget(current->fs->root);
+	currentmnt = mntget(current->fs->root.mnt);
+	currentroot = dget(current->fs->root.dentry);
 	read_unlock(&current->fs->lock);
 
 	spin_lock(&dcache_lock);
@@ -283,12 +283,13 @@ gr_handle_chroot_caps(struct task_struct *task)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
 	if (grsec_enable_chroot_caps && proc_is_chrooted(task)) {
+		kernel_cap_t chroot_caps = GR_CHROOT_CAPS;
 		task->cap_permitted =
-		    cap_drop(task->cap_permitted, GR_CHROOT_CAPS);
+		    cap_drop(task->cap_permitted, chroot_caps);
 		task->cap_inheritable =
-		    cap_drop(task->cap_inheritable, GR_CHROOT_CAPS);
+		    cap_drop(task->cap_inheritable, chroot_caps);
 		task->cap_effective =
-		    cap_drop(task->cap_effective, GR_CHROOT_CAPS);
+		    cap_drop(task->cap_effective, chroot_caps);
 	}
 #endif
 	return;
@@ -306,11 +307,11 @@ gr_handle_chroot_sysctl(const int op)
 }
 
 void
-gr_handle_chroot_chdir(struct dentry *dentry, struct vfsmount *mnt)
+gr_handle_chroot_chdir(struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CHDIR
 	if (grsec_enable_chroot_chdir)
-		set_fs_pwd(current->fs, mnt, dentry);
+		set_fs_pwd(current->fs, path);
 #endif
 	return;
 }

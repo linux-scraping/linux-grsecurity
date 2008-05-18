@@ -33,4 +33,12 @@ typedef struct {
 
 } mm_context_t;
 
+#ifdef CONFIG_SMP
+void leave_mm(int cpu);
+#else
+static inline void leave_mm(int cpu)
+{
+}
+#endif
+
 #endif /* _ASM_X86_MMU_H */

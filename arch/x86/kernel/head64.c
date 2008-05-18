@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/percpu.h>
+#include <linux/start_kernel.h>
 
 #include <asm/processor.h>
 #include <asm/proto.h>
@@ -19,6 +20,8 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <asm/sections.h>
+#include <asm/kdebug.h>
+#include <asm/e820.h>
 
 static void __init zap_identity_mappings(void)
 {
@@ -46,6 +49,35 @@ static void __init copy_bootdata(char *real_mode_data)
 	}
 }
 
+#define EBDA_ADDR_POINTER 0x40E
+
+static __init void reserve_ebda(void)
+{
+	unsigned ebda_addr, ebda_size;
+
+	/*
+	 * there is a real-mode segmented pointer pointing to the
+	 * 4K EBDA area at 0x40E
+	 */
+	ebda_addr = *(unsigned short *)__va(EBDA_ADDR_POINTER);
+	ebda_addr <<= 4;
+
+	if (!ebda_addr)
+		return;
+
+	ebda_size = *(unsigned short *)__va(ebda_addr);
+
+	/* Round EBDA up to pages */
+	if (ebda_size == 0)
+		ebda_size = 1;
+	ebda_size <<= 10;
+	ebda_size = round_up(ebda_size + (ebda_addr & ~PAGE_MASK), PAGE_SIZE);
+	if (ebda_size > 64*1024)
+		ebda_size = 64*1024;
+
+	reserve_early(ebda_addr, ebda_addr + ebda_size, "EBDA");
+}
+
 void __init x86_64_start_kernel(char * real_mode_data)
 {
 	int i;
@@ -56,20 +88,44 @@ void __init x86_64_start_kernel(char * real_mode_data)
 	/* Make NULL pointers segfault */
 	zap_identity_mappings();
 
- 	for (i = 0; i < NR_CPUS; i++)
- 		cpu_pda(i) = &boot_cpu_pda[i];
+	for (i = 0; i < NR_CPUS; i++)
+		cpu_pda(i) = &boot_cpu_pda[i];
 
 	pda_init(0);
 
-	for (i = 0; i < IDT_ENTRIES; i++)
+	/* Cleanup the over mapped high alias */
+	cleanup_highmap();
+
+	for (i = 0; i < IDT_ENTRIES; i++) {
+#ifdef CONFIG_EARLY_PRINTK
+		set_intr_gate(i, &early_idt_handlers[i]);
+#else
 		set_intr_gate(i, early_idt_handler);
+#endif
+	}
 	load_idt((const struct desc_ptr *)&idt_descr);
 
 	early_printk("Kernel alive\n");
 
 	copy_bootdata(__va(real_mode_data));
-#ifdef CONFIG_SMP
-	cpu_set(0, cpu_online_map);
-#endif
+
+	reserve_early(__pa_symbol(&_text), __pa_symbol(&_end), "TEXT DATA BSS");
+
+	/* Reserve INITRD */
+	if (boot_params.hdr.type_of_loader && boot_params.hdr.ramdisk_image) {
+		unsigned long ramdisk_image = boot_params.hdr.ramdisk_image;
+		unsigned long ramdisk_size  = boot_params.hdr.ramdisk_size;
+		unsigned long ramdisk_end   = ramdisk_image + ramdisk_size;
+		reserve_early(ramdisk_image, ramdisk_end, "RAMDISK");
+	}
+
+	reserve_ebda();
+
+	/*
+	 * At this point everything still needed from the boot loader
+	 * or BIOS or kernel text should be early reserved or marked not
+	 * RAM in e820. All other memory is free game.
+	 */
+
 	start_kernel();
 }

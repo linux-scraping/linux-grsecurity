@@ -80,8 +80,8 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *__user *argv)
 	}
 
       log:
-	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_dentry,
-			bprm->file->f_vfsmnt, grarg);
+	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_path.dentry,
+			bprm->file->f_path.mnt, grarg);
 	up(&gr_exec_arg_sem);
 #endif
 	return;

@@ -30,7 +30,7 @@ fetch_robust_entry(compat_uptr_t *uentry, struct robust_list __user **entry,
 	return 0;
 }
 
-static void __user *futex_uaddr(struct robust_list *entry,
+static void __user *futex_uaddr(struct robust_list __user *entry,
 				compat_long_t futex_offset)
 {
 	compat_uptr_t base = ptr_to_compat(entry);
@@ -176,7 +176,8 @@ asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
 	int val2 = 0;
 	int cmd = op & FUTEX_CMD_MASK;
 
-	if (utime && (cmd == FUTEX_WAIT || cmd == FUTEX_LOCK_PI)) {
+	if (utime && (cmd == FUTEX_WAIT || cmd == FUTEX_LOCK_PI ||
+		      cmd == FUTEX_WAIT_BITSET)) {
 		if (get_compat_timespec(&ts, utime))
 			return -EFAULT;
 		if (!timespec_valid(&ts))

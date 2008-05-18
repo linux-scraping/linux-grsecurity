@@ -204,11 +204,11 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		file = va_arg(ap, struct file *);
 		ulong1 = va_arg(ap, unsigned long);
 		ulong2 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, file ? gr_to_filename(file->f_dentry, file->f_vfsmnt) : "<anonymous mapping>", ulong1, ulong2);
+		gr_log_middle_varargs(audit, msg, file ? gr_to_filename(file->f_path.dentry, file->f_path.mnt) : "<anonymous mapping>", ulong1, ulong2);
 		break;
 	case GR_PTRACE:
 		task = va_arg(ap, struct task_struct *);
-		gr_log_middle_varargs(audit, msg, task->exec_file ? gr_to_filename(task->exec_file->f_dentry, task->exec_file->f_vfsmnt) : "(none)", task->comm, task->pid);
+		gr_log_middle_varargs(audit, msg, task->exec_file ? gr_to_filename(task->exec_file->f_path.dentry, task->exec_file->f_path.mnt) : "(none)", task->comm, task->pid);
 		break;
 	case GR_RESOURCE:
 		task = va_arg(ap, struct task_struct *);

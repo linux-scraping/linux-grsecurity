@@ -16,7 +16,6 @@
 #include <linux/slab.h>
 #include <linux/poll.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/random.h>
@@ -415,6 +414,7 @@ static void mousedev_free(struct device *dev)
 {
 	struct mousedev *mousedev = container_of(dev, struct mousedev, dev);
 
+	input_put_device(mousedev->handle.dev);
 	kfree(mousedev);
 }
 
@@ -866,7 +866,7 @@ static struct mousedev *mousedev_create(struct input_dev *dev,
 
 	mousedev->minor = minor;
 	mousedev->exist = 1;
-	mousedev->handle.dev = dev;
+	mousedev->handle.dev = input_get_device(dev);
 	mousedev->handle.name = mousedev->name;
 	mousedev->handle.handler = handler;
 	mousedev->handle.private = mousedev;
@@ -1033,7 +1033,7 @@ static const struct input_device_id mousedev_ids[] = {
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
 			INPUT_DEVICE_ID_MATCH_KEYBIT |
 			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.evbit = { BIT(EV_KEY) | BIT(EV_ABS) | BIT(EV_SYN) },
+		.evbit = { BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS) },
 		.keybit = { [BIT_WORD(BTN_LEFT)] = BIT_MASK(BTN_LEFT) },
 		.absbit = { BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
 	},	/* Mouse-like device with absolute X and Y but ordinary

@@ -53,10 +53,7 @@ static long __do_strncpy_from_user(char *dst, const char __user *src, long count
 		"3:	movl %5,%0\n"
 		"	jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 0b,3b\n"
-		".previous"
+		_ASM_EXTABLE(0b,3b)
 		: "=d"(res), "=c"(count), "=&a" (__d0), "=&S" (__d1),
 		  "=&D" (__d2)
 		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst),
@@ -141,11 +138,8 @@ static unsigned long __do_clear_user(void __user *addr, unsigned long size)
 		"3:	lea 0(%2,%0,4),%0\n"
 		"	jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 0b,3b\n"
-		"	.long 1b,2b\n"
-		".previous"
+		_ASM_EXTABLE(0b,3b)
+		_ASM_EXTABLE(1b,2b)
 		: "=&c"(size), "=&D" (__d0)
 		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0),
 		  "r"(__USER_DS));
@@ -1008,6 +1002,7 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 #endif
 	return n;
 }
+EXPORT_SYMBOL(__copy_from_user_ll_nocache);
 
 unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *from,
 					unsigned long n)
@@ -1022,6 +1017,7 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 #endif
 	return n;
 }
+EXPORT_SYMBOL(__copy_from_user_ll_nocache_nozero);
 
 /**
  * copy_to_user: - Copy a block of data into user space.
@@ -1076,13 +1072,13 @@ EXPORT_SYMBOL(copy_from_user);
 void __set_fs(mm_segment_t x, int cpu)
 {
 	unsigned long limit = x.seg;
-	__u32 a, b;
+	struct desc_struct d;
 
 	current_thread_info()->addr_limit = x;
 	if (likely(limit))
 		limit = (limit - 1UL) >> PAGE_SHIFT;
-	pack_descriptor(&a, &b, 0UL, limit, 0xF3, 0xC);
-	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_DS, a, b);
+	pack_descriptor(&d, 0UL, limit, 0xF3, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_DS, &d, DESCTYPE_S);
 }
 
 void set_fs(mm_segment_t x)

@@ -52,15 +52,15 @@ esp_conn_in_get(const struct sk_buff *skb,
 	if (likely(!inverse)) {
 		cp = ip_vs_conn_in_get(IPPROTO_UDP,
 				       iph->saddr,
-				       __constant_htons(PORT_ISAKMP),
+				       htons(PORT_ISAKMP),
 				       iph->daddr,
-				       __constant_htons(PORT_ISAKMP));
+				       htons(PORT_ISAKMP));
 	} else {
 		cp = ip_vs_conn_in_get(IPPROTO_UDP,
 				       iph->daddr,
-				       __constant_htons(PORT_ISAKMP),
+				       htons(PORT_ISAKMP),
 				       iph->saddr,
-				       __constant_htons(PORT_ISAKMP));
+				       htons(PORT_ISAKMP));
 	}
 
 	if (!cp) {
@@ -89,15 +89,15 @@ esp_conn_out_get(const struct sk_buff *skb, struct ip_vs_protocol *pp,
 	if (likely(!inverse)) {
 		cp = ip_vs_conn_out_get(IPPROTO_UDP,
 					iph->saddr,
-					__constant_htons(PORT_ISAKMP),
+					htons(PORT_ISAKMP),
 					iph->daddr,
-					__constant_htons(PORT_ISAKMP));
+					htons(PORT_ISAKMP));
 	} else {
 		cp = ip_vs_conn_out_get(IPPROTO_UDP,
 					iph->daddr,
-					__constant_htons(PORT_ISAKMP),
+					htons(PORT_ISAKMP),
 					iph->saddr,
-					__constant_htons(PORT_ISAKMP));
+					htons(PORT_ISAKMP));
 	}
 
 	if (!cp) {
@@ -159,6 +159,7 @@ static void esp_exit(struct ip_vs_protocol *pp)
 struct ip_vs_protocol ip_vs_protocol_esp = {
 	.name =			"ESP",
 	.protocol =		IPPROTO_ESP,
+	.num_states =		1,
 	.dont_defrag =		1,
 	.init =			esp_init,
 	.exit =			esp_exit,

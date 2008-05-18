@@ -47,7 +47,7 @@
 #endif
 
 #ifdef CONFIG_TPS65010
-#include <asm/arch/tps65010.h>
+#include <linux/i2c/tps65010.h>
 #else
 
 #define LOW	0
@@ -519,7 +519,7 @@ static int ohci_omap_resume(struct platform_device *dev)
 
 	omap_ohci_clock_power(1);
 	dev->dev.power.power_state = PMSG_ON;
-	usb_hcd_resume_root_hub(platform_get_drvdata(dev));
+	ohci_finish_controller_resume(hcd);
 	return 0;
 }
 
@@ -544,3 +544,4 @@ static struct platform_driver ohci_hcd_omap_driver = {
 	},
 };
 
+MODULE_ALIAS("platform:ohci");

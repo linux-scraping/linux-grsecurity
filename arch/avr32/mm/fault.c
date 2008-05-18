@@ -50,9 +50,9 @@ void pax_report_insns(void *pc, void *sp)
 	for (i = 0; i < 20; i++) {
 		unsigned char c;
 		if (get_user(c, (unsigned char *)pc+i))
-			printk("???????? ");
+			printk(KERN_CONT "???????? ");
 		else
-			printk("%02x ", c);
+			printk(KERN_CONT "%02x ", c);
 	}
 	printk("\n");
 }
@@ -216,6 +216,8 @@ no_context:
 
 	page = sysreg_read(PTBR);
 	printk(KERN_ALERT "ptbr = %08lx", page);
+	if (address >= TASK_SIZE)
+		page = (unsigned long)swapper_pg_dir;
 	if (page) {
 		page = ((unsigned long *)page)[address >> 22];
 		printk(" pgd = %08lx", page);

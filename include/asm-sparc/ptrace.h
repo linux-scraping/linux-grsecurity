@@ -10,6 +10,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/types.h>
+
 struct pt_regs {
 	unsigned long psr;
 	unsigned long pc;
@@ -39,6 +41,16 @@ struct pt_regs {
 #define UREG_FP        UREG_I6
 #define UREG_RETPC     UREG_I7
 
+static inline bool pt_regs_is_syscall(struct pt_regs *regs)
+{
+	return (regs->psr & PSR_SYSCALL);
+}
+
+static inline bool pt_regs_clear_syscall(struct pt_regs *regs)
+{
+	return (regs->psr &= ~PSR_SYSCALL);
+}
+
 /* A register window */
 struct reg_window {
 	unsigned long locals[8];
@@ -60,8 +72,6 @@ struct sparc_stackf {
 #define STACKFRAME_SZ sizeof(struct sparc_stackf)
 
 #ifdef __KERNEL__
-
-#define __ARCH_SYS_PTRACE	1
 
 #define user_mode(regs) (!((regs)->psr & PSR_PS))
 #define instruction_pointer(regs) ((regs)->pc)
@@ -151,8 +161,7 @@ extern void show_regs(struct pt_regs *);
 #define SF_XXARG  0x5c
 
 /* Stuff for the ptrace system call */
-#define PTRACE_SUNATTACH	  10
-#define PTRACE_SUNDETACH	  11
+#define PTRACE_SPARC_DETACH       11
 #define PTRACE_GETREGS            12
 #define PTRACE_SETREGS            13
 #define PTRACE_GETFPREGS          14
@@ -163,8 +172,5 @@ extern void show_regs(struct pt_regs *);
 #define PTRACE_WRITETEXT          19
 #define PTRACE_GETFPAREGS         20
 #define PTRACE_SETFPAREGS         21
-
-#define PTRACE_GETUCODE           29  /* stupid bsd-ism */
-
 
 #endif /* !(_SPARC_PTRACE_H) */

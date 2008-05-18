@@ -10,7 +10,6 @@
  * 2 of the License, or (at your option) any later version.
  */
 
-#ifdef __KERNEL__
 #include <asm/asm-compat.h>
 #include <asm/kdump.h>
 
@@ -72,7 +71,7 @@
  * up being executable.
  */
 #define VM_DATA_DEFAULT_FLAGS32 \
-	(((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
+	(((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0) | \
 	 VM_READ | VM_WRITE | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
 #define VM_DATA_DEFAULT_FLAGS64	(VM_READ | VM_WRITE | \
@@ -192,9 +191,9 @@ extern int page_is_ram(unsigned long pfn);
 
 struct vm_area_struct;
 
+typedef struct page *pgtable_t;
+
 #include <asm-generic/memory_model.h>
 #endif /* __ASSEMBLY__ */
-
-#endif /* __KERNEL__ */
 
 #endif /* _ASM_POWERPC_PAGE_H */

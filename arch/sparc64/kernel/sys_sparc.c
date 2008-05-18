@@ -1,5 +1,4 @@
-/* $Id: sys_sparc.c,v 1.57 2002/02/09 19:49:30 davem Exp $
- * linux/arch/sparc64/kernel/sys_sparc.c
+/* linux/arch/sparc64/kernel/sys_sparc.c
  *
  * This file contains various random system calls that
  * have a non-standard calling sequence on the Linux/sparc
@@ -28,8 +27,10 @@
 #include <asm/uaccess.h>
 #include <asm/utrap.h>
 #include <asm/perfctr.h>
-#include <asm/a.out.h>
 #include <asm/unistd.h>
+
+#include "entry.h"
+#include "systbls.h"
 
 /* #define DEBUG_UNIMP_SYSCALL */
 
@@ -462,14 +463,15 @@ asmlinkage long sys_ipc(unsigned int call, int first, unsigned long second,
 			goto out;
 		case SEMTIMEDOP:
 			err = sys_semtimedop(first, ptr, (unsigned)second,
-				(const struct timespec __user *) fifth);
+				(const struct timespec __user *)
+					     (unsigned long) fifth);
 			goto out;
 		case SEMGET:
 			err = sys_semget(first, (int)second, (int)third);
 			goto out;
 		case SEMCTL: {
-			err = sys_semctl(first, third,
-					 (int)second | IPC_64,
+			err = sys_semctl(first, second,
+					 (int)third | IPC_64,
 					 (union semun) ptr);
 			goto out;
 		}
@@ -556,20 +558,19 @@ asmlinkage long sparc64_personality(unsigned long personality)
 	return ret;
 }
 
-int sparc64_mmap_check(unsigned long addr, unsigned long len,
-		unsigned long flags)
+int sparc64_mmap_check(unsigned long addr, unsigned long len)
 {
 	if (test_thread_flag(TIF_32BIT)) {
 		if (len >= STACK_TOP32)
 			return -EINVAL;
 
-		if ((flags & MAP_FIXED) && addr > STACK_TOP32 - len)
+		if (addr > STACK_TOP32 - len)
 			return -EINVAL;
 	} else {
 		if (len >= VA_EXCLUDE_START)
 			return -EINVAL;
 
-		if ((flags & MAP_FIXED) && invalid_64bit_range(addr, len))
+		if (invalid_64bit_range(addr, len))
 			return -EINVAL;
 	}
 
@@ -623,46 +624,19 @@ asmlinkage unsigned long sys64_mremap(unsigned long addr,
 	unsigned long old_len, unsigned long new_len,
 	unsigned long flags, unsigned long new_addr)
 {
-	struct vm_area_struct *vma;
 	unsigned long ret = -EINVAL;
 
 	if (test_thread_flag(TIF_32BIT))
 		goto out;
 	if (unlikely(new_len >= VA_EXCLUDE_START))
 		goto out;
-	if (unlikely(invalid_64bit_range(addr, old_len)))
+	if (unlikely(sparc64_mmap_check(addr, old_len)))
+		goto out;
+	if (unlikely(sparc64_mmap_check(new_addr, new_len)))
 		goto out;
 
 	down_write(&current->mm->mmap_sem);
-	if (flags & MREMAP_FIXED) {
-		if (invalid_64bit_range(new_addr, new_len))
-			goto out_sem;
-	} else if (invalid_64bit_range(addr, new_len)) {
-		unsigned long map_flags = 0;
-		struct file *file = NULL;
-
-		ret = -ENOMEM;
-		if (!(flags & MREMAP_MAYMOVE))
-			goto out_sem;
-
-		vma = find_vma(current->mm, addr);
-		if (vma) {
-			if (vma->vm_flags & VM_SHARED)
-				map_flags |= MAP_SHARED;
-			file = vma->vm_file;
-		}
-
-		/* MREMAP_FIXED checked above. */
-		new_addr = get_unmapped_area(file, addr, new_len,
-				    vma ? vma->vm_pgoff : 0,
-				    map_flags);
-		ret = new_addr;
-		if (new_addr & ~PAGE_MASK)
-			goto out_sem;
-		flags |= MREMAP_FIXED;
-	}
 	ret = do_mremap(addr, old_len, new_len, flags, new_addr);
-out_sem:
 	up_write(&current->mm->mmap_sem);
 out:
 	return ret;       
@@ -805,7 +779,7 @@ asmlinkage long sys_utrap_install(utrap_entry_t type,
 	} else {
 		if ((utrap_handler_t)current_thread_info()->utraps[type] != new_p &&
 		    current_thread_info()->utraps[0] > 1) {
-			long *p = current_thread_info()->utraps;
+			unsigned long *p = current_thread_info()->utraps;
 
 			current_thread_info()->utraps =
 				kmalloc((UT_TRAP_INSTRUCTION_31+1)*sizeof(long),
@@ -833,7 +807,8 @@ asmlinkage long sys_utrap_install(utrap_entry_t type,
 	return 0;
 }
 
-long sparc_memory_ordering(unsigned long model, struct pt_regs *regs)
+asmlinkage long sparc_memory_ordering(unsigned long model,
+				      struct pt_regs *regs)
 {
 	if (model >= 3)
 		return -EINVAL;

@@ -455,6 +455,7 @@ static void pppol2tp_recv_dequeue(struct pppol2tp_session *session)
 			       skb_queue_len(&session->reorder_q));
 			__skb_unlink(skb, &session->reorder_q);
 			kfree_skb(skb);
+			sock_put(session->sock);
 			continue;
 		}
 
@@ -1115,6 +1116,8 @@ static void pppol2tp_tunnel_closeall(struct pppol2tp_tunnel *tunnel)
 	for (hash = 0; hash < PPPOL2TP_HASH_SIZE; hash++) {
 again:
 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
+			struct sk_buff *skb;
+
 			session = hlist_entry(walk, struct pppol2tp_session, hlist);
 
 			sk = session->sock;
@@ -1143,7 +1146,10 @@ again:
 			/* Purge any queued data */
 			skb_queue_purge(&sk->sk_receive_queue);
 			skb_queue_purge(&sk->sk_write_queue);
-			skb_queue_purge(&session->reorder_q);
+			while ((skb = skb_dequeue(&session->reorder_q))) {
+				kfree_skb(skb);
+				sock_put(sk);
+			}
 
 			release_sock(sk);
 			sock_put(sk);
@@ -2294,10 +2300,12 @@ static void pppol2tp_seq_tunnel_show(struct seq_file *m, void *v)
 		   atomic_read(&tunnel->ref_count) - 1);
 	seq_printf(m, " %08x %llu/%llu/%llu %llu/%llu/%llu\n",
 		   tunnel->debug,
-		   tunnel->stats.tx_packets, tunnel->stats.tx_bytes,
-		   tunnel->stats.tx_errors,
-		   tunnel->stats.rx_packets, tunnel->stats.rx_bytes,
-		   tunnel->stats.rx_errors);
+		   (unsigned long long)tunnel->stats.tx_packets,
+		   (unsigned long long)tunnel->stats.tx_bytes,
+		   (unsigned long long)tunnel->stats.tx_errors,
+		   (unsigned long long)tunnel->stats.rx_packets,
+		   (unsigned long long)tunnel->stats.rx_bytes,
+		   (unsigned long long)tunnel->stats.rx_errors);
 }
 
 static void pppol2tp_seq_session_show(struct seq_file *m, void *v)
@@ -2325,12 +2333,12 @@ static void pppol2tp_seq_session_show(struct seq_file *m, void *v)
 		   jiffies_to_msecs(session->reorder_timeout));
 	seq_printf(m, "   %hu/%hu %llu/%llu/%llu %llu/%llu/%llu\n",
 		   session->nr, session->ns,
-		   session->stats.tx_packets,
-		   session->stats.tx_bytes,
-		   session->stats.tx_errors,
-		   session->stats.rx_packets,
-		   session->stats.rx_bytes,
-		   session->stats.rx_errors);
+		   (unsigned long long)session->stats.tx_packets,
+		   (unsigned long long)session->stats.tx_bytes,
+		   (unsigned long long)session->stats.tx_errors,
+		   (unsigned long long)session->stats.rx_packets,
+		   (unsigned long long)session->stats.rx_bytes,
+		   (unsigned long long)session->stats.rx_errors);
 }
 
 static int pppol2tp_seq_show(struct seq_file *m, void *v)
@@ -2473,9 +2481,10 @@ static int __init pppol2tp_init(void)
 
 out:
 	return err;
-
+#ifdef CONFIG_PROC_FS
 out_unregister_pppox_proto:
 	unregister_pppox_proto(PX_PROTO_OL2TP);
+#endif
 out_unregister_pppol2tp_proto:
 	proto_unregister(&pppol2tp_sk_proto);
 	goto out;
@@ -2494,7 +2503,7 @@ static void __exit pppol2tp_exit(void)
 module_init(pppol2tp_init);
 module_exit(pppol2tp_exit);
 
-MODULE_AUTHOR("Martijn van Oosterhout <kleptog@svana.org>,"
+MODULE_AUTHOR("Martijn van Oosterhout <kleptog@svana.org>, "
 	      "James Chapman <jchapman@katalix.com>");
 MODULE_DESCRIPTION("PPP over L2TP over UDP");
 MODULE_LICENSE("GPL");

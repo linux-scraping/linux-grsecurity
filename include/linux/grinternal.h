@@ -81,32 +81,32 @@ extern spinlock_t grsec_audit_lock;
 extern rwlock_t grsec_exec_file_lock;
 
 #define gr_task_fullpath(tsk) (tsk->exec_file ? \
-			gr_to_filename2(tsk->exec_file->f_dentry, \
+			gr_to_filename2(tsk->exec_file->f_path.dentry, \
 			tsk->exec_file->f_vfsmnt) : "/")
 
 #define gr_parent_task_fullpath(tsk) (tsk->parent->exec_file ? \
-			gr_to_filename3(tsk->parent->exec_file->f_dentry, \
+			gr_to_filename3(tsk->parent->exec_file->f_path.dentry, \
 			tsk->parent->exec_file->f_vfsmnt) : "/")
 
 #define gr_task_fullpath0(tsk) (tsk->exec_file ? \
-			gr_to_filename(tsk->exec_file->f_dentry, \
+			gr_to_filename(tsk->exec_file->f_path.dentry, \
 			tsk->exec_file->f_vfsmnt) : "/")
 
 #define gr_parent_task_fullpath0(tsk) (tsk->parent->exec_file ? \
-			gr_to_filename1(tsk->parent->exec_file->f_dentry, \
+			gr_to_filename1(tsk->parent->exec_file->f_path.dentry, \
 			tsk->parent->exec_file->f_vfsmnt) : "/")
 
 #define proc_is_chrooted(tsk_a)  ((tsk_a->pid > 1) && (tsk_a->fs != NULL) && \
-			  ((tsk_a->fs->root->d_inode->i_sb->s_dev != \
-			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root->d_inode->i_sb->s_dev) || \
-			  (tsk_a->fs->root->d_inode->i_ino != \
-			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root->d_inode->i_ino)))
+			  ((tsk_a->fs->root.dentry->d_inode->i_sb->s_dev != \
+			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_sb->s_dev) || \
+			  (tsk_a->fs->root.dentry->d_inode->i_ino != \
+			  tsk_a->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_ino)))
 
 #define have_same_root(tsk_a,tsk_b) ((tsk_a->fs != NULL) && (tsk_b->fs != NULL) && \
-			  (tsk_a->fs->root->d_inode->i_sb->s_dev == \
-			  tsk_b->fs->root->d_inode->i_sb->s_dev) && \
-			  (tsk_a->fs->root->d_inode->i_ino == \
-			  tsk_b->fs->root->d_inode->i_ino))
+			  (tsk_a->fs->root.dentry->d_inode->i_sb->s_dev == \
+			  tsk_b->fs->root.dentry->d_inode->i_sb->s_dev) && \
+			  (tsk_a->fs->root.dentry->d_inode->i_ino == \
+			  tsk_b->fs->root.dentry->d_inode->i_ino))
 
 #define DEFAULTSECARGS(task) gr_task_fullpath(task), task->comm, \
 		       task->pid, task->uid, \
@@ -116,13 +116,13 @@ extern rwlock_t grsec_exec_file_lock;
 		       task->parent->uid, task->parent->euid, \
 		       task->parent->gid, task->parent->egid
 
-#define GR_CHROOT_CAPS ( \
+#define GR_CHROOT_CAPS {{ \
 	CAP_TO_MASK(CAP_LINUX_IMMUTABLE) | CAP_TO_MASK(CAP_NET_ADMIN) | \
 	CAP_TO_MASK(CAP_SYS_MODULE) | CAP_TO_MASK(CAP_SYS_RAWIO) | \
 	CAP_TO_MASK(CAP_SYS_PACCT) | CAP_TO_MASK(CAP_SYS_ADMIN) | \
 	CAP_TO_MASK(CAP_SYS_BOOT) | CAP_TO_MASK(CAP_SYS_TIME) | \
 	CAP_TO_MASK(CAP_NET_RAW) | CAP_TO_MASK(CAP_SYS_TTY_CONFIG) | \
-	CAP_TO_MASK(CAP_IPC_OWNER))
+	CAP_TO_MASK(CAP_IPC_OWNER) , 0 }}
 
 #define security_learn(normal_msg,args...) \
 ({ \

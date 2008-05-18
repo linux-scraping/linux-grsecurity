@@ -226,16 +226,16 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			unsigned long addr = b | 0xFC000000UL;
 
 			addr = regs->nip + 12 + ((addr ^ 0x02000000UL) + 0x02000000UL);
-			err = get_user(addis, (unsigned int*)addr);
-			err |= get_user(addi, (unsigned int*)(addr+4));
-			err |= get_user(rlwinm, (unsigned int*)(addr+8));
-			err |= get_user(add, (unsigned int*)(addr+12));
-			err |= get_user(li2, (unsigned int*)(addr+16));
-			err |= get_user(addis2, (unsigned int*)(addr+20));
-			err |= get_user(mtctr, (unsigned int*)(addr+24));
-			err |= get_user(li3, (unsigned int*)(addr+28));
-			err |= get_user(addis3, (unsigned int*)(addr+32));
-			err |= get_user(bctr, (unsigned int*)(addr+36));
+			err = get_user(addis, (unsigned int *)addr);
+			err |= get_user(addi, (unsigned int *)(addr+4));
+			err |= get_user(rlwinm, (unsigned int *)(addr+8));
+			err |= get_user(add, (unsigned int *)(addr+12));
+			err |= get_user(li2, (unsigned int *)(addr+16));
+			err |= get_user(addis2, (unsigned int *)(addr+20));
+			err |= get_user(mtctr, (unsigned int *)(addr+24));
+			err |= get_user(li3, (unsigned int *)(addr+28));
+			err |= get_user(addis3, (unsigned int *)(addr+32));
+			err |= get_user(bctr, (unsigned int *)(addr+36));
 
 			if (err)
 				break;
@@ -251,7 +251,6 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			    (addis3 & 0xFFFF0000U) == 0x3D8C0000U &&
 			    bctr == 0x4E800420U)
 			{
-				regs->gpr[PT_R11] = 
 				regs->gpr[PT_R11] = 3 * (((li | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
 				regs->gpr[PT_R12] = (((li3 | 0xFFFF0000UL) ^ 0x00008000UL) + 0x00008000UL);
 				regs->gpr[PT_R12] += (addis3 & 0xFFFFU) << 16;
@@ -329,14 +328,16 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			if (current->mm->call_syscall) {
 				call_syscall = current->mm->call_syscall;
 				up_write(&current->mm->mmap_sem);
-				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				if (vma)
+					kmem_cache_free(vm_area_cachep, vma);
 				goto emulate;
 			}
 
 			call_syscall = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
 			if (!vma || (call_syscall & ~PAGE_MASK)) {
 				up_write(&current->mm->mmap_sem);
-				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				if (vma)
+					kmem_cache_free(vm_area_cachep, vma);
 				return 1;
 			}
 
@@ -378,14 +379,16 @@ emulate:
 			if (current->mm->call_syscall) {
 				call_syscall = current->mm->call_syscall;
 				up_write(&current->mm->mmap_sem);
-				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				if (vma)
+					kmem_cache_free(vm_area_cachep, vma);
 				goto rt_emulate;
 			}
 
 			call_syscall = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
 			if (!vma || (call_syscall & ~PAGE_MASK)) {
 				up_write(&current->mm->mmap_sem);
-				if (vma) kmem_cache_free(vm_area_cachep, vma);
+				if (vma)
+					kmem_cache_free(vm_area_cachep, vma);
 				return 1;
 			}
 
@@ -417,9 +420,9 @@ void pax_report_insns(void *pc, void *sp)
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
 		if (get_user(c, (unsigned int *)pc+i))
-			printk("???????? ");
+			printk(KERN_CONT "???????? ");
 		else
-			printk("%08x ", c);
+			printk(KERN_CONT "%08x ", c);
 	}
 	printk("\n");
 }
@@ -530,10 +533,8 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 	if (notify_page_fault(regs))
 		return 0;
 
-	if (trap == 0x300) {
-		if (debugger_fault_handler(regs))
-			return 0;
-	}
+	if (unlikely(debugger_fault_handler(regs)))
+		return 0;
 
 	/* On a kernel SLB miss we can only check for a valid exception entry */
 	if (!user_mode(regs) && (address >= TASK_SIZE))
@@ -552,7 +553,7 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 			return SIGSEGV;
 		/* in_atomic() in user mode is really bad,
 		   as is current->mm == NULL. */
-		printk(KERN_EMERG "Page fault in user mode with"
+		printk(KERN_EMERG "Page fault in user mode with "
 		       "in_atomic() = %d mm = %p\n", in_atomic(), mm);
 		printk(KERN_EMERG "NIP = %lx  MSR = %lx\n",
 		       regs->nip, regs->msr);
@@ -745,7 +746,7 @@ bad_area_nosemaphore:
 
 				}
 
-				pax_report_fault(regs, (void*)regs->nip, (void*)regs->gpr[PT_R1]);
+				pax_report_fault(regs, (void *)regs->nip, (void *)regs->gpr[PT_R1]);
 				do_group_exit(SIGKILL);
 			}
 		}

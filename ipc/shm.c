@@ -38,6 +38,7 @@
 #include <linux/rwsem.h>
 #include <linux/nsproxy.h>
 #include <linux/mount.h>
+#include <linux/ipc_namespace.h>
 #include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
@@ -56,9 +57,7 @@ struct shm_file_data {
 static const struct file_operations shm_file_operations;
 static struct vm_operations_struct shm_vm_ops;
 
-static struct ipc_ids init_shm_ids;
-
-#define shm_ids(ns)	(*((ns)->ids[IPC_SHM_IDS]))
+#define shm_ids(ns)	((ns)->ids[IPC_SHM_IDS])
 
 #define shm_unlock(shp)			\
 	ipc_unlock(&(shp)->shm_perm)
@@ -80,22 +79,24 @@ extern int gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 			   const time_t shm_createtime);
 #endif
 
-static void __shm_init_ns(struct ipc_namespace *ns, struct ipc_ids *ids)
+void shm_init_ns(struct ipc_namespace *ns)
 {
-	ns->ids[IPC_SHM_IDS] = ids;
 	ns->shm_ctlmax = SHMMAX;
 	ns->shm_ctlall = SHMALL;
 	ns->shm_ctlmni = SHMMNI;
 	ns->shm_tot = 0;
-	ipc_init_ids(ids);
+	ipc_init_ids(&ns->ids[IPC_SHM_IDS]);
 }
 
 /*
  * Called with shm_ids.rw_mutex (writer) and the shp structure locked.
  * Only shm_ids.rw_mutex remains locked on exit.
  */
-static void do_shm_rmid(struct ipc_namespace *ns, struct shmid_kernel *shp)
+static void do_shm_rmid(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp)
 {
+	struct shmid_kernel *shp;
+	shp = container_of(ipcp, struct shmid_kernel, shm_perm);
+
 	gr_log_shmrm(shp->shm_perm.uid, shp->shm_perm.cuid);
 
 	if (shp->shm_nattch){
@@ -107,45 +108,16 @@ static void do_shm_rmid(struct ipc_namespace *ns, struct shmid_kernel *shp)
 		shm_destroy(ns, shp);
 }
 
-int shm_init_ns(struct ipc_namespace *ns)
-{
-	struct ipc_ids *ids;
-
-	ids = kmalloc(sizeof(struct ipc_ids), GFP_KERNEL);
-	if (ids == NULL)
-		return -ENOMEM;
-
-	__shm_init_ns(ns, ids);
-	return 0;
-}
-
+#ifdef CONFIG_IPC_NS
 void shm_exit_ns(struct ipc_namespace *ns)
 {
-	struct shmid_kernel *shp;
-	int next_id;
-	int total, in_use;
-
-	down_write(&shm_ids(ns).rw_mutex);
-
-	in_use = shm_ids(ns).in_use;
-
-	for (total = 0, next_id = 0; total < in_use; next_id++) {
-		shp = idr_find(&shm_ids(ns).ipcs_idr, next_id);
-		if (shp == NULL)
-			continue;
-		ipc_lock_by_ptr(&shp->shm_perm);
-		do_shm_rmid(ns, shp);
-		total++;
-	}
-	up_write(&shm_ids(ns).rw_mutex);
-
-	kfree(ns->ids[IPC_SHM_IDS]);
-	ns->ids[IPC_SHM_IDS] = NULL;
+	free_ipcs(ns, &shm_ids(ns), do_shm_rmid);
 }
+#endif
 
 void __init shm_init (void)
 {
-	__shm_init_ns(&init_ipc_ns, &init_shm_ids);
+	shm_init_ns(&init_ipc_ns);
 	ipc_init_proc_interface("sysvipc/shm",
 				"       key      shmid perms       size  cpid  lpid nattch   uid   gid  cuid  cgid      atime      dtime      ctime\n",
 				IPC_SHM_IDS, sysvipc_shm_proc_show);
@@ -160,6 +132,9 @@ static inline struct shmid_kernel *shm_lock_down(struct ipc_namespace *ns,
 {
 	struct kern_ipc_perm *ipcp = ipc_lock_down(&shm_ids(ns), id);
 
+	if (IS_ERR(ipcp))
+		return (struct shmid_kernel *)ipcp;
+
 	return container_of(ipcp, struct shmid_kernel, shm_perm);
 }
 
@@ -168,6 +143,9 @@ static inline struct shmid_kernel *shm_lock_check_down(
 						int id)
 {
 	struct kern_ipc_perm *ipcp = ipc_lock_check_down(&shm_ids(ns), id);
+
+	if (IS_ERR(ipcp))
+		return (struct shmid_kernel *)ipcp;
 
 	return container_of(ipcp, struct shmid_kernel, shm_perm);
 }
@@ -180,6 +158,9 @@ static inline struct shmid_kernel *shm_lock(struct ipc_namespace *ns, int id)
 {
 	struct kern_ipc_perm *ipcp = ipc_lock(&shm_ids(ns), id);
 
+	if (IS_ERR(ipcp))
+		return (struct shmid_kernel *)ipcp;
+
 	return container_of(ipcp, struct shmid_kernel, shm_perm);
 }
 
@@ -187,6 +168,9 @@ static inline struct shmid_kernel *shm_lock_check(struct ipc_namespace *ns,
 						int id)
 {
 	struct kern_ipc_perm *ipcp = ipc_lock_check(&shm_ids(ns), id);
+
+	if (IS_ERR(ipcp))
+		return (struct shmid_kernel *)ipcp;
 
 	return container_of(ipcp, struct shmid_kernel, shm_perm);
 }
@@ -298,9 +282,10 @@ static struct mempolicy *shm_get_policy(struct vm_area_struct *vma,
 
 	if (sfd->vm_ops->get_policy)
 		pol = sfd->vm_ops->get_policy(vma, addr);
-	else if (vma->vm_policy)
+	else if (vma->vm_policy) {
 		pol = vma->vm_policy;
-	else
+		mpol_get(pol);	/* get_vma_policy() expects this */
+	} else
 		pol = current->mempolicy;
 	return pol;
 }
@@ -857,7 +842,7 @@ asmlinkage long sys_shmctl (int shmid, int cmd, struct shmid_ds __user *buf)
 		if (err)
 			goto out_unlock_up;
 
-		do_shm_rmid(ns, shp);
+		do_shm_rmid(ns, &shp->shm_perm);
 		up_write(&shm_ids(ns).rw_mutex);
 		goto out;
 	}

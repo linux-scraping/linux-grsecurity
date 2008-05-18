@@ -37,7 +37,7 @@ int gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt);
 int gr_handle_chroot_chroot(const struct dentry *dentry,
 				   const struct vfsmount *mnt);
 void gr_handle_chroot_caps(struct task_struct *task);
-void gr_handle_chroot_chdir(struct dentry *dentry, struct vfsmount *mnt);
+void gr_handle_chroot_chdir(struct path *path);
 int gr_handle_chroot_chmod(const struct dentry *dentry,
 				  const struct vfsmount *mnt, const int mode);
 int gr_handle_chroot_mknod(const struct dentry *dentry,

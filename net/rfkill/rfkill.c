@@ -92,7 +92,7 @@ void rfkill_switch_all(enum rfkill_type type, enum rfkill_state state)
 	rfkill_states[type] = state;
 
 	list_for_each_entry(rfkill, &rfkill_list, node) {
-		if (!rfkill->user_claim)
+		if ((!rfkill->user_claim) && (rfkill->type == type))
 			rfkill_toggle_radio(rfkill, state);
 	}
 
@@ -125,6 +125,9 @@ static ssize_t rfkill_type_show(struct device *dev,
 		break;
 	case RFKILL_TYPE_UWB:
 		type = "ultrawideband";
+		break;
+	case RFKILL_TYPE_WIMAX:
+		type = "wimax";
 		break;
 	default:
 		BUG();
@@ -229,7 +232,7 @@ static int rfkill_suspend(struct device *dev, pm_message_t state)
 	struct rfkill *rfkill = to_rfkill(dev);
 
 	if (dev->power.power_state.event != state.event) {
-		if (state.event == PM_EVENT_SUSPEND) {
+		if (state.event & PM_EVENT_SLEEP) {
 			mutex_lock(&rfkill->mutex);
 
 			if (rfkill->state == RFKILL_STATE_ON)
@@ -337,7 +340,7 @@ EXPORT_SYMBOL(rfkill_allocate);
  * rfkill_free - Mark rfkill structure for deletion
  * @rfkill: rfkill structure to be destroyed
  *
- * Decrements reference count of rfkill structure so it is destoryed.
+ * Decrements reference count of rfkill structure so it is destroyed.
  * Note that rfkill_free() should _not_ be called after rfkill_unregister().
  */
 void rfkill_free(struct rfkill *rfkill)

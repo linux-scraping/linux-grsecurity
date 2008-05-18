@@ -58,7 +58,7 @@
  * for paravirtualization.  The following will never clobber any registers:
  *   INTERRUPT_RETURN (aka. "iret")
  *   GET_CR0_INTO_EAX (aka. "movl %cr0, %eax")
- *   ENABLE_INTERRUPTS_SYSEXIT (aka "sti; sysexit").
+ *   ENABLE_INTERRUPTS_SYSCALL_RET (aka "sti; sysexit").
  *
  * For DISABLE_INTERRUPTS/ENABLE_INTERRUPTS (aka "cli"/"sti"), you must
  * specify what registers can be overwritten (CLBR_NONE, CLBR_EAX/EDX/ECX/ANY).
@@ -307,12 +307,12 @@ END(resume_kernel)
    the vsyscall page.  See vsyscall-sysentry.S, which defines the symbol.  */
 
 	# sysenter call handler stub
-ENTRY(sysenter_entry)
+ENTRY(ia32_sysenter_target)
 	CFI_STARTPROC simple
 	CFI_SIGNAL_FRAME
 	CFI_DEF_CFA esp, 0
 	CFI_REGISTER esp, ebp
-	movl TSS_sysenter_esp0(%esp),%esp
+	movl TSS_sysenter_sp0(%esp),%esp
 sysenter_past_esp:
 	/*
 	 * No need to follow this irqs on/off section: the syscall
@@ -393,22 +393,22 @@ sysenter_past_esp:
 1:	mov  PT_FS(%esp), %fs
 2:	mov  PT_DS(%esp), %ds
 3:	mov  PT_ES(%esp), %es
-	ENABLE_INTERRUPTS_SYSEXIT
+	ENABLE_INTERRUPTS_SYSCALL_RET
 	CFI_ENDPROC
 .pushsection .fixup,"ax"
 4:	movl $0,PT_FS(%esp)
 	jmp 1b
 5:	movl $0,PT_DS(%esp)
-	jmp 2b
+	jmp 1b
 6:	movl $0,PT_ES(%esp)
-	jmp 3b
+	jmp 1b
 .section __ex_table,"a"
 	.align 4
 	.long 1b,4b
 	.long 2b,5b
 	.long 3b,6b
 .popsection
-ENDPROC(sysenter_entry)
+ENDPROC(ia32_sysenter_target)
 
 	# system call handler stub
 ENTRY(system_call)
@@ -461,7 +461,8 @@ restore_nocheck_notrace:
 	RESTORE_REGS
 	addl $4, %esp			# skip orig_eax/error_code
 	CFI_ADJUST_CFA_OFFSET -4
-1:	INTERRUPT_RETURN
+irq_return:
+	INTERRUPT_RETURN
 .section .fixup,"ax"
 iret_exc:
 	pushl $0			# no error code
@@ -470,7 +471,7 @@ iret_exc:
 .previous
 .section __ex_table,"a"
 	.align 4
-	.long 1b,iret_exc
+	.long irq_return,iret_exc
 .previous
 
 	CFI_RESTORE_STATE
@@ -811,7 +812,7 @@ END(device_not_available)
  * that sets up the real kernel stack. Check here, since we can't
  * allow the wrong stack to be used.
  *
- * "TSS_sysenter_esp0+12" is because the NMI/debug handler will have
+ * "TSS_sysenter_sp0+12" is because the NMI/debug handler will have
  * already pushed 3 words if it hits on the sysenter instruction:
  * eflags, cs and eip.
  *
@@ -823,7 +824,7 @@ END(device_not_available)
 	cmpw $__KERNEL_CS,4(%esp);		\
 	jne ok;					\
 label:						\
-	movl TSS_sysenter_esp0+offset(%esp),%esp;	\
+	movl TSS_sysenter_sp0+offset(%esp),%esp;	\
 	CFI_DEF_CFA esp, 0;			\
 	CFI_UNDEFINED eip;			\
 	pushfl;					\
@@ -836,7 +837,7 @@ label:						\
 
 KPROBE_ENTRY(debug)
 	RING0_INT_FRAME
-	cmpl $sysenter_entry,(%esp)
+	cmpl $ia32_sysenter_target,(%esp)
 	jne debug_stack_correct
 	FIX_STACK(12, debug_stack_correct, debug_esp_fix_insn)
 debug_stack_correct:
@@ -867,7 +868,7 @@ KPROBE_ENTRY(nmi)
 	popl %eax
 	CFI_ADJUST_CFA_OFFSET -4
 	je nmi_espfix_stack
-	cmpl $sysenter_entry,(%esp)
+	cmpl $ia32_sysenter_target,(%esp)
 	je nmi_stack_fixup
 	pushl %eax
 	CFI_ADJUST_CFA_OFFSET 4
@@ -880,7 +881,7 @@ KPROBE_ENTRY(nmi)
 	popl %eax
 	CFI_ADJUST_CFA_OFFSET -4
 	jae nmi_stack_correct
-	cmpl $sysenter_entry,12(%esp)
+	cmpl $ia32_sysenter_target,12(%esp)
 	je nmi_debug_stack_check
 nmi_stack_correct:
 	/* We have a RING0_INT_FRAME here */
@@ -947,27 +948,23 @@ nmi_espfix_stack:
 	RESTORE_REGS
 	lss 12+4(%esp), %esp		# back to espfix stack
 	CFI_ADJUST_CFA_OFFSET -24
-1:	INTERRUPT_RETURN
+	jmp irq_return
 	CFI_ENDPROC
-.section __ex_table,"a"
-	.align 4
-	.long 1b,iret_exc
-.previous
 KPROBE_END(nmi)
 
 #ifdef CONFIG_PARAVIRT
 ENTRY(native_iret)
-1:	iret
+	iret
 .section __ex_table,"a"
 	.align 4
-	.long 1b,iret_exc
+	.long native_iret, iret_exc
 .previous
 END(native_iret)
 
-ENTRY(native_irq_enable_sysexit)
+ENTRY(native_irq_enable_syscall_ret)
 	sti
 	sysexit
-END(native_irq_enable_sysexit)
+END(native_irq_enable_syscall_ret)
 #endif
 
 KPROBE_ENTRY(int3)

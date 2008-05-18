@@ -254,8 +254,8 @@ gr_check_crash_exec(const struct file *filp)
 		return 0;
 
 	read_lock(&gr_inode_lock);
-	curr = lookup_acl_subj_label(filp->f_dentry->d_inode->i_ino,
-				     filp->f_dentry->d_inode->i_sb->s_dev,
+	curr = lookup_acl_subj_label(filp->f_path.dentry->d_inode->i_ino,
+				     filp->f_path.dentry->d_inode->i_sb->s_dev,
 				     current->role);
 	read_unlock(&gr_inode_lock);
 

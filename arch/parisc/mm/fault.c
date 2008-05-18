@@ -243,9 +243,9 @@ void pax_report_insns(void *pc, void *sp)
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
 		if (get_user(c, (unsigned int *)pc+i))
-			printk("???????? ");
+			printk(KERN_CONT "???????? ");
 		else
-			printk("%08x ", c);
+			printk(KERN_CONT "%08x ", c);
 	}
 	printk("\n");
 }

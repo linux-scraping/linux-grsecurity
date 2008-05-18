@@ -12,7 +12,6 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/types.h>
-#include <linux/capability.h>
 #include <linux/sysctl.h>
 #include <linux/netdevice.h>
 #include <linux/ptrace.h>
@@ -264,8 +263,8 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 
 	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
 	read_lock(&reaper->fs->lock);
-	root = dget(reaper->fs->root);
-	rootmnt = mntget(reaper->fs->rootmnt);
+	root = dget(reaper->fs->root.dentry);
+	rootmnt = mntget(reaper->fs->root.mnt);
 	read_unlock(&reaper->fs->lock);
 
 	spin_lock(&dcache_lock);
@@ -756,8 +755,8 @@ init_variables(const struct gr_arg *arg)
 
 	/* grab reference for the real root dentry and vfsmount */
 	read_lock(&reaper->fs->lock);
-	real_root_mnt = mntget(reaper->fs->rootmnt);
-	real_root = dget(reaper->fs->root);
+	real_root_mnt = mntget(reaper->fs->root.mnt);
+	real_root = dget(reaper->fs->root.dentry);
 	read_unlock(&reaper->fs->lock);
 	
 	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
@@ -1862,8 +1861,8 @@ static void
 gr_log_learn(const struct task_struct *task, const struct dentry *dentry, const struct vfsmount *mnt, const __u32 mode)
 {
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_dentry,
-		       task->exec_file->f_vfsmnt) : task->acl->filename, task->acl->filename,
+		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1, 1, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
 	return;
@@ -1873,8 +1872,8 @@ static void
 gr_log_learn_sysctl(const struct task_struct *task, const char *path, const __u32 mode)
 {
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_dentry,
-		       task->exec_file->f_vfsmnt) : task->acl->filename, task->acl->filename,
+		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1, 1, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
 	return;
@@ -1885,8 +1884,8 @@ gr_log_learn_id_change(const struct task_struct *task, const char type, const un
 		       const unsigned int effective, const unsigned int fs)
 {
 	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_dentry,
-		       task->exec_file->f_vfsmnt) : task->acl->filename, task->acl->filename,
+		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       type, real, effective, fs, NIPQUAD(task->signal->curr_ip));
 
 	return;
@@ -2270,7 +2269,7 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 	/* perform subject lookup in possibly new role
 	   we can use this result below in the case where role == task->role
 	*/
-	subj = chk_subj_label(filp->f_dentry, filp->f_vfsmnt, role);
+	subj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, role);
 
 	/* if we changed uid/gid, but result in the same role
 	   and are using inheritance, don't lose the inherited subject
@@ -2288,10 +2287,10 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 
 	/* ignore additional mmap checks for processes that are writable 
 	   by the default ACL */
-	obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, default_role->root_label);
+	obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
 	if (unlikely(obj->mode & GR_WRITE))
 		task->is_writable = 1;
-	obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, task->role->root_label);
+	obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, task->role->root_label);
 	if (unlikely(obj->mode & GR_WRITE))
 		task->is_writable = 1;
 
@@ -2723,14 +2722,14 @@ assign_special_role(char *rolename)
 	tsk->acl_sp_role = 1;
 	tsk->acl_role_id = ++acl_sp_role_value;
 	tsk->role = assigned;
-	tsk->acl = chk_subj_label(filp->f_dentry, filp->f_vfsmnt, tsk->role);
+	tsk->acl = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, tsk->role);
 
 	/* ignore additional mmap checks for processes that are writable 
 	   by the default ACL */
-	obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, default_role->root_label);
+	obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
 	if (unlikely(obj->mode & GR_WRITE))
 		tsk->is_writable = 1;
-	obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, tsk->role->root_label);
+	obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, tsk->role->root_label);
 	if (unlikely(obj->mode & GR_WRITE))
 		tsk->is_writable = 1;
 
@@ -2786,8 +2785,8 @@ int gr_check_secure_terminal(struct task_struct *task)
 		fdt = files_fdtable(files);
 		for (i=0; i < fdt->max_fds; i++) {
 			file = fcheck_files(files, i);
-			if (file && S_ISCHR(file->f_dentry->d_inode->i_mode) &&
-			    file->f_dentry->d_inode->i_rdev == our_file->f_dentry->d_inode->i_rdev) {
+			if (file && S_ISCHR(file->f_path.dentry->d_inode->i_mode) &&
+			    file->f_path.dentry->d_inode->i_rdev == our_file->f_path.dentry->d_inode->i_rdev) {
 				p3 = task;
 				while (p3->pid > 0) {
 					if (p3 == p)
@@ -3081,7 +3080,7 @@ gr_set_acls(const int type)
 			task->role = lookup_acl_role_label(task, task->uid, task->gid);
 
 			task->acl =
-			    chk_subj_label(filp->f_dentry, filp->f_vfsmnt,
+			    chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
 					   task->role);
 			if (task->acl) {
 				struct acl_subject_label *curr;
@@ -3090,10 +3089,10 @@ gr_set_acls(const int type)
 				task->is_writable = 0;
 				/* ignore additional mmap checks for processes that are writable 
 				   by the default ACL */
-				obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, default_role->root_label);
+				obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
 				if (unlikely(obj->mode & GR_WRITE))
 					task->is_writable = 1;
-				obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, task->role->root_label);
+				obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, task->role->root_label);
 				if (unlikely(obj->mode & GR_WRITE))
 					task->is_writable = 1;
 
@@ -3437,7 +3436,7 @@ gr_handle_proc_ptrace(struct task_struct *task)
 		return 1;
 	}
 
-	retmode = gr_search_file(filp->f_dentry, GR_NOPTRACE, filp->f_vfsmnt);
+	retmode = gr_search_file(filp->f_path.dentry, GR_NOPTRACE, filp->f_path.mnt);
 	read_unlock(&grsec_exec_file_lock);
 	read_unlock(&tasklist_lock);
 
@@ -3482,7 +3481,7 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 		return 0;
 	}
 
-	retmode = gr_search_file(task->exec_file->f_dentry, GR_PTRACERD | GR_NOPTRACE, task->exec_file->f_vfsmnt);
+	retmode = gr_search_file(task->exec_file->f_path.dentry, GR_PTRACERD | GR_NOPTRACE, task->exec_file->f_path.mnt);
 	read_unlock(&grsec_exec_file_lock);
 
 	if (retmode & GR_NOPTRACE) {
@@ -3525,12 +3524,12 @@ static int is_writable_mmap(const struct file *filp)
 	struct acl_object_label *obj, *obj2;
 
 	if (gr_status & GR_READY && !(task->acl->mode & GR_OVERRIDE) &&
-	    !task->is_writable && S_ISREG(filp->f_dentry->d_inode->i_mode)) {
-		obj = chk_obj_label(filp->f_dentry, filp->f_vfsmnt, default_role->root_label);
-		obj2 = chk_obj_label(filp->f_dentry, filp->f_vfsmnt,
+	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode)) {
+		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
+		obj2 = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt,
 				     task->role->root_label);
 		if (unlikely((obj->mode & GR_WRITE) || (obj2->mode & GR_WRITE))) {
-			gr_log_fs_generic(GR_DONT_AUDIT, GR_WRITLIB_ACL_MSG, filp->f_dentry, filp->f_vfsmnt);
+			gr_log_fs_generic(GR_DONT_AUDIT, GR_WRITLIB_ACL_MSG, filp->f_path.dentry, filp->f_path.mnt);
 			return 1;
 		}
 	}
@@ -3549,20 +3548,20 @@ gr_acl_handle_mmap(const struct file *file, const unsigned long prot)
 		return 0;
 
 	mode =
-	    gr_search_file(file->f_dentry,
+	    gr_search_file(file->f_path.dentry,
 			   GR_EXEC | GR_AUDIT_EXEC | GR_SUPPRESS,
-			   file->f_vfsmnt);
+			   file->f_path.mnt);
 
 	if (!gr_tpe_allow(file))
 		return 0;
 
 	if (unlikely(!(mode & GR_EXEC) && !(mode & GR_SUPPRESS))) {
-		gr_log_fs_rbac_generic(GR_DONT_AUDIT, GR_MMAP_ACL_MSG, file->f_dentry, file->f_vfsmnt);
+		gr_log_fs_rbac_generic(GR_DONT_AUDIT, GR_MMAP_ACL_MSG, file->f_path.dentry, file->f_path.mnt);
 		return 0;
 	} else if (unlikely(!(mode & GR_EXEC))) {
 		return 0;
 	} else if (unlikely(mode & GR_EXEC && mode & GR_AUDIT_EXEC)) {
-		gr_log_fs_rbac_generic(GR_DO_AUDIT, GR_MMAP_ACL_MSG, file->f_dentry, file->f_vfsmnt);
+		gr_log_fs_rbac_generic(GR_DO_AUDIT, GR_MMAP_ACL_MSG, file->f_path.dentry, file->f_path.mnt);
 		return 1;
 	}
 
@@ -3581,20 +3580,20 @@ gr_acl_handle_mprotect(const struct file *file, const unsigned long prot)
 		return 0;
 
 	mode =
-	    gr_search_file(file->f_dentry,
+	    gr_search_file(file->f_path.dentry,
 			   GR_EXEC | GR_AUDIT_EXEC | GR_SUPPRESS,
-			   file->f_vfsmnt);
+			   file->f_path.mnt);
 
 	if (!gr_tpe_allow(file))
 		return 0;
 
 	if (unlikely(!(mode & GR_EXEC) && !(mode & GR_SUPPRESS))) {
-		gr_log_fs_rbac_generic(GR_DONT_AUDIT, GR_MPROTECT_ACL_MSG, file->f_dentry, file->f_vfsmnt);
+		gr_log_fs_rbac_generic(GR_DONT_AUDIT, GR_MPROTECT_ACL_MSG, file->f_path.dentry, file->f_path.mnt);
 		return 0;
 	} else if (unlikely(!(mode & GR_EXEC))) {
 		return 0;
 	} else if (unlikely(mode & GR_EXEC && mode & GR_AUDIT_EXEC)) {
-		gr_log_fs_rbac_generic(GR_DO_AUDIT, GR_MPROTECT_ACL_MSG, file->f_dentry, file->f_vfsmnt);
+		gr_log_fs_rbac_generic(GR_DO_AUDIT, GR_MPROTECT_ACL_MSG, file->f_path.dentry, file->f_path.mnt);
 		return 1;
 	}
 
@@ -3652,8 +3651,8 @@ void gr_set_kernel_label(struct task_struct *task)
 int gr_acl_handle_filldir(const struct file *file, const char *name, const unsigned int namelen, const ino_t ino)
 {
 	struct task_struct *task = current;
-	struct dentry *dentry = file->f_dentry;
-	struct vfsmount *mnt = file->f_vfsmnt;
+	struct dentry *dentry = file->f_path.dentry;
+	struct vfsmount *mnt = file->f_path.mnt;
 	struct acl_object_label *obj, *tmp;
 	struct acl_subject_label *subj;
 	unsigned int bufsize;

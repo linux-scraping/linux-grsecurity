@@ -1224,23 +1224,6 @@ sys_nis_syscall:
 	call	c_sys_nis_syscall
 	 mov	%l5, %o7
 
-	.align 4
-	.globl	sys_ptrace
-sys_ptrace:
-	call	do_ptrace
-	 add	%sp, STACKFRAME_SZ, %o0
-
-	ld	[%curptr + TI_FLAGS], %l5
-	andcc	%l5, _TIF_SYSCALL_TRACE, %g0
-	be	1f
-	 nop
-
-	call	syscall_trace
-	 nop
-
-1:
-	RESTORE_ALL
-
 	.align	4
 	.globl	sys_execve
 sys_execve:
@@ -1415,6 +1398,8 @@ ret_from_fork:
 	.align	4
 	.globl	linux_sparc_syscall
 linux_sparc_syscall:
+	sethi	%hi(PSR_SYSCALL), %l4
+	or	%l0, %l4, %l0
 	/* Direct access to user regs, must faster. */
 	cmp	%g1, NR_SYSCALLS
 	bgeu	linux_sparc_ni_syscall

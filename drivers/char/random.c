@@ -679,8 +679,6 @@ void add_disk_randomness(struct gendisk *disk)
 	add_timer_randomness(disk->random,
 			     0x100 + MKDEV(disk->major, disk->first_minor));
 }
-
-EXPORT_SYMBOL(add_disk_randomness);
 #endif
 
 #define EXTRACT_SIZE 10
@@ -1053,6 +1051,7 @@ write_pool(struct entropy_store *r, const char __user *buffer, size_t count)
 		p += bytes;
 
 		add_entropy_words(r, buf, (bytes + 3) / 4);
+		cond_resched();
 	}
 
 	return 0;

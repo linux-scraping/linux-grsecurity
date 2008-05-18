@@ -783,6 +783,10 @@ register_lock_class(struct lockdep_map *lock, unsigned int subclass, int force)
 	 * parallel walking of the hash-list safe:
 	 */
 	list_add_tail_rcu(&class->hash_entry, hash_head);
+	/*
+	 * Add it to the global list of classes:
+	 */
+	list_add_tail_rcu(&class->lock_entry, &all_lock_classes);
 
 	if (verbose(class)) {
 		graph_unlock();
@@ -2286,10 +2290,6 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
 			return 0;
 		break;
 	case LOCK_USED:
-		/*
-		 * Add it to the global list of classes:
-		 */
-		list_add_tail_rcu(&this->class->lock_entry, &all_lock_classes);
 		debug_atomic_dec(&nr_unused_locks);
 		break;
 	default:
@@ -3210,13 +3210,23 @@ retry:
 
 EXPORT_SYMBOL_GPL(debug_show_all_locks);
 
-void debug_show_held_locks(struct task_struct *task)
+/*
+ * Careful: only use this function if you are sure that
+ * the task cannot run in parallel!
+ */
+void __debug_show_held_locks(struct task_struct *task)
 {
 	if (unlikely(!debug_locks)) {
 		printk("INFO: lockdep is turned off.\n");
 		return;
 	}
 	lockdep_print_held_locks(task);
+}
+EXPORT_SYMBOL_GPL(__debug_show_held_locks);
+
+void debug_show_held_locks(struct task_struct *task)
+{
+		__debug_show_held_locks(task);
 }
 
 EXPORT_SYMBOL_GPL(debug_show_held_locks);

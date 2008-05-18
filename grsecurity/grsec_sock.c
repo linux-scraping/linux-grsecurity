@@ -16,7 +16,7 @@ extern struct sock *udp_v4_lookup(u32 saddr, u16 sport, u32 daddr, u16 dport, in
 EXPORT_SYMBOL(udp_v4_lookup);
 #endif
 
-__u32 gr_cap_rtnetlink(struct sock *sock);
+kernel_cap_t gr_cap_rtnetlink(struct sock *sock);
 EXPORT_SYMBOL(gr_cap_rtnetlink);
 
 extern int gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb);
@@ -247,7 +247,7 @@ gr_handle_sock_client(const struct sockaddr *sck)
 	return 0;
 }
 
-__u32
+kernel_cap_t
 gr_cap_rtnetlink(struct sock *sock)
 {
 #ifdef CONFIG_GRKERNSEC
@@ -267,7 +267,7 @@ gr_cap_rtnetlink(struct sock *sock)
 		 gr_task_is_capable(current, CAP_NET_ADMIN))
 		return current->cap_effective;
 	else
-		return 0;
+		return __cap_empty_set;
 #else
 	return current->cap_effective;
 #endif

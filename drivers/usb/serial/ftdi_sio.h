@@ -98,6 +98,10 @@
 #define FTDI_MTXORB_5_PID      0xFA05  /* Matrix Orbital Product Id */
 #define FTDI_MTXORB_6_PID      0xFA06  /* Matrix Orbital Product Id */
 
+/* OOCDlink by Joern Kaipf <joernk@web.de>
+ * (http://www.joernonline.de/dw/doku.php?id=start&idx=projects:oocdlink) */
+#define FTDI_OOCDLINK_PID	0xbaf8	/* Amontec JTAGkey */
+
 /*
  * The following are the values for the Matrix Orbital VK204-25-USB
  * display, which use the FT232RL.
@@ -553,6 +557,9 @@
 #define TML_VID			0x1B91	/* Vendor ID */
 #define TML_USB_SERIAL_PID	0x0064	/* USB - Serial Converter */
 
+/* Propox devices */
+#define FTDI_PROPOX_JTAGCABLEII_PID	0xD738
+
 /* Commands */
 #define FTDI_SIO_RESET 		0 /* Reset the port */
 #define FTDI_SIO_MODEM_CTRL 	1 /* Set the modem control register */
@@ -565,6 +572,13 @@
 #define FTDI_SIO_SET_LATENCY_TIMER	9 /* Set the latency timer */
 #define FTDI_SIO_GET_LATENCY_TIMER	10 /* Get the latency timer */
 
+
+/*
+ * FIC / OpenMoko, Inc. http://wiki.openmoko.org/wiki/Neo1973_Debug_Board_v3
+ * Submitted by Harald Welte <laforge@openmoko.org>
+ */
+#define	FIC_VID			0x1457
+#define	FIC_NEO1973_DEBUG_PID	0x5118
 
 /*
  *   BmRequestType:  1100 0000b

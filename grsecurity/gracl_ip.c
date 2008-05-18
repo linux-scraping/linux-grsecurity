@@ -104,8 +104,8 @@ gr_search_socket(const int domain, const int type, const int protocol)
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
 				       current->role->roletype, current->uid,
 				       current->gid, current->exec_file ?
-				       gr_to_filename(current->exec_file->f_dentry,
-				       current->exec_file->f_vfsmnt) :
+				       gr_to_filename(current->exec_file->f_path.dentry,
+				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
 				       NIPQUAD(fakeip), 0, type,
 				       protocol, GR_CONNECT, 
@@ -115,8 +115,8 @@ NIPQUAD(current->signal->curr_ip));
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
 				       current->role->roletype, current->uid,
 				       current->gid, current->exec_file ?
-				       gr_to_filename(current->exec_file->f_dentry,
-				       current->exec_file->f_vfsmnt) :
+				       gr_to_filename(current->exec_file->f_path.dentry,
+				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
 				       NIPQUAD(fakeip), 0, type,
 				       protocol, GR_BIND, NIPQUAD(current->signal->curr_ip));
@@ -183,8 +183,8 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 		security_learn(GR_IP_LEARN_MSG, current->role->rolename,
 			       current->role->roletype, current->uid,
 			       current->gid, current->exec_file ?
-			       gr_to_filename(current->exec_file->f_dentry,
-			       current->exec_file->f_vfsmnt) :
+			       gr_to_filename(current->exec_file->f_path.dentry,
+			       current->exec_file->f_path.mnt) :
 			       curr->filename, curr->filename,
 			       NIPQUAD(ip_addr), ip_port, type,
 			       sk->sk_protocol, mode, NIPQUAD(current->signal->curr_ip));

@@ -47,8 +47,6 @@
 .mailmap
 .mm
 53c700_d.h
-53c7xx_d.h
-53c7xx_u.h
 53c8xx_d.h*
 BitKeeper
 COPYING
@@ -58,6 +56,7 @@ ChangeSet
 Image
 Kerntypes
 MODS.txt
+Module.markers
 Module.symvers
 PENDING
 SCCS
@@ -92,6 +91,7 @@ config_data.gz*
 conmakehash
 consolemap_deftbl.c*
 crc32table.h*
+cpustr.h
 cscope.*
 defkeymap.c*
 devlist.h*
@@ -140,11 +140,13 @@ miboot*
 mk_elfconfig
 mkboot
 mkbugboot
+mkcpustr
 mkdep
 mkprep
 mktables
 mktree
 modpost
+modules.order
 modversions.h*
 offset.h
 offsets.h
@@ -175,11 +177,12 @@ sm_tbl*
 split-include
 tags
 tftpboot.img
+timeconst.h
 times.h*
 tkparse
 trix_boot.h
 utsrelease.h*
-vdso.lds
+vdso*.lds
 version.h*
 vmlinux
 vmlinux-*

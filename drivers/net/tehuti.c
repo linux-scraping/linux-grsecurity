@@ -621,7 +621,7 @@ err:
 static void __init bdx_firmware_endianess(void)
 {
 	int i;
-	for (i = 0; i < sizeof(s_firmLoad) / sizeof(u32); i++)
+	for (i = 0; i < ARRAY_SIZE(s_firmLoad); i++)
 		s_firmLoad[i] = CPU_CHIP_SWAP32(s_firmLoad[i]);
 }
 
@@ -649,7 +649,7 @@ static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		DBG("%d 0x%x 0x%x\n", data[0], data[1], data[2]);
 	}
 
-	if (!capable(CAP_NET_ADMIN))
+	if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;
 
 	switch (data[0]) {
@@ -2189,8 +2189,7 @@ bdx_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
 	strlcat(drvinfo->bus_info, pci_name(priv->pdev),
 		sizeof(drvinfo->bus_info));
 
-	drvinfo->n_stats = ((priv->stats_flag) ?
-			    (sizeof(bdx_stat_names) / ETH_GSTRING_LEN) : 0);
+	drvinfo->n_stats = ((priv->stats_flag) ? ARRAY_SIZE(bdx_stat_names) : 0);
 	drvinfo->testinfo_len = 0;
 	drvinfo->regdump_len = 0;
 	drvinfo->eedump_len = 0;
@@ -2390,10 +2389,9 @@ static void bdx_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 static int bdx_get_stats_count(struct net_device *netdev)
 {
 	struct bdx_priv *priv = netdev->priv;
-	BDX_ASSERT(sizeof(bdx_stat_names) / ETH_GSTRING_LEN
+	BDX_ASSERT(ARRAY_SIZE(bdx_stat_names)
 		   != sizeof(struct bdx_stats) / sizeof(u64));
-	return ((priv->stats_flag) ? (sizeof(bdx_stat_names) / ETH_GSTRING_LEN)
-		: 0);
+	return ((priv->stats_flag) ? ARRAY_SIZE(bdx_stat_names)	: 0);
 }
 
 /*

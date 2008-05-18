@@ -131,7 +131,7 @@ struct pstore {
 
 static unsigned sectors_to_pages(unsigned sectors)
 {
-	return sectors / (PAGE_SIZE >> 9);
+	return DIV_ROUND_UP(sectors, PAGE_SIZE >> 9);
 }
 
 static int alloc_area(struct pstore *ps)
@@ -449,7 +449,7 @@ static void persistent_destroy(struct exception_store *store)
 
 static int persistent_read_metadata(struct exception_store *store)
 {
-	int r, new_snapshot;
+	int r, uninitialized_var(new_snapshot);
 	struct pstore *ps = get_info(store);
 
 	/*

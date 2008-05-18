@@ -20,19 +20,12 @@
 
 #include "cpu.h"
 
+__u32 cleared_cpu_caps[NCAPINTS] __cpuinitdata;
+
 static int cachesize_override __cpuinitdata = -1;
-static int disable_x86_fxsr __cpuinitdata;
 static int disable_x86_serial_nr __cpuinitdata = 1;
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-int disable_x86_sep __cpuinitdata = 1;
-#else
-int disable_x86_sep __cpuinitdata;
-#endif
-
 struct cpu_dev * cpu_devs[X86_VENDOR_NUM] = {};
-
-extern int disable_pse;
 
 static void __cpuinit default_init(struct cpuinfo_x86 * c)
 {
@@ -182,16 +175,8 @@ static void __cpuinit get_cpu_vendor(struct cpuinfo_x86 *c, int early)
 
 static int __init x86_fxsr_setup(char * s)
 {
-	/* Tell all the other CPUs to not use it... */
-	disable_x86_fxsr = 1;
-
-	/*
-	 * ... and clear the bits early in the boot_cpu_data
-	 * so that the bootup process doesn't try to do this
-	 * either.
-	 */
-	clear_bit(X86_FEATURE_FXSR, boot_cpu_data.x86_capability);
-	clear_bit(X86_FEATURE_XMM, boot_cpu_data.x86_capability);
+	setup_clear_cpu_cap(X86_FEATURE_FXSR);
+	setup_clear_cpu_cap(X86_FEATURE_XMM);
 	return 1;
 }
 __setup("nofxsr", x86_fxsr_setup);
@@ -199,7 +184,7 @@ __setup("nofxsr", x86_fxsr_setup);
 
 static int __init x86_sep_setup(char * s)
 {
-	disable_x86_sep = 1;
+	setup_clear_cpu_cap(X86_FEATURE_SEP);
 	return 1;
 }
 __setup("nosep", x86_sep_setup);
@@ -236,7 +221,7 @@ static int __cpuinit have_cpuid_p(void)
 void __init cpu_detect(struct cpuinfo_x86 *c)
 {
 	/* Get vendor name */
-	cpuid(0x00000000, &c->cpuid_level,
+	cpuid(0x00000000, (unsigned int *)&c->cpuid_level,
 	      (unsigned int *)&c->x86_vendor_id[0],
 	      (unsigned int *)&c->x86_vendor_id[8],
 	      (unsigned int *)&c->x86_vendor_id[4]);
@@ -252,9 +237,38 @@ void __init cpu_detect(struct cpuinfo_x86 *c)
 		if (c->x86 >= 0x6)
 			c->x86_model += ((tfms >> 16) & 0xF) << 4;
 		c->x86_mask = tfms & 15;
-		if (cap0 & (1<<19))
+		if (cap0 & (1<<19)) {
 			c->x86_cache_alignment = ((misc >> 8) & 0xff) * 8;
+			c->x86_clflush_size = ((misc >> 8) & 0xff) * 8;
+		}
 	}
+}
+static void __cpuinit early_get_cap(struct cpuinfo_x86 *c)
+{
+	u32 tfms, xlvl;
+	unsigned int ebx;
+
+	memset(&c->x86_capability, 0, sizeof c->x86_capability);
+	if (have_cpuid_p()) {
+		/* Intel-defined flags: level 0x00000001 */
+		if (c->cpuid_level >= 0x00000001) {
+			u32 capability, excap;
+			cpuid(0x00000001, &tfms, &ebx, &excap, &capability);
+			c->x86_capability[0] = capability;
+			c->x86_capability[4] = excap;
+		}
+
+		/* AMD-defined flags: level 0x80000001 */
+		xlvl = cpuid_eax(0x80000000);
+		if ((xlvl & 0xffff0000) == 0x80000000) {
+			if (xlvl >= 0x80000001) {
+				c->x86_capability[1] = cpuid_edx(0x80000001);
+				c->x86_capability[6] = cpuid_ecx(0x80000001);
+			}
+		}
+
+	}
+
 }
 
 /* Do minimum CPU detection early.
@@ -268,6 +282,7 @@ static void __init early_cpu_detect(void)
 	struct cpuinfo_x86 *c = &boot_cpu_data;
 
 	c->x86_cache_alignment = 32;
+	c->x86_clflush_size = 32;
 
 	if (!have_cpuid_p())
 		return;
@@ -275,15 +290,27 @@ static void __init early_cpu_detect(void)
 	cpu_detect(c);
 
 	get_cpu_vendor(c, 1);
+
+	switch (c->x86_vendor) {
+	case X86_VENDOR_AMD:
+		early_init_amd(c);
+		break;
+	case X86_VENDOR_INTEL:
+		early_init_intel(c);
+		break;
+	}
+
+	early_get_cap(c);
 }
 
 static void __cpuinit generic_identify(struct cpuinfo_x86 * c)
 {
-	u32 tfms, xlvl, ebx;
+	u32 tfms, xlvl;
+	unsigned int ebx;
 
 	if (have_cpuid_p()) {
 		/* Get vendor name */
-		cpuid(0x00000000, &c->cpuid_level,
+		cpuid(0x00000000, (unsigned int *)&c->cpuid_level,
 		      (unsigned int *)&c->x86_vendor_id[0],
 		      (unsigned int *)&c->x86_vendor_id[8],
 		      (unsigned int *)&c->x86_vendor_id[4]);
@@ -331,8 +358,6 @@ static void __cpuinit generic_identify(struct cpuinfo_x86 * c)
 		init_scattered_cpuid_features(c);
 	}
 
-	early_intel_workaround(c);
-
 #ifdef CONFIG_X86_HT
 	c->phys_proc_id = (cpuid_ebx(1) >> 24) & 0xff;
 #endif
@@ -366,7 +391,7 @@ __setup("serialnumber", x86_serial_nr_setup);
 /*
  * This does the hard work of actually picking apart the CPU stuff...
  */
-static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
+void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 {
 	int i;
 
@@ -392,19 +417,8 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 
 	generic_identify(c);
 
-	printk(KERN_DEBUG "CPU: After generic identify, caps:");
-	for (i = 0; i < NCAPINTS; i++)
-		printk(" %08lx", c->x86_capability[i]);
-	printk("\n");
-
-	if (this_cpu->c_identify) {
+	if (this_cpu->c_identify)
 		this_cpu->c_identify(c);
-
-		printk(KERN_DEBUG "CPU: After vendor identify, caps:");
-		for (i = 0; i < NCAPINTS; i++)
-			printk(" %08lx", c->x86_capability[i]);
-		printk("\n");
-	}
 
 	/*
 	 * Vendor-specific initialization.  In this section we
@@ -427,22 +441,9 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 	 * we do "generic changes."
 	 */
 
-	/* TSC disabled? */
-	if ( tsc_disable )
-		clear_bit(X86_FEATURE_TSC, c->x86_capability);
-
-	/* FXSR disabled? */
-	if (disable_x86_fxsr) {
-		clear_bit(X86_FEATURE_FXSR, c->x86_capability);
-		clear_bit(X86_FEATURE_XMM, c->x86_capability);
-	}
-
-	/* SEP disabled? */
-	if (disable_x86_sep)
-		clear_bit(X86_FEATURE_SEP, c->x86_capability);
-
-	if (disable_pse)
-		clear_bit(X86_FEATURE_PSE, c->x86_capability);
+#if defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	setup_clear_cpu_cap(X86_FEATURE_SEP);
+#endif
 
 	/* If the model name is still unset, do table lookup. */
 	if ( !c->x86_model_id[0] ) {
@@ -456,13 +457,6 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 				c->x86, c->x86_model);
 	}
 
-	/* Now the feature flags better reflect actual CPU features! */
-
-	printk(KERN_DEBUG "CPU: After all inits, caps:");
-	for (i = 0; i < NCAPINTS; i++)
-		printk(" %08lx", c->x86_capability[i]);
-	printk("\n");
-
 	/*
 	 * On SMP, boot_cpu_data holds the common feature set between
 	 * all CPUs; so make sure that we indicate which features are
@@ -475,8 +469,14 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 			boot_cpu_data.x86_capability[i] &= c->x86_capability[i];
 	}
 
+	/* Clear all flags overriden by options */
+	for (i = 0; i < NCAPINTS; i++)
+		c->x86_capability[i] &= ~cleared_cpu_caps[i];
+
 	/* Init Machine Check Exception if available. */
 	mcheck_init(c);
+
+	select_idle_routine(c);
 }
 
 void __init identify_boot_cpu(void)
@@ -484,7 +484,6 @@ void __init identify_boot_cpu(void)
 	identify_cpu(&boot_cpu_data);
 	sysenter_setup();
 	enable_sep_cpu();
-	mtrr_bp_init();
 }
 
 void __cpuinit identify_secondary_cpu(struct cpuinfo_x86 *c)
@@ -541,6 +540,13 @@ void __cpuinit detect_ht(struct cpuinfo_x86 *c)
 }
 #endif
 
+static __init int setup_noclflush(char *arg)
+{
+	setup_clear_cpu_cap(X86_FEATURE_CLFLSH);
+	return 1;
+}
+__setup("noclflush", setup_noclflush);
+
 void __cpuinit print_cpu_info(struct cpuinfo_x86 *c)
 {
 	char *vendor = NULL;
@@ -564,7 +570,18 @@ void __cpuinit print_cpu_info(struct cpuinfo_x86 *c)
 		printk("\n");
 }
 
-cpumask_t cpu_initialized __cpuinitdata = CPU_MASK_NONE;
+static __init int setup_disablecpuid(char *arg)
+{
+	int bit;
+	if (get_option(&arg, &bit) && bit < NCAPINTS*32)
+		setup_clear_cpu_cap(bit);
+	else
+		return 0;
+	return 1;
+}
+__setup("clearcpuid=", setup_disablecpuid);
+
+cpumask_t cpu_initialized = CPU_MASK_NONE;
 
 /* This is hacky. :)
  * We're emulating future behavior.
@@ -573,16 +590,6 @@ cpumask_t cpu_initialized __cpuinitdata = CPU_MASK_NONE;
  * They will insert themselves into the cpu_devs structure.
  * Then, when cpu_init() is called, we can just iterate over that array.
  */
-
-extern int intel_cpu_init(void);
-extern int cyrix_init_cpu(void);
-extern int nsc_init_cpu(void);
-extern int amd_init_cpu(void);
-extern int centaur_init_cpu(void);
-extern int transmeta_init_cpu(void);
-extern int nexgen_init_cpu(void);
-extern int umc_init_cpu(void);
-
 void __init early_cpu_init(void)
 {
 	intel_cpu_init();
@@ -594,21 +601,13 @@ void __init early_cpu_init(void)
 	nexgen_init_cpu();
 	umc_init_cpu();
 	early_cpu_detect();
-
-#ifdef CONFIG_DEBUG_PAGEALLOC
-	/* pse is not compatible with on-the-fly unmapping,
-	 * disable it even if the cpus claim to support it.
-	 */
-	clear_bit(X86_FEATURE_PSE, boot_cpu_data.x86_capability);
-	disable_pse = 1;
-#endif
 }
 
 /* Make sure %fs is initialized properly in idle threads */
-struct pt_regs * __devinit idle_regs(struct pt_regs *regs)
+struct pt_regs * __cpuinit idle_regs(struct pt_regs *regs)
 {
 	memset(regs, 0, sizeof(struct pt_regs));
-	regs->xfs = __KERNEL_PERCPU;
+	regs->fs = __KERNEL_PERCPU;
 	return regs;
 }
 
@@ -616,9 +615,9 @@ struct pt_regs * __devinit idle_regs(struct pt_regs *regs)
  * it's on the real one. */
 void switch_to_new_gdt(void)
 {
-	struct Xgt_desc_struct gdt_descr;
+	struct desc_ptr gdt_descr;
 
-	gdt_descr.address = get_cpu_gdt_table(smp_processor_id());
+	gdt_descr.address = (unsigned long)get_cpu_gdt_table(smp_processor_id());
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 	asm("mov %0, %%fs" : : "r" (__KERNEL_PERCPU) : "memory");
@@ -646,12 +645,6 @@ void __cpuinit cpu_init(void)
 
 	if (cpu_has_vme || cpu_has_tsc || cpu_has_de)
 		clear_in_cr4(X86_CR4_VME|X86_CR4_PVI|X86_CR4_TSD|X86_CR4_DE);
-	if (tsc_disable && cpu_has_tsc) {
-		printk(KERN_NOTICE "Disabling TSC...\n");
-		/**** FIX-HPA: DOES THIS REALLY BELONG HERE? ****/
-		clear_bit(X86_FEATURE_TSC, boot_cpu_data.x86_capability);
-		set_in_cr4(X86_CR4_TSD);
-	}
 
 	load_idt(&idt_descr);
 	switch_to_new_gdt();
@@ -665,7 +658,7 @@ void __cpuinit cpu_init(void)
 		BUG();
 	enter_lazy_tlb(&init_mm, curr);
 
-	load_esp0(t, thread);
+	load_sp0(t, thread);
 	set_tss_desc(cpu,t);
 	load_TR_desc();
 	load_LDT(&init_mm.context);
@@ -695,7 +688,7 @@ void __cpuinit cpu_init(void)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-void __cpuinit cpu_uninit(void)
+void cpu_uninit(void)
 {
 	int cpu = raw_smp_processor_id();
 	cpu_clear(cpu, cpu_initialized);

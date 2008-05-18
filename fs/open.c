@@ -128,10 +128,10 @@ asmlinkage long sys_statfs(const char __user * path, struct statfs __user * buf)
 	error = user_path_walk(path, &nd);
 	if (!error) {
 		struct statfs tmp;
-		error = vfs_statfs_native(nd.dentry, &tmp);
+		error = vfs_statfs_native(nd.path.dentry, &tmp);
 		if (!error && copy_to_user(buf, &tmp, sizeof(tmp)))
 			error = -EFAULT;
-		path_release(&nd);
+		path_put(&nd.path);
 	}
 	return error;
 }
@@ -147,10 +147,10 @@ asmlinkage long sys_statfs64(const char __user *path, size_t sz, struct statfs64
 	error = user_path_walk(path, &nd);
 	if (!error) {
 		struct statfs64 tmp;
-		error = vfs_statfs64(nd.dentry, &tmp);
+		error = vfs_statfs64(nd.path.dentry, &tmp);
 		if (!error && copy_to_user(buf, &tmp, sizeof(tmp)))
 			error = -EFAULT;
-		path_release(&nd);
+		path_put(&nd.path);
 	}
 	return error;
 }
@@ -205,7 +205,7 @@ int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	if (length < 0)
 		return -EINVAL;
 
-	if (filp && !gr_acl_handle_truncate(dentry, filp->f_vfsmnt))
+	if (filp && !gr_acl_handle_truncate(dentry, filp->f_path.mnt))
 		return -EACCES;
 
 	newattrs.ia_size = length;
@@ -237,7 +237,7 @@ static long do_sys_truncate(const char __user * path, loff_t length)
 	error = user_path_walk(path, &nd);
 	if (error)
 		goto out;
-	inode = nd.dentry->d_inode;
+	inode = nd.path.dentry->d_inode;
 
 	/* For directories it's -EISDIR, for other non-regulars - -EINVAL */
 	error = -EISDIR;
@@ -275,13 +275,13 @@ static long do_sys_truncate(const char __user * path, loff_t length)
 	error = locks_verify_truncate(inode, NULL, length);
 	if (!error) {
 		DQUOT_INIT(inode);
-		error = do_truncate(nd.dentry, length, 0, NULL);
+		error = do_truncate(nd.path.dentry, length, 0, NULL);
 	}
 
 put_write_and_out:
 	put_write_access(inode);
 dput_and_out:
-	path_release(&nd);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -339,7 +339,7 @@ asmlinkage long sys_ftruncate(unsigned int fd, unsigned long length)
 {
 	long ret = do_sys_ftruncate(fd, length, 1);
 	/* avoid REGPARM breakage on x86: */
-	prevent_tail_call(ret);
+	asmlinkage_protect(2, ret, fd, length);
 	return ret;
 }
 
@@ -354,7 +354,7 @@ asmlinkage long sys_ftruncate64(unsigned int fd, loff_t length)
 {
 	long ret = do_sys_ftruncate(fd, length, 0);
 	/* avoid REGPARM breakage on x86: */
-	prevent_tail_call(ret);
+	asmlinkage_protect(2, ret, fd, length);
 	return ret;
 }
 #endif
@@ -459,17 +459,17 @@ asmlinkage long sys_faccessat(int dfd, const char __user *filename, int mode)
 	res = vfs_permission(&nd, mode);
 	/* SuS v2 requires we report a read only fs too */
 	if(res || !(mode & S_IWOTH) ||
-	   special_file(nd.dentry->d_inode->i_mode))
+	   special_file(nd.path.dentry->d_inode->i_mode))
 		goto out_path_release;
 
-	if(IS_RDONLY(nd.dentry->d_inode))
+	if(IS_RDONLY(nd.path.dentry->d_inode))
 		res = -EROFS;
 
-	if (!res && !gr_acl_handle_access(nd.dentry, nd.mnt, mode))
+	if (!res && !gr_acl_handle_access(nd.path.dentry, nd.path.mnt, mode))
 		res = -EACCES;
 
 out_path_release:
-	path_release(&nd);
+	path_put(&nd.path);
 out:
 	current->fsuid = old_fsuid;
 	current->fsgid = old_fsgid;
@@ -497,12 +497,12 @@ asmlinkage long sys_chdir(const char __user * filename)
 	if (error)
 		goto dput_and_out;
 
-	gr_log_chdir(nd.dentry, nd.mnt);
+	gr_log_chdir(nd.path.dentry, nd.path.mnt);
 
-	set_fs_pwd(current->fs, nd.mnt, nd.dentry);
+	set_fs_pwd(current->fs, &nd.path);
 
 dput_and_out:
-	path_release(&nd);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -510,9 +510,7 @@ out:
 asmlinkage long sys_fchdir(unsigned int fd)
 {
 	struct file *file;
-	struct dentry *dentry;
 	struct inode *inode;
-	struct vfsmount *mnt;
 	int error;
 
 	error = -EBADF;
@@ -520,9 +518,7 @@ asmlinkage long sys_fchdir(unsigned int fd)
 	if (!file)
 		goto out;
 
-	dentry = file->f_path.dentry;
-	mnt = file->f_path.mnt;
-	inode = dentry->d_inode;
+	inode = file->f_path.dentry->d_inode;
 
 	error = -ENOTDIR;
 	if (!S_ISDIR(inode->i_mode))
@@ -530,14 +526,14 @@ asmlinkage long sys_fchdir(unsigned int fd)
 
 	error = file_permission(file, MAY_EXEC);
 
-	if (!error && !gr_chroot_fchdir(dentry, mnt))
+	if (!error && !gr_chroot_fchdir(file->f_path.dentry, file->f_path.mnt))
 		error = -EPERM;
 
 	if (!error)
-		gr_log_chdir(dentry, mnt);
+		gr_log_chdir(file->f_path.dentry, file->f_path.mnt);
 
 	if (!error)
-		set_fs_pwd(current->fs, mnt, dentry);
+		set_fs_pwd(current->fs, &file->f_path);
 out_putf:
 	fput(file);
 out:
@@ -561,19 +557,19 @@ asmlinkage long sys_chroot(const char __user * filename)
 	if (!capable(CAP_SYS_CHROOT))
 		goto dput_and_out;
 
-	if (gr_handle_chroot_chroot(nd.dentry, nd.mnt))
+	if (gr_handle_chroot_chroot(nd.path.dentry, nd.path.mnt))
 		goto dput_and_out;
 
-	set_fs_root(current->fs, nd.mnt, nd.dentry);
+	set_fs_root(current->fs, &nd.path);
 	set_fs_altroot();
 
 	gr_handle_chroot_caps(current);
 
-	gr_handle_chroot_chdir(nd.dentry, nd.mnt);
+	gr_handle_chroot_chdir(&nd.path);
 
 	error = 0;
 dput_and_out:
-	path_release(&nd);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -602,7 +598,7 @@ asmlinkage long sys_fchmod(unsigned int fd, mode_t mode)
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto out_putf;
 
-	if (!gr_acl_handle_fchmod(dentry, file->f_vfsmnt, mode)) {
+	if (!gr_acl_handle_fchmod(dentry, file->f_path.mnt, mode)) {
 		err = -EACCES;
 		goto out_putf;
 	}
@@ -611,7 +607,7 @@ asmlinkage long sys_fchmod(unsigned int fd, mode_t mode)
 	if (mode == (mode_t) -1)
 		mode = inode->i_mode;
 
-	if (gr_handle_chroot_chmod(dentry, file->f_vfsmnt, mode)) {
+	if (gr_handle_chroot_chmod(dentry, file->f_path.mnt, mode)) {
 		err = -EPERM;
 		mutex_unlock(&inode->i_mutex);
 		goto out_putf;
@@ -639,7 +635,7 @@ asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
 	error = __user_walk_fd(dfd, filename, LOOKUP_FOLLOW, &nd);
 	if (error)
 		goto out;
-	inode = nd.dentry->d_inode;
+	inode = nd.path.dentry->d_inode;
 
 	error = -EROFS;
 	if (IS_RDONLY(inode))
@@ -649,7 +645,7 @@ asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto dput_and_out;
 
-	if (!gr_acl_handle_chmod(nd.dentry, nd.mnt, mode)) {
+	if (!gr_acl_handle_chmod(nd.path.dentry, nd.path.mnt, mode)) {
 		error = -EACCES;
 		goto dput_and_out;
 	};
@@ -658,7 +654,7 @@ asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
 	if (mode == (mode_t) -1)
 		mode = inode->i_mode;
 
-	if (gr_handle_chroot_chmod(nd.dentry, nd.mnt, mode)) {
+	if (gr_handle_chroot_chmod(nd.path.dentry, nd.path.mnt, mode)) {
 		error = -EACCES;
 		mutex_unlock(&inode->i_mutex);
 		goto dput_and_out;
@@ -666,11 +662,11 @@ asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
 
 	newattrs.ia_mode = (mode & S_IALLUGO) | (inode->i_mode & ~S_IALLUGO);
 	newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
-	error = notify_change(nd.dentry, &newattrs);
+	error = notify_change(nd.path.dentry, &newattrs);
 	mutex_unlock(&inode->i_mutex);
 
 dput_and_out:
-	path_release(&nd);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -730,8 +726,8 @@ asmlinkage long sys_chown(const char __user * filename, uid_t user, gid_t group)
 	error = user_path_walk(filename, &nd);
 	if (error)
 		goto out;
-	error = chown_common(nd.dentry, user, group, nd.mnt);
-	path_release(&nd);
+	error = chown_common(nd.path.dentry, user, group, nd.path.mnt);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -750,8 +746,8 @@ asmlinkage long sys_fchownat(int dfd, const char __user *filename, uid_t user,
 	error = __user_walk_fd(dfd, filename, follow, &nd);
 	if (error)
 		goto out;
-	error = chown_common(nd.dentry, user, group, nd.mnt);
-	path_release(&nd);
+	error = chown_common(nd.path.dentry, user, group, nd.path.mnt);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -764,8 +760,8 @@ asmlinkage long sys_lchown(const char __user * filename, uid_t user, gid_t group
 	error = user_path_walk_link(filename, &nd);
 	if (error)
 		goto out;
-	error = chown_common(nd.dentry, user, group, nd.mnt);
-	path_release(&nd);
+	error = chown_common(nd.path.dentry, user, group, nd.path.mnt);
+	path_put(&nd.path);
 out:
 	return error;
 }
@@ -783,7 +779,7 @@ asmlinkage long sys_fchown(unsigned int fd, uid_t user, gid_t group)
 
 	dentry = file->f_path.dentry;
 	audit_inode(NULL, dentry);
-	error = chown_common(dentry, user, group, file->f_vfsmnt);
+	error = chown_common(dentry, user, group, file->f_path.mnt);
 	fput(file);
 out:
 	return error;
@@ -918,7 +914,7 @@ struct file *lookup_instantiate_filp(struct nameidata *nd, struct dentry *dentry
 		goto out;
 	if (IS_ERR(dentry))
 		goto out_err;
-	nd->intent.open.file = __dentry_open(dget(dentry), mntget(nd->mnt),
+	nd->intent.open.file = __dentry_open(dget(dentry), mntget(nd->path.mnt),
 					     nd->intent.open.flags - 1,
 					     nd->intent.open.file,
 					     open);
@@ -946,9 +942,10 @@ struct file *nameidata_to_filp(struct nameidata *nd, int flags)
 	filp = nd->intent.open.file;
 	/* Has the filesystem initialised the file for us? */
 	if (filp->f_path.dentry == NULL)
-		filp = __dentry_open(nd->dentry, nd->mnt, flags, filp, NULL);
+		filp = __dentry_open(nd->path.dentry, nd->path.mnt, flags, filp,
+				     NULL);
 	else
-		path_release(nd);
+		path_put(&nd->path);
 	return filp;
 }
 
@@ -960,6 +957,18 @@ struct file *dentry_open(struct dentry *dentry, struct vfsmount *mnt, int flags)
 {
 	int error;
 	struct file *f;
+
+	/*
+	 * We must always pass in a valid mount pointer.   Historically
+	 * callers got away with not passing it, but we must enforce this at
+	 * the earliest possible point now to avoid strange problems deep in the
+	 * filesystem stack.
+	 */
+	if (!mnt) {
+		printk(KERN_WARNING "%s called with NULL vfsmount\n", __func__);
+		dump_stack();
+		return ERR_PTR(-EINVAL);
+	}
 
 	error = -ENFILE;
 	f = get_empty_filp();
@@ -1047,7 +1056,7 @@ static void __put_unused_fd(struct files_struct *files, unsigned int fd)
 		files->next_fd = fd;
 }
 
-void fastcall put_unused_fd(unsigned int fd)
+void put_unused_fd(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	spin_lock(&files->file_lock);
@@ -1070,7 +1079,7 @@ EXPORT_SYMBOL(put_unused_fd);
  * will follow.
  */
 
-void fastcall fd_install(unsigned int fd, struct file * file)
+void fd_install(unsigned int fd, struct file *file)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
@@ -1114,10 +1123,9 @@ asmlinkage long sys_open(const char __user *filename, int flags, int mode)
 
 	ret = do_sys_open(AT_FDCWD, filename, flags, mode);
 	/* avoid REGPARM breakage on x86: */
-	prevent_tail_call(ret);
+	asmlinkage_protect(3, ret, filename, flags, mode);
 	return ret;
 }
-EXPORT_UNUSED_SYMBOL_GPL(sys_open); /* To be deleted for 2.6.25 */
 
 asmlinkage long sys_openat(int dfd, const char __user *filename, int flags,
 			   int mode)
@@ -1129,7 +1137,7 @@ asmlinkage long sys_openat(int dfd, const char __user *filename, int flags,
 
 	ret = do_sys_open(dfd, filename, flags, mode);
 	/* avoid REGPARM breakage on x86: */
-	prevent_tail_call(ret);
+	asmlinkage_protect(4, ret, dfd, filename, flags, mode);
 	return ret;
 }
 

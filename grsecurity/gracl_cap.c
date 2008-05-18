@@ -1,7 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sched.h>
-#include <linux/capability.h>
 #include <linux/gracl.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
@@ -38,7 +37,9 @@ static const char *captab_log[] = {
 	"CAP_LEASE",
 	"CAP_AUDIT_WRITE",
 	"CAP_AUDIT_CONTROL",
-	"CAP_SETFCAP"
+	"CAP_SETFCAP",
+	"CAP_MAC_OVERRIDE",
+	"CAP_MAC_ADMIN"
 };
 
 EXPORT_SYMBOL(gr_task_is_capable);
@@ -48,7 +49,7 @@ int
 gr_task_is_capable(struct task_struct *task, const int cap)
 {
 	struct acl_subject_label *curracl;
-	__u32 cap_drop = 0, cap_mask = 0;
+	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
 
 	if (!gr_acl_is_enabled())
 		return 1;
@@ -59,9 +60,16 @@ gr_task_is_capable(struct task_struct *task, const int cap)
 	cap_mask = curracl->cap_mask;
 
 	while ((curracl = curracl->parent_subject)) {
-		if (!(cap_mask & (1 << cap)) && (curracl->cap_mask & (1 << cap)))
-			cap_drop |= curracl->cap_lower & (1 << cap);
-		cap_mask |= curracl->cap_mask;
+		/* if the cap isn't specified in the current computed mask but is specified in the
+		   current level subject, and is lowered in the current level subject, then add
+		   it to the set of dropped capabilities
+		   otherwise, add the current level subject's mask to the current computed mask
+		 */
+		if (!cap_raised(cap_mask, cap) && cap_raised(curracl->cap_mask, cap)) {
+			cap_raise(cap_mask, cap);
+			if (cap_raised(curracl->cap_lower, cap))
+				cap_raise(cap_drop, cap);
+		}
 	}
 
 	if (!cap_raised(cap_drop, cap))
@@ -74,8 +82,8 @@ gr_task_is_capable(struct task_struct *task, const int cap)
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
 			       task->role->roletype, task->uid,
 			       task->gid, task->exec_file ?
-			       gr_to_filename(task->exec_file->f_dentry,
-			       task->exec_file->f_vfsmnt) : curracl->filename,
+			       gr_to_filename(task->exec_file->f_path.dentry,
+			       task->exec_file->f_path.mnt) : curracl->filename,
 			       curracl->filename, 0UL,
 			       0UL, "", (unsigned long) cap, NIPQUAD(task->signal->curr_ip));
 		return 1;
@@ -90,7 +98,7 @@ int
 gr_is_capable_nolog(const int cap)
 {
 	struct acl_subject_label *curracl;
-	__u32 cap_drop = 0, cap_mask = 0;
+	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
 
 	if (!gr_acl_is_enabled())
 		return 1;
@@ -101,8 +109,16 @@ gr_is_capable_nolog(const int cap)
 	cap_mask = curracl->cap_mask;
 
 	while ((curracl = curracl->parent_subject)) {
-		cap_drop |= curracl->cap_lower & (cap_mask & ~curracl->cap_mask);
-		cap_mask |= curracl->cap_mask;
+		/* if the cap isn't specified in the current computed mask but is specified in the
+		   current level subject, and is lowered in the current level subject, then add
+		   it to the set of dropped capabilities
+		   otherwise, add the current level subject's mask to the current computed mask
+		 */
+		if (!cap_raised(cap_mask, cap) && cap_raised(curracl->cap_mask, cap)) {
+			cap_raise(cap_mask, cap);
+			if (cap_raised(curracl->cap_lower, cap))
+				cap_raise(cap_drop, cap);
+		}
 	}
 
 	if (!cap_raised(cap_drop, cap))

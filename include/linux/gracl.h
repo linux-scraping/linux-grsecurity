@@ -3,13 +3,14 @@
 
 #include <linux/grdefs.h>
 #include <linux/resource.h>
+#include <linux/capability.h>
 #include <linux/dcache.h>
 #include <asm/resource.h>
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.11"
-#define GRSECURITY_VERSION 0x2111
+#define GR_VERSION  "grsecurity 2.1.12"
+#define GRSECURITY_VERSION 0x2112
 
 enum {
 
@@ -99,8 +100,8 @@ struct acl_subject_label {
 	ino_t inode;
 	dev_t device;
 	__u32 mode;
-	__u32 cap_mask;
-	__u32 cap_lower;
+	kernel_cap_t cap_mask;
+	kernel_cap_t cap_lower;
 
 	struct rlimit res[GR_NLIMITS];
 	__u16 resmask;

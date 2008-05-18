@@ -4,6 +4,7 @@
 #include <linux/hardirq.h>
 #include <linux/module.h>
 
+#include <asm/asm.h>
 #include <asm/i387.h>
 
 
@@ -65,10 +66,7 @@ void *_mmx_memcpy(void *to, const void *from, size_t len)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from) : "ax");
 		
 	
@@ -110,10 +108,7 @@ void *_mmx_memcpy(void *to, const void *from, size_t len)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;
@@ -225,10 +220,7 @@ static void fast_copy_page(void *to, void *from)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from) : "ax");
 
 	for(i=0; i<(4096-320)/64; i++)
@@ -269,10 +261,7 @@ static void fast_copy_page(void *to, void *from)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;
@@ -383,10 +372,7 @@ static void fast_copy_page(void *to, void *from)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from) : "ax");
 
 	for(i=0; i<4096/64; i++)
@@ -427,10 +413,7 @@ static void fast_copy_page(void *to, void *from)
 
 		"   jmp 2b\n"
 		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 1b, 3b\n"
-		".previous"
+		_ASM_EXTABLE(1b,3b)
 		: "=&r" (cr0) : "r" (from), "r" (to) : "memory", "ax");
 		from+=64;
 		to+=64;

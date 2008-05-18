@@ -394,14 +394,16 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 				if (current->mm->call_dl_resolve) {
 					call_dl_resolve = current->mm->call_dl_resolve;
 					up_write(&current->mm->mmap_sem);
-					if (vma) kmem_cache_free(vm_area_cachep, vma);
+					if (vma)
+						kmem_cache_free(vm_area_cachep, vma);
 					goto emulate;
 				}
 
 				call_dl_resolve = get_unmapped_area(NULL, 0UL, PAGE_SIZE, 0UL, MAP_PRIVATE);
 				if (!vma || (call_dl_resolve & ~PAGE_MASK)) {
 					up_write(&current->mm->mmap_sem);
-					if (vma) kmem_cache_free(vm_area_cachep, vma);
+					if (vma)
+						kmem_cache_free(vm_area_cachep, vma);
 					return 1;
 				}
 
@@ -457,9 +459,9 @@ void pax_report_insns(void *pc, void *sp)
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
 		if (get_user(c, (unsigned int *)pc+i))
-			printk("???????? ");
+			printk(KERN_CONT "???????? ");
 		else
-			printk("%08x ", c);
+			printk(KERN_CONT "%08x ", c);
 	}
 	printk("\n");
 }
