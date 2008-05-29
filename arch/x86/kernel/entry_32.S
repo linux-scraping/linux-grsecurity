@@ -239,6 +239,13 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET 4
 	popfl
 	CFI_ADJUST_CFA_OFFSET -4
+
+#ifdef CONFIG_PAX_KERNEXEC
+	GET_CR0_INTO_EDX
+	orl $X86_CR0_WP, %edx
+	movl %edx, %esi
+#endif
+
 	jmp syscall_exit
 	CFI_ENDPROC
 END(ret_from_fork)
@@ -537,25 +544,19 @@ work_resched:
 
 work_notifysig:				# deal with pending signals and
 					# notify-resume requests
+	movl %esp, %eax
 #ifdef CONFIG_VM86
 	testl $VM_MASK, PT_EFLAGS(%esp)
-	movl %esp, %eax
-	jne work_notifysig_v86		# returning to kernel-space or
+	jz 1f				# returning to kernel-space or
 					# vm86-space
-	xorl %edx, %edx
-	call do_notify_resume
-	jmp resume_userspace_sig
 
-	ALIGN
-work_notifysig_v86:
 	pushl %ecx			# save ti_flags for do_notify_resume
 	CFI_ADJUST_CFA_OFFSET 4
 	call save_v86_state		# %eax contains pt_regs pointer
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
 	movl %eax, %esp
-#else
-	movl %esp, %eax
+1:
 #endif
 	xorl %edx, %edx
 	call do_notify_resume

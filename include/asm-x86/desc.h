@@ -27,7 +27,7 @@ static inline void fill_ldt(struct desc_struct *desc,
 	desc->base2 = (info->base_addr & 0xff000000) >> 24;
 }
 
-extern const struct desc_ptr idt_descr;
+extern struct desc_ptr idt_descr;
 extern gate_desc idt_table[256];
 
 extern struct desc_struct cpu_gdt_table[NR_CPUS][PAGE_SIZE / sizeof(struct desc_struct)];

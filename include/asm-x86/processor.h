@@ -720,9 +720,9 @@ static inline void prefetchw(const void *x)
 #endif
 
 #ifdef CONFIG_PAX_SEGMEXEC
-#define __STACK_TOP	((current->mm->pax_flags & MF_PAX_SEGMEXEC)?SEGMEXEC_TASK_SIZE:TASK_SIZE)
+#define STACK_TOP	((current->mm->pax_flags & MF_PAX_SEGMEXEC)?SEGMEXEC_TASK_SIZE:TASK_SIZE)
 #else
-#define __STACK_TOP	TASK_SIZE
+#define STACK_TOP	TASK_SIZE
 #endif
 #define STACK_TOP_MAX	TASK_SIZE
 

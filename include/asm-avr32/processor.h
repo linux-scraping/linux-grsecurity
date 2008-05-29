@@ -14,8 +14,8 @@
 #define TASK_SIZE	0x80000000
 
 #ifdef __KERNEL__
-#define __STACK_TOP	TASK_SIZE
-#define STACK_TOP_MAX	__STACK_TOP
+#define STACK_TOP	TASK_SIZE
+#define STACK_TOP_MAX	STACK_TOP
 #endif
 
 #ifndef __ASSEMBLY__

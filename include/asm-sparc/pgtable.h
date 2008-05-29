@@ -48,6 +48,13 @@ BTFIXUPDEF_SIMM13(user_ptrs_per_pgd)
 BTFIXUPDEF_INT(page_none)
 BTFIXUPDEF_INT(page_copy)
 BTFIXUPDEF_INT(page_readonly)
+
+#ifdef CONFIG_PAX_PAGEEXEC
+BTFIXUPDEF_INT(page_shared_noexec)
+BTFIXUPDEF_INT(page_copy_noexec)
+BTFIXUPDEF_INT(page_readonly_noexec)
+#endif
+
 BTFIXUPDEF_INT(page_kernel)
 
 #define PMD_SHIFT		SUN4C_PMD_SHIFT

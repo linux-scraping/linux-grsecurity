@@ -699,6 +699,11 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 {
 	unsigned int random_variable = 0;
 
+#ifdef CONFIG_PAX_RANDUSTACK
+	if (randomize_va_space)
+		return stack_top - current->mm->delta_stack;
+#endif
+
 	if ((current->flags & PF_RANDOMIZE) &&
 		!(current->personality & ADDR_NO_RANDOMIZE)) {
 		random_variable = get_random_int() & STACK_RND_MASK;

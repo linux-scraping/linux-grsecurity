@@ -34,8 +34,8 @@
  */
 #define TASK_SIZE	PAGE_OFFSET
 #ifdef __KERNEL__
-#define __STACK_TOP	(PAGE_OFFSET - PAGE_SIZE)
-#define STACK_TOP_MAX	__STACK_TOP
+#define STACK_TOP	(PAGE_OFFSET - PAGE_SIZE)
+#define STACK_TOP_MAX	STACK_TOP
 #endif /* __KERNEL__ */
 
 struct task_struct;

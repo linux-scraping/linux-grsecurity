@@ -188,6 +188,29 @@ static int __init set_reset_devices(char *str)
 
 __setup("reset_devices", set_reset_devices);
 
+#if defined(CONFIG_PAX_MEMORY_UDEREF) && defined(CONFIG_X86_32)
+static int __init setup_pax_nouderef(char *str)
+{
+	unsigned int cpu;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
+	for (cpu = 0; cpu < NR_CPUS; cpu++)
+		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].b = 0x00cf9300;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+	return 1;
+}
+__setup("pax_nouderef", setup_pax_nouderef);
+#endif
+
 #ifdef CONFIG_PAX_SOFTMODE
 unsigned int pax_softmode;
 
@@ -376,7 +399,7 @@ static inline void smp_prepare_cpus(unsigned int maxcpus) { }
 #else
 
 #ifndef CONFIG_HAVE_SETUP_PER_CPU_AREA
-unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+unsigned long __per_cpu_offset[NR_CPUS] __read_only;
 
 EXPORT_SYMBOL(__per_cpu_offset);
 

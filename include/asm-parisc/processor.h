@@ -52,7 +52,7 @@
 /* XXX: STACK_TOP actually should be STACK_BOTTOM for parisc.
  * prumpf */
 
-#define __STACK_TOP	TASK_SIZE
+#define STACK_TOP	TASK_SIZE
 #define STACK_TOP_MAX	DEFAULT_TASK_SIZE
 
 #endif

@@ -44,3 +44,4 @@ EXPORT_SYMBOL(init_task);
  * on exact cacheline boundaries, to eliminate cacheline ping-pong.
  */
 struct tss_struct init_tss[NR_CPUS] ____cacheline_internodealigned_in_smp = { [0 ... NR_CPUS-1] = INIT_TSS };
+EXPORT_SYMBOL(init_tss);

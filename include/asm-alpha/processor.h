@@ -20,7 +20,7 @@
  */
 #define TASK_SIZE (0x40000000000UL)
 
-#define __STACK_TOP \
+#define STACK_TOP \
   (current->personality & ADDR_LIMIT_32BIT ? 0x80000000 : 0x00120000000UL)
 
 #define STACK_TOP_MAX	0x00120000000UL

@@ -311,6 +311,9 @@ extern void device_scan(void);
 pgprot_t PAGE_SHARED __read_mostly;
 EXPORT_SYMBOL(PAGE_SHARED);
 
+pgprot_t PAGE_SHARED_NOEXEC __read_mostly;
+EXPORT_SYMBOL(PAGE_SHARED_NOEXEC);
+
 void __init paging_init(void)
 {
 	switch(sparc_cpu_model) {

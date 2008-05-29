@@ -125,7 +125,7 @@ static unsigned long __devinit bios32_service(unsigned long service)
 		unsigned char flags;
 
 		printk(KERN_INFO "bios32_service: base:%08lx length:%08lx entry:%08lx\n", address, length, entry);
-		if (address >= 0xFFFF0 || length >= 0xFFFF0 - address || length <= entry) {
+		if (address >= 0xFFFF0 || length > 0x100000 - address || length <= entry) {
 			printk(KERN_WARNING "bios32_service: not valid\n");
 			return 0;
 		}

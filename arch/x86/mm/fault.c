@@ -779,7 +779,7 @@ again:
 #ifdef CONFIG_SMP
 	if (likely(address > get_limit(regs->cs) && cpu_isset(smp_processor_id(), mm->context.cpu_user_cs_mask)))
 #else
-	if (likely(address > get_limit(regs->xcs)))
+	if (likely(address > get_limit(regs->cs)))
 #endif
 	{
 		set_pte(pte, pte_mkread(*pte));

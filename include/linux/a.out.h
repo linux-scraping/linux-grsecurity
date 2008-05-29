@@ -9,16 +9,6 @@
 
 #include <asm/a.out.h>
 
-#ifdef CONFIG_PAX_RANDUSTACK
-#define __DELTA_STACK (current->mm->delta_stack)
-#else
-#define __DELTA_STACK 0UL
-#endif
-
-#ifndef STACK_TOP
-#define STACK_TOP	(__STACK_TOP - __DELTA_STACK)
-#endif
-
 #endif /* __STRUCT_EXEC_OVERRIDE__ */
 
 #ifndef __ASSEMBLY__

@@ -276,7 +276,7 @@ struct thread_struct {
 	.on_ustack =	0,					\
 	.ksp =		0,					\
 	.map_base =	DEFAULT_MAP_BASE,			\
-	.rbs_bot =	__STACK_TOP - DEFAULT_USER_STACK_SIZE,	\
+	.rbs_bot =	STACK_TOP - DEFAULT_USER_STACK_SIZE,	\
 	.task_size =	DEFAULT_TASK_SIZE,			\
 	.last_fph_cpu =  -1,					\
 	INIT_THREAD_IA32					\

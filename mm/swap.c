@@ -34,9 +34,9 @@
 /* How many pages do we try to swap or page in/out together? */
 int page_cluster;
 
-static DEFINE_PER_CPU(struct pagevec, lru_add_pvecs) = { 0, 0, {NULL} };
-static DEFINE_PER_CPU(struct pagevec, lru_add_active_pvecs) = { 0, 0, {NULL} };
-static DEFINE_PER_CPU(struct pagevec, lru_rotate_pvecs) = { 0, 0, {NULL} };
+static DEFINE_PER_CPU(struct pagevec, lru_add_pvecs);
+static DEFINE_PER_CPU(struct pagevec, lru_add_active_pvecs);
+static DEFINE_PER_CPU(struct pagevec, lru_rotate_pvecs);
 
 /*
  * This path almost never happens for VM activity - pages are normally
