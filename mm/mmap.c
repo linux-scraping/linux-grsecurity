@@ -881,22 +881,6 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 			if (area_m)
 				vma_adjust(area_m, addr_m, next_m->vm_end,
 					next_m->vm_pgoff - pglen, NULL);
-			else if (next_m) {
-				vma_adjust(next_m, addr_m, next_m->vm_end,
-					next_m->vm_pgoff - pglen, NULL);
-				BUG_ON(area == next);
-				BUG_ON(area->vm_mirror);
-				BUG_ON(next_m->anon_vma && next_m->anon_vma != area->anon_vma);
-				BUG_ON(area->vm_file != next_m->vm_file);
-				BUG_ON(area->vm_end - area->vm_start != next_m->vm_end - next_m->vm_start);
-				BUG_ON(area->vm_pgoff != next_m->vm_pgoff);
-				area->vm_mirror = next_m;
-				next_m->vm_mirror = area;
-				if (area->anon_vma && !next_m->anon_vma) {
-					next_m->anon_vma = area->anon_vma;
-					anon_vma_link(next_m);
-				}
-			}
 #endif
 
 		}

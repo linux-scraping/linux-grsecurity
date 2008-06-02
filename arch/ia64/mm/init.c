@@ -131,7 +131,7 @@ ia64_init_addr_space (void)
 
 #ifdef CONFIG_PAX_PAGEEXEC
 		if (current->mm->pax_flags & MF_PAX_PAGEEXEC) {
-			vm->vm_flags &= ~VM_EXEC;
+			vma->vm_flags &= ~VM_EXEC;
 
 #ifdef CONFIG_PAX_MPROTECT
 			if (current->mm->pax_flags & MF_PAX_MPROTECT)
