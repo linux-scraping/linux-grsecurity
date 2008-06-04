@@ -295,21 +295,6 @@ static inline void clflush(volatile void *__p)
 	asm volatile("clflush %0" : "+m" (*(volatile char __force *)__p));
 }
 
-#define pax_open_kernel(cr0)		\
-do {					\
-	typecheck(unsigned long, cr0);	\
-	preempt_disable();		\
-	cr0 = read_cr0();		\
-	write_cr0(cr0 & ~X86_CR0_WP);	\
-} while (0)
-
-#define pax_close_kernel(cr0)		\
-do {					\
-	typecheck(unsigned long, cr0);	\
-	write_cr0(cr0);			\
-	preempt_enable_no_resched();	\
-} while (0)
-
 #define nop() __asm__ __volatile__ ("nop")
 
 void disable_hlt(void);

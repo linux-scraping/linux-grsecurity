@@ -201,36 +201,6 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 		return 0;
 	}
 
-#ifdef CONFIG_PAX_SEGMEXEC
-	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && ((oldflags ^ newflags) & VM_EXEC)) {
-		if (start != vma->vm_start) {
-			error = split_vma(mm, vma, start, 1);
-			if (error)
-				return -ENOMEM;
-			BUG_ON(!*pprev || (*pprev)->vm_next == vma);
-			*pprev = (*pprev)->vm_next;
-		}
-
-		if (end != vma->vm_end) {
-			error = split_vma(mm, vma, end, 0);
-			if (error)
-				return -ENOMEM;
-		}
-
-		if (pax_find_mirror_vma(vma)) {
-			error = __do_munmap(mm, start_m, end_m - start_m);
-			if (error)
-				return -ENOMEM;
-		} else {
-			vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
-			if (!vma_m)
-				return -ENOMEM;
-			vma->vm_flags = newflags;
-			pax_mirror_vma(vma_m, vma);
-		}
-	}
-#endif
-
 	/*
 	 * If we make a private mapping writable we increase our commit;
 	 * but (without finer accounting) cannot reduce our commit if we
@@ -247,6 +217,38 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 			newflags |= VM_ACCOUNT;
 		}
 	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && ((oldflags ^ newflags) & VM_EXEC)) {
+		if (start != vma->vm_start) {
+			error = split_vma(mm, vma, start, 1);
+			if (error)
+				goto fail;
+			BUG_ON(!*pprev || (*pprev)->vm_next == vma);
+			*pprev = (*pprev)->vm_next;
+		}
+
+		if (end != vma->vm_end) {
+			error = split_vma(mm, vma, end, 0);
+			if (error)
+				goto fail;
+		}
+
+		if (pax_find_mirror_vma(vma)) {
+			error = __do_munmap(mm, start_m, end_m - start_m);
+			if (error)
+				goto fail;
+		} else {
+			vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
+			if (!vma_m) {
+				error = -ENOMEM;
+				goto fail;
+			}
+			vma->vm_flags = newflags;
+			pax_mirror_vma(vma_m, vma);
+		}
+	}
+#endif
 
 	/*
 	 * First try to merge with previous and/or next vma.
