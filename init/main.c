@@ -703,7 +703,7 @@ static void __init do_initcalls(void)
 
 	for (call = __initcall_start; call < __initcall_end; call++) {
 		ktime_t t0, t1, delta;
-		char *msg1 = NULL, *msg2 = NULL;
+		const char *msg1 = "", *msg2 = "";
 		char msgbuf[40];
 		int result;
 
@@ -743,12 +743,11 @@ static void __init do_initcalls(void)
 			msg2 = " disabled interrupts";
 			local_irq_enable();
 		}
-		if (msgbuf[0] || msg1 || msg2) {
+		if (msgbuf[0] || *msg1 || *msg2) {
 			printk(KERN_WARNING "initcall at 0x%p", *call);
 			print_fn_descriptor_symbol(": %s()",
 					(unsigned long) *call);
-			printk(": returned with%s%s%s\n",
-			       msgbuf[0] ? msgbuf : "", msg1 ? msg1 : "", msg2 ? msg2 : "");
+			printk(": returned with%s%s%s\n", msgbuf, msg1, msg2);
 		}
 	}
 

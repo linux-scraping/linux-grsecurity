@@ -970,7 +970,7 @@ ssize_t tpm_write(struct file *file, const char __user *buf,
 
 	mutex_lock(&chip->buffer_mutex);
 
-	if (in_size > TPM_BUFSIZE)
+	if (in_size > (unsigned int)TPM_BUFSIZE)
 		in_size = TPM_BUFSIZE;
 
 	if (copy_from_user
