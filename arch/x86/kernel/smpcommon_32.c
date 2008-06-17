@@ -17,7 +17,7 @@ __cpuinit void init_gdt(int cpu)
 	unsigned long base, limit;
 
 	if (cpu)
-		memcpy(gdt, cpu_gdt_table, GDT_SIZE);
+		memcpy(gdt, get_cpu_gdt_table(0), GDT_SIZE);
 
 	base = __per_cpu_offset[cpu] + (unsigned long)__per_cpu_start;
 	limit = PERCPU_ENOUGH_ROOM - 1;

@@ -367,7 +367,7 @@ static int is_errata93(struct pt_regs *regs, unsigned long address)
 static int is_errata100(struct pt_regs *regs, unsigned long address)
 {
 #ifdef CONFIG_X86_64
-	if ((regs->cs == __USER32_CS || (regs->cs & (1<<2))) &&
+	if ((regs->cs == __USER32_CS || (regs->cs & SEGMENT_LDT)) &&
 	    (address >> 32))
 		return 1;
 #endif
@@ -1305,7 +1305,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 #ifdef CONFIG_X86_32
 	return pax_handle_fetch_fault_32(regs);
 #else
-	if (regs->cs == __USER32_CS || (regs->cs & (1<<2)))
+	if (regs->cs == __USER32_CS || (regs->cs & SEGMENT_LDT))
 		return pax_handle_fetch_fault_32(regs);
 	else
 		return pax_handle_fetch_fault_64(regs);
@@ -1328,24 +1328,17 @@ void pax_report_insns(void *pc, void *sp)
 	}
 	printk("\n");
 
-#ifdef CONFIG_X86_32
-	printk(KERN_ERR "PAX: bytes at SP-4: ");
-	for (i = -1; i < 20; i++) {
-#else
-	printk(KERN_ERR "PAX: bytes at SP-8: ");
-	for (i = -1; i < 10; i++) {
-#endif
+	printk(KERN_ERR "PAX: bytes at SP-%u: ", sizeof(long));
+	for (i = -1; i < 80 / sizeof(long); i++) {
 		unsigned long c;
 		if (get_user(c, (unsigned long __user *)sp+i))
 #ifdef CONFIG_X86_32
 			printk(KERN_CONT "???????? ");
-		else
-			printk(KERN_CONT "%08lx ", c);
 #else
 			printk(KERN_CONT "???????????????? ");
-		else
-			printk(KERN_CONT "%016lx ", c);
 #endif
+		else
+			printk(KERN_CONT "%0*lx ", 2 * sizeof(long), c);
 	}
 	printk("\n");
 }

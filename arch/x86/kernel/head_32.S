@@ -577,14 +577,14 @@ early_page_fault:
 
 early_fault:
 #ifdef CONFIG_PRINTK
+	cmpl $2,%ss:early_recursion_flag
+	je hlt_loop
+	incl %ss:early_recursion_flag
 	cld
 	pusha
 	movl $(__KERNEL_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
-	cmpl $2,early_recursion_flag
-	je hlt_loop
-	incl early_recursion_flag
 	movl %cr2,%eax
 	pushl %eax
 	pushl %edx		/* trapno */
@@ -594,8 +594,8 @@ early_fault:
 #else
 	call printk
 #endif
-#endif
 	call dump_stack
+#endif
 hlt_loop:
 	hlt
 	jmp hlt_loop
@@ -604,6 +604,9 @@ hlt_loop:
 	ALIGN
 ignore_int:
 #ifdef CONFIG_PRINTK
+	cmpl $2,%ss:early_recursion_flag
+	je hlt_loop
+	incl %ss:early_recursion_flag
 	cld
 	pushl %eax
 	pushl %ecx
@@ -613,9 +616,6 @@ ignore_int:
 	movl $(__KERNEL_DS),%eax
 	movl %eax,%ds
 	movl %eax,%es
-	cmpl $2,early_recursion_flag
-	je hlt_loop
-	incl early_recursion_flag
 	pushl 16(%esp)
 	pushl 24(%esp)
 	pushl 32(%esp)

@@ -76,6 +76,8 @@ ENDPROC(copy_from_user)
 	/* must zero dest */
 bad_from_user:
 	CFI_STARTPROC
+	testl %edx,%edx
+	js bad_to_user
 	movl %edx,%ecx
 	xorl %eax,%eax
 	rep

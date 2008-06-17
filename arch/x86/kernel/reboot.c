@@ -211,7 +211,7 @@ real_mode_gdt_entries [3] __read_only =
 };
 
 static const struct desc_ptr
-real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, (long)__pa(real_mode_gdt_entries) },
+real_mode_gdt = { sizeof (real_mode_gdt_entries) - 1, (long)real_mode_gdt_entries },
 real_mode_idt = { 0x3ff, 0 };
 
 /* This is 16-bit protected mode code to disable paging and the cache,

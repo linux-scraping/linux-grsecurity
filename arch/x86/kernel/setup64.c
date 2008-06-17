@@ -251,7 +251,7 @@ void __cpuinit cpu_init (void)
 	char *estacks = NULL; 
 	struct task_struct *me;
 	int i;
-	struct desc_ptr cpu_gdt_descr = { .size = GDT_SIZE - 1, .address = (unsigned long)cpu_gdt_table[cpu]};
+	struct desc_ptr cpu_gdt_descr = { .size = GDT_SIZE - 1, .address = (unsigned long)get_cpu_gdt_table(cpu)};
 
 	/* CPU 0 is initialised in head64.c */
 	if (cpu != 0) {
@@ -272,7 +272,7 @@ void __cpuinit cpu_init (void)
 	 * Initialize the per-CPU GDT with the boot GDT:
 	 */
 	if (cpu)
-		memcpy(get_cpu_gdt_table(cpu), cpu_gdt_table, GDT_SIZE);
+		memcpy(get_cpu_gdt_table(cpu), get_cpu_gdt_table(0), GDT_SIZE);
 
 	load_gdt(&cpu_gdt_descr);
 	load_idt((const struct desc_ptr *)&idt_descr);
