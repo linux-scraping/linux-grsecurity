@@ -58,8 +58,7 @@ extern int proc_pid_status(struct seq_file *m, struct pid_namespace *ns,
 extern int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task);
 #ifdef CONFIG_GRKERNSEC_PROC_IPADDR
-extern int proc_pid_ipaddr(struct seq_file *m, struct pid_namespace *ns,
-				struct pid *pid, struct task_struct *task);
+extern int proc_pid_ipaddr(struct task_struct *task, char *buffer);
 #endif
 extern loff_t mem_lseek(struct file *file, loff_t offset, int orig);
 

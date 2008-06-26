@@ -262,12 +262,31 @@ static void mwait_idle(void)
 	mwait_idle_with_hints(0, 0);
 }
 
+/*
+ * mwait selection logic:
+ *
+ * It depends on the CPU. For AMD CPUs that support MWAIT this is
+ * wrong. Family 0x10 and 0x11 CPUs will enter C1 on HLT. Powersavings
+ * then depend on a clock divisor and current Pstate of the core. If
+ * all cores of a processor are in halt state (C1) the processor can
+ * enter the C1E (C1 enhanced) state. If mwait is used this will never
+ * happen.
+ *
+ * idle=mwait overrides this decision and forces the usage of mwait.
+ */
 static int __cpuinit mwait_usable(const struct cpuinfo_x86 *c)
 {
 	if (force_mwait)
 		return 1;
-	/* Any C1 states supported? */
-	return c->cpuid_level >= 5 && ((cpuid_edx(5) >> 4) & 0xf) > 0;
+
+	if (c->x86_vendor == X86_VENDOR_AMD) {
+		switch(c->x86) {
+		case 0x10:
+		case 0x11:
+			return 0;
+		}
+	}
+	return 1;
 }
 
 void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)

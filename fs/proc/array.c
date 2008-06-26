@@ -623,11 +623,8 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 }
 
 #ifdef CONFIG_GRKERNSEC_PROC_IPADDR
-int proc_pid_ipaddr(struct seq_file *m, struct pid_namespace *ns,
-			struct pid *pid, struct task_struct *task)
+int proc_pid_ipaddr(struct task_struct *task, char *buffer)
 {
-	seq_printf(m, "%u.%u.%u.%u\n", NIPQUAD(task->signal->curr_ip));
-
-	return 0;
+	return sprintf(buffer, "%u.%u.%u.%u\n", NIPQUAD(task->signal->curr_ip));
 }
 #endif
