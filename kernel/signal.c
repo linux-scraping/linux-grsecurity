@@ -1019,6 +1019,8 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 			ret = __group_send_sig_info(sig, info, p);
 			unlock_task_sighand(p, &flags);
 		}
+		if (!ret)
+			gr_log_signal(sig, p);
 	}
 
 	return ret;
