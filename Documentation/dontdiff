@@ -48,11 +48,14 @@
 .mm
 53c700_d.h
 53c8xx_d.h*
-BitKeeper
 COPYING
 CREDITS
 CVS
 ChangeSet
+GPATH
+GRTAGS
+GSYMS
+GTAGS
 Image
 Kerntypes
 MODS.txt
@@ -75,6 +78,7 @@ bbootsect
 bin2c
 binkernel.spec
 bootsect
+bounds.h
 bsetup
 btfixupprep
 build
@@ -192,6 +196,7 @@ vmlinux*.lds
 vmlinux.relocs
 vmlinux*.scr
 vsyscall*.lds
+wakeup.lds
 wanxlfw.inc
 uImage
 unifdef

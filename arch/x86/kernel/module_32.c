@@ -58,6 +58,7 @@ void *module_alloc_exec(unsigned long size)
 
 	return NULL;
 }
+EXPORT_SYMBOL(module_alloc_exec);
 #endif
 
 /* Free memory returned from module_alloc */

@@ -1924,7 +1924,7 @@ isdn_free_channel(int di, int ch, int usage)
 
 	if ((di < 0) || (ch < 0)) {
 		printk(KERN_WARNING "%s: called with invalid drv(%d) or channel(%d)\n",
-			__FUNCTION__, di, ch);
+			__func__, di, ch);
 		return;
 	}
 	for (i = 0; i < ISDN_MAX_CHANNELS; i++)
@@ -1977,8 +1977,10 @@ isdn_writebuf_stub(int drvidx, int chan, const u_char __user * buf, int len)
 	if (!skb)
 		return -ENOMEM;
 	skb_reserve(skb, hl);
-	if (copy_from_user(skb_put(skb, len), buf, len))
+	if (copy_from_user(skb_put(skb, len), buf, len)) {
+		dev_kfree_skb(skb);
 		return -EFAULT;
+	}
 	ret = dev->drv[drvidx]->interface->writebuf_skb(drvidx, chan, 1, skb);
 	if (ret <= 0)
 		dev_kfree_skb(skb);

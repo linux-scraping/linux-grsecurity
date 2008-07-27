@@ -257,9 +257,8 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
 	}
 };
 
-static int tcp_pkt_to_tuple(const struct sk_buff *skb,
-			    unsigned int dataoff,
-			    struct nf_conntrack_tuple *tuple)
+static bool tcp_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+			     struct nf_conntrack_tuple *tuple)
 {
 	const struct tcphdr *hp;
 	struct tcphdr _hdr;
@@ -267,20 +266,20 @@ static int tcp_pkt_to_tuple(const struct sk_buff *skb,
 	/* Actually only need first 8 bytes. */
 	hp = skb_header_pointer(skb, dataoff, 8, &_hdr);
 	if (hp == NULL)
-		return 0;
+		return false;
 
 	tuple->src.u.tcp.port = hp->source;
 	tuple->dst.u.tcp.port = hp->dest;
 
-	return 1;
+	return true;
 }
 
-static int tcp_invert_tuple(struct nf_conntrack_tuple *tuple,
-			    const struct nf_conntrack_tuple *orig)
+static bool tcp_invert_tuple(struct nf_conntrack_tuple *tuple,
+			     const struct nf_conntrack_tuple *orig)
 {
 	tuple->src.u.tcp.port = orig->dst.u.tcp.port;
 	tuple->dst.u.tcp.port = orig->src.u.tcp.port;
-	return 1;
+	return true;
 }
 
 /* Print out the per-protocol part of the tuple. */
@@ -332,12 +331,13 @@ static unsigned int get_conntrack_index(const struct tcphdr *tcph)
 
    I.   Upper bound for valid data:	seq <= sender.td_maxend
    II.  Lower bound for valid data:	seq + len >= sender.td_end - receiver.td_maxwin
-   III.	Upper bound for valid ack:      sack <= receiver.td_end
-   IV.	Lower bound for valid ack:	ack >= receiver.td_end - MAXACKWINDOW
+   III.	Upper bound for valid (s)ack:   sack <= receiver.td_end
+   IV.	Lower bound for valid (s)ack:	sack >= receiver.td_end - MAXACKWINDOW
 
-   where sack is the highest right edge of sack block found in the packet.
+   where sack is the highest right edge of sack block found in the packet
+   or ack in the case of packet without SACK option.
 
-   The upper bound limit for a valid ack is not ignored -
+   The upper bound limit for a valid (s)ack is not ignored -
    we doesn't have to deal with fragments.
 */
 
@@ -478,20 +478,20 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
 	}
 }
 
-static int tcp_in_window(const struct nf_conn *ct,
-			 struct ip_ct_tcp *state,
-			 enum ip_conntrack_dir dir,
-			 unsigned int index,
-			 const struct sk_buff *skb,
-			 unsigned int dataoff,
-			 const struct tcphdr *tcph,
-			 int pf)
+static bool tcp_in_window(const struct nf_conn *ct,
+			  struct ip_ct_tcp *state,
+			  enum ip_conntrack_dir dir,
+			  unsigned int index,
+			  const struct sk_buff *skb,
+			  unsigned int dataoff,
+			  const struct tcphdr *tcph,
+			  int pf)
 {
 	struct ip_ct_tcp_state *sender = &state->seen[dir];
 	struct ip_ct_tcp_state *receiver = &state->seen[!dir];
 	const struct nf_conntrack_tuple *tuple = &ct->tuplehash[dir].tuple;
 	__u32 seq, ack, sack, end, win, swin;
-	int res;
+	bool res;
 
 	/*
 	 * Get the required data from the packet.
@@ -506,7 +506,7 @@ static int tcp_in_window(const struct nf_conn *ct,
 
 	pr_debug("tcp_in_window: START\n");
 	pr_debug("tcp_in_window: ");
-	NF_CT_DUMP_TUPLE(tuple);
+	nf_ct_dump_tuple(tuple);
 	pr_debug("seq=%u ack=%u sack=%u win=%u end=%u\n",
 		 seq, ack, sack, win, end);
 	pr_debug("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
@@ -593,7 +593,7 @@ static int tcp_in_window(const struct nf_conn *ct,
 		seq = end = sender->td_end;
 
 	pr_debug("tcp_in_window: ");
-	NF_CT_DUMP_TUPLE(tuple);
+	nf_ct_dump_tuple(tuple);
 	pr_debug("seq=%u ack=%u sack =%u win=%u end=%u\n",
 		 seq, ack, sack, win, end);
 	pr_debug("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
@@ -607,12 +607,12 @@ static int tcp_in_window(const struct nf_conn *ct,
 		 before(seq, sender->td_maxend + 1),
 		 after(end, sender->td_end - receiver->td_maxwin - 1),
 		 before(sack, receiver->td_end + 1),
-		 after(ack, receiver->td_end - MAXACKWINDOW(sender)));
+		 after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1));
 
 	if (before(seq, sender->td_maxend + 1) &&
 	    after(end, sender->td_end - receiver->td_maxwin - 1) &&
 	    before(sack, receiver->td_end + 1) &&
-	    after(ack, receiver->td_end - MAXACKWINDOW(sender))) {
+	    after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1)) {
 		/*
 		 * Take into account window scaling (RFC 1323).
 		 */
@@ -657,12 +657,12 @@ static int tcp_in_window(const struct nf_conn *ct,
 				state->retrans = 0;
 			}
 		}
-		res = 1;
+		res = true;
 	} else {
-		res = 0;
+		res = false;
 		if (sender->flags & IP_CT_TCP_FLAG_BE_LIBERAL ||
 		    nf_ct_tcp_be_liberal)
-			res = 1;
+			res = true;
 		if (!res && LOG_INVALID(IPPROTO_TCP))
 			nf_log_packet(pf, 0, skb, NULL, NULL, NULL,
 			"nf_ct_tcp: %s ",
@@ -676,7 +676,7 @@ static int tcp_in_window(const struct nf_conn *ct,
 			: "SEQ is over the upper bound (over the window of the receiver)");
 	}
 
-	pr_debug("tcp_in_window: res=%i sender end=%u maxend=%u maxwin=%u "
+	pr_debug("tcp_in_window: res=%u sender end=%u maxend=%u maxwin=%u "
 		 "receiver end=%u maxend=%u maxwin=%u\n",
 		 res, sender->td_end, sender->td_maxend, sender->td_maxwin,
 		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin);
@@ -844,9 +844,15 @@ static int tcp_packet(struct nf_conn *ct,
 			/* Attempt to reopen a closed/aborted connection.
 			 * Delete this connection and look up again. */
 			write_unlock_bh(&tcp_lock);
-			if (del_timer(&ct->timeout))
+			/* Only repeat if we can actually remove the timer.
+			 * Destruction may already be in progress in process
+			 * context and we must give it a chance to terminate.
+			 */
+			if (del_timer(&ct->timeout)) {
 				ct->timeout.function((unsigned long)ct);
-			return -NF_REPEAT;
+				return -NF_REPEAT;
+			}
+			return -NF_DROP;
 		}
 		/* Fall through */
 	case TCP_CONNTRACK_IGNORE:
@@ -937,7 +943,7 @@ static int tcp_packet(struct nf_conn *ct,
 	ct->proto.tcp.last_dir = dir;
 
 	pr_debug("tcp_conntracks: ");
-	NF_CT_DUMP_TUPLE(tuple);
+	nf_ct_dump_tuple(tuple);
 	pr_debug("syn=%i ack=%i fin=%i rst=%i old=%i new=%i\n",
 		 (th->syn ? 1 : 0), (th->ack ? 1 : 0),
 		 (th->fin ? 1 : 0), (th->rst ? 1 : 0),
@@ -982,9 +988,8 @@ static int tcp_packet(struct nf_conn *ct,
 }
 
 /* Called when a new connection for this protocol found. */
-static int tcp_new(struct nf_conn *ct,
-		   const struct sk_buff *skb,
-		   unsigned int dataoff)
+static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
+		    unsigned int dataoff)
 {
 	enum tcp_conntrack new_state;
 	const struct tcphdr *th;
@@ -1003,7 +1008,7 @@ static int tcp_new(struct nf_conn *ct,
 	/* Invalid: delete conntrack */
 	if (new_state >= TCP_CONNTRACK_MAX) {
 		pr_debug("nf_ct_tcp: invalid new deleting.\n");
-		return 0;
+		return false;
 	}
 
 	if (new_state == TCP_CONNTRACK_SYN_SENT) {
@@ -1021,7 +1026,7 @@ static int tcp_new(struct nf_conn *ct,
 		ct->proto.tcp.seen[1].flags = 0;
 	} else if (nf_ct_tcp_loose == 0) {
 		/* Don't try to pick up connections. */
-		return 0;
+		return false;
 	} else {
 		/*
 		 * We are in the middle of a connection,
@@ -1061,7 +1066,7 @@ static int tcp_new(struct nf_conn *ct,
 		 sender->td_scale,
 		 receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
 		 receiver->td_scale);
-	return 1;
+	return true;
 }
 
 #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
@@ -1129,11 +1134,13 @@ static int nlattr_to_tcp(struct nlattr *cda[], struct nf_conn *ct)
 	if (err < 0)
 		return err;
 
-	if (!tb[CTA_PROTOINFO_TCP_STATE])
+	if (tb[CTA_PROTOINFO_TCP_STATE] &&
+	    nla_get_u8(tb[CTA_PROTOINFO_TCP_STATE]) >= TCP_CONNTRACK_MAX)
 		return -EINVAL;
 
 	write_lock_bh(&tcp_lock);
-	ct->proto.tcp.state = nla_get_u8(tb[CTA_PROTOINFO_TCP_STATE]);
+	if (tb[CTA_PROTOINFO_TCP_STATE])
+		ct->proto.tcp.state = nla_get_u8(tb[CTA_PROTOINFO_TCP_STATE]);
 
 	if (tb[CTA_PROTOINFO_TCP_FLAGS_ORIGINAL]) {
 		struct nf_ct_tcp_flags *attr =

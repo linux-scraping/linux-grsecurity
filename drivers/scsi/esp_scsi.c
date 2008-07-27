@@ -978,7 +978,7 @@ static int esp_check_spur_intr(struct esp *esp)
 			 */
 			if (!esp->ops->dma_error(esp)) {
 				printk(KERN_ERR PFX "esp%d: Spurious irq, "
-				       "sreg=%x.\n",
+				       "sreg=%02x.\n",
 				       esp->host->unique_id, esp->sreg);
 				return -1;
 			}
@@ -1447,6 +1447,9 @@ static void esp_msgin_sdtr(struct esp *esp, struct esp_target_data *tp)
 	if (offset > 15)
 		goto do_reject;
 
+	if (esp->flags & ESP_FLAG_DISABLE_SYNC)
+		offset = 0;
+
 	if (offset) {
 		int rounded_up, one_clock;
 
@@ -1697,7 +1700,12 @@ again:
 		else
 			ent->flags &= ~ESP_CMD_FLAG_WRITE;
 
-		dma_len = esp_dma_length_limit(esp, dma_addr, dma_len);
+		if (esp->ops->dma_length_limit)
+			dma_len = esp->ops->dma_length_limit(esp, dma_addr,
+							     dma_len);
+		else
+			dma_len = esp_dma_length_limit(esp, dma_addr, dma_len);
+
 		esp->data_dma_len = dma_len;
 
 		if (!dma_len) {
@@ -1761,7 +1769,6 @@ again:
 		esp_advance_dma(esp, ent, cmd, bytes_sent);
 		esp_event(esp, ESP_EVENT_CHECK_PHASE);
 		goto again;
-		break;
 	}
 
 	case ESP_EVENT_STATUS: {
@@ -2235,7 +2242,7 @@ static void esp_bootup_reset(struct esp *esp)
 
 static void esp_set_clock_params(struct esp *esp)
 {
-	int fmhz;
+	int fhz;
 	u8 ccf;
 
 	/* This is getting messy but it has to be done correctly or else
@@ -2270,9 +2277,9 @@ static void esp_set_clock_params(struct esp *esp)
 	 *    This entails the smallest and largest sync period we could ever
 	 *    handle on this ESP.
 	 */
-	fmhz = esp->cfreq;
+	fhz = esp->cfreq;
 
-	ccf = ((fmhz / 1000000) + 4) / 5;
+	ccf = ((fhz / 1000000) + 4) / 5;
 	if (ccf == 1)
 		ccf = 2;
 
@@ -2281,16 +2288,16 @@ static void esp_set_clock_params(struct esp *esp)
 	 * been unable to find the clock-frequency PROM property.  All
 	 * other machines provide useful values it seems.
 	 */
-	if (fmhz <= 5000000 || ccf < 1 || ccf > 8) {
-		fmhz = 20000000;
+	if (fhz <= 5000000 || ccf < 1 || ccf > 8) {
+		fhz = 20000000;
 		ccf = 4;
 	}
 
 	esp->cfact = (ccf == 8 ? 0 : ccf);
-	esp->cfreq = fmhz;
-	esp->ccycle = ESP_MHZ_TO_CYCLE(fmhz);
+	esp->cfreq = fhz;
+	esp->ccycle = ESP_HZ_TO_CYCLE(fhz);
 	esp->ctick = ESP_TICK(ccf, esp->ccycle);
-	esp->neg_defp = ESP_NEG_DEFP(fmhz, ccf);
+	esp->neg_defp = ESP_NEG_DEFP(fhz, ccf);
 	esp->sync_defp = SYNC_DEFP_SLOW;
 }
 
@@ -2352,6 +2359,24 @@ void scsi_esp_unregister(struct esp *esp)
 }
 EXPORT_SYMBOL(scsi_esp_unregister);
 
+static int esp_target_alloc(struct scsi_target *starget)
+{
+	struct esp *esp = shost_priv(dev_to_shost(&starget->dev));
+	struct esp_target_data *tp = &esp->target[starget->id];
+
+	tp->starget = starget;
+
+	return 0;
+}
+
+static void esp_target_destroy(struct scsi_target *starget)
+{
+	struct esp *esp = shost_priv(dev_to_shost(&starget->dev));
+	struct esp_target_data *tp = &esp->target[starget->id];
+
+	tp->starget = NULL;
+}
+
 static int esp_slave_alloc(struct scsi_device *dev)
 {
 	struct esp *esp = shost_priv(dev->host);
@@ -2362,8 +2387,6 @@ static int esp_slave_alloc(struct scsi_device *dev)
 	if (!lp)
 		return -ENOMEM;
 	dev->hostdata = lp;
-
-	tp->starget = dev->sdev_target;
 
 	spi_min_period(tp->starget) = esp->min_period;
 	spi_max_offset(tp->starget) = 15;
@@ -2381,6 +2404,12 @@ static int esp_slave_configure(struct scsi_device *dev)
 	struct esp *esp = shost_priv(dev->host);
 	struct esp_target_data *tp = &esp->target[dev->id];
 	int goal_tags, queue_depth;
+
+	if (esp->flags & ESP_FLAG_DISABLE_SYNC) {
+		/* Bypass async domain validation */
+		dev->ppr  = 0;
+		dev->sdtr = 0;
+	}
 
 	goal_tags = 0;
 
@@ -2595,6 +2624,8 @@ struct scsi_host_template scsi_esp_template = {
 	.name			= "esp",
 	.info			= esp_info,
 	.queuecommand		= esp_queuecommand,
+	.target_alloc		= esp_target_alloc,
+	.target_destroy		= esp_target_destroy,
 	.slave_alloc		= esp_slave_alloc,
 	.slave_configure	= esp_slave_configure,
 	.slave_destroy		= esp_slave_destroy,

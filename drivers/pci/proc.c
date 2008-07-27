@@ -293,6 +293,7 @@ static int proc_bus_pci_release(struct inode *inode, struct file *file)
 #endif /* HAVE_PCI_MMAP */
 
 static const struct file_operations proc_bus_pci_operations = {
+	.owner		= THIS_MODULE,
 	.llseek		= proc_bus_pci_lseek,
 	.read		= proc_bus_pci_read,
 	.write		= proc_bus_pci_write,
@@ -406,11 +407,10 @@ int pci_proc_attach_device(struct pci_dev *dev)
 	}
 
 	sprintf(name, "%02x.%x", PCI_SLOT(dev->devfn), PCI_FUNC(dev->devfn));
-	e = create_proc_entry(name, S_IFREG | S_IRUGO | S_IWUSR, bus->procdir);
+	e = proc_create_data(name, S_IFREG | S_IRUGO | S_IWUSR, bus->procdir,
+			     &proc_bus_pci_operations, dev);
 	if (!e)
 		return -ENOMEM;
-	e->proc_fops = &proc_bus_pci_operations;
-	e->data = dev;
 	e->size = dev->cfg_size;
 	dev->procent = e;
 
@@ -462,6 +462,7 @@ static int proc_bus_pci_dev_open(struct inode *inode, struct file *file)
 	return seq_open(file, &proc_bus_pci_devices_op);
 }
 static const struct file_operations proc_bus_pci_dev_operations = {
+	.owner		= THIS_MODULE,
 	.open		= proc_bus_pci_dev_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -470,20 +471,19 @@ static const struct file_operations proc_bus_pci_dev_operations = {
 
 static int __init pci_proc_init(void)
 {
-	struct proc_dir_entry *entry;
 	struct pci_dev *dev = NULL;
+
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	proc_bus_pci_dir = proc_mkdir_mode("pci", S_IRUSR | S_IXUSR, proc_bus);
+	proc_bus_pci_dir = proc_mkdir_mode("bus/pci", S_IRUSR | S_IXUSR, NULL);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	proc_bus_pci_dir = proc_mkdir_mode("pci", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, proc_bus);
+	proc_bus_pci_dir = proc_mkdir_mode("bus/pci", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
 #endif
 #else
-	proc_bus_pci_dir = proc_mkdir("pci", proc_bus);
+	proc_bus_pci_dir = proc_mkdir("bus/pci", NULL);
 #endif
-	entry = create_proc_entry("devices", 0, proc_bus_pci_dir);
-	if (entry)
-		entry->proc_fops = &proc_bus_pci_dev_operations;
+	proc_create("devices", 0, proc_bus_pci_dir,
+		    &proc_bus_pci_dev_operations);
 	proc_initialized = 1;
 	while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
 		pci_proc_attach_device(dev);

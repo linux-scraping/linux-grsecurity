@@ -18,6 +18,7 @@
 #include <linux/fb.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
+#include <linux/moduleloader.h>
 #include <video/edid.h>
 #include <video/uvesafb.h>
 #ifdef CONFIG_X86
@@ -181,7 +182,8 @@ static int uvesafb_exec(struct uvesafb_ktask *task)
 	/* If all slots are taken -- bail out. */
 	if (uvfb_tasks[seq]) {
 		mutex_unlock(&uvfb_lock);
-		return -EBUSY;
+		err = -EBUSY;
+		goto out;
 	}
 
 	/* Save a pointer to the kernel part of the task struct. */
@@ -205,7 +207,6 @@ static int uvesafb_exec(struct uvesafb_ktask *task)
 			err = cn_netlink_send(m, 0, gfp_any());
 		}
 	}
-	kfree(m);
 
 	if (!err && !(task->t.flags & TF_EXIT))
 		err = !wait_for_completion_timeout(task->done,
@@ -218,7 +219,8 @@ static int uvesafb_exec(struct uvesafb_ktask *task)
 	seq++;
 	if (seq >= UVESAFB_TASKS_MAX)
 		seq = 0;
-
+out:
+	kfree(m);
 	return err;
 }
 
@@ -560,18 +562,46 @@ static int __devinit uvesafb_vbe_getpmi(struct uvesafb_ktask *task,
 {
 	int i, err;
 
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+	u8 *pmi_code;
+	unsigned long cr0;
+#endif
+
 	uvesafb_reset(task);
 	task->t.regs.eax = 0x4f0a;
 	task->t.regs.ebx = 0x0;
 	err = uvesafb_exec(task);
 
-	if ((task->t.regs.eax & 0xffff) != 0x4f || task->t.regs.es < 0xc000) {
-		par->pmi_setpal = par->ypan = 0;
-	} else {
+	par->pmi_setpal = par->ypan = 0;
+	if ((task->t.regs.eax & 0xffff) != 0x4f || task->t.regs.es < 0xc000)
+		return 0;
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+	pmi_code = module_alloc_exec((u16)task->t.regs.ecx);
+	if (pmi_code) {
+#elif !defined(CONFIG_PAX_KERNEXEC)
+	if (1) {
+#endif
+
 		par->pmi_base = (u16 *)phys_to_virt(((u32)task->t.regs.es << 4)
 						+ task->t.regs.edi);
-		par->pmi_start = (u8 *)par->pmi_base + par->pmi_base[1];
-		par->pmi_pal = (u8 *)par->pmi_base + par->pmi_base[2];
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+		pax_open_kernel(cr0);
+		memcpy(pmi_code, par->pmi_base, (u16)task->t.regs.ecx);
+		pax_close_kernel(cr0);
+#else
+		pmi_code = par->pmi_base;
+#endif
+
+		par->pmi_start = pmi_code + par->pmi_base[1];
+		par->pmi_pal = pmi_code + par->pmi_base[2];
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+		par->pmi_start = ktva_ktla(par->pmi_start);
+		par->pmi_pal = ktva_ktla(par->pmi_pal);
+#endif
+
 		printk(KERN_INFO "uvesafb: protected mode interface info at "
 				 "%04x:%04x\n",
 				 (u16)task->t.regs.es, (u16)task->t.regs.edi);
@@ -885,7 +915,7 @@ static int __devinit uvesafb_vbe_init_mode(struct fb_info *info)
 	}
 
 	/* fb_find_mode() failed */
-	if (i == 0 || i >= 3) {
+	if (i == 0) {
 		info->var.xres = 640;
 		info->var.yres = 480;
 		mode = (struct fb_videomode *)

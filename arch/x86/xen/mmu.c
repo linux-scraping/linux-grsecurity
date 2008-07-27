@@ -60,7 +60,7 @@ xmaddr_t arbitrary_virt_to_machine(unsigned long address)
 {
 	unsigned int level;
 	pte_t *pte = lookup_address(address, &level);
-	unsigned offset = address & PAGE_MASK;
+	unsigned offset = address & ~PAGE_MASK;
 
 	BUG_ON(pte == NULL);
 
@@ -156,6 +156,10 @@ void set_pte_mfn(unsigned long vaddr, unsigned long mfn, pgprot_t flags)
 void xen_set_pte_at(struct mm_struct *mm, unsigned long addr,
 		    pte_t *ptep, pte_t pteval)
 {
+	/* updates to init_mm may be done without lock */
+	if (mm == &init_mm)
+		preempt_disable();
+
 	if (mm == current->mm || mm == &init_mm) {
 		if (paravirt_get_lazy_mode() == PARAVIRT_LAZY_MMU) {
 			struct multicall_space mcs;
@@ -163,15 +167,68 @@ void xen_set_pte_at(struct mm_struct *mm, unsigned long addr,
 
 			MULTI_update_va_mapping(mcs.mc, addr, pteval, 0);
 			xen_mc_issue(PARAVIRT_LAZY_MMU);
-			return;
+			goto out;
 		} else
 			if (HYPERVISOR_update_va_mapping(addr, pteval, 0) == 0)
-				return;
+				goto out;
 	}
 	xen_set_pte(ptep, pteval);
+
+out:
+	if (mm == &init_mm)
+		preempt_enable();
 }
 
-#ifdef CONFIG_X86_PAE
+/* Assume pteval_t is equivalent to all the other *val_t types. */
+static pteval_t pte_mfn_to_pfn(pteval_t val)
+{
+	if (val & _PAGE_PRESENT) {
+		unsigned long mfn = (val & PTE_MASK) >> PAGE_SHIFT;
+		pteval_t flags = val & ~PTE_MASK;
+		val = ((pteval_t)mfn_to_pfn(mfn) << PAGE_SHIFT) | flags;
+	}
+
+	return val;
+}
+
+static pteval_t pte_pfn_to_mfn(pteval_t val)
+{
+	if (val & _PAGE_PRESENT) {
+		unsigned long pfn = (val & PTE_MASK) >> PAGE_SHIFT;
+		pteval_t flags = val & ~PTE_MASK;
+		val = ((pteval_t)pfn_to_mfn(pfn) << PAGE_SHIFT) | flags;
+	}
+
+	return val;
+}
+
+pteval_t xen_pte_val(pte_t pte)
+{
+	return pte_mfn_to_pfn(pte.pte);
+}
+
+pgdval_t xen_pgd_val(pgd_t pgd)
+{
+	return pte_mfn_to_pfn(pgd.pgd);
+}
+
+pte_t xen_make_pte(pteval_t pte)
+{
+	pte = pte_pfn_to_mfn(pte);
+	return native_make_pte(pte);
+}
+
+pgd_t xen_make_pgd(pgdval_t pgd)
+{
+	pgd = pte_pfn_to_mfn(pgd);
+	return native_make_pgd(pgd);
+}
+
+pmdval_t xen_pmd_val(pmd_t pmd)
+{
+	return pte_mfn_to_pfn(pmd.pmd);
+}
+
 void xen_set_pud(pud_t *ptr, pud_t val)
 {
 	struct multicall_space mcs;
@@ -214,101 +271,11 @@ void xen_pmd_clear(pmd_t *pmdp)
 	xen_set_pmd(pmdp, __pmd(0));
 }
 
-unsigned long long xen_pte_val(pte_t pte)
+pmd_t xen_make_pmd(pmdval_t pmd)
 {
-	unsigned long long ret = 0;
-
-	if (pte.pte_low) {
-		ret = ((unsigned long long)pte.pte_high << 32) | pte.pte_low;
-		ret = machine_to_phys(XMADDR(ret)).paddr | 1;
-	}
-
-	return ret;
+	pmd = pte_pfn_to_mfn(pmd);
+	return native_make_pmd(pmd);
 }
-
-unsigned long long xen_pmd_val(pmd_t pmd)
-{
-	unsigned long long ret = pmd.pmd;
-	if (ret)
-		ret = machine_to_phys(XMADDR(ret)).paddr | 1;
-	return ret;
-}
-
-unsigned long long xen_pgd_val(pgd_t pgd)
-{
-	unsigned long long ret = pgd.pgd;
-	if (ret)
-		ret = machine_to_phys(XMADDR(ret)).paddr | 1;
-	return ret;
-}
-
-pte_t xen_make_pte(unsigned long long pte)
-{
-	if (pte & _PAGE_PRESENT) {
-		pte = phys_to_machine(XPADDR(pte)).maddr;
-		pte &= ~(_PAGE_PCD | _PAGE_PWT);
-	}
-
-	return (pte_t){ .pte = pte };
-}
-
-pmd_t xen_make_pmd(unsigned long long pmd)
-{
-	if (pmd & 1)
-		pmd = phys_to_machine(XPADDR(pmd)).maddr;
-
-	return (pmd_t){ pmd };
-}
-
-pgd_t xen_make_pgd(unsigned long long pgd)
-{
-	if (pgd & _PAGE_PRESENT)
-		pgd = phys_to_machine(XPADDR(pgd)).maddr;
-
-	return (pgd_t){ pgd };
-}
-#else  /* !PAE */
-void xen_set_pte(pte_t *ptep, pte_t pte)
-{
-	*ptep = pte;
-}
-
-unsigned long xen_pte_val(pte_t pte)
-{
-	unsigned long ret = pte.pte_low;
-
-	if (ret & _PAGE_PRESENT)
-		ret = machine_to_phys(XMADDR(ret)).paddr;
-
-	return ret;
-}
-
-unsigned long xen_pgd_val(pgd_t pgd)
-{
-	unsigned long ret = pgd.pgd;
-	if (ret)
-		ret = machine_to_phys(XMADDR(ret)).paddr | 1;
-	return ret;
-}
-
-pte_t xen_make_pte(unsigned long pte)
-{
-	if (pte & _PAGE_PRESENT) {
-		pte = phys_to_machine(XPADDR(pte)).maddr;
-		pte &= ~(_PAGE_PCD | _PAGE_PWT);
-	}
-
-	return (pte_t){ pte };
-}
-
-pgd_t xen_make_pgd(unsigned long pgd)
-{
-	if (pgd & _PAGE_PRESENT)
-		pgd = phys_to_machine(XPADDR(pgd)).maddr;
-
-	return (pgd_t){ pgd };
-}
-#endif	/* CONFIG_X86_PAE */
 
 /*
   (Yet another) pagetable walker.  This one is intended for pinning a
@@ -418,7 +385,7 @@ static void xen_do_pin(unsigned level, unsigned long pfn)
 
 static int pin_page(struct page *page, enum pt_level level)
 {
-	unsigned pgfl = test_and_set_bit(PG_pinned, &page->flags);
+	unsigned pgfl = TestSetPagePinned(page);
 	int flush;
 
 	if (pgfl)
@@ -461,8 +428,6 @@ static int pin_page(struct page *page, enum pt_level level)
    read-only, and can be pinned. */
 void xen_pgd_pin(pgd_t *pgd)
 {
-	unsigned level;
-
 	xen_mc_batch();
 
 	if (pgd_walk(pgd, pin_page, TASK_SIZE)) {
@@ -472,14 +437,7 @@ void xen_pgd_pin(pgd_t *pgd)
 		xen_mc_batch();
 	}
 
-#ifdef CONFIG_X86_PAE
-	level = MMUEXT_PIN_L3_TABLE;
-#else
-	level = MMUEXT_PIN_L2_TABLE;
-#endif
-
-	xen_do_pin(level, PFN_DOWN(__pa(pgd)));
-
+	xen_do_pin(MMUEXT_PIN_L3_TABLE, PFN_DOWN(__pa(pgd)));
 	xen_mc_issue(0);
 }
 
@@ -499,7 +457,7 @@ void __init xen_mark_init_mm_pinned(void)
 
 static int unpin_page(struct page *page, enum pt_level level)
 {
-	unsigned pgfl = test_and_clear_bit(PG_pinned, &page->flags);
+	unsigned pgfl = TestClearPagePinned(page);
 
 	if (pgfl && !PageHighMem(page)) {
 		void *pt = lowmem_page_address(page);

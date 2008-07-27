@@ -1008,6 +1008,7 @@ static int fr_rx(struct sk_buff *skb)
 		stats->rx_bytes += skb->len;
 		if (pvc->state.becn)
 			stats->rx_compressed++;
+		skb->dev = dev;
 		netif_rx(skb);
 		return NET_RX_SUCCESS;
 	} else {
@@ -1090,10 +1091,6 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
 	pvc_device *pvc = NULL;
 	struct net_device *dev;
 	int result, used;
-	char * prefix = "pvc%d";
-
-	if (type == ARPHRD_ETHER)
-		prefix = "pvceth%d";
 
 	if ((pvc = add_pvc(frad, dlci)) == NULL) {
 		printk(KERN_WARNING "%s: Memory squeeze on fr_add_pvc()\n",

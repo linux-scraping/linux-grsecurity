@@ -76,7 +76,7 @@ struct palm_bk3710_udmatiming {
 
 #include "../ide-timing.h"
 
-static long ide_palm_clk;
+static unsigned ideclk_period; /* in nanoseconds */
 
 static const struct palm_bk3710_udmatiming palm_bk3710_udmatimings[6] = {
 	{160, 240},		/* UDMA Mode 0 */
@@ -86,8 +86,6 @@ static const struct palm_bk3710_udmatiming palm_bk3710_udmatimings[6] = {
 	{85,  60},		/* UDMA Mode 4 */
 };
 
-static struct clk *ideclkp;
-
 static void palm_bk3710_setudmamode(void __iomem *base, unsigned int dev,
 				    unsigned int mode)
 {
@@ -96,11 +94,11 @@ static void palm_bk3710_setudmamode(void __iomem *base, unsigned int dev,
 	u16 val16;
 
 	/* DMA Data Setup */
-	t0 = (palm_bk3710_udmatimings[mode].cycletime + ide_palm_clk - 1)
-			/ ide_palm_clk - 1;
-	tenv = (20 + ide_palm_clk - 1) / ide_palm_clk - 1;
-	trp = (palm_bk3710_udmatimings[mode].rptime + ide_palm_clk - 1)
-			/ ide_palm_clk - 1;
+	t0 = DIV_ROUND_UP(palm_bk3710_udmatimings[mode].cycletime,
+			  ideclk_period) - 1;
+	tenv = DIV_ROUND_UP(20, ideclk_period) - 1;
+	trp = DIV_ROUND_UP(palm_bk3710_udmatimings[mode].rptime,
+			   ideclk_period) - 1;
 
 	/* udmatim Register */
 	val16 = readw(base + BK3710_UDMATIM) & (dev ? 0xFF0F : 0xFFF0);
@@ -141,8 +139,8 @@ static void palm_bk3710_setdmamode(void __iomem *base, unsigned int dev,
 	cycletime = max_t(int, t->cycle, min_cycle);
 
 	/* DMA Data Setup */
-	t0 = (cycletime + ide_palm_clk - 1) / ide_palm_clk;
-	td = (t->active + ide_palm_clk - 1) / ide_palm_clk;
+	t0 = DIV_ROUND_UP(cycletime, ideclk_period);
+	td = DIV_ROUND_UP(t->active, ideclk_period);
 	tkw = t0 - td - 1;
 	td -= 1;
 
@@ -168,9 +166,9 @@ static void palm_bk3710_setpiomode(void __iomem *base, ide_drive_t *mate,
 	struct ide_timing *t;
 
 	/* PIO Data Setup */
-	t0 = (cycletime + ide_palm_clk - 1) / ide_palm_clk;
-	t2 = (ide_timing_find_mode(XFER_PIO_0 + mode)->active +
-	      ide_palm_clk - 1)	/ ide_palm_clk;
+	t0 = DIV_ROUND_UP(cycletime, ideclk_period);
+	t2 = DIV_ROUND_UP(ide_timing_find_mode(XFER_PIO_0 + mode)->active,
+			  ideclk_period);
 
 	t2i = t0 - t2 - 1;
 	t2 -= 1;
@@ -192,8 +190,8 @@ static void palm_bk3710_setpiomode(void __iomem *base, ide_drive_t *mate,
 
 	/* TASKFILE Setup */
 	t = ide_timing_find_mode(XFER_PIO_0 + mode);
-	t0 = (t->cyc8b + ide_palm_clk - 1) / ide_palm_clk;
-	t2 = (t->act8b + ide_palm_clk - 1) / ide_palm_clk;
+	t0 = DIV_ROUND_UP(t->cyc8b, ideclk_period);
+	t2 = DIV_ROUND_UP(t->act8b, ideclk_period);
 
 	t2i = t0 - t2 - 1;
 	t2 -= 1;
@@ -317,17 +315,32 @@ static u8 __devinit palm_bk3710_cable_detect(ide_hwif_t *hwif)
 	return ATA_CBL_PATA80;
 }
 
-static void __devinit palm_bk3710_init_hwif(ide_hwif_t *hwif)
+static int __devinit palm_bk3710_init_dma(ide_hwif_t *hwif,
+					  const struct ide_port_info *d)
 {
-	hwif->set_pio_mode = palm_bk3710_set_pio_mode;
-	hwif->set_dma_mode = palm_bk3710_set_dma_mode;
+	unsigned long base =
+		hwif->io_ports.data_addr - IDE_PALM_ATA_PRI_REG_OFFSET;
 
-	hwif->cable_detect = palm_bk3710_cable_detect;
+	printk(KERN_INFO "    %s: MMIO-DMA\n", hwif->name);
+
+	if (ide_allocate_dma_engine(hwif))
+		return -1;
+
+	ide_setup_dma(hwif, base);
+
+	return 0;
 }
 
+static const struct ide_port_ops palm_bk3710_ports_ops = {
+	.set_pio_mode		= palm_bk3710_set_pio_mode,
+	.set_dma_mode		= palm_bk3710_set_dma_mode,
+	.cable_detect		= palm_bk3710_cable_detect,
+};
+
 static const struct ide_port_info __devinitdata palm_bk3710_port_info = {
-	.init_hwif		= palm_bk3710_init_hwif,
-	.host_flags		= IDE_HFLAG_NO_DMA, /* hack (no PCI) */
+	.init_dma		= palm_bk3710_init_dma,
+	.port_ops		= &palm_bk3710_ports_ops,
+	.host_flags		= IDE_HFLAG_MMIO,
 	.pio_mask		= ATA_PIO4,
 	.udma_mask		= ATA_UDMA4,	/* (input clk 99MHz) */
 	.mwdma_mask		= ATA_MWDMA2,
@@ -335,22 +348,22 @@ static const struct ide_port_info __devinitdata palm_bk3710_port_info = {
 
 static int __devinit palm_bk3710_probe(struct platform_device *pdev)
 {
-	struct clk *clkp;
+	struct clk *clk;
 	struct resource *mem, *irq;
 	ide_hwif_t *hwif;
-	void __iomem *base;
-	int pribase, i;
+	unsigned long base, rate;
+	int i;
 	hw_regs_t hw;
 	u8 idx[4] = { 0xff, 0xff, 0xff, 0xff };
 
-	clkp = clk_get(NULL, "IDECLK");
-	if (IS_ERR(clkp))
+	clk = clk_get(NULL, "IDECLK");
+	if (IS_ERR(clk))
 		return -ENODEV;
 
-	ideclkp = clkp;
-	clk_enable(ideclkp);
-	ide_palm_clk = clk_get_rate(ideclkp)/100000;
-	ide_palm_clk = (10000/ide_palm_clk) + 1;
+	clk_enable(clk);
+	rate = clk_get_rate(clk);
+	ideclk_period = 1000000000UL / rate;
+
 	/* Register the IDE interface with Linux ATA Interface */
 	memset(&hw, 0, sizeof(hw));
 
@@ -359,49 +372,45 @@ static int __devinit palm_bk3710_probe(struct platform_device *pdev)
 		printk(KERN_ERR "failed to get memory region resource\n");
 		return -ENODEV;
 	}
+
 	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (irq == NULL) {
 		printk(KERN_ERR "failed to get IRQ resource\n");
 		return -ENODEV;
 	}
 
-	base = (void *)mem->start;
+	if (request_mem_region(mem->start, mem->end - mem->start + 1,
+			       "palm_bk3710") == NULL) {
+		printk(KERN_ERR "failed to request memory region\n");
+		return -EBUSY;
+	}
+
+	base = IO_ADDRESS(mem->start);
 
 	/* Configure the Palm Chip controller */
-	palm_bk3710_chipinit(base);
+	palm_bk3710_chipinit((void __iomem *)base);
 
-	pribase = mem->start + IDE_PALM_ATA_PRI_REG_OFFSET;
 	for (i = 0; i < IDE_NR_PORTS - 2; i++)
-		hw.io_ports[i] = pribase + i;
-	hw.io_ports[IDE_CONTROL_OFFSET] = mem->start +
-			IDE_PALM_ATA_PRI_CTL_OFFSET;
+		hw.io_ports_array[i] = base + IDE_PALM_ATA_PRI_REG_OFFSET + i;
+	hw.io_ports.ctl_addr = base + IDE_PALM_ATA_PRI_CTL_OFFSET;
 	hw.irq = irq->start;
 	hw.chipset = ide_palm3710;
 
-	hwif = ide_deprecated_find_port(hw.io_ports[IDE_DATA_OFFSET]);
+	hwif = ide_find_port();
 	if (hwif == NULL)
 		goto out;
 
 	i = hwif->index;
 
-	if (hwif->present)
-		ide_unregister(i, 0, 0);
-	else if (!hwif->hold)
-		ide_init_port_data(hwif, i);
-
+	ide_init_port_data(hwif, i);
 	ide_init_port_hw(hwif, &hw);
 
 	hwif->mmio = 1;
 	default_hwif_mmiops(hwif);
 
-	ide_setup_dma(hwif, mem->start);
-
 	idx[0] = i;
 
 	ide_device_add(idx, &palm_bk3710_port_info);
-
-	if (!hwif->present)
-		goto out;
 
 	return 0;
 out:
@@ -409,9 +418,13 @@ out:
 	return -ENODEV;
 }
 
+/* work with hotplug and coldplug */
+MODULE_ALIAS("platform:palm_bk3710");
+
 static struct platform_driver platform_bk_driver = {
 	.driver = {
 		.name = "palm_bk3710",
+		.owner = THIS_MODULE,
 	},
 	.probe = palm_bk3710_probe,
 	.remove = NULL,
@@ -424,4 +437,3 @@ static int __init palm_bk3710_init(void)
 
 module_init(palm_bk3710_init);
 MODULE_LICENSE("GPL");
-

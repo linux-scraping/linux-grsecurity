@@ -49,14 +49,14 @@ match(const struct sk_buff *skb,
 			return false;
 		}
 		if (!(th.syn && !th.ack)) return false;
-		sk = inet_lookup_listener(skb->dev->nd_net, &tcp_hashinfo, ip->daddr, th.dest, inet_iif(skb));	
+		sk = inet_lookup_listener(dev_net(skb->dev), &tcp_hashinfo, ip->daddr, th.dest, inet_iif(skb));	
 		break;
 	case IPPROTO_UDP:
 		if (skb_copy_bits(skb, (ip_hdr(skb))->ihl*4, &uh, sizeof(uh)) < 0) {
 			*hotdrop = true;
 			return false;
 		}
-		sk = udp_v4_lookup(skb->dev->nd_net, ip->saddr, uh.source, ip->daddr, uh.dest, skb->dev->ifindex);
+		sk = udp_v4_lookup(dev_net(skb->dev), ip->saddr, uh.source, ip->daddr, uh.dest, skb->dev->ifindex);
 		break;
 	default:
 		return false;

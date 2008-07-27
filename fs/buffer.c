@@ -361,16 +361,19 @@ void invalidate_bdev(struct block_device *bdev)
  */
 static void free_more_memory(void)
 {
-	struct zone **zones;
-	pg_data_t *pgdat;
+	struct zone *zone;
+	int nid;
 
 	wakeup_pdflush(1024);
 	yield();
 
-	for_each_online_pgdat(pgdat) {
-		zones = pgdat->node_zonelists[gfp_zone(GFP_NOFS)].zones;
-		if (*zones)
-			try_to_free_pages(zones, 0, GFP_NOFS);
+	for_each_online_node(nid) {
+		(void)first_zones_zonelist(node_zonelist(nid, GFP_NOFS),
+						gfp_zone(GFP_NOFS), NULL,
+						&zone);
+		if (zone)
+			try_to_free_pages(node_zonelist(nid, GFP_NOFS), 0,
+						GFP_NOFS);
 	}
 }
 
@@ -819,7 +822,7 @@ static int fsync_buffers_list(spinlock_t *lock, struct list_head *list)
 				 * contents - it is a noop if I/O is still in
 				 * flight on potentially older contents.
 				 */
-				ll_rw_block(SWRITE, 1, &bh);
+				ll_rw_block(SWRITE_SYNC, 1, &bh);
 				brelse(bh);
 				spin_lock(lock);
 			}
@@ -1099,7 +1102,7 @@ grow_buffers(struct block_device *bdev, sector_t block, int size)
 
 		printk(KERN_ERR "%s: requested out-of-range block %llu for "
 			"device %s\n",
-			__FUNCTION__, (unsigned long long)block,
+			__func__, (unsigned long long)block,
 			bdevname(bdev, b));
 		return -EIO;
 	}
@@ -2210,8 +2213,8 @@ out:
 	return err;
 }
 
-int cont_expand_zero(struct file *file, struct address_space *mapping,
-			loff_t pos, loff_t *bytes)
+static int cont_expand_zero(struct file *file, struct address_space *mapping,
+			    loff_t pos, loff_t *bytes)
 {
 	struct inode *inode = mapping->host;
 	unsigned blocksize = 1 << inode->i_blkbits;
@@ -2245,6 +2248,8 @@ int cont_expand_zero(struct file *file, struct address_space *mapping,
 			goto out;
 		BUG_ON(err != len);
 		err = 0;
+
+		balance_dirty_pages_ratelimited(mapping);
 	}
 
 	/* page covers the boundary, find the boundary offset */
@@ -2322,23 +2327,6 @@ int block_commit_write(struct page *page, unsigned from, unsigned to)
 {
 	struct inode *inode = page->mapping->host;
 	__block_commit_write(inode,page,from,to);
-	return 0;
-}
-
-int generic_commit_write(struct file *file, struct page *page,
-		unsigned from, unsigned to)
-{
-	struct inode *inode = page->mapping->host;
-	loff_t pos = ((loff_t)page->index << PAGE_CACHE_SHIFT) + to;
-	__block_commit_write(inode,page,from,to);
-	/*
-	 * No need to use i_size_read() here, the i_size
-	 * cannot change under us because we hold i_mutex.
-	 */
-	if (pos > inode->i_size) {
-		i_size_write(inode, pos);
-		mark_inode_dirty(inode);
-	}
 	return 0;
 }
 
@@ -2954,16 +2942,19 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
 	for (i = 0; i < nr; i++) {
 		struct buffer_head *bh = bhs[i];
 
-		if (rw == SWRITE)
+		if (rw == SWRITE || rw == SWRITE_SYNC)
 			lock_buffer(bh);
 		else if (test_set_buffer_locked(bh))
 			continue;
 
-		if (rw == WRITE || rw == SWRITE) {
+		if (rw == WRITE || rw == SWRITE || rw == SWRITE_SYNC) {
 			if (test_clear_buffer_dirty(bh)) {
 				bh->b_end_io = end_buffer_write_sync;
 				get_bh(bh);
-				submit_bh(WRITE, bh);
+				if (rw == SWRITE_SYNC)
+					submit_bh(WRITE_SYNC, bh);
+				else
+					submit_bh(WRITE, bh);
 				continue;
 			}
 		} else {
@@ -2992,7 +2983,7 @@ int sync_dirty_buffer(struct buffer_head *bh)
 	if (test_clear_buffer_dirty(bh)) {
 		get_bh(bh);
 		bh->b_end_io = end_buffer_write_sync;
-		ret = submit_bh(WRITE, bh);
+		ret = submit_bh(WRITE_SYNC, bh);
 		wait_on_buffer(bh);
 		if (buffer_eopnotsupp(bh)) {
 			clear_buffer_eopnotsupp(bh);
@@ -3182,8 +3173,7 @@ static void recalc_bh_state(void)
 	
 struct buffer_head *alloc_buffer_head(gfp_t gfp_flags)
 {
-	struct buffer_head *ret = kmem_cache_alloc(bh_cachep,
-				set_migrateflags(gfp_flags, __GFP_RECLAIMABLE));
+	struct buffer_head *ret = kmem_cache_alloc(bh_cachep, gfp_flags);
 	if (ret) {
 		INIT_LIST_HEAD(&ret->b_assoc_buffers);
 		get_cpu_var(bh_accounting).nr++;
@@ -3313,7 +3303,6 @@ EXPORT_SYMBOL(end_buffer_write_sync);
 EXPORT_SYMBOL(file_fsync);
 EXPORT_SYMBOL(fsync_bdev);
 EXPORT_SYMBOL(generic_block_bmap);
-EXPORT_SYMBOL(generic_commit_write);
 EXPORT_SYMBOL(generic_cont_expand_simple);
 EXPORT_SYMBOL(init_buffer);
 EXPORT_SYMBOL(invalidate_bdev);

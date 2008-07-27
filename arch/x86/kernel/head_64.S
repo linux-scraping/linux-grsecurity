@@ -128,13 +128,9 @@ ident_complete:
 	/* Fixup phys_base */
 	addq	%rbp, phys_base(%rip)
 
-#ifdef CONFIG_SMP
+#ifdef CONFIG_X86_TRAMPOLINE
 	addq	%rbp, trampoline_level4_pgt + 0(%rip)
 	addq	%rbp, trampoline_level4_pgt + (511*8)(%rip)
-#endif
-#ifdef CONFIG_ACPI_SLEEP
-	addq	%rbp, wakeup_level4_pgt + 0(%rip)
-	addq	%rbp, wakeup_level4_pgt + (511*8)(%rip)
 #endif
 
 	/* Due to ENTRY(), sometimes the empty space gets filled with
@@ -189,6 +185,7 @@ ENTRY(secondary_startup_64)
 	addq	phys_base(%rip), %rdi
 	btsq	$_PAGE_BIT_NX, 8*258(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*388(%rdi)
+	btsq	$_PAGE_BIT_NX, 8*452(%rdi)
 1:	wrmsr				/* Make changes effective */
 
 	/* Setup cr0 */
@@ -273,20 +270,14 @@ bad_address:
 
 	__INIT
 #ifdef CONFIG_EARLY_PRINTK
-.macro early_idt_tramp first, last
-	.ifgt \last-\first
-	early_idt_tramp \first, \last-1
-	.endif
-	movl $\last,%esi
-	jmp early_idt_handler
-.endm
-
 	.globl early_idt_handlers
 early_idt_handlers:
-	early_idt_tramp 0, 63
-	early_idt_tramp 64, 127
-	early_idt_tramp 128, 191
-	early_idt_tramp 192, 255
+	i = 0
+	.rept NUM_EXCEPTION_VECTORS
+	movl $i, %esi
+	jmp early_idt_handler
+	i = i + 1
+	.endr
 #endif
 
 ENTRY(early_idt_handler)
@@ -322,17 +313,20 @@ ENTRY(early_idt_handler)
 #endif /* EARLY_PRINTK */
 1:	hlt
 	jmp 1b
+	.previous
 
 #ifdef CONFIG_EARLY_PRINTK
 	__INITDATA
 early_recursion_flag:
 	.long 0
+	.previous
 
 	.section .rodata,"a",@progbits
 early_idt_msg:
 	.asciz "PANIC: early exception %02lx rip %lx:%lx error %lx cr2 %lx\n"
 early_idt_ripmsg:
 	.asciz "RIP %s\n"
+	.previous
 #endif /* CONFIG_EARLY_PRINTK */
 
 	.section .rodata,"a",@progbits
@@ -362,7 +356,9 @@ NEXT_PAGE(init_level4_pgt)
 	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.fill	129,8,0
 	.quad	level3_vmalloc_pgt - __START_KERNEL_map + _KERNPG_TABLE
-	.fill	122,8,0
+	.fill	63,8,0
+	.quad	level3_vmemmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.fill	58,8,0
 	/* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
 	.quad	level3_kernel_pgt - __START_KERNEL_map + _PAGE_TABLE
 
@@ -371,6 +367,9 @@ NEXT_PAGE(level3_ident_pgt)
 	.fill	511,8,0
 
 NEXT_PAGE(level3_vmalloc_pgt)
+	.fill	512,8,0
+
+NEXT_PAGE(level3_vmemmap_pgt)
 	.fill	512,8,0
 
 NEXT_PAGE(level3_kernel_pgt)
@@ -396,12 +395,12 @@ NEXT_PAGE(level2_ident_pgt)
 
 NEXT_PAGE(level2_kernel_pgt)
 	/*
-	 * 128 MB kernel mapping. We spend a full page on this pagetable
+	 * 512 MB kernel mapping. We spend a full page on this pagetable
 	 * anyway.
 	 *
 	 * The kernel code+data+bss must not be bigger than that.
 	 *
-	 * (NOTE: at +128MB starts the module area, see MODULES_VADDR.
+	 * (NOTE: at +512MB starts the module area, see MODULES_VADDR.
 	 *  If you want to increase this then increase MODULES_VADDR
 	 *  too.)
 	 */

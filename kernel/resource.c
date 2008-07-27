@@ -131,31 +131,18 @@ static const struct file_operations proc_iomem_operations = {
 
 static int __init ioresources_init(void)
 {
-	struct proc_dir_entry *entry;
-
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	entry = create_proc_entry("ioports", S_IRUSR, NULL);
+	proc_create("ioports", S_IRUSR, NULL, &proc_ioports_operations);
+	proc_create("iomem", S_IRUSR, NULL, &proc_iomem_operations);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	entry = create_proc_entry("ioports", S_IRUSR | S_IRGRP, NULL);
+	proc_create("ioports", S_IRUSR | S_IRGRP, NULL, &proc_ioports_operations);
+	proc_create("iomem", S_IRUSR | S_IRGRP, NULL, &proc_iomem_operations);
 #endif
 #else
-	entry = create_proc_entry("ioports", 0, NULL);
+	proc_create("ioports", 0, NULL, &proc_ioports_operations);
+	proc_create("iomem", 0, NULL, &proc_iomem_operations);
 #endif
-	if (entry)
-		entry->proc_fops = &proc_ioports_operations;
-
-#ifdef CONFIG_GRKERNSEC_PROC_ADD
-#ifdef CONFIG_GRKERNSEC_PROC_USER
-	entry = create_proc_entry("iomem", S_IRUSR, NULL);
-#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	entry = create_proc_entry("iomem", S_IRUSR | S_IRGRP, NULL);
-#endif
-#else
-	entry = create_proc_entry("iomem", 0, NULL);
-#endif
-	if (entry)
-		entry->proc_fops = &proc_iomem_operations;
 	return 0;
 }
 __initcall(ioresources_init);
@@ -502,6 +489,24 @@ int adjust_resource(struct resource *res, resource_size_t start, resource_size_t
 }
 
 EXPORT_SYMBOL(adjust_resource);
+
+/**
+ * resource_alignment - calculate resource's alignment
+ * @res: resource pointer
+ *
+ * Returns alignment on success, 0 (invalid alignment) on failure.
+ */
+resource_size_t resource_alignment(struct resource *res)
+{
+	switch (res->flags & (IORESOURCE_SIZEALIGN | IORESOURCE_STARTALIGN)) {
+	case IORESOURCE_SIZEALIGN:
+		return res->end - res->start + 1;
+	case IORESOURCE_STARTALIGN:
+		return res->start;
+	default:
+		return 0;
+	}
+}
 
 /*
  * This is compatibility stuff for IO resources.

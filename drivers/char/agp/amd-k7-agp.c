@@ -314,9 +314,9 @@ static int amd_insert_memory(struct agp_memory *mem, off_t pg_start, int type)
 		j++;
 	}
 
-	if (mem->is_flushed == FALSE) {
+	if (!mem->is_flushed) {
 		global_cache_flush();
-		mem->is_flushed = TRUE;
+		mem->is_flushed = true;
 	}
 
 	for (i = 0, j = pg_start; i < mem->page_count; i++, j++) {
@@ -436,8 +436,9 @@ static int __devinit agp_amdk7_probe(struct pci_dev *pdev,
 	   system controller may experience noise due to strong drive strengths
 	 */
 	if (agp_bridge->dev->device == PCI_DEVICE_ID_AMD_FE_GATE_7006) {
-		u8 cap_ptr=0;
 		struct pci_dev *gfxcard=NULL;
+
+		cap_ptr = 0;
 		while (!cap_ptr) {
 			gfxcard = pci_get_class(PCI_CLASS_DISPLAY_VGA<<8, gfxcard);
 			if (!gfxcard) {

@@ -22,23 +22,6 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
-/*
- * sys_pipe() is the normal C calling standard for creating
- * a pipe. It's not the way Unix traditionally does this, though.
- */
-asmlinkage int sys_pipe(unsigned long __user * fildes)
-{
-	int fd[2];
-	int error;
-
-	error = do_pipe(fd);
-	if (!error) {
-		if (copy_to_user(fildes, fd, 2*sizeof(int)))
-			error = -EFAULT;
-	}
-	return error;
-}
-
 int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
 {
 	unsigned long pax_task_size = TASK_SIZE;

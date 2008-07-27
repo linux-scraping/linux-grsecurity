@@ -16,6 +16,8 @@ static int dvb_usb_gl861_debug;
 module_param_named(debug,dvb_usb_gl861_debug, int, 0644);
 MODULE_PARM_DESC(debug, "set debugging level (1=rc (or-able))." DVB_USB_DEBUG_STATUS);
 
+DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
+
 static int gl861_i2c_msg(struct dvb_usb_device *d, u8 addr,
 			 u8 *wbuf, u16 wlen, u8 *rbuf, u16 rlen)
 {
@@ -44,6 +46,8 @@ static int gl861_i2c_msg(struct dvb_usb_device *d, u8 addr,
 		warn("wlen = %x, aborting.", wlen);
 		return -EINVAL;
 	}
+
+	msleep(1); /* avoid I2C errors */
 
 	return usb_control_msg(d->udev, usb_rcvctrlpipe(d->udev, 0), req, type,
 			       value, index, rbuf, rlen, 2000);
@@ -90,16 +94,6 @@ static struct i2c_algorithm gl861_i2c_algo = {
 };
 
 /* Callbacks for DVB USB */
-static int gl861_identify_state(struct usb_device *udev,
-				struct dvb_usb_device_properties *props,
-				struct dvb_usb_device_description **desc,
-				int *cold)
-{
-	*cold = 0;
-
-	return 0;
-}
-
 static struct zl10353_config gl861_zl10353_config = {
 	.demod_address = 0x0f,
 	.no_tuner = 1,
@@ -140,7 +134,9 @@ static int gl861_probe(struct usb_interface *intf,
 	if (intf->num_altsetting < 2)
 		return -ENODEV;
 
-	if ((ret = dvb_usb_device_init(intf, &gl861_properties, THIS_MODULE, &d)) == 0) {
+	ret = dvb_usb_device_init(intf, &gl861_properties, THIS_MODULE, &d,
+				  adapter_nr);
+	if (ret == 0) {
 		alt = usb_altnum_to_altsetting(intf, 0);
 
 		if (alt == NULL) {
@@ -168,7 +164,6 @@ static struct dvb_usb_device_properties gl861_properties = {
 
 	.size_of_priv     = 0,
 
-	.identify_state   = gl861_identify_state,
 	.num_adapters = 1,
 	.adapter = {{
 
@@ -190,13 +185,15 @@ static struct dvb_usb_device_properties gl861_properties = {
 
 	.num_device_descs = 2,
 	.devices = {
-		{   "MSI Mega Sky 55801 DVB-T USB2.0",
-			{ &gl861_table[0], NULL },
-			{ NULL },
+		{
+			.name = "MSI Mega Sky 55801 DVB-T USB2.0",
+			.cold_ids = { NULL },
+			.warm_ids = { &gl861_table[0], NULL },
 		},
-		{   "A-LINK DTU DVB-T USB2.0",
-			{ &gl861_table[1], NULL },
-			{ NULL },
+		{
+			.name = "A-LINK DTU DVB-T USB2.0",
+			.cold_ids = { NULL },
+			.warm_ids = { &gl861_table[1], NULL },
 		},
 	}
 };

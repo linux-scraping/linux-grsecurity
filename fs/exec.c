@@ -24,8 +24,8 @@
 
 #include <linux/slab.h>
 #include <linux/file.h>
+#include <linux/fdtable.h>
 #include <linux/mman.h>
-#include <linux/a.out.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
 #include <linux/smp_lock.h>
@@ -60,6 +60,11 @@
 
 #ifdef CONFIG_KMOD
 #include <linux/kmod.h>
+#endif
+
+#ifdef __alpha__
+/* for /sbin/loader handling in search_binary_handler() */
+#include <linux/a.out.h>
 #endif
 
 #ifdef CONFIG_PAX_HOOK_ACL_FLAGS
@@ -626,11 +631,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 			goto out_unlock;
 	}
 
-	vm_flags = vma->vm_flags;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	vm_flags |= VM_STACK_FLAGS & (VM_EXEC | VM_MAYEXEC);
-#endif
+	vm_flags = VM_STACK_FLAGS;
 
 	/*
 	 * Adjust stack execute permissions; explicitly enable for
@@ -763,6 +764,7 @@ static int exec_mmap(struct mm_struct *mm)
 	tsk->active_mm = mm;
 	activate_mm(active_mm, mm);
 	task_unlock(tsk);
+	mm_update_next_owner(old_mm);
 	arch_pick_mmap_layout(mm);
 	if (old_mm) {
 		up_read(&old_mm->mmap_sem);
@@ -793,9 +795,7 @@ static int de_thread(struct task_struct *tsk)
 
 	/*
 	 * Kill all other threads in the thread group.
-	 * We must hold tasklist_lock to call zap_other_threads.
 	 */
-	read_lock(&tasklist_lock);
 	spin_lock_irq(lock);
 	if (signal_group_exit(sig)) {
 		/*
@@ -803,21 +803,10 @@ static int de_thread(struct task_struct *tsk)
 		 * return so that the signal is processed.
 		 */
 		spin_unlock_irq(lock);
-		read_unlock(&tasklist_lock);
 		return -EAGAIN;
 	}
-
-	/*
-	 * child_reaper ignores SIGKILL, change it now.
-	 * Reparenting needs write_lock on tasklist_lock,
-	 * so it is safe to do it under read_lock.
-	 */
-	if (unlikely(tsk->group_leader == task_child_reaper(tsk)))
-		task_active_pid_ns(tsk)->child_reaper = tsk;
-
 	sig->group_exit_task = tsk;
 	zap_other_threads(tsk);
-	read_unlock(&tasklist_lock);
 
 	/* Account for the thread group leader hanging around: */
 	count = thread_group_leader(tsk) ? 1 : 2;
@@ -838,7 +827,7 @@ static int de_thread(struct task_struct *tsk)
 	if (!thread_group_leader(tsk)) {
 		leader = tsk->group_leader;
 
-		sig->notify_count = -1;
+		sig->notify_count = -1;	/* for exit_notify() */
 		for (;;) {
 			write_lock_irq(&tasklist_lock);
 			if (likely(leader->exit_state))
@@ -848,6 +837,8 @@ static int de_thread(struct task_struct *tsk)
 			schedule();
 		}
 
+		if (unlikely(task_child_reaper(tsk) == leader))
+			task_active_pid_ns(tsk)->child_reaper = tsk;
 		/*
 		 * The only record we have of the real-time age of a
 		 * process, regardless of execs it's done, is start_time.
@@ -897,6 +888,7 @@ static int de_thread(struct task_struct *tsk)
 
 no_thread_group:
 	exit_itimers(sig);
+	flush_itimer_signals();
 	if (leader)
 		release_task(leader);
 
@@ -981,7 +973,6 @@ int flush_old_exec(struct linux_binprm * bprm)
 {
 	char * name;
 	int i, ch, retval;
-	struct files_struct *files;
 	char tcomm[sizeof(current->comm)];
 
 	/*
@@ -992,27 +983,18 @@ int flush_old_exec(struct linux_binprm * bprm)
 	if (retval)
 		goto out;
 
-	/*
-	 * Make sure we have private file handles. Ask the
-	 * fork helper to do the work for us and the exit
-	 * helper to do the cleanup of the old one.
-	 */
-	files = current->files;		/* refcounted so safe to hold */
-	retval = unshare_files();
-	if (retval)
-		goto out;
+	set_mm_exe_file(bprm->mm, bprm->file);
+
 	/*
 	 * Release all of the old mmap stuff
 	 */
 	retval = exec_mmap(bprm->mm);
 	if (retval)
-		goto mmap_failed;
+		goto out;
 
 	bprm->mm = NULL;		/* We're using it now */
 
 	/* This is the point of no return */
-	put_files_struct(files);
-
 	current->sas_ss_sp = current->sas_ss_size = 0;
 
 	if (current->euid == current->uid && current->egid == current->gid)
@@ -1062,8 +1044,6 @@ int flush_old_exec(struct linux_binprm * bprm)
 
 	return 0;
 
-mmap_failed:
-	reset_files_struct(current, files);
 out:
 	return retval;
 }
@@ -1203,7 +1183,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 {
 	int try,retval;
 	struct linux_binfmt *fmt;
-#if defined(__alpha__) && defined(CONFIG_ARCH_SUPPORTS_AOUT)
+#ifdef __alpha__
 	/* handle /sbin/loader.. */
 	{
 	    struct exec * eh = (struct exec *) bprm->buf;
@@ -1300,6 +1280,12 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 
 EXPORT_SYMBOL(search_binary_handler);
 
+void free_bprm(struct linux_binprm *bprm)
+{
+	free_arg_pages(bprm);
+	kfree(bprm);
+}
+
 /*
  * sys_execve() executes a new program.
  */
@@ -1315,13 +1301,17 @@ int do_execve(char * filename,
 #endif
 	struct linux_binprm *bprm;
 	struct file *file;
-	unsigned long env_p;
+	struct files_struct *displaced;
 	int retval;
+
+	retval = unshare_files(&displaced);
+	if (retval)
+		goto out_ret;
 
 	retval = -ENOMEM;
 	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
 	if (!bprm)
-		goto out_ret;
+		goto out_files;
 
 	file = open_exec(filename);
 	retval = PTR_ERR(file);
@@ -1377,11 +1367,9 @@ int do_execve(char * filename,
 	if (retval < 0)
 		goto out;
 
-	env_p = bprm->p;
 	retval = copy_strings(bprm->argc, argv, bprm);
 	if (retval < 0)
 		goto out;
-	bprm->argv_len = env_p - bprm->p;
 
 	if (!gr_tpe_allow(file)) {
 		retval = -EACCES;
@@ -1416,10 +1404,11 @@ int do_execve(char * filename,
 			fput(old_exec_file);
 #endif
 		/* execve success */
-		free_arg_pages(bprm);
 		security_bprm_free(bprm);
 		acct_update_integrals(current);
-		kfree(bprm);
+		free_bprm(bprm);
+		if (displaced)
+			put_files_struct(displaced);
 		return retval;
 	}
 
@@ -1432,7 +1421,6 @@ out_fail:
 #endif
 
 out:
-	free_arg_pages(bprm);
 	if (bprm->security)
 		security_bprm_free(bprm);
 
@@ -1446,8 +1434,11 @@ out_file:
 		fput(bprm->file);
 	}
 out_kfree:
-	kfree(bprm);
+	free_bprm(bprm);
 
+out_files:
+	if (displaced)
+		reset_files_struct(displaced);
 out_ret:
 	return retval;
 }

@@ -40,7 +40,7 @@ static unsigned int empress_nr[] = {[0 ... (SAA7134_MAXBOARDS - 1)] = UNSET };
 module_param_array(empress_nr, int, NULL, 0444);
 MODULE_PARM_DESC(empress_nr,"ts device number");
 
-static unsigned int debug = 0;
+static unsigned int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug,"enable debug messages");
 
@@ -110,9 +110,10 @@ static int ts_release(struct inode *inode, struct file *file)
 {
 	struct saa7134_dev *dev = file->private_data;
 
+	mutex_lock(&dev->empress_tsq.vb_lock);
+
 	videobuf_stop(&dev->empress_tsq);
 	videobuf_mmap_free(&dev->empress_tsq);
-	dev->empress_users--;
 
 	/* stop the encoder */
 	ts_reset_encoder(dev);
@@ -120,6 +121,10 @@ static int ts_release(struct inode *inode, struct file *file)
 	/* Mute audio */
 	saa_writeb(SAA7134_AUDIO_MUTE_CTRL,
 		saa_readb(SAA7134_AUDIO_MUTE_CTRL) | (1 << 6));
+
+	dev->empress_users--;
+
+	mutex_unlock(&dev->empress_tsq.vb_lock);
 
 	return 0;
 }
@@ -163,8 +168,7 @@ ts_mmap(struct file *file, struct vm_area_struct * vma)
 static int empress_querycap(struct file *file, void  *priv,
 					struct v4l2_capability *cap)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	strcpy(cap->driver, "saa7134");
 	strlcpy(cap->card, saa7134_boards[dev->board].name,
@@ -219,8 +223,7 @@ static int empress_enum_fmt_cap(struct file *file, void  *priv,
 static int empress_g_fmt_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	saa7134_i2c_call_clients(dev, VIDIOC_G_FMT, f);
 
@@ -233,8 +236,7 @@ static int empress_g_fmt_cap(struct file *file, void *priv,
 static int empress_s_fmt_cap(struct file *file, void *priv,
 				struct v4l2_format *f)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	saa7134_i2c_call_clients(dev, VIDIOC_S_FMT, f);
 
@@ -248,8 +250,7 @@ static int empress_s_fmt_cap(struct file *file, void *priv,
 static int empress_reqbufs(struct file *file, void *priv,
 					struct v4l2_requestbuffers *p)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_reqbufs(&dev->empress_tsq, p);
 }
@@ -257,24 +258,21 @@ static int empress_reqbufs(struct file *file, void *priv,
 static int empress_querybuf(struct file *file, void *priv,
 					struct v4l2_buffer *b)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_querybuf(&dev->empress_tsq, b);
 }
 
 static int empress_qbuf(struct file *file, void *priv, struct v4l2_buffer *b)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_qbuf(&dev->empress_tsq, b);
 }
 
 static int empress_dqbuf(struct file *file, void *priv, struct v4l2_buffer *b)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_dqbuf(&dev->empress_tsq, b,
 				file->f_flags & O_NONBLOCK);
@@ -283,8 +281,7 @@ static int empress_dqbuf(struct file *file, void *priv, struct v4l2_buffer *b)
 static int empress_streamon(struct file *file, void *priv,
 					enum v4l2_buf_type type)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_streamon(&dev->empress_tsq);
 }
@@ -292,8 +289,7 @@ static int empress_streamon(struct file *file, void *priv,
 static int empress_streamoff(struct file *file, void *priv,
 					enum v4l2_buf_type type)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	return videobuf_streamoff(&dev->empress_tsq);
 }
@@ -301,8 +297,7 @@ static int empress_streamoff(struct file *file, void *priv,
 static int empress_s_ext_ctrls(struct file *file, void *priv,
 			       struct v4l2_ext_controls *ctrls)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	/* count == 0 is abused in saa6752hs.c, so that special
 		case is handled here explicitly. */
@@ -321,8 +316,7 @@ static int empress_s_ext_ctrls(struct file *file, void *priv,
 static int empress_g_ext_ctrls(struct file *file, void *priv,
 			       struct v4l2_ext_controls *ctrls)
 {
-	struct saa7134_fh *fh = priv;
-	struct saa7134_dev *dev = fh->dev;
+	struct saa7134_dev *dev = file->private_data;
 
 	if (ctrls->ctrl_class != V4L2_CTRL_CLASS_MPEG)
 		return -EINVAL;
@@ -402,7 +396,7 @@ static int empress_init(struct saa7134_dev *dev)
 {
 	int err;
 
-	dprintk("%s: %s\n",dev->name,__FUNCTION__);
+	dprintk("%s: %s\n",dev->name,__func__);
 	dev->empress_dev = video_device_alloc();
 	if (NULL == dev->empress_dev)
 		return -ENOMEM;
@@ -427,8 +421,8 @@ static int empress_init(struct saa7134_dev *dev)
 	printk(KERN_INFO "%s: registered device video%d [mpeg]\n",
 	       dev->name,dev->empress_dev->minor & 0x1f);
 
-	videobuf_queue_pci_init(&dev->empress_tsq, &saa7134_ts_qops,
-			    dev->pci, &dev->slock,
+	videobuf_queue_sg_init(&dev->empress_tsq, &saa7134_ts_qops,
+			    &dev->pci->dev, &dev->slock,
 			    V4L2_BUF_TYPE_VIDEO_CAPTURE,
 			    V4L2_FIELD_ALTERNATE,
 			    sizeof(struct saa7134_buf),
@@ -440,7 +434,7 @@ static int empress_init(struct saa7134_dev *dev)
 
 static int empress_fini(struct saa7134_dev *dev)
 {
-	dprintk("%s: %s\n",dev->name,__FUNCTION__);
+	dprintk("%s: %s\n",dev->name,__func__);
 
 	if (NULL == dev->empress_dev)
 		return 0;

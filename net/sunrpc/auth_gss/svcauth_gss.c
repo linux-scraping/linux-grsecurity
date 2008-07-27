@@ -1144,20 +1144,20 @@ svcauth_gss_accept(struct svc_rqst *rqstp, __be32 *authp)
 		case RPC_GSS_SVC_NONE:
 			break;
 		case RPC_GSS_SVC_INTEGRITY:
+			/* placeholders for length and seq. number: */
+			svc_putnl(resv, 0);
+			svc_putnl(resv, 0);
 			if (unwrap_integ_data(&rqstp->rq_arg,
 					gc->gc_seq, rsci->mechctx))
-				goto auth_err;
-			/* placeholders for length and seq. number: */
-			svc_putnl(resv, 0);
-			svc_putnl(resv, 0);
+				goto garbage_args;
 			break;
 		case RPC_GSS_SVC_PRIVACY:
-			if (unwrap_priv_data(rqstp, &rqstp->rq_arg,
-					gc->gc_seq, rsci->mechctx))
-				goto auth_err;
 			/* placeholders for length and seq. number: */
 			svc_putnl(resv, 0);
 			svc_putnl(resv, 0);
+			if (unwrap_priv_data(rqstp, &rqstp->rq_arg,
+					gc->gc_seq, rsci->mechctx))
+				goto garbage_args;
 			break;
 		default:
 			goto auth_err;
@@ -1169,6 +1169,9 @@ svcauth_gss_accept(struct svc_rqst *rqstp, __be32 *authp)
 		ret = SVC_OK;
 		goto out;
 	}
+garbage_args:
+	ret = SVC_GARBAGE;
+	goto out;
 auth_err:
 	/* Restore write pointer to its original value: */
 	xdr_ressize_check(rqstp, reject_stat);

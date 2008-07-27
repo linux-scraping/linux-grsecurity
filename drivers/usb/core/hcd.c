@@ -129,7 +129,7 @@ static const u8 usb2_rh_dev_descriptor [18] = {
 
 	0x09,	    /*  __u8  bDeviceClass; HUB_CLASSCODE */
 	0x00,	    /*  __u8  bDeviceSubClass; */
-	0x01,       /*  __u8  bDeviceProtocol; [ usb 2.0 single TT ]*/
+	0x00,       /*  __u8  bDeviceProtocol; [ usb 2.0 no TT ] */
 	0x40,       /*  __u8  bMaxPacketSize0; 64 Bytes */
 
 	0x6b, 0x1d, /*  __le16 idVendor; Linux Foundation */
@@ -291,7 +291,6 @@ static int ascii2utf (char *s, u8 *utf, int utfmax)
  * rh_string - provides manufacturer, product and serial strings for root hub
  * @id: the string ID number (1: serial number, 2: product, 3: vendor)
  * @hcd: the host controller for this root hub
- * @type: string describing our driver 
  * @data: return packet in UTF-16 LE
  * @len: length of the return packet
  *
@@ -355,9 +354,10 @@ static int rh_call_control (struct usb_hcd *hcd, struct urb *urb)
 		__attribute__((aligned(4)));
 	const u8	*bufp = tbuf;
 	int		len = 0;
-	int		patch_wakeup = 0;
 	int		status;
 	int		n;
+	u8		patch_wakeup = 0;
+	u8		patch_protocol = 0;
 
 	might_sleep();
 
@@ -434,6 +434,8 @@ static int rh_call_control (struct usb_hcd *hcd, struct urb *urb)
 			else
 				goto error;
 			len = 18;
+			if (hcd->has_tt)
+				patch_protocol = 1;
 			break;
 		case USB_DT_CONFIG << 8:
 			if (hcd->driver->flags & HCD_USB2) {
@@ -528,6 +530,13 @@ error:
 						bmAttributes))
 			((struct usb_config_descriptor *)ubuf)->bmAttributes
 				|= USB_CONFIG_ATT_WAKEUP;
+
+		/* report whether RH hardware has an integrated TT */
+		if (patch_protocol &&
+				len > offsetof(struct usb_device_descriptor,
+						bDeviceProtocol))
+			((struct usb_device_descriptor *) ubuf)->
+					bDeviceProtocol = 1;
 	}
 
 	/* any errors get returned through the urb completion */
@@ -809,12 +818,12 @@ static int usb_register_bus(struct usb_bus *bus)
 	set_bit (busnum, busmap.busmap);
 	bus->busnum = busnum;
 
-	bus->dev = device_create(usb_host_class, bus->controller, MKDEV(0, 0),
-				 "usb_host%d", busnum);
+	bus->dev = device_create_drvdata(usb_host_class, bus->controller,
+					 MKDEV(0, 0), bus,
+					 "usb_host%d", busnum);
 	result = PTR_ERR(bus->dev);
 	if (IS_ERR(bus->dev))
 		goto error_create_class_dev;
-	dev_set_drvdata(bus->dev, bus);
 
 	/* Add it to the local list of buses */
 	list_add (&bus->bus_list, &usb_bus_list);
@@ -1677,7 +1686,6 @@ EXPORT_SYMBOL_GPL(usb_bus_start_enum);
  * usb_hcd_irq - hook IRQs to HCD framework (bus glue)
  * @irq: the IRQ being raised
  * @__hcd: pointer to the HCD whose IRQ is being signaled
- * @r: saved hardware registers
  *
  * If the controller isn't HALTed, calls the driver's irq handler.
  * Checks whether the controller is now dead.
@@ -1685,19 +1693,30 @@ EXPORT_SYMBOL_GPL(usb_bus_start_enum);
 irqreturn_t usb_hcd_irq (int irq, void *__hcd)
 {
 	struct usb_hcd		*hcd = __hcd;
-	int			start = hcd->state;
+	unsigned long		flags;
+	irqreturn_t		rc;
 
-	if (unlikely(start == HC_STATE_HALT ||
-	    !test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags)))
-		return IRQ_NONE;
-	if (hcd->driver->irq (hcd) == IRQ_NONE)
-		return IRQ_NONE;
+	/* IRQF_DISABLED doesn't work correctly with shared IRQs
+	 * when the first handler doesn't use it.  So let's just
+	 * assume it's never used.
+	 */
+	local_irq_save(flags);
 
-	set_bit(HCD_FLAG_SAW_IRQ, &hcd->flags);
+	if (unlikely(hcd->state == HC_STATE_HALT ||
+		     !test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags))) {
+		rc = IRQ_NONE;
+	} else if (hcd->driver->irq(hcd) == IRQ_NONE) {
+		rc = IRQ_NONE;
+	} else {
+		set_bit(HCD_FLAG_SAW_IRQ, &hcd->flags);
 
-	if (unlikely(hcd->state == HC_STATE_HALT))
-		usb_hc_died (hcd);
-	return IRQ_HANDLED;
+		if (unlikely(hcd->state == HC_STATE_HALT))
+			usb_hc_died(hcd);
+		rc = IRQ_HANDLED;
+	}
+
+	local_irq_restore(flags);
+	return rc;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1861,6 +1880,13 @@ int usb_add_hcd(struct usb_hcd *hcd,
 
 	/* enable irqs just before we start the controller */
 	if (hcd->driver->irq) {
+
+		/* IRQF_DISABLED doesn't work as advertised when used together
+		 * with IRQF_SHARED. As usb_hcd_irq() will always disable
+		 * interrupts we can remove it here.
+		 */
+		irqflags &= ~IRQF_DISABLED;
+
 		snprintf(hcd->irq_descr, sizeof(hcd->irq_descr), "%s:usb%d",
 				hcd->driver->description, hcd->self.busnum);
 		if ((retval = request_irq(irqnum, &usb_hcd_irq, irqflags,

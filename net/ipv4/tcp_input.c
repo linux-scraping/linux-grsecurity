@@ -66,6 +66,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/sysctl.h>
+#include <net/dst.h>
 #include <net/tcp.h>
 #include <net/inet_common.h>
 #include <linux/ipsec.h>
@@ -603,7 +604,7 @@ static u32 tcp_rto_min(struct sock *sk)
 	u32 rto_min = TCP_RTO_MIN;
 
 	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
-		rto_min = dst->metrics[RTAX_RTO_MIN - 1];
+		rto_min = dst_metric(dst, RTAX_RTO_MIN);
 	return rto_min;
 }
 
@@ -767,7 +768,7 @@ void tcp_update_metrics(struct sock *sk)
 				dst->metrics[RTAX_RTTVAR - 1] = m;
 			else
 				dst->metrics[RTAX_RTTVAR-1] -=
-					(dst->metrics[RTAX_RTTVAR-1] - m)>>2;
+					(dst_metric(dst, RTAX_RTTVAR) - m)>>2;
 		}
 
 		if (tp->snd_ssthresh >= 0xFFFF) {
@@ -786,21 +787,21 @@ void tcp_update_metrics(struct sock *sk)
 				dst->metrics[RTAX_SSTHRESH-1] =
 					max(tp->snd_cwnd >> 1, tp->snd_ssthresh);
 			if (!dst_metric_locked(dst, RTAX_CWND))
-				dst->metrics[RTAX_CWND-1] = (dst->metrics[RTAX_CWND-1] + tp->snd_cwnd) >> 1;
+				dst->metrics[RTAX_CWND-1] = (dst_metric(dst, RTAX_CWND) + tp->snd_cwnd) >> 1;
 		} else {
 			/* Else slow start did not finish, cwnd is non-sense,
 			   ssthresh may be also invalid.
 			 */
 			if (!dst_metric_locked(dst, RTAX_CWND))
-				dst->metrics[RTAX_CWND-1] = (dst->metrics[RTAX_CWND-1] + tp->snd_ssthresh) >> 1;
-			if (dst->metrics[RTAX_SSTHRESH-1] &&
+				dst->metrics[RTAX_CWND-1] = (dst_metric(dst, RTAX_CWND) + tp->snd_ssthresh) >> 1;
+			if (dst_metric(dst, RTAX_SSTHRESH) &&
 			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
-			    tp->snd_ssthresh > dst->metrics[RTAX_SSTHRESH-1])
+			    tp->snd_ssthresh > dst_metric(dst, RTAX_SSTHRESH))
 				dst->metrics[RTAX_SSTHRESH-1] = tp->snd_ssthresh;
 		}
 
 		if (!dst_metric_locked(dst, RTAX_REORDERING)) {
-			if (dst->metrics[RTAX_REORDERING-1] < tp->reordering &&
+			if (dst_metric(dst, RTAX_REORDERING) < tp->reordering &&
 			    tp->reordering != sysctl_tcp_reordering)
 				dst->metrics[RTAX_REORDERING-1] = tp->reordering;
 		}
@@ -1170,8 +1171,8 @@ static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
 			   struct tcp_sack_block_wire *sp, int num_sacks,
 			   u32 prior_snd_una)
 {
-	u32 start_seq_0 = ntohl(get_unaligned(&sp[0].start_seq));
-	u32 end_seq_0 = ntohl(get_unaligned(&sp[0].end_seq));
+	u32 start_seq_0 = get_unaligned_be32(&sp[0].start_seq);
+	u32 end_seq_0 = get_unaligned_be32(&sp[0].end_seq);
 	int dup_sack = 0;
 
 	if (before(start_seq_0, TCP_SKB_CB(ack_skb)->ack_seq)) {
@@ -1179,8 +1180,8 @@ static int tcp_check_dsack(struct tcp_sock *tp, struct sk_buff *ack_skb,
 		tcp_dsack_seen(tp);
 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
 	} else if (num_sacks > 1) {
-		u32 end_seq_1 = ntohl(get_unaligned(&sp[1].end_seq));
-		u32 start_seq_1 = ntohl(get_unaligned(&sp[1].start_seq));
+		u32 end_seq_1 = get_unaligned_be32(&sp[1].end_seq);
+		u32 start_seq_1 = get_unaligned_be32(&sp[1].start_seq);
 
 		if (!after(end_seq_0, end_seq_1) &&
 		    !before(start_seq_0, start_seq_1)) {
@@ -1451,8 +1452,8 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb,
 	for (i = 0; i < num_sacks; i++) {
 		int dup_sack = !i && found_dup_sack;
 
-		sp[used_sacks].start_seq = ntohl(get_unaligned(&sp_wire[i].start_seq));
-		sp[used_sacks].end_seq = ntohl(get_unaligned(&sp_wire[i].end_seq));
+		sp[used_sacks].start_seq = get_unaligned_be32(&sp_wire[i].start_seq);
+		sp[used_sacks].end_seq = get_unaligned_be32(&sp_wire[i].end_seq);
 
 		if (!tcp_is_sackblock_valid(tp, dup_sack,
 					    sp[used_sacks].start_seq,
@@ -2308,7 +2309,7 @@ static inline int tcp_packet_delayed(struct tcp_sock *tp)
 {
 	return !tp->retrans_stamp ||
 		(tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
-		 (__s32)(tp->rx_opt.rcv_tsecr - tp->retrans_stamp) < 0);
+		 before(tp->rx_opt.rcv_tsecr, tp->retrans_stamp));
 }
 
 /* Undo procedures. */
@@ -2319,12 +2320,25 @@ static void DBGUNDO(struct sock *sk, const char *msg)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_sock *inet = inet_sk(sk);
 
-	printk(KERN_DEBUG "Undo %s %u.%u.%u.%u/%u c%u l%u ss%u/%u p%u\n",
-	       msg,
-	       NIPQUAD(inet->daddr), ntohs(inet->dport),
-	       tp->snd_cwnd, tcp_left_out(tp),
-	       tp->snd_ssthresh, tp->prior_ssthresh,
-	       tp->packets_out);
+	if (sk->sk_family == AF_INET) {
+		printk(KERN_DEBUG "Undo %s " NIPQUAD_FMT "/%u c%u l%u ss%u/%u p%u\n",
+		       msg,
+		       NIPQUAD(inet->daddr), ntohs(inet->dport),
+		       tp->snd_cwnd, tcp_left_out(tp),
+		       tp->snd_ssthresh, tp->prior_ssthresh,
+		       tp->packets_out);
+	}
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	else if (sk->sk_family == AF_INET6) {
+		struct ipv6_pinfo *np = inet6_sk(sk);
+		printk(KERN_DEBUG "Undo %s " NIP6_FMT "/%u c%u l%u ss%u/%u p%u\n",
+		       msg,
+		       NIP6(np->daddr), ntohs(inet->dport),
+		       tp->snd_cwnd, tcp_left_out(tp),
+		       tp->snd_ssthresh, tp->prior_ssthresh,
+		       tp->packets_out);
+	}
+#endif
 }
 #else
 #define DBGUNDO(x...) do { } while (0)
@@ -3346,7 +3360,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 			switch (opcode) {
 			case TCPOPT_MSS:
 				if (opsize == TCPOLEN_MSS && th->syn && !estab) {
-					u16 in_mss = ntohs(get_unaligned((__be16 *)ptr));
+					u16 in_mss = get_unaligned_be16(ptr);
 					if (in_mss) {
 						if (opt_rx->user_mss &&
 						    opt_rx->user_mss < in_mss)
@@ -3375,8 +3389,8 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 				    ((estab && opt_rx->tstamp_ok) ||
 				     (!estab && sysctl_tcp_timestamps))) {
 					opt_rx->saw_tstamp = 1;
-					opt_rx->rcv_tsval = ntohl(get_unaligned((__be32 *)ptr));
-					opt_rx->rcv_tsecr = ntohl(get_unaligned((__be32 *)(ptr+4)));
+					opt_rx->rcv_tsval = get_unaligned_be32(ptr);
+					opt_rx->rcv_tsecr = get_unaligned_be32(ptr + 4);
 				}
 				break;
 			case TCPOPT_SACK_PERM:
@@ -3611,7 +3625,7 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 		 * cases we should never reach this piece of code.
 		 */
 		printk(KERN_ERR "%s: Impossible, sk->sk_state=%d\n",
-		       __FUNCTION__, sk->sk_state);
+		       __func__, sk->sk_state);
 		break;
 	}
 
@@ -4031,7 +4045,7 @@ drop:
 		u32 end_seq = TCP_SKB_CB(skb)->end_seq;
 
 		if (seq == TCP_SKB_CB(skb1)->end_seq) {
-			__skb_append(skb1, skb, &tp->out_of_order_queue);
+			__skb_queue_after(&tp->out_of_order_queue, skb1, skb);
 
 			if (!tp->rx_opt.num_sacks ||
 			    tp->selective_acks[0].end_seq != seq)
@@ -5406,6 +5420,7 @@ discard:
 
 EXPORT_SYMBOL(sysctl_tcp_ecn);
 EXPORT_SYMBOL(sysctl_tcp_reordering);
+EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
 EXPORT_SYMBOL(tcp_parse_options);
 EXPORT_SYMBOL(tcp_rcv_established);
 EXPORT_SYMBOL(tcp_rcv_state_process);

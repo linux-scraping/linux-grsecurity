@@ -20,6 +20,7 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 #include <linux/pid_namespace.h>
+#include <linux/fdtable.h>
 #include <linux/percpu.h>
 
 #include <asm/uaccess.h>

@@ -168,6 +168,7 @@ typedef struct kernel_cap_struct {
  *   Add any capability from current's capability bounding set
  *       to the current process' inheritable set
  *   Allow taking bits out of capability bounding set
+ *   Allow modification of the securebits for a process
  */
 
 #define CAP_SETPCAP          8
@@ -377,12 +378,12 @@ typedef struct kernel_cap_struct {
 # error Fix up hand-coded capability macro initializers
 #else /* HAND-CODED capability initializers */
 
-# define CAP_EMPTY_SET    {{ 0, 0 }}
-# define CAP_FULL_SET     {{ ~0, ~0 }}
-# define CAP_INIT_EFF_SET {{ ~CAP_TO_MASK(CAP_SETPCAP), ~0 }}
-# define CAP_FS_SET       {{ CAP_FS_MASK_B0, CAP_FS_MASK_B1 } }
-# define CAP_NFSD_SET     {{ CAP_FS_MASK_B0|CAP_TO_MASK(CAP_SYS_RESOURCE), \
-			     CAP_FS_MASK_B1 } }
+# define CAP_EMPTY_SET    ((kernel_cap_t){{ 0, 0 }})
+# define CAP_FULL_SET     ((kernel_cap_t){{ ~0, ~0 }})
+# define CAP_INIT_EFF_SET ((kernel_cap_t){{ ~CAP_TO_MASK(CAP_SETPCAP), ~0 }})
+# define CAP_FS_SET       ((kernel_cap_t){{ CAP_FS_MASK_B0, CAP_FS_MASK_B1 } })
+# define CAP_NFSD_SET     ((kernel_cap_t){{ CAP_FS_MASK_B0|CAP_TO_MASK(CAP_SYS_RESOURCE), \
+					CAP_FS_MASK_B1 } })
 
 #endif /* _KERNEL_CAPABILITY_U32S != 2 */
 
@@ -500,11 +501,11 @@ extern const kernel_cap_t __cap_empty_set;
 extern const kernel_cap_t __cap_full_set;
 extern const kernel_cap_t __cap_init_eff_set;
 
+kernel_cap_t cap_set_effective(const kernel_cap_t pE_new);
+
 int capable(int cap);
 int capable_nolog(int cap);
 int __capable(struct task_struct *t, int cap);
-
-extern long cap_prctl_drop(unsigned long cap);
 
 #endif /* __KERNEL__ */
 

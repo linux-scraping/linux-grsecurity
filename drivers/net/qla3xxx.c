@@ -2472,8 +2472,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
 
 	if (seg_cnt == 1) {
 		/* Terminate the last segment. */
-		oal_entry->len =
-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
+		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
 	} else {
 		oal = tx_cb->oal;
 		for (completed_segs=0; completed_segs<frag_cnt; completed_segs++,seg++) {
@@ -2530,8 +2529,7 @@ static int ql_send_map(struct ql3_adapter *qdev,
 					  frag->size);
 		}
 		/* Terminate the last segment. */
-		oal_entry->len =
-		    cpu_to_le32(le32_to_cpu(oal_entry->len) | OAL_LAST_ENTRY);
+		oal_entry->len |= cpu_to_le32(OAL_LAST_ENTRY);
 	}
 
 	return NETDEV_TX_OK;
@@ -3703,7 +3701,9 @@ static int ql_cycle_adapter(struct ql3_adapter *qdev, int reset)
 		printk(KERN_ERR PFX
 				"%s: Driver up/down cycle failed, "
 				"closing device\n",qdev->ndev->name);
+		rtnl_lock();
 		dev_close(qdev->ndev);
+		rtnl_unlock();
 		return -1;
 	}
 	return 0;

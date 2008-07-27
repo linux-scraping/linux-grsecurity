@@ -35,6 +35,7 @@
 #include <asm/atomic.h>
 #include <asm/cpu.h>
 #include <asm/processor.h>
+#include <asm/r4k-timer.h>
 #include <asm/system.h>
 #include <asm/mmu_context.h>
 #include <asm/time.h>
@@ -86,8 +87,8 @@ struct plat_smp_ops *mp_ops;
 
 __cpuinit void register_smp_ops(struct plat_smp_ops *ops)
 {
-	if (ops)
-		printk(KERN_WARNING "Overriding previous set SMP ops\n");
+	if (mp_ops)
+		printk(KERN_WARNING "Overriding previously set SMP ops\n");
 
 	mp_ops = ops;
 }
@@ -124,6 +125,8 @@ asmlinkage __cpuinit void start_secondary(void)
 	set_cpu_sibling_map(cpu);
 
 	cpu_set(cpu, cpu_callin_map);
+
+	synchronise_count_slave();
 
 	cpu_idle();
 }
@@ -213,6 +216,7 @@ int smp_call_function(void (*func) (void *info), void *info, int retry,
 {
 	return smp_call_function_mask(cpu_online_map, func, info, retry, wait);
 }
+EXPORT_SYMBOL(smp_call_function);
 
 void smp_call_function_interrupt(void)
 {
@@ -268,6 +272,7 @@ int smp_call_function_single(int cpu, void (*func) (void *info), void *info,
 	put_cpu();
 	return 0;
 }
+EXPORT_SYMBOL(smp_call_function_single);
 
 static void stop_this_cpu(void *dummy)
 {
@@ -287,6 +292,7 @@ void smp_send_stop(void)
 void __init smp_cpus_done(unsigned int max_cpus)
 {
 	mp_ops->cpus_done();
+	synchronise_count_master();
 }
 
 /* called from main before smp_init() */

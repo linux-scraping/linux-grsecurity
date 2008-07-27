@@ -72,6 +72,9 @@ static void b43_led_brightness_set(struct led_classdev *led_dev,
 	struct b43_wldev *dev = led->dev;
 	bool radio_enabled;
 
+	if (unlikely(b43_status(dev) < B43_STAT_INITIALIZED))
+		return;
+
 	/* Checking the radio-enabled status here is slightly racy,
 	 * but we want to avoid the locking overhead and we don't care
 	 * whether the LED has the wrong state for a second. */
@@ -116,10 +119,7 @@ static void b43_unregister_led(struct b43_led *led)
 {
 	if (!led->dev)
 		return;
-	if (led->dev->suspend_in_progress)
-		led_classdev_unregister_suspended(&led->led_dev);
-	else
-		led_classdev_unregister(&led->led_dev);
+	led_classdev_unregister(&led->led_dev);
 	b43_led_turn_off(led->dev, led->index, led->activelow);
 	led->dev = NULL;
 }

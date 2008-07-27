@@ -424,10 +424,10 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 #endif
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-				 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
+					 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-				 current->comm, task_pid_nr(current), current->uid, current->euid);
+					 current->comm, task_pid_nr(current), current->uid, current->euid);
 #endif
 
 	printk(KERN_ALERT "BUG: unable to handle kernel ");
@@ -536,6 +536,11 @@ static int vmalloc_fault(unsigned long address)
 	unsigned long pgd_paddr;
 	pmd_t *pmd_k;
 	pte_t *pte_k;
+
+	/* Make sure we are in vmalloc area */
+	if (!(address >= VMALLOC_START && address < VMALLOC_END))
+		return -1;
+
 	/*
 	 * Synchronize this task's top level page-table
 	 * with the 'reference' page table.
@@ -684,7 +689,7 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 #ifdef CONFIG_X86_32
 	/* It's safe to allow irq's after cr2 has been saved and the vmalloc
 	   fault has been handled. */
-	if (regs->flags & (X86_EFLAGS_IF|VM_MASK))
+	if (regs->flags & (X86_EFLAGS_IF | X86_VM_MASK))
 		local_irq_enable();
 
 	/*
@@ -1166,10 +1171,6 @@ void vmalloc_sync_all(void)
 		if (address == start)
 			start = address + PGDIR_SIZE;
 	}
-	/* Check that there is no need to do the same for the modules area. */
-	BUILD_BUG_ON(!(MODULES_VADDR > __START_KERNEL));
-	BUILD_BUG_ON(!(((MODULES_END - 1) & PGDIR_MASK) ==
-				(__START_KERNEL & PGDIR_MASK)));
 #endif
 }
 
@@ -1328,7 +1329,7 @@ void pax_report_insns(void *pc, void *sp)
 	}
 	printk("\n");
 
-	printk(KERN_ERR "PAX: bytes at SP-%u: ", sizeof(long));
+	printk(KERN_ERR "PAX: bytes at SP-%lu: ", (unsigned long)sizeof(long));
 	for (i = -1; i < 80 / sizeof(long); i++) {
 		unsigned long c;
 		if (get_user(c, (unsigned long __user *)sp+i))
@@ -1338,7 +1339,7 @@ void pax_report_insns(void *pc, void *sp)
 			printk(KERN_CONT "???????????????? ");
 #endif
 		else
-			printk(KERN_CONT "%0*lx ", 2 * sizeof(long), c);
+			printk(KERN_CONT "%0*lx ", 2 * (int)sizeof(long), c);
 	}
 	printk("\n");
 }

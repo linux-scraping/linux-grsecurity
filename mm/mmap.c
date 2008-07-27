@@ -99,7 +99,7 @@ EXPORT_SYMBOL(vm_get_page_prot);
 int sysctl_overcommit_memory = OVERCOMMIT_GUESS;  /* heuristic overcommit */
 int sysctl_overcommit_ratio = 50;	/* default is 50% */
 int sysctl_max_map_count __read_mostly = DEFAULT_MAX_MAP_COUNT;
-atomic_t vm_committed_space = ATOMIC_INIT(0);
+atomic_long_t vm_committed_space = ATOMIC_LONG_INIT(0);
 
 /*
  * Check that a process has enough memory to allocate a new virtual
@@ -196,7 +196,7 @@ int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 	 * cast `allowed' as a signed long because vm_committed_space
 	 * sometimes has a negative value
 	 */
-	if (atomic_read(&vm_committed_space) < (long)allowed)
+	if (atomic_long_read(&vm_committed_space) < (long)allowed)
 		return 0;
 error:
 	vm_unacct_memory(pages);
@@ -250,9 +250,12 @@ static struct vm_area_struct *remove_vma(struct vm_area_struct *vma)
 	BUG_ON(vma->vm_mirror);
 	if (vma->vm_ops && vma->vm_ops->close)
 		vma->vm_ops->close(vma);
-	if (vma->vm_file)
+	if (vma->vm_file) {
 		fput(vma->vm_file);
-	mpol_free(vma_policy(vma));
+		if (vma->vm_flags & VM_EXECUTABLE)
+			removed_exe_file_vma(vma->vm_mm);
+	}
+	mpol_put(vma_policy(vma));
 	kmem_cache_free(vm_area_cachep, vma);
 	return next;
 }
@@ -654,10 +657,13 @@ again:			remove_next = 1 + (end > next->vm_end);
 		spin_unlock(&mapping->i_mmap_lock);
 
 	if (remove_next) {
-		if (file)
+		if (file) {
 			fput(file);
+			if (next->vm_flags & VM_EXECUTABLE)
+				removed_exe_file_vma(mm);
+		}
 		mm->map_count--;
-		mpol_free(vma_policy(next));
+		mpol_put(vma_policy(next));
 		kmem_cache_free(vm_area_cachep, next);
 		/*
 		 * In mprotect's case 6 (see comments on vma_merge),
@@ -1178,7 +1184,6 @@ int vma_wants_writenotify(struct vm_area_struct *vma)
 		mapping_cap_account_dirty(vma->vm_file->f_mapping);
 }
 
-
 unsigned long mmap_region(struct file *file, unsigned long addr,
 			  unsigned long len, unsigned long flags,
 			  unsigned int vm_flags, unsigned long pgoff,
@@ -1286,6 +1291,11 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		if (error)
 			goto unmap_and_free_vma;
 
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m && (vm_flags & VM_EXECUTABLE))
+			added_exe_file_vma(mm);
+#endif
+
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
 		if ((mm->pax_flags & MF_PAX_PAGEEXEC) && !(vma->vm_flags & VM_SPECIAL)) {
 			vma->vm_flags |= VM_PAGEEXEC;
@@ -1293,6 +1303,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		}
 #endif
 
+		if (vm_flags & VM_EXECUTABLE)
+			added_exe_file_vma(mm);
 	} else if (vm_flags & VM_SHARED) {
 		error = shmem_zero_setup(vma);
 		if (error)
@@ -1319,35 +1331,39 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	if (vma_wants_writenotify(vma))
 		vma->vm_page_prot = vm_get_page_prot(vm_flags & ~VM_SHARED);
 
-	if (!file || !vma_merge(mm, prev, addr, vma->vm_end,
+	if (file && vma_merge(mm, prev, addr, vma->vm_end,
 			vma->vm_flags, NULL, file, pgoff, vma_policy(vma))) {
-		file = vma->vm_file;
+		mpol_put(vma_policy(vma));
+		kmem_cache_free(vm_area_cachep, vma);
+		vma = NULL;
+		fput(file);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+		if (vma_m) {
+			kmem_cache_free(vm_area_cachep, vma_m);
+
+			if (vm_flags & VM_EXECUTABLE)
+				removed_exe_file_vma(mm);
+		}
+#endif
+
+		if (vm_flags & VM_EXECUTABLE)
+			removed_exe_file_vma(mm);
+	} else {
 		vma_link(mm, vma, prev, rb_link, rb_parent);
+		file = vma->vm_file;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 		if (vma_m)
 			pax_mirror_vma(vma_m, vma);
 #endif
 
-		if (correct_wcount)
-			atomic_inc(&inode->i_writecount);
-	} else {
-		if (file) {
-			if (correct_wcount)
-				atomic_inc(&inode->i_writecount);
-			fput(file);
-		}
-		mpol_free(vma_policy(vma));
-		kmem_cache_free(vm_area_cachep, vma);
-		vma = NULL;
-
-#ifdef CONFIG_PAX_SEGMEXEC
-		if (vma_m)
-			kmem_cache_free(vm_area_cachep, vma_m);
-#endif
-
 	}
-out:	
+
+	/* Once vma denies write, undo our temporary denial count */
+	if (correct_wcount)
+		atomic_inc(&inode->i_writecount);
+out:
 	mm->total_vm += len >> PAGE_SHIFT;
 	vm_stat_account(mm, vm_flags, file, len >> PAGE_SHIFT);
 	track_exec_limit(mm, addr, addr + len, vm_flags);
@@ -2109,7 +2125,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		}
 	}
 
-	pol = mpol_copy(vma_policy(vma));
+	pol = mpol_dup(vma_policy(vma));
 	if (IS_ERR(pol)) {
 		if (new_m)
 			kmem_cache_free(vm_area_cachep, new_m);
@@ -2118,8 +2134,11 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	}
 	vma_set_policy(new, pol);
 
-	if (new->vm_file)
+	if (new->vm_file) {
 		get_file(new->vm_file);
+		if (vma->vm_flags & VM_EXECUTABLE)
+			added_exe_file_vma(mm);
+	}
 
 	if (new->vm_ops && new->vm_ops->open)
 		new->vm_ops->open(new);
@@ -2134,8 +2153,11 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		mpol_get(pol);
 		vma_set_policy(new_m, pol);
 
-		if (new_m->vm_file)
+		if (new_m->vm_file) {
 			get_file(new_m->vm_file);
+			if (vma_m->vm_flags & VM_EXECUTABLE)
+				added_exe_file_vma(mm);
+		}
 
 		if (new_m->vm_ops && new_m->vm_ops->open)
 			new_m->vm_ops->open(new_m);
@@ -2176,15 +2198,18 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		new->vm_pgoff += ((addr - vma->vm_start) >> PAGE_SHIFT);
 	}
 
-	pol = mpol_copy(vma_policy(vma));
+	pol = mpol_dup(vma_policy(vma));
 	if (IS_ERR(pol)) {
 		kmem_cache_free(vm_area_cachep, new);
 		return PTR_ERR(pol);
 	}
 	vma_set_policy(new, pol);
 
-	if (new->vm_file)
+	if (new->vm_file) {
 		get_file(new->vm_file);
+		if (vma->vm_flags & VM_EXECUTABLE)
+			added_exe_file_vma(mm);
+	}
 
 	if (new->vm_ops && new->vm_ops->open)
 		new->vm_ops->open(new);
@@ -2571,7 +2596,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 		new_vma = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 		if (new_vma) {
 			*new_vma = *vma;
-			pol = mpol_copy(vma_policy(vma));
+			pol = mpol_dup(vma_policy(vma));
 			if (IS_ERR(pol)) {
 				kmem_cache_free(vm_area_cachep, new_vma);
 				return NULL;
@@ -2580,8 +2605,11 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 			new_vma->vm_start = addr;
 			new_vma->vm_end = addr + len;
 			new_vma->vm_pgoff = pgoff;
-			if (new_vma->vm_file)
+			if (new_vma->vm_file) {
 				get_file(new_vma->vm_file);
+				if (vma->vm_flags & VM_EXECUTABLE)
+					added_exe_file_vma(mm);
+			}
 			if (new_vma->vm_ops && new_vma->vm_ops->open)
 				new_vma->vm_ops->open(new_vma);
 			vma_link(mm, new_vma, prev, rb_link, rb_parent);
@@ -2599,9 +2627,9 @@ void pax_mirror_vma(struct vm_area_struct *vma_m, struct vm_area_struct *vma)
 
 	BUG_ON(!(vma->vm_mm->pax_flags & MF_PAX_SEGMEXEC) || !(vma->vm_flags & VM_EXEC));
 	BUG_ON(vma->vm_mirror || vma_m->vm_mirror);
-	BUG_ON(!vma_mpol_equal(vma, vma_m));
+	BUG_ON(!mpol_equal(vma_policy(vma), vma_policy(vma_m)));
 	*vma_m = *vma;
-	pol_m = vma_policy(vma);
+	pol_m = vma_policy(vma_m);
 	mpol_get(pol_m);
 	vma_set_policy(vma_m, pol_m);
 	vma_m->vm_start += SEGMEXEC_TASK_SIZE;

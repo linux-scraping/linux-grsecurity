@@ -70,23 +70,42 @@ static void netxen_nic_poll_controller(struct net_device *netdev);
 static irqreturn_t netxen_intr(int irq, void *data);
 static irqreturn_t netxen_msi_intr(int irq, void *data);
 
-int physical_port[] = {0, 1, 2, 3};
-
 /*  PCI Device ID Table  */
+#define ENTRY(device) \
+	{PCI_DEVICE(0x4040, (device)), \
+	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
+
 static struct pci_device_id netxen_pci_tbl[] __devinitdata = {
-	{PCI_DEVICE(0x4040, 0x0001)},
-	{PCI_DEVICE(0x4040, 0x0002)},
-	{PCI_DEVICE(0x4040, 0x0003)},
-	{PCI_DEVICE(0x4040, 0x0004)},
-	{PCI_DEVICE(0x4040, 0x0005)},
-	{PCI_DEVICE(0x4040, 0x0024)},
-	{PCI_DEVICE(0x4040, 0x0025)},
+	ENTRY(0x0001),
+	ENTRY(0x0002),
+	ENTRY(0x0003),
+	ENTRY(0x0004),
+	ENTRY(0x0005),
+	ENTRY(0x0024),
+	ENTRY(0x0025),
 	{0,}
 };
 
 MODULE_DEVICE_TABLE(pci, netxen_pci_tbl);
 
-struct workqueue_struct *netxen_workq;
+/*
+ * In netxen_nic_down(), we must wait for any pending callback requests into
+ * netxen_watchdog_task() to complete; eg otherwise the watchdog_timer could be
+ * reenabled right after it is deleted in netxen_nic_down().
+ * FLUSH_SCHEDULED_WORK()  does this synchronization.
+ *
+ * Normally, schedule_work()/flush_scheduled_work() could have worked, but
+ * netxen_nic_close() is invoked with kernel rtnl lock held. netif_carrier_off()
+ * call in netxen_nic_close() triggers a schedule_work(&linkwatch_work), and a
+ * subsequent call to flush_scheduled_work() in netxen_nic_down() would cause
+ * linkwatch_event() to be executed which also attempts to acquire the rtnl
+ * lock thus causing a deadlock.
+ */
+
+static struct workqueue_struct *netxen_workq;
+#define SCHEDULE_WORK(tp)	queue_work(netxen_workq, tp)
+#define FLUSH_SCHEDULED_WORK()	flush_workqueue(netxen_workq)
+
 static void netxen_watchdog(unsigned long);
 
 static void netxen_nic_update_cmd_producer(struct netxen_adapter *adapter,
@@ -271,10 +290,11 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	int pci_func_id = PCI_FUNC(pdev->devfn);
 	DECLARE_MAC_BUF(mac);
 
-	printk(KERN_INFO "%s \n", netxen_nic_driver_string);
+	if (pci_func_id == 0)
+		printk(KERN_INFO "%s \n", netxen_nic_driver_string);
 
 	if (pdev->class != 0x020000) {
-		printk(KERN_ERR"NetXen function %d, class %x will not "
+		printk(KERN_DEBUG "NetXen function %d, class %x will not "
 				"be enabled.\n",pci_func_id, pdev->class);
 		return -ENODEV;
 	}
@@ -433,8 +453,12 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	 */
 	adapter->curr_window = 255;
 
-	/* initialize the adapter */
-	netxen_initialize_adapter_hw(adapter);
+	if (netxen_nic_get_board_info(adapter) != 0) {
+		printk("%s: Error getting board config info.\n",
+		       netxen_nic_driver_name);
+		err = -EIO;
+		goto err_out_iounmap;
+	}
 
 	/*
 	 *  Adapter in our case is quad port so initialize it before
@@ -513,17 +537,15 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	netxen_initialize_adapter_sw(adapter);	/* initialize the buffers in adapter */
 
 	/* Mezz cards have PCI function 0,2,3 enabled */
-	if ((adapter->ahw.boardcfg.board_type == NETXEN_BRDTYPE_P2_SB31_10G_IMEZ)
-		&& (pci_func_id >= 2))
+	switch (adapter->ahw.boardcfg.board_type) {
+	case NETXEN_BRDTYPE_P2_SB31_10G_IMEZ:
+	case NETXEN_BRDTYPE_P2_SB31_10G_HMEZ:
+		if (pci_func_id >= 2)
 			adapter->portnum = pci_func_id - 2;
-
-#ifdef CONFIG_IA64
-	if(adapter->portnum == 0) {
-		netxen_pinit_from_rom(adapter, 0);
-		udelay(500);
-		netxen_load_firmware(adapter);
+		break;
+	default:
+		break;
 	}
-#endif
 
 	init_timer(&adapter->watchdog_timer);
 	adapter->ahw.xg_linkup = 0;
@@ -596,11 +618,18 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 				err = -ENODEV;
 				goto err_out_free_dev;
 		    }
+		} else {
+			writel(0, NETXEN_CRB_NORMALIZE(adapter,
+						CRB_CMDPEG_STATE));
+			netxen_pinit_from_rom(adapter, 0);
+			msleep(1);
+			netxen_load_firmware(adapter);
+			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
 		}
 
 		/* clear the register for future unloads/loads */
 		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
-		printk(KERN_INFO "State: 0x%0x\n",
+		dev_info(&pdev->dev, "cmdpeg state: 0x%0x\n",
 			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
 
 		/*
@@ -622,9 +651,10 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/*
 	 * See if the firmware gave us a virtual-physical port mapping.
 	 */
+	adapter->physical_port = adapter->portnum;
 	i = readl(NETXEN_CRB_NORMALIZE(adapter, CRB_V2P(adapter->portnum)));
 	if (i != 0x55555555)
-		physical_port[adapter->portnum] = i;
+		adapter->physical_port = i;
 
 	netif_carrier_off(netdev);
 	netif_stop_queue(netdev);
@@ -637,21 +667,8 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto err_out_free_dev;
 	}
 
+	netxen_nic_flash_print(adapter);
 	pci_set_drvdata(pdev, adapter);
-
-	switch (adapter->ahw.board_type) {
-		case NETXEN_NIC_GBE:
-			printk(KERN_INFO "%s: QUAD GbE board initialized\n",
-			       netxen_nic_driver_name);
-			break;
-
-		case NETXEN_NIC_XGBE:
-			printk(KERN_INFO "%s: XGbE board initialized\n",
-					netxen_nic_driver_name);
-			break;
-	}
-
-	adapter->driver_mismatch = 0;
 
 	return 0;
 
@@ -743,55 +760,8 @@ static void __devexit netxen_nic_remove(struct pci_dev *pdev)
 
 	vfree(adapter->cmd_buf_arr);
 
-	if (adapter->portnum == 0) {
-		if (init_firmware_done) {
-			i = 100;
-			do {
-				if (dma_watchdog_shutdown_request(adapter) == 1)
-					break;
-				msleep(100);
-				if (dma_watchdog_shutdown_poll_result(adapter) == 1)
-					break;
-			} while (--i);
-
-			if (i == 0)
-				printk(KERN_ERR "%s: dma_watchdog_shutdown failed\n",
-						netdev->name);
-
-			/* clear the register for future unloads/loads */
-			writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
-			printk(KERN_INFO "State: 0x%0x\n",
-				readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
-
-			/* leave the hw in the same state as reboot */
-			writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
-			netxen_pinit_from_rom(adapter, 0);
-			msleep(1);
-			netxen_load_firmware(adapter);
-			netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
-		}
-
-		/* clear the register for future unloads/loads */
-		writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_CAM_RAM(0x1fc)));
-		printk(KERN_INFO "State: 0x%0x\n",
-			readl(NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE)));
-
-		i = 100;
-		do {
-			if (dma_watchdog_shutdown_request(adapter) == 1)
-				break;
-			msleep(100);
-			if (dma_watchdog_shutdown_poll_result(adapter) == 1)
-				break;
-		} while (--i);
-
-		if (i) {
-			netxen_free_adapter_offload(adapter);
-		} else {
-			printk(KERN_ERR "%s: dma_watchdog_shutdown failed\n",
-					netdev->name);
-		}
-	}
+	if (adapter->portnum == 0)
+		netxen_free_adapter_offload(adapter);
 
 	if (adapter->irq)
 		free_irq(adapter->irq, adapter);
@@ -823,13 +793,15 @@ static int netxen_nic_open(struct net_device *netdev)
 	irq_handler_t handler;
 	unsigned long flags = IRQF_SAMPLE_RANDOM;
 
+	if (adapter->driver_mismatch)
+		return -EIO;
+
 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
 		err = netxen_init_firmware(adapter);
 		if (err != 0) {
 			printk(KERN_ERR "Failed to init firmware\n");
 			return -EIO;
 		}
-		netxen_nic_flash_print(adapter);
 
 		/* setup all the resources for the Phantom... */
 		/* this include the descriptors for rcv, tx, and status */
@@ -878,14 +850,12 @@ static int netxen_nic_open(struct net_device *netdev)
 	if (adapter->set_mtu)
 		adapter->set_mtu(adapter, netdev->mtu);
 
-	if (!adapter->driver_mismatch)
-		mod_timer(&adapter->watchdog_timer, jiffies);
+	mod_timer(&adapter->watchdog_timer, jiffies);
 
 	napi_enable(&adapter->napi);
 	netxen_nic_enable_int(adapter);
 
-	if (!adapter->driver_mismatch)
-		netif_start_queue(netdev);
+	netif_start_queue(netdev);
 
 	return 0;
 }

@@ -140,8 +140,6 @@ static void fix_processor_context(void)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	unsigned long cr0;
-
-	pax_open_kernel(cr0);
 #endif
 
 	/*
@@ -150,6 +148,10 @@ static void fix_processor_context(void)
 	 * similar stupidity.
 	 */
 	set_tss_desc(cpu, t);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
 
 	get_cpu_gdt_table(cpu)[GDT_ENTRY_TSS].type = 9;
 

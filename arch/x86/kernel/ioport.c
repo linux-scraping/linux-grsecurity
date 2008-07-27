@@ -128,8 +128,13 @@ static int do_iopl(unsigned int level, struct pt_regs *regs)
 		return -EINVAL;
 	/* Trying to gain more privileges? */
 	if (level > old) {
+#ifdef CONFIG_GRKERNSEC_IO
+		gr_handle_iopl();
+		return -EPERM;
+#else
 		if (!capable(CAP_SYS_RAWIO))
 			return -EPERM;
+#endif
 	}
 	regs->flags = (regs->flags & ~X86_EFLAGS_IOPL) | (level << 12);
 

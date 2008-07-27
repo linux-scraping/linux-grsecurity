@@ -420,8 +420,7 @@ static inline int ext2_find_first_bit(const void *vaddr, unsigned size)
 		return 0;
 
 	size = (size >> 5) + ((size & 31) > 0);
-	while (*p++ == 0UL)
-	{
+	while (*p++ == 0UL) {
 		if (--size == 0)
 			return (p - addr) << 5;
 	}

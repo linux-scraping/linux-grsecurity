@@ -347,7 +347,7 @@ struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
 EXPORT_SYMBOL_GPL(dccp_make_response);
 
 /* answer offending packet in @rcv_skb with Reset from control socket @ctl */
-struct sk_buff *dccp_ctl_make_reset(struct socket *ctl, struct sk_buff *rcv_skb)
+struct sk_buff *dccp_ctl_make_reset(struct sock *sk, struct sk_buff *rcv_skb)
 {
 	struct dccp_hdr *rxdh = dccp_hdr(rcv_skb), *dh;
 	struct dccp_skb_cb *dcb = DCCP_SKB_CB(rcv_skb);
@@ -357,11 +357,11 @@ struct sk_buff *dccp_ctl_make_reset(struct socket *ctl, struct sk_buff *rcv_skb)
 	struct dccp_hdr_reset *dhr;
 	struct sk_buff *skb;
 
-	skb = alloc_skb(ctl->sk->sk_prot->max_header, GFP_ATOMIC);
+	skb = alloc_skb(sk->sk_prot->max_header, GFP_ATOMIC);
 	if (skb == NULL)
 		return NULL;
 
-	skb_reserve(skb, ctl->sk->sk_prot->max_header);
+	skb_reserve(skb, sk->sk_prot->max_header);
 
 	/* Swap the send and the receive. */
 	dh = dccp_zeroed_hdr(skb, dccp_hdr_reset_len);
@@ -508,6 +508,7 @@ void dccp_send_ack(struct sock *sk)
 
 EXPORT_SYMBOL_GPL(dccp_send_ack);
 
+#if 0
 /* FIXME: Is this still necessary (11.3) - currently nowhere used by DCCP. */
 void dccp_send_delayed_ack(struct sock *sk)
 {
@@ -538,6 +539,7 @@ void dccp_send_delayed_ack(struct sock *sk)
 	icsk->icsk_ack.timeout = timeout;
 	sk_reset_timer(sk, &icsk->icsk_delack_timer, timeout);
 }
+#endif
 
 void dccp_send_sync(struct sock *sk, const u64 ackno,
 		    const enum dccp_pkt_type pkt_type)

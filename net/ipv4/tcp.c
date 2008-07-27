@@ -255,11 +255,14 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/skbuff.h>
+#include <linux/scatterlist.h>
 #include <linux/splice.h>
 #include <linux/net.h>
 #include <linux/socket.h>
 #include <linux/random.h>
 #include <linux/bootmem.h>
+#include <linux/highmem.h>
+#include <linux/swap.h>
 #include <linux/cache.h>
 #include <linux/err.h>
 #include <linux/crypto.h>
@@ -1228,7 +1231,14 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 				copied += used;
 				offset += used;
 			}
-			if (offset != skb->len)
+			/*
+			 * If recv_actor drops the lock (e.g. TCP splice
+			 * receive) the skb pointer might be invalid when
+			 * getting here: tcp_collapse might have deleted it
+			 * while aggregating skbs from the socket queue.
+			 */
+			skb = tcp_recv_skb(sk, seq-1, &offset);
+			if (!skb || (offset+1 != skb->len))
 				break;
 		}
 		if (tcp_hdr(skb)->fin) {
@@ -1723,7 +1733,7 @@ static int tcp_close_state(struct sock *sk)
 
 /*
  *	Shutdown the sending side of a connection. Much like close except
- *	that we don't receive shut down or set_sock_flag(sk, SOCK_DEAD).
+ *	that we don't receive shut down or sock_set_flag(sk, SOCK_DEAD).
  */
 
 void tcp_shutdown(struct sock *sk, int how)
@@ -2614,7 +2624,7 @@ __setup("thash_entries=", set_thash_entries);
 void __init tcp_init(void)
 {
 	struct sk_buff *skb = NULL;
-	unsigned long limit;
+	unsigned long nr_pages, limit;
 	int order, i, max_share;
 
 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
@@ -2683,8 +2693,9 @@ void __init tcp_init(void)
 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
 	 * memory, with a floor of 128 pages.
 	 */
-	limit = min(nr_all_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
-	limit = (limit * (nr_all_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
+	nr_pages = totalram_pages - totalhigh_pages;
+	limit = min(nr_pages, 1UL<<(28-PAGE_SHIFT)) >> (20-PAGE_SHIFT);
+	limit = (limit * (nr_pages >> (20-PAGE_SHIFT))) >> (PAGE_SHIFT-11);
 	limit = max(limit, 128UL);
 	sysctl_tcp_mem[0] = limit / 4 * 3;
 	sysctl_tcp_mem[1] = limit;

@@ -36,9 +36,8 @@ static int acpi_sleep_prepare(u32 acpi_state)
 		if (!acpi_wakeup_address) {
 			return -EFAULT;
 		}
-		acpi_set_firmware_waking_vector((acpi_physical_address)
-						virt_to_phys((void *)
-							     acpi_wakeup_address));
+		acpi_set_firmware_waking_vector(
+				(acpi_physical_address)acpi_wakeup_address);
 
 	}
 	ACPI_FLUSH_CPU_CACHE();
@@ -51,7 +50,7 @@ static int acpi_sleep_prepare(u32 acpi_state)
 }
 
 #ifdef CONFIG_SUSPEND
-static struct platform_suspend_ops acpi_pm_ops;
+static struct platform_suspend_ops acpi_suspend_ops;
 
 extern void do_suspend_lowlevel(void);
 
@@ -65,11 +64,11 @@ static u32 acpi_suspend_states[] = {
 static int init_8259A_after_S1;
 
 /**
- *	acpi_pm_begin - Set the target system sleep state to the state
+ *	acpi_suspend_begin - Set the target system sleep state to the state
  *		associated with given @pm_state, if supported.
  */
 
-static int acpi_pm_begin(suspend_state_t pm_state)
+static int acpi_suspend_begin(suspend_state_t pm_state)
 {
 	u32 acpi_state = acpi_suspend_states[pm_state];
 	int error = 0;
@@ -85,13 +84,13 @@ static int acpi_pm_begin(suspend_state_t pm_state)
 }
 
 /**
- *	acpi_pm_prepare - Do preliminary suspend work.
+ *	acpi_suspend_prepare - Do preliminary suspend work.
  *
  *	If necessary, set the firmware waking vector and do arch-specific
  *	nastiness to get the wakeup code to the waking vector.
  */
 
-static int acpi_pm_prepare(void)
+static int acpi_suspend_prepare(void)
 {
 	int error = acpi_sleep_prepare(acpi_target_sleep_state);
 
@@ -104,7 +103,7 @@ static int acpi_pm_prepare(void)
 }
 
 /**
- *	acpi_pm_enter - Actually enter a sleep state.
+ *	acpi_suspend_enter - Actually enter a sleep state.
  *	@pm_state: ignored
  *
  *	Flush caches and go to sleep. For STR we have to call arch-specific
@@ -112,7 +111,7 @@ static int acpi_pm_prepare(void)
  *	It's unfortunate, but it works. Please fix if you're feeling frisky.
  */
 
-static int acpi_pm_enter(suspend_state_t pm_state)
+static int acpi_suspend_enter(suspend_state_t pm_state)
 {
 	acpi_status status = AE_OK;
 	unsigned long flags = 0;
@@ -169,13 +168,13 @@ static int acpi_pm_enter(suspend_state_t pm_state)
 }
 
 /**
- *	acpi_pm_finish - Instruct the platform to leave a sleep state.
+ *	acpi_suspend_finish - Instruct the platform to leave a sleep state.
  *
  *	This is called after we wake back up (or if entering the sleep state
  *	failed). 
  */
 
-static void acpi_pm_finish(void)
+static void acpi_suspend_finish(void)
 {
 	u32 acpi_state = acpi_target_sleep_state;
 
@@ -196,19 +195,19 @@ static void acpi_pm_finish(void)
 }
 
 /**
- *	acpi_pm_end - Finish up suspend sequence.
+ *	acpi_suspend_end - Finish up suspend sequence.
  */
 
-static void acpi_pm_end(void)
+static void acpi_suspend_end(void)
 {
 	/*
-	 * This is necessary in case acpi_pm_finish() is not called during a
+	 * This is necessary in case acpi_suspend_finish() is not called during a
 	 * failing transition to a sleep state.
 	 */
 	acpi_target_sleep_state = ACPI_STATE_S0;
 }
 
-static int acpi_pm_state_valid(suspend_state_t pm_state)
+static int acpi_suspend_state_valid(suspend_state_t pm_state)
 {
 	u32 acpi_state;
 
@@ -224,13 +223,13 @@ static int acpi_pm_state_valid(suspend_state_t pm_state)
 	}
 }
 
-static struct platform_suspend_ops acpi_pm_ops = {
-	.valid = acpi_pm_state_valid,
-	.begin = acpi_pm_begin,
-	.prepare = acpi_pm_prepare,
-	.enter = acpi_pm_enter,
-	.finish = acpi_pm_finish,
-	.end = acpi_pm_end,
+static struct platform_suspend_ops acpi_suspend_ops = {
+	.valid = acpi_suspend_state_valid,
+	.begin = acpi_suspend_begin,
+	.prepare = acpi_suspend_prepare,
+	.enter = acpi_suspend_enter,
+	.finish = acpi_suspend_finish,
+	.end = acpi_suspend_end,
 };
 
 /*
@@ -492,7 +491,7 @@ int __init acpi_sleep_init(void)
 		}
 	}
 
-	suspend_set_ops(&acpi_pm_ops);
+	suspend_set_ops(&acpi_suspend_ops);
 #endif
 
 #ifdef CONFIG_HIBERNATION

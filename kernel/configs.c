@@ -81,18 +81,20 @@ static int __init ikconfig_init(void)
 	/* create the current config file */
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	entry = create_proc_entry("config.gz", S_IFREG | S_IRUSR, &proc_root);
+	entry = proc_create("config.gz", S_IFREG | S_IRUSR, NULL,
+			    &ikconfig_file_ops);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	entry = create_proc_entry("config.gz", S_IFREG | S_IRUSR | S_IRGRP, &proc_root);
+	entry = proc_create("config.gz", S_IFREG | S_IRUSR | S_IRGRP, NULL,
+			    &ikconfig_file_ops);
 #endif
 #else
-	entry = create_proc_entry("config.gz", S_IFREG | S_IRUGO,
-				  &proc_root);
+	entry = proc_create("config.gz", S_IFREG | S_IRUGO, NULL,
+			    &ikconfig_file_ops);
 #endif
+
 	if (!entry)
 		return -ENOMEM;
 
-	entry->proc_fops = &ikconfig_file_ops;
 	entry->size = kernel_config_data_size;
 
 	return 0;
@@ -103,7 +105,7 @@ static int __init ikconfig_init(void)
 
 static void __exit ikconfig_cleanup(void)
 {
-	remove_proc_entry("config.gz", &proc_root);
+	remove_proc_entry("config.gz", NULL);
 }
 
 module_init(ikconfig_init);

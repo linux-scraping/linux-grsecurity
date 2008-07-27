@@ -954,7 +954,7 @@ static int netlbl_unlhsh_netdev_handler(struct notifier_block *this,
 	struct net_device *dev = ptr;
 	struct netlbl_unlhsh_iface *iface = NULL;
 
-	if (dev->nd_net != &init_net)
+	if (dev_net(dev) != &init_net)
 		return NOTIFY_DONE;
 
 	/* XXX - should this be a check for NETDEV_DOWN or _UNREGISTER? */
@@ -1107,11 +1107,7 @@ static int netlbl_unlabel_list(struct sk_buff *skb, struct genl_info *info)
 		goto list_failure;
 
 	genlmsg_end(ans_skb, data);
-
-	ret_val = genlmsg_reply(ans_skb, info);
-	if (ret_val != 0)
-		goto list_failure;
-	return 0;
+	return genlmsg_reply(ans_skb, info);
 
 list_failure:
 	kfree_skb(ans_skb);
@@ -1339,6 +1335,10 @@ static int netlbl_unlabel_staticlist_gen(u32 cmd,
 
 	if (iface->ifindex > 0) {
 		dev = dev_get_by_index(&init_net, iface->ifindex);
+		if (!dev) {
+			ret_val = -ENODEV;
+			goto list_cb_failure;
+		}
 		ret_val = nla_put_string(cb_arg->skb,
 					 NLBL_UNLABEL_A_IFACE, dev->name);
 		dev_put(dev);
@@ -1530,7 +1530,7 @@ static int netlbl_unlabel_staticlistdef(struct sk_buff *skb,
 		}
 	}
 	list_for_each_entry_rcu(addr6, &iface->addr6_list, list) {
-		if (addr6->valid || iter_addr6++ < skip_addr6)
+		if (!addr6->valid || iter_addr6++ < skip_addr6)
 			continue;
 		if (netlbl_unlabel_staticlist_gen(NLBL_UNLABEL_C_STATICLISTDEF,
 					   iface,
@@ -1776,6 +1776,7 @@ int __init netlbl_unlabel_defconf(void)
 	 * messages so don't worry to much about these values. */
 	security_task_getsecid(current, &audit_info.secid);
 	audit_info.loginuid = 0;
+	audit_info.sessionid = 0;
 
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 	if (entry == NULL)

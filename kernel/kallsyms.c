@@ -484,19 +484,15 @@ static const struct file_operations kallsyms_operations = {
 
 static int __init kallsyms_init(void)
 {
-	struct proc_dir_entry *entry;
-
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR, NULL);
+	proc_create("kallsyms", S_IFREG | S_IRUSR, NULL, &kallsyms_operations);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	entry = create_proc_entry("kallsyms", S_IFREG | S_IRUSR | S_IRGRP, NULL);
+	proc_create("kallsyms", S_IFREG | S_IRUSR | S_IRGRP, NULL, &kallsyms_operations);
 #endif
 #else
-	entry = create_proc_entry("kallsyms", 0444, NULL);
+	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
 #endif
-	if (entry)
-		entry->proc_fops = &kallsyms_operations;
 	return 0;
 }
 __initcall(kallsyms_init);

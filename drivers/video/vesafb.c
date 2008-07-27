@@ -487,7 +487,7 @@ static int __init vesafb_probe(struct platform_device *dev)
 	return 0;
 err:
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(__i386__) && defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 	module_free_exec(NULL, pmi_code);
 #endif
 

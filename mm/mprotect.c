@@ -33,6 +33,13 @@
 #include <asm/tlbflush.h>
 #include <asm/mmu_context.h>
 
+#ifndef pgprot_modify
+static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
+{
+	return newprot;
+}
+#endif
+
 static void change_pte_range(struct mm_struct *mm, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot,
 		int dirty_accountable)
@@ -281,7 +288,9 @@ success:
 	 * held in write mode.
 	 */
 	vma->vm_flags = newflags;
-	vma->vm_page_prot = vm_get_page_prot(newflags);
+	vma->vm_page_prot = pgprot_modify(vma->vm_page_prot,
+					  vm_get_page_prot(newflags));
+
 	if (vma_wants_writenotify(vma)) {
 		vma->vm_page_prot = vm_get_page_prot(newflags & ~VM_SHARED);
 		dirty_accountable = 1;
@@ -354,8 +363,8 @@ static inline void pax_handle_maywrite(struct vm_area_struct *vma, unsigned long
 		if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
 			return;
 		if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
-			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
 			gr_log_textrel(vma);
+			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
 			return;
 		}
 		i++;

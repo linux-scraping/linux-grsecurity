@@ -410,21 +410,21 @@ load-$(CONFIG_CASIO_E55)	+= 0xffffffff80004000
 load-$(CONFIG_TANBAC_TB022X)	+= 0xffffffff80000000
 
 #
-# Common Philips PNX8550
+# Common NXP PNX8550
 #
-core-$(CONFIG_SOC_PNX8550)	+= arch/mips/philips/pnx8550/common/
+core-$(CONFIG_SOC_PNX8550)	+= arch/mips/nxp/pnx8550/common/
 cflags-$(CONFIG_SOC_PNX8550)	+= -Iinclude/asm-mips/mach-pnx8550
 
 #
-# Philips PNX8550 JBS board
+# NXP PNX8550 JBS board
 #
-libs-$(CONFIG_PNX8550_JBS)	+= arch/mips/philips/pnx8550/jbs/
+libs-$(CONFIG_PNX8550_JBS)	+= arch/mips/nxp/pnx8550/jbs/
 #cflags-$(CONFIG_PNX8550_JBS)	+= -Iinclude/asm-mips/mach-pnx8550
 load-$(CONFIG_PNX8550_JBS)	+= 0xffffffff80060000
 
-# Philips PNX8550 STB810 board
+# NXP PNX8550 STB810 board
 #
-libs-$(CONFIG_PNX8550_STB810)	+= arch/mips/philips/pnx8550/stb810/
+libs-$(CONFIG_PNX8550_STB810)	+= arch/mips/nxp/pnx8550/stb810/
 load-$(CONFIG_PNX8550_STB810)	+= 0xffffffff80060000
 
 # NEC EMMA2RH boards
@@ -538,19 +538,19 @@ cflags-$(CONFIG_SIBYTE_BCM1x80)	+= -Iinclude/asm-mips/mach-sibyte \
 # Sibyte SWARM board
 # Sibyte BCM91x80 (BigSur) board
 #
-libs-$(CONFIG_SIBYTE_CARMEL)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_CARMEL)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_CARMEL)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_CRHINE)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_CRHINE)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_CRHINE)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_CRHONE)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_CRHONE)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_CRHONE)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_RHONE)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_RHONE)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_RHONE)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_SENTOSA)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_SENTOSA)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_SENTOSA)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_SWARM)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_SWARM)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_SWARM)	:= 0xffffffff80100000
-libs-$(CONFIG_SIBYTE_BIGSUR)	+= arch/mips/sibyte/swarm/
+core-$(CONFIG_SIBYTE_BIGSUR)	+= arch/mips/sibyte/swarm/
 load-$(CONFIG_SIBYTE_BIGSUR)	:= 0xffffffff80100000
 
 #
@@ -565,7 +565,11 @@ load-$(CONFIG_BCM47XX)		:= 0xffffffff80001000
 #
 core-$(CONFIG_SNI_RM)		+= arch/mips/sni/
 cflags-$(CONFIG_SNI_RM)		+= -Iinclude/asm-mips/mach-rm
+ifdef CONFIG_CPU_LITTLE_ENDIAN
 load-$(CONFIG_SNI_RM)		+= 0xffffffff80600000
+else
+load-$(CONFIG_SNI_RM)		+= 0xffffffff80030000
+endif
 all-$(CONFIG_SNI_RM)		:= vmlinux.ecoff
 
 #

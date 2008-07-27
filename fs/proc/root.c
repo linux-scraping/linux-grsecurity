@@ -22,8 +22,6 @@
 
 #include "internal.h"
 
-struct proc_dir_entry *proc_bus, *proc_root_fs, *proc_root_driver;
-
 static int proc_test_super(struct super_block *sb, void *data)
 {
 	return sb->s_fs_info == data;
@@ -126,8 +124,8 @@ void __init proc_root_init(void)
 #ifdef CONFIG_SYSVIPC
 	proc_mkdir("sysvipc", NULL);
 #endif
-	proc_root_fs = proc_mkdir("fs", NULL);
-	proc_root_driver = proc_mkdir("driver", NULL);
+	proc_mkdir("fs", NULL);
+	proc_mkdir("driver", NULL);
 	proc_mkdir("fs/nfsd", NULL); /* somewhere for the nfsd filesystem to be mounted */
 #if defined(CONFIG_SUN_OPENPROMFS) || defined(CONFIG_SUN_OPENPROMFS_MODULE)
 	/* just give it a mountpoint */
@@ -139,12 +137,12 @@ void __init proc_root_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR, NULL);
+	proc_mkdir_mode("bus", S_IRUSR | S_IXUSR, NULL);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	proc_bus = proc_mkdir_mode("bus", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
+	proc_mkdir_mode("bus", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP, NULL);
 #endif
 #else
-	proc_bus = proc_mkdir("bus", NULL);
+	proc_mkdir("bus", NULL);
 #endif
 	proc_sys_init();
 }
@@ -240,9 +238,5 @@ void pid_ns_release_proc(struct pid_namespace *ns)
 EXPORT_SYMBOL(proc_symlink);
 EXPORT_SYMBOL(proc_mkdir);
 EXPORT_SYMBOL(create_proc_entry);
-EXPORT_SYMBOL(proc_create);
+EXPORT_SYMBOL(proc_create_data);
 EXPORT_SYMBOL(remove_proc_entry);
-EXPORT_SYMBOL(proc_root);
-EXPORT_SYMBOL(proc_root_fs);
-EXPORT_SYMBOL(proc_bus);
-EXPORT_SYMBOL(proc_root_driver);

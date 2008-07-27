@@ -283,7 +283,7 @@ static int dsp_buffer_free(snd_cx88_card_t *chip)
 	BUG_ON(!chip->dma_size);
 
 	dprintk(2,"Freeing buffer\n");
-	videobuf_pci_dma_unmap(chip->pci, chip->dma_risc);
+	videobuf_sg_dma_unmap(&chip->pci->dev, chip->dma_risc);
 	videobuf_dma_free(chip->dma_risc);
 	btcx_riscmem_free(chip->pci,&chip->buf->risc);
 	kfree(chip->buf);
@@ -331,6 +331,12 @@ static int snd_cx88_pcm_open(struct snd_pcm_substream *substream)
 	snd_cx88_card_t *chip = snd_pcm_substream_chip(substream);
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	int err;
+
+	if (!chip) {
+		printk(KERN_ERR "BUG: cx88 can't find device struct."
+				" Can't proceed with open\n");
+		return -ENODEV;
+	}
 
 	err = snd_pcm_hw_constraint_pow2(runtime, 0, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (err < 0)
@@ -385,7 +391,7 @@ static int snd_cx88_hw_params(struct snd_pcm_substream * substream,
 	BUG_ON(!chip->dma_size);
 	BUG_ON(chip->num_periods & (chip->num_periods-1));
 
-	buf = videobuf_pci_alloc(sizeof(*buf));
+	buf = videobuf_sg_alloc(sizeof(*buf));
 	if (NULL == buf)
 		return -ENOMEM;
 
@@ -396,14 +402,14 @@ static int snd_cx88_hw_params(struct snd_pcm_substream * substream,
 	buf->vb.height = chip->num_periods;
 	buf->vb.size   = chip->dma_size;
 
-	dma=videobuf_to_dma(&buf->vb);
+	dma = videobuf_to_dma(&buf->vb);
 	videobuf_dma_init(dma);
 	ret = videobuf_dma_init_kernel(dma, PCI_DMA_FROMDEVICE,
 			(PAGE_ALIGN(buf->vb.size) >> PAGE_SHIFT));
 	if (ret < 0)
 		goto error;
 
-	ret = videobuf_pci_dma_map(chip->pci,dma);
+	ret = videobuf_sg_dma_map(&chip->pci->dev, dma);
 	if (ret < 0)
 		goto error;
 
@@ -494,7 +500,7 @@ static snd_pcm_uframes_t snd_cx88_pointer(struct snd_pcm_substream *substream)
 
 	count = atomic_read(&chip->count);
 
-//	dprintk(2, "%s - count %d (+%u), period %d, frame %lu\n", __FUNCTION__,
+//	dprintk(2, "%s - count %d (+%u), period %d, frame %lu\n", __func__,
 //		count, new, count & (runtime->periods-1),
 //		runtime->period_size * (count & (runtime->periods-1)));
 	return runtime->period_size * (count & (runtime->periods-1));
@@ -690,10 +696,8 @@ MODULE_DEVICE_TABLE(pci, cx88_audio_pci_tbl);
 static int snd_cx88_free(snd_cx88_card_t *chip)
 {
 
-	if (chip->irq >= 0){
-		synchronize_irq(chip->irq);
+	if (chip->irq >= 0)
 		free_irq(chip->irq, chip);
-	}
 
 	cx88_core_put(chip->core,chip->pci);
 

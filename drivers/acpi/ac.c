@@ -63,7 +63,7 @@ static int acpi_ac_add(struct acpi_device *device);
 static int acpi_ac_remove(struct acpi_device *device, int type);
 static int acpi_ac_resume(struct acpi_device *device);
 
-const static struct acpi_device_id ac_device_ids[] = {
+static const struct acpi_device_id ac_device_ids[] = {
 	{"ACPI0003", 0},
 	{"", 0},
 };
@@ -92,6 +92,7 @@ struct acpi_ac {
 
 #ifdef CONFIG_ACPI_PROCFS_POWER
 static const struct file_operations acpi_ac_fops = {
+	.owner = THIS_MODULE,
 	.open = acpi_ac_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -195,16 +196,11 @@ static int acpi_ac_add_fs(struct acpi_device *device)
 	}
 
 	/* 'state' [R] */
-	entry = create_proc_entry(ACPI_AC_FILE_STATE,
-				  S_IRUGO, acpi_device_dir(device));
+	entry = proc_create_data(ACPI_AC_FILE_STATE,
+				 S_IRUGO, acpi_device_dir(device),
+				 &acpi_ac_fops, acpi_driver_data(device));
 	if (!entry)
 		return -ENODEV;
-	else {
-		entry->proc_fops = &acpi_ac_fops;
-		entry->data = acpi_driver_data(device);
-		entry->owner = THIS_MODULE;
-	}
-
 	return 0;
 }
 
@@ -237,6 +233,9 @@ static void acpi_ac_notify(acpi_handle handle, u32 event, void *data)
 
 	device = ac->device;
 	switch (event) {
+	default:
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+				  "Unsupported event [0x%x]\n", event));
 	case ACPI_AC_NOTIFY_STATUS:
 	case ACPI_NOTIFY_BUS_CHECK:
 	case ACPI_NOTIFY_DEVICE_CHECK:
@@ -248,11 +247,6 @@ static void acpi_ac_notify(acpi_handle handle, u32 event, void *data)
 #ifdef CONFIG_ACPI_SYSFS_POWER
 		kobject_uevent(&ac->charger.dev->kobj, KOBJ_CHANGE);
 #endif
-		break;
-	default:
-		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
-				  "Unsupported event [0x%x]\n", event));
-		break;
 	}
 
 	return;

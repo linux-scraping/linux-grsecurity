@@ -1502,9 +1502,8 @@ static void pci_do_fixups(struct pci_dev *dev, struct pci_fixup *f, struct pci_f
 		if ((f->vendor == dev->vendor || f->vendor == (u16) PCI_ANY_ID) &&
  		    (f->device == dev->device || f->device == (u16) PCI_ANY_ID)) {
 #ifdef DEBUG
-			dev_dbg(&dev->dev, "calling quirk 0x%p", f->hook);
-			print_fn_descriptor_symbol(": %s()\n",
-				(unsigned long) f->hook);
+			dev_dbg(&dev->dev, "calling ");
+			print_fn_descriptor_symbol("%s\n", f->hook);
 #endif
 			f->hook(dev);
 		}
@@ -1648,17 +1647,70 @@ static void __devinit quirk_via_cx700_pci_parking_caching(struct pci_dev *dev)
 			/* Turn off PCI Bus Parking */
 			pci_write_config_byte(dev, 0x76, b ^ 0x40);
 
+			dev_info(&dev->dev,
+				"Disabling VIA CX700 PCI parking\n");
+		}
+	}
+
+	if (pci_read_config_byte(dev, 0x72, &b) == 0) {
+		if (b != 0) {
 			/* Turn off PCI Master read caching */
 			pci_write_config_byte(dev, 0x72, 0x0);
+
+			/* Set PCI Master Bus time-out to "1x16 PCLK" */
 			pci_write_config_byte(dev, 0x75, 0x1);
+
+			/* Disable "Read FIFO Timer" */
 			pci_write_config_byte(dev, 0x77, 0x0);
 
 			dev_info(&dev->dev,
-				"Disabling VIA CX700 PCI parking/caching\n");
+				"Disabling VIA CX700 PCI caching\n");
 		}
 	}
 }
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_VIA, 0x324e, quirk_via_cx700_pci_parking_caching);
+
+/*
+ * For Broadcom 5706, 5708, 5709 rev. A nics, any read beyond the
+ * VPD end tag will hang the device.  This problem was initially
+ * observed when a vpd entry was created in sysfs
+ * ('/sys/bus/pci/devices/<id>/vpd').   A read to this sysfs entry
+ * will dump 32k of data.  Reading a full 32k will cause an access
+ * beyond the VPD end tag causing the device to hang.  Once the device
+ * is hung, the bnx2 driver will not be able to reset the device.
+ * We believe that it is legal to read beyond the end tag and
+ * therefore the solution is to limit the read/write length.
+ */
+static void __devinit quirk_brcm_570x_limit_vpd(struct pci_dev *dev)
+{
+	/*  Only disable the VPD capability for 5706, 5708, and 5709 rev. A */
+	if ((dev->device == PCI_DEVICE_ID_NX2_5706) ||
+	    (dev->device == PCI_DEVICE_ID_NX2_5708) ||
+	    ((dev->device == PCI_DEVICE_ID_NX2_5709) &&
+	     (dev->revision & 0xf0) == 0x0)) {
+		if (dev->vpd)
+			dev->vpd->len = 0x80;
+	}
+}
+
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5706,
+			 quirk_brcm_570x_limit_vpd);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5706S,
+			 quirk_brcm_570x_limit_vpd);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5708,
+			 quirk_brcm_570x_limit_vpd);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5708S,
+			 quirk_brcm_570x_limit_vpd);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5709,
+			 quirk_brcm_570x_limit_vpd);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM,
+			 PCI_DEVICE_ID_NX2_5709S,
+			 quirk_brcm_570x_limit_vpd);
 
 #ifdef CONFIG_PCI_MSI
 /* Some chipsets do not support MSI. We cannot easily rely on setting
@@ -1675,6 +1727,7 @@ static void __init quirk_disable_all_msi(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_GCNB_LE, quirk_disable_all_msi);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_RS400_200, quirk_disable_all_msi);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_RS480, quirk_disable_all_msi);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VT3336, quirk_disable_all_msi);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VT3351, quirk_disable_all_msi);
 
 /* Disable MSI on chipsets that are known to not support it */
@@ -1815,6 +1868,7 @@ static void __devinit nv_msi_ht_cap_quirk(struct pci_dev *dev)
 	}
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA, PCI_ANY_ID, nv_msi_ht_cap_quirk);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_AL, PCI_ANY_ID, nv_msi_ht_cap_quirk);
 
 static void __devinit quirk_msi_intx_disable_bug(struct pci_dev *dev)
 {

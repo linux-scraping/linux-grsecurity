@@ -27,15 +27,15 @@
 #include "saa7134-reg.h"
 #include "saa7134.h"
 
-static unsigned int disable_ir = 0;
+static unsigned int disable_ir;
 module_param(disable_ir, int, 0444);
 MODULE_PARM_DESC(disable_ir,"disable infrared remote support");
 
-static unsigned int ir_debug = 0;
+static unsigned int ir_debug;
 module_param(ir_debug, int, 0644);
 MODULE_PARM_DESC(ir_debug,"enable debug messages [IR]");
 
-static int pinnacle_remote = 0;
+static int pinnacle_remote;
 module_param(pinnacle_remote, int, 0644);    /* Choose Pinnacle PCTV remote */
 MODULE_PARM_DESC(pinnacle_remote, "Specify Pinnacle PCTV remote: 0=coloured, 1=grey (defaults to 0)");
 
@@ -323,6 +323,15 @@ int saa7134_input_init1(struct saa7134_dev *dev)
 		saa_setb(SAA7134_GPIO_GPMODE1, 0x1);
 		saa_setb(SAA7134_GPIO_GPSTATUS1, 0x1);
 		break;
+	case SAA7134_BOARD_AVERMEDIA_A16D:
+		ir_codes     = ir_codes_avermedia_a16d;
+		mask_keycode = 0x02F200;
+		mask_keydown = 0x000400;
+		polling      = 50; /* ms */
+		/* Without this we won't receive key up events */
+		saa_setb(SAA7134_GPIO_GPMODE1, 0x1);
+		saa_setb(SAA7134_GPIO_GPSTATUS1, 0x1);
+		break;
 	case SAA7134_BOARD_KWORLD_TERMINATOR:
 		ir_codes     = ir_codes_pixelview;
 		mask_keycode = 0x00001f;
@@ -331,6 +340,11 @@ int saa7134_input_init1(struct saa7134_dev *dev)
 		break;
 	case SAA7134_BOARD_MANLI_MTV001:
 	case SAA7134_BOARD_MANLI_MTV002:
+		ir_codes     = ir_codes_manli;
+		mask_keycode = 0x001f00;
+		mask_keyup   = 0x004000;
+		polling      = 50; /* ms */
+		break;
 	case SAA7134_BOARD_BEHOLD_409FM:
 	case SAA7134_BOARD_BEHOLD_401:
 	case SAA7134_BOARD_BEHOLD_403:
@@ -343,7 +357,13 @@ int saa7134_input_init1(struct saa7134_dev *dev)
 	case SAA7134_BOARD_BEHOLD_505FM:
 	case SAA7134_BOARD_BEHOLD_507_9FM:
 		ir_codes     = ir_codes_manli;
-		mask_keycode = 0x001f00;
+		mask_keycode = 0x003f00;
+		mask_keyup   = 0x004000;
+		polling      = 50; /* ms */
+		break;
+	case SAA7134_BOARD_BEHOLD_COLUMBUS_TVFM:
+		ir_codes     = ir_codes_behold_columbus;
+		mask_keycode = 0x003f00;
 		mask_keyup   = 0x004000;
 		polling      = 50; // ms
 		break;
@@ -520,6 +540,7 @@ void saa7134_set_i2c_ir(struct saa7134_dev *dev, struct IR_i2c *ir)
 		break;
 	case SAA7134_BOARD_BEHOLD_607_9FM:
 	case SAA7134_BOARD_BEHOLD_M6:
+	case SAA7134_BOARD_BEHOLD_H6:
 		snprintf(ir->c.name, sizeof(ir->c.name), "BeholdTV");
 		ir->get_key   = get_key_beholdm6xx;
 		ir->ir_codes  = ir_codes_behold;

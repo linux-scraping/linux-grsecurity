@@ -217,8 +217,6 @@ long rcu_batches_completed(void)
 }
 EXPORT_SYMBOL_GPL(rcu_batches_completed);
 
-EXPORT_SYMBOL_GPL(rcu_batches_completed_bh);
-
 void __rcu_read_lock(void)
 {
 	int idx;
@@ -927,7 +925,15 @@ void rcu_offline_cpu(int cpu)
 	spin_unlock_irqrestore(&rdp->lock, flags);
 }
 
-void __devinit rcu_online_cpu(int cpu)
+#else /* #ifdef CONFIG_HOTPLUG_CPU */
+
+void rcu_offline_cpu(int cpu)
+{
+}
+
+#endif /* #else #ifdef CONFIG_HOTPLUG_CPU */
+
+void __cpuinit rcu_online_cpu(int cpu)
 {
 	unsigned long flags;
 
@@ -935,18 +941,6 @@ void __devinit rcu_online_cpu(int cpu)
 	cpu_set(cpu, rcu_cpu_online_map);
 	spin_unlock_irqrestore(&rcu_ctrlblk.fliplock, flags);
 }
-
-#else /* #ifdef CONFIG_HOTPLUG_CPU */
-
-void rcu_offline_cpu(int cpu)
-{
-}
-
-void __devinit rcu_online_cpu(int cpu)
-{
-}
-
-#endif /* #else #ifdef CONFIG_HOTPLUG_CPU */
 
 static void rcu_process_callbacks(struct softirq_action *unused)
 {
@@ -1007,10 +1001,10 @@ void __synchronize_sched(void)
 	if (sched_getaffinity(0, &oldmask) < 0)
 		oldmask = cpu_possible_map;
 	for_each_online_cpu(cpu) {
-		sched_setaffinity(0, cpumask_of_cpu(cpu));
+		sched_setaffinity(0, &cpumask_of_cpu(cpu));
 		schedule();
 	}
-	sched_setaffinity(0, oldmask);
+	sched_setaffinity(0, &oldmask);
 }
 EXPORT_SYMBOL_GPL(__synchronize_sched);
 

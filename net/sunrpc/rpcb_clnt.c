@@ -224,7 +224,7 @@ int rpcb_getport_sync(struct sockaddr_in *sin, u32 prog, u32 vers, int prot)
 	int status;
 
 	dprintk("RPC:       %s(" NIPQUAD_FMT ", %u, %u, %d)\n",
-		__FUNCTION__, NIPQUAD(sin->sin_addr.s_addr), prog, vers, prot);
+		__func__, NIPQUAD(sin->sin_addr.s_addr), prog, vers, prot);
 
 	rpcb_clnt = rpcb_create(NULL, (struct sockaddr *)sin,
 				sizeof(*sin), prot, 2, 0);
@@ -243,10 +243,10 @@ int rpcb_getport_sync(struct sockaddr_in *sin, u32 prog, u32 vers, int prot)
 }
 EXPORT_SYMBOL_GPL(rpcb_getport_sync);
 
-static struct rpc_task *rpcb_call_async(struct rpc_clnt *rpcb_clnt, struct rpcbind_args *map, int version)
+static struct rpc_task *rpcb_call_async(struct rpc_clnt *rpcb_clnt, struct rpcbind_args *map, struct rpc_procinfo *proc)
 {
 	struct rpc_message msg = {
-		.rpc_proc = rpcb_next_version[version].rpc_proc,
+		.rpc_proc = proc,
 		.rpc_argp = map,
 		.rpc_resp = &map->r_port,
 	};
@@ -271,6 +271,7 @@ static struct rpc_task *rpcb_call_async(struct rpc_clnt *rpcb_clnt, struct rpcbi
 void rpcb_getport_async(struct rpc_task *task)
 {
 	struct rpc_clnt *clnt = task->tk_client;
+	struct rpc_procinfo *proc;
 	u32 bind_version;
 	struct rpc_xprt *xprt = task->tk_xprt;
 	struct rpc_clnt	*rpcb_clnt;
@@ -280,10 +281,9 @@ void rpcb_getport_async(struct rpc_task *task)
 	struct sockaddr *sap = (struct sockaddr *)&addr;
 	size_t salen;
 	int status;
-	struct rpcb_info *info;
 
 	dprintk("RPC: %5u %s(%s, %u, %u, %d)\n",
-		task->tk_pid, __FUNCTION__,
+		task->tk_pid, __func__,
 		clnt->cl_server, clnt->cl_prog, clnt->cl_vers, xprt->prot);
 
 	/* Autobind on cloned rpc clients is discouraged */
@@ -292,19 +292,19 @@ void rpcb_getport_async(struct rpc_task *task)
 	if (xprt_test_and_set_binding(xprt)) {
 		status = -EAGAIN;	/* tell caller to check again */
 		dprintk("RPC: %5u %s: waiting for another binder\n",
-			task->tk_pid, __FUNCTION__);
+			task->tk_pid, __func__);
 		goto bailout_nowake;
 	}
 
 	/* Put self on queue before sending rpcbind request, in case
 	 * rpcb_getport_done completes before we return from rpc_run_task */
-	rpc_sleep_on(&xprt->binding, task, NULL, NULL);
+	rpc_sleep_on(&xprt->binding, task, NULL);
 
 	/* Someone else may have bound if we slept */
 	if (xprt_bound(xprt)) {
 		status = 0;
 		dprintk("RPC: %5u %s: already bound\n",
-			task->tk_pid, __FUNCTION__);
+			task->tk_pid, __func__);
 		goto bailout_nofree;
 	}
 
@@ -313,35 +313,36 @@ void rpcb_getport_async(struct rpc_task *task)
 	/* Don't ever use rpcbind v2 for AF_INET6 requests */
 	switch (sap->sa_family) {
 	case AF_INET:
-		info = rpcb_next_version;
+		proc = rpcb_next_version[xprt->bind_index].rpc_proc;
+		bind_version = rpcb_next_version[xprt->bind_index].rpc_vers;
 		break;
 	case AF_INET6:
-		info = rpcb_next_version6;
+		proc = rpcb_next_version6[xprt->bind_index].rpc_proc;
+		bind_version = rpcb_next_version6[xprt->bind_index].rpc_vers;
 		break;
 	default:
 		status = -EAFNOSUPPORT;
 		dprintk("RPC: %5u %s: bad address family\n",
-				task->tk_pid, __FUNCTION__);
+				task->tk_pid, __func__);
 		goto bailout_nofree;
 	}
-	if (info[xprt->bind_index].rpc_proc == NULL) {
+	if (proc == NULL) {
 		xprt->bind_index = 0;
 		status = -EPFNOSUPPORT;
 		dprintk("RPC: %5u %s: no more getport versions available\n",
-			task->tk_pid, __FUNCTION__);
+			task->tk_pid, __func__);
 		goto bailout_nofree;
 	}
-	bind_version = info[xprt->bind_index].rpc_vers;
 
 	dprintk("RPC: %5u %s: trying rpcbind version %u\n",
-		task->tk_pid, __FUNCTION__, bind_version);
+		task->tk_pid, __func__, bind_version);
 
 	rpcb_clnt = rpcb_create(clnt->cl_server, sap, salen, xprt->prot,
 				bind_version, 0);
 	if (IS_ERR(rpcb_clnt)) {
 		status = PTR_ERR(rpcb_clnt);
 		dprintk("RPC: %5u %s: rpcb_create failed, error %ld\n",
-			task->tk_pid, __FUNCTION__, PTR_ERR(rpcb_clnt));
+			task->tk_pid, __func__, PTR_ERR(rpcb_clnt));
 		goto bailout_nofree;
 	}
 
@@ -349,7 +350,7 @@ void rpcb_getport_async(struct rpc_task *task)
 	if (!map) {
 		status = -ENOMEM;
 		dprintk("RPC: %5u %s: no memory available\n",
-			task->tk_pid, __FUNCTION__);
+			task->tk_pid, __func__);
 		goto bailout_nofree;
 	}
 	map->r_prog = clnt->cl_prog;
@@ -361,22 +362,20 @@ void rpcb_getport_async(struct rpc_task *task)
 	map->r_addr = rpc_peeraddr2str(rpcb_clnt, RPC_DISPLAY_UNIVERSAL_ADDR);
 	map->r_owner = RPCB_OWNER_STRING;	/* ignored for GETADDR */
 
-	child = rpcb_call_async(rpcb_clnt, map, xprt->bind_index);
+	child = rpcb_call_async(rpcb_clnt, map, proc);
 	rpc_release_client(rpcb_clnt);
 	if (IS_ERR(child)) {
 		status = -EIO;
+		/* rpcb_map_release() has freed the arguments */
 		dprintk("RPC: %5u %s: rpc_run_task failed\n",
-			task->tk_pid, __FUNCTION__);
-		goto bailout;
+			task->tk_pid, __func__);
+		goto bailout_nofree;
 	}
 	rpc_put_task(child);
 
 	task->tk_xprt->stat.bind_count++;
 	return;
 
-bailout:
-	kfree(map);
-	xprt_put(xprt);
 bailout_nofree:
 	rpcb_wake_rpcbind_waiters(xprt, status);
 bailout_nowake:

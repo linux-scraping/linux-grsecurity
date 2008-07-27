@@ -10,6 +10,7 @@
 #define __XEN_PUBLIC_XEN_H__
 
 #include <asm/xen/interface.h>
+#include <asm/pvclock-abi.h>
 
 /*
  * XEN "SYSTEM CALLS" (a.k.a. HYPERCALLS).
@@ -58,6 +59,16 @@
 #define __HYPERVISOR_physdev_op           33
 #define __HYPERVISOR_hvm_op               34
 
+/* Architecture-specific hypercall definitions. */
+#define __HYPERVISOR_arch_0               48
+#define __HYPERVISOR_arch_1               49
+#define __HYPERVISOR_arch_2               50
+#define __HYPERVISOR_arch_3               51
+#define __HYPERVISOR_arch_4               52
+#define __HYPERVISOR_arch_5               53
+#define __HYPERVISOR_arch_6               54
+#define __HYPERVISOR_arch_7               55
+
 /*
  * VIRTUAL INTERRUPTS
  *
@@ -68,8 +79,18 @@
 #define VIRQ_CONSOLE    2  /* (DOM0) Bytes received on emergency console. */
 #define VIRQ_DOM_EXC    3  /* (DOM0) Exceptional event for some domain.   */
 #define VIRQ_DEBUGGER   6  /* (DOM0) A domain has paused for debugging.   */
-#define NR_VIRQS        8
 
+/* Architecture-specific VIRQ definitions. */
+#define VIRQ_ARCH_0    16
+#define VIRQ_ARCH_1    17
+#define VIRQ_ARCH_2    18
+#define VIRQ_ARCH_3    19
+#define VIRQ_ARCH_4    20
+#define VIRQ_ARCH_5    21
+#define VIRQ_ARCH_6    22
+#define VIRQ_ARCH_7    23
+
+#define NR_VIRQS       24
 /*
  * MMU-UPDATE REQUESTS
  *
@@ -316,7 +337,7 @@ struct vcpu_info {
 	uint8_t evtchn_upcall_mask;
 	unsigned long evtchn_pending_sel;
 	struct arch_vcpu_info arch;
-	struct vcpu_time_info time;
+	struct pvclock_vcpu_time_info time;
 }; /* 64 bytes (x86) */
 
 /*
@@ -364,9 +385,7 @@ struct shared_info {
 	 * Wallclock time: updated only by control software. Guests should base
 	 * their gettimeofday() syscall on this wallclock-base value.
 	 */
-	uint32_t wc_version;      /* Version counter: see vcpu_time_info_t. */
-	uint32_t wc_sec;          /* Secs  00:00:00 UTC, Jan 1, 1970.  */
-	uint32_t wc_nsec;         /* Nsecs 00:00:00 UTC, Jan 1, 1970.  */
+	struct pvclock_wall_clock wc;
 
 	struct arch_shared_info arch;
 

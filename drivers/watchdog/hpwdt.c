@@ -187,6 +187,7 @@ asm(".text                          \n\t"
     "ret                            \n\t"
     ".previous");
 
+
 /*
  *	cru_detect
  *

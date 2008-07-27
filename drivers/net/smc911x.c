@@ -92,6 +92,7 @@ module_param(tx_fifo_kb, int, 0400);
 MODULE_PARM_DESC(tx_fifo_kb,"transmit FIFO size in KB (1<x<15)(default=8)");
 
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:smc911x");
 
 /*
  * The internal workings of the driver.  If you are changing anything
@@ -135,7 +136,6 @@ struct smc911x_local {
 
 	/* work queue */
 	struct work_struct phy_configure;
-	int work_pending;
 
 	int tx_throttle;
 	spinlock_t lock;
@@ -243,7 +243,7 @@ static void smc911x_reset(struct net_device *dev)
 		do {
 			udelay(10);
 			reg = SMC_GET_PMT_CTRL() & PMT_CTRL_READY_;
-		} while ( timeout-- && !reg);
+		} while (--timeout && !reg);
 		if (timeout == 0) {
 			PRINTK("%s: smc911x_reset timeout waiting for PM restore\n", dev->name);
 			return;
@@ -267,7 +267,7 @@ static void smc911x_reset(struct net_device *dev)
 				resets++;
 				break;
 			}
-		} while ( timeout-- && (reg & HW_CFG_SRST_));
+		} while (--timeout && (reg & HW_CFG_SRST_));
 	}
 	if (timeout == 0) {
 		PRINTK("%s: smc911x_reset timeout waiting for reset\n", dev->name);
@@ -413,7 +413,7 @@ static inline void smc911x_drop_pkt(struct net_device *dev)
 		do {
 			udelay(10);
 			reg = SMC_GET_RX_DP_CTRL() & RX_DP_CTRL_FFWD_BUSY_;
-		} while ( timeout-- && reg);
+		} while (--timeout && reg);
 		if (timeout == 0) {
 			PRINTK("%s: timeout waiting for RX fast forward\n", dev->name);
 		}
@@ -959,11 +959,11 @@ static void smc911x_phy_configure(struct work_struct *work)
 	 * We should not be called if phy_type is zero.
 	 */
 	if (lp->phy_type == 0)
-		 goto smc911x_phy_configure_exit_nolock;
+		return;
 
 	if (smc911x_phy_reset(dev, phyaddr)) {
 		printk("%s: PHY reset timed out\n", dev->name);
-		goto smc911x_phy_configure_exit_nolock;
+		return;
 	}
 	spin_lock_irqsave(&lp->lock, flags);
 
@@ -1032,8 +1032,6 @@ static void smc911x_phy_configure(struct work_struct *work)
 
 smc911x_phy_configure_exit:
 	spin_unlock_irqrestore(&lp->lock, flags);
-smc911x_phy_configure_exit_nolock:
-	lp->work_pending = 0;
 }
 
 /*
@@ -1355,11 +1353,8 @@ static void smc911x_timeout(struct net_device *dev)
 	 * smc911x_phy_configure() calls msleep() which calls schedule_timeout()
 	 * which calls schedule().	 Hence we use a work queue.
 	 */
-	if (lp->phy_type != 0) {
-		if (schedule_work(&lp->phy_configure)) {
-			lp->work_pending = 1;
-		}
-	}
+	if (lp->phy_type != 0)
+		schedule_work(&lp->phy_configure);
 
 	/* We can accept TX packets again */
 	dev->trans_start = jiffies;
@@ -1530,16 +1525,8 @@ static int smc911x_close(struct net_device *dev)
 	if (lp->phy_type != 0) {
 		/* We need to ensure that no calls to
 		 * smc911x_phy_configure are pending.
-
-		 * flush_scheduled_work() cannot be called because we
-		 * are running with the netlink semaphore held (from
-		 * devinet_ioctl()) and the pending work queue
-		 * contains linkwatch_event() (scheduled by
-		 * netif_carrier_off() above). linkwatch_event() also
-		 * wants the netlink semaphore.
 		 */
-		while (lp->work_pending)
-			schedule();
+		cancel_work_sync(&lp->phy_configure);
 		smc911x_phy_powerdown(dev, lp->mii.phy_id);
 	}
 
@@ -2262,6 +2249,7 @@ static struct platform_driver smc911x_driver = {
 	.resume	 = smc911x_drv_resume,
 	.driver	 = {
 		.name	 = CARDNAME,
+		.owner	= THIS_MODULE,
 	},
 };
 

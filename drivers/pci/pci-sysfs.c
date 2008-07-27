@@ -21,6 +21,7 @@
 #include <linux/topology.h>
 #include <linux/mm.h>
 #include <linux/capability.h>
+#include <linux/pci-aspm.h>
 #include "pci.h"
 
 static int sysfs_initialized;	/* = 0 */
@@ -73,8 +74,23 @@ static ssize_t local_cpus_show(struct device *dev,
 
 	mask = pcibus_to_cpumask(to_pci_dev(dev)->bus);
 	len = cpumask_scnprintf(buf, PAGE_SIZE-2, mask);
-	strcat(buf,"\n"); 
-	return 1+len;
+	buf[len++] = '\n';
+	buf[len] = '\0';
+	return len;
+}
+
+
+static ssize_t local_cpulist_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	cpumask_t mask;
+	int len;
+
+	mask = pcibus_to_cpumask(to_pci_dev(dev)->bus);
+	len = cpulist_scnprintf(buf, PAGE_SIZE-2, mask);
+	buf[len++] = '\n';
+	buf[len] = '\0';
+	return len;
 }
 
 /* show resources */
@@ -201,6 +217,7 @@ struct device_attribute pci_dev_attrs[] = {
 	__ATTR_RO(class),
 	__ATTR_RO(irq),
 	__ATTR_RO(local_cpus),
+	__ATTR_RO(local_cpulist),
 	__ATTR_RO(modalias),
 #ifdef CONFIG_NUMA
 	__ATTR_RO(numa_node),
@@ -342,6 +359,58 @@ pci_write_config(struct kobject *kobj, struct bin_attribute *bin_attr,
 	return count;
 }
 
+static ssize_t
+pci_read_vpd(struct kobject *kobj, struct bin_attribute *bin_attr,
+	     char *buf, loff_t off, size_t count)
+{
+	struct pci_dev *dev =
+		to_pci_dev(container_of(kobj, struct device, kobj));
+	int end;
+	int ret;
+
+	if (off > bin_attr->size)
+		count = 0;
+	else if (count > bin_attr->size - off)
+		count = bin_attr->size - off;
+	end = off + count;
+
+	while (off < end) {
+		ret = dev->vpd->ops->read(dev, off, end - off, buf);
+		if (ret < 0)
+			return ret;
+		buf += ret;
+		off += ret;
+	}
+
+	return count;
+}
+
+static ssize_t
+pci_write_vpd(struct kobject *kobj, struct bin_attribute *bin_attr,
+	      char *buf, loff_t off, size_t count)
+{
+	struct pci_dev *dev =
+		to_pci_dev(container_of(kobj, struct device, kobj));
+	int end;
+	int ret;
+
+	if (off > bin_attr->size)
+		count = 0;
+	else if (count > bin_attr->size - off)
+		count = bin_attr->size - off;
+	end = off + count;
+
+	while (off < end) {
+		ret = dev->vpd->ops->write(dev, off, end - off, buf);
+		if (ret < 0)
+			return ret;
+		buf += ret;
+		off += ret;
+	}
+
+	return count;
+}
+
 #ifdef HAVE_PCI_LEGACY
 /**
  * pci_read_legacy_io - read byte(s) from legacy I/O port space
@@ -420,13 +489,13 @@ pci_mmap_legacy_mem(struct kobject *kobj, struct bin_attribute *attr,
  * @kobj: kobject for mapping
  * @attr: struct bin_attribute for the file being mapped
  * @vma: struct vm_area_struct passed into the mmap
+ * @write_combine: 1 for write_combine mapping
  *
  * Use the regular PCI mapping routines to map a PCI resource into userspace.
- * FIXME: write combining?  maybe automatic for prefetchable regions?
  */
 static int
 pci_mmap_resource(struct kobject *kobj, struct bin_attribute *attr,
-		  struct vm_area_struct *vma)
+		  struct vm_area_struct *vma, int write_combine)
 {
 	struct pci_dev *pdev = to_pci_dev(container_of(kobj,
 						       struct device, kobj));
@@ -449,7 +518,21 @@ pci_mmap_resource(struct kobject *kobj, struct bin_attribute *attr,
 	vma->vm_pgoff += start >> PAGE_SHIFT;
 	mmap_type = res->flags & IORESOURCE_MEM ? pci_mmap_mem : pci_mmap_io;
 
-	return pci_mmap_page_range(pdev, vma, mmap_type, 0);
+	return pci_mmap_page_range(pdev, vma, mmap_type, write_combine);
+}
+
+static int
+pci_mmap_resource_uc(struct kobject *kobj, struct bin_attribute *attr,
+		     struct vm_area_struct *vma)
+{
+	return pci_mmap_resource(kobj, attr, vma, 0);
+}
+
+static int
+pci_mmap_resource_wc(struct kobject *kobj, struct bin_attribute *attr,
+		     struct vm_area_struct *vma)
+{
+	return pci_mmap_resource(kobj, attr, vma, 1);
 }
 
 /**
@@ -472,7 +555,44 @@ pci_remove_resource_files(struct pci_dev *pdev)
 			sysfs_remove_bin_file(&pdev->dev.kobj, res_attr);
 			kfree(res_attr);
 		}
+
+		res_attr = pdev->res_attr_wc[i];
+		if (res_attr) {
+			sysfs_remove_bin_file(&pdev->dev.kobj, res_attr);
+			kfree(res_attr);
+		}
 	}
+}
+
+static int pci_create_attr(struct pci_dev *pdev, int num, int write_combine)
+{
+	/* allocate attribute structure, piggyback attribute name */
+	int name_len = write_combine ? 13 : 10;
+	struct bin_attribute *res_attr;
+	int retval;
+
+	res_attr = kzalloc(sizeof(*res_attr) + name_len, GFP_ATOMIC);
+	if (res_attr) {
+		char *res_attr_name = (char *)(res_attr + 1);
+
+		if (write_combine) {
+			pdev->res_attr_wc[num] = res_attr;
+			sprintf(res_attr_name, "resource%d_wc", num);
+			res_attr->mmap = pci_mmap_resource_wc;
+		} else {
+			pdev->res_attr[num] = res_attr;
+			sprintf(res_attr_name, "resource%d", num);
+			res_attr->mmap = pci_mmap_resource_uc;
+		}
+		res_attr->attr.name = res_attr_name;
+		res_attr->attr.mode = S_IRUSR | S_IWUSR;
+		res_attr->size = pci_resource_len(pdev, num);
+		res_attr->private = &pdev->resource[num];
+		retval = sysfs_create_bin_file(&pdev->dev.kobj, res_attr);
+	} else
+		retval = -ENOMEM;
+
+	return retval;
 }
 
 /**
@@ -488,31 +608,19 @@ static int pci_create_resource_files(struct pci_dev *pdev)
 
 	/* Expose the PCI resources from this device as files */
 	for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-		struct bin_attribute *res_attr;
 
 		/* skip empty resources */
 		if (!pci_resource_len(pdev, i))
 			continue;
 
-		/* allocate attribute structure, piggyback attribute name */
-		res_attr = kzalloc(sizeof(*res_attr) + 10, GFP_ATOMIC);
-		if (res_attr) {
-			char *res_attr_name = (char *)(res_attr + 1);
+		retval = pci_create_attr(pdev, i, 0);
+		/* for prefetchable resources, create a WC mappable file */
+		if (!retval && pdev->resource[i].flags & IORESOURCE_PREFETCH)
+			retval = pci_create_attr(pdev, i, 1);
 
-			pdev->res_attr[i] = res_attr;
-			sprintf(res_attr_name, "resource%d", i);
-			res_attr->attr.name = res_attr_name;
-			res_attr->attr.mode = S_IRUSR | S_IWUSR;
-			res_attr->size = pci_resource_len(pdev, i);
-			res_attr->mmap = pci_mmap_resource;
-			res_attr->private = &pdev->resource[i];
-			retval = sysfs_create_bin_file(&pdev->dev.kobj, res_attr);
-			if (retval) {
-				pci_remove_resource_files(pdev);
-				return retval;
-			}
-		} else {
-			return -ENOMEM;
+		if (retval) {
+			pci_remove_resource_files(pdev);
+			return retval;
 		}
 	}
 	return 0;
@@ -610,7 +718,7 @@ int __attribute__ ((weak)) pcibios_add_platform_entries(struct pci_dev *dev)
 
 int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 {
-	struct bin_attribute *rom_attr = NULL;
+	struct bin_attribute *attr = NULL;
 	int retval;
 
 	if (!sysfs_initialized)
@@ -623,22 +731,41 @@ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 	if (retval)
 		goto err;
 
+	/* If the device has VPD, try to expose it in sysfs. */
+	if (pdev->vpd) {
+		attr = kzalloc(sizeof(*attr), GFP_ATOMIC);
+		if (attr) {
+			pdev->vpd->attr = attr;
+			attr->size = pdev->vpd->len;
+			attr->attr.name = "vpd";
+			attr->attr.mode = S_IRUSR | S_IWUSR;
+			attr->read = pci_read_vpd;
+			attr->write = pci_write_vpd;
+			retval = sysfs_create_bin_file(&pdev->dev.kobj, attr);
+			if (retval)
+				goto err_vpd;
+		} else {
+			retval = -ENOMEM;
+			goto err_config_file;
+		}
+	}
+
 	retval = pci_create_resource_files(pdev);
 	if (retval)
-		goto err_bin_file;
+		goto err_vpd_file;
 
 	/* If the device has a ROM, try to expose it in sysfs. */
 	if (pci_resource_len(pdev, PCI_ROM_RESOURCE) ||
 	    (pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW)) {
-		rom_attr = kzalloc(sizeof(*rom_attr), GFP_ATOMIC);
-		if (rom_attr) {
-			pdev->rom_attr = rom_attr;
-			rom_attr->size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
-			rom_attr->attr.name = "rom";
-			rom_attr->attr.mode = S_IRUSR;
-			rom_attr->read = pci_read_rom;
-			rom_attr->write = pci_write_rom;
-			retval = sysfs_create_bin_file(&pdev->dev.kobj, rom_attr);
+		attr = kzalloc(sizeof(*attr), GFP_ATOMIC);
+		if (attr) {
+			pdev->rom_attr = attr;
+			attr->size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
+			attr->attr.name = "rom";
+			attr->attr.mode = S_IRUSR;
+			attr->read = pci_read_rom;
+			attr->write = pci_write_rom;
+			retval = sysfs_create_bin_file(&pdev->dev.kobj, attr);
 			if (retval)
 				goto err_rom;
 		} else {
@@ -650,16 +777,24 @@ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
 	if (pcibios_add_platform_entries(pdev))
 		goto err_rom_file;
 
+	pcie_aspm_create_sysfs_dev_files(pdev);
+
 	return 0;
 
 err_rom_file:
 	if (pci_resource_len(pdev, PCI_ROM_RESOURCE))
-		sysfs_remove_bin_file(&pdev->dev.kobj, rom_attr);
+		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->rom_attr);
 err_rom:
-	kfree(rom_attr);
+	kfree(pdev->rom_attr);
 err_resource_files:
 	pci_remove_resource_files(pdev);
-err_bin_file:
+err_vpd_file:
+	if (pdev->vpd) {
+		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->vpd->attr);
+err_vpd:
+		kfree(pdev->vpd->attr);
+	}
+err_config_file:
 	if (pdev->cfg_size < 4096)
 		sysfs_remove_bin_file(&pdev->dev.kobj, &pci_config_attr);
 	else
@@ -679,6 +814,12 @@ void pci_remove_sysfs_dev_files(struct pci_dev *pdev)
 	if (!sysfs_initialized)
 		return;
 
+	pcie_aspm_remove_sysfs_dev_files(pdev);
+
+	if (pdev->vpd) {
+		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->vpd->attr);
+		kfree(pdev->vpd->attr);
+	}
 	if (pdev->cfg_size < 4096)
 		sysfs_remove_bin_file(&pdev->dev.kobj, &pci_config_attr);
 	else

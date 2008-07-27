@@ -273,15 +273,13 @@ int br_add_bridge(const char *name)
 	rtnl_lock();
 	if (strchr(dev->name, '%')) {
 		ret = dev_alloc_name(dev, dev->name);
-		if (ret < 0) {
-			free_netdev(dev);
-			goto out;
-		}
+		if (ret < 0)
+			goto out_free;
 	}
 
 	ret = register_netdevice(dev);
 	if (ret)
-		goto out;
+		goto out_free;
 
 	ret = br_sysfs_addbr(dev);
 	if (ret)
@@ -289,6 +287,10 @@ int br_add_bridge(const char *name)
  out:
 	rtnl_unlock();
 	return ret;
+
+out_free:
+	free_netdev(dev);
+	goto out;
 }
 
 int br_del_bridge(const char *name)
@@ -411,9 +413,12 @@ err2:
 	br_fdb_delete_by_port(br, p, 1);
 err1:
 	kobject_del(&p->kobj);
-	return err;
+	goto put_back;
 err0:
 	kobject_put(&p->kobj);
+
+put_back:
+	dev_put(dev);
 	return err;
 }
 
@@ -437,12 +442,16 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
 
 void __exit br_cleanup_bridges(void)
 {
-	struct net_device *dev, *nxt;
+	struct net_device *dev;
 
 	rtnl_lock();
-	for_each_netdev_safe(&init_net, dev, nxt)
-		if (dev->priv_flags & IFF_EBRIDGE)
+restart:
+	for_each_netdev(&init_net, dev) {
+		if (dev->priv_flags & IFF_EBRIDGE) {
 			del_br(dev->priv);
+			goto restart;
+		}
+	}
 	rtnl_unlock();
 
 }

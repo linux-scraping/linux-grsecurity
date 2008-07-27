@@ -395,7 +395,7 @@ static int agp_remove_controller(struct agp_controller *controller)
 
 	if (agp_fe.current_controller == controller) {
 		agp_fe.current_controller = NULL;
-		agp_fe.backend_acquired = FALSE;
+		agp_fe.backend_acquired = false;
 		agp_backend_release(agp_bridge);
 	}
 	kfree(controller);
@@ -443,7 +443,7 @@ static void agp_controller_release_current(struct agp_controller *controller,
 	}
 
 	agp_fe.current_controller = NULL;
-	agp_fe.used_by_controller = FALSE;
+	agp_fe.used_by_controller = false;
 	agp_backend_release(agp_bridge);
 }
 
@@ -573,7 +573,7 @@ static int agp_mmap(struct file *file, struct vm_area_struct *vma)
 
 	mutex_lock(&(agp_fe.agp_mutex));
 
-	if (agp_fe.backend_acquired != TRUE)
+	if (agp_fe.backend_acquired != true)
 		goto out_eperm;
 
 	if (!(test_bit(AGP_FF_IS_VALID, &priv->access_flags)))
@@ -768,7 +768,7 @@ int agpioc_acquire_wrap(struct agp_file_private *priv)
 
 	atomic_inc(&agp_bridge->agp_in_use);
 
-	agp_fe.backend_acquired = TRUE;
+	agp_fe.backend_acquired = true;
 
 	controller = agp_find_controller_by_pid(priv->my_pid);
 
@@ -778,7 +778,7 @@ int agpioc_acquire_wrap(struct agp_file_private *priv)
 		controller = agp_create_controller(priv->my_pid);
 
 		if (controller == NULL) {
-			agp_fe.backend_acquired = FALSE;
+			agp_fe.backend_acquired = false;
 			agp_backend_release(agp_bridge);
 			return -ENOMEM;
 		}
@@ -967,7 +967,7 @@ int agpioc_chipset_flush_wrap(struct agp_file_private *priv)
 	return 0;
 }
 
-static int agp_ioctl(struct inode *inode, struct file *file,
+static long agp_ioctl(struct file *file,
 		     unsigned int cmd, unsigned long arg)
 {
 	struct agp_file_private *curr_priv = file->private_data;
@@ -981,7 +981,7 @@ static int agp_ioctl(struct inode *inode, struct file *file,
 		ret_val = -EINVAL;
 		goto ioctl_out;
 	}
-	if ((agp_fe.backend_acquired != TRUE) &&
+	if ((agp_fe.backend_acquired != true) &&
 	    (cmd != AGPIOC_ACQUIRE)) {
 		ret_val = -EBUSY;
 		goto ioctl_out;
@@ -1058,7 +1058,7 @@ static const struct file_operations agp_fops =
 	.llseek		= no_llseek,
 	.read		= agp_read,
 	.write		= agp_write,
-	.ioctl		= agp_ioctl,
+	.unlocked_ioctl	= agp_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= compat_agp_ioctl,
 #endif

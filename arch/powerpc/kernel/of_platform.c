@@ -76,6 +76,8 @@ struct of_device* of_platform_device_create(struct device_node *np,
 		return NULL;
 
 	dev->dma_mask = 0xffffffffUL;
+	dev->dev.coherent_dma_mask = DMA_32BIT_MASK;
+
 	dev->dev.bus = &of_platform_bus_type;
 
 	/* We do not fill the DMA ops for platform devices by default.
@@ -275,6 +277,8 @@ static int __devinit of_pci_phb_probe(struct of_device *dev,
 
 	/* Scan the bus */
 	scan_phb(phb);
+	if (phb->bus == NULL)
+		return -ENXIO;
 
 	/* Claim resources. This might need some rework as well depending
 	 * wether we are doing probe-only or not, like assigning unassigned

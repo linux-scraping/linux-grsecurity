@@ -95,23 +95,6 @@
 
 #define ADDR_IN_WINDOW1(off)	\
 	((off > NETXEN_CRB_PCIX_HOST2) && (off < NETXEN_CRB_MAX)) ? 1 : 0
-/*
- * In netxen_nic_down(), we must wait for any pending callback requests into
- * netxen_watchdog_task() to complete; eg otherwise the watchdog_timer could be
- * reenabled right after it is deleted in netxen_nic_down(). FLUSH_SCHEDULED_WORK()
- * does this synchronization.
- *
- * Normally, schedule_work()/flush_scheduled_work() could have worked, but
- * netxen_nic_close() is invoked with kernel rtnl lock held. netif_carrier_off()
- * call in netxen_nic_close() triggers a schedule_work(&linkwatch_work), and a
- * subsequent call to flush_scheduled_work() in netxen_nic_down() would cause
- * linkwatch_event() to be executed which also attempts to acquire the rtnl
- * lock thus causing a deadlock.
- */
-
-#define SCHEDULE_WORK(tp)	queue_work(netxen_workq, tp)
-#define FLUSH_SCHEDULED_WORK()	flush_workqueue(netxen_workq)
-extern struct workqueue_struct *netxen_workq;
 
 /*
  * normalize a 64MB crb address to 32MB PCI window
@@ -793,7 +776,6 @@ struct netxen_hardware_context {
 
 	u8 revision_id;
 	u16 board_type;
-	u16 max_ports;
 	struct netxen_board_info boardcfg;
 	u32 xg_linkup;
 	u32 qg_linksup;
@@ -880,6 +862,7 @@ struct netxen_adapter {
 	unsigned char mac_addr[ETH_ALEN];
 	int mtu;
 	int portnum;
+	u8 physical_port;
 
 	struct work_struct watchdog_task;
 	struct timer_list watchdog_timer;
@@ -1050,9 +1033,7 @@ void netxen_halt_pegs(struct netxen_adapter *adapter);
 int netxen_rom_se(struct netxen_adapter *adapter, int addr);
 
 /* Functions from netxen_nic_isr.c */
-int netxen_nic_link_ok(struct netxen_adapter *adapter);
 void netxen_initialize_adapter_sw(struct netxen_adapter *adapter);
-void netxen_initialize_adapter_hw(struct netxen_adapter *adapter);
 void *netxen_alloc(struct pci_dev *pdev, size_t sz, dma_addr_t * ptr,
 		   struct pci_dev **used_dev);
 void netxen_initialize_adapter_ops(struct netxen_adapter *adapter);
@@ -1094,20 +1075,6 @@ static const struct netxen_brdinfo netxen_boards[] = {
 };
 
 #define NUM_SUPPORTED_BOARDS ARRAY_SIZE(netxen_boards)
-
-static inline void get_brd_port_by_type(u32 type, int *ports)
-{
-	int i, found = 0;
-	for (i = 0; i < NUM_SUPPORTED_BOARDS; ++i) {
-		if (netxen_boards[i].brdtype == type) {
-			*ports = netxen_boards[i].ports;
-			found = 1;
-			break;
-		}
-	}
-	if (!found)
-		*ports = 0;
-}
 
 static inline void get_brd_name_by_type(u32 type, char *name)
 {
@@ -1187,5 +1154,4 @@ extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
 
 extern struct ethtool_ops netxen_nic_ethtool_ops;
 
-extern int physical_port[];	/* physical port # from virtual port.*/
 #endif				/* __NETXEN_NIC_H_ */

@@ -34,7 +34,8 @@ struct linux_binprm{
 #endif
 	struct mm_struct *mm;
 	unsigned long p; /* current top of mem */
-	int sh_bang;
+	unsigned int sh_bang:1,
+		     misc_bang:1;
 	struct file * file;
 	int e_uid, e_gid;
 	kernel_cap_t cap_inheritable, cap_permitted;
@@ -48,8 +49,6 @@ struct linux_binprm{
 	unsigned interp_flags;
 	unsigned interp_data;
 	unsigned long loader, exec;
-	unsigned long argv_len;
-	int misc;
 };
 
 #define BINPRM_FLAGS_ENFORCE_NONDUMP_BIT 0
@@ -100,6 +99,7 @@ extern int copy_strings_kernel(int argc,char ** argv,struct linux_binprm *bprm);
 extern void compute_creds(struct linux_binprm *binprm);
 extern int do_coredump(long signr, int exit_code, struct pt_regs * regs);
 extern int set_binfmt(struct linux_binfmt *new);
+extern void free_bprm(struct linux_binprm *);
 
 void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 void pax_report_insns(void *pc, void *sp);

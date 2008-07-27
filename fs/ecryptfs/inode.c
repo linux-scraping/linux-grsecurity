@@ -105,7 +105,7 @@ ecryptfs_do_create(struct inode *directory_inode,
 
 	lower_dentry = ecryptfs_dentry_to_lower(ecryptfs_dentry);
 	lower_dir_dentry = lock_parent(lower_dentry);
-	if (unlikely(IS_ERR(lower_dir_dentry))) {
+	if (IS_ERR(lower_dir_dentry)) {
 		ecryptfs_printk(KERN_ERR, "Error locking directory of "
 				"dentry\n");
 		rc = PTR_ERR(lower_dir_dentry);
@@ -115,7 +115,7 @@ ecryptfs_do_create(struct inode *directory_inode,
 					     ecryptfs_dentry, mode, nd);
 	if (rc) {
 		printk(KERN_ERR "%s: Failure to create dentry in lower fs; "
-		       "rc = [%d]\n", __FUNCTION__, rc);
+		       "rc = [%d]\n", __func__, rc);
 		goto out_lock;
 	}
 	rc = ecryptfs_interpose(lower_dentry, ecryptfs_dentry,
