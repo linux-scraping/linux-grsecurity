@@ -562,25 +562,25 @@ static int __devinit uvesafb_vbe_getpmi(struct uvesafb_ktask *task,
 {
 	int i, err;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	u8 *pmi_code;
-	unsigned long cr0;
-#endif
-
 	uvesafb_reset(task);
 	task->t.regs.eax = 0x4f0a;
 	task->t.regs.ebx = 0x0;
 	err = uvesafb_exec(task);
 
-	par->pmi_setpal = par->ypan = 0;
-	if ((task->t.regs.eax & 0xffff) != 0x4f || task->t.regs.es < 0xc000)
-		return 0;
+	if ((task->t.regs.eax & 0xffff) != 0x4f || task->t.regs.es < 0xc000) {
+		par->pmi_setpal = par->ypan = 0;
+	} else {
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	pmi_code = module_alloc_exec((u16)task->t.regs.ecx);
-	if (pmi_code) {
-#elif !defined(CONFIG_PAX_KERNEXEC)
-	if (1) {
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_MODULES
+		unsigned long cr0;
+
+		par->pmi_code = module_alloc_exec((u16)task->t.regs.ecx);
+#endif
+		if (!par->pmi_code) {
+			par->pmi_setpal = par->ypan = 0;
+			return 0;
+		}
 #endif
 
 		par->pmi_base = (u16 *)phys_to_virt(((u32)task->t.regs.es << 4)
@@ -588,18 +588,14 @@ static int __devinit uvesafb_vbe_getpmi(struct uvesafb_ktask *task,
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		pax_open_kernel(cr0);
-		memcpy(pmi_code, par->pmi_base, (u16)task->t.regs.ecx);
+		memcpy(par->pmi_code, par->pmi_base, (u16)task->t.regs.ecx);
 		pax_close_kernel(cr0);
+
+		par->pmi_start = ktva_ktla(par->pmi_code + par->pmi_base[1]);
+		par->pmi_pal = ktva_ktla(par->pmi_code + par->pmi_base[2]);
 #else
-		pmi_code = par->pmi_base;
-#endif
-
-		par->pmi_start = pmi_code + par->pmi_base[1];
-		par->pmi_pal = pmi_code + par->pmi_base[2];
-
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-		par->pmi_start = ktva_ktla(par->pmi_start);
-		par->pmi_pal = ktva_ktla(par->pmi_pal);
+		par->pmi_start = (u8 *)par->pmi_base + par->pmi_base[1];
+		par->pmi_pal = (u8 *)par->pmi_base + par->pmi_base[2];
 #endif
 
 		printk(KERN_INFO "uvesafb: protected mode interface info at "
@@ -1856,6 +1852,11 @@ out:
 	if (par->vbe_modes)
 		kfree(par->vbe_modes);
 
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+	if (par->pmi_code)
+		module_free_exec(NULL, par->pmi_code);
+#endif
+
 	framebuffer_release(info);
 	return err;
 }
@@ -1882,6 +1883,12 @@ static int uvesafb_remove(struct platform_device *dev)
 				kfree(par->vbe_state_orig);
 			if (par->vbe_state_saved)
 				kfree(par->vbe_state_saved);
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
+			if (par->pmi_code)
+				module_free_exec(NULL, par->pmi_code);
+#endif
+
 		}
 
 		framebuffer_release(info);

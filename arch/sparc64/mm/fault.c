@@ -273,28 +273,25 @@ static void pax_emuplt_close(struct vm_area_struct *vma)
 	vma->vm_mm->call_dl_resolve = 0UL;
 }
 
-static struct page *pax_emuplt_nopage(struct vm_area_struct *vma, unsigned long address, int *type)
+static int pax_emuplt_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	struct page *page;
 	unsigned int *kaddr;
 
-	page = alloc_page(GFP_HIGHUSER);
-	if (!page)
-		return NOPAGE_OOM;
+	vmf->page = alloc_page(GFP_HIGHUSER);
+	if (!vmf->page)
+		return VM_FAULT_OOM;
 
-	kaddr = kmap(page);
+	kaddr = kmap(vmf->page);
 	memset(kaddr, 0, PAGE_SIZE);
 	kaddr[0] = 0x9DE3BFA8U; /* save */
-	flush_dcache_page(page);
-	kunmap(page);
-	if (type)
-		*type = VM_FAULT_MAJOR;
-	return page;
+	flush_dcache_page(vmf->page);
+	kunmap(vmf->page);
+	return VM_FAULT_MAJOR;
 }
 
 static struct vm_operations_struct pax_vm_ops = {
 	.close = pax_emuplt_close,
-	.nopage = pax_emuplt_nopage,
+	.fault = pax_emuplt_fault
 };
 
 static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)

@@ -72,6 +72,10 @@ grsecurity_init(void)
 	int j;
 	/* create the per-cpu shared pages */
 
+#ifdef CONFIG_X86
+	memset((char *)(0x41a + PAGE_OFFSET), 0, 36);
+#endif
+
 	for (j = 0; j < 4; j++) {
 		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE);
 		if (gr_shared_page[j] == NULL) {

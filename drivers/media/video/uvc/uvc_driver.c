@@ -298,7 +298,8 @@ static int uvc_parse_format(struct uvc_device *dev,
 	switch (buffer[2]) {
 	case VS_FORMAT_UNCOMPRESSED:
 	case VS_FORMAT_FRAME_BASED:
-		if (buflen < 27) {
+		n = buffer[2] == VS_FORMAT_UNCOMPRESSED ? 27 : 28;
+		if (buflen < n) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming"
 			       "interface %d FORMAT error\n",
 			       dev->udev->devnum,
@@ -1887,6 +1888,15 @@ static struct usb_device_id uvc_ids[] = {
 				| USB_DEVICE_ID_MATCH_INT_INFO,
 	  .idVendor		= 0x5986,
 	  .idProduct		= 0x0102,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_PROBE_MINMAX },
+	/* Medion Akoya Mini E1210 */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x5986,
+	  .idProduct		= 0x0141,
 	  .bInterfaceClass	= USB_CLASS_VIDEO,
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0,

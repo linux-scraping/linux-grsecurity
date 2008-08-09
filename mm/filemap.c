@@ -1779,7 +1779,7 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes)
 		 * The !iov->iov_len check ensures we skip over unlikely
 		 * zero-length segments (without overruning the iovec).
 		 */
-		while (bytes || unlikely(!iov->iov_len && i->count)) {
+		while (bytes || unlikely(i->count && !iov->iov_len)) {
 			int copy;
 
 			copy = min(bytes, iov->iov_len - base);
@@ -2583,9 +2583,8 @@ out:
  * Otherwise return zero.
  *
  * The @gfp_mask argument specifies whether I/O may be performed to release
- * this page (__GFP_IO), and whether the call may block (__GFP_WAIT).
+ * this page (__GFP_IO), and whether the call may block (__GFP_WAIT & __GFP_FS).
  *
- * NOTE: @gfp_mask may go away, and this function may become non-blocking.
  */
 int try_to_release_page(struct page *page, gfp_t gfp_mask)
 {

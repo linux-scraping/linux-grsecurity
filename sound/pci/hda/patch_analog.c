@@ -1618,6 +1618,7 @@ static const char *ad1981_models[AD1981_MODELS] = {
 
 static struct snd_pci_quirk ad1981_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x1014, 0x0597, "Lenovo Z60", AD1981_THINKPAD),
+	SND_PCI_QUIRK(0x1014, 0x05b7, "Lenovo Z60m", AD1981_THINKPAD),
 	/* All HP models */
 	SND_PCI_QUIRK(0x103c, 0, "HP nx", AD1981_HP),
 	SND_PCI_QUIRK(0x1179, 0x0001, "Toshiba U205", AD1981_TOSHIBA),
@@ -2623,7 +2624,7 @@ static int ad1988_auto_create_extra_out(struct hda_codec *codec, hda_nid_t pin,
 {
 	struct ad198x_spec *spec = codec->spec;
 	hda_nid_t nid;
-	int idx, err;
+	int i, idx, err;
 	char name[32];
 
 	if (! pin)
@@ -2631,16 +2632,26 @@ static int ad1988_auto_create_extra_out(struct hda_codec *codec, hda_nid_t pin,
 
 	idx = ad1988_pin_idx(pin);
 	nid = ad1988_idx_to_dac(codec, idx);
-	/* specify the DAC as the extra output */
-	if (! spec->multiout.hp_nid)
-		spec->multiout.hp_nid = nid;
-	else
-		spec->multiout.extra_out_nid[0] = nid;
-	/* control HP volume/switch on the output mixer amp */
-	sprintf(name, "%s Playback Volume", pfx);
-	if ((err = add_control(spec, AD_CTL_WIDGET_VOL, name,
-			       HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT))) < 0)
-		return err;
+	/* check whether the corresponding DAC was already taken */
+	for (i = 0; i < spec->autocfg.line_outs; i++) {
+		hda_nid_t pin = spec->autocfg.line_out_pins[i];
+		hda_nid_t dac = ad1988_idx_to_dac(codec, ad1988_pin_idx(pin));
+		if (dac == nid)
+			break;
+	}
+	if (i >= spec->autocfg.line_outs) {
+		/* specify the DAC as the extra output */
+		if (!spec->multiout.hp_nid)
+			spec->multiout.hp_nid = nid;
+		else
+			spec->multiout.extra_out_nid[0] = nid;
+		/* control HP volume/switch on the output mixer amp */
+		sprintf(name, "%s Playback Volume", pfx);
+		err = add_control(spec, AD_CTL_WIDGET_VOL, name,
+				  HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT));
+		if (err < 0)
+			return err;
+	}
 	nid = ad1988_mixer_nids[idx];
 	sprintf(name, "%s Playback Switch", pfx);
 	if ((err = add_control(spec, AD_CTL_BIND_MUTE, name,
