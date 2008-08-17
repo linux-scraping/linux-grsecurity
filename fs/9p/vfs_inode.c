@@ -991,7 +991,7 @@ static int v9fs_vfs_readlink(struct dentry *dentry, char __user * buffer,
 static void *v9fs_vfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 {
 	int len = 0;
-	const char *link = __getname();
+	char *link = __getname();
 
 	P9_DPRINTK(P9_DEBUG_VFS, "%s n", dentry->d_name.name);
 
@@ -1022,7 +1022,7 @@ static void *v9fs_vfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 static void
 v9fs_vfs_put_link(struct dentry *dentry, struct nameidata *nd, void *p)
 {
-	char *s = nd_get_link(nd);
+	const char *s = nd_get_link(nd);
 
 	P9_DPRINTK(P9_DEBUG_VFS, " %s %s\n", dentry->d_name.name, s);
 	if (!IS_ERR(s))
