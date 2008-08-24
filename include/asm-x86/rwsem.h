@@ -106,10 +106,26 @@ static inline void __down_read(struct rw_semaphore *sem)
 {
 	asm volatile("# beginning down_read\n\t"
 		     LOCK_PREFIX "  incl      (%%eax)\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     LOCK_PREFIX "decl (%%eax)\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     /* adds 0x00000001, returns the old value */
-		     "  jns        1f\n"
+		     "  jns        2f\n"
 		     "  call call_rwsem_down_read_failed\n"
-		     "1:\n\t"
+		     "2:\n\t"
 		     "# ending down_read\n\t"
 		     : "+m" (sem->count)
 		     : "a" (sem)
@@ -127,6 +143,22 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 		     "1:\n\t"
 		     "  movl	     %1,%2\n\t"
 		     "  addl      %3,%2\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     LOCK_PREFIX "subl %3,%2\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     "  jle	     2f\n\t"
 		     LOCK_PREFIX "  cmpxchgl  %2,%0\n\t"
 		     "  jnz	     1b\n\t"
@@ -148,6 +180,22 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 	tmp = RWSEM_ACTIVE_WRITE_BIAS;
 	asm volatile("# beginning down_write\n\t"
 		     LOCK_PREFIX "  xadd      %%edx,(%%eax)\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     "movl %%edx,(%%eax)\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     /* subtract 0x0000ffff, returns the old value */
 		     "  testl     %%edx,%%edx\n\t"
 		     /* was the count 0 before? */
@@ -186,6 +234,22 @@ static inline void __up_read(struct rw_semaphore *sem)
 	__s32 tmp = -RWSEM_ACTIVE_READ_BIAS;
 	asm volatile("# beginning __up_read\n\t"
 		     LOCK_PREFIX "  xadd      %%edx,(%%eax)\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     "movl %%edx,(%%eax)\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     /* subtracts 1, returns the old value */
 		     "  jns        1f\n\t"
 		     "  call call_rwsem_wake\n"
@@ -204,6 +268,22 @@ static inline void __up_write(struct rw_semaphore *sem)
 	asm volatile("# beginning __up_write\n\t"
 		     "  movl      %2,%%edx\n\t"
 		     LOCK_PREFIX "  xaddl     %%edx,(%%eax)\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     "movl %%edx,(%%eax)\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     /* tries to transition
 			0xffff0001 -> 0x00000000 */
 		     "  jz       1f\n"
@@ -222,6 +302,22 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
 {
 	asm volatile("# beginning __downgrade_write\n\t"
 		     LOCK_PREFIX "  addl      %2,(%%eax)\n\t"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     LOCK_PREFIX "subl %2,(%%eax)\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     /* transitions 0xZZZZ0001 -> 0xYYYY0001 */
 		     "  jns       1f\n\t"
 		     "  call call_rwsem_downgrade_wake\n"
@@ -237,7 +333,23 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
  */
 static inline void rwsem_atomic_add(int delta, struct rw_semaphore *sem)
 {
-	asm volatile(LOCK_PREFIX "addl %1,%0"
+	asm volatile(LOCK_PREFIX "addl %1,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     LOCK_PREFIX "subl %1,%0\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     : "+m" (sem->count)
 		     : "ir" (delta));
 }
@@ -249,7 +361,23 @@ static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
 {
 	int tmp = delta;
 
-	asm volatile(LOCK_PREFIX "xadd %0,%1"
+	asm volatile(LOCK_PREFIX "xadd %0,%1\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+#ifdef CONFIG_X86_32
+		     "into\n0:\n"
+#else
+		     "jno 0f\n"
+		     "int $4\n0:\n"
+#endif
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     "movl %0,%1\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     : "+r" (tmp), "+m" (sem->count)
 		     : : "memory");
 

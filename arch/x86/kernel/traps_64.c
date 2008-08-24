@@ -669,6 +669,12 @@ static void __kprobes do_trap(int trapnr, int signr, char *str,
 		tsk->thread.trap_no = trapnr;
 		die(str, regs, error_code);
 	}
+
+#ifdef CONFIG_PAX_REFCOUNT
+	if (trapnr == 4)
+		pax_report_refcount_overflow(regs);
+#endif
+
 	return;
 }
 

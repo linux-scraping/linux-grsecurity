@@ -31,7 +31,6 @@
 #include <linux/bug.h>
 #include <linux/nmi.h>
 #include <linux/mm.h>
-#include <linux/binfmts.h>
 
 #ifdef CONFIG_EISA
 #include <linux/ioport.h>
@@ -527,6 +526,12 @@ kernel_trap:
 		tsk->thread.trap_no = trapnr;
 		die(str, regs, error_code);
 	}
+
+#ifdef CONFIG_PAX_REFCOUNT
+	if (trapnr == 4)
+		pax_report_refcount_overflow(regs);
+#endif
+
 	return;
 
 vm86_trap:

@@ -24,6 +24,7 @@
 #include <linux/bug.h>
 
 #include <asm/desc.h>
+#include <asm/pgtable.h>
 
 #if 0
 #define DEBUGP printk
@@ -37,7 +38,7 @@ void *module_alloc(unsigned long size)
 		return NULL;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	return vmalloc(size);
+	return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
 #else
 	return vmalloc_exec(size);
 #endif

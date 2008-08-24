@@ -1366,6 +1366,10 @@ extern void pax_set_initial_flags(struct linux_binprm *bprm);
 extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 #endif
 
+void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
+void pax_report_insns(void *pc, void *sp);
+void pax_report_refcount_overflow(struct pt_regs *regs);
+
 /*
  * Priority of a process goes from 0..MAX_PRIO-1, valid RT
  * priority is 0..MAX_RT_PRIO-1, and SCHED_NORMAL/SCHED_BATCH

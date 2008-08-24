@@ -24,7 +24,6 @@
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/compiler.h>
-#include <linux/binfmts.h>
 
 #include <asm/system.h>
 #include <asm/page.h>

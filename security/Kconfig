@@ -423,6 +423,24 @@ config PAX_MEMORY_UDEREF
 	  VMs running on CPUs without hardware virtualization support (i.e.,
 	  the majority of IA-32 CPUs) will likely experience the slowdown.
 
+config PAX_REFCOUNT
+	bool "Prevent various kernel object reference counter overflows"
+	depends on X86
+	help
+	  By saying Y here the kernel will detect and prevent overflowing
+	  various (but not all) kinds of object reference counters.  Such
+	  overflows can normally occur due to bugs only and are often, if
+	  not always, exploitable.
+
+	  The tradeoff is that data structures protected by an oveflowed
+	  refcount will never be freed and therefore will leak memory.  Note
+	  that this leak also happens even without this protection but in
+	  that case the overflow can eventually trigger the freeing of the
+	  data structure while it is still being used elsewhere, resulting
+	  in the exploitable situation that this feature prevents.
+
+	  Since this has a negligible performance impact, you should enable
+	  this feature.
 endmenu
 
 endmenu

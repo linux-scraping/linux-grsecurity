@@ -17,7 +17,6 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/unistd.h>
-#include <linux/binfmts.h>
 
 #include <asm/uaccess.h>
 #include <asm/traps.h>

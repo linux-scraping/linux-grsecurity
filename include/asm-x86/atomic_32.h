@@ -47,7 +47,15 @@ typedef struct {
  */
 static inline void atomic_add(int i, atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "addl %1,%0"
+	asm volatile(LOCK_PREFIX "addl %1,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "jno 0f\n"
+		     LOCK_PREFIX "subl %1,%0\n"
+		     "into\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
+#endif
+
 		     : "+m" (v->counter)
 		     : "ir" (i));
 }
@@ -61,7 +69,15 @@ static inline void atomic_add(int i, atomic_t *v)
  */
 static inline void atomic_sub(int i, atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "subl %1,%0"
+	asm volatile(LOCK_PREFIX "subl %1,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "jno 0f\n"
+		     LOCK_PREFIX "addl %1,%0\n"
+		     "into\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
+#endif
+
 		     : "+m" (v->counter)
 		     : "ir" (i));
 }
@@ -79,7 +95,16 @@ static inline int atomic_sub_and_test(int i, atomic_t *v)
 {
 	unsigned char c;
 
-	asm volatile(LOCK_PREFIX "subl %2,%0; sete %1"
+	asm volatile(LOCK_PREFIX "subl %2,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "jno 0f\n"
+		     LOCK_PREFIX "addl %2,%0\n"
+		     "into\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
+#endif
+
+		     "sete %1\n"
 		     : "+m" (v->counter), "=qm" (c)
 		     : "ir" (i) : "memory");
 	return c;
@@ -93,7 +118,18 @@ static inline int atomic_sub_and_test(int i, atomic_t *v)
  */
 static inline void atomic_inc(atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "incl %0"
+	asm volatile(LOCK_PREFIX "incl %0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "into\n0:\n"
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1:\n"
+		     LOCK_PREFIX "decl %0\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     : "+m" (v->counter));
 }
 
@@ -105,7 +141,18 @@ static inline void atomic_inc(atomic_t *v)
  */
 static inline void atomic_dec(atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "decl %0"
+	asm volatile(LOCK_PREFIX "decl %0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "into\n0:\n"
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1: \n"
+		     LOCK_PREFIX "incl %0\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
 		     : "+m" (v->counter));
 }
 
@@ -121,7 +168,19 @@ static inline int atomic_dec_and_test(atomic_t *v)
 {
 	unsigned char c;
 
-	asm volatile(LOCK_PREFIX "decl %0; sete %1"
+	asm volatile(LOCK_PREFIX "decl %0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "into\n0:\n"
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1: \n"
+		     LOCK_PREFIX "incl %0\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
+		     "sete %1\n"
 		     : "+m" (v->counter), "=qm" (c)
 		     : : "memory");
 	return c != 0;
@@ -139,7 +198,19 @@ static inline int atomic_inc_and_test(atomic_t *v)
 {
 	unsigned char c;
 
-	asm volatile(LOCK_PREFIX "incl %0; sete %1"
+	asm volatile(LOCK_PREFIX "incl %0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "into\n0:\n"
+		     ".pushsection .fixup,\"ax\"\n"
+		     "1: \n"
+		     LOCK_PREFIX "decl %0\n"
+		     "jmp 0b\n"
+		     ".popsection\n"
+		     _ASM_EXTABLE(0b, 1b)
+#endif
+
+		     "sete %1\n"
 		     : "+m" (v->counter), "=qm" (c)
 		     : : "memory");
 	return c != 0;
@@ -158,7 +229,16 @@ static inline int atomic_add_negative(int i, atomic_t *v)
 {
 	unsigned char c;
 
-	asm volatile(LOCK_PREFIX "addl %2,%0; sets %1"
+	asm volatile(LOCK_PREFIX "addl %2,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "jno 0f\n"
+		     LOCK_PREFIX "subl %2,%0\n"
+		     "into\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
+#endif
+
+		     "sets %1\n"
 		     : "+m" (v->counter), "=qm" (c)
 		     : "ir" (i) : "memory");
 	return c;
@@ -181,7 +261,15 @@ static inline int atomic_add_return(int i, atomic_t *v)
 #endif
 	/* Modern 486+ processor */
 	__i = i;
-	asm volatile(LOCK_PREFIX "xaddl %0, %1"
+	asm volatile(LOCK_PREFIX "xaddl %0, %1\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+		     "jno 0f\n"
+		     "movl %0, %1\n"
+		     "into\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
+#endif
+
 		     : "+r" (i), "+m" (v->counter)
 		     : : "memory");
 	return i + __i;

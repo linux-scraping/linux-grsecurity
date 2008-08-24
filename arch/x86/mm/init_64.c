@@ -680,7 +680,9 @@ EXPORT_SYMBOL_GPL(memory_add_physaddr_to_nid);
  */
 int devmem_is_allowed(unsigned long pagenr)
 {
-	if (pagenr <= 256)
+	if (!pagenr)
+		return 1;
+	if (160 <= pagenr && pagenr < 256)
 		return 1;
 	if (!page_is_ram(pagenr))
 		return 1;

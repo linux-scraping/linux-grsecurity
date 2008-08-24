@@ -235,7 +235,9 @@ static inline int page_kills_ppro(unsigned long pagenr)
  */
 int devmem_is_allowed(unsigned long pagenr)
 {
-	if (pagenr <= 256)
+	if (!pagenr)
+		return 1;
+	if (160 <= pagenr && pagenr < 256)
 		return 1;
 	if (!page_is_ram(pagenr))
 		return 1;

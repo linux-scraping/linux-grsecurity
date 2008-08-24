@@ -55,6 +55,8 @@
 
 /* #define VERBOSE_SHOWREGS */
 
+#include "kstack.h"
+
 static void sparc64_yield(int cpu)
 {
 	if (tlb_type != hypervisor)
@@ -316,14 +318,22 @@ static void __global_reg_self(struct thread_info *tp, struct pt_regs *regs,
 	global_reg_snapshot[this_cpu].o7 = regs->u_regs[UREG_I7];
 
 	if (regs->tstate & TSTATE_PRIV) {
+		struct thread_info *tp = current_thread_info();
 		struct reg_window *rw;
 
 		rw = (struct reg_window *)
 			(regs->u_regs[UREG_FP] + STACK_BIAS);
-		global_reg_snapshot[this_cpu].i7 = rw->ins[6];
-	} else
+		if (kstack_valid(tp, (unsigned long) rw)) {
+			global_reg_snapshot[this_cpu].i7 = rw->ins[7];
+			rw = (struct reg_window *)
+				(rw->ins[6] + STACK_BIAS);
+			if (kstack_valid(tp, (unsigned long) rw))
+				global_reg_snapshot[this_cpu].rpc = rw->ins[7];
+		}
+	} else {
 		global_reg_snapshot[this_cpu].i7 = 0;
-
+		global_reg_snapshot[this_cpu].rpc = 0;
+	}
 	global_reg_snapshot[this_cpu].thread = tp;
 }
 
@@ -384,12 +394,14 @@ static void sysrq_handle_globreg(int key, struct tty_struct *tty)
 			sprint_symbol(buffer, gp->o7);
 			printk("O7[%s] ", buffer);
 			sprint_symbol(buffer, gp->i7);
-			printk("I7[%s]\n", buffer);
+			printk("I7[%s] ", buffer);
+			sprint_symbol(buffer, gp->rpc);
+			printk("RPC[%s]\n", buffer);
 		} else
 #endif
 		{
-			printk("             TPC[%lx] O7[%lx] I7[%lx]\n",
-			       gp->tpc, gp->o7, gp->i7);
+			printk("             TPC[%lx] O7[%lx] I7[%lx] RPC[%lx]\n",
+			       gp->tpc, gp->o7, gp->i7, gp->rpc);
 		}
 	}
 
@@ -876,7 +888,7 @@ out:
 unsigned long get_wchan(struct task_struct *task)
 {
 	unsigned long pc, fp, bias = 0;
-	unsigned long thread_info_base;
+	struct thread_info *tp;
 	struct reg_window *rw;
         unsigned long ret = 0;
 	int count = 0; 
@@ -885,14 +897,12 @@ unsigned long get_wchan(struct task_struct *task)
             task->state == TASK_RUNNING)
 		goto out;
 
-	thread_info_base = (unsigned long) task_stack_page(task);
+	tp = task_thread_info(task);
 	bias = STACK_BIAS;
 	fp = task_thread_info(task)->ksp + bias;
 
 	do {
-		/* Bogus frame pointer? */
-		if (fp < (thread_info_base + sizeof(struct thread_info)) ||
-		    fp >= (thread_info_base + THREAD_SIZE))
+		if (!kstack_valid(tp, fp))
 			break;
 		rw = (struct reg_window *) fp;
 		pc = rw->ins[7];

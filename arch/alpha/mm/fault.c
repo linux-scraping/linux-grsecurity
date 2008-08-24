@@ -23,7 +23,6 @@
 #include <linux/smp.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/binfmts.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>

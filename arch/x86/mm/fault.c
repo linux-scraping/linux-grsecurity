@@ -27,7 +27,6 @@
 #include <linux/kdebug.h>
 #include <linux/unistd.h>
 #include <linux/compiler.h>
-#include <linux/binfmts.h>
 
 #include <asm/system.h>
 #include <asm/desc.h>

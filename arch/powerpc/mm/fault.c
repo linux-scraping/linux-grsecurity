@@ -29,11 +29,9 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/kdebug.h>
-#include <linux/binfmts.h>
 #include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/compiler.h>
-#include <linux/binfmts.h>
 #include <linux/unistd.h>
 
 #include <asm/page.h>
