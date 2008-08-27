@@ -268,9 +268,9 @@ static inline void __raw_write_lock(raw_rwlock_t *rw)
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
-		     "jz 1f\n"
+		     "jz 2f\n"
 		     "call __write_lock_failed\n\t"
-		     "1:\n"
+		     "2:\n"
 		     ::LOCK_PTR_REG (rw), "i" (RW_LOCK_BIAS) : "memory");
 }
 

@@ -140,7 +140,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 	__s32 result, tmp;
 	asm volatile("# beginning __down_read_trylock\n\t"
 		     "  movl      %0,%1\n\t"
-		     "1:\n\t"
+		     "2:\n\t"
 		     "  movl	     %1,%2\n\t"
 		     "  addl      %3,%2\n\t"
 
@@ -153,16 +153,16 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 #endif
 		     ".pushsection .fixup,\"ax\"\n"
 		     "1:\n"
-		     LOCK_PREFIX "subl %3,%2\n"
+		     "subl %3,%2\n"
 		     "jmp 0b\n"
 		     ".popsection\n"
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
-		     "  jle	     2f\n\t"
+		     "  jle	     3f\n\t"
 		     LOCK_PREFIX "  cmpxchgl  %2,%0\n\t"
-		     "  jnz	     1b\n\t"
-		     "2:\n\t"
+		     "  jnz	     2b\n\t"
+		     "3:\n\t"
 		     "# ending __down_read_trylock\n\t"
 		     : "+m" (sem->count), "=&a" (result), "=&r" (tmp)
 		     : "i" (RWSEM_ACTIVE_READ_BIAS)
@@ -199,9 +199,9 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 		     /* subtract 0x0000ffff, returns the old value */
 		     "  testl     %%edx,%%edx\n\t"
 		     /* was the count 0 before? */
-		     "  jz        1f\n"
+		     "  jz        2f\n"
 		     "  call call_rwsem_down_write_failed\n"
-		     "1:\n"
+		     "2:\n"
 		     "# ending down_write"
 		     : "+m" (sem->count), "=d" (tmp)
 		     : "a" (sem), "1" (tmp)
@@ -251,9 +251,9 @@ static inline void __up_read(struct rw_semaphore *sem)
 #endif
 
 		     /* subtracts 1, returns the old value */
-		     "  jns        1f\n\t"
+		     "  jns        2f\n\t"
 		     "  call call_rwsem_wake\n"
-		     "1:\n"
+		     "2:\n"
 		     "# ending __up_read\n"
 		     : "+m" (sem->count), "=d" (tmp)
 		     : "a" (sem), "1" (tmp)
@@ -286,9 +286,9 @@ static inline void __up_write(struct rw_semaphore *sem)
 
 		     /* tries to transition
 			0xffff0001 -> 0x00000000 */
-		     "  jz       1f\n"
+		     "  jz       2f\n"
 		     "  call call_rwsem_wake\n"
-		     "1:\n\t"
+		     "2:\n\t"
 		     "# ending __up_write\n"
 		     : "+m" (sem->count)
 		     : "a" (sem), "i" (-RWSEM_ACTIVE_WRITE_BIAS)
@@ -319,9 +319,9 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
 #endif
 
 		     /* transitions 0xZZZZ0001 -> 0xYYYY0001 */
-		     "  jns       1f\n\t"
+		     "  jns       2f\n\t"
 		     "  call call_rwsem_downgrade_wake\n"
-		     "1:\n\t"
+		     "2:\n\t"
 		     "# ending __downgrade_write\n"
 		     : "+m" (sem->count)
 		     : "a" (sem), "i" (-RWSEM_WAITING_BIAS)
