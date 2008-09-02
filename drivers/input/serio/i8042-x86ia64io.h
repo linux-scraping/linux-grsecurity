@@ -317,7 +317,7 @@ static struct dmi_system_id __initdata i8042_dmi_nopnp_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "N34AS6"),
 		},
 	},
-	{ }
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
 };
 #endif
 
