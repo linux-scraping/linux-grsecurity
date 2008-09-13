@@ -62,8 +62,8 @@ int page_is_ram(unsigned long pagenr)
 	 * Second special case: Some BIOSen report the PC BIOS
 	 * area (640->1Mb) as ram even though it is not.
 	 */
-	if (pagenr >= (BIOS_BEGIN >> PAGE_SHIFT) &&
-		    pagenr < (BIOS_END >> PAGE_SHIFT))
+	if (pagenr >= (ISA_START_ADDRESS >> PAGE_SHIFT) &&
+		    pagenr < (ISA_END_ADDRESS >> PAGE_SHIFT))
 		return 0;
 
 	for (i = 0; i < e820.nr_map; i++) {

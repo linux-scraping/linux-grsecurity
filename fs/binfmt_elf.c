@@ -972,9 +972,10 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	SET_PERSONALITY(loc->elf_ex, 0);
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (current->mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC))
+	if (current->mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
 		executable_stack = EXSTACK_DISABLE_X;
-	else
+		current->personality &= ~READ_IMPLIES_EXEC;
+	} else
 #endif
 
 	if (elf_read_implies_exec(loc->elf_ex, executable_stack))

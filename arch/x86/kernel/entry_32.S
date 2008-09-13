@@ -347,10 +347,10 @@ sysenter_past_esp:
  * Load the potential sixth argument from user stack.
  * Careful about security.
  */
-	movl 12(%esp),%ebp
+	movl PT_OLDESP(%esp),%ebp
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov 16(%esp),%ds
+	mov PT_OLDSS(%esp),%ds
 1:	movl %ds:(%ebp),%ebp
 #else
 	cmpl $__PAGE_OFFSET-3,%ebp

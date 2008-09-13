@@ -237,7 +237,7 @@ int devmem_is_allowed(unsigned long pagenr)
 {
 	if (!pagenr)
 		return 1;
-	if (160 <= pagenr && pagenr < 256)
+	if ((ISA_START_ADDRESS >> PAGE_SHIFT) <= pagenr && pagenr < (ISA_END_ADDRESS >> PAGE_SHIFT))
 		return 1;
 	if (!page_is_ram(pagenr))
 		return 1;

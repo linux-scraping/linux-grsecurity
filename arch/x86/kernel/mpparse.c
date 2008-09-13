@@ -313,14 +313,14 @@ static int __init smp_read_mpc(struct mp_config_table *mpc, unsigned early)
 
 	memcpy(str, mpc->mpc_productid, 12);
 	str[12] = 0;
-	printk("Product ID: %s ", str);
+	printk(KERN_CONT "Product ID: %s ", str);
 
 #ifdef CONFIG_X86_32
 	mps_oem_check(mpc, oem, str);
 #endif
-	printk(KERN_INFO "MPTABLE: Product ID: %s ", str);
+	printk(KERN_CONT "MPTABLE: Product ID: %s ", str);
 
-	printk(KERN_INFO "MPTABLE: APIC at: 0x%X\n", mpc->mpc_lapic);
+	printk(KERN_CONT "MPTABLE: APIC at: 0x%X\n", mpc->mpc_lapic);
 
 	/* save the local APIC address, it might be non-default */
 	if (!acpi_lapic)
