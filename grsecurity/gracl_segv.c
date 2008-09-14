@@ -177,7 +177,10 @@ gr_fake_force_sig(int sig, struct task_struct *t)
 			recalc_sigpending_and_wake(t);
 		}
 	}
-	ret = specific_send_sig_info(sig, (void*)1L, t);
+	if (action->sa.sa_handler == SIG_DFL)
+		t->signal->flags &= ~SIGNAL_UNKILLABLE;
+	ret = specific_send_sig_info(sig, SEND_SIG_PRIV, t);
+
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 
 	return ret;
