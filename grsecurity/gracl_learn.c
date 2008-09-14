@@ -19,7 +19,7 @@ static int gr_learn_attached;
 /* use a 512k buffer */
 #define LEARN_BUFFER_SIZE (512 * 1024)
 
-static spinlock_t gr_learn_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(gr_learn_lock);
 static DECLARE_MUTEX(gr_learn_user_sem);
 
 /* we need to maintain two buffers, so that the kernel context of grlearn

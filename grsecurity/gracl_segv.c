@@ -19,7 +19,7 @@
 
 static struct crash_uid *uid_set;
 static unsigned short uid_used;
-static spinlock_t gr_uid_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK(gr_uid_lock);
 extern rwlock_t gr_inode_lock;
 extern struct acl_subject_label *
 	lookup_acl_subj_label(const ino_t inode, const dev_t dev,

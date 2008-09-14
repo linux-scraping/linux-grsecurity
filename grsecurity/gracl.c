@@ -46,7 +46,7 @@ static u16 acl_sp_role_value;
 
 extern char *gr_shared_page[4];
 static DECLARE_MUTEX(gr_dev_sem);
-rwlock_t gr_inode_lock = RW_LOCK_UNLOCKED;
+DEFINE_RWLOCK(gr_inode_lock);
 
 struct gr_arg *gr_usermode;
 

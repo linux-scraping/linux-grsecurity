@@ -47,13 +47,13 @@ int grsec_socket_server_gid;
 int grsec_resource_logging;
 int grsec_lock;
 
-spinlock_t grsec_alert_lock = SPIN_LOCK_UNLOCKED;
+DEFINE_SPINLOCK(grsec_alert_lock);
 unsigned long grsec_alert_wtime = 0;
 unsigned long grsec_alert_fyet = 0;
 
-spinlock_t grsec_audit_lock = SPIN_LOCK_UNLOCKED;
+DEFINE_SPINLOCK(grsec_audit_lock);
 
-rwlock_t grsec_exec_file_lock = RW_LOCK_UNLOCKED;
+DEFINE_RWLOCK(grsec_exec_file_lock);
 
 char *gr_shared_page[4];
 
