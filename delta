@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.12-2.6.26.5-200809131429.patch
-+++ b/grsecurity-2.1.12-2.6.26.5-200809131429.patch
+--- a/grsecurity-2.1.12-2.6.26.5-200809141715.patch
++++ b/grsecurity-2.1.12-2.6.26.5-200809141715.patch
 @@ -1,102 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 881e6dd03aea411bb9a1b0b11aa3b4fb3a90761e..5165eb5a1c433bde9f8399c76e29f3f75eb7f304 100644
@@ -4998,7 +4998,7 @@
 ++}
 +diff -urNp linux-2.6.26.5/grsecurity/gracl.c linux-2.6.26.5/grsecurity/gracl.c
 +--- linux-2.6.26.5/grsecurity/gracl.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.26.5/grsecurity/gracl.c	2008-09-13 14:27:52.000000000 -0400
+++++ linux-2.6.26.5/grsecurity/gracl.c	2008-09-13 15:35:25.000000000 -0400
 +@@ -0,0 +1,3722 @@
 ++#include <linux/kernel.h>
 ++#include <linux/module.h>
@@ -5105,7 +5105,7 @@
 -+	  sysctl option with name "chroot_deny_mount" is created.
 ++extern char *gr_shared_page[4];
 ++static DECLARE_MUTEX(gr_dev_sem);
-++rwlock_t gr_inode_lock = RW_LOCK_UNLOCKED;
+++DEFINE_RWLOCK(gr_inode_lock);
 @@ -18013,9 +17437 @@
 -+config GRKERNSEC_CHROOT_DOUBLE
 -+	bool "Deny double-chroots"
@@ -5741,7 +5741,7 @@
 -+
 -diff --git a/grsecurity/gracl.c b/grsecurity/gracl.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..646bf84777eaa082b5fcd460221c74f466ae6351
+-index 0000000000000000000000000000000000000000..bd7cfd8b97e79f094480e12c90ca2ef0bbda0b51
 ---- /dev/null
 -+++ b/grsecurity/gracl.c
 -@@ -0,0 +1,3722 @@
@@ -5793,7 +5793,7 @@
 -+
 -+extern char *gr_shared_page[4];
 -+static DECLARE_MUTEX(gr_dev_sem);
--+rwlock_t gr_inode_lock = RW_LOCK_UNLOCKED;
+-+DEFINE_RWLOCK(gr_inode_lock);
 -+
 -+struct gr_arg *gr_usermode;
 -+
@@ -6220,12 +6220,12 @@
 @@ -23207,5 +21986,3 @@
 -diff --git a/grsecurity/gracl_learn.c b/grsecurity/gracl_learn.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..fc29f4201caffa07a11463865e63b41d2778e9ca
+-index 0000000000000000000000000000000000000000..4b44acb12086de6386550b60564af026023700d2
 ---- /dev/null
 -+++ b/grsecurity/gracl_learn.c
 +diff -urNp linux-2.6.26.5/grsecurity/gracl_learn.c linux-2.6.26.5/grsecurity/gracl_learn.c
 +--- linux-2.6.26.5/grsecurity/gracl_learn.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.26.5/grsecurity/gracl_learn.c	2008-09-13 14:27:52.000000000 -0400
+++++ linux-2.6.26.5/grsecurity/gracl_learn.c	2008-09-13 15:33:39.000000000 -0400
 @@ -23424,5 +22201,3 @@
 -diff --git a/grsecurity/gracl_res.c b/grsecurity/gracl_res.c
 -new file mode 100644
@@ -6238,12 +6238,12 @@
 @@ -23475,5 +22250,3 @@
 -diff --git a/grsecurity/gracl_segv.c b/grsecurity/gracl_segv.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..f6cde6ec82a2a21c56b912083619248e7020bfa2
+-index 0000000000000000000000000000000000000000..6e0fb88c72a4a602cced0437fe6a16024ee79f8f
 ---- /dev/null
 -+++ b/grsecurity/gracl_segv.c
 +diff -urNp linux-2.6.26.5/grsecurity/gracl_segv.c linux-2.6.26.5/grsecurity/gracl_segv.c
 +--- linux-2.6.26.5/grsecurity/gracl_segv.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.26.5/grsecurity/gracl_segv.c	2008-09-13 14:27:52.000000000 -0400
+++++ linux-2.6.26.5/grsecurity/gracl_segv.c	2008-09-13 15:33:57.000000000 -0400
 @@ -23782,5 +22555,3 @@
 -diff --git a/grsecurity/gracl_shm.c b/grsecurity/gracl_shm.c
 -new file mode 100644
@@ -6310,12 +6310,12 @@
 @@ -24755,5 +23514,3 @@
 -diff --git a/grsecurity/grsec_init.c b/grsecurity/grsec_init.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..b89ab584c58e86df80301f6aa5bfb0216e3705a2
+-index 0000000000000000000000000000000000000000..eaf846cc4228cac3ab463dc8dfb3a2d94d1a9dcd
 ---- /dev/null
 -+++ b/grsecurity/grsec_init.c
 +diff -urNp linux-2.6.26.5/grsecurity/grsec_init.c linux-2.6.26.5/grsecurity/grsec_init.c
 +--- linux-2.6.26.5/grsecurity/grsec_init.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.26.5/grsecurity/grsec_init.c	2008-09-13 14:27:52.000000000 -0400
+++++ linux-2.6.26.5/grsecurity/grsec_init.c	2008-09-13 15:34:50.000000000 -0400
 @@ -24991,5 +23748,3 @@
 -diff --git a/grsecurity/grsec_ipc.c b/grsecurity/grsec_ipc.c
 -new file mode 100644
@@ -6373,12 +6373,12 @@
 @@ -25579,5 +24324,3 @@
 -diff --git a/grsecurity/grsec_sock.c b/grsecurity/grsec_sock.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..109a3efeb71e1fa108046c48c4ec5747f24411a0
+-index 0000000000000000000000000000000000000000..82b43fa76de0394a7bc27d658ef5b980bec0502a
 ---- /dev/null
 -+++ b/grsecurity/grsec_sock.c
 +diff -urNp linux-2.6.26.5/grsecurity/grsec_sock.c linux-2.6.26.5/grsecurity/grsec_sock.c
 +--- linux-2.6.26.5/grsecurity/grsec_sock.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.26.5/grsecurity/grsec_sock.c	2008-09-13 14:27:52.000000000 -0400
+++++ linux-2.6.26.5/grsecurity/grsec_sock.c	2008-09-13 15:33:09.000000000 -0400
 @@ -25859,5 +24602,3 @@
 -diff --git a/grsecurity/grsec_sysctl.c b/grsecurity/grsec_sysctl.c
 -new file mode 100644
