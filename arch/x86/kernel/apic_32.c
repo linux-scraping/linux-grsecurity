@@ -552,8 +552,31 @@ void __init setup_boot_APIC_clock(void)
 	setup_APIC_timer();
 }
 
-void __devinit setup_secondary_APIC_clock(void)
+/*
+ * AMD C1E enabled CPUs have a real nasty problem: Some BIOSes set the
+ * C1E flag only in the secondary CPU, so when we detect the wreckage
+ * we already have enabled the boot CPU local apic timer. Check, if
+ * disable_apic_timer is set and the DUMMY flag is cleared. If yes,
+ * set the DUMMY flag again and force the broadcast mode in the
+ * clockevents layer.
+ */
+static void __cpuinit check_boot_apic_timer_broadcast(void)
 {
+	if (!local_apic_timer_disabled ||
+	    (lapic_clockevent.features & CLOCK_EVT_FEAT_DUMMY))
+		return;
+
+	lapic_clockevent.features |= CLOCK_EVT_FEAT_DUMMY;
+
+	local_irq_enable();
+	clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_FORCE,
+			   &boot_cpu_physical_apicid);
+	local_irq_disable();
+}
+
+void __cpuinit setup_secondary_APIC_clock(void)
+{
+	check_boot_apic_timer_broadcast();
 	setup_APIC_timer();
 }
 
@@ -1513,6 +1536,9 @@ void __cpuinit generic_processor_info(int apicid, int version)
 		 */
 		cpu = 0;
 
+	if (apicid > max_physical_apicid)
+		max_physical_apicid = apicid;
+
 	/*
 	 * Would be preferable to switch to bigsmp when CONFIG_HOTPLUG_CPU=y
 	 * but we need to work other dependencies like SMP_SUSPEND etc
@@ -1520,7 +1546,7 @@ void __cpuinit generic_processor_info(int apicid, int version)
 	 * if (CPU_HOTPLUG_ENABLED || num_processors > 8)
 	 *       - Ashok Raj <ashok.raj@intel.com>
 	 */
-	if (num_processors > 8) {
+	if (max_physical_apicid >= 8) {
 		switch (boot_cpu_data.x86_vendor) {
 		case X86_VENDOR_INTEL:
 			if (!APIC_XAPIC(version)) {

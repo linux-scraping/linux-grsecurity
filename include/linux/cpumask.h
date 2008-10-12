@@ -233,14 +233,14 @@ extern cpumask_t *cpumask_of_cpu_map;
 #else
 #define cpumask_of_cpu(cpu)						\
 (*({									\
-	typeof(_unused_cpumask_arg_) m;					\
-	if (sizeof(m) == sizeof(unsigned long)) {			\
-		m.bits[0] = 1UL<<(cpu);					\
+	typeof(_unused_cpumask_arg_) __m;				\
+	if (sizeof(__m) == sizeof(unsigned long)) {			\
+		__m.bits[0] = 1UL<<(cpu);				\
 	} else {							\
-		cpus_clear(m);						\
-		cpu_set((cpu), m);					\
+		cpus_clear(__m);					\
+		cpu_set((cpu), __m);					\
 	}								\
-	&m;								\
+	&__m;								\
 }))
 #endif
 

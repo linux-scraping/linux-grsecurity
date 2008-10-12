@@ -111,7 +111,7 @@ static struct vmcs_config {
 	u32 vmentry_ctrl;
 } vmcs_config;
 
-struct vmx_capability {
+static struct vmx_capability {
 	u32 ept;
 	u32 vpid;
 } vmx_capability;
@@ -1838,7 +1838,7 @@ static void allocate_vpid(struct vcpu_vmx *vmx)
 	spin_unlock(&vmx_vpid_lock);
 }
 
-void vmx_disable_intercept_for_msr(struct page *msr_bitmap, u32 msr)
+static void vmx_disable_intercept_for_msr(struct page *msr_bitmap, u32 msr)
 {
 	void *va;
 

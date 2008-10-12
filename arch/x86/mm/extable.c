@@ -56,7 +56,7 @@ int fixup_exception(struct pt_regs *regs)
 	const struct exception_table_entry *fixup;
 
 #ifdef CONFIG_PNPBIOS
-	if (unlikely(!(regs->flags & X86_VM_MASK) && SEGMENT_IS_PNP_CODE(regs->cs))) {
+	if (unlikely(!v8086_mode(regs) && SEGMENT_IS_PNP_CODE(regs->cs))) {
 		extern u32 pnp_bios_fault_eip, pnp_bios_fault_esp;
 		extern u32 pnp_bios_is_utter_crap;
 		pnp_bios_is_utter_crap = 1;

@@ -742,14 +742,14 @@ again:
 	}
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
-	if (nx_enabled || (error_code & 5) != 5 || (regs->flags & X86_EFLAGS_VM) ||
+	if (nx_enabled || (error_code & (PF_PROT|PF_USER)) != (PF_PROT|PF_USER) || v8086_mode(regs) ||
 	    !(mm->pax_flags & MF_PAX_PAGEEXEC))
 		goto not_pax_fault;
 
 	/* PaX: it's our fault, let's handle it if we can */
 
 	/* PaX: take a look at read faults before acquiring any locks */
-	if (unlikely(!(error_code & 2) && (regs->ip == address))) {
+	if (unlikely(!(error_code & PF_WRITE) && (regs->ip == address))) {
 		/* instruction fetch attempt from a protected page in user mode */
 		up_read(&mm->mmap_sem);
 
@@ -774,7 +774,7 @@ again:
 		goto not_pax_fault;
 	}
 
-	if (unlikely((error_code & 2) && !pte_write(*pte))) {
+	if (unlikely((error_code & PF_WRITE) && !pte_write(*pte))) {
 		/* write attempt to a protected page in user mode */
 		pte_unmap_unlock(pte, ptl);
 		goto not_pax_fault;
@@ -793,7 +793,7 @@ again:
 		return;
 	}
 
-	pte_mask = _PAGE_ACCESSED | _PAGE_USER | ((error_code & 2) << (_PAGE_BIT_DIRTY-1));
+	pte_mask = _PAGE_ACCESSED | _PAGE_USER | ((error_code & PF_WRITE) << (_PAGE_BIT_DIRTY-1));
 
 	/*
 	 * PaX: fill DTLB with user rights and retry
@@ -928,7 +928,12 @@ bad_area:
 bad_area_nosemaphore:
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (mm && (error_code & 4) && !(regs->flags & X86_EFLAGS_VM)) {
+	if (mm && (error_code & PF_USER)) {
+		unsigned long ip = regs->ip;
+
+		if (v8086_mode(regs))
+			ip = ((regs->cs & 0xffff) << 4) + (regs->ip & 0xffff);
+
 		/*
 		 * It's possible to have interrupts off here.
 		 */
@@ -936,7 +941,7 @@ bad_area_nosemaphore:
 
 #ifdef CONFIG_PAX_PAGEEXEC
 		if ((mm->pax_flags & MF_PAX_PAGEEXEC) &&
-		    ((nx_enabled && ((error_code & PF_INSTR) || !(error_code & (PF_PROT | PF_WRITE))) && (regs->ip == address)))) {
+		    (nx_enabled && ((error_code & PF_INSTR) || !(error_code & (PF_PROT | PF_WRITE))) && (regs->ip == address))) {
 
 #ifdef CONFIG_PAX_EMUTRAMP
 			switch (pax_handle_fetch_fault(regs)) {
@@ -1296,7 +1301,7 @@ static int pax_handle_fetch_fault_64(struct pt_regs *regs)
  */
 static int pax_handle_fetch_fault(struct pt_regs *regs)
 {
-	if (regs->flags & X86_EFLAGS_VM)
+	if (v8086_mode(regs))
 		return 1;
 
 	if (!(current->mm->pax_flags & MF_PAX_EMUTRAMP))

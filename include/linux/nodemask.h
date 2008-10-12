@@ -442,11 +442,11 @@ static inline int num_node_state(enum node_states state)
 
 #define any_online_node(mask)			\
 ({						\
-	int node;				\
-	for_each_node_mask(node, (mask))	\
-		if (node_online(node))		\
+	int __node;				\
+	for_each_node_mask(__node, (mask))	\
+		if (node_online(__node))	\
 			break;			\
-	node;					\
+	__node;					\
 })
 
 #define num_online_nodes()	num_node_state(N_ONLINE)

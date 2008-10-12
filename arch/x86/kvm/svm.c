@@ -60,6 +60,7 @@ static int npt = 1;
 module_param(npt, int, S_IRUGO);
 
 static void kvm_reput_irq(struct vcpu_svm *svm);
+static void svm_flush_tlb(struct kvm_vcpu *vcpu);
 
 static inline struct vcpu_svm *to_svm(struct kvm_vcpu *vcpu)
 {
@@ -879,6 +880,10 @@ set:
 static void svm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 {
 	unsigned long host_cr4_mce = read_cr4() & X86_CR4_MCE;
+	unsigned long old_cr4 = to_svm(vcpu)->vmcb->save.cr4;
+
+	if (npt_enabled && ((old_cr4 ^ cr4) & X86_CR4_PGE))
+		force_new_asid(vcpu);
 
 	vcpu->arch.cr4 = cr4;
 	if (!npt_enabled)
@@ -1017,6 +1022,15 @@ static int pf_interception(struct vcpu_svm *svm, struct kvm_run *kvm_run)
 
 	fault_address  = svm->vmcb->control.exit_info_2;
 	error_code = svm->vmcb->control.exit_info_1;
+
+	/*
+	 * FIXME: Tis shouldn't be necessary here, but there is a flush
+	 * missing in the MMU code. Until we find this bug, flush the
+	 * complete TLB here on an NPF
+	 */
+	if (npt_enabled)
+		svm_flush_tlb(&svm->vcpu);
+
 	if (event_injection)
 		kvm_mmu_unprotect_page_virt(&svm->vcpu, fault_address);
 	return kvm_mmu_page_fault(&svm->vcpu, fault_address, error_code);

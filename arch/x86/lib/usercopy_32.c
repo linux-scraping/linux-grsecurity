@@ -983,8 +983,7 @@ unsigned long __copy_from_user_ll_nozero(void *to, const void __user *from,
 	if (movsl_is_ok(to, from, n))
 		n = __generic_copy_from_user(to, from, n);
 	else
-		n = __generic_copy_from_user_intel((void __user *)to,
-				      (const void *)from, n);
+		n = __generic_copy_from_user_intel(to, from, n);
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nozero);

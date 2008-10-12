@@ -213,7 +213,7 @@ void __init get_mtrr_state(void)
 	mtrr_state.enabled = (lo & 0xc00) >> 10;
 
 	if (amd_special_default_mtrr()) {
-		unsigned lo, hi;
+		unsigned hi;
 		/* TOP_MEM2 */
 		rdmsr(MSR_K8_TOP_MEM2, lo, hi);
 		tom2 = hi;

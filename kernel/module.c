@@ -280,7 +280,7 @@ static unsigned long find_symbol(const char *name,
 
 	/* Now try modules. */
 	list_for_each_entry(mod, &modules, list) {
-		struct symsearch arr[] = {
+		struct symsearch modarr[] = {
 			{ mod->syms, mod->syms + mod->num_syms, mod->crcs,
 			  always_ok },
 			{ mod->gpl_syms, mod->gpl_syms + mod->num_gpl_syms,
@@ -296,7 +296,7 @@ static unsigned long find_symbol(const char *name,
 			  mod->unused_gpl_crcs, gpl_only_unused_warning },
 		};
 
-		ks = search_symarrays(arr, ARRAY_SIZE(arr),
+		ks = search_symarrays(modarr, ARRAY_SIZE(modarr),
 				      name, gplok, warn, crc);
 		if (ks) {
 			if (owner)
@@ -2187,8 +2187,8 @@ static struct module *load_module(void __user *umod,
 
 	/* Now do relocations. */
 	for (i = 1; i < hdr->e_shnum; i++) {
-		const char *strtab = (char *)sechdrs[strindex].sh_addr;
 		unsigned int info = sechdrs[i].sh_info;
+		strtab = (char *)sechdrs[strindex].sh_addr;
 
 		/* Not a valid relocation section? */
 		if (info >= hdr->e_shnum)

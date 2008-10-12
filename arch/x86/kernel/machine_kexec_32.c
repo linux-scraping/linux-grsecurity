@@ -111,7 +111,7 @@ NORET_TYPE void machine_kexec(struct kimage *image)
 	local_irq_disable();
 
 	control_page = page_address(image->control_code_page);
-	memcpy(control_page, ktla_ktva(relocate_kernel), PAGE_SIZE);
+	memcpy(control_page, (void *)ktla_ktva((unsigned long)relocate_kernel), PAGE_SIZE);
 
 	page_list[PA_CONTROL_PAGE] = __pa(control_page);
 	page_list[VA_CONTROL_PAGE] = ktla_ktva((unsigned long)relocate_kernel);

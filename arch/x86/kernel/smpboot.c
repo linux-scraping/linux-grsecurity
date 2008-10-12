@@ -848,7 +848,7 @@ static int __cpuinit do_boot_cpu(int apicid, int cpu)
 		.done = COMPLETION_INITIALIZER_ONSTACK(c_idle.done),
 	};
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	unsigned long cr0;
 #endif
 

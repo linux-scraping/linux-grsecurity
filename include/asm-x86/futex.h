@@ -72,7 +72,7 @@
 		     : "r" (oparg), "i" (-EFAULT), "1" (0))
 #endif
 
-static inline int futex_atomic_op_inuser(int encoded_op, int __user *uaddr)
+static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 {
 	int op = (encoded_op >> 28) & 7;
 	int cmp = (encoded_op >> 24) & 15;
@@ -153,7 +153,7 @@ static inline int futex_atomic_op_inuser(int encoded_op, int __user *uaddr)
 	return ret;
 }
 
-static inline int futex_atomic_cmpxchg_inatomic(int __user *uaddr, int oldval,
+static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 						int newval)
 {
 

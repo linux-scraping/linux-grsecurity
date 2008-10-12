@@ -342,10 +342,10 @@ early_param("reservetop", parse_reservetop);
  */
 unsigned long __init find_max_low_pfn(void)
 {
-	unsigned long max_low_pfn;
+	unsigned long __max_low_pfn;
 
-	max_low_pfn = max_pfn;
-	if (max_low_pfn > MAXMEM_PFN) {
+	__max_low_pfn = max_pfn;
+	if (__max_low_pfn > MAXMEM_PFN) {
 		if (highmem_pages == -1)
 			highmem_pages = max_pfn - MAXMEM_PFN;
 		if (highmem_pages + MAXMEM_PFN < max_pfn)
@@ -354,7 +354,7 @@ unsigned long __init find_max_low_pfn(void)
 			printk("only %luMB highmem pages available, ignoring highmem size of %uMB.\n", pages_to_mb(max_pfn - MAXMEM_PFN), pages_to_mb(highmem_pages));
 			highmem_pages = 0;
 		}
-		max_low_pfn = MAXMEM_PFN;
+		__max_low_pfn = MAXMEM_PFN;
 #ifndef CONFIG_HIGHMEM
 		/* Maximum memory usable is what is directly addressable */
 		printk(KERN_WARNING "Warning only %ldMB will be used.\n",
@@ -382,18 +382,18 @@ unsigned long __init find_max_low_pfn(void)
 			highmem_pages = 0;
 		}
 		if (highmem_pages) {
-			if (max_low_pfn-highmem_pages < 64*1024*1024/PAGE_SIZE){
+			if (__max_low_pfn-highmem_pages < 64*1024*1024/PAGE_SIZE){
 				printk(KERN_ERR "highmem size %uMB results in smaller than 64MB lowmem, ignoring it.\n", pages_to_mb(highmem_pages));
 				highmem_pages = 0;
 			}
-			max_low_pfn -= highmem_pages;
+			__max_low_pfn -= highmem_pages;
 		}
 #else
 		if (highmem_pages)
 			printk(KERN_ERR "ignoring highmem size on non-highmem kernel!\n");
 #endif
 	}
-	return max_low_pfn;
+	return __max_low_pfn;
 }
 
 #define BIOS_LOWMEM_KILOBYTES 0x413
@@ -448,7 +448,7 @@ static void __init reserve_ebda_region(void)
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 static void __init setup_bootmem_allocator(void);
-static unsigned long __init setup_memory(void)
+static void __init setup_memory(void)
 {
 	/*
 	 * partially used pages are not usable - thus
@@ -478,8 +478,6 @@ static unsigned long __init setup_memory(void)
 			pages_to_mb(max_low_pfn));
 
 	setup_bootmem_allocator();
-
-	return max_low_pfn;
 }
 
 static void __init zone_sizes_init(void)
@@ -499,7 +497,7 @@ static void __init zone_sizes_init(void)
 	free_area_init_nodes(max_zone_pfns);
 }
 #else
-extern unsigned long __init setup_memory(void);
+extern void __init setup_memory(void);
 extern void zone_sizes_init(void);
 #endif /* !CONFIG_NEED_MULTIPLE_NODES */
 
@@ -759,8 +757,6 @@ DEFINE_PER_CPU(int, x86_cpu_to_node_map) = NUMA_NO_NODE;
  */
 void __init setup_arch(char **cmdline_p)
 {
-	unsigned long max_low_pfn;
-
 	memcpy(&boot_cpu_data, &new_cpu_data, sizeof(new_cpu_data));
 	pre_setup_arch_hook();
 	early_cpu_init();
@@ -831,7 +827,7 @@ void __init setup_arch(char **cmdline_p)
 	if (mtrr_trim_uncached_memory(max_pfn))
 		propagate_e820_map();
 
-	max_low_pfn = setup_memory();
+	setup_memory();
 
 #ifdef CONFIG_KVM_CLOCK
 	kvmclock_init();
@@ -915,17 +911,18 @@ void __init setup_arch(char **cmdline_p)
 
 #ifdef CONFIG_ACPI
 	acpi_boot_init();
+#endif
+
+#ifdef CONFIG_X86_LOCAL_APIC
+	if (smp_found_config)
+		get_smp_config();
+#endif
 
 #if defined(CONFIG_SMP) && defined(CONFIG_X86_PC)
 	if (def_to_bigsmp)
 		printk(KERN_WARNING "More than 8 CPUs detected and "
 			"CONFIG_X86_PC cannot handle it.\nUse "
 			"CONFIG_X86_GENERICARCH or CONFIG_X86_BIGSMP.\n");
-#endif
-#endif
-#ifdef CONFIG_X86_LOCAL_APIC
-	if (smp_found_config)
-		get_smp_config();
 #endif
 
 	e820_register_memory();

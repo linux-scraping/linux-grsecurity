@@ -413,17 +413,6 @@ NEXT_PAGE(level2_spare_pgt)
 #undef PMDS
 #undef NEXT_PAGE
 
-	.align 16
-	.globl cpu_gdt_descr
-cpu_gdt_descr:
-	.word	GDT_SIZE-1
-gdt:
-	.quad	cpu_gdt_table
-
-ENTRY(phys_base)
-	/* This must match the first entry in level2_kernel_pgt */
-	.quad   0x0000000000000000
-
 /* We need valid kernel segments for data and code in long mode too
  * IRET will check the segment types  kkeil 2000/10/28
  * Also sysret mandates a special GDT layout 
@@ -435,6 +424,7 @@ ENTRY(phys_base)
    Hopefully nobody expects them at a fixed place (Wine?) */
 	
 ENTRY(cpu_gdt_table)
+	.rept NR_CPUS
 	.quad	0x0000000000000000	/* NULL descriptor */
 	.quad	0x00cf9b000000ffff	/* __KERNEL32_CS */
 	.quad	0x00af9b000000ffff	/* __KERNEL_CS */
@@ -452,9 +442,18 @@ ENTRY(cpu_gdt_table)
 
 	/* zero the remaining page */
 	.fill PAGE_SIZE / 8 - GDT_ENTRIES,8,0
-#ifdef CONFIG_SMP
-	.fill (NR_CPUS-1) * (PAGE_SIZE),1,0 /* other CPU's GDT */
-#endif
+	.endr
+
+	.align 16
+	.globl cpu_gdt_descr
+cpu_gdt_descr:
+	.word	GDT_SIZE-1
+gdt:
+	.quad	cpu_gdt_table
+
+ENTRY(phys_base)
+	/* This must match the first entry in level2_kernel_pgt */
+	.quad   0x0000000000000000
 
 	.align L1_CACHE_BYTES
 ENTRY(idt_table)

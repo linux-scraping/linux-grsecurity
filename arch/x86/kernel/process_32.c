@@ -325,7 +325,7 @@ void flush_thread(void)
 {
 	struct task_struct *tsk = current;
 
-	__asm__("mov %0,%%gs\n" : : "r" (0) : "memory");
+	loadsegment(gs, 0);
 	tsk->thread.debugreg0 = 0;
 	tsk->thread.debugreg1 = 0;
 	tsk->thread.debugreg2 = 0;

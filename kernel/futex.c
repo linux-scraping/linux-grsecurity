@@ -1350,7 +1350,7 @@ static int futex_wait(u32 __user *uaddr, struct rw_semaphore *fshared,
 		struct restart_block *restart;
 		restart = &current_thread_info()->restart_block;
 		restart->fn = futex_wait_restart;
-		restart->futex.uaddr = (u32 *)uaddr;
+		restart->futex.uaddr = uaddr;
 		restart->futex.val = val;
 		restart->futex.time = abs_time->tv64;
 		restart->futex.bitset = bitset;

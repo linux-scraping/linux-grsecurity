@@ -10,7 +10,7 @@ menu "PaX"
 
 config PAX
 	bool "Enable various PaX features"
-	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86 || X86_64)
+	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86)
 	help
 	  This allows you to enable various PaX features.  PaX adds
 	  intrusion prevention mechanisms to the kernel that reduce
@@ -98,7 +98,7 @@ menu "Non-executable pages"
 
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
-	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86 || X86_64)
+	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86)
 	help
 	  By design some architectures do not allow for protecting memory
 	  pages against execution or even if they do, Linux does not make
@@ -227,7 +227,7 @@ config PAX_MPROTECT
 
 config PAX_NOELFRELOCS
 	bool "Disallow ELF text relocations"
-	depends on PAX_MPROTECT && !PAX_ETEXECRELOCS && (IA64 || X86 || X86_64)
+	depends on PAX_MPROTECT && !PAX_ETEXECRELOCS && (IA64 || X86)
 	help
 	  Non-executable pages and mprotect() restrictions are effective
 	  in preventing the introduction of new executable code into an
@@ -407,7 +407,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
-	depends on X86_32 && !COMPAT_VDSO
+	depends on X86_32 && !COMPAT_VDSO && !UML_X86
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
 	  userland pointers in contexts where the kernel expects only kernel

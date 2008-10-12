@@ -10,6 +10,21 @@
 #include "asm/uaccess.h"
 #include "asm/unistd.h"
 
+int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
+{
+	unsigned long pax_task_size = TASK_SIZE;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (current->mm->pax_flags & MF_PAX_SEGMEXEC)
+		pax_task_size = SEGMEXEC_TASK_SIZE;
+#endif
+
+	if (len > pax_task_size || addr > pax_task_size - len)
+		return -EINVAL;
+
+	return 0;
+}
+
 /*
  * Perform the select(nd, in, out, ex, tv) and mmap() system
  * calls. Linux/i386 didn't use to be able to handle more than

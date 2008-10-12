@@ -196,9 +196,6 @@ void __cpuinit cpu_init (void)
 	/*
 	 * Initialize the per-CPU GDT with the boot GDT:
 	 */
-	if (cpu)
-		memcpy(get_cpu_gdt_table(cpu), get_cpu_gdt_table(0), GDT_SIZE);
-
 	load_gdt(&cpu_gdt_descr);
 	load_idt((const struct desc_ptr *)&idt_descr);
 

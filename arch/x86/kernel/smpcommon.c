@@ -17,20 +17,7 @@ __cpuinit void init_gdt(int cpu)
 	struct desc_struct d, *gdt = get_cpu_gdt_table(cpu);
 	unsigned long base, limit;
   
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
-	if (cpu)
-		memcpy(gdt, get_cpu_gdt_table(0), GDT_SIZE);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-	base = __per_cpu_offset[cpu] + (unsigned long)__per_cpu_start;
+	base = per_cpu_offset(cpu);
 	limit = PERCPU_ENOUGH_ROOM - 1;
 	if (limit < 64*1024)
 		pack_descriptor(&d, base, limit, 0x80 | DESCTYPE_S | 0x3, 0x4);

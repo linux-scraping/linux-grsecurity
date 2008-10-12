@@ -111,14 +111,15 @@ ENTRY(startup_32)
 	movl %eax,%gs
 2:
 
+	movl $pa(cpu_gdt_table),%edi
 	movl $__per_cpu_start,%eax
-	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 2)
+	movw %ax,__KERNEL_PERCPU + 2(%edi)
 	rorl $16,%eax
-	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 4)
-	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 7)
+	movb %al,__KERNEL_PERCPU + 4(%edi)
+	movb %ah,__KERNEL_PERCPU + 7(%edi)
 	movl $__per_cpu_end + PERCPU_MODULE_RESERVE - 1,%eax
 	subl $__per_cpu_start,%eax
-	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_PERCPU + 0)
+	movw %ax,__KERNEL_PERCPU + 0(%edi)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	/* check for VMware */
@@ -128,24 +129,36 @@ ENTRY(startup_32)
 	movl $0x5658,%edx
 	in (%dx),%eax
 	cmpl $0x564d5868,%ebx
-	jz 1f
+	jz 2f
 
-	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),%eax
-	movl %eax,(cpu_gdt_table - __PAGE_OFFSET + GDT_ENTRY_KERNEL_DS * 8 + 4)
+	movl $NR_CPUS,%ecx
+	movl $pa(cpu_gdt_table),%edi
 1:
+	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),GDT_ENTRY_KERNEL_DS * 8 + 4(%edi)
+	addl $PAGE_SIZE_asm,%edi
+	loop 1b
+2:
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
+	movl $pa(boot_gdt),%edi
 	movl $KERNEL_TEXT_OFFSET,%eax
-	movw %ax,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 2)
+	movw %ax,__BOOT_CS + 2(%edi)
 	rorl $16,%eax
-	movb %al,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 4)
-	movb %ah,(cpu_gdt_table - __PAGE_OFFSET + __KERNEL_CS + 7)
+	movb %al,__BOOT_CS + 4(%edi)
+	movb %ah,__BOOT_CS + 7(%edi)
+	rorl $16,%eax
 
-	movb %al,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 4)
-	movb %ah,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 7)
+	movl $NR_CPUS,%ecx
+	movl $pa(cpu_gdt_table),%edi
+1:
+	movw %ax,__KERNEL_CS + 2(%edi)
 	rorl $16,%eax
-	movw %ax,(boot_gdt - __PAGE_OFFSET + __BOOT_CS + 2)
+	movb %al,__KERNEL_CS + 4(%edi)
+	movb %ah,__KERNEL_CS + 7(%edi)
+	rorl $16,%eax
+	addl $PAGE_SIZE_asm,%edi
+	loop 1b
 #endif
 
 /*
@@ -732,7 +745,7 @@ fault_msg:
 	.word 0				# 32 bit align gdt_desc.address
 boot_gdt_descr:
 	.word __BOOT_DS+7
-	.long boot_gdt - __PAGE_OFFSET
+	.long pa(boot_gdt)
 
 	.word 0				# 32-bit align idt_desc.address
 idt_descr:
@@ -757,6 +770,7 @@ ENTRY(boot_gdt)
 
 	.align PAGE_SIZE_asm
 ENTRY(cpu_gdt_table)
+	.rept NR_CPUS
 	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x0000000000000000	/* 0x0b reserved */
 	.quad 0x0000000000000000	/* 0x13 reserved */
@@ -805,8 +819,5 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0xf8 - GDT entry 31: double-fault TSS */
 
 	/* Be sure this is zeroed to avoid false validations in Xen */
-	.fill PAGE_SIZE_asm - GDT_ENTRIES,1,0
-
-#ifdef CONFIG_SMP
-	.fill (NR_CPUS-1) * (PAGE_SIZE_asm),1,0 /* other CPU's GDT */
-#endif
+	.fill PAGE_SIZE_asm - GDT_SIZE,1,0
+	.endr

@@ -311,7 +311,7 @@ void __init remap_numa_kva(void)
 #endif /* CONFIG_DISCONTIGMEM */
 
 extern void setup_bootmem_allocator(void);
-unsigned long __init setup_memory(void)
+unsigned void __init setup_memory(void)
 {
 	int nid;
 	unsigned long system_start_pfn, system_max_low_pfn;
@@ -384,7 +384,6 @@ unsigned long __init setup_memory(void)
 	memset(NODE_DATA(0), 0, sizeof(struct pglist_data));
 	NODE_DATA(0)->bdata = &node0_bdata;
 	setup_bootmem_allocator();
-	return max_low_pfn;
 }
 
 void __init numa_kva_reserve(void)
