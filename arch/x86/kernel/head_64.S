@@ -77,6 +77,8 @@ startup_64:
 	 */
 	addq	%rbp, init_level4_pgt + 0(%rip)
 	addq	%rbp, init_level4_pgt + (258*8)(%rip)
+	addq	%rbp, init_level4_pgt + (388*8)(%rip)
+	addq	%rbp, init_level4_pgt + (452*8)(%rip)
 	addq	%rbp, init_level4_pgt + (511*8)(%rip)
 
 	addq	%rbp, level3_ident_pgt + 0(%rip)
@@ -181,8 +183,7 @@ ENTRY(secondary_startup_64)
 	btl	$20,%edi		/* No Execute supported? */
 	jnc     1f
 	btsl	$_EFER_NX, %eax
-	movq	$(init_level4_pgt), %rdi
-	addq	phys_base(%rip), %rdi
+	leaq	init_level4_pgt(%rip), %rdi
 	btsq	$_PAGE_BIT_NX, 8*258(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*388(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*452(%rdi)
@@ -255,18 +256,18 @@ ENTRY(secondary_startup_64)
 	pushq	%rax		# target address in negative space
 	lretq
 
-bad_address:
-	jmp bad_address
-
 	/* SMP bootup changes these two */
 	__REFDATA
 	.align	8
 	ENTRY(initial_code)
 	.quad	x86_64_start_kernel
-	__FINITDATA
 
 	ENTRY(init_rsp)
 	.quad  init_thread_union+THREAD_SIZE-8
+	__FINITDATA
+
+bad_address:
+	jmp bad_address
 
 	__INIT
 #ifdef CONFIG_EARLY_PRINTK

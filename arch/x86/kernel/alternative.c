@@ -529,7 +529,7 @@ void *__kprobes text_poke(void *addr, const void *opcode, size_t len)
 
 	if (!core_kernel_text((unsigned long)addr)
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86_32) && defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 	    && (vaddr < MODULES_VADDR || MODULES_END < vaddr)
 #endif
 
