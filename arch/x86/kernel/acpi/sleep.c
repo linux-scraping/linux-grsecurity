@@ -9,6 +9,8 @@
 #include <linux/bootmem.h>
 #include <linux/dmi.h>
 #include <linux/cpumask.h>
+#include <asm/segment.h>
+#include <asm/desc.h>
 
 #include "realmode/wakeup.h"
 #include "sleep.h"
@@ -19,18 +21,9 @@ unsigned long acpi_realmode_flags;
 /* address in low memory of the wakeup routine. */
 static unsigned long acpi_realmode;
 
-#ifdef CONFIG_64BIT
+#if defined(CONFIG_SMP) && defined(CONFIG_64BIT)
 static char temp_stack[10240];
 #endif
-
-/* XXX: this macro should move to asm-x86/segment.h and be shared with the
-   boot code... */
-#define GDT_ENTRY(flags, base, limit)		\
-	(((u64)(base & 0xff000000) << 32) |	\
-	 ((u64)flags << 40) |			\
-	 ((u64)(limit & 0x00ff0000) << 32) |	\
-	 ((u64)(base & 0x00ffffff) << 16) |	\
-	 ((u64)(limit & 0x0000ffff)))
 
 /**
  * acpi_save_state_mem - save kernel state
@@ -43,6 +36,10 @@ static char temp_stack[10240];
 int acpi_save_state_mem(void)
 {
 	struct wakeup_header *header;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
 
 	if (!acpi_realmode) {
 		printk(KERN_ERR "Could not allocate memory during boot, "
@@ -60,16 +57,25 @@ int acpi_save_state_mem(void)
 	header->video_mode = saved_video_mode;
 
 	header->wakeup_jmp_seg = acpi_wakeup_address >> 4;
+
+	/*
+	 * Set up the wakeup GDT.  We set these up as Big Real Mode,
+	 * that is, with limits set to 4 GB.  At least the Lenovo
+	 * Thinkpad X61 is known to need this for the video BIOS
+	 * initialization quirk to work; this is likely to also
+	 * be the case for other laptops or integrated video devices.
+	 */
+
 	/* GDT[0]: GDT self-pointer */
 	header->wakeup_gdt[0] =
 		(u64)(sizeof(header->wakeup_gdt) - 1) +
 		((u64)(acpi_wakeup_address +
 			((char *)&header->wakeup_gdt - (char *)acpi_realmode))
 				<< 16);
-	/* GDT[1]: real-mode-like code segment */
+	/* GDT[1]: big real mode-like code segment */
 	header->wakeup_gdt[1] =
 		GDT_ENTRY(0x809b, acpi_wakeup_address, 0xfffff);
-	/* GDT[2]: real-mode-like data segment */
+	/* GDT[2]: big real mode-like data segment */
 	header->wakeup_gdt[2] =
 		GDT_ENTRY(0x8093, acpi_wakeup_address, 0xfffff);
 
@@ -85,7 +91,7 @@ int acpi_save_state_mem(void)
 #endif /* !CONFIG_64BIT */
 
 	header->pmode_cr0 = read_cr0();
-	header->pmode_cr4 = read_cr4();
+	header->pmode_cr4 = read_cr4_safe();
 	header->realmode_flags = acpi_realmode_flags;
 	header->real_magic = 0x12345678;
 
@@ -95,7 +101,21 @@ int acpi_save_state_mem(void)
 	saved_magic = 0x12345678;
 #else /* CONFIG_64BIT */
 	header->trampoline_segment = setup_trampoline() >> 4;
-	init_rsp = (unsigned long)temp_stack + 4096;
+#ifdef CONFIG_SMP
+	stack_start.sp = temp_stack + 4096;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
+	early_gdt_descr.address =
+			(unsigned long)get_cpu_gdt_table(smp_processor_id());
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+#endif
 	initial_code = (unsigned long)wakeup_long64;
 	saved_magic = 0x123456789abcdef0;
 #endif /* CONFIG_64BIT */
@@ -147,6 +167,12 @@ static int __init acpi_sleep_setup(char *str)
 			acpi_realmode_flags |= 2;
 		if (strncmp(str, "s3_beep", 7) == 0)
 			acpi_realmode_flags |= 4;
+#ifdef CONFIG_HIBERNATION
+		if (strncmp(str, "s4_nohwsig", 10) == 0)
+			acpi_no_s4_hw_signature();
+#endif
+		if (strncmp(str, "old_ordering", 12) == 0)
+			acpi_old_suspend_ordering();
 		str = strchr(str, ',');
 		if (str != NULL)
 			str += strspn(str, ", \t");

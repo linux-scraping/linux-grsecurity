@@ -84,7 +84,7 @@ static const char	hcd_name [] = "ehci_hcd";
 #define EHCI_IAA_MSECS		10		/* arbitrary */
 #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
 #define EHCI_ASYNC_JIFFIES	(HZ/20)		/* async idle timeout */
-#define EHCI_SHRINK_JIFFIES	(HZ/200)	/* async qh unlink delay */
+#define EHCI_SHRINK_FRAMES	5		/* async qh unlink delay */
 
 /* Initial IRQ latency:  faster than hw default */
 static int log2_irq_thresh = 0;		// 0 to 6
@@ -145,16 +145,6 @@ static int handshake (struct ehci_hcd *ehci, void __iomem *ptr,
 	return -ETIMEDOUT;
 }
 
-static int handshake_on_error_set_halt(struct ehci_hcd *ehci, void __iomem *ptr,
-				       u32 mask, u32 done, int usec)
-{
-	int error = handshake(ehci, ptr, mask, done, usec);
-	if (error)
-		ehci_to_hcd(ehci)->state = HC_STATE_HALT;
-
-	return error;
-}
-
 /* force HC to halt state from unknown (EHCI spec section 2.3) */
 static int ehci_halt (struct ehci_hcd *ehci)
 {
@@ -171,6 +161,22 @@ static int ehci_halt (struct ehci_hcd *ehci)
 	ehci_writel(ehci, temp, &ehci->regs->command);
 	return handshake (ehci, &ehci->regs->status,
 			  STS_HALT, STS_HALT, 16 * 125);
+}
+
+static int handshake_on_error_set_halt(struct ehci_hcd *ehci, void __iomem *ptr,
+				       u32 mask, u32 done, int usec)
+{
+	int error;
+
+	error = handshake(ehci, ptr, mask, done, usec);
+	if (error) {
+		ehci_halt(ehci);
+		ehci_to_hcd(ehci)->state = HC_STATE_HALT;
+		ehci_err(ehci, "force halt; handhake %p %08x %08x -> %d\n",
+			ptr, mask, done, error);
+	}
+
+	return error;
 }
 
 /* put TDI/ARC silicon into EHCI mode */
@@ -1043,6 +1049,12 @@ static int __init ehci_hcd_init(void)
 {
 	int retval = 0;
 
+	set_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
+	if (test_bit(USB_UHCI_LOADED, &usb_hcds_loaded) ||
+			test_bit(USB_OHCI_LOADED, &usb_hcds_loaded))
+		printk(KERN_WARNING "Warning! ehci_hcd should always be loaded"
+				" before uhci_hcd and ohci_hcd, not after\n");
+
 	pr_debug("%s: block sizes: qh %Zd qtd %Zd itd %Zd sitd %Zd\n",
 		 hcd_name,
 		 sizeof(struct ehci_qh), sizeof(struct ehci_qtd),
@@ -1050,8 +1062,10 @@ static int __init ehci_hcd_init(void)
 
 #ifdef DEBUG
 	ehci_debug_root = debugfs_create_dir("ehci", NULL);
-	if (!ehci_debug_root)
-		return -ENOENT;
+	if (!ehci_debug_root) {
+		retval = -ENOENT;
+		goto err_debug;
+	}
 #endif
 
 #ifdef PLATFORM_DRIVER
@@ -1098,7 +1112,9 @@ clean0:
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 	ehci_debug_root = NULL;
+err_debug:
 #endif
+	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 	return retval;
 }
 module_init(ehci_hcd_init);
@@ -1120,6 +1136,7 @@ static void __exit ehci_hcd_cleanup(void)
 #ifdef DEBUG
 	debugfs_remove(ehci_debug_root);
 #endif
+	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 }
 module_exit(ehci_hcd_cleanup);
 

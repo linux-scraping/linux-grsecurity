@@ -19,6 +19,7 @@
 #include <linux/uio.h>
 #include <linux/idr.h>
 #include <linux/bsg.h>
+#include <linux/smp_lock.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_ioctl.h>
@@ -48,7 +49,6 @@ struct bsg_device {
 
 enum {
 	BSG_F_BLOCK		= 1,
-	BSG_F_WRITE_PERM	= 2,
 };
 
 #define BSG_DEFAULT_CMDS	64
@@ -172,7 +172,8 @@ unlock:
 }
 
 static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
-				struct sg_io_v4 *hdr, int has_write_perm)
+				struct sg_io_v4 *hdr, struct bsg_device *bd,
+				int has_write_perm)
 {
 	if (hdr->request_len > BLK_MAX_CDB) {
 		rq->cmd = kzalloc(hdr->request_len, GFP_KERNEL);
@@ -185,7 +186,7 @@ static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
 		return -EFAULT;
 
 	if (hdr->subprotocol == BSG_SUB_PROTOCOL_SCSI_CMD) {
-		if (blk_verify_command(rq->cmd, has_write_perm))
+		if (blk_verify_command(&q->cmd_filter, rq->cmd, has_write_perm))
 			return -EPERM;
 	} else if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;
@@ -241,7 +242,7 @@ bsg_validate_sgv4_hdr(struct request_queue *q, struct sg_io_v4 *hdr, int *rw)
  * map sg_io_v4 to a request.
  */
 static struct request *
-bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr)
+bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, int has_write_perm)
 {
 	struct request_queue *q = bd->queue;
 	struct request *rq, *next_rq = NULL;
@@ -263,8 +264,7 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr)
 	rq = blk_get_request(q, rw, GFP_KERNEL);
 	if (!rq)
 		return ERR_PTR(-ENOMEM);
-	ret = blk_fill_sgv4_hdr_rq(q, rq, hdr, test_bit(BSG_F_WRITE_PERM,
-						       &bd->flags));
+	ret = blk_fill_sgv4_hdr_rq(q, rq, hdr, bd, has_write_perm);
 	if (ret)
 		goto out;
 
@@ -566,14 +566,6 @@ static inline void bsg_set_block(struct bsg_device *bd, struct file *file)
 		set_bit(BSG_F_BLOCK, &bd->flags);
 }
 
-static inline void bsg_set_write_perm(struct bsg_device *bd, struct file *file)
-{
-	if (file->f_mode & FMODE_WRITE)
-		set_bit(BSG_F_WRITE_PERM, &bd->flags);
-	else
-		clear_bit(BSG_F_WRITE_PERM, &bd->flags);
-}
-
 /*
  * Check if the error is a "real" error that we should return.
  */
@@ -595,6 +587,7 @@ bsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	dprintk("%s: read %Zd bytes\n", bd->name, count);
 
 	bsg_set_block(bd, file);
+
 	bytes_read = 0;
 	ret = __bsg_read(buf, count, bd, NULL, &bytes_read);
 	*ppos = bytes_read;
@@ -606,7 +599,7 @@ bsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 }
 
 static int __bsg_write(struct bsg_device *bd, const char __user *buf,
-		       size_t count, ssize_t *bytes_written)
+		       size_t count, ssize_t *bytes_written, int has_write_perm)
 {
 	struct bsg_command *bc;
 	struct request *rq;
@@ -637,7 +630,7 @@ static int __bsg_write(struct bsg_device *bd, const char __user *buf,
 		/*
 		 * get a request, fill in the blanks, and add to request queue
 		 */
-		rq = bsg_map_hdr(bd, &bc->hdr);
+		rq = bsg_map_hdr(bd, &bc->hdr, has_write_perm);
 		if (IS_ERR(rq)) {
 			ret = PTR_ERR(rq);
 			rq = NULL;
@@ -668,10 +661,11 @@ bsg_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	dprintk("%s: write %Zd bytes\n", bd->name, count);
 
 	bsg_set_block(bd, file);
-	bsg_set_write_perm(bd, file);
 
 	bytes_written = 0;
-	ret = __bsg_write(bd, buf, count, &bytes_written);
+	ret = __bsg_write(bd, buf, count, &bytes_written,
+			  file->f_mode & FMODE_WRITE);
+
 	*ppos = bytes_written;
 
 	/*
@@ -775,6 +769,7 @@ static struct bsg_device *bsg_add_device(struct inode *inode,
 	}
 
 	bd->queue = rq;
+
 	bsg_set_block(bd, file);
 
 	atomic_set(&bd->ref_count, 1);
@@ -838,7 +833,11 @@ static struct bsg_device *bsg_get_device(struct inode *inode, struct file *file)
 
 static int bsg_open(struct inode *inode, struct file *file)
 {
-	struct bsg_device *bd = bsg_get_device(inode, file);
+	struct bsg_device *bd;
+
+	lock_kernel();
+	bd = bsg_get_device(inode, file);
+	unlock_kernel();
 
 	if (IS_ERR(bd))
 		return PTR_ERR(bd);
@@ -922,7 +921,7 @@ static long bsg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&hdr, uarg, sizeof(hdr)))
 			return -EFAULT;
 
-		rq = bsg_map_hdr(bd, &hdr);
+		rq = bsg_map_hdr(bd, &hdr, file->f_mode & FMODE_WRITE);
 		if (IS_ERR(rq))
 			return PTR_ERR(rq);
 
@@ -1023,7 +1022,8 @@ int bsg_register_queue(struct request_queue *q, struct device *parent,
 	bcd->release = release;
 	kref_init(&bcd->ref);
 	dev = MKDEV(bsg_major, bcd->minor);
-	class_dev = device_create(bsg_class, parent, dev, "%s", devname);
+	class_dev = device_create_drvdata(bsg_class, parent, dev, NULL,
+					  "%s", devname);
 	if (IS_ERR(class_dev)) {
 		ret = PTR_ERR(class_dev);
 		goto put_dev;

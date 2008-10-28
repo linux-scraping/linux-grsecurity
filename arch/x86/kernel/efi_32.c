@@ -38,13 +38,14 @@
  */
 
 static unsigned long efi_rt_eflags;
-static pgd_t __initdata efi_bak_pg_dir_pointer[KERNEL_PGD_PTRS] __attribute__ ((aligned (4096)));
+static pgd_t __initdata efi_bak_pg_dir_pointer[KERNEL_PGD_PTRS];
 
 void __init efi_call_phys_prelog(void)
 {
 	struct desc_ptr gdt_descr;
 
 	local_irq_save(efi_rt_eflags);
+
 
 	clone_pgd_range(efi_bak_pg_dir_pointer, swapper_pg_dir, KERNEL_PGD_PTRS);
 	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + KERNEL_PGD_BOUNDARY,

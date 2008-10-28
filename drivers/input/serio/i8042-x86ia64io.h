@@ -70,6 +70,15 @@ static inline void i8042_write_command(int val)
 static struct dmi_system_id __initdata i8042_dmi_noloop_table[] = {
 	{
 		/* AUX LOOP command does not raise AUX IRQ */
+		.ident = "Arima-Rioworks HDAMB",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "RIOWORKS"),
+			DMI_MATCH(DMI_BOARD_NAME, "HDAMB"),
+			DMI_MATCH(DMI_BOARD_VERSION, "Rev E"),
+		},
+	},
+	{
+		/* AUX LOOP command does not raise AUX IRQ */
 		.ident = "ASUS P65UP5",
 		.matches = {
 			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK Computer INC."),
@@ -116,6 +125,14 @@ static struct dmi_system_id __initdata i8042_dmi_noloop_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Virtual Machine"),
 			DMI_MATCH(DMI_PRODUCT_VERSION, "VS2005R2"),
+		},
+	},
+	{
+		.ident = "Medion MAM 2070",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Notebook"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "MAM 2070"),
+			DMI_MATCH(DMI_PRODUCT_VERSION, "5a"),
 		},
 	},
 	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
@@ -288,7 +305,7 @@ static struct dmi_system_id __initdata i8042_dmi_nomux_table[] = {
 		.ident = "Lenovo 3000 n100",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
-			DMI_MATCH(DMI_PRODUCT_VERSION, "3000 N100"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "076804U"),
 		},
 	},
 	{
@@ -296,6 +313,13 @@ static struct dmi_system_id __initdata i8042_dmi_nomux_table[] = {
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire 1360"),
+		},
+	},
+	{
+		.ident = "Gericom Bellagio",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Gericom"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "N34AS6"),
 		},
 	},
 	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
@@ -308,13 +332,6 @@ static struct dmi_system_id __initdata i8042_dmi_nopnp_table[] = {
 		.matches = {
 			DMI_MATCH(DMI_BOARD_NAME, "D845PESV"),
 			DMI_MATCH(DMI_BOARD_VENDOR, "Intel Corporation"),
-		},
-	},
-	{
-		.ident = "Gericom Bellagio",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Gericom"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "N34AS6"),
 		},
 	},
 	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
@@ -350,6 +367,13 @@ static struct dmi_system_id __initdata i8042_dmi_dritek_table[] = {
 		},
 	},
 	{
+		.ident = "Acer Aspire 5720",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire 5720"),
+		},
+	},
+	{
 		.ident = "Acer Aspire 9110",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
@@ -370,7 +394,14 @@ static struct dmi_system_id __initdata i8042_dmi_dritek_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 2490"),
 		},
 	},
-	{ }
+	{
+		.ident = "Acer TravelMate 4280",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 4280"),
+		},
+	},
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
 };
 
 #endif /* CONFIG_X86 */

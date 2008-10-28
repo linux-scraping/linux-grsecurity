@@ -1,7 +1,7 @@
 /*
  *  Driver for the Conexant CX23885 PCIe bridge
  *
- *  Copyright (c) 2006 Steven Toth <stoth@hauppauge.com>
+ *  Copyright (c) 2006 Steven Toth <stoth@linuxtv.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 #include "cx23885.h"
 
 MODULE_DESCRIPTION("Driver for cx23885 based TV cards");
-MODULE_AUTHOR("Steven Toth <stoth@hauppauge.com>");
+MODULE_AUTHOR("Steven Toth <stoth@linuxtv.org>");
 MODULE_LICENSE("GPL");
 
 static unsigned int debug;
@@ -402,9 +402,9 @@ int cx23885_sram_channel_setup(struct cx23885_dev *dev,
 		lines = 6;
 	BUG_ON(lines < 2);
 
-	cx_write(8 + 0, cpu_to_le32(RISC_JUMP | RISC_IRQ1 | RISC_CNT_INC) );
-	cx_write(8 + 4, cpu_to_le32(8) );
-	cx_write(8 + 8, cpu_to_le32(0) );
+	cx_write(8 + 0, RISC_JUMP | RISC_IRQ1 | RISC_CNT_INC);
+	cx_write(8 + 4, 8);
+	cx_write(8 + 8, 0);
 
 	/* write CDT */
 	for (i = 0; i < lines; i++) {
@@ -519,11 +519,11 @@ static void cx23885_risc_disasm(struct cx23885_tsport *port,
 	       dev->name, risc->cpu, (unsigned long)risc->dma);
 	for (i = 0; i < (risc->size >> 2); i += n) {
 		printk("%s:   %04d: ", dev->name, i);
-		n = cx23885_risc_decode(risc->cpu[i]);
+		n = cx23885_risc_decode(le32_to_cpu(risc->cpu[i]));
 		for (j = 1; j < n; j++)
 			printk("%s:   %04d: 0x%08x [ arg #%d ]\n",
 			       dev->name, i + j, risc->cpu[i + j], j);
-		if (risc->cpu[i] == RISC_JUMP)
+		if (risc->cpu[i] == cpu_to_le32(RISC_JUMP))
 			break;
 	}
 }
@@ -1123,8 +1123,9 @@ static void cx23885_tsport_reg_dump(struct cx23885_tsport *port)
 		port->reg_gpcnt_ctl, cx_read(port->reg_gpcnt_ctl));
 	dprintk(1, "%s() dma_ctl(0x%08X)        0x%08x\n", __func__,
 		port->reg_dma_ctl, cx_read(port->reg_dma_ctl));
-	dprintk(1, "%s() src_sel(0x%08X)        0x%08x\n", __func__,
-		port->reg_src_sel, cx_read(port->reg_src_sel));
+	if (port->reg_src_sel)
+		dprintk(1, "%s() src_sel(0x%08X)        0x%08x\n", __func__,
+			port->reg_src_sel, cx_read(port->reg_src_sel));
 	dprintk(1, "%s() lngth(0x%08X)          0x%08x\n", __func__,
 		port->reg_lngth, cx_read(port->reg_lngth));
 	dprintk(1, "%s() hw_sop_ctrl(0x%08X)    0x%08x\n", __func__,

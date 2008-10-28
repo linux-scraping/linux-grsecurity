@@ -12,14 +12,14 @@ int
 gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
-	if (!strcmp(dirname, "grsecurity") && grsec_lock && (op & 002)) {
+	if (!strcmp(dirname, "grsecurity") && grsec_lock && (op & MAY_WRITE)) {
 		gr_log_str(GR_DONT_AUDIT, GR_SYSCTL_MSG, name);
 		return -EACCES;
 	}
 #endif
 #ifdef CONFIG_GRKERNSEC_MODSTOP
 	if (!strcmp(dirname, "grsecurity") && !strcmp(name, "disable_modules") &&
-	    grsec_modstop && (op & 002)) {
+	    grsec_modstop && (op & MAY_WRITE)) {
 		gr_log_str(GR_DONT_AUDIT, GR_SYSCTL_MSG, name);
 		return -EACCES;
 	}

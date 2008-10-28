@@ -98,19 +98,36 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 			unsigned long end, pgprot_t prot, struct page ***pages)
 {
 	pte_t *pte;
+	int ret = -ENOMEM;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long cr0;
+#endif
 
 	pte = pte_alloc_kernel(pmd, addr);
 	if (!pte)
 		return -ENOMEM;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_open_kernel(cr0);
+#endif
+
 	do {
 		struct page *page = **pages;
 		WARN_ON(!pte_none(*pte));
 		if (!page)
-			return -ENOMEM;
+			goto out;
 		set_pte_at(&init_mm, addr, pte, mk_pte(page, prot));
 		(*pages)++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
-	return 0;
+	ret = 0;
+out:
+
+#ifdef CONFIG_PAX_KERNEXEC
+	pax_close_kernel(cr0);
+#endif
+
+	return ret;
 }
 
 static inline int vmap_pmd_range(pud_t *pud, unsigned long addr,
@@ -215,6 +232,16 @@ __get_vm_area_node(unsigned long size, unsigned long flags, unsigned long start,
 	unsigned long addr;
 
 	BUG_ON(in_interrupt());
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (flags & VM_KERNEXEC) {
+		if (start != VMALLOC_START || end != VMALLOC_END)
+			return NULL;
+		start = (unsigned long)MODULES_VADDR;
+		end = (unsigned long)MODULES_END;
+	}
+#endif
+
 	if (flags & VM_IOREMAP) {
 		int bit = fls(size);
 
@@ -376,16 +403,14 @@ static void __vunmap(const void *addr, int deallocate_pages)
 		return;
 
 	if ((PAGE_SIZE-1) & (unsigned long)addr) {
-		printk(KERN_ERR "Trying to vfree() bad address (%p)\n", addr);
-		WARN_ON(1);
+		WARN(1, KERN_ERR "Trying to vfree() bad address (%p)\n", addr);
 		return;
 	}
 
 	area = remove_vm_area(addr);
 	if (unlikely(!area)) {
-		printk(KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
+		WARN(1, KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
 				addr);
-		WARN_ON(1);
 		return;
 	}
 
@@ -462,6 +487,11 @@ void *vmap(struct page **pages, unsigned int count,
 
 	if (count > num_physpages)
 		return NULL;
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (pgprot_val(prot) & _PAGE_NX)
+		flags |= VM_KERNEXEC;
+#endif
 
 	area = get_vm_area_caller((count << PAGE_SHIFT), flags,
 					__builtin_return_address(0));
@@ -556,6 +586,13 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 	size = PAGE_ALIGN(size);
 	if (!size || (size >> PAGE_SHIFT) > num_physpages)
 		return NULL;
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (pgprot_val(prot) & _PAGE_NX)
+		area = __get_vm_area_node(size, VM_ALLOC | VM_KERNEXEC, VMALLOC_START, VMALLOC_END,
+						node, gfp_mask, caller);
+	else
+#endif
 
 	area = __get_vm_area_node(size, VM_ALLOC, VMALLOC_START, VMALLOC_END,
 						node, gfp_mask, caller);
@@ -926,6 +963,25 @@ static void s_stop(struct seq_file *m, void *p)
 	read_unlock(&vmlist_lock);
 }
 
+static void show_numa_info(struct seq_file *m, struct vm_struct *v)
+{
+	if (NUMA_BUILD) {
+		unsigned int nr, *counters = m->private;
+
+		if (!counters)
+			return;
+
+		memset(counters, 0, nr_node_ids * sizeof(unsigned int));
+
+		for (nr = 0; nr < v->nr_pages; nr++)
+			counters[page_to_nid(v->pages[nr])]++;
+
+		for_each_node_state(nr, N_HIGH_MEMORY)
+			if (counters[nr])
+				seq_printf(m, " N%u=%u", nr, counters[nr]);
+	}
+}
+
 static int s_show(struct seq_file *m, void *p)
 {
 	struct vm_struct *v = p;
@@ -962,6 +1018,7 @@ static int s_show(struct seq_file *m, void *p)
 	if (v->flags & VM_VPAGES)
 		seq_printf(m, " vpages");
 
+	show_numa_info(m, v);
 	seq_putc(m, '\n');
 	return 0;
 }

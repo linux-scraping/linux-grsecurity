@@ -11,6 +11,7 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/smp_lock.h>
 #include <linux/kernel.h>
 #include <linux/param.h>
 #include <linux/string.h>
@@ -32,6 +33,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
+#include <linux/of_device.h>
 
 #include <asm/oplib.h>
 #include <asm/mostek.h>
@@ -39,7 +41,6 @@
 #include <asm/irq.h>
 #include <asm/io.h>
 #include <asm/prom.h>
-#include <asm/of_device.h>
 #include <asm/starfire.h>
 #include <asm/smp.h>
 #include <asm/sections.h>
@@ -1664,10 +1665,14 @@ static int mini_rtc_ioctl(struct inode *inode, struct file *file,
 
 static int mini_rtc_open(struct inode *inode, struct file *file)
 {
-	if (mini_rtc_status & RTC_IS_OPEN)
+	lock_kernel();
+	if (mini_rtc_status & RTC_IS_OPEN) {
+		unlock_kernel();
 		return -EBUSY;
+	}
 
 	mini_rtc_status |= RTC_IS_OPEN;
+	unlock_kernel();
 
 	return 0;
 }

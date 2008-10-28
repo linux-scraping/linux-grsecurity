@@ -6,6 +6,8 @@
 *.dbg
 *.dvi
 *.eps
+*.fw.gen.S
+*.fw
 *.gif
 *.grep
 *.grp
@@ -196,6 +198,7 @@ vmlinux*.lds
 vmlinux.relocs
 vmlinux*.scr
 vsyscall*.lds
+wakeup.elf
 wakeup.lds
 wanxlfw.inc
 uImage

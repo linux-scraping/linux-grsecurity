@@ -71,7 +71,7 @@ static DEFINE_MUTEX(performance_mutex);
  *  1 -> ignore _PPC totally -> forced by user through boot param
  */
 static int ignore_ppc = -1;
-module_param(ignore_ppc, uint, 0644);
+module_param(ignore_ppc, int, 0644);
 MODULE_PARM_DESC(ignore_ppc, "If the frequency of your machine gets wrongly" \
 		 "limited by BIOS, this should help");
 
@@ -95,12 +95,12 @@ static int acpi_processor_ppc_notifier(struct notifier_block *nb,
 	if (ignore_ppc)
 		return 0;
 
+	if (event != CPUFREQ_INCOMPATIBLE)
+		return 0;
+
 	mutex_lock(&performance_mutex);
 
-	if (event != CPUFREQ_INCOMPATIBLE)
-		goto out;
-
-	pr = processors[policy->cpu];
+	pr = per_cpu(processors, policy->cpu);
 	if (!pr || !pr->performance)
 		goto out;
 
@@ -583,7 +583,7 @@ int acpi_processor_preregister_performance(
 
 	/* Call _PSD for all CPUs */
 	for_each_possible_cpu(i) {
-		pr = processors[i];
+		pr = per_cpu(processors, i);
 		if (!pr) {
 			/* Look only at processors in ACPI namespace */
 			continue;
@@ -614,7 +614,7 @@ int acpi_processor_preregister_performance(
 	 * domain info.
 	 */
 	for_each_possible_cpu(i) {
-		pr = processors[i];
+		pr = per_cpu(processors, i);
 		if (!pr)
 			continue;
 
@@ -635,7 +635,7 @@ int acpi_processor_preregister_performance(
 
 	cpus_clear(covered_cpus);
 	for_each_possible_cpu(i) {
-		pr = processors[i];
+		pr = per_cpu(processors, i);
 		if (!pr)
 			continue;
 
@@ -662,7 +662,7 @@ int acpi_processor_preregister_performance(
 			if (i == j)
 				continue;
 
-			match_pr = processors[j];
+			match_pr = per_cpu(processors, j);
 			if (!match_pr)
 				continue;
 
@@ -691,7 +691,7 @@ int acpi_processor_preregister_performance(
 			if (i == j)
 				continue;
 
-			match_pr = processors[j];
+			match_pr = per_cpu(processors, j);
 			if (!match_pr)
 				continue;
 
@@ -708,7 +708,7 @@ int acpi_processor_preregister_performance(
 
 err_ret:
 	for_each_possible_cpu(i) {
-		pr = processors[i];
+		pr = per_cpu(processors, i);
 		if (!pr || !pr->performance)
 			continue;
 
@@ -739,7 +739,7 @@ acpi_processor_register_performance(struct acpi_processor_performance
 
 	mutex_lock(&performance_mutex);
 
-	pr = processors[cpu];
+	pr = per_cpu(processors, cpu);
 	if (!pr) {
 		mutex_unlock(&performance_mutex);
 		return -ENODEV;
@@ -777,7 +777,7 @@ acpi_processor_unregister_performance(struct acpi_processor_performance
 
 	mutex_lock(&performance_mutex);
 
-	pr = processors[cpu];
+	pr = per_cpu(processors, cpu);
 	if (!pr) {
 		mutex_unlock(&performance_mutex);
 		return;

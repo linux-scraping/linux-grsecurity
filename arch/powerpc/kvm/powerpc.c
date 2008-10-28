@@ -145,6 +145,9 @@ int kvm_dev_ioctl_check_extension(long ext)
 	case KVM_CAP_USER_MEMORY:
 		r = 1;
 		break;
+	case KVM_CAP_COALESCED_MMIO:
+		r = KVM_COALESCED_MMIO_PAGE_OFFSET;
+		break;
 	default:
 		r = 0;
 		break;
@@ -241,10 +244,6 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 }
 
 void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
-{
-}
-
-void decache_vcpus_on_cpu(int cpu)
 {
 }
 

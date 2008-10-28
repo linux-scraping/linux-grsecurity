@@ -17,9 +17,9 @@ _proxy_pda = 1;
 PHDRS {
 	text PT_LOAD FLAGS(5);	/* R_E */
 	data PT_LOAD FLAGS(6);	/* RW_ */
-	user PT_LOAD FLAGS(7);	/* RWX */
+	user PT_LOAD FLAGS(7);	/* RWE */
 	data.init PT_LOAD FLAGS(7);	/* RWE */
-	note PT_NOTE FLAGS(4);	/* R__ */
+	note PT_NOTE FLAGS(0);	/* ___ */
 }
 SECTIONS
 {
@@ -40,25 +40,16 @@ SECTIONS
 	_etext = .;		/* End of text section */
   } :text = 0x9090
 
+  NOTES :text :note
+
   . = ALIGN(16);		/* Exception table */
   __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
   	__start___ex_table = .;
 	 *(__ex_table)
   	__stop___ex_table = .;
-  }
-
-  NOTES :text :note
-
-  BUG_TABLE :text
+  } :text = 0x9090
 
   RO_DATA(PAGE_SIZE)
-
-  . = ALIGN(4);
-  .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
-  	__tracedata_start = .;
-	*(.tracedata)
-  	__tracedata_end = .;
-  }
 
 #ifdef CONFIG_PAX_KERNEXEC
   . = ALIGN(2*1024*1024);	/* Align data segment to PMD size boundary */
@@ -188,6 +179,7 @@ SECTIONS
 	*(.con_initcall.init)
   }
   __con_initcall_end = .;
+  . = ALIGN(16);
   __x86cpuvendor_start = .;
   .x86cpuvendor.init : AT(ADDR(.x86cpuvendor.init) - LOAD_OFFSET) {
 	*(.x86cpuvendor.init)

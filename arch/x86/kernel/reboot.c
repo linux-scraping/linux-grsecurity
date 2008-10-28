@@ -27,7 +27,7 @@
 void (*pm_power_off)(void);
 EXPORT_SYMBOL(pm_power_off);
 
-static long no_idt[3];
+static const struct desc_ptr no_idt = {};
 static unsigned short reboot_mode;
 enum reboot_type reboot_type = BOOT_KBD;
 int reboot_force;
@@ -375,7 +375,7 @@ static void native_machine_emergency_restart(void)
 			}
 
 		case BOOT_TRIPLE:
-			load_idt((const struct desc_ptr *)&no_idt);
+			load_idt(&no_idt);
 			__asm__ __volatile__("int3");
 
 			reboot_type = BOOT_KBD;
@@ -410,10 +410,9 @@ void native_machine_shutdown(void)
 {
 	/* Stop the cpus and apics */
 #ifdef CONFIG_SMP
-	int reboot_cpu_id;
 
 	/* The boot cpu is always logical cpu 0 */
-	reboot_cpu_id = 0;
+	int reboot_cpu_id = 0;
 
 #ifdef CONFIG_X86_32
 	/* See if there has been given a command line override */

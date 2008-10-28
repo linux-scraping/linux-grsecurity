@@ -107,9 +107,7 @@ static struct display fb_display[MAX_NR_CONSOLES];
 
 static signed char con2fb_map[MAX_NR_CONSOLES];
 static signed char con2fb_map_boot[MAX_NR_CONSOLES];
-#ifndef MODULE
-static int logo_height;
-#endif
+
 static int logo_lines;
 /* logo_shown is an index to vc_cons when >= 0; otherwise follows FBCON_LOGO
    enums.  */
@@ -607,6 +605,7 @@ static void fbcon_prepare_logo(struct vc_data *vc, struct fb_info *info,
 	struct fbcon_ops *ops = info->fbcon_par;
 	int cnt, erase = vc->vc_video_erase_char, step;
 	unsigned short *save = NULL, *r, *q;
+	int logo_height;
 
 	if (info->flags & FBINFO_MODULE) {
 		logo_shown = FBCON_LOGO_DONTSHOW;
@@ -1311,6 +1310,9 @@ static void fbcon_clear(struct vc_data *vc, int sy, int sx, int height,
 
 	if (!height || !width)
 		return;
+
+	if (sy < vc->vc_top && vc->vc_top == logo_lines)
+		vc->vc_top = 0;
 
 	/* Split blits that cross physical y_wrap boundary */
 
@@ -2398,11 +2400,15 @@ static int fbcon_blank(struct vc_data *vc, int blank, int mode_switch)
 
  	if (!fbcon_is_inactive(vc, info)) {
 		if (ops->blank_state != blank) {
+			int ret = 1;
+
 			ops->blank_state = blank;
 			fbcon_cursor(vc, blank ? CM_ERASE : CM_DRAW);
 			ops->cursor_flash = (!blank);
 
-			if (fb_blank(info, blank))
+			if (info->fbops->fb_blank)
+				ret = info->fbops->fb_blank(blank, info);
+			if (ret)
 				fbcon_generic_blank(vc, info, blank);
 		}
 
@@ -2516,7 +2522,7 @@ static int fbcon_do_set_font(struct vc_data *vc, int w, int h,
 			c = vc->vc_video_erase_char;
 			vc->vc_video_erase_char =
 			    ((c & 0xfe00) >> 1) | (c & 0xff);
-			c = vc->vc_def_color;
+			c = vc->vc_scrl_erase_char;
 			vc->vc_scrl_erase_char =
 			    ((c & 0xFE00) >> 1) | (c & 0xFF);
 			vc->vc_attr >>= 1;
@@ -2549,7 +2555,7 @@ static int fbcon_do_set_font(struct vc_data *vc, int w, int h,
 			if (vc->vc_can_do_color) {
 				vc->vc_video_erase_char =
 				    ((c & 0xff00) << 1) | (c & 0xff);
-				c = vc->vc_def_color;
+				c = vc->vc_scrl_erase_char;
 				vc->vc_scrl_erase_char =
 				    ((c & 0xFF00) << 1) | (c & 0xFF);
 				vc->vc_attr <<= 1;
@@ -2990,8 +2996,8 @@ static void fbcon_set_all_vcs(struct fb_info *info)
 		p = &fb_display[vc->vc_num];
 		set_blitting_type(vc, info);
 		var_to_display(p, &info->var, info);
-		cols = FBCON_SWAP(p->rotate, info->var.xres, info->var.yres);
-		rows = FBCON_SWAP(p->rotate, info->var.yres, info->var.xres);
+		cols = FBCON_SWAP(ops->rotate, info->var.xres, info->var.yres);
+		rows = FBCON_SWAP(ops->rotate, info->var.yres, info->var.xres);
 		cols /= vc->vc_font.width;
 		rows /= vc->vc_font.height;
 		vc_resize(vc, cols, rows);
@@ -3586,7 +3592,8 @@ static int __init fb_console_init(void)
 
 	acquire_console_sem();
 	fb_register_client(&fbcon_event_notifier);
-	fbcon_device = device_create(fb_class, NULL, MKDEV(0, 0), "fbcon");
+	fbcon_device = device_create_drvdata(fb_class, NULL, MKDEV(0, 0),
+					     NULL, "fbcon");
 
 	if (IS_ERR(fbcon_device)) {
 		printk(KERN_WARNING "Unable to create device "

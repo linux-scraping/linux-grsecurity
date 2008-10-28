@@ -120,6 +120,7 @@ struct mcontext32 {
 	elf_fpregset_t		mc_fregs;
 	unsigned int		mc_pad[2];
 	elf_vrregset_t32	mc_vregs __attribute__((__aligned__(16)));
+	elf_vsrreghalf_t32      mc_vsregs __attribute__((__aligned__(16)));
 };
 
 struct ucontext32 { 
@@ -134,7 +135,5 @@ struct ucontext32 {
 	int		 	uc_pad2[3];
 	struct mcontext32	uc_mcontext;
 };
-
-extern int copy_siginfo_to_user32(struct compat_siginfo __user *d, siginfo_t *s);
 
 #endif  /* _PPC64_PPC32_H */

@@ -37,6 +37,7 @@ static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
 }
 
 #ifdef CONFIG_X86_64
+
 static inline void pack_gate(gate_desc *gate, unsigned type, unsigned long func,
 			     unsigned dpl, unsigned ist, unsigned seg)
 {
@@ -362,6 +363,28 @@ static inline void set_intr_gate(unsigned int n, void *addr)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0, 0, __KERNEL_CS);
+}
+
+#define SYS_VECTOR_FREE		0
+#define SYS_VECTOR_ALLOCED	1
+
+extern int first_system_vector;
+extern char system_vectors[];
+
+static inline void alloc_system_vector(int vector)
+{
+	if (system_vectors[vector] == SYS_VECTOR_FREE) {
+		system_vectors[vector] = SYS_VECTOR_ALLOCED;
+		if (first_system_vector > vector)
+			first_system_vector = vector;
+	} else
+		BUG();
+}
+
+static inline void alloc_intr_gate(unsigned int n, void *addr)
+{
+	alloc_system_vector(n);
+	set_intr_gate(n, addr);
 }
 
 /*

@@ -55,13 +55,9 @@
 #include <asm/tlbflush.h>
 #include <asm/cpu.h>
 #include <asm/kdebug.h>
+#include <asm/idle.h>
 
 asmlinkage void ret_from_fork(void) __asm__("ret_from_fork");
-
-static int hlt_counter;
-
-unsigned long boot_option_idle_override = 0;
-EXPORT_SYMBOL(boot_option_idle_override);
 
 DEFINE_PER_CPU(struct task_struct *, current_task) = &init_task;
 EXPORT_PER_CPU_SYMBOL(current_task);
@@ -80,63 +76,30 @@ unsigned long thread_saved_pc(struct task_struct *tsk)
 //XXX	return tsk->thread.eip;
 }
 
-/*
- * Powermanagement idle function, if any..
- */
-void (*pm_idle)(void);
-EXPORT_SYMBOL(pm_idle);
-
-void disable_hlt(void)
-{
-	hlt_counter++;
-}
-
-EXPORT_SYMBOL(disable_hlt);
-
-void enable_hlt(void)
-{
-	hlt_counter--;
-}
-
-EXPORT_SYMBOL(enable_hlt);
-
-/*
- * We use this if we don't have any better
- * idle routine..
- */
-void default_idle(void)
-{
-	if (!hlt_counter && boot_cpu_data.hlt_works_ok) {
-		current_thread_info()->status &= ~TS_POLLING;
-		/*
-		 * TS_POLLING-cleared state must be visible before we
-		 * test NEED_RESCHED:
-		 */
-		smp_mb();
-
-		if (!need_resched())
-			safe_halt();	/* enables interrupts racelessly */
-		else
-			local_irq_enable();
-		current_thread_info()->status |= TS_POLLING;
-	} else {
-		local_irq_enable();
-		/* loop is done by the caller */
-		cpu_relax();
-	}
-}
-#ifdef CONFIG_APM_MODULE
-EXPORT_SYMBOL(default_idle);
-#endif
-
 #ifdef CONFIG_HOTPLUG_CPU
 #include <asm/nmi.h>
+
+static void cpu_exit_clear(void)
+{
+	int cpu = raw_smp_processor_id();
+
+	idle_task_exit();
+
+	cpu_uninit();
+	irq_ctx_exit(cpu);
+
+	cpu_clear(cpu, cpu_callout_map);
+	cpu_clear(cpu, cpu_callin_map);
+
+	numa_remove_cpu(cpu);
+	c1e_remove_cpu(cpu);
+}
+
 /* We don't actually take CPU down, just spin without interrupts. */
 static inline void play_dead(void)
 {
 	/* This must be done before dead CPU ack */
 	cpu_exit_clear();
-	wbinvd();
 	mb();
 	/* Ack it */
 	__get_cpu_var(cpu_state) = CPU_DEAD;
@@ -145,8 +108,8 @@ static inline void play_dead(void)
 	 * With physical CPU hotplug, we should halt the cpu
 	 */
 	local_irq_disable();
-	while (1)
-		halt();
+	/* mask all interrupts, flush any and all caches, and halt */
+	wbinvd_halt();
 }
 #else
 static inline void play_dead(void)
@@ -169,26 +132,24 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
-		tick_nohz_stop_sched_tick();
+		tick_nohz_stop_sched_tick(1);
 		while (!need_resched()) {
-			void (*idle)(void);
 
 			check_pgt_cache();
 			rmb();
-			idle = pm_idle;
 
 			if (rcu_pending(cpu))
 				rcu_check_callbacks(cpu, 0);
-
-			if (!idle)
-				idle = default_idle;
 
 			if (cpu_is_offline(cpu))
 				play_dead();
 
 			local_irq_disable();
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
-			idle();
+			/* Don't trace irqs off for idle */
+			stop_critical_timings();
+			pm_idle();
+			start_critical_timings();
 		}
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();

@@ -23,7 +23,7 @@ gr_handle_chroot_unix(const pid_t pid)
 
 	read_lock(&tasklist_lock);
 
-	spid = find_pid(pid);
+	spid = find_vpid(pid);
 	if (spid) {
 		struct task_struct *p;
 		p = pid_task(spid, PIDTYPE_PID);
@@ -181,7 +181,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 
 	read_lock(&tasklist_lock);
 
-	pid = find_pid(shm_cprid);
+	pid = find_vpid(shm_cprid);
 	if (pid) {
 		struct task_struct *p;
 		p = pid_task(pid, PIDTYPE_PID);
@@ -196,7 +196,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		}
 		task_unlock(p);
 	} else {
-		pid = find_pid(shm_lapid);
+		pid = find_vpid(shm_lapid);
 		if (pid) {
 			struct task_struct *p;
 			p = pid_task(pid, PIDTYPE_PID);
@@ -300,7 +300,7 @@ gr_handle_chroot_sysctl(const int op)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
 	if (grsec_enable_chroot_sysctl && proc_is_chrooted(current)
-	    && (op & 002))
+	    && (op & MAY_WRITE))
 		return -EACCES;
 #endif
 	return 0;

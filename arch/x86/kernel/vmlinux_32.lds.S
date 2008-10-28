@@ -176,6 +176,7 @@ SECTIONS
   } :text = 0x9090
 
   . += __KERNEL_TEXT_OFFSET;
+
   . = ALIGN(4096);		/* Exception table */
   __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
   	__start___ex_table = .;
@@ -184,15 +185,6 @@ SECTIONS
   } :rodata
 
   NOTES :rodata :note
-
-  BUG_TABLE :rodata
-
-  . = ALIGN(4);
-  .tracedata : AT(ADDR(.tracedata) - LOAD_OFFSET) {
-  	__tracedata_start = .;
-	*(.tracedata)
-  	__tracedata_end = .;
-  }
 
   RO_DATA(PAGE_SIZE)
 
@@ -281,3 +273,11 @@ SECTIONS
 
   DWARF_DEBUG
 }
+
+#ifdef CONFIG_KEXEC
+/* Link time checks */
+#include <asm/kexec.h>
+
+ASSERT(kexec_control_code_size <= KEXEC_CONTROL_CODE_MAX_SIZE,
+       "kexec control code size is too big")
+#endif

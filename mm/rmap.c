@@ -49,12 +49,39 @@
 #include <linux/module.h>
 #include <linux/kallsyms.h>
 #include <linux/memcontrol.h>
+#include <linux/mmu_notifier.h>
 
 #include <asm/tlbflush.h>
 
 struct kmem_cache *anon_vma_cachep;
 
-/* This must be called under the mmap_sem. */
+/**
+ * anon_vma_prepare - attach an anon_vma to a memory region
+ * @vma: the memory region in question
+ *
+ * This makes sure the memory mapping described by 'vma' has
+ * an 'anon_vma' attached to it, so that we can associate the
+ * anonymous pages mapped into it with that anon_vma.
+ *
+ * The common case will be that we already have one, but if
+ * if not we either need to find an adjacent mapping that we
+ * can re-use the anon_vma from (very common when the only
+ * reason for splitting a vma has been mprotect()), or we
+ * allocate a new one.
+ *
+ * Anon-vma allocations are very subtle, because we may have
+ * optimistically looked up an anon_vma in page_lock_anon_vma()
+ * and that may actually touch the spinlock even in the newly
+ * allocated vma (it depends on RCU to make sure that the
+ * anon_vma isn't actually destroyed).
+ *
+ * As a result, we need to do proper anon_vma locking even
+ * for the new allocation. At the same time, we do not want
+ * to do any locking for the common case of already having
+ * an anon_vma.
+ *
+ * This must be called with the mmap_sem held for reading.
+ */
 int anon_vma_prepare(struct vm_area_struct *vma)
 {
 	struct anon_vma *anon_vma = vma->anon_vma;
@@ -62,24 +89,21 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 	might_sleep();
 	if (unlikely(!anon_vma)) {
 		struct mm_struct *mm = vma->vm_mm;
-		struct anon_vma *allocated, *locked;
+		struct anon_vma *allocated;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 		struct vm_area_struct *vma_m;
 #endif
 
 		anon_vma = find_mergeable_anon_vma(vma);
-		if (anon_vma) {
-			allocated = NULL;
-			locked = anon_vma;
-			spin_lock(&locked->lock);
-		} else {
+		allocated = NULL;
+		if (!anon_vma) {
 			anon_vma = anon_vma_alloc();
 			if (unlikely(!anon_vma))
 				return -ENOMEM;
 			allocated = anon_vma;
-			locked = NULL;
 		}
+		spin_lock(&anon_vma->lock);
 
 		/* page_table_lock to protect against threads */
 		spin_lock(&mm->page_table_lock);
@@ -99,8 +123,7 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 		}
 		spin_unlock(&mm->page_table_lock);
 
-		if (locked)
-			spin_unlock(&locked->lock);
+		spin_unlock(&anon_vma->lock);
 		if (unlikely(allocated))
 			anon_vma_free(allocated);
 	}
@@ -151,7 +174,7 @@ void anon_vma_unlink(struct vm_area_struct *vma)
 		anon_vma_free(anon_vma);
 }
 
-static void anon_vma_ctor(struct kmem_cache *cachep, void *data)
+static void anon_vma_ctor(void *data)
 {
 	struct anon_vma *anon_vma = data;
 
@@ -304,7 +327,7 @@ static int page_referenced_one(struct page *page,
 	if (vma->vm_flags & VM_LOCKED) {
 		referenced++;
 		*mapcount = 1;	/* break early from loop */
-	} else if (ptep_clear_flush_young(vma, address, pte))
+	} else if (ptep_clear_flush_young_notify(vma, address, pte))
 		referenced++;
 
 	/* Pretend the page is referenced if the task has the
@@ -438,7 +461,7 @@ int page_referenced(struct page *page, int is_locked,
 			referenced += page_referenced_anon(page, mem_cont);
 		else if (is_locked)
 			referenced += page_referenced_file(page, mem_cont);
-		else if (TestSetPageLocked(page))
+		else if (!trylock_page(page))
 			referenced++;
 		else {
 			if (page->mapping)
@@ -474,7 +497,7 @@ static int page_mkclean_one(struct page *page, struct vm_area_struct *vma)
 		pte_t entry;
 
 		flush_cache_page(vma, address, pte_pfn(*pte));
-		entry = ptep_clear_flush(vma, address, pte);
+		entry = ptep_clear_flush_notify(vma, address, pte);
 		entry = pte_wrprotect(entry);
 		entry = pte_mkclean(entry);
 		set_pte_at(mm, address, pte, entry);
@@ -593,14 +616,8 @@ void page_add_anon_rmap(struct page *page,
 	VM_BUG_ON(address < vma->vm_start || address >= vma->vm_end);
 	if (atomic_inc_and_test(&page->_mapcount))
 		__page_set_anon_rmap(page, vma, address);
-	else {
+	else
 		__page_check_anon_rmap(page, vma, address);
-		/*
-		 * We unconditionally charged during prepare, we uncharge here
-		 * This takes care of balancing the reference counts
-		 */
-		mem_cgroup_uncharge_page(page);
-	}
 }
 
 /**
@@ -631,12 +648,6 @@ void page_add_file_rmap(struct page *page)
 {
 	if (atomic_inc_and_test(&page->_mapcount))
 		__inc_zone_page_state(page, NR_FILE_MAPPED);
-	else
-		/*
-		 * We unconditionally charged during prepare, we uncharge here
-		 * This takes care of balancing the reference counts
-		 */
-		mem_cgroup_uncharge_page(page);
 }
 
 #ifdef CONFIG_DEBUG_VM
@@ -687,6 +698,22 @@ void page_remove_rmap(struct page *page, struct vm_area_struct *vma)
 		}
 
 		/*
+		 * Now that the last pte has gone, s390 must transfer dirty
+		 * flag from storage key to struct page.  We can usually skip
+		 * this if the page is anon, so about to be freed; but perhaps
+		 * not if it's in swapcache - there might be another pte slot
+		 * containing the swap entry, but page not yet written to swap.
+		 */
+		if ((!PageAnon(page) || PageSwapCache(page)) &&
+		    page_test_dirty(page)) {
+			page_clear_dirty(page);
+			set_page_dirty(page);
+		}
+
+		mem_cgroup_uncharge_page(page);
+		__dec_zone_page_state(page,
+			PageAnon(page) ? NR_ANON_PAGES : NR_FILE_MAPPED);
+		/*
 		 * It would be tidy to reset the PageAnon mapping here,
 		 * but that might overwrite a racing page_add_anon_rmap
 		 * which increments mapcount after us but sets mapping
@@ -695,14 +722,6 @@ void page_remove_rmap(struct page *page, struct vm_area_struct *vma)
 		 * Leaving it set also helps swapoff to reinstate ptes
 		 * faster for those pages still in swapcache.
 		 */
-		if (page_test_dirty(page)) {
-			page_clear_dirty(page);
-			set_page_dirty(page);
-		}
-		mem_cgroup_uncharge_page(page);
-
-		__dec_zone_page_state(page,
-				PageAnon(page) ? NR_ANON_PAGES : NR_FILE_MAPPED);
 	}
 }
 
@@ -734,14 +753,14 @@ static int try_to_unmap_one(struct page *page, struct vm_area_struct *vma,
 	 * skipped over this mm) then we should reactivate it.
 	 */
 	if (!migration && ((vma->vm_flags & VM_LOCKED) ||
-			(ptep_clear_flush_young(vma, address, pte)))) {
+			(ptep_clear_flush_young_notify(vma, address, pte)))) {
 		ret = SWAP_FAIL;
 		goto out_unmap;
 	}
 
 	/* Nuke the page table entry. */
 	flush_cache_page(vma, address, page_to_pfn(page));
-	pteval = ptep_clear_flush(vma, address, pte);
+	pteval = ptep_clear_flush_notify(vma, address, pte);
 
 	/* Move the dirty bit to the physical page now the pte is gone. */
 	if (pte_dirty(pteval))
@@ -866,12 +885,12 @@ static void try_to_unmap_cluster(unsigned long cursor,
 		page = vm_normal_page(vma, address, *pte);
 		BUG_ON(!page || PageAnon(page));
 
-		if (ptep_clear_flush_young(vma, address, pte))
+		if (ptep_clear_flush_young_notify(vma, address, pte))
 			continue;
 
 		/* Nuke the page table entry. */
 		flush_cache_page(vma, address, pte_pfn(*pte));
-		pteval = ptep_clear_flush(vma, address, pte);
+		pteval = ptep_clear_flush_notify(vma, address, pte);
 
 		/* If nonlinear, store the file page offset in the pte. */
 		if (page->index != linear_page_index(vma, address))

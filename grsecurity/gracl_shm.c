@@ -16,10 +16,10 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (!gr_acl_is_enabled())
 		return 1;
 
-	task = find_task_by_pid(shm_cprid);
+	task = find_task_by_vpid(shm_cprid);
 
 	if (unlikely(!task))
-		task = find_task_by_pid(shm_lapid);
+		task = find_task_by_vpid(shm_lapid);
 
 	if (unlikely(task && (time_before_eq((unsigned long)task->start_time.tv_sec, (unsigned long)shm_createtime) ||
 			      (task->pid == shm_lapid)) &&

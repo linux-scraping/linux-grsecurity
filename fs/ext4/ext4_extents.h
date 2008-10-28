@@ -212,10 +212,13 @@ static inline int ext4_ext_get_actual_len(struct ext4_extent *ext)
 		(le16_to_cpu(ext->ee_len) - EXT_INIT_MAX_LEN));
 }
 
+extern int ext4_ext_calc_metadata_amount(struct inode *inode, int blocks);
 extern ext4_fsblk_t idx_pblock(struct ext4_extent_idx *);
 extern void ext4_ext_store_pblock(struct ext4_extent *, ext4_fsblk_t);
 extern int ext4_extent_tree_init(handle_t *, struct inode *);
-extern int ext4_ext_calc_credits_for_insert(struct inode *, struct ext4_ext_path *);
+extern int ext4_ext_calc_credits_for_single_extent(struct inode *inode,
+						   int num,
+						   struct ext4_ext_path *path);
 extern int ext4_ext_try_to_merge(struct inode *inode,
 				 struct ext4_ext_path *path,
 				 struct ext4_extent *);

@@ -3327,9 +3327,9 @@ gr_handle_sysctl(const struct ctl_table *table, const int op)
 
 	mode |= GR_FIND;
 	/* it's only a read if it's an entry, read on dirs is for readdir */
-	if (op & 004)
+	if (op & MAY_READ)
 		mode |= GR_READ;
-	if (op & 002)
+	if (op & MAY_WRITE)
 		mode |= GR_WRITE;
 
 	preempt_disable();

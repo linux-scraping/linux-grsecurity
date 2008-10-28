@@ -1,8 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  * Unusual Devices File
  *
- * $Id: unusual_devs.h,v 1.32 2002/02/25 02:41:24 mdharm Exp $
- *
  * Current development and maintenance by:
  *   (c) 2000-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
  *
@@ -162,6 +160,13 @@ UNUSUAL_DEV(  0x0421, 0x0019, 0x0592, 0x0592,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_MAX_SECTORS_64 ),
 
+/* Reported by Filip Joelsson <filip@blueturtle.nu> */
+UNUSUAL_DEV(  0x0421, 0x005d, 0x0001, 0x0600,
+		"Nokia",
+		"Nokia 3110c",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY ),
+
 /* Reported by Mario Rettig <mariorettig@web.de> */
 UNUSUAL_DEV(  0x0421, 0x042e, 0x0100, 0x0100,
 		"Nokia",
@@ -226,6 +231,27 @@ UNUSUAL_DEV(  0x0421, 0x0495, 0x0370, 0x0370,
 		"6234",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_MAX_SECTORS_64 ),
+
+/* Reported by Cedric Godin <cedric@belbone.be> */
+UNUSUAL_DEV(  0x0421, 0x04b9, 0x0551, 0x0551,
+		"Nokia",
+		"5300",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY ),
+
+/* Reported by Richard Nauber <RichardNauber@web.de> */
+UNUSUAL_DEV(  0x0421, 0x04fa, 0x0601, 0x0601,
+		"Nokia",
+		"6300",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY ),
+
+/* Patch for Nokia 5310 capacity */
+UNUSUAL_DEV(  0x0421, 0x006a, 0x0000, 0x0591,
+	"Nokia",
+	"5310",
+	US_SC_DEVICE, US_PR_DEVICE, NULL,
+	US_FL_FIX_CAPACITY ),
 
 /* Reported by Olaf Hering <olh@suse.de> from novell bug #105878 */
 UNUSUAL_DEV(  0x0424, 0x0fdc, 0x0210, 0x0210,
@@ -982,6 +1008,13 @@ UNUSUAL_DEV(  0x069b, 0x3004, 0x0001, 0x0001,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
 
+/* Reported by Adrian Pilchowiec <adi1981@epf.pl> */
+UNUSUAL_DEV(  0x071b, 0x3203, 0x0000, 0x0000,
+		"RockChip",
+		"MP3",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64),
+
 /* Reported by Massimiliano Ghilardi <massimiliano.ghilardi@gmail.com>
  * This USB MP3/AVI player device fails and disconnects if more than 128
  * sectors (64kB) are read/written in a single command, and may be present
@@ -1229,6 +1262,17 @@ UNUSUAL_DEV(  0x084d, 0x0011, 0x0110, 0x0110,
 		"DC2MEGA",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_BULK32),
+
+/* Andrew Lunn <andrew@lunn.ch>
+ * PanDigital Digital Picture Frame. Does not like ALLOW_MEDIUM_REMOVAL
+ * on LUN 4.
+ * Note: Vend:Prod clash with "Ltd Maxell WS30 Slim Digital Camera"
+*/
+UNUSUAL_DEV(  0x0851, 0x1543, 0x0200, 0x0200,
+		"PanDigital",
+		"Photo Frame",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_NOT_LOCKABLE),
 
 /* Andrew Lunn <andrew@lunn.ch>
  * PanDigital Digital Picture Frame. Does not like ALLOW_MEDIUM_REMOVAL
@@ -1568,8 +1612,8 @@ UNUSUAL_DEV(  0x10d6, 0x2200, 0x0100, 0x0100,
 UNUSUAL_DEV(  0x1199, 0x0fff, 0x0000, 0x9999,
 		"Sierra Wireless",
 		"USB MMC Storage",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_DEVICE),
+		US_SC_DEVICE, US_PR_DEVICE, sierra_ms_init,
+		0),
 
 /* Reported by Jaco Kroon <jaco@kroon.co.za>
  * The usb-storage module found on the Digitech GNX4 (and supposedly other
@@ -1737,6 +1781,15 @@ UNUSUAL_DEV(  0x22b8, 0x3010, 0x0001, 0x0001,
 UNUSUAL_DEV(  0x22b8, 0x4810, 0x0001, 0x0002,
 		"Motorola",
 		"RAZR V3i/ROKR W5",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
+/*
+ * Patch by Jost Diederichs <jost@qdusa.com>
+ */
+UNUSUAL_DEV(0x22b8, 0x6410, 0x0001, 0x9999,
+		"Motorola Inc.",
+		"Motorola Phone (RAZRV3xx)",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY),
 

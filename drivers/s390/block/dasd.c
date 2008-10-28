@@ -995,14 +995,14 @@ void dasd_int_handler(struct ccw_device *cdev, unsigned long intparm,
 	now = get_clock();
 
 	DBF_EVENT(DBF_ERR, "Interrupt: bus_id %s CS/DS %04x ip %08x",
-		  cdev->dev.bus_id, ((irb->scsw.cstat<<8)|irb->scsw.dstat),
-		  (unsigned int) intparm);
+		  cdev->dev.bus_id, ((irb->scsw.cmd.cstat << 8) |
+		  irb->scsw.cmd.dstat), (unsigned int) intparm);
 
 	/* check for unsolicited interrupts */
 	cqr = (struct dasd_ccw_req *) intparm;
-	if (!cqr || ((irb->scsw.cc == 1) &&
-		     (irb->scsw.fctl & SCSW_FCTL_START_FUNC) &&
-		     (irb->scsw.stctl & SCSW_STCTL_STATUS_PEND)) ) {
+	if (!cqr || ((irb->scsw.cmd.cc == 1) &&
+		     (irb->scsw.cmd.fctl & SCSW_FCTL_START_FUNC) &&
+		     (irb->scsw.cmd.stctl & SCSW_STCTL_STATUS_PEND))) {
 		if (cqr && cqr->status == DASD_CQR_IN_IO)
 			cqr->status = DASD_CQR_QUEUED;
 		device = dasd_device_from_cdev_locked(cdev);
@@ -1025,7 +1025,7 @@ void dasd_int_handler(struct ccw_device *cdev, unsigned long intparm,
 
 	/* Check for clear pending */
 	if (cqr->status == DASD_CQR_CLEAR_PENDING &&
-	    irb->scsw.fctl & SCSW_FCTL_CLEAR_FUNC) {
+	    irb->scsw.cmd.fctl & SCSW_FCTL_CLEAR_FUNC) {
 		cqr->status = DASD_CQR_CLEARED;
 		dasd_device_clear_timer(device);
 		wake_up(&dasd_flush_wq);
@@ -1041,11 +1041,11 @@ void dasd_int_handler(struct ccw_device *cdev, unsigned long intparm,
 		return;
 	}
 	DBF_DEV_EVENT(DBF_DEBUG, device, "Int: CS/DS 0x%04x for cqr %p",
-		      ((irb->scsw.cstat << 8) | irb->scsw.dstat), cqr);
+		      ((irb->scsw.cmd.cstat << 8) | irb->scsw.cmd.dstat), cqr);
 	next = NULL;
 	expires = 0;
-	if (irb->scsw.dstat == (DEV_STAT_CHN_END | DEV_STAT_DEV_END) &&
-	    irb->scsw.cstat == 0 && !irb->esw.esw0.erw.cons) {
+	if (irb->scsw.cmd.dstat == (DEV_STAT_CHN_END | DEV_STAT_DEV_END) &&
+	    irb->scsw.cmd.cstat == 0 && !irb->esw.esw0.erw.cons) {
 		/* request was completed successfully */
 		cqr->status = DASD_CQR_SUCCESS;
 		cqr->stopclk = now;
@@ -2333,13 +2333,11 @@ int dasd_generic_notify(struct ccw_device *cdev, int event)
 {
 	struct dasd_device *device;
 	struct dasd_ccw_req *cqr;
-	unsigned long flags;
 	int ret;
 
-	device = dasd_device_from_cdev(cdev);
+	device = dasd_device_from_cdev_locked(cdev);
 	if (IS_ERR(device))
 		return 0;
-	spin_lock_irqsave(get_ccwdev_lock(cdev), flags);
 	ret = 0;
 	switch (event) {
 	case CIO_GONE:
@@ -2369,7 +2367,6 @@ int dasd_generic_notify(struct ccw_device *cdev, int event)
 		ret = 1;
 		break;
 	}
-	spin_unlock_irqrestore(get_ccwdev_lock(cdev), flags);
 	dasd_put_device(device);
 	return ret;
 }

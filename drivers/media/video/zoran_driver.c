@@ -71,6 +71,7 @@
 
 #include <linux/videodev.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 #include "videocodec.h"
 
 #include <asm/byteorder.h>
@@ -94,7 +95,6 @@
 				V4L2_CAP_VIDEO_OVERLAY \
 			      )
 
-#include <asm/byteorder.h>
 
 #if defined(CONFIG_VIDEO_V4L1_COMPAT)
 #define ZFMT(pal, fcc, cs) \
@@ -134,7 +134,7 @@ const struct zoran_format zoran_formats[] = {
 	}, {
 		.name = "16-bit RGB BE",
 		ZFMT(-1,
-		     V4L2_PIX_FMT_RGB565, V4L2_COLORSPACE_SRGB),
+		     V4L2_PIX_FMT_RGB565X, V4L2_COLORSPACE_SRGB),
 		.depth = 16,
 		.flags = ZORAN_FORMAT_CAPTURE |
 			 ZORAN_FORMAT_OVERLAY,
@@ -1213,8 +1213,8 @@ zoran_open (struct inode *inode,
 
 	/* find the device */
 	for (i = 0; i < zoran_num; i++) {
-		if (zoran[i].video_dev->minor == minor) {
-			zr = &zoran[i];
+		if (zoran[i]->video_dev->minor == minor) {
+			zr = zoran[i];
 			break;
 		}
 	}
@@ -2737,7 +2737,8 @@ zoran_do_ioctl (struct inode *inode,
 				    fh->v4l_settings.format->fourcc;
 				fmt->fmt.pix.colorspace =
 				    fh->v4l_settings.format->colorspace;
-				fmt->fmt.pix.bytesperline = 0;
+				fmt->fmt.pix.bytesperline =
+				    fh->v4l_settings.bytesperline;
 				if (BUZ_MAX_HEIGHT <
 				    (fh->v4l_settings.height * 2))
 					fmt->fmt.pix.field =
@@ -2795,7 +2796,7 @@ zoran_do_ioctl (struct inode *inode,
 	{
 		struct v4l2_format *fmt = arg;
 		int i, res = 0;
-		__u32 printformat;
+		__le32 printformat;
 
 		dprintk(3, KERN_DEBUG "%s: VIDIOC_S_FMT - type=%d, ",
 			ZR_DEVNAME(zr), fmt->type);
@@ -2832,13 +2833,6 @@ zoran_do_ioctl (struct inode *inode,
 				fmt->fmt.pix.width, fmt->fmt.pix.height,
 				fmt->fmt.pix.pixelformat,
 				(char *) &printformat);
-
-			if (fmt->fmt.pix.bytesperline > 0) {
-				dprintk(5,
-					KERN_ERR "%s: bpl not supported\n",
-					ZR_DEVNAME(zr));
-				return -EINVAL;
-			}
 
 			/* we can be requested to do JPEG/raw playback/capture */
 			if (!
@@ -2923,6 +2917,7 @@ zoran_do_ioctl (struct inode *inode,
 				fh->jpg_buffers.buffer_size =
 				    zoran_v4l2_calc_bufsize(&fh->
 							    jpg_settings);
+				fmt->fmt.pix.bytesperline = 0;
 				fmt->fmt.pix.sizeimage =
 				    fh->jpg_buffers.buffer_size;
 
@@ -2979,6 +2974,8 @@ zoran_do_ioctl (struct inode *inode,
 
 				/* tell the user the
 				 * results/missing stuff */
+				fmt->fmt.pix.bytesperline =
+					fh->v4l_settings.bytesperline;
 				fmt->fmt.pix.sizeimage =
 					fh->v4l_settings.height *
 					fh->v4l_settings.bytesperline;
@@ -3040,7 +3037,7 @@ zoran_do_ioctl (struct inode *inode,
 	{
 		int i, res = 0;
 		struct v4l2_framebuffer *fb = arg;
-		__u32 printformat = __cpu_to_le32(fb->fmt.pixelformat);
+		__le32 printformat = __cpu_to_le32(fb->fmt.pixelformat);
 
 		dprintk(3,
 			KERN_DEBUG
@@ -4644,8 +4641,6 @@ static const struct file_operations zoran_fops = {
 
 struct video_device zoran_template __devinitdata = {
 	.name = ZORAN_NAME,
-	.type = ZORAN_VID_TYPE,
-	.type2 = ZORAN_V4L2_VID_FLAGS,
 	.fops = &zoran_fops,
 	.release = &zoran_vdev_release,
 	.minor = -1

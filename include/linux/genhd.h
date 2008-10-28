@@ -110,7 +110,6 @@ struct hd_struct {
 #define GENHD_FL_SUPPRESS_PARTITION_INFO	32
 #define GENHD_FL_FAIL				64
 
-
 struct gendisk {
 	int major;			/* major number of driver */
 	int first_minor;
@@ -141,6 +140,9 @@ struct gendisk {
 	struct disk_stats dkstats;
 #endif
 	struct work_struct async_notify;
+#ifdef  CONFIG_BLK_DEV_INTEGRITY
+	struct blk_integrity *integrity;
+#endif
 };
 
 /* 
@@ -529,7 +531,7 @@ extern dev_t blk_lookup_devt(const char *name, int part);
 extern char *disk_name (struct gendisk *hd, int part, char *buf);
 
 extern int rescan_partitions(struct gendisk *disk, struct block_device *bdev);
-extern void add_partition(struct gendisk *, int, sector_t, sector_t, int);
+extern int __must_check add_partition(struct gendisk *, int, sector_t, sector_t, int);
 extern void delete_partition(struct gendisk *, int);
 extern void printk_all_partitions(void);
 

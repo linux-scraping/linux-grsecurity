@@ -102,6 +102,7 @@ static int ext3_readdir(struct file * filp,
 	int err;
 	struct inode *inode = filp->f_path.dentry->d_inode;
 	int ret = 0;
+	int dir_has_error = 0;
 
 	sb = inode->i_sb;
 
@@ -148,9 +149,12 @@ static int ext3_readdir(struct file * filp,
 		 * of recovering data when there's a bad sector
 		 */
 		if (!bh) {
-			ext3_error (sb, "ext3_readdir",
-				"directory #%lu contains a hole at offset %lu",
-				inode->i_ino, (unsigned long)filp->f_pos);
+			if (!dir_has_error) {
+				ext3_error(sb, __func__, "directory #%lu "
+					"contains a hole at offset %lld",
+					inode->i_ino, filp->f_pos);
+				dir_has_error = 1;
+			}
 			/* corrupt size?  Maybe no more blocks to read */
 			if (filp->f_pos > inode->i_blocks << 9)
 				break;
@@ -272,7 +276,7 @@ static void free_rb_tree_fname(struct rb_root *root)
 
 	while (n) {
 		/* Do the node's children first */
-		if ((n)->rb_left) {
+		if (n->rb_left) {
 			n = n->rb_left;
 			continue;
 		}
@@ -301,24 +305,18 @@ static void free_rb_tree_fname(struct rb_root *root)
 			parent->rb_right = NULL;
 		n = parent;
 	}
-	root->rb_node = NULL;
 }
 
 
-static struct dir_private_info *create_dir_info(loff_t pos)
+static struct dir_private_info *ext3_htree_create_dir_info(loff_t pos)
 {
 	struct dir_private_info *p;
 
-	p = kmalloc(sizeof(struct dir_private_info), GFP_KERNEL);
+	p = kzalloc(sizeof(struct dir_private_info), GFP_KERNEL);
 	if (!p)
 		return NULL;
-	p->root.rb_node = NULL;
-	p->curr_node = NULL;
-	p->extra_fname = NULL;
-	p->last_pos = 0;
 	p->curr_hash = pos2maj_hash(pos);
 	p->curr_minor_hash = pos2min_hash(pos);
-	p->next_hash = 0;
 	return p;
 }
 
@@ -433,7 +431,7 @@ static int ext3_dx_readdir(struct file * filp,
 	int	ret;
 
 	if (!info) {
-		info = create_dir_info(filp->f_pos);
+		info = ext3_htree_create_dir_info(filp->f_pos);
 		if (!info)
 			return -ENOMEM;
 		filp->private_data = info;

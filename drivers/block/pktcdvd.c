@@ -302,7 +302,9 @@ static struct kobj_type kobj_pkt_type_wqueue = {
 static void pkt_sysfs_dev_new(struct pktcdvd_device *pd)
 {
 	if (class_pktcdvd) {
-		pd->dev = device_create(class_pktcdvd, NULL, pd->pkt_dev, "%s", pd->name);
+		pd->dev = device_create_drvdata(class_pktcdvd, NULL,
+						pd->pkt_dev, NULL,
+						"%s", pd->name);
 		if (IS_ERR(pd->dev))
 			pd->dev = NULL;
 	}
@@ -2079,7 +2081,6 @@ static noinline_for_stack int pkt_write_caching(struct pktcdvd_device *pd,
 	unsigned char buf[64];
 	int ret;
 
-	memset(buf, 0, sizeof(buf));
 	init_cdrom_command(&cgc, buf, sizeof(buf), CGC_DATA_READ);
 	cgc.sense = &sense;
 	cgc.buflen = pd->mode_offset + 12;
@@ -2126,7 +2127,6 @@ static noinline_for_stack int pkt_get_max_speed(struct pktcdvd_device *pd,
 	unsigned char *cap_buf;
 	int ret, offset;
 
-	memset(buf, 0, sizeof(buf));
 	cap_buf = &buf[sizeof(struct mode_page_header) + pd->mode_offset];
 	init_cdrom_command(&cgc, buf, sizeof(buf), CGC_DATA_UNKNOWN);
 	cgc.sense = &sense;
@@ -2633,11 +2633,12 @@ end_io:
 
 
 
-static int pkt_merge_bvec(struct request_queue *q, struct bio *bio, struct bio_vec *bvec)
+static int pkt_merge_bvec(struct request_queue *q, struct bvec_merge_data *bmd,
+			  struct bio_vec *bvec)
 {
 	struct pktcdvd_device *pd = q->queuedata;
-	sector_t zone = ZONE(bio->bi_sector, pd);
-	int used = ((bio->bi_sector - zone) << 9) + bio->bi_size;
+	sector_t zone = ZONE(bmd->bi_sector, pd);
+	int used = ((bmd->bi_sector - zone) << 9) + bmd->bi_size;
 	int remaining = (pd->settings.size << 9) - used;
 	int remaining2;
 
@@ -2645,7 +2646,7 @@ static int pkt_merge_bvec(struct request_queue *q, struct bio *bio, struct bio_v
 	 * A bio <= PAGE_SIZE must be allowed. If it crosses a packet
 	 * boundary, pkt_make_request() will split the bio.
 	 */
-	remaining2 = PAGE_SIZE - bio->bi_size;
+	remaining2 = PAGE_SIZE - bmd->bi_size;
 	remaining = max(remaining, remaining2);
 
 	BUG_ON(remaining < 0);

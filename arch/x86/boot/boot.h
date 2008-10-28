@@ -24,11 +24,13 @@
 #include <linux/edd.h>
 #include <asm/boot.h>
 #include <asm/setup.h>
-
-#define NCAPINTS   8
+#include "bitops.h"
+#include <asm/cpufeature.h>
 
 /* Useful macros */
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
 
 extern struct setup_header hdr;
 extern struct boot_params boot_params;

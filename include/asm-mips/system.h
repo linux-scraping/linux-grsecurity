@@ -215,6 +215,6 @@ extern void per_cpu_trap_init(void);
  */
 #define __ARCH_WANT_UNLOCKED_CTXSW
 
-#define arch_align_stack(x) (x)
+#define arch_align_stack(x) ((x) & ALMASK)
 
 #endif /* _ASM_SYSTEM_H */

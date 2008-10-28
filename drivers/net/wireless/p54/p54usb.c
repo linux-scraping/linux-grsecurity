@@ -109,7 +109,17 @@ static void p54u_rx_cb(struct urb *urb)
 		urb->context = skb;
 		skb_queue_tail(&priv->rx_queue, skb);
 	} else {
+		if (!priv->hw_type)
+			skb_push(skb, sizeof(struct net2280_tx_hdr));
+
+		skb_reset_tail_pointer(skb);
 		skb_trim(skb, 0);
+		if (urb->transfer_buffer != skb_tail_pointer(skb)) {
+			/* this should not happen */
+			WARN_ON(1);
+			urb->transfer_buffer = skb_tail_pointer(skb);
+		}
+
 		skb_queue_tail(&priv->rx_queue, skb);
 	}
 
@@ -376,7 +386,8 @@ static int p54u_upload_firmware_3887(struct ieee80211_hw *dev)
 	const struct firmware *fw_entry = NULL;
 	int err, alen;
 	u8 carry = 0;
-	u8 *buf, *tmp, *data;
+	u8 *buf, *tmp;
+	const u8 *data;
 	unsigned int left, remains, block_size;
 	struct x2_header *hdr;
 	unsigned long timeout;
@@ -523,7 +534,7 @@ static int p54u_upload_firmware_net2280(struct ieee80211_hw *dev)
 	void *buf;
 	__le32 reg;
 	unsigned int remains, offset;
-	u8 *data;
+	const u8 *data;
 
 	buf = kmalloc(512, GFP_KERNEL);
 	if (!buf) {

@@ -177,7 +177,7 @@ static u32 e1000_get_link(struct net_device *netdev)
 	u32 status;
 	
 	status = er32(STATUS);
-	return (status & E1000_STATUS_LU);
+	return (status & E1000_STATUS_LU) ? 1 : 0;
 }
 
 static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
@@ -189,8 +189,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
 	/* Fiber NICs only allow 1000 gbps Full duplex */
 	if ((adapter->hw.phy.media_type == e1000_media_type_fiber) &&
 		spddplx != (SPEED_1000 + DUPLEX_FULL)) {
-		ndev_err(adapter->netdev, "Unsupported Speed/Duplex "
-			 "configuration\n");
+		e_err("Unsupported Speed/Duplex configuration\n");
 		return -EINVAL;
 	}
 
@@ -213,8 +212,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
 		break;
 	case SPEED_1000 + DUPLEX_HALF: /* not supported */
 	default:
-		ndev_err(adapter->netdev, "Unsupported Speed/Duplex "
-			 "configuration\n");
+		e_err("Unsupported Speed/Duplex configuration\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -231,8 +229,8 @@ static int e1000_set_settings(struct net_device *netdev,
 	 * cannot be changed
 	 */
 	if (e1000_check_reset_block(hw)) {
-		ndev_err(netdev, "Cannot change link "
-			 "characteristics when SoL/IDER is active.\n");
+		e_err("Cannot change link characteristics when SoL/IDER is "
+		      "active.\n");
 		return -EINVAL;
 	}
 
@@ -380,8 +378,7 @@ static int e1000_set_tso(struct net_device *netdev, u32 data)
 		netdev->features &= ~NETIF_F_TSO6;
 	}
 
-	ndev_info(netdev, "TSO is %s\n",
-		  data ? "Enabled" : "Disabled");
+	e_info("TSO is %s\n", data ? "Enabled" : "Disabled");
 	adapter->flags |= FLAG_TSO_FORCE;
 	return 0;
 }
@@ -435,6 +432,10 @@ static void e1000_get_regs(struct net_device *netdev,
 	regs_buff[11] = er32(TIDV);
 
 	regs_buff[12] = adapter->hw.phy.type;  /* PHY type (IGP=1, M88=0) */
+
+	/* ethtool doesn't use anything past this point, so all this
+	 * code is likely legacy junk for apps that may or may not
+	 * exist */
 	if (hw->phy.type == e1000_phy_m88) {
 		e1e_rphy(hw, M88E1000_PHY_SPEC_STATUS, &phy_data);
 		regs_buff[13] = (u32)phy_data; /* cable length */
@@ -450,7 +451,7 @@ static void e1000_get_regs(struct net_device *netdev,
 		regs_buff[22] = adapter->phy_stats.receive_errors;
 		regs_buff[23] = regs_buff[13]; /* mdix mode */
 	}
-	regs_buff[21] = adapter->phy_stats.idle_errors;  /* phy idle errors */
+	regs_buff[21] = 0; /* was idle_errors */
 	e1e_rphy(hw, PHY_1000T_STATUS, &phy_data);
 	regs_buff[24] = (u32)phy_data;  /* phy local receiver status */
 	regs_buff[25] = regs_buff[24];  /* phy remote receiver status */
@@ -531,6 +532,9 @@ static int e1000_set_eeprom(struct net_device *netdev,
 
 	if (eeprom->magic != (adapter->pdev->vendor | (adapter->pdev->device << 16)))
 		return -EFAULT;
+
+	if (adapter->flags & FLAG_READ_ONLY_NVM)
+		return -EINVAL;
 
 	max_len = hw->nvm.word_size * 2;
 
@@ -722,10 +726,9 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data,
 				      (test[pat] & write));
 		val = E1000_READ_REG_ARRAY(&adapter->hw, reg, offset);
 		if (val != (test[pat] & write & mask)) {
-			ndev_err(adapter->netdev, "pattern test reg %04X "
-				 "failed: got 0x%08X expected 0x%08X\n",
-				 reg + offset,
-				 val, (test[pat] & write & mask));
+			e_err("pattern test reg %04X failed: got 0x%08X "
+			      "expected 0x%08X\n", reg + offset, val,
+			      (test[pat] & write & mask));
 			*data = reg;
 			return 1;
 		}
@@ -740,9 +743,8 @@ static bool reg_set_and_check(struct e1000_adapter *adapter, u64 *data,
 	__ew32(&adapter->hw, reg, write & mask);
 	val = __er32(&adapter->hw, reg);
 	if ((write & mask) != (val & mask)) {
-		ndev_err(adapter->netdev, "set/check reg %04X test failed: "
-			 "got 0x%08X expected 0x%08X\n", reg, (val & mask),
-			 (write & mask));
+		e_err("set/check reg %04X test failed: got 0x%08X "
+		      "expected 0x%08X\n", reg, (val & mask), (write & mask));
 		*data = reg;
 		return 1;
 	}
@@ -766,7 +768,6 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
 {
 	struct e1000_hw *hw = &adapter->hw;
 	struct e1000_mac_info *mac = &adapter->hw.mac;
-	struct net_device *netdev = adapter->netdev;
 	u32 value;
 	u32 before;
 	u32 after;
@@ -799,8 +800,8 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
 	ew32(STATUS, toggle);
 	after = er32(STATUS) & toggle;
 	if (value != after) {
-		ndev_err(netdev, "failed STATUS register test got: "
-			 "0x%08X expected: 0x%08X\n", after, value);
+		e_err("failed STATUS register test got: 0x%08X expected: "
+		      "0x%08X\n", after, value);
 		*data = 1;
 		return 1;
 	}
@@ -903,8 +904,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
 		*data = 1;
 		return -1;
 	}
-	ndev_info(netdev, "testing %s interrupt\n",
-		  (shared_int ? "shared" : "unshared"));
+	e_info("testing %s interrupt\n", (shared_int ? "shared" : "unshared"));
 
 	/* Disable all the interrupts */
 	ew32(IMC, 0xFFFFFFFF);
@@ -1090,7 +1090,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
 		tx_ring->buffer_info[i].dma =
 			pci_map_single(pdev, skb->data, skb->len,
 				       PCI_DMA_TODEVICE);
-		if (pci_dma_mapping_error(tx_ring->buffer_info[i].dma)) {
+		if (pci_dma_mapping_error(pdev, tx_ring->buffer_info[i].dma)) {
 			ret_val = 4;
 			goto err_nomem;
 		}
@@ -1153,7 +1153,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
 		rx_ring->buffer_info[i].dma =
 			pci_map_single(pdev, skb->data, 2048,
 				       PCI_DMA_FROMDEVICE);
-		if (pci_dma_mapping_error(rx_ring->buffer_info[i].dma)) {
+		if (pci_dma_mapping_error(pdev, rx_ring->buffer_info[i].dma)) {
 			ret_val = 8;
 			goto err_nomem;
 		}
@@ -1526,8 +1526,7 @@ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
 	 * sessions are active
 	 */
 	if (e1000_check_reset_block(&adapter->hw)) {
-		ndev_err(adapter->netdev, "Cannot do PHY loopback test "
-			 "when SoL/IDER is active.\n");
+		e_err("Cannot do PHY loopback test when SoL/IDER is active.\n");
 		*data = 0;
 		goto out;
 	}
@@ -1612,7 +1611,7 @@ static void e1000_diag_test(struct net_device *netdev,
 		forced_speed_duplex = adapter->hw.mac.forced_speed_duplex;
 		autoneg = adapter->hw.mac.autoneg;
 
-		ndev_info(netdev, "offline testing starting\n");
+		e_info("offline testing starting\n");
 
 		/*
 		 * Link test performed before hardware reset so autoneg doesn't
@@ -1658,7 +1657,7 @@ static void e1000_diag_test(struct net_device *netdev,
 		if (if_running)
 			dev_open(netdev);
 	} else {
-		ndev_info(netdev, "online testing starting\n");
+		e_info("online testing starting\n");
 		/* Online tests */
 		if (e1000_link_test(adapter, &data[4]))
 			eth_test->flags |= ETH_TEST_FL_FAILED;
@@ -1694,8 +1693,8 @@ static void e1000_get_wol(struct net_device *netdev,
 		wol->supported &= ~WAKE_UCAST;
 
 		if (adapter->wol & E1000_WUFC_EX)
-			ndev_err(netdev, "Interface does not support "
-				 "directed (unicast) frame wake-up packets\n");
+			e_err("Interface does not support directed (unicast) "
+			      "frame wake-up packets\n");
 	}
 
 	if (adapter->wol & E1000_WUFC_EX)

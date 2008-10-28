@@ -5,9 +5,13 @@
 #include <linux/mm.h>		/* for struct page */
 #include <linux/pagemap.h>
 
+static inline int  __paravirt_pgd_alloc(struct mm_struct *mm) { return 0; }
+
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
+#define paravirt_pgd_alloc(mm)	__paravirt_pgd_alloc(mm)
+static inline void paravirt_pgd_free(struct mm_struct *mm, pgd_t *pgd) {}
 static inline void paravirt_alloc_pte(struct mm_struct *mm, unsigned long pfn)	{}
 static inline void paravirt_alloc_pmd(struct mm_struct *mm, unsigned long pfn)	{}
 static inline void paravirt_alloc_pmd_clone(unsigned long pfn, unsigned long clonepfn,
@@ -47,11 +51,7 @@ static inline void pmd_populate_kernel(struct mm_struct *mm,
 				       pmd_t *pmd, pte_t *pte)
 {
 	paravirt_alloc_pte(mm, __pa(pte) >> PAGE_SHIFT);
-#ifdef CONFIG_COMPAT_VDSO
-	set_pmd(pmd, __pmd(__pa(pte) | _PAGE_TABLE));
-#else
 	set_pmd(pmd, __pmd(__pa(pte) | _KERNPG_TABLE));
-#endif
 }
 
 static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,

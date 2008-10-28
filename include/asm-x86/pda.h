@@ -20,6 +20,8 @@ struct x8664_pda {
 					/* gcc-ABI: this canary MUST be at
 					   offset 40!!! */
 	char *irqstackptr;
+	short nodenumber;		/* number of current node (32k max) */
+	short in_bootmem;		/* pda lives in bootmem */
 	unsigned int __softirq_pending;
 	unsigned int __nmi_count;	/* number of NMI on this CPUs */
 	short mmu_state;
@@ -35,8 +37,7 @@ struct x8664_pda {
 	unsigned irq_spurious_count;
 } ____cacheline_aligned_in_smp;
 
-extern struct x8664_pda *_cpu_pda[];
-extern struct x8664_pda boot_cpu_pda[];
+extern struct x8664_pda **_cpu_pda;
 extern void pda_init(int);
 
 #define cpu_pda(i) (_cpu_pda[i])

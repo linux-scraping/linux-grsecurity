@@ -24,6 +24,7 @@
 #include <linux/fdtable.h>
 #include <linux/fs.h>
 #include <linux/rcupdate.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 
@@ -658,6 +659,7 @@ int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds, s64 *timeout)
  	struct poll_list *walk = head;
  	unsigned long todo = nfds;
 
+	gr_learn_resource(current, RLIMIT_NOFILE, nfds, 1);
 	if (nfds > current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
 		return -EINVAL;
 

@@ -10,6 +10,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/ptrace.h>
+#include <linux/mmiotrace.h>
 #include <linux/mman.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
@@ -51,6 +52,16 @@
 #define PF_USER		(1<<2)
 #define PF_RSVD		(1<<3)
 #define PF_INSTR	(1<<4)
+
+static inline int kmmio_fault(struct pt_regs *regs, unsigned long addr)
+{
+#ifdef CONFIG_MMIOTRACE_HOOKS
+	if (unlikely(is_kmmio_active()))
+		if (kmmio_handler(regs, addr) == 1)
+			return -1;
+#endif
+	return 0;
+}
 
 static inline int notify_page_fault(struct pt_regs *regs)
 {
@@ -421,12 +432,14 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 #else
 	if (init_mm.start_code <= address && address < init_mm.end_code)
 #endif
+	{
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-					 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
+				NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-					 current->comm, task_pid_nr(current), current->uid, current->euid);
+				current->comm, task_pid_nr(current), current->uid, current->euid);
+	}
 #endif
 
 	printk(KERN_ALERT "BUG: unable to handle kernel ");
@@ -434,11 +447,7 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 		printk(KERN_CONT "NULL pointer dereference");
 	else
 		printk(KERN_CONT "paging request");
-#ifdef CONFIG_X86_32
-	printk(KERN_CONT " at %08lx\n", address);
-#else
-	printk(KERN_CONT " at %016lx\n", address);
-#endif
+	printk(KERN_CONT " at %p\n", (void *) address);
 	printk(KERN_ALERT "IP:");
 	printk_address(regs->ip, 1);
 	dump_pagetable(address);
@@ -649,6 +658,8 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	si_code = SEGV_MAPERR;
 
 	if (notify_page_fault(regs))
+		return;
+	if (unlikely(kmmio_fault(regs, address)))
 		return;
 
 	/*
@@ -994,14 +1005,10 @@ bad_area_nopax:
 		if (show_unhandled_signals && unhandled_signal(tsk, SIGSEGV) &&
 		    printk_ratelimit()) {
 			printk(
-#ifdef CONFIG_X86_32
-			"%s%s[%d]: segfault at %lx ip %08lx sp %08lx error %lx",
-#else
-			"%s%s[%d]: segfault at %lx ip %lx sp %lx error %lx",
-#endif
+			"%s%s[%d]: segfault at %lx ip %p sp %p error %lx",
 			task_pid_nr(tsk) > 1 ? KERN_INFO : KERN_EMERG,
-			tsk->comm, task_pid_nr(tsk), address, regs->ip,
-			regs->sp, error_code);
+			tsk->comm, task_pid_nr(tsk), address,
+			(void *) regs->ip, (void *) regs->sp, error_code);
 			print_vma_addr(" in ", regs->ip);
 			printk("\n");
 		}
@@ -1109,14 +1116,7 @@ LIST_HEAD(pgd_list);
 void vmalloc_sync_all(void)
 {
 #ifdef CONFIG_X86_32
-	/*
-	 * Note that races in the updates of insync and start aren't
-	 * problematic: insync can only get set bits added, and updates to
-	 * start are only improving performance (without affecting correctness
-	 * if undone).
-	 */
-	static DECLARE_BITMAP(insync, PTRS_PER_PGD);
-	static unsigned long start = TASK_SIZE;
+	unsigned long start = VMALLOC_START & PGDIR_MASK;
 	unsigned long address;
 
 	if (SHARED_KERNEL_PMD)
@@ -1124,56 +1124,38 @@ void vmalloc_sync_all(void)
 
 	BUILD_BUG_ON(TASK_SIZE & ~PGDIR_MASK);
 	for (address = start; address >= TASK_SIZE; address += PGDIR_SIZE) {
-		if (!test_bit(pgd_index(address), insync)) {
-			unsigned long flags;
-			struct page *page;
+		unsigned long flags;
+		struct page *page;
 
-			spin_lock_irqsave(&pgd_lock, flags);
-			list_for_each_entry(page, &pgd_list, lru) {
-				if (!vmalloc_sync_one(page_address(page),
-						      address))
-					break;
-			}
-			spin_unlock_irqrestore(&pgd_lock, flags);
-			if (!page)
-				set_bit(pgd_index(address), insync);
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru) {
+			if (!vmalloc_sync_one(page_address(page),
+					      address))
+				break;
 		}
-		if (address == start && test_bit(pgd_index(address), insync))
-			start = address + PGDIR_SIZE;
+		spin_unlock_irqrestore(&pgd_lock, flags);
 	}
 #else /* CONFIG_X86_64 */
-	/*
-	 * Note that races in the updates of insync and start aren't
-	 * problematic: insync can only get set bits added, and updates to
-	 * start are only improving performance (without affecting correctness
-	 * if undone).
-	 */
-	static DECLARE_BITMAP(insync, PTRS_PER_PGD);
-	static unsigned long start = VMALLOC_START & PGDIR_MASK;
+	unsigned long start = VMALLOC_START & PGDIR_MASK;
 	unsigned long address;
 
 	for (address = start; address <= VMALLOC_END; address += PGDIR_SIZE) {
-		if (!test_bit(pgd_index(address), insync)) {
-			const pgd_t *pgd_ref = pgd_offset_k(address);
-			unsigned long flags;
-			struct page *page;
+		const pgd_t *pgd_ref = pgd_offset_k(address);
+		unsigned long flags;
+		struct page *page;
 
-			if (pgd_none(*pgd_ref))
-				continue;
-			spin_lock_irqsave(&pgd_lock, flags);
-			list_for_each_entry(page, &pgd_list, lru) {
-				pgd_t *pgd;
-				pgd = (pgd_t *)page_address(page) + pgd_index(address);
-				if (pgd_none(*pgd))
-					set_pgd(pgd, *pgd_ref);
-				else
-					BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
-			}
-			spin_unlock_irqrestore(&pgd_lock, flags);
-			set_bit(pgd_index(address), insync);
+		if (pgd_none(*pgd_ref))
+			continue;
+		spin_lock_irqsave(&pgd_lock, flags);
+		list_for_each_entry(page, &pgd_list, lru) {
+			pgd_t *pgd;
+			pgd = (pgd_t *)page_address(page) + pgd_index(address);
+			if (pgd_none(*pgd))
+				set_pgd(pgd, *pgd_ref);
+			else
+				BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
 		}
-		if (address == start)
-			start = address + PGDIR_SIZE;
+		spin_unlock_irqrestore(&pgd_lock, flags);
 	}
 #endif
 }

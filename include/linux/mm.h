@@ -42,6 +42,9 @@ extern unsigned long mmap_min_addr;
 
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
+/* to align the pointer to the (next) page boundary */
+#define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE)
+
 /*
  * Linux kernel virtual memory manager primitives.
  * The idea being to have a "virtual" mm in the same way
@@ -71,7 +74,7 @@ extern unsigned int kobjsize(const void *objp);
 #endif
 
 /*
- * vm_flags..
+ * vm_flags in vm_area_struct, see mm_types.h.
  */
 #define VM_READ		0x00000001	/* currently active flags */
 #define VM_WRITE	0x00000002
@@ -101,6 +104,7 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_DONTEXPAND	0x00040000	/* Cannot expand with mremap() */
 #define VM_RESERVED	0x00080000	/* Count as reserved_vm like IO */
 #define VM_ACCOUNT	0x00100000	/* Is a VM accounted object */
+#define VM_NORESERVE	0x00200000	/* should the VM suppress accounting */
 #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
 #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
 #define VM_MAPPED_COPY	0x01000000	/* T if mapped copy of data (nommu mmap) */
@@ -109,13 +113,14 @@ extern unsigned int kobjsize(const void *objp);
 
 #define VM_CAN_NONLINEAR 0x08000000	/* Has ->fault & does nonlinear pages */
 #define VM_MIXEDMAP	0x10000000	/* Can contain "struct page" and pure PFN pages */
+#define VM_SAO		0x20000000	/* Strong Access Ordering (powerpc) */
 
 #ifdef CONFIG_PAX_PAGEEXEC
-#define VM_PAGEEXEC	0x20000000	/* vma->vm_page_prot needs special handling */
+#define VM_PAGEEXEC	0x40000000	/* vma->vm_page_prot needs special handling */
 #endif
 
 #ifdef CONFIG_PAX_MPROTECT
-#define VM_MAYNOTWRITE	0x40000000	/* vma cannot be granted VM_WRITE any more */
+#define VM_MAYNOTWRITE	0x80000000	/* vma cannot be granted VM_WRITE any more */
 #endif
 
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
@@ -174,12 +179,16 @@ struct vm_operations_struct {
 	void (*open)(struct vm_area_struct * area);
 	void (*close)(struct vm_area_struct * area);
 	int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf);
-	unsigned long (*nopfn)(struct vm_area_struct *area,
-			unsigned long address);
 
 	/* notification that a previously read-only page is about to become
 	 * writable, if an error is returned it will cause a SIGBUS */
 	int (*page_mkwrite)(struct vm_area_struct *vma, struct page *page);
+
+	/* called by access_process_vm when get_user_pages() fails, typically
+	 * for use by special VMAs that can switch between memory and hardware
+	 */
+	int (*access)(struct vm_area_struct *vma, unsigned long addr,
+		      void *buf, int len, int write);
 #ifdef CONFIG_NUMA
 	/*
 	 * set_policy() op must add a reference to any non-NULL @new mempolicy
@@ -683,13 +692,6 @@ static inline int page_mapped(struct page *page)
 }
 
 /*
- * Error return values for the *_nopfn functions
- */
-#define NOPFN_SIGBUS	((unsigned long) -1)
-#define NOPFN_OOM	((unsigned long) -2)
-#define NOPFN_REFAULT	((unsigned long) -3)
-
-/*
  * Different kinds of faults, as returned by handle_mm_fault().
  * Used to decide whether a process gets delivered SIGBUS or
  * just gets major/minor fault counters bumped up.
@@ -751,6 +753,8 @@ struct zap_details {
 struct page *vm_normal_page(struct vm_area_struct *vma, unsigned long addr,
 		pte_t pte);
 
+int zap_vma_ptes(struct vm_area_struct *vma, unsigned long address,
+		unsigned long size);
 unsigned long zap_page_range(struct vm_area_struct *vma, unsigned long address,
 		unsigned long size, struct zap_details *);
 unsigned long unmap_vmas(struct mmu_gather **tlb,
@@ -780,14 +784,14 @@ struct mm_walk {
 
 int walk_page_range(unsigned long addr, unsigned long end,
 		struct mm_walk *walk);
-void free_pgd_range(struct mmu_gather **tlb, unsigned long addr,
+void free_pgd_range(struct mmu_gather *tlb, unsigned long addr,
 		unsigned long end, unsigned long floor, unsigned long ceiling);
-void free_pgtables(struct mmu_gather **tlb, struct vm_area_struct *start_vma,
-		unsigned long floor, unsigned long ceiling);
 int copy_page_range(struct mm_struct *dst, struct mm_struct *src,
 			struct vm_area_struct *vma);
 void unmap_mapping_range(struct address_space *mapping,
 		loff_t const holebegin, loff_t const holelen, int even_cows);
+int generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
+			void *buf, int len, int write);
 
 static inline void unmap_shared_mapping_range(struct address_space *mapping,
 		loff_t const holebegin, loff_t const holelen)
@@ -817,7 +821,6 @@ extern int access_process_vm(struct task_struct *tsk, unsigned long addr, void *
 
 int get_user_pages(struct task_struct *tsk, struct mm_struct *mm, unsigned long start,
 		int len, int write, int force, struct page **pages, struct vm_area_struct **vmas);
-void print_bad_pte(struct vm_area_struct *, pte_t, unsigned long);
 
 extern int try_to_release_page(struct page * page, gfp_t gfp_mask);
 extern void do_invalidatepage(struct page *page, unsigned long offset);
@@ -839,6 +842,19 @@ extern unsigned long do_mremap(unsigned long addr,
 extern int mprotect_fixup(struct vm_area_struct *vma,
 			  struct vm_area_struct **pprev, unsigned long start,
 			  unsigned long end, unsigned long newflags);
+
+/*
+ * get_user_pages_fast provides equivalent functionality to get_user_pages,
+ * operating on current and current->mm (force=0 and doesn't return any vmas).
+ *
+ * get_user_pages_fast may take mmap_sem and page tables, so no assumptions
+ * can be made about locking. get_user_pages_fast is to be implemented in a
+ * way that is advantageous (vs get_user_pages()) when the user memory area is
+ * already faulted in and present in ptes. However if the pages have to be
+ * faulted in, it may turn out to be slightly slower).
+ */
+int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+			struct page **pages);
 
 /*
  * A callback you can register to apply pressure to ageable caches.
@@ -975,9 +991,8 @@ static inline void pgtable_page_dtor(struct page *page)
 		NULL: pte_offset_kernel(pmd, address))
 
 extern void free_area_init(unsigned long * zones_size);
-extern void free_area_init_node(int nid, pg_data_t *pgdat,
-	unsigned long * zones_size, unsigned long zone_start_pfn, 
-	unsigned long *zholes_size);
+extern void free_area_init_node(int nid, unsigned long * zones_size,
+		unsigned long zone_start_pfn, unsigned long *zholes_size);
 #ifdef CONFIG_ARCH_POPULATES_NODE_MAP
 /*
  * With CONFIG_ARCH_POPULATES_NODE_MAP set, an architecture may initialise its
@@ -1009,8 +1024,8 @@ extern void free_area_init_node(int nid, pg_data_t *pgdat,
 extern void free_area_init_nodes(unsigned long *max_zone_pfn);
 extern void add_active_range(unsigned int nid, unsigned long start_pfn,
 					unsigned long end_pfn);
-extern void shrink_active_range(unsigned int nid, unsigned long old_end_pfn,
-						unsigned long new_end_pfn);
+extern void remove_active_range(unsigned int nid, unsigned long start_pfn,
+					unsigned long end_pfn);
 extern void push_node_boundaries(unsigned int nid, unsigned long start_pfn,
 					unsigned long end_pfn);
 extern void remove_all_active_ranges(void);
@@ -1019,9 +1034,10 @@ extern unsigned long absent_pages_in_range(unsigned long start_pfn,
 extern void get_pfn_range_for_nid(unsigned int nid,
 			unsigned long *start_pfn, unsigned long *end_pfn);
 extern unsigned long find_min_pfn_with_active_regions(void);
-extern unsigned long find_max_pfn_with_active_regions(void);
 extern void free_bootmem_with_active_regions(int nid,
 						unsigned long max_low_pfn);
+typedef int (*work_fn_t)(unsigned long, unsigned long, void *);
+extern void work_with_active_regions(int nid, work_fn_t work_fn, void *data);
 extern void sparse_memory_present_with_active_regions(int nid);
 #ifndef CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID
 extern int early_pfn_to_nid(unsigned long pfn);
@@ -1035,6 +1051,7 @@ extern void mem_init(void);
 extern void show_mem(void);
 extern void si_meminfo(struct sysinfo * val);
 extern void si_meminfo_node(struct sysinfo *val, int nid);
+extern int after_bootmem;
 
 #ifdef CONFIG_NUMA
 extern void setup_per_cpu_pageset(void);
@@ -1078,6 +1095,9 @@ extern void unlink_file_vma(struct vm_area_struct *);
 extern struct vm_area_struct *copy_vma(struct vm_area_struct **,
 	unsigned long addr, unsigned long len, pgoff_t pgoff);
 extern void exit_mmap(struct mm_struct *);
+
+extern int mm_take_all_locks(struct mm_struct *mm);
+extern void mm_drop_all_locks(struct mm_struct *mm);
 
 #ifdef CONFIG_PROC_FS
 /* From fs/proc/base.c. callers must _not_ hold the mm's exe_file_lock */

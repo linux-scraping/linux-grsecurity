@@ -83,8 +83,10 @@ static int fillonedir(void * __buf, const char * name, int namlen, loff_t offset
 	if (buf->result)
 		return -EINVAL;
 	d_ino = ino;
-	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino) {
+		buf->result = -EOVERFLOW;
 		return -EOVERFLOW;
+	}
 
 	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
 		return 0;
@@ -164,8 +166,10 @@ static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 	if (reclen > buf->count)
 		return -EINVAL;
 	d_ino = ino;
-	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino) {
+		buf->error = -EOVERFLOW;
 		return -EOVERFLOW;
+	}
 
 	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
 		return 0;
