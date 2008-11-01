@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.12-2.6.27.4-200810272314.patch
-+++ b/grsecurity-2.1.12-2.6.27.4-200810272314.patch
+--- a/grsecurity-2.1.12-2.6.27.4-200811011834.patch
++++ b/grsecurity-2.1.12-2.6.27.4-200811011834.patch
 @@ -1,103 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 27809357da58755c4484d711a6bc90534ec07a29..de3c8c1d500bd923a1e54d204a73cd86ee141c07 100644
@@ -6350,12 +6350,12 @@
 @@ -25191,5 +23936,3 @@
 -diff --git a/grsecurity/grsec_sock.c b/grsecurity/grsec_sock.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..82b43fa76de0394a7bc27d658ef5b980bec0502a
+-index 0000000000000000000000000000000000000000..6cab618ce31bd5c78432be524aa523be5479829a
 ---- /dev/null
 -+++ b/grsecurity/grsec_sock.c
 +diff -urNp linux-2.6.27.4/grsecurity/grsec_sock.c linux-2.6.27.4/grsecurity/grsec_sock.c
 +--- linux-2.6.27.4/grsecurity/grsec_sock.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-2.6.27.4/grsecurity/grsec_sock.c	2008-10-25 12:03:07.000000000 -0400
+++++ linux-2.6.27.4/grsecurity/grsec_sock.c	2008-10-28 01:32:07.000000000 -0400
 @@ -25471,5 +24214,3 @@
 -diff --git a/grsecurity/grsec_sysctl.c b/grsecurity/grsec_sysctl.c
 -new file mode 100644
