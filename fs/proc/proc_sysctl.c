@@ -111,7 +111,7 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 	if (!p)
 		goto out;
 
-	if (gr_handle_sysctl(table, 001))
+	if (gr_handle_sysctl(p, MAY_EXEC))
 		goto out;
 
 	err = ERR_PTR(-ENOMEM);

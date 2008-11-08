@@ -170,11 +170,6 @@ static void __init xen_smp_prepare_boot_cpu(void)
 {
 	BUG_ON(smp_processor_id() != 0);
 	native_smp_prepare_boot_cpu();
-
-	/* We've switched to the "real" per-cpu gdt, so make sure the
-	   old memory can be recycled */
-	make_lowmem_page_readwrite(get_cpu_gdt_table(smp_processor_id()));
-
 	xen_setup_vcpu_info_placement();
 }
 

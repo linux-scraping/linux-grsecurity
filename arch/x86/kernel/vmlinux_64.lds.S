@@ -228,10 +228,10 @@ SECTIONS
   .bss : AT(ADDR(.bss) - LOAD_OFFSET) {
 	*(.bss.page_aligned)
 	*(.bss)
+	. = ALIGN(2*1024*1024);
 	}
   __bss_stop = .;
 
-  . = ALIGN(2*1024*1024);
   _end = . ;
 
   /* Sections to be discarded */

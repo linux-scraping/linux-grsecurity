@@ -489,7 +489,7 @@ void *vmap(struct page **pages, unsigned int count,
 		return NULL;
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	if (pgprot_val(prot) & _PAGE_NX)
+	if (!(pgprot_val(prot) & _PAGE_NX))
 		flags |= VM_KERNEXEC;
 #endif
 
@@ -588,7 +588,7 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 		return NULL;
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	if (pgprot_val(prot) & _PAGE_NX)
+	if (!(pgprot_val(prot) & _PAGE_NX))
 		area = __get_vm_area_node(size, VM_ALLOC | VM_KERNEXEC, VMALLOC_START, VMALLOC_END,
 						node, gfp_mask, caller);
 	else

@@ -41,7 +41,7 @@
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_NX)
 #else
-#define _PAGE_NX	(_AT(pteval_t, 0))
+#define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_UNUSED3)
 #endif
 
 /* If _PAGE_PRESENT is clear, we use these: */
