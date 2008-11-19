@@ -1656,8 +1656,6 @@ static void layout_sections(struct module *mod,
 				s->sh_entsize = get_offset(&mod->core_size_rx, s);
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
-		if (m == 0)
-			mod->core_size_rx = mod->core_size_rx;
 	}
 
 	DEBUGP("Init section allocation order:\n");
@@ -1678,8 +1676,6 @@ static void layout_sections(struct module *mod,
 			s->sh_entsize |= INIT_OFFSET_MASK;
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
-		if (m == 0)
-			mod->init_size_rx = mod->init_size_rx;
 	}
 }
 

@@ -2822,9 +2822,9 @@ asmlinkage long sys_renameat(int olddfd, const char __user *oldname,
 	if (new_dentry == trap)
 		goto exit5;
 
-	error = gr_acl_handle_rename(new_dentry, newnd.path.dentry, newnd.path.mnt,
+	error = gr_acl_handle_rename(new_dentry, new_dir, newnd.path.mnt,
 				     old_dentry, old_dir->d_inode, oldnd.path.mnt,
-				     newname);
+				     to);
 	if (error)
 		goto exit5;
 
@@ -2834,7 +2834,7 @@ asmlinkage long sys_renameat(int olddfd, const char __user *oldname,
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 				   new_dir->d_inode, new_dentry);
 	if (!error)
-		gr_handle_rename(old_dir->d_inode, newnd.path.dentry->d_inode, old_dentry,
+		gr_handle_rename(old_dir->d_inode, new_dir->d_inode, old_dentry,
 				 new_dentry, oldnd.path.mnt, new_dentry->d_inode ? 1 : 0);
 
 	mnt_drop_write(oldnd.path.mnt);

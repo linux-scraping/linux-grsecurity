@@ -952,7 +952,7 @@ bad_area_nosemaphore:
 
 #ifdef CONFIG_PAX_PAGEEXEC
 		if ((mm->pax_flags & MF_PAX_PAGEEXEC) &&
-		    (nx_enabled && ((error_code & PF_INSTR) || !(error_code & (PF_PROT | PF_WRITE))) && (regs->ip == address))) {
+		    ((nx_enabled && (error_code & PF_INSTR)) || (!(error_code & (PF_PROT | PF_WRITE)) && regs->ip == address))) {
 
 #ifdef CONFIG_PAX_EMUTRAMP
 			switch (pax_handle_fetch_fault(regs)) {

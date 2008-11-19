@@ -180,6 +180,18 @@ typedef elf_fpreg_t elf_vsrreghalf_t32[ELF_NVSRHALFREG];
 
 #define ELF_ET_DYN_BASE         (0x20000000)
 
+#ifdef CONFIG_PAX_ASLR
+#define PAX_ELF_ET_DYN_BASE	(0x10000000UL)
+
+#ifdef __powerpc64__
+#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
+#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
+#else
+#define PAX_DELTA_MMAP_LEN	15
+#define PAX_DELTA_STACK_LEN	15
+#endif
+#endif
+
 /*
  * Our registers are always unsigned longs, whether we're a 32 bit
  * process or 64 bit, on either a 64 bit or 32 bit kernel.

@@ -93,6 +93,8 @@ void __init x86_64_start_kernel(char * real_mode_data)
 	/* clear bss before set_intr_gate with early_idt_handler */
 	clear_bss();
 
+	x86_64_init_pda();
+
 	/* Make NULL pointers segfault */
 	zap_identity_mappings();
 
@@ -109,8 +111,6 @@ void __init x86_64_start_kernel(char * real_mode_data)
 	load_idt((const struct desc_ptr *)&idt_descr);
 
 	early_printk("Kernel alive\n");
-
-	x86_64_init_pda();
 
 	early_printk("Kernel really alive\n");
 
