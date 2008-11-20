@@ -37,7 +37,7 @@ int acpi_save_state_mem(void)
 {
 	struct wakeup_header *header;
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_64BIT) && defined(CONFIG_SMP) && defined(CONFIG_PAX_KERNEXEC)
 	unsigned long cr0;
 #endif
 

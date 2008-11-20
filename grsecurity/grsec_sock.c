@@ -153,9 +153,9 @@ void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock
 void gr_del_task_from_ip_table(struct task_struct *task)
 {
 #ifdef CONFIG_GRKERNSEC
-	spin_lock(&gr_conn_table_lock);
+	spin_lock_bh(&gr_conn_table_lock);
 	gr_del_task_from_ip_table_nolock(task->signal);
-	spin_unlock(&gr_conn_table_lock);
+	spin_unlock_bh(&gr_conn_table_lock);
 #endif
 	return;
 }

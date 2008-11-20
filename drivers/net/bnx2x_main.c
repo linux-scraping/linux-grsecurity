@@ -6480,6 +6480,7 @@ load_int_disable:
 	bnx2x_free_irq(bp);
 load_error:
 	bnx2x_free_mem(bp);
+	bp->port.pmf = 0;
 
 	/* TBD we really need to reset the chip
 	   if we want to recover from this */
@@ -6790,6 +6791,7 @@ unload_error:
 	/* Report UNLOAD_DONE to MCP */
 	if (!BP_NOMCP(bp))
 		bnx2x_fw_command(bp, DRV_MSG_CODE_UNLOAD_DONE);
+	bp->port.pmf = 0;
 
 	/* Free SKBs, SGEs, TPA pool and driver internals */
 	bnx2x_free_skbs(bp);
@@ -10203,8 +10205,6 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
 		return -ENOMEM;
 	}
 
-	netif_carrier_off(dev);
-
 	bp = netdev_priv(dev);
 	bp->msglevel = debug;
 
@@ -10227,6 +10227,8 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
 		unregister_netdev(dev);
 		goto init_one_exit;
 	}
+
+	netif_carrier_off(dev);
 
 	bp->common.name = board_info[ent->driver_data].name;
 	printk(KERN_INFO "%s: %s (%c%d) PCI-E x%d %s found at mem %lx,"

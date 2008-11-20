@@ -138,8 +138,6 @@ static void __exit_signal(struct task_struct *tsk)
 	 * doing sigqueue_free() if we have SIGQUEUE_PREALLOC signals.
 	 */
 	flush_sigqueue(&tsk->pending);
-
-	gr_del_task_from_ip_table(tsk);
 	tsk->signal = NULL;
 	tsk->sighand = NULL;
 	spin_unlock(&sighand->siglock);
@@ -164,6 +162,8 @@ void release_task(struct task_struct * p)
 	struct task_struct *leader;
 	int zap_leader;
 repeat:
+	gr_del_task_from_ip_table(p);
+
 	tracehook_prepare_release_task(p);
 	atomic_dec(&p->user->processes);
 	proc_flush_task(p);

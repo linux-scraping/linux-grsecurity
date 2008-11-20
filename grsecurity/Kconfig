@@ -77,7 +77,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_RANDUSTACK
 	select PAX_ASLR
 	select PAX_RANDMMAP
-	select PAX_REFCOUNT
+	select PAX_REFCOUNT if (X86)
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -155,7 +155,7 @@ config GRKERNSEC_HIGH
 	select PAX_EMUTRAMP if (PARISC)
 	select PAX_EMUSIGRT if (PARISC)
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
-	select PAX_REFCOUNT
+	select PAX_REFCOUNT if (X86)
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks
