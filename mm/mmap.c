@@ -1727,7 +1727,7 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 		BUG_ON(vma->vm_mirror);
 		return NULL;
 	}
-	BUG_ON(vma->vm_end - SEGMEXEC_TASK_SIZE - 1 < vma->vm_start - SEGMEXEC_TASK_SIZE - 1);
+	BUG_ON(vma->vm_start < SEGMEXEC_TASK_SIZE && SEGMEXEC_TASK_SIZE < vma->vm_end);
 	vma_m = vma->vm_mirror;
 	BUG_ON(!vma_m || vma_m->vm_mirror != vma);
 	BUG_ON(vma->vm_file != vma_m->vm_file);
