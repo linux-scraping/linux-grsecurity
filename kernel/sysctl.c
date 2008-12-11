@@ -187,6 +187,9 @@ extern struct ctl_table random_table[];
 #ifdef CONFIG_INOTIFY_USER
 extern struct ctl_table inotify_table[];
 #endif
+#ifdef CONFIG_EPOLL
+extern struct ctl_table epoll_table[];
+#endif
 
 #ifdef HAVE_ARCH_PICK_MMAP_LAYOUT
 int sysctl_legacy_va_layout;
@@ -1357,6 +1360,13 @@ static struct ctl_table fs_table[] = {
 		.child		= inotify_table,
 	},
 #endif	
+#ifdef CONFIG_EPOLL
+	{
+		.procname	= "epoll",
+		.mode		= 0555,
+		.child		= epoll_table,
+	},
+#endif
 #endif
 	{
 		.ctl_name	= KERN_SETUID_DUMPABLE,
@@ -1692,6 +1702,16 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
 	int error;
 	int mode;
 
+	if (table->parent != NULL && table->parent->procname != NULL &&
+	   table->procname != NULL &&
+	    gr_handle_sysctl_mod(table->parent->procname, table->procname, op))
+		return -EACCES;
+	if (gr_handle_chroot_sysctl(op))
+		return -EACCES;
+	error = gr_handle_sysctl(table, op);
+	if (error)
+		return error;
+
 	error = security_sysctl(table, op & (MAY_READ | MAY_WRITE | MAY_EXEC));
 	if (error)
 		return error;
@@ -1708,16 +1728,6 @@ int sysctl_perm_nochk(struct ctl_table_root *root, struct ctl_table *table, int 
 {
 	int error;
 	int mode;
-
-	if (table->parent != NULL && table->parent->procname != NULL &&
-	   table->procname != NULL &&
-	    gr_handle_sysctl_mod(table->parent->procname, table->procname, op))
-		return -EACCES;
-	if (gr_handle_chroot_sysctl(op))
-		return -EACCES;
-	error = gr_handle_sysctl(table, op);
-	if (error)
-		return error;
 
 	error = security_sysctl(table, op & (MAY_READ | MAY_WRITE | MAY_EXEC));
 	if (error)

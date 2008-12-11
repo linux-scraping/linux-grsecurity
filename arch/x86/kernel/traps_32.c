@@ -479,7 +479,7 @@ do_trap(int trapnr, int signr, char *str, int vm86, struct pt_regs *regs,
 		goto trap_signal;
 	}
 
-	if (!user_mode(regs))
+	if (!user_mode_novm(regs))
 		goto kernel_trap;
 
 trap_signal:

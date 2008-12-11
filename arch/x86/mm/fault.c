@@ -37,7 +37,6 @@
 #include <asm/tlbflush.h>
 #include <asm/proto.h>
 #include <asm-generic/sections.h>
-#include <asm/tlbflush.h>
 
 /*
  * Page fault error code bits
