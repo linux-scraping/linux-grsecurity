@@ -63,6 +63,10 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 #define elf_core_dump	NULL
 #endif
 
+#ifdef CONFIG_PAX_MPROTECT
+static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newflags);
+#endif
+
 #if ELF_EXEC_PAGESIZE > PAGE_SIZE
 #define ELF_MIN_ALIGN	ELF_EXEC_PAGESIZE
 #else
@@ -82,6 +86,11 @@ static struct linux_binfmt elf_format = {
 		.load_binary	= load_elf_binary,
 		.load_shlib	= load_elf_library,
 		.core_dump	= elf_core_dump,
+
+#ifdef CONFIG_PAX_MPROTECT
+		.handle_mprotect= elf_handle_mprotect,
+#endif
+
 		.min_coredump	= ELF_EXEC_PAGESIZE,
 		.hasvdso	= 1
 };
@@ -2339,6 +2348,99 @@ out:
 }
 
 #endif		/* USE_ELF_CORE_DUMP */
+
+#ifdef CONFIG_PAX_MPROTECT
+/* PaX: non-PIC ELF libraries need relocations on their executable segments
+ * therefore we'll grant them VM_MAYWRITE once during their life. Similarly
+ * we'll remove VM_MAYWRITE for good on RELRO segments.
+ *
+ * The checks favour ld-linux.so behaviour which operates on a per ELF segment
+ * basis because we want to allow the common case and not the special ones.
+ */
+static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newflags)
+{
+	struct elfhdr elf_h;
+	struct elf_phdr elf_p;
+	unsigned long i;
+	unsigned long oldflags;
+	bool is_textrel_rw, is_textrel_rx, is_relro;
+
+	if (!(vma->vm_mm->pax_flags & MF_PAX_MPROTECT))
+		return;
+
+	oldflags = vma->vm_flags & (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_EXEC | VM_WRITE | VM_READ);
+	newflags &= VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_EXEC | VM_WRITE | VM_READ;
+
+#ifdef CONFIG_PAX_NOELFRELOCS
+	is_textrel_rw = false;
+	is_textrel_rx = false;
+#else
+	/* possible TEXTREL */
+	is_textrel_rw = vma->vm_file && !vma->anon_vma && !vma->vm_pgoff && oldflags == (VM_MAYEXEC | VM_MAYREAD | VM_EXEC | VM_READ) && newflags == (VM_WRITE | VM_READ);
+	is_textrel_rx = vma->vm_file && vma->anon_vma && !vma->vm_pgoff && oldflags == (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_WRITE | VM_READ) && newflags == (VM_EXEC | VM_READ);
+#endif
+
+	/* possible RELRO */
+	is_relro = vma->vm_file && vma->anon_vma && oldflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ) && newflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ);
+
+	if (!is_textrel_rw && !is_textrel_rx && !is_relro)
+		return;
+
+	if (sizeof(elf_h) != kernel_read(vma->vm_file, 0UL, (char *)&elf_h, sizeof(elf_h)) ||
+	    memcmp(elf_h.e_ident, ELFMAG, SELFMAG) ||
+
+#ifdef CONFIG_PAX_ETEXECRELOCS
+	    ((is_textrel_rw || is_textrel_rx) && (elf_h.e_type != ET_DYN && elf_h.e_type != ET_EXEC)) ||
+#else
+	    ((is_textrel_rw || is_textrel_rx) && elf_h.e_type != ET_DYN) ||
+#endif
+
+	    (is_relro && (elf_h.e_type != ET_DYN && elf_h.e_type != ET_EXEC)) ||
+	    !elf_check_arch(&elf_h) ||
+	    elf_h.e_phentsize != sizeof(struct elf_phdr) ||
+	    elf_h.e_phnum > 65536UL / sizeof(struct elf_phdr))
+		return;
+
+	for (i = 0UL; i < elf_h.e_phnum; i++) {
+		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char *)&elf_p, sizeof(elf_p)))
+			return;
+		switch (elf_p.p_type) {
+		case PT_DYNAMIC: {
+			elf_addr_t dyn_offset = 0UL;
+			elf_dyn dyn;
+
+			if (!is_textrel_rw && !is_textrel_rx)
+				continue;
+			dyn_offset = elf_p.p_offset;
+			i = 0UL;
+			do {
+				if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
+					return;
+				if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
+					gr_log_textrel(vma);
+					if (is_textrel_rw)
+						vma->vm_flags |= VM_MAYWRITE;
+					else
+						/* PaX: disallow write access after relocs are done, hopefully noone else needs it... */
+						vma->vm_flags &= ~VM_MAYWRITE;
+					return;
+				}
+				i++;
+			} while (dyn.d_tag != DT_NULL);
+			return;
+		}
+
+		case PT_GNU_RELRO:
+			if (!is_relro)
+				continue;
+			if ((elf_p.p_offset >> PAGE_SHIFT) == vma->vm_pgoff && ELF_PAGEALIGN(elf_p.p_memsz) == vma->vm_end - vma->vm_start) {
+				vma->vm_flags &= ~VM_MAYWRITE;
+			}
+			return;
+		}
+	}
+}
+#endif
 
 static int __init init_elf_binfmt(void)
 {

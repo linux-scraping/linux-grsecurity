@@ -2247,8 +2247,12 @@ static struct hda_verb ad1988_spdif_init_verbs[] = {
 
 /* AD1989 has no ADC -> SPDIF route */
 static struct hda_verb ad1989_spdif_init_verbs[] = {
-	/* SPDIF out pin */
+	/* SPDIF-1 out pin */
+	{0x1b, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT },
 	{0x1b, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE | 0x27}, /* 0dB */
+	/* SPDIF-2/HDMI out pin */
+	{0x1d, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT },
+	{0x1d, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE | 0x27}, /* 0dB */
 	{ }
 };
 
@@ -2868,6 +2872,7 @@ static struct snd_pci_quirk ad1988_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x1043, 0x81ec, "Asus P5B-DLX", AD1988_6STACK_DIG),
 	SND_PCI_QUIRK(0x1043, 0x81f6, "Asus M2N-SLI", AD1988_6STACK_DIG),
 	SND_PCI_QUIRK(0x1043, 0x8277, "Asus P5K-E/WIFI-AP", AD1988_6STACK_DIG),
+	SND_PCI_QUIRK(0x1043, 0x8311, "Asus P5Q-Premium/Pro", AD1988_6STACK_DIG),
 	{}
 };
 
@@ -3842,6 +3847,9 @@ static const char *ad1884a_models[AD1884A_MODELS] = {
 
 static struct snd_pci_quirk ad1884a_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x103c, 0x3030, "HP", AD1884A_MOBILE),
+	SND_PCI_QUIRK(0x103c, 0x3056, "HP", AD1884A_MOBILE),
+	SND_PCI_QUIRK(0x103c, 0x30e7, "HP EliteBook 8530p", AD1884A_LAPTOP),
+	SND_PCI_QUIRK(0x103c, 0x3614, "HP 6730s", AD1884A_LAPTOP),
 	SND_PCI_QUIRK(0x17aa, 0x20ac, "Thinkpad X300", AD1884A_THINKPAD),
 	{}
 };

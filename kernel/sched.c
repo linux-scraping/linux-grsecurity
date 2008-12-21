@@ -6502,7 +6502,9 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
 			req = list_entry(rq->migration_queue.next,
 					 struct migration_req, list);
 			list_del_init(&req->list);
+			spin_unlock_irq(&rq->lock);
 			complete(&req->done);
+			spin_lock_irq(&rq->lock);
 		}
 		spin_unlock_irq(&rq->lock);
 		break;
@@ -6804,15 +6806,17 @@ cpu_attach_domain(struct sched_domain *sd, struct root_domain *rd, int cpu)
 	struct sched_domain *tmp;
 
 	/* Remove the sched domains which do not contribute to scheduling. */
-	for (tmp = sd; tmp; tmp = tmp->parent) {
+	for (tmp = sd; tmp; ) {
 		struct sched_domain *parent = tmp->parent;
 		if (!parent)
 			break;
+
 		if (sd_parent_degenerate(tmp, parent)) {
 			tmp->parent = parent->parent;
 			if (parent->parent)
 				parent->parent->child = tmp;
-		}
+		} else
+			tmp = tmp->parent;
 	}
 
 	if (sd && sd_degenerate(sd)) {

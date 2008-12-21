@@ -285,8 +285,14 @@ success:
 	 * held in write mode.
 	 */
 	vma->vm_flags = newflags;
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (current->binfmt && current->binfmt->handle_mprotect)
+		current->binfmt->handle_mprotect(vma, newflags);
+#endif
+
 	vma->vm_page_prot = pgprot_modify(vma->vm_page_prot,
-					  vm_get_page_prot(newflags));
+					  vm_get_page_prot(vma->vm_flags));
 
 	if (vma_wants_writenotify(vma)) {
 		vma->vm_page_prot = vm_get_page_prot(newflags & ~VM_SHARED);
@@ -307,70 +313,6 @@ fail:
 	vm_unacct_memory(charged);
 	return error;
 }
-
-#ifdef CONFIG_PAX_MPROTECT
-/* PaX: non-PIC ELF libraries need relocations on their executable segments
- * therefore we'll grant them VM_MAYWRITE once during their life.
- *
- * The checks favour ld-linux.so behaviour which operates on a per ELF segment
- * basis because we want to allow the common case and not the special ones.
- */
-static inline void pax_handle_maywrite(struct vm_area_struct *vma, unsigned long start)
-{
-	struct elfhdr elf_h;
-	struct elf_phdr elf_p;
-	elf_addr_t dyn_offset = 0UL;
-	elf_dyn dyn;
-	unsigned long i, j = 65536UL / sizeof(struct elf_phdr);
-
-#ifndef CONFIG_PAX_NOELFRELOCS
-	if ((vma->vm_start != start) ||
-	    !vma->vm_file ||
-	    !(vma->vm_flags & VM_MAYEXEC) ||
-	    (vma->vm_flags & VM_MAYNOTWRITE))
-#endif
-
-		return;
-
-	if (sizeof(elf_h) != kernel_read(vma->vm_file, 0UL, (char *)&elf_h, sizeof(elf_h)) ||
-	    memcmp(elf_h.e_ident, ELFMAG, SELFMAG) ||
-
-#ifdef CONFIG_PAX_ETEXECRELOCS
-	    (elf_h.e_type != ET_DYN && elf_h.e_type != ET_EXEC) ||
-#else
-	    elf_h.e_type != ET_DYN ||
-#endif
-
-	    !elf_check_arch(&elf_h) ||
-	    elf_h.e_phentsize != sizeof(struct elf_phdr) ||
-	    elf_h.e_phnum > j)
-		return;
-
-	for (i = 0UL; i < elf_h.e_phnum; i++) {
-		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char *)&elf_p, sizeof(elf_p)))
-			return;
-		if (elf_p.p_type == PT_DYNAMIC) {
-			dyn_offset = elf_p.p_offset;
-			j = i;
-		}
-	}
-	if (elf_h.e_phnum <= j)
-		return;
-
-	i = 0UL;
-	do {
-		if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
-			return;
-		if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
-			vma->vm_flags |= VM_MAYWRITE | VM_MAYNOTWRITE;
-			gr_log_textrel(vma);
-			return;
-		}
-		i++;
-	} while (dyn.d_tag != DT_NULL);
-	return;
-}
-#endif
 
 asmlinkage long
 sys_mprotect(unsigned long start, size_t len, unsigned long prot)
@@ -447,8 +389,8 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 	}
 
 #ifdef CONFIG_PAX_MPROTECT
-	if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && (prot & PROT_WRITE))
-		pax_handle_maywrite(vma, start);
+	if (current->binfmt && current->binfmt->handle_mprotect)
+		current->binfmt->handle_mprotect(vma, vm_flags);
 #endif
 
 	for (nstart = start ; ; ) {
@@ -463,12 +405,6 @@ sys_mprotect(unsigned long start, size_t len, unsigned long prot)
 			error = -EACCES;
 			goto out;
 		}
-
-#ifdef CONFIG_PAX_MPROTECT
-		/* PaX: disallow write access after relocs are done, hopefully noone else needs it... */
-		if ((vma->vm_mm->pax_flags & MF_PAX_MPROTECT) && !(prot & PROT_WRITE) && (vma->vm_flags & VM_MAYNOTWRITE))
-			newflags &= ~VM_MAYWRITE;
-#endif
 
 		error = security_file_mprotect(vma, reqprot, prot);
 		if (error)

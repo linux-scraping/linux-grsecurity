@@ -1733,13 +1733,7 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 	BUG_ON(vma->vm_file != vma_m->vm_file);
 	BUG_ON(vma->vm_end - vma->vm_start != vma_m->vm_end - vma_m->vm_start);
 	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff || vma->anon_vma != vma_m->anon_vma);
-
-#ifdef CONFIG_PAX_MPROTECT
-	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED | VM_MAYNOTWRITE));
-#else
 	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED));
-#endif
-
 	return vma_m;
 }
 #endif

@@ -49,6 +49,7 @@ typedef __s64	Elf64_Sxword;
 #define PT_GNU_EH_FRAME		0x6474e550
 
 #define PT_GNU_STACK	(PT_LOOS + 0x474e551)
+#define PT_GNU_RELRO	(PT_LOOS + 0x474e552)
 
 #define PT_PAX_FLAGS	(PT_LOOS + 0x5041580)
 

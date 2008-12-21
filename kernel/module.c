@@ -2835,6 +2835,10 @@ struct module *__module_text_address(unsigned long addr)
 {
 	struct module *mod;
 
+#ifdef CONFIG_X86_32
+	addr = ktla_ktva(addr);
+#endif
+
 	if (addr < module_addr_min_rx || addr > module_addr_max_rx)
 		return NULL;
 

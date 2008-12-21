@@ -119,10 +119,6 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_PAGEEXEC	0x40000000	/* vma->vm_page_prot needs special handling */
 #endif
 
-#ifdef CONFIG_PAX_MPROTECT
-#define VM_MAYNOTWRITE	0x80000000	/* vma cannot be granted VM_WRITE any more */
-#endif
-
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
 #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
 #endif
