@@ -16,6 +16,7 @@
 #include <linux/time.h>
 #include <linux/fs.h>
 #include <linux/jbd2.h>
+#include <linux/marker.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
@@ -146,12 +147,9 @@ static int journal_submit_commit_record(journal_t *journal,
 	 * to remember if we sent a barrier request
 	 */
 	if (ret == -EOPNOTSUPP && barrier_done) {
-		char b[BDEVNAME_SIZE];
-
 		printk(KERN_WARNING
-			"JBD: barrier-based sync failed on %s - "
-			"disabling barriers\n",
-			bdevname(journal->j_dev, b));
+		       "JBD: barrier-based sync failed on %s - "
+		       "disabling barriers\n", journal->j_devname);
 		spin_lock(&journal->j_state_lock);
 		journal->j_flags &= ~JBD2_BARRIER;
 		spin_unlock(&journal->j_state_lock);
@@ -370,6 +368,8 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	commit_transaction = journal->j_running_transaction;
 	J_ASSERT(commit_transaction->t_state == T_RUNNING);
 
+	trace_mark(jbd2_start_commit, "dev %s transaction %d",
+		   journal->j_devname, commit_transaction->t_tid);
 	jbd_debug(1, "JBD: starting commit of transaction %d\n",
 			commit_transaction->t_tid);
 
@@ -504,9 +504,10 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 		jh = commit_transaction->t_buffers;
 
 		/* If we're in abort mode, we just un-journal the buffer and
-		   release it for background writing. */
+		   release it. */
 
 		if (is_journal_aborted(journal)) {
+			clear_buffer_jbddirty(jh2bh(jh));
 			JBUFFER_TRACE(jh, "journal is aborting: refile");
 			jbd2_journal_refile_buffer(journal, jh);
 			/* If that was the last one, we need to clean up
@@ -680,11 +681,11 @@ start_journal_io:
 	 */
 	err = journal_finish_inode_data_buffers(journal, commit_transaction);
 	if (err) {
-		char b[BDEVNAME_SIZE];
-
 		printk(KERN_WARNING
 			"JBD2: Detected IO errors while flushing file data "
-			"on %s\n", bdevname(journal->j_fs_dev, b));
+		       "on %s\n", journal->j_devname);
+		if (journal->j_flags & JBD2_ABORT_ON_SYNCDATA_ERR)
+			jbd2_journal_abort(journal, err);
 		err = 0;
 	}
 
@@ -785,6 +786,9 @@ wait_for_iobuf:
 		/* AKPM: bforget here */
 	}
 
+	if (err)
+		jbd2_journal_abort(journal, err);
+
 	jbd_debug(3, "JBD: commit phase 5\n");
 
 	if (!JBD2_HAS_INCOMPAT_FEATURE(journal,
@@ -883,6 +887,8 @@ restart_loop:
 		if (buffer_jbddirty(bh)) {
 			JBUFFER_TRACE(jh, "add to new checkpointing trans");
 			__jbd2_journal_insert_checkpoint(jh, commit_transaction);
+			if (is_journal_aborted(journal))
+				clear_buffer_jbddirty(bh);
 			JBUFFER_TRACE(jh, "refile for checkpoint writeback");
 			__jbd2_journal_refile_buffer(jh);
 			jbd_unlock_bh_state(bh);
@@ -968,6 +974,9 @@ restart_loop:
 	journal->j_committing_transaction = NULL;
 	spin_unlock(&journal->j_state_lock);
 
+	if (journal->j_commit_callback)
+		journal->j_commit_callback(journal, commit_transaction);
+
 	if (commit_transaction->t_checkpoint_list == NULL &&
 	    commit_transaction->t_checkpoint_io_list == NULL) {
 		__jbd2_journal_drop_transaction(journal, commit_transaction);
@@ -989,6 +998,9 @@ restart_loop:
 	}
 	spin_unlock(&journal->j_list_lock);
 
+	trace_mark(jbd2_end_commit, "dev %s transaction %d head %d",
+		   journal->j_devname, journal->j_commit_sequence,
+		   journal->j_tail_sequence);
 	jbd_debug(1, "JBD: commit %d complete, head %d\n",
 		  journal->j_commit_sequence, journal->j_tail_sequence);
 

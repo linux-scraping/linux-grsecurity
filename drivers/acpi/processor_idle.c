@@ -59,7 +59,6 @@
 #include <acpi/processor.h>
 #include <asm/processor.h>
 
-#define ACPI_PROCESSOR_COMPONENT        0x01000000
 #define ACPI_PROCESSOR_CLASS            "processor"
 #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
 ACPI_MODULE_NAME("processor_idle");
@@ -182,7 +181,7 @@ static struct dmi_system_id __cpuinitdata processor_power_dmi_table[] = {
 	  DMI_MATCH(DMI_BIOS_VENDOR,"Phoenix Technologies LTD"),
 	  DMI_MATCH(DMI_BIOS_VERSION,"SHE845M0.86C.0013.D.0302131307")},
 	 (void *)2},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL},
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL},
 };
 
 static inline u32 ticks_elapsed(u32 t1, u32 t2)
@@ -1587,6 +1586,7 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 
 	if (acpi_idle_bm_check()) {
 		if (dev->safe_state) {
+			dev->last_state = dev->safe_state;
 			return dev->safe_state->enter(dev, dev->safe_state);
 		} else {
 			local_irq_disable();

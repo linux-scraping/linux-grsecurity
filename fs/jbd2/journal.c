@@ -597,13 +597,9 @@ int jbd2_journal_bmap(journal_t *journal, unsigned long blocknr,
 		if (ret)
 			*retp = ret;
 		else {
-			char b[BDEVNAME_SIZE];
-
 			printk(KERN_ALERT "%s: journal block not found "
 					"at offset %lu on %s\n",
-				__func__,
-				blocknr,
-				bdevname(journal->j_dev, b));
+			       __func__, blocknr, journal->j_devname);
 			err = -EIO;
 			__journal_abort_soft(journal, err);
 		}
@@ -1093,6 +1089,7 @@ journal_t * jbd2_journal_init_inode (struct inode *inode)
 	if (!journal->j_wbuf) {
 		printk(KERN_ERR "%s: Cant allocate bhs for commit thread\n",
 			__func__);
+		jbd2_stats_proc_exit(journal);
 		kfree(journal);
 		return NULL;
 	}
@@ -1102,6 +1099,7 @@ journal_t * jbd2_journal_init_inode (struct inode *inode)
 	if (err) {
 		printk(KERN_ERR "%s: Cannnot locate journal superblock\n",
 		       __func__);
+		jbd2_stats_proc_exit(journal);
 		kfree(journal);
 		return NULL;
 	}
@@ -1455,9 +1453,12 @@ recovery_error:
  *
  * Release a journal_t structure once it is no longer in use by the
  * journaled object.
+ * Return <0 if we couldn't clean up the journal.
  */
-void jbd2_journal_destroy(journal_t *journal)
+int jbd2_journal_destroy(journal_t *journal)
 {
+	int err = 0;
+
 	/* Wait for the commit thread to wake up and die. */
 	journal_kill_thread(journal);
 
@@ -1480,11 +1481,16 @@ void jbd2_journal_destroy(journal_t *journal)
 	J_ASSERT(journal->j_checkpoint_transactions == NULL);
 	spin_unlock(&journal->j_list_lock);
 
-	/* We can now mark the journal as empty. */
-	journal->j_tail = 0;
-	journal->j_tail_sequence = ++journal->j_transaction_sequence;
 	if (journal->j_sb_buffer) {
-		jbd2_journal_update_superblock(journal, 1);
+		if (!is_journal_aborted(journal)) {
+			/* We can now mark the journal as empty. */
+			journal->j_tail = 0;
+			journal->j_tail_sequence =
+				++journal->j_transaction_sequence;
+			jbd2_journal_update_superblock(journal, 1);
+		} else {
+			err = -EIO;
+		}
 		brelse(journal->j_sb_buffer);
 	}
 
@@ -1496,6 +1502,8 @@ void jbd2_journal_destroy(journal_t *journal)
 		jbd2_journal_destroy_revoke(journal);
 	kfree(journal->j_wbuf);
 	kfree(journal);
+
+	return err;
 }
 
 
@@ -1721,10 +1729,16 @@ int jbd2_journal_flush(journal_t *journal)
 	spin_lock(&journal->j_list_lock);
 	while (!err && journal->j_checkpoint_transactions != NULL) {
 		spin_unlock(&journal->j_list_lock);
+		mutex_lock(&journal->j_checkpoint_mutex);
 		err = jbd2_log_do_checkpoint(journal);
+		mutex_unlock(&journal->j_checkpoint_mutex);
 		spin_lock(&journal->j_list_lock);
 	}
 	spin_unlock(&journal->j_list_lock);
+
+	if (is_journal_aborted(journal))
+		return -EIO;
+
 	jbd2_cleanup_journal_tail(journal);
 
 	/* Finally, mark the journal as really needing no recovery.
@@ -1746,7 +1760,7 @@ int jbd2_journal_flush(journal_t *journal)
 	J_ASSERT(journal->j_head == journal->j_tail);
 	J_ASSERT(journal->j_tail_sequence == journal->j_transaction_sequence);
 	spin_unlock(&journal->j_state_lock);
-	return err;
+	return 0;
 }
 
 /**
@@ -1790,23 +1804,6 @@ int jbd2_journal_wipe(journal_t *journal, int write)
 }
 
 /*
- * journal_dev_name: format a character string to describe on what
- * device this journal is present.
- */
-
-static const char *journal_dev_name(journal_t *journal, char *buffer)
-{
-	struct block_device *bdev;
-
-	if (journal->j_inode)
-		bdev = journal->j_inode->i_sb->s_bdev;
-	else
-		bdev = journal->j_dev;
-
-	return bdevname(bdev, buffer);
-}
-
-/*
  * Journal abort has very specific semantics, which we describe
  * for journal abort.
  *
@@ -1822,13 +1819,12 @@ static const char *journal_dev_name(journal_t *journal, char *buffer)
 void __jbd2_journal_abort_hard(journal_t *journal)
 {
 	transaction_t *transaction;
-	char b[BDEVNAME_SIZE];
 
 	if (journal->j_flags & JBD2_ABORT)
 		return;
 
 	printk(KERN_ERR "Aborting journal on device %s.\n",
-		journal_dev_name(journal, b));
+	       journal->j_devname);
 
 	spin_lock(&journal->j_state_lock);
 	journal->j_flags |= JBD2_ABORT;

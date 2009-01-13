@@ -365,7 +365,7 @@ static struct dmi_system_id __devinitdata msi_k8t_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "MS-6702E"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
 };
 
 /*
@@ -436,7 +436,7 @@ static struct dmi_system_id __devinitdata toshiba_ohci1394_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_VERSION, "PSA40U"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL }
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
 };
 
 static void __devinit pci_pre_fixup_toshiba_ohci1394(struct pci_dev *dev)
@@ -496,18 +496,49 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SIEMENS, 0x0015,
 			  pci_siemens_interrupt_controller);
 
 /*
- * Regular PCI devices have 256 bytes, but AMD Family 10h Opteron ext config
- * have 4096 bytes.  Even if the device is capable, that doesn't mean we can
- * access it.  Maybe we don't have a way to generate extended config space
- * accesses.   So check it
+ * Regular PCI devices have 256 bytes, but AMD Family 10h/11h CPUs have
+ * 4096 bytes configuration space for each function of their processor
+ * configuration space.
  */
-static void fam10h_pci_cfg_space_size(struct pci_dev *dev)
+static void amd_cpu_pci_cfg_space_size(struct pci_dev *dev)
 {
 	dev->cfg_size = pci_cfg_space_size_ext(dev);
 }
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1200, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1201, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1202, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1203, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1204, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1300, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1301, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1302, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1303, amd_cpu_pci_cfg_space_size);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1304, amd_cpu_pci_cfg_space_size);
 
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1200, fam10h_pci_cfg_space_size);
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1201, fam10h_pci_cfg_space_size);
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1202, fam10h_pci_cfg_space_size);
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1203, fam10h_pci_cfg_space_size);
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, 0x1204, fam10h_pci_cfg_space_size);
+/*
+ * SB600: Disable BAR1 on device 14.0 to avoid HPET resources from
+ * confusing the PCI engine:
+ */
+static void sb600_disable_hpet_bar(struct pci_dev *dev)
+{
+	u8 val;
+
+	/*
+	 * The SB600 and SB700 both share the same device
+	 * ID, but the PM register 0x55 does something different
+	 * for the SB700, so make sure we are dealing with the
+	 * SB600 before touching the bit:
+	 */
+
+	pci_read_config_byte(dev, 0x08, &val);
+
+	if (val < 0x2F) {
+		outb(0x55, 0xCD6);
+		val = inb(0xCD7);
+
+		/* Set bit 7 in PM register 0x55 */
+		outb(0x55, 0xCD6);
+		outb(val | 0x80, 0xCD7);
+	}
+}
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_ATI, 0x4385, sb600_disable_hpet_bar);

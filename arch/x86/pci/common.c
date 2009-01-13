@@ -362,7 +362,7 @@ static struct dmi_system_id __devinitdata pciprobe_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "ProLiant DL585 G2"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL}
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL}
 };
 
 void __init dmi_check_pciprobe(void)

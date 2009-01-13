@@ -152,9 +152,10 @@ static u16 iwl_get_auto_power_mode(struct iwl_priv *priv)
 /* initialize to default */
 static int iwl_power_init_handle(struct iwl_priv *priv)
 {
-	int ret = 0, i;
 	struct iwl_power_mgr *pow_data;
 	int size = sizeof(struct iwl_power_vec_entry) * IWL_POWER_MAX;
+	struct iwl_powertable_cmd *cmd;
+	int i;
 	u16 pci_pm;
 
 	IWL_DEBUG_POWER("Initialize power \n");
@@ -167,25 +168,19 @@ static int iwl_power_init_handle(struct iwl_priv *priv)
 	memcpy(&pow_data->pwr_range_1[0], &range_1[0], size);
 	memcpy(&pow_data->pwr_range_2[0], &range_2[0], size);
 
-	ret = pci_read_config_word(priv->pci_dev,
-				  PCI_LINK_CTRL, &pci_pm);
-	if (ret != 0)
-		return 0;
-	else {
-		struct iwl_powertable_cmd *cmd;
+	pci_read_config_word(priv->pci_dev, PCI_CFG_LINK_CTRL, &pci_pm);
 
-		IWL_DEBUG_POWER("adjust power command flags\n");
+	IWL_DEBUG_POWER("adjust power command flags\n");
 
-		for (i = 0; i < IWL_POWER_MAX; i++) {
-			cmd = &pow_data->pwr_range_0[i].cmd;
+	for (i = 0; i < IWL_POWER_MAX; i++) {
+		cmd = &pow_data->pwr_range_0[i].cmd;
 
-			if (pci_pm & 0x1)
-				cmd->flags &= ~IWL_POWER_PCI_PM_MSK;
-			else
-				cmd->flags |= IWL_POWER_PCI_PM_MSK;
-		}
+		if (pci_pm & PCI_CFG_LINK_CTRL_VAL_L0S_EN)
+			cmd->flags &= ~IWL_POWER_PCI_PM_MSK;
+		else
+			cmd->flags |= IWL_POWER_PCI_PM_MSK;
 	}
-	return ret;
+	return 0;
 }
 
 /* adjust power command according to dtim period and power level*/
@@ -255,17 +250,26 @@ static int iwl_update_power_command(struct iwl_priv *priv,
 
 
 /*
- * calucaute the final power mode index
+ * compute the final power mode index
  */
-int iwl_power_update_mode(struct iwl_priv *priv, u8 refresh)
+int iwl_power_update_mode(struct iwl_priv *priv, bool force)
 {
 	struct iwl_power_mgr *setting = &(priv->power_data);
 	int ret = 0;
 	u16 uninitialized_var(final_mode);
 
-       /* If on battery, set to 3,
-	* if plugged into AC power, set to CAM ("continuously aware mode"),
-	* else user level */
+	/* Don't update the RX chain when chain noise calibration is running */
+	if (priv->chain_noise_data.state != IWL_CHAIN_NOISE_DONE &&
+	    priv->chain_noise_data.state != IWL_CHAIN_NOISE_ALIVE) {
+		IWL_DEBUG_POWER("Cannot update the power, chain noise "
+			"calibration running: %d\n",
+			priv->chain_noise_data.state);
+		return -EAGAIN;
+	}
+
+	/* If on battery, set to 3,
+	 * if plugged into AC power, set to CAM ("continuously aware mode"),
+	 * else user level */
 
 	switch (setting->system_power_setting) {
 	case IWL_POWER_SYS_AUTO:
@@ -286,11 +290,11 @@ int iwl_power_update_mode(struct iwl_priv *priv, u8 refresh)
 		final_mode = setting->critical_power_setting;
 
 	/* driver only support CAM for non STA network */
-	if (priv->iw_mode != IEEE80211_IF_TYPE_STA)
+	if (priv->iw_mode != NL80211_IFTYPE_STATION)
 		final_mode = IWL_POWER_MODE_CAM;
 
 	if (!iwl_is_rfkill(priv) && !setting->power_disabled &&
-	    ((setting->power_mode != final_mode) || refresh)) {
+	    ((setting->power_mode != final_mode) || force)) {
 		struct iwl_powertable_cmd cmd;
 
 		if (final_mode != IWL_POWER_MODE_CAM)
@@ -364,35 +368,26 @@ EXPORT_SYMBOL(iwl_power_enable_management);
 /* set user_power_setting */
 int iwl_power_set_user_mode(struct iwl_priv *priv, u16 mode)
 {
-	int ret = 0;
-
 	if (mode > IWL_POWER_LIMIT)
 		return -EINVAL;
 
 	priv->power_data.user_power_setting = mode;
 
-	ret = iwl_power_update_mode(priv, 0);
-
-	return ret;
+	return iwl_power_update_mode(priv, 0);
 }
 EXPORT_SYMBOL(iwl_power_set_user_mode);
-
 
 /* set system_power_setting. This should be set by over all
  * PM application.
  */
 int iwl_power_set_system_mode(struct iwl_priv *priv, u16 mode)
 {
-	int ret = 0;
-
 	if (mode > IWL_POWER_LIMIT)
 		return -EINVAL;
 
 	priv->power_data.system_power_setting = mode;
 
-	ret = iwl_power_update_mode(priv, 0);
-
-	return ret;
+	return iwl_power_update_mode(priv, 0);
 }
 EXPORT_SYMBOL(iwl_power_set_system_mode);
 

@@ -29,6 +29,7 @@ config GRKERNSEC_LOW
 	select GRKERNSEC_EXECVE
 	select GRKERNSEC_RANDNET
 	select GRKERNSEC_DMESG
+	select GRKERNSEC_CHROOT
 	select GRKERNSEC_CHROOT_CHDIR
 	select GRKERNSEC_MODSTOP if (MODULES)
 
@@ -55,6 +56,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_PT_PAX_FLAGS
 	select PAX_HAVE_ACL_FLAGS
 	select GRKERNSEC_PROC_MEMMAP if (PAX_NOEXEC || PAX_ASLR)
+	select GRKERNSEC_CHROOT
 	select GRKERNSEC_CHROOT_SYSCTL
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
@@ -101,6 +103,7 @@ config GRKERNSEC_MEDIUM
 	  - Denied writes of /dev/kmem, /dev/mem, and /dev/port
 	  - /proc restrictions with special GID set to 10 (usually wheel)
 	  - Address Space Layout Randomization (ASLR)
+	  - Prevent exploitation of most refcount overflows
 
 config GRKERNSEC_HIGH
 	bool "High"
@@ -111,6 +114,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_FORKFAIL
 	select GRKERNSEC_TIME
 	select GRKERNSEC_SIGNAL
+	select GRKERNSEC_CHROOT
 	select GRKERNSEC_CHROOT_SHMAT
 	select GRKERNSEC_CHROOT_UNIX
 	select GRKERNSEC_CHROOT_MOUNT

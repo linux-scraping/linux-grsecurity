@@ -94,33 +94,17 @@ startup_64:
 	addq	%rbp, init_level4_pgt + (L4_START_KERNEL*8)(%rip)
 
 	addq	%rbp, level3_ident_pgt + 0(%rip)
+	addq	%rbp, level3_ident_pgt + 8(%rip)
+	addq	%rbp, level3_ident_pgt + 16(%rip)
+	addq	%rbp, level3_ident_pgt + 24(%rip)
+
+	addq	%rbp, level3_vmemmap_pgt + (L3_VMEMMAP_START*8)(%rip)
 
 	addq	%rbp, level3_kernel_pgt + (L3_START_KERNEL*8)(%rip)
 	addq	%rbp, level3_kernel_pgt + (L3_START_KERNEL*8+8)(%rip)
 
 	addq	%rbp, level2_fixmap_pgt + (506*8)(%rip)
 	addq	%rbp, level2_fixmap_pgt + (507*8)(%rip)
-
-	/* Add an Identity mapping if I am above 1G */
-	leaq	_text(%rip), %rdi
-	andq	$PMD_PAGE_MASK, %rdi
-
-	movq	%rdi, %rax
-	shrq	$PUD_SHIFT, %rax
-	andq	$(PTRS_PER_PUD - 1), %rax
-	jz	ident_complete
-
-	leaq	(level2_spare_pgt - __START_KERNEL_map + _KERNPG_TABLE)(%rbp), %rdx
-	leaq	level3_ident_pgt(%rip), %rbx
-	movq	%rdx, 0(%rbx, %rax, 8)
-
-	movq	%rdi, %rax
-	shrq	$PMD_SHIFT, %rax
-	andq	$(PTRS_PER_PMD - 1), %rax
-	leaq	__PAGE_KERNEL_LARGE_EXEC(%rdi), %rdx
-	leaq	level2_spare_pgt(%rip), %rbx
-	movq	%rdx, 0(%rbx, %rax, 8)
-ident_complete:
 
 	/*
 	 * Fixup the kernel text+data virtual addresses. Note that
@@ -373,19 +357,26 @@ NEXT_PAGE(init_level4_pgt)
 
 NEXT_PAGE(level3_ident_pgt)
 	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
-	.fill	511,8,0
+	.quad	level2_ident_pgt + PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level2_ident_pgt + 2*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level2_ident_pgt + 3*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
+	.fill	508,8,0
 
 NEXT_PAGE(level3_vmalloc_pgt)
 	.fill	512,8,0
 
 NEXT_PAGE(level3_vmemmap_pgt)
-	.fill	512,8,0
+	.fill	L3_VMEMMAP_START,8,0
+	.quad	level2_vmemmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
 
 NEXT_PAGE(level3_kernel_pgt)
 	.fill	L3_START_KERNEL,8,0
 	/* (2^48-(2*1024*1024*1024)-((2^39)*511))/(2^30) = 510 */
 	.quad	level2_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.quad	level2_fixmap_pgt - __START_KERNEL_map + _PAGE_TABLE
+
+NEXT_PAGE(level2_vmemmap_pgt)
+	.fill	512,8,0
 
 NEXT_PAGE(level2_fixmap_pgt)
 	.fill	506,8,0
@@ -400,11 +391,11 @@ NEXT_PAGE(level1_fixmap_pgt)
 NEXT_PAGE(level1_vsyscall_pgt)
 	.fill	512,8,0
 
-NEXT_PAGE(level2_ident_pgt)
-	/* Since I easily can, map the first 1G.
+	/* Since I easily can, map the first 4G.
 	 * Don't set NX because code runs from these pages.
 	 */
-	PMDS(0, __PAGE_KERNEL_LARGE_EXEC, PTRS_PER_PMD)
+NEXT_PAGE(level2_ident_pgt)
+	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, 4*PTRS_PER_PMD)
 
 NEXT_PAGE(level2_kernel_pgt)
 	/*
@@ -417,11 +408,7 @@ NEXT_PAGE(level2_kernel_pgt)
 	 *  If you want to increase this then increase MODULES_VADDR
 	 *  too.)
 	 */
-	PMDS(0, __PAGE_KERNEL_LARGE_EXEC,
-		KERNEL_IMAGE_SIZE/PMD_SIZE)
-
-NEXT_PAGE(level2_spare_pgt)
-	.fill   512, 8, 0
+	PMDS(0, __PAGE_KERNEL_LARGE_EXEC, KERNEL_IMAGE_SIZE/PMD_SIZE)
 
 #undef PMDS
 #undef NEXT_PAGE
@@ -459,10 +446,10 @@ ENTRY(phys_base)
 
 #include "../../x86/xen/xen-head.S"
 
-	.section .bss, "aw", @nobits
+	.section .rodata,"a",@progbits
 	.align L1_CACHE_BYTES
 ENTRY(idt_table)
-	.skip 256 * 16
+	.fill 512,8,0
 
 	.section .bss.page_aligned, "aw", @nobits
 	.align PAGE_SIZE

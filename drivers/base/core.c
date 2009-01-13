@@ -541,7 +541,6 @@ void device_initialize(struct device *dev)
 	klist_init(&dev->klist_children, klist_children_get,
 		   klist_children_put);
 	INIT_LIST_HEAD(&dev->dma_pools);
-	INIT_LIST_HEAD(&dev->node);
 	init_MUTEX(&dev->sem);
 	spin_lock_init(&dev->devres_lock);
 	INIT_LIST_HEAD(&dev->devres_head);
@@ -925,7 +924,8 @@ int device_add(struct device *dev)
 	if (dev->class) {
 		mutex_lock(&dev->class->p->class_mutex);
 		/* tie the class to the device */
-		list_add_tail(&dev->node, &dev->class->p->class_devices);
+		klist_add_tail(&dev->knode_class,
+			       &dev->class->p->class_devices);
 
 		/* notify any interfaces that the device is here */
 		list_for_each_entry(class_intf,
@@ -1045,7 +1045,7 @@ void device_del(struct device *dev)
 			if (class_intf->remove_dev)
 				class_intf->remove_dev(dev, class_intf);
 		/* remove the device from the class list */
-		list_del_init(&dev->node);
+		klist_del(&dev->knode_class);
 		mutex_unlock(&dev->class->p->class_mutex);
 	}
 	device_remove_file(dev, &uevent_attr);
@@ -1327,6 +1327,11 @@ EXPORT_SYMBOL_GPL(device_destroy);
  * device_rename - renames a device
  * @dev: the pointer to the struct device to be renamed
  * @new_name: the new name of the device
+ *
+ * It is the responsibility of the caller to provide mutual
+ * exclusion between two different calls of device_rename
+ * on the same device to ensure that new_name is valid and
+ * won't conflict with other devices.
  */
 int device_rename(struct device *dev, char *new_name)
 {

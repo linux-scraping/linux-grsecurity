@@ -228,7 +228,6 @@
 #include <linux/suspend.h>
 #include <linux/kthread.h>
 #include <linux/jiffies.h>
-#include <linux/smp_lock.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
@@ -2247,7 +2246,7 @@ static struct dmi_system_id __initdata apm_dmi_table[] = {
 		{	DMI_MATCH(DMI_SYS_VENDOR, "IBM"), },
 	},
 
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL}
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL}
 };
 
 /*

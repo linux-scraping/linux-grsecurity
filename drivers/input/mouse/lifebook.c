@@ -110,7 +110,7 @@ static const struct dmi_system_id lifebook_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "LifeBook B142"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, NULL)}, NULL}
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL}
 };
 
 static psmouse_ret_t lifebook_process_byte(struct psmouse *psmouse)

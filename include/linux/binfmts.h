@@ -36,6 +36,9 @@ struct linux_binprm{
 	unsigned long p; /* current top of mem */
 	unsigned int sh_bang:1,
 		     misc_bang:1;
+#ifdef __alpha__
+	unsigned int taso:1;
+#endif
 	unsigned int recursion_depth;
 	struct file * file;
 	int e_uid, e_gid;

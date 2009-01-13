@@ -50,8 +50,7 @@ AllocMidQEntry(const struct smb_hdr *smb_buffer, struct cifsSesInfo *ses)
 		return NULL;
 	}
 
-	temp = (struct mid_q_entry *) mempool_alloc(cifs_mid_poolp,
-						    GFP_KERNEL | GFP_NOFS);
+	temp = mempool_alloc(cifs_mid_poolp, GFP_NOFS);
 	if (temp == NULL)
 		return temp;
 	else {
@@ -325,7 +324,7 @@ smb_send2(struct TCP_Server_Info *server, struct kvec *iov, int n_vec,
 
 	if ((total_len > 0) && (total_len != smb_buf_length + 4)) {
 		cFYI(1, ("partial send (%d remaining), terminating session",
-				total_len));
+			total_len));
 		/* If we have only sent part of an SMB then the next SMB
 		   could be taken as the remainder of this one.  We need
 		   to kill the socket so the server throws away the partial
@@ -540,8 +539,8 @@ SendReceive2(const unsigned int xid, struct cifsSesInfo *ses,
 	atomic_inc(&ses->server->inSend);
 #endif
 	rc = smb_send2(ses->server, iov, n_vec,
-			(struct sockaddr *) &(ses->server->addr.sockAddr),
-			ses->server->noblocksnd);
+		      (struct sockaddr *) &(ses->server->addr.sockAddr),
+		       ses->server->noblocksnd);
 #ifdef CONFIG_CIFS_STATS2
 	atomic_dec(&ses->server->inSend);
 	midQ->when_sent = jiffies;
@@ -733,8 +732,8 @@ SendReceive(const unsigned int xid, struct cifsSesInfo *ses,
 	atomic_inc(&ses->server->inSend);
 #endif
 	rc = smb_send(ses->server->ssocket, in_buf, in_buf->smb_buf_length,
-			(struct sockaddr *) &(ses->server->addr.sockAddr),
-			ses->server->noblocksnd);
+		      (struct sockaddr *) &(ses->server->addr.sockAddr),
+		      ses->server->noblocksnd);
 #ifdef CONFIG_CIFS_STATS2
 	atomic_dec(&ses->server->inSend);
 	midQ->when_sent = jiffies;
@@ -874,8 +873,8 @@ send_nt_cancel(struct cifsTconInfo *tcon, struct smb_hdr *in_buf,
 		return rc;
 	}
 	rc = smb_send(ses->server->ssocket, in_buf, in_buf->smb_buf_length,
-		(struct sockaddr *) &(ses->server->addr.sockAddr),
-		ses->server->noblocksnd);
+	      (struct sockaddr *) &(ses->server->addr.sockAddr),
+	      ses->server->noblocksnd);
 	up(&ses->server->tcpSem);
 	return rc;
 }
@@ -965,8 +964,8 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifsTconInfo *tcon,
 	atomic_inc(&ses->server->inSend);
 #endif
 	rc = smb_send(ses->server->ssocket, in_buf, in_buf->smb_buf_length,
-			(struct sockaddr *) &(ses->server->addr.sockAddr),
-			ses->server->noblocksnd);
+		      (struct sockaddr *) &(ses->server->addr.sockAddr),
+		      ses->server->noblocksnd);
 #ifdef CONFIG_CIFS_STATS2
 	atomic_dec(&ses->server->inSend);
 	midQ->when_sent = jiffies;

@@ -289,6 +289,7 @@ struct cifsTconInfo {
 	bool seal:1;      /* transport encryption for this mounted share */
 	bool unix_ext:1;  /* if false disable Linux extensions to CIFS protocol
 				for this mount even if server would support */
+	bool local_lease:1; /* check leases (only) on local system not remote */
 	bool need_reconnect:1; /* connection reset, tid now invalid */
 	/* BB add field for back pointer to sb struct(s)? */
 };
@@ -358,6 +359,7 @@ struct cifsInodeInfo {
 	bool clientCanCacheRead:1;	/* read oplock */
 	bool clientCanCacheAll:1;	/* read and writebehind oplock */
 	bool oplockPending:1;
+	bool delete_pending:1;		/* DELETE_ON_CLOSE is set */
 	struct inode vfs_inode;
 };
 
@@ -604,7 +606,15 @@ GLOBAL_EXTERN struct list_head		cifs_tcp_ses_list;
  * changes to the tcon->tidStatus should be done while holding this lock.
  */
 GLOBAL_EXTERN rwlock_t		cifs_tcp_ses_lock;
-GLOBAL_EXTERN rwlock_t GlobalSMBSeslock;  /* protects list inserts on 3 above */
+
+/*
+ * This lock protects the cifs_file->llist and cifs_file->flist
+ * list operations, and updates to some flags (cifs_file->invalidHandle)
+ * It will be moved to either use the tcon->stat_lock or equivalent later.
+ * If cifs_tcp_ses_lock and the lock below are both needed to be held, then
+ * the cifs_tcp_ses_lock must be grabbed first and released last.
+ */
+GLOBAL_EXTERN rwlock_t GlobalSMBSeslock;
 
 GLOBAL_EXTERN struct list_head GlobalOplock_Q;
 

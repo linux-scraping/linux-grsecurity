@@ -90,6 +90,8 @@ struct smb_vol {
 	bool nocase:1;     /* request case insensitive filenames */
 	bool nobrl:1;      /* disable sending byte range locks to srv */
 	bool seal:1;       /* request transport encryption on share */
+	bool nodfs:1;      /* Do not request DFS, even if available */
+	bool local_lease:1; /* check leases only on local system, not remote */
 	bool noblocksnd:1;
 	bool noautotune:1;
 	unsigned int rsize;
@@ -411,13 +413,12 @@ incomplete_rcv:
 				tcpStatus CifsNeedReconnect if server hung */
 			if (pdu_length < 4) {
 				iov.iov_base = (4 - pdu_length) +
-						(char *)smb_buffer;
+							(char *)smb_buffer;
 				iov.iov_len = pdu_length;
 				smb_msg.msg_control = NULL;
 				smb_msg.msg_controllen = 0;
 				goto incomplete_rcv;
-			}
-			else
+			} else
 				continue;
 		} else if (length <= 0) {
 			if (server->tcpStatus == CifsNew) {
@@ -1199,10 +1200,10 @@ cifs_parse_mount_options(char *options, const char *devname,
 			/* ignore */
 		} else if (strnicmp(data, "rw", 2) == 0) {
 			vol->rw = true;
-		} else if (strnicmp(data, "noblocksnd", 11) == 0) {
-			vol->noblocksnd = true;
+		} else if (strnicmp(data, "noblocksend", 11) == 0) {
+			vol->noblocksnd = 1;
 		} else if (strnicmp(data, "noautotune", 10) == 0) {
-			vol->noautotune = true;
+			vol->noautotune = 1;
 		} else if ((strnicmp(data, "suid", 4) == 0) ||
 				   (strnicmp(data, "nosuid", 6) == 0) ||
 				   (strnicmp(data, "exec", 4) == 0) ||
@@ -1235,6 +1236,8 @@ cifs_parse_mount_options(char *options, const char *devname,
 			vol->sfu_emul = 1;
 		} else if (strnicmp(data, "nosfu", 5) == 0) {
 			vol->sfu_emul = 0;
+		} else if (strnicmp(data, "nodfs", 5) == 0) {
+			vol->nodfs = 1;
 		} else if (strnicmp(data, "posixpaths", 10) == 0) {
 			vol->posix_paths = 1;
 		} else if (strnicmp(data, "noposixpaths", 12) == 0) {
@@ -1285,6 +1288,10 @@ cifs_parse_mount_options(char *options, const char *devname,
 			vol->no_psx_acl = 0;
 		} else if (strnicmp(data, "noacl", 5) == 0) {
 			vol->no_psx_acl = 1;
+#ifdef CONFIG_CIFS_EXPERIMENTAL
+		} else if (strnicmp(data, "locallease", 6) == 0) {
+			vol->local_lease = 1;
+#endif
 		} else if (strnicmp(data, "sign", 4) == 0) {
 			vol->secFlg |= CIFSSEC_MUST_SIGN;
 		} else if (strnicmp(data, "seal", 4) == 0) {
@@ -1587,8 +1594,8 @@ static void rfc1002mangle(char *target, char *source, unsigned int length)
 
 static int
 ipv4_connect(struct sockaddr_in *psin_server, struct socket **csocket,
-		char *netbios_name, char *target_name,
-		bool noblocksnd, bool noautotune)
+	     char *netbios_name, char *target_name,
+	     bool noblocksnd, bool noautotune)
 {
 	int rc = 0;
 	int connected = 0;
@@ -1662,6 +1669,7 @@ ipv4_connect(struct sockaddr_in *psin_server, struct socket **csocket,
 	(*csocket)->sk->sk_rcvtimeo = 7 * HZ;
 	if (!noblocksnd)
 		(*csocket)->sk->sk_sndtimeo = 3 * HZ;
+
 	/* make the bufsizes depend on wsize/rsize and max requests */
 	if (noautotune) {
 		if ((*csocket)->sk->sk_sndbuf < (200 * 1024))
@@ -1726,7 +1734,7 @@ ipv4_connect(struct sockaddr_in *psin_server, struct socket **csocket,
 
 static int
 ipv6_connect(struct sockaddr_in6 *psin_server, struct socket **csocket,
-		bool noblocksnd)
+	     bool noblocksnd)
 {
 	int rc = 0;
 	int connected = 0;
@@ -1797,6 +1805,7 @@ ipv6_connect(struct sockaddr_in6 *psin_server, struct socket **csocket,
 	(*csocket)->sk->sk_rcvtimeo = 7 * HZ;
 	if (!noblocksnd)
 		(*csocket)->sk->sk_sndtimeo = 3 * HZ;
+
 
 	return rc;
 }
@@ -2123,10 +2132,10 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		} else {
 			sin_server->sin_port = htons(volume_info.port);
 			rc = ipv4_connect(sin_server, &csocket,
-					volume_info.source_rfc1001_name,
-					volume_info.target_rfc1001_name,
-					volume_info.noblocksnd,
-					volume_info.noautotune);
+				  volume_info.source_rfc1001_name,
+				  volume_info.target_rfc1001_name,
+				  volume_info.noblocksnd,
+				  volume_info.noautotune);
 		}
 		if (rc < 0) {
 			cERROR(1, ("Error connecting to socket. "
@@ -2255,6 +2264,7 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 	/* search for existing tcon to this server share */
 	if (!rc) {
 		setup_cifs_sb(&volume_info, cifs_sb);
+
 		tcon = cifs_find_tcon(pSesInfo, volume_info.UNC);
 		if (tcon) {
 			cFYI(1, ("Found match on UNC path"));
@@ -2285,6 +2295,11 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 				rc = CIFSTCon(xid, pSesInfo, volume_info.UNC,
 					      tcon, cifs_sb->local_nls);
 				cFYI(1, ("CIFS Tcon rc = %d", rc));
+				if (volume_info.nodfs) {
+					tcon->Flags &= ~SMB_SHARE_IS_IN_DFS;
+					cFYI(1, ("DFS disabled (%d)",
+						tcon->Flags));
+				}
 			}
 			if (rc)
 				goto mount_fail_check;
@@ -2300,6 +2315,7 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 		   for the retry flag is used */
 		tcon->retry = volume_info.retry;
 		tcon->nocase = volume_info.nocase;
+		tcon->local_lease = volume_info.local_lease;
 	}
 	if (pSesInfo) {
 		if (pSesInfo->capabilities & CAP_LARGE_FILES) {
@@ -2311,8 +2327,8 @@ cifs_mount(struct super_block *sb, struct cifs_sb_info *cifs_sb,
 	/* BB FIXME fix time_gran to be larger for LANMAN sessions */
 	sb->s_time_gran = 100;
 
-	/* on error free sesinfo and tcon struct if needed */
 mount_fail_check:
+	/* on error free sesinfo and tcon struct if needed */
 	if (rc) {
 		/* If find_unc succeeded then rc == 0 so we can not end */
 		/* up accidently freeing someone elses tcon struct */

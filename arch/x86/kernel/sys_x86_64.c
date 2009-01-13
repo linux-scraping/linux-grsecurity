@@ -13,15 +13,17 @@
 #include <linux/utsname.h>
 #include <linux/personality.h>
 #include <linux/random.h>
+#include <linux/uaccess.h>
 
-#include <asm/uaccess.h>
 #include <asm/ia32.h>
+#include <asm/syscalls.h>
 
-asmlinkage long sys_mmap(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
-	unsigned long fd, unsigned long off)
+asmlinkage long sys_mmap(unsigned long addr, unsigned long len,
+		unsigned long prot, unsigned long flags,
+		unsigned long fd, unsigned long off)
 {
 	long error;
-	struct file * file;
+	struct file *file;
 
 	error = -EINVAL;
 	if (off & ~PAGE_MASK)
@@ -56,9 +58,9 @@ static void find_start_end(struct mm_struct *mm, unsigned long flags,
 		   unmapped base down for this case. This can give
 		   conflicts with the heap, but we assume that glibc
 		   malloc knows how to fall back to mmap. Give it 1GB
-		   of playground for now. -AK */ 
-		*begin = 0x40000000; 
-		*end = 0x80000000;		
+		   of playground for now. -AK */
+		*begin = 0x40000000;
+		*end = 0x80000000;
 		if (current->flags & PF_RANDOMIZE) {
 			new_begin = randomize_range(*begin, *begin + 0x02000000, 0);
 			if (new_begin)
@@ -66,9 +68,9 @@ static void find_start_end(struct mm_struct *mm, unsigned long flags,
 		}
 	} else {
 		*begin = mm->mmap_base;
-		*end = TASK_SIZE; 
+		*end = TASK_SIZE;
 	}
-} 
+}
 
 unsigned long
 arch_get_unmapped_area(struct file *filp, unsigned long addr,
@@ -78,7 +80,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
 	unsigned long begin, end;
-	
+
 	if (flags & MAP_FIXED)
 		return addr;
 
@@ -88,7 +90,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		return -ENOMEM;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	if (addr) {
@@ -100,12 +102,12 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	}
 	if (((flags & MAP_32BIT) || test_thread_flag(TIF_IA32))
 	    && len <= mm->cached_hole_size) {
-	        mm->cached_hole_size = 0;
+		mm->cached_hole_size = 0;
 		mm->free_area_cache = begin;
 	}
 	addr = mm->free_area_cache;
-	if (addr < begin) 
-		addr = begin; 
+	if (addr < begin)
+		addr = begin;
 	start_addr = addr;
 
 full_search:
@@ -131,7 +133,7 @@ full_search:
 			return addr;
 		}
 		if (addr + mm->cached_hole_size < vma->vm_start)
-		        mm->cached_hole_size = vma->vm_start - addr;
+			mm->cached_hole_size = vma->vm_start - addr;
 
 		addr = vma->vm_end;
 	}
@@ -185,7 +187,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		vma = find_vma(mm, addr-len);
 		if (!vma || addr <= vma->vm_start)
 			/* remember the address as a hint for next time */
-			return (mm->free_area_cache = addr-len);
+			return mm->free_area_cache = addr-len;
 	}
 
 	if (mm->mmap_base < len)
@@ -202,7 +204,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		vma = find_vma(mm, addr);
 		if (!vma || addr+len <= vma->vm_start)
 			/* remember the address as a hint for next time */
-			return (mm->free_area_cache = addr);
+			return mm->free_area_cache = addr;
 
 		/* remember the largest hole we saw so far */
 		if (addr + mm->cached_hole_size < vma->vm_start)
@@ -240,13 +242,13 @@ bottomup:
 }
 
 
-asmlinkage long sys_uname(struct new_utsname __user * name)
+asmlinkage long sys_uname(struct new_utsname __user *name)
 {
 	int err;
 	down_read(&uts_sem);
-	err = copy_to_user(name, utsname(), sizeof (*name));
+	err = copy_to_user(name, utsname(), sizeof(*name));
 	up_read(&uts_sem);
-	if (personality(current->personality) == PER_LINUX32) 
-		err |= copy_to_user(&name->machine, "i686", 5); 		
+	if (personality(current->personality) == PER_LINUX32)
+		err |= copy_to_user(&name->machine, "i686", 5);
 	return err ? -EFAULT : 0;
 }

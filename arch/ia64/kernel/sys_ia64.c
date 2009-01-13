@@ -45,7 +45,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 #endif
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if ((mm->pax_flags & MF_PAX_RANDMMAP) && addr && filp)
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
 		addr = mm->free_area_cache;
 	else
 #endif

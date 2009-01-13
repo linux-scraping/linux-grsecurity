@@ -432,7 +432,7 @@ config PAX_REFCOUNT
 	  overflows can normally occur due to bugs only and are often, if
 	  not always, exploitable.
 
-	  The tradeoff is that data structures protected by an oveflowed
+	  The tradeoff is that data structures protected by an overflowed
 	  refcount will never be freed and therefore will leak memory.  Note
 	  that this leak also happens even without this protection but in
 	  that case the overflow can eventually trigger the freeing of the
@@ -489,6 +489,14 @@ config SECURITY
 
 	  If this option is not selected, the default Linux security
 	  model will be used.
+
+	  If you are unsure how to answer this question, answer N.
+
+config SECURITYFS
+	bool "Enable the securityfs filesystem"
+	help
+	  This will build the securityfs filesystem.  It is currently used by
+	  the TPM bios character driver.  It is not used by SELinux or SMACK.
 
 	  If you are unsure how to answer this question, answer N.
 

@@ -22,6 +22,8 @@
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
 
+#include <asm/syscalls.h>
+
 int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
 {
 	unsigned long pax_task_size = TASK_SIZE;
@@ -116,7 +118,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		return addr;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	if (addr) {
@@ -209,7 +211,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 #endif
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || !filp)
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	/* requesting a specific address */

@@ -125,7 +125,7 @@ asmlinkage long old_readdir(unsigned int fd, struct old_linux_dirent __user * di
 	buf.file = file;
 
 	error = vfs_readdir(file, fillonedir, &buf);
-	if (error >= 0)
+	if (buf.result)
 		error = buf.result;
 
 	fput(file);
@@ -223,9 +223,8 @@ asmlinkage long sys_getdents(unsigned int fd, struct linux_dirent __user * diren
 	buf.file = file;
 
 	error = vfs_readdir(file, filldir, &buf);
-	if (error < 0)
-		goto out_putf;
-	error = buf.error;
+	if (error >= 0)
+		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
 		if (put_user(file->f_pos, &lastdirent->d_off))
@@ -233,8 +232,6 @@ asmlinkage long sys_getdents(unsigned int fd, struct linux_dirent __user * diren
 		else
 			error = count - buf.count;
 	}
-
-out_putf:
 	fput(file);
 out:
 	return error;
@@ -313,19 +310,16 @@ asmlinkage long sys_getdents64(unsigned int fd, struct linux_dirent64 __user * d
 	buf.error = 0;
 
 	error = vfs_readdir(file, filldir64, &buf);
-	if (error < 0)
-		goto out_putf;
-	error = buf.error;
+	if (error >= 0)
+		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
 		typeof(lastdirent->d_off) d_off = file->f_pos;
-		error = -EFAULT;
 		if (__put_user(d_off, &lastdirent->d_off))
-			goto out_putf;
-		error = count - buf.count;
+			error = -EFAULT;
+		else
+			error = count - buf.count;
 	}
-
-out_putf:
 	fput(file);
 out:
 	return error;
