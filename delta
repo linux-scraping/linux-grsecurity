@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.12-2.6.28-200901122133.patch
-+++ b/grsecurity-2.1.12-2.6.28-200901122133.patch
+--- a/grsecurity-2.1.12-2.6.28-200901161810.patch
++++ b/grsecurity-2.1.12-2.6.28-200901161810.patch
 @@ -1,82 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 1e89a51ea49b9fa83a8d7cb2d7b61d9eccbfeb25..e02135872ec7b81605de593d9991c8e9092b40e0 100644
@@ -3220,7 +3220,7 @@
 ++++ linux-2.6.28/arch/x86/mm/extable.c	2009-01-11 07:20:06.000000000 -0500
 @@ -12682,4 +12398,3 @@
 -diff --git a/arch/x86/mm/fault.c b/arch/x86/mm/fault.c
--index 31e8730fa2463214f36c2f6b3df9d0f75f6be346..3129c79f11e9d4703056e42067ddcedf336b055e 100644
+-index 31e8730fa2463214f36c2f6b3df9d0f75f6be346..9c0ae924226f318ce56d15dabb5f168b43590097 100644
 ---- a/arch/x86/mm/fault.c
 -+++ b/arch/x86/mm/fault.c
 +diff -urNp linux-2.6.28/arch/x86/mm/fault.c linux-2.6.28/arch/x86/mm/fault.c
