@@ -432,7 +432,7 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 #endif
 	{
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
+			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
 				 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
