@@ -566,7 +566,7 @@ static void ibmvfc_init_host(struct ibmvfc_host *vhost, int relogin)
 	struct ibmvfc_target *tgt;
 
 	if (vhost->action == IBMVFC_HOST_ACTION_INIT_WAIT) {
-		if (++vhost->init_retries > IBMVFC_MAX_INIT_RETRIES) {
+		if (++vhost->init_retries > IBMVFC_MAX_HOST_INIT_RETRIES) {
 			dev_err(vhost->dev,
 				"Host initialization retries exceeded. Taking adapter offline\n");
 			ibmvfc_link_down(vhost, IBMVFC_HOST_OFFLINE);
@@ -847,11 +847,12 @@ static void ibmvfc_reset_host(struct ibmvfc_host *vhost)
 static void ibmvfc_retry_host_init(struct ibmvfc_host *vhost)
 {
 	if (vhost->action == IBMVFC_HOST_ACTION_INIT_WAIT) {
-		if (++vhost->init_retries > IBMVFC_MAX_INIT_RETRIES) {
+		vhost->delay_init = 1;
+		if (++vhost->init_retries > IBMVFC_MAX_HOST_INIT_RETRIES) {
 			dev_err(vhost->dev,
 				"Host initialization retries exceeded. Taking adapter offline\n");
 			ibmvfc_link_down(vhost, IBMVFC_HOST_OFFLINE);
-		} else if (vhost->init_retries == IBMVFC_MAX_INIT_RETRIES)
+		} else if (vhost->init_retries == IBMVFC_MAX_HOST_INIT_RETRIES)
 			__ibmvfc_reset_host(vhost);
 		else
 			ibmvfc_set_host_action(vhost, IBMVFC_HOST_ACTION_INIT);
@@ -2089,15 +2090,17 @@ static void ibmvfc_handle_async(struct ibmvfc_async_crq *crq,
 	case IBMVFC_AE_LINK_UP:
 	case IBMVFC_AE_RESUME:
 		vhost->events_to_log |= IBMVFC_AE_LINKUP;
-		ibmvfc_init_host(vhost, 1);
+		vhost->delay_init = 1;
+		__ibmvfc_reset_host(vhost);
 		break;
 	case IBMVFC_AE_SCN_FABRIC:
+	case IBMVFC_AE_SCN_DOMAIN:
 		vhost->events_to_log |= IBMVFC_AE_RSCN;
-		ibmvfc_init_host(vhost, 1);
+		vhost->delay_init = 1;
+		__ibmvfc_reset_host(vhost);
 		break;
 	case IBMVFC_AE_SCN_NPORT:
 	case IBMVFC_AE_SCN_GROUP:
-	case IBMVFC_AE_SCN_DOMAIN:
 		vhost->events_to_log |= IBMVFC_AE_RSCN;
 	case IBMVFC_AE_ELS_LOGO:
 	case IBMVFC_AE_ELS_PRLO:
@@ -2669,7 +2672,7 @@ static void ibmvfc_init_tgt(struct ibmvfc_target *tgt,
 static void ibmvfc_retry_tgt_init(struct ibmvfc_target *tgt,
 				  void (*job_step) (struct ibmvfc_target *))
 {
-	if (++tgt->init_retries > IBMVFC_MAX_INIT_RETRIES) {
+	if (++tgt->init_retries > IBMVFC_MAX_TGT_INIT_RETRIES) {
 		ibmvfc_set_tgt_action(tgt, IBMVFC_TGT_ACTION_DEL_RPORT);
 		wake_up(&tgt->vhost->work_wait_q);
 	} else
@@ -3519,7 +3522,13 @@ static void ibmvfc_do_work(struct ibmvfc_host *vhost)
 		break;
 	case IBMVFC_HOST_ACTION_INIT:
 		BUG_ON(vhost->state != IBMVFC_INITIALIZING);
-		vhost->job_step(vhost);
+		if (vhost->delay_init) {
+			vhost->delay_init = 0;
+			spin_unlock_irqrestore(vhost->host->host_lock, flags);
+			ssleep(15);
+			return;
+		} else
+			vhost->job_step(vhost);
 		break;
 	case IBMVFC_HOST_ACTION_QUERY:
 		list_for_each_entry(tgt, &vhost->targets, queue)

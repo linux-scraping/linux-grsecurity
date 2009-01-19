@@ -94,7 +94,7 @@ static inline int copy_ldt(mm_context_t *new, mm_context_t *old)
 		return err;
 
 	for(i = 0; i < old->size; i++)
-		write_ldt_entry(new->ldt, i, old->ldt + i * LDT_ENTRY_SIZE);
+		write_ldt_entry(new->ldt, i, old->ldt + i);
 	return 0;
 }
 

@@ -769,6 +769,7 @@ rb_set_commit_to_write(struct ring_buffer_per_cpu *cpu_buffer)
 	 * back to us). This allows us to do a simple loop to
 	 * assign the commit to the tail.
 	 */
+ again:
 	while (cpu_buffer->commit_page != cpu_buffer->tail_page) {
 		cpu_buffer->commit_page->commit =
 			cpu_buffer->commit_page->write;
@@ -783,6 +784,17 @@ rb_set_commit_to_write(struct ring_buffer_per_cpu *cpu_buffer)
 			cpu_buffer->commit_page->write;
 		barrier();
 	}
+
+	/* again, keep gcc from optimizing */
+	barrier();
+
+	/*
+	 * If an interrupt came in just after the first while loop
+	 * and pushed the tail page forward, we will be left with
+	 * a dangling commit that will never go forward.
+	 */
+	if (unlikely(cpu_buffer->commit_page != cpu_buffer->tail_page))
+		goto again;
 }
 
 static void rb_reset_reader_page(struct ring_buffer_per_cpu *cpu_buffer)
@@ -880,12 +892,15 @@ static struct ring_buffer_event *
 __rb_reserve_next(struct ring_buffer_per_cpu *cpu_buffer,
 		  unsigned type, unsigned long length, u64 *ts)
 {
-	struct buffer_page *tail_page, *head_page, *reader_page;
+	struct buffer_page *tail_page, *head_page, *reader_page, *commit_page;
 	unsigned long tail, write;
 	struct ring_buffer *buffer = cpu_buffer->buffer;
 	struct ring_buffer_event *event;
 	unsigned long flags;
 
+	commit_page = cpu_buffer->commit_page;
+	/* we just need to protect against interrupts */
+	barrier();
 	tail_page = cpu_buffer->tail_page;
 	write = local_add_return(length, &tail_page->write);
 	tail = write - length;
@@ -909,7 +924,7 @@ __rb_reserve_next(struct ring_buffer_per_cpu *cpu_buffer,
 		 * it all the way around the buffer, bail, and warn
 		 * about it.
 		 */
-		if (unlikely(next_page == cpu_buffer->commit_page)) {
+		if (unlikely(next_page == commit_page)) {
 			WARN_ON_ONCE(1);
 			goto out_unlock;
 		}
