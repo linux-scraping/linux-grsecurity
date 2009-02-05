@@ -89,6 +89,7 @@ enum {
 	STAC_DELL_M4_2,
 	STAC_DELL_M4_3,
 	STAC_HP_M4,
+	STAC_HP_DV5,
 	STAC_92HD71BXX_MODELS
 };
 
@@ -1702,6 +1703,7 @@ static unsigned int *stac92hd71bxx_brd_tbl[STAC_92HD71BXX_MODELS] = {
 	[STAC_DELL_M4_2]	= dell_m4_2_pin_configs,
 	[STAC_DELL_M4_3]	= dell_m4_3_pin_configs,
 	[STAC_HP_M4]		= NULL,
+	[STAC_HP_DV5]		= NULL,
 };
 
 static const char *stac92hd71bxx_models[STAC_92HD71BXX_MODELS] = {
@@ -1710,6 +1712,7 @@ static const char *stac92hd71bxx_models[STAC_92HD71BXX_MODELS] = {
 	[STAC_DELL_M4_2] = "dell-m4-2",
 	[STAC_DELL_M4_3] = "dell-m4-3",
 	[STAC_HP_M4] = "hp-m4",
+	[STAC_HP_DV5] = "hp-dv5",
 };
 
 static struct snd_pci_quirk stac92hd71bxx_cfg_tbl[] = {
@@ -1722,6 +1725,8 @@ static struct snd_pci_quirk stac92hd71bxx_cfg_tbl[] = {
 		      "HP dv7", STAC_HP_M4),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_HP, 0x30fc,
 		      "HP dv7", STAC_HP_M4),
+	SND_PCI_QUIRK(PCI_VENDOR_ID_HP, 0x3603,
+		      "HP dv5", STAC_HP_DV5),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_HP, 0x361a,
 				"unknown HP", STAC_HP_M4),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0233,
@@ -2423,6 +2428,8 @@ static int stac92xx_build_pcms(struct hda_codec *codec)
 
 	info->name = "STAC92xx Analog";
 	info->stream[SNDRV_PCM_STREAM_PLAYBACK] = stac92xx_pcm_analog_playback;
+	info->stream[SNDRV_PCM_STREAM_PLAYBACK].nid =
+		spec->multiout.dac_nids[0];
 	info->stream[SNDRV_PCM_STREAM_CAPTURE] = stac92xx_pcm_analog_capture;
 	info->stream[SNDRV_PCM_STREAM_CAPTURE].nid = spec->adc_nids[0];
 	info->stream[SNDRV_PCM_STREAM_CAPTURE].substreams = spec->num_adcs;
@@ -3980,8 +3987,19 @@ static void stac92xx_hp_detect(struct hda_codec *codec, unsigned int res)
 			continue;
 		if (presence)
 			stac92xx_set_pinctl(codec, cfg->hp_pins[i], val);
+#if 0 /* FIXME */
+/* Resetting the pinctl like below may lead to (a sort of) regressions
+ * on some devices since they use the HP pin actually for line/speaker
+ * outs although the default pin config shows a different pin (that is
+ * wrong and useless).
+ *
+ * So, it's basically a problem of default pin configs, likely a BIOS issue.
+ * But, disabling the code below just works around it, and I'm too tired of
+ * bug reports with such devices...
+ */
 		else
 			stac92xx_reset_pinctl(codec, cfg->hp_pins[i], val);
+#endif /* FIXME */
 	}
 } 
 

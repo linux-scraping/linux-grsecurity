@@ -399,7 +399,7 @@ static void read_relocs(FILE *fp)
 		for (j = 0; j < ehdr.e_phnum; j++) {
 			if (phdr[j].p_type != PT_LOAD )
 				continue;
-			if (secs[secs[i].shdr.sh_info].shdr.sh_offset < phdr[j].p_offset || secs[secs[i].shdr.sh_info].shdr.sh_offset > phdr[j].p_offset + phdr[j].p_filesz)
+			if (secs[sec->shdr.sh_info].shdr.sh_offset < phdr[j].p_offset || secs[sec->shdr.sh_info].shdr.sh_offset >= phdr[j].p_offset + phdr[j].p_filesz)
 				continue;
 			base = CONFIG_PAGE_OFFSET + phdr[j].p_paddr - phdr[j].p_vaddr;
 			break;

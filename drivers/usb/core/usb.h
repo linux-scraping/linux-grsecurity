@@ -10,10 +10,13 @@ extern int usb_create_ep_files(struct device *parent,
 extern void usb_remove_ep_files(struct usb_host_endpoint *endpoint);
 
 extern void usb_enable_endpoint(struct usb_device *dev,
-		struct usb_host_endpoint *ep);
-extern void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr);
+		struct usb_host_endpoint *ep, bool reset_toggle);
+extern void usb_enable_interface(struct usb_device *dev,
+		struct usb_interface *intf, bool reset_toggles);
+extern void usb_disable_endpoint(struct usb_device *dev, unsigned int epaddr,
+		bool reset_hardware);
 extern void usb_disable_interface(struct usb_device *dev,
-		struct usb_interface *intf);
+		struct usb_interface *intf, bool reset_hardware);
 extern void usb_release_interface_cache(struct kref *ref);
 extern void usb_disable_device(struct usb_device *dev, int skip_ep0);
 extern int usb_deauthorize_device(struct usb_device *);
@@ -145,7 +148,6 @@ extern struct usb_driver usbfs_driver;
 extern const struct file_operations usbfs_devices_fops;
 extern const struct file_operations usbdev_file_operations;
 extern void usbfs_conn_disc_event(void);
-extern void usb_fs_classdev_common_remove(struct usb_device *udev);
 
 extern int usb_devio_init(void);
 extern void usb_devio_cleanup(void);

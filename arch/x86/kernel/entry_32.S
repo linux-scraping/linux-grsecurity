@@ -363,6 +363,8 @@ sysenter_past_esp:
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	mov PT_OLDSS(%esp),%ds
 1:	movl %ds:(%ebp),%ebp
+	push %ss
+	pop %ds
 #else
 	cmpl $__PAGE_OFFSET-3,%ebp
 	jae syscall_fault
@@ -635,6 +637,10 @@ END(syscall_exit_work)
 
 	RING0_INT_FRAME			# can't unwind into user space anyway
 syscall_fault:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	push %ss
+	pop %ds
+#endif
 	GET_THREAD_INFO(%ebp)
 	movl $-EFAULT,PT_EAX(%esp)
 	jmp resume_userspace

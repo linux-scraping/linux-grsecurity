@@ -61,6 +61,20 @@ static inline void atomic_add(int i, atomic_t *v)
 }
 
 /**
+ * atomic_add_unchecked - add integer to atomic variable
+ * @i: integer value to add
+ * @v: pointer of type atomic_t
+ *
+ * Atomically adds @i to @v.
+ */
+static inline void atomic_add_unchecked(int i, atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "addl %1,%0\n"
+		     : "+m" (v->counter)
+		     : "ir" (i));
+}
+
+/**
  * atomic_sub - subtract integer from atomic variable
  * @i: integer value to subtract
  * @v: pointer of type atomic_t

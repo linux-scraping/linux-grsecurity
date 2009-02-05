@@ -845,7 +845,7 @@ not_pax_fault:
 	 * and pusha to work.  ("enter $65535,$31" pushes
 	 * 32 pointers and then decrements %sp by 65535.)
 	 */
-	if (address + 65536 + 32 * sizeof(unsigned long) < regs->sp)
+	if (address + 65536 + 32 * sizeof(unsigned long) < task_pt_regs(tsk)->sp)
 		goto bad_area;
 
 #ifdef CONFIG_PAX_SEGMEXEC

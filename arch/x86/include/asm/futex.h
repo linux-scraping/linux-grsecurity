@@ -31,7 +31,7 @@
 		     "1:\tmovl\t%%es:%2, %0\n"			\
 		     "\tmovl\t%0, %3\n"				\
 		     "\t" insn "\n"				\
-		     "2:\tlock; cmpxchgl %3, %%es:%2\n"		\
+		     "2:\t" LOCK_PREFIX "cmpxchgl %3, %%es:%2\n"\
 		     "\tjnz\t1b\n"				\
 		     "3:\tpushl\t%%ss\n"			\
 		     "\tpopl\t%%es\n"				\
@@ -169,12 +169,12 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 	asm volatile(
 #ifdef CONFIG_X86_32
 		     "\tmovw %w5, %%ds\n"
-		     "1:\tlock; cmpxchgl %3, %1\n"
+		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %1\n"
 		     "2:\tpushl   %%ss\n"
 		     "\tpopl    %%ds\n"
 		     "\t.section .fixup, \"ax\"\n"
 #else
-		     "1:\tlock; cmpxchgl %3, %1\n"
+		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %1\n"
 		     "2:\t.section .fixup, \"ax\"\n"
 #endif
 		     "3:\tmov     %2, %0\n"
