@@ -68,7 +68,7 @@ static u64 __read_mostly efer_reserved_bits = 0xfffffffffffffffeULL;
 static int kvm_dev_ioctl_get_supported_cpuid(struct kvm_cpuid2 *cpuid,
 				    struct kvm_cpuid_entry2 __user *entries);
 
-struct kvm_x86_ops *kvm_x86_ops;
+const struct kvm_x86_ops *kvm_x86_ops;
 EXPORT_SYMBOL_GPL(kvm_x86_ops);
 
 struct kvm_stats_debugfs_item debugfs_entries[] = {
@@ -2509,10 +2509,10 @@ int kvm_emulate_pio_string(struct kvm_vcpu *vcpu, struct kvm_run *run, int in,
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_pio_string);
 
-int kvm_arch_init(void *opaque)
+int kvm_arch_init(const void *opaque)
 {
 	int r;
-	struct kvm_x86_ops *ops = (struct kvm_x86_ops *)opaque;
+	const struct kvm_x86_ops *ops = (const struct kvm_x86_ops *)opaque;
 
 	if (kvm_x86_ops) {
 		printk(KERN_ERR "kvm: already loaded the other module\n");

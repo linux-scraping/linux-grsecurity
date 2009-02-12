@@ -2178,7 +2178,7 @@ static int vmx_vcpu_setup(struct vcpu_vmx *vmx)
 	vmcs_writel(HOST_IDTR_BASE, dt.base);   /* 22.2.4 */
 
 	asm("mov $.Lkvm_vmx_return, %0" : "=r"(kvm_vmx_return));
-	vmcs_writel(HOST_RIP, kvm_vmx_return); /* 22.2.5 */
+	vmcs_writel(HOST_RIP, ktla_ktva(kvm_vmx_return)); /* 22.2.5 */
 	vmcs_write32(VM_EXIT_MSR_STORE_COUNT, 0);
 	vmcs_write32(VM_EXIT_MSR_LOAD_COUNT, 0);
 	vmcs_write32(VM_ENTRY_MSR_LOAD_COUNT, 0);
@@ -3469,7 +3469,7 @@ static int get_ept_level(void)
 	return VMX_EPT_DEFAULT_GAW + 1;
 }
 
-static struct kvm_x86_ops vmx_x86_ops = {
+static const struct kvm_x86_ops vmx_x86_ops = {
 	.cpu_has_kvm_support = cpu_has_kvm_support,
 	.disabled_by_bios = vmx_disabled_by_bios,
 	.hardware_setup = hardware_setup,

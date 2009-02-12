@@ -650,8 +650,6 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 
 	si_code = SEGV_MAPERR;
 
-	if (notify_page_fault(regs))
-		return;
 	if (unlikely(kmmio_fault(regs, address)))
 		return;
 
@@ -681,6 +679,9 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		if (spurious_fault(address, error_code))
 			return;
 
+		/* kprobes don't want to hook the spurious faults. */
+		if (notify_page_fault(regs))
+			return;
 		/*
 		 * Don't take the mm semaphore here. If we fixup a prefetch
 		 * fault we could otherwise deadlock.
@@ -688,6 +689,9 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		goto bad_area_nosemaphore;
 	}
 
+	/* kprobes don't want to hook the spurious faults. */
+	if (notify_page_fault(regs))
+		return;
 
 	/*
 	 * It's safe to allow irq's after cr2 has been saved and the

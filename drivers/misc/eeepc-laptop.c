@@ -161,6 +161,10 @@ static struct key_entry eeepc_keymap[] = {
 	{KE_KEY, 0x13, KEY_MUTE },
 	{KE_KEY, 0x14, KEY_VOLUMEDOWN },
 	{KE_KEY, 0x15, KEY_VOLUMEUP },
+	{KE_KEY, 0x1a, KEY_COFFEE },
+	{KE_KEY, 0x1b, KEY_ZOOM },
+	{KE_KEY, 0x1c, KEY_PROG2 },
+	{KE_KEY, 0x1d, KEY_PROG3 },
 	{KE_KEY, 0x30, KEY_SWITCHVIDEOMODE },
 	{KE_KEY, 0x31, KEY_SWITCHVIDEOMODE },
 	{KE_KEY, 0x32, KEY_SWITCHVIDEOMODE },
@@ -510,7 +514,8 @@ static int eeepc_hotk_check(void)
 static void notify_brn(void)
 {
 	struct backlight_device *bd = eeepc_backlight_device;
-	bd->props.brightness = read_brightness(bd);
+	if (bd)
+		bd->props.brightness = read_brightness(bd);
 }
 
 static void eeepc_hotk_notify(acpi_handle handle, u32 event, void *data)

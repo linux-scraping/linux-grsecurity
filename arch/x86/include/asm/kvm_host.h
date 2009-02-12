@@ -479,7 +479,7 @@ struct kvm_x86_ops {
 	int (*get_tdp_level)(void);
 };
 
-extern struct kvm_x86_ops *kvm_x86_ops;
+extern const struct kvm_x86_ops *kvm_x86_ops;
 
 int kvm_mmu_module_init(void);
 void kvm_mmu_module_exit(void);

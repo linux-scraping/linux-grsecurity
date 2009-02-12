@@ -1999,7 +1999,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 	kvm_arch_vcpu_put(vcpu);
 }
 
-int kvm_init(void *opaque, unsigned int vcpu_size,
+int kvm_init(const void *opaque, unsigned int vcpu_size,
 		  struct module *module)
 {
 	int r;
