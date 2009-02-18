@@ -17,7 +17,6 @@
 #include <linux/syscalls.h>
 #include <linux/unistd.h>
 #include <linux/namei.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 

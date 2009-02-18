@@ -52,7 +52,6 @@
 #include <linux/tracehook.h>
 #include <linux/kmod.h>
 #include <linux/random.h>
-#include <linux/grsecurity.h>
 
 #ifdef CONFIG_PAX_REFCOUNT
 #include <linux/kallsyms.h>

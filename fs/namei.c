@@ -31,7 +31,6 @@
 #include <linux/file.h>
 #include <linux/fcntl.h>
 #include <linux/device_cgroup.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 

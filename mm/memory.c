@@ -47,12 +47,12 @@
 #include <linux/pagemap.h>
 #include <linux/rmap.h>
 #include <linux/module.h>
+#include <linux/security.h>
 #include <linux/delayacct.h>
 #include <linux/init.h>
 #include <linux/writeback.h>
 #include <linux/memcontrol.h>
 #include <linux/mmu_notifier.h>
-#include <linux/grsecurity.h>
 
 #include <asm/pgalloc.h>
 #include <asm/uaccess.h>

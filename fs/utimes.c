@@ -1,6 +1,7 @@
 #include <linux/compiler.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/security.h>
 #include <linux/linkage.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
@@ -8,7 +9,6 @@
 #include <linux/stat.h>
 #include <linux/utime.h>
 #include <linux/syscalls.h>
-#include <linux/grsecurity.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 

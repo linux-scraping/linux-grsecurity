@@ -72,7 +72,6 @@
 #include <linux/debugfs.h>
 #include <linux/ctype.h>
 #include <linux/ftrace.h>
-#include <linux/grsecurity.h>
 #include <trace/sched.h>
 
 #include <asm/tlb.h>

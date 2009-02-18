@@ -21,7 +21,6 @@
 #include <linux/audit.h>
 #include <linux/pid_namespace.h>
 #include <linux/syscalls.h>
-#include <linux/grsecurity.h>
 
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>

@@ -6,6 +6,7 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/capability.h>
+#include <linux/security.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/ioport.h>
@@ -14,7 +15,6 @@
 #include <linux/slab.h>
 #include <linux/thread_info.h>
 #include <linux/syscalls.h>
-#include <linux/grsecurity.h>
 #include <asm/syscalls.h>
 
 /* Set EXTENT bits starting at BASE in BITMAP to value TURN_ON. */

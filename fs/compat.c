@@ -51,7 +51,6 @@
 #include <linux/poll.h>
 #include <linux/mm.h>
 #include <linux/eventpoll.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>

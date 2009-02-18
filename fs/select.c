@@ -19,13 +19,13 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
+#include <linux/security.h>
 #include <linux/personality.h> /* for STICKY_TIMEOUTS */
 #include <linux/file.h>
 #include <linux/fdtable.h>
 #include <linux/fs.h>
 #include <linux/rcupdate.h>
 #include <linux/hrtimer.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 

@@ -18,6 +18,7 @@
 #include <linux/raw.h>
 #include <linux/tty.h>
 #include <linux/capability.h>
+#include <linux/security.h>
 #include <linux/ptrace.h>
 #include <linux/device.h>
 #include <linux/highmem.h>
@@ -27,7 +28,6 @@
 #include <linux/splice.h>
 #include <linux/pfn.h>
 #include <linux/smp_lock.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>

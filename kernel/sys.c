@@ -33,7 +33,6 @@
 #include <linux/task_io_accounting_ops.h>
 #include <linux/seccomp.h>
 #include <linux/cpu.h>
-#include <linux/grsecurity.h>
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>

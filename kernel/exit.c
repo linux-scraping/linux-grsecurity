@@ -46,18 +46,16 @@
 #include <linux/blkdev.h>
 #include <linux/task_io_accounting_ops.h>
 #include <linux/tracehook.h>
-#include <linux/grsecurity.h>
-
-#ifdef CONFIG_GRKERNSEC
-extern rwlock_t grsec_exec_file_lock;
-#endif
-
 #include <trace/sched.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
+
+#ifdef CONFIG_GRKERNSEC
+extern rwlock_t grsec_exec_file_lock;
+#endif
 
 static void exit_mm(struct task_struct * tsk);
 

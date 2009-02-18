@@ -37,7 +37,6 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/math64.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>

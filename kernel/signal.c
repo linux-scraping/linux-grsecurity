@@ -26,7 +26,6 @@
 #include <linux/capability.h>
 #include <linux/freezer.h>
 #include <linux/pid_namespace.h>
-#include <linux/grsecurity.h>
 #include <linux/nsproxy.h>
 #include <trace/sched.h>
 

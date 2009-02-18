@@ -27,7 +27,6 @@
 #include <linux/ramfs.h>
 #include <linux/log2.h>
 #include <linux/idr.h>
-#include <linux/grsecurity.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include "pnode.h"

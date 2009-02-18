@@ -15,7 +15,7 @@
 
 #include <linux/module.h>
 #include <linux/jhash.h>
-#include <linux/grsecurity.h>
+#include <linux/security.h>
 
 #include <net/inet_connection_sock.h>
 #include <net/inet_hashtables.h>

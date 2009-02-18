@@ -63,14 +63,13 @@ static inline int is_kernel_text(unsigned long addr)
 static inline int is_kernel(unsigned long addr)
 {
 
-#ifdef CONFIG_PAX_KERNEXEC
-
-#ifdef CONFIG_MODULES
+#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
 	if ((unsigned long)MODULES_VADDR <= ktla_ktva(addr) &&
 	    ktla_ktva(addr) < (unsigned long)MODULES_END)
 		return 0;
 #endif
 
+#ifdef CONFIG_X86_32
 	if (is_kernel_inittext(addr))
 		return 1;
 #endif

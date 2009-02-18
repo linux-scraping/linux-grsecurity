@@ -15,7 +15,6 @@
 #include <linux/slab.h>
 #include <linux/security.h>
 #include <linux/signal.h>
-#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>

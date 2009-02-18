@@ -55,11 +55,11 @@
 #include <linux/fcntl.h>
 #include <linux/module.h>
 #include <linux/random.h>
+#include <linux/security.h>
 #include <linux/cache.h>
 #include <linux/jhash.h>
 #include <linux/init.h>
 #include <linux/times.h>
-#include <linux/grsecurity.h>
 
 #include <net/net_namespace.h>
 #include <net/icmp.h>

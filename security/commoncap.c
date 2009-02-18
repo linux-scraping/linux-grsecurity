@@ -26,7 +26,6 @@
 #include <linux/sched.h>
 #include <linux/prctl.h>
 #include <linux/securebits.h>
-#include <linux/grsecurity.h>
 
 extern kernel_cap_t gr_cap_rtnetlink(struct sock *sk);
 

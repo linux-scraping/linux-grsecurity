@@ -22,7 +22,6 @@
 #include <linux/swap.h>
 #include <linux/swapops.h>
 #include <linux/mmu_notifier.h>
-#include <linux/grsecurity.h>
 
 #ifdef CONFIG_PAX_MPROTECT
 #include <linux/elf.h>

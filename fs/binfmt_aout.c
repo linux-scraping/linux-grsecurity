@@ -16,6 +16,7 @@
 #include <linux/string.h>
 #include <linux/fs.h>
 #include <linux/file.h>
+#include <linux/security.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
 #include <linux/ptrace.h>
@@ -24,7 +25,6 @@
 #include <linux/binfmts.h>
 #include <linux/personality.h>
 #include <linux/init.h>
-#include <linux/grsecurity.h>
 
 #include <asm/system.h>
 #include <asm/uaccess.h>
