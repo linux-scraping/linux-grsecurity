@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.12"
-#define GRSECURITY_VERSION 0x2112
+#define GR_VERSION  "grsecurity 2.1.13"
+#define GRSECURITY_VERSION 0x2113
 
 enum {
 
@@ -117,6 +117,7 @@ struct acl_subject_label {
 	__u32 ip_type;
 	struct acl_ip_label **ips;
 	__u32 ip_num;
+	__u32 inaddr_any_override;
 
 	__u32 crashes;
 	unsigned long expires;

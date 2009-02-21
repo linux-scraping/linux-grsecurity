@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/blkdev.h>
 #include <linux/magic.h>
+#include <linux/jbd2.h>
 #include "ext4_i.h"
 
 /*
@@ -891,6 +892,9 @@ static inline __le16 ext4_rec_len_to_disk(unsigned len)
 #define DX_HASH_LEGACY		0
 #define DX_HASH_HALF_MD4	1
 #define DX_HASH_TEA		2
+#define DX_HASH_LEGACY_UNSIGNED	3
+#define DX_HASH_HALF_MD4_UNSIGNED	4
+#define DX_HASH_TEA_UNSIGNED		5
 
 #ifdef __KERNEL__
 
@@ -1006,9 +1010,8 @@ extern int ext4_claim_free_blocks(struct ext4_sb_info *sbi, s64 nblocks);
 extern int ext4_has_free_blocks(struct ext4_sb_info *sbi, s64 nblocks);
 extern void ext4_free_blocks(handle_t *handle, struct inode *inode,
 			ext4_fsblk_t block, unsigned long count, int metadata);
-extern void ext4_free_blocks_sb(handle_t *handle, struct super_block *sb,
-				ext4_fsblk_t block, unsigned long count,
-				unsigned long *pdquot_freed_blocks);
+extern void ext4_add_groupblocks(handle_t *handle, struct super_block *sb,
+				ext4_fsblk_t block, unsigned long count);
 extern ext4_fsblk_t ext4_count_free_blocks(struct super_block *);
 extern void ext4_check_blocks_bitmap(struct super_block *);
 extern struct ext4_group_desc * ext4_get_group_desc(struct super_block * sb,
@@ -1054,12 +1057,13 @@ extern int __init init_ext4_mballoc(void);
 extern void exit_ext4_mballoc(void);
 extern void ext4_mb_free_blocks(handle_t *, struct inode *,
 		unsigned long, unsigned long, int, unsigned long *);
-extern int ext4_mb_add_more_groupinfo(struct super_block *sb,
+extern int ext4_mb_add_groupinfo(struct super_block *sb,
 		ext4_group_t i, struct ext4_group_desc *desc);
 extern void ext4_mb_update_group_info(struct ext4_group_info *grp,
 		ext4_grpblk_t add);
-
-
+extern int ext4_mb_get_buddy_cache_lock(struct super_block *, ext4_group_t);
+extern void ext4_mb_put_buddy_cache_lock(struct super_block *,
+						ext4_group_t, int);
 /* inode.c */
 int ext4_forget(handle_t *handle, int is_metadata, struct inode *inode,
 		struct buffer_head *bh, ext4_fsblk_t blocknr);
@@ -1184,8 +1188,11 @@ static inline void ext4_r_blocks_count_set(struct ext4_super_block *es,
 
 static inline loff_t ext4_isize(struct ext4_inode *raw_inode)
 {
-	return ((loff_t)le32_to_cpu(raw_inode->i_size_high) << 32) |
-		le32_to_cpu(raw_inode->i_size_lo);
+	if (S_ISREG(le16_to_cpu(raw_inode->i_mode)))
+		return ((loff_t)le32_to_cpu(raw_inode->i_size_high) << 32) |
+			le32_to_cpu(raw_inode->i_size_lo);
+	else
+		return (loff_t) le32_to_cpu(raw_inode->i_size_lo);
 }
 
 static inline void ext4_isize_set(struct ext4_inode *raw_inode, loff_t i_size)
@@ -1283,6 +1290,24 @@ extern int ext4_get_blocks_wrap(handle_t *handle, struct inode *inode,
 			sector_t block, unsigned long max_blocks,
 			struct buffer_head *bh, int create,
 			int extend_disksize, int flag);
+
+/*
+ * Add new method to test wether block and inode bitmaps are properly
+ * initialized. With uninit_bg reading the block from disk is not enough
+ * to mark the bitmap uptodate. We need to also zero-out the bitmap
+ */
+#define BH_BITMAP_UPTODATE BH_JBDPrivateStart
+
+static inline int bitmap_uptodate(struct buffer_head *bh)
+{
+	return (buffer_uptodate(bh) &&
+			test_bit(BH_BITMAP_UPTODATE, &(bh)->b_state));
+}
+static inline void set_bitmap_uptodate(struct buffer_head *bh)
+{
+	set_bit(BH_BITMAP_UPTODATE, &(bh)->b_state);
+}
+
 #endif	/* __KERNEL__ */
 
 #endif	/* _EXT4_H */

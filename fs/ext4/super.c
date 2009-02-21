@@ -1445,7 +1445,6 @@ static int ext4_fill_flex_info(struct super_block *sb)
 	ext4_group_t flex_group_count;
 	ext4_group_t flex_group;
 	int groups_per_flex = 0;
-	__u64 block_bitmap = 0;
 	int i;
 
 	if (!sbi->s_es->s_log_groups_per_flex) {
@@ -1467,9 +1466,6 @@ static int ext4_fill_flex_info(struct super_block *sb)
 				"%lu flex groups\n", flex_group_count);
 		goto failed;
 	}
-
-	gdp = ext4_get_group_desc(sb, 1, &bh);
-	block_bitmap = ext4_block_bitmap(sb, gdp) - 1;
 
 	for (i = 0; i < sbi->s_groups_count; i++) {
 		gdp = ext4_get_group_desc(sb, i, &bh);
@@ -1873,8 +1869,8 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	char *cp;
 	int ret = -EINVAL;
 	int blocksize;
-	int db_count;
-	int i;
+	unsigned int db_count;
+	unsigned int i;
 	int needs_recovery, has_huge_files;
 	__le32 features;
 	__u64 blocks_count;
@@ -2118,6 +2114,18 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	for (i = 0; i < 4; i++)
 		sbi->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
 	sbi->s_def_hash_version = es->s_def_hash_version;
+	i = le32_to_cpu(es->s_flags);
+	if (i & EXT2_FLAGS_UNSIGNED_HASH)
+		sbi->s_hash_unsigned = 3;
+	else if ((i & EXT2_FLAGS_SIGNED_HASH) == 0) {
+#ifdef __CHAR_UNSIGNED__
+		es->s_flags |= cpu_to_le32(EXT2_FLAGS_UNSIGNED_HASH);
+		sbi->s_hash_unsigned = 3;
+#else
+		es->s_flags |= cpu_to_le32(EXT2_FLAGS_SIGNED_HASH);
+#endif
+		sb->s_dirt = 1;
+	}
 
 	if (sbi->s_blocks_per_group > blocksize * 8) {
 		printk(KERN_ERR
@@ -2145,20 +2153,30 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	if (EXT4_BLOCKS_PER_GROUP(sb) == 0)
 		goto cantfind_ext4;
 
-	/* ensure blocks_count calculation below doesn't sign-extend */
-	if (ext4_blocks_count(es) + EXT4_BLOCKS_PER_GROUP(sb) <
-	    le32_to_cpu(es->s_first_data_block) + 1) {
-		printk(KERN_WARNING "EXT4-fs: bad geometry: block count %llu, "
-		       "first data block %u, blocks per group %lu\n",
-			ext4_blocks_count(es),
-			le32_to_cpu(es->s_first_data_block),
-			EXT4_BLOCKS_PER_GROUP(sb));
+        /*
+         * It makes no sense for the first data block to be beyond the end
+         * of the filesystem.
+         */
+        if (le32_to_cpu(es->s_first_data_block) >= ext4_blocks_count(es)) {
+                printk(KERN_WARNING "EXT4-fs: bad geometry: first data"
+		       "block %u is beyond end of filesystem (%llu)\n",
+		       le32_to_cpu(es->s_first_data_block),
+		       ext4_blocks_count(es));
 		goto failed_mount;
 	}
 	blocks_count = (ext4_blocks_count(es) -
 			le32_to_cpu(es->s_first_data_block) +
 			EXT4_BLOCKS_PER_GROUP(sb) - 1);
 	do_div(blocks_count, EXT4_BLOCKS_PER_GROUP(sb));
+	if (blocks_count > ((uint64_t)1<<32) - EXT4_DESC_PER_BLOCK(sb)) {
+		printk(KERN_WARNING "EXT4-fs: groups count too large: %u "
+		       "(block count %llu, first data block %u, "
+		       "blocks per group %lu)\n", sbi->s_groups_count,
+		       ext4_blocks_count(es),
+		       le32_to_cpu(es->s_first_data_block),
+		       EXT4_BLOCKS_PER_GROUP(sb));
+		goto failed_mount;
+	}
 	sbi->s_groups_count = blocks_count;
 	db_count = (sbi->s_groups_count + EXT4_DESC_PER_BLOCK(sb) - 1) /
 		   EXT4_DESC_PER_BLOCK(sb);

@@ -104,12 +104,12 @@ extern int gr_handle_sock_all(const int family, const int type,
 extern int gr_handle_sock_server(const struct sockaddr *sck);
 extern int gr_handle_sock_server_other(const struct socket *sck);
 extern int gr_handle_sock_client(const struct sockaddr *sck);
-extern int gr_search_connect(const struct socket * sock,
-			     const struct sockaddr_in * addr);
-extern int gr_search_bind(const struct socket * sock,
-			   const struct sockaddr_in * addr);
-extern int gr_search_listen(const struct socket * sock);
-extern int gr_search_accept(const struct socket * sock);
+extern int gr_search_connect(struct socket * sock,
+			     struct sockaddr_in * addr);
+extern int gr_search_bind(struct socket * sock,
+			  struct sockaddr_in * addr);
+extern int gr_search_listen(struct socket * sock);
+extern int gr_search_accept(struct socket * sock);
 extern int gr_search_socket(const int domain, const int type,
 			    const int protocol);
 
@@ -1400,11 +1400,13 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 	if (sock) {
 		err = move_addr_to_kernel(umyaddr, addrlen, (struct sockaddr *)&address);
 		if (err >= 0) {
-			if (!gr_search_bind(sock, (struct sockaddr_in *)&address) ||
-			    gr_handle_sock_server((struct sockaddr *)&address)) {
+			if (gr_handle_sock_server((struct sockaddr *)&address)) {
 				err = -EACCES;
 				goto error;
 			}
+			err = gr_search_bind(sock, (struct sockaddr_in *)&address);
+			if (err)
+				goto error;
 
 			err = security_socket_bind(sock,
 						   (struct sockaddr *)&address,
@@ -1438,11 +1440,14 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 		if ((unsigned)backlog > somaxconn)
 			backlog = somaxconn;
 
-		if (gr_handle_sock_server_other(sock) ||
-		    !gr_search_listen(sock)) {
+		if (gr_handle_sock_server_other(sock)) {
 			err = -EPERM;
 			goto error;
 		}
+
+		err = gr_search_listen(sock);
+		if (err)
+			goto error;
 
 		err = security_socket_listen(sock, backlog);
 		if (!err)
@@ -1491,9 +1496,14 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
-	if (gr_handle_sock_server_other(sock) ||
-	    !gr_search_accept(sock)) {
+	if (gr_handle_sock_server_other(sock)) {
 		err = -EPERM;
+		sock_release(newsock);
+		goto out_put;
+	}
+
+	err = gr_search_accept(sock);
+	if (err) {
 		sock_release(newsock);
 		goto out_put;
 	}
@@ -1592,11 +1602,15 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
 		goto out_put;
 
 	sck = (struct sockaddr *)&address;
-	if (!gr_search_connect(sock, (struct sockaddr_in *)sck) ||
-	    gr_handle_sock_client(sck)) {
+
+	if (gr_handle_sock_client(sck)) {
 		err = -EACCES;
 		goto out_put;
 	}
+
+	err = gr_search_connect(sock, (struct sockaddr_in *)sck);
+	if (err)
+		goto out_put;
 
 	err =
 	    security_socket_connect(sock, (struct sockaddr *)&address, addrlen);

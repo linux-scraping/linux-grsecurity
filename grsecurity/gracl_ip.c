@@ -18,9 +18,11 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
-#define GR_BIND 	0x01
-#define GR_CONNECT 	0x02
-#define GR_INVERT 	0x04
+#define GR_BIND			0x01
+#define GR_CONNECT		0x02
+#define GR_INVERT		0x04
+#define GR_BINDOVERRIDE		0x08
+#define GR_CONNECTOVERRIDE	0x10
 
 static const char * gr_protocols[256] = {
 	"ip", "icmp", "igmp", "ggp", "ipencap", "st", "tcp", "cbt",
@@ -152,16 +154,18 @@ int check_ip_policy(struct acl_ip_label *ip, __u32 ip_addr, __u16 ip_port, __u8 
 }
 
 static int
-gr_search_connectbind(const int mode, const struct sock *sk,
-		      const struct sockaddr_in *addr, const int type)
+gr_search_connectbind(const int full_mode, struct sock *sk,
+		      struct sockaddr_in *addr, const int type)
 {
 	char iface[IFNAMSIZ] = {0};
 	struct acl_subject_label *curr;
 	struct acl_ip_label *ip;
+	struct inet_sock *isk;
 	struct net_device *dev;
 	struct in_device *idev;
 	unsigned long i;
 	int ret;
+	int mode = full_mode & (GR_BIND | GR_CONNECT);
 	__u32 ip_addr = 0;
 	__u32 our_addr;
 	__u32 our_netmask;
@@ -169,12 +173,33 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 	__u16 ip_port = 0;
 
 	if (unlikely(!gr_acl_is_enabled() || sk->sk_family != PF_INET))
-		return 1;
+		return 0;
 
 	curr = current->acl;
+	isk = inet_sk(sk);
+
+	/* INADDR_ANY overriding for binds, inaddr_any_override is already in network order */
+	if ((full_mode & GR_BINDOVERRIDE) && addr->sin_addr.s_addr == htonl(INADDR_ANY) && curr->inaddr_any_override != 0)
+		addr->sin_addr.s_addr = curr->inaddr_any_override;
+	if ((full_mode & GR_CONNECT) && isk->saddr == htonl(INADDR_ANY) && curr->inaddr_any_override != 0) {
+		struct sockaddr_in saddr;
+		int err;
+
+		saddr.sin_family = AF_INET;
+		saddr.sin_addr.s_addr = curr->inaddr_any_override;
+		saddr.sin_port = isk->sport;
+
+		err = security_socket_bind(sk->sk_socket, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in));
+		if (err)
+			return err;
+
+		err = sk->sk_socket->ops->bind(sk->sk_socket, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in));
+		if (err)
+			return err;
+	}
 
 	if (!curr->ips)
-		return 1;
+		return 0;
 
 	ip_addr = addr->sin_addr.s_addr;
 	ip_port = ntohs(addr->sin_port);
@@ -188,7 +213,7 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 			       curr->filename, curr->filename,
 			       NIPQUAD(ip_addr), ip_port, type,
 			       sk->sk_protocol, mode, NIPQUAD(current->signal->curr_ip));
-		return 1;
+		return 0;
 	}
 
 	for (i = 0; i < curr->ip_num; i++) {
@@ -216,7 +241,7 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 						rcu_read_unlock();
 						in_dev_put(idev);
 						dev_put(dev);
-						return 1;
+						return 0;
 					} else if (ret == 2) {
 						rcu_read_unlock();
 						in_dev_put(idev);
@@ -233,7 +258,7 @@ gr_search_connectbind(const int mode, const struct sock *sk,
 			our_netmask = ip->netmask;
 			ret = check_ip_policy(ip, ip_addr, ip_port, sk->sk_protocol, mode, type, our_addr, our_netmask);
 			if (ret == 1)
-				return 1;
+				return 0;
 			else if (ret == 2)
 				goto denied;
 		}
@@ -245,22 +270,22 @@ denied:
 	else if (mode == GR_CONNECT)
 		gr_log_int5_str2(GR_DONT_AUDIT, GR_CONNECT_ACL_MSG, NIPQUAD(ip_addr), ip_port, gr_socktype_to_name(type), gr_proto_to_name(sk->sk_protocol));
 
-	return 0;
+	return -EACCES;
 }
 
 int
-gr_search_connect(const struct socket *sock, const struct sockaddr_in *addr)
+gr_search_connect(struct socket *sock, struct sockaddr_in *addr)
 {
-	return gr_search_connectbind(GR_CONNECT, sock->sk, addr, sock->type);
+	return gr_search_connectbind(GR_CONNECT | GR_CONNECTOVERRIDE, sock->sk, addr, sock->type);
 }
 
 int
-gr_search_bind(const struct socket *sock, const struct sockaddr_in *addr)
+gr_search_bind(struct socket *sock, struct sockaddr_in *addr)
 {
-	return gr_search_connectbind(GR_BIND, sock->sk, addr, sock->type);
+	return gr_search_connectbind(GR_BIND | GR_BINDOVERRIDE, sock->sk, addr, sock->type);
 }
 
-int gr_search_listen(const struct socket *sock)
+int gr_search_listen(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct sockaddr_in addr;
@@ -268,10 +293,10 @@ int gr_search_listen(const struct socket *sock)
 	addr.sin_addr.s_addr = inet_sk(sk)->saddr;
 	addr.sin_port = inet_sk(sk)->sport;
 
-	return gr_search_connectbind(GR_BIND, sock->sk, &addr, sock->type);
+	return gr_search_connectbind(GR_BIND | GR_CONNECTOVERRIDE, sock->sk, &addr, sock->type);
 }
 
-int gr_search_accept(const struct socket *sock)
+int gr_search_accept(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct sockaddr_in addr;
@@ -279,11 +304,11 @@ int gr_search_accept(const struct socket *sock)
 	addr.sin_addr.s_addr = inet_sk(sk)->saddr;
 	addr.sin_port = inet_sk(sk)->sport;
 
-	return gr_search_connectbind(GR_BIND, sock->sk, &addr, sock->type);
+	return gr_search_connectbind(GR_BIND | GR_CONNECTOVERRIDE, sock->sk, &addr, sock->type);
 }
 
 int
-gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr)
+gr_search_udp_sendmsg(struct sock *sk, struct sockaddr_in *addr)
 {
 	if (addr)
 		return gr_search_connectbind(GR_CONNECT, sk, addr, SOCK_DGRAM);
@@ -294,20 +319,20 @@ gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr)
 		sin.sin_addr.s_addr = inet->daddr;
 		sin.sin_port = inet->dport;
 
-		return gr_search_connectbind(GR_CONNECT, sk, &sin, SOCK_DGRAM);
+		return gr_search_connectbind(GR_CONNECT | GR_CONNECTOVERRIDE, sk, &sin, SOCK_DGRAM);
 	}
 }
 
 int
-gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb)
+gr_search_udp_recvmsg(struct sock *sk, const struct sk_buff *skb)
 {
 	struct sockaddr_in sin;
 
 	if (unlikely(skb->len < sizeof (struct udphdr)))
-		return 1;	// skip this packet
+		return 0;	// skip this packet
 
 	sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
 	sin.sin_port = udp_hdr(skb)->source;
 
-	return gr_search_connectbind(GR_CONNECT, sk, &sin, SOCK_DGRAM);
+	return gr_search_connectbind(GR_CONNECT | GR_CONNECTOVERRIDE, sk, &sin, SOCK_DGRAM);
 }

@@ -105,10 +105,8 @@
 #include <net/xfrm.h>
 #include "udp_impl.h"
 
-extern int gr_search_udp_recvmsg(const struct sock *sk,
-				 const struct sk_buff *skb);
-extern int gr_search_udp_sendmsg(const struct sock *sk,
-				 const struct sockaddr_in *addr);
+extern int gr_search_udp_recvmsg(struct sock *sk, const struct sk_buff *skb);
+extern int gr_search_udp_sendmsg(struct sock *sk, struct sockaddr_in *addr);
 
 /*
  *	Snmp MIB for the UDP layer
@@ -588,14 +586,16 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 		if (dport == 0)
 			return -EINVAL;
 
-		if (!gr_search_udp_sendmsg(sk, usin))
-			return -EPERM;
+		err = gr_search_udp_sendmsg(sk, usin);
+		if (err)
+			return err;
 	} else {
 		if (sk->sk_state != TCP_ESTABLISHED)
 			return -EDESTADDRREQ;
 
-		if (!gr_search_udp_sendmsg(sk, NULL))
-			return -EPERM;
+		err = gr_search_udp_sendmsg(sk, NULL);
+		if (err)
+			return err;
 
 		daddr = inet->daddr;
 		dport = inet->dport;
@@ -862,10 +862,9 @@ try_again:
 	if (!skb)
 		goto out;
 
-	if (!gr_search_udp_recvmsg(sk, skb)) {
-		err = -EPERM;
+	err = gr_search_udp_recvmsg(sk, skb);
+	if (err)
 		goto out_free;
-	}
 
 	ulen = skb->len - sizeof(struct udphdr);
 	copied = len;

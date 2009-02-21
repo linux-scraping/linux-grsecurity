@@ -284,11 +284,9 @@ static int setup_new_group_blocks(struct super_block *sb,
 	if ((err = extend_or_restart_transaction(handle, 2, bh)))
 		goto exit_bh;
 
-	mark_bitmap_end(input->blocks_count, EXT4_BLOCKS_PER_GROUP(sb),
-			bh->b_data);
+	mark_bitmap_end(input->blocks_count, sb->s_blocksize * 8, bh->b_data);
 	ext4_journal_dirty_metadata(handle, bh);
 	brelse(bh);
-
 	/* Mark unused entries in inode bitmap used */
 	ext4_debug("clear inode bitmap %#04llx (+%llu)\n",
 		   input->inode_bitmap, input->inode_bitmap - start);
@@ -297,7 +295,7 @@ static int setup_new_group_blocks(struct super_block *sb,
 		goto exit_journal;
 	}
 
-	mark_bitmap_end(EXT4_INODES_PER_GROUP(sb), EXT4_BLOCKS_PER_GROUP(sb),
+	mark_bitmap_end(EXT4_INODES_PER_GROUP(sb), sb->s_blocksize * 8,
 			bh->b_data);
 	ext4_journal_dirty_metadata(handle, bh);
 exit_bh:
@@ -747,6 +745,7 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
 	struct inode *inode = NULL;
 	handle_t *handle;
 	int gdb_off, gdb_num;
+	int num_grp_locked = 0;
 	int err, err2;
 
 	gdb_num = input->group / EXT4_DESC_PER_BLOCK(sb);
@@ -786,6 +785,7 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
 			return PTR_ERR(inode);
 		}
 	}
+
 
 	if ((err = verify_group_input(sb, input)))
 		goto exit_put;
@@ -855,24 +855,29 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
          * using the new disk blocks.
          */
 
+	num_grp_locked = ext4_mb_get_buddy_cache_lock(sb, input->group);
 	/* Update group descriptor block for new group */
 	gdp = (struct ext4_group_desc *)((char *)primary->b_data +
 					 gdb_off * EXT4_DESC_SIZE(sb));
 
+	memset(gdp, 0, EXT4_DESC_SIZE(sb));
 	ext4_block_bitmap_set(sb, gdp, input->block_bitmap); /* LV FIXME */
 	ext4_inode_bitmap_set(sb, gdp, input->inode_bitmap); /* LV FIXME */
 	ext4_inode_table_set(sb, gdp, input->inode_table); /* LV FIXME */
 	gdp->bg_free_blocks_count = cpu_to_le16(input->free_blocks_count);
 	gdp->bg_free_inodes_count = cpu_to_le16(EXT4_INODES_PER_GROUP(sb));
+	gdp->bg_flags = cpu_to_le16(EXT4_BG_INODE_ZEROED);
 	gdp->bg_checksum = ext4_group_desc_csum(sbi, input->group, gdp);
 
 	/*
 	 * We can allocate memory for mb_alloc based on the new group
 	 * descriptor
 	 */
-	err = ext4_mb_add_more_groupinfo(sb, input->group, gdp);
-	if (err)
+	err = ext4_mb_add_groupinfo(sb, input->group, gdp);
+	if (err) {
+		ext4_mb_put_buddy_cache_lock(sb, input->group, num_grp_locked);
 		goto exit_journal;
+	}
 
 	/*
 	 * Make the new blocks and inodes valid next.  We do this before
@@ -914,6 +919,7 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
 
 	/* Update the global fs size fields */
 	sbi->s_groups_count++;
+	ext4_mb_put_buddy_cache_lock(sb, input->group, num_grp_locked);
 
 	ext4_journal_dirty_metadata(handle, primary);
 
@@ -975,9 +981,7 @@ int ext4_group_extend(struct super_block *sb, struct ext4_super_block *es,
 	struct buffer_head *bh;
 	handle_t *handle;
 	int err;
-	unsigned long freed_blocks;
 	ext4_group_t group;
-	struct ext4_group_info *grp;
 
 	/* We don't need to worry about locking wrt other resizers just
 	 * yet: we're going to revalidate es->s_blocks_count after
@@ -1076,56 +1080,12 @@ int ext4_group_extend(struct super_block *sb, struct ext4_super_block *es,
 	unlock_super(sb);
 	ext4_debug("freeing blocks %llu through %llu\n", o_blocks_count,
 		   o_blocks_count + add);
-	ext4_free_blocks_sb(handle, sb, o_blocks_count, add, &freed_blocks);
+	/* We add the blocks to the bitmap and set the group need init bit */
+	ext4_add_groupblocks(handle, sb, o_blocks_count, add);
 	ext4_debug("freed blocks %llu through %llu\n", o_blocks_count,
 		   o_blocks_count + add);
 	if ((err = ext4_journal_stop(handle)))
 		goto exit_put;
-
-	/*
-	 * Mark mballoc pages as not up to date so that they will be updated
-	 * next time they are loaded by ext4_mb_load_buddy.
-	 *
-	 * XXX Bad, Bad, BAD!!!  We should not be overloading the
-	 * Uptodate flag, particularly on thte bitmap bh, as way of
-	 * hinting to ext4_mb_load_buddy() that it needs to be
-	 * overloaded.  A user could take a LVM snapshot, then do an
-	 * on-line fsck, and clear the uptodate flag, and this would
-	 * not be a bug in userspace, but a bug in the kernel.  FIXME!!!
-	 */
-	{
-		struct ext4_sb_info *sbi = EXT4_SB(sb);
-		struct inode *inode = sbi->s_buddy_cache;
-		int blocks_per_page;
-		int block;
-		int pnum;
-		struct page *page;
-
-		/* Set buddy page as not up to date */
-		blocks_per_page = PAGE_CACHE_SIZE / sb->s_blocksize;
-		block = group * 2;
-		pnum = block / blocks_per_page;
-		page = find_get_page(inode->i_mapping, pnum);
-		if (page != NULL) {
-			ClearPageUptodate(page);
-			page_cache_release(page);
-		}
-
-		/* Set bitmap page as not up to date */
-		block++;
-		pnum = block / blocks_per_page;
-		page = find_get_page(inode->i_mapping, pnum);
-		if (page != NULL) {
-			ClearPageUptodate(page);
-			page_cache_release(page);
-		}
-
-		/* Get the info on the last group */
-		grp = ext4_get_group_info(sb, group);
-
-		/* Update free blocks in group info */
-		ext4_mb_update_group_info(grp, add);
-	}
 
 	if (test_opt(sb, DEBUG))
 		printk(KERN_DEBUG "EXT4-fs: extended group to %llu blocks\n",
