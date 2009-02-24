@@ -999,7 +999,7 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 					unsigned long n)
 {
 #ifdef CONFIG_X86_INTEL_USERCOPY
-	if ( n > 64 && cpu_has_xmm2)
+	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_zeroing_intel_nocache(to, from, n);
 	else
 		n = __copy_user_zeroing(to, from, n);
@@ -1014,7 +1014,7 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 					unsigned long n)
 {
 #ifdef CONFIG_X86_INTEL_USERCOPY
-	if ( n > 64 && cpu_has_xmm2)
+	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_intel_nocache(to, from, n);
 	else
 		n = __generic_copy_from_user(to, from, n);

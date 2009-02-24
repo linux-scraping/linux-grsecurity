@@ -13,16 +13,15 @@
 #define GRSECURITY_VERSION 0x2113
 
 enum {
-
-	SHUTDOWN = 0,
-	ENABLE = 1,
-	SPROLE = 2,
-	RELOAD = 3,
-	SEGVMOD = 4,
-	STATUS = 5,
-	UNSPROLE = 6,
-	PASSSET = 7,
-	SPROLEPAM = 8
+	GR_SHUTDOWN = 0,
+	GR_ENABLE = 1,
+	GR_SPROLE = 2,
+	GR_RELOAD = 3,
+	GR_SEGVMOD = 4,
+	GR_STATUS = 5,
+	GR_UNSPROLE = 6,
+	GR_PASSSET = 7,
+	GR_SPROLEPAM = 8,
 };
 
 /* Password setup definitions

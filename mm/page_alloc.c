@@ -512,20 +512,9 @@ static void free_pages_bulk(struct zone *zone, int count,
 
 static void free_one_page(struct zone *zone, struct page *page, int order)
 {
-
-#ifdef CONFIG_PAX_MEMORY_SANITIZE
-	unsigned long index = 1UL << order;
-#endif
-
 	spin_lock(&zone->lock);
 	zone_clear_flag(zone, ZONE_ALL_UNRECLAIMABLE);
 	zone->pages_scanned = 0;
-
-#ifdef CONFIG_PAX_MEMORY_SANITIZE
-	for (; index; --index)
-		sanitize_highpage(page + index - 1);
-#endif
-
 	__free_one_page(page, zone, order);
 	spin_unlock(&zone->lock);
 }
@@ -535,6 +524,10 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 	unsigned long flags;
 	int i;
 	int reserved = 0;
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	unsigned long index = 1UL << order;
+#endif
 
 	for (i = 0 ; i < (1 << order) ; ++i)
 		reserved += free_pages_check(page + i);
@@ -546,6 +539,12 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 		debug_check_no_obj_freed(page_address(page),
 					   PAGE_SIZE << order);
 	}
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	for (; index; --index)
+		sanitize_highpage(page + index - 1);
+#endif
+
 	arch_free_page(page, order);
 	kernel_map_pages(page, 1 << order, 0);
 
@@ -1010,6 +1009,11 @@ static void free_hot_cold_page(struct page *page, int cold)
 		debug_check_no_locks_freed(page_address(page), PAGE_SIZE);
 		debug_check_no_obj_freed(page_address(page), PAGE_SIZE);
 	}
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	sanitize_highpage(page);
+#endif
+
 	arch_free_page(page, 0);
 	kernel_map_pages(page, 1, 0);
 
@@ -1022,11 +1026,6 @@ static void free_hot_cold_page(struct page *page, int cold)
 		list_add(&page->lru, &pcp->list);
 	set_page_private(page, get_pageblock_migratetype(page));
 	pcp->count++;
-
-#ifdef CONFIG_PAX_MEMORY_SANITIZE
-	sanitize_highpage(page);
-#endif
-
 	if (pcp->count >= pcp->high) {
 		free_pages_bulk(zone, pcp->batch, &pcp->list, 0);
 		pcp->count -= pcp->batch;

@@ -2668,8 +2668,8 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 			if (!found)
 				return 0;
 
-			if (((mode == SPROLE) && (r->roletype & GR_ROLE_NOPW)) ||
-			    ((mode == SPROLEPAM) && (r->roletype & GR_ROLE_PAM))) {
+			if (((mode == GR_SPROLE) && (r->roletype & GR_ROLE_NOPW)) ||
+			    ((mode == GR_SPROLEPAM) && (r->roletype & GR_ROLE_PAM))) {
 				*salt = NULL;
 				*sum = NULL;
 				return 1;
@@ -2857,7 +2857,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 		goto out;
 	}
 
-	if (gr_usermode->mode != SPROLE && gr_usermode->mode != SPROLEPAM &&
+	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_SPROLEPAM &&
 	    gr_auth_attempts >= CONFIG_GRKERNSEC_ACL_MAXTRIES &&
 	    time_after(gr_auth_expires, get_seconds())) {
 		error = -EBUSY;
@@ -2869,8 +2869,8 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	   locking
 	 */
 
-	if (gr_usermode->mode != SPROLE && gr_usermode->mode != STATUS &&
-	    gr_usermode->mode != UNSPROLE && gr_usermode->mode != SPROLEPAM &&
+	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_STATUS &&
+	    gr_usermode->mode != GR_UNSPROLE && gr_usermode->mode != GR_SPROLEPAM &&
 	    current->uid) {
 		error = -EPERM;
 		goto out;
@@ -2887,7 +2887,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	 * only if we need them, i.e. for loading operations. */
 
 	switch (gr_usermode->mode) {
-	case STATUS:
+	case GR_STATUS:
 			if (gr_status & GR_READY) {
 				error = 1;
 				if (!gr_check_secure_terminal(current))
@@ -2895,7 +2895,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			} else
 				error = 2;
 			goto out;
-	case SHUTDOWN:
+	case GR_SHUTDOWN:
 		if ((gr_status & GR_READY)
 		    && !(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
 			gr_status &= ~GR_READY;
@@ -2912,7 +2912,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			error = -EAGAIN;
 		}
 		break;
-	case ENABLE:
+	case GR_ENABLE:
 		if (!(gr_status & GR_READY) && !(error2 = gracl_init(gr_usermode)))
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_ENABLE_ACL_MSG, GR_VERSION);
 		else {
@@ -2923,7 +2923,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			gr_log_str(GR_DONT_AUDIT, GR_ENABLEF_ACL_MSG, GR_VERSION);
 		}
 		break;
-	case RELOAD:
+	case GR_RELOAD:
 		if (!(gr_status & GR_READY)) {
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOADI_ACL_MSG, GR_VERSION);
 			error = -EAGAIN;
@@ -2944,7 +2944,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			error = -EPERM;
 		}
 		break;
-	case SEGVMOD:
+	case GR_SEGVMOD:
 		if (unlikely(!(gr_status & GR_READY))) {
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SEGVMODI_ACL_MSG);
 			error = -EAGAIN;
@@ -2971,8 +2971,8 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			error = -EPERM;
 		}
 		break;
-	case SPROLE:
-	case SPROLEPAM:
+	case GR_SPROLE:
+	case GR_SPROLEPAM:
 		if (unlikely(!(gr_status & GR_READY))) {
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SPROLEI_ACL_MSG);
 			error = -EAGAIN;
@@ -3011,7 +3011,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			goto out;
 		}
 		break;
-	case UNSPROLE:
+	case GR_UNSPROLE:
 		if (unlikely(!(gr_status & GR_READY))) {
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_UNSPROLEI_ACL_MSG);
 			error = -EAGAIN;
