@@ -1880,7 +1880,6 @@ SYSCALL_DEFINE2(shutdown, int, fd, int, how)
 			err = sock->ops->shutdown(sock, how);
 		fput_light(sock->file, fput_needed);
 	}
-
 	return err;
 }
 

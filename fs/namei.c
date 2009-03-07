@@ -31,7 +31,6 @@
 #include <linux/file.h>
 #include <linux/fcntl.h>
 #include <linux/device_cgroup.h>
-
 #include <asm/uaccess.h>
 
 #define ACC_MODE(x) ("\000\004\002\006"[(x)&O_ACCMODE])
@@ -2063,7 +2062,6 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, int, mode,
 	error = mnt_want_write(nd.path.mnt);
 	if (error)
 		goto out_dput;
-
 	switch (mode & S_IFMT) {
 		case 0: case S_IFREG:
 			error = vfs_create(nd.path.dentry->d_inode,dentry,mode,&nd);
@@ -2730,10 +2728,8 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		error = vfs_rename_dir(old_dir,old_dentry,new_dir,new_dentry);
 	else
 		error = vfs_rename_other(old_dir,old_dentry,new_dir,new_dentry);
-
 	if (!error) {
 		const char *new_name = old_dentry->d_name.name;
-
 		fsnotify_move(old_dir, new_dir, old_name, new_name, is_dir,
 			      new_dentry->d_inode, old_dentry);
 	}
