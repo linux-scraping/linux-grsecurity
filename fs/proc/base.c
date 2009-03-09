@@ -305,12 +305,26 @@ out:
 	return res;
 }
 
-static int proc_pid_auxv(struct task_struct *task, char *buffer)
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
+			     (_mm->pax_flags & MF_PAX_RANDMMAP || \
+			      _mm->pax_flags & MF_PAX_SEGMEXEC))
+#endif
+
+static 
+int proc_pid_auxv(struct task_struct *task, char *buffer)
 {
 	int res = 0;
 	struct mm_struct *mm = get_task_mm(task);
 	if (mm) {
 		unsigned int nwords = 0;
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+		if (PAX_RAND_FLAGS(mm)) {
+			mmput(mm);
+			return res;
+		}
+#endif		
 		do {
 			nwords += 2;
 		} while (mm->saved_auxv[nwords - 2] != 0); /* AT_NULL */
@@ -505,7 +519,7 @@ static int proc_pid_limits(struct task_struct *task, char *buffer)
 	return count;
 }
 
-#ifdef CONFIG_HAVE_ARCH_TRACEHOOK
+#if defined(CONFIG_HAVE_ARCH_TRACEHOOK) && !defined(CONFIG_GRKERNSEC_PROC_MEMMAP)
 static int proc_pid_syscall(struct task_struct *task, char *buffer)
 {
 	long nr;
@@ -2527,7 +2541,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",      S_IRUGO|S_IWUSR, pid_sched),
 #endif
-#ifdef CONFIG_HAVE_ARCH_TRACEHOOK
+#if defined(CONFIG_HAVE_ARCH_TRACEHOOK) && !defined(CONFIG_GRKERNSEC_PROC_MEMMAP)
 	INF("syscall",    S_IRUSR, pid_syscall),
 #endif
 	INF("cmdline",    S_IRUGO, pid_cmdline),
@@ -2891,7 +2905,7 @@ static const struct pid_entry tid_base_stuff[] = {
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",     S_IRUGO|S_IWUSR, pid_sched),
 #endif
-#ifdef CONFIG_HAVE_ARCH_TRACEHOOK
+#if defined(CONFIG_HAVE_ARCH_TRACEHOOK) && !defined(CONFIG_GRKERNSEC_PROC_MEMMAP)
 	INF("syscall",   S_IRUSR, pid_syscall),
 #endif
 	INF("cmdline",   S_IRUGO, pid_cmdline),
