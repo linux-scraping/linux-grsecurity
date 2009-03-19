@@ -148,7 +148,7 @@ int
 gr_search_connectbind(const int mode, const struct socket *sock,
 		      const struct sockaddr_in *addr)
 {
-	return 1;
+	return 0;
 }
 
 int
@@ -317,25 +317,25 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 int
 gr_search_bind(const struct socket *sock, const struct sockaddr_in *addr)
 {
-	return 1;
+	return 0;
 }
 
 int
 gr_search_accept(const struct socket *sock)
 {
-	return 1;
+	return 0;
 }
 
 int
 gr_search_listen(const struct socket *sock)
 {
-	return 1;
+	return 0;
 }
 
 int
 gr_search_connect(const struct socket *sock, const struct sockaddr_in *addr)
 {
-	return 1;
+	return 0;
 }
 
 __u32
@@ -380,13 +380,13 @@ gr_acl_handle_procpidmem(const struct task_struct *task)
 int
 gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb)
 {
-	return 1;
+	return 0;
 }
 
 int
 gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr)
 {
-	return 1;
+	return 0;
 }
 
 void

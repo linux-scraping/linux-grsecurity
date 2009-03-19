@@ -359,9 +359,6 @@ int reserve_memtype(u64 start, u64 end, unsigned long req_type,
 	new->end	= end;
 	new->type	= actual_type;
 
-	if (new_type)
-		*new_type = actual_type;
-
 	spin_lock(&memtype_lock);
 
 	if (cached_entry && start >= cached_start)

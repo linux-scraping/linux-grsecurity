@@ -225,18 +225,19 @@ config GRKERNSEC_KMEM
 config GRKERNSEC_IO
 	bool "Disable privileged I/O"
 	depends on X86
-	select RTC
+	select RTC_CLASS
+	select RTC_INTF_DEV
 	help
 	  If you say Y here, all ioperm and iopl calls will return an error.
 	  Ioperm and iopl can be used to modify the running kernel.
 	  Unfortunately, some programs need this access to operate properly,
 	  the most notable of which are XFree86 and hwclock.  hwclock can be
-	  remedied by having RTC support in the kernel, so CONFIG_RTC is
-	  enabled if this option is enabled, to ensure that hwclock operates
-	  correctly.  XFree86 still will not operate correctly with this option
-	  enabled, so DO NOT CHOOSE Y IF YOU USE XFree86.  If you use XFree86
-	  and you still want to protect your kernel against modification,
-	  use the RBAC system.
+	  remedied by having RTC support in the kernel, so real-time 
+	  clock support is enabled if this option is enabled, to ensure 
+	  that hwclock operates correctly.  XFree86 still will not 
+	  operate correctly with this option enabled, so DO NOT CHOOSE Y 
+	  IF YOU USE XFree86.  If you use XFree86 and you still want to 
+	  protect your kernel against modification, use the RBAC system.
 
 config GRKERNSEC_PROC_MEMMAP
 	bool "Remove addresses from /proc/<pid>/[smaps|maps|stat]"
