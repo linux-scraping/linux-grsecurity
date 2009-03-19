@@ -80,8 +80,8 @@ startup_32:
 	/* Add 8 bytes for every 32K input block */
 	shrl $12, %eax
 	addl %eax, %ebx
-	/* Add 32K + 18 bytes of extra slack */
-	addl $(32768 + 18), %ebx
+	/* Add 64K of extra slack */
+	addl $65536, %ebx
 	/* Align on a 4K boundary */
 	addl $4095, %ebx
 	andl $~4095, %ebx

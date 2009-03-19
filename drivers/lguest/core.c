@@ -80,9 +80,17 @@ static __init int map_switcher(void)
 	 * (SWITCHER_ADDR).  We might not get it in theory, but in practice
 	 * it's worked so far.  The end address needs +1 because __get_vm_area
 	 * allocates an extra guard page, so we need space for that. */
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	switcher_vma = __get_vm_area(TOTAL_SWITCHER_PAGES * PAGE_SIZE,
+				     VM_ALLOC | VM_KERNEXEC, SWITCHER_ADDR, SWITCHER_ADDR
+				     + (TOTAL_SWITCHER_PAGES+1) * PAGE_SIZE);
+#else
 	switcher_vma = __get_vm_area(TOTAL_SWITCHER_PAGES * PAGE_SIZE,
 				     VM_ALLOC, SWITCHER_ADDR, SWITCHER_ADDR
 				     + (TOTAL_SWITCHER_PAGES+1) * PAGE_SIZE);
+#endif
+
 	if (!switcher_vma) {
 		err = -ENOMEM;
 		printk("lguest: could not map switcher pages high\n");

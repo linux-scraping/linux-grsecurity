@@ -179,14 +179,15 @@ SECTIONS
 
   . += __KERNEL_TEXT_OFFSET;
 
-  . = ALIGN(4096);		/* Exception table */
+  . = ALIGN(4096);
+  NOTES :rodata :note
+
+  . = ALIGN(16);		/* Exception table */
   __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
   	__start___ex_table = .;
 	 *(__ex_table)
   	__stop___ex_table = .;
   } :rodata
-
-  NOTES :rodata :note
 
   RO_DATA(PAGE_SIZE)
 
@@ -197,23 +198,22 @@ SECTIONS
 	*(.empty_zero_page)
 	*(.swapper_pg_pmd)
 	*(.swapper_pg_dir)
+
+#if defined(CONFIG_PAX_KERNEXEC) && !defined(CONFIG_MODULES)
+	. = ALIGN(PMD_SIZE);
+#endif
+
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-
-#ifdef CONFIG_MODULES
+#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
   . = ALIGN(PAGE_SIZE);
   .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 	MODULES_VADDR = .;
 	BYTE(0)
 	. += (6 * 1024 * 1024);
-	. = ALIGN( PMD_SIZE) - 1;
-	MODULES_END = .;
+	. = ALIGN(PMD_SIZE);
+	MODULES_END = . - 1;
   }
-#else
-  . = ALIGN(PMD_SIZE) - 1;
-#endif
-
 #endif
 
   /* writeable */
