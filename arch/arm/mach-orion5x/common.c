@@ -72,6 +72,7 @@ void __init orion5x_map_io(void)
  ****************************************************************************/
 static struct orion_ehci_data orion5x_ehci_data = {
 	.dram		= &orion5x_mbus_dram_info,
+	.phy_version	= EHCI_PHY_ORION,
 };
 
 static u64 ehci_dmamask = 0xffffffffUL;
@@ -430,6 +431,10 @@ void __init orion5x_uart1_init(void)
 /*****************************************************************************
  * XOR engine
  ****************************************************************************/
+struct mv_xor_platform_shared_data orion5x_xor_shared_data = {
+	.dram		= &orion5x_mbus_dram_info,
+};
+
 static struct resource orion5x_xor_shared_resources[] = {
 	{
 		.name	= "xor low",
@@ -447,6 +452,9 @@ static struct resource orion5x_xor_shared_resources[] = {
 static struct platform_device orion5x_xor_shared = {
 	.name		= MV_XOR_SHARED_NAME,
 	.id		= 0,
+	.dev		= {
+		.platform_data	= &orion5x_xor_shared_data,
+	},
 	.num_resources	= ARRAY_SIZE(orion5x_xor_shared_resources),
 	.resource	= orion5x_xor_shared_resources,
 };

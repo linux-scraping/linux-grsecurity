@@ -138,7 +138,7 @@ static int journal_submit_commit_record(journal_t *journal,
 		set_buffer_ordered(bh);
 		barrier_done = 1;
 	}
-	ret = submit_bh(WRITE, bh);
+	ret = submit_bh(WRITE_SYNC, bh);
 	if (barrier_done)
 		clear_buffer_ordered(bh);
 
@@ -159,7 +159,7 @@ static int journal_submit_commit_record(journal_t *journal,
 		lock_buffer(bh);
 		set_buffer_uptodate(bh);
 		clear_buffer_dirty(bh);
-		ret = submit_bh(WRITE, bh);
+		ret = submit_bh(WRITE_SYNC, bh);
 	}
 	*cbh = bh;
 	return ret;
@@ -355,13 +355,15 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	int flags;
 	int err;
 	unsigned long long blocknr;
+	ktime_t start_time;
+	u64 commit_time;
 	char *tagp = NULL;
 	journal_header_t *header;
 	journal_block_tag_t *tag = NULL;
 	int space_left = 0;
 	int first_tag = 0;
 	int tag_flag;
-	int i;
+	int i, to_free = 0;
 	int tag_bytes = journal_tag_bytes(journal);
 	struct buffer_head *cbh = NULL; /* For transactional checksums */
 	__u32 crc32_sum = ~0;
@@ -481,6 +483,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 	commit_transaction->t_state = T_FLUSH;
 	journal->j_committing_transaction = commit_transaction;
 	journal->j_running_transaction = NULL;
+	start_time = ktime_get();
 	commit_transaction->t_log_start = journal->j_head;
 	wake_up(&journal->j_wait_transaction_locked);
 	spin_unlock(&journal->j_state_lock);
@@ -532,6 +535,10 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 		if (is_journal_aborted(journal)) {
 			clear_buffer_jbddirty(jh2bh(jh));
 			JBUFFER_TRACE(jh, "journal is aborting: refile");
+			jbd2_buffer_abort_trigger(jh,
+						  jh->b_frozen_data ?
+						  jh->b_frozen_triggers :
+						  jh->b_triggers);
 			jbd2_journal_refile_buffer(journal, jh);
 			/* If that was the last one, we need to clean up
 			 * any descriptor buffers which may have been
@@ -867,6 +874,9 @@ restart_loop:
 		 * data.
 		 *
 		 * Otherwise, we can just throw away the frozen data now.
+		 *
+		 * We also know that the frozen data has already fired
+		 * its triggers if they exist, so we can clear that too.
 		 */
 		if (jh->b_committed_data) {
 			jbd2_free(jh->b_committed_data, bh->b_size);
@@ -874,10 +884,12 @@ restart_loop:
 			if (jh->b_frozen_data) {
 				jh->b_committed_data = jh->b_frozen_data;
 				jh->b_frozen_data = NULL;
+				jh->b_frozen_triggers = NULL;
 			}
 		} else if (jh->b_frozen_data) {
 			jbd2_free(jh->b_frozen_data, bh->b_size);
 			jh->b_frozen_data = NULL;
+			jh->b_frozen_triggers = NULL;
 		}
 
 		spin_lock(&journal->j_list_lock);
@@ -995,14 +1007,23 @@ restart_loop:
 	J_ASSERT(commit_transaction == journal->j_committing_transaction);
 	journal->j_commit_sequence = commit_transaction->t_tid;
 	journal->j_committing_transaction = NULL;
-	spin_unlock(&journal->j_state_lock);
+	commit_time = ktime_to_ns(ktime_sub(ktime_get(), start_time));
 
-	if (journal->j_commit_callback)
-		journal->j_commit_callback(journal, commit_transaction);
+	/*
+	 * weight the commit time higher than the average time so we don't
+	 * react too strongly to vast changes in the commit time
+	 */
+	if (likely(journal->j_average_commit_time))
+		journal->j_average_commit_time = (commit_time +
+				journal->j_average_commit_time*3) / 4;
+	else
+		journal->j_average_commit_time = commit_time;
+	spin_unlock(&journal->j_state_lock);
 
 	if (commit_transaction->t_checkpoint_list == NULL &&
 	    commit_transaction->t_checkpoint_io_list == NULL) {
 		__jbd2_journal_drop_transaction(journal, commit_transaction);
+		to_free = 1;
 	} else {
 		if (journal->j_checkpoint_transactions == NULL) {
 			journal->j_checkpoint_transactions = commit_transaction;
@@ -1021,11 +1042,16 @@ restart_loop:
 	}
 	spin_unlock(&journal->j_list_lock);
 
+	if (journal->j_commit_callback)
+		journal->j_commit_callback(journal, commit_transaction);
+
 	trace_mark(jbd2_end_commit, "dev %s transaction %d head %d",
-		   journal->j_devname, journal->j_commit_sequence,
+		   journal->j_devname, commit_transaction->t_tid,
 		   journal->j_tail_sequence);
 	jbd_debug(1, "JBD: commit %d complete, head %d\n",
 		  journal->j_commit_sequence, journal->j_tail_sequence);
+	if (to_free)
+		kfree(commit_transaction);
 
 	wake_up(&journal->j_wait_done_commit);
 }

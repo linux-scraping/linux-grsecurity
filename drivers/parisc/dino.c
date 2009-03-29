@@ -287,7 +287,7 @@ DINO_PORT_OUT(b,  8, 3)
 DINO_PORT_OUT(w, 16, 2)
 DINO_PORT_OUT(l, 32, 0)
 
-struct pci_port_ops dino_port_ops = {
+static struct pci_port_ops dino_port_ops = {
 	.inb	= dino_in8,
 	.inw	= dino_in16,
 	.inl	= dino_in32,
@@ -479,7 +479,7 @@ dino_card_setup(struct pci_bus *bus, void __iomem *base_addr)
 	res = &dino_dev->hba.lmmio_space;
 	res->flags = IORESOURCE_MEM;
 	size = scnprintf(name, sizeof(name), "Dino LMMIO (%s)", 
-			 bus->bridge->bus_id);
+			 dev_name(bus->bridge));
 	res->name = kmalloc(size+1, GFP_KERNEL);
 	if(res->name)
 		strcpy((char *)res->name, name);
@@ -493,7 +493,7 @@ dino_card_setup(struct pci_bus *bus, void __iomem *base_addr)
 		struct list_head *ln, *tmp_ln;
 
 		printk(KERN_ERR "Dino: cannot attach bus %s\n",
-		       bus->bridge->bus_id);
+		       dev_name(bus->bridge));
 		/* kill the bus, we can't do anything with it */
 		list_for_each_safe(ln, tmp_ln, &bus->devices) {
 			struct pci_dev *dev = pci_dev_b(ln);
@@ -547,7 +547,7 @@ dino_card_fixup(struct pci_dev *dev)
 	** The additional "-1" adjusts for skewing the IRQ<->slot.
 	*/
 	dino_cfg_read(dev->bus, dev->devfn, PCI_INTERRUPT_PIN, 1, &irq_pin); 
-	dev->irq = (irq_pin + PCI_SLOT(dev->devfn) - 1) % 4 ;
+	dev->irq = pci_swizzle_interrupt_pin(dev, irq_pin) - 1;
 
 	/* Shouldn't really need to do this but it's in case someone tries
 	** to bypass PCI services and look at the card themselves.
@@ -587,7 +587,7 @@ dino_fixup_bus(struct pci_bus *bus)
 			bus->resource[i+1] = &res[i];
 		}
 
-	} else if(bus->self) {
+	} else if (bus->parent) {
 		int i;
 
 		pci_read_bridge_bases(bus);
@@ -611,12 +611,12 @@ dino_fixup_bus(struct pci_bus *bus)
 			}
 					
 			DBG("DEBUG %s assigning %d [0x%lx,0x%lx]\n",
-			    bus->self->dev.bus_id, i,
+			    dev_name(&bus->self->dev), i,
 			    bus->self->resource[i].start,
 			    bus->self->resource[i].end);
 			pci_assign_resource(bus->self, i);
 			DBG("DEBUG %s after assign %d [0x%lx,0x%lx]\n",
-			    bus->self->dev.bus_id, i,
+			    dev_name(&bus->self->dev), i,
 			    bus->self->resource[i].start,
 			    bus->self->resource[i].end);
 		}
@@ -672,7 +672,7 @@ dino_fixup_bus(struct pci_bus *bus)
 			
 			dino_cfg_read(dev->bus, dev->devfn, 
 				      PCI_INTERRUPT_PIN, 1, &irq_pin);
-			irq_pin = (irq_pin + PCI_SLOT(dev->devfn) - 1) % 4 ;
+			irq_pin = pci_swizzle_interrupt_pin(dev, irq_pin) - 1;
 			printk(KERN_WARNING "Device %s has undefined IRQ, "
 					"setting to %d\n", pci_name(dev), irq_pin);
 			dino_cfg_write(dev->bus, dev->devfn, 
@@ -690,7 +690,7 @@ dino_fixup_bus(struct pci_bus *bus)
 }
 
 
-struct pci_bios_ops dino_bios_ops = {
+static struct pci_bios_ops dino_bios_ops = {
 	.init		= dino_bios_init,
 	.fixup_bus	= dino_fixup_bus
 };
@@ -1026,7 +1026,8 @@ static int __init dino_probe(struct parisc_device *dev)
 		dino_current_bus = bus->subordinate + 1;
 		pci_bus_assign_resources(bus);
 	} else {
-		printk(KERN_ERR "ERROR: failed to scan PCI bus on %s (probably duplicate bus number %d)\n", dev->dev.bus_id, dino_current_bus);
+		printk(KERN_ERR "ERROR: failed to scan PCI bus on %s (probably duplicate bus number %d)\n",
+		       dev_name(&dev->dev), dino_current_bus);
 		/* increment the bus number in case of duplicates */
 		dino_current_bus++;
 	}

@@ -10,7 +10,6 @@
 #define _PAGE_BIT_PCD		4	/* page cache disabled */
 #define _PAGE_BIT_ACCESSED	5	/* was accessed (raised by CPU) */
 #define _PAGE_BIT_DIRTY		6	/* was written to (raised by CPU) */
-#define _PAGE_BIT_FILE		6
 #define _PAGE_BIT_PSE		7	/* 4 MB (or 2MB) page */
 #define _PAGE_BIT_PAT		7	/* on 4KB pages */
 #define _PAGE_BIT_GLOBAL	8	/* Global TLB entry PPro+ */
@@ -20,6 +19,12 @@
 #define _PAGE_BIT_PAT_LARGE	12	/* On 2MB or 1GB pages */
 #define _PAGE_BIT_CPA_TEST	_PAGE_BIT_SPECIAL
 #define _PAGE_BIT_NX           63       /* No execute: only valid after cpuid check */
+
+/* If _PAGE_BIT_PRESENT is clear, we use these: */
+/* - if the user mapped it with PROT_NONE; pte_present gives true */
+#define _PAGE_BIT_PROTNONE	_PAGE_BIT_GLOBAL
+/* - set: nonlinear file mapping, saved PTE; unset:swap */
+#define _PAGE_BIT_FILE		_PAGE_BIT_DIRTY
 
 #define _PAGE_PRESENT	(_AT(pteval_t, 1) << _PAGE_BIT_PRESENT)
 #define _PAGE_RW	(_AT(pteval_t, 1) << _PAGE_BIT_RW)
@@ -44,11 +49,8 @@
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_UNUSED3)
 #endif
 
-/* If _PAGE_PRESENT is clear, we use these: */
-#define _PAGE_FILE	_PAGE_DIRTY	/* nonlinear file mapping,
-					 * saved PTE; unset:swap */
-#define _PAGE_PROTNONE	_PAGE_PSE	/* if the user mapped it with PROT_NONE;
-					   pte_present gives true */
+#define _PAGE_FILE	(_AT(pteval_t, 1) << _PAGE_BIT_FILE)
+#define _PAGE_PROTNONE	(_AT(pteval_t, 1) << _PAGE_BIT_PROTNONE)
 
 #define _PAGE_TABLE	(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER |	\
 			 _PAGE_ACCESSED | _PAGE_DIRTY)
@@ -159,7 +161,18 @@
 #define PGD_IDENT_ATTR	 0x001		/* PRESENT (no other attributes) */
 #endif
 
+/*
+ * Macro to mark a page protection value as UC-
+ */
+#define pgprot_noncached(prot)					\
+	((boot_cpu_data.x86 > 3)				\
+	 ? (__pgprot(pgprot_val(prot) | _PAGE_CACHE_UC_MINUS))	\
+	 : (prot))
+
 #ifndef __ASSEMBLY__
+
+#define pgprot_writecombine	pgprot_writecombine
+extern pgprot_t pgprot_writecombine(pgprot_t prot);
 
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
@@ -315,16 +328,30 @@ static inline pte_t pte_mkspecial(pte_t pte)
 	return __pte(pte_val(pte) | _PAGE_SPECIAL);
 }
 
+/*
+ * Mask out unsupported bits in a present pgprot.  Non-present pgprots
+ * can use those bits for other purposes, so leave them be.
+ */
+static inline pgprotval_t massage_pgprot(pgprot_t pgprot)
+{
+	pgprotval_t protval = pgprot_val(pgprot);
+
+	if (protval & _PAGE_PRESENT)
+		protval &= __supported_pte_mask;
+
+	return protval;
+}
+
 static inline pte_t pfn_pte(unsigned long page_nr, pgprot_t pgprot)
 {
-	return __pte((((phys_addr_t)page_nr << PAGE_SHIFT) |
-		      pgprot_val(pgprot)) & __supported_pte_mask);
+	return __pte(((phys_addr_t)page_nr << PAGE_SHIFT) |
+		     massage_pgprot(pgprot));
 }
 
 static inline pmd_t pfn_pmd(unsigned long page_nr, pgprot_t pgprot)
 {
-	return __pmd((((phys_addr_t)page_nr << PAGE_SHIFT) |
-		      pgprot_val(pgprot)) & __supported_pte_mask);
+	return __pmd(((phys_addr_t)page_nr << PAGE_SHIFT) |
+		     massage_pgprot(pgprot));
 }
 
 static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
@@ -336,7 +363,7 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 	 * the newprot (if present):
 	 */
 	val &= _PAGE_CHG_MASK;
-	val |= pgprot_val(newprot) & (~_PAGE_CHG_MASK) & __supported_pte_mask;
+	val |= massage_pgprot(newprot) & ~_PAGE_CHG_MASK;
 
 	return __pte(val);
 }
@@ -352,9 +379,31 @@ static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
 
 #define pte_pgprot(x) __pgprot(pte_flags(x) & PTE_FLAGS_MASK)
 
-#define canon_pgprot(p) __pgprot(pgprot_val(p) & __supported_pte_mask)
+#define canon_pgprot(p) __pgprot(massage_pgprot(p))
+
+static inline int is_new_memtype_allowed(unsigned long flags,
+						unsigned long new_flags)
+{
+	/*
+	 * Certain new memtypes are not allowed with certain
+	 * requested memtype:
+	 * - request is uncached, return cannot be write-back
+	 * - request is write-combine, return cannot be write-back
+	 */
+	if ((flags == _PAGE_CACHE_UC_MINUS &&
+	     new_flags == _PAGE_CACHE_WB) ||
+	    (flags == _PAGE_CACHE_WC &&
+	     new_flags == _PAGE_CACHE_WB)) {
+		return 0;
+	}
+
+	return 1;
+}
 
 #ifndef __ASSEMBLY__
+/* Indicate that x86 has its own track and untrack pfn vma functions */
+#define __HAVE_PFNMAP_TRACKING
+
 #define __HAVE_PHYS_MEM_ACCESS_PROT
 struct file;
 pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,

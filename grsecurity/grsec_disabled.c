@@ -152,7 +152,7 @@ gr_search_connectbind(const int mode, const struct socket *sock,
 }
 
 int
-gr_task_is_capable(struct task_struct *task, const int cap)
+gr_is_capable(const int cap)
 {
 	return 1;
 }
@@ -408,7 +408,7 @@ gr_check_group_change(int real, int effective, int fs)
 }
 
 
-EXPORT_SYMBOL(gr_task_is_capable);
+EXPORT_SYMBOL(gr_is_capable);
 EXPORT_SYMBOL(gr_is_capable_nolog);
 EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);

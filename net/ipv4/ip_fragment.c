@@ -56,7 +56,7 @@ struct ipfrag_skb_cb
 	int			offset;
 };
 
-#define FRAG_CB(skb)	((struct ipfrag_skb_cb*)((skb)->cb))
+#define FRAG_CB(skb)	((struct ipfrag_skb_cb *)((skb)->cb))
 
 /* Describe an entry in the "incomplete datagrams" queue. */
 struct ipq {
@@ -463,6 +463,7 @@ err:
 static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
 			 struct net_device *dev)
 {
+	struct net *net = container_of(qp->q.net, struct net, ipv4.frags);
 	struct iphdr *iph;
 	struct sk_buff *fp, *head = qp->q.fragments;
 	int len;
@@ -548,7 +549,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
 	iph = ip_hdr(head);
 	iph->frag_off = 0;
 	iph->tot_len = htons(len);
-	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMOKS);
+	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
 	qp->q.fragments = NULL;
 	return 0;
 
@@ -559,9 +560,8 @@ out_nomem:
 	goto out_fail;
 out_oversize:
 	if (net_ratelimit())
-		printk(KERN_INFO
-			"Oversized IP packet from " NIPQUAD_FMT ".\n",
-			NIPQUAD(qp->saddr));
+		printk(KERN_INFO "Oversized IP packet from %pI4.\n",
+			&qp->saddr);
 out_fail:
 	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_REASMFAILS);
 	return err;
@@ -608,7 +608,7 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
 		.data		= &init_net.ipv4.frags.high_thresh,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec
+		.proc_handler	= proc_dointvec
 	},
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_LOW_THRESH,
@@ -616,7 +616,7 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
 		.data		= &init_net.ipv4.frags.low_thresh,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec
+		.proc_handler	= proc_dointvec
 	},
 	{
 		.ctl_name	= NET_IPV4_IPFRAG_TIME,
@@ -624,8 +624,8 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
 		.data		= &init_net.ipv4.frags.timeout,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_jiffies,
-		.strategy	= &sysctl_jiffies
+		.proc_handler	= proc_dointvec_jiffies,
+		.strategy	= sysctl_jiffies
 	},
 	{ }
 };
@@ -637,15 +637,15 @@ static struct ctl_table ip4_frags_ctl_table[] = {
 		.data		= &ip4_frags.secret_interval,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_jiffies,
-		.strategy	= &sysctl_jiffies
+		.proc_handler	= proc_dointvec_jiffies,
+		.strategy	= sysctl_jiffies
 	},
 	{
 		.procname	= "ipfrag_max_dist",
 		.data		= &sysctl_ipfrag_max_dist,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_minmax,
+		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= &zero
 	},
 	{ }

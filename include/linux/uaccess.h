@@ -78,7 +78,7 @@ static inline unsigned long __copy_from_user_nocache(void *to,
 							\
 		pagefault_disable();			\
 		set_fs(KERNEL_DS);			\
-		ret = __get_user(retval, (__force typeof(retval) __user *)(addr));		\
+		ret = __copy_from_user_inatomic(&(retval), (__force typeof(retval) __user *)(addr), sizeof(retval));		\
 		set_fs(old_fs);				\
 		pagefault_enable();			\
 		ret;					\

@@ -11,11 +11,6 @@
 #include <linux/grinternal.h>
 #include <linux/gracl.h>
 
-#if defined(CONFIG_IP_NF_MATCH_STEALTH_MODULE)
-extern struct sock *udp_v4_lookup(u32 saddr, u16 sport, u32 daddr, u16 dport, int dif);
-EXPORT_SYMBOL(udp_v4_lookup);
-#endif
-
 kernel_cap_t gr_cap_rtnetlink(struct sock *sock);
 EXPORT_SYMBOL(gr_cap_rtnetlink);
 
@@ -252,23 +247,23 @@ gr_cap_rtnetlink(struct sock *sock)
 {
 #ifdef CONFIG_GRKERNSEC
 	if (!gr_acl_is_enabled())
-		return current->cap_effective;
+		return current_cap();
 	else if (sock->sk_protocol == NETLINK_ISCSI &&
-		 cap_raised(current->cap_effective, CAP_SYS_ADMIN) &&
-		 gr_task_is_capable(current, CAP_SYS_ADMIN))
-		return current->cap_effective;
+		 cap_raised(current_cap(), CAP_SYS_ADMIN) &&
+		 gr_is_capable(CAP_SYS_ADMIN))
+		return current_cap();
 	else if (sock->sk_protocol == NETLINK_AUDIT &&
-		 cap_raised(current->cap_effective, CAP_AUDIT_WRITE) &&
-		 gr_task_is_capable(current, CAP_AUDIT_WRITE) &&
-		 cap_raised(current->cap_effective, CAP_AUDIT_CONTROL) &&
-		 gr_task_is_capable(current, CAP_AUDIT_CONTROL))
-		return current->cap_effective;
-	else if (cap_raised(current->cap_effective, CAP_NET_ADMIN) &&
-		 gr_task_is_capable(current, CAP_NET_ADMIN))
-		return current->cap_effective;
+		 cap_raised(current_cap(), CAP_AUDIT_WRITE) &&
+		 gr_is_capable(CAP_AUDIT_WRITE) &&
+		 cap_raised(current_cap(), CAP_AUDIT_CONTROL) &&
+		 gr_is_capable(CAP_AUDIT_CONTROL))
+		return current_cap();
+	else if (cap_raised(current_cap(), CAP_NET_ADMIN) &&
+		 gr_is_capable(CAP_NET_ADMIN))
+		return current_cap();
 	else
 		return __cap_empty_set;
 #else
-	return current->cap_effective;
+	return current_cap();
 #endif
 }

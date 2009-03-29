@@ -215,8 +215,19 @@ struct crypto_alg *crypto_larval_lookup(const char *name, u32 type, u32 mask)
 	mask &= ~(CRYPTO_ALG_LARVAL | CRYPTO_ALG_DEAD);
 	type &= mask;
 
-	alg = try_then_request_module(crypto_alg_lookup(name, type, mask),
-				      name);
+	alg = crypto_alg_lookup(name, type, mask);
+	if (!alg) {
+		char tmp[CRYPTO_MAX_ALG_NAME];
+
+		request_module(name);
+
+		if (!((type ^ CRYPTO_ALG_NEED_FALLBACK) & mask) &&
+		    snprintf(tmp, sizeof(tmp), "%s-all", name) < sizeof(tmp))
+			request_module(tmp);
+
+		alg = crypto_alg_lookup(name, type, mask);
+	}
+
 	if (alg)
 		return crypto_is_larval(alg) ? crypto_larval_wait(alg) : alg;
 
@@ -300,8 +311,8 @@ static void crypto_exit_ops(struct crypto_tfm *tfm)
 	const struct crypto_type *type = tfm->__crt_alg->cra_type;
 
 	if (type) {
-		if (type->exit)
-			type->exit(tfm);
+		if (tfm->exit)
+			tfm->exit(tfm);
 		return;
 	}
 
@@ -379,17 +390,16 @@ struct crypto_tfm *__crypto_alloc_tfm(struct crypto_alg *alg, u32 type,
 	if (err)
 		goto out_free_tfm;
 
-	if (alg->cra_init && (err = alg->cra_init(tfm))) {
-		if (err == -EAGAIN)
-			crypto_shoot_alg(alg);
+	if (!tfm->exit && alg->cra_init && (err = alg->cra_init(tfm)))
 		goto cra_init_failed;
-	}
 
 	goto out;
 
 cra_init_failed:
 	crypto_exit_ops(tfm);
 out_free_tfm:
+	if (err == -EAGAIN)
+		crypto_shoot_alg(alg);
 	kfree(tfm);
 out_err:
 	tfm = ERR_PTR(err);
@@ -403,6 +413,9 @@ EXPORT_SYMBOL_GPL(__crypto_alloc_tfm);
  *	@alg_name: Name of algorithm
  *	@type: Type of algorithm
  *	@mask: Mask for type comparison
+ *
+ *	This function should not be used by new algorithm types.
+ *	Plesae use crypto_alloc_tfm instead.
  *
  *	crypto_alloc_base() will first attempt to locate an already loaded
  *	algorithm.  If that fails and the kernel supports dynamically loadable
@@ -450,34 +463,139 @@ err:
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL_GPL(crypto_alloc_base);
- 
+
+struct crypto_tfm *crypto_create_tfm(struct crypto_alg *alg,
+				     const struct crypto_type *frontend)
+{
+	char *mem;
+	struct crypto_tfm *tfm = NULL;
+	unsigned int tfmsize;
+	unsigned int total;
+	int err = -ENOMEM;
+
+	tfmsize = frontend->tfmsize;
+	total = tfmsize + sizeof(*tfm) + frontend->extsize(alg, frontend);
+
+	mem = kzalloc(total, GFP_KERNEL);
+	if (mem == NULL)
+		goto out_err;
+
+	tfm = (struct crypto_tfm *)(mem + tfmsize);
+	tfm->__crt_alg = alg;
+
+	err = frontend->init_tfm(tfm, frontend);
+	if (err)
+		goto out_free_tfm;
+
+	if (!tfm->exit && alg->cra_init && (err = alg->cra_init(tfm)))
+		goto cra_init_failed;
+
+	goto out;
+
+cra_init_failed:
+	crypto_exit_ops(tfm);
+out_free_tfm:
+	if (err == -EAGAIN)
+		crypto_shoot_alg(alg);
+	kfree(mem);
+out_err:
+	tfm = ERR_PTR(err);
+out:
+	return tfm;
+}
+EXPORT_SYMBOL_GPL(crypto_create_tfm);
+
 /*
- *	crypto_free_tfm - Free crypto transform
+ *	crypto_alloc_tfm - Locate algorithm and allocate transform
+ *	@alg_name: Name of algorithm
+ *	@frontend: Frontend algorithm type
+ *	@type: Type of algorithm
+ *	@mask: Mask for type comparison
+ *
+ *	crypto_alloc_tfm() will first attempt to locate an already loaded
+ *	algorithm.  If that fails and the kernel supports dynamically loadable
+ *	modules, it will then attempt to load a module of the same name or
+ *	alias.  If that fails it will send a query to any loaded crypto manager
+ *	to construct an algorithm on the fly.  A refcount is grabbed on the
+ *	algorithm which is then associated with the new transform.
+ *
+ *	The returned transform is of a non-determinate type.  Most people
+ *	should use one of the more specific allocation functions such as
+ *	crypto_alloc_blkcipher.
+ *
+ *	In case of error the return value is an error pointer.
+ */
+struct crypto_tfm *crypto_alloc_tfm(const char *alg_name,
+				    const struct crypto_type *frontend,
+				    u32 type, u32 mask)
+{
+	struct crypto_alg *(*lookup)(const char *name, u32 type, u32 mask);
+	struct crypto_tfm *tfm;
+	int err;
+
+	type &= frontend->maskclear;
+	mask &= frontend->maskclear;
+	type |= frontend->type;
+	mask |= frontend->maskset;
+
+	lookup = frontend->lookup ?: crypto_alg_mod_lookup;
+
+	for (;;) {
+		struct crypto_alg *alg;
+
+		alg = lookup(alg_name, type, mask);
+		if (IS_ERR(alg)) {
+			err = PTR_ERR(alg);
+			goto err;
+		}
+
+		tfm = crypto_create_tfm(alg, frontend);
+		if (!IS_ERR(tfm))
+			return tfm;
+
+		crypto_mod_put(alg);
+		err = PTR_ERR(tfm);
+
+err:
+		if (err != -EAGAIN)
+			break;
+		if (signal_pending(current)) {
+			err = -EINTR;
+			break;
+		}
+	}
+
+	return ERR_PTR(err);
+}
+EXPORT_SYMBOL_GPL(crypto_alloc_tfm);
+
+/*
+ *	crypto_destroy_tfm - Free crypto transform
+ *	@mem: Start of tfm slab
  *	@tfm: Transform to free
  *
- *	crypto_free_tfm() frees up the transform and any associated resources,
+ *	This function frees up the transform and any associated resources,
  *	then drops the refcount on the associated algorithm.
  */
-void crypto_free_tfm(struct crypto_tfm *tfm)
+void crypto_destroy_tfm(void *mem, struct crypto_tfm *tfm)
 {
 	struct crypto_alg *alg;
 	int size;
 
-	if (unlikely(!tfm))
+	if (unlikely(!mem))
 		return;
 
 	alg = tfm->__crt_alg;
-	size = sizeof(*tfm) + alg->cra_ctxsize;
+	size = ksize(mem);
 
-	if (alg->cra_exit)
+	if (!tfm->exit && alg->cra_exit)
 		alg->cra_exit(tfm);
 	crypto_exit_ops(tfm);
 	crypto_mod_put(alg);
-	memset(tfm, 0, size);
-	kfree(tfm);
+	memset(mem, 0, size);
+	kfree(mem);
 }
-
-EXPORT_SYMBOL_GPL(crypto_free_tfm);
+EXPORT_SYMBOL_GPL(crypto_destroy_tfm);
 
 int crypto_has_alg(const char *name, u32 type, u32 mask)
 {

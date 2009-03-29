@@ -18,6 +18,8 @@
 #include "hcd.h"	/* for usbcore internals */
 #include "usb.h"
 
+static void cancel_async_set_config(struct usb_device *udev);
+
 struct api_context {
 	struct completion	done;
 	int			status;
@@ -139,9 +141,9 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 
 	dr->bRequestType = requesttype;
 	dr->bRequest = request;
-	dr->wValue = cpu_to_le16p(&value);
-	dr->wIndex = cpu_to_le16p(&index);
-	dr->wLength = cpu_to_le16p(&size);
+	dr->wValue = cpu_to_le16(value);
+	dr->wIndex = cpu_to_le16(index);
+	dr->wLength = cpu_to_le16(size);
 
 	/* dbg("usb_control_msg"); */
 
@@ -1009,6 +1011,34 @@ int usb_clear_halt(struct usb_device *dev, int pipe)
 }
 EXPORT_SYMBOL_GPL(usb_clear_halt);
 
+static int create_intf_ep_devs(struct usb_interface *intf)
+{
+	struct usb_device *udev = interface_to_usbdev(intf);
+	struct usb_host_interface *alt = intf->cur_altsetting;
+	int i;
+
+	if (intf->ep_devs_created || intf->unregistering)
+		return 0;
+
+	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
+		(void) usb_create_ep_devs(&intf->dev, &alt->endpoint[i], udev);
+	intf->ep_devs_created = 1;
+	return 0;
+}
+
+static void remove_intf_ep_devs(struct usb_interface *intf)
+{
+	struct usb_host_interface *alt = intf->cur_altsetting;
+	int i;
+
+	if (!intf->ep_devs_created)
+		return;
+
+	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
+		usb_remove_ep_devs(&alt->endpoint[i]);
+	intf->ep_devs_created = 0;
+}
+
 /**
  * usb_disable_endpoint -- Disable an endpoint by address
  * @dev: the device whose endpoint is being disabled
@@ -1105,7 +1135,7 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 			dev_dbg(&dev->dev, "unregistering interface %s\n",
 				dev_name(&interface->dev));
 			interface->unregistering = 1;
-			usb_remove_sysfs_intf_files(interface);
+			remove_intf_ep_devs(interface);
 			device_del(&interface->dev);
 		}
 
@@ -1253,8 +1283,10 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	 */
 
 	/* prevent submissions using previous endpoint settings */
-	if (iface->cur_altsetting != alt)
+	if (iface->cur_altsetting != alt) {
+		remove_intf_ep_devs(iface);
 		usb_remove_sysfs_intf_files(iface);
+	}
 	usb_disable_interface(dev, iface, true);
 
 	iface->cur_altsetting = alt;
@@ -1290,9 +1322,10 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	 * (Likewise, EP0 never "halts" on well designed devices.)
 	 */
 	usb_enable_interface(dev, iface, true);
-	if (device_is_registered(&iface->dev))
+	if (device_is_registered(&iface->dev)) {
 		usb_create_sysfs_intf_files(iface);
-
+		create_intf_ep_devs(iface);
+	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_set_interface);
@@ -1352,7 +1385,6 @@ int usb_reset_configuration(struct usb_device *dev)
 		struct usb_interface *intf = config->interface[i];
 		struct usb_host_interface *alt;
 
-		usb_remove_sysfs_intf_files(intf);
 		alt = usb_altnum_to_altsetting(intf, 0);
 
 		/* No altsetting 0?  We'll assume the first altsetting.
@@ -1363,10 +1395,16 @@ int usb_reset_configuration(struct usb_device *dev)
 		if (!alt)
 			alt = &intf->altsetting[0];
 
+		if (alt != intf->cur_altsetting) {
+			remove_intf_ep_devs(intf);
+			usb_remove_sysfs_intf_files(intf);
+		}
 		intf->cur_altsetting = alt;
 		usb_enable_interface(dev, intf, true);
-		if (device_is_registered(&intf->dev))
+		if (device_is_registered(&intf->dev)) {
 			usb_create_sysfs_intf_files(intf);
+			create_intf_ep_devs(intf);
+		}
 	}
 	return 0;
 }
@@ -1458,6 +1496,46 @@ static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
 
 	return retval;
 }
+
+
+/*
+ * Internal function to queue a device reset
+ *
+ * This is initialized into the workstruct in 'struct
+ * usb_device->reset_ws' that is launched by
+ * message.c:usb_set_configuration() when initializing each 'struct
+ * usb_interface'.
+ *
+ * It is safe to get the USB device without reference counts because
+ * the life cycle of @iface is bound to the life cycle of @udev. Then,
+ * this function will be ran only if @iface is alive (and before
+ * freeing it any scheduled instances of it will have been cancelled).
+ *
+ * We need to set a flag (usb_dev->reset_running) because when we call
+ * the reset, the interfaces might be unbound. The current interface
+ * cannot try to remove the queued work as it would cause a deadlock
+ * (you cannot remove your work from within your executing
+ * workqueue). This flag lets it know, so that
+ * usb_cancel_queued_reset() doesn't try to do it.
+ *
+ * See usb_queue_reset_device() for more details
+ */
+void __usb_queue_reset_device(struct work_struct *ws)
+{
+	int rc;
+	struct usb_interface *iface =
+		container_of(ws, struct usb_interface, reset_ws);
+	struct usb_device *udev = interface_to_usbdev(iface);
+
+	rc = usb_lock_device_for_reset(udev, iface);
+	if (rc >= 0) {
+		iface->reset_running = 1;
+		usb_reset_device(udev);
+		iface->reset_running = 0;
+		usb_unlock_device(udev);
+	}
+}
+
 
 /*
  * usb_set_configuration - Makes a particular device setting be current
@@ -1578,6 +1656,9 @@ free_interfaces:
 	if (dev->state != USB_STATE_ADDRESS)
 		usb_disable_device(dev, 1);	/* Skip ep0 */
 
+	/* Get rid of pending async Set-Config requests for this device */
+	cancel_async_set_config(dev);
+
 	ret = usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
 			      USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
 			      NULL, 0, USB_CTRL_SET_TIMEOUT);
@@ -1629,6 +1710,7 @@ free_interfaces:
 		intf->dev.type = &usb_if_device_type;
 		intf->dev.groups = usb_interface_groups;
 		intf->dev.dma_mask = dev->dev.dma_mask;
+		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
 		device_initialize(&intf->dev);
 		mark_quiesced(intf);
 		dev_set_name(&intf->dev, "%d-%s:%d.%d",
@@ -1659,17 +1741,21 @@ free_interfaces:
 				dev_name(&intf->dev), ret);
 			continue;
 		}
-		usb_create_sysfs_intf_files(intf);
+		create_intf_ep_devs(intf);
 	}
 
 	usb_autosuspend_device(dev);
 	return 0;
 }
 
+static LIST_HEAD(set_config_list);
+static DEFINE_SPINLOCK(set_config_lock);
+
 struct set_config_request {
 	struct usb_device	*udev;
 	int			config;
 	struct work_struct	work;
+	struct list_head	node;
 };
 
 /* Worker routine for usb_driver_set_configuration() */
@@ -1677,12 +1763,33 @@ static void driver_set_config_work(struct work_struct *work)
 {
 	struct set_config_request *req =
 		container_of(work, struct set_config_request, work);
+	struct usb_device *udev = req->udev;
 
-	usb_lock_device(req->udev);
-	usb_set_configuration(req->udev, req->config);
-	usb_unlock_device(req->udev);
-	usb_put_dev(req->udev);
+	usb_lock_device(udev);
+	spin_lock(&set_config_lock);
+	list_del(&req->node);
+	spin_unlock(&set_config_lock);
+
+	if (req->config >= -1)		/* Is req still valid? */
+		usb_set_configuration(udev, req->config);
+	usb_unlock_device(udev);
+	usb_put_dev(udev);
 	kfree(req);
+}
+
+/* Cancel pending Set-Config requests for a device whose configuration
+ * was just changed
+ */
+static void cancel_async_set_config(struct usb_device *udev)
+{
+	struct set_config_request *req;
+
+	spin_lock(&set_config_lock);
+	list_for_each_entry(req, &set_config_list, node) {
+		if (req->udev == udev)
+			req->config = -999;	/* Mark as cancelled */
+	}
+	spin_unlock(&set_config_lock);
 }
 
 /**
@@ -1715,6 +1822,10 @@ int usb_driver_set_configuration(struct usb_device *udev, int config)
 	req->udev = udev;
 	req->config = config;
 	INIT_WORK(&req->work, driver_set_config_work);
+
+	spin_lock(&set_config_lock);
+	list_add(&req->node, &set_config_list);
+	spin_unlock(&set_config_lock);
 
 	usb_get_dev(udev);
 	schedule_work(&req->work);

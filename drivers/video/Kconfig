@@ -41,7 +41,7 @@ menuconfig FB
 	  You need an utility program called fbset to make full use of frame
 	  buffer devices. Please read <file:Documentation/fb/framebuffer.txt>
 	  and the Framebuffer-HOWTO at
-	  <http://www.tahallah.demon.co.uk/programming/prog.html> for more
+	  <http://www.munted.org.uk/programming/Framebuffer-HOWTO-1.2.html> for more
 	  information.
 
 	  Say Y here and to the driver for your graphics board below if you
@@ -362,7 +362,7 @@ endchoice
 
 config FB_ACORN
 	bool "Acorn VIDC support"
-	depends on (FB = y) && ARM && (ARCH_ACORN || ARCH_CLPS7500)
+	depends on (FB = y) && ARM && ARCH_ACORN
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
@@ -1054,9 +1054,7 @@ config FB_RIVA_BACKLIGHT
 
 config FB_I810
 	tristate "Intel 810/815 support (EXPERIMENTAL)"
-	depends on FB && EXPERIMENTAL && PCI && X86_32
-	select AGP
-	select AGP_INTEL
+	depends on EXPERIMENTAL && FB && PCI && X86_32 && AGP_INTEL
 	select FB_MODE_HELPERS
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
@@ -1119,9 +1117,7 @@ config FB_CARILLO_RANCH
 
 config FB_INTEL
 	tristate "Intel 830M/845G/852GM/855GM/865G/915G/945G/945GM/965G/965GM support (EXPERIMENTAL)"
-	depends on FB && EXPERIMENTAL && PCI && X86
-	select AGP
-	select AGP_INTEL
+	depends on EXPERIMENTAL && FB && PCI && X86 && AGP_INTEL
 	select FB_MODE_HELPERS
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
@@ -1817,6 +1813,11 @@ config FB_PXA
 
 	  If unsure, say N.
 
+config FB_PXA_OVERLAY
+	bool "Support PXA27x/PXA3xx Overlay(s) as framebuffer"
+	default n
+	depends on FB_PXA && (PXA27x || PXA3xx)
+
 config FB_PXA_SMARTPANEL
 	bool "PXA Smartpanel LCD support"
 	default n
@@ -1889,10 +1890,11 @@ config FB_W100
 config FB_SH_MOBILE_LCDC
 	tristate "SuperH Mobile LCDC framebuffer support"
 	depends on FB && SUPERH
-	select FB_CFB_FILLRECT
-	select FB_CFB_COPYAREA
-	select FB_CFB_IMAGEBLIT
-	default m
+	select FB_SYS_FILLRECT
+	select FB_SYS_COPYAREA
+	select FB_SYS_IMAGEBLIT
+	select FB_SYS_FOPS
+	select FB_DEFERRED_IO
 	---help---
 	  Frame buffer driver for the on-chip SH-Mobile LCD controller.
 
@@ -2021,17 +2023,19 @@ config FB_COBALT
 	depends on FB && MIPS_COBALT
 
 config FB_SH7760
-       bool "SH7760/SH7763 LCDC support"
-       depends on FB && (CPU_SUBTYPE_SH7760 || CPU_SUBTYPE_SH7763)
-       select FB_CFB_FILLRECT
-       select FB_CFB_COPYAREA
-       select FB_CFB_IMAGEBLIT
-       help
-         Support for the SH7760/SH7763 integrated (D)STN/TFT LCD Controller.
-         Supports display resolutions up to 1024x1024 pixel, grayscale and
-         color operation, with depths ranging from 1 bpp to 8 bpp monochrome
-         and 8, 15 or 16 bpp color; 90 degrees clockwise display rotation for
-         panels <= 320 pixel horizontal resolution.
+	bool "SH7760/SH7763/SH7720/SH7721 LCDC support"
+	depends on FB && (CPU_SUBTYPE_SH7760 || CPU_SUBTYPE_SH7763 \
+		|| CPU_SUBTYPE_SH7720 || CPU_SUBTYPE_SH7721)
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	---help---
+	  Support for the SH7760/SH7763/SH7720/SH7721 integrated
+	  (D)STN/TFT LCD Controller.
+	  Supports display resolutions up to 1024x1024 pixel, grayscale and
+	  color operation, with depths ranging from 1 bpp to 8 bpp monochrome
+	  and 8, 15 or 16 bpp color; 90 degrees clockwise display rotation for
+	  panels <= 320 pixel horizontal resolution.
 
 config FB_VIRTUAL
 	tristate "Virtual Frame Buffer support (ONLY FOR TESTING!)"
@@ -2114,6 +2118,18 @@ config FB_PRE_INIT_FB
 	---help---
 	  Select this option if display contents should be inherited as set by
 	  the bootloader.
+
+config FB_MX3
+       tristate "MX3 Framebuffer support"
+       depends on FB && MX3_IPU
+       select FB_CFB_FILLRECT
+       select FB_CFB_COPYAREA
+       select FB_CFB_IMAGEBLIT
+       default y
+       help
+         This is a framebuffer device for the i.MX31 LCD Controller. So
+         far only synchronous displays are supported. If you plan to use
+         an LCD display with your i.MX31 system, say Y here.
 
 source "drivers/video/omap/Kconfig"
 

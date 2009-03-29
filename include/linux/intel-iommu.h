@@ -23,8 +23,6 @@
 #define _INTEL_IOMMU_H_
 
 #include <linux/types.h>
-#include <linux/msi.h>
-#include <linux/sysdev.h>
 #include <linux/iova.h>
 #include <linux/io.h>
 #include <linux/dma_remapping.h>
@@ -196,6 +194,7 @@ static inline void dmar_writeq(void __iomem *addr, u64 val)
 /* FSTS_REG */
 #define DMA_FSTS_PPF ((u32)2)
 #define DMA_FSTS_PFO ((u32)1)
+#define DMA_FSTS_IQE (1 << 4)
 #define dma_fsts_fault_record_index(s) (((s) >> 8) & 0xff)
 
 /* FRCD_REG, 32 bits access */
@@ -289,10 +288,10 @@ struct intel_iommu {
 	void __iomem	*reg; /* Pointer to hardware regs, virtual addr */
 	u64		cap;
 	u64		ecap;
-	int		seg;
 	u32		gcmd; /* Holds TE, EAFL. Don't need SRTP, SFL, WBF */
 	spinlock_t	register_lock; /* protect register handling */
 	int		seq_id;	/* sequence id of the iommu */
+	int		agaw; /* agaw of this iommu */
 
 #ifdef CONFIG_DMAR
 	unsigned long 	*domain_ids; /* bitmap of domains */
@@ -302,8 +301,6 @@ struct intel_iommu {
 
 	unsigned int irq;
 	unsigned char name[7];    /* Device Name */
-	struct msi_msg saved_msg;
-	struct sys_device sysdev;
 	struct iommu_flush flush;
 #endif
 	struct q_inval  *qi;            /* Queued invalidation info */
@@ -332,26 +329,7 @@ extern int qi_flush_iotlb(struct intel_iommu *iommu, u16 did, u64 addr,
 			  unsigned int size_order, u64 type,
 			  int non_present_entry_flush);
 
-extern void qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu);
-
-void intel_iommu_domain_exit(struct dmar_domain *domain);
-struct dmar_domain *intel_iommu_domain_alloc(struct pci_dev *pdev);
-int intel_iommu_context_mapping(struct dmar_domain *domain,
-				struct pci_dev *pdev);
-int intel_iommu_page_mapping(struct dmar_domain *domain, dma_addr_t iova,
-			     u64 hpa, size_t size, int prot);
-void intel_iommu_detach_dev(struct dmar_domain *domain, u8 bus, u8 devfn);
-struct dmar_domain *intel_iommu_find_domain(struct pci_dev *pdev);
-u64 intel_iommu_iova_to_pfn(struct dmar_domain *domain, u64 iova);
-
-#ifdef CONFIG_DMAR
-int intel_iommu_found(void);
-#else /* CONFIG_DMAR */
-static inline int intel_iommu_found(void)
-{
-	return 0;
-}
-#endif /* CONFIG_DMAR */
+extern int qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu);
 
 extern void *intel_alloc_coherent(struct device *, size_t, dma_addr_t *, gfp_t);
 extern void intel_free_coherent(struct device *, size_t, void *, dma_addr_t);

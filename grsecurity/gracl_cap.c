@@ -42,12 +42,14 @@ static const char *captab_log[] = {
 	"CAP_MAC_ADMIN"
 };
 
-EXPORT_SYMBOL(gr_task_is_capable);
+EXPORT_SYMBOL(gr_is_capable);
 EXPORT_SYMBOL(gr_is_capable_nolog);
 
 int
-gr_task_is_capable(struct task_struct *task, const int cap)
+gr_is_capable(const int cap)
 {
+	struct task_struct *task = current;
+	const struct cred *cred = current_cred();
 	struct acl_subject_label *curracl;
 	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
 
@@ -78,10 +80,10 @@ gr_task_is_capable(struct task_struct *task, const int cap)
 	curracl = task->acl;
 
 	if ((curracl->mode & (GR_LEARN | GR_INHERITLEARN))
-	    && cap_raised(task->cap_effective, cap)) {
+	    && cap_raised(cred->cap_effective, cap)) {
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
-			       task->role->roletype, task->uid,
-			       task->gid, task->exec_file ?
+			       task->role->roletype, cred->uid,
+			       cred->gid, task->exec_file ?
 			       gr_to_filename(task->exec_file->f_path.dentry,
 			       task->exec_file->f_path.mnt) : curracl->filename,
 			       curracl->filename, 0UL,
@@ -89,7 +91,7 @@ gr_task_is_capable(struct task_struct *task, const int cap)
 		return 1;
 	}
 
-	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(task->cap_effective, cap))
+	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(cred->cap_effective, cap))
 		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);
 	return 0;
 }

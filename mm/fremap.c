@@ -37,7 +37,7 @@ static void zap_pte(struct mm_struct *mm, struct vm_area_struct *vma,
 		if (page) {
 			if (pte_dirty(pte))
 				set_page_dirty(page);
-			page_remove_rmap(page, vma);
+			page_remove_rmap(page);
 			page_cache_release(page);
 			update_hiwater_rss(mm);
 			dec_mm_counter(mm, file_rss);
@@ -154,10 +154,8 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 	vma = find_vma(mm, start);
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if (vma && (mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_flags & VM_MAYEXEC)) {
-		up_read(&mm->mmap_sem);
-		return err;
-	}
+	if (vma && (mm->pax_flags & MF_PAX_SEGMEXEC) && (vma->vm_flags & VM_MAYEXEC))
+		goto out;
 #endif
 
 	/*
@@ -205,7 +203,7 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 			flags &= MAP_NONBLOCK;
 			get_file(file);
 			addr = mmap_region(file, start, size,
-					flags, vma->vm_flags, pgoff, 1);
+					flags, vma->vm_flags, pgoff);
 			fput(file);
 			if (IS_ERR_VALUE(addr)) {
 				err = addr;

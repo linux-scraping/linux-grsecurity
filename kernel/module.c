@@ -43,7 +43,6 @@
 #include <linux/device.h>
 #include <linux/string.h>
 #include <linux/mutex.h>
-#include <linux/unwind.h>
 #include <linux/rculist.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -56,6 +55,7 @@
 #include <asm/sections.h>
 #include <linux/tracepoint.h>
 #include <linux/ftrace.h>
+#include <linux/async.h>
 
 #if 0
 #define DEBUGP printk
@@ -587,13 +587,13 @@ static char last_unloaded_module[MODULE_NAME_LEN+1];
 /* Init the unload section of the module. */
 static void module_unload_init(struct module *mod)
 {
-	unsigned int i;
+	int cpu;
 
 	INIT_LIST_HEAD(&mod->modules_which_use_me);
-	for (i = 0; i < NR_CPUS; i++)
-		local_set(&mod->ref[i].count, 0);
+	for_each_possible_cpu(cpu)
+		local_set(__module_ref_addr(mod, cpu), 0);
 	/* Hold reference count during initialization. */
-	local_set(&mod->ref[raw_smp_processor_id()].count, 1);
+	local_set(__module_ref_addr(mod, raw_smp_processor_id()), 1);
 	/* Backwards compatibility macros put refcount during init. */
 	mod->waiter = current;
 }
@@ -731,10 +731,11 @@ static int try_stop_module(struct module *mod, int flags, int *forced)
 
 unsigned int module_refcount(struct module *mod)
 {
-	unsigned int i, total = 0;
+	unsigned int total = 0;
+	int cpu;
 
-	for (i = 0; i < NR_CPUS; i++)
-		total += local_read(&mod->ref[i].count);
+	for_each_possible_cpu(cpu)
+		total += local_read(__module_ref_addr(mod, cpu));
 	return total;
 }
 EXPORT_SYMBOL(module_refcount);
@@ -774,8 +775,16 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 		return -EFAULT;
 	name[MODULE_NAME_LEN-1] = '\0';
 
-	if (mutex_lock_interruptible(&module_mutex) != 0)
-		return -EINTR;
+	/* Create stop_machine threads since free_module relies on
+	 * a non-failing stop_machine call. */
+	ret = stop_machine_create();
+	if (ret)
+		return ret;
+
+	if (mutex_lock_interruptible(&module_mutex) != 0) {
+		ret = -EINTR;
+		goto out_stop;
+	}
 
 	mod = find_module(name);
 	if (!mod) {
@@ -826,6 +835,7 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 		mod->exit();
 	blocking_notifier_call_chain(&module_notify_list,
 				     MODULE_STATE_GOING, mod);
+	async_synchronize_full();
 	mutex_lock(&module_mutex);
 	/* Store the name of the last unloaded module for diagnostic purposes */
 	strlcpy(last_unloaded_module, mod->name, sizeof(last_unloaded_module));
@@ -834,10 +844,12 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 
  out:
 	mutex_unlock(&module_mutex);
+out_stop:
+	stop_machine_destroy();
 	return ret;
 }
 
-static void print_unload_info(struct seq_file *m, struct module *mod)
+static inline void print_unload_info(struct seq_file *m, struct module *mod)
 {
 	struct module_use *use;
 	int printed_something = 0;
@@ -900,7 +912,7 @@ void module_put(struct module *module)
 {
 	if (module) {
 		unsigned int cpu = get_cpu();
-		local_dec(&module->ref[cpu].count);
+		local_dec(__module_ref_addr(module, cpu));
 		/* Maybe they're waiting for us to drop reference? */
 		if (unlikely(!module_is_live(module)))
 			wake_up_process(module->waiter);
@@ -910,7 +922,7 @@ void module_put(struct module *module)
 EXPORT_SYMBOL(module_put);
 
 #else /* !CONFIG_MODULE_UNLOAD */
-static void print_unload_info(struct seq_file *m, struct module *mod)
+static inline void print_unload_info(struct seq_file *m, struct module *mod)
 {
 	/* We don't know the usage count, or what modules are using. */
 	seq_printf(m, " - -");
@@ -1456,8 +1468,6 @@ static void free_module(struct module *mod)
 	remove_sect_attrs(mod);
 	mod_kobject_remove(mod);
 
-	unwind_remove_table(mod->unwind_info, 0);
-
 	/* Arch-specific cleanup. */
 	module_arch_cleanup(mod);
 
@@ -1473,7 +1483,10 @@ static void free_module(struct module *mod)
 	kfree(mod->args);
 	if (mod->percpu)
 		percpu_modfree(mod->percpu);
-
+#if defined(CONFIG_MODULE_UNLOAD) && defined(CONFIG_SMP)
+	if (mod->refptr)
+		percpu_modfree(mod->refptr);
+#endif
 	/* Free lock-classes: */
 	lockdep_free_key_range(mod->module_core_rx, mod->core_size_rx);
 	lockdep_free_key_range(mod->module_core_rw, mod->core_size_rw);
@@ -1627,11 +1640,21 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 	return ret;
 }
 
+/* Additional bytes needed by arch in front of individual sections */
+unsigned int __weak arch_mod_section_prepend(struct module *mod,
+					     unsigned int section)
+{
+	/* default implementation just returns zero */
+	return 0;
+}
+
 /* Update size with this section: return offset. */
-static long get_offset(unsigned int *size, Elf_Shdr *sechdr)
+static long get_offset(struct module *mod, unsigned int *size,
+		       Elf_Shdr *sechdr, unsigned int section)
 {
 	long ret;
 
+	*size += arch_mod_section_prepend(mod, section);
 	ret = ALIGN(*size, sechdr->sh_addralign ?: 1);
 	*size = ret + sechdr->sh_size;
 	return ret;
@@ -1672,9 +1695,9 @@ static void layout_sections(struct module *mod,
 				       ".init", 5) == 0)
 				continue;
 			if ((s->sh_flags & SHF_WRITE) || !(s->sh_flags & SHF_ALLOC))
-				s->sh_entsize = get_offset(&mod->core_size_rw, s);
+				s->sh_entsize = get_offset(mod, &mod->core_size_rw, s, i);
 			else
-				s->sh_entsize = get_offset(&mod->core_size_rx, s);
+				s->sh_entsize = get_offset(mod, &mod->core_size_rx, s, i);
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
 	}
@@ -1691,9 +1714,9 @@ static void layout_sections(struct module *mod,
 				       ".init", 5) != 0)
 				continue;
 			if ((s->sh_flags & SHF_WRITE) || !(s->sh_flags & SHF_ALLOC))
-				s->sh_entsize = get_offset(&mod->init_size_rw, s);
+				s->sh_entsize = get_offset(mod, &mod->init_size_rw, s, i);
 			else
-				s->sh_entsize = get_offset(&mod->init_size_rx, s);
+				s->sh_entsize = get_offset(mod, &mod->init_size_rx, s, i);
 			s->sh_entsize |= INIT_OFFSET_MASK;
 			DEBUGP("\t%s\n", secstrings + s->sh_name);
 		}
@@ -1776,15 +1799,15 @@ static const struct kernel_symbol *lookup_symbol(const char *name,
 	return NULL;
 }
 
-static int is_exported(const char *name, const struct module *mod)
+static int is_exported(const char *name, unsigned long value,
+		       const struct module *mod)
 {
-	if (!mod && lookup_symbol(name, __start___ksymtab, __stop___ksymtab))
-		return 1;
+	const struct kernel_symbol *ks;
+	if (!mod)
+		ks = lookup_symbol(name, __start___ksymtab, __stop___ksymtab);
 	else
-		if (mod && lookup_symbol(name, mod->syms, mod->syms + mod->num_syms))
-			return 1;
-		else
-			return 0;
+		ks = lookup_symbol(name, mod->syms, mod->syms + mod->num_syms);
+	return ks != NULL && ks->value == value;
 }
 
 /* As per nm */
@@ -1929,7 +1952,6 @@ static noinline struct module *load_module(void __user *umod,
 	unsigned int symindex = 0;
 	unsigned int strindex = 0;
 	unsigned int modindex, versindex, infoindex, pcpuindex;
-	unsigned int unwindex = 0;
 	unsigned int num_kp, num_mcount;
 	struct kernel_param *kp;
 	struct module *mod;
@@ -1951,6 +1973,13 @@ static noinline struct module *load_module(void __user *umod,
 	/* vmalloc barfs on "unusual" numbers.  Check here */
 	if (len > 64 * 1024 * 1024 || (hdr = vmalloc(len)) == NULL)
 		return ERR_PTR(-ENOMEM);
+
+	/* Create stop_machine threads since the error path relies on
+	 * a non-failing stop_machine call. */
+	err = stop_machine_create();
+	if (err)
+		goto free_hdr;
+
 	if (copy_from_user(hdr, umod, len) != 0) {
 		err = -EFAULT;
 		goto free_hdr;
@@ -2016,9 +2045,6 @@ static noinline struct module *load_module(void __user *umod,
 	versindex = find_sec(hdr, sechdrs, secstrings, "__versions");
 	infoindex = find_sec(hdr, sechdrs, secstrings, ".modinfo");
 	pcpuindex = find_pcpusec(hdr, sechdrs, secstrings);
-#ifdef ARCH_UNWIND_SECTION_NAME
-	unwindex = find_sec(hdr, sechdrs, secstrings, ARCH_UNWIND_SECTION_NAME);
-#endif
 
 	/* Don't keep modinfo and version sections. */
 	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
@@ -2028,8 +2054,6 @@ static noinline struct module *load_module(void __user *umod,
 	sechdrs[symindex].sh_flags |= SHF_ALLOC;
 	sechdrs[strindex].sh_flags |= SHF_ALLOC;
 #endif
-	if (unwindex)
-		sechdrs[unwindex].sh_flags |= SHF_ALLOC;
 
 	/* Check module struct version now, before we try to use module. */
 	if (!check_modstruct_version(sechdrs, versindex, mod)) {
@@ -2195,6 +2219,14 @@ static noinline struct module *load_module(void __user *umod,
 	/* Module has been moved. */
 	mod = (void *)sechdrs[modindex].sh_addr;
 
+#if defined(CONFIG_MODULE_UNLOAD) && defined(CONFIG_SMP)
+	mod->refptr = percpu_modalloc(sizeof(local_t), __alignof__(local_t),
+				      mod->name);
+	if (!mod->refptr) {
+		err = -ENOMEM;
+		goto free_init_rx;
+	}
+#endif
 	/* Now we've moved module, initialize linked lists, etc. */
 	module_unload_init(mod);
 
@@ -2329,24 +2361,15 @@ static noinline struct module *load_module(void __user *umod,
 		struct mod_debug *debug;
 		unsigned int num_debug;
 
-#ifdef CONFIG_MARKERS
-		marker_update_probe_range(mod->markers,
-			mod->markers + mod->num_markers);
-#endif
 		debug = section_objs(hdr, sechdrs, secstrings, "__verbose",
 				     sizeof(*debug), &num_debug);
 		dynamic_printk_setup(debug, num_debug);
-
-#ifdef CONFIG_TRACEPOINTS
-		tracepoint_update_probe_range(mod->tracepoints,
-			mod->tracepoints + mod->num_tracepoints);
-#endif
 	}
 
 	/* sechdrs[0].sh_size is always zero */
 	mseg = section_objs(hdr, sechdrs, secstrings, "__mcount_loc",
 			    sizeof(*mseg), &num_mcount);
-	ftrace_init_module(mseg, mseg + num_mcount);
+	ftrace_init_module(mod, mseg, mseg + num_mcount);
 
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
@@ -2394,14 +2417,10 @@ static noinline struct module *load_module(void __user *umod,
 	add_sect_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
 	add_notes_attrs(mod, hdr->e_shnum, secstrings, sechdrs);
 
-	/* Size of section 0 is 0, so this works well if no unwind info. */
-	mod->unwind_info = unwind_add_table(mod,
-					    (void *)sechdrs[unwindex].sh_addr,
-					    sechdrs[unwindex].sh_size);
-
 	/* Get rid of temporary copy */
 	vfree(hdr);
 
+	stop_machine_destroy();
 	/* Done! */
 	return mod;
 
@@ -2414,6 +2433,10 @@ static noinline struct module *load_module(void __user *umod,
 	ftrace_release(mod->module_core_rx, mod->core_size_rx);
  free_unload:
 	module_unload_free(mod);
+ free_init_rx:
+#if defined(CONFIG_MODULE_UNLOAD) && defined(CONFIG_SMP)
+	percpu_modfree(mod->refptr);
+#endif
 	module_free_exec(mod, mod->module_init_rx);
  free_core_rx:
 	module_free_exec(mod, mod->module_core_rx);
@@ -2421,6 +2444,7 @@ static noinline struct module *load_module(void __user *umod,
 	module_free(mod, mod->module_init_rw);
  free_core_rw:
 	module_free(mod, mod->module_core_rw);
+	/* mod will be freed with core. Don't access it beyond this line! */
  free_percpu:
 	if (percpu)
 		percpu_modfree(percpu);
@@ -2428,6 +2452,7 @@ static noinline struct module *load_module(void __user *umod,
 	kfree(args);
  free_hdr:
 	vfree(hdr);
+	stop_machine_destroy();
 	return ERR_PTR(err);
 
  truncated:
@@ -2496,11 +2521,12 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 	/* Now it's a first class citizen!  Wake up anyone waiting for it. */
 	mod->state = MODULE_STATE_LIVE;
 	wake_up(&module_wq);
+	blocking_notifier_call_chain(&module_notify_list,
+				     MODULE_STATE_LIVE, mod);
 
 	mutex_lock(&module_mutex);
 	/* Drop initial reference. */
 	module_put(mod);
-	unwind_remove_table(mod->unwind_info, 1);
 	module_free(mod, mod->module_init_rw);
 	module_free_exec(mod, mod->module_init_rx);
 	mod->module_init_rw = NULL;
@@ -2510,18 +2536,6 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 	mutex_unlock(&module_mutex);
 
 	return 0;
-}
-
-static inline int within(unsigned long addr, void *start, unsigned long size)
-{
-
-#ifdef CONFIG_PAX_KERNEXEC
-	if (ktla_ktva(addr) >= (unsigned long)start &&
-	    ktla_ktva(addr) < (unsigned long)start + size)
-		return 1;
-#endif
-
-	return ((void *)addr >= start && (void *)addr < start + size);
 }
 
 #ifdef CONFIG_KALLSYMS
@@ -2544,14 +2558,16 @@ static const char *get_ksymbol(struct module *mod,
 	unsigned long nextval;
 
 	/* At worse, next value is at end of module */
-	if (within(addr, mod->module_init_rx, mod->init_size_rx))
+	if (within_module_init_rx(addr, mod))
 		nextval = (unsigned long)mod->module_init_rx+mod->init_size_rx;
-	else if (within(addr, mod->module_init_rw, mod->init_size_rw))
+	else if (within_module_init_rw(addr, mod))
 		nextval = (unsigned long)mod->module_init_rw+mod->init_size_rw;
-	else if (within(addr, mod->module_core_rx, mod->core_size_rx))
+	else if (within_module_core_rx(addr, mod))
 		nextval = (unsigned long)mod->module_core_rx+mod->core_size_rx;
-	else
+	else if (within_module_core_rw(addr, mod))
 		nextval = (unsigned long)mod->module_core_rw+mod->core_size_rw;
+	else
+		return NULL;
 
 	/* Scan for closest preceeding symbol, and next symbol. (ELF
 	   starts real symbols at 1). */
@@ -2596,10 +2612,8 @@ const char *module_address_lookup(unsigned long addr,
 
 	preempt_disable();
 	list_for_each_entry_rcu(mod, &modules, list) {
-		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
-		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
-		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
-		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+		if (within_module_init(addr, mod) ||
+		    within_module_core(addr, mod)) {
 			if (modname)
 				*modname = mod->name;
 			ret = get_ksymbol(mod, addr, size, offset);
@@ -2621,10 +2635,8 @@ int lookup_module_symbol_name(unsigned long addr, char *symname)
 
 	preempt_disable();
 	list_for_each_entry_rcu(mod, &modules, list) {
-		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
-		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
-		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
-		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+		if (within_module_init(addr, mod) ||
+		    within_module_core(addr, mod)) {
 			const char *sym;
 
 			sym = get_ksymbol(mod, addr, NULL, NULL);
@@ -2647,10 +2659,8 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
 
 	preempt_disable();
 	list_for_each_entry_rcu(mod, &modules, list) {
-		if (within(addr, mod->module_init_rx, mod->init_size_rx) ||
-		    within(addr, mod->module_init_rw, mod->init_size_rw) ||
-		    within(addr, mod->module_core_rx, mod->core_size_rx) ||
-		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+		if (within_module_init(addr, mod) ||
+		    within_module_core(addr, mod)) {
 			const char *sym;
 
 			sym = get_ksymbol(mod, addr, size, offset);
@@ -2682,7 +2692,7 @@ int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
 			strlcpy(name, mod->strtab + mod->symtab[symnum].st_name,
 				KSYM_NAME_LEN);
 			strlcpy(module_name, mod->name, MODULE_NAME_LEN);
-			*exported = is_exported(name, mod);
+			*exported = is_exported(name, *value, mod);
 			preempt_enable();
 			return 0;
 		}
@@ -2869,8 +2879,8 @@ int is_module_address(unsigned long addr)
 	preempt_disable();
 
 	list_for_each_entry_rcu(mod, &modules, list) {
-		if (within(addr, mod->module_core_rx, mod->core_size_rx) ||
-		    within(addr, mod->module_core_rw, mod->core_size_rw)) {
+		if (within_module_core(addr, mod)) {
+			preempt_enable();
 			return 1;
 		}
 	}
@@ -2882,7 +2892,7 @@ int is_module_address(unsigned long addr)
 
 
 /* Is this a valid kernel address? */
-struct module *__module_text_address(unsigned long addr)
+__notrace_funcgraph struct module *__module_text_address(unsigned long addr)
 {
 	struct module *mod;
 
@@ -2894,8 +2904,7 @@ struct module *__module_text_address(unsigned long addr)
 		return NULL;
 
 	list_for_each_entry_rcu(mod, &modules, list)
-		if (within(addr, mod->module_init_rx, mod->init_size_rx)
-		    || within(addr, mod->module_core_rx, mod->core_size_rx))
+		if (within_module_init_rx(addr, mod) || within_module_core_rx(addr, mod))
 			return mod;
 	return NULL;
 }

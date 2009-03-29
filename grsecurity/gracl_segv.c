@@ -148,13 +148,13 @@ out_unlock:
 }
 
 static __inline__ int
-proc_is_setxid(const struct task_struct *task)
+proc_is_setxid(const struct cred *cred)
 {
-	if (task->uid != task->euid || task->uid != task->suid ||
-	    task->uid != task->fsuid)
+	if (cred->uid != cred->euid || cred->uid != cred->suid ||
+	    cred->uid != cred->fsuid)
 		return 1;
-	if (task->gid != task->egid || task->gid != task->sgid ||
-	    task->gid != task->fsgid)
+	if (cred->gid != cred->egid || cred->gid != cred->sgid ||
+	    cred->gid != cred->fsgid)
 		return 1;
 
 	return 0;
@@ -192,6 +192,8 @@ gr_handle_crash(struct task_struct *task, const int sig)
 	struct acl_subject_label *curr;
 	struct acl_subject_label *curr2;
 	struct task_struct *tsk, *tsk2;
+	const struct cred *cred = __task_cred(task);
+	const struct cred *cred2;
 
 	if (sig != SIGSEGV && sig != SIGKILL && sig != SIGBUS && sig != SIGILL)
 		return;
@@ -216,16 +218,17 @@ gr_handle_crash(struct task_struct *task, const int sig)
 
 	if ((curr->crashes >= curr->res[GR_CRASH_RES].rlim_cur) &&
 	    time_after(curr->expires, get_seconds())) {
-		if (task->uid && proc_is_setxid(task)) {
+		if (cred->uid && proc_is_setxid(cred)) {
 			gr_log_crash1(GR_DONT_AUDIT, GR_SEGVSTART_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			spin_lock(&gr_uid_lock);
-			gr_insert_uid(task->uid, curr->expires);
+			gr_insert_uid(cred->uid, curr->expires);
 			spin_unlock(&gr_uid_lock);
 			curr->expires = 0;
 			curr->crashes = 0;
 			read_lock(&tasklist_lock);
 			do_each_thread(tsk2, tsk) {
-				if (tsk != task && tsk->uid == task->uid)
+				cred2 = __task_cred(tsk);
+				if (tsk != task && cred2->uid == cred->uid)
 					gr_fake_force_sig(SIGKILL, tsk);
 			} while_each_thread(tsk2, tsk);
 			read_unlock(&tasklist_lock);

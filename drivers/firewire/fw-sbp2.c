@@ -168,6 +168,7 @@ struct sbp2_target {
 	int address_high;
 	unsigned int workarounds;
 	unsigned int mgt_orb_timeout;
+	unsigned int max_payload;
 
 	int dont_block;	/* counter for each logical unit */
 	int blocked;	/* ditto */
@@ -310,14 +311,16 @@ struct sbp2_command_orb {
 	dma_addr_t page_table_bus;
 };
 
+#define SBP2_ROM_VALUE_WILDCARD ~0         /* match all */
+#define SBP2_ROM_VALUE_MISSING  0xff000000 /* not present in the unit dir. */
+
 /*
  * List of devices with known bugs.
  *
  * The firmware_revision field, masked with 0xffff00, is the best
  * indicator for the type of bridge chip of a device.  It yields a few
  * false positives but this did not break correctly behaving devices
- * so far.  We use ~0 as a wildcard, since the 24 bit values we get
- * from the config rom can never match that.
+ * so far.
  */
 static const struct {
 	u32 firmware_revision;
@@ -339,22 +342,22 @@ static const struct {
 	},
 	/* Initio bridges, actually only needed for some older ones */ {
 		.firmware_revision	= 0x000200,
-		.model			= ~0,
+		.model			= SBP2_ROM_VALUE_WILDCARD,
 		.workarounds		= SBP2_WORKAROUND_INQUIRY_36,
 	},
 	/* PL-3507 bridge with Prolific firmware */ {
 		.firmware_revision	= 0x012800,
-		.model			= ~0,
+		.model			= SBP2_ROM_VALUE_WILDCARD,
 		.workarounds		= SBP2_WORKAROUND_POWER_CONDITION,
 	},
 	/* Symbios bridge */ {
 		.firmware_revision	= 0xa0b800,
-		.model			= ~0,
+		.model			= SBP2_ROM_VALUE_WILDCARD,
 		.workarounds		= SBP2_WORKAROUND_128K_MAX_TRANS,
 	},
 	/* Datafab MD2-FW2 with Symbios/LSILogic SYM13FW500 bridge */ {
 		.firmware_revision	= 0x002600,
-		.model			= ~0,
+		.model			= SBP2_ROM_VALUE_WILDCARD,
 		.workarounds		= SBP2_WORKAROUND_128K_MAX_TRANS,
 	},
 	/*
@@ -672,17 +675,6 @@ static void sbp2_agent_reset_no_wait(struct sbp2_logical_unit *lu)
 			&d, sizeof(d), complete_agent_reset_write_no_wait, t);
 }
 
-static void sbp2_set_generation(struct sbp2_logical_unit *lu, int generation)
-{
-	struct fw_card *card = fw_device(lu->tgt->unit->device.parent)->card;
-	unsigned long flags;
-
-	/* serialize with comparisons of lu->generation and card->generation */
-	spin_lock_irqsave(&card->lock, flags);
-	lu->generation = generation;
-	spin_unlock_irqrestore(&card->lock, flags);
-}
-
 static inline void sbp2_allow_block(struct sbp2_logical_unit *lu)
 {
 	/*
@@ -886,7 +878,7 @@ static void sbp2_login(struct work_struct *work)
 		goto out;
 
 	generation    = device->generation;
-	smp_rmb();    /* node_id must not be older than generation */
+	smp_rmb();    /* node IDs must not be older than generation */
 	node_id       = device->node_id;
 	local_node_id = device->card->node_id;
 
@@ -910,7 +902,8 @@ static void sbp2_login(struct work_struct *work)
 
 	tgt->node_id	  = node_id;
 	tgt->address_high = local_node_id << 16;
-	sbp2_set_generation(lu, generation);
+	smp_wmb();	  /* node IDs must not be older than generation */
+	lu->generation	  = generation;
 
 	lu->command_block_agent_address =
 		((u64)(be32_to_cpu(response.command_block_agent.high) & 0xffff)
@@ -1104,7 +1097,7 @@ static void sbp2_init_workarounds(struct sbp2_target *tgt, u32 model,
 			continue;
 
 		if (sbp2_workarounds_table[i].model != model &&
-		    sbp2_workarounds_table[i].model != ~0)
+		    sbp2_workarounds_table[i].model != SBP2_ROM_VALUE_WILDCARD)
 			continue;
 
 		w |= sbp2_workarounds_table[i].workarounds;
@@ -1154,19 +1147,27 @@ static int sbp2_probe(struct device *dev)
 	fw_device_get(device);
 	fw_unit_get(unit);
 
-	/* Initialize to values that won't match anything in our table. */
-	firmware_revision = 0xff000000;
-	model = 0xff000000;
-
 	/* implicit directory ID */
 	tgt->directory_id = ((unit->directory - device->config_rom) * 4
 			     + CSR_CONFIG_ROM) & 0xffffff;
+
+	firmware_revision = SBP2_ROM_VALUE_MISSING;
+	model		  = SBP2_ROM_VALUE_MISSING;
 
 	if (sbp2_scan_unit_dir(tgt, unit->directory, &model,
 			       &firmware_revision) < 0)
 		goto fail_tgt_put;
 
 	sbp2_init_workarounds(tgt, model, firmware_revision);
+
+	/*
+	 * At S100 we can do 512 bytes per packet, at S200 1024 bytes,
+	 * and so on up to 4096 bytes.  The SBP-2 max_payload field
+	 * specifies the max payload size as 2 ^ (max_payload + 2), so
+	 * if we set this to max_speed + 7, we get the right value.
+	 */
+	tgt->max_payload = min(device->max_speed + 7, 10U);
+	tgt->max_payload = min(tgt->max_payload, device->card->max_receive - 1);
 
 	/* Do the login in a workqueue so we can easily reschedule retries. */
 	list_for_each_entry(lu, &tgt->lu_list, link)
@@ -1203,7 +1204,7 @@ static void sbp2_reconnect(struct work_struct *work)
 		goto out;
 
 	generation    = device->generation;
-	smp_rmb();    /* node_id must not be older than generation */
+	smp_rmb();    /* node IDs must not be older than generation */
 	node_id       = device->node_id;
 	local_node_id = device->card->node_id;
 
@@ -1230,7 +1231,8 @@ static void sbp2_reconnect(struct work_struct *work)
 
 	tgt->node_id      = node_id;
 	tgt->address_high = local_node_id << 16;
-	sbp2_set_generation(lu, generation);
+	smp_wmb();	  /* node IDs must not be older than generation */
+	lu->generation	  = generation;
 
 	fw_notify("%s: reconnected to LUN %04x (%d retries)\n",
 		  tgt->bus_id, lu->lun, lu->retries);
@@ -1450,7 +1452,6 @@ static int sbp2_scsi_queuecommand(struct scsi_cmnd *cmd, scsi_done_fn_t done)
 	struct sbp2_logical_unit *lu = cmd->device->hostdata;
 	struct fw_device *device = fw_device(lu->tgt->unit->device.parent);
 	struct sbp2_command_orb *orb;
-	unsigned int max_payload;
 	int generation, retval = SCSI_MLQUEUE_HOST_BUSY;
 
 	/*
@@ -1478,17 +1479,9 @@ static int sbp2_scsi_queuecommand(struct scsi_cmnd *cmd, scsi_done_fn_t done)
 	orb->done = done;
 	orb->cmd  = cmd;
 
-	orb->request.next.high   = cpu_to_be32(SBP2_ORB_NULL);
-	/*
-	 * At speed 100 we can do 512 bytes per packet, at speed 200,
-	 * 1024 bytes per packet etc.  The SBP-2 max_payload field
-	 * specifies the max payload size as 2 ^ (max_payload + 2), so
-	 * if we set this to max_speed + 7, we get the right value.
-	 */
-	max_payload = min(device->max_speed + 7,
-			  device->card->max_receive - 1);
+	orb->request.next.high = cpu_to_be32(SBP2_ORB_NULL);
 	orb->request.misc = cpu_to_be32(
-		COMMAND_ORB_MAX_PAYLOAD(max_payload) |
+		COMMAND_ORB_MAX_PAYLOAD(lu->tgt->max_payload) |
 		COMMAND_ORB_SPEED(device->max_speed) |
 		COMMAND_ORB_NOTIFY);
 

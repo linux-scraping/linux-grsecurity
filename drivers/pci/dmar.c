@@ -191,26 +191,17 @@ dmar_parse_one_drhd(struct acpi_dmar_header *header)
 static int __init dmar_parse_dev(struct dmar_drhd_unit *dmaru)
 {
 	struct acpi_dmar_hardware_unit *drhd;
-	static int include_all;
 	int ret = 0;
 
 	drhd = (struct acpi_dmar_hardware_unit *) dmaru->hdr;
 
-	if (!dmaru->include_all)
-		ret = dmar_parse_dev_scope((void *)(drhd + 1),
+	if (dmaru->include_all)
+		return 0;
+
+	ret = dmar_parse_dev_scope((void *)(drhd + 1),
 				((void *)drhd) + drhd->header.length,
 				&dmaru->devices_cnt, &dmaru->devices,
 				drhd->segment);
-	else {
-		/* Only allow one INCLUDE_ALL */
-		if (include_all) {
-			printk(KERN_WARNING PREFIX "Only one INCLUDE_ALL "
-				"device scope is allowed\n");
-			ret = -EINVAL;
-		}
-		include_all = 1;
-	}
-
 	if (ret) {
 		list_del(&dmaru->list);
 		kfree(dmaru);
@@ -339,6 +330,14 @@ parse_dmar_table(void)
 	entry_header = (struct acpi_dmar_header *)(dmar + 1);
 	while (((unsigned long)entry_header) <
 			(((unsigned long)dmar) + dmar_tbl->length)) {
+		/* Avoid looping forever on bad ACPI tables */
+		if (entry_header->length == 0) {
+			printk(KERN_WARNING PREFIX
+				"Invalid 0-length structure\n");
+			ret = -EINVAL;
+			break;
+		}
+
 		dmar_table_print_dmar_entry(entry_header);
 
 		switch (entry_header->type) {
@@ -384,12 +383,21 @@ int dmar_pci_device_match(struct pci_dev *devices[], int cnt,
 struct dmar_drhd_unit *
 dmar_find_matched_drhd_unit(struct pci_dev *dev)
 {
-	struct dmar_drhd_unit *drhd = NULL;
+	struct dmar_drhd_unit *dmaru = NULL;
+	struct acpi_dmar_hardware_unit *drhd;
 
-	list_for_each_entry(drhd, &dmar_drhd_units, list) {
-		if (drhd->include_all || dmar_pci_device_match(drhd->devices,
-						drhd->devices_cnt, dev))
-			return drhd;
+	list_for_each_entry(dmaru, &dmar_drhd_units, list) {
+		drhd = container_of(dmaru->hdr,
+				    struct acpi_dmar_hardware_unit,
+				    header);
+
+		if (dmaru->include_all &&
+		    drhd->segment == pci_domain_nr(dev->bus))
+			return dmaru;
+
+		if (dmar_pci_device_match(dmaru->devices,
+					  dmaru->devices_cnt, dev))
+			return dmaru;
 	}
 
 	return NULL;
@@ -491,6 +499,7 @@ int alloc_iommu(struct dmar_drhd_unit *drhd)
 	int map_size;
 	u32 ver;
 	static int iommu_allocated = 0;
+	int agaw = 0;
 
 	iommu = kzalloc(sizeof(*iommu), GFP_KERNEL);
 	if (!iommu)
@@ -505,6 +514,17 @@ int alloc_iommu(struct dmar_drhd_unit *drhd)
 	}
 	iommu->cap = dmar_readq(iommu->reg + DMAR_CAP_REG);
 	iommu->ecap = dmar_readq(iommu->reg + DMAR_ECAP_REG);
+
+#ifdef CONFIG_DMAR
+	agaw = iommu_calculate_agaw(iommu);
+	if (agaw < 0) {
+		printk(KERN_ERR
+			"Cannot get a valid agaw for iommu (seq_id = %d)\n",
+			iommu->seq_id);
+		goto error;
+	}
+#endif
+	iommu->agaw = agaw;
 
 	/* the registers might be more than one page */
 	map_size = max_t(int, ecap_max_iotlb_offset(iommu->ecap),
@@ -561,19 +581,49 @@ static inline void reclaim_free_desc(struct q_inval *qi)
 	}
 }
 
+static int qi_check_fault(struct intel_iommu *iommu, int index)
+{
+	u32 fault;
+	int head;
+	struct q_inval *qi = iommu->qi;
+	int wait_index = (index + 1) % QI_LENGTH;
+
+	fault = readl(iommu->reg + DMAR_FSTS_REG);
+
+	/*
+	 * If IQE happens, the head points to the descriptor associated
+	 * with the error. No new descriptors are fetched until the IQE
+	 * is cleared.
+	 */
+	if (fault & DMA_FSTS_IQE) {
+		head = readl(iommu->reg + DMAR_IQH_REG);
+		if ((head >> 4) == index) {
+			memcpy(&qi->desc[index], &qi->desc[wait_index],
+					sizeof(struct qi_desc));
+			__iommu_flush_cache(iommu, &qi->desc[index],
+					sizeof(struct qi_desc));
+			writel(DMA_FSTS_IQE, iommu->reg + DMAR_FSTS_REG);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * Submit the queued invalidation descriptor to the remapping
  * hardware unit and wait for its completion.
  */
-void qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
+int qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
 {
+	int rc = 0;
 	struct q_inval *qi = iommu->qi;
 	struct qi_desc *hw, wait_desc;
 	int wait_index, index;
 	unsigned long flags;
 
 	if (!qi)
-		return;
+		return 0;
 
 	hw = qi->desc;
 
@@ -591,7 +641,8 @@ void qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
 
 	hw[index] = *desc;
 
-	wait_desc.low = QI_IWD_STATUS_DATA(2) | QI_IWD_STATUS_WRITE | QI_IWD_TYPE;
+	wait_desc.low = QI_IWD_STATUS_DATA(QI_DONE) |
+			QI_IWD_STATUS_WRITE | QI_IWD_TYPE;
 	wait_desc.high = virt_to_phys(&qi->desc_status[wait_index]);
 
 	hw[wait_index] = wait_desc;
@@ -602,13 +653,11 @@ void qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
 	qi->free_head = (qi->free_head + 2) % QI_LENGTH;
 	qi->free_cnt -= 2;
 
-	spin_lock(&iommu->register_lock);
 	/*
 	 * update the HW tail register indicating the presence of
 	 * new descriptors.
 	 */
 	writel(qi->free_head << 4, iommu->reg + DMAR_IQT_REG);
-	spin_unlock(&iommu->register_lock);
 
 	while (qi->desc_status[wait_index] != QI_DONE) {
 		/*
@@ -618,15 +667,21 @@ void qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
 		 * a deadlock where the interrupt context can wait indefinitely
 		 * for free slots in the queue.
 		 */
+		rc = qi_check_fault(iommu, index);
+		if (rc)
+			goto out;
+
 		spin_unlock(&qi->q_lock);
 		cpu_relax();
 		spin_lock(&qi->q_lock);
 	}
-
-	qi->desc_status[index] = QI_DONE;
+out:
+	qi->desc_status[index] = qi->desc_status[wait_index] = QI_DONE;
 
 	reclaim_free_desc(qi);
 	spin_unlock_irqrestore(&qi->q_lock, flags);
+
+	return rc;
 }
 
 /*
@@ -639,13 +694,13 @@ void qi_global_iec(struct intel_iommu *iommu)
 	desc.low = QI_IEC_TYPE;
 	desc.high = 0;
 
+	/* should never fail */
 	qi_submit_sync(&desc, iommu);
 }
 
 int qi_flush_context(struct intel_iommu *iommu, u16 did, u16 sid, u8 fm,
 		     u64 type, int non_present_entry_flush)
 {
-
 	struct qi_desc desc;
 
 	if (non_present_entry_flush) {
@@ -659,10 +714,7 @@ int qi_flush_context(struct intel_iommu *iommu, u16 did, u16 sid, u8 fm,
 			| QI_CC_GRAN(type) | QI_CC_TYPE;
 	desc.high = 0;
 
-	qi_submit_sync(&desc, iommu);
-
-	return 0;
-
+	return qi_submit_sync(&desc, iommu);
 }
 
 int qi_flush_iotlb(struct intel_iommu *iommu, u16 did, u64 addr,
@@ -692,10 +744,7 @@ int qi_flush_iotlb(struct intel_iommu *iommu, u16 did, u64 addr,
 	desc.high = QI_IOTLB_ADDR(addr) | QI_IOTLB_IH(ih)
 		| QI_IOTLB_AM(size_order);
 
-	qi_submit_sync(&desc, iommu);
-
-	return 0;
-
+	return qi_submit_sync(&desc, iommu);
 }
 
 /*

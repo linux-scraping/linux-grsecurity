@@ -4,6 +4,7 @@
 #define ARCH_HAS_IOREMAP_WC
 
 #include <linux/compiler.h>
+#include <asm-generic/int-ll64.h>
 
 #define build_mmio_read(name, size, type, reg, barrier) \
 static inline type name(const volatile void __iomem *addr) \
@@ -45,21 +46,39 @@ build_mmio_write(__writel, "l", unsigned int, "r", )
 #define mmiowb() barrier()
 
 #ifdef CONFIG_X86_64
+
 build_mmio_read(readq, "q", unsigned long, "=r", :"memory")
-build_mmio_read(__readq, "q", unsigned long, "=r", )
 build_mmio_write(writeq, "q", unsigned long, "r", :"memory")
-build_mmio_write(__writeq, "q", unsigned long, "r", )
 
-#define readq_relaxed(a) __readq(a)
-#define __raw_readq __readq
-#define __raw_writeq writeq
+#else
 
-/* Let people know we have them */
-#define readq readq
-#define writeq writeq
+static inline __u64 readq(const volatile void __iomem *addr)
+{
+	const volatile u32 __iomem *p = addr;
+	u32 low, high;
+
+	low = readl(p);
+	high = readl(p + 1);
+
+	return low + ((u64)high << 32);
+}
+
+static inline void writeq(__u64 val, volatile void __iomem *addr)
+{
+	writel(val, addr);
+	writel(val >> 32, addr+4);
+}
+
 #endif
 
-extern int iommu_bio_merge;
+#define readq_relaxed(a)	readq(a)
+
+#define __raw_readq(a)		readq(a)
+#define __raw_writeq(val, addr)	writeq(val, addr)
+
+/* Let people know that we have them */
+#define readq			readq
+#define writeq			writeq
 
 #ifdef CONFIG_X86_32
 # include "io_32.h"
@@ -80,7 +99,6 @@ extern void __iomem *ioremap_wc(unsigned long offset, unsigned long size);
  * A boot-time mapping is currently limited to at most 16 pages.
  */
 extern void early_ioremap_init(void);
-extern void early_ioremap_clear(void);
 extern void early_ioremap_reset(void);
 extern void __iomem *early_ioremap(unsigned long offset, unsigned long size);
 extern void __iomem *early_memremap(unsigned long offset, unsigned long size);

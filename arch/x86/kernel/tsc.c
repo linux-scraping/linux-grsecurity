@@ -15,6 +15,7 @@
 #include <asm/vgtod.h>
 #include <asm/time.h>
 #include <asm/delay.h>
+#include <asm/hypervisor.h>
 
 unsigned int cpu_khz;           /* TSC clocks / usec, not used here */
 EXPORT_SYMBOL(cpu_khz);
@@ -31,6 +32,7 @@ static int tsc_unstable;
    erroneous rdtsc usage on !cpu_has_tsc processors */
 static int tsc_disabled = -1;
 
+static int tsc_clocksource_reliable;
 /*
  * Scheduler clock - returns current time in nanosec units.
  */
@@ -97,6 +99,15 @@ int __init notsc_setup(char *str)
 #endif
 
 __setup("notsc", notsc_setup);
+
+static int __init tsc_setup(char *str)
+{
+	if (!strcmp(str, "reliable"))
+		tsc_clocksource_reliable = 1;
+	return 1;
+}
+
+__setup("tsc=", tsc_setup);
 
 #define MAX_RETRIES     5
 #define SMI_TRESHOLD    50000
@@ -262,30 +273,43 @@ static unsigned long pit_calibrate_tsc(u32 latch, unsigned long ms, int loopmin)
  * use the TSC value at the transitions to calculate a pretty
  * good value for the TSC frequencty.
  */
-static inline int pit_expect_msb(unsigned char val)
+static inline int pit_expect_msb(unsigned char val, u64 *tscp, unsigned long *deltap)
 {
-	int count = 0;
+	int count;
+	u64 tsc = 0;
 
 	for (count = 0; count < 50000; count++) {
 		/* Ignore LSB */
 		inb(0x42);
 		if (inb(0x42) != val)
 			break;
+		tsc = get_cycles();
 	}
-	return count > 50;
+	*deltap = get_cycles() - tsc;
+	*tscp = tsc;
+
+	/*
+	 * We require _some_ success, but the quality control
+	 * will be based on the error terms on the TSC values.
+	 */
+	return count > 5;
 }
 
 /*
- * How many MSB values do we want to see? We aim for a
- * 15ms calibration, which assuming a 2us counter read
- * error should give us roughly 150 ppm precision for
- * the calibration.
+ * How many MSB values do we want to see? We aim for
+ * a maximum error rate of 500ppm (in practice the
+ * real error is much smaller), but refuse to spend
+ * more than 25ms on it.
  */
-#define QUICK_PIT_MS 15
-#define QUICK_PIT_ITERATIONS (QUICK_PIT_MS * PIT_TICK_RATE / 1000 / 256)
+#define MAX_QUICK_PIT_MS 25
+#define MAX_QUICK_PIT_ITERATIONS (MAX_QUICK_PIT_MS * PIT_TICK_RATE / 1000 / 256)
 
 static unsigned long quick_pit_calibrate(void)
 {
+	int i;
+	u64 tsc, delta;
+	unsigned long d1, d2;
+
 	/* Set the Gate high, disable speaker */
 	outb((inb(0x61) & ~0x02) | 0x01, 0x61);
 
@@ -304,45 +328,52 @@ static unsigned long quick_pit_calibrate(void)
 	outb(0xff, 0x42);
 	outb(0xff, 0x42);
 
-	if (pit_expect_msb(0xff)) {
-		int i;
-		u64 t1, t2, delta;
-		unsigned char expect = 0xfe;
+	/*
+	 * The PIT starts counting at the next edge, so we
+	 * need to delay for a microsecond. The easiest way
+	 * to do that is to just read back the 16-bit counter
+	 * once from the PIT.
+	 */
+	inb(0x42);
+	inb(0x42);
 
-		t1 = get_cycles();
-		for (i = 0; i < QUICK_PIT_ITERATIONS; i++, expect--) {
-			if (!pit_expect_msb(expect))
-				goto failed;
+	if (pit_expect_msb(0xff, &tsc, &d1)) {
+		for (i = 1; i <= MAX_QUICK_PIT_ITERATIONS; i++) {
+			if (!pit_expect_msb(0xff-i, &delta, &d2))
+				break;
+
+			/*
+			 * Iterate until the error is less than 500 ppm
+			 */
+			delta -= tsc;
+			if (d1+d2 < delta >> 11)
+				goto success;
 		}
-		t2 = get_cycles();
-
-		/*
-		 * Make sure we can rely on the second TSC timestamp:
-		 */
-		if (!pit_expect_msb(expect))
-			goto failed;
-
-		/*
-		 * Ok, if we get here, then we've seen the
-		 * MSB of the PIT decrement QUICK_PIT_ITERATIONS
-		 * times, and each MSB had many hits, so we never
-		 * had any sudden jumps.
-		 *
-		 * As a result, we can depend on there not being
-		 * any odd delays anywhere, and the TSC reads are
-		 * reliable.
-		 *
-		 * kHz = ticks / time-in-seconds / 1000;
-		 * kHz = (t2 - t1) / (QPI * 256 / PIT_TICK_RATE) / 1000
-		 * kHz = ((t2 - t1) * PIT_TICK_RATE) / (QPI * 256 * 1000)
-		 */
-		delta = (t2 - t1)*PIT_TICK_RATE;
-		do_div(delta, QUICK_PIT_ITERATIONS*256*1000);
-		printk("Fast TSC calibration using PIT\n");
-		return delta;
 	}
-failed:
+	printk("Fast TSC calibration failed\n");
 	return 0;
+
+success:
+	/*
+	 * Ok, if we get here, then we've seen the
+	 * MSB of the PIT decrement 'i' times, and the
+	 * error has shrunk to less than 500 ppm.
+	 *
+	 * As a result, we can depend on there not being
+	 * any odd delays anywhere, and the TSC reads are
+	 * reliable (within the error). We also adjust the
+	 * delta to the middle of the error bars, just
+	 * because it looks nicer.
+	 *
+	 * kHz = ticks / time-in-seconds / 1000;
+	 * kHz = (t2 - t1) / (I * 256 / PIT_TICK_RATE) / 1000
+	 * kHz = ((t2 - t1) * PIT_TICK_RATE) / (I * 256 * 1000)
+	 */
+	delta += (long)(d2 - d1)/2;
+	delta *= PIT_TICK_RATE;
+	do_div(delta, i*256*1000);
+	printk("Fast TSC calibration using PIT\n");
+	return delta;
 }
 
 /**
@@ -352,8 +383,14 @@ unsigned long native_calibrate_tsc(void)
 {
 	u64 tsc1, tsc2, delta, ref1, ref2;
 	unsigned long tsc_pit_min = ULONG_MAX, tsc_ref_min = ULONG_MAX;
-	unsigned long flags, latch, ms, fast_calibrate;
+	unsigned long flags, latch, ms, fast_calibrate, tsc_khz;
 	int hpet = is_hpet_enabled(), i, loopmin;
+
+	tsc_khz = get_hypervisor_tsc_freq();
+	if (tsc_khz) {
+		printk(KERN_INFO "TSC: Frequency read from the hypervisor\n");
+		return tsc_khz;
+	}
 
 	local_irq_save(flags);
 	fast_calibrate = quick_pit_calibrate();
@@ -731,24 +768,21 @@ static struct dmi_system_id __initdata bad_tsc_dmi_table[] = {
 	{ NULL, NULL, {{0, {0}}}, NULL}
 };
 
-/*
- * Geode_LX - the OLPC CPU has a possibly a very reliable TSC
- */
-#ifdef CONFIG_MGEODE_LX
-/* RTSC counts during suspend */
-#define RTSC_SUSP 0x100
-
-static void __init check_geode_tsc_reliable(void)
+static void __init check_system_tsc_reliable(void)
 {
+#ifdef CONFIG_MGEODE_LX
+	/* RTSC counts during suspend */
+#define RTSC_SUSP 0x100
 	unsigned long res_low, res_high;
 
 	rdmsr_safe(MSR_GEODE_BUSCONT_CONF0, &res_low, &res_high);
+	/* Geode_LX - the OLPC CPU has a possibly a very reliable TSC */
 	if (res_low & RTSC_SUSP)
-		clocksource_tsc.flags &= ~CLOCK_SOURCE_MUST_VERIFY;
-}
-#else
-static inline void check_geode_tsc_reliable(void) { }
+		tsc_clocksource_reliable = 1;
 #endif
+	if (boot_cpu_has(X86_FEATURE_TSC_RELIABLE))
+		tsc_clocksource_reliable = 1;
+}
 
 /*
  * Make an educated guess if the TSC is trustworthy and synchronized
@@ -783,6 +817,8 @@ static void __init init_tsc_clocksource(void)
 {
 	clocksource_tsc.mult = clocksource_khz2mult(tsc_khz,
 			clocksource_tsc.shift);
+	if (tsc_clocksource_reliable)
+		clocksource_tsc.flags &= ~CLOCK_SOURCE_MUST_VERIFY;
 	/* lower the rating if we already know its unstable: */
 	if (check_tsc_unstable()) {
 		clocksource_tsc.rating = 0;
@@ -843,7 +879,7 @@ void __init tsc_init(void)
 	if (unsynchronized_tsc())
 		mark_tsc_unstable("TSCs unsynchronized");
 
-	check_geode_tsc_reliable();
+	check_system_tsc_reliable();
 	init_tsc_clocksource();
 }
 

@@ -49,24 +49,50 @@
 .ifnb \optflushins
 	\optflushins [P0];
 .endif
+#if ANOMALY_05000443
 .ifb \optnopins
 2:
 .endif
 	\flushins [P0++];
 .ifnb \optnopins
-2: \optnopins;
+2:	\optnopins;
 .endif
+#else
+2:	\flushins [P0++];
+#endif
 
 	RTS;
 .endm
 
 /* Invalidate all instruction cache lines assocoiated with this memory area */
 ENTRY(_blackfin_icache_flush_range)
+/*
+ * Walkaround to avoid loading wrong instruction after invalidating icache
+ * and following sequence is met.
+ *
+ * 1) One instruction address is cached in the instruction cache.
+ * 2) This instruction in SDRAM is changed.
+ * 3) IFLASH[P0] is executed only once in blackfin_icache_flush_range().
+ * 4) This instruction is executed again, but the old one is loaded.
+ */
+	P0 = R0;
+	IFLUSH[P0];
 	do_flush IFLUSH, , nop
 ENDPROC(_blackfin_icache_flush_range)
 
 /* Flush all cache lines assocoiated with this area of memory. */
 ENTRY(_blackfin_icache_dcache_flush_range)
+/*
+ * Walkaround to avoid loading wrong instruction after invalidating icache
+ * and following sequence is met.
+ *
+ * 1) One instruction address is cached in the instruction cache.
+ * 2) This instruction in SDRAM is changed.
+ * 3) IFLASH[P0] is executed only once in blackfin_icache_flush_range().
+ * 4) This instruction is executed again, but the old one is loaded.
+ */
+	P0 = R0;
+	IFLUSH[P0];
 	do_flush FLUSH, IFLUSH
 ENDPROC(_blackfin_icache_dcache_flush_range)
 

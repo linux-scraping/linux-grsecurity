@@ -657,6 +657,20 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	}
 
 	/*
+	 * Determine if this device is SAT by seeing if the
+	 * command executed successfully.  Otherwise we'll have
+	 * to wait for at least one CHECK_CONDITION to determine
+	 * SANE_SENSE support
+	 */
+	if ((srb->cmnd[0] == ATA_16 || srb->cmnd[0] == ATA_12) &&
+	    result == USB_STOR_TRANSPORT_GOOD &&
+	    !(us->fflags & US_FL_SANE_SENSE) &&
+	    !(srb->cmnd[2] & 0x20)) {
+		US_DEBUGP("-- SAT supported, increasing auto-sense\n");
+		us->fflags |= US_FL_SANE_SENSE;
+	}
+
+	/*
 	 * A short transfer on a command where we don't expect it
 	 * is unusual, but it doesn't mean we need to auto-sense.
 	 */
@@ -673,10 +687,15 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (need_auto_sense) {
 		int temp_result;
 		struct scsi_eh_save ses;
+		int sense_size = US_SENSE_SIZE;
+
+		/* device supports and needs bigger sense buffer */
+		if (us->fflags & US_FL_SANE_SENSE)
+			sense_size = ~0;
 
 		US_DEBUGP("Issuing auto-REQUEST_SENSE\n");
 
-		scsi_eh_prep_cmnd(srb, &ses, NULL, 0, US_SENSE_SIZE);
+		scsi_eh_prep_cmnd(srb, &ses, NULL, 0, sense_size);
 
 		/* FIXME: we must do the protocol translation here */
 		if (us->subclass == US_SC_RBC || us->subclass == US_SC_SCSI ||
@@ -708,6 +727,25 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 			if (!(us->fflags & US_FL_SCM_MULT_TARG))
 				goto Handle_Errors;
 			return;
+		}
+
+		/* If the sense data returned is larger than 18-bytes then we
+		 * assume this device supports requesting more in the future.
+		 * The response code must be 70h through 73h inclusive.
+		 */
+		if (srb->sense_buffer[7] > (US_SENSE_SIZE - 8) &&
+		    !(us->fflags & US_FL_SANE_SENSE) &&
+		    (srb->sense_buffer[0] & 0x7C) == 0x70) {
+			US_DEBUGP("-- SANE_SENSE support enabled\n");
+			us->fflags |= US_FL_SANE_SENSE;
+
+			/* Indicate to the user that we truncated their sense
+			 * because we didn't know it supported larger sense.
+			 */
+			US_DEBUGP("-- Sense data truncated to %i from %i\n",
+			          US_SENSE_SIZE,
+			          srb->sense_buffer[7] + 8);
+			srb->sense_buffer[7] = (US_SENSE_SIZE - 8);
 		}
 
 		US_DEBUGP("-- Result from auto-sense is %d\n", temp_result);
@@ -798,10 +836,10 @@ void usb_stor_stop_transport(struct us_data *us)
 }
 
 /*
- * Control/Bulk/Interrupt transport
+ * Control/Bulk and Control/Bulk/Interrupt transport
  */
 
-int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
+int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
 {
 	unsigned int transfer_length = scsi_bufflen(srb);
 	unsigned int pipe = 0;
@@ -843,6 +881,13 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
 	}
 
 	/* STATUS STAGE */
+
+	/* NOTE: CB does not have a status stage.  Silly, I know.  So
+	 * we have to catch this at a higher level.
+	 */
+	if (us->protocol != US_PR_CBI)
+		return USB_STOR_TRANSPORT_GOOD;
+
 	result = usb_stor_intr_transfer(us, us->iobuf, 2);
 	US_DEBUGP("Got interrupt data (0x%x, 0x%x)\n", 
 			us->iobuf[0], us->iobuf[1]);
@@ -894,56 +939,6 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (pipe)
 		usb_stor_clear_halt(us, pipe);
 	return USB_STOR_TRANSPORT_FAILED;
-}
-
-/*
- * Control/Bulk transport
- */
-int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
-{
-	unsigned int transfer_length = scsi_bufflen(srb);
-	int result;
-
-	/* COMMAND STAGE */
-	/* let's send the command via the control pipe */
-	result = usb_stor_ctrl_transfer(us, us->send_ctrl_pipe,
-				      US_CBI_ADSC, 
-				      USB_TYPE_CLASS | USB_RECIP_INTERFACE, 0, 
-				      us->ifnum, srb->cmnd, srb->cmd_len);
-
-	/* check the return code for the command */
-	US_DEBUGP("Call to usb_stor_ctrl_transfer() returned %d\n", result);
-
-	/* if we stalled the command, it means command failed */
-	if (result == USB_STOR_XFER_STALLED) {
-		return USB_STOR_TRANSPORT_FAILED;
-	}
-
-	/* Uh oh... serious problem here */
-	if (result != USB_STOR_XFER_GOOD) {
-		return USB_STOR_TRANSPORT_ERROR;
-	}
-
-	/* DATA STAGE */
-	/* transfer the data payload for this command, if one exists*/
-	if (transfer_length) {
-		unsigned int pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
-				us->recv_bulk_pipe : us->send_bulk_pipe;
-		result = usb_stor_bulk_srb(us, pipe, srb);
-		US_DEBUGP("CB data stage result is 0x%x\n", result);
-
-		/* if we stalled the data transfer it means command failed */
-		if (result == USB_STOR_XFER_STALLED)
-			return USB_STOR_TRANSPORT_FAILED;
-		if (result > USB_STOR_XFER_STALLED)
-			return USB_STOR_TRANSPORT_ERROR;
-	}
-
-	/* STATUS STAGE */
-	/* NOTE: CB does not have a status stage.  Silly, I know.  So
-	 * we have to catch this at a higher level.
-	 */
-	return USB_STOR_TRANSPORT_GOOD;
 }
 
 /*
@@ -1253,10 +1248,9 @@ int usb_stor_Bulk_reset(struct us_data *us)
  */
 int usb_stor_port_reset(struct us_data *us)
 {
-	int result, rc_lock;
+	int result;
 
-	result = rc_lock =
-		usb_lock_device_for_reset(us->pusb_dev, us->pusb_intf);
+	result = usb_lock_device_for_reset(us->pusb_dev, us->pusb_intf);
 	if (result < 0)
 		US_DEBUGP("unable to lock device for reset: %d\n", result);
 	else {
@@ -1269,8 +1263,7 @@ int usb_stor_port_reset(struct us_data *us)
 			US_DEBUGP("usb_reset_device returns %d\n",
 					result);
 		}
-		if (rc_lock)
-			usb_unlock_device(us->pusb_dev);
+		usb_unlock_device(us->pusb_dev);
 	}
 	return result;
 }

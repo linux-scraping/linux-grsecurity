@@ -39,7 +39,7 @@ int gr_handle_chroot_setpriority(struct task_struct *p,
 int gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt);
 int gr_handle_chroot_chroot(const struct dentry *dentry,
 				   const struct vfsmount *mnt);
-void gr_handle_chroot_caps(struct task_struct *task);
+int gr_handle_chroot_caps(struct path *path);
 void gr_handle_chroot_chdir(struct path *path);
 int gr_handle_chroot_chmod(const struct dentry *dentry,
 				  const struct vfsmount *mnt, const int mode);
@@ -93,7 +93,7 @@ int gr_handle_hardlink(const struct dentry *dentry,
 			      struct inode *inode,
 			      const int mode, const char *to);
 
-int gr_task_is_capable(struct task_struct *task, const int cap);
+int gr_is_capable(const int cap);
 int gr_is_capable_nolog(const int cap);
 void gr_learn_resource(const struct task_struct *task, const int limit,
 			      const unsigned long wanted, const int gt);

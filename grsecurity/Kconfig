@@ -227,6 +227,8 @@ config GRKERNSEC_IO
 	depends on X86
 	select RTC_CLASS
 	select RTC_INTF_DEV
+	select RTC_DRV_CMOS
+
 	help
 	  If you say Y here, all ioperm and iopl calls will return an error.
 	  Ioperm and iopl can be used to modify the running kernel.

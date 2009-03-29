@@ -278,21 +278,35 @@ gr_handle_chroot_chroot(const struct dentry *dentry, const struct vfsmount *mnt)
 	return 0;
 }
 
-void
-gr_handle_chroot_caps(struct task_struct *task)
+int
+gr_handle_chroot_caps(struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
-	if (grsec_enable_chroot_caps && proc_is_chrooted(task)) {
+	if (grsec_enable_chroot_caps && current->pid > 1 && current->fs != NULL &&
+		((current->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_sb != 
+		path->dentry->d_inode->i_sb) ||
+		 (current->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_ino != 
+		  path->dentry->d_inode->i_ino))) {
+
 		kernel_cap_t chroot_caps = GR_CHROOT_CAPS;
-		task->cap_permitted =
-		    cap_drop(task->cap_permitted, chroot_caps);
-		task->cap_inheritable =
-		    cap_drop(task->cap_inheritable, chroot_caps);
-		task->cap_effective =
-		    cap_drop(task->cap_effective, chroot_caps);
+		const struct cred *old = current_cred();
+		struct cred *new = prepare_creds();
+		if (new == NULL)
+			return 1;
+
+		new->cap_permitted = cap_drop(old->cap_permitted, 
+					      chroot_caps);
+		new->cap_inheritable = cap_drop(old->cap_inheritable, 
+						chroot_caps);
+		new->cap_effective = cap_drop(old->cap_effective,
+					      chroot_caps);
+
+		commit_creds(new);
+
+		return 0;
 	}
 #endif
-	return;
+	return 0;
 }
 
 int

@@ -284,8 +284,7 @@ static void xs_format_ipv4_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(20, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 20, NIPQUAD_FMT,
-				NIPQUAD(addr->sin_addr.s_addr));
+		snprintf(buf, 20, "%pI4", &addr->sin_addr.s_addr);
 	}
 	xprt->address_strings[RPC_DISPLAY_ADDR] = buf;
 
@@ -300,8 +299,8 @@ static void xs_format_ipv4_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(48, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 48, "addr="NIPQUAD_FMT" port=%u proto=%s",
-			NIPQUAD(addr->sin_addr.s_addr),
+		snprintf(buf, 48, "addr=%pI4 port=%u proto=%s",
+			&addr->sin_addr.s_addr,
 			ntohs(addr->sin_port),
 			protocol);
 	}
@@ -323,8 +322,8 @@ static void xs_format_ipv4_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(30, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 30, NIPQUAD_FMT".%u.%u",
-				NIPQUAD(addr->sin_addr.s_addr),
+		snprintf(buf, 30, "%pI4.%u.%u",
+				&addr->sin_addr.s_addr,
 				ntohs(addr->sin_port) >> 8,
 				ntohs(addr->sin_port) & 0xff);
 	}
@@ -342,8 +341,7 @@ static void xs_format_ipv6_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(40, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 40, NIP6_FMT,
-				NIP6(addr->sin6_addr));
+		snprintf(buf, 40, "%pI6",&addr->sin6_addr);
 	}
 	xprt->address_strings[RPC_DISPLAY_ADDR] = buf;
 
@@ -358,18 +356,17 @@ static void xs_format_ipv6_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(64, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 64, "addr="NIP6_FMT" port=%u proto=%s",
-				NIP6(addr->sin6_addr),
+		snprintf(buf, 64, "addr=%pI6 port=%u proto=%s",
+				&addr->sin6_addr,
 				ntohs(addr->sin6_port),
 				protocol);
 	}
 	xprt->address_strings[RPC_DISPLAY_ALL] = buf;
 
 	buf = kzalloc(36, GFP_KERNEL);
-	if (buf) {
-		snprintf(buf, 36, NIP6_SEQFMT,
-				NIP6(addr->sin6_addr));
-	}
+	if (buf)
+		snprintf(buf, 36, "%pi6", &addr->sin6_addr);
+
 	xprt->address_strings[RPC_DISPLAY_HEX_ADDR] = buf;
 
 	buf = kzalloc(8, GFP_KERNEL);
@@ -381,10 +378,10 @@ static void xs_format_ipv6_peer_addresses(struct rpc_xprt *xprt,
 
 	buf = kzalloc(50, GFP_KERNEL);
 	if (buf) {
-		snprintf(buf, 50, NIP6_FMT".%u.%u",
-				NIP6(addr->sin6_addr),
-				ntohs(addr->sin6_port) >> 8,
-				ntohs(addr->sin6_port) & 0xff);
+		snprintf(buf, 50, "%pI6.%u.%u",
+			 &addr->sin6_addr,
+			 ntohs(addr->sin6_port) >> 8,
+			 ntohs(addr->sin6_port) & 0xff);
 	}
 	xprt->address_strings[RPC_DISPLAY_UNIVERSAL_ADDR] = buf;
 
@@ -470,7 +467,7 @@ static int xs_sendpages(struct socket *sock, struct sockaddr *addr, int addrlen,
 	int err, sent = 0;
 
 	if (unlikely(!sock))
-		return -ENOTCONN;
+		return -ENOTSOCK;
 
 	clear_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
 	if (base != 0) {
@@ -580,6 +577,8 @@ static int xs_udp_send_request(struct rpc_task *task)
 				req->rq_svec->iov_base,
 				req->rq_svec->iov_len);
 
+	if (!xprt_bound(xprt))
+		return -ENOTCONN;
 	status = xs_sendpages(transport->sock,
 			      xs_addr(xprt),
 			      xprt->addrlen, xdr,
@@ -597,6 +596,10 @@ static int xs_udp_send_request(struct rpc_task *task)
 	}
 
 	switch (status) {
+	case -ENOTSOCK:
+		status = -ENOTCONN;
+		/* Should we call xs_close() here? */
+		break;
 	case -EAGAIN:
 		xs_nospace(task);
 		break;
@@ -696,6 +699,10 @@ static int xs_tcp_send_request(struct rpc_task *task)
 	}
 
 	switch (status) {
+	case -ENOTSOCK:
+		status = -ENOTCONN;
+		/* Should we call xs_close() here? */
+		break;
 	case -EAGAIN:
 		xs_nospace(task);
 		break;
@@ -1415,8 +1422,8 @@ static int xs_bind4(struct sock_xprt *transport, struct socket *sock)
 		if (port > last)
 			nloop++;
 	} while (err == -EADDRINUSE && nloop != 2);
-	dprintk("RPC:       %s "NIPQUAD_FMT":%u: %s (%d)\n",
-			__func__, NIPQUAD(myaddr.sin_addr),
+	dprintk("RPC:       %s %pI4:%u: %s (%d)\n",
+			__func__, &myaddr.sin_addr,
 			port, err ? "failed" : "ok", err);
 	return err;
 }
@@ -1448,8 +1455,8 @@ static int xs_bind6(struct sock_xprt *transport, struct socket *sock)
 		if (port > last)
 			nloop++;
 	} while (err == -EADDRINUSE && nloop != 2);
-	dprintk("RPC:       xs_bind6 "NIP6_FMT":%u: %s (%d)\n",
-		NIP6(myaddr.sin6_addr), port, err ? "failed" : "ok", err);
+	dprintk("RPC:       xs_bind6 %pI6:%u: %s (%d)\n",
+		&myaddr.sin6_addr, port, err ? "failed" : "ok", err);
 	return err;
 }
 
@@ -1526,7 +1533,7 @@ static void xs_udp_connect_worker4(struct work_struct *work)
 	struct socket *sock = transport->sock;
 	int err, status = -EIO;
 
-	if (xprt->shutdown || !xprt_bound(xprt))
+	if (xprt->shutdown)
 		goto out;
 
 	/* Start by resetting any existing state */
@@ -1567,7 +1574,7 @@ static void xs_udp_connect_worker6(struct work_struct *work)
 	struct socket *sock = transport->sock;
 	int err, status = -EIO;
 
-	if (xprt->shutdown || !xprt_bound(xprt))
+	if (xprt->shutdown)
 		goto out;
 
 	/* Start by resetting any existing state */
@@ -1651,6 +1658,9 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
 		write_unlock_bh(&sk->sk_callback_lock);
 	}
 
+	if (!xprt_bound(xprt))
+		return -ENOTCONN;
+
 	/* Tell the socket layer to start connecting... */
 	xprt->stat.connect_count++;
 	xprt->stat.connect_start = jiffies;
@@ -1671,7 +1681,7 @@ static void xs_tcp_connect_worker4(struct work_struct *work)
 	struct socket *sock = transport->sock;
 	int err, status = -EIO;
 
-	if (xprt->shutdown || !xprt_bound(xprt))
+	if (xprt->shutdown)
 		goto out;
 
 	if (!sock) {
@@ -1731,7 +1741,7 @@ static void xs_tcp_connect_worker6(struct work_struct *work)
 	struct socket *sock = transport->sock;
 	int err, status = -EIO;
 
-	if (xprt->shutdown || !xprt_bound(xprt))
+	if (xprt->shutdown)
 		goto out;
 
 	if (!sock) {

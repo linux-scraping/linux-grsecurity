@@ -65,7 +65,7 @@ MODULE_PARM_DESC(extra, "Enable extra LEDs and keys on IBM RapidAcces, EzKey and
 
 /*
  * Scancode to keycode tables. These are just the default setting, and
- * are loadable via an userland utility.
+ * are loadable via a userland utility.
  */
 
 static const unsigned short atkbd_set2_keycode[512] = {
@@ -839,7 +839,7 @@ static void atkbd_disconnect(struct serio *serio)
  */
 static void atkbd_dell_laptop_keymap_fixup(struct atkbd *atkbd)
 {
-	const unsigned int forced_release_keys[] = {
+	static const unsigned int forced_release_keys[] = {
 		0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8f, 0x93,
 	};
 	int i;
@@ -856,7 +856,7 @@ static void atkbd_dell_laptop_keymap_fixup(struct atkbd *atkbd)
  */
 static void atkbd_hp_keymap_fixup(struct atkbd *atkbd)
 {
-	const unsigned int forced_release_keys[] = {
+	static const unsigned int forced_release_keys[] = {
 		0x94,
 	};
 	int i;
@@ -881,6 +881,23 @@ static void atkbd_inventec_keymap_fixup(struct atkbd *atkbd)
 		for (i = 0; i < ARRAY_SIZE(forced_release_keys); i++)
 			__set_bit(forced_release_keys[i],
 				  atkbd->force_release_mask);
+}
+
+/*
+ * Perform fixup for HP Pavilion ZV6100 laptop that doesn't generate release
+ * for its volume buttons
+ */
+static void atkbd_hp_zv6100_keymap_fixup(struct atkbd *atkbd)
+{
+	const unsigned int forced_release_keys[] = {
+		0xae, 0xb0,
+	};
+	int i;
+
+	if (atkbd->set == 2)
+		for (i = 0; i < ARRAY_SIZE(forced_release_keys); i++)
+			__set_bit(forced_release_keys[i],
+					atkbd->force_release_mask);
 }
 
 /*
@@ -1492,6 +1509,15 @@ static struct dmi_system_id atkbd_dmi_quirk_table[] __initdata = {
 		.driver_data = atkbd_dell_laptop_keymap_fixup,
 	},
 	{
+		.ident = "Dell Laptop",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
+			DMI_MATCH(DMI_CHASSIS_TYPE, "8"), /* Portable */
+		},
+		.callback = atkbd_setup_fixup,
+		.driver_data = atkbd_dell_laptop_keymap_fixup,
+	},
+	{
 		.ident = "HP 2133",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
@@ -1499,6 +1525,15 @@ static struct dmi_system_id atkbd_dmi_quirk_table[] __initdata = {
 		},
 		.callback = atkbd_setup_fixup,
 		.driver_data = atkbd_hp_keymap_fixup,
+	},
+	{
+		.ident = "HP Pavilion ZV6100",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Pavilion ZV6100"),
+		},
+		.callback = atkbd_setup_fixup,
+		.driver_data = atkbd_hp_zv6100_keymap_fixup,
 	},
 	{
 		.ident = "Inventec Symphony",

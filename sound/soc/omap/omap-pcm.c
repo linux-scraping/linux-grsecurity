@@ -97,7 +97,7 @@ static int omap_pcm_hw_params(struct snd_pcm_substream *substream,
 	prtd->dma_data = dma_data;
 	err = omap_request_dma(dma_data->dma_req, dma_data->name,
 			       omap_pcm_dma_irq, substream, &prtd->dma_ch);
-	if (!err & !cpu_is_omap1510()) {
+	if (!err && !cpu_is_omap1510()) {
 		/*
 		 * Link channel with itself so DMA doesn't need any
 		 * reprogramming while looping the buffer
@@ -175,9 +175,10 @@ static int omap_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct omap_runtime_data *prtd = runtime->private_data;
+	unsigned long flags;
 	int ret = 0;
 
-	spin_lock_irq(&prtd->lock);
+	spin_lock_irqsave(&prtd->lock, flags);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
@@ -195,7 +196,7 @@ static int omap_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	default:
 		ret = -EINVAL;
 	}
-	spin_unlock_irq(&prtd->lock);
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	return ret;
 }
@@ -353,6 +354,18 @@ struct snd_soc_platform omap_soc_platform = {
 	.pcm_free	= omap_pcm_free_dma_buffers,
 };
 EXPORT_SYMBOL_GPL(omap_soc_platform);
+
+static int __init omap_soc_platform_init(void)
+{
+	return snd_soc_register_platform(&omap_soc_platform);
+}
+module_init(omap_soc_platform_init);
+
+static void __exit omap_soc_platform_exit(void)
+{
+	snd_soc_unregister_platform(&omap_soc_platform);
+}
+module_exit(omap_soc_platform_exit);
 
 MODULE_AUTHOR("Jarkko Nikula <jarkko.nikula@nokia.com>");
 MODULE_DESCRIPTION("OMAP PCM DMA module");

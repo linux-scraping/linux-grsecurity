@@ -202,7 +202,7 @@ static irqreturn_t vmi_timer_interrupt(int irq, void *dev_id)
 static struct irqaction vmi_clock_action  = {
 	.name 		= "vmi-timer",
 	.handler 	= vmi_timer_interrupt,
-	.flags 		= IRQF_DISABLED | IRQF_NOBALANCING,
+	.flags 		= IRQF_DISABLED | IRQF_NOBALANCING | IRQF_TIMER,
 	.mask 		= CPU_MASK_ALL,
 };
 
@@ -226,7 +226,7 @@ static void __devinit vmi_time_init_clockevent(void)
 	/* Upper bound is clockevent's use of ulong for cycle deltas. */
 	evt->max_delta_ns = clockevent_delta2ns(ULONG_MAX, evt);
 	evt->min_delta_ns = clockevent_delta2ns(1, evt);
-	evt->cpumask = cpumask_of_cpu(cpu);
+	evt->cpumask = cpumask_of(cpu);
 
 	printk(KERN_WARNING "vmi: registering clock event %s. mult=%lu shift=%u\n",
 	       evt->name, evt->mult, evt->shift);

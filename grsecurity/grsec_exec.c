@@ -20,8 +20,9 @@ int
 gr_handle_nproc(void)
 {
 #ifdef CONFIG_GRKERNSEC_EXECVE
-	if (grsec_enable_execve && current->user &&
-	    (atomic_read(&current->user->processes) >
+	const struct cred *cred = current_cred();
+	if (grsec_enable_execve && cred->user &&
+	    (atomic_read(&cred->user->processes) >
 	     current->signal->rlim[RLIMIT_NPROC].rlim_cur) &&
 	    !capable(CAP_SYS_ADMIN) && !capable(CAP_SYS_RESOURCE)) {
 		gr_log_noargs(GR_DONT_AUDIT, GR_NPROC_MSG);

@@ -137,6 +137,9 @@ struct mddev_s
 	struct gendisk			*gendisk;
 
 	struct kobject			kobj;
+	int				hold_active;
+#define	UNTIL_IOCTL	1
+#define	UNTIL_STOP	2
 
 	/* Superblock information */
 	int				major_version,
@@ -215,6 +218,9 @@ struct mddev_s
 #define	MD_RECOVERY_FROZEN	9
 
 	unsigned long			recovery;
+	int				recovery_disabled; /* if we detect that recovery
+							    * will always fail, set this
+							    * so we don't loop trying */
 
 	int				in_sync;	/* know to not need resync */
 	struct mutex			reconfig_mutex;
@@ -244,6 +250,9 @@ struct mddev_s
 	struct sysfs_dirent		*sysfs_state;	/* handle for 'array_state'
 							 * file in sysfs.
 							 */
+	struct sysfs_dirent		*sysfs_action;  /* handle for 'sync_action' */
+
+	struct work_struct del_work;	/* used for delayed sysfs removal */
 
 	spinlock_t			write_lock;
 	wait_queue_head_t		sb_wait;	/* for waiting on superblock updates */
@@ -284,7 +293,13 @@ static inline void rdev_dec_pending(mdk_rdev_t *rdev, mddev_t *mddev)
 
 static inline void md_sync_acct(struct block_device *bdev, unsigned long nr_sectors)
 {
+
+#ifdef CONFIG_PAX_REFCOUNT
+        atomic_add_unchecked(nr_sectors, &bdev->bd_contains->bd_disk->sync_io);
+#else
         atomic_add(nr_sectors, &bdev->bd_contains->bd_disk->sync_io);
+#endif
+
 }
 
 struct mdk_personality
@@ -334,17 +349,14 @@ static inline char * mdname (mddev_t * mddev)
  * iterates through some rdev ringlist. It's safe to remove the
  * current 'rdev'. Dont touch 'tmp' though.
  */
-#define rdev_for_each_list(rdev, tmp, list)				\
-									\
-	for ((tmp) = (list).next;					\
-		(rdev) = (list_entry((tmp), mdk_rdev_t, same_set)),	\
-			(tmp) = (tmp)->next, (tmp)->prev != &(list)	\
-		; )
+#define rdev_for_each_list(rdev, tmp, head)				\
+	list_for_each_entry_safe(rdev, tmp, head, same_set)
+
 /*
  * iterates through the 'same array disks' ringlist
  */
 #define rdev_for_each(rdev, tmp, mddev)				\
-	rdev_for_each_list(rdev, tmp, (mddev)->disks)
+	list_for_each_entry_safe(rdev, tmp, &((mddev)->disks), same_set)
 
 #define rdev_for_each_rcu(rdev, mddev)				\
 	list_for_each_entry_rcu(rdev, &((mddev)->disks), same_set)

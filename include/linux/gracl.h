@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.13"
-#define GRSECURITY_VERSION 0x2113
+#define GR_VERSION  "grsecurity 2.1.14"
+#define GRSECURITY_VERSION 0x2114
 
 enum {
 	GR_SHUTDOWN = 0,
@@ -36,7 +36,7 @@ enum {
 	GR_SPROLE_LEN = 64,
 };
 
-#define GR_NLIMITS (RLIMIT_LOCKS + 2)
+#define GR_NLIMITS 32
 
 /* Begin Data Structures */
 
@@ -103,7 +103,7 @@ struct acl_subject_label {
 	kernel_cap_t cap_lower;
 
 	struct rlimit res[GR_NLIMITS];
-	__u16 resmask;
+	__u32 resmask;
 
 	__u8 user_trans_type;
 	__u8 group_trans_type;

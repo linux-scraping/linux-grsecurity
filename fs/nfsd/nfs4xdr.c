@@ -1,6 +1,4 @@
 /*
- *  fs/nfs/nfs4xdr.c
- *
  *  Server-side XDR for NFSv4
  *
  *  Copyright (c) 2002 The Regents of the University of Michigan.
@@ -2598,6 +2596,7 @@ static nfsd4_enc nfsd4_enc_ops[] = {
 	[OP_LOOKUPP]		= (nfsd4_enc)nfsd4_encode_noop,
 	[OP_NVERIFY]		= (nfsd4_enc)nfsd4_encode_noop,
 	[OP_OPEN]		= (nfsd4_enc)nfsd4_encode_open,
+	[OP_OPENATTR]		= (nfsd4_enc)nfsd4_encode_noop,
 	[OP_OPEN_CONFIRM]	= (nfsd4_enc)nfsd4_encode_open_confirm,
 	[OP_OPEN_DOWNGRADE]	= (nfsd4_enc)nfsd4_encode_open_downgrade,
 	[OP_PUTFH]		= (nfsd4_enc)nfsd4_encode_noop,

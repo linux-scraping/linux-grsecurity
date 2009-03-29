@@ -41,7 +41,7 @@
 #include <linux/seqlock.h>
 
 #ifdef CONFIG_RCU_CPU_STALL_DETECTOR
-#define RCU_SECONDS_TILL_STALL_CHECK	( 3 * HZ) /* for rcp->jiffies_stall */
+#define RCU_SECONDS_TILL_STALL_CHECK	(10 * HZ) /* for rcp->jiffies_stall */
 #define RCU_SECONDS_TILL_STALL_RECHECK	(30 * HZ) /* for rcp->jiffies_stall */
 #endif /* #ifdef CONFIG_RCU_CPU_STALL_DETECTOR */
 
@@ -59,8 +59,8 @@ struct rcu_ctrlblk {
 	int	signaled;
 
 	spinlock_t	lock	____cacheline_internodealigned_in_smp;
-	cpumask_t	cpumask; /* CPUs that need to switch in order    */
-				 /* for current batch to proceed.        */
+	DECLARE_BITMAP(cpumask, NR_CPUS); /* CPUs that need to switch for */
+					  /* current batch to proceed.     */
 } ____cacheline_internodealigned_in_smp;
 
 /* Is batch a before batch b ? */
@@ -180,5 +180,11 @@ extern long rcu_batches_completed_bh(void);
 
 #define rcu_enter_nohz()	do { } while (0)
 #define rcu_exit_nohz()		do { } while (0)
+
+/* A context switch is a grace period for rcuclassic. */
+static inline int rcu_blocking_is_gp(void)
+{
+	return num_online_cpus() == 1;
+}
 
 #endif /* __LINUX_RCUCLASSIC_H */

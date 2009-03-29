@@ -255,7 +255,7 @@ static void show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 	 */
 	if (file) {
 		pad_len_spaces(m, len);
-		seq_path(m, &file->f_path, "\n");
+		seq_path(m, &file->f_path, "\n\\");
 	} else {
 		const char *name = arch_vma_name(vma);
 		if (!name) {
@@ -429,7 +429,9 @@ static int show_smap(struct seq_file *m, void *v)
 		   "Private_Clean:  %8lu kB\n"
 		   "Private_Dirty:  %8lu kB\n"
 		   "Referenced:     %8lu kB\n"
-		   "Swap:           %8lu kB\n",
+		   "Swap:           %8lu kB\n"
+		   "KernelPageSize: %8lu kB\n"
+		   "MMUPageSize:    %8lu kB\n",
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		   PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : (vma->vm_end - vma->vm_start) >> 10,
 #else
@@ -442,7 +444,9 @@ static int show_smap(struct seq_file *m, void *v)
 		   mss.private_clean >> 10,
 		   mss.private_dirty >> 10,
 		   mss.referenced >> 10,
-		   mss.swap >> 10);
+		   mss.swap >> 10,
+		   vma_kernel_pagesize(vma) >> 10,
+		   vma_mmu_pagesize(vma) >> 10);
 
 	if (m->count < m->size)  /* vma is copied successfully */
 		m->version = (vma != get_gate_vma(task)) ? vma->vm_start : 0;

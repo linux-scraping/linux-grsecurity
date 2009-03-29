@@ -233,7 +233,7 @@ static void __hash_remove(struct hash_cell *hc)
 	}
 
 	if (hc->new_map)
-		dm_table_put(hc->new_map);
+		dm_table_destroy(hc->new_map);
 	dm_put(hc->md);
 	free_cell(hc);
 }
@@ -704,7 +704,8 @@ static int dev_rename(struct dm_ioctl *param, size_t param_size)
 	char *new_name = (char *) param + param->data_start;
 
 	if (new_name < param->data ||
-	    invalid_str(new_name, (void *) param + param_size)) {
+	    invalid_str(new_name, (void *) param + param_size) ||
+	    strlen(new_name) > DM_NAME_LEN - 1) {
 		DMWARN("Invalid new logical volume name supplied.");
 		return -EINVAL;
 	}
@@ -827,8 +828,8 @@ static int do_resume(struct dm_ioctl *param)
 
 		r = dm_swap_table(md, new_map);
 		if (r) {
+			dm_table_destroy(new_map);
 			dm_put(md);
-			dm_table_put(new_map);
 			return r;
 		}
 
@@ -836,8 +837,6 @@ static int do_resume(struct dm_ioctl *param)
 			set_disk_ro(dm_disk(md), 0);
 		else
 			set_disk_ro(dm_disk(md), 1);
-
-		dm_table_put(new_map);
 	}
 
 	if (dm_suspended(md))
@@ -1065,7 +1064,7 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 
 	r = populate_table(t, param, param_size);
 	if (r) {
-		dm_table_put(t);
+		dm_table_destroy(t);
 		goto out;
 	}
 
@@ -1073,14 +1072,14 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	hc = dm_get_mdptr(md);
 	if (!hc || hc->md != md) {
 		DMWARN("device has been removed from the dev hash table.");
-		dm_table_put(t);
+		dm_table_destroy(t);
 		up_write(&_hash_lock);
 		r = -ENXIO;
 		goto out;
 	}
 
 	if (hc->new_map)
-		dm_table_put(hc->new_map);
+		dm_table_destroy(hc->new_map);
 	hc->new_map = t;
 	up_write(&_hash_lock);
 
@@ -1109,7 +1108,7 @@ static int table_clear(struct dm_ioctl *param, size_t param_size)
 	}
 
 	if (hc->new_map) {
-		dm_table_put(hc->new_map);
+		dm_table_destroy(hc->new_map);
 		hc->new_map = NULL;
 	}
 
@@ -1550,8 +1549,10 @@ int dm_copy_name_and_uuid(struct mapped_device *md, char *name, char *uuid)
 		goto out;
 	}
 
-	strcpy(name, hc->name);
-	strcpy(uuid, hc->uuid ? : "");
+	if (name)
+		strcpy(name, hc->name);
+	if (uuid)
+		strcpy(uuid, hc->uuid ? : "");
 
 out:
 	up_read(&_hash_lock);

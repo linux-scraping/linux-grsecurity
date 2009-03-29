@@ -2,6 +2,7 @@
 #define _ASM_X86_ATOMIC_32_H
 
 #include <linux/compiler.h>
+#include <linux/types.h>
 #include <asm/processor.h>
 #include <asm/cmpxchg.h>
 
@@ -9,15 +10,6 @@
  * Atomic operations that C can't guarantee us.  Useful for
  * resource counting etc..
  */
-
-/*
- * Make sure gcc doesn't try to be clever and move things around
- * on us. We need to use _exactly_ the address the user gave us,
- * not some alias that contains the same information.
- */
-typedef struct {
-	int counter;
-} atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
@@ -324,17 +316,28 @@ static inline int atomic_sub_return(int i, atomic_t *v)
  */
 static inline int atomic_add_unless(atomic_t *v, int a, int u)
 {
-	int c, old;
+	int c, old, new;
 	c = atomic_read(v);
 	for (;;) {
-		if (unlikely(c == (u)))
+		if (unlikely(c == u))
 			break;
-		old = atomic_cmpxchg((v), c, c + (a));
+
+		asm volatile("addl %2,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+			     "into\n0:\n"
+			     _ASM_EXTABLE(0b, 0b)
+#endif
+
+			     : "=r" (new)
+			     : "0" (c), "ir" (a));
+
+		old = atomic_cmpxchg(v, c, new);
 		if (likely(old == c))
 			break;
 		c = old;
 	}
-	return c != (u);
+	return c != u;
 }
 
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)

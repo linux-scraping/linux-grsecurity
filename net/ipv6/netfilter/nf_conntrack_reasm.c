@@ -80,7 +80,7 @@ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
 		.data		= &nf_init_frags.timeout,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_jiffies,
+		.proc_handler	= proc_dointvec_jiffies,
 	},
 	{
 		.ctl_name	= NET_NF_CONNTRACK_FRAG6_LOW_THRESH,
@@ -88,7 +88,7 @@ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
 		.data		= &nf_init_frags.low_thresh,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= proc_dointvec,
 	},
 	{
 		.ctl_name	= NET_NF_CONNTRACK_FRAG6_HIGH_THRESH,
@@ -96,7 +96,7 @@ struct ctl_table nf_ct_ipv6_sysctl_table[] = {
 		.data		= &nf_init_frags.high_thresh,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= proc_dointvec,
 	},
 	{ .ctl_name = 0 }
 };
@@ -528,12 +528,12 @@ find_prev_fhdr(struct sk_buff *skb, u8 *prevhdrp, int *prevhoff, int *fhoff)
 		if (!ipv6_ext_hdr(nexthdr)) {
 			return -1;
 		}
-		if (len < (int)sizeof(struct ipv6_opt_hdr)) {
-			pr_debug("too short\n");
-			return -1;
-		}
 		if (nexthdr == NEXTHDR_NONE) {
 			pr_debug("next header is none\n");
+			return -1;
+		}
+		if (len < (int)sizeof(struct ipv6_opt_hdr)) {
+			pr_debug("too short\n");
 			return -1;
 		}
 		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))

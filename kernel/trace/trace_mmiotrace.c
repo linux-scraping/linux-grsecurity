@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/mmiotrace.h>
 #include <linux/pci.h>
+#include <asm/atomic.h>
 
 #include "trace.h"
 
@@ -19,47 +20,39 @@ struct header_iter {
 static struct trace_array *mmio_trace_array;
 static bool overrun_detected;
 static unsigned long prev_overruns;
+static atomic_t dropped_count;
 
 static void mmio_reset_data(struct trace_array *tr)
 {
-	int cpu;
-
 	overrun_detected = false;
 	prev_overruns = 0;
-	tr->time_start = ftrace_now(tr->cpu);
 
-	for_each_online_cpu(cpu)
-		tracing_reset(tr, cpu);
+	tracing_reset_online_cpus(tr);
 }
 
-static void mmio_trace_init(struct trace_array *tr)
+static int mmio_trace_init(struct trace_array *tr)
 {
 	pr_debug("in %s\n", __func__);
 	mmio_trace_array = tr;
-	if (tr->ctrl) {
-		mmio_reset_data(tr);
-		enable_mmiotrace();
-	}
+
+	mmio_reset_data(tr);
+	enable_mmiotrace();
+	return 0;
 }
 
 static void mmio_trace_reset(struct trace_array *tr)
 {
 	pr_debug("in %s\n", __func__);
-	if (tr->ctrl)
-		disable_mmiotrace();
+
+	disable_mmiotrace();
 	mmio_reset_data(tr);
 	mmio_trace_array = NULL;
 }
 
-static void mmio_trace_ctrl_update(struct trace_array *tr)
+static void mmio_trace_start(struct trace_array *tr)
 {
 	pr_debug("in %s\n", __func__);
-	if (tr->ctrl) {
-		mmio_reset_data(tr);
-		enable_mmiotrace();
-	} else {
-		disable_mmiotrace();
-	}
+	mmio_reset_data(tr);
 }
 
 static int mmio_print_pcidev(struct trace_seq *s, const struct pci_dev *dev)
@@ -130,11 +123,11 @@ static void mmio_close(struct trace_iterator *iter)
 
 static unsigned long count_overruns(struct trace_iterator *iter)
 {
-	unsigned long cnt = 0;
+	unsigned long cnt = atomic_xchg(&dropped_count, 0);
 	unsigned long over = ring_buffer_overruns(iter->tr->buffer);
 
 	if (over > prev_overruns)
-		cnt = over - prev_overruns;
+		cnt += over - prev_overruns;
 	prev_overruns = over;
 	return cnt;
 }
@@ -296,10 +289,10 @@ static struct tracer mmio_tracer __read_mostly =
 	.name		= "mmiotrace",
 	.init		= mmio_trace_init,
 	.reset		= mmio_trace_reset,
+	.start		= mmio_trace_start,
 	.pipe_open	= mmio_pipe_open,
 	.close		= mmio_close,
 	.read		= mmio_read,
-	.ctrl_update	= mmio_trace_ctrl_update,
 	.print_line	= mmio_print_line,
 };
 
@@ -319,8 +312,10 @@ static void __trace_mmiotrace_rw(struct trace_array *tr,
 
 	event	= ring_buffer_lock_reserve(tr->buffer, sizeof(*entry),
 					   &irq_flags);
-	if (!event)
+	if (!event) {
+		atomic_inc(&dropped_count);
 		return;
+	}
 	entry	= ring_buffer_event_data(event);
 	tracing_generic_entry_update(&entry->ent, 0, preempt_count());
 	entry->ent.type			= TRACE_MMIO_RW;
@@ -347,8 +342,10 @@ static void __trace_mmiotrace_map(struct trace_array *tr,
 
 	event	= ring_buffer_lock_reserve(tr->buffer, sizeof(*entry),
 					   &irq_flags);
-	if (!event)
+	if (!event) {
+		atomic_inc(&dropped_count);
 		return;
+	}
 	entry	= ring_buffer_event_data(event);
 	tracing_generic_entry_update(&entry->ent, 0, preempt_count());
 	entry->ent.type			= TRACE_MMIO_MAP;
@@ -371,5 +368,5 @@ void mmio_trace_mapping(struct mmiotrace_map *map)
 
 int mmio_trace_printk(const char *fmt, va_list args)
 {
-	return trace_vprintk(0, fmt, args);
+	return trace_vprintk(0, -1, fmt, args);
 }

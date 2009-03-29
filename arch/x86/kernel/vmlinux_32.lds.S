@@ -172,6 +172,7 @@ SECTIONS
 	SCHED_TEXT
 	LOCK_TEXT
 	KPROBES_TEXT
+	IRQENTRY_TEXT
 	*(.fixup)
 	*(.gnu.warning)
   	_etext = .;			/* End of text section */

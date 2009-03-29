@@ -345,7 +345,6 @@ static int tc574_config(struct pcmcia_device *link)
 	__be16 *phys_addr;
 	char *cardname;
 	__u32 config;
-	DECLARE_MAC_BUF(mac);
 
 	phys_addr = (__be16 *)dev->dev_addr;
 
@@ -463,9 +462,9 @@ static int tc574_config(struct pcmcia_device *link)
 	strcpy(lp->node.dev_name, dev->name);
 
 	printk(KERN_INFO "%s: %s at io %#3lx, irq %d, "
-	       "hw_addr %s.\n",
+	       "hw_addr %pM.\n",
 	       dev->name, cardname, dev->base_addr, dev->irq,
-	       print_mac(mac, dev->dev_addr));
+	       dev->dev_addr);
 	printk(" %dK FIFO split %s Rx:Tx, %sMII interface.\n",
 		   8 << config & Ram_size,
 		   ram_split[(config & Ram_split) >> Ram_split_shift],
@@ -1036,7 +1035,8 @@ static int el3_rx(struct net_device *dev, int worklimit)
 	DEBUG(3, "%s: in rx_packet(), status %4.4x, rx_status %4.4x.\n",
 		  dev->name, inw(ioaddr+EL3_STATUS), inw(ioaddr+RxStatus));
 	while (!((rx_status = inw(ioaddr + RxStatus)) & 0x8000) &&
-		   (--worklimit >= 0)) {
+			worklimit > 0) {
+		worklimit--;
 		if (rx_status & 0x4000) { /* Error, update stats. */
 			short error = rx_status & 0x3800;
 			dev->stats.rx_errors++;
@@ -1062,7 +1062,6 @@ static int el3_rx(struct net_device *dev, int worklimit)
 						((pkt_len+3)>>2));
 				skb->protocol = eth_type_trans(skb, dev);
 				netif_rx(skb);
-				dev->last_rx = jiffies;
 				dev->stats.rx_packets++;
 				dev->stats.rx_bytes += pkt_len;
 			} else {

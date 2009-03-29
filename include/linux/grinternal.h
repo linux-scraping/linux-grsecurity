@@ -108,13 +108,13 @@ extern rwlock_t grsec_exec_file_lock;
 			  (tsk_a->fs->root.dentry->d_inode->i_ino == \
 			  tsk_b->fs->root.dentry->d_inode->i_ino))
 
-#define DEFAULTSECARGS(task) gr_task_fullpath(task), task->comm, \
-		       task->pid, task->uid, \
-		       task->euid, task->gid, task->egid, \
+#define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), task->comm, \
+		       task->pid, cred->uid, \
+		       cred->euid, cred->gid, cred->egid, \
 		       gr_parent_task_fullpath(task), \
 		       task->parent->comm, task->parent->pid, \
-		       task->parent->uid, task->parent->euid, \
-		       task->parent->gid, task->parent->egid
+		       pcred->uid, pcred->euid, \
+		       pcred->gid, pcred->egid
 
 #define GR_CHROOT_CAPS {{ \
 	CAP_TO_MASK(CAP_LINUX_IMMUTABLE) | CAP_TO_MASK(CAP_NET_ADMIN) | \

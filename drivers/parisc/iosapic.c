@@ -487,7 +487,7 @@ iosapic_xlate_pin(struct iosapic_info *isi, struct pci_dev *pcidev)
 	}
 
 	/* Check if pcidev behind a PPB */
-	if (NULL != pcidev->bus->self) {
+	if (pcidev->bus->parent) {
 		/* Convert pcidev INTR_PIN into something we
 		** can lookup in the IRT.
 		*/
@@ -519,15 +519,13 @@ iosapic_xlate_pin(struct iosapic_info *isi, struct pci_dev *pcidev)
 		**
 		** Advantage is it's really easy to implement.
 		*/
-		intr_pin = ((intr_pin-1)+PCI_SLOT(pcidev->devfn)) % 4;
-		intr_pin++;	/* convert back to INTA-D (1-4) */
+		intr_pin = pci_swizzle_interrupt_pin(pcidev, intr_pin);
 #endif /* PCI_BRIDGE_FUNCS */
 
 		/*
-		** Locate the host slot the PPB nearest the Host bus
-		** adapter.
-		*/
-		while (NULL != p->parent->self)
+		 * Locate the host slot of the PPB.
+		 */
+		while (p->parent->parent)
 			p = p->parent;
 
 		intr_slot = PCI_SLOT(p->self->devfn);
@@ -704,16 +702,20 @@ static unsigned int iosapic_startup_irq(unsigned int irq)
 }
 
 #ifdef CONFIG_SMP
-static void iosapic_set_affinity_irq(unsigned int irq, cpumask_t dest)
+static void iosapic_set_affinity_irq(unsigned int irq,
+				     const struct cpumask *dest)
 {
 	struct vector_info *vi = iosapic_get_vector(irq);
 	u32 d0, d1, dummy_d0;
 	unsigned long flags;
+	int dest_cpu;
 
-	if (cpu_check_affinity(irq, &dest))
+	dest_cpu = cpu_check_affinity(irq, dest);
+	if (dest_cpu < 0)
 		return;
 
-	vi->txn_addr = txn_affinity_addr(irq, first_cpu(dest));
+	irq_desc[irq].affinity = cpumask_of_cpu(dest_cpu);
+	vi->txn_addr = txn_affinity_addr(irq, dest_cpu);
 
 	spin_lock_irqsave(&iosapic_lock, flags);
 	/* d1 contains the destination CPU, so only want to set that

@@ -1,24 +1,14 @@
 #ifndef _ASM_X86_ATOMIC_64_H
 #define _ASM_X86_ATOMIC_64_H
 
+#include <linux/types.h>
 #include <asm/alternative.h>
 #include <asm/cmpxchg.h>
-
-/* atomic_t should be 32 bit signed type */
 
 /*
  * Atomic operations that C can't guarantee us.  Useful for
  * resource counting etc..
  */
-
-/*
- * Make sure gcc doesn't try to be clever and move things around
- * on us. We need to use _exactly_ the address the user gave us,
- * not some alias that contains the same information.
- */
-typedef struct {
-	int counter;
-} atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
@@ -297,11 +287,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
-/* An 64bit atomic type */
-
-typedef struct {
-	long counter;
-} atomic64_t;
+/* The 64-bit atomic type */
 
 #define ATOMIC64_INIT(i)	{ (i) }
 
@@ -584,17 +570,29 @@ static inline long atomic64_sub_return(long i, atomic64_t *v)
  */
 static inline int atomic_add_unless(atomic_t *v, int a, int u)
 {
-	int c, old;
+	int c, old, new;
 	c = atomic_read(v);
 	for (;;) {
-		if (unlikely(c == (u)))
+		if (unlikely(c == u))
 			break;
-		old = atomic_cmpxchg((v), c, c + (a));
+
+		asm volatile("addl %2,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+			     "jno 0f\n"
+			     "int $4\n0:\n"
+			     _ASM_EXTABLE(0b, 0b)
+#endif
+
+			     : "=r" (new)
+			     : "0" (c), "ir" (a));
+
+		old = atomic_cmpxchg(v, c, new);
 		if (likely(old == c))
 			break;
 		c = old;
 	}
-	return c != (u);
+	return c != u;
 }
 
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
@@ -610,17 +608,29 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
  */
 static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
 {
-	long c, old;
+	long c, old, new;
 	c = atomic64_read(v);
 	for (;;) {
-		if (unlikely(c == (u)))
+		if (unlikely(c == u))
 			break;
-		old = atomic64_cmpxchg((v), c, c + (a));
+
+		asm volatile("addq %2,%0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+			     "jno 0f\n"
+			     "int $4\n0:\n"
+			     _ASM_EXTABLE(0b, 0b)
+#endif
+
+			     : "=r" (new)
+			     : "0" (c), "er" (a));
+
+		old = atomic64_cmpxchg((v), c, new);
 		if (likely(old == c))
 			break;
 		c = old;
 	}
-	return c != (u);
+	return c != u;
 }
 
 /**

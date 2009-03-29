@@ -112,7 +112,7 @@ void cpu_end_irq(unsigned int irq)
 }
 
 #ifdef CONFIG_SMP
-int cpu_check_affinity(unsigned int irq, cpumask_t *dest)
+int cpu_check_affinity(unsigned int irq, const struct cpumask *dest)
 {
 	int cpu_dest;
 
@@ -120,23 +120,25 @@ int cpu_check_affinity(unsigned int irq, cpumask_t *dest)
 	if (CHECK_IRQ_PER_CPU(irq)) {
 		/* Bad linux design decision.  The mask has already
 		 * been set; we must reset it */
-		irq_desc[irq].affinity = CPU_MASK_ALL;
+		cpumask_setall(&irq_desc[irq].affinity);
 		return -EINVAL;
 	}
 
 	/* whatever mask they set, we just allow one CPU */
 	cpu_dest = first_cpu(*dest);
-	*dest = cpumask_of_cpu(cpu_dest);
 
-	return 0;
+	return cpu_dest;
 }
 
-static void cpu_set_affinity_irq(unsigned int irq, cpumask_t dest)
+static void cpu_set_affinity_irq(unsigned int irq, const struct cpumask *dest)
 {
-	if (cpu_check_affinity(irq, &dest))
+	int cpu_dest;
+
+	cpu_dest = cpu_check_affinity(irq, dest);
+	if (cpu_dest < 0)
 		return;
 
-	irq_desc[irq].affinity = dest;
+	cpumask_copy(&irq_desc[irq].affinity, &cpumask_of_cpu(cpu_dest));
 }
 #endif
 
@@ -295,10 +297,10 @@ int txn_alloc_irq(unsigned int bits_wide)
 unsigned long txn_affinity_addr(unsigned int irq, int cpu)
 {
 #ifdef CONFIG_SMP
-	irq_desc[irq].affinity = cpumask_of_cpu(cpu);
+	cpumask_copy(&irq_desc[irq].affinity, cpumask_of(cpu));
 #endif
 
-	return cpu_data[cpu].txn_addr;
+	return per_cpu(cpu_data, cpu).txn_addr;
 }
 
 
@@ -309,8 +311,9 @@ unsigned long txn_alloc_addr(unsigned int virt_irq)
 	next_cpu++; /* assign to "next" CPU we want this bugger on */
 
 	/* validate entry */
-	while ((next_cpu < NR_CPUS) && (!cpu_data[next_cpu].txn_addr || 
-		!cpu_online(next_cpu)))
+	while ((next_cpu < NR_CPUS) &&
+		(!per_cpu(cpu_data, next_cpu).txn_addr ||
+		 !cpu_online(next_cpu)))
 		next_cpu++;
 
 	if (next_cpu >= NR_CPUS) 
@@ -351,7 +354,7 @@ void do_cpu_irq_mask(struct pt_regs *regs)
 	irq = eirr_to_irq(eirr_val);
 
 #ifdef CONFIG_SMP
-	dest = irq_desc[irq].affinity;
+	cpumask_copy(&dest, &irq_desc[irq].affinity);
 	if (CHECK_IRQ_PER_CPU(irq_desc[irq].status) &&
 	    !cpu_isset(smp_processor_id(), dest)) {
 		int cpu = first_cpu(dest);
@@ -359,7 +362,7 @@ void do_cpu_irq_mask(struct pt_regs *regs)
 		printk(KERN_DEBUG "redirecting irq %d from CPU %d to %d\n",
 		       irq, smp_processor_id(), cpu);
 		gsc_writel(irq + CPU_IRQ_BASE,
-			   cpu_data[cpu].hpa);
+			   per_cpu(cpu_data, cpu).hpa);
 		goto set_out;
 	}
 #endif
@@ -421,5 +424,5 @@ void __init init_IRQ(void)
 
 void ack_bad_irq(unsigned int irq)
 {
-	printk("unexpected IRQ %d\n", irq);
+	printk(KERN_WARNING "unexpected IRQ %d\n", irq);
 }

@@ -101,7 +101,7 @@ static void gr_log_end(int audit)
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
 	unsigned int len = strlen(buf);
 
-	snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, DEFAULTSECARGS(current));
+	snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, DEFAULTSECARGS(current, current_cred(), __task_cred(current->parent)));
 	printk("%s\n", buf);
 
 	return;
@@ -118,6 +118,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	struct vfsmount *mnt;
 	struct file *file;
 	struct task_struct *task;
+	const struct cred *cred, *pcred;
 	va_list ap;
 
 	BEGIN_LOCKS(audit);
@@ -212,30 +213,40 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		break;
 	case GR_RESOURCE:
 		task = va_arg(ap, struct task_struct *);
+		cred = __task_cred(task);
+		pcred = __task_cred(task->parent);
 		ulong1 = va_arg(ap, unsigned long);
 		str1 = va_arg(ap, char *);
 		ulong2 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, ulong1, str1, ulong2, gr_task_fullpath(task), task->comm, task->pid, task->uid, task->euid, task->gid, task->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid);
+		gr_log_middle_varargs(audit, msg, ulong1, str1, ulong2, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		break;
 	case GR_CAP:
 		task = va_arg(ap, struct task_struct *);
+		cred = __task_cred(task);
+		pcred = __task_cred(task->parent);
 		str1 = va_arg(ap, char *);
-		gr_log_middle_varargs(audit, msg, str1, gr_task_fullpath(task), task->comm, task->pid, task->uid, task->euid, task->gid, task->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid);
+		gr_log_middle_varargs(audit, msg, str1, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		break;
 	case GR_SIG:
 		task = va_arg(ap, struct task_struct *);
+		cred = __task_cred(task);
+		pcred = __task_cred(task->parent);
 		num1 = va_arg(ap, int);
-		gr_log_middle_varargs(audit, msg, num1, gr_task_fullpath0(task), task->comm, task->pid, task->uid, task->euid, task->gid, task->egid, gr_parent_task_fullpath0(task), task->parent->comm, task->parent->pid, task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid);
+		gr_log_middle_varargs(audit, msg, num1, gr_task_fullpath0(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath0(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		break;
 	case GR_CRASH1:
 		task = va_arg(ap, struct task_struct *);
+		cred = __task_cred(task);
+		pcred = __task_cred(task->parent);
 		ulong1 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, task->uid, task->euid, task->gid, task->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid, task->uid, ulong1);
+		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid, cred->uid, ulong1);
 		break;
 	case GR_CRASH2:
 		task = va_arg(ap, struct task_struct *);
+		cred = __task_cred(task);
+		pcred = __task_cred(task->parent);
 		ulong1 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, task->uid, task->euid, task->gid, task->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid, ulong1);
+		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid, ulong1);
 		break;
 	case GR_PSACCT:
 		{
@@ -256,8 +267,10 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 			wsec = va_arg(ap, int);
 			csec = va_arg(ap, int);
 			ulong1 = va_arg(ap, unsigned long);
+			cred = __task_cred(task);
+			pcred = __task_cred(task->parent);
 
-			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, NIPQUAD(task->signal->curr_ip), tty_name(task->signal->tty, cur_tty), task->uid, task->euid, task->gid, task->egid, wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, NIPQUAD(task->parent->signal->curr_ip), tty_name(task->parent->signal->tty, parent_tty), task->parent->uid, task->parent->euid, task->parent->gid, task->parent->egid);
+			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, NIPQUAD(task->signal->curr_ip), tty_name(task->signal->tty, cur_tty), cred->uid, cred->euid, cred->gid, cred->egid, wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, NIPQUAD(task->parent->signal->curr_ip), tty_name(task->parent->signal->tty, parent_tty), pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		}
 		break;
 	default:

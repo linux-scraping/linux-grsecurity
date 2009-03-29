@@ -34,6 +34,7 @@
 #include <linux/compiler.h>
 #include <linux/unistd.h>
 
+#include <asm/firmware.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/mmu.h>
@@ -644,7 +645,7 @@ good_area:
 				}
 				pte_update(ptep, 0, _PAGE_HWEXEC |
 					   _PAGE_ACCESSED);
-				_tlbie(address, mm->context.id);
+				local_flush_tlb_page(vma, address);
 				pte_unmap_unlock(ptep, ptl);
 				up_read(&mm->mmap_sem);
 				return 0;
@@ -679,9 +680,16 @@ good_area:
 			goto do_sigbus;
 		BUG();
 	}
-	if (ret & VM_FAULT_MAJOR)
+	if (ret & VM_FAULT_MAJOR) {
 		current->maj_flt++;
-	else
+#ifdef CONFIG_PPC_SMLPAR
+		if (firmware_has_feature(FW_FEATURE_CMO)) {
+			preempt_disable();
+			get_lppaca()->page_ins += (1 << PAGE_FACTOR);
+			preempt_enable();
+		}
+#endif
+	} else
 		current->min_flt++;
 	up_read(&mm->mmap_sem);
 	return 0;
@@ -731,7 +739,7 @@ bad_area_nosemaphore:
 	    && printk_ratelimit())
 		printk(KERN_CRIT "kernel tried to execute NX-protected"
 		       " page (%lx) - exploit attempt? (uid: %d)\n",
-		       address, current->uid);
+		       address, current_uid());
 
 	return SIGSEGV;
 

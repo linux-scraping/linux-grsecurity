@@ -80,6 +80,7 @@ int
 gr_search_socket(const int domain, const int type, const int protocol)
 {
 	struct acl_subject_label *curr;
+	const struct cred *cred = current_cred();
 
 	if (unlikely(!gr_acl_is_enabled()))
 		goto exit;
@@ -104,8 +105,8 @@ gr_search_socket(const int domain, const int type, const int protocol)
 		if (type == SOCK_RAW || type == SOCK_PACKET) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-				       current->role->roletype, current->uid,
-				       current->gid, current->exec_file ?
+				       current->role->roletype, cred->uid,
+				       cred->gid, current->exec_file ?
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
@@ -115,8 +116,8 @@ NIPQUAD(current->signal->curr_ip));
 		} else if ((type == SOCK_DGRAM) && (protocol == IPPROTO_IP)) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-				       current->role->roletype, current->uid,
-				       current->gid, current->exec_file ?
+				       current->role->roletype, cred->uid,
+				       cred->gid, current->exec_file ?
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
@@ -171,6 +172,7 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 	__u32 our_netmask;
 	char *p;
 	__u16 ip_port = 0;
+	const struct cred *cred = current_cred();
 
 	if (unlikely(!gr_acl_is_enabled() || sk->sk_family != PF_INET))
 		return 0;
@@ -206,8 +208,8 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 
 	if (curr->mode & (GR_LEARN | GR_INHERITLEARN)) {
 		security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-			       current->role->roletype, current->uid,
-			       current->gid, current->exec_file ?
+			       current->role->roletype, cred->uid,
+			       cred->gid, current->exec_file ?
 			       gr_to_filename(current->exec_file->f_path.dentry,
 			       current->exec_file->f_path.mnt) :
 			       curr->filename, curr->filename,

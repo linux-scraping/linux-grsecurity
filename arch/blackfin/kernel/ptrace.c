@@ -45,6 +45,8 @@
 #include <asm/asm-offsets.h>
 #include <asm/dma.h>
 #include <asm/fixed_code.h>
+#include <asm/cacheflush.h>
+#include <asm/mem_map.h>
 
 #define TEXT_OFFSET 0
 /*
@@ -80,10 +82,12 @@ static inline struct pt_regs *get_user_regs(struct task_struct *task)
 /*
  * Get all user integer registers.
  */
-static inline int ptrace_getregs(struct task_struct *tsk, void __user * uregs)
+static inline int ptrace_getregs(struct task_struct *tsk, void __user *uregs)
 {
-	struct pt_regs *regs = get_user_regs(tsk);
-	return copy_to_user(uregs, regs, sizeof(struct pt_regs)) ? -EFAULT : 0;
+	struct pt_regs regs;
+	memcpy(&regs, get_user_regs(tsk), sizeof(regs));
+	regs.usp = tsk->thread.usp;
+	return copy_to_user(uregs, &regs, sizeof(struct pt_regs)) ? -EFAULT : 0;
 }
 
 /* Mapping from PT_xxx to the stack offset at which the register is
@@ -157,15 +161,15 @@ put_reg(struct task_struct *task, int regno, unsigned long data)
 static inline int is_user_addr_valid(struct task_struct *child,
 				     unsigned long start, unsigned long len)
 {
-	struct vm_list_struct *vml;
+	struct vm_area_struct *vma;
 	struct sram_list_struct *sraml;
 
 	/* overflow */
 	if (start + len < start)
 		return -EIO;
 
-	for (vml = child->mm->context.vmlist; vml; vml = vml->next)
-		if (start >= vml->vma->vm_start && start + len < vml->vma->vm_end)
+	vma = find_vma(child->mm, start);
+	if (vma && start >= vma->vm_start && start + len <= vma->vm_end)
 			return 0;
 
 	for (sraml = child->mm->context.sram_list; sraml; sraml = sraml->next)
@@ -220,8 +224,8 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 				break;
 			pr_debug("ptrace: user address is valid\n");
 
-			if (L1_CODE_LENGTH != 0 && addr >= L1_CODE_START
-			    && addr + sizeof(tmp) <= L1_CODE_START + L1_CODE_LENGTH) {
+			if (L1_CODE_LENGTH != 0 && addr >= get_l1_code_start()
+			    && addr + sizeof(tmp) <= get_l1_code_start() + L1_CODE_LENGTH) {
 				safe_dma_memcpy (&tmp, (const void *)(addr), sizeof(tmp));
 				copied = sizeof(tmp);
 
@@ -237,7 +241,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 
 			} else if (addr >= FIXED_CODE_START
 			    && addr + sizeof(tmp) <= FIXED_CODE_END) {
-				memcpy(&tmp, (const void *)(addr), sizeof(tmp));
+				copy_from_user_page(0, 0, 0, &tmp, (const void *)(addr), sizeof(tmp));
 				copied = sizeof(tmp);
 
 			} else
@@ -300,8 +304,8 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 				break;
 			pr_debug("ptrace: user address is valid\n");
 
-			if (L1_CODE_LENGTH != 0 && addr >= L1_CODE_START
-			    && addr + sizeof(data) <= L1_CODE_START + L1_CODE_LENGTH) {
+			if (L1_CODE_LENGTH != 0 && addr >= get_l1_code_start()
+			    && addr + sizeof(data) <= get_l1_code_start() + L1_CODE_LENGTH) {
 				safe_dma_memcpy ((void *)(addr), &data, sizeof(data));
 				copied = sizeof(data);
 
@@ -317,7 +321,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 
 			} else if (addr >= FIXED_CODE_START
 			    && addr + sizeof(data) <= FIXED_CODE_END) {
-				memcpy((void *)(addr), &data, sizeof(data));
+				copy_to_user_page(0, 0, 0, (void *)(addr), &data, sizeof(data));
 				copied = sizeof(data);
 
 			} else

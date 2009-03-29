@@ -618,7 +618,7 @@ static struct p9_fid *p9_fid_create(struct p9_client *clnt)
 		return ERR_PTR(-ENOMEM);
 
 	ret = p9_idpool_get(clnt->fidpool);
-	if (fid->fid < 0) {
+	if (ret < 0) {
 		ret = -ENOSPC;
 		goto error;
 	}
@@ -627,7 +627,7 @@ static struct p9_fid *p9_fid_create(struct p9_client *clnt)
 	memset(&fid->qid, 0, sizeof(struct p9_qid));
 	fid->mode = -1;
 	fid->rdir_fpos = 0;
-	fid->uid = current->fsuid;
+	fid->uid = current_fsuid();
 	fid->clnt = clnt;
 	fid->aux = NULL;
 

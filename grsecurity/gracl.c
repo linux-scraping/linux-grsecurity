@@ -1859,10 +1859,13 @@ out:
 }
 
 static void
-gr_log_learn(const struct task_struct *task, const struct dentry *dentry, const struct vfsmount *mnt, const __u32 mode)
+gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u32 mode)
 {
+	struct task_struct *task = current;
+	const struct cred *cred = current_cred();
+
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1, 1, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
@@ -1870,10 +1873,13 @@ gr_log_learn(const struct task_struct *task, const struct dentry *dentry, const 
 }
 
 static void
-gr_log_learn_sysctl(const struct task_struct *task, const char *path, const __u32 mode)
+gr_log_learn_sysctl(const char *path, const __u32 mode)
 {
+	struct task_struct *task = current;
+	const struct cred *cred = current_cred();
+
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1, 1, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
@@ -1881,11 +1887,14 @@ gr_log_learn_sysctl(const struct task_struct *task, const char *path, const __u3
 }
 
 static void
-gr_log_learn_id_change(const struct task_struct *task, const char type, const unsigned int real, 
+gr_log_learn_id_change(const char type, const unsigned int real, 
 		       const unsigned int effective, const unsigned int fs)
 {
+	struct task_struct *task = current;
+	const struct cred *cred = current_cred();
+
 	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
-		       task->uid, task->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       type, real, effective, fs, NIPQUAD(task->signal->curr_ip));
 
@@ -1941,7 +1950,7 @@ bad:
 		needmode |= GR_SETID;
 	
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) {
-		gr_log_learn(current, old_dentry, old_mnt, needmode);
+		gr_log_learn(old_dentry, old_mnt, needmode);
 		return (GR_CREATE | GR_LINK);
 	} else if (newmode & GR_SUPPRESS)
 		return GR_SUPPRESS;
@@ -1978,7 +1987,7 @@ gr_search_file(const struct dentry * dentry, const __u32 mode,
 			new_mode |= GR_INHERIT;
 
 		if (!(mode & GR_NOLEARN))
-			gr_log_learn(current, dentry, mnt, new_mode);
+			gr_log_learn(dentry, mnt, new_mode);
 	}
 
 	return retval;
@@ -2018,7 +2027,7 @@ gr_check_create(const struct dentry * new_dentry, const struct dentry * parent,
 
 			new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
 
-			gr_log_learn(current, new_dentry, mnt, new_mode);
+			gr_log_learn(new_dentry, mnt, new_mode);
 
 			preempt_enable();
 			return new_mode;
@@ -2039,7 +2048,7 @@ gr_check_create(const struct dentry * new_dentry, const struct dentry * parent,
 
 		new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
 
-		gr_log_learn(current, new_dentry, mnt, new_mode);
+		gr_log_learn(new_dentry, mnt, new_mode);
 		preempt_enable();
 		return new_mode;
 	}
@@ -2103,7 +2112,7 @@ gr_set_proc_res(struct task_struct *task)
 	if (proc->mode & (GR_LEARN | GR_INHERITLEARN))
 		return;
 
-	for (i = 0; i < (GR_NLIMITS - 1); i++) {
+	for (i = 0; i < RLIM_NLIMITS; i++) {
 		if (!(proc->resmask & (1 << i)))
 			continue;
 
@@ -2129,7 +2138,7 @@ gr_check_user_change(int real, int effective, int fs)
 		return 0;
 
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))
-		gr_log_learn_id_change(current, 'u', real, effective, fs);
+		gr_log_learn_id_change('u', real, effective, fs);
 
 	num = current->acl->user_trans_num;
 	uidlist = current->acl->user_transitions;
@@ -2195,7 +2204,7 @@ gr_check_group_change(int real, int effective, int fs)
 		return 0;
 
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))
-		gr_log_learn_id_change(current, 'g', real, effective, fs);
+		gr_log_learn_id_change('g', real, effective, fs);
 
 	num = current->acl->group_trans_num;
 	gidlist = current->acl->group_transitions;
@@ -2871,7 +2880,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 
 	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_STATUS &&
 	    gr_usermode->mode != GR_UNSPROLE && gr_usermode->mode != GR_SPROLEPAM &&
-	    current->uid) {
+	    current_uid()) {
 		error = -EPERM;
 		goto out;
 	}
@@ -3062,6 +3071,7 @@ gr_set_acls(const int type)
 	struct file *filp;
 	struct acl_role_label *role = current->role;
 	__u16 acl_role_id = current->acl_role_id;
+	const struct cred *cred;
 
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
@@ -3078,7 +3088,8 @@ gr_set_acls(const int type)
 		task->acl_sp_role = 0;
 
 		if ((filp = task->exec_file)) {
-			task->role = lookup_acl_role_label(task, task->uid, task->gid);
+			cred = __task_cred(task);
+			task->role = lookup_acl_role_label(task, cred->uid, cred->gid);
 
 			task->acl =
 			    chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
@@ -3137,7 +3148,7 @@ gr_learn_resource(const struct task_struct *task,
 #endif
       skip_reslog:
 
-	if (unlikely(!(gr_status & GR_READY) || !wanted))
+	if (unlikely(!(gr_status & GR_READY) || !wanted || res >= GR_NLIMITS))
 		return;
 
 	acl = task->acl;
@@ -3183,6 +3194,21 @@ gr_learn_resource(const struct task_struct *task,
 			break;
 		case RLIMIT_LOCKS:
 			res_add += GR_RLIM_LOCKS_BUMP;
+			break;
+		case RLIMIT_SIGPENDING:
+			res_add += GR_RLIM_SIGPENDING_BUMP;
+			break;
+		case RLIMIT_MSGQUEUE:
+			res_add += GR_RLIM_MSGQUEUE_BUMP;
+			break;
+		case RLIMIT_NICE:
+			res_add += GR_RLIM_NICE_BUMP;
+			break;
+		case RLIMIT_RTPRIO:
+			res_add += GR_RLIM_RTPRIO_BUMP;
+			break;
+		case RLIMIT_RTTIME:
+			res_add += GR_RLIM_RTTIME_BUMP;
 			break;
 		}
 
@@ -3382,7 +3408,7 @@ gr_handle_sysctl(const struct ctl_table *table, const int op)
 		new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
 
 		err = 0;
-		gr_log_learn_sysctl(current, path, new_mode);
+		gr_log_learn_sysctl(path, new_mode);
 	} else if (!(err & GR_FIND) && !(err & GR_SUPPRESS) && op != 0) {
 		gr_log_hidden_sysctl(GR_DONT_AUDIT, GR_HIDDEN_ACL_MSG, path);
 		err = -ENOENT;

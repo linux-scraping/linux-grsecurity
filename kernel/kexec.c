@@ -1115,7 +1115,7 @@ void crash_save_cpu(struct pt_regs *regs, int cpu)
 	struct elf_prstatus prstatus;
 	u32 *buf;
 
-	if ((cpu < 0) || (cpu >= NR_CPUS))
+	if ((cpu < 0) || (cpu >= nr_cpu_ids))
 		return;
 
 	/* Using ELF notes here is opportunistic.
@@ -1465,6 +1465,11 @@ int kernel_kexec(void)
 		error = device_power_down(PMSG_FREEZE);
 		if (error)
 			goto Enable_irqs;
+
+		/* Suspend system devices */
+		error = sysdev_suspend(PMSG_FREEZE);
+		if (error)
+			goto Power_up_devices;
 	} else
 #endif
 	{
@@ -1477,6 +1482,8 @@ int kernel_kexec(void)
 
 #ifdef CONFIG_KEXEC_JUMP
 	if (kexec_image->preserve_context) {
+		sysdev_resume();
+ Power_up_devices:
 		device_power_up(PMSG_RESTORE);
  Enable_irqs:
 		local_irq_enable();

@@ -55,7 +55,7 @@
 
 static inline int kmmio_fault(struct pt_regs *regs, unsigned long addr)
 {
-#ifdef CONFIG_MMIOTRACE_HOOKS
+#ifdef CONFIG_MMIOTRACE
 	if (unlikely(is_kmmio_active()))
 		if (kmmio_handler(regs, addr) == 1)
 			return -1;
@@ -420,7 +420,7 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 			printk(KERN_CRIT "kernel tried to execute "
 				"NX-protected page - exploit attempt? "
 				"(uid: %d, task: %s, pid: %d)\n",
-				current->uid, current->comm, task_pid_nr(current));
+				current_uid(), current->comm, task_pid_nr(current));
 	}
 #endif
 
@@ -433,10 +433,10 @@ static void show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 	{
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-				 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current->uid, current->euid);
+					 NIPQUAD(current->signal->curr_ip), current->comm, task_pid_nr(current), current_uid(), current_euid());
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-				 current->comm, task_pid_nr(current), current->uid, current->euid);
+					 current->comm, task_pid_nr(current), current_uid(), current_euid());
 	}
 #endif
 
@@ -456,6 +456,7 @@ static noinline void pgtable_bad(unsigned long address, struct pt_regs *regs,
 				 unsigned long error_code)
 {
 	unsigned long flags = oops_begin();
+	int sig = SIGKILL;
 	struct task_struct *tsk;
 
 	printk(KERN_ALERT "%s: Corrupted page table at address %lx\n",
@@ -466,8 +467,8 @@ static noinline void pgtable_bad(unsigned long address, struct pt_regs *regs,
 	tsk->thread.trap_no = 14;
 	tsk->thread.error_code = error_code;
 	if (__die("Bad pagetable", regs, error_code))
-		regs = NULL;
-	oops_end(flags, regs, SIGKILL);
+		sig = 0;
+	oops_end(flags, regs, sig);
 }
 #endif
 
@@ -632,6 +633,7 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	int fault;
 #ifdef CONFIG_X86_64
 	unsigned long flags;
+	int sig;
 #endif
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
@@ -718,7 +720,6 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (unlikely(in_atomic() || !mm))
 		goto bad_area_nopax;
 
-again:
 	/*
 	 * When running in the kernel we expect faults to occur only to
 	 * addresses in user space.  All other faults represent errors in the
@@ -1050,32 +1051,22 @@ no_context:
 	bust_spinlocks(0);
 	do_group_exit(SIGKILL);
 #else
+	sig = SIGKILL;
 	if (__die("Oops", regs, error_code))
-		regs = NULL;
+		sig = 0;
 	/* Executive summary in case the body of the oops scrolled away */
 	printk(KERN_EMERG "CR2: %016lx\n", address);
-	oops_end(flags, regs, SIGKILL);
+	oops_end(flags, regs, sig);
 #endif
 
-/*
- * We ran out of memory, or some other thing happened to us that made
- * us unable to handle the page fault gracefully.
- */
 out_of_memory:
+	/*
+	 * We ran out of memory, call the OOM killer, and return the userspace
+	 * (which will retry the fault, or kill us if we got oom-killed).
+	 */
 	up_read(&mm->mmap_sem);
-	if (is_global_init(tsk)) {
-		yield();
-		/*
-		 * Re-lookup the vma - in theory the vma tree might
-		 * have changed:
-		 */
-		goto again;
-	}
-
-	printk("VM: killing process %s\n", tsk->comm);
-	if (error_code & PF_USER)
-		do_group_exit(SIGKILL);
-	goto no_context;
+	pagefault_out_of_memory();
+	return;
 
 do_sigbus:
 	up_read(&mm->mmap_sem);

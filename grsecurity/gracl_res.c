@@ -15,19 +15,28 @@ static const char *restab_log[] = {
 	[RLIMIT_MEMLOCK] = "RLIMIT_MEMLOCK",
 	[RLIMIT_AS] = "RLIMIT_AS",
 	[RLIMIT_LOCKS] = "RLIMIT_LOCKS",
-	[RLIMIT_LOCKS + 1] = "RLIMIT_CRASH"
+	[RLIMIT_SIGPENDING] = "RLIMIT_SIGPENDING",
+	[RLIMIT_MSGQUEUE] = "RLIMIT_MSGQUEUE",
+	[RLIMIT_NICE] = "RLIMIT_NICE",
+	[RLIMIT_RTPRIO] = "RLIMIT_RTPRIO",
+	[RLIMIT_RTTIME] = "RLIMIT_RTTIME",
+	[GR_CRASH_RES] = "RLIMIT_CRASH"
 };
 
 void
 gr_log_resource(const struct task_struct *task,
 		const int res, const unsigned long wanted, const int gt)
 {
+	const struct cred *cred = __task_cred(task);
+
 	if (res == RLIMIT_NPROC && 
-	    (cap_raised(task->cap_effective, CAP_SYS_ADMIN) || 
-	     cap_raised(task->cap_effective, CAP_SYS_RESOURCE)))
+	    (cap_raised(cred->cap_effective, CAP_SYS_ADMIN) || 
+	     cap_raised(cred->cap_effective, CAP_SYS_RESOURCE)))
 		return;
 	else if (res == RLIMIT_MEMLOCK &&
-		 cap_raised(task->cap_effective, CAP_IPC_LOCK))
+		 cap_raised(cred->cap_effective, CAP_IPC_LOCK))
+		return;
+	else if (res == RLIMIT_NICE && cap_raised(cred->cap_effective, CAP_SYS_NICE))
 		return;
 
 	if (!gr_acl_is_enabled() && !grsec_resource_logging)

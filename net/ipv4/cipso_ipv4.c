@@ -3,10 +3,15 @@
  *
  * This is an implementation of the CIPSO 2.2 protocol as specified in
  * draft-ietf-cipso-ipsecurity-01.txt with additional tag types as found in
- * FIPS-188, copies of both documents can be found in the Documentation
- * directory.  While CIPSO never became a full IETF RFC standard many vendors
+ * FIPS-188.  While CIPSO never became a full IETF RFC standard many vendors
  * have chosen to adopt the protocol and over the years it has become a
  * de-facto standard for labeled networking.
+ *
+ * The CIPSO draft specification can be found in the kernel's Documentation
+ * directory as well as the following URL:
+ *   http://netlabel.sourceforge.net/files/draft-ietf-cipso-ipsecurity-01.txt
+ * The FIPS-188 specification can be found at the following URL:
+ *   http://www.itl.nist.gov/fipspubs/fip188.htm
  *
  * Author: Paul Moore <paul.moore@hp.com>
  *
@@ -38,6 +43,7 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/jhash.h>
+#include <linux/audit.h>
 #include <net/ip.h>
 #include <net/icmp.h>
 #include <net/tcp.h>
@@ -449,6 +455,7 @@ static struct cipso_v4_doi *cipso_v4_doi_search(u32 doi)
 /**
  * cipso_v4_doi_add - Add a new DOI to the CIPSO protocol engine
  * @doi_def: the DOI structure
+ * @audit_info: NetLabel audit information
  *
  * Description:
  * The caller defines a new DOI for use by the CIPSO engine and calls this
@@ -458,51 +465,78 @@ static struct cipso_v4_doi *cipso_v4_doi_search(u32 doi)
  * zero on success and non-zero on failure.
  *
  */
-int cipso_v4_doi_add(struct cipso_v4_doi *doi_def)
+int cipso_v4_doi_add(struct cipso_v4_doi *doi_def,
+		     struct netlbl_audit *audit_info)
 {
+	int ret_val = -EINVAL;
 	u32 iter;
+	u32 doi;
+	u32 doi_type;
+	struct audit_buffer *audit_buf;
+
+	doi = doi_def->doi;
+	doi_type = doi_def->type;
 
 	if (doi_def == NULL || doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
-		return -EINVAL;
+		goto doi_add_return;
 	for (iter = 0; iter < CIPSO_V4_TAG_MAXCNT; iter++) {
 		switch (doi_def->tags[iter]) {
 		case CIPSO_V4_TAG_RBITMAP:
 			break;
 		case CIPSO_V4_TAG_RANGE:
-			if (doi_def->type != CIPSO_V4_MAP_PASS)
-				return -EINVAL;
-			break;
-		case CIPSO_V4_TAG_INVALID:
-			if (iter == 0)
-				return -EINVAL;
-			break;
 		case CIPSO_V4_TAG_ENUM:
 			if (doi_def->type != CIPSO_V4_MAP_PASS)
-				return -EINVAL;
+				goto doi_add_return;
 			break;
 		case CIPSO_V4_TAG_LOCAL:
 			if (doi_def->type != CIPSO_V4_MAP_LOCAL)
-				return -EINVAL;
+				goto doi_add_return;
+			break;
+		case CIPSO_V4_TAG_INVALID:
+			if (iter == 0)
+				goto doi_add_return;
 			break;
 		default:
-			return -EINVAL;
+			goto doi_add_return;
 		}
 	}
 
 	atomic_set(&doi_def->refcount, 1);
-	INIT_RCU_HEAD(&doi_def->rcu);
 
 	spin_lock(&cipso_v4_doi_list_lock);
-	if (cipso_v4_doi_search(doi_def->doi) != NULL)
-		goto doi_add_failure;
+	if (cipso_v4_doi_search(doi_def->doi) != NULL) {
+		spin_unlock(&cipso_v4_doi_list_lock);
+		ret_val = -EEXIST;
+		goto doi_add_return;
+	}
 	list_add_tail_rcu(&doi_def->list, &cipso_v4_doi_list);
 	spin_unlock(&cipso_v4_doi_list_lock);
+	ret_val = 0;
 
-	return 0;
+doi_add_return:
+	audit_buf = netlbl_audit_start(AUDIT_MAC_CIPSOV4_ADD, audit_info);
+	if (audit_buf != NULL) {
+		const char *type_str;
+		switch (doi_type) {
+		case CIPSO_V4_MAP_TRANS:
+			type_str = "trans";
+			break;
+		case CIPSO_V4_MAP_PASS:
+			type_str = "pass";
+			break;
+		case CIPSO_V4_MAP_LOCAL:
+			type_str = "local";
+			break;
+		default:
+			type_str = "(unknown)";
+		}
+		audit_log_format(audit_buf,
+				 " cipso_doi=%u cipso_type=%s res=%u",
+				 doi, type_str, ret_val == 0 ? 1 : 0);
+		audit_log_end(audit_buf);
+	}
 
-doi_add_failure:
-	spin_unlock(&cipso_v4_doi_list_lock);
-	return -EEXIST;
+	return ret_val;
 }
 
 /**
@@ -560,25 +594,39 @@ static void cipso_v4_doi_free_rcu(struct rcu_head *entry)
  */
 int cipso_v4_doi_remove(u32 doi, struct netlbl_audit *audit_info)
 {
+	int ret_val;
 	struct cipso_v4_doi *doi_def;
+	struct audit_buffer *audit_buf;
 
 	spin_lock(&cipso_v4_doi_list_lock);
 	doi_def = cipso_v4_doi_search(doi);
 	if (doi_def == NULL) {
 		spin_unlock(&cipso_v4_doi_list_lock);
-		return -ENOENT;
+		ret_val = -ENOENT;
+		goto doi_remove_return;
 	}
 	if (!atomic_dec_and_test(&doi_def->refcount)) {
 		spin_unlock(&cipso_v4_doi_list_lock);
-		return -EBUSY;
+		ret_val = -EBUSY;
+		goto doi_remove_return;
 	}
 	list_del_rcu(&doi_def->list);
 	spin_unlock(&cipso_v4_doi_list_lock);
 
 	cipso_v4_cache_invalidate();
 	call_rcu(&doi_def->rcu, cipso_v4_doi_free_rcu);
+	ret_val = 0;
 
-	return 0;
+doi_remove_return:
+	audit_buf = netlbl_audit_start(AUDIT_MAC_CIPSOV4_DEL, audit_info);
+	if (audit_buf != NULL) {
+		audit_log_format(audit_buf,
+				 " cipso_doi=%u res=%u",
+				 doi, ret_val == 0 ? 1 : 0);
+		audit_log_end(audit_buf);
+	}
+
+	return ret_val;
 }
 
 /**

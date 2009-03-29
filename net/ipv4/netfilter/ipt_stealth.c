@@ -23,29 +23,20 @@
 
 MODULE_LICENSE("GPL");
 
-extern struct sock *udp_v4_lookup(struct net *net, u32 saddr, u16 sport, u32 daddr, u16 dport, int dif);
-
 static bool
-match(const struct sk_buff *skb,
-      const struct net_device *in,
-      const struct net_device *out,
-      const struct xt_match *match,
-      const void *matchinfo,
-      int offset,
-      unsigned int protoff,
-      bool *hotdrop)
+match(const struct sk_buff *skb, const struct xt_match_param *par)
 {
 	struct iphdr *ip = ip_hdr(skb);
 	struct tcphdr th;
 	struct udphdr uh;
 	struct sock *sk = NULL;
 
-	if (!ip || offset) return false;
+	if (!ip || par->fragoff) return false;
 
 	switch(ip->protocol) {
 	case IPPROTO_TCP:
 		if (skb_copy_bits(skb, (ip_hdr(skb))->ihl*4, &th, sizeof(th)) < 0) {
-			*hotdrop = true;
+			*(par->hotdrop) = true;
 			return false;
 		}
 		if (!(th.syn && !th.ack)) return false;
@@ -53,10 +44,10 @@ match(const struct sk_buff *skb,
 		break;
 	case IPPROTO_UDP:
 		if (skb_copy_bits(skb, (ip_hdr(skb))->ihl*4, &uh, sizeof(uh)) < 0) {
-			*hotdrop = true;
+			*(par->hotdrop) = true;
 			return false;
 		}
-		sk = udp_v4_lookup(dev_net(skb->dev), ip->saddr, uh.source, ip->daddr, uh.dest, skb->dev->ifindex);
+		sk = udp4_lib_lookup(dev_net(skb->dev), ip->saddr, uh.source, ip->daddr, uh.dest, skb->dev->ifindex);
 		break;
 	default:
 		return false;
@@ -72,17 +63,13 @@ match(const struct sk_buff *skb,
 
 /* Called when user tries to insert an entry of this type. */
 static bool
-checkentry(const char *tablename,
-           const void *nip,
-	   const struct xt_match *match,
-           void *matchinfo,
-           unsigned int hook_mask)
+checkentry(const struct xt_mtchk_param *par)
 {
-	const struct ipt_ip *ip = (const struct ipt_ip *)nip;
+	const struct ipt_ip *ip = par->entryinfo;
 
 	if(((ip->proto == IPPROTO_TCP && !(ip->invflags & IPT_INV_PROTO)) ||
 		((ip->proto == IPPROTO_UDP) && !(ip->invflags & IPT_INV_PROTO)))
-		&& (hook_mask & (1 << NF_INET_LOCAL_IN)))
+		&& (par->hook_mask & (1 << NF_INET_LOCAL_IN)))
 			return true;
 
 	printk("stealth: Only works on TCP and UDP for the INPUT chain.\n");
@@ -93,7 +80,7 @@ checkentry(const char *tablename,
 
 static struct xt_match stealth_match __read_mostly = {
 	.name = "stealth",
-	.family = AF_INET,
+	.family = NFPROTO_IPV4,
 	.match = match,
 	.checkentry = checkentry,
 	.destroy = NULL,

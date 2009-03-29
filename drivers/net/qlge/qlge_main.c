@@ -76,7 +76,6 @@ MODULE_PARM_DESC(irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
 
 static struct pci_device_id qlge_pci_tbl[] __devinitdata = {
 	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, QLGE_DEVICE_ID)},
-	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, QLGE_DEVICE_ID1)},
 	/* required last entry */
 	{0,}
 };
@@ -127,12 +126,12 @@ static int ql_sem_trylock(struct ql_adapter *qdev, u32 sem_mask)
 
 int ql_sem_spinlock(struct ql_adapter *qdev, u32 sem_mask)
 {
-	unsigned int seconds = 3;
+	unsigned int wait_count = 30;
 	do {
 		if (!ql_sem_trylock(qdev, sem_mask))
 			return 0;
-		ssleep(1);
-	} while (--seconds);
+		udelay(100);
+	} while (--wait_count);
 	return -ETIMEDOUT;
 }
 
@@ -257,7 +256,7 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
 		{
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
@@ -265,13 +264,13 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
 				   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MR, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MR, 0);
 			if (status)
 				goto exit;
 			*value++ = ql_read32(qdev, MAC_ADDR_DATA);
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
@@ -279,14 +278,14 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
 				   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MR, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MR, 0);
 			if (status)
 				goto exit;
 			*value++ = ql_read32(qdev, MAC_ADDR_DATA);
 			if (type == MAC_ADDR_TYPE_CAM_MAC) {
 				status =
 				    ql_wait_reg_rdy(qdev,
-					MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+					MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 				if (status)
 					goto exit;
 				ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
@@ -294,7 +293,7 @@ int ql_get_mac_addr_reg(struct ql_adapter *qdev, u32 type, u16 index,
 					   MAC_ADDR_ADR | MAC_ADDR_RS | type); /* type */
 				status =
 				    ql_wait_reg_rdy(qdev, MAC_ADDR_IDX,
-						    MAC_ADDR_MR, MAC_ADDR_E);
+						    MAC_ADDR_MR, 0);
 				if (status)
 					goto exit;
 				*value++ = ql_read32(qdev, MAC_ADDR_DATA);
@@ -336,16 +335,15 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
 			    (addr[5]);
 
 			QPRINTK(qdev, IFUP, INFO,
-				"Adding %s address %02x:%02x:%02x:%02x:%02x:%02x"
+				"Adding %s address %pM"
 				" at index %d in the CAM.\n",
 				((type ==
 				  MAC_ADDR_TYPE_MULTI_MAC) ? "MULTICAST" :
-				 "UNICAST"), addr[0], addr[1], addr[2], addr[3],
-				addr[4], addr[5], index);
+				 "UNICAST"), addr, index);
 
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
@@ -354,7 +352,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
 			ql_write32(qdev, MAC_ADDR_DATA, lower);
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, (offset++) | /* offset */
@@ -363,7 +361,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
 			ql_write32(qdev, MAC_ADDR_DATA, upper);
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, (offset) |	/* offset */
@@ -401,7 +399,7 @@ static int ql_set_mac_addr_reg(struct ql_adapter *qdev, u8 *addr, u32 type,
 
 			status =
 			    ql_wait_reg_rdy(qdev,
-				MAC_ADDR_IDX, MAC_ADDR_MW, MAC_ADDR_E);
+				MAC_ADDR_IDX, MAC_ADDR_MW, 0);
 			if (status)
 				goto exit;
 			ql_write32(qdev, MAC_ADDR_IDX, offset |	/* offset */
@@ -432,13 +430,13 @@ int ql_get_routing_reg(struct ql_adapter *qdev, u32 index, u32 *value)
 	if (status)
 		goto exit;
 
-	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MW, RT_IDX_E);
+	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MW, 0);
 	if (status)
 		goto exit;
 
 	ql_write32(qdev, RT_IDX,
 		   RT_IDX_TYPE_NICQ | RT_IDX_RS | (index << RT_IDX_IDX_SHIFT));
-	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MR, RT_IDX_E);
+	status = ql_wait_reg_rdy(qdev, RT_IDX, RT_IDX_MR, 0);
 	if (status)
 		goto exit;
 	*value = ql_read32(qdev, RT_DATA);
@@ -643,7 +641,7 @@ static void ql_enable_all_completion_interrupts(struct ql_adapter *qdev)
 
 }
 
-int ql_read_flash_word(struct ql_adapter *qdev, int offset, u32 *data)
+static int ql_read_flash_word(struct ql_adapter *qdev, int offset, __le32 *data)
 {
 	int status = 0;
 	/* wait for reg to come ready */
@@ -658,8 +656,11 @@ int ql_read_flash_word(struct ql_adapter *qdev, int offset, u32 *data)
 			FLASH_ADDR, FLASH_ADDR_RDY, FLASH_ADDR_ERR);
 	if (status)
 		goto exit;
-	/* get the data */
-	*data = ql_read32(qdev, FLASH_DATA);
+	 /* This data is stored on flash as an array of
+	 * __le32.  Since ql_read32() returns cpu endian
+	 * we need to swap it back.
+	 */
+	*data = cpu_to_le32(ql_read32(qdev, FLASH_DATA));
 exit:
 	return status;
 }
@@ -668,13 +669,20 @@ static int ql_get_flash_params(struct ql_adapter *qdev)
 {
 	int i;
 	int status;
-	u32 *p = (u32 *)&qdev->flash;
+	__le32 *p = (__le32 *)&qdev->flash;
+	u32 offset = 0;
+
+	/* Second function's parameters follow the first
+	 * function's.
+	 */
+	if (qdev->func)
+		offset = sizeof(qdev->flash) / sizeof(u32);
 
 	if (ql_sem_spinlock(qdev, SEM_FLASH_MASK))
 		return -ETIMEDOUT;
 
 	for (i = 0; i < sizeof(qdev->flash) / sizeof(u32); i++, p++) {
-		status = ql_read_flash_word(qdev, i, p);
+		status = ql_read_flash_word(qdev, i+offset, p);
 		if (status) {
 			QPRINTK(qdev, IFUP, ERR, "Error reading flash.\n");
 			goto exit;
@@ -833,7 +841,7 @@ end:
 }
 
 /* Get the next large buffer. */
-struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
+static struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
 {
 	struct bq_desc *lbq_desc = &rx_ring->lbq[rx_ring->lbq_curr_idx];
 	rx_ring->lbq_curr_idx++;
@@ -844,7 +852,7 @@ struct bq_desc *ql_get_curr_lbuf(struct rx_ring *rx_ring)
 }
 
 /* Get the next small buffer. */
-struct bq_desc *ql_get_curr_sbuf(struct rx_ring *rx_ring)
+static struct bq_desc *ql_get_curr_sbuf(struct rx_ring *rx_ring)
 {
 	struct bq_desc *sbq_desc = &rx_ring->sbq[rx_ring->sbq_curr_idx];
 	rx_ring->sbq_curr_idx++;
@@ -875,7 +883,6 @@ static void ql_update_lbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 {
 	int clean_idx = rx_ring->lbq_clean_idx;
 	struct bq_desc *lbq_desc;
-	struct bq_element *bq;
 	u64 map;
 	int i;
 
@@ -885,13 +892,13 @@ static void ql_update_lbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 				"lbq: try cleaning clean_idx = %d.\n",
 				clean_idx);
 			lbq_desc = &rx_ring->lbq[clean_idx];
-			bq = lbq_desc->bq;
 			if (lbq_desc->p.lbq_page == NULL) {
 				QPRINTK(qdev, RX_STATUS, DEBUG,
 					"lbq: getting new page for index %d.\n",
 					lbq_desc->index);
 				lbq_desc->p.lbq_page = alloc_page(GFP_ATOMIC);
 				if (lbq_desc->p.lbq_page == NULL) {
+					rx_ring->lbq_clean_idx = clean_idx;
 					QPRINTK(qdev, RX_STATUS, ERR,
 						"Couldn't get a page.\n");
 					return;
@@ -901,16 +908,16 @@ static void ql_update_lbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 						   0, PAGE_SIZE,
 						   PCI_DMA_FROMDEVICE);
 				if (pci_dma_mapping_error(qdev->pdev, map)) {
+					rx_ring->lbq_clean_idx = clean_idx;
+					put_page(lbq_desc->p.lbq_page);
+					lbq_desc->p.lbq_page = NULL;
 					QPRINTK(qdev, RX_STATUS, ERR,
 						"PCI mapping failed.\n");
 					return;
 				}
 				pci_unmap_addr_set(lbq_desc, mapaddr, map);
 				pci_unmap_len_set(lbq_desc, maplen, PAGE_SIZE);
-				bq->addr_lo =	/*lbq_desc->addr_lo = */
-				    cpu_to_le32(map);
-				bq->addr_hi =	/*lbq_desc->addr_hi = */
-				    cpu_to_le32(map >> 32);
+				*lbq_desc->addr = cpu_to_le64(map);
 			}
 			clean_idx++;
 			if (clean_idx == rx_ring->lbq_len)
@@ -935,7 +942,6 @@ static void ql_update_sbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 {
 	int clean_idx = rx_ring->sbq_clean_idx;
 	struct bq_desc *sbq_desc;
-	struct bq_element *bq;
 	u64 map;
 	int i;
 
@@ -945,7 +951,6 @@ static void ql_update_sbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 			QPRINTK(qdev, RX_STATUS, DEBUG,
 				"sbq: try cleaning clean_idx = %d.\n",
 				clean_idx);
-			bq = sbq_desc->bq;
 			if (sbq_desc->p.skb == NULL) {
 				QPRINTK(qdev, RX_STATUS, DEBUG,
 					"sbq: getting new skb for index %d.\n",
@@ -964,11 +969,17 @@ static void ql_update_sbq(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 						     sbq_desc->p.skb->data,
 						     rx_ring->sbq_buf_size /
 						     2, PCI_DMA_FROMDEVICE);
+				if (pci_dma_mapping_error(qdev->pdev, map)) {
+					QPRINTK(qdev, IFUP, ERR, "PCI mapping failed.\n");
+					rx_ring->sbq_clean_idx = clean_idx;
+					dev_kfree_skb_any(sbq_desc->p.skb);
+					sbq_desc->p.skb = NULL;
+					return;
+				}
 				pci_unmap_addr_set(sbq_desc, mapaddr, map);
 				pci_unmap_len_set(sbq_desc, maplen,
 						  rx_ring->sbq_buf_size / 2);
-				bq->addr_lo = cpu_to_le32(map);
-				bq->addr_hi = cpu_to_le32(map >> 32);
+				*sbq_desc->addr = cpu_to_le64(map);
 			}
 
 			clean_idx++;
@@ -1167,7 +1178,7 @@ map_error:
 	return NETDEV_TX_BUSY;
 }
 
-void ql_realign_skb(struct sk_buff *skb, int len)
+static void ql_realign_skb(struct sk_buff *skb, int len)
 {
 	void *temp_addr = skb->data;
 
@@ -1304,6 +1315,11 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
 					"No skb available, drop the packet.\n");
 				return NULL;
 			}
+			pci_unmap_page(qdev->pdev,
+				       pci_unmap_addr(lbq_desc,
+						      mapaddr),
+				       pci_unmap_len(lbq_desc, maplen),
+				       PCI_DMA_FROMDEVICE);
 			skb_reserve(skb, NET_IP_ALIGN);
 			QPRINTK(qdev, RX_STATUS, DEBUG,
 				"%d bytes of headers and data in large. Chain page to new skb and pull tail.\n", length);
@@ -1331,7 +1347,7 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
 		 *          eventually be in trouble.
 		 */
 		int size, offset, i = 0;
-		struct bq_element *bq, bq_array[8];
+		__le64 *bq, bq_array[8];
 		sbq_desc = ql_get_curr_sbuf(rx_ring);
 		pci_unmap_single(qdev->pdev,
 				 pci_unmap_addr(sbq_desc, mapaddr),
@@ -1357,16 +1373,10 @@ static struct sk_buff *ql_build_rx_skb(struct ql_adapter *qdev,
 		} else {
 			QPRINTK(qdev, RX_STATUS, DEBUG,
 				"Headers in small, %d bytes of data in chain of large.\n", length);
-			bq = (struct bq_element *)sbq_desc->p.skb->data;
+			bq = (__le64 *)sbq_desc->p.skb->data;
 		}
 		while (length > 0) {
 			lbq_desc = ql_get_curr_lbuf(rx_ring);
-			if ((bq->addr_lo & ~BQ_MASK) != lbq_desc->bq->addr_lo) {
-				QPRINTK(qdev, RX_STATUS, ERR,
-					"Panic!!! bad large buffer address, expected 0x%.08x, got 0x%.08x.\n",
-					lbq_desc->bq->addr_lo, bq->addr_lo);
-				return NULL;
-			}
 			pci_unmap_page(qdev->pdev,
 				       pci_unmap_addr(lbq_desc,
 						      mapaddr),
@@ -1426,18 +1436,32 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
 	if (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_P) {
 		QPRINTK(qdev, RX_STATUS, DEBUG, "Promiscuous Packet.\n");
 	}
-	if (ib_mac_rsp->flags1 & (IB_MAC_IOCB_RSP_IE | IB_MAC_IOCB_RSP_TE)) {
-		QPRINTK(qdev, RX_STATUS, ERR,
-			"Bad checksum for this %s packet.\n",
-			((ib_mac_rsp->
-			  flags2 & IB_MAC_IOCB_RSP_T) ? "TCP" : "UDP"));
-		skb->ip_summed = CHECKSUM_NONE;
-	} else if (qdev->rx_csum &&
-		   ((ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_T) ||
-		    ((ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_U) &&
-		     !(ib_mac_rsp->flags1 & IB_MAC_IOCB_RSP_NU)))) {
-		QPRINTK(qdev, RX_STATUS, DEBUG, "RX checksum done!\n");
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+	skb->protocol = eth_type_trans(skb, ndev);
+	skb->ip_summed = CHECKSUM_NONE;
+
+	/* If rx checksum is on, and there are no
+	 * csum or frame errors.
+	 */
+	if (qdev->rx_csum &&
+		!(ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_ERR_MASK) &&
+		!(ib_mac_rsp->flags1 & IB_MAC_CSUM_ERR_MASK)) {
+		/* TCP frame. */
+		if (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_T) {
+			QPRINTK(qdev, RX_STATUS, DEBUG,
+					"TCP checksum done!\n");
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		} else if ((ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_U) &&
+				(ib_mac_rsp->flags3 & IB_MAC_IOCB_RSP_V4)) {
+		/* Unfragmented ipv4 UDP frame. */
+			struct iphdr *iph = (struct iphdr *) skb->data;
+			if (!(iph->frag_off &
+				cpu_to_be16(IP_MF|IP_OFFSET))) {
+				skb->ip_summed = CHECKSUM_UNNECESSARY;
+				QPRINTK(qdev, RX_STATUS, DEBUG,
+						"TCP checksum done!\n");
+			}
+		}
 	}
 	qdev->stats.rx_packets++;
 	qdev->stats.rx_bytes += skb->len;
@@ -1445,14 +1469,13 @@ static void ql_process_mac_rx_intr(struct ql_adapter *qdev,
 	if (qdev->vlgrp && (ib_mac_rsp->flags2 & IB_MAC_IOCB_RSP_V)) {
 		QPRINTK(qdev, RX_STATUS, DEBUG,
 			"Passing a VLAN packet upstream.\n");
-		vlan_hwaccel_rx(skb, qdev->vlgrp,
+		vlan_hwaccel_receive_skb(skb, qdev->vlgrp,
 				le16_to_cpu(ib_mac_rsp->vlan_id));
 	} else {
 		QPRINTK(qdev, RX_STATUS, DEBUG,
 			"Passing a normal packet upstream.\n");
-		netif_rx(skb);
+		netif_receive_skb(skb);
 	}
-	ndev->last_rx = jiffies;
 }
 
 /* Process an outbound completion from an rx ring. */
@@ -1508,6 +1531,11 @@ void ql_queue_asic_error(struct ql_adapter *qdev)
 	netif_stop_queue(qdev->ndev);
 	netif_carrier_off(qdev->ndev);
 	ql_disable_interrupts(qdev);
+	/* Clear adapter up bit to signal the recovery
+	 * process that it shouldn't kill the reset worker
+	 * thread
+	 */
+	clear_bit(QL_ADAPTER_UP, &qdev->flags);
 	queue_delayed_work(qdev->workqueue, &qdev->asic_reset_work, 0);
 }
 
@@ -1649,7 +1677,7 @@ static int ql_napi_poll_msix(struct napi_struct *napi, int budget)
 		rx_ring->cq_id);
 
 	if (work_done < budget) {
-		__netif_rx_complete(qdev->ndev, napi);
+		__netif_rx_complete(napi);
 		ql_enable_completion_interrupt(qdev, rx_ring->irq);
 	}
 	return work_done;
@@ -1734,8 +1762,7 @@ static irqreturn_t qlge_msix_tx_isr(int irq, void *dev_id)
 static irqreturn_t qlge_msix_rx_isr(int irq, void *dev_id)
 {
 	struct rx_ring *rx_ring = dev_id;
-	struct ql_adapter *qdev = rx_ring->qdev;
-	netif_rx_schedule(qdev->ndev, &rx_ring->napi);
+	netif_rx_schedule(&rx_ring->napi);
 	return IRQ_HANDLED;
 }
 
@@ -1821,8 +1848,7 @@ static irqreturn_t qlge_isr(int irq, void *dev_id)
 							      &rx_ring->rx_work,
 							      0);
 				else
-					netif_rx_schedule(qdev->ndev,
-							  &rx_ring->napi);
+					netif_rx_schedule(&rx_ring->napi);
 				work_done++;
 			}
 		}
@@ -1878,7 +1904,7 @@ static void ql_hw_csum_setup(struct sk_buff *skb,
 {
 	int len;
 	struct iphdr *iph = ip_hdr(skb);
-	u16 *check;
+	__sum16 *check;
 	mac_iocb_ptr->opcode = OPCODE_OB_MAC_TSO_IOCB;
 	mac_iocb_ptr->frame_len = cpu_to_le32((u32) skb->len);
 	mac_iocb_ptr->net_trans_offset =
@@ -1915,6 +1941,9 @@ static int qlge_send(struct sk_buff *skb, struct net_device *ndev)
 
 	tx_ring = &qdev->tx_ring[tx_ring_idx];
 
+	if (skb_padto(skb, ETH_ZLEN))
+		return NETDEV_TX_OK;
+
 	if (unlikely(atomic_read(&tx_ring->tx_count) < 2)) {
 		QPRINTK(qdev, TX_QUEUED, INFO,
 			"%s: shutting down tx queue %d du to lack of resources.\n",
@@ -1926,10 +1955,6 @@ static int qlge_send(struct sk_buff *skb, struct net_device *ndev)
 	tx_ring_desc = &tx_ring->q[tx_ring->prod_idx];
 	mac_iocb_ptr = tx_ring_desc->queue_entry;
 	memset((void *)mac_iocb_ptr, 0, sizeof(mac_iocb_ptr));
-	if (ql_map_send(qdev, mac_iocb_ptr, skb, tx_ring_desc) != NETDEV_TX_OK) {
-		QPRINTK(qdev, TX_QUEUED, ERR, "Could not map the segments.\n");
-		return NETDEV_TX_BUSY;
-	}
 
 	mac_iocb_ptr->opcode = OPCODE_OB_MAC_IOCB;
 	mac_iocb_ptr->tid = tx_ring_desc->index;
@@ -1954,6 +1979,12 @@ static int qlge_send(struct sk_buff *skb, struct net_device *ndev)
 	} else if (unlikely(!tso) && (skb->ip_summed == CHECKSUM_PARTIAL)) {
 		ql_hw_csum_setup(skb,
 				 (struct ob_mac_tso_iocb_req *)mac_iocb_ptr);
+	}
+	if (ql_map_send(qdev, mac_iocb_ptr, skb, tx_ring_desc) !=
+			NETDEV_TX_OK) {
+		QPRINTK(qdev, TX_QUEUED, ERR,
+				"Could not map the segments.\n");
+		return NETDEV_TX_BUSY;
 	}
 	QL_DUMP_OB_MAC_IOCB(mac_iocb_ptr);
 	tx_ring->prod_idx++;
@@ -2071,7 +2102,7 @@ err:
 	return -ENOMEM;
 }
 
-void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+static void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 {
 	int i;
 	struct bq_desc *lbq_desc;
@@ -2087,8 +2118,6 @@ void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 			put_page(lbq_desc->p.lbq_page);
 			lbq_desc->p.lbq_page = NULL;
 		}
-		lbq_desc->bq->addr_lo = 0;
-		lbq_desc->bq->addr_hi = 0;
 	}
 }
 
@@ -2101,12 +2130,12 @@ static int ql_alloc_lbq_buffers(struct ql_adapter *qdev,
 	int i;
 	struct bq_desc *lbq_desc;
 	u64 map;
-	struct bq_element *bq = rx_ring->lbq_base;
+	__le64 *bq = rx_ring->lbq_base;
 
 	for (i = 0; i < rx_ring->lbq_len; i++) {
 		lbq_desc = &rx_ring->lbq[i];
 		memset(lbq_desc, 0, sizeof(lbq_desc));
-		lbq_desc->bq = bq;
+		lbq_desc->addr = bq;
 		lbq_desc->index = i;
 		lbq_desc->p.lbq_page = alloc_page(GFP_ATOMIC);
 		if (unlikely(!lbq_desc->p.lbq_page)) {
@@ -2123,8 +2152,7 @@ static int ql_alloc_lbq_buffers(struct ql_adapter *qdev,
 			}
 			pci_unmap_addr_set(lbq_desc, mapaddr, map);
 			pci_unmap_len_set(lbq_desc, maplen, PAGE_SIZE);
-			bq->addr_lo = cpu_to_le32(map);
-			bq->addr_hi = cpu_to_le32(map >> 32);
+			*lbq_desc->addr = cpu_to_le64(map);
 		}
 		bq++;
 	}
@@ -2134,7 +2162,7 @@ mem_error:
 	return -ENOMEM;
 }
 
-void ql_free_sbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+static void ql_free_sbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 {
 	int i;
 	struct bq_desc *sbq_desc;
@@ -2153,13 +2181,6 @@ void ql_free_sbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 			dev_kfree_skb(sbq_desc->p.skb);
 			sbq_desc->p.skb = NULL;
 		}
-		if (sbq_desc->bq == NULL) {
-			QPRINTK(qdev, IFUP, ERR, "sbq_desc->bq %d is NULL.\n",
-				i);
-			return;
-		}
-		sbq_desc->bq->addr_lo = 0;
-		sbq_desc->bq->addr_hi = 0;
 	}
 }
 
@@ -2171,13 +2192,13 @@ static int ql_alloc_sbq_buffers(struct ql_adapter *qdev,
 	struct bq_desc *sbq_desc;
 	struct sk_buff *skb;
 	u64 map;
-	struct bq_element *bq = rx_ring->sbq_base;
+	__le64 *bq = rx_ring->sbq_base;
 
 	for (i = 0; i < rx_ring->sbq_len; i++) {
 		sbq_desc = &rx_ring->sbq[i];
 		memset(sbq_desc, 0, sizeof(sbq_desc));
 		sbq_desc->index = i;
-		sbq_desc->bq = bq;
+		sbq_desc->addr = bq;
 		skb = netdev_alloc_skb(qdev->ndev, rx_ring->sbq_buf_size);
 		if (unlikely(!skb)) {
 			/* Better luck next round */
@@ -2203,10 +2224,7 @@ static int ql_alloc_sbq_buffers(struct ql_adapter *qdev,
 		}
 		pci_unmap_addr_set(sbq_desc, mapaddr, map);
 		pci_unmap_len_set(sbq_desc, maplen, rx_ring->sbq_buf_size / 2);
-		bq->addr_lo =	/*sbq_desc->addr_lo = */
-		    cpu_to_le32(map);
-		bq->addr_hi =	/*sbq_desc->addr_hi = */
-		    cpu_to_le32(map >> 32);
+		*sbq_desc->addr = cpu_to_le64(map);
 		bq++;
 	}
 	return 0;
@@ -2377,28 +2395,6 @@ static void ql_tx_ring_clean(struct ql_adapter *qdev)
 	}
 }
 
-static void ql_free_ring_cb(struct ql_adapter *qdev)
-{
-	kfree(qdev->ring_mem);
-}
-
-static int ql_alloc_ring_cb(struct ql_adapter *qdev)
-{
-	/* Allocate space for tx/rx ring control blocks. */
-	qdev->ring_mem_size =
-	    (qdev->tx_ring_count * sizeof(struct tx_ring)) +
-	    (qdev->rx_ring_count * sizeof(struct rx_ring));
-	qdev->ring_mem = kmalloc(qdev->ring_mem_size, GFP_KERNEL);
-	if (qdev->ring_mem == NULL) {
-		return -ENOMEM;
-	} else {
-		qdev->rx_ring = qdev->ring_mem;
-		qdev->tx_ring = qdev->ring_mem +
-		    (qdev->rx_ring_count * sizeof(struct rx_ring));
-	}
-	return 0;
-}
-
 static void ql_free_mem_resources(struct ql_adapter *qdev)
 {
 	int i;
@@ -2469,7 +2465,7 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 	rx_ring->sbq_base_indirect_dma = shadow_reg_dma;
 
 	/* PCI doorbell mem area + 0x00 for consumer index register */
-	rx_ring->cnsmr_idx_db_reg = (u32 *) doorbell_area;
+	rx_ring->cnsmr_idx_db_reg = (u32 __iomem *) doorbell_area;
 	rx_ring->cnsmr_idx = 0;
 	rx_ring->curr_entry = rx_ring->cq_base;
 
@@ -2477,22 +2473,20 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 	rx_ring->valid_db_reg = doorbell_area + 0x04;
 
 	/* PCI doorbell mem area + 0x18 for large buffer consumer */
-	rx_ring->lbq_prod_idx_db_reg = (u32 *) (doorbell_area + 0x18);
+	rx_ring->lbq_prod_idx_db_reg = (u32 __iomem *) (doorbell_area + 0x18);
 
 	/* PCI doorbell mem area + 0x1c */
-	rx_ring->sbq_prod_idx_db_reg = (u32 *) (doorbell_area + 0x1c);
+	rx_ring->sbq_prod_idx_db_reg = (u32 __iomem *) (doorbell_area + 0x1c);
 
 	memset((void *)cqicb, 0, sizeof(struct cqicb));
 	cqicb->msix_vect = rx_ring->irq;
 
-	cqicb->len = cpu_to_le16(rx_ring->cq_len | LEN_V | LEN_CPP_CONT);
+	bq_len = (rx_ring->cq_len == 65536) ? 0 : (u16) rx_ring->cq_len;
+	cqicb->len = cpu_to_le16(bq_len | LEN_V | LEN_CPP_CONT);
 
-	cqicb->addr_lo = cpu_to_le32(rx_ring->cq_base_dma);
-	cqicb->addr_hi = cpu_to_le32((u64) rx_ring->cq_base_dma >> 32);
+	cqicb->addr = cpu_to_le64(rx_ring->cq_base_dma);
 
-	cqicb->prod_idx_addr_lo = cpu_to_le32(rx_ring->prod_idx_sh_reg_dma);
-	cqicb->prod_idx_addr_hi =
-	    cpu_to_le32((u64) rx_ring->prod_idx_sh_reg_dma >> 32);
+	cqicb->prod_idx_addr = cpu_to_le64(rx_ring->prod_idx_sh_reg_dma);
 
 	/*
 	 * Set up the control block load flags.
@@ -2503,12 +2497,13 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 	if (rx_ring->lbq_len) {
 		cqicb->flags |= FLAGS_LL;	/* Load lbq values */
 		*((u64 *) rx_ring->lbq_base_indirect) = rx_ring->lbq_base_dma;
-		cqicb->lbq_addr_lo =
-		    cpu_to_le32(rx_ring->lbq_base_indirect_dma);
-		cqicb->lbq_addr_hi =
-		    cpu_to_le32((u64) rx_ring->lbq_base_indirect_dma >> 32);
-		cqicb->lbq_buf_size = cpu_to_le32(rx_ring->lbq_buf_size);
-		bq_len = (u16) rx_ring->lbq_len;
+		cqicb->lbq_addr =
+		    cpu_to_le64(rx_ring->lbq_base_indirect_dma);
+		bq_len = (rx_ring->lbq_buf_size == 65536) ? 0 :
+			(u16) rx_ring->lbq_buf_size;
+		cqicb->lbq_buf_size = cpu_to_le16(bq_len);
+		bq_len = (rx_ring->lbq_len == 65536) ? 0 :
+			(u16) rx_ring->lbq_len;
 		cqicb->lbq_len = cpu_to_le16(bq_len);
 		rx_ring->lbq_prod_idx = rx_ring->lbq_len - 16;
 		rx_ring->lbq_curr_idx = 0;
@@ -2518,13 +2513,12 @@ static int ql_start_rx_ring(struct ql_adapter *qdev, struct rx_ring *rx_ring)
 	if (rx_ring->sbq_len) {
 		cqicb->flags |= FLAGS_LS;	/* Load sbq values */
 		*((u64 *) rx_ring->sbq_base_indirect) = rx_ring->sbq_base_dma;
-		cqicb->sbq_addr_lo =
-		    cpu_to_le32(rx_ring->sbq_base_indirect_dma);
-		cqicb->sbq_addr_hi =
-		    cpu_to_le32((u64) rx_ring->sbq_base_indirect_dma >> 32);
+		cqicb->sbq_addr =
+		    cpu_to_le64(rx_ring->sbq_base_indirect_dma);
 		cqicb->sbq_buf_size =
 		    cpu_to_le16(((rx_ring->sbq_buf_size / 2) + 8) & 0xfffffff8);
-		bq_len = (u16) rx_ring->sbq_len;
+		bq_len = (rx_ring->sbq_len == 65536) ? 0 :
+			(u16) rx_ring->sbq_len;
 		cqicb->sbq_len = cpu_to_le16(bq_len);
 		rx_ring->sbq_prod_idx = rx_ring->sbq_len - 16;
 		rx_ring->sbq_curr_idx = 0;
@@ -2611,7 +2605,7 @@ static int ql_start_tx_ring(struct ql_adapter *qdev, struct tx_ring *tx_ring)
 	 * Assign doorbell registers for this tx_ring.
 	 */
 	/* TX PCI doorbell mem area for tx producer index */
-	tx_ring->prod_idx_db_reg = (u32 *) doorbell_area;
+	tx_ring->prod_idx_db_reg = (u32 __iomem *) doorbell_area;
 	tx_ring->prod_idx = 0;
 	/* TX PCI doorbell mem area + 0x04 */
 	tx_ring->valid_db_reg = doorbell_area + 0x04;
@@ -2627,12 +2621,9 @@ static int ql_start_tx_ring(struct ql_adapter *qdev, struct tx_ring *tx_ring)
 				   Q_FLAGS_LB | Q_FLAGS_LI | Q_FLAGS_LO);
 	wqicb->cq_id_rss = cpu_to_le16(tx_ring->cq_id);
 	wqicb->rid = 0;
-	wqicb->addr_lo = cpu_to_le32(tx_ring->wq_base_dma);
-	wqicb->addr_hi = cpu_to_le32((u64) tx_ring->wq_base_dma >> 32);
+	wqicb->addr = cpu_to_le64(tx_ring->wq_base_dma);
 
-	wqicb->cnsmr_idx_addr_lo = cpu_to_le32(tx_ring->cnsmr_idx_sh_reg_dma);
-	wqicb->cnsmr_idx_addr_hi =
-	    cpu_to_le32((u64) tx_ring->cnsmr_idx_sh_reg_dma >> 32);
+	wqicb->cnsmr_idx_addr = cpu_to_le64(tx_ring->cnsmr_idx_sh_reg_dma);
 
 	ql_init_tx_ring(qdev, tx_ring);
 
@@ -2762,14 +2753,14 @@ static void ql_resolve_queues_to_irqs(struct ql_adapter *qdev)
 				 * Outbound queue is for outbound completions only.
 				 */
 				intr_context->handler = qlge_msix_tx_isr;
-				sprintf(intr_context->name, "%s-txq-%d",
+				sprintf(intr_context->name, "%s-tx-%d",
 					qdev->ndev->name, i);
 			} else {
 				/*
 				 * Inbound queues handle unicast frames only.
 				 */
 				intr_context->handler = qlge_msix_rx_isr;
-				sprintf(intr_context->name, "%s-rxq-%d",
+				sprintf(intr_context->name, "%s-rx-%d",
 					qdev->ndev->name, i);
 			}
 		}
@@ -2912,8 +2903,8 @@ static int ql_start_rss(struct ql_adapter *qdev)
 	/*
 	 * Fill out the Indirection Table.
 	 */
-	for (i = 0; i < 32; i++)
-		hash_id[i] = i & 1;
+	for (i = 0; i < 256; i++)
+		hash_id[i] = i & (qdev->rss_ring_count - 1);
 
 	/*
 	 * Random values for the IPv6 and IPv4 Hash Keys.
@@ -2996,9 +2987,9 @@ static int ql_adapter_initialize(struct ql_adapter *qdev)
 	mask = value << 16;
 	ql_write32(qdev, SYS, mask | value);
 
-	/* Set the default queue. */
-	value = NIC_RCV_CFG_DFQ;
-	mask = NIC_RCV_CFG_DFQ_MASK;
+	/* Set the default queue, and VLAN behavior. */
+	value = NIC_RCV_CFG_DFQ | NIC_RCV_CFG_RV;
+	mask = NIC_RCV_CFG_DFQ_MASK | (NIC_RCV_CFG_RV << 16);
 	ql_write32(qdev, NIC_RCV_CFG, (mask | value));
 
 	/* Set the MPI interrupt to enabled. */
@@ -3127,11 +3118,7 @@ static void ql_display_dev_info(struct net_device *ndev)
 		qdev->chip_rev_id >> 4 & 0x0000000f,
 		qdev->chip_rev_id >> 8 & 0x0000000f,
 		qdev->chip_rev_id >> 12 & 0x0000000f);
-	QPRINTK(qdev, PROBE, INFO,
-		"MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
-		ndev->dev_addr[0], ndev->dev_addr[1],
-		ndev->dev_addr[2], ndev->dev_addr[3], ndev->dev_addr[4],
-		ndev->dev_addr[5]);
+	QPRINTK(qdev, PROBE, INFO, "MAC address %pM\n", ndev->dev_addr);
 }
 
 static int ql_adapter_down(struct ql_adapter *qdev)
@@ -3143,7 +3130,11 @@ static int ql_adapter_down(struct ql_adapter *qdev)
 	netif_stop_queue(ndev);
 	netif_carrier_off(ndev);
 
-	cancel_delayed_work_sync(&qdev->asic_reset_work);
+	/* Don't kill the reset worker thread if we
+	 * are in the process of recovery.
+	 */
+	if (test_bit(QL_ADAPTER_UP, &qdev->flags))
+		cancel_delayed_work_sync(&qdev->asic_reset_work);
 	cancel_delayed_work_sync(&qdev->mpi_reset_work);
 	cancel_delayed_work_sync(&qdev->mpi_work);
 
@@ -3156,7 +3147,7 @@ static int ql_adapter_down(struct ql_adapter *qdev)
 	 * a workqueue only if it's a single interrupt
 	 * environment (MSI/Legacy).
 	 */
-	for (i = 1; i > qdev->rx_ring_count; i++) {
+	for (i = 1; i < qdev->rx_ring_count; i++) {
 		rx_ring = &qdev->rx_ring[i];
 		/* Only the RSS rings use NAPI on multi irq
 		 * environment.  Outbound completion processing
@@ -3174,6 +3165,11 @@ static int ql_adapter_down(struct ql_adapter *qdev)
 	ql_disable_interrupts(qdev);
 
 	ql_tx_ring_clean(qdev);
+
+	/* Call netif_napi_del() from common point.
+	 */
+	for (i = qdev->rss_ring_first_cq_id; i < qdev->rx_ring_count; i++)
+		netif_napi_del(&qdev->rx_ring[i].napi);
 
 	spin_lock(&qdev->hw_lock);
 	status = ql_adapter_reset(qdev);
@@ -3267,7 +3263,6 @@ static int qlge_close(struct net_device *ndev)
 		msleep(1);
 	ql_adapter_down(qdev);
 	ql_release_adapter_resources(qdev);
-	ql_free_ring_cb(qdev);
 	return 0;
 }
 
@@ -3293,8 +3288,8 @@ static int ql_configure_rings(struct ql_adapter *qdev)
 	 * This limitation can be removed when requested.
 	 */
 
-	if (cpu_cnt > 8)
-		cpu_cnt = 8;
+	if (cpu_cnt > MAX_CPUS)
+		cpu_cnt = MAX_CPUS;
 
 	/*
 	 * rx_ring[0] is always the default queue.
@@ -3313,9 +3308,6 @@ static int ql_configure_rings(struct ql_adapter *qdev)
 	 * completion handler rx_rings.
 	 */
 	qdev->rx_ring_count = qdev->tx_ring_count + qdev->rss_ring_count + 1;
-
-	if (ql_alloc_ring_cb(qdev))
-		return -ENOMEM;
 
 	for (i = 0; i < qdev->tx_ring_count; i++) {
 		tx_ring = &qdev->tx_ring[i];
@@ -3349,11 +3341,11 @@ static int ql_configure_rings(struct ql_adapter *qdev)
 			    rx_ring->cq_len * sizeof(struct ql_net_rsp_iocb);
 			rx_ring->lbq_len = NUM_LARGE_BUFFERS;
 			rx_ring->lbq_size =
-			    rx_ring->lbq_len * sizeof(struct bq_element);
+			    rx_ring->lbq_len * sizeof(__le64);
 			rx_ring->lbq_buf_size = LARGE_BUFFER_SIZE;
 			rx_ring->sbq_len = NUM_SMALL_BUFFERS;
 			rx_ring->sbq_size =
-			    rx_ring->sbq_len * sizeof(struct bq_element);
+			    rx_ring->sbq_len * sizeof(__le64);
 			rx_ring->sbq_buf_size = SMALL_BUFFER_SIZE * 2;
 			rx_ring->type = DEFAULT_Q;
 		} else if (i < qdev->rss_ring_first_cq_id) {
@@ -3380,11 +3372,11 @@ static int ql_configure_rings(struct ql_adapter *qdev)
 			    rx_ring->cq_len * sizeof(struct ql_net_rsp_iocb);
 			rx_ring->lbq_len = NUM_LARGE_BUFFERS;
 			rx_ring->lbq_size =
-			    rx_ring->lbq_len * sizeof(struct bq_element);
+			    rx_ring->lbq_len * sizeof(__le64);
 			rx_ring->lbq_buf_size = LARGE_BUFFER_SIZE;
 			rx_ring->sbq_len = NUM_SMALL_BUFFERS;
 			rx_ring->sbq_size =
-			    rx_ring->sbq_len * sizeof(struct bq_element);
+			    rx_ring->sbq_len * sizeof(__le64);
 			rx_ring->sbq_buf_size = SMALL_BUFFER_SIZE * 2;
 			rx_ring->type = RX_Q;
 		}
@@ -3413,7 +3405,6 @@ static int qlge_open(struct net_device *ndev)
 
 error_up:
 	ql_release_adapter_resources(qdev);
-	ql_free_ring_cb(qdev);
 	return err;
 }
 
@@ -3526,6 +3517,7 @@ static int qlge_set_mac_address(struct net_device *ndev, void *p)
 {
 	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
 	struct sockaddr *addr = p;
+	int ret = 0;
 
 	if (netif_running(ndev))
 		return -EBUSY;
@@ -3538,17 +3530,17 @@ static int qlge_set_mac_address(struct net_device *ndev, void *p)
 	if (ql_set_mac_addr_reg(qdev, (u8 *) ndev->dev_addr,
 			MAC_ADDR_TYPE_CAM_MAC, qdev->func)) {/* Unicast */
 		QPRINTK(qdev, HW, ERR, "Failed to load MAC address.\n");
-		return -1;
+		ret = -1;
 	}
 	spin_unlock(&qdev->hw_lock);
 
-	return 0;
+	return ret;
 }
 
 static void qlge_tx_timeout(struct net_device *ndev)
 {
 	struct ql_adapter *qdev = (struct ql_adapter *)netdev_priv(ndev);
-	queue_delayed_work(qdev->workqueue, &qdev->asic_reset_work, 0);
+	ql_queue_asic_error(qdev);
 }
 
 static void ql_asic_reset_work(struct work_struct *work)
@@ -3592,7 +3584,7 @@ static void ql_release_all(struct pci_dev *pdev)
 		qdev->q_workqueue = NULL;
 	}
 	if (qdev->reg_base)
-		iounmap((void *)qdev->reg_base);
+		iounmap(qdev->reg_base);
 	if (qdev->doorbell_area)
 		iounmap(qdev->doorbell_area);
 	pci_release_regions(pdev);
@@ -3721,6 +3713,22 @@ err_out:
 	return err;
 }
 
+
+static const struct net_device_ops qlge_netdev_ops = {
+	.ndo_open		= qlge_open,
+	.ndo_stop		= qlge_close,
+	.ndo_start_xmit		= qlge_send,
+	.ndo_change_mtu		= qlge_change_mtu,
+	.ndo_get_stats		= qlge_get_stats,
+	.ndo_set_multicast_list = qlge_set_multicast_list,
+	.ndo_set_mac_address	= qlge_set_mac_address,
+	.ndo_validate_addr	= eth_validate_addr,
+	.ndo_tx_timeout		= qlge_tx_timeout,
+	.ndo_vlan_rx_register	= ql_vlan_rx_register,
+	.ndo_vlan_rx_add_vid	= ql_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid	= ql_vlan_rx_kill_vid,
+};
+
 static int __devinit qlge_probe(struct pci_dev *pdev,
 				const struct pci_device_id *pci_entry)
 {
@@ -3758,19 +3766,11 @@ static int __devinit qlge_probe(struct pci_dev *pdev,
 	 */
 	ndev->tx_queue_len = qdev->tx_ring_size;
 	ndev->irq = pdev->irq;
-	ndev->open = qlge_open;
-	ndev->stop = qlge_close;
-	ndev->hard_start_xmit = qlge_send;
+
+	ndev->netdev_ops = &qlge_netdev_ops;
 	SET_ETHTOOL_OPS(ndev, &qlge_ethtool_ops);
-	ndev->change_mtu = qlge_change_mtu;
-	ndev->get_stats = qlge_get_stats;
-	ndev->set_multicast_list = qlge_set_multicast_list;
-	ndev->set_mac_address = qlge_set_mac_address;
-	ndev->tx_timeout = qlge_tx_timeout;
 	ndev->watchdog_timeo = 10 * HZ;
-	ndev->vlan_rx_register = ql_vlan_rx_register;
-	ndev->vlan_rx_add_vid = ql_vlan_rx_add_vid;
-	ndev->vlan_rx_kill_vid = ql_vlan_rx_kill_vid;
+
 	err = register_netdev(ndev);
 	if (err) {
 		dev_err(&pdev->dev, "net device registration failed.\n");

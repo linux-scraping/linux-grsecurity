@@ -22,7 +22,6 @@
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/freezer.h>
-#include <linux/ftrace.h>
 
 #include "power.h"
 
@@ -71,6 +70,14 @@ void hibernation_set_ops(struct platform_hibernation_ops *ops)
 
 	mutex_unlock(&pm_mutex);
 }
+
+static bool entering_platform_hibernation;
+
+bool system_entering_hibernation(void)
+{
+	return entering_platform_hibernation;
+}
+EXPORT_SYMBOL(system_entering_hibernation);
 
 #ifdef CONFIG_PM_DEBUG
 static void hibernation_debug_sleep(void)
@@ -220,6 +227,12 @@ static int create_image(int platform_mode)
 			"aborting hibernation\n");
 		goto Enable_irqs;
 	}
+	sysdev_suspend(PMSG_FREEZE);
+	if (error) {
+		printk(KERN_ERR "PM: Some devices failed to power down, "
+			"aborting hibernation\n");
+		goto Power_up_devices;
+	}
 
 	if (hibernation_test(TEST_CORE))
 		goto Power_up;
@@ -235,9 +248,11 @@ static int create_image(int platform_mode)
 	if (!in_suspend)
 		platform_leave(platform_mode);
  Power_up:
+	sysdev_resume();
 	/* NOTE:  device_power_up() is just a resume() for devices
 	 * that suspended with irqs off ... no overall powerup.
 	 */
+ Power_up_devices:
 	device_power_up(in_suspend ?
 		(error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE);
  Enable_irqs:
@@ -257,19 +272,18 @@ static int create_image(int platform_mode)
 
 int hibernation_snapshot(int platform_mode)
 {
-	int error, ftrace_save;
+	int error;
+
+	error = platform_begin(platform_mode);
+	if (error)
+		return error;
 
 	/* Free memory before shutting down devices. */
 	error = swsusp_shrink_memory();
 	if (error)
-		return error;
-
-	error = platform_begin(platform_mode);
-	if (error)
 		goto Close;
 
 	suspend_console();
-	ftrace_save = __ftrace_enabled_save();
 	error = device_suspend(PMSG_FREEZE);
 	if (error)
 		goto Recover_platform;
@@ -299,7 +313,6 @@ int hibernation_snapshot(int platform_mode)
  Resume_devices:
 	device_resume(in_suspend ?
 		(error ? PMSG_RECOVER : PMSG_THAW) : PMSG_RESTORE);
-	__ftrace_enabled_restore(ftrace_save);
 	resume_console();
  Close:
 	platform_end(platform_mode);
@@ -330,6 +343,7 @@ static int resume_target_kernel(void)
 			"aborting resume\n");
 		goto Enable_irqs;
 	}
+	sysdev_suspend(PMSG_QUIESCE);
 	/* We'll ignore saved state, but this gets preempt count (etc) right */
 	save_processor_state();
 	error = restore_highmem();
@@ -352,6 +366,7 @@ static int resume_target_kernel(void)
 	swsusp_free();
 	restore_processor_state();
 	touch_softlockup_watchdog();
+	sysdev_resume();
 	device_power_up(PMSG_RECOVER);
  Enable_irqs:
 	local_irq_enable();
@@ -370,11 +385,10 @@ static int resume_target_kernel(void)
 
 int hibernation_restore(int platform_mode)
 {
-	int error, ftrace_save;
+	int error;
 
 	pm_prepare_console();
 	suspend_console();
-	ftrace_save = __ftrace_enabled_save();
 	error = device_suspend(PMSG_QUIESCE);
 	if (error)
 		goto Finish;
@@ -389,7 +403,6 @@ int hibernation_restore(int platform_mode)
 	platform_restore_cleanup(platform_mode);
 	device_resume(PMSG_RECOVER);
  Finish:
-	__ftrace_enabled_restore(ftrace_save);
 	resume_console();
 	pm_restore_console();
 	return error;
@@ -402,7 +415,7 @@ int hibernation_restore(int platform_mode)
 
 int hibernation_platform_enter(void)
 {
-	int error, ftrace_save;
+	int error;
 
 	if (!hibernation_ops)
 		return -ENOSYS;
@@ -416,8 +429,8 @@ int hibernation_platform_enter(void)
 	if (error)
 		goto Close;
 
+	entering_platform_hibernation = true;
 	suspend_console();
-	ftrace_save = __ftrace_enabled_save();
 	error = device_suspend(PMSG_HIBERNATE);
 	if (error) {
 		if (hibernation_ops->recover)
@@ -437,6 +450,7 @@ int hibernation_platform_enter(void)
 	local_irq_disable();
 	error = device_power_down(PMSG_HIBERNATE);
 	if (!error) {
+		sysdev_suspend(PMSG_HIBERNATE);
 		hibernation_ops->enter();
 		/* We should never get here */
 		while (1);
@@ -451,8 +465,8 @@ int hibernation_platform_enter(void)
  Finish:
 	hibernation_ops->finish();
  Resume_devices:
+	entering_platform_hibernation = false;
 	device_resume(PMSG_RESTORE);
-	__ftrace_enabled_restore(ftrace_save);
 	resume_console();
  Close:
 	hibernation_ops->end();
@@ -592,6 +606,12 @@ static int software_resume(void)
 	unsigned int flags;
 
 	/*
+	 * If the user said "noresume".. bail out early.
+	 */
+	if (noresume)
+		return 0;
+
+	/*
 	 * name_to_dev_t() below takes a sysfs buffer mutex when sysfs
 	 * is configured into the kernel. Since the regular hibernate
 	 * trigger path is via sysfs which takes a buffer mutex before
@@ -607,6 +627,11 @@ static int software_resume(void)
 			mutex_unlock(&pm_mutex);
 			return -ENOENT;
 		}
+		/*
+		 * Some device discovery might still be in progress; we need
+		 * to wait for this to finish.
+		 */
+		wait_for_device_probe();
 		swsusp_resume_device = name_to_dev_t(resume_file);
 		pr_debug("PM: Resume from partition %s\n", resume_file);
 	} else {

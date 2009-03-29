@@ -785,7 +785,7 @@ static int sg_ioctl_trans(unsigned int fd, unsigned int cmd, unsigned long arg)
 
 	if (copy_in_user(&sgio->status, &sgio32->status,
 			 (4 * sizeof(unsigned char)) +
-			 (2 * sizeof(unsigned (short))) +
+			 (2 * sizeof(unsigned short)) +
 			 (3 * sizeof(int))))
 		return -EFAULT;
 
@@ -1913,6 +1913,9 @@ COMPATIBLE_IOCTL(FIONREAD)  /* This is also TIOCINQ */
 /* 0x00 */
 COMPATIBLE_IOCTL(FIBMAP)
 COMPATIBLE_IOCTL(FIGETBSZ)
+/* 'X' - originally XFS but some now in the VFS */
+COMPATIBLE_IOCTL(FIFREEZE)
+COMPATIBLE_IOCTL(FITHAW)
 /* RAID */
 COMPATIBLE_IOCTL(RAID_VERSION)
 COMPATIBLE_IOCTL(GET_ARRAY_INFO)

@@ -21,6 +21,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/kref.h>
@@ -49,6 +50,7 @@
 
 static struct usb_device_id usbtmc_devices[] = {
 	{ USB_INTERFACE_INFO(USB_CLASS_APP_SPEC, 3, 0), },
+	{ USB_INTERFACE_INFO(USB_CLASS_APP_SPEC, 3, 1), },
 	{ 0, } /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, usbtmc_devices);
@@ -105,12 +107,13 @@ static int usbtmc_open(struct inode *inode, struct file *filp)
 {
 	struct usb_interface *intf;
 	struct usbtmc_device_data *data;
-	int retval = -ENODEV;
+	int retval = 0;
 
 	intf = usb_find_interface(&usbtmc_driver, iminor(inode));
 	if (!intf) {
 		printk(KERN_ERR KBUILD_MODNAME
 		       ": can not find device for minor %d", iminor(inode));
+		retval = -ENODEV;
 		goto exit;
 	}
 
@@ -482,7 +485,6 @@ static ssize_t usbtmc_write(struct file *filp, const char __user *buf,
 	int retval;
 	int actual;
 	unsigned long int n_bytes;
-	int n;
 	int remaining;
 	int done;
 	int this_part;
@@ -526,11 +528,8 @@ static ssize_t usbtmc_write(struct file *filp, const char __user *buf,
 			goto exit;
 		}
 
-		n_bytes = 12 + this_part;
-		if (this_part % 4)
-			n_bytes += 4 - this_part % 4;
-			for (n = 12 + this_part; n < n_bytes; n++)
-				buffer[n] = 0;
+		n_bytes = roundup(12 + this_part, 4);
+		memset(buffer + 12 + this_part, 0, n_bytes - (12 + this_part));
 
 		retval = usb_bulk_msg(data->usb_dev,
 				      usb_sndbulkpipe(data->usb_dev,

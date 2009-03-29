@@ -13,6 +13,7 @@
 #ifndef __ASM_S390_PROCESSOR_H
 #define __ASM_S390_PROCESSOR_H
 
+#include <linux/linkage.h>
 #include <asm/ptrace.h>
 
 #ifdef __KERNEL__
@@ -60,7 +61,7 @@ extern void print_cpu_info(struct cpuinfo_S390 *);
 extern int get_cpu_capability(unsigned int *);
 
 /*
- * User space process size: 2GB for 31 bit, 4TB for 64 bit.
+ * User space process size: 2GB for 31 bit, 4TB or 8PT for 64 bit.
  */
 #ifndef __s390x__
 
@@ -69,8 +70,7 @@ extern int get_cpu_capability(unsigned int *);
 
 #else /* __s390x__ */
 
-#define TASK_SIZE_OF(tsk)	(test_tsk_thread_flag(tsk,TIF_31BIT) ? \
-					(1UL << 31) : (1UL << 53))
+#define TASK_SIZE_OF(tsk)	((tsk)->mm->context.asce_limit)
 #define TASK_UNMAPPED_BASE	(test_thread_flag(TIF_31BIT) ? \
 					(1UL << 30) : (1UL << 41))
 #define TASK_SIZE		TASK_SIZE_OF(current)
@@ -258,7 +258,7 @@ static inline void enabled_wait(void)
  * Function to drop a processor into disabled wait state
  */
 
-static inline void disabled_wait(unsigned long code)
+static inline void ATTRIB_NORET disabled_wait(unsigned long code)
 {
         unsigned long ctl_buf;
         psw_t dw_psw;
@@ -322,6 +322,7 @@ static inline void disabled_wait(unsigned long code)
 		: "=m" (ctl_buf)
 		: "a" (&dw_psw), "a" (&ctl_buf), "m" (dw_psw) : "cc", "0");
 #endif /* __s390x__ */
+	while (1);
 }
 
 /*

@@ -92,6 +92,13 @@ UNUSUAL_DEV(  0x03f0, 0x0307, 0x0001, 0x0001,
 		US_SC_8070, US_PR_USBAT, init_usbat_cd, 0),
 #endif
 
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV(  0x03f0, 0x070c, 0x0000, 0x0000,
+		"HP",
+		"Personal Media Drive",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
+
 /* Reported by Grant Grundler <grundler@parisc-linux.org>
  * HP r707 camera in "Disk" mode with 2.00.23 or 2.00.24 firmware.
  */
@@ -219,7 +226,7 @@ UNUSUAL_DEV(  0x0421, 0x047c, 0x0370, 0x0610,
 		US_FL_MAX_SECTORS_64 ),
 
 /* Reported by Manuel Osdoba <manuel.osdoba@tu-ilmenau.de> */
-UNUSUAL_DEV( 0x0421, 0x0492, 0x0452, 0x0452,
+UNUSUAL_DEV( 0x0421, 0x0492, 0x0452, 0x9999,
 		"Nokia",
 		"Nokia 6233",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -239,11 +246,17 @@ UNUSUAL_DEV(  0x0424, 0x0fdc, 0x0210, 0x0210,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_SINGLE_LUN ),
 
-#ifdef CONFIG_USB_STORAGE_DPCM
+#ifdef CONFIG_USB_STORAGE_SDDR09
 UNUSUAL_DEV(  0x0436, 0x0005, 0x0100, 0x0100,
 		"Microtech",
 		"CameraMate (DPCM_USB)",
  		US_SC_SCSI, US_PR_DPCM_USB, NULL, 0 ),
+#else
+UNUSUAL_DEV(  0x0436, 0x0005, 0x0100, 0x0100,
+		"Microtech",
+		"CameraMate",
+		US_SC_SCSI, US_PR_CB, NULL,
+		US_FL_SINGLE_LUN ),
 #endif
 
 /* Patch submitted by Daniel Drake <dsd@gentoo.org>
@@ -338,6 +351,15 @@ UNUSUAL_DEV(  0x04a4, 0x0004, 0x0001, 0x0001,
 		"DVD-CAM DZ-MV100A Camcorder",
 		US_SC_SCSI, US_PR_CB, NULL, US_FL_SINGLE_LUN),
 
+/* BENQ DC5330
+ * Reported by Manuel Fombuena <mfombuena@ya.com> and
+ * Frank Copeland <fjc@thingy.apana.org.au> */
+UNUSUAL_DEV(  0x04a5, 0x3010, 0x0100, 0x0100,
+		"Tekom Technologies, Inc",
+		"300_CAMERA",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE ),
+
 /* Patch for Nikon coolpix 2000
  * Submitted by Fabien Cosse <fabien.cosse@wanadoo.fr>*/
 UNUSUAL_DEV(  0x04b0, 0x0301, 0x0010, 0x0010,
@@ -352,15 +374,6 @@ UNUSUAL_DEV(  0x04b3, 0x4001, 0x0110, 0x0110,
 		"IBM RSA2",
 		US_SC_DEVICE, US_PR_CB, NULL,
 		US_FL_MAX_SECTORS_MIN),
-
-/* BENQ DC5330
- * Reported by Manuel Fombuena <mfombuena@ya.com> and
- * Frank Copeland <fjc@thingy.apana.org.au> */
-UNUSUAL_DEV(  0x04a5, 0x3010, 0x0100, 0x0100,
-		"Tekom Technologies, Inc",
-		"300_CAMERA",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_RESIDUE ),
 
 #ifdef CONFIG_USB_STORAGE_CYPRESS_ATACB
 /* CY7C68300 : support atacb */
@@ -467,6 +480,12 @@ UNUSUAL_DEV(  0x04e6, 0x0005, 0x0100, 0x0208,
 		"eUSB SmartMedia / CompactFlash Adapter",
 		US_SC_SCSI, US_PR_DPCM_USB, usb_stor_sddr09_dpcm_init,
 		0),
+#else
+UNUSUAL_DEV(  0x04e6, 0x0005, 0x0100, 0x0208,
+		"SCM Microsystems",
+		"eUSB CompactFlash Adapter",
+		US_SC_SCSI, US_PR_CB, NULL,
+		US_FL_SINGLE_LUN),
 #endif
 
 /* Reported by Markus Demleitner <msdemlei@cl.uni-heidelberg.de> */
@@ -687,15 +706,15 @@ UNUSUAL_DEV(  0x054c, 0x006d, 0x0000, 0x9999,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
-/* Submitted by Mike Alborn <malborn@deandra.homeip.net> */
-UNUSUAL_DEV(  0x054c, 0x016a, 0x0000, 0x9999,
+/* Submitted by Frank Engel <frankie@cse.unsw.edu.au> */
+UNUSUAL_DEV(  0x054c, 0x0099, 0x0000, 0x9999,
 		"Sony",
 		"PEG Mass Storage",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
-		
-/* Submitted by Frank Engel <frankie@cse.unsw.edu.au> */
-UNUSUAL_DEV(  0x054c, 0x0099, 0x0000, 0x9999,
+
+/* Submitted by Mike Alborn <malborn@deandra.homeip.net> */
+UNUSUAL_DEV(  0x054c, 0x016a, 0x0000, 0x9999,
 		"Sony",
 		"PEG Mass Storage",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -846,6 +865,18 @@ UNUSUAL_DEV( 0x05ac, 0x120a, 0x0000, 0x9999,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
 
+/* Reported by Dan Williams <dcbw@redhat.com>
+ * Option N.V. mobile broadband modems
+ * Ignore driver CD mode and force into modem mode by default.
+ */
+
+/* Globetrotter HSDPA; mass storage shows up as Qualcomm for vendor */
+UNUSUAL_DEV(  0x05c6, 0x1000, 0x0000, 0x9999,
+		"Option N.V.",
+		"Mass Storage",
+		US_SC_DEVICE, US_PR_DEVICE, option_ms_init,
+		0),
+
 #ifdef CONFIG_USB_STORAGE_JUMPSHOT
 UNUSUAL_DEV(  0x05dc, 0x0001, 0x0000, 0x0001,
 		"Lexar",
@@ -884,6 +915,13 @@ UNUSUAL_DEV(  0x05e3, 0x0702, 0x0000, 0xffff,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 | US_FL_IGNORE_RESIDUE ),
 
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV(  0x05e3, 0x0723, 0x9451, 0x9451,
+		"Genesys Logic",
+		"USB to SATA",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
+
 /* Reported by Hanno Boeck <hanno@gmx.de>
  * Taken from the Lycoris Kernel */
 UNUSUAL_DEV(  0x0636, 0x0003, 0x0000, 0x9999,
@@ -913,7 +951,9 @@ UNUSUAL_DEV( 0x066f, 0x8000, 0x0001, 0x0001,
 		US_FL_FIX_CAPACITY ),
 
 /* Reported by Richard -=[]=- <micro_flyer@hotmail.com> */
-UNUSUAL_DEV( 0x067b, 0x2507, 0x0100, 0x0100,
+/* Change to bcdDeviceMin (0x0100 to 0x0001) reported by
+ * Thomas Bartosik <tbartdev@gmx-topmail.de> */
+UNUSUAL_DEV( 0x067b, 0x2507, 0x0001, 0x0100,
 		"Prolific Technology Inc.",
 		"Mass Storage Device",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -954,6 +994,16 @@ UNUSUAL_DEV(  0x069b, 0x3004, 0x0001, 0x0001,
 UNUSUAL_DEV(  0x071b, 0x3203, 0x0000, 0x0000,
 		"RockChip",
 		"MP3",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64),
+
+/* Reported by Jean-Baptiste Onofre <jb@nanthrax.net>
+ * Support the following product :
+ *    "Dane-Elec MediaTouch"
+ */
+UNUSUAL_DEV(  0x071b, 0x32bb, 0x0000, 0x0000,
+		"RockChip",
+		"MTP",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_NO_WP_DETECT | US_FL_MAX_SECTORS_64),
 
@@ -1041,11 +1091,17 @@ UNUSUAL_DEV(  0x07af, 0x0005, 0x0100, 0x0100,
 		US_SC_DEVICE, US_PR_DEVICE, usb_stor_euscsi_init,
 		US_FL_SCM_MULT_TARG ),
 
-#ifdef CONFIG_USB_STORAGE_DPCM
+#ifdef CONFIG_USB_STORAGE_SDDR09
 UNUSUAL_DEV(  0x07af, 0x0006, 0x0100, 0x0100,
 		"Microtech",
 		"CameraMate (DPCM_USB)",
  		US_SC_SCSI, US_PR_DPCM_USB, NULL, 0 ),
+#else
+UNUSUAL_DEV(  0x07af, 0x0006, 0x0100, 0x0100,
+		"Microtech",
+		"CameraMate",
+		US_SC_SCSI, US_PR_CB, NULL,
+		US_FL_SINGLE_LUN ),
 #endif
 
 #ifdef CONFIG_USB_STORAGE_ALAUDA
@@ -1160,7 +1216,7 @@ UNUSUAL_DEV(  0x07c4, 0xa400, 0x0000, 0xffff,
 		"Datafab",
 		"KECF-USB",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_INQUIRY ),
+		US_FL_FIX_INQUIRY | US_FL_FIX_CAPACITY ),
 
 /* Reported by Rauch Wolke <rauchwolke@gmx.net> */
 UNUSUAL_DEV(  0x07c4, 0xa4a5, 0x0000, 0xffff,
@@ -1207,6 +1263,13 @@ UNUSUAL_DEV( 0x0840, 0x0084, 0x0001, 0x0001,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY),
 
+/* Reported by Martijn Hijdra <martijn.hijdra@gmail.com> */
+UNUSUAL_DEV( 0x0840, 0x0085, 0x0001, 0x0001,
+		"Argosy",
+		"Storage",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
 /* Entry and supporting patch by Theodore Kilgore <kilgota@auburn.edu>.
  * Flag will support Bulk devices which use a standards-violating 32-byte
  * Command Block Wrapper. Here, the "DC2MEGA" cameras (several brands) with
@@ -1218,17 +1281,6 @@ UNUSUAL_DEV(  0x084d, 0x0011, 0x0110, 0x0110,
 		"DC2MEGA",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_BULK32),
-
-/* Andrew Lunn <andrew@lunn.ch>
- * PanDigital Digital Picture Frame. Does not like ALLOW_MEDIUM_REMOVAL
- * on LUN 4.
- * Note: Vend:Prod clash with "Ltd Maxell WS30 Slim Digital Camera"
-*/
-UNUSUAL_DEV(  0x0851, 0x1543, 0x0200, 0x0200,
-		"PanDigital",
-		"Photo Frame",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_NOT_LOCKABLE),
 
 /* Andrew Lunn <andrew@lunn.ch>
  * PanDigital Digital Picture Frame. Does not like ALLOW_MEDIUM_REMOVAL
@@ -1318,6 +1370,18 @@ UNUSUAL_DEV( 0x0ace, 0x20ff, 0x0101, 0x0101,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_DEVICE ),
 
+/* Reported by Dan Williams <dcbw@redhat.com>
+ * Option N.V. mobile broadband modems
+ * Ignore driver CD mode and force into modem mode by default.
+ */
+
+/* iCON 225 */
+UNUSUAL_DEV(  0x0af0, 0x6971, 0x0000, 0x9999,
+		"Option N.V.",
+		"Mass Storage",
+		US_SC_DEVICE, US_PR_DEVICE, option_ms_init,
+		0),
+
 /* Reported by F. Aben <f.aben@option.com>
  * This device (wrongly) has a vendor-specific device descriptor.
  * The entry is needed so usb-storage can bind to it's mass-storage
@@ -1327,6 +1391,23 @@ UNUSUAL_DEV( 0x0af0, 0x7401, 0x0000, 0x0000,
 		"GI 0401 SD-Card",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		0 ),
+
+/* Reported by Jan Dumon <j.dumon@option.com>
+ * This device (wrongly) has a vendor-specific device descriptor.
+ * The entry is needed so usb-storage can bind to it's mass-storage
+ * interface as an interface driver */
+UNUSUAL_DEV( 0x0af0, 0x7501, 0x0000, 0x0000,
+		"Option",
+		"GI 0431 SD-Card",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		0 ),
+
+/* Reported by Ben Efros <ben@pc-doctor.com> */
+UNUSUAL_DEV( 0x0bc2, 0x3010, 0x0000, 0x0000,
+		"Seagate",
+		"FreeAgent Pro",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE ),
 
 #ifdef CONFIG_USB_STORAGE_ISD200
 UNUSUAL_DEV(  0x0bf6, 0xa001, 0x0100, 0x0110,
@@ -1351,6 +1432,22 @@ UNUSUAL_DEV( 0x0c0b, 0xa109, 0x0000, 0xffff,
 		US_FL_SINGLE_LUN ),
 #endif
 
+UNUSUAL_DEV(  0x0d49, 0x7310, 0x0000, 0x9999,
+		"Maxtor",
+		"USB to SATA",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE),
+
+/*
+ * Pete Zaitcev <zaitcev@yahoo.com>, bz#164688.
+ * The device blatantly ignores LUN and returns 1 in GetMaxLUN.
+ */
+UNUSUAL_DEV( 0x0c45, 0x1060, 0x0100, 0x0100,
+		"Unknown",
+		"Unknown",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SINGLE_LUN ),
+
 /* Submitted by: Nick Sillik <n.sillik@temple.edu>
  * Needed for OneTouch extension to usb-storage
  *
@@ -1368,16 +1465,6 @@ UNUSUAL_DEV( 0x0c0b, 0xa109, 0x0000, 0xffff,
 			0),
 #endif
 
-/*
- * Pete Zaitcev <zaitcev@yahoo.com>, bz#164688.
- * The device blatantly ignores LUN and returns 1 in GetMaxLUN.
- */
-UNUSUAL_DEV( 0x0c45, 0x1060, 0x0100, 0x0100,
-		"Unknown",
-		"Unknown",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_SINGLE_LUN ),
-
 /* Submitted by Joris Struyve <joris@struyve.be> */
 UNUSUAL_DEV( 0x0d96, 0x410a, 0x0001, 0xffff,
 		"Medion",
@@ -1394,6 +1481,13 @@ UNUSUAL_DEV(  0x0d96, 0x5200, 0x0001, 0x0200,
 		"Jenoptik",
 		"JD 5200 z3",
 		US_SC_DEVICE, US_PR_DEVICE, NULL, US_FL_FIX_INQUIRY),
+
+/* Reported by  Jason Johnston <killean@shaw.ca> */
+UNUSUAL_DEV(  0x0dc4, 0x0073, 0x0000, 0x0000,
+		"Macpower Technology Co.LTD.",
+		"USB 2.0 3.5\" DEVICE",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
 
 /* Reported by Lubomir Blaha <tritol@trilogic.cz>
  * I _REALLY_ don't know what 3rd, 4th number and all defines mean, but this
@@ -1509,6 +1603,13 @@ UNUSUAL_DEV(  0x0fce, 0xd008, 0x0000, 0x0000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_NO_WP_DETECT ),
 
+/* Reported by The Solutor <thesolutor@gmail.com> */
+UNUSUAL_DEV(  0x0fce, 0xd0e1, 0x0000, 0x0000,
+		"Sony Ericsson",
+		"MD400",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_DEVICE),
+
 /* Reported by Jan Mate <mate@fiit.stuba.sk>
  * and by Soeren Sonnenburg <kernel@nn7.de> */
 UNUSUAL_DEV(  0x0fce, 0xe030, 0x0000, 0x0000,
@@ -1517,19 +1618,19 @@ UNUSUAL_DEV(  0x0fce, 0xe030, 0x0000, 0x0000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY | US_FL_IGNORE_RESIDUE ),
 
-/* Reported by Ricardo Barberis <ricardo@dattatec.com> */
-UNUSUAL_DEV(  0x0fce, 0xe092, 0x0000, 0x0000,
-		"Sony Ericsson",
-		"P1i",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_RESIDUE ),
-
 /* Reported by Emmanuel Vasilakis <evas@forthnet.gr> */
 UNUSUAL_DEV(  0x0fce, 0xe031, 0x0000, 0x0000,
 		"Sony Ericsson",
 		"M600i",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE | US_FL_FIX_CAPACITY ),
+
+/* Reported by Ricardo Barberis <ricardo@dattatec.com> */
+UNUSUAL_DEV(  0x0fce, 0xe092, 0x0000, 0x0000,
+		"Sony Ericsson",
+		"P1i",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE ),
 
 /* Reported by Kevin Cernekee <kpc-usbdev@gelato.uiuc.edu>
  * Tested on hardware version 1.10.
@@ -1542,6 +1643,12 @@ UNUSUAL_DEV(  0x1019, 0x0c55, 0x0000, 0x0110,
 		"UCR-61S2B",
 		US_SC_DEVICE, US_PR_DEVICE, usb_stor_ucr61s2b_init,
 		0 ),
+
+UNUSUAL_DEV(  0x1058, 0x0704, 0x0000, 0x9999,
+		"Western Digital",
+		"External HDD",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_SANE_SENSE),
 
 /* Reported by Fabio Venturi <f.venturi@tdnet.it>
  * The device reports a vendor-specific bDeviceClass.
@@ -1932,10 +2039,10 @@ UNUSUAL_DEV(  0x14cd, 0x6600, 0x0201, 0x0201,
  * JMicron responds to USN and several other SCSI ioctls with a
  * residue that causes subsequent I/O requests to fail.  */
 UNUSUAL_DEV(  0x152d, 0x2329, 0x0100, 0x0100,
-	        "JMicron",
-	        "USB to ATA/ATAPI Bridge",
-	        US_SC_DEVICE, US_PR_DEVICE, NULL,
-	        US_FL_IGNORE_RESIDUE ),
+		"JMicron",
+		"USB to ATA/ATAPI Bridge",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE | US_FL_SANE_SENSE ),
 
 /* Reported by Robert Schedel <r.schedel@yahoo.de>
  * Note: this is a 'super top' device like the above 14cd/6600 device */
@@ -1944,16 +2051,6 @@ UNUSUAL_DEV(  0x1652, 0x6600, 0x0201, 0x0201,
 		"HD-35PUK-B",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE ),
-
-/* Reported by Mauro Andreolini <andreoli@weblab.ing.unimo.it>
- * This entry is needed to bypass the ZeroCD mechanism
- * and to properly load as a modem device.
- */
-UNUSUAL_DEV(  0x19d2, 0x2000, 0x0000, 0x0000,
-		"Onda ET502HS",
-		"USB MMC Storage",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_DEVICE),
 
 UNUSUAL_DEV( 0x2116, 0x0320, 0x0001, 0x0001,
 		"ST",

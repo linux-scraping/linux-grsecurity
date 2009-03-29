@@ -139,12 +139,12 @@ struct tty_ldisc_ops {
 
 	struct  module *owner;
 	
-	int refcount;
+	atomic_t refcount;
 };
 
 struct tty_ldisc {
 	struct tty_ldisc_ops *ops;
-	int refcount;
+	atomic_t refcount;
 };
 
 #define TTY_LDISC_MAGIC	0x5403

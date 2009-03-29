@@ -269,7 +269,7 @@ struct hvcs_struct {
 	unsigned int index;
 
 	struct tty_struct *tty;
-	unsigned int open_count;
+	int open_count;
 
 	/*
 	 * Used to tell the driver kernel_thread what operations need to take
@@ -1138,15 +1138,6 @@ static int hvcs_open(struct tty_struct *tty, struct file *filp)
 	hvcsd->open_count = 1;
 	hvcsd->tty = tty;
 	tty->driver_data = hvcsd;
-
-	/*
-	 * Set this driver to low latency so that we actually have a chance at
-	 * catching a throttled TTY after we flip_buffer_push.  Otherwise the
-	 * flush_to_async may not execute until after the kernel_thread has
-	 * yielded and resumed the next flip_buffer_push resulting in data
-	 * loss.
-	 */
-	tty->low_latency = 1;
 
 	memset(&hvcsd->buffer[0], 0x00, HVCS_BUFF_LEN);
 

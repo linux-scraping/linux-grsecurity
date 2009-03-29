@@ -830,6 +830,7 @@ enum mismatch {
 	INIT_TO_EXIT,
 	EXIT_TO_INIT,
 	EXPORT_TO_INIT_EXIT,
+	DATA_TO_TEXT
 };
 
 struct sectioncheck {
@@ -891,6 +892,12 @@ const struct sectioncheck sectioncheck[] = {
 	.fromsec = { "__ksymtab*", NULL },
 	.tosec   = { INIT_SECTIONS, EXIT_SECTIONS, NULL },
 	.mismatch = EXPORT_TO_INIT_EXIT
+},
+/* Do not reference code from writable data */
+{
+	.fromsec = { DATA_SECTIONS, NULL },
+	.tosec   = { TEXT_SECTIONS, NULL },
+	.mismatch = DATA_TO_TEXT
 }
 };
 
@@ -1249,6 +1256,14 @@ static void report_sec_mismatch(const char *modname, enum mismatch mismatch,
 		"Fix this by removing the %sannotation of %s "
 		"or drop the export.\n",
 		tosym, sec2annotation(tosec), sec2annotation(tosec), tosym);
+	case DATA_TO_TEXT:
+/*
+		fprintf(stderr,
+		"The variable %s references\n"
+		"the %s %s%s%s\n"
+		fromsym, to, sec2annotation(tosec), tosym, to_p);
+*/
+		break;
 	case NO_MISMATCH:
 		/* To get warnings on missing members */
 		break;

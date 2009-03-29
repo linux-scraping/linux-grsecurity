@@ -18,7 +18,6 @@
 #include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
-#include <linux/smp_lock.h>
 #include <linux/mount.h>
 #include <linux/nsproxy.h>
 #include <net/net_namespace.h>
@@ -105,12 +104,15 @@ static struct net *get_proc_task_net(struct inode *dir)
 	struct task_struct *task;
 	struct nsproxy *ns;
 	struct net *net = NULL;
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	const struct cred *cred = current_cred();
+#endif
 
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-	if (current->fsuid)
+	if (cred->fsuid)
 		return net;
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	if (current->fsuid && !in_group_p(CONFIG_GRKERNSEC_PROC_GID))
+	if (cred->fsuid && !in_group_p(CONFIG_GRKERNSEC_PROC_GID))
 		return net;
 #endif
 
@@ -180,6 +182,7 @@ static int proc_tgid_net_readdir(struct file *filp, void *dirent,
 }
 
 const struct file_operations proc_net_operations = {
+	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
 	.readdir	= proc_tgid_net_readdir,
 };

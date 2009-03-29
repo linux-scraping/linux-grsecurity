@@ -117,6 +117,7 @@ repeat:
 		crst_table_init(table, entry);
 		pgd_populate(mm, (pgd_t *) table, (pud_t *) pgd);
 		mm->pgd = (pgd_t *) table;
+		mm->task_size = mm->context.asce_limit;
 		table = NULL;
 	}
 	spin_unlock(&mm->page_table_lock);
@@ -154,6 +155,7 @@ void crst_table_downgrade(struct mm_struct *mm, unsigned long limit)
 			BUG();
 		}
 		mm->pgd = (pgd_t *) (pgd_val(*pgd) & _REGION_ENTRY_ORIGIN);
+		mm->task_size = mm->context.asce_limit;
 		crst_table_free(mm, (unsigned long *) pgd);
 	}
 	update_mm(mm, current);
@@ -263,7 +265,7 @@ int s390_enable_sie(void)
 	/* lets check if we are allowed to replace the mm */
 	task_lock(tsk);
 	if (!tsk->mm || atomic_read(&tsk->mm->mm_users) > 1 ||
-	    tsk->mm != tsk->active_mm || tsk->mm->ioctx_list) {
+	    tsk->mm != tsk->active_mm || !hlist_empty(&tsk->mm->ioctx_list)) {
 		task_unlock(tsk);
 		return -EINVAL;
 	}
@@ -279,7 +281,7 @@ int s390_enable_sie(void)
 	/* Now lets check again if something happened */
 	task_lock(tsk);
 	if (!tsk->mm || atomic_read(&tsk->mm->mm_users) > 1 ||
-	    tsk->mm != tsk->active_mm || tsk->mm->ioctx_list) {
+	    tsk->mm != tsk->active_mm || !hlist_empty(&tsk->mm->ioctx_list)) {
 		mmput(mm);
 		task_unlock(tsk);
 		return -EINVAL;

@@ -1187,6 +1187,9 @@ compat_sys_readv(unsigned long fd, const struct compat_iovec __user *vec, unsign
 	ret = compat_do_readv_writev(READ, file, vec, vlen, &file->f_pos);
 
 out:
+	if (ret > 0)
+		add_rchar(current, ret);
+	inc_syscr(current);
 	fput(file);
 	return ret;
 }
@@ -1210,6 +1213,9 @@ compat_sys_writev(unsigned long fd, const struct compat_iovec __user *vec, unsig
 	ret = compat_do_readv_writev(WRITE, file, vec, vlen, &file->f_pos);
 
 out:
+	if (ret > 0)
+		add_wchar(current, ret);
+	inc_syscw(current);
 	fput(file);
 	return ret;
 }
@@ -1396,10 +1402,20 @@ int compat_do_execve(char * filename,
 	if (!bprm)
 		goto out_ret;
 
+	retval = mutex_lock_interruptible(&current->cred_exec_mutex);
+	if (retval < 0)
+		goto out_free;
+
+	retval = -ENOMEM;
+	bprm->cred = prepare_exec_creds();
+	if (!bprm->cred)
+		goto out_unlock;
+	check_unsafe_exec(bprm, current->files);
+
 	file = open_exec(filename);
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
-		goto out_kfree;
+		goto out_unlock;
 
 	sched_exec();
 
@@ -1407,7 +1423,7 @@ int compat_do_execve(char * filename,
 	bprm->filename = filename;
 	bprm->interp = filename;
 
-	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->user->processes), 1);
+	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
 	retval = -EAGAIN;
 	if (gr_handle_nproc())
 		goto out_file;
@@ -1421,14 +1437,10 @@ int compat_do_execve(char * filename,
 
 	bprm->argc = compat_count(argv, MAX_ARG_STRINGS);
 	if ((retval = bprm->argc) < 0)
-		goto out_mm;
+		goto out;
 
 	bprm->envc = compat_count(envp, MAX_ARG_STRINGS);
 	if ((retval = bprm->envc) < 0)
-		goto out_mm;
-
-	retval = security_bprm_alloc(bprm);
-	if (retval)
 		goto out;
 
 	retval = prepare_binprm(bprm);
@@ -1470,21 +1482,25 @@ int compat_do_execve(char * filename,
 	current->exec_file = file;
 #endif
 
-	gr_set_proc_label(file->f_dentry, file->f_vfsmnt);
+	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt);
+	if (retval < 0)
+		goto out_fail;
 
 	retval = search_binary_handler(bprm, regs);
-	if (retval >= 0) {
+	if (retval < 0)
+		goto out_fail;
 #ifdef CONFIG_GRKERNSEC
-		if (old_exec_file)
-			fput(old_exec_file);
+	if (old_exec_file)
+		fput(old_exec_file);
 #endif
-		/* execve success */
-		security_bprm_free(bprm);
-		acct_update_integrals(current);
-		free_bprm(bprm);
-		return retval;
-	}
 
+	/* execve succeeded */
+	mutex_unlock(&current->cred_exec_mutex);
+	acct_update_integrals(current);
+	free_bprm(bprm);
+	return retval;
+
+out_fail:
 #ifdef CONFIG_GRKERNSEC
 	current->acl = old_acl;
 	memcpy(current->signal->rlim, old_rlim, sizeof(old_rlim));
@@ -1493,10 +1509,6 @@ int compat_do_execve(char * filename,
 #endif
 
 out:
-	if (bprm->security)
-		security_bprm_free(bprm);
-
-out_mm:
 	if (bprm->mm)
 		mmput(bprm->mm);
 
@@ -1506,7 +1518,10 @@ out_file:
 		fput(bprm->file);
 	}
 
-out_kfree:
+out_unlock:
+	mutex_unlock(&current->cred_exec_mutex);
+
+out_free:
 	free_bprm(bprm);
 
 out_ret:

@@ -262,11 +262,11 @@ void __init setup_bootmem_allocator(unsigned long free_pfn)
 			BOOTMEM_DEFAULT);
 
 	/*
-	 * reserve physical page 0 - it's a special BIOS page on many boxes,
-	 * enabling clean reboots, SMP operation, laptop functions.
+	 * Reserve physical pages below CONFIG_ZERO_PAGE_OFFSET.
 	 */
-	reserve_bootmem(__MEMORY_START, CONFIG_ZERO_PAGE_OFFSET,
-			BOOTMEM_DEFAULT);
+	if (CONFIG_ZERO_PAGE_OFFSET != 0)
+		reserve_bootmem(__MEMORY_START, CONFIG_ZERO_PAGE_OFFSET,
+				BOOTMEM_DEFAULT);
 
 	sparse_memory_present_with_active_regions(0);
 
@@ -417,6 +417,7 @@ void __init setup_arch(char **cmdline_p)
 }
 
 static const char *cpu_name[] = {
+	[CPU_SH7201]	= "SH7201",
 	[CPU_SH7203]	= "SH7203",	[CPU_SH7263]	= "SH7263",
 	[CPU_SH7206]	= "SH7206",	[CPU_SH7619]	= "SH7619",
 	[CPU_SH7705]	= "SH7705",	[CPU_SH7706]	= "SH7706",
