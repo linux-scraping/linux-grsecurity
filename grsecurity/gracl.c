@@ -1701,7 +1701,7 @@ chk_glob_label(struct acl_object_label *globbed,
 static struct acl_object_label *
 __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	    const ino_t curr_ino, const dev_t curr_dev,
-	    const struct acl_subject_label *subj, char **path)
+	    const struct acl_subject_label *subj, char **path, const int checkglob)
 {
 	struct acl_subject_label *tmpsubj;
 	struct acl_object_label *retval;
@@ -1712,7 +1712,7 @@ __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	do {
 		retval = lookup_acl_obj_label(curr_ino, curr_dev, tmpsubj);
 		if (retval) {
-			if (retval->globbed) {
+			if (checkglob && retval->globbed) {
 				retval2 = chk_glob_label(retval->globbed, (struct dentry *)orig_dentry,
 						(struct vfsmount *)orig_mnt, path);
 				if (retval2)
@@ -1729,16 +1729,16 @@ __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 static __inline__ struct acl_object_label *
 full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	    const struct dentry *curr_dentry,
-	    const struct acl_subject_label *subj, char **path)
+	    const struct acl_subject_label *subj, char **path, const int checkglob)
 {
 	return __full_lookup(orig_dentry, orig_mnt,
 			     curr_dentry->d_inode->i_ino, 
-			     curr_dentry->d_inode->i_sb->s_dev, subj, path);
+			     curr_dentry->d_inode->i_sb->s_dev, subj, path, checkglob);
 }
 
 static struct acl_object_label *
 __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
-	      const struct acl_subject_label *subj, char *path)
+	      const struct acl_subject_label *subj, char *path, const int checkglob)
 {
 	struct dentry *dentry = (struct dentry *) l_dentry;
 	struct vfsmount *mnt = (struct vfsmount *) l_mnt;
@@ -1761,7 +1761,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			if (mnt->mnt_parent == mnt)
 				break;
 
-			retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path);
+			retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path, checkglob);
 			if (retval != NULL)
 				goto out;
 
@@ -1770,17 +1770,17 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			continue;
 		}
 
-		retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path);
+		retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path, checkglob);
 		if (retval != NULL)
 			goto out;
 
 		dentry = dentry->d_parent;
 	}
 
-	retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path);
+	retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path, checkglob);
 
 	if (retval == NULL)
-		retval = full_lookup(l_dentry, l_mnt, real_root, subj, &path);
+		retval = full_lookup(l_dentry, l_mnt, real_root, subj, &path, checkglob);
 out:
 	spin_unlock(&dcache_lock);
 	return retval;
@@ -1791,14 +1791,22 @@ chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	      const struct acl_subject_label *subj)
 {
 	char *path = NULL;
-	return __chk_obj_label(l_dentry, l_mnt, subj, path);
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, 1);
+}
+
+static __inline__ struct acl_object_label *
+chk_obj_label_noglob(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
+	      const struct acl_subject_label *subj)
+{
+	char *path = NULL;
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, 0);
 }
 
 static __inline__ struct acl_object_label *
 chk_obj_create_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		     const struct acl_subject_label *subj, char *path)
 {
-	return __chk_obj_label(l_dentry, l_mnt, subj, path);
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, 1);
 }
 
 static struct acl_subject_label *
@@ -3703,7 +3711,13 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 			return (obj->mode & GR_FIND) ? 1 : 0;
 	} while ((subj = subj->parent_subject));
 	
-	obj = chk_obj_label(dentry, mnt, task->acl);
+	/* this is purely an optimization since we're looking for an object
+	   for the directory we're doing a readdir on
+	   if it's possible for any globbed object to match the entry we're
+	   filling into the directory, then the object we find here will be
+	   an anchor point with attached globbed objects
+	*/
+	obj = chk_obj_label_noglob(dentry, mnt, task->acl);
 	if (obj->globbed == NULL)
 		return (obj->mode & GR_FIND) ? 1 : 0;
 

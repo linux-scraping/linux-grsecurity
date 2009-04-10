@@ -1090,8 +1090,18 @@ ath5k_mode_setup(struct ath5k_softc *sc)
 static inline int
 ath5k_hw_to_driver_rix(struct ath5k_softc *sc, int hw_rix)
 {
-	WARN_ON(hw_rix < 0 || hw_rix > AR5K_MAX_RATES);
-	return sc->rate_idx[sc->curband->band][hw_rix];
+	int rix;
+
+	/* return base rate on errors */
+	if (WARN(hw_rix < 0 || hw_rix >= AR5K_MAX_RATES,
+			"hw_rix out of bounds: %x\n", hw_rix))
+		return 0;
+
+	rix = sc->rate_idx[sc->curband->band][hw_rix];
+	if (WARN(rix < 0, "invalid hw_rix: %x\n", hw_rix))
+		rix = 0;
+
+	return rix;
 }
 
 /***************\
@@ -1668,7 +1678,6 @@ ath5k_check_ibss_tsf(struct ath5k_softc *sc, struct sk_buff *skb,
 	}
 }
 
-
 static void
 ath5k_tasklet_rx(unsigned long data)
 {
@@ -2188,6 +2197,7 @@ static void
 ath5k_beacon_config(struct ath5k_softc *sc)
 {
 	struct ath5k_hw *ah = sc->ah;
+	unsigned long flags;
 
 	ath5k_hw_set_imr(ah, 0);
 	sc->bmisscount = 0;
@@ -2211,9 +2221,9 @@ ath5k_beacon_config(struct ath5k_softc *sc)
 
 		if (sc->opmode == NL80211_IFTYPE_ADHOC) {
 			if (ath5k_hw_hasveol(ah)) {
-				spin_lock(&sc->block);
+				spin_lock_irqsave(&sc->block, flags);
 				ath5k_beacon_send(sc);
-				spin_unlock(&sc->block);
+				spin_unlock_irqrestore(&sc->block, flags);
 			}
 		} else
 			ath5k_beacon_update_timers(sc, -1);
@@ -2259,7 +2269,7 @@ ath5k_init(struct ath5k_softc *sc, bool is_resume)
 	sc->curband = &sc->sbands[sc->curchan->band];
 	sc->imask = AR5K_INT_RXOK | AR5K_INT_RXERR | AR5K_INT_RXEOL |
 		AR5K_INT_RXORN | AR5K_INT_TXDESC | AR5K_INT_TXEOL |
-		AR5K_INT_FATAL | AR5K_INT_GLOBAL | AR5K_INT_MIB;
+		AR5K_INT_FATAL | AR5K_INT_GLOBAL;
 	ret = ath5k_reset(sc, false, false);
 	if (ret)
 		goto done;

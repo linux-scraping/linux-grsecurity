@@ -1083,6 +1083,8 @@ EXPORT_SYMBOL(regulatory_hint);
 static bool reg_same_country_ie_hint(struct wiphy *wiphy,
 			u32 country_ie_checksum)
 {
+	if (unlikely(last_request->initiator != REGDOM_SET_BY_COUNTRY_IE))
+		return false;
 	if (!last_request->wiphy)
 		return false;
 	if (likely(last_request->wiphy != wiphy))
@@ -1133,7 +1135,9 @@ void regulatory_hint_11d(struct wiphy *wiphy,
 	/* We will run this for *every* beacon processed for the BSSID, so
 	 * we optimize an early check to exit out early if we don't have to
 	 * do anything */
-	if (likely(last_request->wiphy)) {
+	if (likely(last_request->initiator ==
+	    REGDOM_SET_BY_COUNTRY_IE &&
+	    likely(last_request->wiphy))) {
 		struct cfg80211_registered_device *drv_last_ie;
 
 		drv_last_ie = wiphy_to_dev(last_request->wiphy);
@@ -1469,13 +1473,20 @@ int regulatory_init(void)
 
 	printk(KERN_INFO "cfg80211: Using static regulatory domain info\n");
 	print_regdomain_info(cfg80211_regdomain);
-	/* The old code still requests for a new regdomain and if
+	/*
+	 * The old code still requests for a new regdomain and if
 	 * you have CRDA you get it updated, otherwise you get
 	 * stuck with the static values. We ignore "EU" code as
-	 * that is not a valid ISO / IEC 3166 alpha2 */
-	if (ieee80211_regdom[0] != 'E' || ieee80211_regdom[1] != 'U')
-		err = __regulatory_hint(NULL, REGDOM_SET_BY_CORE,
-					ieee80211_regdom, 0, ENVIRON_ANY);
+	 * that is not a valid ISO / IEC 3166 alpha2
+	 * stuck with the static values. Since "EU" is not a valid
+	 * ISO / IEC 3166 alpha2 code we can't expect userpace to
+	 * give us a regulatory domain for it. We need last_request
+	 * iniitalized though so lets just send a request which we
+	 * know will be ignored... this crap will be removed once
+	 * OLD_REG dies.
+	 */
+	err = __regulatory_hint(NULL, REGDOM_SET_BY_CORE,
+				ieee80211_regdom, 0, ENVIRON_ANY);
 #else
 	cfg80211_regdomain = cfg80211_world_regdom;
 
