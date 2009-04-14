@@ -1675,8 +1675,12 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			if (IS_ERR(path_exec))
 				path_exec = "<path too long>";
 			else {
-				mangle_path(buffer_exec, path_exec, "\t\n\\");
-				path_exec = buffer_exec;
+				path_exec = mangle_path(buffer_exec, path_exec, "\t\n\\");
+				if (path_exec) {
+					*path_exec = 0;
+					path_exec = buffer_exec;
+				} else
+					path_exec = "<path too long>";
 			}
 		}
 		if (vma_fault) {
@@ -1688,8 +1692,12 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 				if (IS_ERR(path_fault))
 					path_fault = "<path too long>";
 				else {
-					mangle_path(buffer_fault, path_fault, "\t\n\\");
-					path_fault = buffer_fault;
+					path_fault = mangle_path(buffer_fault, path_fault, "\t\n\\");
+					if (path_fault) {
+						*path_fault = 0;
+						path_fault = buffer_fault;
+					} else
+						path_fault = "<path too long>";
 				}
 			} else
 				path_fault = "<anonymous mapping>";
