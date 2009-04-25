@@ -441,7 +441,7 @@ static DEFINE_MUTEX(smi_watchers_mutex);
 
 
 #define ipmi_inc_stat(intf, stat) \
-	atomic_inc(&(intf)->stats[IPMI_STAT_ ## stat])
+	atomic_inc_unchecked(&(intf)->stats[IPMI_STAT_ ## stat])
 #define ipmi_get_stat(intf, stat) \
 	((unsigned int) atomic_read(&(intf)->stats[IPMI_STAT_ ## stat]))
 

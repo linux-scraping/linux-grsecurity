@@ -19,7 +19,7 @@ int atm_charge(struct atm_vcc *vcc,int truesize)
 	if (atomic_read(&sk_atm(vcc)->sk_rmem_alloc) <= sk_atm(vcc)->sk_rcvbuf)
 		return 1;
 	atm_return(vcc,truesize);
-	atomic_inc(&vcc->stats->rx_drop);
+	atomic_inc_unchecked(&vcc->stats->rx_drop);
 	return 0;
 }
 
@@ -41,7 +41,7 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc,int pdu_size,
 		}
 	}
 	atm_return(vcc,guess);
-	atomic_inc(&vcc->stats->rx_drop);
+	atomic_inc_unchecked(&vcc->stats->rx_drop);
 	return NULL;
 }
 

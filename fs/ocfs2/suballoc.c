@@ -602,7 +602,7 @@ static int ocfs2_reserve_suballoc_bits(struct ocfs2_super *osb,
 				mlog_errno(status);
 			goto bail;
 		}
-		atomic_inc(&osb->alloc_stats.bg_extends);
+		atomic_inc_unchecked(&osb->alloc_stats.bg_extends);
 
 		/* You should never ask for this much metadata */
 		BUG_ON(bits_wanted >
@@ -1608,7 +1608,7 @@ int ocfs2_claim_metadata(struct ocfs2_super *osb,
 		mlog_errno(status);
 		goto bail;
 	}
-	atomic_inc(&osb->alloc_stats.bg_allocs);
+	atomic_inc_unchecked(&osb->alloc_stats.bg_allocs);
 
 	*blkno_start = bg_blkno + (u64) *suballoc_bit_start;
 	ac->ac_bits_given += (*num_bits);
@@ -1647,7 +1647,7 @@ int ocfs2_claim_new_inode(struct ocfs2_super *osb,
 		mlog_errno(status);
 		goto bail;
 	}
-	atomic_inc(&osb->alloc_stats.bg_allocs);
+	atomic_inc_unchecked(&osb->alloc_stats.bg_allocs);
 
 	BUG_ON(num_bits != 1);
 
@@ -1748,7 +1748,7 @@ int __ocfs2_claim_clusters(struct ocfs2_super *osb,
 						      cluster_start,
 						      num_clusters);
 		if (!status)
-			atomic_inc(&osb->alloc_stats.local_data);
+			atomic_inc_unchecked(&osb->alloc_stats.local_data);
 	} else {
 		if (min_clusters > (osb->bitmap_cpg - 1)) {
 			/* The only paths asking for contiguousness
@@ -1776,7 +1776,7 @@ int __ocfs2_claim_clusters(struct ocfs2_super *osb,
 				ocfs2_desc_bitmap_to_cluster_off(ac->ac_inode,
 								 bg_blkno,
 								 bg_bit_off);
-			atomic_inc(&osb->alloc_stats.bitmap_data);
+			atomic_inc_unchecked(&osb->alloc_stats.bitmap_data);
 		}
 	}
 	if (status < 0) {

@@ -14,11 +14,13 @@ static inline void switch_mm(struct mm_struct *prev,
 			     struct task_struct *tsk)
 {
 	int cpu = smp_processor_id();
+	int tlbstate = TLBSTATE_OK;
 
 	if (likely(prev != next)) {
 		/* stop flush ipis for the previous mm */
 		cpu_clear(cpu, prev->cpu_vm_mask);
 #ifdef CONFIG_SMP
+		tlbstate = x86_read_percpu(cpu_tlbstate.state);
 		x86_write_percpu(cpu_tlbstate.state, TLBSTATE_OK);
 		x86_write_percpu(cpu_tlbstate.active_mm, next);
 #endif
@@ -44,7 +46,8 @@ static inline void switch_mm(struct mm_struct *prev,
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
-			     prev->context.user_cs_limit != next->context.user_cs_limit))
+			     prev->context.user_cs_limit != next->context.user_cs_limit ||
+			     tlbstate != TLBSTATE_OK))
 			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
 #endif
 

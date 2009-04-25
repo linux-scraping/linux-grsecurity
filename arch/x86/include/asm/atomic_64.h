@@ -141,6 +141,19 @@ static inline void atomic_inc(atomic_t *v)
 }
 
 /**
+ * atomic_inc_unchecked - increment atomic variable
+ * @v: pointer of type atomic_t
+ *
+ * Atomically increments @v by 1.
+ */
+static inline void atomic_inc_unchecked(atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "incl %0\n"
+		     : "=m" (v->counter)
+		     : "m" (v->counter));
+}
+
+/**
  * atomic_dec - decrement atomic variable
  * @v: pointer of type atomic_t
  *

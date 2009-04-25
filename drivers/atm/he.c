@@ -1728,7 +1728,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 
 		if (RBRQ_HBUF_ERR(he_dev->rbrq_head)) {
 			hprintk("HBUF_ERR!  (cid 0x%x)\n", cid);
-				atomic_inc(&vcc->stats->rx_drop);
+				atomic_inc_unchecked(&vcc->stats->rx_drop);
 			goto return_host_buffers;
 		}
 
@@ -1761,7 +1761,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 				RBRQ_LEN_ERR(he_dev->rbrq_head)
 							? "LEN_ERR" : "",
 							vcc->vpi, vcc->vci);
-			atomic_inc(&vcc->stats->rx_err);
+			atomic_inc_unchecked(&vcc->stats->rx_err);
 			goto return_host_buffers;
 		}
 
@@ -1820,7 +1820,7 @@ he_service_rbrq(struct he_dev *he_dev, int group)
 		vcc->push(vcc, skb);
 		spin_lock(&he_dev->global_lock);
 
-		atomic_inc(&vcc->stats->rx);
+		atomic_inc_unchecked(&vcc->stats->rx);
 
 return_host_buffers:
 		++pdus_assembled;
@@ -2673,7 +2673,7 @@ he_send(struct atm_vcc *vcc, struct sk_buff *skb)
 	__enqueue_tpd(he_dev, tpd, cid);
 	spin_unlock_irqrestore(&he_dev->global_lock, flags);
 
-	atomic_inc(&vcc->stats->tx);
+	atomic_inc_unchecked(&vcc->stats->tx);
 
 	return 0;
 }

@@ -534,7 +534,7 @@ struct fc_exch *fc_exch_alloc(struct fc_exch_mgr *mp,
 	/* allocate memory for exchange */
 	ep = mempool_alloc(mp->ep_pool, GFP_ATOMIC);
 	if (!ep) {
-		atomic_inc(&mp->stats.no_free_exch);
+		atomic_inc_unchecked(&mp->stats.no_free_exch);
 		goto out;
 	}
 	memset(ep, 0, sizeof(*ep));
@@ -579,7 +579,7 @@ out:
 	return ep;
 err:
 	spin_unlock_bh(&mp->em_lock);
-	atomic_inc(&mp->stats.no_free_exch_xid);
+	atomic_inc_unchecked(&mp->stats.no_free_exch_xid);
 	mempool_free(ep, mp->ep_pool);
 	return NULL;
 }
@@ -682,7 +682,7 @@ static enum fc_pf_rjt_reason fc_seq_lookup_recip(struct fc_exch_mgr *mp,
 		xid = ntohs(fh->fh_ox_id);	/* we originated exch */
 		ep = fc_exch_find(mp, xid);
 		if (!ep) {
-			atomic_inc(&mp->stats.xid_not_found);
+			atomic_inc_unchecked(&mp->stats.xid_not_found);
 			reject = FC_RJT_OX_ID;
 			goto out;
 		}
@@ -712,7 +712,7 @@ static enum fc_pf_rjt_reason fc_seq_lookup_recip(struct fc_exch_mgr *mp,
 		ep = fc_exch_find(mp, xid);
 		if ((f_ctl & FC_FC_FIRST_SEQ) && fc_sof_is_init(fr_sof(fp))) {
 			if (ep) {
-				atomic_inc(&mp->stats.xid_busy);
+				atomic_inc_unchecked(&mp->stats.xid_busy);
 				reject = FC_RJT_RX_ID;
 				goto rel;
 			}
@@ -723,7 +723,7 @@ static enum fc_pf_rjt_reason fc_seq_lookup_recip(struct fc_exch_mgr *mp,
 			}
 			xid = ep->xid;	/* get our XID */
 		} else if (!ep) {
-			atomic_inc(&mp->stats.xid_not_found);
+			atomic_inc_unchecked(&mp->stats.xid_not_found);
 			reject = FC_RJT_RX_ID;	/* XID not found */
 			goto out;
 		}
@@ -744,7 +744,7 @@ static enum fc_pf_rjt_reason fc_seq_lookup_recip(struct fc_exch_mgr *mp,
 	} else {
 		sp = &ep->seq;
 		if (sp->id != fh->fh_seq_id) {
-			atomic_inc(&mp->stats.seq_not_found);
+			atomic_inc_unchecked(&mp->stats.seq_not_found);
 			reject = FC_RJT_SEQ_ID;	/* sequence/exch should exist */
 			goto rel;
 		}
@@ -1156,18 +1156,18 @@ static void fc_exch_recv_seq_resp(struct fc_exch_mgr *mp, struct fc_frame *fp)
 
 	ep = fc_exch_find(mp, ntohs(fh->fh_ox_id));
 	if (!ep) {
-		atomic_inc(&mp->stats.xid_not_found);
+		atomic_inc_unchecked(&mp->stats.xid_not_found);
 		goto out;
 	}
 	if (ep->rxid == FC_XID_UNKNOWN)
 		ep->rxid = ntohs(fh->fh_rx_id);
 	if (ep->sid != 0 && ep->sid != ntoh24(fh->fh_d_id)) {
-		atomic_inc(&mp->stats.xid_not_found);
+		atomic_inc_unchecked(&mp->stats.xid_not_found);
 		goto rel;
 	}
 	if (ep->did != ntoh24(fh->fh_s_id) &&
 	    ep->did != FC_FID_FLOGI) {
-		atomic_inc(&mp->stats.xid_not_found);
+		atomic_inc_unchecked(&mp->stats.xid_not_found);
 		goto rel;
 	}
 	sof = fr_sof(fp);
@@ -1178,7 +1178,7 @@ static void fc_exch_recv_seq_resp(struct fc_exch_mgr *mp, struct fc_frame *fp)
 	} else {
 		sp = &ep->seq;
 		if (sp->id != fh->fh_seq_id) {
-			atomic_inc(&mp->stats.seq_not_found);
+			atomic_inc_unchecked(&mp->stats.seq_not_found);
 			goto rel;
 		}
 	}
@@ -1237,10 +1237,10 @@ static void fc_exch_recv_resp(struct fc_exch_mgr *mp, struct fc_frame *fp)
 
 	sp = fc_seq_lookup_orig(mp, fp);	/* doesn't hold sequence */
 	if (!sp) {
-		atomic_inc(&mp->stats.xid_not_found);
+		atomic_inc_unchecked(&mp->stats.xid_not_found);
 		FC_DEBUG_EXCH("seq lookup failed\n");
 	} else {
-		atomic_inc(&mp->stats.non_bls_resp);
+		atomic_inc_unchecked(&mp->stats.non_bls_resp);
 		FC_DEBUG_EXCH("non-BLS response to sequence");
 	}
 	fc_frame_free(fp);

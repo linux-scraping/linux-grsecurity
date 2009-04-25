@@ -49,7 +49,7 @@ static DEFINE_SPINLOCK(sunis_lock);
 
 
 #define ADD_LIMITED(s,v) \
-    atomic_add((v),&stats->s); \
+    atomic_add_unchecked((v),&stats->s); \
     if (atomic_read(&stats->s) < 0) atomic_set(&stats->s,INT_MAX);
 
 

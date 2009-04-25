@@ -42,7 +42,7 @@ static atomic_t buffer_ready = ATOMIC_INIT(0);
 void add_event_entry(unsigned long value)
 {
 	if (buffer_pos == buffer_size) {
-		atomic_inc(&oprofile_stats.event_lost_overflow);
+		atomic_inc_unchecked(&oprofile_stats.event_lost_overflow);
 		return;
 	}
 

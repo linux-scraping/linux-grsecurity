@@ -261,7 +261,7 @@ void solos_bh(unsigned long card_arg)
 				}
 				atm_charge(vcc, skb->truesize);
 				vcc->push(vcc, skb);
-				atomic_inc(&vcc->stats->rx);
+				atomic_inc_unchecked(&vcc->stats->rx);
 				break;
 
 			case PKT_COMMAND:
@@ -487,7 +487,7 @@ static int fpga_tx(struct solos_card *card)
 			vcc = *(void **)skb->cb;
 
 			if (vcc) {
-				atomic_inc(&vcc->stats->tx);
+				atomic_inc_unchecked(&vcc->stats->tx);
 				solos_pop(vcc, skb);
 			} else
 				dev_kfree_skb_irq(skb);
@@ -517,9 +517,9 @@ static int psend(struct atm_vcc *vcc, struct sk_buff *skb)
 			memcpy(skb2->data, skb->data, skb->len);
 			skb_put(skb2, skb->len);
 			vcc->push(vcc, skb2);
-			atomic_inc(&vcc->stats->rx);
+			atomic_inc_unchecked(&vcc->stats->rx);
 		}
-		atomic_inc(&vcc->stats->tx);
+		atomic_inc_unchecked(&vcc->stats->tx);
 		solos_pop(vcc, skb);
 		return 0;
 	}

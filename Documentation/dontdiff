@@ -109,6 +109,7 @@ gen_crc32table
 gen_init_cpio
 genksyms
 *_gray256.c
+hash
 ihex2fw
 ikconfig.h*
 initramfs_data.cpio
@@ -170,6 +171,7 @@ setup
 setup.bin
 setup.elf
 sImage
+slabinfo
 sm_tbl*
 split-include
 syscalltab.h

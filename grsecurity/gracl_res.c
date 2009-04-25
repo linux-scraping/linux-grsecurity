@@ -42,6 +42,10 @@ gr_log_resource(const struct task_struct *task,
 	if (!gr_acl_is_enabled() && !grsec_resource_logging)
 		return;
 
+	// not yet supported resource
+	if (!restab_log[res])
+		return;
+
 	preempt_disable();
 
 	if (unlikely(((gt && wanted > task->signal->rlim[res].rlim_cur) ||

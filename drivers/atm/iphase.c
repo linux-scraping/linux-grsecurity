@@ -1125,7 +1125,7 @@ static int rx_pkt(struct atm_dev *dev)
 	status = (u_short) (buf_desc_ptr->desc_mode);  
 	if (status & (RX_CER | RX_PTE | RX_OFL))  
 	{  
-                atomic_inc(&vcc->stats->rx_err);
+                atomic_inc_unchecked(&vcc->stats->rx_err);
 		IF_ERR(printk("IA: bad packet, dropping it");)  
                 if (status & RX_CER) { 
                     IF_ERR(printk(" cause: packet CRC error\n");)
@@ -1148,7 +1148,7 @@ static int rx_pkt(struct atm_dev *dev)
 	len = dma_addr - buf_addr;  
         if (len > iadev->rx_buf_sz) {
            printk("Over %d bytes sdu received, dropped!!!\n", iadev->rx_buf_sz);
-           atomic_inc(&vcc->stats->rx_err);
+           atomic_inc_unchecked(&vcc->stats->rx_err);
 	   goto out_free_desc;
         }
 		  
@@ -1298,7 +1298,7 @@ static void rx_dle_intr(struct atm_dev *dev)
           ia_vcc = INPH_IA_VCC(vcc);
           if (ia_vcc == NULL)
           {
-             atomic_inc(&vcc->stats->rx_err);
+             atomic_inc_unchecked(&vcc->stats->rx_err);
              dev_kfree_skb_any(skb);
              atm_return(vcc, atm_guess_pdu2truesize(len));
              goto INCR_DLE;
@@ -1310,7 +1310,7 @@ static void rx_dle_intr(struct atm_dev *dev)
           if ((length > iadev->rx_buf_sz) || (length > 
                               (skb->len - sizeof(struct cpcs_trailer))))
           {
-             atomic_inc(&vcc->stats->rx_err);
+             atomic_inc_unchecked(&vcc->stats->rx_err);
              IF_ERR(printk("rx_dle_intr: Bad  AAL5 trailer %d (skb len %d)", 
                                                             length, skb->len);)
              dev_kfree_skb_any(skb);
@@ -1326,7 +1326,7 @@ static void rx_dle_intr(struct atm_dev *dev)
 
 	  IF_RX(printk("rx_dle_intr: skb push");)  
 	  vcc->push(vcc,skb);  
-	  atomic_inc(&vcc->stats->rx);
+	  atomic_inc_unchecked(&vcc->stats->rx);
           iadev->rx_pkt_cnt++;
       }  
 INCR_DLE:
@@ -2921,7 +2921,7 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
 	if ((desc == 0) || (desc > iadev->num_tx_desc))  
 	{  
 		IF_ERR(printk(DEV_LABEL "invalid desc for send: %d\n", desc);) 
-                atomic_inc(&vcc->stats->tx);
+                atomic_inc_unchecked(&vcc->stats->tx);
 		if (vcc->pop)   
 		    vcc->pop(vcc, skb);   
 		else  
@@ -3026,7 +3026,7 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
         ATM_DESC(skb) = vcc->vci;
         skb_queue_tail(&iadev->tx_dma_q, skb);
 
-        atomic_inc(&vcc->stats->tx);
+        atomic_inc_unchecked(&vcc->stats->tx);
         iadev->tx_pkt_cnt++;
 	/* Increment transaction counter */  
 	writel(2, iadev->dma+IPHASE5575_TX_COUNTER);  
