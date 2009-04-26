@@ -204,7 +204,7 @@ chk_conflict(struct memtype *new, struct memtype *entry, unsigned long *type)
 
  conflict:
 	printk(KERN_INFO "%s:%d conflicting memory types "
-	       "%Lx-%Lx %s<->%s\n", current->comm, current->pid, new->start,
+	       "%Lx-%Lx %s<->%s\n", current->comm, task_pid_nr(current), new->start,
 	       new->end, cattr_name(new->type), cattr_name(entry->type));
 	return -EBUSY;
 }
@@ -488,7 +488,7 @@ int free_memtype(u64 start, u64 end)
 
 	if (err) {
 		printk(KERN_INFO "%s:%d freeing invalid memtype %Lx-%Lx\n",
-			current->comm, current->pid, start, end);
+			current->comm, task_pid_nr(current), start, end);
 	}
 
 	dprintk("free_memtype request 0x%Lx-0x%Lx\n", start, end);
@@ -590,7 +590,7 @@ int phys_mem_access_prot_allowed(struct file *file, unsigned long pfn,
 		free_memtype(offset, offset + size);
 		printk(KERN_INFO
 		"%s:%d /dev/mem ioremap_change_attr failed %s for %Lx-%Lx\n",
-			current->comm, current->pid,
+			current->comm, task_pid_nr(current),
 			cattr_name(flags),
 			offset, (unsigned long long)(offset + size));
 		return 0;
@@ -611,7 +611,7 @@ void map_devmem(unsigned long pfn, unsigned long size, pgprot_t vma_prot)
 	if (flags != want_flags) {
 		printk(KERN_INFO
 		"%s:%d /dev/mem expected mapping type %s for %Lx-%Lx, got %s\n",
-			current->comm, current->pid,
+			current->comm, task_pid_nr(current),
 			cattr_name(want_flags),
 			addr, (unsigned long long)(addr + size),
 			cattr_name(flags));
@@ -656,7 +656,7 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 			free_memtype(paddr, paddr + size);
 			printk(KERN_ERR "%s:%d map pfn expected mapping type %s"
 				" for %Lx-%Lx, got %s\n",
-				current->comm, current->pid,
+				current->comm, task_pid_nr(current),
 				cattr_name(want_flags),
 				(unsigned long long)paddr,
 				(unsigned long long)(paddr + size),
@@ -685,7 +685,7 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 		printk(KERN_ERR
 			"%s:%d reserve_pfn_range ioremap_change_attr failed %s "
 			"for %Lx-%Lx\n",
-			current->comm, current->pid,
+			current->comm, task_pid_nr(current),
 			cattr_name(flags),
 			(unsigned long long)paddr,
 			(unsigned long long)(paddr + size));

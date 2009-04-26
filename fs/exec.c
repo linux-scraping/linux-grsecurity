@@ -1733,6 +1733,20 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 }
 #endif
 
+void pax_report_leak_to_user(const void *ptr, unsigned long len)
+{
+	printk(KERN_ERR "PAX: kernel memory leak attempt detected from %p (%lu bytes)\n", ptr, len);
+	dump_stack();
+	do_group_exit(SIGKILL);
+}
+
+void pax_report_overflow_from_user(const void *ptr, unsigned long len)
+{
+	printk(KERN_ERR "PAX: kernel memory overflow attempt detected to %p (%lu bytes)\n", ptr, len);
+	dump_stack();
+	do_group_exit(SIGKILL);
+}
+
 static int zap_process(struct task_struct *start)
 {
 	struct task_struct *t;

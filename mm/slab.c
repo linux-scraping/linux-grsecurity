@@ -4439,6 +4439,40 @@ static int __init slab_proc_init(void)
 module_init(slab_proc_init);
 #endif
 
+void check_object_size(const void *ptr, unsigned long n, bool to)
+{
+	struct page *page;
+
+	if (!n)
+		return;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		goto report;
+
+	if (!virt_addr_valid(ptr))
+		return;
+
+	page = virt_to_head_page(ptr);
+
+	if (!PageSlab(page))
+		/* TODO: check for stack based ptr */
+		return;
+
+	size = obj_size(virt_to_cache(ptr));
+	if (n > size)
+		goto report;
+
+	/* TODO: figure out how to find beginning of object if ptr is inside one */
+	return;
+
+report:
+	if (to)
+		pax_report_leak_to_user(from, n);
+	else
+		pax_report_overflow_from_user(from, n);
+}
+EXPORT_SYMBOL(check_object_size);
+
 /**
  * ksize - get the actual amount of memory allocated for a given object
  * @objp: Pointer to the object

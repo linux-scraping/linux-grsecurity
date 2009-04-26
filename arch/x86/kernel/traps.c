@@ -195,7 +195,7 @@ trap_signal:
 	    printk_ratelimit()) {
 		printk(KERN_INFO
 		       "%s[%d] trap %s ip:%lx sp:%lx error:%lx",
-		       tsk->comm, tsk->pid, str,
+		       tsk->comm, task_pid_nr(tsk), str,
 		       regs->ip, regs->sp, error_code);
 		print_vma_addr(" in ", regs->ip);
 		printk("\n");

@@ -1783,7 +1783,7 @@ static int slub_min_objects;
  * Merge control. If this is set then no merging of slab caches will occur.
  * (Could be removed. This was introduced to pacify the merge skeptics.)
  */
-static int slub_nomerge;
+static int slub_nomerge = 1;
 
 /*
  * Calculate the order of allocation given an slab object size.
@@ -2697,6 +2697,40 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 }
 EXPORT_SYMBOL(__kmalloc_node);
 #endif
+
+void check_object_size(const void *ptr, unsigned long n, bool to)
+{
+	struct page *page;
+	struct kmem_cache *s;
+	unsigned long offset;
+
+	if (!n)
+		return;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		goto report;
+
+	if (!virt_addr_valid(ptr))
+		return;
+
+	page = virt_to_head_page(ptr);
+
+	if (!PageSlab(page))
+		/* TODO: check for stack based ptr */
+		return;
+
+	s = page->slab;
+	offset = (ptr - page_address(page)) % s->size;
+	if (offset <= s->objsize && n <=  s->objsize - offset)
+		return;
+
+report:
+	if (to)
+		pax_report_leak_to_user(ptr, n);
+	else
+		pax_report_overflow_from_user(ptr, n);
+}
+EXPORT_SYMBOL(check_object_size);
 
 size_t ksize(const void *object)
 {

@@ -504,6 +504,41 @@ void kfree(const void *block)
 }
 EXPORT_SYMBOL(kfree);
 
+void check_object_size(const void *ptr, unsigned long n, bool to)
+{
+	struct slob_page *sp;
+	int align;
+	unsigned int m;
+
+	if (!n)
+		return;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		goto report;
+
+	sp = (struct slob_page *)virt_to_page(ptr);
+	if (!slob_page(sp))
+		/* TODO: how identify >PAGE_SIZE slob pages? */
+		/* sp->page.private */
+		return;
+
+	/* TODO: figure out how to find the beginning of an object if ptr is inside one */
+	return;
+
+	/*
+	align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
+	m = *(unsigned int *)(ptr - align);
+	SLOB_UNITS(*m) * SLOB_UNIT
+	*/
+
+report:
+	if (to)
+		pax_report_leak_to_user(from, n);
+	else
+		pax_report_overflow_from_user(from, n);
+}
+EXPORT_SYMBOL(check_object_size);
+
 /* can't use ksize for kmem_cache_alloc memory, only kmalloc */
 size_t ksize(const void *block)
 {

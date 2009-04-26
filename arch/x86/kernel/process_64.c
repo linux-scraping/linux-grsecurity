@@ -91,7 +91,7 @@ static void __exit_idle(void)
 void exit_idle(void)
 {
 	/* idle loop has pid 0 */
-	if (current->pid)
+	if (task_pid_nr(current))
 		return;
 	__exit_idle();
 }
@@ -162,7 +162,7 @@ void __show_regs(struct pt_regs *regs, int all)
 	if (!board)
 		board = "";
 	printk(KERN_INFO "Pid: %d, comm: %.20s %s %s %.*s %s\n",
-		current->pid, current->comm, print_tainted(),
+		task_pid_nr(current), current->comm, print_tainted(),
 		init_utsname()->release,
 		(int)strcspn(init_utsname()->version, " "),
 		init_utsname()->version, board);

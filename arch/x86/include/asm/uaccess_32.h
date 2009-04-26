@@ -62,6 +62,8 @@ __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 			return ret;
 		}
 	}
+	if (!__builtin_constant_p(n))
+		check_object_size(from, n, true);
 	return __copy_to_user_ll(to, from, n);
 }
 
@@ -153,6 +155,8 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 			return ret;
 		}
 	}
+	if (!__builtin_constant_p(n))
+		check_object_size(to, n, false);
 	return __copy_from_user_ll(to, from, n);
 }
 
