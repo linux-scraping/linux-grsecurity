@@ -263,6 +263,7 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 	if (within(address, ktla_ktva((unsigned long)_text), ktla_ktva((unsigned long)_etext)))
 		pgprot_val(forbidden) |= _PAGE_NX;
 
+#ifdef CONFIG_DEBUG_RODATA
 	/*
 	 * The .rodata section needs to be read-only. Using the pfn
 	 * catches all aliases.
@@ -270,6 +271,7 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 	if (within(pfn, __pa((unsigned long)__start_rodata) >> PAGE_SHIFT,
 		   __pa((unsigned long)__end_rodata) >> PAGE_SHIFT))
 		pgprot_val(forbidden) |= _PAGE_RW;
+#endif
 
 	prot = __pgprot(pgprot_val(prot) & ~pgprot_val(forbidden));
 
