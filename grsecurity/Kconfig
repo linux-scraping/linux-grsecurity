@@ -80,6 +80,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_ASLR
 	select PAX_RANDMMAP
 	select PAX_REFCOUNT if (X86)
+	select PAX_USERCOPY if (X86_32 && (SLAB || SLUB))
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -104,6 +105,7 @@ config GRKERNSEC_MEDIUM
 	  - /proc restrictions with special GID set to 10 (usually wheel)
 	  - Address Space Layout Randomization (ASLR)
 	  - Prevent exploitation of most refcount overflows
+	  - Bounds checking of copying between the kernel and userland
 
 config GRKERNSEC_HIGH
 	bool "High"
@@ -160,6 +162,7 @@ config GRKERNSEC_HIGH
 	select PAX_EMUSIGRT if (PARISC)
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
 	select PAX_REFCOUNT if (X86)
+	select PAX_USERCOPY if (X86_32 && (SLAB || SLUB))
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks

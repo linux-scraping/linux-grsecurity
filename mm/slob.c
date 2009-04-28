@@ -506,6 +506,8 @@ EXPORT_SYMBOL(kfree);
 
 void check_object_size(const void *ptr, unsigned long n, bool to)
 {
+
+#ifdef CONFIG_PAX_USERCOPY
 	struct slob_page *sp;
 	int align;
 	unsigned int m;
@@ -533,9 +535,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 report:
 	if (to)
-		pax_report_leak_to_user(from, n);
+		pax_report_leak_to_user(ptr, n);
 	else
-		pax_report_overflow_from_user(from, n);
+		pax_report_overflow_from_user(ptr, n);
+#endif
+
 }
 EXPORT_SYMBOL(check_object_size);
 

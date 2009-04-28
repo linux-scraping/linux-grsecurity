@@ -14,7 +14,9 @@ static inline void switch_mm(struct mm_struct *prev,
 			     struct task_struct *tsk)
 {
 	int cpu = smp_processor_id();
+#ifdef CONFIG_SMP
 	int tlbstate = TLBSTATE_OK;
+#endif
 
 	if (likely(prev != next)) {
 		/* stop flush ipis for the previous mm */

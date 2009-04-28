@@ -441,6 +441,22 @@ config PAX_REFCOUNT
 
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
+
+config PAX_USERCOPY
+	bool "Enforce size of heap objects between kernel and userland copies"
+	depends on X86_32
+	depends on SLAB || SLUB
+	help
+	  By saying Y here the kernel will enforce the size of heap objects
+	  when they are copied to or from between the kernel and userland.
+
+	  Specifically, this checking prevents information leaking from the
+	  kernel heap during kernel to userland copies (if the kernel heap
+	  object is otherwise fully initialized) and prevents kernel heap
+	  overflows during userland to kernel copies.
+
+	  Note that the current implementation provides the strictest checks
+	  for the SLUB allocator.
 endmenu
 
 endmenu
