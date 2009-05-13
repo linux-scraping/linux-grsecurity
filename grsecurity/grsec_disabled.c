@@ -94,7 +94,8 @@ gr_set_pax_flags(struct task_struct *task)
 }
 
 int
-gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt)
+gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
+		  const int unsafe_share)
 {
 	return 0;
 }

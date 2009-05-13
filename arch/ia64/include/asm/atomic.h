@@ -201,8 +201,10 @@ atomic64_add_negative (__s64 i, atomic64_t *v)
 #define atomic64_inc_and_test(v)	(atomic64_add_return(1, (v)) == 0)
 
 #define atomic_add(i,v)			atomic_add_return((i), (v))
+#define atomic_add_unchecked(i,v)	atomic_add((i), (v))
 #define atomic_sub(i,v)			atomic_sub_return((i), (v))
 #define atomic_inc(v)			atomic_add(1, (v))
+#define atomic_inc_unchecked(v)		atomic_inc(v)
 #define atomic_dec(v)			atomic_sub(1, (v))
 
 #define atomic64_add(i,v)		atomic64_add_return((i), (v))

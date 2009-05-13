@@ -628,7 +628,7 @@ static inline void *index_to_obj(struct kmem_cache *cache, struct slab *slab,
  *   reciprocal_divide(offset, cache->reciprocal_buffer_size)
  */
 static inline unsigned int obj_to_index(const struct kmem_cache *cache,
-					const struct slab *slab, void *obj)
+					const struct slab *slab, const void *obj)
 {
 	u32 offset = (obj - slab->s_mem);
 	return reciprocal_divide(offset, cache->reciprocal_buffer_size);
@@ -4443,8 +4443,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 {
 
 #ifdef CONFIG_PAX_USERCOPY
+	struct kmem_cache *cachep;
+	struct slab *slabp;
 	struct page *page;
-	int size;
+	unsigned int objnr;
+	unsigned long offset;
 
 	if (!n)
 		return;
@@ -4461,12 +4464,13 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 		/* TODO: check for stack based ptr */
 		return;
 
-	size = obj_size(virt_to_cache(ptr));
-	if (n > size)
-		goto report;
-
-	/* TODO: figure out how to find beginning of object if ptr is inside one */
-	return;
+	cachep = page_get_cache(page);
+	slabp = page_get_slab(page);
+	objnr = obj_to_index(cachep, slabp, ptr);
+	BUG_ON(objnr >= cachep->num);
+	offset = ptr - index_to_obj(cachep, slabp, objnr) - obj_offset(cachep);
+	if (offset <= obj_size(cachep) && n <= obj_size(cachep) - offset)
+		return;
 
 report:
 	if (to)

@@ -74,6 +74,9 @@ set_fmt:
 }
 
 static void gr_log_middle(int audit, const char *msg, va_list ap)
+	__attribute__ ((format (printf, 2, 0)));
+
+static void gr_log_middle(int audit, const char *msg, va_list ap)
 {
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
 	unsigned int len = strlen(buf);
@@ -82,6 +85,9 @@ static void gr_log_middle(int audit, const char *msg, va_list ap)
 
 	return;
 }
+
+static void gr_log_middle_varargs(int audit, const char *msg, ...)
+	__attribute__ ((format (printf, 2, 3)));
 
 static void gr_log_middle_varargs(int audit, const char *msg, ...)
 {

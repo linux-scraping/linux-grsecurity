@@ -82,8 +82,10 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 	return __CS_LOOP(v, i, "ar");
 }
 #define atomic_add(_i, _v)		atomic_add_return(_i, _v)
+#define atomic_add_unchecked(_i, _v)	atomic_add((_i), (_v))
 #define atomic_add_negative(_i, _v)	(atomic_add_return(_i, _v) < 0)
 #define atomic_inc(_v)			atomic_add_return(1, _v)
+#define atomic_inc_unchecked(_v)	atomic_inc(_v)
 #define atomic_inc_return(_v)		atomic_add_return(1, _v)
 #define atomic_inc_and_test(_v)		(atomic_add_return(1, _v) == 0)
 

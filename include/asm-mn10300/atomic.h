@@ -145,6 +145,9 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 #define atomic_xchg(ptr, v)		(xchg(&(ptr)->counter, (v)))
 #define atomic_cmpxchg(v, old, new)	(cmpxchg(&((v)->counter), (old), (new)))
 
+#define atomic_inc_unchecked(v) atomic_inc(v)
+#define atomic_add_unchecked(i,v) atomic_add((i),(v))
+
 /* Atomic operations are already serializing on MN10300??? */
 #define smp_mb__before_atomic_dec()	barrier()
 #define smp_mb__after_atomic_dec()	barrier()

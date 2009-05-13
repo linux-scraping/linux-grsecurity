@@ -24,7 +24,7 @@ int is_io_mapping_possible(resource_size_t base, unsigned long size)
 {
 #ifndef CONFIG_X86_PAE
 	/* There is no way to map greater than 1 << 32 address without PAE */
-	if (base + size > 0x100000000ULL)
+	if ((u64)base + size > 0x100000000ULL)
 		return 0;
 #endif
 	return 1;

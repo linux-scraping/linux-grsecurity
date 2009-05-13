@@ -178,6 +178,8 @@ static inline void atomic_set_mask(unsigned int mask, atomic_t *v)
 
 #endif /* !CONFIG_SMP */
 
+#define atomic_add_unchecked(i, v) atomic_add((i), (v))
+#define atomic_inc_unchecked(v) atomic_inc((v))
 #define atomic_add_negative(a, v)	(atomic_add_return((a), (v)) < 0)
 #define atomic_dec_return(v) atomic_sub_return(1,(v))
 #define atomic_inc_return(v) atomic_add_return(1,(v))

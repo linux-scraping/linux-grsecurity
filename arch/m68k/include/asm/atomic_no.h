@@ -151,5 +151,8 @@ static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_dec_return(v) atomic_sub_return(1,(v))
 #define atomic_inc_return(v) atomic_add_return(1,(v))
 
+#define atomic_inc_unchecked(v) atomic_inc((v))
+#define atomic_add_unchecked(i,v) atomic_add((i),(v))
+
 #include <asm-generic/atomic.h>
 #endif /* __ARCH_M68KNOMMU_ATOMIC __ */

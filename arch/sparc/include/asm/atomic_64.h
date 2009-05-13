@@ -20,6 +20,7 @@
 #define atomic64_set(v, i)	(((v)->counter) = i)
 
 extern void atomic_add(int, atomic_t *);
+#define atomic_add_unchecked(i, v) atomic_add((i), (v))
 extern void atomic64_add(int, atomic64_t *);
 extern void atomic_sub(int, atomic_t *);
 extern void atomic64_sub(int, atomic64_t *);
@@ -59,6 +60,7 @@ extern int atomic64_sub_ret(int, atomic64_t *);
 #define atomic64_dec_and_test(v) (atomic64_sub_ret(1, v) == 0)
 
 #define atomic_inc(v) atomic_add(1, v)
+#define atomic_inc_unchecked(v) atomic_inc(v)
 #define atomic64_inc(v) atomic64_add(1, v)
 
 #define atomic_dec(v) atomic_sub(1, v)

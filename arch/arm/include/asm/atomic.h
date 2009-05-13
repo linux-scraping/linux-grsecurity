@@ -189,6 +189,8 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_add(i, v)	(void) atomic_add_return(i, v)
 #define atomic_inc(v)		(void) atomic_add_return(1, v)
+#define atomic_inc_unchecked(v)		(void) atomic_inc(v)
+#define atomic_add_unchecked(i, v)	(void) atomic_add(i, v)
 #define atomic_sub(i, v)	(void) atomic_sub_return(i, v)
 #define atomic_dec(v)		(void) atomic_sub_return(1, v)
 

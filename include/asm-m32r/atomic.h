@@ -308,6 +308,9 @@ static __inline__ void atomic_set_mask(unsigned long  mask, atomic_t *addr)
 	local_irq_restore(flags);
 }
 
+#define atomic_inc_unchecked(v) atomic_inc(v)
+#define atomic_add_unchecked(i,v) atomic_add((i),(v))
+
 /* Atomic operations are already serializing on m32r */
 #define smp_mb__before_atomic_dec()	barrier()
 #define smp_mb__after_atomic_dec()	barrier()

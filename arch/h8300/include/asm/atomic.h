@@ -26,6 +26,7 @@ static __inline__ int atomic_add_return(int i, atomic_t *v)
 }
 
 #define atomic_add(i, v) atomic_add_return(i, v)
+#define atomic_add_unchecked(i, v) atomic_add((i), (v))
 #define atomic_add_negative(a, v)	(atomic_add_return((a), (v)) < 0)
 
 static __inline__ int atomic_sub_return(int i, atomic_t *v)
@@ -51,6 +52,7 @@ static __inline__ int atomic_inc_return(atomic_t *v)
 }
 
 #define atomic_inc(v) atomic_inc_return(v)
+#define atomic_inc_unchecked(v) atomic_inc(v)
 
 /*
  * atomic_inc_and_test - increment and test

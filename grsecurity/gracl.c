@@ -1875,7 +1875,7 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1, 1, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
+		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
 	return;
 }
@@ -1889,7 +1889,7 @@ gr_log_learn_sysctl(const char *path, const __u32 mode)
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1, 1, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
+		       1UL, 1UL, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
 
 	return;
 }
@@ -2322,7 +2322,8 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 }
 
 int
-gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt)
+gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
+		  const int unsafe_share)
 {
 	struct task_struct *task = current;
 	struct acl_subject_label *newacl;
@@ -2339,10 +2340,8 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt)
 	     GR_POVERRIDE) && (task->acl != newacl) &&
 	     !(task->role->roletype & GR_ROLE_GOD) &&
 	     !gr_search_file(dentry, GR_PTRACERD, mnt) &&
-	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN))) ||
-	    (atomic_read(&task->fs->count) > 1 ||
-	     atomic_read(&task->files->count) > 1 ||
-	     atomic_read(&task->sighand->count) > 1)) {
+	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN)))
+	    || unsafe_share) {
                 task_unlock(task);
 		gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
 		return -EACCES;
@@ -3146,6 +3145,7 @@ gr_learn_resource(const struct task_struct *task,
 		  const int res, const unsigned long wanted, const int gt)
 {
 	struct acl_subject_label *acl;
+	const struct cred *cred;
 
 	if (unlikely((gr_status & GR_READY) &&
 		     task->acl && (task->acl->mode & (GR_LEARN | GR_INHERITLEARN))))
@@ -3225,16 +3225,19 @@ gr_learn_resource(const struct task_struct *task,
 		if (wanted > acl->res[res].rlim_max)
 			acl->res[res].rlim_max = res_add;
 
+		/* only log the subject filename, since resource logging is supported for
+		   single-subject learning only */
+		cred = __task_cred(task);
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
-			       task->role->roletype, acl->filename,
-			       acl->res[res].rlim_cur, acl->res[res].rlim_max,
-			       "", (unsigned long) res);
+			       task->role->roletype, cred->uid, cred->gid, acl->filename,
+			       acl->filename, acl->res[res].rlim_cur, acl->res[res].rlim_max,
+			       "", (unsigned long) res, NIPQUAD(task->signal->curr_ip));
 	}
 
 	return;
 }
 
-#ifdef CONFIG_PAX_HAVE_ACL_FLAGS
+#if defined(CONFIG_PAX_HAVE_ACL_FLAGS) && (defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR))
 void
 pax_set_initial_flags(struct linux_binprm *bprm)
 {

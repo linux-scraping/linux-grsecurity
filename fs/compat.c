@@ -51,6 +51,7 @@
 #include <linux/poll.h>
 #include <linux/mm.h>
 #include <linux/eventpoll.h>
+#include <linux/fs_struct.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1395,12 +1396,18 @@ int compat_do_execve(char * filename,
 #endif
 	struct linux_binprm *bprm;
 	struct file *file;
+	struct files_struct *displaced;
+	bool clear_in_exec;
 	int retval;
+
+	retval = unshare_files(&displaced);
+	if (retval)
+		goto out_ret;
 
 	retval = -ENOMEM;
 	bprm = kzalloc(sizeof(*bprm), GFP_KERNEL);
 	if (!bprm)
-		goto out_ret;
+		goto out_files;
 
 	retval = mutex_lock_interruptible(&current->cred_exec_mutex);
 	if (retval < 0)
@@ -1410,12 +1417,16 @@ int compat_do_execve(char * filename,
 	bprm->cred = prepare_exec_creds();
 	if (!bprm->cred)
 		goto out_unlock;
-	check_unsafe_exec(bprm, current->files);
+
+	retval = check_unsafe_exec(bprm);
+	if (retval < 0)
+		goto out_unlock;
+	clear_in_exec = retval;
 
 	file = open_exec(filename);
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
-		goto out_unlock;
+		goto out_unmark;
 
 	sched_exec();
 
@@ -1482,7 +1493,8 @@ int compat_do_execve(char * filename,
 	current->exec_file = file;
 #endif
 
-	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt);
+	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
+				   bprm->unsafe & LSM_UNSAFE_SHARE);
 	if (retval < 0)
 		goto out_fail;
 
@@ -1495,9 +1507,12 @@ int compat_do_execve(char * filename,
 #endif
 
 	/* execve succeeded */
+	current->fs->in_exec = 0;
 	mutex_unlock(&current->cred_exec_mutex);
 	acct_update_integrals(current);
 	free_bprm(bprm);
+	if (displaced)
+		put_files_struct(displaced);
 	return retval;
 
 out_fail:
@@ -1518,12 +1533,19 @@ out_file:
 		fput(bprm->file);
 	}
 
+out_unmark:
+	if (clear_in_exec)
+		current->fs->in_exec = 0;
+
 out_unlock:
 	mutex_unlock(&current->cred_exec_mutex);
 
 out_free:
 	free_bprm(bprm);
 
+out_files:
+	if (displaced)
+		reset_files_struct(displaced);
 out_ret:
 	return retval;
 }

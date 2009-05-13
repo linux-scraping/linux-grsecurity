@@ -61,7 +61,7 @@ static u32 __random32(struct rnd_state *state)
  */
 static inline u32 __seed(u32 x, u32 m)
 {
-	return (x < m) ? x + m : x;
+	return (x <= m) ? x + m + 1 : x;
 }
 
 /**

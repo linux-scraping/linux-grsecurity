@@ -129,9 +129,10 @@ void gr_set_kernel_label(struct task_struct *task);
 void gr_set_role_label(struct task_struct *task, const uid_t uid,
 			      const gid_t gid);
 int gr_set_proc_label(const struct dentry *dentry,
-			      const struct vfsmount *mnt);
+			const struct vfsmount *mnt,
+			const int unsafe_share);
 __u32 gr_acl_handle_hidden_file(const struct dentry *dentry,
-				       const struct vfsmount *mnt);
+				const struct vfsmount *mnt);
 __u32 gr_acl_handle_open(const struct dentry *dentry,
 				const struct vfsmount *mnt, const int fmode);
 __u32 gr_acl_handle_creat(const struct dentry *dentry,

@@ -2715,15 +2715,15 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	if (!virt_addr_valid(ptr))
 		return;
 
-	page = virt_to_head_page(ptr);
+	page = get_object_page(ptr);
 
-	if (!PageSlab(page))
+	if (!page)
 		/* TODO: check for stack based ptr */
 		return;
 
 	s = page->slab;
 	offset = (ptr - page_address(page)) % s->size;
-	if (offset <= s->objsize && n <=  s->objsize - offset)
+	if (offset <= s->objsize && n <= s->objsize - offset)
 		return;
 
 report:

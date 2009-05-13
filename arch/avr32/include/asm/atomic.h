@@ -177,8 +177,10 @@ static inline int atomic_sub_if_positive(int i, atomic_t *v)
 
 #define atomic_sub(i, v)	(void)atomic_sub_return(i, v)
 #define atomic_add(i, v)	(void)atomic_add_return(i, v)
+#define atomic_add_unchecked(i, v)	atomic_add((i), (v))
 #define atomic_dec(v)		atomic_sub(1, (v))
 #define atomic_inc(v)		atomic_add(1, (v))
+#define atomic_inc_unchecked(v)	atomic_inc(v)
 
 #define atomic_dec_return(v)	atomic_sub_return(1, v)
 #define atomic_inc_return(v)	atomic_add_return(1, v)

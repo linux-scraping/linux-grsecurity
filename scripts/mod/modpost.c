@@ -2020,6 +2020,7 @@ static void read_markers(const char *fname)
 		if (!mod->skip)
 			add_marker(mod, marker, fmt);
 	}
+	release_file(file, size);
 	return;
 fail:
 	fatal("parse error in markers list file\n");

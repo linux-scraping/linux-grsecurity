@@ -170,7 +170,7 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 	elf_addr_t __user *u_rand_bytes;
 	const char *k_platform = ELF_PLATFORM;
 	const char *k_base_platform = ELF_BASE_PLATFORM;
-	unsigned char k_rand_bytes[16];
+	u32 k_rand_bytes[4];
 	int items;
 	elf_addr_t *elf_info;
 	int ei_index = 0;
@@ -217,6 +217,10 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 	 * Generate 16 random bytes for userspace PRNG seeding.
 	 */
 	get_random_bytes(k_rand_bytes, sizeof(k_rand_bytes));
+	srandom32(k_rand_bytes[0] ^ random32());
+	srandom32(k_rand_bytes[1] ^ random32());
+	srandom32(k_rand_bytes[2] ^ random32());
+	srandom32(k_rand_bytes[3] ^ random32());
 	u_rand_bytes = (elf_addr_t __user *)
 		       STACK_ALLOC(p, sizeof(k_rand_bytes));
 	if (__copy_to_user(u_rand_bytes, k_rand_bytes, sizeof(k_rand_bytes)))

@@ -8,7 +8,8 @@
 #include <linux/grdefs.h>
 #include <linux/grmsg.h>
 
-void gr_add_learn_entry(const char *fmt, ...);
+void gr_add_learn_entry(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
 __u32 gr_search_file(const struct dentry *dentry, const __u32 mode,
 			    const struct vfsmount *mnt);
 __u32 gr_check_create(const struct dentry *new_dentry,

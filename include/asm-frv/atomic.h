@@ -114,6 +114,9 @@ static inline void atomic_dec(atomic_t *v)
 	atomic_sub_return(1, v);
 }
 
+#define atomic_inc_unchecked(v) atomic_inc(v)
+#define atomic_add_unchecked(i,v) atomic_add((i),(v))
+
 #define atomic_dec_return(v)		atomic_sub_return(1, (v))
 #define atomic_inc_return(v)		atomic_add_return(1, (v))
 

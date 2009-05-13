@@ -425,7 +425,7 @@ config PAX_MEMORY_UDEREF
 
 config PAX_REFCOUNT
 	bool "Prevent various kernel object reference counter overflows"
-	depends on X86
+	depends on GRKERNSEC && X86
 	help
 	  By saying Y here the kernel will detect and prevent overflowing
 	  various (but not all) kinds of object reference counters.  Such
@@ -443,12 +443,13 @@ config PAX_REFCOUNT
 	  this feature.
 
 config PAX_USERCOPY
-	bool "Enforce size of heap objects between kernel and userland copies"
+	bool "Bounds check heap object copies between kernel and userland"
 	depends on X86_32
-	depends on SLAB || SLUB
+	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	help
 	  By saying Y here the kernel will enforce the size of heap objects
-	  when they are copied to or from between the kernel and userland.
+	  when they are copied in either direction between the kernel and
+	  userland, even if only a part of the heap object is copied.
 
 	  Specifically, this checking prevents information leaking from the
 	  kernel heap during kernel to userland copies (if the kernel heap
