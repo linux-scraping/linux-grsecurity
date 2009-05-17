@@ -265,6 +265,9 @@ static int proc_pid_cmdline(struct task_struct *task, char * buffer)
 	if (!mm->arg_end)
 		goto out_mm;	/* Shh! No looking before we're done */
 
+	if (gr_acl_handle_procpidmem(task))
+		goto out_mm;
+
  	len = mm->arg_end - mm->arg_start;
  
 	if (len > PAGE_SIZE)

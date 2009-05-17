@@ -484,7 +484,7 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 		ret = slob_new_page(gfp | __GFP_COMP, get_order(size), node);
 		if (ret) {
 			struct slob_page *sp;
-			sp = (struct slob_page *)virt_to_page(ret);
+			sp = (struct slob_page *)virt_to_head_page(ret);
 			sp->size = size;
 		}
 		return ret;
@@ -513,6 +513,7 @@ void kfree(const void *block)
 		slob_free(m, m[0].units + align);
 	} else {
 		clear_slob_page(sp);
+		free_slob_page(sp);
 		sp->size = 0;
 		put_page(&sp->page);
 	}
@@ -664,7 +665,7 @@ EXPORT_SYMBOL(kmem_cache_alloc_node);
 
 static void __kmem_cache_free(void *b, int size)
 {
-	struct slob_page *sp = (struct slob_page *)virt_to_page(b);
+	struct slob_page *sp = (struct slob_page *)virt_to_head_page(b);
 
 	if (slob_page(sp))
 		slob_free(b, size);

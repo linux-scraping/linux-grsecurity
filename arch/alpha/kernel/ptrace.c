@@ -266,9 +266,6 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 	size_t copied;
 	long ret;
 
-	if (gr_handle_ptrace(child, request))
-		return -EPERM;
-
 	switch (request) {
 	/* When I and D space are separate, these will need to be fixed.  */
 	case PTRACE_PEEKTEXT: /* read word at location addr. */
