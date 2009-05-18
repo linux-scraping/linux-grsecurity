@@ -350,7 +350,7 @@ static int proc_pid_wchan(struct task_struct *task, char *buffer)
 }
 #endif /* CONFIG_KALLSYMS */
 
-#ifdef CONFIG_STACKTRACE
+#if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 
 #define MAX_STACK_TRACE_DEPTH	64
 
@@ -956,6 +956,9 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 
 	if (!task)
 		goto out_no_task;
+
+	if (gr_acl_handle_procpidmem(task))
+		goto out;
 
 	if (!ptrace_may_access(task, PTRACE_MODE_READ))
 		goto out;
@@ -1685,7 +1688,8 @@ static int proc_fd_info(struct inode *inode, struct path *path, char *info)
 	int fd = proc_fd(inode);
 
 	if (task) {
-		files = get_files_struct(task);
+		if (!gr_acl_handle_procpidmem(task))
+			files = get_files_struct(task);
 		put_task_struct(task);
 	}
 	if (files) {
@@ -2588,7 +2592,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_KALLSYMS
 	INF("wchan",      S_IRUGO, proc_pid_wchan),
 #endif
-#ifdef CONFIG_STACKTRACE
+#if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 	ONE("stack",      S_IRUSR, proc_pid_stack),
 #endif
 #ifdef CONFIG_SCHEDSTATS
@@ -2958,7 +2962,7 @@ static const struct pid_entry tid_base_stuff[] = {
 #ifdef CONFIG_KALLSYMS
 	INF("wchan",     S_IRUGO, proc_pid_wchan),
 #endif
-#ifdef CONFIG_STACKTRACE
+#if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 	ONE("stack",      S_IRUSR, proc_pid_stack),
 #endif
 #ifdef CONFIG_SCHEDSTATS

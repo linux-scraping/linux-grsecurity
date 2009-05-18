@@ -29,7 +29,7 @@
  * If kmalloc is asked for objects of PAGE_SIZE or larger, it calls
  * alloc_pages() directly, allocating compound pages so the page order
  * does not have to be separately tracked, and also stores the exact
- * allocation size in page->private so that it can be used to accurately
+ * allocation size in slob_page->size so that it can be used to accurately
  * provide ksize(). These objects are detected in kfree() because slob_page()
  * is false for them.
  *
@@ -246,7 +246,7 @@ static void *slob_new_page(gfp_t gfp, int order, int node)
 	if (!page)
 		return NULL;
 
-	set_slob_page((struct slob_page *)virt_to_page(page));
+	set_slob_page(page);
 	return page_address(page);
 }
 
@@ -534,6 +534,9 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	if (ZERO_OR_NULL_PTR(ptr))
 		goto report;
 
+	if (!virt_addr_valid(ptr))
+		return;
+
 	sp = (struct slob_page *)virt_to_head_page(ptr);
 	if (!PageSlobPage((struct page*)sp))
 		return;
@@ -596,7 +599,7 @@ size_t ksize(const void *block)
 		slob_t *m = (slob_t *)(block - align);
 		return SLOB_UNITS(m[0].units) * SLOB_UNIT;
 	} else
-		return sp->page.private;
+		return sp->size;
 }
 EXPORT_SYMBOL(ksize);
 
@@ -652,8 +655,13 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 #else
 	if (c->size < PAGE_SIZE)
 		b = slob_alloc(c->size, flags, c->align, node);
-	else
+	else {
+		struct slob_page *sp;
+
 		b = slob_new_page(flags, get_order(c->size), node);
+		sp = (struct slob_page *)virt_to_head_page(b);
+		sp->size = c->size;
+	}
 #endif
 
 	if (c->ctor)
@@ -671,6 +679,7 @@ static void __kmem_cache_free(void *b, int size)
 		slob_free(b, size);
 	else {
 		clear_slob_page(sp);
+		free_slob_page(sp);
 		sp->size = 0;
 		free_pages((unsigned long)b, get_order(size));
 	}
