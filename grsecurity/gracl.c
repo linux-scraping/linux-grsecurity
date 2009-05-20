@@ -453,6 +453,26 @@ lookup_acl_subj_label(const ino_t ino, const dev_t dev,
 		return NULL;
 }
 
+struct acl_subject_label *
+lookup_acl_subj_label_deleted(const ino_t ino, const dev_t dev,
+			  const struct acl_role_label *role)
+{
+	unsigned int index = fhash(ino, dev, role->subj_hash_size);
+	struct acl_subject_label *match;
+
+	match = role->subj_hash[index];
+
+	while (match && (match->inode != ino || match->device != dev ||
+	       !(match->mode & GR_DELETED))) {
+		match = match->next;
+	}
+
+	if (match && (match->mode & GR_DELETED))
+		return match;
+	else
+		return NULL;
+}
+
 static struct acl_object_label *
 lookup_acl_obj_label(const ino_t ino, const dev_t dev,
 		     const struct acl_subject_label *subj)
@@ -3079,6 +3099,9 @@ gr_set_acls(const int type)
 	struct acl_role_label *role = current->role;
 	__u16 acl_role_id = current->acl_role_id;
 	const struct cred *cred;
+	char *tmpname;
+	struct name_entry *nmatch;
+	struct acl_subject_label *tmpsubj;
 
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
@@ -3098,9 +3121,34 @@ gr_set_acls(const int type)
 			cred = __task_cred(task);
 			task->role = lookup_acl_role_label(task, cred->uid, cred->gid);
 
-			task->acl =
-			    chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
-					   task->role);
+			/* the following is to apply the correct subject 
+			   on binaries running when the RBAC system 
+			   is enabled, when the binaries have been 
+			   replaced or deleted since their execution
+			   -----
+			   when the RBAC system starts, the inode/dev
+			   from exec_file will be one the RBAC system
+			   is unaware of.  It only knows the inode/dev
+			   of the present file on disk, or the absence
+			   of it.
+			*/
+			preempt_disable();
+			tmpname = gr_to_filename_rbac(filp->f_path.dentry, filp->f_path.mnt);
+			
+			nmatch = lookup_name_entry(tmpname);
+			preempt_enable();
+			tmpsubj = NULL;
+			if (nmatch) {
+				if (nmatch->deleted)
+					tmpsubj = lookup_acl_subj_label_deleted(nmatch->inode, nmatch->device, task->role);
+				else
+					tmpsubj = lookup_acl_subj_label(nmatch->inode, nmatch->device, task->role);
+				if (tmpsubj != NULL)
+					task->acl = tmpsubj;
+			}
+			if (tmpsubj == NULL)
+				task->acl = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
+							   task->role);
 			if (task->acl) {
 				struct acl_subject_label *curr;
 				curr = task->acl;
