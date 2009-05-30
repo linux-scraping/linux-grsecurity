@@ -924,6 +924,21 @@ bad_area:
 
 bad_area_nosemaphore:
 
+#ifdef CONFIG_X86_64
+	if (mm && (error_code & PF_INSTR)) {
+		if (regs->ip == (unsigned long)vgettimeofday) {
+			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_gettimeofday);
+			return;
+		} else if (regs->ip == (unsigned long)vtime) {
+			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_time);
+			return;
+		} else if (regs->ip == (unsigned long)vgetcpu) {
+			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, getcpu);
+			return;
+		}
+	}
+#endif
+
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 	if (mm && (error_code & PF_USER)) {
 		unsigned long ip = regs->ip;

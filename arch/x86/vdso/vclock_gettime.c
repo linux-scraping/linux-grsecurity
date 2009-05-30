@@ -26,20 +26,43 @@
 
 #define gtod vdso_vsyscall_gtod_data
 
+notrace noinline long __vdso_fallback_time(long *t)
+{
+	long secs;
+	asm volatile("syscall"
+		: "=a" (secs)
+		: "0" (__NR_time),"D" (t) : "r11", "cx", "memory");
+	return secs;
+}
+
 notrace static long vdso_fallback_gettime(long clock, struct timespec *ts)
 {
 	long ret;
 	asm("syscall" : "=a" (ret) :
-	    "0" (__NR_clock_gettime),"D" (clock), "S" (ts) : "memory");
+	    "0" (__NR_clock_gettime),"D" (clock), "S" (ts) : "r11", "cx", "memory");
 	return ret;
+}
+
+notrace static inline cycle_t __vdso_vread_hpet(void)
+{
+	return readl((const void __iomem *)fix_to_virt(VSYSCALL_HPET) + 0xf0);
+}
+
+notrace static inline cycle_t __vdso_vread_tsc(void)
+{
+	cycle_t ret = (cycle_t)vget_cycles();
+
+	return ret >= gtod->clock.cycle_last ? ret : gtod->clock.cycle_last;
 }
 
 notrace static inline long vgetns(void)
 {
 	long v;
-	cycles_t (*vread)(void);
-	vread = gtod->clock.vread;
-	v = (vread() - gtod->clock.cycle_last) & gtod->clock.mask;
+	if (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3])
+		v = __vdso_vread_tsc();
+	else
+		v = __vdso_vread_hpet();
+	v = (v - gtod->clock.cycle_last) & gtod->clock.mask;
 	return (v * gtod->clock.mult) >> gtod->clock.shift;
 }
 
@@ -88,7 +111,9 @@ notrace static noinline int do_monotonic(struct timespec *ts)
 
 notrace int __vdso_clock_gettime(clockid_t clock, struct timespec *ts)
 {
-	if (likely(gtod->sysctl_enabled && gtod->clock.vread))
+	if (likely(gtod->sysctl_enabled &&
+		   ((gtod->clock.name[0] == 'h' && gtod->clock.name[1] == 'p' && gtod->clock.name[2] == 'e' && gtod->clock.name[3] == 't' && !gtod->clock.name[4]) ||
+		    (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3]))))
 		switch (clock) {
 		case CLOCK_REALTIME:
 			return do_realtime(ts);
@@ -100,10 +125,20 @@ notrace int __vdso_clock_gettime(clockid_t clock, struct timespec *ts)
 int clock_gettime(clockid_t, struct timespec *)
 	__attribute__((weak, alias("__vdso_clock_gettime")));
 
-notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
+notrace noinline int __vdso_fallback_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
 	long ret;
-	if (likely(gtod->sysctl_enabled && gtod->clock.vread)) {
+	asm("syscall" : "=a" (ret) :
+	    "0" (__NR_gettimeofday), "D" (tv), "S" (tz) : "r11", "cx", "memory");
+	return ret;
+}
+
+notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	if (likely(gtod->sysctl_enabled &&
+		   ((gtod->clock.name[0] == 'h' && gtod->clock.name[1] == 'p' && gtod->clock.name[2] == 'e' && gtod->clock.name[3] == 't' && !gtod->clock.name[4]) ||
+		    (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3]))))
+	{
 		BUILD_BUG_ON(offsetof(struct timeval, tv_usec) !=
 			     offsetof(struct timespec, tv_nsec) ||
 			     sizeof(*tv) != sizeof(struct timespec));
@@ -116,9 +151,7 @@ notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 		}
 		return 0;
 	}
-	asm("syscall" : "=a" (ret) :
-	    "0" (__NR_gettimeofday), "D" (tv), "S" (tz) : "memory");
-	return ret;
+	return __vdso_fallback_gettimeofday(tv, tz);
 }
 int gettimeofday(struct timeval *, struct timezone *)
 	__attribute__((weak, alias("__vdso_gettimeofday")));

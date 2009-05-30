@@ -65,20 +65,26 @@ struct vsyscall_gtod_data __vsyscall_gtod_data __section_vsyscall_gtod_data =
 
 void update_vsyscall_tz(void)
 {
+	unsigned long cr0;
 	unsigned long flags;
 
+	pax_open_kernel(cr0);
 	write_seqlock_irqsave(&vsyscall_gtod_data.lock, flags);
 	/* sys_tz has changed */
 	vsyscall_gtod_data.sys_tz = sys_tz;
 	write_sequnlock_irqrestore(&vsyscall_gtod_data.lock, flags);
+	pax_close_kernel(cr0);
 }
 
 void update_vsyscall(struct timespec *wall_time, struct clocksource *clock)
 {
+	unsigned long cr0;
 	unsigned long flags;
 
+	pax_open_kernel(cr0);
 	write_seqlock_irqsave(&vsyscall_gtod_data.lock, flags);
 	/* copy vsyscall data */
+	strlcpy(vsyscall_gtod_data.clock.name, clock->name, sizeof vsyscall_gtod_data.clock.name);
 	vsyscall_gtod_data.clock.vread = clock->vread;
 	vsyscall_gtod_data.clock.cycle_last = clock->cycle_last;
 	vsyscall_gtod_data.clock.mask = clock->mask;
@@ -88,6 +94,7 @@ void update_vsyscall(struct timespec *wall_time, struct clocksource *clock)
 	vsyscall_gtod_data.wall_time_nsec = wall_time->tv_nsec;
 	vsyscall_gtod_data.wall_to_monotonic = wall_to_monotonic;
 	write_sequnlock_irqrestore(&vsyscall_gtod_data.lock, flags);
+	pax_close_kernel(cr0);
 }
 
 /* RED-PEN may want to readd seq locking, but then the variable should be
@@ -235,12 +242,34 @@ static long __vsyscall(3) venosys_1(void)
 }
 
 #ifdef CONFIG_SYSCTL
+static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
+				 int *valp,
+				 int write, void *data)
+{
+	if (write) {
+		unsigned long cr0;
+
+		pax_open_kernel(cr0);
+		*valp = *negp ? -*lvalp : *lvalp;
+		pax_close_kernel(cr0);
+	} else {
+		int val = *valp;
+		if (val < 0) {
+			*negp = -1;
+			*lvalp = (unsigned long)-val;
+		} else {
+			*negp = 0;
+			*lvalp = (unsigned long)val;
+		}
+	}
+	return 0;
+}
 
 static int
 vsyscall_sysctl_change(ctl_table *ctl, int write, struct file * filp,
 		       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	return proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+	return proc_dointvec_conv(ctl, write, filp, buffer, lenp, ppos, do_proc_dointvec_conv, NULL);
 }
 
 static ctl_table kernel_table2[] = {

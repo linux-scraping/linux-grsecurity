@@ -122,7 +122,7 @@ quiet_cmd_vdso = VDSO    $@
 		       $(VDSO_LDFLAGS) $(VDSO_LDFLAGS_$(filter %.lds,$(^F))) \
 		       -Wl,-T,$(filter %.lds,$^) $(filter %.o,$^)
 
-VDSO_LDFLAGS = -fPIC -shared $(call ld-option, -Wl$(comma)--hash-style=sysv)
+VDSO_LDFLAGS = -fPIC -shared --no-undefined $(call ld-option, -Wl$(comma)--hash-style=sysv)
 
 #
 # Install the unstripped copy of vdso*.so listed in $(vdso-install-y).

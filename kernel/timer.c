@@ -1119,7 +1119,19 @@ static inline void update_times(unsigned long ticks)
 
 void do_timer(unsigned long ticks)
 {
+
+#ifdef CONFIG_X86_64
+	unsigned long cr0;
+
+	pax_open_kernel(cr0);
+#endif
+
 	jiffies_64 += ticks;
+
+#ifdef CONFIG_X86_64
+	pax_close_kernel(cr0);
+#endif
+
 	update_times(ticks);
 }
 

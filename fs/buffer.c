@@ -2467,20 +2467,22 @@ int block_commit_write(struct page *page, unsigned from, unsigned to)
  * unlock the page.
  */
 int
-block_page_mkwrite(struct vm_area_struct *vma, struct page *page,
+block_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf,
 		   get_block_t get_block)
 {
+	struct page *page = vmf->page;
 	struct inode *inode = vma->vm_file->f_path.dentry->d_inode;
 	unsigned long end;
 	loff_t size;
-	int ret = -EINVAL;
+	int ret = VM_FAULT_NOPAGE; /* make the VM retry the fault */
 
 	lock_page(page);
 	size = i_size_read(inode);
 	if ((page->mapping != inode->i_mapping) ||
 	    (page_offset(page) > size)) {
 		/* page got truncated out from underneath us */
-		goto out_unlock;
+		unlock_page(page);
+		goto out;
 	}
 
 	/* page is wholly or partially inside EOF */
@@ -2493,8 +2495,16 @@ block_page_mkwrite(struct vm_area_struct *vma, struct page *page,
 	if (!ret)
 		ret = block_commit_write(page, 0, end);
 
-out_unlock:
-	unlock_page(page);
+	if (unlikely(ret)) {
+		unlock_page(page);
+		if (ret == -ENOMEM)
+			ret = VM_FAULT_OOM;
+		else /* -ENOSPC, -EIO, etc */
+			ret = VM_FAULT_SIGBUS;
+	} else
+		ret = VM_FAULT_LOCKED;
+
+out:
 	return ret;
 }
 

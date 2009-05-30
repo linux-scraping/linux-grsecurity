@@ -488,7 +488,6 @@ int ia32_setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 		0xb8,
 		__NR_ia32_rt_sigreturn,
 		0x80cd,
-		0,
 		0
 	};
 

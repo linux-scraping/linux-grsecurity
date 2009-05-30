@@ -14,6 +14,7 @@ struct vsyscall_gtod_data {
 	int		sysctl_enabled;
 	struct timezone sys_tz;
 	struct { /* extract of a clocksource struct */
+		char	name[8];
 		cycle_t (*vread)(void);
 		cycle_t	cycle_last;
 		cycle_t	mask;

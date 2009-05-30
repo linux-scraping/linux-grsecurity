@@ -2114,7 +2114,7 @@ void do_balance(struct tree_balance *tb,	/* tree_balance structure */
 		return;
 	}
 
-	atomic_inc(&(fs_generation(tb->tb_sb)));
+	atomic_inc_unchecked(&(fs_generation(tb->tb_sb)));
 	do_balance_starts(tb);
 
 	/* balance leaf returns 0 except if combining L R and S into

@@ -2386,6 +2386,32 @@ static int do_proc_dointvec(struct ctl_table *table, int write, struct file *fil
  * @buffer: the user buffer
  * @lenp: the size of the user buffer
  * @ppos: file position
+ * @conv: conversion function
+ * @data: data for conversion function
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
+ * values from/to the user buffer, treated as an ASCII string. 
+ *
+ * Returns 0 on success.
+ */
+int proc_dointvec_conv(struct ctl_table *table, int write, struct file *filp,
+		  void __user *buffer, size_t *lenp, loff_t *ppos,
+		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
+			      int write, void *data),
+		  void *data)
+{
+	return __do_proc_dointvec(table->data, table, write, filp,
+			buffer, lenp, ppos, conv, data);
+}
+
+/**
+ * proc_dointvec - read a vector of integers
+ * @table: the sysctl table
+ * @write: %TRUE if this is a write to the sysctl file
+ * @filp: the file structure
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: file position
  *
  * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
  * values from/to the user buffer, treated as an ASCII string. 
@@ -2821,6 +2847,15 @@ static int proc_do_cad_pid(struct ctl_table *table, int write, struct file *filp
 
 int proc_dostring(struct ctl_table *table, int write, struct file *filp,
 		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return -ENOSYS;
+}
+
+int proc_dointvec_conv(struct ctl_table *table, int write, struct file *filp,
+		  void __user *buffer, size_t *lenp, loff_t *ppos,
+		  int (*conv)(int *negp, unsigned long *lvalp, int *valp,
+			      int write, void *data),
+		  void *data)
 {
 	return -ENOSYS;
 }

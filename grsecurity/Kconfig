@@ -748,6 +748,17 @@ config GRKERNSEC_RANDNET
 	  here.  Saying Y here has a similar effect as modifying
 	  /proc/sys/kernel/random/poolsize.
 
+config GRKERNSEC_BLACKHOLE
+	bool "TCP/UDP blackhole"
+	help
+	  If you say Y here, neither TCP resets nor ICMP
+	  destination-unreachable packets will be sent in response to packets
+	  send to ports for which no associated listening process exists.
+	  This feature supports both IPV4 and IPV6 and exempts the 
+	  loopback interface from blackholing.  Enabling this feature 
+	  makes a host more resilient to DoS attacks and reduces network
+	  visibility against scanners.
+
 config GRKERNSEC_SOCKET
 	bool "Socket restrictions"
 	help

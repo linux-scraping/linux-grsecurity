@@ -1750,7 +1750,10 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 #ifdef CONFIG_PAX_USERCOPY
 void pax_report_leak_to_user(const void *ptr, unsigned long len)
 {
-	printk(KERN_ERR "PAX: kernel memory leak attempt detected from %p (%lu bytes)\n", ptr, len);
+	if (current->signal->curr_ip)
+		printk(KERN_ERR "PAX: From %u.%u.%u.%u: kernel memory leak attempt detected from %p (%lu bytes)\n", NIPQUAD(current->signal->curr_ip), ptr, len);
+	else
+		printk(KERN_ERR "PAX: kernel memory leak attempt detected from %p (%lu bytes)\n", ptr, len);
 	dump_stack();
 	do_group_exit(SIGKILL);
 }
