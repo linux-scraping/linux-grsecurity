@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/random.h>
+#include <linux/elf.h>
 #include <asm/vsyscall.h>
 #include <asm/vgtod.h>
 #include <asm/proto.h>
@@ -56,7 +57,7 @@ static int __init init_vdso_vars(void)
 	if (!vbase)
 		goto oom;
 
-	if (memcmp(vbase, "\177ELF", 4)) {
+	if (memcmp(vbase, ELFMAG, SELFMAG)) {
 		printk("VDSO: I'm broken; not ELF\n");
 		vdso_enabled = 0;
 	}
@@ -65,6 +66,7 @@ static int __init init_vdso_vars(void)
 	*(typeof(__ ## x) **) var_ref(VDSO64_SYMBOL(vbase, x), #x) = &__ ## x;
 #include "vextern.h"
 #undef VEXTERN
+	vunmap(vbase);
 	return 0;
 
  oom:

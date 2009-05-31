@@ -25,8 +25,6 @@
 #include <asm/time.h>
 #include <asm/timer.h>
 
-volatile unsigned long __jiffies __section_jiffies = INITIAL_JIFFIES;
-
 unsigned long profile_pc(struct pt_regs *regs)
 {
 	unsigned long pc = instruction_pointer(regs);

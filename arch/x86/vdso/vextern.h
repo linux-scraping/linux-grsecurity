@@ -11,6 +11,5 @@
    put into vextern.h and be referenced as a pointer with vdso prefix.
    The main kernel later fills in the values.   */
 
-VEXTERN(jiffies)
 VEXTERN(vgetcpu_mode)
 VEXTERN(vsyscall_gtod_data)

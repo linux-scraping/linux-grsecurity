@@ -1162,8 +1162,8 @@ int kern_addr_valid(unsigned long addr)
 static struct vm_area_struct gate_vma = {
 	.vm_start	= VSYSCALL_START,
 	.vm_end		= VSYSCALL_START + (VSYSCALL_MAPPED_PAGES * PAGE_SIZE),
-	.vm_page_prot	= PAGE_READONLY_EXEC,
-	.vm_flags	= VM_READ | VM_EXEC
+	.vm_page_prot	= PAGE_READONLY,
+	.vm_flags	= VM_READ
 };
 
 struct vm_area_struct *get_gate_vma(struct task_struct *tsk)
