@@ -87,7 +87,7 @@ int drm_lock(struct drm_device *dev, void *data, struct drm_file *file_priv)
 		if (drm_lock_take(&master->lock, lock->context)) {
 			master->lock.file_priv = file_priv;
 			master->lock.lock_time = jiffies;
-			atomic_inc(&dev->counts[_DRM_STAT_LOCKS]);
+			atomic_inc_unchecked(&dev->counts[_DRM_STAT_LOCKS]);
 			break;	/* Got lock */
 		}
 
@@ -165,7 +165,7 @@ int drm_unlock(struct drm_device *dev, void *data, struct drm_file *file_priv)
 		return -EINVAL;
 	}
 
-	atomic_inc(&dev->counts[_DRM_STAT_UNLOCKS]);
+	atomic_inc_unchecked(&dev->counts[_DRM_STAT_UNLOCKS]);
 
 	/* kernel_context_switch isn't used by any of the x86 drm
 	 * modules but is required by the Sparc driver.

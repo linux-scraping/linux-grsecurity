@@ -94,6 +94,7 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 	return __CS_LOOP(v, i, "sr");
 }
 #define atomic_sub(_i, _v)		atomic_sub_return(_i, _v)
+#define atomic_sub_unchecked(_i, _v)	atomic_sub((_i), (_v))
 #define atomic_sub_and_test(_i, _v)	(atomic_sub_return(_i, _v) == 0)
 #define atomic_dec(_v)			atomic_sub_return(1, _v)
 #define atomic_dec_return(_v)		atomic_sub_return(1, _v)

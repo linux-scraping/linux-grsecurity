@@ -233,7 +233,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		local->hw.conf.power_level = power;
 	}
 
-	if (changed && local->open_count) {
+	if (changed && atomic_read(&local->open_count)) {
 		ret = local->ops->config(local_to_hw(local), changed);
 		/*
 		 * Goal:

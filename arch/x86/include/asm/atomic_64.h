@@ -58,7 +58,7 @@ static inline void atomic_add(int i, atomic_t *v)
  *
  * Atomically adds @i to @v.
  */
-static inline void atomic_add_unchecked(int i, atomic_t *v)
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "addl %1,%0\n"
 		     : "=m" (v->counter)
@@ -83,6 +83,20 @@ static inline void atomic_sub(int i, atomic_t *v)
 		     _ASM_EXTABLE(0b, 0b)
 #endif
 
+		     : "=m" (v->counter)
+		     : "ir" (i), "m" (v->counter));
+}
+
+/**
+ * atomic_sub_unchecked - subtract the atomic variable
+ * @i: integer value to subtract
+ * @v: pointer of type atomic_t
+ *
+ * Atomically subtracts @i from @v.
+ */
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "subl %1,%0\n"
 		     : "=m" (v->counter)
 		     : "ir" (i), "m" (v->counter));
 }
@@ -146,7 +160,7 @@ static inline void atomic_inc(atomic_t *v)
  *
  * Atomically increments @v by 1.
  */
-static inline void atomic_inc_unchecked(atomic_t *v)
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "incl %0\n"
 		     : "=m" (v->counter)

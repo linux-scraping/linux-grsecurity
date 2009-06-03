@@ -84,12 +84,12 @@ struct fc_exch_mgr {
 	 * all together if not used XXX
 	 */
 	struct {
-		atomic_t no_free_exch;
-		atomic_t no_free_exch_xid;
-		atomic_t xid_not_found;
-		atomic_t xid_busy;
-		atomic_t seq_not_found;
-		atomic_t non_bls_resp;
+		atomic_unchecked_t no_free_exch;
+		atomic_unchecked_t no_free_exch_xid;
+		atomic_unchecked_t xid_not_found;
+		atomic_unchecked_t xid_busy;
+		atomic_unchecked_t seq_not_found;
+		atomic_unchecked_t non_bls_resp;
 	} stats;
 	struct fc_exch **exches;	/* for exch pointers indexed by xid */
 };

@@ -237,7 +237,7 @@ struct compat_atm_iobuf {
 #endif
 
 struct k_atm_aal_stats {
-#define __HANDLE_ITEM(i) atomic_t i
+#define __HANDLE_ITEM(i) atomic_unchecked_t i
 	__AAL_STAT_ITEMS
 #undef __HANDLE_ITEM
 };

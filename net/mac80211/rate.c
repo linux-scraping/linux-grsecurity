@@ -256,7 +256,7 @@ int ieee80211_init_rate_ctrl_alg(struct ieee80211_local *local,
 	struct rate_control_ref *ref, *old;
 
 	ASSERT_RTNL();
-	if (local->open_count || netif_running(local->mdev))
+	if (atomic_read(&local->open_count) || netif_running(local->mdev))
 		return -EBUSY;
 
 	ref = rate_control_alloc(name, local);

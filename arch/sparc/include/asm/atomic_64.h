@@ -23,6 +23,7 @@ extern void atomic_add(int, atomic_t *);
 #define atomic_add_unchecked(i, v) atomic_add((i), (v))
 extern void atomic64_add(int, atomic64_t *);
 extern void atomic_sub(int, atomic_t *);
+#define atomic_sub_unchecked(i, v) atomic_sub((i), (v))
 extern void atomic64_sub(int, atomic64_t *);
 
 extern int atomic_add_ret(int, atomic_t *);

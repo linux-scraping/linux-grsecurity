@@ -985,10 +985,6 @@ typedef int proc_handler (struct ctl_table *ctl, int write, struct file * filp,
 
 extern int proc_dostring(struct ctl_table *, int, struct file *,
 			 void __user *, size_t *, loff_t *);
-extern int proc_dointvec_conv(struct ctl_table *, int, struct file *,
-			  void __user *, size_t *, loff_t *,
-			  int (*conv)(int *, unsigned long *, int *v, int, void *),
-			  void *);
 extern int proc_dointvec(struct ctl_table *, int, struct file *,
 			 void __user *, size_t *, loff_t *);
 extern int proc_dointvec_minmax(struct ctl_table *, int, struct file *,

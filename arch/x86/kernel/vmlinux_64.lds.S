@@ -41,8 +41,6 @@ SECTIONS
 	_etext = .;		/* End of text section */
   } :text = 0x9090
 
-  RO_DATA(PAGE_SIZE)
-
   NOTES :text :note
 
   . = ALIGN(16);		/* Exception table */
@@ -52,9 +50,33 @@ SECTIONS
   	__stop___ex_table = .;
   } :text = 0x9090
 
+  RO_DATA(PAGE_SIZE)
+
+#ifdef CONFIG_PAX_KERNEXEC
+  . = ALIGN(2*1024*1024);	/* Align data segment to PMD size boundary */
+#else
+  . = ALIGN(PAGE_SIZE);		/* Align data segment to page size boundary */
+#endif
+				/* Data */
+  _data = .;
+  .data : AT(ADDR(.data) - LOAD_OFFSET) {
+	DATA_DATA
+	CONSTRUCTORS
+	} :data
+
+  . = ALIGN(PAGE_SIZE);
+  . = ALIGN(CONFIG_X86_L1_CACHE_BYTES);
+  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
+	*(.data.cacheline_aligned)
+  }
+  . = ALIGN(CONFIG_X86_INTERNODE_CACHE_BYTES);
+  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) {
+  	*(.data.read_mostly)
+  }
+
 #define VSYSCALL_ADDR (-10*1024*1024)
-#define VSYSCALL_PHYS_ADDR ((LOADADDR(__ex_table) + SIZEOF(__ex_table) + 4095) & ~(4095))
-#define VSYSCALL_VIRT_ADDR ((ADDR(__ex_table) + SIZEOF(__ex_table) + 4095) & ~(4095))
+#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data.read_mostly) + SIZEOF(.data.read_mostly) + 4095) & ~(4095))
+#define VSYSCALL_VIRT_ADDR ((ADDR(.data.read_mostly) + SIZEOF(.data.read_mostly) + 4095) & ~(4095))
 
 #define VLOAD_OFFSET (VSYSCALL_ADDR - VSYSCALL_PHYS_ADDR)
 #define VLOAD(x) (ADDR(x) - VLOAD_OFFSET)
@@ -98,32 +120,10 @@ SECTIONS
 #undef VVIRT_OFFSET
 #undef VVIRT
 
-#ifdef CONFIG_PAX_KERNEXEC
-  . = ALIGN(2*1024*1024);	/* Align data segment to PMD size boundary */
-#else
-  . = ALIGN(PAGE_SIZE);		/* Align data segment to page size boundary */
-#endif
-				/* Data */
-  _data = .;
-  .data : AT(ADDR(.data) - LOAD_OFFSET) {
-	DATA_DATA
-	CONSTRUCTORS
-	} :data
-
-  . = ALIGN(PAGE_SIZE);
-  . = ALIGN(CONFIG_X86_L1_CACHE_BYTES);
-  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET) {
-	*(.data.cacheline_aligned)
-  }
-  . = ALIGN(CONFIG_X86_INTERNODE_CACHE_BYTES);
-  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET) {
-  	*(.data.read_mostly)
-  }
-
   . = ALIGN(THREAD_SIZE);	/* init_task */
   .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
 	*(.data.init_task)
-  }
+  }:data
 
   . = ALIGN(PAGE_SIZE);
   .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
@@ -144,7 +144,7 @@ SECTIONS
   __smp_locks = .;
   .smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
 	*(.smp_locks)
-  } :data.init
+  }:data.init
   __smp_locks_end = .;
   . = ALIGN(PAGE_SIZE);
   __smp_alt_end = .;

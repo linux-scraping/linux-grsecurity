@@ -954,8 +954,8 @@ static int i810_dma_vertex(struct drm_device *dev, void *data,
 				 dma->buflist[vertex->idx],
 				 vertex->discard, vertex->used);
 
-	atomic_add(vertex->used, &dev->counts[_DRM_STAT_SECONDARY]);
-	atomic_inc(&dev->counts[_DRM_STAT_DMA]);
+	atomic_add_unchecked(vertex->used, &dev->counts[_DRM_STAT_SECONDARY]);
+	atomic_inc_unchecked(&dev->counts[_DRM_STAT_DMA]);
 	sarea_priv->last_enqueue = dev_priv->counter - 1;
 	sarea_priv->last_dispatch = (int)hw_status[5];
 
@@ -1117,8 +1117,8 @@ static int i810_dma_mc(struct drm_device *dev, void *data,
 	i810_dma_dispatch_mc(dev, dma->buflist[mc->idx], mc->used,
 			     mc->last_render);
 
-	atomic_add(mc->used, &dev->counts[_DRM_STAT_SECONDARY]);
-	atomic_inc(&dev->counts[_DRM_STAT_DMA]);
+	atomic_add_unchecked(mc->used, &dev->counts[_DRM_STAT_SECONDARY]);
+	atomic_inc_unchecked(&dev->counts[_DRM_STAT_DMA]);
 	sarea_priv->last_enqueue = dev_priv->counter - 1;
 	sarea_priv->last_dispatch = (int)hw_status[5];
 

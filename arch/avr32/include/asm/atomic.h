@@ -176,6 +176,7 @@ static inline int atomic_sub_if_positive(int i, atomic_t *v)
 #define atomic_cmpxchg(v, o, n)	(cmpxchg(&((v)->counter), (o), (n)))
 
 #define atomic_sub(i, v)	(void)atomic_sub_return(i, v)
+#define atomic_sub_unchecked(i, v)	atomic_sub((i), (v))
 #define atomic_add(i, v)	(void)atomic_add_return(i, v)
 #define atomic_add_unchecked(i, v)	atomic_add((i), (v))
 #define atomic_dec(v)		atomic_sub(1, (v))

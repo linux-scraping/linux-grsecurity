@@ -231,10 +231,11 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
-	else if ((long)n > 0)
+	else if ((long)n > 0) {
 		if (!__builtin_constant_p(n))
 			check_object_size(to, n, false);
 		memset(to, 0, n);
+	}
 	return n;
 }
 

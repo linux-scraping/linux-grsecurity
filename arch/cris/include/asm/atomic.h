@@ -154,6 +154,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_inc_unchecked(v) atomic_inc((v))
 #define atomic_add_unchecked(i,v) atomic_add((i),(v))
+#define atomic_sub_unchecked(i,v) atomic_sub((i),(v))
 
 /* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()    barrier()

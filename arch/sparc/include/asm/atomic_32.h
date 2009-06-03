@@ -28,6 +28,7 @@ extern void atomic_set(atomic_t *, int);
 #define atomic_add(i, v)	((void)__atomic_add_return( (int)(i), (v)))
 #define atomic_add_unchecked(i, v)	atomic_add((i), (v))
 #define atomic_sub(i, v)	((void)__atomic_add_return(-(int)(i), (v)))
+#define atomic_sub_unchecked(i, v)	atomic_sub((i), (v))
 #define atomic_inc(v)		((void)__atomic_add_return(        1, (v)))
 #define atomic_inc_unchecked(v)	atomic_inc(v)
 #define atomic_dec(v)		((void)__atomic_add_return(       -1, (v)))
