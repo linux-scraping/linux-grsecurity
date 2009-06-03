@@ -1339,25 +1339,23 @@ int do_execve(char * filename,
 	if (IS_ERR(file))
 		goto out_unmark;
 
-	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
-
-	if (gr_handle_nproc()) {
-		allow_write_access(file);
-		fput(file);
-		return -EAGAIN;
-	}
-
-	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt)) {
-		allow_write_access(file);
-		fput(file);
-		return -EACCES;
-	}
-
 	sched_exec();
 
 	bprm->file = file;
 	bprm->filename = filename;
 	bprm->interp = filename;
+
+	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
+
+	if (gr_handle_nproc()) {
+		retval = -EAGAIN;
+		goto out_file;
+	}
+
+	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt)) {
+		retval = -EACCES;
+		goto out_file;
+	}
 
 	retval = bprm_mm_init(bprm);
 	if (retval)
