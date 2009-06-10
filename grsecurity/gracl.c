@@ -725,8 +725,7 @@ create_table(__u32 * len, int elementsize)
 	unsigned int table_sizes[] = {
 		7, 13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381,
 		32749, 65521, 131071, 262139, 524287, 1048573, 2097143,
-		4194301, 8388593, 16777213, 33554393, 67108859, 134217689,
-		268435399, 536870909, 1073741789, 2147483647
+		4194301, 8388593, 16777213, 33554393, 67108859
 	};
 	void *newtable = NULL;
 	unsigned int pwr = 0;
@@ -735,7 +734,7 @@ create_table(__u32 * len, int elementsize)
 	       table_sizes[pwr] <= *len)
 		pwr++;
 
-	if (table_sizes[pwr] <= *len)
+	if (table_sizes[pwr] <= *len || (table_sizes[pwr] > ULONG_MAX / *len))
 		return newtable;
 
 	if ((table_sizes[pwr] * elementsize) <= PAGE_SIZE)
@@ -1218,7 +1217,7 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 	if (s_tmp->user_trans_num) {
 		uid_t *uidlist;
 
-		uidlist = (uid_t *)acl_alloc(s_tmp->user_trans_num * sizeof(uid_t));
+		uidlist = (uid_t *)acl_alloc_num(s_tmp->user_trans_num, sizeof(uid_t));
 		if (uidlist == NULL)
 			return ERR_PTR(-ENOMEM);
 		if (copy_from_user(uidlist, s_tmp->user_transitions, s_tmp->user_trans_num * sizeof(uid_t)))
@@ -1230,7 +1229,7 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 	if (s_tmp->group_trans_num) {
 		gid_t *gidlist;
 
-		gidlist = (gid_t *)acl_alloc(s_tmp->group_trans_num * sizeof(gid_t));
+		gidlist = (gid_t *)acl_alloc_num(s_tmp->group_trans_num, sizeof(gid_t));
 		if (gidlist == NULL)
 			return ERR_PTR(-ENOMEM);
 		if (copy_from_user(gidlist, s_tmp->group_transitions, s_tmp->group_trans_num * sizeof(gid_t)))
@@ -1278,9 +1277,8 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 	}
 
 	i_tmp =
-	    (struct acl_ip_label **) acl_alloc(s_tmp->ip_num *
-					       sizeof (struct
-						       acl_ip_label *));
+	    (struct acl_ip_label **) acl_alloc_num(s_tmp->ip_num,
+					       sizeof (struct acl_ip_label *));
 
 	if (!i_tmp)
 		return ERR_PTR(-ENOMEM);
@@ -1382,7 +1380,7 @@ copy_user_acl(struct gr_arg *arg)
 	/* copy special role authentication info from userspace */
 
 	num_sprole_pws = arg->num_sprole_pws;
-	acl_special_roles = (struct sprole_pw **) acl_alloc(num_sprole_pws * sizeof(struct sprole_pw *));
+	acl_special_roles = (struct sprole_pw **) acl_alloc_num(num_sprole_pws, sizeof(struct sprole_pw *));
 
 	if (!acl_special_roles) {
 		err = -ENOMEM;
@@ -1501,7 +1499,7 @@ copy_user_acl(struct gr_arg *arg)
 
 		/* copy domain info */
 		if (r_tmp->domain_children != NULL) {
-			domainlist = acl_alloc(r_tmp->domain_child_num * sizeof(uid_t));
+			domainlist = acl_alloc_num(r_tmp->domain_child_num, sizeof(uid_t));
 			if (domainlist == NULL) {
 				err = -ENOMEM;
 				goto cleanup;

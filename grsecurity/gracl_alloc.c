@@ -22,33 +22,47 @@ alloc_pop(void)
 	return 1;
 }
 
-static __inline__ void
+static __inline__ int
 alloc_push(void *buf)
 {
 	if (alloc_stack_next >= alloc_stack_size)
-		BUG();
+		return 1;
 
 	alloc_stack[alloc_stack_next - 1] = buf;
 
 	alloc_stack_next++;
 
-	return;
+	return 0;
 }
 
 void *
 acl_alloc(unsigned long len)
 {
-	void *ret;
+	void *ret = NULL;
 
-	if (len > PAGE_SIZE)
-		BUG();
+	if (!len || len > PAGE_SIZE)
+		goto out;
 
 	ret = kmalloc(len, GFP_KERNEL);
 
-	if (ret)
-		alloc_push(ret);
+	if (ret) {
+		if (alloc_push(ret)) {
+			kfree(ret);
+			ret = NULL;
+		}
+	}
 
+out:
 	return ret;
+}
+
+void *
+acl_alloc_num(unsigned long num, unsigned long len)
+{
+	if (!len || (num > (PAGE_SIZE / len)))
+		return NULL;
+
+	return acl_alloc(num * len);
 }
 
 void

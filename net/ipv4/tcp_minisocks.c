@@ -695,11 +695,11 @@ listen_overflow:
 
 embryonic_reset:
 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_EMBRYONICRSTS);
-#ifdef CONFIG_GRKERNSEC_BLACKHOLE
-	if (skb->dev->flags & IFF_LOOPBACK)
-#endif
+
+#ifndef CONFIG_GRKERNSEC_BLACKHOLE
 	if (!(flg & TCP_FLAG_RST))
 		req->rsk_ops->send_reset(sk, skb);
+#endif
 
 	inet_csk_reqsk_queue_drop(sk, req, prev);
 	return NULL;

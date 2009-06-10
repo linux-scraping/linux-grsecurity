@@ -126,7 +126,7 @@ static int match_number(substring_t *s, int *result, int base)
 	char *buf;
 	int ret;
 
-	buf = kmalloc(s->to - s->from + 1, GFP_KERNEL);
+	buf = kmalloc((s->to - s->from) + 1, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 	memcpy(buf, s->from, s->to - s->from);

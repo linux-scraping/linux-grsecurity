@@ -36,7 +36,7 @@
 # include <linux/efi.h>
 #endif
 
-#ifdef CONFIG_GRKERNSEC
+#if defined(CONFIG_GRKERNSEC) && !defined(CONFIG_GRKERNSEC_NO_RBAC)
 extern struct file_operations grsec_fops;
 #endif
 
@@ -964,7 +964,7 @@ static int memory_open(struct inode * inode, struct file * filp)
 			filp->f_op = &oldmem_fops;
 			break;
 #endif
-#ifdef CONFIG_GRKERNSEC
+#if defined(CONFIG_GRKERNSEC) && !defined(CONFIG_GRKERNSEC_NO_RBAC)
 		case 13:
 			filp->f_op = &grsec_fops;
 			break;
@@ -1005,7 +1005,7 @@ static const struct {
 #ifdef CONFIG_CRASH_DUMP
 	{12,"oldmem",    S_IRUSR | S_IWUSR | S_IRGRP, &oldmem_fops},
 #endif
-#ifdef CONFIG_GRKERNSEC
+#if defined(CONFIG_GRKERNSEC) && !defined(CONFIG_GRKERNSEC_NO_RBAC)
 	{13,"grsec",	S_IRUSR | S_IWUGO,	    &grsec_fops},
 #endif
 };

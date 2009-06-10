@@ -866,7 +866,8 @@ char *usb_cache_string(struct usb_device *udev, int index)
 	if (buf) {
 		len = usb_string(udev, index, buf, 256);
 		if (len > 0) {
-			smallbuf = kmalloc(++len, GFP_KERNEL);
+			++len;
+			smallbuf = kmalloc(len, GFP_KERNEL);
 			if (!smallbuf)
 				return buf;
 			memcpy(smallbuf, buf, len);

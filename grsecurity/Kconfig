@@ -305,6 +305,16 @@ endmenu
 menu "Role Based Access Control Options"
 depends on GRKERNSEC
 
+config GRKERNSEC_NO_RBAC
+	bool "Disable RBAC system"
+	help
+	  If you say Y here, the /dev/grsec device will be removed from the kernel,
+	  preventing the RBAC system from being enabled.  You should only say Y
+	  here if you have no intention of using the RBAC system, so as to prevent
+	  an attacker with root access from misusing the RBAC system to hide files
+	  and processes when loadable module support and /dev/[k]mem have been
+	  locked down.
+
 config GRKERNSEC_ACL_HIDEKERN
 	bool "Hide kernel processes"
 	help
