@@ -734,7 +734,7 @@ create_table(__u32 * len, int elementsize)
 	       table_sizes[pwr] <= *len)
 		pwr++;
 
-	if (table_sizes[pwr] <= *len || (table_sizes[pwr] > ULONG_MAX / *len))
+	if (table_sizes[pwr] <= *len || (table_sizes[pwr] > ULONG_MAX / elementsize))
 		return newtable;
 
 	if ((table_sizes[pwr] * elementsize) <= PAGE_SIZE)
