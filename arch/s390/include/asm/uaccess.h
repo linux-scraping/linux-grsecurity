@@ -285,7 +285,7 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 	might_sleep();
 	if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
-	else
+	else if ((long)n > 0)
 		memset(to, 0, n);
 	return n;
 }

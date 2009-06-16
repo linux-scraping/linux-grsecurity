@@ -334,6 +334,9 @@ static inline unsigned long copy_from_user(void *to,
 {
 	unsigned long over;
 
+	if (((long)n < 0) || (n > INT_MAX))
+		return n;
+
 	if (access_ok(VERIFY_READ, from, n))
 		return __copy_tofrom_user((__force void __user *)to, from, n);
 	if ((unsigned long)from < TASK_SIZE) {
@@ -348,6 +351,9 @@ static inline unsigned long copy_to_user(void __user *to,
 		const void *from, unsigned long n)
 {
 	unsigned long over;
+
+	if (((long)n < 0) || (n > INT_MAX))
+		return n;
 
 	if (access_ok(VERIFY_WRITE, to, n))
 		return __copy_tofrom_user(to, (__force void __user *)from, n);

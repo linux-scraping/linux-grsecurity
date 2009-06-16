@@ -2318,6 +2318,7 @@ int kvm_init(const void *opaque, unsigned int vcpu_size,
 		r = -ENOMEM;
 		goto out_free_0;
 	}
+	cpumask_clear(cpus_hardware_enabled);
 
 	r = kvm_arch_hardware_setup();
 	if (r < 0)
