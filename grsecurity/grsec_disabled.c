@@ -26,6 +26,13 @@ gr_handle_sysctl(const struct ctl_table * table, const int op)
 }
 #endif
 
+#ifdef CONFIG_TASKSTATS
+int gr_is_taskstats_denied(int pid)
+{
+	return 0;
+}
+#endif
+
 int
 gr_acl_is_enabled(void)
 {

@@ -3732,6 +3732,50 @@ void gr_set_kernel_label(struct task_struct *task)
 	return;
 }
 
+#ifdef CONFIG_TASKSTATS
+int gr_is_taskstats_denied(int pid)
+{
+	struct task_struct *task;
+	const struct cred *cred;
+	int ret = 0;
+
+	/* restrict taskstats viewing to un-chrooted root users
+	   who have the 'view' subject flag if the RBAC system is enabled
+	*/
+
+	read_lock(&tasklist_lock);
+	task = find_task_by_vpid(pid);
+	if (task) {
+		task_lock(task);
+#ifdef CONFIG_GRKERNSEC_CHROOT
+		if (proc_is_chrooted(task))
+			ret = -EACCES;
+#endif
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		cred = __task_cred(task);
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+		if (cred->uid != 0)
+			ret = -EACCES;
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		if (cred->uid != 0 && !groups_search(cred->group_info, CONFIG_GRKERNSEC_PROC_GID)
+			ret = -EACCES;
+#endif
+#endif
+		if (gr_status & GR_READY) {
+			if (!(task->acl->mode & GR_VIEW))
+				ret = -EACCES;
+		}
+		
+		task_unlock(task);
+	} else
+		ret = -ENOENT;
+
+	read_unlock(&tasklist_lock);
+
+	return ret;
+}
+#endif
+
 int gr_acl_handle_filldir(const struct file *file, const char *name, const unsigned int namelen, const ino_t ino)
 {
 	struct task_struct *task = current;

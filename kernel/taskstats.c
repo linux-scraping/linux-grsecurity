@@ -26,8 +26,11 @@
 #include <linux/cgroup.h>
 #include <linux/fs.h>
 #include <linux/file.h>
+#include <linux/grsecurity.h>
 #include <net/genetlink.h>
 #include <asm/atomic.h>
+
+extern int gr_is_taskstats_denied(int pid);
 
 /*
  * Maximum length of a cpumask that can be specified in
@@ -432,6 +435,9 @@ static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
 	struct taskstats *stats;
 	size_t size;
 	cpumask_var_t mask;
+
+	if (gr_is_taskstats_denied(current->pid))
+		return -EACCES;
 
 	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
 		return -ENOMEM;
