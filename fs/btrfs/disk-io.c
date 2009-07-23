@@ -768,7 +768,7 @@ static int btree_writepage(struct page *page, struct writeback_control *wbc)
 }
 #endif
 
-static struct address_space_operations btree_aops = {
+static const struct address_space_operations btree_aops = {
 	.readpage	= btree_readpage,
 	.writepage	= btree_writepage,
 	.writepages	= btree_writepages,

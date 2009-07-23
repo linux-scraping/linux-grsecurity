@@ -303,6 +303,7 @@ static inline void native_wbinvd(void)
 do {					\
 	typecheck(unsigned long, cr0);	\
 	preempt_disable();		\
+	barrier();			\
 	cr0 = read_cr0();		\
 	write_cr0(cr0 & ~X86_CR0_WP);	\
 } while (0)
@@ -311,6 +312,7 @@ do {					\
 do {					\
 	typecheck(unsigned long, cr0);	\
 	write_cr0(cr0);			\
+	barrier();			\
 	preempt_enable_no_resched();	\
 } while (0)
 

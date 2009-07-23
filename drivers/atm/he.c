@@ -2165,7 +2165,7 @@ __enqueue_tpd(struct he_dev *he_dev, struct he_tpd *tpd, unsigned cid)
 					tpd->vcc->pop(tpd->vcc, tpd->skb);
 				else
 					dev_kfree_skb_any(tpd->skb);
-				atomic_inc(&tpd->vcc->stats->tx_err);
+				atomic_inc_unchecked(&tpd->vcc->stats->tx_err);
 			}
 			pci_pool_free(he_dev->tpd_pool, tpd, TPD_ADDR(tpd->status));
 			return;
@@ -2577,7 +2577,7 @@ he_send(struct atm_vcc *vcc, struct sk_buff *skb)
 			vcc->pop(vcc, skb);
 		else
 			dev_kfree_skb_any(skb);
-		atomic_inc(&vcc->stats->tx_err);
+		atomic_inc_unchecked(&vcc->stats->tx_err);
 		return -EINVAL;
 	}
 
@@ -2588,7 +2588,7 @@ he_send(struct atm_vcc *vcc, struct sk_buff *skb)
 			vcc->pop(vcc, skb);
 		else
 			dev_kfree_skb_any(skb);
-		atomic_inc(&vcc->stats->tx_err);
+		atomic_inc_unchecked(&vcc->stats->tx_err);
 		return -EINVAL;
 	}
 #endif
@@ -2600,7 +2600,7 @@ he_send(struct atm_vcc *vcc, struct sk_buff *skb)
 			vcc->pop(vcc, skb);
 		else
 			dev_kfree_skb_any(skb);
-		atomic_inc(&vcc->stats->tx_err);
+		atomic_inc_unchecked(&vcc->stats->tx_err);
 		spin_unlock_irqrestore(&he_dev->global_lock, flags);
 		return -ENOMEM;
 	}
@@ -2642,7 +2642,7 @@ he_send(struct atm_vcc *vcc, struct sk_buff *skb)
 					vcc->pop(vcc, skb);
 				else
 					dev_kfree_skb_any(skb);
-				atomic_inc(&vcc->stats->tx_err);
+				atomic_inc_unchecked(&vcc->stats->tx_err);
 				spin_unlock_irqrestore(&he_dev->global_lock, flags);
 				return -ENOMEM;
 			}

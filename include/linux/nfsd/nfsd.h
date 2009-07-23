@@ -56,7 +56,7 @@ extern struct svc_version	nfsd_version2, nfsd_version3,
 extern struct mutex		nfsd_mutex;
 extern struct svc_serv		*nfsd_serv;
 
-extern struct seq_operations nfs_exports_op;
+extern const struct seq_operations nfs_exports_op;
 
 /*
  * Function prototypes.

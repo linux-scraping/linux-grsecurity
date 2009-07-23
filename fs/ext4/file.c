@@ -128,7 +128,7 @@ force_commit:
 	return ret;
 }
 
-static struct vm_operations_struct ext4_file_vm_ops = {
+static const struct vm_operations_struct ext4_file_vm_ops = {
 	.fault		= filemap_fault,
 	.page_mkwrite   = ext4_page_mkwrite,
 };

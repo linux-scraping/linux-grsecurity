@@ -280,7 +280,11 @@ default_entry:
 	movl %eax, pa(max_pfn_mapped)
 
 	/* Do early initialization of the fixmap area */
+#ifdef CONFIG_COMPAT_VDSO
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+#else
 	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+#endif
 #else	/* Not PAE */
 
 page_pde_offset = (__PAGE_OFFSET >> 20);
@@ -312,7 +316,11 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
 	movl %eax, pa(max_pfn_mapped)
 
 	/* Do early initialization of the fixmap area */
+#ifdef CONFIG_COMPAT_VDSO
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_dir+0xffc)
+#else
 	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xffc)
+#endif
 #endif
 	jmp 3f
 /*
@@ -664,7 +672,8 @@ swapper_pg_pmd:
 ENTRY(swapper_pg_dir)
 	.fill 1024,4,0
 #endif
-swapper_pg_fixmap:
+
+ENTRY(swapper_pg_fixmap)
 	.fill 1024,4,0
 
 .section .empty_zero_page,"a",@progbits

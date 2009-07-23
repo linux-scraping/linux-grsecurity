@@ -708,7 +708,7 @@ static int MapUserBuffer(struct ioctl_struct *io, struct device_extension *pdx)
 	return 0;
 }
 
-static struct file_operations piusb_fops = {
+static const struct file_operations piusb_fops = {
 	.owner = THIS_MODULE,
 	.ioctl = piusb_ioctl,
 	.open = piusb_open,

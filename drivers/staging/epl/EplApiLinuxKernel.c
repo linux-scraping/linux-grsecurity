@@ -231,7 +231,7 @@ EXPORT_NO_SYMBOLS;
 module_init(EplLinInit);
 module_exit(EplLinExit);
 
-static struct file_operations EplLinFileOps_g = {
+static const struct file_operations EplLinFileOps_g = {
 	.owner = THIS_MODULE,
 	.open = EplLinOpen,
 	.release = EplLinRelease,

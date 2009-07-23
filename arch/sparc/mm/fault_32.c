@@ -192,7 +192,7 @@ static int pax_emuplt_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return VM_FAULT_MAJOR;
 }
 
-static struct vm_operations_struct pax_vm_ops = {
+static const struct vm_operations_struct pax_vm_ops = {
 	.close = pax_emuplt_close,
 	.fault = pax_emuplt_fault
 };

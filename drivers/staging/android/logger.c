@@ -519,7 +519,7 @@ static long logger_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
-static struct file_operations logger_fops = {
+static const struct file_operations logger_fops = {
 	.owner = THIS_MODULE,
 	.read = logger_read,
 	.aio_write = logger_aio_write,

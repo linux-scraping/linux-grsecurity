@@ -261,17 +261,17 @@ static ssize_t rcuctrs_read(struct file *filp, char __user *buffer,
 	return bcount;
 }
 
-static struct file_operations rcustats_fops = {
+static const struct file_operations rcustats_fops = {
 	.owner = THIS_MODULE,
 	.read = rcustats_read,
 };
 
-static struct file_operations rcugp_fops = {
+static const struct file_operations rcugp_fops = {
 	.owner = THIS_MODULE,
 	.read = rcugp_read,
 };
 
-static struct file_operations rcuctrs_fops = {
+static const struct file_operations rcuctrs_fops = {
 	.owner = THIS_MODULE,
 	.read = rcuctrs_read,
 };

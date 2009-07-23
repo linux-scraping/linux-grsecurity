@@ -210,10 +210,7 @@ static void __iomem *__ioremap_caller(resource_size_t phys_addr,
 	/*
 	 * Don't allow anybody to remap normal RAM that we're using..
 	 */
-	for (pfn = phys_addr >> PAGE_SHIFT;
-				(pfn << PAGE_SHIFT) < (last_addr & PAGE_MASK);
-				pfn++) {
-
+	for (pfn = phys_addr >> PAGE_SHIFT; ((resource_size_t)pfn << PAGE_SHIFT) < (last_addr & PAGE_MASK); pfn++) {
 		int is_ram = page_is_ram(pfn);
 
 		if (is_ram && pfn_valid(pfn) && !PageReserved(pfn_to_page(pfn)))
@@ -492,9 +489,6 @@ static int __init early_ioremap_debug_setup(char *str)
 early_param("early_ioremap_debug", early_ioremap_debug_setup);
 
 static __initdata int after_paging_init;
-#ifdef CONFIG_X86_32
-static __read_only pte_t bm_pte[PAGE_SIZE/sizeof(pte_t)] __aligned(PAGE_SIZE);
-#endif
 
 static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)
 {
@@ -510,7 +504,7 @@ static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)
 static inline pte_t * __init early_ioremap_pte(unsigned long addr)
 {
 #ifdef CONFIG_X86_32
-	return &bm_pte[pte_index(addr)];
+	return &swapper_pg_fixmap[pte_index(addr)];
 #else
 	return &level1_fixmap_pgt[pte_index(addr)];
 #endif
@@ -524,14 +518,6 @@ void __init early_ioremap_init(void)
 		printk(KERN_INFO "early_ioremap_init()\n");
 
 	pmd = early_ioremap_pmd(fix_to_virt(FIX_BTMAP_BEGIN));
-#ifdef CONFIG_X86_32
-	memset(bm_pte, 0, sizeof(bm_pte));
-#ifdef CONFIG_COMPAT_VDSO
-	pmd_populate(&init_mm, pmd, bm_pte);
-#else
-	pmd_populate_kernel(&init_mm, pmd, bm_pte);
-#endif
-#endif
 
 	/*
 	 * The boot-ioremap range spans multiple pmds, for which

@@ -54,7 +54,7 @@ extern int cifs_setattr(struct dentry *, struct iattr *);
 
 extern const struct inode_operations cifs_file_inode_ops;
 extern const struct inode_operations cifs_symlink_inode_ops;
-extern struct inode_operations cifs_dfs_referral_inode_operations;
+extern const struct inode_operations cifs_dfs_referral_inode_operations;
 
 
 /* Functions related to files and directories */
@@ -78,8 +78,8 @@ extern int cifs_dir_open(struct inode *inode, struct file *file);
 extern int cifs_readdir(struct file *file, void *direntry, filldir_t filldir);
 
 /* Functions related to dir entries */
-extern struct dentry_operations cifs_dentry_ops;
-extern struct dentry_operations cifs_ci_dentry_ops;
+extern const struct dentry_operations cifs_dentry_ops;
+extern const struct dentry_operations cifs_ci_dentry_ops;
 
 /* Functions related to symlinks */
 extern void *cifs_follow_link(struct dentry *direntry, struct nameidata *nd);

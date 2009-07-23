@@ -954,7 +954,7 @@ static long usbtmc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return retval;
 }
 
-static struct file_operations fops = {
+static const struct file_operations fops = {
 	.owner		= THIS_MODULE,
 	.read		= usbtmc_read,
 	.write		= usbtmc_write,

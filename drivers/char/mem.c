@@ -335,7 +335,7 @@ static void mmap_mem_close(struct vm_area_struct *vma)
 			vma->vm_page_prot);
 }
 
-static struct vm_operations_struct mmap_mem_ops = {
+static const struct vm_operations_struct mmap_mem_ops = {
 	.open  = mmap_mem_open,
 	.close = mmap_mem_close,
 #ifdef CONFIG_HAVE_IOREMAP_PROT

@@ -52,7 +52,7 @@
 #include "compression.h"
 
 
-static struct super_operations btrfs_super_ops;
+static const struct super_operations btrfs_super_ops;
 
 static void btrfs_put_super(struct super_block *sb)
 {
@@ -625,7 +625,7 @@ static int btrfs_unfreeze(struct super_block *sb)
 	return 0;
 }
 
-static struct super_operations btrfs_super_ops = {
+static const struct super_operations btrfs_super_ops = {
 	.delete_inode	= btrfs_delete_inode,
 	.put_super	= btrfs_put_super,
 	.write_super	= btrfs_write_super,

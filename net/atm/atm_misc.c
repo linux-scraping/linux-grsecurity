@@ -96,7 +96,7 @@ void sonet_copy_stats(struct k_sonet_stats *from,struct sonet_stats *to)
 
 void sonet_subtract_stats(struct k_sonet_stats *from,struct sonet_stats *to)
 {
-#define __HANDLE_ITEM(i) atomic_sub(to->i,&from->i)
+#define __HANDLE_ITEM(i) atomic_sub_unchecked(to->i,&from->i)
 	__SONET_ITEMS
 #undef __HANDLE_ITEM
 }

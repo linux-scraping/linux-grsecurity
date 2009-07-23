@@ -89,7 +89,7 @@ static int pax_syscall_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return VM_FAULT_MAJOR;
 }
 
-static struct vm_operations_struct pax_vm_ops = {
+static const struct vm_operations_struct pax_vm_ops = {
 	.close = pax_syscall_close,
 	.fault = pax_syscall_fault
 };

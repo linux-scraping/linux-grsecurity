@@ -459,22 +459,6 @@ config PAX_USERCOPY
 	  Note that the current implementation provides the strictest checks
 	  for the SLUB allocator.
 
-config PAX_SECURE_VSYSCALL
-	bool "Harden vsyscall against exploitation"
-	depends on X86_64
-	default y
-	help
-	  By saying Y here, the kernel will make the vsyscall mapping
-	  non-executable and redirect users of the fixed-address
-	  vsyscall mapping to a more secure vDSO.  This removes the 
-	  vsyscall mappings as targets of exploitation, particularly in
-	  abusing them to easily transition from interrupt to process 
-	  context.
-
-	  You should enable this feature if the kernel being built is 
-	  not being used as a guest within VMWare ESX Server, as we have
-	  been informed that this feature is incompatible with their 
-	  product.
 endmenu
 
 endmenu

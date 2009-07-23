@@ -179,7 +179,7 @@ static void load_seq_stop(struct seq_file *s, void *v)
 	/* No-op */
 }
 
-static struct seq_operations load_seq_ops = {
+static const struct seq_operations load_seq_ops = {
 	.start = load_seq_start,
 	.next  = load_seq_next,
 	.show  = load_seq_show,
@@ -491,7 +491,7 @@ static void cipso_seq_stop(struct seq_file *s, void *v)
 	/* No-op */
 }
 
-static struct seq_operations cipso_seq_ops = {
+static const struct seq_operations cipso_seq_ops = {
 	.start = cipso_seq_start,
 	.stop  = cipso_seq_stop,
 	.next  = cipso_seq_next,
@@ -675,7 +675,7 @@ static void netlbladdr_seq_stop(struct seq_file *s, void *v)
 	/* No-op */
 }
 
-static struct seq_operations netlbladdr_seq_ops = {
+static const struct seq_operations netlbladdr_seq_ops = {
 	.start = netlbladdr_seq_start,
 	.stop  = netlbladdr_seq_stop,
 	.next  = netlbladdr_seq_next,

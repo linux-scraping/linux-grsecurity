@@ -57,14 +57,14 @@ struct btrfs_iget_args {
 	struct btrfs_root *root;
 };
 
-static struct inode_operations btrfs_dir_inode_operations;
-static struct inode_operations btrfs_symlink_inode_operations;
-static struct inode_operations btrfs_dir_ro_inode_operations;
-static struct inode_operations btrfs_special_inode_operations;
-static struct inode_operations btrfs_file_inode_operations;
-static struct address_space_operations btrfs_aops;
-static struct address_space_operations btrfs_symlink_aops;
-static struct file_operations btrfs_dir_file_operations;
+static const struct inode_operations btrfs_dir_inode_operations;
+static const struct inode_operations btrfs_symlink_inode_operations;
+static const struct inode_operations btrfs_dir_ro_inode_operations;
+static const struct inode_operations btrfs_special_inode_operations;
+static const struct inode_operations btrfs_file_inode_operations;
+static const struct address_space_operations btrfs_aops;
+static const struct address_space_operations btrfs_symlink_aops;
+static const struct file_operations btrfs_dir_file_operations;
 static struct extent_io_ops btrfs_extent_io_ops;
 
 static struct kmem_cache *btrfs_inode_cachep;
@@ -4955,7 +4955,7 @@ static int btrfs_permission(struct inode *inode, int mask)
 	return generic_permission(inode, mask, btrfs_check_acl);
 }
 
-static struct inode_operations btrfs_dir_inode_operations = {
+static const struct inode_operations btrfs_dir_inode_operations = {
 	.getattr	= btrfs_getattr,
 	.lookup		= btrfs_lookup,
 	.create		= btrfs_create,
@@ -4973,11 +4973,11 @@ static struct inode_operations btrfs_dir_inode_operations = {
 	.removexattr	= btrfs_removexattr,
 	.permission	= btrfs_permission,
 };
-static struct inode_operations btrfs_dir_ro_inode_operations = {
+static const struct inode_operations btrfs_dir_ro_inode_operations = {
 	.lookup		= btrfs_lookup,
 	.permission	= btrfs_permission,
 };
-static struct file_operations btrfs_dir_file_operations = {
+static const struct file_operations btrfs_dir_file_operations = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
 	.readdir	= btrfs_real_readdir,
@@ -5013,7 +5013,7 @@ static struct extent_io_ops btrfs_extent_io_ops = {
  *
  * For now we're avoiding this by dropping bmap.
  */
-static struct address_space_operations btrfs_aops = {
+static const struct address_space_operations btrfs_aops = {
 	.readpage	= btrfs_readpage,
 	.writepage	= btrfs_writepage,
 	.writepages	= btrfs_writepages,
@@ -5025,14 +5025,14 @@ static struct address_space_operations btrfs_aops = {
 	.set_page_dirty	= btrfs_set_page_dirty,
 };
 
-static struct address_space_operations btrfs_symlink_aops = {
+static const struct address_space_operations btrfs_symlink_aops = {
 	.readpage	= btrfs_readpage,
 	.writepage	= btrfs_writepage,
 	.invalidatepage = btrfs_invalidatepage,
 	.releasepage	= btrfs_releasepage,
 };
 
-static struct inode_operations btrfs_file_inode_operations = {
+static const struct inode_operations btrfs_file_inode_operations = {
 	.truncate	= btrfs_truncate,
 	.getattr	= btrfs_getattr,
 	.setattr	= btrfs_setattr,
@@ -5044,7 +5044,7 @@ static struct inode_operations btrfs_file_inode_operations = {
 	.fallocate	= btrfs_fallocate,
 	.fiemap		= btrfs_fiemap,
 };
-static struct inode_operations btrfs_special_inode_operations = {
+static const struct inode_operations btrfs_special_inode_operations = {
 	.getattr	= btrfs_getattr,
 	.setattr	= btrfs_setattr,
 	.permission	= btrfs_permission,
@@ -5053,7 +5053,7 @@ static struct inode_operations btrfs_special_inode_operations = {
 	.listxattr	= btrfs_listxattr,
 	.removexattr	= btrfs_removexattr,
 };
-static struct inode_operations btrfs_symlink_inode_operations = {
+static const struct inode_operations btrfs_symlink_inode_operations = {
 	.readlink	= generic_readlink,
 	.follow_link	= page_follow_link_light,
 	.put_link	= page_put_link,

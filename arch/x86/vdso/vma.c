@@ -130,10 +130,3 @@ up_fail:
 	up_write(&mm->mmap_sem);
 	return ret;
 }
-
-static __init int vdso_setup(char *s)
-{
-	vdso_enabled = simple_strtoul(s, NULL, 0);
-	return 0;
-}
-__setup("vdso=", vdso_setup);

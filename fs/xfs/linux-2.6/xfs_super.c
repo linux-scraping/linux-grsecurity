@@ -69,7 +69,7 @@
 #include <linux/parser.h>
 
 static struct quotactl_ops xfs_quotactl_operations;
-static struct super_operations xfs_super_operations;
+static const struct super_operations xfs_super_operations;
 static kmem_zone_t *xfs_ioend_zone;
 mempool_t *xfs_ioend_pool;
 
@@ -1564,7 +1564,7 @@ xfs_fs_get_sb(
 			   mnt);
 }
 
-static struct super_operations xfs_super_operations = {
+static const struct super_operations xfs_super_operations = {
 	.alloc_inode		= xfs_fs_alloc_inode,
 	.destroy_inode		= xfs_fs_destroy_inode,
 	.write_inode		= xfs_fs_write_inode,

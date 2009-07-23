@@ -280,7 +280,7 @@ struct smi_info {
 	unsigned char slave_addr;
 
 	/* Counters and things for the proc filesystem. */
-	atomic_t stats[SI_NUM_STATS];
+	atomic_unchecked_t stats[SI_NUM_STATS];
 
 	struct task_struct *thread;
 

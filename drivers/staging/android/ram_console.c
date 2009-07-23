@@ -365,7 +365,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	return count;
 }
 
-static struct file_operations ram_console_file_ops = {
+static const struct file_operations ram_console_file_ops = {
 	.owner = THIS_MODULE,
 	.read = ram_console_read_old,
 };

@@ -762,7 +762,7 @@ static void jbd2_seq_history_stop(struct seq_file *seq, void *v)
 {
 }
 
-static struct seq_operations jbd2_seq_history_ops = {
+static const struct seq_operations jbd2_seq_history_ops = {
 	.start  = jbd2_seq_history_start,
 	.next   = jbd2_seq_history_next,
 	.stop   = jbd2_seq_history_stop,
@@ -812,7 +812,7 @@ static int jbd2_seq_history_release(struct inode *inode, struct file *file)
 	return seq_release(inode, file);
 }
 
-static struct file_operations jbd2_seq_history_fops = {
+static const struct file_operations jbd2_seq_history_fops = {
 	.owner		= THIS_MODULE,
 	.open           = jbd2_seq_history_open,
 	.read           = seq_read,
@@ -866,7 +866,7 @@ static void jbd2_seq_info_stop(struct seq_file *seq, void *v)
 {
 }
 
-static struct seq_operations jbd2_seq_info_ops = {
+static const struct seq_operations jbd2_seq_info_ops = {
 	.start  = jbd2_seq_info_start,
 	.next   = jbd2_seq_info_next,
 	.stop   = jbd2_seq_info_stop,
@@ -914,7 +914,7 @@ static int jbd2_seq_info_release(struct inode *inode, struct file *file)
 	return seq_release(inode, file);
 }
 
-static struct file_operations jbd2_seq_info_fops = {
+static const struct file_operations jbd2_seq_info_fops = {
 	.owner		= THIS_MODULE,
 	.open           = jbd2_seq_info_open,
 	.read           = seq_read,

@@ -292,7 +292,7 @@ static int coreb_ioctl(struct inode *inode, struct file *file,
 	return retval;
 }
 
-static struct file_operations coreb_fops = {
+static const struct file_operations coreb_fops = {
 	.owner = THIS_MODULE,
 	.llseek = coreb_lseek,
 	.read = coreb_read,

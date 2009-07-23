@@ -66,7 +66,7 @@ extern struct gr_arg *gr_usermode;
 extern unsigned char *gr_system_salt;
 extern unsigned char *gr_system_sum;
 
-void
+void __init
 grsecurity_init(void)
 {
 	int j;

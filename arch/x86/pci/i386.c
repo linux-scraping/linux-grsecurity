@@ -273,7 +273,7 @@ static void pci_track_mmap_page_range(struct vm_area_struct *vma)
 	reserve_memtype(addr, addr + vma->vm_end - vma->vm_start, flags, NULL);
 }
 
-static struct vm_operations_struct pci_mmap_ops = {
+static const struct vm_operations_struct pci_mmap_ops = {
 	.open  = pci_track_mmap_page_range,
 	.close = pci_unmap_page_range,
 	.access = generic_access_phys,

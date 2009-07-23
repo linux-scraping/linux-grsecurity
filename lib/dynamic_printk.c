@@ -352,7 +352,7 @@ static int pr_debug_seq_show(struct seq_file *s, void *v)
 	return 0;
 }
 
-static struct seq_operations pr_debug_seq_ops = {
+static const struct seq_operations pr_debug_seq_ops = {
 	.start = pr_debug_seq_start,
 	.next  = pr_debug_seq_next,
 	.stop  = pr_debug_seq_stop,

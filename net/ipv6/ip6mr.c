@@ -204,7 +204,7 @@ static int ip6mr_vif_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-static struct seq_operations ip6mr_vif_seq_ops = {
+static const struct seq_operations ip6mr_vif_seq_ops = {
 	.start = ip6mr_vif_seq_start,
 	.next  = ip6mr_vif_seq_next,
 	.stop  = ip6mr_vif_seq_stop,
@@ -217,7 +217,7 @@ static int ip6mr_vif_open(struct inode *inode, struct file *file)
 			    sizeof(struct ipmr_vif_iter));
 }
 
-static struct file_operations ip6mr_vif_fops = {
+static const struct file_operations ip6mr_vif_fops = {
 	.owner	 = THIS_MODULE,
 	.open    = ip6mr_vif_open,
 	.read    = seq_read,
@@ -328,7 +328,7 @@ static int ipmr_mfc_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-static struct seq_operations ipmr_mfc_seq_ops = {
+static const struct seq_operations ipmr_mfc_seq_ops = {
 	.start = ipmr_mfc_seq_start,
 	.next  = ipmr_mfc_seq_next,
 	.stop  = ipmr_mfc_seq_stop,
@@ -341,7 +341,7 @@ static int ipmr_mfc_open(struct inode *inode, struct file *file)
 			    sizeof(struct ipmr_mfc_iter));
 }
 
-static struct file_operations ip6mr_mfc_fops = {
+static const struct file_operations ip6mr_mfc_fops = {
 	.owner	 = THIS_MODULE,
 	.open    = ipmr_mfc_open,
 	.read    = seq_read,

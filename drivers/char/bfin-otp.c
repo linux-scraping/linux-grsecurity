@@ -133,7 +133,7 @@ static ssize_t bfin_otp_write(struct file *filp, const char __user *buff, size_t
 # define bfin_otp_write NULL
 #endif
 
-static struct file_operations bfin_otp_fops = {
+static const struct file_operations bfin_otp_fops = {
 	.owner    = THIS_MODULE,
 	.read     = bfin_otp_read,
 	.write    = bfin_otp_write,

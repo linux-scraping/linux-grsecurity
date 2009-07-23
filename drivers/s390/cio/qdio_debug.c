@@ -144,7 +144,7 @@ static void remove_debugfs_entry(struct qdio_q *q)
 	}
 }
 
-static struct file_operations debugfs_fops = {
+static const struct file_operations debugfs_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = qstat_seq_open,
 	.read	 = seq_read,

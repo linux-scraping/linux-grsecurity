@@ -202,7 +202,7 @@ close_learn(struct inode *inode, struct file *file)
 	return 0;
 }
 		
-struct file_operations grsec_fops = {
+const struct file_operations grsec_fops = {
 	.read		= read_learn,
 	.write		= write_grsec_handler,
 	.open		= open_learn,

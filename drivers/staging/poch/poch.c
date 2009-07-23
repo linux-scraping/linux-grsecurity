@@ -1056,7 +1056,7 @@ static int poch_ioctl(struct inode *inode, struct file *filp,
 	return 0;
 }
 
-static struct file_operations poch_fops = {
+static const struct file_operations poch_fops = {
 	.owner = THIS_MODULE,
 	.open = poch_open,
 	.release = poch_release,

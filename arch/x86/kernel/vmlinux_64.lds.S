@@ -16,8 +16,8 @@ jiffies = jiffies_64;
 _proxy_pda = 1;
 PHDRS {
 	text PT_LOAD FLAGS(5);	/* R_E */
-	user PT_LOAD FLAGS(5);	/* R_E */
 	data PT_LOAD FLAGS(6);	/* RW_ */
+	user PT_LOAD FLAGS(5);	/* R_E */
 	data.init PT_LOAD FLAGS(7);	/* RWE */
 	note PT_NOTE FLAGS(0);	/* ___ */
 }
@@ -74,9 +74,25 @@ SECTIONS
   	*(.data.read_mostly)
   }
 
+  . = ALIGN(THREAD_SIZE);	/* init_task */
+  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
+	*(.data.init_task)
+  }:data
+
+  . = ALIGN(PAGE_SIZE);
+  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
+	*(.data.page_aligned)
+  }
+
+  . = ALIGN(PAGE_SIZE);
+  __nosave_begin = .;
+  .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) { *(.data.nosave) }
+  . = ALIGN(PAGE_SIZE);
+  __nosave_end = .;
+
 #define VSYSCALL_ADDR (-10*1024*1024)
-#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data.read_mostly) + SIZEOF(.data.read_mostly) + 4095) & ~(4095))
-#define VSYSCALL_VIRT_ADDR ((ADDR(.data.read_mostly) + SIZEOF(.data.read_mostly) + 4095) & ~(4095))
+#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data_nosave) + SIZEOF(.data_nosave) + 4095) & ~(4095))
+#define VSYSCALL_VIRT_ADDR ((ADDR(.data_nosave) + SIZEOF(.data_nosave) + 4095) & ~(4095))
 
 #define VLOAD_OFFSET (VSYSCALL_ADDR - VSYSCALL_PHYS_ADDR)
 #define VLOAD(x) (ADDR(x) - VLOAD_OFFSET)
@@ -119,22 +135,6 @@ SECTIONS
 #undef VLOAD
 #undef VVIRT_OFFSET
 #undef VVIRT
-
-  . = ALIGN(THREAD_SIZE);	/* init_task */
-  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET) {
-	*(.data.init_task)
-  }:data
-
-  . = ALIGN(PAGE_SIZE);
-  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET) {
-	*(.data.page_aligned)
-  }
-
-  . = ALIGN(PAGE_SIZE);
-  __nosave_begin = .;
-  .data_nosave : AT(ADDR(.data_nosave) - LOAD_OFFSET) { *(.data.nosave) }
-  . = ALIGN(PAGE_SIZE);
-  __nosave_end = .;
 
   _edata = .;			/* End of data section */
 

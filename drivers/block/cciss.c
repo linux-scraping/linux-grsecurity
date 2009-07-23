@@ -348,7 +348,7 @@ static void cciss_seq_stop(struct seq_file *seq, void *v)
 	h->busy_configuring = 0;
 }
 
-static struct seq_operations cciss_seq_ops = {
+static const struct seq_operations cciss_seq_ops = {
 	.start = cciss_seq_start,
 	.show  = cciss_seq_show,
 	.next  = cciss_seq_next,
@@ -411,7 +411,7 @@ out:
 	return err;
 }
 
-static struct file_operations cciss_proc_fops = {
+static const struct file_operations cciss_proc_fops = {
 	.owner	 = THIS_MODULE,
 	.open    = cciss_seq_open,
 	.read    = seq_read,

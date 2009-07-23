@@ -107,7 +107,7 @@ static struct cdev *cdevp;
 /* File operations provided by the module
 */
 
-static struct file_operations me_file_operations = {
+static const struct file_operations me_file_operations = {
 	.owner = THIS_MODULE,
 	.ioctl = me_ioctl,
 	.open = me_open,

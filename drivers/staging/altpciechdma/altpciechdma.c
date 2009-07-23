@@ -1085,7 +1085,7 @@ static ssize_t sg_write(struct file *file, const char __user *buf, size_t count,
 /*
  * character device file operations
  */
-static struct file_operations sg_fops = {
+static const struct file_operations sg_fops = {
   .owner = THIS_MODULE,
   .open = sg_open,
   .release = sg_close,

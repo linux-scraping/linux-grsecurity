@@ -9,7 +9,7 @@
 
 extern __u32 gr_handle_sysctl(const struct ctl_table *table, const int op);
 
-static struct dentry_operations proc_sys_dentry_operations;
+static const struct dentry_operations proc_sys_dentry_operations;
 static const struct file_operations proc_sys_file_operations;
 static const struct inode_operations proc_sys_inode_operations;
 static const struct file_operations proc_sys_dir_file_operations;
@@ -407,7 +407,7 @@ static int proc_sys_compare(struct dentry *dir, struct qstr *qstr,
 	return !sysctl_is_seen(PROC_I(dentry->d_inode)->sysctl);
 }
 
-static struct dentry_operations proc_sys_dentry_operations = {
+static const struct dentry_operations proc_sys_dentry_operations = {
 	.d_revalidate	= proc_sys_revalidate,
 	.d_delete	= proc_sys_delete,
 	.d_compare	= proc_sys_compare,

@@ -117,7 +117,7 @@ static int i915_resume(struct drm_device *dev)
 	return ret;
 }
 
-static struct vm_operations_struct i915_gem_vm_ops = {
+static const struct vm_operations_struct i915_gem_vm_ops = {
 	.fault = i915_gem_fault,
 	.open = drm_gem_vm_open,
 	.close = drm_gem_vm_close,
