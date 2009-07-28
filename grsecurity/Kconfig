@@ -150,11 +150,11 @@ config GRKERNSEC_HIGH
 	select PAX_EI_PAX
 	select PAX_PT_PAX_FLAGS
 	select PAX_HAVE_ACL_FLAGS
-	select PAX_KERNEXEC if (X86 && !EFI && !COMPAT_VDSO && !PARAVIRT && (!X86_32 || X86_WP_WORKS_OK))
-	select PAX_MEMORY_UDEREF if (!X86_64 && !COMPAT_VDSO)
+	select PAX_KERNEXEC if (X86 && (!X86_32 || X86_WP_WORKS_OK))
+	select PAX_MEMORY_UDEREF if (X86_32)
 	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
-	select PAX_SEGMEXEC if (X86 && !X86_64)
-	select PAX_PAGEEXEC if (!X86)
+	select PAX_SEGMEXEC if (X86_32)
+	select PAX_PAGEEXEC
 	select PAX_EMUPLT if (ALPHA || PARISC || PPC32 || SPARC32 || SPARC64)
 	select PAX_DLRESOLVE if (SPARC32 || SPARC64)
 	select PAX_SYSCALL if (PPC32)
@@ -246,6 +246,7 @@ config GRKERNSEC_IO
 
 config GRKERNSEC_PROC_MEMMAP
 	bool "Remove addresses from /proc/<pid>/[smaps|maps|stat]"
+	default y if (PAX_NOEXEC || PAX_ASLR)
 	depends on PAX_NOEXEC || PAX_ASLR
 	help
 	  If you say Y here, the /proc/<pid>/maps and /proc/<pid>/stat files will

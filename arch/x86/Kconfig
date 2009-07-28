@@ -450,7 +450,7 @@ source "arch/x86/lguest/Kconfig"
 
 config PARAVIRT
 	bool "Enable paravirtualization code"
-	depends on !X86_VOYAGER
+	depends on !X86_VOYAGER && !PAX_KERNEXEC
 	help
 	  This changes the kernel so it can modify itself when it is run
 	  under a hypervisor, potentially improving performance significantly
@@ -1312,7 +1312,7 @@ config X86_PAT
 
 config EFI
 	bool "EFI runtime service support"
-	depends on ACPI
+	depends on ACPI && !PAX_KERNEXEC
 	---help---
 	This enables the kernel to use EFI runtime services that are
 	available (such as the EFI variable services).
@@ -1502,7 +1502,7 @@ config HOTPLUG_CPU
 config COMPAT_VDSO
 	def_bool n
 	prompt "Compat VDSO support"
-	depends on (X86_32 || IA32_EMULATION) && !PAX_NOEXEC
+	depends on (X86_32 || IA32_EMULATION) && !PAX_NOEXEC && !PAX_MEMORY_UDEREF
 	help
 	  Map the 32-bit VDSO to the predictable old-style address too.
 	---help---
