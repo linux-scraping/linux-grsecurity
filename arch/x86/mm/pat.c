@@ -31,7 +31,7 @@
 #ifdef CONFIG_X86_PAT
 int __read_mostly pat_enabled = 1;
 
-void __cpuinit pat_disable(char *reason)
+static inline void pat_disable(const char *reason)
 {
 	pat_enabled = 0;
 	printk(KERN_INFO "%s\n", reason);
@@ -43,6 +43,11 @@ static int __init nopat(char *str)
 	return 0;
 }
 early_param("nopat", nopat);
+#else
+static inline void pat_disable(const char *reason)
+{
+	(void)reason;
+}
 #endif
 
 
@@ -79,16 +84,20 @@ void pat_init(void)
 	if (!pat_enabled)
 		return;
 
-	/* Paranoia check. */
-	if (!cpu_has_pat && boot_pat_state) {
-		/*
-		 * If this happens we are on a secondary CPU, but
-		 * switched to PAT on the boot CPU. We have no way to
-		 * undo PAT.
-		 */
-		printk(KERN_ERR "PAT enabled, "
-		       "but not supported by secondary CPU\n");
-		BUG();
+	if (!cpu_has_pat) {
+		if (!boot_pat_state) {
+			pat_disable("PAT not supported by CPU.");
+			return;
+		} else {
+			/*
+			 * If this happens we are on a secondary CPU, but
+			 * switched to PAT on the boot CPU. We have no way to
+			 * undo PAT.
+			 */
+			printk(KERN_ERR "PAT enabled, "
+			       "but not supported by secondary CPU\n");
+			BUG();
+		}
 	}
 
 	/* Set PWT to Write-Combining. All other bits stay the same */
@@ -173,10 +182,10 @@ static unsigned long pat_x_mtrr_type(u64 start, u64 end, unsigned long req_type)
 		u8 mtrr_type;
 
 		mtrr_type = mtrr_type_lookup(start, end);
-		if (mtrr_type == MTRR_TYPE_UNCACHABLE)
-			return _PAGE_CACHE_UC;
-		if (mtrr_type == MTRR_TYPE_WRCOMB)
-			return _PAGE_CACHE_WC;
+		if (mtrr_type != MTRR_TYPE_WRBACK)
+			return _PAGE_CACHE_UC_MINUS;
+
+		return _PAGE_CACHE_WB;
 	}
 
 	return req_type;
@@ -343,23 +352,13 @@ int reserve_memtype(u64 start, u64 end, unsigned long req_type,
 		return 0;
 	}
 
-	if (req_type == -1) {
-		/*
-		 * Call mtrr_lookup to get the type hint. This is an
-		 * optimization for /dev/mem mmap'ers into WB memory (BIOS
-		 * tools and ACPI tools). Use WB request for WB memory and use
-		 * UC_MINUS otherwise.
-		 */
-		u8 mtrr_type = mtrr_type_lookup(start, end);
-
-		if (mtrr_type == MTRR_TYPE_WRBACK)
-			actual_type = _PAGE_CACHE_WB;
-		else
-			actual_type = _PAGE_CACHE_UC_MINUS;
-	} else {
-		actual_type = pat_x_mtrr_type(start, end,
-					      req_type & _PAGE_CACHE_MASK);
-	}
+	/*
+	 * Call mtrr_lookup to get the type hint. This is an
+	 * optimization for /dev/mem mmap'ers into WB memory (BIOS
+	 * tools and ACPI tools). Use WB request for WB memory and use
+	 * UC_MINUS otherwise.
+	 */
+	actual_type = pat_x_mtrr_type(start, end, req_type & _PAGE_CACHE_MASK);
 
 	if (new_type)
 		*new_type = actual_type;
@@ -537,9 +536,7 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
 int phys_mem_access_prot_allowed(struct file *file, unsigned long pfn,
 				unsigned long size, pgprot_t *vma_prot)
 {
-	u64 offset = ((u64) pfn) << PAGE_SHIFT;
-	unsigned long flags = -1;
-	int retval;
+	unsigned long flags = _PAGE_CACHE_WB;
 
 	if (!range_is_allowed(pfn, size))
 		return 0;
@@ -567,62 +564,36 @@ int phys_mem_access_prot_allowed(struct file *file, unsigned long pfn,
 	}
 #endif
 
-	/*
-	 * With O_SYNC, we can only take UC_MINUS mapping. Fail if we cannot.
-	 *
-	 * Without O_SYNC, we want to get
-	 * - WB for WB-able memory and no other conflicting mappings
-	 * - UC_MINUS for non-WB-able memory with no other conflicting mappings
-	 * - Inherit from confliting mappings otherwise
-	 */
-	if (flags != -1) {
-		retval = reserve_memtype(offset, offset + size, flags, NULL);
-	} else {
-		retval = reserve_memtype(offset, offset + size, -1, &flags);
-	}
-
-	if (retval < 0)
-		return 0;
-
-	if (((pfn < max_low_pfn_mapped) ||
-	     (pfn >= (1UL<<(32 - PAGE_SHIFT)) && pfn < max_pfn_mapped)) &&
-	    ioremap_change_attr((unsigned long)__va(offset), size, flags) < 0) {
-		free_memtype(offset, offset + size);
-		printk(KERN_INFO
-		"%s:%d /dev/mem ioremap_change_attr failed %s for %Lx-%Lx\n",
-			current->comm, task_pid_nr(current),
-			cattr_name(flags),
-			offset, (unsigned long long)(offset + size));
-		return 0;
-	}
-
 	*vma_prot = __pgprot((pgprot_val(*vma_prot) & ~_PAGE_CACHE_MASK) |
 			     flags);
 	return 1;
 }
 
-void map_devmem(unsigned long pfn, unsigned long size, pgprot_t vma_prot)
+/*
+ * Change the memory type for the physial address range in kernel identity
+ * mapping space if that range is a part of identity map.
+ */
+int kernel_map_sync_memtype(u64 base, unsigned long size, unsigned long flags)
 {
-	unsigned long want_flags = (pgprot_val(vma_prot) & _PAGE_CACHE_MASK);
-	u64 addr = (u64)pfn << PAGE_SHIFT;
-	unsigned long flags;
+	unsigned long id_sz;
 
-	reserve_memtype(addr, addr + size, want_flags, &flags);
-	if (flags != want_flags) {
+	if (!pat_enabled || base >= __pa(high_memory))
+		return 0;
+
+	id_sz = (__pa(high_memory) < base + size) ?
+				__pa(high_memory) - base :
+				size;
+
+	if (ioremap_change_attr((unsigned long)__va(base), id_sz, flags) < 0) {
 		printk(KERN_INFO
-		"%s:%d /dev/mem expected mapping type %s for %Lx-%Lx, got %s\n",
+			"%s:%d ioremap_change_attr failed %s "
+			"for %Lx-%Lx\n",
 			current->comm, task_pid_nr(current),
-			cattr_name(want_flags),
-			addr, (unsigned long long)(addr + size),
-			cattr_name(flags));
+			cattr_name(flags),
+			base, (unsigned long long)(base + size));
+		return -EINVAL;
 	}
-}
-
-void unmap_devmem(unsigned long pfn, unsigned long size, pgprot_t vma_prot)
-{
-	u64 addr = (u64)pfn << PAGE_SHIFT;
-
-	free_memtype(addr, addr + size);
+	return 0;
 }
 
 /*
@@ -634,9 +605,9 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 				int strict_prot)
 {
 	int is_ram = 0;
-	int id_sz, ret;
-	unsigned long flags;
+	int ret;
 	unsigned long want_flags = (pgprot_val(*vma_prot) & _PAGE_CACHE_MASK);
+	unsigned long flags = want_flags;
 
 	is_ram = pat_pagerange_is_ram(paddr, paddr + size);
 
@@ -672,23 +643,8 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 				     flags);
 	}
 
-	/* Need to keep identity mapping in sync */
-	if (paddr >= __pa(high_memory))
-		return 0;
-
-	id_sz = (__pa(high_memory) < paddr + size) ?
-				__pa(high_memory) - paddr :
-				size;
-
-	if (ioremap_change_attr((unsigned long)__va(paddr), id_sz, flags) < 0) {
+	if (kernel_map_sync_memtype(paddr, size, flags) < 0) {
 		free_memtype(paddr, paddr + size);
-		printk(KERN_ERR
-			"%s:%d reserve_pfn_range ioremap_change_attr failed %s "
-			"for %Lx-%Lx\n",
-			current->comm, task_pid_nr(current),
-			cattr_name(flags),
-			(unsigned long long)paddr,
-			(unsigned long long)(paddr + size));
 		return -EINVAL;
 	}
 	return 0;

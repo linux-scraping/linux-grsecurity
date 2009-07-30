@@ -293,6 +293,7 @@ void selinux_netlbl_inet_csk_clone(struct sock *sk, u16 family)
 /**
  * selinux_netlbl_socket_post_create - Label a socket using NetLabel
  * @sock: the socket to label
+ * @family: protocol family
  *
  * Description:
  * Attempt to label a socket using the NetLabel mechanism using the given
@@ -311,7 +312,7 @@ int selinux_netlbl_socket_post_create(struct sock *sk, u16 family)
 	secattr = selinux_netlbl_sock_genattr(sk);
 	if (secattr == NULL)
 		return -ENOMEM;
-	rc = netlbl_sock_setattr(sk, secattr);
+	rc = netlbl_sock_setattr(sk, family, secattr);
 	switch (rc) {
 	case 0:
 		sksec->nlbl_state = NLBL_LABELED;

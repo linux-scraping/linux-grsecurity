@@ -46,6 +46,14 @@
 # define MULTI_CACHE 1
 #endif
 
+#if defined(CONFIG_CPU_FA526)
+# ifdef _CACHE
+#  define MULTI_CACHE 1
+# else
+#  define _CACHE fa
+# endif
+#endif
+
 #if defined(CONFIG_CPU_ARM926T)
 # ifdef _CACHE
 #  define MULTI_CACHE 1
@@ -91,6 +99,14 @@
 #  define MULTI_CACHE 1
 # else
 #  define _CACHE xsc3
+# endif
+#endif
+
+#if defined(CONFIG_CPU_MOHAWK)
+# ifdef _CACHE
+#  define MULTI_CACHE 1
+# else
+#  define _CACHE mohawk
 # endif
 #endif
 
@@ -411,6 +427,14 @@ static inline void flush_anon_page(struct vm_area_struct *vma,
 				struct page *, unsigned long);
 	if (PageAnon(page))
 		__flush_anon_page(vma, page, vmaddr);
+}
+
+#define ARCH_HAS_FLUSH_KERNEL_DCACHE_PAGE
+static inline void flush_kernel_dcache_page(struct page *page)
+{
+	/* highmem pages are always flushed upon kunmap already */
+	if ((cache_is_vivt() || cache_is_vipt_aliasing()) && !PageHighMem(page))
+		__cpuc_flush_dcache_page(page_address(page));
 }
 
 #define flush_dcache_mmap_lock(mapping) \

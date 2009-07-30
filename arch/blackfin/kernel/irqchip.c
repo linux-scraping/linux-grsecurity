@@ -38,14 +38,6 @@
 #include <asm/pda.h>
 
 static atomic_t irq_err_count;
-static spinlock_t irq_controller_lock;
-
-/*
- * Dummy mask/unmask handler
- */
-void dummy_mask_unmask_irq(unsigned int irq)
-{
-}
 
 void ack_bad_irq(unsigned int irq)
 {
@@ -53,22 +45,15 @@ void ack_bad_irq(unsigned int irq)
 	printk(KERN_ERR "IRQ: spurious interrupt %d\n", irq);
 }
 
-static struct irq_chip bad_chip = {
-	.ack = dummy_mask_unmask_irq,
-	.mask = dummy_mask_unmask_irq,
-	.unmask = dummy_mask_unmask_irq,
+static struct irq_desc bad_irq_desc = {
+	.handle_irq = handle_bad_irq,
+	.lock = __SPIN_LOCK_UNLOCKED(irq_desc->lock),
 };
 
-static struct irq_desc bad_irq_desc = {
-	.status = IRQ_DISABLED,
-	.chip = &bad_chip,
-	.handle_irq = handle_bad_irq,
-	.depth = 1,
-	.lock = __SPIN_LOCK_UNLOCKED(irq_desc->lock),
-#ifdef CONFIG_SMP
-	.affinity = CPU_MASK_ALL
+#ifdef CONFIG_CPUMASK_OFFSTACK
+/* We are not allocating a variable-sized bad_irq_desc.affinity */
+#error "Blackfin architecture does not support CONFIG_CPUMASK_OFFSTACK."
 #endif
-};
 
 int show_interrupts(struct seq_file *p, void *v)
 {
@@ -83,7 +68,7 @@ int show_interrupts(struct seq_file *p, void *v)
 			goto skip;
 		seq_printf(p, "%3d: ", i);
 		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
+			seq_printf(p, "%10u ", kstat_irqs_cpu(i, j));
 		seq_printf(p, " %8s", irq_desc[i].chip->name);
 		seq_printf(p, "  %s", action->name);
 		for (action = action->next; action; action = action->next)
@@ -112,21 +97,13 @@ __attribute__((l1_text))
 #endif
 asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 {
-	struct pt_regs *old_regs;
-	struct irq_desc *desc = irq_desc + irq;
 #ifndef CONFIG_IPIPE
 	unsigned short pending, other_ints;
 #endif
-	old_regs = set_irq_regs(regs);
-
-	/*
-	 * Some hardware gives randomly wrong interrupts.  Rather
-	 * than crashing, do something sensible.
-	 */
-	if (irq >= NR_IRQS)
-		desc = &bad_irq_desc;
+	struct pt_regs *old_regs = set_irq_regs(regs);
 
 	irq_enter();
+
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 	/* Debugging check for stack overflow: is there less than STACK_WARN free? */
 	{
@@ -142,7 +119,15 @@ asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 		}
 	}
 #endif
-	generic_handle_irq(irq);
+
+	/*
+	 * Some hardware gives randomly wrong interrupts.  Rather
+	 * than crashing, do something sensible.
+	 */
+	if (irq >= NR_IRQS)
+		handle_bad_irq(irq, &bad_irq_desc);
+	else
+		generic_handle_irq(irq);
 
 #ifndef CONFIG_IPIPE
 	/*
@@ -166,14 +151,6 @@ asmlinkage void asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 
 void __init init_IRQ(void)
 {
-	struct irq_desc *desc;
-	int irq;
-
-	spin_lock_init(&irq_controller_lock);
-	for (irq = 0, desc = irq_desc; irq < NR_IRQS; irq++, desc++) {
-		*desc = bad_irq_desc;
-	}
-
 	init_arch_irq();
 
 #ifdef CONFIG_DEBUG_BFIN_HWTRACE_EXPAND

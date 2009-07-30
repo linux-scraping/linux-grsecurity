@@ -407,6 +407,7 @@ int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
  */
 int netlbl_enabled(void);
 int netlbl_sock_setattr(struct sock *sk,
+			u16 family,
 			const struct netlbl_lsm_secattr *secattr);
 void netlbl_sock_delattr(struct sock *sk);
 int netlbl_sock_getattr(struct sock *sk,
@@ -523,6 +524,7 @@ static inline int netlbl_enabled(void)
 	return 0;
 }
 static inline int netlbl_sock_setattr(struct sock *sk,
+				      u16 family,
 				      const struct netlbl_lsm_secattr *secattr)
 {
 	return -ENOSYS;

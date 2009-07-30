@@ -122,8 +122,8 @@ static int iuu_startup(struct usb_serial *serial)
 	return 0;
 }
 
-/* Shutdown function */
-static void iuu_shutdown(struct usb_serial *serial)
+/* Release function */
+static void iuu_release(struct usb_serial *serial)
 {
 	struct usb_serial_port *port = serial->port[0];
 	struct iuu_private *priv = usb_get_serial_port_data(port);
@@ -1051,7 +1051,6 @@ static int iuu_open(struct tty_struct *tty,
 		tty->termios->c_oflag = 0;
 		tty->termios->c_iflag = 0;
 		priv->termios_initialized = 1;
-		tty->low_latency = 1;
 		priv->poll = 0;
 	 }
 	spin_unlock_irqrestore(&priv->lock, flags);
@@ -1177,7 +1176,7 @@ static struct usb_serial_driver iuu_device = {
 	.tiocmget = iuu_tiocmget,
 	.tiocmset = iuu_tiocmset,
 	.attach = iuu_startup,
-	.shutdown = iuu_shutdown,
+	.release = iuu_release,
 };
 
 static int __init iuu_init(void)

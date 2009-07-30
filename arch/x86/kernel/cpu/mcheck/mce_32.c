@@ -29,6 +29,7 @@ static void unexpected_machine_check(struct pt_regs *regs, long error_code)
 
 /* Call the installed machine check handler for this CPU setup. */
 void (*machine_check_vector)(struct pt_regs *, long error_code) = unexpected_machine_check;
+EXPORT_SYMBOL_GPL(machine_check_vector);
 
 /* This has to be run for each processor */
 void mcheck_init(struct cpuinfo_x86 *c)
@@ -58,20 +59,6 @@ void mcheck_init(struct cpuinfo_x86 *c)
 	default:
 		break;
 	}
-}
-
-static unsigned long old_cr4 __initdata;
-
-void __init stop_mce(void)
-{
-	old_cr4 = read_cr4();
-	clear_in_cr4(X86_CR4_MCE);
-}
-
-void __init restart_mce(void)
-{
-	if (old_cr4 & X86_CR4_MCE)
-		set_in_cr4(X86_CR4_MCE);
 }
 
 static int __init mcheck_disable(char *str)

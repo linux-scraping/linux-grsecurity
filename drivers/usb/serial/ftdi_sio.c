@@ -670,6 +670,8 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(ADI_VID, ADI_GNICE_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(JETI_VID, JETI_SPC1201_PID) },
+	{ USB_DEVICE(MARVELL_VID, MARVELL_SHEEVAPLUG_PID),
+		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ },					/* Optional parameter entry */
 	{ }					/* Terminating entry */
 };
@@ -712,7 +714,6 @@ static const char *ftdi_chip_name[] = {
 /* function prototypes for a FTDI serial converter */
 static int  ftdi_sio_probe(struct usb_serial *serial,
 					const struct usb_device_id *id);
-static void ftdi_shutdown(struct usb_serial *serial);
 static int  ftdi_sio_port_probe(struct usb_serial_port *port);
 static int  ftdi_sio_port_remove(struct usb_serial_port *port);
 static int  ftdi_open(struct tty_struct *tty,
@@ -768,7 +769,6 @@ static struct usb_serial_driver ftdi_sio_device = {
 	.ioctl =		ftdi_ioctl,
 	.set_termios =		ftdi_set_termios,
 	.break_ctl =		ftdi_break_ctl,
-	.shutdown =		ftdi_shutdown,
 };
 
 
@@ -1458,18 +1458,6 @@ static int ftdi_mtxorb_hack_setup(struct usb_serial *serial)
 	return 0;
 }
 
-/* ftdi_shutdown is called from usbserial:usb_serial_disconnect
- *   it is called when the usb device is disconnected
- *
- *   usbserial:usb_serial_disconnect
- *      calls __serial_close for each open of the port
- *      shutdown is called then (ie ftdi_shutdown)
- */
-static void ftdi_shutdown(struct usb_serial *serial)
-{
-	dbg("%s", __func__);
-}
-
 static void ftdi_sio_priv_release(struct kref *k)
 {
 	struct ftdi_private *priv = container_of(k, struct ftdi_private, kref);
@@ -1942,18 +1930,16 @@ static void ftdi_process_read(struct work_struct *work)
 		/* Compare new line status to the old one, signal if different/
 		   N.B. packet may be processed more than once, but differences
 		   are only processed once.  */
-		if (priv != NULL) {
-			char new_status = data[packet_offset + 0] &
-							FTDI_STATUS_B0_MASK;
-			if (new_status != priv->prev_status) {
-				priv->diff_status |=
-					new_status ^ priv->prev_status;
-				wake_up_interruptible(&priv->delta_msr_wait);
-				priv->prev_status = new_status;
-			}
+		char new_status = data[packet_offset + 0] &
+						FTDI_STATUS_B0_MASK;
+		if (new_status != priv->prev_status) {
+			priv->diff_status |=
+				new_status ^ priv->prev_status;
+			wake_up_interruptible(&priv->delta_msr_wait);
+			priv->prev_status = new_status;
 		}
 
-		length = min(PKTSZ, urb->actual_length-packet_offset)-2;
+		length = min_t(u32, PKTSZ, urb->actual_length-packet_offset)-2;
 		if (length < 0) {
 			dev_err(&port->dev, "%s - bad packet length: %d\n",
 				__func__, length+2);
@@ -2298,11 +2284,8 @@ static int ftdi_tiocmget(struct tty_struct *tty, struct file *file)
 			   FTDI_SIO_GET_MODEM_STATUS_REQUEST_TYPE,
 			   0, 0,
 			   buf, 1, WDR_TIMEOUT);
-		if (ret < 0) {
-			dbg("%s Could not get modem status of device - err: %d", __func__,
-			    ret);
+		if (ret < 0)
 			return ret;
-		}
 		break;
 	case FT8U232AM:
 	case FT232BM:
@@ -2317,15 +2300,11 @@ static int ftdi_tiocmget(struct tty_struct *tty, struct file *file)
 				   FTDI_SIO_GET_MODEM_STATUS_REQUEST_TYPE,
 				   0, priv->interface,
 				   buf, 2, WDR_TIMEOUT);
-		if (ret < 0) {
-			dbg("%s Could not get modem status of device - err: %d", __func__,
-			    ret);
+		if (ret < 0)
 			return ret;
-		}
 		break;
 	default:
 		return -EFAULT;
-		break;
 	}
 
 	return  (buf[0] & FTDI_SIO_DSR_MASK ? TIOCM_DSR : 0) |

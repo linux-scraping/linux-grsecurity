@@ -232,6 +232,10 @@ static inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
 {
 	might_sleep();
+
+	if ((long)n < 0)
+		return n;
+
 	if (access_ok(VERIFY_WRITE, to, n))
 		n = __copy_to_user(to, from, n);
 	return n;
@@ -257,6 +261,9 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 static inline unsigned long __must_check
 __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
+	if ((long)n < 0)
+		return n;
+
 	if (__builtin_constant_p(n) && (n <= 256))
 		return uaccess.copy_from_user_small(n, from, to);
 	else
@@ -283,9 +290,13 @@ static inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	might_sleep();
+
+	if ((long)n < 0)
+		return n;
+
 	if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
-	else if ((long)n > 0)
+	else
 		memset(to, 0, n);
 	return n;
 }

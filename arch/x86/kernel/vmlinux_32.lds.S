@@ -12,7 +12,7 @@
 
 #include <asm-generic/vmlinux.lds.h>
 #include <asm/thread_info.h>
-#include <asm/page.h>
+#include <asm/page_types.h>
 #include <asm/cache.h>
 #include <asm/boot.h>
 #include <asm/segment.h>
@@ -123,17 +123,7 @@ SECTIONS
   }
 #endif
   . = ALIGN(PAGE_SIZE);
-  per_cpu_start = .;
-  .data.percpu (0) : AT(ADDR(.data.percpu) - LOAD_OFFSET + per_cpu_start) {
-	__per_cpu_start = . + per_cpu_start;
-	LONG(0)
-	*(.data.percpu)
-	*(.data.percpu.shared_aligned)
-	. = ALIGN(PAGE_SIZE);
-	*(.data.percpu.page_aligned)
-	__per_cpu_end = . + per_cpu_start;
-  } :percpu
-  . += per_cpu_start;
+  PERCPU_VADDR(0, :percpu)
   . = ALIGN(PAGE_SIZE);
   /* freed after init ends here */
 
@@ -261,21 +251,36 @@ SECTIONS
 	*(.bss)
 	. = ALIGN(4);
 	__bss_stop = .;
-  	_end = . ;
-	/* This is where the kernel creates the early boot page tables */
+  }
+
+  .brk : AT(ADDR(.brk) - LOAD_OFFSET) {
 	. = ALIGN(PAGE_SIZE);
-	pg0 = . ;
+	__brk_base = . ;
+ 	. += 64 * 1024 ;	/* 64k alignment slop space */
+	*(.brk_reservation)	/* areas brk users have reserved */
+	__brk_limit = . ;
+  }
+
+  .end : AT(ADDR(.end) - LOAD_OFFSET) {
+	_end = . ;
   }
 
   /* Sections to be discarded */
   /DISCARD/ : {
 	*(.exitcall.exit)
+	*(.discard)
 	}
 
   STABS_DEBUG
 
   DWARF_DEBUG
 }
+
+/*
+ * Build-time check on the image size:
+ */
+ASSERT((_end - LOAD_OFFSET <= KERNEL_IMAGE_SIZE),
+	"kernel image bigger than KERNEL_IMAGE_SIZE")
 
 #ifdef CONFIG_KEXEC
 /* Link time checks */

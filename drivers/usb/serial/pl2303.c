@@ -79,6 +79,7 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_X65) },
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_X75) },
 	{ USB_DEVICE(SIEMENS_VENDOR_ID, SIEMENS_PRODUCT_ID_EF81) },
+	{ USB_DEVICE(BENQ_VENDOR_ID, BENQ_PRODUCT_ID_S81) }, /* Benq/Siemens S81 */
 	{ USB_DEVICE(SYNTECH_VENDOR_ID, SYNTECH_PRODUCT_ID) },
 	{ USB_DEVICE(NOKIA_CA42_VENDOR_ID, NOKIA_CA42_PRODUCT_ID) },
 	{ USB_DEVICE(CA_42_CA42_VENDOR_ID, CA_42_CA42_PRODUCT_ID) },
@@ -896,7 +897,7 @@ static void pl2303_break_ctl(struct tty_struct *tty, int break_state)
 		dbg("%s - error sending break = %d", __func__, result);
 }
 
-static void pl2303_shutdown(struct usb_serial *serial)
+static void pl2303_release(struct usb_serial *serial)
 {
 	int i;
 	struct pl2303_private *priv;
@@ -908,7 +909,6 @@ static void pl2303_shutdown(struct usb_serial *serial)
 		if (priv) {
 			pl2303_buf_free(priv->buf);
 			kfree(priv);
-			usb_set_serial_port_data(serial->port[i], NULL);
 		}
 	}
 }
@@ -1136,7 +1136,7 @@ static struct usb_serial_driver pl2303_device = {
 	.write_room =		pl2303_write_room,
 	.chars_in_buffer =	pl2303_chars_in_buffer,
 	.attach =		pl2303_startup,
-	.shutdown =		pl2303_shutdown,
+	.release =		pl2303_release,
 };
 
 static int __init pl2303_init(void)

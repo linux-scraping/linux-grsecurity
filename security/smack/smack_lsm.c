@@ -94,6 +94,7 @@ struct inode_smack *new_inode_smack(char *smack)
 /**
  * smack_ptrace_may_access - Smack approval on PTRACE_ATTACH
  * @ctp: child task pointer
+ * @mode: ptrace attachment mode
  *
  * Returns 0 if access is OK, an error code otherwise
  *
@@ -206,9 +207,8 @@ static void smack_sb_free_security(struct super_block *sb)
 
 /**
  * smack_sb_copy_data - copy mount options data for processing
- * @type: file system type
  * @orig: where to start
- * @smackopts
+ * @smackopts: mount options string
  *
  * Returns 0 on success or -ENOMEM on error.
  *
@@ -334,7 +334,7 @@ static int smack_sb_statfs(struct dentry *dentry)
 /**
  * smack_sb_mount - Smack check for mounting
  * @dev_name: unused
- * @nd: mount point
+ * @path: mount point
  * @type: unused
  * @flags: unused
  * @data: unused
@@ -373,7 +373,7 @@ static int smack_sb_umount(struct vfsmount *mnt, int flags)
 
 /**
  * smack_inode_alloc_security - allocate an inode blob
- * @inode - the inode in need of a blob
+ * @inode: the inode in need of a blob
  *
  * Returns 0 if it gets a blob, -ENOMEM otherwise
  */
@@ -387,7 +387,7 @@ static int smack_inode_alloc_security(struct inode *inode)
 
 /**
  * smack_inode_free_security - free an inode blob
- * @inode - the inode with a blob
+ * @inode: the inode with a blob
  *
  * Clears the blob pointer in inode
  */
@@ -541,7 +541,6 @@ static int smack_inode_rename(struct inode *old_inode,
  * smack_inode_permission - Smack version of permission()
  * @inode: the inode in question
  * @mask: the access requested
- * @nd: unused
  *
  * This is the important Smack hook.
  *
@@ -610,7 +609,12 @@ static int smack_inode_setxattr(struct dentry *dentry, const char *name,
 	    strcmp(name, XATTR_NAME_SMACKIPOUT) == 0) {
 		if (!capable(CAP_MAC_ADMIN))
 			rc = -EPERM;
-		if (size == 0)
+		/*
+		 * check label validity here so import wont fail on
+		 * post_setxattr
+		 */
+		if (size == 0 || size >= SMK_LABELLEN ||
+		    smk_import(value, size) == NULL)
 			rc = -EINVAL;
 	} else
 		rc = cap_inode_setxattr(dentry, name, value, size, flags);
@@ -642,9 +646,6 @@ static void smack_inode_post_setxattr(struct dentry *dentry, const char *name,
 	 * Not SMACK
 	 */
 	if (strcmp(name, XATTR_NAME_SMACK))
-		return;
-
-	if (size >= SMK_LABELLEN)
 		return;
 
 	isp = dentry->d_inode->i_security;
@@ -706,8 +707,7 @@ static int smack_inode_removexattr(struct dentry *dentry, const char *name)
  * @inode: the object
  * @name: attribute name
  * @buffer: where to put the result
- * @size: size of the buffer
- * @err: unused
+ * @alloc: unused
  *
  * Returns the size of the attribute or an error code
  */
@@ -869,7 +869,7 @@ static int smack_file_ioctl(struct file *file, unsigned int cmd,
 /**
  * smack_file_lock - Smack check on file locking
  * @file: the object
- * @cmd unused
+ * @cmd: unused
  *
  * Returns 0 if current has write access, error code otherwise
  */
@@ -1008,8 +1008,8 @@ static int smack_cred_prepare(struct cred *new, const struct cred *old,
 	return 0;
 }
 
-/*
- * commit new credentials
+/**
+ * smack_cred_commit - commit new credentials
  * @new: the new credentials
  * @old: the original credentials
  */
@@ -1019,8 +1019,8 @@ static void smack_cred_commit(struct cred *new, const struct cred *old)
 
 /**
  * smack_kernel_act_as - Set the subjective context in a set of credentials
- * @new points to the set of credentials to be modified.
- * @secid specifies the security ID to be set
+ * @new: points to the set of credentials to be modified.
+ * @secid: specifies the security ID to be set
  *
  * Set the security data for a kernel service.
  */
@@ -1037,8 +1037,8 @@ static int smack_kernel_act_as(struct cred *new, u32 secid)
 
 /**
  * smack_kernel_create_files_as - Set the file creation label in a set of creds
- * @new points to the set of credentials to be modified
- * @inode points to the inode to use as a reference
+ * @new: points to the set of credentials to be modified
+ * @inode: points to the inode to use as a reference
  *
  * Set the file creation context in a set of credentials to the same
  * as the objective context of the specified inode
@@ -1247,7 +1247,7 @@ static int smack_task_wait(struct task_struct *p)
 /**
  * smack_task_to_inode - copy task smack into the inode blob
  * @p: task to copy from
- * inode: inode to copy to
+ * @inode: inode to copy to
  *
  * Sets the smack pointer in the inode security blob
  */
@@ -1265,7 +1265,7 @@ static void smack_task_to_inode(struct task_struct *p, struct inode *inode)
  * smack_sk_alloc_security - Allocate a socket blob
  * @sk: the socket
  * @family: unused
- * @priority: memory allocation priority
+ * @gfp_flags: memory allocation flags
  *
  * Assign Smack pointers to current
  *
@@ -1298,6 +1298,43 @@ static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t gfp_flags)
 static void smack_sk_free_security(struct sock *sk)
 {
 	kfree(sk->sk_security);
+}
+
+/**
+* smack_host_label - check host based restrictions
+* @sip: the object end
+*
+* looks for host based access restrictions
+*
+* This version will only be appropriate for really small sets of single label
+* hosts.  The caller is responsible for ensuring that the RCU read lock is
+* taken before calling this function.
+*
+* Returns the label of the far end or NULL if it's not special.
+*/
+static char *smack_host_label(struct sockaddr_in *sip)
+{
+	struct smk_netlbladdr *snp;
+	struct in_addr *siap = &sip->sin_addr;
+
+	if (siap->s_addr == 0)
+		return NULL;
+
+	list_for_each_entry_rcu(snp, &smk_netlbladdr_list, list)
+		/*
+		* we break after finding the first match because
+		* the list is sorted from longest to shortest mask
+		* so we have found the most specific match
+		*/
+		if ((&snp->smk_host.sin_addr)->s_addr ==
+		    (siap->s_addr & (&snp->smk_mask)->s_addr)) {
+			/* we have found the special CIPSO option */
+			if (snp->smk_label == smack_cipso_option)
+				return NULL;
+			return snp->smk_label;
+		}
+
+	return NULL;
 }
 
 /**
@@ -1371,11 +1408,10 @@ static void smack_to_secattr(char *smack, struct netlbl_lsm_secattr *nlsp)
  */
 static int smack_netlabel(struct sock *sk, int labeled)
 {
-	struct socket_smack *ssp;
+	struct socket_smack *ssp = sk->sk_security;
 	struct netlbl_lsm_secattr secattr;
 	int rc = 0;
 
-	ssp = sk->sk_security;
 	/*
 	 * Usually the netlabel code will handle changing the
 	 * packet labeling based on the label.
@@ -1393,7 +1429,7 @@ static int smack_netlabel(struct sock *sk, int labeled)
 	else {
 		netlbl_secattr_init(&secattr);
 		smack_to_secattr(ssp->smk_out, &secattr);
-		rc = netlbl_sock_setattr(sk, &secattr);
+		rc = netlbl_sock_setattr(sk, sk->sk_family, &secattr);
 		netlbl_secattr_destroy(&secattr);
 	}
 
@@ -1401,6 +1437,40 @@ static int smack_netlabel(struct sock *sk, int labeled)
 	local_bh_enable();
 
 	return rc;
+}
+
+/**
+ * smack_netlbel_send - Set the secattr on a socket and perform access checks
+ * @sk: the socket
+ * @sap: the destination address
+ *
+ * Set the correct secattr for the given socket based on the destination
+ * address and perform any outbound access checks needed.
+ *
+ * Returns 0 on success or an error code.
+ *
+ */
+static int smack_netlabel_send(struct sock *sk, struct sockaddr_in *sap)
+{
+	int rc;
+	int sk_lbl;
+	char *hostsp;
+	struct socket_smack *ssp = sk->sk_security;
+
+	rcu_read_lock();
+	hostsp = smack_host_label(sap);
+	if (hostsp != NULL) {
+		sk_lbl = SMACK_UNLABELED_SOCKET;
+		rc = smk_access(ssp->smk_out, hostsp, MAY_WRITE);
+	} else {
+		sk_lbl = SMACK_CIPSO_SOCKET;
+		rc = 0;
+	}
+	rcu_read_unlock();
+	if (rc != 0)
+		return rc;
+
+	return smack_netlabel(sk, sk_lbl);
 }
 
 /**
@@ -1484,41 +1554,6 @@ static int smack_socket_post_create(struct socket *sock, int family,
 	return smack_netlabel(sock->sk, SMACK_CIPSO_SOCKET);
 }
 
-
-/**
- * smack_host_label - check host based restrictions
- * @sip: the object end
- *
- * looks for host based access restrictions
- *
- * This version will only be appropriate for really small
- * sets of single label hosts.
- *
- * Returns the label of the far end or NULL if it's not special.
- */
-static char *smack_host_label(struct sockaddr_in *sip)
-{
-	struct smk_netlbladdr *snp;
-	struct in_addr *siap = &sip->sin_addr;
-
-	if (siap->s_addr == 0)
-		return NULL;
-
-	for (snp = smack_netlbladdrs; snp != NULL; snp = snp->smk_next) {
-		/*
-		 * we break after finding the first match because
-		 * the list is sorted from longest to shortest mask
-		 * so we have found the most specific match
-		 */
-		if ((&snp->smk_host.sin_addr)->s_addr  ==
-			(siap->s_addr & (&snp->smk_mask)->s_addr)) {
-			return snp->smk_label;
-		}
-	}
-
-	return NULL;
-}
-
 /**
  * smack_socket_connect - connect access check
  * @sock: the socket
@@ -1532,25 +1567,12 @@ static char *smack_host_label(struct sockaddr_in *sip)
 static int smack_socket_connect(struct socket *sock, struct sockaddr *sap,
 				int addrlen)
 {
-	struct socket_smack *ssp = sock->sk->sk_security;
-	char *hostsp;
-	int rc;
-
 	if (sock->sk == NULL || sock->sk->sk_family != PF_INET)
 		return 0;
-
 	if (addrlen < sizeof(struct sockaddr_in))
 		return -EINVAL;
 
-	hostsp = smack_host_label((struct sockaddr_in *)sap);
-	if (hostsp == NULL)
-		return smack_netlabel(sock->sk, SMACK_CIPSO_SOCKET);
-
-	rc = smk_access(ssp->smk_out, hostsp, MAY_WRITE);
-	if (rc != 0)
-		return rc;
-
-	return smack_netlabel(sock->sk, SMACK_UNLABELED_SOCKET);
+	return smack_netlabel_send(sock->sk, (struct sockaddr_in *)sap);
 }
 
 /**
@@ -1963,7 +1985,7 @@ static int smack_ipc_permission(struct kern_ipc_perm *ipp, short flag)
 
 /**
  * smack_ipc_getsecid - Extract smack security id
- * @ipcp: the object permissions
+ * @ipp: the object permissions
  * @secid: where result will be saved
  */
 static void smack_ipc_getsecid(struct kern_ipc_perm *ipp, u32 *secid)
@@ -2240,7 +2262,7 @@ static int smack_unix_may_send(struct socket *sock, struct socket *other)
 /**
  * smack_socket_sendmsg - Smack check based on destination host
  * @sock: the socket
- * @msghdr: the message
+ * @msg: the message
  * @size: the size of the message
  *
  * Return 0 if the current subject can write to the destination
@@ -2251,9 +2273,6 @@ static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 				int size)
 {
 	struct sockaddr_in *sip = (struct sockaddr_in *) msg->msg_name;
-	struct socket_smack *ssp = sock->sk->sk_security;
-	char *hostsp;
-	int rc;
 
 	/*
 	 * Perfectly reasonable for this to be NULL
@@ -2261,21 +2280,12 @@ static int smack_socket_sendmsg(struct socket *sock, struct msghdr *msg,
 	if (sip == NULL || sip->sin_family != PF_INET)
 		return 0;
 
-	hostsp = smack_host_label(sip);
-	if (hostsp == NULL)
-		return smack_netlabel(sock->sk, SMACK_CIPSO_SOCKET);
-
-	rc = smk_access(ssp->smk_out, hostsp, MAY_WRITE);
-	if (rc != 0)
-		return rc;
-
-	return smack_netlabel(sock->sk, SMACK_UNLABELED_SOCKET);
+	return smack_netlabel_send(sock->sk, sip);
 }
 
 
 /**
- * smack_from_secattr - Convert a netlabel attr.mls.lvl/attr.mls.cat
- * 	pair to smack
+ * smack_from_secattr - Convert a netlabel attr.mls.lvl/attr.mls.cat pair to smack
  * @sap: netlabel secattr
  * @sip: where to put the result
  *
@@ -2396,7 +2406,7 @@ static int smack_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
  * @sock: the socket
  * @optval: user's destination
  * @optlen: size thereof
- * @len: max thereoe
+ * @len: max thereof
  *
  * returns zero on success, an error code otherwise
  */
@@ -2475,11 +2485,12 @@ static int smack_socket_getpeersec_dgram(struct socket *sock,
 }
 
 /**
- * smack_sock_graft - graft access state between two sockets
- * @sk: fresh sock
- * @parent: donor socket
+ * smack_sock_graft - Initialize a newly created socket with an existing sock
+ * @sk: child sock
+ * @parent: parent socket
  *
- * Sets the netlabel socket state on sk from parent
+ * Set the smk_{in,out} state of an existing sock based on the process that
+ * is creating the new socket.
  */
 static void smack_sock_graft(struct sock *sk, struct socket *parent)
 {
@@ -2527,24 +2538,24 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 	netlbl_secattr_destroy(&secattr);
 
 	/*
-	* Receiving a packet requires that the other end be able to write
-	* here. Read access is not required.
-	*/
+	 * Receiving a packet requires that the other end be able to write
+	 * here. Read access is not required.
+	 */
 	rc = smk_access(smack, ssp->smk_in, MAY_WRITE);
 	if (rc != 0)
 		return rc;
 
 	/*
-	* Save the peer's label in the request_sock so we can later setup
-	* smk_packet in the child socket so that SO_PEERCRED can report it.
-	*/
+	 * Save the peer's label in the request_sock so we can later setup
+	 * smk_packet in the child socket so that SO_PEERCRED can report it.
+	 */
 	req->peer_secid = smack_to_secid(smack);
 
 	/*
-	* We need to decide if we want to label the incoming connection here
-	* if we do we only need to label the request_sock and the stack will
-	* propogate the wire-label to the sock when it is created.
-	*/
+	 * We need to decide if we want to label the incoming connection here
+	 * if we do we only need to label the request_sock and the stack will
+	 * propogate the wire-label to the sock when it is created.
+	 */
 	hdr = ip_hdr(skb);
 	addr.sin_addr.s_addr = hdr->saddr;
 	rcu_read_lock();
@@ -2563,14 +2574,14 @@ static int smack_inet_conn_request(struct sock *sk, struct sk_buff *skb,
 }
 
 /**
-* smack_inet_csk_clone - Copy the connection information to the new socket
-* @sk: the new socket
-* @req: the connection's request_sock
-*
-* Transfer the connection's peer label to the newly created socket.
-*/
+ * smack_inet_csk_clone - Copy the connection information to the new socket
+ * @sk: the new socket
+ * @req: the connection's request_sock
+ *
+ * Transfer the connection's peer label to the newly created socket.
+ */
 static void smack_inet_csk_clone(struct sock *sk,
-			         const struct request_sock *req)
+				 const struct request_sock *req)
 {
 	struct socket_smack *ssp = sk->sk_security;
 	char *smack;
@@ -2770,7 +2781,7 @@ static void smack_audit_rule_free(void *vrule)
 
 #endif /* CONFIG_AUDIT */
 
-/*
+/**
  * smack_secid_to_secctx - return the smack label for a secid
  * @secid: incoming integer
  * @secdata: destination
@@ -2787,7 +2798,7 @@ static int smack_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 	return 0;
 }
 
-/*
+/**
  * smack_secctx_to_secid - return the secid for a smack label
  * @secdata: smack label
  * @seclen: how long result is
@@ -2801,11 +2812,10 @@ static int smack_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
 	return 0;
 }
 
-/*
+/**
  * smack_release_secctx - don't do anything.
- * @key_ref: unused
- * @context: unused
- * @perm: unused
+ * @secdata: unused
+ * @seclen: unused
  *
  * Exists to make sure nothing gets done, and properly
  */
@@ -2956,6 +2966,17 @@ struct security_operations smack_ops = {
 	.release_secctx = 		smack_release_secctx,
 };
 
+
+static __init void init_smack_know_list(void)
+{
+	list_add(&smack_known_huh.list, &smack_known_list);
+	list_add(&smack_known_hat.list, &smack_known_list);
+	list_add(&smack_known_star.list, &smack_known_list);
+	list_add(&smack_known_floor.list, &smack_known_list);
+	list_add(&smack_known_invalid.list, &smack_known_list);
+	list_add(&smack_known_web.list, &smack_known_list);
+}
+
 /**
  * smack_init - initialize the smack system
  *
@@ -2976,6 +2997,8 @@ static __init int smack_init(void)
 	cred = (struct cred *) current->cred;
 	cred->security = &smack_known_floor.smk_known;
 
+	/* initilize the smack_know_list */
+	init_smack_know_list();
 	/*
 	 * Initialize locks
 	 */

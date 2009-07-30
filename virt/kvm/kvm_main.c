@@ -47,10 +47,6 @@
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 
-#ifdef CONFIG_X86
-#include <asm/msidef.h>
-#endif
-
 #ifdef KVM_COALESCED_MMIO_PAGE_OFFSET
 #include "coalesced_mmio.h"
 #endif
@@ -85,57 +81,6 @@ static long kvm_vcpu_ioctl(struct file *file, unsigned int ioctl,
 static bool kvm_rebooting;
 
 #ifdef KVM_CAP_DEVICE_ASSIGNMENT
-
-#ifdef CONFIG_X86
-static void assigned_device_msi_dispatch(struct kvm_assigned_dev_kernel *dev)
-{
-	int vcpu_id;
-	struct kvm_vcpu *vcpu;
-	struct kvm_ioapic *ioapic = ioapic_irqchip(dev->kvm);
-	int dest_id = (dev->guest_msi.address_lo & MSI_ADDR_DEST_ID_MASK)
-			>> MSI_ADDR_DEST_ID_SHIFT;
-	int vector = (dev->guest_msi.data & MSI_DATA_VECTOR_MASK)
-			>> MSI_DATA_VECTOR_SHIFT;
-	int dest_mode = test_bit(MSI_ADDR_DEST_MODE_SHIFT,
-				(unsigned long *)&dev->guest_msi.address_lo);
-	int trig_mode = test_bit(MSI_DATA_TRIGGER_SHIFT,
-				(unsigned long *)&dev->guest_msi.data);
-	int delivery_mode = test_bit(MSI_DATA_DELIVERY_MODE_SHIFT,
-				(unsigned long *)&dev->guest_msi.data);
-	u32 deliver_bitmask;
-
-	BUG_ON(!ioapic);
-
-	deliver_bitmask = kvm_ioapic_get_delivery_bitmask(ioapic,
-				dest_id, dest_mode);
-	/* IOAPIC delivery mode value is the same as MSI here */
-	switch (delivery_mode) {
-	case IOAPIC_LOWEST_PRIORITY:
-		vcpu = kvm_get_lowest_prio_vcpu(ioapic->kvm, vector,
-				deliver_bitmask);
-		if (vcpu != NULL)
-			kvm_apic_set_irq(vcpu, vector, trig_mode);
-		else
-			printk(KERN_INFO "kvm: null lowest priority vcpu!\n");
-		break;
-	case IOAPIC_FIXED:
-		for (vcpu_id = 0; deliver_bitmask != 0; vcpu_id++) {
-			if (!(deliver_bitmask & (1 << vcpu_id)))
-				continue;
-			deliver_bitmask &= ~(1 << vcpu_id);
-			vcpu = ioapic->kvm->vcpus[vcpu_id];
-			if (vcpu)
-				kvm_apic_set_irq(vcpu, vector, trig_mode);
-		}
-		break;
-	default:
-		printk(KERN_INFO "kvm: unsupported MSI delivery mode\n");
-	}
-}
-#else
-static void assigned_device_msi_dispatch(struct kvm_assigned_dev_kernel *dev) {}
-#endif
-
 static struct kvm_assigned_dev_kernel *kvm_find_assigned_dev(struct list_head *head,
 						      int assigned_dev_id)
 {
@@ -162,13 +107,10 @@ static void kvm_assigned_dev_interrupt_work_handler(struct work_struct *work)
 	 * finer-grained lock, update this
 	 */
 	mutex_lock(&assigned_dev->kvm->lock);
-	if (assigned_dev->irq_requested_type & KVM_ASSIGNED_DEV_GUEST_INTX)
-		kvm_set_irq(assigned_dev->kvm,
-			    assigned_dev->irq_source_id,
-			    assigned_dev->guest_irq, 1);
-	else if (assigned_dev->irq_requested_type &
-				KVM_ASSIGNED_DEV_GUEST_MSI) {
-		assigned_device_msi_dispatch(assigned_dev);
+	kvm_set_irq(assigned_dev->kvm, assigned_dev->irq_source_id,
+		    assigned_dev->guest_irq, 1);
+
+	if (assigned_dev->irq_requested_type & KVM_ASSIGNED_DEV_GUEST_MSI) {
 		enable_irq(assigned_dev->host_irq);
 		assigned_dev->host_irq_disabled = false;
 	}
@@ -331,18 +273,24 @@ static int assigned_device_update_msi(struct kvm *kvm,
 {
 	int r;
 
+	adev->guest_irq = airq->guest_irq;
 	if (airq->flags & KVM_DEV_IRQ_ASSIGN_ENABLE_MSI) {
 		/* x86 don't care upper address of guest msi message addr */
 		adev->irq_requested_type |= KVM_ASSIGNED_DEV_GUEST_MSI;
 		adev->irq_requested_type &= ~KVM_ASSIGNED_DEV_GUEST_INTX;
-		adev->guest_msi.address_lo = airq->guest_msi.addr_lo;
-		adev->guest_msi.data = airq->guest_msi.data;
 		adev->ack_notifier.gsi = -1;
 	} else if (msi2intx) {
 		adev->irq_requested_type |= KVM_ASSIGNED_DEV_GUEST_INTX;
 		adev->irq_requested_type &= ~KVM_ASSIGNED_DEV_GUEST_MSI;
-		adev->guest_irq = airq->guest_irq;
 		adev->ack_notifier.gsi = airq->guest_irq;
+	} else {
+		/*
+		 * Guest require to disable device MSI, we disable MSI and
+		 * re-enable INTx by default again. Notice it's only for
+		 * non-msi2intx.
+		 */
+		assigned_device_update_intx(kvm, adev, airq);
+		return 0;
 	}
 
 	if (adev->irq_requested_type & KVM_ASSIGNED_DEV_HOST_MSI)
@@ -379,6 +327,7 @@ static int kvm_vm_ioctl_assign_irq(struct kvm *kvm,
 {
 	int r = 0;
 	struct kvm_assigned_dev_kernel *match;
+	u32 current_flags = 0, changed_flags;
 
 	mutex_lock(&kvm->lock);
 
@@ -416,8 +365,13 @@ static int kvm_vm_ioctl_assign_irq(struct kvm *kvm,
 		}
 	}
 
-	if ((!msi2intx &&
-	     (assigned_irq->flags & KVM_DEV_IRQ_ASSIGN_ENABLE_MSI)) ||
+	if ((match->irq_requested_type & KVM_ASSIGNED_DEV_HOST_MSI) &&
+		 (match->irq_requested_type & KVM_ASSIGNED_DEV_GUEST_MSI))
+		current_flags |= KVM_DEV_IRQ_ASSIGN_ENABLE_MSI;
+
+	changed_flags = assigned_irq->flags ^ current_flags;
+
+	if ((changed_flags & KVM_DEV_IRQ_ASSIGN_MSI_ACTION) ||
 	    (msi2intx && match->dev->msi_enabled)) {
 #ifdef CONFIG_X86
 		r = assigned_device_update_msi(kvm, match, assigned_irq);
@@ -627,6 +581,7 @@ static bool make_all_cpus_request(struct kvm *kvm, unsigned int req)
 		cpumask_clear(cpus);
 
 	me = get_cpu();
+	spin_lock(&kvm->requests_lock);
 	for (i = 0; i < KVM_MAX_VCPUS; ++i) {
 		vcpu = kvm->vcpus[i];
 		if (!vcpu)
@@ -643,6 +598,7 @@ static bool make_all_cpus_request(struct kvm *kvm, unsigned int req)
 		smp_call_function_many(cpus, ack_flush, NULL, 1);
 	else
 		called = false;
+	spin_unlock(&kvm->requests_lock);
 	put_cpu();
 	free_cpumask_var(cpus);
 	return called;
@@ -831,6 +787,7 @@ static struct kvm *kvm_create_vm(void)
 	if (IS_ERR(kvm))
 		goto out;
 #ifdef CONFIG_HAVE_KVM_IRQCHIP
+	INIT_LIST_HEAD(&kvm->irq_routing);
 	INIT_HLIST_HEAD(&kvm->mask_notifier_list);
 #endif
 
@@ -862,6 +819,7 @@ static struct kvm *kvm_create_vm(void)
 	kvm->mm = current->mm;
 	atomic_inc(&kvm->mm->mm_count);
 	spin_lock_init(&kvm->mmu_lock);
+	spin_lock_init(&kvm->requests_lock);
 	kvm_io_bus_init(&kvm->pio_bus);
 	mutex_init(&kvm->lock);
 	kvm_io_bus_init(&kvm->mmio_bus);
@@ -914,6 +872,7 @@ static void kvm_destroy_vm(struct kvm *kvm)
 	spin_lock(&kvm_lock);
 	list_del(&kvm->vm_list);
 	spin_unlock(&kvm_lock);
+	kvm_free_irq_routing(kvm);
 	kvm_io_bus_destroy(&kvm->pio_bus);
 	kvm_io_bus_destroy(&kvm->mmio_bus);
 #ifdef KVM_COALESCED_MMIO_PAGE_OFFSET
@@ -963,9 +922,8 @@ int __kvm_set_memory_region(struct kvm *kvm,
 {
 	int r;
 	gfn_t base_gfn;
-	unsigned long npages;
-	int largepages;
-	unsigned long i;
+	unsigned long npages, ugfn;
+	unsigned long largepages, i;
 	struct kvm_memory_slot *memslot;
 	struct kvm_memory_slot old, new;
 
@@ -1054,6 +1012,14 @@ int __kvm_set_memory_region(struct kvm *kvm,
 			new.lpage_info[0].write_count = 1;
 		if ((base_gfn+npages) % KVM_PAGES_PER_HPAGE)
 			new.lpage_info[largepages-1].write_count = 1;
+		ugfn = new.userspace_addr >> PAGE_SHIFT;
+		/*
+		 * If the gfn and userspace address are not aligned wrt each
+		 * other, disable large page support for this slot
+		 */
+		if ((base_gfn ^ ugfn) & (KVM_PAGES_PER_HPAGE - 1))
+			for (i = 0; i < largepages; ++i)
+				new.lpage_info[i].write_count = 1;
 	}
 
 	/* Allocate page dirty bitmap if needed */
@@ -1064,6 +1030,8 @@ int __kvm_set_memory_region(struct kvm *kvm,
 		if (!new.dirty_bitmap)
 			goto out_free;
 		memset(new.dirty_bitmap, 0, dirty_bytes);
+		if (old.npages)
+			kvm_arch_flush_shadow(kvm);
 	}
 #endif /* not defined CONFIG_S390 */
 
@@ -1758,13 +1726,13 @@ out_free2:
 		r = 0;
 		break;
 	}
-	case KVM_DEBUG_GUEST: {
-		struct kvm_debug_guest dbg;
+	case KVM_SET_GUEST_DEBUG: {
+		struct kvm_guest_debug dbg;
 
 		r = -EFAULT;
 		if (copy_from_user(&dbg, argp, sizeof dbg))
 			goto out;
-		r = kvm_arch_vcpu_ioctl_debug_guest(vcpu, &dbg);
+		r = kvm_arch_vcpu_ioctl_set_guest_debug(vcpu, &dbg);
 		if (r)
 			goto out;
 		r = 0;
@@ -1932,6 +1900,36 @@ static long kvm_vm_ioctl(struct file *filp,
 		break;
 	}
 #endif
+#ifdef KVM_CAP_IRQ_ROUTING
+	case KVM_SET_GSI_ROUTING: {
+		struct kvm_irq_routing routing;
+		struct kvm_irq_routing __user *urouting;
+		struct kvm_irq_routing_entry *entries;
+
+		r = -EFAULT;
+		if (copy_from_user(&routing, argp, sizeof(routing)))
+			goto out;
+		r = -EINVAL;
+		if (routing.nr >= KVM_MAX_IRQ_ROUTES)
+			goto out;
+		if (routing.flags)
+			goto out;
+		r = -ENOMEM;
+		entries = vmalloc(routing.nr * sizeof(*entries));
+		if (!entries)
+			goto out;
+		r = -EFAULT;
+		urouting = argp;
+		if (copy_from_user(entries, urouting->entries,
+				   routing.nr * sizeof(*entries)))
+			goto out_free_irq_routing;
+		r = kvm_set_irq_routing(kvm, entries, routing.nr,
+					routing.flags);
+	out_free_irq_routing:
+		vfree(entries);
+		break;
+	}
+#endif
 	default:
 		r = kvm_arch_vm_ioctl(filp, ioctl, arg);
 	}
@@ -1999,6 +1997,10 @@ static long kvm_dev_ioctl_check_extension_generic(long arg)
 	case KVM_CAP_DESTROY_MEMORY_REGION_WORKS:
 	case KVM_CAP_JOIN_MEMORY_REGIONS_WORKS:
 		return 1;
+#ifdef CONFIG_HAVE_KVM_IRQCHIP
+	case KVM_CAP_IRQ_ROUTING:
+		return KVM_MAX_IRQ_ROUTES;
+#endif
 	default:
 		break;
 	}
@@ -2221,7 +2223,7 @@ static int vcpu_stat_get(void *_offset, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(vcpu_stat_fops, vcpu_stat_get, NULL, "%llu\n");
 
-static struct file_operations *stat_fops[] = {
+static const struct file_operations *stat_fops[] = {
 	[KVM_STAT_VCPU] = &vcpu_stat_fops,
 	[KVM_STAT_VM]   = &vm_stat_fops,
 };
@@ -2314,7 +2316,7 @@ int kvm_init(const void *opaque, unsigned int vcpu_size,
 
 	bad_pfn = page_to_pfn(bad_page);
 
-	if (!alloc_cpumask_var(&cpus_hardware_enabled, GFP_KERNEL)) {
+	if (!zalloc_cpumask_var(&cpus_hardware_enabled, GFP_KERNEL)) {
 		r = -ENOMEM;
 		goto out_free_0;
 	}

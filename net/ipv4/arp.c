@@ -892,7 +892,7 @@ static int arp_process(struct sk_buff *skb)
 out:
 	if (in_dev)
 		in_dev_put(in_dev);
-	kfree_skb(skb);
+	consume_skb(skb);
 	return 0;
 }
 
@@ -1225,8 +1225,8 @@ void arp_ifdown(struct net_device *dev)
  *	Called once on startup.
  */
 
-static struct packet_type arp_packet_type = {
-	.type =	__constant_htons(ETH_P_ARP),
+static struct packet_type arp_packet_type __read_mostly = {
+	.type =	cpu_to_be16(ETH_P_ARP),
 	.func =	arp_rcv,
 };
 

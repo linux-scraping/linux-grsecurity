@@ -56,7 +56,6 @@ int selinux_netlbl_skbuff_setsid(struct sk_buff *skb,
 int selinux_netlbl_inet_conn_request(struct request_sock *req, u16 family);
 void selinux_netlbl_inet_csk_clone(struct sock *sk, u16 family);
 int selinux_netlbl_socket_post_create(struct sock *sk, u16 family);
-int selinux_netlbl_inode_permission(struct inode *inode, int mask);
 int selinux_netlbl_sock_rcv_skb(struct sk_security_struct *sksec,
 				struct sk_buff *skb,
 				u16 family,
@@ -124,11 +123,6 @@ static inline void selinux_netlbl_inet_csk_clone(struct sock *sk, u16 family)
 }
 static inline int selinux_netlbl_socket_post_create(struct sock *sk,
 						    u16 family)
-{
-	return 0;
-}
-static inline int selinux_netlbl_inode_permission(struct inode *inode,
-						  int mask)
 {
 	return 0;
 }

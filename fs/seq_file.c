@@ -517,7 +517,7 @@ int seq_bitmap(struct seq_file *m, const unsigned long *bits,
 }
 EXPORT_SYMBOL(seq_bitmap);
 
-int seq_bitmap_list(struct seq_file *m, unsigned long *bits,
+int seq_bitmap_list(struct seq_file *m, const unsigned long *bits,
 		unsigned int nr_bits)
 {
 	if (m->count < m->size) {

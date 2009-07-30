@@ -33,14 +33,6 @@ u64 mtrr_tom2;
 struct mtrr_state_type mtrr_state;
 EXPORT_SYMBOL_GPL(mtrr_state);
 
-static int __initdata mtrr_show;
-static int __init mtrr_debug(char *opt)
-{
-	mtrr_show = 1;
-	return 0;
-}
-early_param("mtrr.show", mtrr_debug);
-
 /**
  * BIOS is expected to clear MtrrFixDramModEn bit, see for example
  * "BIOS and Kernel Developer's Guide for the AMD Athlon 64 and AMD
@@ -216,17 +208,97 @@ void mtrr_save_fixed_ranges(void *info)
 		get_fixed_ranges(mtrr_state.fixed_ranges);
 }
 
-static void print_fixed(unsigned base, unsigned step, const mtrr_type*types)
+static unsigned __initdata last_fixed_start;
+static unsigned __initdata last_fixed_end;
+static mtrr_type __initdata last_fixed_type;
+
+static void __init print_fixed_last(void)
+{
+	if (!last_fixed_end)
+		return;
+
+	printk(KERN_DEBUG "  %05X-%05X %s\n", last_fixed_start,
+		last_fixed_end - 1, mtrr_attrib_to_str(last_fixed_type));
+
+	last_fixed_end = 0;
+}
+
+static void __init update_fixed_last(unsigned base, unsigned end,
+				       mtrr_type type)
+{
+	last_fixed_start = base;
+	last_fixed_end = end;
+	last_fixed_type = type;
+}
+
+static void __init print_fixed(unsigned base, unsigned step,
+			       const mtrr_type *types)
 {
 	unsigned i;
 
-	for (i = 0; i < 8; ++i, ++types, base += step)
-		printk(KERN_INFO "MTRR %05X-%05X %s\n",
-			base, base + step - 1, mtrr_attrib_to_str(*types));
+	for (i = 0; i < 8; ++i, ++types, base += step) {
+		if (last_fixed_end == 0) {
+			update_fixed_last(base, base + step, *types);
+			continue;
+		}
+		if (last_fixed_end == base && last_fixed_type == *types) {
+			last_fixed_end = base + step;
+			continue;
+		}
+		/* new segments: gap or different type */
+		print_fixed_last();
+		update_fixed_last(base, base + step, *types);
+	}
 }
 
 static void prepare_set(void);
 static void post_set(void);
+
+static void __init print_mtrr_state(void)
+{
+	unsigned int i;
+	int high_width;
+
+	printk(KERN_DEBUG "MTRR default type: %s\n",
+			 mtrr_attrib_to_str(mtrr_state.def_type));
+	if (mtrr_state.have_fixed) {
+		printk(KERN_DEBUG "MTRR fixed ranges %sabled:\n",
+		       mtrr_state.enabled & 1 ? "en" : "dis");
+		print_fixed(0x00000, 0x10000, mtrr_state.fixed_ranges + 0);
+		for (i = 0; i < 2; ++i)
+			print_fixed(0x80000 + i * 0x20000, 0x04000, mtrr_state.fixed_ranges + (i + 1) * 8);
+		for (i = 0; i < 8; ++i)
+			print_fixed(0xC0000 + i * 0x08000, 0x01000, mtrr_state.fixed_ranges + (i + 3) * 8);
+
+		/* tail */
+		print_fixed_last();
+	}
+	printk(KERN_DEBUG "MTRR variable ranges %sabled:\n",
+	       mtrr_state.enabled & 2 ? "en" : "dis");
+	if (size_or_mask & 0xffffffffUL)
+		high_width = ffs(size_or_mask & 0xffffffffUL) - 1;
+	else
+		high_width = ffs(size_or_mask>>32) + 32 - 1;
+	high_width = (high_width - (32 - PAGE_SHIFT) + 3) / 4;
+	for (i = 0; i < num_var_ranges; ++i) {
+		if (mtrr_state.var_ranges[i].mask_lo & (1 << 11))
+			printk(KERN_DEBUG "  %u base %0*X%05X000 mask %0*X%05X000 %s\n",
+			       i,
+			       high_width,
+			       mtrr_state.var_ranges[i].base_hi,
+			       mtrr_state.var_ranges[i].base_lo >> 12,
+			       high_width,
+			       mtrr_state.var_ranges[i].mask_hi,
+			       mtrr_state.var_ranges[i].mask_lo >> 12,
+			       mtrr_attrib_to_str(mtrr_state.var_ranges[i].base_lo & 0xff));
+		else
+			printk(KERN_DEBUG "  %u disabled\n", i);
+	}
+	if (mtrr_tom2) {
+		printk(KERN_DEBUG "TOM2: %016llx aka %lldM\n",
+				  mtrr_tom2, mtrr_tom2>>20);
+	}
+}
 
 /*  Grab all of the MTRR state for this CPU into *state  */
 void __init get_mtrr_state(void)
@@ -259,41 +331,9 @@ void __init get_mtrr_state(void)
 		mtrr_tom2 |= low;
 		mtrr_tom2 &= 0xffffff800000ULL;
 	}
-	if (mtrr_show) {
-		int high_width;
 
-		printk(KERN_INFO "MTRR default type: %s\n", mtrr_attrib_to_str(mtrr_state.def_type));
-		if (mtrr_state.have_fixed) {
-			printk(KERN_INFO "MTRR fixed ranges %sabled:\n",
-			       mtrr_state.enabled & 1 ? "en" : "dis");
-			print_fixed(0x00000, 0x10000, mtrr_state.fixed_ranges + 0);
-			for (i = 0; i < 2; ++i)
-				print_fixed(0x80000 + i * 0x20000, 0x04000, mtrr_state.fixed_ranges + (i + 1) * 8);
-			for (i = 0; i < 8; ++i)
-				print_fixed(0xC0000 + i * 0x08000, 0x01000, mtrr_state.fixed_ranges + (i + 3) * 8);
-		}
-		printk(KERN_INFO "MTRR variable ranges %sabled:\n",
-		       mtrr_state.enabled & 2 ? "en" : "dis");
-		high_width = ((size_or_mask ? ffs(size_or_mask) - 1 : 32) - (32 - PAGE_SHIFT) + 3) / 4;
-		for (i = 0; i < num_var_ranges; ++i) {
-			if (mtrr_state.var_ranges[i].mask_lo & (1 << 11))
-				printk(KERN_INFO "MTRR %u base %0*X%05X000 mask %0*X%05X000 %s\n",
-				       i,
-				       high_width,
-				       mtrr_state.var_ranges[i].base_hi,
-				       mtrr_state.var_ranges[i].base_lo >> 12,
-				       high_width,
-				       mtrr_state.var_ranges[i].mask_hi,
-				       mtrr_state.var_ranges[i].mask_lo >> 12,
-				       mtrr_attrib_to_str(mtrr_state.var_ranges[i].base_lo & 0xff));
-			else
-				printk(KERN_INFO "MTRR %u disabled\n", i);
-		}
-		if (mtrr_tom2) {
-			printk(KERN_INFO "TOM2: %016llx aka %lldM\n",
-					  mtrr_tom2, mtrr_tom2>>20);
-		}
-	}
+	print_mtrr_state();
+
 	mtrr_state_set = 1;
 
 	/* PAT setup for BP. We need to go through sync steps here */
@@ -383,22 +423,31 @@ static void generic_get_mtrr(unsigned int reg, unsigned long *base,
 {
 	unsigned int mask_lo, mask_hi, base_lo, base_hi;
 	unsigned int tmp, hi;
+	int cpu;
+
+	/*
+	 * get_mtrr doesn't need to update mtrr_state, also it could be called
+	 * from any cpu, so try to print it out directly.
+	 */
+	cpu = get_cpu();
 
 	rdmsr(MTRRphysMask_MSR(reg), mask_lo, mask_hi);
+
 	if ((mask_lo & 0x800) == 0) {
 		/*  Invalid (i.e. free) range  */
 		*base = 0;
 		*size = 0;
 		*type = 0;
-		return;
+		goto out_put_cpu;
 	}
 
 	rdmsr(MTRRphysBase_MSR(reg), base_lo, base_hi);
 
-	/* Work out the shifted address mask. */
+	/* Work out the shifted address mask: */
 	tmp = mask_hi << (32 - PAGE_SHIFT) | mask_lo >> PAGE_SHIFT;
 	mask_lo = size_or_mask | tmp;
-	/* Expand tmp with high bits to all 1s*/
+
+	/* Expand tmp with high bits to all 1s: */
 	hi = fls(tmp);
 	if (hi > 0) {
 		tmp |= ~((1<<(hi - 1)) - 1);
@@ -409,11 +458,16 @@ static void generic_get_mtrr(unsigned int reg, unsigned long *base,
 		}
 	}
 
-	/* This works correctly if size is a power of two, i.e. a
-	   contiguous range. */
+	/*
+	 * This works correctly if size is a power of two, i.e. a
+	 * contiguous range:
+	 */
 	*size = -mask_lo;
 	*base = base_hi << (32 - PAGE_SHIFT) | base_lo >> PAGE_SHIFT;
 	*type = base_lo & 0xff;
+
+out_put_cpu:
+	put_cpu();
 }
 
 /**

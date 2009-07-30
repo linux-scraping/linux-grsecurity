@@ -139,11 +139,13 @@ notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 		   ((gtod->clock.name[0] == 'h' && gtod->clock.name[1] == 'p' && gtod->clock.name[2] == 'e' && gtod->clock.name[3] == 't' && !gtod->clock.name[4]) ||
 		    (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3]))))
 	{
-		BUILD_BUG_ON(offsetof(struct timeval, tv_usec) !=
-			     offsetof(struct timespec, tv_nsec) ||
-			     sizeof(*tv) != sizeof(struct timespec));
-		do_realtime((struct timespec *)tv);
-		tv->tv_usec /= 1000;
+		if (likely(tv != NULL)) {
+			BUILD_BUG_ON(offsetof(struct timeval, tv_usec) !=
+				     offsetof(struct timespec, tv_nsec) ||
+				     sizeof(*tv) != sizeof(struct timespec));
+			do_realtime((struct timespec *)tv);
+			tv->tv_usec /= 1000;
+		}
 		if (unlikely(tz != NULL)) {
 			/* Avoid memcpy. Some old compilers fail to inline it */
 			tz->tz_minuteswest = gtod->sys_tz.tz_minuteswest;

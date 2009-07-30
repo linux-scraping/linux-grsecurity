@@ -7,7 +7,7 @@
 
 #include <linux/linkage.h>
 #include <linux/init.h>
-#include <asm/page.h>
+#include <asm/page_types.h>
 
 /*
  * efi_call_phys(void *, ...) is a function with variable parameters.
@@ -98,6 +98,7 @@ ENTRY(efi_call_phys)
 	 * 10. Return to the saved return address.
 	 */
 	jmpl	*(saved_return_addr)
+ENDPROC(efi_call_phys)
 .previous
 
 __INITDATA

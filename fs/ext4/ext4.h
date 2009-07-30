@@ -20,6 +20,7 @@
 #include <linux/blkdev.h>
 #include <linux/magic.h>
 #include <linux/jbd2.h>
+#include <linux/quota.h>
 #include "ext4_i.h"
 
 /*
@@ -30,14 +31,6 @@
  * Define EXT4FS_DEBUG to produce debug messages
  */
 #undef EXT4FS_DEBUG
-
-/*
- * Define EXT4_RESERVATION to reserve data blocks for expanding files
- */
-#define EXT4_DEFAULT_RESERVE_BLOCKS	8
-/*max window size: 1024(direct blocks) + 3([t,d]indirect blocks) */
-#define EXT4_MAX_RESERVE_BLOCKS		1027
-#define EXT4_RESERVE_WINDOW_NOT_ALLOCATED 0
 
 /*
  * Debug code
@@ -52,8 +45,6 @@
 #else
 #define ext4_debug(f, a...)	do {} while (0)
 #endif
-
-#define EXT4_MULTIBLOCK_ALLOCATOR	1
 
 /* prefer goal again. length */
 #define EXT4_MB_HINT_MERGE		1
@@ -179,8 +170,9 @@ struct ext4_group_desc
  */
 
 struct flex_groups {
-	__u32 free_inodes;
-	__u32 free_blocks;
+	atomic_t free_inodes;
+	atomic_t free_blocks;
+	atomic_t used_dirs;
 };
 
 #define EXT4_BG_INODE_UNINIT	0x0001 /* Inode table/bitmap not in use */
@@ -692,7 +684,8 @@ struct ext4_super_block {
 	__u8	s_log_groups_per_flex;  /* FLEX_BG group size */
 	__u8	s_reserved_char_pad2;
 	__le16  s_reserved_pad;
-	__u32   s_reserved[162];        /* Padding to the end of the block */
+	__le64	s_kbytes_written;	/* nr of lifetime kilobytes written */
+	__u32   s_reserved[160];        /* Padding to the end of the block */
 };
 
 #ifdef __KERNEL__
@@ -840,6 +833,12 @@ static inline int ext4_valid_inum(struct super_block *sb, unsigned long ino)
 #define EXT4_DEF_MAX_BATCH_TIME	15000 /* 15ms */
 
 /*
+ * Minimum number of groups in a flexgroup before we separate out
+ * directories into the first block group of a flexgroup
+ */
+#define EXT4_FLEX_SIZE_DIR_ALLOC_SCHEME	4
+
+/*
  * Structure of a directory entry
  */
 #define EXT4_NAME_LEN 255
@@ -890,24 +889,6 @@ struct ext4_dir_entry_2 {
 #define EXT4_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT4_DIR_ROUND) & \
 					 ~EXT4_DIR_ROUND)
 #define EXT4_MAX_REC_LEN		((1<<16)-1)
-
-static inline unsigned ext4_rec_len_from_disk(__le16 dlen)
-{
-	unsigned len = le16_to_cpu(dlen);
-
-	if (len == EXT4_MAX_REC_LEN || len == 0)
-		return 1 << 16;
-	return len;
-}
-
-static inline __le16 ext4_rec_len_to_disk(unsigned len)
-{
-	if (len == (1 << 16))
-		return cpu_to_le16(EXT4_MAX_REC_LEN);
-	else if (len > (1 << 16))
-		BUG();
-	return cpu_to_le16(len);
-}
 
 /*
  * Hash Tree Directory indexing
@@ -995,22 +976,6 @@ void ext4_get_group_no_and_offset(struct super_block *sb, ext4_fsblk_t blocknr,
 			ext4_group_t *blockgrpp, ext4_grpblk_t *offsetp);
 
 extern struct proc_dir_entry *ext4_proc_root;
-
-#ifdef CONFIG_PROC_FS
-extern const struct file_operations ext4_ui_proc_fops;
-
-#define	EXT4_PROC_HANDLER(name, var)					\
-do {									\
-	proc = proc_create_data(name, mode, sbi->s_proc,		\
-				&ext4_ui_proc_fops, &sbi->s_##var);	\
-	if (proc == NULL) {						\
-		printk(KERN_ERR "EXT4-fs: can't create %s\n", name);	\
-		goto err_out;						\
-	}								\
-} while (0)
-#else
-#define EXT4_PROC_HANDLER(name, var)
-#endif
 
 /*
  * Function prototypes
@@ -1126,6 +1091,7 @@ extern int ext4_chunk_trans_blocks(struct inode *, int nrblocks);
 extern int ext4_block_truncate_page(handle_t *handle,
 		struct address_space *mapping, loff_t from);
 extern int ext4_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf);
+extern qsize_t ext4_get_reserved_space(struct inode *inode);
 
 /* ioctl.c */
 extern long ext4_ioctl(struct file *, unsigned int, unsigned long);
@@ -1133,7 +1099,10 @@ extern long ext4_compat_ioctl(struct file *, unsigned int, unsigned long);
 
 /* migrate.c */
 extern int ext4_ext_migrate(struct inode *);
+
 /* namei.c */
+extern unsigned int ext4_rec_len_from_disk(__le16 dlen, unsigned blocksize);
+extern __le16 ext4_rec_len_to_disk(unsigned len, unsigned blocksize);
 extern int ext4_orphan_add(handle_t *, struct inode *);
 extern int ext4_orphan_del(handle_t *, struct inode *);
 extern int ext4_htree_fill_tree(struct file *dir_file, __u32 start_hash,

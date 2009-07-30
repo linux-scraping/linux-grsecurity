@@ -317,35 +317,37 @@ static inline void *kzalloc_node(size_t size, gfp_t flags, int node)
 	return kmalloc_node(size, flags | __GFP_ZERO, node);
 }
 
-#define kmalloc(x,y) \
-	({ \
-		void *___retval; \
-		intoverflow_t ___x = (intoverflow_t)x; \
-		if (likely(___x <= ULONG_MAX)) \
-			___retval = kmalloc((size_t)___x, y); \
-		else \
-			___retval = NULL; \
-		___retval; \
-	})
-#define kmalloc_node(x,y,z) \
-	({ \
-		void *___retval; \
-		intoverflow_t ___x = (intoverflow_t)x; \
-		if (likely(___x <= ULONG_MAX)) \
-			___retval = kmalloc_node((size_t)___x, y, z); \
-		else \
-			___retval = NULL; \
-		___retval; \
-	})
-#define kzalloc(x,y) \
-	({ \
-		void *___retval; \
-		intoverflow_t ___x = (intoverflow_t)x; \
-		if (likely(___x <= ULONG_MAX)) \
-			___retval = kzalloc((size_t)___x, y); \
-		else \
-			___retval = NULL; \
-		___retval; \
-	})
+#define kmalloc(x, y)					\
+({							\
+	void *___retval;				\
+	intoverflow_t ___x = (intoverflow_t)x;		\
+	if (WARN(___x > ULONG_MAX, "kmalloc size overflow\n"))\
+		___retval = NULL;			\
+	else						\
+		___retval = kmalloc((size_t)___x, (y));	\
+	___retval;					\
+})
+
+#define kmalloc_node(x, y, z)					\
+({								\
+	void *___retval;					\
+	intoverflow_t ___x = (intoverflow_t)x;			\
+	if (WARN(___x > ULONG_MAX, "kmalloc_node size overflow\n"))\
+		___retval = NULL;				\
+	else							\
+		___retval = kmalloc_node((size_t)___x, (y), (z));\
+	___retval;						\
+})
+
+#define kzalloc(x, y)					\
+({							\
+	void *___retval;				\
+	intoverflow_t ___x = (intoverflow_t)x;		\
+	if (WARN(___x > ULONG_MAX, "kzalloc size overflow\n"))\
+		___retval = NULL;			\
+	else						\
+		___retval = kzalloc((size_t)___x, (y));	\
+	___retval;					\
+})
 
 #endif	/* _LINUX_SLAB_H */

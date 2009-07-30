@@ -619,8 +619,9 @@ int netlbl_enabled(void)
 }
 
 /**
- * netlbl_socket_setattr - Label a socket using the correct protocol
+ * netlbl_sock_setattr - Label a socket using the correct protocol
  * @sk: the socket to label
+ * @family: protocol family
  * @secattr: the security attributes
  *
  * Description:
@@ -633,29 +634,45 @@ int netlbl_enabled(void)
  *
  */
 int netlbl_sock_setattr(struct sock *sk,
+			u16 family,
 			const struct netlbl_lsm_secattr *secattr)
 {
-	int ret_val = -ENOENT;
+	int ret_val;
 	struct netlbl_dom_map *dom_entry;
 
 	rcu_read_lock();
 	dom_entry = netlbl_domhsh_getentry(secattr->domain);
-	if (dom_entry == NULL)
+	if (dom_entry == NULL) {
+		ret_val = -ENOENT;
 		goto socket_setattr_return;
-	switch (dom_entry->type) {
-	case NETLBL_NLTYPE_ADDRSELECT:
-		ret_val = -EDESTADDRREQ;
+	}
+	switch (family) {
+	case AF_INET:
+		switch (dom_entry->type) {
+		case NETLBL_NLTYPE_ADDRSELECT:
+			ret_val = -EDESTADDRREQ;
+			break;
+		case NETLBL_NLTYPE_CIPSOV4:
+			ret_val = cipso_v4_sock_setattr(sk,
+						    dom_entry->type_def.cipsov4,
+						    secattr);
+			break;
+		case NETLBL_NLTYPE_UNLABELED:
+			ret_val = 0;
+			break;
+		default:
+			ret_val = -ENOENT;
+		}
 		break;
-	case NETLBL_NLTYPE_CIPSOV4:
-		ret_val = cipso_v4_sock_setattr(sk,
-						dom_entry->type_def.cipsov4,
-						secattr);
-		break;
-	case NETLBL_NLTYPE_UNLABELED:
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	case AF_INET6:
+		/* since we don't support any IPv6 labeling protocols right
+		 * now we can optimize everything away until we do */
 		ret_val = 0;
 		break;
+#endif /* IPv6 */
 	default:
-		ret_val = -ENOENT;
+		ret_val = -EPROTONOSUPPORT;
 	}
 
 socket_setattr_return:
@@ -689,9 +706,25 @@ void netlbl_sock_delattr(struct sock *sk)
  * on failure.
  *
  */
-int netlbl_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
+int netlbl_sock_getattr(struct sock *sk,
+			struct netlbl_lsm_secattr *secattr)
 {
-	return cipso_v4_sock_getattr(sk, secattr);
+	int ret_val;
+
+	switch (sk->sk_family) {
+	case AF_INET:
+		ret_val = cipso_v4_sock_getattr(sk, secattr);
+		break;
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	case AF_INET6:
+		ret_val = -ENOMSG;
+		break;
+#endif /* IPv6 */
+	default:
+		ret_val = -EPROTONOSUPPORT;
+	}
+
+	return ret_val;
 }
 
 /**
@@ -748,7 +781,7 @@ int netlbl_conn_setattr(struct sock *sk,
 		break;
 #endif /* IPv6 */
 	default:
-		ret_val = 0;
+		ret_val = -EPROTONOSUPPORT;
 	}
 
 conn_setattr_return:
@@ -892,7 +925,7 @@ int netlbl_skbuff_setattr(struct sk_buff *skb,
 		break;
 #endif /* IPv6 */
 	default:
-		ret_val = 0;
+		ret_val = -EPROTONOSUPPORT;
 	}
 
 skbuff_setattr_return:
@@ -917,9 +950,17 @@ int netlbl_skbuff_getattr(const struct sk_buff *skb,
 			  u16 family,
 			  struct netlbl_lsm_secattr *secattr)
 {
-	if (CIPSO_V4_OPTEXIST(skb) &&
-	    cipso_v4_skbuff_getattr(skb, secattr) == 0)
-		return 0;
+	switch (family) {
+	case AF_INET:
+		if (CIPSO_V4_OPTEXIST(skb) &&
+		    cipso_v4_skbuff_getattr(skb, secattr) == 0)
+			return 0;
+		break;
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	case AF_INET6:
+		break;
+#endif /* IPv6 */
+	}
 
 	return netlbl_unlabel_getattr(skb, family, secattr);
 }

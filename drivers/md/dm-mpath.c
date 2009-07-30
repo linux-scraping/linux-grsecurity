@@ -8,7 +8,6 @@
 #include <linux/device-mapper.h>
 
 #include "dm-path-selector.h"
-#include "dm-bio-list.h"
 #include "dm-bio-record.h"
 #include "dm-uevent.h"
 
@@ -848,6 +847,7 @@ static void multipath_dtr(struct dm_target *ti)
 
 	flush_workqueue(kmpath_handlerd);
 	flush_workqueue(kmultipathd);
+	flush_scheduled_work();
 	free_multipath(m);
 }
 

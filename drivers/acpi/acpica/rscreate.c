@@ -210,7 +210,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 
 		/* Each element of the top-level package must also be a package */
 
-		if (ACPI_GET_OBJECT_TYPE(*top_object_list) != ACPI_TYPE_PACKAGE) {
+		if ((*top_object_list)->common.type != ACPI_TYPE_PACKAGE) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X]) Need sub-package, found %s",
 				    index,
@@ -238,7 +238,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		/* 1) First subobject: Dereference the PRT.Address */
 
 		obj_desc = sub_object_list[0];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
+		if (obj_desc->common.type != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].Address) Need Integer, found %s",
 				    index,
@@ -251,7 +251,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		/* 2) Second subobject: Dereference the PRT.Pin */
 
 		obj_desc = sub_object_list[1];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
+		if (obj_desc->common.type != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].Pin) Need Integer, found %s",
 				    index,
@@ -268,8 +268,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		 * other ACPI implementations.
 		 */
 		obj_desc = sub_object_list[3];
-		if (!obj_desc
-		    || (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER)) {
+		if (!obj_desc || (obj_desc->common.type != ACPI_TYPE_INTEGER)) {
 			sub_object_list[3] = sub_object_list[2];
 			sub_object_list[2] = obj_desc;
 
@@ -284,7 +283,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		 */
 		obj_desc = sub_object_list[2];
 		if (obj_desc) {
-			switch (ACPI_GET_OBJECT_TYPE(obj_desc)) {
+			switch (obj_desc->common.type) {
 			case ACPI_TYPE_LOCAL_REFERENCE:
 
 				if (obj_desc->reference.class !=
@@ -357,7 +356,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		/* 4) Fourth subobject: Dereference the PRT.source_index */
 
 		obj_desc = sub_object_list[3];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
+		if (obj_desc->common.type != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].SourceIndex) Need Integer, found %s",
 				    index,

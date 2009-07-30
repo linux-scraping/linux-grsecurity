@@ -68,6 +68,7 @@ struct ftrace_branch_data {
 			unsigned long miss;
 			unsigned long hit;
 		};
+		unsigned long miss_hit[2];
 	};
 };
 
@@ -114,7 +115,9 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
  * "Define 'is'", Bill Clinton
  * "Define 'if'", Steven Rostedt
  */
-#define if(cond) if (__builtin_constant_p((cond)) ? !!(cond) :		\
+#define if(cond, ...) __trace_if( (cond , ## __VA_ARGS__) )
+#define __trace_if(cond) \
+	if (__builtin_constant_p((cond)) ? !!(cond) :			\
 	({								\
 		int ______r;						\
 		static struct ftrace_branch_data			\
@@ -126,10 +129,7 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 				.line = __LINE__,			\
 			};						\
 		______r = !!(cond);					\
-		if (______r)						\
-			______f.hit++;					\
-		else							\
-			______f.miss++;					\
+		______f.miss_hit[______r]++;					\
 		______r;						\
 	}))
 #endif /* CONFIG_PROFILE_ALL_BRANCHES */

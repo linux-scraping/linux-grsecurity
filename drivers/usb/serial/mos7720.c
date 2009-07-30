@@ -446,13 +446,6 @@ static int mos7720_open(struct tty_struct *tty,
 	data = 0x0c;
 	send_mos_cmd(serial, MOS_WRITE, port_number, 0x01, &data);
 
-	/* force low_latency on so that our tty_push actually forces *
-	 * the data through,otherwise it is scheduled, and with      *
-	 * high data rates (like with OHCI) data can get lost.       */
-
-	if (tty)
-		tty->low_latency = 1;
-
 	/* see if we've set up our endpoint info yet   *
 	 * (can't set it up in mos7720_startup as the  *
 	 * structures were not set up at that time.)   */
@@ -1529,19 +1522,16 @@ static int mos7720_startup(struct usb_serial *serial)
 	return 0;
 }
 
-static void mos7720_shutdown(struct usb_serial *serial)
+static void mos7720_release(struct usb_serial *serial)
 {
 	int i;
 
 	/* free private structure allocated for serial port */
-	for (i = 0; i < serial->num_ports; ++i) {
+	for (i = 0; i < serial->num_ports; ++i)
 		kfree(usb_get_serial_port_data(serial->port[i]));
-		usb_set_serial_port_data(serial->port[i], NULL);
-	}
 
 	/* free private structure allocated for serial device */
 	kfree(usb_get_serial_data(serial));
-	usb_set_serial_data(serial, NULL);
 }
 
 static struct usb_driver usb_driver = {
@@ -1566,7 +1556,7 @@ static struct usb_serial_driver moschip7720_2port_driver = {
 	.throttle		= mos7720_throttle,
 	.unthrottle		= mos7720_unthrottle,
 	.attach			= mos7720_startup,
-	.shutdown		= mos7720_shutdown,
+	.release		= mos7720_release,
 	.ioctl			= mos7720_ioctl,
 	.set_termios		= mos7720_set_termios,
 	.write			= mos7720_write,

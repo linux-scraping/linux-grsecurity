@@ -549,7 +549,7 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 				continue;
 			}
 			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
-			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strncmp(sym_name(sym_strtab, sym), "__per_cpu_", 10))
+			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
 				continue;
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
@@ -565,8 +565,11 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 			if (!strcmp(sec_name(sym->st_shndx), ".text"))
 				continue;
 #endif
-			if (r_type == R_386_PC32) {
-				/* PC relative relocations don't need to be adjusted */
+			if (r_type == R_386_NONE || r_type == R_386_PC32) {
+				/*
+				 * NONE can be ignored and and PC relative
+				 * relocations don't need to be adjusted.
+				 */
 			}
 			else if (r_type == R_386_32) {
 				/* Visit relocations that need to be adjusted */

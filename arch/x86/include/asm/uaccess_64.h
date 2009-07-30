@@ -29,6 +29,10 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 	unsigned ret = 0;
 
 	might_fault();
+
+	if ((int)size < 0)
+		return size;
+
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
 		return copy_user_generic(dst, (__force void *)src, size);
@@ -75,6 +79,10 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 	unsigned ret = 0;
 
 	might_fault();
+
+	if ((int)size < 0)
+		return size;
+
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);
 		return copy_user_generic((__force void *)dst, src, size);
@@ -126,6 +134,9 @@ unsigned long copy_to_user(void __user *to, const void *from, unsigned len)
 static __always_inline __must_check
 unsigned long copy_from_user(void *to, const void __user *from, unsigned len)
 {
+	if ((int)len < 0)
+		return len;
+
 	if (access_ok(VERIFY_READ, from, len))
 		len = __copy_from_user(to, from, len);
 	else if ((int)len > 0) {
@@ -218,8 +229,7 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
 				unsigned size, int zerorest);
 
-static inline unsigned long __copy_from_user_nocache(void *dst, const void __user *src,
-					   unsigned size)
+static inline unsigned long __copy_from_user_nocache(void *dst, const void __user *src, unsigned size)
 {
 	might_sleep();
 
@@ -229,9 +239,8 @@ static inline unsigned long __copy_from_user_nocache(void *dst, const void __use
 	return __copy_user_nocache(dst, src, size, 1);
 }
 
-static inline unsigned long __copy_from_user_inatomic_nocache(void *dst,
-						    const void __user *src,
-						    unsigned size)
+static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
+				  unsigned size)
 {
 	if ((int)size < 0)
 		return size;

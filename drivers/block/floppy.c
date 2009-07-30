@@ -3327,7 +3327,10 @@ static inline int set_geometry(unsigned int cmd, struct floppy_struct *g,
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
 		mutex_lock(&open_lock);
-		LOCK_FDC(drive, 1);
+		if (lock_fdc(drive, 1)) {
+			mutex_unlock(&open_lock);
+			return -EINTR;
+		}
 		floppy_type[type] = *g;
 		floppy_type[type].name = "user format";
 		for (cnt = type << 2; cnt < (type << 2) + 4; cnt++)
@@ -4136,10 +4139,9 @@ static int have_no_fdc = -ENODEV;
 static ssize_t floppy_cmos_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	struct platform_device *p;
+	struct platform_device *p = to_platform_device(dev);
 	int drive;
 
-	p = container_of(dev, struct platform_device,dev);
 	drive = p->id;
 	return sprintf(buf, "%X\n", UDP->cmos);
 }

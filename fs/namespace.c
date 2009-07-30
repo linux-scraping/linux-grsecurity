@@ -27,6 +27,7 @@
 #include <linux/ramfs.h>
 #include <linux/log2.h>
 #include <linux/idr.h>
+#include <linux/fs_struct.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include "pnode.h"
@@ -397,11 +398,10 @@ static void __mnt_unmake_readonly(struct vfsmount *mnt)
 	spin_unlock(&vfsmount_lock);
 }
 
-int simple_set_mnt(struct vfsmount *mnt, struct super_block *sb)
+void simple_set_mnt(struct vfsmount *mnt, struct super_block *sb)
 {
 	mnt->mnt_sb = sb;
 	mnt->mnt_root = dget(sb->s_root);
-	return 0;
 }
 
 EXPORT_SYMBOL(simple_set_mnt);
@@ -695,12 +695,16 @@ static inline void mangle(struct seq_file *m, const char *s)
  */
 int generic_show_options(struct seq_file *m, struct vfsmount *mnt)
 {
-	const char *options = mnt->mnt_sb->s_options;
+	const char *options;
+
+	rcu_read_lock();
+	options = rcu_dereference(mnt->mnt_sb->s_options);
 
 	if (options != NULL && options[0]) {
 		seq_putc(m, ',');
 		mangle(m, options);
 	}
+	rcu_read_unlock();
 
 	return 0;
 }
@@ -721,10 +725,21 @@ EXPORT_SYMBOL(generic_show_options);
  */
 void save_mount_options(struct super_block *sb, char *options)
 {
-	kfree(sb->s_options);
-	sb->s_options = kstrdup(options, GFP_KERNEL);
+	BUG_ON(sb->s_options);
+	rcu_assign_pointer(sb->s_options, kstrdup(options, GFP_KERNEL));
 }
 EXPORT_SYMBOL(save_mount_options);
+
+void replace_mount_options(struct super_block *sb, char *options)
+{
+	char *old = sb->s_options;
+	rcu_assign_pointer(sb->s_options, options);
+	if (old) {
+		synchronize_rcu();
+		kfree(old);
+	}
+}
+EXPORT_SYMBOL(replace_mount_options);
 
 #ifdef CONFIG_PROC_FS
 /* iterator */
@@ -780,6 +795,7 @@ static void show_mnt_opts(struct seq_file *m, struct vfsmount *mnt)
 		{ MNT_NOATIME, ",noatime" },
 		{ MNT_NODIRATIME, ",nodiratime" },
 		{ MNT_RELATIME, ",relatime" },
+		{ MNT_STRICTATIME, ",strictatime" },
 		{ 0, NULL }
 	};
 	const struct proc_fs_info *fs_infop;
@@ -1072,9 +1088,7 @@ static int do_umount(struct vfsmount *mnt, int flags)
 	 */
 
 	if (flags & MNT_FORCE && sb->s_op->umount_begin) {
-		lock_kernel();
 		sb->s_op->umount_begin(sb);
-		unlock_kernel();
 	}
 
 	/*
@@ -1381,7 +1395,7 @@ static int attach_recursive_mnt(struct vfsmount *source_mnt,
 	if (parent_path) {
 		detach_mnt(source_mnt, parent_path);
 		attach_mnt(source_mnt, path);
-		touch_mnt_namespace(current->nsproxy->mnt_ns);
+		touch_mnt_namespace(parent_path->mnt->mnt_ns);
 	} else {
 		mnt_set_mountpoint(dest_mnt, dest_dentry, source_mnt);
 		commit_tree(source_mnt);
@@ -1924,6 +1938,10 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 	if (data_page)
 		((char *)data_page)[PAGE_SIZE - 1] = 0;
 
+	/* Default to relatime unless overriden */
+	if (!(flags & MS_NOATIME))
+		mnt_flags |= MNT_RELATIME;
+
 	/* Separate the per-mountpoint flags */
 	if (flags & MS_NOSUID)
 		mnt_flags |= MNT_NOSUID;
@@ -1935,13 +1953,14 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 		mnt_flags |= MNT_NOATIME;
 	if (flags & MS_NODIRATIME)
 		mnt_flags |= MNT_NODIRATIME;
-	if (flags & MS_RELATIME)
-		mnt_flags |= MNT_RELATIME;
+	if (flags & MS_STRICTATIME)
+		mnt_flags &= ~(MNT_RELATIME | MNT_NOATIME);
 	if (flags & MS_RDONLY)
 		mnt_flags |= MNT_READONLY;
 
 	flags &= ~(MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_ACTIVE |
-		   MS_NOATIME | MS_NODIRATIME | MS_RELATIME| MS_KERNMOUNT);
+		   MS_NOATIME | MS_NODIRATIME | MS_RELATIME| MS_KERNMOUNT |
+		   MS_STRICTATIME);
 
 	/* ... and get the mountpoint */
 	retval = kern_path(dir_name, LOOKUP_FOLLOW, &path);

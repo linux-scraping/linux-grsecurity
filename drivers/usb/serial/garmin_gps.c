@@ -973,14 +973,6 @@ static int garmin_open(struct tty_struct *tty,
 
 	dbg("%s - port %d", __func__, port->number);
 
-	/*
-	 * Force low_latency on so that our tty_push actually forces the data
-	 * through, otherwise it is scheduled, and with high data rates (like
-	 * with OHCI) data can get lost.
-	 */
-	if (tty)
-		tty->low_latency = 1;
-
 	spin_lock_irqsave(&garmin_data_p->lock, flags);
 	garmin_data_p->mode  = initial_mode;
 	garmin_data_p->count = 0;
@@ -1536,7 +1528,7 @@ static int garmin_attach(struct usb_serial *serial)
 }
 
 
-static void garmin_shutdown(struct usb_serial *serial)
+static void garmin_disconnect(struct usb_serial *serial)
 {
 	struct usb_serial_port *port = serial->port[0];
 	struct garmin_data *garmin_data_p = usb_get_serial_port_data(port);
@@ -1545,8 +1537,17 @@ static void garmin_shutdown(struct usb_serial *serial)
 
 	usb_kill_urb(port->interrupt_in_urb);
 	del_timer_sync(&garmin_data_p->timer);
+}
+
+
+static void garmin_release(struct usb_serial *serial)
+{
+	struct usb_serial_port *port = serial->port[0];
+	struct garmin_data *garmin_data_p = usb_get_serial_port_data(port);
+
+	dbg("%s", __func__);
+
 	kfree(garmin_data_p);
-	usb_set_serial_port_data(port, NULL);
 }
 
 
@@ -1565,7 +1566,8 @@ static struct usb_serial_driver garmin_device = {
 	.throttle            = garmin_throttle,
 	.unthrottle          = garmin_unthrottle,
 	.attach              = garmin_attach,
-	.shutdown            = garmin_shutdown,
+	.disconnect          = garmin_disconnect,
+	.release             = garmin_release,
 	.write               = garmin_write,
 	.write_room          = garmin_write_room,
 	.write_bulk_callback = garmin_write_bulk_callback,

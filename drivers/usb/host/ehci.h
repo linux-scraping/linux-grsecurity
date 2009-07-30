@@ -190,40 +190,6 @@ timer_action_done (struct ehci_hcd *ehci, enum ehci_timer_action action)
 	clear_bit (action, &ehci->actions);
 }
 
-static inline void
-timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
-{
-	/* Don't override timeouts which shrink or (later) disable
-	 * the async ring; just the I/O watchdog.  Note that if a
-	 * SHRINK were pending, OFF would never be requested.
-	 */
-	if (timer_pending(&ehci->watchdog)
-			&& ((BIT(TIMER_ASYNC_SHRINK) | BIT(TIMER_ASYNC_OFF))
-				& ehci->actions))
-		return;
-
-	if (!test_and_set_bit (action, &ehci->actions)) {
-		unsigned long t;
-
-		switch (action) {
-		case TIMER_IO_WATCHDOG:
-			t = EHCI_IO_JIFFIES;
-			break;
-		case TIMER_ASYNC_OFF:
-			t = EHCI_ASYNC_JIFFIES;
-			break;
-		// case TIMER_ASYNC_SHRINK:
-		default:
-			/* add a jiffie since we synch against the
-			 * 8 KHz uframe counter.
-			 */
-			t = DIV_ROUND_UP(EHCI_SHRINK_FRAMES * HZ, 1000) + 1;
-			break;
-		}
-		mod_timer(&ehci->watchdog, t + jiffies);
-	}
-}
-
 static void free_cached_itd_list(struct ehci_hcd *ehci);
 
 /*-------------------------------------------------------------------------*/
@@ -287,7 +253,7 @@ struct ehci_qtd {
 
 /*
  * Now the following defines are not converted using the
- * __constant_cpu_to_le32() macro anymore, since we have to support
+ * cpu_to_le32() macro anymore, since we have to support
  * "dynamic" switching between be and le support, so that the driver
  * can be used on one system with SoC EHCI controller using big-endian
  * descriptors as well as a normal little-endian PCI EHCI controller.

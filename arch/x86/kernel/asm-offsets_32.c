@@ -18,6 +18,7 @@
 #include <asm/thread_info.h>
 #include <asm/bootparam.h>
 #include <asm/elf.h>
+#include <asm/suspend.h>
 
 #include <xen/interface/xen.h>
 
@@ -75,6 +76,7 @@ void foo(void)
 	OFFSET(PT_DS,  pt_regs, ds);
 	OFFSET(PT_ES,  pt_regs, es);
 	OFFSET(PT_FS,  pt_regs, fs);
+	OFFSET(PT_GS,  pt_regs, gs);
 	OFFSET(PT_ORIG_EAX, pt_regs, orig_ax);
 	OFFSET(PT_EIP, pt_regs, ip);
 	OFFSET(PT_CS,  pt_regs, cs);
@@ -100,7 +102,6 @@ void foo(void)
 	DEFINE(PTRS_PER_PTE, PTRS_PER_PTE);
 	DEFINE(PTRS_PER_PMD, PTRS_PER_PMD);
 	DEFINE(PTRS_PER_PGD, PTRS_PER_PGD);
-	DEFINE(PERCPU_MODULE_RESERVE, PERCPU_MODULE_RESERVE);
 
 	OFFSET(crypto_tfm_ctx_offset, crypto_tfm, __crt_ctx);
 

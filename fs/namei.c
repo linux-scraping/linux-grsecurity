@@ -24,6 +24,7 @@
 #include <linux/fsnotify.h>
 #include <linux/personality.h>
 #include <linux/security.h>
+#include <linux/ima.h>
 #include <linux/syscalls.h>
 #include <linux/mount.h>
 #include <linux/audit.h>
@@ -31,6 +32,7 @@
 #include <linux/file.h>
 #include <linux/fcntl.h>
 #include <linux/device_cgroup.h>
+#include <linux/fs_struct.h>
 #include <asm/uaccess.h>
 
 #define ACC_MODE(x) ("\000\004\002\006"[(x)&O_ACCMODE])
@@ -857,6 +859,8 @@ static int __link_path_walk(const char *name, struct nameidata *nd)
 		if (err == -EAGAIN)
 			err = inode_permission(nd->path.dentry->d_inode,
 					       MAY_EXEC);
+		if (!err)
+			err = ima_path_check(&nd->path, MAY_EXEC);
  		if (err)
 			break;
 
@@ -1140,8 +1144,8 @@ int vfs_path_lookup(struct dentry *dentry, struct vfsmount *mnt,
  * @nd: pointer to nameidata
  * @open_flags: open intent flags
  */
-int path_lookup_open(int dfd, const char *name, unsigned int lookup_flags,
-		struct nameidata *nd, int open_flags)
+static int path_lookup_open(int dfd, const char *name,
+		unsigned int lookup_flags, struct nameidata *nd, int open_flags)
 {
 	struct file *filp = get_empty_filp();
 	int err;
@@ -1257,6 +1261,8 @@ struct dentry *lookup_one_len(const char *name, struct dentry *base, int len)
 {
 	int err;
 	struct qstr this;
+
+	WARN_ON_ONCE(!mutex_is_locked(&base->d_inode->i_mutex));
 
 	err = __lookup_one_len(name, &this, base, len);
 	if (err)
@@ -1484,7 +1490,7 @@ int vfs_create(struct inode *dir, struct dentry *dentry, int mode,
 	error = security_inode_create(dir, dentry, mode);
 	if (error)
 		return error;
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 	error = dir->i_op->create(dir, dentry, mode, nd);
 	if (!error)
 		fsnotify_create(dir, dentry);
@@ -1500,27 +1506,30 @@ int may_open(struct path *path, int acc_mode, int flag)
 	if (!inode)
 		return -ENOENT;
 
-	if (S_ISLNK(inode->i_mode))
+	switch (inode->i_mode & S_IFMT) {
+	case S_IFLNK:
 		return -ELOOP;
-	
-	if (S_ISDIR(inode->i_mode) && (acc_mode & MAY_WRITE))
-		return -EISDIR;
-
-	/*
-	 * FIFO's, sockets and device files are special: they don't
-	 * actually live on the filesystem itself, and as such you
-	 * can write to them even if the filesystem is read-only.
-	 */
-	if (S_ISFIFO(inode->i_mode) || S_ISSOCK(inode->i_mode)) {
-	    	flag &= ~O_TRUNC;
-	} else if (S_ISBLK(inode->i_mode) || S_ISCHR(inode->i_mode)) {
+	case S_IFDIR:
+		if (acc_mode & MAY_WRITE)
+			return -EISDIR;
+		break;
+	case S_IFBLK:
+	case S_IFCHR:
 		if (path->mnt->mnt_flags & MNT_NODEV)
 			return -EACCES;
-
+		/*FALLTHRU*/
+	case S_IFIFO:
+	case S_IFSOCK:
 		flag &= ~O_TRUNC;
+		break;
 	}
 
 	error = inode_permission(inode, acc_mode);
+	if (error)
+		return error;
+
+	error = ima_path_check(path,
+			       acc_mode & (MAY_READ | MAY_WRITE | MAY_EXEC));
 	if (error)
 		return error;
 	/*
@@ -1558,7 +1567,7 @@ int may_open(struct path *path, int acc_mode, int flag)
 			error = security_path_truncate(path, 0,
 					       ATTR_MTIME|ATTR_CTIME|ATTR_OPEN);
 		if (!error) {
-			DQUOT_INIT(inode);
+			vfs_dq_init(inode);
 
 			error = do_truncate(dentry, 0,
 					    ATTR_MTIME|ATTR_CTIME|ATTR_OPEN,
@@ -1569,7 +1578,7 @@ int may_open(struct path *path, int acc_mode, int flag)
 			return error;
 	} else
 		if (flag & FMODE_WRITE)
-			DQUOT_INIT(inode);
+			vfs_dq_init(inode);
 
 	return 0;
 }
@@ -1591,7 +1600,7 @@ static int __open_namei_create(struct nameidata *nd, struct path *path,
 	}
 
 	if (!IS_POSIXACL(dir->d_inode))
-		mode &= ~current->fs->umask;
+		mode &= ~current_umask();
 	error = security_path_mknod(&nd->path, path->dentry, mode, 0);
 	if (error)
 		goto out_unlock;
@@ -1649,18 +1658,19 @@ static int open_will_write_to_fs(int flag, struct inode *inode)
  * open_to_namei_flags() for more details.
  */
 struct file *do_filp_open(int dfd, const char *pathname,
-		int open_flag, int mode)
+		int open_flag, int mode, int acc_mode)
 {
 	struct file *filp;
 	struct nameidata nd;
-	int acc_mode, error;
+	int error;
 	struct path path;
 	struct dentry *dir;
 	int count = 0;
 	int will_write;
 	int flag = open_to_namei_flags(open_flag);
 
-	acc_mode = MAY_OPEN | ACC_MODE(flag);
+	if (!acc_mode)
+		acc_mode = MAY_OPEN | ACC_MODE(flag);
 
 	/* O_TRUNC implies we need access checks for write permissions */
 	if (flag & O_TRUNC)
@@ -1913,7 +1923,7 @@ do_link:
  */
 struct file *filp_open(const char *filename, int flags, int mode)
 {
-	return do_filp_open(AT_FDCWD, filename, flags, mode);
+	return do_filp_open(AT_FDCWD, filename, flags, mode, 0);
 }
 EXPORT_SYMBOL(filp_open);
 
@@ -1991,7 +2001,7 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 	if (error)
 		return error;
 
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
 	if (!error)
 		fsnotify_create(dir, dentry);
@@ -2036,7 +2046,7 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, int, mode,
 		goto out_unlock;
 	}
 	if (!IS_POSIXACL(nd.path.dentry->d_inode))
-		mode &= ~current->fs->umask;
+		mode &= ~current_umask();
 	error = may_mknod(mode);
 	if (error)
 		goto out_dput;
@@ -2104,7 +2114,7 @@ int vfs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	if (error)
 		return error;
 
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 	error = dir->i_op->mkdir(dir, dentry, mode);
 	if (!error)
 		fsnotify_mkdir(dir, dentry);
@@ -2133,7 +2143,7 @@ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, int, mode)
 	}
 
 	if (!IS_POSIXACL(nd.path.dentry->d_inode))
-		mode &= ~current->fs->umask;
+		mode &= ~current_umask();
 	error = mnt_want_write(nd.path.mnt);
 	if (error)
 		goto out_dput;
@@ -2199,7 +2209,7 @@ int vfs_rmdir(struct inode *dir, struct dentry *dentry)
 	if (!dir->i_op->rmdir)
 		return -EPERM;
 
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 
 	mutex_lock(&dentry->d_inode->i_mutex);
 	dentry_unhash(dentry);
@@ -2303,7 +2313,7 @@ int vfs_unlink(struct inode *dir, struct dentry *dentry)
 	if (!dir->i_op->unlink)
 		return -EPERM;
 
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 
 	mutex_lock(&dentry->d_inode->i_mutex);
 	if (d_mountpoint(dentry))
@@ -2429,7 +2439,7 @@ int vfs_symlink(struct inode *dir, struct dentry *dentry, const char *oldname)
 	if (error)
 		return error;
 
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 	error = dir->i_op->symlink(dir, dentry, oldname);
 	if (!error)
 		fsnotify_create(dir, dentry);
@@ -2520,7 +2530,7 @@ int vfs_link(struct dentry *old_dentry, struct inode *dir, struct dentry *new_de
 		return error;
 
 	mutex_lock(&inode->i_mutex);
-	DQUOT_INIT(dir);
+	vfs_dq_init(dir);
 	error = dir->i_op->link(old_dentry, dir, new_dentry);
 	mutex_unlock(&inode->i_mutex);
 	if (!error)
@@ -2735,8 +2745,8 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (!old_dir->i_op->rename)
 		return -EPERM;
 
-	DQUOT_INIT(old_dir);
-	DQUOT_INIT(new_dir);
+	vfs_dq_init(old_dir);
+	vfs_dq_init(new_dir);
 
 	old_name = fsnotify_oldname_init(old_dentry->d_name.name);
 

@@ -332,14 +332,14 @@ static unsigned int x25_new_lci(struct x25_neigh *nb)
 /*
  *	Deferred destroy.
  */
-void x25_destroy_socket(struct sock *);
+static void __x25_destroy_socket(struct sock *);
 
 /*
  *	handler for deferred kills.
  */
 static void x25_destroy_timer(unsigned long data)
 {
-	x25_destroy_socket((struct sock *)data);
+	x25_destroy_socket_from_timer((struct sock *)data);
 }
 
 /*
@@ -349,12 +349,10 @@ static void x25_destroy_timer(unsigned long data)
  *	will touch it and we are (fairly 8-) ) safe.
  *	Not static as it's used by the timer
  */
-void x25_destroy_socket(struct sock *sk)
+static void __x25_destroy_socket(struct sock *sk)
 {
 	struct sk_buff *skb;
 
-	sock_hold(sk);
-	lock_sock(sk);
 	x25_stop_heartbeat(sk);
 	x25_stop_timer(sk);
 
@@ -385,7 +383,22 @@ void x25_destroy_socket(struct sock *sk)
 		/* drop last reference so sock_put will free */
 		__sock_put(sk);
 	}
+}
 
+void x25_destroy_socket_from_timer(struct sock *sk)
+{
+	sock_hold(sk);
+	bh_lock_sock(sk);
+	__x25_destroy_socket(sk);
+	bh_unlock_sock(sk);
+	sock_put(sk);
+}
+
+static void x25_destroy_socket(struct sock *sk)
+{
+	sock_hold(sk);
+	lock_sock(sk);
+	__x25_destroy_socket(sk);
 	release_sock(sk);
 	sock_put(sk);
 }
@@ -951,10 +964,8 @@ int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
 	/*
 	 *	Incoming Call User Data.
 	 */
-	if (skb->len >= 0) {
-		skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
-		makex25->calluserdata.cudlength = skb->len;
-	}
+	skb_copy_from_linear_data(skb, makex25->calluserdata.cuddata, skb->len);
+	makex25->calluserdata.cudlength = skb->len;
 
 	sk->sk_ack_backlog++;
 
@@ -1128,8 +1139,9 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (msg->msg_flags & MSG_OOB)
 		skb_queue_tail(&x25->interrupt_out_queue, skb);
 	else {
-		len = x25_output(sk, skb);
-		if (len < 0)
+		rc = x25_output(sk, skb);
+		len = rc;
+		if (rc < 0)
 			kfree_skb(skb);
 		else if (x25->qbitincl)
 			len++;
@@ -1614,8 +1626,8 @@ static const struct proto_ops SOCKOPS_WRAPPED(x25_proto_ops) = {
 
 SOCKOPS_WRAP(x25_proto, AF_X25);
 
-static struct packet_type x25_packet_type = {
-	.type =	__constant_htons(ETH_P_X25),
+static struct packet_type x25_packet_type __read_mostly = {
+	.type =	cpu_to_be16(ETH_P_X25),
 	.func =	x25_lapb_receive_frame,
 };
 

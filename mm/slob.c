@@ -61,11 +61,13 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <linux/swap.h> /* struct reclaim_state */
 #include <linux/cache.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/rcupdate.h>
 #include <linux/list.h>
+#include <trace/kmemtrace.h>
 #include <asm/atomic.h>
 
 /*
@@ -128,9 +130,9 @@ static LIST_HEAD(free_slob_medium);
 static LIST_HEAD(free_slob_large);
 
 /*
- * slob_page: True for all slob pages (false for bigblock pages)
+ * is_slob_page: True for all slob pages (false for bigblock pages)
  */
-static inline int slob_page(struct slob_page *sp)
+static inline int is_slob_page(struct slob_page *sp)
 {
 	return PageSlobPage((struct page *)sp) && !sp->size;
 }
@@ -143,6 +145,11 @@ static inline void set_slob_page(struct slob_page *sp)
 static inline void clear_slob_page(struct slob_page *sp)
 {
 	__ClearPageSlobPage((struct page *)sp);
+}
+
+static inline struct slob_page *slob_page(const void *addr)
+{
+	return (struct slob_page *)virt_to_page(addr);
 }
 
 /*
@@ -232,7 +239,7 @@ static int slob_last(const slob_t *s)
 	return !((unsigned long)slob_next(s) & ~PAGE_MASK);
 }
 
-static void *slob_new_page(gfp_t gfp, int order, int node)
+static void *slob_new_pages(gfp_t gfp, int order, int node)
 {
 	void *page;
 
@@ -250,12 +257,19 @@ static void *slob_new_page(gfp_t gfp, int order, int node)
 	return page_address(page);
 }
 
+static void slob_free_pages(void *b, int order)
+{
+	if (current->reclaim_state)
+		current->reclaim_state->reclaimed_slab += 1 << order;
+	free_pages((unsigned long)b, order);
+}
+
 /*
  * Allocate a slob block within a given slob_page sp.
  */
 static void *slob_page_alloc(struct slob_page *sp, size_t size, int align)
 {
-	slob_t *prev, *cur, *aligned = 0;
+	slob_t *prev, *cur, *aligned = NULL;
 	int delta = 0, units = SLOB_UNITS(size);
 
 	for (prev = NULL, cur = sp->free; ; prev = cur, cur = slob_next(cur)) {
@@ -352,10 +366,10 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 
 	/* Not enough space: must allocate a new page */
 	if (!b) {
-		b = slob_new_page(gfp & ~__GFP_ZERO, 0, node);
+		b = slob_new_pages(gfp & ~__GFP_ZERO, 0, node);
 		if (!b)
-			return 0;
-		sp = (struct slob_page *)virt_to_page(b);
+			return NULL;
+		sp = slob_page(b);
 
 		spin_lock_irqsave(&slob_lock, flags);
 		sp->units = SLOB_UNITS(PAGE_SIZE);
@@ -387,7 +401,7 @@ static void slob_free(void *block, int size)
 		return;
 	BUG_ON(!size);
 
-	sp = (struct slob_page *)virt_to_page(block);
+	sp = slob_page(block);
 	units = SLOB_UNITS(size);
 
 	spin_lock_irqsave(&slob_lock, flags);
@@ -396,10 +410,11 @@ static void slob_free(void *block, int size)
 		/* Go directly to page allocator. Do not pass slob allocator */
 		if (slob_page_free(sp))
 			clear_slob_page_free(sp);
+		spin_unlock_irqrestore(&slob_lock, flags);
 		clear_slob_page(sp);
 		free_slob_page(sp);
-		free_page((unsigned long)b);
-		goto out;
+		slob_free_pages(b, 0);
+		return;
 	}
 
 	if (!slob_page_free(sp)) {
@@ -465,30 +480,41 @@ out:
 static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 {
 	slob_t *m;
+	void *ret;
+
+	lockdep_trace_alloc(gfp);
 
 	if (size < PAGE_SIZE - align) {
 		if (!size)
 			return ZERO_SIZE_PTR;
 
 		m = slob_alloc(size + align, gfp, align, node);
+
 		if (!m)
 			return NULL;
 		BUILD_BUG_ON(ARCH_KMALLOC_MINALIGN < 2 * SLOB_UNIT);
 		BUILD_BUG_ON(ARCH_SLAB_MINALIGN < 2 * SLOB_UNIT);
 		m[0].units = size;
 		m[1].units = align;
-		return (void *)m + align;
-	} else {
-		void *ret;
+		ret = (void *)m + align;
 
-		ret = slob_new_page(gfp | __GFP_COMP, get_order(size), node);
+		trace_kmalloc_node(_RET_IP_, ret,
+				   size, size + align, gfp, node);
+	} else {
+		unsigned int order = get_order(size);
+
+		ret = slob_new_pages(gfp | __GFP_COMP, get_order(size), node);
 		if (ret) {
 			struct slob_page *sp;
 			sp = (struct slob_page *)virt_to_head_page(ret);
 			sp->size = size;
 		}
-		return ret;
+
+		trace_kmalloc_node(_RET_IP_, ret,
+				   size, PAGE_SIZE << order, gfp, node);
 	}
+
+	return ret;
 }
 
 void *__kmalloc_node(size_t size, gfp_t gfp, int node)
@@ -503,11 +529,13 @@ void kfree(const void *block)
 {
 	struct slob_page *sp;
 
+	trace_kfree(_RET_IP_, block);
+
 	if (unlikely(ZERO_OR_NULL_PTR(block)))
 		return;
 
-	sp = (struct slob_page *)virt_to_page(block);
-	if (slob_page(sp)) {
+	sp = slob_page(block);
+	if (is_slob_page(sp)) {
 		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
 		slob_free(m, m[0].units + align);
@@ -598,8 +626,8 @@ size_t ksize(const void *block)
 	if (unlikely(block == ZERO_SIZE_PTR))
 		return 0;
 
-	sp = (struct slob_page *)virt_to_page(block);
-	if (slob_page(sp)) {
+	sp = slob_page(block);
+	if (is_slob_page(sp)) {
 		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
 		return SLOB_UNITS(m[0].units) * SLOB_UNIT;
@@ -658,14 +686,20 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 #ifdef CONFIG_PAX_USERCOPY
 	b = __kmalloc_node_align(c->size, flags, node, c->align);
 #else
-	if (c->size < PAGE_SIZE)
+	if (c->size < PAGE_SIZE) {
 		b = slob_alloc(c->size, flags, c->align, node);
-	else {
+		trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+					    SLOB_UNITS(c->size) * SLOB_UNIT,
+					    flags, node);
+	} else {
 		struct slob_page *sp;
 
-		b = slob_new_page(flags, get_order(c->size), node);
+		b = slob_new_pages(flags, get_order(c->size), node);
 		sp = (struct slob_page *)virt_to_head_page(b);
 		sp->size = c->size;
+		trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+					    PAGE_SIZE << get_order(c->size),
+					    flags, node);
 	}
 #endif
 
@@ -686,7 +720,7 @@ static void __kmem_cache_free(void *b, int size)
 		clear_slob_page(sp);
 		free_slob_page(sp);
 		sp->size = 0;
-		free_pages((unsigned long)b, get_order(size));
+		slob_free_pages(b, get_order(size));
 	}
 }
 
@@ -718,6 +752,8 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 	} else {
 		__kmem_cache_free(b, size);
 	}
+
+	trace_kmem_cache_free(_RET_IP_, b);
 }
 EXPORT_SYMBOL(kmem_cache_free);
 

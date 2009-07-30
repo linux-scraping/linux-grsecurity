@@ -1,6 +1,7 @@
 #ifndef GR_SECURITY_H
 #define GR_SECURITY_H
 #include <linux/fs.h>
+#include <linux/fs_struct.h>
 #include <linux/binfmts.h>
 #include <linux/gracl.h>
 

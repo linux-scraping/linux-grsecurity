@@ -26,6 +26,7 @@
 #include <linux/tty_flip.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/list.h>
@@ -140,6 +141,14 @@ static void destroy_serial(struct kref *kref)
 	if (serial->minor != SERIAL_TTY_NO_MINOR)
 		return_serial(serial);
 
+	serial->type->release(serial);
+
+	for (i = 0; i < serial->num_ports; ++i) {
+		port = serial->port[i];
+		if (port)
+			put_device(&port->dev);
+	}
+
 	/* If this is a "fake" port, we have to clean it up here, as it will
 	 * not get cleaned up in port_release() as it was never registered with
 	 * the driver core */
@@ -147,9 +156,8 @@ static void destroy_serial(struct kref *kref)
 		for (i = serial->num_ports;
 					i < serial->num_port_pointers; ++i) {
 			port = serial->port[i];
-			if (!port)
-				continue;
-			port_free(port);
+			if (port)
+				port_free(port);
 		}
 	}
 
@@ -432,56 +440,51 @@ static int serial_break(struct tty_struct *tty, int break_state)
 	return 0;
 }
 
-static int serial_read_proc(char *page, char **start, off_t off, int count,
-							int *eof, void *data)
+static int serial_proc_show(struct seq_file *m, void *v)
 {
 	struct usb_serial *serial;
-	int length = 0;
 	int i;
-	off_t begin = 0;
 	char tmp[40];
 
 	dbg("%s", __func__);
-	length += sprintf(page, "usbserinfo:1.0 driver:2.0\n");
-	for (i = 0; i < SERIAL_TTY_MINORS && length < PAGE_SIZE; ++i) {
+	seq_puts(m, "usbserinfo:1.0 driver:2.0\n");
+	for (i = 0; i < SERIAL_TTY_MINORS; ++i) {
 		serial = usb_serial_get_by_index(i);
 		if (serial == NULL)
 			continue;
 
-		length += sprintf(page+length, "%d:", i);
+		seq_printf(m, "%d:", i);
 		if (serial->type->driver.owner)
-			length += sprintf(page+length, " module:%s",
+			seq_printf(m, " module:%s",
 				module_name(serial->type->driver.owner));
-		length += sprintf(page+length, " name:\"%s\"",
+		seq_printf(m, " name:\"%s\"",
 				serial->type->description);
-		length += sprintf(page+length, " vendor:%04x product:%04x",
+		seq_printf(m, " vendor:%04x product:%04x",
 			le16_to_cpu(serial->dev->descriptor.idVendor),
 			le16_to_cpu(serial->dev->descriptor.idProduct));
-		length += sprintf(page+length, " num_ports:%d",
-							serial->num_ports);
-		length += sprintf(page+length, " port:%d",
-							i - serial->minor + 1);
+		seq_printf(m, " num_ports:%d", serial->num_ports);
+		seq_printf(m, " port:%d", i - serial->minor + 1);
 		usb_make_path(serial->dev, tmp, sizeof(tmp));
-		length += sprintf(page+length, " path:%s", tmp);
+		seq_printf(m, " path:%s", tmp);
 
-		length += sprintf(page+length, "\n");
-		if ((length + begin) > (off + count)) {
-			usb_serial_put(serial);
-			goto done;
-		}
-		if ((length + begin) < off) {
-			begin += length;
-			length = 0;
-		}
+		seq_putc(m, '\n');
 		usb_serial_put(serial);
 	}
-	*eof = 1;
-done:
-	if (off >= (length + begin))
-		return 0;
-	*start = page + (off-begin);
-	return (count < begin+length-off) ? count : begin+length-off;
+	return 0;
 }
+
+static int serial_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, serial_proc_show, NULL);
+}
+
+static const struct file_operations serial_proc_fops = {
+	.owner		= THIS_MODULE,
+	.open		= serial_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 
 static int serial_tiocmget(struct tty_struct *tty, struct file *file)
 {
@@ -1066,10 +1069,6 @@ void usb_serial_disconnect(struct usb_interface *interface)
 	serial->disconnected = 1;
 	mutex_unlock(&serial->disc_mutex);
 
-	/* Unfortunately, many of the sub-drivers expect the port structures
-	 * to exist when their shutdown method is called, so we have to go
-	 * through this awkward two-step unregistration procedure.
-	 */
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
 		if (port) {
@@ -1083,14 +1082,7 @@ void usb_serial_disconnect(struct usb_interface *interface)
 			device_del(&port->dev);
 		}
 	}
-	serial->type->shutdown(serial);
-	for (i = 0; i < serial->num_ports; ++i) {
-		port = serial->port[i];
-		if (port) {
-			put_device(&port->dev);
-			serial->port[i] = NULL;
-		}
-	}
+	serial->type->disconnect(serial);
 
 	/* let the last holder of this object
 	 * cause it to be cleaned up */
@@ -1104,6 +1096,8 @@ int usb_serial_suspend(struct usb_interface *intf, pm_message_t message)
 	struct usb_serial *serial = usb_get_intfdata(intf);
 	struct usb_serial_port *port;
 	int i, r = 0;
+
+	serial->suspending = 1;
 
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
@@ -1121,10 +1115,15 @@ EXPORT_SYMBOL(usb_serial_suspend);
 int usb_serial_resume(struct usb_interface *intf)
 {
 	struct usb_serial *serial = usb_get_intfdata(intf);
+	int rv;
 
+	serial->suspending = 0;
 	if (serial->type->resume)
-		return serial->type->resume(serial);
-	return 0;
+		rv = serial->type->resume(serial);
+	else
+		rv = usb_serial_generic_resume(serial);
+
+	return rv;
 }
 EXPORT_SYMBOL(usb_serial_resume);
 
@@ -1139,9 +1138,9 @@ static const struct tty_operations serial_ops = {
 	.unthrottle =		serial_unthrottle,
 	.break_ctl =		serial_break,
 	.chars_in_buffer =	serial_chars_in_buffer,
-	.read_proc =		serial_read_proc,
 	.tiocmget =		serial_tiocmget,
 	.tiocmset =		serial_tiocmset,
+	.proc_fops =		&serial_proc_fops,
 };
 
 struct tty_driver *usb_serial_tty_driver;
@@ -1259,14 +1258,17 @@ static void fixup_generic(struct usb_serial_driver *device)
 	set_to_generic_if_null(device, chars_in_buffer);
 	set_to_generic_if_null(device, read_bulk_callback);
 	set_to_generic_if_null(device, write_bulk_callback);
-	set_to_generic_if_null(device, shutdown);
-	set_to_generic_if_null(device, resume);
+	set_to_generic_if_null(device, disconnect);
+	set_to_generic_if_null(device, release);
 }
 
 int usb_serial_register(struct usb_serial_driver *driver)
 {
 	/* must be called with BKL held */
 	int retval;
+
+	if (usb_disabled())
+		return -ENODEV;
 
 	fixup_generic(driver);
 

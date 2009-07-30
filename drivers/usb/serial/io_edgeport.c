@@ -193,8 +193,6 @@ static const struct divisor_table_entry divisor_table[] = {
 /* local variables */
 static int debug;
 
-static int low_latency = 1;	/* tty low latency flag, on by default */
-
 static atomic_t CmdUrbs;	/* Number of outstanding Command Write Urbs */
 
 
@@ -227,7 +225,8 @@ static int  edge_tiocmget(struct tty_struct *tty, struct file *file);
 static int  edge_tiocmset(struct tty_struct *tty, struct file *file,
 					unsigned int set, unsigned int clear);
 static int  edge_startup(struct usb_serial *serial);
-static void edge_shutdown(struct usb_serial *serial);
+static void edge_disconnect(struct usb_serial *serial);
+static void edge_release(struct usb_serial *serial);
 
 #include "io_tables.h"	/* all of the devices that this driver supports */
 
@@ -866,9 +865,6 @@ static int edge_open(struct tty_struct *tty,
 
 	if (edge_port == NULL)
 		return -ENODEV;
-
-	if (tty)
-		tty->low_latency = low_latency;
 
 	/* see if we've set up our endpoint info yet (can't set it up
 	   in edge_startup as the structures were not set up at that time.) */
@@ -3200,21 +3196,16 @@ static int edge_startup(struct usb_serial *serial)
 
 
 /****************************************************************************
- * edge_shutdown
+ * edge_disconnect
  *	This function is called whenever the device is removed from the usb bus.
  ****************************************************************************/
-static void edge_shutdown(struct usb_serial *serial)
+static void edge_disconnect(struct usb_serial *serial)
 {
 	struct edgeport_serial *edge_serial = usb_get_serial_data(serial);
-	int i;
 
 	dbg("%s", __func__);
 
 	/* stop reads and writes on all ports */
-	for (i = 0; i < serial->num_ports; ++i) {
-		kfree(usb_get_serial_port_data(serial->port[i]));
-		usb_set_serial_port_data(serial->port[i],  NULL);
-	}
 	/* free up our endpoint stuff */
 	if (edge_serial->is_epic) {
 		usb_kill_urb(edge_serial->interrupt_read_urb);
@@ -3225,9 +3216,24 @@ static void edge_shutdown(struct usb_serial *serial)
 		usb_free_urb(edge_serial->read_urb);
 		kfree(edge_serial->bulk_in_buffer);
 	}
+}
+
+
+/****************************************************************************
+ * edge_release
+ *	This function is called when the device structure is deallocated.
+ ****************************************************************************/
+static void edge_release(struct usb_serial *serial)
+{
+	struct edgeport_serial *edge_serial = usb_get_serial_data(serial);
+	int i;
+
+	dbg("%s", __func__);
+
+	for (i = 0; i < serial->num_ports; ++i)
+		kfree(usb_get_serial_port_data(serial->port[i]));
 
 	kfree(edge_serial);
-	usb_set_serial_data(serial, NULL);
 }
 
 
@@ -3299,6 +3305,3 @@ MODULE_FIRMWARE("edgeport/down2.fw");
 
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug enabled or not");
-
-module_param(low_latency, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(low_latency, "Low latency enabled or not");

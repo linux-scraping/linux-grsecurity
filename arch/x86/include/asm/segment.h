@@ -61,7 +61,7 @@
  *
  *  26 - ESPFIX small SS
  *  27 - per-cpu			[ offset to per-cpu data area ]
- *  28 - unused
+ *  28 - stack_canary-20		[ for stack protector ]
  *  29 - unused
  *  30 - unused
  *  31 - TSS for double fault handler
@@ -95,10 +95,17 @@
 #define __KERNEL_PERCPU 0
 #endif
 
-#define GDT_ENTRY_PCIBIOS_CS		(GDT_ENTRY_KERNEL_BASE + 16)
+#define GDT_ENTRY_STACK_CANARY		(GDT_ENTRY_KERNEL_BASE + 16)
+#ifdef CONFIG_CC_STACKPROTECTOR
+#define __KERNEL_STACK_CANARY		(GDT_ENTRY_STACK_CANARY * 8)
+#else
+#define __KERNEL_STACK_CANARY		0
+#endif
+
+#define GDT_ENTRY_PCIBIOS_CS		(GDT_ENTRY_KERNEL_BASE + 17)
 #define __PCIBIOS_CS (GDT_ENTRY_PCIBIOS_CS * 8)
 
-#define GDT_ENTRY_PCIBIOS_DS		(GDT_ENTRY_KERNEL_BASE + 17)
+#define GDT_ENTRY_PCIBIOS_DS		(GDT_ENTRY_KERNEL_BASE + 18)
 #define __PCIBIOS_DS (GDT_ENTRY_PCIBIOS_DS * 8)
 
 #define GDT_ENTRY_DOUBLEFAULT_TSS	31

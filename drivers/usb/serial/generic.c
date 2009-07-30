@@ -63,7 +63,8 @@ struct usb_serial_driver usb_serial_generic_device = {
 	.id_table =		generic_device_ids,
 	.usb_driver = 		&generic_driver,
 	.num_ports =		1,
-	.shutdown =		usb_serial_generic_shutdown,
+	.disconnect =		usb_serial_generic_disconnect,
+	.release =		usb_serial_generic_release,
 	.throttle =		usb_serial_generic_throttle,
 	.unthrottle =		usb_serial_generic_unthrottle,
 	.resume =		usb_serial_generic_resume,
@@ -122,12 +123,6 @@ int usb_serial_generic_open(struct tty_struct *tty,
 
 	dbg("%s - port %d", __func__, port->number);
 
-	/* force low_latency on so that our tty_push actually forces the data
-	   through, otherwise it is scheduled, and with high data rates (like
-	   with OHCI) data can get lost. */
-	if (tty)
-		tty->low_latency = 1;
-
 	/* clear the throttle flags */
 	spin_lock_irqsave(&port->lock, flags);
 	port->throttled = 0;
@@ -177,14 +172,6 @@ int usb_serial_generic_resume(struct usb_serial *serial)
 	struct usb_serial_port *port;
 	int i, c = 0, r;
 
-#ifdef CONFIG_PM
-	/*
-	 * If this is an autoresume, don't submit URBs.
-	 * They will be submitted in the open function instead.
-	 */
-	if (serial->dev->auto_pm)
-		return 0;
-#endif
 	for (i = 0; i < serial->num_ports; i++) {
 		port = serial->port[i];
 		if (port->port.count && port->read_urb) {
@@ -196,6 +183,7 @@ int usb_serial_generic_resume(struct usb_serial *serial)
 
 	return c ? -EIO : 0;
 }
+EXPORT_SYMBOL_GPL(usb_serial_generic_resume);
 
 void usb_serial_generic_close(struct tty_struct *tty,
 			struct usb_serial_port *port, struct file *filp)
@@ -426,7 +414,7 @@ void usb_serial_generic_unthrottle(struct tty_struct *tty)
 	}
 }
 
-void usb_serial_generic_shutdown(struct usb_serial *serial)
+void usb_serial_generic_disconnect(struct usb_serial *serial)
 {
 	int i;
 
@@ -437,3 +425,7 @@ void usb_serial_generic_shutdown(struct usb_serial *serial)
 		generic_cleanup(serial->port[i]);
 }
 
+void usb_serial_generic_release(struct usb_serial *serial)
+{
+	dbg("%s", __func__);
+}
