@@ -91,6 +91,9 @@ __copy_to_user(void __user *to, const void *from, unsigned long n)
 static __always_inline unsigned long
 __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 {
+	if ((long)n < 0)
+		return n;
+
 	/* Avoid zeroing the tail if the copy fails..
 	 * If 'n' is constant and 1, 2, or 4, we do still zero on a failure,
 	 * but as the zeroing behaviour is only significant when n is not
@@ -164,6 +167,10 @@ static __always_inline unsigned long __copy_from_user_nocache(void *to,
 				const void __user *from, unsigned long n)
 {
 	might_fault();
+
+	if ((long)n < 0)
+		return n;
+
 	if (__builtin_constant_p(n)) {
 		unsigned long ret;
 
@@ -186,7 +193,10 @@ static __always_inline unsigned long
 __copy_from_user_inatomic_nocache(void *to, const void __user *from,
 				  unsigned long n)
 {
-       return __copy_from_user_ll_nocache_nozero(to, from, n);
+	if ((long)n < 0)
+		return n;
+
+	return __copy_from_user_ll_nocache_nozero(to, from, n);
 }
 
 /**

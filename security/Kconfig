@@ -459,6 +459,8 @@ config PAX_USERCOPY
 	  Note that the current implementation provides the strictest checks
 	  for the SLUB allocator.
 
+	  Since this has a negligible performance impact, you should enable
+	  this feature.
 endmenu
 
 endmenu

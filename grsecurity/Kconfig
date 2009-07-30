@@ -517,8 +517,8 @@ config GRKERNSEC_CHROOT_FINDTASK
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to
-	  kill, send signals with fcntl, ptrace, capget, getpgid, getsid,
-	  or view any process outside of the chroot.  If the sysctl
+	  kill, send signals with fcntl, ptrace, capget, getpgid, setpgid, 
+	  getsid, or view any process outside of the chroot.  If the sysctl
 	  option is enabled, a sysctl option with name "chroot_findtask" is
 	  created.
 

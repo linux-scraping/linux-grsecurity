@@ -2720,8 +2720,12 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	page = get_object_page(ptr);
 
-	if (!page)
-		/* TODO: check for stack based ptr */
+	/* XXX: can get a little tighter with this stack check */
+	if (!page && object_is_on_stack(ptr) &&
+	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
+	     (unsigned long)ptr)))
+		goto report;
+	else
 		return;
 
 	s = page->slab;

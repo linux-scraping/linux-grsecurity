@@ -509,7 +509,6 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 		else
 			goto error;
 	}
-
 	if (egid != (gid_t) -1) {
 		if (old->gid == egid ||
 		    old->egid == egid ||
@@ -1009,10 +1008,7 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 	write_lock_irq(&tasklist_lock);
 
 	err = -ESRCH;
-	/* grsec: replaced find_task_by_vpid with equivalent call which
-	   lacks the chroot restriction
-	*/
-	p = pid_task(find_pid_ns(pid, current->nsproxy->pid_ns), PIDTYPE_PID);
+	p = find_task_by_vpid(pid);
 	if (!p)
 		goto out;
 

@@ -538,7 +538,12 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 		return;
 
 	sp = (struct slob_page *)virt_to_head_page(ptr);
-	if (!PageSlobPage((struct page*)sp))
+	/* XXX: can get a little tighter with this stack check */
+	if (!PageSlobPage((struct page*)sp) && object_is_on_stack(ptr) &&
+	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
+	     (unsigned long)ptr)))
+		goto report;
+	else
 		return;
 
 	if (sp->size) {
