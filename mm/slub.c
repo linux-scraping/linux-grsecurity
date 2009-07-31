@@ -2490,6 +2490,8 @@ static inline int kmem_cache_close(struct kmem_cache *s)
  */
 void kmem_cache_destroy(struct kmem_cache *s)
 {
+	if (s->flags & SLAB_DESTROY_BY_RCU)
+		rcu_barrier();
 	down_write(&slub_lock);
 	if (atomic_dec_and_test(&s->refcount)) {
 		list_del(&s->list);

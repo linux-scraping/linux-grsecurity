@@ -500,15 +500,6 @@ static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)
 	return pmd;
 }
 
-static inline pte_t * __init early_ioremap_pte(unsigned long addr)
-{
-#ifdef CONFIG_X86_32
-	return &swapper_pg_fixmap[pte_index(addr)];
-#else
-	return &level1_fixmap_pgt[pte_index(addr)];
-#endif
-}
-
 static unsigned long slot_virt[FIX_BTMAPS_SLOTS] __initdata;
 
 void __init early_ioremap_init(void)
@@ -552,13 +543,15 @@ static void __init __early_set_fixmap(enum fixed_addresses idx,
 				      phys_addr_t phys, pgprot_t flags)
 {
 	unsigned long addr = __fix_to_virt(idx);
+	unsigned int level;
 	pte_t *pte;
 
 	if (idx >= __end_of_fixed_addresses) {
 		BUG();
 		return;
 	}
-	pte = early_ioremap_pte(addr);
+	pte = lookup_address(addr, &level);
+	BUG_ON(!pte || level != PG_LEVEL_4K);
 
 	if (pgprot_val(flags))
 		set_pte(pte, pfn_pte(phys >> PAGE_SHIFT, flags));
