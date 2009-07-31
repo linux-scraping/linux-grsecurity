@@ -281,10 +281,13 @@ default_entry:
 
 	/* Do early initialization of the fixmap area */
 #ifdef CONFIG_COMPAT_VDSO
-	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_pmd+0x1000*KPMDS-8)
 #else
-	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-8)
 #endif
+	movl $pa(swapper_pg_fixmap1)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-16)
+	movl $pa(swapper_pg_fixmap2)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-24)
+	movl $pa(swapper_pg_fixmap3)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-32)
 #else	/* Not PAE */
 
 page_pde_offset = (__PAGE_OFFSET >> 20);
@@ -317,10 +320,13 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
 
 	/* Do early initialization of the fixmap area */
 #ifdef CONFIG_COMPAT_VDSO
-	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_dir+0xffc)
+	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_dir+0xffc)
 #else
-	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xffc)
+	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xffc)
 #endif
+	movl $pa(swapper_pg_fixmap1)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff8)
+	movl $pa(swapper_pg_fixmap2)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff4)
+	movl $pa(swapper_pg_fixmap3)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff0)
 #endif
 	jmp 3f
 /*
@@ -673,7 +679,16 @@ ENTRY(swapper_pg_dir)
 	.fill 1024,4,0
 #endif
 
-ENTRY(swapper_pg_fixmap)
+ENTRY(swapper_pg_fixmap0)
+	.fill 1024,4,0
+
+ENTRY(swapper_pg_fixmap1)
+	.fill 1024,4,0
+
+ENTRY(swapper_pg_fixmap2)
+	.fill 1024,4,0
+
+ENTRY(swapper_pg_fixmap3)
 	.fill 1024,4,0
 
 .section .empty_zero_page,"a",@progbits

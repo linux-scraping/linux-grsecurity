@@ -476,7 +476,7 @@ static struct miscdevice gru_miscdev = {
 	.fops		= &gru_fops,
 };
 
-struct const vm_operations_struct gru_vm_ops = {
+const struct vm_operations_struct gru_vm_ops = {
 	.close		= gru_vma_close,
 	.fault		= gru_fault,
 };
