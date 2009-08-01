@@ -48,7 +48,8 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 		reqmode |= GR_WRITE;
 	if (likely((fmode & FMODE_READ) && !(fmode & O_DIRECTORY)))
 		reqmode |= GR_READ;
-
+	if ((fmode & FMODE_GREXEC) && (fmode & FMODE_EXEC))
+		reqmode &= ~GR_READ;
 	mode =
 	    gr_search_file(dentry, reqmode | to_gr_audit(reqmode) | GR_SUPPRESS,
 			   mnt);

@@ -107,6 +107,7 @@ void module_free_exec(struct module *mod, void *module_region)
 		WARN_ON(1);
 	}
 }
+EXPORT_SYMBOL(module_free_exec);
 #endif
 
 /* We don't need anything special. */

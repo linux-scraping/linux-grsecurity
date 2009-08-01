@@ -62,8 +62,8 @@ SECTIONS
   . = ALIGN(PAGE_SIZE);		/* Align data segment to page size boundary */
 #endif
 				/* Data */
-  _data = .;
   .data : AT(ADDR(.data) - LOAD_OFFSET) {
+	_data = .;
 	DATA_DATA
 	CONSTRUCTORS
 	} :data

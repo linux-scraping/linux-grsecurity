@@ -454,7 +454,7 @@ ENTRY(phys_base)
 	.section .rodata,"a",@progbits
 	.align L1_CACHE_BYTES
 ENTRY(idt_table)
-	.fill 256,16,0
+	.fill 512,8,0
 
 	.section .bss.page_aligned, "aw", @nobits
 	.align PAGE_SIZE

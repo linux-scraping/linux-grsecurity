@@ -87,6 +87,10 @@ struct inodes_stat_t {
  */
 #define FMODE_NOCMTIME		((__force fmode_t)2048)
 
+/* Hack for grsec so as not to require read permission simply to execute
+   a binary */
+#define FMODE_GREXEC		((__force fmode_t)8192)
+
 /*
  * The below are the various read and write types that we support. Some of
  * them include behavioral modifiers that send information down to the
