@@ -967,7 +967,7 @@ asmlinkage void __init xen_start_kernel(void)
 	 * percpu gdt_page is to remember it here, so we can go and
 	 * mark it RW later, when the initial percpu area is freed.
 	 */
-	xen_initial_gdt = &per_cpu(gdt_page, 0);
+	xen_initial_gdt = cpu_gdt_table[0];
 
 	xen_smp_init();
 

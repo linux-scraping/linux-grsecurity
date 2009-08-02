@@ -77,7 +77,7 @@ grsecurity_init(void)
 #endif
 
 	for (j = 0; j < 4; j++) {
-		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE, 0);
+		gr_shared_page[j] = (char *)__alloc_percpu(PAGE_SIZE, __alignof__(unsigned long long));
 		if (gr_shared_page[j] == NULL) {
 			panic("Unable to allocate grsecurity shared page");
 			return;
