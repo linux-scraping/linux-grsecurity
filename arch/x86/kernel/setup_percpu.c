@@ -331,18 +331,17 @@ out_free_ar:
 	return ret;
 }
 
-static inline void setup_percpu_segment(int cpu)
+static inline void setup_percpu_segment(int cpu, size_t size)
 {
 #ifdef CONFIG_X86_32
 	struct desc_struct d, *gdt = get_cpu_gdt_table(cpu);
-	unsigned long base, limit;
+	unsigned long base;
 
 	base = per_cpu_offset(cpu);
-	limit = PERCPU_ENOUGH_ROOM - 1;
-	if (limit < 64*1024)
-		pack_descriptor(&d, base, limit, 0x80 | DESCTYPE_S | 0x3, 0x4);
+	if (size <= 64*1024)
+		pack_descriptor(&d, base, size-1, 0x80 | DESCTYPE_S | 0x3, 0x4);
 	else
-		pack_descriptor(&d, base, limit >> PAGE_SHIFT, 0x80 | DESCTYPE_S | 0x3, 0xC);
+		pack_descriptor(&d, base, (size-1) >> PAGE_SHIFT, 0x80 | DESCTYPE_S | 0x3, 0xC);
 	write_gdt_entry(gdt, GDT_ENTRY_PERCPU, &d, DESCTYPE_S);
 #endif
 }
@@ -390,7 +389,7 @@ void __init setup_per_cpu_areas(void)
 		per_cpu_offset(cpu) = delta + cpu * pcpu_unit_size;
 		per_cpu(this_cpu_off, cpu) = per_cpu_offset(cpu);
 		per_cpu(cpu_number, cpu) = cpu;
-		setup_percpu_segment(cpu);
+		setup_percpu_segment(cpu, static_size + PERCPU_MODULE_RESERVE + PERCPU_DYNAMIC_RESERVE);
 		setup_stack_canary_segment(cpu);
 		/*
 		 * Copy data used in early init routines from the

@@ -113,6 +113,7 @@ hash
 ihex2fw
 ikconfig.h*
 initramfs_data.cpio
+initramfs_data.cpio.bz2
 initramfs_data.cpio.gz
 initramfs_list
 kallsyms
@@ -196,6 +197,7 @@ vmlinux
 vmlinux-*
 vmlinux.aout
 vmlinux.bin.all
+vmlinux.bin.bz2
 vmlinux.lds
 vmlinux.relocs
 vsyscall.lds

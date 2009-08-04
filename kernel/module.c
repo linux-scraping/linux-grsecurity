@@ -369,8 +369,6 @@ EXPORT_SYMBOL_GPL(find_module);
 
 #ifdef CONFIG_HAVE_DYNAMIC_PER_CPU_AREA
 
-EXPORT_SYMBOL(__per_cpu_load);
-
 static void *percpu_modalloc(unsigned long size, unsigned long align,
 			     const char *name)
 {
@@ -432,8 +430,6 @@ static inline unsigned int block_size(int val)
 		return -val;
 	return val;
 }
-
-EXPORT_SYMBOL(__per_cpu_load);
 
 static void *percpu_modalloc(unsigned long size, unsigned long align,
 			     const char *name)
@@ -1646,15 +1642,9 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 
 		default:
 			/* Divert to percpu allocation if a percpu var. */
-			if (sym[i].st_shndx == pcpuindex) {
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
-				secbase = (unsigned long)mod->percpu - (unsigned long)__per_cpu_load;
-#else
+			if (sym[i].st_shndx == pcpuindex)
 				secbase = (unsigned long)mod->percpu;
-#endif
-
-			} else
+			else
 				secbase = sechdrs[sym[i].st_shndx].sh_addr;
 
 #ifdef CONFIG_PAX_KERNEXEC
