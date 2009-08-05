@@ -39,6 +39,7 @@
 #include <asm/proto.h>
 #include <asm/traps.h>
 #include <asm/desc.h>
+#include <asm/vsyscall.h>
 
 /*
  * Page fault error code bits:

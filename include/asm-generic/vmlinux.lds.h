@@ -477,12 +477,11 @@
 	VMLINUX_SYMBOL(__per_cpu_load) = .;				\
 	.data.percpu vaddr : AT(VMLINUX_SYMBOL(__per_cpu_load)		\
 				- LOAD_OFFSET) {			\
-		VMLINUX_SYMBOL(__per_cpu_load) = . + __per_cpu_load;	\
 		VMLINUX_SYMBOL(__per_cpu_start) = .;			\
 		*(.data.percpu.first)					\
+		*(.data.percpu)						\
 		. = ALIGN(PAGE_SIZE);					\
 		*(.data.percpu.page_aligned)				\
-		*(.data.percpu)						\
 		*(.data.percpu.shared_aligned)				\
 		VMLINUX_SYMBOL(__per_cpu_end) = .;			\
 	} phdr								\

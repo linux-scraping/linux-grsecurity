@@ -105,7 +105,7 @@ void flush_thread(void)
 
 	clear_tsk_thread_flag(tsk, TIF_DEBUG);
 
-#ifndef CONFIG_CC_STACKPROTECTOR
+#if defined(CONFIG_X86_32) && !defined(CONFIG_CC_STACKPROTECTOR)
 	loadsegment(gs, 0);
 #endif
 	tsk->thread.debugreg0 = 0;

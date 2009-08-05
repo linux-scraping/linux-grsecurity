@@ -110,6 +110,7 @@ ENTRY(startup_32)
 	movl %eax,%gs
 2:
 
+#ifdef CONFIG_SMP
 	movl $pa(cpu_gdt_table),%edi
 	movl $__per_cpu_load,%eax
 	movw %ax,__KERNEL_PERCPU + 2(%edi)
@@ -119,6 +120,7 @@ ENTRY(startup_32)
 	movl $__per_cpu_end - 1,%eax
 	subl $__per_cpu_load,%eax
 	movw %ax,__KERNEL_PERCPU + 0(%edi)
+#endif
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	/* check for VMware */
@@ -515,7 +517,9 @@ is386:	movl $2,%ecx		# set MP
 	jne 1f
 	movl $cpu_gdt_table,%eax
 	movl $per_cpu__stack_canary,%ecx
+#ifdef CONFIG_SMP
 	addl $__per_cpu_load,%ecx
+#endif
 	subl $20, %ecx
 	movw %cx, 8 * GDT_ENTRY_STACK_CANARY + 2(%eax)
 	shrl $16, %ecx
