@@ -776,11 +776,11 @@ PTREGSCALL(vm86old)
 .macro FIXUP_ESPFIX_STACK
 	/* since we are on a wrong stack, we cant make it a C code :( */
 #ifdef CONFIG_SMP
-	movl PER_CPU_VAR(cpu_number), %ebx;
-	shll $PAGE_SHIFT_asm, %ebx;
-	addl $cpu_gdt_table, %ebx;
+	movl PER_CPU_VAR(cpu_number), %ebx
+	shll $PAGE_SHIFT_asm, %ebx
+	addl $cpu_gdt_table, %ebx
 #else
-	movl $cpu_gdt_table, %ebx;
+	movl $cpu_gdt_table, %ebx
 #endif
 	GET_DESC_BASE(GDT_ENTRY_ESPFIX_SS, %ebx, %eax, %ax, %al, %ah)
 	addl %esp, %eax
