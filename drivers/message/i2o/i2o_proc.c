@@ -259,13 +259,6 @@ static char *scsi_devices[] = {
 	"Array Controller Device"
 };
 
-static char *chtostr(u8 * chars, int n)
-{
-	char tmp[256];
-	tmp[0] = 0;
-	return strncat(tmp, (char *)chars, n);
-}
-
 static int i2o_report_query_status(struct seq_file *seq, int block_status,
 				   char *group)
 {
@@ -842,8 +835,7 @@ static int i2o_seq_show_ddm_table(struct seq_file *seq, void *v)
 
 		seq_printf(seq, "%-#7x", ddm_table.i2o_vendor_id);
 		seq_printf(seq, "%-#8x", ddm_table.module_id);
-		seq_printf(seq, "%-29s",
-			   chtostr(ddm_table.module_name_version, 28));
+		seq_printf(seq, "%-.28s", ddm_table.module_name_version);
 		seq_printf(seq, "%9d  ", ddm_table.data_size);
 		seq_printf(seq, "%8d", ddm_table.code_size);
 
@@ -944,8 +936,8 @@ static int i2o_seq_show_drivers_stored(struct seq_file *seq, void *v)
 
 		seq_printf(seq, "%-#7x", dst->i2o_vendor_id);
 		seq_printf(seq, "%-#8x", dst->module_id);
-		seq_printf(seq, "%-29s", chtostr(dst->module_name_version, 28));
-		seq_printf(seq, "%-9s", chtostr(dst->date, 8));
+		seq_printf(seq, "%-.28s", dst->module_name_version);
+		seq_printf(seq, "%-.8s", dst->date);
 		seq_printf(seq, "%8d ", dst->module_size);
 		seq_printf(seq, "%8d ", dst->mpb_size);
 		seq_printf(seq, "0x%04x", dst->module_flags);
@@ -1276,14 +1268,10 @@ static int i2o_seq_show_dev_identity(struct seq_file *seq, void *v)
 	seq_printf(seq, "Device Class  : %s\n", i2o_get_class_name(work16[0]));
 	seq_printf(seq, "Owner TID     : %0#5x\n", work16[2]);
 	seq_printf(seq, "Parent TID    : %0#5x\n", work16[3]);
-	seq_printf(seq, "Vendor info   : %s\n",
-		   chtostr((u8 *) (work32 + 2), 16));
-	seq_printf(seq, "Product info  : %s\n",
-		   chtostr((u8 *) (work32 + 6), 16));
-	seq_printf(seq, "Description   : %s\n",
-		   chtostr((u8 *) (work32 + 10), 16));
-	seq_printf(seq, "Product rev.  : %s\n",
-		   chtostr((u8 *) (work32 + 14), 8));
+	seq_printf(seq, "Vendor info   : %.16s\n", (u8 *) (work32 + 2));
+	seq_printf(seq, "Product info  : %.16s\n", (u8 *) (work32 + 6));
+	seq_printf(seq, "Description   : %.16s\n", (u8 *) (work32 + 10));
+	seq_printf(seq, "Product rev.  : %.8s\n", (u8 *) (work32 + 14));
 
 	seq_printf(seq, "Serial number : ");
 	print_serial_number(seq, (u8 *) (work32 + 16),
@@ -1328,10 +1316,8 @@ static int i2o_seq_show_ddm_identity(struct seq_file *seq, void *v)
 	}
 
 	seq_printf(seq, "Registering DDM TID : 0x%03x\n", result.ddm_tid);
-	seq_printf(seq, "Module name         : %s\n",
-		   chtostr(result.module_name, 24));
-	seq_printf(seq, "Module revision     : %s\n",
-		   chtostr(result.module_rev, 8));
+	seq_printf(seq, "Module name         : %.24s\n", result.module_name);
+	seq_printf(seq, "Module revision     : %.8s\n", result.module_rev);
 
 	seq_printf(seq, "Serial number       : ");
 	print_serial_number(seq, result.serial_number, sizeof(result) - 36);
@@ -1362,14 +1348,10 @@ static int i2o_seq_show_uinfo(struct seq_file *seq, void *v)
 		return 0;
 	}
 
-	seq_printf(seq, "Device name     : %s\n",
-		   chtostr(result.device_name, 64));
-	seq_printf(seq, "Service name    : %s\n",
-		   chtostr(result.service_name, 64));
-	seq_printf(seq, "Physical name   : %s\n",
-		   chtostr(result.physical_location, 64));
-	seq_printf(seq, "Instance number : %s\n",
-		   chtostr(result.instance_number, 4));
+	seq_printf(seq, "Device name     : %.64s\n", result.device_name);
+	seq_printf(seq, "Service name    : %.64s\n", result.service_name);
+	seq_printf(seq, "Physical name   : %.64s\n", result.physical_location);
+	seq_printf(seq, "Instance number : %.4s\n", result.instance_number);
 
 	return 0;
 }

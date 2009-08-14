@@ -38,6 +38,7 @@
 #include <asm/proto.h>
 #include <asm-generic/sections.h>
 #include <asm/traps.h>
+#include <asm/vsyscall.h>
 
 /*
  * Page fault error code bits

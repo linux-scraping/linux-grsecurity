@@ -261,6 +261,25 @@ static int max_wakeup_granularity_ns = NSEC_PER_SEC;	/* 1 second */
 #endif
 
 static struct ctl_table kern_table[] = {
+
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "grsecurity",
+		.mode		= 0500,
+		.child		= grsecurity_table,
+	},
+#endif
+
+#ifdef CONFIG_PAX_SOFTMODE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "pax",
+		.mode		= 0500,
+		.child		= pax_table,
+	},
+#endif
+
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -920,25 +939,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= &scan_unevictable_handler,
 	},
 #endif
-
-#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "grsecurity",
-		.mode		= 0500,
-		.child		= grsecurity_table,
-	},
-#endif
-
-#ifdef CONFIG_PAX_SOFTMODE
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "pax",
-		.mode		= 0500,
-		.child		= pax_table,
-	},
-#endif
-
 /*
  * NOTE: do not add new entries to this table unless you have read
  * Documentation/sysctl/ctl_unnumbered.txt
