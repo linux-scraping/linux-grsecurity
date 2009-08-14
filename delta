@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.14-2.6.30.4-200908122115.patch
-+++ b/grsecurity-2.1.14-2.6.30.4-200908122115.patch
+--- a/grsecurity-2.1.14-2.6.30.4-200908132040.patch
++++ b/grsecurity-2.1.14-2.6.30.4-200908132040.patch
 @@ -1,97 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 88519daab6e9b8d9eb6e551caa70d2e0d773c3f5..eaa5bad43d55870dc807a5ee0d29a4fa889b0ea8 100644
@@ -14389,40 +14389,43 @@
 +@@ -1434,7 +1434,7 @@ SCTP_STATIC int sctp_sendmsg(struct kioc
 @@ -44462,4 +43654,3 @@
 -diff --git a/net/socket.c b/net/socket.c
--index 791d71a36a93dfec5166fe05e2e0cb394cfa904b..dd05c6d53b9fe6950e25e3a8ac8c5219ad4f2a1a 100644
+-index 791d71a36a93dfec5166fe05e2e0cb394cfa904b..cb46bd5d0b96675772f5b67a1ca4a6c79543cca3 100644
 ---- a/net/socket.c
 -+++ b/net/socket.c
 +diff -urNp linux-2.6.30.4/net/socket.c linux-2.6.30.4/net/socket.c
 +--- linux-2.6.30.4/net/socket.c	2009-07-24 17:47:51.000000000 -0400
-++++ linux-2.6.30.4/net/socket.c	2009-07-30 11:29:24.032618401 -0400
+++++ linux-2.6.30.4/net/socket.c	2009-08-13 20:40:32.961482335 -0400
 @@ -44505 +43696 @@
 -@@ -299,7 +315,7 @@ static int sockfs_get_sb(struct file_system_type *fs_type,
 +@@ -299,7 +315,7 @@ static int sockfs_get_sb(struct file_sys
 @@ -44514 +43705 @@
+-@@ -736,7 +752,7 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,
++@@ -736,7 +752,7 @@ static ssize_t sock_sendpage(struct file
+@@ -44523 +43714 @@
 -@@ -1283,6 +1299,16 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 +@@ -1283,6 +1299,16 @@ SYSCALL_DEFINE3(socket, int, family, int
-@@ -44531 +43722 @@
+@@ -44540 +43731 @@
 -@@ -1415,6 +1441,14 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 +@@ -1415,6 +1441,14 @@ SYSCALL_DEFINE3(bind, int, fd, struct so
-@@ -44546 +43737 @@
+@@ -44555 +43746 @@
 -@@ -1423,6 +1457,7 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 +@@ -1423,6 +1457,7 @@ SYSCALL_DEFINE3(bind, int, fd, struct so
-@@ -44554 +43745 @@
+@@ -44563 +43754 @@
 -@@ -1446,10 +1481,20 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 +@@ -1446,10 +1481,20 @@ SYSCALL_DEFINE2(listen, int, fd, int, ba
-@@ -44575 +43766 @@
+@@ -44584 +43775 @@
 -@@ -1492,6 +1537,18 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 +@@ -1492,6 +1537,18 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
-@@ -44594 +43785 @@
+@@ -44603 +43794 @@
 -@@ -1534,6 +1591,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 +@@ -1534,6 +1591,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
-@@ -44603 +43794 @@
+@@ -44612 +43803 @@
 -@@ -1571,6 +1630,7 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
 +@@ -1571,6 +1630,7 @@ SYSCALL_DEFINE3(connect, int, fd, struct
-@@ -44611 +43802 @@
+@@ -44620 +43811 @@
 -@@ -1581,6 +1641,17 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
 +@@ -1581,6 +1641,17 @@ SYSCALL_DEFINE3(connect, int, fd, struct
-@@ -44629,4 +43820,3 @@
+@@ -44638,4 +43829,3 @@
 -diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
 -index 9ced0628d69c35d44aa158b6d615acf8086278c6..87bbfd7df8273ba8e98b0f08904883df1e6ba8b0 100644
 ---- a/net/sunrpc/rpc_pipe.c
@@ -14430,7 +14433,7 @@
 +diff -urNp linux-2.6.30.4/net/sunrpc/rpc_pipe.c linux-2.6.30.4/net/sunrpc/rpc_pipe.c
 +--- linux-2.6.30.4/net/sunrpc/rpc_pipe.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/net/sunrpc/rpc_pipe.c	2009-07-30 12:07:21.048974939 -0400
-@@ -44642,5 +43832,4 @@
+@@ -44651,5 +43841,4 @@
 -diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 -index 9dcc6e7f96ec2126039ce6b57768b7274bf5f19e..8e001f1aaa88fbba4739e5964df0f13ab689ce8d 100644
 ---- a/net/unix/af_unix.c
@@ -14440,13 +14443,13 @@
 +--- linux-2.6.30.4/net/unix/af_unix.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/net/unix/af_unix.c	2009-07-30 11:10:49.995552784 -0400
 +@@ -734,6 +734,12 @@ static struct sock *unix_find_other(stru
-@@ -44659 +43848 @@
+@@ -44668 +43857 @@
 -@@ -754,6 +760,13 @@ static struct sock *unix_find_other(struct net *net,
 +@@ -754,6 +760,13 @@ static struct sock *unix_find_other(stru
-@@ -44673 +43862 @@
+@@ -44682 +43871 @@
 -@@ -839,11 +852,18 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 +@@ -839,11 +852,18 @@ static int unix_bind(struct socket *sock
-@@ -44703,5 +43892,4 @@
+@@ -44712,5 +43901,4 @@
 -diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
 -index a2adb51849a96c44940303af878bf6a1316b716a..fef8db553e8d63b3f0859459f59d0c4103663ad3 100644
 ---- a/net/xfrm/xfrm_proc.c
@@ -14456,7 +14459,7 @@
 +--- linux-2.6.30.4/net/xfrm/xfrm_proc.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/net/xfrm/xfrm_proc.c	2009-07-30 09:48:10.161962049 -0400
 +@@ -60,7 +60,7 @@ static int xfrm_statistics_seq_open(stru
-@@ -44716,5 +43904,4 @@
+@@ -44725,5 +43913,4 @@
 -diff --git a/samples/markers/marker-example.c b/samples/markers/marker-example.c
 -index e9cd9c0bc84f573e4c4976f66667d90ceedda626..26cb0db9fbe4b80c6606273458e903903945197e 100644
 ---- a/samples/markers/marker-example.c
@@ -14466,7 +14469,7 @@
 +--- linux-2.6.30.4/samples/markers/marker-example.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/samples/markers/marker-example.c	2009-07-30 09:48:10.161962049 -0400
 +@@ -26,7 +26,7 @@ static int my_open(struct inode *inode, 
-@@ -44729,5 +43916,4 @@
+@@ -44738,5 +43925,4 @@
 -diff --git a/samples/tracepoints/tracepoint-sample.c b/samples/tracepoints/tracepoint-sample.c
 -index 9cf80a11e8b68aa23d6b744e3cdb0da81e438981..26fab33ffa8cccc13a02e9d3b4573c974f71e86e 100644
 ---- a/samples/tracepoints/tracepoint-sample.c
@@ -14476,7 +14479,7 @@
 +--- linux-2.6.30.4/samples/tracepoints/tracepoint-sample.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/samples/tracepoints/tracepoint-sample.c	2009-07-30 09:48:10.161962049 -0400
 +@@ -28,7 +28,7 @@ static int my_open(struct inode *inode, 
-@@ -44742,4 +43928,3 @@
+@@ -44751,4 +43937,3 @@
 -diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
 -index 161b7846733e5ee5988ef42d5bf114cd8f0eef4d..75299b2e5dc7426bd6c2b675e92cee32d9eb5793 100644
 ---- a/scripts/mod/modpost.c
@@ -14484,13 +14487,13 @@
 +diff -urNp linux-2.6.30.4/scripts/mod/modpost.c linux-2.6.30.4/scripts/mod/modpost.c
 +--- linux-2.6.30.4/scripts/mod/modpost.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/scripts/mod/modpost.c	2009-07-30 09:48:10.162851614 -0400
-@@ -44754 +43939 @@
+@@ -44763 +43948 @@
 -@@ -892,6 +893,12 @@ const struct sectioncheck sectioncheck[] = {
 +@@ -892,6 +893,12 @@ const struct sectioncheck sectioncheck[]
-@@ -44767 +43952 @@
+@@ -44776 +43961 @@
 -@@ -1240,6 +1247,14 @@ static void report_sec_mismatch(const char *modname, enum mismatch mismatch,
 +@@ -1240,6 +1247,14 @@ static void report_sec_mismatch(const ch
-@@ -44782,4 +43967,3 @@
+@@ -44791,4 +43976,3 @@
 -diff --git a/scripts/pnmtologo.c b/scripts/pnmtologo.c
 -index 6aa2a2483f8df04abe75421f28d8deca7cff42c3..c45c7ba03dd534ae91234a2c03be4c5d028eb843 100644
 ---- a/scripts/pnmtologo.c
@@ -14498,7 +14501,7 @@
 +diff -urNp linux-2.6.30.4/scripts/pnmtologo.c linux-2.6.30.4/scripts/pnmtologo.c
 +--- linux-2.6.30.4/scripts/pnmtologo.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/scripts/pnmtologo.c	2009-07-30 09:48:10.162851614 -0400
-@@ -44812,4 +43996,85 @@
+@@ -44821,4 +44005,85 @@
 -diff --git a/security/Kconfig b/security/Kconfig
 -index d23c839038f00836cb96a51e53e27db8b8ec163c..5946f2026f48799168cf391f4bc156648e0f1d5f 100644
 ---- a/security/Kconfig
@@ -14588,7 +14591,7 @@
 +diff -urNp linux-2.6.30.4/security/Kconfig linux-2.6.30.4/security/Kconfig
 +--- linux-2.6.30.4/security/Kconfig	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/security/Kconfig	2009-07-30 11:10:50.021298651 -0400
-@@ -45284,89 +44549,4 @@
+@@ -45293,89 +44558,4 @@
 -diff --git a/security/commoncap.c b/security/commoncap.c
 -index beac0258c2a8f3a0cbad52ec9adf12e019264626..c4aa7c71c456691eb27e47d061bb4ece9113430f 100644
 ---- a/security/commoncap.c
@@ -14682,13 +14685,13 @@
 +--- linux-2.6.30.4/security/smack/smackfs.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/security/smack/smackfs.c	2009-07-30 09:48:10.163665437 -0400
 +@@ -186,7 +186,7 @@ static void load_seq_stop(struct seq_fil
-@@ -45381 +44561 @@
+@@ -45390 +44570 @@
 -@@ -502,7 +502,7 @@ static void cipso_seq_stop(struct seq_file *s, void *v)
 +@@ -502,7 +502,7 @@ static void cipso_seq_stop(struct seq_fi
-@@ -45390 +44570 @@
+@@ -45399 +44579 @@
 -@@ -696,7 +696,7 @@ static void netlbladdr_seq_stop(struct seq_file *s, void *v)
 +@@ -696,7 +696,7 @@ static void netlbladdr_seq_stop(struct s
-@@ -45399,5 +44579,4 @@
+@@ -45408,5 +44588,4 @@
 -diff --git a/sound/core/oss/pcm_oss.c b/sound/core/oss/pcm_oss.c
 -index dda000b9684cb07469e86fa4b7d324091c5db1a1..742a06515a427a2cf163b7a8b64069a966e80535 100644
 ---- a/sound/core/oss/pcm_oss.c
@@ -14698,7 +14701,7 @@
 +--- linux-2.6.30.4/sound/core/oss/pcm_oss.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/core/oss/pcm_oss.c	2009-07-30 09:48:10.164791187 -0400
 +@@ -2944,8 +2944,8 @@ static void snd_pcm_oss_proc_done(struct
-@@ -45414,5 +44593,4 @@
+@@ -45423,5 +44602,4 @@
 -diff --git a/sound/core/seq/seq_lock.h b/sound/core/seq/seq_lock.h
 -index 54044bc2c9ef24892a7e6747dcd67e92fb01b0f1..75df3ef63512290c8cd8028c6b0d9b6117e0e97b 100644
 ---- a/sound/core/seq/seq_lock.h
@@ -14708,7 +14711,7 @@
 +--- linux-2.6.30.4/sound/core/seq/seq_lock.h	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/core/seq/seq_lock.h	2009-07-30 09:48:10.164791187 -0400
 +@@ -23,10 +23,10 @@ void snd_use_lock_sync_helper(snd_use_lo
-@@ -45433,5 +44611,4 @@
+@@ -45442,5 +44620,4 @@
 -diff --git a/sound/pci/ac97/ac97_patch.c b/sound/pci/ac97/ac97_patch.c
 -index 7337abdbe4e37e0642f5b050ae7f7a00b93b12b9..290732c26614920941abf9a41f5a01388172c3d4 100644
 ---- a/sound/pci/ac97/ac97_patch.c
@@ -14718,10 +14721,10 @@
 +--- linux-2.6.30.4/sound/pci/ac97/ac97_patch.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/pci/ac97/ac97_patch.c	2009-07-30 09:48:10.165681860 -0400
 +@@ -1501,7 +1501,7 @@ static const struct snd_ac97_res_table a
-@@ -45446 +44623 @@
+@@ -45455 +44632 @@
 -@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_restbl[] = {
 +@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_
-@@ -45455,5 +44632,4 @@
+@@ -45464,5 +44641,4 @@
 -diff --git a/sound/pci/ens1370.c b/sound/pci/ens1370.c
 -index 18f4d1e98c46945c63c0a2c80c64e1fcc198bde8..d539c71fe3d03fc932a35eb283f53a8b5baed4a9 100644
 ---- a/sound/pci/ens1370.c
@@ -14731,7 +14734,7 @@
 +--- linux-2.6.30.4/sound/pci/ens1370.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/pci/ens1370.c	2009-07-30 09:48:10.165681860 -0400
 +@@ -452,7 +452,7 @@ static struct pci_device_id snd_audiopci
-@@ -45468,5 +44644,4 @@
+@@ -45477,5 +44653,4 @@
 -diff --git a/sound/pci/intel8x0.c b/sound/pci/intel8x0.c
 -index 8aa5687f392a10abf1310015d8ddeb57e73d070a..79afc87c50bbf8d630f8084d486c2a2a2a75b086 100644
 ---- a/sound/pci/intel8x0.c
@@ -14741,10 +14744,10 @@
 +--- linux-2.6.30.4/sound/pci/intel8x0.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/pci/intel8x0.c	2009-07-30 09:48:10.166748224 -0400
 +@@ -444,7 +444,7 @@ static struct pci_device_id snd_intel8x0
-@@ -45481 +44656 @@
+@@ -45490 +44665 @@
 -@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] __devinitdata = {
 +@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] _
-@@ -45490,5 +44665,4 @@
+@@ -45499,5 +44674,4 @@
 -diff --git a/sound/pci/intel8x0m.c b/sound/pci/intel8x0m.c
 -index 6ec0fc50d6be16bf064b27ca83e61b172deb045e..7c77434f48cf0714fdf3a10730666e015e83d5fc 100644
 ---- a/sound/pci/intel8x0m.c
@@ -14754,7 +14757,7 @@
 +--- linux-2.6.30.4/sound/pci/intel8x0m.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/pci/intel8x0m.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -239,7 +239,7 @@ static struct pci_device_id snd_intel8x0
-@@ -45512,5 +44686,4 @@
+@@ -45521,5 +44695,4 @@
 -diff --git a/sound/usb/usx2y/us122l.c b/sound/usb/usx2y/us122l.c
 -index a5aae9d67f31707e585de8de10689d8099df5f1c..071f0a2a2979784b906392b2b74ce0901d0fe2a1 100644
 ---- a/sound/usb/usx2y/us122l.c
@@ -14764,7 +14767,7 @@
 +--- linux-2.6.30.4/sound/usb/usx2y/us122l.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/usb/usx2y/us122l.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -154,7 +154,7 @@ static void usb_stream_hwdep_vm_close(st
-@@ -45525,5 +44698,4 @@
+@@ -45534,5 +44707,4 @@
 -diff --git a/sound/usb/usx2y/usX2Yhwdep.c b/sound/usb/usx2y/usX2Yhwdep.c
 -index f3d8f71265dd3bfee1540442184ed226a5f88cf6..52e04b2f35d3e7e1eb73e05b671a1f7ee086bd02 100644
 ---- a/sound/usb/usx2y/usX2Yhwdep.c
@@ -14774,7 +14777,7 @@
 +--- linux-2.6.30.4/sound/usb/usx2y/usX2Yhwdep.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/usb/usx2y/usX2Yhwdep.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -53,7 +53,7 @@ static int snd_us428ctls_vm_fault(struct
-@@ -45538,5 +44710,4 @@
+@@ -45547,5 +44719,4 @@
 -diff --git a/sound/usb/usx2y/usx2yhwdeppcm.c b/sound/usb/usx2y/usx2yhwdeppcm.c
 -index 117946f2debb3a04891d87de9327c16d8f27f7fe..4b2304c2e02dd2fdf806e1f1f776f6196531d7f1 100644
 ---- a/sound/usb/usx2y/usx2yhwdeppcm.c
@@ -14784,7 +14787,7 @@
 +--- linux-2.6.30.4/sound/usb/usx2y/usx2yhwdeppcm.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/sound/usb/usx2y/usx2yhwdeppcm.c	2009-07-30 09:48:10.168781015 -0400
 +@@ -697,7 +697,7 @@ static int snd_usX2Y_hwdep_pcm_vm_fault(
-@@ -45551,5 +44722,4 @@
+@@ -45560,5 +44731,4 @@
 -diff --git a/usr/gen_init_cpio.c b/usr/gen_init_cpio.c
 -index f1d3fe34176ad08926c82c75084c84dc71662e64..2c2b2ad271534757df336af7c3ba81f54d71d608 100644
 ---- a/usr/gen_init_cpio.c
@@ -14794,7 +14797,7 @@
 +--- linux-2.6.30.4/usr/gen_init_cpio.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/usr/gen_init_cpio.c	2009-08-09 07:48:48.304466902 -0400
 +@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_
-@@ -45568,4 +44738,3 @@
+@@ -45577,4 +44747,3 @@
 -diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
 -index 148982913805d052704b01d9e196d5aaae7c64a3..568cc675476a343fe80588c8e999a1724e818c10 100644
 ---- a/virt/kvm/kvm_main.c
@@ -14802,9 +14805,9 @@
 +diff -urNp linux-2.6.30.4/virt/kvm/kvm_main.c linux-2.6.30.4/virt/kvm/kvm_main.c
 +--- linux-2.6.30.4/virt/kvm/kvm_main.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.4/virt/kvm/kvm_main.c	2009-07-30 12:42:02.581987537 -0400
-@@ -45582 +44751 @@
+@@ -45591 +44760 @@
 -@@ -2220,7 +2223,7 @@ static int vcpu_stat_get(void *_offset, u64 *val)
 +@@ -2220,7 +2223,7 @@ static int vcpu_stat_get(void *_offset, 
-@@ -45591 +44760 @@
+@@ -45600 +44769 @@
 -@@ -2292,7 +2295,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 +@@ -2292,7 +2295,7 @@ static void kvm_sched_out(struct preempt
