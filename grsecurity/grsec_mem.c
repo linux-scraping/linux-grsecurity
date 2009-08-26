@@ -69,3 +69,11 @@ gr_handle_mem_mmap(const unsigned long offset, struct vm_area_struct *vma)
 
 	return 0;
 }
+
+void
+gr_log_nonroot_mod_load(const char *modname)
+{
+        gr_log_str(GR_DONT_AUDIT, GR_NONROOT_MODLOAD_MSG, modname);
+        return;
+}
+

@@ -72,7 +72,7 @@ static void device_id_check(const char *modname, const char *device_id,
 			    unsigned long size, unsigned long id_size,
 			    void *symval)
 {
-	int i;
+	unsigned int i;
 
 	if (size % id_size || size < id_size) {
 		if (cross_build != 0)
@@ -102,7 +102,7 @@ static void device_id_check(const char *modname, const char *device_id,
 /* USB is special because the bcdDevice can be matched against a numeric range */
 /* Looks like "usb:vNpNdNdcNdscNdpNicNiscNipN" */
 static void do_usb_entry(struct usb_device_id *id,
-			 unsigned int bcdDevice_initial, int bcdDevice_initial_digits,
+			 unsigned int bcdDevice_initial, unsigned int bcdDevice_initial_digits,
 			 unsigned char range_lo, unsigned char range_hi,
 			 struct module *mod)
 {
@@ -368,7 +368,7 @@ static void do_pnp_device_entry(void *symval, unsigned long size,
 	for (i = 0; i < count; i++) {
 		const char *id = (char *)devs[i].id;
 		char acpi_id[sizeof(devs[0].id)];
-		int j;
+		unsigned int j;
 
 		buf_printf(&mod->dev_table_buf,
 			   "MODULE_ALIAS(\"pnp:d%s*\");\n", id);
@@ -398,7 +398,7 @@ static void do_pnp_card_entries(void *symval, unsigned long size,
 
 		for (j = 0; j < PNP_MAX_DEVICES; j++) {
 			const char *id = (char *)card->devs[j].id;
-			int i2, j2;
+			unsigned int i2, j2;
 			int dup = 0;
 
 			if (!id[0])
@@ -424,7 +424,7 @@ static void do_pnp_card_entries(void *symval, unsigned long size,
 			/* add an individual alias for every device entry */
 			if (!dup) {
 				char acpi_id[sizeof(card->devs[0].id)];
-				int k;
+				unsigned int k;
 
 				buf_printf(&mod->dev_table_buf,
 					   "MODULE_ALIAS(\"pnp:d%s*\");\n", id);
@@ -690,7 +690,7 @@ static void dmi_ascii_filter(char *d, const char *s)
 static int do_dmi_entry(const char *filename, struct dmi_system_id *id,
 			char *alias)
 {
-	int i, j;
+	unsigned int i, j;
 
 	sprintf(alias, "dmi*");
 

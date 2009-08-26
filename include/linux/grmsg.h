@@ -106,3 +106,4 @@
 #define GR_SHMR_AUDIT_MSG "shared memory of uid:%u euid:%u removed by "
 #define GR_RESOURCE_MSG "denied resource overstep by requesting %lu for %.16s against limit %lu for "
 #define GR_TEXTREL_AUDIT_MSG "text relocation in %s, VMA:0x%08lx 0x%08lx by "
+#define GR_NONROOT_MODLOAD_MSG "denied kernel module auto-load of %.64s by "

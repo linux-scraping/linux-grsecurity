@@ -50,7 +50,10 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 #ifdef CONFIG_X86_PAE
 extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 #endif
-extern pte_t swapper_pg_fixmap[PTRS_PER_PMD];
+extern pte_t swapper_pg_fixmap0[PTRS_PER_PMD];
+extern pte_t swapper_pg_fixmap1[PTRS_PER_PMD];
+extern pte_t swapper_pg_fixmap2[PTRS_PER_PMD];
+extern pte_t swapper_pg_fixmap3[PTRS_PER_PMD];
 
 #if defined(CONFIG_HIGHPTE)
 #define pte_offset_map(dir, address)					\

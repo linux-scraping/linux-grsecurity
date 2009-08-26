@@ -73,8 +73,8 @@ static int __init ikconfig_init(void)
 	struct proc_dir_entry *entry;
 
 	/* create the current config file */
-#ifdef CONFIG_GRKERNSEC_PROC_ADD
-#ifdef CONFIG_GRKERNSEC_PROC_USER
+#if defined(CONFIG_GRKERNSEC_PROC_ADD) || defined(CONFIG_GRKERNSEC_HIDESYM)
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_HIDESYM)
 	entry = proc_create("config.gz", S_IFREG | S_IRUSR, NULL,
 			    &ikconfig_file_ops);
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)

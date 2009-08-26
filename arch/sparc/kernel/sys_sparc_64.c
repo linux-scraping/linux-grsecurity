@@ -159,7 +159,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	if (len > mm->cached_hole_size) {
 		start_addr = addr = mm->free_area_cache;
 	} else {
-+		start_addr = addr = mm->mmap_base;
+		start_addr = addr = mm->mmap_base;
 	        mm->cached_hole_size = 0;
 	}
 

@@ -188,6 +188,7 @@ void gr_acl_handle_psacct(struct task_struct *task, const long code);
 int gr_acl_handle_procpidmem(const struct task_struct *task);
 
 #ifdef CONFIG_GRKERNSEC
+void gr_log_nonroot_mod_load(const char *modname);
 void gr_handle_mem_write(void);
 void gr_handle_kmem_write(void);
 void gr_handle_open_port(void);

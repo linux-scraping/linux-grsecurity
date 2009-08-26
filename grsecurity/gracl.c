@@ -983,7 +983,7 @@ copy_user_glob(struct acl_object_label *obj)
 
 		if (copy_from_user(tmp, g_tmp->filename, len))
 			return -EFAULT;
-
+		tmp[len-1] = '\0';
 		g_tmp->filename = tmp;
 
 		*guser = g_tmp;
@@ -1023,7 +1023,7 @@ copy_user_objs(struct acl_object_label *userp, struct acl_subject_label *subj,
 
 		if (copy_from_user(tmp, o_tmp->filename, len))
 			return -EFAULT;
-
+		tmp[len-1] = '\0';
 		o_tmp->filename = tmp;
 
 		insert_acl_obj_label(o_tmp, subj);
@@ -1142,7 +1142,7 @@ copy_user_transitions(struct acl_role_label *rolep)
 
 		if (copy_from_user(tmp, rtmp->rolename, len))
 			return -EFAULT;
-
+		tmp[len-1] = '\0';
 		rtmp->rolename = tmp;
 
 		if (!rlast) {
@@ -1207,7 +1207,7 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 
 	if (copy_from_user(tmp, s_tmp->filename, len))
 		return ERR_PTR(-EFAULT);
-
+	tmp[len-1] = '\0';
 	s_tmp->filename = tmp;
 
 	if (!strcmp(s_tmp->filename, "/"))
@@ -1420,7 +1420,7 @@ copy_user_acl(struct gr_arg *arg)
 			err = -EFAULT;
 			goto cleanup;
 		}
-
+		tmp[len-1] = '\0';
 #ifdef CONFIG_GRKERNSEC_ACL_DEBUG
 		printk(KERN_ALERT "Copying special role %s\n", tmp);
 #endif
@@ -1465,6 +1465,7 @@ copy_user_acl(struct gr_arg *arg)
 			err = -EFAULT;
 			goto cleanup;
 		}
+		tmp[len-1] = '\0';
 		r_tmp->rolename = tmp;
 
 		if (!strcmp(r_tmp->rolename, "default")

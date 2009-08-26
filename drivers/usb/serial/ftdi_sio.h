@@ -926,6 +926,20 @@
 #define MARVELL_SHEEVAPLUG_PID	0x9e8f
 
 /*
+ * Bayer Ascensia Contour blood glucose meter USB-converter cable.
+ * http://winglucofacts.com/cables/
+ */
+#define BAYER_VID                      0x1A79
+#define BAYER_CONTOUR_CABLE_PID        0x6001
+
+/*
+ * Marvell OpenRD Base, Client
+ * http://www.open-rd.org
+ * OpenRD Base, Client use VID 0x0403
+ */
+#define MARVELL_OPENRD_PID	0x9e90
+
+/*
  *   BmRequestType:  1100 0000b
  *   bRequest:       FTDI_E2_READ
  *   wValue:         0

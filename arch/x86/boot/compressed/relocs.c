@@ -40,7 +40,7 @@ static const char* safe_abs_relocs[] = {
 
 static int is_safe_abs_reloc(const char* sym_name)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(safe_abs_relocs); i++) {
 		if (!strcmp(sym_name, safe_abs_relocs[i]))
@@ -250,7 +250,7 @@ static void read_ehdr(FILE *fp)
 
 static void read_phdrs(FILE *fp)
 {
-	int i;
+	unsigned int i;
 
 	phdr = calloc(ehdr.e_phnum, sizeof(Elf32_Phdr));
 	if (!phdr) {
@@ -280,7 +280,7 @@ static void read_phdrs(FILE *fp)
 
 static void read_shdrs(FILE *fp)
 {
-	int i;
+	unsigned int i;
 	Elf32_Shdr shdr;
 
 	secs = calloc(ehdr.e_shnum, sizeof(struct section));
@@ -315,7 +315,7 @@ static void read_shdrs(FILE *fp)
 
 static void read_strtabs(FILE *fp)
 {
-	int i;
+	unsigned int i;
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		struct section *sec = &secs[i];
 		if (sec->shdr.sh_type != SHT_STRTAB) {
@@ -340,7 +340,7 @@ static void read_strtabs(FILE *fp)
 
 static void read_symtabs(FILE *fp)
 {
-	int i,j;
+	unsigned int i,j;
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		struct section *sec = &secs[i];
 		if (sec->shdr.sh_type != SHT_SYMTAB) {
@@ -373,7 +373,7 @@ static void read_symtabs(FILE *fp)
 
 static void read_relocs(FILE *fp)
 {
-	int i,j;
+	unsigned int i,j;
 	uint32_t base;
 
 	for (i = 0; i < ehdr.e_shnum; i++) {
@@ -415,14 +415,14 @@ static void read_relocs(FILE *fp)
 
 static void print_absolute_symbols(void)
 {
-	int i;
+	unsigned int i;
 	printf("Absolute symbols\n");
 	printf(" Num:    Value Size  Type       Bind        Visibility  Name\n");
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		struct section *sec = &secs[i];
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
-		int j;
+		unsigned int j;
 
 		if (sec->shdr.sh_type != SHT_SYMTAB) {
 			continue;
@@ -450,14 +450,14 @@ static void print_absolute_symbols(void)
 
 static void print_absolute_relocs(void)
 {
-	int i, printed = 0;
+	unsigned int i, printed = 0;
 
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		struct section *sec = &secs[i];
 		struct section *sec_applies, *sec_symtab;
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
-		int j;
+		unsigned int j;
 		if (sec->shdr.sh_type != SHT_REL) {
 			continue;
 		}
@@ -518,13 +518,13 @@ static void print_absolute_relocs(void)
 
 static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 {
-	int i;
+	unsigned int i;
 	/* Walk through the relocations */
 	for (i = 0; i < ehdr.e_shnum; i++) {
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
 		struct section *sec_applies, *sec_symtab;
-		int j;
+		unsigned int j;
 		struct section *sec = &secs[i];
 
 		if (sec->shdr.sh_type != SHT_REL) {
@@ -602,7 +602,7 @@ static int cmp_relocs(const void *va, const void *vb)
 
 static void emit_relocs(int as_text)
 {
-	int i;
+	unsigned int i;
 	/* Count how many relocations I have and allocate space for them. */
 	reloc_count = 0;
 	walk_relocs(count_reloc);

@@ -266,7 +266,7 @@ static void free(void *where)
 		malloc_ptr = free_mem_ptr;
 }
 #else
-#define malloc(a) kmalloc(a, GFP_KERNEL)
+#define malloc(a) kmalloc((a), GFP_KERNEL)
 #define free(a) kfree(a)
 #endif
 

@@ -141,6 +141,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_CHROOT_NICE
 	select GRKERNSEC_AUDIT_MOUNT
 	select GRKERNSEC_MODSTOP if (MODULES)
+	select GRKERNSEC_MODHARDEN if (MODULES)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -190,6 +191,8 @@ config GRKERNSEC_HIGH
 	  - Mount/unmount/remount logging
 	  - Kernel symbol hiding
 	  - Prevention of memory exhaustion-based exploits
+	  - Hardening of module auto-loading
+
 config GRKERNSEC_CUSTOM
 	bool "Custom"
 	help
@@ -286,6 +289,22 @@ config GRKERNSEC_MODSTOP
 	  module loading.  After this option is set, no further writes to it are
 	  allowed until the system is rebooted.
 
+config GRKERNSEC_MODHARDEN
+	bool "Harden module auto-loading"
+	depends on MODULES
+	help
+	  If you say Y here, module auto-loading in response to use of some
+	  feature implemented by an unloaded module will be restricted to
+	  root users.  Enabling this option helps defend against attacks 
+	  by unprivileged users who abuse the auto-loading behavior to 
+	  cause a vulnerable module to load that is then exploited.
+
+	  If this option prevents a legitimate use of auto-loading for a 
+	  non-root user, the administrator can execute modprobe manually 
+	  with the exact name of the module mentioned in the alert log.  
+	  Alternatively, the administrator can add the module to the 
+	  list of modules loaded at boot by modifying init scripts.
+
 config GRKERNSEC_HIDESYM
 	bool "Hide kernel symbols"
 	help
@@ -295,9 +314,10 @@ config GRKERNSEC_HIDESYM
 	  provided the following conditions are met:
 	  1) The kernel using grsecurity is not precompiled by some distribution
 	  2) You are using the RBAC system and hiding other files such as your
-	     kernel image and System.map
-	  3) You have the additional /proc restrictions enabled, which removes
-	     /proc/kcore
+	     kernel image and System.map.  Alternatively, enabling this option
+	     causes the permissions on /boot, /lib/modules, and the kernel
+	     source directory to change at compile time to prevent 
+	     reading by non-root users.
 	  If the above conditions are met, this option will aid to provide a
 	  useful protection against local and remote kernel exploitation of
 	  overflows and arbitrary read/write vulnerabilities.
