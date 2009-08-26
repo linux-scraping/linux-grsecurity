@@ -1073,8 +1073,12 @@ ENTRY(\sym)
 	TRACE_IRQS_OFF
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
+#ifdef CONFIG_SMP
 	imul $TSS_size, %gs:pda_cpunumber, %ebp
 	lea init_tss(%rbp), %rbp
+#else
+	lea init_tss(%rip), %rbp
+#endif
 	subq $EXCEPTION_STKSZ, TSS_ist + (\ist - 1) * 8(%rbp)
 	call \do_sym
 	addq $EXCEPTION_STKSZ, TSS_ist + (\ist - 1) * 8(%rbp)
