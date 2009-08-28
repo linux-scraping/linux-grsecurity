@@ -1085,6 +1085,14 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 	if (!mm)
 		return -EINVAL;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (mm != current->mm &&
+	    (mm->pax_flags & MF_PAX_RANDMMAP || mm->pax_flags & MF_PAX_SEGMEXEC)) {
+		err = -EPERM;
+		goto out;
+	}
+#endif
+
 	/*
 	 * Check if this process has the right to modify the specified
 	 * process. The right exists if the process has administrative
@@ -1094,8 +1102,7 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 	rcu_read_lock();
 	tcred = __task_cred(task);
 	if (cred->euid != tcred->suid && cred->euid != tcred->uid &&
-	    cred->uid  != tcred->suid && cred->uid  != tcred->uid &&
-	    !capable(CAP_SYS_NICE)) {
+	    cred->uid  != tcred->suid && !capable(CAP_SYS_NICE)) {
 		rcu_read_unlock();
 		err = -EPERM;
 		goto out;
