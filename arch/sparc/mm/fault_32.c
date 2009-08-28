@@ -368,6 +368,21 @@ emulate:
 				regs->npc = addr+4;
 				return 3;
 			}
+
+			/* PaX: newer glibc/binutils generate sethi/jmp instead of save/call */
+			if ((save & 0xFFC00000U) == 0x05000000U &&
+			    (call & 0xFFFFE000U) == 0x85C0A000U &&
+			    nop == 0x01000000U)
+			{
+				unsigned long addr;
+
+				addr = (save & 0x003FFFFFU) << 10;
+				regs->u_regs[UREG_G2] = addr;
+				addr += (((call | 0xFFFFE000U) ^ 0x00001000U) + 0x00001000U);
+				regs->pc = addr;
+				regs->npc = addr+4;
+				return 3;
+			}
 		}
 	} while (0);
 

@@ -332,6 +332,10 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			regs->u_regs[UREG_G1] = (sethi2 & 0x003FFFFFU) << 10;
 			addr = regs->u_regs[UREG_G1];
 			addr += (((jmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			regs->tpc = addr;
 			regs->tnpc = addr+4;
 			return 2;
@@ -347,6 +351,10 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			unsigned long addr;
 
 			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFC00000UL) ^ 0x00200000UL) + 0x00200000UL) << 2);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			regs->tpc = addr;
 			regs->tnpc = addr+4;
 			return 2;
@@ -372,6 +380,10 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			addr = (sethi & 0x003FFFFFU) << 10;
 			regs->u_regs[UREG_G1] = addr;
 			addr += (((jmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			regs->tpc = addr;
 			regs->tnpc = addr+4;
 			return 2;
@@ -515,6 +527,9 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			else
 				addr = regs->tpc + 4 + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
 
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			err = get_user(save, (unsigned int *)addr);
 			err |= get_user(call, (unsigned int *)(addr+4));
 			err |= get_user(nop, (unsigned int *)(addr+8));
@@ -568,6 +583,25 @@ emulate:
 				regs->tnpc = addr+4;
 				return 3;
 			}
+
+			/* PaX: newer glibc/binutils generate sethi/jmp instead of save/call */
+			if ((save & 0xFFC00000U) == 0x05000000U &&
+			    (call & 0xFFFFE000U) == 0x85C0A000U &&
+			    nop == 0x01000000U)
+			{
+				unsigned long addr;
+
+				addr = (save & 0x003FFFFFU) << 10;
+				regs->u_regs[UREG_G2] = addr;
+				addr += (((call | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+
+				if (test_thread_flag(TIF_32BIT))
+					addr &= 0xFFFFFFFFUL;
+
+				regs->tpc = addr;
+				regs->tnpc = addr+4;
+				return 3;
+			}
 		}
 	} while (0);
 
@@ -585,6 +619,9 @@ emulate:
 		    nop == 0x01000000U)
 		{
 			unsigned long dl_resolve = regs->tpc + ((((call | 0xFFFFFFFFC0000000UL) ^ 0x20000000UL) + 0x20000000UL) << 2);
+
+			if (test_thread_flag(TIF_32BIT))
+				dl_resolve &= 0xFFFFFFFFUL;
 
 			regs->u_regs[UREG_RETPC] = regs->tpc;
 			regs->tpc = dl_resolve;

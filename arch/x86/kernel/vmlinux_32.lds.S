@@ -201,7 +201,7 @@ SECTIONS
   .module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 	MODULES_VADDR = .;
 	BYTE(0)
-	. += (6 * 1024 * 1024);
+	. += (8 * 1024 * 1024);
 	. = ALIGN(PMD_SIZE);
 	MODULES_END = . - 1;
   }
