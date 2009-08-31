@@ -2870,7 +2870,15 @@ static const struct file_operations proc_modules_operations = {
 
 static int __init proc_modules_init(void)
 {
+#ifndef CONFIG_GRKERNSEC_HIDESYM
+#ifdef CONFIG_GRKERNSEC_PROC_USER
+	proc_create("modules", S_IRUSR, NULL, &proc_modules_operations);
+#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	proc_create("modules", S_IRUSR | S_IRGRP, NULL, &proc_modules_operations);
+#else
 	proc_create("modules", 0, NULL, &proc_modules_operations);
+#endif
+#endif
 	return 0;
 }
 module_init(proc_modules_init);
