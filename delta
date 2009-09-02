@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.14-2.6.30.5-200908311711.patch
-+++ b/grsecurity-2.1.14-2.6.30.5-200908311711.patch
+--- a/grsecurity-2.1.14-2.6.30.5-200909021910.patch
++++ b/grsecurity-2.1.14-2.6.30.5-200909021910.patch
 @@ -1,97 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 88519daab6e9b8d9eb6e551caa70d2e0d773c3f5..eaa5bad43d55870dc807a5ee0d29a4fa889b0ea8 100644
@@ -10854,7 +10854,7 @@
 +diff -urNp linux-2.6.30.5/grsecurity/grsum.c linux-2.6.30.5/grsecurity/grsum.c
 +--- linux-2.6.30.5/grsecurity/grsum.c	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-2.6.30.5/grsecurity/grsum.c	2009-07-30 11:10:49.351429069 -0400
-@@ -35683,3 +34070,915 @@
+@@ -35683,3 +34070,911 @@
 -+#if !defined(CONFIG_CRYPTO) || defined(CONFIG_CRYPTO_MODULE) || !defined(CONFIG_CRYPTO_SHA256) || defined(CONFIG_CRYPTO_SHA256_MODULE)
 -+#error "crypto and sha256 must be built into the kernel"
 -+#endif
@@ -11769,11 +11769,7 @@
 ++	  Remember to add the users you want server socket access disabled for to
 ++	  the GID specified here.  If the sysctl option is enabled, a sysctl
 ++	  option with name "socket_server_gid" is created.
-++
-++endmenu
-++menu "Sysctl support"
-++depends on GRKERNSEC && SYSCTL
-@@ -35687,11 +34986,13 @@
+@@ -35687,11 +34982,3 @@
 -+int
 -+chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum)
 -+{
@@ -11785,6 +11781,15 @@
 -+	volatile int retval = 0;
 -+	volatile int dummy = 0;
 -+	unsigned int i;
+++endmenu
+++menu "Sysctl support"
+++depends on GRKERNSEC && SYSCTL
+@@ -35699,5 +34986,13 @@
+-+	tfm = crypto_alloc_hash("sha256", 0, CRYPTO_ALG_ASYNC);
+-+	if (IS_ERR(tfm)) {
+-+		/* should never happen, since sha256 should be built in */
+-+		return 1;
+-+	}
 ++config GRKERNSEC_SYSCTL
 ++	bool "Sysctl support"
 ++	help
@@ -11798,12 +11803,9 @@
 ++	  All options should be set at startup, and the grsec_lock entry should
 ++	  be set to a non-zero value after all the options are set.
 ++	  *THIS IS EXTREMELY IMPORTANT*
-@@ -35699,5 +35000,11 @@
--+	tfm = crypto_alloc_hash("sha256", 0, CRYPTO_ALG_ASYNC);
--+	if (IS_ERR(tfm)) {
--+		/* should never happen, since sha256 should be built in */
--+		return 1;
--+	}
+@@ -35705,2 +35000,11 @@
+-+	desc.tfm = tfm;
+-+	desc.flags = 0;
 ++config GRKERNSEC_SYSCTL_ON
 ++	bool "Turn on features by default"
 ++	depends on GRKERNSEC_SYSCTL
@@ -11815,14 +11817,15 @@
 ++	  be disabled by default.  As mentioned elsewhere, it is important
 ++	  to enable the grsec_lock entry once you have finished modifying
 ++	  the sysctl entries.
-@@ -35705,2 +35012,3 @@
--+	desc.tfm = tfm;
--+	desc.flags = 0;
+@@ -35708 +35012,3 @@
+-+	crypto_hash_init(&desc);
 ++endmenu
 ++menu "Logging Options"
 ++depends on GRKERNSEC
-@@ -35708 +35016,9 @@
--+	crypto_hash_init(&desc);
+@@ -35710,3 +35016,9 @@
+-+	p = salt;
+-+	sg_set_buf(&sg, p, GR_SALT_LEN);
+-+	crypto_hash_update(&desc, &sg, sg.length);
 ++config GRKERNSEC_FLOODTIME
 ++	int "Seconds in between log messages (minimum)"
 ++	default 10
@@ -11832,9 +11835,10 @@
 ++	  people, however, if you choose to change it, choose a value small enough
 ++	  to allow informative logs to be produced, but large enough to
 ++	  prevent flooding.
-@@ -35710,3 +35026,9 @@
--+	p = salt;
--+	sg_set_buf(&sg, p, GR_SALT_LEN);
+@@ -35714,4 +35026,9 @@
+-+	p = entry->pw;
+-+	sg_set_buf(&sg, p, strlen(p));
+-+	
 -+	crypto_hash_update(&desc, &sg, sg.length);
 ++config GRKERNSEC_FLOODBURST
 ++	int "Number of messages in a burst (maximum)"
@@ -11845,14 +11849,11 @@
 ++	  default should be suitable for most people, however if you find that
 ++	  many of your logs are being interpreted as flooding, you may want to
 ++	  raise this value.
-@@ -35714,4 +35036 @@
--+	p = entry->pw;
--+	sg_set_buf(&sg, p, strlen(p));
--+	
--+	crypto_hash_update(&desc, &sg, sg.length);
-++endmenu
-@@ -35719 +35038,12 @@
+@@ -35719 +35036 @@
 -+	crypto_hash_final(&desc, temp_sum);
+++endmenu
+@@ -35721 +35038,12 @@
+-+	memset(entry->pw, 0, GR_PW_LEN);
 ++endmenu
 +diff -urNp linux-2.6.30.5/grsecurity/Makefile linux-2.6.30.5/grsecurity/Makefile
 +--- linux-2.6.30.5/grsecurity/Makefile	1969-12-31 19:00:00.000000000 -0500
@@ -11865,33 +11866,32 @@
 ++# All code in this directory and various hooks inserted throughout the kernel
 ++# are copyright Brad Spengler - Open Source Security, Inc., and released 
 ++# under the GPL v2 or higher
-@@ -35721 +35051,3 @@
--+	memset(entry->pw, 0, GR_PW_LEN);
-++obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
-++	grsec_mount.o grsec_sig.o grsec_sock.o grsec_sysctl.o \
-++	grsec_time.o grsec_tpe.o grsec_ipc.o grsec_link.o grsec_textrel.o
-@@ -35723,5 +35055,4 @@
+@@ -35723,5 +35051,3 @@
 -+	for (i = 0; i < GR_SHA_LEN; i++)
 -+		if (sum[i] != temp_sum[i])
 -+			retval = 1;
 -+		else
 -+			dummy = 1;	// waste a cycle
+++obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
+++	grsec_mount.o grsec_sig.o grsec_sock.o grsec_sysctl.o \
+++	grsec_time.o grsec_tpe.o grsec_ipc.o grsec_link.o grsec_textrel.o
+@@ -35729 +35055,4 @@
+-+	crypto_free_hash(tfm);
 ++obj-$(CONFIG_GRKERNSEC) += grsec_init.o grsum.o gracl.o gracl_ip.o gracl_segv.o \
 ++	gracl_cap.o gracl_alloc.o gracl_shm.o grsec_mem.o gracl_fs.o \
 ++	gracl_learn.o grsec_log.o
 ++obj-$(CONFIG_GRKERNSEC_RESLOG) += gracl_res.o
-@@ -35729 +35060,3 @@
--+	crypto_free_hash(tfm);
-++ifndef CONFIG_GRKERNSEC
-++obj-y += grsec_disabled.o
-++endif
-@@ -35731,6 +35064,11 @@
+@@ -35731,6 +35060,15 @@
 -+	return retval;
 -+}
 -diff --git a/include/asm-generic/futex.h b/include/asm-generic/futex.h
 -index 3c2344f48136d98351f92b6e9d678e29c052658c..4590a7dc48d2503491969364402bfe1dae73ea93 100644
 ---- a/include/asm-generic/futex.h
 -+++ b/include/asm-generic/futex.h
+++ifndef CONFIG_GRKERNSEC
+++obj-y += grsec_disabled.o
+++endif
+++
 ++ifdef CONFIG_GRKERNSEC_HIDESYM
 ++extra-y := grsec_hidesym.o
 ++$(obj)/grsec_hidesym.o:
@@ -12958,7 +12958,7 @@
 -+++ b/kernel/module.c
 +diff -urNp linux-2.6.30.5/kernel/module.c linux-2.6.30.5/kernel/module.c
 +--- linux-2.6.30.5/kernel/module.c	2009-07-24 17:47:51.000000000 -0400
-++++ linux-2.6.30.5/kernel/module.c	2009-08-31 17:10:48.583705296 -0400
+++++ linux-2.6.30.5/kernel/module.c	2009-08-31 17:15:19.888601771 -0400
 @@ -39536 +38781 @@
 -@@ -78,7 +83,10 @@ static DECLARE_WAIT_QUEUE_HEAD(module_wq);
 +@@ -78,7 +83,10 @@ static DECLARE_WAIT_QUEUE_HEAD(module_wq
@@ -14584,15 +14584,15 @@
 +diff -urNp linux-2.6.30.5/scripts/pnmtologo.c linux-2.6.30.5/scripts/pnmtologo.c
 +--- linux-2.6.30.5/scripts/pnmtologo.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/scripts/pnmtologo.c	2009-07-30 09:48:10.162851614 -0400
-@@ -45335,4 +44508,97 @@
+@@ -45335,4 +44508,87 @@
 -diff --git a/security/Kconfig b/security/Kconfig
 -index d23c839038f00836cb96a51e53e27db8b8ec163c..5946f2026f48799168cf391f4bc156648e0f1d5f 100644
 ---- a/security/Kconfig
 -+++ b/security/Kconfig
 +diff -urNp linux-2.6.30.5/security/commoncap.c linux-2.6.30.5/security/commoncap.c
 +--- linux-2.6.30.5/security/commoncap.c	2009-07-24 17:47:51.000000000 -0400
-++++ linux-2.6.30.5/security/commoncap.c	2009-08-24 23:47:08.385801876 -0400
-+@@ -27,10 +27,23 @@
+++++ linux-2.6.30.5/security/commoncap.c	2009-09-02 19:10:12.366389421 -0400
++@@ -27,10 +27,13 @@
 + #include <linux/sched.h>
 + #include <linux/prctl.h>
 + #include <linux/securebits.h>
@@ -14603,16 +14603,6 @@
 + int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 + {
 +-	NETLINK_CB(skb).eff_cap = current_cap();
-++#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-++	const struct cred *tmpcred = current_cred();
-++
-++	if (sk->sk_protocol == NETLINK_ROUTE && tmpcred->uid
-++#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-++	    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
-++#endif
-++	)
-++		return -EPERM;
-++#endif		
 ++	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink(sk);
 + 	return 0;
 + }
@@ -14686,12 +14676,12 @@
 +diff -urNp linux-2.6.30.5/security/Kconfig linux-2.6.30.5/security/Kconfig
 +--- linux-2.6.30.5/security/Kconfig	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/security/Kconfig	2009-07-30 11:10:50.021298651 -0400
-@@ -45807,101 +45073,4 @@
+@@ -45807,91 +45063,4 @@
 -diff --git a/security/commoncap.c b/security/commoncap.c
--index beac0258c2a8f3a0cbad52ec9adf12e019264626..f8bab51f53739c1237344e1cf410337a1bd2cdd1 100644
+-index beac0258c2a8f3a0cbad52ec9adf12e019264626..64c202f756a6c71c4a1b053584f9c8a08c504182 100644
 ---- a/security/commoncap.c
 -+++ b/security/commoncap.c
--@@ -27,10 +27,23 @@
+-@@ -27,10 +27,13 @@
 - #include <linux/sched.h>
 - #include <linux/prctl.h>
 - #include <linux/securebits.h>
@@ -14702,16 +14692,6 @@
 - int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 - {
 --	NETLINK_CB(skb).eff_cap = current_cap();
--+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
--+	const struct cred *tmpcred = current_cred();
--+
--+	if (sk->sk_protocol == NETLINK_ROUTE && tmpcred->uid
--+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
--+	    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
--+#endif
--+	)
--+		return -EPERM;
--+#endif		
 -+	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink(sk);
 - 	return 0;
 - }
@@ -14792,13 +14772,13 @@
 +--- linux-2.6.30.5/security/smack/smackfs.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/security/smack/smackfs.c	2009-07-30 09:48:10.163665437 -0400
 +@@ -186,7 +186,7 @@ static void load_seq_stop(struct seq_fil
-@@ -45916 +45085 @@
+@@ -45906 +45075 @@
 -@@ -502,7 +502,7 @@ static void cipso_seq_stop(struct seq_file *s, void *v)
 +@@ -502,7 +502,7 @@ static void cipso_seq_stop(struct seq_fi
-@@ -45925 +45094 @@
+@@ -45915 +45084 @@
 -@@ -696,7 +696,7 @@ static void netlbladdr_seq_stop(struct seq_file *s, void *v)
 +@@ -696,7 +696,7 @@ static void netlbladdr_seq_stop(struct s
-@@ -45934,5 +45103,4 @@
+@@ -45924,5 +45093,4 @@
 -diff --git a/sound/core/oss/pcm_oss.c b/sound/core/oss/pcm_oss.c
 -index dda000b9684cb07469e86fa4b7d324091c5db1a1..742a06515a427a2cf163b7a8b64069a966e80535 100644
 ---- a/sound/core/oss/pcm_oss.c
@@ -14808,7 +14788,7 @@
 +--- linux-2.6.30.5/sound/core/oss/pcm_oss.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/core/oss/pcm_oss.c	2009-07-30 09:48:10.164791187 -0400
 +@@ -2944,8 +2944,8 @@ static void snd_pcm_oss_proc_done(struct
-@@ -45949,5 +45117,4 @@
+@@ -45939,5 +45107,4 @@
 -diff --git a/sound/core/seq/seq_lock.h b/sound/core/seq/seq_lock.h
 -index 54044bc2c9ef24892a7e6747dcd67e92fb01b0f1..75df3ef63512290c8cd8028c6b0d9b6117e0e97b 100644
 ---- a/sound/core/seq/seq_lock.h
@@ -14818,7 +14798,7 @@
 +--- linux-2.6.30.5/sound/core/seq/seq_lock.h	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/core/seq/seq_lock.h	2009-07-30 09:48:10.164791187 -0400
 +@@ -23,10 +23,10 @@ void snd_use_lock_sync_helper(snd_use_lo
-@@ -45968,5 +45135,4 @@
+@@ -45958,5 +45125,4 @@
 -diff --git a/sound/pci/ac97/ac97_patch.c b/sound/pci/ac97/ac97_patch.c
 -index 7337abdbe4e37e0642f5b050ae7f7a00b93b12b9..290732c26614920941abf9a41f5a01388172c3d4 100644
 ---- a/sound/pci/ac97/ac97_patch.c
@@ -14828,10 +14808,10 @@
 +--- linux-2.6.30.5/sound/pci/ac97/ac97_patch.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/pci/ac97/ac97_patch.c	2009-07-30 09:48:10.165681860 -0400
 +@@ -1501,7 +1501,7 @@ static const struct snd_ac97_res_table a
-@@ -45981 +45147 @@
+@@ -45971 +45137 @@
 -@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_restbl[] = {
 +@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_
-@@ -45990,5 +45156,4 @@
+@@ -45980,5 +45146,4 @@
 -diff --git a/sound/pci/ens1370.c b/sound/pci/ens1370.c
 -index 18f4d1e98c46945c63c0a2c80c64e1fcc198bde8..d539c71fe3d03fc932a35eb283f53a8b5baed4a9 100644
 ---- a/sound/pci/ens1370.c
@@ -14841,7 +14821,7 @@
 +--- linux-2.6.30.5/sound/pci/ens1370.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/pci/ens1370.c	2009-07-30 09:48:10.165681860 -0400
 +@@ -452,7 +452,7 @@ static struct pci_device_id snd_audiopci
-@@ -46003,5 +45168,4 @@
+@@ -45993,5 +45158,4 @@
 -diff --git a/sound/pci/intel8x0.c b/sound/pci/intel8x0.c
 -index 8aa5687f392a10abf1310015d8ddeb57e73d070a..79afc87c50bbf8d630f8084d486c2a2a2a75b086 100644
 ---- a/sound/pci/intel8x0.c
@@ -14851,10 +14831,10 @@
 +--- linux-2.6.30.5/sound/pci/intel8x0.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/pci/intel8x0.c	2009-07-30 09:48:10.166748224 -0400
 +@@ -444,7 +444,7 @@ static struct pci_device_id snd_intel8x0
-@@ -46016 +45180 @@
+@@ -46006 +45170 @@
 -@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] __devinitdata = {
 +@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] _
-@@ -46025,5 +45189,4 @@
+@@ -46015,5 +45179,4 @@
 -diff --git a/sound/pci/intel8x0m.c b/sound/pci/intel8x0m.c
 -index 6ec0fc50d6be16bf064b27ca83e61b172deb045e..7c77434f48cf0714fdf3a10730666e015e83d5fc 100644
 ---- a/sound/pci/intel8x0m.c
@@ -14864,7 +14844,7 @@
 +--- linux-2.6.30.5/sound/pci/intel8x0m.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/pci/intel8x0m.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -239,7 +239,7 @@ static struct pci_device_id snd_intel8x0
-@@ -46047,5 +45210,4 @@
+@@ -46037,5 +45200,4 @@
 -diff --git a/sound/usb/usx2y/us122l.c b/sound/usb/usx2y/us122l.c
 -index a5aae9d67f31707e585de8de10689d8099df5f1c..071f0a2a2979784b906392b2b74ce0901d0fe2a1 100644
 ---- a/sound/usb/usx2y/us122l.c
@@ -14874,7 +14854,7 @@
 +--- linux-2.6.30.5/sound/usb/usx2y/us122l.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/usb/usx2y/us122l.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -154,7 +154,7 @@ static void usb_stream_hwdep_vm_close(st
-@@ -46060,5 +45222,4 @@
+@@ -46050,5 +45212,4 @@
 -diff --git a/sound/usb/usx2y/usX2Yhwdep.c b/sound/usb/usx2y/usX2Yhwdep.c
 -index f3d8f71265dd3bfee1540442184ed226a5f88cf6..52e04b2f35d3e7e1eb73e05b671a1f7ee086bd02 100644
 ---- a/sound/usb/usx2y/usX2Yhwdep.c
@@ -14884,7 +14864,7 @@
 +--- linux-2.6.30.5/sound/usb/usx2y/usX2Yhwdep.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/usb/usx2y/usX2Yhwdep.c	2009-07-30 09:48:10.167822693 -0400
 +@@ -53,7 +53,7 @@ static int snd_us428ctls_vm_fault(struct
-@@ -46073,5 +45234,4 @@
+@@ -46063,5 +45224,4 @@
 -diff --git a/sound/usb/usx2y/usx2yhwdeppcm.c b/sound/usb/usx2y/usx2yhwdeppcm.c
 -index 117946f2debb3a04891d87de9327c16d8f27f7fe..4b2304c2e02dd2fdf806e1f1f776f6196531d7f1 100644
 ---- a/sound/usb/usx2y/usx2yhwdeppcm.c
@@ -14894,7 +14874,7 @@
 +--- linux-2.6.30.5/sound/usb/usx2y/usx2yhwdeppcm.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/sound/usb/usx2y/usx2yhwdeppcm.c	2009-07-30 09:48:10.168781015 -0400
 +@@ -697,7 +697,7 @@ static int snd_usX2Y_hwdep_pcm_vm_fault(
-@@ -46086,5 +45246,4 @@
+@@ -46076,5 +45236,4 @@
 -diff --git a/usr/gen_init_cpio.c b/usr/gen_init_cpio.c
 -index f1d3fe34176ad08926c82c75084c84dc71662e64..6eafbdbd3360bf7f4fd0bdd3869ac6999b4b7050 100644
 ---- a/usr/gen_init_cpio.c
@@ -14904,10 +14884,10 @@
 +--- linux-2.6.30.5/usr/gen_init_cpio.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/usr/gen_init_cpio.c	2009-08-24 21:08:46.298955816 -0400
 +@@ -299,7 +299,7 @@ static int cpio_mkfile(const char *name,
-@@ -46099 +45258 @@
+@@ -46089 +45248 @@
 -@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_location)
 +@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_
-@@ -46112,4 +45271,3 @@
+@@ -46102,4 +45261,3 @@
 -diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
 -index 148982913805d052704b01d9e196d5aaae7c64a3..568cc675476a343fe80588c8e999a1724e818c10 100644
 ---- a/virt/kvm/kvm_main.c
@@ -14915,9 +14895,9 @@
 +diff -urNp linux-2.6.30.5/virt/kvm/kvm_main.c linux-2.6.30.5/virt/kvm/kvm_main.c
 +--- linux-2.6.30.5/virt/kvm/kvm_main.c	2009-07-24 17:47:51.000000000 -0400
 ++++ linux-2.6.30.5/virt/kvm/kvm_main.c	2009-07-30 12:42:02.581987537 -0400
-@@ -46126 +45284 @@
+@@ -46116 +45274 @@
 -@@ -2220,7 +2223,7 @@ static int vcpu_stat_get(void *_offset, u64 *val)
 +@@ -2220,7 +2223,7 @@ static int vcpu_stat_get(void *_offset, 
-@@ -46135 +45293 @@
+@@ -46125 +45283 @@
 -@@ -2292,7 +2295,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 +@@ -2292,7 +2295,7 @@ static void kvm_sched_out(struct preempt
