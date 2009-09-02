@@ -33,16 +33,6 @@ extern kernel_cap_t gr_cap_rtnetlink(struct sock *sk);
 
 int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
-#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	const struct cred *tmpcred = current_cred();
-
-	if (sk->sk_protocol == NETLINK_ROUTE && tmpcred->uid
-#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-	    && !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
-#endif
-	)
-		return -EPERM;
-#endif		
 	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink(sk);
 	return 0;
 }
