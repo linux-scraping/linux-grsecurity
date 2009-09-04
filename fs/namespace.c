@@ -2105,9 +2105,6 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 	if (retval < 0)
 		goto out3;
 
-	if (gr_handle_chroot_pivot())
-		return -EPERM;
-
 	lock_kernel();
 	retval = do_mount((char *)dev_page, dir_page, (char *)type_page,
 			  flags, (void *)data_page);
@@ -2171,6 +2168,12 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 
 	error = security_sb_pivotroot(&old, &new);
 	if (error) {
+		path_put(&old);
+		goto out1;
+	}
+
+	if (gr_handle_chroot_pivot()) {
+		error = -EPERM;
 		path_put(&old);
 		goto out1;
 	}

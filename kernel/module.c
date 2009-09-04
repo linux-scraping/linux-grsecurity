@@ -2878,6 +2878,8 @@ static int __init proc_modules_init(void)
 #else
 	proc_create("modules", 0, NULL, &proc_modules_operations);
 #endif
+#else
+	proc_create("modules", S_IRUSR, NULL, &proc_modules_operations);
 #endif
 	return 0;
 }
