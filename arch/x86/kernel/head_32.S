@@ -123,22 +123,12 @@ ENTRY(startup_32)
 #endif
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	/* check for VMware */
-	movl $0x564d5868,%eax
-	xorl %ebx,%ebx
-	movl $0xa,%ecx
-	movl $0x5658,%edx
-	in (%dx),%eax
-	cmpl $0x564d5868,%ebx
-	jz 2f
-
 	movl $NR_CPUS,%ecx
 	movl $pa(cpu_gdt_table),%edi
 1:
 	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),GDT_ENTRY_KERNEL_DS * 8 + 4(%edi)
 	addl $PAGE_SIZE_asm,%edi
 	loop 1b
-2:
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
@@ -281,13 +271,10 @@ default_entry:
 
 	/* Do early initialization of the fixmap area */
 #ifdef CONFIG_COMPAT_VDSO
-	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_pmd+0x1000*KPMDS-8)
 #else
-	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-8)
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-8)
 #endif
-	movl $pa(swapper_pg_fixmap1)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-16)
-	movl $pa(swapper_pg_fixmap2)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-24)
-	movl $pa(swapper_pg_fixmap3)+PDE_IDENT_ATTR,pa(swapper_pg_pmd+0x1000*KPMDS-32)
 #else	/* Not PAE */
 
 page_pde_offset = (__PAGE_OFFSET >> 20);
@@ -318,13 +305,10 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
 
 	/* Do early initialization of the fixmap area */
 #ifdef CONFIG_COMPAT_VDSO
-	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_dir+0xffc)
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR+_PAGE_USER,pa(swapper_pg_dir+0xffc)
 #else
-	movl $pa(swapper_pg_fixmap0)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xffc)
+	movl $pa(swapper_pg_fixmap)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xffc)
 #endif
-	movl $pa(swapper_pg_fixmap1)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff8)
-	movl $pa(swapper_pg_fixmap2)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff4)
-	movl $pa(swapper_pg_fixmap3)+PDE_IDENT_ATTR,pa(swapper_pg_dir+0xff0)
 #endif
 	jmp 3f
 /*
@@ -695,16 +679,7 @@ ENTRY(swapper_pg_dir)
 	.fill 1024,4,0
 #endif
 
-ENTRY(swapper_pg_fixmap0)
-	.fill 1024,4,0
-
-ENTRY(swapper_pg_fixmap1)
-	.fill 1024,4,0
-
-ENTRY(swapper_pg_fixmap2)
-	.fill 1024,4,0
-
-ENTRY(swapper_pg_fixmap3)
+swapper_pg_fixmap:
 	.fill 1024,4,0
 
 .section .empty_zero_page,"a",@progbits

@@ -488,6 +488,7 @@ static int __init early_ioremap_debug_setup(char *str)
 early_param("early_ioremap_debug", early_ioremap_debug_setup);
 
 static __initdata int after_paging_init;
+static pte_t bm_pte[PAGE_SIZE/sizeof(pte_t)] __read_only __aligned(PAGE_SIZE);
 
 static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)
 {
@@ -498,6 +499,11 @@ static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)
 	pmd_t *pmd = pmd_offset(pud, addr);
 
 	return pmd;
+}
+
+static inline pte_t * __init early_ioremap_pte(unsigned long addr)
+{
+	return &bm_pte[pte_index(addr)];
 }
 
 static unsigned long slot_virt[FIX_BTMAPS_SLOTS] __initdata;
@@ -514,6 +520,7 @@ void __init early_ioremap_init(void)
 		slot_virt[i] = __fix_to_virt(FIX_BTMAP_BEGIN - NR_FIX_BTMAPS*i);
 
 	pmd = early_ioremap_pmd(fix_to_virt(FIX_BTMAP_BEGIN));
+	pmd_populate_user(&init_mm, pmd, bm_pte);
 
 	/*
 	 * The boot-ioremap range spans multiple pmds, for which
@@ -543,15 +550,13 @@ static void __init __early_set_fixmap(enum fixed_addresses idx,
 				      phys_addr_t phys, pgprot_t flags)
 {
 	unsigned long addr = __fix_to_virt(idx);
-	unsigned int level;
 	pte_t *pte;
 
 	if (idx >= __end_of_fixed_addresses) {
 		BUG();
 		return;
 	}
-	pte = lookup_address(addr, &level);
-	BUG_ON(!pte || level != PG_LEVEL_4K);
+	pte = early_ioremap_pte(addr);
 
 	if (pgprot_val(flags))
 		set_pte(pte, pfn_pte(phys >> PAGE_SHIFT, flags));

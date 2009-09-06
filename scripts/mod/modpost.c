@@ -1251,7 +1251,7 @@ static void report_sec_mismatch(const char *modname, enum mismatch mismatch,
 /*
 		fprintf(stderr,
 		"The variable %s references\n"
-		"the %s %s%s%s\n"
+		"the %s %s%s%s\n",
 		fromsym, to, sec2annotation(tosec), tosym, to_p);
 */
 		break;

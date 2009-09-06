@@ -190,22 +190,16 @@ static int __init setup_pax_nouderef(char *str)
 {
 	unsigned int cpu;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
+	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].type = 3;
+		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].limit = 0xf;
+	}
+	asm("mov %0, %%ds" : : "r" (__KERNEL_DS) : "memory");
+	asm("mov %0, %%es" : : "r" (__KERNEL_DS) : "memory");
 
-	pax_open_kernel(cr0);
-#endif
-
-	for (cpu = 0; cpu < NR_CPUS; cpu++)
-		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].b = 0x00cf9300;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
-	return 1;
+	return 0;
 }
-__setup("pax_nouderef", setup_pax_nouderef);
+early_param("pax_nouderef", setup_pax_nouderef);
 #endif
 
 #ifdef CONFIG_PAX_SOFTMODE

@@ -383,14 +383,10 @@ NEXT_PAGE(level2_vmemmap_pgt)
 	.fill	512,8,0
 
 NEXT_PAGE(level2_fixmap_pgt)
-	.fill	506,8,0
-	.quad	level1_fixmap_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.fill	507,8,0
 	.quad	level1_vsyscall_pgt - __START_KERNEL_map + _PAGE_TABLE
 	/* 6MB reserved for vsyscalls + a 2MB hole = 3 + 1 entries */
 	.fill	4,8,0
-
-NEXT_PAGE(level1_fixmap_pgt)
-	.fill	512,8,0
 
 NEXT_PAGE(level1_vsyscall_pgt)
 	.fill	512,8,0
