@@ -490,16 +490,20 @@ static unsigned long *gfn_to_rmap(struct kvm *kvm, gfn_t gfn, int lpage)
  *
  * If rmapp bit zero is one, (then rmap & ~1) points to a struct kvm_rmap_desc
  * containing more mappings.
+ *
+ * Returns the number of rmap entries before the spte was added or zero if
+ * the spte was not added.
+ *
  */
-static void rmap_add(struct kvm_vcpu *vcpu, u64 *spte, gfn_t gfn, int lpage)
+static int rmap_add(struct kvm_vcpu *vcpu, u64 *spte, gfn_t gfn, int lpage)
 {
 	struct kvm_mmu_page *sp;
 	struct kvm_rmap_desc *desc;
 	unsigned long *rmapp;
-	int i;
+	int i, count = 0;
 
 	if (!is_rmap_pte(*spte))
-		return;
+		return count;
 	gfn = unalias_gfn(vcpu->kvm, gfn);
 	sp = page_header(__pa(spte));
 	sp->gfns[spte - sp->spt] = gfn;
@@ -516,8 +520,10 @@ static void rmap_add(struct kvm_vcpu *vcpu, u64 *spte, gfn_t gfn, int lpage)
 	} else {
 		rmap_printk("rmap_add: %p %llx many->many\n", spte, *spte);
 		desc = (struct kvm_rmap_desc *)(*rmapp & ~1ul);
-		while (desc->shadow_ptes[RMAP_EXT-1] && desc->more)
+		while (desc->shadow_ptes[RMAP_EXT-1] && desc->more) {
 			desc = desc->more;
+			count += RMAP_EXT;
+		}
 		if (desc->shadow_ptes[RMAP_EXT-1]) {
 			desc->more = mmu_alloc_rmap_desc(vcpu);
 			desc = desc->more;
@@ -526,6 +532,7 @@ static void rmap_add(struct kvm_vcpu *vcpu, u64 *spte, gfn_t gfn, int lpage)
 			;
 		desc->shadow_ptes[i] = spte;
 	}
+	return count;
 }
 
 static void rmap_desc_remove_entry(unsigned long *rmapp,
@@ -753,6 +760,19 @@ static int kvm_age_rmapp(struct kvm *kvm, unsigned long *rmapp)
 		spte = rmap_next(kvm, rmapp, spte);
 	}
 	return young;
+}
+
+#define RMAP_RECYCLE_THRESHOLD 1000
+
+static void rmap_recycle(struct kvm_vcpu *vcpu, gfn_t gfn, int lpage)
+{
+	unsigned long *rmapp;
+
+	gfn = unalias_gfn(vcpu->kvm, gfn);
+	rmapp = gfn_to_rmap(vcpu->kvm, gfn, lpage);
+
+	kvm_unmap_rmapp(vcpu->kvm, rmapp);
+	kvm_flush_remote_tlbs(vcpu->kvm);
 }
 
 int kvm_age_hva(struct kvm *kvm, unsigned long hva)
@@ -1417,24 +1437,25 @@ static int kvm_mmu_zap_page(struct kvm *kvm, struct kvm_mmu_page *sp)
  */
 void kvm_mmu_change_mmu_pages(struct kvm *kvm, unsigned int kvm_nr_mmu_pages)
 {
+	int used_pages;
+
+	used_pages = kvm->arch.n_alloc_mmu_pages - kvm->arch.n_free_mmu_pages;
+	used_pages = max(0, used_pages);
+
 	/*
 	 * If we set the number of mmu pages to be smaller be than the
 	 * number of actived pages , we must to free some mmu pages before we
 	 * change the value
 	 */
 
-	if ((kvm->arch.n_alloc_mmu_pages - kvm->arch.n_free_mmu_pages) >
-	    kvm_nr_mmu_pages) {
-		int n_used_mmu_pages = kvm->arch.n_alloc_mmu_pages
-				       - kvm->arch.n_free_mmu_pages;
-
-		while (n_used_mmu_pages > kvm_nr_mmu_pages) {
+	if (used_pages > kvm_nr_mmu_pages) {
+		while (used_pages > kvm_nr_mmu_pages) {
 			struct kvm_mmu_page *page;
 
 			page = container_of(kvm->arch.active_mmu_pages.prev,
 					    struct kvm_mmu_page, link);
 			kvm_mmu_zap_page(kvm, page);
-			n_used_mmu_pages--;
+			used_pages--;
 		}
 		kvm->arch.n_free_mmu_pages = 0;
 	}
@@ -1770,6 +1791,7 @@ static void mmu_set_spte(struct kvm_vcpu *vcpu, u64 *shadow_pte,
 {
 	int was_rmapped = 0;
 	int was_writeble = is_writeble_pte(*shadow_pte);
+	int rmap_count;
 
 	pgprintk("%s: spte %llx access %x write_fault %d"
 		 " user_fault %d gfn %lx\n",
@@ -1811,9 +1833,11 @@ static void mmu_set_spte(struct kvm_vcpu *vcpu, u64 *shadow_pte,
 
 	page_header_update_slot(vcpu->kvm, shadow_pte, gfn);
 	if (!was_rmapped) {
-		rmap_add(vcpu, shadow_pte, gfn, largepage);
+		rmap_count = rmap_add(vcpu, shadow_pte, gfn, largepage);
 		if (!is_rmap_pte(*shadow_pte))
 			kvm_release_pfn_clean(pfn);
+		if (rmap_count > RMAP_RECYCLE_THRESHOLD)
+			rmap_recycle(vcpu, gfn, largepage);
 	} else {
 		if (was_writeble)
 			kvm_release_pfn_dirty(pfn);
@@ -1942,7 +1966,19 @@ static void mmu_free_roots(struct kvm_vcpu *vcpu)
 	vcpu->arch.mmu.root_hpa = INVALID_PAGE;
 }
 
-static void mmu_alloc_roots(struct kvm_vcpu *vcpu)
+static int mmu_check_root(struct kvm_vcpu *vcpu, gfn_t root_gfn)
+{
+	int ret = 0;
+
+	if (!kvm_is_visible_gfn(vcpu->kvm, root_gfn)) {
+		set_bit(KVM_REQ_TRIPLE_FAULT, &vcpu->requests);
+		ret = 1;
+	}
+
+	return ret;
+}
+
+static int mmu_alloc_roots(struct kvm_vcpu *vcpu)
 {
 	int i;
 	gfn_t root_gfn;
@@ -1957,13 +1993,15 @@ static void mmu_alloc_roots(struct kvm_vcpu *vcpu)
 		ASSERT(!VALID_PAGE(root));
 		if (tdp_enabled)
 			direct = 1;
+		if (mmu_check_root(vcpu, root_gfn))
+			return 1;
 		sp = kvm_mmu_get_page(vcpu, root_gfn, 0,
 				      PT64_ROOT_LEVEL, direct,
 				      ACC_ALL, NULL);
 		root = __pa(sp->spt);
 		++sp->root_count;
 		vcpu->arch.mmu.root_hpa = root;
-		return;
+		return 0;
 	}
 	direct = !is_paging(vcpu);
 	if (tdp_enabled)
@@ -1980,6 +2018,8 @@ static void mmu_alloc_roots(struct kvm_vcpu *vcpu)
 			root_gfn = vcpu->arch.pdptrs[i] >> PAGE_SHIFT;
 		} else if (vcpu->arch.mmu.root_level == 0)
 			root_gfn = 0;
+		if (mmu_check_root(vcpu, root_gfn))
+			return 1;
 		sp = kvm_mmu_get_page(vcpu, root_gfn, i << 30,
 				      PT32_ROOT_LEVEL, direct,
 				      ACC_ALL, NULL);
@@ -1988,6 +2028,7 @@ static void mmu_alloc_roots(struct kvm_vcpu *vcpu)
 		vcpu->arch.mmu.pae_root[i] = root | PT_PRESENT_MASK;
 	}
 	vcpu->arch.mmu.root_hpa = __pa(vcpu->arch.mmu.pae_root);
+	return 0;
 }
 
 static void mmu_sync_roots(struct kvm_vcpu *vcpu)
@@ -2006,7 +2047,7 @@ static void mmu_sync_roots(struct kvm_vcpu *vcpu)
 	for (i = 0; i < 4; ++i) {
 		hpa_t root = vcpu->arch.mmu.pae_root[i];
 
-		if (root) {
+		if (root && VALID_PAGE(root)) {
 			root &= PT64_BASE_ADDR_MASK;
 			sp = page_header(root);
 			mmu_sync_children(vcpu, sp);
@@ -2290,9 +2331,11 @@ int kvm_mmu_load(struct kvm_vcpu *vcpu)
 		goto out;
 	spin_lock(&vcpu->kvm->mmu_lock);
 	kvm_mmu_free_some_pages(vcpu);
-	mmu_alloc_roots(vcpu);
+	r = mmu_alloc_roots(vcpu);
 	mmu_sync_roots(vcpu);
 	spin_unlock(&vcpu->kvm->mmu_lock);
+	if (r)
+		goto out;
 	kvm_x86_ops->set_cr3(vcpu, vcpu->arch.mmu.root_hpa);
 	kvm_mmu_flush_tlb(vcpu);
 out:
@@ -2638,14 +2681,6 @@ EXPORT_SYMBOL_GPL(kvm_disable_tdp);
 
 static void free_mmu_pages(struct kvm_vcpu *vcpu)
 {
-	struct kvm_mmu_page *sp;
-
-	while (!list_empty(&vcpu->kvm->arch.active_mmu_pages)) {
-		sp = container_of(vcpu->kvm->arch.active_mmu_pages.next,
-				  struct kvm_mmu_page, link);
-		kvm_mmu_zap_page(vcpu->kvm, sp);
-		cond_resched();
-	}
 	free_page((unsigned long)vcpu->arch.mmu.pae_root);
 }
 
@@ -2710,7 +2745,6 @@ void kvm_mmu_slot_remove_write_access(struct kvm *kvm, int slot)
 {
 	struct kvm_mmu_page *sp;
 
-	spin_lock(&kvm->mmu_lock);
 	list_for_each_entry(sp, &kvm->arch.active_mmu_pages, link) {
 		int i;
 		u64 *pt;
@@ -2725,7 +2759,6 @@ void kvm_mmu_slot_remove_write_access(struct kvm *kvm, int slot)
 				pt[i] &= ~PT_WRITABLE_MASK;
 	}
 	kvm_flush_remote_tlbs(kvm);
-	spin_unlock(&kvm->mmu_lock);
 }
 
 void kvm_mmu_zap_all(struct kvm *kvm)

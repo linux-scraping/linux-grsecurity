@@ -485,7 +485,7 @@ is386:	movl $2,%ecx		# set MP
 1:	movl $(__KERNEL_DS),%eax	# reload all the segment registers
 	movl %eax,%ss			# after changing gdt.
 
-	movl $(__KERNEL_DS),%eax	# DS/ES contains default KERNEL segment
+#	movl $(__KERNEL_DS),%eax	# DS/ES contains default KERNEL segment
 	movl %eax,%ds
 	movl %eax,%es
 

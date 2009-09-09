@@ -196,6 +196,7 @@ static int __init setup_pax_nouderef(char *str)
 	}
 	asm("mov %0, %%ds" : : "r" (__KERNEL_DS) : "memory");
 	asm("mov %0, %%es" : : "r" (__KERNEL_DS) : "memory");
+	asm("mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
 
 	return 0;
 }
@@ -731,14 +732,15 @@ asmlinkage void __init start_kernel(void)
 int initcall_debug;
 core_param(initcall_debug, initcall_debug, bool, 0644);
 
+static char msgbuf[64];
+static struct boot_trace_call call;
+static struct boot_trace_ret ret;
+
 int do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	ktime_t calltime, delta, rettime;
 	const char *msg1 = "", *msg2 = "";
-	char msgbuf[64];
-	struct boot_trace_call call;
-	struct boot_trace_ret ret;
 
 	if (initcall_debug) {
 		call.caller = task_pid_nr(current);
