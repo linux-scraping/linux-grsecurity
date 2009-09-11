@@ -23,6 +23,7 @@
 #include <linux/swapops.h>
 #include <linux/mmu_notifier.h>
 #include <linux/migrate.h>
+#include <linux/perf_counter.h>
 
 #ifdef CONFIG_PAX_MPROTECT
 #include <linux/elf.h>
@@ -414,6 +415,7 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 		error = mprotect_fixup(vma, &prev, nstart, tmp, newflags);
 		if (error)
 			goto out;
+		perf_counter_mmap(vma);
 
 		track_exec_limit(current->mm, nstart, tmp, vm_flags);
 

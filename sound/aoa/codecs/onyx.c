@@ -53,7 +53,7 @@ struct onyx {
 				spdif_locked:1,
 				analog_locked:1,
 				original_mute:2;
-	int			open_count;
+	atomic_t		open_count;
 	struct codec_info	*codec_info;
 
 	/* mutex serializes concurrent access to the device

@@ -8,6 +8,7 @@
 #include <linux/thread_info.h>
 #include <linux/prefetch.h>
 #include <linux/string.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <asm/asm.h>
 #include <asm/page.h>
@@ -27,7 +28,7 @@
 #define MAKE_MM_SEG(s)	((mm_segment_t) { (s) })
 
 #define KERNEL_DS	MAKE_MM_SEG(-1UL)
-#define USER_DS		MAKE_MM_SEG(PAGE_OFFSET)
+#define USER_DS 	MAKE_MM_SEG(TASK_SIZE_MAX)
 
 #define get_ds()	(KERNEL_DS)
 #define get_fs()	(current_thread_info()->addr_limit)
@@ -84,7 +85,26 @@ void set_fs(mm_segment_t x);
  * checks that the pointer is in the user space range - after calling
  * this function, memory access functions may still return -EFAULT.
  */
-#define access_ok(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
+#define access_ok(type, addr, size)					\
+({									\
+	bool __ret_ao = __range_not_ok(addr, size) == 0;		\
+	unsigned long __addr_ao = (unsigned long)addr & PAGE_MASK;	\
+	unsigned long __end_ao = (unsigned long)addr + size - 1;	\
+	if (__ret_ao && unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
+		for (; __addr_ao <= __end_ao; __addr_ao += PAGE_SIZE) {	\
+			char __c_ao;					\
+			if (size > PAGE_SIZE)				\
+				cond_resched();				\
+			if (__get_user(__c_ao, (char __user *)__addr_ao))\
+				break;					\
+			if (type != VERIFY_WRITE)			\
+				continue;				\
+			if (__put_user(__c_ao, (char __user *)__addr_ao))\
+				break;					\
+		}							\
+	}								\
+	__ret_ao;							\
+})
 
 /*
  * The exception table consists of pairs of addresses: the first is the

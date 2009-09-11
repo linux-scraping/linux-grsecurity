@@ -13,7 +13,6 @@
 #include <asm/segment.h>
 #include <asm/page_types.h>
 #include <asm/pgtable_types.h>
-#include <asm/desc.h>
 #include <asm/cache.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
@@ -76,9 +75,6 @@ RESERVE_BRK(pagetables, INIT_MAP_SIZE)
 ENTRY(stext)
 ENTRY(_stext)
 
-.section .text.startup,"ax",@progbits
-	ljmp $(__BOOT_CS),$phys_startup_32
-
 /*
  * 32-bit kernel entrypoint; only used by the boot CPU.  On entry,
  * %esi points to the real-mode code as a 32-bit pointer.
@@ -89,8 +85,9 @@ ENTRY(_stext)
 .section .text.head,"ax",@progbits
 
 #ifdef CONFIG_PAX_KERNEXEC
+	jmp startup_32
 /* PaX: fill first page in .text with int3 to catch NULL derefs in kernel mode */
-.fill 4096,1,0xcc
+.fill PAGE_SIZE-5,1,0xcc
 #endif
 
 ENTRY(startup_32)
@@ -320,9 +317,7 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
  * which will be freed later
  */
 
-#ifndef CONFIG_HOTPLUG_CPU
-.section .init.text,"ax",@progbits
-#endif
+__CPUINIT
 
 #ifdef CONFIG_SMP
 ENTRY(startup_32_smp)
@@ -661,7 +656,7 @@ ignore_int:
 #endif
 	iret
 
-.section .cpuinit.data,"wa"
+	__REFDATA
 .align 4
 ENTRY(initial_code)
 	.long i386_start_kernel

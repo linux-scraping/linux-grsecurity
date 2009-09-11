@@ -43,9 +43,9 @@ static void add_stats(struct seq_file *seq, const char *aal,
   const struct k_atm_aal_stats *stats)
 {
 	seq_printf(seq, "%s ( %d %d %d %d %d )", aal,
-	    atomic_read(&stats->tx),atomic_read(&stats->tx_err),
-	    atomic_read(&stats->rx),atomic_read(&stats->rx_err),
-	    atomic_read(&stats->rx_drop));
+	    atomic_read_unchecked(&stats->tx),atomic_read_unchecked(&stats->tx_err),
+	    atomic_read_unchecked(&stats->rx),atomic_read_unchecked(&stats->rx_err),
+	    atomic_read_unchecked(&stats->rx_drop));
 }
 
 static void atm_dev_info(struct seq_file *seq, const struct atm_dev *dev)
@@ -204,8 +204,8 @@ static void vcc_info(struct seq_file *seq, struct atm_vcc *vcc)
 			seq_printf(seq, "%3d", sk->sk_family);
 	}
 	seq_printf(seq, " %04lx  %5d %7d/%7d %7d/%7d [%d]\n", vcc->flags, sk->sk_err,
-		  atomic_read(&sk->sk_wmem_alloc), sk->sk_sndbuf,
-		  atomic_read(&sk->sk_rmem_alloc), sk->sk_rcvbuf,
+		  sk_wmem_alloc_get(sk), sk->sk_sndbuf,
+		  sk_rmem_alloc_get(sk), sk->sk_rcvbuf,
 		  atomic_read(&sk->sk_refcnt));
 }
 

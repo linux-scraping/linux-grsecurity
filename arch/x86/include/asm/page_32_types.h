@@ -15,19 +15,6 @@
  */
 #define __PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
 
-#ifdef CONFIG_PAX_KERNEXEC
-#ifndef __ASSEMBLY__
-extern unsigned char MODULES_VADDR[];
-extern unsigned char MODULES_END[];
-extern unsigned char KERNEL_TEXT_OFFSET[];
-#define ktla_ktva(addr)		(addr + (unsigned long)KERNEL_TEXT_OFFSET)
-#define ktva_ktla(addr)		(addr - (unsigned long)KERNEL_TEXT_OFFSET)
-#endif
-#else
-#define ktla_ktva(addr)		(addr)
-#define ktva_ktla(addr)		(addr)
-#endif
-
 #ifdef CONFIG_PAX_PAGEEXEC
 #define CONFIG_ARCH_TRACK_EXEC_LIMIT 1
 #endif
@@ -71,10 +58,6 @@ extern unsigned int __VMALLOC_RESERVE;
 extern int sysctl_legacy_va_layout;
 
 extern void find_low_pfn_range(void);
-extern unsigned long init_memory_mapping(unsigned long start,
-					 unsigned long end);
-extern void initmem_init(unsigned long, unsigned long);
-extern void free_initmem(void);
 extern void setup_bootmem_allocator(void);
 
 #endif	/* !__ASSEMBLY__ */

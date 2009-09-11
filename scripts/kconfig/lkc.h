@@ -74,6 +74,7 @@ char *zconf_curname(void);
 
 /* confdata.c */
 const char *conf_get_configname(void);
+const char *conf_get_autoconfig_name(void);
 char *conf_get_default_confname(void);
 void sym_set_change_count(int count);
 void sym_add_change_count(int count);
@@ -96,7 +97,7 @@ void menu_add_expr(enum prop_type type, struct expr *expr, struct expr *dep);
 void menu_add_symbol(enum prop_type type, struct symbol *sym, struct expr *dep);
 void menu_add_option(int token, char *arg);
 void menu_finalize(struct menu *parent);
-void menu_set_type(int type);
+void menu_set_type(unsigned int type);
 
 /* util.c */
 struct file *file_lookup(const char *name);

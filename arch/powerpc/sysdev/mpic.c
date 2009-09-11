@@ -508,9 +508,8 @@ static void __init mpic_scan_ht_pics(struct mpic *mpic)
 	printk(KERN_INFO "mpic: Setting up HT PICs workarounds for U3/U4\n");
 
 	/* Allocate fixups array */
-	mpic->fixups = alloc_bootmem(128 * sizeof(struct mpic_irq_fixup));
+	mpic->fixups = kzalloc(128 * sizeof(*mpic->fixups), GFP_KERNEL);
 	BUG_ON(mpic->fixups == NULL);
-	memset(mpic->fixups, 0, 128 * sizeof(struct mpic_irq_fixup));
 
 	/* Init spinlock */
 	spin_lock_init(&mpic->fixup_lock);
@@ -614,22 +613,22 @@ static int irq_choose_cpu(unsigned int virt_irq)
 #define mpic_irq_to_hw(virq)	((unsigned int)irq_map[virq].hwirq)
 
 /* Find an mpic associated with a given linux interrupt */
-static struct mpic *mpic_find(unsigned int irq, unsigned int *is_ipi)
+static struct mpic *mpic_find(unsigned int irq)
 {
-	unsigned int src = mpic_irq_to_hw(irq);
-	struct mpic *mpic;
-
 	if (irq < NUM_ISA_INTERRUPTS)
 		return NULL;
 
-	mpic = irq_desc[irq].chip_data;
-
-	if (is_ipi)
-		*is_ipi = (src >= mpic->ipi_vecs[0] &&
-			   src <= mpic->ipi_vecs[3]);
-
-	return mpic;
+	return irq_desc[irq].chip_data;
 }
+
+/* Determine if the linux irq is an IPI */
+static unsigned int mpic_is_ipi(struct mpic *mpic, unsigned int irq)
+{
+	unsigned int src = mpic_irq_to_hw(irq);
+
+	return (src >= mpic->ipi_vecs[0] && src <= mpic->ipi_vecs[3]);
+}
+
 
 /* Convert a cpu mask from logical to physical cpu numbers. */
 static inline u32 mpic_physmask(u32 cpumask)
@@ -808,7 +807,7 @@ static void mpic_end_ipi(unsigned int irq)
 
 #endif /* CONFIG_SMP */
 
-void mpic_set_affinity(unsigned int irq, const struct cpumask *cpumask)
+int mpic_set_affinity(unsigned int irq, const struct cpumask *cpumask)
 {
 	struct mpic *mpic = mpic_from_irq(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
@@ -825,6 +824,8 @@ void mpic_set_affinity(unsigned int irq, const struct cpumask *cpumask)
 		mpic_irq_write(src, MPIC_INFO(IRQ_DESTINATION),
 			       mpic_physmask(cpus_addr(tmp)[0]));
 	}
+
+	return 0;
 }
 
 static unsigned int mpic_type_to_vecpri(struct mpic *mpic, unsigned int type)
@@ -1051,11 +1052,10 @@ struct mpic * __init mpic_alloc(struct device_node *node,
 	int		intvec_top;
 	u64		paddr = phys_addr;
 
-	mpic = alloc_bootmem(sizeof(struct mpic));
+	mpic = kzalloc(sizeof(struct mpic), GFP_KERNEL);
 	if (mpic == NULL)
 		return NULL;
-	
-	memset(mpic, 0, sizeof(struct mpic));
+
 	mpic->name = name;
 
 	mpic->hc_irq = mpic_irq_chip;
@@ -1108,9 +1108,8 @@ struct mpic * __init mpic_alloc(struct device_node *node,
 			psize /= 4;
 			bits = intvec_top + 1;
 			mapsize = BITS_TO_LONGS(bits) * sizeof(unsigned long);
-			mpic->protected = alloc_bootmem(mapsize);
+			mpic->protected = kzalloc(mapsize, GFP_KERNEL);
 			BUG_ON(mpic->protected == NULL);
-			memset(mpic->protected, 0, mapsize);
 			for (i = 0; i < psize; i++) {
 				if (psrc[i] > intvec_top)
 					continue;
@@ -1352,7 +1351,8 @@ void __init mpic_init(struct mpic *mpic)
 
 #ifdef CONFIG_PM
 	/* allocate memory to save mpic state */
-	mpic->save_data = alloc_bootmem(mpic->num_sources * sizeof(struct mpic_irq_save));
+	mpic->save_data = kmalloc(mpic->num_sources * sizeof(*mpic->save_data),
+				  GFP_KERNEL);
 	BUG_ON(mpic->save_data == NULL);
 #endif
 }
@@ -1384,8 +1384,7 @@ void __init mpic_set_serial_int(struct mpic *mpic, int enable)
 
 void mpic_irq_set_priority(unsigned int irq, unsigned int pri)
 {
-	unsigned int is_ipi;
-	struct mpic *mpic = mpic_find(irq, &is_ipi);
+	struct mpic *mpic = mpic_find(irq);
 	unsigned int src = mpic_irq_to_hw(irq);
 	unsigned long flags;
 	u32 reg;
@@ -1394,7 +1393,7 @@ void mpic_irq_set_priority(unsigned int irq, unsigned int pri)
 		return;
 
 	spin_lock_irqsave(&mpic_lock, flags);
-	if (is_ipi) {
+	if (mpic_is_ipi(mpic, irq)) {
 		reg = mpic_ipi_read(src - mpic->ipi_vecs[0]) &
 			~MPIC_VECPRI_PRIORITY_MASK;
 		mpic_ipi_write(src - mpic->ipi_vecs[0],

@@ -183,6 +183,6 @@ do {						\
 	 VM_STACK_DEFAULT_FLAGS32 : VM_STACK_DEFAULT_FLAGS64)
 #endif
 
-#include <asm-generic/page.h>
+#include <asm-generic/getorder.h>
 
 #endif /* _ASM_POWERPC_PAGE_64_H */

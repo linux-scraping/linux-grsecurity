@@ -88,7 +88,7 @@ int atm_pcr_goal(const struct atm_trafprm *tp)
 
 void sonet_copy_stats(struct k_sonet_stats *from,struct sonet_stats *to)
 {
-#define __HANDLE_ITEM(i) to->i = atomic_read(&from->i)
+#define __HANDLE_ITEM(i) to->i = atomic_read_unchecked(&from->i)
 	__SONET_ITEMS
 #undef __HANDLE_ITEM
 }

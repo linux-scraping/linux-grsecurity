@@ -45,6 +45,7 @@
 #include <linux/capability.h>
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/smp_lock.h>
 #include <linux/socket.h>
 #include <linux/sockios.h>
 #include <linux/init.h>
@@ -1760,7 +1761,8 @@ static int irda_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case TIOCOUTQ: {
 		long amount;
-		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
+
+		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
 		if (amount < 0)
 			amount = 0;
 		if (put_user(amount, (unsigned int __user *)arg))

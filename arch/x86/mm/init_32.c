@@ -49,13 +49,10 @@
 #include <asm/paravirt.h>
 #include <asm/setup.h>
 #include <asm/cacheflush.h>
+#include <asm/page_types.h>
 #include <asm/init.h>
 #include <asm/desc.h>
 
-unsigned long max_low_pfn_mapped;
-unsigned long max_pfn_mapped;
-
-DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
 unsigned long highstart_pfn, highend_pfn;
 
 static noinline int do_test_wp_bit(void);
@@ -85,7 +82,7 @@ static pte_t * __init one_page_table_init(pmd_t *pmd)
 		pte_t *page_table = NULL;
 
 		if (after_bootmem) {
-#ifdef CONFIG_DEBUG_PAGEALLOC
+#if defined(CONFIG_DEBUG_PAGEALLOC) || defined(CONFIG_KMEMCHECK)
 			page_table = (pte_t *) alloc_bootmem_pages(PAGE_SIZE);
 #endif
 			if (!page_table)
@@ -223,7 +220,7 @@ static inline int is_kernel_text(unsigned long start, unsigned long end)
 	unsigned long etext;
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	etext = ktva_ktla((unsigned long)&MODULES_END);
+	etext = ktva_ktla((unsigned long)&MODULES_EXEC_END);
 #else
 	etext = (unsigned long)&_etext;
 #endif
@@ -570,7 +567,7 @@ static inline void save_pg_dir(void)
 }
 #endif /* !CONFIG_ACPI_SLEEP */
 
-void zap_low_mappings(void)
+void zap_low_mappings(bool early)
 {
 	int i;
 
@@ -587,54 +584,15 @@ void zap_low_mappings(void)
 		set_pgd(swapper_pg_dir+i, __pgd(0));
 #endif
 	}
-	flush_tlb_all();
-}
 
-int nx_enabled;
+	if (early)
+		__flush_tlb();
+	else
+		flush_tlb_all();
+}
 
 pteval_t __supported_pte_mask __read_only = ~(_PAGE_NX | _PAGE_GLOBAL | _PAGE_IOMAP);
 EXPORT_SYMBOL_GPL(__supported_pte_mask);
-
-#ifdef CONFIG_X86_PAE
-
-/*
- * noexec = on|off
- *
- * Control non executable mappings.
- *
- * on      Enable
- * off     Disable
- */
-#if !defined(CONFIG_PAX_PAGEEXEC)
-static int __init noexec_setup(char *str)
-{
-	if (!str || !strcmp(str, "on")) {
-		if (cpu_has_nx)
-			nx_enabled = 1;
-	} else {
-		if (!strcmp(str, "off"))
-			nx_enabled = 0;
-		else
-			return -EINVAL;
-	}
-
-	return 0;
-}
-early_param("noexec", noexec_setup);
-#endif
-
-void __init set_nx(void)
-{
-	if (!nx_enabled && cpu_has_nx) {
-		unsigned l, h;
-
-		__supported_pte_mask &= ~_PAGE_NX;
-		rdmsr(MSR_EFER, l, h);
-		l &= ~EFER_NX;
-		wrmsr(MSR_EFER, l, h);
-	}
-}
-#endif
 
 /* user-defined highmem size */
 static unsigned int highmem_pages = -1;
@@ -755,15 +713,15 @@ void __init initmem_init(unsigned long start_pfn,
 	highstart_pfn = highend_pfn = max_pfn;
 	if (max_pfn > max_low_pfn)
 		highstart_pfn = max_low_pfn;
-	memory_present(0, 0, highend_pfn);
 	e820_register_active_regions(0, 0, highend_pfn);
+	sparse_memory_present_with_active_regions(0);
 	printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
 		pages_to_mb(highend_pfn - highstart_pfn));
 	num_physpages = highend_pfn;
 	high_memory = (void *) __va(highstart_pfn * PAGE_SIZE - 1) + 1;
 #else
-	memory_present(0, 0, max_low_pfn);
 	e820_register_active_regions(0, 0, max_low_pfn);
+	sparse_memory_present_with_active_regions(0);
 	num_physpages = max_low_pfn;
 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE - 1) + 1;
 #endif
@@ -928,7 +886,7 @@ void __init mem_init(void)
 	set_highmem_pages_init();
 
 	codesize =  (unsigned long) &_etext - (unsigned long) &_text;
-	datasize =  (unsigned long) &_edata - (unsigned long) &_data;
+	datasize =  (unsigned long) &_edata - (unsigned long) &_sdata;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
 
 	kclist_add(&kcore_mem, __va(0), max_low_pfn << PAGE_SHIFT);
@@ -974,8 +932,8 @@ void __init mem_init(void)
 		((unsigned long)&__init_end -
 		 (unsigned long)&__init_begin) >> 10,
 
-		(unsigned long)&_data, (unsigned long)&_edata,
-		((unsigned long)&_edata - (unsigned long)&_data) >> 10,
+		(unsigned long)&_sdata, (unsigned long)&_edata,
+		((unsigned long)&_edata - (unsigned long)&_sdata) >> 10,
 
 		ktla_ktva((unsigned long)&_text), ktla_ktva((unsigned long)&_etext),
 		((unsigned long)&_etext - (unsigned long)&_text) >> 10);
@@ -1005,7 +963,7 @@ void __init mem_init(void)
 		test_wp_bit();
 
 	save_pg_dir();
-	zap_low_mappings();
+	zap_low_mappings(true);
 }
 
 #ifdef CONFIG_MEMORY_HOTPLUG

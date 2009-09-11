@@ -775,11 +775,11 @@ static int usbatm_atm_proc_read(struct atm_dev *atm_dev, loff_t * pos, char *pag
 	if (!left--)
 		return sprintf(page,
 			       "AAL5: tx %d ( %d err ), rx %d ( %d err, %d drop )\n",
-			       atomic_read(&atm_dev->stats.aal5.tx),
-			       atomic_read(&atm_dev->stats.aal5.tx_err),
-			       atomic_read(&atm_dev->stats.aal5.rx),
-			       atomic_read(&atm_dev->stats.aal5.rx_err),
-			       atomic_read(&atm_dev->stats.aal5.rx_drop));
+			       atomic_read_unchecked(&atm_dev->stats.aal5.tx),
+			       atomic_read_unchecked(&atm_dev->stats.aal5.tx_err),
+			       atomic_read_unchecked(&atm_dev->stats.aal5.rx),
+			       atomic_read_unchecked(&atm_dev->stats.aal5.rx_err),
+			       atomic_read_unchecked(&atm_dev->stats.aal5.rx_drop));
 
 	if (!left--) {
 		if (instance->disconnected)

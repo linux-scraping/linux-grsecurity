@@ -3537,8 +3537,10 @@ gr_handle_proc_ptrace(struct task_struct *task)
 	struct task_struct *curtemp = current;
 	__u32 retmode;
 
+#ifndef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	if (unlikely(!(gr_status & GR_READY)))
 		return 0;
+#endif
 
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
@@ -3550,11 +3552,20 @@ gr_handle_proc_ptrace(struct task_struct *task)
 		tmp = tmp->parent;
 	}
 
-	if (!filp || (tmp->pid == 0 && !(current->acl->mode & GR_RELAXPTRACE))) {
+	if (!filp || (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
+				((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE))))) {
 		read_unlock(&grsec_exec_file_lock);
 		read_unlock(&tasklist_lock);
 		return 1;
 	}
+
+#ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
+	if (!(gr_status & GR_READY)) {
+		read_unlock(&grsec_exec_file_lock);
+		read_unlock(&tasklist_lock);
+		return 0;
+	}
+#endif
 
 	retmode = gr_search_file(filp->f_path.dentry, GR_NOPTRACE, filp->f_path.mnt);
 	read_unlock(&grsec_exec_file_lock);
@@ -3578,8 +3589,10 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 	struct task_struct *curtemp = current;
 	__u32 retmode;
 
+#ifndef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	if (unlikely(!(gr_status & GR_READY)))
 		return 0;
+#endif
 
 	read_lock(&tasklist_lock);
 	while (tmp->pid > 0) {
@@ -3588,12 +3601,18 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 		tmp = tmp->parent;
 	}
 
-	if (tmp->pid == 0 && !(current->acl->mode & GR_RELAXPTRACE)) {
+	if (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
+				((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE)))) {
 		read_unlock(&tasklist_lock);
 		gr_log_ptrace(GR_DONT_AUDIT, GR_PTRACE_ACL_MSG, task);
 		return 1;
 	}
 	read_unlock(&tasklist_lock);
+
+#ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
+	if (!(gr_status & GR_READY))
+		return 0;
+#endif
 
 	read_lock(&grsec_exec_file_lock);
 	if (unlikely(!task->exec_file)) {

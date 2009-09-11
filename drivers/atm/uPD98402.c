@@ -161,8 +161,8 @@ static int uPD98402_ioctl(struct atm_dev *dev,unsigned int cmd,void __user *arg)
 
 #define ADD_LIMITED(s,v) \
     { atomic_add_unchecked(GET(v),&PRIV(dev)->sonet_stats.s); \
-    if (atomic_read(&PRIV(dev)->sonet_stats.s) < 0) \
-	atomic_set(&PRIV(dev)->sonet_stats.s,INT_MAX); }
+    if (atomic_read_unchecked(&PRIV(dev)->sonet_stats.s) < 0) \
+	atomic_set_unchecked(&PRIV(dev)->sonet_stats.s,INT_MAX); }
 
 
 static void stat_event(struct atm_dev *dev)
@@ -221,9 +221,9 @@ static int uPD98402_start(struct atm_dev *dev)
 	PUT(~(uPD98402_INT_PFM | uPD98402_INT_ALM | uPD98402_INT_RFO |
 	  uPD98402_INT_LOS),PIMR); /* enable them */
 	(void) fetch_stats(dev,NULL,1); /* clear kernel counters */
-	atomic_set(&PRIV(dev)->sonet_stats.corr_hcs,-1);
-	atomic_set(&PRIV(dev)->sonet_stats.tx_cells,-1);
-	atomic_set(&PRIV(dev)->sonet_stats.rx_cells,-1);
+	atomic_set_unchecked(&PRIV(dev)->sonet_stats.corr_hcs,-1);
+	atomic_set_unchecked(&PRIV(dev)->sonet_stats.tx_cells,-1);
+	atomic_set_unchecked(&PRIV(dev)->sonet_stats.rx_cells,-1);
 	return 0;
 }
 

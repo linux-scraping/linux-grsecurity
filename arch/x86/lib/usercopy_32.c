@@ -942,7 +942,7 @@ survive:
 
 			if (retval == -ENOMEM && is_global_init(current)) {
 				up_read(&current->mm->mmap_sem);
-				congestion_wait(WRITE, HZ/50);
+				congestion_wait(BLK_RW_ASYNC, HZ/50);
 				goto survive;
 			}
 
@@ -1041,7 +1041,7 @@ void __set_fs(mm_segment_t x, int cpu)
 void set_fs(mm_segment_t x)
 {
 	__set_fs(x, get_cpu());
-	put_cpu_no_resched();
+	put_cpu();
 }
 #else
 void set_fs(mm_segment_t x)

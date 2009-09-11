@@ -42,6 +42,7 @@
 #include <linux/mount.h>
 #include <linux/seq_file.h>
 #include <linux/quotaops.h>
+#include <linux/smp_lock.h>
 
 #define MLOG_MASK_PREFIX ML_SUPER
 #include <cluster/masklog.h>
@@ -118,15 +119,16 @@ static void ocfs2_release_system_inodes(struct ocfs2_super *osb);
 static int ocfs2_check_volume(struct ocfs2_super *osb);
 static int ocfs2_verify_volume(struct ocfs2_dinode *di,
 			       struct buffer_head *bh,
-			       u32 sectsize);
+			       u32 sectsize,
+			       struct ocfs2_blockcheck_stats *stats);
 static int ocfs2_initialize_super(struct super_block *sb,
 				  struct buffer_head *bh,
-				  int sector_size);
+				  int sector_size,
+				  struct ocfs2_blockcheck_stats *stats);
 static int ocfs2_get_sector(struct super_block *sb,
 			    struct buffer_head **bh,
 			    int block,
 			    int sect_size);
-static void ocfs2_write_super(struct super_block *sb);
 static struct inode *ocfs2_alloc_inode(struct super_block *sb);
 static void ocfs2_destroy_inode(struct inode *inode);
 static int ocfs2_susp_quotas(struct ocfs2_super *osb, int unsuspend);
@@ -141,7 +143,6 @@ static const struct super_operations ocfs2_sops = {
 	.clear_inode	= ocfs2_clear_inode,
 	.delete_inode	= ocfs2_delete_inode,
 	.sync_fs	= ocfs2_sync_fs,
-	.write_super	= ocfs2_write_super,
 	.put_super	= ocfs2_put_super,
 	.remount_fs	= ocfs2_remount,
 	.show_options   = ocfs2_show_options,
@@ -204,10 +205,10 @@ static const match_table_t tokens = {
 #ifdef CONFIG_DEBUG_FS
 static int ocfs2_osb_dump(struct ocfs2_super *osb, char *buf, int len)
 {
-	int out = 0;
-	int i;
 	struct ocfs2_cluster_connection *cconn = osb->cconn;
 	struct ocfs2_recovery_map *rm = osb->recovery_map;
+	struct ocfs2_orphan_scan *os = &osb->osb_orphan_scan;
+	int i, out = 0;
 
 	out += snprintf(buf + out, len - out,
 			"%10s => Id: %-s  Uuid: %-s  Gen: 0x%X  Label: %-s\n",
@@ -283,11 +284,11 @@ static int ocfs2_osb_dump(struct ocfs2_super *osb, char *buf, int len)
 			"%10s => GlobalAllocs: %d  LocalAllocs: %d  "
 			"SubAllocs: %d  LAWinMoves: %d  SAExtends: %d\n",
 			"Stats",
-			atomic_read(&osb->alloc_stats.bitmap_data),
-			atomic_read(&osb->alloc_stats.local_data),
-			atomic_read(&osb->alloc_stats.bg_allocs),
-			atomic_read(&osb->alloc_stats.moves),
-			atomic_read(&osb->alloc_stats.bg_extends));
+			atomic_read_unchecked(&osb->alloc_stats.bitmap_data),
+			atomic_read_unchecked(&osb->alloc_stats.local_data),
+			atomic_read_unchecked(&osb->alloc_stats.bg_allocs),
+			atomic_read_unchecked(&osb->alloc_stats.moves),
+			atomic_read_unchecked(&osb->alloc_stats.bg_extends));
 
 	out += snprintf(buf + out, len - out,
 			"%10s => State: %u  Descriptor: %llu  Size: %u bits  "
@@ -302,6 +303,16 @@ static int ocfs2_osb_dump(struct ocfs2_super *osb, char *buf, int len)
 			osb->s_inode_steal_slot,
 			atomic_read(&osb->s_num_inodes_stolen));
 	spin_unlock(&osb->osb_lock);
+
+	out += snprintf(buf + out, len - out, "OrphanScan => ");
+	out += snprintf(buf + out, len - out, "Local: %u  Global: %u ",
+			os->os_count, os->os_seqno);
+	out += snprintf(buf + out, len - out, " Last Scan: ");
+	if (atomic_read(&os->os_state) == ORPHAN_SCAN_INACTIVE)
+		out += snprintf(buf + out, len - out, "Disabled\n");
+	else
+		out += snprintf(buf + out, len - out, "%lu seconds ago\n",
+				(get_seconds() - os->os_scantime.tv_sec));
 
 	out += snprintf(buf + out, len - out, "%10s => %3s  %10s\n",
 			"Slots", "Num", "RecoGen");
@@ -369,23 +380,11 @@ static const struct file_operations ocfs2_osb_debug_fops = {
 	.llseek =	generic_file_llseek,
 };
 
-/*
- * write_super and sync_fs ripped right out of ext3.
- */
-static void ocfs2_write_super(struct super_block *sb)
-{
-	if (mutex_trylock(&sb->s_lock) != 0)
-		BUG();
-	sb->s_dirt = 0;
-}
-
 static int ocfs2_sync_fs(struct super_block *sb, int wait)
 {
 	int status;
 	tid_t target;
 	struct ocfs2_super *osb = OCFS2_SB(sb);
-
-	sb->s_dirt = 0;
 
 	if (ocfs2_is_hard_readonly(osb))
 		return -EROFS;
@@ -559,7 +558,7 @@ static unsigned long long ocfs2_max_file_offset(unsigned int bbits,
 	 */
 
 #if BITS_PER_LONG == 32
-# if defined(CONFIG_LBD)
+# if defined(CONFIG_LBDAF)
 	BUILD_BUG_ON(sizeof(sector_t) != 8);
 	/*
 	 * We might be limited by page cache size.
@@ -598,6 +597,8 @@ static int ocfs2_remount(struct super_block *sb, int *flags, char *data)
 	int ret = 0;
 	struct mount_options parsed_options;
 	struct ocfs2_super *osb = OCFS2_SB(sb);
+
+	lock_kernel();
 
 	if (!ocfs2_parse_options(sb, data, &parsed_options, 1)) {
 		ret = -EINVAL;
@@ -702,12 +703,14 @@ unlock_osb:
 			ocfs2_set_journal_params(osb);
 	}
 out:
+	unlock_kernel();
 	return ret;
 }
 
 static int ocfs2_sb_probe(struct super_block *sb,
 			  struct buffer_head **bh,
-			  int *sector_size)
+			  int *sector_size,
+			  struct ocfs2_blockcheck_stats *stats)
 {
 	int status, tmpstat;
 	struct ocfs1_vol_disk_hdr *hdr;
@@ -717,7 +720,7 @@ static int ocfs2_sb_probe(struct super_block *sb,
 	*bh = NULL;
 
 	/* may be > 512 */
-	*sector_size = bdev_hardsect_size(sb->s_bdev);
+	*sector_size = bdev_logical_block_size(sb->s_bdev);
 	if (*sector_size > OCFS2_MAX_BLOCKSIZE) {
 		mlog(ML_ERROR, "Hardware sector size too large: %d (max=%d)\n",
 		     *sector_size, OCFS2_MAX_BLOCKSIZE);
@@ -773,7 +776,9 @@ static int ocfs2_sb_probe(struct super_block *sb,
 			goto bail;
 		}
 		di = (struct ocfs2_dinode *) (*bh)->b_data;
-		status = ocfs2_verify_volume(di, *bh, blksize);
+		memset(stats, 0, sizeof(struct ocfs2_blockcheck_stats));
+		spin_lock_init(&stats->b_lock);
+		status = ocfs2_verify_volume(di, *bh, blksize, stats);
 		if (status >= 0)
 			goto bail;
 		brelse(*bh);
@@ -979,6 +984,7 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 	struct ocfs2_super *osb = NULL;
 	struct buffer_head *bh = NULL;
 	char nodestr[8];
+	struct ocfs2_blockcheck_stats stats;
 
 	mlog_entry("%p, %p, %i", sb, data, silent);
 
@@ -988,13 +994,13 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	/* probe for superblock */
-	status = ocfs2_sb_probe(sb, &bh, &sector_size);
+	status = ocfs2_sb_probe(sb, &bh, &sector_size, &stats);
 	if (status < 0) {
 		mlog(ML_ERROR, "superblock probe failed!\n");
 		goto read_super_error;
 	}
 
-	status = ocfs2_initialize_super(sb, bh, sector_size);
+	status = ocfs2_initialize_super(sb, bh, sector_size, &stats);
 	osb = OCFS2_SB(sb);
 	if (status < 0) {
 		mlog_errno(status);
@@ -1104,6 +1110,18 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 		goto read_super_error;
 	}
 
+	if (ocfs2_meta_ecc(osb)) {
+		status = ocfs2_blockcheck_stats_debugfs_install(
+						&osb->osb_ecc_stats,
+						osb->osb_debug_root);
+		if (status) {
+			mlog(ML_ERROR,
+			     "Unable to create blockcheck statistics "
+			     "files\n");
+			goto read_super_error;
+		}
+	}
+
 	status = ocfs2_mount_volume(sb);
 	if (osb->root_inode)
 		inode = igrab(osb->root_inode);
@@ -1164,6 +1182,9 @@ static int ocfs2_fill_super(struct super_block *sb, void *data, int silent)
 	atomic_set(&osb->vol_state, VOLUME_MOUNTED_QUOTAS);
 	wake_up(&osb->osb_mount_event);
 
+	/* Start this when the mount is almost sure of being successful */
+	ocfs2_orphan_scan_start(osb);
+
 	mlog_exit(status);
 	return status;
 
@@ -1193,14 +1214,31 @@ static int ocfs2_get_sb(struct file_system_type *fs_type,
 			   mnt);
 }
 
+static void ocfs2_kill_sb(struct super_block *sb)
+{
+	struct ocfs2_super *osb = OCFS2_SB(sb);
+
+	/* Failed mount? */
+	if (!osb || atomic_read(&osb->vol_state) == VOLUME_DISABLED)
+		goto out;
+
+	/* Prevent further queueing of inode drop events */
+	spin_lock(&dentry_list_lock);
+	ocfs2_set_osb_flag(osb, OCFS2_OSB_DROP_DENTRY_LOCK_IMMED);
+	spin_unlock(&dentry_list_lock);
+	/* Wait for work to finish and/or remove it */
+	cancel_work_sync(&osb->dentry_lock_work);
+out:
+	kill_block_super(sb);
+}
+
 static struct file_system_type ocfs2_fs_type = {
 	.owner          = THIS_MODULE,
 	.name           = "ocfs2",
 	.get_sb         = ocfs2_get_sb, /* is this called when we mount
 					* the fs? */
-	.kill_sb        = kill_block_super, /* set to the generic one
-					     * right now, but do we
-					     * need to change that? */
+	.kill_sb        = ocfs2_kill_sb,
+
 	.fs_flags       = FS_REQUIRES_DEV|FS_RENAME_DOES_D_MOVE,
 	.next           = NULL
 };
@@ -1554,8 +1592,12 @@ static void ocfs2_put_super(struct super_block *sb)
 {
 	mlog_entry("(0x%p)\n", sb);
 
+	lock_kernel();
+
 	ocfs2_sync_blockdev(sb);
 	ocfs2_dismount_volume(sb, 0);
+
+	unlock_kernel();
 
 	mlog_exit_void();
 }
@@ -1770,13 +1812,8 @@ static int ocfs2_mount_volume(struct super_block *sb)
 	}
 
 	status = ocfs2_truncate_log_init(osb);
-	if (status < 0) {
+	if (status < 0)
 		mlog_errno(status);
-		goto leave;
-	}
-
-	if (ocfs2_mount_local(osb))
-		goto leave;
 
 leave:
 	if (unlock_super)
@@ -1799,6 +1836,15 @@ static void ocfs2_dismount_volume(struct super_block *sb, int mnt_err)
 	BUG_ON(!osb);
 
 	debugfs_remove(osb->osb_ctxt);
+
+	/*
+	 * Flush inode dropping work queue so that deletes are
+	 * performed while the filesystem is still working
+	 */
+	ocfs2_drop_all_dl_inodes(osb);
+
+	/* Orphan scan should be stopped as early as possible */
+	ocfs2_orphan_scan_stop(osb);
 
 	ocfs2_disable_quotas(osb);
 
@@ -1843,6 +1889,7 @@ static void ocfs2_dismount_volume(struct super_block *sb, int mnt_err)
 	if (osb->cconn)
 		ocfs2_dlm_shutdown(osb, hangup_needed);
 
+	ocfs2_blockcheck_stats_debugfs_remove(&osb->osb_ecc_stats);
 	debugfs_remove(osb->osb_debug_root);
 
 	if (hangup_needed)
@@ -1890,7 +1937,8 @@ static int ocfs2_setup_osb_uuid(struct ocfs2_super *osb, const unsigned char *uu
 
 static int ocfs2_initialize_super(struct super_block *sb,
 				  struct buffer_head *bh,
-				  int sector_size)
+				  int sector_size,
+				  struct ocfs2_blockcheck_stats *stats)
 {
 	int status;
 	int i, cbits, bbits;
@@ -1943,16 +1991,21 @@ static int ocfs2_initialize_super(struct super_block *sb,
 	spin_lock_init(&osb->osb_xattr_lock);
 	ocfs2_init_inode_steal_slot(osb);
 
-	atomic_set(&osb->alloc_stats.moves, 0);
-	atomic_set(&osb->alloc_stats.local_data, 0);
-	atomic_set(&osb->alloc_stats.bitmap_data, 0);
-	atomic_set(&osb->alloc_stats.bg_allocs, 0);
-	atomic_set(&osb->alloc_stats.bg_extends, 0);
+	atomic_set_unchecked(&osb->alloc_stats.moves, 0);
+	atomic_set_unchecked(&osb->alloc_stats.local_data, 0);
+	atomic_set_unchecked(&osb->alloc_stats.bitmap_data, 0);
+	atomic_set_unchecked(&osb->alloc_stats.bg_allocs, 0);
+	atomic_set_unchecked(&osb->alloc_stats.bg_extends, 0);
+
+	/* Copy the blockcheck stats from the superblock probe */
+	osb->osb_ecc_stats = *stats;
 
 	ocfs2_init_node_maps(osb);
 
 	snprintf(osb->dev_str, sizeof(osb->dev_str), "%u,%u",
 		 MAJOR(osb->sb->s_dev), MINOR(osb->sb->s_dev));
+
+	ocfs2_orphan_scan_init(osb);
 
 	status = ocfs2_recovery_init(osb);
 	if (status) {
@@ -2179,7 +2232,8 @@ bail:
  */
 static int ocfs2_verify_volume(struct ocfs2_dinode *di,
 			       struct buffer_head *bh,
-			       u32 blksz)
+			       u32 blksz,
+			       struct ocfs2_blockcheck_stats *stats)
 {
 	int status = -EAGAIN;
 
@@ -2192,7 +2246,8 @@ static int ocfs2_verify_volume(struct ocfs2_dinode *di,
 		    OCFS2_FEATURE_INCOMPAT_META_ECC) {
 			status = ocfs2_block_check_validate(bh->b_data,
 							    bh->b_size,
-							    &di->i_check);
+							    &di->i_check,
+							    stats);
 			if (status)
 				goto out;
 		}

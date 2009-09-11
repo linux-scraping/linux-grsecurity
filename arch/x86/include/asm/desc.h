@@ -1,7 +1,6 @@
 #ifndef _ASM_X86_DESC_H
 #define _ASM_X86_DESC_H
 
-#ifndef __ASSEMBLY__
 #include <asm/desc_defs.h>
 #include <asm/ldt.h>
 #include <asm/mmu.h>
@@ -450,30 +449,5 @@ static inline void set_user_cs(unsigned long base, unsigned long limit, int cpu)
 	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_CS, &d, DESCTYPE_S);
 }
 #endif
-
-#else
-/*
- * GET_DESC_BASE reads the descriptor base of the specified segment.
- *
- * Args:
- *    idx - descriptor index
- *    gdt - GDT pointer
- *    base - 32bit register to which the base will be written
- *    lo_w - lo word of the "base" register
- *    lo_b - lo byte of the "base" register
- *    hi_b - hi byte of the low word of the "base" register
- *
- * Example:
- *    GET_DESC_BASE(GDT_ENTRY_ESPFIX_SS, %ebx, %eax, %ax, %al, %ah)
- *    Will read the base address of GDT_ENTRY_ESPFIX_SS and put it into %eax.
- */
-#define GET_DESC_BASE(idx, gdt, base, lo_w, lo_b, hi_b) \
-	movb idx * 8 + 4(gdt), lo_b;			\
-	movb idx * 8 + 7(gdt), hi_b;			\
-	shll $16, base;					\
-	movw idx * 8 + 2(gdt), lo_w;
-
-
-#endif /* __ASSEMBLY__ */
 
 #endif /* _ASM_X86_DESC_H */

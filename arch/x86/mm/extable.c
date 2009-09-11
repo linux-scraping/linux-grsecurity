@@ -51,6 +51,25 @@ void sort_extable(struct exception_table_entry *start,
 	     cmp_ex, swap_ex);
 }
 
+#ifdef CONFIG_MODULES
+/*
+ * If the exception table is sorted, any referring to the module init
+ * will be at the beginning or the end.
+ */
+void trim_init_extable(struct module *m)
+{
+	/*trim the beginning*/
+	while (m->num_exentries && within_module_init(m->extable[0].insn, m)) {
+		m->extable++;
+		m->num_exentries--;
+	}
+	/*trim the end*/
+	while (m->num_exentries &&
+		within_module_init(m->extable[m->num_exentries-1].insn, m))
+		m->num_exentries--;
+}
+#endif /* CONFIG_MODULES */
+
 int fixup_exception(struct pt_regs *regs)
 {
 	const struct exception_table_entry *fixup;

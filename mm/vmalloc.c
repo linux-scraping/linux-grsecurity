@@ -23,8 +23,8 @@
 #include <linux/rbtree.h>
 #include <linux/radix-tree.h>
 #include <linux/rcupdate.h>
-#include <linux/bootmem.h>
 #include <linux/pfn.h>
+#include <linux/kmemleak.h>
 
 #include <asm/atomic.h>
 #include <asm/uaccess.h>
@@ -1053,7 +1053,7 @@ void __init vmalloc_init(void)
 
 	/* Import existing vmlist entries. */
 	for (tmp = vmlist; tmp; tmp = tmp->next) {
-		va = alloc_bootmem(sizeof(struct vmap_area));
+		va = kzalloc(sizeof(struct vmap_area), GFP_NOWAIT);
 		va->flags = tmp->flags | VM_VM_AREA;
 		va->va_start = (unsigned long)tmp->addr;
 		va->va_end = va->va_start + tmp->size;
@@ -1158,8 +1158,8 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	if (flags & VM_KERNEXEC) {
 		if (start != VMALLOC_START || end != VMALLOC_END)
 			return NULL;
-		start = (unsigned long)MODULES_VADDR;
-		end = (unsigned long)MODULES_END;
+		start = (unsigned long)&MODULES_EXEC_VADDR;
+		end = (unsigned long)&MODULES_EXEC_END;
 	}
 #endif
 
@@ -1358,6 +1358,9 @@ static void __vunmap(const void *addr, int deallocate_pages)
 void vfree(const void *addr)
 {
 	BUG_ON(in_interrupt());
+
+	kmemleak_free(addr);
+
 	__vunmap(addr, 1);
 }
 EXPORT_SYMBOL(vfree);
@@ -1475,8 +1478,17 @@ fail:
 
 void *__vmalloc_area(struct vm_struct *area, gfp_t gfp_mask, pgprot_t prot)
 {
-	return __vmalloc_area_node(area, gfp_mask, prot, -1,
-					__builtin_return_address(0));
+	void *addr = __vmalloc_area_node(area, gfp_mask, prot, -1,
+					 __builtin_return_address(0));
+
+	/*
+	 * A ref_count = 3 is needed because the vm_struct and vmap_area
+	 * structures allocated in the __get_vm_area_node() function contain
+	 * references to the virtual address of the vmalloc'ed block.
+	 */
+	kmemleak_alloc(addr, area->size - PAGE_SIZE, 3, gfp_mask);
+
+	return addr;
 }
 
 /**
@@ -1495,6 +1507,8 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 						int node, void *caller)
 {
 	struct vm_struct *area;
+	void *addr;
+	unsigned long real_size = size;
 
 	size = PAGE_ALIGN(size);
 	if (!size || (size >> PAGE_SHIFT) > num_physpages)
@@ -1513,7 +1527,16 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 	if (!area)
 		return NULL;
 
-	return __vmalloc_area_node(area, gfp_mask, prot, node, caller);
+	addr = __vmalloc_area_node(area, gfp_mask, prot, node, caller);
+
+	/*
+	 * A ref_count = 3 is needed because the vm_struct and vmap_area
+	 * structures allocated in the __get_vm_area_node() function contain
+	 * references to the virtual address of the vmalloc'ed block.
+	 */
+	kmemleak_alloc(addr, real_size, 3, gfp_mask);
+
+	return addr;
 }
 
 #undef __vmalloc

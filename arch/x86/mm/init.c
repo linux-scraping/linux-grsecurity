@@ -1,3 +1,4 @@
+#include <linux/initrd.h>
 #include <linux/ioport.h>
 #include <linux/swap.h>
 
@@ -10,6 +11,10 @@
 #include <asm/setup.h>
 #include <asm/system.h>
 #include <asm/tlbflush.h>
+#include <asm/tlb.h>
+#include <asm/proto.h>
+
+DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
 
 unsigned long __initdata e820_table_start;
 unsigned long __meminitdata e820_table_end;
@@ -22,6 +27,62 @@ int direct_gbpages
 				= 1
 #endif
 ;
+
+#ifdef CONFIG_X86_32
+int nx_enabled;
+#endif
+
+#if (defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)) && !defined(CONFIG_PAX_PAGEEXEC)
+/*
+ * noexec = on|off
+ *
+ * Control non-executable mappings for processes.
+ *
+ * on      Enable
+ * off     Disable
+ */
+static int __init noexec_setup(char *str)
+{
+	if (!str)
+		return -EINVAL;
+	if (!strncmp(str, "on", 2)) {
+		nx_enabled = 1;
+	} else if (!strncmp(str, "off", 3)) {
+		nx_enabled = 0;
+	}
+	return 0;
+}
+early_param("noexec", noexec_setup);
+#endif
+
+#ifdef CONFIG_X86_PAE
+static void __init set_nx(void)
+{
+	if (!nx_enabled && cpu_has_nx) {
+		unsigned l, h;
+
+		__supported_pte_mask &= ~_PAGE_NX;
+		rdmsr(MSR_EFER, l, h);
+		l &= ~EFER_NX;
+		wrmsr(MSR_EFER, l, h);
+	}
+}
+#else
+static inline void set_nx(void)
+{
+}
+#endif
+
+#ifdef CONFIG_X86_64
+void __cpuinit check_efer(void)
+{
+	unsigned long efer;
+
+	rdmsrl(MSR_EFER, efer);
+	if (!(efer & EFER_NX) || !nx_enabled)
+		__supported_pte_mask &= ~_PAGE_NX;
+}
+#endif
 
 static void __init find_early_table_space(unsigned long end, int use_pse,
 					  int use_gbpages)
@@ -66,12 +127,11 @@ static void __init find_early_table_space(unsigned long end, int use_pse,
 	 */
 #ifdef CONFIG_X86_32
 	start = 0x7000;
+#else
+	start = 0x8000;
+#endif
 	e820_table_start = find_e820_area(start, max_pfn_mapped<<PAGE_SHIFT,
 					tables, PAGE_SIZE);
-#else /* CONFIG_X86_64 */
-	start = 0x8000;
-	e820_table_start = find_e820_area(start, end, tables, PAGE_SIZE);
-#endif
 	if (e820_table_start == -1UL)
 		panic("Cannot find space for the kernel page tables");
 
@@ -111,20 +171,6 @@ static int __meminit save_mr(struct map_range *mr, int nr_range,
 	return nr_range;
 }
 
-#ifdef CONFIG_X86_64
-static void __init init_gbpages(void)
-{
-	if (direct_gbpages && cpu_has_gbpages)
-		printk(KERN_INFO "Using GB pages for direct mapping\n");
-	else
-		direct_gbpages = 0;
-}
-#else
-static inline void init_gbpages(void)
-{
-}
-#endif
-
 /*
  * Setup the direct mapping of the physical memory at PAGE_OFFSET.
  * This runs before bootmem is initialized and gets pages directly from
@@ -144,10 +190,7 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
 
 	printk(KERN_INFO "init_memory_mapping: %016lx-%016lx\n", start, end);
 
-	if (!after_bootmem)
-		init_gbpages();
-
-#ifdef CONFIG_DEBUG_PAGEALLOC
+#if defined(CONFIG_DEBUG_PAGEALLOC) || defined(CONFIG_KMEMCHECK)
 	/*
 	 * For CONFIG_DEBUG_PAGEALLOC, identity mapping will use small pages.
 	 * This will simplify cpa(), which otherwise needs to support splitting
@@ -159,12 +202,9 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
 	use_gbpages = direct_gbpages;
 #endif
 
-#ifdef CONFIG_X86_32
-#ifdef CONFIG_X86_PAE
 	set_nx();
 	if (nx_enabled)
 		printk(KERN_INFO "NX (Execute Disable) protection: active\n");
-#endif
 
 	/* Enable PSE if available */
 	if (cpu_has_pse)
@@ -175,7 +215,6 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
 		set_in_cr4(X86_CR4_PGE);
 		__supported_pte_mask |= _PAGE_GLOBAL;
 	}
-#endif
 
 	if (use_gbpages)
 		page_size_mask |= 1 << PG_LEVEL_1G;
@@ -415,19 +454,20 @@ void free_initmem(void)
 	int cpu;
 
 #ifdef CONFIG_MODULES
-	limit = ktva_ktla((unsigned long)&MODULES_END);
+	limit = ktva_ktla((unsigned long)&MODULES_EXEC_END);
 #else
 	limit = (unsigned long)&_etext;
 #endif
 	limit = (limit - 1UL) >> PAGE_SHIFT;
 
+	memset(KERNEL_TEXT_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
 		pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
 		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
 	}
 
 	/* PaX: make KERNEL_CS read-only */
-	for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_data; addr += PMD_SIZE) {
+	for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_sdata; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
@@ -449,7 +489,7 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
-		if ((unsigned long)_text <= addr && addr < (unsigned long)_data)
+		if ((unsigned long)_text <= addr && addr < (unsigned long)_sdata)
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		else
 			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
@@ -461,7 +501,7 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
-		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_data)))
+		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		else
 			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));

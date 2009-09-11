@@ -59,6 +59,7 @@ Kerntypes
 Module.markers
 Module.symvers
 PENDING
+PERF*
 SCCS
 System.map*
 TAGS
@@ -83,6 +84,7 @@ bvmlinux
 bzImage*
 capflags.c
 classlist.h*
+common-cmds.h
 comp*.log
 compile.h*
 conf
@@ -117,7 +119,6 @@ initramfs_data.cpio.bz2
 initramfs_data.cpio.gz
 initramfs_list
 kallsyms
-kconfig
 keywords.c
 ksym.c*
 ksym.h*
@@ -141,6 +142,7 @@ mkboot
 mkbugboot
 mkcpustr
 mkdep
+mkpiggy
 mkprep
 mktables
 mktree
@@ -157,6 +159,7 @@ patches*
 pca200e.bin
 pca200e_ecd.bin2
 piggy.gz
+piggy.S
 piggyback
 pnmtologo
 ppc_defs.h*
@@ -200,6 +203,7 @@ vmlinux.bin.all
 vmlinux.bin.bz2
 vmlinux.lds
 vmlinux.relocs
+voffset.h
 vsyscall.lds
 vsyscall_32.lds
 wanxlfw.inc
@@ -211,3 +215,4 @@ wakeup.elf
 wakeup.lds
 zImage*
 zconf.hash.c
+zoffset.h

@@ -361,7 +361,7 @@ static char filename[PATH_MAX+1];
 static void set_config_filename(const char *config_filename)
 {
 	static char menu_backtitle[PATH_MAX+128];
-	int size;
+	unsigned int size;
 	struct symbol *sym;
 
 	sym = sym_lookup("KERNELVERSION", 0);
@@ -732,7 +732,12 @@ static void conf_choice(struct menu *menu)
 		for (child = menu->list; child; child = child->next) {
 			if (!menu_is_visible(child))
 				continue;
-			item_make("%s", _(menu_get_prompt(child)));
+			if (child->sym)
+				item_make("%s", _(menu_get_prompt(child)));
+			else {
+				item_make("*** %s ***", _(menu_get_prompt(child)));
+				item_set_tag(':');
+			}
 			item_set_data(child);
 			if (child->sym == active)
 				item_set_selected(1);
@@ -748,6 +753,9 @@ static void conf_choice(struct menu *menu)
 		case 0:
 			if (selected) {
 				child = item_data();
+				if (!child->sym)
+					break;
+
 				sym_set_tristate_value(child->sym, yes);
 			}
 			return;
@@ -879,6 +887,8 @@ int main(int ac, char **av)
 		if (!strcasecmp(mode, "single_menu"))
 			single_menu_mode = 1;
 	}
+
+	initscr();
 
 	getyx(stdscr, saved_y, saved_x);
 	if (init_dialog(NULL)) {

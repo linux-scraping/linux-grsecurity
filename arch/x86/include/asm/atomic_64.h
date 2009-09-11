@@ -18,7 +18,21 @@
  *
  * Atomically reads the value of @v.
  */
-#define atomic_read(v)		((v)->counter)
+static inline int atomic_read(const atomic_t *v)
+{
+	return v->counter;
+}
+
+/**
+ * atomic_read_unchecked - read atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ *
+ * Atomically reads the value of @v.
+ */
+static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
+{
+	return v->counter;
+}
 
 /**
  * atomic_set - set atomic variable
@@ -27,7 +41,22 @@
  *
  * Atomically sets the value of @v to @i.
  */
-#define atomic_set(v, i)		(((v)->counter) = (i))
+static inline void atomic_set(atomic_t *v, int i)
+{
+	v->counter = i;
+}
+
+/**
+ * atomic_set_unchecked - set atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ * @i: required value
+ *
+ * Atomically sets the value of @v to @i.
+ */
+static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
+{
+	v->counter = i;
+}
 
 /**
  * atomic_add - add integer to atomic variable
@@ -54,7 +83,7 @@ static inline void atomic_add(int i, atomic_t *v)
 /**
  * atomic_add_unchecked - add integer to atomic variable
  * @i: integer value to add
- * @v: pointer of type atomic_t
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically adds @i to @v.
  */
@@ -90,7 +119,7 @@ static inline void atomic_sub(int i, atomic_t *v)
 /**
  * atomic_sub_unchecked - subtract the atomic variable
  * @i: integer value to subtract
- * @v: pointer of type atomic_t
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically subtracts @i from @v.
  */
@@ -156,7 +185,7 @@ static inline void atomic_inc(atomic_t *v)
 
 /**
  * atomic_inc_unchecked - increment atomic variable
- * @v: pointer of type atomic_t
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically increments @v by 1.
  */
@@ -325,7 +354,10 @@ static inline int atomic_sub_return(int i, atomic_t *v)
  * Atomically reads the value of @v.
  * Doesn't imply a read memory barrier.
  */
-#define atomic64_read(v)		((v)->counter)
+static inline long atomic64_read(const atomic64_t *v)
+{
+	return v->counter;
+}
 
 /**
  * atomic64_set - set atomic64 variable
@@ -334,7 +366,10 @@ static inline int atomic_sub_return(int i, atomic_t *v)
  *
  * Atomically sets the value of @v to @i.
  */
-#define atomic64_set(v, i)		(((v)->counter) = (i))
+static inline void atomic64_set(atomic64_t *v, long i)
+{
+	v->counter = i;
+}
 
 /**
  * atomic64_add - add integer to atomic64 variable
@@ -580,11 +615,25 @@ static inline long atomic64_sub_return(long i, atomic64_t *v)
 #define atomic64_inc_return(v)  (atomic64_add_return(1, (v)))
 #define atomic64_dec_return(v)  (atomic64_sub_return(1, (v)))
 
-#define atomic64_cmpxchg(v, old, new) (cmpxchg(&((v)->counter), (old), (new)))
-#define atomic64_xchg(v, new) (xchg(&((v)->counter), new))
+static inline long atomic64_cmpxchg(atomic64_t *v, long old, long new)
+{
+	return cmpxchg(&v->counter, old, new);
+}
 
-#define atomic_cmpxchg(v, old, new) (cmpxchg(&((v)->counter), (old), (new)))
-#define atomic_xchg(v, new) (xchg(&((v)->counter), (new)))
+static inline long atomic64_xchg(atomic64_t *v, long new)
+{
+	return xchg(&v->counter, new);
+}
+
+static inline long atomic_cmpxchg(atomic_t *v, int old, int new)
+{
+	return cmpxchg(&v->counter, old, new);
+}
+
+static inline long atomic_xchg(atomic_t *v, int new)
+{
+	return xchg(&v->counter, new);
+}
 
 /**
  * atomic_add_unless - add unless the number is a given value
@@ -704,5 +753,5 @@ static inline void atomic_or_long(unsigned long *v1, unsigned long v2)
 #define smp_mb__before_atomic_inc()	barrier()
 #define smp_mb__after_atomic_inc()	barrier()
 
-#include <asm-generic/atomic.h>
+#include <asm-generic/atomic-long.h>
 #endif /* _ASM_X86_ATOMIC_64_H */

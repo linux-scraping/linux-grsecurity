@@ -258,7 +258,7 @@ struct hso_serial {
 
 	/* from usb_serial_port */
 	struct tty_struct *tty;
-	int open_count;
+	atomic_t open_count;
 	spinlock_t serial_lock;
 
 	int (*write_data) (struct hso_serial *serial);
@@ -482,7 +482,7 @@ static ssize_t hso_sysfs_show_porttype(struct device *dev,
 				       struct device_attribute *attr,
 				       char *buf)
 {
-	struct hso_device *hso_dev = dev->driver_data;
+	struct hso_device *hso_dev = dev_get_drvdata(dev);
 	char *port_name;
 
 	if (!hso_dev)
@@ -816,7 +816,7 @@ static int hso_net_start_xmit(struct sk_buff *skb, struct net_device *net)
 	}
 	dev_kfree_skb(skb);
 	/* we're done */
-	return result;
+	return NETDEV_TX_OK;
 }
 
 static void hso_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
@@ -899,15 +899,14 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
 					continue;
 				}
 				/* Allocate an sk_buff */
-				odev->skb_rx_buf = dev_alloc_skb(frame_len);
+				odev->skb_rx_buf = netdev_alloc_skb(odev->net,
+								    frame_len);
 				if (!odev->skb_rx_buf) {
 					/* We got no receive buffer. */
 					D1("could not allocate memory");
 					odev->rx_parse_state = WAIT_SYNC;
 					return;
 				}
-				/* Here's where it came from */
-				odev->skb_rx_buf->dev = odev->net;
 
 				/* Copy what we got so far. make room for iphdr
 				 * after tail. */
@@ -1180,7 +1179,7 @@ static void put_rxbuf_data_and_resubmit_ctrl_urb(struct hso_serial *serial)
 	struct urb *urb;
 
 	urb = serial->rx_urb[0];
-	if (serial->open_count > 0) {
+	if (atomic_read(&serial->open_count) > 0) {
 		count = put_rxbuf_data(urb, serial);
 		if (count == -1)
 			return;
@@ -1216,7 +1215,7 @@ static void hso_std_serial_read_bulk_callback(struct urb *urb)
 	DUMP1(urb->transfer_buffer, urb->actual_length);
 
 	/* Anyone listening? */
-	if (serial->open_count == 0)
+	if (atomic_read(&serial->open_count) == 0)
 		return;
 
 	if (status == 0) {
@@ -1311,8 +1310,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
 	spin_unlock_irq(&serial->serial_lock);
 
 	/* check for port already opened, if not set the termios */
-	serial->open_count++;
-	if (serial->open_count == 1) {
+	if (atomic_inc_return(&serial->open_count) == 1) {
 		tty->low_latency = 1;
 		serial->rx_state = RX_IDLE;
 		/* Force default termio settings */
@@ -1325,7 +1323,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
 		result = hso_start_serial_device(serial->parent, GFP_KERNEL);
 		if (result) {
 			hso_stop_serial_device(serial->parent);
-			serial->open_count--;
+			atomic_dec(&serial->open_count);
 			kref_put(&serial->parent->ref, hso_serial_ref_free);
 		}
 	} else {
@@ -1362,10 +1360,10 @@ static void hso_serial_close(struct tty_struct *tty, struct file *filp)
 
 	/* reset the rts and dtr */
 	/* do the actual close */
-	serial->open_count--;
+	atomic_dec(&serial->open_count);
 	kref_put(&serial->parent->ref, hso_serial_ref_free);
-	if (serial->open_count <= 0) {
-		serial->open_count = 0;
+	if (atomic_read(&serial->open_count) <= 0) {
+		atomic_set(&serial->open_count,  0);
 		spin_lock_irq(&serial->serial_lock);
 		if (serial->tty == tty) {
 			serial->tty->driver_data = NULL;
@@ -1445,7 +1443,7 @@ static void hso_serial_set_termios(struct tty_struct *tty, struct ktermios *old)
 
 	/* the actual setup */
 	spin_lock_irqsave(&serial->serial_lock, flags);
-	if (serial->open_count)
+	if (atomic_read(&serial->open_count))
 		_hso_serial_set_termios(tty, old);
 	else
 		tty->termios = old;
@@ -2313,7 +2311,7 @@ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
 	serial->parent->dev = tty_register_device(tty_drv, minor,
 					&serial->parent->interface->dev);
 	dev = serial->parent->dev;
-	dev->driver_data = serial->parent;
+	dev_set_drvdata(dev, serial->parent);
 	i = device_create_file(dev, &dev_attr_hsotype);
 
 	/* fill in specific data for later use */
@@ -2481,10 +2479,10 @@ static int add_net_device(struct hso_device *hso_dev)
 	return 0;
 }
 
-static int hso_radio_toggle(void *data, enum rfkill_state state)
+static int hso_rfkill_set_block(void *data, bool blocked)
 {
 	struct hso_device *hso_dev = data;
-	int enabled = (state == RFKILL_STATE_ON);
+	int enabled = !blocked;
 	int rv;
 
 	mutex_lock(&hso_dev->mutex);
@@ -2498,6 +2496,10 @@ static int hso_radio_toggle(void *data, enum rfkill_state state)
 	return rv;
 }
 
+static const struct rfkill_ops hso_rfkill_ops = {
+	.set_block = hso_rfkill_set_block,
+};
+
 /* Creates and sets up everything for rfkill */
 static void hso_create_rfkill(struct hso_device *hso_dev,
 			     struct usb_interface *interface)
@@ -2506,29 +2508,25 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
 	struct device *dev = &hso_net->net->dev;
 	char *rfkn;
 
-	hso_net->rfkill = rfkill_allocate(&interface_to_usbdev(interface)->dev,
-				 RFKILL_TYPE_WWAN);
-	if (!hso_net->rfkill) {
-		dev_err(dev, "%s - Out of memory\n", __func__);
-		return;
-	}
 	rfkn = kzalloc(20, GFP_KERNEL);
-	if (!rfkn) {
-		rfkill_free(hso_net->rfkill);
-		hso_net->rfkill = NULL;
+	if (!rfkn)
 		dev_err(dev, "%s - Out of memory\n", __func__);
-		return;
-	}
+
 	snprintf(rfkn, 20, "hso-%d",
 		 interface->altsetting->desc.bInterfaceNumber);
-	hso_net->rfkill->name = rfkn;
-	hso_net->rfkill->state = RFKILL_STATE_ON;
-	hso_net->rfkill->data = hso_dev;
-	hso_net->rfkill->toggle_radio = hso_radio_toggle;
-	if (rfkill_register(hso_net->rfkill) < 0) {
+
+	hso_net->rfkill = rfkill_alloc(rfkn,
+				       &interface_to_usbdev(interface)->dev,
+				       RFKILL_TYPE_WWAN,
+				       &hso_rfkill_ops, hso_dev);
+	if (!hso_net->rfkill) {
+		dev_err(dev, "%s - Out of memory\n", __func__);
 		kfree(rfkn);
-		hso_net->rfkill->name = NULL;
-		rfkill_free(hso_net->rfkill);
+		return;
+	}
+	if (rfkill_register(hso_net->rfkill) < 0) {
+		rfkill_destroy(hso_net->rfkill);
+		kfree(rfkn);
 		hso_net->rfkill = NULL;
 		dev_err(dev, "%s - Failed to register rfkill\n", __func__);
 		return;
@@ -3088,7 +3086,7 @@ static int hso_resume(struct usb_interface *iface)
 	/* Start all serial ports */
 	for (i = 0; i < HSO_SERIAL_TTY_MINORS; i++) {
 		if (serial_table[i] && (serial_table[i]->interface == iface)) {
-			if (dev2ser(serial_table[i])->open_count) {
+			if (atomic_read(&dev2ser(serial_table[i])->open_count)) {
 				result =
 				    hso_start_serial_device(serial_table[i], GFP_NOIO);
 				hso_kick_transmit(dev2ser(serial_table[i]));
@@ -3165,8 +3163,10 @@ static void hso_free_interface(struct usb_interface *interface)
 			hso_stop_net_device(network_table[i]);
 			cancel_work_sync(&network_table[i]->async_put_intf);
 			cancel_work_sync(&network_table[i]->async_get_intf);
-			if (rfk)
+			if (rfk) {
 				rfkill_unregister(rfk);
+				rfkill_destroy(rfk);
+			}
 			hso_free_net_device(network_table[i]);
 		}
 	}

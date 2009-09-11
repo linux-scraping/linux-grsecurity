@@ -4,10 +4,6 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
-#ifdef CONFIG_GRKERNSEC_MODSTOP
-int grsec_modstop;
-#endif
-
 int
 gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 {
@@ -17,17 +13,10 @@ gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 		return -EACCES;
 	}
 #endif
-#ifdef CONFIG_GRKERNSEC_MODSTOP
-	if (!strcmp(dirname, "grsecurity") && !strcmp(name, "disable_modules") &&
-	    grsec_modstop && (op & MAY_WRITE)) {
-		gr_log_str(GR_DONT_AUDIT, GR_SYSCTL_MSG, name);
-		return -EACCES;
-	}
-#endif
 	return 0;
 }
 
-#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_MODSTOP)
+#if defined(CONFIG_GRKERNSEC_SYSCTL)
 ctl_table grsecurity_table[] = {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
 #ifdef CONFIG_GRKERNSEC_LINK
@@ -400,6 +389,16 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "harden_ptrace",
+		.data		= &grsec_enable_harden_ptrace,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "grsec_lock",
@@ -409,27 +408,6 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
-#ifdef CONFIG_GRKERNSEC_MODSTOP
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "disable_modules",
-		.data		= &grsec_modstop,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
 	{ .ctl_name = 0 }
 };
 #endif
-
-int gr_check_modstop(void)
-{
-#ifdef CONFIG_GRKERNSEC_MODSTOP
-	if (grsec_modstop == 1) {
-		gr_log_noargs(GR_DONT_AUDIT, GR_STOPMOD_MSG);
-		return 1;
-	}
-#endif
-	return 0;
-}

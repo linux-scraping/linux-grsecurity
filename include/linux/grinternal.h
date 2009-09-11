@@ -32,6 +32,7 @@ char *gr_to_filename2(const struct dentry *dentry,
 char *gr_to_filename3(const struct dentry *dentry,
 			    const struct vfsmount *mnt);
 
+extern int grsec_enable_harden_ptrace;
 extern int grsec_enable_link;
 extern int grsec_enable_fifo;
 extern int grsec_enable_execve;

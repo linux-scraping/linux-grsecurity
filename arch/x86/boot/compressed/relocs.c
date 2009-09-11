@@ -553,13 +553,14 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 				continue;
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
-			if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
-				continue;
+			if (!strcmp(sec_name(sym->st_shndx), ".init.text")) {
+				if (strcmp(sym_name(sym_strtab, sym), "__init_begin"))
+					continue;
+			}
 			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
 				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".text.head")) {
-				if (strcmp(sym_name(sym_strtab, sym), "__init_end") &&
-				    strcmp(sym_name(sym_strtab, sym), "KERNEL_TEXT_OFFSET"))
+				if (strcmp(sym_name(sym_strtab, sym), "KERNEL_TEXT_OFFSET"))
 					continue;
 			}
 			if (!strcmp(sec_name(sym->st_shndx), ".text"))

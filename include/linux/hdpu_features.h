@@ -3,7 +3,7 @@
 struct cpustate_t {
 	spinlock_t lock;
 	int excl;
-        int open_count;
+	atomic_t open_count;
 	unsigned char cached_val;
 	int inited;
 	unsigned long *set_addr;

@@ -58,8 +58,6 @@ void *kmap_atomic_prot(struct page *page, enum km_type type, pgprot_t prot)
 	pax_close_kernel(cr0);
 #endif
 
-	arch_flush_lazy_mmu_mode();
-
 	return (void *)vaddr;
 }
 
@@ -102,7 +100,6 @@ void kunmap_atomic(void *kvaddr, enum km_type type)
 #endif
 	}
 
-	arch_flush_lazy_mmu_mode();
 	pagefault_enable();
 }
 
@@ -133,6 +130,7 @@ EXPORT_SYMBOL(kmap);
 EXPORT_SYMBOL(kunmap);
 EXPORT_SYMBOL(kmap_atomic);
 EXPORT_SYMBOL(kunmap_atomic);
+EXPORT_SYMBOL(kmap_atomic_prot);
 
 void __init set_highmem_pages_init(void)
 {

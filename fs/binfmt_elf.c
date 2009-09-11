@@ -994,7 +994,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 #if defined(CONFIG_ARCH_TRACK_EXEC_LIMIT) || defined(CONFIG_PAX_SEGMEXEC)
 	if (current->mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
 		set_user_cs(current->mm->context.user_cs_base, current->mm->context.user_cs_limit, get_cpu());
-		put_cpu_no_resched();
+		put_cpu();
 	}
 #endif
 
@@ -1635,8 +1635,10 @@ static void fill_prstatus(struct elf_prstatus *prstatus,
 	prstatus->pr_info.si_signo = prstatus->pr_cursig = signr;
 	prstatus->pr_sigpend = p->pending.signal.sig[0];
 	prstatus->pr_sighold = p->blocked.sig[0];
+	rcu_read_lock();
+	prstatus->pr_ppid = task_pid_vnr(rcu_dereference(p->real_parent));
+	rcu_read_unlock();
 	prstatus->pr_pid = task_pid_vnr(p);
-	prstatus->pr_ppid = task_pid_vnr(p->real_parent);
 	prstatus->pr_pgrp = task_pgrp_vnr(p);
 	prstatus->pr_sid = task_session_vnr(p);
 	if (thread_group_leader(p)) {
@@ -1677,8 +1679,10 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo, struct task_struct *p,
 			psinfo->pr_psargs[i] = ' ';
 	psinfo->pr_psargs[len] = 0;
 
+	rcu_read_lock();
+	psinfo->pr_ppid = task_pid_vnr(rcu_dereference(p->real_parent));
+	rcu_read_unlock();
 	psinfo->pr_pid = task_pid_vnr(p);
-	psinfo->pr_ppid = task_pid_vnr(p->real_parent);
 	psinfo->pr_pgrp = task_pgrp_vnr(p);
 	psinfo->pr_sid = task_session_vnr(p);
 
@@ -2220,7 +2224,10 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 	elf = kmalloc(sizeof(*elf), GFP_KERNEL);
 	if (!elf)
 		goto out;
-	
+	/*
+	 * The number of segs are recored into ELF header as 16bit value.
+	 * Please check DEFAULT_MAX_MAP_COUNT definition when you modify here.
+	 */
 	segs = current->mm->map_count;
 #ifdef ELF_CORE_EXTRA_PHDRS
 	segs += ELF_CORE_EXTRA_PHDRS;

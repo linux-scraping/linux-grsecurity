@@ -46,15 +46,18 @@ void nilfs_btnode_cache_init_once(struct address_space *btnc)
 	INIT_LIST_HEAD(&btnc->i_mmap_nonlinear);
 }
 
-static struct address_space_operations def_btnode_aops;
+static const struct address_space_operations def_btnode_aops = {
+	.sync_page		= block_sync_page,
+};
 
-void nilfs_btnode_cache_init(struct address_space *btnc)
+void nilfs_btnode_cache_init(struct address_space *btnc,
+			     struct backing_dev_info *bdi)
 {
 	btnc->host = NULL;  /* can safely set to host inode ? */
 	btnc->flags = 0;
 	mapping_set_gfp_mask(btnc, GFP_NOFS);
 	btnc->assoc_mapping = NULL;
-	btnc->backing_dev_info = &default_backing_dev_info;
+	btnc->backing_dev_info = bdi;
 	btnc->a_ops = &def_btnode_aops;
 }
 
@@ -206,6 +209,7 @@ int nilfs_btnode_prepare_change_key(struct address_space *btnc,
 		 * We cannot call radix_tree_preload for the kernels older
 		 * than 2.6.23, because it is not exported for modules.
 		 */
+retry:
 		err = radix_tree_preload(GFP_NOFS & ~__GFP_HIGHMEM);
 		if (err)
 			goto failed_unlock;
@@ -216,7 +220,6 @@ int nilfs_btnode_prepare_change_key(struct address_space *btnc,
 				       (unsigned long long)oldkey,
 				       (unsigned long long)newkey);
 
-retry:
 		spin_lock_irq(&btnc->tree_lock);
 		err = radix_tree_insert(&btnc->page_tree, newkey, obh->b_page);
 		spin_unlock_irq(&btnc->tree_lock);

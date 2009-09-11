@@ -8,8 +8,6 @@ config GRKERNSEC
 	bool "Grsecurity"
 	select CRYPTO
 	select CRYPTO_SHA256
-	select SECURITY
-	select SECURITY_CAPABILITIES
 	help
 	  If you say Y here, you will be able to configure many features
 	  that will enhance the security of your system.  It is highly
@@ -31,7 +29,6 @@ config GRKERNSEC_LOW
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_CHROOT
 	select GRKERNSEC_CHROOT_CHDIR
-	select GRKERNSEC_MODSTOP if (MODULES)
 
 	help
 	  If you choose this option, several of the grsecurity options will
@@ -75,7 +72,6 @@ config GRKERNSEC_MEDIUM
 	select GRKERNSEC_CHROOT_MKNOD
 	select GRKERNSEC_PROC
 	select GRKERNSEC_PROC_USERGROUP
-	select GRKERNSEC_MODSTOP if (MODULES)
 	select PAX_RANDUSTACK
 	select PAX_ASLR
 	select PAX_RANDMMAP
@@ -140,8 +136,8 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_CHROOT_CHMOD
 	select GRKERNSEC_CHROOT_NICE
 	select GRKERNSEC_AUDIT_MOUNT
-	select GRKERNSEC_MODSTOP if (MODULES)
 	select GRKERNSEC_MODHARDEN if (MODULES)
+	select GRKERNSEC_HARDEN_PTRACE
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -192,6 +188,7 @@ config GRKERNSEC_HIGH
 	  - Kernel symbol hiding
 	  - Prevention of memory exhaustion-based exploits
 	  - Hardening of module auto-loading
+	  - Ptrace restrictions
 
 config GRKERNSEC_CUSTOM
 	bool "Custom"
@@ -270,24 +267,6 @@ config GRKERNSEC_BRUTE
 	  situation and restart the daemon.  It is recommended that you also
 	  enable signal logging in the auditing section so that logs are
 	  generated when a process performs an illegal instruction.
-
-config GRKERNSEC_MODSTOP
-	bool "Runtime module disabling"
-	depends on MODULES
-	help
-	  If you say Y here, you will be able to disable the ability to (un)load
-	  modules at runtime.  This feature is useful if you need the ability
-	  to load kernel modules at boot time, but do not want to allow an
-	  attacker to load a rootkit kernel module into the system, or to remove
-	  a loaded kernel module important to system functioning.  You should
-	  enable the /dev/mem protection feature as well, since rootkits can be
-	  inserted into the kernel via other methods than kernel modules.  Since
-	  an untrusted module could still be loaded by modifying init scripts and
-	  rebooting the system, it is also recommended that you enable the RBAC
-	  system.  If you enable this option, a sysctl option with name
-	  "disable_modules" will be created.  Setting this option to "1" disables
-	  module loading.  After this option is set, no further writes to it are
-	  allowed until the system is rebooted.
 
 config GRKERNSEC_MODHARDEN
 	bool "Harden module auto-loading"
@@ -711,6 +690,22 @@ config GRKERNSEC_DMESG
 	  If you say Y here, non-root users will not be able to use dmesg(8)
 	  to view up to the last 4kb of messages in the kernel's log buffer.
 	  If the sysctl option is enabled, a sysctl option with name "dmesg" is
+	  created.
+
+config GRKERNSEC_HARDEN_PTRACE
+	bool "Deter ptrace-based process snooping"
+	help
+	  If you say Y here, TTY sniffers and other malicious monitoring
+	  programs implemented through ptrace will be defeated.  If you
+	  have been using the RBAC system, this option has already been
+	  enabled for several years for all users, with the ability to make
+	  fine-grained exceptions.
+
+	  This option only affects the ability of non-root users to ptrace
+	  processes that are not a descendent of the ptracing process.
+	  This means that strace ./binary and gdb ./binary will still work,
+	  but attaching to arbitrary processes will not.  If the sysctl
+	  option is enabled, a sysctl option with name "harden_ptrace" is
 	  created.
 
 config GRKERNSEC_TPE

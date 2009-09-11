@@ -695,7 +695,7 @@ static int zr364xx_release(struct file *file)
 	for (i = 0; i < 2; i++) {
 		err =
 		    send_control_msg(udev, 1, init[cam->method][i].value,
-				     0, init[i][cam->method].bytes,
+				     0, init[cam->method][i].bytes,
 				     init[cam->method][i].size);
 		if (err < 0) {
 			dev_err(&udev->dev, "error during release sequence\n");
@@ -882,9 +882,11 @@ static void zr364xx_disconnect(struct usb_interface *intf)
 		video_unregister_device(cam->vdev);
 	cam->vdev = NULL;
 	kfree(cam->buffer);
-	if (cam->framebuf)
-		vfree(cam->framebuf);
+	cam->buffer = NULL;
+	vfree(cam->framebuf);
+	cam->framebuf = NULL;
 	kfree(cam);
+	cam = NULL;
 }
 
 

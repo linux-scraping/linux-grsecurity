@@ -469,9 +469,11 @@ static int oxygen_multich_hw_params(struct snd_pcm_substream *substream,
 	oxygen_write16_masked(chip, OXYGEN_I2S_MULTICH_FORMAT,
 			      oxygen_rate(hw_params) |
 			      chip->model.dac_i2s_format |
+			      oxygen_i2s_mclk(hw_params) |
 			      oxygen_i2s_bits(hw_params),
 			      OXYGEN_I2S_RATE_MASK |
 			      OXYGEN_I2S_FORMAT_MASK |
+			      OXYGEN_I2S_MCLK_MASK |
 			      OXYGEN_I2S_BITS_MASK);
 	oxygen_update_dac_routing(chip);
 	oxygen_update_spdif_source(chip);
@@ -487,10 +489,14 @@ static int oxygen_hw_free(struct snd_pcm_substream *substream)
 {
 	struct oxygen *chip = snd_pcm_substream_chip(substream);
 	unsigned int channel = oxygen_substream_channel(substream);
+	unsigned int channel_mask = 1 << channel;
 
 	spin_lock_irq(&chip->reg_lock);
-	chip->interrupt_mask &= ~(1 << channel);
+	chip->interrupt_mask &= ~channel_mask;
 	oxygen_write16(chip, OXYGEN_INTERRUPT_MASK, chip->interrupt_mask);
+
+	oxygen_set_bits8(chip, OXYGEN_DMA_FLUSH, channel_mask);
+	oxygen_clear_bits8(chip, OXYGEN_DMA_FLUSH, channel_mask);
 	spin_unlock_irq(&chip->reg_lock);
 
 	return snd_pcm_lib_free_pages(substream);

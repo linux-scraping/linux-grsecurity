@@ -2806,15 +2806,15 @@ static int ia_ioctl(struct atm_dev *dev, unsigned int cmd, void __user *arg)
          {
              struct k_sonet_stats *stats;
              stats = &PRIV(_ia_dev[board])->sonet_stats;
-             printk("section_bip: %d\n", atomic_read(&stats->section_bip));
-             printk("line_bip   : %d\n", atomic_read(&stats->line_bip));
-             printk("path_bip   : %d\n", atomic_read(&stats->path_bip));
-             printk("line_febe  : %d\n", atomic_read(&stats->line_febe));
-             printk("path_febe  : %d\n", atomic_read(&stats->path_febe));
-             printk("corr_hcs   : %d\n", atomic_read(&stats->corr_hcs));
-             printk("uncorr_hcs : %d\n", atomic_read(&stats->uncorr_hcs));
-             printk("tx_cells   : %d\n", atomic_read(&stats->tx_cells));
-             printk("rx_cells   : %d\n", atomic_read(&stats->rx_cells));
+             printk("section_bip: %d\n", atomic_read_unchecked(&stats->section_bip));
+             printk("line_bip   : %d\n", atomic_read_unchecked(&stats->line_bip));
+             printk("path_bip   : %d\n", atomic_read_unchecked(&stats->path_bip));
+             printk("line_febe  : %d\n", atomic_read_unchecked(&stats->line_febe));
+             printk("path_febe  : %d\n", atomic_read_unchecked(&stats->path_febe));
+             printk("corr_hcs   : %d\n", atomic_read_unchecked(&stats->corr_hcs));
+             printk("uncorr_hcs : %d\n", atomic_read_unchecked(&stats->uncorr_hcs));
+             printk("tx_cells   : %d\n", atomic_read_unchecked(&stats->tx_cells));
+             printk("rx_cells   : %d\n", atomic_read_unchecked(&stats->rx_cells));
          }
             ia_cmds.status = 0;
             break;
@@ -3031,7 +3031,7 @@ static int ia_pkt_tx (struct atm_vcc *vcc, struct sk_buff *skb) {
         
 #if 0        
         /* add flow control logic */ 
-        if (atomic_read(&vcc->stats->tx) % 20 == 0) {
+        if (atomic_read_unchecked(&vcc->stats->tx) % 20 == 0) {
           if (iavcc->vc_desc_cnt > 10) {
              vcc->tx_quota =  vcc->tx_quota * 3 / 4;
             printk("Tx1:  vcc->tx_quota = %d \n", (u32)vcc->tx_quota );

@@ -104,7 +104,7 @@ void menu_add_dep(struct expr *dep)
 	current_entry->dep = expr_alloc_and(current_entry->dep, menu_check_dep(dep));
 }
 
-void menu_set_type(int type)
+void menu_set_type(unsigned int type)
 {
 	struct symbol *sym = current_entry->sym;
 

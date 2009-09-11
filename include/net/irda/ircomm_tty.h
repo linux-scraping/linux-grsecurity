@@ -105,8 +105,8 @@ struct ircomm_tty_cb {
         unsigned short    close_delay;
         unsigned short    closing_wait; /* time to wait before closing */
 
-	int  open_count;
-	int  blocked_open;	/* # of blocked opens */
+	atomic_t open_count;
+	atomic_t blocked_open;	/* # of blocked opens */
 
 	/* Protect concurent access to :
 	 *	o self->open_count

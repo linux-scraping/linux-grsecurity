@@ -48,7 +48,7 @@
 #define atomic_sub_unchecked(i,v) atomic_sub((i),(v))
 #define atomic_dec(v) atomic_sub(1,(v))
 
-#ifndef CONFIG_GUSA_RB
+#if !defined(CONFIG_GUSA_RB) && !defined(CONFIG_CPU_SH4A)
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	int ret;
@@ -76,7 +76,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 	return ret != u;
 }
-#endif
+#endif /* !CONFIG_GUSA_RB && !CONFIG_CPU_SH4A */
 
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
@@ -87,5 +87,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define smp_mb__before_atomic_inc()	barrier()
 #define smp_mb__after_atomic_inc()	barrier()
 
-#include <asm-generic/atomic.h>
+#include <asm-generic/atomic-long.h>
+#include <asm-generic/atomic64.h>
+
 #endif /* __ASM_SH_ATOMIC_H */

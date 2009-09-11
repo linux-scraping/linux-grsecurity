@@ -155,5 +155,5 @@ static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_add_unchecked(i,v) atomic_add((i),(v))
 #define atomic_sub_unchecked(i,v) atomic_sub((i),(v))
 
-#include <asm-generic/atomic.h>
+#include <asm-generic/atomic-long.h>
 #endif /* __ARCH_M68KNOMMU_ATOMIC __ */
