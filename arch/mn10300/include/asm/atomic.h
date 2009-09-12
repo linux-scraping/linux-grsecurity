@@ -34,6 +34,15 @@
 #define atomic_read(v)	((v)->counter)
 
 /**
+ * atomic_read_unchecked - read atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ *
+ * Atomically reads the value of @v.  Note that the guaranteed
+ * useful range of an atomic_unchecked_t is only 24 bits.
+ */
+#define atomic_read_unchecked(v)	((v)->counter)
+
+/**
  * atomic_set - set atomic variable
  * @v: pointer of type atomic_t
  * @i: required value
@@ -42,6 +51,16 @@
  * useful range of an atomic_t is only 24 bits.
  */
 #define atomic_set(v, i) (((v)->counter) = (i))
+
+/**
+ * atomic_set_unchecked - set atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ * @i: required value
+ *
+ * Atomically sets the value of @v to @i.  Note that the guaranteed
+ * useful range of an atomic_unchecked_t is only 24 bits.
+ */
+#define atomic_set_unchecked(v, i) (((v)->counter) = (i))
 
 #include <asm/system.h>
 
@@ -99,14 +118,29 @@ static inline void atomic_add(int i, atomic_t *v)
 	atomic_add_return(i, v);
 }
 
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_add_return(i, (atomic_t *)v);
+}
+
 static inline void atomic_sub(int i, atomic_t *v)
 {
 	atomic_sub_return(i, v);
 }
 
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_sub_return(i, (atomic_t *)v);
+}
+
 static inline void atomic_inc(atomic_t *v)
 {
 	atomic_add_return(1, v);
+}
+
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
+{
+	atomic_add_return(1, (atomic_t *)v);
 }
 
 static inline void atomic_dec(atomic_t *v)
@@ -144,10 +178,6 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 
 #define atomic_xchg(ptr, v)		(xchg(&(ptr)->counter, (v)))
 #define atomic_cmpxchg(v, old, new)	(cmpxchg(&((v)->counter), (old), (new)))
-
-#define atomic_inc_unchecked(v)		atomic_inc(v)
-#define atomic_add_unchecked(i,v)	atomic_add((i),(v))
-#define atomic_sub_unchecked(i,v)	atomic_sub((i),(v))
 
 /* Atomic operations are already serializing on MN10300??? */
 #define smp_mb__before_atomic_dec()	barrier()

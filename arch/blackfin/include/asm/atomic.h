@@ -15,8 +15,10 @@
 
 #define ATOMIC_INIT(i)	{ (i) }
 #define atomic_set(v, i)	(((v)->counter) = i)
+#define atomic_set_unchecked(v, i)	(((v)->counter) = i)
 
 #define atomic_read(v)	__raw_uncached_fetch_asm(&(v)->counter)
+#define atomic_read_unchecked(v)	__raw_uncached_fetch_asm(&(v)->counter)
 
 asmlinkage int __raw_uncached_fetch_asm(const volatile int *ptr);
 
@@ -35,9 +37,19 @@ static inline void atomic_add(int i, atomic_t *v)
 	__raw_atomic_update_asm(&v->counter, i);
 }
 
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_add(i, (atomic_t *)v);
+}
+
 static inline void atomic_sub(int i, atomic_t *v)
 {
 	__raw_atomic_update_asm(&v->counter, -i);
+}
+
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_sub(i, (atomic_t *)v);
 }
 
 static inline int atomic_add_return(int i, atomic_t *v)
@@ -53,6 +65,11 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 static inline void atomic_inc(volatile atomic_t *v)
 {
 	__raw_atomic_update_asm(&v->counter, 1);
+}
+
+static inline void atomic_inc_unchecked(volatile atomic_unchecked_t *v)
+{
+	atomic_inc((atomic_t *)v);
 }
 
 static inline void atomic_dec(volatile atomic_t *v)
@@ -81,9 +98,6 @@ static inline int atomic_test_mask(int mask, atomic_t *v)
 #define smp_mb__before_atomic_inc()    barrier()
 #define smp_mb__after_atomic_inc() barrier()
 
-#define atomic_add_unchecked(i, v) atomic_add((i), (v))
-#define atomic_sub_unchecked(i, v) atomic_sub((i), (v))
-#define atomic_inc_unchecked(v) atomic_inc((v))
 #define atomic_add_negative(a, v)	(atomic_add_return((a), (v)) < 0)
 #define atomic_dec_return(v) atomic_sub_return(1,(v))
 #define atomic_inc_return(v) atomic_add_return(1,(v))

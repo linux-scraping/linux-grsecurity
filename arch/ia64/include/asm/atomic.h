@@ -22,9 +22,11 @@
 #define ATOMIC64_INIT(i)	((atomic64_t) { (i) })
 
 #define atomic_read(v)		((v)->counter)
+#define atomic_read_unchecked(v)	((v)->counter)
 #define atomic64_read(v)	((v)->counter)
 
 #define atomic_set(v,i)		(((v)->counter) = (i))
+#define atomic_set_unchecked(v,i)	(((v)->counter) = (i))
 #define atomic64_set(v,i)	(((v)->counter) = (i))
 
 static __inline__ int
@@ -201,11 +203,11 @@ atomic64_add_negative (__s64 i, atomic64_t *v)
 #define atomic64_inc_and_test(v)	(atomic64_add_return(1, (v)) == 0)
 
 #define atomic_add(i,v)			atomic_add_return((i), (v))
-#define atomic_add_unchecked(i,v)	atomic_add((i), (v))
+#define atomic_add_unchecked(i,v)	atomic_add((i), (atomic_t *)(v))
 #define atomic_sub(i,v)			atomic_sub_return((i), (v))
-#define atomic_sub_unchecked(i,v)	atomic_sub((i), (v))
+#define atomic_sub_unchecked(i,v)	atomic_sub((i), (atomic_t *)(v))
 #define atomic_inc(v)			atomic_add(1, (v))
-#define atomic_inc_unchecked(v)		atomic_inc(v)
+#define atomic_inc_unchecked(v)		atomic_inc((atomic_t *)(v))
 #define atomic_dec(v)			atomic_sub(1, (v))
 
 #define atomic64_add(i,v)		atomic64_add_return((i), (v))

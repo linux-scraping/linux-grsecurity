@@ -16,7 +16,9 @@
 #define ATOMIC_INIT(i)  { (i) }
 
 #define atomic_read(v) ((v)->counter)
+#define atomic_read_unchecked(v) ((v)->counter)
 #define atomic_set(v,i) (((v)->counter) = (i))
+#define atomic_set_unchecked(v,i) (((v)->counter) = (i))
 
 /* These should be written in asm but we do it in C for now. */
 
@@ -28,12 +30,22 @@ static inline void atomic_add(int i, volatile atomic_t *v)
 	cris_atomic_restore(v, flags);
 }
 
+static inline void atomic_add_unchecked(int i, volatile atomic_unchecked_t *v)
+{
+	atomic_add(i, (volatile atomic_t *)v);
+}
+
 static inline void atomic_sub(int i, volatile atomic_t *v)
 {
 	unsigned long flags;
 	cris_atomic_save(v, flags);
 	v->counter -= i;
 	cris_atomic_restore(v, flags);
+}
+
+static inline void atomic_sub_unchecked(int i, volatile atomic_unchecked_t *v)
+{
+	atomic_sub(i, (volatile atomic_t *)v);
 }
 
 static inline int atomic_add_return(int i, volatile atomic_t *v)
@@ -74,6 +86,11 @@ static inline void atomic_inc(volatile atomic_t *v)
 	cris_atomic_save(v, flags);
 	(v->counter)++;
 	cris_atomic_restore(v, flags);
+}
+
+static inline void atomic_inc_unchecked(volatile atomic_unchecked_t *v)
+{
+	atomic_inc((volatile atomic_t *)v);
 }
 
 static inline void atomic_dec(volatile atomic_t *v)
@@ -151,10 +168,6 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 	return ret != u;
 }
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
-
-#define atomic_inc_unchecked(v) atomic_inc((v))
-#define atomic_add_unchecked(i,v) atomic_add((i),(v))
-#define atomic_sub_unchecked(i,v) atomic_sub((i),(v))
 
 /* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()    barrier()

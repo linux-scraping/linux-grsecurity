@@ -20,6 +20,7 @@
 #ifdef __KERNEL__
 
 #define atomic_read(v)	((v)->counter)
+#define atomic_read_unchecked(v)	((v)->counter)
 
 #if __LINUX_ARM_ARCH__ >= 6
 
@@ -44,6 +45,11 @@ static inline void atomic_set(atomic_t *v, int i)
 	: "cc");
 }
 
+static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
+{
+	atomic_set((atomic_t *)v, i);
+}
+
 static inline void atomic_add(int i, atomic_t *v)
 {
 	unsigned long tmp;
@@ -58,6 +64,11 @@ static inline void atomic_add(int i, atomic_t *v)
 	: "=&r" (result), "=&r" (tmp)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
+}
+
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_add(i, (atomic_t *)v);
 }
 
 static inline int atomic_add_return(int i, atomic_t *v)
@@ -96,6 +107,11 @@ static inline void atomic_sub(int i, atomic_t *v)
 	: "=&r" (result), "=&r" (tmp)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
+}
+
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_sub(i, (atomic_t *)v);
 }
 
 static inline int atomic_sub_return(int i, atomic_t *v)
@@ -164,6 +180,7 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 #endif
 
 #define atomic_set(v,i)	(((v)->counter) = (i))
+#define atomic_set_unchecked(v,i)	(((v)->counter) = (i))
 
 static inline int atomic_add_return(int i, atomic_t *v)
 {
@@ -232,10 +249,8 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
 #define atomic_inc(v)		atomic_add(1, v)
+#define atomic_inc_unchecked(v)		atomic_add_unchecked(1, v)
 #define atomic_dec(v)		atomic_sub(1, v)
-#define atomic_inc_unchecked(v)		atomic_inc(v)
-#define atomic_add_unchecked(i, v)	atomic_add(i, v)
-#define atomic_sub_unchecked(i, v)	atomic_sub(i, v)
 
 #define atomic_inc_and_test(v)	(atomic_add_return(1, v) == 0)
 #define atomic_dec_and_test(v)	(atomic_sub_return(1, v) == 0)

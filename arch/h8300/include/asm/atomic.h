@@ -11,7 +11,9 @@
 #define ATOMIC_INIT(i)	{ (i) }
 
 #define atomic_read(v)		((v)->counter)
+#define atomic_read_unchecked(v)		((v)->counter)
 #define atomic_set(v, i)	(((v)->counter) = i)
+#define atomic_set_unchecked(v, i)	(((v)->counter) = i)
 
 #include <asm/system.h>
 #include <linux/kernel.h>
@@ -25,8 +27,13 @@ static __inline__ int atomic_add_return(int i, atomic_t *v)
 	return ret;
 }
 
+static __inline__ int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	return atomic_add_return(i, (atomic_t *)v);
+}
+
 #define atomic_add(i, v) atomic_add_return(i, v)
-#define atomic_add_unchecked(i, v) atomic_add((i), (v))
+#define atomic_add_unchecked(i, v) atomic_add_return_unchecked(i, v)
 #define atomic_add_negative(a, v)	(atomic_add_return((a), (v)) < 0)
 
 static __inline__ int atomic_sub_return(int i, atomic_t *v)
@@ -38,8 +45,13 @@ static __inline__ int atomic_sub_return(int i, atomic_t *v)
 	return ret;
 }
 
+static __inline__ int atomic_sub_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	return atomic_sub_return(i, (atomic_t *)v);
+}
+
 #define atomic_sub(i, v) atomic_sub_return(i, v)
-#define atomic_subUnchecked(i, v) atomic_sub(i, v)
+#define atomic_sub_unchecked(i, v) atomic_sub_return_unchecked(i, v)
 #define atomic_sub_and_test(i,v) (atomic_sub_return(i, v) == 0)
 
 static __inline__ int atomic_inc_return(atomic_t *v)
@@ -52,8 +64,13 @@ static __inline__ int atomic_inc_return(atomic_t *v)
 	return ret;
 }
 
+static __inline__ int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_inc_return((atomic_t *)v);
+}
+
 #define atomic_inc(v) atomic_inc_return(v)
-#define atomic_inc_unchecked(v) atomic_inc(v)
+#define atomic_inc_unchecked(v) atomic_inc_return_unchecked(v)
 
 /*
  * atomic_inc_and_test - increment and test

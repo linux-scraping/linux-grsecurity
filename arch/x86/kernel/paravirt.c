@@ -406,7 +406,6 @@ struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.end_context_switch = paravirt_nop,
 };
 
-struct pv_apic_ops pv_apic_ops = {
 struct pv_apic_ops pv_apic_ops __read_only = {
 #ifdef CONFIG_X86_LOCAL_APIC
 	.setup_boot_clock = setup_boot_APIC_clock,

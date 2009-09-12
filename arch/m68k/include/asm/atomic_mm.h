@@ -16,11 +16,18 @@
 #define ATOMIC_INIT(i)	{ (i) }
 
 #define atomic_read(v)		((v)->counter)
+#define atomic_read_unchecked(v)	((v)->counter)
 #define atomic_set(v, i)	(((v)->counter) = i)
+#define atomic_set_unchecked(v, i)	(((v)->counter) = i)
 
 static inline void atomic_add(int i, atomic_t *v)
 {
 	__asm__ __volatile__("addl %1,%0" : "+m" (*v) : "id" (i));
+}
+
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_add(i, (atomic_t *)v);
 }
 
 static inline void atomic_sub(int i, atomic_t *v)
@@ -28,9 +35,19 @@ static inline void atomic_sub(int i, atomic_t *v)
 	__asm__ __volatile__("subl %1,%0" : "+m" (*v) : "id" (i));
 }
 
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_sub(i, (atomic_t *)v);
+}
+
 static inline void atomic_inc(atomic_t *v)
 {
 	__asm__ __volatile__("addql #1,%0" : "+m" (*v));
+}
+
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
+{
+	atomic_inc((atomic_t *)v);
 }
 
 static inline void atomic_dec(atomic_t *v)
@@ -185,10 +202,6 @@ static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
 }
 
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
-
-#define atomic_inc_unchecked(v) atomic_inc((v))
-#define atomic_add_unchecked(i,v) atomic_add((i),(v))
-#define atomic_sub_unchecked(i,v) atomic_sub((i),(v))
 
 /* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()	barrier()

@@ -37,7 +37,9 @@
 
 #define ATOMIC_INIT(i)		{ (i) }
 #define atomic_read(v)		((v)->counter)
+#define atomic_read_unchecked(v)		((v)->counter)
 #define atomic_set(v, i)	(((v)->counter) = (i))
+#define atomic_set_unchecked(v, i)	(((v)->counter) = (i))
 
 #ifndef CONFIG_FRV_OUTOFLINE_ATOMIC_OPS
 static inline int atomic_add_return(int i, atomic_t *v)
@@ -99,9 +101,19 @@ static inline void atomic_add(int i, atomic_t *v)
 	atomic_add_return(i, v);
 }
 
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_add_return(i, (atomic_t *)v);
+}
+
 static inline void atomic_sub(int i, atomic_t *v)
 {
 	atomic_sub_return(i, v);
+}
+
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	atomic_sub_return(i, (atomic_t *)v);
 }
 
 static inline void atomic_inc(atomic_t *v)
@@ -109,14 +121,15 @@ static inline void atomic_inc(atomic_t *v)
 	atomic_add_return(1, v);
 }
 
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
+{
+	atomic_add_return(1, (atomic_t *)v);
+}
+
 static inline void atomic_dec(atomic_t *v)
 {
 	atomic_sub_return(1, v);
 }
-
-#define atomic_inc_unchecked(v)		atomic_inc(v)
-#define atomic_add_unchecked(i,v)	atomic_add((i),(v))
-#define atomic_sub_unchecked(i,v)	atomic_sub((i),(v))
 
 #define atomic_dec_return(v)		atomic_sub_return(1, (v))
 #define atomic_inc_return(v)		atomic_add_return(1, (v))

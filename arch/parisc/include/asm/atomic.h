@@ -177,6 +177,18 @@ static __inline__ int __atomic_add_return(int i, atomic_t *v)
 	return ret;
 }
 
+static __inline__ int __atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	int ret;
+	unsigned long flags;
+	_atomic_spin_lock_irqsave(v, flags);
+
+	ret = (v->counter += i);
+
+	_atomic_spin_unlock_irqrestore(v, flags);
+	return ret;
+}
+
 static __inline__ void atomic_set(atomic_t *v, int i) 
 {
 	unsigned long flags;
@@ -187,7 +199,22 @@ static __inline__ void atomic_set(atomic_t *v, int i)
 	_atomic_spin_unlock_irqrestore(v, flags);
 }
 
+static __inline__ void atomic_set_unchecked(atomic_unchecked_t *v, int i) 
+{
+	unsigned long flags;
+	_atomic_spin_lock_irqsave(v, flags);
+
+	v->counter = i;
+
+	_atomic_spin_unlock_irqrestore(v, flags);
+}
+
 static __inline__ int atomic_read(const atomic_t *v)
+{
+	return v->counter;
+}
+
+static __inline__ int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
 	return v->counter;
 }
@@ -223,11 +250,11 @@ static __inline__ int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
 #define atomic_add(i,v)	((void)(__atomic_add_return( (i),(v))))
-#define atomic_add_unchecked(i,v)	atomic_add((i), (v))
+#define atomic_add_unchecked(i,v) ((void)(__atomic_add_return_unchecked( ((i),(v))))
 #define atomic_sub(i,v)	((void)(__atomic_add_return(-(i),(v))))
-#define atomic_sub_unchecked(i,v)	atomic_sub((i), (v))
+#define atomic_sub_unchecked(i,v) ((void)(__atomic_add_return_unchecked(-(i),(v))))
 #define atomic_inc(v)	((void)(__atomic_add_return(   1,(v))))
-#define atomic_inc_unchecked(v)	atomic_inc(v)
+#define atomic_inc_unchecked(v) ((void)(__atomic_add_return_unchecked(   1,(v))))
 #define atomic_dec(v)	((void)(__atomic_add_return(  -1,(v))))
 
 #define atomic_add_return(i,v)	(__atomic_add_return( (i),(v)))

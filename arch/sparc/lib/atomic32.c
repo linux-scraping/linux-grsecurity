@@ -80,6 +80,12 @@ void atomic_set(atomic_t *v, int i)
 }
 EXPORT_SYMBOL(atomic_set);
 
+void atomic_set_unchecked(atomic_unchecked_t *v, int i)
+{
+	atomic_set((atomic_t *)v, i);
+}
+EXPORT_SYMBOL(atomic_set_unchecked);
+
 unsigned long ___set_bit(unsigned long *addr, unsigned long mask)
 {
 	unsigned long old, flags;

@@ -29,6 +29,14 @@
 #define atomic_read(v)	((v)->counter)
 
 /**
+ * atomic_read_unchecked - read atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ *
+ * Atomically reads the value of @v.
+ */
+#define atomic_read_unchecked(v)	((v)->counter)
+
+/**
  * atomic_set - set atomic variable
  * @v: pointer of type atomic_t
  * @i: required value
@@ -36,6 +44,15 @@
  * Atomically sets the value of @v to @i.
  */
 #define atomic_set(v,i)	(((v)->counter) = (i))
+
+/**
+ * atomic_set_unchecked - set atomic variable
+ * @v: pointer of type atomic_unchecked_t
+ * @i: required value
+ *
+ * Atomically sets the value of @v to @i.
+ */
+#define atomic_set_unchecked(v,i)	(((v)->counter) = (i))
 
 /**
  * atomic_add_return - add integer to atomic variable and return it
@@ -308,9 +325,9 @@ static __inline__ void atomic_set_mask(unsigned long  mask, atomic_t *addr)
 	local_irq_restore(flags);
 }
 
-#define atomic_inc_unchecked(v)		atomic_inc(v)
-#define atomic_add_unchecked(i,v)	atomic_add((i),(v))
-#define atomic_sub_unchecked(i,v)	atomic_sub((i),(v))
+#define atomic_inc_unchecked(v)		atomic_inc((atomic_t *)(v))
+#define atomic_add_unchecked(i,v)	atomic_add((i),(atomic_t *)(v))
+#define atomic_sub_unchecked(i,v)	atomic_sub((i),(atomic_t *)(v))
 
 /* Atomic operations are already serializing on m32r */
 #define smp_mb__before_atomic_dec()	barrier()

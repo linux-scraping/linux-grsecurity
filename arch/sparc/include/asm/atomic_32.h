@@ -24,15 +24,17 @@ extern int atomic_cmpxchg(atomic_t *, int, int);
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
 extern int atomic_add_unless(atomic_t *, int, int);
 extern void atomic_set(atomic_t *, int);
+extern void atomic_set_unchecked(atomic_unchecked_t *, int);
 
 #define atomic_read(v)          ((v)->counter)
+#define atomic_read_unchecked(v)          ((v)->counter)
 
 #define atomic_add(i, v)	((void)__atomic_add_return( (int)(i), (v)))
-#define atomic_add_unchecked(i, v)	atomic_add((i), (v))
+#define atomic_add_unchecked(i, v)	atomic_add((i), (atomic_t *)(v))
 #define atomic_sub(i, v)	((void)__atomic_add_return(-(int)(i), (v)))
-#define atomic_sub_unchecked(i, v)	atomic_sub((i), (v))
+#define atomic_sub_unchecked(i, v)	atomic_sub((i), (atomic_t *)(v))
 #define atomic_inc(v)		((void)__atomic_add_return(        1, (v)))
-#define atomic_inc_unchecked(v)	atomic_inc(v)
+#define atomic_inc_unchecked(v)	atomic_inc((atomic_t *)(v))
 #define atomic_dec(v)		((void)__atomic_add_return(       -1, (v)))
 
 #define atomic_add_return(i, v)	(__atomic_add_return( (int)(i), (v)))
