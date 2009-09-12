@@ -376,6 +376,7 @@ emulate:
 			{
 				unsigned long addr;
 
+				regs->u_regs[UREG_G1] = (sethi & 0x003FFFFFU) << 10;
 				addr = (save & 0x003FFFFFU) << 10;
 				regs->u_regs[UREG_G2] = addr;
 				addr += (((call | 0xFFFFE000U) ^ 0x00001000U) + 0x00001000U);
