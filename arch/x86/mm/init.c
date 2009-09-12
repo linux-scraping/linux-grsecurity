@@ -32,7 +32,7 @@ int direct_gbpages
 int nx_enabled;
 #endif
 
-#if (defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)) && !defined(CONFIG_PAX_PAGEEXEC)
+#if defined(CONFIG_X86_PAE) && !defined(CONFIG_PAX_PAGEEXEC)
 /*
  * noexec = on|off
  *
