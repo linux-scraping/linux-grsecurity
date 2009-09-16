@@ -54,7 +54,6 @@ static int __init noexec_setup(char *str)
 }
 early_param("noexec", noexec_setup);
 #endif
-#endif
 
 #ifdef CONFIG_X86_PAE
 static void __init set_nx(void)
