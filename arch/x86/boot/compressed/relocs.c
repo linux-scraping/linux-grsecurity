@@ -551,16 +551,16 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
 			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
 				continue;
+
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
-			if (!strcmp(sec_name(sym->st_shndx), ".init.text")) {
-				if (strcmp(sym_name(sym_strtab, sym), "__init_begin"))
-					continue;
-			}
+			if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
+				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
 				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".text.head")) {
-				if (strcmp(sym_name(sym_strtab, sym), "KERNEL_TEXT_OFFSET"))
+				if (!strcmp(sym_name(sym_strtab, sym), "startup_32") ||
+				    !strcmp(sym_name(sym_strtab, sym), "_text"))
 					continue;
 			}
 			if (!strcmp(sec_name(sym->st_shndx), ".text"))

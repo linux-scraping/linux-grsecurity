@@ -281,7 +281,11 @@ typedef struct page *pgtable_t;
 
 extern pteval_t __supported_pte_mask;
 #ifdef CONFIG_X86_32
+#ifdef CONFIG_X86_PAE
 extern int nx_enabled;
+#else
+#define nx_enabled (0)
+#endif
 #else
 #define nx_enabled (1)
 #endif

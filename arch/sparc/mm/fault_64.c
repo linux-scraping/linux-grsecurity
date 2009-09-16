@@ -408,6 +408,10 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 
 			regs->u_regs[UREG_G1] = regs->u_regs[UREG_RETPC];
 			addr = regs->tpc + 4 + ((((call | 0xFFFFFFFFC0000000UL) ^ 0x20000000UL) + 0x20000000UL) << 2);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			regs->tpc = addr;
 			regs->tnpc = addr+4;
 			return 2;
@@ -499,6 +503,10 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			addr = (sethi & 0x003FFFFFU) << 10;
 			regs->u_regs[UREG_G1] = addr;
 			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
 			regs->tpc = addr;
 			regs->tnpc = addr+4;
 			return 2;

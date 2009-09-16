@@ -130,7 +130,7 @@ ENTRY(startup_32)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	movl $pa(boot_gdt),%edi
-	movl $KERNEL_TEXT_OFFSET,%eax
+	movl $__LOAD_PHYSICAL_ADDR + __PAGE_OFFSET,%eax
 	movw %ax,__BOOT_CS + 2(%edi)
 	rorl $16,%eax
 	movb %al,__BOOT_CS + 4(%edi)
@@ -352,6 +352,7 @@ ENTRY(startup_32_smp)
 	orl %edx,%eax
 	movl %eax,%cr4
 
+#ifdef CONFIG_X86_PAE
 	btl $5, %eax		# check if PAE is enabled
 	jnc 6f
 
@@ -378,6 +379,7 @@ ENTRY(startup_32_smp)
 	movl $1,pa(nx_enabled)
 
 6:
+#endif
 
 /*
  * Enable paging

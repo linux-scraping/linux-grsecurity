@@ -50,10 +50,10 @@ extern bool __vmalloc_start_set; /* set once high_memory is set */
 #ifndef __ASSEMBLY__
 extern unsigned char MODULES_EXEC_VADDR[];
 extern unsigned char MODULES_EXEC_END[];
-extern unsigned char KERNEL_TEXT_OFFSET[];
 #endif
-#define ktla_ktva(addr)		(addr + (unsigned long)KERNEL_TEXT_OFFSET)
-#define ktva_ktla(addr)		(addr - (unsigned long)KERNEL_TEXT_OFFSET)
+#include <asm/boot.h>
+#define ktla_ktva(addr)		(addr + LOAD_PHYSICAL_ADDR + PAGE_OFFSET)
+#define ktva_ktla(addr)		(addr - LOAD_PHYSICAL_ADDR - PAGE_OFFSET)
 #else
 #define ktla_ktva(addr)		(addr)
 #define ktva_ktla(addr)		(addr)

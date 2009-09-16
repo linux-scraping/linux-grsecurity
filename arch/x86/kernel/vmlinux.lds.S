@@ -38,7 +38,7 @@
 #define PMD_SIZE (1 << PMD_SHIFT)
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-#define __KERNEL_TEXT_OFFSET	(__PAGE_OFFSET + (((____LOAD_PHYSICAL_ADDR + PMD_SIZE - 1) - 1) & ~(PMD_SIZE - 1)))
+#define __KERNEL_TEXT_OFFSET	(LOAD_OFFSET + ____LOAD_PHYSICAL_ADDR)
 #else
 #define __KERNEL_TEXT_OFFSET	0
 #endif
@@ -64,7 +64,7 @@ PHDRS {
 #ifdef CONFIG_X86_64
 	user PT_LOAD FLAGS(5);          /* R_E */
 #endif
-	smp PT_LOAD FLAGS(6);           /* RW_ */
+	init.begin PT_LOAD FLAGS(6);    /* RW_ */
 #ifdef CONFIG_SMP
 	percpu PT_LOAD FLAGS(6);        /* RW_ */
 #endif
@@ -76,11 +76,7 @@ PHDRS {
 SECTIONS
 {
 #ifdef CONFIG_X86_32
-#ifdef CONFIG_PAX_KERNEXEC
-	. = 0;
-#else
 	. = LOAD_OFFSET + ____LOAD_PHYSICAL_ADDR;
-#endif
 #else
 	. = __START_KERNEL;
 #endif
@@ -88,14 +84,13 @@ SECTIONS
 	/* Text and read-only data */
 
 	/* bootstrapping code */
-	.text.head : AT(ADDR(.text.head) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	.text.head (. - __KERNEL_TEXT_OFFSET): AT(ADDR(.text.head) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 #ifdef CONFIG_X86_32
 		phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 #else
 		phys_startup_64 = startup_64 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 #endif
 		__LOAD_PHYSICAL_ADDR = . - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
-		KERNEL_TEXT_OFFSET = . + __KERNEL_TEXT_OFFSET;
 		_text = .;
 		*(.text.head)
 	} :text = 0x9090
@@ -260,12 +255,9 @@ SECTIONS
 
 #endif /* CONFIG_X86_64 */
 
-	/*
-	 * smp_locks might be freed after init
-	 * start/end must be page aligned
-	 */
-	. = ALIGN(PAGE_SIZE);
-	.smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
+	/* Init code and data - will be freed after init */
+	.init.begin : AT(ADDR(.init.begin) - LOAD_OFFSET) {
+		BYTE(0)
 
 #ifdef CONFIG_PAX_KERNEXEC
 		. = ALIGN(PMD_SIZE);
@@ -273,16 +265,8 @@ SECTIONS
 		. = ALIGN(PAGE_SIZE);
 #endif
 
-		__smp_locks = .;
-		*(.smp_locks)
-		__smp_locks_end = .;
-	} :smp
-
-	/* Init code and data - will be freed after init */
-	. = ALIGN(PAGE_SIZE);
-	.init.begin : AT(ADDR(.init.begin) - LOAD_OFFSET) {
 		__init_begin = .; /* paired with __init_end */
-	}
+	} :init.begin
 
 #ifdef CONFIG_SMP
 	/*
@@ -381,6 +365,18 @@ SECTIONS
 		__init_end = .;
 	}
 
+	/*
+	 * smp_locks might be freed after init
+	 * start/end must be page aligned
+	 */
+	. = ALIGN(PAGE_SIZE);
+	.smp_locks : AT(ADDR(.smp_locks) - LOAD_OFFSET) {
+		__smp_locks = .;
+		*(.smp_locks)
+		__smp_locks_end = .;
+		. = ALIGN(PAGE_SIZE);
+	}
+
 	/* BSS */
 	. = ALIGN(PAGE_SIZE);
 	.bss : AT(ADDR(.bss) - LOAD_OFFSET) {
@@ -430,7 +426,7 @@ INIT_PER_CPU(irq_stack_union);
 /*
  * Build-time check on the image size:
  */
-. = ASSERT((_end - KERNEL_TEXT_OFFSET <= KERNEL_IMAGE_SIZE),
+. = ASSERT((_end - _text - __KERNEL_TEXT_OFFSET <= KERNEL_IMAGE_SIZE),
 	   "kernel image bigger than KERNEL_IMAGE_SIZE");
 
 #ifdef CONFIG_SMP

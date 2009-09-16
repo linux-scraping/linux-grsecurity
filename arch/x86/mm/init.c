@@ -54,6 +54,7 @@ static int __init noexec_setup(char *str)
 }
 early_param("noexec", noexec_setup);
 #endif
+#endif
 
 #ifdef CONFIG_X86_PAE
 static void __init set_nx(void)
@@ -460,7 +461,7 @@ void free_initmem(void)
 #endif
 	limit = (limit - 1UL) >> PAGE_SHIFT;
 
-	memset(KERNEL_TEXT_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
+	memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
 		pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
 		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
