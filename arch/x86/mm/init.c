@@ -28,11 +28,10 @@ int direct_gbpages
 #endif
 ;
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && defined(CONFIG_X86_PAE)
 int nx_enabled;
-#endif
 
-#if defined(CONFIG_X86_PAE) && !defined(CONFIG_PAX_PAGEEXEC)
+#ifndef CONFIG_PAX_PAGEEXEC
 /*
  * noexec = on|off
  *
@@ -53,6 +52,7 @@ static int __init noexec_setup(char *str)
 	return 0;
 }
 early_param("noexec", noexec_setup);
+#endif
 #endif
 
 #ifdef CONFIG_X86_PAE
