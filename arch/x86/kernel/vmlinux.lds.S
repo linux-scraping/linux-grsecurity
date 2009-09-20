@@ -290,6 +290,7 @@ SECTIONS
 	 */
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) {
 		EXIT_TEXT
+		. = ALIGN(16);
 	}
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
 
