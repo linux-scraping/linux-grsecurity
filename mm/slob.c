@@ -150,7 +150,7 @@ static inline void clear_slob_page(struct slob_page *sp)
 
 static inline struct slob_page *slob_page(const void *addr)
 {
-	return (struct slob_page *)virt_to_page(addr);
+	return (struct slob_page *)virt_to_head_page(addr);
 }
 
 /*
@@ -507,7 +507,7 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 		ret = slob_new_pages(gfp | __GFP_COMP, get_order(size), node);
 		if (ret) {
 			struct slob_page *sp;
-			sp = (struct slob_page *)virt_to_head_page(ret);
+			sp = slob_page(ret);
 			sp->size = size;
 		}
 
@@ -568,7 +568,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	if (!virt_addr_valid(ptr))
 		return;
 
-	sp = (struct slob_page *)virt_to_head_page(ptr);
+	sp = slob_page(ptr);
 	/* XXX: can get a little tighter with this stack check */
 	if (!PageSlobPage((struct page*)sp) && object_is_on_stack(ptr) &&
 	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
@@ -702,7 +702,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 		struct slob_page *sp;
 
 		b = slob_new_pages(flags, get_order(c->size), node);
-		sp = (struct slob_page *)virt_to_head_page(b);
+		sp = slob_page(b);
 		sp->size = c->size;
 		trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
 					    PAGE_SIZE << get_order(c->size),
@@ -720,9 +720,9 @@ EXPORT_SYMBOL(kmem_cache_alloc_node);
 
 static void __kmem_cache_free(void *b, int size)
 {
-	struct slob_page *sp = (struct slob_page *)virt_to_head_page(b);
+	struct slob_page *sp = slob_page(b);
 
-	if (slob_page(sp))
+	if (is_slob_page(sp))
 		slob_free(b, size);
 	else {
 		clear_slob_page(sp);

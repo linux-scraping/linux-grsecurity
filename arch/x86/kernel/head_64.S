@@ -360,10 +360,14 @@ NEXT_PAGE(init_level4_pgt)
 
 NEXT_PAGE(level3_ident_pgt)
 	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
+#ifdef CONFIG_XEN
+	.fill	511,8,0
+#else
 	.quad	level2_ident_pgt + PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
 	.quad	level2_ident_pgt + 2*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
 	.quad	level2_ident_pgt + 3*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
 	.fill	508,8,0
+#endif
 
 NEXT_PAGE(level3_vmalloc_pgt)
 	.fill	512,8,0

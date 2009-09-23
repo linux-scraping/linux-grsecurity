@@ -69,6 +69,7 @@ PHDRS {
 	percpu PT_LOAD FLAGS(6);        /* RW_ */
 #endif
 	text.init PT_LOAD FLAGS(5);     /* R_E */
+	text.exit PT_LOAD FLAGS(5);     /* R_E */
 	init PT_LOAD FLAGS(7);          /* RWE */
 	note PT_NOTE FLAGS(0);          /* ___ */
 }
@@ -83,8 +84,8 @@ SECTIONS
 
 	/* Text and read-only data */
 
-	/* bootstrapping code */
-	.text.head (. - __KERNEL_TEXT_OFFSET): AT(ADDR(.text.head) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+	.text (. - __KERNEL_TEXT_OFFSET): AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+		/* bootstrapping code */
 #ifdef CONFIG_X86_32
 		phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 #else
@@ -93,10 +94,8 @@ SECTIONS
 		__LOAD_PHYSICAL_ADDR = . - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 		_text = .;
 		*(.text.head)
-	} :text = 0x9090
 
-	/* The rest of the text */
-	.text :  AT(ADDR(.text) - LOAD_OFFSET) {
+		/* The rest of the text */
 #ifdef CONFIG_X86_32
 		/* not really needed, already page aligned */
 		. = ALIGN(PAGE_SIZE);
@@ -291,7 +290,7 @@ SECTIONS
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) {
 		EXIT_TEXT
 		. = ALIGN(16);
-	}
+	} :text.exit
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
 
 	.init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {

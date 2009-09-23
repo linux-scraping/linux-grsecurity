@@ -1730,6 +1730,7 @@ __init pgd_t *xen_setup_kernel_pagetable(pgd_t *pgd,
 	set_page_prot(level3_vmalloc_pgt, PAGE_KERNEL_RO);
 	set_page_prot(level3_vmemmap_pgt, PAGE_KERNEL_RO);
 	set_page_prot(level3_user_vsyscall, PAGE_KERNEL_RO);
+	set_page_prot(level2_vmemmap_pgt, PAGE_KERNEL_RO);
 	set_page_prot(level2_kernel_pgt, PAGE_KERNEL_RO);
 	set_page_prot(level2_fixmap_pgt, PAGE_KERNEL_RO);
 

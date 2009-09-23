@@ -558,12 +558,7 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
 				continue;
-			if (!strcmp(sec_name(sym->st_shndx), ".text.head")) {
-				if (!strcmp(sym_name(sym_strtab, sym), "startup_32") ||
-				    !strcmp(sym_name(sym_strtab, sym), "_text"))
-					continue;
-			}
-			if (!strcmp(sec_name(sym->st_shndx), ".text"))
+			if (!strcmp(sec_name(sym->st_shndx), ".text") && strcmp(sym_name(sym_strtab, sym), "__LOAD_PHYSICAL_ADDR"))
 				continue;
 #endif
 			if (r_type == R_386_NONE || r_type == R_386_PC32) {
