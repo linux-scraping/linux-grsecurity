@@ -211,7 +211,7 @@ config PAX_EMUSIGRT
 
 config PAX_MPROTECT
 	bool "Restrict mprotect()"
-	depends on (PAX_PAGEEXEC || PAX_SEGMEXEC) && !PPC64
+	depends on (PAX_PAGEEXEC || PAX_SEGMEXEC)
 	help
 	  Enabling this option will prevent programs from
 	   - changing the executable status of memory pages that were
@@ -263,7 +263,7 @@ config PAX_ETEXECRELOCS
 
 config PAX_EMUPLT
 	bool "Automatically emulate ELF PLT"
-	depends on PAX_MPROTECT && (ALPHA || PARISC || PPC32 || SPARC32 || SPARC64)
+	depends on PAX_MPROTECT && (ALPHA || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64)
 	default y
 	help
 	  Enabling this option will have the kernel automatically detect
@@ -280,14 +280,13 @@ config PAX_EMUPLT
 	  not need to be writable.
 
 config PAX_DLRESOLVE
-	bool
+	bool 'Emulate old glibc resolver stub'
 	depends on PAX_EMUPLT && (SPARC32 || SPARC64)
-	default y
-
-config PAX_SYSCALL
-	bool
-	depends on PAX_PAGEEXEC && PPC32
-	default y
+	default n
+	help
+	  This option is needed if userland has an old glibc (before 2.4)
+	  that puts a 'save' instruction into the runtime generated resolver
+	  stub that needs special emulation.
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
@@ -407,7 +406,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
-	depends on X86_32 && !UML_X86
+	depends on X86_32 && !UML_X86 && !PARAVIRT
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
 	  userland pointers in contexts where the kernel expects only kernel

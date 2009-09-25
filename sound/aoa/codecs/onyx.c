@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_item *cii,
 	struct onyx *onyx = cii->codec_data;
 
 	mutex_lock(&onyx->mutex);
-	onyx->open_count++;
+	atomic_inc(&onyx->open_count);
 	mutex_unlock(&onyx->mutex);
 
 	return 0;
@@ -764,8 +764,7 @@ static int onyx_close(struct codec_info_item *cii,
 	struct onyx *onyx = cii->codec_data;
 
 	mutex_lock(&onyx->mutex);
-	onyx->open_count--;
-	if (!onyx->open_count)
+	if (atomic_dec_and_test(&onyx->open_count))
 		onyx->spdif_locked = onyx->analog_locked = 0;
 	mutex_unlock(&onyx->mutex);
 

@@ -25,6 +25,7 @@
 #include <asm/tlbflush.h>
 #include <asm/vdso.h>
 #include <asm/proto.h>
+#include <asm/mman.h>
 
 enum {
 	VDSO_DISABLED = 0,

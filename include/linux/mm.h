@@ -37,7 +37,6 @@ extern int sysctl_legacy_va_layout;
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/processor.h>
-#include <asm/mman.h>
 
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
