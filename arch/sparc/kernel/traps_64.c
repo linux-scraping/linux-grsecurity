@@ -93,6 +93,12 @@ void bad_trap(struct pt_regs *regs, long lvl)
 
 	lvl -= 0x100;
 	if (regs->tstate & TSTATE_PRIV) {
+
+#ifdef CONFIG_PAX_REFCOUNT
+		if (lvl == 6)
+			pax_report_refcount_overflow(regs);
+#endif
+
 		sprintf(buffer, "Kernel bad sw trap %lx", lvl);
 		die_if_kernel(buffer, regs);
 	}
@@ -111,10 +117,15 @@ void bad_trap(struct pt_regs *regs, long lvl)
 void bad_trap_tl1(struct pt_regs *regs, long lvl)
 {
 	char buffer[32];
-	
+
 	if (notify_die(DIE_TRAP_TL1, "bad trap tl1", regs,
 		       0, lvl, SIGTRAP) == NOTIFY_STOP)
 		return;
+
+#ifdef CONFIG_PAX_REFCOUNT
+	if (lvl == 6)
+		pax_report_refcount_overflow(regs);
+#endif
 
 	dump_tl1_traplog((struct tl1_traplog *)(regs + 1));
 

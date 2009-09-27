@@ -426,6 +426,11 @@ unsigned long slice_get_unmapped_area(unsigned long addr, unsigned long len,
 	if (fixed && addr > (mm->task_size - len))
 		return -EINVAL;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!fixed && (mm->pax_flags & MF_PAX_RANDMMAP))
+		addr = 0;
+#endif
+
 	/* If hint, make sure it matches our alignment restrictions */
 	if (!fixed && addr) {
 		addr = _ALIGN_UP(addr, 1ul << pshift);

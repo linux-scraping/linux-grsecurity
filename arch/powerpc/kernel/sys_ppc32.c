@@ -552,10 +552,10 @@ asmlinkage long compat_sys_sysctl(struct __sysctl_args32 __user *args)
 	if (oldlenp) {
 		if (!error) {
 			if (get_user(oldlen, oldlenp) ||
-			    put_user(oldlen, (compat_size_t __user *)compat_ptr(tmp.oldlenp)))
+			    put_user(oldlen, (compat_size_t __user *)compat_ptr(tmp.oldlenp)) ||
+			    copy_to_user(args->__unused, tmp.__unused, sizeof(tmp.__unused)))
 				error = -EFAULT;
 		}
-		copy_to_user(args->__unused, tmp.__unused, sizeof(tmp.__unused));
 	}
 	return error;
 }

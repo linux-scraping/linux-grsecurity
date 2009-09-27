@@ -125,9 +125,9 @@ unsigned paravirt_patch_jmp(void *insnbuf, const void *target,
 
 /* Neat trick to map patch type back to the call within the
  * corresponding structure. */
-static void *get_call_destination(u8 type)
+static const void *get_call_destination(u8 type)
 {
-	struct paravirt_patch_template tmpl = {
+	const struct paravirt_patch_template tmpl = {
 		.pv_init_ops = pv_init_ops,
 		.pv_time_ops = pv_time_ops,
 		.pv_cpu_ops = pv_cpu_ops,
@@ -138,13 +138,13 @@ static void *get_call_destination(u8 type)
 		.pv_lock_ops = pv_lock_ops,
 #endif
 	};
-	return *((void **)&tmpl + type);
+	return *((const void **)&tmpl + type);
 }
 
 unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 				unsigned long addr, unsigned len)
 {
-	void *opfunc = get_call_destination(type);
+	const void *opfunc = get_call_destination(type);
 	unsigned ret;
 
 	if (opfunc == NULL)

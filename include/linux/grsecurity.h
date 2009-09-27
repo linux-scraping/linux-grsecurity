@@ -64,7 +64,7 @@ int gr_random_pid(void);
 
 void gr_log_forkfail(const int retval);
 void gr_log_timechange(void);
-void gr_log_signal(const int sig, const struct task_struct *t);
+void gr_log_signal(const int sig, const void *addr, const struct task_struct *t);
 void gr_log_chdir(const struct dentry *dentry,
 			 const struct vfsmount *mnt);
 void gr_log_chroot_exec(const struct dentry *dentry,

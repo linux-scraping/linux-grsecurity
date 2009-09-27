@@ -252,14 +252,22 @@ static inline unsigned long copy_to_user(void __user *to, const void *from, unsi
 	if ((long)n < 0)
 		return n;
 
-	if (n && __access_ok((unsigned long) to, n))
+	if (n && __access_ok((unsigned long) to, n)) {
+		if (!__builtin_constant_p(n))
+			check_object_size(from, n, true);
 		return __copy_user(to, (__force void __user *) from, n);
-	else
+	} else
 		return n;
 }
 
 static inline unsigned long __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
+	if ((long)n < 0)
+		return n;
+
+	if (!__builtin_constant_p(n))
+		check_object_size(from, n, true);
+
 	return __copy_user(to, (__force void __user *) from, n);
 }
 
@@ -268,9 +276,11 @@ static inline unsigned long copy_from_user(void *to, const void __user *from, un
 	if ((long)n < 0)
 		return n;
 
-	if (n && __access_ok((unsigned long) from, n))
+	if (n && __access_ok((unsigned long) from, n)) {
+		if (!__builtin_constant_p(n))
+			check_object_size(to, n, false);
 		return __copy_user((__force void __user *) to, from, n);
-	else
+	} else
 		return n;
 }
 
@@ -278,6 +288,9 @@ static inline unsigned long __copy_from_user(void *to, const void __user *from, 
 {
 	if ((long)n < 0)
 		return n;
+
+	if (!__builtin_constant_p(n))
+		check_object_size(to, n, false);
 
 	return __copy_user((__force void __user *) to, from, n);
 }

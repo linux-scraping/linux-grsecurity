@@ -73,7 +73,7 @@
 #define GR_PRIORITY_CHROOT_MSG "denied priority change of process (%.16s:%d) by "
 #define GR_FAILFORK_MSG "failed fork with errno %d by "
 #define GR_NICE_CHROOT_MSG "denied priority change by "
-#define GR_UNISIGLOG_MSG "signal %d sent to "
+#define GR_UNISIGLOG_MSG "%.32s occurred at %p in "
 #define GR_DUALSIGLOG_MSG "signal %d sent to " DEFAULTSECMSG " by "
 #define GR_SIG_ACL_MSG "denied send of signal %d to protected task " DEFAULTSECMSG " by "
 #define GR_SYSCTL_MSG "denied modification of grsecurity sysctl value : %.32s by "

@@ -268,7 +268,7 @@ fhash(const ino_t ino, const dev_t dev, const unsigned int sz)
 static __inline__ unsigned int
 nhash(const char *name, const __u16 len, const unsigned int sz)
 {
-	return full_name_hash(name, len) % sz;
+	return full_name_hash((const unsigned char *)name, len) % sz;
 }
 
 #define FOR_EACH_ROLE_START(role,iter) \

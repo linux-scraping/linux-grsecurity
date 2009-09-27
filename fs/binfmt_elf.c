@@ -2425,16 +2425,16 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 		if (sizeof(elf_p) != kernel_read(vma->vm_file, elf_h.e_phoff + i*sizeof(elf_p), (char *)&elf_p, sizeof(elf_p)))
 			return;
 		switch (elf_p.p_type) {
-		case PT_DYNAMIC: {
-			elf_addr_t dyn_offset = 0UL;
-			elf_dyn dyn;
-
+		case PT_DYNAMIC:
 			if (!is_textrel_rw && !is_textrel_rx)
 				continue;
-			dyn_offset = elf_p.p_offset;
 			i = 0UL;
-			do {
-				if (sizeof(dyn) != kernel_read(vma->vm_file, dyn_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
+			while ((i+1) * sizeof(elf_dyn) <= elf_p.p_filesz) {
+				elf_dyn dyn;
+
+				if (sizeof(dyn) != kernel_read(vma->vm_file, elf_p.p_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
+					return;
+				if (dyn.d_tag == DT_NULL)
 					return;
 				if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
 					gr_log_textrel(vma);
@@ -2446,16 +2446,14 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 					return;
 				}
 				i++;
-			} while (dyn.d_tag != DT_NULL);
+			}
 			return;
-		}
 
 		case PT_GNU_RELRO:
 			if (!is_relro)
 				continue;
-			if ((elf_p.p_offset >> PAGE_SHIFT) == vma->vm_pgoff && ELF_PAGEALIGN(elf_p.p_memsz) == vma->vm_end - vma->vm_start) {
+			if ((elf_p.p_offset >> PAGE_SHIFT) == vma->vm_pgoff && ELF_PAGEALIGN(elf_p.p_memsz) == vma->vm_end - vma->vm_start)
 				vma->vm_flags &= ~VM_MAYWRITE;
-			}
 			return;
 		}
 	}

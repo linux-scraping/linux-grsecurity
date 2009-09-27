@@ -118,6 +118,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	int logtype;
 	char *result = (audit == GR_DO_AUDIT) ? "successful" : "denied";
 	char *str1, *str2, *str3;
+	void *voidptr;
 	int num1, num2;
 	unsigned long ulong1, ulong2;
 	struct dentry *dentry;
@@ -234,6 +235,11 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		gr_log_middle_varargs(audit, msg, str1, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		break;
 	case GR_SIG:
+		str1 = va_arg(ap, char *);
+		voidptr = va_arg(ap, void *);
+		gr_log_middle_varargs(audit, msg, str1, voidptr);
+		break;
+	case GR_SIG2:
 		task = va_arg(ap, struct task_struct *);
 		cred = __task_cred(task);
 		pcred = __task_cred(task->parent);

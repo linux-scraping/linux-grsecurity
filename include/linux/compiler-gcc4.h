@@ -36,4 +36,8 @@
    the kernel context */
 #define __cold			__attribute__((__cold__))
 
+#define __alloc_size(...)	__attribute((alloc_size(__VA_ARGS__)))
+#define __bos(ptr, arg)		__builtin_object_size((ptr), (arg))
+#define __bos0(ptr)		__bos((ptr), 0)
+#define __bos1(ptr)		__bos((ptr), 1)
 #endif

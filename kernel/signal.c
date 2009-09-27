@@ -1011,7 +1011,7 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	ret = specific_send_sig_info(sig, info, t);
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 
-	gr_log_signal(sig, t);
+	gr_log_signal(sig, !is_si_special(info) ? info->si_addr : NULL, t);
 	gr_handle_crash(t, sig);
 
 	return ret;
@@ -1089,7 +1089,7 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 			unlock_task_sighand(p, &flags);
 		}
 		if (!ret)
-			gr_log_signal(sig, p);
+			gr_log_signal(sig, !is_si_special(info) ? info->si_addr : NULL, p);
 	}
 
 	return ret;

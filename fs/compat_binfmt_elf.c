@@ -29,10 +29,12 @@
 #undef	elfhdr
 #undef	elf_phdr
 #undef	elf_note
+#undef  elf_dyn
 #undef	elf_addr_t
 #define elfhdr		elf32_hdr
 #define elf_phdr	elf32_phdr
 #define elf_note	elf32_note
+#define elf_dyn		Elf32_Dyn
 #define elf_addr_t	Elf32_Addr
 
 /*

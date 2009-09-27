@@ -171,6 +171,7 @@ static unsigned long compute_si_addr(struct pt_regs *regs, int text_fault)
 }
 
 #ifdef CONFIG_PAX_PAGEEXEC
+#ifdef CONFIG_PAX_DLRESOLVE
 void pax_emuplt_close(struct vm_area_struct *vma)
 {
 	vma->vm_mm->call_dl_resolve = 0UL;
@@ -215,6 +216,7 @@ static int pax_insert_vma(struct vm_area_struct *vma, unsigned long addr)
 	++current->mm->total_vm;
 	return 0;
 }
+#endif
 
 /*
  * PaX: decide what to do with offenders (regs->pc = fault address)
@@ -321,6 +323,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			if (err)
 				break;
 
+#ifdef CONFIG_PAX_DLRESOLVE
 			if (save == 0x9DE3BFA8U &&
 			    (call & 0xC0000000U) == 0x40000000U &&
 			    nop == 0x01000000U)
@@ -368,14 +371,13 @@ emulate:
 				regs->npc = addr+4;
 				return 3;
 			}
+#endif
 
 			/* PaX: glibc 2.4+ generates sethi/jmpl instead of save/call */
 			if ((save & 0xFFC00000U) == 0x05000000U &&
 			    (call & 0xFFFFE000U) == 0x85C0A000U &&
 			    nop == 0x01000000U)
 			{
-				unsigned long addr;
-
 				regs->u_regs[UREG_G1] = (sethi & 0x003FFFFFU) << 10;
 				regs->u_regs[UREG_G2] = addr + 4;
 				addr = (save & 0x003FFFFFU) << 10;

@@ -18,7 +18,12 @@
 atomic_add: /* %o0 = increment, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	lduw	[%o1], %g1
-	add	%g1, %o0, %g7
+	addcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%icc, 2f
@@ -28,9 +33,44 @@ atomic_add: /* %o0 = increment, %o1 = atomic_ptr */
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 	.size	atomic_add, .-atomic_add
 
+	.globl	atomic_add_unchecked
+	.type	atomic_add_unchecked,#function
+atomic_add_unchecked: /* %o0 = increment, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	lduw	[%o1], %g1
+	add	%g1, %o0, %g7
+	cas	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%icc, 2f
+	 nop
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic_add_unchecked, .-atomic_add_unchecked
+
 	.globl	atomic_sub
 	.type	atomic_sub,#function
 atomic_sub: /* %o0 = decrement, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	lduw	[%o1], %g1
+	subcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
+	cas	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%icc, 2f
+	 nop
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic_sub, .-atomic_sub
+
+	.globl	atomic_sub_unchecked
+	.type	atomic_sub_unchecked,#function
+atomic_sub_unchecked: /* %o0 = decrement, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	lduw	[%o1], %g1
 	sub	%g1, %o0, %g7
@@ -41,14 +81,19 @@ atomic_sub: /* %o0 = decrement, %o1 = atomic_ptr */
 	retl
 	 nop
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
-	.size	atomic_sub, .-atomic_sub
+	.size	atomic_sub_unchecked, .-atomic_sub_unchecked
 
 	.globl	atomic_add_ret
 	.type	atomic_add_ret,#function
 atomic_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	lduw	[%o1], %g1
-	add	%g1, %o0, %g7
+	addcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%icc, 2f
@@ -64,7 +109,12 @@ atomic_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 atomic_sub_ret: /* %o0 = decrement, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	lduw	[%o1], %g1
-	sub	%g1, %o0, %g7
+	subcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%icc, 2f
@@ -80,7 +130,12 @@ atomic_sub_ret: /* %o0 = decrement, %o1 = atomic_ptr */
 atomic64_add: /* %o0 = increment, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	ldx	[%o1], %g1
-	add	%g1, %o0, %g7
+	addcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%xcc, 6
+#endif
+
 	casx	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%xcc, 2f
@@ -95,7 +150,12 @@ atomic64_add: /* %o0 = increment, %o1 = atomic_ptr */
 atomic64_sub: /* %o0 = decrement, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	ldx	[%o1], %g1
-	sub	%g1, %o0, %g7
+	subcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%xcc, 6
+#endif
+
 	casx	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%xcc, 2f
@@ -110,7 +170,12 @@ atomic64_sub: /* %o0 = decrement, %o1 = atomic_ptr */
 atomic64_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	ldx	[%o1], %g1
-	add	%g1, %o0, %g7
+	addcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%xcc, 6
+#endif
+
 	casx	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%xcc, 2f
@@ -126,7 +191,12 @@ atomic64_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 atomic64_sub_ret: /* %o0 = decrement, %o1 = atomic_ptr */
 	BACKOFF_SETUP(%o2)
 1:	ldx	[%o1], %g1
-	sub	%g1, %o0, %g7
+	subcc	%g1, %o0, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%xcc, 6
+#endif
+
 	casx	[%o1], %g1, %g7
 	cmp	%g1, %g7
 	bne,pn	%xcc, 2f

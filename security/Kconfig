@@ -140,8 +140,8 @@ config PAX_PAGEEXEC
 
 	  Note that several architectures require various emulations due to
 	  badly designed userland ABIs, this will cause a performance impact
-	  but will disappear as soon as userland is fixed (e.g., ppc users
-	  can make use of the secure-plt feature found in binutils).
+	  but will disappear as soon as userland is fixed. For example, ppc
+	  userland MUST have been built with secure-plt by a recent toolchain.
 
 config PAX_SEGMEXEC
 	bool "Segmentation based non-executable pages"
@@ -153,8 +153,8 @@ config PAX_SEGMEXEC
 	  3 GB.
 
 config PAX_EMUTRAMP
-	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || PPC32 || X86)
-	default y if PARISC || PPC32
+	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || X86)
+	default y if PARISC
 	help
 	  There are some programs and libraries that for one reason or
 	  another attempt to execute special small code snippets from
@@ -169,8 +169,8 @@ config PAX_EMUTRAMP
 	  utilities to enable trampoline emulation for the affected programs
 	  yet still have the protection provided by the non-executable pages.
 
-	  On parisc and ppc you MUST enable this option and EMUSIGRT as
-	  well, otherwise your system will not even boot.
+	  On parisc you MUST enable this option and EMUSIGRT as well, otherwise
+	  your system will not even boot.
 
 	  Alternatively you can say N here and use the 'chpax' or 'paxctl'
 	  utilities to disable CONFIG_PAX_PAGEEXEC and CONFIG_PAX_SEGMEXEC
@@ -188,7 +188,7 @@ config PAX_EMUTRAMP
 
 config PAX_EMUSIGRT
 	bool "Automatically emulate sigreturn trampolines"
-	depends on PAX_EMUTRAMP && (PARISC || PPC32)
+	depends on PAX_EMUTRAMP && PARISC
 	default y
 	help
 	  Enabling this option will have the kernel automatically detect
@@ -201,8 +201,8 @@ config PAX_EMUSIGRT
 	  everything that does not specify its own SA_RESTORER function in
 	  normal executable memory like glibc 2.1+ does.
 
-	  On parisc and ppc you MUST enable this option, otherwise your
-	  system will not even boot.
+	  On parisc you MUST enable this option, otherwise your system will
+	  not even boot.
 
 	  NOTE: this feature cannot be disabled on a per executable basis
 	  and since it *does* open up a loophole in the protection provided
@@ -227,7 +227,7 @@ config PAX_MPROTECT
 
 config PAX_NOELFRELOCS
 	bool "Disallow ELF text relocations"
-	depends on PAX_MPROTECT && !PAX_ETEXECRELOCS && (IA64 || X86)
+	depends on PAX_MPROTECT && !PAX_ETEXECRELOCS && (IA64 || PPC || X86)
 	help
 	  Non-executable pages and mprotect() restrictions are effective
 	  in preventing the introduction of new executable code into an
@@ -263,7 +263,7 @@ config PAX_ETEXECRELOCS
 
 config PAX_EMUPLT
 	bool "Automatically emulate ELF PLT"
-	depends on PAX_MPROTECT && (ALPHA || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64)
+	depends on PAX_MPROTECT && (ALPHA || PARISC || SPARC32 || SPARC64)
 	default y
 	help
 	  Enabling this option will have the kernel automatically detect
@@ -271,8 +271,7 @@ config PAX_EMUPLT
 	  On some architectures such entries are in writable memory, and
 	  become non-executable leading to task termination.  Therefore
 	  it is mandatory that you enable this option on alpha, parisc,
-	  ppc (if secure-plt is not used throughout in userland), sparc
-	  and sparc64, otherwise your system would not even boot.
+	  sparc and sparc64, otherwise your system would not even boot.
 
 	  NOTE: this feature *does* open up a loophole in the protection
 	  provided by the non-executable pages, therefore the proper
@@ -406,7 +405,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
-	depends on X86_32 && !UML_X86 && !PARAVIRT
+	depends on X86_32 && !UML_X86
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
 	  userland pointers in contexts where the kernel expects only kernel
@@ -424,7 +423,7 @@ config PAX_MEMORY_UDEREF
 
 config PAX_REFCOUNT
 	bool "Prevent various kernel object reference counter overflows"
-	depends on GRKERNSEC && X86
+	depends on GRKERNSEC && (X86 || SPARC64)
 	help
 	  By saying Y here the kernel will detect and prevent overflowing
 	  various (but not all) kinds of object reference counters.  Such
@@ -443,7 +442,7 @@ config PAX_REFCOUNT
 
 config PAX_USERCOPY
 	bool "Bounds check heap object copies between kernel and userland"
-	depends on X86
+	depends on X86 || PPC32 || PPC64 || SPARC32 || SPARC64
 	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	help
 	  By saying Y here the kernel will enforce the size of heap objects

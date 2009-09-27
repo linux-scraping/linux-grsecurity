@@ -168,6 +168,7 @@ enum {
 	GR_RESOURCE,
 	GR_CAP,
 	GR_SIG,
+	GR_SIG2,
 	GR_CRASH1,
 	GR_CRASH2,
 	GR_PSACCT
@@ -200,7 +201,8 @@ enum {
 #define gr_log_ptrace(audit, msg, task) gr_log_varargs(audit, msg, GR_PTRACE, task)
 #define gr_log_res_ulong2_str(audit, msg, task, ulong1, str, ulong2) gr_log_varargs(audit, msg, GR_RESOURCE, task, ulong1, str, ulong2)
 #define gr_log_cap(audit, msg, task, str) gr_log_varargs(audit, msg, GR_CAP, task, str)
-#define gr_log_sig(audit, msg, task, num) gr_log_varargs(audit, msg, GR_SIG, task, num)
+#define gr_log_sig_addr(audit, msg, str, addr) gr_log_varargs(audit, msg, GR_SIG, str, addr)
+#define gr_log_sig_task(audit, msg, task, num) gr_log_varargs(audit, msg, GR_SIG2, task, num)
 #define gr_log_crash1(audit, msg, task, ulong) gr_log_varargs(audit, msg, GR_CRASH1, task, ulong)
 #define gr_log_crash2(audit, msg, task, ulong1) gr_log_varargs(audit, msg, GR_CRASH2, task, ulong1)
 #define gr_log_procacct(audit, msg, task, num1, num2, num3, num4, num5, num6, num7, num8, num9) gr_log_varargs(audit, msg, GR_PSACCT, task, num1, num2, num3, num4, num5, num6, num7, num8, num9)

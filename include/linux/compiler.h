@@ -256,6 +256,22 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 #define __cold
 #endif
 
+#ifndef __alloc_size
+#define __alloc_size
+#endif
+
+#ifndef __bos
+#define __bos
+#endif
+
+#ifndef __bos0
+#define __bos0
+#endif
+
+#ifndef __bos1
+#define __bos1
+#endif
+
 /* Simple shorthand for a section definition */
 #ifndef __section
 # define __section(S) __attribute__ ((__section__(#S)))

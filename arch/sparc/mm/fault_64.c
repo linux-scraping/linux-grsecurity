@@ -253,7 +253,7 @@ static void noinline bogus_32bit_fault_address(struct pt_regs *regs,
 }
 
 #ifdef CONFIG_PAX_PAGEEXEC
-#ifdef CONFIG_PAX_EMUPLT
+#ifdef CONFIG_PAX_DLRESOLVE
 static void pax_emuplt_close(struct vm_area_struct *vma)
 {
 	vma->vm_mm->call_dl_resolve = 0UL;
@@ -484,35 +484,6 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		}
 	} while (0);
 
-	do { /* PaX: patched PLT emulation #7 */
-		unsigned int sethi, ba, nop;
-
-		err = get_user(sethi, (unsigned int *)regs->tpc);
-		err |= get_user(ba, (unsigned int *)(regs->tpc+4));
-		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
-
-		if (err)
-			break;
-
-		if ((sethi & 0xFFC00000U) == 0x03000000U &&
-		    (ba & 0xFFF00000U) == 0x30600000U &&
-		    nop == 0x01000000U)
-		{
-			unsigned long addr;
-
-			addr = (sethi & 0x003FFFFFU) << 10;
-			regs->u_regs[UREG_G1] = addr;
-			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
-
-			if (test_thread_flag(TIF_32BIT))
-				addr &= 0xFFFFFFFFUL;
-
-			regs->tpc = addr;
-			regs->tnpc = addr+4;
-			return 2;
-		}
-	} while (0);
-
 	do { /* PaX: unpatched PLT emulation step 1 */
 		unsigned int sethi, ba, nop;
 
@@ -544,6 +515,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			if (err)
 				break;
 
+#ifdef CONFIG_PAX_DLRESOLVE
 			if (save == 0x9DE3BFA8U &&
 			    (call & 0xC0000000U) == 0x40000000U &&
 			    nop == 0x01000000U)
@@ -591,14 +563,13 @@ emulate:
 				regs->tnpc = addr+4;
 				return 3;
 			}
+#endif
 
 			/* PaX: glibc 2.4+ generates sethi/jmpl instead of save/call */
 			if ((save & 0xFFC00000U) == 0x05000000U &&
 			    (call & 0xFFFFE000U) == 0x85C0A000U &&
 			    nop == 0x01000000U)
 			{
-				unsigned long addr;
-
 				regs->u_regs[UREG_G1] = (sethi & 0x003FFFFFU) << 10;
 				regs->u_regs[UREG_G2] = addr + 4;
 				addr = (save & 0x003FFFFFU) << 10;
@@ -614,6 +585,7 @@ emulate:
 		}
 	} while (0);
 
+#ifdef CONFIG_PAX_DLRESOLVE
 	do { /* PaX: unpatched PLT emulation step 2 */
 		unsigned int save, call, nop;
 
@@ -638,6 +610,37 @@ emulate:
 			return 3;
 		}
 	} while (0);
+#endif
+
+	do { /* PaX: patched PLT emulation #7, must be AFTER the unpatched PLT emulation */
+		unsigned int sethi, ba, nop;
+
+		err = get_user(sethi, (unsigned int *)regs->tpc);
+		err |= get_user(ba, (unsigned int *)(regs->tpc+4));
+		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
+
+		if (err)
+			break;
+
+		if ((sethi & 0xFFC00000U) == 0x03000000U &&
+		    (ba & 0xFFF00000U) == 0x30600000U &&
+		    nop == 0x01000000U)
+		{
+			unsigned long addr;
+
+			addr = (sethi & 0x003FFFFFU) << 10;
+			regs->u_regs[UREG_G1] = addr;
+			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
+
+			if (test_thread_flag(TIF_32BIT))
+				addr &= 0xFFFFFFFFUL;
+
+			regs->tpc = addr;
+			regs->tnpc = addr+4;
+			return 2;
+		}
+	} while (0);
+
 #endif
 
 	return 1;
