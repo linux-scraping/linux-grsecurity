@@ -11,7 +11,12 @@
 	.globl		__down_read
 __down_read:
 1:	lduw		[%o0], %g1
-	add		%g1, 1, %g7
+	addcc		%g1, 1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g1, %g7
 	cmp		%g1, %g7
 	bne,pn		%icc, 1b
@@ -33,7 +38,12 @@ __down_read:
 	.globl		__down_read_trylock
 __down_read_trylock:
 1:	lduw		[%o0], %g1
-	add		%g1, 1, %g7
+	addcc		%g1, 1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cmp		%g7, 0
 	bl,pn		%icc, 2f
 	 mov		0, %o1
@@ -51,7 +61,12 @@ __down_write:
 	or		%g1, %lo(RWSEM_ACTIVE_WRITE_BIAS), %g1
 1:
 	lduw		[%o0], %g3
-	add		%g3, %g1, %g7
+	addcc		%g3, %g1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g3, %g7
 	cmp		%g3, %g7
 	bne,pn		%icc, 1b
@@ -77,7 +92,12 @@ __down_write_trylock:
 	cmp		%g3, 0
 	bne,pn		%icc, 2f
 	 mov		0, %o1
-	add		%g3, %g1, %g7
+	addcc		%g3, %g1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g3, %g7
 	cmp		%g3, %g7
 	bne,pn		%icc, 1b
@@ -90,7 +110,12 @@ __down_write_trylock:
 __up_read:
 1:
 	lduw		[%o0], %g1
-	sub		%g1, 1, %g7
+	subcc		%g1, 1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g1, %g7
 	cmp		%g1, %g7
 	bne,pn		%icc, 1b
@@ -118,7 +143,12 @@ __up_write:
 	or		%g1, %lo(RWSEM_ACTIVE_WRITE_BIAS), %g1
 1:
 	lduw		[%o0], %g3
-	sub		%g3, %g1, %g7
+	subcc		%g3, %g1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g3, %g7
 	cmp		%g3, %g7
 	bne,pn		%icc, 1b
@@ -143,7 +173,12 @@ __downgrade_write:
 	or		%g1, %lo(RWSEM_WAITING_BIAS), %g1
 1:
 	lduw		[%o0], %g3
-	sub		%g3, %g1, %g7
+	subcc		%g3, %g1, %g7
+
+#ifdef CONFIG_PAX_REFCOUNT
+	tvs	%icc, 6
+#endif
+
 	cas		[%o0], %g3, %g7
 	cmp		%g3, %g7
 	bne,pn		%icc, 1b
