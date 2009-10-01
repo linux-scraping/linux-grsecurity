@@ -15,7 +15,8 @@
 
 struct module;
 
-#ifdef CONFIG_KALLSYMS
+#ifndef __INCLUDED_BY_HIDESYM
+#if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 /* Lookup the address for a symbol. Returns 0 if not found. */
 unsigned long kallsyms_lookup_name(const char *name);
 
@@ -92,6 +93,9 @@ static inline int lookup_symbol_attrs(unsigned long addr, unsigned long *size, u
 /* Stupid that this does nothing, but I didn't create this mess. */
 #define __print_symbol(fmt, addr)
 #endif /*CONFIG_KALLSYMS*/
+#else /* when included by kallsyms.c, with HIDESYM enabled */
+extern void __print_symbol(const char *fmt, unsigned long address);
+#endif
 
 /* This macro allows us to keep printk typechecking */
 static void __check_printsym_format(const char *fmt, ...)

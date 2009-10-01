@@ -101,11 +101,6 @@ static struct file_system_type proc_fs_type = {
 	.kill_sb	= proc_kill_sb,
 };
 
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-static const struct file_operations __kallsyms_operations = {
-};
-#endif
-
 void __init proc_root_init(void)
 {
 	int err;
@@ -149,11 +144,6 @@ void __init proc_root_init(void)
 	proc_mkdir("bus", NULL);
 #endif
 	proc_sys_init();
-
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-	/* fake kallsyms to workaround klogd bug */
-	proc_create("kallsyms", 0444, NULL, &__kallsyms_operations);
-#endif
 }
 
 static int proc_root_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat

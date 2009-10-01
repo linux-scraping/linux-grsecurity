@@ -75,8 +75,8 @@ config GRKERNSEC_MEDIUM
 	select PAX_RANDUSTACK
 	select PAX_ASLR
 	select PAX_RANDMMAP
-	select PAX_REFCOUNT if (X86)
-	select PAX_USERCOPY if (X86 && (SLAB || SLUB || SLOB))
+	select PAX_REFCOUNT if (X86 || SPARC64)
+	select PAX_USERCOPY if ((X86 || SPARC32 || SPARC64 || PPC32 || PPC64) && (SLAB || SLUB || SLOB))
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -152,14 +152,12 @@ config GRKERNSEC_HIGH
 	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
 	select PAX_SEGMEXEC if (X86_32)
 	select PAX_PAGEEXEC
-	select PAX_EMUPLT if (ALPHA || PARISC || PPC32 || SPARC32 || SPARC64)
-	select PAX_DLRESOLVE if (SPARC32 || SPARC64)
-	select PAX_SYSCALL if (PPC32)
+	select PAX_EMUPLT if (ALPHA || PARISC || SPARC32 || SPARC64)
 	select PAX_EMUTRAMP if (PARISC)
 	select PAX_EMUSIGRT if (PARISC)
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
-	select PAX_REFCOUNT if (X86)
-	select PAX_USERCOPY if (X86 && (SLAB || SLUB || SLOB))
+	select PAX_REFCOUNT if (X86 || SPARC64)
+	select PAX_USERCOPY if ((X86 || PPC32 || PPC64 || SPARC32 || SPARC64) && (SLAB || SLUB || SLOB))
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks
@@ -280,26 +278,33 @@ config GRKERNSEC_MODHARDEN
 
 	  If this option prevents a legitimate use of auto-loading for a 
 	  non-root user, the administrator can execute modprobe manually 
-	  with the exact name of the module mentioned in the alert log.  
-	  Alternatively, the administrator can add the module to the 
-	  list of modules loaded at boot by modifying init scripts.
+	  with the exact name of the module mentioned in the alert log.
+	  Alternatively, the administrator can add the module to the list
+	  of modules loaded at boot by modifying init scripts.
+
+	  Modification of init scripts will most likely be needed on 
+	  Ubuntu servers with encrypted home directory support enabled,
+	  as the first non-root user logging in will cause the ecb(aes),
+	  ecb(aes)-all, cbc(aes), and cbc(aes)-all  modules to be loaded.
 
 config GRKERNSEC_HIDESYM
 	bool "Hide kernel symbols"
 	help
 	  If you say Y here, getting information on loaded modules, and
 	  displaying all kernel symbols through a syscall will be restricted
-	  to users with CAP_SYS_MODULE.  This option is only effective
-	  provided the following conditions are met:
+	  to users with CAP_SYS_MODULE.  For software compatibility reasons,
+	  /proc/kallsyms will be restricted to the root user.  The RBAC
+	  system can hide that entry even from root.  Note that this option
+	  is only effective provided the following conditions are met:
 	  1) The kernel using grsecurity is not precompiled by some distribution
 	  2) You are using the RBAC system and hiding other files such as your
 	     kernel image and System.map.  Alternatively, enabling this option
 	     causes the permissions on /boot, /lib/modules, and the kernel
 	     source directory to change at compile time to prevent 
 	     reading by non-root users.
-	  If the above conditions are met, this option will aid to provide a
-	  useful protection against local and remote kernel exploitation of
-	  overflows and arbitrary read/write vulnerabilities.
+	  If the above conditions are met, this option will aid in providing a
+	  useful protection against local kernel exploitation of overflows
+	  and arbitrary read/write vulnerabilities.
 
 endmenu
 menu "Role Based Access Control Options"

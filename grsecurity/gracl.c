@@ -264,7 +264,7 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	char *res;
 	struct dentry *root;
 	struct vfsmount *rootmnt;
-	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
+	struct task_struct *reaper = &init_task;
 
 	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
 	read_lock(&reaper->fs->lock);
@@ -755,7 +755,7 @@ create_table(__u32 * len, int elementsize)
 static int
 init_variables(const struct gr_arg *arg)
 {
-	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
+	struct task_struct *reaper = &init_task;
 	unsigned int stacksize;
 
 	subj_map_set.s_size = arg->role_db.num_subjects;

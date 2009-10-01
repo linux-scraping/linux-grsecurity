@@ -106,7 +106,7 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 	struct vfsmount *realrootmnt;
 	struct dentry *currentroot;
 	struct vfsmount *currentmnt;
-	struct task_struct *reaper = current->nsproxy->pid_ns->child_reaper;
+	struct task_struct *reaper = &init_task;
 	int ret = 1;
 
 	read_lock(&reaper->fs->lock);
@@ -283,9 +283,9 @@ gr_handle_chroot_caps(struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
 	if (grsec_enable_chroot_caps && current->pid > 1 && current->fs != NULL &&
-		((current->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_sb != 
+		((init_task.fs->root.dentry->d_inode->i_sb != 
 		path->dentry->d_inode->i_sb) ||
-		 (current->nsproxy->pid_ns->child_reaper->fs->root.dentry->d_inode->i_ino != 
+		 (init_task.fs->root.dentry->d_inode->i_ino != 
 		  path->dentry->d_inode->i_ino))) {
 
 		kernel_cap_t chroot_caps = GR_CHROOT_CAPS;
