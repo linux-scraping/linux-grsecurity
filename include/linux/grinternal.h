@@ -4,6 +4,8 @@
 #ifdef CONFIG_GRKERNSEC
 
 #include <linux/fs.h>
+#include <linux/mnt_namespace.h>
+#include <linux/nsproxy.h>
 #include <linux/gracl.h>
 #include <linux/grdefs.h>
 #include <linux/grmsg.h>
@@ -67,7 +69,6 @@ extern int grsec_enable_socket_server;
 extern int grsec_socket_server_gid;
 extern int grsec_audit_gid;
 extern int grsec_enable_group;
-extern int grsec_enable_audit_ipc;
 extern int grsec_enable_audit_textrel;
 extern int grsec_enable_mount;
 extern int grsec_enable_chdir;
@@ -99,16 +100,12 @@ extern rwlock_t grsec_exec_file_lock;
 			tsk->parent->exec_file->f_vfsmnt) : "/")
 
 #define proc_is_chrooted(tsk_a)  ((tsk_a->pid > 1) && (tsk_a->fs != NULL) && \
-			  ((tsk_a->fs->root.dentry->d_inode->i_sb->s_dev != \
-			  init_task.fs->root.dentry->d_inode->i_sb->s_dev) || \
-			  (tsk_a->fs->root.dentry->d_inode->i_ino != \
-			  init_task.fs->root.dentry->d_inode->i_ino)))
+			  ((init_task.fs->root.dentry != tsk_a->fs->root.dentry) && \
+			   (tsk_a->nsproxy->mnt_ns->root->mnt_root != \
+			    tsk_a->fs->root.dentry)))
 
 #define have_same_root(tsk_a,tsk_b) ((tsk_a->fs != NULL) && (tsk_b->fs != NULL) && \
-			  (tsk_a->fs->root.dentry->d_inode->i_sb->s_dev == \
-			  tsk_b->fs->root.dentry->d_inode->i_sb->s_dev) && \
-			  (tsk_a->fs->root.dentry->d_inode->i_ino == \
-			  tsk_b->fs->root.dentry->d_inode->i_ino))
+			  (tsk_a->fs->root.dentry == tsk_b->fs->root.dentry))
 
 #define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), task->comm, \
 		       task->pid, cred->uid, \

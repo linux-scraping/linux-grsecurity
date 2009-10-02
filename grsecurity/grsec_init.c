@@ -20,7 +20,6 @@ int grsec_enable_audit_textrel;
 int grsec_enable_group;
 int grsec_audit_gid;
 int grsec_enable_chdir;
-int grsec_enable_audit_ipc;
 int grsec_enable_mount;
 int grsec_enable_chroot_findtask;
 int grsec_enable_chroot_mount;
@@ -130,9 +129,6 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_CHDIR
 	grsec_enable_chdir = 1;
-#endif
-#ifdef CONFIG_GRKERNSEC_AUDIT_IPC
-	grsec_enable_audit_ipc = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	grsec_enable_harden_ptrace = 1;

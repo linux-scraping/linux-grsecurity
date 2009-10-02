@@ -313,7 +313,6 @@ SYSCALL_DEFINE3(semget, key_t, key, int, nsems, int, semflg)
 	struct ipc_namespace *ns;
 	struct ipc_ops sem_ops;
 	struct ipc_params sem_params;
-	long err;
 
 	ns = current->nsproxy->ipc_ns;
 
@@ -328,11 +327,7 @@ SYSCALL_DEFINE3(semget, key_t, key, int, nsems, int, semflg)
 	sem_params.flg = semflg;
 	sem_params.u.nsems = nsems;
 
-	err = ipcget(ns, &sem_ids(ns), &sem_ops, &sem_params);
-
-	gr_log_semget(err, semflg);
-
-	return err;
+	return ipcget(ns, &sem_ids(ns), &sem_ops, &sem_params);
 }
 
 /*
@@ -875,7 +870,6 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
 
 	switch(cmd){
 	case IPC_RMID:
-		gr_log_semrm(ipcp->uid, ipcp->cuid);
 		freeary(ns, ipcp);
 		goto out_up;
 	case IPC_SET:

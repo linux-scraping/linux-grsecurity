@@ -314,7 +314,6 @@ SYSCALL_DEFINE2(msgget, key_t, key, int, msgflg)
 	struct ipc_namespace *ns;
 	struct ipc_ops msg_ops;
 	struct ipc_params msg_params;
-	long err;
 
 	ns = current->nsproxy->ipc_ns;
 
@@ -325,11 +324,7 @@ SYSCALL_DEFINE2(msgget, key_t, key, int, msgflg)
 	msg_params.key = key;
 	msg_params.flg = msgflg;
 
-	err = ipcget(ns, &msg_ids(ns), &msg_ops, &msg_params);
-
-	gr_log_msgget(err, msgflg);
-
-	return err;
+	return ipcget(ns, &msg_ids(ns), &msg_ops, &msg_params);
 }
 
 static inline unsigned long
@@ -439,7 +434,6 @@ static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
 
 	switch (cmd) {
 	case IPC_RMID:
-		gr_log_msgrm(ipcp->uid, ipcp->cuid);
 		freeque(ns, ipcp);
 		goto out_up;
 	case IPC_SET:

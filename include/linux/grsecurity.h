@@ -73,12 +73,6 @@ void gr_handle_exec_args(struct linux_binprm *bprm, char **argv);
 void gr_log_remount(const char *devname, const int retval);
 void gr_log_unmount(const char *devname, const int retval);
 void gr_log_mount(const char *from, const char *to, const int retval);
-void gr_log_msgget(const int ret, const int msgflg);
-void gr_log_msgrm(const uid_t uid, const uid_t cuid);
-void gr_log_semget(const int err, const int semflg);
-void gr_log_semrm(const uid_t uid, const uid_t cuid);
-void gr_log_shmget(const int err, const int shmflg, const size_t size);
-void gr_log_shmrm(const uid_t uid, const uid_t cuid);
 void gr_log_textrel(struct vm_area_struct *vma);
 
 int gr_handle_follow_link(const struct inode *parent,

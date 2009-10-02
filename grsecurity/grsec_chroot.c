@@ -283,10 +283,8 @@ gr_handle_chroot_caps(struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
 	if (grsec_enable_chroot_caps && current->pid > 1 && current->fs != NULL &&
-		((init_task.fs->root.dentry->d_inode->i_sb != 
-		path->dentry->d_inode->i_sb) ||
-		 (init_task.fs->root.dentry->d_inode->i_ino != 
-		  path->dentry->d_inode->i_ino))) {
+		(init_task.fs->root.dentry != path->dentry) &&
+		(current->nsproxy->mnt_ns->root->mnt_root != path->dentry)) {
 
 		kernel_cap_t chroot_caps = GR_CHROOT_CAPS;
 		const struct cred *old = current_cred();

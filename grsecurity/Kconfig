@@ -567,7 +567,7 @@ depends on GRKERNSEC
 config GRKERNSEC_AUDIT_GROUP
 	bool "Single group for auditing"
 	help
-	  If you say Y here, the exec, chdir, (un)mount, and ipc logging features
+	  If you say Y here, the exec, chdir, and (un)mount logging features
 	  will only operate on a group you specify.  This option is recommended
 	  if you only want to watch certain users instead of having a large
 	  amount of logs from the entire system.  If the sysctl option is enabled,
@@ -619,13 +619,6 @@ config GRKERNSEC_AUDIT_MOUNT
 	  If you say Y here, all mounts and unmounts will be logged.  If the
 	  sysctl option is enabled, a sysctl option with name "audit_mount" is
 	  created.
-
-config GRKERNSEC_AUDIT_IPC
-	bool "IPC logging"
-	help
-	  If you say Y here, creation and removal of message queues, semaphores,
-	  and shared memory will be logged.  If the sysctl option is enabled, a
-	  sysctl option with name "audit_ipc" is created.
 
 config GRKERNSEC_SIGNAL
 	bool "Signal logging"

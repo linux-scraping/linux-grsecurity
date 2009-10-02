@@ -54,7 +54,7 @@ gr_handle_mem_mmap(const unsigned long offset, struct vm_area_struct *vma)
 
 	/* allowed ranges : ISA I/O BIOS */
 	if ((start >= __pa(high_memory))
-#ifdef CONFIG_X86
+#if defined(CONFIG_X86) || defined(CONFIG_PPC)
 	    || (start >= 0x000a0000 && end <= 0x00100000)
 	    || (start >= 0x00000000 && end <= 0x00001000)
 #endif
