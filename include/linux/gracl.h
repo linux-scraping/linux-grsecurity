@@ -250,7 +250,7 @@ struct acl_subj_map_db {
 static __inline__ unsigned int
 rhash(const uid_t uid, const __u16 type, const unsigned int sz)
 {
-	return (((uid << type) + (uid ^ type)) % sz);
+	return ((((uid + type) << (16 + type)) ^ uid) % sz);
 }
 
  static __inline__ unsigned int
@@ -271,21 +271,12 @@ nhash(const char *name, const __u16 len, const unsigned int sz)
 	return full_name_hash((const unsigned char *)name, len) % sz;
 }
 
-#define FOR_EACH_ROLE_START(role,iter) \
-	role = NULL; \
-	iter = 0; \
-	while (iter < acl_role_set.r_size) { \
-		if (role == NULL) \
-			role = acl_role_set.r_hash[iter]; \
-		if (role == NULL) { \
-			iter++; \
-			continue; \
-		}
+#define FOR_EACH_ROLE_START(role) \
+	role = role_list; \
+	while (role) {
 
-#define FOR_EACH_ROLE_END(role,iter) \
-		role = role->next; \
-		if (role == NULL) \
-			iter++; \
+#define FOR_EACH_ROLE_END(role) \
+		role = role->prev; \
 	}
 
 #define FOR_EACH_SUBJECT_START(role,subj,iter) \

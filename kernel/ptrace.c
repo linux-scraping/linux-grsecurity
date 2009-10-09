@@ -618,6 +618,11 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, long, addr, long, data)
 		goto out;
 	}
 
+	if (gr_handle_ptrace(child, request)) {
+		ret = -EPERM;
+		goto out_put_task_struct;
+	}
+
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
 		/*
@@ -632,11 +637,6 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, long, addr, long, data)
 	ret = ptrace_check_attach(child, request == PTRACE_KILL);
 	if (ret < 0)
 		goto out_put_task_struct;
-
-	if (gr_handle_ptrace(child, request)) {
-		ret = -EPERM;
-		goto out_put_task_struct;
-	}
 
 	ret = arch_ptrace(child, request, addr, data);
 

@@ -229,6 +229,11 @@ static inline int is_kernel_text(unsigned long start, unsigned long end)
 	     end <= ktla_ktva((unsigned long)_stext)) &&
 	    (start > ktla_ktva((unsigned long)_einittext) ||
 	     end <= ktla_ktva((unsigned long)_sinittext)) &&
+
+#ifdef CONFIG_ACPI_SLEEP
+	    (start > (unsigned long)__va(acpi_wakeup_address) + 0x4000 || end <= (unsigned long)__va(acpi_wakeup_address)) &&
+#endif
+
 	    (start > (unsigned long)__va(0xfffff) || end <= (unsigned long)__va(0xc0000)))
 		return 0;
 	return 1;

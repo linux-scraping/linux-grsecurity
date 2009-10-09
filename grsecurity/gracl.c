@@ -42,6 +42,8 @@ static struct acl_subj_map_db subj_map_set;
 
 static struct acl_role_label *default_role;
 
+static struct acl_role_label *role_list;
+
 static u16 acl_sp_role_value;
 
 extern char *gr_shared_page[4];
@@ -611,14 +613,21 @@ __insert_acl_role_label(struct acl_role_label *role, uid_t uidgid)
 	unsigned int index =
 	    rhash(uidgid, role->roletype & (GR_ROLE_USER | GR_ROLE_GROUP), acl_role_set.r_size);
 	struct acl_role_label **curr;
-
-	role->prev = NULL;
+	struct acl_role_label *tmp;
 
 	curr = &acl_role_set.r_hash[index];
-	if (*curr != NULL)
-		(*curr)->prev = role;
 
-	role->next = *curr;
+	/* if role was already inserted due to domains and already has
+	   a role in the same bucket as it attached, then we need to
+	   combine these two buckets
+	*/
+	if (role->next) {
+		tmp = role->next;
+		while (tmp->next)
+			tmp = tmp->next;
+		tmp->next = *curr;
+	} else
+		role->next = *curr;
 	*curr = role;
 
 	return;
@@ -628,6 +637,17 @@ static void
 insert_acl_role_label(struct acl_role_label *role)
 {
 	int i;
+
+	if (role_list == NULL) {
+		role_list = role;
+		role->prev = NULL;
+	} else {
+		role->prev = role_list;
+		role_list = role;
+	}
+	
+	/* used for hash chains */
+	role->next = NULL;
 
 	if (role->roletype & GR_ROLE_DOMAIN) {
 		for (i = 0; i < role->domain_child_num; i++)
@@ -845,7 +865,7 @@ free_variables(void)
 	struct acl_subject_label *s;
 	struct acl_role_label *r;
 	struct task_struct *task, *task2;
-	unsigned int i, x;
+	unsigned int x;
 
 	gr_clear_learn_entries();
 
@@ -868,9 +888,9 @@ free_variables(void)
 
 	/* free all object hash tables */
 
-	FOR_EACH_ROLE_START(r, i)
+	FOR_EACH_ROLE_START(r)
 		if (r->subj_hash == NULL)
-			break;
+			goto next_role;
 		FOR_EACH_SUBJECT_START(r, s, x)
 			if (s->obj_hash == NULL)
 				break;
@@ -892,7 +912,8 @@ free_variables(void)
 		else
 			vfree(r->subj_hash);
 		r->subj_hash = NULL;
-	FOR_EACH_ROLE_END(r,i)
+next_role:
+	FOR_EACH_ROLE_END(r)
 
 	acl_free_all();
 
@@ -927,6 +948,7 @@ free_variables(void)
 	memset(&subj_map_set, 0, sizeof (struct acl_subj_map_db));
 
 	default_role = NULL;
+	role_list = NULL;
 
 	return;
 }
@@ -2421,9 +2443,9 @@ do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
 	struct acl_subject_label *matchps;
 	struct acl_subject_label *subj;
 	struct acl_role_label *role;
-	unsigned int i, x;
+	unsigned int x;
 
-	FOR_EACH_ROLE_START(role, i)
+	FOR_EACH_ROLE_START(role)
 		FOR_EACH_SUBJECT_START(role, subj, x)
 			if ((matchpo = lookup_acl_obj_label(ino, dev, subj)) != NULL)
 				matchpo->mode |= GR_DELETED;
@@ -2434,7 +2456,7 @@ do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		if ((matchps = lookup_acl_subj_label(ino, dev, role)) != NULL)
 			matchps->mode |= GR_DELETED;
-	FOR_EACH_ROLE_END(role,i)
+	FOR_EACH_ROLE_END(role)
 
 	inodev->nentry->deleted = 1;
 
@@ -2579,9 +2601,9 @@ do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 {
 	struct acl_subject_label *subj;
 	struct acl_role_label *role;
-	unsigned int i, x;
-
-	FOR_EACH_ROLE_START(role, i)
+	unsigned int x;
+	
+	FOR_EACH_ROLE_START(role)
 		update_acl_subj_label(matchn->inode, matchn->device,
 				      dentry->d_inode->i_ino,
 				      dentry->d_inode->i_sb->s_dev, role);
@@ -2598,7 +2620,7 @@ do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 					     dentry->d_inode->i_ino,
 					     dentry->d_inode->i_sb->s_dev, subj);
 		FOR_EACH_SUBJECT_END(subj,x)
-	FOR_EACH_ROLE_END(role,i)
+	FOR_EACH_ROLE_END(role)
 
 	update_inodev_entry(matchn->inode, matchn->device,
 			    dentry->d_inode->i_ino, dentry->d_inode->i_sb->s_dev);
@@ -2703,7 +2725,7 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 	/* handle special roles that do not require authentication
 	   and check ip */
 
-	FOR_EACH_ROLE_START(r, i)
+	FOR_EACH_ROLE_START(r)
 		if (!strcmp(rolename, r->rolename) &&
 		    (r->roletype & GR_ROLE_SPECIAL)) {
 			found = 0;
@@ -2725,7 +2747,7 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 				return 1;
 			}
 		}
-	FOR_EACH_ROLE_END(r,i)
+	FOR_EACH_ROLE_END(r)
 
 	for (i = 0; i < num_sprole_pws; i++) {
 		if (!strcmp(rolename, acl_special_roles[i]->rolename)) {
@@ -2746,13 +2768,14 @@ assign_special_role(char *rolename)
 	struct acl_role_label *assigned = NULL;
 	struct task_struct *tsk;
 	struct file *filp;
-	unsigned int i;
 
-	FOR_EACH_ROLE_START(r, i)
+	FOR_EACH_ROLE_START(r)
 		if (!strcmp(rolename, r->rolename) &&
-		    (r->roletype & GR_ROLE_SPECIAL))
+		    (r->roletype & GR_ROLE_SPECIAL)) {
 			assigned = r;
-	FOR_EACH_ROLE_END(r,i)
+			break;
+		}
+	FOR_EACH_ROLE_END(r)
 
 	if (!assigned)
 		return;
