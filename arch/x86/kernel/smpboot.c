@@ -685,10 +685,6 @@ static int __cpuinit do_boot_cpu(int apicid, int cpu)
 		.done	= COMPLETION_INITIALIZER_ONSTACK(c_idle.done),
 	};
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	INIT_WORK(&c_idle.work, do_fork_idle);
 
 	alternatives_smp_switch(1);
@@ -732,15 +728,9 @@ do_rest:
 		KERNEL_STACK_OFFSET + THREAD_SIZE;
 #endif
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	early_gdt_descr.address = (unsigned long)get_cpu_gdt_table(cpu);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	initial_code = (unsigned long)start_secondary;
 	stack_start.sp = (void *) c_idle.idle->thread.sp;

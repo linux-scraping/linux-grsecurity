@@ -2291,6 +2291,6 @@ const struct inode_operations ntfs_file_inode_ops = {
 #endif /* NTFS_RW */
 };
 
-const struct file_operations ntfs_empty_file_ops;
+const struct file_operations ntfs_empty_file_ops __read_only;
 
-const struct inode_operations ntfs_empty_inode_ops;
+const struct inode_operations ntfs_empty_inode_ops __read_only;

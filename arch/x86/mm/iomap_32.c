@@ -37,25 +37,15 @@ void *kmap_atomic_prot_pfn(unsigned long pfn, enum km_type type, pgprot_t prot)
 	enum fixed_addresses idx;
 	unsigned long vaddr;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	pagefault_disable();
 
 	debug_kmap_atomic(type);
 	idx = type + KM_TYPE_NR * smp_processor_id();
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	set_pte(kmap_pte - idx, pfn_pte(pfn, prot));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	arch_flush_lazy_mmu_mode();
 

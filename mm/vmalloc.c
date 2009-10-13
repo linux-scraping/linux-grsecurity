@@ -93,10 +93,6 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 	pte_t *pte;
 	int ret = -ENOMEM;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	/*
 	 * nr is a running index into the array which helps higher level
 	 * callers keep track of where we're up to.
@@ -106,10 +102,7 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 	if (!pte)
 		return -ENOMEM;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	do {
 		struct page *page = pages[*nr];
 
@@ -126,11 +119,7 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 	ret = 0;
 out:
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 	return ret;
 }
 

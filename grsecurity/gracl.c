@@ -52,11 +52,7 @@ DEFINE_RWLOCK(gr_inode_lock);
 
 struct gr_arg *gr_usermode;
 
-#ifdef CONFIG_PAX_KERNEXEC
 static unsigned int gr_status __read_only = GR_STATUS_INIT;
-#else
-static unsigned int gr_status = GR_STATUS_INIT;
-#endif
 
 extern int chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum);
 extern void gr_clear_learn_entries(void);
@@ -1592,17 +1588,9 @@ gracl_init(struct gr_arg *args)
 		goto out;
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-	{
-		unsigned long cr0;
-
-		pax_open_kernel(cr0);
-		gr_status |= GR_READY;
-		pax_close_kernel(cr0);
-	}
-#else
+	pax_open_kernel();
 	gr_status |= GR_READY;
-#endif
+	pax_close_kernel();
 
       out:
 	return error;
@@ -2971,17 +2959,10 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	case GR_SHUTDOWN:
 		if ((gr_status & GR_READY)
 		    && !(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
-#ifdef CONFIG_PAX_KERNEXEC
-			{
-				unsigned long cr0;
-
-				pax_open_kernel(cr0);
-				gr_status &= ~GR_READY;
-				pax_close_kernel(cr0);
-			}
-#else
+			pax_open_kernel();
 			gr_status &= ~GR_READY;
-#endif
+			pax_close_kernel();
+
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SHUTS_ACL_MSG);
 			free_variables();
 			memset(gr_usermode, 0, sizeof (struct gr_arg));
@@ -3012,17 +2993,11 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			error = -EAGAIN;
 		} else if (!(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
 			lock_kernel();
-#ifdef CONFIG_PAX_KERNEXEC
-			{
-				unsigned long cr0;
 
-				pax_open_kernel(cr0);
-				gr_status &= ~GR_READY;
-				pax_close_kernel(cr0);
-			}
-#else
+			pax_open_kernel();
 			gr_status &= ~GR_READY;
-#endif
+			pax_close_kernel();
+
 			free_variables();
 			if (!(error2 = gracl_init(gr_usermode))) {
 				unlock_kernel();

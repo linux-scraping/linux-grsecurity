@@ -570,8 +570,6 @@ static int __devinit uvesafb_vbe_getpmi(struct uvesafb_ktask *task,
 
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_MODULES
-		unsigned long cr0;
-
 		par->pmi_code = module_alloc_exec((u16)task->t.regs.ecx);
 #endif
 		if (!par->pmi_code) {
@@ -584,9 +582,9 @@ static int __devinit uvesafb_vbe_getpmi(struct uvesafb_ktask *task,
 						+ task->t.regs.edi);
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-		pax_open_kernel(cr0);
+		pax_open_kernel();
 		memcpy(par->pmi_code, par->pmi_base, (u16)task->t.regs.ecx);
-		pax_close_kernel(cr0);
+		pax_close_kernel();
 
 		par->pmi_start = ktva_ktla(par->pmi_code + par->pmi_base[1]);
 		par->pmi_pal = ktva_ktla(par->pmi_code + par->pmi_base[2]);

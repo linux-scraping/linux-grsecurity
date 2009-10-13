@@ -167,23 +167,12 @@ static void __kprobes set_jmp_op(void *from, void *to)
 		s32 raddr;
 	} __attribute__((packed)) * jop;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	jop = (struct __arch_jmp_op *)(ktla_ktva(from));
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	jop->raddr = (s32)((long)(to) - ((long)(from) + 5));
 	jop->op = RELATIVEJUMP_INSTRUCTION;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 /*
@@ -360,20 +349,9 @@ static void __kprobes fix_riprel(struct kprobe *p)
 
 static void __kprobes arch_copy_kprobe(struct kprobe *p)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(p->ainsn.insn, ktla_ktva(p->addr), MAX_INSN_SIZE * sizeof(kprobe_opcode_t));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	fix_riprel(p);
 

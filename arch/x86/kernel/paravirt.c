@@ -500,6 +500,12 @@ struct pv_mmu_ops pv_mmu_ops __read_only = {
 	},
 
 	.set_fixmap = native_set_fixmap,
+
+#ifdef CONFIG_PAX_KERNEXEC
+	.pax_open_kernel = native_pax_open_kernel,
+	.pax_close_kernel = native_pax_close_kernel,
+#endif
+
 };
 
 EXPORT_SYMBOL_GPL(pv_time_ops);

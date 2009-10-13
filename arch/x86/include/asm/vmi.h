@@ -191,6 +191,7 @@ struct vrom_header {
 	u8      reserved[96];   /* Reserved for headers */
 	char    vmi_init[8];    /* VMI_Init jump point */
 	char    get_reloc[8];   /* VMI_GetRelocationInfo jump point */
+	char    rom_data[8048];	/* rest of the option ROM */
 } __attribute__((packed));
 
 struct pnp_header {

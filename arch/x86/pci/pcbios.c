@@ -71,26 +71,14 @@ static unsigned long __devinit bios32_service(unsigned long service)
 	unsigned long flags;
 	struct desc_struct d, *gdt;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	local_irq_save(flags);
 
 	gdt = get_cpu_gdt_table(smp_processor_id());
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
 
 	pack_descriptor(&d, 0UL, 0xFFFFFUL, 0x9B, 0xC);
 	write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_CS, &d, DESCTYPE_S);
 	pack_descriptor(&d, 0UL, 0xFFFFFUL, 0x93, 0xC);
 	write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_DS, &d, DESCTYPE_S);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
 
 	__asm__("movw %w7, %%ds; lcall *(%%edi); push %%ss; pop %%ds; cld"
 		: "=a" (return_code),
@@ -103,18 +91,12 @@ static unsigned long __devinit bios32_service(unsigned long service)
 		  "r"(__PCIBIOS_DS)
 		: "memory");
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	gdt[GDT_ENTRY_PCIBIOS_CS].a = 0;
 	gdt[GDT_ENTRY_PCIBIOS_CS].b = 0;
 	gdt[GDT_ENTRY_PCIBIOS_DS].a = 0;
 	gdt[GDT_ENTRY_PCIBIOS_DS].b = 0;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	local_irq_restore(flags);
 
@@ -136,10 +118,6 @@ static unsigned long __devinit bios32_service(unsigned long service)
 			flags |= 8;
 		}
 
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_open_kernel(cr0);
-#endif
-
 		for (cpu = 0; cpu < NR_CPUS; cpu++) {
 			gdt = get_cpu_gdt_table(cpu);
 			pack_descriptor(&d, address, length, 0x9b, flags);
@@ -147,11 +125,6 @@ static unsigned long __devinit bios32_service(unsigned long service)
 			pack_descriptor(&d, address, length, 0x93, flags);
 			write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_DS, &d, DESCTYPE_S);
 		}
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_close_kernel(cr0);
-#endif
-
 		return entry;
 	}
 	case 0x80:	/* Not present */
@@ -375,7 +348,7 @@ static int pci_bios_write(unsigned int seg, unsigned int bus,
  * Function table for BIOS32 access
  */
 
-static struct pci_raw_ops pci_bios_access = {
+static const struct pci_raw_ops pci_bios_access = {
 	.read =		pci_bios_read,
 	.write =	pci_bios_write
 };
@@ -384,7 +357,7 @@ static struct pci_raw_ops pci_bios_access = {
  * Try to find PCI BIOS.
  */
 
-static struct pci_raw_ops * __devinit pci_find_bios(void)
+static const struct pci_raw_ops * __devinit pci_find_bios(void)
 {
 	union bios32 *check;
 	unsigned char sum;

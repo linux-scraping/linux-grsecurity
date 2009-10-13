@@ -576,24 +576,14 @@ static long __apm_bios_call(void *_call)
 	struct desc_struct	*gdt;
 	struct apm_bios_call	*call = _call;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long		cr0;
-#endif
-
 	cpu = get_cpu();
 	BUG_ON(cpu != 0);
 	gdt = get_cpu_gdt_table(cpu);
 	save_desc_40 = gdt[0x40 / 8];
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	gdt[0x40 / 8] = bad_bios_desc;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	apm_irq_save(flags);
 	APM_DO_SAVE_SEGS;
@@ -603,15 +593,9 @@ static long __apm_bios_call(void *_call)
 	APM_DO_RESTORE_SEGS;
 	apm_irq_restore(flags);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	gdt[0x40 / 8] = save_desc_40;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	put_cpu();
 
@@ -675,24 +659,14 @@ static long __apm_bios_call_simple(void *_call)
 	struct desc_struct	*gdt;
 	struct apm_bios_call	*call = _call;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long		cr0;
-#endif
-
 	cpu = get_cpu();
 	BUG_ON(cpu != 0);
 	gdt = get_cpu_gdt_table(cpu);
 	save_desc_40 = gdt[0x40 / 8];
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	gdt[0x40 / 8] = bad_bios_desc;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	apm_irq_save(flags);
 	APM_DO_SAVE_SEGS;
@@ -701,15 +675,9 @@ static long __apm_bios_call_simple(void *_call)
 	APM_DO_RESTORE_SEGS;
 	apm_irq_restore(flags);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	gdt[0x40 / 8] = save_desc_40;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	put_cpu();
 	return error;
@@ -2313,10 +2281,6 @@ static int __init apm_init(void)
 	struct desc_struct *gdt;
 	int err;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	dmi_check_system(apm_dmi_table);
 
 	if (apm_info.bios.version == 0 || paravirt_enabled() || machine_is_olpc()) {
@@ -2391,16 +2355,10 @@ static int __init apm_init(void)
 	 * even though they are called in protected mode.
 	 */
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	set_base(bad_bios_desc, __va((unsigned long)0x40 << 4));
 	_set_limit((char *)&bad_bios_desc, 4095 - (0x40 << 4));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	/*
 	 * Set up the long jump entry point to the APM BIOS, which is called
@@ -2421,20 +2379,14 @@ static int __init apm_init(void)
 	 */
 	gdt = get_cpu_gdt_table(0);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	set_base(gdt[APM_CS >> 3],
 		 __va((unsigned long)apm_info.bios.cseg << 4));
 	set_base(gdt[APM_CS_16 >> 3],
 		 __va((unsigned long)apm_info.bios.cseg_16 << 4));
 	set_base(gdt[APM_DS >> 3],
 		 __va((unsigned long)apm_info.bios.dseg << 4));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	proc_create("apm", 0, NULL, &apm_file_ops);
 

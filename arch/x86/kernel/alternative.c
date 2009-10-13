@@ -489,21 +489,11 @@ void *__kprobes text_poke_early(void *addr, const void *opcode, size_t len)
 {
 	unsigned long flags;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	local_irq_save(flags);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(ktla_ktva(addr), opcode, len);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	local_irq_restore(flags);
 	sync_core();
@@ -531,13 +521,7 @@ void *__kprobes text_poke(void *addr, const void *opcode, size_t len)
 	struct page *pages[2];
 	size_t i;
 
-	if (!core_kernel_text((unsigned long)addr)
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	    && (vaddr < MODULES_EXEC_VADDR || MODULES_EXEC_END < vaddr)
-#endif
-
-	   ) {
+	if (!core_kernel_text((unsigned long)addr)) {
 		pages[0] = vmalloc_to_page(vaddr);
 		pages[1] = vmalloc_to_page(vaddr + PAGE_SIZE);
 	} else {

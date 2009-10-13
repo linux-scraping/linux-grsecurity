@@ -159,23 +159,13 @@ void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte)
 	pmd_t *pmd;
 	pte_t *pte;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	pud = pud_page + pud_index(vaddr);
 	pmd = fill_pmd(pud, vaddr);
 	pte = fill_pte(pmd, vaddr);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	set_pte(pte, new_pte);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	/*
 	 * It's enough to flush this one mapping.

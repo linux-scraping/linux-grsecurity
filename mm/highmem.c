@@ -94,9 +94,6 @@ static void flush_all_zero_pkmaps(void)
 
 	for (i = 0; i < LAST_PKMAP; i++) {
 		struct page *page;
-#ifdef CONFIG_PAX_KERNEXEC
-		unsigned long cr0;
-#endif
 
 		/*
 		 * zero means we don't have anything to do,
@@ -119,18 +116,10 @@ static void flush_all_zero_pkmaps(void)
 		 * So no dangers, even with speculative execution.
 		 */
 		page = pte_page(pkmap_page_table[i]);
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_open_kernel(cr0);
-#endif
-
+		pax_open_kernel();
 		pte_clear(&init_mm, (unsigned long)page_address(page),
 			  &pkmap_page_table[i]);
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_close_kernel(cr0);
-#endif
-
+		pax_close_kernel();
 		set_page_address(page, NULL);
 		need_flush = 1;
 	}
@@ -152,9 +141,6 @@ static inline unsigned long map_new_virtual(struct page *page)
 {
 	unsigned long vaddr;
 	int count;
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
 
 start:
 	count = LAST_PKMAP;
@@ -192,15 +178,11 @@ start:
 		}
 	}
 	vaddr = PKMAP_ADDR(last_pkmap_nr);
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
+
+	pax_open_kernel();
 	set_pte_at(&init_mm, vaddr,
 		   &(pkmap_page_table[last_pkmap_nr]), mk_pte(page, kmap_prot));
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 	pkmap_count[last_pkmap_nr] = 1;
 	set_page_address(page, (void *)vaddr);
 

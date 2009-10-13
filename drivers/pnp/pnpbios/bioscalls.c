@@ -87,10 +87,6 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	struct desc_struct save_desc_40;
 	int cpu;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	/*
 	 * PnP BIOSes are generally not terribly re-entrant.
 	 * Also, don't rely on them to save everything correctly.
@@ -101,15 +97,9 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 	cpu = get_cpu();
 	save_desc_40 = get_cpu_gdt_table(cpu)[0x40 / 8];
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	get_cpu_gdt_table(cpu)[0x40 / 8] = bad_bios_desc;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	/* On some boxes IRQ's during PnP BIOS calls are deadly.  */
 	spin_lock_irqsave(&pnp_bios_lock, flags);
@@ -147,15 +137,9 @@ static inline u16 call_pnp_bios(u16 func, u16 arg1, u16 arg2, u16 arg3,
 			     :"memory");
 	spin_unlock_irqrestore(&pnp_bios_lock, flags);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	get_cpu_gdt_table(cpu)[0x40 / 8] = save_desc_40;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	put_cpu();
 
@@ -494,17 +478,11 @@ void __init pnpbios_calls_init(union pnp_bios_install_struct *header)
 {
 	int i;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	spin_lock_init(&pnp_bios_lock);
 	pnp_bios_callpoint.offset = header->fields.pm16offset;
 	pnp_bios_callpoint.segment = PNP_CS16;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
+	pax_open_kernel();
 
 	bad_bios_desc.a = 0;
 	bad_bios_desc.b = 0x00409300;
@@ -522,8 +500,5 @@ void __init pnpbios_calls_init(union pnp_bios_install_struct *header)
 			 __va(header->fields.pm16dseg));
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }

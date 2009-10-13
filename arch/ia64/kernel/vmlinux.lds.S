@@ -245,7 +245,7 @@ SECTIONS
   /* Per-cpu data: */
   . = ALIGN(PERCPU_PAGE_SIZE);
   PERCPU_VADDR(PERCPU_ADDR, :percpu)
-  __phys_per_cpu_start = __per_cpu_load;
+  __phys_per_cpu_start = per_cpu_load;
   . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits
   						 * into percpu page size
 						 */

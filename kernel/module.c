@@ -1606,10 +1606,6 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 	int ret = 0;
 	const struct kernel_symbol *ksym;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	for (i = 1; i < n; i++) {
 		switch (sym[i].st_shndx) {
 		case SHN_COMMON:
@@ -1632,17 +1628,9 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 					      strtab + sym[i].st_name, mod);
 			/* Ok if resolved.  */
 			if (ksym) {
-
-#ifdef CONFIG_PAX_KERNEXEC
-				pax_open_kernel(cr0);
-#endif
-
+				pax_open_kernel();
 				sym[i].st_value = ksym->value;
-
-#ifdef CONFIG_PAX_KERNEXEC
-				pax_close_kernel(cr0);
-#endif
-
+				pax_close_kernel();
 				break;
 			}
 
@@ -1661,17 +1649,9 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 				secbase = (unsigned long)mod->percpu;
 			else
 				secbase = sechdrs[sym[i].st_shndx].sh_addr;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			sym[i].st_value += secbase;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			break;
 		}
 	}
@@ -1895,10 +1875,6 @@ static void add_kallsyms(struct module *mod,
 {
 	unsigned int i;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	mod->symtab = (void *)sechdrs[symindex].sh_addr;
 	mod->num_symtab = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
 	mod->strtab = (void *)sechdrs[strindex].sh_addr;
@@ -1907,17 +1883,9 @@ static void add_kallsyms(struct module *mod,
 
 	for (i = 0; i < mod->num_symtab; i++) {
 		char type = elf_type(&mod->symtab[i], sechdrs, secstrings, mod);
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_open_kernel(cr0);
-#endif
-
+		pax_open_kernel();
 		mod->symtab[i].st_info = type;
-
-#ifdef CONFIG_PAX_KERNEXEC
-		pax_close_kernel(cr0);
-#endif
-
+		pax_close_kernel();
 	}
 
 }
@@ -2016,10 +1984,6 @@ static noinline struct module *load_module(void __user *umod,
 	long err = 0;
 	void *percpu = NULL, *ptr = NULL; /* Stops spurious gcc warning */
 	mm_segment_t old_fs;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
 
 	DEBUGP("load_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
@@ -2207,16 +2171,9 @@ static noinline struct module *load_module(void __user *umod,
 		goto free_init_rw;
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memset(ptr, 0, mod->core_size_rx);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 	mod->module_core_rx = ptr;
 
 	ptr = module_alloc_update_bounds_rx(mod->init_size_rx);
@@ -2226,16 +2183,9 @@ static noinline struct module *load_module(void __user *umod,
 		goto free_core_rx;
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memset(ptr, 0, mod->init_size_rx);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 	mod->module_init_rx = ptr;
 
 	/* Transfer each section which specifies SHF_ALLOC */
@@ -2264,9 +2214,9 @@ static noinline struct module *load_module(void __user *umod,
 
 #ifdef CONFIG_PAX_KERNEXEC
 			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC)) {
-				pax_open_kernel(cr0);
+				pax_open_kernel();
 				memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
-				pax_close_kernel(cr0);
+				pax_close_kernel();
 			} else
 #endif
 

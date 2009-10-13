@@ -18,7 +18,7 @@
 
 #define MAX_CONFIG_LEN		40
 
-static struct kgdb_io		kgdboc_io_ops;
+static const struct kgdb_io	kgdboc_io_ops;
 
 /* -1 = init not run yet, 0 = unconfigured, 1 = configured. */
 static int configured		= -1;
@@ -154,7 +154,7 @@ static void kgdboc_post_exp_handler(void)
 		module_put(THIS_MODULE);
 }
 
-static struct kgdb_io kgdboc_io_ops = {
+static const struct kgdb_io kgdboc_io_ops = {
 	.name			= "kgdboc",
 	.read_char		= kgdboc_get_char,
 	.write_char		= kgdboc_put_char,

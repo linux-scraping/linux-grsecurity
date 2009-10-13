@@ -93,11 +93,9 @@ void module_free_exec(struct module *mod, void *module_region)
 			break;
 
 	if (tmp) {
-		unsigned long cr0;
-
-		pax_open_kernel(cr0);
+		pax_open_kernel();
 		memset(tmp->addr, 0xCC, tmp->size);
-		pax_close_kernel(cr0);
+		pax_close_kernel();
 
 		*p = tmp->next;
 		kfree(tmp);
@@ -163,10 +161,6 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 	Elf32_Sym *sym;
 	uint32_t *plocation, location;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	DEBUGP("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
@@ -183,31 +177,15 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 		switch (ELF32_R_TYPE(rel[i].r_info)) {
 		case R_386_32:
 			/* We add the value into the location given */
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*plocation += sym->st_value;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			break;
 		case R_386_PC32:
 			/* Add the value, subtract its postition */
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*plocation += sym->st_value - location;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			break;
 		default:
 			printk(KERN_ERR "module %s: Unknown relocation: %u\n",
@@ -241,10 +219,6 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	void *loc;
 	u64 val;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	DEBUGP("Applying relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
@@ -267,60 +241,29 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 		case R_X86_64_NONE:
 			break;
 		case R_X86_64_64:
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*(u64 *)loc = val;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			break;
 		case R_X86_64_32:
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*(u32 *)loc = val;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			if (val != *(u32 *)loc)
 				goto overflow;
 			break;
 		case R_X86_64_32S:
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*(s32 *)loc = val;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
-
+			pax_close_kernel();
 			if ((s64)val != *(s32 *)loc)
 				goto overflow;
 			break;
 		case R_X86_64_PC32:
 			val -= (u64)loc;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_open_kernel(cr0);
-#endif
-
+			pax_open_kernel();
 			*(u32 *)loc = val;
-
-#ifdef CONFIG_PAX_KERNEXEC
-			pax_close_kernel(cr0);
-#endif
+			pax_close_kernel();
 
 #if 0
 			if ((s64)val != *(s32 *)loc)

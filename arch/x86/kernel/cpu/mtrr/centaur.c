@@ -205,7 +205,7 @@ static int centaur_validate_add_page(unsigned long base,
 	return 0;
 }
 
-static struct mtrr_ops centaur_mtrr_ops = {
+static const struct mtrr_ops centaur_mtrr_ops = {
 	.vendor            = X86_VENDOR_CENTAUR,
 //	.init              = centaur_mcr_init,
 	.set               = centaur_set_mcr,

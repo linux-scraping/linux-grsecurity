@@ -1952,7 +1952,7 @@ static int snd_ac97_dev_disconnect(struct snd_device *device)
 }
 
 /* build_ops to do nothing */
-static struct snd_ac97_build_ops null_build_ops;
+static const struct snd_ac97_build_ops null_build_ops __read_only;
 
 #ifdef CONFIG_SND_AC97_POWER_SAVE
 static void do_update_power(struct work_struct *work)

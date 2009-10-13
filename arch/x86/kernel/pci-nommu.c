@@ -79,7 +79,7 @@ static void nommu_free_coherent(struct device *dev, size_t size, void *vaddr,
 	free_pages((unsigned long)vaddr, get_order(size));
 }
 
-struct dma_map_ops nommu_dma_ops = {
+const struct dma_map_ops nommu_dma_ops = {
 	.alloc_coherent	= dma_generic_alloc_coherent,
 	.free_coherent	= nommu_free_coherent,
 	.map_sg		= nommu_map_sg,

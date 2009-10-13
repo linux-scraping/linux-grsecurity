@@ -554,6 +554,8 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
+			if (!strcmp(sec_name(sym->st_shndx), ".module.text") && !strcmp(sym_name(sym_strtab, sym), "_etext"))
+				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
 				continue;
 			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))

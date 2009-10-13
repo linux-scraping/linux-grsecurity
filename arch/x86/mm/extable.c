@@ -25,23 +25,12 @@ static void swap_ex(void *a, void *b, int size)
 {
 	struct exception_table_entry t, *x = a, *y = b;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	t = *x;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	*x = *y;
 	*y = t;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 void sort_extable(struct exception_table_entry *start,

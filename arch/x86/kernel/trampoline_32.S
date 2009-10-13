@@ -31,6 +31,12 @@
 #include <asm/segment.h>
 #include <asm/page_types.h>
 
+#ifdef CONFIG_PAX_KERNEXEC
+#define ta(X) (X)
+#else
+#define ta(X) ((X) - __PAGE_OFFSET)
+#endif
+
 /* We can free up trampoline after bootup if cpu hotplug is not supported. */
 #ifndef CONFIG_HOTPLUG_CPU
 .section ".cpuinit.data","aw",@progbits
@@ -64,7 +70,7 @@ r_base = .
 	inc	%ax		# protected mode (PE) bit
 	lmsw	%ax		# into protected mode
 	# flush prefetch and jump to startup_32_smp in arch/i386/kernel/head.S
-	ljmpl	$__BOOT_CS, $(startup_32_smp-__PAGE_OFFSET)
+	ljmpl	$__BOOT_CS, $ta(startup_32_smp)
 
 	# These need to be in the same 64K segment as the above;
 	# hence we don't use the boot_gdt_descr defined in head.S

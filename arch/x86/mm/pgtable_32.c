@@ -33,10 +33,6 @@ void set_pte_vaddr(unsigned long vaddr, pte_t pteval)
 	pmd_t *pmd;
 	pte_t *pte;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
-
 	pgd = swapper_pg_dir + pgd_index(vaddr);
 	if (pgd_none(*pgd)) {
 		BUG();
@@ -54,18 +50,12 @@ void set_pte_vaddr(unsigned long vaddr, pte_t pteval)
 	}
 	pte = pte_offset_kernel(pmd, vaddr);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	if (pte_val(pteval))
 		set_pte_at(&init_mm, vaddr, pte, pteval);
 	else
 		pte_clear(&init_mm, vaddr, pte);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 	/*
 	 * It's enough to flush this one mapping.

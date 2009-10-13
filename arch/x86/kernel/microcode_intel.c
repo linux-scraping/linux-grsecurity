@@ -460,7 +460,7 @@ static void microcode_fini_cpu(int cpu)
 	uci->mc = NULL;
 }
 
-static struct microcode_ops microcode_intel_ops = {
+static const struct microcode_ops microcode_intel_ops = {
 	.request_microcode_user		  = request_microcode_user,
 	.request_microcode_fw             = request_microcode_fw,
 	.collect_cpu_info                 = collect_cpu_info,
@@ -468,7 +468,7 @@ static struct microcode_ops microcode_intel_ops = {
 	.microcode_fini_cpu               = microcode_fini_cpu,
 };
 
-struct microcode_ops * __init init_intel_microcode(void)
+const struct microcode_ops * __init init_intel_microcode(void)
 {
 	return &microcode_intel_ops;
 }

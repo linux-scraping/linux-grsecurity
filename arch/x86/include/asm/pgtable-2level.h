@@ -18,19 +18,9 @@ static inline void native_set_pte(pte_t *ptep , pte_t pte)
 
 static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	*pmdp = pmd;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 static inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)

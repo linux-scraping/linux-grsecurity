@@ -84,7 +84,38 @@ static inline void __init paravirt_pagetable_setup_done(pgd_t *base)
 
 #define arch_end_context_switch(prev)	do {} while(0)
 
+#define pax_open_kernel()	native_pax_open_kernel()
+#define pax_close_kernel(x)	native_pax_close_kernel(x)
 #endif	/* CONFIG_PARAVIRT */
+
+#ifdef CONFIG_PAX_KERNEXEC
+static inline unsigned long native_pax_open_kernel(void)
+{
+	unsigned long cr0;
+
+	preempt_disable();
+	barrier();
+	cr0 = read_cr0();
+	if (likely(cr0 & X86_CR0_WP))
+		write_cr0(cr0 & ~X86_CR0_WP);
+	return cr0;
+}
+
+static inline unsigned long native_pax_close_kernel(void)
+{
+	unsigned long cr0;
+
+	cr0 = read_cr0();
+	if (likely(!(cr0 & X86_CR0_WP)))
+		write_cr0(cr0 | X86_CR0_WP);
+	barrier();
+	preempt_enable_no_resched();
+	return cr0;
+}
+#else
+static inline unsigned long __must_check native_pax_open_kernel(void) {}
+static inline void native_pax_close_kernel(unsigned long cr0) {}
+#endif
 
 /*
  * The following only work if pte_present() is true.
@@ -648,19 +679,9 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
  */
 static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(dst, src, count * sizeof(pgd_t));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 

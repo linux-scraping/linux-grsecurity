@@ -113,6 +113,11 @@ static inline unsigned long __raw_local_irq_save(void)
 }
 #else
 
+#ifdef CONFIG_X86_32
+#define PAX_OPEN_KERNEL
+#define PAX_CLOSE_KERNEL
+#endif
+
 #define ENABLE_INTERRUPTS(x)	sti
 #define DISABLE_INTERRUPTS(x)	cli
 

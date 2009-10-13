@@ -118,7 +118,7 @@
 	} while (0)
 #define MAX_CONFIG_LEN		40
 
-static struct kgdb_io kgdbts_io_ops;
+static const struct kgdb_io kgdbts_io_ops;
 static char get_buf[BUFMAX];
 static int get_buf_cnt;
 static char put_buf[BUFMAX];
@@ -1102,7 +1102,7 @@ static void kgdbts_post_exp_handler(void)
 		module_put(THIS_MODULE);
 }
 
-static struct kgdb_io kgdbts_io_ops = {
+static const struct kgdb_io kgdbts_io_ops = {
 	.name			= "kgdbts",
 	.read_char		= kgdbts_get_char,
 	.write_char		= kgdbts_put_char,

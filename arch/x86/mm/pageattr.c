@@ -332,19 +332,10 @@ EXPORT_SYMBOL_GPL(lookup_address);
  */
 static void __set_pmd_pte(pte_t *kpte, unsigned long address, pte_t pte)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
 	/* change init_mm */
+	pax_open_kernel();
 	set_pte_atomic(kpte, pte);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
+	pax_close_kernel();
 
 #ifdef CONFIG_X86_32
 	if (!SHARED_KERNEL_PMD) {

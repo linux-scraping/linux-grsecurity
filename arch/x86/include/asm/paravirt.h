@@ -350,6 +350,12 @@ struct pv_mmu_ops {
 	   an mfn.  We can tell which is which from the index. */
 	void (*set_fixmap)(unsigned /* enum fixed_addresses */ idx,
 			   phys_addr_t phys, pgprot_t flags);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long (*pax_open_kernel)(void);
+	unsigned long (*pax_close_kernel)(void);
+#endif
+
 };
 
 struct raw_spinlock;
@@ -1437,6 +1443,21 @@ static inline void __set_fixmap(unsigned /* enum fixed_addresses */ idx,
 	pv_mmu_ops.set_fixmap(idx, phys, flags);
 }
 
+#ifdef CONFIG_PAX_KERNEXEC
+static inline unsigned long pax_open_kernel(void)
+{
+	return pv_mmu_ops.pax_open_kernel();
+}
+
+static inline unsigned long pax_close_kernel(void)
+{
+	return pv_mmu_ops.pax_close_kernel();
+}
+#else
+static inline void pax_open_kernel(void) {}
+static inline void pax_close_kernel(void) {}
+#endif
+
 void _paravirt_nop(void);
 u32 _paravirt_ident_32(u32);
 u64 _paravirt_ident_64(u64);
@@ -1713,22 +1734,22 @@ static inline unsigned long __raw_local_irq_save(void)
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_usergs_sysret32))
 
 #ifdef CONFIG_X86_32
+#define PAX_OPEN_KERNEL						\
+	push %eax; push %ecx;					\
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_pax_open_kernel);	\
+	mov %eax, %edx;						\
+	pop %ecx; pop %eax
+
+#define PAX_CLOSE_KERNEL					\
+	push %eax; push %ecx;					\
+	mov %edx, %eax;						\
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_pax_close_kernel);	\
+	pop %ecx; pop %eax
+
 #define GET_CR0_INTO_EAX				\
 	push %ecx; push %edx;				\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
 	pop %edx; pop %ecx
-
-#define GET_CR0_INTO_EDX				\
-	push %eax; push %ecx;				\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	mov %eax, %edx;					\
-	pop %ecx; pop %eax
-
-#define SET_CR0_FROM_EDX				\
-	push %eax; push %ecx;				\
-	mov %edx, %eax;					\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-	pop %ecx; pop %eax
 
 #define ENABLE_INTERRUPTS_SYSEXIT					\
 	PARA_SITE(PARA_PATCH(pv_cpu_ops, PV_CPU_irq_enable_sysexit),	\

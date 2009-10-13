@@ -4,6 +4,7 @@
 #include <asm/desc_defs.h>
 #include <asm/ldt.h>
 #include <asm/mmu.h>
+#include <asm/pgtable.h>
 #include <linux/smp.h>
 
 static inline void fill_ldt(struct desc_struct *desc,
@@ -112,47 +113,23 @@ static inline void paravirt_free_ldt(struct desc_struct *ldt, unsigned entries)
 static inline void native_write_idt_entry(gate_desc *idt, int entry,
 					  const gate_desc *gate)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(&idt[entry], gate, sizeof(*gate));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 static inline void native_write_ldt_entry(struct desc_struct *ldt, int entry,
 					  const void *desc)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(&ldt[entry], desc, 8);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 static inline void native_write_gdt_entry(struct desc_struct *gdt, int entry,
 					  const void *desc, int type)
 {
 	unsigned int size;
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-#endif
 
 	switch (type) {
 	case DESC_TSS:
@@ -166,16 +143,9 @@ static inline void native_write_gdt_entry(struct desc_struct *gdt, int entry,
 		break;
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	memcpy(&gdt[entry], desc, size);
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 static inline void pack_descriptor(struct desc_struct *desc, unsigned long base,
@@ -247,19 +217,9 @@ static inline void native_set_ldt(const void *addr, unsigned int entries)
 
 static inline void native_load_tr_desc(void)
 {
-
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	asm volatile("ltr %w0"::"q" (GDT_ENTRY_TSS*8));
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 static inline void native_load_gdt(const struct desc_ptr *dtr)
@@ -294,19 +254,10 @@ static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
 	unsigned int i;
 	struct desc_struct *gdt = get_cpu_gdt_table(cpu);
 
-#ifdef CONFIG_PAX_KERNEXEC
-	unsigned long cr0;
-
-	pax_open_kernel(cr0);
-#endif
-
+	pax_open_kernel();
 	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++)
 		gdt[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i];
-
-#ifdef CONFIG_PAX_KERNEXEC
-	pax_close_kernel(cr0);
-#endif
-
+	pax_close_kernel();
 }
 
 #define _LDT_empty(info)				\

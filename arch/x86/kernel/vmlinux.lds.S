@@ -60,6 +60,7 @@ jiffies = jiffies_64;
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
 	rodata PT_LOAD FLAGS(4);        /* R__ */
+	module PT_LOAD FLAGS(5);        /* R_E */
 	data PT_LOAD FLAGS(6);          /* RW_ */
 #ifdef CONFIG_X86_64
 	user PT_LOAD FLAGS(5);          /* R_E */
@@ -110,8 +111,6 @@ SECTIONS
 		IRQENTRY_TEXT
 		*(.fixup)
 		*(.gnu.warning)
-		/* End of text section */
-		_etext = .;
 	} :text = 0x9090
 
 	. += __KERNEL_TEXT_OFFSET;
@@ -137,14 +136,15 @@ SECTIONS
 		*(.empty_zero_page)
 		*(.swapper_pg_pmd)
 		*(.swapper_pg_dir)
-
-#if defined(CONFIG_PAX_KERNEXEC) && !defined(CONFIG_MODULES)
-		. = ALIGN(PMD_SIZE);
+	}
 #endif
 
-	}
+	. = ALIGN(PAGE_SIZE);
+	.vmi.rom : AT(ADDR(.vmi.rom) - LOAD_OFFSET) {
+		*(.vmi.rom)
+	} :module
 
-#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
 	. = ALIGN(PAGE_SIZE);
 	.module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 		MODULES_EXEC_VADDR = .;
@@ -152,8 +152,9 @@ SECTIONS
 		. += (8 * 1024 * 1024);
 		. = ALIGN(PMD_SIZE);
 		MODULES_EXEC_END = . - 1;
-	}
-#endif
+		/* End of text section */
+		_etext = . - __KERNEL_TEXT_OFFSET;
+	} :module
 #endif
 
 	/* Data */

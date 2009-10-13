@@ -1032,6 +1032,9 @@ void __set_fs(mm_segment_t x, int cpu)
 	struct desc_struct d;
 
 	current_thread_info()->addr_limit = x;
+	if (unlikely(paravirt_enabled()))
+		return;
+
 	if (likely(limit))
 		limit = (limit - 1UL) >> PAGE_SHIFT;
 	pack_descriptor(&d, 0UL, limit, 0xF3, 0xC);

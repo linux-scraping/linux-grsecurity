@@ -336,14 +336,10 @@ static int __init vesafb_probe(struct platform_device *dev)
 	if (ypan || pmi_setpal) {
 		unsigned short *pmi_base;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-		unsigned long cr0;
-#endif
-
 		pmi_base = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-		pax_open_kernel(cr0);
+		pax_open_kernel();
 		memcpy(pmi_code, pmi_base, screen_info.vesapm_size);
 #else
 		pmi_code = pmi_base;
@@ -355,7 +351,7 @@ static int __init vesafb_probe(struct platform_device *dev)
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		pmi_start = ktva_ktla(pmi_start);
 		pmi_pal = ktva_ktla(pmi_pal);
-		pax_close_kernel(cr0);
+		pax_close_kernel();
 #endif
 
 		printk(KERN_INFO "vesafb: pmi: set display start = %p, set palette = %p\n",pmi_start,pmi_pal);

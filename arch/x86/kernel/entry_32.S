@@ -235,11 +235,8 @@
 .macro SAVE_ALL
 #ifdef CONFIG_PAX_KERNEXEC
 	__SAVE_ALL __KERNEL_DS
-	GET_CR0_INTO_EDX;
+	PAX_CLOSE_KERNEL;
 	movl %edx, %esi;
-	orl $X86_CR0_WP, %edx;
-	xorl %edx, %esi;
-	SET_CR0_FROM_EDX
 #elif defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	__SAVE_ALL __KERNEL_DS
 #else
@@ -375,10 +372,10 @@ check_userspace:
 
 #ifdef CONFIG_PAX_KERNEXEC
 	jae resume_userspace
-	
-	GET_CR0_INTO_EDX
-	xorl %esi, %edx
-	SET_CR0_FROM_EDX
+
+	testl $X86_CR0_WP, %esi
+	jnz resume_kernel
+	PAX_OPEN_KERNEL;
 	jmp resume_kernel
 #else
 	jb resume_kernel		# not returning to v8086 or userspace
@@ -1321,11 +1318,8 @@ error_code:
 	GS_TO_REG %ecx
 
 #ifdef CONFIG_PAX_KERNEXEC
-	GET_CR0_INTO_EDX
+	PAX_CLOSE_KERNEL;
 	movl %edx, %esi
-	orl $X86_CR0_WP, %edx
-	xorl %edx, %esi
-	SET_CR0_FROM_EDX
 #endif
 
 	movl PT_GS(%esp), %edi		# get the function address
@@ -1431,9 +1425,10 @@ nmi_stack_correct:
 	call do_nmi
 
 #ifdef CONFIG_PAX_KERNEXEC
-	GET_CR0_INTO_EDX
-	xorl %esi, %edx
-	SET_CR0_FROM_EDX
+	testl $X86_CR0_WP, %esi
+	jnz 1f
+	PAX_OPEN_KERNEL;
+1:
 #endif
 
 	jmp restore_all_notrace
@@ -1478,9 +1473,10 @@ nmi_espfix_stack:
 	call do_nmi
 
 #ifdef CONFIG_PAX_KERNEXEC
-	GET_CR0_INTO_EDX
-	xorl %esi, %edx
-	SET_CR0_FROM_EDX
+	testl $X86_CR0_WP, %esi
+	jnz 1f
+	PAX_OPEN_KERNEL;
+1:
 #endif
 
 	RESTORE_REGS

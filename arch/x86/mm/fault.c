@@ -617,11 +617,7 @@ show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 	}
 
 #ifdef CONFIG_PAX_KERNEXEC
-#if defined(CONFIG_x86_32) && defined(CONFIG_MODULES)
-	if (init_mm.start_code <= address && address < (unsigned long)&MODULES_EXEC_END)
-#else
 	if (init_mm.start_code <= address && address < init_mm.end_code)
-#endif
 	{
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %u.%u.%u.%u: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",

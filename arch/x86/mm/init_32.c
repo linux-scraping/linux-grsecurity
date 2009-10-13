@@ -217,15 +217,7 @@ page_table_range_init(unsigned long start, unsigned long end, pgd_t *pgd_base)
 
 static inline int is_kernel_text(unsigned long start, unsigned long end)
 {
-	unsigned long etext;
-
-#if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	etext = ktva_ktla((unsigned long)&MODULES_EXEC_END);
-#else
-	etext = (unsigned long)&_etext;
-#endif
-
-	if ((start > ktla_ktva(etext) ||
+	if ((start > ktla_ktva((unsigned long)_etext) ||
 	     end <= ktla_ktva((unsigned long)_stext)) &&
 	    (start > ktla_ktva((unsigned long)_einittext) ||
 	     end <= ktla_ktva((unsigned long)_sinittext)) &&

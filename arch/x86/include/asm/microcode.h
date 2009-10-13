@@ -38,18 +38,18 @@ struct ucode_cpu_info {
 extern struct ucode_cpu_info ucode_cpu_info[];
 
 #ifdef CONFIG_MICROCODE_INTEL
-extern struct microcode_ops * __init init_intel_microcode(void);
+extern const struct microcode_ops * __init init_intel_microcode(void);
 #else
-static inline struct microcode_ops * __init init_intel_microcode(void)
+static inline const struct microcode_ops * __init init_intel_microcode(void)
 {
 	return NULL;
 }
 #endif /* CONFIG_MICROCODE_INTEL */
 
 #ifdef CONFIG_MICROCODE_AMD
-extern struct microcode_ops * __init init_amd_microcode(void);
+extern const struct microcode_ops * __init init_amd_microcode(void);
 #else
-static inline struct microcode_ops * __init init_amd_microcode(void)
+static inline const struct microcode_ops * __init init_amd_microcode(void)
 {
 	return NULL;
 }

@@ -453,11 +453,7 @@ void free_initmem(void)
 	struct desc_struct d;
 	int cpu;
 
-#ifdef CONFIG_MODULES
-	limit = ktva_ktla((unsigned long)&MODULES_EXEC_END);
-#else
-	limit = (unsigned long)&_etext;
-#endif
+	limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
 	limit = (limit - 1UL) >> PAGE_SHIFT;
 
 	memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
@@ -467,12 +463,13 @@ void free_initmem(void)
 	}
 
 	/* PaX: make KERNEL_CS read-only */
-	for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_sdata; addr += PMD_SIZE) {
-		pgd = pgd_offset_k(addr);
-		pud = pud_offset(pgd, addr);
-		pmd = pmd_offset(pud, addr);
-		set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-	}
+	if (!paravirt_enabled())
+		for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_sdata; addr += PMD_SIZE) {
+			pgd = pgd_offset_k(addr);
+			pud = pud_offset(pgd, addr);
+			pmd = pmd_offset(pud, addr);
+			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
+		}
 #ifdef CONFIG_X86_PAE
 	for (addr = (unsigned long)&__init_begin; addr < (unsigned long)&__init_end; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);

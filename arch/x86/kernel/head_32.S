@@ -24,6 +24,12 @@
 /* Physical address */
 #define pa(X) ((X) - __PAGE_OFFSET)
 
+#ifdef CONFIG_PAX_KERNEXEC
+#define ta(X) (X)
+#else
+#define ta(X) ((X) - __PAGE_OFFSET)
+#endif
+
 /*
  * References to members of the new_cpu_data structure.
  */
@@ -130,15 +136,19 @@ ENTRY(startup_32)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	movl $pa(boot_gdt),%edi
-	movl $__LOAD_PHYSICAL_ADDR + __PAGE_OFFSET,%eax
+	movl $__LOAD_PHYSICAL_ADDR,%eax
 	movw %ax,__BOOT_CS + 2(%edi)
 	rorl $16,%eax
 	movb %al,__BOOT_CS + 4(%edi)
 	movb %ah,__BOOT_CS + 7(%edi)
 	rorl $16,%eax
 
+	ljmp $(__BOOT_CS),$1f
+1:
+
 	movl $NR_CPUS,%ecx
 	movl $pa(cpu_gdt_table),%edi
+	addl $__PAGE_OFFSET,%eax
 1:
 	movw %ax,__KERNEL_CS + 2(%edi)
 	rorl $16,%eax
@@ -204,9 +214,9 @@ WEAK(xen_entry)
 	__INITDATA
 
 subarch_entries:
-	.long pa(default_entry)		/* normal x86/PC */
-	.long pa(lguest_entry)		/* lguest hypervisor */
-	.long pa(xen_entry)		/* Xen hypervisor */
+	.long ta(default_entry)		/* normal x86/PC */
+	.long ta(lguest_entry)		/* lguest hypervisor */
+	.long ta(xen_entry)		/* Xen hypervisor */
 num_subarch_entries = (. - subarch_entries) / 4
 .previous
 #endif /* CONFIG_PARAVIRT */
