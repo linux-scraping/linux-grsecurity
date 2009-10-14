@@ -2,6 +2,7 @@
 #include <linux/spinlock.h>
 #include <linux/sort.h>
 #include <asm/uaccess.h>
+#include <asm/pgtable.h>
 
 /*
  * The exception table needs to be sorted so that the binary

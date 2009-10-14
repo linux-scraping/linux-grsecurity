@@ -85,8 +85,11 @@ static inline void __init paravirt_pagetable_setup_done(pgd_t *base)
 #define arch_end_context_switch(prev)	do {} while(0)
 
 #define pax_open_kernel()	native_pax_open_kernel()
-#define pax_close_kernel(x)	native_pax_close_kernel(x)
+#define pax_close_kernel()	native_pax_close_kernel()
 #endif	/* CONFIG_PARAVIRT */
+
+#define  __HAVE_ARCH_PAX_OPEN_KERNEL
+#define  __HAVE_ARCH_PAX_CLOSE_KERNEL
 
 #ifdef CONFIG_PAX_KERNEXEC
 static inline unsigned long native_pax_open_kernel(void)
@@ -113,8 +116,8 @@ static inline unsigned long native_pax_close_kernel(void)
 	return cr0;
 }
 #else
-static inline unsigned long __must_check native_pax_open_kernel(void) {}
-static inline void native_pax_close_kernel(unsigned long cr0) {}
+static inline unsigned long native_pax_open_kernel(void) { return 0; }
+static inline unsigned long native_pax_close_kernel(void) { return 0; }
 #endif
 
 /*

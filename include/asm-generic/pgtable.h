@@ -344,12 +344,12 @@ extern void untrack_pfn_vma(struct vm_area_struct *vma, unsigned long pfn,
 				unsigned long size);
 #endif
 
-#ifndef pax_open_kernel
-#define pax_open_kernel()	do {} while (0)
-#define pax_open_kernel
+#ifndef __HAVE_ARCH_PAX_OPEN_KERNEL
+static inline unsigned long pax_open_kernel(void) { return 0; }
 #endif
-#ifndef pax_close_kernel
-#define pax_close_kernel()	do {} while (0)
+
+#ifndef __HAVE_ARCH_PAX_CLOSE_KERNEL
+static inline unsigned long pax_close_kernel(void) { return 0; }
 #endif
 
 #endif /* !__ASSEMBLY__ */

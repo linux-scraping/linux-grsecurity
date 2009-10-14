@@ -492,12 +492,14 @@ static void vmi_leave_lazy_mmu(void)
 	paravirt_leave_lazy_mmu();
 }
 
-static void vmi_pax_open_kernel(void)
+static unsigned long vmi_pax_open_kernel(void)
 {
+	return 0;
 }
 
-static void vmi_pax_close_kernel(void)
+static unsigned long vmi_pax_close_kernel(void)
 {
+	return 0;
 }
 
 static inline int __init check_vmi_rom(struct vrom_header *rom)

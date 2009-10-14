@@ -113,11 +113,6 @@ static inline unsigned long __raw_local_irq_save(void)
 }
 #else
 
-#ifdef CONFIG_X86_32
-#define PAX_OPEN_KERNEL
-#define PAX_CLOSE_KERNEL
-#endif
-
 #define ENABLE_INTERRUPTS(x)	sti
 #define DISABLE_INTERRUPTS(x)	cli
 
@@ -152,8 +147,20 @@ static inline unsigned long __raw_local_irq_save(void)
 #define INTERRUPT_RETURN		iret
 #define ENABLE_INTERRUPTS_SYSEXIT	sti; sysexit
 #define GET_CR0_INTO_EAX		movl %cr0, %eax
-#define GET_CR0_INTO_EDX		movl %cr0, %edx
-#define SET_CR0_FROM_EDX		movl %edx, %cr0
+
+/* PaX: special register usage in entry_32.S, beware */
+#define PAX_OPEN_KERNEL		\
+	movl %esi, %cr0
+
+#define PAX_CLOSE_KERNEL	\
+	movl %cr0, %edx;	\
+	testl $X86_CR0_WP, %edx;\
+	jnz 1f;			\
+	movl %edx, %esi;	\
+	orl $X86_CR0_WP, %esi;	\
+	movl %esi, %cr0;	\
+1:
+
 #endif
 
 

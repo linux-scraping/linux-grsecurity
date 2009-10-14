@@ -341,11 +341,6 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET 4
 	popfl
 	CFI_ADJUST_CFA_OFFSET -4
-
-#ifdef CONFIG_PAX_KERNEXEC
-	xorl %esi, %esi
-#endif
-
 	jmp syscall_exit
 	CFI_ENDPROC
 END(ret_from_fork)

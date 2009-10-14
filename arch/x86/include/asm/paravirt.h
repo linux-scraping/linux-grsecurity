@@ -1454,8 +1454,8 @@ static inline unsigned long pax_close_kernel(void)
 	return pv_mmu_ops.pax_close_kernel();
 }
 #else
-static inline void pax_open_kernel(void) {}
-static inline void pax_close_kernel(void) {}
+static inline unsigned long pax_open_kernel(void) { return 0; }
+static inline unsigned long pax_close_kernel(void) { return 0; }
 #endif
 
 void _paravirt_nop(void);

@@ -144,18 +144,20 @@ SECTIONS
 		*(.vmi.rom)
 	} :module
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
 	. = ALIGN(PAGE_SIZE);
 	.module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
 		MODULES_EXEC_VADDR = .;
 		BYTE(0)
 		. += (8 * 1024 * 1024);
 		. = ALIGN(PMD_SIZE);
 		MODULES_EXEC_END = . - 1;
+#endif
+
 		/* End of text section */
 		_etext = . - __KERNEL_TEXT_OFFSET;
 	} :module
-#endif
 
 	/* Data */
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {
