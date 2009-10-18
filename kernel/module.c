@@ -47,11 +47,6 @@
 #include <linux/rculist.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
-
-#ifdef CONFIG_PAX_KERNEXEC
-#include <asm/desc.h>
-#endif
-
 #include <linux/license.h>
 #include <asm/sections.h>
 #include <linux/tracepoint.h>

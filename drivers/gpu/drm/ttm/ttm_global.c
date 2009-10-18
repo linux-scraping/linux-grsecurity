@@ -36,7 +36,7 @@
 struct ttm_global_item {
 	struct mutex mutex;
 	void *object;
-	int refcount;
+	atomic_t refcount;
 };
 
 static struct ttm_global_item glob[TTM_GLOBAL_NUM];
@@ -49,7 +49,7 @@ void ttm_global_init(void)
 		struct ttm_global_item *item = &glob[i];
 		mutex_init(&item->mutex);
 		item->object = NULL;
-		item->refcount = 0;
+		atomic_set(&item->refcount, 0);
 	}
 }
 
@@ -59,7 +59,7 @@ void ttm_global_release(void)
 	for (i = 0; i < TTM_GLOBAL_NUM; ++i) {
 		struct ttm_global_item *item = &glob[i];
 		BUG_ON(item->object != NULL);
-		BUG_ON(item->refcount != 0);
+		BUG_ON(atomic_read(&item->refcount) != 0);
 	}
 }
 
@@ -70,7 +70,7 @@ int ttm_global_item_ref(struct ttm_global_reference *ref)
 	void *object;
 
 	mutex_lock(&item->mutex);
-	if (item->refcount == 0) {
+	if (atomic_read(&item->refcount) == 0) {
 		item->object = kmalloc(ref->size, GFP_KERNEL);
 		if (unlikely(item->object == NULL)) {
 			ret = -ENOMEM;
@@ -82,7 +82,7 @@ int ttm_global_item_ref(struct ttm_global_reference *ref)
 		if (unlikely(ret != 0))
 			goto out_err;
 
-		++item->refcount;
+		atomic_inc(&item->refcount);
 	}
 	ref->object = item->object;
 	object = item->object;
@@ -101,9 +101,9 @@ void ttm_global_item_unref(struct ttm_global_reference *ref)
 	struct ttm_global_item *item = &glob[ref->global_type];
 
 	mutex_lock(&item->mutex);
-	BUG_ON(item->refcount == 0);
+	BUG_ON(atomic_read(&item->refcount) == 0);
 	BUG_ON(ref->object != item->object);
-	if (--item->refcount == 0) {
+	if (atomic_dec_and_test(&item->refcount)) {
 		ref->release(ref);
 		kfree(item->object);
 		item->object = NULL;

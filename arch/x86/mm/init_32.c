@@ -51,7 +51,6 @@
 #include <asm/cacheflush.h>
 #include <asm/page_types.h>
 #include <asm/init.h>
-#include <asm/desc.h>
 
 unsigned long highstart_pfn, highend_pfn;
 

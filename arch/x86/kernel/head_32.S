@@ -121,7 +121,7 @@ ENTRY(startup_32)
 	movb %al,__KERNEL_PERCPU + 4(%edi)
 	movb %ah,__KERNEL_PERCPU + 7(%edi)
 	movl $__per_cpu_end - 1,%eax
-	subl $__per_cpu_load,%eax
+	subl $__per_cpu_start,%eax
 	movw %ax,__KERNEL_PERCPU + 0(%edi)
 #endif
 

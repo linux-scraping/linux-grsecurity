@@ -233,12 +233,9 @@
 .endm
 
 .macro SAVE_ALL
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	__SAVE_ALL __KERNEL_DS
-	PAX_CLOSE_KERNEL;
-	movl %edx, %esi;
-#elif defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-	__SAVE_ALL __KERNEL_DS
+	PAX_CLOSE_KERNEL
 #else
 	__SAVE_ALL __USER_DS
 #endif
@@ -368,9 +365,7 @@ check_userspace:
 #ifdef CONFIG_PAX_KERNEXEC
 	jae resume_userspace
 
-	testl $X86_CR0_WP, %esi
-	jnz resume_kernel
-	PAX_OPEN_KERNEL;
+	PAX_RESTORE_KERNEL
 	jmp resume_kernel
 #else
 	jb resume_kernel		# not returning to v8086 or userspace
@@ -1312,10 +1307,7 @@ error_code:
 	UNWIND_ESPFIX_STACK
 	GS_TO_REG %ecx
 
-#ifdef CONFIG_PAX_KERNEXEC
-	PAX_CLOSE_KERNEL;
-	movl %edx, %esi
-#endif
+	PAX_CLOSE_KERNEL
 
 	movl PT_GS(%esp), %edi		# get the function address
 	movl PT_ORIG_EAX(%esp), %edx	# get the error code
@@ -1419,12 +1411,7 @@ nmi_stack_correct:
 	movl %esp,%eax		# pt_regs pointer
 	call do_nmi
 
-#ifdef CONFIG_PAX_KERNEXEC
-	testl $X86_CR0_WP, %esi
-	jnz 1f
-	PAX_OPEN_KERNEL;
-1:
-#endif
+	PAX_RESTORE_KERNEL
 
 	jmp restore_all_notrace
 	CFI_ENDPROC
@@ -1467,12 +1454,7 @@ nmi_espfix_stack:
 	xorl %edx,%edx			# zero error code
 	call do_nmi
 
-#ifdef CONFIG_PAX_KERNEXEC
-	testl $X86_CR0_WP, %esi
-	jnz 1f
-	PAX_OPEN_KERNEL;
-1:
-#endif
+	PAX_RESTORE_KERNEL
 
 	RESTORE_REGS
 	lss 12+4(%esp), %esp		# back to espfix stack

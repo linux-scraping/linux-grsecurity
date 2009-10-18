@@ -115,8 +115,12 @@ void foo(void)
 	OFFSET(PV_CPU_iret, pv_cpu_ops, iret);
 	OFFSET(PV_CPU_irq_enable_sysexit, pv_cpu_ops, irq_enable_sysexit);
 	OFFSET(PV_CPU_read_cr0, pv_cpu_ops, read_cr0);
-	OFFSET(PV_MMU_pax_open_kernel, pv_mmu_ops, pax_open_kernel);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	OFFSET(PV_CPU_write_cr0, pv_cpu_ops, write_cr0);
 	OFFSET(PV_MMU_pax_close_kernel, pv_mmu_ops, pax_close_kernel);
+#endif
+
 #endif
 
 #ifdef CONFIG_XEN

@@ -149,17 +149,24 @@ static inline unsigned long __raw_local_irq_save(void)
 #define GET_CR0_INTO_EAX		movl %cr0, %eax
 
 /* PaX: special register usage in entry_32.S, beware */
-#define PAX_OPEN_KERNEL		\
-	movl %esi, %cr0
-
-#define PAX_CLOSE_KERNEL	\
-	movl %cr0, %edx;	\
-	testl $X86_CR0_WP, %edx;\
-	jnz 1f;			\
-	movl %edx, %esi;	\
-	orl $X86_CR0_WP, %esi;	\
+#ifdef CONFIG_PAX_KERNEXEC
+#define PAX_RESTORE_KERNEL	\
+	bt $16, %esi;		\
+	jc 1f;			\
 	movl %esi, %cr0;	\
 1:
+
+#define PAX_CLOSE_KERNEL	\
+	movl %cr0, %esi;	\
+	movl %esi, %edx;	\
+	bts $16, %edx;		\
+	jc 1f;			\
+	movl %edx, %cr0;	\
+1:
+#else
+#define PAX_RESTORE_KERNEL
+#define PAX_CLOSE_KERNEL
+#endif
 
 #endif
 

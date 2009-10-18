@@ -645,11 +645,7 @@ static int static_obj(void *obj)
 	 * percpu var?
 	 */
 	for_each_possible_cpu(i) {
-#ifdef CONFIG_X86_32
-		start = per_cpu_offset(i);
-#else
 		start = (unsigned long) &__per_cpu_start + per_cpu_offset(i);
-#endif
 		end   = start + PERCPU_ENOUGH_ROOM;
 
 		if ((addr >= start) && (addr < end))

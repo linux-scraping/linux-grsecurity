@@ -27,7 +27,6 @@
 #include <asm/system.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
-#include <asm/desc.h>
 
 #if 0
 #define DEBUGP printk
