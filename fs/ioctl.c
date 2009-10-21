@@ -97,7 +97,7 @@ int fiemap_fill_next_extent(struct fiemap_extent_info *fieinfo, u64 logical,
 			    u64 phys, u64 len, u32 flags)
 {
 	struct fiemap_extent extent;
-	struct fiemap_extent *dest = fieinfo->fi_extents_start;
+	struct fiemap_extent __user *dest = fieinfo->fi_extents_start;
 
 	/* only count the extents */
 	if (fieinfo->fi_extents_max == 0) {
@@ -206,7 +206,7 @@ static int ioctl_fiemap(struct file *filp, unsigned long arg)
 
 	fieinfo.fi_flags = fiemap.fm_flags;
 	fieinfo.fi_extents_max = fiemap.fm_extent_count;
-	fieinfo.fi_extents_start = (struct fiemap_extent *)(arg + sizeof(fiemap));
+	fieinfo.fi_extents_start = (struct fiemap_extent __user *)(arg + sizeof(fiemap));
 
 	if (fiemap.fm_extent_count != 0 &&
 	    !access_ok(VERIFY_WRITE, fieinfo.fi_extents_start,
@@ -219,7 +219,7 @@ static int ioctl_fiemap(struct file *filp, unsigned long arg)
 	error = inode->i_op->fiemap(inode, &fieinfo, fiemap.fm_start, len);
 	fiemap.fm_flags = fieinfo.fi_flags;
 	fiemap.fm_mapped_extents = fieinfo.fi_extents_mapped;
-	if (copy_to_user((char *)arg, &fiemap, sizeof(fiemap)))
+	if (copy_to_user((__force char __user *)arg, &fiemap, sizeof(fiemap)))
 		error = -EFAULT;
 
 	return error;

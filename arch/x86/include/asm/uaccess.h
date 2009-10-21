@@ -85,6 +85,7 @@ void set_fs(mm_segment_t x);
  * checks that the pointer is in the user space range - after calling
  * this function, memory access functions may still return -EFAULT.
  */
+#define __access_ok(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
 	bool __ret_ao = __range_not_ok(addr, size) == 0;		\
@@ -466,7 +467,7 @@ do {									\
 	int __gu_err;							\
 	unsigned long __gu_val;						\
 	__get_user_size(__gu_val, (ptr), (size), __gu_err, -EFAULT);	\
-	(x) = (__force __typeof__(*(ptr)))__gu_val;			\
+	(x) = (__typeof__(*(ptr)))__gu_val;				\
 	__gu_err;							\
 })
 
@@ -577,7 +578,7 @@ struct __large_struct { unsigned long buf[100]; };
 #define get_user_ex(x, ptr)	do {					\
 	unsigned long __gue_val;					\
 	__get_user_size_ex((__gue_val), (ptr), (sizeof(*(ptr))));	\
-	(x) = (__force __typeof__(*(ptr)))__gue_val;			\
+	(x) = (__typeof__(*(ptr)))__gue_val;				\
 } while (0)
 
 #ifdef CONFIG_X86_WP_WORKS_OK

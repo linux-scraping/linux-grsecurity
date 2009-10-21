@@ -529,18 +529,18 @@ int ptrace_request(struct task_struct *child, long request,
 		ret = ptrace_setoptions(child, data);
 		break;
 	case PTRACE_GETEVENTMSG:
-		ret = put_user(child->ptrace_message, (unsigned long __user *) data);
+		ret = put_user(child->ptrace_message, (__force unsigned long __user *) data);
 		break;
 
 	case PTRACE_GETSIGINFO:
 		ret = ptrace_getsiginfo(child, &siginfo);
 		if (!ret)
-			ret = copy_siginfo_to_user((siginfo_t __user *) data,
+			ret = copy_siginfo_to_user((__force siginfo_t __user *) data,
 						   &siginfo);
 		break;
 
 	case PTRACE_SETSIGINFO:
-		if (copy_from_user(&siginfo, (siginfo_t __user *) data,
+		if (copy_from_user(&siginfo, (__force siginfo_t __user *) data,
 				   sizeof siginfo))
 			ret = -EFAULT;
 		else
@@ -655,7 +655,7 @@ int generic_ptrace_peekdata(struct task_struct *tsk, long addr, long data)
 	copied = access_process_vm(tsk, addr, &tmp, sizeof(tmp), 0);
 	if (copied != sizeof(tmp))
 		return -EIO;
-	return put_user(tmp, (unsigned long __user *)data);
+	return put_user(tmp, (__force unsigned long __user *)data);
 }
 
 int generic_ptrace_pokedata(struct task_struct *tsk, long addr, long data)

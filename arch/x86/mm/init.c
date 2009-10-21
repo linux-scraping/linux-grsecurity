@@ -463,14 +463,19 @@ void free_initmem(void)
 	}
 
 	/* PaX: make KERNEL_CS read-only */
+	addr = PFN_ALIGN(ktla_ktva((unsigned long)&_text));
 	if (!paravirt_enabled())
+		set_memory_ro(addr, (PFN_ALIGN(_sdata) - addr) >> PAGE_SHIFT);
+/*
 		for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_sdata; addr += PMD_SIZE) {
 			pgd = pgd_offset_k(addr);
 			pud = pud_offset(pgd, addr);
 			pmd = pmd_offset(pud, addr);
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		}
+*/
 #ifdef CONFIG_X86_PAE
+	set_memory_nx(PFN_ALIGN(__init_begin), (PFN_ALIGN(__init_end) - PFN_ALIGN(__init_begin)) >> PAGE_SHIFT);
 	for (addr = (unsigned long)&__init_begin; addr < (unsigned long)&__init_end; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
@@ -478,6 +483,11 @@ void free_initmem(void)
 		set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
 #endif
+
+#ifdef CONFIG_MODULES
+	set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
+#endif
+
 #else
 	unsigned long addr, end;
 

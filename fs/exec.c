@@ -488,7 +488,7 @@ int copy_strings_kernel(int argc,char ** argv, struct linux_binprm *bprm)
 	int r;
 	mm_segment_t oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	r = copy_strings(argc, (char __user * __user *)argv, bprm);
+	r = copy_strings(argc, (__force char __user * __user *)argv, bprm);
 	set_fs(oldfs);
 	return r;
 }
@@ -719,7 +719,7 @@ int kernel_read(struct file *file, loff_t offset,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	result = vfs_read(file, (void __user *)addr, count, &pos);
+	result = vfs_read(file, (__force void __user *)addr, count, &pos);
 	set_fs(old_fs);
 	return result;
 }

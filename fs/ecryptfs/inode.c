@@ -676,7 +676,7 @@ ecryptfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 	old_fs = get_fs();
 	set_fs(get_ds());
 	rc = lower_dentry->d_inode->i_op->readlink(lower_dentry,
-						   (char __user *)lower_buf,
+						   (__force char __user *)lower_buf,
 						   lower_bufsiz);
 	set_fs(old_fs);
 	if (rc >= 0) {
@@ -720,7 +720,7 @@ static void *ecryptfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 	}
 	old_fs = get_fs();
 	set_fs(get_ds());
-	rc = dentry->d_inode->i_op->readlink(dentry, (char __user *)buf, len);
+	rc = dentry->d_inode->i_op->readlink(dentry, (__force char __user *)buf, len);
 	set_fs(old_fs);
 	if (rc < 0)
 		goto out_free;

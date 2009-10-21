@@ -443,13 +443,13 @@ static enum ucode_state request_microcode_fw(int cpu, struct device *device)
 
 static int get_ucode_user(void *to, const void *from, size_t n)
 {
-	return copy_from_user(to, from, n);
+	return copy_from_user(to, (__force const void __user *)from, n);
 }
 
 static enum ucode_state
 request_microcode_user(int cpu, const void __user *buf, size_t size)
 {
-	return generic_load_microcode(cpu, (void *)buf, size, &get_ucode_user);
+	return generic_load_microcode(cpu, (__force void *)buf, size, &get_ucode_user);
 }
 
 static void microcode_fini_cpu(int cpu)

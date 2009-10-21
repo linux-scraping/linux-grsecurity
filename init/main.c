@@ -764,8 +764,8 @@ int initcall_debug;
 core_param(initcall_debug, initcall_debug, bool, 0644);
 
 static char msgbuf[64];
-static struct boot_trace_call call;
-static struct boot_trace_ret ret;
+static struct boot_trace_call trace_call;
+static struct boot_trace_ret trace_ret;
 
 int do_one_initcall(initcall_t fn)
 {
@@ -774,29 +774,29 @@ int do_one_initcall(initcall_t fn)
 	const char *msg1 = "", *msg2 = "";
 
 	if (initcall_debug) {
-		call.caller = task_pid_nr(current);
-		printk("calling  %pF @ %i\n", fn, call.caller);
+		trace_call.caller = task_pid_nr(current);
+		printk("calling  %pF @ %i\n", fn, trace_call.caller);
 		calltime = ktime_get();
-		trace_boot_call(&call, fn);
+		trace_boot_call(&trace_call, fn);
 		enable_boot_trace();
 	}
 
-	ret.result = fn();
+	trace_ret.result = fn();
 
 	if (initcall_debug) {
 		disable_boot_trace();
 		rettime = ktime_get();
 		delta = ktime_sub(rettime, calltime);
-		ret.duration = (unsigned long long) ktime_to_ns(delta) >> 10;
-		trace_boot_ret(&ret, fn);
+		trace_ret.duration = (unsigned long long) ktime_to_ns(delta) >> 10;
+		trace_boot_ret(&trace_ret, fn);
 		printk("initcall %pF returned %d after %Ld usecs\n", fn,
-			ret.result, ret.duration);
+			trace_ret.result, trace_ret.duration);
 	}
 
 	msgbuf[0] = 0;
 
-	if (ret.result && ret.result != -ENODEV && initcall_debug)
-		sprintf(msgbuf, "error code %d ", ret.result);
+	if (trace_ret.result && trace_ret.result != -ENODEV && initcall_debug)
+		sprintf(msgbuf, "error code %d ", trace_ret.result);
 
 	if (preempt_count() != count) {
 		msg1 = " preemption imbalance";
@@ -810,7 +810,7 @@ int do_one_initcall(initcall_t fn)
 		printk("initcall %pF returned with %s%s%s\n", fn, msgbuf, msg1, msg2);
 	}
 
-	return ret.result;
+	return trace_ret.result;
 }
 
 
@@ -949,7 +949,7 @@ static int __init kernel_init(void * unused)
 	if (!ramdisk_execute_command)
 		ramdisk_execute_command = "/init";
 
-	if (sys_access((const char __user *) ramdisk_execute_command, 0) != 0) {
+	if (sys_access((__force const char __user *) ramdisk_execute_command, 0) != 0) {
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
 	}

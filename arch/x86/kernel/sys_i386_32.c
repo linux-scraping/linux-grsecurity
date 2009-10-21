@@ -332,7 +332,7 @@ asmlinkage int sys_ipc(uint call, int first, int second,
 		return sys_semtimedop(first, (struct sembuf __user *)ptr, second, NULL);
 	case SEMTIMEDOP:
 		return sys_semtimedop(first, (struct sembuf __user *)ptr, second,
-					(const struct timespec __user *)fifth);
+					(__force const struct timespec __user *)fifth);
 
 	case SEMGET:
 		return sys_semget(first, second, third);
@@ -379,7 +379,7 @@ asmlinkage int sys_ipc(uint call, int first, int second,
 			ret = do_shmat(first, (char __user *) ptr, second, &raddr);
 			if (ret)
 				return ret;
-			return put_user(raddr, (ulong __user *) third);
+			return put_user(raddr, (__force ulong __user *) third);
 		}
 		case 1:	/* iBCS2 emulator entry point */
 			if (!segment_eq(get_fs(), get_ds()))

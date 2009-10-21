@@ -170,7 +170,7 @@ static void __init md_setup_drive(void)
 			partitioned ? "_d" : "", minor,
 			md_setup_args[ent].device_names);
 
-		fd = sys_open((char __user *)name, 0, 0);
+		fd = sys_open((__force char __user *)name, 0, 0);
 		if (fd < 0) {
 			printk(KERN_ERR "md: open failed - cannot start "
 					"array %s\n", name);
@@ -233,7 +233,7 @@ static void __init md_setup_drive(void)
 			 * array without it
 			 */
 			sys_close(fd);
-			fd = sys_open((char __user *)name, 0, 0);
+			fd = sys_open((__force char __user *)name, 0, 0);
 			sys_ioctl(fd, BLKRRPART, 0);
 		}
 		sys_close(fd);
@@ -283,7 +283,7 @@ static void __init autodetect_raid(void)
 
 	wait_for_device_probe();
 
-	fd = sys_open((char __user *)"/dev/md0", 0, 0);
+	fd = sys_open((__force char __user *)"/dev/md0", 0, 0);
 	if (fd >= 0) {
 		sys_ioctl(fd, RAID_AUTORUN, raid_autopart);
 		sys_close(fd);

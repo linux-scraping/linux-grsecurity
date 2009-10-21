@@ -314,16 +314,16 @@ read_kcore(struct file *file, char __user *buffer, size_t buflen, loff_t *fpos)
 		tsz = buflen;
 		
 	while (buflen) {
-		struct kcore_list *m;
+		struct kcore_list *kc;
 
 		read_lock(&kclist_lock);
-		for (m=kclist; m; m=m->next) {
-			if (start >= m->addr && start < (m->addr+m->size))
+		for (kc=kclist; kc; kc=kc->next) {
+			if (start >= kc->addr && start < (kc->addr+kc->size))
 				break;
 		}
 		read_unlock(&kclist_lock);
 
-		if (m == NULL) {
+		if (kc == NULL) {
 			if (clear_user(buffer, tsz))
 				return -EFAULT;
 		} else if (is_vmalloc_addr((void *)start)) {
@@ -368,7 +368,7 @@ read_kcore(struct file *file, char __user *buffer, size_t buflen, loff_t *fpos)
 				 */
 				vmsize = __copy_from_user_inatomic(
 					elf_buf + (vmstart - start),
-					(char *)vmstart, vmsize);
+					(char __user *)vmstart, vmsize);
 			}
 			read_unlock(&vmlist_lock);
 			if (copy_to_user(buffer, elf_buf, tsz)) {

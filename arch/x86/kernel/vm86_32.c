@@ -529,7 +529,7 @@ static void do_int(struct kernel_vm86_regs *regs, int i,
 		goto cannot_handle;
 	if (i == 0x21 && is_revectored(AH(regs), &KVM86->int21_revectored))
 		goto cannot_handle;
-	intr_ptr = (unsigned long __user *) (i << 2);
+	intr_ptr = (__force unsigned long __user *) (i << 2);
 	if (get_user(segoffs, intr_ptr))
 		goto cannot_handle;
 	if ((segoffs >> 16) == BIOSSEG)

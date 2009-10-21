@@ -15,15 +15,15 @@ extern int root_mountflags;
 
 static inline int create_dev(char *name, dev_t dev)
 {
-	sys_unlink((char __user *)name);
-	return sys_mknod((char __user *)name, S_IFBLK|0600, new_encode_dev(dev));
+	sys_unlink((__force char __user *)name);
+	return sys_mknod((__force char __user *)name, S_IFBLK|0600, new_encode_dev(dev));
 }
 
 #if BITS_PER_LONG == 32
 static inline u32 bstat(char *name)
 {
 	struct stat64 stat;
-	if (sys_stat64((char __user *)name, (struct stat64 __user *)&stat) != 0)
+	if (sys_stat64((__force char __user *)name, (__force struct stat64 __user *)&stat) != 0)
 		return 0;
 	if (!S_ISBLK(stat.st_mode))
 		return 0;

@@ -32,7 +32,7 @@ static int __init do_linuxrc(void * shell)
 	sys_close(old_fd);sys_close(root_fd);
 	sys_close(0);sys_close(1);sys_close(2);
 	sys_setsid();
-	(void) sys_open((const char __user *)"/dev/console",O_RDWR,0);
+	(void) sys_open((__force const char __user *)"/dev/console",O_RDWR,0);
 	(void) sys_dup(0);
 	(void) sys_dup(0);
 	return kernel_execve(shell, argv, envp_init);
@@ -47,13 +47,13 @@ static void __init handle_initrd(void)
 	create_dev("/dev/root.old", Root_RAM0);
 	/* mount initrd on rootfs' /root */
 	mount_block_root("/dev/root.old", root_mountflags & ~MS_RDONLY);
-	sys_mkdir((const char __user *)"/old", 0700);
-	root_fd = sys_open((const char __user *)"/", 0, 0);
-	old_fd = sys_open((const char __user *)"/old", 0, 0);
+	sys_mkdir((__force const char __user *)"/old", 0700);
+	root_fd = sys_open((__force const char __user *)"/", 0, 0);
+	old_fd = sys_open((__force const char __user *)"/old", 0, 0);
 	/* move initrd over / and chdir/chroot in initrd root */
-	sys_chdir((const char __user *)"/root");
-	sys_mount((char __user *)".", (char __user *)"/", NULL, MS_MOVE, NULL);
-	sys_chroot((const char __user *)".");
+	sys_chdir((__force const char __user *)"/root");
+	sys_mount((__force char __user *)".", (__force char __user *)"/", NULL, MS_MOVE, NULL);
+	sys_chroot((__force const char __user *)".");
 
 	/*
 	 * In case that a resume from disk is carried out by linuxrc or one of
@@ -70,15 +70,15 @@ static void __init handle_initrd(void)
 
 	/* move initrd to rootfs' /old */
 	sys_fchdir(old_fd);
-	sys_mount((char __user *)"/", (char __user *)".", NULL, MS_MOVE, NULL);
+	sys_mount((__force char __user *)"/", (__force char __user *)".", NULL, MS_MOVE, NULL);
 	/* switch root and cwd back to / of rootfs */
 	sys_fchdir(root_fd);
-	sys_chroot((const char __user *)".");
+	sys_chroot((__force const char __user *)".");
 	sys_close(old_fd);
 	sys_close(root_fd);
 
 	if (new_decode_dev(real_root_dev) == Root_RAM0) {
-		sys_chdir((const char __user *)"/old");
+		sys_chdir((__force const char __user *)"/old");
 		return;
 	}
 
@@ -86,17 +86,17 @@ static void __init handle_initrd(void)
 	mount_root();
 
 	printk(KERN_NOTICE "Trying to move old root to /initrd ... ");
-	error = sys_mount((char __user *)"/old", (char __user *)"/root/initrd", NULL, MS_MOVE, NULL);
+	error = sys_mount((__force char __user *)"/old", (__force char __user *)"/root/initrd", NULL, MS_MOVE, NULL);
 	if (!error)
 		printk("okay\n");
 	else {
-		int fd = sys_open((const char __user *)"/dev/root.old", O_RDWR, 0);
+		int fd = sys_open((__force const char __user *)"/dev/root.old", O_RDWR, 0);
 		if (error == -ENOENT)
 			printk("/initrd does not exist. Ignored.\n");
 		else
 			printk("failed\n");
 		printk(KERN_NOTICE "Unmounting old root\n");
-		sys_umount((char __user *)"/old", MNT_DETACH);
+		sys_umount((__force char __user *)"/old", MNT_DETACH);
 		printk(KERN_NOTICE "Trying to free ramdisk memory ... ");
 		if (fd < 0) {
 			error = fd;
@@ -119,11 +119,11 @@ int __init initrd_load(void)
 		 * mounted in the normal path.
 		 */
 		if (rd_load_image("/initrd.image") && ROOT_DEV != Root_RAM0) {
-			sys_unlink((const char __user *)"/initrd.image");
+			sys_unlink((__force const char __user *)"/initrd.image");
 			handle_initrd();
 			return 1;
 		}
 	}
-	sys_unlink((const char __user *)"/initrd.image");
+	sys_unlink((__force const char __user *)"/initrd.image");
 	return 0;
 }

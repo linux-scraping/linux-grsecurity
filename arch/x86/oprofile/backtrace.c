@@ -57,7 +57,7 @@ static struct frame_head *dump_user_backtrace(struct frame_head *head)
 	struct frame_head bufhead[2];
 
 	/* Also check accessibility of one struct frame_head beyond */
-	if (!access_ok(VERIFY_READ, head, sizeof(bufhead)))
+	if (!__access_ok(VERIFY_READ, head, sizeof(bufhead)))
 		return NULL;
 	if (__copy_from_user_inatomic(bufhead, head, sizeof(bufhead)))
 		return NULL;

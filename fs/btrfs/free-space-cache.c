@@ -1066,8 +1066,6 @@ u64 btrfs_alloc_from_cluster(struct btrfs_block_group_cache *block_group,
 
 	while(1) {
 		if (entry->bytes < bytes || entry->offset < min_start) {
-			struct rb_node *node;
-
 			node = rb_next(&entry->offset_index);
 			if (!node)
 				break;
@@ -1218,7 +1216,7 @@ again:
 	 */
 	while (entry->bitmap || found_bitmap ||
 	       (!entry->bitmap && entry->bytes < min_bytes)) {
-		struct rb_node *node = rb_next(&entry->offset_index);
+		node = rb_next(&entry->offset_index);
 
 		if (entry->bitmap && entry->bytes > bytes + empty_size) {
 			ret = btrfs_bitmap_cluster(block_group, entry, cluster,

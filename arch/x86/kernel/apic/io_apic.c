@@ -719,7 +719,7 @@ struct IO_APIC_route_entry **alloc_ioapic_entries(void)
 	ioapic_entries = kzalloc(sizeof(*ioapic_entries) * nr_ioapics,
 				GFP_ATOMIC);
 	if (!ioapic_entries)
-		return 0;
+		return NULL;
 
 	for (apic = 0; apic < nr_ioapics; apic++) {
 		ioapic_entries[apic] =
@@ -736,7 +736,7 @@ nomem:
 		kfree(ioapic_entries[apic]);
 	kfree(ioapic_entries);
 
-	return 0;
+	return NULL;
 }
 
 /*
@@ -1153,7 +1153,7 @@ int IO_APIC_get_PCI_irq_vector(int bus, int slot, int pin,
 }
 EXPORT_SYMBOL(IO_APIC_get_PCI_irq_vector);
 
-void lock_vector_lock(void)
+void lock_vector_lock(void) __acquires(vector_lock)
 {
 	/* Used to the online set of cpus does not change
 	 * during assign_irq_vector.
@@ -1161,7 +1161,7 @@ void lock_vector_lock(void)
 	spin_lock(&vector_lock);
 }
 
-void unlock_vector_lock(void)
+void unlock_vector_lock(void) __releases(vector_lock)
 {
 	spin_unlock(&vector_lock);
 }

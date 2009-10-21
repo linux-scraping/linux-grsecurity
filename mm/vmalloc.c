@@ -39,8 +39,19 @@ static void vunmap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end)
 
 	pte = pte_offset_kernel(pmd, addr);
 	do {
-		pte_t ptent = ptep_get_and_clear(&init_mm, addr, pte);
-		WARN_ON(!pte_none(ptent) && !pte_present(ptent));
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		if ((unsigned long)MODULES_EXEC_VADDR <= addr && addr < (unsigned long)MODULES_EXEC_END) {
+			BUG_ON(!pte_exec(*pte));
+			set_pte_at(&init_mm, addr, pte, pfn_pte(__pa(addr) >> PAGE_SHIFT, PAGE_KERNEL_EXEC));
+			continue;
+		}
+#endif
+
+		{
+			pte_t ptent = ptep_get_and_clear(&init_mm, addr, pte);
+			WARN_ON(!pte_none(ptent) && !pte_present(ptent));
+		}
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 }
 
@@ -105,6 +116,10 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 	pax_open_kernel();
 	do {
 		struct page *page = pages[*nr];
+
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		if (pgprot_val(prot) & _PAGE_NX)
+#endif
 
 		if (WARN_ON(!pte_none(*pte))) {
 			ret = -EBUSY;
@@ -203,11 +218,20 @@ static inline int is_vmalloc_or_module_addr(const void *x)
 	 * and fall back on vmalloc() if that fails. Others
 	 * just put it in the vmalloc space.
 	 */
-#if defined(CONFIG_MODULES) && defined(MODULES_VADDR)
+#ifdef CONFIG_MODULES
+#ifdef MODULES_VADDR
 	unsigned long addr = (unsigned long)x;
 	if (addr >= MODULES_VADDR && addr < MODULES_END)
 		return 1;
 #endif
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (x >= (const void *)MODULES_EXEC_VADDR && x < (const void *)MODULES_EXEC_END)
+		return 1;
+#endif
+
+#endif
+
 	return is_vmalloc_addr(x);
 }
 
@@ -302,13 +326,13 @@ static void __insert_vmap_area(struct vmap_area *va)
 	struct rb_node *tmp;
 
 	while (*p) {
-		struct vmap_area *tmp;
+		struct vmap_area *varea;
 
 		parent = *p;
-		tmp = rb_entry(parent, struct vmap_area, rb_node);
-		if (va->va_start < tmp->va_end)
+		varea = rb_entry(parent, struct vmap_area, rb_node);
+		if (va->va_start < varea->va_end)
 			p = &(*p)->rb_left;
-		else if (va->va_end > tmp->va_start)
+		else if (va->va_end > varea->va_start)
 			p = &(*p)->rb_right;
 		else
 			BUG();

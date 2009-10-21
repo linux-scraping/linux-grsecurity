@@ -217,12 +217,12 @@ static inline void mmu_notifier_mm_destroy(struct mm_struct *mm)
  */
 #define ptep_clear_flush_notify(__vma, __address, __ptep)		\
 ({									\
-	pte_t __pte;							\
+	pte_t ___pte;							\
 	struct vm_area_struct *___vma = __vma;				\
 	unsigned long ___address = __address;				\
-	__pte = ptep_clear_flush(___vma, ___address, __ptep);		\
+	___pte = ptep_clear_flush(___vma, ___address, __ptep);		\
 	mmu_notifier_invalidate_page(___vma->vm_mm, ___address);	\
-	__pte;								\
+	___pte;								\
 })
 
 #define ptep_clear_flush_young_notify(__vma, __address, __ptep)		\

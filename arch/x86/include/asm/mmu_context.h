@@ -70,12 +70,12 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
 		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
-			     prev->context.user_cs_limit != next->context.user_cs_limit
-#ifdef CONFIG_SMP
-			     || tlbstate != TLBSTATE_OK
-#endif
-			    ))
+			     prev->context.user_cs_limit != next->context.user_cs_limit))
 			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#ifdef CONFIG_SMP
+		else if (unlikely(tlbstate != TLBSTATE_OK))
+			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#endif
 #endif
 
 	}

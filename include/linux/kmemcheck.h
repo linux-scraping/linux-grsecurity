@@ -137,13 +137,13 @@ static inline void kmemcheck_mark_initialized_pages(struct page *p,
 	int name##_end[0];
 
 #define kmemcheck_annotate_bitfield(ptr, name)				\
-	do if (ptr) {							\
+	if (ptr) {							\
 		int _n = (long) &((ptr)->name##_end)			\
 			- (long) &((ptr)->name##_begin);		\
 		BUILD_BUG_ON(_n < 0);					\
 									\
 		kmemcheck_mark_initialized(&((ptr)->name##_begin), _n);	\
-	} while (0)
+	}
 
 #define kmemcheck_annotate_variable(var)				\
 	do {								\

@@ -1461,7 +1461,7 @@ void igb_vmdq_set_replication_pf(struct e1000_hw *hw, bool enable)
 	wr32(E1000_VT_CTL, vt_ctl);
 }
 
-static struct e1000_mac_operations e1000_mac_ops_82575 = {
+static const struct e1000_mac_operations e1000_mac_ops_82575 = {
 	.reset_hw             = igb_reset_hw_82575,
 	.init_hw              = igb_init_hw_82575,
 	.check_for_link       = igb_check_for_link_82575,
@@ -1470,13 +1470,13 @@ static struct e1000_mac_operations e1000_mac_ops_82575 = {
 	.get_speed_and_duplex = igb_get_speed_and_duplex_copper,
 };
 
-static struct e1000_phy_operations e1000_phy_ops_82575 = {
+static const struct e1000_phy_operations e1000_phy_ops_82575 = {
 	.acquire              = igb_acquire_phy_82575,
 	.get_cfg_done         = igb_get_cfg_done_82575,
 	.release              = igb_release_phy_82575,
 };
 
-static struct e1000_nvm_operations e1000_nvm_ops_82575 = {
+static const struct e1000_nvm_operations e1000_nvm_ops_82575 = {
 	.acquire              = igb_acquire_nvm_82575,
 	.read                 = igb_read_nvm_eerd,
 	.release              = igb_release_nvm_82575,
