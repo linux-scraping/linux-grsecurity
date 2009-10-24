@@ -468,6 +468,11 @@ static int s_show(struct seq_file *m, void *p)
 {
 	struct kallsym_iter *iter = m->private;
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	if (current_uid())
+		return 0;
+#endif
+
 	/* Some debugging symbols have no name.  Ignore them. */
 	if (!iter->name[0])
 		return 0;
@@ -530,15 +535,8 @@ static const struct file_operations kallsyms_operations = {
 
 static int __init kallsyms_init(void)
 {
-#if defined(CONFIG_GRKERNSEC_PROC_ADD) || defined(CONFIG_GRKERNSEC_HIDESYM)
-#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_HIDESYM)
-	proc_create("kallsyms", S_IFREG | S_IRUSR, NULL, &kallsyms_operations);
-#elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	proc_create("kallsyms", S_IFREG | S_IRUSR | S_IRGRP, NULL, &kallsyms_operations);
-#endif
-#else
 	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
-#endif
+
 	return 0;
 }
 device_initcall(kallsyms_init);

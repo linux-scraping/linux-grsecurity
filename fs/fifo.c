@@ -59,10 +59,10 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	 */
 		filp->f_op = &read_pipefifo_fops;
 		pipe->r_counter++;
-		if (pipe->readers++ == 0)
+		if (atomic_inc_return(&pipe->readers) == 1)
 			wake_up_partner(inode);
 
-		if (!pipe->writers) {
+		if (!atomic_read(&pipe->writers)) {
 			if ((filp->f_flags & O_NONBLOCK)) {
 				/* suppress POLLHUP until we have
 				 * seen a writer */
@@ -83,15 +83,15 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	 *  errno=ENXIO when there is no process reading the FIFO.
 	 */
 		ret = -ENXIO;
-		if ((filp->f_flags & O_NONBLOCK) && !pipe->readers)
+		if ((filp->f_flags & O_NONBLOCK) && !atomic_read(&pipe->readers))
 			goto err;
 
 		filp->f_op = &write_pipefifo_fops;
 		pipe->w_counter++;
-		if (!pipe->writers++)
+		if (atomic_inc_return(&pipe->writers) == 1)
 			wake_up_partner(inode);
 
-		if (!pipe->readers) {
+		if (!atomic_read(&pipe->readers)) {
 			wait_for_partner(inode, &pipe->r_counter);
 			if (signal_pending(current))
 				goto err_wr;
@@ -107,11 +107,11 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	 */
 		filp->f_op = &rdwr_pipefifo_fops;
 
-		pipe->readers++;
-		pipe->writers++;
+		atomic_inc(&pipe->readers);
+		atomic_inc(&pipe->writers);
 		pipe->r_counter++;
 		pipe->w_counter++;
-		if (pipe->readers == 1 || pipe->writers == 1)
+		if (atomic_read(&pipe->readers) == 1 || atomic_read(&pipe->writers) == 1)
 			wake_up_partner(inode);
 		break;
 
@@ -125,19 +125,19 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	return 0;
 
 err_rd:
-	if (!--pipe->readers)
+	if (!atomic_dec_return(&pipe->readers))
 		wake_up_interruptible(&pipe->wait);
 	ret = -ERESTARTSYS;
 	goto err;
 
 err_wr:
-	if (!--pipe->writers)
+	if (!atomic_dec_return(&pipe->writers))
 		wake_up_interruptible(&pipe->wait);
 	ret = -ERESTARTSYS;
 	goto err;
 
 err:
-	if (!pipe->readers && !pipe->writers)
+	if (!atomic_read(&pipe->readers) && !atomic_read(&pipe->writers))
 		free_pipe_info(inode);
 
 err_nocleanup:
