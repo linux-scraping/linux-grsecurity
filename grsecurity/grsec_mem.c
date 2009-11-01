@@ -77,3 +77,9 @@ gr_log_nonroot_mod_load(const char *modname)
         return;
 }
 
+void
+gr_handle_vm86(void)
+{
+	gr_log_noargs(GR_DONT_AUDIT, GR_VM86_MSG);
+	return;
+}

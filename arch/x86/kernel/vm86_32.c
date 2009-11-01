@@ -41,6 +41,7 @@
 #include <linux/ptrace.h>
 #include <linux/audit.h>
 #include <linux/stddef.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -208,6 +209,13 @@ int sys_vm86old(struct pt_regs *regs)
 	struct task_struct *tsk;
 	int tmp, ret = -EPERM;
 
+#ifdef CONFIG_GRKERNSEC_VM86
+	if (!capable(CAP_SYS_RAWIO)) {
+		gr_handle_vm86();
+		goto out;
+	}
+#endif
+
 	tsk = current;
 	if (tsk->thread.saved_sp0)
 		goto out;
@@ -237,6 +245,14 @@ int sys_vm86(struct pt_regs *regs)
 	struct task_struct *tsk;
 	int tmp, ret;
 	struct vm86plus_struct __user *v86;
+
+#ifdef CONFIG_GRKERNSEC_VM86
+	if (!capable(CAP_SYS_RAWIO)) {
+		gr_handle_vm86();
+		ret = -EPERM;
+		goto out;
+	}
+#endif
 
 	tsk = current;
 	switch (regs->bx) {

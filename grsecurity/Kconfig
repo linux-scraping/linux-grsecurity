@@ -138,6 +138,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_AUDIT_MOUNT
 	select GRKERNSEC_MODHARDEN if (MODULES)
 	select GRKERNSEC_HARDEN_PTRACE
+	select GRKERNSEC_VM86 if (X86_32)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -187,6 +188,7 @@ config GRKERNSEC_HIGH
 	  - Prevention of memory exhaustion-based exploits
 	  - Hardening of module auto-loading
 	  - Ptrace restrictions
+	  - Restricted vm86 mode
 
 config GRKERNSEC_CUSTOM
 	bool "Custom"
@@ -222,6 +224,19 @@ config GRKERNSEC_KMEM
 	  not be allowed to mprotect it with PROT_WRITE later.
 	  It is highly recommended that you say Y here if you meet all the
 	  conditions above.
+
+config GRKERNSEC_VM86
+	bool "Restrict VM86 mode"
+	depends on X86_32
+
+	help
+	  If you say Y here, only processes with CAP_SYS_RAWIO will be able to
+	  make use of a special execution mode on 32bit x86 processors called
+	  Virtual 8086 (VM86) mode.  XFree86 may need vm86 mode for certain
+	  video cards and will still work with this option enabled.  The purpose
+	  of the option is to prevent exploitation of emulation errors in
+	  virtualization of vm86 mode like the one discovered in VMWare in 2009.
+	  Nearly all users should be able to enable this option.
 
 config GRKERNSEC_IO
 	bool "Disable privileged I/O"
