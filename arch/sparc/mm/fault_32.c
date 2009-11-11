@@ -172,7 +172,7 @@ static unsigned long compute_si_addr(struct pt_regs *regs, int text_fault)
 
 #ifdef CONFIG_PAX_PAGEEXEC
 #ifdef CONFIG_PAX_DLRESOLVE
-void pax_emuplt_close(struct vm_area_struct *vma)
+static void pax_emuplt_close(struct vm_area_struct *vma)
 {
 	vma->vm_mm->call_dl_resolve = 0UL;
 }

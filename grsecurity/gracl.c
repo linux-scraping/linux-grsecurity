@@ -2380,14 +2380,16 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 	newacl = chk_subj_label(dentry, mnt, task->role);
 
 	task_lock(task);
-	if (((task->ptrace & PT_PTRACED) && !(task->acl->mode &
-	     GR_POVERRIDE) && (task->acl != newacl) &&
+	if ((((task->ptrace & PT_PTRACED) || unsafe_share) &&
+	     !(task->acl->mode & GR_POVERRIDE) && (task->acl != newacl) &&
 	     !(task->role->roletype & GR_ROLE_GOD) &&
 	     !gr_search_file(dentry, GR_PTRACERD, mnt) &&
-	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN)))
-	    || unsafe_share) {
+	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN)))) {
                 task_unlock(task);
-		gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
+		if (unsafe_share)
+			gr_log_fs_generic(GR_DONT_AUDIT, GR_UNSAFESHARE_EXEC_ACL_MSG, dentry, mnt);
+		else
+			gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
 		return -EACCES;
 	}
 	task_unlock(task);

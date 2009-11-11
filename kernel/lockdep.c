@@ -631,7 +631,7 @@ static int static_obj(void *obj)
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
-	start = (unsigned long )&_sdata;
+	start = ktla_ktva(start);
 #endif
 
 	/*
@@ -763,6 +763,7 @@ register_lock_class(struct lockdep_map *lock, unsigned int subclass, int force)
 	if (!static_obj(lock->key)) {
 		debug_locks_off();
 		printk("INFO: trying to register non-static key.\n");
+		printk("lock:%pS key:%pS.\n", lock, lock->key);
 		printk("the code is fine but needs lockdep annotation.\n");
 		printk("turning off the locking correctness validator.\n");
 		dump_stack();

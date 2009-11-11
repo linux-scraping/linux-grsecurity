@@ -30,6 +30,7 @@
 #define GR_LINK_ACL_MSG "%s link of %.480s to %.480s by "
 #define GR_INHERIT_ACL_MSG "successful inherit of %.480s's ACL for %.480s by "
 #define GR_RENAME_ACL_MSG "%s rename of %.480s to %.480s by "
+#define GR_UNSAFESHARE_EXEC_ACL_MSG "denied exec with cloned fs of %.950s by "
 #define GR_PTRACE_EXEC_ACL_MSG "denied ptrace of %.950s by "
 #define GR_NPROC_MSG "denied overstep of process limit by "
 #define GR_EXEC_ACL_MSG "%s execution of %.950s by "

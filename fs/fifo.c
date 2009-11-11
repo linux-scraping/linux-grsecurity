@@ -125,13 +125,13 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	return 0;
 
 err_rd:
-	if (!atomic_dec_return(&pipe->readers))
+	if (atomic_dec_and_test(&pipe->readers))
 		wake_up_interruptible(&pipe->wait);
 	ret = -ERESTARTSYS;
 	goto err;
 
 err_wr:
-	if (!atomic_dec_return(&pipe->writers))
+	if (atomic_dec_and_test(&pipe->writers))
 		wake_up_interruptible(&pipe->wait);
 	ret = -ERESTARTSYS;
 	goto err;

@@ -88,13 +88,15 @@ void set_fs(mm_segment_t x);
 #define __access_ok(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
-	bool __ret_ao = __range_not_ok(addr, size) == 0;		\
-	unsigned long __addr_ao = (unsigned long)addr & PAGE_MASK;	\
-	unsigned long __end_ao = (unsigned long)addr + size - 1;	\
+	long __size = size;						\
+	unsigned long __addr = (unsigned long)addr;			\
+	unsigned long __addr_ao = __addr & PAGE_MASK;			\
+	unsigned long __end_ao = __addr + __size - 1;			\
+	bool __ret_ao = __range_not_ok(__addr, __size) == 0;		\
 	if (__ret_ao && unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
 		for (; __addr_ao <= __end_ao; __addr_ao += PAGE_SIZE) {	\
 			char __c_ao;					\
-			if (size > PAGE_SIZE)				\
+			if (__size > PAGE_SIZE)				\
 				cond_resched();				\
 			if (__get_user(__c_ao, (char __user *)__addr_ao))\
 				break;					\
