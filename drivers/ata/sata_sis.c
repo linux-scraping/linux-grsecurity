@@ -89,7 +89,7 @@ static struct scsi_host_template sis_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations sis_ops = {
+static const struct ata_port_operations sis_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.scr_read		= sis_scr_read,
 	.scr_write		= sis_scr_write,

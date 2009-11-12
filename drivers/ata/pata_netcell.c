@@ -34,7 +34,7 @@ static struct scsi_host_template netcell_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations netcell_ops = {
+static const struct ata_port_operations netcell_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_80wire,
 	.read_id	= netcell_read_id,

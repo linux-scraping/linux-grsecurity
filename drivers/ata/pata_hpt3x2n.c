@@ -334,7 +334,7 @@ static struct scsi_host_template hpt3x2n_sht = {
  *	Configuration for HPT3x2n.
  */
 
-static struct ata_port_operations hpt3x2n_port_ops = {
+static const struct ata_port_operations hpt3x2n_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.bmdma_stop	= hpt3x2n_bmdma_stop,

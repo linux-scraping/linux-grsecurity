@@ -113,7 +113,7 @@ static struct scsi_host_template cy82c693_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations cy82c693_port_ops = {
+static const struct ata_port_operations cy82c693_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= cy82c693_set_piomode,

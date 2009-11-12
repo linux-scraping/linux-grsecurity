@@ -609,7 +609,7 @@ static struct scsi_host_template mpc52xx_ata_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations mpc52xx_ata_port_ops = {
+static const struct ata_port_operations mpc52xx_ata_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.sff_dev_select		= mpc52xx_ata_dev_select,
 	.set_piomode		= mpc52xx_ata_set_piomode,

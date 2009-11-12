@@ -119,8 +119,8 @@ int acpi_processor_set_thermal_limit(acpi_handle handle, int type);
                                   Dock Station
   -------------------------------------------------------------------------- */
 struct acpi_dock_ops {
-	acpi_notify_handler handler;
-	acpi_notify_handler uevent;
+	const acpi_notify_handler handler;
+	const acpi_notify_handler uevent;
 };
 
 #if defined(CONFIG_ACPI_DOCK) || defined(CONFIG_ACPI_DOCK_MODULE)

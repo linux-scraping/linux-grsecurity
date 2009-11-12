@@ -578,7 +578,7 @@ static struct scsi_host_template hpt37x_sht = {
  *	Configuration for HPT370
  */
 
-static struct ata_port_operations hpt370_port_ops = {
+static const struct ata_port_operations hpt370_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.bmdma_stop	= hpt370_bmdma_stop,
@@ -593,7 +593,7 @@ static struct ata_port_operations hpt370_port_ops = {
  *	Configuration for HPT370A. Close to 370 but less filters
  */
 
-static struct ata_port_operations hpt370a_port_ops = {
+static const struct ata_port_operations hpt370a_port_ops = {
 	.inherits	= &hpt370_port_ops,
 	.mode_filter	= hpt370a_filter,
 };
@@ -603,7 +603,7 @@ static struct ata_port_operations hpt370a_port_ops = {
  *	and DMA mode setting functionality.
  */
 
-static struct ata_port_operations hpt372_port_ops = {
+static const struct ata_port_operations hpt372_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.bmdma_stop	= hpt37x_bmdma_stop,
@@ -618,7 +618,7 @@ static struct ata_port_operations hpt372_port_ops = {
  *	but we have a different cable detection procedure for function 1.
  */
 
-static struct ata_port_operations hpt374_fn1_port_ops = {
+static const struct ata_port_operations hpt374_fn1_port_ops = {
 	.inherits	= &hpt372_port_ops,
 	.prereset	= hpt374_fn1_pre_reset,
 };

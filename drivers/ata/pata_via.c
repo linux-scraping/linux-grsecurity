@@ -419,7 +419,7 @@ static struct scsi_host_template via_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations via_port_ops = {
+static const struct ata_port_operations via_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= via_cable_detect,
 	.set_piomode	= via_set_piomode,
@@ -429,7 +429,7 @@ static struct ata_port_operations via_port_ops = {
 	.port_start	= via_port_start,
 };
 
-static struct ata_port_operations via_port_ops_noirq = {
+static const struct ata_port_operations via_port_ops_noirq = {
 	.inherits	= &via_port_ops,
 	.sff_data_xfer	= ata_sff_data_xfer_noirq,
 };

@@ -106,7 +106,7 @@ struct legacy_probe {
 
 struct legacy_controller {
 	const char *name;
-	struct ata_port_operations *ops;
+	const struct ata_port_operations *ops;
 	unsigned int pio_mask;
 	unsigned int flags;
 	unsigned int pflags;
@@ -223,12 +223,12 @@ static const struct ata_port_operations legacy_base_port_ops = {
  *	pio_mask as well.
  */
 
-static struct ata_port_operations simple_port_ops = {
+static const struct ata_port_operations simple_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.sff_data_xfer	= ata_sff_data_xfer_noirq,
 };
 
-static struct ata_port_operations legacy_port_ops = {
+static const struct ata_port_operations legacy_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.sff_data_xfer	= ata_sff_data_xfer_noirq,
 	.set_mode	= legacy_set_mode,
@@ -324,7 +324,7 @@ static unsigned int pdc_data_xfer_vlb(struct ata_device *dev,
 	return buflen;
 }
 
-static struct ata_port_operations pdc20230_port_ops = {
+static const struct ata_port_operations pdc20230_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= pdc20230_set_piomode,
 	.sff_data_xfer	= pdc_data_xfer_vlb,
@@ -357,7 +357,7 @@ static void ht6560a_set_piomode(struct ata_port *ap, struct ata_device *adev)
 	ioread8(ap->ioaddr.status_addr);
 }
 
-static struct ata_port_operations ht6560a_port_ops = {
+static const struct ata_port_operations ht6560a_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= ht6560a_set_piomode,
 };
@@ -400,7 +400,7 @@ static void ht6560b_set_piomode(struct ata_port *ap, struct ata_device *adev)
 	ioread8(ap->ioaddr.status_addr);
 }
 
-static struct ata_port_operations ht6560b_port_ops = {
+static const struct ata_port_operations ht6560b_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= ht6560b_set_piomode,
 };
@@ -499,7 +499,7 @@ static void opti82c611a_set_piomode(struct ata_port *ap,
 }
 
 
-static struct ata_port_operations opti82c611a_port_ops = {
+static const struct ata_port_operations opti82c611a_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= opti82c611a_set_piomode,
 };
@@ -609,7 +609,7 @@ static unsigned int opti82c46x_qc_issue(struct ata_queued_cmd *qc)
 	return ata_sff_qc_issue(qc);
 }
 
-static struct ata_port_operations opti82c46x_port_ops = {
+static const struct ata_port_operations opti82c46x_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= opti82c46x_set_piomode,
 	.qc_issue	= opti82c46x_qc_issue,
@@ -771,20 +771,20 @@ static int qdi_port(struct platform_device *dev,
 	return 0;
 }
 
-static struct ata_port_operations qdi6500_port_ops = {
+static const struct ata_port_operations qdi6500_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= qdi6500_set_piomode,
 	.qc_issue	= qdi_qc_issue,
 	.sff_data_xfer	= vlb32_data_xfer,
 };
 
-static struct ata_port_operations qdi6580_port_ops = {
+static const struct ata_port_operations qdi6580_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= qdi6580_set_piomode,
 	.sff_data_xfer	= vlb32_data_xfer,
 };
 
-static struct ata_port_operations qdi6580dp_port_ops = {
+static const struct ata_port_operations qdi6580dp_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= qdi6580dp_set_piomode,
 	.sff_data_xfer	= vlb32_data_xfer,
@@ -855,7 +855,7 @@ static int winbond_port(struct platform_device *dev,
 	return 0;
 }
 
-static struct ata_port_operations winbond_port_ops = {
+static const struct ata_port_operations winbond_port_ops = {
 	.inherits	= &legacy_base_port_ops,
 	.set_piomode	= winbond_set_piomode,
 	.sff_data_xfer	= vlb32_data_xfer,
@@ -978,7 +978,7 @@ static __init int legacy_init_one(struct legacy_probe *probe)
 	int pio_modes = controller->pio_mask;
 	unsigned long io = probe->port;
 	u32 mask = (1 << probe->slot);
-	struct ata_port_operations *ops = controller->ops;
+	const struct ata_port_operations *ops = controller->ops;
 	struct legacy_data *ld = &legacy_data[probe->slot];
 	struct ata_host *host = NULL;
 	struct ata_port *ap;

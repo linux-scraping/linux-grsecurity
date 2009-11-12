@@ -774,13 +774,13 @@ struct e1000_phy_operations {
 
 /* Function pointers for the NVM. */
 struct e1000_nvm_operations {
-	s32  (*acquire_nvm)(struct e1000_hw *);
-	s32  (*read_nvm)(struct e1000_hw *, u16, u16, u16 *);
-	void (*release_nvm)(struct e1000_hw *);
-	s32  (*update_nvm)(struct e1000_hw *);
-	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
-	s32  (*validate_nvm)(struct e1000_hw *);
-	s32  (*write_nvm)(struct e1000_hw *, u16, u16, u16 *);
+	s32  (* const acquire_nvm)(struct e1000_hw *);
+	s32  (* const read_nvm)(struct e1000_hw *, u16, u16, u16 *);
+	void (* const release_nvm)(struct e1000_hw *);
+	s32  (* const update_nvm)(struct e1000_hw *);
+	s32  (* const valid_led_default)(struct e1000_hw *, u16 *);
+	s32  (* const validate_nvm)(struct e1000_hw *);
+	s32  (* const write_nvm)(struct e1000_hw *, u16, u16, u16 *);
 };
 
 struct e1000_mac_info {

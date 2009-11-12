@@ -30,11 +30,11 @@ struct nmi_watchdog_ctlblk {
 
 /* Interface defining a CPU specific perfctr watchdog */
 struct wd_ops {
-	int (*reserve)(void);
-	void (*unreserve)(void);
-	int (*setup)(unsigned nmi_hz);
-	void (*rearm)(struct nmi_watchdog_ctlblk *wd, unsigned nmi_hz);
-	void (*stop)(void);
+	int (* const reserve)(void);
+	void (* const unreserve)(void);
+	int (* const setup)(unsigned nmi_hz);
+	void (* const rearm)(struct nmi_watchdog_ctlblk *wd, unsigned nmi_hz);
+	void (* const stop)(void);
 	unsigned perfctr;
 	unsigned evntsel;
 	u64 checkbit;

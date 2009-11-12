@@ -152,7 +152,7 @@ static struct scsi_host_template opti_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations opti_port_ops = {
+static const struct ata_port_operations opti_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= opti_set_piomode,

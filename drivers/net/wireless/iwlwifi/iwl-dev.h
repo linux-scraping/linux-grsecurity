@@ -65,7 +65,7 @@ extern struct iwl_cfg iwl1000_bgn_cfg;
 
 /* shared structures from iwl-5000.c */
 extern struct iwl_mod_params iwl50_mod_params;
-extern struct iwl_ops iwl5000_ops;
+extern const struct iwl_ops iwl5000_ops;
 extern struct iwl_ucode_ops iwl5000_ucode;
 extern struct iwl_lib_ops iwl5000_lib;
 extern struct iwl_hcmd_ops iwl5000_hcmd;

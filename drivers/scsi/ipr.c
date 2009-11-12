@@ -5262,7 +5262,7 @@ static bool ipr_qc_fill_rtf(struct ata_queued_cmd *qc)
 	return true;
 }
 
-static struct ata_port_operations ipr_sata_ops = {
+static const struct ata_port_operations ipr_sata_ops = {
 	.phy_reset = ipr_ata_phy_reset,
 	.hardreset = ipr_sata_reset,
 	.post_internal_cmd = ipr_ata_post_internal,

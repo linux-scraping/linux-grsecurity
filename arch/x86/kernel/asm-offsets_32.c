@@ -118,7 +118,6 @@ void foo(void)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	OFFSET(PV_CPU_write_cr0, pv_cpu_ops, write_cr0);
-	OFFSET(PV_MMU_pax_close_kernel, pv_mmu_ops, pax_close_kernel);
 #endif
 
 #endif

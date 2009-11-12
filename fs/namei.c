@@ -1720,6 +1720,11 @@ struct file *do_filp_open(int dfd, const char *pathname,
 		if (error)
 			return ERR_PTR(error);
 
+		if (gr_handle_rofs_blockwrite(nd.path.dentry, nd.path.mnt, acc_mode)) {
+			error = -EPERM;
+			goto exit;
+		}
+
 		if (gr_handle_rawio(nd.path.dentry->d_inode)) {
 			error = -EPERM;
 			goto exit;
@@ -1817,6 +1822,10 @@ do_last:
 	 * It already exists.
 	 */
 
+	if (gr_handle_rofs_blockwrite(path.dentry, nd.path.mnt, acc_mode)) {
+		error = -EPERM;
+		goto exit_mutex_unlock;
+	}
 	if (gr_handle_rawio(path.dentry->d_inode)) {
 		error = -EPERM;
 		goto exit_mutex_unlock;

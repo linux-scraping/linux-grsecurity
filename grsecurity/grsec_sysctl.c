@@ -16,7 +16,11 @@ gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 	return 0;
 }
 
-#if defined(CONFIG_GRKERNSEC_SYSCTL)
+#ifdef CONFIG_GRKERNSEC_ROFS
+static int __maybe_unused one = 1;
+#endif
+
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_ROFS)
 ctl_table grsecurity_table[] = {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
 #ifdef CONFIG_GRKERNSEC_LINK
@@ -396,6 +400,18 @@ ctl_table grsecurity_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_GRKERNSEC_ROFS
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "romount_protect",
+		.data		= &grsec_enable_rofs,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec_minmax,
+		.extra1		= &one,
+		.extra2		= &one,
 	},
 #endif
 	{ .ctl_name = 0 }

@@ -2,6 +2,8 @@
 #define GR_ACL_PROCACCT_MSG "%.256s[%.16s:%d] IP:%u.%u.%u.%u TTY:%.64s uid/euid:%u/%u gid/egid:%u/%u run time:[%ud %uh %um %us] cpu time:[%ud %uh %um %us] %s with exit code %ld, parent %.256s[%.16s:%d] IP:%u.%u.%u.%u TTY:%.64s uid/euid:%u/%u gid/egid:%u/%u"
 #define GR_PTRACE_ACL_MSG "denied ptrace of %.950s(%.16s:%d) by "
 #define GR_STOPMOD_MSG "denied modification of module state by "
+#define GR_ROFS_BLOCKWRITE_MSG "denied write to block device %.950s by "
+#define GR_ROFS_MOUNT_MSG "denied writable mount of %.950s by "
 #define GR_IOPERM_MSG "denied use of ioperm() by "
 #define GR_IOPL_MSG "denied use of iopl() by "
 #define GR_SHMAT_ACL_MSG "denied attach of shared memory of UID %u, PID %d, ID %u by "

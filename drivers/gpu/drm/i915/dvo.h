@@ -51,14 +51,14 @@ struct intel_dvo_dev_ops {
 	 * Initialize the device at startup time.
 	 * Returns NULL if the device does not exist.
 	 */
-	bool (*init)(struct intel_dvo_device *dvo,
+	bool (* const init)(struct intel_dvo_device *dvo,
 		     struct i2c_adapter *i2cbus);
 
 	/*
 	 * Called to allow the output a chance to create properties after the
 	 * RandR objects have been created.
 	 */
-	void (*create_resources)(struct intel_dvo_device *dvo);
+	void (* const create_resources)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Turn on/off output or set intermediate power levels if available.
@@ -67,17 +67,17 @@ struct intel_dvo_dev_ops {
 	 * If the  mode is DPMSModeOff, the output must be disabled,
 	 * as the DPLL may be disabled afterwards.
 	 */
-	void (*dpms)(struct intel_dvo_device *dvo, int mode);
+	void (* const dpms)(struct intel_dvo_device *dvo, int mode);
 
 	/*
 	 * Saves the output's state for restoration on VT switch.
 	 */
-	void (*save)(struct intel_dvo_device *dvo);
+	void (* const save)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Restore's the output's state at VT switch.
 	 */
-	void (*restore)(struct intel_dvo_device *dvo);
+	void (* const restore)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for testing a video mode for a given output.
@@ -88,7 +88,7 @@ struct intel_dvo_dev_ops {
 	 *
 	 * \return MODE_OK if the mode is valid, or another MODE_* otherwise.
 	 */
-	int (*mode_valid)(struct intel_dvo_device *dvo,
+	int (* const mode_valid)(struct intel_dvo_device *dvo,
 			  struct drm_display_mode *mode);
 
 	/*
@@ -98,19 +98,19 @@ struct intel_dvo_dev_ops {
 	 * timings, which is used for panels with fixed timings or for
 	 * buses with clock limitations.
 	 */
-	bool (*mode_fixup)(struct intel_dvo_device *dvo,
+	bool (* const mode_fixup)(struct intel_dvo_device *dvo,
 			   struct drm_display_mode *mode,
 			   struct drm_display_mode *adjusted_mode);
 
 	/*
 	 * Callback for preparing mode changes on an output
 	 */
-	void (*prepare)(struct intel_dvo_device *dvo);
+	void (* const prepare)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for committing mode changes on an output
 	 */
-	void (*commit)(struct intel_dvo_device *dvo);
+	void (* const commit)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for setting up a video mode after fixups have been made.
@@ -119,14 +119,14 @@ struct intel_dvo_dev_ops {
 	 * must be all that's necessary for the output, to turn the output on
 	 * after this function is called.
 	 */
-	void (*mode_set)(struct intel_dvo_device *dvo,
+	void (* const mode_set)(struct intel_dvo_device *dvo,
 			 struct drm_display_mode *mode,
 			 struct drm_display_mode *adjusted_mode);
 
 	/*
 	 * Probe for a connected output, and return detect_status.
 	 */
-	enum drm_connector_status (*detect)(struct intel_dvo_device *dvo);
+	enum drm_connector_status (* const detect)(struct intel_dvo_device *dvo);
 
 	/**
 	 * Query the device for the modes it provides.
@@ -135,23 +135,23 @@ struct intel_dvo_dev_ops {
 	 *
 	 * \return singly-linked list of modes or NULL if no modes found.
 	 */
-	struct drm_display_mode *(*get_modes)(struct intel_dvo_device *dvo);
+	struct drm_display_mode *(* const get_modes)(struct intel_dvo_device *dvo);
 
 	/**
 	 * Clean up driver-specific bits of the output
 	 */
-	void (*destroy) (struct intel_dvo_device *dvo);
+	void (* const destroy) (struct intel_dvo_device *dvo);
 
 	/**
 	 * Debugging hook to dump device registers to log file
 	 */
-	void (*dump_regs)(struct intel_dvo_device *dvo);
+	void (* const dump_regs)(struct intel_dvo_device *dvo);
 };
 
-extern struct intel_dvo_dev_ops sil164_ops;
-extern struct intel_dvo_dev_ops ch7xxx_ops;
-extern struct intel_dvo_dev_ops ivch_ops;
-extern struct intel_dvo_dev_ops tfp410_ops;
-extern struct intel_dvo_dev_ops ch7017_ops;
+extern const struct intel_dvo_dev_ops sil164_ops;
+extern const struct intel_dvo_dev_ops ch7xxx_ops;
+extern const struct intel_dvo_dev_ops ivch_ops;
+extern const struct intel_dvo_dev_ops tfp410_ops;
+extern const struct intel_dvo_dev_ops ch7017_ops;
 
 #endif /* _INTEL_DVO_H */

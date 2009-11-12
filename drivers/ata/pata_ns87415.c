@@ -299,7 +299,7 @@ static u8 ns87560_bmdma_status(struct ata_port *ap)
 }
 #endif		/* 87560 SuperIO Support */
 
-static struct ata_port_operations ns87415_pata_ops = {
+static const struct ata_port_operations ns87415_pata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 
 	.check_atapi_dma	= ns87415_check_atapi_dma,
@@ -313,7 +313,7 @@ static struct ata_port_operations ns87415_pata_ops = {
 };
 
 #if defined(CONFIG_SUPERIO)
-static struct ata_port_operations ns87560_pata_ops = {
+static const struct ata_port_operations ns87560_pata_ops = {
 	.inherits		= &ns87415_pata_ops,
 	.sff_tf_read		= ns87560_tf_read,
 	.sff_check_status	= ns87560_check_status,

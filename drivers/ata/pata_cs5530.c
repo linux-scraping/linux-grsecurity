@@ -164,7 +164,7 @@ static struct scsi_host_template cs5530_sht = {
 	.sg_tablesize	= LIBATA_DUMB_MAX_PRD,
 };
 
-static struct ata_port_operations cs5530_port_ops = {
+static const struct ata_port_operations cs5530_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.qc_prep 	= ata_sff_dumb_qc_prep,

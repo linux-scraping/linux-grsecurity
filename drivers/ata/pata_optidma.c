@@ -337,7 +337,7 @@ static struct scsi_host_template optidma_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations optidma_port_ops = {
+static const struct ata_port_operations optidma_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= optidma_set_pio_mode,
@@ -346,7 +346,7 @@ static struct ata_port_operations optidma_port_ops = {
 	.prereset	= optidma_pre_reset,
 };
 
-static struct ata_port_operations optiplus_port_ops = {
+static const struct ata_port_operations optiplus_port_ops = {
 	.inherits	= &optidma_port_ops,
 	.set_piomode	= optiplus_set_pio_mode,
 	.set_dmamode	= optiplus_set_dma_mode,

@@ -184,7 +184,7 @@ static const struct ata_port_operations pdc_common_ops = {
 	.error_handler		= pdc_error_handler,
 };
 
-static struct ata_port_operations pdc_sata_ops = {
+static const struct ata_port_operations pdc_sata_ops = {
 	.inherits		= &pdc_common_ops,
 	.cable_detect		= pdc_sata_cable_detect,
 	.freeze			= pdc_sata_freeze,
@@ -196,12 +196,12 @@ static struct ata_port_operations pdc_sata_ops = {
 };
 
 /* First-generation chips need a more restrictive ->check_atapi_dma op */
-static struct ata_port_operations pdc_old_sata_ops = {
+static const struct ata_port_operations pdc_old_sata_ops = {
 	.inherits		= &pdc_sata_ops,
 	.check_atapi_dma	= pdc_old_sata_check_atapi_dma,
 };
 
-static struct ata_port_operations pdc_pata_ops = {
+static const struct ata_port_operations pdc_pata_ops = {
 	.inherits		= &pdc_common_ops,
 	.cable_detect		= pdc_pata_cable_detect,
 	.freeze			= pdc_freeze,

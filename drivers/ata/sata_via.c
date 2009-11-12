@@ -112,31 +112,31 @@ static struct scsi_host_template svia_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations svia_base_ops = {
+static const struct ata_port_operations svia_base_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.sff_tf_load		= svia_tf_load,
 };
 
-static struct ata_port_operations vt6420_sata_ops = {
+static const struct ata_port_operations vt6420_sata_ops = {
 	.inherits		= &svia_base_ops,
 	.freeze			= svia_noop_freeze,
 	.prereset		= vt6420_prereset,
 };
 
-static struct ata_port_operations vt6421_pata_ops = {
+static const struct ata_port_operations vt6421_pata_ops = {
 	.inherits		= &svia_base_ops,
 	.cable_detect		= vt6421_pata_cable_detect,
 	.set_piomode		= vt6421_set_pio_mode,
 	.set_dmamode		= vt6421_set_dma_mode,
 };
 
-static struct ata_port_operations vt6421_sata_ops = {
+static const struct ata_port_operations vt6421_sata_ops = {
 	.inherits		= &svia_base_ops,
 	.scr_read		= svia_scr_read,
 	.scr_write		= svia_scr_write,
 };
 
-static struct ata_port_operations vt8251_ops = {
+static const struct ata_port_operations vt8251_ops = {
 	.inherits		= &svia_base_ops,
 	.hardreset		= sata_std_hardreset,
 	.scr_read		= vt8251_scr_read,

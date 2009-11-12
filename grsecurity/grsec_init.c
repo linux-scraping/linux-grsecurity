@@ -21,6 +21,7 @@ int grsec_enable_group;
 int grsec_audit_gid;
 int grsec_enable_chdir;
 int grsec_enable_mount;
+int grsec_enable_rofs;
 int grsec_enable_chroot_findtask;
 int grsec_enable_chroot_mount;
 int grsec_enable_chroot_shmat;

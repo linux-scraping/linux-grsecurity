@@ -503,47 +503,47 @@ static struct scsi_host_template sis_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations sis_133_for_sata_ops = {
+static const struct ata_port_operations sis_133_for_sata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.set_piomode		= sis_133_set_piomode,
 	.set_dmamode		= sis_133_set_dmamode,
 	.cable_detect		= sis_133_cable_detect,
 };
 
-static struct ata_port_operations sis_base_ops = {
+static const struct ata_port_operations sis_base_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.prereset		= sis_pre_reset,
 };
 
-static struct ata_port_operations sis_133_ops = {
+static const struct ata_port_operations sis_133_ops = {
 	.inherits		= &sis_base_ops,
 	.set_piomode		= sis_133_set_piomode,
 	.set_dmamode		= sis_133_set_dmamode,
 	.cable_detect		= sis_133_cable_detect,
 };
 
-static struct ata_port_operations sis_133_early_ops = {
+static const struct ata_port_operations sis_133_early_ops = {
 	.inherits		= &sis_base_ops,
 	.set_piomode		= sis_100_set_piomode,
 	.set_dmamode		= sis_133_early_set_dmamode,
 	.cable_detect		= sis_66_cable_detect,
 };
 
-static struct ata_port_operations sis_100_ops = {
+static const struct ata_port_operations sis_100_ops = {
 	.inherits		= &sis_base_ops,
 	.set_piomode		= sis_100_set_piomode,
 	.set_dmamode		= sis_100_set_dmamode,
 	.cable_detect		= sis_66_cable_detect,
 };
 
-static struct ata_port_operations sis_66_ops = {
+static const struct ata_port_operations sis_66_ops = {
 	.inherits		= &sis_base_ops,
 	.set_piomode		= sis_old_set_piomode,
 	.set_dmamode		= sis_66_set_dmamode,
 	.cable_detect		= sis_66_cable_detect,
 };
 
-static struct ata_port_operations sis_old_ops = {
+static const struct ata_port_operations sis_old_ops = {
 	.inherits		= &sis_base_ops,
 	.set_piomode		= sis_old_set_piomode,
 	.set_dmamode		= sis_old_set_dmamode,

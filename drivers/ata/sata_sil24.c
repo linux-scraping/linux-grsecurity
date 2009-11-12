@@ -388,7 +388,7 @@ static struct scsi_host_template sil24_sht = {
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 };
 
-static struct ata_port_operations sil24_ops = {
+static const struct ata_port_operations sil24_ops = {
 	.inherits		= &sata_pmp_port_ops,
 
 	.qc_defer		= sil24_qc_defer,

@@ -351,7 +351,7 @@ static struct scsi_host_template ahci_sht = {
 	.sdev_attrs		= ahci_sdev_attrs,
 };
 
-static struct ata_port_operations ahci_ops = {
+static const struct ata_port_operations ahci_ops = {
 	.inherits		= &sata_pmp_port_ops,
 
 	.qc_defer		= sata_pmp_qc_defer_cmd_switch,
@@ -388,17 +388,17 @@ static struct ata_port_operations ahci_ops = {
 	.port_stop		= ahci_port_stop,
 };
 
-static struct ata_port_operations ahci_vt8251_ops = {
+static const struct ata_port_operations ahci_vt8251_ops = {
 	.inherits		= &ahci_ops,
 	.hardreset		= ahci_vt8251_hardreset,
 };
 
-static struct ata_port_operations ahci_p5wdh_ops = {
+static const struct ata_port_operations ahci_p5wdh_ops = {
 	.inherits		= &ahci_ops,
 	.hardreset		= ahci_p5wdh_hardreset,
 };
 
-static struct ata_port_operations ahci_sb600_ops = {
+static const struct ata_port_operations ahci_sb600_ops = {
 	.inherits		= &ahci_ops,
 	.softreset		= ahci_sb600_softreset,
 	.pmp_softreset		= ahci_sb600_softreset,

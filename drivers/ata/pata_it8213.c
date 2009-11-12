@@ -234,7 +234,7 @@ static struct scsi_host_template it8213_sht = {
 };
 
 
-static struct ata_port_operations it8213_ops = {
+static const struct ata_port_operations it8213_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.cable_detect		= it8213_cable_detect,
 	.set_piomode		= it8213_set_piomode,

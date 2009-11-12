@@ -95,7 +95,7 @@ static struct scsi_host_template generic_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations generic_port_ops = {
+static const struct ata_port_operations generic_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_unknown,
 	.set_mode	= generic_set_mode,

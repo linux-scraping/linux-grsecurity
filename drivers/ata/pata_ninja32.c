@@ -81,7 +81,7 @@ static struct scsi_host_template ninja32_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations ninja32_port_ops = {
+static const struct ata_port_operations ninja32_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.sff_dev_select = ninja32_dev_select,
 	.cable_detect	= ata_cable_40wire,

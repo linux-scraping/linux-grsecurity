@@ -79,7 +79,7 @@ static struct scsi_host_template uli_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations uli_ops = {
+static const struct ata_port_operations uli_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.scr_read		= uli_scr_read,
 	.scr_write		= uli_scr_write,

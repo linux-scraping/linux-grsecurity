@@ -37,7 +37,7 @@ static struct scsi_host_template palmld_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations palmld_port_ops = {
+static const struct ata_port_operations palmld_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.sff_data_xfer		= ata_sff_data_xfer_noirq,
 	.cable_detect		= ata_cable_40wire,

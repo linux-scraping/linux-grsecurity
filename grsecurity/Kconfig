@@ -425,6 +425,20 @@ config GRKERNSEC_FIFO
 	  option is enabled, a sysctl option with name "fifo_restrictions" is
 	  created.
 
+config GRKERNSEC_ROFS
+	bool "Runtime read-only mount protection"
+	help
+	  If you say Y here, a sysctl option with name "romount_protect" will
+	  be created.  By setting this option to 1 at runtime, filesystems
+	  will be protected in the following ways:
+	  * No new writable mounts will be allowed
+	  * Existing read-only mounts won't be able to be remounted read/write
+	  * Write operations will be denied on all block devices
+	  This option acts independently of grsec_lock: once it is set to 1,
+	  it cannot be turned off.  Therefore, please be mindful of the resulting
+	  behavior if this option is enabled in an init script on a read-only
+	  filesystem.  This feature is mainly intended for secure embedded systems.
+
 config GRKERNSEC_CHROOT
 	bool "Chroot jail restrictions"
 	help

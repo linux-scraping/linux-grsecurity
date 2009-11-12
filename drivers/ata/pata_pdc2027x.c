@@ -132,14 +132,14 @@ static struct scsi_host_template pdc2027x_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations pdc2027x_pata100_ops = {
+static const struct ata_port_operations pdc2027x_pata100_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.check_atapi_dma	= pdc2027x_check_atapi_dma,
 	.cable_detect		= pdc2027x_cable_detect,
 	.prereset		= pdc2027x_prereset,
 };
 
-static struct ata_port_operations pdc2027x_pata133_ops = {
+static const struct ata_port_operations pdc2027x_pata133_ops = {
 	.inherits		= &pdc2027x_pata100_ops,
 	.mode_filter		= pdc2027x_mode_filter,
 	.set_piomode		= pdc2027x_set_piomode,

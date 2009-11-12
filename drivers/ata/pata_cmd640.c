@@ -168,7 +168,7 @@ static struct scsi_host_template cmd640_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations cmd640_port_ops = {
+static const struct ata_port_operations cmd640_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	/* In theory xfer_noirq is not needed once we kill the prefetcher */
 	.sff_data_xfer	= ata_sff_data_xfer_noirq,

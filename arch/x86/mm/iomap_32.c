@@ -83,11 +83,8 @@ iounmap_atomic(void *kvaddr, enum km_type type)
 	 * also, in case the page changes cacheability attributes or becomes
 	 * a protected page in a hypervisor.
 	 */
-	if (vaddr == __fix_to_virt(FIX_KMAP_BEGIN+idx)) {
-		pax_open_kernel();
+	if (vaddr == __fix_to_virt(FIX_KMAP_BEGIN+idx))
 		kpte_clear_flush(kmap_pte-idx, vaddr);
-		pax_close_kernel();
-	}
 
 	pagefault_enable();
 }

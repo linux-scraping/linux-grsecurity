@@ -75,8 +75,8 @@ struct bin_attribute {
 };
 
 struct sysfs_ops {
-	ssize_t	(*show)(struct kobject *, struct attribute *,char *);
-	ssize_t	(*store)(struct kobject *,struct attribute *,const char *, size_t);
+	ssize_t	(* const show)(struct kobject *, struct attribute *,char *);
+	ssize_t	(* const store)(struct kobject *,struct attribute *,const char *, size_t);
 };
 
 struct sysfs_dirent;

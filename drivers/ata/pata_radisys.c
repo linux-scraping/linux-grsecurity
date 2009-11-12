@@ -187,7 +187,7 @@ static struct scsi_host_template radisys_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations radisys_pata_ops = {
+static const struct ata_port_operations radisys_pata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.qc_issue		= radisys_qc_issue,
 	.cable_detect		= ata_cable_unknown,

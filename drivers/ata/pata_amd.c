@@ -397,28 +397,28 @@ static const struct ata_port_operations amd_base_port_ops = {
 	.prereset	= amd_pre_reset,
 };
 
-static struct ata_port_operations amd33_port_ops = {
+static const struct ata_port_operations amd33_port_ops = {
 	.inherits	= &amd_base_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= amd33_set_piomode,
 	.set_dmamode	= amd33_set_dmamode,
 };
 
-static struct ata_port_operations amd66_port_ops = {
+static const struct ata_port_operations amd66_port_ops = {
 	.inherits	= &amd_base_port_ops,
 	.cable_detect	= ata_cable_unknown,
 	.set_piomode	= amd66_set_piomode,
 	.set_dmamode	= amd66_set_dmamode,
 };
 
-static struct ata_port_operations amd100_port_ops = {
+static const struct ata_port_operations amd100_port_ops = {
 	.inherits	= &amd_base_port_ops,
 	.cable_detect	= ata_cable_unknown,
 	.set_piomode	= amd100_set_piomode,
 	.set_dmamode	= amd100_set_dmamode,
 };
 
-static struct ata_port_operations amd133_port_ops = {
+static const struct ata_port_operations amd133_port_ops = {
 	.inherits	= &amd_base_port_ops,
 	.cable_detect	= amd_cable_detect,
 	.set_piomode	= amd133_set_piomode,
@@ -433,13 +433,13 @@ static const struct ata_port_operations nv_base_port_ops = {
 	.host_stop	= nv_host_stop,
 };
 
-static struct ata_port_operations nv100_port_ops = {
+static const struct ata_port_operations nv100_port_ops = {
 	.inherits	= &nv_base_port_ops,
 	.set_piomode	= nv100_set_piomode,
 	.set_dmamode	= nv100_set_dmamode,
 };
 
-static struct ata_port_operations nv133_port_ops = {
+static const struct ata_port_operations nv133_port_ops = {
 	.inherits	= &nv_base_port_ops,
 	.set_piomode	= nv133_set_piomode,
 	.set_dmamode	= nv133_set_dmamode,

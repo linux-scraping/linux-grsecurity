@@ -365,7 +365,7 @@ static struct scsi_host_template ali_sht = {
  *	Port operations for PIO only ALi
  */
 
-static struct ata_port_operations ali_early_port_ops = {
+static const struct ata_port_operations ali_early_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= ali_set_piomode,
@@ -382,7 +382,7 @@ static const struct ata_port_operations ali_dma_base_ops = {
  *	Port operations for DMA capable ALi without cable
  *	detect
  */
-static struct ata_port_operations ali_20_port_ops = {
+static const struct ata_port_operations ali_20_port_ops = {
 	.inherits	= &ali_dma_base_ops,
 	.cable_detect	= ata_cable_40wire,
 	.mode_filter	= ali_20_filter,
@@ -393,7 +393,7 @@ static struct ata_port_operations ali_20_port_ops = {
 /*
  *	Port operations for DMA capable ALi with cable detect
  */
-static struct ata_port_operations ali_c2_port_ops = {
+static const struct ata_port_operations ali_c2_port_ops = {
 	.inherits	= &ali_dma_base_ops,
 	.check_atapi_dma = ali_check_atapi_dma,
 	.cable_detect	= ali_c2_cable_detect,
@@ -404,7 +404,7 @@ static struct ata_port_operations ali_c2_port_ops = {
 /*
  *	Port operations for DMA capable ALi with cable detect
  */
-static struct ata_port_operations ali_c4_port_ops = {
+static const struct ata_port_operations ali_c4_port_ops = {
 	.inherits	= &ali_dma_base_ops,
 	.check_atapi_dma = ali_check_atapi_dma,
 	.cable_detect	= ali_c2_cable_detect,
@@ -414,7 +414,7 @@ static struct ata_port_operations ali_c4_port_ops = {
 /*
  *	Port operations for DMA capable ALi with cable detect and LBA48
  */
-static struct ata_port_operations ali_c5_port_ops = {
+static const struct ata_port_operations ali_c5_port_ops = {
 	.inherits	= &ali_dma_base_ops,
 	.check_atapi_dma = ali_check_atapi_dma,
 	.dev_config	= ali_warn_atapi_dma,

@@ -132,7 +132,7 @@ static struct scsi_host_template qs_ata_sht = {
 	.dma_boundary		= QS_DMA_BOUNDARY,
 };
 
-static struct ata_port_operations qs_ata_ops = {
+static const struct ata_port_operations qs_ata_ops = {
 	.inherits		= &ata_sff_port_ops,
 
 	.check_atapi_dma	= qs_check_atapi_dma,

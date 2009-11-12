@@ -195,7 +195,7 @@ static struct scsi_host_template pata_at91_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations pata_at91_port_ops = {
+static const struct ata_port_operations pata_at91_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 
 	.sff_data_xfer	= pata_at91_data_xfer_noirq,

@@ -23,12 +23,12 @@ static struct scsi_host_template isapnp_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations isapnp_port_ops = {
+static const struct ata_port_operations isapnp_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.cable_detect	= ata_cable_40wire,
 };
 
-static struct ata_port_operations isapnp_noalt_port_ops = {
+static const struct ata_port_operations isapnp_noalt_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	/* No altstatus so we don't want to use the lost interrupt poll */

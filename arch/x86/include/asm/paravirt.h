@@ -1718,23 +1718,27 @@ static inline unsigned long __raw_local_irq_save(void)
 #ifdef CONFIG_X86_32
 
 #ifdef CONFIG_PAX_KERNEXEC
-#define PAX_RESTORE_KERNEL					\
-	bt $16, %esi;						\
-	jc 1f;							\
-	push %eax; push %ecx;					\
-	movl %esi, %eax;					\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);	\
-	pop %ecx; pop %eax;					\
+#define PAX_EXIT_KERNEL					\
+	bt $16, %esi;					\
+	jc 1f;						\
+	push %eax; push %ecx;				\
+	movl %esi, %eax;				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+	pop %ecx; pop %eax;				\
 1:
 
-#define PAX_CLOSE_KERNEL					\
-	push %eax; push %ecx;					\
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_pax_close_kernel);	\
-	movl %eax, %esi;					\
-	pop %ecx; pop %eax
+#define PAX_ENTER_KERNEL				\
+	push %eax; push %ecx;				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	movl %eax, %esi;				\
+	bts $16, %eax;					\
+	jc 1f;						\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+1:							\
+	pop %ecx; pop %eax;
 #else
-#define PAX_RESTORE_KERNEL
-#define PAX_CLOSE_KERNEL
+#define PAX_EXIT_KERNEL
+#define PAX_ENTER_KERNEL
 #endif
 
 #define GET_CR0_INTO_EAX				\

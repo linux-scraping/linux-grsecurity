@@ -68,7 +68,7 @@ static irqreturn_t rb532_pata_irq_handler(int irq, void *dev_instance)
 	return IRQ_HANDLED;
 }
 
-static struct ata_port_operations rb532_pata_port_ops = {
+static const struct ata_port_operations rb532_pata_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.sff_data_xfer		= ata_sff_data_xfer32,
 };

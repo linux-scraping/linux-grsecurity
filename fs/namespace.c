@@ -1946,6 +1946,11 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 	if (retval)
 		goto dput_out;
 
+	if (gr_handle_rofs_mount(path.dentry, path.mnt, mnt_flags)) {
+		retval = -EPERM;
+		goto dput_out;
+	}
+
 	if (gr_handle_chroot_mount(path.dentry, path.mnt, dev_name)) {
 		retval = -EPERM;
 		goto dput_out;

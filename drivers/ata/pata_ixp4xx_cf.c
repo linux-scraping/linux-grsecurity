@@ -89,7 +89,7 @@ static struct scsi_host_template ixp4xx_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations ixp4xx_port_ops = {
+static const struct ata_port_operations ixp4xx_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.sff_data_xfer		= ixp4xx_mmio_data_xfer,
 	.cable_detect		= ata_cable_40wire,

@@ -157,7 +157,7 @@ static struct scsi_host_template qdi_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations qdi6500_port_ops = {
+static const struct ata_port_operations qdi6500_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.qc_issue	= qdi_qc_issue,
 	.sff_data_xfer	= qdi_data_xfer,
@@ -165,7 +165,7 @@ static struct ata_port_operations qdi6500_port_ops = {
 	.set_piomode	= qdi6500_set_piomode,
 };
 
-static struct ata_port_operations qdi6580_port_ops = {
+static const struct ata_port_operations qdi6580_port_ops = {
 	.inherits	= &qdi6500_port_ops,
 	.set_piomode	= qdi6580_set_piomode,
 };

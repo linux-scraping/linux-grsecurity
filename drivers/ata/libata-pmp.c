@@ -839,7 +839,7 @@ static int sata_pmp_handle_link_fail(struct ata_link *link, int *link_tries)
  */
 static int sata_pmp_eh_recover(struct ata_port *ap)
 {
-	struct ata_port_operations *ops = ap->ops;
+	const struct ata_port_operations *ops = ap->ops;
 	int pmp_tries, link_tries[SATA_PMP_MAX_PORTS];
 	struct ata_link *pmp_link = &ap->link;
 	struct ata_device *pmp_dev = pmp_link->device;

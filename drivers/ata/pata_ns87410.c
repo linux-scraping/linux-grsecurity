@@ -132,7 +132,7 @@ static struct scsi_host_template ns87410_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations ns87410_port_ops = {
+static const struct ata_port_operations ns87410_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.qc_issue	= ns87410_qc_issue,
 	.cable_detect	= ata_cable_40wire,

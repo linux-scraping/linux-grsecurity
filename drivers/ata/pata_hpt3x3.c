@@ -141,7 +141,7 @@ static struct scsi_host_template hpt3x3_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations hpt3x3_port_ops = {
+static const struct ata_port_operations hpt3x3_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_40wire,
 	.set_piomode	= hpt3x3_set_piomode,

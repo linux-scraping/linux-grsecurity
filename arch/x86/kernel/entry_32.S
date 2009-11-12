@@ -235,7 +235,7 @@
 .macro SAVE_ALL
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	__SAVE_ALL __KERNEL_DS
-	PAX_CLOSE_KERNEL
+	PAX_ENTER_KERNEL
 #else
 	__SAVE_ALL __USER_DS
 #endif
@@ -365,7 +365,7 @@ check_userspace:
 #ifdef CONFIG_PAX_KERNEXEC
 	jae resume_userspace
 
-	PAX_RESTORE_KERNEL
+	PAX_EXIT_KERNEL
 	jmp resume_kernel
 #else
 	jb resume_kernel		# not returning to v8086 or userspace
@@ -1307,7 +1307,7 @@ error_code:
 	UNWIND_ESPFIX_STACK
 	GS_TO_REG %ecx
 
-	PAX_CLOSE_KERNEL
+	PAX_ENTER_KERNEL
 
 	movl PT_GS(%esp), %edi		# get the function address
 	movl PT_ORIG_EAX(%esp), %edx	# get the error code
@@ -1411,7 +1411,7 @@ nmi_stack_correct:
 	movl %esp,%eax		# pt_regs pointer
 	call do_nmi
 
-	PAX_RESTORE_KERNEL
+	PAX_EXIT_KERNEL
 
 	jmp restore_all_notrace
 	CFI_ENDPROC
@@ -1454,7 +1454,7 @@ nmi_espfix_stack:
 	xorl %edx,%edx			# zero error code
 	call do_nmi
 
-	PAX_RESTORE_KERNEL
+	PAX_EXIT_KERNEL
 
 	RESTORE_REGS
 	lss 12+4(%esp), %esp		# back to espfix stack

@@ -311,7 +311,7 @@ static struct scsi_host_template artop_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations artop6210_ops = {
+static const struct ata_port_operations artop6210_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.cable_detect		= ata_cable_40wire,
 	.set_piomode		= artop6210_set_piomode,
@@ -320,7 +320,7 @@ static struct ata_port_operations artop6210_ops = {
 	.qc_defer		= artop6210_qc_defer,
 };
 
-static struct ata_port_operations artop6260_ops = {
+static const struct ata_port_operations artop6260_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.cable_detect		= artop6260_cable_detect,
 	.set_piomode		= artop6260_set_piomode,

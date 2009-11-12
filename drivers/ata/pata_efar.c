@@ -222,7 +222,7 @@ static struct scsi_host_template efar_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations efar_ops = {
+static const struct ata_port_operations efar_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.cable_detect		= efar_cable_detect,
 	.set_piomode		= efar_set_piomode,

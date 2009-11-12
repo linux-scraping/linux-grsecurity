@@ -3154,9 +3154,9 @@ static int ata_eh_handle_dev_fail(struct ata_device *dev, int err)
  *	RETURNS:
  *	0 on success, -errno on failure.
  */
-int ata_eh_recover(struct ata_port *ap, ata_prereset_fn_t prereset,
-		   ata_reset_fn_t softreset, ata_reset_fn_t hardreset,
-		   ata_postreset_fn_t postreset,
+int ata_eh_recover(struct ata_port *ap, const ata_prereset_fn_t prereset,
+		   const ata_reset_fn_t softreset, const ata_reset_fn_t hardreset,
+		   const ata_postreset_fn_t postreset,
 		   struct ata_link **r_failed_link)
 {
 	struct ata_link *link;
@@ -3417,9 +3417,9 @@ void ata_eh_finish(struct ata_port *ap)
  *	LOCKING:
  *	Kernel thread context (may sleep).
  */
-void ata_do_eh(struct ata_port *ap, ata_prereset_fn_t prereset,
-	       ata_reset_fn_t softreset, ata_reset_fn_t hardreset,
-	       ata_postreset_fn_t postreset)
+void ata_do_eh(struct ata_port *ap, const ata_prereset_fn_t prereset,
+	       const ata_reset_fn_t softreset, const ata_reset_fn_t hardreset,
+	       const ata_postreset_fn_t postreset)
 {
 	struct ata_device *dev;
 	int rc;
@@ -3448,7 +3448,7 @@ void ata_do_eh(struct ata_port *ap, ata_prereset_fn_t prereset,
  */
 void ata_std_error_handler(struct ata_port *ap)
 {
-	struct ata_port_operations *ops = ap->ops;
+	const struct ata_port_operations *ops = ap->ops;
 	ata_reset_fn_t hardreset = ops->hardreset;
 
 	/* ignore built-in hardreset if SCR access is not available */

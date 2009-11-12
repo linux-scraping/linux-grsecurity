@@ -721,7 +721,7 @@ static int inic_port_start(struct ata_port *ap)
 	return 0;
 }
 
-static struct ata_port_operations inic_port_ops = {
+static const struct ata_port_operations inic_port_ops = {
 	.inherits		= &sata_port_ops,
 
 	.check_atapi_dma	= inic_check_atapi_dma,

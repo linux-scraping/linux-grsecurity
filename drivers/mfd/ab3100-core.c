@@ -465,7 +465,7 @@ static int ab3100_get_set_reg_open_file(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int ab3100_get_set_reg(struct file *file,
+static ssize_t ab3100_get_set_reg(struct file *file,
 			      const char __user *user_buf,
 			      size_t count, loff_t *ppos)
 {

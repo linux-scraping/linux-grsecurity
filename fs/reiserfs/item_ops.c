@@ -102,7 +102,7 @@ static void sd_print_vi(struct virtual_item *vi)
 			 vi->vi_index, vi->vi_type, vi->vi_ih);
 }
 
-static struct item_operations stat_data_ops = {
+static const struct item_operations stat_data_ops = {
 	.bytes_number = sd_bytes_number,
 	.decrement_key = sd_decrement_key,
 	.is_left_mergeable = sd_is_left_mergeable,
@@ -196,7 +196,7 @@ static void direct_print_vi(struct virtual_item *vi)
 			 vi->vi_index, vi->vi_type, vi->vi_ih);
 }
 
-static struct item_operations direct_ops = {
+static const struct item_operations direct_ops = {
 	.bytes_number = direct_bytes_number,
 	.decrement_key = direct_decrement_key,
 	.is_left_mergeable = direct_is_left_mergeable,
@@ -341,7 +341,7 @@ static void indirect_print_vi(struct virtual_item *vi)
 			 vi->vi_index, vi->vi_type, vi->vi_ih);
 }
 
-static struct item_operations indirect_ops = {
+static const struct item_operations indirect_ops = {
 	.bytes_number = indirect_bytes_number,
 	.decrement_key = indirect_decrement_key,
 	.is_left_mergeable = indirect_is_left_mergeable,
@@ -628,7 +628,7 @@ static void direntry_print_vi(struct virtual_item *vi)
 	printk("\n");
 }
 
-static struct item_operations direntry_ops = {
+static const struct item_operations direntry_ops = {
 	.bytes_number = direntry_bytes_number,
 	.decrement_key = direntry_decrement_key,
 	.is_left_mergeable = direntry_is_left_mergeable,
@@ -724,7 +724,7 @@ static void errcatch_print_vi(struct virtual_item *vi)
 			 "Invalid item type observed, run fsck ASAP");
 }
 
-static struct item_operations errcatch_ops = {
+static const struct item_operations errcatch_ops = {
 	errcatch_bytes_number,
 	errcatch_decrement_key,
 	errcatch_is_left_mergeable,
@@ -746,7 +746,7 @@ static struct item_operations errcatch_ops = {
 #error Item types must use disk-format assigned values.
 #endif
 
-struct item_operations *item_ops[TYPE_ANY + 1] = {
+const struct item_operations *item_ops[TYPE_ANY + 1] = {
 	&stat_data_ops,
 	&indirect_ops,
 	&direct_ops,

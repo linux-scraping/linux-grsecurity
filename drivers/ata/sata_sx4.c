@@ -248,7 +248,7 @@ static struct scsi_host_template pdc_sata_sht = {
 };
 
 /* TODO: inherit from base port_ops after converting to new EH */
-static struct ata_port_operations pdc_20621_ops = {
+static const struct ata_port_operations pdc_20621_ops = {
 	.inherits		= &ata_sff_port_ops,
 
 	.check_atapi_dma	= pdc_check_atapi_dma,

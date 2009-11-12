@@ -215,7 +215,7 @@ static struct scsi_host_template pacpi_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations pacpi_ops = {
+static const struct ata_port_operations pacpi_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.qc_issue		= pacpi_qc_issue,
 	.cable_detect		= pacpi_cable_detect,

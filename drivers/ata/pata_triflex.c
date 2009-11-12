@@ -178,7 +178,7 @@ static struct scsi_host_template triflex_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static struct ata_port_operations triflex_port_ops = {
+static const struct ata_port_operations triflex_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.bmdma_start 	= triflex_bmdma_start,
 	.bmdma_stop	= triflex_bmdma_stop,

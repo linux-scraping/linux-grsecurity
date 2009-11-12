@@ -275,18 +275,18 @@ static const struct ata_port_operations cmd64x_base_ops = {
 	.set_dmamode	= cmd64x_set_dmamode,
 };
 
-static struct ata_port_operations cmd64x_port_ops = {
+static const struct ata_port_operations cmd64x_port_ops = {
 	.inherits	= &cmd64x_base_ops,
 	.cable_detect	= ata_cable_40wire,
 };
 
-static struct ata_port_operations cmd646r1_port_ops = {
+static const struct ata_port_operations cmd646r1_port_ops = {
 	.inherits	= &cmd64x_base_ops,
 	.bmdma_stop	= cmd646r1_bmdma_stop,
 	.cable_detect	= ata_cable_40wire,
 };
 
-static struct ata_port_operations cmd648_port_ops = {
+static const struct ata_port_operations cmd648_port_ops = {
 	.inherits	= &cmd64x_base_ops,
 	.bmdma_stop	= cmd648_bmdma_stop,
 	.cable_detect	= cmd648_cable_detect,

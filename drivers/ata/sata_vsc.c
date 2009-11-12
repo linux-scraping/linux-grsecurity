@@ -306,7 +306,7 @@ static struct scsi_host_template vsc_sata_sht = {
 };
 
 
-static struct ata_port_operations vsc_sata_ops = {
+static const struct ata_port_operations vsc_sata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	/* The IRQ handling is not quite standard SFF behaviour so we
 	   cannot use the default lost interrupt handler */

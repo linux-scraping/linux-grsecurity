@@ -282,7 +282,7 @@ static struct scsi_host_template hpt36x_sht = {
  *	Configuration for HPT366/68
  */
 
-static struct ata_port_operations hpt366_port_ops = {
+static const struct ata_port_operations hpt366_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= hpt36x_cable_detect,
 	.mode_filter	= hpt366_filter,

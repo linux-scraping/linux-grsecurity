@@ -180,6 +180,8 @@ __u32 gr_acl_handle_unix(const struct dentry *dentry,
 void gr_acl_handle_exit(void);
 void gr_acl_handle_psacct(struct task_struct *task, const long code);
 int gr_acl_handle_procpidmem(const struct task_struct *task);
+int gr_handle_rofs_mount(struct dentry *dentry, struct vfsmount *mnt, int mnt_flags);
+int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode);
 
 #ifdef CONFIG_GRKERNSEC
 void gr_log_nonroot_mod_load(const char *modname);

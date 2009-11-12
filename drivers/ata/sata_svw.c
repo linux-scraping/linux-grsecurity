@@ -344,7 +344,7 @@ static struct scsi_host_template k2_sata_sht = {
 };
 
 
-static struct ata_port_operations k2_sata_ops = {
+static const struct ata_port_operations k2_sata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.sff_tf_load		= k2_sata_tf_load,
 	.sff_tf_read		= k2_sata_tf_read,

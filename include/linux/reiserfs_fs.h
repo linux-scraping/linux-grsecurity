@@ -1534,24 +1534,24 @@ static inline struct super_block *sb_from_bi(struct buffer_info *bi)
 */
 
 struct item_operations {
-	int (*bytes_number) (struct item_head * ih, int block_size);
-	void (*decrement_key) (struct cpu_key *);
-	int (*is_left_mergeable) (struct reiserfs_key * ih,
+	int (* const bytes_number) (struct item_head * ih, int block_size);
+	void (* const decrement_key) (struct cpu_key *);
+	int (* const is_left_mergeable) (struct reiserfs_key * ih,
 				  unsigned long bsize);
-	void (*print_item) (struct item_head *, char *item);
-	void (*check_item) (struct item_head *, char *item);
+	void (* const print_item) (struct item_head *, char *item);
+	void (* const check_item) (struct item_head *, char *item);
 
-	int (*create_vi) (struct virtual_node * vn, struct virtual_item * vi,
+	int (* const create_vi) (struct virtual_node * vn, struct virtual_item * vi,
 			  int is_affected, int insert_size);
-	int (*check_left) (struct virtual_item * vi, int free,
+	int (* const check_left) (struct virtual_item * vi, int free,
 			   int start_skip, int end_skip);
-	int (*check_right) (struct virtual_item * vi, int free);
-	int (*part_size) (struct virtual_item * vi, int from, int to);
-	int (*unit_num) (struct virtual_item * vi);
-	void (*print_vi) (struct virtual_item * vi);
+	int (* const check_right) (struct virtual_item * vi, int free);
+	int (* const part_size) (struct virtual_item * vi, int from, int to);
+	int (* const unit_num) (struct virtual_item * vi);
+	void (* const print_vi) (struct virtual_item * vi);
 };
 
-extern struct item_operations *item_ops[TYPE_ANY + 1];
+extern const struct item_operations *item_ops[TYPE_ANY + 1];
 
 #define op_bytes_number(ih,bsize)                    item_ops[le_ih_k_type (ih)]->bytes_number (ih, bsize)
 #define op_is_left_mergeable(key,bsize)              item_ops[le_key_k_type (le_key_version (key), key)]->is_left_mergeable (key, bsize)
