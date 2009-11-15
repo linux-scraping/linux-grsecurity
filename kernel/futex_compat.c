@@ -10,6 +10,7 @@
 #include <linux/compat.h>
 #include <linux/nsproxy.h>
 #include <linux/futex.h>
+#include <linux/ptrace.h>
 
 #include <asm/uaccess.h>
 
@@ -135,7 +136,10 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 {
 	struct compat_robust_list_head __user *head;
 	unsigned long ret;
-	const struct cred *cred = current_cred(), *pcred;
+	const struct cred *cred = current_cred();
+#ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
+	const struct cred *pcred;
+#endif
 
 	if (!futex_cmpxchg_enabled)
 		return -ENOSYS;
@@ -151,11 +155,16 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 		if (!p)
 			goto err_unlock;
 		ret = -EPERM;
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+		if (!ptrace_may_access(p, PTRACE_MODE_READ))
+			goto err_unlock;
+#else
 		pcred = __task_cred(p);
 		if (cred->euid != pcred->euid &&
 		    cred->euid != pcred->uid &&
 		    !capable(CAP_SYS_PTRACE))
 			goto err_unlock;
+#endif
 		head = p->compat_robust_list;
 		read_unlock(&tasklist_lock);
 	}

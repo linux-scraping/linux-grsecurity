@@ -54,6 +54,7 @@
 #include <linux/mount.h>
 #include <linux/pagemap.h>
 #include <linux/syscalls.h>
+#include <linux/ptrace.h>
 #include <linux/signal.h>
 #include <linux/module.h>
 #include <linux/magic.h>
@@ -2342,7 +2343,10 @@ SYSCALL_DEFINE3(get_robust_list, int, pid,
 {
 	struct robust_list_head __user *head;
 	unsigned long ret;
-	const struct cred *cred = current_cred(), *pcred;
+	const struct cred *cred = current_cred();
+#ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
+	const struct cred *pcred;
+#endif
 
 	if (!futex_cmpxchg_enabled)
 		return -ENOSYS;
@@ -2358,11 +2362,16 @@ SYSCALL_DEFINE3(get_robust_list, int, pid,
 		if (!p)
 			goto err_unlock;
 		ret = -EPERM;
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+		if (!ptrace_may_access(p, PTRACE_MODE_READ))
+			goto err_unlock;
+#else
 		pcred = __task_cred(p);
 		if (cred->euid != pcred->euid &&
 		    cred->euid != pcred->uid &&
 		    !capable(CAP_SYS_PTRACE))
 			goto err_unlock;
+#endif
 		head = p->robust_list;
 		rcu_read_unlock();
 	}
