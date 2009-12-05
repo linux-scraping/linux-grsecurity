@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.14-2.6.31.6-200912040944.patch
-+++ b/grsecurity-2.1.14-2.6.31.6-200912040944.patch
+--- a/grsecurity-2.1.14-2.6.31.6-200912051443.patch
++++ b/grsecurity-2.1.14-2.6.31.6-200912051443.patch
 @@ -1,4 +1,3 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index e1efc400bed66095629a46c2229b5bf863434315..9d215ae9b6f77141d153df2f3a99d06d22814e4d 100644
@@ -12475,12 +12475,12 @@
 +@@ -1443,7 +1477,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
 @@ -48164,4 +47142,3 @@
 -diff --git a/kernel/sysctl.c b/kernel/sysctl.c
--index 58be76017fd000f3b019c0acab6d3cdeb672afda..d267322bb4dcaae6bcf953c9366bbf61ff893f0e 100644
+-index 58be76017fd000f3b019c0acab6d3cdeb672afda..c3c9b39fe8fee7144d9c8b8f1fcd4744934f9879 100644
 ---- a/kernel/sysctl.c
 -+++ b/kernel/sysctl.c
 +diff -urNp linux-2.6.31.6/kernel/sysctl.c linux-2.6.31.6/kernel/sysctl.c
 +--- linux-2.6.31.6/kernel/sysctl.c	2009-11-09 19:32:31.000000000 -0500
-++++ linux-2.6.31.6/kernel/sysctl.c	2009-12-04 09:42:36.000000000 -0500
+++++ linux-2.6.31.6/kernel/sysctl.c	2009-12-04 21:19:47.000000000 -0500
 @@ -48182 +47159 @@
 -@@ -163,6 +170,7 @@ static int proc_do_cad_pid(struct ctl_table *table, int write, struct file *filp
 +@@ -163,6 +170,7 @@ static int proc_do_cad_pid(struct ctl_ta
@@ -13194,12 +13194,12 @@
 +@@ -2497,7 +2497,7 @@ static const struct super_operations shm
 @@ -51150,4 +50088,3 @@
 -diff --git a/mm/slab.c b/mm/slab.c
--index 7b5d4deacfcd96f79460e3e91d159f22b47dec5f..e7e7d643a43b0c6e0c99010e329270c4b8172de8 100644
+-index 7b5d4deacfcd96f79460e3e91d159f22b47dec5f..69073cbecbdc5ad44581fedc6f01a3c335c31854 100644
 ---- a/mm/slab.c
 -+++ b/mm/slab.c
 +diff -urNp linux-2.6.31.6/mm/slab.c linux-2.6.31.6/mm/slab.c
 +--- linux-2.6.31.6/mm/slab.c	2009-11-09 19:32:31.000000000 -0500
-++++ linux-2.6.31.6/mm/slab.c	2009-12-04 09:42:36.000000000 -0500
+++++ linux-2.6.31.6/mm/slab.c	2009-12-04 19:44:46.000000000 -0500
 @@ -51163 +50100 @@
 -@@ -558,7 +558,7 @@ static inline void *index_to_obj(struct kmem_cache *cache, struct slab *slab,
 +@@ -558,7 +558,7 @@ static inline void *index_to_obj(struct 
@@ -13208,12 +13208,12 @@
 +@@ -4473,15 +4473,64 @@ static const struct file_operations proc
 @@ -51255,4 +50192,3 @@
 -diff --git a/mm/slob.c b/mm/slob.c
--index 9641da3d5e58dfca1d7c79dbef99760364fa98b2..2a412f1aaa501632311499408044b20c9a378442 100644
+-index 9641da3d5e58dfca1d7c79dbef99760364fa98b2..0fea6f5a37e62665947d75b2c47fd9d18fbaa81b 100644
 ---- a/mm/slob.c
 -+++ b/mm/slob.c
 +diff -urNp linux-2.6.31.6/mm/slob.c linux-2.6.31.6/mm/slob.c
 +--- linux-2.6.31.6/mm/slob.c	2009-11-09 19:32:31.000000000 -0500
-++++ linux-2.6.31.6/mm/slob.c	2009-12-04 09:42:36.000000000 -0500
+++++ linux-2.6.31.6/mm/slob.c	2009-12-04 19:46:01.000000000 -0500
 @@ -51295 +50231 @@
 -@@ -148,7 +150,7 @@ static inline void clear_slob_page(struct slob_page *sp)
 +@@ -148,7 +150,7 @@ static inline void clear_slob_page(struc
@@ -13243,12 +13243,12 @@
 +@@ -643,15 +742,24 @@ static void kmem_rcu_free(struct rcu_hea
 @@ -51581,4 +50517,3 @@
 -diff --git a/mm/slub.c b/mm/slub.c
--index b6276753626e9ade2e8bec661e980fcfc3c95374..6ee25bf31f7e37b321c40a8145fcf4fd2b8e18ce 100644
+-index b6276753626e9ade2e8bec661e980fcfc3c95374..677b0e3218c30102f524b4e845b5ee404711494f 100644
 ---- a/mm/slub.c
 -+++ b/mm/slub.c
 +diff -urNp linux-2.6.31.6/mm/slub.c linux-2.6.31.6/mm/slub.c
 +--- linux-2.6.31.6/mm/slub.c	2009-11-09 19:32:31.000000000 -0500
-++++ linux-2.6.31.6/mm/slub.c	2009-12-04 09:42:36.000000000 -0500
+++++ linux-2.6.31.6/mm/slub.c	2009-12-04 19:45:07.000000000 -0500
 @@ -51594 +50529 @@
 -@@ -2458,7 +2458,7 @@ static int kmem_cache_open(struct kmem_cache *s, gfp_t gfpflags,
 +@@ -2458,7 +2458,7 @@ static int kmem_cache_open(struct kmem_c
@@ -13960,15 +13960,18 @@
 +@@ -313,7 +313,7 @@ static int ima_release_policy(struct ino
 @@ -53879,5 +52760,4 @@
 -diff --git a/security/min_addr.c b/security/min_addr.c
--index 14cc7b3b8d0379ef0cd17e071aa2821ea6dd4a95..16b3b6c537379faa4f85a0314a2ada145483f586 100644
+-index 14cc7b3b8d0379ef0cd17e071aa2821ea6dd4a95..d0d0c8b058dfce30b2c51db252d5acef86c047da 100644
 ---- a/security/min_addr.c
 -+++ b/security/min_addr.c
 -@@ -14,6 +14,7 @@ unsigned long dac_mmap_min_addr = CONFIG_DEFAULT_MMAP_MIN_ADDR;
 +diff -urNp linux-2.6.31.6/security/min_addr.c linux-2.6.31.6/security/min_addr.c
 +--- linux-2.6.31.6/security/min_addr.c	2009-11-09 19:32:31.000000000 -0500
-++++ linux-2.6.31.6/security/min_addr.c	2009-12-04 09:42:36.000000000 -0500
+++++ linux-2.6.31.6/security/min_addr.c	2009-12-05 14:43:31.000000000 -0500
 +@@ -14,6 +14,7 @@ unsigned long dac_mmap_min_addr = CONFIG
-@@ -53899,5 +52779,4 @@
+@@ -53899 +52779 @@
+-@@ -33,6 +35,9 @@ int mmap_min_addr_handler(struct ctl_table *table, int write, struct file *filp,
++@@ -33,6 +35,9 @@ int mmap_min_addr_handler(struct ctl_tab
+@@ -53909,5 +52789,4 @@
 -diff --git a/security/smack/smackfs.c b/security/smack/smackfs.c
 -index f83a809807263beacdb756adae4696b6cda33309..aeead7585093a301c20826b9f316776fc295f4ce 100644
 ---- a/security/smack/smackfs.c
@@ -13978,13 +13981,13 @@
 +--- linux-2.6.31.6/security/smack/smackfs.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/security/smack/smackfs.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -187,7 +187,7 @@ static void load_seq_stop(struct seq_fil
-@@ -53912 +52791 @@
+@@ -53922 +52801 @@
 -@@ -503,7 +503,7 @@ static void cipso_seq_stop(struct seq_file *s, void *v)
 +@@ -503,7 +503,7 @@ static void cipso_seq_stop(struct seq_fi
-@@ -53921 +52800 @@
+@@ -53931 +52810 @@
 -@@ -697,7 +697,7 @@ static void netlbladdr_seq_stop(struct seq_file *s, void *v)
 +@@ -697,7 +697,7 @@ static void netlbladdr_seq_stop(struct s
-@@ -53930,4 +52809,3 @@
+@@ -53940,4 +52819,3 @@
 -diff --git a/sound/aoa/codecs/onyx.c b/sound/aoa/codecs/onyx.c
 -index 84bb07d39a7fc29766fb1d0d019e0d08e392e664..86ea5c6f0d0f4ddd9d402572c2964d0e46bc51ff 100644
 ---- a/sound/aoa/codecs/onyx.c
@@ -13992,13 +13995,13 @@
 +diff -urNp linux-2.6.31.6/sound/aoa/codecs/onyx.c linux-2.6.31.6/sound/aoa/codecs/onyx.c
 +--- linux-2.6.31.6/sound/aoa/codecs/onyx.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/aoa/codecs/onyx.c	2009-12-04 09:42:36.000000000 -0500
-@@ -53943 +52821 @@
+@@ -53953 +52831 @@
 -@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_item *cii,
 +@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_i
-@@ -53952 +52830 @@
+@@ -53962 +52840 @@
 -@@ -764,8 +764,7 @@ static int onyx_close(struct codec_info_item *cii,
 +@@ -764,8 +764,7 @@ static int onyx_close(struct codec_info_
-@@ -53962,5 +52840,4 @@
+@@ -53972,5 +52850,4 @@
 -diff --git a/sound/core/oss/pcm_oss.c b/sound/core/oss/pcm_oss.c
 -index dbe406b82591058dd515686d8d13eb800418b416..cee951b4c36bcc338bbb5693d48607350af7b4c1 100644
 ---- a/sound/core/oss/pcm_oss.c
@@ -14008,7 +14011,7 @@
 +--- linux-2.6.31.6/sound/core/oss/pcm_oss.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/core/oss/pcm_oss.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -2943,8 +2943,8 @@ static void snd_pcm_oss_proc_done(struct
-@@ -53977,5 +52854,4 @@
+@@ -53987,5 +52864,4 @@
 -diff --git a/sound/core/seq/seq_lock.h b/sound/core/seq/seq_lock.h
 -index 54044bc2c9ef24892a7e6747dcd67e92fb01b0f1..75df3ef63512290c8cd8028c6b0d9b6117e0e97b 100644
 ---- a/sound/core/seq/seq_lock.h
@@ -14018,7 +14021,7 @@
 +--- linux-2.6.31.6/sound/core/seq/seq_lock.h	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/core/seq/seq_lock.h	2009-12-04 09:42:36.000000000 -0500
 +@@ -23,10 +23,10 @@ void snd_use_lock_sync_helper(snd_use_lo
-@@ -53996,4 +52872,3 @@
+@@ -54006,4 +52882,3 @@
 -diff --git a/sound/drivers/mts64.c b/sound/drivers/mts64.c
 -index 9284829bf9275e9c2afabbbe8e2026c35c2dfb60..1ac8ea2df651826dab98b35a81e9f5890bb75891 100644
 ---- a/sound/drivers/mts64.c
@@ -14026,19 +14029,19 @@
 +diff -urNp linux-2.6.31.6/sound/drivers/mts64.c linux-2.6.31.6/sound/drivers/mts64.c
 +--- linux-2.6.31.6/sound/drivers/mts64.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/drivers/mts64.c	2009-12-04 09:42:36.000000000 -0500
-@@ -54009 +52884 @@
+@@ -54019 +52894 @@
 -@@ -695,7 +695,7 @@ static int snd_mts64_rawmidi_open(struct snd_rawmidi_substream *substream)
 +@@ -695,7 +695,7 @@ static int snd_mts64_rawmidi_open(struct
-@@ -54018 +52893 @@
+@@ -54028 +52903 @@
 -@@ -703,7 +703,7 @@ static int snd_mts64_rawmidi_open(struct snd_rawmidi_substream *substream)
 +@@ -703,7 +703,7 @@ static int snd_mts64_rawmidi_open(struct
-@@ -54027 +52902 @@
+@@ -54037 +52912 @@
 -@@ -713,8 +713,7 @@ static int snd_mts64_rawmidi_close(struct snd_rawmidi_substream *substream)
 +@@ -713,8 +713,7 @@ static int snd_mts64_rawmidi_close(struc
-@@ -54037 +52912 @@
+@@ -54047 +52922 @@
 -@@ -723,8 +722,8 @@ static int snd_mts64_rawmidi_close(struct snd_rawmidi_substream *substream)
 +@@ -723,8 +722,8 @@ static int snd_mts64_rawmidi_close(struc
-@@ -54048,4 +52923,3 @@
+@@ -54058,4 +52933,3 @@
 -diff --git a/sound/drivers/portman2x4.c b/sound/drivers/portman2x4.c
 -index 60158e2e0eafb529e00013b4a9997d325b1b7fa2..c696944301c93fdece168a1c46fdae51d74d7bc4 100644
 ---- a/sound/drivers/portman2x4.c
@@ -14046,7 +14049,7 @@
 +diff -urNp linux-2.6.31.6/sound/drivers/portman2x4.c linux-2.6.31.6/sound/drivers/portman2x4.c
 +--- linux-2.6.31.6/sound/drivers/portman2x4.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/drivers/portman2x4.c	2009-12-04 09:42:36.000000000 -0500
-@@ -54061,5 +52935,4 @@
+@@ -54071,5 +52945,4 @@
 -diff --git a/sound/pci/ac97/ac97_codec.c b/sound/pci/ac97/ac97_codec.c
 -index 78288dbfc17a039cc4b9b417bf6ae56bbf2f1419..cbe5c1f00c5e50d8d36ac32abdc8b08078a7fd25 100644
 ---- a/sound/pci/ac97/ac97_codec.c
@@ -14056,7 +14059,7 @@
 +--- linux-2.6.31.6/sound/pci/ac97/ac97_codec.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/pci/ac97/ac97_codec.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -1952,7 +1952,7 @@ static int snd_ac97_dev_disconnect(struc
-@@ -54074,5 +52947,4 @@
+@@ -54084,5 +52957,4 @@
 -diff --git a/sound/pci/ac97/ac97_patch.c b/sound/pci/ac97/ac97_patch.c
 -index 7337abdbe4e37e0642f5b050ae7f7a00b93b12b9..290732c26614920941abf9a41f5a01388172c3d4 100644
 ---- a/sound/pci/ac97/ac97_patch.c
@@ -14066,10 +14069,10 @@
 +--- linux-2.6.31.6/sound/pci/ac97/ac97_patch.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/pci/ac97/ac97_patch.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -1501,7 +1501,7 @@ static const struct snd_ac97_res_table a
-@@ -54087 +52959 @@
+@@ -54097 +52969 @@
 -@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_restbl[] = {
 +@@ -3876,7 +3876,7 @@ static struct snd_ac97_res_table lm4550_
-@@ -54096,5 +52968,4 @@
+@@ -54106,5 +52978,4 @@
 -diff --git a/sound/pci/ens1370.c b/sound/pci/ens1370.c
 -index 2b82c5c723e159a1f393724dbca259f12d755050..5d92b63b0171032d421edf05b478eccc3fbb581a 100644
 ---- a/sound/pci/ens1370.c
@@ -14079,7 +14082,7 @@
 +--- linux-2.6.31.6/sound/pci/ens1370.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/pci/ens1370.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -452,7 +452,7 @@ static struct pci_device_id snd_audiopci
-@@ -54109,5 +52980,4 @@
+@@ -54119,5 +52990,4 @@
 -diff --git a/sound/pci/intel8x0.c b/sound/pci/intel8x0.c
 -index 171ada535209a2974c8151597b0e1ceb4489736c..8fed272fa3574c9ecd7093b5a22de2368b1bc2c1 100644
 ---- a/sound/pci/intel8x0.c
@@ -14089,10 +14092,10 @@
 +--- linux-2.6.31.6/sound/pci/intel8x0.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/pci/intel8x0.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -444,7 +444,7 @@ static struct pci_device_id snd_intel8x0
-@@ -54122 +52992 @@
+@@ -54132 +53002 @@
 -@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] __devinitdata = {
 +@@ -2105,7 +2105,7 @@ static struct ac97_quirk ac97_quirks[] _
-@@ -54131,5 +53001,4 @@
+@@ -54141,5 +53011,4 @@
 -diff --git a/sound/pci/intel8x0m.c b/sound/pci/intel8x0m.c
 -index 9e7d12e7673f52abc3d02518da23a51c6d0ff59a..b036079e482fcee7161122e9fd114ae7d7f8fe1f 100644
 ---- a/sound/pci/intel8x0m.c
@@ -14102,7 +14105,7 @@
 +--- linux-2.6.31.6/sound/pci/intel8x0m.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/pci/intel8x0m.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -239,7 +239,7 @@ static struct pci_device_id snd_intel8x0
-@@ -54153,5 +53022,4 @@
+@@ -54163,5 +53032,4 @@
 -diff --git a/sound/usb/usx2y/us122l.c b/sound/usb/usx2y/us122l.c
 -index fd44946ce4b3a21aa4bae548144fcf6b66df676b..99f33766cd5131421fadd2bb00ea9294346c05e5 100644
 ---- a/sound/usb/usx2y/us122l.c
@@ -14112,7 +14115,7 @@
 +--- linux-2.6.31.6/sound/usb/usx2y/us122l.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/usb/usx2y/us122l.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -154,7 +154,7 @@ static void usb_stream_hwdep_vm_close(st
-@@ -54166,5 +53034,4 @@
+@@ -54176,5 +53044,4 @@
 -diff --git a/sound/usb/usx2y/usX2Yhwdep.c b/sound/usb/usx2y/usX2Yhwdep.c
 -index f3d8f71265dd3bfee1540442184ed226a5f88cf6..52e04b2f35d3e7e1eb73e05b671a1f7ee086bd02 100644
 ---- a/sound/usb/usx2y/usX2Yhwdep.c
@@ -14122,7 +14125,7 @@
 +--- linux-2.6.31.6/sound/usb/usx2y/usX2Yhwdep.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/usb/usx2y/usX2Yhwdep.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -53,7 +53,7 @@ static int snd_us428ctls_vm_fault(struct
-@@ -54179,5 +53046,4 @@
+@@ -54189,5 +53056,4 @@
 -diff --git a/sound/usb/usx2y/usx2yhwdeppcm.c b/sound/usb/usx2y/usx2yhwdeppcm.c
 -index 117946f2debb3a04891d87de9327c16d8f27f7fe..4b2304c2e02dd2fdf806e1f1f776f6196531d7f1 100644
 ---- a/sound/usb/usx2y/usx2yhwdeppcm.c
@@ -14132,7 +14135,7 @@
 +--- linux-2.6.31.6/sound/usb/usx2y/usx2yhwdeppcm.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/sound/usb/usx2y/usx2yhwdeppcm.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -697,7 +697,7 @@ static int snd_usX2Y_hwdep_pcm_vm_fault(
-@@ -54192,5 +53058,4 @@
+@@ -54202,5 +53068,4 @@
 -diff --git a/usr/gen_init_cpio.c b/usr/gen_init_cpio.c
 -index f1d3fe34176ad08926c82c75084c84dc71662e64..6eafbdbd3360bf7f4fd0bdd3869ac6999b4b7050 100644
 ---- a/usr/gen_init_cpio.c
@@ -14142,10 +14145,10 @@
 +--- linux-2.6.31.6/usr/gen_init_cpio.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/usr/gen_init_cpio.c	2009-12-04 09:42:36.000000000 -0500
 +@@ -299,7 +299,7 @@ static int cpio_mkfile(const char *name,
-@@ -54205 +53070 @@
+@@ -54215 +53080 @@
 -@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_location)
 +@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_
-@@ -54218,4 +53083,3 @@
+@@ -54228,4 +53093,3 @@
 -diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
 -index 198c750aa85190b1a9f26891fe82304c0d182b6b..5a70129fb3c2babb8e38d083d113605a966f1859 100644
 ---- a/virt/kvm/kvm_main.c
@@ -14153,9 +14156,9 @@
 +diff -urNp linux-2.6.31.6/virt/kvm/kvm_main.c linux-2.6.31.6/virt/kvm/kvm_main.c
 +--- linux-2.6.31.6/virt/kvm/kvm_main.c	2009-11-09 19:32:31.000000000 -0500
 ++++ linux-2.6.31.6/virt/kvm/kvm_main.c	2009-12-04 09:42:36.000000000 -0500
-@@ -54232 +53096 @@
+@@ -54242 +53106 @@
 -@@ -2512,7 +2515,7 @@ static int vcpu_stat_get(void *_offset, u64 *val)
 +@@ -2512,7 +2515,7 @@ static int vcpu_stat_get(void *_offset, 
-@@ -54241 +53105 @@
+@@ -54251 +53115 @@
 -@@ -2584,7 +2587,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 +@@ -2584,7 +2587,7 @@ static void kvm_sched_out(struct preempt
