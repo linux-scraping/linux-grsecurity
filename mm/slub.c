@@ -2898,7 +2898,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
 	     (unsigned long)ptr)))
 		goto report;
-	else
+	else if (!page)
 		return;
 
 	s = page->slab;
