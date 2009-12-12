@@ -23,7 +23,7 @@
 #include <linux/swapops.h>
 #include <linux/mmu_notifier.h>
 #include <linux/migrate.h>
-#include <linux/perf_counter.h>
+#include <linux/perf_event.h>
 
 #ifdef CONFIG_PAX_MPROTECT
 #include <linux/elf.h>
@@ -286,8 +286,8 @@ success:
 	vma->vm_flags = newflags;
 
 #ifdef CONFIG_PAX_MPROTECT
-	if (current->binfmt && current->binfmt->handle_mprotect)
-		current->binfmt->handle_mprotect(vma, newflags);
+	if (mm->binfmt && mm->binfmt->handle_mprotect)
+		mm->binfmt->handle_mprotect(vma, newflags);
 #endif
 
 	vma->vm_page_prot = pgprot_modify(vma->vm_page_prot,
@@ -388,8 +388,8 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 	}
 
 #ifdef CONFIG_PAX_MPROTECT
-	if (current->binfmt && current->binfmt->handle_mprotect)
-		current->binfmt->handle_mprotect(vma, vm_flags);
+	if (current->mm->binfmt && current->mm->binfmt->handle_mprotect)
+		current->mm->binfmt->handle_mprotect(vma, vm_flags);
 #endif
 
 	for (nstart = start ; ; ) {
@@ -415,7 +415,7 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 		error = mprotect_fixup(vma, &prev, nstart, tmp, newflags);
 		if (error)
 			goto out;
-		perf_counter_mmap(vma);
+		perf_event_mmap(vma);
 
 		track_exec_limit(current->mm, nstart, tmp, vm_flags);
 

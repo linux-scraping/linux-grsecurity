@@ -13,10 +13,9 @@
 #define EXTENT_DEFRAG (1 << 6)
 #define EXTENT_DEFRAG_DONE (1 << 7)
 #define EXTENT_BUFFER_FILLED (1 << 8)
-#define EXTENT_ORDERED (1 << 9)
-#define EXTENT_ORDERED_METADATA (1 << 10)
-#define EXTENT_BOUNDARY (1 << 11)
-#define EXTENT_NODATASUM (1 << 12)
+#define EXTENT_BOUNDARY (1 << 9)
+#define EXTENT_NODATASUM (1 << 10)
+#define EXTENT_DO_ACCOUNTING (1 << 11)
 #define EXTENT_IOBITS (EXTENT_LOCKED | EXTENT_WRITEBACK)
 
 /* flags for bio submission */
@@ -26,6 +25,16 @@
 #define EXTENT_BUFFER_UPTODATE 0
 #define EXTENT_BUFFER_BLOCKING 1
 #define EXTENT_BUFFER_DIRTY 2
+
+/* these are flags for extent_clear_unlock_delalloc */
+#define EXTENT_CLEAR_UNLOCK_PAGE 0x1
+#define EXTENT_CLEAR_UNLOCK	 0x2
+#define EXTENT_CLEAR_DELALLOC	 0x4
+#define EXTENT_CLEAR_DIRTY	 0x8
+#define EXTENT_SET_WRITEBACK	 0x10
+#define EXTENT_END_WRITEBACK	 0x20
+#define EXTENT_SET_PRIVATE2	 0x40
+#define EXTENT_CLEAR_ACCOUNTING  0x80
 
 /*
  * page->private values.  Every page that is controlled by the extent
@@ -40,31 +49,36 @@ typedef	int (extent_submit_bio_hook_t)(struct inode *inode, int rw,
 				       struct bio *bio, int mirror_num,
 				       unsigned long bio_flags);
 struct extent_io_ops {
-	int (*fill_delalloc)(struct inode *inode, struct page *locked_page,
+	int (* const fill_delalloc)(struct inode *inode, struct page *locked_page,
 			     u64 start, u64 end, int *page_started,
 			     unsigned long *nr_written);
-	int (*writepage_start_hook)(struct page *page, u64 start, u64 end);
-	int (*writepage_io_hook)(struct page *page, u64 start, u64 end);
+	int (* const writepage_start_hook)(struct page *page, u64 start, u64 end);
+	int (* const writepage_io_hook)(struct page *page, u64 start, u64 end);
 	extent_submit_bio_hook_t *submit_bio_hook;
-	int (*merge_bio_hook)(struct page *page, unsigned long offset,
+	int (* const merge_bio_hook)(struct page *page, unsigned long offset,
 			      size_t size, struct bio *bio,
 			      unsigned long bio_flags);
-	int (*readpage_io_hook)(struct page *page, u64 start, u64 end);
-	int (*readpage_io_failed_hook)(struct bio *bio, struct page *page,
+	int (* const readpage_io_hook)(struct page *page, u64 start, u64 end);
+	int (* const readpage_io_failed_hook)(struct bio *bio, struct page *page,
 				       u64 start, u64 end,
 				       struct extent_state *state);
-	int (*writepage_io_failed_hook)(struct bio *bio, struct page *page,
+	int (* const writepage_io_failed_hook)(struct bio *bio, struct page *page,
 					u64 start, u64 end,
 				       struct extent_state *state);
-	int (*readpage_end_io_hook)(struct page *page, u64 start, u64 end,
+	int (* const readpage_end_io_hook)(struct page *page, u64 start, u64 end,
 				    struct extent_state *state);
-	int (*writepage_end_io_hook)(struct page *page, u64 start, u64 end,
+	int (* const writepage_end_io_hook)(struct page *page, u64 start, u64 end,
 				      struct extent_state *state, int uptodate);
-	int (*set_bit_hook)(struct inode *inode, u64 start, u64 end,
+	int (* const set_bit_hook)(struct inode *inode, u64 start, u64 end,
 			    unsigned long old, unsigned long bits);
-	int (*clear_bit_hook)(struct inode *inode, u64 start, u64 end,
-			    unsigned long old, unsigned long bits);
-	int (*write_cache_pages_lock_hook)(struct page *page);
+	int (* const clear_bit_hook)(struct inode *inode, struct extent_state *state,
+			      unsigned long bits);
+	int (* const merge_extent_hook)(struct inode *inode,
+				 struct extent_state *new,
+				 struct extent_state *other);
+	int (* const split_extent_hook)(struct inode *inode,
+				 struct extent_state *orig, u64 split);
+	int (* const write_cache_pages_lock_hook)(struct page *page);
 };
 
 struct extent_io_tree {
@@ -74,17 +88,21 @@ struct extent_io_tree {
 	u64 dirty_bytes;
 	spinlock_t lock;
 	spinlock_t buffer_lock;
-	struct extent_io_ops *ops;
+	const struct extent_io_ops *ops;
 };
 
 struct extent_state {
 	u64 start;
 	u64 end; /* inclusive */
 	struct rb_node rb_node;
+
+	/* ADD NEW ELEMENTS AFTER THIS */
 	struct extent_io_tree *tree;
 	wait_queue_head_t wq;
 	atomic_t refs;
 	unsigned long state;
+	u64 split_start;
+	u64 split_end;
 
 	/* for use by the FS */
 	u64 private;
@@ -142,6 +160,8 @@ int try_release_extent_state(struct extent_map_tree *map,
 			     struct extent_io_tree *tree, struct page *page,
 			     gfp_t mask);
 int lock_extent(struct extent_io_tree *tree, u64 start, u64 end, gfp_t mask);
+int lock_extent_bits(struct extent_io_tree *tree, u64 start, u64 end,
+		     int bits, struct extent_state **cached, gfp_t mask);
 int unlock_extent(struct extent_io_tree *tree, u64 start, u64 end, gfp_t mask);
 int try_lock_extent(struct extent_io_tree *tree, u64 start, u64 end,
 		    gfp_t mask);
@@ -155,11 +175,12 @@ u64 count_range_bits(struct extent_io_tree *tree,
 		     u64 max_bytes, unsigned long bits);
 
 int test_range_bit(struct extent_io_tree *tree, u64 start, u64 end,
-		   int bits, int filled);
+		   int bits, int filled, struct extent_state *cached_state);
 int clear_extent_bits(struct extent_io_tree *tree, u64 start, u64 end,
 		      int bits, gfp_t mask);
 int clear_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
-		     int bits, int wake, int delete, gfp_t mask);
+		     int bits, int wake, int delete, struct extent_state **cached,
+		     gfp_t mask);
 int set_extent_bits(struct extent_io_tree *tree, u64 start, u64 end,
 		    int bits, gfp_t mask);
 int set_extent_uptodate(struct extent_io_tree *tree, u64 start, u64 end,
@@ -278,9 +299,5 @@ int extent_range_uptodate(struct extent_io_tree *tree,
 int extent_clear_unlock_delalloc(struct inode *inode,
 				struct extent_io_tree *tree,
 				u64 start, u64 end, struct page *locked_page,
-				int unlock_page,
-				int clear_unlock,
-				int clear_delalloc, int clear_dirty,
-				int set_writeback,
-				int end_writeback);
+				unsigned long op);
 #endif

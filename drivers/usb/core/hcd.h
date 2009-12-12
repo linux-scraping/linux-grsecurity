@@ -267,6 +267,11 @@ struct hc_driver {
 	void	(*reset_bandwidth)(struct usb_hcd *, struct usb_device *);
 		/* Returns the hardware-chosen device address */
 	int	(*address_device)(struct usb_hcd *, struct usb_device *udev);
+		/* Notifies the HCD after a hub descriptor is fetched.
+		 * Will block.
+		 */
+	int	(*update_hub_device)(struct usb_hcd *, struct usb_device *hdev,
+			struct usb_tt *tt, gfp_t mem_flags);
 };
 
 extern int usb_hcd_link_urb_to_ep(struct usb_hcd *hcd, struct urb *urb);
@@ -481,9 +486,9 @@ static inline void usbfs_cleanup(void) { }
 #if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
 
 struct usb_mon_operations {
-	void (*urb_submit)(struct usb_bus *bus, struct urb *urb);
-	void (*urb_submit_error)(struct usb_bus *bus, struct urb *urb, int err);
-	void (*urb_complete)(struct usb_bus *bus, struct urb *urb, int status);
+	void (* const urb_submit)(struct usb_bus *bus, struct urb *urb);
+	void (* const urb_submit_error)(struct usb_bus *bus, struct urb *urb, int err);
+	void (* const urb_complete)(struct usb_bus *bus, struct urb *urb, int status);
 	/* void (*urb_unlink)(struct usb_bus *bus, struct urb *urb); */
 };
 

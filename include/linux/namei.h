@@ -40,7 +40,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
  *  - follow links at the end
  *  - require a directory
  *  - ending slashes ok even for nonexistent files
- *  - internal "there are more path compnents" flag
+ *  - internal "there are more path components" flag
  *  - locked when lookup done with dcache_lock held
  *  - dentry cache is untrusted; force a real lookup
  */
@@ -89,7 +89,7 @@ static inline void nd_set_link(struct nameidata *nd, const char *path)
 	nd->saved_names[nd->depth] = path;
 }
 
-static inline const char *nd_get_link(struct nameidata *nd)
+static inline const char *nd_get_link(const struct nameidata *nd)
 {
 	return nd->saved_names[nd->depth];
 }

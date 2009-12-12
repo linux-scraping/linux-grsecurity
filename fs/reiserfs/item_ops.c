@@ -746,7 +746,7 @@ static const struct item_operations errcatch_ops = {
 #error Item types must use disk-format assigned values.
 #endif
 
-const struct item_operations *item_ops[TYPE_ANY + 1] = {
+const struct item_operations * const item_ops[TYPE_ANY + 1] = {
 	&stat_data_ops,
 	&indirect_ops,
 	&direct_ops,

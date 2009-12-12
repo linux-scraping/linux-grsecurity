@@ -1919,7 +1919,7 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
+		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, &task->signal->curr_ip);
 
 	return;
 }
@@ -1933,7 +1933,7 @@ gr_log_learn_sysctl(const char *path, const __u32 mode)
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1UL, 1UL, path, (unsigned long) mode, NIPQUAD(task->signal->curr_ip));
+		       1UL, 1UL, path, (unsigned long) mode, &task->signal->curr_ip);
 
 	return;
 }
@@ -1948,7 +1948,7 @@ gr_log_learn_id_change(const char type, const unsigned int real,
 	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       type, real, effective, fs, NIPQUAD(task->signal->curr_ip));
+		       type, real, effective, fs, &task->signal->curr_ip);
 
 	return;
 }
@@ -2881,8 +2881,8 @@ ssize_t
 write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *ppos)
 {
 	struct gr_arg_wrapper uwrap;
-	unsigned char *sprole_salt;
-	unsigned char *sprole_sum;
+	unsigned char *sprole_salt = NULL;
+	unsigned char *sprole_sum = NULL;
 	int error = sizeof (struct gr_arg_wrapper);
 	int error2 = 0;
 
@@ -3313,7 +3313,7 @@ gr_learn_resource(const struct task_struct *task,
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
 			       task->role->roletype, cred->uid, cred->gid, acl->filename,
 			       acl->filename, acl->res[res].rlim_cur, acl->res[res].rlim_max,
-			       "", (unsigned long) res, NIPQUAD(task->signal->curr_ip));
+			       "", (unsigned long) res, &task->signal->curr_ip);
 	}
 
 	return;

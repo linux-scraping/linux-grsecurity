@@ -1551,7 +1551,7 @@ struct item_operations {
 	void (* const print_vi) (struct virtual_item * vi);
 };
 
-extern const struct item_operations *item_ops[TYPE_ANY + 1];
+extern const struct item_operations * const item_ops[TYPE_ANY + 1];
 
 #define op_bytes_number(ih,bsize)                    item_ops[le_ih_k_type (ih)]->bytes_number (ih, bsize)
 #define op_is_left_mergeable(key,bsize)              item_ops[le_key_k_type (le_key_version (key), key)]->is_left_mergeable (key, bsize)

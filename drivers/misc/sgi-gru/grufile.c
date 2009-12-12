@@ -53,7 +53,6 @@ struct gru_stats_s gru_stats;
 /* Guaranteed user available resources on each node */
 static int max_user_cbrs, max_user_dsr_bytes;
 
-static const struct file_operations gru_fops;
 static struct miscdevice gru_miscdev;
 
 

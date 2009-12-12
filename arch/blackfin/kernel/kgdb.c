@@ -428,7 +428,7 @@ int kgdb_arch_handle_exception(int vector, int signo,
 	return -1;		/* this means that we do not want to exit from the handler */
 }
 
-struct kgdb_arch arch_kgdb_ops = {
+const struct kgdb_arch arch_kgdb_ops = {
 	.gdb_bpt_instr = {0xa1},
 #ifdef CONFIG_SMP
 	.flags = KGDB_HW_BREAKPOINT|KGDB_THR_PROC_SWAP,

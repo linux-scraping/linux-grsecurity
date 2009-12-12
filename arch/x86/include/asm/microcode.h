@@ -12,13 +12,13 @@ struct device;
 enum ucode_state { UCODE_ERROR, UCODE_OK, UCODE_NFOUND };
 
 struct microcode_ops {
-	enum ucode_state (*request_microcode_user) (int cpu,
+	enum ucode_state (* const request_microcode_user) (int cpu,
 				const void __user *buf, size_t size);
 
-	enum ucode_state (*request_microcode_fw) (int cpu,
+	enum ucode_state (* const request_microcode_fw) (int cpu,
 				struct device *device);
 
-	void (*microcode_fini_cpu) (int cpu);
+	void (* const microcode_fini_cpu) (int cpu);
 
 	/*
 	 * The generic 'microcode_core' part guarantees that

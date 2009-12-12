@@ -1384,7 +1384,7 @@ void __init kmem_cache_init(void)
 	 * Fragmentation resistance on low memory - only use bigger
 	 * page orders on machines with more than 32MB of memory.
 	 */
-	if (num_physpages > (32 << 20) >> PAGE_SHIFT)
+	if (totalram_pages > (32 << 20) >> PAGE_SHIFT)
 		slab_break_gfp_order = BREAK_GFP_ORDER_HI;
 
 	/* Bootstrap is tricky, because several objects are allocated
@@ -4084,7 +4084,7 @@ out:
 	schedule_delayed_work(work, round_jiffies_relative(REAPTIMEOUT_CPUC));
 }
 
-#ifdef CONFIG_SLABINFO
+#if defined(CONFIG_SLABINFO) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
 
 static void print_slabinfo_header(struct seq_file *m)
 {
@@ -4473,11 +4473,9 @@ static const struct file_operations proc_slabstats_operations = {
 
 static int __init slab_proc_init(void)
 {
-#if !defined(CONFIG_GRKERNSEC_PROC_ADD)
 	proc_create("slabinfo",S_IWUSR|S_IRUGO,NULL,&proc_slabinfo_operations);
 #ifdef CONFIG_DEBUG_SLAB_LEAK
 	proc_create("slab_allocators", 0, NULL, &proc_slabstats_operations);
-#endif
 #endif
 	return 0;
 }
@@ -4505,13 +4503,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	page = virt_to_head_page(ptr);
 
-	/* XXX: can get a little tighter with this stack check */
-	if (!PageSlab(page) && object_is_on_stack(ptr) &&
-	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
-	     (unsigned long)ptr)))
-		goto report;
-	else if (!PageSlab(page))
+	if (!PageSlab(page)) {
+		if (object_is_on_stack(ptr, n) == -1)
+			goto report;
 		return;
+	}
 
 	cachep = page_get_cache(page);
 	slabp = page_get_slab(page);

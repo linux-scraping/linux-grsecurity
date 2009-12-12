@@ -143,7 +143,6 @@ enum {
 
 	ATA_DFLAG_PIO		= (1 << 12), /* device limited to PIO mode */
 	ATA_DFLAG_NCQ_OFF	= (1 << 13), /* device limited to non-NCQ mode */
-	ATA_DFLAG_SPUNDOWN	= (1 << 14), /* XXX: for spindown_compat */
 	ATA_DFLAG_SLEEPING	= (1 << 15), /* device is sleeping */
 	ATA_DFLAG_DUBIOUS_XFER	= (1 << 16), /* data transfer not verified */
 	ATA_DFLAG_NO_UNLOAD	= (1 << 17), /* device doesn't support unload */
@@ -190,6 +189,7 @@ enum {
 	ATA_FLAG_NO_POWEROFF_SPINDOWN = (1 << 11), /* don't spindown before poweroff */
 	ATA_FLAG_NO_HIBERNATE_SPINDOWN = (1 << 12), /* don't spindown before hibernation */
 	ATA_FLAG_DEBUGMSG	= (1 << 13),
+	ATA_FLAG_FPDMA_AA		= (1 << 14), /* driver supports Auto-Activate */
 	ATA_FLAG_IGN_SIMPLEX	= (1 << 15), /* ignore SIMPLEX */
 	ATA_FLAG_NO_IORDY	= (1 << 16), /* controller lacks iordy */
 	ATA_FLAG_ACPI_SATA	= (1 << 17), /* need native SATA ACPI layout */
@@ -386,6 +386,7 @@ enum {
 	ATA_HORKAGE_FIRMWARE_WARN = (1 << 12),	/* firmware update warning */
 	ATA_HORKAGE_1_5_GBPS	= (1 << 13),	/* force 1.5 Gbps */
 	ATA_HORKAGE_NOSETXFER	= (1 << 14),	/* skip SETXFER, SATA only */
+	ATA_HORKAGE_BROKEN_FPDMA_AA	= (1 << 15),	/* skip AA */
 
 	 /* DMA mask for user DMA control: User visible values; DO NOT
 	    renumber */
@@ -417,6 +418,17 @@ enum {
 				  ATA_TIMING_ACTIVE | ATA_TIMING_RECOVER |
 				  ATA_TIMING_DMACK_HOLD | ATA_TIMING_CYCLE |
 				  ATA_TIMING_UDMA,
+
+	/* ACPI constants */
+	ATA_ACPI_FILTER_SETXFER	= 1 << 0,
+	ATA_ACPI_FILTER_LOCK	= 1 << 1,
+	ATA_ACPI_FILTER_DIPM	= 1 << 2,
+	ATA_ACPI_FILTER_FPDMA_OFFSET = 1 << 3,	/* FPDMA non-zero offset */
+	ATA_ACPI_FILTER_FPDMA_AA = 1 << 4,	/* FPDMA auto activate */
+
+	ATA_ACPI_FILTER_DEFAULT	= ATA_ACPI_FILTER_SETXFER |
+				  ATA_ACPI_FILTER_LOCK |
+				  ATA_ACPI_FILTER_DIPM,
 };
 
 enum ata_xfer_mask {
@@ -460,10 +472,10 @@ struct ata_queued_cmd;
 
 /* typedefs */
 typedef void (*ata_qc_cb_t) (struct ata_queued_cmd *qc);
-typedef int (* const ata_prereset_fn_t)(struct ata_link *link, unsigned long deadline);
-typedef int (* ata_reset_fn_t)(struct ata_link *link, unsigned int *classes,
+typedef int (*ata_prereset_fn_t)(struct ata_link *link, unsigned long deadline);
+typedef int (*ata_reset_fn_t)(struct ata_link *link, unsigned int *classes,
 			      unsigned long deadline);
-typedef void (* const ata_postreset_fn_t)(struct ata_link *link, unsigned int *classes);
+typedef void (*ata_postreset_fn_t)(struct ata_link *link, unsigned int *classes);
 
 /*
  * host pm policy: If you alter this, you also need to alter libata-scsi.c
@@ -586,6 +598,7 @@ struct ata_device {
 #ifdef CONFIG_ATA_ACPI
 	acpi_handle		acpi_handle;
 	union acpi_object	*gtf_cache;
+	unsigned int		gtf_filter;
 #endif
 	/* n_sector is CLEAR_BEGIN, read comment above CLEAR_BEGIN */
 	u64			n_sectors;	/* size of device, if ATA */
@@ -775,26 +788,26 @@ struct ata_port_operations {
 	/*
 	 * Command execution
 	 */
-	int  (* const qc_defer)(struct ata_queued_cmd *qc);
-	int  (* const check_atapi_dma)(struct ata_queued_cmd *qc);
-	void (* const qc_prep)(struct ata_queued_cmd *qc);
-	unsigned int (* const qc_issue)(struct ata_queued_cmd *qc);
-	bool (* const qc_fill_rtf)(struct ata_queued_cmd *qc);
+	int  (*qc_defer)(struct ata_queued_cmd *qc);
+	int  (*check_atapi_dma)(struct ata_queued_cmd *qc);
+	void (*qc_prep)(struct ata_queued_cmd *qc);
+	unsigned int (*qc_issue)(struct ata_queued_cmd *qc);
+	bool (*qc_fill_rtf)(struct ata_queued_cmd *qc);
 
 	/*
 	 * Configuration and exception handling
 	 */
-	int  (* const cable_detect)(struct ata_port *ap);
-	unsigned long (* const mode_filter)(struct ata_device *dev, unsigned long xfer_mask);
-	void (* const set_piomode)(struct ata_port *ap, struct ata_device *dev);
-	void (* const set_dmamode)(struct ata_port *ap, struct ata_device *dev);
-	int  (* const set_mode)(struct ata_link *link, struct ata_device **r_failed_dev);
-	unsigned int (* const read_id)(struct ata_device *dev, struct ata_taskfile *tf, u16 *id);
+	int  (*cable_detect)(struct ata_port *ap);
+	unsigned long (*mode_filter)(struct ata_device *dev, unsigned long xfer_mask);
+	void (*set_piomode)(struct ata_port *ap, struct ata_device *dev);
+	void (*set_dmamode)(struct ata_port *ap, struct ata_device *dev);
+	int  (*set_mode)(struct ata_link *link, struct ata_device **r_failed_dev);
+	unsigned int (*read_id)(struct ata_device *dev, struct ata_taskfile *tf, u16 *id);
 
-	void (* const dev_config)(struct ata_device *dev);
+	void (*dev_config)(struct ata_device *dev);
 
-	void (* const freeze)(struct ata_port *ap);
-	void (* const thaw)(struct ata_port *ap);
+	void (*freeze)(struct ata_port *ap);
+	void (*thaw)(struct ata_port *ap);
 	ata_prereset_fn_t	prereset;
 	ata_reset_fn_t		softreset;
 	ata_reset_fn_t		hardreset;
@@ -803,64 +816,64 @@ struct ata_port_operations {
 	ata_reset_fn_t		pmp_softreset;
 	ata_reset_fn_t		pmp_hardreset;
 	ata_postreset_fn_t	pmp_postreset;
-	void (* const error_handler)(struct ata_port *ap);
-	void (* const lost_interrupt)(struct ata_port *ap);
-	void (* const post_internal_cmd)(struct ata_queued_cmd *qc);
+	void (*error_handler)(struct ata_port *ap);
+	void (*lost_interrupt)(struct ata_port *ap);
+	void (*post_internal_cmd)(struct ata_queued_cmd *qc);
 
 	/*
 	 * Optional features
 	 */
-	int  (* const scr_read)(struct ata_link *link, unsigned int sc_reg, u32 *val);
-	int  (* const scr_write)(struct ata_link *link, unsigned int sc_reg, u32 val);
-	void (* const pmp_attach)(struct ata_port *ap);
-	void (* const pmp_detach)(struct ata_port *ap);
-	int  (* const enable_pm)(struct ata_port *ap, enum link_pm policy);
-	void (* const disable_pm)(struct ata_port *ap);
+	int  (*scr_read)(struct ata_link *link, unsigned int sc_reg, u32 *val);
+	int  (*scr_write)(struct ata_link *link, unsigned int sc_reg, u32 val);
+	void (*pmp_attach)(struct ata_port *ap);
+	void (*pmp_detach)(struct ata_port *ap);
+	int  (*enable_pm)(struct ata_port *ap, enum link_pm policy);
+	void (*disable_pm)(struct ata_port *ap);
 
 	/*
 	 * Start, stop, suspend and resume
 	 */
-	int  (* const port_suspend)(struct ata_port *ap, pm_message_t mesg);
-	int  (* const port_resume)(struct ata_port *ap);
-	int  (* const port_start)(struct ata_port *ap);
-	void (* const port_stop)(struct ata_port *ap);
-	void (* const host_stop)(struct ata_host *host);
+	int  (*port_suspend)(struct ata_port *ap, pm_message_t mesg);
+	int  (*port_resume)(struct ata_port *ap);
+	int  (*port_start)(struct ata_port *ap);
+	void (*port_stop)(struct ata_port *ap);
+	void (*host_stop)(struct ata_host *host);
 
 #ifdef CONFIG_ATA_SFF
 	/*
 	 * SFF / taskfile oriented ops
 	 */
-	void (* const sff_dev_select)(struct ata_port *ap, unsigned int device);
-	u8   (* sff_check_status)(struct ata_port *ap);
-	u8   (* const sff_check_altstatus)(struct ata_port *ap);
-	void (* sff_tf_load)(struct ata_port *ap, const struct ata_taskfile *tf);
-	void (* sff_tf_read)(struct ata_port *ap, struct ata_taskfile *tf);
-	void (* sff_exec_command)(struct ata_port *ap,
+	void (*sff_dev_select)(struct ata_port *ap, unsigned int device);
+	u8   (*sff_check_status)(struct ata_port *ap);
+	u8   (*sff_check_altstatus)(struct ata_port *ap);
+	void (*sff_tf_load)(struct ata_port *ap, const struct ata_taskfile *tf);
+	void (*sff_tf_read)(struct ata_port *ap, struct ata_taskfile *tf);
+	void (*sff_exec_command)(struct ata_port *ap,
 				 const struct ata_taskfile *tf);
-	unsigned int (* sff_data_xfer)(struct ata_device *dev,
+	unsigned int (*sff_data_xfer)(struct ata_device *dev,
 			unsigned char *buf, unsigned int buflen, int rw);
-	u8   (* const sff_irq_on)(struct ata_port *);
-	void (* const sff_irq_clear)(struct ata_port *);
+	u8   (*sff_irq_on)(struct ata_port *);
+	void (*sff_irq_clear)(struct ata_port *);
 
-	void (* const bmdma_setup)(struct ata_queued_cmd *qc);
-	void (* const bmdma_start)(struct ata_queued_cmd *qc);
-	void (* const bmdma_stop)(struct ata_queued_cmd *qc);
-	u8   (* const bmdma_status)(struct ata_port *ap);
+	void (*bmdma_setup)(struct ata_queued_cmd *qc);
+	void (*bmdma_start)(struct ata_queued_cmd *qc);
+	void (*bmdma_stop)(struct ata_queued_cmd *qc);
+	u8   (*bmdma_status)(struct ata_port *ap);
 
-	void (* const drain_fifo)(struct ata_queued_cmd *qc);
+	void (*drain_fifo)(struct ata_queued_cmd *qc);
 #endif /* CONFIG_ATA_SFF */
 
-	ssize_t (* const em_show)(struct ata_port *ap, char *buf);
-	ssize_t (* const em_store)(struct ata_port *ap, const char *message,
+	ssize_t (*em_show)(struct ata_port *ap, char *buf);
+	ssize_t (*em_store)(struct ata_port *ap, const char *message,
 			    size_t size);
-	ssize_t (* const sw_activity_show)(struct ata_device *dev, char *buf);
-	ssize_t (* const sw_activity_store)(struct ata_device *dev,
+	ssize_t (*sw_activity_show)(struct ata_device *dev, char *buf);
+	ssize_t (*sw_activity_store)(struct ata_device *dev,
 				     enum sw_activity val);
 	/*
 	 * Obsolete
 	 */
-	void (* const phy_reset)(struct ata_port *ap);
-	void (* const eng_timeout)(struct ata_port *ap);
+	void (*phy_reset)(struct ata_port *ap);
+	void (*eng_timeout)(struct ata_port *ap);
 
 	/*
 	 * ->inherits must be the last field and all the preceding

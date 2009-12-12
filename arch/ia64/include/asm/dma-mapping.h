@@ -12,7 +12,7 @@
 
 #define ARCH_HAS_DMA_GET_REQUIRED_MASK
 
-extern struct dma_map_ops *dma_ops;
+extern const struct dma_map_ops *dma_ops;
 extern struct ia64_machine_vector ia64_mv;
 extern void set_iommu_machvec(void);
 
@@ -24,7 +24,7 @@ extern void machvec_dma_sync_sg(struct device *, struct scatterlist *, int,
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 				       dma_addr_t *daddr, gfp_t gfp)
 {
-	struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	void *caddr;
 
 	caddr = ops->alloc_coherent(dev, size, daddr, gfp);
@@ -35,7 +35,7 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 static inline void dma_free_coherent(struct device *dev, size_t size,
 				     void *caddr, dma_addr_t daddr)
 {
-	struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	debug_dma_free_coherent(dev, size, caddr, daddr);
 	ops->free_coherent(dev, size, caddr, daddr);
 }
@@ -44,19 +44,18 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
 #define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
 
 #define get_dma_ops(dev) platform_dma_get_ops(dev)
-#define flush_write_buffers()
 
 #include <asm-generic/dma-mapping-common.h>
 
 static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
 {
-	struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	return ops->mapping_error(dev, daddr);
 }
 
 static inline int dma_supported(struct device *dev, u64 mask)
 {
-	struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	return ops->dma_supported(dev, mask);
 }
 
@@ -67,6 +66,24 @@ dma_set_mask (struct device *dev, u64 mask)
 		return -EIO;
 	*dev->dma_mask = mask;
 	return 0;
+}
+
+static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+{
+	if (!dev->dma_mask)
+		return 0;
+
+	return addr + size <= *dev->dma_mask;
+}
+
+static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	return paddr;
+}
+
+static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+{
+	return daddr;
 }
 
 extern int dma_get_cache_alignment(void);

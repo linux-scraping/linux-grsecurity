@@ -88,7 +88,7 @@ ENTRY(_stext)
  * any particular GDT layout, because we load our own as soon as we
  * can.
  */
-.section .text.head,"ax",@progbits
+__HEAD
 
 #ifdef CONFIG_PAX_KERNEXEC
 	jmp startup_32
@@ -217,6 +217,7 @@ subarch_entries:
 	.long ta(default_entry)		/* normal x86/PC */
 	.long ta(lguest_entry)		/* lguest hypervisor */
 	.long ta(xen_entry)		/* Xen hypervisor */
+	.long ta(default_entry)		/* Moorestown MID */
 num_subarch_entries = (. - subarch_entries) / 4
 .previous
 #endif /* CONFIG_PARAVIRT */
@@ -388,6 +389,7 @@ ENTRY(startup_32_smp)
 	btsl $_PAGE_BIT_NX-32,pa(__supported_pte_mask+4)
 	movl $1,pa(nx_enabled)
 #endif
+
 6:
 
 /*

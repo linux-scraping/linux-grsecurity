@@ -89,7 +89,6 @@ int raw_pci_write(unsigned int seg, unsigned int bus, unsigned int devfn,
 	} else {
 		return -EINVAL;
 	}
-
 	result = ia64_sal_pci_config_write(addr, mode, len, value);
 	if (result != 0)
 		return -EINVAL;

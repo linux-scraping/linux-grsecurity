@@ -528,8 +528,18 @@ static int cuse_channel_release(struct inode *inode, struct file *file)
 	return rc;
 }
 
-static struct file_operations cuse_channel_fops; /* initialized during init */
-
+static const struct file_operations cuse_channel_fops = { /* initialized during init */
+	.owner		= THIS_MODULE,
+	.llseek		= no_llseek,
+	.read		= do_sync_read,
+	.aio_read	= fuse_dev_read,
+	.write		= do_sync_write,
+	.aio_write	= fuse_dev_write,
+	.poll		= fuse_dev_poll,
+	.open		= cuse_channel_open,
+	.release	= cuse_channel_release,
+	.fasync		= fuse_dev_fasync,
+};
 
 /**************************************************************************
  * Misc stuff and module initializatiion
@@ -574,12 +584,6 @@ static int __init cuse_init(void)
 	/* init conntbl */
 	for (i = 0; i < CUSE_CONNTBL_LEN; i++)
 		INIT_LIST_HEAD(&cuse_conntbl[i]);
-
-	/* inherit and extend fuse_dev_operations */
-	cuse_channel_fops		= fuse_dev_operations;
-	cuse_channel_fops.owner		= THIS_MODULE;
-	cuse_channel_fops.open		= cuse_channel_open;
-	cuse_channel_fops.release	= cuse_channel_release;
 
 	cuse_class = class_create(THIS_MODULE, "cuse");
 	if (IS_ERR(cuse_class))

@@ -21,7 +21,7 @@ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 	return swiotlb_alloc_coherent(dev, size, dma_handle, gfp);
 }
 
-struct dma_map_ops swiotlb_dma_ops = {
+const struct dma_map_ops swiotlb_dma_ops = {
 	.alloc_coherent = ia64_swiotlb_alloc_coherent,
 	.free_coherent = swiotlb_free_coherent,
 	.map_page = swiotlb_map_page,
@@ -46,7 +46,7 @@ void __init swiotlb_dma_init(void)
 
 void __init pci_swiotlb_init(void)
 {
-	if (!iommu_detected || iommu_pass_through) {
+	if (!iommu_detected) {
 #ifdef CONFIG_IA64_GENERIC
 		swiotlb = 1;
 		printk(KERN_INFO "PCI-DMA: Re-initialize machine vector.\n");

@@ -87,7 +87,7 @@ gr_is_capable(const int cap)
 			       gr_to_filename(task->exec_file->f_path.dentry,
 			       task->exec_file->f_path.mnt) : curracl->filename,
 			       curracl->filename, 0UL,
-			       0UL, "", (unsigned long) cap, NIPQUAD(task->signal->curr_ip));
+			       0UL, "", (unsigned long) cap, &task->signal->curr_ip);
 		return 1;
 	}
 

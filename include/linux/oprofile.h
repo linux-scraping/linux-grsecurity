@@ -67,6 +67,9 @@ struct oprofile_operations {
 
 	/* Initiate a stack backtrace. Optional. */
 	void (*backtrace)(struct pt_regs * const regs, unsigned int depth);
+
+	/* Multiplex between different events. Optional. */
+	int (*switch_events)(void);
 	/* CPU identification string. */
 	char * cpu_type;
 };
@@ -126,7 +129,7 @@ int oprofilefs_create_ulong(struct super_block * sb, struct dentry * root,
 int oprofilefs_create_ro_ulong(struct super_block * sb, struct dentry * root,
 	char const * name, ulong * val);
  
-/** Create a file for read-only access to an atomic_t. */
+/** Create a file for read-only access to an atomic_unchecked_t. */
 int oprofilefs_create_ro_atomic(struct super_block * sb, struct dentry * root,
 	char const * name, atomic_unchecked_t * val);
  
@@ -171,7 +174,6 @@ struct op_sample;
 struct op_entry {
 	struct ring_buffer_event *event;
 	struct op_sample *sample;
-	unsigned long irq_flags;
 	unsigned long size;
 	unsigned long *data;
 };
@@ -180,6 +182,7 @@ void oprofile_write_reserve(struct op_entry *entry,
 			    struct pt_regs * const regs,
 			    unsigned long pc, int code, int size);
 int oprofile_add_data(struct op_entry *entry, unsigned long val);
+int oprofile_add_data64(struct op_entry *entry, u64 val);
 int oprofile_write_commit(struct op_entry *entry);
 
 #endif /* OPROFILE_H */

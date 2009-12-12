@@ -177,12 +177,14 @@ static void sta_addba_resp_timer_expired(unsigned long data)
 
 	/* check if the TID waits for addBA response */
 	spin_lock_bh(&sta->lock);
-	if (!(*state & HT_ADDBA_REQUESTED_MSK)) {
+	if ((*state & (HT_ADDBA_REQUESTED_MSK | HT_ADDBA_RECEIVED_MSK)) !=
+						HT_ADDBA_REQUESTED_MSK) {
 		spin_unlock_bh(&sta->lock);
 		*state = HT_AGG_STATE_IDLE;
 #ifdef CONFIG_MAC80211_HT_DEBUG
 		printk(KERN_DEBUG "timer expired on tid %d but we are not "
-				"expecting addBA response there", tid);
+				"(or no longer) expecting addBA response there",
+			tid);
 #endif
 		return;
 	}
@@ -395,9 +397,6 @@ static void ieee80211_agg_splice_packets(struct ieee80211_local *local,
 
 	if (!skb_queue_empty(&sta->ampdu_mlme.tid_tx[tid]->pending)) {
 		spin_lock_irqsave(&local->queue_stop_reason_lock, flags);
-		/* mark queue as pending, it is stopped already */
-		__set_bit(IEEE80211_QUEUE_STOP_REASON_PENDING,
-			  &local->queue_stop_reasons[queue]);
 		/* copy over remaining packets */
 		skb_queue_splice_tail_init(
 			&sta->ampdu_mlme.tid_tx[tid]->pending,
@@ -670,24 +669,23 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
 
 	spin_lock_bh(&sta->lock);
 
-	if (!(*state & HT_ADDBA_REQUESTED_MSK)) {
-		spin_unlock_bh(&sta->lock);
-		return;
-	}
+	if (!(*state & HT_ADDBA_REQUESTED_MSK))
+		goto out;
 
 	if (mgmt->u.action.u.addba_resp.dialog_token !=
 		sta->ampdu_mlme.tid_tx[tid]->dialog_token) {
-		spin_unlock_bh(&sta->lock);
 #ifdef CONFIG_MAC80211_HT_DEBUG
 		printk(KERN_DEBUG "wrong addBA response token, tid %d\n", tid);
 #endif /* CONFIG_MAC80211_HT_DEBUG */
-		return;
+		goto out;
 	}
 
-	del_timer_sync(&sta->ampdu_mlme.tid_tx[tid]->addba_resp_timer);
+	del_timer(&sta->ampdu_mlme.tid_tx[tid]->addba_resp_timer);
+
 #ifdef CONFIG_MAC80211_HT_DEBUG
 	printk(KERN_DEBUG "switched off addBA timer for tid %d \n", tid);
 #endif /* CONFIG_MAC80211_HT_DEBUG */
+
 	if (le16_to_cpu(mgmt->u.action.u.addba_resp.status)
 			== WLAN_STATUS_SUCCESS) {
 		u8 curstate = *state;
@@ -701,5 +699,7 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
 	} else {
 		___ieee80211_stop_tx_ba_session(sta, tid, WLAN_BACK_INITIATOR);
 	}
+
+ out:
 	spin_unlock_bh(&sta->lock);
 }

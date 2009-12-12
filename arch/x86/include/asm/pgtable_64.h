@@ -99,7 +99,9 @@ static inline void native_pud_clear(pud_t *pud)
 
 static inline void native_set_pgd(pgd_t *pgdp, pgd_t pgd)
 {
+	pax_open_kernel();
 	*pgdp = pgd;
+	pax_close_kernel();
 }
 
 static inline void native_pgd_clear(pgd_t *pgd)

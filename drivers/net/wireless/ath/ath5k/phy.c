@@ -1094,8 +1094,7 @@ int ath5k_hw_channel(struct ath5k_hw *ah, struct ieee80211_channel *channel)
 				AR5K_PHY_CCKTXCTL_WORLD);
 	}
 
-	ah->ah_current_channel.center_freq = channel->center_freq;
-	ah->ah_current_channel.hw_value = channel->hw_value;
+	ah->ah_current_channel = channel;
 	ah->ah_turbo = channel->hw_value == CHANNEL_T ? true : false;
 
 	return 0;
@@ -1104,6 +1103,29 @@ int ath5k_hw_channel(struct ath5k_hw *ah, struct ieee80211_channel *channel)
 /*****************\
   PHY calibration
 \*****************/
+
+void
+ath5k_hw_calibration_poll(struct ath5k_hw *ah)
+{
+	/* Calibration interval in jiffies */
+	unsigned long cal_intval;
+
+	cal_intval = msecs_to_jiffies(ah->ah_cal_intval * 1000);
+
+	/* Initialize timestamp if needed */
+	if (!ah->ah_cal_tstamp)
+		ah->ah_cal_tstamp = jiffies;
+
+	/* For now we always do full calibration
+	 * Mark software interrupt mask and fire software
+	 * interrupt (bit gets auto-cleared) */
+	if (time_is_before_eq_jiffies(ah->ah_cal_tstamp + cal_intval)) {
+		ah->ah_cal_tstamp = jiffies;
+		ah->ah_swi_mask = AR5K_SWI_FULL_CALIBRATION;
+		AR5K_REG_ENABLE_BITS(ah, AR5K_CR, AR5K_CR_SWI);
+	}
+
+}
 
 /**
  * ath5k_hw_noise_floor_calibration - perform PHY noise floor calibration
@@ -1740,7 +1762,7 @@ ath5k_hw_set_fast_div(struct ath5k_hw *ah, u8 ee_mode, bool enable)
 void
 ath5k_hw_set_antenna_mode(struct ath5k_hw *ah, u8 ant_mode)
 {
-	struct ieee80211_channel *channel = &ah->ah_current_channel;
+	struct ieee80211_channel *channel = ah->ah_current_channel;
 	bool use_def_for_tx, update_def_on_tx, use_def_for_rts, fast_div;
 	bool use_def_for_sg;
 	u8 def_ant, tx_ant, ee_mode;
@@ -2176,6 +2198,7 @@ static void
 ath5k_get_max_ctl_power(struct ath5k_hw *ah,
 			struct ieee80211_channel *channel)
 {
+	struct ath_regulatory *regulatory = ath5k_hw_regulatory(ah);
 	struct ath5k_eeprom_info *ee = &ah->ah_capabilities.cap_eeprom;
 	struct ath5k_edge_power *rep = ee->ee_ctl_pwr;
 	u8 *ctl_val = ee->ee_ctl;
@@ -2186,7 +2209,7 @@ ath5k_get_max_ctl_power(struct ath5k_hw *ah,
 	u8 ctl_idx = 0xFF;
 	u32 target = channel->center_freq;
 
-	ctl_mode = ath_regd_get_band_ctl(&ah->ah_regulatory, channel->band);
+	ctl_mode = ath_regd_get_band_ctl(regulatory, channel->band);
 
 	switch (channel->hw_value & CHANNEL_MODES) {
 	case CHANNEL_A:
@@ -3021,7 +3044,7 @@ ath5k_hw_txpower(struct ath5k_hw *ah, struct ieee80211_channel *channel,
 int ath5k_hw_set_txpower_limit(struct ath5k_hw *ah, u8 txpower)
 {
 	/*Just a try M.F.*/
-	struct ieee80211_channel *channel = &ah->ah_current_channel;
+	struct ieee80211_channel *channel = ah->ah_current_channel;
 	u8 ee_mode;
 
 	ATH5K_TRACE(ah->ah_sc);

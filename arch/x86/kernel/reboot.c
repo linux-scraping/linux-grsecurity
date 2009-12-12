@@ -4,6 +4,8 @@
 #include <linux/pm.h>
 #include <linux/efi.h>
 #include <linux/dmi.h>
+#include <linux/sched.h>
+#include <linux/tboot.h>
 #include <acpi/reboot.h>
 #include <asm/io.h>
 #include <asm/apic.h>
@@ -276,9 +278,9 @@ core_initcall(reboot_init);
 static struct desc_struct
 real_mode_gdt_entries [3] __read_only =
 {
-	{{{0x00000000, 0x00000000}}},	/* Null descriptor */
-	{{{0x0000ffff, 0x00009b00}}},	/* 16-bit real-mode 64k code at 0x00000000 */
-	{{{0x0100ffff, 0x00009300}}}	/* 16-bit real-mode 64k data at 0x00000100 */
+	GDT_ENTRY_INIT(0, 0, 0),		/* Null descriptor */
+	GDT_ENTRY_INIT(0x9b, 0, 0xffff),	/* 16-bit real-mode 64k code at 0x00000000 */
+	GDT_ENTRY_INIT(0x93, 0x100, 0xffff)	/* 16-bit real-mode 64k data at 0x00000100 */
 };
 
 static const struct desc_ptr
@@ -433,6 +435,14 @@ static struct dmi_system_id __initdata pci_reboot_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "MacBookPro5"),
 		},
 	},
+	{	/* Handle problems with rebooting on Apple Macmini3,1 */
+		.callback = set_pci_reboot,
+		.ident = "Apple Macmini3,1",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Apple Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Macmini3,1"),
+		},
+	},
 	{ }
 };
 
@@ -506,6 +516,8 @@ static void native_machine_emergency_restart(void)
 
 	if (reboot_emergency)
 		emergency_vmx_disable_all();
+
+	tboot_shutdown(TB_SHUTDOWN_REBOOT);
 
 	/* Tell the BIOS if we want cold or warm reboot */
 	*((unsigned short *)__va(0x472)) = reboot_mode;
@@ -633,6 +645,8 @@ static void native_machine_halt(void)
 	/* stop other cpus and apics */
 	machine_shutdown();
 
+	tboot_shutdown(TB_SHUTDOWN_HALT);
+
 	/* stop this cpu */
 	stop_this_cpu(NULL);
 }
@@ -644,6 +658,8 @@ static void native_machine_power_off(void)
 			machine_shutdown();
 		pm_power_off();
 	}
+	/* a fallback in case there is no PM info available */
+	tboot_shutdown(TB_SHUTDOWN_HALT);
 }
 
 struct machine_ops machine_ops = {

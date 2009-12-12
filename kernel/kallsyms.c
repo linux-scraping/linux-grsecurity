@@ -65,7 +65,8 @@ static inline int is_kernel_inittext(unsigned long addr)
 
 static inline int is_kernel_text(unsigned long addr)
 {
-	if (addr >= (unsigned long)_stext && addr <= (unsigned long)_etext)
+	if ((addr >= (unsigned long)_stext && addr <= (unsigned long)_etext) ||
+	    arch_is_kernel_text(addr))
 		return 1;
 	return in_gate_area_no_task(addr);
 }
@@ -536,7 +537,6 @@ static const struct file_operations kallsyms_operations = {
 static int __init kallsyms_init(void)
 {
 	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
-
 	return 0;
 }
 device_initcall(kallsyms_init);

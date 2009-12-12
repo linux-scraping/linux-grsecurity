@@ -13,13 +13,13 @@
 #include <linux/io.h>
 
 #include <asm/stackprotector.h>
-#include <asm/perf_counter.h>
+#include <asm/perf_event.h>
 #include <asm/mmu_context.h>
 #include <asm/hypervisor.h>
 #include <asm/processor.h>
 #include <asm/sections.h>
-#include <asm/topology.h>
-#include <asm/cpumask.h>
+#include <linux/topology.h>
+#include <linux/cpumask.h>
 #include <asm/pgtable.h>
 #include <asm/atomic.h>
 #include <asm/proto.h>
@@ -28,13 +28,12 @@
 #include <asm/desc.h>
 #include <asm/i387.h>
 #include <asm/mtrr.h>
-#include <asm/numa.h>
+#include <linux/numa.h>
 #include <asm/asm.h>
 #include <asm/cpu.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
 #include <asm/pat.h>
-#include <asm/smp.h>
 
 #ifdef CONFIG_X86_LOCAL_APIC
 #include <asm/uv/uv.h>
@@ -820,7 +819,7 @@ void __init identify_boot_cpu(void)
 #else
 	vgetcpu_set_mode();
 #endif
-	init_hw_perf_counters();
+	init_hw_perf_events();
 }
 
 void __cpuinit identify_secondary_cpu(struct cpuinfo_x86 *c)
@@ -932,17 +931,25 @@ static __init int setup_disablecpuid(char *arg)
 __setup("clearcpuid=", setup_disablecpuid);
 
 #ifdef CONFIG_X86_64
-struct desc_ptr idt_descr __read_only = { 256 * 16 - 1, (unsigned long) idt_table };
+struct desc_ptr idt_descr = { NR_VECTORS * 16 - 1, (unsigned long) idt_table };
 
 DEFINE_PER_CPU_FIRST(union irq_stack_union,
 		     irq_stack_union) __aligned(PAGE_SIZE);
 
-DEFINE_PER_CPU(char *, irq_stack_ptr) =
-	init_per_cpu_var(irq_stack_union.irq_stack) + IRQ_STACK_SIZE - 64;
+/*
+ * The following four percpu variables are hot.  Align current_task to
+ * cacheline size such that all four fall in the same cacheline.
+ */
+DEFINE_PER_CPU(struct task_struct *, current_task) ____cacheline_aligned =
+	&init_task;
+EXPORT_PER_CPU_SYMBOL(current_task);
 
 DEFINE_PER_CPU(unsigned long, kernel_stack) =
 	(unsigned long)&init_thread_union - KERNEL_STACK_OFFSET + THREAD_SIZE;
 EXPORT_PER_CPU_SYMBOL(kernel_stack);
+
+DEFINE_PER_CPU(char *, irq_stack_ptr) =
+	init_per_cpu_var(irq_stack_union.irq_stack) + IRQ_STACK_SIZE - 64;
 
 DEFINE_PER_CPU(unsigned int, irq_count) = -1;
 
@@ -958,8 +965,7 @@ static const unsigned int exception_stack_sizes[N_EXCEPTION_STACKS] = {
 };
 
 static DEFINE_PER_CPU_PAGE_ALIGNED(char, exception_stacks
-	[(N_EXCEPTION_STACKS - 1) * EXCEPTION_STKSZ + DEBUG_STKSZ])
-	__aligned(PAGE_SIZE);
+	[(N_EXCEPTION_STACKS - 1) * EXCEPTION_STKSZ + DEBUG_STKSZ]);
 
 /* May not be marked __init: used by software suspend */
 void syscall_init(void)
@@ -992,8 +998,11 @@ DEFINE_PER_CPU(struct orig_ist, orig_ist);
 
 #else	/* CONFIG_X86_64 */
 
+DEFINE_PER_CPU(struct task_struct *, current_task) = &init_task;
+EXPORT_PER_CPU_SYMBOL(current_task);
+
 #ifdef CONFIG_CC_STACKPROTECTOR
-DEFINE_PER_CPU(struct stack_canary, stack_canary) ____cacheline_aligned;
+DEFINE_PER_CPU_ALIGNED(struct stack_canary, stack_canary);
 #endif
 
 /* Make sure %fs and %gs are initialized properly in idle threads */

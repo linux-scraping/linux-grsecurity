@@ -51,14 +51,14 @@ struct intel_dvo_dev_ops {
 	 * Initialize the device at startup time.
 	 * Returns NULL if the device does not exist.
 	 */
-	bool (* const init)(struct intel_dvo_device *dvo,
+	bool (*init)(struct intel_dvo_device *dvo,
 		     struct i2c_adapter *i2cbus);
 
 	/*
 	 * Called to allow the output a chance to create properties after the
 	 * RandR objects have been created.
 	 */
-	void (* const create_resources)(struct intel_dvo_device *dvo);
+	void (*create_resources)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Turn on/off output or set intermediate power levels if available.
@@ -67,17 +67,17 @@ struct intel_dvo_dev_ops {
 	 * If the  mode is DPMSModeOff, the output must be disabled,
 	 * as the DPLL may be disabled afterwards.
 	 */
-	void (* const dpms)(struct intel_dvo_device *dvo, int mode);
+	void (*dpms)(struct intel_dvo_device *dvo, int mode);
 
 	/*
 	 * Saves the output's state for restoration on VT switch.
 	 */
-	void (* const save)(struct intel_dvo_device *dvo);
+	void (*save)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Restore's the output's state at VT switch.
 	 */
-	void (* const restore)(struct intel_dvo_device *dvo);
+	void (*restore)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for testing a video mode for a given output.
@@ -88,7 +88,7 @@ struct intel_dvo_dev_ops {
 	 *
 	 * \return MODE_OK if the mode is valid, or another MODE_* otherwise.
 	 */
-	int (* const mode_valid)(struct intel_dvo_device *dvo,
+	int (*mode_valid)(struct intel_dvo_device *dvo,
 			  struct drm_display_mode *mode);
 
 	/*
@@ -98,19 +98,19 @@ struct intel_dvo_dev_ops {
 	 * timings, which is used for panels with fixed timings or for
 	 * buses with clock limitations.
 	 */
-	bool (* const mode_fixup)(struct intel_dvo_device *dvo,
+	bool (*mode_fixup)(struct intel_dvo_device *dvo,
 			   struct drm_display_mode *mode,
 			   struct drm_display_mode *adjusted_mode);
 
 	/*
 	 * Callback for preparing mode changes on an output
 	 */
-	void (* const prepare)(struct intel_dvo_device *dvo);
+	void (*prepare)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for committing mode changes on an output
 	 */
-	void (* const commit)(struct intel_dvo_device *dvo);
+	void (*commit)(struct intel_dvo_device *dvo);
 
 	/*
 	 * Callback for setting up a video mode after fixups have been made.
@@ -119,14 +119,14 @@ struct intel_dvo_dev_ops {
 	 * must be all that's necessary for the output, to turn the output on
 	 * after this function is called.
 	 */
-	void (* const mode_set)(struct intel_dvo_device *dvo,
+	void (*mode_set)(struct intel_dvo_device *dvo,
 			 struct drm_display_mode *mode,
 			 struct drm_display_mode *adjusted_mode);
 
 	/*
 	 * Probe for a connected output, and return detect_status.
 	 */
-	enum drm_connector_status (* const detect)(struct intel_dvo_device *dvo);
+	enum drm_connector_status (*detect)(struct intel_dvo_device *dvo);
 
 	/**
 	 * Query the device for the modes it provides.

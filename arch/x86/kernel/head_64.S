@@ -44,7 +44,7 @@ L4_VMEMMAP_START = pgd_index(VMEMMAP_START)
 L3_VMEMMAP_START = pud_index(VMEMMAP_START)
 
 	.text
-	.section .text.head
+	__HEAD
 	.code64
 	.globl startup_64
 startup_64:
@@ -455,7 +455,7 @@ ENTRY(phys_base)
 ENTRY(idt_table)
 	.fill 512,8,0
 
-	.section .bss.page_aligned, "aw", @nobits
+	__PAGE_ALIGNED_BSS
 	.align PAGE_SIZE
 ENTRY(empty_zero_page)
 	.skip PAGE_SIZE

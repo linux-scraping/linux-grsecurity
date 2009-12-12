@@ -99,7 +99,8 @@ static int nilfs_ioctl_wrap_copy(struct the_nilfs *nilfs,
 static int nilfs_ioctl_change_cpmode(struct inode *inode, struct file *filp,
 				     unsigned int cmd, void __user *argp)
 {
-	struct inode *cpfile = NILFS_SB(inode->i_sb)->s_nilfs->ns_cpfile;
+	struct the_nilfs *nilfs = NILFS_SB(inode->i_sb)->s_nilfs;
+	struct inode *cpfile = nilfs->ns_cpfile;
 	struct nilfs_transaction_info ti;
 	struct nilfs_cpmode cpmode;
 	int ret;
@@ -109,14 +110,17 @@ static int nilfs_ioctl_change_cpmode(struct inode *inode, struct file *filp,
 	if (copy_from_user(&cpmode, argp, sizeof(cpmode)))
 		return -EFAULT;
 
+	mutex_lock(&nilfs->ns_mount_mutex);
 	nilfs_transaction_begin(inode->i_sb, &ti, 0);
 	ret = nilfs_cpfile_change_cpmode(
 		cpfile, cpmode.cm_cno, cpmode.cm_mode);
 	if (unlikely(ret < 0)) {
 		nilfs_transaction_abort(inode->i_sb);
+		mutex_unlock(&nilfs->ns_mount_mutex);
 		return ret;
 	}
 	nilfs_transaction_commit(inode->i_sb); /* never fails */
+	mutex_unlock(&nilfs->ns_mount_mutex);
 	return ret;
 }
 
@@ -438,12 +442,6 @@ int nilfs_ioctl_prepare_clean_segments(struct the_nilfs *nilfs,
 	const char *msg;
 	int ret;
 
-	ret = nilfs_ioctl_move_blocks(nilfs, &argv[0], kbufs[0]);
-	if (ret < 0) {
-		msg = "cannot read source blocks";
-		goto failed;
-	}
-
 	ret = nilfs_ioctl_delete_checkpoints(nilfs, &argv[1], kbufs[1]);
 	if (ret < 0) {
 		/*
@@ -473,7 +471,6 @@ int nilfs_ioctl_prepare_clean_segments(struct the_nilfs *nilfs,
 	return 0;
 
  failed:
-	nilfs_remove_all_gcinode(nilfs);
 	printk(KERN_ERR "NILFS: GC failed during preparation: %s: err=%d\n",
 	       msg, ret);
 	return ret;
@@ -544,7 +541,27 @@ static int nilfs_ioctl_clean_segments(struct inode *inode, struct file *filp,
 		}
 	}
 
-	ret = nilfs_clean_segments(inode->i_sb, argv, kbufs);
+	/*
+	 * nilfs_ioctl_move_blocks() will call nilfs_gc_iget(),
+	 * which will operates an inode list without blocking.
+	 * To protect the list from concurrent operations,
+	 * nilfs_ioctl_move_blocks should be atomic operation.
+	 */
+	if (test_and_set_bit(THE_NILFS_GC_RUNNING, &nilfs->ns_flags)) {
+		ret = -EBUSY;
+		goto out_free;
+	}
+
+	ret = nilfs_ioctl_move_blocks(nilfs, &argv[0], kbufs[0]);
+	if (ret < 0)
+		printk(KERN_ERR "NILFS: GC failed during preparation: "
+			"cannot read source blocks: err=%d\n", ret);
+	else
+		ret = nilfs_clean_segments(inode->i_sb, argv, kbufs);
+
+	if (ret < 0)
+		nilfs_remove_all_gcinode(nilfs);
+	clear_nilfs_gc_running(nilfs);
 
  out_free:
 	while (--n >= 0)

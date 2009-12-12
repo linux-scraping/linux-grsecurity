@@ -57,11 +57,11 @@ static int gr_log_start(int audit)
 set_fmt:
 	memset(buf, 0, PAGE_SIZE);
 	if (current->signal->curr_ip && gr_acl_is_enabled()) {
-		sprintf(fmt, "%s%s", loglevel, "grsec: From %u.%u.%u.%u: (%.64s:%c:%.950s) ");
-		snprintf(buf, PAGE_SIZE - 1, fmt, NIPQUAD(current->signal->curr_ip), current->role->rolename, gr_roletype_to_char(), current->acl->filename);
+		sprintf(fmt, "%s%s", loglevel, "grsec: From %pI4: (%.64s:%c:%.950s) ");
+		snprintf(buf, PAGE_SIZE - 1, fmt, &current->signal->curr_ip, current->role->rolename, gr_roletype_to_char(), current->acl->filename);
 	} else if (current->signal->curr_ip) {
-		sprintf(fmt, "%s%s", loglevel, "grsec: From %u.%u.%u.%u: ");
-		snprintf(buf, PAGE_SIZE - 1, fmt, NIPQUAD(current->signal->curr_ip));
+		sprintf(fmt, "%s%s", loglevel, "grsec: From %pI4: ");
+		snprintf(buf, PAGE_SIZE - 1, fmt, &current->signal->curr_ip);
 	} else if (gr_acl_is_enabled()) {
 		sprintf(fmt, "%s%s", loglevel, "grsec: (%.64s:%c:%.950s) ");
 		snprintf(buf, PAGE_SIZE - 1, fmt, current->role->rolename, gr_roletype_to_char(), current->acl->filename);
@@ -138,7 +138,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	switch (argtypes) {
 	case GR_TTYSNIFF:
 		task = va_arg(ap, struct task_struct *);
-		gr_log_middle_varargs(audit, msg, NIPQUAD(task->signal->curr_ip), gr_task_fullpath0(task), task->comm, task->pid, gr_parent_task_fullpath0(task), task->parent->comm, task->parent->pid);
+		gr_log_middle_varargs(audit, msg, &task->signal->curr_ip, gr_task_fullpath0(task), task->comm, task->pid, gr_parent_task_fullpath0(task), task->parent->comm, task->parent->pid);
 		break;
 	case GR_SYSCTL_HIDDEN:
 		str1 = va_arg(ap, char *);
@@ -282,7 +282,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 			cred = __task_cred(task);
 			pcred = __task_cred(task->parent);
 
-			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, NIPQUAD(task->signal->curr_ip), tty_name(task->signal->tty, cur_tty), cred->uid, cred->euid, cred->gid, cred->egid, wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, NIPQUAD(task->parent->signal->curr_ip), tty_name(task->parent->signal->tty, parent_tty), pcred->uid, pcred->euid, pcred->gid, pcred->egid);
+			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, &task->signal->curr_ip, tty_name(task->signal->tty, cur_tty), cred->uid, cred->euid, cred->gid, cred->egid, wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->parent->comm, task->parent->pid, &task->parent->signal->curr_ip, tty_name(task->parent->signal->tty, parent_tty), pcred->uid, pcred->euid, pcred->gid, pcred->egid);
 		}
 		break;
 	default:

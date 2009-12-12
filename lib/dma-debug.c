@@ -819,9 +819,11 @@ static void check_unmap(struct dma_debug_entry *ref)
 		err_printk(ref->dev, entry, "DMA-API: device driver frees "
 			   "DMA memory with different CPU address "
 			   "[device address=0x%016llx] [size=%llu bytes] "
-			   "[cpu alloc address=%p] [cpu free address=%p]",
+			   "[cpu alloc address=0x%016llx] "
+			   "[cpu free address=0x%016llx]",
 			   ref->dev_addr, ref->size,
-			   (void *)entry->paddr, (void *)ref->paddr);
+			   (unsigned long long)entry->paddr,
+			   (unsigned long long)ref->paddr);
 	}
 
 	if (ref->sg_call_ents && ref->type == dma_debug_sg &&
@@ -855,7 +857,7 @@ out:
 
 static void check_for_stack(struct device *dev, void *addr)
 {
-	if (object_is_on_stack(addr))
+	if (object_starts_on_stack(addr))
 		err_printk(dev, NULL, "DMA-API: device driver maps memory from"
 				"stack [addr=%p]\n", addr);
 }

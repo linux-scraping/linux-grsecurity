@@ -602,7 +602,8 @@ ssize_t wlp_wss_attr_show(struct kobject *kobj, struct attribute *attr,
  * Sysfs operation for forwarding write call to the store method of the
  * attribute owner
  */
-static ssize_t wlp_wss_attr_store(struct kobject *kobj, struct attribute *attr,
+static
+ssize_t wlp_wss_attr_store(struct kobject *kobj, struct attribute *attr,
 			   const char *buf, size_t count)
 {
 	struct wlp_wss_attribute *wss_attr = attr_to_wlp_wss_attr(attr);

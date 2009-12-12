@@ -17,6 +17,7 @@ struct oprofile_stat_struct {
 	atomic_unchecked_t sample_lost_no_mapping;
 	atomic_unchecked_t bt_lost_no_mapping;
 	atomic_unchecked_t event_lost_overflow;
+	atomic_unchecked_t multiplex_counter;
 };
 
 extern struct oprofile_stat_struct oprofile_stats;

@@ -415,7 +415,7 @@ void __init prepare_namespace(void)
 
 	mount_root();
 out:
+	devtmpfs_mount("dev");
 	sys_mount((__force char __user *)".", (__force char __user *)"/", NULL, MS_MOVE, NULL);
 	sys_chroot((__force char __user *)".");
 }
-

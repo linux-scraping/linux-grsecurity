@@ -447,7 +447,7 @@ static int cpio_mkfile_line(const char *line)
 	return rc;
 }
 
-void usage(const char *prog)
+static void usage(const char *prog)
 {
 	fprintf(stderr, "Usage:\n"
 		"\t%s <cpio_list>\n"

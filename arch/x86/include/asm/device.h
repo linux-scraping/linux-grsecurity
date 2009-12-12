@@ -13,4 +13,7 @@ struct dev_archdata {
 #endif
 };
 
+struct pdev_archdata {
+};
+
 #endif /* _ASM_X86_DEVICE_H */

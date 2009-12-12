@@ -32,6 +32,9 @@
 #include "control.h"
 #include "info.h"
 
+/* maximum number of devices on the AC97 bus */
+#define	AC97_BUS_MAX_DEVICES	4
+
 /*
  *  AC'97 codec registers
  */
@@ -416,15 +419,15 @@
 struct snd_ac97;
 
 struct snd_ac97_build_ops {
-	int (*build_3d) (struct snd_ac97 *ac97);
-	int (*build_specific) (struct snd_ac97 *ac97);
-	int (*build_spdif) (struct snd_ac97 *ac97);
-	int (*build_post_spdif) (struct snd_ac97 *ac97);
+	int (* const build_3d) (struct snd_ac97 *ac97);
+	int (* const build_specific) (struct snd_ac97 *ac97);
+	int (* const build_spdif) (struct snd_ac97 *ac97);
+	int (* const build_post_spdif) (struct snd_ac97 *ac97);
 #ifdef CONFIG_PM
-	void (*suspend) (struct snd_ac97 *ac97);
-	void (*resume) (struct snd_ac97 *ac97);
+	void (* const suspend) (struct snd_ac97 *ac97);
+	void (* const resume) (struct snd_ac97 *ac97);
 #endif
-	void (*update_jacks) (struct snd_ac97 *ac97);	/* for jack-sharing */
+	void (* const update_jacks) (struct snd_ac97 *ac97);	/* for jack-sharing */
 };
 
 struct snd_ac97_bus_ops {
@@ -641,5 +644,11 @@ int snd_ac97_pcm_double_rate_rules(struct snd_pcm_runtime *runtime);
 
 /* ad hoc AC97 device driver access */
 extern struct bus_type ac97_bus_type;
+
+/* AC97 platform_data adding function */
+static inline void snd_ac97_dev_add_pdata(struct snd_ac97 *ac97, void *data)
+{
+	ac97->dev.platform_data = data;
+}
 
 #endif /* __SOUND_AC97_CODEC_H */

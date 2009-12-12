@@ -14,7 +14,6 @@
 #include <linux/spinlock.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
-#include <linux/utsname.h>
 #include <linux/kdebug.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -59,12 +58,12 @@
 #include <asm/mach_traps.h>
 
 #ifdef CONFIG_X86_64
+#include <asm/x86_init.h>
 #include <asm/pgalloc.h>
 #include <asm/proto.h>
 #else
 #include <asm/processor-flags.h>
 #include <asm/setup.h>
-#include <asm/traps.h>
 
 asmlinkage int system_call(void);
 
@@ -807,28 +806,34 @@ do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
 #endif
 }
 
-#ifdef CONFIG_X86_32
-unsigned long patch_espfix_desc(unsigned long uesp, unsigned long kesp)
-{
-	unsigned long base = (kesp - uesp) & -THREAD_SIZE;
-	unsigned long new_kesp = kesp - base;
-	unsigned long lim_pages = (new_kesp | (THREAD_SIZE - 1)) >> PAGE_SHIFT;
-	struct desc_struct ss;
-
-	/* Set up base for espfix segment */
-	pack_descriptor(&ss, base, lim_pages, 0x93, 0xC);
-	write_gdt_entry(get_cpu_gdt_table(smp_processor_id()), GDT_ENTRY_ESPFIX_SS, &ss, DESCTYPE_S);
-
-	return new_kesp;
-}
-#endif
-
 asmlinkage void __attribute__((weak)) smp_thermal_interrupt(void)
 {
 }
 
 asmlinkage void __attribute__((weak)) smp_threshold_interrupt(void)
 {
+}
+
+/*
+ * __math_state_restore assumes that cr0.TS is already clear and the
+ * fpu state is all ready for use.  Used during context switch.
+ */
+void __math_state_restore(void)
+{
+	struct thread_info *thread = current_thread_info();
+	struct task_struct *tsk = thread->task;
+
+	/*
+	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
+	 */
+	if (unlikely(restore_fpu_checking(tsk))) {
+		stts();
+		force_sig(SIGSEGV, tsk);
+		return;
+	}
+
+	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
+	tsk->fpu_counter++;
 }
 
 /*
@@ -862,17 +867,8 @@ asmlinkage void math_state_restore(void)
 	}
 
 	clts();				/* Allow maths ops (or we recurse) */
-	/*
-	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
-	 */
-	if (unlikely(restore_fpu_checking(tsk))) {
-		stts();
-		force_sig(SIGSEGV, tsk);
-		return;
-	}
 
-	thread->status |= TS_USEDFPU;	/* So we fnsave on switch_to() */
-	tsk->fpu_counter++;
+	__math_state_restore();
 }
 EXPORT_SYMBOL_GPL(math_state_restore);
 
@@ -996,7 +992,5 @@ void __init trap_init(void)
 	 */
 	cpu_init();
 
-#ifdef CONFIG_X86_32
-	x86_quirk_trap_init();
-#endif
+	x86_init.irqs.trap_init();
 }

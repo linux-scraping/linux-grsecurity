@@ -110,9 +110,8 @@ gr_search_socket(const int domain, const int type, const int protocol)
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
-				       NIPQUAD(fakeip), 0, type,
-				       protocol, GR_CONNECT, 
-NIPQUAD(current->signal->curr_ip));
+				       &fakeip, 0, type,
+				       protocol, GR_CONNECT, &current->signal->curr_ip);
 		} else if ((type == SOCK_DGRAM) && (protocol == IPPROTO_IP)) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
@@ -121,8 +120,8 @@ NIPQUAD(current->signal->curr_ip));
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
-				       NIPQUAD(fakeip), 0, type,
-				       protocol, GR_BIND, NIPQUAD(current->signal->curr_ip));
+				       &fakeip, 0, type,
+				       protocol, GR_BIND, &current->signal->curr_ip);
 		}
 		/* we'll log when they use connect or bind */
 		goto exit;
@@ -213,8 +212,8 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 			       gr_to_filename(current->exec_file->f_path.dentry,
 			       current->exec_file->f_path.mnt) :
 			       curr->filename, curr->filename,
-			       NIPQUAD(ip_addr), ip_port, type,
-			       sk->sk_protocol, mode, NIPQUAD(current->signal->curr_ip));
+			       &ip_addr, ip_port, type,
+			       sk->sk_protocol, mode, &current->signal->curr_ip);
 		return 0;
 	}
 
@@ -268,9 +267,9 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 
 denied:
 	if (mode == GR_BIND)
-		gr_log_int5_str2(GR_DONT_AUDIT, GR_BIND_ACL_MSG, NIPQUAD(ip_addr), ip_port, gr_socktype_to_name(type), gr_proto_to_name(sk->sk_protocol));
+		gr_log_int5_str2(GR_DONT_AUDIT, GR_BIND_ACL_MSG, &ip_addr, ip_port, gr_socktype_to_name(type), gr_proto_to_name(sk->sk_protocol));
 	else if (mode == GR_CONNECT)
-		gr_log_int5_str2(GR_DONT_AUDIT, GR_CONNECT_ACL_MSG, NIPQUAD(ip_addr), ip_port, gr_socktype_to_name(type), gr_proto_to_name(sk->sk_protocol));
+		gr_log_int5_str2(GR_DONT_AUDIT, GR_CONNECT_ACL_MSG, &ip_addr, ip_port, gr_socktype_to_name(type), gr_proto_to_name(sk->sk_protocol));
 
 	return -EACCES;
 }

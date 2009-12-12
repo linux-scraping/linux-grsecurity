@@ -251,15 +251,15 @@ struct kgdb_arch {
  */
 struct kgdb_io {
 	const char		*name;
-	int			(*read_char) (void);
-	void			(*write_char) (u8);
-	void			(*flush) (void);
-	int			(*init) (void);
-	void			(*pre_exception) (void);
-	void			(*post_exception) (void);
+	int			(* const read_char) (void);
+	void			(* const write_char) (u8);
+	void			(* const flush) (void);
+	int			(* const init) (void);
+	void			(* const pre_exception) (void);
+	void			(* const post_exception) (void);
 };
 
-extern const struct kgdb_arch	arch_kgdb_ops;
+extern const struct kgdb_arch arch_kgdb_ops;
 
 extern unsigned long __weak kgdb_arch_pc(int exception, struct pt_regs *regs);
 

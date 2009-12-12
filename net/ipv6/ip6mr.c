@@ -83,10 +83,6 @@ static int ip6mr_cache_report(struct net *net, struct sk_buff *pkt,
 static int ip6mr_fill_mroute(struct sk_buff *skb, struct mfc6_cache *c, struct rtmsg *rtm);
 static void mroute_clean_tables(struct net *net);
 
-#ifdef CONFIG_IPV6_PIMSM_V2
-static struct inet6_protocol pim6_protocol;
-#endif
-
 static struct timer_list ipmr_expire_timer;
 
 
@@ -410,13 +406,14 @@ static int pim6_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static struct inet6_protocol pim6_protocol = {
+static const struct inet6_protocol pim6_protocol = {
 	.handler	=	pim6_rcv,
 };
 
 /* Service routines creating virtual interfaces: PIMREG */
 
-static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t reg_vif_xmit(struct sk_buff *skb,
+				      struct net_device *dev)
 {
 	struct net *net = dev_net(dev);
 
@@ -427,7 +424,7 @@ static int reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
 			   MRT6MSG_WHOLEPKT);
 	read_unlock(&mrt_lock);
 	kfree_skb(skb);
-	return 0;
+	return NETDEV_TX_OK;
 }
 
 static const struct net_device_ops reg_vif_netdev_ops = {
@@ -1284,7 +1281,7 @@ int ip6mr_sk_done(struct sock *sk)
  *	MOSPF/PIM router set up we can clean this up.
  */
 
-int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, int optlen)
+int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsigned int optlen)
 {
 	int ret;
 	struct mif6ctl vif;

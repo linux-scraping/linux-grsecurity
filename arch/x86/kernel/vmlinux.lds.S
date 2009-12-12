@@ -84,7 +84,6 @@ SECTIONS
 #endif
 
 	/* Text and read-only data */
-
 	.text (. - __KERNEL_TEXT_OFFSET): AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 		/* bootstrapping code */
 #ifdef CONFIG_X86_32
@@ -94,11 +93,8 @@ SECTIONS
 #endif
 		__LOAD_PHYSICAL_ADDR = . - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
 		_text = .;
-		*(.text.head)
-
-		/* The rest of the text */
+		HEAD_TEXT
 #ifdef CONFIG_X86_32
-		/* not really needed, already page aligned */
 		. = ALIGN(PAGE_SIZE);
 		*(.text.page_aligned)
 #endif
@@ -118,13 +114,7 @@ SECTIONS
 	. = ALIGN(PAGE_SIZE);
 	NOTES :rodata :note
 
-	/* Exception table */
-	. = ALIGN(16);
-	__ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET) {
-		__start___ex_table = .;
-		*(__ex_table)
-		__stop___ex_table = .;
-	} :rodata
+	EXCEPTION_TABLE(16) :rodata
 
 	RO_DATA(PAGE_SIZE)
 
@@ -177,7 +167,6 @@ SECTIONS
 		NOSAVE_DATA
 
 		PAGE_ALIGNED_DATA(PAGE_SIZE)
-		*(.data.idt)
 
 		CACHELINE_ALIGNED_DATA(CONFIG_X86_L1_CACHE_BYTES)
 
@@ -194,23 +183,20 @@ SECTIONS
 #ifdef CONFIG_X86_64
 
 #define VSYSCALL_ADDR (-10*1024*1024)
-#define VSYSCALL_PHYS_ADDR ((LOADADDR(.data) + SIZEOF(.data) + \
-                            PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
-#define VSYSCALL_VIRT_ADDR ((ADDR(.data) + SIZEOF(.data) + \
-                            PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
-#define VLOAD_OFFSET (VSYSCALL_ADDR - VSYSCALL_PHYS_ADDR)
+#define VLOAD_OFFSET (VSYSCALL_ADDR - __vsyscall_0 + LOAD_OFFSET)
 #define VLOAD(x) (ADDR(x) - VLOAD_OFFSET)
 
-#define VVIRT_OFFSET (VSYSCALL_ADDR - VSYSCALL_VIRT_ADDR)
+#define VVIRT_OFFSET (VSYSCALL_ADDR - __vsyscall_0)
 #define VVIRT(x) (ADDR(x) - VVIRT_OFFSET)
 
+	. = ALIGN(4096);
+	__vsyscall_0 = .;
+
 	. = VSYSCALL_ADDR;
-	.vsyscall_0 : AT(VSYSCALL_PHYS_ADDR) {
+	.vsyscall_0 : AT(VLOAD(.vsyscall_0)) {
 		*(.vsyscall_0)
 	} :user
-
-	__vsyscall_0 = VSYSCALL_VIRT_ADDR;
 
 	. = ALIGN(CONFIG_X86_L1_CACHE_BYTES);
 	.vsyscall_fn : AT(VLOAD(.vsyscall_fn)) {
@@ -245,11 +231,9 @@ SECTIONS
 		*(.vsyscall_3)
 	}
 
-	. = VSYSCALL_VIRT_ADDR + PAGE_SIZE;
+	. = __vsyscall_0 + PAGE_SIZE;
 
 #undef VSYSCALL_ADDR
-#undef VSYSCALL_PHYS_ADDR
-#undef VSYSCALL_VIRT_ADDR
 #undef VLOAD_OFFSET
 #undef VLOAD
 #undef VVIRT_OFFSET
@@ -279,11 +263,12 @@ SECTIONS
 	PERCPU_VADDR(0, :percpu)
 #endif
 
+	. = ALIGN(PAGE_SIZE);
 	init_begin = .;
 	.init.text (. - __KERNEL_TEXT_OFFSET): AT(init_begin - LOAD_OFFSET) {
-		_sinittext = .;
+		VMLINUX_SYMBOL(_sinittext) = .;
 		INIT_TEXT
-		_einittext = .;
+		VMLINUX_SYMBOL(_einittext) = .;
 	} :text.init
 
 	/*
@@ -296,35 +281,13 @@ SECTIONS
 	} :text.exit
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
 
-	.init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {
-		INIT_DATA
-	} :init
-
-	. = ALIGN(16);
-	.init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET) {
-		__setup_start = .;
-		*(.init.setup)
-		__setup_end = .;
-	}
-	.initcall.init : AT(ADDR(.initcall.init) - LOAD_OFFSET) {
-		__initcall_start = .;
-		INITCALLS
-		__initcall_end = .;
-	}
-
-	.con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET) {
-		__con_initcall_start = .;
-		*(.con_initcall.init)
-		__con_initcall_end = .;
-	}
+	INIT_DATA_SECTION(16) :init
 
 	.x86_cpu_dev.init : AT(ADDR(.x86_cpu_dev.init) - LOAD_OFFSET) {
 		__x86_cpu_dev_start = .;
 		*(.x86_cpu_dev.init)
 		__x86_cpu_dev_end = .;
 	}
-
-	SECURITY_INIT
 
 	. = ALIGN(8);
 	.parainstructions : AT(ADDR(.parainstructions) - LOAD_OFFSET) {
@@ -347,15 +310,6 @@ SECTIONS
 	.exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) {
 		EXIT_DATA
 	}
-
-#ifdef CONFIG_BLK_DEV_INITRD
-	. = ALIGN(PAGE_SIZE);
-	.init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET) {
-		__initramfs_start = .;
-		*(.init.ramfs)
-		__initramfs_end = .;
-	}
-#endif
 
 #ifndef CONFIG_SMP
 	PERCPU(PAGE_SIZE)
@@ -403,19 +357,19 @@ SECTIONS
 		_end = .;
 	}
 
-	/* Sections to be discarded */
-	/DISCARD/ : {
-		*(.exitcall.exit)
-		*(.eh_frame)
-		*(.discard)
-	}
-
         STABS_DEBUG
         DWARF_DEBUG
+
+	/* Sections to be discarded */
+	DISCARDS
+	/DISCARD/ : { *(.eh_frame) }
 }
 
 
 #ifdef CONFIG_X86_32
+/*
+ * The ASSERT() sink to . is intentional, for binutils 2.14 compatibility:
+ */
 . = ASSERT((_end - LOAD_OFFSET <= KERNEL_IMAGE_SIZE),
 	   "kernel image bigger than KERNEL_IMAGE_SIZE");
 #else

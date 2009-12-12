@@ -2194,12 +2194,11 @@ static int sg_proc_seq_show_int(struct seq_file *s, void *v);
 static int sg_proc_single_open_adio(struct inode *inode, struct file *file);
 static ssize_t sg_proc_write_adio(struct file *filp, const char __user *buffer,
 			          size_t count, loff_t *off);
-
 static const struct file_operations adio_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_single_open_adio,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_single_open_adio,
 	.write = sg_proc_write_adio,
 	.release = single_release,
 };
@@ -2209,9 +2208,9 @@ static ssize_t sg_proc_write_dressz(struct file *filp,
 		const char __user *buffer, size_t count, loff_t *off);
 static const struct file_operations dressz_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_single_open_dressz,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_single_open_dressz,
 	.write = sg_proc_write_dressz,
 	.release = single_release,
 };
@@ -2220,9 +2219,9 @@ static int sg_proc_seq_show_version(struct seq_file *s, void *v);
 static int sg_proc_single_open_version(struct inode *inode, struct file *file);
 static const struct file_operations version_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_single_open_version,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_single_open_version,
 	.release = single_release,
 };
 
@@ -2230,9 +2229,9 @@ static int sg_proc_seq_show_devhdr(struct seq_file *s, void *v);
 static int sg_proc_single_open_devhdr(struct inode *inode, struct file *file);
 static const struct file_operations devhdr_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_single_open_devhdr,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_single_open_devhdr,
 	.release = single_release,
 };
 
@@ -2243,9 +2242,9 @@ static void * dev_seq_next(struct seq_file *s, void *v, loff_t *pos);
 static void dev_seq_stop(struct seq_file *s, void *v);
 static const struct file_operations dev_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_open_dev,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_open_dev,
 	.release = seq_release,
 };
 static const struct seq_operations dev_seq_ops = {
@@ -2259,9 +2258,9 @@ static int sg_proc_seq_show_devstrs(struct seq_file *s, void *v);
 static int sg_proc_open_devstrs(struct inode *inode, struct file *file);
 static const struct file_operations devstrs_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_open_devstrs,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_open_devstrs,
 	.release = seq_release,
 };
 static const struct seq_operations devstrs_seq_ops = {
@@ -2275,9 +2274,9 @@ static int sg_proc_seq_show_debug(struct seq_file *s, void *v);
 static int sg_proc_open_debug(struct inode *inode, struct file *file);
 static const struct file_operations debug_fops = {
 	.owner = THIS_MODULE,
+	.open = sg_proc_open_debug,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.open = sg_proc_open_debug,
 	.release = seq_release,
 };
 static const struct seq_operations debug_seq_ops = {
@@ -2293,7 +2292,7 @@ struct sg_proc_leaf {
 	const struct file_operations * fops;
 };
 
-static struct sg_proc_leaf sg_proc_leaf_arr[] = {
+static const struct sg_proc_leaf sg_proc_leaf_arr[] = {
 	{"allow_dio", &adio_fops},
 	{"debug", &debug_fops},
 	{"def_reserved_size", &dressz_fops},
@@ -2308,7 +2307,7 @@ sg_proc_init(void)
 {
 	int k, mask;
 	int num_leaves = ARRAY_SIZE(sg_proc_leaf_arr);
-	struct sg_proc_leaf * leaf;
+	const struct sg_proc_leaf * leaf;
 
 	sg_proc_sgp = proc_mkdir(sg_proc_sg_dirname, NULL);
 	if (!sg_proc_sgp)

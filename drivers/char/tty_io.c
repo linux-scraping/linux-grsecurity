@@ -136,21 +136,10 @@ LIST_HEAD(tty_drivers);			/* linked list of tty drivers */
 DEFINE_MUTEX(tty_mutex);
 EXPORT_SYMBOL(tty_mutex);
 
-static ssize_t tty_read(struct file *, char __user *, size_t, loff_t *);
-static ssize_t tty_write(struct file *, const char __user *, size_t, loff_t *);
 ssize_t redirected_tty_write(struct file *, const char __user *,
 							size_t, loff_t *);
-static unsigned int tty_poll(struct file *, poll_table *);
 static int tty_open(struct inode *, struct file *);
-static int tty_release(struct inode *, struct file *);
 long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-#ifdef CONFIG_COMPAT
-static long tty_compat_ioctl(struct file *file, unsigned int cmd,
-				unsigned long arg);
-#else
-#define tty_compat_ioctl NULL
-#endif
-static int tty_fasync(int fd, struct file *filp, int on);
 static void release_tty(struct tty_struct *tty, int idx);
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 static void proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
@@ -870,7 +859,7 @@ EXPORT_SYMBOL(start_tty);
  *	read calls may be outstanding in parallel.
  */
 
-static ssize_t tty_read(struct file *file, char __user *buf, size_t count,
+ssize_t tty_read(struct file *file, char __user *buf, size_t count,
 			loff_t *ppos)
 {
 	int i;
@@ -1045,7 +1034,7 @@ void tty_write_message(struct tty_struct *tty, char *msg)
  *	write method will not be invoked in parallel for each device.
  */
 
-static ssize_t tty_write(struct file *file, const char __user *buf,
+ssize_t tty_write(struct file *file, const char __user *buf,
 						size_t count, loff_t *ppos)
 {
 	struct tty_struct *tty;
@@ -1387,16 +1376,19 @@ EXPORT_SYMBOL(tty_shutdown);
  *		tty_mutex - sometimes only
  *		takes the file list lock internally when working on the list
  *	of ttys that the driver keeps.
+ *
+ *	This method gets called from a work queue so that the driver private
+ *	cleanup ops can sleep (needed for USB at least)
  */
-static void release_one_tty(struct kref *kref)
+static void release_one_tty(struct work_struct *work)
 {
-	struct tty_struct *tty = container_of(kref, struct tty_struct, kref);
+	struct tty_struct *tty =
+		container_of(work, struct tty_struct, hangup_work);
 	struct tty_driver *driver = tty->driver;
 
-	if (tty->ops->shutdown)
-		tty->ops->shutdown(tty);
-	else
-		tty_shutdown(tty);
+	if (tty->ops->cleanup)
+		tty->ops->cleanup(tty);
+
 	tty->magic = 0;
 	tty_driver_kref_put(driver);
 	module_put(driver->owner);
@@ -1406,6 +1398,21 @@ static void release_one_tty(struct kref *kref)
 	file_list_unlock();
 
 	free_tty_struct(tty);
+}
+
+static void queue_release_one_tty(struct kref *kref)
+{
+	struct tty_struct *tty = container_of(kref, struct tty_struct, kref);
+
+	if (tty->ops->shutdown)
+		tty->ops->shutdown(tty);
+	else
+		tty_shutdown(tty);
+
+	/* The hangup queue is now free so we can reuse it rather than
+	   waste a chunk of memory for each port */
+	INIT_WORK(&tty->hangup_work, release_one_tty);
+	schedule_work(&tty->hangup_work);
 }
 
 /**
@@ -1419,7 +1426,7 @@ static void release_one_tty(struct kref *kref)
 void tty_kref_put(struct tty_struct *tty)
 {
 	if (tty)
-		kref_put(&tty->kref, release_one_tty);
+		kref_put(&tty->kref, queue_release_one_tty);
 }
 EXPORT_SYMBOL(tty_kref_put);
 
@@ -1847,7 +1854,7 @@ static int tty_open(struct inode *inode, struct file *filp)
  *		Takes bkl. See tty_release_dev
  */
 
-static int tty_release(struct inode *inode, struct file *filp)
+int tty_release(struct inode *inode, struct file *filp)
 {
 	lock_kernel();
 	tty_release_dev(filp);
@@ -1867,7 +1874,7 @@ static int tty_release(struct inode *inode, struct file *filp)
  *	may be re-entered freely by other callers.
  */
 
-static unsigned int tty_poll(struct file *filp, poll_table *wait)
+unsigned int tty_poll(struct file *filp, poll_table *wait)
 {
 	struct tty_struct *tty;
 	struct tty_ldisc *ld;
@@ -1884,7 +1891,7 @@ static unsigned int tty_poll(struct file *filp, poll_table *wait)
 	return ret;
 }
 
-static int tty_fasync(int fd, struct file *filp, int on)
+int tty_fasync(int fd, struct file *filp, int on)
 {
 	struct tty_struct *tty;
 	unsigned long flags;
@@ -2086,7 +2093,7 @@ static int tioccons(struct file *file)
  *	the generic functionality existed. This piece of history is preserved
  *	in the expected tty API of posix OS's.
  *
- *	Locking: none, the open fle handle ensures it won't go away.
+ *	Locking: none, the open file handle ensures it won't go away.
  */
 
 static int fionbio(struct file *file, int __user *p)
@@ -2561,7 +2568,7 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 #ifdef CONFIG_COMPAT
-static long tty_compat_ioctl(struct file *file, unsigned int cmd,
+long tty_compat_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
 	struct inode *inode = file->f_dentry->d_inode;
@@ -3028,11 +3035,6 @@ struct tty_struct *get_current_tty(void)
 }
 EXPORT_SYMBOL_GPL(get_current_tty);
 
-void tty_default_fops(struct file_operations *fops)
-{
-	*fops = tty_fops;
-}
-
 /*
  * Initialize the console device. This is called *early*, so
  * we can't necessarily depend on lots of kernel help here.
@@ -3057,11 +3059,22 @@ void __init console_init(void)
 	}
 }
 
+static char *tty_devnode(struct device *dev, mode_t *mode)
+{
+	if (!mode)
+		return NULL;
+	if (dev->devt == MKDEV(TTYAUX_MAJOR, 0) ||
+	    dev->devt == MKDEV(TTYAUX_MAJOR, 2))
+		*mode = 0666;
+	return NULL;
+}
+
 static int __init tty_class_init(void)
 {
 	tty_class = class_create(THIS_MODULE, "tty");
 	if (IS_ERR(tty_class))
 		return PTR_ERR(tty_class);
+	tty_class->devnode = tty_devnode;
 	return 0;
 }
 

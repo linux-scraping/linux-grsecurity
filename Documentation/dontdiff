@@ -41,6 +41,7 @@
 *.ver
 *.xml
 *_MODULES
+*_reg_safe.h
 *_vga16.c
 *~
 *.9
@@ -144,6 +145,7 @@ mkcpustr
 mkdep
 mkpiggy
 mkprep
+mkregtable
 mktables
 mktree
 modpost

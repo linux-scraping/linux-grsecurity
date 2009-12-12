@@ -40,7 +40,7 @@ struct bin_buffer {
 	struct mutex			mutex;
 	void				*buffer;
 	int				mmapped;
-	const struct vm_operations_struct 	*vm_ops;
+	const struct vm_operations_struct *vm_ops;
 	struct file			*file;
 	struct hlist_node		list;
 };

@@ -104,15 +104,15 @@ typedef int __bitwise suspend_state_t;
  *	which require special recovery actions in that situation.
  */
 struct platform_suspend_ops {
-	int (*valid)(suspend_state_t state);
-	int (*begin)(suspend_state_t state);
-	int (*prepare)(void);
-	int (*prepare_late)(void);
-	int (*enter)(suspend_state_t state);
-	void (*wake)(void);
-	void (*finish)(void);
-	void (*end)(void);
-	void (*recover)(void);
+	int (* const valid)(suspend_state_t state);
+	int (* const begin)(suspend_state_t state);
+	int (* const prepare)(void);
+	int (* const prepare_late)(void);
+	int (* const enter)(suspend_state_t state);
+	void (* const wake)(void);
+	void (* const finish)(void);
+	void (* const end)(void);
+	void (* const recover)(void);
 };
 
 #ifdef CONFIG_SUSPEND
@@ -145,7 +145,7 @@ extern int pm_suspend(suspend_state_t state);
 #else /* !CONFIG_SUSPEND */
 #define suspend_valid_only_mem	NULL
 
-static inline void suspend_set_ops(struct platform_suspend_ops *ops) {}
+static inline void suspend_set_ops(const struct platform_suspend_ops *ops) {}
 static inline int pm_suspend(suspend_state_t state) { return -ENOSYS; }
 #endif /* !CONFIG_SUSPEND */
 
@@ -215,16 +215,16 @@ extern void mark_free_pages(struct zone *zone);
  *	platforms which require special recovery actions in that situation.
  */
 struct platform_hibernation_ops {
-	int (*begin)(void);
-	void (*end)(void);
-	int (*pre_snapshot)(void);
-	void (*finish)(void);
-	int (*prepare)(void);
-	int (*enter)(void);
-	void (*leave)(void);
-	int (*pre_restore)(void);
-	void (*restore_cleanup)(void);
-	void (*recover)(void);
+	int (* const begin)(void);
+	void (* const end)(void);
+	int (* const pre_snapshot)(void);
+	void (* const finish)(void);
+	int (* const prepare)(void);
+	int (* const enter)(void);
+	void (* const leave)(void);
+	int (* const pre_restore)(void);
+	void (* const restore_cleanup)(void);
+	void (* const recover)(void);
 };
 
 #ifdef CONFIG_HIBERNATION
@@ -301,6 +301,8 @@ static inline int unregister_pm_notifier(struct notifier_block *nb)
 #define pm_notifier(fn, pri)	do { (void)(fn); } while (0)
 #endif /* !CONFIG_PM_SLEEP */
 
+extern struct mutex pm_mutex;
+
 #ifndef CONFIG_HIBERNATION
 static inline void register_nosave_region(unsigned long b, unsigned long e)
 {
@@ -308,8 +310,23 @@ static inline void register_nosave_region(unsigned long b, unsigned long e)
 static inline void register_nosave_region_late(unsigned long b, unsigned long e)
 {
 }
-#endif
 
-extern struct mutex pm_mutex;
+static inline void lock_system_sleep(void) {}
+static inline void unlock_system_sleep(void) {}
+
+#else
+
+/* Let some subsystems like memory hotadd exclude hibernation */
+
+static inline void lock_system_sleep(void)
+{
+	mutex_lock(&pm_mutex);
+}
+
+static inline void unlock_system_sleep(void)
+{
+	mutex_unlock(&pm_mutex);
+}
+#endif
 
 #endif /* _LINUX_SUSPEND_H */

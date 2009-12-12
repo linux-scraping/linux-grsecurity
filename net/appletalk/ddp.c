@@ -1370,11 +1370,9 @@ static int atalk_route_packet(struct sk_buff *skb, struct net_device *dev,
 	if (skb == NULL)
 		goto drop;
 
-	/*
-	 * It is OK, NET_XMIT_SUCCESS == NET_RX_SUCCESS and
-	 * NET_XMIT_DROP == NET_RX_DROP
-	 */
-	return aarp_send_ddp(rt->dev, skb, &ta, NULL);
+	if (aarp_send_ddp(rt->dev, skb, &ta, NULL) == NET_XMIT_DROP)
+		return NET_RX_DROP;
+	return NET_RX_SUCCESS;
 free_it:
 	kfree_skb(skb);
 drop:
@@ -1404,15 +1402,15 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 	__u16 len_hops;
 
 	if (!net_eq(dev_net(dev), &init_net))
-		goto freeit;
+		goto drop;
 
 	/* Don't mangle buffer if shared */
 	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
-		goto drop;
+		goto out;
 
 	/* Size check and make sure header is contiguous */
 	if (!pskb_may_pull(skb, sizeof(*ddp)))
-		goto freeit;
+		goto drop;
 
 	ddp = ddp_hdr(skb);
 
@@ -1430,7 +1428,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (skb->len < sizeof(*ddp) || skb->len < (len_hops & 1023)) {
 		pr_debug("AppleTalk: dropping corrupted frame (deh_len=%u, "
 			 "skb->len=%u)\n", len_hops & 1023, skb->len);
-		goto freeit;
+		goto drop;
 	}
 
 	/*
@@ -1440,7 +1438,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (ddp->deh_sum &&
 	    atalk_checksum(skb, len_hops & 1023) != ddp->deh_sum)
 		/* Not a valid AppleTalk frame - dustbin time */
-		goto freeit;
+		goto drop;
 
 	/* Check the packet is aimed at us */
 	if (!ddp->deh_dnet)	/* Net 0 is 'this network' */
@@ -1468,19 +1466,21 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	sock = atalk_search_socket(&tosat, atif);
 	if (!sock) /* But not one of our sockets */
-		goto freeit;
+		goto drop;
 
 	/* Queue packet (standard) */
 	skb->sk = sock;
 
 	if (sock_queue_rcv_skb(sock, skb) < 0)
-		goto freeit;
+		goto drop;
 
 	return NET_RX_SUCCESS;
-freeit:
-	kfree_skb(skb);
+
 drop:
+	kfree_skb(skb);
+out:
 	return NET_RX_DROP;
+
 }
 
 /*
