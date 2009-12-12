@@ -221,6 +221,9 @@ setversion_out:
 		struct file *donor_filp;
 		int err;
 
+		/* temporary workaround for other bugs in this code */
+		return -EOPNOTSUPP;
+
 		if (!(filp->f_mode & FMODE_READ) ||
 		    !(filp->f_mode & FMODE_WRITE))
 			return -EBADF;
