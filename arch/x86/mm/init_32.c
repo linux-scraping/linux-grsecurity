@@ -1006,6 +1006,7 @@ void set_kernel_text_rw(void)
 	if (!kernel_set_to_readonly)
 		return;
 
+	start = ktla_ktva(start);
 	pr_debug("Set kernel text: %lx - %lx for read write\n",
 		 start, start+size);
 
@@ -1020,6 +1021,7 @@ void set_kernel_text_ro(void)
 	if (!kernel_set_to_readonly)
 		return;
 
+	start = ktla_ktva(start);
 	pr_debug("Set kernel text: %lx - %lx for read only\n",
 		 start, start+size);
 
@@ -1031,6 +1033,7 @@ void mark_rodata_ro(void)
 	unsigned long start = PFN_ALIGN(_text);
 	unsigned long size = PFN_ALIGN(_etext) - start;
 
+	start = ktla_ktva(start);
 	set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
 	printk(KERN_INFO "Write protecting the kernel text: %luk\n",
 		size >> 10);
