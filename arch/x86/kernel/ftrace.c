@@ -215,7 +215,7 @@ do_ftrace_mod_code(unsigned long ip, void *new_code)
 
 
 
-static unsigned char ftrace_nop[MCOUNT_INSN_SIZE];
+static unsigned char ftrace_nop[MCOUNT_INSN_SIZE] __read_only;
 
 static unsigned char *ftrace_nop_replace(void)
 {
@@ -227,6 +227,8 @@ ftrace_modify_code(unsigned long ip, unsigned char *old_code,
 		   unsigned char *new_code)
 {
 	unsigned char replaced[MCOUNT_INSN_SIZE];
+
+	ip = ktla_ktva(ip);
 
 	/*
 	 * Note: Due to modules and __init, code can
@@ -286,7 +288,7 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
 
 	memcpy(old, (void *)ktla_ktva((unsigned long)ftrace_call), MCOUNT_INSN_SIZE);
 	new = ftrace_call_replace(ip, (unsigned long)func);
-	ret = ftrace_modify_code(ktla_ktva(ip), old, new);
+	ret = ftrace_modify_code(ip, old, new);
 
 	return ret;
 }
@@ -337,15 +339,15 @@ int __init ftrace_dyn_arch_init(void *data)
 	switch (faulted) {
 	case 0:
 		pr_info("ftrace: converting mcount calls to 0f 1f 44 00 00\n");
-		memcpy(ftrace_nop, ftrace_test_p6nop, MCOUNT_INSN_SIZE);
+		memcpy(ftrace_nop, ktla_ktva(ftrace_test_p6nop), MCOUNT_INSN_SIZE);
 		break;
 	case 1:
 		pr_info("ftrace: converting mcount calls to 66 66 66 66 90\n");
-		memcpy(ftrace_nop, ftrace_test_nop5, MCOUNT_INSN_SIZE);
+		memcpy(ftrace_nop, ktla_ktva(ftrace_test_nop5), MCOUNT_INSN_SIZE);
 		break;
 	case 2:
 		pr_info("ftrace: converting mcount calls to jmp . + 5\n");
-		memcpy(ftrace_nop, ftrace_test_jmp, MCOUNT_INSN_SIZE);
+		memcpy(ftrace_nop, ktla_ktva(ftrace_test_jmp), MCOUNT_INSN_SIZE);
 		break;
 	}
 

@@ -569,13 +569,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 		return;
 
 	sp = slob_page(ptr);
-	/* XXX: can get a little tighter with this stack check */
-	if (!PageSlobPage((struct page*)sp) && object_is_on_stack(ptr) &&
-	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
-	     (unsigned long)ptr)))
-		goto report;
-	else if (!PageSlobPage((struct page*)sp))
+	if (!PageSlab((struct page*)sp)) {
+		if (object_is_on_stack(ptr, n) == -1)
+			goto report;
 		return;
+	}
 
 	if (sp->size) {
 		base = page_address(&sp->page);

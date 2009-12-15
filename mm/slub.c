@@ -2893,13 +2893,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	page = get_object_page(ptr);
 
-	/* XXX: can get a little tighter with this stack check */
-	if (!page && object_is_on_stack(ptr) &&
-	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
-	     (unsigned long)ptr)))
-		goto report;
-	else if (!page)
+	if (!page) {
+		if (object_is_on_stack(ptr, n) == -1)
+			goto report;
 		return;
+	}
 
 	s = page->slab;
 	offset = (ptr - page_address(page)) % s->size;

@@ -350,6 +350,7 @@ static inline unsigned long __copy_from_user_inatomic(void *to,
 		if (ret == 0)
 			return 0;
 	}
+
 	if (!__builtin_constant_p(n))
 		check_object_size(to, n, false);
 
@@ -379,6 +380,7 @@ static inline unsigned long __copy_to_user_inatomic(void __user *to,
 		if (ret == 0)
 			return 0;
 	}
+
 	if (!__builtin_constant_p(n))
 		check_object_size(from, n, true);
 
@@ -406,13 +408,12 @@ static inline unsigned long __must_check copy_from_user(void *to,
 {
 	unsigned long over;
 
-	if (((long)n < 0) || (n > INT_MAX))
+	if ((long)n < 0)
 		return n;
 
 	if (access_ok(VERIFY_READ, from, n)) {
 		if (!__builtin_constant_p(n))
 			check_object_size(to, n, false);
-
 		return __copy_tofrom_user((__force void __user *)to, from, n);
 	}
 	if ((unsigned long)from < TASK_SIZE) {
@@ -430,7 +431,7 @@ static inline unsigned long __must_check copy_to_user(void __user *to,
 {
 	unsigned long over;
 
-	if (((long)n < 0) || (n > INT_MAX))
+	if ((long)n < 0)
 		return n;
 
 	if (access_ok(VERIFY_WRITE, to, n)) {
@@ -453,10 +454,9 @@ static inline unsigned long __must_check copy_to_user(void __user *to,
 #define __copy_in_user(to, from, size) \
 	__copy_tofrom_user((to), (from), (size))
 
-static inline unsigned long __must_check copy_from_user(void *to,
-				const void __user *from, unsigned long n)
+static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	if (unlikely(((long)n < 0) || (n > INT_MAX)))
+	if ((long)n < 0 || n > INT_MAX)
 		return n;
 
 	if (!__builtin_constant_p(n))
@@ -466,14 +466,12 @@ static inline unsigned long __must_check copy_from_user(void *to,
 		n = __copy_from_user(to, from, n);
 	else
 		memset(to, 0, n);
-
 	return n;
 }
 
-static inline unsigned long __must_check copy_to_user(void __user *to,
-				const void *from, unsigned long n)
+static inline unsigned long __must_check copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	if (unlikely(((long)n < 0) || (n > INT_MAX)))
+	if ((long)n < 0 || n > INT_MAX)
 		return n;
 
 	if (likely(access_ok(VERIFY_WRITE, to, n))) {
@@ -481,7 +479,6 @@ static inline unsigned long __must_check copy_to_user(void __user *to,
 			check_object_size(from, n, true);
 		n = __copy_to_user(to, from, n);
 	}
-
 	return n;
 }
 

@@ -481,11 +481,7 @@ void symbol_put_addr(void *addr);
 static inline local_t *__module_ref_addr(struct module *mod, int cpu)
 {
 #ifdef CONFIG_SMP
-#ifdef CONFIG_X86_32
-	return (local_t *) (mod->refptr + __per_cpu_offset[cpu]);
-#else
 	return (local_t *) (mod->refptr + per_cpu_offset(cpu));
-#endif
 #else
 	return &mod->ref;
 #endif

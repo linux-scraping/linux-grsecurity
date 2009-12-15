@@ -257,7 +257,7 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
 	const void *__cu_from = (from);							\
 	long __cu_len = (n);								\
 											\
-	if (__cu_len > 0 && __cu_len <= INT_MAX && __access_ok(__cu_to, __cu_len, get_fs()))	\
+	if (__cu_len > 0  && __cu_len <= INT_MAX && __access_ok(__cu_to, __cu_len, get_fs()))			\
 		__cu_len = __copy_user(__cu_to, (__force void __user *) __cu_from, __cu_len);	\
 	__cu_len;									\
 })
@@ -269,7 +269,7 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
 	long __cu_len = (n);								\
 											\
 	__chk_user_ptr(__cu_from);							\
-	if (__cu_len > 0 && __cu_len <= INT_MAX && __access_ok(__cu_from, __cu_len, get_fs()))	\
+	if (__cu_len > 0 && __cu_len <= INT_MAX  && __access_ok(__cu_from, __cu_len, get_fs()))			\
 		__cu_len = __copy_user((__force void __user *) __cu_to, __cu_from, __cu_len);	\
 	__cu_len;									\
 })

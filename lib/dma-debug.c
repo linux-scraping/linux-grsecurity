@@ -855,7 +855,7 @@ out:
 
 static void check_for_stack(struct device *dev, void *addr)
 {
-	if (object_is_on_stack(addr))
+	if (object_starts_on_stack(addr))
 		err_printk(dev, NULL, "DMA-API: device driver maps memory from"
 				"stack [addr=%p]\n", addr);
 }

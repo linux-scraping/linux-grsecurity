@@ -4505,13 +4505,11 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	page = virt_to_head_page(ptr);
 
-	/* XXX: can get a little tighter with this stack check */
-	if (!PageSlab(page) && object_is_on_stack(ptr) &&
-	    (n > ((unsigned long)task_stack_page(current) + THREAD_SIZE -
-	     (unsigned long)ptr)))
-		goto report;
-	else if (!PageSlab(page))
+	if (!PageSlab(page)) {
+		if (object_is_on_stack(ptr, n) == -1)
+			goto report;
 		return;
+	}
 
 	cachep = page_get_cache(page);
 	slabp = page_get_slab(page);

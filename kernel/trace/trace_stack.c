@@ -50,7 +50,7 @@ static inline void check_stack(void)
 		return;
 
 	/* we do not handle interrupt stacks yet */
-	if (!object_is_on_stack(&this_size))
+	if (!object_starts_on_stack(&this_size))
 		return;
 
 	local_irq_save(flags);
