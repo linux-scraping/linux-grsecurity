@@ -27,17 +27,7 @@ void
 gr_log_resource(const struct task_struct *task,
 		const int res, const unsigned long wanted, const int gt)
 {
-	const struct cred *cred = __task_cred(task);
-
-	if (res == RLIMIT_NPROC && 
-	    (cap_raised(cred->cap_effective, CAP_SYS_ADMIN) || 
-	     cap_raised(cred->cap_effective, CAP_SYS_RESOURCE)))
-		return;
-	else if (res == RLIMIT_MEMLOCK &&
-		 cap_raised(cred->cap_effective, CAP_IPC_LOCK))
-		return;
-	else if (res == RLIMIT_NICE && cap_raised(cred->cap_effective, CAP_SYS_NICE))
-		return;
+	const struct cred *cred;
 
 	if (!gr_acl_is_enabled() && !grsec_resource_logging)
 		return;
@@ -45,6 +35,20 @@ gr_log_resource(const struct task_struct *task,
 	// not yet supported resource
 	if (!restab_log[res])
 		return;
+
+	rcu_read_lock();
+	cred = __task_cred(task);
+
+	if (res == RLIMIT_NPROC && 
+	    (cap_raised(cred->cap_effective, CAP_SYS_ADMIN) || 
+	     cap_raised(cred->cap_effective, CAP_SYS_RESOURCE)))
+		goto out_rcu_unlock;
+	else if (res == RLIMIT_MEMLOCK &&
+		 cap_raised(cred->cap_effective, CAP_IPC_LOCK))
+		goto out_rcu_unlock;
+	else if (res == RLIMIT_NICE && cap_raised(cred->cap_effective, CAP_SYS_NICE))
+		goto out_rcu_unlock;
+	rcu_read_unlock();
 
 	preempt_disable();
 
@@ -54,5 +58,8 @@ gr_log_resource(const struct task_struct *task,
 		gr_log_res_ulong2_str(GR_DONT_AUDIT, GR_RESOURCE_MSG, task, wanted, restab_log[res], task->signal->rlim[res].rlim_cur);
 	preempt_enable_no_resched();
 
+	return;
+out_rcu_unlock:
+	rcu_read_unlock();
 	return;
 }

@@ -192,7 +192,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 	struct acl_subject_label *curr;
 	struct acl_subject_label *curr2;
 	struct task_struct *tsk, *tsk2;
-	const struct cred *cred = __task_cred(task);
+	const struct cred *cred;
 	const struct cred *cred2;
 
 	if (sig != SIGSEGV && sig != SIGKILL && sig != SIGBUS && sig != SIGILL)
@@ -218,6 +218,8 @@ gr_handle_crash(struct task_struct *task, const int sig)
 
 	if ((curr->crashes >= curr->res[GR_CRASH_RES].rlim_cur) &&
 	    time_after(curr->expires, get_seconds())) {
+		rcu_read_lock();
+		cred = __task_cred(task);
 		if (cred->uid && proc_is_setxid(cred)) {
 			gr_log_crash1(GR_DONT_AUDIT, GR_SEGVSTART_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			spin_lock(&gr_uid_lock);
@@ -246,6 +248,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 			} while_each_thread(tsk2, tsk);
 			read_unlock(&tasklist_lock);
 		}
+		rcu_read_unlock();
 	}
 
 	return;

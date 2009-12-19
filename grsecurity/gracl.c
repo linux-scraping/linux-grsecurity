@@ -3137,6 +3137,7 @@ gr_set_acls(const int type)
 	struct name_entry *nmatch;
 	struct acl_subject_label *tmpsubj;
 
+	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
 	do_each_thread(task2, task) {
@@ -3205,6 +3206,7 @@ gr_set_acls(const int type)
 			} else {
 				read_unlock(&grsec_exec_file_lock);
 				read_unlock(&tasklist_lock);
+				rcu_read_unlock();
 				gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_DEFACL_MSG, task->comm, task->pid);
 				return 1;
 			}
@@ -3219,6 +3221,8 @@ gr_set_acls(const int type)
 	} while_each_thread(task2, task);
 	read_unlock(&grsec_exec_file_lock);
 	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+
 	return 0;
 }
 
@@ -3309,11 +3313,13 @@ gr_learn_resource(const struct task_struct *task,
 
 		/* only log the subject filename, since resource logging is supported for
 		   single-subject learning only */
+		rcu_read_lock();
 		cred = __task_cred(task);
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
 			       task->role->roletype, cred->uid, cred->gid, acl->filename,
 			       acl->filename, acl->res[res].rlim_cur, acl->res[res].rlim_max,
 			       "", (unsigned long) res, &task->signal->curr_ip);
+		rcu_read_unlock();
 	}
 
 	return;

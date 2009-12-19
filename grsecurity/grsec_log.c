@@ -6,6 +6,7 @@
 #include <linux/grinternal.h>
 
 #define BEGIN_LOCKS(x) \
+	rcu_read_lock(); \
 	read_lock(&tasklist_lock); \
 	read_lock(&grsec_exec_file_lock); \
 	if (x != GR_DO_AUDIT) \
@@ -20,6 +21,7 @@
 		spin_unlock(&grsec_audit_lock); \
 	read_unlock(&grsec_exec_file_lock); \
 	read_unlock(&tasklist_lock); \
+	rcu_read_unlock(); \
 	if (x == GR_DONT_AUDIT) \
 		gr_handle_alertkill(current)
 
