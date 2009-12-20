@@ -1093,13 +1093,18 @@ ftrace_code_disable(struct module *mod, struct dyn_ftrace *rec)
 
 	ip = rec->ip;
 
+	ret = ftrace_arch_code_modify_prepare();
+	FTRACE_WARN_ON(ret);
+	if (ret)
+		return 0;
+
 	ret = ftrace_make_nop(mod, rec, MCOUNT_ADDR);
+	FTRACE_WARN_ON(ftrace_arch_code_modify_post_process());
 	if (ret) {
 		ftrace_bug(ret, ip);
 		rec->flags |= FTRACE_FL_FAILED;
-		return 0;
 	}
-	return 1;
+	return ret ? 0 : 1;
 }
 
 /*

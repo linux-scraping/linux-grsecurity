@@ -149,7 +149,9 @@ void ftrace_nmi_enter(void)
 {
 	if (atomic_inc_return(&nmi_running) & MOD_CODE_WRITE_FLAG) {
 		smp_rmb();
+		pax_open_kernel();
 		ftrace_mod_code();
+		pax_close_kernel();
 		atomic_inc(&nmi_update_count);
 	}
 	/* Must have previous changes seen before executions */

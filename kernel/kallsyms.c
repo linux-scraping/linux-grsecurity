@@ -76,6 +76,21 @@ static inline int is_kernel(unsigned long addr)
 	if (is_kernel_inittext(addr))
 		return 1;
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if ((unsigned long)MODULES_EXEC_VADDR <= ktla_ktva(addr) && ktla_ktva(addr) <= (unsigned long)MODULES_EXEC_END)
+		return 0;
+
+	if (is_kernel_text(addr))
+		return 1;
+
+	if (ktla_ktva((unsigned long)_stext) <= addr && addr < ktla_ktva((unsigned long)_etext))
+		return 1;
+
+	if ((addr >= (unsigned long)_sdata && addr <= (unsigned long)_end))
+		return 1;
+	return in_gate_area_no_task(addr);
+#endif
+
 	if (addr >= (unsigned long)_stext && addr <= (unsigned long)_end)
 		return 1;
 	return in_gate_area_no_task(addr);
