@@ -179,8 +179,8 @@ extern const int rodata_test_data;
 void set_kernel_text_rw(void);
 void set_kernel_text_ro(void);
 #else
-static inline void set_kernel_text_rw(void) { pax_open_kernel(); }
-static inline void set_kernel_text_ro(void) { pax_close_kernel(); }
+static inline void set_kernel_text_rw(void) { }
+static inline void set_kernel_text_ro(void) { }
 #endif
 
 #ifdef CONFIG_DEBUG_RODATA_TEST

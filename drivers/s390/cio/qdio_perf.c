@@ -31,51 +31,51 @@ static struct proc_dir_entry *qdio_perf_pde;
 static int qdio_perf_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "Number of qdio interrupts\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.qdio_int));
+		   (long)atomic_long_read_unchecked(&perf_stats.qdio_int));
 	seq_printf(m, "Number of PCI interrupts\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.pci_int));
+		   (long)atomic_long_read_unchecked(&perf_stats.pci_int));
 	seq_printf(m, "Number of adapter interrupts\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.thin_int));
+		   (long)atomic_long_read_unchecked(&perf_stats.thin_int));
 	seq_printf(m, "\n");
 	seq_printf(m, "Inbound tasklet runs\t\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.tasklet_inbound));
+		   (long)atomic_long_read_unchecked(&perf_stats.tasklet_inbound));
 	seq_printf(m, "Outbound tasklet runs\t\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.tasklet_outbound));
+		   (long)atomic_long_read_unchecked(&perf_stats.tasklet_outbound));
 	seq_printf(m, "Adapter interrupt tasklet runs/loops\t\t: %li/%li\n",
-		   (long)atomic_long_read(&perf_stats.tasklet_thinint),
-		   (long)atomic_long_read(&perf_stats.tasklet_thinint_loop));
+		   (long)atomic_long_read_unchecked(&perf_stats.tasklet_thinint),
+		   (long)atomic_long_read_unchecked(&perf_stats.tasklet_thinint_loop));
 	seq_printf(m, "Adapter interrupt inbound tasklet runs/loops\t: %li/%li\n",
-		   (long)atomic_long_read(&perf_stats.thinint_inbound),
-		   (long)atomic_long_read(&perf_stats.thinint_inbound_loop));
+		   (long)atomic_long_read_unchecked(&perf_stats.thinint_inbound),
+		   (long)atomic_long_read_unchecked(&perf_stats.thinint_inbound_loop));
 	seq_printf(m, "\n");
 	seq_printf(m, "Number of SIGA In issued\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.siga_in));
+		   (long)atomic_long_read_unchecked(&perf_stats.siga_in));
 	seq_printf(m, "Number of SIGA Out issued\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.siga_out));
+		   (long)atomic_long_read_unchecked(&perf_stats.siga_out));
 	seq_printf(m, "Number of SIGA Sync issued\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.siga_sync));
+		   (long)atomic_long_read_unchecked(&perf_stats.siga_sync));
 	seq_printf(m, "\n");
 	seq_printf(m, "Number of inbound transfers\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.inbound_handler));
+		   (long)atomic_long_read_unchecked(&perf_stats.inbound_handler));
 	seq_printf(m, "Number of outbound transfers\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.outbound_handler));
+		   (long)atomic_long_read_unchecked(&perf_stats.outbound_handler));
 	seq_printf(m, "\n");
 	seq_printf(m, "Number of fast requeues (outg. SBAL w/o SIGA)\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.fast_requeue));
+		   (long)atomic_long_read_unchecked(&perf_stats.fast_requeue));
 	seq_printf(m, "Number of outbound target full condition\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.outbound_target_full));
+		   (long)atomic_long_read_unchecked(&perf_stats.outbound_target_full));
 	seq_printf(m, "Number of outbound tasklet mod_timer calls\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.debug_tl_out_timer));
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_tl_out_timer));
 	seq_printf(m, "Number of stop polling calls\t\t\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.debug_stop_polling));
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_stop_polling));
 	seq_printf(m, "AI inbound tasklet loops after stop polling\t: %li\n",
-		   (long)atomic_long_read(&perf_stats.thinint_inbound_loop2));
+		   (long)atomic_long_read_unchecked(&perf_stats.thinint_inbound_loop2));
 	seq_printf(m, "QEBSM EQBS total/incomplete\t\t\t: %li/%li\n",
-		   (long)atomic_long_read(&perf_stats.debug_eqbs_all),
-		   (long)atomic_long_read(&perf_stats.debug_eqbs_incomplete));
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_eqbs_all),
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_eqbs_incomplete));
 	seq_printf(m, "QEBSM SQBS total/incomplete\t\t\t: %li/%li\n",
-		   (long)atomic_long_read(&perf_stats.debug_sqbs_all),
-		   (long)atomic_long_read(&perf_stats.debug_sqbs_incomplete));
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_sqbs_all),
+		   (long)atomic_long_read_unchecked(&perf_stats.debug_sqbs_incomplete));
 	seq_printf(m, "\n");
 	return 0;
 }

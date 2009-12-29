@@ -145,6 +145,21 @@ atomic64_add: /* %o0 = increment, %o1 = atomic_ptr */
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 	.size	atomic64_add, .-atomic64_add
 
+	.globl	atomic64_add_unchecked
+	.type	atomic64_add_unchecked,#function
+atomic64_add_unchecked: /* %o0 = increment, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	ldx	[%o1], %g1
+	addcc	%g1, %o0, %g7
+	casx	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%xcc, 2f
+	 nop
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic64_add_unchecked, .-atomic64_add_unchecked
+
 	.globl	atomic64_sub
 	.type	atomic64_sub,#function
 atomic64_sub: /* %o0 = decrement, %o1 = atomic_ptr */
@@ -185,6 +200,22 @@ atomic64_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 	 nop
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 	.size	atomic64_add_ret, .-atomic64_add_ret
+
+	.globl	atomic64_add_ret_unchecked
+	.type	atomic64_add_ret_unchecked,#function
+atomic64_add_ret_unchecked: /* %o0 = increment, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	ldx	[%o1], %g1
+	addcc	%g1, %o0, %g7
+	casx	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%xcc, 2f
+	 add	%g7, %o0, %g7
+	mov	%g7, %o0
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic64_add_ret_unchecked, .-atomic64_add_ret_unchecked
 
 	.globl	atomic64_sub_ret
 	.type	atomic64_sub_ret,#function

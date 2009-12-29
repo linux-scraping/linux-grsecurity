@@ -16,50 +16,50 @@ enum dma_data_direction {
 };
 
 struct dma_map_ops {
-	void* (*alloc_coherent)(struct device *dev, size_t size,
+	void* (* const alloc_coherent)(struct device *dev, size_t size,
 				dma_addr_t *dma_handle, gfp_t gfp);
-	void (*free_coherent)(struct device *dev, size_t size,
+	void (* const free_coherent)(struct device *dev, size_t size,
 			      void *vaddr, dma_addr_t dma_handle);
-	dma_addr_t (*map_page)(struct device *dev, struct page *page,
+	dma_addr_t (* const map_page)(struct device *dev, struct page *page,
 			       unsigned long offset, size_t size,
 			       enum dma_data_direction dir,
 			       struct dma_attrs *attrs);
-	void (*unmap_page)(struct device *dev, dma_addr_t dma_handle,
+	void (* const unmap_page)(struct device *dev, dma_addr_t dma_handle,
 			   size_t size, enum dma_data_direction dir,
 			   struct dma_attrs *attrs);
-	int (*map_sg)(struct device *dev, struct scatterlist *sg,
+	int (* const map_sg)(struct device *dev, struct scatterlist *sg,
 		      int nents, enum dma_data_direction dir,
 		      struct dma_attrs *attrs);
-	void (*unmap_sg)(struct device *dev,
+	void (* const unmap_sg)(struct device *dev,
 			 struct scatterlist *sg, int nents,
 			 enum dma_data_direction dir,
 			 struct dma_attrs *attrs);
-	void (*sync_single_for_cpu)(struct device *dev,
+	void (* const sync_single_for_cpu)(struct device *dev,
 				    dma_addr_t dma_handle, size_t size,
 				    enum dma_data_direction dir);
-	void (*sync_single_for_device)(struct device *dev,
+	void (* const sync_single_for_device)(struct device *dev,
 				       dma_addr_t dma_handle, size_t size,
 				       enum dma_data_direction dir);
-	void (*sync_single_range_for_cpu)(struct device *dev,
+	void (* const sync_single_range_for_cpu)(struct device *dev,
 					  dma_addr_t dma_handle,
 					  unsigned long offset,
 					  size_t size,
 					  enum dma_data_direction dir);
-	void (*sync_single_range_for_device)(struct device *dev,
+	void (* const sync_single_range_for_device)(struct device *dev,
 					     dma_addr_t dma_handle,
 					     unsigned long offset,
 					     size_t size,
 					     enum dma_data_direction dir);
-	void (*sync_sg_for_cpu)(struct device *dev,
+	void (* const sync_sg_for_cpu)(struct device *dev,
 				struct scatterlist *sg, int nents,
 				enum dma_data_direction dir);
-	void (*sync_sg_for_device)(struct device *dev,
+	void (* const sync_sg_for_device)(struct device *dev,
 				   struct scatterlist *sg, int nents,
 				   enum dma_data_direction dir);
-	int (*mapping_error)(struct device *dev, dma_addr_t dma_addr);
-	int (*dma_supported)(struct device *dev, u64 mask);
-	int (*set_dma_mask)(struct device *dev, u64 mask);
-	int is_phys;
+	int (* const mapping_error)(struct device *dev, dma_addr_t dma_addr);
+	int (* const dma_supported)(struct device *dev, u64 mask);
+	int (* const set_dma_mask)(struct device *dev, u64 mask);
+	const int is_phys;
 };
 
 #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))

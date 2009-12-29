@@ -380,7 +380,7 @@ struct dst_node
 	struct thread_pool	*pool;
 
 	/* Transaction IDs live here */
-	atomic_long_t		gen;
+	atomic_long_unchecked_t	gen;
 
 	/*
 	 * How frequently and how many times transaction

@@ -346,6 +346,38 @@ no_xadd: /* Legacy 386 processor */
 }
 
 /**
+ * atomic_add_return_unchecked - add integer and return
+ * @v: pointer of type atomic_unchecked_t
+ * @i: integer value to add
+ *
+ * Atomically adds @i to @v and returns @i + @v
+ */
+static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	int __i;
+#ifdef CONFIG_M386
+	unsigned long flags;
+	if (unlikely(boot_cpu_data.x86 <= 3))
+		goto no_xadd;
+#endif
+	/* Modern 486+ processor */
+	__i = i;
+	asm volatile(LOCK_PREFIX "xaddl %0, %1"
+		     : "+r" (i), "+m" (v->counter)
+		     : : "memory");
+	return i + __i;
+
+#ifdef CONFIG_M386
+no_xadd: /* Legacy 386 processor */
+	local_irq_save(flags);
+	__i = atomic_read(v);
+	atomic_set(v, i + __i);
+	local_irq_restore(flags);
+	return i + __i;
+#endif
+}
+
+/**
  * atomic_sub_return - subtract integer and return
  * @v: pointer of type atomic_t
  * @i: integer value to subtract
@@ -405,6 +437,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
+#define atomic_inc_return_unchecked(v)  (atomic_add_return_unchecked(1, v))
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 /* These are x86-specific, used by some header files */
@@ -427,6 +460,14 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 typedef struct {
 	u64 __aligned(8) counter;
 } atomic64_t;
+
+#ifdef CONFIG_PAX_REFCOUNT
+typedef struct {
+	u64 __aligned(8) counter;
+} atomic64_unchecked_t;
+#else
+typedef atomic64_t atomic64_unchecked_t;
+#endif
 
 #define ATOMIC64_INIT(val)	{ (val) }
 

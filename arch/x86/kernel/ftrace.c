@@ -370,6 +370,8 @@ static int ftrace_mod_jmp(unsigned long ip,
 {
 	unsigned char code[MCOUNT_INSN_SIZE];
 
+	ip = ktla_ktva(ip);
+
 	if (probe_kernel_read(code, (void *)ip, MCOUNT_INSN_SIZE))
 		return -EFAULT;
 

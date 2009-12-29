@@ -20,9 +20,7 @@
 #define ATOMIC_INIT(i)  { (i) }
 
 #define atomic_read(v)		((v)->counter)
-#define atomic_read_unchecked(v)	((v)->counter)
 #define atomic_set(v, i)	(((v)->counter) = i)
-#define atomic_set_unchecked(v, i)	(((v)->counter) = i)
 
 /*
  * atomic_sub_return - subtract the atomic variable
@@ -47,18 +45,6 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 		: "cc");
 
 	return result;
-}
-
-/*
- * atomic_sub_return_unchecked - subtract the atomic variable
- * @i: integer value to subtract
- * @v: pointer of type atomic_unchecked_t
- *
- * Atomically subtracts @i from @v. Returns the resulting value.
- */
-static inline int atomic_sub_return_unchecked(int i, atomic_unchecked_t *v)
-{
-	return atomic_sub_return(i, (atomic_t *)v);
 }
 
 /*
@@ -87,18 +73,6 @@ static inline int atomic_add_return(int i, atomic_t *v)
 			: "cc", "memory");
 
 	return result;
-}
-
-/*
- * atomic_add_return_unchecked - add integer to atomic variable
- * @i: integer value to add
- * @v: pointer of type atomic_unchecked_t
- *
- * Atomically adds @i to @v. Returns the resulting value.
- */
-static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
-{
-	return atomic_add_return(i, (atomic_t *)v);
 }
 
 /*
@@ -202,12 +176,9 @@ static inline int atomic_sub_if_positive(int i, atomic_t *v)
 #define atomic_cmpxchg(v, o, n)	(cmpxchg(&((v)->counter), (o), (n)))
 
 #define atomic_sub(i, v)	(void)atomic_sub_return(i, v)
-#define atomic_sub_unchecked(i, v)	(void)atomic_sub_return_unchecked(i, v)
 #define atomic_add(i, v)	(void)atomic_add_return(i, v)
-#define atomic_add_unchecked(i, v)	(void)atomic_add_return_unchecked(i, v)
 #define atomic_dec(v)		atomic_sub(1, (v))
 #define atomic_inc(v)		atomic_add(1, (v))
-#define atomic_inc_unchecked(v)	(void)atomic_add_return_unchecked(1, (v))
 
 #define atomic_dec_return(v)	atomic_sub_return(1, v)
 #define atomic_inc_return(v)	atomic_add_return(1, v)

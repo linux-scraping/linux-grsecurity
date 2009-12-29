@@ -965,16 +965,16 @@ static int nfs_size_need_update(const struct inode *inode, const struct nfs_fatt
 	return nfs_size_to_loff_t(fattr->size) > i_size_read(inode);
 }
 
-static atomic_long_t nfs_attr_generation_counter;
+static atomic_long_unchecked_t nfs_attr_generation_counter;
 
 static unsigned long nfs_read_attr_generation_counter(void)
 {
-	return atomic_long_read(&nfs_attr_generation_counter);
+	return atomic_long_read_unchecked(&nfs_attr_generation_counter);
 }
 
 unsigned long nfs_inc_attr_generation_counter(void)
 {
-	return atomic_long_inc_return(&nfs_attr_generation_counter);
+	return atomic_long_inc_return_unchecked(&nfs_attr_generation_counter);
 }
 
 void nfs_fattr_init(struct nfs_fattr *fattr)

@@ -360,6 +360,18 @@ static inline long atomic64_read(const atomic64_t *v)
 }
 
 /**
+ * atomic64_read_unchecked - read atomic64 variable
+ * @v: pointer of type atomic64_unchecked_t
+ *
+ * Atomically reads the value of @v.
+ * Doesn't imply a read memory barrier.
+ */
+static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
+{
+	return v->counter;
+}
+
+/**
  * atomic64_set - set atomic64 variable
  * @v: pointer to type atomic64_t
  * @i: required value
@@ -367,6 +379,18 @@ static inline long atomic64_read(const atomic64_t *v)
  * Atomically sets the value of @v to @i.
  */
 static inline void atomic64_set(atomic64_t *v, long i)
+{
+	v->counter = i;
+}
+
+/**
+ * atomic64_set_unchecked - set atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ * @i: required value
+ *
+ * Atomically sets the value of @v to @i.
+ */
+static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
 {
 	v->counter = i;
 }
@@ -389,6 +413,20 @@ static inline void atomic64_add(long i, atomic64_t *v)
 		     _ASM_EXTABLE(0b, 0b)
 #endif
 
+		     : "=m" (v->counter)
+		     : "er" (i), "m" (v->counter));
+}
+
+/**
+ * atomic64_add_unchecked - add integer to atomic64 variable
+ * @i: integer value to add
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @i to @v.
+ */
+static inline void atomic64_add_unchecked(long i, atomic64_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "addq %1,%0"
 		     : "=m" (v->counter)
 		     : "er" (i), "m" (v->counter));
 }
@@ -464,6 +502,19 @@ static inline void atomic64_inc(atomic64_t *v)
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
+		     : "=m" (v->counter)
+		     : "m" (v->counter));
+}
+
+/**
+ * atomic64_inc_unchecked - increment atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically increments @v by 1.
+ */
+static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "incq %0"
 		     : "=m" (v->counter)
 		     : "m" (v->counter));
 }
@@ -607,12 +658,29 @@ static inline long atomic64_add_return(long i, atomic64_t *v)
 	return i + __i;
 }
 
+/**
+ * atomic64_add_return_unchecked - add and return
+ * @i: integer value to add
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @i to @v and returns @i + @v
+ */
+static inline long atomic64_add_return_unchecked(long i, atomic64_unchecked_t *v)
+{
+	long __i = i;
+	asm volatile(LOCK_PREFIX "xaddq %0, %1"
+		     : "+r" (i), "+m" (v->counter)
+		     : : "memory");
+	return i + __i;
+}
+
 static inline long atomic64_sub_return(long i, atomic64_t *v)
 {
 	return atomic64_add_return(-i, v);
 }
 
 #define atomic64_inc_return(v)  (atomic64_add_return(1, (v)))
+#define atomic64_inc_return_unchecked(v)  (atomic64_add_return_unchecked(1, (v)))
 #define atomic64_dec_return(v)  (atomic64_sub_return(1, (v)))
 
 static inline long atomic64_cmpxchg(atomic64_t *v, long old, long new)

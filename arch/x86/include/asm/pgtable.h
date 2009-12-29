@@ -89,8 +89,8 @@ static inline unsigned long native_pax_open_kernel(void)
 	preempt_disable();
 	barrier();
 	cr0 = read_cr0();
-	if (likely(cr0 & X86_CR0_WP))
-		write_cr0(cr0 & ~X86_CR0_WP);
+	BUG_ON(unlikely(!(cr0 & X86_CR0_WP)));
+	write_cr0(cr0 & ~X86_CR0_WP);
 	return cr0;
 }
 
@@ -99,8 +99,8 @@ static inline unsigned long native_pax_close_kernel(void)
 	unsigned long cr0;
 
 	cr0 = read_cr0();
-	if (likely(!(cr0 & X86_CR0_WP)))
-		write_cr0(cr0 | X86_CR0_WP);
+	BUG_ON(unlikely(cr0 & X86_CR0_WP));
+	write_cr0(cr0 | X86_CR0_WP);
 	barrier();
 	preempt_enable_no_resched();
 	return cr0;

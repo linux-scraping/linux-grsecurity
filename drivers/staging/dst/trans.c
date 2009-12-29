@@ -169,7 +169,7 @@ int dst_process_bio(struct dst_node *n, struct bio *bio)
 	t->error = 0;
 	t->retries = 0;
 	atomic_set(&t->refcnt, 1);
-	t->gen = atomic_long_inc_return(&n->gen);
+	t->gen = atomic_long_inc_return_unchecked(&n->gen);
 
 	t->enc = bio_data_dir(bio);
 	dst_bio_to_cmd(bio, &t->cmd, DST_IO, t->gen);

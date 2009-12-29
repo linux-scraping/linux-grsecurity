@@ -121,7 +121,7 @@ struct pohmelfs_mcache *pohmelfs_mcache_alloc(struct pohmelfs_sb *psb, u64 start
 	m->data = data;
 	m->start = start;
 	m->size = size;
-	m->gen = atomic_long_inc_return(&psb->mcache_gen);
+	m->gen = atomic_long_inc_return_unchecked(&psb->mcache_gen);
 
 	mutex_lock(&psb->mcache_lock);
 	err = pohmelfs_mcache_insert(psb, m);

@@ -49,14 +49,6 @@
 #define atomic_read(v)		((v)->counter)
 
 /**
- * atomic_read_unchecked - read atomic variable
- * @v: pointer of type atomic_unchecked_t
- *
- * Atomically reads the value of @v.
- */
-#define atomic_read_unchecked(v)	((v)->counter)
-
-/**
  * atomic_set - set atomic variable
  * @v: pointer of type atomic_t
  * @i: required value
@@ -64,15 +56,6 @@
  * Atomically sets the value of @v to @i.
  */
 #define atomic_set(v,i)		((v)->counter = (i))
-
-/**
- * atomic_set_unchecked - set atomic variable
- * @v: pointer of type atomic_unchecked_t
- * @i: required value
- *
- * Atomically sets the value of @v to @i.
- */
-#define atomic_set_unchecked(v,i)	((v)->counter = (i))
 
 /**
  * atomic_add - add integer to atomic variable
@@ -98,11 +81,6 @@ static inline void atomic_add(int i, atomic_t * v)
 	);
 }
 
-static inline void atomic_add_unchecked(int i, atomic_unchecked_t * v)
-{
-	atomic_add(i, (atomic_t *)v);
-}
-
 /**
  * atomic_sub - subtract the atomic variable
  * @i: integer value to subtract
@@ -125,11 +103,6 @@ static inline void atomic_sub(int i, atomic_t *v)
 	: "a" (i), "a" (v)
 	: "a15", "memory"
 	);
-}
-
-static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
-{
-	atomic_sub(i, (atomic_t *)v);
 }
 
 /*
@@ -192,7 +165,6 @@ static inline int atomic_sub_return(int i, atomic_t * v)
  * Atomically increments @v by 1.
  */
 #define atomic_inc(v) atomic_add(1,(v))
-#define atomic_inc_unchecked(v) atomic_add_unchecked(1,(v))
 
 /**
  * atomic_inc - increment atomic variable

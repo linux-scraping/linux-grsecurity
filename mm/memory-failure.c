@@ -46,7 +46,7 @@ int sysctl_memory_failure_early_kill __read_mostly = 0;
 
 int sysctl_memory_failure_recovery __read_mostly = 1;
 
-atomic_long_t mce_bad_pages __read_mostly = ATOMIC_LONG_INIT(0);
+atomic_long_unchecked_t mce_bad_pages __read_mostly = ATOMIC_LONG_INIT(0);
 
 /*
  * Send all the processes who have the page mapped an ``action optional''
@@ -741,7 +741,7 @@ int __memory_failure(unsigned long pfn, int trapno, int ref)
 		return 0;
 	}
 
-	atomic_long_add(1, &mce_bad_pages);
+	atomic_long_add_unchecked(1, &mce_bad_pages);
 
 	/*
 	 * We need/can do nothing about count=0 pages.

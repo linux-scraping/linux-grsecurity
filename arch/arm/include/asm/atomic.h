@@ -25,9 +25,7 @@
  * atomic_set() is the clrex or dummy strex done on every exception return.
  */
 #define atomic_read(v)	((v)->counter)
-#define atomic_read_unchecked(v)	((v)->counter)
 #define atomic_set(v,i)	(((v)->counter) = (i))
-#define atomic_set_unchecked(v,i)	(((v)->counter) = (i))
 
 #if __LINUX_ARM_ARCH__ >= 6
 
@@ -50,11 +48,6 @@ static inline void atomic_add(int i, atomic_t *v)
 	: "=&r" (result), "=&r" (tmp)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
-}
-
-static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
-{
-	atomic_add(i, (atomic_t *)v);
 }
 
 static inline int atomic_add_return(int i, atomic_t *v)
@@ -93,11 +86,6 @@ static inline void atomic_sub(int i, atomic_t *v)
 	: "=&r" (result), "=&r" (tmp)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
-}
-
-static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
-{
-	atomic_sub(i, (atomic_t *)v);
 }
 
 static inline int atomic_sub_return(int i, atomic_t *v)
@@ -232,7 +220,6 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
 #define atomic_inc(v)		atomic_add(1, v)
-#define atomic_inc_unchecked(v)		atomic_add_unchecked(1, v)
 #define atomic_dec(v)		atomic_sub(1, v)
 
 #define atomic_inc_and_test(v)	(atomic_add_return(1, v) == 0)

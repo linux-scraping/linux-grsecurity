@@ -16,9 +16,7 @@
 #define ATOMIC_INIT(i)	{ (i) }
 
 #define atomic_read(v)		((v)->counter)
-#define atomic_read_unchecked(v)	((v)->counter)
 #define atomic_set(v, i)	(((v)->counter) = i)
-#define atomic_set_unchecked(v, i)	(((v)->counter) = i)
 
 static __inline__ void atomic_add(int i, atomic_t *v)
 {
@@ -29,11 +27,6 @@ static __inline__ void atomic_add(int i, atomic_t *v)
 #endif
 }
 
-static __inline__ void atomic_add_unchecked(int i, atomic_unchecked_t *v)
-{
-	atomic_add(i, (atomic_t *)v);
-}
-
 static __inline__ void atomic_sub(int i, atomic_t *v)
 {
 #ifdef CONFIG_COLDFIRE
@@ -41,11 +34,6 @@ static __inline__ void atomic_sub(int i, atomic_t *v)
 #else
 	__asm__ __volatile__("subl %1,%0" : "+m" (*v) : "di" (i));
 #endif
-}
-
-static __inline__ void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
-{
-	atomic_sub(i, (atomic_t *)v);
 }
 
 static __inline__ int atomic_sub_and_test(int i, atomic_t * v)
@@ -66,11 +54,6 @@ static __inline__ int atomic_sub_and_test(int i, atomic_t * v)
 static __inline__ void atomic_inc(volatile atomic_t *v)
 {
 	__asm__ __volatile__("addql #1,%0" : "+m" (*v));
-}
-
-static __inline__ void atomic_inc_unchecked(volatile atomic_unchecked_t *v)
-{
-	atomic_inc((volatile atomic_t *)v);
 }
 
 /*

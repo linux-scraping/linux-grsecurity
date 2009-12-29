@@ -39,8 +39,8 @@ struct mcs_op_statistic mcs_op_statistics[mcsop_last];
 
 static void update_mcs_stats(enum mcs_op op, unsigned long clks)
 {
-	atomic_long_inc(&mcs_op_statistics[op].count);
-	atomic_long_add(clks, &mcs_op_statistics[op].total);
+	atomic_long_inc_unchecked(&mcs_op_statistics[op].count);
+	atomic_long_add_unchecked(clks, &mcs_op_statistics[op].total);
 	if (mcs_op_statistics[op].max < clks)
 		mcs_op_statistics[op].max = clks;
 }

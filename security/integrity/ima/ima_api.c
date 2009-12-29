@@ -74,7 +74,7 @@ void ima_add_violation(struct inode *inode, const unsigned char *filename,
 	int result;
 
 	/* can overflow, only indicator */
-	atomic_long_inc(&ima_htable.violations);
+	atomic_long_inc_unchecked(&ima_htable.violations);
 
 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry) {

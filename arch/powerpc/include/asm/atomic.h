@@ -24,19 +24,9 @@ static __inline__ int atomic_read(const atomic_t *v)
 	return t;
 }
 
-static __inline__ int atomic_read_unchecked(const atomic_unchecked_t *v)
-{
-	return atomic_read((const atomic_t *)v);
-}
-
 static __inline__ void atomic_set(atomic_t *v, int i)
 {
 	__asm__ __volatile__("stw%U0%X0 %1,%0" : "=m"(v->counter) : "r"(i));
-}
-
-static __inline__ void atomic_set_unchecked(atomic_unchecked_t *v, int i)
-{
-	atomic_set((atomic_t *)v, i);
 }
 
 static __inline__ void atomic_add(int a, atomic_t *v)
@@ -54,11 +44,6 @@ static __inline__ void atomic_add(int a, atomic_t *v)
 	: "cc");
 }
 
-static __inline__ void atomic_add_unchecked(int a, atomic_unchecked_t *v)
-{
-	atomic_add(a, (atomic_t *)v);
-}
-	
 static __inline__ int atomic_add_return(int a, atomic_t *v)
 {
 	int t;
@@ -95,11 +80,6 @@ static __inline__ void atomic_sub(int a, atomic_t *v)
 	: "cc");
 }
 
-static __inline__ void atomic_sub_unchecked(int a, atomic_unchecked_t *v)
-{
-	atomic_sub(a, (atomic_t *)v);
-}
-
 static __inline__ int atomic_sub_return(int a, atomic_t *v)
 {
 	int t;
@@ -132,11 +112,6 @@ static __inline__ void atomic_inc(atomic_t *v)
 	: "=&r" (t), "+m" (v->counter)
 	: "r" (&v->counter)
 	: "cc", "xer");
-}
-
-static __inline__ void atomic_inc_unchecked(atomic_unchecked_t *v)
-{
-	atomic_inc((atomic_t *)v);
 }
 
 static __inline__ int atomic_inc_return(atomic_t *v)

@@ -1330,7 +1330,7 @@ extern void memory_failure(unsigned long pfn, int trapno);
 extern int __memory_failure(unsigned long pfn, int trapno, int ref);
 extern int sysctl_memory_failure_early_kill;
 extern int sysctl_memory_failure_recovery;
-extern atomic_long_t mce_bad_pages;
+extern atomic_long_unchecked_t mce_bad_pages;
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
 extern void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long end, unsigned long prot);
