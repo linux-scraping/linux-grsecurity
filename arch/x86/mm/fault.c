@@ -1517,6 +1517,11 @@ void pax_report_insns(void *pc, void *sp)
 			printk(KERN_CONT "???????????????? ");
 #endif
 		else
+			printk(KERN_CONT "%0*lx ", 2 * (int)sizeof(long), c);
+	}
+	printk("\n");
+}
+#endif
 
 /**
  * probe_kernel_write(): safely attempt to write to a location
@@ -1542,8 +1547,3 @@ long notrace probe_kernel_write(void *dst, const void *src, size_t size)
 
 	return ret ? -EFAULT : 0;
 }
-			printk(KERN_CONT "%0*lx ", 2 * (int)sizeof(long), c);
-	}
-	printk("\n");
-}
-#endif
