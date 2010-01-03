@@ -827,6 +827,7 @@ ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
 	spin_unlock(&fc->lock);
 	return err;
 }
+EXPORT_SYMBOL_GPL(fuse_dev_read);
 
 static int fuse_notify_poll(struct fuse_conn *fc, unsigned int size,
 			    struct fuse_copy_state *cs)
@@ -1086,6 +1087,7 @@ ssize_t fuse_dev_write(struct kiocb *iocb, const struct iovec *iov,
 	fuse_copy_finish(&cs);
 	return err;
 }
+EXPORT_SYMBOL_GPL(fuse_dev_write);
 
 unsigned fuse_dev_poll(struct file *file, poll_table *wait)
 {
@@ -1105,6 +1107,7 @@ unsigned fuse_dev_poll(struct file *file, poll_table *wait)
 
 	return mask;
 }
+EXPORT_SYMBOL_GPL(fuse_dev_poll);
 
 /*
  * Abort all requests on the given list (pending or processing)
@@ -1222,6 +1225,7 @@ int fuse_dev_fasync(int fd, struct file *file, int on)
 	/* No locking - fasync_helper does its own locking */
 	return fasync_helper(fd, file, on, &fc->fasync);
 }
+EXPORT_SYMBOL_GPL(fuse_dev_fasync);
 
 const struct file_operations fuse_dev_operations = {
 	.owner		= THIS_MODULE,

@@ -887,6 +887,8 @@ ssize_t tty_read(struct file *file, char __user *buf, size_t count,
 	return i;
 }
 
+EXPORT_SYMBOL(tty_read);
+
 void tty_write_unlock(struct tty_struct *tty)
 {
 	mutex_unlock(&tty->atomic_write_lock);
@@ -1060,6 +1062,8 @@ ssize_t tty_write(struct file *file, const char __user *buf,
 	tty_ldisc_deref(ld);
 	return ret;
 }
+
+EXPORT_SYMBOL(tty_write);
 
 ssize_t redirected_tty_write(struct file *file, const char __user *buf,
 						size_t count, loff_t *ppos)
@@ -1862,6 +1866,8 @@ int tty_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+EXPORT_SYMBOL(tty_release);
+
 /**
  *	tty_poll	-	check tty status
  *	@filp: file being polled
@@ -1890,6 +1896,8 @@ unsigned int tty_poll(struct file *filp, poll_table *wait)
 	tty_ldisc_deref(ld);
 	return ret;
 }
+
+EXPORT_SYMBOL(tty_poll);
 
 int tty_fasync(int fd, struct file *filp, int on)
 {
@@ -1932,6 +1940,8 @@ out:
 	unlock_kernel();
 	return retval;
 }
+
+EXPORT_SYMBOL(tty_fasync);
 
 /**
  *	tiocsti			-	fake input character
@@ -2567,6 +2577,8 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return retval;
 }
 
+EXPORT_SYMBOL(tty_ioctl);
+
 #ifdef CONFIG_COMPAT
 long tty_compat_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
@@ -2592,6 +2604,8 @@ long tty_compat_ioctl(struct file *file, unsigned int cmd,
 
 	return retval;
 }
+
+EXPORT_SYMBOL(tty_compat_ioctl);
 #endif
 
 /*
