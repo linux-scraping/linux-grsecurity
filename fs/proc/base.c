@@ -102,6 +102,22 @@ struct pid_entry {
 	union proc_op op;
 };
 
+struct getdents_callback {
+	struct linux_dirent __user * current_dir;
+	struct linux_dirent __user * previous;
+	struct file * file;
+	int count;
+	int error;
+};
+
+static int gr_fake_filldir(void * __buf, const char *name, int namlen, 
+			   loff_t offset, u64 ino, unsigned int d_type)
+{
+	struct getdents_callback * buf = (struct getdents_callback *) __buf;
+	buf->error = -EINVAL;
+	return 0;
+}
+
 #define NOD(NAME, MODE, IOP, FOP, OP) {			\
 	.name = (NAME),					\
 	.len  = sizeof(NAME) - 1,			\
@@ -2892,6 +2908,7 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 	const struct cred *tmpcred = current_cred();
 	const struct cred *itercred;
 #endif
+	filldir_t __filldir = filldir;
 	struct tgid_iter iter;
 	struct pid_namespace *ns;
 
@@ -2923,10 +2940,12 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 			)
 #endif
 		)
-			continue;
+			__filldir = &gr_fake_filldir;
+		else
+			__filldir = filldir;
 
 		filp->f_pos = iter.tgid + TGID_OFFSET;
-		if (proc_pid_fill_cache(filp, dirent, filldir, iter) < 0) {
+		if (proc_pid_fill_cache(filp, dirent, __filldir, iter) < 0) {
 			put_task_struct(iter.task);
 			rcu_read_unlock();
 			goto out;

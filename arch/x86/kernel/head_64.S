@@ -94,9 +94,9 @@ startup_64:
 	addq	%rbp, init_level4_pgt + (L4_START_KERNEL*8)(%rip)
 
 	addq	%rbp, level3_ident_pgt + 0(%rip)
+#ifndef CONFIG_XEN
 	addq	%rbp, level3_ident_pgt + 8(%rip)
-	addq	%rbp, level3_ident_pgt + 16(%rip)
-	addq	%rbp, level3_ident_pgt + 24(%rip)
+#endif
 
 	addq	%rbp, level3_vmemmap_pgt + (L3_VMEMMAP_START*8)(%rip)
 
@@ -358,15 +358,19 @@ NEXT_PAGE(init_level4_pgt)
 	/* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
 	.quad	level3_kernel_pgt - __START_KERNEL_map + _PAGE_TABLE
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	.rept NR_CPUS - 1
+	.fill	512,8,0
+	.endr
+#endif
+
 NEXT_PAGE(level3_ident_pgt)
 	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
 #ifdef CONFIG_XEN
 	.fill	511,8,0
 #else
 	.quad	level2_ident_pgt + PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
-	.quad	level2_ident_pgt + 2*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
-	.quad	level2_ident_pgt + 3*PAGE_SIZE - __START_KERNEL_map + _KERNPG_TABLE
-	.fill	508,8,0
+	.fill	510,8,0
 #endif
 
 NEXT_PAGE(level3_vmalloc_pgt)
@@ -394,11 +398,11 @@ NEXT_PAGE(level2_fixmap_pgt)
 NEXT_PAGE(level1_vsyscall_pgt)
 	.fill	512,8,0
 
-	/* Since I easily can, map the first 4G.
+	/* Since I easily can, map the first 2G.
 	 * Don't set NX because code runs from these pages.
 	 */
 NEXT_PAGE(level2_ident_pgt)
-	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, 4*PTRS_PER_PMD)
+	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, 2*PTRS_PER_PMD)
 
 NEXT_PAGE(level2_kernel_pgt)
 	/*

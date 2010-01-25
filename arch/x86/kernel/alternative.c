@@ -492,7 +492,7 @@ void __init alternative_instructions(void)
  * instructions. And on the local CPU you need to be protected again NMI or MCE
  * handlers seeing an inconsistent instruction while you patch.
  */
-static void *__init_or_module text_poke_early(void *addr, const void *opcode,
+static void *__kprobes text_poke_early(void *addr, const void *opcode,
 					      size_t len)
 {
 	unsigned long flags;

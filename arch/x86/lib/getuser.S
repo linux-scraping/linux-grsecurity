@@ -38,18 +38,19 @@
 	.text
 ENTRY(__get_user_1)
 	CFI_STARTPROC
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	pushl $(__USER_DS)
+	popl %ds
+#else
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-
-#ifdef CONFIG_X86_32
-	pushl $(__USER_DS)
-	popl %ds
 #endif
 
 1:	movzb (%_ASM_AX),%edx
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	pushl %ss
 	pop %ds
 #endif
@@ -61,20 +62,21 @@ ENDPROC(__get_user_1)
 
 ENTRY(__get_user_2)
 	CFI_STARTPROC
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	pushl $(__USER_DS)
+	popl %ds
+#else
 	add $1,%_ASM_AX
 	jc bad_get_user
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-
-#ifdef CONFIG_X86_32
-	pushl $(__USER_DS)
-	popl %ds
 #endif
 
 2:	movzwl -1(%_ASM_AX),%edx
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	pushl %ss
 	pop %ds
 #endif
@@ -86,20 +88,21 @@ ENDPROC(__get_user_2)
 
 ENTRY(__get_user_4)
 	CFI_STARTPROC
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	pushl $(__USER_DS)
+	popl %ds
+#else
 	add $3,%_ASM_AX
 	jc bad_get_user
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-
-#ifdef CONFIG_X86_32
-	pushl $(__USER_DS)
-	popl %ds
 #endif
 
 3:	mov -3(%_ASM_AX),%edx
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	pushl %ss
 	pop %ds
 #endif
@@ -127,7 +130,7 @@ ENDPROC(__get_user_8)
 bad_get_user:
 	CFI_STARTPROC
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	pushl %ss
 	pop %ds
 #endif

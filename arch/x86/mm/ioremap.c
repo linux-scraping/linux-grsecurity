@@ -188,8 +188,6 @@ static void __iomem *__ioremap_caller(resource_size_t phys_addr,
 		break;
 	}
 
-	prot = canon_pgprot(prot);
-
 	/*
 	 * Ok, go for it..
 	 */
