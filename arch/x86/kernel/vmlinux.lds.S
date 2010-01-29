@@ -59,8 +59,14 @@ jiffies = jiffies_64;
 
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
+#ifdef CONFIG_XEN
+	rodata PT_LOAD FLAGS(5);        /* R_E */
+#else
 	rodata PT_LOAD FLAGS(4);        /* R__ */
+#endif
+#ifdef CONFIG_X86_32
 	module PT_LOAD FLAGS(5);        /* R_E */
+#endif
 	data PT_LOAD FLAGS(6);          /* RW_ */
 #ifdef CONFIG_X86_64
 	user PT_LOAD FLAGS(5);          /* R_E */
@@ -127,7 +133,6 @@ SECTIONS
 		*(.swapper_pg_pmd)
 		*(.swapper_pg_dir)
 	}
-#endif
 
 	. = ALIGN(PAGE_SIZE);
 	.vmi.rom : AT(ADDR(.vmi.rom) - LOAD_OFFSET) {
@@ -137,7 +142,7 @@ SECTIONS
 	. = ALIGN(PAGE_SIZE);
 	.module.text : AT(ADDR(.module.text) - LOAD_OFFSET) {
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
+#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_MODULES)
 		MODULES_EXEC_VADDR = .;
 		BYTE(0)
 		. += (8 * 1024 * 1024);
@@ -145,12 +150,13 @@ SECTIONS
 		MODULES_EXEC_END = . - 1;
 #endif
 
-		/* End of text section */
-		_etext = . - __KERNEL_TEXT_OFFSET;
 	} :module
+#endif
 
 	/* Data */
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {
+		/* End of text section */
+		_etext = . - __KERNEL_TEXT_OFFSET;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	. = ALIGN(PMD_SIZE);
@@ -269,6 +275,7 @@ SECTIONS
 		VMLINUX_SYMBOL(_sinittext) = .;
 		INIT_TEXT
 		VMLINUX_SYMBOL(_einittext) = .;
+		. = ALIGN(PAGE_SIZE);
 	} :text.init
 
 	/*
@@ -281,6 +288,7 @@ SECTIONS
 	} :text.exit
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
 
+	. = ALIGN(PAGE_SIZE);
 	INIT_DATA_SECTION(16) :init
 
 	.x86_cpu_dev.init : AT(ADDR(.x86_cpu_dev.init) - LOAD_OFFSET) {

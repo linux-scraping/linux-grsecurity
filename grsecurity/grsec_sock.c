@@ -259,7 +259,9 @@ gr_cap_rtnetlink(struct sock *sock)
 		 gr_is_capable(CAP_AUDIT_CONTROL))
 		return current_cap();
 	else if (cap_raised(current_cap(), CAP_NET_ADMIN) &&
-		 gr_is_capable(CAP_NET_ADMIN))
+		 ((sock->sk_protocol == NETLINK_ROUTE) ? 
+		  gr_is_capable_nolog(CAP_NET_ADMIN) : 
+		  gr_is_capable(CAP_NET_ADMIN)))
 		return current_cap();
 	else
 		return __cap_empty_set;
