@@ -2066,30 +2066,39 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
  * Split a vma into two pieces at address 'addr', a new vma is allocated
  * either for the first part or the tail.
  */
-
-#ifdef CONFIG_PAX_SEGMEXEC
 int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	      unsigned long addr, int new_below)
 {
 	struct mempolicy *pol;
-	struct vm_area_struct *new, *vma_m, *new_m = NULL;
-	unsigned long addr_m = addr + SEGMEXEC_TASK_SIZE;
+	struct vm_area_struct *new;
 
-	if (is_vm_hugetlb_page(vma) && (addr & ~HPAGE_MASK))
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m, *new_m = NULL;
+	unsigned long addr_m = addr + SEGMEXEC_TASK_SIZE;
+#endif
+
+	if (is_vm_hugetlb_page(vma) && (addr &
+					~(huge_page_mask(hstate_vma(vma)))))
 		return -EINVAL;
 
+#ifdef CONFIG_PAX_SEGMEXEC
 	vma_m = pax_find_mirror_vma(vma);
-	if (vma_m) {
+
+	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
 		BUG_ON(vma->vm_end > SEGMEXEC_TASK_SIZE);
 		if (mm->map_count >= sysctl_max_map_count-1)
 			return -ENOMEM;
-	} else if (mm->map_count >= sysctl_max_map_count)
+	} else
+#endif
+
+	if (mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
 
 	new = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 	if (!new)
 		return -ENOMEM;
 
+#ifdef CONFIG_PAX_SEGMEXEC
 	if (vma_m) {
 		new_m = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
 		if (!new_m) {
@@ -2097,6 +2106,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 			return -ENOMEM;
 		}
 	}
+#endif
 
 	/* most fields are the same, copy all, and then fixup */
 	*new = *vma;
@@ -2108,6 +2118,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		new->vm_pgoff += ((addr - vma->vm_start) >> PAGE_SHIFT);
 	}
 
+#ifdef CONFIG_PAX_SEGMEXEC
 	if (vma_m) {
 		*new_m = *vma_m;
 		new_m->vm_mirror = new;
@@ -2120,11 +2131,16 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 			new_m->vm_pgoff += ((addr_m - vma_m->vm_start) >> PAGE_SHIFT);
 		}
 	}
+#endif
 
 	pol = mpol_dup(vma_policy(vma));
 	if (IS_ERR(pol)) {
+
+#ifdef CONFIG_PAX_SEGMEXEC
 		if (new_m)
 			kmem_cache_free(vm_area_cachep, new_m);
+#endif
+
 		kmem_cache_free(vm_area_cachep, new);
 		return PTR_ERR(pol);
 	}
@@ -2145,6 +2161,7 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 	else
 		vma_adjust(vma, vma->vm_start, addr, vma->vm_pgoff, new);
 
+#ifdef CONFIG_PAX_SEGMEXEC
 	if (vma_m) {
 		mpol_get(pol);
 		vma_set_policy(new_m, pol);
@@ -2164,62 +2181,10 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		else
 			vma_adjust(vma_m, vma_m->vm_start, addr_m, vma_m->vm_pgoff, new_m);
 	}
-
-	return 0;
-}
-#else
-int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
-	      unsigned long addr, int new_below)
-{
-	struct mempolicy *pol;
-	struct vm_area_struct *new;
-
-	if (is_vm_hugetlb_page(vma) && (addr &
-					~(huge_page_mask(hstate_vma(vma)))))
-		return -EINVAL;
-
-	if (mm->map_count >= sysctl_max_map_count)
-		return -ENOMEM;
-
-	new = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
-	if (!new)
-		return -ENOMEM;
-
-	/* most fields are the same, copy all, and then fixup */
-	*new = *vma;
-
-	if (new_below)
-		new->vm_end = addr;
-	else {
-		new->vm_start = addr;
-		new->vm_pgoff += ((addr - vma->vm_start) >> PAGE_SHIFT);
-	}
-
-	pol = mpol_dup(vma_policy(vma));
-	if (IS_ERR(pol)) {
-		kmem_cache_free(vm_area_cachep, new);
-		return PTR_ERR(pol);
-	}
-	vma_set_policy(new, pol);
-
-	if (new->vm_file) {
-		get_file(new->vm_file);
-		if (vma->vm_flags & VM_EXECUTABLE)
-			added_exe_file_vma(mm);
-	}
-
-	if (new->vm_ops && new->vm_ops->open)
-		new->vm_ops->open(new);
-
-	if (new_below)
-		vma_adjust(vma, addr, vma->vm_end, vma->vm_pgoff +
-			((addr - new->vm_start) >> PAGE_SHIFT), new);
-	else
-		vma_adjust(vma, vma->vm_start, addr, vma->vm_pgoff, new);
-
-	return 0;
-}
 #endif
+
+	return 0;
+}
 
 /* Munmap is split into 2 main parts -- this part which finds
  * what needs doing, and the areas themselves, which do the
