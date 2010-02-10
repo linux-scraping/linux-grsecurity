@@ -1508,7 +1508,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk("\n");
 
 	printk(KERN_ERR "PAX: bytes at SP-%lu: ", (unsigned long)sizeof(long));
-	for (i = -1; i < 80 / sizeof(long); i++) {
+	for (i = -1; i < 80 / (long)sizeof(long); i++) {
 		unsigned long c;
 		if (get_user(c, (__force unsigned long __user *)sp+i))
 #ifdef CONFIG_X86_32

@@ -98,7 +98,7 @@ menu "Non-executable pages"
 
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
-	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86)
+	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86)
 	help
 	  By design some architectures do not allow for protecting memory
 	  pages against execution or even if they do, Linux does not make

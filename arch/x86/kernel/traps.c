@@ -112,7 +112,7 @@ die_if_kernel(const char *str, struct pt_regs *regs, long err)
 #endif
 
 static void __kprobes
-do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
+do_trap(int trapnr, int signr, const char *str, struct pt_regs *regs,
 	long error_code, siginfo_t *info)
 {
 	struct task_struct *tsk = current;
@@ -169,6 +169,12 @@ kernel_trap:
 	if (!fixup_exception(regs)) {
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = trapnr;
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		if (trapnr == 12 && (regs->cs & 0xFFFF) == __KERNEL_CS)
+			str = "PAX: suspicious stack segment fault";
+#endif
+
 		die(str, regs, error_code);
 	}
 
