@@ -1532,6 +1532,7 @@ struct task_struct {
 
 #ifdef CONFIG_GRKERNSEC
 	/* grsecurity */
+	rwlock_t gr_fs_lock;
 	struct acl_subject_label *acl;
 	struct acl_role_label *role;
 	struct file *exec_file;
@@ -2310,6 +2311,33 @@ static inline void task_lock(struct task_struct *p)
 static inline void task_unlock(struct task_struct *p)
 {
 	spin_unlock(&p->alloc_lock);
+}
+
+/* grsec: protects only ->fs as task_lock is overkill and we can't
+   be using a spin_lock in interrupt context
+*/
+#ifdef CONFIG_GRKERNSEC
+#define gr_fs_write_lock_irqsave(x, y)				\
+	write_lock_irqsave(&x->gr_fs_lock, y)
+#define gr_fs_write_unlock_irqrestore(x, y) 			\
+	write_unlock_irqrestore(&x->gr_fs_lock, y)
+#else
+#define gr_fs_write_lock_irqsave(x, y)
+#define gr_fs_write_unlock_irqrestore(x, y)
+#endif
+
+static inline void gr_fs_read_lock(struct task_struct *p)
+{
+#ifdef CONFIG_GRKERNSEC
+	read_lock(&p->gr_fs_lock);
+#endif
+}
+
+static inline void gr_fs_read_unlock(struct task_struct *p)
+{
+#ifdef CONFIG_GRKERNSEC
+	read_unlock(&p->gr_fs_lock);
+#endif
 }
 
 extern struct sighand_struct *lock_task_sighand(struct task_struct *tsk,

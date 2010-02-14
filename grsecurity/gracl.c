@@ -3809,7 +3809,7 @@ int gr_is_taskstats_denied(int pid)
 	read_lock(&tasklist_lock);
 	task = find_task_by_vpid(pid);
 	if (task) {
-		task_lock(task);
+		gr_fs_read_lock(task);
 #ifdef CONFIG_GRKERNSEC_CHROOT
 		if (proc_is_chrooted(task))
 			ret = -EACCES;
@@ -3829,7 +3829,7 @@ int gr_is_taskstats_denied(int pid)
 				ret = -EACCES;
 		}
 		
-		task_unlock(task);
+		gr_fs_read_unlock(task);
 	} else
 		ret = -ENOENT;
 

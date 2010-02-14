@@ -45,10 +45,12 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 	struct task_struct *g, *p;
 	struct fs_struct *fs;
 	int count = 0;
+	unsigned long flags;
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
 		task_lock(p);
+		gr_fs_write_lock_irqsave(p, flags);
 		fs = p->fs;
 		if (fs) {
 			write_lock(&fs->lock);
@@ -66,6 +68,7 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 			}
 			write_unlock(&fs->lock);
 		}
+		gr_fs_write_unlock_irqrestore(p, flags);
 		task_unlock(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
@@ -83,14 +86,17 @@ void free_fs_struct(struct fs_struct *fs)
 void exit_fs(struct task_struct *tsk)
 {
 	struct fs_struct *fs = tsk->fs;
+	unsigned long flags;
 
 	if (fs) {
 		int kill;
 		task_lock(tsk);
+		gr_fs_write_lock_irqsave(tsk, flags);
 		write_lock(&fs->lock);
 		tsk->fs = NULL;
 		kill = !atomic_dec_return(&fs->users);
 		write_unlock(&fs->lock);
+		gr_fs_write_unlock_irqrestore(tsk, flags);
 		task_unlock(tsk);
 		if (kill)
 			free_fs_struct(fs);
@@ -121,15 +127,18 @@ int unshare_fs_struct(void)
 	struct fs_struct *fs = current->fs;
 	struct fs_struct *new_fs = copy_fs_struct(fs);
 	int kill;
+	unsigned long flags;
 
 	if (!new_fs)
 		return -ENOMEM;
 
 	task_lock(current);
+	gr_fs_write_lock_irqsave(current, flags);
 	write_lock(&fs->lock);
 	kill = !atomic_dec_return(&fs->users);
 	current->fs = new_fs;
 	write_unlock(&fs->lock);
+	gr_fs_write_unlock_irqrestore(current, flags);
 	task_unlock(current);
 
 	if (kill)
@@ -155,6 +164,7 @@ struct fs_struct init_fs = {
 void daemonize_fs_struct(void)
 {
 	struct fs_struct *fs = current->fs;
+	unsigned long flags;
 
 	if (fs) {
 		int kill;
@@ -165,10 +175,12 @@ void daemonize_fs_struct(void)
 		atomic_inc(&init_fs.users);
 		write_unlock(&init_fs.lock);
 
+		gr_fs_write_lock_irqsave(current, flags);
 		write_lock(&fs->lock);
 		current->fs = &init_fs;
 		kill = !atomic_dec_return(&fs->users);
 		write_unlock(&fs->lock);
+		gr_fs_write_unlock_irqrestore(current, flags);
 
 		task_unlock(current);
 		if (kill)

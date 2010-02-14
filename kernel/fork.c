@@ -1088,6 +1088,10 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	p->vfork_done = NULL;
 	spin_lock_init(&p->alloc_lock);
 
+#ifdef CONFIG_GRKERNSEC
+	rwlock_init(&p->gr_fs_lock);
+#endif
+
 	init_sigpending(&p->pending);
 
 	p->utime = cputime_zero;
@@ -1724,6 +1728,9 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 		task_lock(current);
 
 		if (new_fs) {
+			unsigned long flags;
+
+			gr_fs_write_lock_irqsave(current, flags);
 			fs = current->fs;
 			write_lock(&fs->lock);
 			current->fs = new_fs;
@@ -1732,6 +1739,7 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 			else
 				new_fs = fs;
 			write_unlock(&fs->lock);
+			gr_fs_write_unlock_irqrestore(current, flags);
 		}
 
 		if (new_mm) {

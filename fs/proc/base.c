@@ -2924,11 +2924,11 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 	ns = filp->f_dentry->d_sb->s_fs_info;
 	iter.task = NULL;
 	iter.tgid = filp->f_pos - TGID_OFFSET;
-	rcu_read_lock();
 	for (iter = next_tgid(ns, iter);
 	     iter.task;
 	     iter.tgid += 1, iter = next_tgid(ns, iter)) {
 #if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		rcu_read_lock();
 		itercred = __task_cred(iter.task);
 #endif
 		if (gr_pid_is_chrooted(iter.task) || gr_check_hidden_task(iter.task)
@@ -2943,15 +2943,15 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 			__filldir = &gr_fake_filldir;
 		else
 			__filldir = filldir;
-
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	rcu_read_unlock();
+#endif
 		filp->f_pos = iter.tgid + TGID_OFFSET;
 		if (proc_pid_fill_cache(filp, dirent, __filldir, iter) < 0) {
 			put_task_struct(iter.task);
-			rcu_read_unlock();
 			goto out;
 		}
 	}
-	rcu_read_unlock();
 	filp->f_pos = PID_MAX_LIMIT + TGID_OFFSET;
 out:
 	put_task_struct(reaper);

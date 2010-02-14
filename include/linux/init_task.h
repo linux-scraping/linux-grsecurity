@@ -115,6 +115,13 @@ extern struct cred init_cred;
 # define INIT_PERF_EVENTS(tsk)
 #endif
 
+#ifdef CONFIG_GRKERNSEC
+# define INIT_GR_FS_LOCK					\
+	.gr_fs_lock = __RW_LOCK_UNLOCKED(gr_fs_lock),
+#else
+# define INIT_GR_FS_LOCK
+#endif
+
 /*
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x1fffff (=2MB)
@@ -184,6 +191,7 @@ extern struct cred init_cred;
 	INIT_FTRACE_GRAPH						\
 	INIT_TRACE_RECURSION						\
 	INIT_TASK_RCU_PREEMPT(tsk)					\
+	INIT_GR_FS_LOCK							\
 }
 
 

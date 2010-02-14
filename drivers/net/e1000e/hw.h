@@ -856,7 +856,7 @@ struct e1000_phy_info {
 };
 
 struct e1000_nvm_info {
-	const struct e1000_nvm_operations ops;
+	struct e1000_nvm_operations ops;
 
 	enum e1000_nvm_type type;
 	enum e1000_nvm_override override;

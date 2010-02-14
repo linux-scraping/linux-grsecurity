@@ -27,14 +27,14 @@ gr_handle_chroot_unix(const pid_t pid)
 	if (spid) {
 		struct task_struct *p;
 		p = pid_task(spid, PIDTYPE_PID);
-		task_lock(p);
+		gr_fs_read_lock(p);
 		if (unlikely(!have_same_root(current, p))) {
-			task_unlock(p);
+			gr_fs_read_unlock(p);
 			read_unlock(&tasklist_lock);
 			gr_log_noargs(GR_DONT_AUDIT, GR_UNIX_CHROOT_MSG);
 			return 0;
 		}
-		task_unlock(p);
+		gr_fs_read_unlock(p);
 	}
 	read_unlock(&tasklist_lock);
 #endif
@@ -84,13 +84,13 @@ gr_pid_is_chrooted(struct task_struct *p)
 	if (!grsec_enable_chroot_findtask || !proc_is_chrooted(current) || p == NULL)
 		return 0;
 
-	task_lock(p);
+	gr_fs_read_lock(p);
 	if ((p->exit_state & (EXIT_ZOMBIE | EXIT_DEAD)) ||
 	    !have_same_root(current, p)) {
-		task_unlock(p);
+		gr_fs_read_unlock(p);
 		return 1;
 	}
-	task_unlock(p);
+	gr_fs_read_unlock(p);
 #endif
 	return 0;
 }
@@ -185,29 +185,29 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (pid) {
 		struct task_struct *p;
 		p = pid_task(pid, PIDTYPE_PID);
-		task_lock(p);
+		gr_fs_read_lock(p);
 		starttime = p->start_time.tv_sec;
 		if (unlikely(!have_same_root(current, p) &&
 			     time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime))) {
-			task_unlock(p);
+			gr_fs_read_unlock(p);
 			read_unlock(&tasklist_lock);
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
 			return 0;
 		}
-		task_unlock(p);
+		gr_fs_read_unlock(p);
 	} else {
 		pid = find_vpid(shm_lapid);
 		if (pid) {
 			struct task_struct *p;
 			p = pid_task(pid, PIDTYPE_PID);
-			task_lock(p);
+			gr_fs_read_lock(p);
 			if (unlikely(!have_same_root(current, p))) {
-				task_unlock(p);
+				gr_fs_read_unlock(p);
 				read_unlock(&tasklist_lock);
 				gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
 				return 0;
 			}
-			task_unlock(p);
+			gr_fs_read_unlock(p);
 		}
 	}
 
