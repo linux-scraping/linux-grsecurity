@@ -90,6 +90,11 @@ static inline unsigned long native_pax_open_kernel(void)
 	barrier();
 	cr0 = read_cr0();
 	BUG_ON(unlikely(!(cr0 & X86_CR0_WP)));
+
+#ifdef CONFIG_X86_32
+	asm volatile("ljmp %0,$1f; 1:\n\t" : : "i"(__KERNEXEC_KERNEL_CS), "m"(__force_order));
+#endif
+
 	write_cr0(cr0 & ~X86_CR0_WP);
 	return cr0;
 }
@@ -100,6 +105,11 @@ static inline unsigned long native_pax_close_kernel(void)
 
 	cr0 = read_cr0();
 	BUG_ON(unlikely(cr0 & X86_CR0_WP));
+
+#ifdef CONFIG_X86_32
+	asm volatile("ljmp %0,$1f; 1:\n\t" : : "i"(__KERNEL_CS), "m"(__force_order));
+#endif
+
 	write_cr0(cr0 | X86_CR0_WP);
 	barrier();
 	preempt_enable_no_resched();
@@ -670,10 +680,11 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
  * dst and src can be on the same page, but the range must not overlap,
  * and must not cross a page boundary.
  */
-static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
+static inline void clone_pgd_range(pgd_t *dst, const pgd_t *src, int count)
 {
 	pax_open_kernel();
-	memcpy(dst, src, count * sizeof(pgd_t));
+	while (count--)
+		*dst++ = *src++;
 	pax_close_kernel();
 }
 

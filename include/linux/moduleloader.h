@@ -32,7 +32,7 @@ void module_free(struct module *mod, void *module_region);
 #ifdef CONFIG_PAX_KERNEXEC
 void module_free_exec(struct module *mod, void *module_region);
 #else
-#define module_free_exec(x, y) module_free(x, y)
+#define module_free_exec(x, y) module_free((x), (y))
 #endif
 
 /* Apply the given relocation to the (simplified) ELF.  Return -error

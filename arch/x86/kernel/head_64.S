@@ -358,12 +358,6 @@ NEXT_PAGE(init_level4_pgt)
 	/* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
 	.quad	level3_kernel_pgt - __START_KERNEL_map + _PAGE_TABLE
 
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	.rept NR_CPUS - 1
-	.fill	512,8,0
-	.endr
-#endif
-
 NEXT_PAGE(level3_ident_pgt)
 	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
 #ifdef CONFIG_XEN

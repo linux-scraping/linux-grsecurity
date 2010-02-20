@@ -62,8 +62,8 @@
  *  26 - ESPFIX small SS
  *  27 - per-cpu			[ offset to per-cpu data area ]
  *  28 - stack_canary-20		[ for stack protector ]
- *  29 - unused
- *  30 - unused
+ *  29 - PCI BIOS CS
+ *  30 - PCI BIOS DS
  *  31 - TSS for double fault handler
  */
 #define GDT_ENTRY_TLS_MIN	6
@@ -76,6 +76,8 @@
 #define GDT_ENTRY_KERNEL_BASE	12
 
 #define GDT_ENTRY_KERNEL_CS		(GDT_ENTRY_KERNEL_BASE + 0)
+
+#define GDT_ENTRY_KERNEXEC_KERNEL_CS	(4)
 
 #define GDT_ENTRY_KERNEL_DS		(GDT_ENTRY_KERNEL_BASE + 1)
 
@@ -151,6 +153,7 @@
 #else
 #include <asm/cache.h>
 
+#define GDT_ENTRY_KERNEXEC_KERNEL_CS 0
 #define GDT_ENTRY_KERNEL32_CS 1
 #define GDT_ENTRY_KERNEL_CS 2
 #define GDT_ENTRY_KERNEL_DS 3
@@ -189,6 +192,7 @@
 #endif
 
 #define __KERNEL_CS	(GDT_ENTRY_KERNEL_CS * 8)
+#define __KERNEXEC_KERNEL_CS	(GDT_ENTRY_KERNEXEC_KERNEL_CS * 8)
 #define __KERNEL_DS	(GDT_ENTRY_KERNEL_DS * 8)
 #define __USER_DS     (GDT_ENTRY_DEFAULT_USER_DS* 8 + 3)
 #define __USER_CS     (GDT_ENTRY_DEFAULT_USER_CS* 8 + 3)

@@ -988,10 +988,11 @@ extern void default_banner(void);
 
 #ifdef CONFIG_PAX_KERNEXEC
 #define PAX_EXIT_KERNEL					\
-	bt $16, %esi;					\
-	jc 1f;						\
+	cmpw $__KERNEXEC_KERNEL_CS, PT_CS(%esp);	\
+	jnz 1f;						\
 	push %eax; push %ecx;				\
-	movl %esi, %eax;				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	btc $16, %eax;					\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
 	pop %ecx; pop %eax;				\
 1:
@@ -999,7 +1000,6 @@ extern void default_banner(void);
 #define PAX_ENTER_KERNEL				\
 	push %eax; push %ecx;				\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	movl %eax, %esi;				\
 	bts $16, %eax;					\
 	jc 1f;						\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\

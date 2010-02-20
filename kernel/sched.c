@@ -4822,7 +4822,7 @@ out:
  * In CONFIG_NO_HZ case, the idle load balance owner will do the
  * rebalancing for all the cpus for whom scheduler ticks are stopped.
  */
-static void run_rebalance_domains(struct softirq_action *h)
+static void run_rebalance_domains(void)
 {
 	int this_cpu = smp_processor_id();
 	struct rq *this_rq = cpu_rq(this_cpu);

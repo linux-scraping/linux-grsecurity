@@ -51,13 +51,25 @@ static void *__module_alloc(unsigned long size, pgprot_t prot)
 	return __vmalloc_area(area, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, prot);
 }
 
-#ifdef CONFIG_PAX_KERNEXEC
-#ifdef CONFIG_X86_32
 void *module_alloc(unsigned long size)
 {
+
+#ifdef CONFIG_PAX_KERNEXEC
 	return __module_alloc(size, PAGE_KERNEL);
+#else
+	return __module_alloc(size, PAGE_KERNEL_EXEC);
+#endif
+
 }
- 
+
+/* Free memory returned from module_alloc */
+void module_free(struct module *mod, void *module_region)
+{
+	vfree(module_region);
+}
+
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_X86_32
 void *module_alloc_exec(unsigned long size)
 {
 	struct vm_struct *area;
@@ -66,54 +78,16 @@ void *module_alloc_exec(unsigned long size)
 		return NULL;
 
 	area = __get_vm_area(size, VM_ALLOC, (unsigned long)&MODULES_EXEC_VADDR, (unsigned long)&MODULES_EXEC_END);
-	if (area)
-		return area->addr;
-
-	return NULL;
+	return area ? area->addr : NULL;
 }
 EXPORT_SYMBOL(module_alloc_exec);
 
 void module_free_exec(struct module *mod, void *module_region)
 {
-	struct vm_struct **p, *tmp;
-
-	if (!module_region)
-		return;
-
-	if ((PAGE_SIZE-1) & (unsigned long)module_region) {
-		printk(KERN_ERR "Trying to module_free_exec() bad address (%p)\n", module_region);
-		WARN_ON(1);
-		return;
-	}
-
-	write_lock(&vmlist_lock);
-	for (p = &vmlist; (tmp = *p) != NULL; p = &tmp->next)
-		 if (tmp->addr == module_region)
-			break;
-
-	if (tmp) {
-		pax_open_kernel();
-		memset(tmp->addr, 0xCC, tmp->size);
-		pax_close_kernel();
-
-		*p = tmp->next;
-		kfree(tmp);
-	}
-	write_unlock(&vmlist_lock);
-
-	if (!tmp) {
-		printk(KERN_ERR "Trying to module_free_exec() nonexistent vm area (%p)\n",
-				module_region);
-		WARN_ON(1);
-	}
+	vunmap(module_region);
 }
 EXPORT_SYMBOL(module_free_exec);
 #else
-void *module_alloc(unsigned long size)
-{
-	return __module_alloc(size, PAGE_KERNEL);
-}
-
 void module_free_exec(struct module *mod, void *module_region)
 {
 	module_free(mod, module_region);
@@ -126,18 +100,7 @@ void *module_alloc_exec(unsigned long size)
 }
 EXPORT_SYMBOL(module_alloc_exec);
 #endif
-#else
-void *module_alloc(unsigned long size)
-{
-	return __module_alloc(size, PAGE_KERNEL_EXEC);
-}
 #endif
-
-/* Free memory returned from module_alloc */
-void module_free(struct module *mod, void *module_region)
-{
-	vfree(module_region);
-}
 
 /* We don't need anything special. */
 int module_frob_arch_sections(Elf_Ehdr *hdr,

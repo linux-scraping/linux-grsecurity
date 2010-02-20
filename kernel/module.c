@@ -556,11 +556,7 @@ static void percpu_modcopy(void *pcpudest, const void *from, unsigned long size)
 	int cpu;
 
 	for_each_possible_cpu(cpu)
-#ifdef CONFIG_X86_32
-		memcpy(pcpudest + __per_cpu_offset[cpu], from, size);
-#else
 		memcpy(pcpudest + per_cpu_offset(cpu), from, size);
-#endif
 }
 
 #else /* ... !CONFIG_SMP */

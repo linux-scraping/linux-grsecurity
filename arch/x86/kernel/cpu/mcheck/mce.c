@@ -187,7 +187,7 @@ static void print_mce(struct mce *m)
 			!(m->mcgstatus & MCG_STATUS_EIPV) ? " !INEXACT!" : "",
 				m->cs, m->ip);
 
-		if (m->cs == __KERNEL_CS)
+		if (m->cs == __KERNEL_CS || m->cs == __KERNEXEC_KERNEL_CS)
 			print_symbol("{%s}", m->ip);
 		pr_cont("\n");
 	}

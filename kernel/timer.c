@@ -1207,7 +1207,7 @@ void update_process_times(int user_tick)
 /*
  * This function runs timers and the timer-tq in bottom half context.
  */
-static void run_timer_softirq(struct softirq_action *h)
+static void run_timer_softirq(void)
 {
 	struct tvec_base *base = __get_cpu_var(tvec_bases);
 

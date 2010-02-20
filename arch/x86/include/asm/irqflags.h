@@ -149,18 +149,19 @@ static inline unsigned long __raw_local_irq_save(void)
 
 /* PaX: special register usage in entry_32.S, beware */
 #ifdef CONFIG_PAX_KERNEXEC
-#define PAX_EXIT_KERNEL		\
-	bt $16, %esi;		\
-	jc 1f;			\
-	movl %esi, %cr0;	\
+#define PAX_EXIT_KERNEL				\
+	cmpw $__KERNEXEC_KERNEL_CS, PT_CS(%esp);\
+	jnz 1f;					\
+	movl %cr0, %esi;			\
+	btc $16, %esi;				\
+	movl %esi, %cr0;			\
 1:
 
-#define PAX_ENTER_KERNEL	\
-	movl %cr0, %esi;	\
-	movl %esi, %edx;	\
-	bts $16, %edx;		\
-	jc 1f;			\
-	movl %edx, %cr0;	\
+#define PAX_ENTER_KERNEL			\
+	movl %cr0, %esi;			\
+	bts $16, %esi;				\
+	jc 1f;					\
+	movl %esi, %cr0;			\
 1:
 #else
 #define PAX_EXIT_KERNEL

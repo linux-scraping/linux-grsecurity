@@ -171,7 +171,7 @@ kernel_trap:
 		tsk->thread.trap_no = trapnr;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if (trapnr == 12 && (regs->cs & 0xFFFF) == __KERNEL_CS)
+		if (trapnr == 12 && ((regs->cs & 0xFFFF) == __KERNEL_CS || (regs->cs & 0xFFFF) == __KERNEXEC_KERNEL_CS))
 			str = "PAX: suspicious stack segment fault";
 #endif
 
@@ -329,7 +329,7 @@ gp_in_kernel:
 		return;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	if ((regs->cs & 0xFFFF) == __KERNEL_CS)
+	if ((regs->cs & 0xFFFF) == __KERNEL_CS || (regs->cs & 0xFFFF) == __KERNEXEC_KERNEL_CS)
 		die("PAX: suspicious general protection fault", regs, error_code);
 	else
 #endif

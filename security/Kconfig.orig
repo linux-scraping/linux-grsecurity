@@ -21,7 +21,6 @@ menu "PaX Control"
 
 config PAX_SOFTMODE
 	bool 'Support soft mode'
-	select PAX_PT_PAX_FLAGS
 	help
 	  Enabling this option will allow you to run PaX in soft mode, that
 	  is, PaX features will not be enforced by default, only on executables
@@ -295,26 +294,6 @@ config PAX_KERNEXEC
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
 	  and execute 'foreign' code in kernel memory itself.
-
-config PAX_KERNEXEC_MODULE_TEXT
-	int "Minimum amount of memory reserved for module code"
-	default "4"
-	depends on PAX_KERNEXEC && X86_32
-	help
-	  Due to implementation details the kernel must reserve a fixed
-	  amount of memory for module code at compile time that cannot be
-	  changed at runtime.  Here you can specify the minimum amount
-	  in MB that will be reserved.  Due to the same implementation
-	  details this size will always be rounded up to the next 2/4 MB
-	  boundary (depends on PAE) so the actually available memory for
-	  module code will usually be more than this minimum.
-
-	  The default 4 MB should be enough for most users but if you have
-	  an excessive number of modules (e.g., most distribution configs
-	  compile many drivers as modules) or use huge modules such as
-	  nvidia's kernel driver, you will need to adjust this amount.
-	  A good rule of thumb is to look at your currently loaded kernel
-	  modules and add up their sizes.
 
 endmenu
 

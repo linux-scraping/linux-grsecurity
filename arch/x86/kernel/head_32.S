@@ -151,9 +151,12 @@ ENTRY(startup_32)
 	addl $__PAGE_OFFSET,%eax
 1:
 	movw %ax,__KERNEL_CS + 2(%edi)
+	movw %ax,__KERNEXEC_KERNEL_CS + 2(%edi)
 	rorl $16,%eax
 	movb %al,__KERNEL_CS + 4(%edi)
+	movb %al,__KERNEXEC_KERNEL_CS + 4(%edi)
 	movb %ah,__KERNEL_CS + 7(%edi)
+	movb %ah,__KERNEXEC_KERNEL_CS + 7(%edi)
 	rorl $16,%eax
 	addl $PAGE_SIZE_asm,%edi
 	loop 1b
@@ -800,7 +803,13 @@ ENTRY(cpu_gdt_table)
 	.quad 0x0000000000000000	/* 0x0b reserved */
 	.quad 0x0000000000000000	/* 0x13 reserved */
 	.quad 0x0000000000000000	/* 0x1b reserved */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	.quad 0x00cf9b000000ffff	/* 0x20 alternate kernel 4GB code at 0x00000000 */
+#else
 	.quad 0x0000000000000000	/* 0x20 unused */
+#endif
+
 	.quad 0x0000000000000000	/* 0x28 unused */
 	.quad 0x0000000000000000	/* 0x33 TLS entry 1 */
 	.quad 0x0000000000000000	/* 0x3b TLS entry 2 */
