@@ -1,5 +1,5 @@
---- a/grsecurity-2.1.14-2.6.32.9-201002231739.patch
-+++ b/grsecurity-2.1.14-2.6.32.9-201002231739.patch
+--- a/grsecurity-2.1.14-2.6.32.9-201002231820.patch
++++ b/grsecurity-2.1.14-2.6.32.9-201002231820.patch
 @@ -1,156 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index e1efc400bed66095629a46c2229b5bf863434315..cae9d1fa2e30ab5108dd33547fd767d1b160dbd8 100644
@@ -6282,7 +6282,7 @@
 +@@ -796,7 +796,7 @@ static int __cpuinit acpi_processor_add(
 @@ -18771,5 +18389,4 @@
 -diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
--index d9f78f6cbda31f1002f2aa5390605f29c7c57bd3..eea6ccaf64f9f8aed02fdb8d2044aaa5c3586ce4 100644
+-index d9f78f6cbda31f1002f2aa5390605f29c7c57bd3..fc28cccae7709af9cd621a4abe3a24622e380e7e 100644
 ---- a/drivers/acpi/processor_idle.c
 -+++ b/drivers/acpi/processor_idle.c
 -@@ -118,7 +118,7 @@ static struct dmi_system_id __cpuinitdata processor_power_dmi_table[] = {
