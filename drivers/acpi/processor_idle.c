@@ -118,7 +118,7 @@ static struct dmi_system_id __cpuinitdata processor_power_dmi_table[] = {
 	  DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK Computer Inc."),
 	  DMI_MATCH(DMI_PRODUCT_NAME,"L8400B series Notebook PC")},
 	 (void *)1},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0}})}, NULL},
+	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL},
 };
 
 
