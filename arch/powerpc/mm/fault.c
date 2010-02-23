@@ -87,7 +87,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 5; i++) {
 		unsigned int c;
-		if (get_user(c, (unsigned int *)pc+i))
+		if (get_user(c, (unsigned int __user *)pc+i))
 			printk(KERN_CONT "???????? ");
 		else
 			printk(KERN_CONT "%08x ", c);

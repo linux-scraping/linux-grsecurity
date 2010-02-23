@@ -50,13 +50,13 @@ extern unsigned long memory_end;
 void detect_memory_layout(struct mem_chunk chunk[]);
 
 #ifdef CONFIG_S390_SWITCH_AMODE
-extern unsigned int switch_amode;
+#define switch_amode	(1)
 #else
 #define switch_amode	(0)
 #endif
 
 #ifdef CONFIG_S390_EXEC_PROTECT
-extern unsigned int s390_noexec;
+#define s390_noexec	(1)
 #else
 #define s390_noexec	(0)
 #endif

@@ -31,7 +31,20 @@
 
 LIST_HEAD(module_bug_list);
 
+#ifdef CONFIG_PAX_KERNEXEC
 void *module_alloc(unsigned long size)
+{
+	if (size == 0)
+		return NULL;
+
+	return vmalloc(size);
+}
+
+void *module_alloc_exec(unsigned long size)
+#else
+void *module_alloc(unsigned long size)
+#endif
+
 {
 	if (size == 0)
 		return NULL;
@@ -44,6 +57,13 @@ void module_free(struct module *mod, void *module_region)
 {
 	vfree(module_region);
 }
+
+#ifdef CONFIG_PAX_KERNEXEC
+void module_free_exec(struct module *mod, void *module_region)
+{
+	module_free(mod, module_region);
+}
+#endif
 
 static const Elf_Shdr *find_section(const Elf_Ehdr *hdr,
 				    const Elf_Shdr *sechdrs,

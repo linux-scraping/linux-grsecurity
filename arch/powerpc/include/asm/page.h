@@ -146,6 +146,9 @@ extern phys_addr_t kernstart_addr;
 #define is_kernel_addr(x)	((x) >= PAGE_OFFSET)
 #endif
 
+#define ktla_ktva(addr)		(addr)
+#define ktva_ktla(addr)		(addr)
+
 #ifndef __ASSEMBLY__
 
 #undef STRICT_MM_TYPECHECKS

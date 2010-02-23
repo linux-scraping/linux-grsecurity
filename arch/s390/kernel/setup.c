@@ -306,9 +306,6 @@ static int __init early_parse_mem(char *p)
 early_param("mem", early_parse_mem);
 
 #ifdef CONFIG_S390_SWITCH_AMODE
-unsigned int switch_amode = 0;
-EXPORT_SYMBOL_GPL(switch_amode);
-
 static int set_amode_and_uaccess(unsigned long user_amode,
 				 unsigned long user32_amode)
 {
@@ -334,17 +331,6 @@ static int set_amode_and_uaccess(unsigned long user_amode,
 		return 0;
 	}
 }
-
-/*
- * Switch kernel/user addressing modes?
- */
-static int __init early_parse_switch_amode(char *p)
-{
-	switch_amode = 1;
-	return 0;
-}
-early_param("switch_amode", early_parse_switch_amode);
-
 #else /* CONFIG_S390_SWITCH_AMODE */
 static inline int set_amode_and_uaccess(unsigned long user_amode,
 					unsigned long user32_amode)
@@ -352,24 +338,6 @@ static inline int set_amode_and_uaccess(unsigned long user_amode,
 	return 0;
 }
 #endif /* CONFIG_S390_SWITCH_AMODE */
-
-#ifdef CONFIG_S390_EXEC_PROTECT
-unsigned int s390_noexec = 0;
-EXPORT_SYMBOL_GPL(s390_noexec);
-
-/*
- * Enable execute protection?
- */
-static int __init early_parse_noexec(char *p)
-{
-	if (!strncmp(p, "off", 3))
-		return 0;
-	switch_amode = 1;
-	s390_noexec = 1;
-	return 0;
-}
-early_param("noexec", early_parse_noexec);
-#endif /* CONFIG_S390_EXEC_PROTECT */
 
 static void setup_addressing_mode(void)
 {

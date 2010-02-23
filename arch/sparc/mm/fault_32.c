@@ -420,7 +420,7 @@ void pax_report_insns(void *pc, void *sp)
 	unsigned long i;
 
 	printk(KERN_ERR "PAX: bytes at PC: ");
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 8; i++) {
 		unsigned int c;
 		if (get_user(c, (unsigned int *)pc+i))
 			printk(KERN_CONT "???????? ");

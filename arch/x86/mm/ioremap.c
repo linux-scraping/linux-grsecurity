@@ -140,7 +140,7 @@ static void __iomem *__ioremap_caller(resource_size_t phys_addr,
 	for (pfn = phys_addr >> PAGE_SHIFT; ((resource_size_t)pfn << PAGE_SHIFT) < (last_addr & PAGE_MASK); pfn++) {
 		int is_ram = page_is_ram(pfn);
 
-		if (is_ram && pfn_valid(pfn) && !PageReserved(pfn_to_page(pfn)))
+		if (is_ram && pfn_valid(pfn) && (pfn >= 0x100 || !PageReserved(pfn_to_page(pfn))))
 			return NULL;
 		WARN_ON_ONCE(is_ram);
 	}

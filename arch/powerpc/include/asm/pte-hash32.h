@@ -21,7 +21,7 @@
 #define _PAGE_FILE	0x004	/* when !present: nonlinear file mapping */
 #define _PAGE_USER	0x004	/* usermode access allowed */
 #define _PAGE_GUARDED	0x008	/* G: prohibit speculative access */
-#define _PAGE_HWEXEC	_PAGE_GUARDED
+#define _PAGE_EXEC	_PAGE_GUARDED
 #define _PAGE_COHERENT	0x010	/* M: enforce memory coherence (SMP systems) */
 #define _PAGE_NO_CACHE	0x020	/* I: cache inhibit */
 #define _PAGE_WRITETHRU	0x040	/* W: cache write-through */
