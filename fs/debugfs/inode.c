@@ -160,15 +160,8 @@ static int debugfs_create_by_name(const char *name, mode_t mode,
 	 * block. A pointer to that is in the struct vfsmount that we
 	 * have around.
 	 */
-	if (!parent) {
-		if (debugfs_mount && debugfs_mount->mnt_sb) {
-			parent = debugfs_mount->mnt_sb->s_root;
-		}
-	}
-	if (!parent) {
-		pr_debug("debugfs: Ah! can not find a parent!\n");
-		return -EFAULT;
-	}
+	if (!parent)
+		parent = debugfs_mount->mnt_sb->s_root;
 
 	*dentry = NULL;
 	mutex_lock(&parent->d_inode->i_mutex);
@@ -199,7 +192,7 @@ static int debugfs_create_by_name(const char *name, mode_t mode,
 /**
  * debugfs_create_file - create a file in the debugfs filesystem
  * @name: a pointer to a string containing the name of the file to create.
- * @mode: the permission that the file should have
+ * @mode: the permission that the file should have.
  * @parent: a pointer to the parent dentry for this file.  This should be a
  *          directory dentry if set.  If this paramater is NULL, then the
  *          file will be created in the root of the debugfs filesystem.
@@ -210,8 +203,8 @@ static int debugfs_create_by_name(const char *name, mode_t mode,
  *        this file.
  *
  * This is the basic "create a file" function for debugfs.  It allows for a
- * wide range of flexibility in createing a file, or a directory (if you
- * want to create a directory, the debugfs_create_dir() function is
+ * wide range of flexibility in creating a file, or a directory (if you want
+ * to create a directory, the debugfs_create_dir() function is
  * recommended to be used instead.)
  *
  * This function will return a pointer to a dentry if it succeeds.  This

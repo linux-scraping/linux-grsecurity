@@ -144,7 +144,7 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 {
 	unsigned long oldlimit, newlimit = 0UL;
 
-	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) || nx_enabled)
+	if (!(mm->pax_flags & MF_PAX_PAGEEXEC) || (__supported_pte_mask & _PAGE_NX))
 		return;
 
 	spin_lock(&mm->page_table_lock);

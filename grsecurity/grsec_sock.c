@@ -135,10 +135,10 @@ void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock
 	/* no bh lock needed since we are called with bh disabled */
 	spin_lock(&gr_conn_table_lock);
 	gr_del_task_from_ip_table_nolock(sig);
-	sig->gr_saddr = inet->rcv_saddr;
-	sig->gr_daddr = inet->daddr;
-	sig->gr_sport = inet->sport;
-	sig->gr_dport = inet->dport;
+	sig->gr_saddr = inet->inet_rcv_saddr;
+	sig->gr_daddr = inet->inet_daddr;
+	sig->gr_sport = inet->inet_sport;
+	sig->gr_dport = inet->inet_dport;
 	gr_add_to_task_ip_table_nolock(sig, newent);
 	spin_unlock(&gr_conn_table_lock);
 #endif
@@ -168,8 +168,8 @@ gr_attach_curr_ip(const struct sock *sk)
 	set = current->signal;
 
 	spin_lock_bh(&gr_conn_table_lock);
-	p = gr_lookup_task_ip_table(inet->daddr, inet->rcv_saddr,
-				    inet->dport, inet->sport);
+	p = gr_lookup_task_ip_table(inet->inet_daddr, inet->inet_rcv_saddr,
+				    inet->inet_dport, inet->inet_sport);
 	if (unlikely(p != NULL)) {
 		set->curr_ip = p->curr_ip;
 		set->used_accept = 1;
@@ -179,7 +179,7 @@ gr_attach_curr_ip(const struct sock *sk)
 	}
 	spin_unlock_bh(&gr_conn_table_lock);
 
-	set->curr_ip = inet->daddr;
+	set->curr_ip = inet->inet_daddr;
 	set->used_accept = 1;
 #endif
 	return;

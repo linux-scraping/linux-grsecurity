@@ -60,7 +60,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
-		if (!nx_enabled) {
+		if (!(__supported_pte_mask & _PAGE_NX)) {
 			smp_mb__before_clear_bit();
 			cpu_clear(cpu, prev->context.cpu_user_cs_mask);
 			smp_mb__after_clear_bit();
@@ -93,13 +93,13 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
-			if (!nx_enabled)
+			if (!(__supported_pte_mask & _PAGE_NX))
 				cpu_set(cpu, next->context.cpu_user_cs_mask);
 #endif
 
 #if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
 #ifdef CONFIG_PAX_PAGEEXEC
-			if (!((next->pax_flags & MF_PAX_PAGEEXEC) && nx_enabled))
+			if (!((next->pax_flags & MF_PAX_PAGEEXEC) && (__supported_pte_mask & _PAGE_NX)))
 #endif
 				set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
 #endif

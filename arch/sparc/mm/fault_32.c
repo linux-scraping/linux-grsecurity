@@ -18,6 +18,7 @@
 #include <linux/signal.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
+#include <linux/perf_event.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/kdebug.h>
@@ -467,6 +468,8 @@ asmlinkage void do_sparc_fault(struct pt_regs *regs, int text_fault, int write,
         if (in_atomic() || !mm)
                 goto no_context;
 
+	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, 0, regs, address);
+
 	down_read(&mm->mmap_sem);
 
 	/*
@@ -531,10 +534,15 @@ good_area:
 			goto do_sigbus;
 		BUG();
 	}
-	if (fault & VM_FAULT_MAJOR)
+	if (fault & VM_FAULT_MAJOR) {
 		current->maj_flt++;
-	else
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1, 0,
+			      regs, address);
+	} else {
 		current->min_flt++;
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1, 0,
+			      regs, address);
+	}
 	up_read(&mm->mmap_sem);
 	return;
 

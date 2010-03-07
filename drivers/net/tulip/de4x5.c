@@ -5472,7 +5472,7 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	for (i=0; i<ETH_ALEN; i++) {
 	    tmp.addr[i] = dev->dev_addr[i];
 	}
-	if (ioc->len > sizeof tmp.addr || copy_to_user(ioc->data, tmp.addr, ioc->len)) return -EFAULT;
+	if (ioc->len > sizeof(tmp.addr) || copy_to_user(ioc->data, tmp.addr, ioc->len)) return -EFAULT;
 	break;
 
     case DE4X5_SET_HWADDR:           /* Set the hardware address */
@@ -5512,7 +5512,7 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	spin_lock_irqsave(&lp->lock, flags);
 	memcpy(&statbuf, &lp->pktStats, ioc->len);
 	spin_unlock_irqrestore(&lp->lock, flags);
-	if (ioc->len > sizeof statbuf || copy_to_user(ioc->data, &statbuf, ioc->len))
+	if (ioc->len > sizeof(statbuf) || copy_to_user(ioc->data, &statbuf, ioc->len))
 		return -EFAULT;
 	break;
     }

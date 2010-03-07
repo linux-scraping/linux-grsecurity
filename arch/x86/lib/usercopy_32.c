@@ -1025,6 +1025,18 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache_nozero);
 
+void copy_from_user_overflow(void)
+{
+	WARN(1, "Buffer overflow detected!\n");
+}
+EXPORT_SYMBOL(copy_from_user_overflow);
+
+void copy_to_user_overflow(void)
+{
+	WARN(1, "Buffer overflow detected!\n");
+}
+EXPORT_SYMBOL(copy_to_user_overflow);
+
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 void __set_fs(mm_segment_t x, int cpu)
 {
@@ -1046,6 +1058,7 @@ void set_fs(mm_segment_t x)
 	__set_fs(x, get_cpu());
 	put_cpu();
 }
+EXPORT_SYMBOL(copy_from_user);
 #else
 void set_fs(mm_segment_t x)
 {

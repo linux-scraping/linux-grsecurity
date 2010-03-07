@@ -5,6 +5,7 @@
 # Don't trace early stages of a secondary CPU boot
 ifdef CONFIG_FUNCTION_TRACER
 CFLAGS_REMOVE_common.o = -pg
+CFLAGS_REMOVE_perf_event.o = -pg
 endif
 
 obj-y			:= intel_cacheinfo.o addon_cpuid_features.o

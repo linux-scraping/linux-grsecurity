@@ -436,7 +436,7 @@ static void udf_table_free_blocks(struct super_block *sb,
 	partmap = &sbi->s_partmaps[bloc->partitionReferenceNum];
 	if ((bloc->logicalBlockNum + count) > partmap->s_partition_len) {
 		udf_debug("%d < %d || %d + %d > %d\n",
-			  bloc.logicalBlockNum, 0, bloc.logicalBlockNum, count,
+			  bloc->logicalBlockNum, 0, bloc->logicalBlockNum, count,
 			  partmap->s_partition_len);
 		goto error_return;
 	}

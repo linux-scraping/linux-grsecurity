@@ -1044,7 +1044,7 @@ icn_writecmd(const u_char * buf, int len, int user, icn_card * card)
 		if (count > len)
 			count = len;
 		if (user) {
-			if (count > sizeof msg || copy_from_user(msg, buf, count))
+			if (count > sizeof(msg) || copy_from_user(msg, buf, count))
 				return -EFAULT;
 		} else
 			memcpy(msg, buf, count);

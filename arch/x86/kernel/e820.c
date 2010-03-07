@@ -28,6 +28,8 @@
 #include <asm/setup.h>
 #include <asm/trampoline.h>
 
+#include "acpi/realmode/wakeup.h"
+
 /*
  * The e820 map is the map that gets modified e.g. with command line parameters
  * and that is also registered with modifications in the kernel resource tree
@@ -724,7 +726,7 @@ core_initcall(e820_mark_nvs_memory);
 /*
  * Early reserved memory areas.
  */
-#define MAX_EARLY_RES 20
+#define MAX_EARLY_RES 32
 
 struct early_res {
 	u64 start, end;
@@ -732,9 +734,26 @@ struct early_res {
 	char overlap_ok;
 };
 static struct early_res early_res[MAX_EARLY_RES] __initdata = {
-	{ 0, PAGE_SIZE, "BIOS data page" },	/* BIOS data page */
+	{ 0, PAGE_SIZE, "BIOS data page", 1 },	/* BIOS data page */
+#if defined(CONFIG_X86_32) && defined(CONFIG_X86_TRAMPOLINE)
+	/*
+	 * But first pinch a few for the stack/trampoline stuff
+	 * FIXME: Don't need the extra page at 4K, but need to fix
+	 * trampoline before removing it. (see the GDT stuff)
+	 */
+	{ PAGE_SIZE, PAGE_SIZE + PAGE_SIZE, "EX TRAMPOLINE", 1 },
+#endif
 #ifdef CONFIG_VM86
-	{ PAGE_SIZE, ISA_START_ADDRESS, "V86 mode memory", 1 },
+#ifdef CONFIG_ACPI_SLEEP
+#define ACPI_EXTRA WAKEUP_SIZE
+#else
+#define ACPI_EXTRA 0
+#endif
+#if defined(CONFIG_X86_32) && defined(CONFIG_X86_TRAMPOLINE)
+	{ 3*PAGE_SIZE + ACPI_EXTRA, ISA_START_ADDRESS, "V86 mode memory", 1 },
+#else
+	{ 2*PAGE_SIZE + ACPI_EXTRA, ISA_START_ADDRESS, "V86 mode memory", 1 },
+#endif
 #endif
 	{ 0, 0, {0}, 0 }
 };

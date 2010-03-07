@@ -282,16 +282,6 @@ typedef struct page *pgtable_t;
 extern pteval_t __supported_pte_mask;
 extern void set_nx(void);
 
-#ifdef CONFIG_X86_32
-#ifdef CONFIG_X86_PAE
-extern int nx_enabled;
-#else
-#define nx_enabled (0)
-#endif
-#else
-#define nx_enabled (1)
-#endif
-
 #define pgprot_writecombine	pgprot_writecombine
 extern pgprot_t pgprot_writecombine(pgprot_t prot);
 

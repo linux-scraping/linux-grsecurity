@@ -362,7 +362,7 @@ int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst
 				break;
 			return -EIO;
 		}
-		if (copy_to_user(dst, buf, retval))
+		if (retval > sizeof(buf) || copy_to_user(dst, buf, retval))
 			return -EFAULT;
 		copied += retval;
 		src += retval;

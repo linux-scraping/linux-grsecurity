@@ -1950,7 +1950,7 @@ static void radeon_apply_surface_regs(int surf_index,
  * Note that refcount can be at most 2, since during a free refcount=3
  * might mean we have to allocate a new surface which might not always
  * be available.
- * For example : we allocate three contigous surfaces ABC. If B is
+ * For example : we allocate three contiguous surfaces ABC. If B is
  * freed, we suddenly need two surfaces to store A and C, which might
  * not always be available.
  */
@@ -2139,7 +2139,7 @@ static int radeon_cp_clear(struct drm_device *dev, void *data, struct drm_file *
 	if (sarea_priv->nbox > RADEON_NR_SAREA_CLIPRECTS)
 		sarea_priv->nbox = RADEON_NR_SAREA_CLIPRECTS;
 
-	if (DRM_COPY_FROM_USER(&depth_boxes, clear->depth_boxes,
+	if (sarea_priv->nbox > RADEON_NR_SAREA_CLIPRECTS || DRM_COPY_FROM_USER(&depth_boxes, clear->depth_boxes,
 			       sarea_priv->nbox * sizeof(depth_boxes[0])))
 		return -EFAULT;
 

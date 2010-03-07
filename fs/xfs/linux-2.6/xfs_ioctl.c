@@ -51,6 +51,7 @@
 #include "xfs_quota.h"
 #include "xfs_inode_item.h"
 #include "xfs_export.h"
+#include "xfs_trace.h"
 
 #include <linux/capability.h>
 #include <linux/dcache.h>
@@ -134,7 +135,7 @@ xfs_find_handle(
 	}
 
 	error = -EFAULT;
-	if (hsize > sizeof handle || copy_to_user(hreq->ohandle, &handle, hsize) ||
+	if (hsize > sizeof(handle) || copy_to_user(hreq->ohandle, &handle, hsize) ||
 	    copy_to_user(hreq->ohandlen, &hsize, sizeof(__s32)))
 		goto out_put;
 

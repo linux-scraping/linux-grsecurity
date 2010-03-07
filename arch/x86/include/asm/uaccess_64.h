@@ -19,19 +19,56 @@
 /* Handles exceptions in both to and from, but doesn't do access_ok */
 __must_check unsigned long
 copy_user_generic(void *to, const void *from, unsigned len);
-
+static __always_inline __must_check unsigned long
+__copy_to_user(void __user *to, const void *from, unsigned len);
+static __always_inline __must_check unsigned long
+__copy_from_user(void *to, const void __user *from, unsigned len);
 __must_check unsigned long
 copy_in_user(void __user *to, const void __user *from, unsigned len);
+
+static inline unsigned long __must_check copy_from_user(void *to,
+					  const void __user *from,
+					  unsigned n)
+{
+	might_fault();
+
+	if (access_ok(VERIFY_READ, from, n))
+		n = __copy_from_user(to, from, n);
+	else if ((int)n > 0) {
+		if (!__builtin_constant_p(n))
+			check_object_size(to, n, false);
+		memset(to, 0, n);
+	}
+	return n;
+}
+
+static __always_inline __must_check
+int copy_to_user(void __user *dst, const void *src, unsigned size)
+{
+	might_fault();
+
+	if (access_ok(VERIFY_WRITE, dst, size))
+		size = __copy_to_user(dst, src, size);
+	return size;
+}
 
 static __always_inline __must_check
 unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 {
+	int sz = __compiletime_object_size(dst);
 	unsigned ret = 0;
 
 	might_fault();
 
 	if ((int)size < 0)
 		return size;
+
+	if (unlikely(sz != -1 && sz < size)) {
+#ifdef CONFIG_DEBUG_VM
+		WARN(1, "Buffer overflow detected!\n");
+#endif
+		return size;
+	}
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
@@ -76,12 +113,20 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 static __always_inline __must_check
 unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 {
+	int sz = __compiletime_object_size(src);
 	unsigned ret = 0;
 
 	might_fault();
 
 	if ((int)size < 0)
 		return size;
+
+	if (unlikely(sz != -1 && sz < size)) {
+#ifdef CONFIG_DEBUG_VM
+		WARN(1, "Buffer overflow detected!\n");
+#endif
+		return size;
+	}
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);
@@ -121,30 +166,6 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 	default:
 		return copy_user_generic((__force void *)dst, src, size);
 	}
-}
-
-static __always_inline __must_check
-unsigned long copy_to_user(void __user *to, const void *from, unsigned len)
-{
-	if (access_ok(VERIFY_WRITE, to, len))
-		len = __copy_to_user(to, from, len);
-	return len;
-}
-
-static __always_inline __must_check
-unsigned long copy_from_user(void *to, const void __user *from, unsigned len)
-{
-	if ((int)len < 0)
-		return len;
-
-	if (access_ok(VERIFY_READ, from, len))
-		len = __copy_from_user(to, from, len);
-	else if ((int)len > 0) {
-		if (!__builtin_constant_p(len))
-			check_object_size(to, len, false);
-		memset(to, 0, len);
-	}
-	return len;
 }
 
 static __always_inline __must_check
@@ -214,8 +235,11 @@ __must_check long strlen_user(const char __user *str);
 __must_check unsigned long clear_user(void __user *mem, unsigned long len);
 __must_check unsigned long __clear_user(void __user *mem, unsigned long len);
 
-__must_check long __copy_from_user_inatomic(void *dst, const void __user *src,
-					    unsigned size);
+static __must_check __always_inline int
+__copy_from_user_inatomic(void *dst, const void __user *src, unsigned size)
+{
+	return copy_user_generic(dst, (__force const void *)src, size);
+}
 
 static __must_check __always_inline unsigned long
 __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)

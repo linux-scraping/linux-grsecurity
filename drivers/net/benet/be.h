@@ -32,7 +32,7 @@
 
 #include "be_hw.h"
 
-#define DRV_VER			"2.101.205"
+#define DRV_VER			"2.101.346u"
 #define DRV_NAME		"be2net"
 #define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
 #define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
@@ -170,7 +170,7 @@ struct be_drvr_stats {
 	u32 cache_barrier[16];
 
 	u32 be_ethrx_post_fail;/* number of ethrx buffer alloc failures */
-	u32 be_polls;		/* number of times NAPI called poll function */
+	u32 be_rx_polls;	/* number of times NAPI called poll function */
 	u32 be_rx_events;	/* number of ucast rx completion events  */
 	u32 be_rx_compl;	/* number of rx completion entries processed */
 	ulong be_rx_jiffies;
@@ -192,7 +192,6 @@ struct be_drvr_stats {
 
 struct be_stats_obj {
 	struct be_drvr_stats drvr_stats;
-	struct net_device_stats net_stats;
 	struct be_dma_mem cmd;
 };
 
@@ -255,6 +254,7 @@ struct be_adapter {
 	struct vlan_group *vlan_grp;
 	u16 num_vlans;
 	u8 vlan_tag[VLAN_GROUP_ARRAY_LEN];
+	struct be_dma_mem mc_cmd_mem;
 
 	struct be_stats_obj stats;
 	/* Work queue used to perform periodic tasks like getting statistics */
@@ -269,9 +269,13 @@ struct be_adapter {
 	bool link_up;
 	u32 port_num;
 	bool promiscuous;
+	bool wol;
 	u32 cap;
 	u32 rx_fc;		/* Rx flow control */
 	u32 tx_fc;		/* Tx flow control */
+	int link_speed;
+	u8 port_type;
+	u8 transceiver;
 	u8 generation;		/* BladeEngine ASIC generation */
 };
 

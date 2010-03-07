@@ -116,7 +116,7 @@ static void move_ptes(struct vm_area_struct *vma, pmd_t *old_pmd,
 		pte = move_pte(pte, new_vma->vm_page_prot, old_addr, new_addr);
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-		if (!nx_enabled && (new_vma->vm_flags & (VM_PAGEEXEC | VM_EXEC)) == VM_PAGEEXEC)
+		if (!(__supported_pte_mask & _PAGE_NX) && (new_vma->vm_flags & (VM_PAGEEXEC | VM_EXEC)) == VM_PAGEEXEC)
 			pte = pte_exprotect(pte);
 #endif
 

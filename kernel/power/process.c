@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/syscalls.h>
 #include <linux/freezer.h>
+#include <linux/delay.h>
 
 /* 
  * Timeout for stopping processes
@@ -42,7 +43,7 @@ static int try_to_freeze_tasks(bool sig_only)
 	do_gettimeofday(&start);
 
 	end_time = jiffies + TIMEOUT;
-	do {
+	while (true) {
 		todo = 0;
 		if (time_after(jiffies, end_time))
 			timedout = true;
@@ -69,8 +70,15 @@ static int try_to_freeze_tasks(bool sig_only)
 			}
 		} while_each_thread(g, p);
 		read_unlock(&tasklist_lock);
-		yield();			/* Yield is okay here */
-	} while (todo && !timedout);
+		if (!todo || timedout)
+			break;
+
+		/*
+		 * We need to retry, but first give the freezing tasks some
+		 * time to enter the regrigerator.
+		 */
+		msleep(10);
+	}
 
 	do_gettimeofday(&end);
 	elapsed_csecs64 = timeval_to_ns(&end) - timeval_to_ns(&start);

@@ -111,7 +111,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	}
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if (!nx_enabled && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
+	if (!(__supported_pte_mask & _PAGE_NX) && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
 		start_addr = 0x00110000UL;
 
 #ifdef CONFIG_PAX_RANDMMAP
@@ -181,7 +181,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		return addr;
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if (!nx_enabled && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE))
+	if (!(__supported_pte_mask & _PAGE_NX) && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE))
 		goto bottomup;
 #endif
 

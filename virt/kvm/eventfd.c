@@ -61,10 +61,8 @@ irqfd_inject(struct work_struct *work)
 	struct _irqfd *irqfd = container_of(work, struct _irqfd, inject);
 	struct kvm *kvm = irqfd->kvm;
 
-	mutex_lock(&kvm->irq_lock);
 	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 1);
 	kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID, irqfd->gsi, 0);
-	mutex_unlock(&kvm->irq_lock);
 }
 
 /*
@@ -74,12 +72,13 @@ static void
 irqfd_shutdown(struct work_struct *work)
 {
 	struct _irqfd *irqfd = container_of(work, struct _irqfd, shutdown);
+	u64 cnt;
 
 	/*
 	 * Synchronize with the wait-queue and unhook ourselves to prevent
 	 * further events.
 	 */
-	remove_wait_queue(irqfd->wqh, &irqfd->wait);
+	eventfd_ctx_remove_wait_queue(irqfd->eventfd, &irqfd->wait, &cnt);
 
 	/*
 	 * We know no new events will be scheduled at this point, so block

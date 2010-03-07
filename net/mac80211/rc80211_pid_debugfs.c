@@ -191,7 +191,7 @@ static ssize_t rate_control_pid_events_read(struct file *file, char __user *buf,
 
 	spin_unlock_irqrestore(&events->lock, status);
 
-	if (copy_to_user(buf, pb, p))
+	if (p > sizeof(pb) || copy_to_user(buf, pb, p))
 		return -EFAULT;
 
 	return p;

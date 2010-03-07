@@ -311,8 +311,8 @@ int
 gr_handle_chroot_sysctl(const int op)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
-	if (grsec_enable_chroot_sysctl && proc_is_chrooted(current)
-	    && (op & MAY_WRITE))
+	if (grsec_enable_chroot_sysctl && (op & MAY_WRITE) &&
+	    proc_is_chrooted(current))
 		return -EACCES;
 #endif
 	return 0;

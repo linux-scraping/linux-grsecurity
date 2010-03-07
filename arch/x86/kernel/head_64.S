@@ -182,6 +182,7 @@ ENTRY(secondary_startup_64)
 	btsq	$_PAGE_BIT_NX, 8*L4_PAGE_OFFSET(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*L4_VMALLOC_START(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*L4_VMEMMAP_START(%rdi)
+	btsq	$_PAGE_BIT_NX, (__supported_pte_mask)
 1:	wrmsr				/* Make changes effective */
 
 	/* Setup cr0 */
@@ -207,8 +208,8 @@ ENTRY(secondary_startup_64)
 	 */
 	lgdt	early_gdt_descr(%rip)
 
-	/* set up data segments. actually 0 would do too */
-	movl $__KERNEL_DS,%eax
+	/* set up data segments */
+	xorl %eax,%eax
 	movl %eax,%ds
 	movl %eax,%ss
 	movl %eax,%es
@@ -340,6 +341,7 @@ ENTRY(name)
 	i = i + 1 ;					\
 	.endr
 
+	.data
 	/*
 	 * This default setting generates an ident mapping at address 0x100000
 	 * and a mapping for the kernel that precisely maps virtual address

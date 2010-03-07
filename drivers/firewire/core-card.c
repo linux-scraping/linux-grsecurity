@@ -38,15 +38,14 @@
 
 #include "core.h"
 
-int fw_compute_block_crc(u32 *block)
+int fw_compute_block_crc(__be32 *block)
 {
-	__be32 be32_block[256];
-	int i, length;
+	int length;
+	u16 crc;
 
-	length = (*block >> 16) & 0xff;
-	for (i = 0; i < length; i++)
-		be32_block[i] = cpu_to_be32(block[i + 1]);
-	*block |= crc_itu_t(0, (u8 *) be32_block, length * 4);
+	length = (be32_to_cpu(block[0]) >> 16) & 0xff;
+	crc = crc_itu_t(0, (u8 *)&block[1], length * 4);
+	*block |= cpu_to_be32(crc);
 
 	return length;
 }
@@ -57,6 +56,7 @@ static LIST_HEAD(card_list);
 static LIST_HEAD(descriptor_list);
 static int descriptor_count;
 
+static __be32 tmp_config_rom[256];
 /* ROM header, bus info block, root dir header, capabilities = 7 quadlets */
 static size_t config_rom_length = 1 + 4 + 1 + 1;
 
@@ -75,11 +75,10 @@ static size_t config_rom_length = 1 + 4 + 1 + 1;
 #define BIB_CMC			((1) << 30)
 #define BIB_IMC			((1) << 31)
 
-static u32 *generate_config_rom(struct fw_card *card)
+static void generate_config_rom(struct fw_card *card, __be32 *config_rom)
 {
 	struct fw_descriptor *desc;
-	static u32 config_rom[256];
-	int i, j, length;
+	int i, j, k, length;
 
 	/*
 	 * Initialize contents of config rom buffer.  On the OHCI
@@ -90,40 +89,39 @@ static u32 *generate_config_rom(struct fw_card *card)
 	 * the version stored in the OHCI registers.
 	 */
 
-	memset(config_rom, 0, sizeof(config_rom));
-	config_rom[0] = BIB_CRC_LENGTH(4) | BIB_INFO_LENGTH(4) | BIB_CRC(0);
-	config_rom[1] = 0x31333934;
-
-	config_rom[2] =
+	config_rom[0] = cpu_to_be32(
+		BIB_CRC_LENGTH(4) | BIB_INFO_LENGTH(4) | BIB_CRC(0));
+	config_rom[1] = cpu_to_be32(0x31333934);
+	config_rom[2] = cpu_to_be32(
 		BIB_LINK_SPEED(card->link_speed) |
 		BIB_GENERATION(card->config_rom_generation++ % 14 + 2) |
 		BIB_MAX_ROM(2) |
 		BIB_MAX_RECEIVE(card->max_receive) |
-		BIB_BMC | BIB_ISC | BIB_CMC | BIB_IMC;
-	config_rom[3] = card->guid >> 32;
-	config_rom[4] = card->guid;
+		BIB_BMC | BIB_ISC | BIB_CMC | BIB_IMC);
+	config_rom[3] = cpu_to_be32(card->guid >> 32);
+	config_rom[4] = cpu_to_be32(card->guid);
 
 	/* Generate root directory. */
-	i = 5;
-	config_rom[i++] = 0;
-	config_rom[i++] = 0x0c0083c0; /* node capabilities */
-	j = i + descriptor_count;
+	config_rom[6] = cpu_to_be32(0x0c0083c0); /* node capabilities */
+	i = 7;
+	j = 7 + descriptor_count;
 
 	/* Generate root directory entries for descriptors. */
 	list_for_each_entry (desc, &descriptor_list, link) {
 		if (desc->immediate > 0)
-			config_rom[i++] = desc->immediate;
-		config_rom[i] = desc->key | (j - i);
+			config_rom[i++] = cpu_to_be32(desc->immediate);
+		config_rom[i] = cpu_to_be32(desc->key | (j - i));
 		i++;
 		j += desc->length;
 	}
 
 	/* Update root directory length. */
-	config_rom[5] = (i - 5 - 1) << 16;
+	config_rom[5] = cpu_to_be32((i - 5 - 1) << 16);
 
 	/* End of root directory, now copy in descriptors. */
 	list_for_each_entry (desc, &descriptor_list, link) {
-		memcpy(&config_rom[i], desc->data, desc->length * 4);
+		for (k = 0; k < desc->length; k++)
+			config_rom[i + k] = cpu_to_be32(desc->data[k]);
 		i += desc->length;
 	}
 
@@ -135,18 +133,15 @@ static u32 *generate_config_rom(struct fw_card *card)
 		length = fw_compute_block_crc(config_rom + i);
 
 	WARN_ON(j != config_rom_length);
-
-	return config_rom;
 }
 
 static void update_config_roms(void)
 {
 	struct fw_card *card;
-	u32 *config_rom;
 
 	list_for_each_entry (card, &card_list, link) {
-		config_rom = generate_config_rom(card);
-		card->driver->set_config_rom(card, config_rom,
+		generate_config_rom(card, tmp_config_rom);
+		card->driver->set_config_rom(card, tmp_config_rom,
 					     config_rom_length);
 	}
 }
@@ -228,11 +223,8 @@ static const char gap_count_table[] = {
 
 void fw_schedule_bm_work(struct fw_card *card, unsigned long delay)
 {
-	int scheduled;
-
 	fw_card_get(card);
-	scheduled = schedule_delayed_work(&card->work, delay);
-	if (!scheduled)
+	if (!schedule_delayed_work(&card->work, delay))
 		fw_card_put(card);
 }
 
@@ -452,7 +444,6 @@ EXPORT_SYMBOL(fw_card_initialize);
 int fw_card_add(struct fw_card *card,
 		u32 max_receive, u32 link_speed, u64 guid)
 {
-	u32 *config_rom;
 	int ret;
 
 	card->max_receive = max_receive;
@@ -461,8 +452,8 @@ int fw_card_add(struct fw_card *card,
 
 	mutex_lock(&card_mutex);
 
-	config_rom = generate_config_rom(card);
-	ret = card->driver->enable(card, config_rom, config_rom_length);
+	generate_config_rom(card, tmp_config_rom);
+	ret = card->driver->enable(card, tmp_config_rom, config_rom_length);
 	if (ret == 0)
 		list_add_tail(&card->link, &card_list);
 
@@ -481,7 +472,8 @@ EXPORT_SYMBOL(fw_card_add);
  * shutdown still need to be provided by the card driver.
  */
 
-static int dummy_enable(struct fw_card *card, u32 *config_rom, size_t length)
+static int dummy_enable(struct fw_card *card,
+			const __be32 *config_rom, size_t length)
 {
 	BUG();
 	return -1;
@@ -494,7 +486,7 @@ static int dummy_update_phy_reg(struct fw_card *card, int address,
 }
 
 static int dummy_set_config_rom(struct fw_card *card,
-				u32 *config_rom, size_t length)
+				const __be32 *config_rom, size_t length)
 {
 	/*
 	 * We take the card out of card_list before setting the dummy

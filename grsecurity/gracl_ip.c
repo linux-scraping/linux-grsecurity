@@ -182,13 +182,13 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 	/* INADDR_ANY overriding for binds, inaddr_any_override is already in network order */
 	if ((full_mode & GR_BINDOVERRIDE) && addr->sin_addr.s_addr == htonl(INADDR_ANY) && curr->inaddr_any_override != 0)
 		addr->sin_addr.s_addr = curr->inaddr_any_override;
-	if ((full_mode & GR_CONNECT) && isk->saddr == htonl(INADDR_ANY) && curr->inaddr_any_override != 0) {
+	if ((full_mode & GR_CONNECT) && isk->inet_saddr == htonl(INADDR_ANY) && curr->inaddr_any_override != 0) {
 		struct sockaddr_in saddr;
 		int err;
 
 		saddr.sin_family = AF_INET;
 		saddr.sin_addr.s_addr = curr->inaddr_any_override;
-		saddr.sin_port = isk->sport;
+		saddr.sin_port = isk->inet_sport;
 
 		err = security_socket_bind(sk->sk_socket, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in));
 		if (err)
@@ -291,8 +291,8 @@ int gr_search_listen(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct sockaddr_in addr;
 
-	addr.sin_addr.s_addr = inet_sk(sk)->saddr;
-	addr.sin_port = inet_sk(sk)->sport;
+	addr.sin_addr.s_addr = inet_sk(sk)->inet_saddr;
+	addr.sin_port = inet_sk(sk)->inet_sport;
 
 	return gr_search_connectbind(GR_BIND | GR_CONNECTOVERRIDE, sock->sk, &addr, sock->type);
 }
@@ -302,8 +302,8 @@ int gr_search_accept(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct sockaddr_in addr;
 
-	addr.sin_addr.s_addr = inet_sk(sk)->saddr;
-	addr.sin_port = inet_sk(sk)->sport;
+	addr.sin_addr.s_addr = inet_sk(sk)->inet_saddr;
+	addr.sin_port = inet_sk(sk)->inet_sport;
 
 	return gr_search_connectbind(GR_BIND | GR_CONNECTOVERRIDE, sock->sk, &addr, sock->type);
 }
@@ -317,8 +317,8 @@ gr_search_udp_sendmsg(struct sock *sk, struct sockaddr_in *addr)
 		struct sockaddr_in sin;
 		const struct inet_sock *inet = inet_sk(sk);
 
-		sin.sin_addr.s_addr = inet->daddr;
-		sin.sin_port = inet->dport;
+		sin.sin_addr.s_addr = inet->inet_daddr;
+		sin.sin_port = inet->inet_dport;
 
 		return gr_search_connectbind(GR_CONNECT | GR_CONNECTOVERRIDE, sk, &sin, SOCK_DGRAM);
 	}

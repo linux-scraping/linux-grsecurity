@@ -42,7 +42,8 @@ enum x86_pf_error_code {
  * Returns 0 if mmiotrace is disabled, or if the fault is not
  * handled by mmiotrace:
  */
-static inline int kmmio_fault(struct pt_regs *regs, unsigned long addr)
+static inline int __kprobes
+kmmio_fault(struct pt_regs *regs, unsigned long addr)
 {
 	if (unlikely(is_kmmio_active()))
 		if (kmmio_handler(regs, addr) == 1)
@@ -50,7 +51,7 @@ static inline int kmmio_fault(struct pt_regs *regs, unsigned long addr)
 	return 0;
 }
 
-static inline int notify_page_fault(struct pt_regs *regs)
+static inline int __kprobes notify_page_fault(struct pt_regs *regs)
 {
 	int ret = 0;
 
@@ -268,7 +269,7 @@ void vmalloc_sync_all(void)
  *
  *   Handle a fault on the vmalloc or module mapping area
  */
-static noinline int vmalloc_fault(unsigned long address)
+static noinline __kprobes int vmalloc_fault(unsigned long address)
 {
 	unsigned long pgd_paddr;
 	pmd_t *pmd_k;
@@ -385,7 +386,7 @@ void vmalloc_sync_all(void)
  *
  * This assumes no large pages in there.
  */
-static noinline int vmalloc_fault(unsigned long address)
+static noinline __kprobes int vmalloc_fault(unsigned long address)
 {
 	pgd_t *pgd, *pgd_ref;
 	pud_t *pud, *pud_ref;
@@ -599,7 +600,7 @@ show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 	if (!oops_may_print())
 		return;
 
-	if (nx_enabled && (error_code & PF_INSTR)) {
+	if ((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR)) {
 		unsigned int level;
 
 		pte_t *pte = lookup_address(address, &level);
@@ -697,7 +698,7 @@ no_context(struct pt_regs *regs, unsigned long error_code,
 	show_fault_oops(regs, error_code, address);
 
 	stackend = end_of_stack(tsk);
-	if (*stackend != STACK_END_MAGIC)
+	if (tsk != &init_task && *stackend != STACK_END_MAGIC)
 		printk(KERN_ALERT "Thread overran stack, or stack corrupted\n");
 
 	tsk->thread.cr2		= address;
@@ -774,7 +775,7 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 
 #ifdef CONFIG_PAX_PAGEEXEC
 		if ((mm->pax_flags & MF_PAX_PAGEEXEC) &&
-		    ((nx_enabled && (error_code & PF_INSTR)) || (!(error_code & (PF_PROT | PF_WRITE)) && regs->ip == address))) {
+		    (((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR)) || (!(error_code & (PF_PROT | PF_WRITE)) && regs->ip == address))) {
 
 #ifdef CONFIG_PAX_EMUTRAMP
 			switch (pax_handle_fetch_fault(regs)) {
@@ -957,7 +958,7 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
 	spinlock_t *ptl;
 	unsigned char pte_mask;
 
-	if (nx_enabled || (error_code & (PF_PROT|PF_USER)) != (PF_PROT|PF_USER) || v8086_mode(regs) ||
+	if ((__supported_pte_mask & _PAGE_NX) || (error_code & (PF_PROT|PF_USER)) != (PF_PROT|PF_USER) || v8086_mode(regs) ||
 	    !(mm->pax_flags & MF_PAX_PAGEEXEC))
 		return 0;
 
@@ -1061,7 +1062,7 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
  * There are no security implications to leaving a stale TLB when
  * increasing the permissions on a page.
  */
-static noinline int
+static noinline __kprobes int
 spurious_fault(unsigned long error_code, unsigned long address)
 {
 	pgd_t *pgd;
@@ -1115,7 +1116,7 @@ int show_unhandled_signals = 1;
 static inline int
 access_error(unsigned long error_code, int write, struct vm_area_struct *vma)
 {
-	if (nx_enabled && (error_code & PF_INSTR) && !(vma->vm_flags & VM_EXEC))
+	if ((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR) && !(vma->vm_flags & VM_EXEC))
 		return 1;
 
 	if (write) {

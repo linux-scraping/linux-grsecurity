@@ -206,6 +206,22 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
 	return __copy_from_user_ll_nocache_nozero(to, from, n);
 }
 
+extern void copy_to_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_to_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_to_user() buffer size is not provably correct")
+#endif
+;
+
+extern void copy_from_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_from_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_from_user() buffer size is not provably correct")
+#endif
+;
+
 /**
  * copy_to_user: - Copy a block of data into user space.
  * @to:   Destination address, in user space.
@@ -219,10 +235,14 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
  * Returns number of bytes that could not be copied.
  * On success, this will be zero.
  */
-static __always_inline unsigned long __must_check
+static inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	if (access_ok(VERIFY_WRITE, to, n))
+	int sz = __compiletime_object_size(from);
+
+	if (unlikely(sz != -1 && sz < n))
+		copy_to_user_overflow();
+	else if (access_ok(VERIFY_WRITE, to, n))
 		n = __copy_to_user(to, from, n);
 	return n;
 }
@@ -243,10 +263,14 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
  * If some data could not be copied, this function will pad the copied
  * data to the requested size using zero bytes.
  */
-static __always_inline unsigned long __must_check
+static inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	if (access_ok(VERIFY_READ, from, n))
+	int sz = __compiletime_object_size(to);
+
+	if (unlikely(sz != -1 && sz < n))
+		copy_from_user_overflow();
+	else if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
 	else if ((long)n > 0) {
 		if (!__builtin_constant_p(n))

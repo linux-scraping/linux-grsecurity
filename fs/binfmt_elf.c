@@ -44,8 +44,8 @@ static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
  * If we don't support core dumping, then supply a NULL so we
  * don't even try.
  */
-#if defined(USE_ELF_CORE_DUMP) && defined(CONFIG_ELF_CORE)
-static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, unsigned long limit);
+#ifdef CONFIG_ELF_CORE
+static int elf_core_dump(struct coredump_params *cprm);
 #else
 #define elf_core_dump	NULL
 #endif
@@ -569,7 +569,7 @@ static unsigned long pax_parse_softmode(const struct elf_phdr * const elf_phdata
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
 	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
+		if ((__supported_pte_mask & _PAGE_NX))
 			pax_flags &= ~MF_PAX_SEGMEXEC;
 		else
 			pax_flags &= ~MF_PAX_PAGEEXEC;
@@ -612,7 +612,7 @@ static unsigned long pax_parse_hardmode(const struct elf_phdr * const elf_phdata
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
 	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
+		if ((__supported_pte_mask & _PAGE_NX))
 			pax_flags &= ~MF_PAX_SEGMEXEC;
 		else
 			pax_flags &= ~MF_PAX_PAGEEXEC;
@@ -655,7 +655,7 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
 	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
+		if ((__supported_pte_mask & _PAGE_NX))
 			pax_flags &= ~MF_PAX_SEGMEXEC;
 		else
 			pax_flags &= ~MF_PAX_PAGEEXEC;
@@ -949,7 +949,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 #endif
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-	if ((current->mm->pax_flags & MF_PAX_PAGEEXEC) && !nx_enabled) {
+	if ((current->mm->pax_flags & MF_PAX_PAGEEXEC) && !(__supported_pte_mask & _PAGE_NX)) {
 		current->mm->context.user_cs_limit = PAGE_SIZE;
 		current->mm->def_flags |= VM_PAGEEXEC;
 	}
@@ -1009,7 +1009,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	
 	current->mm->start_stack = bprm->p;
 
-	/* Now we do a little grungy work by mmaping the ELF image into
+	/* Now we do a little grungy work by mmapping the ELF image into
 	   the correct location in memory. */
 	for(i = 0, elf_ppnt = elf_phdata;
 	    i < loc->elf_ex.e_phnum; i++, elf_ppnt++) {
@@ -1364,12 +1364,7 @@ out:
 	return error;
 }
 
-/*
- * Note that some platforms still use traditional core dumps and not
- * the ELF core dump.  Each platform can select it as appropriate.
- */
-#if defined(USE_ELF_CORE_DUMP) && defined(CONFIG_ELF_CORE)
-
+#ifdef CONFIG_ELF_CORE
 /*
  * ELF core dumper
  *
@@ -1542,11 +1537,12 @@ static int writenote(struct memelfnote *men, struct file *file,
 }
 #undef DUMP_WRITE
 
-#define DUMP_WRITE(addr, nr)	\
-	do { \
+#define DUMP_WRITE(addr, nr)				\
+	do {						\
 	gr_learn_resource(current, RLIMIT_CORE, size + (nr), 1); \
-	if ((size += (nr)) > limit || !dump_write(file, (addr), (nr))) \
-		goto end_coredump; \
+	if ((size += (nr)) > cprm->limit ||		\
+	    !dump_write(cprm->file, (addr), (nr)))	\
+		goto end_coredump;			\
 	} while (0);
 
 static void fill_elf_header(struct elfhdr *elf, int segs,
@@ -2174,7 +2170,7 @@ static struct vm_area_struct *next_vma(struct vm_area_struct *this_vma,
  * and then they are actually written out.  If we run out of core limit
  * we just truncate.
  */
-static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, unsigned long limit)
+static int elf_core_dump(struct coredump_params *cprm)
 {
 	int has_dumped = 0;
 	mm_segment_t fs;
@@ -2220,7 +2216,7 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 	 * notes.  This also sets up the file header.
 	 */
 	if (!fill_note_info(elf, segs + 1, /* including notes section */
-			    &info, signr, regs))
+			    &info, cprm->signr, cprm->regs))
 		goto cleanup;
 
 	has_dumped = 1;
@@ -2264,7 +2260,7 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 		phdr.p_offset = offset;
 		phdr.p_vaddr = vma->vm_start;
 		phdr.p_paddr = 0;
-		phdr.p_filesz = vma_dump_size(vma, mm_flags, signr);
+		phdr.p_filesz = vma_dump_size(vma, mm_flags, cprm->signr);
 		phdr.p_memsz = vma->vm_end - vma->vm_start;
 		offset += phdr.p_filesz;
 		phdr.p_flags = vma->vm_flags & VM_READ ? PF_R : 0;
@@ -2282,14 +2278,14 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 #endif
 
  	/* write out the notes section */
-	if (!write_note_info(&info, file, &foffset))
+	if (!write_note_info(&info, cprm->file, &foffset))
 		goto end_coredump;
 
-	if (elf_coredump_extra_notes_write(file, &foffset))
+	if (elf_coredump_extra_notes_write(cprm->file, &foffset))
 		goto end_coredump;
 
 	/* Align to page */
-	if (!dump_seek(file, dataoff - foffset))
+	if (!dump_seek(cprm->file, dataoff - foffset))
 		goto end_coredump;
 
 	for (vma = first_vma(current, gate_vma); vma != NULL;
@@ -2297,7 +2293,7 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 		unsigned long addr;
 		unsigned long end;
 
-		end = vma->vm_start + vma_dump_size(vma, mm_flags, signr);
+		end = vma->vm_start + vma_dump_size(vma, mm_flags, cprm->signr);
 
 		for (addr = vma->vm_start; addr < end; addr += PAGE_SIZE) {
 			struct page *page;
@@ -2307,12 +2303,13 @@ static int elf_core_dump(long signr, struct pt_regs *regs, struct file *file, un
 			if (page) {
 				void *kaddr = kmap(page);
 				gr_learn_resource(current, RLIMIT_CORE, size + PAGE_SIZE, 1);
-				stop = ((size += PAGE_SIZE) > limit) ||
-					!dump_write(file, kaddr, PAGE_SIZE);
+				stop = ((size += PAGE_SIZE) > cprm->limit) ||
+					!dump_write(cprm->file, kaddr,
+						    PAGE_SIZE);
 				kunmap(page);
 				page_cache_release(page);
 			} else
-				stop = !dump_seek(file, PAGE_SIZE);
+				stop = !dump_seek(cprm->file, PAGE_SIZE);
 			if (stop)
 				goto end_coredump;
 		}
@@ -2332,7 +2329,7 @@ out:
 	return has_dumped;
 }
 
-#endif		/* USE_ELF_CORE_DUMP */
+#endif		/* CONFIG_ELF_CORE */
 
 #ifdef CONFIG_PAX_MPROTECT
 /* PaX: non-PIC ELF libraries need relocations on their executable segments

@@ -58,7 +58,7 @@ struct dma_map_ops {
 				   enum dma_data_direction dir);
 	int (* const mapping_error)(struct device *dev, dma_addr_t dma_addr);
 	int (* const dma_supported)(struct device *dev, u64 mask);
-	int (*set_dma_mask)(struct device *dev, u64 mask);
+	int (* set_dma_mask)(struct device *dev, u64 mask);
 	const int is_phys;
 };
 
