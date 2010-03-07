@@ -383,6 +383,16 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_AUDIT_PTRACE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "audit_ptrace",
+		.data		= &grsec_enable_audit_ptrace,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	{
 		.ctl_name	= CTL_UNNUMBERED,

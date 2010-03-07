@@ -105,7 +105,7 @@ static int read_reset_stat(ctl_table *table, int write,
 		len -= *ppos;
 		if (len > *lenp)
 			len = *lenp;
-		if (len && copy_to_user(buffer, str_buf, len))
+		if (len > sizeof str_buf || (len && copy_to_user(buffer, str_buf, len)))
 			return -EFAULT;
 		*lenp = len;
 		*ppos += len;

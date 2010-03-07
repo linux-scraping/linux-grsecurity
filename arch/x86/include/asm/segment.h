@@ -153,7 +153,6 @@
 #else
 #include <asm/cache.h>
 
-#define GDT_ENTRY_KERNEXEC_KERNEL_CS 0
 #define GDT_ENTRY_KERNEL32_CS 1
 #define GDT_ENTRY_KERNEL_CS 2
 #define GDT_ENTRY_KERNEL_DS 3
@@ -171,6 +170,8 @@
 #define GDT_ENTRY_DEFAULT_USER_CS 6
 #define __USER32_CS   (GDT_ENTRY_DEFAULT_USER32_CS * 8 + 3)
 #define __USER32_DS	__USER_DS
+
+#define GDT_ENTRY_KERNEXEC_KERNEL_CS 7
 
 #define GDT_ENTRY_TSS 8	/* needs two entries */
 #define GDT_ENTRY_LDT 10 /* needs two entries */

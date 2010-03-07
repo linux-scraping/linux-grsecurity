@@ -636,6 +636,13 @@ config GRKERNSEC_CHROOT_EXECLOG
 	  is therefore left as an option.  If the sysctl option is enabled, a
 	  sysctl option with name "chroot_execlog" is created.
 
+config GRKERNSEC_AUDIT_PTRACE
+	bool "Ptrace logging"
+	help
+	  If you say Y here, all attempts to attach to a process via ptrace
+	  will be logged.  If the sysctl option is enabled, a sysctl option
+	  with name "audit_ptrace" is created.
+
 config GRKERNSEC_AUDIT_CHDIR
 	bool "Chdir logging"
 	help

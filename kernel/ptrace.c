@@ -632,8 +632,10 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, long, addr, long, data)
 		 * Some architectures need to do book-keeping after
 		 * a ptrace attach.
 		 */
-		if (!ret)
+		if (!ret) {
 			arch_ptrace_attach(child);
+			gr_audit_ptrace(child);
+		}
 		goto out_put_task_struct;
 	}
 

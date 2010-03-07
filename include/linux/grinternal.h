@@ -41,6 +41,7 @@ extern int grsec_enable_execve;
 extern int grsec_enable_shm;
 extern int grsec_enable_execlog;
 extern int grsec_enable_signal;
+extern int grsec_enable_audit_ptrace;
 extern int grsec_enable_forkfail;
 extern int grsec_enable_time;
 extern int grsec_enable_rofs;

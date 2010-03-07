@@ -860,7 +860,7 @@ static inline unsigned long __raw_local_save_flags(void)
 
 static inline void raw_local_irq_restore(unsigned long f)
 {
-	return PVOP_VCALLEE1(pv_irq_ops.restore_fl, f);
+	PVOP_VCALLEE1(pv_irq_ops.restore_fl, f);
 }
 
 static inline void raw_local_irq_disable(void)
@@ -985,31 +985,6 @@ extern void default_banner(void);
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_usergs_sysret32))
 
 #ifdef CONFIG_X86_32
-
-#ifdef CONFIG_PAX_KERNEXEC
-#define PAX_EXIT_KERNEL					\
-	cmpw $__KERNEXEC_KERNEL_CS, PT_CS(%esp);	\
-	jnz 1f;						\
-	push %eax; push %ecx;				\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	btc $16, %eax;					\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-	pop %ecx; pop %eax;				\
-1:
-
-#define PAX_ENTER_KERNEL				\
-	push %eax; push %ecx;				\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	bts $16, %eax;					\
-	jc 1f;						\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-1:							\
-	pop %ecx; pop %eax;
-#else
-#define PAX_EXIT_KERNEL
-#define PAX_ENTER_KERNEL
-#endif
-
 #define GET_CR0_INTO_EAX				\
 	push %ecx; push %edx;				\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
@@ -1020,6 +995,34 @@ extern void default_banner(void);
 		  CLBR_NONE,						\
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_irq_enable_sysexit))
 
+#ifdef CONFIG_PAX_KERNEXEC
+#define PAX_EXIT_KERNEL					\
+	push %eax; push %ecx;				\
+	mov %cs, %eax;					\
+	cmp $__KERNEXEC_KERNEL_CS, %eax;		\
+	jnz 2f;						\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	btc $16, %eax;					\
+	ljmp $__KERNEL_CS, $1f;				\
+1:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+2:	pop %ecx; pop %eax;				\
+
+#define PAX_ENTER_KERNEL				\
+	push %eax; push %ecx;				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	bts $16, %eax;					\
+	jnc 1f;						\
+	mov %cs, %ecx;					\
+	cmp $__KERNEL_CS, %ecx;				\
+	jz 3f;						\
+	ljmp $__KERNEL_CS, $3f;				\
+1:	ljmp $__KERNEXEC_KERNEL_CS, $2f;		\
+2:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+3:	pop %ecx; pop %eax;
+#else
+#define PAX_EXIT_KERNEL
+#define PAX_ENTER_KERNEL
+#endif
 
 #else	/* !CONFIG_X86_32 */
 
@@ -1062,6 +1065,44 @@ extern void default_banner(void);
 	PARA_SITE(PARA_PATCH(pv_cpu_ops, PV_CPU_irq_enable_sysexit),	\
 		  CLBR_NONE,						\
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_irq_enable_sysexit))
+
+#ifdef CONFIG_PAX_KERNEXEC
+	.macro ljmpq sel, off
+	.byte 0x48; ljmp *1234f(%rip)
+	.pushsection .rodata
+	.align 16
+	1234: .quad \off; .word \sel
+	.popsection
+	.endm
+
+#define PAX_EXIT_KERNEL					\
+	push %rax; push %rcx;				\
+	mov %cs, %rax;					\
+	cmp $__KERNEXEC_KERNEL_CS, %eax;		\
+	jnz 2f;						\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	btc $16, %rax;					\
+	ljmpq __KERNEL_CS, 1f;				\
+1:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+2:	pop %rcx; pop %rax;				\
+
+#define PAX_ENTER_KERNEL				\
+	push %rax; push %rcx;				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	bts $16, %rax;					\
+	jnc 1f;						\
+	mov %cs, %rcx;					\
+	cmp $__KERNEL_CS, %ecx;				\
+	jz 3f;						\
+	ljmpq __KERNEL_CS, 3f;				\
+1:	ljmpq __KERNEXEC_KERNEL_CS, 2f;			\
+2:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
+3:	pop %rcx; pop %rax;
+#else
+#define PAX_EXIT_KERNEL
+#define PAX_ENTER_KERNEL
+#endif
+
 #endif	/* CONFIG_X86_32 */
 
 #endif /* __ASSEMBLY__ */

@@ -182,6 +182,7 @@ void gr_acl_handle_psacct(struct task_struct *task, const long code);
 int gr_acl_handle_procpidmem(const struct task_struct *task);
 int gr_handle_rofs_mount(struct dentry *dentry, struct vfsmount *mnt, int mnt_flags);
 int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode);
+void gr_audit_ptrace(struct task_struct *task);
 
 #ifdef CONFIG_GRKERNSEC
 void gr_log_nonroot_mod_load(const char *modname);

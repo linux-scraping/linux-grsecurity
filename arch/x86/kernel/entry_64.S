@@ -53,6 +53,7 @@
 #include <asm/paravirt.h>
 #include <asm/ftrace.h>
 #include <asm/percpu.h>
+#include <asm/pgtable.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */
 #include <linux/elf-em.h>
@@ -800,6 +801,7 @@ END(interrupt)
 	CFI_ADJUST_CFA_OFFSET 10*8
 	call save_args
 	PARTIAL_FRAME 0
+	PAX_ENTER_KERNEL
 	call \func
 	.endm
 
@@ -821,6 +823,7 @@ ret_from_intr:
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 exit_intr:
+	PAX_EXIT_KERNEL
 	GET_THREAD_INFO(%rcx)
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_kernel
@@ -1032,6 +1035,7 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call error_entry
 	DEFAULT_FRAME 0
+	PAX_ENTER_KERNEL
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
@@ -1049,6 +1053,7 @@ ENTRY(\sym)
 	subq $15*8, %rsp
 	call save_paranoid
 	TRACE_IRQS_OFF
+	PAX_ENTER_KERNEL
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
@@ -1066,6 +1071,7 @@ ENTRY(\sym)
 	subq $15*8, %rsp
 	call save_paranoid
 	TRACE_IRQS_OFF
+	PAX_ENTER_KERNEL
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 #ifdef CONFIG_SMP
@@ -1090,6 +1096,7 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call error_entry
 	DEFAULT_FRAME 0
+	PAX_ENTER_KERNEL
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
@@ -1109,6 +1116,7 @@ ENTRY(\sym)
 	call save_paranoid
 	DEFAULT_FRAME 0
 	TRACE_IRQS_OFF
+	PAX_ENTER_KERNEL
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
@@ -1413,11 +1421,13 @@ ENTRY(paranoid_exit)
 	testl $3,CS(%rsp)
 	jnz   paranoid_userspace
 paranoid_swapgs:
+	PAX_EXIT_KERNEL
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
 	jmp irq_return
 paranoid_restore:
+	PAX_EXIT_KERNEL
 	TRACE_IRQS_IRETQ 0
 	RESTORE_ALL 8
 	jmp irq_return
@@ -1534,6 +1544,7 @@ ENTRY(nmi)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call save_paranoid
 	DEFAULT_FRAME 0
+	PAX_ENTER_KERNEL
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi
 	movq $-1,%rsi
@@ -1549,6 +1560,7 @@ ENTRY(nmi)
 nmi_swapgs:
 	SWAPGS_UNSAFE_STACK
 nmi_restore:
+	PAX_EXIT_KERNEL
 	RESTORE_ALL 8
 	jmp irq_return
 nmi_userspace:

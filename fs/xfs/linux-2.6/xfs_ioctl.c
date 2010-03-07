@@ -134,7 +134,7 @@ xfs_find_handle(
 	}
 
 	error = -EFAULT;
-	if (copy_to_user(hreq->ohandle, &handle, hsize) ||
+	if (hsize > sizeof handle || copy_to_user(hreq->ohandle, &handle, hsize) ||
 	    copy_to_user(hreq->ohandlen, &hsize, sizeof(__s32)))
 		goto out_put;
 

@@ -914,13 +914,11 @@ static inline void spin_lock_prefetch(const void *x)
 
 #ifdef CONFIG_PAX_SEGMEXEC
 #define SEGMEXEC_TASK_SIZE	(TASK_SIZE / 2)
-#endif
-
-#ifdef CONFIG_PAX_SEGMEXEC
 #define STACK_TOP		((current->mm->pax_flags & MF_PAX_SEGMEXEC)?SEGMEXEC_TASK_SIZE:TASK_SIZE)
 #else
 #define STACK_TOP		TASK_SIZE
 #endif
+
 #define STACK_TOP_MAX		TASK_SIZE
 
 #define INIT_THREAD  {							  \

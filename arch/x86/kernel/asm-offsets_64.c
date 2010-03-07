@@ -63,6 +63,12 @@ int main(void)
 	OFFSET(PV_CPU_irq_enable_sysexit, pv_cpu_ops, irq_enable_sysexit);
 	OFFSET(PV_CPU_swapgs, pv_cpu_ops, swapgs);
 	OFFSET(PV_MMU_read_cr2, pv_mmu_ops, read_cr2);
+
+#ifdef CONFIG_PAX_KERNEXEC
+	OFFSET(PV_CPU_read_cr0, pv_cpu_ops, read_cr0);
+	OFFSET(PV_CPU_write_cr0, pv_cpu_ops, write_cr0);
+#endif
+
 #endif
 
 

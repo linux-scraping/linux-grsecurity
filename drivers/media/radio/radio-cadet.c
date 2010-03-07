@@ -347,7 +347,7 @@ static ssize_t cadet_read(struct file *file, char __user *data, size_t count, lo
 	while (i < count && dev->rdsin != dev->rdsout)
 		readbuf[i++] = dev->rdsbuf[dev->rdsout++];
 
-	if (copy_to_user(data, readbuf, i))
+	if (i > sizeof readbuf || copy_to_user(data, readbuf, i))
 		return -EFAULT;
 	return i;
 }

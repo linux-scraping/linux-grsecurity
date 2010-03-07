@@ -15,6 +15,7 @@ int grsec_enable_execve;
 int grsec_enable_execlog;
 int grsec_enable_signal;
 int grsec_enable_forkfail;
+int grsec_enable_audit_ptrace;
 int grsec_enable_time;
 int grsec_enable_audit_textrel;
 int grsec_enable_group;
@@ -178,6 +179,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SHMAT
 	grsec_enable_chroot_shmat = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_AUDIT_PTRACE
+	grsec_enable_audit_ptrace = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_DOUBLE
 	grsec_enable_chroot_double = 1;

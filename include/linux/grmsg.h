@@ -105,3 +105,4 @@
 #define GR_TEXTREL_AUDIT_MSG "text relocation in %s, VMA:0x%08lx 0x%08lx by "
 #define GR_NONROOT_MODLOAD_MSG "denied kernel module auto-load of %.64s by "
 #define GR_VM86_MSG "denied use of vm86 by "
+#define GR_PTRACE_AUDIT_MSG "process %.950s(%.16s:%d) attached to via ptrace by "

@@ -440,6 +440,8 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
+		if (!pmd_present(*pmd))
+			continue;
 		if ((unsigned long)_text <= addr && addr < (unsigned long)_sdata)
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		else
@@ -452,6 +454,8 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
+		if (!pmd_present(*pmd))
+			continue;
 		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		else

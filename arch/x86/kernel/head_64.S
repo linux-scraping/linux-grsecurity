@@ -424,7 +424,13 @@ ENTRY(cpu_gdt_table)
 	.quad	0x00cffb000000ffff	/* __USER32_CS */
 	.quad	0x00cff3000000ffff	/* __USER_DS, __USER32_DS  */
 	.quad	0x00affb000000ffff	/* __USER_CS */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	.quad	0x00af9b000000ffff	/* __KERNEXEC_KERNEL_CS */
+#else
 	.quad	0x0			/* unused */
+#endif
+
 	.quad	0,0			/* TSS */
 	.quad	0,0			/* LDT */
 	.quad	0,0,0			/* three TLS descriptors */
