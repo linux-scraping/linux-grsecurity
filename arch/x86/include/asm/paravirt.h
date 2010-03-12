@@ -1076,28 +1076,30 @@ extern void default_banner(void);
 	.endm
 
 #define PAX_EXIT_KERNEL					\
-	push %rax; push %rcx;				\
+	PV_SAVE_REGS(CLBR_NONE);			\
 	mov %cs, %rax;					\
 	cmp $__KERNEXEC_KERNEL_CS, %eax;		\
 	jnz 2f;						\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
 	btc $16, %rax;					\
+	mov %rax, %rdi;					\
 	ljmpq __KERNEL_CS, 1f;				\
 1:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-2:	pop %rcx; pop %rax;				\
+2:	PV_RESTORE_REGS(CLBR_NONE);
 
 #define PAX_ENTER_KERNEL				\
-	push %rax; push %rcx;				\
+	PV_SAVE_REGS(CLBR_NONE);			\
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
 	bts $16, %rax;					\
 	jnc 1f;						\
-	mov %cs, %rcx;					\
-	cmp $__KERNEL_CS, %ecx;				\
+	mov %cs, %rax;					\
+	cmp $__KERNEL_CS, %eax;				\
 	jz 3f;						\
 	ljmpq __KERNEL_CS, 3f;				\
-1:	ljmpq __KERNEXEC_KERNEL_CS, 2f;			\
+1:	mov %rax, %rdi;					\
+	ljmpq __KERNEXEC_KERNEL_CS, 2f;			\
 2:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-3:	pop %rcx; pop %rax;
+3:	PV_RESTORE_REGS(CLBR_NONE);
 #else
 #define PAX_EXIT_KERNEL
 #define PAX_ENTER_KERNEL

@@ -847,7 +847,7 @@ ENTRY(cpu_gdt_table)
 
 	.quad 0x00c0930000000000	/* 0xd0 - ESPFIX SS */
 	.quad 0x0040930000000000	/* 0xd8 - PERCPU */
-	.quad 0x0040930000000018	/* 0xe0 - STACK_CANARY */
+	.quad 0x0040910000000018	/* 0xe0 - STACK_CANARY */
 	.quad 0x0000000000000000	/* 0xe8 - PCIBIOS_CS */
 	.quad 0x0000000000000000	/* 0xf0 - PCIBIOS_DS */
 	.quad 0x0000000000000000	/* 0xf8 - GDT entry 31: double-fault TSS */

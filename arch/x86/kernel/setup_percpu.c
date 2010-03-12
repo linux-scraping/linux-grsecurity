@@ -156,15 +156,13 @@ static void __init pcpup_populate_pte(unsigned long addr)
 static inline void setup_percpu_segment(int cpu)
 {
 #ifdef CONFIG_X86_32
-	struct desc_struct d, *gdt = get_cpu_gdt_table(cpu);
+	struct desc_struct gdt;
 	unsigned long base = per_cpu_offset(cpu);
-	const unsigned long limit = VMALLOC_END - base - 1;
 
-	if (limit < 64*1024)
-		pack_descriptor(&d, base, limit, 0x80 | DESCTYPE_S | 0x3, 0x4);
-	else
-		pack_descriptor(&d, base, limit >> PAGE_SHIFT, 0x80 | DESCTYPE_S | 0x3, 0xC);
-	write_gdt_entry(gdt, GDT_ENTRY_PERCPU, &d, DESCTYPE_S);
+	pack_descriptor(&gdt, base, (VMALLOC_END - base - 1) >> PAGE_SHIFT,
+			0x83 | DESCTYPE_S, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(cpu),
+			GDT_ENTRY_PERCPU, &gdt, DESCTYPE_S);
 #endif
 }
 

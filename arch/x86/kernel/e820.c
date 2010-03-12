@@ -733,9 +733,6 @@ struct early_res {
 };
 static struct early_res early_res[MAX_EARLY_RES] __initdata = {
 	{ 0, PAGE_SIZE, "BIOS data page" },	/* BIOS data page */
-#ifdef CONFIG_VM86
-	{ PAGE_SIZE, ISA_START_ADDRESS, "V86 mode memory", 1 },
-#endif
 	{ 0, 0, {0}, 0 }
 };
 
