@@ -94,16 +94,20 @@ void set_fs(mm_segment_t x);
 	unsigned long __end_ao = __addr + __size - 1;			\
 	bool __ret_ao = __range_not_ok(__addr, __size) == 0;		\
 	if (__ret_ao && unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
-		for (; __addr_ao <= __end_ao; __addr_ao += PAGE_SIZE) {	\
+		while(__addr_ao <= __end_ao) {				\
 			char __c_ao;					\
+			__addr_ao += PAGE_SIZE;				\
 			if (__size > PAGE_SIZE)				\
 				cond_resched();				\
-			if (__get_user(__c_ao, (char __user *)__addr_ao))\
+			if (__get_user(__c_ao, (char __user *)__addr))	\
 				break;					\
-			if (type != VERIFY_WRITE)			\
+			if (type != VERIFY_WRITE) {			\
+				__addr = __addr_ao;			\
 				continue;				\
-			if (__put_user(__c_ao, (char __user *)__addr_ao))\
+			}						\
+			if (__put_user(__c_ao, (char __user *)__addr))	\
 				break;					\
+			__addr = __addr_ao;				\
 		}							\
 	}								\
 	__ret_ao;							\

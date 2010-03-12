@@ -119,6 +119,7 @@ genksyms
 hash
 ihex2fw
 ikconfig.h*
+inat-tables.c
 initramfs_data.cpio
 initramfs_data.cpio.bz2
 initramfs_data.cpio.gz
