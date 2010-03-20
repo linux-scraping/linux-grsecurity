@@ -3102,7 +3102,6 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_UNSPROLES_ACL_MSG, p, i);
 			gr_set_acls(1);
 		} else {
-			gr_log_str(GR_DONT_AUDIT, GR_UNSPROLEF_ACL_MSG, current->role->rolename);
 			error = -EPERM;
 			goto out;
 		}

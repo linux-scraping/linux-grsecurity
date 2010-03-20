@@ -809,7 +809,7 @@ config GRKERNSEC_RANDNET
 	  /proc/sys/kernel/random/poolsize.
 
 config GRKERNSEC_BLACKHOLE
-	bool "TCP/UDP blackhole"
+	bool "TCP/UDP blackhole and LAST_ACK DoS prevention"
 	help
 	  If you say Y here, neither TCP resets nor ICMP
 	  destination-unreachable packets will be sent in response to packets
@@ -818,6 +818,27 @@ config GRKERNSEC_BLACKHOLE
 	  loopback interface from blackholing.  Enabling this feature 
 	  makes a host more resilient to DoS attacks and reduces network
 	  visibility against scanners.
+
+	  The blackhole feature as-implemented is equivalent to the FreeBSD
+	  blackhole feature, as prevents RST responses to all packets, not
+	  just SYNs.  Under most application behavior this causes no
+	  problems, but applications (like haproxy) may not close certain
+	  connections in a way that cleanly terminates them on the remote
+	  end, leaving the remote host in LAST_ACK state.  Because of this
+	  side-effect and to prevent intentional LAST_ACK DoSes, this
+	  feature also adds automatic mitigation against such attacks.
+	  The mitigation drastically reduces the amount of time a socket
+	  can spend in LAST_ACK state.  If you're using haproxy and not
+	  all servers it connects to have this option enabled, consider
+	  disabling this feature on the haproxy host.
+
+	  If this option is enabled, two sysctl options with names
+	  "ip_blackhole" and "lastack_retries" will be created.
+	  While "ip_blackhole" takes the standard zero/non-zero on/off
+	  toggle, "lastack_retries" uses the same kinds of values as
+	  "tcp_retries1" and "tcp_retries2".  The default value of 4
+	  prevents a socket from lasting more than 45 seconds in LAST_ACK
+	  state.
 
 config GRKERNSEC_SOCKET
 	bool "Socket restrictions"

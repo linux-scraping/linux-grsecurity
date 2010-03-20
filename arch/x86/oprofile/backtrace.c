@@ -37,7 +37,7 @@ static void backtrace_address(void *data, unsigned long addr, int reliable)
 	unsigned int *depth = data;
 
 	if ((*depth)--)
-		oprofile_add_trace(ktla_ktva(addr));
+		oprofile_add_trace(addr);
 }
 
 static struct stacktrace_ops backtrace_ops = {

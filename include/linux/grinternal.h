@@ -75,6 +75,8 @@ extern int grsec_enable_audit_textrel;
 extern int grsec_enable_mount;
 extern int grsec_enable_chdir;
 extern int grsec_resource_logging;
+extern int grsec_enable_blackhole;
+extern int grsec_lastack_retries;
 extern int grsec_lock;
 
 extern spinlock_t grsec_alert_lock;

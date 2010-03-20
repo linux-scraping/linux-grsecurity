@@ -21,6 +21,10 @@
 #include <linux/module.h>
 #include <net/tcp.h>
 
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+extern int grsec_lastack_retries;
+#endif
+
 int sysctl_tcp_syn_retries __read_mostly = TCP_SYN_RETRIES;
 int sysctl_tcp_synack_retries __read_mostly = TCP_SYNACK_RETRIES;
 int sysctl_tcp_keepalive_time __read_mostly = TCP_KEEPALIVE_TIME;
@@ -192,6 +196,13 @@ static int tcp_write_timeout(struct sock *sk)
 				return 1;
 		}
 	}
+
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+	if ((sk->sk_state == TCP_LAST_ACK) &&
+	    (grsec_lastack_retries > 0) &&
+	    (grsec_lastack_retries < retry_until))
+		retry_until = grsec_lastack_retries;
+#endif
 
 	if (retransmits_timed_out(sk, retry_until)) {
 		/* Has it gone just too far? */

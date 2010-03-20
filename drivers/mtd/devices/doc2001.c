@@ -393,9 +393,7 @@ static int doc_read (struct mtd_info *mtd, loff_t from, size_t len,
 	struct Nand *mychip = &this->chips[from >> (this->chipshift)];
 
 	/* Don't allow read past end of device */
-	if (from >= this->totlen)
-		return -EINVAL;
-	if (!len)
+	if (from >= this->totlen || !len)
 		return -EINVAL;
 
 	/* Don't allow a single read to cross a 512-byte block boundary */

@@ -50,6 +50,22 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+	{
+		.procname	= "ip_blackhole",
+		.data		= &grsec_enable_blackhole,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.procname	= "lastack_retries",
+		.data		= &grsec_lastack_retries,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	{
 		.procname	= "exec_logging",

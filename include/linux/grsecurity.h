@@ -194,8 +194,6 @@ int gr_handle_mem_mmap(const unsigned long offset,
 			      struct vm_area_struct *vma);
 
 extern int grsec_enable_dmesg;
-extern int grsec_enable_randsrc;
-extern int grsec_enable_shm;
 #endif
 
 #endif
