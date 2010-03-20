@@ -39,6 +39,8 @@ int grsec_enable_chroot_sysctl;
 int grsec_enable_chroot_unix;
 int grsec_enable_tpe;
 int grsec_tpe_gid;
+int grsec_enable_blackhole;
+int grsec_lastack_retries;
 int grsec_enable_tpe_all;
 int grsec_enable_socket_all;
 int grsec_socket_all_gid;
@@ -143,6 +145,10 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_DMESG
 	grsec_enable_dmesg = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+	grsec_enable_blackhole = 1;
+	grsec_lastack_retries = 4;
 #endif
 #ifdef CONFIG_GRKERNSEC_FIFO
 	grsec_enable_fifo = 1;

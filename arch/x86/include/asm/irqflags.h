@@ -153,6 +153,7 @@ static inline unsigned long __raw_local_irq_save(void)
 	.endm
 
 #define PAX_EXIT_KERNEL			\
+	push %rsi;			\
 	mov %cs, %rsi;			\
 	cmp $__KERNEXEC_KERNEL_CS, %esi;\
 	jnz 2f;				\
@@ -160,9 +161,10 @@ static inline unsigned long __raw_local_irq_save(void)
 	btc $16, %rsi;			\
 	ljmpq __KERNEL_CS, 1f;		\
 1:	mov %rsi, %cr0;			\
-2:
+2:	pop %rsi
 
 #define PAX_ENTER_KERNEL		\
+	push %rsi;			\
 	mov %cr0, %rsi;			\
 	bts $16, %rsi;			\
 	jnc 1f;				\
@@ -172,7 +174,7 @@ static inline unsigned long __raw_local_irq_save(void)
 	ljmpq __KERNEL_CS, 3f;		\
 1:	ljmpq __KERNEXEC_KERNEL_CS, 2f;	\
 2:	mov %rsi, %cr0;			\
-3:
+3:	pop %rsi
 #else
 #define PAX_EXIT_KERNEL
 #define PAX_ENTER_KERNEL

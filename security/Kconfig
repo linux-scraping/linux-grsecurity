@@ -10,7 +10,7 @@ menu "PaX"
 
 config PAX
 	bool "Enable various PaX features"
-	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || SPARC32 || SPARC64 || X86)
+	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC || SPARC || X86)
 	help
 	  This allows you to enable various PaX features.  PaX adds
 	  intrusion prevention mechanisms to the kernel that reduce
@@ -99,7 +99,7 @@ menu "Non-executable pages"
 
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
-	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS32 || MIPS64 || PARISC || PPC32 || PPC64 || S390 || SPARC32 || SPARC64 || X86)
+	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86)
 	help
 	  By design some architectures do not allow for protecting memory
 	  pages against execution or even if they do, Linux does not make
@@ -266,7 +266,7 @@ config PAX_ETEXECRELOCS
 
 config PAX_EMUPLT
 	bool "Automatically emulate ELF PLT"
-	depends on PAX_MPROTECT && (ALPHA || PARISC || SPARC32 || SPARC64)
+	depends on PAX_MPROTECT && (ALPHA || PARISC || SPARC)
 	default y
 	help
 	  Enabling this option will have the kernel automatically detect
@@ -283,7 +283,7 @@ config PAX_EMUPLT
 
 config PAX_DLRESOLVE
 	bool 'Emulate old glibc resolver stub'
-	depends on PAX_EMUPLT && (SPARC32 || SPARC64)
+	depends on PAX_EMUPLT && SPARC
 	default n
 	help
 	  This option is needed if userland has an old glibc (before 2.4)
@@ -292,7 +292,7 @@ config PAX_DLRESOLVE
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && (PPC32 || PPC64 || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN
+	depends on PAX_NOEXEC && (PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject
@@ -465,7 +465,7 @@ config PAX_REFCOUNT
 
 config PAX_USERCOPY
 	bool "Bounds check heap object copies between kernel and userland"
-	depends on X86 || PPC32 || PPC64 || SPARC32 || SPARC64
+	depends on X86 || PPC || SPARC
 	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	help
 	  By saying Y here the kernel will enforce the size of heap objects

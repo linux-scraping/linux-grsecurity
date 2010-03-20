@@ -71,7 +71,6 @@
 #define GR_SPROLEF_ACL_MSG "special role %s failure for "
 #define GR_UNSPROLEI_ACL_MSG "ignoring unauth of special role for disabled RBAC system for "
 #define GR_UNSPROLES_ACL_MSG "successful unauth of special role %s (id %d) by "
-#define GR_UNSPROLEF_ACL_MSG "special role unauth of %s failure for "
 #define GR_INVMODE_ACL_MSG "invalid mode %d by "
 #define GR_PRIORITY_CHROOT_MSG "denied priority change of process (%.16s:%d) by "
 #define GR_FAILFORK_MSG "failed fork with errno %d by "

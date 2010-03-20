@@ -107,6 +107,10 @@
 #include <net/xfrm.h>
 #include "udp_impl.h"
 
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+extern int grsec_enable_blackhole;
+#endif
+
 struct udp_table udp_table;
 EXPORT_SYMBOL(udp_table);
 
@@ -1353,7 +1357,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
 
 	UDP_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
 #ifdef CONFIG_GRKERNSEC_BLACKHOLE
-	if (skb->dev->flags & IFF_LOOPBACK)
+	if (!grsec_enable_blackhole || (skb->dev->flags & IFF_LOOPBACK))
 #endif
 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
 
