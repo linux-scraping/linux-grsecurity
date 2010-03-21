@@ -145,15 +145,20 @@ static inline unsigned long __raw_local_irq_save(void)
 /* PaX: special register usage in entry_64.S, beware */
 #ifdef CONFIG_PAX_KERNEXEC
 	.macro ljmpq sel, off
+#if defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
 	.byte 0x48; ljmp *1234f(%rip)
 	.pushsection .rodata
 	.align 16
 	1234: .quad \off; .word \sel
 	.popsection
+#else
+	push $\sel
+	push $\off
+	lretq
+#endif
 	.endm
 
 #define PAX_EXIT_KERNEL			\
-	push %rsi;			\
 	mov %cs, %rsi;			\
 	cmp $__KERNEXEC_KERNEL_CS, %esi;\
 	jnz 2f;				\
@@ -161,10 +166,9 @@ static inline unsigned long __raw_local_irq_save(void)
 	btc $16, %rsi;			\
 	ljmpq __KERNEL_CS, 1f;		\
 1:	mov %rsi, %cr0;			\
-2:	pop %rsi
+2:
 
 #define PAX_ENTER_KERNEL		\
-	push %rsi;			\
 	mov %cr0, %rsi;			\
 	bts $16, %rsi;			\
 	jnc 1f;				\
@@ -174,7 +178,7 @@ static inline unsigned long __raw_local_irq_save(void)
 	ljmpq __KERNEL_CS, 3f;		\
 1:	ljmpq __KERNEXEC_KERNEL_CS, 2f;	\
 2:	mov %rsi, %cr0;			\
-3:	pop %rsi
+3:
 #else
 #define PAX_EXIT_KERNEL
 #define PAX_ENTER_KERNEL

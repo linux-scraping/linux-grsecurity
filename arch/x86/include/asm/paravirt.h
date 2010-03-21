@@ -1068,11 +1068,17 @@ extern void default_banner(void);
 
 #ifdef CONFIG_PAX_KERNEXEC
 	.macro ljmpq sel, off
+#if defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
 	.byte 0x48; ljmp *1234f(%rip)
 	.pushsection .rodata
 	.align 16
 	1234: .quad \off; .word \sel
 	.popsection
+#else
+	push $\sel
+	push $\off
+	lretq
+#endif
 	.endm
 
 #define PAX_EXIT_KERNEL					\
