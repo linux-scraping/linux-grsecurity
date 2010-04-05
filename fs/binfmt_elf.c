@@ -210,8 +210,8 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 	srandom32(k_rand_bytes[1] ^ random32());
 	srandom32(k_rand_bytes[2] ^ random32());
 	srandom32(k_rand_bytes[3] ^ random32());
-	u_rand_bytes = (elf_addr_t __user *)
-		       STACK_ALLOC(p, sizeof(k_rand_bytes));
+	p = STACK_ROUND(p, sizeof(k_rand_bytes));
+	u_rand_bytes = (elf_addr_t __user *) p;
 	if (__copy_to_user(u_rand_bytes, k_rand_bytes, sizeof(k_rand_bytes)))
 		return -EFAULT;
 

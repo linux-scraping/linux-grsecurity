@@ -191,6 +191,66 @@
 
 #endif	/* CONFIG_X86_32_LAZY_GS */
 
+.macro PAX_EXIT_KERNEL
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_PARAVIRT
+	push %eax; push %ecx;
+#endif
+	mov %cs, %esi
+	cmp $__KERNEXEC_KERNEL_CS, %esi
+	jnz 2f
+#ifdef CONFIG_PARAVIRT
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);
+	mov %eax, %esi
+#else
+	mov %cr0, %esi
+#endif
+	btr $16, %esi
+	ljmp $__KERNEL_CS, $1f
+1:
+#ifdef CONFIG_PARAVIRT
+	mov %esi, %eax
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);
+#else
+	mov %esi, %cr0
+#endif
+2:
+#ifdef CONFIG_PARAVIRT
+	pop %ecx; pop %eax
+#endif
+#endif
+.endm
+
+.macro PAX_ENTER_KERNEL
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_PARAVIRT
+	push %eax; push %ecx;
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
+	mov %eax, %esi
+#else
+	mov %cr0, %esi
+#endif
+	bts $16, %esi
+	jnc 1f
+	mov %cs, %esi
+	cmp $__KERNEL_CS, %esi
+	jz 3f
+	ljmp $__KERNEL_CS, $3f
+1:	ljmp $__KERNEXEC_KERNEL_CS, $2f
+2:
+#ifdef CONFIG_PARAVIRT
+	mov %esi, %eax
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
+#else
+	mov %esi, %cr0
+#endif
+3:
+#ifdef CONFIG_PARAVIRT
+	pop %ecx; pop %eax
+#endif
+#endif
+.endm
+
 .macro __SAVE_ALL _DS
 	cld
 	PUSH_GS
