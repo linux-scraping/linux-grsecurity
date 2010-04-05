@@ -86,6 +86,7 @@ bvmlinux
 bzImage*
 capflags.c
 classlist.h*
+clut_vga16.c
 common-cmds.h
 comp*.log
 compile.h*

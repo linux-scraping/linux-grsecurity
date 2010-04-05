@@ -995,34 +995,6 @@ extern void default_banner(void);
 		  CLBR_NONE,						\
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_irq_enable_sysexit))
 
-#ifdef CONFIG_PAX_KERNEXEC
-#define PAX_EXIT_KERNEL					\
-	push %eax; push %ecx;				\
-	mov %cs, %eax;					\
-	cmp $__KERNEXEC_KERNEL_CS, %eax;		\
-	jnz 2f;						\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	btc $16, %eax;					\
-	ljmp $__KERNEL_CS, $1f;				\
-1:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-2:	pop %ecx; pop %eax;				\
-
-#define PAX_ENTER_KERNEL				\
-	push %eax; push %ecx;				\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	bts $16, %eax;					\
-	jnc 1f;						\
-	mov %cs, %ecx;					\
-	cmp $__KERNEL_CS, %ecx;				\
-	jz 3f;						\
-	ljmp $__KERNEL_CS, $3f;				\
-1:	ljmp $__KERNEXEC_KERNEL_CS, $2f;		\
-2:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-3:	pop %ecx; pop %eax;
-#else
-#define PAX_EXIT_KERNEL
-#define PAX_ENTER_KERNEL
-#endif
 
 #else	/* !CONFIG_X86_32 */
 
@@ -1065,52 +1037,6 @@ extern void default_banner(void);
 	PARA_SITE(PARA_PATCH(pv_cpu_ops, PV_CPU_irq_enable_sysexit),	\
 		  CLBR_NONE,						\
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_irq_enable_sysexit))
-
-#ifdef CONFIG_PAX_KERNEXEC
-	.macro ljmpq sel, off
-#if defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
-	.byte 0x48; ljmp *1234f(%rip)
-	.pushsection .rodata
-	.align 16
-	1234: .quad \off; .word \sel
-	.popsection
-#else
-	push $\sel
-	push $\off
-	lretq
-#endif
-	.endm
-
-#define PAX_EXIT_KERNEL					\
-	PV_SAVE_REGS(CLBR_NONE);			\
-	mov %cs, %rax;					\
-	cmp $__KERNEXEC_KERNEL_CS, %eax;		\
-	jnz 2f;						\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	btc $16, %rax;					\
-	mov %rax, %rdi;					\
-	ljmpq __KERNEL_CS, 1f;				\
-1:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-2:	PV_RESTORE_REGS(CLBR_NONE);
-
-#define PAX_ENTER_KERNEL				\
-	PV_SAVE_REGS(CLBR_NONE);			\
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
-	bts $16, %rax;					\
-	jnc 1f;						\
-	mov %cs, %rax;					\
-	cmp $__KERNEL_CS, %eax;				\
-	jz 3f;						\
-	ljmpq __KERNEL_CS, 3f;				\
-1:	mov %rax, %rdi;					\
-	ljmpq __KERNEXEC_KERNEL_CS, 2f;			\
-2:	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);\
-3:	PV_RESTORE_REGS(CLBR_NONE);
-#else
-#define PAX_EXIT_KERNEL
-#define PAX_ENTER_KERNEL
-#endif
-
 #endif	/* CONFIG_X86_32 */
 
 #endif /* __ASSEMBLY__ */

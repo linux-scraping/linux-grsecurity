@@ -163,20 +163,20 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 		return -ENOSYS;
 #endif
 
-	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(int)))
+	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(u32)))
 		return -EFAULT;
 
 	asm volatile(
 #ifdef CONFIG_X86_32
 		     "\tmovw %w5, %%ds\n"
-		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %1\n"
+		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %%ds:%1\n"
 		     "2:\tpushl   %%ss\n"
 		     "\tpopl    %%ds\n"
-		     "\t.section .fixup, \"ax\"\n"
 #else
 		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %1\n"
-		     "2:\t.section .fixup, \"ax\"\n"
+		     "2:\n"
 #endif
+		     "\t.section .fixup, \"ax\"\n"
 		     "3:\tmov     %2, %0\n"
 		     "\tjmp     2b\n"
 		     "\t.previous\n"

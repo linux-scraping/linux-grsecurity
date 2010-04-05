@@ -142,81 +142,10 @@ static inline unsigned long __raw_local_irq_save(void)
 	sti;					\
 	sysexit
 
-/* PaX: special register usage in entry_64.S, beware */
-#ifdef CONFIG_PAX_KERNEXEC
-	.macro ljmpq sel, off
-#if defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
-	.byte 0x48; ljmp *1234f(%rip)
-	.pushsection .rodata
-	.align 16
-	1234: .quad \off; .word \sel
-	.popsection
-#else
-	push $\sel
-	push $\off
-	lretq
-#endif
-	.endm
-
-#define PAX_EXIT_KERNEL			\
-	mov %cs, %rsi;			\
-	cmp $__KERNEXEC_KERNEL_CS, %esi;\
-	jnz 2f;				\
-	mov %cr0, %rsi;			\
-	btc $16, %rsi;			\
-	ljmpq __KERNEL_CS, 1f;		\
-1:	mov %rsi, %cr0;			\
-2:
-
-#define PAX_ENTER_KERNEL		\
-	mov %cr0, %rsi;			\
-	bts $16, %rsi;			\
-	jnc 1f;				\
-	mov %cs, %esi;			\
-	cmp $__KERNEL_CS, %esi;		\
-	jz 3f;				\
-	ljmpq __KERNEL_CS, 3f;		\
-1:	ljmpq __KERNEXEC_KERNEL_CS, 2f;	\
-2:	mov %rsi, %cr0;			\
-3:
-#else
-#define PAX_EXIT_KERNEL
-#define PAX_ENTER_KERNEL
-#endif
-
 #else
 #define INTERRUPT_RETURN		iret
 #define ENABLE_INTERRUPTS_SYSEXIT	sti; sysexit
 #define GET_CR0_INTO_EAX		movl %cr0, %eax
-
-/* PaX: special register usage in entry_32.S, beware */
-#ifdef CONFIG_PAX_KERNEXEC
-#define PAX_EXIT_KERNEL			\
-	mov %cs, %esi;			\
-	cmp $__KERNEXEC_KERNEL_CS, %esi;\
-	jnz 2f;				\
-	mov %cr0, %esi;			\
-	btc $16, %esi;			\
-	ljmp $__KERNEL_CS, $1f;		\
-1:	mov %esi, %cr0;			\
-2:
-
-#define PAX_ENTER_KERNEL		\
-	mov %cr0, %esi;			\
-	bts $16, %esi;			\
-	jnc 1f;				\
-	mov %cs, %esi;			\
-	cmp $__KERNEL_CS, %esi;		\
-	jz 3f;				\
-	ljmp $__KERNEL_CS, $3f;		\
-1:	ljmp $__KERNEXEC_KERNEL_CS, $2f;\
-2:	mov %esi, %cr0;			\
-3:
-#else
-#define PAX_EXIT_KERNEL
-#define PAX_ENTER_KERNEL
-#endif
-
 #endif
 
 

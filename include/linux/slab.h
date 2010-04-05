@@ -89,7 +89,7 @@
 	(void *)(-MAX_ERRNO-1L);		\
 })
 
-#define ZERO_OR_NULL_PTR(x) (!(x) || (x) == ZERO_SIZE_PTR)
+#define ZERO_OR_NULL_PTR(x) ((unsigned long)(x) - 1 >= (unsigned long)ZERO_SIZE_PTR - 1)
 
 /*
  * struct kmem_cache related prototypes
