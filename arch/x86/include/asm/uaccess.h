@@ -479,7 +479,18 @@ do {									\
 
 /* FIXME: this hack is definitely wrong -AK */
 struct __large_struct { unsigned long buf[100]; };
-#define __m(x) (*(struct __large_struct __user *)(x))
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define ____m(x)					\
+({							\
+	unsigned long ____x = (unsigned long)(x);	\
+	if (____x < PAX_USER_SHADOW_BASE)		\
+		____x += PAX_USER_SHADOW_BASE;		\
+	(void __user *)____x;				\
+})
+#else
+#define ____m(x) (x)
+#endif
+#define __m(x) (*(struct __large_struct __user *)____m(x))
 
 /*
  * Tell gcc we read from memory instead of writing: this is because

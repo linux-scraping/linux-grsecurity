@@ -363,6 +363,15 @@ pte_t *populate_extra_pte(unsigned long vaddr);
 #endif
 
 #ifndef __ASSEMBLY__
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+extern pgd_t cpu_pgd[NR_CPUS][PTRS_PER_PGD];
+static inline pgd_t *get_cpu_pgd(unsigned int cpu)
+{
+	return cpu_pgd[cpu];
+}
+#endif
+
 #include <linux/mm_types.h>
 
 static inline int pte_none(pte_t pte)
@@ -556,7 +565,12 @@ static inline int pgd_none(pgd_t pgd)
  * pgd_offset() returns a (pgd_t *)
  * pgd_index() is used get the offset into the pgd page's array of pgd_t's;
  */
-#define pgd_offset(mm, address) ((mm)->pgd + pgd_index((address)))
+#define pgd_offset(mm, address) ((mm)->pgd + pgd_index(address))
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+#define pgd_offset_cpu(cpu, address) (get_cpu_pgd(cpu) + pgd_index(address))
+#endif
+
 /*
  * a shortcut which implies the use of the kernel's pgd, instead
  * of a process's
@@ -566,6 +580,20 @@ static inline int pgd_none(pgd_t pgd)
 
 #define KERNEL_PGD_BOUNDARY	pgd_index(PAGE_OFFSET)
 #define KERNEL_PGD_PTRS		(PTRS_PER_PGD - KERNEL_PGD_BOUNDARY)
+
+#ifdef CONFIG_X86_32
+#define USER_PGD_PTRS		KERNEL_PGD_BOUNDARY
+#else
+#define TASK_SIZE_MAX_SHIFT CONFIG_TASK_SIZE_MAX_SHIFT
+#define USER_PGD_PTRS		(_AC(1,UL) << (TASK_SIZE_MAX_SHIFT - PGDIR_SHIFT))
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+#define PAX_USER_SHADOW_BASE	(_AC(1,UL) << TASK_SIZE_MAX_SHIFT)
+#else
+#define PAX_USER_SHADOW_BASE	(_AC(0,UL))
+#endif
+
+#endif
 
 #ifndef __ASSEMBLY__
 
@@ -680,6 +708,10 @@ static inline void clone_pgd_range(pgd_t *dst, const pgd_t *src, int count)
 	pax_close_kernel();
 }
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+extern void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count);
+extern void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count);
+#endif
 
 #include <asm-generic/pgtable.h>
 #endif	/* __ASSEMBLY__ */

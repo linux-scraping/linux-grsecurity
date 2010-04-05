@@ -42,6 +42,8 @@ long
 __strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	long res;
+	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+		src += PAX_USER_SHADOW_BASE;
 	__do_strncpy_from_user(dst, src, count, res);
 	return res;
 }
@@ -65,6 +67,8 @@ unsigned long __clear_user(void __user *addr, unsigned long size)
 {
 	long __d0;
 	might_fault();
+	if ((unsigned long)addr < PAX_USER_SHADOW_BASE)
+		addr += PAX_USER_SHADOW_BASE;
 	/* no memory constraint because it doesn't change any memory gcc knows
 	   about */
 	asm volatile(
@@ -151,10 +155,14 @@ EXPORT_SYMBOL(strlen_user);
 
 unsigned long copy_in_user(void __user *to, const void __user *from, unsigned len)
 {
-	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len)) { 
+	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len)) {
+		if ((unsigned long)to < PAX_USER_SHADOW_BASE)
+			to += PAX_USER_SHADOW_BASE;
+		if ((unsigned long)from < PAX_USER_SHADOW_BASE)
+			from += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)to, (__force void *)from, len);
-	} 
-	return len;		
+	}
+	return len;
 }
 EXPORT_SYMBOL(copy_in_user);
 

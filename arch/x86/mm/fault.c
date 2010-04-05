@@ -20,6 +20,11 @@
 #include <asm/vsyscall.h>
 #include <asm/tlbflush.h>
 
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#include <asm/stacktrace.h>
+#include "../kernel/dumpstack.h"
+#endif
+
 /*
  * Page fault error code bits:
  *
@@ -361,15 +366,27 @@ void vmalloc_sync_all(void)
 
 		const pgd_t *pgd_ref = pgd_offset_k(address);
 		unsigned long flags;
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		unsigned long cpu;
+#else
 		struct page *page;
+#endif
 
 		if (pgd_none(*pgd_ref))
 			continue;
 
 		spin_lock_irqsave(&pgd_lock, flags);
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+			pgd_t *pgd = pgd_offset_cpu(cpu, address);
+#else
 		list_for_each_entry(page, &pgd_list, lru) {
 			pgd_t *pgd;
 			pgd = (pgd_t *)page_address(page) + pgd_index(address);
+#endif
+
 			if (pgd_none(*pgd))
 				set_pgd(pgd, *pgd_ref);
 			else
@@ -402,7 +419,14 @@ static noinline __kprobes int vmalloc_fault(unsigned long address)
 	 * happen within a race in page table update. In the later
 	 * case just flush:
 	 */
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (read_cr3() & PHYSICAL_PAGE_MASK));
+	pgd = pgd_offset_cpu(smp_processor_id(), address);
+#else
 	pgd = pgd_offset(current->active_mm, address);
+#endif
+
 	pgd_ref = pgd_offset_k(address);
 	if (pgd_none(*pgd_ref))
 		return -1;
@@ -1157,7 +1181,20 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	int fault;
 
 	/* Get the faulting address: */
-	const unsigned long address = read_cr2();
+	unsigned long address = read_cr2();
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (!user_mode(regs)) {
+		if (address < PAX_USER_SHADOW_BASE) {
+			if (search_exception_tables(regs->ip)) {
+				printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
+				printk(KERN_ERR "PAX: faulting IP: %pS\n", (void *)regs->ip);
+				show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
+			}
+		} else if (address < 2 * PAX_USER_SHADOW_BASE)
+			address -= PAX_USER_SHADOW_BASE;
+	}
+#endif
 
 	tsk = current;
 	mm = tsk->mm;

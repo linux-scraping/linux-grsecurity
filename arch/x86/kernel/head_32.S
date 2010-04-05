@@ -713,6 +713,14 @@ ENTRY(idt_table)
  */
 #ifdef CONFIG_X86_PAE
 .section .swapper_pg_dir,"a",@progbits
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+ENTRY(cpu_pgd)
+	.rept NR_CPUS
+	.fill	512,8,0
+	.endr
+#endif
+
 ENTRY(swapper_pg_dir)
 	.long	pa(swapper_pg_pmd+PGD_IDENT_ATTR),0	/* low identity map */
 # if KPMDS == 3

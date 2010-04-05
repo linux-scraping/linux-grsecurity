@@ -9,6 +9,7 @@
 #include <linux/prefetch.h>
 #include <linux/lockdep.h>
 #include <asm/page.h>
+#include <asm/pgtable.h>
 
 #define set_fs(x)	(current_thread_info()->addr_limit = (x))
 
@@ -72,6 +73,8 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
+		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+			src += PAX_USER_SHADOW_BASE;
 		return copy_user_generic(dst, (__force void *)src, size);
 	}
 	switch (size) {
@@ -106,6 +109,8 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 			       ret, "q", "", "=r", 8);
 		return ret;
 	default:
+		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+			src += PAX_USER_SHADOW_BASE;
 		return copy_user_generic(dst, (__force void *)src, size);
 	}
 }
@@ -130,6 +135,8 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);
+		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
+			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst, src, size);
 	}
 	switch (size) {
@@ -164,6 +171,8 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 			       ret, "q", "", "er", 8);
 		return ret;
 	default:
+		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
+			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst, src, size);
 	}
 }
@@ -178,9 +187,14 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 	if ((int)size < 0)
 		return size;
 
-	if (!__builtin_constant_p(size))
+	if (!__builtin_constant_p(size)) {
+		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+			src += PAX_USER_SHADOW_BASE;
+		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
+			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst,
 					 (__force void *)src, size);
+	}
 	switch (size) {
 	case 1: {
 		u8 tmp;
@@ -220,6 +234,10 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		return ret;
 	}
 	default:
+		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+			src += PAX_USER_SHADOW_BASE;
+		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
+			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst,
 					 (__force void *)src, size);
 	}
@@ -238,6 +256,8 @@ __must_check unsigned long __clear_user(void __user *mem, unsigned long len);
 static __must_check __always_inline int
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned size)
 {
+	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
+		src += PAX_USER_SHADOW_BASE;
 	return copy_user_generic(dst, (__force const void *)src, size);
 }
 
@@ -247,6 +267,8 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)
 	if ((int)size < 0)
 		return size;
 
+	if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
+		dst += PAX_USER_SHADOW_BASE;
 	return copy_user_generic((__force void *)dst, src, size);
 }
 

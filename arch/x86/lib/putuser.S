@@ -16,7 +16,7 @@
 #include <asm/errno.h>
 #include <asm/asm.h>
 #include <asm/segment.h>
-
+#include <asm/pgtable.h>
 
 /*
  * __put_user_X
@@ -45,6 +45,15 @@ ENTRY(__put_user_1)
 	GET_THREAD_INFO(%_ASM_BX)
 	cmp TI_addr_limit(%_ASM_BX),%_ASM_CX
 	jae bad_put_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	cmp %_ASM_BX,%_ASM_CX
+	jae 1234f
+	add %_ASM_BX,%_ASM_CX
+1234:
+#endif
+
 #endif
 
 1:	movb %al,(%_ASM_CX)
@@ -70,6 +79,15 @@ ENTRY(__put_user_2)
 	sub $1,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	cmp %_ASM_BX,%_ASM_CX
+	jae 1234f
+	add %_ASM_BX,%_ASM_CX
+1234:
+#endif
+
 #endif
 
 2:	movw %ax,(%_ASM_CX)
@@ -95,6 +113,15 @@ ENTRY(__put_user_4)
 	sub $3,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	cmp %_ASM_BX,%_ASM_CX
+	jae 1234f
+	add %_ASM_BX,%_ASM_CX
+1234:
+#endif
+
 #endif
 
 3:	movl %eax,(%_ASM_CX)
@@ -120,6 +147,15 @@ ENTRY(__put_user_8)
 	sub $7,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	cmp %_ASM_BX,%_ASM_CX
+	jae 1234f
+	add %_ASM_BX,%_ASM_CX
+1234:
+#endif
+
 #endif
 
 4:	mov %_ASM_AX,(%_ASM_CX)

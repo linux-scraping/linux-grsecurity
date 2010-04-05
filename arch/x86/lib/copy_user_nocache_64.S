@@ -14,6 +14,7 @@
 #include <asm/current.h>
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
+#include <asm/pgtable.h>
 
 	.macro ALIGN_DESTINATION
 #ifdef FIX_ALIGNMENT
@@ -50,6 +51,15 @@
  */
 ENTRY(__copy_user_nocache)
 	CFI_STARTPROC
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	mov $PAX_USER_SHADOW_BASE,%rcx
+	cmp %rcx,%rsi
+	jae 1f
+	add %rcx,%rsi
+1:
+#endif
+
 	cmpl $8,%edx
 	jb 20f		/* less then 8 bytes, go to byte copy loop */
 	ALIGN_DESTINATION

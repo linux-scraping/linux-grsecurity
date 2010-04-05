@@ -69,6 +69,12 @@ int main(void)
 	OFFSET(PV_CPU_write_cr0, pv_cpu_ops, write_cr0);
 #endif
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	OFFSET(PV_MMU_read_cr3, pv_mmu_ops, read_cr3);
+	OFFSET(PV_MMU_write_cr3, pv_mmu_ops, write_cr3);
+	OFFSET(PV_MMU_set_pgd, pv_mmu_ops, set_pgd);
+#endif
+
 #endif
 
 

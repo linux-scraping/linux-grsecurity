@@ -15,6 +15,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
 #include <asm/cpufeature.h>
+#include <asm/pgtable.h>
 
 	.macro ALTERNATIVE_JUMP feature,orig,alt
 0:

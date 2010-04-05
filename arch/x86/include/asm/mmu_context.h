@@ -24,6 +24,22 @@ void destroy_context(struct mm_struct *mm);
 
 static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 {
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	unsigned int i;
+	pgd_t *pgd;
+
+	pax_open_kernel();
+	pgd = get_cpu_pgd(smp_processor_id());
+	for (i = USER_PGD_PTRS; i < 2 * USER_PGD_PTRS; ++i)
+#ifdef CONFIG_PARAVIRT
+		set_pgd(pgd+i, native_make_pgd(0));
+#else
+		pgd[i] = native_make_pgd(0);
+#endif
+	pax_close_kernel();
+#endif
+
 #ifdef CONFIG_SMP
 	if (percpu_read(cpu_tlbstate.state) == TLBSTATE_OK)
 		percpu_write(cpu_tlbstate.state, TLBSTATE_LAZY);
@@ -51,7 +67,15 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		cpumask_set_cpu(cpu, mm_cpumask(next));
 
 		/* Re-load page tables */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		pax_open_kernel();
+		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd, USER_PGD_PTRS);
+		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd, USER_PGD_PTRS);
+		pax_close_kernel();
+		load_cr3(get_cpu_pgd(cpu));
+#else
 		load_cr3(next->pgd);
+#endif
 
 		/*
 		 * load the LDT, if the LDT is different:
@@ -84,12 +108,24 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		percpu_write(cpu_tlbstate.state, TLBSTATE_OK);
 		BUG_ON(percpu_read(cpu_tlbstate.active_mm) != next);
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		pax_open_kernel();
+		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd, USER_PGD_PTRS);
+		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd, USER_PGD_PTRS);
+		pax_close_kernel();
+		load_cr3(get_cpu_pgd(cpu));
+#endif
+
 		if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next))) {
 			/* We were in lazy tlb mode and leave_mm disabled
 			 * tlb flush IPI delivery. We must reload CR3
 			 * to make sure to use no freed page tables.
 			 */
+
+#ifndef CONFIG_PAX_PER_CPU_PGD
 			load_cr3(next->pgd);
+#endif
+
 			load_LDT_nolock(&next->context);
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
