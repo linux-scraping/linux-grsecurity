@@ -184,9 +184,16 @@ static int __init set_reset_devices(char *str)
 
 __setup("reset_devices", set_reset_devices);
 
-#if defined(CONFIG_PAX_MEMORY_UDEREF) && defined(CONFIG_X86_32)
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+extern void pax_enter_kernel_user(void);
+extern void pax_exit_kernel_user(void);
+extern pteval_t clone_pgd_mask;
+#endif
+
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_MEMORY_UDEREF)
 static int __init setup_pax_nouderef(char *str)
 {
+#ifdef CONFIG_X86_32
 	unsigned int cpu;
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
@@ -196,6 +203,14 @@ static int __init setup_pax_nouderef(char *str)
 	asm("mov %0, %%ds" : : "r" (__KERNEL_DS) : "memory");
 	asm("mov %0, %%es" : : "r" (__KERNEL_DS) : "memory");
 	asm("mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
+#else
+	char *p;
+	p = (char *)pax_enter_kernel_user;
+	*p = 0xc3;
+	p = (char *)pax_exit_kernel_user;
+	*p = 0xc3;
+	clone_pgd_mask = ~(pteval_t)0UL;
+#endif
 
 	return 0;
 }

@@ -61,7 +61,11 @@ void leave_mm(int cpu)
 		BUG();
 	cpumask_clear_cpu(cpu,
 			  mm_cpumask(percpu_read(cpu_tlbstate.active_mm)));
+
+#ifndef CONFIG_PAX_PER_CPU_PGD
 	load_cr3(swapper_pg_dir);
+#endif
+
 }
 EXPORT_SYMBOL_GPL(leave_mm);
 

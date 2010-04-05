@@ -15,6 +15,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
 #include <asm/cpufeature.h>
+#include <asm/pgtable.h>
 
 	.macro ALTERNATIVE_JUMP feature,orig,alt
 0:
@@ -72,6 +73,15 @@ ENDPROC(copy_user_generic)
 
 ENTRY(__copy_from_user_inatomic)
 	CFI_STARTPROC
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	mov $PAX_USER_SHADOW_BASE,%rcx
+	cmp %rcx,%rsi
+	jae 1f
+	add %rcx,%rsi
+1:
+#endif
+
 	ALTERNATIVE_JUMP X86_FEATURE_REP_GOOD,copy_user_generic_unrolled,copy_user_generic_string
 	CFI_ENDPROC
 ENDPROC(__copy_from_user_inatomic)

@@ -34,6 +34,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm.h>
 #include <asm/segment.h>
+#include <asm/pgtable.h>
 
 	.text
 ENTRY(__get_user_1)
@@ -46,6 +47,15 @@ ENTRY(__get_user_1)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	cmp %_ASM_DX,%_ASM_AX
+	jae 1234f
+	add %_ASM_DX,%_ASM_AX
+1234:
+#endif
+
 #endif
 
 1:	movzb (%_ASM_AX),%edx
@@ -72,6 +82,15 @@ ENTRY(__get_user_2)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	cmp %_ASM_DX,%_ASM_AX
+	jae 1234f
+	add %_ASM_DX,%_ASM_AX
+1234:
+#endif
+
 #endif
 
 2:	movzwl -1(%_ASM_AX),%edx
@@ -98,6 +117,15 @@ ENTRY(__get_user_4)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	cmp %_ASM_DX,%_ASM_AX
+	jae 1234f
+	add %_ASM_DX,%_ASM_AX
+1234:
+#endif
+
 #endif
 
 3:	mov -3(%_ASM_AX),%edx
@@ -120,6 +148,15 @@ ENTRY(__get_user_8)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae	bad_get_user
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	cmp %_ASM_DX,%_ASM_AX
+	jae 1234f
+	add %_ASM_DX,%_ASM_AX
+1234:
+#endif
+
 4:	movq -7(%_ASM_AX),%_ASM_DX
 	xor %eax,%eax
 	ret

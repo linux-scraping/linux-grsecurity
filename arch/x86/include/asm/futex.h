@@ -46,16 +46,19 @@
 		     : "r" (oparg), "i" (-EFAULT), "1" (0), "r" (__USER_DS))
 #else
 #define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg)	\
+	typecheck(u32 *, uaddr);				\
 	asm volatile("1:\t" insn "\n"				\
 		     "2:\t.section .fixup,\"ax\"\n"		\
 		     "3:\tmov\t%3, %1\n"			\
 		     "\tjmp\t2b\n"				\
 		     "\t.previous\n"				\
 		     _ASM_EXTABLE(1b, 3b)			\
-		     : "=r" (oldval), "=r" (ret), "+m" (*uaddr)	\
+		     : "=r" (oldval), "=r" (ret),		\
+		       "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4))\
 		     : "i" (-EFAULT), "0" (oparg), "1" (0))
 
 #define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg)	\
+	typecheck(u32 *, uaddr);				\
 	asm volatile("1:\tmovl	%2, %0\n"			\
 		     "\tmovl\t%0, %3\n"				\
 		     "\t" insn "\n"				\
@@ -68,7 +71,8 @@
 		     _ASM_EXTABLE(1b, 4b)			\
 		     _ASM_EXTABLE(2b, 4b)			\
 		     : "=&a" (oldval), "=&r" (ret),		\
-		       "+m" (*uaddr), "=&r" (tem)		\
+		       "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4)),\
+		       "=&r" (tem)				\
 		     : "r" (oparg), "i" (-EFAULT), "1" (0))
 #endif
 
@@ -181,10 +185,11 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 		     "\tjmp     2b\n"
 		     "\t.previous\n"
 		     _ASM_EXTABLE(1b, 3b)
-		     : "=a" (oldval), "+m" (*uaddr)
 #ifdef CONFIG_X86_32
+		     : "=a" (oldval), "+m" (*uaddr)
 		     : "i" (-EFAULT), "r" (newval), "0" (oldval), "r" (__USER_DS)
 #else
+		     : "=a" (oldval), "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4))
 		     : "i" (-EFAULT), "r" (newval), "0" (oldval)
 #endif
 		     : "memory"

@@ -60,6 +60,11 @@ static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
 {
 	int err;
 
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if ((unsigned long)fx < PAX_USER_SHADOW_BASE)
+		fx = (struct i387_fxsave_struct *)((void *)fx + PAX_USER_SHADOW_BASE);
+#endif
+
 	asm volatile("1:  rex64/fxrstor (%[fx])\n\t"
 		     "2:\n"
 		     ".section .fixup,\"ax\"\n"
@@ -104,6 +109,11 @@ static inline void clear_fpu_state(struct task_struct *tsk)
 static inline int fxsave_user(struct i387_fxsave_struct __user *fx)
 {
 	int err;
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if ((unsigned long)fx < PAX_USER_SHADOW_BASE)
+		fx = (struct i387_fxsave_struct __user *)((void __user *)fx + PAX_USER_SHADOW_BASE);
+#endif
 
 	asm volatile("1:  rex64/fxsave (%[fx])\n\t"
 		     "2:\n"

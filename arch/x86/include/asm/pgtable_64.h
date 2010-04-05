@@ -22,7 +22,7 @@ extern pud_t level2_vmemmap_pgt[512];
 extern pmd_t level2_kernel_pgt[512];
 extern pmd_t level2_fixmap_pgt[512];
 extern pmd_t level2_ident_pgt[512*2];
-extern pgd_t init_level4_pgt[];
+extern pgd_t init_level4_pgt[512];
 
 #define swapper_pg_dir init_level4_pgt
 
@@ -106,7 +106,11 @@ static inline void native_set_pgd(pgd_t *pgdp, pgd_t pgd)
 
 static inline void native_pgd_clear(pgd_t *pgd)
 {
+
+#ifndef CONFIG_PAX_PER_CPU_PGD
 	native_set_pgd(pgd, native_make_pgd(0));
+#endif
+
 }
 
 /*

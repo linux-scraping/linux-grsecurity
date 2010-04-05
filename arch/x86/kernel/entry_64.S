@@ -261,6 +261,119 @@ ENTRY(pax_exit_kernel)
 	retq
 ENDPROC(pax_exit_kernel)
 
+ENTRY(pax_enter_kernel_user)
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	push %rax
+	push %rdi
+
+#ifdef CONFIG_PARAVIRT
+	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr3)
+#else
+	mov %cr3,%rax
+#endif
+
+	mov %rax,%rdi
+	add $__START_KERNEL_map,%rax
+	sub phys_base(%rip),%rax
+
+	i = 0
+	.rept USER_PGD_PTRS
+#ifdef CONFIG_PARAVIRT
+	mov i*8(%rax),%rsi
+	mov $0,%sil
+	lea i*8(%rax),%rdi
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+#else
+	movb $0,i*8(%rax)
+#endif
+	i = i + 1
+	.endr
+
+#ifdef CONFIG_PARAVIRT
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_write_cr3)
+	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+#else
+	mov %rdi,%cr3
+#endif
+
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_PARAVIRT
+	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
+	mov %rax,%rdi
+#else
+	mov %cr0,%rdi
+#endif
+	bts $16,%rdi
+#ifdef CONFIG_PARAVIRT
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
+	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+#else
+	mov %rdi,%cr0
+#endif
+#endif
+
+	pop %rdi
+	pop %rax
+#endif
+
+	retq
+ENDPROC(pax_enter_kernel_user)
+
+ENTRY(pax_exit_kernel_user)
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	push %rax
+	push %rdi
+
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_PARAVIRT
+	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
+	mov %rax,%rdi
+#else
+	mov %cr0,%rdi
+#endif
+	btr $16,%rdi
+#ifdef CONFIG_PARAVIRT
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
+	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+#else
+	mov %rdi,%cr0
+#endif
+#endif
+
+#ifdef CONFIG_PARAVIRT
+	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr3)
+#else
+	mov %cr3,%rax
+#endif
+	add $__START_KERNEL_map,%rax
+	sub phys_base(%rip),%rax
+
+	i = 0
+	.rept USER_PGD_PTRS
+#ifdef CONFIG_PARAVIRT
+	mov i*8(%rax),%rsi
+	mov $0x67,%sil
+	lea i*8(%rax),%rdi
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+#else
+	movb $0x67,i*8(%rax)
+#endif
+	i = i + 1
+	.endr
+
+	pop %rdi
+	pop %rax
+#endif
+
+	retq
+ENDPROC(pax_exit_kernel_user)
+
 .macro TRACE_IRQS_IRETQ offset=ARGOFFSET
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bt   $9,EFLAGS-\offset(%rsp)	/* interrupts off? */
@@ -554,6 +667,11 @@ ENTRY(system_call_after_swapgs)
 
 	movq	%rsp,PER_CPU_VAR(old_rsp)
 	movq	PER_CPU_VAR(kernel_stack),%rsp
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_enter_kernel_user
+#endif
+
 	/*
 	 * No need to follow this irqs off/on section - it's straight
 	 * and short:
@@ -588,6 +706,11 @@ sysret_check:
 	andl %edi,%edx
 	jnz  sysret_careful
 	CFI_REMEMBER_STATE
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_exit_kernel_user
+#endif
+
 	/*
 	 * sysretq will re-enable interrupts:
 	 */
@@ -886,8 +1009,16 @@ END(interrupt)
 	CFI_ADJUST_CFA_OFFSET 10*8
 	call save_args
 	PARTIAL_FRAME 0
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rdi)
+	jnz 1f
 	call pax_enter_kernel
-	call \func
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	call \func
 	.endm
 
 	/*
@@ -908,7 +1039,6 @@ ret_from_intr:
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET	-8
 exit_intr:
-	call pax_exit_kernel
 	GET_THREAD_INFO(%rcx)
 	testl $3,CS-ARGOFFSET(%rsp)
 	je retint_kernel
@@ -932,12 +1062,18 @@ retint_swapgs:		/* return to user-space */
 	 * The iretq could re-enable interrupts:
 	 */
 	DISABLE_INTERRUPTS(CLBR_ANY)
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_exit_kernel_user
+#endif
+
 	TRACE_IRQS_IRETQ
 	SWAPGS
 	jmp restore_args
 
 retint_restore_args:	/* return to kernel space */
 	DISABLE_INTERRUPTS(CLBR_ANY)
+	call pax_exit_kernel
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
@@ -1120,8 +1256,16 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call error_entry
 	DEFAULT_FRAME 0
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
-	movq %rsp,%rdi		/* pt_regs pointer */
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
 	jmp error_exit		/* %ebx: no swapgs flag */
@@ -1138,8 +1282,16 @@ ENTRY(\sym)
 	subq $15*8, %rsp
 	call save_paranoid
 	TRACE_IRQS_OFF
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
-	movq %rsp,%rdi		/* pt_regs pointer */
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
@@ -1156,8 +1308,16 @@ ENTRY(\sym)
 	subq $15*8, %rsp
 	call save_paranoid
 	TRACE_IRQS_OFF
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
-	movq %rsp,%rdi		/* pt_regs pointer */
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 #ifdef CONFIG_SMP
 	imul $TSS_size, PER_CPU_VAR(cpu_number), %ebp
@@ -1181,8 +1341,16 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call error_entry
 	DEFAULT_FRAME 0
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
-	movq %rsp,%rdi			/* pt_regs pointer */
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
@@ -1201,8 +1369,16 @@ ENTRY(\sym)
 	call save_paranoid
 	DEFAULT_FRAME 0
 	TRACE_IRQS_OFF
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
-	movq %rsp,%rdi			/* pt_regs pointer */
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
@@ -1629,7 +1805,16 @@ ENTRY(nmi)
 	CFI_ADJUST_CFA_OFFSET 15*8
 	call save_paranoid
 	DEFAULT_FRAME 0
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testl $3, CS(%rsp)
+	jnz 1f
 	call pax_enter_kernel
+	jmp 2f
+1:	call pax_enter_kernel_user
+#else
+	call pax_enter_kernel
+#endif
+2:
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi
 	movq $-1,%rsi
