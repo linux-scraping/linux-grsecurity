@@ -1037,6 +1037,21 @@ extern void default_banner(void);
 	PARA_SITE(PARA_PATCH(pv_cpu_ops, PV_CPU_irq_enable_sysexit),	\
 		  CLBR_NONE,						\
 		  jmp PARA_INDIRECT(pv_cpu_ops+PV_CPU_irq_enable_sysexit))
+
+#define GET_CR0_INTO_RDI				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);	\
+	mov %rax,%rdi
+
+#define SET_RDI_INTO_CR0				\
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
+
+#define GET_CR3_INTO_RDI				\
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr3);	\
+	mov %rax,%rdi
+
+#define SET_RDI_INTO_CR3				\
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_write_cr3)
+
 #endif	/* CONFIG_X86_32 */
 
 #endif /* __ASSEMBLY__ */
