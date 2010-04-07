@@ -76,6 +76,10 @@ static unsigned long gr_auth_expires = 0UL;
 extern struct vfsmount *sock_mnt;
 extern struct vfsmount *pipe_mnt;
 extern struct vfsmount *shm_mnt;
+#ifdef CONFIG_HUGETLBFS
+extern struct vfsmount *hugetlbfs_vfsmount;
+#endif
+
 static struct acl_object_label *fakefs_obj;
 
 extern int gr_init_uidset(void);
@@ -1791,6 +1795,9 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	spin_lock(&dcache_lock);
 
 	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt ||
+#ifdef CONFIG_HUGETLBFS
+	    mnt == hugetlbfs_vfsmount ||
+#endif
 		/* ignore Eric Biederman */
 	    IS_PRIVATE(l_dentry->d_inode))) {
 		retval = fakefs_obj;

@@ -77,8 +77,10 @@ static inline int is_kernel(unsigned long addr)
 		return 1;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#ifdef CONFIG_MODULES
 	if ((unsigned long)MODULES_EXEC_VADDR <= ktla_ktva(addr) && ktla_ktva(addr) <= (unsigned long)MODULES_EXEC_END)
 		return 0;
+#endif
 
 	if (is_kernel_text(addr))
 		return 1;

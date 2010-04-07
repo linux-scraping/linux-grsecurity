@@ -192,16 +192,13 @@ ENDPROC(native_usergs_sysret64)
 ENTRY(pax_enter_kernel)
 
 #ifdef CONFIG_PAX_KERNEXEC
-	push %rax
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
-	mov %rax,%rdi
-#else
-	mov %cr0,%rdi
+	PV_SAVE_REGS(CLBR_RDI)
 #endif
+
+	GET_CR0_INTO_RDI
 	bts $16,%rdi
 	jnc 1f
 	mov %cs,%edi
@@ -209,17 +206,14 @@ ENTRY(pax_enter_kernel)
 	jz 3f
 	ljmpq __KERNEL_CS,3f
 1:	ljmpq __KERNEXEC_KERNEL_CS,2f
-2:
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
-3:	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-#else
-	mov %rdi,%cr0
+2:	SET_RDI_INTO_CR0
 3:
+
+#ifdef CONFIG_PARAVIRT
+	PV_RESTORE_REGS(CLBR_RDI)
 #endif
 
 	pop %rdi
-	pop %rax
 #endif
 
 	retq
@@ -228,34 +222,26 @@ ENDPROC(pax_enter_kernel)
 ENTRY(pax_exit_kernel)
 
 #ifdef CONFIG_PAX_KERNEXEC
-	push %rax
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
+	PV_SAVE_REGS(CLBR_RDI)
 #endif
+
 	mov %cs,%rdi
 	cmp $__KERNEXEC_KERNEL_CS,%edi
 	jnz 2f
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
-	mov %rax,%rdi
-#else
-	mov %cr0,%rdi
-#endif
+	GET_CR0_INTO_RDI
 	btr $16,%rdi
 	ljmpq __KERNEL_CS,1f
-1:
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
-2:	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI);
-#else
-	mov %rdi,%cr0
+1:	SET_RDI_INTO_CR0
 2:
+
+#ifdef CONFIG_PARAVIRT
+	PV_RESTORE_REGS(CLBR_RDI);
 #endif
 
 	pop %rdi
-	pop %rax
 #endif
 
 	retq
@@ -264,59 +250,57 @@ ENDPROC(pax_exit_kernel)
 ENTRY(pax_enter_kernel_user)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	push %rax
 	push %rdi
+	push %rbx
 
 #ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr3)
-#else
-	mov %cr3,%rax
+	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
-	mov %rax,%rdi
-	add $__START_KERNEL_map,%rax
-	sub phys_base(%rip),%rax
+	GET_CR3_INTO_RDI
+	mov %rdi,%rbx
+	add $__START_KERNEL_map,%rbx
+	sub phys_base(%rip),%rbx
+
+#ifdef CONFIG_PARAVIRT
+	push %rdi
+	cmpl $0, pv_info+PARAVIRT_enabled
+	jz 1f
+	i = 0
+	.rept USER_PGD_PTRS
+	mov i*8(%rbx),%rsi
+	mov $0,%sil
+	lea i*8(%rbx),%rdi
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+	i = i + 1
+	.endr
+	jmp 2f
+1:
+#endif
 
 	i = 0
 	.rept USER_PGD_PTRS
-#ifdef CONFIG_PARAVIRT
-	mov i*8(%rax),%rsi
-	mov $0,%sil
-	lea i*8(%rax),%rdi
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
-#else
-	movb $0,i*8(%rax)
-#endif
+	movb $0,i*8(%rbx)
 	i = i + 1
 	.endr
 
 #ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_write_cr3)
-	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-#else
-	mov %rdi,%cr3
+2:	pop %rdi
 #endif
+	SET_RDI_INTO_CR3
 
 #ifdef CONFIG_PAX_KERNEXEC
-#ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
-	mov %rax,%rdi
-#else
-	mov %cr0,%rdi
-#endif
+	GET_CR0_INTO_RDI
 	bts $16,%rdi
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
-	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-#else
-	mov %rdi,%cr0
-#endif
+	SET_RDI_INTO_CR0
 #endif
 
+#ifdef CONFIG_PARAVIRT
+	PV_RESTORE_REGS(CLBR_RDI)
+#endif
+
+	pop %rbx
 	pop %rdi
-	pop %rax
 #endif
 
 	retq
@@ -325,50 +309,51 @@ ENDPROC(pax_enter_kernel_user)
 ENTRY(pax_exit_kernel_user)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	push %rax
 	push %rdi
 
-#ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
-	mov %rax,%rdi
-#else
-	mov %cr0,%rdi
-#endif
-	btr $16,%rdi
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
-	PV_RESTORE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-#else
-	mov %rdi,%cr0
-#endif
+	push %rbx
+	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
-#ifdef CONFIG_PARAVIRT
-	PV_SAVE_REGS(CLBR_NONE | CLBR_RAX | CLBR_RDI)
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_read_cr3)
-#else
-	mov %cr3,%rax
+#ifdef CONFIG_PAX_KERNEXEC
+	GET_CR0_INTO_RDI
+	btr $16,%rdi
+	SET_RDI_INTO_CR0
 #endif
-	add $__START_KERNEL_map,%rax
-	sub phys_base(%rip),%rax
+
+	GET_CR3_INTO_RDI
+	add $__START_KERNEL_map,%rdi
+	sub phys_base(%rip),%rdi
+
+#ifdef CONFIG_PARAVIRT
+	cmpl $0, pv_info+PARAVIRT_enabled
+	jz 1f
+	mov %rdi,%rbx
+	i = 0
+	.rept USER_PGD_PTRS
+	mov i*8(%rbx),%rsi
+	mov $0x67,%sil
+	lea i*8(%rbx),%rdi
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+	i = i + 1
+	.endr
+	jmp 2f
+1:
+#endif
 
 	i = 0
 	.rept USER_PGD_PTRS
-#ifdef CONFIG_PARAVIRT
-	mov i*8(%rax),%rsi
-	mov $0x67,%sil
-	lea i*8(%rax),%rdi
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
-#else
-	movb $0x67,i*8(%rax)
-#endif
+	movb $0x67,i*8(%rdi)
 	i = i + 1
 	.endr
 
+#ifdef CONFIG_PARAVIRT
+2:	PV_RESTORE_REGS(CLBR_RDI)
+	pop %rbx
+#endif
+
 	pop %rdi
-	pop %rax
 #endif
 
 	retq
