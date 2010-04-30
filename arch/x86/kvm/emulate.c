@@ -83,8 +83,8 @@
 #define Src2CL      (1<<29)
 #define Src2ImmByte (2<<29)
 #define Src2One     (3<<29)
-#define Src2Imm16   (4<<29)
-#define Src2Mask    (7<<29)
+#define Src2Imm16   (4U<<29)
+#define Src2Mask    (7U<<29)
 
 enum {
 	Group1_80, Group1_81, Group1_82, Group1_83,

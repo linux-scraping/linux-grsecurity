@@ -102,10 +102,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif
 
 	}
-#ifdef CONFIG_SMP
 	else {
-		percpu_write(cpu_tlbstate.state, TLBSTATE_OK);
-		BUG_ON(percpu_read(cpu_tlbstate.active_mm) != next);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		pax_open_kernel();
@@ -114,6 +111,10 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		pax_close_kernel();
 		load_cr3(get_cpu_pgd(cpu));
 #endif
+
+#ifdef CONFIG_SMP
+		percpu_write(cpu_tlbstate.state, TLBSTATE_OK);
+		BUG_ON(percpu_read(cpu_tlbstate.active_mm) != next);
 
 		if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next))) {
 			/* We were in lazy tlb mode and leave_mm disabled
@@ -140,8 +141,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif
 
 		}
-	}
 #endif
+	}
 }
 
 #define activate_mm(prev, next)			\

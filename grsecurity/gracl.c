@@ -137,37 +137,10 @@ gr_handle_rawio(const struct inode *inode)
 static int
 gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned int lenb)
 {
-	int i;
-	unsigned long *l1;
-	unsigned long *l2;
-	unsigned char *c1;
-	unsigned char *c2;
-	int num_longs;
-
 	if (likely(lena != lenb))
 		return 0;
 
-	l1 = (unsigned long *)a;
-	l2 = (unsigned long *)b;
-
-	num_longs = lena / sizeof(unsigned long);
-
-	for (i = num_longs; i--; l1++, l2++) {
-		if (unlikely(*l1 != *l2))
-			return 0;
-	}
-
-	c1 = (unsigned char *) l1;
-	c2 = (unsigned char *) l2;
-
-	i = lena - (num_longs * sizeof(unsigned long));	
-
-	for (; i--; c1++, c2++) {
-		if (unlikely(*c1 != *c2))
-			return 0;
-	}
-
-	return 1;
+	return !memcmp(a, b, lena);
 }
 
 static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,

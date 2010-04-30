@@ -391,20 +391,15 @@ acpi_system_write_wakeup_device(struct file *file,
 				size_t count, loff_t * ppos)
 {
 	struct list_head *node, *next;
-	char strbuf[5];
-	char str[5] = "";
-	unsigned int len = count;
+	char strbuf[5] = {0};
 	struct acpi_device *found_dev = NULL;
 
-	if (len > 4)
-		len = 4;
-	if (len < 0)
-		return -EFAULT;
+	if (count > 4)
+		count = 4;
 
-	if (copy_from_user(strbuf, buffer, len))
+	if (copy_from_user(strbuf, buffer, count))
 		return -EFAULT;
-	strbuf[len] = '\0';
-	sscanf(strbuf, "%s", str);
+	strbuf[count] = '\0';
 
 	mutex_lock(&acpi_device_lock);
 	list_for_each_safe(node, next, &acpi_wakeup_device_list) {
@@ -413,7 +408,7 @@ acpi_system_write_wakeup_device(struct file *file,
 		if (!dev->wakeup.flags.valid)
 			continue;
 
-		if (!strncmp(dev->pnp.bus_id, str, 4)) {
+		if (!strncmp(dev->pnp.bus_id, strbuf, 4)) {
 			dev->wakeup.state.enabled =
 			    dev->wakeup.state.enabled ? 0 : 1;
 			found_dev = dev;

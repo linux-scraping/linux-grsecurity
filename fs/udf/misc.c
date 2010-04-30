@@ -142,8 +142,8 @@ struct genericFormat *udf_add_extendedattr(struct inode *inode, uint32_t size,
 		iinfo->i_lenEAttr += size;
 		return (struct genericFormat *)&ea[offset];
 	}
-	if (loc & 0x02)
-		;
+	if (loc & 0x02) {
+	}
 
 	return NULL;
 }

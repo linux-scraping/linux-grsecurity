@@ -430,7 +430,7 @@ static int hpet_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int hpet_ioctl_common(struct hpet_dev *, int, unsigned long, int);
+static int hpet_ioctl_common(struct hpet_dev *, unsigned int, unsigned long, int);
 
 static int
 hpet_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
@@ -550,7 +550,7 @@ static inline unsigned long hpet_time_div(struct hpets *hpets,
 }
 
 static int
-hpet_ioctl_common(struct hpet_dev *devp, int cmd, unsigned long arg, int kernel)
+hpet_ioctl_common(struct hpet_dev *devp, unsigned int cmd, unsigned long arg, int kernel)
 {
 	struct hpet_timer __iomem *timer;
 	struct hpet __iomem *hpet;
