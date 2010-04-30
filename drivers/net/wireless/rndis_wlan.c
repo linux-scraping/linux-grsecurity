@@ -1176,7 +1176,7 @@ static int set_rts_threshold(struct usbnet *usbdev, u32 rts_threshold)
 
 	devdbg(usbdev, "set_rts_threshold %i", rts_threshold);
 
-	if (rts_threshold < 0 || rts_threshold > 2347)
+	if (rts_threshold > 2347)
 		rts_threshold = 2347;
 
 	tmp = cpu_to_le32(rts_threshold);

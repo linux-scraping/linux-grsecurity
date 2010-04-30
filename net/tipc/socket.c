@@ -1449,8 +1449,9 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
 	} else {
 		if (res == 0)
 			res = -ETIMEDOUT;
-		else
-			; /* leave "res" unchanged */
+		else {
+			/* leave "res" unchanged */
+		}
 		sock->state = SS_DISCONNECTING;
 	}
 

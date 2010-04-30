@@ -79,7 +79,7 @@
 		CMD;						\
 }
 #else
-#define MPT_CHECK_LOGGING(IOC, CMD, BITS)
+#define MPT_CHECK_LOGGING(IOC, CMD, BITS) do {} while (0)
 #endif /* CONFIG_SCSI_MPT2SAS_LOGGING */
 
 

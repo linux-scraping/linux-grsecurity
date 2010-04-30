@@ -60,7 +60,7 @@ PAGEFLAG(WC, WC)
 static inline unsigned long get_page_memtype(struct page *pg)
 {
 	if (!PageUncached(pg) && !PageWC(pg))
-		return -1;
+		return ~0UL;
 	else if (!PageUncached(pg) && PageWC(pg))
 		return _PAGE_CACHE_WC;
 	else if (PageUncached(pg) && !PageWC(pg))
@@ -85,7 +85,7 @@ static inline void set_page_memtype(struct page *pg, unsigned long memtype)
 		SetPageWC(pg);
 		break;
 	default:
-	case -1:
+	case ~0UL:
 		ClearPageUncached(pg);
 		ClearPageWC(pg);
 		break;

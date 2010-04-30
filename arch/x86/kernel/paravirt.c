@@ -120,7 +120,7 @@ unsigned paravirt_patch_jmp(void *insnbuf, const void *target,
 
 /* Neat trick to map patch type back to the call within the
  * corresponding structure. */
-static const void *get_call_destination(u8 type)
+static void *get_call_destination(u8 type)
 {
 	const struct paravirt_patch_template tmpl = {
 		.pv_init_ops = pv_init_ops,
@@ -133,26 +133,26 @@ static const void *get_call_destination(u8 type)
 		.pv_lock_ops = pv_lock_ops,
 #endif
 	};
-	return *((const void **)&tmpl + type);
+	return *((void **)&tmpl + type);
 }
 
 unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 				unsigned long addr, unsigned len)
 {
-	const void *opfunc = get_call_destination(type);
+	void *opfunc = get_call_destination(type);
 	unsigned ret;
 
 	if (opfunc == NULL)
 		/* If there's no function, patch it with a ud2a (BUG) */
 		ret = paravirt_patch_insns(insnbuf, len, ud2a, ud2a+sizeof(ud2a));
-	else if (opfunc == _paravirt_nop)
+	else if (opfunc == (void *)_paravirt_nop)
 		/* If the operation is a nop, then nop the callsite */
 		ret = paravirt_patch_nop();
 
 	/* identity functions just return their single argument */
-	else if (opfunc == _paravirt_ident_32)
+	else if (opfunc == (void *)_paravirt_ident_32)
 		ret = paravirt_patch_ident_32(insnbuf, len);
-	else if (opfunc == _paravirt_ident_64)
+	else if (opfunc == (void *)_paravirt_ident_64)
 		ret = paravirt_patch_ident_64(insnbuf, len);
 
 	else if (type == PARAVIRT_PATCH(pv_cpu_ops.iret) ||

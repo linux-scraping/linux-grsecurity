@@ -62,14 +62,14 @@ static ssize_t pci_bus_show_cpuaffinity(struct device *dev,
 	return ret;
 }
 
-static ssize_t inline pci_bus_show_cpumaskaffinity(struct device *dev,
+static inline ssize_t pci_bus_show_cpumaskaffinity(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
 	return pci_bus_show_cpuaffinity(dev, 0, attr, buf);
 }
 
-static ssize_t inline pci_bus_show_cpulistaffinity(struct device *dev,
+static inline ssize_t pci_bus_show_cpulistaffinity(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {

@@ -319,7 +319,7 @@ static inline void set_desc_limit(struct desc_struct *desc, unsigned long limit)
 	desc->limit = (limit >> 16) & 0xf;
 }
 
-static inline void _set_gate(int gate, unsigned type, void *addr,
+static inline void _set_gate(int gate, unsigned type, const void *addr,
 			     unsigned dpl, unsigned ist, unsigned seg)
 {
 	gate_desc s;
@@ -337,7 +337,7 @@ static inline void _set_gate(int gate, unsigned type, void *addr,
  * Pentium F0 0F bugfix can have resulted in the mapped
  * IDT being write-protected.
  */
-static inline void set_intr_gate(unsigned int n, void *addr)
+static inline void set_intr_gate(unsigned int n, const void *addr)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0, 0, __KERNEL_CS);
@@ -366,19 +366,19 @@ static inline void alloc_intr_gate(unsigned int n, void *addr)
 /*
  * This routine sets up an interrupt gate at directory privilege level 3.
  */
-static inline void set_system_intr_gate(unsigned int n, void *addr)
+static inline void set_system_intr_gate(unsigned int n, const void *addr)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0x3, 0, __KERNEL_CS);
 }
 
-static inline void set_system_trap_gate(unsigned int n, void *addr)
+static inline void set_system_trap_gate(unsigned int n, const void *addr)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_TRAP, addr, 0x3, 0, __KERNEL_CS);
 }
 
-static inline void set_trap_gate(unsigned int n, void *addr)
+static inline void set_trap_gate(unsigned int n, const void *addr)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_TRAP, addr, 0, 0, __KERNEL_CS);
@@ -387,16 +387,16 @@ static inline void set_trap_gate(unsigned int n, void *addr)
 static inline void set_task_gate(unsigned int n, unsigned int gdt_entry)
 {
 	BUG_ON((unsigned)n > 0xFF);
-	_set_gate(n, GATE_TASK, (void *)0, 0, 0, (gdt_entry<<3));
+	_set_gate(n, GATE_TASK, (const void *)0, 0, 0, (gdt_entry<<3));
 }
 
-static inline void set_intr_gate_ist(int n, void *addr, unsigned ist)
+static inline void set_intr_gate_ist(int n, const void *addr, unsigned ist)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0, ist, __KERNEL_CS);
 }
 
-static inline void set_system_intr_gate_ist(int n, void *addr, unsigned ist)
+static inline void set_system_intr_gate_ist(int n, const void *addr, unsigned ist)
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0x3, ist, __KERNEL_CS);

@@ -41,12 +41,12 @@
 
 static struct kmem_cache *sigqueue_cachep;
 
-static void __user *sig_handler(struct task_struct *t, int sig)
+static __sighandler_t sig_handler(struct task_struct *t, int sig)
 {
 	return t->sighand->action[sig - 1].sa.sa_handler;
 }
 
-static int sig_handler_ignored(void __user *handler, int sig)
+static int sig_handler_ignored(__sighandler_t handler, int sig)
 {
 	/* Is it explicitly or implicitly ignored? */
 	return handler == SIG_IGN ||
@@ -56,7 +56,7 @@ static int sig_handler_ignored(void __user *handler, int sig)
 static int sig_task_ignored(struct task_struct *t, int sig,
 		int from_ancestor_ns)
 {
-	void __user *handler;
+	__sighandler_t handler;
 
 	handler = sig_handler(t, sig);
 
@@ -330,7 +330,7 @@ flush_signal_handlers(struct task_struct *t, int force_default)
 
 int unhandled_signal(struct task_struct *tsk, int sig)
 {
-	void __user *handler = tsk->sighand->action[sig-1].sa.sa_handler;
+	__sighandler_t handler = tsk->sighand->action[sig-1].sa.sa_handler;
 	if (is_global_init(tsk))
 		return 1;
 	if (handler != SIG_IGN && handler != SIG_DFL)

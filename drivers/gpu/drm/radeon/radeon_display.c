@@ -482,7 +482,7 @@ void radeon_compute_pll(struct radeon_pll *pll,
 
 					if (flags & RADEON_PLL_PREFER_CLOSEST_LOWER) {
 						error = freq - current_freq;
-						error = error < 0 ? 0xffffffff : error;
+						error = (int32_t)error < 0 ? 0xffffffff : error;
 					} else
 						error = abs(current_freq - freq);
 					vco_diff = abs(vco - best_vco);

@@ -617,7 +617,7 @@ static long hiddev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return put_user(HID_VERSION, (int __user *)arg);
 
 	case HIDIOCAPPLICATION:
-		if (arg < 0 || arg >= hid->maxapplication)
+		if (arg >= hid->maxapplication)
 			return -EINVAL;
 
 		for (i = 0; i < hid->maxcollection; i++)

@@ -315,8 +315,6 @@ static ssize_t set_trip(struct device *dev, struct device_attribute *devattr,
 		return res;
 
 	temp /= 1000;
-	if (temp < 0)
-		return -EINVAL;
 
 	mutex_lock(&resource->lock);
 	resource->trip[attr->index - 7] = temp;
