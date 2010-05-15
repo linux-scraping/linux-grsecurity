@@ -7,6 +7,7 @@
 
 static int disable_nx __cpuinitdata;
 
+#if defined(CONFIG_X86_PAE) && !defined(CONFIG_PAX_PAGEEXEC)
 /*
  * noexec = on|off
  *
@@ -28,6 +29,7 @@ static int __init noexec_setup(char *str)
 	return 0;
 }
 early_param("noexec", noexec_setup);
+#endif
 
 void __cpuinit x86_configure_nx(void)
 {

@@ -501,7 +501,7 @@ ENTRY(save_args)
 	leaq -ARGOFFSET+16(%rsp),%rdi	/* arg1 for handler */
 	movq_cfi rbp, 8		/* push %rbp */
 	leaq 8(%rsp), %rbp		/* mov %rsp, %ebp */
-	testl $3, CS(%rdi)
+	testb $3, CS(%rdi)
 	je 1f
 	SWAPGS
 	/*
@@ -593,7 +593,7 @@ ENTRY(ret_from_fork)
 
 	RESTORE_REST
 
-	testl $3, CS-ARGOFFSET(%rsp)		# from kernel_thread?
+	testb $3, CS-ARGOFFSET(%rsp)		# from kernel_thread?
 	je   int_ret_from_sys_call
 
 	testl $_TIF_IA32, TI_flags(%rcx)	# 32-bit compat task needs IRET
@@ -807,7 +807,7 @@ tracesys:
 GLOBAL(int_ret_from_sys_call)
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
-	testl $3,CS-ARGOFFSET(%rsp)
+	testb $3,CS-ARGOFFSET(%rsp)
 	je retint_restore_args
 	movl $_TIF_ALLWORK_MASK,%edi
 	/* edi:	mask to check */
@@ -995,15 +995,16 @@ END(interrupt)
 	call save_args
 	PARTIAL_FRAME 0
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rdi)
+	testb $3, CS(%rdi)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	call \func
+	call \func
 	.endm
 
 /*
@@ -1029,7 +1030,7 @@ ret_from_intr:
 	CFI_ADJUST_CFA_OFFSET	-8
 exit_intr:
 	GET_THREAD_INFO(%rcx)
-	testl $3,CS-ARGOFFSET(%rsp)
+	testb $3,CS-ARGOFFSET(%rsp)
 	je retint_kernel
 
 	/* Interrupt came from user space */
@@ -1250,15 +1251,16 @@ ENTRY(\sym)
 	call error_entry
 	DEFAULT_FRAME 0
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	movq %rsp,%rdi		/* pt_regs pointer */
+	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
 	jmp error_exit		/* %ebx: no swapgs flag */
@@ -1276,15 +1278,16 @@ ENTRY(\sym)
 	call save_paranoid
 	TRACE_IRQS_OFF
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	movq %rsp,%rdi		/* pt_regs pointer */
+	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
@@ -1302,15 +1305,16 @@ ENTRY(\sym)
 	call save_paranoid
 	TRACE_IRQS_OFF
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	movq %rsp,%rdi		/* pt_regs pointer */
+	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 #ifdef CONFIG_SMP
 	imul $TSS_size, PER_CPU_VAR(cpu_number), %r12d
@@ -1335,15 +1339,16 @@ ENTRY(\sym)
 	call error_entry
 	DEFAULT_FRAME 0
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	movq %rsp,%rdi			/* pt_regs pointer */
+	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
@@ -1363,15 +1368,16 @@ ENTRY(\sym)
 	DEFAULT_FRAME 0
 	TRACE_IRQS_OFF
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:	movq %rsp,%rdi			/* pt_regs pointer */
+	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
@@ -1629,10 +1635,21 @@ ENTRY(paranoid_exit)
 	TRACE_IRQS_OFF
 	testl %ebx,%ebx				/* swapgs needed? */
 	jnz paranoid_restore
-	testl $3,CS(%rsp)
+	testb $3,CS(%rsp)
 	jnz   paranoid_userspace
-paranoid_swapgs:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 	call pax_exit_kernel
+	TRACE_IRQS_IRETQ 0
+	SWAPGS_UNSAFE_STACK
+	RESTORE_ALL 8
+	jmp irq_return
+#endif
+paranoid_swapgs:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_exit_kernel_user
+#else
+	call pax_exit_kernel
+#endif
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
@@ -1696,7 +1713,7 @@ ENTRY(error_entry)
 	movq_cfi r14, R14+8
 	movq_cfi r15, R15+8
 	xorl %ebx,%ebx
-	testl $3,CS+8(%rsp)
+	testb $3,CS+8(%rsp)
 	je error_kernelspace
 error_swapgs:
 	SWAPGS
@@ -1761,15 +1778,15 @@ ENTRY(nmi)
 	call save_paranoid
 	DEFAULT_FRAME 0
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	testl $3, CS(%rsp)
+	testb $3, CS(%rsp)
 	jnz 1f
 	call pax_enter_kernel
 	jmp 2f
 1:	call pax_enter_kernel_user
+2:
 #else
 	call pax_enter_kernel
 #endif
-2:
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi
 	movq $-1,%rsi
@@ -1780,7 +1797,7 @@ ENTRY(nmi)
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	testl %ebx,%ebx				/* swapgs needed? */
 	jnz nmi_restore
-	testl $3,CS(%rsp)
+	testb $3,CS(%rsp)
 	jnz nmi_userspace
 nmi_swapgs:
 	SWAPGS_UNSAFE_STACK

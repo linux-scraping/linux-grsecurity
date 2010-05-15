@@ -320,7 +320,9 @@ static void __kprobes fix_riprel(struct kprobe *p)
 			  (u8 *) p->ainsn.insn;
 		BUG_ON((s64) (s32) newdisp != newdisp); /* Sanity check.  */
 		disp = (u8 *) p->ainsn.insn + insn_offset_displacement(&insn);
+		pax_open_kernel();
 		*(s32 *) disp = (s32) newdisp;
+		pax_close_kernel();
 	}
 #endif
 }

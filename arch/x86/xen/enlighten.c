@@ -1101,6 +1101,15 @@ asmlinkage void __init xen_start_kernel(void)
 
 	/* Work out if we support NX */
 	x86_configure_nx();
+#if defined (CONFIG_X86_64) || defined(CONFIG_X86_PAE)
+	if (cpu_has_nx) {
+		unsigned l, h;
+
+		rdmsr(MSR_EFER, l, h);
+		l |= EFER_NX;
+		wrmsr(MSR_EFER, l, h);
+	}
+#endif
 
 	xen_setup_features();
 

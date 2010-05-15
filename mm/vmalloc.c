@@ -1259,12 +1259,12 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 
 	BUG_ON(in_interrupt());
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (flags & VM_KERNEXEC) {
 		if (start != VMALLOC_START || end != VMALLOC_END)
 			return NULL;
-		start = (unsigned long)&MODULES_EXEC_VADDR;
-		end = (unsigned long)&MODULES_EXEC_END;
+		start = (unsigned long)MODULES_EXEC_VADDR;
+		end = (unsigned long)MODULES_EXEC_END;
 	}
 #endif
 
@@ -1493,7 +1493,7 @@ void *vmap(struct page **pages, unsigned int count,
 	if (count > totalram_pages)
 		return NULL;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (!(pgprot_val(prot) & _PAGE_NX))
 		flags |= VM_KERNEXEC;
 #endif
@@ -1607,7 +1607,7 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 	if (!size || (size >> PAGE_SHIFT) > totalram_pages)
 		return NULL;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (!(pgprot_val(prot) & _PAGE_NX))
 		area = __get_vm_area_node(size, align, VM_ALLOC | VM_KERNEXEC, VMALLOC_START, VMALLOC_END,
 						node, gfp_mask, caller);
