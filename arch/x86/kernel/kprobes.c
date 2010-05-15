@@ -341,7 +341,9 @@ static void __kprobes fix_riprel(struct kprobe *p)
 			disp = (u8 *) p->addr + *((s32 *) insn) -
 			       (u8 *) p->ainsn.insn;
 			BUG_ON((s64) (s32) disp != disp); /* Sanity check.  */
+			pax_open_kernel();
 			*(s32 *)insn = (s32) disp;
+			pax_close_kernel();
 		}
 	}
 #endif

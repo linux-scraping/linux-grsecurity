@@ -257,11 +257,24 @@ void vmalloc_sync_all(void)
 	     address += PMD_SIZE) {
 
 		unsigned long flags;
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		unsigned long cpu;
+#else
 		struct page *page;
+#endif
 
 		spin_lock_irqsave(&pgd_lock, flags);
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+			pgd_t *pgd = get_cpu_pgd(cpu);
+#else
 		list_for_each_entry(page, &pgd_list, lru) {
-			if (!vmalloc_sync_one(page_address(page), address))
+			pgd_t *pgd = page_address(page);
+#endif
+
+			if (!vmalloc_sync_one(pgd, address))
 				break;
 		}
 		spin_unlock_irqrestore(&pgd_lock, flags);
@@ -290,6 +303,9 @@ static noinline int vmalloc_fault(unsigned long address)
 	 * Do _not_ use "current" here. We might be inside
 	 * an interrupt in the middle of a task switch..
 	 */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (read_cr3() & PHYSICAL_PAGE_MASK));
+#endif
 	pgd_paddr = read_cr3();
 	pmd_k = vmalloc_sync_one(__va(pgd_paddr), address);
 	if (!pmd_k)

@@ -1100,6 +1100,16 @@ asmlinkage void __init xen_start_kernel(void)
 #ifdef CONFIG_X86_64
 	/* Work out if we support NX */
 	check_efer();
+#elif defined(CONFIG_X86_PAE)
+	if (cpu_has_nx) {
+		unsigned l, h;
+
+		nx_enabled = 1;
+		__supported_pte_mask |= _PAGE_NX;
+		rdmsr(MSR_EFER, l, h);
+		l |= EFER_NX;
+		wrmsr(MSR_EFER, l, h);
+	}
 #endif
 
 	xen_setup_features();
