@@ -283,6 +283,12 @@ success:
 	 * vm_flags and vm_page_prot are protected by the mmap_sem
 	 * held in write mode.
 	 */
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (newflags & VM_EXEC) && ((vma->vm_flags ^ newflags) & VM_READ))
+		pax_find_mirror_vma(vma)->vm_flags ^= VM_READ;
+#endif
+
 	vma->vm_flags = newflags;
 
 #ifdef CONFIG_PAX_MPROTECT

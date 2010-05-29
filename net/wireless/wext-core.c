@@ -743,8 +743,7 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
 		 */
 
 		/* Support for very large requests */
-		if ((descr->flags & IW_DESCR_FLAG_NOMAX) &&
-		    (user_length > descr->max_tokens)) {
+		if (user_length > descr->max_tokens) {
 			/* Allow userspace to GET more than max so
 			 * we can support any size GET requests.
 			 * There is still a limit : -ENOMEM.

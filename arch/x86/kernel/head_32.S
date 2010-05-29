@@ -21,7 +21,6 @@
 #include <asm/msr-index.h>
 #include <asm/cpufeature.h>
 #include <asm/percpu.h>
-#include <asm/msr-index.h>
 
 /* Physical address */
 #define pa(X) ((X) - __PAGE_OFFSET)

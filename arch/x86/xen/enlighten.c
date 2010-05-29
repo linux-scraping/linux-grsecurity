@@ -1100,11 +1100,12 @@ asmlinkage void __init xen_start_kernel(void)
 	__userpte_alloc_gfp &= ~__GFP_HIGHMEM;
 
 	/* Work out if we support NX */
-	x86_configure_nx();
-#if defined (CONFIG_X86_64) || defined(CONFIG_X86_PAE)
-	if (cpu_has_nx) {
+#if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
+	if ((cpuid_eax(0x80000000) & 0xffff0000) == 0x80000000 &&
+	    (cpuid_edx(0x80000001) & (1 << (X86_FEATURE_NX & 31)))) {
 		unsigned l, h;
 
+		__supported_pte_mask |= _PAGE_NX;
 		rdmsr(MSR_EFER, l, h);
 		l |= EFER_NX;
 		wrmsr(MSR_EFER, l, h);

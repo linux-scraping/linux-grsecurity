@@ -4104,7 +4104,7 @@ out:
 	schedule_delayed_work(work, round_jiffies_relative(REAPTIMEOUT_CPUC));
 }
 
-#if defined(CONFIG_SLABINFO) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
+#ifdef CONFIG_SLABINFO
 
 static void print_slabinfo_header(struct seq_file *m)
 {
@@ -4493,9 +4493,15 @@ static const struct file_operations proc_slabstats_operations = {
 
 static int __init slab_proc_init(void)
 {
-	proc_create("slabinfo",S_IWUSR|S_IRUGO,NULL,&proc_slabinfo_operations);
+	mode_t gr_mode = S_IRUGO;
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	gr_mode = S_IRUSR;
+#endif
+
+	proc_create("slabinfo",S_IWUSR|gr_mode,NULL,&proc_slabinfo_operations);
 #ifdef CONFIG_DEBUG_SLAB_LEAK
-	proc_create("slab_allocators", 0, NULL, &proc_slabstats_operations);
+	proc_create("slab_allocators", gr_mode, NULL, &proc_slabstats_operations);
 #endif
 	return 0;
 }
@@ -4512,10 +4518,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	unsigned int objnr;
 	unsigned long offset;
 
-	if (!n)
-		return;
-
-	if (ZERO_OR_NULL_PTR(ptr))
+	if (ZERO_OR_NULL_PTR(ptr) && n)
 		goto report;
 
 	if (!virt_addr_valid(ptr))

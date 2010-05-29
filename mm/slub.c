@@ -2924,10 +2924,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	struct kmem_cache *s;
 	unsigned long offset;
 
-	if (!n)
-		return;
-
-	if (ZERO_OR_NULL_PTR(ptr))
+	if (ZERO_OR_NULL_PTR(ptr) && n)
 		goto report;
 
 	if (!virt_addr_valid(ptr))
@@ -4753,7 +4750,7 @@ __initcall(slab_sysfs_init);
 /*
  * The /proc/slabinfo ABI
  */
-#if defined(CONFIG_SLABINFO) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
+#ifdef CONFIG_SLABINFO
 static void print_slabinfo_header(struct seq_file *m)
 {
 	seq_puts(m, "slabinfo - version: 2.1\n");
@@ -4842,7 +4839,13 @@ static const struct file_operations proc_slabinfo_operations = {
 
 static int __init slab_proc_init(void)
 {
-	proc_create("slabinfo", S_IRUGO, NULL, &proc_slabinfo_operations);
+	mode_t gr_mode = S_IRUGO;
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	gr_mode = S_IRUSR;
+#endif
+
+	proc_create("slabinfo", gr_mode, NULL, &proc_slabinfo_operations);
 	return 0;
 }
 module_init(slab_proc_init);

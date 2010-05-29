@@ -82,7 +82,6 @@
 #include <linux/pid_namespace.h>
 #include <linux/ptrace.h>
 #include <linux/tracehook.h>
-#include <linux/swapops.h>
 
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -534,11 +533,11 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->start_code : 0),
 		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->end_code : 0),
-		PAX_RAND_FLAGS(mm) ? 0 : ((permitted && mm) ? task->stack_start : 0),
+		PAX_RAND_FLAGS(mm) ? 0 : ((permitted && mm) ? mm->start_stack : 0),
 #else
 		mm ? mm->start_code : 0,
 		mm ? mm->end_code : 0,
-		(permitted && mm) ? task->stack_start : 0,
+		(permitted && mm) ? mm->start_stack : 0,
 #endif
 		esp,
 		eip,

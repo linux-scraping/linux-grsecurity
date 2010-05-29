@@ -559,10 +559,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	const slob_t *free;
 	const void *base;
 
-	if (!n)
-		return;
-
-	if (ZERO_OR_NULL_PTR(ptr))
+	if (ZERO_OR_NULL_PTR(ptr) && n)
 		goto report;
 
 	if (!virt_addr_valid(ptr))
