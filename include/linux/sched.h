@@ -1566,7 +1566,6 @@ struct task_struct {
 	/* bitmask of trace recursion */
 	unsigned long trace_recursion;
 #endif /* CONFIG_TRACING */
-	unsigned long stack_start;
 };
 
 #define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */

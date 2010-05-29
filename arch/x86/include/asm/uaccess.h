@@ -12,7 +12,6 @@
 #include <linux/slab.h>
 #include <asm/asm.h>
 #include <asm/page.h>
-#include <asm/segment.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1

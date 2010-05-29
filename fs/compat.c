@@ -1574,8 +1574,6 @@ int compat_do_execve(char * filename,
 		fput(old_exec_file);
 #endif
 
-	current->stack_start = current->mm->start_stack;
-
 	/* execve succeeded */
 	current->fs->in_exec = 0;
 	current->in_execve = 0;

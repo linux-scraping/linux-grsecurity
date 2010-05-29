@@ -129,8 +129,9 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 #ifdef CONFIG_PAX_SEGMEXEC
 			vma_m = pax_find_mirror_vma(vma);
 			if (vma_m) {
+				BUG_ON(vma_m->anon_vma);
 				vma_m->anon_vma = anon_vma;
-				__anon_vma_link(vma_m);
+				list_add_tail(&vma_m->anon_vma_node, &anon_vma->head);
 			}
 #endif
 
