@@ -102,13 +102,16 @@ extern unsigned int kobjsize(const void *objp);
 
 #define VM_CAN_NONLINEAR 0x08000000	/* Has ->fault & does nonlinear pages */
 #define VM_MIXEDMAP	0x10000000	/* Can contain "struct page" and pure PFN pages */
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+#define VM_SAO		0x00000000	/* Strong Access Ordering (powerpc) */
+#define VM_PAGEEXEC	0x20000000	/* vma->vm_page_prot needs special handling */
+#else
 #define VM_SAO		0x20000000	/* Strong Access Ordering (powerpc) */
+#endif
+
 #define VM_PFN_AT_MMAP	0x40000000	/* PFNMAP vma that is fully mapped at mmap time */
 #define VM_MERGEABLE	0x80000000	/* KSM may merge identical pages */
-
-#ifdef CONFIG_PAX_PAGEEXEC
-#define VM_PAGEEXEC	0x80000000	/* vma->vm_page_prot needs special handling */
-#endif
 
 #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
 #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
