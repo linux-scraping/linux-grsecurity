@@ -595,7 +595,7 @@ static int static_obj(void *obj)
 	 * percpu var?
 	 */
 	for_each_possible_cpu(i) {
-		start = (unsigned long) per_cpu_ptr(&__per_cpu_start, i);
+		start = (unsigned long) &__per_cpu_start + per_cpu_offset(i);
 		end   = start + PERCPU_ENOUGH_ROOM;
 
 		if ((addr >= start) && (addr < end))
