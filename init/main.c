@@ -187,7 +187,7 @@ __setup("reset_devices", set_reset_devices);
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 extern void pax_enter_kernel_user(void);
 extern void pax_exit_kernel_user(void);
-extern pteval_t clone_pgd_mask;
+extern pgdval_t clone_pgd_mask;
 #endif
 
 #if defined(CONFIG_X86) && defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -209,7 +209,7 @@ static int __init setup_pax_nouderef(char *str)
 	*p = 0xc3;
 	p = (char *)pax_exit_kernel_user;
 	*p = 0xc3;
-	clone_pgd_mask = ~(pteval_t)0UL;
+	clone_pgd_mask = ~(pgdval_t)0UL;
 #endif
 
 	return 0;

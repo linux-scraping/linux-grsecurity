@@ -416,12 +416,14 @@ void free_initmem(void)
 */
 #ifdef CONFIG_X86_PAE
 	set_memory_nx(PFN_ALIGN(__init_begin), (PFN_ALIGN(__init_end) - PFN_ALIGN(__init_begin)) >> PAGE_SHIFT);
+/*
 	for (addr = (unsigned long)&__init_begin; addr < (unsigned long)&__init_end; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
 		set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
+*/
 #endif
 
 #ifdef CONFIG_MODULES

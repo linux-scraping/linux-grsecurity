@@ -29,13 +29,7 @@
 static void __init zap_identity_mappings(void)
 {
 	pgd_t *pgd = pgd_offset_k(0UL);
-
-#ifdef CONFIG_PAX_PER_CPU_PGD
-	set_pgd(pgd, native_make_pgd(0));
-#else
 	pgd_clear(pgd);
-#endif
-
 	__flush_tlb_all();
 }
 

@@ -161,7 +161,7 @@ static u64 HvDoHypercall(u64 Control, void *Input, void *Output)
 	u64 outputAddress = (Output) ? virt_to_phys(Output) : 0;
 	u32 outputAddressHi = outputAddress >> 32;
 	u32 outputAddressLo = outputAddress & 0xFFFFFFFF;
-	volatile void *hypercallPage = gHvContext.HypercallPage;
+	volatile void *hypercallPage = ktva_ktla(gHvContext.HypercallPage);
 
 	DPRINT_DBG(VMBUS, "Hypercall <control %llx input %p output %p>",
 		   Control, Input, Output);

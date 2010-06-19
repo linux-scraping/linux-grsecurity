@@ -106,11 +106,7 @@ static inline void native_set_pgd(pgd_t *pgdp, pgd_t pgd)
 
 static inline void native_pgd_clear(pgd_t *pgd)
 {
-
-#ifndef CONFIG_PAX_PER_CPU_PGD
 	native_set_pgd(pgd, native_make_pgd(0));
-#endif
-
 }
 
 /*

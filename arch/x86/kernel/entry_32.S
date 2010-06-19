@@ -1366,9 +1366,6 @@ error_code:
 	movl %ecx, %fs
 	UNWIND_ESPFIX_STACK
 	GS_TO_REG %ecx
-
-	PAX_ENTER_KERNEL
-
 	movl PT_GS(%esp), %edi		# get the function address
 	movl PT_ORIG_EAX(%esp), %edx	# get the error code
 	movl $-1, PT_ORIG_EAX(%esp)	# no syscall to restart
@@ -1377,6 +1374,9 @@ error_code:
 	movl $(__KERNEL_DS), %ecx
 	movl %ecx, %ds
 	movl %ecx, %es
+
+	PAX_ENTER_KERNEL
+
 	TRACE_IRQS_OFF
 	movl %esp,%eax			# pt_regs pointer
 	call *%edi
