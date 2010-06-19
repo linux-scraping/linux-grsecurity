@@ -304,10 +304,12 @@ static noinline __kprobes int vmalloc_fault(unsigned long address)
 	 * Do _not_ use "current" here. We might be inside
 	 * an interrupt in the middle of a task switch..
 	 */
-#ifdef CONFIG_PAX_PER_CPU_PGD
-	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (read_cr3() & PHYSICAL_PAGE_MASK));
-#endif
 	pgd_paddr = read_cr3();
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (pgd_paddr & PHYSICAL_PAGE_MASK));
+#endif
+
 	pmd_k = vmalloc_sync_one(__va(pgd_paddr), address);
 	if (!pmd_k)
 		return -1;

@@ -261,7 +261,7 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 	 * PCI BIOS based config access (CONFIG_PCI_GOBIOS) support.
 	 */
 	if (within(pfn, BIOS_BEGIN >> PAGE_SHIFT, BIOS_END >> PAGE_SHIFT))
-		pgprot_val(forbidden) |= _PAGE_NX;
+		pgprot_val(forbidden) |= _PAGE_NX & __supported_pte_mask;
 
 	/*
 	 * The kernel text needs to be executable for obvious reasons
@@ -269,7 +269,7 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 	 * 64bit we do not enforce !NX on the low mapping
 	 */
 	if (within(address, ktla_ktva((unsigned long)_text), ktla_ktva((unsigned long)_etext)))
-		pgprot_val(forbidden) |= _PAGE_NX;
+		pgprot_val(forbidden) |= _PAGE_NX & __supported_pte_mask;
 
 #ifdef CONFIG_DEBUG_RODATA
 	/*
@@ -315,6 +315,13 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 		 */
 		if (lookup_address(address, &level) && (level != PG_LEVEL_4K))
 			pgprot_val(forbidden) |= _PAGE_RW;
+	}
+#endif
+
+#ifdef CONFIG_PAX_KERNEXEC
+	if (within(pfn, __pa((unsigned long)&_text), __pa((unsigned long)&_sdata))) {
+		pgprot_val(forbidden) |= _PAGE_RW;
+		pgprot_val(forbidden) |= _PAGE_NX & __supported_pte_mask;
 	}
 #endif
 
@@ -372,24 +379,35 @@ static void __set_pmd_pte(pte_t *kpte, unsigned long address, pte_t pte)
 	/* change init_mm */
 	pax_open_kernel();
 	set_pte_atomic(kpte, pte);
-	pax_close_kernel();
 
 #ifdef CONFIG_X86_32
 	if (!SHARED_KERNEL_PMD) {
-		struct page *page;
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		unsigned long cpu;
+#else
+		struct page *page;
+#endif
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+			pgd_t *pgd = get_cpu_pgd(cpu);
+#else
 		list_for_each_entry(page, &pgd_list, lru) {
-			pgd_t *pgd;
+			pgd_t *pgd = (pgd_t *)page_address(page);;
+#endif
+
 			pud_t *pud;
 			pmd_t *pmd;
 
-			pgd = (pgd_t *)page_address(page) + pgd_index(address);
+			pgd += pgd_index(address);
 			pud = pud_offset(pgd, address);
 			pmd = pmd_offset(pud, address);
 			set_pte_atomic((pte_t *)pmd, pte);
 		}
 	}
 #endif
+	pax_close_kernel();
 }
 
 static int

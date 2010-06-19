@@ -127,13 +127,7 @@ static int init_level4_page(struct kimage *image, pgd_t *level4p,
 	}
 	/* clear the unused entries */
 	while (addr < end_addr) {
-
-#ifdef CONFIG_PAX_PER_CPU_PGD
-		set_pgd(level4p++, native_make_pgd(0));
-#else
 		pgd_clear(level4p++);
-#endif
-
 		addr += PGDIR_SIZE;
 	}
 out:

@@ -713,13 +713,6 @@ ENTRY(idt_table)
 #ifdef CONFIG_X86_PAE
 .section .swapper_pg_dir,"a",@progbits
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
-ENTRY(cpu_pgd)
-	.rept NR_CPUS
-	.fill	512,8,0
-	.endr
-#endif
-
 ENTRY(swapper_pg_dir)
 	.long	pa(swapper_pg_pmd+PGD_IDENT_ATTR),0	/* low identity map */
 # if KPMDS == 3
@@ -738,6 +731,14 @@ ENTRY(swapper_pg_dir)
 #  error "Kernel PMDs should be 1, 2 or 3"
 # endif
 	.align PAGE_SIZE_asm		/* needs to be page-sized too */
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+ENTRY(cpu_pgd)
+	.rept NR_CPUS
+	.fill	4,8,0
+	.endr
+#endif
+
 #endif
 
 .data

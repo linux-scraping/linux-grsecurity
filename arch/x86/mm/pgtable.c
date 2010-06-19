@@ -63,12 +63,8 @@ void ___pmd_free_tlb(struct mmu_gather *tlb, pmd_t *pmd)
 #if PAGETABLE_LEVELS > 3
 void ___pud_free_tlb(struct mmu_gather *tlb, pud_t *pud)
 {
-
-#ifndef CONFIG_PAX_PER_CPU_PGD
 	paravirt_release_pud(__pa(pud) >> PAGE_SHIFT);
 	tlb_remove_page(tlb, virt_to_page(pud));
-#endif
-
 }
 #endif	/* PAGETABLE_LEVELS > 3 */
 #endif	/* PAGETABLE_LEVELS > 2 */
@@ -88,7 +84,14 @@ static inline void pgd_list_del(pgd_t *pgd)
 }
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-pteval_t clone_pgd_mask __read_only = ~_PAGE_PRESENT;
+pgdval_t clone_pgd_mask __read_only = ~_PAGE_PRESENT;
+
+void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count)
+{
+	while (count--)
+		*dst++ = __pgd((pgd_val(*src++) | _PAGE_NX) & ~_PAGE_USER);
+
+}
 #endif
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
@@ -100,16 +103,6 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 		*dst++ = __pgd(pgd_val(*src++) & clone_pgd_mask);
 #else
 		*dst++ = *src++;
-#endif
-
-}
-
-void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count)
-{
-
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	while (count--)
-		*dst++ = __pgd((pgd_val(*src++) | _PAGE_NX) & ~_PAGE_USER);
 #endif
 
 }
