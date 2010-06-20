@@ -93,6 +93,7 @@
 #define GR_IP_LEARN_MSG "%s\t%u\t%u\t%u\t%.4095s\t%.4095s\t%pI4\t%u\t%u\t%u\t%u\t%pI4"
 #define GR_EXEC_CHROOT_MSG "exec of %.980s within chroot by process "
 #define GR_CAP_ACL_MSG "use of %s denied for "
+#define GR_CAP_ACL_MSG2 "use of %s permitted for "
 #define GR_USRCHANGE_ACL_MSG "change to uid %u denied for "
 #define GR_GRPCHANGE_ACL_MSG "change to gid %u denied for "
 #define GR_REMOUNT_AUDIT_MSG "remount of %.256s by "

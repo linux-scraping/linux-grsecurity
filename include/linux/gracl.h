@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.1.14"
-#define GRSECURITY_VERSION 0x2114
+#define GR_VERSION  "grsecurity 2.2.0"
+#define GRSECURITY_VERSION 0x2200
 
 enum {
 	GR_SHUTDOWN = 0,
@@ -101,6 +101,7 @@ struct acl_subject_label {
 	__u32 mode;
 	kernel_cap_t cap_mask;
 	kernel_cap_t cap_lower;
+	kernel_cap_t cap_invert_audit;
 
 	struct rlimit res[GR_NLIMITS];
 	__u32 resmask;

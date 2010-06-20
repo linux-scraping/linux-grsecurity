@@ -49,6 +49,7 @@ int grsec_socket_client_gid;
 int grsec_enable_socket_server;
 int grsec_socket_server_gid;
 int grsec_resource_logging;
+int grsec_disable_privio;
 int grsec_lock;
 
 DEFINE_SPINLOCK(grsec_alert_lock);
@@ -120,10 +121,22 @@ grsecurity_init(void)
 		return;
 	}
 
+
+#ifdef CONFIG_GRKERNSEC_IO
+#if !defined(CONFIG_GRKERNSEC_SYSCTL_DISTRO)
+	grsec_disable_privio = 1;
+#elif defined(CONFIG_GRKERNSEC_SYSCTL_ON)
+	grsec_disable_privio = 1;
+#else
+	grsec_disable_privio = 0;
+#endif
+#endif
+
 #if !defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_SYSCTL_ON)
 #ifndef CONFIG_GRKERNSEC_SYSCTL
 	grsec_lock = 1;
 #endif
+
 #ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
 	grsec_enable_audit_textrel = 1;
 #endif

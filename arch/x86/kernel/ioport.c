@@ -43,7 +43,7 @@ asmlinkage long sys_ioperm(unsigned long from, unsigned long num, int turn_on)
 	if ((from + num <= from) || (from + num > IO_BITMAP_BITS))
 		return -EINVAL;
 #ifdef CONFIG_GRKERNSEC_IO
-	if (turn_on) {
+	if (turn_on && grsec_disable_privio) {
 		gr_handle_ioperm();
 		return -EPERM;
 	}
@@ -120,12 +120,13 @@ long sys_iopl(unsigned int level, struct pt_regs *regs)
 	/* Trying to gain more privileges? */
 	if (level > old) {
 #ifdef CONFIG_GRKERNSEC_IO
-		gr_handle_iopl();
-		return -EPERM;
-#else
+		if (grsec_disable_privio) {
+			gr_handle_iopl();
+			return -EPERM;
+		}
+#endif
 		if (!capable(CAP_SYS_RAWIO))
 			return -EPERM;
-#endif
 	}
 	regs->flags = (regs->flags & ~X86_EFLAGS_IOPL) | (level << 12);
 	t->iopl = level << 12;
