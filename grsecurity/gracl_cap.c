@@ -52,6 +52,7 @@ gr_is_capable(const int cap)
 	const struct cred *cred = current_cred();
 	struct acl_subject_label *curracl;
 	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
+	kernel_cap_t cap_audit = __cap_empty_set;
 
 	if (!gr_acl_is_enabled())
 		return 1;
@@ -60,6 +61,7 @@ gr_is_capable(const int cap)
 
 	cap_drop = curracl->cap_lower;
 	cap_mask = curracl->cap_mask;
+	cap_audit = curracl->cap_invert_audit;
 
 	while ((curracl = curracl->parent_subject)) {
 		/* if the cap isn't specified in the current computed mask but is specified in the
@@ -71,11 +73,16 @@ gr_is_capable(const int cap)
 			cap_raise(cap_mask, cap);
 			if (cap_raised(curracl->cap_lower, cap))
 				cap_raise(cap_drop, cap);
+			if (cap_raised(curracl->cap_invert_audit, cap))
+				cap_raise(cap_audit, cap);
 		}
 	}
 
-	if (!cap_raised(cap_drop, cap))
+	if (!cap_raised(cap_drop, cap)) {
+		if (cap_raised(cap_audit, cap))
+			gr_log_cap(GR_DO_AUDIT, GR_CAP_ACL_MSG2, task, captab_log[cap]);
 		return 1;
+	}
 
 	curracl = task->acl;
 
@@ -91,7 +98,7 @@ gr_is_capable(const int cap)
 		return 1;
 	}
 
-	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(cred->cap_effective, cap))
+	if ((cap >= 0) && (cap < (sizeof(captab_log)/sizeof(captab_log[0]))) && cap_raised(cred->cap_effective, cap) && !cap_raised(cap_audit, cap))
 		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);
 	return 0;
 }

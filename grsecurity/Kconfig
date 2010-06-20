@@ -924,6 +924,22 @@ config GRKERNSEC_SYSCTL
 	  be set to a non-zero value after all the options are set.
 	  *THIS IS EXTREMELY IMPORTANT*
 
+config GRKERNSEC_SYSCTL_DISTRO
+	bool "Extra sysctl support for distro makers (READ HELP)"
+	depends on GRKERNSEC_SYSCTL && GRKERNSEC_IO
+	help
+	  If you say Y here, additional sysctl options will be created
+	  for features that affect processes running as root.  Therefore,
+	  it is critical when using this option that the grsec_lock entry be
+	  enabled after boot.  Only distros with prebuilt kernel packages
+	  with this option enabled that can ensure grsec_lock is enabled
+	  after boot should use this option.
+	  *Failure to set grsec_lock after boot makes all grsec features
+	  this option covers useless*
+
+	  Currently this option creates the following sysctl entries:
+	  "Disable Privileged I/O": "disable_priv_io"	
+
 config GRKERNSEC_SYSCTL_ON
 	bool "Turn on features by default"
 	depends on GRKERNSEC_SYSCTL

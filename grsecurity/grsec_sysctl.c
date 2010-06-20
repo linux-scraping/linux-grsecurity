@@ -23,6 +23,18 @@ static int __maybe_unused one = 1;
 #if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_ROFS)
 ctl_table grsecurity_table[] = {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
+#ifdef CONFIG_GRKERNSEC_SYSCTL_DISTRO
+#ifdef CONFIG_GRKERNSEC_IO
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "disable_priv_io",
+		.data		= &grsec_disable_privio,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#endif
 #ifdef CONFIG_GRKERNSEC_LINK
 	{
 		.ctl_name	= CTL_UNNUMBERED,
