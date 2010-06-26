@@ -3785,6 +3785,7 @@ int gr_is_taskstats_denied(int pid)
 	   who have the 'view' subject flag if the RBAC system is enabled
 	*/
 
+	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	task = find_task_by_vpid(pid);
 	if (task) {
@@ -3813,6 +3814,7 @@ int gr_is_taskstats_denied(int pid)
 		ret = -ENOENT;
 
 	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	return ret;
 }

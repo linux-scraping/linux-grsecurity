@@ -21,6 +21,7 @@ gr_handle_chroot_unix(const pid_t pid)
 	if (likely(!proc_is_chrooted(current)))
 		return 1;
 
+	rcu_read_lock();
 	read_lock(&tasklist_lock);
 
 	spid = find_vpid(pid);
@@ -31,12 +32,14 @@ gr_handle_chroot_unix(const pid_t pid)
 		if (unlikely(!have_same_root(current, p))) {
 			gr_fs_read_unlock(p);
 			read_unlock(&tasklist_lock);
+			rcu_read_unlock();
 			gr_log_noargs(GR_DONT_AUDIT, GR_UNIX_CHROOT_MSG);
 			return 0;
 		}
 		gr_fs_read_unlock(p);
 	}
 	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 #endif
 	return 1;
 }
@@ -179,6 +182,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (likely(!proc_is_chrooted(current)))
 		return 1;
 
+	rcu_read_lock();
 	read_lock(&tasklist_lock);
 
 	pid = find_vpid(shm_cprid);
@@ -191,6 +195,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 			     time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime))) {
 			gr_fs_read_unlock(p);
 			read_unlock(&tasklist_lock);
+			rcu_read_unlock();
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
 			return 0;
 		}
@@ -204,6 +209,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 			if (unlikely(!have_same_root(current, p))) {
 				gr_fs_read_unlock(p);
 				read_unlock(&tasklist_lock);
+				rcu_read_unlock();
 				gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
 				return 0;
 			}
@@ -212,6 +218,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	}
 
 	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 #endif
 	return 1;
 }

@@ -16,6 +16,7 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (!gr_acl_is_enabled())
 		return 1;
 
+	rcu_read_lock();
 	read_lock(&tasklist_lock);
 
 	task = find_task_by_vpid(shm_cprid);
@@ -28,10 +29,12 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		     (task->acl->mode & GR_PROTSHM) &&
 		     (task->acl != current->acl))) {
 		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
 		gr_log_int3(GR_DONT_AUDIT, GR_SHMAT_ACL_MSG, cuid, shm_cprid, shmid);
 		return 0;
 	}
 	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	return 1;
 }

@@ -23,6 +23,8 @@ chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum)
 	volatile int dummy = 0;
 	unsigned int i;
 
+	sg_init_table(&sg, 1);
+
 	tfm = crypto_alloc_hash("sha256", 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(tfm)) {
 		/* should never happen, since sha256 should be built in */

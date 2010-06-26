@@ -832,7 +832,7 @@ config GRKERNSEC_BLACKHOLE
 	  all servers it connects to have this option enabled, consider
 	  disabling this feature on the haproxy host.
 
-	  If this option is enabled, two sysctl options with names
+	  If the sysctl option is enabled, two sysctl options with names
 	  "ip_blackhole" and "lastack_retries" will be created.
 	  While "ip_blackhole" takes the standard zero/non-zero on/off
 	  toggle, "lastack_retries" uses the same kinds of values as
