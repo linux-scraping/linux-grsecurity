@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/percpu.h>
+#include <linux/module.h>
 
 int grsec_enable_link;
 int grsec_enable_dmesg;
@@ -40,6 +41,9 @@ int grsec_enable_chroot_unix;
 int grsec_enable_tpe;
 int grsec_tpe_gid;
 int grsec_enable_blackhole;
+#ifdef CONFIG_IPV6_MODULE
+EXPORT_SYMBOL(grsec_enable_blackhole);
+#endif
 int grsec_lastack_retries;
 int grsec_enable_tpe_all;
 int grsec_enable_socket_all;
