@@ -180,6 +180,21 @@ atomic64_sub: /* %o0 = decrement, %o1 = atomic_ptr */
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 	.size	atomic64_sub, .-atomic64_sub
 
+	.globl	atomic64_sub_unchecked
+	.type	atomic64_sub_unchecked,#function
+atomic64_sub_unchecked: /* %o0 = decrement, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	ldx	[%o1], %g1
+	subcc	%g1, %o0, %g7
+	casx	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%xcc, 2f
+	 nop
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic64_sub_unchecked, .-atomic64_sub_unchecked
+
 	.globl	atomic64_add_ret
 	.type	atomic64_add_ret,#function
 atomic64_add_ret: /* %o0 = increment, %o1 = atomic_ptr */

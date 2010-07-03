@@ -28,12 +28,20 @@ gr_log_resource(const struct task_struct *task,
 		const int res, const unsigned long wanted, const int gt)
 {
 	const struct cred *cred;
+	unsigned long rlim;
 
 	if (!gr_acl_is_enabled() && !grsec_resource_logging)
 		return;
 
 	// not yet supported resource
-	if (!restab_log[res])
+	if (unlikely(!restab_log[res]))
+		return;
+
+	if (res == RLIMIT_CPU || res == RLIMIT_RTTIME)
+		rlim = task->signal->rlim[res].rlim_max;
+	else
+		rlim = task->signal->rlim[res].rlim_cur;
+	if (likely((rlim == RLIM_INFINITY) || (gt && wanted <= rlim) || (!gt && wanted < rlim)))
 		return;
 
 	rcu_read_lock();
@@ -50,13 +58,7 @@ gr_log_resource(const struct task_struct *task,
 		goto out_rcu_unlock;
 	rcu_read_unlock();
 
-	preempt_disable();
-
-	if (unlikely(((gt && wanted > task->signal->rlim[res].rlim_cur) ||
-		      (!gt && wanted >= task->signal->rlim[res].rlim_cur)) &&
-		     task->signal->rlim[res].rlim_cur != RLIM_INFINITY))
-		gr_log_res_ulong2_str(GR_DONT_AUDIT, GR_RESOURCE_MSG, task, wanted, restab_log[res], task->signal->rlim[res].rlim_cur);
-	preempt_enable_no_resched();
+	gr_log_res_ulong2_str(GR_DONT_AUDIT, GR_RESOURCE_MSG, task, wanted, restab_log[res], rlim);
 
 	return;
 out_rcu_unlock:

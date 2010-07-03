@@ -85,6 +85,15 @@ static inline void atomic_long_dec(atomic_long_t *l)
 	atomic64_dec(v);
 }
 
+#ifdef CONFIG_PAX_REFCOUNT
+static inline void atomic_long_dec_unchecked(atomic_long_unchecked_t *l)
+{
+	atomic64_unchecked_t *v = (atomic64_unchecked_t *)l;
+
+	atomic64_dec_unchecked(v);
+}
+#endif
+
 static inline void atomic_long_add(long i, atomic_long_t *l)
 {
 	atomic64_t *v = (atomic64_t *)l;
@@ -253,6 +262,15 @@ static inline void atomic_long_dec(atomic_long_t *l)
 	atomic_dec(v);
 }
 
+#ifdef CONFIG_PAX_REFCOUNT
+static inline void atomic_long_dec_unchecked(atomic_long_unchecked_t *l)
+{
+	atomic_unchecked_t *v = (atomic_unchecked_t *)l;
+
+	atomic_dec_unchecked(v);
+}
+#endif
+
 static inline void atomic_long_add(long i, atomic_long_t *l)
 {
 	atomic_t *v = (atomic_t *)l;
@@ -371,6 +389,7 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_long_add_unchecked(0, (atomic_long_unchecked_t *)NULL);
 	atomic_long_inc_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_inc_return_unchecked((atomic_long_unchecked_t *)NULL);
+	atomic_long_dec_unchecked((atomic_long_unchecked_t *)NULL);
 }
 #else
 #define atomic_read_unchecked(v) atomic_read(v)
@@ -384,6 +403,7 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_long_add_unchecked(i, v) atomic_long_add((i), (v))
 #define atomic_long_inc_unchecked(v) atomic_long_inc(v)
 #define atomic_long_inc_return_unchecked(v) atomic_long_inc_return(v)
+#define atomic_long_dec_unchecked(v) atomic_long_dec(v)
 #endif
 
 #endif  /*  _ASM_GENERIC_ATOMIC_LONG_H  */

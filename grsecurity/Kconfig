@@ -813,14 +813,14 @@ config GRKERNSEC_BLACKHOLE
 	help
 	  If you say Y here, neither TCP resets nor ICMP
 	  destination-unreachable packets will be sent in response to packets
-	  send to ports for which no associated listening process exists.
+	  sent to ports for which no associated listening process exists.
 	  This feature supports both IPV4 and IPV6 and exempts the 
 	  loopback interface from blackholing.  Enabling this feature 
 	  makes a host more resilient to DoS attacks and reduces network
 	  visibility against scanners.
 
 	  The blackhole feature as-implemented is equivalent to the FreeBSD
-	  blackhole feature, as prevents RST responses to all packets, not
+	  blackhole feature, as it prevents RST responses to all packets, not
 	  just SYNs.  Under most application behavior this causes no
 	  problems, but applications (like haproxy) may not close certain
 	  connections in a way that cleanly terminates them on the remote

@@ -6296,8 +6296,6 @@ recheck:
 		if (rt_policy(policy)) {
 			unsigned long rlim_rtprio;
 
-			gr_learn_resource(p, RLIMIT_RTPRIO, param->sched_priority, 1);
-
 			if (!lock_task_sighand(p, &flags))
 				return -ESRCH;
 			rlim_rtprio = p->signal->rlim[RLIMIT_RTPRIO].rlim_cur;

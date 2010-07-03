@@ -60,7 +60,8 @@ void gr_handle_iopl(void);
 
 int gr_tpe_allow(const struct file *file);
 
-int gr_random_pid(void);
+void gr_set_chroot_entries(struct task_struct *task, struct path *path);
+void gr_clear_chroot_entries(struct task_struct *task);
 
 void gr_log_forkfail(const int retval);
 void gr_log_timechange(void);

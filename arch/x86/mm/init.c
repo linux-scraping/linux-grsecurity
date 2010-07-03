@@ -383,10 +383,6 @@ void free_initmem(void)
 {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-
 #ifdef CONFIG_X86_32
 	/* PaX: limit KERNEL_CS to actual size */
 	unsigned long addr, limit;
@@ -431,6 +427,9 @@ void free_initmem(void)
 #endif
 
 #else
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
 	unsigned long addr, end;
 
 	/* PaX: make kernel code/rodata read-only, rest non-executable */
