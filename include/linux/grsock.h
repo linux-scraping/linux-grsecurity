@@ -5,7 +5,7 @@ extern void gr_attach_curr_ip(const struct sock *sk);
 extern int gr_handle_sock_all(const int family, const int type,
 			      const int protocol);
 extern int gr_handle_sock_server(const struct sockaddr *sck);
-extern int gr_handle_sock_server_other(const struct socket *sck);
+extern int gr_handle_sock_server_other(const struct sock *sck);
 extern int gr_handle_sock_client(const struct sockaddr *sck);
 extern int gr_search_connect(struct socket * sock,
 			     struct sockaddr_in * addr);
