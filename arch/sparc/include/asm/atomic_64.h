@@ -42,6 +42,7 @@ extern void atomic64_add_unchecked(int, atomic64_unchecked_t *);
 extern void atomic_sub(int, atomic_t *);
 extern void atomic_sub_unchecked(int, atomic_unchecked_t *);
 extern void atomic64_sub(int, atomic64_t *);
+extern void atomic64_sub_unchecked(int, atomic64_unchecked_t *);
 
 extern int atomic_add_ret(int, atomic_t *);
 extern int atomic64_add_ret(int, atomic64_t *);

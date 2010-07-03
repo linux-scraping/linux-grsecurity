@@ -102,7 +102,7 @@ extern void gr_attach_curr_ip(const struct sock *sk);
 extern int gr_handle_sock_all(const int family, const int type,
 			      const int protocol);
 extern int gr_handle_sock_server(const struct sockaddr *sck);
-extern int gr_handle_sock_server_other(const struct socket *sck);
+extern int gr_handle_sock_server_other(const struct sock *sck);
 extern int gr_handle_sock_client(const struct sockaddr *sck);
 extern int gr_search_connect(struct socket * sock,
 			     struct sockaddr_in * addr);
@@ -1481,7 +1481,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 		if ((unsigned)backlog > somaxconn)
 			backlog = somaxconn;
 
-		if (gr_handle_sock_server_other(sock)) {
+		if (gr_handle_sock_server_other(sock->sk)) {
 			err = -EPERM;
 			goto error;
 		}
@@ -1537,7 +1537,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
-	if (gr_handle_sock_server_other(sock)) {
+	if (gr_handle_sock_server_other(sock->sk)) {
 		err = -EPERM;
 		sock_release(newsock);
 		goto out_put;
