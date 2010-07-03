@@ -1476,7 +1476,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 		if ((unsigned)backlog > somaxconn)
 			backlog = somaxconn;
 
-		if (gr_handle_sock_server_other(sock)) {
+		if (gr_handle_sock_server_other(sock->sk)) {
 			err = -EPERM;
 			goto error;
 		}
@@ -1532,7 +1532,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
-	if (gr_handle_sock_server_other(sock)) {
+	if (gr_handle_sock_server_other(sock->sk)) {
 		err = -EPERM;
 		sock_release(newsock);
 		goto out_put;
