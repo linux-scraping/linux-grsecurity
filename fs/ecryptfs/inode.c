@@ -31,6 +31,7 @@
 #include <linux/mount.h>
 #include <linux/crypto.h>
 #include <linux/fs_stack.h>
+#include <linux/slab.h>
 #include <asm/unaligned.h>
 #include "ecryptfs_kernel.h"
 
@@ -323,6 +324,7 @@ int ecryptfs_lookup_and_interpose_lower(struct dentry *ecryptfs_dentry,
 	rc = ecryptfs_read_and_validate_header_region(page_virt,
 						      ecryptfs_dentry->d_inode);
 	if (rc) {
+		memset(page_virt, 0, PAGE_CACHE_SIZE);
 		rc = ecryptfs_read_and_validate_xattr_region(page_virt,
 							     ecryptfs_dentry);
 		if (rc) {
@@ -335,7 +337,7 @@ int ecryptfs_lookup_and_interpose_lower(struct dentry *ecryptfs_dentry,
 		ecryptfs_dentry->d_sb)->mount_crypt_stat;
 	if (mount_crypt_stat->flags & ECRYPTFS_ENCRYPTED_VIEW_ENABLED) {
 		if (crypt_stat->flags & ECRYPTFS_METADATA_IN_XATTR)
-			file_size = (crypt_stat->num_header_bytes_at_front
+			file_size = (crypt_stat->metadata_size
 				     + i_size_read(lower_dentry->d_inode));
 		else
 			file_size = i_size_read(lower_dentry->d_inode);
@@ -387,9 +389,9 @@ static struct dentry *ecryptfs_lookup(struct inode *ecryptfs_dir_inode,
 	mutex_unlock(&lower_dir_dentry->d_inode->i_mutex);
 	if (IS_ERR(lower_dentry)) {
 		rc = PTR_ERR(lower_dentry);
-		printk(KERN_ERR "%s: lookup_one_len() returned [%d] on "
-		       "lower_dentry = [%s]\n", __func__, rc,
-		       ecryptfs_dentry->d_name.name);
+		ecryptfs_printk(KERN_DEBUG, "%s: lookup_one_len() returned "
+				"[%d] on lower_dentry = [%s]\n", __func__, rc,
+				encrypted_and_encoded_name);
 		goto out_d_drop;
 	}
 	if (lower_dentry->d_inode)
@@ -416,9 +418,9 @@ static struct dentry *ecryptfs_lookup(struct inode *ecryptfs_dir_inode,
 	mutex_unlock(&lower_dir_dentry->d_inode->i_mutex);
 	if (IS_ERR(lower_dentry)) {
 		rc = PTR_ERR(lower_dentry);
-		printk(KERN_ERR "%s: lookup_one_len() returned [%d] on "
-		       "lower_dentry = [%s]\n", __func__, rc,
-		       encrypted_and_encoded_name);
+		ecryptfs_printk(KERN_DEBUG, "%s: lookup_one_len() returned "
+				"[%d] on lower_dentry = [%s]\n", __func__, rc,
+				encrypted_and_encoded_name);
 		goto out_d_drop;
 	}
 lookup_and_interpose:
@@ -455,8 +457,8 @@ static int ecryptfs_link(struct dentry *old_dentry, struct inode *dir,
 	rc = ecryptfs_interpose(lower_new_dentry, new_dentry, dir->i_sb, 0);
 	if (rc)
 		goto out_lock;
-	fsstack_copy_attr_times(dir, lower_new_dentry->d_inode);
-	fsstack_copy_inode_size(dir, lower_new_dentry->d_inode);
+	fsstack_copy_attr_times(dir, lower_dir_dentry->d_inode);
+	fsstack_copy_inode_size(dir, lower_dir_dentry->d_inode);
 	old_dentry->d_inode->i_nlink =
 		ecryptfs_inode_to_lower(old_dentry->d_inode)->i_nlink;
 	i_size_write(new_dentry->d_inode, file_size_save);
@@ -749,7 +751,7 @@ upper_size_to_lower_size(struct ecryptfs_crypt_stat *crypt_stat,
 {
 	loff_t lower_size;
 
-	lower_size = crypt_stat->num_header_bytes_at_front;
+	lower_size = ecryptfs_lower_header_size(crypt_stat);
 	if (upper_size != 0) {
 		loff_t num_extents;
 

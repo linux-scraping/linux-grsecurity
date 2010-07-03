@@ -568,7 +568,7 @@ out:
  *	signal. The occurence is latched into the irq controller hardware
  *	and must be acked in order to be reenabled. After the ack another
  *	interrupt can happen on the same source even before the first one
- *	is handled by the assosiacted event handler. If this happens it
+ *	is handled by the associated event handler. If this happens it
  *	might be necessary to disable (mask) the interrupt depending on the
  *	controller hardware. This requires to reenable the interrupt inside
  *	of the loop which handles the interrupts which have arrived while
@@ -729,7 +729,7 @@ set_irq_chip_and_handler_name(unsigned int irq, struct irq_chip *chip,
 	__set_irq_handler(irq, handle, 0, name);
 }
 
-void __init set_irq_noprobe(unsigned int irq)
+void set_irq_noprobe(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	unsigned long flags;
@@ -744,7 +744,7 @@ void __init set_irq_noprobe(unsigned int irq)
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
 }
 
-void __init set_irq_probe(unsigned int irq)
+void set_irq_probe(unsigned int irq)
 {
 	struct irq_desc *desc = irq_to_desc(irq);
 	unsigned long flags;

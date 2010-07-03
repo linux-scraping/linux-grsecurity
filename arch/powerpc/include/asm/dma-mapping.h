@@ -67,7 +67,7 @@ static inline unsigned long device_to_mask(struct device *dev)
  * Available generic sets of operations
  */
 #ifdef CONFIG_PPC64
-extern struct dma_map_ops dma_iommu_ops;
+extern const struct dma_map_ops dma_iommu_ops;
 #endif
 extern const struct dma_map_ops dma_direct_ops;
 
@@ -126,9 +126,6 @@ static inline int dma_supported(struct device *dev, u64 mask)
 		return 1;
 	return dma_ops->dma_supported(dev, mask);
 }
-
-/* We have our own implementation of pci_set_dma_mask() */
-#define HAVE_ARCH_PCI_SET_DMA_MASK
 
 static inline int dma_set_mask(struct device *dev, u64 dma_mask)
 {

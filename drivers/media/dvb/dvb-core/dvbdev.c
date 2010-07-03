@@ -191,7 +191,7 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 			const struct dvb_device *template, void *priv, int type)
 {
 	struct dvb_device *dvbdev;
-	/* cannot be const */
+	/* cannot be const, see this function */
 	struct file_operations *dvbdevfops;
 	struct device *clsdev;
 	int minor;

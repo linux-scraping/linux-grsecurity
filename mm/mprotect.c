@@ -10,7 +10,6 @@
 
 #include <linux/mm.h>
 #include <linux/hugetlb.h>
-#include <linux/slab.h>
 #include <linux/shm.h>
 #include <linux/mman.h>
 #include <linux/fs.h>
@@ -248,7 +247,11 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 				goto fail;
 			}
 			vma->vm_flags = newflags;
-			pax_mirror_vma(vma_m, vma);
+			error = pax_mirror_vma(vma_m, vma);
+			if (error) {
+				vma->vm_flags = oldflags;
+				goto fail;
+			}
 		}
 	}
 #endif

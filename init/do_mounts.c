@@ -15,6 +15,7 @@
 #include <linux/initrd.h>
 #include <linux/async.h>
 #include <linux/fs_struct.h>
+#include <linux/slab.h>
 
 #include <linux/nfs_fs.h>
 #include <linux/nfs_fs_sb.h>
@@ -317,7 +318,7 @@ void __init change_floppy(char *fmt, ...)
 		sys_close(fd);
 	}
 	printk(KERN_NOTICE "VFS: Insert %s and press ENTER\n", buf);
-	fd = sys_open((char __user *)"/dev/console", O_RDWR, 0);
+	fd = sys_open((__force const char __user *)"/dev/console", O_RDWR, 0);
 	if (fd >= 0) {
 		sys_ioctl(fd, TCGETS, (long)&termios);
 		termios.c_lflag &= ~ICANON;

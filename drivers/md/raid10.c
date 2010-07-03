@@ -18,6 +18,7 @@
  * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/blkdev.h>
 #include <linux/seq_file.h>
@@ -1157,12 +1158,12 @@ static int raid10_add_disk(mddev_t *mddev, mdk_rdev_t *rdev)
 					  rdev->data_offset << 9);
 			/* as we don't honour merge_bvec_fn, we must
 			 * never risk violating it, so limit
-			 * ->max_phys_segments to one lying with a single
+			 * ->max_segments to one lying with a single
 			 * page, as a one page request is never in
 			 * violation.
 			 */
 			if (rdev->bdev->bd_disk->queue->merge_bvec_fn) {
-				blk_queue_max_phys_segments(mddev->queue, 1);
+				blk_queue_max_segments(mddev->queue, 1);
 				blk_queue_segment_boundary(mddev->queue,
 							   PAGE_CACHE_SIZE - 1);
 			}
@@ -2259,11 +2260,11 @@ static int run(mddev_t *mddev)
 		disk_stack_limits(mddev->gendisk, rdev->bdev,
 				  rdev->data_offset << 9);
 		/* as we don't honour merge_bvec_fn, we must never risk
-		 * violating it, so limit max_phys_segments to 1 lying
+		 * violating it, so limit max_segments to 1 lying
 		 * within a single page.
 		 */
 		if (rdev->bdev->bd_disk->queue->merge_bvec_fn) {
-			blk_queue_max_phys_segments(mddev->queue, 1);
+			blk_queue_max_segments(mddev->queue, 1);
 			blk_queue_segment_boundary(mddev->queue,
 						   PAGE_CACHE_SIZE - 1);
 		}

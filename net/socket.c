@@ -87,6 +87,7 @@
 #include <linux/wireless.h>
 #include <linux/nsproxy.h>
 #include <linux/magic.h>
+#include <linux/slab.h>
 #include <linux/in.h>
 
 #include <asm/uaccess.h>
@@ -2192,6 +2193,10 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
 		if (err)
 			break;
 		++datagrams;
+
+		/* MSG_WAITFORONE turns on MSG_DONTWAIT after one packet */
+		if (flags & MSG_WAITFORONE)
+			flags |= MSG_DONTWAIT;
 
 		if (timeout) {
 			ktime_get_ts(timeout);

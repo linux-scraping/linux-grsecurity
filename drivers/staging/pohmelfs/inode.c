@@ -323,7 +323,7 @@ int pohmelfs_write_create_inode(struct pohmelfs_inode *pi)
 	t = netfs_trans_alloc(psb, err + 1, 0, 0);
 	if (!t) {
 		err = -ENOMEM;
-		goto err_out_put;
+		goto err_out_exit;
 	}
 	t->complete = pohmelfs_write_inode_complete;
 	t->private = igrab(inode);
@@ -396,7 +396,8 @@ int pohmelfs_remove_child(struct pohmelfs_inode *pi, struct pohmelfs_name *n)
 /*
  * Writeback for given inode.
  */
-static int pohmelfs_write_inode(struct inode *inode, int sync)
+static int pohmelfs_write_inode(struct inode *inode,
+				struct writeback_control *wbc)
 {
 	struct pohmelfs_inode *pi = POHMELFS_I(inode);
 
@@ -970,7 +971,7 @@ int pohmelfs_setattr_raw(struct inode *inode, struct iattr *attr)
 
 	if ((attr->ia_valid & ATTR_UID && attr->ia_uid != inode->i_uid) ||
 	    (attr->ia_valid & ATTR_GID && attr->ia_gid != inode->i_gid)) {
-		err = vfs_dq_transfer(inode, attr) ? -EDQUOT : 0;
+		err = dquot_transfer(inode, attr);
 		if (err)
 			goto err_out_exit;
 	}
@@ -1770,8 +1771,7 @@ static int pohmelfs_show_stats(struct seq_file *m, struct vfsmount *mnt)
 		seq_printf(m, "%u ", ctl->idx);
 		if (ctl->addr.sa_family == AF_INET) {
 			struct sockaddr_in *sin = (struct sockaddr_in *)&st->ctl.addr;
-			/* seq_printf(m, "%pi4:%u", &sin->sin_addr.s_addr, ntohs(sin->sin_port)); */
-			seq_printf(m, "%u.%u.%u.%u:%u", NIPQUAD(sin->sin_addr.s_addr), ntohs(sin->sin_port));
+			seq_printf(m, "%pI4:%u", &sin->sin_addr.s_addr, ntohs(sin->sin_port));
 		} else if (ctl->addr.sa_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (struct sockaddr_in6 *)&st->ctl.addr;
 			seq_printf(m, "%pi6:%u", &sin->sin6_addr, ntohs(sin->sin6_port));

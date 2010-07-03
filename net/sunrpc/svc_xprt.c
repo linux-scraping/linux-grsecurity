@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
+#include <linux/slab.h>
 #include <net/sock.h>
 #include <linux/sunrpc/stats.h>
 #include <linux/sunrpc/svc_xprt.h>
@@ -173,11 +174,13 @@ static struct svc_xprt *__svc_xpo_create(struct svc_xprt_class *xcl,
 		.sin_addr.s_addr	= htonl(INADDR_ANY),
 		.sin_port		= htons(port),
 	};
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 	struct sockaddr_in6 sin6 = {
 		.sin6_family		= AF_INET6,
 		.sin6_addr		= IN6ADDR_ANY_INIT,
 		.sin6_port		= htons(port),
 	};
+#endif	/* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
 	struct sockaddr *sap;
 	size_t len;
 
@@ -186,10 +189,12 @@ static struct svc_xprt *__svc_xpo_create(struct svc_xprt_class *xcl,
 		sap = (struct sockaddr *)&sin;
 		len = sizeof(sin);
 		break;
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 	case PF_INET6:
 		sap = (struct sockaddr *)&sin6;
 		len = sizeof(sin6);
 		break;
+#endif	/* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
 	default:
 		return ERR_PTR(-EAFNOSUPPORT);
 	}
@@ -231,7 +236,10 @@ int svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
  err:
 	spin_unlock(&svc_xprt_class_lock);
 	dprintk("svc: transport %s not found\n", xprt_name);
-	return -ENOENT;
+
+	/* This errno is exposed to user space.  Provide a reasonable
+	 * perror msg for a bad transport. */
+	return -EPROTONOSUPPORT;
 }
 EXPORT_SYMBOL_GPL(svc_create_xprt);
 

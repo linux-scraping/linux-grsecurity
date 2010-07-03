@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
-SUBLEVEL = 33
-EXTRAVERSION = .5
-NAME = Man-Eating Seals of Antiquity
+SUBLEVEL = 34
+EXTRAVERSION =
+NAME = Sheep on Meth
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"

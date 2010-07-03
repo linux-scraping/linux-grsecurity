@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2003 - 2009 Intel Corporation. All rights reserved.
+ * Copyright(c) 2003 - 2010 Intel Corporation. All rights reserved.
  *
  * Portions of this file are derived from the ipw3945 project, as well
  * as portions of the ieee80211 subsystem header files.
@@ -28,6 +28,7 @@
  *****************************************************************************/
 
 #include <linux/etherdevice.h>
+#include <linux/slab.h>
 #include <net/mac80211.h>
 #include <asm/unaligned.h>
 #include "iwl-eeprom.h"
@@ -123,12 +124,11 @@ EXPORT_SYMBOL(iwl_rx_queue_space);
 /**
  * iwl_rx_queue_update_write_ptr - Update the write pointer for the RX queue
  */
-int iwl_rx_queue_update_write_ptr(struct iwl_priv *priv, struct iwl_rx_queue *q)
+void iwl_rx_queue_update_write_ptr(struct iwl_priv *priv, struct iwl_rx_queue *q)
 {
 	unsigned long flags;
 	u32 rx_wrt_ptr_reg = priv->hw_params.rx_wrt_ptr_reg;
 	u32 reg;
-	int ret = 0;
 
 	spin_lock_irqsave(&q->lock, flags);
 
@@ -161,7 +161,6 @@ int iwl_rx_queue_update_write_ptr(struct iwl_priv *priv, struct iwl_rx_queue *q)
 
  exit_unlock:
 	spin_unlock_irqrestore(&q->lock, flags);
-	return ret;
 }
 EXPORT_SYMBOL(iwl_rx_queue_update_write_ptr);
 /**
@@ -184,14 +183,13 @@ static inline __le32 iwl_dma_addr2rbd_ptr(struct iwl_priv *priv,
  * also updates the memory address in the firmware to reference the new
  * target buffer.
  */
-int iwl_rx_queue_restock(struct iwl_priv *priv)
+void iwl_rx_queue_restock(struct iwl_priv *priv)
 {
 	struct iwl_rx_queue *rxq = &priv->rxq;
 	struct list_head *element;
 	struct iwl_rx_mem_buffer *rxb;
 	unsigned long flags;
 	int write;
-	int ret = 0;
 
 	spin_lock_irqsave(&rxq->lock, flags);
 	write = rxq->write & ~0x7;
@@ -220,10 +218,8 @@ int iwl_rx_queue_restock(struct iwl_priv *priv)
 		spin_lock_irqsave(&rxq->lock, flags);
 		rxq->need_update = 1;
 		spin_unlock_irqrestore(&rxq->lock, flags);
-		ret = iwl_rx_queue_update_write_ptr(priv, rxq);
+		iwl_rx_queue_update_write_ptr(priv, rxq);
 	}
-
-	return ret;
 }
 EXPORT_SYMBOL(iwl_rx_queue_restock);
 
@@ -474,8 +470,8 @@ int iwl_rx_init(struct iwl_priv *priv, struct iwl_rx_queue *rxq)
 			   (rb_timeout << FH_RCSR_RX_CONFIG_REG_IRQ_RBTH_POS)|
 			   (rfdnlog << FH_RCSR_RX_CONFIG_RBDCB_SIZE_POS));
 
-	/* Set interrupt coalescing timer to 64 x 32 = 2048 usecs */
-	iwl_write8(priv, CSR_INT_COALESCING, 0x40);
+	/* Set interrupt coalescing timer to default (2048 usecs) */
+	iwl_write8(priv, CSR_INT_COALESCING, IWL_HOST_INT_TIMEOUT_DEF);
 
 	return 0;
 }
@@ -500,9 +496,10 @@ void iwl_rx_missed_beacon_notif(struct iwl_priv *priv,
 	struct iwl_missed_beacon_notif *missed_beacon;
 
 	missed_beacon = &pkt->u.missed_beacon;
-	if (le32_to_cpu(missed_beacon->consequtive_missed_beacons) > 5) {
+	if (le32_to_cpu(missed_beacon->consecutive_missed_beacons) >
+	    priv->missed_beacon_threshold) {
 		IWL_DEBUG_CALIB(priv, "missed bcn cnsq %d totl %d rcd %d expctd %d\n",
-		    le32_to_cpu(missed_beacon->consequtive_missed_beacons),
+		    le32_to_cpu(missed_beacon->consecutive_missed_beacons),
 		    le32_to_cpu(missed_beacon->total_missed_becons),
 		    le32_to_cpu(missed_beacon->num_recvd_beacons),
 		    le32_to_cpu(missed_beacon->num_expected_beacons));
@@ -511,6 +508,24 @@ void iwl_rx_missed_beacon_notif(struct iwl_priv *priv,
 	}
 }
 EXPORT_SYMBOL(iwl_rx_missed_beacon_notif);
+
+void iwl_rx_spectrum_measure_notif(struct iwl_priv *priv,
+					  struct iwl_rx_mem_buffer *rxb)
+{
+	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	struct iwl_spectrum_notification *report = &(pkt->u.spectrum_notif);
+
+	if (!report->state) {
+		IWL_DEBUG_11H(priv,
+			"Spectrum Measure Notification: Start\n");
+		return;
+	}
+
+	memcpy(&priv->measure_report, report, sizeof(*report));
+	priv->measurement_status |= MEASUREMENT_READY;
+}
+EXPORT_SYMBOL(iwl_rx_spectrum_measure_notif);
+
 
 
 /* Calculate noise level, based on measurements during network silence just
@@ -565,15 +580,24 @@ static void iwl_accumulative_statistics(struct iwl_priv *priv,
 	int i;
 	__le32 *prev_stats;
 	u32 *accum_stats;
+	u32 *delta, *max_delta;
 
 	prev_stats = (__le32 *)&priv->statistics;
 	accum_stats = (u32 *)&priv->accum_statistics;
+	delta = (u32 *)&priv->delta_statistics;
+	max_delta = (u32 *)&priv->max_delta;
 
 	for (i = sizeof(__le32); i < sizeof(struct iwl_notif_statistics);
-	     i += sizeof(__le32), stats++, prev_stats++, accum_stats++)
-		if (le32_to_cpu(*stats) > le32_to_cpu(*prev_stats))
-			*accum_stats += (le32_to_cpu(*stats) -
+	     i += sizeof(__le32), stats++, prev_stats++, delta++,
+	     max_delta++, accum_stats++) {
+		if (le32_to_cpu(*stats) > le32_to_cpu(*prev_stats)) {
+			*delta = (le32_to_cpu(*stats) -
 				le32_to_cpu(*prev_stats));
+			*accum_stats += *delta;
+			if (*delta > *max_delta)
+				*max_delta = *delta;
+		}
+	}
 
 	/* reset accumulative statistics for "no-counter" type statistics */
 	priv->accum_statistics.general.temperature =
@@ -593,11 +617,15 @@ static void iwl_accumulative_statistics(struct iwl_priv *priv,
 
 #define REG_RECALIB_PERIOD (60)
 
+#define PLCP_MSG "plcp_err exceeded %u, %u, %u, %u, %u, %d, %u mSecs\n"
 void iwl_rx_statistics(struct iwl_priv *priv,
 			      struct iwl_rx_mem_buffer *rxb)
 {
 	int change;
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
+	int combined_plcp_delta;
+	unsigned int plcp_msec;
+	unsigned long plcp_received_jiffies;
 
 	IWL_DEBUG_RX(priv, "Statistics notification received (%d vs %d).\n",
 		     (int)sizeof(priv->statistics),
@@ -612,6 +640,56 @@ void iwl_rx_statistics(struct iwl_priv *priv,
 #ifdef CONFIG_IWLWIFI_DEBUG
 	iwl_accumulative_statistics(priv, (__le32 *)&pkt->u.stats);
 #endif
+	/*
+	 * check for plcp_err and trigger radio reset if it exceeds
+	 * the plcp error threshold plcp_delta.
+	 */
+	plcp_received_jiffies = jiffies;
+	plcp_msec = jiffies_to_msecs((long) plcp_received_jiffies -
+					(long) priv->plcp_jiffies);
+	priv->plcp_jiffies = plcp_received_jiffies;
+	/*
+	 * check to make sure plcp_msec is not 0 to prevent division
+	 * by zero.
+	 */
+	if (plcp_msec) {
+		combined_plcp_delta =
+			(le32_to_cpu(pkt->u.stats.rx.ofdm.plcp_err) -
+			le32_to_cpu(priv->statistics.rx.ofdm.plcp_err)) +
+			(le32_to_cpu(pkt->u.stats.rx.ofdm_ht.plcp_err) -
+			le32_to_cpu(priv->statistics.rx.ofdm_ht.plcp_err));
+
+		if ((combined_plcp_delta > 0) &&
+			((combined_plcp_delta * 100) / plcp_msec) >
+			priv->cfg->plcp_delta_threshold) {
+			/*
+			 * if plcp_err exceed the threshold, the following
+			 * data is printed in csv format:
+			 *    Text: plcp_err exceeded %d,
+			 *    Received ofdm.plcp_err,
+			 *    Current ofdm.plcp_err,
+			 *    Received ofdm_ht.plcp_err,
+			 *    Current ofdm_ht.plcp_err,
+			 *    combined_plcp_delta,
+			 *    plcp_msec
+			 */
+			IWL_DEBUG_RADIO(priv, PLCP_MSG,
+				priv->cfg->plcp_delta_threshold,
+				le32_to_cpu(pkt->u.stats.rx.ofdm.plcp_err),
+				le32_to_cpu(priv->statistics.rx.ofdm.plcp_err),
+				le32_to_cpu(pkt->u.stats.rx.ofdm_ht.plcp_err),
+				le32_to_cpu(
+					priv->statistics.rx.ofdm_ht.plcp_err),
+				combined_plcp_delta, plcp_msec);
+
+			/*
+			 * Reset the RF radio due to the high plcp
+			 * error rate
+			 */
+			iwl_force_reset(priv, IWL_RF_RESET);
+		}
+	}
+
 	memcpy(&priv->statistics, &pkt->u.stats, sizeof(priv->statistics));
 
 	set_bit(STATUS_STATISTICS, &priv->status);
@@ -639,10 +717,12 @@ void iwl_reply_statistics(struct iwl_priv *priv,
 	struct iwl_rx_packet *pkt = rxb_addr(rxb);
 
 	if (le32_to_cpu(pkt->u.stats.flag) & UCODE_STATISTICS_CLEAR_MSK) {
-		memset(&priv->statistics, 0,
-			sizeof(struct iwl_notif_statistics));
 #ifdef CONFIG_IWLWIFI_DEBUG
 		memset(&priv->accum_statistics, 0,
+			sizeof(struct iwl_notif_statistics));
+		memset(&priv->delta_statistics, 0,
+			sizeof(struct iwl_notif_statistics));
+		memset(&priv->max_delta, 0,
 			sizeof(struct iwl_notif_statistics));
 #endif
 		IWL_DEBUG_RX(priv, "Statistics have been cleared\n");

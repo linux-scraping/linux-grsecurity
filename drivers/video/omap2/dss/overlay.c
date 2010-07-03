@@ -29,6 +29,7 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include <plat/display.h>
 #include <plat/cpu.h>
@@ -350,7 +351,7 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 		return -EINVAL;
 	}
 
-	dssdev->get_resolution(dssdev, &dw, &dh);
+	dssdev->driver->get_resolution(dssdev, &dw, &dh);
 
 	DSSDBG("check_overlay %d: (%d,%d %dx%d -> %dx%d) disp (%dx%d)\n",
 			ovl->id,

@@ -513,7 +513,7 @@ is386:	movl $2,%ecx		# set MP
 	cmpb $0,ready
 	jne 1f
 	movl $cpu_gdt_table,%eax
-	movl $per_cpu__stack_canary,%ecx
+	movl $stack_canary,%ecx
 #ifdef CONFIG_SMP
 	addl $__per_cpu_load,%ecx
 #endif

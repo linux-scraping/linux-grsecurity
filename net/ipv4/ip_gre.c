@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <asm/uaccess.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
@@ -793,7 +794,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
 		}
 
 		if (mtu >= IPV6_MIN_MTU && mtu < skb->len - tunnel->hlen + gre_hlen) {
-			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, dev);
+			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
 			ip_rt_put(rt);
 			goto tx_error;
 		}
@@ -1146,12 +1147,9 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
 
 	if (saddr)
 		memcpy(&iph->saddr, saddr, 4);
-
-	if (daddr) {
+	if (daddr)
 		memcpy(&iph->daddr, daddr, 4);
-		return t->hlen;
-	}
-	if (iph->daddr && !ipv4_is_multicast(iph->daddr))
+	if (iph->daddr)
 		return t->hlen;
 
 	return -t->hlen;
@@ -1309,7 +1307,7 @@ static void ipgre_destroy_tunnels(struct ipgre_net *ign, struct list_head *head)
 	}
 }
 
-static int ipgre_init_net(struct net *net)
+static int __net_init ipgre_init_net(struct net *net)
 {
 	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
 	int err;
@@ -1336,7 +1334,7 @@ err_alloc_dev:
 	return err;
 }
 
-static void ipgre_exit_net(struct net *net)
+static void __net_exit ipgre_exit_net(struct net *net)
 {
 	struct ipgre_net *ign;
 	LIST_HEAD(list);
@@ -1667,14 +1665,15 @@ static int __init ipgre_init(void)
 
 	printk(KERN_INFO "GRE over IPv4 tunneling driver\n");
 
-	if (inet_add_protocol(&ipgre_protocol, IPPROTO_GRE) < 0) {
-		printk(KERN_INFO "ipgre init: can't add protocol\n");
-		return -EAGAIN;
-	}
-
 	err = register_pernet_device(&ipgre_net_ops);
 	if (err < 0)
-		goto gen_device_failed;
+		return err;
+
+	err = inet_add_protocol(&ipgre_protocol, IPPROTO_GRE);
+	if (err < 0) {
+		printk(KERN_INFO "ipgre init: can't add protocol\n");
+		goto add_proto_failed;
+	}
 
 	err = rtnl_link_register(&ipgre_link_ops);
 	if (err < 0)
@@ -1690,9 +1689,9 @@ out:
 tap_ops_failed:
 	rtnl_link_unregister(&ipgre_link_ops);
 rtnl_link_failed:
-	unregister_pernet_device(&ipgre_net_ops);
-gen_device_failed:
 	inet_del_protocol(&ipgre_protocol, IPPROTO_GRE);
+add_proto_failed:
+	unregister_pernet_device(&ipgre_net_ops);
 	goto out;
 }
 
@@ -1700,9 +1699,9 @@ static void __exit ipgre_fini(void)
 {
 	rtnl_link_unregister(&ipgre_tap_ops);
 	rtnl_link_unregister(&ipgre_link_ops);
-	unregister_pernet_device(&ipgre_net_ops);
 	if (inet_del_protocol(&ipgre_protocol, IPPROTO_GRE) < 0)
 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
+	unregister_pernet_device(&ipgre_net_ops);
 }
 
 module_init(ipgre_init);

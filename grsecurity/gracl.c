@@ -87,6 +87,8 @@ extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
 extern int gr_find_uid(uid_t uid);
 
+extern spinlock_t vfsmount_lock;
+
 __inline__ int
 gr_acl_is_enabled(void)
 {
@@ -151,6 +153,7 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 	char * retval;
 	int namelen;
 
+	spin_lock(&vfsmount_lock);
 	*--end = '\0';
 	buflen--;
 
@@ -167,14 +170,11 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 			break;
 		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
 			/* Global root? */
-			spin_lock(&vfsmount_lock);
 			if (vfsmnt->mnt_parent == vfsmnt) {
-				spin_unlock(&vfsmount_lock);
 				goto global_root;
 			}
 			dentry = vfsmnt->mnt_mountpoint;
 			vfsmnt = vfsmnt->mnt_parent;
-			spin_unlock(&vfsmount_lock);
 			continue;
 		}
 		parent = dentry->d_parent;
@@ -190,6 +190,8 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 		dentry = parent;
 	}
 
+out:
+	spin_unlock(&vfsmount_lock);
 	return retval;
 
 global_root:
@@ -199,9 +201,10 @@ global_root:
 		goto Elong;
 	retval -= namelen-1;	/* hit the slash */
 	memcpy(retval, dentry->d_name.name, namelen);
-	return retval;
+	goto out;
 Elong:
-	return ERR_PTR(-ENAMETOOLONG);
+	retval = ERR_PTR(-ENAMETOOLONG);
+	goto out;
 }
 
 static char *

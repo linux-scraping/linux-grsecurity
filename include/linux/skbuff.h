@@ -349,8 +349,8 @@ struct sk_buff {
 				ipvs_property:1,
 				peeked:1,
 				nf_trace:1;
-	__be16			protocol:16;
 	kmemcheck_bitfield_end(flags1);
+	__be16			protocol;
 
 	void			(*destructor)(struct sk_buff *skb);
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
@@ -733,7 +733,7 @@ static inline struct sk_buff *skb_unshare(struct sk_buff *skb,
 }
 
 /**
- *	skb_peek
+ *	skb_peek - peek at the head of an &sk_buff_head
  *	@list_: list to peek at
  *
  *	Peek an &sk_buff. Unlike most other operations you _MUST_
@@ -754,7 +754,7 @@ static inline struct sk_buff *skb_peek(struct sk_buff_head *list_)
 }
 
 /**
- *	skb_peek_tail
+ *	skb_peek_tail - peek at the tail of an &sk_buff_head
  *	@list_: list to peek at
  *
  *	Peek an &sk_buff. Unlike most other operations you _MUST_

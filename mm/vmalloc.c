@@ -119,7 +119,9 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 		struct page *page = pages[*nr];
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if (pgprot_val(prot) & _PAGE_NX)
+		if (!(pgprot_val(prot) & _PAGE_NX))
+			BUG_ON(!pte_exec(*pte) || pte_pfn(*pte) != __pa(addr) >> PAGE_SHIFT);
+		else
 #endif
 
 		if (WARN_ON(!pte_none(*pte))) {

@@ -15,6 +15,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <linux/slab.h>
+
 #include "ath9k.h"
 
 static const struct ath_rate_table ar5416_11na_ratetable = {
@@ -678,13 +680,13 @@ static void ath_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 	 * For Multi Rate Retry we use a different number of
 	 * retry attempt counts. This ends up looking like this:
 	 *
-	 * MRR[0] = 2
-	 * MRR[1] = 2
-	 * MRR[2] = 2
-	 * MRR[3] = 4
+	 * MRR[0] = 4
+	 * MRR[1] = 4
+	 * MRR[2] = 4
+	 * MRR[3] = 8
 	 *
 	 */
-	try_per_rate = sc->hw->max_rate_tries;
+	try_per_rate = 4;
 
 	rate_table = sc->cur_rate_table;
 	rix = ath_rc_get_highest_rix(sc, ath_rc_priv, rate_table, &is_probe);
@@ -713,7 +715,7 @@ static void ath_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 	for ( ; i < 4; i++) {
 		/* Use twice the number of tries for the last MRR segment. */
 		if (i + 1 == 4)
-			try_per_rate = 4;
+			try_per_rate = 8;
 
 		ath_rc_get_lower_rix(rate_table, ath_rc_priv, rix, &rix);
 		/* All other rates in the series have RTS enabled */

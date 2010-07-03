@@ -19,6 +19,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <acpi/acpi_drivers.h>
 #include <linux/backlight.h>
@@ -462,11 +463,15 @@ static const struct backlight_ops cmpc_bl_ops = {
 
 static int cmpc_bl_add(struct acpi_device *acpi)
 {
+	struct backlight_properties props;
 	struct backlight_device *bd;
 
-	bd = backlight_device_register("cmpc_bl", &acpi->dev,
-				       acpi->handle, &cmpc_bl_ops);
-	bd->props.max_brightness = 7;
+	memset(&props, 0, sizeof(struct backlight_properties));
+	props.max_brightness = 7;
+	bd = backlight_device_register("cmpc_bl", &acpi->dev, acpi->handle,
+				       &cmpc_bl_ops, &props);
+	if (IS_ERR(bd))
+		return PTR_ERR(bd);
 	dev_set_drvdata(&acpi->dev, bd);
 	return 0;
 }
@@ -507,6 +512,10 @@ static int cmpc_keys_codes[] = {
 	KEY_BRIGHTNESSDOWN,
 	KEY_BRIGHTNESSUP,
 	KEY_VENDOR,
+	KEY_UNKNOWN,
+	KEY_CAMERA,
+	KEY_BACK,
+	KEY_FORWARD,
 	KEY_MAX
 };
 

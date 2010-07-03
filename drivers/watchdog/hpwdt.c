@@ -39,7 +39,6 @@
 #include <linux/efi.h>
 #include <linux/string.h>
 #include <linux/bootmem.h>
-#include <linux/slab.h>
 #include <asm/desc.h>
 #include <asm/cacheflush.h>
 
@@ -554,7 +553,7 @@ static ssize_t hpwdt_write(struct file *file, const char __user *data,
 	return len;
 }
 
-static struct watchdog_info ident = {
+static const struct watchdog_info ident = {
 	.options = WDIOF_SETTIMEOUT |
 		   WDIOF_KEEPALIVEPING |
 		   WDIOF_MAGICCLOSE,

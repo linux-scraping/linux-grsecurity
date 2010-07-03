@@ -40,6 +40,7 @@
  * at the end of nfs4svc_decode_compoundargs.
  */
 
+#include <linux/slab.h>
 #include <linux/namei.h>
 #include <linux/statfs.h>
 #include <linux/utsname.h>
@@ -1434,7 +1435,7 @@ nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 		}
 		op->opnum = ntohl(*argp->p++);
 
-		if (op->opnum >= OP_ACCESS && op->opnum < ops->nops)
+		if (op->opnum >= FIRST_NFS4_OP && op->opnum <= LAST_NFS4_OP)
 			op->status = ops->decoders[op->opnum](argp, &op->u);
 		else {
 			op->opnum = OP_ILLEGAL;
@@ -1528,7 +1529,7 @@ static void write_cinfo(__be32 **p, struct nfsd4_change_info *c)
 	} } while (0);
 
 /* Encode as an array of strings the string given with components
- * seperated @sep.
+ * separated @sep.
  */
 static __be32 nfsd4_encode_components(char sep, char *components,
 				   __be32 **pp, int *buflen)

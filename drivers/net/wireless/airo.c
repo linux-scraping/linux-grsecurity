@@ -51,13 +51,14 @@
 #include <linux/freezer.h>
 
 #include <linux/ieee80211.h>
+#include <net/iw_handler.h>
 
 #include "airo.h"
 
 #define DRV_NAME "airo"
 
 #ifdef CONFIG_PCI
-static struct pci_device_id card_ids[] = {
+static DEFINE_PCI_DEVICE_TABLE(card_ids) = {
 	{ 0x14b9, 1, PCI_ANY_ID, PCI_ANY_ID, },
 	{ 0x14b9, 0x4500, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0x14b9, 0x4800, PCI_ANY_ID, PCI_ANY_ID, },
@@ -2310,7 +2311,7 @@ static void airo_set_multicast_list(struct net_device *dev) {
 			airo_set_promisc(ai);
 	}
 
-	if ((dev->flags&IFF_ALLMULTI)||dev->mc_count>0) {
+	if ((dev->flags&IFF_ALLMULTI) || !netdev_mc_empty(dev)) {
 		/* Turn on multicast.  (Should be already setup...) */
 	}
 }
@@ -5254,7 +5255,8 @@ static int set_wep_key(struct airo_info *ai, u16 index, const char *key,
 	WepKeyRid wkr;
 	int rc;
 
-	WARN_ON(keylen == 0);
+	if (WARN_ON(keylen == 0))
+		return -1;
 
 	memset(&wkr, 0, sizeof(wkr));
 	wkr.len = cpu_to_le16(sizeof(wkr));

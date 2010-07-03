@@ -90,6 +90,7 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gfp.h>
 #include <scsi/scsi_host.h>
 #include <linux/libata.h>
 #include <linux/dmi.h>
@@ -173,6 +174,7 @@ static int piix_sidpr_scr_read(struct ata_link *link,
 			       unsigned int reg, u32 *val);
 static int piix_sidpr_scr_write(struct ata_link *link,
 				unsigned int reg, u32 val);
+static bool piix_irq_check(struct ata_port *ap);
 #ifdef CONFIG_PM
 static int piix_pci_device_suspend(struct pci_dev *pdev, pm_message_t mesg);
 static int piix_pci_device_resume(struct pci_dev *pdev);
@@ -317,8 +319,13 @@ static struct scsi_host_template piix_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations piix_pata_ops = {
+static const struct ata_port_operations piix_sata_ops = {
 	.inherits		= &ata_bmdma32_port_ops,
+	.sff_irq_check		= piix_irq_check,
+};
+
+static const struct ata_port_operations piix_pata_ops = {
+	.inherits		= &piix_sata_ops,
 	.cable_detect		= ata_cable_40wire,
 	.set_piomode		= piix_set_piomode,
 	.set_dmamode		= piix_set_dmamode,
@@ -334,10 +341,6 @@ static const struct ata_port_operations ich_pata_ops = {
 	.inherits		= &piix_pata_ops,
 	.cable_detect		= ich_pata_cable_detect,
 	.set_dmamode		= ich_set_dmamode,
-};
-
-static const struct ata_port_operations piix_sata_ops = {
-	.inherits		= &ata_bmdma32_port_ops,
 };
 
 static const struct ata_port_operations piix_sidpr_sata_ops = {
@@ -968,6 +971,14 @@ static int piix_sidpr_scr_write(struct ata_link *link,
 	piix_sidpr_sel(link, reg);
 	iowrite32(val, hpriv->sidpr + PIIX_SIDPR_DATA);
 	return 0;
+}
+
+static bool piix_irq_check(struct ata_port *ap)
+{
+	if (unlikely(!ap->ioaddr.bmdma_addr))
+		return false;
+
+	return ap->ops->bmdma_status(ap) & ATA_DMA_INTR;
 }
 
 #ifdef CONFIG_PM

@@ -38,9 +38,10 @@ gr_log_resource(const struct task_struct *task,
 		return;
 
 	if (res == RLIMIT_CPU || res == RLIMIT_RTTIME)
-		rlim = task->signal->rlim[res].rlim_max;
+		rlim = task_rlimit_max(task, res);
 	else
-		rlim = task->signal->rlim[res].rlim_cur;
+		rlim = task_rlimit(task, res);
+
 	if (likely((rlim == RLIM_INFINITY) || (gt && wanted <= rlim) || (!gt && wanted < rlim)))
 		return;
 

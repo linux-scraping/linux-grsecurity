@@ -37,6 +37,12 @@
 #define _ASM_SI		__ASM_REG(si)
 #define _ASM_DI		__ASM_REG(di)
 
+#ifdef CONFIG_X86_32
+#define _ASM_INTO	"into"
+#else
+#define _ASM_INTO	"int $4"
+#endif
+
 /* Exception table entry */
 #ifdef __ASSEMBLY__
 # define _ASM_EXTABLE(from,to)	    \

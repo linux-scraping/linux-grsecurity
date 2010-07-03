@@ -306,15 +306,10 @@ static ssize_t store_uevent(struct device *dev, struct device_attribute *attr,
 {
 	enum kobject_action action;
 
-	if (kobject_action_type(buf, count, &action) == 0) {
+	if (kobject_action_type(buf, count, &action) == 0)
 		kobject_uevent(&dev->kobj, action);
-		goto out;
-	}
-
-	dev_err(dev, "uevent: unsupported action-string; this will "
-		     "be ignored in a future kernel version\n");
-	kobject_uevent(&dev->kobj, KOBJ_ADD);
-out:
+	else
+		dev_err(dev, "uevent: unknown action-string\n");
 	return count;
 }
 
@@ -1350,6 +1345,8 @@ static void root_device_release(struct device *dev)
  * 'module' symlink which points to the @owner directory
  * in sysfs.
  *
+ * Returns &struct device pointer on success, or ERR_PTR() on error.
+ *
  * Note: You probably want to use root_device_register().
  */
 struct device *__root_device_register(const char *name, struct module *owner)
@@ -1437,6 +1434,8 @@ static void device_create_release(struct device *dev)
  * Any further sysfs files that might be required can be created using this
  * pointer.
  *
+ * Returns &struct device pointer on success, or ERR_PTR() on error.
+ *
  * Note: the struct class passed to this function must have previously
  * been created with a call to class_create().
  */
@@ -1496,6 +1495,8 @@ EXPORT_SYMBOL_GPL(device_create_vargs);
  * The pointer to the struct device will be returned from the call.
  * Any further sysfs files that might be required can be created using this
  * pointer.
+ *
+ * Returns &struct device pointer on success, or ERR_PTR() on error.
  *
  * Note: the struct class passed to this function must have previously
  * been created with a call to class_create().
@@ -1583,22 +1584,16 @@ int device_rename(struct device *dev, char *new_name)
 	if (old_class_name) {
 		new_class_name = make_class_name(dev->class->name, &dev->kobj);
 		if (new_class_name) {
-			error = sysfs_create_link_nowarn(&dev->parent->kobj,
-							 &dev->kobj,
-							 new_class_name);
-			if (error)
-				goto out;
-			sysfs_remove_link(&dev->parent->kobj, old_class_name);
+			error = sysfs_rename_link(&dev->parent->kobj,
+						  &dev->kobj,
+						  old_class_name,
+						  new_class_name);
 		}
 	}
 #else
 	if (dev->class) {
-		error = sysfs_create_link_nowarn(&dev->class->p->class_subsys.kobj,
-						 &dev->kobj, dev_name(dev));
-		if (error)
-			goto out;
-		sysfs_remove_link(&dev->class->p->class_subsys.kobj,
-				  old_device_name);
+		error = sysfs_rename_link(&dev->class->p->class_subsys.kobj,
+					  &dev->kobj, old_device_name, new_name);
 	}
 #endif
 

@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/cpuidle.h>
 #include <linux/sysfs.h>
+#include <linux/slab.h>
 #include <linux/cpu.h>
 
 #include "cpuidle.h"
@@ -22,6 +23,7 @@ static int __init cpuidle_sysfs_setup(char *unused)
 __setup("cpuidle_sysfs_switch", cpuidle_sysfs_setup);
 
 static ssize_t show_available_governors(struct sysdev_class *class,
+					struct sysdev_class_attribute *attr,
 					char *buf)
 {
 	ssize_t i = 0;
@@ -41,6 +43,7 @@ out:
 }
 
 static ssize_t show_current_driver(struct sysdev_class *class,
+				   struct sysdev_class_attribute *attr,
 				   char *buf)
 {
 	ssize_t ret;
@@ -56,6 +59,7 @@ static ssize_t show_current_driver(struct sysdev_class *class,
 }
 
 static ssize_t show_current_governor(struct sysdev_class *class,
+				     struct sysdev_class_attribute *attr,
 				     char *buf)
 {
 	ssize_t ret;
@@ -71,6 +75,7 @@ static ssize_t show_current_governor(struct sysdev_class *class,
 }
 
 static ssize_t store_current_governor(struct sysdev_class *class,
+				      struct sysdev_class_attribute *attr,
 				      const char *buf, size_t count)
 {
 	char gov_name[CPUIDLE_NAME_LEN];

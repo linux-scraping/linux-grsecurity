@@ -435,14 +435,19 @@ static void radeon_init_pipes(struct drm_device *dev)
 	if ((dev_priv->flags & RADEON_FAMILY_MASK) >= CHIP_R420) {
 		gb_pipe_sel = RADEON_READ(R400_GB_PIPE_SELECT);
 		dev_priv->num_gb_pipes = ((gb_pipe_sel >> 12) & 0x3) + 1;
+		/* SE cards have 1 pipe */
+		if ((dev->pdev->device == 0x5e4c) ||
+		    (dev->pdev->device == 0x5e4f))
+			dev_priv->num_gb_pipes = 1;
 	} else {
 		/* R3xx */
 		if (((dev_priv->flags & RADEON_FAMILY_MASK) == CHIP_R300 &&
 		     dev->pdev->device != 0x4144) ||
-		    ((dev_priv->flags & RADEON_FAMILY_MASK) == CHIP_R350)) {
+		    ((dev_priv->flags & RADEON_FAMILY_MASK) == CHIP_R350 &&
+		     dev->pdev->device != 0x4148)) {
 			dev_priv->num_gb_pipes = 2;
 		} else {
-			/* RV3xx/R300 AD */
+			/* RV3xx/R300 AD/R350 AH */
 			dev_priv->num_gb_pipes = 1;
 		}
 	}
@@ -1646,6 +1651,7 @@ static int radeon_do_resume_cp(struct drm_device *dev, struct drm_file *file_pri
 	radeon_cp_load_microcode(dev_priv);
 	radeon_cp_init_ring_buffer(dev, dev_priv, file_priv);
 
+	dev_priv->have_z_offset = 0;
 	radeon_do_engine_reset(dev);
 	radeon_irq_set_state(dev, RADEON_SW_INT_ENABLE, 1);
 

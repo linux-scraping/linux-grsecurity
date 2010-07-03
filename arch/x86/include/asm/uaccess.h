@@ -9,7 +9,6 @@
 #include <linux/prefetch.h>
 #include <linux/string.h>
 #include <linux/sched.h>
-#include <linux/slab.h>
 #include <asm/asm.h>
 #include <asm/page.h>
 

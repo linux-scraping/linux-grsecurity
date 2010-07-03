@@ -345,7 +345,7 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 	case F_DUPFD:
 	case F_DUPFD_CLOEXEC:
 		gr_learn_resource(current, RLIMIT_NOFILE, arg, 0);
-		if (arg >= current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
+		if (arg >= rlimit(RLIMIT_NOFILE))
 			break;
 		err = alloc_fd(arg, cmd == F_DUPFD_CLOEXEC ? O_CLOEXEC : 0);
 		if (err >= 0) {

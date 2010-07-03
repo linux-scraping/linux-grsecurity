@@ -560,7 +560,7 @@ static int nfs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	desc->entry = &my_entry;
 
 	nfs_block_sillyrename(dentry);
-	res = nfs_revalidate_mapping_nolock(inode, filp->f_mapping);
+	res = nfs_revalidate_mapping(inode, filp->f_mapping);
 	if (res < 0)
 		goto out;
 
@@ -1052,7 +1052,7 @@ static int nfs_open_revalidate(struct dentry *dentry, struct nameidata *nd)
 	struct inode *dir;
 	int openflags, ret = 0;
 
-	if (!is_atomic_open(nd))
+	if (!is_atomic_open(nd) || d_mountpoint(dentry))
 		goto no_open;
 	parent = dget_parent(dentry);
 	dir = parent->d_inode;

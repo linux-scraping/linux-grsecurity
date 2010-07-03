@@ -150,7 +150,7 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 		struct task_struct *p;
 
 		ret = -ESRCH;
-		read_lock(&tasklist_lock);
+		rcu_read_lock();
 		p = find_task_by_vpid(pid);
 		if (!p)
 			goto err_unlock;
@@ -166,7 +166,7 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 			goto err_unlock;
 #endif
 		head = p->compat_robust_list;
-		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
 	}
 
 	if (put_user(sizeof(*head), len_ptr))
@@ -174,7 +174,7 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 	return put_user(ptr_to_compat(head), head_ptr);
 
 err_unlock:
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	return ret;
 }

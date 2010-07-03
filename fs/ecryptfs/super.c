@@ -26,6 +26,7 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/key.h>
+#include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/smp_lock.h>
 #include <linux/file.h>
@@ -121,6 +122,7 @@ static void ecryptfs_put_super(struct super_block *sb)
 	lock_kernel();
 
 	ecryptfs_destroy_mount_crypt_stat(&sb_info->mount_crypt_stat);
+	bdi_destroy(&sb_info->bdi);
 	kmem_cache_free(ecryptfs_sb_info_cache, sb_info);
 	ecryptfs_set_superblock_private(sb, NULL);
 
