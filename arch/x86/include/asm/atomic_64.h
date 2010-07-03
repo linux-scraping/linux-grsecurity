@@ -222,6 +222,19 @@ static inline void atomic_dec(atomic_t *v)
 }
 
 /**
+ * atomic_dec_unchecked - decrement atomic variable
+ * @v: pointer of type atomic_t
+ *
+ * Atomically decrements @v by 1.
+ */
+static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "decl %0\n"
+		     : "=m" (v->counter)
+		     : "m" (v->counter));
+}
+
+/**
  * atomic_dec_and_test - decrement and test
  * @v: pointer of type atomic_t
  *
@@ -545,6 +558,19 @@ static inline void atomic64_dec(atomic64_t *v)
 }
 
 /**
+ * atomic64_dec_unchecked - decrement atomic64 variable
+ * @v: pointer to type atomic64_t
+ *
+ * Atomically decrements @v by 1.
+ */
+static inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "decq %0\n"
+		     : "=m" (v->counter)
+		     : "m" (v->counter));
+}
+
+/**
  * atomic64_dec_and_test - decrement and test
  * @v: pointer to type atomic64_t
  *
@@ -769,7 +795,7 @@ static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
 			     : "=r" (new)
 			     : "0" (c), "er" (a));
 
-		old = atomic64_cmpxchg((v), c, new);
+		old = atomic64_cmpxchg(v, c, new);
 		if (likely(old == c))
 			break;
 		c = old;

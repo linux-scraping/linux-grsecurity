@@ -218,6 +218,18 @@ static inline void atomic_dec(atomic_t *v)
 }
 
 /**
+ * atomic_dec_unchecked - decrement atomic variable
+ * @v: pointer of type atomic_t
+ *
+ * Atomically decrements @v by 1.
+ */
+static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "decl %0\n"
+		     : "+m" (v->counter));
+}
+
+/**
  * atomic_dec_and_test - decrement and test
  * @v: pointer of type atomic_t
  *

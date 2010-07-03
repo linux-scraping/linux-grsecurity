@@ -5,9 +5,11 @@
 #include <asm/pgtable.h>
 #include <asm/proto.h>
 
+#if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 static int disable_nx __cpuinitdata;
+#endif
 
-#if defined(CONFIG_X86_PAE) && !defined(CONFIG_PAX_PAGEEXEC)
+#if (defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)) && !defined(CONFIG_PAX_PAGEEXEC)
 /*
  * noexec = on|off
  *
@@ -33,9 +35,11 @@ early_param("noexec", noexec_setup);
 
 void __cpuinit x86_configure_nx(void)
 {
+#if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 	if (cpu_has_nx && !disable_nx)
 		__supported_pte_mask |= _PAGE_NX;
 	else
+#endif
 		__supported_pte_mask &= ~_PAGE_NX;
 }
 

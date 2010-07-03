@@ -766,6 +766,7 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	tsk->fs = copy_fs_struct(fs);
 	if (!tsk->fs)
 		return -ENOMEM;
+	gr_set_chroot_entries(tsk, &tsk->fs->root);
 	return 0;
 }
 
@@ -1092,10 +1093,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	rcu_copy_process(p);
 	p->vfork_done = NULL;
 	spin_lock_init(&p->alloc_lock);
-
-#ifdef CONFIG_GRKERNSEC
-	rwlock_init(&p->gr_fs_lock);
-#endif
 
 	init_sigpending(&p->pending);
 
@@ -1724,18 +1721,15 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 		task_lock(current);
 
 		if (new_fs) {
-			unsigned long flags;
-
-			gr_fs_write_lock_irqsave(current, flags);
 			fs = current->fs;
 			write_lock(&fs->lock);
 			current->fs = new_fs;
+			gr_set_chroot_entries(current, &current->fs->root);
 			if (atomic_dec_return(&fs->users))
 				new_fs = NULL;
 			else
 				new_fs = fs;
 			write_unlock(&fs->lock);
-			gr_fs_write_unlock_irqrestore(current, flags);
 		}
 
 		if (new_mm) {

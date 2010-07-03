@@ -91,7 +91,15 @@ static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
 }
 
 #define atomic_dec(v) atomic_sub(1, v)
+static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
+{
+	atomic_sub_unchecked(1, v);
+}
 #define atomic64_dec(v) atomic64_sub(1, v)
+static inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
+{
+	atomic64_sub_unchecked(1, v);
+}
 
 #define atomic_add_negative(i, v) (atomic_add_ret(i, v) < 0)
 #define atomic64_add_negative(i, v) (atomic64_add_ret(i, v) < 0)

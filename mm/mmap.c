@@ -2390,10 +2390,6 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	int error;
 	unsigned long charged;
 
-#ifdef CONFIG_PAX_SEGMEXEC
-	struct vm_area_struct *vma_m = NULL;
-#endif
-
 	len = PAGE_ALIGN(len);
 	if (!len)
 		return addr;
@@ -2476,17 +2472,6 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 		vm_unacct_memory(charged);
 		return -ENOMEM;
 	}
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if ((mm->pax_flags & MF_PAX_SEGMEXEC) && (flags & VM_EXEC)) {
-		vma_m = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
-		if (!vma_m) {
-			kmem_cache_free(vm_area_cachep, vma);
-			vm_unacct_memory(charged);
-			return -ENOMEM;
-		}
-	}
-#endif
 
 	vma->vm_mm = mm;
 	vma->vm_start = addr;

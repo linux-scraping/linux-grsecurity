@@ -5,7 +5,16 @@
 #include <linux/fs.h>
 #include <linux/grinternal.h>
 
+#ifdef CONFIG_TREE_PREEMPT_RCU
+#define DISABLE_PREEMPT() preempt_disable()
+#define ENABLE_PREEMPT() preempt_enable()
+#else
+#define DISABLE_PREEMPT()
+#define ENABLE_PREEMPT()
+#endif
+
 #define BEGIN_LOCKS(x) \
+	DISABLE_PREEMPT(); \
 	rcu_read_lock(); \
 	read_lock(&tasklist_lock); \
 	read_lock(&grsec_exec_file_lock); \
@@ -22,6 +31,7 @@
 	read_unlock(&grsec_exec_file_lock); \
 	read_unlock(&tasklist_lock); \
 	rcu_read_unlock(); \
+	ENABLE_PREEMPT(); \
 	if (x == GR_DONT_AUDIT) \
 		gr_handle_alertkill(current)
 

@@ -999,7 +999,7 @@ int __memory_failure(unsigned long pfn, int trapno, int flags)
 	}
 	if (hwpoison_filter(p)) {
 		if (TestClearPageHWPoison(p))
-			atomic_long_dec(&mce_bad_pages);
+			atomic_long_dec_unchecked(&mce_bad_pages);
 		unlock_page(p);
 		put_page(p);
 		return 0;
@@ -1092,7 +1092,7 @@ int unpoison_memory(unsigned long pfn)
 
 	if (!get_page_unless_zero(page)) {
 		if (TestClearPageHWPoison(p))
-			atomic_long_dec(&mce_bad_pages);
+			atomic_long_dec_unchecked(&mce_bad_pages);
 		pr_debug("MCE: Software-unpoisoned free page %#lx\n", pfn);
 		return 0;
 	}
@@ -1106,7 +1106,7 @@ int unpoison_memory(unsigned long pfn)
 	 */
 	if (TestClearPageHWPoison(p)) {
 		pr_debug("MCE: Software-unpoisoned page %#lx\n", pfn);
-		atomic_long_dec(&mce_bad_pages);
+		atomic_long_dec_unchecked(&mce_bad_pages);
 		freeit = 1;
 	}
 	unlock_page(page);
@@ -1287,7 +1287,7 @@ int soft_offline_page(struct page *page, int flags)
 		return ret;
 
 done:
-	atomic_long_add(1, &mce_bad_pages);
+	atomic_long_add_unchecked(1, &mce_bad_pages);
 	SetPageHWPoison(page);
 	/* keep elevated page count for bad page */
 	return ret;

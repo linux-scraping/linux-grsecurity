@@ -103,13 +103,9 @@ extern rwlock_t grsec_exec_file_lock;
 			gr_to_filename1(tsk->parent->exec_file->f_path.dentry, \
 			tsk->parent->exec_file->f_vfsmnt) : "/")
 
-#define proc_is_chrooted(tsk_a)  ((tsk_a->pid > 1) && (tsk_a->fs != NULL) && \
-			  ((init_task.fs->root.dentry != tsk_a->fs->root.dentry) && \
-			   (tsk_a->nsproxy->mnt_ns->root->mnt_root != \
-			    tsk_a->fs->root.dentry)))
+#define proc_is_chrooted(tsk_a)  (tsk_a->gr_is_chrooted)
 
-#define have_same_root(tsk_a,tsk_b) ((tsk_a->fs != NULL) && (tsk_b->fs != NULL) && \
-			  (tsk_a->fs->root.dentry == tsk_b->fs->root.dentry))
+#define have_same_root(tsk_a,tsk_b) (tsk_a->gr_chroot_dentry == tsk_b->gr_chroot_dentry)
 
 #define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), task->comm, \
 		       task->pid, cred->uid, \

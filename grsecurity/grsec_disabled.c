@@ -415,7 +415,6 @@ gr_check_group_change(int real, int effective, int fs)
 	return 0;
 }
 
-
 EXPORT_SYMBOL(gr_is_capable);
 EXPORT_SYMBOL(gr_is_capable_nolog);
 EXPORT_SYMBOL(gr_learn_resource);
