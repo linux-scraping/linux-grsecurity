@@ -15,6 +15,8 @@
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
 
+extern void check_object_size(const void *ptr, unsigned long n, bool to);
+
 /*
  * The fs value determines whether argument validity checking should be
  * performed or not.  If get_fs() == USER_DS, checking is performed, with

@@ -22,8 +22,6 @@ unsigned long __must_check __copy_from_user_ll_nocache
 unsigned long __must_check __copy_from_user_ll_nocache_nozero
 		(void *to, const void __user *from, unsigned long n);
 
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
-
 /**
  * __copy_to_user_inatomic: - Copy a block of data into user space, with less checking.
  * @to:   Destination address, in user space.

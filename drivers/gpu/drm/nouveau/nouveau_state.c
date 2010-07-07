@@ -391,7 +391,7 @@ static bool nouveau_switcheroo_can_switch(struct pci_dev *pdev)
 	bool can_switch;
 
 	spin_lock(&dev->count_lock);
-	can_switch = (dev->open_count == 0);
+	can_switch = (atomic_read(&dev->open_count) == 0);
 	spin_unlock(&dev->count_lock);
 	return can_switch;
 }

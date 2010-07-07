@@ -205,7 +205,6 @@ __asm__ __volatile__(							\
        : "=r" (x) : "r" (__m(addr)), "i" (retval))
 
 extern int __get_user_bad(void);
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
 
 extern void copy_from_user_overflow(void)
 #ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS

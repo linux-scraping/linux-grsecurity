@@ -180,6 +180,7 @@ union kvm_mmu_page_role {
 		unsigned invalid:1;
 		unsigned cr4_pge:1;
 		unsigned nxe:1;
+		unsigned cr0_wp:1;
 	};
 };
 
@@ -540,6 +541,8 @@ struct kvm_x86_ops {
 	u64 (*get_mt_mask)(struct kvm_vcpu *vcpu, gfn_t gfn, bool is_mmio);
 	int (*get_lpage_level)(void);
 	bool (*rdtscp_supported)(void);
+
+	void (*set_supported_cpuid)(u32 func, struct kvm_cpuid_entry2 *entry);
 
 	const struct trace_print_flags *exit_reasons_str;
 };

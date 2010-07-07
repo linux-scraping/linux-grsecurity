@@ -29,6 +29,7 @@ struct vis_info {
 			    /* list of server-neighbors we received a vis-packet
 			     * from.  we should not reply to them. */
 	struct list_head send_list;
+	struct kref refcount;
 	/* this packet might be part of the vis send queue. */
 	struct vis_packet packet;
 	/* vis_info may follow here*/
@@ -48,10 +49,13 @@ struct recvlist_node {
 extern struct hashtable_t *vis_hash;
 extern spinlock_t vis_hash_lock;
 
+void proc_vis_insert_interface(const uint8_t *interface,
+				      struct hlist_head *if_list,
+				      bool primary);
 void proc_vis_read_entry(struct seq_file *seq,
 				struct vis_info_entry *entry,
-				struct hlist_head *if_list,
-				uint8_t *vis_orig);
+				uint8_t *src,
+				bool primary);
 void proc_vis_read_prim_sec(struct seq_file *seq,
 			    struct hlist_head *if_list);
 void receive_server_sync_packet(struct vis_packet *vis_packet,
