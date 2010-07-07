@@ -7,9 +7,8 @@
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 static int disable_nx __cpuinitdata;
-#endif
 
-#if (defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)) && !defined(CONFIG_PAX_PAGEEXEC)
+#ifndef CONFIG_PAX_PAGEEXEC
 /*
  * noexec = on|off
  *
