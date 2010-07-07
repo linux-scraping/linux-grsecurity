@@ -32,6 +32,8 @@ static int __init noexec_setup(char *str)
 early_param("noexec", noexec_setup);
 #endif
 
+#endif
+
 void __cpuinit x86_configure_nx(void)
 {
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
