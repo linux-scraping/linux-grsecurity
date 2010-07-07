@@ -204,7 +204,6 @@ __asm__ __volatile__(							\
        : "=r" (x) : "r" (__m(addr)), "i" (retval))
 
 extern int __get_user_bad(void);
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
 
 extern unsigned long __must_check ___copy_from_user(void *to,
 						    const void __user *from,

@@ -475,7 +475,7 @@ void __init alternative_instructions(void)
 	if (smp_alt_once)
 		free_init_pages("SMP alternatives",
 				(unsigned long)__smp_locks,
-				(unsigned long)__smp_locks_end);
+				PAGE_ALIGN((unsigned long)__smp_locks_end));
 
 	restart_nmi();
 }

@@ -96,15 +96,26 @@ int iommu_dma_supported(struct device *dev, u64 mask)
 }
 EXPORT_SYMBOL(iommu_dma_supported);
 
+static const struct dma_map_ops intel_iommu_dma_ops = {
+	/* from drivers/pci/intel-iommu.c:intel_dma_ops */
+	.alloc_coherent = intel_alloc_coherent,
+	.free_coherent = intel_free_coherent,
+	.map_sg = intel_map_sg,
+	.unmap_sg = intel_unmap_sg,
+	.map_page = intel_map_page,
+	.unmap_page = intel_unmap_page,
+	.mapping_error = intel_mapping_error,
+
+	.sync_single_for_cpu = machvec_dma_sync_single,
+	.sync_sg_for_cpu = machvec_dma_sync_sg,
+	.sync_single_for_device = machvec_dma_sync_single,
+	.sync_sg_for_device = machvec_dma_sync_sg,
+	.dma_supported = iommu_dma_supported,
+};
+
 void __init pci_iommu_alloc(void)
 {
-	dma_ops = &intel_dma_ops;
-
-	dma_ops->sync_single_for_cpu = machvec_dma_sync_single;
-	dma_ops->sync_sg_for_cpu = machvec_dma_sync_sg;
-	dma_ops->sync_single_for_device = machvec_dma_sync_single;
-	dma_ops->sync_sg_for_device = machvec_dma_sync_sg;
-	dma_ops->dma_supported = iommu_dma_supported;
+	dma_ops = &intel_iommu_dma_ops;
 
 	/*
 	 * The order of these functions is important for
