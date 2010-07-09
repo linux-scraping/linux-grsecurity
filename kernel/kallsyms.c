@@ -57,43 +57,45 @@ static inline int is_kernel_inittext(unsigned long addr)
 	if (system_state != SYSTEM_BOOTING)
 		return 0;
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (addr >= ktla_ktva((unsigned long)_sinittext)
+	    && addr <= ktla_ktva((unsigned long)_einittext))
+#else
 	if (addr >= (unsigned long)_sinittext
 	    && addr <= (unsigned long)_einittext)
+#endif
 		return 1;
+
 	return 0;
 }
 
 static inline int is_kernel_text(unsigned long addr)
 {
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	if (addr >= ktla_ktva((unsigned long)_stext)
+	    && addr <= ktla_ktva((unsigned long)_etext))
+#else
 	if ((addr >= (unsigned long)_stext && addr <= (unsigned long)_etext) ||
 	    arch_is_kernel_text(addr))
+#endif
 		return 1;
+
 	return in_gate_area_no_task(addr);
 }
 
 static inline int is_kernel(unsigned long addr)
 {
-	if (is_kernel_inittext(addr))
-		return 1;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-#ifdef CONFIG_MODULES
-	if ((unsigned long)MODULES_EXEC_VADDR <= ktla_ktva(addr) && ktla_ktva(addr) <= (unsigned long)MODULES_EXEC_END)
-		return 0;
-#endif
-
-	if (is_kernel_text(addr))
+	if (is_kernel_text(addr) || is_kernel_inittext(addr))
 		return 1;
 
-	if (ktla_ktva((unsigned long)_stext) <= addr && addr < ktla_ktva((unsigned long)_etext))
-		return 1;
-
-	if ((addr >= (unsigned long)_sdata && addr <= (unsigned long)_end))
-		return 1;
-	return in_gate_area_no_task(addr);
-#endif
-
+	if (ktla_ktva((unsigned long)_text) <= addr && addr < (unsigned long)_end)
+#else
 	if (addr >= (unsigned long)_stext && addr <= (unsigned long)_end)
+#endif
+
 		return 1;
 	return in_gate_area_no_task(addr);
 }
