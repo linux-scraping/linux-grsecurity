@@ -253,8 +253,14 @@ struct page *vmalloc_to_page(const void *vmalloc_addr)
 
 	if (!pgd_none(*pgd)) {
 		pud_t *pud = pud_offset(pgd, addr);
+#ifdef CONFIG_X86
+		if (!pud_large(*pud))
+#endif
 		if (!pud_none(*pud)) {
 			pmd_t *pmd = pmd_offset(pud, addr);
+#ifdef CONFIG_X86
+			if (!pmd_large(*pmd))
+#endif
 			if (!pmd_none(*pmd)) {
 				pte_t *ptep, pte;
 

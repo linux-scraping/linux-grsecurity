@@ -136,8 +136,8 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 {
 	struct compat_robust_list_head __user *head;
 	unsigned long ret;
-	const struct cred *cred = current_cred();
 #ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
+	const struct cred *cred = current_cred();
 	const struct cred *pcred;
 #endif
 

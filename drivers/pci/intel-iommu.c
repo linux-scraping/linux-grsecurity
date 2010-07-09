@@ -2637,7 +2637,7 @@ error:
 	return 0;
 }
 
-static dma_addr_t intel_map_page(struct device *dev, struct page *page,
+dma_addr_t intel_map_page(struct device *dev, struct page *page,
 				 unsigned long offset, size_t size,
 				 enum dma_data_direction dir,
 				 struct dma_attrs *attrs)
@@ -2713,7 +2713,7 @@ static void add_unmap(struct dmar_domain *dom, struct iova *iova)
 	spin_unlock_irqrestore(&async_umap_flush_lock, flags);
 }
 
-static void intel_unmap_page(struct device *dev, dma_addr_t dev_addr,
+void intel_unmap_page(struct device *dev, dma_addr_t dev_addr,
 			     size_t size, enum dma_data_direction dir,
 			     struct dma_attrs *attrs)
 {
@@ -2762,7 +2762,7 @@ static void intel_unmap_page(struct device *dev, dma_addr_t dev_addr,
 	}
 }
 
-static void *intel_alloc_coherent(struct device *hwdev, size_t size,
+void *intel_alloc_coherent(struct device *hwdev, size_t size,
 				  dma_addr_t *dma_handle, gfp_t flags)
 {
 	void *vaddr;
@@ -2794,7 +2794,7 @@ static void *intel_alloc_coherent(struct device *hwdev, size_t size,
 	return NULL;
 }
 
-static void intel_free_coherent(struct device *hwdev, size_t size, void *vaddr,
+void intel_free_coherent(struct device *hwdev, size_t size, void *vaddr,
 				dma_addr_t dma_handle)
 {
 	int order;
@@ -2806,7 +2806,7 @@ static void intel_free_coherent(struct device *hwdev, size_t size, void *vaddr,
 	free_pages((unsigned long)vaddr, order);
 }
 
-static void intel_unmap_sg(struct device *hwdev, struct scatterlist *sglist,
+void intel_unmap_sg(struct device *hwdev, struct scatterlist *sglist,
 			   int nelems, enum dma_data_direction dir,
 			   struct dma_attrs *attrs)
 {
@@ -2866,7 +2866,7 @@ static int intel_nontranslate_map_sg(struct device *hddev,
 	return nelems;
 }
 
-static int intel_map_sg(struct device *hwdev, struct scatterlist *sglist, int nelems,
+int intel_map_sg(struct device *hwdev, struct scatterlist *sglist, int nelems,
 			enum dma_data_direction dir, struct dma_attrs *attrs)
 {
 	int i;
@@ -2935,7 +2935,7 @@ static int intel_map_sg(struct device *hwdev, struct scatterlist *sglist, int ne
 	return nelems;
 }
 
-static int intel_mapping_error(struct device *dev, dma_addr_t dma_addr)
+int intel_mapping_error(struct device *dev, dma_addr_t dma_addr)
 {
 	return !dma_addr;
 }

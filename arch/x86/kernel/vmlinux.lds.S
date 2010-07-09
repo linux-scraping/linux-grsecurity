@@ -28,15 +28,6 @@
 #include <asm/boot.h>
 #include <asm/segment.h>
 
-#undef PMD_SIZE
-#undef PMD_SHIFT
-#if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
-#define PMD_SHIFT 21
-#else
-#define PMD_SHIFT 22
-#endif
-#define PMD_SIZE (1 << PMD_SHIFT)
-
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 #define __KERNEL_TEXT_OFFSET	(LOAD_OFFSET + ____LOAD_PHYSICAL_ADDR)
 #else
@@ -85,13 +76,13 @@ jiffies = jiffies_64;
 
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
+#ifdef CONFIG_X86_32
+	module PT_LOAD FLAGS(5);        /* R_E */
+#endif
 #ifdef CONFIG_XEN
 	rodata PT_LOAD FLAGS(5);        /* R_E */
 #else
 	rodata PT_LOAD FLAGS(4);        /* R__ */
-#endif
-#ifdef CONFIG_X86_32
-	module PT_LOAD FLAGS(5);        /* R_E */
 #endif
 	data PT_LOAD FLAGS(6);          /* RW_ */
 #ifdef CONFIG_X86_64
@@ -143,25 +134,7 @@ SECTIONS
 
 	. += __KERNEL_TEXT_OFFSET;
 
-	. = ALIGN(PAGE_SIZE);
-	NOTES :rodata :note
-
-	EXCEPTION_TABLE(16) :rodata
-
-	X64_ALIGN_DEBUG_RODATA_BEGIN
-	RO_DATA(PAGE_SIZE)
-	X64_ALIGN_DEBUG_RODATA_END
-
 #ifdef CONFIG_X86_32
-	. = ALIGN(PAGE_SIZE);
-	.rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
-		*(.idt)
-		. = ALIGN(PAGE_SIZE);
-		*(.empty_zero_page)
-		*(.swapper_pg_pmd)
-		*(.swapper_pg_dir)
-	}
-
 	. = ALIGN(PAGE_SIZE);
 	.vmi.rom : AT(ADDR(.vmi.rom) - LOAD_OFFSET) {
 		*(.vmi.rom)
@@ -174,20 +147,43 @@ SECTIONS
 		MODULES_EXEC_VADDR = .;
 		BYTE(0)
 		. += (CONFIG_PAX_KERNEXEC_MODULE_TEXT * 1024 * 1024);
-		. = ALIGN(PMD_SIZE);
+		. = ALIGN(HPAGE_SIZE);
 		MODULES_EXEC_END = . - 1;
 #endif
 
 	} :module
 #endif
 
-	/* Data */
-	.data : AT(ADDR(.data) - LOAD_OFFSET) {
+	.text.end : AT(ADDR(.text.end) - LOAD_OFFSET) {
 		/* End of text section */
 		_etext = . - __KERNEL_TEXT_OFFSET;
+	}
+
+#ifdef CONFIG_X86_32
+	. = ALIGN(PAGE_SIZE);
+	.rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
+		*(.idt)
+		. = ALIGN(PAGE_SIZE);
+		*(.empty_zero_page)
+		*(.swapper_pg_pmd)
+		*(.swapper_pg_dir)
+	} :rodata
+#endif
+
+	. = ALIGN(PAGE_SIZE);
+	NOTES :rodata :note
+
+	EXCEPTION_TABLE(16) :rodata
+
+	X64_ALIGN_DEBUG_RODATA_BEGIN
+	RO_DATA(PAGE_SIZE)
+	X64_ALIGN_DEBUG_RODATA_END
+
+	/* Data */
+	.data : AT(ADDR(.data) - LOAD_OFFSET) {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	. = ALIGN(PMD_SIZE);
+	. = ALIGN(HPAGE_SIZE);
 #else
 	. = ALIGN(PAGE_SIZE);
 #endif
@@ -280,7 +276,7 @@ SECTIONS
 		BYTE(0)
 
 #ifdef CONFIG_PAX_KERNEXEC
-		. = ALIGN(PMD_SIZE);
+		. = ALIGN(HPAGE_SIZE);
 #else
 		. = ALIGN(PAGE_SIZE);
 #endif
@@ -310,7 +306,7 @@ SECTIONS
 	 * .exit.text is discard at runtime, not link time, to deal with
 	 *  references from .altinstructions and .eh_frame
 	 */
-	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) {
+	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 		EXIT_TEXT
 		. = ALIGN(16);
 	} :text.exit
@@ -385,7 +381,7 @@ SECTIONS
 		__brk_base = .;
 		. += 64 * 1024;		/* 64k alignment slop space */
 		*(.brk_reservation)	/* areas brk users have reserved */
-		. = ALIGN(PMD_SIZE);
+		. = ALIGN(HPAGE_SIZE);
 		__brk_limit = .;
 	}
 
