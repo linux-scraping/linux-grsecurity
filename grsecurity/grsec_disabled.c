@@ -88,6 +88,12 @@ gr_check_protected_task(const struct task_struct *task)
 	return 0;
 }
 
+int
+gr_check_protected_task_fowner(struct pid *pid, enum pid_type type)
+{
+	return 0;
+}
+
 void
 gr_copy_label(struct task_struct *tsk)
 {

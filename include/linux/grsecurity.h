@@ -33,6 +33,7 @@ int gr_check_group_change(int real, int effective, int fs);
 void gr_del_task_from_ip_table(struct task_struct *p);
 
 int gr_pid_is_chrooted(struct task_struct *p);
+int gr_handle_chroot_fowner(struct pid *pid, enum pid_type type);
 int gr_handle_chroot_nice(void);
 int gr_handle_chroot_sysctl(const int op);
 int gr_handle_chroot_setpriority(struct task_struct *p,
@@ -98,6 +99,7 @@ void gr_handle_crash(struct task_struct *task, const int sig);
 int gr_handle_signal(const struct task_struct *p, const int sig);
 int gr_check_crash_uid(const uid_t uid);
 int gr_check_protected_task(const struct task_struct *task);
+int gr_check_protected_task_fowner(struct pid *pid, enum pid_type type);
 int gr_acl_handle_mmap(const struct file *file,
 			      const unsigned long prot);
 int gr_acl_handle_mprotect(const struct file *file,
