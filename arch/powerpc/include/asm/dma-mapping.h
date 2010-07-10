@@ -67,7 +67,7 @@ static inline unsigned long device_to_mask(struct device *dev)
  * Available generic sets of operations
  */
 #ifdef CONFIG_PPC64
-extern const struct dma_map_ops dma_iommu_ops;
+extern struct dma_map_ops dma_iommu_ops;
 #endif
 extern const struct dma_map_ops dma_direct_ops;
 

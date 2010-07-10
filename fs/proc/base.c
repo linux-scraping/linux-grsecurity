@@ -2591,9 +2591,6 @@ static struct dentry *proc_base_lookup(struct inode *dir, struct dentry *dentry)
 	if (p > last)
 		goto out;
 
-	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
-		goto out;
-
 	error = proc_base_instantiate(dir, dentry, task, p);
 
 out:
@@ -2915,7 +2912,7 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 	if (!task)
 		goto out;
 
-	if (gr_check_hidden_task(task))
+	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
 		goto out_put_task;
 
 	result = proc_pid_instantiate(dir, dentry, task, NULL);
