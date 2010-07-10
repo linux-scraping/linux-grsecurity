@@ -2117,6 +2117,29 @@ gr_check_protected_task(const struct task_struct *task)
 	return 0;
 }
 
+int
+gr_check_protected_task_fowner(struct pid *pid, enum pid_type type)
+{
+	struct task_struct *p;
+	int ret = 0;
+
+	if (unlikely(!(gr_status & GR_READY) || !pid))
+		return ret;
+
+	read_lock(&tasklist_lock);
+	do_each_pid_task(pid, type, p) {
+		if ((p->acl->mode & GR_PROTECTED) && !(current->acl->mode & GR_KILL) &&
+		    p->acl != current->acl) {
+			ret = 1;
+			goto out;
+		}
+	} while_each_pid_task(pid, type, p);
+out:
+	read_unlock(&tasklist_lock);
+
+	return ret;
+}
+
 void
 gr_copy_label(struct task_struct *tsk)
 {

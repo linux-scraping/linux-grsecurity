@@ -101,6 +101,29 @@ gr_handle_chroot_rawio(const struct inode *inode)
 }
 
 int
+gr_handle_chroot_fowner(struct pid *pid, enum pid_type type)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
+	struct task_struct *p;
+	int ret = 0;
+	if (!grsec_enable_chroot_findtask || !proc_is_chrooted(current) || !pid)
+		return ret;
+
+	read_lock(&tasklist_lock);
+	do_each_pid_task(pid, type, p) {
+		if (!have_same_root(current, p)) {
+			ret = 1;
+			goto out;
+		}
+	} while_each_pid_task(pid, type, p);
+out:
+	read_unlock(&tasklist_lock);
+	return ret;
+#endif
+	return 0;
+}
+
+int
 gr_pid_is_chrooted(struct task_struct *p)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK

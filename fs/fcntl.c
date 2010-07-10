@@ -223,6 +223,11 @@ int __f_setown(struct file *filp, struct pid *pid, enum pid_type type,
 	if (err)
 		return err;
 
+	if (gr_handle_chroot_fowner(pid, type))
+		return -ENOENT;
+	if (gr_check_protected_task_fowner(pid, type))
+		return -EACCES;
+
 	f_modown(filp, pid, type, force);
 	return 0;
 }
@@ -501,8 +506,7 @@ static inline int sigio_perm(struct task_struct *p,
 	ret = ((fown->euid == 0 ||
 		fown->euid == cred->suid || fown->euid == cred->uid ||
 		fown->uid  == cred->suid || fown->uid  == cred->uid) &&
-	       !security_file_send_sigiotask(p, fown, sig) &&
-	       !gr_check_protected_task(p) && !gr_pid_is_chrooted(p));
+	       !security_file_send_sigiotask(p, fown, sig));
 	rcu_read_unlock();
 	return ret;
 }
