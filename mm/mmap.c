@@ -1069,18 +1069,14 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
 
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-
 #ifdef CONFIG_PAX_MPROTECT
-		if (mm->pax_flags & MF_PAX_MPROTECT) {
-			if ((prot & (PROT_WRITE | PROT_EXEC)) != PROT_EXEC)
-				vm_flags &= ~(VM_EXEC | VM_MAYEXEC);
-			else
-				vm_flags &= ~(VM_WRITE | VM_MAYWRITE);
-		}
-#endif
-
+	if (mm->pax_flags & MF_PAX_MPROTECT) {
+		if ((prot & (PROT_WRITE | PROT_EXEC)) == (PROT_WRITE | PROT_EXEC))
+			return -EPERM;
+		if (!(prot & PROT_EXEC))
+			vm_flags &= ~VM_MAYEXEC;
+		else
+			vm_flags &= ~VM_MAYWRITE;
 	}
 #endif
 
@@ -2872,10 +2868,12 @@ int install_special_mapping(struct mm_struct *mm,
 
 #ifdef CONFIG_PAX_MPROTECT
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
-		if ((vm_flags & (VM_WRITE | VM_EXEC)) != VM_EXEC)
-			vm_flags &= ~(VM_EXEC | VM_MAYEXEC);
+		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC))
+			return -EPERM;
+		if (!(vm_flags & VM_EXEC))
+			vm_flags &= ~VM_MAYEXEC;
 		else
-			vm_flags &= ~(VM_WRITE | VM_MAYWRITE);
+			vm_flags &= ~VM_MAYWRITE;
 	}
 #endif
 

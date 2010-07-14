@@ -152,11 +152,6 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 		/* page_table_lock to protect against threads */
 		spin_lock(&mm->page_table_lock);
 		if (likely(!vma->anon_vma)) {
-			vma->anon_vma = anon_vma;
-			avc->anon_vma = anon_vma;
-			avc->vma = vma;
-			list_add(&avc->same_vma, &vma->anon_vma_chain);
-			list_add(&avc->same_anon_vma, &anon_vma->head);
 
 #ifdef CONFIG_PAX_SEGMEXEC
 			vma_m = pax_find_mirror_vma(vma);
@@ -171,6 +166,11 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 			}
 #endif
 
+			vma->anon_vma = anon_vma;
+			avc->anon_vma = anon_vma;
+			avc->vma = vma;
+			list_add(&avc->same_vma, &vma->anon_vma_chain);
+			list_add(&avc->same_anon_vma, &anon_vma->head);
 			allocated = NULL;
 			avc = NULL;
 		}

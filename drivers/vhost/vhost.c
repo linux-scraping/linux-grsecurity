@@ -358,7 +358,7 @@ static int init_used(struct vhost_virtqueue *vq,
 	return get_user(vq->last_used_idx, &used->idx);
 }
 
-static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+static long vhost_set_vring(struct vhost_dev *d, unsigned int ioctl, void __user *argp)
 {
 	struct file *eventfp, *filep = NULL,
 		    *pollstart = NULL, *pollstop = NULL;

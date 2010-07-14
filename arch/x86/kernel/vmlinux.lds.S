@@ -28,15 +28,6 @@
 #include <asm/boot.h>
 #include <asm/segment.h>
 
-#undef PMD_SIZE
-#undef PMD_SHIFT
-#if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
-#define PMD_SHIFT 21
-#else
-#define PMD_SHIFT 22
-#endif
-#define PMD_SIZE (1 << PMD_SHIFT)
-
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 #define __KERNEL_TEXT_OFFSET	(LOAD_OFFSET + ____LOAD_PHYSICAL_ADDR)
 #else
