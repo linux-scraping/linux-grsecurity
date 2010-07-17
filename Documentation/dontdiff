@@ -39,6 +39,7 @@
 *.tab.h
 *.tex
 *.ver
+*.vim
 *.xml
 *_MODULES
 *_reg_safe.h
@@ -171,6 +172,7 @@ qconf
 raid6altivec*.c
 raid6int*.c
 raid6tables.c
+regdb.c
 relocs
 series
 setup

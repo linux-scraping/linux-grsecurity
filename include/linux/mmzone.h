@@ -343,7 +343,7 @@ struct zone {
 	unsigned long		flags;		   /* zone flags, see below */
 
 	/* Zone statistics */
-	atomic_long_t		vm_stat[NR_VM_ZONE_STAT_ITEMS];
+	atomic_long_unchecked_t		vm_stat[NR_VM_ZONE_STAT_ITEMS];
 
 	/*
 	 * prev_priority holds the scanning priority for this zone.  It is
