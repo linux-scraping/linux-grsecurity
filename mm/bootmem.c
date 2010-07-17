@@ -200,19 +200,30 @@ static void __init __free_pages_memory(unsigned long start, unsigned long end)
 unsigned long __init free_all_memory_core_early(int nodeid)
 {
 	int i;
-	u64 start, end;
+	u64 start, end, startrange, endrange;
 	unsigned long count = 0;
-	struct range *range = NULL;
+	struct range *range = NULL, rangerange = { 0, 0 };
 	int nr_range;
 
 	nr_range = get_free_all_memory_range(&range, nodeid);
+	startrange = __pa(range) >> PAGE_SHIFT;
+	endrange = (__pa(range + nr_range) - 1) >> PAGE_SHIFT;
 
 	for (i = 0; i < nr_range; i++) {
 		start = range[i].start;
 		end = range[i].end;
+		if (start <= endrange && startrange < end) {
+			BUG_ON(rangerange.start | rangerange.end);
+			rangerange = range[i];
+			continue;
+		}
 		count += end - start;
 		__free_pages_memory(start, end);
 	}
+	start = rangerange.start;
+	end = rangerange.end;
+	count += end - start;
+	__free_pages_memory(start, end);
 
 	return count;
 }

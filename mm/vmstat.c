@@ -75,7 +75,7 @@ void vm_events_fold_cpu(int cpu)
  *
  * vm_stat contains the global counters
  */
-atomic_long_t vm_stat[NR_VM_ZONE_STAT_ITEMS];
+atomic_long_unchecked_t vm_stat[NR_VM_ZONE_STAT_ITEMS];
 EXPORT_SYMBOL(vm_stat);
 
 #ifdef CONFIG_SMP
@@ -314,7 +314,7 @@ void refresh_cpu_vm_stats(int cpu)
 				v = p->vm_stat_diff[i];
 				p->vm_stat_diff[i] = 0;
 				local_irq_restore(flags);
-				atomic_long_add(v, &zone->vm_stat[i]);
+				atomic_long_add_unchecked(v, &zone->vm_stat[i]);
 				global_diff[i] += v;
 #ifdef CONFIG_NUMA
 				/* 3 seconds idle till flush */
@@ -352,7 +352,7 @@ void refresh_cpu_vm_stats(int cpu)
 
 	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
 		if (global_diff[i])
-			atomic_long_add(global_diff[i], &vm_stat[i]);
+			atomic_long_add_unchecked(global_diff[i], &vm_stat[i]);
 }
 
 #endif
@@ -946,10 +946,16 @@ static int __init setup_vmstat(void)
 		start_cpu_timer(cpu);
 #endif
 #ifdef CONFIG_PROC_FS
-	proc_create("buddyinfo", S_IRUGO, NULL, &fragmentation_file_operations);
-	proc_create("pagetypeinfo", S_IRUGO, NULL, &pagetypeinfo_file_ops);
-	proc_create("vmstat", S_IRUGO, NULL, &proc_vmstat_file_operations);
-	proc_create("zoneinfo", S_IRUGO, NULL, &proc_zoneinfo_file_operations);
+	{
+		mode_t gr_mode = S_IRUGO;
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+		gr_mode = S_IRUSR;
+#endif
+		proc_create("buddyinfo", gr_mode, NULL, &fragmentation_file_operations);
+		proc_create("pagetypeinfo", gr_mode, NULL, &pagetypeinfo_file_ops);
+		proc_create("vmstat", gr_mode, NULL, &proc_vmstat_file_operations);
+		proc_create("zoneinfo", gr_mode, NULL, &proc_zoneinfo_file_operations);
+	}
 #endif
 	return 0;
 }

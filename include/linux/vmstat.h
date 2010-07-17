@@ -136,18 +136,18 @@ static inline void vm_events_fold_cpu(int cpu)
 /*
  * Zone based page accounting with per cpu differentials.
  */
-extern atomic_long_t vm_stat[NR_VM_ZONE_STAT_ITEMS];
+extern atomic_long_unchecked_t vm_stat[NR_VM_ZONE_STAT_ITEMS];
 
 static inline void zone_page_state_add(long x, struct zone *zone,
 				 enum zone_stat_item item)
 {
-	atomic_long_add(x, &zone->vm_stat[item]);
-	atomic_long_add(x, &vm_stat[item]);
+	atomic_long_add_unchecked(x, &zone->vm_stat[item]);
+	atomic_long_add_unchecked(x, &vm_stat[item]);
 }
 
 static inline unsigned long global_page_state(enum zone_stat_item item)
 {
-	long x = atomic_long_read(&vm_stat[item]);
+	long x = atomic_long_read_unchecked(&vm_stat[item]);
 #ifdef CONFIG_SMP
 	if (x < 0)
 		x = 0;
@@ -158,7 +158,7 @@ static inline unsigned long global_page_state(enum zone_stat_item item)
 static inline unsigned long zone_page_state(struct zone *zone,
 					enum zone_stat_item item)
 {
-	long x = atomic_long_read(&zone->vm_stat[item]);
+	long x = atomic_long_read_unchecked(&zone->vm_stat[item]);
 #ifdef CONFIG_SMP
 	if (x < 0)
 		x = 0;
@@ -242,8 +242,8 @@ static inline void __mod_zone_page_state(struct zone *zone,
 
 static inline void __inc_zone_state(struct zone *zone, enum zone_stat_item item)
 {
-	atomic_long_inc(&zone->vm_stat[item]);
-	atomic_long_inc(&vm_stat[item]);
+	atomic_long_inc_unchecked(&zone->vm_stat[item]);
+	atomic_long_inc_unchecked(&vm_stat[item]);
 }
 
 static inline void __inc_zone_page_state(struct page *page,
@@ -254,8 +254,8 @@ static inline void __inc_zone_page_state(struct page *page,
 
 static inline void __dec_zone_state(struct zone *zone, enum zone_stat_item item)
 {
-	atomic_long_dec(&zone->vm_stat[item]);
-	atomic_long_dec(&vm_stat[item]);
+	atomic_long_dec_unchecked(&zone->vm_stat[item]);
+	atomic_long_dec_unchecked(&vm_stat[item]);
 }
 
 static inline void __dec_zone_page_state(struct page *page,

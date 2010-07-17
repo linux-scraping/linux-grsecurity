@@ -582,8 +582,7 @@ config PARAVIRT_DEBUG
 	  a paravirt_op is missing when it is called.
 
 config NO_BOOTMEM
-	default n
-	depends on BROKEN
+	default y
 	bool "Disable Bootmem code"
 	---help---
 	  Use early_res directly instead of bootmem before slab is ready.
