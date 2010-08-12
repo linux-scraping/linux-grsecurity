@@ -76,7 +76,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_ASLR
 	select PAX_RANDMMAP
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || SPARC32 || SPARC64 || PPC32 || PPC64) && (SLAB || SLUB || SLOB))
+	select PAX_USERCOPY if ((X86 || SPARC32 || SPARC64 || PPC) && (SLAB || SLUB || SLOB))
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -148,19 +148,18 @@ config GRKERNSEC_HIGH
 	select PAX_EI_PAX
 	select PAX_PT_PAX_FLAGS
 	select PAX_HAVE_ACL_FLAGS
-	select PAX_KERNEXEC if ((PPC32 || PPC64 || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN)
+	select PAX_KERNEXEC if ((PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN)
 	select PAX_MEMORY_UDEREF if (X86_32 && !XEN)
 	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
 	select PAX_SEGMEXEC if (X86_32)
 	select PAX_PAGEEXEC
-	select HIGHMEM64G if (X86_32 && !M386 && !M486 && !M586 && !M586TSC && !M586MMX && !MPENTIUMM && !MK6 && !MCRUSOE && !MEFFICEON && !MWINCHIPC6 && !MWINCHIP3D && !MGEODEGX1 && !MGEODE_LX && !MCYRIXIII && !MVIAC3_2)
 	select PAX_EMUPLT if (ALPHA || PARISC || SPARC32 || SPARC64)
 	select PAX_EMUTRAMP if (PARISC)
 	select PAX_EMUSIGRT if (PARISC)
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
-	select PAX_ELFRELOCS if (PAX_ETEXECRELOCS || !(IA64 || PPC || X86))
+	select PAX_ELFRELOCS if (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || PPC32 || PPC64 || SPARC32 || SPARC64) && (SLAB || SLUB || SLOB))
+	select PAX_USERCOPY if ((X86 || PPC || SPARC32 || SPARC64) && (SLAB || SLUB || SLOB))
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks
