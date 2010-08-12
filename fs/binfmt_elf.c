@@ -2356,13 +2356,13 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 	oldflags = vma->vm_flags & (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_EXEC | VM_WRITE | VM_READ);
 	newflags &= VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_EXEC | VM_WRITE | VM_READ;
 
-#ifdef CONFIG_PAX_NOELFRELOCS
-	is_textrel_rw = false;
-	is_textrel_rx = false;
-#else
+#ifdef CONFIG_PAX_ELFRELOCS
 	/* possible TEXTREL */
 	is_textrel_rw = vma->vm_file && !vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYREAD | VM_EXEC | VM_READ) && newflags == (VM_WRITE | VM_READ);
 	is_textrel_rx = vma->vm_file && vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_WRITE | VM_READ) && newflags == (VM_EXEC | VM_READ);
+#else
+	is_textrel_rw = false;
+	is_textrel_rx = false;
 #endif
 
 	/* possible RELRO */

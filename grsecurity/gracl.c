@@ -3671,7 +3671,7 @@ static int is_writable_mmap(const struct file *filp)
 	struct acl_object_label *obj, *obj2;
 
 	if (gr_status & GR_READY && !(task->acl->mode & GR_OVERRIDE) &&
-	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode)) {
+	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode) && filp->f_path.mnt != shm_mnt) {
 		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
 		obj2 = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt,
 				     task->role->root_label);
