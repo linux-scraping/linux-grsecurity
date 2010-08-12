@@ -17,6 +17,10 @@ menu "PaX"
 	default 47 if !PAX_PER_CPU_PGD
 	default 42 if PAX_PER_CPU_PGD
 
+	config PAX_ENABLE_PAE
+	bool
+	default y if (X86_32 && (M686 || MPENTIUMII || MPENTIUMIII || MPENTIUM4 || MK7 || MK8 || MVIAC7 || MPSC || MCORE2 || MATOM))
+	
 config PAX
 	bool "Enable various PaX features"
 	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC || SPARC || X86)
@@ -137,7 +141,6 @@ config PAX_NOEXEC
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
 	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MATOM || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
-	select HIGHMEM64G if (X86_32 && !M386 && !M486 && !M586 && !M586TSC && !M586MMX && !MPENTIUMM && !MK6 && !MCRUSOE && !MEFFICEON && !MWINCHIPC6 && !MWINCHIP3D && !MGEODEGX1 && !MGEODE_LX && !MCYRIXIII && !MVIAC3_2)
 	select S390_SWITCH_AMODE if S390
 	select S390_EXEC_PROTECT if S390
 	help
@@ -240,7 +243,7 @@ config PAX_MPROTECT
 
 config PAX_ELFRELOCS
 	bool "Allow ELF text relocations (read help)"
-	depends on PAX_MPROTECT && (PAX_ETEXECRELOCS || !(IA64 || PPC || X86))
+	depends on PAX_MPROTECT && (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
 	default n
 	help
 	  Non-executable pages and mprotect() restrictions are effective
