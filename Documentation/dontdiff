@@ -167,6 +167,7 @@ parse.h
 patches*
 pca200e.bin
 pca200e_ecd.bin2
+perf-archive
 piggy.gz
 piggy.S
 piggyback

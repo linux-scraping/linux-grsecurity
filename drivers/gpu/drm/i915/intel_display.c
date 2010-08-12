@@ -880,8 +880,8 @@ intel_g4x_find_best_PLL(const intel_limit_t *limit, struct drm_crtc *crtc,
 	intel_clock_t clock;
 	int max_n;
 	bool found;
-	/* approximately equals target * 0.00488 */
-	int err_most = (target >> 8) + (target >> 10);
+	/* approximately equals target * 0.00585 */
+	int err_most = (target >> 8) + (target >> 9);
 	found = false;
 
 	if (intel_pipe_has_type(crtc, INTEL_OUTPUT_LVDS)) {
@@ -2691,11 +2691,13 @@ static void i965_update_wm(struct drm_device *dev, int planea_clock,
 		if (srwm < 0)
 			srwm = 1;
 		srwm &= 0x3f;
-		I915_WRITE(FW_BLC_SELF, FW_BLC_SELF_EN);
+		if (IS_I965GM(dev))
+			I915_WRITE(FW_BLC_SELF, FW_BLC_SELF_EN);
 	} else {
 		/* Turn off self refresh if both pipes are enabled */
-		I915_WRITE(FW_BLC_SELF, I915_READ(FW_BLC_SELF)
-					& ~FW_BLC_SELF_EN);
+		if (IS_I965GM(dev))
+			I915_WRITE(FW_BLC_SELF, I915_READ(FW_BLC_SELF)
+				   & ~FW_BLC_SELF_EN);
 	}
 
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: 8, B: 8, C: 8, SR %d\n",
@@ -3948,7 +3950,8 @@ static void intel_increase_pllclock(struct drm_crtc *crtc, bool schedule)
 		DRM_DEBUG_DRIVER("upclocking LVDS\n");
 
 		/* Unlock panel regs */
-		I915_WRITE(PP_CONTROL, I915_READ(PP_CONTROL) | (0xabcd << 16));
+		I915_WRITE(PP_CONTROL, I915_READ(PP_CONTROL) |
+			   PANEL_UNLOCK_REGS);
 
 		dpll &= ~DISPLAY_RATE_SELECT_FPA1;
 		I915_WRITE(dpll_reg, dpll);
@@ -3991,7 +3994,8 @@ static void intel_decrease_pllclock(struct drm_crtc *crtc)
 		DRM_DEBUG_DRIVER("downclocking LVDS\n");
 
 		/* Unlock panel regs */
-		I915_WRITE(PP_CONTROL, I915_READ(PP_CONTROL) | (0xabcd << 16));
+		I915_WRITE(PP_CONTROL, I915_READ(PP_CONTROL) |
+			   PANEL_UNLOCK_REGS);
 
 		dpll |= DISPLAY_RATE_SELECT_FPA1;
 		I915_WRITE(dpll_reg, dpll);
@@ -4137,10 +4141,10 @@ static void intel_unpin_work_fn(struct work_struct *__work)
 	kfree(work);
 }
 
-void intel_finish_page_flip(struct drm_device *dev, int pipe)
+static void do_intel_finish_page_flip(struct drm_device *dev,
+				      struct drm_crtc *crtc)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
 	struct drm_i915_gem_object *obj_priv;
@@ -4184,6 +4188,22 @@ void intel_finish_page_flip(struct drm_device *dev, int pipe)
 	schedule_work(&work->work);
 }
 
+void intel_finish_page_flip(struct drm_device *dev, int pipe)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+
+	do_intel_finish_page_flip(dev, crtc);
+}
+
+void intel_finish_page_flip_plane(struct drm_device *dev, int plane)
+{
+	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc = dev_priv->plane_to_crtc_mapping[plane];
+
+	do_intel_finish_page_flip(dev, crtc);
+}
+
 void intel_prepare_page_flip(struct drm_device *dev, int plane)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
@@ -4211,16 +4231,15 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	struct drm_gem_object *obj;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_unpin_work *work;
-	unsigned long flags;
+	unsigned long flags, offset;
 	int pipesrc_reg = (intel_crtc->pipe == 0) ? PIPEASRC : PIPEBSRC;
 	int ret, pipesrc;
+	u32 flip_mask;
 	RING_LOCALS;
 
 	work = kzalloc(sizeof *work, GFP_KERNEL);
 	if (work == NULL)
 		return -ENOMEM;
-
-	mutex_lock(&dev->struct_mutex);
 
 	work->event = event;
 	work->dev = crtc->dev;
@@ -4231,10 +4250,10 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	/* We borrow the event spin lock for protecting unpin_work */
 	spin_lock_irqsave(&dev->event_lock, flags);
 	if (intel_crtc->unpin_work) {
-		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		kfree(work);
-		mutex_unlock(&dev->struct_mutex);
+
+		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		return -EBUSY;
 	}
 	intel_crtc->unpin_work = work;
@@ -4243,13 +4262,19 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
+	mutex_lock(&dev->struct_mutex);
 	ret = intel_pin_and_fence_fb_obj(dev, obj);
 	if (ret != 0) {
-		DRM_DEBUG_DRIVER("flip queue: %p pin & fence failed\n",
-			  to_intel_bo(obj));
-		kfree(work);
-		intel_crtc->unpin_work = NULL;
 		mutex_unlock(&dev->struct_mutex);
+
+		spin_lock_irqsave(&dev->event_lock, flags);
+		intel_crtc->unpin_work = NULL;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+
+		kfree(work);
+
+		DRM_DEBUG_DRIVER("flip queue: %p pin & fence failed\n",
+				 to_intel_bo(obj));
 		return ret;
 	}
 
@@ -4264,16 +4289,33 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	atomic_inc(&obj_priv->pending_flip);
 	work->pending_flip_obj = obj;
 
+	if (intel_crtc->plane)
+		flip_mask = I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
+	else
+		flip_mask = I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT;
+
+	/* Wait for any previous flip to finish */
+	if (IS_GEN3(dev))
+		while (I915_READ(ISR) & flip_mask)
+			;
+
+	/* Offset into the new buffer for cases of shared fbs between CRTCs */
+	offset = obj_priv->gtt_offset;
+	offset += (crtc->y * fb->pitch) + (crtc->x * (fb->bits_per_pixel) / 8);
+
 	BEGIN_LP_RING(4);
-	OUT_RING(MI_DISPLAY_FLIP |
-		 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
-	OUT_RING(fb->pitch);
 	if (IS_I965G(dev)) {
-		OUT_RING(obj_priv->gtt_offset | obj_priv->tiling_mode);
+		OUT_RING(MI_DISPLAY_FLIP |
+			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
+		OUT_RING(fb->pitch);
+		OUT_RING(offset | obj_priv->tiling_mode);
 		pipesrc = I915_READ(pipesrc_reg); 
 		OUT_RING(pipesrc & 0x0fff0fff);
 	} else {
-		OUT_RING(obj_priv->gtt_offset);
+		OUT_RING(MI_DISPLAY_FLIP_I915 |
+			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
+		OUT_RING(fb->pitch);
+		OUT_RING(offset);
 		OUT_RING(MI_NOOP);
 	}
 	ADVANCE_LP_RING();

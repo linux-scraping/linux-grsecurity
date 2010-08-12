@@ -48,6 +48,10 @@
  * unreleased.  Really, we need to have autoconf for the kernel.
  */
 #define unreachable() __builtin_unreachable()
+
+/* Mark a function definition as prohibited from being cloned. */
+#define __noclone	__attribute__((__noclone__))
+
 #endif
 
 #define __alloc_size(...)	__attribute((alloc_size(__VA_ARGS__)))

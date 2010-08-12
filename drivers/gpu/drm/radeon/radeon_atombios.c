@@ -280,6 +280,15 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 		}
 	}
 
+	/* ASUS HD 3600 board lists the DVI port as HDMI */
+	if ((dev->pdev->device == 0x9598) &&
+	    (dev->pdev->subsystem_vendor == 0x1043) &&
+	    (dev->pdev->subsystem_device == 0x01e4)) {
+		if (*connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+			*connector_type = DRM_MODE_CONNECTOR_DVII;
+		}
+	}
+
 	/* ASUS HD 3450 board lists the DVI port as HDMI */
 	if ((dev->pdev->device == 0x95C5) &&
 	    (dev->pdev->subsystem_vendor == 0x1043) &&
@@ -1014,13 +1023,17 @@ bool radeon_atombios_sideport_present(struct radeon_device *rdev)
 	u8 frev, crev;
 	u16 data_offset;
 
+	/* sideport is AMD only */
+	if (rdev->family == CHIP_RS600)
+		return false;
+
 	if (atom_parse_data_header(mode_info->atom_context, index, NULL,
 				   &frev, &crev, &data_offset)) {
 		igp_info = (union igp_info *)(mode_info->atom_context->bios +
 				      data_offset);
 		switch (crev) {
 		case 1:
-			if (igp_info->info.ucMemoryType & 0xf0)
+			if (igp_info->info.ulBootUpMemoryClock)
 				return true;
 			break;
 		case 2:

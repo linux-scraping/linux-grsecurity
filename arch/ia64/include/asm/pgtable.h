@@ -12,7 +12,7 @@
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  */
 
-
+#include <linux/const.h>
 #include <asm/mman.h>
 #include <asm/page.h>
 #include <asm/processor.h>

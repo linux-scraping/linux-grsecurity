@@ -178,7 +178,7 @@ static int amd64_set_scrub_rate(struct mem_ctl_info *mci, u32 *bandwidth)
 
 	default:
 		amd64_printk(KERN_ERR, "Unsupported family!\n");
-		break;
+		return -EINVAL;
 	}
 	return amd64_search_set_scrub_rate(pvt->misc_f3_ctl, *bandwidth,
 			min_scrubrate);
@@ -1430,7 +1430,7 @@ static inline u64 f10_get_base_addr_offset(u64 sys_addr, int hi_range_sel,
 	u64 chan_off;
 
 	if (hi_range_sel) {
-		if (!(dct_sel_base_addr & 0xFFFFF800) &&
+		if (!(dct_sel_base_addr & 0xFFFF0000) &&
 		   hole_valid && (sys_addr >= 0x100000000ULL))
 			chan_off = hole_off << 16;
 		else
@@ -1679,7 +1679,7 @@ static void f10_map_sysaddr_to_csrow(struct mem_ctl_info *mci,
 	 * ganged. Otherwise @chan should already contain the channel at
 	 * this point.
 	 */
-	if (dct_ganging_enabled(pvt) && pvt->nbcfg & K8_NBCFG_CHIPKILL)
+	if (dct_ganging_enabled(pvt) && (pvt->nbcfg & K8_NBCFG_CHIPKILL))
 		chan = get_channel_from_ecc_syndrome(mci, syndrome);
 
 	if (chan >= 0)
@@ -1958,20 +1958,20 @@ static int get_channel_from_ecc_syndrome(struct mem_ctl_info *mci, u16 syndrome)
 	u32 value = 0;
 	int err_sym = 0;
 
-	amd64_read_pci_cfg(pvt->misc_f3_ctl, 0x180, &value);
+	if (boot_cpu_data.x86 == 0x10) {
 
-	/* F3x180[EccSymbolSize]=1, x8 symbols */
-	if (boot_cpu_data.x86 == 0x10 &&
-	    boot_cpu_data.x86_model > 7 &&
-	    value & BIT(25)) {
-		err_sym = decode_syndrome(syndrome, x8_vectors,
-					  ARRAY_SIZE(x8_vectors), 8);
-		return map_err_sym_to_channel(err_sym, 8);
-	} else {
-		err_sym = decode_syndrome(syndrome, x4_vectors,
-					  ARRAY_SIZE(x4_vectors), 4);
-		return map_err_sym_to_channel(err_sym, 4);
+		amd64_read_pci_cfg(pvt->misc_f3_ctl, 0x180, &value);
+
+		/* F3x180[EccSymbolSize]=1 => x8 symbols */
+		if (boot_cpu_data.x86_model > 7 &&
+		    value & BIT(25)) {
+			err_sym = decode_syndrome(syndrome, x8_vectors,
+						  ARRAY_SIZE(x8_vectors), 8);
+			return map_err_sym_to_channel(err_sym, 8);
+		}
 	}
+	err_sym = decode_syndrome(syndrome, x4_vectors, ARRAY_SIZE(x4_vectors), 4);
+	return map_err_sym_to_channel(err_sym, 4);
 }
 
 /*

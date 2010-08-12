@@ -2792,6 +2792,7 @@ static struct iwl_lib_ops iwl3945_lib = {
 	.isr = iwl_isr_legacy,
 	.config_ap = iwl3945_config_ap,
 	.add_bcast_station = iwl3945_add_bcast_station,
+	.recover_from_tx_stall = iwl_bg_monitor_recover,
 };
 
 static struct iwl_hcmd_utils_ops iwl3945_hcmd_utils = {
@@ -2827,6 +2828,7 @@ static struct iwl_cfg iwl3945_bg_cfg = {
 	.led_compensation = 64,
 	.broken_powersave = true,
 	.plcp_delta_threshold = IWL_MAX_PLCP_ERR_THRESHOLD_DEF,
+	.monitor_recover_period = IWL_MONITORING_PERIOD,
 };
 
 static struct iwl_cfg iwl3945_abg_cfg = {
@@ -2845,6 +2847,7 @@ static struct iwl_cfg iwl3945_abg_cfg = {
 	.led_compensation = 64,
 	.broken_powersave = true,
 	.plcp_delta_threshold = IWL_MAX_PLCP_ERR_THRESHOLD_DEF,
+	.monitor_recover_period = IWL_MONITORING_PERIOD,
 };
 
 DEFINE_PCI_DEVICE_TABLE(iwl3945_hw_card_ids) = {

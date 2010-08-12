@@ -310,6 +310,8 @@ static int iwl_queue_init(struct iwl_priv *priv, struct iwl_queue *q,
 		q->high_mark = 2;
 
 	q->write_ptr = q->read_ptr = 0;
+	q->last_read_ptr = 0;
+	q->repeat_same_read_ptr = 0;
 
 	return 0;
 }
@@ -1635,6 +1637,11 @@ void iwl_rx_reply_compressed_ba(struct iwl_priv *priv,
 	sta_id = ba_resp->sta_id;
 	tid = ba_resp->tid;
 	agg = &priv->stations[sta_id].tid[tid].agg;
+	if (unlikely(agg->txq_id != scd_flow)) {
+		IWL_ERR(priv, "BA scd_flow %d does not match txq_id %d\n",
+			scd_flow, agg->txq_id);
+		return;
+	}
 
 	/* Find index just before block-ack window */
 	index = iwl_queue_dec_wrap(ba_resp_scd_ssn & 0xff, txq->q.n_bd);

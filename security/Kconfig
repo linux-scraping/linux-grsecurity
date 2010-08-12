@@ -136,7 +136,8 @@ config PAX_NOEXEC
 
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
-	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
+	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MATOM || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
+	select HIGHMEM64G if (X86_32 && !M386 && !M486 && !M586 && !M586TSC && !M586MMX && !MPENTIUMM && !MK6 && !MCRUSOE && !MEFFICEON && !MWINCHIPC6 && !MWINCHIP3D && !MGEODEGX1 && !MGEODE_LX && !MCYRIXIII && !MVIAC3_2)
 	select S390_SWITCH_AMODE if S390
 	select S390_EXEC_PROTECT if S390
 	help
@@ -237,9 +238,10 @@ config PAX_MPROTECT
 	  NOTE: you can use the 'chpax' or 'paxctl' utilities to control
 	  this feature on a per file basis.
 
-config PAX_NOELFRELOCS
-	bool "Disallow ELF text relocations"
-	depends on PAX_MPROTECT && !PAX_ETEXECRELOCS && (IA64 || PPC || X86)
+config PAX_ELFRELOCS
+	bool "Allow ELF text relocations (read help)"
+	depends on PAX_MPROTECT && (PAX_ETEXECRELOCS || !(IA64 || PPC || X86))
+	default n
 	help
 	  Non-executable pages and mprotect() restrictions are effective
 	  in preventing the introduction of new executable code into an
@@ -253,14 +255,8 @@ config PAX_NOELFRELOCS
 	  the former approach is beyond PaX, the latter can be prevented
 	  by having only PIC ELF libraries on one's system (which do not
 	  need to relocate their code).  If you are sure this is your case,
-	  then enable this option otherwise be careful as you may not even
-	  be able to boot or log on your system (for example, some PAM
-	  modules are erroneously compiled as non-PIC by default).
-
-	  NOTE: if you are using dynamic ELF executables (as suggested
-	  when using ASLR) then you must have made sure that you linked
-	  your files using the PIC version of crt1 (the et_dyn.tar.gz package
-	  referenced there has already been updated to support this).
+	  as is the case with all modern Linux distributions, then leave
+	  this option disabled.  You should say 'n' here.
 
 config PAX_ETEXECRELOCS
 	bool "Allow ELF ET_EXEC text relocations"

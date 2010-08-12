@@ -1596,6 +1596,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	return 0;
 
 reset:
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+	if (!grsec_enable_blackhole)
+#endif
 	tcp_v4_send_reset(rsk, skb);
 discard:
 	kfree_skb(skb);

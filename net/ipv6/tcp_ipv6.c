@@ -1638,6 +1638,9 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
 	return 0;
 
 reset:
+#ifdef CONFIG_GRKERNSEC_BLACKHOLE
+	if (!grsec_enable_blackhole)
+#endif
 	tcp_v6_send_reset(sk, skb);
 discard:
 	if (opt_skb)

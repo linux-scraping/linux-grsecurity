@@ -1784,7 +1784,6 @@ int usb_new_device(struct usb_device *udev)
 		 * sysfs power/wakeup controls wakeup enabled/disabled
 		 */
 		device_init_wakeup(&udev->dev, 0);
-		device_set_wakeup_enable(&udev->dev, 1);
 	}
 
 	/* Tell the runtime-PM framework the device is active */
@@ -1972,6 +1971,8 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 		    (portstatus & USB_PORT_STAT_ENABLE)) {
 			if (hub_is_wusb(hub))
 				udev->speed = USB_SPEED_WIRELESS;
+			else if (portstatus & (1 << USB_PORT_FEAT_SUPERSPEED))
+				udev->speed = USB_SPEED_SUPER;
 			else if (portstatus & USB_PORT_STAT_HIGH_SPEED)
 				udev->speed = USB_SPEED_HIGH;
 			else if (portstatus & USB_PORT_STAT_LOW_SPEED)
