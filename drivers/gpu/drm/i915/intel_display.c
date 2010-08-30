@@ -1470,6 +1470,7 @@ static void ironlake_enable_pll_edp (struct drm_crtc *crtc)
 	dpa_ctl = I915_READ(DP_A);
 	dpa_ctl |= DP_PLL_ENABLE;
 	I915_WRITE(DP_A, dpa_ctl);
+	POSTING_READ(DP_A);
 	udelay(200);
 }
 
@@ -4290,14 +4291,16 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	work->pending_flip_obj = obj;
 
 	if (intel_crtc->plane)
-		flip_mask = I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
+		flip_mask = MI_WAIT_FOR_PLANE_B_FLIP;
 	else
-		flip_mask = I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT;
+		flip_mask = MI_WAIT_FOR_PLANE_A_FLIP;
 
-	/* Wait for any previous flip to finish */
-	if (IS_GEN3(dev))
-		while (I915_READ(ISR) & flip_mask)
-			;
+	if (IS_GEN3(dev) || IS_GEN2(dev)) {
+		BEGIN_LP_RING(2);
+		OUT_RING(MI_WAIT_FOR_EVENT | flip_mask);
+		OUT_RING(0);
+		ADVANCE_LP_RING();
+	}
 
 	/* Offset into the new buffer for cases of shared fbs between CRTCs */
 	offset = obj_priv->gtt_offset;
@@ -4311,8 +4314,14 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		OUT_RING(offset | obj_priv->tiling_mode);
 		pipesrc = I915_READ(pipesrc_reg); 
 		OUT_RING(pipesrc & 0x0fff0fff);
-	} else {
+	} else if (IS_GEN3(dev)) {
 		OUT_RING(MI_DISPLAY_FLIP_I915 |
+			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
+		OUT_RING(fb->pitch);
+		OUT_RING(offset);
+		OUT_RING(MI_NOOP);
+	} else {
+		OUT_RING(MI_DISPLAY_FLIP |
 			 MI_DISPLAY_FLIP_PLANE(intel_crtc->plane));
 		OUT_RING(fb->pitch);
 		OUT_RING(offset);
