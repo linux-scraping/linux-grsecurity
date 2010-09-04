@@ -522,9 +522,9 @@ static void *__kprobes text_poke_early(void *addr, const void *opcode,
 
 	pax_open_kernel();
 	memcpy(ktla_ktva(addr), opcode, len);
+	sync_core();
 	pax_close_kernel();
 
-	sync_core();
 	local_irq_restore(flags);
 	/* Could also do a CLFLUSH here to speed up CPU recovery; but
 	   that causes hangs on some VIA CPUs. */

@@ -125,10 +125,6 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 		struct mm_struct *mm = vma->vm_mm;
 		struct anon_vma *allocated;
 
-#ifdef CONFIG_PAX_SEGMEXEC
-		struct vm_area_struct *vma_m;
-#endif
-
 		avc = anon_vma_chain_alloc();
 		if (!avc)
 			goto out_enomem;
@@ -154,7 +150,8 @@ int anon_vma_prepare(struct vm_area_struct *vma)
 		if (likely(!vma->anon_vma)) {
 
 #ifdef CONFIG_PAX_SEGMEXEC
-			vma_m = pax_find_mirror_vma(vma);
+			struct vm_area_struct *vma_m = pax_find_mirror_vma(vma);
+
 			if (vma_m) {
 				BUG_ON(vma_m->anon_vma);
 				vma_m->anon_vma = anon_vma;

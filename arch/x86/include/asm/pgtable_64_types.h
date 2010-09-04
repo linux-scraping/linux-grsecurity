@@ -62,4 +62,7 @@ typedef struct { pteval_t pte; } pte_t;
 #define MODULES_EXEC_VADDR MODULES_VADDR
 #define MODULES_EXEC_END MODULES_END
 
+#define ktla_ktva(addr)		(addr)
+#define ktva_ktla(addr)		(addr)
+
 #endif /* _ASM_X86_PGTABLE_64_DEFS_H */

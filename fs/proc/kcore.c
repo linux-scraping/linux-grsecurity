@@ -478,9 +478,10 @@ read_kcore(struct file *file, char __user *buffer, size_t buflen, loff_t *fpos)
 	 * the addresses in the elf_phdr on our list.
 	 */
 	start = kc_offset_to_vaddr(*fpos - elf_buflen);
-	if ((tsz = (PAGE_SIZE - (start & ~PAGE_MASK))) > buflen)
+	tsz = PAGE_SIZE - (start & ~PAGE_MASK);
+	if (tsz > buflen)
 		tsz = buflen;
-		
+
 	while (buflen) {
 		struct kcore_list *m;
 
@@ -509,20 +510,18 @@ read_kcore(struct file *file, char __user *buffer, size_t buflen, loff_t *fpos)
 			kfree(elf_buf);
 		} else {
 			if (kern_addr_valid(start)) {
-				unsigned long n;
+				char *elf_buf;
 
-				n = copy_to_user(buffer, (char *)start, tsz);
-				/*
-				 * We cannot distingush between fault on source
-				 * and fault on destination. When this happens
-				 * we clear too and hope it will trigger the
-				 * EFAULT again.
-				 */
-				if (n) { 
-					if (clear_user(buffer + tsz - n,
-								n))
+				elf_buf = kmalloc(tsz, GFP_KERNEL);
+				if (!elf_buf)
+					return -ENOMEM;
+				if (!__copy_from_user(elf_buf, (const void __user *)start, tsz)) {
+					if (copy_to_user(buffer, elf_buf, tsz)) {
+						kfree(elf_buf);
 						return -EFAULT;
+					}
 				}
+				kfree(elf_buf);
 			} else {
 				if (clear_user(buffer, tsz))
 					return -EFAULT;
