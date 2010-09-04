@@ -19,7 +19,7 @@ menu "PaX"
 
 	config PAX_ENABLE_PAE
 	bool
-	default y if (X86_32 && (M686 || MPENTIUMII || MPENTIUMIII || MPENTIUM4 || MK7 || MK8 || MVIAC7 || MPSC || MCORE2 || MATOM))
+	default y if (X86_32 && (MPENTIUM4 || MK8 || MPSC || MCORE2 || MATOM))
 	
 config PAX
 	bool "Enable various PaX features"
@@ -233,7 +233,8 @@ config PAX_MPROTECT
 	   - changing the executable status of memory pages that were
 	     not originally created as executable,
 	   - making read-only executable pages writable again,
-	   - creating executable pages from anonymous memory.
+	   - creating executable pages from anonymous memory,
+	   - making read-only-after-relocations (RELRO) data pages writable again.
 
 	  You should say Y here to complete the protection provided by
 	  the enforcement of non-executable pages.
@@ -243,7 +244,7 @@ config PAX_MPROTECT
 
 config PAX_ELFRELOCS
 	bool "Allow ELF text relocations (read help)"
-	depends on PAX_MPROTECT && (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
+	depends on PAX_MPROTECT
 	default n
 	help
 	  Non-executable pages and mprotect() restrictions are effective
@@ -264,6 +265,7 @@ config PAX_ELFRELOCS
 config PAX_ETEXECRELOCS
 	bool "Allow ELF ET_EXEC text relocations"
 	depends on PAX_MPROTECT && (ALPHA || IA64 || PARISC)
+	select PAX_ELFRELOCS
 	default y
 	help
 	  On some architectures there are incorrectly created applications
@@ -492,6 +494,7 @@ config PAX_USERCOPY
 
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
+
 endmenu
 
 endmenu

@@ -1222,7 +1222,7 @@ static int subbuf_splice_actor(struct file *in,
 			       unsigned int flags,
 			       int *nonpad_ret)
 {
-	unsigned int pidx, poff, total_len, subbuf_pages, nr_pages, ret;
+	unsigned int pidx, poff, total_len, subbuf_pages, nr_pages;
 	struct rchan_buf *rbuf = in->private_data;
 	unsigned int subbuf_size = rbuf->chan->subbuf_size;
 	uint64_t pos = (uint64_t) *ppos;
@@ -1241,6 +1241,7 @@ static int subbuf_splice_actor(struct file *in,
 		.ops = &relay_pipe_buf_ops,
 		.spd_release = relay_page_release,
 	};
+	ssize_t ret;
 
 	if (rbuf->subbufs_produced == rbuf->subbufs_consumed)
 		return 0;
@@ -1292,7 +1293,7 @@ static int subbuf_splice_actor(struct file *in,
 		return 0;
 
 	ret = *nonpad_ret = splice_to_pipe(pipe, &spd);
-	if ((int)ret < 0 || ret < total_len)
+	if (ret < 0 || ret < total_len)
 		return ret;
 
         if (read_start + ret == nonpad_end)

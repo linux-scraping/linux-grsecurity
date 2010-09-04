@@ -104,6 +104,22 @@ atomic_add_ret: /* %o0 = increment, %o1 = atomic_ptr */
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 	.size	atomic_add_ret, .-atomic_add_ret
 
+	.globl	atomic_add_ret_unchecked
+	.type	atomic_add_ret_unchecked,#function
+atomic_add_ret_unchecked: /* %o0 = increment, %o1 = atomic_ptr */
+	BACKOFF_SETUP(%o2)
+1:	lduw	[%o1], %g1
+	addcc	%g1, %o0, %g7
+	cas	[%o1], %g1, %g7
+	cmp	%g1, %g7
+	bne,pn	%icc, 2f
+	 add	%g7, %o0, %g7
+	sra	%g7, 0, %o0
+	retl
+	 nop
+2:	BACKOFF_SPIN(%o2, %o3, 1b)
+	.size	atomic_add_ret_unchecked, .-atomic_add_ret_unchecked
+
 	.globl	atomic_sub_ret
 	.type	atomic_sub_ret,#function
 atomic_sub_ret: /* %o0 = decrement, %o1 = atomic_ptr */

@@ -348,12 +348,29 @@ static inline int atomic_add_return(int i, atomic_t *v)
 	return i + __i;
 }
 
+/**
+ * atomic_add_return_unchecked - add and return
+ * @i: integer value to add
+ * @v: pointer of type atomic_unchecked_t
+ *
+ * Atomically adds @i to @v and returns @i + @v
+ */
+static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	int __i = i;
+	asm volatile(LOCK_PREFIX "xaddl %0, %1\n"
+		     : "+r" (i), "+m" (v->counter)
+		     : : "memory");
+	return i + __i;
+}
+
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
 	return atomic_add_return(-i, v);
 }
 
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
+#define atomic_inc_return_unchecked(v)  (atomic_add_return_unchecked(1, v))
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 /* The 64-bit atomic type */
