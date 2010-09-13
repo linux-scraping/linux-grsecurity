@@ -306,7 +306,6 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct vm_area_struc
 	tmp->vm_mm = mm;
 	INIT_LIST_HEAD(&tmp->anon_vma_chain);
 	pol = mpol_dup(vma_policy(mpnt));
-	retval = PTR_ERR(pol);
 	if (IS_ERR(pol))
 		goto fail_nomem_policy;
 	vma_set_policy(tmp, pol);
