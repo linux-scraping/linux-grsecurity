@@ -216,7 +216,7 @@ static void anon_vma_chain_link(struct vm_area_struct *vma,
  * Attach the anon_vmas from src to dst.
  * Returns 0 on success, -ENOMEM on failure.
  */
-int anon_vma_clone(struct vm_area_struct *dst, struct vm_area_struct *src)
+int anon_vma_clone(struct vm_area_struct *dst, const struct vm_area_struct *src)
 {
 	struct anon_vma_chain *avc, *pavc;
 
@@ -238,7 +238,7 @@ int anon_vma_clone(struct vm_area_struct *dst, struct vm_area_struct *src)
  * the corresponding VMA in the parent process is attached to.
  * Returns 0 on success, non-zero on failure.
  */
-int anon_vma_fork(struct vm_area_struct *vma, struct vm_area_struct *pvma)
+int anon_vma_fork(struct vm_area_struct *vma, const struct vm_area_struct *pvma)
 {
 	struct anon_vma_chain *avc;
 	struct anon_vma *anon_vma;

@@ -1839,7 +1839,14 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 	BUG_ON(!vma_m || vma_m->vm_mirror != vma);
 	BUG_ON(vma->vm_file != vma_m->vm_file);
 	BUG_ON(vma->vm_end - vma->vm_start != vma_m->vm_end - vma_m->vm_start);
-	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff || vma->anon_vma != vma_m->anon_vma);
+	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff);
+	if (vma->anon_vma != vma_m->anon_vma) {
+		struct anon_vma_chain *avc, *avc_m;
+
+		avc = list_entry(vma->anon_vma_chain.prev, struct anon_vma_chain, same_vma);
+		avc_m = list_entry(vma_m->anon_vma_chain.prev, struct anon_vma_chain, same_vma);
+		BUG_ON(avc->anon_vma != avc_m->anon_vma);
+	}
 	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED));
 	return vma_m;
 }

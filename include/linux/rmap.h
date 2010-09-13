@@ -110,8 +110,8 @@ static inline void anon_vma_unlock(struct vm_area_struct *vma)
 void anon_vma_init(void);	/* create anon_vma_cachep */
 int  anon_vma_prepare(struct vm_area_struct *);
 void unlink_anon_vmas(struct vm_area_struct *);
-int anon_vma_clone(struct vm_area_struct *, struct vm_area_struct *);
-int anon_vma_fork(struct vm_area_struct *, struct vm_area_struct *);
+int anon_vma_clone(struct vm_area_struct *, const struct vm_area_struct *);
+int anon_vma_fork(struct vm_area_struct *, const struct vm_area_struct *);
 void __anon_vma_link(struct vm_area_struct *);
 void anon_vma_free(struct anon_vma *);
 
