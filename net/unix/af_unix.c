@@ -2186,7 +2186,11 @@ static int unix_seq_show(struct seq_file *seq, void *v)
 		unix_state_lock(s);
 
 		seq_printf(seq, "%p: %08X %08X %08X %04X %02X %5lu",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			NULL,
+#else
 			s,
+#endif
 			atomic_read(&s->sk_refcnt),
 			0,
 			s->sk_state == TCP_LISTEN ? __SO_ACCEPTCON : 0,

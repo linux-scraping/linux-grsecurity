@@ -190,7 +190,12 @@ static void vcc_info(struct seq_file *seq, struct atm_vcc *vcc)
 {
 	struct sock *sk = sk_atm(vcc);
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	seq_printf(seq, "%p ", NULL);
+#else
 	seq_printf(seq, "%p ", vcc);
+#endif
+
 	if (!vcc->dev)
 		seq_printf(seq, "Unassigned    ");
 	else

@@ -269,12 +269,16 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
 
 static void print_name_offset(struct seq_file *m, unsigned long addr)
 {
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	seq_printf(m, "<%p>", NULL);
+#else
 	char symname[KSYM_NAME_LEN];
 
 	if (lookup_symbol_name(addr, symname) < 0)
 		seq_printf(m, "<%p>", (void *)addr);
 	else
 		seq_printf(m, "%s", symname);
+#endif
 }
 
 static int tstats_show(struct seq_file *m, void *v)
@@ -417,7 +421,11 @@ static int __init init_tstats_procfs(void)
 {
 	struct proc_dir_entry *pe;
 
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	pe = proc_create("timer_stats", 0600, NULL, &tstats_fops);
+#else
 	pe = proc_create("timer_stats", 0644, NULL, &tstats_fops);
+#endif
 	if (!pe)
 		return -ENOMEM;
 	return 0;

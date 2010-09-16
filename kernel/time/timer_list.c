@@ -38,12 +38,16 @@ DECLARE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases);
 
 static void print_name_offset(struct seq_file *m, void *sym)
 {
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	SEQ_printf(m, "<%p>", NULL);
+#else
 	char symname[KSYM_NAME_LEN];
 
 	if (lookup_symbol_name((unsigned long)sym, symname) < 0)
 		SEQ_printf(m, "<%p>", sym);
 	else
 		SEQ_printf(m, "%s", symname);
+#endif
 }
 
 static void
@@ -112,7 +116,11 @@ next_one:
 static void
 print_base(struct seq_file *m, struct hrtimer_clock_base *base, u64 now)
 {
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	SEQ_printf(m, "  .base:       %p\n", NULL);
+#else
 	SEQ_printf(m, "  .base:       %p\n", base);
+#endif
 	SEQ_printf(m, "  .index:      %d\n",
 			base->index);
 	SEQ_printf(m, "  .resolution: %Lu nsecs\n",
@@ -292,7 +300,11 @@ static int __init init_timer_list_procfs(void)
 {
 	struct proc_dir_entry *pe;
 
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	pe = proc_create("timer_list", 0400, NULL, &timer_list_fops);
+#else
 	pe = proc_create("timer_list", 0444, NULL, &timer_list_fops);
+#endif
 	if (!pe)
 		return -ENOMEM;
 	return 0;

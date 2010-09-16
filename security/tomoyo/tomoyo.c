@@ -235,7 +235,7 @@ static int tomoyo_sb_pivotroot(struct path *old_path, struct path *new_path)
  * tomoyo_security_ops is a "struct security_operations" which is used for
  * registering TOMOYO.
  */
-static struct security_operations tomoyo_security_ops = {
+static struct security_operations tomoyo_security_ops __read_only = {
 	.name                = "tomoyo",
 	.cred_alloc_blank    = tomoyo_cred_alloc_blank,
 	.cred_prepare        = tomoyo_cred_prepare,

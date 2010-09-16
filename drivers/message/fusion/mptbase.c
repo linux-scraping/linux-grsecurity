@@ -6710,8 +6710,14 @@ procmpt_iocinfo_read(char *buf, char **start, off_t offset, int request, int *eo
 	len += sprintf(buf+len, "  MaxChainDepth = 0x%02x frames\n", ioc->facts.MaxChainDepth);
 	len += sprintf(buf+len, "  MinBlockSize = 0x%02x bytes\n", 4*ioc->facts.BlockSize);
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	len += sprintf(buf+len, "  RequestFrames @ 0x%p (Dma @ 0x%p)\n",
+					NULL, NULL);
+#else
 	len += sprintf(buf+len, "  RequestFrames @ 0x%p (Dma @ 0x%p)\n",
 					(void *)ioc->req_frames, (void *)(ulong)ioc->req_frames_dma);
+#endif
+
 	/*
 	 *  Rounding UP to nearest 4-kB boundary here...
 	 */
