@@ -3660,7 +3660,11 @@ static int pfkey_seq_show(struct seq_file *f, void *v)
 		seq_printf(f ,"sk       RefCnt Rmem   Wmem   User   Inode\n");
 	else
 		seq_printf(f ,"%p %-6d %-6u %-6u %-6u %-6lu\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			       NULL,
+#else
 			       s,
+#endif
 			       atomic_read(&s->sk_refcnt),
 			       sk_rmem_alloc_get(s),
 			       sk_wmem_alloc_get(s),

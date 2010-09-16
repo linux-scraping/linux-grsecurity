@@ -2354,23 +2354,9 @@ static inline int object_starts_on_stack(void *obj)
 	return (obj >= stack) && (obj < (stack + THREAD_SIZE));
 }
 
-/* 0: not at all, 1: fully, -1: partially (implies an error) */
-static inline int object_is_on_stack(const void *obj, unsigned long len)
-{
-	const void *stack = task_stack_page(current);
-	const void *stackend = stack + THREAD_SIZE;
-
-	if (obj + len < obj)
-		return -1;
-
-	if (stack <= obj && obj + len <= stackend)
-		return 1;
-
-	if (obj + len <= stack || stackend <=  obj)
-		return 0;
-
-	return -1;
-}
+#ifdef CONFIG_PAX_USERCOPY
+extern int object_is_on_stack(const void *obj, unsigned long len);
+#endif
 
 extern void thread_info_cache_init(void);
 

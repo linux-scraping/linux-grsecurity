@@ -2255,7 +2255,11 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
 		0,  /* non standard timer */
 		0, /* open_requests have no inode */
 		atomic_read(&sk->sk_refcnt),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		NULL,
+#else
 		req,
+#endif
 		len);
 }
 
@@ -2297,7 +2301,12 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
 		sock_i_uid(sk),
 		icsk->icsk_probes_out,
 		sock_i_ino(sk),
-		atomic_read(&sk->sk_refcnt), sk,
+		atomic_read(&sk->sk_refcnt),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		NULL,
+#else
+		sk,
+#endif
 		jiffies_to_clock_t(icsk->icsk_rto),
 		jiffies_to_clock_t(icsk->icsk_ack.ato),
 		(icsk->icsk_ack.quick << 1) | icsk->icsk_ack.pingpong,
@@ -2325,7 +2334,13 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 		" %02X %08X:%08X %02X:%08lX %08X %5d %8d %d %d %p%n",
 		i, src, srcp, dest, destp, tw->tw_substate, 0, 0,
 		3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
-		atomic_read(&tw->tw_refcnt), tw, len);
+		atomic_read(&tw->tw_refcnt),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		NULL,
+#else
+		tw,
+#endif
+		len);
 }
 
 #define TMPSZ 150

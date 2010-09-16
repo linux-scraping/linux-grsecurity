@@ -70,7 +70,7 @@ static int rootplug_bprm_check_security (struct linux_binprm *bprm)
 	return 0;
 }
 
-static struct security_operations rootplug_security_ops = {
+static struct security_operations rootplug_security_ops __read_only = {
 	.bprm_check_security =		rootplug_bprm_check_security,
 };
 

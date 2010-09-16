@@ -723,7 +723,10 @@ static inline long atomic64_sub_return(long i, atomic64_t *v)
 }
 
 #define atomic64_inc_return(v)  (atomic64_add_return(1, (v)))
-#define atomic64_inc_return_unchecked(v)  (atomic64_add_return_unchecked(1, (v)))
+static inline long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
+{
+	return atomic64_add_return_unchecked(1, v);
+}
 #define atomic64_dec_return(v)  (atomic64_sub_return(1, (v)))
 
 static inline long atomic64_cmpxchg(atomic64_t *v, long old, long new)

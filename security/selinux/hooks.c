@@ -131,7 +131,7 @@ int selinux_enabled = 1;
  * Minimal support for a secondary security module,
  * just to allow the use of the capability module.
  */
-static struct security_operations *secondary_ops;
+static struct security_operations *secondary_ops __read_only;
 
 /* Lists of inode and superblock security structures initialized
    before the policy was loaded. */
@@ -5450,7 +5450,7 @@ static int selinux_key_getsecurity(struct key *key, char **_buffer)
 
 #endif
 
-static struct security_operations selinux_ops = {
+static struct security_operations selinux_ops __read_only = {
 	.name =				"selinux",
 
 	.ptrace_access_check =		selinux_ptrace_access_check,
@@ -5834,7 +5834,9 @@ int selinux_disable(void)
 	avc_disable();
 
 	/* Reset security_ops to the secondary module, dummy or capability. */
+	pax_open_kernel();
 	security_ops = secondary_ops;
+	pax_close_kernel();
 
 	/* Unregister netfilter hooks. */
 	selinux_nf_ip_exit();

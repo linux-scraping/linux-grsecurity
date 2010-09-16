@@ -2426,7 +2426,11 @@ static int packet_seq_show(struct seq_file *seq, void *v)
 
 		seq_printf(seq,
 			   "%p %-6d %-4d %04x   %-5d %1d %-6u %-6u %-6lu\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   NULL,
+#else
 			   s,
+#endif
 			   atomic_read(&s->sk_refcnt),
 			   s->sk_type,
 			   ntohs(po->num),

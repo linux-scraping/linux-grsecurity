@@ -1964,13 +1964,21 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
 		struct netlink_sock *nlk = nlk_sk(s);
 
 		seq_printf(seq, "%p %-3d %-6d %08x %-8d %-8d %p %-8d %-8d\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   NULL,
+#else
 			   s,
+#endif
 			   s->sk_protocol,
 			   nlk->pid,
 			   nlk->groups ? (u32)nlk->groups[0] : 0,
 			   sk_rmem_alloc_get(s),
 			   sk_wmem_alloc_get(s),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   NULL,
+#else
 			   nlk->cb,
+#endif
 			   atomic_read(&s->sk_refcnt),
 			   atomic_read(&s->sk_drops)
 			);

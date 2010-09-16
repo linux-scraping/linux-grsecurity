@@ -492,6 +492,10 @@ config PAX_USERCOPY
 	  Note that the current implementation provides the strictest checks
 	  for the SLUB allocator.
 
+	  If frame pointers are enabled on x86, this option will also
+	  restrict copies into and out of the kernel stack to local variables
+	  within a single frame.
+
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
 

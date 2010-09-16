@@ -890,7 +890,7 @@ static void cap_audit_rule_free(void *lsmrule)
 }
 #endif /* CONFIG_AUDIT */
 
-struct security_operations default_security_ops = {
+struct security_operations default_security_ops __read_only = {
 	.name	= "default",
 };
 

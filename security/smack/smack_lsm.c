@@ -3073,7 +3073,7 @@ static int smack_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
 	return 0;
 }
 
-struct security_operations smack_ops = {
+struct security_operations smack_ops __read_only = {
 	.name =				"smack",
 
 	.ptrace_access_check =		smack_ptrace_access_check,

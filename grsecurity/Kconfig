@@ -310,8 +310,13 @@ config GRKERNSEC_HIDESYM
 	  displaying all kernel symbols through a syscall will be restricted
 	  to users with CAP_SYS_MODULE.  For software compatibility reasons,
 	  /proc/kallsyms will be restricted to the root user.  The RBAC
-	  system can hide that entry even from root.  Note that this option
-	  is only effective provided the following conditions are met:
+	  system can hide that entry even from root.
+
+	  This option also prevents leaking of kernel addresses through
+	  several /proc entries.
+
+	  Note that this option is only effective provided the following
+	  conditions are met:
 	  1) The kernel using grsecurity is not precompiled by some distribution
 	  2) You are using the RBAC system and hiding other files such as your
 	     kernel image and System.map.  Alternatively, enabling this option
