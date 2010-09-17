@@ -13,6 +13,7 @@
 
 #include <linux/linkage.h>
 #include <linux/compat.h>
+#include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/time.h>
 #include <linux/signal.h>
