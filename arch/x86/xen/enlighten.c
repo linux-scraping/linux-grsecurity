@@ -1100,10 +1100,10 @@ asmlinkage void __init xen_start_kernel(void)
 	/* Work out if we support NX */
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 	if ((cpuid_eax(0x80000000) & 0xffff0000) == 0x80000000 &&
-	    (cpuid_edx(0x80000001) & (1 << (X86_FEATURE_NX & 31)))) {
+	    (cpuid_edx(0x80000001) & (1U << (X86_FEATURE_NX & 31)))) {
 		unsigned l, h;
 
-#if defined(CONFIG_X86_32)
+#ifdef CONFIG_X86_PAE
 		nx_enabled = 1;
 #endif
 		__supported_pte_mask |= _PAGE_NX;

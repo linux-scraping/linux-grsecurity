@@ -46,6 +46,7 @@ EXPORT_SYMBOL(grsec_enable_blackhole);
 #endif
 int grsec_lastack_retries;
 int grsec_enable_tpe_all;
+int grsec_enable_tpe_invert;
 int grsec_enable_socket_all;
 int grsec_socket_all_gid;
 int grsec_enable_socket_client;
@@ -134,6 +135,13 @@ grsecurity_init(void)
 #else
 	grsec_disable_privio = 0;
 #endif
+#endif
+
+#ifdef CONFIG_GRKERNSEC_TPE_INVERT
+	/* for backward compatibility, tpe_invert always defaults to on if
+	   enabled in the kernel
+	*/
+	grsec_enable_tpe_invert = 1;
 #endif
 
 #if !defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_SYSCTL_ON)

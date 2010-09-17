@@ -23,7 +23,7 @@ menu "PaX"
 	
 config PAX
 	bool "Enable various PaX features"
-	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS32 || MIPS64 || PARISC || PPC || SPARC || X86)
+	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS || PARISC || PPC || SPARC || X86)
 	help
 	  This allows you to enable various PaX features.  PaX adds
 	  intrusion prevention mechanisms to the kernel that reduce

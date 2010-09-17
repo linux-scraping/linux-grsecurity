@@ -1288,6 +1288,13 @@ static struct ctl_table vm_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec
 	},
+	{
+		.procname	= "heap_stack_gap",
+		.data		= &sysctl_heap_stack_gap,
+		.maxlen		= sizeof(sysctl_heap_stack_gap),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax,
+	},
 #else
 	{
 		.ctl_name	= CTL_UNNUMBERED,

@@ -113,8 +113,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		else
 			addr = PAGE_ALIGN(addr);
 		vmm = find_vma(current->mm, addr);
-		if (task_size - len >= addr &&
-		    (!vmm || addr + len <= vmm->vm_start))
+		if (task_size - len >= addr && check_heap_stack_gap(vmm, addr, len))
 			return addr;
 	}
 	addr = current->mm->mmap_base;
@@ -127,7 +126,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		/* At this point:  (!vmm || addr < vmm->vm_end). */
 		if (task_size - len < addr)
 			return -ENOMEM;
-		if (!vmm || addr + len <= vmm->vm_start)
+		if (check_heap_stack_gap(vmm, addr, len))
 			return addr;
 		addr = vmm->vm_end;
 		if (do_color_align)

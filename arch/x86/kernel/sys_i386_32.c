@@ -98,10 +98,11 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
-		vma = find_vma(mm, addr);
-		if (pax_task_size - len >= addr &&
-		    (!vma || addr + len <= vma->vm_start))
-			return addr;
+		if (pax_task_size - len >= addr) {
+			vma = find_vma(mm, addr);
+			if (check_heap_stack_gap(vma, addr, len))
+				return addr;
+		}
 	}
 	if (len > mm->cached_hole_size) {
 		start_addr = addr = mm->free_area_cache;
@@ -141,13 +142,8 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (!vma || addr + len <= vma->vm_start) {
-			/*
-			 * Remember the place where we stopped the search:
-			 */
-			mm->free_area_cache = addr + len;
-			return addr;
-		}
+		if (check_heap_stack_gap(vma, addr, len))
+			break;
 		if (addr + mm->cached_hole_size < vma->vm_start)
 			mm->cached_hole_size = vma->vm_start - addr;
 		addr = vma->vm_end;
@@ -157,6 +153,12 @@ full_search:
 			goto full_search;
 		}
 	}
+
+	/*
+	 * Remember the place where we stopped the search:
+	 */
+	mm->free_area_cache = addr + len;
+	return addr;
 }
 
 unsigned long
@@ -192,10 +194,11 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* requesting a specific address */
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
-		vma = find_vma(mm, addr);
-		if (pax_task_size - len >= addr &&
-				(!vma || addr + len <= vma->vm_start))
-			return addr;
+		if (pax_task_size - len >= addr) {
+			vma = find_vma(mm, addr);
+			if (check_heap_stack_gap(vma, addr, len))
+				return addr;
+		}
 	}
 
 	/* check if free_area_cache is useful for us */
@@ -210,7 +213,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* make sure it can fit in the remaining address space */
 	if (addr > len) {
 		vma = find_vma(mm, addr-len);
-		if (!vma || addr <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr - len, len))
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr-len);
 	}
@@ -227,7 +230,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (!vma || addr+len <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr, len))
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr);
 

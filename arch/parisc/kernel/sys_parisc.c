@@ -43,7 +43,7 @@ static unsigned long get_unshared_area(unsigned long addr, unsigned long len)
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
-		if (!vma || addr + len <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr, len))
 			return addr;
 		addr = vma->vm_end;
 	}
@@ -79,7 +79,7 @@ static unsigned long get_shared_area(struct address_space *mapping,
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
-		if (!vma || addr + len <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr, len))
 			return addr;
 		addr = DCACHE_ALIGN(vma->vm_end - offset) + offset;
 		if (addr < vma->vm_end) /* handle wraparound */
