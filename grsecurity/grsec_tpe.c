@@ -15,7 +15,8 @@ gr_tpe_allow(const struct file *file)
 
 	if (cred->uid && ((grsec_enable_tpe &&
 #ifdef CONFIG_GRKERNSEC_TPE_INVERT
-	    !in_group_p(grsec_tpe_gid)
+	    ((grsec_enable_tpe_invert && !in_group_p(grsec_tpe_gid)) ||
+	     (!grsec_enable_tpe_invert && in_group_p(grsec_tpe_gid)))
 #else
 	    in_group_p(grsec_tpe_gid)
 #endif

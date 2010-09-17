@@ -75,7 +75,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 			}
 			return -ENOMEM;
 		}
-		if (!vma || addr + len <= vma->vm_start) {
+		if (check_heap_stack_gap(vma, addr, len)) {
 			/* Remember the address where we stopped this search:  */
 			mm->free_area_cache = addr + len;
 			return addr;

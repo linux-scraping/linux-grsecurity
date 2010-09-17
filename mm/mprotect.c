@@ -204,6 +204,16 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 		return 0;
 	}
 
+	if (newflags & (VM_READ | VM_WRITE | VM_EXEC)) {
+		struct vm_area_struct *prev = vma->vm_prev, *next = vma->vm_next;
+
+		if (next && (next->vm_flags & VM_GROWSDOWN) && sysctl_heap_stack_gap > next->vm_start - end)
+			return -ENOMEM;
+
+		if (prev && (prev->vm_flags & VM_GROWSUP) && sysctl_heap_stack_gap > start - prev->vm_end)
+			return -ENOMEM;
+	}
+
 	/*
 	 * If we make a private mapping writable we increase our commit;
 	 * but (without finer accounting) cannot reduce our commit if we

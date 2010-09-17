@@ -383,10 +383,12 @@ struct user_namespace;
 #define DEFAULT_MAX_MAP_COUNT	(USHORT_MAX - MAPCOUNT_ELF_CORE_MARGIN)
 
 extern int sysctl_max_map_count;
+extern unsigned long sysctl_heap_stack_gap;
 
 #include <linux/aio.h>
 
 #ifdef CONFIG_MMU
+extern bool check_heap_stack_gap(struct vm_area_struct *vma, unsigned long addr, unsigned long len);
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 extern unsigned long
 arch_get_unmapped_area(struct file *, unsigned long, unsigned long,

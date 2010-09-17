@@ -246,6 +246,15 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_TPE_INVERT
+	{
+		.procname	= "tpe_invert",
+		.data		= &grsec_enable_tpe_invert,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_TPE_ALL
 	{
 		.procname	= "tpe_restrict_all",

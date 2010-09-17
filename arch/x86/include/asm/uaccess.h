@@ -213,18 +213,9 @@ extern int __get_user_bad(void);
 	__ret_gu;							\
 })
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-#define __put_user_x(size, x, ptr, __ret_pu)				\
-	({								\
-		int __dummy;						\
-		asm volatile("call __put_user_" #size : "=a" (__ret_pu), "=c" (__dummy)	\
-			     : "0" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx"); \
-	})
-#else
 #define __put_user_x(size, x, ptr, __ret_pu)			\
 	asm volatile("call __put_user_" #size : "=a" (__ret_pu)	\
 		     : "0" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
-#endif
 
 #ifdef CONFIG_X86_32
 #define _ASM_LOAD_USER_DS(ds) "movw %w" #ds ",%%ds\n"

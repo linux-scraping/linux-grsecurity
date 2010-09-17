@@ -149,7 +149,7 @@ config GRKERNSEC_HIGH
 	select PAX_PT_PAX_FLAGS
 	select PAX_HAVE_ACL_FLAGS
 	select PAX_KERNEXEC if ((PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN)
-	select PAX_MEMORY_UDEREF if (X86_32 && !XEN)
+	select PAX_MEMORY_UDEREF if (X86 && !XEN)
 	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
 	select PAX_SEGMEXEC if (X86_32)
 	select PAX_PAGEEXEC
@@ -758,11 +758,14 @@ config GRKERNSEC_TPE
 	  is enabled, a sysctl option with name "tpe" is created.
 
 config GRKERNSEC_TPE_ALL
-	bool "Partially restrict non-root users"
+	bool "Partially restrict all non-root users"
 	depends on GRKERNSEC_TPE
 	help
-	  If you say Y here, All non-root users other than the ones in the
-	  group specified in the main TPE option will only be allowed to
+	  If you say Y here, all non-root users will be covered under
+	  a weaker TPE restriction.  This is separate from, and in addition to,
+	  the main TPE options that you have selected elsewhere.  Thus, if a
+	  "trusted" GID is chosen, this restriction applies to even that GID.
+	  Under this restriction, all non-root users will only be allowed to
 	  execute files in directories they own that are not group or
 	  world-writable, or in directories owned by root and writable only by
 	  root.  If the sysctl option is enabled, a sysctl option with name
@@ -775,31 +778,27 @@ config GRKERNSEC_TPE_INVERT
 	  If you say Y here, the group you specify in the TPE configuration will
 	  decide what group TPE restrictions will be *disabled* for.  This
 	  option is useful if you want TPE restrictions to be applied to most
-	  users on the system.
+	  users on the system.  If the sysctl option is enabled, a sysctl option
+	  with name "tpe_invert" is created.  Unlike other sysctl options, this
+	  entry will default to on for backward-compatibility.
 
 config GRKERNSEC_TPE_GID
 	int "GID for untrusted users"
 	depends on GRKERNSEC_TPE && !GRKERNSEC_TPE_INVERT
 	default 1005
 	help
-	  If you have selected the "Invert GID option" above, setting this
-	  GID determines what group TPE restrictions will be *disabled* for.
-	  If you have not selected the "Invert GID option" above, setting this
-	  GID determines what group TPE restrictions will be *enabled* for.
-	  If the sysctl option is enabled, a sysctl option with name "tpe_gid"
-	  is created.
+	  Setting this GID determines what group TPE restrictions will be
+	  *enabled* for.  If the sysctl option is enabled, a sysctl option
+	  with name "tpe_gid" is created.
 
 config GRKERNSEC_TPE_GID
 	int "GID for trusted users"
 	depends on GRKERNSEC_TPE && GRKERNSEC_TPE_INVERT
 	default 1005
 	help
-	  If you have selected the "Invert GID option" above, setting this
-	  GID determines what group TPE restrictions will be *disabled* for.
-	  If you have not selected the "Invert GID option" above, setting this
-	  GID determines what group TPE restrictions will be *enabled* for.
-	  If the sysctl option is enabled, a sysctl option with name "tpe_gid"
-	  is created.
+	  Setting this GID determines what group TPE restrictions will be
+	  *disabled* for.  If the sysctl option is enabled, a sysctl option
+	  with name "tpe_gid" is created.
 
 endmenu
 menu "Network Protections"

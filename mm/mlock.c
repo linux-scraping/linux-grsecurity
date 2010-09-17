@@ -136,19 +136,6 @@ void munlock_vma_page(struct page *page)
 	}
 }
 
-/* Is the vma a continuation of the stack vma above it? */
-static inline int vma_stack_continue(struct vm_area_struct *vma, unsigned long addr)
-{
-	return vma && (vma->vm_end == addr) && (vma->vm_flags & VM_GROWSDOWN);
-}
-
-static inline int stack_guard_page(struct vm_area_struct *vma, unsigned long addr)
-{
-	return (vma->vm_flags & VM_GROWSDOWN) &&
-		(vma->vm_start == addr) &&
-		!vma_stack_continue(vma->vm_prev, addr);
-}
-
 /**
  * __mlock_vma_pages_range() -  mlock a range of pages in the vma.
  * @vma:   target vma
@@ -180,12 +167,6 @@ static long __mlock_vma_pages_range(struct vm_area_struct *vma,
 	gup_flags = FOLL_TOUCH | FOLL_GET;
 	if (vma->vm_flags & VM_WRITE)
 		gup_flags |= FOLL_WRITE;
-
-	/* We don't try to access the guard page of a stack vma */
-	if (stack_guard_page(vma, start)) {
-		addr += PAGE_SIZE;
-		nr_pages--;
-	}
 
 	while (nr_pages > 0) {
 		int i;
@@ -589,7 +570,7 @@ SYSCALL_DEFINE1(mlockall, int, flags)
 	lock_limit >>= PAGE_SHIFT;
 
 	ret = -ENOMEM;
-	gr_learn_resource(current, RLIMIT_MEMLOCK, current->mm->total_vm, 1);
+	gr_learn_resource(current, RLIMIT_MEMLOCK, current->mm->total_vm << PAGE_SHIFT, 1);
 	if (!(flags & MCL_CURRENT) || (current->mm->total_vm <= lock_limit) ||
 	    capable(CAP_IPC_LOCK))
 		ret = do_mlockall(flags);

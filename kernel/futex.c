@@ -2383,8 +2383,7 @@ SYSCALL_DEFINE3(get_robust_list, int, pid,
 	struct robust_list_head __user *head;
 	unsigned long ret;
 #ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
-	const struct cred *cred = current_cred();
-	const struct cred *pcred;
+	const struct cred *cred = current_cred(), *pcred;
 #endif
 
 	if (!futex_cmpxchg_enabled)

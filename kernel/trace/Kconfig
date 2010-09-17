@@ -124,7 +124,6 @@ if FTRACE
 config FUNCTION_TRACER
 	bool "Kernel Function Tracer"
 	depends on HAVE_FUNCTION_TRACER
-	depends on !PAX_KERNEXEC
 	select FRAME_POINTER
 	select KALLSYMS
 	select GENERIC_TRACER
@@ -354,7 +353,6 @@ config PROFILE_KSYM_TRACER
 config STACK_TRACER
 	bool "Trace max stack"
 	depends on HAVE_FUNCTION_TRACER
-	depends on !PAX_KERNEXEC
 	select FUNCTION_TRACER
 	select STACKTRACE
 	select KALLSYMS

@@ -81,8 +81,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
-		if (end - len >= addr &&
-		    (!vma || addr + len <= vma->vm_start))
+		if (end - len >= addr && check_heap_stack_gap(vma, addr, len))
 			return addr;
 	}
 	if (((flags & MAP_32BIT) || test_thread_flag(TIF_IA32))
@@ -110,7 +109,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (!vma || addr + len <= vma->vm_start) {
+		if (check_heap_stack_gap(vma, addr, len)) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
@@ -153,8 +152,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
 		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr &&
-				(!vma || addr + len <= vma->vm_start))
+		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len))
 			return addr;
 	}
 
@@ -170,7 +168,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* make sure it can fit in the remaining address space */
 	if (addr > len) {
 		vma = find_vma(mm, addr-len);
-		if (!vma || addr <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr - len, len))
 			/* remember the address as a hint for next time */
 			return mm->free_area_cache = addr-len;
 	}
@@ -187,7 +185,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (!vma || addr+len <= vma->vm_start)
+		if (check_heap_stack_gap(vma, addr, len))
 			/* remember the address as a hint for next time */
 			return mm->free_area_cache = addr;
 
