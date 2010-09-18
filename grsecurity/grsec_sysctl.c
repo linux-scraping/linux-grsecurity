@@ -21,7 +21,7 @@ static int __maybe_unused one = 1;
 #endif
 
 #if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_ROFS)
-ctl_table grsecurity_table[] = {
+struct ctl_table grsecurity_table[] = {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
 #ifdef CONFIG_GRKERNSEC_SYSCTL_DISTRO
 #ifdef CONFIG_GRKERNSEC_IO

@@ -159,13 +159,12 @@ BTFIXUPDEF_CALL_CONST(unsigned long, pgd_page_vaddr, pgd_t)
 #define pmd_page(pmd) BTFIXUP_CALL(pmd_page)(pmd)
 #define pgd_page_vaddr(pgd) BTFIXUP_CALL(pgd_page_vaddr)(pgd)
 
-BTFIXUPDEF_SETHI(none_mask)
 BTFIXUPDEF_CALL_CONST(int, pte_present, pte_t)
 BTFIXUPDEF_CALL(void, pte_clear, pte_t *)
 
 static inline int pte_none(pte_t pte)
 {
-	return !(pte_val(pte) & ~BTFIXUP_SETHI(none_mask));
+	return !pte_val(pte);
 }
 
 #define pte_present(pte) BTFIXUP_CALL(pte_present)(pte)
@@ -177,7 +176,7 @@ BTFIXUPDEF_CALL(void, pmd_clear, pmd_t *)
 
 static inline int pmd_none(pmd_t pmd)
 {
-	return !(pmd_val(pmd) & ~BTFIXUP_SETHI(none_mask));
+	return !pmd_val(pmd);
 }
 
 #define pmd_bad(pmd) BTFIXUP_CALL(pmd_bad)(pmd)

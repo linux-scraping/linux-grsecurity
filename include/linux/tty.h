@@ -24,7 +24,7 @@
  */
 #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
 #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
-#define NR_LDISCS		20
+#define NR_LDISCS		30
 
 /* line disciplines */
 #define N_TTY		0
@@ -47,8 +47,9 @@
 #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
 #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
 #define N_PPS		18	/* Pulse per Second */
-
 #define N_V253		19	/* Codec control over voice modem */
+#define N_CAIF		20      /* CAIF protocol for talking to modems */
+#define N_GSM0710	21	/* GSM 0710 Mux */
 
 /*
  * This character is the same as _POSIX_VDISABLE: it cannot be used as
@@ -562,6 +563,9 @@ static inline void tty_audit_push_task(struct task_struct *tsk,
 {
 }
 #endif
+
+/* tty_io.c */
+extern int __init tty_init(void);
 
 /* tty_ioctl.c */
 extern int n_tty_ioctl_helper(struct tty_struct *tty, struct file *file,

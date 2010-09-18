@@ -73,7 +73,7 @@ static void snd_imx_dma_err_callback(int channel, void *data, int err)
 {
 	struct snd_pcm_substream *substream = data;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct imx_pcm_dma_params *dma_params =
+	struct imx_pcm_dma_params *dma_params = 
 		snd_soc_dai_get_dma_data(rtd->dai->cpu_dai, substream);
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct imx_pcm_runtime_data *iprtd = runtime->private_data;

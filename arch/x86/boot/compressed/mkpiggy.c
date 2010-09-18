@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	offs += 64*1024;	/* Add 64K bytes slack */
 	offs = (offs+4095) & ~4095; /* Round to a 4K boundary */
 
-	printf(".section \".rodata.compressed\",\"a\",@progbits\n");
+	printf(".section \".rodata..compressed\",\"a\",@progbits\n");
 	printf(".globl z_input_len\n");
 	printf("z_input_len = %lu\n", ilen);
 	printf(".globl z_output_len\n");

@@ -3439,7 +3439,7 @@ found_obj:
 __u32
 gr_handle_sysctl(const struct ctl_table *table, const int op)
 {
-	ctl_table *tmp;
+	struct ctl_table *tmp;
 	const char *proc_sys = "/proc/sys";
 	char *path;
 	struct acl_object_label *obj;
@@ -3472,7 +3472,7 @@ gr_handle_sysctl(const struct ctl_table *table, const int op)
 
 	/* convert the requested sysctl entry into a pathname */
 
-	for (tmp = (ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
+	for (tmp = (struct ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
 		len += strlen(tmp->procname);
 		len++;
 		depth++;
@@ -3492,7 +3492,7 @@ gr_handle_sysctl(const struct ctl_table *table, const int op)
 	for (; depth > 0; depth--) {
 		path[pos] = '/';
 		pos++;
-		for (i = 1, tmp = (ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
+		for (i = 1, tmp = (struct ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
 			if (depth == i) {
 				memcpy(path + pos, tmp->procname,
 				       strlen(tmp->procname));

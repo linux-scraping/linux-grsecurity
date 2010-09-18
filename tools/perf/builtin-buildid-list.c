@@ -39,14 +39,16 @@ static int __cmd_buildid_list(void)
 	int err = -1;
 	struct perf_session *session;
 
-	session = perf_session__new(input_name, O_RDONLY, force);
+	session = perf_session__new(input_name, O_RDONLY, force, false);
 	if (session == NULL)
 		return -1;
 
-	if (with_hits)
+	if (with_hits) {
+		symbol_conf.full_paths = true;
 		perf_session__process_events(session, &build_id__mark_dso_hit_ops);
+	}
 
-	dsos__fprintf_buildid(stdout, with_hits);
+	perf_session__fprintf_dsos_buildid(session, stdout, with_hits);
 
 	perf_session__delete(session);
 	return err;

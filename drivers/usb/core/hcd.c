@@ -38,14 +38,12 @@
 #include <asm/unaligned.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
-#include <linux/mutex.h>
 #include <linux/pm_runtime.h>
 
 #include <linux/usb.h>
+#include <linux/usb/hcd.h>
 
 #include "usb.h"
-#include "hcd.h"
-#include "hub.h"
 
 
 /*-------------------------------------------------------------------------*/
@@ -1280,7 +1278,7 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 	dir = usb_urb_dir_in(urb) ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 	if (urb->transfer_flags & URB_DMA_MAP_SG)
 		dma_unmap_sg(hcd->self.controller,
-				urb->sg->sg,
+				urb->sg,
 				urb->num_sgs,
 				dir);
 	else if (urb->transfer_flags & URB_DMA_MAP_PAGE)
@@ -1318,8 +1316,7 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 	 * or uses the provided scatter gather list for bulk.
 	 */
 
-	if (usb_endpoint_xfer_control(&urb->ep->desc)
-	    && !(urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
+	if (usb_endpoint_xfer_control(&urb->ep->desc)) {
 		if (hcd->self.uses_dma) {
 			urb->setup_dma = dma_map_single(
 					hcd->self.controller,
@@ -1350,7 +1347,7 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 			if (urb->num_sgs) {
 				int n = dma_map_sg(
 						hcd->self.controller,
-						urb->sg->sg,
+						urb->sg,
 						urb->num_sgs,
 						dir);
 				if (n <= 0)
@@ -1363,9 +1360,7 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 							URB_DMA_SG_COMBINED;
 				}
 			} else if (urb->sg) {
-				struct scatterlist *sg;
-
-				sg = (struct scatterlist *) urb->sg;
+				struct scatterlist *sg = urb->sg;
 				urb->transfer_dma = dma_map_page(
 						hcd->self.controller,
 						sg_page(sg),
@@ -1816,6 +1811,75 @@ void usb_hcd_reset_endpoint(struct usb_device *udev,
 			usb_settoggle(udev, epnum, !is_out, 0);
 	}
 }
+
+/**
+ * usb_alloc_streams - allocate bulk endpoint stream IDs.
+ * @interface:		alternate setting that includes all endpoints.
+ * @eps:		array of endpoints that need streams.
+ * @num_eps:		number of endpoints in the array.
+ * @num_streams:	number of streams to allocate.
+ * @mem_flags:		flags hcd should use to allocate memory.
+ *
+ * Sets up a group of bulk endpoints to have num_streams stream IDs available.
+ * Drivers may queue multiple transfers to different stream IDs, which may
+ * complete in a different order than they were queued.
+ */
+int usb_alloc_streams(struct usb_interface *interface,
+		struct usb_host_endpoint **eps, unsigned int num_eps,
+		unsigned int num_streams, gfp_t mem_flags)
+{
+	struct usb_hcd *hcd;
+	struct usb_device *dev;
+	int i;
+
+	dev = interface_to_usbdev(interface);
+	hcd = bus_to_hcd(dev->bus);
+	if (!hcd->driver->alloc_streams || !hcd->driver->free_streams)
+		return -EINVAL;
+	if (dev->speed != USB_SPEED_SUPER)
+		return -EINVAL;
+
+	/* Streams only apply to bulk endpoints. */
+	for (i = 0; i < num_eps; i++)
+		if (!usb_endpoint_xfer_bulk(&eps[i]->desc))
+			return -EINVAL;
+
+	return hcd->driver->alloc_streams(hcd, dev, eps, num_eps,
+			num_streams, mem_flags);
+}
+EXPORT_SYMBOL_GPL(usb_alloc_streams);
+
+/**
+ * usb_free_streams - free bulk endpoint stream IDs.
+ * @interface:	alternate setting that includes all endpoints.
+ * @eps:	array of endpoints to remove streams from.
+ * @num_eps:	number of endpoints in the array.
+ * @mem_flags:	flags hcd should use to allocate memory.
+ *
+ * Reverts a group of bulk endpoints back to not using stream IDs.
+ * Can fail if we are given bad arguments, or HCD is broken.
+ */
+void usb_free_streams(struct usb_interface *interface,
+		struct usb_host_endpoint **eps, unsigned int num_eps,
+		gfp_t mem_flags)
+{
+	struct usb_hcd *hcd;
+	struct usb_device *dev;
+	int i;
+
+	dev = interface_to_usbdev(interface);
+	hcd = bus_to_hcd(dev->bus);
+	if (dev->speed != USB_SPEED_SUPER)
+		return;
+
+	/* Streams only apply to bulk endpoints. */
+	for (i = 0; i < num_eps; i++)
+		if (!usb_endpoint_xfer_bulk(&eps[i]->desc))
+			return;
+
+	hcd->driver->free_streams(hcd, dev, eps, num_eps, mem_flags);
+}
+EXPORT_SYMBOL_GPL(usb_free_streams);
 
 /* Protect against drivers that try to unlink URBs after the device
  * is gone, by waiting until all unlinks for @udev are finished.

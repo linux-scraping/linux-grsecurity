@@ -78,6 +78,7 @@ struct usb_device_id rtusb_usb_id[] = {
 	{USB_DEVICE(0x083A, 0x7522)},	/* Arcadyan */
 	{USB_DEVICE(0x0CDE, 0x0022)},	/* ZCOM */
 	{USB_DEVICE(0x0586, 0x3416)},	/* Zyxel */
+	{USB_DEVICE(0x0586, 0x341a)},	/* Zyxel NWD-270N */
 	{USB_DEVICE(0x0CDE, 0x0025)},	/* Zyxel */
 	{USB_DEVICE(0x1740, 0x9701)},	/* EnGenius */
 	{USB_DEVICE(0x1740, 0x9702)},	/* EnGenius */
@@ -156,7 +157,7 @@ static void rt2870_disconnect(struct usb_device *dev, struct rt_rtmp_adapter *pA
 static int __devinit rt2870_probe(IN struct usb_interface *intf,
 				  IN struct usb_device *usb_dev,
 				  IN const struct usb_device_id *dev_id,
-				  struct rt_rtmp_adapter ** ppAd);
+				  struct rt_rtmp_adapter **ppAd);
 
 #ifndef PF_NOFREEZE
 #define PF_NOFREEZE  0
@@ -804,7 +805,7 @@ static void rt2870_disconnect(struct usb_device *dev, struct rt_rtmp_adapter *pA
 static int __devinit rt2870_probe(IN struct usb_interface *intf,
 				  IN struct usb_device *usb_dev,
 				  IN const struct usb_device_id *dev_id,
-				  struct rt_rtmp_adapter ** ppAd)
+				  struct rt_rtmp_adapter **ppAd)
 {
 	struct net_device *net_dev = NULL;
 	struct rt_rtmp_adapter *pAd = (struct rt_rtmp_adapter *)NULL;

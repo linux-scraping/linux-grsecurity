@@ -109,6 +109,9 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 		return retval;
 
 	switch (pdev->vendor) {
+	case PCI_VENDOR_ID_NEC:
+		ehci->need_io_watchdog = 0;
+		break;
 	case PCI_VENDOR_ID_INTEL:
 		ehci->need_io_watchdog = 0;
 		ehci->fs_i_thresh = 1;

@@ -575,7 +575,7 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym))
 				continue;
 			}
 			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
-			if (!strcmp(sec_name(sym->st_shndx), ".data.percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
+			if (!strcmp(sec_name(sym->st_shndx), ".data..percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
 				continue;
 
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)

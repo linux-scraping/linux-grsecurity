@@ -1036,7 +1036,6 @@ static netdev_tx_t vlsi_hard_start_xmit(struct sk_buff *skb,
 		wmb();
 		outw(0, iobase+VLSI_PIO_PROMPT);
 	}
-	ndev->trans_start = jiffies;
 
 	if (ring_put(r) == NULL) {
 		netif_stop_queue(ndev);
@@ -1741,7 +1740,7 @@ static int vlsi_irda_suspend(struct pci_dev *pdev, pm_message_t state)
 	vlsi_irda_dev_t *idev;
 
 	if (!ndev) {
-		IRDA_ERROR("%s - %s: no netdevice \n",
+		IRDA_ERROR("%s - %s: no netdevice\n",
 			   __func__, pci_name(pdev));
 		return 0;
 	}
@@ -1780,7 +1779,7 @@ static int vlsi_irda_resume(struct pci_dev *pdev)
 	vlsi_irda_dev_t	*idev;
 
 	if (!ndev) {
-		IRDA_ERROR("%s - %s: no netdevice \n",
+		IRDA_ERROR("%s - %s: no netdevice\n",
 			   __func__, pci_name(pdev));
 		return 0;
 	}

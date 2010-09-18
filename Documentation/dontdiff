@@ -111,6 +111,7 @@ fore200e_mkfirm
 fore200e_pca_fw.c*
 gconf
 gen-devlist
+gen-kdb_cmds.c
 gen_crc32table
 gen_init_cpio
 generated

@@ -196,14 +196,13 @@ int ocfs2_get_block(struct inode *inode, sector_t iblock,
 			dump_stack();
 			goto bail;
 		}
-
-		past_eof = ocfs2_blocks_for_bytes(inode->i_sb, i_size_read(inode));
-		mlog(0, "Inode %lu, past_eof = %llu\n", inode->i_ino,
-		     (unsigned long long)past_eof);
-
-		if (create && (iblock >= past_eof))
-			set_buffer_new(bh_result);
 	}
+
+	past_eof = ocfs2_blocks_for_bytes(inode->i_sb, i_size_read(inode));
+	mlog(0, "Inode %lu, past_eof = %llu\n", inode->i_ino,
+	     (unsigned long long)past_eof);
+	if (create && (iblock >= past_eof))
+		set_buffer_new(bh_result);
 
 bail:
 	if (err < 0)
@@ -1604,26 +1603,37 @@ out:
  * write path can treat it as an non-allocating write, which has no
  * special case code for sparse/nonsparse files.
  */
-static int ocfs2_expand_nonsparse_inode(struct inode *inode, loff_t pos,
-					unsigned len,
+static int ocfs2_expand_nonsparse_inode(struct inode *inode,
+					struct buffer_head *di_bh,
+					loff_t pos, unsigned len,
 					struct ocfs2_write_ctxt *wc)
 {
 	int ret;
-	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	loff_t newsize = pos + len;
 
-	if (ocfs2_sparse_alloc(osb))
-		return 0;
+	BUG_ON(ocfs2_sparse_alloc(OCFS2_SB(inode->i_sb)));
 
 	if (newsize <= i_size_read(inode))
 		return 0;
 
-	ret = ocfs2_extend_no_holes(inode, newsize, pos);
+	ret = ocfs2_extend_no_holes(inode, di_bh, newsize, pos);
 	if (ret)
 		mlog_errno(ret);
 
 	wc->w_first_new_cpos =
 		ocfs2_clusters_for_bytes(inode->i_sb, i_size_read(inode));
+
+	return ret;
+}
+
+static int ocfs2_zero_tail(struct inode *inode, struct buffer_head *di_bh,
+			   loff_t pos)
+{
+	int ret = 0;
+
+	BUG_ON(!ocfs2_sparse_alloc(OCFS2_SB(inode->i_sb)));
+	if (pos > i_size_read(inode))
+		ret = ocfs2_zero_extend(inode, di_bh, pos);
 
 	return ret;
 }
@@ -1663,7 +1673,11 @@ int ocfs2_write_begin_nolock(struct address_space *mapping,
 		}
 	}
 
-	ret = ocfs2_expand_nonsparse_inode(inode, pos, len, wc);
+	if (ocfs2_sparse_alloc(osb))
+		ret = ocfs2_zero_tail(inode, di_bh, pos);
+	else
+		ret = ocfs2_expand_nonsparse_inode(inode, di_bh, pos, len,
+						   wc);
 	if (ret) {
 		mlog_errno(ret);
 		goto out;
@@ -1718,6 +1732,9 @@ int ocfs2_write_begin_nolock(struct address_space *mapping,
 			mlog_errno(ret);
 			goto out;
 		}
+
+		if (data_ac)
+			data_ac->ac_resv = &OCFS2_I(inode)->ip_la_data_resv;
 
 		credits = ocfs2_calc_extend_credits(inode->i_sb,
 						    &di->id2.i_list,

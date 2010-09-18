@@ -42,6 +42,7 @@
 #include <linux/usb.h>
 #include <linux/firmware.h>
 #include <linux/etherdevice.h>
+#include <linux/device.h>
 #include <net/mac80211.h>
 #include "ar9170.h"
 #include "cmd.h"
@@ -109,6 +110,8 @@ static struct usb_device_id ar9170_usb_ids[] = {
 	{ USB_DEVICE(0x0409, 0x0249) },
 	/* AVM FRITZ!WLAN USB Stick N 2.4 */
 	{ USB_DEVICE(0x057C, 0x8402), .driver_info = AR9170_REQ_FW1_ONLY },
+	/* Qwest/Actiontec 802AIN Wireless N USB Network Adapter */
+	{ USB_DEVICE(0x1668, 0x1200) },
 
 	/* terminate */
 	{}
@@ -212,7 +215,7 @@ resubmit:
 	return;
 
 free:
-	usb_buffer_free(aru->udev, 64, urb->transfer_buffer, urb->transfer_dma);
+	usb_free_coherent(aru->udev, 64, urb->transfer_buffer, urb->transfer_dma);
 }
 
 static void ar9170_usb_rx_completed(struct urb *urb)
@@ -293,7 +296,7 @@ static int ar9170_usb_alloc_rx_irq_urb(struct ar9170_usb *aru)
 	if (!urb)
 		goto out;
 
-	ibuf = usb_buffer_alloc(aru->udev, 64, GFP_KERNEL, &urb->transfer_dma);
+	ibuf = usb_alloc_coherent(aru->udev, 64, GFP_KERNEL, &urb->transfer_dma);
 	if (!ibuf)
 		goto out;
 
@@ -306,8 +309,8 @@ static int ar9170_usb_alloc_rx_irq_urb(struct ar9170_usb *aru)
 	err = usb_submit_urb(urb, GFP_KERNEL);
 	if (err) {
 		usb_unanchor_urb(urb);
-		usb_buffer_free(aru->udev, 64, urb->transfer_buffer,
-				urb->transfer_dma);
+		usb_free_coherent(aru->udev, 64, urb->transfer_buffer,
+				  urb->transfer_dma);
 	}
 
 out:
@@ -736,17 +739,27 @@ err_out:
 static void ar9170_usb_firmware_failed(struct ar9170_usb *aru)
 {
 	struct device *parent = aru->udev->dev.parent;
+	struct usb_device *udev;
+
+	/*
+	 * Store a copy of the usb_device pointer locally.
+	 * This is because device_release_driver initiates
+	 * ar9170_usb_disconnect, which in turn frees our
+	 * driver context (aru).
+	 */
+	udev = aru->udev;
 
 	complete(&aru->firmware_loading_complete);
 
 	/* unbind anything failed */
 	if (parent)
-		down(&parent->sem);
-	device_release_driver(&aru->udev->dev);
-	if (parent)
-		up(&parent->sem);
+		device_lock(parent);
 
-	usb_put_dev(aru->udev);
+	device_release_driver(&udev->dev);
+	if (parent)
+		device_unlock(parent);
+
+	usb_put_dev(udev);
 }
 
 static void ar9170_usb_firmware_finish(const struct firmware *fw, void *context)

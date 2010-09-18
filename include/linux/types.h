@@ -188,12 +188,12 @@ typedef u32 phys_addr_t;
 typedef phys_addr_t resource_size_t;
 
 typedef struct {
-	volatile int counter;
+	int counter;
 } atomic_t;
 
 #ifdef CONFIG_PAX_REFCOUNT
 typedef struct {
-	volatile int counter;
+	int counter;
 } atomic_unchecked_t;
 #else
 typedef atomic_t atomic_unchecked_t;
@@ -201,12 +201,12 @@ typedef atomic_t atomic_unchecked_t;
 
 #ifdef CONFIG_64BIT
 typedef struct {
-	volatile long counter;
+	long counter;
 } atomic64_t;
 
 #ifdef CONFIG_PAX_REFCOUNT
 typedef struct {
-	volatile long counter;
+	long counter;
 } atomic64_unchecked_t;
 #else
 typedef atomic64_t atomic64_unchecked_t;

@@ -28,8 +28,12 @@ KMAP_D(15)	KM_UML_USERCOPY,
 KMAP_D(16)	KM_IRQ_PTE,
 KMAP_D(17)	KM_NMI,
 KMAP_D(18)	KM_NMI_PTE,
-KMAP_D(19)	KM_CLEARPAGE,
-KMAP_D(20)	KM_TYPE_NR
+KMAP_D(19)	KM_KDB,
+KMAP_D(20)	KM_CLEARPAGE,
+/*
+ * Remember to update debug_kmap_atomic() when adding new kmap types!
+ */
+KMAP_D(21)	KM_TYPE_NR
 };
 
 #undef KMAP_D

@@ -13,12 +13,12 @@
 #define ATOMIC_INIT(i)		{ (i) }
 #define ATOMIC64_INIT(i)	{ (i) }
 
-#define atomic_read(v)		((v)->counter)
+#define atomic_read(v)		(*(volatile int *)&(v)->counter)
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
 	return v->counter;
 }
-#define atomic64_read(v)	((v)->counter)
+#define atomic64_read(v)	(*(volatile long *)&(v)->counter)
 static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
 	return v->counter;

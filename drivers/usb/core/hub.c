@@ -19,6 +19,8 @@
 #include <linux/ioctl.h>
 #include <linux/usb.h>
 #include <linux/usbdevice_fs.h>
+#include <linux/usb/hcd.h>
+#include <linux/usb/quirks.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/freezer.h>
@@ -28,8 +30,6 @@
 #include <asm/byteorder.h>
 
 #include "usb.h"
-#include "hcd.h"
-#include "hub.h"
 
 /* if we are in debug mode, always announce new devices */
 #ifdef DEBUG
@@ -154,11 +154,11 @@ static int usb_reset_and_verify_device(struct usb_device *udev);
 
 static inline char *portspeed(int portstatus)
 {
-	if (portstatus & (1 << USB_PORT_FEAT_HIGHSPEED))
+	if (portstatus & USB_PORT_STAT_HIGH_SPEED)
     		return "480 Mb/s";
-	else if (portstatus & (1 << USB_PORT_FEAT_LOWSPEED))
+	else if (portstatus & USB_PORT_STAT_LOW_SPEED)
 		return "1.5 Mb/s";
-	else if (portstatus & (1 << USB_PORT_FEAT_SUPERSPEED))
+	else if (portstatus & USB_PORT_STAT_SUPER_SPEED)
 		return "5.0 Gb/s";
 	else
 		return "12 Mb/s";
@@ -745,8 +745,20 @@ static void hub_activate(struct usb_hub *hub, enum hub_activation_type type)
 				!(portstatus & USB_PORT_STAT_CONNECTION) ||
 				!udev ||
 				udev->state == USB_STATE_NOTATTACHED)) {
-			clear_port_feature(hdev, port1, USB_PORT_FEAT_ENABLE);
-			portstatus &= ~USB_PORT_STAT_ENABLE;
+			/*
+			 * USB3 protocol ports will automatically transition
+			 * to Enabled state when detect an USB3.0 device attach.
+			 * Do not disable USB3 protocol ports.
+			 * FIXME: USB3 root hub and external hubs are treated
+			 * differently here.
+			 */
+			if (hdev->descriptor.bDeviceProtocol != 3 ||
+			    (!hdev->parent &&
+			     !(portstatus & USB_PORT_STAT_SUPER_SPEED))) {
+				clear_port_feature(hdev, port1,
+						   USB_PORT_FEAT_ENABLE);
+				portstatus &= ~USB_PORT_STAT_ENABLE;
+			}
 		}
 
 		/* Clear status-change flags; we'll debounce later */
@@ -1790,7 +1802,6 @@ int usb_new_device(struct usb_device *udev)
 	pm_runtime_set_active(&udev->dev);
 	pm_runtime_enable(&udev->dev);
 
-	usb_detect_quirks(udev);
 	err = usb_enumerate_device(udev);	/* Read descriptors */
 	if (err < 0)
 		goto fail;
@@ -1971,7 +1982,7 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 		    (portstatus & USB_PORT_STAT_ENABLE)) {
 			if (hub_is_wusb(hub))
 				udev->speed = USB_SPEED_WIRELESS;
-			else if (portstatus & (1 << USB_PORT_FEAT_SUPERSPEED))
+			else if (portstatus & USB_PORT_STAT_SUPER_SPEED)
 				udev->speed = USB_SPEED_SUPER;
 			else if (portstatus & USB_PORT_STAT_HIGH_SPEED)
 				udev->speed = USB_SPEED_HIGH;
@@ -3039,7 +3050,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 
 		/* maybe switch power back on (e.g. root hub was reset) */
 		if ((wHubCharacteristics & HUB_CHAR_LPSM) < 2
-				&& !(portstatus & (1 << USB_PORT_FEAT_POWER)))
+				&& !(portstatus & USB_PORT_STAT_POWER))
 			set_port_feature(hdev, port1, USB_PORT_FEAT_POWER);
 
 		if (portstatus & USB_PORT_STAT_ENABLE)
@@ -3077,7 +3088,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		if (!(hcd->driver->flags & HCD_USB3))
 			udev->speed = USB_SPEED_UNKNOWN;
 		else if ((hdev->parent == NULL) &&
-				(portstatus & (1 << USB_PORT_FEAT_SUPERSPEED)))
+				(portstatus & USB_PORT_STAT_SUPER_SPEED))
 			udev->speed = USB_SPEED_SUPER;
 		else
 			udev->speed = USB_SPEED_UNKNOWN;
@@ -3099,6 +3110,10 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		status = hub_port_init(hub, udev, port1, i);
 		if (status < 0)
 			goto loop;
+
+		usb_detect_quirks(udev);
+		if (udev->quirks & USB_QUIRK_DELAY_INIT)
+			msleep(1000);
 
 		/* consecutive bus-powered hubs aren't reliable; they can
 		 * violate the voltage drop budget.  if the new child has

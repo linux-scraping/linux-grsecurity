@@ -224,7 +224,6 @@ struct asus_laptop {
 	struct asus_led gled;
 	struct asus_led kled;
 	struct workqueue_struct *led_workqueue;
-
 	int wireless_status;
 	bool have_rsts;
 	int lcd_state;

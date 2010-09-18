@@ -880,6 +880,12 @@ static struct cardbus_type cardbus_type[] = {
 		.restore_state	= ti_restore_state,
 		.sock_init	= ti_init,
 	},
+	[CARDBUS_TYPE_ENE]	= {
+		.override	= ene_override,
+		.save_state	= ti_save_state,
+		.restore_state	= ti_restore_state,
+		.sock_init	= ti_init,
+	},
 #endif
 #ifdef CONFIG_YENTA_RICOH
 	[CARDBUS_TYPE_RICOH]	= {
@@ -900,14 +906,6 @@ static struct cardbus_type cardbus_type[] = {
 	[CARDBUS_TYPE_O2MICRO]	= {
 		.override	= o2micro_override,
 		.restore_state	= o2micro_restore_state,
-	},
-#endif
-#ifdef CONFIG_YENTA_TI
-	[CARDBUS_TYPE_ENE]	= {
-		.override	= ene_override,
-		.save_state	= ti_save_state,
-		.restore_state	= ti_restore_state,
-		.sock_init	= ti_init,
 	},
 #endif
 };
@@ -1303,13 +1301,6 @@ static int yenta_dev_suspend_noirq(struct device *dev)
 	pci_read_config_dword(pdev, 16*4, &socket->saved_state[0]);
 	pci_read_config_dword(pdev, 17*4, &socket->saved_state[1]);
 	pci_disable_device(pdev);
-
-	/*
-	 * Some laptops (IBM T22) do not like us putting the Cardbus
-	 * bridge into D3.  At a guess, some other laptop will
-	 * probably require this, so leave it commented out for now.
-	 */
-	/* pci_set_power_state(dev, 3); */
 
 	return 0;
 }

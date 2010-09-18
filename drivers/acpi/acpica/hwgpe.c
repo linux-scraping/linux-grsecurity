@@ -113,7 +113,7 @@ acpi_hw_low_set_gpe(struct acpi_gpe_event_info *gpe_event_info, u8 action)
 		return (status);
 	}
 
-	/* Set or clear just the bit that corresponds to this GPE */
+	/* Set ot clear just the bit that corresponds to this GPE */
 
 	register_bit = acpi_hw_gpe_register_bit(gpe_event_info,
 						gpe_register_info);

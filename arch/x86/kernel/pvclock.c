@@ -31,7 +31,15 @@ struct pvclock_shadow_time {
 	u32 tsc_to_nsec_mul;
 	int tsc_shift;
 	u32 version;
+	u8  flags;
 };
+
+static u8 valid_flags __read_mostly = 0;
+
+void pvclock_set_flags(u8 flags)
+{
+	valid_flags = flags;
+}
 
 /*
  * Scale a 64-bit delta by scaling and multiplying by a 32-bit fraction,
@@ -91,6 +99,7 @@ static unsigned pvclock_get_time_values(struct pvclock_shadow_time *dst,
 		dst->system_timestamp  = src->system_time;
 		dst->tsc_to_nsec_mul   = src->tsc_to_system_mul;
 		dst->tsc_shift         = src->tsc_shift;
+		dst->flags             = src->flags;
 		rmb();		/* test version after fetching data */
 	} while ((src->version & 1) || (dst->version != src->version));
 
@@ -125,6 +134,10 @@ cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 		ret = shadow.system_timestamp + offset;
 		barrier();
 	} while (version != src->version);
+
+	if ((valid_flags & PVCLOCK_TSC_STABLE_BIT) &&
+		(shadow.flags & PVCLOCK_TSC_STABLE_BIT))
+		return ret;
 
 	/*
 	 * Assumption here is that last_value, a global accumulator, always goes

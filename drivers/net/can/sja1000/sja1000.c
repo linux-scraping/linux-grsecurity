@@ -60,7 +60,6 @@
 #include <linux/skbuff.h>
 #include <linux/delay.h>
 
-#include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
 
@@ -306,8 +305,6 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
 
 	for (i = 0; i < dlc; i++)
 		priv->write_reg(priv, dreg++, cf->data[i]);
-
-	dev->trans_start = jiffies;
 
 	can_put_echo_skb(skb, dev, 0);
 
@@ -601,6 +598,8 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
 	priv->can.do_get_berr_counter = sja1000_get_berr_counter;
 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
 		CAN_CTRLMODE_BERR_REPORTING;
+
+	spin_lock_init(&priv->cmdreg_lock);
 
 	if (sizeof_priv)
 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);

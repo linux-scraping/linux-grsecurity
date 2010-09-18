@@ -573,7 +573,7 @@ int cap_inode_setxattr(struct dentry *dentry, const char *name,
 	}
 
 	if (!strncmp(name, XATTR_SECURITY_PREFIX,
-		     sizeof(XATTR_SECURITY_PREFIX) - 1)  &&
+		     sizeof(XATTR_SECURITY_PREFIX) - 1) &&
 	    !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 	return 0;
@@ -599,7 +599,7 @@ int cap_inode_removexattr(struct dentry *dentry, const char *name)
 	}
 
 	if (!strncmp(name, XATTR_SECURITY_PREFIX,
-		     sizeof(XATTR_SECURITY_PREFIX) - 1)  &&
+		     sizeof(XATTR_SECURITY_PREFIX) - 1) &&
 	    !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 	return 0;
@@ -934,7 +934,7 @@ int cap_vm_enough_memory(struct mm_struct *mm, long pages)
  * @addr: address attempting to be mapped
  * @addr_only: unused
  *
- * If the process is attempting to map memory below mmap_min_addr they need
+ * If the process is attempting to map memory below dac_mmap_min_addr they need
  * CAP_SYS_RAWIO.  The other parameters to this function are unused by the
  * capability security module.  Returns 0 if this mapping should be allowed
  * -EPERM if not.
