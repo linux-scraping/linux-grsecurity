@@ -372,7 +372,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
 static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
-	return atomic_add_return(1, v);
+	return atomic_add_return_unchecked(1, v);
 }
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
