@@ -331,7 +331,7 @@ static int proc_pid_auxv(struct task_struct *task, char *buffer)
 }
 
 
-#ifdef CONFIG_KALLSYMS
+#if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 /*
  * Provides a wchan file via kallsyms in a proper one-value-per-file format.
  * Returns the resolved symbol.  If that fails, simply return the address.
@@ -2699,7 +2699,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_SECURITY
 	DIR("attr",       S_IRUGO|S_IXUGO, proc_attr_dir_inode_operations, proc_attr_dir_operations),
 #endif
-#ifdef CONFIG_KALLSYMS
+#if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 	INF("wchan",      S_IRUGO, proc_pid_wchan),
 #endif
 #if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
@@ -3071,7 +3071,7 @@ static const struct pid_entry tid_base_stuff[] = {
 #ifdef CONFIG_SECURITY
 	DIR("attr",      S_IRUGO|S_IXUGO, proc_attr_dir_inode_operations, proc_attr_dir_operations),
 #endif
-#ifdef CONFIG_KALLSYMS
+#if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 	INF("wchan",     S_IRUGO, proc_pid_wchan),
 #endif
 #if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
