@@ -13,7 +13,6 @@
 
 #include <linux/linkage.h>
 #include <linux/compat.h>
-#include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/time.h>
 #include <linux/signal.h>
@@ -26,6 +25,7 @@
 #include <linux/posix-timers.h>
 #include <linux/times.h>
 #include <linux/ptrace.h>
+#include <linux/module.h>
 
 #include <asm/uaccess.h>
 
