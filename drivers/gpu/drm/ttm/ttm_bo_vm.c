@@ -216,6 +216,7 @@ out_unlock:
 	ttm_bo_unreserve(bo);
 	return retval;
 }
+EXPORT_SYMBOL(ttm_bo_vm_fault);
 
 void ttm_bo_vm_open(struct vm_area_struct *vma)
 {
@@ -224,6 +225,7 @@ void ttm_bo_vm_open(struct vm_area_struct *vma)
 
 	(void)ttm_bo_reference(bo);
 }
+EXPORT_SYMBOL(ttm_bo_vm_open);
 
 void ttm_bo_vm_close(struct vm_area_struct *vma)
 {
@@ -232,6 +234,7 @@ void ttm_bo_vm_close(struct vm_area_struct *vma)
 	ttm_bo_unref(&bo);
 	vma->vm_private_data = NULL;
 }
+EXPORT_SYMBOL(ttm_bo_vm_close);
 
 static const struct vm_operations_struct ttm_bo_vm_ops = {
 	.fault = ttm_bo_vm_fault,
