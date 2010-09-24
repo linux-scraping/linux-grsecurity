@@ -73,7 +73,7 @@
 #define GR_UNSPROLES_ACL_MSG "successful unauth of special role %s (id %d) by "
 #define GR_INVMODE_ACL_MSG "invalid mode %d by "
 #define GR_PRIORITY_CHROOT_MSG "denied priority change of process (%.16s:%d) by "
-#define GR_FAILFORK_MSG "failed fork with errno %d by "
+#define GR_FAILFORK_MSG "failed fork with errno %s by "
 #define GR_NICE_CHROOT_MSG "denied priority change by "
 #define GR_UNISIGLOG_MSG "%.32s occurred at %p in "
 #define GR_DUALSIGLOG_MSG "signal %d sent to " DEFAULTSECMSG " by "

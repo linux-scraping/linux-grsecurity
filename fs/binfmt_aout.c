@@ -87,6 +87,8 @@ static int aout_core_dump(struct coredump_params *cprm)
 #endif
 #       define START_STACK(u)   ((void __user *)u.start_stack)
 
+	memset(&dump, 0, sizeof(dump));
+
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	has_dumped = 1;
@@ -137,10 +139,7 @@ static int aout_core_dump(struct coredump_params *cprm)
 		if (!dump_write(file, dump_start, dump_size))
 			goto end_coredump;
 	}
-/* Finally dump the task struct.  Not be used by gdb, but could be useful */
-	set_fs(KERNEL_DS);
-	if (!dump_write(file, current, sizeof(*current)))
-		goto end_coredump;
+/* Finally let's not dump the task struct.  Not be used by gdb, but could be useful to an attacker */
 end_coredump:
 	set_fs(fs);
 	return has_dumped;
