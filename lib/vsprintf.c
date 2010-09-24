@@ -990,7 +990,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	      struct printf_spec spec)
 {
 	if (!ptr)
-		return string(buf, end, "(null)", spec);
+		return string(buf, end, "(nil)", spec);
 
 	switch (*fmt) {
 	case 'F':
