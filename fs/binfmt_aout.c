@@ -103,6 +103,8 @@ static int aout_core_dump(long signr, struct pt_regs *regs, struct file *file, u
 #endif
 #       define START_STACK(u)   (u.start_stack)
 
+	memset(&dump, 0, sizeof(dump));
+
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 	has_dumped = 1;
@@ -149,9 +151,7 @@ static int aout_core_dump(long signr, struct pt_regs *regs, struct file *file, u
 		dump_size = dump.u_ssize << PAGE_SHIFT;
 		DUMP_WRITE(dump_start,dump_size);
 	}
-/* Finally dump the task struct.  Not be used by gdb, but could be useful */
-	set_fs(KERNEL_DS);
-	DUMP_WRITE(current,sizeof(*current));
+/* Finally, let's not dump the task struct.  Not be used by gdb, but could be useful to an attacker */
 end_coredump:
 	set_fs(fs);
 	return has_dumped;
