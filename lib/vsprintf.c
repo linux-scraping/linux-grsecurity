@@ -551,7 +551,7 @@ static char *string(char *buf, char *end, char *s, struct printf_spec spec)
 	int len, i;
 
 	if ((unsigned long)s < PAGE_SIZE)
-		s = "<NULL>";
+		s = "(null)";
 
 	len = strnlen(s, spec.precision);
 
@@ -822,7 +822,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			struct printf_spec spec)
 {
 	if (!ptr)
-		return string(buf, end, "(null)", spec);
+		return string(buf, end, "(nil)", spec);
 
 	switch (*fmt) {
 	case 'F':
@@ -1445,7 +1445,7 @@ do {									\
 			size_t len;
 			if ((unsigned long)save_str > (unsigned long)-PAGE_SIZE
 					|| (unsigned long)save_str < PAGE_SIZE)
-				save_str = "<NULL>";
+				save_str = "(null)";
 			len = strlen(save_str);
 			if (str + len + 1 < end)
 				memcpy(str, save_str, len + 1);
