@@ -343,6 +343,8 @@ static unsigned long mremap_to(unsigned long addr,
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
+	pax_task_size -= PAGE_SIZE;
+
 	if (new_len > TASK_SIZE || new_addr > pax_task_size - new_len)
 		goto out;
 
@@ -444,6 +446,8 @@ unsigned long do_mremap(unsigned long addr,
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
+
+	pax_task_size -= PAGE_SIZE;
 
 	if (new_len > pax_task_size || addr > pax_task_size-new_len ||
 	    old_len > pax_task_size || addr > pax_task_size-old_len)

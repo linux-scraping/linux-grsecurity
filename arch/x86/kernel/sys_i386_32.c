@@ -86,6 +86,8 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
+	pax_task_size -= PAGE_SIZE;
+
 	if (len > pax_task_size)
 		return -ENOMEM;
 
@@ -174,6 +176,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
+
+	pax_task_size -= PAGE_SIZE;
 
 	/* requested length too big for entire address space */
 	if (len > pax_task_size)

@@ -2500,7 +2500,7 @@ asmlinkage void kvm_handle_fault_on_reboot(void)
 	if (kvm_rebooting)
 		/* spin while reset goes on */
 		while (true)
-			;
+			cpu_relax();
 	/* Fault while not rebooting.  We want the trace. */
 	BUG();
 }

@@ -170,13 +170,9 @@ static inline void atomic_inc(atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
 		     LOCK_PREFIX "decl %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     : "=m" (v->counter)
@@ -208,13 +204,9 @@ static inline void atomic_dec(atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "incl %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     : "=m" (v->counter)
@@ -250,13 +242,9 @@ static inline int atomic_dec_and_test(atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "incl %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     "sete %1\n"
@@ -281,13 +269,9 @@ static inline int atomic_inc_and_test(atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "decl %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     "sete %1\n"
@@ -526,13 +510,9 @@ static inline void atomic64_inc(atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
 		     LOCK_PREFIX "decq %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     : "=m" (v->counter)
@@ -564,13 +544,9 @@ static inline void atomic64_dec(atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "incq %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     : "=m" (v->counter)
@@ -606,13 +582,9 @@ static inline int atomic64_dec_and_test(atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "incq %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     "sete %1\n"
@@ -637,13 +609,9 @@ static inline int atomic64_inc_and_test(atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1: \n"
 		     LOCK_PREFIX "decq %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     "sete %1\n"
@@ -773,6 +741,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #ifdef CONFIG_PAX_REFCOUNT
 			     "jno 0f\n"
+			     "subl %2,%0\n"
 			     "int $4\n0:\n"
 			     _ASM_EXTABLE(0b, 0b)
 #endif
@@ -811,6 +780,7 @@ static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
 
 #ifdef CONFIG_PAX_REFCOUNT
 			     "jno 0f\n"
+			     "subq %2,%0\n"
 			     "int $4\n0:\n"
 			     _ASM_EXTABLE(0b, 0b)
 #endif
