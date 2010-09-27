@@ -86,13 +86,23 @@ ENTRY(atomic64_\func\()_return_cx8)
 	movl %edx, %ecx
 	\ins\()l %esi, %ebx
 	\insc\()l %edi, %ecx
+
+#ifdef CONFIG_PAX_REFCOUNT
+	into
+2:
+	_ASM_EXTABLE(2b, 3f)
+#endif
+
 	LOCK_PREFIX
 	cmpxchg8b (%ebp)
 	jne 1b
-
-10:
 	movl %ebx, %eax
 	movl %ecx, %edx
+
+#ifdef CONFIG_PAX_REFCOUNT
+3:
+#endif
+
 	RESTORE edi
 	RESTORE esi
 	RESTORE ebx
@@ -116,13 +126,24 @@ ENTRY(atomic64_\func\()_return_cx8)
 	movl %edx, %ecx
 	\ins\()l $1, %ebx
 	\insc\()l $0, %ecx
+
+#ifdef CONFIG_PAX_REFCOUNT
+	into
+2:
+	_ASM_EXTABLE(2b, 3f)
+#endif
+
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
 	jne 1b
 
-10:
 	movl %ebx, %eax
 	movl %ecx, %edx
+
+#ifdef CONFIG_PAX_REFCOUNT
+3:
+#endif
+
 	RESTORE ebx
 	ret
 	CFI_ENDPROC
@@ -176,6 +197,13 @@ ENTRY(atomic64_add_unless_cx8)
 	movl %edx, %ecx
 	addl %esi, %ebx
 	adcl %edi, %ecx
+
+#ifdef CONFIG_PAX_REFCOUNT
+	into
+1234:
+	_ASM_EXTABLE(1234b, 1234b)
+#endif
+
 	LOCK_PREFIX
 	cmpxchg8b (%ebp)
 	jne 1b
@@ -208,6 +236,13 @@ ENTRY(atomic64_inc_not_zero_cx8)
 	movl %edx, %ecx
 	addl $1, %ebx
 	adcl $0, %ecx
+
+#ifdef CONFIG_PAX_REFCOUNT
+	into
+1234:
+	_ASM_EXTABLE(1234b, 1234b)
+#endif
+
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
 	jne 1b

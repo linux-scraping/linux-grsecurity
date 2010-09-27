@@ -273,6 +273,8 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
 
+	pax_task_size -= PAGE_SIZE;
+
 	if (len > mm->cached_hole_size) {
 		start_addr = mm->free_area_cache;
 	} else {
@@ -412,6 +414,8 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 #endif
+
+	pax_task_size -= PAGE_SIZE;
 
 	if (len > pax_task_size)
 		return -ENOMEM;

@@ -428,6 +428,7 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #ifdef CONFIG_PAX_REFCOUNT
 			     "jno 0f\n"
+			     "subl %2,%0\n"
 			     _ASM_INTO "\n0:\n"
 			     _ASM_EXTABLE(0b, 0b)
 #endif
