@@ -87,33 +87,33 @@ extern spinlock_t grsec_audit_lock;
 
 extern rwlock_t grsec_exec_file_lock;
 
-#define gr_task_fullpath(tsk) (tsk->exec_file ? \
-			gr_to_filename2(tsk->exec_file->f_path.dentry, \
-			tsk->exec_file->f_vfsmnt) : "/")
+#define gr_task_fullpath(tsk) ((tsk)->exec_file ? \
+			gr_to_filename2((tsk)->exec_file->f_path.dentry, \
+			(tsk)->exec_file->f_vfsmnt) : "/")
 
-#define gr_parent_task_fullpath(tsk) (tsk->parent->exec_file ? \
-			gr_to_filename3(tsk->parent->exec_file->f_path.dentry, \
-			tsk->parent->exec_file->f_vfsmnt) : "/")
+#define gr_parent_task_fullpath(tsk) ((tsk)->real_parent->exec_file ? \
+			gr_to_filename3((tsk)->real_parent->exec_file->f_path.dentry, \
+			(tsk)->real_parent->exec_file->f_vfsmnt) : "/")
 
-#define gr_task_fullpath0(tsk) (tsk->exec_file ? \
-			gr_to_filename(tsk->exec_file->f_path.dentry, \
-			tsk->exec_file->f_vfsmnt) : "/")
+#define gr_task_fullpath0(tsk) ((tsk)->exec_file ? \
+			gr_to_filename((tsk)->exec_file->f_path.dentry, \
+			(tsk)->exec_file->f_vfsmnt) : "/")
 
-#define gr_parent_task_fullpath0(tsk) (tsk->parent->exec_file ? \
-			gr_to_filename1(tsk->parent->exec_file->f_path.dentry, \
-			tsk->parent->exec_file->f_vfsmnt) : "/")
+#define gr_parent_task_fullpath0(tsk) ((tsk)->real_parent->exec_file ? \
+			gr_to_filename1((tsk)->real_parent->exec_file->f_path.dentry, \
+			(tsk)->real_parent->exec_file->f_vfsmnt) : "/")
 
-#define proc_is_chrooted(tsk_a)  (tsk_a->gr_is_chrooted)
+#define proc_is_chrooted(tsk_a)  ((tsk_a)->gr_is_chrooted)
 
-#define have_same_root(tsk_a,tsk_b) (tsk_a->gr_chroot_dentry == tsk_b->gr_chroot_dentry)
+#define have_same_root(tsk_a,tsk_b) ((tsk_a)->gr_chroot_dentry == (tsk_b)->gr_chroot_dentry)
 
-#define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), task->comm, \
-		       task->pid, cred->uid, \
-		       cred->euid, cred->gid, cred->egid, \
+#define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), (task)->comm, \
+		       (task)->pid, (cred)->uid, \
+		       (cred)->euid, (cred)->gid, (cred)->egid, \
 		       gr_parent_task_fullpath(task), \
-		       task->parent->comm, task->parent->pid, \
-		       pcred->uid, pcred->euid, \
-		       pcred->gid, pcred->egid
+		       (task)->real_parent->comm, (task)->real_parent->pid, \
+		       (pcred)->uid, (pcred)->euid, \
+		       (pcred)->gid, (pcred)->egid
 
 #define GR_CHROOT_CAPS {{ \
 	CAP_TO_MASK(CAP_LINUX_IMMUTABLE) | CAP_TO_MASK(CAP_NET_ADMIN) | \

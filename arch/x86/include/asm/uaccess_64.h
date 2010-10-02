@@ -15,8 +15,6 @@
 
 #define set_fs(x)	(current_thread_info()->addr_limit = (x))
 
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
-
 /*
  * Copy To/From Userspace
  */

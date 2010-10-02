@@ -46,8 +46,8 @@ void gr_handle_brute_attach(struct task_struct *p)
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
-	if (p->parent && p->parent->exec_file == p->exec_file)
-		p->parent->brute = 1;
+	if (p->real_parent && p->real_parent->exec_file == p->exec_file)
+		p->real_parent->brute = 1;
 	read_unlock(&grsec_exec_file_lock);
 	read_unlock(&tasklist_lock);
 #endif

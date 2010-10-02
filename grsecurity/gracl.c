@@ -2779,7 +2779,7 @@ assign_special_role(char *rolename)
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
 
-	tsk = current->parent;
+	tsk = current->real_parent;
 	if (tsk == NULL)
 		goto out_unlock;
 
@@ -2861,7 +2861,7 @@ int gr_check_secure_terminal(struct task_struct *task)
 				while (p3->pid > 0) {
 					if (p3 == p)
 						break;
-					p3 = p3->parent;
+					p3 = p3->real_parent;
 				}
 				if (p3 == p)
 					break;
@@ -3073,8 +3073,8 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			char *p = "";
 			assign_special_role(gr_usermode->sp_role);
 			read_lock(&tasklist_lock);
-			if (current->parent)
-				p = current->parent->role->rolename;
+			if (current->real_parent)
+				p = current->real_parent->role->rolename;
 			read_unlock(&tasklist_lock);
 			gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_SPROLES_ACL_MSG,
 					p, acl_sp_role_value);
@@ -3099,9 +3099,9 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			int i = 0;
 
 			read_lock(&tasklist_lock);
-			if (current->parent) {
-				p = current->parent->role->rolename;
-				i = current->parent->acl_role_id;
+			if (current->real_parent) {
+				p = current->real_parent->role->rolename;
+				i = current->real_parent->acl_role_id;
 			}
 			read_unlock(&tasklist_lock);
 
@@ -3560,7 +3560,7 @@ gr_handle_proc_ptrace(struct task_struct *task)
 	while (tmp->pid > 0) {
 		if (tmp == curtemp)
 			break;
-		tmp = tmp->parent;
+		tmp = tmp->real_parent;
 	}
 
 	if (!filp || (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
@@ -3609,7 +3609,7 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 	while (tmp->pid > 0) {
 		if (tmp == curtemp)
 			break;
-		tmp = tmp->parent;
+		tmp = tmp->real_parent;
 	}
 
 	if (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
@@ -3913,6 +3913,9 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 	return (obj->mode & GR_FIND) ? 1 : 0;
 }
 
+#ifdef CONFIG_NETFILTER_XT_MATCH_GRADM_MODULE
+EXPORT_SYMBOL(gr_acl_is_enabled);
+#endif
 EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY

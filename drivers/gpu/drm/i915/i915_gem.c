@@ -468,6 +468,7 @@ i915_gem_pread_ioctl(struct drm_device *dev, void *data,
 		drm_gem_object_unreference_unlocked(obj);
 		return -EINVAL;
 	}
+
 	if (!access_ok(VERIFY_WRITE, (char __user *) (uintptr_t)args->data_ptr, args->size)) {
 		drm_gem_object_unreference_unlocked(obj);
 		return -EFAULT;
@@ -935,6 +936,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 		drm_gem_object_unreference_unlocked(obj);
 		return -EINVAL;
 	}
+
 	if (!access_ok(VERIFY_READ, (char __user *) (uintptr_t)args->data_ptr, args->size)) {
 		drm_gem_object_unreference_unlocked(obj);
 		return -EFAULT;
