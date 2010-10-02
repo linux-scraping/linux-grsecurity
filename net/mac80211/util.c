@@ -1049,7 +1049,7 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		 * the device may at times not work immediately. Propagate
 		 * the error.
 		 */
-                res = drv_start(local);
+		res = drv_start(local);
 		if (res) {
 			WARN(local->suspended, "Harware became unavailable "
 			     "upon resume. This is could be a software issue"

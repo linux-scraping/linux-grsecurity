@@ -281,7 +281,7 @@ static const struct ata_port_operations pdc2024x_port_ops = {
 	.set_piomode		= pdc202xx_set_piomode,
 	.set_dmamode		= pdc202xx_set_dmamode,
 
-	.sff_exec_command       = pdc202xx_exec_command,
+	.sff_exec_command	= pdc202xx_exec_command,
 };
 
 static const struct ata_port_operations pdc2026x_port_ops = {

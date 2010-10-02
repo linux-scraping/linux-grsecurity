@@ -3795,7 +3795,7 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 	if (vmx->rmode.irq.pending)
 		fixup_rmode_irq(vmx);
 
-	asm("mov %0, %%ds; mov %0, %%es" : : "r"(__KERNEL_DS));
+	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r"(__KERNEL_DS));
 	vmx->launched = 1;
 
 	vmx_complete_interrupts(vmx);

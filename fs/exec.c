@@ -1789,59 +1789,51 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 #endif
 
 #ifdef CONFIG_PAX_USERCOPY
-#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
-struct stack_frame {
-	struct stack_frame *next_frame;
-	unsigned long return_address;
-};
-#endif
-
-/* 0: not at all, 1: fully, 2: fully inside frame,
-  -1: partially (implies an error) */
-
+/* 0: not at all, 1: fully, 2: fully inside frame, -1: partially (implies an error) */
 int object_is_on_stack(const void *obj, unsigned long len)
 {
-	const void *stack = task_stack_page(current);
-	const void *stackend = stack + THREAD_SIZE;
+	const void * const stack = task_stack_page(current);
+	const void * const stackend = stack + THREAD_SIZE;
+
+#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
+	const void *frame = NULL;
+	const void *oldframe;
+#endif
 
 	if (obj + len < obj)
 		return -1;
 
-	if (stack <= obj && obj + len <= stackend) {
-#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
-		void *frame = __builtin_frame_address(2);
-		void *oldframe = __builtin_frame_address(1);
-		/*
-		  bottom ----------------------------------------------> top
-		  [saved bp][saved ip][args][local vars][saved bp][saved ip]
-				      ^----------------^
-				  allow copies only within here
-		*/
-		while (frame) {
-			/* if obj + len extends past the last frame, this
-			   check won't pass and the next frame will be 0,
-			   causing us to bail out and correctly report
-			   the copy as invalid
-			*/
-			if (obj + len <= frame) {
-				if (obj >= (oldframe + (2 * sizeof(void *))))
-					return 2;
-				else
-					return -1;
-			}
-			oldframe = frame;
-			frame = ((struct stack_frame *)frame)->next_frame;
-		}
-		return -1;
-#else
-		return 1;
-#endif
-	}
-
-	if (obj + len <= stack || stackend <=  obj)
+	if (obj + len <= stack || stackend <= obj)
 		return 0;
 
+	if (obj < stack || stackend < obj + len)
+		return -1;
+
+#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
+	oldframe = __builtin_frame_address(1);
+	if (oldframe)
+		frame = __builtin_frame_address(2);
+	/*
+	  low ----------------------------------------------> high
+	  [saved bp][saved ip][args][local vars][saved bp][saved ip]
+			      ^----------------^
+			  allow copies only within here
+	*/
+	while (stack <= frame && frame < stackend) {
+		/* if obj + len extends past the last frame, this
+		   check won't pass and the next frame will be 0,
+		   causing us to bail out and correctly report
+		   the copy as invalid
+		*/
+		if (obj + len <= frame)
+			return obj >= oldframe + 2 * sizeof(void *) ? 2 : -1;
+		oldframe = frame;
+		frame = *(const void * const *)frame;
+	}
 	return -1;
+#else
+	return 1;
+#endif
 }
 
 
