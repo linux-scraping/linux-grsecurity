@@ -91,7 +91,6 @@ void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 {
 	while (count--)
 		*dst++ = __pgd((pgd_val(*src++) | _PAGE_NX) & ~_PAGE_USER);
-
 }
 #endif
 
