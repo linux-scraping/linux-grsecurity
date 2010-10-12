@@ -511,7 +511,7 @@ static void wakeup_next_waiter(struct rt_mutex *lock)
 	 */
 	raw_spin_lock_irqsave(&pendowner->pi_lock, flags);
 
-	WARN_ON(!pendowner->pi_blocked_on);
+	BUG_ON(!pendowner->pi_blocked_on);
 	WARN_ON(pendowner->pi_blocked_on != waiter);
 	WARN_ON(pendowner->pi_blocked_on->lock != lock);
 

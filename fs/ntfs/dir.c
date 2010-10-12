@@ -1329,7 +1329,7 @@ find_next_index_buffer:
 	ia = (INDEX_ALLOCATION*)(kaddr + (ia_pos & ~PAGE_CACHE_MASK &
 			~(s64)(ndir->itype.index.block_size - 1)));
 	/* Bounds checks. */
-	if (unlikely((u8*)ia < kaddr || (u8*)ia > kaddr + PAGE_CACHE_SIZE)) {
+	if (unlikely(!kaddr || (u8*)ia < kaddr || (u8*)ia > kaddr + PAGE_CACHE_SIZE)) {
 		ntfs_error(sb, "Out of bounds check failed. Corrupt directory "
 				"inode 0x%lx or driver bug.", vdir->i_ino);
 		goto err_out;

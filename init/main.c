@@ -221,11 +221,8 @@ static int __init setup_pax_nouderef(char *str)
 	asm("mov %0, %%es" : : "r" (__KERNEL_DS) : "memory");
 	asm("mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
 #else
-	char *p;
-	p = (char *)pax_enter_kernel_user;
-	*p = 0xc3;
-	p = (char *)pax_exit_kernel_user;
-	*p = 0xc3;
+	memcpy(pax_enter_kernel_user, (unsigned char []){0xc3}, 1);
+	memcpy(pax_exit_kernel_user, (unsigned char []){0xc3}, 1);
 	clone_pgd_mask = ~(pgdval_t)0UL;
 #endif
 

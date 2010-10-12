@@ -228,7 +228,7 @@ static int ceph_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	struct ceph_client *client = ceph_inode_to_client(inode);
 	struct ceph_mds_client *mdsc = &client->mdsc;
 	unsigned frag = fpos_frag(filp->f_pos);
-	int off = fpos_off(filp->f_pos);
+	unsigned int off = fpos_off(filp->f_pos);
 	int err;
 	u32 ftype;
 	struct ceph_mds_reply_info_parsed *rinfo;
@@ -357,7 +357,7 @@ more:
 	rinfo = &fi->last_readdir->r_reply_info;
 	dout("readdir frag %x num %d off %d chunkoff %d\n", frag,
 	     rinfo->dir_nr, off, fi->offset);
-	while (off - fi->offset >= 0 && off - fi->offset < rinfo->dir_nr) {
+	while (off >= fi->offset && off - fi->offset < rinfo->dir_nr) {
 		u64 pos = ceph_make_fpos(frag, off);
 		struct ceph_mds_reply_inode *in =
 			rinfo->dir_in[off - fi->offset].in;

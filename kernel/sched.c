@@ -6592,7 +6592,7 @@ static void init_sched_groups_power(int cpu, struct sched_domain *sd)
 	long power;
 	int weight;
 
-	WARN_ON(!sd || !sd->groups);
+	BUG_ON(!sd || !sd->groups);
 
 	if (cpu != group_first_cpu(sd->groups))
 		return;

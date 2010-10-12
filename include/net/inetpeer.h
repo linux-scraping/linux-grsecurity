@@ -22,8 +22,8 @@ struct inet_peer {
 	__u32			dtime;		/* the time of last use of not
 						 * referenced entries */
 	atomic_t		refcnt;
-	atomic_t		rid;		/* Frag reception counter */
-	atomic_t		ip_id_count;	/* IP ID for the next packet */
+	atomic_unchecked_t	rid;		/* Frag reception counter */
+	atomic_unchecked_t	ip_id_count;	/* IP ID for the next packet */
 	__u32			tcp_ts;
 	__u32			tcp_ts_stamp;
 };
@@ -40,7 +40,7 @@ extern void inet_putpeer(struct inet_peer *p);
 static inline __u16	inet_getid(struct inet_peer *p, int more)
 {
 	more++;
-	return atomic_add_return(more, &p->ip_id_count) - more;
+	return atomic_add_return_unchecked(more, &p->ip_id_count) - more;
 }
 
 #endif /* _NET_INETPEER_H */

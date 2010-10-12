@@ -386,8 +386,8 @@ struct inet_peer *inet_getpeer(__be32 daddr, int create)
 		return NULL;
 	n->v4daddr = daddr;
 	atomic_set(&n->refcnt, 1);
-	atomic_set(&n->rid, 0);
-	atomic_set(&n->ip_id_count, secure_ip_id(daddr));
+	atomic_set_unchecked(&n->rid, 0);
+	atomic_set_unchecked(&n->ip_id_count, secure_ip_id(daddr));
 	n->tcp_ts_stamp = 0;
 
 	write_lock_bh(&peer_pool_lock);

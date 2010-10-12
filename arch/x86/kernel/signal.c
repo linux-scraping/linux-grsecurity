@@ -378,7 +378,10 @@ static int __setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 		err |= __copy_to_user(&frame->uc.uc_sigmask, set, sizeof(*set));
 
 		/* Set up to return from userspace.  */
-		restorer = (__force void __user *)VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
+		if (current->mm->context.vdso)
+			restorer = (__force void __user *)VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
+		else
+			restorer = (void __user *)&frame->retcode;
 		if (ka->sa.sa_flags & SA_RESTORER)
 			restorer = ka->sa.sa_restorer;
 		put_user_ex(restorer, &frame->pretcode);

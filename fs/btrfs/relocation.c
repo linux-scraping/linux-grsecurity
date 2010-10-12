@@ -1239,7 +1239,7 @@ static int __update_reloc_root(struct btrfs_root *root, int del)
 	}
 	spin_unlock(&rc->reloc_root_tree.lock);
 
-	BUG_ON((struct btrfs_root *)node->data != root);
+	BUG_ON(!node || (struct btrfs_root *)node->data != root);
 
 	if (!del) {
 		spin_lock(&rc->reloc_root_tree.lock);

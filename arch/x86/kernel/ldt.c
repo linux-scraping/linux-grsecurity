@@ -118,7 +118,7 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	}
 
 	if (tsk == current) {
-		mm->context.vdso = ~0UL;
+		mm->context.vdso = 0;
 
 #ifdef CONFIG_X86_32
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)

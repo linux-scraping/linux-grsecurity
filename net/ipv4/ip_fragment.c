@@ -282,7 +282,7 @@ static inline int ip_frag_too_far(struct ipq *qp)
 		return 0;
 
 	start = qp->rid;
-	end = atomic_inc_return(&peer->rid);
+	end = atomic_inc_return_unchecked(&peer->rid);
 	qp->rid = end;
 
 	rc = qp->q.fragments && (end - start) > max;

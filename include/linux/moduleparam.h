@@ -132,7 +132,7 @@ struct kparam_array
 
 /* Actually copy string: maxlen param is usually sizeof(string). */
 #define module_param_string(name, string, len, perm)			\
-	static const struct kparam_string __param_string_##name		\
+	static const struct kparam_string __param_string_##name __used	\
 		= { len, string };					\
 	__module_param_call(MODULE_PARAM_PREFIX, name,			\
 			    param_set_copystring, param_get_string,	\
@@ -211,7 +211,7 @@ extern int param_get_invbool(char *buffer, struct kernel_param *kp);
 
 /* Comma-separated array: *nump is set to number they actually specified. */
 #define module_param_array_named(name, array, type, nump, perm)		\
-	static const struct kparam_array __param_arr_##name		\
+	static const struct kparam_array __param_arr_##name __used	\
 	= { ARRAY_SIZE(array), nump, param_set_##type, param_get_##type,\
 	    sizeof(array[0]), array };					\
 	__module_param_call(MODULE_PARAM_PREFIX, name,			\

@@ -534,8 +534,11 @@ int ia32_setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 		if (ka->sa.sa_flags & SA_RESTORER)
 			restorer = ka->sa.sa_restorer;
 		else
-			restorer = VDSO32_SYMBOL(current->mm->context.vdso,
-						 rt_sigreturn);
+			/* Return stub is in 32bit vsyscall page */
+			if (current->mm->context.vdso)
+				restorer = VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
+			else
+				restorer = &frame->retcode;
 		put_user_ex(ptr_to_compat(restorer), &frame->pretcode);
 
 		/*

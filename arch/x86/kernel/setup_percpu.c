@@ -22,7 +22,7 @@
 #include <asm/stackprotector.h>
 
 #ifdef CONFIG_SMP
-DEFINE_PER_CPU(int, cpu_number);
+DEFINE_PER_CPU(unsigned int, cpu_number);
 EXPORT_PER_CPU_SYMBOL(cpu_number);
 #endif
 

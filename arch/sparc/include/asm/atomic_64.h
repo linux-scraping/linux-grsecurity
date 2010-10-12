@@ -69,6 +69,10 @@ static inline long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
 #define atomic64_sub_return(i, v) atomic64_sub_ret(i, v)
 
 #define atomic_add_return(i, v) atomic_add_ret(i, v)
+static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	return atomic_add_ret_unchecked(i, v);
+}
 #define atomic64_add_return(i, v) atomic64_add_ret(i, v)
 
 /*

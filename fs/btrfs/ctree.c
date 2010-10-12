@@ -468,9 +468,12 @@ static noinline int __btrfs_cow_block(struct btrfs_trans_handle *trans,
 		free_extent_buffer(buf);
 		add_root_to_dirty_list(root);
 	} else {
-		if (root->root_key.objectid == BTRFS_TREE_RELOC_OBJECTID)
-			parent_start = parent->start;
-		else
+		if (root->root_key.objectid == BTRFS_TREE_RELOC_OBJECTID) {
+			if (parent)
+				parent_start = parent->start;
+			else
+				parent_start = 0;
+		} else
 			parent_start = 0;
 
 		WARN_ON(trans->transid != btrfs_header_generation(parent));
