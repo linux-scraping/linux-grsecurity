@@ -272,6 +272,10 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		ulong1 = va_arg(ap, unsigned long);
 		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid, ulong1);
 		break;
+	case GR_RWXMAP:
+		file = va_arg(ap, struct file *);
+		gr_log_middle_varargs(audit, msg, file ? gr_to_filename(file->f_path.dentry, file->f_path.mnt) : "<anonymous mapping>");
+		break;
 	case GR_PSACCT:
 		{
 			unsigned int wday, cday;

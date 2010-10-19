@@ -102,6 +102,8 @@
 #define GR_CHDIR_AUDIT_MSG "chdir to %.980s by "
 #define GR_EXEC_AUDIT_MSG "exec of %.930s (%.128s) by "
 #define GR_RESOURCE_MSG "denied resource overstep by requesting %lu for %.16s against limit %lu for "
+#define GR_RWXMMAP_MSG "denied RWX mmap of %.950s by "
+#define GR_RWXMPROTECT_MSG "denied RWX mprotect of %.950s by "
 #define GR_TEXTREL_AUDIT_MSG "text relocation in %s, VMA:0x%08lx 0x%08lx by "
 #define GR_NONROOT_MODLOAD_MSG "denied kernel module auto-load of %.64s by "
 #define GR_VM86_MSG "denied use of vm86 by "

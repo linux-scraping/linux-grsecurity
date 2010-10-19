@@ -55,6 +55,7 @@ int grsec_enable_socket_server;
 int grsec_socket_server_gid;
 int grsec_resource_logging;
 int grsec_disable_privio;
+int grsec_enable_log_rwxmaps;
 int grsec_lock;
 
 DEFINE_SPINLOCK(grsec_alert_lock);
@@ -151,6 +152,9 @@ grsecurity_init(void)
 
 #ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
 	grsec_enable_audit_textrel = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	grsec_enable_log_rwxmaps = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_GROUP
 	grsec_enable_group = 1;

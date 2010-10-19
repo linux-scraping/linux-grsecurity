@@ -697,6 +697,15 @@ config GRKERNSEC_PROC_IPADDR
 	  process (and root if he has CAP_DAC_OVERRIDE, which can be removed via
 	  the RBAC system), and thus does not create privacy concerns.
 
+config GRKERNSEC_RWXMAP_LOG
+	bool 'Denied RWX mmap/mprotect logging'
+	depends on PAX_MPROTECT && !PAX_EMUPLT && !PAX_EMUSIGRT
+	help
+	  If you say Y here, calls to mmap() and mprotect() with explicit
+	  usage of PROT_WRITE and PROT_EXEC together will be logged when
+	  denied by the PAX_MPROTECT feature.  If the sysctl option is
+	  enabled, a sysctl option with name "rwxmap_logging" is created.
+
 config GRKERNSEC_AUDIT_TEXTREL
 	bool 'ELF text relocations logging (READ HELP)'
 	depends on PAX_MPROTECT
