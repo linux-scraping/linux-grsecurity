@@ -72,6 +72,7 @@ extern int grsec_socket_server_gid;
 extern int grsec_audit_gid;
 extern int grsec_enable_group;
 extern int grsec_enable_audit_textrel;
+extern int grsec_enable_log_rwxmaps;
 extern int grsec_enable_mount;
 extern int grsec_enable_chdir;
 extern int grsec_resource_logging;
@@ -168,7 +169,8 @@ enum {
 	GR_SIG2,
 	GR_CRASH1,
 	GR_CRASH2,
-	GR_PSACCT
+	GR_PSACCT,
+	GR_RWXMAP
 };
 
 #define gr_log_hidden_sysctl(audit, msg, str) gr_log_varargs(audit, msg, GR_SYSCTL_HIDDEN, str)
@@ -203,6 +205,7 @@ enum {
 #define gr_log_crash1(audit, msg, task, ulong) gr_log_varargs(audit, msg, GR_CRASH1, task, ulong)
 #define gr_log_crash2(audit, msg, task, ulong1) gr_log_varargs(audit, msg, GR_CRASH2, task, ulong1)
 #define gr_log_procacct(audit, msg, task, num1, num2, num3, num4, num5, num6, num7, num8, num9) gr_log_varargs(audit, msg, GR_PSACCT, task, num1, num2, num3, num4, num5, num6, num7, num8, num9)
+#define gr_log_rwxmap(audit, msg, str) gr_log_varargs(audit, msg, GR_RWXMAP, str)
 
 void gr_log_varargs(int audit, const char *msg, int argtypes, ...);
 

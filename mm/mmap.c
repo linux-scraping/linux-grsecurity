@@ -1048,13 +1048,16 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 #ifdef CONFIG_PAX_MPROTECT
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
-		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC))
+		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC)) {
+			gr_log_rwxmmap(file);
 
 #ifdef CONFIG_PAX_EMUPLT
 			vm_flags &= ~VM_EXEC;
 #else
 			return -EPERM;
 #endif
+
+		}
 
 		if (!(vm_flags & VM_EXEC))
 			vm_flags &= ~VM_MAYEXEC;

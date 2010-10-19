@@ -14,3 +14,23 @@ gr_log_textrel(struct vm_area_struct * vma)
 #endif
 	return;
 }
+
+void
+gr_log_rwxmmap(struct file *file)
+{
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	if (grsec_enable_log_rwxmaps)
+		gr_log_rwxmap(GR_DONT_AUDIT, GR_RWXMMAP_MSG, file);
+#endif
+	return;
+}
+
+void
+gr_log_rwxmprotect(struct file *file)
+{
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	if (grsec_enable_log_rwxmaps)
+		gr_log_rwxmap(GR_DONT_AUDIT, GR_RWXMPROTECT_MSG, file);
+#endif
+	return;
+}
