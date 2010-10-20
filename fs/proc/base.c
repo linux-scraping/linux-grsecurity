@@ -312,7 +312,9 @@ static int proc_pid_auxv(struct task_struct *task, char *buffer)
 		unsigned int nwords = 0;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		if (PAX_RAND_FLAGS(mm)) {
+		/* allow if we're currently ptracing this task */
+		if (PAX_RAND_FLAGS(mm) &&
+		    (!(task->ptrace & PT_PTRACED) || (task->parent != current))) {
 			mmput(mm);
 			return res;
 		}
