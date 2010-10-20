@@ -41,7 +41,7 @@ static struct phonet_protocol *phonet_proto_get(int protocol)
 {
 	struct phonet_protocol *pp;
 
-	if (protocol >= PHONET_NPROTO)
+	if (protocol < 0 || protocol >= PHONET_NPROTO)
 		return NULL;
 
 	spin_lock(&proto_tab_lock);
@@ -398,7 +398,7 @@ int __init_or_module phonet_proto_register(int protocol,
 {
 	int err = 0;
 
-	if (protocol >= PHONET_NPROTO)
+	if (protocol < 0 || protocol >= PHONET_NPROTO)
 		return -EINVAL;
 
 	err = proto_register(pp->prot, 1);
