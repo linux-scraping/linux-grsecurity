@@ -24,7 +24,7 @@ struct inet_peer
 	__u32			dtime;		/* the time of last use of not
 						 * referenced entries */
 	atomic_t		refcnt;
-	atomic_t		rid;		/* Frag reception counter */
+	atomic_unchecked_t	rid;		/* Frag reception counter */
 	__u32			tcp_ts;
 	unsigned long		tcp_ts_stamp;
 };

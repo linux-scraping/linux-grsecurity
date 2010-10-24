@@ -75,10 +75,14 @@ int drm_vm_info(struct seq_file *m, void *data)
 	struct drm_local_map *map;
 	struct drm_map_list *r_list;
 
-	/* Hardcoded from _DRM_FRAME_BUFFER,
-	   _DRM_REGISTERS, _DRM_SHM, _DRM_AGP, and
-	   _DRM_SCATTER_GATHER and _DRM_CONSISTENT */
-	const char *types[] = { "FB", "REG", "SHM", "AGP", "SG", "PCI" };
+	static const char * const types[] = {
+		[_DRM_FRAME_BUFFER] = "FB",
+		[_DRM_REGISTERS] = "REG",
+		[_DRM_SHM] = "SHM",
+		[_DRM_AGP] = "AGP",
+		[_DRM_SCATTER_GATHER] = "SG",
+		[_DRM_CONSISTENT] = "PCI",
+		[_DRM_GEM] = "GEM" };
 	const char *type;
 	int i;
 
@@ -89,7 +93,7 @@ int drm_vm_info(struct seq_file *m, void *data)
 		map = r_list->map;
 		if (!map)
 			continue;
-		if (map->type < 0 || map->type > 5)
+		if (map->type >= ARRAY_SIZE(types))
 			type = "??";
 		else
 			type = types[map->type];
