@@ -101,6 +101,7 @@ static int slice_area_is_free(struct mm_struct *mm, unsigned long addr,
 	return check_heap_stack_gap(vma, addr, len);
 }
 
+static int slice_low_has_vma(struct mm_struct *mm, unsigned long slice)
 {
 	return !slice_area_is_free(mm, slice << SLICE_LOW_SHIFT,
 				   1ul << SLICE_LOW_SHIFT);
