@@ -593,7 +593,7 @@ hpet_ioctl_common(struct hpet_dev *devp, unsigned int cmd, unsigned long arg, in
 		{
 			struct hpet_info info;
 
-			memset(info, 0, sizeof(info));
+			memset(&info, 0, sizeof(info));
 
 			if (devp->hd_ireqfreq)
 				info.hi_ireqfreq =
