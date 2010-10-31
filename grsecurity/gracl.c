@@ -95,9 +95,9 @@ gr_acl_is_enabled(void)
 	return (gr_status & GR_READY);
 }
 
-char gr_roletype_to_char(void)
+static char gr_task_roletype_to_char(struct task_struct *task)
 {
-	switch (current->role->roletype &
+	switch (task->role->roletype &
 		(GR_ROLE_DEFAULT | GR_ROLE_USER | GR_ROLE_GROUP |
 		 GR_ROLE_SPECIAL)) {
 	case GR_ROLE_DEFAULT:
@@ -111,6 +111,11 @@ char gr_roletype_to_char(void)
 	}
 
 	return 'X';
+}
+
+char gr_roletype_to_char(void)
+{
+	return gr_task_roletype_to_char(current);
 }
 
 __inline__ int
@@ -3591,6 +3596,19 @@ gr_handle_proc_ptrace(struct task_struct *task)
 		return 1;
 
 	return 0;
+}
+
+void task_grsec_rbac(struct seq_file *m, struct task_struct *p)
+{
+	if (unlikely(!(gr_status & GR_READY)))
+		return;
+
+	if (!(current->role->roletype & GR_ROLE_GOD))
+		return;
+
+	seq_printf(m, "RBAC:\t%.64s:%c:%.950s\n",
+			p->role->rolename, gr_task_roletype_to_char(p),
+			p->acl->filename);
 }
 
 int

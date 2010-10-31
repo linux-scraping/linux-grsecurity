@@ -400,7 +400,7 @@ ENTRY(startup_32_smp)
 /*
  * Enable paging
  */
-	movl $pa(swapper_pg_dir),%eax
+	movl pa(initial_page_table), %eax
 	movl %eax,%cr3		/* set the page table pointer.. */
 	movl %cr0,%eax
 	orl  $X86_CR0_PG,%eax
@@ -677,6 +677,8 @@ ignore_int:
 .align 4
 ENTRY(initial_code)
 	.long i386_start_kernel
+ENTRY(initial_page_table)
+	.long pa(swapper_pg_dir)
 
 /*
  * BSS section
@@ -693,6 +695,15 @@ ENTRY(swapper_pg_dir)
 
 swapper_pg_fixmap:
 	.fill 1024,4,0
+#ifdef CONFIG_X86_TRAMPOLINE
+.section .trampoline_pg_dir,"a",@progbits
+ENTRY(trampoline_pg_dir)
+#ifdef CONFIG_X86_PAE
+	.fill 4,8,0
+#else
+	.fill 1024,4,0
+#endif
+#endif
 
 .section .empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)

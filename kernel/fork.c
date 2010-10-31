@@ -325,7 +325,7 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct vm_area_struc
 	if (anon_vma_fork(tmp, mpnt))
 		goto fail_nomem_anon_vma_fork;
 	tmp->vm_flags &= ~VM_LOCKED;
-	tmp->vm_next = NULL;
+	tmp->vm_next = tmp->vm_prev = NULL;
 	tmp->vm_mirror = NULL;
 	file = tmp->vm_file;
 	if (file) {

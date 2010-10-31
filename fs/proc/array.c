@@ -60,6 +60,7 @@
 #include <linux/tty.h>
 #include <linux/string.h>
 #include <linux/mman.h>
+#include <linux/grsecurity.h>
 #include <linux/proc_fs.h>
 #include <linux/ioport.h>
 #include <linux/uaccess.h>
@@ -375,6 +376,10 @@ int proc_pid_status(struct seq_file *m, struct pid_namespace *ns,
 
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	task_pax(m, task);
+#endif
+
+#if defined(CONFIG_GRKERNSEC) && !defined(CONFIG_GRKERNSEC_NO_RBAC)
+	task_grsec_rbac(m, task);
 #endif
 
 	return 0;

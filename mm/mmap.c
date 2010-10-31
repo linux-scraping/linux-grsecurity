@@ -1881,7 +1881,7 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 		avc_m = list_entry(vma_m->anon_vma_chain.prev, struct anon_vma_chain, same_vma);
 		BUG_ON(avc->anon_vma != avc_m->anon_vma);
 	}
-	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED));
+	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED | VM_RESERVED));
 	return vma_m;
 }
 #endif
