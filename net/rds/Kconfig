@@ -1,7 +1,7 @@
 
 config RDS
 	tristate "The RDS Protocol (EXPERIMENTAL)"
-	depends on INET && EXPERIMENTAL
+	depends on INET && EXPERIMENTAL && BROKEN
 	---help---
 	  The RDS (Reliable Datagram Sockets) protocol provides reliable,
 	  sequenced delivery of datagrams over Infiniband, iWARP,

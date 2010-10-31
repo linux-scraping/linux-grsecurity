@@ -593,11 +593,11 @@ hpet_ioctl_common(struct hpet_dev *devp, unsigned int cmd, unsigned long arg, in
 		{
 			struct hpet_info info;
 
+			memset(info, 0, sizeof(info));
+
 			if (devp->hd_ireqfreq)
 				info.hi_ireqfreq =
 					hpet_time_div(hpetp, devp->hd_ireqfreq);
-			else
-				info.hi_ireqfreq = 0;
 			info.hi_flags =
 			    readq(&timer->hpet_config) & Tn_PER_INT_CAP_MASK;
 			info.hi_hpet = hpetp->hp_which;

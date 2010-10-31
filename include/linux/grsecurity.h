@@ -190,6 +190,7 @@ int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int a
 void gr_audit_ptrace(struct task_struct *task);
 
 #ifdef CONFIG_GRKERNSEC
+void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
 void gr_log_nonroot_mod_load(const char *modname);
 void gr_handle_vm86(void);
 void gr_handle_mem_write(void);
