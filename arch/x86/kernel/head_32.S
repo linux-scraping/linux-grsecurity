@@ -692,7 +692,7 @@ swapper_pg_pmd:
 ENTRY(swapper_pg_dir)
 	.fill 1024,4,0
 #endif
-
+.section .swapper_pg_fixmap,"a",@progbits
 swapper_pg_fixmap:
 	.fill 1024,4,0
 #ifdef CONFIG_X86_TRAMPOLINE

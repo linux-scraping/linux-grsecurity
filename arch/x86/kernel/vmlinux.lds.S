@@ -165,8 +165,10 @@ SECTIONS
 		*(.idt)
 		. = ALIGN(PAGE_SIZE);
 		*(.empty_zero_page)
+		*(.swapper_pg_fixmap)
 		*(.swapper_pg_pmd)
 		*(.swapper_pg_dir)
+		*(.trampoline_pg_dir)
 	} :rodata
 #endif
 
