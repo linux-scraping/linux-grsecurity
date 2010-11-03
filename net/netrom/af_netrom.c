@@ -838,6 +838,7 @@ static int nr_getname(struct socket *sock, struct sockaddr *uaddr,
 	struct sock *sk = sock->sk;
 	struct nr_sock *nr = nr_sk(sk);
 
+	memset(sax, 0, sizeof(*sax));
 	lock_sock(sk);
 	if (peer != 0) {
 		if (sk->sk_state != TCP_ESTABLISHED) {
@@ -852,7 +853,6 @@ static int nr_getname(struct socket *sock, struct sockaddr *uaddr,
 		*uaddr_len = sizeof(struct full_sockaddr_ax25);
 	} else {
 		sax->fsa_ax25.sax25_family = AF_NETROM;
-		sax->fsa_ax25.sax25_ndigis = 0;
 		sax->fsa_ax25.sax25_call   = nr->source_addr;
 		*uaddr_len = sizeof(struct sockaddr_ax25);
 	}
