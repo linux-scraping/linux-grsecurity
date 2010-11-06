@@ -1533,6 +1533,10 @@ static int insert_page(struct vm_area_struct *vma, unsigned long addr,
 	page_add_file_rmap(page);
 	set_pte_at(mm, addr, pte, mk_pte(page, prot));
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	pax_mirror_file_pte(vma, addr, page, ptl);
+#endif
+
 	retval = 0;
 	pte_unmap_unlock(pte, ptl);
 	return retval;
@@ -1567,10 +1571,22 @@ out:
 int vm_insert_page(struct vm_area_struct *vma, unsigned long addr,
 			struct page *page)
 {
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	struct vm_area_struct *vma_m;
+#endif
+
 	if (addr < vma->vm_start || addr >= vma->vm_end)
 		return -EFAULT;
 	if (!page_count(page))
 		return -EINVAL;
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	vma_m = pax_find_mirror_vma(vma);
+	if (vma_m)
+		vma_m->vm_flags |= VM_INSERTPAGE;
+#endif
+
 	vma->vm_flags |= VM_INSERTPAGE;
 	return insert_page(vma, addr, page, vma->vm_page_prot);
 }
@@ -1656,6 +1672,7 @@ int vm_insert_mixed(struct vm_area_struct *vma, unsigned long addr,
 			unsigned long pfn)
 {
 	BUG_ON(!(vma->vm_flags & VM_MIXEDMAP));
+	BUG_ON(vma->vm_mirror);
 
 	if (addr < vma->vm_start || addr >= vma->vm_end)
 		return -EFAULT;

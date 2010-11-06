@@ -1934,7 +1934,13 @@ static void get_openreq6(struct seq_file *seq,
 		   uid,
 		   0,  /* non standard timer */
 		   0, /* open_requests have no inode */
-		   0, req);
+		   0,
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		   NULL
+#else
+		   req
+#endif
+		   );
 }
 
 static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
@@ -1984,7 +1990,12 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
 		   sock_i_uid(sp),
 		   icsk->icsk_probes_out,
 		   sock_i_ino(sp),
-		   atomic_read(&sp->sk_refcnt), sp,
+		   atomic_read(&sp->sk_refcnt),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		   NULL,
+#else
+		   sp,
+#endif
 		   jiffies_to_clock_t(icsk->icsk_rto),
 		   jiffies_to_clock_t(icsk->icsk_ack.ato),
 		   (icsk->icsk_ack.quick << 1 ) | icsk->icsk_ack.pingpong,
@@ -2019,7 +2030,13 @@ static void get_timewait6_sock(struct seq_file *seq,
 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
 		   tw->tw_substate, 0, 0,
 		   3, jiffies_to_clock_t(ttd), 0, 0, 0, 0,
-		   atomic_read(&tw->tw_refcnt), tw);
+		   atomic_read(&tw->tw_refcnt),
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		   NULL
+#else
+		   tw
+#endif
+		   );
 }
 
 static int tcp6_seq_show(struct seq_file *seq, void *v)

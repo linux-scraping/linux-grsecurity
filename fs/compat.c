@@ -1098,7 +1098,7 @@ static ssize_t compat_do_readv_writev(int type, struct file *file,
 	 * verify all the pointers
 	 */
 	ret = -EINVAL;
-	if ((nr_segs > UIO_MAXIOV) || (nr_segs <= 0))
+	if (nr_segs > UIO_MAXIOV)
 		goto out;
 	if (!file->f_op)
 		goto out;

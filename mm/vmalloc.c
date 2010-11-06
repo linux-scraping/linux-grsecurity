@@ -2025,6 +2025,8 @@ int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 	unsigned long uaddr = vma->vm_start;
 	unsigned long usize = vma->vm_end - vma->vm_start;
 
+	BUG_ON(vma->vm_mirror);
+
 	if ((PAGE_SIZE-1) & (unsigned long)addr)
 		return -EINVAL;
 
