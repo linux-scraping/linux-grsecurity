@@ -480,23 +480,29 @@ SYSCALL_DEFINE2(fchmod, unsigned int, fd, mode_t, mode)
 	if (err)
 		goto out_putf;
 
+	mutex_lock(&inode->i_mutex);
+
 	if (!gr_acl_handle_fchmod(dentry, file->f_path.mnt, mode)) {
 		err = -EACCES;
-		goto out_drop_write;
+		goto out_unlock;
 	}
 
-	mutex_lock(&inode->i_mutex);
 	err = security_path_chmod(dentry, file->f_vfsmnt, mode);
 	if (err)
 		goto out_unlock;
 	if (mode == (mode_t) -1)
 		mode = inode->i_mode;
+
+	if (gr_handle_chroot_chmod(dentry, file->f_path.mnt, mode)) {
+		err = -EACCES;
+		goto out_unlock;
+	}
+
 	newattrs.ia_mode = (mode & S_IALLUGO) | (inode->i_mode & ~S_IALLUGO);
 	newattrs.ia_valid = ATTR_MODE | ATTR_CTIME;
 	err = notify_change(dentry, &newattrs);
 out_unlock:
 	mutex_unlock(&inode->i_mutex);
-out_drop_write:
 	mnt_drop_write(file->f_path.mnt);
 out_putf:
 	fput(file);
@@ -520,12 +526,13 @@ SYSCALL_DEFINE3(fchmodat, int, dfd, const char __user *, filename, mode_t, mode)
 	if (error)
 		goto dput_and_out;
 
+	mutex_lock(&inode->i_mutex);
+
 	if (!gr_acl_handle_chmod(path.dentry, path.mnt, mode)) {
 		error = -EACCES;
-		goto out_drop_write;
+		goto out_unlock;
 	}
 
-	mutex_lock(&inode->i_mutex);
 	error = security_path_chmod(path.dentry, path.mnt, mode);
 	if (error)
 		goto out_unlock;
@@ -542,7 +549,6 @@ SYSCALL_DEFINE3(fchmodat, int, dfd, const char __user *, filename, mode_t, mode)
 	error = notify_change(path.dentry, &newattrs);
 out_unlock:
 	mutex_unlock(&inode->i_mutex);
-out_drop_write:
 	mnt_drop_write(path.mnt);
 dput_and_out:
 	path_put(&path);
