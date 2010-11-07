@@ -503,8 +503,9 @@ static void giveback(struct pl022 *pl022)
 	msg->state = NULL;
 	if (msg->complete)
 		msg->complete(msg->context);
-	/* This message is completed, so let's turn off the clock! */
+	/* This message is completed, so let's turn off the clocks! */
 	clk_disable(pl022->clk);
+	amba_pclk_disable(pl022->adev);
 }
 
 /**
@@ -1139,9 +1140,10 @@ static void pump_messages(struct work_struct *work)
 	/* Setup the SPI using the per chip configuration */
 	pl022->cur_chip = spi_get_ctldata(pl022->cur_msg->spi);
 	/*
-	 * We enable the clock here, then the clock will be disabled when
+	 * We enable the clocks here, then the clocks will be disabled when
 	 * giveback() is called in each method (poll/interrupt/DMA)
 	 */
+	amba_pclk_enable(pl022->adev);
 	clk_enable(pl022->clk);
 	restore_state(pl022);
 	flush(pl022);
@@ -1723,7 +1725,7 @@ static void pl022_cleanup(struct spi_device *spi)
 }
 
 
-static int __init
+static int __devinit
 pl022_probe(struct amba_device *adev, struct amba_id *id)
 {
 	struct device *dev = &adev->dev;
@@ -1786,11 +1788,9 @@ pl022_probe(struct amba_device *adev, struct amba_id *id)
 	}
 
 	/* Disable SSP */
-	clk_enable(pl022->clk);
 	writew((readw(SSP_CR1(pl022->virtbase)) & (~SSP_CR1_MASK_SSE)),
 	       SSP_CR1(pl022->virtbase));
 	load_ssp_default_config(pl022);
-	clk_disable(pl022->clk);
 
 	status = request_irq(adev->irq[0], pl022_interrupt_handler, 0, "pl022",
 			     pl022);
@@ -1818,6 +1818,8 @@ pl022_probe(struct amba_device *adev, struct amba_id *id)
 		goto err_spi_register;
 	}
 	dev_dbg(dev, "probe succeded\n");
+	/* Disable the silicon block pclk and clock it when needed */
+	amba_pclk_disable(adev);
 	return 0;
 
  err_spi_register:
@@ -1838,7 +1840,7 @@ pl022_probe(struct amba_device *adev, struct amba_id *id)
 	return status;
 }
 
-static int __exit
+static int __devexit
 pl022_remove(struct amba_device *adev)
 {
 	struct pl022 *pl022 = amba_get_drvdata(adev);
@@ -1879,9 +1881,9 @@ static int pl022_suspend(struct amba_device *adev, pm_message_t state)
 		return status;
 	}
 
-	clk_enable(pl022->clk);
+	amba_pclk_enable(adev);
 	load_ssp_default_config(pl022);
-	clk_disable(pl022->clk);
+	amba_pclk_disable(adev);
 	dev_dbg(&adev->dev, "suspended\n");
 	return 0;
 }
@@ -1970,7 +1972,7 @@ static struct amba_driver pl022_driver = {
 	},
 	.id_table	= pl022_ids,
 	.probe		= pl022_probe,
-	.remove		= __exit_p(pl022_remove),
+	.remove		= __devexit_p(pl022_remove),
 	.suspend        = pl022_suspend,
 	.resume         = pl022_resume,
 };
@@ -1981,7 +1983,7 @@ static int __init pl022_init(void)
 	return amba_driver_register(&pl022_driver);
 }
 
-module_init(pl022_init);
+subsys_initcall(pl022_init);
 
 static void __exit pl022_exit(void)
 {

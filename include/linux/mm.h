@@ -826,6 +826,7 @@ static inline void unmap_shared_mapping_range(struct address_space *mapping,
 }
 
 extern void truncate_pagecache(struct inode *inode, loff_t old, loff_t new);
+extern void truncate_setsize(struct inode *inode, loff_t newsize);
 extern int vmtruncate(struct inode *inode, loff_t offset);
 extern int vmtruncate_range(struct inode *inode, loff_t offset, loff_t end);
 
@@ -1027,7 +1028,14 @@ struct shrinker {
 extern void register_shrinker(struct shrinker *);
 extern void unregister_shrinker(struct shrinker *);
 
+#ifdef CONFIG_MMU
 pgprot_t vm_get_page_prot(unsigned long vm_flags);
+#else
+static inline pgprot_t vm_get_page_prot(unsigned long vm_flags)
+{
+	return __pgprot(0);
+}
+#endif
 
 int vma_wants_writenotify(struct vm_area_struct *vma);
 
@@ -1490,6 +1498,14 @@ extern int sysctl_memory_failure_recovery;
 extern void shake_page(struct page *p, int access);
 extern atomic_long_unchecked_t mce_bad_pages;
 extern int soft_offline_page(struct page *page, int flags);
+#ifdef CONFIG_MEMORY_FAILURE
+int is_hwpoison_address(unsigned long addr);
+#else
+static inline int is_hwpoison_address(unsigned long addr)
+{
+	return 0;
+}
+#endif
 
 extern void dump_page(struct page *page);
 

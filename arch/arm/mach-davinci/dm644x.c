@@ -492,16 +492,18 @@ queue_priority_mapping[][2] = {
 	{-1, -1},
 };
 
-static struct edma_soc_info dm644x_edma_info[] = {
-	{
-		.n_channel		= 64,
-		.n_region		= 4,
-		.n_slot			= 128,
-		.n_tc			= 2,
-		.n_cc			= 1,
-		.queue_tc_mapping	= queue_tc_mapping,
-		.queue_priority_mapping	= queue_priority_mapping,
-	},
+static struct edma_soc_info edma_cc0_info = {
+	.n_channel		= 64,
+	.n_region		= 4,
+	.n_slot			= 128,
+	.n_tc			= 2,
+	.n_cc			= 1,
+	.queue_tc_mapping	= queue_tc_mapping,
+	.queue_priority_mapping	= queue_priority_mapping,
+};
+
+static struct edma_soc_info *dm644x_edma_info[EDMA_MAX_CC] = {
+	&edma_cc0_info,
 };
 
 static struct resource edma_resources[] = {
@@ -651,8 +653,7 @@ static struct map_desc dm644x_io_desc[] = {
 		.virtual	= SRAM_VIRT,
 		.pfn		= __phys_to_pfn(0x00008000),
 		.length		= SZ_16K,
-		/* MT_MEMORY_NONCACHED requires supersection alignment */
-		.type		= MT_DEVICE,
+		.type		= MT_MEMORY_NONCACHED,
 	},
 };
 

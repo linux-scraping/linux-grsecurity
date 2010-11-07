@@ -134,7 +134,7 @@ static inline void __down_read(struct rw_semaphore *sem)
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
-		     /* adds 0x00000001, returns the old value */
+		     /* adds 0x00000001 */
 		     "  jns        2f\n"
 		     "  call call_rwsem_down_read_failed\n"
 		     "2:\n\t"
@@ -188,8 +188,6 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 {
 	rwsem_count_t tmp;
-
-	tmp = RWSEM_ACTIVE_WRITE_BIAS;
 	asm volatile("# beginning down_write\n\t"
 		     LOCK_PREFIX "  xadd      %1,(%2)\n\t"
 
@@ -208,7 +206,7 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
-		     /* subtract 0x0000ffff, returns the old value */
+		     /* adds 0xffff0001, returns the old value */
 		     "  test      %1,%1\n\t"
 		     /* was the count 0 before? */
 		     "  jz        2f\n"
@@ -216,7 +214,7 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 		     "2:\n"
 		     "# ending down_write"
 		     : "+m" (sem->count), "=d" (tmp)
-		     : "a" (sem), "1" (tmp)
+		     : "a" (sem), "1" (RWSEM_ACTIVE_WRITE_BIAS)
 		     : "memory", "cc");
 }
 
@@ -243,7 +241,7 @@ static inline int __down_write_trylock(struct rw_semaphore *sem)
  */
 static inline void __up_read(struct rw_semaphore *sem)
 {
-	rwsem_count_t tmp = -RWSEM_ACTIVE_READ_BIAS;
+	rwsem_count_t tmp;
 	asm volatile("# beginning __up_read\n\t"
 		     LOCK_PREFIX "  xadd      %1,(%2)\n\t"
 
@@ -264,11 +262,11 @@ static inline void __up_read(struct rw_semaphore *sem)
 
 		     /* subtracts 1, returns the old value */
 		     "  jns        2f\n\t"
-		     "  call call_rwsem_wake\n"
+		     "  call call_rwsem_wake\n" /* expects old value in %edx */
 		     "2:\n"
 		     "# ending __up_read\n"
 		     : "+m" (sem->count), "=d" (tmp)
-		     : "a" (sem), "1" (tmp)
+		     : "a" (sem), "1" (-RWSEM_ACTIVE_READ_BIAS)
 		     : "memory", "cc");
 }
 
@@ -296,10 +294,9 @@ static inline void __up_write(struct rw_semaphore *sem)
 		     _ASM_EXTABLE(0b, 1b)
 #endif
 
-		     /* tries to transition
-			0xffff0001 -> 0x00000000 */
-		     "  jz       2f\n"
-		     "  call call_rwsem_wake\n"
+		     /* subtracts 0xffff0001, returns the old value */
+		     "  jns        2f\n\t"
+		     "  call call_rwsem_wake\n" /* expects old value in %edx */
 		     "2:\n\t"
 		     "# ending __up_write\n"
 		     : "+m" (sem->count), "=d" (tmp)

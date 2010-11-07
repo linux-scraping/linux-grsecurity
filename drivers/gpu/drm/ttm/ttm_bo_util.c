@@ -351,10 +351,9 @@ static int ttm_buffer_object_transfer(struct ttm_buffer_object *bo,
 	INIT_LIST_HEAD(&fbo->lru);
 	INIT_LIST_HEAD(&fbo->swap);
 	fbo->vm_node = NULL;
+	atomic_set(&fbo->cpu_writers, 0);
 
 	fbo->sync_obj = driver->sync_obj_ref(bo->sync_obj);
-	if (fbo->mem.mm_node)
-		fbo->mem.mm_node->private = (void *)fbo;
 	kref_init(&fbo->list_kref);
 	kref_init(&fbo->kref);
 	fbo->destroy = &ttm_transfered_destroy;

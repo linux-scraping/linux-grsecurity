@@ -43,7 +43,6 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/tty.h>
-#include <linux/timer.h>
 #include <linux/ctype.h>
 #include <linux/mm.h>
 #include <linux/string.h>
@@ -920,7 +919,7 @@ static void gsm_dlci_data_sweep(struct gsm_mux *gsm)
 		else
 			len = gsm_dlci_data_output_framed(gsm, dlci);
 		if (len < 0)
-			return;
+			break;
 		/* DLCI empty - try the next */
 		if (len == 0)
 			i++;
@@ -1578,7 +1577,7 @@ static struct gsm_dlci *gsm_dlci_alloc(struct gsm_mux *gsm, int addr)
 		return NULL;
 	spin_lock_init(&dlci->lock);
 	dlci->fifo = &dlci->_fifo;
-	if (kfifo_alloc(&dlci->_fifo, 4096, GFP_KERNEL) < 0) {
+	if (kfifo_alloc(&dlci->_fifo, 4096, GFP_KERNEL)) {
 		kfree(dlci);
 		return NULL;
 	}

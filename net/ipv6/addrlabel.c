@@ -53,11 +53,7 @@ static struct ip6addrlbl_table
 static inline
 struct net *ip6addrlbl_net(const struct ip6addrlbl_entry *lbl)
 {
-#ifdef CONFIG_NET_NS
-	return lbl->lbl_net;
-#else
-	return &init_net;
-#endif
+	return read_pnet(&lbl->lbl_net);
 }
 
 /*
@@ -395,6 +391,11 @@ int __init ipv6_addr_label_init(void)
 	spin_lock_init(&ip6addrlbl_table.lock);
 
 	return register_pernet_subsys(&ipv6_addr_label_ops);
+}
+
+void ipv6_addr_label_cleanup(void)
+{
+	unregister_pernet_subsys(&ipv6_addr_label_ops);
 }
 
 static const struct nla_policy ifal_policy[IFAL_MAX+1] = {

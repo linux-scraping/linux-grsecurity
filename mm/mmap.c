@@ -480,12 +480,10 @@ static void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 		spin_lock(&mapping->i_mmap_lock);
 		vma->vm_truncate_count = mapping->truncate_count;
 	}
-	anon_vma_lock(vma);
 
 	__vma_link(mm, vma, prev, rb_link, rb_parent);
 	__vma_link_file(vma);
 
-	anon_vma_unlock(vma);
 	if (mapping)
 		spin_unlock(&mapping->i_mmap_lock);
 
@@ -538,6 +536,7 @@ int vma_adjust(struct vm_area_struct *vma, unsigned long start,
 	struct vm_area_struct *importer = NULL;
 	struct address_space *mapping = NULL;
 	struct prio_tree_root *root = NULL;
+	struct anon_vma *anon_vma = NULL;
 	struct file *file = vma->vm_file;
 	long adjust_next = 0;
 	int remove_next = 0;
@@ -610,6 +609,17 @@ again:			remove_next = 1 + (end > next->vm_end);
 		}
 	}
 
+	/*
+	 * When changing only vma->vm_end, we don't really need anon_vma
+	 * lock. This is a fairly rare case by itself, but the anon_vma
+	 * lock may be shared between many sibling processes.  Skipping
+	 * the lock for brk adjustments makes a difference sometimes.
+	 */
+	if (vma->anon_vma && (insert || importer || start != vma->vm_start)) {
+		anon_vma = vma->anon_vma;
+		anon_vma_lock(anon_vma);
+	}
+
 	if (root) {
 		flush_dcache_mmap_lock(mapping);
 		vma_prio_tree_remove(vma, root);
@@ -649,6 +659,8 @@ again:			remove_next = 1 + (end > next->vm_end);
 		__insert_vm_struct(mm, insert);
 	}
 
+	if (anon_vma)
+		anon_vma_unlock(anon_vma);
 	if (mapping)
 		spin_unlock(&mapping->i_mmap_lock);
 
@@ -1874,13 +1886,7 @@ struct vm_area_struct *pax_find_mirror_vma(struct vm_area_struct *vma)
 	BUG_ON(vma->vm_file != vma_m->vm_file);
 	BUG_ON(vma->vm_end - vma->vm_start != vma_m->vm_end - vma_m->vm_start);
 	BUG_ON(vma->vm_pgoff != vma_m->vm_pgoff);
-	if (vma->anon_vma != vma_m->anon_vma) {
-		struct anon_vma_chain *avc, *avc_m;
-
-		avc = list_entry(vma->anon_vma_chain.prev, struct anon_vma_chain, same_vma);
-		avc_m = list_entry(vma_m->anon_vma_chain.prev, struct anon_vma_chain, same_vma);
-		BUG_ON(avc->anon_vma != avc_m->anon_vma);
-	}
+	BUG_ON(vma->anon_vma != vma_m->anon_vma && vma->anon_vma->root != vma_m->anon_vma->root);
 	BUG_ON((vma->vm_flags ^ vma_m->vm_flags) & ~(VM_WRITE | VM_MAYWRITE | VM_ACCOUNT | VM_LOCKED | VM_RESERVED));
 	return vma_m;
 }
@@ -1969,9 +1975,9 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 	locknext = vma->vm_next && (vma->vm_next->vm_flags & VM_GROWSDOWN);
 	if (locknext && anon_vma_prepare(vma->vm_next))
 		return -ENOMEM;
-	anon_vma_lock(vma);
+	vma_lock_anon_vma(vma);
 	if (locknext)
-		anon_vma_lock(vma->vm_next);
+		vma_lock_anon_vma(vma->vm_next);
 
 	/*
 	 * vma->vm_start/vm_end cannot change under us because the caller
@@ -1991,12 +1997,14 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 		grow = (address - vma->vm_end) >> PAGE_SHIFT;
 
 		error = acct_stack_growth(vma, size, grow);
-		if (!error)
+		if (!error) {
 			vma->vm_end = address;
+			perf_event_mmap(vma);
+		}
 	}
 	if (locknext)
-		anon_vma_unlock(vma->vm_next);
-	anon_vma_unlock(vma);
+		vma_unlock_anon_vma(vma->vm_next);
+	vma_unlock_anon_vma(vma);
 	return error;
 }
 #endif /* CONFIG_STACK_GROWSUP || CONFIG_IA64 */
@@ -2029,9 +2037,9 @@ static int expand_downwards(struct vm_area_struct *vma,
 	if (lockprev && anon_vma_prepare(prev))
 		return -ENOMEM;
 	if (lockprev)
-		anon_vma_lock(prev);
+		vma_lock_anon_vma(prev);
 
-	anon_vma_lock(vma);
+	vma_lock_anon_vma(vma);
 
 	/*
 	 * vma->vm_start/vm_end cannot change under us because the caller
@@ -2067,11 +2075,12 @@ static int expand_downwards(struct vm_area_struct *vma,
 			}
 #endif
 
+			perf_event_mmap(vma);
 		}
 	}
-	anon_vma_unlock(vma);
+	vma_unlock_anon_vma(vma);
 	if (lockprev)
-		anon_vma_unlock(prev);
+		vma_unlock_anon_vma(prev);
 	return error;
 }
 
@@ -2637,6 +2646,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	vma->vm_page_prot = vm_get_page_prot(flags);
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 out:
+	perf_event_mmap(vma);
 	mm->total_vm += charged;
 	if (flags & VM_LOCKED) {
 		if (!mlock_vma_pages_range(vma, addr, addr + len))
@@ -2963,23 +2973,23 @@ static DEFINE_MUTEX(mm_all_locks_mutex);
 
 static void vm_lock_anon_vma(struct mm_struct *mm, struct anon_vma *anon_vma)
 {
-	if (!test_bit(0, (unsigned long *) &anon_vma->head.next)) {
+	if (!test_bit(0, (unsigned long *) &anon_vma->root->head.next)) {
 		/*
 		 * The LSB of head.next can't change from under us
 		 * because we hold the mm_all_locks_mutex.
 		 */
-		spin_lock_nest_lock(&anon_vma->lock, &mm->mmap_sem);
+		spin_lock_nest_lock(&anon_vma->root->lock, &mm->mmap_sem);
 		/*
 		 * We can safely modify head.next after taking the
-		 * anon_vma->lock. If some other vma in this mm shares
+		 * anon_vma->root->lock. If some other vma in this mm shares
 		 * the same anon_vma we won't take it again.
 		 *
 		 * No need of atomic instructions here, head.next
 		 * can't change from under us thanks to the
-		 * anon_vma->lock.
+		 * anon_vma->root->lock.
 		 */
 		if (__test_and_set_bit(0, (unsigned long *)
-				       &anon_vma->head.next))
+				       &anon_vma->root->head.next))
 			BUG();
 	}
 }
@@ -3070,7 +3080,7 @@ out_unlock:
 
 static void vm_unlock_anon_vma(struct anon_vma *anon_vma)
 {
-	if (test_bit(0, (unsigned long *) &anon_vma->head.next)) {
+	if (test_bit(0, (unsigned long *) &anon_vma->root->head.next)) {
 		/*
 		 * The LSB of head.next can't change to 0 from under
 		 * us because we hold the mm_all_locks_mutex.
@@ -3081,12 +3091,12 @@ static void vm_unlock_anon_vma(struct anon_vma *anon_vma)
 		 *
 		 * No need of atomic instructions here, head.next
 		 * can't change from under us until we release the
-		 * anon_vma->lock.
+		 * anon_vma->root->lock.
 		 */
 		if (!__test_and_clear_bit(0, (unsigned long *)
-					  &anon_vma->head.next))
+					  &anon_vma->root->head.next))
 			BUG();
-		spin_unlock(&anon_vma->lock);
+		anon_vma_unlock(anon_vma);
 	}
 }
 

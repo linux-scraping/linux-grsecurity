@@ -528,7 +528,7 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	 * Dirty & Deferred IO
 	 */
 	par->dirty.x1 = par->dirty.x2 = 0;
-	par->dirty.y1 = par->dirty.y1 = 0;
+	par->dirty.y1 = par->dirty.y2 = 0;
 	par->dirty.active = true;
 	spin_lock_init(&par->dirty.lock);
 	info->fbdefio = &vmw_defio;
@@ -614,6 +614,11 @@ int vmw_dmabuf_to_start_of_vram(struct vmw_private *vmw_priv,
 	ret = ttm_bo_reserve(bo, false, false, false, 0);
 	if (unlikely(ret != 0))
 		goto err_unlock;
+
+	if (bo->mem.mem_type == TTM_PL_VRAM &&
+	    bo->mem.mm_node->start < bo->num_pages)
+		(void) ttm_bo_validate(bo, &vmw_sys_placement, false,
+				       false, false);
 
 	ret = ttm_bo_validate(bo, &ne_placement, false, false, false);
 

@@ -33,10 +33,10 @@ void gr_clear_chroot_entries(struct task_struct *task)
 }	
 
 int
-gr_handle_chroot_unix(const pid_t pid)
+gr_handle_chroot_unix(struct pid *pid)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_UNIX
-	struct pid *spid = NULL;
+	struct task_struct *p;
 
 	if (unlikely(!grsec_enable_chroot_unix))
 		return 1;
@@ -46,17 +46,12 @@ gr_handle_chroot_unix(const pid_t pid)
 
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
-
-	spid = find_vpid(pid);
-	if (spid) {
-		struct task_struct *p;
-		p = pid_task(spid, PIDTYPE_PID);
-		if (unlikely(!have_same_root(current, p))) {
-			read_unlock(&tasklist_lock);
-			rcu_read_unlock();
-			gr_log_noargs(GR_DONT_AUDIT, GR_UNIX_CHROOT_MSG);
-			return 0;
-		}
+	p = pid_task(pid, PIDTYPE_PID);
+	if (unlikely(!have_same_root(current, p))) {
+		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
+		gr_log_noargs(GR_DONT_AUDIT, GR_UNIX_CHROOT_MSG);
+		return 0;
 	}
 	read_unlock(&tasklist_lock);
 	rcu_read_unlock();
@@ -145,27 +140,17 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 {
 	struct dentry *dentry = (struct dentry *)u_dentry;
 	struct vfsmount *mnt = (struct vfsmount *)u_mnt;
-	struct dentry *realroot;
-	struct vfsmount *realrootmnt;
-	struct dentry *currentroot;
-	struct vfsmount *currentmnt;
+	struct path realroot, currentroot;
 	struct task_struct *reaper = &init_task;
 	int ret = 1;
 
-	read_lock(&reaper->fs->lock);
-	realrootmnt = mntget(reaper->fs->root.mnt);
-	realroot = dget(reaper->fs->root.dentry);
-	read_unlock(&reaper->fs->lock);
-
-	read_lock(&current->fs->lock);
-	currentmnt = mntget(current->fs->root.mnt);
-	currentroot = dget(current->fs->root.dentry);
-	read_unlock(&current->fs->lock);
+	get_fs_root(reaper->fs, &realroot);
+	get_fs_root(current->fs, &currentroot);
 
 	spin_lock(&dcache_lock);
 	for (;;) {
-		if (unlikely((dentry == realroot && mnt == realrootmnt)
-		     || (dentry == currentroot && mnt == currentmnt)))
+		if (unlikely((dentry == realroot.dentry && mnt == realroot.mnt)
+		     || (dentry == currentroot.dentry && mnt == currentroot.mnt)))
 			break;
 		if (unlikely(dentry == mnt->mnt_root || IS_ROOT(dentry))) {
 			if (mnt->mnt_parent == mnt)
@@ -178,15 +163,13 @@ int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u
 	}
 	spin_unlock(&dcache_lock);
 
-	dput(currentroot);
-	mntput(currentmnt);
+	path_put(&currentroot);
 
 	/* access is outside of chroot */
-	if (dentry == realroot && mnt == realrootmnt)
+	if (dentry == realroot.dentry && mnt == realroot.mnt)
 		ret = 0;
 
-	dput(realroot);
-	mntput(realrootmnt);
+	path_put(&realroot);
 	return ret;
 }
 #endif

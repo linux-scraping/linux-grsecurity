@@ -164,20 +164,20 @@ armpmu_event_set_period(struct perf_event *event,
 			struct hw_perf_event *hwc,
 			int idx)
 {
-	s64 left = atomic64_read(&hwc->period_left);
+	s64 left = local64_read(&hwc->period_left);
 	s64 period = hwc->sample_period;
 	int ret = 0;
 
 	if (unlikely(left <= -period)) {
 		left = period;
-		atomic64_set(&hwc->period_left, left);
+		local64_set(&hwc->period_left, left);
 		hwc->last_period = period;
 		ret = 1;
 	}
 
 	if (unlikely(left <= 0)) {
 		left += period;
-		atomic64_set(&hwc->period_left, left);
+		local64_set(&hwc->period_left, left);
 		hwc->last_period = period;
 		ret = 1;
 	}
@@ -185,7 +185,7 @@ armpmu_event_set_period(struct perf_event *event,
 	if (left > (s64)armpmu->max_period)
 		left = armpmu->max_period;
 
-	atomic64_set(&hwc->prev_count, (u64)-left);
+	local64_set(&hwc->prev_count, (u64)-left);
 
 	armpmu->write_counter(idx, (u64)(-left) & 0xffffffff);
 
@@ -204,18 +204,18 @@ armpmu_event_update(struct perf_event *event,
 	u64 delta;
 
 again:
-	prev_raw_count = atomic64_read(&hwc->prev_count);
+	prev_raw_count = local64_read(&hwc->prev_count);
 	new_raw_count = armpmu->read_counter(idx);
 
-	if (atomic64_cmpxchg(&hwc->prev_count, prev_raw_count,
+	if (local64_cmpxchg(&hwc->prev_count, prev_raw_count,
 			     new_raw_count) != prev_raw_count)
 		goto again;
 
 	delta = (new_raw_count << shift) - (prev_raw_count << shift);
 	delta >>= shift;
 
-	atomic64_add(delta, &event->count);
-	atomic64_sub(delta, &hwc->period_left);
+	local64_add(delta, &event->count);
+	local64_sub(delta, &hwc->period_left);
 
 	return new_raw_count;
 }
@@ -319,8 +319,8 @@ validate_event(struct cpu_hw_events *cpuc,
 {
 	struct hw_perf_event fake_event = event->hw;
 
-	if (event->pmu && event->pmu != &pmu)
-		return 0;
+	if (event->pmu != &pmu || event->state <= PERF_EVENT_STATE_OFF)
+		return 1;
 
 	return armpmu->get_event_idx(cpuc, &fake_event) >= 0;
 }
@@ -478,7 +478,7 @@ __hw_perf_event_init(struct perf_event *event)
 	if (!hwc->sample_period) {
 		hwc->sample_period  = armpmu->max_period;
 		hwc->last_period    = hwc->sample_period;
-		atomic64_set(&hwc->period_left, hwc->sample_period);
+		local64_set(&hwc->period_left, hwc->sample_period);
 	}
 
 	err = 0;
@@ -1041,8 +1041,8 @@ armv6pmu_handle_irq(int irq_num,
 	/*
 	 * Handle the pending perf events.
 	 *
-	 * Note: this call *must* be run with interrupts enabled. For
-	 * platforms that can have the PMU interrupts raised as a PMI, this
+	 * Note: this call *must* be run with interrupts disabled. For
+	 * platforms that can have the PMU interrupts raised as an NMI, this
 	 * will not work.
 	 */
 	perf_event_do_pending();
@@ -2017,8 +2017,8 @@ static irqreturn_t armv7pmu_handle_irq(int irq_num, void *dev)
 	/*
 	 * Handle the pending perf events.
 	 *
-	 * Note: this call *must* be run with interrupts enabled. For
-	 * platforms that can have the PMU interrupts raised as a PMI, this
+	 * Note: this call *must* be run with interrupts disabled. For
+	 * platforms that can have the PMU interrupts raised as an NMI, this
 	 * will not work.
 	 */
 	perf_event_do_pending();

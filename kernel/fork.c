@@ -792,13 +792,13 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	struct fs_struct *fs = current->fs;
 	if (clone_flags & CLONE_FS) {
 		/* tsk->fs is already what we want */
-		write_lock(&fs->lock);
+		spin_lock(&fs->lock);
 		if (fs->in_exec) {
-			write_unlock(&fs->lock);
+			spin_unlock(&fs->lock);
 			return -EAGAIN;
 		}
 		atomic_inc(&fs->users);
-		write_unlock(&fs->lock);
+		spin_unlock(&fs->lock);
 		return 0;
 	}
 	tsk->fs = copy_fs_struct(fs);
@@ -940,6 +940,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	tty_audit_fork(sig);
 
 	sig->oom_adj = current->signal->oom_adj;
+	sig->oom_score_adj = current->signal->oom_score_adj;
 
 	return 0;
 }
@@ -948,7 +949,7 @@ static void copy_flags(unsigned long clone_flags, struct task_struct *p)
 {
 	unsigned long new_flags = p->flags;
 
-	new_flags &= ~PF_SUPERPRIV;
+	new_flags &= ~(PF_SUPERPRIV | PF_WQ_WORKER);
 	new_flags |= PF_FORKNOEXEC;
 	new_flags |= PF_STARTING;
 	p->flags = new_flags;
@@ -1725,14 +1726,14 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 
 		if (new_fs) {
 			fs = current->fs;
-			write_lock(&fs->lock);
+			spin_lock(&fs->lock);
 			current->fs = new_fs;
 			gr_set_chroot_entries(current, &current->fs->root);
 			if (atomic_dec_return(&fs->users))
 				new_fs = NULL;
 			else
 				new_fs = fs;
-			write_unlock(&fs->lock);
+			spin_unlock(&fs->lock);
 		}
 
 		if (new_mm) {

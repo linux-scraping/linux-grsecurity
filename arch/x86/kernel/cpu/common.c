@@ -86,9 +86,17 @@ static const struct cpu_dev *this_cpu __cpuinitdata = &default_cpu;
 static int __init x86_xsave_setup(char *s)
 {
 	setup_clear_cpu_cap(X86_FEATURE_XSAVE);
+	setup_clear_cpu_cap(X86_FEATURE_XSAVEOPT);
 	return 1;
 }
 __setup("noxsave", x86_xsave_setup);
+
+static int __init x86_xsaveopt_setup(char *s)
+{
+	setup_clear_cpu_cap(X86_FEATURE_XSAVEOPT);
+	return 1;
+}
+__setup("noxsaveopt", x86_xsaveopt_setup);
 
 #ifdef CONFIG_X86_32
 static int cachesize_override __cpuinitdata = -1;
@@ -495,6 +503,16 @@ void __cpuinit get_cpu_cap(struct cpuinfo_x86 *c)
 		cpuid(0x00000001, &tfms, &ebx, &excap, &capability);
 		c->x86_capability[0] = capability;
 		c->x86_capability[4] = excap;
+	}
+
+	/* Additional Intel-defined flags: level 0x00000007 */
+	if (c->cpuid_level >= 0x00000007) {
+		u32 eax, ebx, ecx, edx;
+
+		cpuid_count(0x00000007, 0, &eax, &ebx, &ecx, &edx);
+
+		if (eax > 0)
+			c->x86_capability[9] = ebx;
 	}
 
 	/* AMD-defined flags: level 0x80000001 */
@@ -1142,6 +1160,7 @@ void __cpuinit cpu_init(void)
 	dbg_restore_debug_regs();
 
 	fpu_init();
+	xsave_init();
 
 	raw_local_save_flags(kernel_eflags);
 
@@ -1202,12 +1221,7 @@ void __cpuinit cpu_init(void)
 	clear_used_math();
 	mxcsr_feature_mask_init();
 
-	/*
-	 * Boot processor to setup the FP and extended state context info.
-	 */
-	if (smp_processor_id() == boot_cpu_id)
-		init_thread_xstate();
-
+	fpu_init();
 	xsave_init();
 }
 #endif

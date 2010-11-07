@@ -14,12 +14,12 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
 {
 	struct path old_root;
 
-	write_lock(&fs->lock);
+	spin_lock(&fs->lock);
 	old_root = fs->root;
 	fs->root = *path;
 	path_get(path);
 	gr_set_chroot_entries(current, path);
-	write_unlock(&fs->lock);
+	spin_unlock(&fs->lock);
 	if (old_root.dentry)
 		path_put(&old_root);
 }
@@ -32,11 +32,11 @@ void set_fs_pwd(struct fs_struct *fs, struct path *path)
 {
 	struct path old_pwd;
 
-	write_lock(&fs->lock);
+	spin_lock(&fs->lock);
 	old_pwd = fs->pwd;
 	fs->pwd = *path;
 	path_get(path);
-	write_unlock(&fs->lock);
+	spin_unlock(&fs->lock);
 
 	if (old_pwd.dentry)
 		path_put(&old_pwd);
@@ -53,7 +53,7 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 		task_lock(p);
 		fs = p->fs;
 		if (fs) {
-			write_lock(&fs->lock);
+			spin_lock(&fs->lock);
 			if (fs->root.dentry == old_root->dentry
 			    && fs->root.mnt == old_root->mnt) {
 				path_get(new_root);
@@ -67,7 +67,7 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 				fs->pwd = *new_root;
 				count++;
 			}
-			write_unlock(&fs->lock);
+			spin_unlock(&fs->lock);
 		}
 		task_unlock(p);
 	} while_each_thread(g, p);
@@ -90,11 +90,11 @@ void exit_fs(struct task_struct *tsk)
 	if (fs) {
 		int kill;
 		task_lock(tsk);
-		write_lock(&fs->lock);
+		spin_lock(&fs->lock);
 		tsk->fs = NULL;
 		gr_clear_chroot_entries(tsk);
 		kill = !atomic_dec_return(&fs->users);
-		write_unlock(&fs->lock);
+		spin_unlock(&fs->lock);
 		task_unlock(tsk);
 		if (kill)
 			free_fs_struct(fs);
@@ -108,14 +108,9 @@ struct fs_struct *copy_fs_struct(struct fs_struct *old)
 	if (fs) {
 		atomic_set(&fs->users, 1);
 		fs->in_exec = 0;
-		rwlock_init(&fs->lock);
+		spin_lock_init(&fs->lock);
 		fs->umask = old->umask;
-		read_lock(&old->lock);
-		fs->root = old->root;
-		path_get(&old->root);
-		fs->pwd = old->pwd;
-		path_get(&old->pwd);
-		read_unlock(&old->lock);
+		get_fs_root_and_pwd(old, &fs->root, &fs->pwd);
 	}
 	return fs;
 }
@@ -130,11 +125,11 @@ int unshare_fs_struct(void)
 		return -ENOMEM;
 
 	task_lock(current);
-	write_lock(&fs->lock);
+	spin_lock(&fs->lock);
 	kill = !atomic_dec_return(&fs->users);
 	current->fs = new_fs;
 	gr_set_chroot_entries(current, &new_fs->root);
-	write_unlock(&fs->lock);
+	spin_unlock(&fs->lock);
 	task_unlock(current);
 
 	if (kill)
@@ -153,7 +148,7 @@ EXPORT_SYMBOL(current_umask);
 /* to be mentioned only in INIT_TASK */
 struct fs_struct init_fs = {
 	.users		= ATOMIC_INIT(1),
-	.lock		= __RW_LOCK_UNLOCKED(init_fs.lock),
+	.lock		= __SPIN_LOCK_UNLOCKED(init_fs.lock),
 	.umask		= 0022,
 };
 
@@ -166,15 +161,15 @@ void daemonize_fs_struct(void)
 
 		task_lock(current);
 
-		write_lock(&init_fs.lock);
+		spin_lock(&init_fs.lock);
 		atomic_inc(&init_fs.users);
-		write_unlock(&init_fs.lock);
+		spin_unlock(&init_fs.lock);
 
-		write_lock(&fs->lock);
+		spin_lock(&fs->lock);
 		current->fs = &init_fs;
 		gr_set_chroot_entries(current, &current->fs->root);
 		kill = !atomic_dec_return(&fs->users);
-		write_unlock(&fs->lock);
+		spin_unlock(&fs->lock);
 
 		task_unlock(current);
 		if (kill)

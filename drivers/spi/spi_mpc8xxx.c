@@ -38,7 +38,6 @@
 #include <linux/of_platform.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <linux/of_spi.h>
 #include <linux/slab.h>
 
 #include <sysdev/fsl_soc.h>
@@ -409,11 +408,17 @@ static void mpc8xxx_spi_cpm_bufs_start(struct mpc8xxx_spi *mspi)
 
 	xfer_ofs = mspi->xfer_in_progress->len - mspi->count;
 
-	out_be32(&rx_bd->cbd_bufaddr, mspi->rx_dma + xfer_ofs);
+	if (mspi->rx_dma == mspi->dma_dummy_rx)
+		out_be32(&rx_bd->cbd_bufaddr, mspi->rx_dma);
+	else
+		out_be32(&rx_bd->cbd_bufaddr, mspi->rx_dma + xfer_ofs);
 	out_be16(&rx_bd->cbd_datlen, 0);
 	out_be16(&rx_bd->cbd_sc, BD_SC_EMPTY | BD_SC_INTRPT | BD_SC_WRAP);
 
-	out_be32(&tx_bd->cbd_bufaddr, mspi->tx_dma + xfer_ofs);
+	if (mspi->tx_dma == mspi->dma_dummy_tx)
+		out_be32(&tx_bd->cbd_bufaddr, mspi->tx_dma);
+	else
+		out_be32(&tx_bd->cbd_bufaddr, mspi->tx_dma + xfer_ofs);
 	out_be16(&tx_bd->cbd_datlen, xfer_len);
 	out_be16(&tx_bd->cbd_sc, BD_SC_READY | BD_SC_INTRPT | BD_SC_WRAP |
 				 BD_SC_LAST);
@@ -1009,6 +1014,7 @@ mpc8xxx_spi_probe(struct device *dev, struct resource *mem, unsigned int irq)
 	master->setup = mpc8xxx_spi_setup;
 	master->transfer = mpc8xxx_spi_transfer;
 	master->cleanup = mpc8xxx_spi_cleanup;
+	master->dev.of_node = dev->of_node;
 
 	mpc8xxx_spi = spi_master_get_devdata(master);
 	mpc8xxx_spi->dev = dev;
@@ -1236,7 +1242,7 @@ static int of_mpc8xxx_spi_free_chipselects(struct device *dev)
 	return 0;
 }
 
-static int __devinit of_mpc8xxx_spi_probe(struct of_device *ofdev,
+static int __devinit of_mpc8xxx_spi_probe(struct platform_device *ofdev,
 					  const struct of_device_id *ofid)
 {
 	struct device *dev = &ofdev->dev;
@@ -1299,8 +1305,6 @@ static int __devinit of_mpc8xxx_spi_probe(struct of_device *ofdev,
 		goto err;
 	}
 
-	of_register_spi_devices(master, np);
-
 	return 0;
 
 err:
@@ -1310,7 +1314,7 @@ err_clk:
 	return ret;
 }
 
-static int __devexit of_mpc8xxx_spi_remove(struct of_device *ofdev)
+static int __devexit of_mpc8xxx_spi_remove(struct platform_device *ofdev)
 {
 	int ret;
 

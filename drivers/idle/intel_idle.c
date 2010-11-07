@@ -77,15 +77,13 @@ static struct cpuidle_driver intel_idle_driver = {
 };
 /* intel_idle.max_cstate=0 disables driver */
 static int max_cstate = MWAIT_MAX_NUM_CSTATES - 1;
-static int power_policy = 7; /* 0 = max perf; 15 = max powersave */
 
-static unsigned int substates;
-static int (*choose_substate)(int);
+static unsigned int mwait_substates;
 
 /* Reliable LAPIC Timer States, bit 1 for C1 etc.  */
 static unsigned int lapic_timer_reliable_states;
 
-static struct cpuidle_device *intel_idle_cpuidle_devices;
+static struct cpuidle_device __percpu *intel_idle_cpuidle_devices;
 static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state);
 
 static struct cpuidle_state *cpuidle_state_table;
@@ -110,7 +108,7 @@ static struct cpuidle_state nehalem_cstates[MWAIT_MAX_NUM_CSTATES] = {
 		.name = "NHM-C3",
 		.desc = "MWAIT 0x10",
 		.driver_data = (void *) 0x10,
-		.flags = CPUIDLE_FLAG_TIME_VALID,
+		.flags = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
 		.exit_latency = 20,
 		.power_usage = 500,
 		.target_residency = 80,
@@ -119,7 +117,7 @@ static struct cpuidle_state nehalem_cstates[MWAIT_MAX_NUM_CSTATES] = {
 		.name = "NHM-C6",
 		.desc = "MWAIT 0x20",
 		.driver_data = (void *) 0x20,
-		.flags = CPUIDLE_FLAG_TIME_VALID,
+		.flags = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
 		.exit_latency = 200,
 		.power_usage = 350,
 		.target_residency = 800,
@@ -151,7 +149,7 @@ static struct cpuidle_state atom_cstates[MWAIT_MAX_NUM_CSTATES] = {
 		.name = "ATM-C4",
 		.desc = "MWAIT 0x30",
 		.driver_data = (void *) 0x30,
-		.flags = CPUIDLE_FLAG_TIME_VALID,
+		.flags = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
 		.exit_latency = 100,
 		.power_usage = 250,
 		.target_residency = 400,
@@ -159,49 +157,14 @@ static struct cpuidle_state atom_cstates[MWAIT_MAX_NUM_CSTATES] = {
 	{ /* MWAIT C5 */ },
 	{ /* MWAIT C6 */
 		.name = "ATM-C6",
-		.desc = "MWAIT 0x40",
-		.driver_data = (void *) 0x40,
-		.flags = CPUIDLE_FLAG_TIME_VALID,
-		.exit_latency = 200,
+		.desc = "MWAIT 0x52",
+		.driver_data = (void *) 0x52,
+		.flags = CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
+		.exit_latency = 140,
 		.power_usage = 150,
-		.target_residency = 800,
-		.enter = NULL },	/* disabled */
+		.target_residency = 560,
+		.enter = &intel_idle },
 };
-
-/*
- * choose_tunable_substate()
- *
- * Run-time decision on which C-state substate to invoke
- * If power_policy = 0, choose shallowest substate (0)
- * If power_policy = 15, choose deepest substate
- * If power_policy = middle, choose middle substate etc.
- */
-static int choose_tunable_substate(int cstate)
-{
-	unsigned int num_substates;
-	unsigned int substate_choice;
-
-	power_policy &= 0xF;	/* valid range: 0-15 */
-	cstate &= 7;	/* valid range: 0-7 */
-
-	num_substates = (substates >> ((cstate) * 4)) & MWAIT_SUBSTATE_MASK;
-
-	if (num_substates <= 1)
-		return 0;
-
-	substate_choice = ((power_policy + (power_policy + 1) *
-				(num_substates - 1)) / 16);
-
-	return substate_choice;
-}
-
-/*
- * choose_zero_substate()
- */
-static int choose_zero_substate(int cstate)
-{
-	return 0;
-}
 
 /**
  * intel_idle
@@ -220,9 +183,17 @@ static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state)
 
 	cstate = (((eax) >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
 
-	eax = eax + (choose_substate)(cstate);
-
 	local_irq_disable();
+
+	/*
+	 * If the state flag indicates that the TLB will be flushed or if this
+	 * is the deepest c-state supported, do a voluntary leave mm to avoid
+	 * costly and mostly unnecessary wakeups for flushing the user TLB's
+	 * associated with the active mm.
+	 */
+	if (state->flags & CPUIDLE_FLAG_TLB_FLUSHED ||
+	    (&dev->states[dev->state_count - 1] == state))
+		leave_mm(cpu);
 
 	if (!(lapic_timer_reliable_states & (1 << (cstate))))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
@@ -231,7 +202,7 @@ static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state)
 
 	stop_critical_timings();
 #ifndef MODULE
-	trace_power_start(POWER_CSTATE, (eax >> 4) + 1);
+	trace_power_start(POWER_CSTATE, (eax >> 4) + 1, cpu);
 #endif
 	if (!need_resched()) {
 
@@ -259,7 +230,7 @@ static int intel_idle(struct cpuidle_device *dev, struct cpuidle_state *state)
  */
 static int intel_idle_probe(void)
 {
-	unsigned int eax, ebx, ecx, edx;
+	unsigned int eax, ebx, ecx;
 
 	if (max_cstate == 0) {
 		pr_debug(PREFIX "disabled\n");
@@ -275,17 +246,13 @@ static int intel_idle_probe(void)
 	if (boot_cpu_data.cpuid_level < CPUID_MWAIT_LEAF)
 		return -ENODEV;
 
-	cpuid(CPUID_MWAIT_LEAF, &eax, &ebx, &ecx, &edx);
+	cpuid(CPUID_MWAIT_LEAF, &eax, &ebx, &ecx, &mwait_substates);
 
 	if (!(ecx & CPUID5_ECX_EXTENSIONS_SUPPORTED) ||
 		!(ecx & CPUID5_ECX_INTERRUPT_BREAK))
 			return -ENODEV;
-#ifdef DEBUG
-	if (substates == 0)	/* can over-ride via modparam */
-#endif
-		substates = edx;
 
-	pr_debug(PREFIX "MWAIT substates: 0x%x\n", substates);
+	pr_debug(PREFIX "MWAIT substates: 0x%x\n", mwait_substates);
 
 	if (boot_cpu_has(X86_FEATURE_ARAT))	/* Always Reliable APIC Timer */
 		lapic_timer_reliable_states = 0xFFFFFFFF;
@@ -299,18 +266,18 @@ static int intel_idle_probe(void)
 	case 0x1E:	/* Core i7 and i5 Processor - Lynnfield Jasper Forest */
 	case 0x1F:	/* Core i7 and i5 Processor - Nehalem */
 	case 0x2E:	/* Nehalem-EX Xeon */
+	case 0x2F:	/* Westmere-EX Xeon */
 		lapic_timer_reliable_states = (1 << 1);	 /* C1 */
 
 	case 0x25:	/* Westmere */
 	case 0x2C:	/* Westmere */
 		cpuidle_state_table = nehalem_cstates;
-		choose_substate = choose_tunable_substate;
 		break;
 
 	case 0x1C:	/* 28 - Atom Processor */
+	case 0x26:	/* 38 - Lincroft Atom Processor */
 		lapic_timer_reliable_states = (1 << 2) | (1 << 1); /* C2, C1 */
 		cpuidle_state_table = atom_cstates;
-		choose_substate = choose_zero_substate;
 		break;
 #ifdef FUTURE_USE
 	case 0x17:	/* 23 - Core 2 Duo */
@@ -376,7 +343,7 @@ static int intel_idle_cpuidle_devices_init(void)
 			}
 
 			/* does the state exist in CPUID.MWAIT? */
-			num_substates = (substates >> ((cstate) * 4))
+			num_substates = (mwait_substates >> ((cstate) * 4))
 						& MWAIT_SUBSTATE_MASK;
 			if (num_substates == 0)
 				continue;
@@ -450,11 +417,7 @@ static void __exit intel_idle_exit(void)
 module_init(intel_idle_init);
 module_exit(intel_idle_exit);
 
-module_param(power_policy, int, 0644);
 module_param(max_cstate, int, 0444);
-#ifdef DEBUG
-module_param(substates, int, 0444);
-#endif
 
 MODULE_AUTHOR("Len Brown <len.brown@intel.com>");
 MODULE_DESCRIPTION("Cpuidle driver for Intel Hardware v" INTEL_IDLE_VERSION);

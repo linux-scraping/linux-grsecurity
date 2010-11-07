@@ -24,27 +24,17 @@
 #include "xfs_trans.h"
 #include "xfs_sb.h"
 #include "xfs_ag.h"
-#include "xfs_dir2.h"
-#include "xfs_dmapi.h"
 #include "xfs_mount.h"
 #include "xfs_bmap_btree.h"
-#include "xfs_alloc_btree.h"
-#include "xfs_ialloc_btree.h"
-#include "xfs_btree.h"
-#include "xfs_dir2_sf.h"
-#include "xfs_attr_sf.h"
 #include "xfs_inode.h"
 #include "xfs_dinode.h"
 #include "xfs_error.h"
-#include "xfs_mru_cache.h"
 #include "xfs_filestream.h"
 #include "xfs_vnodeops.h"
-#include "xfs_utils.h"
-#include "xfs_buf_item.h"
 #include "xfs_inode_item.h"
-#include "xfs_rw.h"
 #include "xfs_quota.h"
 #include "xfs_trace.h"
+#include "xfs_fsops.h"
 
 #include <linux/kthread.h>
 #include <linux/freezer.h>
@@ -319,7 +309,7 @@ xfs_sync_inode_attr(
 /*
  * Write out pagecache data for the whole filesystem.
  */
-int
+STATIC int
 xfs_sync_data(
 	struct xfs_mount	*mp,
 	int			flags)
@@ -340,7 +330,7 @@ xfs_sync_data(
 /*
  * Write out inode metadata (attributes) for the whole filesystem.
  */
-int
+STATIC int
 xfs_sync_attr(
 	struct xfs_mount	*mp,
 	int			flags)
@@ -349,39 +339,6 @@ xfs_sync_attr(
 
 	return xfs_inode_ag_iterator(mp, xfs_sync_inode_attr, flags,
 				     XFS_ICI_NO_TAG, 0, NULL);
-}
-
-STATIC int
-xfs_commit_dummy_trans(
-	struct xfs_mount	*mp,
-	uint			flags)
-{
-	struct xfs_inode	*ip = mp->m_rootip;
-	struct xfs_trans	*tp;
-	int			error;
-
-	/*
-	 * Put a dummy transaction in the log to tell recovery
-	 * that all others are OK.
-	 */
-	tp = xfs_trans_alloc(mp, XFS_TRANS_DUMMY1);
-	error = xfs_trans_reserve(tp, 0, XFS_ICHANGE_LOG_RES(mp), 0, 0, 0);
-	if (error) {
-		xfs_trans_cancel(tp, 0);
-		return error;
-	}
-
-	xfs_ilock(ip, XFS_ILOCK_EXCL);
-
-	xfs_trans_ijoin(tp, ip, XFS_ILOCK_EXCL);
-	xfs_trans_ihold(tp, ip);
-	xfs_trans_log_inode(tp, ip, XFS_ILOG_CORE);
-	error = xfs_trans_commit(tp, 0);
-	xfs_iunlock(ip, XFS_ILOCK_EXCL);
-
-	/* the log force ensures this transaction is pushed to disk */
-	xfs_log_force(mp, (flags & SYNC_WAIT) ? XFS_LOG_SYNC : 0);
-	return error;
 }
 
 STATIC int
@@ -444,7 +401,7 @@ xfs_quiesce_data(
 
 	/* mark the log as covered if needed */
 	if (xfs_log_need_covered(mp))
-		error2 = xfs_commit_dummy_trans(mp, SYNC_WAIT);
+		error2 = xfs_fs_log_dummy(mp, SYNC_WAIT);
 
 	/* flush data-only devices */
 	if (mp->m_rtdev_targp)
@@ -575,7 +532,7 @@ xfs_flush_inodes(
 /*
  * Every sync period we need to unpin all items, reclaim inodes and sync
  * disk quotas.  We might need to cover the log to indicate that the
- * filesystem is idle.
+ * filesystem is idle and not frozen.
  */
 STATIC void
 xfs_sync_worker(
@@ -589,8 +546,9 @@ xfs_sync_worker(
 		xfs_reclaim_inodes(mp, 0);
 		/* dgc: errors ignored here */
 		error = xfs_qm_sync(mp, SYNC_TRYLOCK);
-		if (xfs_log_need_covered(mp))
-			error = xfs_commit_dummy_trans(mp, 0);
+		if (mp->m_super->s_frozen == SB_UNFROZEN &&
+		    xfs_log_need_covered(mp))
+			error = xfs_fs_log_dummy(mp, 0);
 	}
 	mp->m_sync_seq++;
 	wake_up(&mp->m_wait_single_sync_task);
@@ -710,7 +668,7 @@ xfs_inode_set_reclaim_tag(
 	xfs_perag_put(pag);
 }
 
-void
+STATIC void
 __xfs_inode_clear_reclaim(
 	xfs_perag_t	*pag,
 	xfs_inode_t	*ip)
@@ -875,7 +833,37 @@ out:
 reclaim:
 	xfs_ifunlock(ip);
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
-	xfs_ireclaim(ip);
+
+	XFS_STATS_INC(xs_ig_reclaims);
+	/*
+	 * Remove the inode from the per-AG radix tree.
+	 *
+	 * Because radix_tree_delete won't complain even if the item was never
+	 * added to the tree assert that it's been there before to catch
+	 * problems with the inode life time early on.
+	 */
+	write_lock(&pag->pag_ici_lock);
+	if (!radix_tree_delete(&pag->pag_ici_root,
+				XFS_INO_TO_AGINO(ip->i_mount, ip->i_ino)))
+		ASSERT(0);
+	__xfs_inode_clear_reclaim(pag, ip);
+	write_unlock(&pag->pag_ici_lock);
+
+	/*
+	 * Here we do an (almost) spurious inode lock in order to coordinate
+	 * with inode cache radix tree lookups.  This is because the lookup
+	 * can reference the inodes in the cache without taking references.
+	 *
+	 * We make that OK here by ensuring that we wait until the inode is
+	 * unlocked after the lookup before we go ahead and free it.  We get
+	 * both the ilock and the iolock because the code may need to drop the
+	 * ilock one but will still hold the iolock.
+	 */
+	xfs_ilock(ip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
+	xfs_qm_dqdetach(ip);
+	xfs_iunlock(ip, XFS_ILOCK_EXCL | XFS_IOLOCK_EXCL);
+
+	xfs_inode_free(ip);
 	return error;
 
 }

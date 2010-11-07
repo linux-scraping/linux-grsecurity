@@ -102,6 +102,7 @@ struct cpu_hw_events {
 	 */
 	struct perf_event	*events[X86_PMC_IDX_MAX]; /* in counter order */
 	unsigned long		active_mask[BITS_TO_LONGS(X86_PMC_IDX_MAX)];
+	unsigned long		running[BITS_TO_LONGS(X86_PMC_IDX_MAX)];
 	int			enabled;
 
 	int			n_events;
@@ -220,6 +221,7 @@ struct x86_pmu {
 						 struct perf_event *event);
 	struct event_constraint *event_constraints;
 	void		(*quirks)(void);
+	int		perfctr_second_write;
 
 	int		(*cpu_prepare)(int cpu);
 	void		(*cpu_starting)(int cpu);
@@ -295,10 +297,10 @@ x86_perf_event_update(struct perf_event *event)
 	 * count to the generic event atomically:
 	 */
 again:
-	prev_raw_count = atomic64_read(&hwc->prev_count);
+	prev_raw_count = local64_read(&hwc->prev_count);
 	rdmsrl(hwc->event_base + idx, new_raw_count);
 
-	if (atomic64_cmpxchg(&hwc->prev_count, prev_raw_count,
+	if (local64_cmpxchg(&hwc->prev_count, prev_raw_count,
 					new_raw_count) != prev_raw_count)
 		goto again;
 
@@ -313,8 +315,8 @@ again:
 	delta = (new_raw_count << shift) - (prev_raw_count << shift);
 	delta >>= shift;
 
-	atomic64_add(delta, &event->count);
-	atomic64_sub(delta, &hwc->period_left);
+	local64_add(delta, &event->count);
+	local64_sub(delta, &hwc->period_left);
 
 	return new_raw_count;
 }
@@ -438,7 +440,7 @@ static int x86_setup_perfctr(struct perf_event *event)
 	if (!hwc->sample_period) {
 		hwc->sample_period = x86_pmu.max_period;
 		hwc->last_period = hwc->sample_period;
-		atomic64_set(&hwc->period_left, hwc->sample_period);
+		local64_set(&hwc->period_left, hwc->sample_period);
 	} else {
 		/*
 		 * If we have a PMU initialized but no APIC
@@ -885,7 +887,7 @@ static int
 x86_perf_event_set_period(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
-	s64 left = atomic64_read(&hwc->period_left);
+	s64 left = local64_read(&hwc->period_left);
 	s64 period = hwc->sample_period;
 	int ret = 0, idx = hwc->idx;
 
@@ -897,14 +899,14 @@ x86_perf_event_set_period(struct perf_event *event)
 	 */
 	if (unlikely(left <= -period)) {
 		left = period;
-		atomic64_set(&hwc->period_left, left);
+		local64_set(&hwc->period_left, left);
 		hwc->last_period = period;
 		ret = 1;
 	}
 
 	if (unlikely(left <= 0)) {
 		left += period;
-		atomic64_set(&hwc->period_left, left);
+		local64_set(&hwc->period_left, left);
 		hwc->last_period = period;
 		ret = 1;
 	}
@@ -923,10 +925,19 @@ x86_perf_event_set_period(struct perf_event *event)
 	 * The hw event starts counting from this event offset,
 	 * mark it to be able to extra future deltas:
 	 */
-	atomic64_set(&hwc->prev_count, (u64)-left);
+	local64_set(&hwc->prev_count, (u64)-left);
 
-	wrmsrl(hwc->event_base + idx,
+	wrmsrl(hwc->event_base + idx, (u64)(-left) & x86_pmu.cntval_mask);
+
+	/*
+	 * Due to erratum on certan cpu we need
+	 * a second write to be sure the register
+	 * is updated properly
+	 */
+	if (x86_pmu.perfctr_second_write) {
+		wrmsrl(hwc->event_base + idx,
 			(u64)(-left) & x86_pmu.cntval_mask);
+	}
 
 	perf_event_update_userpage(event);
 
@@ -969,7 +980,7 @@ static int x86_pmu_enable(struct perf_event *event)
 	 * skip the schedulability test here, it will be peformed
 	 * at commit time(->commit_txn) as a whole
 	 */
-	if (cpuc->group_flag & PERF_EVENT_TXN_STARTED)
+	if (cpuc->group_flag & PERF_EVENT_TXN)
 		goto out;
 
 	ret = x86_pmu.schedule_events(cpuc, n, assign);
@@ -1000,6 +1011,7 @@ static int x86_pmu_start(struct perf_event *event)
 	x86_perf_event_set_period(event);
 	cpuc->events[idx] = event;
 	__set_bit(idx, cpuc->active_mask);
+	__set_bit(idx, cpuc->running);
 	x86_pmu.enable(event);
 	perf_event_update_userpage(event);
 
@@ -1096,7 +1108,7 @@ static void x86_pmu_disable(struct perf_event *event)
 	 * The events never got scheduled and ->cancel_txn will truncate
 	 * the event_list.
 	 */
-	if (cpuc->group_flag & PERF_EVENT_TXN_STARTED)
+	if (cpuc->group_flag & PERF_EVENT_TXN)
 		return;
 
 	x86_pmu_stop(event);
@@ -1131,8 +1143,16 @@ static int x86_pmu_handle_irq(struct pt_regs *regs)
 	cpuc = &__get_cpu_var(cpu_hw_events);
 
 	for (idx = 0; idx < x86_pmu.num_counters; idx++) {
-		if (!test_bit(idx, cpuc->active_mask))
+		if (!test_bit(idx, cpuc->active_mask)) {
+			/*
+			 * Though we deactivated the counter some cpus
+			 * might still deliver spurious interrupts still
+			 * in flight. Catch them:
+			 */
+			if (__test_and_clear_bit(idx, cpuc->running))
+				handled++;
 			continue;
+		}
 
 		event = cpuc->events[idx];
 		hwc = &event->hw;
@@ -1144,7 +1164,7 @@ static int x86_pmu_handle_irq(struct pt_regs *regs)
 		/*
 		 * event overflow
 		 */
-		handled		= 1;
+		handled++;
 		data.period	= event->hw.last_period;
 
 		if (!x86_perf_event_set_period(event))
@@ -1190,12 +1210,20 @@ void perf_events_lapic_init(void)
 	apic_write(APIC_LVTPC, APIC_DM_NMI);
 }
 
+struct pmu_nmi_state {
+	unsigned int	marked;
+	int		handled;
+};
+
+static DEFINE_PER_CPU(struct pmu_nmi_state, pmu_nmi);
+
 static int __kprobes
 perf_event_nmi_handler(struct notifier_block *self,
 			 unsigned long cmd, void *__args)
 {
 	struct die_args *args = __args;
-	struct pt_regs *regs;
+	unsigned int this_nmi;
+	int handled;
 
 	if (!atomic_read(&active_events))
 		return NOTIFY_DONE;
@@ -1204,22 +1232,47 @@ perf_event_nmi_handler(struct notifier_block *self,
 	case DIE_NMI:
 	case DIE_NMI_IPI:
 		break;
-
+	case DIE_NMIUNKNOWN:
+		this_nmi = percpu_read(irq_stat.__nmi_count);
+		if (this_nmi != __get_cpu_var(pmu_nmi).marked)
+			/* let the kernel handle the unknown nmi */
+			return NOTIFY_DONE;
+		/*
+		 * This one is a PMU back-to-back nmi. Two events
+		 * trigger 'simultaneously' raising two back-to-back
+		 * NMIs. If the first NMI handles both, the latter
+		 * will be empty and daze the CPU. So, we drop it to
+		 * avoid false-positive 'unknown nmi' messages.
+		 */
+		return NOTIFY_STOP;
 	default:
 		return NOTIFY_DONE;
 	}
 
-	regs = args->regs;
-
 	apic_write(APIC_LVTPC, APIC_DM_NMI);
-	/*
-	 * Can't rely on the handled return value to say it was our NMI, two
-	 * events could trigger 'simultaneously' raising two back-to-back NMIs.
-	 *
-	 * If the first NMI handles both, the latter will be empty and daze
-	 * the CPU.
-	 */
-	x86_pmu.handle_irq(regs);
+
+	handled = x86_pmu.handle_irq(args->regs);
+	if (!handled)
+		return NOTIFY_DONE;
+
+	this_nmi = percpu_read(irq_stat.__nmi_count);
+	if ((handled > 1) ||
+		/* the next nmi could be a back-to-back nmi */
+	    ((__get_cpu_var(pmu_nmi).marked == this_nmi) &&
+	     (__get_cpu_var(pmu_nmi).handled > 1))) {
+		/*
+		 * We could have two subsequent back-to-back nmis: The
+		 * first handles more than one counter, the 2nd
+		 * handles only one counter and the 3rd handles no
+		 * counter.
+		 *
+		 * This is the 2nd nmi because the previous was
+		 * handling more than one counter. We will mark the
+		 * next (3rd) and then drop it if unhandled.
+		 */
+		__get_cpu_var(pmu_nmi).marked	= this_nmi + 1;
+		__get_cpu_var(pmu_nmi).handled	= handled;
+	}
 
 	return NOTIFY_STOP;
 }
@@ -1388,7 +1441,7 @@ static void x86_pmu_start_txn(const struct pmu *pmu)
 {
 	struct cpu_hw_events *cpuc = &__get_cpu_var(cpu_hw_events);
 
-	cpuc->group_flag |= PERF_EVENT_TXN_STARTED;
+	cpuc->group_flag |= PERF_EVENT_TXN;
 	cpuc->n_txn = 0;
 }
 
@@ -1401,7 +1454,7 @@ static void x86_pmu_cancel_txn(const struct pmu *pmu)
 {
 	struct cpu_hw_events *cpuc = &__get_cpu_var(cpu_hw_events);
 
-	cpuc->group_flag &= ~PERF_EVENT_TXN_STARTED;
+	cpuc->group_flag &= ~PERF_EVENT_TXN;
 	/*
 	 * Truncate the collected events.
 	 */
@@ -1435,11 +1488,7 @@ static int x86_pmu_commit_txn(const struct pmu *pmu)
 	 */
 	memcpy(cpuc->assign, assign, n*sizeof(int));
 
-	/*
-	 * Clear out the txn count so that ->cancel_txn() which gets
-	 * run after ->commit_txn() doesn't undo things.
-	 */
-	cpuc->n_txn = 0;
+	cpuc->group_flag &= ~PERF_EVENT_TXN;
 
 	return 0;
 }
@@ -1607,8 +1656,6 @@ static const struct stacktrace_ops backtrace_ops = {
 	.walk_stack		= print_context_stack_bp,
 };
 
-#include "../dumpstack.h"
-
 static void
 perf_callchain_kernel(struct pt_regs *regs, struct perf_callchain_entry *entry)
 {
@@ -1728,22 +1775,6 @@ struct perf_callchain_entry *perf_callchain(struct pt_regs *regs)
 	perf_do_callchain(regs, entry);
 
 	return entry;
-}
-
-void perf_arch_fetch_caller_regs(struct pt_regs *regs, unsigned long ip, int skip)
-{
-	regs->ip = ip;
-	/*
-	 * perf_arch_fetch_caller_regs adds another call, we need to increment
-	 * the skip level
-	 */
-	regs->bp = rewind_frame_pointer(skip + 1);
-	regs->cs = __KERNEL_CS;
-	/*
-	 * We abuse bit 3 to pass exact information, see perf_misc_flags
-	 * and the comment with PERF_EFLAGS_EXACT.
-	 */
-	regs->flags = 0;
 }
 
 unsigned long perf_instruction_pointer(struct pt_regs *regs)

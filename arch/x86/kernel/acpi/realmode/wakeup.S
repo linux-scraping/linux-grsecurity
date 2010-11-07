@@ -104,7 +104,7 @@ _start:
 	movl	%eax, %ecx
 	orl	%edx, %ecx
 	jz	1f
-	mov	$MSR_EFER, %ecx
+	movl	$MSR_EFER, %ecx
 	wrmsr
 1:
 

@@ -486,6 +486,12 @@ static int uvc_parse_format(struct uvc_device *dev,
 			    max(frame->dwFrameInterval[0],
 				frame->dwDefaultFrameInterval));
 
+		if (dev->quirks & UVC_QUIRK_RESTRICT_FRAME_RATE) {
+			frame->bFrameIntervalType = 1;
+			frame->dwFrameInterval[0] =
+				frame->dwDefaultFrameInterval;
+		}
+
 		uvc_trace(UVC_TRACE_DESCR, "- %ux%u (%u.%u fps)\n",
 			frame->wWidth, frame->wHeight,
 			10000000/frame->dwDefaultFrameInterval,
@@ -637,13 +643,12 @@ static int uvc_parse_streaming(struct uvc_device *dev,
 	}
 	streaming->header.bControlSize = n;
 
-	streaming->header.bmaControls = kmalloc(p*n, GFP_KERNEL);
+	streaming->header.bmaControls = kmemdup(&buffer[size], p * n,
+						GFP_KERNEL);
 	if (streaming->header.bmaControls == NULL) {
 		ret = -ENOMEM;
 		goto error;
 	}
-
-	memcpy(streaming->header.bmaControls, &buffer[size], p*n);
 
 	buflen -= buffer[0];
 	buffer += buffer[0];
@@ -2027,6 +2032,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceClass	= USB_CLASS_VENDOR_SPEC,
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0 },
+	/* Chicony CNF7129 (Asus EEE 100HE) */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x04f2,
+	  .idProduct		= 0xb071,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_RESTRICT_FRAME_RATE },
 	/* Alcor Micro AU3820 (Future Boy PC USB Webcam) */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2092,6 +2106,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceProtocol	= 0,
 	  .driver_info		= UVC_QUIRK_PROBE_MINMAX
 				| UVC_QUIRK_PROBE_DEF },
+	/* IMC Networks (Medion Akoya) */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x13d3,
+	  .idProduct		= 0x5103,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_STREAM_NO_FID },
 	/* Syntek (HP Spartan) */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2146,6 +2169,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0,
 	  .driver_info		= UVC_QUIRK_STREAM_NO_FID },
+	/* Miricle 307K */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x17dc,
+	  .idProduct		= 0x0202,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_STREAM_NO_FID },
 	/* Lenovo Thinkpad SL400/SL500 */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2174,6 +2206,15 @@ static struct usb_device_id uvc_ids[] = {
 	  .bInterfaceSubClass	= 1,
 	  .bInterfaceProtocol	= 0,
 	  .driver_info		= UVC_QUIRK_PROBE_EXTRAFIELDS },
+	/* Manta MM-353 Plako */
+	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+				| USB_DEVICE_ID_MATCH_INT_INFO,
+	  .idVendor		= 0x18ec,
+	  .idProduct		= 0x3188,
+	  .bInterfaceClass	= USB_CLASS_VIDEO,
+	  .bInterfaceSubClass	= 1,
+	  .bInterfaceProtocol	= 0,
+	  .driver_info		= UVC_QUIRK_PROBE_MINMAX },
 	/* FSC WebCam V30S */
 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
 				| USB_DEVICE_ID_MATCH_INT_INFO,
@@ -2261,6 +2302,7 @@ static int __init uvc_init(void)
 static void __exit uvc_cleanup(void)
 {
 	usb_deregister(&uvc_driver.driver);
+	uvc_ctrl_cleanup();
 }
 
 module_init(uvc_init);

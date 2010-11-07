@@ -84,7 +84,7 @@ static struct hda_verb nvhdmi_basic_init_7x[] = {
 #else
 /* support all rates and formats */
 #define SUPPORTED_RATES \
-	(SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 |\
+	(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 |\
 	SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |\
 	 SNDRV_PCM_RATE_192000)
 #define SUPPORTED_MAXBPS	24
@@ -202,8 +202,7 @@ static int nvhdmi_dig_playback_pcm_prepare_8ch_89(struct hda_pcm_stream *hinfo,
 
 	hdmi_setup_audio_infoframe(codec, hinfo->nid, substream);
 
-	hdmi_setup_stream(codec, hinfo->nid, stream_tag, format);
-	return 0;
+	return hdmi_setup_stream(codec, hinfo->nid, stream_tag, format);
 }
 
 static int nvhdmi_dig_playback_pcm_prepare_8ch(struct hda_pcm_stream *hinfo,
@@ -327,13 +326,6 @@ static int nvhdmi_dig_playback_pcm_prepare_8ch(struct hda_pcm_stream *hinfo,
 	return 0;
 }
 
-static int nvhdmi_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
-					   struct hda_codec *codec,
-					   struct snd_pcm_substream *substream)
-{
-	return 0;
-}
-
 static int nvhdmi_dig_playback_pcm_prepare_2ch(struct hda_pcm_stream *hinfo,
 					struct hda_codec *codec,
 					unsigned int stream_tag,
@@ -348,12 +340,9 @@ static int nvhdmi_dig_playback_pcm_prepare_2ch(struct hda_pcm_stream *hinfo,
 static struct hda_pcm_stream nvhdmi_pcm_digital_playback_8ch_89 = {
 	.substreams = 1,
 	.channels_min = 2,
-	.rates = SUPPORTED_RATES,
-	.maxbps = SUPPORTED_MAXBPS,
-	.formats = SUPPORTED_FORMATS,
 	.ops = {
+		.open = hdmi_pcm_open,
 		.prepare = nvhdmi_dig_playback_pcm_prepare_8ch_89,
-		.cleanup = nvhdmi_playback_pcm_cleanup,
 	},
 };
 

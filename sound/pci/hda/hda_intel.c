@@ -126,6 +126,7 @@ MODULE_SUPPORTED_DEVICE("{{Intel, ICH6},"
 			 "{Intel, ICH10},"
 			 "{Intel, PCH},"
 			 "{Intel, CPT},"
+			 "{Intel, PBG},"
 			 "{Intel, SCH},"
 			 "{ATI, SB450},"
 			 "{ATI, SB600},"
@@ -1634,7 +1635,7 @@ static int azx_pcm_hw_free(struct snd_pcm_substream *substream)
 	azx_dev->period_bytes = 0;
 	azx_dev->format_val = 0;
 
-	hinfo->ops.cleanup(hinfo, apcm->codec, substream);
+	snd_hda_codec_cleanup(apcm->codec, hinfo, substream);
 
 	return snd_pcm_lib_free_pages(substream);
 }
@@ -1653,7 +1654,8 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 	format_val = snd_hda_calc_stream_format(runtime->rate,
 						runtime->channels,
 						runtime->format,
-						hinfo->maxbps);
+						hinfo->maxbps,
+						apcm->codec->spdif_ctls);
 	if (!format_val) {
 		snd_printk(KERN_ERR SFX
 			   "invalid format_val, rate=%d, ch=%d, format=%d\n",
@@ -1687,8 +1689,8 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 	else
 		azx_dev->fifo_size = 0;
 
-	return hinfo->ops.prepare(hinfo, apcm->codec, azx_dev->stream_tag,
-				  azx_dev->format_val, substream);
+	return snd_hda_codec_prepare(apcm->codec, hinfo, azx_dev->stream_tag,
+				     azx_dev->format_val, substream);
 }
 
 static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -1960,7 +1962,7 @@ static void azx_irq_pending_work(struct work_struct *work)
 		spin_unlock_irq(&chip->reg_lock);
 		if (!pending)
 			return;
-		cond_resched();
+		msleep(1);
 	}
 }
 
@@ -2748,6 +2750,8 @@ static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	{ PCI_DEVICE(0x8086, 0x3b57), .driver_data = AZX_DRIVER_ICH },
 	/* CPT */
 	{ PCI_DEVICE(0x8086, 0x1c20), .driver_data = AZX_DRIVER_PCH },
+	/* PBG */
+	{ PCI_DEVICE(0x8086, 0x1d20), .driver_data = AZX_DRIVER_PCH },
 	/* SCH */
 	{ PCI_DEVICE(0x8086, 0x811b), .driver_data = AZX_DRIVER_SCH },
 	/* ATI SB 450/600 */

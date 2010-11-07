@@ -35,8 +35,7 @@ static struct inodev_db inodev_set;
    can share references in the kernel as well
 */
 
-static struct dentry *real_root;
-static struct vfsmount *real_root_mnt;
+static struct path real_root;
 
 static struct acl_subj_map_db subj_map_set;
 
@@ -150,75 +149,12 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 	return !memcmp(a, b, lena);
 }
 
-static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
-	                   struct dentry *root, struct vfsmount *rootmnt,
-			   char *buffer, int buflen)
-{
-	char * end = buffer+buflen;
-	char * retval;
-	int namelen;
-
-	spin_lock(&vfsmount_lock);
-	*--end = '\0';
-	buflen--;
-
-	if (buflen < 1)
-		goto Elong;
-	/* Get '/' right */
-	retval = end-1;
-	*retval = '/';
-
-	for (;;) {
-		struct dentry * parent;
-
-		if (dentry == root && vfsmnt == rootmnt)
-			break;
-		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
-			/* Global root? */
-			if (vfsmnt->mnt_parent == vfsmnt) {
-				goto global_root;
-			}
-			dentry = vfsmnt->mnt_mountpoint;
-			vfsmnt = vfsmnt->mnt_parent;
-			continue;
-		}
-		parent = dentry->d_parent;
-		prefetch(parent);
-		namelen = dentry->d_name.len;
-		buflen -= namelen + 1;
-		if (buflen < 0)
-			goto Elong;
-		end -= namelen;
-		memcpy(end, dentry->d_name.name, namelen);
-		*--end = '/';
-		retval = end;
-		dentry = parent;
-	}
-
-out:
-	spin_unlock(&vfsmount_lock);
-	return retval;
-
-global_root:
-	namelen = dentry->d_name.len;
-	buflen -= namelen;
-	if (buflen < 0)
-		goto Elong;
-	retval -= namelen-1;	/* hit the slash */
-	memcpy(retval, dentry->d_name.name, namelen);
-	goto out;
-Elong:
-	retval = ERR_PTR(-ENAMETOOLONG);
-	goto out;
-}
-
 static char *
-gen_full_path(struct dentry *dentry, struct vfsmount *vfsmnt,
-              struct dentry *root, struct vfsmount *rootmnt, char *buf, int buflen)
+gen_full_path(struct path *path, struct path *root, char *buf, int buflen)
 {
 	char *retval;
 
-	retval = __our_d_path(dentry, vfsmnt, root, rootmnt, buf, buflen);
+	retval = __d_path(path, root, buf, buflen);
 	if (unlikely(IS_ERR(retval)))
 		retval = strcpy(buf, "<path too long>");
 	else if (unlikely(retval[1] == '/' && retval[2] == '\0'))
@@ -231,11 +167,15 @@ static char *
 __d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 		char *buf, int buflen)
 {
+	struct path path;
 	char *res;
 
-	/* we can use real_root, real_root_mnt, because this is only called
+	path.dentry = (struct dentry *)dentry;
+	path.mnt = (struct vfsmount *)vfsmnt;
+
+	/* we can use real_root.dentry, real_root.mnt, because this is only called
 	   by the RBAC system */
-	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, real_root, real_root_mnt, buf, buflen);
+	res = gen_full_path(&path, &real_root, buf, buflen);
 
 	return res;
 }
@@ -245,22 +185,21 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	    char *buf, int buflen)
 {
 	char *res;
-	struct dentry *root;
-	struct vfsmount *rootmnt;
+	struct path path;
+	struct path root;
 	struct task_struct *reaper = &init_task;
 
-	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
-	read_lock(&reaper->fs->lock);
-	root = dget(reaper->fs->root.dentry);
-	rootmnt = mntget(reaper->fs->root.mnt);
-	read_unlock(&reaper->fs->lock);
+	path.dentry = (struct dentry *)dentry;
+	path.mnt = (struct vfsmount *)vfsmnt;
+
+	/* we can't use real_root.dentry, real_root.mnt, because they belong only to the RBAC system */
+	get_fs_root(reaper->fs, &root);
 
 	spin_lock(&dcache_lock);
-	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, root, rootmnt, buf, buflen);
+	res = gen_full_path(&path, &root, buf, buflen);
 	spin_unlock(&dcache_lock);
 
-	dput(root);
-	mntput(rootmnt);
+	path_put(&root);
 	return res;
 }
 
@@ -779,10 +718,7 @@ init_variables(const struct gr_arg *arg)
 		return 1;
 
 	/* grab reference for the real root dentry and vfsmount */
-	read_lock(&reaper->fs->lock);
-	real_root_mnt = mntget(reaper->fs->root.mnt);
-	real_root = dget(reaper->fs->root.dentry);
-	read_unlock(&reaper->fs->lock);
+	get_fs_root(reaper->fs, &real_root);
 	
 	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
 	if (fakefs_obj == NULL)
@@ -860,12 +796,7 @@ free_variables(void)
 	read_unlock(&tasklist_lock);
 
 	/* release the reference to the real root dentry and vfsmount */
-	if (real_root)
-		dput(real_root);
-	real_root = NULL;
-	if (real_root_mnt)
-		mntput(real_root_mnt);
-	real_root_mnt = NULL;
+	path_put(&real_root);
 
 	/* free all object hash tables */
 
@@ -1786,7 +1717,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	}
 
 	for (;;) {
-		if (dentry == real_root && mnt == real_root_mnt)
+		if (dentry == real_root.dentry && mnt == real_root.mnt)
 			break;
 
 		if (dentry == mnt->mnt_root || IS_ROOT(dentry)) {
@@ -1812,7 +1743,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path, checkglob);
 
 	if (retval == NULL)
-		retval = full_lookup(l_dentry, l_mnt, real_root, subj, &path, checkglob);
+		retval = full_lookup(l_dentry, l_mnt, real_root.dentry, subj, &path, checkglob);
 out:
 	spin_unlock(&dcache_lock);
 	return retval;
@@ -1852,7 +1783,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	spin_lock(&dcache_lock);
 
 	for (;;) {
-		if (dentry == real_root && mnt == real_root_mnt)
+		if (dentry == real_root.dentry && mnt == real_root.mnt)
 			break;
 		if (dentry == mnt->mnt_root || IS_ROOT(dentry)) {
 			if (mnt->mnt_parent == mnt)
@@ -1888,8 +1819,8 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 	if (unlikely(retval == NULL)) {
 		read_lock(&gr_inode_lock);
-		retval = lookup_acl_subj_label(real_root->d_inode->i_ino,
-					  real_root->d_inode->i_sb->s_dev, role);
+		retval = lookup_acl_subj_label(real_root.dentry->d_inode->i_ino,
+					  real_root.dentry->d_inode->i_sb->s_dev, role);
 		read_unlock(&gr_inode_lock);
 	}
 out:

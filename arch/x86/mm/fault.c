@@ -22,7 +22,6 @@
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 #include <asm/stacktrace.h>
-#include "../kernel/dumpstack.h"
 #endif
 
 /*

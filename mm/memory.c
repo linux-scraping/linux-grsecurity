@@ -314,7 +314,6 @@ void free_pgd_range(struct mmu_gather *tlb,
 {
 	pgd_t *pgd;
 	unsigned long next;
-	unsigned long start;
 
 	/*
 	 * The next few lines have given us lots of grief...
@@ -358,7 +357,6 @@ void free_pgd_range(struct mmu_gather *tlb,
 	if (addr > end - 1)
 		return;
 
-	start = addr;
 	pgd = pgd_offset(tlb->mm, addr);
 	do {
 		next = pgd_addr_end(addr, end);
@@ -2032,11 +2030,10 @@ int apply_to_page_range(struct mm_struct *mm, unsigned long addr,
 {
 	pgd_t *pgd;
 	unsigned long next;
-	unsigned long start = addr, end = addr + size;
+	unsigned long end = addr + size;
 	int err;
 
 	BUG_ON(addr >= end);
-	mmu_notifier_invalidate_range_start(mm, start, end);
 	pgd = pgd_offset(mm, addr);
 	do {
 		next = pgd_addr_end(addr, end);
@@ -2044,7 +2041,7 @@ int apply_to_page_range(struct mm_struct *mm, unsigned long addr,
 		if (err)
 			break;
 	} while (pgd++, addr = next, addr != end);
-	mmu_notifier_invalidate_range_end(mm, start, end);
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(apply_to_page_range);
@@ -2844,6 +2841,7 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	swp_entry_t entry;
 	pte_t pte;
 	struct mem_cgroup *ptr = NULL;
+	int exclusive = 0;
 	int ret = 0;
 
 	if (!pte_unmap_same(mm, pmd, page_table, orig_pte))
@@ -2953,10 +2951,12 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	if ((flags & FAULT_FLAG_WRITE) && reuse_swap_page(page)) {
 		pte = maybe_mkwrite(pte_mkdirty(pte), vma);
 		flags &= ~FAULT_FLAG_WRITE;
+		ret |= VM_FAULT_WRITE;
+		exclusive = 1;
 	}
 	flush_icache_page(vma, page);
 	set_pte_at(mm, address, page_table, pte);
-	page_add_anon_rmap(page, vma, address);
+	do_page_add_anon_rmap(page, vma, address, exclusive);
 	/* It's better to call commit-charge after rmap is established */
 	mem_cgroup_commit_charge_swapin(page, ptr);
 

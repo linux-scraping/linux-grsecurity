@@ -86,7 +86,10 @@ extern unsigned int smbCalcSize(struct smb_hdr *ptr);
 extern unsigned int smbCalcSize_LE(struct smb_hdr *ptr);
 extern int decode_negTokenInit(unsigned char *security_blob, int length,
 			struct TCP_Server_Info *server);
-extern int cifs_convert_address(char *src, void *dst);
+extern int cifs_convert_address(struct sockaddr *dst, const char *src, int len);
+extern int cifs_set_port(struct sockaddr *addr, const unsigned short int port);
+extern int cifs_fill_sockaddr(struct sockaddr *dst, const char *src, int len,
+				const unsigned short int port);
 extern int map_smb_to_linux_error(struct smb_hdr *smb, int logErr);
 extern void header_assemble(struct smb_hdr *, char /* command */ ,
 			    const struct cifsTconInfo *, int /* length of
@@ -363,8 +366,6 @@ extern int cifs_verify_signature(struct smb_hdr *,
 				__u32 expected_sequence_number);
 extern int cifs_calculate_mac_key(struct mac_key *key, const char *rn,
 				 const char *pass);
-extern int CalcNTLMv2_partial_mac_key(struct cifsSesInfo *,
-			const struct nls_table *);
 extern void CalcNTLMv2_response(const struct cifsSesInfo *, char *);
 extern void setup_ntlmv2_rsp(struct cifsSesInfo *, char *,
 			     const struct nls_table *);

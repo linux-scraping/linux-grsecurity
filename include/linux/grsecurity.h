@@ -51,7 +51,7 @@ int gr_handle_chroot_mount(const struct dentry *dentry,
 				  const struct vfsmount *mnt,
 				  const char *dev_name);
 int gr_handle_chroot_pivot(void);
-int gr_handle_chroot_unix(const pid_t pid);
+int gr_handle_chroot_unix(struct pid *pid);
 
 int gr_handle_rawio(const struct inode *inode);
 int gr_handle_nproc(void);
@@ -71,7 +71,7 @@ void gr_log_chdir(const struct dentry *dentry,
 			 const struct vfsmount *mnt);
 void gr_log_chroot_exec(const struct dentry *dentry,
 			       const struct vfsmount *mnt);
-void gr_handle_exec_args(struct linux_binprm *bprm, char **argv);
+void gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *argv);
 void gr_log_remount(const char *devname, const int retval);
 void gr_log_unmount(const char *devname, const int retval);
 void gr_log_mount(const char *from, const char *to, const int retval);

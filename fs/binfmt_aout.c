@@ -139,7 +139,6 @@ static int aout_core_dump(struct coredump_params *cprm)
 		if (!dump_write(file, dump_start, dump_size))
 			goto end_coredump;
 	}
-/* Finally let's not dump the task struct.  Not be used by gdb, but could be useful to an attacker */
 end_coredump:
 	set_fs(fs);
 	return has_dumped;

@@ -37,7 +37,7 @@ static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
 		fl.fl4_src = saddr->a4;
 
 	err = __ip_route_output_key(net, &rt, &fl);
-	dst = &rt->u.dst;
+	dst = &rt->dst;
 	if (err)
 		dst = ERR_PTR(err);
 	return dst;
@@ -61,7 +61,7 @@ static int xfrm4_get_saddr(struct net *net,
 
 static int xfrm4_get_tos(struct flowi *fl)
 {
-	return fl->fl4_tos;
+	return IPTOS_RT_MASK & fl->fl4_tos; /* Strip ECN bits */
 }
 
 static int xfrm4_init_path(struct xfrm_dst *path, struct dst_entry *dst,

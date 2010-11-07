@@ -27,7 +27,7 @@
 
 const struct inode_operations ceph_dir_iops;
 const struct file_operations ceph_dir_fops;
-struct dentry_operations ceph_dentry_ops;
+const struct dentry_operations ceph_dentry_ops;
 
 /*
  * Initialize ceph dentry state.
@@ -46,7 +46,7 @@ int ceph_init_dentry(struct dentry *dentry)
 	else
 		dentry->d_op = &ceph_snap_dentry_ops;
 
-	di = kmem_cache_alloc(ceph_dentry_cachep, GFP_NOFS);
+	di = kmem_cache_alloc(ceph_dentry_cachep, GFP_NOFS | __GFP_ZERO);
 	if (!di)
 		return -ENOMEM;          /* oh well */
 
@@ -94,6 +94,8 @@ static unsigned fpos_off(loff_t p)
  */
 static int __dcache_readdir(struct file *filp,
 			    void *dirent, filldir_t filldir)
+		__releases(inode->i_lock)
+		__acquires(inode->i_lock)
 {
 	struct inode *inode = filp->f_dentry->d_inode;
 	struct ceph_file_info *fi = filp->private_data;
@@ -1019,11 +1021,15 @@ out_touch:
 static void ceph_dentry_release(struct dentry *dentry)
 {
 	struct ceph_dentry_info *di = ceph_dentry(dentry);
-	struct inode *parent_inode = dentry->d_parent->d_inode;
-	u64 snapid = ceph_snap(parent_inode);
+	struct inode *parent_inode = NULL;
+	u64 snapid = CEPH_NOSNAP;
 
+	if (!IS_ROOT(dentry)) {
+		parent_inode = dentry->d_parent->d_inode;
+		if (parent_inode)
+			snapid = ceph_snap(parent_inode);
+	}
 	dout("dentry_release %p parent %p\n", dentry, parent_inode);
-
 	if (parent_inode && snapid != CEPH_SNAPDIR) {
 		struct ceph_inode_info *ci = ceph_inode(parent_inode);
 
@@ -1239,16 +1245,16 @@ const struct inode_operations ceph_dir_iops = {
 	.create = ceph_create,
 };
 
-struct dentry_operations ceph_dentry_ops = {
+const struct dentry_operations ceph_dentry_ops = {
 	.d_revalidate = ceph_d_revalidate,
 	.d_release = ceph_dentry_release,
 };
 
-struct dentry_operations ceph_snapdir_dentry_ops = {
+const struct dentry_operations ceph_snapdir_dentry_ops = {
 	.d_revalidate = ceph_snapdir_d_revalidate,
 	.d_release = ceph_dentry_release,
 };
 
-struct dentry_operations ceph_snap_dentry_ops = {
+const struct dentry_operations ceph_snap_dentry_ops = {
 	.d_release = ceph_dentry_release,
 };

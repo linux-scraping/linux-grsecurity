@@ -116,6 +116,20 @@ static inline void atomic64_sub(long i, atomic64_t *v)
 }
 
 /**
+ * atomic64_sub_unchecked - subtract the atomic64 variable
+ * @i: integer value to subtract
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically subtracts @i from @v.
+ */
+static inline void atomic64_sub_unchecked(long i, atomic64_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "subq %1,%0\n"
+		     : "=m" (v->counter)
+		     : "er" (i), "m" (v->counter));
+}
+
+/**
  * atomic64_sub_and_test - subtract value from variable and test result
  * @i: integer value to subtract
  * @v: pointer to type atomic64_t

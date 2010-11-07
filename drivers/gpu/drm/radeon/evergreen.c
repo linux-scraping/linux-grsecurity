@@ -39,6 +39,23 @@
 static void evergreen_gpu_init(struct radeon_device *rdev);
 void evergreen_fini(struct radeon_device *rdev);
 
+/* get temperature in millidegrees */
+u32 evergreen_get_temp(struct radeon_device *rdev)
+{
+	u32 temp = (RREG32(CG_MULT_THERMAL_STATUS) & ASIC_T_MASK) >>
+		ASIC_T_SHIFT;
+	u32 actual_temp = 0;
+
+	if ((temp >> 10) & 1)
+		actual_temp = 0;
+	else if ((temp >> 9) & 1)
+		actual_temp = 255;
+	else
+		actual_temp = (temp >> 1) & 0xff;
+
+	return actual_temp * 1000;
+}
+
 void evergreen_pm_misc(struct radeon_device *rdev)
 {
 	int req_ps_idx = rdev->pm.requested_power_state_index;
@@ -1163,6 +1180,7 @@ static void evergreen_gpu_init(struct radeon_device *rdev)
 		}
 	}
 
+	rdev->config.evergreen.tile_config = gb_addr_config;
 	WREG32(GB_BACKEND_MAP, gb_backend_map);
 	WREG32(GB_ADDR_CONFIG, gb_addr_config);
 	WREG32(DMIF_ADDR_CONFIG, gb_addr_config);
@@ -1382,15 +1400,14 @@ int evergreen_mc_init(struct radeon_device *rdev)
 	}
 	rdev->mc.vram_width = numchan * chansize;
 	/* Could aper size report 0 ? */
-	rdev->mc.aper_base = drm_get_resource_start(rdev->ddev, 0);
-	rdev->mc.aper_size = drm_get_resource_len(rdev->ddev, 0);
+	rdev->mc.aper_base = pci_resource_start(rdev->pdev, 0);
+	rdev->mc.aper_size = pci_resource_len(rdev->pdev, 0);
 	/* Setup GPU memory space */
 	/* size in MB on evergreen */
 	rdev->mc.mc_vram_size = RREG32(CONFIG_MEMSIZE) * 1024 * 1024;
 	rdev->mc.real_vram_size = RREG32(CONFIG_MEMSIZE) * 1024 * 1024;
 	rdev->mc.visible_vram_size = rdev->mc.aper_size;
-	/* limit it to the aperture size for now as there is no blit support in 2.6.35/36*/
-	rdev->mc.real_vram_size = rdev->mc.visible_vram_size;
+	rdev->mc.active_vram_size = rdev->mc.visible_vram_size;
 	r600_vram_gtt_location(rdev, &rdev->mc);
 	radeon_update_bandwidth_info(rdev);
 
@@ -1504,7 +1521,7 @@ void evergreen_disable_interrupt_state(struct radeon_device *rdev)
 {
 	u32 tmp;
 
-	WREG32(CP_INT_CNTL, 0);
+	WREG32(CP_INT_CNTL, CNTX_BUSY_INT_ENABLE | CNTX_EMPTY_INT_ENABLE);
 	WREG32(GRBM_INT_CNTL, 0);
 	WREG32(INT_MASK + EVERGREEN_CRTC0_REGISTER_OFFSET, 0);
 	WREG32(INT_MASK + EVERGREEN_CRTC1_REGISTER_OFFSET, 0);
@@ -2086,11 +2103,6 @@ int evergreen_resume(struct radeon_device *rdev)
 	 */
 	/* post card */
 	atom_asic_init(rdev->mode_info.atom_context);
-	/* Initialize clocks */
-	r = radeon_clocks_init(rdev);
-	if (r) {
-		return r;
-	}
 
 	r = evergreen_startup(rdev);
 	if (r) {
@@ -2196,9 +2208,6 @@ int evergreen_init(struct radeon_device *rdev)
 	radeon_surface_init(rdev);
 	/* Initialize clocks */
 	radeon_get_clock_info(rdev->ddev);
-	r = radeon_clocks_init(rdev);
-	if (r)
-		return r;
 	/* Fence driver */
 	r = radeon_fence_driver_init(rdev);
 	if (r)
@@ -2268,7 +2277,6 @@ void evergreen_fini(struct radeon_device *rdev)
 	evergreen_pcie_gart_fini(rdev);
 	radeon_gem_fini(rdev);
 	radeon_fence_driver_fini(rdev);
-	radeon_clocks_fini(rdev);
 	radeon_agp_fini(rdev);
 	radeon_bo_fini(rdev);
 	radeon_atombios_fini(rdev);

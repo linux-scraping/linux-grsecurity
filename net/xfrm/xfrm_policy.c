@@ -1175,9 +1175,8 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, struct flowi *fl,
 		    tmpl->mode == XFRM_MODE_BEET) {
 			remote = &tmpl->id.daddr;
 			local = &tmpl->saddr;
-			family = tmpl->encap_family;
-			if (xfrm_addr_any(local, family)) {
-				error = xfrm_get_saddr(net, &tmp, remote, family);
+			if (xfrm_addr_any(local, tmpl->encap_family)) {
+				error = xfrm_get_saddr(net, &tmp, remote, tmpl->encap_family);
 				if (error)
 					goto fail;
 				local = &tmp;
@@ -2492,7 +2491,8 @@ static int __net_init xfrm_statistics_init(struct net *net)
 	int rv;
 
 	if (snmp_mib_init((void __percpu **)net->mib.xfrm_statistics,
-			  sizeof(struct linux_xfrm_mib)) < 0)
+			  sizeof(struct linux_xfrm_mib),
+			  __alignof__(struct linux_xfrm_mib)) < 0)
 		return -ENOMEM;
 	rv = xfrm_proc_init(net);
 	if (rv < 0)

@@ -133,7 +133,8 @@ out:
  * must be owner or have write permission.
  * Else, update from *times, must be owner or super user.
  */
-long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags)
+long do_utimes(int dfd, const char __user *filename, struct timespec *times,
+	       int flags)
 {
 	int error = -EINVAL;
 
@@ -177,7 +178,7 @@ out:
 	return error;
 }
 
-SYSCALL_DEFINE4(utimensat, int, dfd, char __user *, filename,
+SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
 		struct timespec __user *, utimes, int, flags)
 {
 	struct timespec tstimes[2];
@@ -195,7 +196,7 @@ SYSCALL_DEFINE4(utimensat, int, dfd, char __user *, filename,
 	return do_utimes(dfd, filename, utimes ? tstimes : NULL, flags);
 }
 
-SYSCALL_DEFINE3(futimesat, int, dfd, char __user *, filename,
+SYSCALL_DEFINE3(futimesat, int, dfd, const char __user *, filename,
 		struct timeval __user *, utimes)
 {
 	struct timeval times[2];

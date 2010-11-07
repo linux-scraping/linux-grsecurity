@@ -578,6 +578,12 @@ struct task_struct *cgroup_iter_next(struct cgroup *cgrp,
 void cgroup_iter_end(struct cgroup *cgrp, struct cgroup_iter *it);
 int cgroup_scan_tasks(struct cgroup_scanner *scan);
 int cgroup_attach_task(struct cgroup *, struct task_struct *);
+int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
+
+static inline int cgroup_attach_task_current_cg(struct task_struct *tsk)
+{
+	return cgroup_attach_task_all(current, tsk);
+}
 
 /*
  * CSS ID is ID for cgroup_subsys_state structs under subsys. This only works
@@ -632,6 +638,17 @@ static inline int cgroupstats_build(struct cgroupstats *stats,
 					struct dentry *dentry)
 {
 	return -EINVAL;
+}
+
+/* No cgroups - nothing to do */
+static inline int cgroup_attach_task_all(struct task_struct *from,
+					 struct task_struct *t)
+{
+	return 0;
+}
+static inline int cgroup_attach_task_current_cg(struct task_struct *t)
+{
+	return 0;
 }
 
 #endif /* !CONFIG_CGROUPS */

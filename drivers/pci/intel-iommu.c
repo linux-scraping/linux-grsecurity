@@ -279,7 +279,7 @@ static inline u64 dma_pte_addr(struct dma_pte *pte)
 	return pte->val & VTD_PAGE_MASK;
 #else
 	/* Must have a full atomic 64-bit read */
-	return  __cmpxchg64(pte, 0ULL, 0ULL) & VTD_PAGE_MASK;
+	return  __cmpxchg64(&pte->val, 0ULL, 0ULL) & VTD_PAGE_MASK;
 #endif
 }
 
@@ -3722,6 +3722,8 @@ static int intel_iommu_domain_has_cap(struct iommu_domain *domain,
 
 	if (cap == IOMMU_CAP_CACHE_COHERENCY)
 		return dmar_domain->iommu_snooping;
+	if (cap == IOMMU_CAP_INTR_REMAP)
+		return intr_remapping_enabled;
 
 	return 0;
 }
@@ -3754,6 +3756,33 @@ static void __devinit quirk_iommu_rwbf(struct pci_dev *dev)
 }
 
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2a40, quirk_iommu_rwbf);
+
+#define GGC 0x52
+#define GGC_MEMORY_SIZE_MASK	(0xf << 8)
+#define GGC_MEMORY_SIZE_NONE	(0x0 << 8)
+#define GGC_MEMORY_SIZE_1M	(0x1 << 8)
+#define GGC_MEMORY_SIZE_2M	(0x3 << 8)
+#define GGC_MEMORY_VT_ENABLED	(0x8 << 8)
+#define GGC_MEMORY_SIZE_2M_VT	(0x9 << 8)
+#define GGC_MEMORY_SIZE_3M_VT	(0xa << 8)
+#define GGC_MEMORY_SIZE_4M_VT	(0xb << 8)
+
+static void __devinit quirk_calpella_no_shadow_gtt(struct pci_dev *dev)
+{
+	unsigned short ggc;
+
+	if (pci_read_config_word(dev, GGC, &ggc))
+		return;
+
+	if (!(ggc & GGC_MEMORY_VT_ENABLED)) {
+		printk(KERN_INFO "DMAR: BIOS has allocated no shadow GTT; disabling IOMMU for graphics\n");
+		dmar_map_gfx = 0;
+	}
+}
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0040, quirk_calpella_no_shadow_gtt);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0044, quirk_calpella_no_shadow_gtt);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0062, quirk_calpella_no_shadow_gtt);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x006a, quirk_calpella_no_shadow_gtt);
 
 /* On Tylersburg chipsets, some BIOSes have been known to enable the
    ISOCH DMAR unit for the Azalia sound device, but not give it any

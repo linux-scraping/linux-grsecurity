@@ -69,7 +69,7 @@ void radeon_ttm_placement_from_domain(struct radeon_bo *rbo, u32 domain)
 	u32 c = 0;
 
 	rbo->placement.fpfn = 0;
-	rbo->placement.lpfn = 0;
+	rbo->placement.lpfn = rbo->rdev->mc.active_vram_size >> PAGE_SHIFT;
 	rbo->placement.placement = rbo->placements;
 	rbo->placement.busy_placement = rbo->placements;
 	if (domain & RADEON_GEM_DOMAIN_VRAM)
@@ -341,7 +341,7 @@ int radeon_bo_list_validate(struct list_head *head)
 		bo = lobj->bo;
 		if (!bo->pin_count) {
 			domain = lobj->wdomain ? lobj->wdomain : lobj->rdomain;
-
+			
 		retry:
 			radeon_ttm_placement_from_domain(bo, domain);
 			r = ttm_bo_validate(&bo->tbo, &bo->placement,

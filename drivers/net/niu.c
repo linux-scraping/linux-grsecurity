@@ -28,10 +28,7 @@
 #include <linux/slab.h>
 
 #include <linux/io.h>
-
-#ifdef CONFIG_SPARC64
 #include <linux/of_device.h>
-#endif
 
 #include "niu.h"
 
@@ -3330,10 +3327,12 @@ static struct page *niu_find_rxpage(struct rx_ring_info *rp, u64 addr,
 	for (; (p = *pp) != NULL; pp = (struct page **) &p->mapping) {
 		if (p->index == addr) {
 			*link = pp;
-			break;
+			goto found;
 		}
 	}
+	BUG();
 
+found:
 	return p;
 }
 
@@ -7270,32 +7269,28 @@ static int niu_get_ethtool_tcam_all(struct niu *np,
 	struct niu_parent *parent = np->parent;
 	struct niu_tcam_entry *tp;
 	int i, idx, cnt;
-	u16 n_entries;
 	unsigned long flags;
-
+	int ret = 0;
 
 	/* put the tcam size here */
 	nfc->data = tcam_get_size(np);
 
 	niu_lock_parent(np, flags);
-	n_entries = nfc->rule_cnt;
 	for (cnt = 0, i = 0; i < nfc->data; i++) {
 		idx = tcam_get_index(np, i);
 		tp = &parent->tcam[idx];
 		if (!tp->valid)
 			continue;
+		if (cnt == nfc->rule_cnt) {
+			ret = -EMSGSIZE;
+			break;
+		}
 		rule_locs[cnt] = i;
 		cnt++;
 	}
 	niu_unlock_parent(np, flags);
 
-	if (n_entries != cnt) {
-		/* print warning, this should not happen */
-		netdev_info(np->dev, "niu%d: In %s(): n_entries[%d] != cnt[%d]!!!\n",
-			    np->parent->index, __func__, n_entries, cnt);
-	}
-
-	return 0;
+	return ret;
 }
 
 static int niu_get_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
@@ -7920,14 +7915,7 @@ static int niu_phys_id(struct net_device *dev, u32 data)
 
 static int niu_set_flags(struct net_device *dev, u32 data)
 {
-	if (data & (ETH_FLAG_LRO | ETH_FLAG_NTUPLE))
-		return -EOPNOTSUPP;
-
-	if (data & ETH_FLAG_RXHASH)
-		dev->features |= NETIF_F_RXHASH;
-	else
-		dev->features &= ~NETIF_F_RXHASH;
-	return 0;
+	return ethtool_op_set_flags(dev, data, ETH_FLAG_RXHASH);
 }
 
 static const struct ethtool_ops niu_ethtool_ops = {
@@ -9111,7 +9099,7 @@ retry:
 static int __devinit niu_n2_irq_init(struct niu *np, u8 *ldg_num_map)
 {
 #ifdef CONFIG_SPARC64
-	struct of_device *op = np->op;
+	struct platform_device *op = np->op;
 	const u32 *int_prop;
 	int i;
 
@@ -9119,12 +9107,12 @@ static int __devinit niu_n2_irq_init(struct niu *np, u8 *ldg_num_map)
 	if (!int_prop)
 		return -ENODEV;
 
-	for (i = 0; i < op->num_irqs; i++) {
+	for (i = 0; i < op->archdata.num_irqs; i++) {
 		ldg_num_map[i] = int_prop[i];
-		np->ldg[i].irq = op->irqs[i];
+		np->ldg[i].irq = op->archdata.irqs[i];
 	}
 
-	np->num_ldg = op->num_irqs;
+	np->num_ldg = op->archdata.num_irqs;
 
 	return 0;
 #else
@@ -9696,7 +9684,7 @@ static void __devinit niu_driver_version(void)
 
 static struct net_device * __devinit niu_alloc_and_init(
 	struct device *gen_dev, struct pci_dev *pdev,
-	struct of_device *op, const struct niu_ops *ops,
+	struct platform_device *op, const struct niu_ops *ops,
 	u8 port)
 {
 	struct net_device *dev;
@@ -10072,7 +10060,7 @@ static const struct niu_ops niu_phys_ops = {
 	.unmap_single	= niu_phys_unmap_single,
 };
 
-static int __devinit niu_of_probe(struct of_device *op,
+static int __devinit niu_of_probe(struct platform_device *op,
 				  const struct of_device_id *match)
 {
 	union niu_parent_id parent_id;
@@ -10187,7 +10175,7 @@ err_out:
 	return err;
 }
 
-static int __devexit niu_of_remove(struct of_device *op)
+static int __devexit niu_of_remove(struct platform_device *op)
 {
 	struct net_device *dev = dev_get_drvdata(&op->dev);
 
@@ -10254,14 +10242,14 @@ static int __init niu_init(void)
 	niu_debug = netif_msg_init(debug, NIU_MSG_DEFAULT);
 
 #ifdef CONFIG_SPARC64
-	err = of_register_driver(&niu_of_driver, &of_bus_type);
+	err = of_register_platform_driver(&niu_of_driver);
 #endif
 
 	if (!err) {
 		err = pci_register_driver(&niu_pci_driver);
 #ifdef CONFIG_SPARC64
 		if (err)
-			of_unregister_driver(&niu_of_driver);
+			of_unregister_platform_driver(&niu_of_driver);
 #endif
 	}
 
@@ -10272,7 +10260,7 @@ static void __exit niu_exit(void)
 {
 	pci_unregister_driver(&niu_pci_driver);
 #ifdef CONFIG_SPARC64
-	of_unregister_driver(&niu_of_driver);
+	of_unregister_platform_driver(&niu_of_driver);
 #endif
 }
 

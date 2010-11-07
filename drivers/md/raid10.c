@@ -799,12 +799,12 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 	int i;
 	int chunk_sects = conf->chunk_mask + 1;
 	const int rw = bio_data_dir(bio);
-	const bool do_sync = bio_rw_flagged(bio, BIO_RW_SYNCIO);
+	const unsigned long do_sync = (bio->bi_rw & REQ_SYNC);
 	struct bio_list bl;
 	unsigned long flags;
 	mdk_rdev_t *blocked_rdev;
 
-	if (unlikely(bio_rw_flagged(bio, BIO_RW_BARRIER))) {
+	if (unlikely(bio->bi_rw & REQ_HARDBARRIER)) {
 		md_barrier_request(mddev, bio);
 		return 0;
 	}
@@ -897,7 +897,7 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 			mirror->rdev->data_offset;
 		read_bio->bi_bdev = mirror->rdev->bdev;
 		read_bio->bi_end_io = raid10_end_read_request;
-		read_bio->bi_rw = READ | (do_sync << BIO_RW_SYNCIO);
+		read_bio->bi_rw = READ | do_sync;
 		read_bio->bi_private = r10_bio;
 
 		generic_make_request(read_bio);
@@ -965,7 +965,7 @@ static int make_request(mddev_t *mddev, struct bio * bio)
 			conf->mirrors[d].rdev->data_offset;
 		mbio->bi_bdev = conf->mirrors[d].rdev->bdev;
 		mbio->bi_end_io	= raid10_end_write_request;
-		mbio->bi_rw = WRITE | (do_sync << BIO_RW_SYNCIO);
+		mbio->bi_rw = WRITE | do_sync;
 		mbio->bi_private = r10_bio;
 
 		atomic_inc(&r10_bio->remaining);
@@ -1116,6 +1116,8 @@ static int raid10_spare_active(mddev_t *mddev)
 	int i;
 	conf_t *conf = mddev->private;
 	mirror_info_t *tmp;
+	int count = 0;
+	unsigned long flags;
 
 	/*
 	 * Find all non-in_sync disks within the RAID10 configuration
@@ -1126,15 +1128,16 @@ static int raid10_spare_active(mddev_t *mddev)
 		if (tmp->rdev
 		    && !test_bit(Faulty, &tmp->rdev->flags)
 		    && !test_and_set_bit(In_sync, &tmp->rdev->flags)) {
-			unsigned long flags;
-			spin_lock_irqsave(&conf->device_lock, flags);
-			mddev->degraded--;
-			spin_unlock_irqrestore(&conf->device_lock, flags);
+			count++;
+			sysfs_notify_dirent(tmp->rdev->sysfs_state);
 		}
 	}
+	spin_lock_irqsave(&conf->device_lock, flags);
+	mddev->degraded -= count;
+	spin_unlock_irqrestore(&conf->device_lock, flags);
 
 	print_conf(conf);
-	return 0;
+	return count;
 }
 
 
@@ -1734,7 +1737,7 @@ static void raid10d(mddev_t *mddev)
 				raid_end_bio_io(r10_bio);
 				bio_put(bio);
 			} else {
-				const bool do_sync = bio_rw_flagged(r10_bio->master_bio, BIO_RW_SYNCIO);
+				const unsigned long do_sync = (r10_bio->master_bio->bi_rw & REQ_SYNC);
 				bio_put(bio);
 				rdev = conf->mirrors[mirror].rdev;
 				if (printk_ratelimit())
@@ -1748,7 +1751,7 @@ static void raid10d(mddev_t *mddev)
 				bio->bi_sector = r10_bio->devs[r10_bio->read_slot].addr
 					+ rdev->data_offset;
 				bio->bi_bdev = rdev->bdev;
-				bio->bi_rw = READ | (do_sync << BIO_RW_SYNCIO);
+				bio->bi_rw = READ | do_sync;
 				bio->bi_private = r10_bio;
 				bio->bi_end_io = raid10_end_read_request;
 				unplug = 1;

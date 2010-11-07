@@ -113,16 +113,6 @@ static void nf_skb_free(struct sk_buff *skb)
 		kfree_skb(NFCT_FRAG6_CB(skb)->orig);
 }
 
-/* Memory Tracking Functions. */
-static inline void frag_kfree_skb(struct sk_buff *skb, unsigned int *work)
-{
-	if (work)
-		*work -= skb->truesize;
-	atomic_sub(skb->truesize, &nf_init_frags.mem);
-	nf_skb_free(skb);
-	kfree_skb(skb);
-}
-
 /* Destruction primitives. */
 
 static __inline__ void fq_put(struct nf_ct_frag6_queue *fq)
@@ -201,7 +191,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 	int offset, end;
 
 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
-		pr_debug("Allready completed\n");
+		pr_debug("Already completed\n");
 		goto err;
 	}
 
@@ -271,6 +261,11 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 	 * in the chain of fragments so far.  We must know where to put
 	 * this fragment, right?
 	 */
+	prev = fq->q.fragments_tail;
+	if (!prev || NFCT_FRAG6_CB(prev)->offset < offset) {
+		next = NULL;
+		goto found;
+	}
 	prev = NULL;
 	for (next = fq->q.fragments; next != NULL; next = next->next) {
 		if (NFCT_FRAG6_CB(next)->offset >= offset)
@@ -278,71 +273,30 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 		prev = next;
 	}
 
-	/* We found where to put this one.  Check for overlap with
-	 * preceding fragment, and, if needed, align things so that
-	 * any overlaps are eliminated.
+found:
+	/* RFC5722, Section 4:
+	 *                                  When reassembling an IPv6 datagram, if
+	 *   one or more its constituent fragments is determined to be an
+	 *   overlapping fragment, the entire datagram (and any constituent
+	 *   fragments, including those not yet received) MUST be silently
+	 *   discarded.
 	 */
-	if (prev) {
-		int i = (NFCT_FRAG6_CB(prev)->offset + prev->len) - offset;
 
-		if (i > 0) {
-			offset += i;
-			if (end <= offset) {
-				pr_debug("overlap\n");
-				goto err;
-			}
-			if (!pskb_pull(skb, i)) {
-				pr_debug("Can't pull\n");
-				goto err;
-			}
-			if (skb->ip_summed != CHECKSUM_UNNECESSARY)
-				skb->ip_summed = CHECKSUM_NONE;
-		}
-	}
+	/* Check for overlap with preceding fragment. */
+	if (prev &&
+	    (NFCT_FRAG6_CB(prev)->offset + prev->len) - offset > 0)
+		goto discard_fq;
 
-	/* Look for overlap with succeeding segments.
-	 * If we can merge fragments, do it.
-	 */
-	while (next && NFCT_FRAG6_CB(next)->offset < end) {
-		/* overlap is 'i' bytes */
-		int i = end - NFCT_FRAG6_CB(next)->offset;
-
-		if (i < next->len) {
-			/* Eat head of the next overlapped fragment
-			 * and leave the loop. The next ones cannot overlap.
-			 */
-			pr_debug("Eat head of the overlapped parts.: %d", i);
-			if (!pskb_pull(next, i))
-				goto err;
-
-			/* next fragment */
-			NFCT_FRAG6_CB(next)->offset += i;
-			fq->q.meat -= i;
-			if (next->ip_summed != CHECKSUM_UNNECESSARY)
-				next->ip_summed = CHECKSUM_NONE;
-			break;
-		} else {
-			struct sk_buff *free_it = next;
-
-			/* Old fragmnet is completely overridden with
-			 * new one drop it.
-			 */
-			next = next->next;
-
-			if (prev)
-				prev->next = next;
-			else
-				fq->q.fragments = next;
-
-			fq->q.meat -= free_it->len;
-			frag_kfree_skb(free_it, NULL);
-		}
-	}
+	/* Look for overlap with succeeding segment. */
+	if (next && NFCT_FRAG6_CB(next)->offset < end)
+		goto discard_fq;
 
 	NFCT_FRAG6_CB(skb)->offset = offset;
 
 	/* Insert this fragment in the chain of fragments. */
 	skb->next = next;
+	if (!next)
+		fq->q.fragments_tail = skb;
 	if (prev)
 		prev->next = skb;
 	else
@@ -365,6 +319,8 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
 	write_unlock(&nf_frags.lock);
 	return 0;
 
+discard_fq:
+	fq_kill(fq);
 err:
 	return -1;
 }
@@ -442,7 +398,6 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
 	skb_shinfo(head)->frag_list = head->next;
 	skb_reset_transport_header(head);
 	skb_push(head, head->data - skb_network_header(head));
-	atomic_sub(head->truesize, &nf_init_frags.mem);
 
 	for (fp=head->next; fp; fp = fp->next) {
 		head->data_len += fp->len;
@@ -452,8 +407,8 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
 		else if (head->ip_summed == CHECKSUM_COMPLETE)
 			head->csum = csum_add(head->csum, fp->csum);
 		head->truesize += fp->truesize;
-		atomic_sub(fp->truesize, &nf_init_frags.mem);
 	}
+	atomic_sub(head->truesize, &nf_init_frags.mem);
 
 	head->next = NULL;
 	head->dev = dev;
@@ -467,6 +422,7 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
 					  head->csum);
 
 	fq->q.fragments = NULL;
+	fq->q.fragments_tail = NULL;
 
 	/* all original skbs are linked into the NFCT_FRAG6_CB(head).orig */
 	fp = skb_shinfo(head)->frag_list;

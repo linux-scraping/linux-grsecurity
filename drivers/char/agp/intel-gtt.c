@@ -128,7 +128,7 @@ static int intel_agp_map_memory(struct agp_memory *mem)
 	DBG("try mapping %lu pages\n", (unsigned long)mem->page_count);
 
 	if (sg_alloc_table(&st, mem->page_count, GFP_KERNEL))
-		return -ENOMEM;
+		goto err;
 
 	mem->sg_list = sg = st.sgl;
 
@@ -137,11 +137,14 @@ static int intel_agp_map_memory(struct agp_memory *mem)
 
 	mem->num_sg = pci_map_sg(intel_private.pcidev, mem->sg_list,
 				 mem->page_count, PCI_DMA_BIDIRECTIONAL);
-	if (unlikely(!mem->num_sg)) {
-		intel_agp_free_sglist(mem);
-		return -ENOMEM;
-	}
+	if (unlikely(!mem->num_sg))
+		goto err;
+
 	return 0;
+
+err:
+	sg_free_table(&st);
+	return -ENOMEM;
 }
 
 static void intel_agp_unmap_memory(struct agp_memory *mem)
@@ -835,6 +838,10 @@ static int intel_i830_create_gatt_table(struct agp_bridge_data *bridge)
 
 	/* we have to call this as early as possible after the MMIO base address is known */
 	intel_i830_init_gtt_entries();
+	if (intel_private.gtt_entries == 0) {
+		iounmap(intel_private.registers);
+		return -ENOMEM;
+	}
 
 	agp_bridge->gatt_table = NULL;
 
@@ -1320,6 +1327,11 @@ static int intel_i915_create_gatt_table(struct agp_bridge_data *bridge)
 
 	/* we have to call this as early as possible after the MMIO base address is known */
 	intel_i830_init_gtt_entries();
+	if (intel_private.gtt_entries == 0) {
+		iounmap(intel_private.gtt);
+		iounmap(intel_private.registers);
+		return -ENOMEM;
+	}
 
 	agp_bridge->gatt_table = NULL;
 
@@ -1439,6 +1451,11 @@ static int intel_i965_create_gatt_table(struct agp_bridge_data *bridge)
 
 	/* we have to call this as early as possible after the MMIO base address is known */
 	intel_i830_init_gtt_entries();
+	if (intel_private.gtt_entries == 0) {
+		iounmap(intel_private.gtt);
+		iounmap(intel_private.registers);
+		return -ENOMEM;
+	}
 
 	agp_bridge->gatt_table = NULL;
 

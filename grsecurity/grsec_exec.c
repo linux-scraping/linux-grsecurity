@@ -32,7 +32,7 @@ gr_handle_nproc(void)
 }
 
 void
-gr_handle_exec_args(struct linux_binprm *bprm, const char __user *__user *argv)
+gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *argv)
 {
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	char *grarg = gr_exec_arg_buf;

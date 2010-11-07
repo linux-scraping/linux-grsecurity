@@ -94,6 +94,7 @@ enum {
 	STAC_92HD83XXX_PWR_REF,
 	STAC_DELL_S14,
 	STAC_92HD83XXX_HP,
+	STAC_HP_DV7_4000,
 	STAC_92HD83XXX_MODELS
 };
 
@@ -1632,10 +1633,17 @@ static unsigned int dell_s14_pin_configs[10] = {
 	0x40f000f0, 0x40f000f0,
 };
 
+static unsigned int hp_dv7_4000_pin_configs[10] = {
+	0x03a12050, 0x0321201f, 0x40f000f0, 0x90170110,
+	0x40f000f0, 0x40f000f0, 0x90170110, 0xd5a30140,
+	0x40f000f0, 0x40f000f0,
+};
+
 static unsigned int *stac92hd83xxx_brd_tbl[STAC_92HD83XXX_MODELS] = {
 	[STAC_92HD83XXX_REF] = ref92hd83xxx_pin_configs,
 	[STAC_92HD83XXX_PWR_REF] = ref92hd83xxx_pin_configs,
 	[STAC_DELL_S14] = dell_s14_pin_configs,
+	[STAC_HP_DV7_4000] = hp_dv7_4000_pin_configs,
 };
 
 static const char *stac92hd83xxx_models[STAC_92HD83XXX_MODELS] = {
@@ -1644,6 +1652,7 @@ static const char *stac92hd83xxx_models[STAC_92HD83XXX_MODELS] = {
 	[STAC_92HD83XXX_PWR_REF] = "mic-ref",
 	[STAC_DELL_S14] = "dell-s14",
 	[STAC_92HD83XXX_HP] = "hp",
+	[STAC_HP_DV7_4000] = "hp-dv7-4000",
 };
 
 static struct snd_pci_quirk stac92hd83xxx_cfg_tbl[] = {
@@ -1738,6 +1747,8 @@ static struct snd_pci_quirk stac92hd71bxx_cfg_tbl[] = {
 		      "HP dv6", STAC_HP_DV5),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_HP, 0x3061,
 		      "HP dv6", STAC_HP_DV5), /* HP dv6-1110ax */
+	SND_PCI_QUIRK(PCI_VENDOR_ID_HP, 0x363e,
+		      "HP DV6", STAC_HP_DV5),
 	SND_PCI_QUIRK_MASK(PCI_VENDOR_ID_HP, 0xfff0, 0x7010,
 		      "HP", STAC_HP_DV5),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0233,
@@ -5340,6 +5351,8 @@ again:
 	case 0x111d7667:
 	case 0x111d7668:
 	case 0x111d7669:
+	case 0x111d76d1:
+	case 0x111d76d9:
 		spec->num_pins = ARRAY_SIZE(stac92hd88xxx_pin_nids);
 		spec->pin_nids = stac92hd88xxx_pin_nids;
 		spec->mono_nid = 0;
@@ -6274,6 +6287,8 @@ static struct hda_codec_preset snd_hda_preset_sigmatel[] = {
 	{ .id = 0x111d76d4, .name = "92HD83C1C5", .patch = patch_stac92hd83xxx},
 	{ .id = 0x111d7605, .name = "92HD81B1X5", .patch = patch_stac92hd83xxx},
 	{ .id = 0x111d76d5, .name = "92HD81B1C5", .patch = patch_stac92hd83xxx},
+	{ .id = 0x111d76d1, .name = "92HD87B1/3", .patch = patch_stac92hd83xxx},
+	{ .id = 0x111d76d9, .name = "92HD87B2/4", .patch = patch_stac92hd83xxx},
 	{ .id = 0x111d7666, .name = "92HD88B3", .patch = patch_stac92hd83xxx},
 	{ .id = 0x111d7667, .name = "92HD88B1", .patch = patch_stac92hd83xxx},
 	{ .id = 0x111d7668, .name = "92HD88B2", .patch = patch_stac92hd83xxx},
@@ -6290,6 +6305,21 @@ static struct hda_codec_preset snd_hda_preset_sigmatel[] = {
 	{ .id = 0x111d76b5, .name = "92HD71B6X", .patch = patch_stac92hd71bxx },
 	{ .id = 0x111d76b6, .name = "92HD71B5X", .patch = patch_stac92hd71bxx },
 	{ .id = 0x111d76b7, .name = "92HD71B5X", .patch = patch_stac92hd71bxx },
+	{ .id = 0x111d76c0, .name = "92HD89C3", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c1, .name = "92HD89C2", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c2, .name = "92HD89C1", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c3, .name = "92HD89B3", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c4, .name = "92HD89B2", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c5, .name = "92HD89B1", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c6, .name = "92HD89E3", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c7, .name = "92HD89E2", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c8, .name = "92HD89E1", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76c9, .name = "92HD89D3", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76ca, .name = "92HD89D2", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76cb, .name = "92HD89D1", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76cc, .name = "92HD89F3", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76cd, .name = "92HD89F2", .patch = patch_stac92hd73xx },
+	{ .id = 0x111d76ce, .name = "92HD89F1", .patch = patch_stac92hd73xx },
 	{} /* terminator */
 };
 
