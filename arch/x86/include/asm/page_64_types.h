@@ -56,7 +56,7 @@ void copy_page(void *to, void *from);
 
 /* duplicated to the one in bootmem.h */
 extern unsigned long max_pfn;
-extern unsigned long phys_base;
+extern const unsigned long phys_base;
 
 extern unsigned long __phys_addr(unsigned long);
 #define __phys_reloc_hide(x)	(x)

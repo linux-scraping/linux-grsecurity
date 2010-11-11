@@ -70,6 +70,7 @@ aic7*reg_print.c*
 aic7*seq.h*
 aicasm
 aicdb.h*
+altivec[0-9].c
 asm-offsets.h
 asm_offsets.h
 autoconf.h*
@@ -126,6 +127,7 @@ initramfs_data.cpio
 initramfs_data.cpio.bz2
 initramfs_data.cpio.gz
 initramfs_list
+int[0-9]*.c
 kallsyms
 keywords.c
 ksym.c*
@@ -190,6 +192,7 @@ slabinfo
 sm_tbl*
 split-include
 syscalltab.h
+tables.c
 tags
 tftpboot.img
 timeconst.h

@@ -341,7 +341,6 @@ ENTRY(name)
 	i = i + 1 ;					\
 	.endr
 
-	.data
 	/*
 	 * This default setting generates an ident mapping at address 0x100000
 	 * and a mapping for the kernel that precisely maps virtual address

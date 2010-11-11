@@ -1955,7 +1955,8 @@ static
 #endif
 int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 {
-	int error, locknext;
+	int error;
+	bool locknext;
 
 	if (!(vma->vm_flags & VM_GROWSUP))
 		return -EFAULT;
@@ -2015,7 +2016,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 static int expand_downwards(struct vm_area_struct *vma,
 				   unsigned long address)
 {
-	int error, lockprev = 0;
+	int error;
+	bool lockprev = false;
 	struct vm_area_struct *prev;
 
 	/*
