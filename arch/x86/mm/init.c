@@ -455,8 +455,6 @@ void free_initmem(void)
 			continue;
 		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
 			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-		else
-			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
 #endif
 

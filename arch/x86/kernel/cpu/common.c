@@ -1086,7 +1086,6 @@ void __cpuinit cpu_init(void)
 	wrmsrl(MSR_KERNEL_GS_BASE, 0);
 	barrier();
 
-	check_efer();
 	if (cpu != 0)
 		enable_x2apic();
 
