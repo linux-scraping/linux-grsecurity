@@ -318,7 +318,8 @@ config GRKERNSEC_HIDESYM
 	  Note that this option is only effective provided the following
 	  conditions are met:
 	  1) The kernel using grsecurity is not precompiled by some distribution
-	  2) You are using the RBAC system and hiding other files such as your
+	  2) You have also enabled GRKERNSEC_DMESG
+	  3) You are using the RBAC system and hiding other files such as your
 	     kernel image and System.map.  Alternatively, enabling this option
 	     causes the permissions on /boot, /lib/modules, and the kernel
 	     source directory to change at compile time to prevent 
@@ -738,6 +739,9 @@ config GRKERNSEC_DMESG
 	help
 	  If you say Y here, non-root users will not be able to use dmesg(8)
 	  to view up to the last 4kb of messages in the kernel's log buffer.
+	  The kernel's log buffer often contains kernel addresses and other
+	  identifying information useful to an attacker in fingerprinting a
+	  system for a targeted exploit.
 	  If the sysctl option is enabled, a sysctl option with name "dmesg" is
 	  created.
 

@@ -76,7 +76,7 @@ void die_if_kernel(char *str, struct pt_regs *regs)
 		      count++ < 30				&&
                       (((unsigned long) rw) >= PAGE_OFFSET)	&&
 		      !(((unsigned long) rw) & 0x7)) {
-			printk("Caller[%08lx]: %pS\n", rw->ins[7],
+			printk("Caller[%08lx]: %pA\n", rw->ins[7],
 			       (void *) rw->ins[7]);
 			rw = (struct reg_window32 *)rw->ins[6];
 		}

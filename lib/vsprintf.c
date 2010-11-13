@@ -16,6 +16,9 @@
  * - scnprintf and vscnprintf
  */
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+#define __INCLUDED_BY_HIDESYM 1
+#endif
 #include <stdarg.h>
 #include <linux/module.h>
 #include <linux/types.h>
@@ -574,7 +577,7 @@ char *symbol_string(char *buf, char *end, void *ptr,
 	unsigned long value = (unsigned long) ptr;
 #ifdef CONFIG_KALLSYMS
 	char sym[KSYM_SYMBOL_LEN];
-	if (ext != 'f' && ext != 's')
+	if (ext != 'f' && ext != 's' && ext != 'a')
 		sprint_symbol(sym, value);
 	else
 		kallsyms_lookup(value, NULL, NULL, NULL, sym);
@@ -947,6 +950,8 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
  * - 'f' For simple symbolic function names without offset
  * - 'S' For symbolic direct pointers with offset
  * - 's' For symbolic direct pointers without offset
+ * - 'A' For symbolic direct pointers with offset approved for use with GRKERNSEC_HIDESYM
+ * - 'a' For symbolic direct pointers without offset approved for use with GRKERNSEC_HIDESYM
  * - 'R' For decoded struct resource, e.g., [mem 0x0-0x1f 64bit pref]
  * - 'r' For raw struct resource, e.g., [mem 0x0-0x1f flags 0x201]
  * - 'M' For a 6-byte MAC address, it prints the address in the
@@ -998,6 +1003,13 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		/* Fallthrough */
 	case 'S':
 	case 's':
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		break;
+#else
+		return symbol_string(buf, end, ptr, spec, *fmt);
+#endif
+	case 'A':
+	case 'a':
 		return symbol_string(buf, end, ptr, spec, *fmt);
 	case 'R':
 	case 'r':

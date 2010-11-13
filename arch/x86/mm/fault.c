@@ -1210,7 +1210,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		}
 		if (address < PAX_USER_SHADOW_BASE) {
 			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
-			printk(KERN_ERR "PAX: faulting IP: %pS\n", (void *)regs->ip);
+			printk(KERN_ERR "PAX: faulting IP: %pA\n", (void *)regs->ip);
 			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
 		} else
 			address -= PAX_USER_SHADOW_BASE;
