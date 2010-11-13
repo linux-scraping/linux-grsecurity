@@ -288,7 +288,7 @@ static void log_unaligned(struct pt_regs *regs)
 	if (count < 5) {
 		last_time = jiffies;
 		count++;
-		printk("Kernel unaligned access at TPC[%lx] %pS\n",
+		printk("Kernel unaligned access at TPC[%lx] %pA\n",
 		       regs->tpc, (void *) regs->tpc);
 	}
 }

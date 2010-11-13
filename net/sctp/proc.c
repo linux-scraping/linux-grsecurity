@@ -213,7 +213,12 @@ static int sctp_eps_seq_show(struct seq_file *seq, void *v)
 	sctp_for_each_hentry(epb, node, &head->chain) {
 		ep = sctp_ep(epb);
 		sk = epb->sk;
-		seq_printf(seq, "%8p %8p %-3d %-3d %-4d %-5d %5d %5lu ", ep, sk,
+		seq_printf(seq, "%8p %8p %-3d %-3d %-4d %-5d %5d %5lu ",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   NULL, NULL,
+#else
+			   ep, sk,
+#endif
 			   sctp_sk(sk)->type, sk->sk_state, hash,
 			   epb->bind_addr.port,
 			   sock_i_uid(sk), sock_i_ino(sk));
@@ -320,7 +325,12 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
 		seq_printf(seq,
 			   "%8p %8p %-3d %-3d %-2d %-4d "
 			   "%4d %8d %8d %7d %5lu %-5d %5d ",
-			   assoc, sk, sctp_sk(sk)->type, sk->sk_state,
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   NULL, NULL,
+#else
+			   assoc, sk,
+#endif
+			   sctp_sk(sk)->type, sk->sk_state,
 			   assoc->state, hash,
 			   assoc->assoc_id,
 			   assoc->sndbuf_used,

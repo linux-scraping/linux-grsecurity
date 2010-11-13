@@ -352,7 +352,7 @@ static void warn_slowpath_common(const char *file, int line, void *caller, struc
 	const char *board;
 
 	printk(KERN_WARNING "------------[ cut here ]------------\n");
-	printk(KERN_WARNING "WARNING: at %s:%d %pS()\n", file, line, caller);
+	printk(KERN_WARNING "WARNING: at %s:%d %pA()\n", file, line, caller);
 	board = dmi_get_system_info(DMI_PRODUCT_NAME);
 	if (board)
 		printk(KERN_WARNING "Hardware name: %s\n", board);
@@ -393,7 +393,7 @@ EXPORT_SYMBOL(warn_slowpath_null);
 void __stack_chk_fail(void)
 {
 	dump_stack();
-	panic("stack-protector: Kernel stack is corrupted in: %pS\n",
+	panic("stack-protector: Kernel stack is corrupted in: %pA\n",
 		__builtin_return_address(0));
 }
 EXPORT_SYMBOL(__stack_chk_fail);
