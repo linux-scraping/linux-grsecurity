@@ -15,7 +15,7 @@
 
 struct module;
 
-#if !defined(__INCLUDED_BY_HIDESYM) && defined(CONFIG_KALLSYMS)
+#if !defined(__INCLUDED_BY_HIDESYM) || !defined(CONFIG_KALLSYMS)
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 /* Lookup the address for a symbol. Returns 0 if not found. */
 unsigned long kallsyms_lookup_name(const char *name);
