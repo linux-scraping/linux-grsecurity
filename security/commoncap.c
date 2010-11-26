@@ -538,6 +538,9 @@ int cap_bprm_secureexec(struct linux_binprm *bprm)
 {
 	const struct cred *cred = current_cred();
 
+	if (gr_acl_enable_at_secure())
+		return 1;
+
 	if (cred->uid != 0) {
 		if (bprm->cap_effective)
 			return 1;

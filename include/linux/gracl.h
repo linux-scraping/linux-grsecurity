@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.2.0"
-#define GRSECURITY_VERSION 0x2200
+#define GR_VERSION  "grsecurity 2.2.1"
+#define GRSECURITY_VERSION 0x2201
 
 enum {
 	GR_SHUTDOWN = 0,
@@ -113,6 +113,7 @@ struct acl_subject_label {
 	__u16 user_trans_num;
 	__u16 group_trans_num;
 
+	__u32 sock_families[2];
 	__u32 ip_proto[8];
 	__u32 ip_type;
 	struct acl_ip_label **ips;

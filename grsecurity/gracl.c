@@ -301,6 +301,9 @@ lookup_acl_role_label(const struct task_struct *task, const uid_t uid,
 	struct acl_role_label *match;
 	struct role_allowed_ip *ipp;
 	unsigned int x;
+	u32 curr_ip = task->signal->curr_ip;
+
+	task->signal->saved_ip = curr_ip;
 
 	match = acl_role_set.r_hash[index];
 
@@ -338,7 +341,7 @@ found2:
 		else {
 			for (ipp = match->allowed_ips; ipp; ipp = ipp->next) {
 				if (likely
-				    ((ntohl(task->signal->curr_ip) & ipp->netmask) ==
+				    ((ntohl(curr_ip) & ipp->netmask) ==
 				     (ntohl(ipp->addr) & ipp->netmask)))
 					return match;
 			}
@@ -349,7 +352,7 @@ found2:
 	} else {
 		for (ipp = match->allowed_ips; ipp; ipp = ipp->next) {
 			if (likely
-			    ((ntohl(task->signal->curr_ip) & ipp->netmask) ==
+			    ((ntohl(curr_ip) & ipp->netmask) ==
 			     (ntohl(ipp->addr) & ipp->netmask)))
 				return match;
 		}
@@ -1838,7 +1841,7 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, &task->signal->curr_ip);
+		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, &task->signal->saved_ip);
 
 	return;
 }
@@ -1852,7 +1855,7 @@ gr_log_learn_sysctl(const char *path, const __u32 mode)
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1UL, 1UL, path, (unsigned long) mode, &task->signal->curr_ip);
+		       1UL, 1UL, path, (unsigned long) mode, &task->signal->saved_ip);
 
 	return;
 }
@@ -1867,7 +1870,7 @@ gr_log_learn_id_change(const char type, const unsigned int real,
 	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       type, real, effective, fs, &task->signal->curr_ip);
+		       type, real, effective, fs, &task->signal->saved_ip);
 
 	return;
 }
@@ -2085,12 +2088,15 @@ gr_copy_label(struct task_struct *tsk)
 	tsk->acl = current->acl;
 	tsk->role = current->role;
 	tsk->signal->curr_ip = current->signal->curr_ip;
+	tsk->signal->saved_ip = current->signal->saved_ip;
 	if (current->exec_file)
 		get_file(current->exec_file);
 	tsk->exec_file = current->exec_file;
 	tsk->is_writable = current->is_writable;
-	if (unlikely(current->signal->used_accept))
+	if (unlikely(current->signal->used_accept)) {
 		current->signal->curr_ip = 0;
+		current->signal->saved_ip = 0;
+	}
 
 	return;
 }
@@ -2641,6 +2647,9 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 	struct role_transition *trans;
 	unsigned int i;
 	int found = 0;
+	u32 curr_ip = current->signal->curr_ip;
+
+	current->signal->saved_ip = curr_ip;
 
 	/* check transition table */
 
@@ -2663,7 +2672,7 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 			found = 0;
 			if (r->allowed_ips != NULL) {
 				for (ipp = r->allowed_ips; ipp; ipp = ipp->next) {
-					if ((ntohl(current->signal->curr_ip) & ipp->netmask) ==
+					if ((ntohl(curr_ip) & ipp->netmask) ==
 					     (ntohl(ipp->addr) & ipp->netmask))
 						found = 1;
 				}
@@ -3259,7 +3268,7 @@ gr_learn_resource(const struct task_struct *task,
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
 			       task->role->roletype, cred->uid, cred->gid, acl->filename,
 			       acl->filename, acl->res[res].rlim_cur, acl->res[res].rlim_max,
-			       "", (unsigned long) res, &task->signal->curr_ip);
+			       "", (unsigned long) res, &task->signal->saved_ip);
 		rcu_read_unlock();
 	}
 
@@ -3792,6 +3801,20 @@ int gr_is_taskstats_denied(int pid)
 }
 #endif
 
+/* AUXV entries are filled via a descendant of search_binary_handler
+   after we've already applied the subject for the target
+*/
+int gr_acl_enable_at_secure(void)
+{
+	if (unlikely(!(gr_status & GR_READY)))
+		return 0;
+
+	if (current->acl->mode & GR_ATSECURE)
+		return 1;
+
+	return 0;
+}
+	
 int gr_acl_handle_filldir(const struct file *file, const char *name, const unsigned int namelen, const ino_t ino)
 {
 	struct task_struct *task = current;

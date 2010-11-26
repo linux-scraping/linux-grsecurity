@@ -43,9 +43,6 @@ int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	if (length < 0)
 		return -EINVAL;
 
-	if (filp && !gr_acl_handle_truncate(dentry, filp->f_path.mnt))
-		return -EACCES;
-
 	newattrs.ia_size = length;
 	newattrs.ia_valid = ATTR_SIZE | time_attrs;
 	if (filp) {
@@ -115,6 +112,10 @@ static long do_sys_truncate(const char __user *pathname, loff_t length)
 	error = locks_verify_truncate(inode, NULL, length);
 	if (!error)
 		error = security_path_truncate(&path);
+
+	if (!error && !gr_acl_handle_truncate(path.dentry, path.mnt))
+		error = -EACCES;
+
 	if (!error)
 		error = do_truncate(path.dentry, length, 0, NULL);
 
