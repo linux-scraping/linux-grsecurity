@@ -23,8 +23,9 @@
 #define GR_INVERT		0x04
 #define GR_BINDOVERRIDE		0x08
 #define GR_CONNECTOVERRIDE	0x10
+#define GR_SOCK_FAMILY		0x20
 
-static const char * gr_protocols[256] = {
+static const char * gr_protocols[IPPROTO_MAX] = {
 	"ip", "icmp", "igmp", "ggp", "ipencap", "st", "tcp", "cbt",
 	"egp", "igp", "bbn-rcc", "nvp", "pup", "argus", "emcon", "xnet",
 	"chaos", "udp", "mux", "dcn", "hmp", "prm", "xns-idp", "trunk-1",
@@ -59,9 +60,16 @@ static const char * gr_protocols[256] = {
 	"unknown:248", "unknown:249", "unknown:250", "unknown:251", "unknown:252", "unknown:253", "unknown:254", "unknown:255",
 	};
 
-static const char * gr_socktypes[11] = {
+static const char * gr_socktypes[SOCK_MAX] = {
 	"unknown:0", "stream", "dgram", "raw", "rdm", "seqpacket", "unknown:6", 
 	"unknown:7", "unknown:8", "unknown:9", "packet"
+	};
+
+static const char * gr_sockfamilies[AF_MAX+1] = {
+	"unix", "local", "inet", "ax25", "ipx", "appletalk", "netrom", "bridge", "atmpvc", "x25",
+	"inet6", "rose", "decnet", "netbeui", "security", "key", "netlink", "route", "packet", "ash",
+	"econet", "atmsvc", "rds", "sna", "irda", "ppox", "wanpipe", "llc", "tipc", "bluetooth",
+	"iucv", "rxrpc", "isdn", "phonet", "ieee802154"
 	};
 
 const char *
@@ -76,6 +84,12 @@ gr_socktype_to_name(unsigned char type)
 	return gr_socktypes[type];
 }
 
+const char *
+gr_sockfamily_to_name(unsigned char family)
+{
+	return gr_sockfamilies[family];
+}
+
 int
 gr_search_socket(const int domain, const int type, const int protocol)
 {
@@ -85,12 +99,36 @@ gr_search_socket(const int domain, const int type, const int protocol)
 	if (unlikely(!gr_acl_is_enabled()))
 		goto exit;
 
-	if ((domain < 0) || (type < 0) || (protocol < 0) || (domain != PF_INET)
-	    || (domain >= NPROTO) || (type >= SOCK_MAX) || (protocol > 255))
+	if ((domain < 0) || (type < 0) || (protocol < 0) ||
+	    (domain >= AF_MAX) || (type >= SOCK_MAX) || (protocol >= IPPROTO_MAX))
 		goto exit;	// let the kernel handle it
 
 	curr = current->acl;
 
+	if (curr->sock_families[domain / 32] & (1 << (domain % 32))) {
+		/* the family is allowed, if this is PF_INET allow it only if
+		   the extra sock type/protocol checks pass */
+		if (domain == PF_INET)
+			goto inet_check;
+		goto exit;
+	} else {
+		if (curr->mode & (GR_LEARN | GR_INHERITLEARN)) {
+			__u32 fakeip = 0;
+			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
+				       current->role->roletype, cred->uid,
+				       cred->gid, current->exec_file ?
+				       gr_to_filename(current->exec_file->f_path.dentry,
+				       current->exec_file->f_path.mnt) :
+				       curr->filename, curr->filename,
+				       &fakeip, domain, 0, 0, GR_SOCK_FAMILY,
+				       &current->signal->saved_ip);
+			goto exit;
+		}
+		goto exit_fail;
+	}
+
+inet_check:
+	/* the rest of this checking is for IPv4 only */
 	if (!curr->ips)
 		goto exit;
 
@@ -111,7 +149,7 @@ gr_search_socket(const int domain, const int type, const int protocol)
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
 				       &fakeip, 0, type,
-				       protocol, GR_CONNECT, &current->signal->curr_ip);
+				       protocol, GR_CONNECT, &current->signal->saved_ip);
 		} else if ((type == SOCK_DGRAM) && (protocol == IPPROTO_IP)) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
@@ -121,17 +159,18 @@ gr_search_socket(const int domain, const int type, const int protocol)
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
 				       &fakeip, 0, type,
-				       protocol, GR_BIND, &current->signal->curr_ip);
+				       protocol, GR_BIND, &current->signal->saved_ip);
 		}
 		/* we'll log when they use connect or bind */
 		goto exit;
 	}
 
-	gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, "inet", 
+exit_fail:
+	gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(domain), 
 		    gr_socktype_to_name(type), gr_proto_to_name(protocol));
 
 	return 0;
-      exit:
+exit:
 	return 1;
 }
 
@@ -213,7 +252,7 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 			       current->exec_file->f_path.mnt) :
 			       curr->filename, curr->filename,
 			       &ip_addr, ip_port, type,
-			       sk->sk_protocol, mode, &current->signal->curr_ip);
+			       sk->sk_protocol, mode, &current->signal->saved_ip);
 		return 0;
 	}
 

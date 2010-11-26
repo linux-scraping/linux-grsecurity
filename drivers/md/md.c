@@ -4474,7 +4474,8 @@ out:
 	err = 0;
 	blk_integrity_unregister(disk);
 	md_new_event(mddev);
-	sysfs_notify_dirent(mddev->sysfs_state);
+	if (mddev->sysfs_state)
+		sysfs_notify_dirent(mddev->sysfs_state);
 	return err;
 }
 

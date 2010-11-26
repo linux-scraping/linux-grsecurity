@@ -262,6 +262,12 @@ gr_acl_handle_chown(const struct dentry * dentry, const struct vfsmount * mnt)
 	return 1;
 }
 
+__u32
+gr_acl_handle_setxattr(const struct dentry * dentry, const struct vfsmount * mnt)
+{
+	return 1;
+}
+
 void
 grsecurity_init(void)
 {
@@ -417,6 +423,11 @@ gr_check_user_change(int real, int effective, int fs)
 
 int
 gr_check_group_change(int real, int effective, int fs)
+{
+	return 0;
+}
+
+int gr_acl_enable_at_secure(void)
 {
 	return 0;
 }

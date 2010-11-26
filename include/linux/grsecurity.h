@@ -27,6 +27,8 @@ void gr_handle_brute_check(void);
 
 char gr_roletype_to_char(void);
 
+int gr_acl_enable_at_secure(void);
+
 int gr_check_user_change(int real, int effective, int fs);
 int gr_check_group_change(int real, int effective, int fs);
 
@@ -118,6 +120,8 @@ __u32 gr_acl_handle_fchmod(const struct dentry *dentry,
 __u32 gr_acl_handle_chmod(const struct dentry *dentry,
 				 const struct vfsmount *mnt, mode_t mode);
 __u32 gr_acl_handle_chown(const struct dentry *dentry,
+				 const struct vfsmount *mnt);
+__u32 gr_acl_handle_setxattr(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
 int gr_handle_ptrace(struct task_struct *task, const long request);
 int gr_handle_proc_ptrace(struct task_struct *task);

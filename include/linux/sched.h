@@ -671,6 +671,7 @@ struct signal_struct {
 
 #ifdef CONFIG_GRKERNSEC
 	u32 curr_ip;
+	u32 saved_ip;
 	u32 gr_saddr;
 	u32 gr_daddr;
 	u16 gr_sport;
