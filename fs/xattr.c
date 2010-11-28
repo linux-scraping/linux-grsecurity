@@ -271,6 +271,7 @@ setxattr(struct path *path, const char __user *name, const void __user *value,
 			return PTR_ERR(kvalue);
 	}
 
+	error = 0;
 	if (!gr_acl_handle_setxattr(path->dentry, path->mnt))
 		error = -EACCES;
 
