@@ -1591,6 +1591,20 @@ int may_open(struct path *path, int acc_mode, int flag)
 	if (error)
 		goto err_out;
 
+
+	if (gr_handle_rofs_blockwrite(dentry, path->mnt, acc_mode)) {
+		error = -EPERM;
+		goto err_out;
+	}
+	if (gr_handle_rawio(inode)) {
+		error = -EPERM;
+		goto err_out;
+	}
+	if (!gr_acl_handle_open(dentry, path->mnt, flag)) {
+		error = -EACCES;
+		goto err_out;
+	}
+
 	if (flag & O_TRUNC) {
 		error = get_write_access(inode);
 		if (error)
@@ -1834,19 +1848,9 @@ do_last:
 	 * It already exists.
 	 */
 
-	if (gr_handle_rofs_blockwrite(path.dentry, nd.path.mnt, acc_mode)) {
-		error = -EPERM;
-		goto exit_mutex_unlock;
-	}
-	if (gr_handle_rawio(path.dentry->d_inode)) {
-		error = -EPERM;
-		goto exit_mutex_unlock;
-	}
-	if (!gr_acl_handle_open(path.dentry, nd.path.mnt, flag)) {
-		error = -EACCES;
-		goto exit_mutex_unlock;
-	}
-	if (gr_handle_fifo(path.dentry, nd.path.mnt, dir, flag, acc_mode)) {
+	/* only check if O_CREAT is specified, all other checks need
+	   to go into may_open */
+	if (gr_handle_fifo(path.dentry, path.mnt, dir, flag, acc_mode)) {
 		error = -EACCES;
 		goto exit_mutex_unlock;
 	}

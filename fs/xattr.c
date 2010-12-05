@@ -271,12 +271,13 @@ setxattr(struct path *path, const char __user *name, const void __user *value,
 			return PTR_ERR(kvalue);
 	}
 
-	error = 0;
-	if (!gr_acl_handle_setxattr(path->dentry, path->mnt))
+	if (!gr_acl_handle_setxattr(path->dentry, path->mnt)) {
 		error = -EACCES;
+		goto out;
+	}
 
-	if (!error)
-		error = vfs_setxattr(path->dentry, kname, kvalue, size, flags);
+	error = vfs_setxattr(path->dentry, kname, kvalue, size, flags);
+out:
 	kfree(kvalue);
 	return error;
 }

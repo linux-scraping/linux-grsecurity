@@ -4,7 +4,7 @@
 
 config ECONET
 	tristate "Acorn Econet/AUN protocols (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && INET
+	depends on EXPERIMENTAL && INET && BROKEN
 	---help---
 	  Econet is a fairly old and slow networking protocol mainly used by
 	  Acorn computers to access file and print servers. It uses native
