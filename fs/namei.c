@@ -1418,6 +1418,30 @@ int vfs_create(struct inode *dir, struct dentry *dentry, int mode,
 	return error;
 }
 
+/*
+ * Note that while the flag value (low two bits) for sys_open means:
+ *	00 - read-only
+ *	01 - write-only
+ *	10 - read-write
+ *	11 - special
+ * it is changed into
+ *	00 - no permissions needed
+ *	01 - read-permission
+ *	10 - write-permission
+ *	11 - read-write
+ * for the internal routines (ie open_namei()/follow_link() etc)
+ * This is more logical, and also allows the 00 "no perm needed"
+ * to be used for symlinks (where the permissions are checked
+ * later).
+ *
+*/
+static inline int open_to_namei_flags(int flag)
+{
+	if ((flag+1) & O_ACCMODE)
+		flag++;
+	return flag;
+}
+
 int may_open(struct path *path, int acc_mode, int flag)
 {
 	struct dentry *dentry = path->dentry;
@@ -1466,7 +1490,26 @@ int may_open(struct path *path, int acc_mode, int flag)
 	/*
 	 * Ensure there are no outstanding leases on the file.
 	 */
-	return break_lease(inode, flag);
+	error = break_lease(inode, flag);
+	if (error)
+		return error;
+
+	if (gr_handle_rofs_blockwrite(dentry, path->mnt, acc_mode)) {
+		error = -EPERM;
+		goto exit;
+	}
+
+	if (gr_handle_rawio(inode)) {
+		error = -EPERM;
+		goto exit;
+	}
+
+	if (!gr_acl_handle_open(dentry, path->mnt, open_to_namei_flags(flag))) {
+		error = -EACCES;
+		goto exit;
+	}
+exit:
+	return error;
 }
 
 static int handle_truncate(struct path *path)
@@ -1500,8 +1543,9 @@ static int __open_namei_create(struct nameidata *nd, struct path *path,
 {
 	int error;
 	struct dentry *dir = nd->path.dentry;
+	int flag = open_to_namei_flags(open_flag);
 
-	if (!gr_acl_handle_creat(path->dentry, nd->path.dentry, nd->path.mnt, open_flag, mode)) {
+	if (!gr_acl_handle_creat(path->dentry, nd->path.dentry, nd->path.mnt, flag, mode)) {
 		error = -EACCES;
 		goto out_unlock;
 	}
@@ -1522,30 +1566,6 @@ out_unlock:
 		return error;
 	/* Don't check for write permission, don't truncate */
 	return may_open(&nd->path, 0, open_flag & ~O_TRUNC);
-}
-
-/*
- * Note that while the flag value (low two bits) for sys_open means:
- *	00 - read-only
- *	01 - write-only
- *	10 - read-write
- *	11 - special
- * it is changed into
- *	00 - no permissions needed
- *	01 - read-permission
- *	10 - write-permission
- *	11 - read-write
- * for the internal routines (ie open_namei()/follow_link() etc)
- * This is more logical, and also allows the 00 "no perm needed"
- * to be used for symlinks (where the permissions are checked
- * later).
- *
-*/
-static inline int open_to_namei_flags(int flag)
-{
-	if ((flag+1) & O_ACCMODE)
-		flag++;
-	return flag;
 }
 
 static int open_will_truncate(int flag, struct inode *inode)
@@ -1666,21 +1686,6 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		path_to_nameidata(path, nd);
 		audit_inode(pathname, nd->path.dentry);
 
-		if (gr_handle_rofs_blockwrite(nd->path.dentry, nd->path.mnt, acc_mode)) {
-			error = -EPERM;
-			goto exit;
-		}
-
-		if (gr_handle_rawio(nd->path.dentry->d_inode)) {
-			error = -EPERM;
-			goto exit;
-		}
-
-		if (!gr_acl_handle_open(nd->path.dentry, nd->path.mnt, flag)) {
-			error = -EACCES;
-			goto exit;
-		}
-
 		goto ok;
 	}
 
@@ -1734,19 +1739,9 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 	 * It already exists.
 	 */
 
-	if (gr_handle_rofs_blockwrite(path->dentry, nd->path.mnt, acc_mode)) {
-		error = -EPERM;
-		goto exit_mutex_unlock;
-	}
-	if (gr_handle_rawio(path->dentry->d_inode)) {
-		error = -EPERM;
-		goto exit_mutex_unlock;
-	}
-	if (!gr_acl_handle_open(path->dentry, nd->path.mnt, flag)) {
-		error = -EACCES;
-		goto exit_mutex_unlock;
-	}
-	if (gr_handle_fifo(path->dentry, nd->path.mnt, dir, flag, acc_mode)) {
+	/* only check if O_CREAT is specified, all other checks need to go
+	   into may_open */
+	if (gr_handle_fifo(path->dentry, path->mnt, dir, flag, acc_mode)) {
 		error = -EACCES;
 		goto exit_mutex_unlock;
 	}
