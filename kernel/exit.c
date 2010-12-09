@@ -926,23 +926,30 @@ NORET_TYPE void do_exit(long code)
 	struct task_struct *tsk = current;
 	int group_dead;
 
-	profile_task_exit(tsk);
-
-	WARN_ON(atomic_read(&tsk->fs_excl));
-
+	/*
+	 * Check this first since set_fs() below depends on
+	 * current_thread_info(), which we better not access when we're in
+	 * interrupt context.  Other than that, we want to do the set_fs()
+	 * as early as possible.
+	 */
 	if (unlikely(in_interrupt()))
 		panic("Aiee, killing interrupt handler!");
-	if (unlikely(!tsk->pid))
-		panic("Attempted to kill the idle task!");
 
 	/*
-	 * If do_exit is called because this processes oopsed, it's possible
+	 * If do_exit is called because this processes Oops'ed, it's possible
 	 * that get_fs() was left as KERNEL_DS, so reset it to USER_DS before
 	 * continuing. Amongst other possible reasons, this is to prevent
 	 * mm_release()->clear_child_tid() from writing to a user-controlled
 	 * kernel address.
 	 */
 	set_fs(USER_DS);
+
+	profile_task_exit(tsk);
+
+	WARN_ON(atomic_read(&tsk->fs_excl));
+
+	if (unlikely(!tsk->pid))
+		panic("Attempted to kill the idle task!");
 
 	tracehook_report_exit(&code);
 

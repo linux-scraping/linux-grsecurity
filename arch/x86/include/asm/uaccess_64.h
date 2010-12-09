@@ -38,43 +38,43 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 		check_object_size(dst, size, false);
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
-		return copy_user_generic(dst, (__force void *)src, size);
+		return copy_user_generic(dst, (__force const void *)src, size);
 	}
 	switch (size) {
-	case 1:__get_user_asm(*(u8 *)dst, (u8 __user *)src,
+	case 1:__get_user_asm(*(u8 *)dst, (const u8 __user *)src,
 			      ret, "b", "b", "=q", 1);
 		return ret;
-	case 2:__get_user_asm(*(u16 *)dst, (u16 __user *)src,
+	case 2:__get_user_asm(*(u16 *)dst, (const u16 __user *)src,
 			      ret, "w", "w", "=r", 2);
 		return ret;
-	case 4:__get_user_asm(*(u32 *)dst, (u32 __user *)src,
+	case 4:__get_user_asm(*(u32 *)dst, (const u32 __user *)src,
 			      ret, "l", "k", "=r", 4);
 		return ret;
-	case 8:__get_user_asm(*(u64 *)dst, (u64 __user *)src,
+	case 8:__get_user_asm(*(u64 *)dst, (const u64 __user *)src,
 			      ret, "q", "", "=r", 8);
 		return ret;
 	case 10:
-		__get_user_asm(*(u64 *)dst, (u64 __user *)src,
+		__get_user_asm(*(u64 *)dst, (const u64 __user *)src,
 			       ret, "q", "", "=r", 10);
 		if (unlikely(ret))
 			return ret;
 		__get_user_asm(*(u16 *)(8 + (char *)dst),
-			       (u16 __user *)(8 + (char __user *)src),
+			       (const u16 __user *)(8 + (const char __user *)src),
 			       ret, "w", "w", "=r", 2);
 		return ret;
 	case 16:
-		__get_user_asm(*(u64 *)dst, (u64 __user *)src,
+		__get_user_asm(*(u64 *)dst, (const u64 __user *)src,
 			       ret, "q", "", "=r", 16);
 		if (unlikely(ret))
 			return ret;
 		__get_user_asm(*(u64 *)(8 + (char *)dst),
-			       (u64 __user *)(8 + (char __user *)src),
+			       (const u64 __user *)(8 + (const char __user *)src),
 			       ret, "q", "", "=r", 8);
 		return ret;
 	default:
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
-		return copy_user_generic(dst, (__force void *)src, size);
+		return copy_user_generic(dst, (__force const void *)src, size);
 	}
 }
 
@@ -95,34 +95,34 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 		return copy_user_generic((__force void *)dst, src, size);
 	}
 	switch (size) {
-	case 1:__put_user_asm(*(u8 *)src, (u8 __user *)dst,
+	case 1:__put_user_asm(*(const u8 *)src, (u8 __user *)dst,
 			      ret, "b", "b", "iq", 1);
 		return ret;
-	case 2:__put_user_asm(*(u16 *)src, (u16 __user *)dst,
+	case 2:__put_user_asm(*(const u16 *)src, (u16 __user *)dst,
 			      ret, "w", "w", "ir", 2);
 		return ret;
-	case 4:__put_user_asm(*(u32 *)src, (u32 __user *)dst,
+	case 4:__put_user_asm(*(const u32 *)src, (u32 __user *)dst,
 			      ret, "l", "k", "ir", 4);
 		return ret;
-	case 8:__put_user_asm(*(u64 *)src, (u64 __user *)dst,
+	case 8:__put_user_asm(*(const u64 *)src, (u64 __user *)dst,
 			      ret, "q", "", "er", 8);
 		return ret;
 	case 10:
-		__put_user_asm(*(u64 *)src, (u64 __user *)dst,
+		__put_user_asm(*(const u64 *)src, (u64 __user *)dst,
 			       ret, "q", "", "er", 10);
 		if (unlikely(ret))
 			return ret;
 		asm("":::"memory");
-		__put_user_asm(4[(u16 *)src], 4 + (u16 __user *)dst,
+		__put_user_asm(4[(const u16 *)src], 4 + (u16 __user *)dst,
 			       ret, "w", "w", "ir", 2);
 		return ret;
 	case 16:
-		__put_user_asm(*(u64 *)src, (u64 __user *)dst,
+		__put_user_asm(*(const u64 *)src, (u64 __user *)dst,
 			       ret, "q", "", "er", 16);
 		if (unlikely(ret))
 			return ret;
 		asm("":::"memory");
-		__put_user_asm(1[(u64 *)src], 1 + (u64 __user *)dst,
+		__put_user_asm(1[(const u64 *)src], 1 + (u64 __user *)dst,
 			       ret, "q", "", "er", 8);
 		return ret;
 	default:
@@ -172,12 +172,12 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst,
-					 (__force void *)src, size);
+					 (__force const void *)src, size);
 	}
 	switch (size) {
 	case 1: {
 		u8 tmp;
-		__get_user_asm(tmp, (u8 __user *)src,
+		__get_user_asm(tmp, (const u8 __user *)src,
 			       ret, "b", "b", "=q", 1);
 		if (likely(!ret))
 			__put_user_asm(tmp, (u8 __user *)dst,
@@ -186,7 +186,7 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 	}
 	case 2: {
 		u16 tmp;
-		__get_user_asm(tmp, (u16 __user *)src,
+		__get_user_asm(tmp, (const u16 __user *)src,
 			       ret, "w", "w", "=r", 2);
 		if (likely(!ret))
 			__put_user_asm(tmp, (u16 __user *)dst,
@@ -196,7 +196,7 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 
 	case 4: {
 		u32 tmp;
-		__get_user_asm(tmp, (u32 __user *)src,
+		__get_user_asm(tmp, (const u32 __user *)src,
 			       ret, "l", "k", "=r", 4);
 		if (likely(!ret))
 			__put_user_asm(tmp, (u32 __user *)dst,
@@ -205,7 +205,7 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 	}
 	case 8: {
 		u64 tmp;
-		__get_user_asm(tmp, (u64 __user *)src,
+		__get_user_asm(tmp, (const u64 __user *)src,
 			       ret, "q", "", "=r", 8);
 		if (likely(!ret))
 			__put_user_asm(tmp, (u64 __user *)dst,
@@ -218,7 +218,7 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
 		return copy_user_generic((__force void *)dst,
-					 (__force void *)src, size);
+					 (__force const void *)src, size);
 	}
 }
 

@@ -23,6 +23,7 @@
 #include <asm/dsp.h>
 #include <asm/watch.h>
 #include <asm/war.h>
+#include <asm/asm.h>
 
 
 /*

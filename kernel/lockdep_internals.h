@@ -113,26 +113,26 @@ lockdep_count_backward_deps(struct lock_class *class)
 /*
  * Various lockdep statistics:
  */
-extern atomic_t chain_lookup_hits;
-extern atomic_t chain_lookup_misses;
-extern atomic_t hardirqs_on_events;
-extern atomic_t hardirqs_off_events;
-extern atomic_t redundant_hardirqs_on;
-extern atomic_t redundant_hardirqs_off;
-extern atomic_t softirqs_on_events;
-extern atomic_t softirqs_off_events;
-extern atomic_t redundant_softirqs_on;
-extern atomic_t redundant_softirqs_off;
-extern atomic_t nr_unused_locks;
-extern atomic_t nr_cyclic_checks;
-extern atomic_t nr_cyclic_check_recursions;
-extern atomic_t nr_find_usage_forwards_checks;
-extern atomic_t nr_find_usage_forwards_recursions;
-extern atomic_t nr_find_usage_backwards_checks;
-extern atomic_t nr_find_usage_backwards_recursions;
-# define debug_atomic_inc(ptr)		atomic_inc(ptr)
-# define debug_atomic_dec(ptr)		atomic_dec(ptr)
-# define debug_atomic_read(ptr)		atomic_read(ptr)
+extern atomic_unchecked_t chain_lookup_hits;
+extern atomic_unchecked_t chain_lookup_misses;
+extern atomic_unchecked_t hardirqs_on_events;
+extern atomic_unchecked_t hardirqs_off_events;
+extern atomic_unchecked_t redundant_hardirqs_on;
+extern atomic_unchecked_t redundant_hardirqs_off;
+extern atomic_unchecked_t softirqs_on_events;
+extern atomic_unchecked_t softirqs_off_events;
+extern atomic_unchecked_t redundant_softirqs_on;
+extern atomic_unchecked_t redundant_softirqs_off;
+extern atomic_unchecked_t nr_unused_locks;
+extern atomic_unchecked_t nr_cyclic_checks;
+extern atomic_unchecked_t nr_cyclic_check_recursions;
+extern atomic_unchecked_t nr_find_usage_forwards_checks;
+extern atomic_unchecked_t nr_find_usage_forwards_recursions;
+extern atomic_unchecked_t nr_find_usage_backwards_checks;
+extern atomic_unchecked_t nr_find_usage_backwards_recursions;
+# define debug_atomic_inc(ptr)		atomic_inc_unchecked(ptr)
+# define debug_atomic_dec(ptr)		atomic_dec_unchecked(ptr)
+# define debug_atomic_read(ptr)		atomic_read_unchecked(ptr)
 #else
 # define debug_atomic_inc(ptr)		do { } while (0)
 # define debug_atomic_dec(ptr)		do { } while (0)

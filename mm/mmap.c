@@ -2763,6 +2763,11 @@ int install_special_mapping(struct mm_struct *mm,
 	vma->vm_ops = &special_mapping_vmops;
 	vma->vm_private_data = pages;
 
+	if (security_file_mmap(NULL, 0, 0, 0, vma->vm_start, 1)) {
+		kmem_cache_free(vm_area_cachep, vma);
+		return -EPERM;
+	}
+
 	if (unlikely(insert_vm_struct(mm, vma))) {
 		kmem_cache_free(vm_area_cachep, vma);
 		return -ENOMEM;

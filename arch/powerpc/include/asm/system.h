@@ -531,7 +531,7 @@ __cmpxchg_local(volatile void *ptr, unsigned long old, unsigned long new,
 #define cmpxchg64_local(ptr, o, n) __cmpxchg64_local_generic((ptr), (o), (n))
 #endif
 
-extern unsigned long arch_align_stack(unsigned long sp);
+#define arch_align_stack(x) ((x) & ~0xfUL)
 
 /* Used in very early kernel initialization. */
 extern unsigned long reloc_offset(void);

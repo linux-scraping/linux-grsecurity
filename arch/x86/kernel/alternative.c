@@ -539,6 +539,6 @@ void *__kprobes text_poke(void *addr, const void *opcode, size_t len)
 	BUG_ON(!pages[0]);
 	text_poke_early(addr, opcode, len);
 	for (i = 0; i < len; i++)
-		BUG_ON(((char *)vaddr)[i] != ((char *)opcode)[i]);
+		BUG_ON((vaddr)[i] != ((const unsigned char *)opcode)[i]);
 	return addr;
 }

@@ -2368,6 +2368,10 @@ static noinline struct module *load_module(void __user *umod,
 		if (sechdrs[i].sh_type != SHT_NOBITS) {
 
 #ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_X86_64
+			if ((sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_EXECINSTR))
+				set_memory_x((unsigned long)dest, (sechdrs[i].sh_size + PAGE_SIZE) >> PAGE_SHIFT);
+#endif
 			if (!(sechdrs[i].sh_flags & SHF_WRITE) && (sechdrs[i].sh_flags & SHF_ALLOC)) {
 				pax_open_kernel();
 				memcpy(dest, (void *)sechdrs[i].sh_addr, sechdrs[i].sh_size);
