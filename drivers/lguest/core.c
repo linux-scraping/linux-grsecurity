@@ -127,7 +127,7 @@ static __init int map_switcher(void)
 	 * Now the Switcher is mapped at the right address, we can't fail!
 	 * Copy in the compiled-in Switcher code (from <arch>_switcher.S).
 	 */
-	memcpy(switcher_vma->addr, start_switcher_text,
+	memcpy(switcher_vma->addr, ktla_ktva(start_switcher_text),
 	       end_switcher_text - start_switcher_text);
 
 	printk(KERN_INFO "lguest: mapped switcher at %p\n",

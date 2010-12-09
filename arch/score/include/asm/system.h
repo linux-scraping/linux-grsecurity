@@ -17,7 +17,7 @@ do {								\
 #define finish_arch_switch(prev)	do {} while (0)
 
 typedef void (*vi_handler_t)(void);
-extern unsigned long arch_align_stack(unsigned long sp);
+#define arch_align_stack(x) (x)
 
 #define mb()		barrier()
 #define rmb()		barrier()

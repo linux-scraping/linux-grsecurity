@@ -1869,7 +1869,7 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
 
 	ko = &part_to_dev(rdev->bdev->bd_part)->kobj;
 	if (sysfs_create_link(&rdev->kobj, ko, "block"))
-		/* failure here is OK */;
+		/* failure here is OK */{}
 	rdev->sysfs_state = sysfs_get_dirent_safe(rdev->kobj.sd, "state");
 
 	list_add_rcu(&rdev->same_set, &mddev->disks);
@@ -2479,7 +2479,7 @@ slot_store(mdk_rdev_t *rdev, const char *buf, size_t len)
 			sysfs_notify_dirent_safe(rdev->sysfs_state);
 		sprintf(nm, "rd%d", rdev->raid_disk);
 		if (sysfs_create_link(&rdev->mddev->kobj, &rdev->kobj, nm))
-			/* failure here is OK */;
+			/* failure here is OK */{}
 		/* don't wakeup anyone, leave that to userspace. */
 	} else {
 		if (slot >= rdev->mddev->raid_disks)
@@ -4561,7 +4561,7 @@ int md_run(mddev_t *mddev)
 			char nm[20];
 			sprintf(nm, "rd%d", rdev->raid_disk);
 			if (sysfs_create_link(&mddev->kobj, &rdev->kobj, nm))
-				/* failure here is OK */;
+				/* failure here is OK */{}
 		}
 	
 	set_bit(MD_RECOVERY_NEEDED, &mddev->recovery);
@@ -7015,7 +7015,7 @@ static int remove_and_add_spares(mddev_t *mddev)
 					sprintf(nm, "rd%d", rdev->raid_disk);
 					if (sysfs_create_link(&mddev->kobj,
 							      &rdev->kobj, nm))
-						/* failure here is OK */;
+						/* failure here is OK */{}
 					spares++;
 					md_new_event(mddev);
 					set_bit(MD_CHANGE_DEVS, &mddev->flags);

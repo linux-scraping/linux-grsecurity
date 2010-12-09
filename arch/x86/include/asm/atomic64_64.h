@@ -18,7 +18,7 @@
  */
 static inline long atomic64_read(const atomic64_t *v)
 {
-	return (*(volatile long *)&(v)->counter);
+	return (*(volatile const long *)&(v)->counter);
 }
 
 /**
@@ -30,7 +30,7 @@ static inline long atomic64_read(const atomic64_t *v)
  */
 static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
-	return v->counter;
+	return (*(volatile const long *)&(v)->counter);
 }
 
 /**

@@ -22,7 +22,7 @@
  */
 static inline int atomic_read(const atomic_t *v)
 {
-	return (*(volatile int *)&(v)->counter);
+	return (*(volatile const int *)&(v)->counter);
 }
 
 /**
@@ -33,7 +33,7 @@ static inline int atomic_read(const atomic_t *v)
  */
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
-	return v->counter;
+	return (*(volatile const int *)&(v)->counter);
 }
 
 /**

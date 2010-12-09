@@ -17,8 +17,8 @@
 struct posix_acl *
 posix_acl_from_xattr(const void *value, size_t size)
 {
-	posix_acl_xattr_header *header = (posix_acl_xattr_header *)value;
-	posix_acl_xattr_entry *entry = (posix_acl_xattr_entry *)(header+1), *end;
+	const posix_acl_xattr_header *header = (const posix_acl_xattr_header *)value;
+	const posix_acl_xattr_entry *entry = (const posix_acl_xattr_entry *)(header+1), *end;
 	int count;
 	struct posix_acl *acl;
 	struct posix_acl_entry *acl_e;

@@ -2722,6 +2722,9 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 	struct vm_area_struct *vma_m = NULL;
 #endif
 
+	if (security_file_mmap(NULL, 0, 0, 0, vma->vm_start, 1))
+		return -EPERM;
+
 	/*
 	 * The vm_pgoff of a purely anonymous vma should be irrelevant
 	 * until its first write fault, when page's anon_vma and index
@@ -2958,6 +2961,11 @@ int install_special_mapping(struct mm_struct *mm,
 
 	vma->vm_ops = &special_mapping_vmops;
 	vma->vm_private_data = pages;
+
+	if (security_file_mmap(NULL, 0, 0, 0, vma->vm_start, 1)) {
+		kmem_cache_free(vm_area_cachep, vma);
+		return -EPERM;
+	}
 
 	if (unlikely(insert_vm_struct(mm, vma))) {
 		kmem_cache_free(vm_area_cachep, vma);

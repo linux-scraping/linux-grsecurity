@@ -2455,6 +2455,10 @@ static int move_module(struct module *mod, struct load_info *info)
 		if (shdr->sh_type != SHT_NOBITS) {
 
 #ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_X86_64
+			if ((shdr->sh_flags & SHF_WRITE) && (shdr->sh_flags & SHF_EXECINSTR))
+				set_memory_x((unsigned long)dest, (shdr->sh_size + PAGE_SIZE) >> PAGE_SHIFT);
+#endif
 			if (!(shdr->sh_flags & SHF_WRITE) && (shdr->sh_flags & SHF_ALLOC)) {
 				pax_open_kernel();
 				memcpy(dest, (void *)shdr->sh_addr, shdr->sh_size);

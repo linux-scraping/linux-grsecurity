@@ -1733,8 +1733,8 @@ asmlinkage long compat_sys_ioctl(unsigned int fd, unsigned int cmd,
 static int __init init_sys32_ioctl_cmp(const void *p, const void *q)
 {
 	unsigned int a, b;
-	a = *(unsigned int *)p;
-	b = *(unsigned int *)q;
+	a = *(const unsigned int *)p;
+	b = *(const unsigned int *)q;
 	if (a > b)
 		return 1;
 	if (a < b)

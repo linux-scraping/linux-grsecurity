@@ -277,6 +277,11 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	INIT_LIST_HEAD(&vma->anon_vma_chain);
+
+	err = security_file_mmap(NULL, 0, 0, 0, vma->vm_start, 1);
+	if (err)
+		goto err;
+
 	err = insert_vm_struct(mm, vma);
 	if (err)
 		goto err;
@@ -556,7 +561,7 @@ static int shift_arg_pages(struct vm_area_struct *vma, unsigned long shift)
 	struct mmu_gather *tlb;
 
 	if (new_start >= new_end || new_start < mmap_min_addr)
-		return -EFAULT;
+		return -ENOMEM;
 
 	/*
 	 * ensure there are no vmas between where we want to go
@@ -648,10 +653,6 @@ int setup_arg_pages(struct linux_binprm *bprm,
 #else
 	stack_top = arch_align_stack(stack_top);
 	stack_top = PAGE_ALIGN(stack_top);
-
-	if (unlikely(stack_top < mmap_min_addr) ||
-	    unlikely(vma->vm_end - vma->vm_start >= stack_top - mmap_min_addr))
-		return -ENOMEM;
 
 	stack_shift = vma->vm_end - stack_top;
 
