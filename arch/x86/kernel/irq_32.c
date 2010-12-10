@@ -193,7 +193,7 @@ asmlinkage void do_softirq(void)
 		call_on_stack(__do_softirq, isp);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-		__set_fs(curctx->tinfo.addr_limit, smp_processor_id());
+		__set_fs(curctx->addr_limit, smp_processor_id());
 #endif
 
 		/*
