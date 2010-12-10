@@ -589,7 +589,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &modprobe_path,
 		.maxlen		= KMOD_PATH_LEN,
 		.mode		= 0644,
-		.proc_handler	= proc_dostring,
+		.proc_handler	= proc_dostring_modpriv,
 	},
 	{
 		.procname	= "modules_disabled",
@@ -2150,6 +2150,16 @@ int proc_dostring(struct ctl_table *table, int write,
 			       buffer, lenp, ppos);
 }
 
+int proc_dostring_modpriv(struct ctl_table *table, int write,
+		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	if (write && !capable(CAP_SYS_MODULE))
+		return -EPERM;
+
+	return _proc_do_string(table->data, table->maxlen, write,
+			       buffer, lenp, ppos);
+}
+
 static size_t proc_skip_spaces(char **buf)
 {
 	size_t ret;
@@ -2961,6 +2971,12 @@ int proc_dostring(struct ctl_table *table, int write,
 	return -ENOSYS;
 }
 
+int proc_dostring_modpriv(struct ctl_table *table, int write,
+		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return -ENOSYS;
+}
+
 int proc_dointvec(struct ctl_table *table, int write,
 		  void __user *buffer, size_t *lenp, loff_t *ppos)
 {
@@ -3017,6 +3033,7 @@ EXPORT_SYMBOL(proc_dointvec_minmax);
 EXPORT_SYMBOL(proc_dointvec_userhz_jiffies);
 EXPORT_SYMBOL(proc_dointvec_ms_jiffies);
 EXPORT_SYMBOL(proc_dostring);
+EXPORT_SYMBOL(proc_dostring_modpriv);
 EXPORT_SYMBOL(proc_doulongvec_minmax);
 EXPORT_SYMBOL(proc_doulongvec_ms_jiffies_minmax);
 EXPORT_SYMBOL(register_sysctl_table);

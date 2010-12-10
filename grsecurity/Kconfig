@@ -396,9 +396,10 @@ config GRKERNSEC_PROC_USERGROUP
 	depends on GRKERNSEC_PROC && !GRKERNSEC_PROC_USER
 	help
 	  If you say Y here, you will be able to select a group that will be
-	  able to view all processes, network-related information, and
-	  kernel and symbol information.  This option is useful if you want
-	  to run identd as a non-root user.
+          able to view all processes and network-related information.  If you've
+          enabled GRKERNSEC_HIDESYM, kernel and symbol information may still
+          remain hidden.  This option is useful if you want to run identd as
+          a non-root user.
 
 config GRKERNSEC_PROC_GID
 	int "GID for special group"

@@ -131,6 +131,7 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
 				set_fail(&fail, table, "Directory with extra2");
 		} else {
 			if ((table->proc_handler == proc_dostring) ||
+			    (table->proc_handler == proc_dostring_modpriv) ||
 			    (table->proc_handler == proc_dointvec) ||
 			    (table->proc_handler == proc_dointvec_minmax) ||
 			    (table->proc_handler == proc_dointvec_jiffies) ||
