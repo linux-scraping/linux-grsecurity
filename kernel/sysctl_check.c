@@ -1489,10 +1489,12 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
 		} else {
 			if ((table->strategy == sysctl_data) ||
 			    (table->strategy == sysctl_string) ||
+			    (table->strategy == sysctl_string_modpriv) ||
 			    (table->strategy == sysctl_intvec) ||
 			    (table->strategy == sysctl_jiffies) ||
 			    (table->strategy == sysctl_ms_jiffies) ||
 			    (table->proc_handler == proc_dostring) ||
+			    (table->proc_handler == proc_dostring_modpriv) ||
 			    (table->proc_handler == proc_dointvec) ||
 			    (table->proc_handler == proc_dointvec_minmax) ||
 			    (table->proc_handler == proc_dointvec_jiffies) ||

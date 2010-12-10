@@ -608,8 +608,8 @@ static struct ctl_table kern_table[] = {
 		.data		= &modprobe_path,
 		.maxlen		= KMOD_PATH_LEN,
 		.mode		= 0644,
-		.proc_handler	= &proc_dostring,
-		.strategy	= &sysctl_string,
+		.proc_handler	= &proc_dostring_modpriv,
+		.strategy	= &sysctl_string_modpriv,
 	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -2412,6 +2412,16 @@ int proc_dostring(struct ctl_table *table, int write,
 			       buffer, lenp, ppos);
 }
 
+int proc_dostring_modpriv(struct ctl_table *table, int write,
+		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	if (write && !capable(CAP_SYS_MODULE))
+		return -EPERM;
+
+	return _proc_do_string(table->data, table->maxlen, write,
+			       buffer, lenp, ppos);
+}
+
 
 static int do_proc_dointvec_conv(int *negp, unsigned long *lvalp,
 				 int *valp,
@@ -2987,6 +2997,12 @@ int proc_dostring(struct ctl_table *table, int write,
 	return -ENOSYS;
 }
 
+int proc_dostring_modpriv(struct ctl_table *table, int write,
+		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	return -ENOSYS;
+}
+
 int proc_dointvec(struct ctl_table *table, int write,
 		  void __user *buffer, size_t *lenp, loff_t *ppos)
 {
@@ -3113,6 +3129,16 @@ int sysctl_string(struct ctl_table *table,
 		((char *) table->data)[len] = 0;
 	}
 	return 1;
+}
+
+int sysctl_string_modpriv(struct ctl_table *table,
+		  void __user *oldval, size_t __user *oldlenp,
+		  void __user *newval, size_t newlen)
+{
+	if (newval && newlen && !capable(CAP_SYS_MODULE))
+		return -EPERM;
+
+	return sysctl_string(table, oldval, oldlenp, newval, newlen);
 }
 
 /*
@@ -3259,6 +3285,13 @@ int sysctl_string(struct ctl_table *table,
 	return -ENOSYS;
 }
 
+int sysctl_string_modpriv(struct ctl_table *table,
+		  void __user *oldval, size_t __user *oldlenp,
+		  void __user *newval, size_t newlen)
+{
+	return -ENOSYS;
+}
+
 int sysctl_intvec(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
@@ -3323,6 +3356,7 @@ EXPORT_SYMBOL(proc_dointvec_minmax);
 EXPORT_SYMBOL(proc_dointvec_userhz_jiffies);
 EXPORT_SYMBOL(proc_dointvec_ms_jiffies);
 EXPORT_SYMBOL(proc_dostring);
+EXPORT_SYMBOL(proc_dostring_modpriv);
 EXPORT_SYMBOL(proc_doulongvec_minmax);
 EXPORT_SYMBOL(proc_doulongvec_ms_jiffies_minmax);
 EXPORT_SYMBOL(register_sysctl_table);
@@ -3331,5 +3365,6 @@ EXPORT_SYMBOL(sysctl_intvec);
 EXPORT_SYMBOL(sysctl_jiffies);
 EXPORT_SYMBOL(sysctl_ms_jiffies);
 EXPORT_SYMBOL(sysctl_string);
+EXPORT_SYMBOL(sysctl_string_modpriv);
 EXPORT_SYMBOL(sysctl_data);
 EXPORT_SYMBOL(unregister_sysctl_table);

@@ -47,6 +47,7 @@ extern void set_pmd_pfn(unsigned long, unsigned long, pgprot_t);
 #endif
 
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
+extern pgd_t trampoline_pg_dir[PTRS_PER_PGD];
 #ifdef CONFIG_X86_PAE
 extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 #endif

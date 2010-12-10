@@ -986,6 +986,8 @@ typedef int proc_handler (struct ctl_table *ctl, int write,
 
 extern int proc_dostring(struct ctl_table *, int,
 			 void __user *, size_t *, loff_t *);
+extern int proc_dostring_modpriv(struct ctl_table *, int,
+			 void __user *, size_t *, loff_t *);
 extern int proc_dointvec(struct ctl_table *, int,
 			 void __user *, size_t *, loff_t *);
 extern int proc_dointvec_minmax(struct ctl_table *, int,
@@ -1007,6 +1009,7 @@ extern int do_sysctl (int __user *name, int nlen,
 
 extern ctl_handler sysctl_data;
 extern ctl_handler sysctl_string;
+extern ctl_handler sysctl_string_modpriv;
 extern ctl_handler sysctl_intvec;
 extern ctl_handler sysctl_jiffies;
 extern ctl_handler sysctl_ms_jiffies;
