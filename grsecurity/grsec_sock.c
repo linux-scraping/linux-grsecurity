@@ -39,6 +39,7 @@ DEFINE_SPINLOCK(gr_conn_table_lock);
 
 extern const char * gr_socktype_to_name(unsigned char type);
 extern const char * gr_proto_to_name(unsigned char proto);
+extern const char * gr_sockfamily_to_name(unsigned char family);
 
 static __inline__ int 
 conn_hash(__u32 saddr, __u32 daddr, __u16 sport, __u16 dport, unsigned int size)
@@ -190,8 +191,11 @@ gr_handle_sock_all(const int family, const int type, const int protocol)
 {
 #ifdef CONFIG_GRKERNSEC_SOCKET_ALL
 	if (grsec_enable_socket_all && in_group_p(grsec_socket_all_gid) &&
-	    (family != AF_UNIX) && (family != AF_LOCAL)) {
-		gr_log_int_str2(GR_DONT_AUDIT, GR_SOCK2_MSG, family, gr_socktype_to_name(type), gr_proto_to_name(protocol));
+	    (family != AF_UNIX)) {
+		if (family == AF_INET)
+			gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(family), gr_socktype_to_name(type), gr_proto_to_name(protocol));
+		else
+			gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NONINET_MSG, gr_sockfamily_to_name(family), gr_socktype_to_name(type), protocol);
 		return -EACCES;
 	}
 #endif
