@@ -1694,9 +1694,17 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	    const struct dentry *curr_dentry,
 	    const struct acl_subject_label *subj, char **path, const int checkglob)
 {
+	int newglob = checkglob;
+
+	/* if we aren't checking a subdirectory of the original path yet, don't do glob checking
+	   as we don't want a /* rule to match instead of the / object
+	*/
+	if (orig_dentry == curr_dentry)
+		newglob = 0;
+
 	return __full_lookup(orig_dentry, orig_mnt,
 			     curr_dentry->d_inode->i_ino, 
-			     curr_dentry->d_inode->i_sb->s_dev, subj, path, checkglob);
+			     curr_dentry->d_inode->i_sb->s_dev, subj, path, newglob);
 }
 
 static struct acl_object_label *

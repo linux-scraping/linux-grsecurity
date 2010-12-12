@@ -86,7 +86,7 @@
 #define GR_MMAP_ACL_MSG "%s executable mmap of %.950s by "
 #define GR_MPROTECT_ACL_MSG "%s executable mprotect of %.950s by "
 #define GR_SOCK_MSG "denied socket(%.16s,%.16s,%.16s) by "
-#define GR_SOCK2_MSG "denied socket(%d,%.16s,%.16s) by "
+#define GR_SOCK_NOINET_MSG "denied socket(%.16s,%.16s,%d) by "
 #define GR_BIND_MSG "denied bind() by "
 #define GR_CONNECT_MSG "denied connect() by "
 #define GR_BIND_ACL_MSG "denied bind() to %pI4 port %u sock type %.16s protocol %.16s by "

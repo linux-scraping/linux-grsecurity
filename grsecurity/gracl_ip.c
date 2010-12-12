@@ -166,8 +166,12 @@ inet_check:
 	}
 
 exit_fail:
-	gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(domain), 
-		    gr_socktype_to_name(type), gr_proto_to_name(protocol));
+	if (domain == PF_INET)
+		gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(domain), 
+			    gr_socktype_to_name(type), gr_proto_to_name(protocol));
+	else
+		gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NOINET_MSG, gr_sockfamily_to_name(domain), 
+			    gr_socktype_to_name(type), protocol);
 
 	return 0;
 exit:
