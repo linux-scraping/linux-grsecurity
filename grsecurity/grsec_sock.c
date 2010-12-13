@@ -195,7 +195,7 @@ gr_handle_sock_all(const int family, const int type, const int protocol)
 		if (family == AF_INET)
 			gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(family), gr_socktype_to_name(type), gr_proto_to_name(protocol));
 		else
-			gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NONINET_MSG, gr_sockfamily_to_name(family), gr_socktype_to_name(type), protocol);
+			gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NOINET_MSG, gr_sockfamily_to_name(family), gr_socktype_to_name(type), protocol);
 		return -EACCES;
 	}
 #endif
