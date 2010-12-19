@@ -236,7 +236,7 @@ config X86_TRAMPOLINE
 
 config X86_32_LAZY_GS
 	def_bool y
-	depends on X86_32 && !CC_STACKPROTECTOR
+	depends on X86_32 && !CC_STACKPROTECTOR && !PAX_MEMORY_UDEREF
 
 config ARCH_HWEIGHT_CFLAGS
 	string
@@ -1489,6 +1489,7 @@ config SECCOMP
 
 config CC_STACKPROTECTOR
 	bool "Enable -fstack-protector buffer overflow detection (EXPERIMENTAL)"
+	depends on X86_64 || !PAX_MEMORY_UDEREF
 	---help---
 	  This option turns on the -fstack-protector GCC feature. This
 	  feature puts, at the beginning of functions, a canary value on

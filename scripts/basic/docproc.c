@@ -333,7 +333,8 @@ static void docsect(char *filename, char *line)
 		if (*s == '\n')
 			*s = '\0';
 
-	asprintf(&s, "DOC: %s", line);
+	if (-1 == asprintf(&s, "DOC: %s", line))
+		return;
 	consume_symbol(s);
 	free(s);
 

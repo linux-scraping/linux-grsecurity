@@ -286,7 +286,7 @@ int kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 	regs.ds = __KERNEL_DS;
 	regs.es = __KERNEL_DS;
 	regs.fs = __KERNEL_PERCPU;
-	regs.gs = __KERNEL_STACK_CANARY;
+	savesegment(gs, regs.gs);
 #else
 	regs.ss = __KERNEL_DS;
 #endif

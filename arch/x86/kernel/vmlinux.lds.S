@@ -46,8 +46,6 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY(phys_startup_64)
 #endif
 
-jiffies = jiffies_64;
-
 #if defined(CONFIG_X86_64) && defined(CONFIG_DEBUG_RODATA)
 /*
  * On 64-bit, align RODATA to 2MB so that even with CONFIG_DEBUG_RODATA
@@ -185,9 +183,9 @@ SECTIONS
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	. = ALIGN(HPAGE_SIZE);
+		. = ALIGN(HPAGE_SIZE);
 #else
-	. = ALIGN(PAGE_SIZE);
+		. = ALIGN(PAGE_SIZE);
 #endif
 
 		/* Start of data section */
@@ -204,6 +202,8 @@ SECTIONS
 
 		DATA_DATA
 		CONSTRUCTORS
+
+		jiffies = jiffies_64;
 
 		/* rarely changed data like cpu maps */
 		READ_MOSTLY_DATA(INTERNODE_CACHE_BYTES)

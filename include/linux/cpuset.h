@@ -118,7 +118,7 @@ static inline void put_mems_allowed(void)
 	 * nodemask.
 	 */
 	smp_mb();
-	--ACCESS_ONCE(current->mems_allowed_change_disable);
+	--current->mems_allowed_change_disable;
 }
 
 static inline void set_mems_allowed(nodemask_t nodemask)

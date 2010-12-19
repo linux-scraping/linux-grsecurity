@@ -121,7 +121,10 @@ check_prefetch_opcode(struct pt_regs *regs, unsigned char *instr,
 		return !instr_lo || (instr_lo>>1) == 1;
 	case 0x00:
 		/* Prefetch instruction is 0x0F0D or 0x0F18 */
-		if (probe_kernel_address(instr, opcode))
+		if (user_mode(regs)) {
+			if (__copy_from_user_inatomic(&opcode, (__force unsigned char __user *)(instr), 1))
+				return 0;
+		} else if (probe_kernel_address(instr, opcode))
 			return 0;
 
 		*prefetch = (instr_lo == 0xF) &&
@@ -155,7 +158,10 @@ is_prefetch(struct pt_regs *regs, unsigned long error_code, unsigned long addr)
 	while (instr < max_instr) {
 		unsigned char opcode;
 
-		if (probe_kernel_address(instr, opcode))
+		if (user_mode(regs)) {
+			if (__copy_from_user_inatomic(&opcode, (__force unsigned char __user *)(instr), 1))
+				break;
+		} else if (probe_kernel_address(instr, opcode))
 			break;
 
 		instr++;
@@ -1058,9 +1064,6 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
 	 * PaX: fill DTLB with user rights and retry
 	 */
 	__asm__ __volatile__ (
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		"movw %w4,%%es\n"
-#endif
 		"orb %2,(%1)\n"
 #if defined(CONFIG_M586) || defined(CONFIG_M586TSC)
 /*
@@ -1078,14 +1081,10 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
  */
 		"invlpg (%0)\n"
 #endif
-		"testb $0,%%es:(%0)\n"
+		"testb $0,"__copyuser_seg"(%0)\n"
 		"xorb %3,(%1)\n"
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		"pushl %%ss\n"
-		"popl %%es\n"
-#endif
 		:
-		: "r" (address), "r" (pte), "q" (pte_mask), "i" (_PAGE_USER), "r" (__USER_DS)
+		: "r" (address), "r" (pte), "q" (pte_mask), "i" (_PAGE_USER)
 		: "memory", "cc");
 	pte_unmap_unlock(pte, ptl);
 	up_read(&mm->mmap_sem);

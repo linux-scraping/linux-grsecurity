@@ -131,6 +131,8 @@ ENTRY(startup_32)
 	movl $pa(cpu_gdt_table),%edi
 1:
 	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c09700),GDT_ENTRY_KERNEL_DS * 8 + 4(%edi)
+	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c0fb00),GDT_ENTRY_DEFAULT_USER_CS * 8 + 4(%edi)
+	movl $((((__PAGE_OFFSET-1) & 0xf0000000) >> 12) | 0x00c0f300),GDT_ENTRY_DEFAULT_USER_DS * 8 + 4(%edi)
 	addl $PAGE_SIZE_asm,%edi
 	loop 1b
 #endif
@@ -528,8 +530,12 @@ is386:	movl $2,%ecx		# set MP
 	movb %cl, 8 * GDT_ENTRY_STACK_CANARY + 4(%eax)
 	movb %ch, 8 * GDT_ENTRY_STACK_CANARY + 7(%eax)
 1:
-#endif
 	movl $(__KERNEL_STACK_CANARY),%eax
+#elif defined(CONFIG_PAX_MEMORY_UDEREF)
+	movl $(__USER_DS),%eax
+#else
+	xorl %eax,%eax
+#endif
 	movl %eax,%gs
 
 	xorl %eax,%eax			# Clear LDT

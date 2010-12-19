@@ -186,7 +186,15 @@
 	/*CFI_REL_OFFSET gs, PT_GS*/
 .endm
 .macro SET_KERNEL_GS reg
+
+#ifdef CONFIG_CC_STACKPROTECTOR
 	movl $(__KERNEL_STACK_CANARY), \reg
+#elif defined(CONFIG_PAX_MEMORY_UDEREF)
+	movl $(__USER_DS), \reg
+#else
+	xorl \reg, \reg
+#endif
+
 	movl \reg, %gs
 .endm
 
@@ -892,6 +900,31 @@ ptregs_clone:
 	movl PT_EBX(%eax),%eax
 	call sys_clone
 	addl $8,%esp
+	ret
+
+	ALIGN;
+ENTRY(kernel_execve)
+	push %ebp
+	sub $PT_OLDSS+4,%esp
+	push %edi
+	push %ecx
+	push %eax
+	lea 3*4(%esp),%edi
+	mov $PT_OLDSS/4+1,%ecx
+	xorl %eax,%eax
+	rep stosl
+	pop %eax
+	pop %ecx
+	pop %edi
+	movl $X86_EFLAGS_IF,PT_EFLAGS(%esp)
+	push %esp
+	call sys_execve
+	add $4,%esp
+	GET_THREAD_INFO(%ebp)
+	test %eax,%eax
+	jz syscall_exit
+	add $PT_OLDSS+4,%esp
+	pop %ebp
 	ret
 
 .macro FIXUP_ESPFIX_STACK
