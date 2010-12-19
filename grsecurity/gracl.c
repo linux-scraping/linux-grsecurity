@@ -1698,9 +1698,11 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 
 	/* if we aren't checking a subdirectory of the original path yet, don't do glob checking
 	   as we don't want a /* rule to match instead of the / object
+	   don't do this for create lookups that call this function though, since they're looking up
+	   on the parent and thus need globbing checks on all paths
 	*/
-	if (orig_dentry == curr_dentry)
-		newglob = 0;
+	if (orig_dentry == curr_dentry && newglob != GR_CREATE_GLOB)
+		newglob = GR_NO_GLOB;
 
 	return __full_lookup(orig_dentry, orig_mnt,
 			     curr_dentry->d_inode->i_ino, 
@@ -1765,7 +1767,7 @@ chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	      const struct acl_subject_label *subj)
 {
 	char *path = NULL;
-	return __chk_obj_label(l_dentry, l_mnt, subj, path, 1);
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, GR_REG_GLOB);
 }
 
 static __inline__ struct acl_object_label *
@@ -1773,14 +1775,14 @@ chk_obj_label_noglob(const struct dentry *l_dentry, const struct vfsmount *l_mnt
 	      const struct acl_subject_label *subj)
 {
 	char *path = NULL;
-	return __chk_obj_label(l_dentry, l_mnt, subj, path, 0);
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, GR_NO_GLOB);
 }
 
 static __inline__ struct acl_object_label *
 chk_obj_create_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		     const struct acl_subject_label *subj, char *path)
 {
-	return __chk_obj_label(l_dentry, l_mnt, subj, path, 1);
+	return __chk_obj_label(l_dentry, l_mnt, subj, path, GR_CREATE_GLOB);
 }
 
 static struct acl_subject_label *

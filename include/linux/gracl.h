@@ -36,6 +36,12 @@ enum {
 	GR_SPROLE_LEN = 64,
 };
 
+enum {
+	GR_NO_GLOB = 0,
+	GR_REG_GLOB,
+	GR_CREATE_GLOB
+};
+
 #define GR_NLIMITS 32
 
 /* Begin Data Structures */
