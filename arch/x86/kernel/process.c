@@ -118,7 +118,7 @@ void flush_thread(void)
 {
 	struct task_struct *tsk = current;
 
-#if defined(CONFIG_X86_32) && !defined(CONFIG_CC_STACKPROTECTOR)
+#if defined(CONFIG_X86_32) && !defined(CONFIG_CC_STACKPROTECTOR) && !defined(CONFIG_PAX_MEMORY_UDEREF)
 	loadsegment(gs, 0);
 #endif
 	flush_ptrace_hw_breakpoint(tsk);
