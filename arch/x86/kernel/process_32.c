@@ -333,8 +333,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	lazy_save_gs(prev->gs);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!segment_eq(task_thread_info(prev_p)->addr_limit, task_thread_info(next_p)->addr_limit))
-		set_fs(task_thread_info(next_p)->addr_limit);
+	__set_fs(task_thread_info(next_p)->addr_limit);
 #endif
 
 	/*

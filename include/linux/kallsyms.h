@@ -93,7 +93,8 @@ static inline int lookup_symbol_attrs(unsigned long addr, unsigned long *size, u
 /* Stupid that this does nothing, but I didn't create this mess. */
 #define __print_symbol(fmt, addr)
 #endif /*CONFIG_KALLSYMS*/
-#else /* when included by kallsyms.c or vsnprintf.c, with HIDESYM enabled */
+#else /* when included by kallsyms.c, vsnprintf.c, or
+	 arch/x86/kernel/dumpstack.c, with HIDESYM enabled */
 extern void __print_symbol(const char *fmt, unsigned long address);
 extern int sprint_symbol(char *buffer, unsigned long address);
 const char *kallsyms_lookup(unsigned long addr,

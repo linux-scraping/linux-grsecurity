@@ -964,9 +964,8 @@ void copy_to_user_overflow(void)
 EXPORT_SYMBOL(copy_to_user_overflow);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-void set_fs(mm_segment_t x)
+void __set_fs(mm_segment_t x)
 {
-	current_thread_info()->addr_limit = x;
 	switch (x.seg) {
 	case 0:
 		loadsegment(gs, 0);
@@ -983,6 +982,10 @@ void set_fs(mm_segment_t x)
 	return;
 }
 
+void set_fs(mm_segment_t x)
+{
+	current_thread_info()->addr_limit = x;
+	__set_fs(x);
+}
 EXPORT_SYMBOL(set_fs);
-
 #endif

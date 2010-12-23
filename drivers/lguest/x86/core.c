@@ -59,7 +59,7 @@ static struct {
 /* Offset from where switcher.S was compiled to where we've copied it */
 static unsigned long switcher_offset(void)
 {
-	return SWITCHER_ADDR - (unsigned long)start_switcher_text;
+	return SWITCHER_ADDR - (unsigned long)ktla_ktva(start_switcher_text);
 }
 
 /* This cpu's struct lguest_pages. */
@@ -100,7 +100,13 @@ static void copy_in_guest_info(struct lg_cpu *cpu, struct lguest_pages *pages)
 	 * These copies are pretty cheap, so we do them unconditionally: */
 	/* Save the current Host top-level page directory.
 	 */
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	pages->state.host_cr3 = read_cr3();
+#else
 	pages->state.host_cr3 = __pa(current->mm->pgd);
+#endif
+
 	/*
 	 * Set up the Guest's page tables to see this CPU's pages (and no
 	 * other CPU's pages).
@@ -547,7 +553,7 @@ void __init lguest_arch_host_init(void)
 	 * compiled-in switcher code and the high-mapped copy we just made.
 	 */
 	for (i = 0; i < IDT_ENTRIES; i++)
-		default_idt_entries[i] += switcher_offset();
+		default_idt_entries[i] = ktla_ktva(default_idt_entries[i]) + switcher_offset();
 
 	/*
 	 * Set up the Switcher's per-cpu areas.
@@ -630,7 +636,7 @@ void __init lguest_arch_host_init(void)
 	 * it will be undisturbed when we switch.  To change %cs and jump we
 	 * need this structure to feed to Intel's "lcall" instruction.
 	 */
-	lguest_entry.offset = (long)switch_to_guest + switcher_offset();
+	lguest_entry.offset = (long)ktla_ktva(switch_to_guest) + switcher_offset();
 	lguest_entry.segment = LGUEST_CS;
 
 	/*

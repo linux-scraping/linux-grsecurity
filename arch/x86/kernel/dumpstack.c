@@ -2,6 +2,9 @@
  *  Copyright (C) 1991, 1992  Linus Torvalds
  *  Copyright (C) 2000, 2001, 2002 Andi Kleen, SuSE Labs
  */
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+#define __INCLUDED_BY_HIDESYM 1
+#endif
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>

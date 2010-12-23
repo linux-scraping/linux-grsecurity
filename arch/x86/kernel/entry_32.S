@@ -203,7 +203,7 @@
 .macro PAX_EXIT_KERNEL
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_PARAVIRT
-	push %eax; push %ecx;
+	push %eax; push %ecx
 #endif
 	mov %cs, %esi
 	cmp $__KERNEXEC_KERNEL_CS, %esi
@@ -233,7 +233,7 @@
 .macro PAX_ENTER_KERNEL
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_PARAVIRT
-	push %eax; push %ecx;
+	push %eax; push %ecx
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
 	mov %eax, %esi
 #else

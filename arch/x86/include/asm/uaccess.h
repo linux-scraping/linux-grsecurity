@@ -33,6 +33,7 @@ extern void check_object_size(const void *ptr, unsigned long n, bool to);
 #define get_ds()	(KERNEL_DS)
 #define get_fs()	(current_thread_info()->addr_limit)
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+void __set_fs(mm_segment_t x);
 void set_fs(mm_segment_t x);
 #else
 #define set_fs(x)	(current_thread_info()->addr_limit = (x))
