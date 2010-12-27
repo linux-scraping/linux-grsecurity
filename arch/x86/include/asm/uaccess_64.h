@@ -293,7 +293,7 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
-				unsigned size, int zerorest);
+				unsigned size);
 
 static inline unsigned long __copy_from_user_nocache(void *dst, const void __user *src, unsigned size)
 {
