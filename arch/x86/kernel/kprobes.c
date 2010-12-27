@@ -114,7 +114,7 @@ static void __kprobes __synthesize_relative_insn(void *from, void *to, u8 op)
 		s32 raddr;
 	} __attribute__((packed)) *insn;
 
-	insn = (struct __arch_relative_insn *)(ktla_ktva(from));
+	insn = (struct __arch_relative_insn *)from;
 
 	pax_open_kernel();
 	insn->raddr = (s32)((long)(to) - ((long)(from) + 5));
@@ -156,7 +156,7 @@ static int __kprobes can_boost(kprobe_opcode_t *opcodes)
 	kprobe_opcode_t opcode;
 	kprobe_opcode_t *orig_opcodes = opcodes;
 
-	if (search_exception_tables((unsigned long)opcodes))
+	if (search_exception_tables(ktva_ktla((unsigned long)opcodes)))
 		return 0;	/* Page fault may occur on this address. */
 
 retry:
@@ -1379,7 +1379,7 @@ int __kprobes arch_prepare_optimized_kprobe(struct optimized_kprobe *op)
 	 * Verify if the address gap is in 2GB range, because this uses
 	 * a relative jump.
 	 */
-	rel = (long)op->optinsn.insn - (long)op->kp.addr + RELATIVEJUMP_SIZE;
+	rel = (long)op->optinsn.insn - ktla_ktva((long)op->kp.addr) + RELATIVEJUMP_SIZE;
 	if (abs(rel) > 0x7fffffff)
 		return -ERANGE;
 
@@ -1400,11 +1400,11 @@ int __kprobes arch_prepare_optimized_kprobe(struct optimized_kprobe *op)
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
 
 	/* Set probe function call */
-	synthesize_relcall(buf + TMPL_CALL_IDX, optimized_callback);
+	synthesize_relcall(buf + TMPL_CALL_IDX, ktla_ktva(optimized_callback));
 
 	/* Set returning jmp instruction at the tail of out-of-line buffer */
 	synthesize_reljump(buf + TMPL_END_IDX + op->optinsn.size,
-			   (u8 *)op->kp.addr + op->optinsn.size);
+			   (u8 *)ktla_ktva(op->kp.addr) + op->optinsn.size);
 
 	flush_icache_range((unsigned long) buf,
 			   (unsigned long) buf + TMPL_END_IDX +

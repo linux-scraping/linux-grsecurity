@@ -302,7 +302,7 @@ static inline unsigned long __copy_from_user_nocache(void *dst, const void __use
 	if ((int)size < 0)
 		return size;
 
-	return __copy_user_nocache(dst, src, size, 1);
+	return __copy_user_nocache(dst, src, size);
 }
 
 static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
@@ -311,7 +311,7 @@ static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const v
 	if ((int)size < 0)
 		return size;
 
-	return __copy_user_nocache(dst, src, size, 0);
+	return __copy_user_nocache(dst, src, size);
 }
 
 extern unsigned long

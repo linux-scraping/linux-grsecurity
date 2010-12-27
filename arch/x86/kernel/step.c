@@ -42,7 +42,8 @@ unsigned long convert_ip_to_linear(struct task_struct *child, struct pt_regs *re
 			addr += base;
 		}
 		mutex_unlock(&child->mm->context.lock);
-	}
+	} else if (seg == __KERNEL_CS || seg == __KERNEXEC_KERNEL_CS)
+		addr = ktla_ktva(addr);
 
 	return addr;
 }

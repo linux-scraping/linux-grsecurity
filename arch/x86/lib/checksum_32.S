@@ -308,14 +308,14 @@ unsigned int csum_partial_copy_generic (const char *src, char *dst,
 
 ENTRY(csum_partial_copy_generic_to_user)
 	CFI_STARTPROC
-	pushl $(__USER_DS)
+	pushl %gs
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %es
 	CFI_ADJUST_CFA_OFFSET -4
 	jmp csum_partial_copy_generic
 
 ENTRY(csum_partial_copy_generic_from_user)
-	pushl $(__USER_DS)
+	pushl %gs
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %ds
 	CFI_ADJUST_CFA_OFFSET -4
@@ -483,14 +483,14 @@ ENDPROC(csum_partial_copy_generic_to_user)
 
 ENTRY(csum_partial_copy_generic_to_user)
 	CFI_STARTPROC
-	pushl $(__USER_DS)
+	pushl %gs
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %es
 	CFI_ADJUST_CFA_OFFSET -4
 	jmp csum_partial_copy_generic
 
 ENTRY(csum_partial_copy_generic_from_user)
-	pushl $(__USER_DS)
+	pushl %gs
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %ds
 	CFI_ADJUST_CFA_OFFSET -4
