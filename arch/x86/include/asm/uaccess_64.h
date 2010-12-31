@@ -84,6 +84,11 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 	if ((int)size < 0)
 		return size;
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+#endif
+
 	if (unlikely(sz != -1 && sz < size)) {
 #ifdef CONFIG_DEBUG_VM
 		WARN(1, "Buffer overflow detected!\n");
@@ -146,6 +151,11 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 	if ((int)size < 0)
 		return size;
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_WRITE, dst, size))
+		return size;
+#endif
+
 	if (unlikely(sz != -1 && sz < size)) {
 #ifdef CONFIG_DEBUG_VM
 		WARN(1, "Buffer overflow detected!\n");
@@ -206,6 +216,13 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 
 	if ((int)size < 0)
 		return size;
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+	if (!__access_ok(VERIFY_WRITE, dst, size))
+		return size;
+#endif
 
 	if (!__builtin_constant_p(size)) {
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
@@ -276,6 +293,14 @@ __must_check unsigned long __clear_user(void __user *mem, unsigned long len);
 static __must_check __always_inline int
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned size)
 {
+	if ((int)size < 0)
+		return size;
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+#endif
+
 	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 		src += PAX_USER_SHADOW_BASE;
 	return copy_user_generic(dst, (__force const void *)src, size);
@@ -287,13 +312,18 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)
 	if ((int)size < 0)
 		return size;
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_WRITE, dst, size))
+		return size;
+#endif
+
 	if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 		dst += PAX_USER_SHADOW_BASE;
 	return copy_user_generic((__force void *)dst, src, size);
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
-				unsigned size);
+				unsigned size, int zerorest);
 
 static inline unsigned long __copy_from_user_nocache(void *dst, const void __user *src, unsigned size)
 {
@@ -302,7 +332,12 @@ static inline unsigned long __copy_from_user_nocache(void *dst, const void __use
 	if ((int)size < 0)
 		return size;
 
-	return __copy_user_nocache(dst, src, size);
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+#endif
+
+	return __copy_user_nocache(dst, src, size, 1);
 }
 
 static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
@@ -311,7 +346,12 @@ static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const v
 	if ((int)size < 0)
 		return size;
 
-	return __copy_user_nocache(dst, src, size);
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+#endif
+
+	return __copy_user_nocache(dst, src, size, 0);
 }
 
 extern unsigned long

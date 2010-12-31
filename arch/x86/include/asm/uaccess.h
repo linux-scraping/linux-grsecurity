@@ -541,8 +541,12 @@ struct __large_struct { unsigned long buf[100]; };
  * On error, the variable @x is set to zero.
  */
 
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define __get_user(x, ptr)	get_user((x), (ptr))
+#else
 #define __get_user(x, ptr)						\
 	__get_user_nocheck((x), (ptr), sizeof(*(ptr)))
+#endif
 
 /**
  * __put_user: - Write a simple value into user space, with less checking.
@@ -564,8 +568,12 @@ struct __large_struct { unsigned long buf[100]; };
  * Returns zero on success, or -EFAULT on error.
  */
 
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define __put_user(x, ptr)	put_user((x), (ptr))
+#else
 #define __put_user(x, ptr)						\
 	__put_user_nocheck((__typeof__(*(ptr)))(x), (ptr), sizeof(*(ptr)))
+#endif
 
 #define __get_user_unaligned __get_user
 #define __put_user_unaligned __put_user

@@ -251,23 +251,15 @@ static inline void arch_read_lock(arch_rwlock_t *rw)
 	asm volatile(LOCK_PREFIX " subl $1,(%0)\n\t"
 
 #ifdef CONFIG_PAX_REFCOUNT
-#ifdef CONFIG_X86_32
-		     "into\n0:\n"
-#else
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-#endif
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
 		     LOCK_PREFIX " addl $1,(%0)\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
-		     "jns 2f\n"
+		     "jns 1f\n"
 		     "call __read_lock_failed\n\t"
-		     "2:\n"
+		     "1:\n"
 		     ::LOCK_PTR_REG (rw) : "memory");
 }
 
@@ -276,23 +268,15 @@ static inline void arch_write_lock(arch_rwlock_t *rw)
 	asm volatile(LOCK_PREFIX " subl %1,(%0)\n\t"
 
 #ifdef CONFIG_PAX_REFCOUNT
-#ifdef CONFIG_X86_32
-		     "into\n0:\n"
-#else
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-#endif
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
 		     LOCK_PREFIX " addl %1,(%0)\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
-		     "jz 2f\n"
+		     "jz 1f\n"
 		     "call __write_lock_failed\n\t"
-		     "2:\n"
+		     "1:\n"
 		     ::LOCK_PTR_REG (rw), "i" (RW_LOCK_BIAS) : "memory");
 }
 
@@ -321,18 +305,10 @@ static inline void arch_read_unlock(arch_rwlock_t *rw)
 	asm volatile(LOCK_PREFIX "incl %0\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-#ifdef CONFIG_X86_32
-		     "into\n0:\n"
-#else
 		     "jno 0f\n"
-		     "int $4\n0:\n"
-#endif
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
 		     LOCK_PREFIX "decl %0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     "int $4\n0:\n"
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     :"+m" (rw->lock) : : "memory");
@@ -343,18 +319,10 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
 	asm volatile(LOCK_PREFIX "addl %1, %0\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-#ifdef CONFIG_X86_32
-		     "into\n0:\n"
-#else
 		     "jno 0f\n"
+		     LOCK_PREFIX "subl %1, %0\n"
 		     "int $4\n0:\n"
-#endif
-		     ".pushsection .fixup,\"ax\"\n"
-		     "1:\n"
-		     LOCK_PREFIX "subl %1,%0\n"
-		     "jmp 0b\n"
-		     ".popsection\n"
-		     _ASM_EXTABLE(0b, 1b)
+		     _ASM_EXTABLE(0b, 0b)
 #endif
 
 		     : "+m" (rw->lock) : "i" (RW_LOCK_BIAS) : "memory");
