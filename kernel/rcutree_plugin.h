@@ -145,7 +145,7 @@ static void rcu_preempt_note_context_switch(int cpu)
  */
 void __rcu_read_lock(void)
 {
-	ACCESS_ONCE(current->rcu_read_lock_nesting)++;
+	ACCESS_ONCE_RW(current->rcu_read_lock_nesting)++;
 	barrier();  /* needed if we ever invoke rcu_read_lock in rcutree.c */
 }
 EXPORT_SYMBOL_GPL(__rcu_read_lock);
@@ -251,7 +251,7 @@ void __rcu_read_unlock(void)
 	struct task_struct *t = current;
 
 	barrier();  /* needed if we ever invoke rcu_read_unlock in rcutree.c */
-	if (--ACCESS_ONCE(t->rcu_read_lock_nesting) == 0 &&
+	if (--ACCESS_ONCE_RW(t->rcu_read_lock_nesting) == 0 &&
 	    unlikely(ACCESS_ONCE(t->rcu_read_unlock_special)))
 		rcu_read_unlock_special(t);
 }

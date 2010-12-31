@@ -11,40 +11,6 @@
 #include <asm/processor.h>
 #include <asm/system.h>
 
-#ifdef CONFIG_X86_32
-#define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg)	\
-	asm volatile(						\
-		     "movw\t%w6, %%ds\n"			\
-		     "1:\t" insn "\n"				\
-		     "2:\tpushl\t%%ss\n"			\
-		     "\tpopl\t%%ds\n"				\
-		     "\t.section .fixup,\"ax\"\n"		\
-		     "3:\tmov\t%3, %1\n"			\
-		     "\tjmp\t2b\n"				\
-		     "\t.previous\n"				\
-		     _ASM_EXTABLE(1b, 3b)			\
-		     : "=r" (oldval), "=r" (ret), "+m" (*uaddr)	\
-		     : "i" (-EFAULT), "0" (oparg), "1" (0), "r" (__USER_DS))
-
-#define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg)	\
-	asm volatile("movw\t%w7, %%es\n"			\
-		     "1:\tmovl\t%%es:%2, %0\n"			\
-		     "\tmovl\t%0, %3\n"				\
-		     "\t" insn "\n"				\
-		     "2:\t" LOCK_PREFIX "cmpxchgl %3, %%es:%2\n"\
-		     "\tjnz\t1b\n"				\
-		     "3:\tpushl\t%%ss\n"			\
-		     "\tpopl\t%%es\n"				\
-		     "\t.section .fixup,\"ax\"\n"		\
-		     "4:\tmov\t%5, %1\n"			\
-		     "\tjmp\t3b\n"				\
-		     "\t.previous\n"				\
-		     _ASM_EXTABLE(1b, 4b)			\
-		     _ASM_EXTABLE(2b, 4b)			\
-		     : "=&a" (oldval), "=&r" (ret),		\
-		       "+m" (*uaddr), "=&r" (tem)		\
-		     : "r" (oparg), "i" (-EFAULT), "1" (0), "r" (__USER_DS))
-#else
 #define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg)	\
 	typecheck(u32 *, uaddr);				\
 	asm volatile("1:\t" insn "\n"				\
@@ -53,8 +19,7 @@
 		     "\tjmp\t2b\n"				\
 		     "\t.previous\n"				\
 		     _ASM_EXTABLE(1b, 3b)			\
-		     : "=r" (oldval), "=r" (ret),		\
-		       "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4))\
+		     : "=r" (oldval), "=r" (ret), "+m" (*____m(uaddr))\
 		     : "i" (-EFAULT), "0" (oparg), "1" (0))
 
 #define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg)	\
@@ -71,10 +36,8 @@
 		     _ASM_EXTABLE(1b, 4b)			\
 		     _ASM_EXTABLE(2b, 4b)			\
 		     : "=&a" (oldval), "=&r" (ret),		\
-		       "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4)),\
-		       "=&r" (tem)				\
+		       "+m" (*(____m(uaddr))), "=&r" (tem)	\
 		     : "r" (oparg), "i" (-EFAULT), "1" (0))
-#endif
 
 static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 {
@@ -100,20 +63,11 @@ static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 
 	switch (op) {
 	case FUTEX_OP_SET:
-#ifdef CONFIG_X86_32
-		__futex_atomic_op1("xchgl %0, %%ds:%2", ret, oldval, uaddr, oparg);
-#else
-		__futex_atomic_op1("xchgl %0, %2", ret, oldval, uaddr, oparg);
-#endif
+		__futex_atomic_op1("xchgl %0, "__copyuser_seg"%2", ret, oldval, uaddr, oparg);
 		break;
 	case FUTEX_OP_ADD:
-#ifdef CONFIG_X86_32
-		__futex_atomic_op1(LOCK_PREFIX "xaddl %0, %%ds:%2", ret, oldval,
+		__futex_atomic_op1(LOCK_PREFIX "xaddl %0, "__copyuser_seg"%2", ret, oldval,
 				   uaddr, oparg);
-#else
-		__futex_atomic_op1(LOCK_PREFIX "xaddl %0, %2", ret, oldval,
-				   uaddr, oparg);
-#endif
 		break;
 	case FUTEX_OP_OR:
 		__futex_atomic_op2("orl %4, %3", ret, oldval, uaddr, oparg);
@@ -170,28 +124,14 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(u32)))
 		return -EFAULT;
 
-	asm volatile(
-#ifdef CONFIG_X86_32
-		     "\tmovw %w5, %%ds\n"
-		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %%ds:%1\n"
-		     "2:\tpushl   %%ss\n"
-		     "\tpopl    %%ds\n"
-#else
-		     "1:\t" LOCK_PREFIX "cmpxchgl %3, %1\n"
-		     "2:\n"
-#endif
-		     "\t.section .fixup, \"ax\"\n"
+	asm volatile("1:\t" LOCK_PREFIX "cmpxchgl %3, "__copyuser_seg"%1\n"
+		     "2:\t.section .fixup, \"ax\"\n"
 		     "3:\tmov     %2, %0\n"
 		     "\tjmp     2b\n"
 		     "\t.previous\n"
 		     _ASM_EXTABLE(1b, 3b)
-#ifdef CONFIG_X86_32
-		     : "=a" (oldval), "+m" (*uaddr)
-		     : "i" (-EFAULT), "r" (newval), "0" (oldval), "r" (__USER_DS)
-#else
-		     : "=a" (oldval), "+m" (*(uaddr + PAX_USER_SHADOW_BASE / 4))
+		     : "=a" (oldval), "+m" (*____m(uaddr))
 		     : "i" (-EFAULT), "r" (newval), "0" (oldval)
-#endif
 		     : "memory"
 	);
 

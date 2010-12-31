@@ -1763,7 +1763,7 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	int newglob = checkglob;
 
 	/* if we aren't checking a subdirectory of the original path yet, don't do glob checking
-	   as we don't want a /* rule to match instead of the / object
+	   as we don't want a / * rule to match instead of the / object
 	   don't do this for create lookups that call this function though, since they're looking up
 	   on the parent and thus need globbing checks on all paths
 	*/

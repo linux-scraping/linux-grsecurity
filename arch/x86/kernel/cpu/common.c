@@ -1010,7 +1010,7 @@ struct pt_regs * __cpuinit idle_regs(struct pt_regs *regs)
 {
 	memset(regs, 0, sizeof(struct pt_regs));
 	regs->fs = __KERNEL_PERCPU;
-	regs->gs = __KERNEL_STACK_CANARY;
+	savesegment(gs, regs->gs);
 
 	return regs;
 }

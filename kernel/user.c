@@ -465,6 +465,7 @@ struct user_struct *alloc_uid(struct user_namespace *ns, uid_t uid)
 			 * uids_mutex. Hence no need to call
 			 * sched_destroy_user() or remove_user_sysfs_dir().
 			 */
+			put_user_ns(ns);
 			key_put(new->uid_keyring);
 			key_put(new->session_keyring);
 			kmem_cache_free(uid_cachep, new);

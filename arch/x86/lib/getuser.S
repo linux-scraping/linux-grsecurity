@@ -36,14 +36,17 @@
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define __copyuser_seg %gs:
+#else
+#define __copyuser_seg
+#endif
+
 	.text
 ENTRY(__get_user_1)
 	CFI_STARTPROC
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
@@ -58,13 +61,7 @@ ENTRY(__get_user_1)
 
 #endif
 
-1:	movzb (%_ASM_AX),%edx
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	pop %ds
-#endif
-
+1:	movzb __copyuser_seg (%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC
@@ -74,10 +71,7 @@ ENTRY(__get_user_2)
 	CFI_STARTPROC
 	add $1,%_ASM_AX
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	jc bad_get_user
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
@@ -93,13 +87,7 @@ ENTRY(__get_user_2)
 
 #endif
 
-2:	movzwl -1(%_ASM_AX),%edx
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	pop %ds
-#endif
-
+2:	movzwl __copyuser_seg -1(%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC
@@ -109,10 +97,7 @@ ENTRY(__get_user_4)
 	CFI_STARTPROC
 	add $3,%_ASM_AX
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	jc bad_get_user
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
@@ -128,13 +113,7 @@ ENTRY(__get_user_4)
 
 #endif
 
-3:	mov -3(%_ASM_AX),%edx
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	pop %ds
-#endif
-
+3:	mov __copyuser_seg -3(%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC
@@ -166,12 +145,6 @@ ENDPROC(__get_user_8)
 
 bad_get_user:
 	CFI_STARTPROC
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	pop %ds
-#endif
-
 	xor %edx,%edx
 	mov $(-EFAULT),%_ASM_AX
 	ret

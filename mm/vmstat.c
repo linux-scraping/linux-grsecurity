@@ -960,7 +960,11 @@ static int __init setup_vmstat(void)
 #endif
 		proc_create("buddyinfo", gr_mode, NULL, &fragmentation_file_operations);
 		proc_create("pagetypeinfo", gr_mode, NULL, &pagetypeinfo_file_ops);
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+		proc_create("vmstat", gr_mode | S_IRGRP, NULL, &proc_vmstat_file_operations);
+#else
 		proc_create("vmstat", gr_mode, NULL, &proc_vmstat_file_operations);
+#endif
 		proc_create("zoneinfo", gr_mode, NULL, &proc_zoneinfo_file_operations);
 	}
 #endif

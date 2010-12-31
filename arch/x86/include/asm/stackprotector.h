@@ -113,7 +113,7 @@ static inline void setup_stack_canary_segment(int cpu)
 
 static inline void load_stack_canary_segment(void)
 {
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && !defined(CONFIG_PAX_MEMORY_UDEREF)
 	asm volatile ("mov %0, %%gs" : : "r" (0));
 #endif
 }

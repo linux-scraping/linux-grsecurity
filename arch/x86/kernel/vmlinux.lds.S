@@ -46,8 +46,6 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY(phys_startup_64)
 #endif
 
-jiffies = jiffies_64;
-
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
 #ifdef CONFIG_X86_32
@@ -157,9 +155,9 @@ SECTIONS
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {
 
 #ifdef CONFIG_PAX_KERNEXEC
-	. = ALIGN(HPAGE_SIZE);
+		. = ALIGN(HPAGE_SIZE);
 #else
-	. = ALIGN(PAGE_SIZE);
+		. = ALIGN(PAGE_SIZE);
 #endif
 
 		/* Start of data section */
@@ -176,6 +174,8 @@ SECTIONS
 
 		DATA_DATA
 		CONSTRUCTORS
+
+		jiffies = jiffies_64;
 
 		/* rarely changed data like cpu maps */
 		READ_MOSTLY_DATA(CONFIG_X86_INTERNODE_CACHE_BYTES)

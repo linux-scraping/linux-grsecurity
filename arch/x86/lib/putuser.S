@@ -40,14 +40,17 @@
 #define _DEST %_ASM_CX
 #endif
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define __copyuser_seg %gs:
+#else
+#define __copyuser_seg
+#endif
+
 .text
 ENTRY(__put_user_1)
 	ENTER
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_BX)
 	cmp TI_addr_limit(%_ASM_BX),%_ASM_CX
 	jae bad_put_user
@@ -62,13 +65,7 @@ ENTRY(__put_user_1)
 
 #endif
 
-1:	movb %al,(_DEST)
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	popl %ds
-#endif
-
+1:	movb %al,__copyuser_seg (_DEST)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_1)
@@ -76,10 +73,7 @@ ENDPROC(__put_user_1)
 ENTRY(__put_user_2)
 	ENTER
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_BX)
 	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $1,%_ASM_BX
@@ -96,13 +90,7 @@ ENTRY(__put_user_2)
 
 #endif
 
-2:	movw %ax,(_DEST)
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	popl %ds
-#endif
-
+2:	movw %ax,__copyuser_seg (_DEST)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_2)
@@ -110,10 +98,7 @@ ENDPROC(__put_user_2)
 ENTRY(__put_user_4)
 	ENTER
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_BX)
 	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $3,%_ASM_BX
@@ -130,13 +115,7 @@ ENTRY(__put_user_4)
 
 #endif
 
-3:	movl %eax,(_DEST)
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	popl %ds
-#endif
-
+3:	movl %eax,__copyuser_seg (_DEST)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_4)
@@ -144,10 +123,7 @@ ENDPROC(__put_user_4)
 ENTRY(__put_user_8)
 	ENTER
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl $(__USER_DS)
-	popl %ds
-#else
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_BX)
 	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $7,%_ASM_BX
@@ -164,28 +140,16 @@ ENTRY(__put_user_8)
 
 #endif
 
-4:	mov %_ASM_AX,(_DEST)
+4:	mov %_ASM_AX,__copyuser_seg (_DEST)
 #ifdef CONFIG_X86_32
-5:	movl %edx,4(_DEST)
+5:	movl %edx,__copyuser_seg 4(_DEST)
 #endif
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	popl %ds
-#endif
-
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_8)
 
 bad_put_user:
 	CFI_STARTPROC
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	pushl %ss
-	popl %ds
-#endif
-
 	movl $-EFAULT,%eax
 	EXIT
 END(bad_put_user)

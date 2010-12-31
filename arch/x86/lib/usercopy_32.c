@@ -36,38 +36,31 @@ static inline int __movsl_is_ok(unsigned long a1, unsigned long a2, unsigned lon
  * Copy a null terminated string from userspace.
  */
 
-static long __do_strncpy_from_user(char *dst, const char __user *src, long count)
-{
-	int __d0, __d1, __d2;
-	long res = -EFAULT;
-
-	might_fault();
-	__asm__ __volatile__(
-		"	movw %w10,%%ds\n"
-		"	testl %1,%1\n"
-		"	jz 2f\n"
-		"0:	lodsb\n"
-		"	stosb\n"
-		"	testb %%al,%%al\n"
-		"	jz 1f\n"
-		"	decl %1\n"
-		"	jnz 0b\n"
-		"1:	subl %1,%0\n"
-		"2:\n"
-		"	pushl %%ss\n"
-		"	popl %%ds\n"
-		".section .fixup,\"ax\"\n"
-		"3:	movl %5,%0\n"
-		"	jmp 2b\n"
-		".previous\n"
-		_ASM_EXTABLE(0b,3b)
-		: "=&d"(res), "=&c"(count), "=&a" (__d0), "=&S" (__d1),
-		  "=&D" (__d2)
-		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst),
-		  "r"(__USER_DS)
-		: "memory");
-	return res;
-}
+#define __do_strncpy_from_user(dst, src, count, res)			   \
+do {									   \
+	int __d0, __d1, __d2;						   \
+	might_fault();							   \
+	__asm__ __volatile__(						   \
+		"	testl %1,%1\n"					   \
+		"	jz 2f\n"					   \
+		"0:	lodsb " __copyuser_seg" (%%esi)\n"		   \
+		"	stosb\n"					   \
+		"	testb %%al,%%al\n"				   \
+		"	jz 1f\n"					   \
+		"	decl %1\n"					   \
+		"	jnz 0b\n"					   \
+		"1:	subl %1,%0\n"					   \
+		"2:\n"							   \
+		".section .fixup,\"ax\"\n"				   \
+		"3:	movl %5,%0\n"					   \
+		"	jmp 2b\n"					   \
+		".previous\n"						   \
+		_ASM_EXTABLE(0b,3b)					   \
+		: "=&d"(res), "=&c"(count), "=&a" (__d0), "=&S" (__d1),	   \
+		  "=&D" (__d2)						   \
+		: "i"(-EFAULT), "0"(count), "1"(count), "3"(src), "4"(dst) \
+		: "memory");						   \
+} while (0)
 
 /**
  * __strncpy_from_user: - Copy a NUL terminated string from userspace, with less checking.
@@ -92,7 +85,9 @@ static long __do_strncpy_from_user(char *dst, const char __user *src, long count
 long
 __strncpy_from_user(char *dst, const char __user *src, long count)
 {
-	return __do_strncpy_from_user(dst, src, count);
+	long res;
+	__do_strncpy_from_user(dst, src, count, res);
+	return res;
 }
 EXPORT_SYMBOL(__strncpy_from_user);
 
@@ -119,7 +114,7 @@ strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	long res = -EFAULT;
 	if (access_ok(VERIFY_READ, src, 1))
-		res = __do_strncpy_from_user(dst, src, count);
+		__do_strncpy_from_user(dst, src, count, res);
 	return res;
 }
 EXPORT_SYMBOL(strncpy_from_user);
@@ -128,30 +123,26 @@ EXPORT_SYMBOL(strncpy_from_user);
  * Zero Userspace
  */
 
-static unsigned long __do_clear_user(void __user *addr, unsigned long size)
-{
-	int __d0;
-
-	might_fault();
-	__asm__ __volatile__(
-		"	movw %w6,%%es\n"
-		"0:	rep; stosl\n"
-		"	movl %2,%0\n"
-		"1:	rep; stosb\n"
-		"2:\n"
-		"	pushl %%ss\n"
-		"	popl %%es\n"
-		".section .fixup,\"ax\"\n"
-		"3:	lea 0(%2,%0,4),%0\n"
-		"	jmp 2b\n"
-		".previous\n"
-		_ASM_EXTABLE(0b,3b)
-		_ASM_EXTABLE(1b,2b)
-		: "=&c"(size), "=&D" (__d0)
-		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0),
-		  "r"(__USER_DS));
-	return size;
-}
+#define __do_clear_user(addr,size)					\
+do {									\
+	int __d0;							\
+	might_fault();							\
+	__asm__ __volatile__(						\
+		__COPYUSER_SET_ES					\
+		"0:	rep; stosl\n"					\
+		"	movl %2,%0\n"					\
+		"1:	rep; stosb\n"					\
+		"2:\n"							\
+		__COPYUSER_RESTORE_ES					\
+		".section .fixup,\"ax\"\n"				\
+		"3:	lea 0(%2,%0,4),%0\n"				\
+		"	jmp 2b\n"					\
+		".previous\n"						\
+		_ASM_EXTABLE(0b,3b)					\
+		_ASM_EXTABLE(1b,2b)					\
+		: "=&c"(size), "=&D" (__d0)				\
+		: "r"(size & 3), "0"(size / 4), "1"(addr), "a"(0));	\
+} while (0)
 
 /**
  * clear_user: - Zero a block of memory in user space.
@@ -168,7 +159,7 @@ clear_user(void __user *to, unsigned long n)
 {
 	might_fault();
 	if (access_ok(VERIFY_WRITE, to, n))
-		n = __do_clear_user(to, n);
+		__do_clear_user(to, n);
 	return n;
 }
 EXPORT_SYMBOL(clear_user);
@@ -187,7 +178,8 @@ EXPORT_SYMBOL(clear_user);
 unsigned long
 __clear_user(void __user *to, unsigned long n)
 {
-	return __do_clear_user(to, n);
+	__do_clear_user(to, n);
+	return n;
 }
 EXPORT_SYMBOL(__clear_user);
 
@@ -210,17 +202,16 @@ long strnlen_user(const char __user *s, long n)
 	might_fault();
 
 	__asm__ __volatile__(
-		"	movw %w8,%%es\n"
+		__COPYUSER_SET_ES
 		"	testl %0, %0\n"
 		"	jz 3f\n"
-		"	movl %0,%%ecx\n"
+		"	andl %0,%%ecx\n"
 		"0:	repne; scasb\n"
 		"	setne %%al\n"
 		"	subl %%ecx,%0\n"
 		"	addl %0,%%eax\n"
 		"1:\n"
-		"	pushl %%ss\n"
-		"	popl %%es\n"
+		__COPYUSER_RESTORE_ES
 		".section .fixup,\"ax\"\n"
 		"2:	xorl %%eax,%%eax\n"
 		"	jmp 1b\n"
@@ -232,7 +223,7 @@ long strnlen_user(const char __user *s, long n)
 		"	.long 0b,2b\n"
 		".previous"
 		:"=&r" (n), "=&D" (s), "=&a" (res), "=&c" (tmp)
-		:"0" (n), "1" (s), "2" (0), "3" (mask), "r" (__USER_DS)
+		:"0" (n), "1" (s), "2" (0), "3" (mask)
 		:"cc");
 	return res & mask;
 }
@@ -244,7 +235,6 @@ __generic_copy_to_user_intel(void __user *to, const void *from, unsigned long si
 {
 	int d0, d1;
 	__asm__ __volatile__(
-		       "       movw %w6, %%es\n"
 		       "       .align 2,0x90\n"
 		       "1:     movl 32(%4), %%eax\n"
 		       "       cmpl $67, %0\n"
@@ -253,36 +243,36 @@ __generic_copy_to_user_intel(void __user *to, const void *from, unsigned long si
 		       "       .align 2,0x90\n"
 		       "3:     movl 0(%4), %%eax\n"
 		       "4:     movl 4(%4), %%edx\n"
-		       "5:     movl %%eax, %%es:0(%3)\n"
-		       "6:     movl %%edx, %%es:4(%3)\n"
+		       "5:     movl %%eax, "__copyuser_seg" 0(%3)\n"
+		       "6:     movl %%edx, "__copyuser_seg" 4(%3)\n"
 		       "7:     movl 8(%4), %%eax\n"
 		       "8:     movl 12(%4),%%edx\n"
-		       "9:     movl %%eax, %%es:8(%3)\n"
-		       "10:    movl %%edx, %%es:12(%3)\n"
+		       "9:     movl %%eax, "__copyuser_seg" 8(%3)\n"
+		       "10:    movl %%edx, "__copyuser_seg" 12(%3)\n"
 		       "11:    movl 16(%4), %%eax\n"
 		       "12:    movl 20(%4), %%edx\n"
-		       "13:    movl %%eax, %%es:16(%3)\n"
-		       "14:    movl %%edx, %%es:20(%3)\n"
+		       "13:    movl %%eax, "__copyuser_seg" 16(%3)\n"
+		       "14:    movl %%edx, "__copyuser_seg" 20(%3)\n"
 		       "15:    movl 24(%4), %%eax\n"
 		       "16:    movl 28(%4), %%edx\n"
-		       "17:    movl %%eax, %%es:24(%3)\n"
-		       "18:    movl %%edx, %%es:28(%3)\n"
+		       "17:    movl %%eax, "__copyuser_seg" 24(%3)\n"
+		       "18:    movl %%edx, "__copyuser_seg" 28(%3)\n"
 		       "19:    movl 32(%4), %%eax\n"
 		       "20:    movl 36(%4), %%edx\n"
-		       "21:    movl %%eax, %%es:32(%3)\n"
-		       "22:    movl %%edx, %%es:36(%3)\n"
+		       "21:    movl %%eax, "__copyuser_seg" 32(%3)\n"
+		       "22:    movl %%edx, "__copyuser_seg" 36(%3)\n"
 		       "23:    movl 40(%4), %%eax\n"
 		       "24:    movl 44(%4), %%edx\n"
-		       "25:    movl %%eax, %%es:40(%3)\n"
-		       "26:    movl %%edx, %%es:44(%3)\n"
+		       "25:    movl %%eax, "__copyuser_seg" 40(%3)\n"
+		       "26:    movl %%edx, "__copyuser_seg" 44(%3)\n"
 		       "27:    movl 48(%4), %%eax\n"
 		       "28:    movl 52(%4), %%edx\n"
-		       "29:    movl %%eax, %%es:48(%3)\n"
-		       "30:    movl %%edx, %%es:52(%3)\n"
+		       "29:    movl %%eax, "__copyuser_seg" 48(%3)\n"
+		       "30:    movl %%edx, "__copyuser_seg" 52(%3)\n"
 		       "31:    movl 56(%4), %%eax\n"
 		       "32:    movl 60(%4), %%edx\n"
-		       "33:    movl %%eax, %%es:56(%3)\n"
-		       "34:    movl %%edx, %%es:60(%3)\n"
+		       "33:    movl %%eax, "__copyuser_seg" 56(%3)\n"
+		       "34:    movl %%edx, "__copyuser_seg" 60(%3)\n"
 		       "       addl $-64, %0\n"
 		       "       addl $64, %4\n"
 		       "       addl $64, %3\n"
@@ -292,12 +282,12 @@ __generic_copy_to_user_intel(void __user *to, const void *from, unsigned long si
 		       "       shrl  $2, %0\n"
 		       "       andl  $3, %%eax\n"
 		       "       cld\n"
+		       __COPYUSER_SET_ES
 		       "99:    rep; movsl\n"
 		       "36:    movl %%eax, %0\n"
 		       "37:    rep; movsb\n"
 		       "100:\n"
-		       "       pushl %%ss\n"
-		       "       popl %%es\n"
+		       __COPYUSER_RESTORE_ES
 		       ".section .fixup,\"ax\"\n"
 		       "101:   lea 0(%%eax,%0,4),%0\n"
 		       "       jmp 100b\n"
@@ -344,7 +334,7 @@ __generic_copy_to_user_intel(void __user *to, const void *from, unsigned long si
 		       "       .long 99b,101b\n"
 		       ".previous"
 		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-		       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
+		       :  "1"(to), "2"(from), "0"(size)
 		       : "eax", "edx", "memory");
 	return size;
 }
@@ -354,45 +344,44 @@ __generic_copy_from_user_intel(void *to, const void __user *from, unsigned long 
 {
 	int d0, d1;
 	__asm__ __volatile__(
-		       "       movw %w6, %%ds\n"
 		       "       .align 2,0x90\n"
-		       "1:     movl 32(%4), %%eax\n"
+		       "1:     movl "__copyuser_seg" 32(%4), %%eax\n"
 		       "       cmpl $67, %0\n"
 		       "       jbe 3f\n"
-		       "2:     movl 64(%4), %%eax\n"
+		       "2:     movl "__copyuser_seg" 64(%4), %%eax\n"
 		       "       .align 2,0x90\n"
-		       "3:     movl 0(%4), %%eax\n"
-		       "4:     movl 4(%4), %%edx\n"
-		       "5:     movl %%eax, %%es:0(%3)\n"
-		       "6:     movl %%edx, %%es:4(%3)\n"
-		       "7:     movl 8(%4), %%eax\n"
-		       "8:     movl 12(%4),%%edx\n"
-		       "9:     movl %%eax, %%es:8(%3)\n"
-		       "10:    movl %%edx, %%es:12(%3)\n"
-		       "11:    movl 16(%4), %%eax\n"
-		       "12:    movl 20(%4), %%edx\n"
-		       "13:    movl %%eax, %%es:16(%3)\n"
-		       "14:    movl %%edx, %%es:20(%3)\n"
-		       "15:    movl 24(%4), %%eax\n"
-		       "16:    movl 28(%4), %%edx\n"
-		       "17:    movl %%eax, %%es:24(%3)\n"
-		       "18:    movl %%edx, %%es:28(%3)\n"
-		       "19:    movl 32(%4), %%eax\n"
-		       "20:    movl 36(%4), %%edx\n"
-		       "21:    movl %%eax, %%es:32(%3)\n"
-		       "22:    movl %%edx, %%es:36(%3)\n"
-		       "23:    movl 40(%4), %%eax\n"
-		       "24:    movl 44(%4), %%edx\n"
-		       "25:    movl %%eax, %%es:40(%3)\n"
-		       "26:    movl %%edx, %%es:44(%3)\n"
-		       "27:    movl 48(%4), %%eax\n"
-		       "28:    movl 52(%4), %%edx\n"
-		       "29:    movl %%eax, %%es:48(%3)\n"
-		       "30:    movl %%edx, %%es:52(%3)\n"
-		       "31:    movl 56(%4), %%eax\n"
-		       "32:    movl 60(%4), %%edx\n"
-		       "33:    movl %%eax, %%es:56(%3)\n"
-		       "34:    movl %%edx, %%es:60(%3)\n"
+		       "3:     movl "__copyuser_seg" 0(%4), %%eax\n"
+		       "4:     movl "__copyuser_seg" 4(%4), %%edx\n"
+		       "5:     movl %%eax, 0(%3)\n"
+		       "6:     movl %%edx, 4(%3)\n"
+		       "7:     movl "__copyuser_seg" 8(%4), %%eax\n"
+		       "8:     movl "__copyuser_seg" 12(%4),%%edx\n"
+		       "9:     movl %%eax, 8(%3)\n"
+		       "10:    movl %%edx, 12(%3)\n"
+		       "11:    movl "__copyuser_seg" 16(%4), %%eax\n"
+		       "12:    movl "__copyuser_seg" 20(%4), %%edx\n"
+		       "13:    movl %%eax, 16(%3)\n"
+		       "14:    movl %%edx, 20(%3)\n"
+		       "15:    movl "__copyuser_seg" 24(%4), %%eax\n"
+		       "16:    movl "__copyuser_seg" 28(%4), %%edx\n"
+		       "17:    movl %%eax, 24(%3)\n"
+		       "18:    movl %%edx, 28(%3)\n"
+		       "19:    movl "__copyuser_seg" 32(%4), %%eax\n"
+		       "20:    movl "__copyuser_seg" 36(%4), %%edx\n"
+		       "21:    movl %%eax, 32(%3)\n"
+		       "22:    movl %%edx, 36(%3)\n"
+		       "23:    movl "__copyuser_seg" 40(%4), %%eax\n"
+		       "24:    movl "__copyuser_seg" 44(%4), %%edx\n"
+		       "25:    movl %%eax, 40(%3)\n"
+		       "26:    movl %%edx, 44(%3)\n"
+		       "27:    movl "__copyuser_seg" 48(%4), %%eax\n"
+		       "28:    movl "__copyuser_seg" 52(%4), %%edx\n"
+		       "29:    movl %%eax, 48(%3)\n"
+		       "30:    movl %%edx, 52(%3)\n"
+		       "31:    movl "__copyuser_seg" 56(%4), %%eax\n"
+		       "32:    movl "__copyuser_seg" 60(%4), %%edx\n"
+		       "33:    movl %%eax, 56(%3)\n"
+		       "34:    movl %%edx, 60(%3)\n"
 		       "       addl $-64, %0\n"
 		       "       addl $64, %4\n"
 		       "       addl $64, %3\n"
@@ -402,12 +391,10 @@ __generic_copy_from_user_intel(void *to, const void __user *from, unsigned long 
 		       "       shrl  $2, %0\n"
 		       "       andl  $3, %%eax\n"
 		       "       cld\n"
-		       "99:    rep; movsl\n"
+		       "99:    rep; movsl "__copyuser_seg" (%%esi), (%%edi)\n"
 		       "36:    movl %%eax, %0\n"
-		       "37:    rep; movsb\n"
+		       "37:    rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"
 		       "100:\n"
-		       "       pushl %%ss\n"
-		       "       popl %%ds\n"
 		       ".section .fixup,\"ax\"\n"
 		       "101:   lea 0(%%eax,%0,4),%0\n"
 		       "       jmp 100b\n"
@@ -454,7 +441,7 @@ __generic_copy_from_user_intel(void *to, const void __user *from, unsigned long 
 		       "       .long 99b,101b\n"
 		       ".previous"
 		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-		       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
+		       :  "1"(to), "2"(from), "0"(size)
 		       : "eax", "edx", "memory");
 	return size;
 }
@@ -464,45 +451,44 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 {
 	int d0, d1;
 	__asm__ __volatile__(
-		       "        movw %w6, %%ds\n"
 		       "        .align 2,0x90\n"
-		       "0:      movl 32(%4), %%eax\n"
+		       "0:      movl "__copyuser_seg" 32(%4), %%eax\n"
 		       "        cmpl $67, %0\n"
 		       "        jbe 2f\n"
-		       "1:      movl 64(%4), %%eax\n"
+		       "1:      movl "__copyuser_seg" 64(%4), %%eax\n"
 		       "        .align 2,0x90\n"
-		       "2:      movl 0(%4), %%eax\n"
-		       "21:     movl 4(%4), %%edx\n"
-		       "        movl %%eax, %%es:0(%3)\n"
-		       "        movl %%edx, %%es:4(%3)\n"
-		       "3:      movl 8(%4), %%eax\n"
-		       "31:     movl 12(%4),%%edx\n"
-		       "        movl %%eax, %%es:8(%3)\n"
-		       "        movl %%edx, %%es:12(%3)\n"
-		       "4:      movl 16(%4), %%eax\n"
-		       "41:     movl 20(%4), %%edx\n"
-		       "        movl %%eax, %%es:16(%3)\n"
-		       "        movl %%edx, %%es:20(%3)\n"
-		       "10:     movl 24(%4), %%eax\n"
-		       "51:     movl 28(%4), %%edx\n"
-		       "        movl %%eax, %%es:24(%3)\n"
-		       "        movl %%edx, %%es:28(%3)\n"
-		       "11:     movl 32(%4), %%eax\n"
-		       "61:     movl 36(%4), %%edx\n"
-		       "        movl %%eax, %%es:32(%3)\n"
-		       "        movl %%edx, %%es:36(%3)\n"
-		       "12:     movl 40(%4), %%eax\n"
-		       "71:     movl 44(%4), %%edx\n"
-		       "        movl %%eax, %%es:40(%3)\n"
-		       "        movl %%edx, %%es:44(%3)\n"
-		       "13:     movl 48(%4), %%eax\n"
-		       "81:     movl 52(%4), %%edx\n"
-		       "        movl %%eax, %%es:48(%3)\n"
-		       "        movl %%edx, %%es:52(%3)\n"
-		       "14:     movl 56(%4), %%eax\n"
-		       "91:     movl 60(%4), %%edx\n"
-		       "        movl %%eax, %%es:56(%3)\n"
-		       "        movl %%edx, %%es:60(%3)\n"
+		       "2:      movl "__copyuser_seg" 0(%4), %%eax\n"
+		       "21:     movl "__copyuser_seg" 4(%4), %%edx\n"
+		       "        movl %%eax, 0(%3)\n"
+		       "        movl %%edx, 4(%3)\n"
+		       "3:      movl "__copyuser_seg" 8(%4), %%eax\n"
+		       "31:     movl "__copyuser_seg" 12(%4),%%edx\n"
+		       "        movl %%eax, 8(%3)\n"
+		       "        movl %%edx, 12(%3)\n"
+		       "4:      movl "__copyuser_seg" 16(%4), %%eax\n"
+		       "41:     movl "__copyuser_seg" 20(%4), %%edx\n"
+		       "        movl %%eax, 16(%3)\n"
+		       "        movl %%edx, 20(%3)\n"
+		       "10:     movl "__copyuser_seg" 24(%4), %%eax\n"
+		       "51:     movl "__copyuser_seg" 28(%4), %%edx\n"
+		       "        movl %%eax, 24(%3)\n"
+		       "        movl %%edx, 28(%3)\n"
+		       "11:     movl "__copyuser_seg" 32(%4), %%eax\n"
+		       "61:     movl "__copyuser_seg" 36(%4), %%edx\n"
+		       "        movl %%eax, 32(%3)\n"
+		       "        movl %%edx, 36(%3)\n"
+		       "12:     movl "__copyuser_seg" 40(%4), %%eax\n"
+		       "71:     movl "__copyuser_seg" 44(%4), %%edx\n"
+		       "        movl %%eax, 40(%3)\n"
+		       "        movl %%edx, 44(%3)\n"
+		       "13:     movl "__copyuser_seg" 48(%4), %%eax\n"
+		       "81:     movl "__copyuser_seg" 52(%4), %%edx\n"
+		       "        movl %%eax, 48(%3)\n"
+		       "        movl %%edx, 52(%3)\n"
+		       "14:     movl "__copyuser_seg" 56(%4), %%eax\n"
+		       "91:     movl "__copyuser_seg" 60(%4), %%edx\n"
+		       "        movl %%eax, 56(%3)\n"
+		       "        movl %%edx, 60(%3)\n"
 		       "        addl $-64, %0\n"
 		       "        addl $64, %4\n"
 		       "        addl $64, %3\n"
@@ -512,12 +498,10 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 		       "        shrl  $2, %0\n"
 		       "        andl $3, %%eax\n"
 		       "        cld\n"
-		       "6:      rep; movsl\n"
+		       "6:      rep; movsl "__copyuser_seg" (%%esi), (%%edi)\n"
 		       "        movl %%eax,%0\n"
-		       "7:      rep; movsb\n"
+		       "7:      rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"
 		       "8:\n"
-		       "        pushl %%ss\n"
-		       "        popl %%ds\n"
 		       ".section .fixup,\"ax\"\n"
 		       "9:      lea 0(%%eax,%0,4),%0\n"
 		       "16:     pushl %0\n"
@@ -552,7 +536,7 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 		       "        .long 7b,16b\n"
 		       ".previous"
 		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-		       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
+		       :  "1"(to), "2"(from), "0"(size)
 		       : "eax", "edx", "memory");
 	return size;
 }
@@ -568,45 +552,44 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	int d0, d1;
 
 	__asm__ __volatile__(
-	       "        movw %w6, %%ds\n"
 	       "        .align 2,0x90\n"
-	       "0:      movl 32(%4), %%eax\n"
+	       "0:      movl "__copyuser_seg" 32(%4), %%eax\n"
 	       "        cmpl $67, %0\n"
 	       "        jbe 2f\n"
-	       "1:      movl 64(%4), %%eax\n"
+	       "1:      movl "__copyuser_seg" 64(%4), %%eax\n"
 	       "        .align 2,0x90\n"
-	       "2:      movl 0(%4), %%eax\n"
-	       "21:     movl 4(%4), %%edx\n"
-	       "        movnti %%eax, %%es:0(%3)\n"
-	       "        movnti %%edx, %%es:4(%3)\n"
-	       "3:      movl 8(%4), %%eax\n"
-	       "31:     movl 12(%4),%%edx\n"
-	       "        movnti %%eax, %%es:8(%3)\n"
-	       "        movnti %%edx, %%es:12(%3)\n"
-	       "4:      movl 16(%4), %%eax\n"
-	       "41:     movl 20(%4), %%edx\n"
-	       "        movnti %%eax, %%es:16(%3)\n"
-	       "        movnti %%edx, %%es:20(%3)\n"
-	       "10:     movl 24(%4), %%eax\n"
-	       "51:     movl 28(%4), %%edx\n"
-	       "        movnti %%eax, %%es:24(%3)\n"
-	       "        movnti %%edx, %%es:28(%3)\n"
-	       "11:     movl 32(%4), %%eax\n"
-	       "61:     movl 36(%4), %%edx\n"
-	       "        movnti %%eax, %%es:32(%3)\n"
-	       "        movnti %%edx, %%es:36(%3)\n"
-	       "12:     movl 40(%4), %%eax\n"
-	       "71:     movl 44(%4), %%edx\n"
-	       "        movnti %%eax, %%es:40(%3)\n"
-	       "        movnti %%edx, %%es:44(%3)\n"
-	       "13:     movl 48(%4), %%eax\n"
-	       "81:     movl 52(%4), %%edx\n"
-	       "        movnti %%eax, %%es:48(%3)\n"
-	       "        movnti %%edx, %%es:52(%3)\n"
-	       "14:     movl 56(%4), %%eax\n"
-	       "91:     movl 60(%4), %%edx\n"
-	       "        movnti %%eax, %%es:56(%3)\n"
-	       "        movnti %%edx, %%es:60(%3)\n"
+	       "2:      movl "__copyuser_seg" 0(%4), %%eax\n"
+	       "21:     movl "__copyuser_seg" 4(%4), %%edx\n"
+	       "        movnti %%eax, 0(%3)\n"
+	       "        movnti %%edx, 4(%3)\n"
+	       "3:      movl "__copyuser_seg" 8(%4), %%eax\n"
+	       "31:     movl "__copyuser_seg" 12(%4),%%edx\n"
+	       "        movnti %%eax, 8(%3)\n"
+	       "        movnti %%edx, 12(%3)\n"
+	       "4:      movl "__copyuser_seg" 16(%4), %%eax\n"
+	       "41:     movl "__copyuser_seg" 20(%4), %%edx\n"
+	       "        movnti %%eax, 16(%3)\n"
+	       "        movnti %%edx, 20(%3)\n"
+	       "10:     movl "__copyuser_seg" 24(%4), %%eax\n"
+	       "51:     movl "__copyuser_seg" 28(%4), %%edx\n"
+	       "        movnti %%eax, 24(%3)\n"
+	       "        movnti %%edx, 28(%3)\n"
+	       "11:     movl "__copyuser_seg" 32(%4), %%eax\n"
+	       "61:     movl "__copyuser_seg" 36(%4), %%edx\n"
+	       "        movnti %%eax, 32(%3)\n"
+	       "        movnti %%edx, 36(%3)\n"
+	       "12:     movl "__copyuser_seg" 40(%4), %%eax\n"
+	       "71:     movl "__copyuser_seg" 44(%4), %%edx\n"
+	       "        movnti %%eax, 40(%3)\n"
+	       "        movnti %%edx, 44(%3)\n"
+	       "13:     movl "__copyuser_seg" 48(%4), %%eax\n"
+	       "81:     movl "__copyuser_seg" 52(%4), %%edx\n"
+	       "        movnti %%eax, 48(%3)\n"
+	       "        movnti %%edx, 52(%3)\n"
+	       "14:     movl "__copyuser_seg" 56(%4), %%eax\n"
+	       "91:     movl "__copyuser_seg" 60(%4), %%edx\n"
+	       "        movnti %%eax, 56(%3)\n"
+	       "        movnti %%edx, 60(%3)\n"
 	       "        addl $-64, %0\n"
 	       "        addl $64, %4\n"
 	       "        addl $64, %3\n"
@@ -617,12 +600,10 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	       "        shrl  $2, %0\n"
 	       "        andl $3, %%eax\n"
 	       "        cld\n"
-	       "6:      rep; movsl\n"
+	       "6:      rep; movsl "__copyuser_seg" (%%esi), (%%edi)\n"
 	       "        movl %%eax,%0\n"
-	       "7:      rep; movsb\n"
+	       "7:      rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"
 	       "8:\n"
-	       "        pushl %%ss\n"
-	       "        popl %%ds\n"
 	       ".section .fixup,\"ax\"\n"
 	       "9:      lea 0(%%eax,%0,4),%0\n"
 	       "16:     pushl %0\n"
@@ -657,7 +638,7 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	       "        .long 7b,16b\n"
 	       ".previous"
 	       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-	       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
+	       :  "1"(to), "2"(from), "0"(size)
 	       : "eax", "edx", "memory");
 	return size;
 }
@@ -668,45 +649,44 @@ static unsigned long __copy_user_intel_nocache(void *to,
 	int d0, d1;
 
 	__asm__ __volatile__(
-	       "        movw %w6, %%ds\n"
 	       "        .align 2,0x90\n"
-	       "0:      movl 32(%4), %%eax\n"
+	       "0:      movl "__copyuser_seg" 32(%4), %%eax\n"
 	       "        cmpl $67, %0\n"
 	       "        jbe 2f\n"
-	       "1:      movl 64(%4), %%eax\n"
+	       "1:      movl "__copyuser_seg" 64(%4), %%eax\n"
 	       "        .align 2,0x90\n"
-	       "2:      movl 0(%4), %%eax\n"
-	       "21:     movl 4(%4), %%edx\n"
-	       "        movnti %%eax, %%es:0(%3)\n"
-	       "        movnti %%edx, %%es:4(%3)\n"
-	       "3:      movl 8(%4), %%eax\n"
-	       "31:     movl 12(%4),%%edx\n"
-	       "        movnti %%eax, %%es:8(%3)\n"
-	       "        movnti %%edx, %%es:12(%3)\n"
-	       "4:      movl 16(%4), %%eax\n"
-	       "41:     movl 20(%4), %%edx\n"
-	       "        movnti %%eax, %%es:16(%3)\n"
-	       "        movnti %%edx, %%es:20(%3)\n"
-	       "10:     movl 24(%4), %%eax\n"
-	       "51:     movl 28(%4), %%edx\n"
-	       "        movnti %%eax, %%es:24(%3)\n"
-	       "        movnti %%edx, %%es:28(%3)\n"
-	       "11:     movl 32(%4), %%eax\n"
-	       "61:     movl 36(%4), %%edx\n"
-	       "        movnti %%eax, %%es:32(%3)\n"
-	       "        movnti %%edx, %%es:36(%3)\n"
-	       "12:     movl 40(%4), %%eax\n"
-	       "71:     movl 44(%4), %%edx\n"
-	       "        movnti %%eax, %%es:40(%3)\n"
-	       "        movnti %%edx, %%es:44(%3)\n"
-	       "13:     movl 48(%4), %%eax\n"
-	       "81:     movl 52(%4), %%edx\n"
-	       "        movnti %%eax, %%es:48(%3)\n"
-	       "        movnti %%edx, %%es:52(%3)\n"
-	       "14:     movl 56(%4), %%eax\n"
-	       "91:     movl 60(%4), %%edx\n"
-	       "        movnti %%eax, %%es:56(%3)\n"
-	       "        movnti %%edx, %%es:60(%3)\n"
+	       "2:      movl "__copyuser_seg" 0(%4), %%eax\n"
+	       "21:     movl "__copyuser_seg" 4(%4), %%edx\n"
+	       "        movnti %%eax, 0(%3)\n"
+	       "        movnti %%edx, 4(%3)\n"
+	       "3:      movl "__copyuser_seg" 8(%4), %%eax\n"
+	       "31:     movl "__copyuser_seg" 12(%4),%%edx\n"
+	       "        movnti %%eax, 8(%3)\n"
+	       "        movnti %%edx, 12(%3)\n"
+	       "4:      movl "__copyuser_seg" 16(%4), %%eax\n"
+	       "41:     movl "__copyuser_seg" 20(%4), %%edx\n"
+	       "        movnti %%eax, 16(%3)\n"
+	       "        movnti %%edx, 20(%3)\n"
+	       "10:     movl "__copyuser_seg" 24(%4), %%eax\n"
+	       "51:     movl "__copyuser_seg" 28(%4), %%edx\n"
+	       "        movnti %%eax, 24(%3)\n"
+	       "        movnti %%edx, 28(%3)\n"
+	       "11:     movl "__copyuser_seg" 32(%4), %%eax\n"
+	       "61:     movl "__copyuser_seg" 36(%4), %%edx\n"
+	       "        movnti %%eax, 32(%3)\n"
+	       "        movnti %%edx, 36(%3)\n"
+	       "12:     movl "__copyuser_seg" 40(%4), %%eax\n"
+	       "71:     movl "__copyuser_seg" 44(%4), %%edx\n"
+	       "        movnti %%eax, 40(%3)\n"
+	       "        movnti %%edx, 44(%3)\n"
+	       "13:     movl "__copyuser_seg" 48(%4), %%eax\n"
+	       "81:     movl "__copyuser_seg" 52(%4), %%edx\n"
+	       "        movnti %%eax, 48(%3)\n"
+	       "        movnti %%edx, 52(%3)\n"
+	       "14:     movl "__copyuser_seg" 56(%4), %%eax\n"
+	       "91:     movl "__copyuser_seg" 60(%4), %%edx\n"
+	       "        movnti %%eax, 56(%3)\n"
+	       "        movnti %%edx, 60(%3)\n"
 	       "        addl $-64, %0\n"
 	       "        addl $64, %4\n"
 	       "        addl $64, %3\n"
@@ -717,12 +697,10 @@ static unsigned long __copy_user_intel_nocache(void *to,
 	       "        shrl  $2, %0\n"
 	       "        andl $3, %%eax\n"
 	       "        cld\n"
-	       "6:      rep; movsl\n"
+	       "6:      rep; movsl "__copyuser_seg" (%%esi), (%%edi)\n"
 	       "        movl %%eax,%0\n"
-	       "7:      rep; movsb\n"
+	       "7:      rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"
 	       "8:\n"
-	       "        pushl %%ss\n"
-	       "        popl %%ds\n"
 	       ".section .fixup,\"ax\"\n"
 	       "9:      lea 0(%%eax,%0,4),%0\n"
 	       "16:     jmp 8b\n"
@@ -751,7 +729,7 @@ static unsigned long __copy_user_intel_nocache(void *to,
 	       "        .long 7b,16b\n"
 	       ".previous"
 	       : "=&c"(size), "=&D" (d0), "=&S" (d1)
-	       :  "1"(to), "2"(from), "0"(size), "r"(__USER_DS)
+	       :  "1"(to), "2"(from), "0"(size)
 	       : "eax", "edx", "memory");
 	return size;
 }
@@ -773,137 +751,85 @@ unsigned long __copy_user_zeroing_intel_nocache(void *to,
 #endif /* CONFIG_X86_INTEL_USERCOPY */
 
 /* Generic arbitrary sized copy.  */
-static unsigned long
-__generic_copy_to_user(void __user *to, const void *from, unsigned long size)
-{
-	int __d0, __d1, __d2;
+#define __copy_user(to, from, size, prefix, set, restore)		\
+do {									\
+	int __d0, __d1, __d2;						\
+	__asm__ __volatile__(						\
+		set							\
+		"	cmp  $7,%0\n"					\
+		"	jbe  1f\n"					\
+		"	movl %1,%0\n"					\
+		"	negl %0\n"					\
+		"	andl $7,%0\n"					\
+		"	subl %0,%3\n"					\
+		"4:	rep; movsb "prefix" (%%esi), (%%edi)\n"		\
+		"	movl %3,%0\n"					\
+		"	shrl $2,%0\n"					\
+		"	andl $3,%3\n"					\
+		"	.align 2,0x90\n"				\
+		"0:	rep; movsl "prefix" (%%esi), (%%edi)\n"		\
+		"	movl %3,%0\n"					\
+		"1:	rep; movsb "prefix" (%%esi), (%%edi)\n"		\
+		"2:\n"							\
+		restore							\
+		".section .fixup,\"ax\"\n"				\
+		"5:	addl %3,%0\n"					\
+		"	jmp 2b\n"					\
+		"3:	lea 0(%3,%0,4),%0\n"				\
+		"	jmp 2b\n"					\
+		".previous\n"						\
+		".section __ex_table,\"a\"\n"				\
+		"	.align 4\n"					\
+		"	.long 4b,5b\n"					\
+		"	.long 0b,3b\n"					\
+		"	.long 1b,2b\n"					\
+		".previous"						\
+		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)	\
+		: "3"(size), "0"(size), "1"(to), "2"(from)		\
+		: "memory");						\
+} while (0)
 
-	__asm__ __volatile__(
-		"	movw %w8,%%es\n"
-		"	cmp  $7,%0\n"
-		"	jbe  1f\n"
-		"	movl %1,%0\n"
-		"	negl %0\n"
-		"	andl $7,%0\n"
-		"	subl %0,%3\n"
-		"4:	rep; movsb\n"
-		"	movl %3,%0\n"
-		"	shrl $2,%0\n"
-		"	andl $3,%3\n"
-		"	.align 2,0x90\n"
-		"0:	rep; movsl\n"
-		"	movl %3,%0\n"
-		"1:	rep; movsb\n"
-		"2:\n"
-		"	pushl %%ss\n"
-		"	popl %%es\n"
-		".section .fixup,\"ax\"\n"
-		"5:	addl %3,%0\n"
-		"	jmp 2b\n"
-		"3:	lea 0(%3,%0,4),%0\n"
-		"	jmp 2b\n"
-		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 4b,5b\n"
-		"	.long 0b,3b\n"
-		"	.long 1b,2b\n"
-		".previous"
-		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)
-		: "3"(size), "0"(size), "1"(to), "2"(from), "r"(__USER_DS)
-		: "memory");
-	return size;
-}
-
-static unsigned long
-__generic_copy_from_user(void *to, const void __user *from, unsigned long size)
-{
-	int __d0, __d1, __d2;
-
-	__asm__ __volatile__(
-		"	movw %w8,%%ds\n"
-		"	cmp  $7,%0\n"
-		"	jbe  1f\n"
-		"	movl %1,%0\n"
-		"	negl %0\n"
-		"	andl $7,%0\n"
-		"	subl %0,%3\n"
-		"4:	rep; movsb\n"
-		"	movl %3,%0\n"
-		"	shrl $2,%0\n"
-		"	andl $3,%3\n"
-		"	.align 2,0x90\n"
-		"0:	rep; movsl\n"
-		"	movl %3,%0\n"
-		"1:	rep; movsb\n"
-		"2:\n"
-		"	pushl %%ss\n"
-		"	popl %%ds\n"
-		".section .fixup,\"ax\"\n"
-		"5:	addl %3,%0\n"
-		"	jmp 2b\n"
-		"3:	lea 0(%3,%0,4),%0\n"
-		"	jmp 2b\n"
-		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 4b,5b\n"
-		"	.long 0b,3b\n"
-		"	.long 1b,2b\n"
-		".previous"
-		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)
-		: "3"(size), "0"(size), "1"(to), "2"(from), "r"(__USER_DS)
-		: "memory");
-	return size;
-}
-
-static unsigned long
-__copy_user_zeroing(void *to, const void __user *from, unsigned long size)
-{
-	int __d0, __d1, __d2;
-
-	__asm__ __volatile__(
-		"	movw %w8,%%ds\n"
-		"	cmp  $7,%0\n"
-		"	jbe  1f\n"
-		"	movl %1,%0\n"
-		"	negl %0\n"
-		"	andl $7,%0\n"
-		"	subl %0,%3\n"
-		"4:	rep; movsb\n"
-		"	movl %3,%0\n"
-		"	shrl $2,%0\n"
-		"	andl $3,%3\n"
-		"	.align 2,0x90\n"
-		"0:	rep; movsl\n"
-		"	movl %3,%0\n"
-		"1:	rep; movsb\n"
-		"2:\n"
-		"	pushl %%ss\n"
-		"	popl %%ds\n"
-		".section .fixup,\"ax\"\n"
-		"5:	addl %3,%0\n"
-		"	jmp 6f\n"
-		"3:	lea 0(%3,%0,4),%0\n"
-		"6:	pushl %0\n"
-		"	pushl %%eax\n"
-		"	xorl %%eax,%%eax\n"
-		"	rep; stosb\n"
-		"	popl %%eax\n"
-		"	popl %0\n"
-		"	jmp 2b\n"
-		".previous\n"
-		".section __ex_table,\"a\"\n"
-		"	.align 4\n"
-		"	.long 4b,5b\n"
-		"	.long 0b,3b\n"
-		"	.long 1b,6b\n"
-		".previous"
-		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)
-		: "3"(size), "0"(size), "1"(to), "2"(from), "r"(__USER_DS)
-		: "memory");
-	return size;
-}
+#define __copy_user_zeroing(to, from, size)				\
+do {									\
+	int __d0, __d1, __d2;						\
+	__asm__ __volatile__(						\
+		"	cmp  $7,%0\n"					\
+		"	jbe  1f\n"					\
+		"	movl %1,%0\n"					\
+		"	negl %0\n"					\
+		"	andl $7,%0\n"					\
+		"	subl %0,%3\n"					\
+		"4:	rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"	\
+		"	movl %3,%0\n"					\
+		"	shrl $2,%0\n"					\
+		"	andl $3,%3\n"					\
+		"	.align 2,0x90\n"				\
+		"0:	rep; movsl "__copyuser_seg" (%%esi), (%%edi)\n"	\
+		"	movl %3,%0\n"					\
+		"1:	rep; movsb "__copyuser_seg" (%%esi), (%%edi)\n"	\
+		"2:\n"							\
+		".section .fixup,\"ax\"\n"				\
+		"5:	addl %3,%0\n"					\
+		"	jmp 6f\n"					\
+		"3:	lea 0(%3,%0,4),%0\n"				\
+		"6:	pushl %0\n"					\
+		"	pushl %%eax\n"					\
+		"	xorl %%eax,%%eax\n"				\
+		"	rep; stosb\n"					\
+		"	popl %%eax\n"					\
+		"	popl %0\n"					\
+		"	jmp 2b\n"					\
+		".previous\n"						\
+		".section __ex_table,\"a\"\n"				\
+		"	.align 4\n"					\
+		"	.long 4b,5b\n"					\
+		"	.long 0b,3b\n"					\
+		"	.long 1b,6b\n"					\
+		".previous"						\
+		: "=&c"(size), "=&D" (__d0), "=&S" (__d1), "=r"(__d2)	\
+		: "3"(size), "0"(size), "1"(to), "2"(from)		\
+		: "memory");						\
+} while (0)
 
 unsigned long __copy_to_user_ll(void __user *to, const void *from,
 				unsigned long n)
@@ -966,7 +892,7 @@ survive:
 	}
 #endif
 	if (movsl_is_ok(to, from, n))
-		n = __generic_copy_to_user(to, from, n);
+		__copy_user(to, from, n, "", __COPYUSER_SET_ES, __COPYUSER_RESTORE_ES);
 	else
 		n = __generic_copy_to_user_intel(to, from, n);
 	return n;
@@ -977,7 +903,7 @@ unsigned long __copy_from_user_ll(void *to, const void __user *from,
 					unsigned long n)
 {
 	if (movsl_is_ok(to, from, n))
-		n = __copy_user_zeroing(to, from, n);
+		__copy_user_zeroing(to, from, n);
 	else
 		n = __copy_user_zeroing_intel(to, from, n);
 	return n;
@@ -988,7 +914,7 @@ unsigned long __copy_from_user_ll_nozero(void *to, const void __user *from,
 					 unsigned long n)
 {
 	if (movsl_is_ok(to, from, n))
-		n = __generic_copy_from_user(to, from, n);
+		__copy_user(to, from, n, __copyuser_seg, "", "");
 	else
 		n = __generic_copy_from_user_intel(to, from, n);
 	return n;
@@ -1002,9 +928,9 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_zeroing_intel_nocache(to, from, n);
 	else
-		n = __copy_user_zeroing(to, from, n);
+		__copy_user_zeroing(to, from, n);
 #else
-	n = __copy_user_zeroing(to, from, n);
+	__copy_user_zeroing(to, from, n);
 #endif
 	return n;
 }
@@ -1017,40 +943,37 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_intel_nocache(to, from, n);
 	else
-		n = __generic_copy_from_user(to, from, n);
+		__copy_user(to, from, n, __copyuser_seg, "", "");
 #else
-	n = __generic_copy_from_user(to, from, n);
+	__copy_user(to, from, n, __copyuser_seg, "", "");
 #endif
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache_nozero);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-void __set_fs(mm_segment_t x, int cpu)
+void __set_fs(mm_segment_t x)
 {
-	unsigned long limit = x.seg;
-	struct desc_struct d;
-
-	current_thread_info()->addr_limit = x;
-	if (unlikely(paravirt_enabled()))
-		return;
-
-	if (likely(limit))
-		limit = (limit - 1UL) >> PAGE_SHIFT;
-	pack_descriptor(&d, 0UL, limit, 0xF3, 0xC);
-	write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_DEFAULT_USER_DS, &d, DESCTYPE_S);
+	switch (x.seg) {
+	case 0:
+		loadsegment(gs, 0);
+		break;
+	case TASK_SIZE_MAX:
+		loadsegment(gs, __USER_DS);
+		break;
+	case -1UL:
+		loadsegment(gs, __KERNEL_DS);
+		break;
+	default:
+		BUG();
+	}
+	return;
 }
 
 void set_fs(mm_segment_t x)
 {
-	__set_fs(x, get_cpu());
-	put_cpu();
-}
-#else
-void set_fs(mm_segment_t x)
-{
 	current_thread_info()->addr_limit = x;
+	__set_fs(x);
 }
-#endif
-
 EXPORT_SYMBOL(set_fs);
+#endif
