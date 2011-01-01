@@ -42,6 +42,7 @@
 #include <linux/compiler.h>
 #include <linux/idr.h>
 #include <linux/posix-timers.h>
+#include <linux/grsecurity.h>
 #include <linux/syscalls.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
@@ -948,6 +949,8 @@ SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
 		return -EINVAL;
 	if (copy_from_user(&new_tp, tp, sizeof (*tp)))
 		return -EFAULT;
+
+	gr_log_timechange();
 
 	return CLOCK_DISPATCH(which_clock, clock_set, (which_clock, &new_tp));
 }

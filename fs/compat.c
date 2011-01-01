@@ -904,6 +904,7 @@ struct compat_old_linux_dirent {
 
 struct compat_readdir_callback {
 	struct compat_old_linux_dirent __user *dirent;
+	struct file * file;
 	int result;
 };
 
@@ -921,6 +922,10 @@ static int compat_fillonedir(void *__buf, const char *name, int namlen,
 		buf->result = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
+
+	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
+		return 0;
+
 	buf->result++;
 	dirent = buf->dirent;
 	if (!access_ok(VERIFY_WRITE, dirent,
@@ -953,6 +958,7 @@ asmlinkage long compat_sys_old_readdir(unsigned int fd,
 
 	buf.result = 0;
 	buf.dirent = dirent;
+	buf.file = file;
 
 	error = vfs_readdir(file, compat_fillonedir, &buf);
 	if (buf.result)
@@ -973,6 +979,7 @@ struct compat_linux_dirent {
 struct compat_getdents_callback {
 	struct compat_linux_dirent __user *current_dir;
 	struct compat_linux_dirent __user *previous;
+	struct file * file;
 	int count;
 	int error;
 };
@@ -994,6 +1001,10 @@ static int compat_filldir(void *__buf, const char *name, int namlen,
 		buf->error = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
+
+	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
+		return 0;
+
 	dirent = buf->previous;
 	if (dirent) {
 		if (__put_user(offset, &dirent->d_off))
@@ -1041,6 +1052,7 @@ asmlinkage long compat_sys_getdents(unsigned int fd,
 	buf.previous = NULL;
 	buf.count = count;
 	buf.error = 0;
+	buf.file = file;
 
 	error = vfs_readdir(file, compat_filldir, &buf);
 	if (error >= 0)
@@ -1062,6 +1074,7 @@ out:
 struct compat_getdents_callback64 {
 	struct linux_dirent64 __user *current_dir;
 	struct linux_dirent64 __user *previous;
+	struct file * file;
 	int count;
 	int error;
 };
@@ -1078,6 +1091,10 @@ static int compat_filldir64(void * __buf, const char * name, int namlen, loff_t 
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
+
+	if (!gr_acl_handle_filldir(buf->file, name, namlen, ino))
+		return 0;
+
 	dirent = buf->previous;
 
 	if (dirent) {
@@ -1129,6 +1146,7 @@ asmlinkage long compat_sys_getdents64(unsigned int fd,
 	buf.previous = NULL;
 	buf.count = count;
 	buf.error = 0;
+	buf.file = file;
 
 	error = vfs_readdir(file, compat_filldir64, &buf);
 	if (error >= 0)

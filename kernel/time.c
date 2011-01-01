@@ -93,9 +93,6 @@ SYSCALL_DEFINE1(stime, time_t __user *, tptr)
 		return err;
 
 	do_settimeofday(&tv);
-
-	gr_log_timechange();
-
 	return 0;
 }
 
@@ -161,6 +158,8 @@ int do_sys_settimeofday(struct timespec *tv, struct timezone *tz)
 	if (tv && !timespec_valid(tv))
 		return -EINVAL;
 
+	gr_log_timechange();
+
 	error = security_settime(tv, tz);
 	if (error)
 		return error;
@@ -202,8 +201,6 @@ SYSCALL_DEFINE2(settimeofday, struct timeval __user *, tv,
 		if (copy_from_user(&new_tz, tz, sizeof(*tz)))
 			return -EFAULT;
 	}
-
-	gr_log_timechange();
 
 	return do_sys_settimeofday(tv ? &new_ts : NULL, tz ? &new_tz : NULL);
 }
