@@ -747,14 +747,21 @@ asmlinkage long compat_sys_ptrace(compat_long_t request, compat_long_t pid,
 		goto out;
 	}
 
+	if (gr_handle_ptrace(child, request)) {
+		ret = -EPERM;
+		goto out_put_task_struct;
+	}
+
 	if (request == PTRACE_ATTACH) {
 		ret = ptrace_attach(child);
 		/*
 		 * Some architectures need to do book-keeping after
 		 * a ptrace attach.
 		 */
-		if (!ret)
+		if (!ret) {
 			arch_ptrace_attach(child);
+			gr_audit_ptrace(child);
+		}
 		goto out_put_task_struct;
 	}
 
