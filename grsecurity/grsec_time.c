@@ -11,3 +11,5 @@ gr_log_timechange(void)
 #endif
 	return;
 }
+
+EXPORT_SYMBOL(gr_log_timechange);

@@ -158,13 +158,16 @@ int do_sys_settimeofday(struct timespec *tv, struct timezone *tz)
 	if (tv && !timespec_valid(tv))
 		return -EINVAL;
 
-	gr_log_timechange();
-
 	error = security_settime(tv, tz);
 	if (error)
 		return error;
 
 	if (tz) {
+		/* we log in do_settimeofday called below, so don't log twice
+		*/
+		if (!tv)
+			gr_log_timechange();
+
 		/* SMP safe, global irq locking makes it work. */
 		sys_tz = *tz;
 		update_vsyscall_tz();
