@@ -949,7 +949,12 @@ SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
 	if (copy_from_user(&new_tp, tp, sizeof (*tp)))
 		return -EFAULT;
 
-	gr_log_timechange();
+	/* only the CLOCK_REALTIME clock can be set, all other clocks
+	   have their clock_set fptr set to a nosettime dummy function
+	   CLOCK_REALTIME has a NULL clock_set fptr which causes it to
+	   call common_clock_set, which calls do_sys_settimeofday, which
+	   we hook
+	*/
 
 	return CLOCK_DISPATCH(which_clock, clock_set, (which_clock, &new_tp));
 }
