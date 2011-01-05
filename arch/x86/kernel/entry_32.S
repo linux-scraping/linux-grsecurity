@@ -860,9 +860,11 @@ ENTRY(kernel_execve)
 	pop %ecx
 	pop %edi
 	movl $X86_EFLAGS_IF,PT_EFLAGS(%esp)
-	push %esp
+	mov %eax,PT_EBX(%esp)
+	mov %edx,PT_ECX(%esp)
+	mov %ecx,PT_EDX(%esp)
+	mov %esp,%eax
 	call sys_execve
-	add $4,%esp
 	GET_THREAD_INFO(%ebp)
 	test %eax,%eax
 	jz syscall_exit

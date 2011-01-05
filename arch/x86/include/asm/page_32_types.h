@@ -15,10 +15,6 @@
  */
 #define __PAGE_OFFSET		_AC(CONFIG_PAGE_OFFSET, UL)
 
-#ifdef CONFIG_PAX_PAGEEXEC
-#define CONFIG_ARCH_TRACK_EXEC_LIMIT 1
-#endif
-
 #ifdef CONFIG_4KSTACKS
 #define THREAD_ORDER	0
 #else
