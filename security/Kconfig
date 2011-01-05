@@ -8,6 +8,9 @@ source grsecurity/Kconfig
 
 menu "PaX"
 
+	config ARCH_TRACK_EXEC_LIMIT
+	bool
+
 	config PAX_PER_CPU_PGD
 	bool
 
@@ -143,6 +146,7 @@ config PAX_PAGEEXEC
 	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MATOM || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
 	select S390_SWITCH_AMODE if S390
 	select S390_EXEC_PROTECT if S390
+	select ARCH_TRACK_EXEC_LIMIT if X86_32
 	help
 	  This implementation is based on the paging feature of the CPU.
 	  On i386 without hardware non-executable bit support there is a
