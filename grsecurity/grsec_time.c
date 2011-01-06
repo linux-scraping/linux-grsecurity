@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/grinternal.h>
+#include <linux/module.h>
 
 void
 gr_log_timechange(void)
