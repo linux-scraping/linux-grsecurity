@@ -1470,7 +1470,7 @@ int do_execve(char * filename,
 
 	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
 
-	gr_handle_exec_args(bprm, argv);
+	gr_handle_exec_args(bprm, (const char __user *const __user *)argv);
 
 #ifdef CONFIG_GRKERNSEC
 	old_acl = current->acl;

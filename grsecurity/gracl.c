@@ -159,6 +159,8 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 	*--end = '\0';
 	buflen--;
 
+	spin_lock(&vfsmount_lock);
+
 	if (buflen < 1)
 		goto Elong;
 	/* Get '/' right */
@@ -172,14 +174,10 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 			break;
 		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
 			/* Global root? */
-			spin_lock(&vfsmount_lock);
-			if (vfsmnt->mnt_parent == vfsmnt) {
-				spin_unlock(&vfsmount_lock);
+			if (vfsmnt->mnt_parent == vfsmnt)
 				goto global_root;
-			}
 			dentry = vfsmnt->mnt_mountpoint;
 			vfsmnt = vfsmnt->mnt_parent;
-			spin_unlock(&vfsmount_lock);
 			continue;
 		}
 		parent = dentry->d_parent;
@@ -195,6 +193,8 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 		dentry = parent;
 	}
 
+out:
+	spin_unlock(&vfsmount_lock);
 	return retval;
 
 global_root:
@@ -204,9 +204,10 @@ global_root:
 		goto Elong;
 	retval -= namelen-1;	/* hit the slash */
 	memcpy(retval, dentry->d_name.name, namelen);
-	return retval;
+	goto out;
 Elong:
-	return ERR_PTR(-ENAMETOOLONG);
+	retval = ERR_PTR(-ENAMETOOLONG);
+	goto out;
 }
 
 static char *
@@ -1784,6 +1785,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_object_label *retval;
 
 	spin_lock(&dcache_lock);
+	spin_lock(&vfsmount_lock);
 
 	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt ||
 #ifdef CONFIG_HUGETLBFS
@@ -1824,7 +1826,11 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	if (retval == NULL)
 		retval = full_lookup(l_dentry, l_mnt, real_root, subj, &path, checkglob);
 out:
+	spin_unlock(&vfsmount_lock);
 	spin_unlock(&dcache_lock);
+
+	BUG_ON(retval == NULL);
+
 	return retval;
 }
 
@@ -1860,6 +1866,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_subject_label *retval;
 
 	spin_lock(&dcache_lock);
+	spin_lock(&vfsmount_lock);
 
 	for (;;) {
 		if (dentry == real_root && mnt == real_root_mnt)
@@ -1903,7 +1910,10 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		read_unlock(&gr_inode_lock);
 	}
 out:
+	spin_unlock(&vfsmount_lock);
 	spin_unlock(&dcache_lock);
+
+	BUG_ON(retval == NULL);
 
 	return retval;
 }

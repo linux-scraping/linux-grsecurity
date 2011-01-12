@@ -8,6 +8,7 @@
 #include <linux/grdefs.h>
 #include <linux/grinternal.h>
 #include <linux/capability.h>
+#include <linux/compat.h>
 
 #include <asm/uaccess.h>
 
@@ -33,7 +34,7 @@ gr_handle_nproc(void)
 }
 
 void
-gr_handle_exec_args(struct linux_binprm *bprm, const char __user *__user *argv)
+gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *argv)
 {
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	char *grarg = gr_exec_arg_buf;
@@ -87,3 +88,61 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *__user *argv)
 #endif
 	return;
 }
+
+#ifdef CONFIG_COMPAT
+void
+gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv)
+{
+#ifdef CONFIG_GRKERNSEC_EXECLOG
+	char *grarg = gr_exec_arg_buf;
+	unsigned int i, x, execlen = 0;
+	char c;
+
+	if (!((grsec_enable_execlog && grsec_enable_group &&
+	       in_group_p(grsec_audit_gid))
+	      || (grsec_enable_execlog && !grsec_enable_group)))
+		return;
+
+	down(&gr_exec_arg_sem);
+	memset(grarg, 0, sizeof(gr_exec_arg_buf));
+
+	if (unlikely(argv == NULL))
+		goto log;
+
+	for (i = 0; i < bprm->argc && execlen < 128; i++) {
+		compat_uptr_t p;
+		unsigned int len;
+
+		if (get_user(p, argv + i))
+			goto log;
+		len = strnlen_user(compat_ptr(p), 128 - execlen);
+		if (len > 128 - execlen)
+			len = 128 - execlen;
+		else if (len > 0)
+			len--;
+		else
+			goto log;
+		if (copy_from_user(grarg + execlen, compat_ptr(p), len))
+			goto log;
+
+		/* rewrite unprintable characters */
+		for (x = 0; x < len; x++) {
+			c = *(grarg + execlen + x);
+			if (c < 32 || c > 126)
+				*(grarg + execlen + x) = ' ';
+		}
+
+		execlen += len;
+		*(grarg + execlen) = ' ';
+		*(grarg + execlen + 1) = '\0';
+		execlen++;
+	}
+
+      log:
+	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_path.dentry,
+			bprm->file->f_path.mnt, grarg);
+	up(&gr_exec_arg_sem);
+#endif
+	return;
+}
+#endif

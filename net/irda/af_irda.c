@@ -2168,10 +2168,8 @@ static int irda_getsockopt(struct socket *sock, int level, int optname,
 		/* Offset to first device entry */
 		offset = sizeof(struct irda_device_list) - sizeof(struct irda_device_info);
 
-		if (len < offset) {
-			err = -EINVAL;
-			goto out;
-		}
+		if (len < offset)
+			return -EINVAL;
 
 		/* Ask lmp for the current discovery log */
 		discoveries = irlmp_get_discoveries(&list.len, self->mask.word,
