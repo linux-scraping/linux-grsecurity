@@ -9,6 +9,7 @@
 #include <linux/tty.h>
 #include <linux/proc_fs.h>
 #include <linux/smp_lock.h>
+#include <linux/lglock.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/types.h>
@@ -86,7 +87,7 @@ extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
 extern int gr_find_uid(uid_t uid);
 
-extern spinlock_t vfsmount_lock;
+DECLARE_BRLOCK(vfsmount_lock);
 
 __inline__ int
 gr_acl_is_enabled(void)
@@ -153,8 +154,12 @@ static char *
 gen_full_path(struct path *path, struct path *root, char *buf, int buflen)
 {
 	char *retval;
+	struct path old_root = *root;
 
-	retval = __d_path(path, root, buf, buflen);
+	/* __d_path modifies root, so have it modify our dummy copy
+	*/
+
+	retval = __d_path(path, &old_root, buf, buflen);
 	if (unlikely(IS_ERR(retval)))
 		retval = strcpy(buf, "<path too long>");
 	else if (unlikely(retval[1] == '/' && retval[2] == '\0'))
@@ -1718,6 +1723,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_object_label *retval;
 
 	spin_lock(&dcache_lock);
+	br_read_lock(vfsmount_lock);
 
 	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt ||
 #ifdef CONFIG_HUGETLBFS
@@ -1758,7 +1764,11 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	if (retval == NULL)
 		retval = full_lookup(l_dentry, l_mnt, real_root.dentry, subj, &path, checkglob);
 out:
+	br_read_unlock(vfsmount_lock);
 	spin_unlock(&dcache_lock);
+
+	BUG_ON(retval == NULL);
+
 	return retval;
 }
 
@@ -1794,6 +1804,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_subject_label *retval;
 
 	spin_lock(&dcache_lock);
+	br_read_lock(vfsmount_lock);
 
 	for (;;) {
 		if (dentry == real_root.dentry && mnt == real_root.mnt)
@@ -1837,7 +1848,10 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		read_unlock(&gr_inode_lock);
 	}
 out:
+	br_read_unlock(vfsmount_lock);
 	spin_unlock(&dcache_lock);
+
+	BUG_ON(retval == NULL);
 
 	return retval;
 }
