@@ -148,6 +148,8 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 	return !memcmp(a, b, lena);
 }
 
+/* this must be called with vfsmount_lock and dcache_lock held */
+
 static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 	                   struct dentry *root, struct vfsmount *rootmnt,
 			   char *buffer, int buflen)
@@ -158,8 +160,6 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 
 	*--end = '\0';
 	buflen--;
-
-	spin_lock(&vfsmount_lock);
 
 	if (buflen < 1)
 		goto Elong;
@@ -194,7 +194,6 @@ static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
 	}
 
 out:
-	spin_unlock(&vfsmount_lock);
 	return retval;
 
 global_root:
@@ -254,7 +253,9 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	read_unlock(&reaper->fs->lock);
 
 	spin_lock(&dcache_lock);
+	spin_lock(&vfsmount_lock);
 	res = gen_full_path((struct dentry *)dentry, (struct vfsmount *)vfsmnt, root, rootmnt, buf, buflen);
+	spin_unlock(&vfsmount_lock);
 	spin_unlock(&dcache_lock);
 
 	dput(root);
@@ -267,8 +268,10 @@ gr_to_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt)
 {
 	char *ret;
 	spin_lock(&dcache_lock);
+	spin_lock(&vfsmount_lock);
 	ret = __d_real_path(dentry, mnt, per_cpu_ptr(gr_shared_page[0],smp_processor_id()),
 			     PAGE_SIZE);
+	spin_unlock(&vfsmount_lock);
 	spin_unlock(&dcache_lock);
 	return ret;
 }
