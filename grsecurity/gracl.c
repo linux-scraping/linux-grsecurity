@@ -150,16 +150,82 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 	return !memcmp(a, b, lena);
 }
 
+static int prepend(char **buffer, int *buflen, const char *str, int namelen)
+{
+	*buflen -= namelen;
+	if (*buflen < 0)
+		return -ENAMETOOLONG;
+	*buffer -= namelen;
+	memcpy(*buffer, str, namelen);
+	return 0;
+}
+
+static int prepend_name(char **buffer, int *buflen, struct qstr *name)
+{
+	return prepend(buffer, buflen, name->name, name->len);
+}
+
+static int prepend_path(const struct path *path, struct path *root,
+			char **buffer, int *buflen)
+{
+	struct dentry *dentry = path->dentry;
+	struct vfsmount *vfsmnt = path->mnt;
+	bool slash = false;
+	int error = 0;
+
+	while (dentry != root->dentry || vfsmnt != root->mnt) {
+		struct dentry * parent;
+
+		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
+			/* Global root? */
+			if (vfsmnt->mnt_parent == vfsmnt) {
+				goto out;
+			}
+			dentry = vfsmnt->mnt_mountpoint;
+			vfsmnt = vfsmnt->mnt_parent;
+			continue;
+		}
+		parent = dentry->d_parent;
+		prefetch(parent);
+		error = prepend_name(buffer, buflen, &dentry->d_name);
+		if (!error)
+			error = prepend(buffer, buflen, "/", 1);
+		if (error)
+			break;
+
+		slash = true;
+		dentry = parent;
+	}
+
+out:
+	if (!error && !slash)
+		error = prepend(buffer, buflen, "/", 1);
+
+	return error;
+}
+
+/* this must be called with vfsmount_lock and dcache_lock held */
+
+static char *__our_d_path(const struct path *path, struct path *root,
+			char *buf, int buflen)
+{
+	char *res = buf + buflen;
+	int error;
+
+	prepend(&res, &buflen, "\0", 1);
+	error = prepend_path(path, root, &res, &buflen);
+	if (error)
+		return ERR_PTR(error);
+
+	return res;
+}
+
 static char *
 gen_full_path(struct path *path, struct path *root, char *buf, int buflen)
 {
 	char *retval;
-	struct path old_root = *root;
 
-	/* __d_path modifies root, so have it modify our dummy copy
-	*/
-
-	retval = __d_path(path, &old_root, buf, buflen);
+	retval = __our_d_path(path, root, buf, buflen);
 	if (unlikely(IS_ERR(retval)))
 		retval = strcpy(buf, "<path too long>");
 	else if (unlikely(retval[1] == '/' && retval[2] == '\0'))
@@ -201,7 +267,9 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	get_fs_root(reaper->fs, &root);
 
 	spin_lock(&dcache_lock);
+	br_read_lock(vfsmount_lock);
 	res = gen_full_path(&path, &root, buf, buflen);
+	br_read_unlock(vfsmount_lock);
 	spin_unlock(&dcache_lock);
 
 	path_put(&root);
@@ -213,8 +281,10 @@ gr_to_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt)
 {
 	char *ret;
 	spin_lock(&dcache_lock);
+	br_read_lock(vfsmount_lock);
 	ret = __d_real_path(dentry, mnt, per_cpu_ptr(gr_shared_page[0],smp_processor_id()),
 			     PAGE_SIZE);
+	br_read_unlock(vfsmount_lock);
 	spin_unlock(&dcache_lock);
 	return ret;
 }
