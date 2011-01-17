@@ -47,7 +47,7 @@ static struct acl_role_label *role_list;
 static u16 acl_sp_role_value;
 
 extern char *gr_shared_page[4];
-static DECLARE_MUTEX(gr_dev_sem);
+static DEFINE_MUTEX(gr_dev_mutex);
 DEFINE_RWLOCK(gr_inode_lock);
 
 struct gr_arg *gr_usermode;
@@ -2926,7 +2926,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	int error = sizeof (struct gr_arg_wrapper);
 	int error2 = 0;
 
-	down(&gr_dev_sem);
+	mutex_lock(&gr_dev_mutex);
 
 	if ((gr_status & GR_READY) && !(current->acl->mode & GR_KERNELAUTH)) {
 		error = -EPERM;
@@ -3159,7 +3159,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 		gr_auth_expires = get_seconds() + CONFIG_GRKERNSEC_ACL_TIMEOUT;
 
       out:
-	up(&gr_dev_sem);
+	mutex_unlock(&gr_dev_mutex);
 	return error;
 }
 

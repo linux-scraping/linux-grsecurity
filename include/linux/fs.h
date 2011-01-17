@@ -93,7 +93,7 @@ struct inodes_stat_t {
 /* Hack for grsec so as not to require read permission simply to execute
  * a binary
  */
-#define FMODE_GREXEC		((__force fmode_t)8192)
+#define FMODE_GREXEC		((__force fmode_t)0x2000000)
 
 /*
  * The below are the various read and write types that we support. Some of

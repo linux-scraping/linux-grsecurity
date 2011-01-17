@@ -14,7 +14,7 @@
 
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 static char gr_exec_arg_buf[132];
-static DECLARE_MUTEX(gr_exec_arg_sem);
+static DEFINE_MUTEX(gr_exec_arg_mutex);
 #endif
 
 int
@@ -46,7 +46,7 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *
 	      || (grsec_enable_execlog && !grsec_enable_group)))
 		return;
 
-	down(&gr_exec_arg_sem);
+	mutex_lock(&gr_exec_arg_mutex);
 	memset(grarg, 0, sizeof(gr_exec_arg_buf));
 
 	if (unlikely(argv == NULL))
@@ -84,7 +84,7 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *
       log:
 	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_path.dentry,
 			bprm->file->f_path.mnt, grarg);
-	up(&gr_exec_arg_sem);
+	mutex_unlock(&gr_exec_arg_mutex);
 #endif
 	return;
 }
@@ -103,7 +103,7 @@ gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv
 	      || (grsec_enable_execlog && !grsec_enable_group)))
 		return;
 
-	down(&gr_exec_arg_sem);
+	mutex_lock(&gr_exec_arg_mutex);
 	memset(grarg, 0, sizeof(gr_exec_arg_buf));
 
 	if (unlikely(argv == NULL))
@@ -141,7 +141,7 @@ gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv
       log:
 	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_path.dentry,
 			bprm->file->f_path.mnt, grarg);
-	up(&gr_exec_arg_sem);
+	mutex_unlock(&gr_exec_arg_mutex);
 #endif
 	return;
 }

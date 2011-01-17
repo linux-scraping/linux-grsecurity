@@ -576,6 +576,7 @@ DST(	movb %dl, %es:(%edi)     )
 	jmp  7b			
 .previous				
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 	pushl %ss
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %ds
@@ -584,6 +585,8 @@ DST(	movb %dl, %es:(%edi)     )
 	CFI_ADJUST_CFA_OFFSET 4
 	popl %es
 	CFI_ADJUST_CFA_OFFSET -4
+#endif
+
 	popl %esi
 	CFI_ADJUST_CFA_OFFSET -4
 	CFI_RESTORE esi

@@ -1836,9 +1836,10 @@ and is between 256 and 4096 characters. It is defined in the file
 			the specified number of seconds.  This is to be used if
 			your oopses keep scrolling off the screen.
 
-	pax_nouderef	[X86-32] disables UDEREF.  Most likely needed under certain
+	pax_nouderef	[X86] disables UDEREF.  Most likely needed under certain
 			virtualization environments that don't cope well with the
-			expand down segment used by UDEREF on X86-32.
+			expand down segment used by UDEREF on X86-32 or the frequent
+			page table updates on X86-64.
 
 	pax_softmode=	[X86-32] 0/1 to disable/enable PaX softmode on boot already.
 
