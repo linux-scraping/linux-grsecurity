@@ -38,7 +38,7 @@ int decnet_log_martians = 1;
 int decnet_no_fc_max_cwnd = NSP_MIN_WINDOW;
 
 /* Reasonable defaults, I hope, based on tcp's defaults */
-int sysctl_decnet_mem[3] = { 768 << 3, 1024 << 3, 1536 << 3 };
+long sysctl_decnet_mem[3] = { 768 << 3, 1024 << 3, 1536 << 3 };
 int sysctl_decnet_wmem[3] = { 4 * 1024, 16 * 1024, 128 * 1024 };
 int sysctl_decnet_rmem[3] = { 4 * 1024, 87380, 87380 * 2 };
 
@@ -173,7 +173,7 @@ static int dn_node_address_handler(ctl_table *table, int write,
 
 	if (len > *lenp) len = *lenp;
 
-	if (len > sizeof(addr) || copy_to_user(buffer, addr, len))
+	if (len > sizeof addr || copy_to_user(buffer, addr, len))
 		return -EFAULT;
 
 	*lenp = len;
@@ -236,7 +236,7 @@ static int dn_def_dev_handler(ctl_table *table, int write,
 
 	if (len > *lenp) len = *lenp;
 
-	if (len > sizeof(devname) || copy_to_user(buffer, devname, len))
+	if (len > sizeof devname || copy_to_user(buffer, devname, len))
 		return -EFAULT;
 
 	*lenp = len;
@@ -324,7 +324,7 @@ static ctl_table dn_table[] = {
 		.data = &sysctl_decnet_mem,
 		.maxlen = sizeof(sysctl_decnet_mem),
 		.mode = 0644,
-		.proc_handler = proc_dointvec,
+		.proc_handler = proc_doulongvec_minmax
 	},
 	{
 		.procname = "decnet_rmem",

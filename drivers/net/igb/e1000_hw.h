@@ -54,6 +54,8 @@ struct e1000_hw;
 #define E1000_DEV_ID_82580_SERDES             0x1510
 #define E1000_DEV_ID_82580_SGMII              0x1511
 #define E1000_DEV_ID_82580_COPPER_DUAL        0x1516
+#define E1000_DEV_ID_DH89XXCC_SGMII           0x0436
+#define E1000_DEV_ID_DH89XXCC_SERDES          0x0438
 #define E1000_DEV_ID_I350_COPPER              0x1521
 #define E1000_DEV_ID_I350_FIBER               0x1522
 #define E1000_DEV_ID_I350_SERDES              0x1523
@@ -339,6 +341,7 @@ struct e1000_info {
 extern const struct e1000_info e1000_82575_info;
 
 struct e1000_mac_info {
+	/* cannot be const see igb_get_invariants_82575() */
 	struct e1000_mac_operations ops;
 
 	u8 addr[6];
@@ -377,6 +380,7 @@ struct e1000_mac_info {
 };
 
 struct e1000_phy_info {
+	/* cannot be const see igb_get_invariants_82575() */
 	struct e1000_phy_operations ops;
 
 	enum e1000_phy_type type;

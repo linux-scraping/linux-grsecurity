@@ -1136,11 +1136,13 @@ int vfs_path_lookup(struct dentry *dentry, struct vfsmount *mnt,
 static struct dentry *__lookup_hash(struct qstr *name,
 		struct dentry *base, struct nameidata *nd)
 {
+	struct inode *inode = base->d_inode;
 	struct dentry *dentry;
-	struct inode *inode;
 	int err;
 
-	inode = base->d_inode;
+	err = exec_permission(inode);
+	if (err)
+		return ERR_PTR(err);
 
 	/*
 	 * See if the low-level filesystem might want
@@ -1176,11 +1178,6 @@ out:
  */
 static struct dentry *lookup_hash(struct nameidata *nd)
 {
-	int err;
-
-	err = exec_permission(nd->path.dentry->d_inode);
-	if (err)
-		return ERR_PTR(err);
 	return __lookup_hash(&nd->last, nd->path.dentry, nd);
 }
 
@@ -1228,9 +1225,6 @@ struct dentry *lookup_one_len(const char *name, struct dentry *base, int len)
 	if (err)
 		return ERR_PTR(err);
 
-	err = exec_permission(base->d_inode);
-	if (err)
-		return ERR_PTR(err);
 	return __lookup_hash(&this, base, NULL);
 }
 
@@ -1622,6 +1616,7 @@ static struct file *finish_open(struct nameidata *nd,
 	 */
 	if (will_truncate)
 		mnt_drop_write(nd->path.mnt);
+	path_put(&nd->path);
 	return filp;
 
 exit:
@@ -1685,7 +1680,6 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		}
 		path_to_nameidata(path, nd);
 		audit_inode(pathname, nd->path.dentry);
-
 		goto ok;
 	}
 
@@ -1725,6 +1719,7 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		}
 		filp = nameidata_to_filp(nd);
 		mnt_drop_write(nd->path.mnt);
+		path_put(&nd->path);
 		if (!IS_ERR(filp)) {
 			error = ima_file_check(filp, acc_mode);
 			if (error) {
@@ -1803,6 +1798,9 @@ struct file *do_filp_open(int dfd, const char *pathname,
 
 	if (!(open_flag & O_CREAT))
 		mode = 0;
+
+	/* Must never be set by userspace */
+	open_flag &= ~FMODE_NONOTIFY;
 
 	/*
 	 * O_SYNC is implemented as __O_SYNC|O_DSYNC.  As many places only
@@ -2385,13 +2383,11 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 			goto slashes;
 		inode = dentry->d_inode;
 		if (inode) {
+			ihold(inode);
 			if (inode->i_nlink <= 1) {
 				saved_ino = inode->i_ino;
 				saved_dev = inode->i_sb->s_dev;
 			}
-
-			atomic_inc(&inode->i_count);
-
 			if (!gr_acl_handle_unlink(dentry, nd.path.mnt)) {
 				error = -EACCES;
 				goto exit2;

@@ -55,6 +55,7 @@
 #include <linux/async.h>
 #include <linux/percpu.h>
 #include <linux/kmemleak.h>
+#include <linux/jump_label.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
@@ -2050,7 +2051,7 @@ static inline void layout_symtab(struct module *mod, struct load_info *info)
 {
 }
 
-static void add_kallsyms(struct module *mod, struct load_info *info)
+static void add_kallsyms(struct module *mod, const struct load_info *info)
 {
 }
 #endif /* CONFIG_KALLSYMS */
@@ -2339,6 +2340,11 @@ static void find_module_sections(struct module *mod, struct load_info *info)
 					sizeof(*mod->tracepoints),
 					&mod->num_tracepoints);
 #endif
+#ifdef HAVE_JUMP_LABEL
+	mod->jump_entries = section_objs(info, "__jump_table",
+					sizeof(*mod->jump_entries),
+					&mod->num_jump_entries);
+#endif
 #ifdef CONFIG_EVENT_TRACING
 	mod->trace_events = section_objs(info, "_ftrace_events",
 					 sizeof(*mod->trace_events),
@@ -2349,6 +2355,18 @@ static void find_module_sections(struct module *mod, struct load_info *info)
 	 */
 	kmemleak_scan_area(mod->trace_events, sizeof(*mod->trace_events) *
 			   mod->num_trace_events, GFP_KERNEL);
+#endif
+#ifdef CONFIG_TRACING
+	mod->trace_bprintk_fmt_start = section_objs(info, "__trace_printk_fmt",
+					 sizeof(*mod->trace_bprintk_fmt_start),
+					 &mod->num_trace_bprintk_fmt);
+	/*
+	 * This section contains pointers to allocated objects in the trace
+	 * code and not scanning it leads to false positives.
+	 */
+	kmemleak_scan_area(mod->trace_bprintk_fmt_start,
+			   sizeof(*mod->trace_bprintk_fmt_start) *
+			   mod->num_trace_bprintk_fmt, GFP_KERNEL);
 #endif
 #ifdef CONFIG_FTRACE_MCOUNT_RECORD
 	/* sechdrs[0].sh_size is always zero */

@@ -28,6 +28,7 @@
 #include <linux/rmap.h>
 #include <linux/mmu_notifier.h>
 #include <linux/perf_event.h>
+#include <linux/audit.h>
 
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -1214,6 +1215,7 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 	unsigned long retval = -EBADF;
 
 	if (!(flags & MAP_ANONYMOUS)) {
+		audit_mmap_fd(fd, flags);
 		if (unlikely(flags & MAP_HUGETLB))
 			return -EINVAL;
 		file = fget(fd);
@@ -2980,7 +2982,6 @@ int install_special_mapping(struct mm_struct *mm,
 out:
 	kmem_cache_free(vm_area_cachep, vma);
 	return ret;
-
 }
 
 static DEFINE_MUTEX(mm_all_locks_mutex);

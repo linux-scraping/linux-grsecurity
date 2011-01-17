@@ -301,7 +301,7 @@ struct mm_struct {
 	 * new_owner->mm == mm
 	 * new_owner->alloc_lock is held
 	 */
-	struct task_struct *owner;
+	struct task_struct __rcu *owner;
 #endif
 
 #ifdef CONFIG_PROC_FS
@@ -312,6 +312,8 @@ struct mm_struct {
 #ifdef CONFIG_MMU_NOTIFIER
 	struct mmu_notifier_mm *mmu_notifier_mm;
 #endif
+	/* How many tasks sharing this mm are OOM_DISABLE */
+	atomic_t oom_disable_count;
 
 #if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	unsigned long pax_flags;

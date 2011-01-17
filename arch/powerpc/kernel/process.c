@@ -517,7 +517,6 @@ struct task_struct *__switch_to(struct task_struct *prev,
 
 	account_system_vtime(current);
 	account_process_vtime(current);
-	calculate_steal_time();
 
 	/*
 	 * We can't take a PMU exception inside _switch() since there is a
@@ -1243,14 +1242,3 @@ void thread_info_cache_init(void)
 }
 
 #endif /* THREAD_SHIFT < PAGE_SHIFT */
-
-#ifdef CONFIG_SMP
-int arch_sd_sibling_asym_packing(void)
-{
-	if (cpu_has_feature(CPU_FTR_ASYM_SMT)) {
-		printk_once(KERN_INFO "Enabling Asymmetric SMT scheduling\n");
-		return SD_ASYM_PACKING;
-	}
-	return 0;
-}
-#endif

@@ -47,14 +47,14 @@ void ib_copy_ah_attr_to_user(struct ib_uverbs_ah_attr *dst,
 	dst->static_rate   	   = src->static_rate;
 	dst->is_global             = src->ah_flags & IB_AH_GRH ? 1 : 0;
 	dst->port_num 	    	   = src->port_num;
-	dst->reserved		   = 0;
+	dst->reserved 		   = 0;
 }
 EXPORT_SYMBOL(ib_copy_ah_attr_to_user);
 
 void ib_copy_qp_attr_to_user(struct ib_uverbs_qp_attr *dst,
 			     struct ib_qp_attr *src)
 {
-	dst->qp_state		= src->qp_state;
+	dst->qp_state	        = src->qp_state;
 	dst->cur_qp_state	= src->cur_qp_state;
 	dst->path_mtu		= src->path_mtu;
 	dst->path_mig_state	= src->path_mig_state;

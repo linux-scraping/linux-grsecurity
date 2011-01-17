@@ -96,11 +96,12 @@ static ssize_t acpi_ec_write_io(struct file *f, const char __user *buf,
 	return count;
 }
 
-static struct file_operations acpi_ec_io_ops = {
+static const struct file_operations acpi_ec_io_ops = {
 	.owner = THIS_MODULE,
 	.open  = acpi_ec_open_io,
 	.read  = acpi_ec_read_io,
 	.write = acpi_ec_write_io,
+	.llseek = default_llseek,
 };
 
 int acpi_ec_add_debugfs(struct acpi_ec *ec, unsigned int ec_device_count)

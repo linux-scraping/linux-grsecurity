@@ -163,7 +163,7 @@ do {						\
 #endif /* !CONFIG_HUGETLB_PAGE */
 
 #define VM_DATA_DEFAULT_FLAGS \
-	(test_thread_flag(TIF_32BIT) ? \
+	(is_32bit_task() ? \
 	 VM_DATA_DEFAULT_FLAGS32 : VM_DATA_DEFAULT_FLAGS64)
 
 /*
@@ -181,7 +181,7 @@ do {						\
 
 #ifndef CONFIG_PAX_PAGEEXEC
 #define VM_STACK_DEFAULT_FLAGS \
-	(test_thread_flag(TIF_32BIT) ? \
+	(is_32bit_task() ? \
 	 VM_STACK_DEFAULT_FLAGS32 : VM_STACK_DEFAULT_FLAGS64)
 #endif
 

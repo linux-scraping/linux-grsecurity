@@ -842,11 +842,11 @@ struct file *nameidata_to_filp(struct nameidata *nd)
 	/* Pick up the filp from the open intent */
 	filp = nd->intent.open.file;
 	/* Has the filesystem initialised the file for us? */
-	if (filp->f_path.dentry == NULL)
+	if (filp->f_path.dentry == NULL) {
+		path_get(&nd->path);
 		filp = __dentry_open(nd->path.dentry, nd->path.mnt, filp,
 				     NULL, cred);
-	else
-		path_put(&nd->path);
+	}
 	return filp;
 }
 
@@ -939,7 +939,10 @@ long do_sys_open(int dfd, const char __user *filename, int flags, int mode)
 	if (!IS_ERR(tmp)) {
 		fd = get_unused_fd_flags(flags);
 		if (fd >= 0) {
-			struct file *f = do_filp_open(dfd, tmp, flags, mode, 0);
+			struct file *f;
+			/* don't allow to be set by userland */
+			flags &= ~FMODE_GREXEC;
+			f = do_filp_open(dfd, tmp, flags, mode, 0);
 			if (IS_ERR(f)) {
 				put_unused_fd(fd);
 				fd = PTR_ERR(f);

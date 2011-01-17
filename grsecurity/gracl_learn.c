@@ -20,7 +20,7 @@ static int gr_learn_attached;
 #define LEARN_BUFFER_SIZE (512 * 1024)
 
 static DEFINE_SPINLOCK(gr_learn_lock);
-static DECLARE_MUTEX(gr_learn_user_sem);
+static DEFINE_MUTEX(gr_learn_user_mutex);
 
 /* we need to maintain two buffers, so that the kernel context of grlearn
    uses a semaphore around the userspace copying, and the other kernel contexts
@@ -40,12 +40,12 @@ read_learn(struct file *file, char __user * buf, size_t count, loff_t * ppos)
 	add_wait_queue(&learn_wait, &wait);
 	set_current_state(TASK_INTERRUPTIBLE);
 	do {
-		down(&gr_learn_user_sem);
+		mutex_lock(&gr_learn_user_mutex);
 		spin_lock(&gr_learn_lock);
 		if (learn_buffer_len)
 			break;
 		spin_unlock(&gr_learn_lock);
-		up(&gr_learn_user_sem);
+		mutex_unlock(&gr_learn_user_mutex);
 		if (file->f_flags & O_NONBLOCK) {
 			retval = -EAGAIN;
 			goto out;
@@ -68,7 +68,7 @@ read_learn(struct file *file, char __user * buf, size_t count, loff_t * ppos)
 	if (copy_to_user(buf, learn_buffer_user, learn_buffer_user_len))
 		retval = -EFAULT;
 
-	up(&gr_learn_user_sem);
+	mutex_unlock(&gr_learn_user_mutex);
 out:
 	set_current_state(TASK_RUNNING);
 	remove_wait_queue(&learn_wait, &wait);
@@ -91,7 +91,7 @@ gr_clear_learn_entries(void)
 {
 	char *tmp;
 
-	down(&gr_learn_user_sem);
+	mutex_lock(&gr_learn_user_mutex);
 	if (learn_buffer != NULL) {
 		spin_lock(&gr_learn_lock);
 		tmp = learn_buffer;
@@ -104,7 +104,7 @@ gr_clear_learn_entries(void)
 		learn_buffer_user = NULL;
 	}
 	learn_buffer_len = 0;
-	up(&gr_learn_user_sem);
+	mutex_unlock(&gr_learn_user_mutex);
 
 	return;
 }
@@ -152,7 +152,7 @@ open_learn(struct inode *inode, struct file *file)
 		return -EBUSY;
 	if (file->f_mode & FMODE_READ) {
 		int retval = 0;
-		down(&gr_learn_user_sem);
+		mutex_lock(&gr_learn_user_mutex);
 		if (learn_buffer == NULL)
 			learn_buffer = vmalloc(LEARN_BUFFER_SIZE);
 		if (learn_buffer_user == NULL)
@@ -169,7 +169,7 @@ open_learn(struct inode *inode, struct file *file)
 		learn_buffer_user_len = 0;
 		gr_learn_attached = 1;
 out_error:
-		up(&gr_learn_user_sem);
+		mutex_unlock(&gr_learn_user_mutex);
 		return retval;
 	}
 	return 0;
@@ -181,7 +181,7 @@ close_learn(struct inode *inode, struct file *file)
 	char *tmp;
 
 	if (file->f_mode & FMODE_READ) {
-		down(&gr_learn_user_sem);
+		mutex_lock(&gr_learn_user_mutex);
 		if (learn_buffer != NULL) {
 			spin_lock(&gr_learn_lock);
 			tmp = learn_buffer;
@@ -196,7 +196,7 @@ close_learn(struct inode *inode, struct file *file)
 		learn_buffer_len = 0;
 		learn_buffer_user_len = 0;
 		gr_learn_attached = 0;
-		up(&gr_learn_user_sem);
+		mutex_unlock(&gr_learn_user_mutex);
 	}
 
 	return 0;

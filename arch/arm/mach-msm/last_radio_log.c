@@ -49,7 +49,8 @@ static ssize_t last_radio_log_read(struct file *file, char __user *buf,
 
 /* cannot be const, see msm_init_last_radio_log */
 static struct file_operations last_radio_log_fops = {
-	.read = last_radio_log_read
+	.read = last_radio_log_read,
+	.llseek = default_llseek,
 };
 
 void msm_init_last_radio_log(struct module *owner)

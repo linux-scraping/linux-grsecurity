@@ -184,8 +184,8 @@ typedef elf_fpreg_t elf_vsrreghalf_t32[ELF_NVSRHALFREG];
 #define PAX_ELF_ET_DYN_BASE	(0x10000000UL)
 
 #ifdef __powerpc64__
-#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
-#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_32BIT) ? 16 : 28)
+#define PAX_DELTA_MMAP_LEN	(is_32bit_task() ? 16 : 28)
+#define PAX_DELTA_STACK_LEN	(is_32bit_task() ? 16 : 28)
 #else
 #define PAX_DELTA_MMAP_LEN	15
 #define PAX_DELTA_STACK_LEN	15
@@ -261,7 +261,7 @@ do {								\
  * the 64bit ABI has never had these issues dont enable the workaround
  * even if we have an executable stack.
  */
-# define elf_read_implies_exec(ex, exec_stk) (test_thread_flag(TIF_32BIT) ? \
+# define elf_read_implies_exec(ex, exec_stk) (is_32bit_task() ? \
 		(exec_stk == EXSTACK_DEFAULT) : 0)
 #else 
 # define SET_PERSONALITY(ex) \

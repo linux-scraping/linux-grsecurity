@@ -189,6 +189,7 @@ struct e1000_mac_operations {
 };
 
 struct e1000_mac_info {
+	/* cannot be const see e1000_init_mac_params_vf() */
 	struct e1000_mac_operations ops;
 	u8 addr[6];
 	u8 perm_addr[6];

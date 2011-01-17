@@ -505,7 +505,9 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 	} else {
 		unsigned int order = get_order(size);
 
-		ret = slob_new_pages(gfp | __GFP_COMP, get_order(size), node);
+		if (likely(order))
+			gfp |= __GFP_COMP;
+		ret = slob_new_pages(gfp, order, node);
 		if (ret) {
 			struct slob_page *sp;
 			sp = slob_page(ret);

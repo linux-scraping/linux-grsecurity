@@ -488,7 +488,7 @@ retry:
 	skb->dev = dev;
 	skb->priority = sk->sk_priority;
 	skb->mark = sk->sk_mark;
-	err = sock_tx_timestamp(msg, sk, skb_tx(skb));
+	err = sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
 	if (err < 0)
 		goto out_unlock;
 
@@ -1209,7 +1209,7 @@ static int packet_snd(struct socket *sock,
 	err = skb_copy_datagram_from_iovec(skb, offset, msg->msg_iov, 0, len);
 	if (err)
 		goto out_free;
-	err = sock_tx_timestamp(msg, sk, skb_tx(skb));
+	err = sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
 	if (err < 0)
 		goto out_free;
 
@@ -1612,6 +1612,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
 		vnet_hdr_len = sizeof(vnet_hdr);
 		if (len < vnet_hdr_len)
 			goto out_free;
+
 		len -= vnet_hdr_len;
 
 		if (skb_is_gso(skb)) {

@@ -130,4 +130,8 @@ int dump_task_regs(struct task_struct *t, elf_gregset_t *elfregs);
 extern void elf_set_personality(const struct elf32_hdr *);
 #define SET_PERSONALITY(ex)	elf_set_personality(&(ex))
 
+extern int vectors_user_mapping(void);
+#define arch_setup_additional_pages(bprm, uses_interp) vectors_user_mapping()
+#define ARCH_HAS_SETUP_ADDITIONAL_PAGES
+
 #endif

@@ -202,7 +202,7 @@ static ssize_t tcpprobe_read(struct file *file, char __user *buf,
 		if (cnt + width >= len)
 			break;
 
-		if (width > sizeof(tbuf) || copy_to_user(buf + cnt, tbuf, width))
+		if (width > sizeof tbuf || copy_to_user(buf + cnt, tbuf, width))
 			return -EFAULT;
 		cnt += width;
 	}
@@ -214,6 +214,7 @@ static const struct file_operations tcpprobe_fops = {
 	.owner	 = THIS_MODULE,
 	.open	 = tcpprobe_open,
 	.read    = tcpprobe_read,
+	.llseek  = noop_llseek,
 };
 
 static __init int tcpprobe_init(void)
