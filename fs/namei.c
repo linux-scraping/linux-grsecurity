@@ -1889,6 +1889,11 @@ reval:
 		error = security_inode_follow_link(path.dentry, &nd);
 		if (error)
 			goto exit_dput;
+		if (gr_handle_follow_link(path.dentry->d_parent->d_inode,
+					  path.dentry->d_inode, path.dentry, nd.path.mnt)) {
+			error = -EACCES;
+			goto exit_dput;
+		}
 		error = __do_follow_link(&path, &nd, &cookie);
 		if (unlikely(error)) {
 			/* nd.path had been dropped */
