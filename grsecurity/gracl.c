@@ -3039,7 +3039,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOADI_ACL_MSG, GR_VERSION);
 			error = -EAGAIN;
 		} else if (!(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
-			lock_kernel();
+			preempt_disable();
 
 			pax_open_kernel();
 			gr_status &= ~GR_READY;
@@ -3047,10 +3047,10 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 
 			free_variables();
 			if (!(error2 = gracl_init(gr_usermode))) {
-				unlock_kernel();
+				preempt_enable();
 				gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOAD_ACL_MSG, GR_VERSION);
 			} else {
-				unlock_kernel();
+				preempt_enable();
 				error = error2;
 				gr_log_str(GR_DONT_AUDIT, GR_RELOADF_ACL_MSG, GR_VERSION);
 			}

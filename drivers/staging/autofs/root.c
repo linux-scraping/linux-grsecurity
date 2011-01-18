@@ -308,7 +308,8 @@ static int autofs_root_symlink(struct inode *dir, struct dentry *dentry, const c
 	set_bit(n,sbi->symlink_bitmap);
 	sl = &sbi->symlink[n];
 	sl->len = strlen(symname);
-	sl->data = kmalloc(slsize = sl->len+1, GFP_KERNEL);
+	slsize = sl->len + 1;
+	sl->data = kmalloc(slsize, GFP_KERNEL);
 	if (!sl->data) {
 		clear_bit(n,sbi->symlink_bitmap);
 		unlock_kernel();
