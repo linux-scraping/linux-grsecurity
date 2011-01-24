@@ -21,7 +21,11 @@
 #include <linux/string.h>
 #include <asm/inat.h>
 #include <asm/insn.h>
+#ifdef __KERNEL__
 #include <asm/pgtable_types.h>
+#else
+#define ktla_ktva(addr) addr
+#endif
 
 #define get_next(t, insn)	\
 	({t r; r = *(t*)insn->next_byte; insn->next_byte += sizeof(t); r; })

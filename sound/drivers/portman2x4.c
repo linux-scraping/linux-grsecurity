@@ -84,7 +84,7 @@ struct portman {
 	struct pardevice *pardev;
 	int pardev_claimed;
 
-	atomic_t open_count;
+	local_t open_count;
 	int mode[PORTMAN_NUM_INPUT_PORTS];
 	struct snd_rawmidi_substream *midi_input[PORTMAN_NUM_INPUT_PORTS];
 };

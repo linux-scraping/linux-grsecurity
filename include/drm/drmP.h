@@ -73,6 +73,7 @@
 #include <linux/workqueue.h>
 #include <linux/poll.h>
 #include <asm/pgalloc.h>
+#include <asm/local.h>
 #include "drm.h"
 
 #include <linux/idr.h>
@@ -914,7 +915,7 @@ struct drm_device {
 
 	/** \name Usage Counters */
 	/*@{ */
-	atomic_t open_count;		/**< Outstanding files open */
+	local_t open_count;		/**< Outstanding files open */
 	atomic_t ioctl_count;		/**< Outstanding IOCTLs pending */
 	atomic_t vma_count;		/**< Outstanding vma areas open */
 	int buf_use;			/**< Buffers in use -- cannot alloc */

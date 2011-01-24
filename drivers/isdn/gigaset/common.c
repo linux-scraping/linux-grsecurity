@@ -723,7 +723,7 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
 	cs->commands_pending = 0;
 	cs->cur_at_seq = 0;
 	cs->gotfwver = -1;
-	atomic_set(&cs->open_count, 0);
+	local_set(&cs->open_count, 0);
 	cs->dev = NULL;
 	cs->tty = NULL;
 	cs->tty_dev = NULL;

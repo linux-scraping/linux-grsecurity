@@ -160,7 +160,7 @@ static int if_open(struct tty_struct *tty, struct file *filp)
 		return -ERESTARTSYS;
 	tty->driver_data = cs;
 
-	if (atomic_inc_return(&cs->open_count) == 1) {
+	if (local_inc_return(&cs->open_count) == 1) {
 		spin_lock_irqsave(&cs->lock, flags);
 		cs->tty = tty;
 		spin_unlock_irqrestore(&cs->lock, flags);
@@ -188,10 +188,10 @@ static void if_close(struct tty_struct *tty, struct file *filp)
 
 	if (!cs->connected)
 		gig_dbg(DEBUG_IF, "not connected");	/* nothing to do */
-	else if (!atomic_read(&cs->open_count))
+	else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
-		if (!atomic_dec_return(&cs->open_count)) {
+		if (!local_dec_return(&cs->open_count)) {
 			spin_lock_irqsave(&cs->lock, flags);
 			cs->tty = NULL;
 			spin_unlock_irqrestore(&cs->lock, flags);
@@ -226,7 +226,7 @@ static int if_ioctl(struct tty_struct *tty, struct file *file,
 	if (!cs->connected) {
 		gig_dbg(DEBUG_IF, "not connected");
 		retval = -ENODEV;
-	} else if (!atomic_read(&cs->open_count))
+	} else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
 		retval = 0;
@@ -356,7 +356,7 @@ static int if_write(struct tty_struct *tty, const unsigned char *buf, int count)
 		retval = -ENODEV;
 		goto done;
 	}
-	if (!atomic_read(&cs->open_count)) {
+	if (!local_read(&cs->open_count)) {
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 		retval = -ENODEV;
 		goto done;
@@ -409,7 +409,7 @@ static int if_write_room(struct tty_struct *tty)
 	if (!cs->connected) {
 		gig_dbg(DEBUG_IF, "not connected");
 		retval = -ENODEV;
-	} else if (!atomic_read(&cs->open_count))
+	} else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else if (cs->mstate != MS_LOCKED) {
 		dev_warn(cs->dev, "can't write to unlocked device\n");
@@ -439,7 +439,7 @@ static int if_chars_in_buffer(struct tty_struct *tty)
 
 	if (!cs->connected)
 		gig_dbg(DEBUG_IF, "not connected");
-	else if (!atomic_read(&cs->open_count))
+	else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else if (cs->mstate != MS_LOCKED)
 		dev_warn(cs->dev, "can't write to unlocked device\n");
@@ -467,7 +467,7 @@ static void if_throttle(struct tty_struct *tty)
 
 	if (!cs->connected)
 		gig_dbg(DEBUG_IF, "not connected");	/* nothing to do */
-	else if (!atomic_read(&cs->open_count))
+	else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else
 		gig_dbg(DEBUG_IF, "%s: not implemented\n", __func__);
@@ -491,7 +491,7 @@ static void if_unthrottle(struct tty_struct *tty)
 
 	if (!cs->connected)
 		gig_dbg(DEBUG_IF, "not connected");	/* nothing to do */
-	else if (!atomic_read(&cs->open_count))
+	else if (!local_read(&cs->open_count))
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else
 		gig_dbg(DEBUG_IF, "%s: not implemented\n", __func__);
@@ -522,7 +522,7 @@ static void if_set_termios(struct tty_struct *tty, struct ktermios *old)
 		goto out;
 	}
 
-	if (!atomic_read(&cs->open_count)) {
+	if (!local_read(&cs->open_count)) {
 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 		goto out;
 	}

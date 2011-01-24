@@ -159,7 +159,7 @@ int ieee80211_hw_config(struct ieee80211_local *local, u32 changed)
 		local->hw.conf.power_level = power;
 	}
 
-	if (changed && atomic_read(&local->open_count)) {
+	if (changed && local_read(&local->open_count)) {
 		ret = drv_config(local, changed);
 		/*
 		 * Goal:

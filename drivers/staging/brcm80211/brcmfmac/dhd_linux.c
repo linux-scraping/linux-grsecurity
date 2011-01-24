@@ -864,14 +864,14 @@ static void dhd_op_if(dhd_if_t *ifp)
 			free_netdev(ifp->net);
 		}
 		/* Allocate etherdev, including space for private structure */
-		ifp->net = alloc_etherdev(sizeof(dhd));
+		ifp->net = alloc_etherdev(sizeof(*dhd));
 		if (!ifp->net) {
 			DHD_ERROR(("%s: OOM - alloc_etherdev\n", __func__));
 			ret = -ENOMEM;
 		}
 		if (ret == 0) {
 			strcpy(ifp->net->name, ifp->name);
-			memcpy(netdev_priv(ifp->net), &dhd, sizeof(dhd));
+			memcpy(netdev_priv(ifp->net), dhd, sizeof(*dhd));
 			err = dhd_net_attach(&dhd->pub, ifp->idx);
 			if (err != 0) {
 				DHD_ERROR(("%s: dhd_net_attach failed, "
@@ -1891,25 +1891,23 @@ dhd_pub_t *dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 		strcpy(nv_path, nvram_path);
 
 	/* Allocate etherdev, including space for private structure */
-	net = alloc_etherdev(sizeof(dhd));
+	net = alloc_etherdev(sizeof(*dhd));
 	if (!net) {
 		DHD_ERROR(("%s: OOM - alloc_etherdev\n", __func__));
 		goto fail;
 	}
 
 	/* Allocate primary dhd_info */
-	dhd = kmalloc(sizeof(dhd_info_t), GFP_ATOMIC);
+	dhd = kzalloc(sizeof(dhd_info_t), GFP_ATOMIC);
 	if (!dhd) {
 		DHD_ERROR(("%s: OOM - alloc dhd_info\n", __func__));
 		goto fail;
 	}
 
-	memset(dhd, 0, sizeof(dhd_info_t));
-
 	/*
 	 * Save the dhd_info into the priv
 	 */
-	memcpy(netdev_priv(net), &dhd, sizeof(dhd));
+	memcpy(netdev_priv(net), dhd, sizeof(*dhd));
 	dhd->pub.osh = osh;
 
 	/* Set network interface name if it was provided as module parameter */
@@ -2027,7 +2025,7 @@ dhd_pub_t *dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	/*
 	 * Save the dhd_info into the priv
 	 */
-	memcpy(netdev_priv(net), &dhd, sizeof(dhd));
+	memcpy(netdev_priv(net), dhd, sizeof(*dhd));
 
 #if defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC)
 	g_bus = bus;
