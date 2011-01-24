@@ -166,7 +166,7 @@ static int ieee80211_open(struct net_device *dev)
 		break;
 	}
 
-	if (atomic_read(&local->open_count) == 0) {
+	if (local_read(&local->open_count) == 0) {
 		res = drv_start(local);
 		if (res)
 			goto err_del_bss;
@@ -196,7 +196,7 @@ static int ieee80211_open(struct net_device *dev)
 	 * Validate the MAC address for this device.
 	 */
 	if (!is_valid_ether_addr(dev->dev_addr)) {
-		if (!atomic_read(&local->open_count))
+		if (!local_read(&local->open_count))
 			drv_stop(local);
 		return -EADDRNOTAVAIL;
 	}
@@ -292,7 +292,7 @@ static int ieee80211_open(struct net_device *dev)
 
 	hw_reconf_flags |= __ieee80211_recalc_idle(local);
 
-	atomic_inc(&local->open_count);
+	local_inc(&local->open_count);
 	if (hw_reconf_flags) {
 		ieee80211_hw_config(local, hw_reconf_flags);
 		/*
@@ -320,7 +320,7 @@ static int ieee80211_open(struct net_device *dev)
  err_del_interface:
 	drv_remove_interface(local, &conf);
  err_stop:
-	if (!atomic_read(&local->open_count))
+	if (!local_read(&local->open_count))
 		drv_stop(local);
  err_del_bss:
 	sdata->bss = NULL;
@@ -420,7 +420,7 @@ static int ieee80211_stop(struct net_device *dev)
 		WARN_ON(!list_empty(&sdata->u.ap.vlans));
 	}
 
-	atomic_dec(&local->open_count);
+	local_dec(&local->open_count);
 
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_AP_VLAN:
@@ -526,7 +526,7 @@ static int ieee80211_stop(struct net_device *dev)
 
 	ieee80211_recalc_ps(local, -1);
 
-	if (atomic_read(&local->open_count) == 0) {
+	if (local_read(&local->open_count) == 0) {
 		ieee80211_clear_tx_pending(local);
 		ieee80211_stop_device(local);
 

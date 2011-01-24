@@ -25,6 +25,7 @@
 #include <linux/etherdevice.h>
 #include <net/cfg80211.h>
 #include <net/mac80211.h>
+#include <asm/local.h>
 #include "key.h"
 #include "sta_info.h"
 
@@ -635,7 +636,7 @@ struct ieee80211_local {
 	/* also used to protect ampdu_ac_queue and amdpu_ac_stop_refcnt */
 	spinlock_t queue_stop_reason_lock;
 
-	atomic_t open_count;
+	local_t open_count;
 	int monitors, cooked_mntrs;
 	/* number of interfaces with corresponding FIF_ flags */
 	int fif_fcsfail, fif_plcpfail, fif_control, fif_other_bss, fif_pspoll;

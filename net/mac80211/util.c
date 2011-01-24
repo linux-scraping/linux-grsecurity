@@ -1042,7 +1042,7 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 		local->resuming = true;
 
 	/* restart hardware */
-	if (atomic_read(&local->open_count)) {
+	if (local_read(&local->open_count)) {
 		/*
 		 * Upon resume hardware can sometimes be goofy due to
 		 * various platform / driver / bus issues, so restarting

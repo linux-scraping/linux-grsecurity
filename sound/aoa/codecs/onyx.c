@@ -53,7 +53,7 @@ struct onyx {
 				spdif_locked:1,
 				analog_locked:1,
 				original_mute:2;
-	atomic_t		open_count;
+	local_t			open_count;
 	struct codec_info	*codec_info;
 
 	/* mutex serializes concurrent access to the device
@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_item *cii,
 	struct onyx *onyx = cii->codec_data;
 
 	mutex_lock(&onyx->mutex);
-	atomic_inc(&onyx->open_count);
+	local_inc(&onyx->open_count);
 	mutex_unlock(&onyx->mutex);
 
 	return 0;
@@ -764,7 +764,7 @@ static int onyx_close(struct codec_info_item *cii,
 	struct onyx *onyx = cii->codec_data;
 
 	mutex_lock(&onyx->mutex);
-	if (atomic_dec_and_test(&onyx->open_count))
+	if (local_dec_and_test(&onyx->open_count))
 		onyx->spdif_locked = onyx->analog_locked = 0;
 	mutex_unlock(&onyx->mutex);
 

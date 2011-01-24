@@ -132,7 +132,7 @@ int drm_open(struct inode *inode, struct file *filp)
 	if (!retcode) {
 		atomic_inc_unchecked(&dev->counts[_DRM_STAT_OPENS]);
 		spin_lock(&dev->count_lock);
-		if (atomic_inc_return(&dev->open_count) == 1) {
+		if (local_inc_return(&dev->open_count) == 1) {
 			spin_unlock(&dev->count_lock);
 			retcode = drm_setup(dev);
 			goto out;
@@ -435,7 +435,7 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	lock_kernel();
 
-	DRM_DEBUG("open_count = %d\n", atomic_read(&dev->open_count));
+	DRM_DEBUG("open_count = %d\n", local_read(&dev->open_count));
 
 	if (dev->driver->preclose)
 		dev->driver->preclose(dev, file_priv);
@@ -447,7 +447,7 @@ int drm_release(struct inode *inode, struct file *filp)
 	DRM_DEBUG("pid = %d, device = 0x%lx, open_count = %d\n",
 		  task_pid_nr(current),
 		  (long)old_encode_dev(file_priv->minor->device),
-		  atomic_read(&dev->open_count));
+		  local_read(&dev->open_count));
 
 	/* if the master has gone away we can't do anything with the lock */
 	if (file_priv->minor->master)
@@ -526,7 +526,7 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	atomic_inc_unchecked(&dev->counts[_DRM_STAT_CLOSES]);
 	spin_lock(&dev->count_lock);
-	if (atomic_dec_and_test(&dev->open_count)) {
+	if (local_dec_and_test(&dev->open_count)) {
 		if (atomic_read(&dev->ioctl_count)) {
 			DRM_ERROR("Device busy: %d\n",
 				  atomic_read(&dev->ioctl_count));

@@ -1061,6 +1061,8 @@ static int shmem_writepage(struct page *page, struct writeback_control *wbc)
 		goto unlock;
 	}
 	entry = shmem_swp_entry(info, index, NULL);
+	if (!entry)
+		goto unlock;
 	if (entry->val) {
 		/*
 		 * The more uptodate page coming down from a stacked

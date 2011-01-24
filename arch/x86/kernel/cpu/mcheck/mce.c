@@ -1429,14 +1429,14 @@ void __cpuinit mcheck_init(struct cpuinfo_x86 *c)
  */
 
 static DEFINE_SPINLOCK(mce_state_lock);
-static atomic_t		open_count;		/* #times opened */
+static local_t		open_count;		/* #times opened */
 static int		open_exclu;		/* already open exclusive? */
 
 static int mce_open(struct inode *inode, struct file *file)
 {
 	spin_lock(&mce_state_lock);
 
-	if (open_exclu || (atomic_read(&open_count) && (file->f_flags & O_EXCL))) {
+	if (open_exclu || (local_read(&open_count) && (file->f_flags & O_EXCL))) {
 		spin_unlock(&mce_state_lock);
 
 		return -EBUSY;
@@ -1444,7 +1444,7 @@ static int mce_open(struct inode *inode, struct file *file)
 
 	if (file->f_flags & O_EXCL)
 		open_exclu = 1;
-	atomic_inc(&open_count);
+	local_inc(&open_count);
 
 	spin_unlock(&mce_state_lock);
 
@@ -1455,7 +1455,7 @@ static int mce_release(struct inode *inode, struct file *file)
 {
 	spin_lock(&mce_state_lock);
 
-	atomic_dec(&open_count);
+	local_dec(&open_count);
 	open_exclu = 0;
 
 	spin_unlock(&mce_state_lock);

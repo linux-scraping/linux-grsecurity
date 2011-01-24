@@ -269,10 +269,10 @@ int drm_gem_object_info(struct seq_file *m, void* data)
 	struct drm_device *dev = node->minor->dev;
 
 	seq_printf(m, "%d objects\n", atomic_read(&dev->object_count));
-	seq_printf(m, "%d object bytes\n", atomic_read(&dev->object_memory));
+	seq_printf(m, "%d object bytes\n", atomic_read_unchecked(&dev->object_memory));
 	seq_printf(m, "%d pinned\n", atomic_read(&dev->pin_count));
-	seq_printf(m, "%d pin bytes\n", atomic_read(&dev->pin_memory));
-	seq_printf(m, "%d gtt bytes\n", atomic_read(&dev->gtt_memory));
+	seq_printf(m, "%d pin bytes\n", atomic_read_unchecked(&dev->pin_memory));
+	seq_printf(m, "%d gtt bytes\n", atomic_read_unchecked(&dev->gtt_memory));
 	seq_printf(m, "%d gtt total\n", dev->gtt_total);
 	return 0;
 }

@@ -102,7 +102,7 @@ i915_gem_get_aperture_ioctl(struct drm_device *dev, void *data,
 
 	args->aper_size = dev->gtt_total;
 	args->aper_available_size = (args->aper_size -
-				     atomic_read(&dev->pin_memory));
+				     atomic_read_unchecked(&dev->pin_memory));
 
 	return 0;
 }
@@ -2064,7 +2064,7 @@ i915_gem_object_unbind(struct drm_gem_object *obj)
 
 	if (obj_priv->gtt_space) {
 		atomic_dec(&dev->gtt_count);
-		atomic_sub(obj->size, &dev->gtt_memory);
+		atomic_sub_unchecked(obj->size, &dev->gtt_memory);
 
 		drm_mm_put_block(obj_priv->gtt_space);
 		obj_priv->gtt_space = NULL;
@@ -2707,7 +2707,7 @@ i915_gem_object_bind_to_gtt(struct drm_gem_object *obj, unsigned alignment)
 		goto search_free;
 	}
 	atomic_inc(&dev->gtt_count);
-	atomic_add(obj->size, &dev->gtt_memory);
+	atomic_add_unchecked(obj->size, &dev->gtt_memory);
 
 	/* Assert that the object is not currently in any GPU domain. As it
 	 * wasn't in the GTT, there shouldn't be any way it could have been in
@@ -3761,9 +3761,9 @@ i915_gem_execbuffer(struct drm_device *dev, void *data,
 					  "%d/%d gtt bytes\n",
 					  atomic_read(&dev->object_count),
 					  atomic_read(&dev->pin_count),
-					  atomic_read(&dev->object_memory),
-					  atomic_read(&dev->pin_memory),
-					  atomic_read(&dev->gtt_memory),
+					  atomic_read_unchecked(&dev->object_memory),
+					  atomic_read_unchecked(&dev->pin_memory),
+					  atomic_read_unchecked(&dev->gtt_memory),
 					  dev->gtt_total);
 			}
 			goto err;
@@ -3995,7 +3995,7 @@ i915_gem_object_pin(struct drm_gem_object *obj, uint32_t alignment)
 	 */
 	if (obj_priv->pin_count == 1) {
 		atomic_inc(&dev->pin_count);
-		atomic_add(obj->size, &dev->pin_memory);
+		atomic_add_unchecked(obj->size, &dev->pin_memory);
 		if (!obj_priv->active &&
 		    (obj->write_domain & I915_GEM_GPU_DOMAINS) == 0 &&
 		    !list_empty(&obj_priv->list))
@@ -4028,7 +4028,7 @@ i915_gem_object_unpin(struct drm_gem_object *obj)
 			list_move_tail(&obj_priv->list,
 				       &dev_priv->mm.inactive_list);
 		atomic_dec(&dev->pin_count);
-		atomic_sub(obj->size, &dev->pin_memory);
+		atomic_sub_unchecked(obj->size, &dev->pin_memory);
 	}
 	i915_verify_inactive(dev, __FILE__, __LINE__);
 }
