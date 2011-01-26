@@ -27,6 +27,7 @@
 #include <sound/initval.h>
 #include <sound/rawmidi.h>
 #include <sound/control.h>
+#include <asm/local.h>
 
 #define CARD_NAME "Miditerminal 4140"
 #define DRIVER_NAME "MTS64"
