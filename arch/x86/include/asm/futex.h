@@ -19,7 +19,7 @@
 		     "\tjmp\t2b\n"				\
 		     "\t.previous\n"				\
 		     _ASM_EXTABLE(1b, 3b)			\
-		     : "=r" (oldval), "=r" (ret), "+m" (*____m(uaddr))\
+		     : "=r" (oldval), "=r" (ret), "+m" (*(u32 *)____m(uaddr))\
 		     : "i" (-EFAULT), "0" (oparg), "1" (0))
 
 #define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg)	\
@@ -36,7 +36,7 @@
 		     _ASM_EXTABLE(1b, 4b)			\
 		     _ASM_EXTABLE(2b, 4b)			\
 		     : "=&a" (oldval), "=&r" (ret),		\
-		       "+m" (*(____m(uaddr))), "=&r" (tem)	\
+		       "+m" (*(u32 *)____m(uaddr)), "=&r" (tem)	\
 		     : "r" (oparg), "i" (-EFAULT), "1" (0))
 
 static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
@@ -130,7 +130,7 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 		     "\tjmp     2b\n"
 		     "\t.previous\n"
 		     _ASM_EXTABLE(1b, 3b)
-		     : "=a" (oldval), "+m" (*____m(uaddr))
+		     : "=a" (oldval), "+m" (*(u32 *)____m(uaddr))
 		     : "i" (-EFAULT), "r" (newval), "0" (oldval)
 		     : "memory"
 	);
