@@ -45,6 +45,7 @@
 #include <asm/ipi.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/local.h>
 
 #include "mce-internal.h"
 

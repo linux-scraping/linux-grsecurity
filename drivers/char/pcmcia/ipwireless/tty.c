@@ -29,6 +29,7 @@
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
 #include <linux/uaccess.h>
+#include <asm/local.h>
 
 #include "tty.h"
 #include "network.h"

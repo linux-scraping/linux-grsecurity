@@ -699,6 +699,7 @@ ENTRY(initial_code)
 ENTRY(initial_pg_pmd)
 	.fill 1024*KPMDS,4,0
 #else
+.section .initial_page_table,"a",@progbits
 ENTRY(initial_page_table)
 	.fill 1024,4,0
 #endif

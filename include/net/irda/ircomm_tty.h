@@ -35,6 +35,7 @@
 #include <linux/termios.h>
 #include <linux/timer.h>
 #include <linux/tty.h>		/* struct tty_struct */
+#include <asm/local.h>
 
 #include <net/irda/irias_object.h>
 #include <net/irda/ircomm_core.h>

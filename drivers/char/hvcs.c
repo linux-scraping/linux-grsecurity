@@ -83,6 +83,7 @@
 #include <asm/hvcserver.h>
 #include <asm/uaccess.h>
 #include <asm/vio.h>
+#include <asm/local.h>
 
 /*
  * 1.3.0 -> 1.3.1 In hvcs_open memset(..,0x00,..) instead of memset(..,0x3F,00).
