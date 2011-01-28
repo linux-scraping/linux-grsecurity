@@ -3,6 +3,7 @@
 
 #include <linux/string.h>
 #include <linux/compiler.h>
+#include <asm/processor.h>
 
 /*
  * This file contains the definitions for the x86 IO instructions
@@ -41,6 +42,17 @@
 #define XQUAD_PORTIO_QUAD 0x40000  /* 256k per quad. */
 
 #ifdef __KERNEL__
+
+#define ARCH_HAS_VALID_PHYS_ADDR_RANGE
+static inline int valid_phys_addr_range(unsigned long addr, size_t count)
+{
+	return ((addr + count + PAGE_SIZE - 1) >> PAGE_SHIFT) < (1ULL << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
+}
+
+static inline int valid_mmap_phys_addr_range(unsigned long pfn, size_t count)
+{
+	return (pfn + (count >> PAGE_SHIFT)) < (1ULL << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
+}
 
 #include <asm-generic/iomap.h>
 
