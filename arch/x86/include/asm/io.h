@@ -219,12 +219,12 @@ extern void set_iounmap_nonlazy(void);
 #define ARCH_HAS_VALID_PHYS_ADDR_RANGE
 static inline int valid_phys_addr_range(unsigned long addr, size_t count)
 {
-	return ((addr + count + PAGE_SIZE - 1) >> PAGE_SHIFT) < (1 << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
+	return ((addr + count + PAGE_SIZE - 1) >> PAGE_SHIFT) < (1ULL << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
 }
 
 static inline int valid_mmap_phys_addr_range(unsigned long pfn, size_t count)
 {
-	return (pfn + (count >> PAGE_SHIFT)) < (1 << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
+	return (pfn + (count >> PAGE_SHIFT)) < (1ULL << (boot_cpu_data.x86_phys_bits - PAGE_SHIFT)) ? 1 : 0;
 }
 
 /*
