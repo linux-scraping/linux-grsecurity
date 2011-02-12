@@ -1095,6 +1095,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 #ifdef CONFIG_PAX_MPROTECT
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
+#ifndef CONFIG_PAX_MPROTECT_COMPAT
 		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC)) {
 			gr_log_rwxmmap(file);
 
@@ -1108,6 +1109,10 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 		if (!(vm_flags & VM_EXEC))
 			vm_flags &= ~VM_MAYEXEC;
+#else
+		if ((vm_flags & (VM_WRITE | VM_EXEC)) != VM_EXEC)
+			vm_flags &= ~(VM_EXEC | VM_MAYEXEC);
+#endif
 		else
 			vm_flags &= ~VM_MAYWRITE;
 	}
@@ -2950,10 +2955,15 @@ int install_special_mapping(struct mm_struct *mm,
 
 #ifdef CONFIG_PAX_MPROTECT
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
+#ifndef CONFIG_PAX_MPROTECT_COMPAT
 		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC))
 			return -EPERM;
 		if (!(vm_flags & VM_EXEC))
 			vm_flags &= ~VM_MAYEXEC;
+#else
+		if ((vm_flags & (VM_WRITE | VM_EXEC)) != VM_EXEC)
+			vm_flags &= ~(VM_EXEC | VM_MAYEXEC);
+#endif
 		else
 			vm_flags &= ~VM_MAYWRITE;
 	}

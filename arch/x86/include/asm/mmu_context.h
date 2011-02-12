@@ -54,8 +54,6 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #endif
 
 	if (likely(prev != next)) {
-		/* stop flush ipis for the previous mm */
-		cpumask_clear_cpu(cpu, mm_cpumask(prev));
 #ifdef CONFIG_SMP
 #ifdef CONFIG_X86_32
 		tlbstate = percpu_read(cpu_tlbstate.state);
@@ -75,6 +73,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #else
 		load_cr3(next->pgd);
 #endif
+		/* stop flush ipis for the previous mm */
+		cpumask_clear_cpu(cpu, mm_cpumask(prev));
 
 		/*
 		 * load the LDT, if the LDT is different:

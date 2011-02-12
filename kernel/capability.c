@@ -309,7 +309,7 @@ int capable(int cap)
 		BUG();
 	}
 
-	if (security_capable(cap) == 0 && gr_is_capable(cap)) {
+	if (security_capable(current_cred(), cap) == 0 && gr_is_capable(cap)) {
 		current->flags |= PF_SUPERPRIV;
 		return 1;
 	}
@@ -323,7 +323,7 @@ int capable_nolog(int cap)
 		BUG();
 	}
 
-	if (security_capable(cap) == 0 && gr_is_capable_nolog(cap)) {
+	if (security_capable(current_cred(), cap) == 0 && gr_is_capable_nolog(cap)) {
 		current->flags |= PF_SUPERPRIV;
 		return 1;
 	}
