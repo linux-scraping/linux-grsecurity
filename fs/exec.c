@@ -2170,7 +2170,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	 */
 	clear_thread_flag(TIF_SIGPENDING);
 
-	if (signr == SIGKILL || signr == SIGILL)
+	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
 		gr_handle_brute_attach(current);
 	gr_learn_resource(current, RLIMIT_CORE, binfmt->min_coredump, 1);
 

@@ -1011,6 +1011,7 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	unsigned long int flags;
 	int ret, blocked, ignored;
 	struct k_sigaction *action;
+	int is_unhandled = 0;
 
 	spin_lock_irqsave(&t->sighand->siglock, flags);
 	action = &t->sighand->action[sig-1];
@@ -1025,11 +1026,17 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	}
 	if (action->sa.sa_handler == SIG_DFL)
 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
+	if (action->sa.sa_handler == SIG_IGN || action->sa.sa_handler == SIG_DFL)
+		is_unhandled = 1;
 	ret = specific_send_sig_info(sig, info, t);
 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
 
-	gr_log_signal(sig, !is_si_special(info) ? info->si_addr : NULL, t);
-	gr_handle_crash(t, sig);
+	/* only deal with unhandled signals, java etc trigger SIGSEGV during
+	   normal operation */
+	if (is_unhandled) {
+		gr_log_signal(sig, !is_si_special(info) ? info->si_addr : NULL, t);
+		gr_handle_crash(t, sig);
+	}
 
 	return ret;
 }

@@ -1159,7 +1159,7 @@ static const struct kernel_symbol *resolve_symbol(Elf_Shdr *sechdrs,
  * /sys/module/foo/sections stuff
  * J. Corbet <corbet@lwn.net>
  */
-#if defined(CONFIG_KALLSYMS) && defined(CONFIG_SYSFS)
+#if defined(CONFIG_KALLSYMS) && defined(CONFIG_SYSFS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 
 static inline bool sect_empty(const Elf_Shdr *sect)
 {

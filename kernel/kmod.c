@@ -97,7 +97,17 @@ int __request_module(bool wait, const char *fmt, ...)
 	   auto-loaded
 	*/
 	if (current_uid()) {
-		gr_log_nonroot_mod_load(module_name);
+#if !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
+		/* There are known knowns.  These are things we know
+		   that we know.  There are known unknowns.  That is to say,
+		   there are things that we know we don't know.  But there are
+		   also unknown unknowns.  There are things we don't know
+		   we don't know.
+		   This here is a known unknown.
+		*/
+		if (strcmp(module_name, "net-pf-10"))
+#endif
+			gr_log_nonroot_mod_load(module_name);
 		return -EPERM;
 	}
 #endif
