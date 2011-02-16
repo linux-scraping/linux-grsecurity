@@ -1,5 +1,5 @@
---- a/grsecurity-2.2.1-2.6.37-201102151944.patch
-+++ b/grsecurity-2.2.1-2.6.37-201102151944.patch
+--- a/grsecurity-2.2.1-2.6.37-201102152009.patch
++++ b/grsecurity-2.2.1-2.6.37-201102152009.patch
 @@ -1,209 +1,3 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index d9bcffd594331d7b52a5608269327a7c6642af31..0e6f12df63ea2bac39ed1338beeab24eb28eb538 100644
@@ -11368,7 +11368,7 @@
 +@@ -2934,7 +2934,7 @@ static int intel_mapping_error(struct de
 @@ -27700,4 +27037,15 @@
 -diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
--index 63d5042f2079141a8740d77fae118d9c5bb707af..1d54072e78383a3f7c3bd618163ffb2ec4622647 100644
+-index 63d5042f2079141a8740d77fae118d9c5bb707af..1539d2c7b45b73a289566f01dda999a18a9354d6 100644
 ---- a/drivers/pci/pci-sysfs.c
 -+++ b/drivers/pci/pci-sysfs.c
 +diff -urNp linux-2.6.37/drivers/pci/pcie/portdrv_pci.c linux-2.6.37/drivers/pci/pcie/portdrv_pci.c
@@ -11385,7 +11385,7 @@
 + 
 +diff -urNp linux-2.6.37/drivers/pci/pci-sysfs.c linux-2.6.37/drivers/pci/pci-sysfs.c
 +--- linux-2.6.37/drivers/pci/pci-sysfs.c	2011-01-04 19:50:19.000000000 -0500
-++++ linux-2.6.37/drivers/pci/pci-sysfs.c	2011-02-12 10:32:55.000000000 -0500
+++++ linux-2.6.37/drivers/pci/pci-sysfs.c	2011-02-15 20:09:35.000000000 -0500
 @@ -27712 +27060 @@
 -@@ -368,7 +369,7 @@ pci_read_config(struct file *filp, struct kobject *kobj,
 +@@ -368,7 +369,7 @@ pci_read_config(struct file *filp, struc
