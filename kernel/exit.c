@@ -54,7 +54,6 @@
 #include <asm/unistd.h>
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
-#include "cred-internals.h"
 
 #ifdef CONFIG_GRKERNSEC
 extern rwlock_t grsec_exec_file_lock;
