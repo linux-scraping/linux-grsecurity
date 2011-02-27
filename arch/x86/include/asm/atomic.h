@@ -446,6 +446,49 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
+/**
+ * atomic_inc_not_zero_hint - increment if not null
+ * @v: pointer of type atomic_t
+ * @hint: probable value of the atomic before the increment
+ *
+ * This version of atomic_inc_not_zero() gives a hint of probable
+ * value of the atomic. This helps processor to not read the memory
+ * before doing the atomic read/modify/write cycle, lowering
+ * number of bus transactions on some arches.
+ *
+ * Returns: 0 if increment was not done, 1 otherwise.
+ */
+#define atomic_inc_not_zero_hint atomic_inc_not_zero_hint
+static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
+{
+	int val, c = hint, new;
+
+	/* sanity test, should be removed by compiler if hint is a constant */
+	if (!hint)
+		return atomic_inc_not_zero(v);
+
+	do {
+		asm volatile("incl %0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+			     "jno 0f\n"
+			     "decl %0\n"
+			     "int $4\n0:\n"
+			     _ASM_EXTABLE(0b, 0b)
+#endif
+
+			     : "=r" (new)
+			     : "0" (c));
+
+		val = atomic_cmpxchg(v, c, new);
+		if (val == c)
+			return 1;
+		c = val;
+	} while (c);
+
+	return 0;
+}
+
 /*
  * atomic_dec_if_positive - decrement by 1 if old value positive
  * @v: pointer of type atomic_t

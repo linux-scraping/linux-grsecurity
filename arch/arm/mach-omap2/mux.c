@@ -393,7 +393,7 @@ static void __init omap_mux_dbg_init(void)
 	list_for_each_entry(e, &muxmodes, node) {
 		struct omap_mux *m = &e->mux;
 
-		(void)debugfs_create_file(m->muxnames[0], S_IWUGO, mux_dbg_dir,
+		(void)debugfs_create_file(m->muxnames[0], S_IWUSR, mux_dbg_dir,
 					m, &omap_mux_dbg_signal_fops);
 	}
 }
