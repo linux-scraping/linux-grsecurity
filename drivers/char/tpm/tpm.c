@@ -402,7 +402,7 @@ static ssize_t tpm_transmit(struct tpm_chip *chip, const char *buf,
 		    chip->vendor.req_complete_val)
 			goto out_recv;
 
-		if ((status == chip->vendor.req_canceled)) {
+		if (status == chip->vendor.req_canceled) {
 			dev_err(chip->dev, "Operation Canceled\n");
 			rc = -ECANCELED;
 			goto out;

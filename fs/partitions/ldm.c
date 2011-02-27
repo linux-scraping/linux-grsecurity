@@ -251,6 +251,11 @@ static bool ldm_parse_vmdb (const u8 *data, struct vmdb *vm)
 	}
 
 	vm->vblk_size     = get_unaligned_be32(data + 0x08);
+	if (vm->vblk_size == 0) {
+		ldm_error ("Illegal VBLK size");
+		return false;
+	}
+
 	vm->vblk_offset   = get_unaligned_be32(data + 0x0C);
 	vm->last_vblk_seq = get_unaligned_be32(data + 0x04);
 
@@ -1308,7 +1313,7 @@ static bool ldm_frag_add (const u8 *data, int size, struct list_head *frags)
 			goto found;
 	}
 
-	f = kmalloc (sizeof (*f) + size*num, GFP_KERNEL);
+	f = kmalloc (size*num + sizeof (*f), GFP_KERNEL);
 	if (!f) {
 		ldm_crit ("Out of memory.");
 		return false;

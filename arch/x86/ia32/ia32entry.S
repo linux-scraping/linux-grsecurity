@@ -94,6 +94,18 @@ ENTRY(native_irq_enable_sysexit)
 ENDPROC(native_irq_enable_sysexit)
 #endif
 
+	.macro pax_enter_kernel_user
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_enter_kernel_user
+#endif
+	.endm
+
+	.macro pax_exit_kernel_user
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_exit_kernel_user
+#endif
+	.endm
+
 /*
  * 32bit SYSENTER instruction entry.
  *
@@ -121,11 +133,7 @@ ENTRY(ia32_sysenter_target)
 	SWAPGS_UNSAFE_STACK
 	movq	PER_CPU_VAR(kernel_stack), %rsp
 	addq	$(KERNEL_STACK_OFFSET),%rsp
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_enter_kernel_user
-#endif
-
+	pax_enter_kernel_user
 	/*
 	 * No need to follow this irqs on/off section: the syscall
 	 * disabled irqs, here we enable it straight after entry:
@@ -184,11 +192,7 @@ sysenter_dispatch:
 	testl	$_TIF_ALLWORK_MASK,TI_flags(%r10)
 	jnz	sysexit_audit
 sysexit_from_sys_call:
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel_user
-#endif
-
+	pax_exit_kernel_user
 	andl    $~TS_COMPAT,TI_status(%r10)
 	/* clear IF, that popfq doesn't enable interrupts early */
 	andl  $~0x200,EFLAGS-R11(%rsp) 
@@ -309,7 +313,7 @@ ENTRY(ia32_cstar_target)
 	movq	PER_CPU_VAR(kernel_stack),%rsp
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_enter_kernel_user
+	pax_enter_kernel_user
 #endif
 
 	/*
@@ -361,11 +365,7 @@ cstar_dispatch:
 	testl $_TIF_ALLWORK_MASK,TI_flags(%r10)
 	jnz sysretl_audit
 sysretl_from_sys_call:
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel_user
-#endif
-
+	pax_exit_kernel_user
 	andl $~TS_COMPAT,TI_status(%r10)
 	RESTORE_ARGS 1,-ARG_SKIP,1,1,1
 	movl RIP-ARGOFFSET(%rsp),%ecx
@@ -448,11 +448,7 @@ ENTRY(ia32_syscall)
 	CFI_REL_OFFSET	rip,RIP-RIP
 	PARAVIRT_ADJUST_EXCEPTION_FRAME
 	SWAPGS
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_enter_kernel_user
-#endif
-
+	pax_enter_kernel_user
 	/*
 	 * No need to follow this irqs on/off section: the syscall
 	 * disabled irqs and here we enable it straight after entry:

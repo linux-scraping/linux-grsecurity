@@ -257,7 +257,7 @@ void __init init_ohci1394_dma_on_all_controllers(void)
 			for (func = 0; func < 8; func++) {
 				u32 class = read_pci_config(num,slot,func,
 							PCI_CLASS_REVISION);
-				if ((class == 0xffffffff))
+				if (class == 0xffffffff)
 					continue; /* No device at this func */
 
 				if (class>>8 != PCI_CLASS_SERIAL_FIREWIRE_OHCI)

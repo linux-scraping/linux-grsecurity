@@ -1469,7 +1469,7 @@ void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
  * We must return the syscall number to actually look up in the table.
  * This can be -1L to skip running any syscall at all.
  */
-asmregparm long syscall_trace_enter(struct pt_regs *regs)
+long syscall_trace_enter(struct pt_regs *regs)
 {
 	long ret = 0;
 
@@ -1514,7 +1514,7 @@ asmregparm long syscall_trace_enter(struct pt_regs *regs)
 	return ret ?: regs->orig_ax;
 }
 
-asmregparm void syscall_trace_leave(struct pt_regs *regs)
+void syscall_trace_leave(struct pt_regs *regs)
 {
 	if (unlikely(current->audit_context))
 		audit_syscall_exit(AUDITSC_RESULT(regs->ax), regs->ax);

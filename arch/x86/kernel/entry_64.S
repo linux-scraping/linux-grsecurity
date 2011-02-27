@@ -189,9 +189,20 @@ ENDPROC(native_usergs_sysret64)
 #endif
 	.endm
 
-ENTRY(pax_enter_kernel)
+	.macro pax_enter_kernel
+#ifdef CONFIG_PAX_KERNEXEC
+	call pax_enter_kernel
+#endif
+	.endm
+
+	.macro pax_exit_kernel
+#ifdef CONFIG_PAX_KERNEXEC
+	call pax_exit_kernel
+#endif
+	.endm
 
 #ifdef CONFIG_PAX_KERNEXEC
+ENTRY(pax_enter_kernel)
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
@@ -214,14 +225,10 @@ ENTRY(pax_enter_kernel)
 #endif
 
 	pop %rdi
-#endif
-
 	retq
 ENDPROC(pax_enter_kernel)
 
 ENTRY(pax_exit_kernel)
-
-#ifdef CONFIG_PAX_KERNEXEC
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
@@ -242,14 +249,24 @@ ENTRY(pax_exit_kernel)
 #endif
 
 	pop %rdi
-#endif
-
 	retq
 ENDPROC(pax_exit_kernel)
+#endif
 
-ENTRY(pax_enter_kernel_user)
+	.macro pax_enter_kernel_user
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_enter_kernel_user
+#endif
+	.endm
+
+	.macro pax_exit_kernel_user
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	call pax_exit_kernel_user
+#endif
+	.endm
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
+ENTRY(pax_enter_kernel_user)
 	push %rdi
 	push %rbx
 
@@ -301,14 +318,10 @@ ENTRY(pax_enter_kernel_user)
 
 	pop %rbx
 	pop %rdi
-#endif
-
 	retq
 ENDPROC(pax_enter_kernel_user)
 
 ENTRY(pax_exit_kernel_user)
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
@@ -354,10 +367,9 @@ ENTRY(pax_exit_kernel_user)
 #endif
 
 	pop %rdi
-#endif
-
 	retq
 ENDPROC(pax_exit_kernel_user)
+#endif
 
 .macro TRACE_IRQS_IRETQ offset=ARGOFFSET
 #ifdef CONFIG_TRACE_IRQFLAGS
@@ -652,11 +664,7 @@ ENTRY(system_call_after_swapgs)
 
 	movq	%rsp,PER_CPU_VAR(old_rsp)
 	movq	PER_CPU_VAR(kernel_stack),%rsp
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_enter_kernel_user
-#endif
-
+	pax_enter_kernel_user
 	/*
 	 * No need to follow this irqs off/on section - it's straight
 	 * and short:
@@ -691,11 +699,7 @@ sysret_check:
 	andl %edi,%edx
 	jnz  sysret_careful
 	CFI_REMEMBER_STATE
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel_user
-#endif
-
+	pax_exit_kernel_user
 	/*
 	 * sysretq will re-enable interrupts:
 	 */
@@ -997,12 +1001,12 @@ END(interrupt)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rdi)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	call \func
 	.endm
@@ -1048,18 +1052,14 @@ retint_swapgs:		/* return to user-space */
 	 * The iretq could re-enable interrupts:
 	 */
 	DISABLE_INTERRUPTS(CLBR_ANY)
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel_user
-#endif
-
+	pax_exit_kernel_user
 	TRACE_IRQS_IRETQ
 	SWAPGS
 	jmp restore_args
 
 retint_restore_args:	/* return to kernel space */
 	DISABLE_INTERRUPTS(CLBR_ANY)
-	call pax_exit_kernel
+	pax_exit_kernel
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
@@ -1245,12 +1245,12 @@ ENTRY(\sym)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
@@ -1272,12 +1272,12 @@ ENTRY(\sym)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
@@ -1299,12 +1299,12 @@ ENTRY(\sym)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
@@ -1333,12 +1333,12 @@ ENTRY(\sym)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
@@ -1362,12 +1362,12 @@ ENTRY(\sym)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
@@ -1673,7 +1673,7 @@ ENTRY(paranoid_exit)
 	testb $3,CS(%rsp)
 	jnz   paranoid_userspace
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel
+	pax_exit_kernel
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
@@ -1681,16 +1681,16 @@ ENTRY(paranoid_exit)
 #endif
 paranoid_swapgs:
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call pax_exit_kernel_user
+	pax_exit_kernel_user
 #else
-	call pax_exit_kernel
+	pax_exit_kernel
 #endif
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
 	jmp irq_return
 paranoid_restore:
-	call pax_exit_kernel
+	pax_exit_kernel
 	TRACE_IRQS_IRETQ 0
 	RESTORE_ALL 8
 	jmp irq_return
@@ -1810,12 +1810,12 @@ ENTRY(nmi)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rsp)
 	jnz 1f
-	call pax_enter_kernel
+	pax_enter_kernel
 	jmp 2f
-1:	call pax_enter_kernel_user
+1:	pax_enter_kernel_user
 2:
 #else
-	call pax_enter_kernel
+	pax_enter_kernel
 #endif
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi
@@ -1829,10 +1829,23 @@ ENTRY(nmi)
 	jnz nmi_restore
 	testb $3,CS(%rsp)
 	jnz nmi_userspace
-nmi_swapgs:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pax_exit_kernel
 	SWAPGS_UNSAFE_STACK
+	RESTORE_ALL 8
+	jmp irq_return
+#endif
+nmi_swapgs:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pax_exit_kernel_user
+#else
+	pax_exit_kernel
+#endif
+	SWAPGS_UNSAFE_STACK
+	RESTORE_ALL 8
+	jmp irq_return
 nmi_restore:
-	call pax_exit_kernel
+	pax_exit_kernel
 	RESTORE_ALL 8
 	jmp irq_return
 nmi_userspace:
