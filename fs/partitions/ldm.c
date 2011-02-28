@@ -252,7 +252,7 @@ static bool ldm_parse_vmdb (const u8 *data, struct vmdb *vm)
 
 	vm->vblk_size     = get_unaligned_be32(data + 0x08);
 	if (vm->vblk_size == 0) {
-		ldm_eror ("Illegal VBLK size");
+		ldm_error ("Illegal VBLK size");
 		return false;
 	}
 
