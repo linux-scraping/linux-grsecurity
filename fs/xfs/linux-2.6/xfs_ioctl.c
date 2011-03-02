@@ -697,6 +697,7 @@ xfs_ioc_fsgeometry_v1(
 	xfs_fsop_geom_v1_t	fsgeo;
 	int			error;
 
+	memset(&fsgeo, 0, sizeof(fsgeo));
 	error = xfs_fs_geometry(mp, (xfs_fsop_geom_t *)&fsgeo, 3);
 	if (error)
 		return -error;
@@ -714,6 +715,7 @@ xfs_ioc_fsgeometry(
 	xfs_fsop_geom_t		fsgeo;
 	int			error;
 
+	memset(&fsgeo, 0, sizeof(fsgeo));
 	error = xfs_fs_geometry(mp, &fsgeo, 4);
 	if (error)
 		return -error;

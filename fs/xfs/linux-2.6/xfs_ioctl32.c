@@ -73,6 +73,7 @@ xfs_compat_ioc_fsgeometry_v1(
 	xfs_fsop_geom_t		  fsgeo;
 	int			  error;
 
+	memset(&fsgeo, 0, sizeof(fsgeo));
 	error = xfs_fs_geometry(mp, &fsgeo, 3);
 	if (error)
 		return -error;
