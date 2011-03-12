@@ -36,7 +36,11 @@ struct sysfs_dirent sysfs_root = {
 	.s_name		= "",
 	.s_count	= ATOMIC_INIT(1),
 	.s_flags	= SYSFS_DIR | (KOBJ_NS_TYPE_NONE << SYSFS_NS_TYPE_SHIFT),
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+	.s_mode		= S_IFDIR | S_IRWXU,
+#else
 	.s_mode		= S_IFDIR | S_IRWXU | S_IRUGO | S_IXUGO,
+#endif
 	.s_ino		= 1,
 };
 

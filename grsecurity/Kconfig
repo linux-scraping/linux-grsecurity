@@ -124,6 +124,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_CHROOT_CAPS
 	select GRKERNSEC_CHROOT_SYSCTL
 	select GRKERNSEC_CHROOT_FINDTASK
+	select GRKERNSEC_SYSFS_RESTRICT
 	select GRKERNSEC_PROC
 	select GRKERNSEC_PROC_MEMMAP if (PAX_NOEXEC || PAX_ASLR)
 	select GRKERNSEC_HIDESYM
@@ -190,6 +191,7 @@ config GRKERNSEC_HIGH
 	  - Hardening of module auto-loading
 	  - Ptrace restrictions
 	  - Restricted vm86 mode
+	  - Restricted sysfs/debugfs
 
 config GRKERNSEC_CUSTOM
 	bool "Custom"
@@ -419,7 +421,7 @@ config GRKERNSEC_LINK
 	help
 	  If you say Y here, /tmp race exploits will be prevented, since users
 	  will no longer be able to follow symlinks owned by other users in
-	  world-writable +t directories (i.e. /tmp), unless the owner of the
+	  world-writable +t directories (e.g. /tmp), unless the owner of the
 	  symlink is the owner of the directory. users will also not be
 	  able to hardlink to files they do not own.  If the sysctl option is
 	  enabled, a sysctl option with name "linking_restrictions" is created.
@@ -428,10 +430,25 @@ config GRKERNSEC_FIFO
 	bool "FIFO restrictions"
 	help
 	  If you say Y here, users will not be able to write to FIFOs they don't
-	  own in world-writable +t directories (i.e. /tmp), unless the owner of
+	  own in world-writable +t directories (e.g. /tmp), unless the owner of
 	  the FIFO is the same owner of the directory it's held in.  If the sysctl
 	  option is enabled, a sysctl option with name "fifo_restrictions" is
 	  created.
+
+config GRKERNSEC_SYSFS_RESTRICT
+	bool "Sysfs/debugfs restriction"
+	depends on SYSFS
+	help
+	  If you say Y here, sysfs (the pseudo-filesystem mounted at /sys) and
+	  any filesystem normally mounted under it (e.g. debugfs) will only
+	  be accessible by root.  These filesystems generally provide access
+	  to hardware and debug information that isn't appropriate for unprivileged
+	  users of the system.  Sysfs and debugfs have also become a large source
+	  of new vulnerabilities, ranging from infoleaks to local compromise.
+	  There has been very little oversight with an eye toward security involved
+	  in adding new exporters of information to these filesystems, so their
+	  use is discouraged.
+	  This option is equivalent to a chmod 0700 of the mount paths.
 
 config GRKERNSEC_ROFS
 	bool "Runtime read-only mount protection"
