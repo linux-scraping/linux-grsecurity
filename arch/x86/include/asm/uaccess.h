@@ -218,7 +218,7 @@ extern int __get_user_bad(void);
 		     : "0" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-#define __copyuser_seg "%%gs:"
+#define __copyuser_seg "gs;"
 #define __COPYUSER_SET_ES "pushl %%gs; popl %%es\n"
 #define __COPYUSER_RESTORE_ES "pushl %%ss; popl %%es\n"
 #else
@@ -229,8 +229,8 @@ extern int __get_user_bad(void);
 
 #ifdef CONFIG_X86_32
 #define __put_user_asm_u64(x, addr, err, errret)			\
-	asm volatile("1:	movl %%eax," __copyuser_seg"0(%2)\n"	\
-		     "2:	movl %%edx," __copyuser_seg"4(%2)\n"	\
+	asm volatile("1:	"__copyuser_seg"movl %%eax,0(%2)\n"	\
+		     "2:	"__copyuser_seg"movl %%edx,4(%2)\n"	\
 		     "3:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
 		     "4:	movl %3,%0\n"				\
@@ -242,8 +242,8 @@ extern int __get_user_bad(void);
 		     : "A" (x), "r" (addr), "i" (errret), "0" (err))
 
 #define __put_user_asm_ex_u64(x, addr)					\
-	asm volatile("1:	movl %%eax," __copyuser_seg"0(%1)\n"	\
-		     "2:	movl %%edx," __copyuser_seg"4(%1)\n"	\
+	asm volatile("1:	"__copyuser_seg"movl %%eax,0(%1)\n"	\
+		     "2:	"__copyuser_seg"movl %%edx,4(%1)\n"	\
 		     "3:\n"						\
 		     _ASM_EXTABLE(1b, 2b - 1b)				\
 		     _ASM_EXTABLE(2b, 3b - 2b)				\
@@ -416,7 +416,7 @@ do {									\
 } while (0)
 
 #define __get_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
-	asm volatile("1:	mov"itype" "__copyuser_seg"%2,%"rtype"1\n"\
+	asm volatile("1:	"__copyuser_seg"mov"itype" %2,%"rtype"1\n"\
 		     "2:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
 		     "3:	mov %3,%0\n"				\
@@ -449,7 +449,7 @@ do {									\
 } while (0)
 
 #define __get_user_asm_ex(x, addr, itype, rtype, ltype)			\
-	asm volatile("1:	mov"itype" "__copyuser_seg"%1,%"rtype"0\n"\
+	asm volatile("1:	"__copyuser_seg"mov"itype" %1,%"rtype"0\n"\
 		     "2:\n"						\
 		     _ASM_EXTABLE(1b, 2b - 1b)				\
 		     : ltype(x) : "m" (__m(addr)))
@@ -491,7 +491,7 @@ struct __large_struct { unsigned long buf[100]; };
  * aliasing issues.
  */
 #define __put_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
-	asm volatile("1:	mov"itype" %"rtype"1," __copyuser_seg"%2\n"\
+	asm volatile("1:	"__copyuser_seg"mov"itype" %"rtype"1,%2\n"\
 		     "2:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
 		     "3:	mov %3,%0\n"				\
@@ -502,7 +502,7 @@ struct __large_struct { unsigned long buf[100]; };
 		     : ltype (x), "m" (__m(addr)), "i" (errret), "0" (err))
 
 #define __put_user_asm_ex(x, addr, itype, rtype, ltype)			\
-	asm volatile("1:	mov"itype" %"rtype"0," __copyuser_seg"%1\n"\
+	asm volatile("1:	"__copyuser_seg"mov"itype" %"rtype"0,%1\n"\
 		     "2:\n"						\
 		     _ASM_EXTABLE(1b, 2b - 1b)				\
 		     : : ltype(x), "m" (__m(addr)))

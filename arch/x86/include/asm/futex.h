@@ -63,10 +63,10 @@ static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 
 	switch (op) {
 	case FUTEX_OP_SET:
-		__futex_atomic_op1("xchgl %0, "__copyuser_seg"%2", ret, oldval, uaddr, oparg);
+		__futex_atomic_op1(__copyuser_seg"xchgl %0, %2", ret, oldval, uaddr, oparg);
 		break;
 	case FUTEX_OP_ADD:
-		__futex_atomic_op1(LOCK_PREFIX "xaddl %0, "__copyuser_seg"%2", ret, oldval,
+		__futex_atomic_op1(LOCK_PREFIX __copyuser_seg"xaddl %0, %2", ret, oldval,
 				   uaddr, oparg);
 		break;
 	case FUTEX_OP_OR:
@@ -124,7 +124,7 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 __user *uaddr, int oldval,
 	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(u32)))
 		return -EFAULT;
 
-	asm volatile("1:\t" LOCK_PREFIX "cmpxchgl %3, "__copyuser_seg"%1\n"
+	asm volatile("1:\t" LOCK_PREFIX __copyuser_seg"cmpxchgl %3, %1\n"
 		     "2:\t.section .fixup, \"ax\"\n"
 		     "3:\tmov     %2, %0\n"
 		     "\tjmp     2b\n"
