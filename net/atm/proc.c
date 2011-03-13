@@ -219,7 +219,11 @@ static void svc_info(struct seq_file *seq, struct atm_vcc *vcc)
 {
 	if (!vcc->dev)
 		seq_printf(seq, sizeof(void *) == 4 ?
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			   "N/A@%p%10s" : "N/A@%p%2s", NULL, "");
+#else
 			   "N/A@%p%10s" : "N/A@%p%2s", vcc, "");
+#endif
 	else
 		seq_printf(seq, "%3d %3d %5d         ",
 			   vcc->dev->number, vcc->vpi, vcc->vci);

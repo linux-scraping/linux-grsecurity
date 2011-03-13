@@ -37,7 +37,7 @@
 #include <asm/pgtable.h>
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-#define __copyuser_seg %gs:
+#define __copyuser_seg gs;
 #else
 #define __copyuser_seg
 #endif
@@ -61,7 +61,7 @@ ENTRY(__get_user_1)
 
 #endif
 
-1:	movzb __copyuser_seg (%_ASM_AX),%edx
+1:	__copyuser_seg movzb (%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC
@@ -87,7 +87,7 @@ ENTRY(__get_user_2)
 
 #endif
 
-2:	movzwl __copyuser_seg -1(%_ASM_AX),%edx
+2:	__copyuser_seg movzwl -1(%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC
@@ -113,7 +113,7 @@ ENTRY(__get_user_4)
 
 #endif
 
-3:	mov __copyuser_seg -3(%_ASM_AX),%edx
+3:	__copyuser_seg mov -3(%_ASM_AX),%edx
 	xor %eax,%eax
 	ret
 	CFI_ENDPROC

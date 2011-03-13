@@ -1081,7 +1081,7 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
  */
 		"invlpg (%0)\n"
 #endif
-		"testb $0,"__copyuser_seg"(%0)\n"
+		__copyuser_seg"testb $0,(%0)\n"
 		"xorb %3,(%1)\n"
 		:
 		: "r" (address), "r" (pte), "q" (pte_mask), "i" (_PAGE_USER)
