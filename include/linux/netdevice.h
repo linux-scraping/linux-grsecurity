@@ -2019,7 +2019,6 @@ static inline u32 dev_ethtool_get_flags(struct net_device *dev)
 #define MODULE_ALIAS_NETDEV(device) \
 	MODULE_ALIAS("netdev-" device)
 
-
 #endif /* __KERNEL__ */
 
 #endif	/* _LINUX_NETDEVICE_H */

@@ -788,6 +788,10 @@ init_variables(const struct gr_arg *arg)
 	real_root = dget(reaper->fs->root.dentry);
 	read_unlock(&reaper->fs->lock);
 	
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
+	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", real_root->d_inode->i_sb->s_dev, real_root->d_inode->i_ino);
+#endif
+
 	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
 	if (fakefs_obj == NULL)
 		return 1;
@@ -1428,7 +1432,7 @@ copy_user_acl(struct gr_arg *arg)
 			goto cleanup;
 		}
 		tmp[len-1] = '\0';
-#ifdef CONFIG_GRKERNSEC_ACL_DEBUG
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 		printk(KERN_ALERT "Copying special role %s\n", tmp);
 #endif
 		sptmp->rolename = tmp;
@@ -2393,7 +2397,7 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 	if (unlikely(obj->mode & GR_WRITE))
 		task->is_writable = 1;
 
-#ifdef CONFIG_GRKERNSEC_ACL_DEBUG
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 	printk(KERN_ALERT "Set role label for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
 #endif
 
@@ -2456,7 +2460,7 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 
 	gr_set_proc_res(task);
 
-#ifdef CONFIG_GRKERNSEC_ACL_DEBUG
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 	printk(KERN_ALERT "Set subject label for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
 #endif
 	return 0;
@@ -2837,7 +2841,7 @@ assign_special_role(char *rolename)
 	if (unlikely(obj->mode & GR_WRITE))
 		tsk->is_writable = 1;
 
-#ifdef CONFIG_GRKERNSEC_ACL_DEBUG
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 	printk(KERN_ALERT "Assigning special role:%s subject:%s to process (%s:%d)\n", tsk->role->rolename, tsk->acl->filename, tsk->comm, tsk->pid);
 #endif
 
@@ -3239,7 +3243,7 @@ gr_set_acls(const int type)
 
 				gr_set_proc_res(task);
 
-#ifdef CONFIG_GRKERNSEC_ACL_DEBUG
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 				printk(KERN_ALERT "gr_set_acls for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
 #endif
 			} else {
