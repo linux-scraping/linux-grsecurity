@@ -63,14 +63,14 @@ static inline void pack_gate(gate_desc *gate, unsigned char type,
 			     unsigned long base, unsigned dpl, unsigned flags,
 			     unsigned short seg)
 {
-	gate->offset_low = base;
-	gate->seg = seg;
-	gate->reserved = 0;
-	gate->type = type;
-	gate->s = 0;
-	gate->dpl = dpl;
-	gate->p = 1;
-	gate->offset_high = base >> 16;
+	gate->gate.offset_low = base;
+	gate->gate.seg = seg;
+	gate->gate.reserved = 0;
+	gate->gate.type = type;
+	gate->gate.s = 0;
+	gate->gate.dpl = dpl;
+	gate->gate.p = 1;
+	gate->gate.offset_high = base >> 16;
 }
 
 #endif

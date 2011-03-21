@@ -334,8 +334,9 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 		goto fail;
 
 	/* either no address requested or cant fit in requested address hole */
-	addr = (mm->free_area_cache - len) & huge_page_mask(h);
+	addr = (mm->free_area_cache - len);
 	do {
+		addr &= huge_page_mask(h);
 		vma = find_vma(mm, addr);
 		/*
 		 * Lookup failure means no vma is above this address,
@@ -359,8 +360,8 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 			largest_hole = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = (vma->vm_start - len) & huge_page_mask(h);
-	} while (len <= vma->vm_start);
+		addr = skip_heap_stack_gap(vma, len);
+	} while (!IS_ERR_VALUE(addr));
 
 fail:
 	/*

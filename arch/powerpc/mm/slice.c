@@ -313,10 +313,14 @@ static unsigned long slice_find_area_topdown(struct mm_struct *mm,
 		}
 	}
 
-	addr = mm->mmap_base;
-	while (addr > len) {
+	if (mm->mmap_base < len)
+		addr = -ENOMEM;
+	else
+		addr = mm->mmap_base - len;
+
+	while (!IS_ERR_VALUE(addr)) {
 		/* Go down by chunk size */
-		addr = _ALIGN_DOWN(addr - len, 1ul << pshift);
+		addr = _ALIGN_DOWN(addr, 1ul << pshift);
 
 		/* Check for hit with different page size */
 		mask = slice_range_to_mask(addr, len);
@@ -348,7 +352,7 @@ static unsigned long slice_find_area_topdown(struct mm_struct *mm,
 		        mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = vma->vm_start;
+		addr = skip_heap_stack_gap(vma, len);
 	}
 
 	/*

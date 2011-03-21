@@ -602,6 +602,13 @@ static int __kprobes stop_machine_text_poke(void *data)
 
 	flush_icache_range((unsigned long)tpp->addr,
 			   (unsigned long)tpp->addr + tpp->len);
+
+	/*
+	 * Intel Archiecture Software Developer's Manual section 7.1.3 specifies
+	 * that a core serializing instruction such as "cpuid" should be
+	 * executed on _each_ core before the new instruction is made visible.
+	 */
+	sync_core();
 	return 0;
 }
 

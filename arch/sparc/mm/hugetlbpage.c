@@ -116,9 +116,10 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (unlikely(mm->mmap_base < len))
 		goto bottomup;
 
-	addr = (mm->mmap_base-len) & HPAGE_MASK;
+	addr = mm->mmap_base - len;
 
 	do {
+		addr &= HPAGE_MASK;
 		/*
 		 * Lookup failure means no vma is above this address,
 		 * else if new region fits below vma->vm_start,
@@ -135,8 +136,8 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
  		        mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = (vma->vm_start-len) & HPAGE_MASK;
-	} while (likely(len < vma->vm_start));
+		addr = skip_heap_stack_gap(vma, len);
+	} while (!IS_ERR_VALUE(addr));
 
 bottomup:
 	/*

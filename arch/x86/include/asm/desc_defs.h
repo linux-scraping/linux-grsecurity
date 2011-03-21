@@ -36,7 +36,7 @@ struct desc_struct {
 			u16 seg;
 			unsigned reserved: 8, type: 4, s: 1, dpl: 2, p: 1;
 			unsigned offset_high: 16;
-		};
+		} gate;
 	};
 } __attribute__((packed));
 

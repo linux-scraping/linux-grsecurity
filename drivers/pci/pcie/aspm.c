@@ -27,9 +27,9 @@
 #define MODULE_PARAM_PREFIX "pcie_aspm."
 
 /* Note: those are not register definitions */
-#define ASPM_STATE_L0S_UP	(1)	/* Upstream direction L0s state */
-#define ASPM_STATE_L0S_DW	(2)	/* Downstream direction L0s state */
-#define ASPM_STATE_L1		(4)	/* L1 state */
+#define ASPM_STATE_L0S_UP	(1U)	/* Upstream direction L0s state */
+#define ASPM_STATE_L0S_DW	(2U)	/* Downstream direction L0s state */
+#define ASPM_STATE_L1		(4U)	/* L1 state */
 #define ASPM_STATE_L0S		(ASPM_STATE_L0S_UP | ASPM_STATE_L0S_DW)
 #define ASPM_STATE_ALL		(ASPM_STATE_L0S | ASPM_STATE_L1)
 
