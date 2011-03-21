@@ -243,8 +243,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 			mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = vma->vm_start-len;
-	} while (len < vma->vm_start);
+		addr = skip_heap_stack_gap(vma, len);
+	} while (!IS_ERR_VALUE(addr));
 
 bottomup:
 	/*

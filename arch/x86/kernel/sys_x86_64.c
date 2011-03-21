@@ -151,9 +151,11 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* requesting a specific address */
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
-		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len))
-			return addr;
+		if (TASK_SIZE - len >= addr) {
+			vma = find_vma(mm, addr);
+			if (check_heap_stack_gap(vma, addr, len))
+				return addr;
+		}
 	}
 
 	/* check if free_area_cache is useful for us */
@@ -194,8 +196,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 			mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = vma->vm_start-len;
-	} while (len < vma->vm_start);
+		addr = skip_heap_stack_gap(vma, len);
+	} while (!IS_ERR_VALUE(addr));
 
 bottomup:
 	/*

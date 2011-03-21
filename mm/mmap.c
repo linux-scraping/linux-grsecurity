@@ -1411,7 +1411,7 @@ unacct_error:
 	return error;
 }
 
-bool check_heap_stack_gap(struct vm_area_struct *vma, unsigned long addr, unsigned long len)
+bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len)
 {
 	if (!vma) {
 #ifdef CONFIG_STACK_GROWSUP
@@ -1436,6 +1436,17 @@ bool check_heap_stack_gap(struct vm_area_struct *vma, unsigned long addr, unsign
 #endif
 
 	return true;
+}
+
+unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len)
+{
+	if (vma->vm_start < len)
+		return -ENOMEM;
+	if (!(vma->vm_flags & VM_GROWSDOWN))
+		return vma->vm_start - len;
+	if (sysctl_heap_stack_gap <= vma->vm_start - len)
+		return vma->vm_start - len - sysctl_heap_stack_gap;
+	return -ENOMEM;
 }
 
 /* Get an address range which is currently unmapped.
@@ -1603,8 +1614,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
  		        mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = vma->vm_start-len;
-	} while (len < vma->vm_start);
+		addr = skip_heap_stack_gap(vma, len);
+	} while (!IS_ERR_VALUE(addr));
 
 bottomup:
 	/*

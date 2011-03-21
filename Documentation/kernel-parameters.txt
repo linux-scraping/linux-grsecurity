@@ -1842,7 +1842,7 @@ and is between 256 and 4096 characters. It is defined in the file
 			expand down segment used by UDEREF on X86-32 or the frequent
 			page table updates on X86-64.
 
-	pax_softmode=	[X86-32] 0/1 to disable/enable PaX softmode on boot already.
+	pax_softmode=	0/1 to disable/enable PaX softmode on boot already.
 
 	pcbit=		[HW,ISDN]
 

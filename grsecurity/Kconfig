@@ -334,6 +334,10 @@ endmenu
 menu "Role Based Access Control Options"
 depends on GRKERNSEC
 
+config GRKERNSEC_RBAC_DEBUG
+	bool
+	default n
+
 config GRKERNSEC_NO_RBAC
 	bool "Disable RBAC system"
 	help
