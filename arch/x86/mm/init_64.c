@@ -105,7 +105,6 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 
 	for (address = start; address <= end; address += PGDIR_SIZE) {
 		const pgd_t *pgd_ref = pgd_offset_k(address);
-		unsigned long flags;
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		unsigned long cpu;
@@ -116,7 +115,7 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 		if (pgd_none(*pgd_ref))
 			continue;
 
-		spin_lock_irqsave(&pgd_lock, flags);
+		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
@@ -127,6 +126,7 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 			spinlock_t *pgt_lock;
 
 			pgd = (pgd_t *)page_address(page) + pgd_index(address);
+			/* the pgt_lock only for Xen */
 			pgt_lock = &pgd_page_get_mm(page)->page_table_lock;
 			spin_lock(pgt_lock);
 #endif
@@ -142,7 +142,7 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 #endif
 
 		}
-		spin_unlock_irqrestore(&pgd_lock, flags);
+		spin_unlock(&pgd_lock);
 	}
 }
 

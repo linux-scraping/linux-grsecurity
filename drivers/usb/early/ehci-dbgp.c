@@ -96,8 +96,7 @@ static inline u32 dbgp_len_update(u32 x, u32 len)
 }
 
 #ifdef CONFIG_KGDB
-/* cannot be const, see kgdbdbgp_parse_config */
-static struct kgdb_io kgdbdbgp_io_ops;
+static struct kgdb_io kgdbdbgp_io_ops;	/* cannot be const, see kgdbdbgp_parse_config */
 #define dbgp_kgdb_mode (dbg_io_ops == &kgdbdbgp_io_ops)
 #else
 #define dbgp_kgdb_mode (0)
@@ -1027,8 +1026,7 @@ static void kgdbdbgp_write_char(u8 chr)
 	early_dbgp_write(NULL, &chr, 1);
 }
 
-/* cannot be const, see kgdbdbgp_parse_config() */
-static struct kgdb_io kgdbdbgp_io_ops = {
+static struct kgdb_io kgdbdbgp_io_ops = {	/* cannot be const, see kgdbdbgp_parse_config() */
 	.name = "kgdbdbgp",
 	.read_char = kgdbdbgp_read_char,
 	.write_char = kgdbdbgp_write_char,

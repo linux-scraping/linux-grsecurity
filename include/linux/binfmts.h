@@ -25,7 +25,7 @@ struct pt_regs;
 /*
  * This structure is used to hold the arguments that are used when loading binaries.
  */
-struct linux_binprm{
+struct linux_binprm {
 	char buf[BINPRM_BUF_SIZE];
 #ifdef CONFIG_MMU
 	struct vm_area_struct *vma;
@@ -94,7 +94,6 @@ struct linux_binfmt {
 	int (*core_dump)(struct coredump_params *cprm);
 	void (*handle_mprotect)(struct vm_area_struct *vma, unsigned long newflags);
 	unsigned long min_coredump;	/* minimal dump size */
-	int hasvdso;
 };
 
 extern int __register_binfmt(struct linux_binfmt *fmt, int insert);
@@ -114,7 +113,7 @@ extern void unregister_binfmt(struct linux_binfmt *);
 
 extern int prepare_binprm(struct linux_binprm *);
 extern int __must_check remove_arg_zero(struct linux_binprm *);
-extern int search_binary_handler(struct linux_binprm *,struct pt_regs *);
+extern int search_binary_handler(struct linux_binprm *, struct pt_regs *);
 extern int flush_old_exec(struct linux_binprm * bprm);
 extern void setup_new_exec(struct linux_binprm * bprm);
 

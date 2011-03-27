@@ -138,38 +138,16 @@ EXPORT_SYMBOL(gr_pid_is_chrooted);
 #if defined(CONFIG_GRKERNSEC_CHROOT_DOUBLE) || defined(CONFIG_GRKERNSEC_CHROOT_FCHDIR)
 int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u_mnt)
 {
-	struct dentry *dentry = (struct dentry *)u_dentry;
-	struct vfsmount *mnt = (struct vfsmount *)u_mnt;
-	struct path realroot, currentroot;
-	struct task_struct *reaper = &init_task;
-	int ret = 1;
+	struct path path, currentroot;
+	int ret = 0;
 
-	get_fs_root(reaper->fs, &realroot);
+	path.dentry = (struct dentry *)u_dentry;
+	path.mnt = (struct vfsmount *)u_mnt;
 	get_fs_root(current->fs, &currentroot);
-
-	spin_lock(&dcache_lock);
-	for (;;) {
-		if (unlikely((dentry == realroot.dentry && mnt == realroot.mnt)
-		     || (dentry == currentroot.dentry && mnt == currentroot.mnt)))
-			break;
-		if (unlikely(dentry == mnt->mnt_root || IS_ROOT(dentry))) {
-			if (mnt->mnt_parent == mnt)
-				break;
-			dentry = mnt->mnt_mountpoint;
-			mnt = mnt->mnt_parent;
-			continue;
-		}
-		dentry = dentry->d_parent;
-	}
-	spin_unlock(&dcache_lock);
-
+	if (path_is_under(&path, &currentroot))
+		ret = 1;
 	path_put(&currentroot);
 
-	/* access is outside of chroot */
-	if (dentry == realroot.dentry && mnt == realroot.mnt)
-		ret = 0;
-
-	path_put(&realroot);
 	return ret;
 }
 #endif

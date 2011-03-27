@@ -39,7 +39,8 @@ static const char *captab_log[] = {
 	"CAP_AUDIT_CONTROL",
 	"CAP_SETFCAP",
 	"CAP_MAC_OVERRIDE",
-	"CAP_MAC_ADMIN"
+	"CAP_MAC_ADMIN",
+	"CAP_SYSLOG"
 };
 
 EXPORT_SYMBOL(gr_is_capable);

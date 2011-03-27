@@ -161,6 +161,7 @@ extern unsigned int vdso_enabled;
    use of this is to invoke "./ld.so someprog" to test out a new version of
    the loader.  We need to make sure that it is out of the way of the program
    that it will "exec", and that there is sufficient room for the brk.  */
+
 #define ELF_ET_DYN_BASE		(STACK_TOP / 3 * 2)
 
 #ifdef CONFIG_PAX_ASLR
@@ -212,6 +213,8 @@ do {								\
 		disable_noexec(current->mm, current);	\
 	current->mm->context.noexec == 0;		\
 })
+
+#define STACK_RND_MASK	0x7ffUL
 
 #define ARCH_DLINFO							    \
 do {									    \

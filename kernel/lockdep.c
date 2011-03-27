@@ -2297,22 +2297,6 @@ mark_held_locks(struct task_struct *curr, enum mark_type mark)
 }
 
 /*
- * Debugging helper: via this flag we know that we are in
- * 'early bootup code', and will warn about any invalid irqs-on event:
- */
-static int early_boot_irqs_enabled;
-
-void early_boot_irqs_off(void)
-{
-	early_boot_irqs_enabled = 0;
-}
-
-void early_boot_irqs_on(void)
-{
-	early_boot_irqs_enabled = 1;
-}
-
-/*
  * Hardirqs will be enabled:
  */
 void trace_hardirqs_on_caller(unsigned long ip)
@@ -2324,7 +2308,7 @@ void trace_hardirqs_on_caller(unsigned long ip)
 	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
-	if (DEBUG_LOCKS_WARN_ON(unlikely(!early_boot_irqs_enabled)))
+	if (DEBUG_LOCKS_WARN_ON(unlikely(early_boot_irqs_disabled)))
 		return;
 
 	if (unlikely(curr->hardirqs_enabled)) {

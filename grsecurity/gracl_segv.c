@@ -26,6 +26,22 @@ extern struct acl_subject_label *
 			      struct acl_role_label *role);
 extern int specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t);
 
+
+#ifdef CONFIG_BTRFS_FS
+extern dev_t get_btrfs_dev_from_inode(struct inode *inode);
+extern int btrfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat);
+#endif
+
+static inline dev_t __get_dev(const struct dentry *dentry)
+{
+#ifdef CONFIG_BTRFS_FS
+	if (dentry->d_inode->i_op && dentry->d_inode->i_op->getattr == &btrfs_getattr)
+		return get_btrfs_dev_from_inode(dentry->d_inode);
+	else
+#endif
+		return dentry->d_inode->i_sb->s_dev;
+}
+
 int
 gr_init_uidset(void)
 {
@@ -264,7 +280,7 @@ gr_check_crash_exec(const struct file *filp)
 
 	read_lock(&gr_inode_lock);
 	curr = lookup_acl_subj_label(filp->f_path.dentry->d_inode->i_ino,
-				     filp->f_path.dentry->d_inode->i_sb->s_dev,
+				     __get_dev(filp->f_path.dentry),
 				     current->role);
 	read_unlock(&gr_inode_lock);
 

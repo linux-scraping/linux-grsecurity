@@ -35,21 +35,13 @@
 #define DEBUGP(fmt...)
 #endif
 
-static void *__module_alloc(unsigned long size, pgprot_t prot)
+static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 {
-	struct vm_struct *area;
-
-	if (!size)
+	if (PAGE_ALIGN(size) > MODULES_LEN)
 		return NULL;
-	size = PAGE_ALIGN(size);
-	if (size > MODULES_LEN)
-		return NULL;
-
-	area = __get_vm_area(size, VM_ALLOC, MODULES_VADDR, MODULES_END);
-	if (!area)
-		return NULL;
-
-	return __vmalloc_area(area, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, prot);
+	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
+				GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, prot,
+				-1, __builtin_return_address(0));
 }
 
 void *module_alloc(unsigned long size)

@@ -48,7 +48,7 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 		reqmode |= GR_WRITE;
 	if (likely((fmode & FMODE_READ) && !(fmode & O_DIRECTORY)))
 		reqmode |= GR_READ;
-	if ((fmode & FMODE_GREXEC) && (fmode & FMODE_EXEC))
+	if ((fmode & FMODE_GREXEC) && (fmode & __FMODE_EXEC))
 		reqmode &= ~GR_READ;
 	mode =
 	    gr_search_file(dentry, reqmode | to_gr_audit(reqmode) | GR_SUPPRESS,
@@ -401,7 +401,8 @@ gr_acl_handle_exit(void)
 	char *rolename;
 	struct file *exec_file;
 
-	if (unlikely(current->acl_sp_role && gr_acl_is_enabled())) {
+	if (unlikely(current->acl_sp_role && gr_acl_is_enabled() &&
+	    !(current->role->roletype & GR_ROLE_PERSIST))) {
 		id = current->acl_role_id;
 		rolename = current->role->rolename;
 		gr_set_acls(1);

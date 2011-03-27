@@ -223,8 +223,7 @@ struct udp_seq_afinfo {
 	char			*name;
 	sa_family_t		family;
 	struct udp_table	*udp_table;
-	/* cannot be const */
-	struct file_operations	seq_fops;
+	struct file_operations	seq_fops;	/* cannot be const */
 	struct seq_operations	seq_ops;
 };
 

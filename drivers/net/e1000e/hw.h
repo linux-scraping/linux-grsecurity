@@ -1,7 +1,7 @@
 /*******************************************************************************
 
   Intel PRO/1000 Linux driver
-  Copyright(c) 1999 - 2010 Intel Corporation.
+  Copyright(c) 1999 - 2011 Intel Corporation.
 
   This program is free software; you can redistribute it and/or modify it
   under the terms and conditions of the GNU General Public License,
@@ -83,6 +83,7 @@ enum e1e_registers {
 	E1000_EXTCNF_CTRL  = 0x00F00, /* Extended Configuration Control */
 	E1000_EXTCNF_SIZE  = 0x00F08, /* Extended Configuration Size */
 	E1000_PHY_CTRL     = 0x00F10, /* PHY Control Register in CSR */
+#define E1000_POEMB	E1000_PHY_CTRL	/* PHY OEM Bits */
 	E1000_PBA      = 0x01000, /* Packet Buffer Allocation - RW */
 	E1000_PBS      = 0x01008, /* Packet Buffer Size */
 	E1000_EEMNGCTL = 0x01010, /* MNG EEprom Control */
@@ -101,7 +102,7 @@ enum e1e_registers {
 	E1000_RDTR     = 0x02820, /* Rx Delay Timer - RW */
 	E1000_RXDCTL_BASE = 0x02828, /* Rx Descriptor Control - RW */
 #define E1000_RXDCTL(_n)   (E1000_RXDCTL_BASE + (_n << 8))
-	E1000_RADV     = 0x0282C, /* RX Interrupt Absolute Delay Timer - RW */
+	E1000_RADV     = 0x0282C, /* Rx Interrupt Absolute Delay Timer - RW */
 
 /* Convenience macros
  *
@@ -800,9 +801,9 @@ struct e1000_phy_operations {
 
 /* Function pointers for the NVM. */
 struct e1000_nvm_operations {
-	s32  (* const acquire)(struct e1000_hw *);
+	s32  (* acquire)(struct e1000_hw *);	/* cannot be const, see drivers/net/e1000e/82571.c e1000_init_nvm_params_82571() */
 	s32  (* const read)(struct e1000_hw *, u16, u16, u16 *);
-	void (* const release)(struct e1000_hw *);
+	void (* release)(struct e1000_hw *);	/* cannot be const, see drivers/net/e1000e/82571.c e1000_init_nvm_params_82571() */
 	s32  (* const update)(struct e1000_hw *);
 	s32  (* const valid_led_default)(struct e1000_hw *, u16 *);
 	s32  (* const validate)(struct e1000_hw *);

@@ -5,6 +5,19 @@
 #include <linux/slab.h>
 #include <linux/fs_struct.h>
 #include <linux/grsecurity.h>
+#include "internal.h"
+
+static inline void path_get_longterm(struct path *path)
+{
+	path_get(path);
+	mnt_make_longterm(path->mnt);
+}
+
+static inline void path_put_longterm(struct path *path)
+{
+	mnt_make_shortterm(path->mnt);
+	path_put(path);
+}
 
 /*
  * Replace the fs->{rootmnt,root} with {mnt,dentry}. Put the old values.
@@ -15,13 +28,15 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
 	struct path old_root;
 
 	spin_lock(&fs->lock);
+	write_seqcount_begin(&fs->seq);
 	old_root = fs->root;
 	fs->root = *path;
-	path_get(path);
+	path_get_longterm(path);
 	gr_set_chroot_entries(current, path);
+	write_seqcount_end(&fs->seq);
 	spin_unlock(&fs->lock);
 	if (old_root.dentry)
-		path_put(&old_root);
+		path_put_longterm(&old_root);
 }
 
 /*
@@ -33,13 +48,15 @@ void set_fs_pwd(struct fs_struct *fs, struct path *path)
 	struct path old_pwd;
 
 	spin_lock(&fs->lock);
+	write_seqcount_begin(&fs->seq);
 	old_pwd = fs->pwd;
 	fs->pwd = *path;
-	path_get(path);
+	path_get_longterm(path);
+	write_seqcount_end(&fs->seq);
 	spin_unlock(&fs->lock);
 
 	if (old_pwd.dentry)
-		path_put(&old_pwd);
+		path_put_longterm(&old_pwd);
 }
 
 void chroot_fs_refs(struct path *old_root, struct path *new_root)
@@ -54,32 +71,34 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 		fs = p->fs;
 		if (fs) {
 			spin_lock(&fs->lock);
+			write_seqcount_begin(&fs->seq);
 			if (fs->root.dentry == old_root->dentry
 			    && fs->root.mnt == old_root->mnt) {
-				path_get(new_root);
+				path_get_longterm(new_root);
 				fs->root = *new_root;
 				gr_set_chroot_entries(p, new_root);
 				count++;
 			}
 			if (fs->pwd.dentry == old_root->dentry
 			    && fs->pwd.mnt == old_root->mnt) {
-				path_get(new_root);
+				path_get_longterm(new_root);
 				fs->pwd = *new_root;
 				count++;
 			}
+			write_seqcount_end(&fs->seq);
 			spin_unlock(&fs->lock);
 		}
 		task_unlock(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
 	while (count--)
-		path_put(old_root);
+		path_put_longterm(old_root);
 }
 
 void free_fs_struct(struct fs_struct *fs)
 {
-	path_put(&fs->root);
-	path_put(&fs->pwd);
+	path_put_longterm(&fs->root);
+	path_put_longterm(&fs->pwd);
 	kmem_cache_free(fs_cachep, fs);
 }
 
@@ -91,9 +110,11 @@ void exit_fs(struct task_struct *tsk)
 		int kill;
 		task_lock(tsk);
 		spin_lock(&fs->lock);
+		write_seqcount_begin(&fs->seq);
 		tsk->fs = NULL;
 		gr_clear_chroot_entries(tsk);
 		kill = !atomic_dec_return(&fs->users);
+		write_seqcount_end(&fs->seq);
 		spin_unlock(&fs->lock);
 		task_unlock(tsk);
 		if (kill)
@@ -109,8 +130,18 @@ struct fs_struct *copy_fs_struct(struct fs_struct *old)
 		atomic_set(&fs->users, 1);
 		fs->in_exec = 0;
 		spin_lock_init(&fs->lock);
+		seqcount_init(&fs->seq);
 		fs->umask = old->umask;
-		get_fs_root_and_pwd(old, &fs->root, &fs->pwd);
+
+		spin_lock(&old->lock);
+		fs->root = old->root;
+		path_get_longterm(&fs->root);
+		/* instead of calling gr_set_chroot_entries here,
+		   we call it from every caller of this function
+		*/
+		fs->pwd = old->pwd;
+		path_get_longterm(&fs->pwd);
+		spin_unlock(&old->lock);
 	}
 	return fs;
 }
@@ -149,6 +180,7 @@ EXPORT_SYMBOL(current_umask);
 struct fs_struct init_fs = {
 	.users		= ATOMIC_INIT(1),
 	.lock		= __SPIN_LOCK_UNLOCKED(init_fs.lock),
+	.seq		= SEQCNT_ZERO,
 	.umask		= 0022,
 };
 

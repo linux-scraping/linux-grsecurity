@@ -432,6 +432,11 @@ int gr_acl_enable_at_secure(void)
 	return 0;
 }
 
+dev_t gr_get_dev_from_dentry(struct dentry *dentry)
+{
+	return dentry->d_inode->i_sb->s_dev;
+}
+
 EXPORT_SYMBOL(gr_is_capable);
 EXPORT_SYMBOL(gr_is_capable_nolog);
 EXPORT_SYMBOL(gr_learn_resource);

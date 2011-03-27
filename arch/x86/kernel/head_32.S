@@ -100,6 +100,8 @@ __HEAD
 #endif
 
 ENTRY(startup_32)
+	movl pa(stack_start),%ecx
+	
 	/* test KEEP_SEGMENTS flag to see if the bootloader is asking
 		us to not reload segments */
 	testb $(1<<6), BP_loadflags(%esi)
@@ -114,7 +116,9 @@ ENTRY(startup_32)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+	movl %eax,%ss
 2:
+	leal -__PAGE_OFFSET(%ecx),%esp
 
 #ifdef CONFIG_SMP
 	movl $pa(cpu_gdt_table),%edi
@@ -192,7 +196,7 @@ ENTRY(startup_32)
 	movsl
 	movl pa(boot_params) + NEW_CL_POINTER,%esi
 	andl %esi,%esi
-	jz 1f			# No comand line
+	jz 1f			# No command line
 	movl $pa(boot_command_line),%edi
 	movl $(COMMAND_LINE_SIZE/4),%ecx
 	rep
@@ -205,47 +209,13 @@ ENTRY(startup_32)
 	movl %eax, pa(olpc_ofw_pgd)
 #endif
 
-#ifdef CONFIG_PARAVIRT
-	/* This is can only trip for a broken bootloader... */
-	cmpw $0x207, pa(boot_params + BP_version)
-	jb default_entry
-
-	/* Paravirt-compatible boot parameters.  Look to see what architecture
-		we're booting under. */
-	movl pa(boot_params + BP_hardware_subarch), %eax
-	cmpl $num_subarch_entries, %eax
-	jae bad_subarch
-
-	jmp *pa(subarch_entries)(,%eax,4)
-
-bad_subarch:
-WEAK(lguest_entry)
-WEAK(xen_entry)
-	/* Unknown implementation; there's really
-	   nothing we can do at this point. */
-	ud2a
-
-	__INITDATA
-
-subarch_entries:
-	.long ta(default_entry)		/* normal x86/PC */
-	.long ta(lguest_entry)		/* lguest hypervisor */
-	.long ta(xen_entry)		/* Xen hypervisor */
-	.long ta(default_entry)		/* Moorestown MID */
-num_subarch_entries = (. - subarch_entries) / 4
-.previous
-#endif /* CONFIG_PARAVIRT */
-
 /*
  * Initialize page tables.  This creates a PDE and a set of page
  * tables, which are located immediately beyond __brk_base.  The variable
  * _brk_end is set up to point to the first "safe" location.
  * Mappings are created both at virtual address 0 (identity mapping)
  * and PAGE_OFFSET for up to _end.
- *
- * Note that the stack is not yet set up!
  */
-default_entry:
 #ifdef CONFIG_X86_PAE
 
 	/*
@@ -331,7 +301,40 @@ page_pde_offset = (__PAGE_OFFSET >> 20);
 	movl $pa(initial_pg_fixmap)+PDE_IDENT_ATTR,pa(initial_page_table+0xffc)
 #endif
 #endif
-	jmp 3f
+
+#ifdef CONFIG_PARAVIRT
+	/* This is can only trip for a broken bootloader... */
+	cmpw $0x207, pa(boot_params + BP_version)
+	jb default_entry
+
+	/* Paravirt-compatible boot parameters.  Look to see what architecture
+		we're booting under. */
+	movl pa(boot_params + BP_hardware_subarch), %eax
+	cmpl $num_subarch_entries, %eax
+	jae bad_subarch
+
+	jmp *pa(subarch_entries)(,%eax,4)
+
+bad_subarch:
+WEAK(lguest_entry)
+WEAK(xen_entry)
+	/* Unknown implementation; there's really
+	   nothing we can do at this point. */
+	ud2a
+
+	__INITDATA
+
+subarch_entries:
+	.long pa(default_entry)		/* normal x86/PC */
+	.long pa(lguest_entry)		/* lguest hypervisor */
+	.long pa(xen_entry)		/* Xen hypervisor */
+	.long pa(default_entry)		/* Moorestown MID */
+num_subarch_entries = (. - subarch_entries) / 4
+.previous
+#else
+	jmp default_entry
+#endif /* CONFIG_PARAVIRT */
+
 /*
  * Non-boot CPU entry point; entered from trampoline.S
  * We can't lgdt here, because lgdt itself uses a data segment, but
@@ -351,8 +354,11 @@ ENTRY(startup_32_smp)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+	movl pa(stack_start),%ecx
+	movl %eax,%ss
+	leal -__PAGE_OFFSET(%ecx),%esp
 #endif /* CONFIG_SMP */
-3:
+default_entry:
 
 /*
  *	New page tables may be in 4Mbyte page mode and may
@@ -387,6 +393,10 @@ ENTRY(startup_32_smp)
 	subl $0x80000001, %eax
 	cmpl $(0x8000ffff-0x80000001), %eax
 	ja 6f
+
+	/* Clear bogus XD_DISABLE bits */
+	call verify_cpu
+
 	mov $0x80000001, %eax
 	cpuid
 	/* Execute Disable bit supported? */
@@ -416,8 +426,8 @@ ENTRY(startup_32_smp)
 	movl %eax,%cr0		/* ..and set paging (PG) bit */
 	ljmp $__BOOT_CS,$1f	/* Clear prefetch and normalize %eip */
 1:
-	/* Set up the stack pointer */
-	lss stack_start,%esp
+	/* Shift the stack pointer to a virtual address */
+	addl $__PAGE_OFFSET, %esp
 
 /*
  * Initialize eflags.  Some BIOS's leave bits like NT set.  This would
@@ -429,7 +439,7 @@ ENTRY(startup_32_smp)
 
 #ifdef CONFIG_SMP
 	cmpb $0, ready
-	jnz checkCPUtype		/* Initial CPU cleans BSS */
+	jnz checkCPUtype
 #endif /* CONFIG_SMP */
 
 /*
@@ -544,10 +554,7 @@ is386:	movl $2,%ecx		# set MP
 
 	cld			# gcc2 wants the direction flag cleared at all times
 	pushl $0		# fake return address for unwinder
-#ifdef CONFIG_SMP
-	movb ready, %cl
 	movb $1, ready
-#endif /* CONFIG_SMP */
 	jmp *(initial_code)
 
 /*
@@ -686,6 +693,8 @@ ignore_int:
 #endif
 	iret
 
+#include "verify_cpu.S"
+
 	__REFDATA
 .align 4
 ENTRY(initial_code)
@@ -696,7 +705,7 @@ ENTRY(initial_code)
  */
 #ifdef CONFIG_X86_PAE
 .section .initial_pg_pmd,"a",@progbits
-ENTRY(initial_pg_pmd)
+initial_pg_pmd:
 	.fill 1024*KPMDS,4,0
 #else
 .section .initial_page_table,"a",@progbits
@@ -704,7 +713,7 @@ ENTRY(initial_page_table)
 	.fill 1024,4,0
 #endif
 .section .initial_pg_fixmap,"a",@progbits
-ENTRY(initial_pg_fixmap)
+initial_pg_fixmap:
 	.fill 1024,4,0
 .section .empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)
@@ -760,15 +769,15 @@ ENTRY(cpu_pgd)
 #endif
 
 .data
+.balign 4
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE-8
-	.long __BOOT_DS
-
-ready:	.byte 0
 
 .section .rodata,"a",@progbits
 early_recursion_flag:
 	.long 0
+
+ready:	.byte 0
 
 int_msg:
 	.asciz "Unknown interrupt or fault at: %p %p %p\n"

@@ -258,23 +258,6 @@ static inline int hibernate(void) { return -ENOSYS; }
 static inline bool system_entering_hibernation(void) { return false; }
 #endif /* CONFIG_HIBERNATION */
 
-#ifdef CONFIG_SUSPEND_NVS
-extern int suspend_nvs_register(unsigned long start, unsigned long size);
-extern int suspend_nvs_alloc(void);
-extern void suspend_nvs_free(void);
-extern void suspend_nvs_save(void);
-extern void suspend_nvs_restore(void);
-#else /* CONFIG_SUSPEND_NVS */
-static inline int suspend_nvs_register(unsigned long a, unsigned long b)
-{
-	return 0;
-}
-static inline int suspend_nvs_alloc(void) { return 0; }
-static inline void suspend_nvs_free(void) {}
-static inline void suspend_nvs_save(void) {}
-static inline void suspend_nvs_restore(void) {}
-#endif /* CONFIG_SUSPEND_NVS */
-
 #ifdef CONFIG_PM_SLEEP
 void save_processor_state(void);
 void restore_processor_state(void);
@@ -292,7 +275,7 @@ extern int unregister_pm_notifier(struct notifier_block *nb);
 /* drivers/base/power/wakeup.c */
 extern bool events_check_enabled;
 
-extern bool pm_check_wakeup_events(void);
+extern bool pm_wakeup_pending(void);
 extern bool pm_get_wakeup_count(unsigned int *count);
 extern bool pm_save_wakeup_count(unsigned int count);
 #else /* !CONFIG_PM_SLEEP */
@@ -309,7 +292,7 @@ static inline int unregister_pm_notifier(struct notifier_block *nb)
 
 #define pm_notifier(fn, pri)	do { (void)(fn); } while (0)
 
-static inline bool pm_check_wakeup_events(void) { return true; }
+static inline bool pm_wakeup_pending(void) { return false; }
 #endif /* !CONFIG_PM_SLEEP */
 
 extern struct mutex pm_mutex;

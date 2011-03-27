@@ -268,15 +268,13 @@ void vmalloc_sync_all(void)
 	     address >= TASK_SIZE && address < FIXADDR_TOP;
 	     address += PMD_SIZE) {
 
-		unsigned long flags;
-
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		unsigned long cpu;
 #else
 		struct page *page;
 #endif
 
-		spin_lock_irqsave(&pgd_lock, flags);
+		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
@@ -288,6 +286,7 @@ void vmalloc_sync_all(void)
 			spinlock_t *pgt_lock;
 			pmd_t *ret;
 
+			/* the pgt_lock only for Xen */
 			pgt_lock = &pgd_page_get_mm(page)->page_table_lock;
 
 			spin_lock(pgt_lock);
@@ -302,7 +301,7 @@ void vmalloc_sync_all(void)
 			if (!ret)
 				break;
 		}
-		spin_unlock_irqrestore(&pgd_lock, flags);
+		spin_unlock(&pgd_lock);
 	}
 }
 
@@ -968,6 +967,13 @@ mm_fault_error(struct pt_regs *regs, unsigned long error_code,
 	       unsigned long address, unsigned int fault)
 {
 	if (fault & VM_FAULT_OOM) {
+		/* Kernel mode? Handle exceptions or die: */
+		if (!(error_code & PF_USER)) {
+			up_read(&current->mm->mmap_sem);
+			no_context(regs, error_code, address);
+			return;
+		}
+
 		out_of_memory(regs, error_code, address);
 	} else {
 		if (fault & (VM_FAULT_SIGBUS|VM_FAULT_HWPOISON|
@@ -1208,7 +1214,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		if (address < PAX_USER_SHADOW_BASE) {
 			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
 			printk(KERN_ERR "PAX: faulting IP: %pA\n", (void *)regs->ip);
-			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
+			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, KERN_ERR);
 		} else
 			address -= PAX_USER_SHADOW_BASE;
 	}
