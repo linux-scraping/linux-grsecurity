@@ -585,7 +585,7 @@ static int proc_pid_syscall(struct task_struct *task, char *buffer)
 /************************************************************************/
 
 /* permission checks */
-static int proc_fd_access_allowed(struct inode *inode)
+static int proc_fd_access_allowed(struct inode *inode, unsigned int log)
 {
 	struct task_struct *task;
 	int allowed = 0;
@@ -595,7 +595,10 @@ static int proc_fd_access_allowed(struct inode *inode)
 	 */
 	task = get_proc_task(inode);
 	if (task) {
-		allowed = ptrace_may_access(task, PTRACE_MODE_READ);
+		if (log)
+			allowed = ptrace_may_access_log(task, PTRACE_MODE_READ);
+		else
+			allowed = ptrace_may_access(task, PTRACE_MODE_READ);
 		put_task_struct(task);
 	}
 	return allowed;
@@ -1391,7 +1394,7 @@ static void *proc_pid_follow_link(struct dentry *dentry, struct nameidata *nd)
 	path_put(&nd->path);
 
 	/* Are we allowed to snoop on the tasks file descriptors? */
-	if (!proc_fd_access_allowed(inode))
+	if (!proc_fd_access_allowed(inode,0))
 		goto out;
 
 	error = PROC_I(inode)->op.proc_get_link(inode, &nd->path);
@@ -1431,8 +1434,18 @@ static int proc_pid_readlink(struct dentry * dentry, char __user * buffer, int b
 	struct path path;
 
 	/* Are we allowed to snoop on the tasks file descriptors? */
-	if (!proc_fd_access_allowed(inode))
-		goto out;
+	/* logging this is needed for learning on chromium to work properly,
+	   but we don't want to flood the logs from 'ps' which does a readlink
+	   on /proc/fd/2 of tasks in the listing, nor do we want 'ps' to learn
+	   CAP_SYS_PTRACE as it's not necessary for its basic functionality
+	 */
+	if (dentry->d_name.name[0] == '2' && dentry->d_name.name[1] == '\0') {
+		if (!proc_fd_access_allowed(inode,0))
+			goto out;
+	} else {
+		if (!proc_fd_access_allowed(inode,1))
+			goto out;
+	}
 
 	error = PROC_I(inode)->op.proc_get_link(inode, &path);
 	if (error)

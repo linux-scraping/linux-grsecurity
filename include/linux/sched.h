@@ -1543,6 +1543,7 @@ struct task_struct {
 	struct acl_role_label *role;
 	struct file *exec_file;
 	u16 acl_role_id;
+	/* is this the task that authenticated to the special role */
 	u8 acl_sp_role;
 	u8 is_writable;
 	u8 brute;

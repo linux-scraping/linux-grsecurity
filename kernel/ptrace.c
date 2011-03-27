@@ -117,7 +117,8 @@ int ptrace_check_attach(struct task_struct *child, int kill)
 	return ret;
 }
 
-int __ptrace_may_access(struct task_struct *task, unsigned int mode)
+static int __ptrace_may_access(struct task_struct *task, unsigned int mode,
+			       unsigned int log)
 {
 	const struct cred *cred = current_cred(), *tcred;
 
@@ -141,7 +142,9 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 	     cred->gid != tcred->egid ||
 	     cred->gid != tcred->sgid ||
 	     cred->gid != tcred->gid) &&
-	    !capable_nolog(CAP_SYS_PTRACE)) {
+	     ((!log && !capable_nolog(CAP_SYS_PTRACE)) ||
+	      (log && !capable(CAP_SYS_PTRACE)))
+	) {
 		rcu_read_unlock();
 		return -EPERM;
 	}
@@ -149,7 +152,9 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 	smp_rmb();
 	if (task->mm)
 		dumpable = get_dumpable(task->mm);
-	if (!dumpable && !capable_nolog(CAP_SYS_PTRACE))
+	if (!dumpable &&
+	     ((!log && !capable_nolog(CAP_SYS_PTRACE)) ||
+	      (log && !capable(CAP_SYS_PTRACE))))
 		return -EPERM;
 
 	return security_ptrace_access_check(task, mode);
@@ -159,7 +164,16 @@ bool ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	int err;
 	task_lock(task);
-	err = __ptrace_may_access(task, mode);
+	err = __ptrace_may_access(task, mode, 0);
+	task_unlock(task);
+	return !err;
+}
+
+bool ptrace_may_access_log(struct task_struct *task, unsigned int mode)
+{
+	int err;
+	task_lock(task);
+	err = __ptrace_may_access(task, mode, 1);
 	task_unlock(task);
 	return !err;
 }
@@ -186,7 +200,7 @@ int ptrace_attach(struct task_struct *task)
 		goto out;
 
 	task_lock(task);
-	retval = __ptrace_may_access(task, PTRACE_MODE_ATTACH);
+	retval = __ptrace_may_access(task, PTRACE_MODE_ATTACH, 1);
 	task_unlock(task);
 	if (retval)
 		goto unlock_creds;

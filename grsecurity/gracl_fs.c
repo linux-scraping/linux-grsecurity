@@ -401,7 +401,8 @@ gr_acl_handle_exit(void)
 	char *rolename;
 	struct file *exec_file;
 
-	if (unlikely(current->acl_sp_role && gr_acl_is_enabled())) {
+	if (unlikely(current->acl_sp_role && gr_acl_is_enabled() && 
+		     !(current->role->roletype & GR_ROLE_PERSIST))) {
 		id = current->acl_role_id;
 		rolename = current->role->rolename;
 		gr_set_acls(1);

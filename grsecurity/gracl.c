@@ -93,6 +93,26 @@ gr_acl_is_enabled(void)
 	return (gr_status & GR_READY);
 }
 
+#ifdef CONFIG_BTRFS_FS
+extern dev_t get_btrfs_dev_from_inode(struct inode *inode);
+extern int btrfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat);
+#endif
+
+static inline dev_t __get_dev(const struct dentry *dentry)
+{
+#ifdef CONFIG_BTRFS_FS
+	if (dentry->d_inode->i_op && dentry->d_inode->i_op->getattr == &btrfs_getattr)
+		return get_btrfs_dev_from_inode(dentry->d_inode);
+	else
+#endif
+		return dentry->d_inode->i_sb->s_dev;
+}
+
+dev_t gr_get_dev_from_dentry(struct dentry *dentry)
+{
+	return __get_dev(dentry);
+}
+
 static char gr_task_roletype_to_char(struct task_struct *task)
 {
 	switch (task->role->roletype &
@@ -247,10 +267,8 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	struct task_struct *reaper = &init_task;
 
 	/* we can't use real_root, real_root_mnt, because they belong only to the RBAC system */
-	read_lock(&reaper->fs->lock);
-	root = dget(reaper->fs->root.dentry);
-	rootmnt = mntget(reaper->fs->root.mnt);
-	read_unlock(&reaper->fs->lock);
+	root = dget(reaper->nsproxy->mnt_ns->root->mnt_root);
+	rootmnt = mntget(reaper->nsproxy->mnt_ns->root);
 
 	spin_lock(&dcache_lock);
 	spin_lock(&vfsmount_lock);
@@ -783,13 +801,11 @@ init_variables(const struct gr_arg *arg)
 		return 1;
 
 	/* grab reference for the real root dentry and vfsmount */
-	read_lock(&reaper->fs->lock);
-	real_root_mnt = mntget(reaper->fs->root.mnt);
-	real_root = dget(reaper->fs->root.dentry);
-	read_unlock(&reaper->fs->lock);
+	real_root_mnt = mntget(reaper->nsproxy->mnt_ns->root);
+	real_root = dget(reaper->nsproxy->mnt_ns->root->mnt_root);
 	
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", real_root->d_inode->i_sb->s_dev, real_root->d_inode->i_ino);
+	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(real_root), real_root->d_inode->i_ino);
 #endif
 
 	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
@@ -1780,7 +1796,7 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 
 	return __full_lookup(orig_dentry, orig_mnt,
 			     curr_dentry->d_inode->i_ino, 
-			     curr_dentry->d_inode->i_sb->s_dev, subj, path, newglob);
+			     __get_dev(curr_dentry), subj, path, newglob);
 }
 
 static struct acl_object_label *
@@ -1885,7 +1901,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			read_lock(&gr_inode_lock);
 			retval =
 				lookup_acl_subj_label(dentry->d_inode->i_ino,
-						dentry->d_inode->i_sb->s_dev, role);
+						__get_dev(dentry), role);
 			read_unlock(&gr_inode_lock);
 			if (retval != NULL)
 				goto out;
@@ -1897,7 +1913,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 		read_lock(&gr_inode_lock);
 		retval = lookup_acl_subj_label(dentry->d_inode->i_ino,
-					  dentry->d_inode->i_sb->s_dev, role);
+					  __get_dev(dentry), role);
 		read_unlock(&gr_inode_lock);
 		if (retval != NULL)
 			goto out;
@@ -1907,13 +1923,13 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 	read_lock(&gr_inode_lock);
 	retval = lookup_acl_subj_label(dentry->d_inode->i_ino,
-				  dentry->d_inode->i_sb->s_dev, role);
+				  __get_dev(dentry), role);
 	read_unlock(&gr_inode_lock);
 
 	if (unlikely(retval == NULL)) {
 		read_lock(&gr_inode_lock);
 		retval = lookup_acl_subj_label(real_root->d_inode->i_ino,
-					  real_root->d_inode->i_sb->s_dev, role);
+					  __get_dev(real_root), role);
 		read_unlock(&gr_inode_lock);
 	}
 out:
@@ -2040,6 +2056,26 @@ gr_search_file(const struct dentry * dentry, const __u32 mode,
 
 	currobj = chk_obj_label(dentry, mnt, curracl);
 	retval = currobj->mode & mode;
+
+	/* if we're opening a specified transfer file for writing
+	   (e.g. /dev/initctl), then transfer our role to init
+	*/
+	if (unlikely(currobj->mode & GR_INIT_TRANSFER && retval & GR_WRITE &&
+		     current->role->roletype & GR_ROLE_PERSIST)) {
+		struct task_struct *task = init_pid_ns.child_reaper;
+
+		if (task->role != current->role) {
+			task->acl_sp_role = 0;
+			task->acl_role_id = current->acl_role_id;
+			task->role = current->role;
+			rcu_read_lock();
+			read_lock(&grsec_exec_file_lock);
+			gr_apply_subject_to_task(task);
+			read_unlock(&grsec_exec_file_lock);
+			rcu_read_unlock();
+			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_INIT_TRANSFER_MSG);
+		}
+	}
 
 	if (unlikely
 	    ((curracl->mode & (GR_LEARN | GR_INHERITLEARN)) && !(mode & GR_NOPTRACE)
@@ -2633,28 +2669,26 @@ do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 	struct acl_subject_label *subj;
 	struct acl_role_label *role;
 	unsigned int x;
+	ino_t inode = dentry->d_inode->i_ino;
+	dev_t dev = __get_dev(dentry);
 	
 	FOR_EACH_ROLE_START(role)
 		update_acl_subj_label(matchn->inode, matchn->device,
-				      dentry->d_inode->i_ino,
-				      dentry->d_inode->i_sb->s_dev, role);
+				      inode, dev, role);
 
 		FOR_EACH_NESTED_SUBJECT_START(role, subj)
-			if ((subj->inode == dentry->d_inode->i_ino) &&
-			    (subj->device == dentry->d_inode->i_sb->s_dev)) {
-				subj->inode = dentry->d_inode->i_ino;
-				subj->device = dentry->d_inode->i_sb->s_dev;
+			if ((subj->inode == inode) && (subj->device == dev)) {
+				subj->inode = inode;
+				subj->device = dev;
 			}
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		FOR_EACH_SUBJECT_START(role, subj, x)
 			update_acl_obj_label(matchn->inode, matchn->device,
-					     dentry->d_inode->i_ino,
-					     dentry->d_inode->i_sb->s_dev, subj);
+					     inode, dev, subj);
 		FOR_EACH_SUBJECT_END(subj,x)
 	FOR_EACH_ROLE_END(role)
 
-	update_inodev_entry(matchn->inode, matchn->device,
-			    dentry->d_inode->i_ino, dentry->d_inode->i_sb->s_dev);
+	update_inodev_entry(matchn->inode, matchn->device, inode, dev);
 
 	return;
 }
@@ -2688,6 +2722,8 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 {
 	struct name_entry *matchn;
 	struct inodev_entry *inodev;
+	ino_t oldinode = old_dentry->d_inode->i_ino;
+	dev_t olddev = __get_dev(old_dentry);
 
 	/* vfs_rename swaps the name and parent link for old_dentry and
 	   new_dentry
@@ -2709,18 +2745,16 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 
 	write_lock(&gr_inode_lock);
 	if (unlikely(replace && new_dentry->d_inode)) {
-		inodev = lookup_inodev_entry(new_dentry->d_inode->i_ino,
-					     new_dentry->d_inode->i_sb->s_dev);
+		ino_t newinode = new_dentry->d_inode->i_ino;
+		dev_t newdev = __get_dev(new_dentry);
+		inodev = lookup_inodev_entry(newinode, newdev);
 		if (inodev != NULL && (new_dentry->d_inode->i_nlink <= 1))
-			do_handle_delete(inodev, new_dentry->d_inode->i_ino,
-					 new_dentry->d_inode->i_sb->s_dev);
+			do_handle_delete(inodev, newinode, newdev);
 	}
 
-	inodev = lookup_inodev_entry(old_dentry->d_inode->i_ino,
-				     old_dentry->d_inode->i_sb->s_dev);
+	inodev = lookup_inodev_entry(oldinode, olddev);
 	if (inodev != NULL && (old_dentry->d_inode->i_nlink <= 1))
-		do_handle_delete(inodev, old_dentry->d_inode->i_ino,
-				 old_dentry->d_inode->i_sb->s_dev);
+		do_handle_delete(inodev, oldinode, olddev);
 
 	if (unlikely((unsigned long)matchn))
 		do_handle_create(matchn, old_dentry, mnt);
@@ -3167,18 +3201,85 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	return error;
 }
 
+/* must be called with
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	read_lock(&grsec_exec_file_lock);
+*/
+int gr_apply_subject_to_task(struct task_struct *task)
+{
+	struct acl_object_label *obj;
+	char *tmpname;
+	struct acl_subject_label *tmpsubj;
+	struct file *filp;
+	struct name_entry *nmatch;
+
+	filp = task->exec_file;
+	if (filp == NULL)
+		return 0;
+
+	/* the following is to apply the correct subject 
+	   on binaries running when the RBAC system 
+	   is enabled, when the binaries have been 
+	   replaced or deleted since their execution
+	   -----
+	   when the RBAC system starts, the inode/dev
+	   from exec_file will be one the RBAC system
+	   is unaware of.  It only knows the inode/dev
+	   of the present file on disk, or the absence
+	   of it.
+	*/
+	preempt_disable();
+	tmpname = gr_to_filename_rbac(filp->f_path.dentry, filp->f_path.mnt);
+			
+	nmatch = lookup_name_entry(tmpname);
+	preempt_enable();
+	tmpsubj = NULL;
+	if (nmatch) {
+		if (nmatch->deleted)
+			tmpsubj = lookup_acl_subj_label_deleted(nmatch->inode, nmatch->device, task->role);
+		else
+			tmpsubj = lookup_acl_subj_label(nmatch->inode, nmatch->device, task->role);
+		if (tmpsubj != NULL)
+			task->acl = tmpsubj;
+	}
+	if (tmpsubj == NULL)
+		task->acl = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
+					   task->role);
+	if (task->acl) {
+		struct acl_subject_label *curr;
+		curr = task->acl;
+
+		task->is_writable = 0;
+		/* ignore additional mmap checks for processes that are writable 
+		   by the default ACL */
+		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
+		if (unlikely(obj->mode & GR_WRITE))
+			task->is_writable = 1;
+		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, task->role->root_label);
+		if (unlikely(obj->mode & GR_WRITE))
+			task->is_writable = 1;
+
+		gr_set_proc_res(task);
+
+#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
+		printk(KERN_ALERT "gr_set_acls for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
+#endif
+	} else {
+		return 1;
+	}
+
+	return 0;
+}
+
 int
 gr_set_acls(const int type)
 {
-	struct acl_object_label *obj;
 	struct task_struct *task, *task2;
-	struct file *filp;
 	struct acl_role_label *role = current->role;
 	__u16 acl_role_id = current->acl_role_id;
 	const struct cred *cred;
-	char *tmpname;
-	struct name_entry *nmatch;
-	struct acl_subject_label *tmpsubj;
+	int ret;
 
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
@@ -3195,63 +3296,17 @@ gr_set_acls(const int type)
 		task->acl_role_id = 0;
 		task->acl_sp_role = 0;
 
-		if ((filp = task->exec_file)) {
+		if (task->exec_file) {
 			cred = __task_cred(task);
 			task->role = lookup_acl_role_label(task, cred->uid, cred->gid);
 
-			/* the following is to apply the correct subject 
-			   on binaries running when the RBAC system 
-			   is enabled, when the binaries have been 
-			   replaced or deleted since their execution
-			   -----
-			   when the RBAC system starts, the inode/dev
-			   from exec_file will be one the RBAC system
-			   is unaware of.  It only knows the inode/dev
-			   of the present file on disk, or the absence
-			   of it.
-			*/
-			preempt_disable();
-			tmpname = gr_to_filename_rbac(filp->f_path.dentry, filp->f_path.mnt);
-			
-			nmatch = lookup_name_entry(tmpname);
-			preempt_enable();
-			tmpsubj = NULL;
-			if (nmatch) {
-				if (nmatch->deleted)
-					tmpsubj = lookup_acl_subj_label_deleted(nmatch->inode, nmatch->device, task->role);
-				else
-					tmpsubj = lookup_acl_subj_label(nmatch->inode, nmatch->device, task->role);
-				if (tmpsubj != NULL)
-					task->acl = tmpsubj;
-			}
-			if (tmpsubj == NULL)
-				task->acl = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
-							   task->role);
-			if (task->acl) {
-				struct acl_subject_label *curr;
-				curr = task->acl;
-
-				task->is_writable = 0;
-				/* ignore additional mmap checks for processes that are writable 
-				   by the default ACL */
-				obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
-				if (unlikely(obj->mode & GR_WRITE))
-					task->is_writable = 1;
-				obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, task->role->root_label);
-				if (unlikely(obj->mode & GR_WRITE))
-					task->is_writable = 1;
-
-				gr_set_proc_res(task);
-
-#ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-				printk(KERN_ALERT "gr_set_acls for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
-#endif
-			} else {
+			ret = gr_apply_subject_to_task(task);
+			if (ret) {
 				read_unlock(&grsec_exec_file_lock);
 				read_unlock(&tasklist_lock);
 				rcu_read_unlock();
 				gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_DEFACL_MSG, task->comm, task->pid);
-				return 1;
+				return ret;
 			}
 		} else {
 			// it's a kernel process
@@ -3918,6 +3973,7 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 	unsigned int bufsize;
 	int is_not_root;
 	char *path;
+	dev_t dev = __get_dev(dentry);
 
 	if (unlikely(!(gr_status & GR_READY)))
 		return 1;
@@ -3931,7 +3987,7 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 
 	subj = task->acl;
 	do {
-		obj = lookup_acl_obj_label(ino, dentry->d_inode->i_sb->s_dev, subj);
+		obj = lookup_acl_obj_label(ino, dev, subj);
 		if (obj != NULL)
 			return (obj->mode & GR_FIND) ? 1 : 0;
 	} while ((subj = subj->parent_subject));

@@ -1106,13 +1106,21 @@ static int do_path_lookup(int dfd, const char *name,
 	int retval = path_init(dfd, name, flags, nd);
 	if (!retval)
 		retval = path_walk(name, nd);
-	if (unlikely(!retval && !audit_dummy_context() && nd->path.dentry &&
-				nd->path.dentry->d_inode))
-		audit_inode(name, nd->path.dentry);
+
+	if (likely(!retval)) {
+		if (nd->path.dentry && nd->path.dentry->d_inode) {
+			if (*name != '/' && gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
+				retval = -ENOENT;
+			if (!audit_dummy_context())
+				audit_inode(name, nd->path.dentry);
+		}
+	}
+
 	if (nd->root.mnt) {
 		path_put(&nd->root);
 		nd->root.mnt = NULL;
 	}
+
 	return retval;
 }
 
@@ -2346,7 +2354,7 @@ static long do_rmdir(int dfd, const char __user *pathname)
 	if (dentry->d_inode != NULL) {
 		if (dentry->d_inode->i_nlink <= 1) {
 			saved_ino = dentry->d_inode->i_ino;
-			saved_dev = dentry->d_inode->i_sb->s_dev;
+			saved_dev = gr_get_dev_from_dentry(dentry);
 		}
 
 		if (!gr_acl_handle_rmdir(dentry, nd.path.mnt)) {
@@ -2449,7 +2457,7 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 		if (inode) {
 			if (inode->i_nlink <= 1) {
 				saved_ino = inode->i_ino;
-				saved_dev = inode->i_sb->s_dev;
+				saved_dev = gr_get_dev_from_dentry(dentry);
 			}
 
 			atomic_inc(&inode->i_count);
