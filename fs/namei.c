@@ -1109,13 +1109,12 @@ static int do_path_lookup(int dfd, const char *name,
 
 	if (likely(!retval)) {
 		if (nd->path.dentry && nd->path.dentry->d_inode) {
-			if (*name != '/' && gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
+			if (*name != '/' && !gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
 				retval = -ENOENT;
 			if (!audit_dummy_context())
 				audit_inode(name, nd->path.dentry);
 		}
 	}
-
 	if (nd->root.mnt) {
 		path_put(&nd->root);
 		nd->root.mnt = NULL;

@@ -1633,11 +1633,10 @@ static int hso_get_count(struct hso_serial *serial,
 	struct uart_icount cnow;
 	struct hso_tiocmget  *tiocmget = serial->tiocmget;
 
+	memset(&icount, 0, sizeof(struct serial_icounter_struct));
+
 	if (!tiocmget)
 		 return -ENOENT;
-
-	memset(&icount, 0, sizeof(icount));
-
 	spin_lock_irq(&serial->serial_lock);
 	memcpy(&cnow, &tiocmget->icount, sizeof(struct uart_icount));
 	spin_unlock_irq(&serial->serial_lock);

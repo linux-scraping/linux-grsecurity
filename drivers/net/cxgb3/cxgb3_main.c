@@ -2275,7 +2275,7 @@ static int cxgb_extension_ioctl(struct net_device *dev, void __user *useraddr)
 	case CHELSIO_GET_QSET_NUM:{
 		struct ch_reg edata;
 
-		memset(&edata, 0, sizeof(edata));
+		memset(&edata, 0, sizeof(struct ch_reg));
 
 		edata.cmd = CHELSIO_GET_QSET_NUM;
 		edata.val = pi->nqsets;

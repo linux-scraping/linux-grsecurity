@@ -518,12 +518,12 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 		mm ? get_mm_rss(mm) : 0,
 		rsslim,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->start_code : 0),
-		PAX_RAND_FLAGS(mm) ? 1 : (mm ? mm->end_code : 0),
+		PAX_RAND_FLAGS(mm) ? 1 : (mm ? (permitted ? mm->start_code : 1) : 0),
+		PAX_RAND_FLAGS(mm) ? 1 : (mm ? (permitted ? mm->end_code : 1) : 0),
 		PAX_RAND_FLAGS(mm) ? 0 : ((permitted && mm) ? mm->start_stack : 0),
 #else
-		mm ? mm->start_code : 0,
-		mm ? mm->end_code : 0,
+		mm ? (permitted ? mm->start_code : 1) : 0,
+		mm ? (permitted ? mm->end_code : 1) : 0,
 		(permitted && mm) ? mm->start_stack : 0,
 #endif
 		esp,
