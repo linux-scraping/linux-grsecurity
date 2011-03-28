@@ -1823,7 +1823,6 @@ int vfs_path_lookup(struct dentry *dentry, struct vfsmount *mnt,
 	nd->inode = nd->path.dentry->d_inode;
 
 	retval = path_walk(name, nd);
-
 	if (unlikely(!retval && !audit_dummy_context() && nd->path.dentry &&
 				nd->inode))
 		audit_inode(name, nd->path.dentry);
@@ -2539,7 +2538,6 @@ struct file *do_filp_open(int dfd, const char *pathname,
 		if (!nd.inode->i_op->lookup)
 			goto out_path2;
 	}
-
 	audit_inode(pathname, nd.path.dentry);
 	filp = finish_open(&nd, open_flag, acc_mode);
 out2:
@@ -2573,7 +2571,6 @@ reval:
 
 		error = path_walk_simple(pathname, &nd);
 	}
-
 	if (unlikely(error))
 		goto out_filp;
 	if (unlikely(!audit_dummy_context()))

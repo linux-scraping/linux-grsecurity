@@ -286,9 +286,7 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	path.mnt = (struct vfsmount *)vfsmnt;
 
 	/* we can't use real_root.dentry, real_root.mnt, because they belong only to the RBAC system */
-	root.dentry = reaper->nsproxy->mnt_ns->root->mnt_root;
-	root.mnt = reaper->nsproxy->mnt_ns->root;
-	path_get(&root);
+	get_fs_root(reaper->fs, &root);
 
 	write_seqlock(&rename_lock);
 	br_read_lock(vfsmount_lock);
@@ -820,9 +818,7 @@ init_variables(const struct gr_arg *arg)
 		return 1;
 
 	/* grab reference for the real root dentry and vfsmount */
-	real_root.dentry = reaper->nsproxy->mnt_ns->root->mnt_root;
-	real_root.mnt = reaper->nsproxy->mnt_ns->root;
-	path_get(&real_root);
+	get_fs_root(reaper->fs, &real_root);
 	
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(real_root.dentry), real_root.dentry->d_inode->i_ino);

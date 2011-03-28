@@ -97,7 +97,6 @@ void show_regs_common(void)
 	vendor = dmi_get_system_info(DMI_SYS_VENDOR);
 	if (!vendor)
 		vendor = "";
-
 	product = dmi_get_system_info(DMI_PRODUCT_NAME);
 	if (!product)
 		product = "";
@@ -106,7 +105,7 @@ void show_regs_common(void)
 	board = dmi_get_system_info(DMI_BOARD_NAME);
 
 	printk(KERN_CONT "\n");
-	printk(KERN_DEFAULT "Pid: %d, comm: %.20s %s %s %.*s\n",
+	printk(KERN_DEFAULT "Pid: %d, comm: %.20s %s %s %.*s",
 		task_pid_nr(current), current->comm, print_tainted(),
 		init_utsname()->release,
 		(int)strcspn(init_utsname()->version, " "),

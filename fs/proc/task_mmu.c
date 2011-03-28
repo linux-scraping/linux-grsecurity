@@ -238,7 +238,6 @@ static void show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 	}
 
-
 	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu %n",
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 			PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_start,
