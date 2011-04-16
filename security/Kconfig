@@ -59,10 +59,6 @@ config PAX_EI_PAX
 	  know about the non-standard use of the ELF header) therefore it
 	  has been deprecated in favour of PT_PAX_FLAGS support.
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF
-	  program header then you MUST enable this option otherwise they
-	  will not get any protection.
-
 	  Note that if you enable PT_PAX_FLAGS marking support as well,
 	  the PT_PAX_FLAG marks will override the legacy EI_PAX marks.
 
@@ -77,9 +73,8 @@ config PAX_PT_PAX_FLAGS
 	  integrated into the toolchain (the binutils patch is available
 	  from http://pax.grsecurity.net).
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF
-	  program header then you MUST enable the EI_PAX marking support
-	  otherwise they will not get any protection.
+	  If your toolchain does not support PT_PAX_FLAGS markings,
+	  you can create one in most cases with 'paxctl -C'.
 
 	  Note that if you enable the legacy EI_PAX marking support as well,
 	  the EI_PAX marks will be overridden by the PT_PAX_FLAGS marks.
@@ -388,7 +383,7 @@ config PAX_ASLR
 
 config PAX_RANDKSTACK
 	bool "Randomize kernel stack base"
-	depends on PAX_ASLR && X86_TSC && X86_32
+	depends on PAX_ASLR && X86_TSC && X86
 	help
 	  By saying Y here the kernel will randomize every task's kernel
 	  stack on every system call.  This will not only force an attacker
@@ -498,9 +493,9 @@ config PAX_REFCOUNT
 	  this feature.
 
 config PAX_USERCOPY
-	bool "Bounds check heap object copies between kernel and userland"
+	bool "Harden heap object copies between kernel and userland"
 	depends on X86 || PPC || SPARC
-	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
+	depends on GRKERNSEC && (SLAB || SLUB)
 	help
 	  By saying Y here the kernel will enforce the size of heap objects
 	  when they are copied in either direction between the kernel and
@@ -511,8 +506,13 @@ config PAX_USERCOPY
 	  object is otherwise fully initialized) and prevents kernel heap
 	  overflows during userland to kernel copies.
 
-	  Note that the current implementation provides the strictest checks
-	  for the SLUB allocator.
+	  Note that the current implementation provides the strictest bounds
+	  checks for the SLUB allocator.
+
+	  Enabling this option also enables per-slab cache protection against
+	  data in a given cache being copied into/out of via userland
+	  accessors.  Though the whitelist of regions will be reduced over
+	  time, it notably protects important data structures like task structs.
 
 	  If frame pointers are enabled on x86, this option will also restrict
 	  copies into and out of the kernel stack to local variables within a

@@ -19,77 +19,10 @@ gr_handle_iopl(void)
 }
 
 void
-gr_handle_mem_write(void)
+gr_handle_mem_readwrite(u64 from, u64 to)
 {
-	gr_log_noargs(GR_DONT_AUDIT, GR_MEM_WRITE_MSG);
+	gr_log_two_u64(GR_DONT_AUDIT, GR_MEM_READWRITE_MSG, from, to);
 	return;
-}
-
-void
-gr_handle_kmem_write(void)
-{
-	gr_log_noargs(GR_DONT_AUDIT, GR_KMEM_MSG);
-	return;
-}
-
-void
-gr_handle_open_port(void)
-{
-	gr_log_noargs(GR_DONT_AUDIT, GR_PORT_OPEN_MSG);
-	return;
-}
-
-int
-gr_handle_mem_mmap(const unsigned long offset, struct vm_area_struct *vma)
-{
-	unsigned long start, end;
-
-	start = offset;
-	end = start + vma->vm_end - vma->vm_start;
-
-	if (start > end) {
-		gr_log_noargs(GR_DONT_AUDIT, GR_MEM_MMAP_MSG);
-		return -EPERM;
-	}
-
-/* if raw i/o is disabled, prevent writes to /dev/mem entirely */
-#ifndef CONFIG_GRKERNSEC_IO
-	/* allowed ranges : ISA I/O BIOS */
-	if ((start >= __pa(high_memory))
-#if defined(CONFIG_X86) || defined(CONFIG_PPC)
-	    || (start >= 0x000a0000 && end <= 0x00100000)
-	    || (start >= 0x00000000 && end <= 0x00001000)
-#endif
-	)
-		return 0;
-#endif
-
-	if (vma->vm_flags & VM_WRITE) {
-		gr_log_noargs(GR_DONT_AUDIT, GR_MEM_MMAP_MSG);
-		return -EPERM;
-	} else
-		vma->vm_flags &= ~VM_MAYWRITE;
-
-	return 0;
-}
-
-void
-gr_log_nonroot_mod_load(const char *modname)
-{
-	if (1
-#if !defined(CONFIG_IPV6) && !defined(CONFIG_IPV6_MODULE)
-		/* There are known knowns.  These are things we know
-		   that we know.  There are known unknowns.  That is to say,
-		   there are things that we know we don't know.  But there are
-		   also unknown unknowns.  There are things we don't know
-		   we don't know.
-		   This here is a known unknown.
-		*/
-		&& strcmp(modname, "net-pf-10")
-#endif
-	)
-	        gr_log_str(GR_DONT_AUDIT, GR_NONROOT_MODLOAD_MSG, modname);
-        return;
 }
 
 void

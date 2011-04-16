@@ -10,6 +10,7 @@
 #include <linux/compiler.h>
 #include <asm/page.h>
 #include <asm/types.h>
+#include <asm/percpu.h>
 
 /*
  * low level task data that entry.S needs immediate access to
@@ -24,7 +25,6 @@ struct exec_domain;
 #include <asm/atomic.h>
 
 struct thread_info {
-	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
 	__u32			flags;		/* low level flags */
 	__u32			status;		/* thread synchronous flags */
@@ -34,18 +34,11 @@ struct thread_info {
 	mm_segment_t		addr_limit;
 	struct restart_block    restart_block;
 	void __user		*sysenter_return;
-#ifdef CONFIG_X86_32
-	unsigned long           previous_esp;   /* ESP of the previous stack in
-						   case of nested (IRQ) stacks
-						*/
-	__u8			supervisor_stack[0];
-#endif
 	int			uaccess_err;
 };
 
-#define INIT_THREAD_INFO(tsk)			\
+#define INIT_THREAD_INFO			\
 {						\
-	.task		= &tsk,			\
 	.exec_domain	= &default_exec_domain,	\
 	.flags		= 0,			\
 	.cpu		= 0,			\
@@ -56,7 +49,7 @@ struct thread_info {
 	},					\
 }
 
-#define init_thread_info	(init_thread_union.thread_info)
+#define init_thread_info	(init_task.tinfo)
 #define init_stack		(init_thread_union.stack)
 
 #else /* !__ASSEMBLY__ */
@@ -164,6 +157,23 @@ struct thread_info {
 #define alloc_thread_info(tsk)						\
 	((struct thread_info *)__get_free_pages(THREAD_FLAGS, THREAD_ORDER))
 
+#ifdef __ASSEMBLY__
+/* how to get the thread information struct from ASM */
+#define GET_THREAD_INFO(reg)	 \
+	mov PER_CPU_VAR(current_tinfo), reg
+
+/* use this one if reg already contains %esp */
+#define GET_THREAD_INFO_WITH_ESP(reg) GET_THREAD_INFO(reg)
+#else
+/* how to get the thread information struct from C */
+DECLARE_PER_CPU(struct thread_info *, current_tinfo);
+
+static __always_inline struct thread_info *current_thread_info(void)
+{
+	return percpu_read_stable(current_tinfo);
+}
+#endif
+
 #ifdef CONFIG_X86_32
 
 #define STACK_WARN	(THREAD_SIZE/8)
@@ -174,34 +184,12 @@ struct thread_info {
  */
 #ifndef __ASSEMBLY__
 
-
 /* how to get the current stack pointer from C */
 register unsigned long current_stack_pointer asm("esp") __used;
-
-/* how to get the thread information struct from C */
-static inline struct thread_info *current_thread_info(void)
-{
-	return (struct thread_info *)
-		(current_stack_pointer & ~(THREAD_SIZE - 1));
-}
-
-#else /* !__ASSEMBLY__ */
-
-/* how to get the thread information struct from ASM */
-#define GET_THREAD_INFO(reg)	 \
-	movl $-THREAD_SIZE, reg; \
-	andl %esp, reg
-
-/* use this one if reg already contains %esp */
-#define GET_THREAD_INFO_WITH_ESP(reg) \
-	andl $-THREAD_SIZE, reg
 
 #endif
 
 #else /* X86_32 */
-
-#include <asm/percpu.h>
-#define KERNEL_STACK_OFFSET (5*8)
 
 /*
  * macros/functions for gaining access to the thread information structure
@@ -209,21 +197,6 @@ static inline struct thread_info *current_thread_info(void)
  */
 #ifndef __ASSEMBLY__
 DECLARE_PER_CPU(unsigned long, kernel_stack);
-
-static inline struct thread_info *current_thread_info(void)
-{
-	struct thread_info *ti;
-	ti = (void *)(percpu_read_stable(kernel_stack) +
-		      KERNEL_STACK_OFFSET - THREAD_SIZE);
-	return ti;
-}
-
-#else /* !__ASSEMBLY__ */
-
-/* how to get the thread information struct from ASM */
-#define GET_THREAD_INFO(reg) \
-	movq PER_CPU_VAR(kernel_stack),reg ; \
-	subq $(THREAD_SIZE-KERNEL_STACK_OFFSET),reg
 
 #endif
 
@@ -260,5 +233,16 @@ extern void arch_task_cache_init(void);
 extern void free_thread_info(struct thread_info *ti);
 extern int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
 #define arch_task_cache_init arch_task_cache_init
+
+#define __HAVE_THREAD_FUNCTIONS
+#define task_thread_info(task)	(&(task)->tinfo)
+#define task_stack_page(task)	((task)->stack)
+#define setup_thread_stack(p, org) do {} while (0)
+#define end_of_stack(p) ((unsigned long *)task_stack_page(p) + 1)
+
+#define __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
+extern struct task_struct *alloc_task_struct(void);
+extern void free_task_struct(struct task_struct *);
+
 #endif
 #endif /* _ASM_X86_THREAD_INFO_H */

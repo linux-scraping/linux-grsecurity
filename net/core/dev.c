@@ -1124,10 +1124,14 @@ void dev_load(struct net *net, const char *name)
 	if (no_module && capable(CAP_NET_ADMIN))
 		no_module = request_module("netdev-%s", name);
 	if (no_module && capable(CAP_SYS_MODULE)) {
-		if (!request_module("%s", name))  
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+		___request_module(true, "grsec_modharden_netdev", "%s", name);
+#else
+		if (!request_module("%s", name))
 			pr_err("Loading kernel module for a network device "
 "with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s "
 "instead\n", name);
+#endif
 	}
 }
 EXPORT_SYMBOL(dev_load);

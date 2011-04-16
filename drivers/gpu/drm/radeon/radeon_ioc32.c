@@ -359,7 +359,7 @@ static int compat_radeon_cp_setparam(struct file *file, unsigned int cmd,
 	request = compat_alloc_user_space(sizeof(*request));
 	if (!access_ok(VERIFY_WRITE, request, sizeof(*request))
 	    || __put_user(req32.param, &request->param)
-	    || __put_user((void __user *)(unsigned long)req32.value,
+	    || __put_user((unsigned long)req32.value,
 			  &request->value))
 		return -EFAULT;
 

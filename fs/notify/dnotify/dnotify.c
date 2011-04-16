@@ -151,7 +151,7 @@ static void dnotify_free_mark(struct fsnotify_mark *fsn_mark)
 	kmem_cache_free(dnotify_mark_cache, dn_mark);
 }
 
-static struct fsnotify_ops dnotify_fsnotify_ops = {
+static const struct fsnotify_ops dnotify_fsnotify_ops = {
 	.handle_event = dnotify_handle_event,
 	.should_send_event = dnotify_should_send_event,
 	.free_group_priv = NULL,

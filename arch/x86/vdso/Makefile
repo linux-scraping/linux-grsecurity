@@ -123,7 +123,7 @@ quiet_cmd_vdso = VDSO    $@
 		       -Wl,-T,$(filter %.lds,$^) $(filter %.o,$^) && \
 		 sh $(srctree)/$(src)/checkundef.sh '$(NM)' '$@'
 
-VDSO_LDFLAGS = -fPIC -shared --no-undefined $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
+VDSO_LDFLAGS = -fPIC -shared -Wl,--no-undefined $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
 GCOV_PROFILE := n
 
 #

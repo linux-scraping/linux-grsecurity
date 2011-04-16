@@ -310,13 +310,12 @@ static int __cpuinit xen_cpu_up(unsigned int cpu)
 	int rc;
 
 	per_cpu(current_task, cpu) = idle;
+	per_cpu(current_tinfo, cpu) = &idle->tinfo;
 #ifdef CONFIG_X86_32
 	irq_ctx_init(cpu);
 #else
 	clear_tsk_thread_flag(idle, TIF_FORK);
-	per_cpu(kernel_stack, cpu) =
-		(unsigned long)task_stack_page(idle) -
-		KERNEL_STACK_OFFSET + THREAD_SIZE;
+	per_cpu(kernel_stack, cpu) = (unsigned long)task_stack_page(idle) - 8 + THREAD_SIZE;
 #endif
 	xen_setup_runstate_info(cpu);
 	xen_setup_timer(cpu);

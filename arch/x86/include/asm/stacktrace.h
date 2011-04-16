@@ -11,28 +11,20 @@
 
 extern int kstack_depth_to_print;
 
-struct thread_info;
+struct task_struct;
 struct stacktrace_ops;
 
-typedef unsigned long (*walk_stack_t)(struct thread_info *tinfo,
-				      unsigned long *stack,
-				      unsigned long bp,
-				      const struct stacktrace_ops *ops,
-				      void *data,
-				      unsigned long *end,
-				      int *graph);
+typedef unsigned long walk_stack_t(struct task_struct *task,
+				   void *stack_start,
+				   unsigned long *stack,
+				   unsigned long bp,
+				   const struct stacktrace_ops *ops,
+				   void *data,
+				   unsigned long *end,
+				   int *graph);
 
-extern unsigned long
-print_context_stack(struct thread_info *tinfo,
-		    unsigned long *stack, unsigned long bp,
-		    const struct stacktrace_ops *ops, void *data,
-		    unsigned long *end, int *graph);
-
-extern unsigned long
-print_context_stack_bp(struct thread_info *tinfo,
-		       unsigned long *stack, unsigned long bp,
-		       const struct stacktrace_ops *ops, void *data,
-		       unsigned long *end, int *graph);
+extern walk_stack_t print_context_stack;
+extern walk_stack_t print_context_stack_bp;
 
 /* Generic stack tracer with callbacks */
 
@@ -43,7 +35,7 @@ struct stacktrace_ops {
 	void (*address)(void *data, unsigned long address, int reliable);
 	/* On negative return stop dumping */
 	int (*stack)(void *data, char *name);
-	walk_stack_t	walk_stack;
+	walk_stack_t	*walk_stack;
 };
 
 void dump_trace(struct task_struct *tsk, struct pt_regs *regs,

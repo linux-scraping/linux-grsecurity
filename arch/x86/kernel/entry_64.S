@@ -263,6 +263,11 @@ ENDPROC(pax_exit_kernel)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	call pax_exit_kernel_user
 #endif
+#ifdef CONFIG_PAX_RANDKSTACK
+	push %rax
+	call pax_randomize_kstack
+	pop %rax
+#endif
 	.endm
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
@@ -649,7 +654,7 @@ END(ret_from_fork)
 ENTRY(system_call)
 	CFI_STARTPROC	simple
 	CFI_SIGNAL_FRAME
-	CFI_DEF_CFA	rsp,KERNEL_STACK_OFFSET
+	CFI_DEF_CFA	rsp,0
 	CFI_REGISTER	rip,rcx
 	/*CFI_REGISTER	rflags,r11*/
 	SWAPGS_UNSAFE_STACK
@@ -668,7 +673,7 @@ ENTRY(system_call_after_swapgs)
 	 * and short:
 	 */
 	ENABLE_INTERRUPTS(CLBR_NONE)
-	SAVE_ARGS 8,1
+	SAVE_ARGS 8*6,1
 	movq  %rax,ORIG_RAX-ARGOFFSET(%rsp)
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET

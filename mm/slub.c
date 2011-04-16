@@ -2699,7 +2699,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 #ifdef CONFIG_PAX_USERCOPY
 	struct page *page;
-	struct kmem_cache *s;
+	struct kmem_cache *s = NULL;
 	unsigned long offset;
 
 	if (!n)
@@ -2720,15 +2720,15 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	}
 
 	s = page->slab;
+	if (!(s->flags & SLAB_USERCOPY))
+		goto report;
+
 	offset = (ptr - page_address(page)) % s->size;
 	if (offset <= s->objsize && n <= s->objsize - offset)
 		return;
 
 report:
-	if (to)
-		pax_report_leak_to_user(ptr, n);
-	else
-		pax_report_overflow_from_user(ptr, n);
+	pax_report_usercopy(ptr, n, to, s ? s->name : NULL);
 #endif
 
 }
@@ -3116,17 +3116,17 @@ void __init kmem_cache_init(void)
 
 	/* Caches that are not of the two-to-the-power-of size */
 	if (KMALLOC_MIN_SIZE <= 32) {
-		kmalloc_caches[1] = create_kmalloc_cache("kmalloc-96", 96, 0);
+		kmalloc_caches[1] = create_kmalloc_cache("kmalloc-96", 96, SLAB_USERCOPY);
 		caches++;
 	}
 
 	if (KMALLOC_MIN_SIZE <= 64) {
-		kmalloc_caches[2] = create_kmalloc_cache("kmalloc-192", 192, 0);
+		kmalloc_caches[2] = create_kmalloc_cache("kmalloc-192", 192, SLAB_USERCOPY);
 		caches++;
 	}
 
 	for (i = KMALLOC_SHIFT_LOW; i < SLUB_PAGE_SHIFT; i++) {
-		kmalloc_caches[i] = create_kmalloc_cache("kmalloc", 1 << i, 0);
+		kmalloc_caches[i] = create_kmalloc_cache("kmalloc", 1 << i, SLAB_USERCOPY);
 		caches++;
 	}
 

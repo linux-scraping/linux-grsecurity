@@ -304,9 +304,11 @@ void rs690_crtc_bandwidth_compute(struct radeon_device *rdev,
 		if (rdev->pm.max_bandwidth.full > rdev->pm.sideport_bandwidth.full &&
 			rdev->pm.sideport_bandwidth.full)
 			rdev->pm.max_bandwidth = rdev->pm.sideport_bandwidth;
-		read_delay_latency.full = dfixed_const(370 * 800 * 1000);
+		read_delay_latency.full = dfixed_const(800 * 1000);
 		read_delay_latency.full = dfixed_div(read_delay_latency,
 			rdev->pm.igp_sideport_mclk);
+		a.full = dfixed_const(370);
+		read_delay_latency.full = dfixed_mul(read_delay_latency, a);
 	} else {
 		if (rdev->pm.max_bandwidth.full > rdev->pm.k8_bandwidth.full &&
 			rdev->pm.k8_bandwidth.full)

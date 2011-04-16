@@ -628,8 +628,7 @@ vmxnet3_set_rss_indir(struct net_device *netdev,
 		 * Return with error code if any of the queue indices
 		 * is out of range
 		 */
-		if (p->ring_index[i] < 0 ||
-		    p->ring_index[i] >= adapter->num_rx_queues)
+		if (p->ring_index[i] >= adapter->num_rx_queues)
 			return -EINVAL;
 	}
 

@@ -919,12 +919,15 @@ do_confirm:
 static int rawv6_seticmpfilter(struct sock *sk, int level, int optname,
 			       char __user *optval, int optlen)
 {
+	struct icmp6_filter filter;
+
 	switch (optname) {
 	case ICMPV6_FILTER:
 		if (optlen > sizeof(struct icmp6_filter))
 			optlen = sizeof(struct icmp6_filter);
-		if (copy_from_user(&raw6_sk(sk)->filter, optval, optlen))
+		if (copy_from_user(&filter, optval, optlen))
 			return -EFAULT;
+		memcpy(&raw6_sk(sk)->filter, &filter, optlen);
 		return 0;
 	default:
 		return -ENOPROTOOPT;
@@ -936,6 +939,7 @@ static int rawv6_seticmpfilter(struct sock *sk, int level, int optname,
 static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 			       char __user *optval, int __user *optlen)
 {
+	struct icmp6_filter filter;
 	int len;
 
 	switch (optname) {
@@ -948,7 +952,8 @@ static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 			len = sizeof(struct icmp6_filter);
 		if (put_user(len, optlen))
 			return -EFAULT;
-		if (copy_to_user(optval, &raw6_sk(sk)->filter, len))
+		memcpy(&filter, &raw6_sk(sk)->filter, len);
+		if (copy_to_user(optval, &filter, len))
 			return -EFAULT;
 		return 0;
 	default:

@@ -140,6 +140,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_MODHARDEN if (MODULES)
 	select GRKERNSEC_HARDEN_PTRACE
 	select GRKERNSEC_VM86 if (X86_32)
+	select GRKERNSEC_KERN_LOCKOUT if (X86)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -151,7 +152,7 @@ config GRKERNSEC_HIGH
 	select PAX_HAVE_ACL_FLAGS
 	select PAX_KERNEXEC if ((PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN)
 	select PAX_MEMORY_UDEREF if (X86 && !XEN)
-	select PAX_RANDKSTACK if (X86_TSC && !X86_64)
+	select PAX_RANDKSTACK if (X86_TSC && X86)
 	select PAX_SEGMEXEC if (X86_32)
 	select PAX_PAGEEXEC
 	select PAX_EMUPLT if (ALPHA || PARISC || SPARC32 || SPARC64)
@@ -192,6 +193,7 @@ config GRKERNSEC_HIGH
 	  - Ptrace restrictions
 	  - Restricted vm86 mode
 	  - Restricted sysfs/debugfs
+	  - Active kernel exploit response
 
 config GRKERNSEC_CUSTOM
 	bool "Custom"
@@ -210,6 +212,7 @@ depends on GRKERNSEC
 
 config GRKERNSEC_KMEM
 	bool "Deny writing to /dev/kmem, /dev/mem, and /dev/port"
+	select STRICT_DEVMEM if (X86 || ARM || TILE || S390)
 	help
 	  If you say Y here, /dev/kmem and /dev/mem won't be allowed to
 	  be written to via mmap or otherwise to modify the running kernel.
@@ -276,13 +279,18 @@ config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"
 	help
 	  If you say Y here, attempts to bruteforce exploits against forking
-	  daemons such as apache or sshd will be deterred.  When a child of a
-	  forking daemon is killed by PaX or crashes due to an illegal
-	  instruction, the parent process will be delayed 30 seconds upon every
-	  subsequent fork until the administrator is able to assess the
-	  situation and restart the daemon.  It is recommended that you also
-	  enable signal logging in the auditing section so that logs are
-	  generated when a process performs an illegal instruction.
+	  daemons such as apache or sshd, as well as against suid/sgid binaries
+	  will be deterred.  When a child of a forking daemon is killed by PaX
+	  or crashes due to an illegal instruction or other suspicious signal,
+	  the parent process will be delayed 30 seconds upon every subsequent
+	  fork until the administrator is able to assess the situation and
+	  restart the daemon.
+	  In the suid/sgid case, the attempt is logged, the user has all their
+	  processes terminated, and they are prevented from executing any further
+	  processes for 15 minutes.
+	  It is recommended that you also enable signal logging in the auditing
+	  section so that logs are generated when a process triggers a suspicious
+	  signal.
 
 config GRKERNSEC_MODHARDEN
 	bool "Harden module auto-loading"
@@ -329,6 +337,23 @@ config GRKERNSEC_HIDESYM
 	  If the above conditions are met, this option will aid in providing a
 	  useful protection against local kernel exploitation of overflows
 	  and arbitrary read/write vulnerabilities.
+
+config GRKERNSEC_KERN_LOCKOUT
+	bool "Active kernel exploit response"
+	depends on X86
+	help
+	  If you say Y here, when a PaX alert is triggered due to suspicious
+	  activity in the kernel (from KERNEXEC/UDEREF/USERCOPY)
+	  or an OOPs occurs due to bad memory accesses, instead of just
+	  terminating the offending process (and potentially allowing
+	  a subsequent exploit from the same user), we will take one of two
+	  actions:
+	   If the user was root, we will panic the system
+	   If the user was non-root, we will log the attempt, terminate
+	   all processes owned by the user, then prevent them from creating
+	   any new processes until the system is restarted
+	  This deters repeated kernel exploitation/bruteforcing attempts
+	  and is useful for later forensics.
 
 endmenu
 menu "Role Based Access Control Options"

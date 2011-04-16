@@ -954,6 +954,9 @@ static __init int setup_disablecpuid(char *arg)
 }
 __setup("clearcpuid=", setup_disablecpuid);
 
+DEFINE_PER_CPU(struct thread_info *, current_tinfo) = &init_task.tinfo;
+EXPORT_PER_CPU_SYMBOL(current_tinfo);
+
 #ifdef CONFIG_X86_64
 struct desc_ptr idt_descr = { NR_VECTORS * 16 - 1, (unsigned long) idt_table };
 
@@ -969,7 +972,7 @@ DEFINE_PER_CPU(struct task_struct *, current_task) ____cacheline_aligned =
 EXPORT_PER_CPU_SYMBOL(current_task);
 
 DEFINE_PER_CPU(unsigned long, kernel_stack) =
-	(unsigned long)&init_thread_union - KERNEL_STACK_OFFSET + THREAD_SIZE;
+	(unsigned long)&init_thread_union - 8 + THREAD_SIZE;
 EXPORT_PER_CPU_SYMBOL(kernel_stack);
 
 DEFINE_PER_CPU(char *, irq_stack_ptr) =

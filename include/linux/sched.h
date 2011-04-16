@@ -715,6 +715,11 @@ struct user_struct {
 	struct key *session_keyring;	/* UID's default session keyring */
 #endif
 
+#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
+	unsigned int banned;
+	unsigned long ban_expires;
+#endif
+
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	uid_t uid;
@@ -1207,7 +1212,7 @@ enum perf_event_task_context {
 
 struct task_struct {
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	struct thread_info *stack;
+	void *stack;
 	atomic_t usage;
 	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
@@ -1355,6 +1360,10 @@ struct task_struct {
 #endif
 /* CPU-specific state of this task */
 	struct thread_struct thread;
+/* thread_info moved to task_struct */
+#ifdef CONFIG_X86
+	struct thread_info tinfo;
+#endif
 /* filesystem information */
 	struct fs_struct *fs;
 
@@ -1605,8 +1614,7 @@ extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 void pax_report_insns(void *pc, void *sp);
 void pax_report_refcount_overflow(struct pt_regs *regs);
-void pax_report_leak_to_user(const void *ptr, unsigned long len);
-void pax_report_overflow_from_user(const void *ptr, unsigned long len);
+void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
@@ -2372,8 +2380,8 @@ static inline void unlock_task_sighand(struct task_struct *tsk,
 
 #ifndef __HAVE_THREAD_FUNCTIONS
 
-#define task_thread_info(task)	((task)->stack)
-#define task_stack_page(task)	((void *)(task)->stack)
+#define task_thread_info(task)	((struct thread_info *)(task)->stack)
+#define task_stack_page(task)	((task)->stack)
 
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
 {

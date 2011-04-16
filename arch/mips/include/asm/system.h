@@ -23,7 +23,6 @@
 #include <asm/dsp.h>
 #include <asm/watch.h>
 #include <asm/war.h>
-#include <asm/asm.h>
 
 
 /*
@@ -231,6 +230,6 @@ extern void per_cpu_trap_init(void);
  */
 #define __ARCH_WANT_UNLOCKED_CTXSW
 
-#define arch_align_stack(x) ((x) & ALMASK)
+#define arch_align_stack(x) ((x) & ~0xfUL)
 
 #endif /* _ASM_SYSTEM_H */

@@ -22,7 +22,7 @@ struct cpu_workqueue_stats {
 	int		            cpu;
 	pid_t			    pid;
 /* Can be inserted from interrupt or user context, need to be atomic */
-	atomic_t	            inserted;
+	atomic_unchecked_t          inserted;
 /*
  *  Don't need to be atomic, works are serialized in a single workqueue thread
  *  on a single CPU.
@@ -60,7 +60,7 @@ probe_workqueue_insertion(void *ignore,
 	spin_lock_irqsave(&workqueue_cpu_stat(cpu)->lock, flags);
 	list_for_each_entry(node, &workqueue_cpu_stat(cpu)->list, list) {
 		if (node->pid == wq_thread->pid) {
-			atomic_inc(&node->inserted);
+			atomic_inc_unchecked(&node->inserted);
 			goto found;
 		}
 	}
@@ -210,7 +210,7 @@ static int workqueue_stat_show(struct seq_file *s, void *p)
 		tsk = get_pid_task(pid, PIDTYPE_PID);
 		if (tsk) {
 			seq_printf(s, "%3d %6d     %6u       %s\n", cws->cpu,
-				   atomic_read(&cws->inserted), cws->executed,
+				   atomic_read_unchecked(&cws->inserted), cws->executed,
 				   tsk->comm);
 			put_task_struct(tsk);
 		}

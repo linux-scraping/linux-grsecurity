@@ -154,6 +154,7 @@ enum {
 	GR_STR_INT,
 	GR_TWO_STR_INT,
 	GR_TWO_INT,
+	GR_TWO_U64,
 	GR_THREE_INT,
 	GR_FIVE_INT_TWO_STR,
 	GR_TWO_STR,
@@ -189,6 +190,7 @@ enum {
 #define gr_log_str(audit, msg, str) gr_log_varargs(audit, msg, GR_ONE_STR, str)
 #define gr_log_str_int(audit, msg, str, num) gr_log_varargs(audit, msg, GR_STR_INT, str, num)
 #define gr_log_int_int(audit, msg, num1, num2) gr_log_varargs(audit, msg, GR_TWO_INT, num1, num2)
+#define gr_log_two_u64(audit, msg, num1, num2) gr_log_varargs(audit, msg, GR_TWO_U64, num1, num2)
 #define gr_log_int3(audit, msg, num1, num2, num3) gr_log_varargs(audit, msg, GR_THREE_INT, num1, num2, num3)
 #define gr_log_int5_str2(audit, msg, num1, num2, str1, str2) gr_log_varargs(audit, msg, GR_FIVE_INT_TWO_STR, num1, num2, str1, str2)
 #define gr_log_str_str(audit, msg, str1, str2) gr_log_varargs(audit, msg, GR_TWO_STR, str1, str2)

@@ -83,6 +83,12 @@ extern struct group_info init_groups;
 #define INIT_IDS
 #endif
 
+#ifdef CONFIG_X86
+#define INIT_TASK_THREAD_INFO INIT_THREAD_INFO
+#else
+#define INIT_TASK_THREAD_INFO
+#endif
+
 /*
  * Because of the reduced scope of CAP_SETPCAP when filesystem
  * capabilities are in effect, it is safe to allow CAP_SETPCAP to
@@ -163,6 +169,7 @@ extern struct cred init_cred;
 	RCU_INIT_POINTER(.cred, &init_cred),				\
 	.comm		= "swapper",					\
 	.thread		= INIT_THREAD,					\
+	.tinfo		= INIT_TASK_THREAD_INFO,			\
 	.fs		= &init_fs,					\
 	.files		= &init_files,					\
 	.signal		= &init_signals,				\

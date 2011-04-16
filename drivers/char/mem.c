@@ -73,15 +73,24 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
 
 	while (cursor < to) {
 		if (!devmem_is_allowed(pfn)) {
+#ifdef CONFIG_GRKERNSEC_KMEM
+			gr_handle_mem_readwrite(from, to);
+#else
 			printk(KERN_INFO
 		"Program %s tried to access /dev/mem between %Lx->%Lx.\n",
 				current->comm, from, to);
+#endif
 			return 0;
 		}
 		cursor += PAGE_SIZE;
 		pfn++;
 	}
 	return 1;
+}
+#elif defined(CONFIG_GRKERNSEC_KMEM)
+static inline int range_is_allowed(unsigned long pfn, unsigned long size)
+{
+	return 0;
 }
 #else
 static inline int range_is_allowed(unsigned long pfn, unsigned long size)
@@ -182,11 +191,6 @@ static ssize_t write_mem(struct file *file, const char __user *buf,
 
 	if (!valid_phys_addr_range(p, count))
 		return -EFAULT;
-
-#ifdef CONFIG_GRKERNSEC_KMEM
-	gr_handle_mem_write();
-	return -EPERM;
-#endif
 
 	written = 0;
 
@@ -342,11 +346,6 @@ static int mmap_mem(struct file *file, struct vm_area_struct *vma)
 	if (!phys_mem_access_prot_allowed(file, vma->vm_pgoff, size,
 						&vma->vm_page_prot))
 		return -EINVAL;
-
-#ifdef CONFIG_GRKERNSEC_KMEM
-	if (gr_handle_mem_mmap(vma->vm_pgoff << PAGE_SHIFT, vma))
-		return -EPERM;
-#endif
 
 	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_pgoff,
 						 size,
@@ -578,11 +577,6 @@ static ssize_t write_kmem(struct file *file, const char __user *buf,
 	char * kbuf; /* k-addr because vwrite() takes vmlist_lock rwlock */
 	int err = 0;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	gr_handle_kmem_write();
-	return -EPERM;
-#endif
-
 	if (p < (unsigned long) high_memory) {
 		unsigned long to_write = min_t(unsigned long, count,
 					       (unsigned long)high_memory - p);
@@ -784,16 +778,6 @@ static loff_t memory_lseek(struct file *file, loff_t offset, int orig)
 
 static int open_port(struct inode * inode, struct file * filp)
 {
-#ifdef CONFIG_GRKERNSEC_KMEM
-	gr_handle_open_port();
-	return -EPERM;
-#endif
-
-	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
-}
-
-static int open_mem(struct inode * inode, struct file * filp)
-{
 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
 }
 
@@ -801,6 +785,7 @@ static int open_mem(struct inode * inode, struct file * filp)
 #define full_lseek      null_lseek
 #define write_zero	write_null
 #define read_full       read_zero
+#define open_mem	open_port
 #define open_kmem	open_mem
 #define open_oldmem	open_mem
 
