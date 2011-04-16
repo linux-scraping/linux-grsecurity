@@ -2692,12 +2692,10 @@ static int __init setup_slub_nomerge(char *str)
 __setup("slub_nomerge", setup_slub_nomerge);
 
 static struct kmem_cache *create_kmalloc_cache(struct kmem_cache *s,
-		const char *name, int size, gfp_t gfp_flags)
+		const char *name, int size, gfp_t gfp_flags, unsigned int flags)
 {
-	unsigned int flags = 0;
-
 	if (gfp_flags & SLUB_DMA)
-		flags = SLAB_CACHE_DMA;
+		flags |= SLAB_CACHE_DMA;
 
 	/*
 	 * This function is called with IRQs disabled during early-boot on
@@ -2921,7 +2919,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 #ifdef CONFIG_PAX_USERCOPY
 	struct page *page;
-	struct kmem_cache *s;
+	struct kmem_cache *s = NULL;
 	unsigned long offset;
 
 	if (!n)
@@ -2942,15 +2940,15 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	}
 
 	s = page->slab;
+	if (!(s->flags & SLAB_USERCOPY))
+		goto report;
+
 	offset = (ptr - page_address(page)) % s->size;
 	if (offset <= s->objsize && n <= s->objsize - offset)
 		return;
 
 report:
-	if (to)
-		pax_report_leak_to_user(ptr, n);
-	else
-		pax_report_overflow_from_user(ptr, n);
+	pax_report_usercopy(ptr, n, to, s ? s->name : NULL);
 #endif
 
 }
@@ -3226,7 +3224,7 @@ void __init kmem_cache_init(void)
 	 * kmem_cache_open for slab_state == DOWN.
 	 */
 	create_kmalloc_cache(&kmalloc_caches[0], "kmem_cache_node",
-		sizeof(struct kmem_cache_node), GFP_NOWAIT);
+		sizeof(struct kmem_cache_node), GFP_NOWAIT, 0);
 	atomic_set(&kmalloc_caches[0].refcount, -1);
 	caches++;
 
@@ -3239,18 +3237,18 @@ void __init kmem_cache_init(void)
 	/* Caches that are not of the two-to-the-power-of size */
 	if (KMALLOC_MIN_SIZE <= 32) {
 		create_kmalloc_cache(&kmalloc_caches[1],
-				"kmalloc-96", 96, GFP_NOWAIT);
+				"kmalloc-96", 96, GFP_NOWAIT, SLAB_USERCOPY);
 		caches++;
 	}
 	if (KMALLOC_MIN_SIZE <= 64) {
 		create_kmalloc_cache(&kmalloc_caches[2],
-				"kmalloc-192", 192, GFP_NOWAIT);
+				"kmalloc-192", 192, GFP_NOWAIT, SLAB_USERCOPY);
 		caches++;
 	}
 
 	for (i = KMALLOC_SHIFT_LOW; i < SLUB_PAGE_SHIFT; i++) {
 		create_kmalloc_cache(&kmalloc_caches[i],
-			"kmalloc", 1 << i, GFP_NOWAIT);
+			"kmalloc", 1 << i, GFP_NOWAIT, SLAB_USERCOPY);
 		caches++;
 	}
 

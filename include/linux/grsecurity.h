@@ -23,8 +23,10 @@
 #error "CONFIG_PAX enabled, but no PaX options are enabled."
 #endif
 
-void gr_handle_brute_attach(struct task_struct *p);
+void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags);
 void gr_handle_brute_check(void);
+void gr_handle_kernel_exploit(void);
+int gr_process_user_ban(void);
 
 char gr_roletype_to_char(void);
 
@@ -200,13 +202,8 @@ dev_t gr_get_dev_from_dentry(struct dentry *dentry);
 
 #ifdef CONFIG_GRKERNSEC
 void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
-void gr_log_nonroot_mod_load(const char *modname);
 void gr_handle_vm86(void);
-void gr_handle_mem_write(void);
-void gr_handle_kmem_write(void);
-void gr_handle_open_port(void);
-int gr_handle_mem_mmap(const unsigned long offset,
-			      struct vm_area_struct *vma);
+void gr_handle_mem_readwrite(u64 from, u64 to);
 
 extern int grsec_enable_dmesg;
 extern int grsec_disable_privio;

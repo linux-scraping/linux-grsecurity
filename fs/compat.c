@@ -1523,6 +1523,11 @@ int compat_do_execve(char * filename,
 	bprm->filename = filename;
 	bprm->interp = filename;
 
+	if (gr_process_user_ban()) {
+		retval = -EPERM;
+		goto out_file;
+	}
+
 	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
 	retval = -EAGAIN;
 	if (gr_handle_nproc())

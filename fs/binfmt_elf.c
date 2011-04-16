@@ -165,6 +165,7 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 	int ei_index = 0;
 	const struct cred *cred = current_cred();
 	struct vm_area_struct *vma;
+	unsigned long saved_auxv[AT_VECTOR_SIZE];
 
 	/*
 	 * In some cases (e.g. Hyper-Threading), we want to avoid L1
@@ -323,9 +324,11 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 		return -EFAULT;
 	current->mm->env_end = p;
 
+	memcpy(saved_auxv, elf_info, ei_index * sizeof(elf_addr_t));
+
 	/* Put the elf_info on the stack in the right place.  */
 	sp = (elf_addr_t __user *)envp + 1;
-	if (copy_to_user(sp, elf_info, ei_index * sizeof(elf_addr_t)))
+	if (copy_to_user(sp, saved_auxv, ei_index * sizeof(elf_addr_t)))
 		return -EFAULT;
 	return 0;
 }
@@ -688,6 +691,7 @@ static long pax_parse_elf_flags(const struct elfhdr * const elf_ex, const struct
 
 #ifdef CONFIG_PAX_PT_PAX_FLAGS
 	unsigned long i;
+	int found_flags = 0;
 #endif
 
 #ifdef CONFIG_PAX_EI_PAX
@@ -711,9 +715,25 @@ static long pax_parse_elf_flags(const struct elfhdr * const elf_ex, const struct
 #endif
 
 				pax_flags = pax_parse_hardmode(&elf_phdata[i]);
+			found_flags = 1;
 			break;
 		}
 #endif
+
+#if !defined(CONFIG_PAX_EI_PAX) && defined(CONFIG_PAX_PT_PAX_FLAGS)
+	if (found_flags == 0) {
+		struct elf_phdr phdr;
+		memset(&phdr, 0, sizeof(phdr));
+		phdr.p_flags = PF_NOEMUTRAMP;
+#ifdef CONFIG_PAX_SOFTMODE
+		if (pax_softmode)
+			pax_flags = pax_parse_softmode(&phdr);
+	else
+#endif
+			pax_flags = pax_parse_hardmode(&phdr);
+	}
+#endif
+
 
 	if (0 > pax_check_flags(&pax_flags))
 		return -EINVAL;

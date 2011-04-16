@@ -280,8 +280,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	struct pt_regs *childregs;
 	struct task_struct *me = current;
 
-	childregs = ((struct pt_regs *)
-			(THREAD_SIZE + task_stack_page(p))) - 1;
+	childregs = task_stack_page(p) + THREAD_SIZE - sizeof(struct pt_regs) - 8;
 	*childregs = *regs;
 
 	childregs->ax = 0;
@@ -476,10 +475,9 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	prev->usersp = percpu_read(old_rsp);
 	percpu_write(old_rsp, next->usersp);
 	percpu_write(current_task, next_p);
+	percpu_write(current_tinfo, &next_p->tinfo);
 
-	percpu_write(kernel_stack,
-		  (unsigned long)task_stack_page(next_p) +
-		  THREAD_SIZE - KERNEL_STACK_OFFSET);
+	percpu_write(kernel_stack, next->sp0);
 
 	/*
 	 * Now maybe reload the debug registers and handle I/O bitmaps

@@ -724,15 +724,22 @@ static int raw_init(struct sock *sk)
 
 static int raw_seticmpfilter(struct sock *sk, char __user *optval, int optlen)
 {
+	struct icmp_filter filter;
+
+	if (optlen < 0)
+		return -EINVAL;
 	if (optlen > sizeof(struct icmp_filter))
 		optlen = sizeof(struct icmp_filter);
-	if (copy_from_user(&raw_sk(sk)->filter, optval, optlen))
+	if (copy_from_user(&filter, optval, optlen))
 		return -EFAULT;
+	memcpy(&raw_sk(sk)->filter, &filter, optlen);
+
 	return 0;
 }
 
 static int raw_geticmpfilter(struct sock *sk, char __user *optval, int __user *optlen)
 {
+	struct icmp_filter filter;
 	int len, ret = -EFAULT;
 
 	if (get_user(len, optlen))
@@ -743,8 +750,9 @@ static int raw_geticmpfilter(struct sock *sk, char __user *optval, int __user *o
 	if (len > sizeof(struct icmp_filter))
 		len = sizeof(struct icmp_filter);
 	ret = -EFAULT;
+	memcpy(&filter, &raw_sk(sk)->filter, len);
 	if (put_user(len, optlen) ||
-	    copy_to_user(optval, &raw_sk(sk)->filter, len))
+	    copy_to_user(optval, &filter, len))
 		goto out;
 	ret = 0;
 out:	return ret;

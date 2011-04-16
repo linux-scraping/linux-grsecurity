@@ -65,13 +65,12 @@ char modprobe_path[KMOD_PATH_LEN] = "/sbin/modprobe";
  * If module auto-loading support is disabled then this function
  * becomes a no-operation.
  */
-int __request_module(bool wait, const char *fmt, ...)
+static int ____request_module(bool wait, char *module_param, const char *fmt, va_list ap)
 {
-	va_list args;
 	char module_name[MODULE_NAME_LEN];
 	unsigned int max_modprobes;
 	int ret;
-	char *argv[] = { modprobe_path, "-q", "--", module_name, NULL };
+	char *argv[] = { modprobe_path, "-q", "--", module_name, module_param, NULL };
 	static char *envp[] = { "HOME=/",
 				"TERM=linux",
 				"PATH=/sbin:/usr/sbin:/bin:/usr/bin",
@@ -84,21 +83,21 @@ int __request_module(bool wait, const char *fmt, ...)
 	if (ret)
 		return ret;
 
-	va_start(args, fmt);
-	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, args);
-	va_end(args);
+	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, ap);
 	if (ret >= MODULE_NAME_LEN)
 		return -ENAMETOOLONG;
 
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
-	/* we could do a tighter check here, but some distros
-	   are taking it upon themselves to remove CAP_SYS_MODULE
-	   from even root-running apps which cause modules to be 
-	   auto-loaded
-	*/
-	if (current_uid()) {
-		gr_log_nonroot_mod_load(module_name);
-		return -EPERM;
+	if (!current_uid()) {
+		/* hack to workaround consolekit/udisks stupidity */
+		read_lock(&tasklist_lock);
+		if (!strcmp(current->comm, "mount") &&
+		    current->real_parent && !strncmp(current->real_parent->comm, "udisk", 5)) {
+			read_unlock(&tasklist_lock);
+			printk(KERN_ALERT "grsec: denied attempt to auto-load fs module %.64s by udisks\n", module_name);
+			return -EPERM;
+		}
+		read_unlock(&tasklist_lock);
 	}
 #endif
 
@@ -133,6 +132,48 @@ int __request_module(bool wait, const char *fmt, ...)
 	atomic_dec(&kmod_concurrent);
 	return ret;
 }
+
+int ___request_module(bool wait, char *module_param, const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+
+	va_start(args, fmt);
+	ret = ____request_module(wait, module_param, fmt, args);
+	va_end(args);
+
+	return ret;
+}
+
+int __request_module(bool wait, const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+	if (current_uid()) {
+		char module_param[MODULE_NAME_LEN];
+
+		memset(module_param, 0, sizeof(module_param));
+
+		snprintf(module_param, sizeof(module_param) - 1, "grsec_modharden_normal%u_", current_uid());
+
+		va_start(args, fmt);
+		ret = ____request_module(wait, module_param, fmt, args);
+		va_end(args);
+
+		return ret;
+	}
+#endif
+
+	va_start(args, fmt);
+	ret = ____request_module(wait, NULL, fmt, args);
+	va_end(args);
+
+	return ret;
+}
+
+
 EXPORT_SYMBOL(__request_module);
 #endif /* CONFIG_MODULES */
 

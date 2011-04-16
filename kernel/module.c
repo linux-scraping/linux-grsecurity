@@ -55,6 +55,7 @@
 #include <linux/async.h>
 #include <linux/percpu.h>
 #include <linux/kmemleak.h>
+#include <linux/grsecurity.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
@@ -1632,8 +1633,25 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 	unsigned int i, n = sechdrs[symindex].sh_size / sizeof(Elf_Sym);
 	int ret = 0;
 	const struct kernel_symbol *ksym;
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+	int is_fs_load = 0;
+	int register_filesystem_found = 0;
+
+	if (strstr(mod->args, "grsec_modharden_fs"))
+		is_fs_load = 1;
+#endif
+
 
 	for (i = 1; i < n; i++) {
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+		const char *name = strtab + sym[i].st_name;
+
+		/* it's a real shame this will never get ripped and copied
+		   upstream! ;(
+		*/
+		if (is_fs_load && !strcmp(name, "register_filesystem"))
+			register_filesystem_found = 1;
+#endif
 		switch (sym[i].st_shndx) {
 		case SHN_COMMON:
 			/* We compiled with -fno-common.  These are not
@@ -1682,6 +1700,13 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 			break;
 		}
 	}
+
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+	if (is_fs_load && !register_filesystem_found) {
+		printk(KERN_ALERT "grsec: Denied attempt to load non-fs module %.64s through mount\n", mod->name);
+		ret = -EPERM;
+	}
+#endif
 
 	return ret;
 }
@@ -2429,6 +2454,29 @@ static noinline struct module *load_module(void __user *umod,
 
 	/* Set up MODINFO_ATTR fields */
 	setup_modinfo(mod, sechdrs, infoindex);
+
+#ifdef CONFIG_GRKERNSEC_MODHARDEN
+	{
+		char *p, *p2;
+
+		if (strstr(mod->args, "grsec_modharden_netdev")) {
+			printk(KERN_ALERT "grsec: denied auto-loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%.64s instead.", mod->name);
+			err = -EPERM;
+			goto cleanup;
+		} else if ((p = strstr(mod->args, "grsec_modharden_normal"))) {
+			p += strlen("grsec_modharden_normal");
+			p2 = strstr(p, "-");
+			if (p2) {
+				*p2 = '\0';
+				printk(KERN_ALERT "grsec: denied kernel module auto-load of %.64s by uid %.9s\n", mod->name, p);
+				*p2 = '_';
+			}
+			err = -EPERM;
+			goto cleanup;
+		}
+	}
+#endif
+
 
 	/* Fix up syms, so that st_value is a pointer to location. */
 	err = simplify_symbols(sechdrs, symindex, strtab, versindex, pcpuindex,

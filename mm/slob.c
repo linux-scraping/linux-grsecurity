@@ -609,10 +609,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	}
 
 report:
-	if (to)
-		pax_report_leak_to_user(ptr, n);
-	else
-		pax_report_overflow_from_user(ptr, n);
+	pax_report_usercopy(ptr, n, to, NULL);
 #endif
 
 }

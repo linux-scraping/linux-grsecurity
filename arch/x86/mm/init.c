@@ -308,12 +308,15 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
  */
 int devmem_is_allowed(unsigned long pagenr)
 {
+#ifndef CONFIG_GRKERNSEC_KMEM
 	if (!pagenr)
 		return 1;
 #ifdef CONFIG_VM86
 	if (pagenr < (ISA_START_ADDRESS >> PAGE_SHIFT))
 		return 1;
 #endif
+#endif
+
 	if ((ISA_START_ADDRESS >> PAGE_SHIFT) <= pagenr && pagenr < (ISA_END_ADDRESS >> PAGE_SHIFT))
 		return 1;
 	if (iomem_is_exclusive(pagenr << PAGE_SHIFT))

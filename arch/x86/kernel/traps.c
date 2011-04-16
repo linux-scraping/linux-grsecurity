@@ -827,7 +827,7 @@ asmlinkage void __attribute__((weak)) smp_threshold_interrupt(void)
 void __math_state_restore(void)
 {
 	struct thread_info *thread = current_thread_info();
-	struct task_struct *tsk = thread->task;
+	struct task_struct *tsk = current;
 
 	/*
 	 * Paranoid restore. send a SIGSEGV if we fail to restore the state.
@@ -854,8 +854,7 @@ void __math_state_restore(void)
  */
 asmlinkage void math_state_restore(void)
 {
-	struct thread_info *thread = current_thread_info();
-	struct task_struct *tsk = thread->task;
+	struct task_struct *tsk = current;
 
 	if (!tsk_used_math(tsk)) {
 		local_irq_enable();

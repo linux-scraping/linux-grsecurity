@@ -175,14 +175,8 @@ extern unsigned disabled_cpus __cpuinitdata;
 extern int safe_smp_processor_id(void);
 
 #elif defined(CONFIG_X86_64_SMP)
-#define raw_smp_processor_id() (percpu_read(cpu_number))
-
-#define stack_smp_processor_id()					\
-({								\
-	struct thread_info *ti;						\
-	__asm__("andq %%rsp,%0; ":"=r" (ti) : "0" (CURRENT_MASK));	\
-	ti->cpu;							\
-})
+#define raw_smp_processor_id()		(percpu_read(cpu_number))
+#define stack_smp_processor_id()	raw_smp_processor_id()
 #define safe_smp_processor_id()		smp_processor_id()
 
 #endif

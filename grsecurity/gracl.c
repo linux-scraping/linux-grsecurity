@@ -1814,9 +1814,9 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	spin_lock(&dcache_lock);
 	spin_lock(&vfsmount_lock);
 
-	if (unlikely(mnt == shm_mnt || mnt == pipe_mnt || mnt == sock_mnt ||
+	if (unlikely((mnt == shm_mnt && dentry->d_inode->i_nlink == 0) || mnt == pipe_mnt || mnt == sock_mnt ||
 #ifdef CONFIG_HUGETLBFS
-	    mnt == hugetlbfs_vfsmount ||
+	    (mnt == hugetlbfs_vfsmount && dentry->d_inode->i_nlink == 0) ||
 #endif
 		/* ignore Eric Biederman */
 	    IS_PRIVATE(l_dentry->d_inode))) {
@@ -3784,7 +3784,7 @@ static int is_writable_mmap(const struct file *filp)
 	struct acl_object_label *obj, *obj2;
 
 	if (gr_status & GR_READY && !(task->acl->mode & GR_OVERRIDE) &&
-	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode) && filp->f_path.mnt != shm_mnt) {
+	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode) && (filp->f_path.mnt != shm_mnt || (filp->f_path.dentry->d_inode->i_nlink > 0))) {
 		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, default_role->root_label);
 		obj2 = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt,
 				     task->role->root_label);

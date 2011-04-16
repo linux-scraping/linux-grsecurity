@@ -296,7 +296,7 @@ static inline void kernel_fpu_begin(void)
 	struct thread_info *me = current_thread_info();
 	preempt_disable();
 	if (me->status & TS_USEDFPU)
-		__save_init_fpu(me->task);
+		__save_init_fpu(current);
 	else
 		clts();
 }

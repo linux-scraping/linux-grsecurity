@@ -420,6 +420,9 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 */
 	arch_end_context_switch(next_p);
 
+	percpu_write(current_task, next_p);
+	percpu_write(current_tinfo, &next_p->tinfo);
+
 	if (preload_fpu)
 		__math_state_restore();
 
@@ -428,8 +431,6 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 */
 	if (prev->gs | next->gs)
 		lazy_load_gs(next->gs);
-
-	percpu_write(current_task, next_p);
 
 	return prev_p;
 }
@@ -500,28 +501,3 @@ unsigned long get_wchan(struct task_struct *p)
 	} while (count++ < 16);
 	return 0;
 }
-
-#ifdef CONFIG_PAX_RANDKSTACK
-asmlinkage void pax_randomize_kstack(void)
-{
-	struct thread_struct *thread = &current->thread;
-	unsigned long time;
-
-	if (!randomize_va_space)
-		return;
-
-	rdtscl(time);
-
-	/* P4 seems to return a 0 LSB, ignore it */
-#ifdef CONFIG_MPENTIUM4
-	time &= 0x1EUL;
-	time <<= 2;
-#else
-	time &= 0xFUL;
-	time <<= 3;
-#endif
-
-	thread->sp0 ^= time;
-	load_sp0(init_tss + smp_processor_id(), thread);
-}
-#endif

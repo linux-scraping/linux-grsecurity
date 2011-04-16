@@ -53,16 +53,12 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 #endif
 
 	for (;;) {
-		struct thread_info *context;
+		void *stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
+		bp = print_context_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
 
-		context = (struct thread_info *)
-			((unsigned long)stack & (~(THREAD_SIZE - 1)));
-		bp = print_context_stack(context, stack, bp, ops,
-					 data, NULL, &graph);
-
-		stack = (unsigned long *)context->previous_esp;
-		if (!stack)
+		if (stack_start == task_stack_page(task))
 			break;
+		stack = *(unsigned long **)stack_start;
 		if (ops->stack(data, "IRQ") < 0)
 			break;
 		touch_nmi_watchdog();

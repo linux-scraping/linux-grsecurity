@@ -132,7 +132,7 @@ do {									\
 	     "thread_return:\n\t"					  \
 	     "movq "__percpu_arg([current_task])",%%rsi\n\t"		  \
 	     __switch_canary						  \
-	     "movq %P[thread_info](%%rsi),%%r8\n\t"			  \
+	     "movq "__percpu_arg([thread_info])",%%r8\n\t"		  \
 	     "movq %%rax,%%rdi\n\t" 					  \
 	     "testl  %[_tif_fork],%P[ti_flags](%%r8)\n\t"	  \
 	     "jnz   ret_from_fork\n\t"					  \
@@ -143,7 +143,7 @@ do {									\
 	       [threadrsp] "i" (offsetof(struct task_struct, thread.sp)), \
 	       [ti_flags] "i" (offsetof(struct thread_info, flags)),	  \
 	       [_tif_fork] "i" (_TIF_FORK),			  	  \
-	       [thread_info] "i" (offsetof(struct task_struct, stack)),   \
+	       [thread_info] "m" (per_cpu_var(current_tinfo)),		  \
 	       [current_task] "m" (per_cpu_var(current_task))		  \
 	       __switch_canary_iparam					  \
 	     : "memory", "cc" __EXTRA_CLOBBER)

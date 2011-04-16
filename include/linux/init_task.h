@@ -83,6 +83,12 @@ extern struct group_info init_groups;
 #define INIT_IDS
 #endif
 
+#ifdef CONFIG_X86
+#define INIT_TASK_THREAD_INFO INIT_THREAD_INFO
+#else
+#define INIT_TASK_THREAD_INFO
+#endif
+
 #ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 /*
  * Because of the reduced scope of CAP_SETPCAP when filesystem
@@ -156,6 +162,7 @@ extern struct cred init_cred;
 		 __MUTEX_INITIALIZER(tsk.cred_guard_mutex),		\
 	.comm		= "swapper",					\
 	.thread		= INIT_THREAD,					\
+	.tinfo		= INIT_TASK_THREAD_INFO,			\
 	.fs		= &init_fs,					\
 	.files		= &init_files,					\
 	.signal		= &init_signals,				\

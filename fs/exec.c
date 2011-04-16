@@ -1418,6 +1418,11 @@ int do_execve(char * filename,
 	bprm->filename = filename;
 	bprm->interp = filename;
 
+	if (gr_process_user_ban()) {
+		retval = -EPERM;
+		goto out_file;
+	}
+
 	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
 
 	if (gr_handle_nproc()) {
@@ -1865,25 +1870,17 @@ int object_is_on_stack(const void *obj, unsigned long len)
 }
 
 
-void pax_report_leak_to_user(const void *ptr, unsigned long len)
+void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type)
 {
 	if (current->signal->curr_ip)
-		printk(KERN_ERR "PAX: From %pI4: kernel memory leak attempt detected from %p (%lu bytes)\n",
-			&current->signal->curr_ip, ptr, len);
+		printk(KERN_ERR "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
+			&current->signal->curr_ip, to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
 	else
-		printk(KERN_ERR "PAX: kernel memory leak attempt detected from %p (%lu bytes)\n", ptr, len);
-	dump_stack();
-	do_group_exit(SIGKILL);
-}
+		printk(KERN_ERR "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
+			to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
 
-void pax_report_overflow_from_user(const void *ptr, unsigned long len)
-{
-	if (current->signal->curr_ip)
-		printk(KERN_ERR "PAX: From %pI4: kernel memory overflow attempt detected to %p (%lu bytes)\n",
-			&current->signal->curr_ip, ptr, len);
-	else
-		printk(KERN_ERR "PAX: kernel memory overflow attempt detected to %p (%lu bytes)\n", ptr, len);
 	dump_stack();
+	gr_handle_kernel_exploit();
 	do_group_exit(SIGKILL);
 }
 #endif
@@ -2127,6 +2124,9 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 
 	audit_core_dumps(signr);
 
+	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
+		gr_handle_brute_attach(current, mm->flags);
+
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
 		goto fail;
@@ -2171,8 +2171,6 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	 */
 	clear_thread_flag(TIF_SIGPENDING);
 
-	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
-		gr_handle_brute_attach(current);
 	gr_learn_resource(current, RLIMIT_CORE, binfmt->min_coredump, 1);
 
 	/*
