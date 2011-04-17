@@ -2465,7 +2465,7 @@ static noinline struct module *load_module(void __user *umod,
 			goto cleanup;
 		} else if ((p = strstr(mod->args, "grsec_modharden_normal"))) {
 			p += strlen("grsec_modharden_normal");
-			p2 = strstr(p, "-");
+			p2 = strstr(p, "_");
 			if (p2) {
 				*p2 = '\0';
 				printk(KERN_ALERT "grsec: denied kernel module auto-load of %.64s by uid %.9s\n", mod->name, p);

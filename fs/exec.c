@@ -181,7 +181,9 @@ void acct_arg_size(struct linux_binprm *bprm, unsigned long pages)
 
 	bprm->vma_pages = pages;
 
-	add_mm_counter(mm, anon_rss, diff);
+	down_write(&mm->mmap_sem);
+	mm->total_vm += diff;
+	up_write(&mm->mmap_sem);
 }
 
 struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,

@@ -2166,7 +2166,8 @@ static int irda_getsockopt(struct socket *sock, int level, int optname,
 	case IRLMP_ENUMDEVICES:
 
 		/* Offset to first device entry */
-		offset = sizeof(struct irda_device_list) - sizeof(struct irda_device_info);
+		offset = sizeof(struct irda_device_list) -
+			sizeof(struct irda_device_info);
 
 		if (len < offset)
 			return -EINVAL;
