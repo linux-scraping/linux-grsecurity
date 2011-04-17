@@ -1360,7 +1360,7 @@ static void alc_auto_init_amp(struct hda_codec *codec, int type)
 		case 0x10ec0883:
 		case 0x10ec0885:
 		case 0x10ec0887:
-		case 0x10ec0889:
+		/*case 0x10ec0889:*/ /* this causes an SPDIF problem */
 			alc889_coef_init(codec);
 			break;
 		case 0x10ec0888:
@@ -14191,7 +14191,7 @@ static hda_nid_t alc269vb_capsrc_nids[1] = {
 };
 
 static hda_nid_t alc269_adc_candidates[] = {
-	0x08, 0x09, 0x07,
+	0x08, 0x09, 0x07, 0x11,
 };
 
 #define alc269_modes		alc260_modes

@@ -849,8 +849,8 @@ static const struct dmi_system_id __initconst olpc_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "XO"),
 		},
 	},
-	{ }
 #endif
+	{ }
 };
 
 void __init synaptics_module_init(void)

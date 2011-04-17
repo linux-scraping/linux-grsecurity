@@ -773,11 +773,11 @@ ENTRY(cpu_pgd)
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE-8
 
+ready:	.byte 0
+
 .section .rodata,"a",@progbits
 early_recursion_flag:
 	.long 0
-
-ready:	.byte 0
 
 int_msg:
 	.asciz "Unknown interrupt or fault at: %p %p %p\n"

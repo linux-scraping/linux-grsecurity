@@ -160,7 +160,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	 */
 
 	for (;;) {
-		struct thread_info *owner;
+		struct task_struct *owner;
 
 		/*
 		 * If we own the BKL, then don't spin. The owner of
@@ -205,7 +205,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 	spin_lock_mutex(&lock->wait_lock, flags);
 
 	debug_mutex_lock_common(lock, &waiter);
-	debug_mutex_add_waiter(lock, &waiter, task_thread_info(task));
+	debug_mutex_add_waiter(lock, &waiter, task);
 
 	/* add waiting tasks to the end of the waitqueue (FIFO): */
 	list_add_tail(&waiter.list, &lock->wait_list);
@@ -234,8 +234,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 		 * TASK_UNINTERRUPTIBLE case.)
 		 */
 		if (unlikely(signal_pending_state(state, task))) {
-			mutex_remove_waiter(lock, &waiter,
-					    task_thread_info(task));
+			mutex_remove_waiter(lock, &waiter, task);
 			mutex_release(&lock->dep_map, 1, ip);
 			spin_unlock_mutex(&lock->wait_lock, flags);
 
@@ -256,7 +255,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 done:
 	lock_acquired(&lock->dep_map, ip);
 	/* got the lock - rejoice! */
-	mutex_remove_waiter(lock, &waiter, current_thread_info());
+	mutex_remove_waiter(lock, &waiter, current);
 	mutex_set_owner(lock);
 
 	/* set it to 0 if there are no waiters left: */
