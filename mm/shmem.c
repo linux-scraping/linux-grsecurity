@@ -1964,7 +1964,7 @@ static int shmem_symlink(struct inode *dir, struct dentry *dentry, const char *s
 
 	info = SHMEM_I(inode);
 	inode->i_size = len-1;
-	if (len <= (char *)inode - (char *)info) {
+	if (len <= min((char *)inode - (char *)info, 64)) {
 		/* do it inline */
 		memcpy(info, symname, len);
 		inode->i_op = &shmem_symlink_inline_operations;

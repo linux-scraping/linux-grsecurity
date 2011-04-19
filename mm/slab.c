@@ -174,7 +174,7 @@
 
 /* Legal flag mask for kmem_cache_create(). */
 #if DEBUG
-# define CREATE_MASK	(SLAB_RED_ZONE | \
+# define CREATE_MASK	(SLAB_USERCOPY | SLAB_RED_ZONE | \
 			 SLAB_POISON | SLAB_HWCACHE_ALIGN | \
 			 SLAB_CACHE_DMA | \
 			 SLAB_STORE_USER | \
@@ -182,7 +182,7 @@
 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD | \
 			 SLAB_DEBUG_OBJECTS | SLAB_NOLEAKTRACE | SLAB_NOTRACK)
 #else
-# define CREATE_MASK	(SLAB_HWCACHE_ALIGN | \
+# define CREATE_MASK	(SLAB_USERCOPY | SLAB_HWCACHE_ALIGN | \
 			 SLAB_CACHE_DMA | \
 			 SLAB_RECLAIM_ACCOUNT | SLAB_PANIC | \
 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD | \
@@ -1453,7 +1453,7 @@ void __init kmem_cache_init(void)
 	sizes[INDEX_AC].cs_cachep = kmem_cache_create(names[INDEX_AC].name,
 					sizes[INDEX_AC].cs_size,
 					ARCH_KMALLOC_MINALIGN,
-					ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+					ARCH_KMALLOC_FLAGS|SLAB_PANIC|SLAB_USERCOPY,
 					NULL);
 
 	if (INDEX_AC != INDEX_L3) {
@@ -1461,7 +1461,7 @@ void __init kmem_cache_init(void)
 			kmem_cache_create(names[INDEX_L3].name,
 				sizes[INDEX_L3].cs_size,
 				ARCH_KMALLOC_MINALIGN,
-				ARCH_KMALLOC_FLAGS|SLAB_PANIC,
+				ARCH_KMALLOC_FLAGS|SLAB_PANIC|SLAB_USERCOPY,
 				NULL);
 	}
 

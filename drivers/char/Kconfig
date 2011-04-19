@@ -1113,10 +1113,10 @@ config TELCLOCK
 
 config DEVPORT
 	bool
-	default n
 	depends on !M68K
 	depends on ISA || PCI
 	depends on !GRKERNSEC_KMEM
+	default y
 
 source "drivers/s390/char/Kconfig"
 

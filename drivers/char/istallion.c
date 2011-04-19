@@ -187,7 +187,6 @@ static struct ktermios		stli_deftermios = {
  *	re-used for each stats call.
  */
 static comstats_t	stli_comstats;
-static combrd_t		stli_brdstats;
 static struct asystats	stli_cdkstats;
 
 /*****************************************************************************/
@@ -4058,6 +4057,7 @@ static int stli_getbrdstats(combrd_t __user *bp)
 {
 	struct stlibrd *brdp;
 	unsigned int i;
+	combrd_t stdli_brdstats;
 
 	if (copy_from_user(&stli_brdstats, bp, sizeof(combrd_t)))
 		return -EFAULT;

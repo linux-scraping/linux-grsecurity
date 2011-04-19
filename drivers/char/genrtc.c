@@ -272,6 +272,7 @@ static int gen_rtc_ioctl(struct inode *inode, struct file *file,
 	switch (cmd) {
 
 	case RTC_PLL_GET:
+	    memset(&pll, 0, sizeof(pll));
 	    if (get_rtc_pll(&pll))
 	 	    return -EINVAL;
 	    else

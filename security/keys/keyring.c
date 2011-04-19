@@ -214,15 +214,15 @@ static long keyring_read(const struct key *keyring,
 			ret = -EFAULT;
 
 			for (loop = 0; loop < klist->nkeys; loop++) {
+				key_serial_t serial;
 				key = klist->keys[loop];
+				serial = key->serial;
 
 				tmp = sizeof(key_serial_t);
 				if (tmp > buflen)
 					tmp = buflen;
 
-				if (copy_to_user(buffer,
-						 &key->serial,
-						 tmp) != 0)
+				if (copy_to_user(buffer, &serial, tmp))
 					goto error;
 
 				buflen -= tmp;
