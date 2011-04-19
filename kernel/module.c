@@ -2455,6 +2455,8 @@ static noinline struct module *load_module(void __user *umod,
 	/* Set up MODINFO_ATTR fields */
 	setup_modinfo(mod, sechdrs, infoindex);
 
+	mod->args = args;
+
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
 	{
 		char *p, *p2;
@@ -2629,7 +2631,6 @@ static noinline struct module *load_module(void __user *umod,
 
 	set_fs(old_fs);
 
-	mod->args = args;
 	if (section_addr(hdr, sechdrs, secstrings, "__obsparm"))
 		printk(KERN_WARNING "%s: Ignoring obsolete parameters\n",
 		       mod->name);
