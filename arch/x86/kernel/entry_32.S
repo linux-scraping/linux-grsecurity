@@ -500,14 +500,16 @@ sysenter_past_esp:
 	/*
 	 * Push current_thread_info()->sysenter_return to the stack.
 	 */
-	GET_THREAD_INFO(%ebp)
-	pushl TI_sysenter_return(%ebp)
+	pushl $0
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET eip, 0
 
 	pushl %eax
 	CFI_ADJUST_CFA_OFFSET 4
 	SAVE_ALL
+	GET_THREAD_INFO(%ebp)
+	movl TI_sysenter_return(%ebp),%ebp
+	movl %ebp,PT_EIP(%esp)
 	ENABLE_INTERRUPTS(CLBR_NONE)
 
 /*
