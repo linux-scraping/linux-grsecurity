@@ -2085,7 +2085,9 @@ void yield(void);
 extern struct exec_domain	default_exec_domain;
 
 union thread_union {
+#ifndef CONFIG_X86
 	struct thread_info thread_info;
+#endif
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
 };
 

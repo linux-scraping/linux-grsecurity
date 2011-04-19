@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/tty.h>
+#include <linux/mutex.h>
 #include <linux/timer.h>
 #include <linux/kernel.h>
 #include <linux/wait.h>
@@ -34,6 +35,7 @@ static int		vfd_is_open;
 static unsigned char	vfd[40];
 static int		vfd_cursor;
 static unsigned char	ledpb, led;
+static DEFINE_MUTEX(vfd_mutex);
 
 static void update_vfd(void)
 {
@@ -140,12 +142,15 @@ static ssize_t briq_panel_write(struct file *file, const char __user *buf, size_
 	if (!vfd_is_open)
 		return -EBUSY;
 
+	mutex_lock(&vfd_mutex);
 	for (;;) {
 		char c;
 		if (!indx)
 			break;
-		if (get_user(c, buf))
+		if (get_user(c, buf)) {
+			mutex_unlock(&vfd_mutex);
 			return -EFAULT;
+		}
 		if (esc) {
 			set_led(c);
 			esc = 0;
@@ -175,6 +180,7 @@ static ssize_t briq_panel_write(struct file *file, const char __user *buf, size_
 		buf++;
 	}
 	update_vfd();
+	mutex_unlock(&vfd_mutex);
 
 	return len;
 }

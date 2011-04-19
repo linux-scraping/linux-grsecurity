@@ -780,7 +780,15 @@ xfs_dir2_sf_getdents(
 		}
 
 		ino = xfs_dir2_sf_get_inumber(sfp, xfs_dir2_sf_inumberp(sfep));
-		if (filldir(dirent, (char *)sfep->name, sfep->namelen,
+		if (dp->i_df.if_u1.if_data == dp->i_df.if_u2.if_inline_data) {
+			char name[sfep->namelen];
+			memcpy(name, sfep->name, sfep->namelen);
+			if (filldir(dirent, name, sfep->namelen,
+			    off & 0x7fffffff, ino, DT_UNKNOWN)) {
+				*offset = off & 0x7fffffff;
+				return 0;
+			}
+		} else if (filldir(dirent, (char *)sfep->name, sfep->namelen,
 			    off & 0x7fffffff, ino, DT_UNKNOWN)) {
 			*offset = off & 0x7fffffff;
 			return 0;

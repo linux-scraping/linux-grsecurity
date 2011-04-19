@@ -84,7 +84,7 @@ extern struct group_info init_groups;
 #endif
 
 #ifdef CONFIG_X86
-#define INIT_TASK_THREAD_INFO INIT_THREAD_INFO
+#define INIT_TASK_THREAD_INFO .tinfo = INIT_THREAD_INFO,
 #else
 #define INIT_TASK_THREAD_INFO
 #endif
@@ -169,7 +169,7 @@ extern struct cred init_cred;
 	RCU_INIT_POINTER(.cred, &init_cred),				\
 	.comm		= "swapper",					\
 	.thread		= INIT_THREAD,					\
-	.tinfo		= INIT_TASK_THREAD_INFO,			\
+	INIT_TASK_THREAD_INFO						\
 	.fs		= &init_fs,					\
 	.files		= &init_files,					\
 	.signal		= &init_signals,				\
