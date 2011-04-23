@@ -446,7 +446,7 @@ static const struct ieee1394_device_id eth1394_id_table[] = {
 		.specifier_id =	ETHER1394_GASP_SPECIFIER_ID,
 		.version = ETHER1394_GASP_VERSION,
 	},
-	{ 0, 0, 0, 0, 0, 0 }
+	{}
 };
 
 MODULE_DEVICE_TABLE(ieee1394, eth1394_id_table);

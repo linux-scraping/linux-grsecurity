@@ -293,7 +293,7 @@ void fuse_ctl_remove_conn(struct fuse_conn *fc)
 
 static int fuse_ctl_fill_super(struct super_block *sb, void *data, int silent)
 {
-	struct tree_descr empty_descr = {"", NULL, 0};
+	struct tree_descr empty_descr = {""};
 	struct fuse_conn *fc;
 	int err;
 

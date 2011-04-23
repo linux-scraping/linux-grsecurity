@@ -235,13 +235,13 @@ static ctl_table kernel_table2[] = {
 	  .data = &vsyscall_gtod_data.sysctl_enabled, .maxlen = sizeof(int),
 	  .mode = 0644,
 	  .proc_handler = proc_dointvec },
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 
 static ctl_table kernel_root_table2[] = {
 	{ .ctl_name = CTL_KERN, .procname = "kernel", .mode = 0555,
 	  .child = kernel_table2 },
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 #endif
 

@@ -234,7 +234,6 @@ static int blk_fill_sghdr_rq(struct request_queue *q, struct request *rq,
 	if (cmdptr != rq->cmd)
 		memcpy(rq->cmd, cmdptr, hdr->cmd_len);
 
-
 	if (blk_verify_command(rq->cmd, mode & FMODE_WRITE))
 		return -EPERM;
 
@@ -445,7 +444,6 @@ int sg_scsi_ioctl(struct request_queue *q, struct gendisk *disk, fmode_t mode,
 	char *buffer = NULL, sense[SCSI_SENSE_BUFFERSIZE];
 	unsigned char tmpcmd[sizeof(rq->__cmd)];
 	unsigned char *cmdptr;
-
 
 	if (!sic)
 		return -EINVAL;

@@ -108,13 +108,14 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
 			 */
 			skb_pull(skb, X25_STD_MIN_LEN);
 
-			len = x25_addr_ntoa(skb->data, &source_addr, &dest_addr);
+			len = x25_parse_address_block(skb, &source_addr,
+						&dest_addr);
 			if (len > 0)
 				skb_pull(skb, len);
 
 			len = x25_parse_facilities(skb, &x25->facilities,
-						   &x25->dte_facilities,
-						   &x25->vc_facil_mask);
+						&x25->dte_facilities,
+						&x25->vc_facil_mask);
 			if (len > 0)
 				skb_pull(skb, len);
 			else

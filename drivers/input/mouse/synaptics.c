@@ -437,7 +437,7 @@ static void synaptics_process_packet(struct psmouse *psmouse)
 				break;
 			case 2:
 				if (SYN_MODEL_PEN(priv->model_id))
-					break;   /* Nothing, treat a pen as a single finger */
+					;   /* Nothing, treat a pen as a single finger */
 				break;
 			case 4 ... 15:
 				if (SYN_CAP_PALMDETECT(priv->capabilities))
@@ -652,6 +652,7 @@ static const struct dmi_system_id toshiba_dmi_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "TOSHIBA"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "PORTEGE M300"),
 		},
+
 	},
 	{
 		.ident = "Toshiba Portege M300",
@@ -660,8 +661,9 @@ static const struct dmi_system_id toshiba_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Portable PC"),
 			DMI_MATCH(DMI_PRODUCT_VERSION, "Version 1.0"),
 		},
+
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
+	{ }
 };
 #endif
 

@@ -3449,7 +3449,7 @@ static struct pci_device_id ohci1394_pci_tbl[] = {
 		.subvendor =	PCI_ANY_ID,
 		.subdevice =	PCI_ANY_ID,
 	},
-	{ 0, 0, 0, 0, 0, 0, 0 },
+	{ 0, },
 };
 
 MODULE_DEVICE_TABLE(pci, ohci1394_pci_tbl);

@@ -1522,7 +1522,7 @@ out_fail:
 out:
 	if (bprm->mm) {
 		acct_arg_size(bprm, 0);
-		mmput (bprm->mm);
+		mmput(bprm->mm);
 	}
 
 out_file:

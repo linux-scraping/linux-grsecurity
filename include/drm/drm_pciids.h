@@ -376,7 +376,7 @@
 	{0x1002, 0x9713, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_RS880|RADEON_IS_MOBILITY|RADEON_NEW_MEMMAP|RADEON_IS_IGP}, \
 	{0x1002, 0x9714, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_RS880|RADEON_NEW_MEMMAP|RADEON_IS_IGP}, \
 	{0x1002, 0x9715, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_RS880|RADEON_NEW_MEMMAP|RADEON_IS_IGP}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define r128_PCI_IDS \
 	{0x1002, 0x4c45, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -416,14 +416,14 @@
 	{0x1002, 0x5446, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x1002, 0x544C, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x1002, 0x5452, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define mga_PCI_IDS \
 	{0x102b, 0x0520, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MGA_CARD_TYPE_G200}, \
 	{0x102b, 0x0521, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MGA_CARD_TYPE_G200}, \
 	{0x102b, 0x0525, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MGA_CARD_TYPE_G400}, \
 	{0x102b, 0x2527, PCI_ANY_ID, PCI_ANY_ID, 0, 0, MGA_CARD_TYPE_G550}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define mach64_PCI_IDS \
 	{0x1002, 0x4749, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -446,7 +446,7 @@
 	{0x1002, 0x4c53, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x1002, 0x4c4d, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x1002, 0x4c4e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define sisdrv_PCI_IDS \
 	{0x1039, 0x0300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -457,7 +457,7 @@
 	{0x1039, 0x7300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x18CA, 0x0040, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SIS_CHIP_315}, \
 	{0x18CA, 0x0042, PCI_ANY_ID, PCI_ANY_ID, 0, 0, SIS_CHIP_315}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define tdfx_PCI_IDS \
 	{0x121a, 0x0003, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -466,7 +466,7 @@
 	{0x121a, 0x0007, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x121a, 0x0009, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x121a, 0x000b, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define viadrv_PCI_IDS \
 	{0x1106, 0x3022, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -478,14 +478,14 @@
 	{0x1106, 0x3343, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x1106, 0x3230, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VIA_DX9_0}, \
 	{0x1106, 0x3157, PCI_ANY_ID, PCI_ANY_ID, 0, 0, VIA_PRO_GROUP_A}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define i810_PCI_IDS \
 	{0x8086, 0x7121, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x7123, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x7125, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x1132, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define i830_PCI_IDS \
 	{0x8086, 0x3577, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
@@ -493,11 +493,11 @@
 	{0x8086, 0x3582, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x2572, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
 	{0x8086, 0x358e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define gamma_PCI_IDS \
 	{0x3d3d, 0x0008, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define savage_PCI_IDS \
 	{0x5333, 0x8a20, PCI_ANY_ID, PCI_ANY_ID, 0, 0, S3_SAVAGE3D}, \
@@ -523,10 +523,10 @@
 	{0x5333, 0x8d02, PCI_ANY_ID, PCI_ANY_ID, 0, 0, S3_TWISTER}, \
 	{0x5333, 0x8d03, PCI_ANY_ID, PCI_ANY_ID, 0, 0, S3_PROSAVAGEDDR}, \
 	{0x5333, 0x8d04, PCI_ANY_ID, PCI_ANY_ID, 0, 0, S3_PROSAVAGEDDR}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define ffb_PCI_IDS \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}
 
 #define i915_PCI_IDS \
 	{0x8086, 0x3577, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_DISPLAY_VGA << 8, 0xffff00, 0}, \
@@ -559,4 +559,4 @@
 	{0x8086, 0x35e8, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_DISPLAY_VGA << 8, 0xffff00, 0}, \
 	{0x8086, 0x0042, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_DISPLAY_VGA << 8, 0xffff00, 0}, \
 	{0x8086, 0x0046, PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_DISPLAY_VGA << 8, 0xffff00, 0}, \
-	{0, 0, 0, 0, 0, 0}
+	{0, 0, 0}

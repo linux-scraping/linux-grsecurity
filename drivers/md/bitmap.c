@@ -58,7 +58,7 @@
 #  if DEBUG > 0
 #    define PRINTK(x...) printk(KERN_DEBUG x)
 #  else
-#    define PRINTK(x...) do {} while (0)
+#    define PRINTK(x...)
 #  endif
 #endif
 

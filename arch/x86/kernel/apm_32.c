@@ -1947,10 +1947,7 @@ static const struct file_operations apm_bios_fops = {
 static struct miscdevice apm_device = {
 	APM_MINOR_DEV,
 	"apm_bios",
-	&apm_bios_fops,
-	{NULL, NULL},
-	NULL,
-	NULL
+	&apm_bios_fops
 };
 
 
@@ -2271,7 +2268,7 @@ static struct dmi_system_id __initdata apm_dmi_table[] = {
 		{	DMI_MATCH(DMI_SYS_VENDOR, "IBM"), },
 	},
 
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL}
+	{ }
 };
 
 /*

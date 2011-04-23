@@ -56,7 +56,7 @@ static inline void print_stack_overflow(void) { }
 union irq_ctx {
 	unsigned long		previous_esp;
 	u32			stack[THREAD_SIZE/sizeof(u32)];
-} __attribute__((aligned(PAGE_SIZE)));
+} __attribute__((aligned(THREAD_SIZE)));
 
 static DEFINE_PER_CPU(union irq_ctx *, hardirq_ctx);
 static DEFINE_PER_CPU(union irq_ctx *, softirq_ctx);
@@ -128,8 +128,8 @@ void __cpuinit irq_ctx_init(int cpu)
 	if (per_cpu(hardirq_ctx, cpu))
 		return;
 
-	per_cpu(hardirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREAD_FLAGS, THREAD_ORDER));
-	per_cpu(softirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREAD_FLAGS, THREAD_ORDER));
+	per_cpu(hardirq_ctx, cpu) = &per_cpu(hardirq_stack, cpu);
+	per_cpu(softirq_ctx, cpu) = &per_cpu(softirq_stack, cpu);
 
 	printk(KERN_DEBUG "CPU %u irqstacks, hard=%p soft=%p\n",
 	       cpu, per_cpu(hardirq_ctx, cpu),  per_cpu(softirq_ctx, cpu));

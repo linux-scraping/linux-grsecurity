@@ -225,7 +225,7 @@ static struct cpu_model models[] =
 	{ &cpu_ids[CPU_MP4HT_D0], NULL, 0, NULL },
 	{ &cpu_ids[CPU_MP4HT_E0], NULL, 0, NULL },
 
-	{ NULL, NULL, 0, NULL}
+	{ NULL, }
 };
 #undef _BANIAS
 #undef BANIAS

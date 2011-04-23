@@ -128,7 +128,7 @@ static inline int debugfs_positive(struct dentry *dentry)
 
 static int debug_fill_super(struct super_block *sb, void *data, int silent)
 {
-	static struct tree_descr debug_files[] = {{"", NULL, 0}};
+	static struct tree_descr debug_files[] = {{""}};
 
 	return simple_fill_super(sb, DEBUGFS_MAGIC, debug_files);
 }

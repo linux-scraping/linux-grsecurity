@@ -2178,7 +2178,7 @@ static const struct ieee1394_device_id dv1394_id_table[] = {
 		.specifier_id	= AVC_UNIT_SPEC_ID_ENTRY & 0xffffff,
 		.version	= AVC_SW_VERSION_ENTRY & 0xffffff
 	},
-	{ 0, 0, 0, 0, 0, 0 }
+	{ }
 };
 
 MODULE_DEVICE_TABLE(ieee1394, dv1394_id_table);

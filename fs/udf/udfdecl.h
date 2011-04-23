@@ -26,7 +26,7 @@ do { \
 	printk(f, ##a); \
 } while (0)
 #else
-#define udf_debug(f, a...) do {} while (0)
+#define udf_debug(f, a...) /**/
 #endif
 
 #define udf_info(f, a...) \

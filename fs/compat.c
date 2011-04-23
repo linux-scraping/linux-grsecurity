@@ -1440,7 +1440,6 @@ static int compat_copy_strings(int argc, compat_uptr_t __user *argv,
 
 				page = get_arg_page(bprm, pos, 1);
 				if (!page) {
-					/* We've exceed the stack rlimit. */
 					ret = -E2BIG;
 					goto out;
 				}

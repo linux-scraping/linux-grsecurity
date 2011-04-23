@@ -3430,7 +3430,7 @@ static struct usb_device_id hub_id_table [] = {
       .bDeviceClass = USB_CLASS_HUB},
     { .match_flags = USB_DEVICE_ID_MATCH_INT_CLASS,
       .bInterfaceClass = USB_CLASS_HUB},
-    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }						/* Terminating entry */
+    { }						/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE (usb, hub_id_table);

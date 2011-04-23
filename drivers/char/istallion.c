@@ -4057,7 +4057,7 @@ static int stli_getbrdstats(combrd_t __user *bp)
 {
 	struct stlibrd *brdp;
 	unsigned int i;
-	combrd_t stdli_brdstats;
+	combrd_t stli_brdstats;
 
 	if (copy_from_user(&stli_brdstats, bp, sizeof(combrd_t)))
 		return -EFAULT;

@@ -1057,7 +1057,7 @@ static struct input_handler mousedev_handler = {
 
 #ifdef CONFIG_INPUT_MOUSEDEV_PSAUX
 static struct miscdevice psaux_mouse = {
-	PSMOUSE_MINOR, "psaux", &mousedev_fops, {NULL, NULL}, NULL, NULL
+	PSMOUSE_MINOR, "psaux", &mousedev_fops
 };
 static int psaux_registered;
 #endif

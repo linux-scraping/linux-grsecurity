@@ -461,7 +461,7 @@ static const struct pci_device_id pci_ids [] = { {
 	PCI_DEVICE_CLASS(PCI_CLASS_SERIAL_USB_EHCI, ~0),
 	.driver_data =	(unsigned long) &ehci_pci_hc_driver,
 	},
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ /* end: all zeroes */ }
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
 

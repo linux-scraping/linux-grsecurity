@@ -900,7 +900,7 @@ static const struct ata_xfer_ent {
 	{ ATA_SHIFT_PIO, ATA_NR_PIO_MODES, XFER_PIO_0 },
 	{ ATA_SHIFT_MWDMA, ATA_NR_MWDMA_MODES, XFER_MW_DMA_0 },
 	{ ATA_SHIFT_UDMA, ATA_NR_UDMA_MODES, XFER_UDMA_0 },
-	{ -1, 0, 0 }
+	{ -1, },
 };
 
 /**
@@ -3168,7 +3168,7 @@ static const struct ata_timing ata_timing[] = {
 	{ XFER_UDMA_5,     0,   0,   0,   0,   0,   0, 0,    0,  20 },
 	{ XFER_UDMA_6,     0,   0,   0,   0,   0,   0, 0,    0,  15 },
 
-	{ 0xFF, 0, 0, 0, 0, 0, 0, 0, 0 }
+	{ 0xFF }
 };
 
 #define ENOUGH(v, unit)		(((v)-1)/(unit)+1)
@@ -4393,7 +4393,7 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	{ "PIONEER DVD-RW  DVRTD08",	"1.00",	ATA_HORKAGE_NOSETXFER },
 
 	/* End Marker */
-	{ NULL, NULL, 0 }
+	{ }
 };
 
 static int strn_pattern_cmp(const char *patt, const char *name, int wildchar)

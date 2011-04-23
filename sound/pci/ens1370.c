@@ -453,7 +453,7 @@ static struct pci_device_id snd_audiopci_ids[] = {
 	{ PCI_VDEVICE(ENSONIQ, 0x5880), 0, },	/* ES1373 - CT5880 */
 	{ PCI_VDEVICE(ECTIVA, 0x8938), 0, },	/* Ectiva EV1938 */
 #endif
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ 0, }
 };
 
 MODULE_DEVICE_TABLE(pci, snd_audiopci_ids);

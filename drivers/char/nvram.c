@@ -435,10 +435,7 @@ static const struct file_operations nvram_fops = {
 static struct miscdevice nvram_dev = {
 	NVRAM_MINOR,
 	"nvram",
-	&nvram_fops,
-	{NULL, NULL},
-	NULL,
-	NULL
+	&nvram_fops
 };
 
 static int __init nvram_init(void)

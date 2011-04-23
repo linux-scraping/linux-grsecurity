@@ -389,7 +389,7 @@ static ctl_table abi_table2[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec
 	},
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 
 static ctl_table abi_root_table2[] = {
@@ -399,7 +399,7 @@ static ctl_table abi_root_table2[] = {
 		.mode = 0555,
 		.child = abi_table2
 	},
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 
 static __init int ia32_binfmt_init(void)

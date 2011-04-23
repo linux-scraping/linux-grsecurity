@@ -158,7 +158,7 @@ struct thread_info {
 
 #ifdef __ASSEMBLY__
 /* how to get the thread information struct from ASM */
-#define GET_THREAD_INFO(reg)    \
+#define GET_THREAD_INFO(reg)	 \
 	mov PER_CPU_VAR(current_tinfo), reg
 
 /* use this one if reg already contains %esp */
@@ -235,8 +235,8 @@ extern int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src
 #define arch_task_cache_init arch_task_cache_init
 
 #define __HAVE_THREAD_FUNCTIONS
-#define task_thread_info(task) (&(task)->tinfo)
-#define task_stack_page(task)  ((task)->stack)
+#define task_thread_info(task)	(&(task)->tinfo)
+#define task_stack_page(task)	((task)->stack)
 #define setup_thread_stack(p, org) do {} while (0)
 #define end_of_stack(p) ((unsigned long *)task_stack_page(p) + 1)
 

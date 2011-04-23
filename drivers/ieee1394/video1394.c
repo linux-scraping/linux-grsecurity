@@ -1311,7 +1311,7 @@ static const struct ieee1394_device_id video1394_id_table[] = {
                 .specifier_id   = CAMERA_UNIT_SPEC_ID_ENTRY & 0xffffff,
                 .version        = (CAMERA_SW_VERSION_ENTRY + 2) & 0xffffff
         },
-	{ 0, 0, 0, 0, 0, 0 }
+	{ }
 };
 
 MODULE_DEVICE_TABLE(ieee1394, video1394_id_table);

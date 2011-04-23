@@ -124,7 +124,7 @@ static struct dmi_system_id __devinitdata piix4_dmi_ibm[] = {
 		.ident = "IBM",
 		.matches = { DMI_MATCH(DMI_SYS_VENDOR, "IBM"), },
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
+	{ },
 };
 
 static int __devinit piix4_setup(struct pci_dev *PIIX4_dev,
@@ -491,7 +491,7 @@ static struct pci_device_id piix4_ids[] = {
 		     PCI_DEVICE_ID_SERVERWORKS_HT1000SB) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_SERVERWORKS,
 		     PCI_DEVICE_ID_SERVERWORKS_HT1100LD) },
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ 0, }
 };
 
 MODULE_DEVICE_TABLE (pci, piix4_ids);

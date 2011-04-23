@@ -14,16 +14,11 @@
 #define get_bp(bp) asm("movq %%rbp, %0" : "=r" (bp) :)
 #endif
 
-typedef unsigned long walk_stack_t(struct task_struct *task,
-				   void *stack_start,
-				   unsigned long *stack,
-				   unsigned long bp,
-				   const struct stacktrace_ops *ops,
-				   void *data,
-				   unsigned long *end,
-				   int *graph);
-
-extern walk_stack_t print_context_stack;
+extern unsigned long
+print_context_stack(struct task_struct *task, void *stack_start,
+		unsigned long *stack, unsigned long bp,
+		const struct stacktrace_ops *ops, void *data,
+		unsigned long *end, int *graph);
 
 extern void
 show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,

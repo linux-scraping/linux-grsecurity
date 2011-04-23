@@ -99,11 +99,11 @@ extern int edac_debug_level;
 
 #else				/* !CONFIG_EDAC_DEBUG */
 
-#define debugf0( ... ) do {} while (0)
-#define debugf1( ... ) do {} while (0)
-#define debugf2( ... ) do {} while (0)
-#define debugf3( ... ) do {} while (0)
-#define debugf4( ... ) do {} while (0)
+#define debugf0( ... )
+#define debugf1( ... )
+#define debugf2( ... )
+#define debugf3( ... )
+#define debugf4( ... )
 
 #endif				/* !CONFIG_EDAC_DEBUG */
 

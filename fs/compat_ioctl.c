@@ -1829,15 +1829,15 @@ struct ioctl_trans {
 };
 
 #define HANDLE_IOCTL(cmd,handler) \
-	{ (cmd), (ioctl_trans_handler_t)(handler), NULL },
+	{ (cmd), (ioctl_trans_handler_t)(handler) },
 
 /* pointer to compatible structure or no argument */
 #define COMPATIBLE_IOCTL(cmd) \
-	{ (cmd), do_ioctl32_pointer, NULL },
+	{ (cmd), do_ioctl32_pointer },
 
 /* argument is an unsigned long integer, not a pointer */
 #define ULONG_IOCTL(cmd) \
-	{ (cmd), (ioctl_trans_handler_t)sys_ioctl, NULL },
+	{ (cmd), (ioctl_trans_handler_t)sys_ioctl },
 
 /* ioctl should not be warned about even if it's not implemented.
    Valid reasons to use this:

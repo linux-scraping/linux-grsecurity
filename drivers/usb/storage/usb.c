@@ -118,7 +118,7 @@ MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
 
 static struct us_unusual_dev us_unusual_dev_list[] = {
 #	include "unusual_devs.h" 
-	{ NULL, NULL, 0, 0, NULL } /* Terminating entry */
+	{ }		/* Terminating entry */
 };
 
 #undef UNUSUAL_DEV

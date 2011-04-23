@@ -247,7 +247,7 @@ static struct i2c_adapter sis96x_adapter = {
 
 static struct pci_device_id sis96x_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_SMBUS) },
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ 0, }
 };
 
 MODULE_DEVICE_TABLE (pci, sis96x_ids);

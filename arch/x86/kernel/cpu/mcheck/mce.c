@@ -1596,7 +1596,6 @@ static struct miscdevice mce_log_device = {
 	MISC_MCELOG_MINOR,
 	"mcelog",
 	&mce_chrdev_ops,
-	{NULL, NULL}, NULL, NULL
 };
 
 /*

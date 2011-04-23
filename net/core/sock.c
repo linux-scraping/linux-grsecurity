@@ -873,6 +873,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 			return -EFAULT;
 		goto lenout;
 	}
+
 	case SO_PEERNAME:
 	{
 		char address[128];

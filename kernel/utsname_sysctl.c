@@ -123,7 +123,7 @@ static struct ctl_table uts_kern_table[] = {
 		.proc_handler	= proc_do_uts_string,
 		.strategy	= sysctl_uts_string,
 	},
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 
 static struct ctl_table uts_root_table[] = {
@@ -133,7 +133,7 @@ static struct ctl_table uts_root_table[] = {
 		.mode		= 0555,
 		.child		= uts_kern_table,
 	},
-	{ 0, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+	{}
 };
 
 static int __init utsname_sysctl_init(void)

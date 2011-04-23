@@ -3800,6 +3800,15 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 		fixup_rmode_irq(vmx);
 
 	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r"(__KERNEL_DS));
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	asm("mov %0, %%fs" : : "r"(__KERNEL_PERCPU));
+#endif
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	__set_fs(current_thread_info()->addr_limit);
+#endif
+
 	vmx->launched = 1;
 
 	vmx_complete_interrupts(vmx);

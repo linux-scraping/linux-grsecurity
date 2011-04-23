@@ -119,6 +119,8 @@ struct dentry {
 	unsigned char d_iname[DNAME_INLINE_LEN_MIN];	/* small names */
 };
 
+#define DNAME_INLINE_LEN (sizeof(struct dentry)-offsetof(struct dentry,d_iname))
+
 /*
  * dentry->d_lock spinlock nesting subclasses:
  *

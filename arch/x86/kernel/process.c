@@ -58,13 +58,13 @@ static struct kmem_cache *task_struct_cachep;
 
 void arch_task_cache_init(void)
 {
-	/* create a slab on which task structs can be allocated */
+	/* create a slab on which task_structs can be allocated */
 	task_struct_cachep =
 		kmem_cache_create("task_struct", sizeof(struct task_struct),
 			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK, NULL);
 
-        task_xstate_cachep =
-        	kmem_cache_create("task_xstate", xstate_size,
+	task_xstate_cachep =
+		kmem_cache_create("task_xstate", xstate_size,
 				  __alignof__(union thread_xstate),
 				  SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
 }

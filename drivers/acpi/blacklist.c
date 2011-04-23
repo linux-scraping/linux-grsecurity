@@ -73,7 +73,7 @@ static struct acpi_blacklist_item acpi_blacklist[] __initdata = {
 	{"IBM   ", "TP600E  ", 0x00000105, ACPI_SIG_DSDT, less_than_or_equal,
 	 "Incorrect _ADR", 1},
 
-	{"", "", 0, NULL, all_versions, NULL, 0}
+	{""}
 };
 
 #if	CONFIG_ACPI_BLACKLIST_YEAR

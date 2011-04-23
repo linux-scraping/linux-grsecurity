@@ -29,7 +29,7 @@ static struct fixed_range_block fixed_range_blocks[] = {
 	{ MSR_MTRRfix64K_00000, 1 }, /* one   64k MTRR  */
 	{ MSR_MTRRfix16K_80000, 2 }, /* two   16k MTRRs */
 	{ MSR_MTRRfix4K_C0000,  8 }, /* eight  4k MTRRs */
-	{ 0, 0 }
+	{}
 };
 
 static unsigned long smp_changes_mask;
