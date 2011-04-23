@@ -54,7 +54,7 @@
 		printk(KERN_DEBUG pr_fmt(format), ##args);	\
 	} while (0)
 #else
-#define REG_DBG_PRINT(args...) do {} while (0)
+#define REG_DBG_PRINT(args...)
 #endif
 
 /* Receipt of information from last regulatory request */

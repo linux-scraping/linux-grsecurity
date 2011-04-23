@@ -37,13 +37,8 @@ typedef u8 kprobe_opcode_t;
 #define RELATIVEJUMP_SIZE 5
 #define RELATIVECALL_OPCODE 0xe8
 #define RELATIVE_ADDR_SIZE 4
-#define MAX_STACK_SIZE 64
-#define MIN_STACK_SIZE(ADDR)					       \
-	(((MAX_STACK_SIZE) < (((unsigned long)current_thread_info()) + \
-			      THREAD_SIZE - (unsigned long)(ADDR)))    \
-	 ? (MAX_STACK_SIZE)					       \
-	 : (((unsigned long)current_thread_info()) +		       \
-	    THREAD_SIZE - (unsigned long)(ADDR)))
+#define MAX_STACK_SIZE 64UL
+#define MIN_STACK_SIZE(ADDR)	min(MAX_STACK_SIZE, current->thread.sp0 - (unsigned long)(ADDR))
 
 #define flush_insn_slot(p)	do { } while (0)
 

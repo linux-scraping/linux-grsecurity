@@ -293,7 +293,7 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
 			DMI_MATCH(DMI_BOARD_NAME, "VersaLogic Menlow board"),
 		},
 	},
-	{ NULL, NULL, {{0, {0}}}, NULL}
+	{ }
 };
 
 static int __init reboot_init(void)

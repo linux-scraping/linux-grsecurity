@@ -269,8 +269,8 @@
  * leaving no executable debug code!
  */
 #define ACPI_FUNCTION_NAME(a)
-#define ACPI_DEBUG_PRINT(pl) do {} while (0)
-#define ACPI_DEBUG_PRINT_RAW(pl) do {} while (0)
+#define ACPI_DEBUG_PRINT(pl)
+#define ACPI_DEBUG_PRINT_RAW(pl)
 
 #endif				/* ACPI_DEBUG_OUTPUT */
 

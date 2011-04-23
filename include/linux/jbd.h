@@ -67,7 +67,7 @@ extern u8 journal_enable_debug;
 		}							\
 	} while (0)
 #else
-#define jbd_debug(f, a...)	do {} while (0)
+#define jbd_debug(f, a...)	/**/
 #endif
 
 static inline void *jbd_alloc(size_t size, gfp_t flags)

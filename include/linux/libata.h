@@ -65,11 +65,11 @@
 #ifdef ATA_VERBOSE_DEBUG
 #define VPRINTK(fmt, args...) printk(KERN_ERR "%s: " fmt, __func__, ## args)
 #else
-#define VPRINTK(fmt, args...) do {} while (0)
+#define VPRINTK(fmt, args...)
 #endif	/* ATA_VERBOSE_DEBUG */
 #else
-#define DPRINTK(fmt, args...) do {} while (0)
-#define VPRINTK(fmt, args...) do {} while (0)
+#define DPRINTK(fmt, args...)
+#define VPRINTK(fmt, args...)
 #endif	/* ATA_DEBUG */
 
 #define BPRINTK(fmt, args...) if (ap->flags & ATA_FLAG_DEBUGMSG) printk(KERN_ERR "%s: " fmt, __func__, ## args)

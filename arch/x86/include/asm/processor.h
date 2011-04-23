@@ -900,7 +900,7 @@ static inline void spin_lock_prefetch(const void *x)
 extern unsigned long thread_saved_pc(struct task_struct *tsk);
 
 #define THREAD_SIZE_LONGS      (THREAD_SIZE/sizeof(unsigned long))
-#define KSTK_TOP(info)         ((info)->task.thread.sp0)
+#define KSTK_TOP(info)         ((container_of(info, struct task_struct, tinfo))->thread.sp0)
 
 /*
  * The below -8 is to reserve 8 bytes on top of the ring0 stack.

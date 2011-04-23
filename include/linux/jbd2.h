@@ -67,7 +67,7 @@ extern u8 jbd2_journal_enable_debug;
 		}							\
 	} while (0)
 #else
-#define jbd_debug(f, a...)	do {} while (0)
+#define jbd_debug(f, a...)	/**/
 #endif
 
 extern void *jbd2_alloc(size_t size, gfp_t flags);

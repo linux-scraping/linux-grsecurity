@@ -41,7 +41,7 @@ static const struct utf8_table utf8_table[] =
     {0xF8,  0xF0,   3*6,    0x1FFFFF,       0x10000,   /* 4 byte sequence */},
     {0xFC,  0xF8,   4*6,    0x3FFFFFF,      0x200000,  /* 5 byte sequence */},
     {0xFE,  0xFC,   5*6,    0x7FFFFFFF,     0x4000000, /* 6 byte sequence */},
-    {0, 0, 0, 0, 0,				       /* end of table    */}
+    {0,						       /* end of table    */}
 };
 
 #define UNICODE_MAX	0x0010ffff

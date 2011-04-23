@@ -135,7 +135,6 @@ static inline void native_write_gdt_entry(struct desc_struct *gdt, int entry,
 					  const void *desc, int type)
 {
 	unsigned int size;
-
 	switch (type) {
 	case DESC_TSS:
 		size = sizeof(tss_desc);

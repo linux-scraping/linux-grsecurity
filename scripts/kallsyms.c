@@ -43,10 +43,10 @@ struct text_range {
 
 static unsigned long long _text;
 static struct text_range text_ranges[] = {
-	{ "_stext",     "_etext",     0, 0 },
-	{ "_sinittext", "_einittext", 0, 0 },
-	{ "_stext_l1",  "_etext_l1",  0, 0 },	/* Blackfin on-chip L1 inst SRAM */
-	{ "_stext_l2",  "_etext_l2",  0, 0 },	/* Blackfin on-chip L2 SRAM */
+	{ "_stext",     "_etext"     },
+	{ "_sinittext", "_einittext" },
+	{ "_stext_l1",  "_etext_l1"  },	/* Blackfin on-chip L1 inst SRAM */
+	{ "_stext_l2",  "_etext_l2"  },	/* Blackfin on-chip L2 SRAM */
 };
 #define text_range_text     (&text_ranges[0])
 #define text_range_inittext (&text_ranges[1])

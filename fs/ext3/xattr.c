@@ -89,8 +89,8 @@
 		printk("\n"); \
 	} while (0)
 #else
-# define ea_idebug(f...) do {} while (0)
-# define ea_bdebug(f...) do {} while (0)
+# define ea_idebug(f...)
+# define ea_bdebug(f...)
 #endif
 
 static void ext3_xattr_cache_insert(struct buffer_head *);

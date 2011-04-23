@@ -936,7 +936,7 @@ static struct pci_device_id ene_tune_tbl[] = {
 	DEVID(PCI_VENDOR_ID_MOTOROLA, 0x3410, 0xECC0, PCI_ANY_ID,
 		ENE_TEST_C9_TLTENABLE | ENE_TEST_C9_PFENABLE, ENE_TEST_C9_TLTENABLE),
 
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{}
 };
 
 static void ene_tune_bridge(struct pcmcia_socket *sock, struct pci_bus *bus)

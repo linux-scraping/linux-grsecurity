@@ -481,7 +481,7 @@ static const struct dmi_system_id sw_any_bug_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "X6DLP"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
+	{ }
 };
 
 static int acpi_cpufreq_blacklist(struct cpuinfo_x86 *c)

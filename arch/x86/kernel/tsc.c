@@ -837,7 +837,7 @@ static struct dmi_system_id __initdata bad_tsc_dmi_table[] = {
 			DMI_MATCH(DMI_BOARD_NAME, "2635FA0"),
 		},
 	},
-	{ NULL, NULL, {{0, {0}}}, NULL}
+	{}
 };
 
 static void __init check_system_tsc_reliable(void)

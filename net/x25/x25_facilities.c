@@ -167,8 +167,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
 				break;
 			default:
 				printk(KERN_DEBUG "X.25: unknown facility %02X,"
-					"length %d, values %02X, %02X\n",
-					p[0], p[1], p[2], p[3]);
+					"length %d\n", p[0], p[1]);
 				break;
 			}
 			len -= p[1] + 2;

@@ -227,7 +227,7 @@ static const struct quirk_printer_struct quirk_printers[] = {
 	{ 0x0482, 0x0010, USBLP_QUIRK_BIDIR }, /* Kyocera Mita FS 820, by zut <kernel@zut.de> */
 	{ 0x04f9, 0x000d, USBLP_QUIRK_BIDIR }, /* Brother Industries, Ltd HL-1440 Laser Printer */
 	{ 0x04b8, 0x0202, USBLP_QUIRK_BAD_CLASS }, /* Seiko Epson Receipt Printer M129C */
-	{ 0, 0, 0 }
+	{ 0, 0 }
 };
 
 static int usblp_wwait(struct usblp *usblp, int nonblock);
@@ -1398,7 +1398,7 @@ static const struct usb_device_id usblp_ids[] = {
 	{ USB_INTERFACE_INFO(7, 1, 2) },
 	{ USB_INTERFACE_INFO(7, 1, 3) },
 	{ USB_DEVICE(0x04b8, 0x0202) },	/* Seiko Epson Receipt Printer M129C */
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }		/* Terminating entry */
+	{ }						/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, usblp_ids);

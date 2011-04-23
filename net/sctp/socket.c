@@ -1496,7 +1496,7 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
 	struct sctp_sndrcvinfo *sinfo;
 	struct sctp_initmsg *sinit;
 	sctp_assoc_t associd = 0;
-	sctp_cmsgs_t cmsgs = { NULL, NULL };
+	sctp_cmsgs_t cmsgs = { NULL };
 	int err;
 	sctp_scope_t scope;
 	long timeo;

@@ -1486,7 +1486,7 @@ static const struct snd_ac97_res_table ad1819_restbl[] = {
 	{ AC97_VIDEO, 0x9f1f },
 	{ AC97_AUX, 0x9f1f },
 	{ AC97_PCM, 0x9f1f },
-	{ 0, 0 } /* terminator */
+	{ } /* terminator */
 };
 
 static int patch_ad1819(struct snd_ac97 * ac97)
@@ -3864,7 +3864,7 @@ static struct snd_ac97_res_table lm4550_restbl[] = {
 	{ AC97_AUX, 0x1f1f },
 	{ AC97_PCM, 0x1f1f },
 	{ AC97_REC_GAIN, 0x0f0f },
-	{ 0, 0 } /* terminator */
+	{ } /* terminator */
 };
 
 static int patch_lm4550(struct snd_ac97 *ac97)

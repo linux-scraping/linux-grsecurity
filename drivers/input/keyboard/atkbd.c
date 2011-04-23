@@ -1250,7 +1250,7 @@ static struct serio_device_id atkbd_serio_ids[] = {
 		.id	= SERIO_ANY,
 		.extra	= SERIO_ANY,
 	},
-	{ 0, 0, 0, 0 }
+	{ 0 }
 };
 
 MODULE_DEVICE_TABLE(serio, atkbd_serio_ids);

@@ -444,7 +444,7 @@ static DEFINE_PCI_DEVICE_TABLE(snd_intel8x0_ids) = {
 	{ PCI_VDEVICE(AMD, 0x746d), DEVICE_INTEL },	/* AMD8111 */
 	{ PCI_VDEVICE(AMD, 0x7445), DEVICE_INTEL },	/* AMD768 */
 	{ PCI_VDEVICE(AL, 0x5455), DEVICE_ALI },   /* Ali5455 */
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ 0, }
 };
 
 MODULE_DEVICE_TABLE(pci, snd_intel8x0_ids);
@@ -2141,7 +2141,7 @@ static struct ac97_quirk ac97_quirks[] __devinitdata = {
 		.type = AC97_TUNE_HP_ONLY
 	},
 #endif
-	{ 0, 0, 0, 0, NULL, 0 } /* terminator */
+	{ } /* terminator */
 };
 
 static int __devinit snd_intel8x0_mixer(struct intel8x0 *chip, int ac97_clock,

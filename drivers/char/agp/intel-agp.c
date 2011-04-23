@@ -903,7 +903,7 @@ static struct pci_device_id agp_intel_pci_table[] = {
 	ID(PCI_DEVICE_ID_INTEL_SANDYBRIDGE_HB),
 	ID(PCI_DEVICE_ID_INTEL_SANDYBRIDGE_M_HB),
 	ID(PCI_DEVICE_ID_INTEL_SANDYBRIDGE_S_HB),
-	{ 0, 0, 0, 0, 0, 0, 0 }
+	{ }
 };
 
 MODULE_DEVICE_TABLE(pci, agp_intel_pci_table);

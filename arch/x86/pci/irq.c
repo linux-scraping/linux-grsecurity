@@ -542,7 +542,7 @@ static __init int intel_router_probe(struct irq_router *r, struct pci_dev *route
 	static struct pci_device_id __initdata pirq_440gx[] = {
 		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443GX_0) },
 		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443GX_2) },
-		{ PCI_DEVICE(0, 0) }
+		{ },
 	};
 
 	/* 440GX has a proprietary PIRQ router -- don't use it */
@@ -1115,7 +1115,7 @@ static struct dmi_system_id __initdata pciirq_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "TravelMate 360"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL }
+	{ }
 };
 
 void __init pcibios_irq_init(void)

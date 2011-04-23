@@ -2971,8 +2971,8 @@ static void snd_pcm_oss_proc_done(struct snd_pcm *pcm)
 	}
 }
 #else /* !CONFIG_SND_VERBOSE_PROCFS */
-#define snd_pcm_oss_proc_init(pcm) do {} while (0)
-#define snd_pcm_oss_proc_done(pcm) do {} while (0)
+#define snd_pcm_oss_proc_init(pcm)
+#define snd_pcm_oss_proc_done(pcm)
 #endif /* CONFIG_SND_VERBOSE_PROCFS */
 
 /*

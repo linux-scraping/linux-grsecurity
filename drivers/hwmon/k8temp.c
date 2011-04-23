@@ -138,7 +138,7 @@ static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 
 static const struct pci_device_id k8temp_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_K8_NB_MISC) },
-	{ 0, 0, 0, 0, 0, 0, 0 },
+	{ 0 },
 };
 
 MODULE_DEVICE_TABLE(pci, k8temp_ids);

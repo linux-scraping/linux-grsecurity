@@ -123,7 +123,7 @@ static const struct dmi_system_id __initconst lifebook_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "LifeBook B142"),
 		},
 	},
-	{ NULL, NULL, {DMI_MATCH(DMI_NONE, {0})}, NULL}
+	{ }
 };
 
 void __init lifebook_module_init(void)

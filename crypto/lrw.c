@@ -60,7 +60,7 @@ static int setkey(struct crypto_tfm *parent, const u8 *key,
 	struct priv *ctx = crypto_tfm_ctx(parent);
 	struct crypto_cipher *child = ctx->child;
 	int err, i;
-	be128 tmp = { 0, 0 };
+	be128 tmp = { 0 };
 	int bsize = crypto_cipher_blocksize(child);
 
 	crypto_cipher_clear_flags(child, CRYPTO_TFM_REQ_MASK);
