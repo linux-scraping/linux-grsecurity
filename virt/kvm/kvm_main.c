@@ -2770,7 +2770,7 @@ int kvm_init(const void *opaque, unsigned int vcpu_size,
 	/* A kmem cache lets us meet the alignment requirements of fx_save. */
 	kvm_vcpu_cache = kmem_cache_create("kvm_vcpu", vcpu_size,
 					   __alignof__(struct kvm_vcpu),
-					   0, NULL);
+					   SLAB_USERCOPY, NULL);
 	if (!kvm_vcpu_cache) {
 		r = -ENOMEM;
 		goto out_free_5;

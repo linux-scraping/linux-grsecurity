@@ -969,6 +969,7 @@ void __set_fs(mm_segment_t x)
 	}
 	return;
 }
+EXPORT_SYMBOL(__set_fs);
 
 void set_fs(mm_segment_t x)
 {
