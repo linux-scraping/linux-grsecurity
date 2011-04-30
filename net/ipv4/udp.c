@@ -1070,7 +1070,7 @@ static unsigned int first_packet_length(struct sock *sk)
 		udp_lib_checksum_complete(skb)) {
 		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
 				 IS_UDPLITE(sk));
-		atomic_inc(&sk->sk_drops);
+		atomic_inc_unchecked(&sk->sk_drops);
 		__skb_unlink(skb, rcvq);
 		__skb_queue_tail(&list_kill, skb);
 	}
@@ -1456,7 +1456,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 
 drop:
 	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
-	atomic_inc(&sk->sk_drops);
+	atomic_inc_unchecked(&sk->sk_drops);
 	kfree_skb(skb);
 	return -1;
 }
@@ -1475,7 +1475,7 @@ static void flush_stack(struct sock **stack, unsigned int count,
 			skb1 = (i == final) ? skb : skb_clone(skb, GFP_ATOMIC);
 
 		if (!skb1) {
-			atomic_inc(&sk->sk_drops);
+			atomic_inc_unchecked(&sk->sk_drops);
 			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
 					 IS_UDPLITE(sk));
 			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
@@ -2080,7 +2080,7 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 #else
 		sp,
 #endif
-		atomic_read(&sp->sk_drops), len);
+		atomic_read_unchecked(&sp->sk_drops), len);
 }
 
 int udp4_seq_show(struct seq_file *seq, void *v)

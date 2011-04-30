@@ -270,7 +270,7 @@ static inline unsigned int rt_hash(__be32 daddr, __be32 saddr, int idx,
 
 static inline int rt_genid(struct net *net)
 {
-	return atomic_read(&net->ipv4.rt_genid);
+	return atomic_read_unchecked(&net->ipv4.rt_genid);
 }
 
 #ifdef CONFIG_PROC_FS
@@ -895,7 +895,7 @@ static void rt_cache_invalidate(struct net *net)
 	unsigned char shuffle;
 
 	get_random_bytes(&shuffle, sizeof(shuffle));
-	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
+	atomic_add_unchecked(shuffle + 1U, &net->ipv4.rt_genid);
 }
 
 /*

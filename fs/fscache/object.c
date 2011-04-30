@@ -128,7 +128,7 @@ static void fscache_object_state_machine(struct fscache_object *object)
 		/* update the object metadata on disk */
 	case FSCACHE_OBJECT_UPDATING:
 		clear_bit(FSCACHE_OBJECT_EV_UPDATE, &object->events);
-		fscache_stat(&fscache_n_updates_run);
+		fscache_stat_unchecked(&fscache_n_updates_run);
 		fscache_stat(&fscache_n_cop_update_object);
 		object->cache->ops->update_object(object);
 		fscache_stat_d(&fscache_n_cop_update_object);
@@ -217,7 +217,7 @@ static void fscache_object_state_machine(struct fscache_object *object)
 		spin_lock(&object->lock);
 		object->state = FSCACHE_OBJECT_DEAD;
 		spin_unlock(&object->lock);
-		fscache_stat(&fscache_n_object_dead);
+		fscache_stat_unchecked(&fscache_n_object_dead);
 		goto terminal_transit;
 
 		/* handle the parent cache of this object being withdrawn from
@@ -232,7 +232,7 @@ static void fscache_object_state_machine(struct fscache_object *object)
 		spin_lock(&object->lock);
 		object->state = FSCACHE_OBJECT_DEAD;
 		spin_unlock(&object->lock);
-		fscache_stat(&fscache_n_object_dead);
+		fscache_stat_unchecked(&fscache_n_object_dead);
 		goto terminal_transit;
 
 		/* complain about the object being woken up once it is
@@ -461,7 +461,7 @@ static void fscache_lookup_object(struct fscache_object *object)
 	       parent->cookie->def->name, cookie->def->name,
 	       object->cache->tag->name);
 
-	fscache_stat(&fscache_n_object_lookups);
+	fscache_stat_unchecked(&fscache_n_object_lookups);
 	fscache_stat(&fscache_n_cop_lookup_object);
 	ret = object->cache->ops->lookup_object(object);
 	fscache_stat_d(&fscache_n_cop_lookup_object);
@@ -472,7 +472,7 @@ static void fscache_lookup_object(struct fscache_object *object)
 	if (ret == -ETIMEDOUT) {
 		/* probably stuck behind another object, so move this one to
 		 * the back of the queue */
-		fscache_stat(&fscache_n_object_lookups_timed_out);
+		fscache_stat_unchecked(&fscache_n_object_lookups_timed_out);
 		set_bit(FSCACHE_OBJECT_EV_REQUEUE, &object->events);
 	}
 
@@ -495,7 +495,7 @@ void fscache_object_lookup_negative(struct fscache_object *object)
 
 	spin_lock(&object->lock);
 	if (object->state == FSCACHE_OBJECT_LOOKING_UP) {
-		fscache_stat(&fscache_n_object_lookups_negative);
+		fscache_stat_unchecked(&fscache_n_object_lookups_negative);
 
 		/* transit here to allow write requests to begin stacking up
 		 * and read requests to begin returning ENODATA */
@@ -541,7 +541,7 @@ void fscache_obtained_object(struct fscache_object *object)
 	 * result, in which case there may be data available */
 	spin_lock(&object->lock);
 	if (object->state == FSCACHE_OBJECT_LOOKING_UP) {
-		fscache_stat(&fscache_n_object_lookups_positive);
+		fscache_stat_unchecked(&fscache_n_object_lookups_positive);
 
 		clear_bit(FSCACHE_COOKIE_NO_DATA_YET, &cookie->flags);
 
@@ -555,7 +555,7 @@ void fscache_obtained_object(struct fscache_object *object)
 		set_bit(FSCACHE_OBJECT_EV_REQUEUE, &object->events);
 	} else {
 		ASSERTCMP(object->state, ==, FSCACHE_OBJECT_CREATING);
-		fscache_stat(&fscache_n_object_created);
+		fscache_stat_unchecked(&fscache_n_object_created);
 
 		object->state = FSCACHE_OBJECT_AVAILABLE;
 		spin_unlock(&object->lock);
@@ -602,7 +602,7 @@ static void fscache_object_available(struct fscache_object *object)
 	fscache_enqueue_dependents(object);
 
 	fscache_hist(fscache_obj_instantiate_histogram, object->lookup_jif);
-	fscache_stat(&fscache_n_object_avail);
+	fscache_stat_unchecked(&fscache_n_object_avail);
 
 	_leave("");
 }
@@ -861,7 +861,7 @@ enum fscache_checkaux fscache_check_aux(struct fscache_object *object,
 	enum fscache_checkaux result;
 
 	if (!object->cookie->def->check_aux) {
-		fscache_stat(&fscache_n_checkaux_none);
+		fscache_stat_unchecked(&fscache_n_checkaux_none);
 		return FSCACHE_CHECKAUX_OKAY;
 	}
 
@@ -870,17 +870,17 @@ enum fscache_checkaux fscache_check_aux(struct fscache_object *object,
 	switch (result) {
 		/* entry okay as is */
 	case FSCACHE_CHECKAUX_OKAY:
-		fscache_stat(&fscache_n_checkaux_okay);
+		fscache_stat_unchecked(&fscache_n_checkaux_okay);
 		break;
 
 		/* entry requires update */
 	case FSCACHE_CHECKAUX_NEEDS_UPDATE:
-		fscache_stat(&fscache_n_checkaux_update);
+		fscache_stat_unchecked(&fscache_n_checkaux_update);
 		break;
 
 		/* entry requires deletion */
 	case FSCACHE_CHECKAUX_OBSOLETE:
-		fscache_stat(&fscache_n_checkaux_obsolete);
+		fscache_stat_unchecked(&fscache_n_checkaux_obsolete);
 		break;
 
 	default:

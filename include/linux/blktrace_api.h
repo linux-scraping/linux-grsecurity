@@ -161,7 +161,7 @@ struct blk_trace {
 	struct dentry *dir;
 	struct dentry *dropped_file;
 	struct dentry *msg_file;
-	atomic_t dropped;
+	atomic_unchecked_t dropped;
 };
 
 extern int blk_trace_ioctl(struct block_device *, unsigned, char __user *);

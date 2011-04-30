@@ -321,10 +321,10 @@ static void r128_clear_box(drm_r128_private_t *dev_priv,
 
 static void r128_cce_performance_boxes(drm_r128_private_t *dev_priv)
 {
-	if (atomic_read(&dev_priv->idle_count) == 0)
+	if (atomic_read_unchecked(&dev_priv->idle_count) == 0)
 		r128_clear_box(dev_priv, 64, 4, 8, 8, 0, 255, 0);
 	else
-		atomic_set(&dev_priv->idle_count, 0);
+		atomic_set_unchecked(&dev_priv->idle_count, 0);
 }
 
 #endif

@@ -80,7 +80,7 @@ static struct pci_device_id ivtv_pci_tbl[] __devinitdata = {
 MODULE_DEVICE_TABLE(pci,ivtv_pci_tbl);
 
 /* ivtv instance counter */
-static atomic_t ivtv_instance = ATOMIC_INIT(0);
+static atomic_unchecked_t ivtv_instance = ATOMIC_INIT(0);
 
 /* Parameter declarations */
 static int cardtype[IVTV_MAX_CARDS];

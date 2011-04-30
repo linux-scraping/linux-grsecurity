@@ -48,18 +48,19 @@ static struct dentry *debugfsdir;
 #ifdef CONFIG_DEBUG_FS
 struct debug_fs_counter {
 	atomic_t caif_nr_socks;
-	atomic_t num_connect_req;
-	atomic_t num_connect_resp;
-	atomic_t num_connect_fail_resp;
-	atomic_t num_disconnect;
-	atomic_t num_remote_shutdown_ind;
-	atomic_t num_tx_flow_off_ind;
-	atomic_t num_tx_flow_on_ind;
-	atomic_t num_rx_flow_off;
-	atomic_t num_rx_flow_on;
+	atomic_unchecked_t num_connect_req;
+	atomic_unchecked_t num_connect_resp;
+	atomic_unchecked_t num_connect_fail_resp;
+	atomic_unchecked_t num_disconnect;
+	atomic_unchecked_t num_remote_shutdown_ind;
+	atomic_unchecked_t num_tx_flow_off_ind;
+	atomic_unchecked_t num_tx_flow_on_ind;
+	atomic_unchecked_t num_rx_flow_off;
+	atomic_unchecked_t num_rx_flow_on;
 };
 static struct debug_fs_counter cnt;
 #define	dbfs_atomic_inc(v) atomic_inc(v)
+#define	dbfs_atomic_inc_unchecked(v) atomic_inc_unchecked(v)
 #define	dbfs_atomic_dec(v) atomic_dec(v)
 #else
 #define	dbfs_atomic_inc(v)
@@ -159,7 +160,7 @@ static int caif_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 			atomic_read(&cf_sk->sk.sk_rmem_alloc),
 			sk_rcvbuf_lowwater(cf_sk));
 		set_rx_flow_off(cf_sk);
-		dbfs_atomic_inc(&cnt.num_rx_flow_off);
+		dbfs_atomic_inc_unchecked(&cnt.num_rx_flow_off);
 		caif_flow_ctrl(sk, CAIF_MODEMCMD_FLOW_OFF_REQ);
 	}
 
@@ -169,7 +170,7 @@ static int caif_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 	if (!sk_rmem_schedule(sk, skb->truesize) && rx_flow_is_on(cf_sk)) {
 		set_rx_flow_off(cf_sk);
 		pr_debug("sending flow OFF due to rmem_schedule\n");
-		dbfs_atomic_inc(&cnt.num_rx_flow_off);
+		dbfs_atomic_inc_unchecked(&cnt.num_rx_flow_off);
 		caif_flow_ctrl(sk, CAIF_MODEMCMD_FLOW_OFF_REQ);
 	}
 	skb->dev = NULL;
@@ -218,21 +219,21 @@ static void caif_ctrl_cb(struct cflayer *layr,
 	switch (flow) {
 	case CAIF_CTRLCMD_FLOW_ON_IND:
 		/* OK from modem to start sending again */
-		dbfs_atomic_inc(&cnt.num_tx_flow_on_ind);
+		dbfs_atomic_inc_unchecked(&cnt.num_tx_flow_on_ind);
 		set_tx_flow_on(cf_sk);
 		cf_sk->sk.sk_state_change(&cf_sk->sk);
 		break;
 
 	case CAIF_CTRLCMD_FLOW_OFF_IND:
 		/* Modem asks us to shut up */
-		dbfs_atomic_inc(&cnt.num_tx_flow_off_ind);
+		dbfs_atomic_inc_unchecked(&cnt.num_tx_flow_off_ind);
 		set_tx_flow_off(cf_sk);
 		cf_sk->sk.sk_state_change(&cf_sk->sk);
 		break;
 
 	case CAIF_CTRLCMD_INIT_RSP:
 		/* We're now connected */
-		dbfs_atomic_inc(&cnt.num_connect_resp);
+		dbfs_atomic_inc_unchecked(&cnt.num_connect_resp);
 		cf_sk->sk.sk_state = CAIF_CONNECTED;
 		set_tx_flow_on(cf_sk);
 		cf_sk->sk.sk_state_change(&cf_sk->sk);
@@ -247,7 +248,7 @@ static void caif_ctrl_cb(struct cflayer *layr,
 
 	case CAIF_CTRLCMD_INIT_FAIL_RSP:
 		/* Connect request failed */
-		dbfs_atomic_inc(&cnt.num_connect_fail_resp);
+		dbfs_atomic_inc_unchecked(&cnt.num_connect_fail_resp);
 		cf_sk->sk.sk_err = ECONNREFUSED;
 		cf_sk->sk.sk_state = CAIF_DISCONNECTED;
 		cf_sk->sk.sk_shutdown = SHUTDOWN_MASK;
@@ -261,7 +262,7 @@ static void caif_ctrl_cb(struct cflayer *layr,
 
 	case CAIF_CTRLCMD_REMOTE_SHUTDOWN_IND:
 		/* Modem has closed this connection, or device is down. */
-		dbfs_atomic_inc(&cnt.num_remote_shutdown_ind);
+		dbfs_atomic_inc_unchecked(&cnt.num_remote_shutdown_ind);
 		cf_sk->sk.sk_shutdown = SHUTDOWN_MASK;
 		cf_sk->sk.sk_err = ECONNRESET;
 		set_rx_flow_on(cf_sk);
@@ -281,7 +282,7 @@ static void caif_check_flow_release(struct sock *sk)
 		return;
 
 	if (atomic_read(&sk->sk_rmem_alloc) <= sk_rcvbuf_lowwater(cf_sk)) {
-			dbfs_atomic_inc(&cnt.num_rx_flow_on);
+			dbfs_atomic_inc_unchecked(&cnt.num_rx_flow_on);
 			set_rx_flow_on(cf_sk);
 			caif_flow_ctrl(sk, CAIF_MODEMCMD_FLOW_ON_REQ);
 	}
@@ -864,7 +865,7 @@ static int caif_connect(struct socket *sock, struct sockaddr *uaddr,
 	/*ifindex = id of the interface.*/
 	cf_sk->conn_req.ifindex = cf_sk->sk.sk_bound_dev_if;
 
-	dbfs_atomic_inc(&cnt.num_connect_req);
+	dbfs_atomic_inc_unchecked(&cnt.num_connect_req);
 	cf_sk->layer.receive = caif_sktrecv_cb;
 	err = caif_connect_client(&cf_sk->conn_req,
 				&cf_sk->layer, &ifindex, &headroom, &tailroom);
@@ -952,7 +953,7 @@ static int caif_release(struct socket *sock)
 	spin_unlock(&sk->sk_receive_queue.lock);
 	sock->sk = NULL;
 
-	dbfs_atomic_inc(&cnt.num_disconnect);
+	dbfs_atomic_inc_unchecked(&cnt.num_disconnect);
 
 	if (cf_sk->debugfs_socket_dir != NULL)
 		debugfs_remove_recursive(cf_sk->debugfs_socket_dir);

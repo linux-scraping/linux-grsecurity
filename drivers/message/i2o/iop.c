@@ -111,10 +111,10 @@ u32 i2o_cntxt_list_add(struct i2o_controller * c, void *ptr)
 
 	spin_lock_irqsave(&c->context_list_lock, flags);
 
-	if (unlikely(atomic_inc_and_test(&c->context_list_counter)))
-		atomic_inc(&c->context_list_counter);
+	if (unlikely(atomic_inc_and_test_unchecked(&c->context_list_counter)))
+		atomic_inc_unchecked(&c->context_list_counter);
 
-	entry->context = atomic_read(&c->context_list_counter);
+	entry->context = atomic_read_unchecked(&c->context_list_counter);
 
 	list_add(&entry->list, &c->context_list);
 
@@ -1077,7 +1077,7 @@ struct i2o_controller *i2o_iop_alloc(void)
 
 #if BITS_PER_LONG == 64
 	spin_lock_init(&c->context_list_lock);
-	atomic_set(&c->context_list_counter, 0);
+	atomic_set_unchecked(&c->context_list_counter, 0);
 	INIT_LIST_HEAD(&c->context_list);
 #endif
 

@@ -42,7 +42,7 @@ enum dm_raid1_error {
 
 struct mirror {
 	struct mirror_set *ms;
-	atomic_t error_count;
+	atomic_unchecked_t error_count;
 	unsigned long error_type;
 	struct dm_dev *dev;
 	sector_t offset;
@@ -187,7 +187,7 @@ static struct mirror *get_valid_mirror(struct mirror_set *ms)
 	struct mirror *m;
 
 	for (m = ms->mirror; m < ms->mirror + ms->nr_mirrors; m++)
-		if (!atomic_read(&m->error_count))
+		if (!atomic_read_unchecked(&m->error_count))
 			return m;
 
 	return NULL;
@@ -219,7 +219,7 @@ static void fail_mirror(struct mirror *m, enum dm_raid1_error error_type)
 	 * simple way to tell if a device has encountered
 	 * errors.
 	 */
-	atomic_inc(&m->error_count);
+	atomic_inc_unchecked(&m->error_count);
 
 	if (test_and_set_bit(error_type, &m->error_type))
 		return;
@@ -410,7 +410,7 @@ static struct mirror *choose_mirror(struct mirror_set *ms, sector_t sector)
 	struct mirror *m = get_default_mirror(ms);
 
 	do {
-		if (likely(!atomic_read(&m->error_count)))
+		if (likely(!atomic_read_unchecked(&m->error_count)))
 			return m;
 
 		if (m-- == ms->mirror)
@@ -424,7 +424,7 @@ static int default_ok(struct mirror *m)
 {
 	struct mirror *default_mirror = get_default_mirror(m->ms);
 
-	return !atomic_read(&default_mirror->error_count);
+	return !atomic_read_unchecked(&default_mirror->error_count);
 }
 
 static int mirror_available(struct mirror_set *ms, struct bio *bio)
@@ -561,7 +561,7 @@ static void do_reads(struct mirror_set *ms, struct bio_list *reads)
 		 */
 		if (likely(region_in_sync(ms, region, 1)))
 			m = choose_mirror(ms, bio->bi_sector);
-		else if (m && atomic_read(&m->error_count))
+		else if (m && atomic_read_unchecked(&m->error_count))
 			m = NULL;
 
 		if (likely(m))
@@ -941,7 +941,7 @@ static int get_mirror(struct mirror_set *ms, struct dm_target *ti,
 	}
 
 	ms->mirror[mirror].ms = ms;
-	atomic_set(&(ms->mirror[mirror].error_count), 0);
+	atomic_set_unchecked(&(ms->mirror[mirror].error_count), 0);
 	ms->mirror[mirror].error_type = 0;
 	ms->mirror[mirror].offset = offset;
 
@@ -1349,7 +1349,7 @@ static void mirror_resume(struct dm_target *ti)
  */
 static char device_status_char(struct mirror *m)
 {
-	if (!atomic_read(&(m->error_count)))
+	if (!atomic_read_unchecked(&(m->error_count)))
 		return 'A';
 
 	return (test_bit(DM_RAID1_FLUSH_ERROR, &(m->error_type))) ? 'F' :

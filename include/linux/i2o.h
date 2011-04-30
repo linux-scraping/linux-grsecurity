@@ -564,7 +564,7 @@ struct i2o_controller {
 	struct i2o_device *exec;	/* Executive */
 #if BITS_PER_LONG == 64
 	spinlock_t context_list_lock;	/* lock for context_list */
-	atomic_t context_list_counter;	/* needed for unique contexts */
+	atomic_unchecked_t context_list_counter;	/* needed for unique contexts */
 	struct list_head context_list;	/* list of context id's
 					   and pointers */
 #endif

@@ -197,38 +197,20 @@
 
 #endif	/* CONFIG_X86_32_LAZY_GS */
 
-.macro PAX_EXIT_KERNEL
+.macro pax_enter_kernel
 #ifdef CONFIG_PAX_KERNEXEC
-#ifdef CONFIG_PARAVIRT
-	push %eax; push %ecx
-#endif
-	mov %cs, %esi
-	cmp $__KERNEXEC_KERNEL_CS, %esi
-	jnz 2f
-#ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);
-	mov %eax, %esi
-#else
-	mov %cr0, %esi
-#endif
-	btr $16, %esi
-	ljmp $__KERNEL_CS, $1f
-1:
-#ifdef CONFIG_PARAVIRT
-	mov %esi, %eax
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);
-#else
-	mov %esi, %cr0
-#endif
-2:
-#ifdef CONFIG_PARAVIRT
-	pop %ecx; pop %eax
-#endif
+	call pax_enter_kernel
 #endif
 .endm
 
-.macro PAX_ENTER_KERNEL
+.macro pax_exit_kernel
 #ifdef CONFIG_PAX_KERNEXEC
+	call pax_exit_kernel
+#endif
+.endm
+
+#ifdef CONFIG_PAX_KERNEXEC
+ENTRY(pax_enter_kernel)
 #ifdef CONFIG_PARAVIRT
 	push %eax; push %ecx
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
@@ -254,8 +236,75 @@
 #ifdef CONFIG_PARAVIRT
 	pop %ecx; pop %eax
 #endif
+	ret
+ENDPROC(pax_enter_kernel)
+
+ENTRY(pax_exit_kernel)
+#ifdef CONFIG_PARAVIRT
+	push %eax; push %ecx
+#endif
+	mov %cs, %esi
+	cmp $__KERNEXEC_KERNEL_CS, %esi
+	jnz 2f
+#ifdef CONFIG_PARAVIRT
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);
+	mov %eax, %esi
+#else
+	mov %cr0, %esi
+#endif
+	btr $16, %esi
+	ljmp $__KERNEL_CS, $1f
+1:
+#ifdef CONFIG_PARAVIRT
+	mov %esi, %eax
+	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);
+#else
+	mov %esi, %cr0
+#endif
+2:
+#ifdef CONFIG_PARAVIRT
+	pop %ecx; pop %eax
+#endif
+	ret
+ENDPROC(pax_exit_kernel)
+#endif
+
+.macro pax_erase_kstack
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	call pax_erase_kstack
 #endif
 .endm
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+ENTRY(pax_erase_kstack)
+	push %edi
+
+	mov %esp, %edi
+	mov $-0xBEEF, %eax
+	std
+1:
+	mov %edi, %ecx
+	and $THREAD_SIZE_asm - 1, %ecx
+	shr $2, %ecx
+	repne scasl
+	jecxz 2f
+	sub $16, %ecx
+	jc 2f
+	mov $16, %ecx
+	repe scasl
+	jecxz 2f
+	jne 1b
+2:
+	cld
+	mov %esp, %ecx
+	sub %edi, %ecx
+	shr $2, %ecx
+	rep stosl
+
+	pop %edi
+	ret
+ENDPROC(pax_erase_kstack)
+#endif
 
 .macro __SAVE_ALL _DS
 	cld
@@ -291,7 +340,7 @@
 .macro SAVE_ALL
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	__SAVE_ALL __KERNEL_DS
-	PAX_ENTER_KERNEL
+	pax_enter_kernel
 #else
 	__SAVE_ALL __USER_DS
 #endif
@@ -529,11 +578,15 @@ sysenter_do_call:
 sysenter_exit:
 
 #ifdef CONFIG_PAX_RANDKSTACK
-	pushl %eax
-	CFI_ADJUST_CFA_OFFSET 4
+	pushl_cfi %eax
 	call pax_randomize_kstack
-	popl %eax
-	CFI_ADJUST_CFA_OFFSET -4
+	popl_cfi %eax
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	pushl_cfi %eax
+	call pax_erase_kstack
+	popl_cfi %eax
 #endif
 
 /* if something modifies registers it must also disable sysexit */
@@ -631,6 +684,10 @@ syscall_exit:
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	call pax_randomize_kstack
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	pax_erase_kstack
 #endif
 
 restore_all:
@@ -1419,7 +1476,7 @@ error_code:
 	movl %ecx, %ds
 	movl %ecx, %es
 
-	PAX_ENTER_KERNEL
+	pax_enter_kernel
 
 	TRACE_IRQS_OFF
 	movl %esp,%eax			# pt_regs pointer
@@ -1506,7 +1563,7 @@ nmi_stack_correct:
 	movl %esp,%eax		# pt_regs pointer
 	call do_nmi
 
-	PAX_EXIT_KERNEL
+	pax_exit_kernel
 
 	jmp restore_all_notrace
 	CFI_ENDPROC
@@ -1545,7 +1602,7 @@ nmi_espfix_stack:
 	xorl %edx,%edx			# zero error code
 	call do_nmi
 
-	PAX_EXIT_KERNEL
+	pax_exit_kernel
 
 	RESTORE_REGS
 	lss 12+4(%esp), %esp		# back to espfix stack

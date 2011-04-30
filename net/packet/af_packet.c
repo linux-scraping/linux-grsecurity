@@ -635,14 +635,14 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	spin_lock(&sk->sk_receive_queue.lock);
 	po->stats.tp_packets++;
-	skb->dropcount = atomic_read(&sk->sk_drops);
+	skb->dropcount = atomic_read_unchecked(&sk->sk_drops);
 	__skb_queue_tail(&sk->sk_receive_queue, skb);
 	spin_unlock(&sk->sk_receive_queue.lock);
 	sk->sk_data_ready(sk, skb->len);
 	return 0;
 
 drop_n_acct:
-	po->stats.tp_drops = atomic_inc_return(&sk->sk_drops);
+	po->stats.tp_drops = atomic_inc_return_unchecked(&sk->sk_drops);
 
 drop_n_restore:
 	if (skb_head != skb->data && skb_shared(skb)) {

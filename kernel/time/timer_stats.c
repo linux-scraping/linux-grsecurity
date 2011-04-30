@@ -116,7 +116,7 @@ static ktime_t time_start, time_stop;
 static unsigned long nr_entries;
 static struct entry entries[MAX_ENTRIES];
 
-static atomic_t overflow_count;
+static atomic_unchecked_t overflow_count;
 
 /*
  * The entries are in a hash-table, for fast lookup:
@@ -140,7 +140,7 @@ static void reset_entries(void)
 	nr_entries = 0;
 	memset(entries, 0, sizeof(entries));
 	memset(tstat_hash_table, 0, sizeof(tstat_hash_table));
-	atomic_set(&overflow_count, 0);
+	atomic_set_unchecked(&overflow_count, 0);
 }
 
 static struct entry *alloc_entry(void)
@@ -261,7 +261,7 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
 	if (likely(entry))
 		entry->count++;
 	else
-		atomic_inc(&overflow_count);
+		atomic_inc_unchecked(&overflow_count);
 
  out_unlock:
 	raw_spin_unlock_irqrestore(lock, flags);
@@ -304,9 +304,9 @@ static int tstats_show(struct seq_file *m, void *v)
 
 	seq_puts(m, "Timer Stats Version: v0.2\n");
 	seq_printf(m, "Sample period: %ld.%03ld s\n", period.tv_sec, ms);
-	if (atomic_read(&overflow_count))
+	if (atomic_read_unchecked(&overflow_count))
 		seq_printf(m, "Overflow: %d entries\n",
-			atomic_read(&overflow_count));
+			atomic_read_unchecked(&overflow_count));
 
 	for (i = 0; i < nr_entries; i++) {
 		entry = entries + i;

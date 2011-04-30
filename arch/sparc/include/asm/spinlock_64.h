@@ -92,7 +92,7 @@ static inline void arch_spin_lock_flags(arch_spinlock_t *lock, unsigned long fla
 
 /* Multi-reader locks, these are much saner than the 32-bit Sparc ones... */
 
-static void inline arch_read_lock(arch_rwlock_t *lock)
+static inline void arch_read_lock(arch_rwlock_t *lock)
 {
 	unsigned long tmp1, tmp2;
 
@@ -120,7 +120,7 @@ static void inline arch_read_lock(arch_rwlock_t *lock)
 	: "memory", "cc");
 }
 
-static int inline arch_read_trylock(arch_rwlock_t *lock)
+static inline int arch_read_trylock(arch_rwlock_t *lock)
 {
 	int tmp1, tmp2;
 
@@ -146,7 +146,7 @@ static int inline arch_read_trylock(arch_rwlock_t *lock)
 	return tmp1;
 }
 
-static void inline arch_read_unlock(arch_rwlock_t *lock)
+static inline void arch_read_unlock(arch_rwlock_t *lock)
 {
 	unsigned long tmp1, tmp2;
 
@@ -167,7 +167,7 @@ static void inline arch_read_unlock(arch_rwlock_t *lock)
 	: "memory");
 }
 
-static void inline arch_write_lock(arch_rwlock_t *lock)
+static inline void arch_write_lock(arch_rwlock_t *lock)
 {
 	unsigned long mask, tmp1, tmp2;
 
@@ -192,7 +192,7 @@ static void inline arch_write_lock(arch_rwlock_t *lock)
 	: "memory");
 }
 
-static void inline arch_write_unlock(arch_rwlock_t *lock)
+static inline void arch_write_unlock(arch_rwlock_t *lock)
 {
 	__asm__ __volatile__(
 "	stw		%%g0, [%0]"
@@ -201,7 +201,7 @@ static void inline arch_write_unlock(arch_rwlock_t *lock)
 	: "memory");
 }
 
-static int inline arch_write_trylock(arch_rwlock_t *lock)
+static inline int arch_write_trylock(arch_rwlock_t *lock)
 {
 	unsigned long mask, tmp1, tmp2, result;
 

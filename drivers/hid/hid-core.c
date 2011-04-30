@@ -1846,7 +1846,7 @@ static bool hid_ignore(struct hid_device *hdev)
 
 int hid_add_device(struct hid_device *hdev)
 {
-	static atomic_t id = ATOMIC_INIT(0);
+	static atomic_unchecked_t id = ATOMIC_INIT(0);
 	int ret;
 
 	if (WARN_ON(hdev->status & HID_STAT_ADDED))
@@ -1861,7 +1861,7 @@ int hid_add_device(struct hid_device *hdev)
 	/* XXX hack, any other cleaner solution after the driver core
 	 * is converted to allow more than 20 bytes as the device name? */
 	dev_set_name(&hdev->dev, "%04X:%04X:%04X.%04X", hdev->bus,
-		     hdev->vendor, hdev->product, atomic_inc_return(&id));
+		     hdev->vendor, hdev->product, atomic_inc_return_unchecked(&id));
 
 	hid_debug_register(hdev, dev_name(&hdev->dev));
 	ret = device_add(&hdev->dev);

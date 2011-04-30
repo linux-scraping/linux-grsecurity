@@ -302,7 +302,7 @@ static int raw_rcv_skb(struct sock * sk, struct sk_buff * skb)
 int raw_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb)) {
-		atomic_inc(&sk->sk_drops);
+		atomic_inc_unchecked(&sk->sk_drops);
 		kfree_skb(skb);
 		return NET_RX_DROP;
 	}
@@ -977,7 +977,7 @@ static void raw_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 		sk_wmem_alloc_get(sp),
 		sk_rmem_alloc_get(sp),
 		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
-		atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
+		atomic_read(&sp->sk_refcnt), sp, atomic_read_unchecked(&sp->sk_drops));
 }
 
 static int raw_seq_show(struct seq_file *seq, void *v)

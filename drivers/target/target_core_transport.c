@@ -1678,7 +1678,7 @@ struct se_device *transport_add_device_to_core_hba(
 
 	dev->queue_depth	= dev_limits->queue_depth;
 	atomic_set(&dev->depth_left, dev->queue_depth);
-	atomic_set(&dev->dev_ordered_id, 0);
+	atomic_set_unchecked(&dev->dev_ordered_id, 0);
 
 	se_dev_set_default_attribs(dev, dev_limits);
 
@@ -1880,7 +1880,7 @@ static int transport_check_alloc_task_attr(struct se_cmd *cmd)
 	 * Used to determine when ORDERED commands should go from
 	 * Dormant to Active status.
 	 */
-	cmd->se_ordered_id = atomic_inc_return(&SE_DEV(cmd)->dev_ordered_id);
+	cmd->se_ordered_id = atomic_inc_return_unchecked(&SE_DEV(cmd)->dev_ordered_id);
 	smp_mb__after_atomic_inc();
 	DEBUG_STA("Allocated se_ordered_id: %u for Task Attr: 0x%02x on %s\n",
 			cmd->se_ordered_id, cmd->sam_task_attr,
@@ -2160,7 +2160,7 @@ static void transport_generic_request_failure(
 		" t_transport_active: %d t_transport_stop: %d"
 		" t_transport_sent: %d\n", T_TASK(cmd)->t_task_cdbs,
 		atomic_read(&T_TASK(cmd)->t_task_cdbs_left),
-		atomic_read(&T_TASK(cmd)->t_task_cdbs_sent),
+		atomic_read_unchecked(&T_TASK(cmd)->t_task_cdbs_sent),
 		atomic_read(&T_TASK(cmd)->t_task_cdbs_ex_left),
 		atomic_read(&T_TASK(cmd)->t_transport_active),
 		atomic_read(&T_TASK(cmd)->t_transport_stop),
@@ -2664,9 +2664,9 @@ check_depth:
 	spin_lock_irqsave(&T_TASK(cmd)->t_state_lock, flags);
 	atomic_set(&task->task_active, 1);
 	atomic_set(&task->task_sent, 1);
-	atomic_inc(&T_TASK(cmd)->t_task_cdbs_sent);
+	atomic_inc_unchecked(&T_TASK(cmd)->t_task_cdbs_sent);
 
-	if (atomic_read(&T_TASK(cmd)->t_task_cdbs_sent) ==
+	if (atomic_read_unchecked(&T_TASK(cmd)->t_task_cdbs_sent) ==
 	    T_TASK(cmd)->t_task_cdbs)
 		atomic_set(&cmd->transport_sent, 1);
 
@@ -5550,7 +5550,7 @@ static void transport_generic_wait_for_tasks(
 		atomic_set(&T_TASK(cmd)->transport_lun_stop, 0);
 	}
 	if (!atomic_read(&T_TASK(cmd)->t_transport_active) ||
-	     atomic_read(&T_TASK(cmd)->t_transport_aborted))
+	     atomic_read_unchecked(&T_TASK(cmd)->t_transport_aborted))
 		goto remove;
 
 	atomic_set(&T_TASK(cmd)->t_transport_stop, 1);
@@ -5779,7 +5779,7 @@ int transport_check_aborted_status(struct se_cmd *cmd, int send_status)
 {
 	int ret = 0;
 
-	if (atomic_read(&T_TASK(cmd)->t_transport_aborted) != 0) {
+	if (atomic_read_unchecked(&T_TASK(cmd)->t_transport_aborted) != 0) {
 		if (!(send_status) ||
 		     (cmd->se_cmd_flags & SCF_SENT_DELAYED_TAS))
 			return 1;
@@ -5807,7 +5807,7 @@ void transport_send_task_abort(struct se_cmd *cmd)
 	 */
 	if (cmd->data_direction == DMA_TO_DEVICE) {
 		if (CMD_TFO(cmd)->write_pending_status(cmd) != 0) {
-			atomic_inc(&T_TASK(cmd)->t_transport_aborted);
+			atomic_inc_unchecked(&T_TASK(cmd)->t_transport_aborted);
 			smp_mb__after_atomic_inc();
 			cmd->scsi_status = SAM_STAT_TASK_ABORTED;
 			transport_new_cmd_failure(cmd);
@@ -5936,7 +5936,7 @@ static void transport_processing_shutdown(struct se_device *dev)
 			CMD_TFO(cmd)->get_task_tag(cmd),
 			T_TASK(cmd)->t_task_cdbs,
 			atomic_read(&T_TASK(cmd)->t_task_cdbs_left),
-			atomic_read(&T_TASK(cmd)->t_task_cdbs_sent),
+			atomic_read_unchecked(&T_TASK(cmd)->t_task_cdbs_sent),
 			atomic_read(&T_TASK(cmd)->t_transport_active),
 			atomic_read(&T_TASK(cmd)->t_transport_stop),
 			atomic_read(&T_TASK(cmd)->t_transport_sent));

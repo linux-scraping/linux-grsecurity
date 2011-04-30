@@ -57,7 +57,7 @@ static struct kmem_cache *fsnotify_event_holder_cachep;
  * get set to 0 so it will never get 'freed'
  */
 static struct fsnotify_event *q_overflow_event;
-static atomic_t fsnotify_sync_cookie = ATOMIC_INIT(0);
+static atomic_unchecked_t fsnotify_sync_cookie = ATOMIC_INIT(0);
 
 /**
  * fsnotify_get_cookie - return a unique cookie for use in synchronizing events.
@@ -65,7 +65,7 @@ static atomic_t fsnotify_sync_cookie = ATOMIC_INIT(0);
  */
 u32 fsnotify_get_cookie(void)
 {
-	return atomic_inc_return(&fsnotify_sync_cookie);
+	return atomic_inc_return_unchecked(&fsnotify_sync_cookie);
 }
 EXPORT_SYMBOL_GPL(fsnotify_get_cookie);
 

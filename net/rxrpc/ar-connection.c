@@ -206,7 +206,7 @@ static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
 		rwlock_init(&conn->lock);
 		spin_lock_init(&conn->state_lock);
 		atomic_set(&conn->usage, 1);
-		conn->debug_id = atomic_inc_return(&rxrpc_debug_id);
+		conn->debug_id = atomic_inc_return_unchecked(&rxrpc_debug_id);
 		conn->avail_calls = RXRPC_MAXCALLS;
 		conn->size_align = 4;
 		conn->header_size = sizeof(struct rxrpc_header);

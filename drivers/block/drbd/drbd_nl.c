@@ -2238,7 +2238,7 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
 	module_put(THIS_MODULE);
 }
 
-static atomic_t drbd_nl_seq = ATOMIC_INIT(2); /* two. */
+static atomic_unchecked_t drbd_nl_seq = ATOMIC_INIT(2); /* two. */
 
 static unsigned short *
 __tl_add_blob(unsigned short *tl, enum drbd_tags tag, const void *data,
@@ -2309,7 +2309,7 @@ void drbd_bcast_state(struct drbd_conf *mdev, union drbd_state state)
 	cn_reply->id.idx = CN_IDX_DRBD;
 	cn_reply->id.val = CN_VAL_DRBD;
 
-	cn_reply->seq = atomic_add_return(1, &drbd_nl_seq);
+	cn_reply->seq = atomic_add_return_unchecked(1, &drbd_nl_seq);
 	cn_reply->ack = 0; /* not used here. */
 	cn_reply->len = sizeof(struct drbd_nl_cfg_reply) +
 		(int)((char *)tl - (char *)reply->tag_list);
@@ -2341,7 +2341,7 @@ void drbd_bcast_ev_helper(struct drbd_conf *mdev, char *helper_name)
 	cn_reply->id.idx = CN_IDX_DRBD;
 	cn_reply->id.val = CN_VAL_DRBD;
 
-	cn_reply->seq = atomic_add_return(1, &drbd_nl_seq);
+	cn_reply->seq = atomic_add_return_unchecked(1, &drbd_nl_seq);
 	cn_reply->ack = 0; /* not used here. */
 	cn_reply->len = sizeof(struct drbd_nl_cfg_reply) +
 		(int)((char *)tl - (char *)reply->tag_list);
@@ -2416,7 +2416,7 @@ void drbd_bcast_ee(struct drbd_conf *mdev,
 	cn_reply->id.idx = CN_IDX_DRBD;
 	cn_reply->id.val = CN_VAL_DRBD;
 
-	cn_reply->seq = atomic_add_return(1,&drbd_nl_seq);
+	cn_reply->seq = atomic_add_return_unchecked(1,&drbd_nl_seq);
 	cn_reply->ack = 0; // not used here.
 	cn_reply->len = sizeof(struct drbd_nl_cfg_reply) +
 		(int)((char*)tl - (char*)reply->tag_list);
@@ -2455,7 +2455,7 @@ void drbd_bcast_sync_progress(struct drbd_conf *mdev)
 	cn_reply->id.idx = CN_IDX_DRBD;
 	cn_reply->id.val = CN_VAL_DRBD;
 
-	cn_reply->seq = atomic_add_return(1, &drbd_nl_seq);
+	cn_reply->seq = atomic_add_return_unchecked(1, &drbd_nl_seq);
 	cn_reply->ack = 0; /* not used here. */
 	cn_reply->len = sizeof(struct drbd_nl_cfg_reply) +
 		(int)((char *)tl - (char *)reply->tag_list);

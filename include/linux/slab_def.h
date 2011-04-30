@@ -96,10 +96,10 @@ struct kmem_cache {
 	unsigned long node_allocs;
 	unsigned long node_frees;
 	unsigned long node_overflow;
-	atomic_t allochit;
-	atomic_t allocmiss;
-	atomic_t freehit;
-	atomic_t freemiss;
+	atomic_unchecked_t allochit;
+	atomic_unchecked_t allocmiss;
+	atomic_unchecked_t freehit;
+	atomic_unchecked_t freemiss;
 
 	/*
 	 * If debugging is enabled, then the allocator can add additional

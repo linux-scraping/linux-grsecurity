@@ -499,7 +499,7 @@ next_sge:
 			svc_rdma_put_context(ctxt, 0);
 			goto out;
 		}
-		atomic_inc(&rdma_stat_read);
+		atomic_inc_unchecked(&rdma_stat_read);
 
 		if (read_wr.num_sge < chl_map->ch[ch_no].count) {
 			chl_map->ch[ch_no].count -= read_wr.num_sge;
@@ -609,7 +609,7 @@ int svc_rdma_recvfrom(struct svc_rqst *rqstp)
 				  dto_q);
 		list_del_init(&ctxt->dto_q);
 	} else {
-		atomic_inc(&rdma_stat_rq_starve);
+		atomic_inc_unchecked(&rdma_stat_rq_starve);
 		clear_bit(XPT_DATA, &xprt->xpt_flags);
 		ctxt = NULL;
 	}
@@ -629,7 +629,7 @@ int svc_rdma_recvfrom(struct svc_rqst *rqstp)
 	dprintk("svcrdma: processing ctxt=%p on xprt=%p, rqstp=%p, status=%d\n",
 		ctxt, rdma_xprt, rqstp, ctxt->wc_status);
 	BUG_ON(ctxt->wc_status != IB_WC_SUCCESS);
-	atomic_inc(&rdma_stat_recv);
+	atomic_inc_unchecked(&rdma_stat_recv);
 
 	/* Build up the XDR from the receive buffers. */
 	rdma_build_arg_xdr(rqstp, ctxt, ctxt->byte_len);

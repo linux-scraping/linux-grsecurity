@@ -115,8 +115,8 @@ typedef struct drm_i830_private {
 	int page_flipping;
 
 	wait_queue_head_t irq_queue;
-	atomic_t irq_received;
-	atomic_t irq_emitted;
+	atomic_unchecked_t irq_received;
+	atomic_unchecked_t irq_emitted;
 
 	int use_mi_batchbuffer_start;
 

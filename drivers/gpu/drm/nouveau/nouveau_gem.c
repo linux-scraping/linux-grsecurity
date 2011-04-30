@@ -241,7 +241,7 @@ validate_init(struct nouveau_channel *chan, struct drm_file *file_priv,
 	int trycnt = 0;
 	int ret, i;
 
-	sequence = atomic_add_return(1, &dev_priv->ttm.validate_sequence);
+	sequence = atomic_add_return_unchecked(1, &dev_priv->ttm.validate_sequence);
 retry:
 	if (++trycnt > 100000) {
 		NV_ERROR(dev, "%s failed and gave up.\n", __func__);

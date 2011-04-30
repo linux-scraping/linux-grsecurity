@@ -8,6 +8,8 @@
 
 long long atomic64_read_cx8(long long, const atomic64_t *v);
 EXPORT_SYMBOL(atomic64_read_cx8);
+long long atomic64_read_unchecked_cx8(long long, const atomic64_unchecked_t *v);
+EXPORT_SYMBOL(atomic64_read_unchecked_cx8);
 long long atomic64_set_cx8(long long, const atomic64_t *v);
 EXPORT_SYMBOL(atomic64_set_cx8);
 long long atomic64_xchg_cx8(long long, unsigned high);
@@ -18,6 +20,8 @@ long long atomic64_sub_return_cx8(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_sub_return_cx8);
 long long atomic64_inc_return_cx8(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_inc_return_cx8);
+long long atomic64_inc_return_unchecked_cx8(long long a, atomic64_unchecked_t *v);
+EXPORT_SYMBOL(atomic64_inc_return_unchecked_cx8);
 long long atomic64_dec_return_cx8(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_dec_return_cx8);
 long long atomic64_dec_if_positive_cx8(atomic64_t *v);

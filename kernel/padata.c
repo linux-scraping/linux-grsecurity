@@ -132,10 +132,10 @@ int padata_do_parallel(struct padata_instance *pinst,
 	padata->pd = pd;
 	padata->cb_cpu = cb_cpu;
 
-	if (unlikely(atomic_read(&pd->seq_nr) == pd->max_seq_nr))
-		atomic_set(&pd->seq_nr, -1);
+	if (unlikely(atomic_read_unchecked(&pd->seq_nr) == pd->max_seq_nr))
+		atomic_set_unchecked(&pd->seq_nr, -1);
 
-	padata->seq_nr = atomic_inc_return(&pd->seq_nr);
+	padata->seq_nr = atomic_inc_return_unchecked(&pd->seq_nr);
 
 	target_cpu = padata_cpu_hash(padata);
 	queue = per_cpu_ptr(pd->pqueue, target_cpu);
@@ -444,7 +444,7 @@ static struct parallel_data *padata_alloc_pd(struct padata_instance *pinst,
 	padata_init_pqueues(pd);
 	padata_init_squeues(pd);
 	setup_timer(&pd->timer, padata_reorder_timer, (unsigned long)pd);
-	atomic_set(&pd->seq_nr, -1);
+	atomic_set_unchecked(&pd->seq_nr, -1);
 	atomic_set(&pd->reorder_objects, 0);
 	atomic_set(&pd->refcnt, 0);
 	pd->pinst = pinst;

@@ -51,7 +51,7 @@ typedef struct drm_via_ring_buffer {
 typedef uint32_t maskarray_t[5];
 
 typedef struct drm_via_irq {
-	atomic_t irq_received;
+	atomic_unchecked_t irq_received;
 	uint32_t pending_mask;
 	uint32_t enable_mask;
 	wait_queue_head_t irq_queue;
@@ -75,7 +75,7 @@ typedef struct drm_via_private {
 	struct timeval last_vblank;
 	int last_vblank_valid;
 	unsigned usec_per_vblank;
-	atomic_t vbl_received;
+	atomic_unchecked_t vbl_received;
 	drm_via_state_t hc_state;
 	char pci_buf[VIA_PCI_BUF_SIZE];
 	const uint32_t *fire_offsets[VIA_FIRE_BUF_SIZE];

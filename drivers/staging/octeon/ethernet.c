@@ -258,11 +258,11 @@ static struct net_device_stats *cvm_oct_common_get_stats(struct net_device *dev)
 		 * since the RX tasklet also increments it.
 		 */
 #ifdef CONFIG_64BIT
-		atomic64_add(rx_status.dropped_packets,
-			     (atomic64_t *)&priv->stats.rx_dropped);
+		atomic64_add_unchecked(rx_status.dropped_packets,
+			     (atomic64_unchecked_t *)&priv->stats.rx_dropped);
 #else
-		atomic_add(rx_status.dropped_packets,
-			     (atomic_t *)&priv->stats.rx_dropped);
+		atomic_add_unchecked(rx_status.dropped_packets,
+			     (atomic_unchecked_t *)&priv->stats.rx_dropped);
 #endif
 	}
 

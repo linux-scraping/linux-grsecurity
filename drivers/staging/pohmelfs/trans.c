@@ -492,7 +492,7 @@ int netfs_trans_finish(struct netfs_trans *t, struct pohmelfs_sb *psb)
 	int err;
 	struct netfs_cmd *cmd = t->iovec.iov_base;
 
-	t->gen = atomic_inc_return(&psb->trans_gen);
+	t->gen = atomic_inc_return_unchecked(&psb->trans_gen);
 
 	cmd->size = t->iovec.iov_len - sizeof(struct netfs_cmd) +
 		t->attached_size + t->attached_pages * sizeof(struct netfs_cmd);

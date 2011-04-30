@@ -4112,7 +4112,7 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu)
 	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r"(__KERNEL_DS));
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	asm("mov %0, %%fs" : : "r"(__KERNEL_PERCPU));
+	loadsegment(fs, __KERNEL_PERCPU);
 #endif
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)

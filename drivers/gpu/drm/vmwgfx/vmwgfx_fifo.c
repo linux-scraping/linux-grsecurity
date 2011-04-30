@@ -137,7 +137,7 @@ int vmw_fifo_init(struct vmw_private *dev_priv, struct vmw_fifo_state *fifo)
 		 (unsigned int) min,
 		 (unsigned int) fifo->capabilities);
 
-	atomic_set(&dev_priv->fence_seq, dev_priv->last_read_sequence);
+	atomic_set_unchecked(&dev_priv->fence_seq, dev_priv->last_read_sequence);
 	iowrite32(dev_priv->last_read_sequence, fifo_mem + SVGA_FIFO_FENCE);
 	vmw_fence_queue_init(&fifo->fence_queue);
 	return vmw_fifo_send_fence(dev_priv, &dummy);
@@ -476,7 +476,7 @@ int vmw_fifo_send_fence(struct vmw_private *dev_priv, uint32_t *sequence)
 
 	fm = vmw_fifo_reserve(dev_priv, bytes);
 	if (unlikely(fm == NULL)) {
-		*sequence = atomic_read(&dev_priv->fence_seq);
+		*sequence = atomic_read_unchecked(&dev_priv->fence_seq);
 		ret = -ENOMEM;
 		(void)vmw_fallback_wait(dev_priv, false, true, *sequence,
 					false, 3*HZ);
@@ -484,7 +484,7 @@ int vmw_fifo_send_fence(struct vmw_private *dev_priv, uint32_t *sequence)
 	}
 
 	do {
-		*sequence = atomic_add_return(1, &dev_priv->fence_seq);
+		*sequence = atomic_add_return_unchecked(1, &dev_priv->fence_seq);
 	} while (*sequence == 0);
 
 	if (!(fifo_state->capabilities & SVGA_FIFO_CAP_FENCE)) {

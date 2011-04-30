@@ -578,7 +578,7 @@ struct pohmelfs_sb {
 
 	unsigned int		trans_retries;
 
-	atomic_t		trans_gen;
+	atomic_unchecked_t	trans_gen;
 
 	unsigned int		crypto_attached_size;
 	unsigned int		crypto_align_size;

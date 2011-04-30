@@ -25,7 +25,7 @@
 bool events_check_enabled;
 
 /* The counter of registered wakeup events. */
-static atomic_t event_count = ATOMIC_INIT(0);
+static atomic_unchecked_t event_count = ATOMIC_INIT(0);
 /* A preserved old value of event_count. */
 static unsigned int saved_count;
 /* The counter of wakeup events being processed. */
@@ -399,7 +399,7 @@ static void wakeup_source_deactivate(struct wakeup_source *ws)
 	 * pm_save_wakeup_count() don't see the old value of event_count and
 	 * events_in_progress equal to zero at the same time.
 	 */
-	atomic_inc(&event_count);
+	atomic_inc_unchecked(&event_count);
 	smp_mb__before_atomic_dec();
 	atomic_dec(&events_in_progress);
 }
@@ -556,7 +556,7 @@ bool pm_wakeup_pending(void)
 
 	spin_lock_irqsave(&events_lock, flags);
 	if (events_check_enabled) {
-		ret = ((unsigned int)atomic_read(&event_count) != saved_count)
+		ret = ((unsigned int)atomic_read_unchecked(&event_count) != saved_count)
 			|| atomic_read(&events_in_progress);
 		events_check_enabled = !ret;
 	}
@@ -590,7 +590,7 @@ bool pm_get_wakeup_count(unsigned int *count)
 	}
 
 	ret = !atomic_read(&events_in_progress);
-	*count = atomic_read(&event_count);
+	*count = atomic_read_unchecked(&event_count);
 	return ret;
 }
 
@@ -608,7 +608,7 @@ bool pm_save_wakeup_count(unsigned int count)
 	bool ret = false;
 
 	spin_lock_irq(&events_lock);
-	if (count == (unsigned int)atomic_read(&event_count)
+	if (count == (unsigned int)atomic_read_unchecked(&event_count)
 	    && !atomic_read(&events_in_progress)) {
 		saved_count = count;
 		events_check_enabled = true;

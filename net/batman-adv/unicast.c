@@ -261,9 +261,9 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
 	frag1->flags |= UNI_FRAG_HEAD;
 	frag2->flags &= ~UNI_FRAG_HEAD;
 
-	frag1->seqno = htons((uint16_t)atomic_inc_return(
+	frag1->seqno = htons((uint16_t)atomic_inc_return_unchecked(
 			     &batman_if->frag_seqno));
-	frag2->seqno = htons((uint16_t)atomic_inc_return(
+	frag2->seqno = htons((uint16_t)atomic_inc_return_unchecked(
 			     &batman_if->frag_seqno));
 
 	send_skb_packet(skb, batman_if, dstaddr);

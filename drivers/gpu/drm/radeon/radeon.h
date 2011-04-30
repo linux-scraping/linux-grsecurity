@@ -189,7 +189,7 @@ extern int sumo_get_temp(struct radeon_device *rdev);
  */
 struct radeon_fence_driver {
 	uint32_t			scratch_reg;
-	atomic_t			seq;
+	atomic_unchecked_t		seq;
 	uint32_t			last_seq;
 	unsigned long			last_jiffies;
 	unsigned long			last_timeout;

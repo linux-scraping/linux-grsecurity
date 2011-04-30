@@ -85,6 +85,24 @@ static inline void atomic64_set(atomic64_t *v, long long i)
 }
 
 /**
+ * atomic64_set_unchecked - set atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ * @n: value to assign
+ *
+ * Atomically sets the value of @v to @n.
+ */
+static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long long i)
+{
+	unsigned high = (unsigned)(i >> 32);
+	unsigned low = (unsigned)i;
+	asm volatile(ATOMIC64_ALTERNATIVE(set)
+		     : "+b" (low), "+c" (high)
+		     : "S" (v)
+		     : "eax", "edx", "memory"
+		     );
+}
+
+/**
  * atomic64_read - read atomic64 variable
  * @v: pointer to type atomic64_t
  *
@@ -94,6 +112,22 @@ static inline long long atomic64_read(atomic64_t *v)
 {
 	long long r;
 	asm volatile(ATOMIC64_ALTERNATIVE(read)
+		     : "=A" (r), "+c" (v)
+		     : : "memory"
+		     );
+	return r;
+ }
+
+/**
+ * atomic64_read_unchecked - read atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically reads the value of @v and returns it.
+ */
+static inline long long atomic64_read_unchecked(atomic64_unchecked_t *v)
+{
+	long long r;
+	asm volatile(ATOMIC64_ALTERNATIVE(read_unchecked)
 		     : "=A" (r), "+c" (v)
 		     : : "memory"
 		     );
@@ -139,6 +173,17 @@ static inline long long atomic64_inc_return(atomic64_t *v)
 	return a;
 }
 
+static inline long long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
+{
+	long long a;
+	asm volatile(ATOMIC64_ALTERNATIVE(inc_return_unchecked)
+		     : "=A" (a)
+		     : "S" (v)
+		     : "memory", "ecx"
+		     );
+	return a;
+}
+
 static inline long long atomic64_dec_return(atomic64_t *v)
 {
 	long long a;
@@ -160,6 +205,22 @@ static inline long long atomic64_dec_return(atomic64_t *v)
 static inline long long atomic64_add(long long i, atomic64_t *v)
 {
 	asm volatile(ATOMIC64_ALTERNATIVE_(add, add_return)
+		     : "+A" (i), "+c" (v)
+		     : : "memory"
+		     );
+	return i;
+}
+
+/**
+ * atomic64_add_unchecked - add integer to atomic64 variable
+ * @i: integer value to add
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @i to @v.
+ */
+static inline long long atomic64_add_unchecked(long long i, atomic64_unchecked_t *v)
+{
+	asm volatile(ATOMIC64_ALTERNATIVE_(add_unchecked, add_return_unchecked)
 		     : "+A" (i), "+c" (v)
 		     : : "memory"
 		     );

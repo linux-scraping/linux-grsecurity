@@ -61,7 +61,7 @@ static DEFINE_MUTEX(swapon_mutex);
 
 static DECLARE_WAIT_QUEUE_HEAD(proc_poll_wait);
 /* Activity counter to indicate that a swapon or swapoff has occurred */
-static atomic_t proc_poll_event = ATOMIC_INIT(0);
+static atomic_unchecked_t proc_poll_event = ATOMIC_INIT(0);
 
 static inline unsigned char swap_count(unsigned char ent)
 {
@@ -1687,7 +1687,7 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 	}
 	filp_close(swap_file, NULL);
 	err = 0;
-	atomic_inc(&proc_poll_event);
+	atomic_inc_unchecked(&proc_poll_event);
 	wake_up_interruptible(&proc_poll_wait);
 
 out_dput:
@@ -1708,8 +1708,8 @@ static unsigned swaps_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &proc_poll_wait, wait);
 
-	if (s->event != atomic_read(&proc_poll_event)) {
-		s->event = atomic_read(&proc_poll_event);
+	if (s->event != atomic_read_unchecked(&proc_poll_event)) {
+		s->event = atomic_read_unchecked(&proc_poll_event);
 		return POLLIN | POLLRDNORM | POLLERR | POLLPRI;
 	}
 
@@ -1815,7 +1815,7 @@ static int swaps_open(struct inode *inode, struct file *file)
 	}
 
 	s->seq.private = s;
-	s->event = atomic_read(&proc_poll_event);
+	s->event = atomic_read_unchecked(&proc_poll_event);
 	return ret;
 }
 
@@ -2131,7 +2131,7 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 		swap_info[prev]->next = type;
 	spin_unlock(&swap_lock);
 	mutex_unlock(&swapon_mutex);
-	atomic_inc(&proc_poll_event);
+	atomic_inc_unchecked(&proc_poll_event);
 	wake_up_interruptible(&proc_poll_wait);
 
 	error = 0;

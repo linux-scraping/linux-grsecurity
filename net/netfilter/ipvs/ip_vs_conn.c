@@ -553,7 +553,7 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, struct ip_vs_dest *dest)
 	/* Increase the refcnt counter of the dest */
 	atomic_inc(&dest->refcnt);
 
-	conn_flags = atomic_read(&dest->conn_flags);
+	conn_flags = atomic_read_unchecked(&dest->conn_flags);
 	if (cp->protocol != IPPROTO_UDP)
 		conn_flags &= ~IP_VS_CONN_F_ONE_PACKET;
 	/* Bind with the destination and its corresponding transmitter */
@@ -840,7 +840,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p,
 	atomic_set(&cp->refcnt, 1);
 
 	atomic_set(&cp->n_control, 0);
-	atomic_set(&cp->in_pkts, 0);
+	atomic_set_unchecked(&cp->in_pkts, 0);
 
 	atomic_inc(&ip_vs_conn_count);
 	if (flags & IP_VS_CONN_F_NO_CPORT)
@@ -1102,7 +1102,7 @@ static inline int todrop_entry(struct ip_vs_conn *cp)
 
 	/* Don't drop the entry if its number of incoming packets is not
 	   located in [0, 8] */
-	i = atomic_read(&cp->in_pkts);
+	i = atomic_read_unchecked(&cp->in_pkts);
 	if (i > 8 || i < 0) return 0;
 
 	if (!todrop_rate[i]) return 0;

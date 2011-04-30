@@ -3647,6 +3647,10 @@ static void svm_vcpu_run(struct kvm_vcpu *vcpu)
 	loadsegment(fs, svm->host.fs);
 #endif
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	__set_fs(current_thread_info()->addr_limit);
+#endif
+
 	reload_tss(vcpu);
 
 	local_irq_disable();

@@ -535,7 +535,7 @@ static void vhci_tx_urb(struct urb *urb)
 		return;
 	}
 
-	priv->seqnum = atomic_inc_return(&the_controller->seqnum);
+	priv->seqnum = atomic_inc_return_unchecked(&the_controller->seqnum);
 	if (priv->seqnum == 0xffff)
 		usbip_uinfo("seqnum max\n");
 
@@ -794,7 +794,7 @@ static int vhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 			return -ENOMEM;
 		}
 
-		unlink->seqnum = atomic_inc_return(&the_controller->seqnum);
+		unlink->seqnum = atomic_inc_return_unchecked(&the_controller->seqnum);
 		if (unlink->seqnum == 0xffff)
 			usbip_uinfo("seqnum max\n");
 
@@ -989,7 +989,7 @@ static int vhci_start(struct usb_hcd *hcd)
 		vdev->rhport = rhport;
 	}
 
-	atomic_set(&vhci->seqnum, 0);
+	atomic_set_unchecked(&vhci->seqnum, 0);
 	spin_lock_init(&vhci->lock);
 
 

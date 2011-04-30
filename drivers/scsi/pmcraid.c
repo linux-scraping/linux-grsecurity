@@ -201,8 +201,8 @@ static int pmcraid_slave_alloc(struct scsi_device *scsi_dev)
 		res->scsi_dev = scsi_dev;
 		scsi_dev->hostdata = res;
 		res->change_detected = 0;
-		atomic_set(&res->read_failures, 0);
-		atomic_set(&res->write_failures, 0);
+		atomic_set_unchecked(&res->read_failures, 0);
+		atomic_set_unchecked(&res->write_failures, 0);
 		rc = 0;
 	}
 	spin_unlock_irqrestore(&pinstance->resource_lock, lock_flags);
@@ -2677,9 +2677,9 @@ static int pmcraid_error_handler(struct pmcraid_cmd *cmd)
 
 	/* If this was a SCSI read/write command keep count of errors */
 	if (SCSI_CMD_TYPE(scsi_cmd->cmnd[0]) == SCSI_READ_CMD)
-		atomic_inc(&res->read_failures);
+		atomic_inc_unchecked(&res->read_failures);
 	else if (SCSI_CMD_TYPE(scsi_cmd->cmnd[0]) == SCSI_WRITE_CMD)
-		atomic_inc(&res->write_failures);
+		atomic_inc_unchecked(&res->write_failures);
 
 	if (!RES_IS_GSCSI(res->cfg_entry) &&
 		masked_ioasc != PMCRAID_IOASC_HW_DEVICE_BUS_STATUS_ERROR) {
@@ -3535,7 +3535,7 @@ static int pmcraid_queuecommand_lck(
 	 * block of scsi_cmd which is re-used (e.g. cancel/abort), which uses
 	 * hrrq_id assigned here in queuecommand
 	 */
-	ioarcb->hrrq_id = atomic_add_return(1, &(pinstance->last_message_id)) %
+	ioarcb->hrrq_id = atomic_add_return_unchecked(1, &(pinstance->last_message_id)) %
 			  pinstance->num_hrrq;
 	cmd->cmd_done = pmcraid_io_done;
 
@@ -3857,7 +3857,7 @@ static long pmcraid_ioctl_passthrough(
 	 * block of scsi_cmd which is re-used (e.g. cancel/abort), which uses
 	 * hrrq_id assigned here in queuecommand
 	 */
-	ioarcb->hrrq_id = atomic_add_return(1, &(pinstance->last_message_id)) %
+	ioarcb->hrrq_id = atomic_add_return_unchecked(1, &(pinstance->last_message_id)) %
 			  pinstance->num_hrrq;
 
 	if (request_size) {
@@ -4492,7 +4492,7 @@ static void pmcraid_worker_function(struct work_struct *workp)
 
 	pinstance = container_of(workp, struct pmcraid_instance, worker_q);
 	/* add resources only after host is added into system */
-	if (!atomic_read(&pinstance->expose_resources))
+	if (!atomic_read_unchecked(&pinstance->expose_resources))
 		return;
 
 	fw_version = be16_to_cpu(pinstance->inq_data->fw_version);
@@ -5326,8 +5326,8 @@ static int __devinit pmcraid_init_instance(
 	init_waitqueue_head(&pinstance->reset_wait_q);
 
 	atomic_set(&pinstance->outstanding_cmds, 0);
-	atomic_set(&pinstance->last_message_id, 0);
-	atomic_set(&pinstance->expose_resources, 0);
+	atomic_set_unchecked(&pinstance->last_message_id, 0);
+	atomic_set_unchecked(&pinstance->expose_resources, 0);
 
 	INIT_LIST_HEAD(&pinstance->free_res_q);
 	INIT_LIST_HEAD(&pinstance->used_res_q);
@@ -6042,7 +6042,7 @@ static int __devinit pmcraid_probe(
 	/* Schedule worker thread to handle CCN and take care of adding and
 	 * removing devices to OS
 	 */
-	atomic_set(&pinstance->expose_resources, 1);
+	atomic_set_unchecked(&pinstance->expose_resources, 1);
 	schedule_work(&pinstance->worker_q);
 	return rc;
 

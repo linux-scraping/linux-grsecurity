@@ -376,7 +376,7 @@ static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
 {
 	if ((raw6_sk(sk)->checksum || rcu_dereference_raw(sk->sk_filter)) &&
 	    skb_checksum_complete(skb)) {
-		atomic_inc(&sk->sk_drops);
+		atomic_inc_unchecked(&sk->sk_drops);
 		kfree_skb(skb);
 		return NET_RX_DROP;
 	}
@@ -403,7 +403,7 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
 	struct raw6_sock *rp = raw6_sk(sk);
 
 	if (!xfrm6_policy_check(sk, XFRM_POLICY_IN, skb)) {
-		atomic_inc(&sk->sk_drops);
+		atomic_inc_unchecked(&sk->sk_drops);
 		kfree_skb(skb);
 		return NET_RX_DROP;
 	}
@@ -427,7 +427,7 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
 
 	if (inet->hdrincl) {
 		if (skb_checksum_complete(skb)) {
-			atomic_inc(&sk->sk_drops);
+			atomic_inc_unchecked(&sk->sk_drops);
 			kfree_skb(skb);
 			return NET_RX_DROP;
 		}
@@ -1273,7 +1273,7 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 #else
 		   sp,
 #endif
-		   atomic_read(&sp->sk_drops));
+		   atomic_read_unchecked(&sp->sk_drops));
 }
 
 static int raw6_seq_show(struct seq_file *seq, void *v)

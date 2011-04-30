@@ -38,8 +38,8 @@ struct batman_if {
 	int16_t if_num;
 	char if_status;
 	struct net_device *net_dev;
-	atomic_t seqno;
-	atomic_t frag_seqno;
+	atomic_unchecked_t seqno;
+	atomic_unchecked_t frag_seqno;
 	unsigned char *packet_buff;
 	int packet_len;
 	struct kobject *hardif_obj;
@@ -133,7 +133,7 @@ struct bat_priv {
 	atomic_t orig_interval;		/* uint */
 	atomic_t hop_penalty;		/* uint */
 	atomic_t log_level;		/* uint */
-	atomic_t bcast_seqno;
+	atomic_unchecked_t bcast_seqno;
 	atomic_t bcast_queue_left;
 	atomic_t batman_queue_left;
 	char num_ifaces;

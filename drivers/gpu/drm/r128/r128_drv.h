@@ -90,14 +90,14 @@ typedef struct drm_r128_private {
 	int is_pci;
 	unsigned long cce_buffers_offset;
 
-	atomic_t idle_count;
+	atomic_unchecked_t idle_count;
 
 	int page_flipping;
 	int current_page;
 	u32 crtc_offset;
 	u32 crtc_offset_cntl;
 
-	atomic_t vbl_received;
+	atomic_unchecked_t vbl_received;
 
 	u32 color_fmt;
 	unsigned int front_offset;

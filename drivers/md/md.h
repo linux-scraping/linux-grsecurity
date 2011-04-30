@@ -117,13 +117,13 @@ struct mdk_rdev_s
 					 * only maintained for arrays that
 					 * support hot removal
 					 */
-	atomic_t	read_errors;	/* number of consecutive read errors that
+	atomic_unchecked_t	read_errors;	/* number of consecutive read errors that
 					 * we have tried to ignore.
 					 */
 	struct timespec last_read_error;	/* monotonic time since our
 						 * last read error
 						 */
-	atomic_t	corrected_errors; /* number of corrected read errors,
+	atomic_unchecked_t	corrected_errors; /* number of corrected read errors,
 					   * for reporting to userspace and storing
 					   * in superblock.
 					   */

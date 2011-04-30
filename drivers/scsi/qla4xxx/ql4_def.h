@@ -256,7 +256,7 @@ struct ddb_entry {
 	atomic_t retry_relogin_timer; /* Min Time between relogins
 				       * (4000 only) */
 	atomic_t relogin_timer;	/* Max Time to wait for relogin to complete */
-	atomic_t relogin_retry_count; /* Num of times relogin has been
+	atomic_unchecked_t relogin_retry_count; /* Num of times relogin has been
 				       * retried */
 
 	uint16_t port;

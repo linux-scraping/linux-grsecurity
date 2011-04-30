@@ -907,7 +907,7 @@ retry:
 	sock->sk->sk_sndtimeo = mdev->net_conf->timeout*HZ/10;
 	sock->sk->sk_rcvtimeo = MAX_SCHEDULE_TIMEOUT;
 
-	atomic_set(&mdev->packet_seq, 0);
+	atomic_set_unchecked(&mdev->packet_seq, 0);
 	mdev->peer_seq = 0;
 
 	drbd_thread_start(&mdev->asender);
@@ -1001,7 +1001,7 @@ static enum finish_epoch drbd_may_finish_epoch(struct drbd_conf *mdev,
 	do {
 		next_epoch = NULL;
 
-		epoch_size = atomic_read(&epoch->epoch_size);
+		epoch_size = atomic_read_unchecked(&epoch->epoch_size);
 
 		switch (ev & ~EV_CLEANUP) {
 		case EV_PUT:
@@ -1036,7 +1036,7 @@ static enum finish_epoch drbd_may_finish_epoch(struct drbd_conf *mdev,
 					rv = FE_DESTROYED;
 			} else {
 				epoch->flags = 0;
-				atomic_set(&epoch->epoch_size, 0);
+				atomic_set_unchecked(&epoch->epoch_size, 0);
 				/* atomic_set(&epoch->active, 0); is already zero */
 				if (rv == FE_STILL_LIVE)
 					rv = FE_RECYCLED;
@@ -1197,14 +1197,14 @@ static int receive_Barrier(struct drbd_conf *mdev, enum drbd_packets cmd, unsign
 		drbd_wait_ee_list_empty(mdev, &mdev->active_ee);
 		drbd_flush(mdev);
 
-		if (atomic_read(&mdev->current_epoch->epoch_size)) {
+		if (atomic_read_unchecked(&mdev->current_epoch->epoch_size)) {
 			epoch = kmalloc(sizeof(struct drbd_epoch), GFP_NOIO);
 			if (epoch)
 				break;
 		}
 
 		epoch = mdev->current_epoch;
-		wait_event(mdev->ee_wait, atomic_read(&epoch->epoch_size) == 0);
+		wait_event(mdev->ee_wait, atomic_read_unchecked(&epoch->epoch_size) == 0);
 
 		D_ASSERT(atomic_read(&epoch->active) == 0);
 		D_ASSERT(epoch->flags == 0);
@@ -1216,11 +1216,11 @@ static int receive_Barrier(struct drbd_conf *mdev, enum drbd_packets cmd, unsign
 	}
 
 	epoch->flags = 0;
-	atomic_set(&epoch->epoch_size, 0);
+	atomic_set_unchecked(&epoch->epoch_size, 0);
 	atomic_set(&epoch->active, 0);
 
 	spin_lock(&mdev->epoch_lock);
-	if (atomic_read(&mdev->current_epoch->epoch_size)) {
+	if (atomic_read_unchecked(&mdev->current_epoch->epoch_size)) {
 		list_add(&epoch->list, &mdev->current_epoch->list);
 		mdev->current_epoch = epoch;
 		mdev->epochs++;
@@ -1663,7 +1663,7 @@ static int receive_Data(struct drbd_conf *mdev, enum drbd_packets cmd, unsigned 
 		spin_unlock(&mdev->peer_seq_lock);
 
 		drbd_send_ack_dp(mdev, P_NEG_ACK, p, data_size);
-		atomic_inc(&mdev->current_epoch->epoch_size);
+		atomic_inc_unchecked(&mdev->current_epoch->epoch_size);
 		return drbd_drain_block(mdev, data_size);
 	}
 
@@ -1683,7 +1683,7 @@ static int receive_Data(struct drbd_conf *mdev, enum drbd_packets cmd, unsigned 
 
 	spin_lock(&mdev->epoch_lock);
 	e->epoch = mdev->current_epoch;
-	atomic_inc(&e->epoch->epoch_size);
+	atomic_inc_unchecked(&e->epoch->epoch_size);
 	atomic_inc(&e->epoch->active);
 	spin_unlock(&mdev->epoch_lock);
 
@@ -1866,7 +1866,7 @@ static int receive_Data(struct drbd_conf *mdev, enum drbd_packets cmd, unsigned 
 out_interrupted:
 	/* yes, the epoch_size now is imbalanced.
 	 * but we drop the connection anyways, so we don't have a chance to
-	 * receive a barrier... atomic_inc(&mdev->epoch_size); */
+	 * receive a barrier... atomic_inc_unchecked(&mdev->epoch_size); */
 	put_ldev(mdev);
 	drbd_free_ee(mdev, e);
 	return FALSE;
@@ -3821,7 +3821,7 @@ static void drbd_disconnect(struct drbd_conf *mdev)
 	D_ASSERT(list_empty(&mdev->done_ee));
 
 	/* ok, no more ee's on the fly, it is safe to reset the epoch_size */
-	atomic_set(&mdev->current_epoch->epoch_size, 0);
+	atomic_set_unchecked(&mdev->current_epoch->epoch_size, 0);
 	D_ASSERT(list_empty(&mdev->current_epoch->list));
 }
 

@@ -787,7 +787,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
 		ip_vs_rs_hash(dest);
 		write_unlock_bh(&__ip_vs_rs_lock);
 	}
-	atomic_set(&dest->conn_flags, conn_flags);
+	atomic_set_unchecked(&dest->conn_flags, conn_flags);
 
 	/* bind the service */
 	if (!dest->svc) {
@@ -1905,7 +1905,7 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
 					   "      %-7s %-6d %-10d %-10d\n",
 					   &dest->addr.in6,
 					   ntohs(dest->port),
-					   ip_vs_fwd_name(atomic_read(&dest->conn_flags)),
+					   ip_vs_fwd_name(atomic_read_unchecked(&dest->conn_flags)),
 					   atomic_read(&dest->weight),
 					   atomic_read(&dest->activeconns),
 					   atomic_read(&dest->inactconns));
@@ -1916,7 +1916,7 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
 					   "%-7s %-6d %-10d %-10d\n",
 					   ntohl(dest->addr.ip),
 					   ntohs(dest->port),
-					   ip_vs_fwd_name(atomic_read(&dest->conn_flags)),
+					   ip_vs_fwd_name(atomic_read_unchecked(&dest->conn_flags)),
 					   atomic_read(&dest->weight),
 					   atomic_read(&dest->activeconns),
 					   atomic_read(&dest->inactconns));
@@ -2315,7 +2315,7 @@ __ip_vs_get_dest_entries(const struct ip_vs_get_dests *get,
 
 			entry.addr = dest->addr.ip;
 			entry.port = dest->port;
-			entry.conn_flags = atomic_read(&dest->conn_flags);
+			entry.conn_flags = atomic_read_unchecked(&dest->conn_flags);
 			entry.weight = atomic_read(&dest->weight);
 			entry.u_threshold = dest->u_threshold;
 			entry.l_threshold = dest->l_threshold;
@@ -2831,7 +2831,7 @@ static int ip_vs_genl_fill_dest(struct sk_buff *skb, struct ip_vs_dest *dest)
 	NLA_PUT_U16(skb, IPVS_DEST_ATTR_PORT, dest->port);
 
 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_FWD_METHOD,
-		    atomic_read(&dest->conn_flags) & IP_VS_CONN_F_FWD_MASK);
+		    atomic_read_unchecked(&dest->conn_flags) & IP_VS_CONN_F_FWD_MASK);
 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_WEIGHT, atomic_read(&dest->weight));
 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_U_THRESH, dest->u_threshold);
 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_L_THRESH, dest->l_threshold);

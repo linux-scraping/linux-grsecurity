@@ -84,6 +84,7 @@ static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
  * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
+#define atomic_inc_and_test_unchecked(v) (atomic_inc_return_unchecked(v) == 0)
 #define atomic64_inc_and_test(v) (atomic64_inc_return(v) == 0)
 
 #define atomic_sub_and_test(i, v) (atomic_sub_ret(i, v) == 0)
@@ -118,7 +119,9 @@ static inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
 #define atomic64_add_negative(i, v) (atomic64_add_ret(i, v) < 0)
 
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
+#define atomic_cmpxchg_unchecked(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
+#define atomic_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
 
 static inline int atomic_add_unless(atomic_t *v, int a, int u)
 {

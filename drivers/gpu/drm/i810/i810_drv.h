@@ -108,8 +108,8 @@ typedef struct drm_i810_private {
 	int page_flipping;
 
 	wait_queue_head_t irq_queue;
-	atomic_t irq_received;
-	atomic_t irq_emitted;
+	atomic_unchecked_t irq_received;
+	atomic_unchecked_t irq_emitted;
 
 	int front_offset;
 } drm_i810_private_t;

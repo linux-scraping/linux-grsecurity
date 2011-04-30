@@ -20,7 +20,7 @@ struct stripe {
 	struct dm_dev *dev;
 	sector_t physical_start;
 
-	atomic_t error_count;
+	atomic_unchecked_t error_count;
 };
 
 struct stripe_c {
@@ -192,7 +192,7 @@ static int stripe_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			kfree(sc);
 			return r;
 		}
-		atomic_set(&(sc->stripe[i].error_count), 0);
+		atomic_set_unchecked(&(sc->stripe[i].error_count), 0);
 	}
 
 	ti->private = sc;
@@ -314,7 +314,7 @@ static int stripe_status(struct dm_target *ti,
 		DMEMIT("%d ", sc->stripes);
 		for (i = 0; i < sc->stripes; i++)  {
 			DMEMIT("%s ", sc->stripe[i].dev->name);
-			buffer[i] = atomic_read(&(sc->stripe[i].error_count)) ?
+			buffer[i] = atomic_read_unchecked(&(sc->stripe[i].error_count)) ?
 				'D' : 'A';
 		}
 		buffer[i] = '\0';
@@ -361,8 +361,8 @@ static int stripe_end_io(struct dm_target *ti, struct bio *bio,
 	 */
 	for (i = 0; i < sc->stripes; i++)
 		if (!strcmp(sc->stripe[i].dev->name, major_minor)) {
-			atomic_inc(&(sc->stripe[i].error_count));
-			if (atomic_read(&(sc->stripe[i].error_count)) <
+			atomic_inc_unchecked(&(sc->stripe[i].error_count));
+			if (atomic_read_unchecked(&(sc->stripe[i].error_count)) <
 			    DM_IO_ERROR_THRESHOLD)
 				schedule_work(&sc->trigger_event);
 		}

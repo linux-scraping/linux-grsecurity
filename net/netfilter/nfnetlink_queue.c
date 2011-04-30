@@ -58,7 +58,7 @@ struct nfqnl_instance {
  */
 	spinlock_t	lock;
 	unsigned int	queue_total;
-	atomic_t	id_sequence;		/* 'sequence' of pkt ids */
+	atomic_unchecked_t	id_sequence;	/* 'sequence' of pkt ids */
 	struct list_head queue_list;		/* packets in queue */
 };
 
@@ -272,7 +272,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
 	nfmsg->version = NFNETLINK_V0;
 	nfmsg->res_id = htons(queue->queue_num);
 
-	entry->id = atomic_inc_return(&queue->id_sequence);
+	entry->id = atomic_inc_return_unchecked(&queue->id_sequence);
 	pmsg.packet_id 		= htonl(entry->id);
 	pmsg.hw_protocol	= entskb->protocol;
 	pmsg.hook		= entry->hook;
@@ -863,7 +863,7 @@ static int seq_show(struct seq_file *s, void *v)
 			  inst->peer_pid, inst->queue_total,
 			  inst->copy_mode, inst->copy_range,
 			  inst->queue_dropped, inst->queue_user_dropped,
-			  atomic_read(&inst->id_sequence), 1);
+			  atomic_read_unchecked(&inst->id_sequence), 1);
 }
 
 static const struct seq_operations nfqnl_seq_ops = {

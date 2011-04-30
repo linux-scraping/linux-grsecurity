@@ -288,7 +288,7 @@ typedef struct drm_i915_private {
 	int current_page;
 	int page_flipping;
 
-	atomic_t irq_received;
+	atomic_unchecked_t irq_received;
 	u32 trace_irq_seqno;
 
 	/* protects the irq masks */
@@ -843,7 +843,7 @@ struct drm_i915_gem_object {
 	 * will be page flipped away on the next vblank.  When it
 	 * reaches 0, dev_priv->pending_flip_queue will be woken up.
 	 */
-	atomic_t pending_flip;
+	atomic_unchecked_t pending_flip;
 };
 
 #define to_intel_bo(x) container_of(x, struct drm_i915_gem_object, base)

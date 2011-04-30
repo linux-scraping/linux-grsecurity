@@ -555,7 +555,7 @@ static void ops_run_io(struct stripe_head *sh, struct stripe_head_state *s)
 			bi->bi_next = NULL;
 			if (rw == WRITE &&
 			    test_bit(R5_ReWrite, &sh->dev[i].flags))
-				atomic_add(STRIPE_SECTORS,
+				atomic_add_unchecked(STRIPE_SECTORS,
 					&rdev->corrected_errors);
 			generic_make_request(bi);
 		} else {
@@ -1602,15 +1602,15 @@ static void raid5_end_read_request(struct bio * bi, int error)
 			clear_bit(R5_ReadError, &sh->dev[i].flags);
 			clear_bit(R5_ReWrite, &sh->dev[i].flags);
 		}
-		if (atomic_read(&conf->disks[i].rdev->read_errors))
-			atomic_set(&conf->disks[i].rdev->read_errors, 0);
+		if (atomic_read_unchecked(&conf->disks[i].rdev->read_errors))
+			atomic_set_unchecked(&conf->disks[i].rdev->read_errors, 0);
 	} else {
 		const char *bdn = bdevname(conf->disks[i].rdev->bdev, b);
 		int retry = 0;
 		rdev = conf->disks[i].rdev;
 
 		clear_bit(R5_UPTODATE, &sh->dev[i].flags);
-		atomic_inc(&rdev->read_errors);
+		atomic_inc_unchecked(&rdev->read_errors);
 		if (conf->mddev->degraded >= conf->max_degraded)
 			printk_rl(KERN_WARNING
 				  "md/raid:%s: read error not correctable "
@@ -1628,7 +1628,7 @@ static void raid5_end_read_request(struct bio * bi, int error)
 				  (unsigned long long)(sh->sector
 						       + rdev->data_offset),
 				  bdn);
-		else if (atomic_read(&rdev->read_errors)
+		else if (atomic_read_unchecked(&rdev->read_errors)
 			 > conf->max_nr_stripes)
 			printk(KERN_WARNING
 			       "md/raid:%s: Too many read errors, failing device %s.\n",

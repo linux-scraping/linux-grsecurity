@@ -1783,9 +1783,15 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
 	int is_fs_load = 0;
 	int register_filesystem_found = 0;
+	char *p;
 
-	if (strstr(mod->args, "grsec_modharden_fs"))
+	p = strstr(mod->args, "grsec_modharden_fs");
+	if (p) {
+		char *endptr = p + strlen("grsec_modharden_fs");
+		/* copy \0 as well */
+		memmove(p, endptr, strlen(mod->args) - (unsigned int)(endptr - mod->args) + 1);
 		is_fs_load = 1;
+	}
 #endif
 
 	for (i = 1; i < symsec->sh_size / sizeof(Elf_Sym); i++) {

@@ -454,6 +454,24 @@ config PAX_MEMORY_SANITIZE
 	  Note that this feature does not protect data stored in live pages,
 	  e.g., process memory swapped to disk may stay there for a long time.
 
+config PAX_MEMORY_STACKLEAK
+	bool "Sanitize kernel stack"
+	depends on X86
+	help
+	  By saying Y here the kernel will erase the kernel stack before it
+	  returns from a system call.  This in turn reduces the information
+	  that a kernel stack leak bug can reveal.
+
+	  Note that such a bug can still leak information that was put on
+	  the stack by the current system call (the one eventually triggering
+	  the bug) but traces of earlier system calls on the kernel stack
+	  cannot leak anymore.
+
+	  The tradeoff is performance impact: on a single CPU system kernel
+	  compilation sees a 1% slowdown, other systems and workloads may vary
+	  and you are advised to test this feature on your expected workload
+	  before deploying it.
+
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
 	depends on X86 && !UML_X86 && !XEN

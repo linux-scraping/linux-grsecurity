@@ -325,8 +325,8 @@ int hardif_enable_interface(struct batman_if *batman_if, char *iface_name)
 	kref_get(&batman_if->refcount);
 	dev_add_pack(&batman_if->batman_adv_ptype);
 
-	atomic_set(&batman_if->seqno, 1);
-	atomic_set(&batman_if->frag_seqno, 1);
+	atomic_set_unchecked(&batman_if->seqno, 1);
+	atomic_set_unchecked(&batman_if->frag_seqno, 1);
 	bat_info(batman_if->soft_iface, "Adding interface: %s\n",
 		 batman_if->net_dev->name);
 

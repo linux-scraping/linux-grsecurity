@@ -297,7 +297,7 @@ lpfc_rampdown_queue_depth(struct lpfc_hba *phba)
 	uint32_t evt_posted;
 
 	spin_lock_irqsave(&phba->hbalock, flags);
-	atomic_inc(&phba->num_rsrc_err);
+	atomic_inc_unchecked(&phba->num_rsrc_err);
 	phba->last_rsrc_error_time = jiffies;
 
 	if ((phba->last_ramp_down_time + QUEUE_RAMP_DOWN_INTERVAL) > jiffies) {
@@ -338,7 +338,7 @@ lpfc_rampup_queue_depth(struct lpfc_vport  *vport,
 	unsigned long flags;
 	struct lpfc_hba *phba = vport->phba;
 	uint32_t evt_posted;
-	atomic_inc(&phba->num_cmd_success);
+	atomic_inc_unchecked(&phba->num_cmd_success);
 
 	if (vport->cfg_lun_queue_depth <= queue_depth)
 		return;
@@ -382,8 +382,8 @@ lpfc_ramp_down_queue_handler(struct lpfc_hba *phba)
 	unsigned long num_rsrc_err, num_cmd_success;
 	int i;
 
-	num_rsrc_err = atomic_read(&phba->num_rsrc_err);
-	num_cmd_success = atomic_read(&phba->num_cmd_success);
+	num_rsrc_err = atomic_read_unchecked(&phba->num_rsrc_err);
+	num_cmd_success = atomic_read_unchecked(&phba->num_cmd_success);
 
 	vports = lpfc_create_vport_work_array(phba);
 	if (vports != NULL)
@@ -403,8 +403,8 @@ lpfc_ramp_down_queue_handler(struct lpfc_hba *phba)
 			}
 		}
 	lpfc_destroy_vport_work_array(phba, vports);
-	atomic_set(&phba->num_rsrc_err, 0);
-	atomic_set(&phba->num_cmd_success, 0);
+	atomic_set_unchecked(&phba->num_rsrc_err, 0);
+	atomic_set_unchecked(&phba->num_cmd_success, 0);
 }
 
 /**
@@ -438,8 +438,8 @@ lpfc_ramp_up_queue_handler(struct lpfc_hba *phba)
 			}
 		}
 	lpfc_destroy_vport_work_array(phba, vports);
-	atomic_set(&phba->num_rsrc_err, 0);
-	atomic_set(&phba->num_cmd_success, 0);
+	atomic_set_unchecked(&phba->num_rsrc_err, 0);
+	atomic_set_unchecked(&phba->num_cmd_success, 0);
 }
 
 /**

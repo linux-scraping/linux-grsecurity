@@ -277,7 +277,7 @@ void schedule_own_packet(struct batman_if *batman_if)
 
 	/* change sequence number to network order */
 	batman_packet->seqno =
-		htonl((uint32_t)atomic_read(&batman_if->seqno));
+		htonl((uint32_t)atomic_read_unchecked(&batman_if->seqno));
 
 	if (vis_server == VIS_TYPE_SERVER_SYNC)
 		batman_packet->flags |= VIS_SERVER;
@@ -291,7 +291,7 @@ void schedule_own_packet(struct batman_if *batman_if)
 	else
 		batman_packet->gw_flags = 0;
 
-	atomic_inc(&batman_if->seqno);
+	atomic_inc_unchecked(&batman_if->seqno);
 
 	slide_own_bcast_window(batman_if);
 	send_time = own_send_time(bat_priv);

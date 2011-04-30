@@ -396,9 +396,9 @@ static int ttm_pool_get_num_unused_pages(void)
  */
 static int ttm_pool_mm_shrink(struct shrinker *shrink, int shrink_pages, gfp_t gfp_mask)
 {
-	static atomic_t start_pool = ATOMIC_INIT(0);
+	static atomic_unchecked_t start_pool = ATOMIC_INIT(0);
 	unsigned i;
-	unsigned pool_offset = atomic_add_return(1, &start_pool);
+	unsigned pool_offset = atomic_add_return_unchecked(1, &start_pool);
 	struct ttm_page_pool *pool;
 
 	pool_offset = pool_offset % NUM_POOLS;

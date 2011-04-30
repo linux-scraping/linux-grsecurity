@@ -401,8 +401,12 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_add_unchecked(0, (atomic_unchecked_t *)NULL);
 	atomic_sub_unchecked(0, (atomic_unchecked_t *)NULL);
 	atomic_inc_unchecked((atomic_unchecked_t *)NULL);
+	atomic_inc_and_test_unchecked((atomic_unchecked_t *)NULL);
 	atomic_inc_return_unchecked((atomic_unchecked_t *)NULL);
 	atomic_add_return_unchecked(0, (atomic_unchecked_t *)NULL);
+	atomic_dec_unchecked((atomic_unchecked_t *)NULL);
+	atomic_cmpxchg_unchecked((atomic_unchecked_t *)NULL, 0, 0);
+	atomic_xchg_unchecked((atomic_unchecked_t *)NULL, 0);
 
 	atomic_long_read_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_set_unchecked((atomic_long_unchecked_t *)NULL, 0);
@@ -418,8 +422,12 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_add_unchecked(i, v) atomic_add((i), (v))
 #define atomic_sub_unchecked(i, v) atomic_sub((i), (v))
 #define atomic_inc_unchecked(v) atomic_inc(v)
+#define atomic_inc_and_test_unchecked(v) atomic_inc(v)
 #define atomic_inc_return_unchecked(v) atomic_inc_return(v)
 #define atomic_add_return_unchecked(i, v) atomic_add_return((i), (v))
+#define atomic_dec_unchecked(v) atomic_dec(v)
+#define atomic_cmpxchg_unchecked(v, o, n) atomic_cmpxchg((v), (o), (n))
+#define atomic_xchg_unchecked(v, i) atomic_xchg((v), (i))
 
 #define atomic_long_read_unchecked(v) atomic_long_read(v)
 #define atomic_long_set_unchecked(v, i) atomic_long_set((v), (i))

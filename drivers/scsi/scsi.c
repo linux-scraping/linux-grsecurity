@@ -655,7 +655,7 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 	unsigned long timeout;
 	int rtn = 0;
 
-	atomic_inc(&cmd->device->iorequest_cnt);
+	atomic_inc_unchecked(&cmd->device->iorequest_cnt);
 
 	/* check if the device is still usable */
 	if (unlikely(cmd->device->sdev_state == SDEV_DEL)) {

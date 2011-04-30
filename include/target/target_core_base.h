@@ -431,8 +431,8 @@ struct se_transport_task {
 	atomic_t		t_task_cdbs_left;
 	atomic_t		t_task_cdbs_ex_left;
 	atomic_t		t_task_cdbs_timeout_left;
-	atomic_t		t_task_cdbs_sent;
-	atomic_t		t_transport_aborted;
+	atomic_unchecked_t	t_task_cdbs_sent;
+	atomic_unchecked_t	t_transport_aborted;
 	atomic_t		t_transport_active;
 	atomic_t		t_transport_complete;
 	atomic_t		t_transport_queue_active;
@@ -753,7 +753,7 @@ struct se_device {
 	atomic_t		active_cmds;
 	atomic_t		simple_cmds;
 	atomic_t		depth_left;
-	atomic_t		dev_ordered_id;
+	atomic_unchecked_t	dev_ordered_id;
 	atomic_t		dev_tur_active;
 	atomic_t		execute_tasks;
 	atomic_t		dev_status_thr_count;

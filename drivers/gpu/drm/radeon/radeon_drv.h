@@ -255,7 +255,7 @@ typedef struct drm_radeon_private {
 
 	/* SW interrupt */
 	wait_queue_head_t swi_queue;
-	atomic_t swi_emitted;
+	atomic_unchecked_t swi_emitted;
 	int vblank_crtc;
 	uint32_t irq_enable_reg;
 	uint32_t r500_disp_irq_reg;

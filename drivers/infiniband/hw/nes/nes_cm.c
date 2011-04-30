@@ -68,14 +68,14 @@ u32 cm_packets_dropped;
 u32 cm_packets_retrans;
 u32 cm_packets_created;
 u32 cm_packets_received;
-atomic_t cm_listens_created;
-atomic_t cm_listens_destroyed;
+atomic_unchecked_t cm_listens_created;
+atomic_unchecked_t cm_listens_destroyed;
 u32 cm_backlog_drops;
-atomic_t cm_loopbacks;
-atomic_t cm_nodes_created;
-atomic_t cm_nodes_destroyed;
-atomic_t cm_accel_dropped_pkts;
-atomic_t cm_resets_recvd;
+atomic_unchecked_t cm_loopbacks;
+atomic_unchecked_t cm_nodes_created;
+atomic_unchecked_t cm_nodes_destroyed;
+atomic_unchecked_t cm_accel_dropped_pkts;
+atomic_unchecked_t cm_resets_recvd;
 
 static inline int mini_cm_accelerated(struct nes_cm_core *,
 	struct nes_cm_node *);
@@ -151,13 +151,13 @@ static struct nes_cm_ops nes_cm_api = {
 
 static struct nes_cm_core *g_cm_core;
 
-atomic_t cm_connects;
-atomic_t cm_accepts;
-atomic_t cm_disconnects;
-atomic_t cm_closes;
-atomic_t cm_connecteds;
-atomic_t cm_connect_reqs;
-atomic_t cm_rejects;
+atomic_unchecked_t cm_connects;
+atomic_unchecked_t cm_accepts;
+atomic_unchecked_t cm_disconnects;
+atomic_unchecked_t cm_closes;
+atomic_unchecked_t cm_connecteds;
+atomic_unchecked_t cm_connect_reqs;
+atomic_unchecked_t cm_rejects;
 
 
 /**
@@ -1045,7 +1045,7 @@ static int mini_cm_dec_refcnt_listen(struct nes_cm_core *cm_core,
 		kfree(listener);
 		listener = NULL;
 		ret = 0;
-		atomic_inc(&cm_listens_destroyed);
+		atomic_inc_unchecked(&cm_listens_destroyed);
 	} else {
 		spin_unlock_irqrestore(&cm_core->listen_list_lock, flags);
 	}
@@ -1242,7 +1242,7 @@ static struct nes_cm_node *make_cm_node(struct nes_cm_core *cm_core,
 		  cm_node->rem_mac);
 
 	add_hte_node(cm_core, cm_node);
-	atomic_inc(&cm_nodes_created);
+	atomic_inc_unchecked(&cm_nodes_created);
 
 	return cm_node;
 }
@@ -1300,7 +1300,7 @@ static int rem_ref_cm_node(struct nes_cm_core *cm_core,
 	}
 
 	atomic_dec(&cm_core->node_cnt);
-	atomic_inc(&cm_nodes_destroyed);
+	atomic_inc_unchecked(&cm_nodes_destroyed);
 	nesqp = cm_node->nesqp;
 	if (nesqp) {
 		nesqp->cm_node = NULL;
@@ -1367,7 +1367,7 @@ static int process_options(struct nes_cm_node *cm_node, u8 *optionsloc,
 
 static void drop_packet(struct sk_buff *skb)
 {
-	atomic_inc(&cm_accel_dropped_pkts);
+	atomic_inc_unchecked(&cm_accel_dropped_pkts);
 	dev_kfree_skb_any(skb);
 }
 
@@ -1430,7 +1430,7 @@ static void handle_rst_pkt(struct nes_cm_node *cm_node, struct sk_buff *skb,
 {
 
 	int	reset = 0;	/* whether to send reset in case of err.. */
-	atomic_inc(&cm_resets_recvd);
+	atomic_inc_unchecked(&cm_resets_recvd);
 	nes_debug(NES_DBG_CM, "Received Reset, cm_node = %p, state = %u."
 			" refcnt=%d\n", cm_node, cm_node->state,
 			atomic_read(&cm_node->ref_count));
@@ -2059,7 +2059,7 @@ static struct nes_cm_node *mini_cm_connect(struct nes_cm_core *cm_core,
 				rem_ref_cm_node(cm_node->cm_core, cm_node);
 				return NULL;
 			}
-			atomic_inc(&cm_loopbacks);
+			atomic_inc_unchecked(&cm_loopbacks);
 			loopbackremotenode->loopbackpartner = cm_node;
 			loopbackremotenode->tcp_cntxt.rcv_wscale =
 				NES_CM_DEFAULT_RCV_WND_SCALE;
@@ -2334,7 +2334,7 @@ static int mini_cm_recv_pkt(struct nes_cm_core *cm_core,
 			add_ref_cm_node(cm_node);
 		} else if (cm_node->state == NES_CM_STATE_TSA) {
 			rem_ref_cm_node(cm_core, cm_node);
-			atomic_inc(&cm_accel_dropped_pkts);
+			atomic_inc_unchecked(&cm_accel_dropped_pkts);
 			dev_kfree_skb_any(skb);
 			break;
 		}
@@ -2640,7 +2640,7 @@ static int nes_cm_disconn_true(struct nes_qp *nesqp)
 
 	if ((cm_id) && (cm_id->event_handler)) {
 		if (issue_disconn) {
-			atomic_inc(&cm_disconnects);
+			atomic_inc_unchecked(&cm_disconnects);
 			cm_event.event = IW_CM_EVENT_DISCONNECT;
 			cm_event.status = disconn_status;
 			cm_event.local_addr = cm_id->local_addr;
@@ -2662,7 +2662,7 @@ static int nes_cm_disconn_true(struct nes_qp *nesqp)
 		}
 
 		if (issue_close) {
-			atomic_inc(&cm_closes);
+			atomic_inc_unchecked(&cm_closes);
 			nes_disconnect(nesqp, 1);
 
 			cm_id->provider_data = nesqp;
@@ -2793,7 +2793,7 @@ int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
 
 	nes_debug(NES_DBG_CM, "QP%u, cm_node=%p, jiffies = %lu listener = %p\n",
 		nesqp->hwqp.qp_id, cm_node, jiffies, cm_node->listener);
-	atomic_inc(&cm_accepts);
+	atomic_inc_unchecked(&cm_accepts);
 
 	nes_debug(NES_DBG_CM, "netdev refcnt = %u.\n",
 			netdev_refcnt_read(nesvnic->netdev));
@@ -3003,7 +3003,7 @@ int nes_reject(struct iw_cm_id *cm_id, const void *pdata, u8 pdata_len)
 
 	struct nes_cm_core *cm_core;
 
-	atomic_inc(&cm_rejects);
+	atomic_inc_unchecked(&cm_rejects);
 	cm_node = (struct nes_cm_node *) cm_id->provider_data;
 	loopback = cm_node->loopbackpartner;
 	cm_core = cm_node->cm_core;
@@ -3069,7 +3069,7 @@ int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
 		ntohl(cm_id->local_addr.sin_addr.s_addr),
 		ntohs(cm_id->local_addr.sin_port));
 
-	atomic_inc(&cm_connects);
+	atomic_inc_unchecked(&cm_connects);
 	nesqp->active_conn = 1;
 
 	/* cache the cm_id in the qp */
@@ -3175,7 +3175,7 @@ int nes_create_listen(struct iw_cm_id *cm_id, int backlog)
 			g_cm_core->api->stop_listener(g_cm_core, (void *)cm_node);
 			return err;
 		}
-		atomic_inc(&cm_listens_created);
+		atomic_inc_unchecked(&cm_listens_created);
 	}
 
 	cm_id->add_ref(cm_id);
@@ -3280,7 +3280,7 @@ static void cm_event_connected(struct nes_cm_event *event)
 	if (nesqp->destroyed) {
 		return;
 	}
-	atomic_inc(&cm_connecteds);
+	atomic_inc_unchecked(&cm_connecteds);
 	nes_debug(NES_DBG_CM, "QP%u attempting to connect to  0x%08X:0x%04X on"
 			" local port 0x%04X. jiffies = %lu.\n",
 			nesqp->hwqp.qp_id,
@@ -3495,7 +3495,7 @@ static void cm_event_reset(struct nes_cm_event *event)
 
 	cm_id->add_ref(cm_id);
 	ret = cm_id->event_handler(cm_id, &cm_event);
-	atomic_inc(&cm_closes);
+	atomic_inc_unchecked(&cm_closes);
 	cm_event.event = IW_CM_EVENT_CLOSE;
 	cm_event.status = IW_CM_EVENT_STATUS_OK;
 	cm_event.provider_data = cm_id->provider_data;
@@ -3531,7 +3531,7 @@ static void cm_event_mpa_req(struct nes_cm_event *event)
 		return;
 	cm_id = cm_node->cm_id;
 
-	atomic_inc(&cm_connect_reqs);
+	atomic_inc_unchecked(&cm_connect_reqs);
 	nes_debug(NES_DBG_CM, "cm_node = %p - cm_id = %p, jiffies = %lu\n",
 			cm_node, cm_id, jiffies);
 
@@ -3569,7 +3569,7 @@ static void cm_event_mpa_reject(struct nes_cm_event *event)
 		return;
 	cm_id = cm_node->cm_id;
 
-	atomic_inc(&cm_connect_reqs);
+	atomic_inc_unchecked(&cm_connect_reqs);
 	nes_debug(NES_DBG_CM, "cm_node = %p - cm_id = %p, jiffies = %lu\n",
 			cm_node, cm_id, jiffies);
 

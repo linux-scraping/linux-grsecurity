@@ -225,8 +225,8 @@ static int radeon_emit_irq(struct drm_device * dev)
 	unsigned int ret;
 	RING_LOCALS;
 
-	atomic_inc(&dev_priv->swi_emitted);
-	ret = atomic_read(&dev_priv->swi_emitted);
+	atomic_inc_unchecked(&dev_priv->swi_emitted);
+	ret = atomic_read_unchecked(&dev_priv->swi_emitted);
 
 	BEGIN_RING(4);
 	OUT_RING_REG(RADEON_LAST_SWI_REG, ret);
@@ -352,7 +352,7 @@ int radeon_driver_irq_postinstall(struct drm_device *dev)
 	drm_radeon_private_t *dev_priv =
 	    (drm_radeon_private_t *) dev->dev_private;
 
-	atomic_set(&dev_priv->swi_emitted, 0);
+	atomic_set_unchecked(&dev_priv->swi_emitted, 0);
 	DRM_INIT_WAITQUEUE(&dev_priv->swi_queue);
 
 	dev->max_vblank_count = 0x001fffff;

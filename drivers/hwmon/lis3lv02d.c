@@ -436,7 +436,7 @@ static irqreturn_t lis302dl_interrupt(int irq, void *dummy)
 	 * the lid is closed. This leads to interrupts as soon as a little move
 	 * is done.
 	 */
-	atomic_inc(&lis3_dev.count);
+	atomic_inc_unchecked(&lis3_dev.count);
 
 	wake_up_interruptible(&lis3_dev.misc_wait);
 	kill_fasync(&lis3_dev.async_queue, SIGIO, POLL_IN);
@@ -519,7 +519,7 @@ static int lis3lv02d_misc_open(struct inode *inode, struct file *file)
 	if (lis3_dev.pm_dev)
 		pm_runtime_get_sync(lis3_dev.pm_dev);
 
-	atomic_set(&lis3_dev.count, 0);
+	atomic_set_unchecked(&lis3_dev.count, 0);
 	return 0;
 }
 
@@ -546,7 +546,7 @@ static ssize_t lis3lv02d_misc_read(struct file *file, char __user *buf,
 	add_wait_queue(&lis3_dev.misc_wait, &wait);
 	while (true) {
 		set_current_state(TASK_INTERRUPTIBLE);
-		data = atomic_xchg(&lis3_dev.count, 0);
+		data = atomic_xchg_unchecked(&lis3_dev.count, 0);
 		if (data)
 			break;
 
@@ -584,7 +584,7 @@ out:
 static unsigned int lis3lv02d_misc_poll(struct file *file, poll_table *wait)
 {
 	poll_wait(file, &lis3_dev.misc_wait, wait);
-	if (atomic_read(&lis3_dev.count))
+	if (atomic_read_unchecked(&lis3_dev.count))
 		return POLLIN | POLLRDNORM;
 	return 0;
 }

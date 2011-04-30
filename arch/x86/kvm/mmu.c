@@ -3271,7 +3271,7 @@ void kvm_mmu_pte_write(struct kvm_vcpu *vcpu, gpa_t gpa,
 
 	pgprintk("%s: gpa %llx bytes %d\n", __func__, gpa, bytes);
 
-	invlpg_counter = atomic_read(&vcpu->kvm->arch.invlpg_counter);
+	invlpg_counter = atomic_read_unchecked(&vcpu->kvm->arch.invlpg_counter);
 
 	/*
 	 * Assume that the pte write on a page table of the same type
@@ -3305,7 +3305,7 @@ void kvm_mmu_pte_write(struct kvm_vcpu *vcpu, gpa_t gpa,
 
 	mmu_guess_page_from_pte_write(vcpu, gpa, gentry);
 	spin_lock(&vcpu->kvm->mmu_lock);
-	if (atomic_read(&vcpu->kvm->arch.invlpg_counter) != invlpg_counter)
+	if (atomic_read_unchecked(&vcpu->kvm->arch.invlpg_counter) != invlpg_counter)
 		gentry = 0;
 	kvm_mmu_access_page(vcpu, gfn);
 	kvm_mmu_free_some_pages(vcpu);

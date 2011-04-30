@@ -2217,7 +2217,7 @@ static int _drbd_send_ack(struct drbd_conf *mdev, enum drbd_packets cmd,
 	p.sector   = sector;
 	p.block_id = block_id;
 	p.blksize  = blksize;
-	p.seq_num  = cpu_to_be32(atomic_add_return(1, &mdev->packet_seq));
+	p.seq_num  = cpu_to_be32(atomic_add_return_unchecked(1, &mdev->packet_seq));
 
 	if (!mdev->meta.socket || mdev->state.conn < C_CONNECTED)
 		return FALSE;
@@ -2517,7 +2517,7 @@ int drbd_send_dblock(struct drbd_conf *mdev, struct drbd_request *req)
 	p.sector   = cpu_to_be64(req->sector);
 	p.block_id = (unsigned long)req;
 	p.seq_num  = cpu_to_be32(req->seq_num =
-				 atomic_add_return(1, &mdev->packet_seq));
+				 atomic_add_return_unchecked(1, &mdev->packet_seq));
 
 	dp_flags = bio_flags_to_wire(mdev, req->master_bio->bi_rw);
 
@@ -2795,7 +2795,7 @@ void drbd_init_set_defaults(struct drbd_conf *mdev)
 	atomic_set(&mdev->unacked_cnt, 0);
 	atomic_set(&mdev->local_cnt, 0);
 	atomic_set(&mdev->net_cnt, 0);
-	atomic_set(&mdev->packet_seq, 0);
+	atomic_set_unchecked(&mdev->packet_seq, 0);
 	atomic_set(&mdev->pp_in_use, 0);
 	atomic_set(&mdev->pp_in_use_by_net, 0);
 	atomic_set(&mdev->rs_sect_in, 0);
@@ -2866,8 +2866,8 @@ void drbd_mdev_cleanup(struct drbd_conf *mdev)
 				mdev->receiver.t_state);
 
 	/* no need to lock it, I'm the only thread alive */
-	if (atomic_read(&mdev->current_epoch->epoch_size) !=  0)
-		dev_err(DEV, "epoch_size:%d\n", atomic_read(&mdev->current_epoch->epoch_size));
+	if (atomic_read_unchecked(&mdev->current_epoch->epoch_size) !=  0)
+		dev_err(DEV, "epoch_size:%d\n", atomic_read_unchecked(&mdev->current_epoch->epoch_size));
 	mdev->al_writ_cnt  =
 	mdev->bm_writ_cnt  =
 	mdev->read_cnt     =

@@ -126,7 +126,7 @@ static void *mod_code_ip;		/* holds the IP to write to */
 static void *mod_code_newcode;		/* holds the text to write to the IP */
 
 static unsigned nmi_wait_count;
-static atomic_t nmi_update_count = ATOMIC_INIT(0);
+static atomic_unchecked_t nmi_update_count = ATOMIC_INIT(0);
 
 int ftrace_arch_read_dyn_info(char *buf, int size)
 {
@@ -134,7 +134,7 @@ int ftrace_arch_read_dyn_info(char *buf, int size)
 
 	r = snprintf(buf, size, "%u %u",
 		     nmi_wait_count,
-		     atomic_read(&nmi_update_count));
+		     atomic_read_unchecked(&nmi_update_count));
 	return r;
 }
 
@@ -180,7 +180,7 @@ void ftrace_nmi_enter(void)
 		pax_open_kernel();
 		ftrace_mod_code();
 		pax_close_kernel();
-		atomic_inc(&nmi_update_count);
+		atomic_inc_unchecked(&nmi_update_count);
 	}
 	/* Must have previous changes seen before executions */
 	smp_mb();

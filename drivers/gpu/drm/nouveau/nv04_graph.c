@@ -552,7 +552,7 @@ static int
 nv04_graph_mthd_set_ref(struct nouveau_channel *chan,
 			u32 class, u32 mthd, u32 data)
 {
-	atomic_set(&chan->fence.last_sequence_irq, data);
+	atomic_set_unchecked(&chan->fence.last_sequence_irq, data);
 	return 0;
 }
 

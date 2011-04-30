@@ -240,7 +240,7 @@ struct vmw_private {
 	 * Fencing and IRQs.
 	 */
 
-	atomic_t fence_seq;
+	atomic_unchecked_t fence_seq;
 	wait_queue_head_t fence_queue;
 	wait_queue_head_t fifo_queue;
 	atomic_t fence_queue_waiters;

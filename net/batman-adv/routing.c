@@ -569,7 +569,7 @@ void receive_bat_packet(struct ethhdr *ethhdr,
 		return;
 
 	/* could be changed by schedule_own_packet() */
-	if_incoming_seqno = atomic_read(&if_incoming->seqno);
+	if_incoming_seqno = atomic_read_unchecked(&if_incoming->seqno);
 
 	has_directlink_flag = (batman_packet->flags & DIRECTLINK ? 1 : 0);
 

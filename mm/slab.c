@@ -385,10 +385,10 @@ static void kmem_list3_init(struct kmem_list3 *parent)
 		if ((x)->max_freeable < i)				\
 			(x)->max_freeable = i;				\
 	} while (0)
-#define STATS_INC_ALLOCHIT(x)	atomic_inc(&(x)->allochit)
-#define STATS_INC_ALLOCMISS(x)	atomic_inc(&(x)->allocmiss)
-#define STATS_INC_FREEHIT(x)	atomic_inc(&(x)->freehit)
-#define STATS_INC_FREEMISS(x)	atomic_inc(&(x)->freemiss)
+#define STATS_INC_ALLOCHIT(x)	atomic_inc_unchecked(&(x)->allochit)
+#define STATS_INC_ALLOCMISS(x)	atomic_inc_unchecked(&(x)->allocmiss)
+#define STATS_INC_FREEHIT(x)	atomic_inc_unchecked(&(x)->freehit)
+#define STATS_INC_FREEMISS(x)	atomic_inc_unchecked(&(x)->freemiss)
 #else
 #define	STATS_INC_ACTIVE(x)	do { } while (0)
 #define	STATS_DEC_ACTIVE(x)	do { } while (0)
@@ -4275,10 +4275,10 @@ static int s_show(struct seq_file *m, void *p)
 	}
 	/* cpu stats */
 	{
-		unsigned long allochit = atomic_read(&cachep->allochit);
-		unsigned long allocmiss = atomic_read(&cachep->allocmiss);
-		unsigned long freehit = atomic_read(&cachep->freehit);
-		unsigned long freemiss = atomic_read(&cachep->freemiss);
+		unsigned long allochit = atomic_read_unchecked(&cachep->allochit);
+		unsigned long allocmiss = atomic_read_unchecked(&cachep->allocmiss);
+		unsigned long freehit = atomic_read_unchecked(&cachep->freehit);
+		unsigned long freemiss = atomic_read_unchecked(&cachep->freemiss);
 
 		seq_printf(m, " : cpustat %6lu %6lu %6lu %6lu",
 			   allochit, allocmiss, freehit, freemiss);

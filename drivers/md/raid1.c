@@ -1392,7 +1392,7 @@ static void sync_request_write(mddev_t *mddev, r1bio_t *r1_bio)
 					if (r1_bio->bios[d]->bi_end_io != end_sync_read)
 						continue;
 					rdev = conf->mirrors[d].rdev;
-					atomic_add(s, &rdev->corrected_errors);
+					atomic_add_unchecked(s, &rdev->corrected_errors);
 					if (sync_page_io(rdev,
 							 sect,
 							 s<<9,
@@ -1538,7 +1538,7 @@ static void fix_read_error(conf_t *conf, int read_disk,
 					/* Well, this device is dead */
 					md_error(mddev, rdev);
 				else {
-					atomic_add(s, &rdev->corrected_errors);
+					atomic_add_unchecked(s, &rdev->corrected_errors);
 					printk(KERN_INFO
 					       "md/raid1:%s: read error corrected "
 					       "(%d sectors at %llu on %s)\n",

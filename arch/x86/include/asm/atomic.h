@@ -121,7 +121,7 @@ static inline void atomic_sub(int i, atomic_t *v)
 /**
  * atomic_sub_unchecked - subtract integer from atomic variable
  * @i: integer value to subtract
- * @v: pointer of type atomic_t
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically subtracts @i from @v.
  */
@@ -214,7 +214,7 @@ static inline void atomic_dec(atomic_t *v)
 
 /**
  * atomic_dec_unchecked - decrement atomic variable
- * @v: pointer of type atomic_t
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically decrements @v by 1.
  */
@@ -272,6 +272,25 @@ static inline int atomic_inc_and_test(atomic_t *v)
 		     _ASM_EXTABLE(0b, 0b)
 #endif
 
+		     "sete %1\n"
+		     : "+m" (v->counter), "=qm" (c)
+		     : : "memory");
+	return c != 0;
+}
+
+/**
+ * atomic_inc_and_test_unchecked - increment and test
+ * @v: pointer of type atomic_unchecked_t
+ *
+ * Atomically increments @v by 1
+ * and returns true if the result is zero, or false for all
+ * other cases.
+ */
+static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
+{
+	unsigned char c;
+
+	asm volatile(LOCK_PREFIX "incl %0\n"
 		     "sete %1\n"
 		     : "+m" (v->counter), "=qm" (c)
 		     : : "memory");
@@ -402,7 +421,17 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 	return cmpxchg(&v->counter, old, new);
 }
 
+static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
+{
+	return cmpxchg(&v->counter, old, new);
+}
+
 static inline int atomic_xchg(atomic_t *v, int new)
+{
+	return xchg(&v->counter, new);
+}
+
+static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
 {
 	return xchg(&v->counter, new);
 }

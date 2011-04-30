@@ -226,7 +226,7 @@ struct nouveau_channel {
 		struct list_head pending;
 		uint32_t sequence;
 		uint32_t sequence_ack;
-		atomic_t last_sequence_irq;
+		atomic_unchecked_t last_sequence_irq;
 	} fence;
 
 	/* DMA push buffer */
@@ -661,7 +661,7 @@ struct drm_nouveau_private {
 		struct drm_global_reference mem_global_ref;
 		struct ttm_bo_global_ref bo_global_ref;
 		struct ttm_bo_device bdev;
-		atomic_t validate_sequence;
+		atomic_unchecked_t validate_sequence;
 	} ttm;
 
 	struct {

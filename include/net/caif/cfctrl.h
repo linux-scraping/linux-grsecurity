@@ -101,8 +101,8 @@ struct cfctrl_request_info {
 struct cfctrl {
 	struct cfsrvl serv;
 	struct cfctrl_rsp res;
-	atomic_t req_seq_no;
-	atomic_t rsp_seq_no;
+	atomic_unchecked_t req_seq_no;
+	atomic_unchecked_t rsp_seq_no;
 	struct list_head list;
 	/* Protects from simultaneous access to first_req list */
 	spinlock_t info_list_lock;

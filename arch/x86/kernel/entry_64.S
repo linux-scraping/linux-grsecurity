@@ -176,7 +176,7 @@ ENDPROC(native_usergs_sysret64)
 #endif /* CONFIG_PARAVIRT */
 
 	.macro ljmpq sel, off
-#if defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
+#if defined(CONFIG_MPSC) || defined(CONFIG_MCORE2) || defined (CONFIG_MATOM)
 	.byte 0x48; ljmp *1234f(%rip)
 	.pushsection .rodata
 	.align 16
@@ -268,7 +268,43 @@ ENDPROC(pax_exit_kernel)
 	call pax_randomize_kstack
 	pop %rax
 #endif
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	push %rax
+	call pax_erase_kstack
+	pop %rax
+#endif
 	.endm
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+ENTRY(pax_erase_kstack)
+	push %rdi
+
+	mov %rsp, %rdi
+	mov $-0xBEEF, %rax
+	std
+1:
+	mov %rdi, %rcx
+	and $THREAD_SIZE_asm - 1, %rcx
+	shr $3, %rcx
+	repne scasq
+	jecxz 2f
+	sub $8, %rcx
+	jc 2f
+	mov $8, %rcx
+	repe scasq
+	jecxz 2f
+	jne 1b
+2:
+	cld
+	mov %rsp, %rcx
+	sub %rdi, %rcx
+	shr $3, %rcx
+	rep stosq
+
+	pop %rdi
+	ret
+ENDPROC(pax_erase_kstack)
+#endif
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 ENTRY(pax_enter_kernel_user)

@@ -681,9 +681,9 @@ static int rxrpc_send_data(struct kiocb *iocb,
 			sp->hdr.cid = call->cid;
 			sp->hdr.callNumber = call->call_id;
 			sp->hdr.seq =
-				htonl(atomic_inc_return(&call->sequence));
+				htonl(atomic_inc_return_unchecked(&call->sequence));
 			sp->hdr.serial =
-				htonl(atomic_inc_return(&conn->serial));
+				htonl(atomic_inc_return_unchecked(&conn->serial));
 			sp->hdr.type = RXRPC_PACKET_TYPE_DATA;
 			sp->hdr.userStatus = 0;
 			sp->hdr.securityIndex = conn->security_ix;

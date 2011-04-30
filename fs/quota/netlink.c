@@ -33,7 +33,7 @@ static struct genl_family quota_genl_family = {
 void quota_send_warning(short type, unsigned int id, dev_t dev,
 			const char warntype)
 {
-	static atomic_t seq;
+	static atomic_unchecked_t seq;
 	struct sk_buff *skb;
 	void *msg_head;
 	int ret;
@@ -49,7 +49,7 @@ void quota_send_warning(short type, unsigned int id, dev_t dev,
 		  "VFS: Not enough memory to send quota warning.\n");
 		return;
 	}
-	msg_head = genlmsg_put(skb, 0, atomic_add_return(1, &seq),
+	msg_head = genlmsg_put(skb, 0, atomic_add_return_unchecked(1, &seq),
 			&quota_genl_family, 0, QUOTA_NL_C_WARNING);
 	if (!msg_head) {
 		printk(KERN_ERR

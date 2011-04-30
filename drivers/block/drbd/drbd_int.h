@@ -742,7 +742,7 @@ struct drbd_request;
 struct drbd_epoch {
 	struct list_head list;
 	unsigned int barrier_nr;
-	atomic_t epoch_size; /* increased on every request added. */
+	atomic_unchecked_t epoch_size; /* increased on every request added. */
 	atomic_t active;     /* increased on every req. added, and dec on every finished. */
 	unsigned long flags;
 };
@@ -1083,7 +1083,7 @@ struct drbd_conf {
 	void *int_dig_in;
 	void *int_dig_vv;
 	wait_queue_head_t seq_wait;
-	atomic_t packet_seq;
+	atomic_unchecked_t packet_seq;
 	unsigned int peer_seq;
 	spinlock_t peer_seq_lock;
 	unsigned int minor;

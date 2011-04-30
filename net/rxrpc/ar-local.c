@@ -45,7 +45,7 @@ struct rxrpc_local *rxrpc_alloc_local(struct sockaddr_rxrpc *srx)
 		spin_lock_init(&local->lock);
 		rwlock_init(&local->services_lock);
 		atomic_set(&local->usage, 1);
-		local->debug_id = atomic_inc_return(&rxrpc_debug_id);
+		local->debug_id = atomic_inc_return_unchecked(&rxrpc_debug_id);
 		memcpy(&local->srx, srx, sizeof(*srx));
 	}
 

@@ -262,7 +262,7 @@ int core_tmr_lun_reset(
 			CMD_TFO(cmd)->get_task_tag(cmd), cmd->pr_res_key,
 			T_TASK(cmd)->t_task_cdbs,
 			atomic_read(&T_TASK(cmd)->t_task_cdbs_left),
-			atomic_read(&T_TASK(cmd)->t_task_cdbs_sent),
+			atomic_read_unchecked(&T_TASK(cmd)->t_task_cdbs_sent),
 			atomic_read(&T_TASK(cmd)->t_transport_active),
 			atomic_read(&T_TASK(cmd)->t_transport_stop),
 			atomic_read(&T_TASK(cmd)->t_transport_sent));
@@ -304,7 +304,7 @@ int core_tmr_lun_reset(
 			DEBUG_LR("LUN_RESET: got t_transport_active = 1 for"
 				" task: %p, t_fe_count: %d dev: %p\n", task,
 				fe_count, dev);
-			atomic_set(&T_TASK(cmd)->t_transport_aborted, 1);
+			atomic_set_unchecked(&T_TASK(cmd)->t_transport_aborted, 1);
 			spin_unlock_irqrestore(&T_TASK(cmd)->t_state_lock,
 						flags);
 			core_tmr_handle_tas_abort(tmr_nacl, cmd, tas, fe_count);
@@ -314,7 +314,7 @@ int core_tmr_lun_reset(
 		}
 		DEBUG_LR("LUN_RESET: Got t_transport_active = 0 for task: %p,"
 			" t_fe_count: %d dev: %p\n", task, fe_count, dev);
-		atomic_set(&T_TASK(cmd)->t_transport_aborted, 1);
+		atomic_set_unchecked(&T_TASK(cmd)->t_transport_aborted, 1);
 		spin_unlock_irqrestore(&T_TASK(cmd)->t_state_lock, flags);
 		core_tmr_handle_tas_abort(tmr_nacl, cmd, tas, fe_count);
 

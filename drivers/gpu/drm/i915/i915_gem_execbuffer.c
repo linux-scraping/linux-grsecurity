@@ -904,7 +904,7 @@ i915_gem_execbuffer_wait_for_flips(struct intel_ring_buffer *ring,
 	flips = 0;
 	list_for_each_entry(obj, objects, exec_list) {
 		if (obj->base.write_domain)
-			flips |= atomic_read(&obj->pending_flip);
+			flips |= atomic_read_unchecked(&obj->pending_flip);
 	}
 	if (flips) {
 		int plane, flip_mask, ret;

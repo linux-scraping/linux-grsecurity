@@ -122,7 +122,7 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
 	int err;
 	struct fw_ri_tpte tpt;
 	u32 stag_idx;
-	static atomic_t key;
+	static atomic_unchecked_t key;
 
 	if (c4iw_fatal_error(rdev))
 		return -EIO;
@@ -135,7 +135,7 @@ static int write_tpt_entry(struct c4iw_rdev *rdev, u32 reset_tpt_entry,
 					     &rdev->resource.tpt_fifo_lock);
 		if (!stag_idx)
 			return -ENOMEM;
-		*stag = (stag_idx << 8) | (atomic_inc_return(&key) & 0xff);
+		*stag = (stag_idx << 8) | (atomic_inc_return_unchecked(&key) & 0xff);
 	}
 	PDBG("%s stag_state 0x%0x type 0x%0x pdid 0x%0x, stag_idx 0x%x\n",
 	     __func__, stag_state, type, pdid, stag_idx);

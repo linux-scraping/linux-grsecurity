@@ -151,7 +151,7 @@ int vmw_wait_lag(struct vmw_private *dev_priv,
 	while (!vmw_lag_lt(queue, us)) {
 		spin_lock(&queue->lock);
 		if (list_empty(&queue->head))
-			sequence = atomic_read(&dev_priv->fence_seq);
+			sequence = atomic_read_unchecked(&dev_priv->fence_seq);
 		else {
 			fence = list_first_entry(&queue->head,
 						 struct vmw_fence, head);

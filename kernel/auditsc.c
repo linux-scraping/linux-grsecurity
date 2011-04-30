@@ -2111,7 +2111,7 @@ int auditsc_get_stamp(struct audit_context *ctx,
 }
 
 /* global counter which is incremented every time something logs in */
-static atomic_t session_id = ATOMIC_INIT(0);
+static atomic_unchecked_t session_id = ATOMIC_INIT(0);
 
 /**
  * audit_set_loginuid - set a task's audit_context loginuid
@@ -2124,7 +2124,7 @@ static atomic_t session_id = ATOMIC_INIT(0);
  */
 int audit_set_loginuid(struct task_struct *task, uid_t loginuid)
 {
-	unsigned int sessionid = atomic_inc_return(&session_id);
+	unsigned int sessionid = atomic_inc_return_unchecked(&session_id);
 	struct audit_context *context = task->audit_context;
 
 	if (context && context->in_syscall) {

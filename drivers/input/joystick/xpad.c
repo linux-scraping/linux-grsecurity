@@ -689,7 +689,7 @@ static void xpad_led_set(struct led_classdev *led_cdev,
 
 static int xpad_led_probe(struct usb_xpad *xpad)
 {
-	static atomic_t led_seq	= ATOMIC_INIT(0);
+	static atomic_unchecked_t led_seq	= ATOMIC_INIT(0);
 	long led_no;
 	struct xpad_led *led;
 	struct led_classdev *led_cdev;
@@ -702,7 +702,7 @@ static int xpad_led_probe(struct usb_xpad *xpad)
 	if (!led)
 		return -ENOMEM;
 
-	led_no = (long)atomic_inc_return(&led_seq) - 1;
+	led_no = (long)atomic_inc_return_unchecked(&led_seq) - 1;
 
 	snprintf(led->name, sizeof(led->name), "xpad%ld", led_no);
 	led->xpad = xpad;

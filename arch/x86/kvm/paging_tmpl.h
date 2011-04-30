@@ -674,7 +674,7 @@ static void FNAME(invlpg)(struct kvm_vcpu *vcpu, gva_t gva)
 	if (need_flush)
 		kvm_flush_remote_tlbs(vcpu->kvm);
 
-	atomic_inc(&vcpu->kvm->arch.invlpg_counter);
+	atomic_inc_unchecked(&vcpu->kvm->arch.invlpg_counter);
 
 	spin_unlock(&vcpu->kvm->mmu_lock);
 

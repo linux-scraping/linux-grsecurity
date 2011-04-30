@@ -46,8 +46,8 @@ struct cflayer *cfctrl_create(void)
 	dev_info.id = 0xff;
 	memset(this, 0, sizeof(*this));
 	cfsrvl_init(&this->serv, 0, &dev_info, false);
-	atomic_set(&this->req_seq_no, 1);
-	atomic_set(&this->rsp_seq_no, 1);
+	atomic_set_unchecked(&this->req_seq_no, 1);
+	atomic_set_unchecked(&this->rsp_seq_no, 1);
 	this->serv.layer.receive = cfctrl_recv;
 	sprintf(this->serv.layer.name, "ctrl");
 	this->serv.layer.ctrlcmd = cfctrl_ctrlcmd;
@@ -116,8 +116,8 @@ void cfctrl_insert_req(struct cfctrl *ctrl,
 			      struct cfctrl_request_info *req)
 {
 	spin_lock(&ctrl->info_list_lock);
-	atomic_inc(&ctrl->req_seq_no);
-	req->sequence_no = atomic_read(&ctrl->req_seq_no);
+	atomic_inc_unchecked(&ctrl->req_seq_no);
+	req->sequence_no = atomic_read_unchecked(&ctrl->req_seq_no);
 	list_add_tail(&req->list, &ctrl->list);
 	spin_unlock(&ctrl->info_list_lock);
 }
@@ -136,7 +136,7 @@ struct cfctrl_request_info *cfctrl_remove_req(struct cfctrl *ctrl,
 			if (p != first)
 				pr_warn("Requests are not received in order\n");
 
-			atomic_set(&ctrl->rsp_seq_no,
+			atomic_set_unchecked(&ctrl->rsp_seq_no,
 					 p->sequence_no);
 			list_del(&p->list);
 			goto out;

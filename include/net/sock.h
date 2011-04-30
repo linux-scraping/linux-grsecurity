@@ -277,7 +277,7 @@ struct sock {
 #ifdef CONFIG_RPS
 	__u32			sk_rxhash;
 #endif
-	atomic_t		sk_drops;
+	atomic_unchecked_t	sk_drops;
 	int			sk_rcvbuf;
 
 	struct sk_filter __rcu	*sk_filter;

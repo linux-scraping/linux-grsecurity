@@ -226,10 +226,10 @@ EXPORT_SYMBOL_GPL(bio_clone_mddev);
  *  start build, activate spare
  */
 static DECLARE_WAIT_QUEUE_HEAD(md_event_waiters);
-static atomic_t md_event_count;
+static atomic_unchecked_t md_event_count;
 void md_new_event(mddev_t *mddev)
 {
-	atomic_inc(&md_event_count);
+	atomic_inc_unchecked(&md_event_count);
 	wake_up(&md_event_waiters);
 }
 EXPORT_SYMBOL_GPL(md_new_event);
@@ -239,7 +239,7 @@ EXPORT_SYMBOL_GPL(md_new_event);
  */
 static void md_new_event_inintr(mddev_t *mddev)
 {
-	atomic_inc(&md_event_count);
+	atomic_inc_unchecked(&md_event_count);
 	wake_up(&md_event_waiters);
 }
 
@@ -1443,7 +1443,7 @@ static int super_1_load(mdk_rdev_t *rdev, mdk_rdev_t *refdev, int minor_version)
 
 	rdev->preferred_minor = 0xffff;
 	rdev->data_offset = le64_to_cpu(sb->data_offset);
-	atomic_set(&rdev->corrected_errors, le32_to_cpu(sb->cnt_corrected_read));
+	atomic_set_unchecked(&rdev->corrected_errors, le32_to_cpu(sb->cnt_corrected_read));
 
 	rdev->sb_size = le32_to_cpu(sb->max_dev) * 2 + 256;
 	bmask = queue_logical_block_size(rdev->bdev->bd_disk->queue)-1;
@@ -1621,7 +1621,7 @@ static void super_1_sync(mddev_t *mddev, mdk_rdev_t *rdev)
 	else
 		sb->resync_offset = cpu_to_le64(0);
 
-	sb->cnt_corrected_read = cpu_to_le32(atomic_read(&rdev->corrected_errors));
+	sb->cnt_corrected_read = cpu_to_le32(atomic_read_unchecked(&rdev->corrected_errors));
 
 	sb->raid_disks = cpu_to_le32(mddev->raid_disks);
 	sb->size = cpu_to_le64(mddev->dev_sectors);
@@ -2403,7 +2403,7 @@ __ATTR(state, S_IRUGO|S_IWUSR, state_show, state_store);
 static ssize_t
 errors_show(mdk_rdev_t *rdev, char *page)
 {
-	return sprintf(page, "%d\n", atomic_read(&rdev->corrected_errors));
+	return sprintf(page, "%d\n", atomic_read_unchecked(&rdev->corrected_errors));
 }
 
 static ssize_t
@@ -2412,7 +2412,7 @@ errors_store(mdk_rdev_t *rdev, const char *buf, size_t len)
 	char *e;
 	unsigned long n = simple_strtoul(buf, &e, 10);
 	if (*buf && (*e == 0 || *e == '\n')) {
-		atomic_set(&rdev->corrected_errors, n);
+		atomic_set_unchecked(&rdev->corrected_errors, n);
 		return len;
 	}
 	return -EINVAL;
@@ -2768,8 +2768,8 @@ void md_rdev_init(mdk_rdev_t *rdev)
 	rdev->last_read_error.tv_sec  = 0;
 	rdev->last_read_error.tv_nsec = 0;
 	atomic_set(&rdev->nr_pending, 0);
-	atomic_set(&rdev->read_errors, 0);
-	atomic_set(&rdev->corrected_errors, 0);
+	atomic_set_unchecked(&rdev->read_errors, 0);
+	atomic_set_unchecked(&rdev->corrected_errors, 0);
 
 	INIT_LIST_HEAD(&rdev->same_set);
 	init_waitqueue_head(&rdev->blocked_wait);
@@ -6373,7 +6373,7 @@ static int md_seq_show(struct seq_file *seq, void *v)
 
 		spin_unlock(&pers_lock);
 		seq_printf(seq, "\n");
-		mi->event = atomic_read(&md_event_count);
+		mi->event = atomic_read_unchecked(&md_event_count);
 		return 0;
 	}
 	if (v == (void*)2) {
@@ -6496,7 +6496,7 @@ static int md_seq_open(struct inode *inode, struct file *file)
 	else {
 		struct seq_file *p = file->private_data;
 		p->private = mi;
-		mi->event = atomic_read(&md_event_count);
+		mi->event = atomic_read_unchecked(&md_event_count);
 	}
 	return error;
 }
@@ -6512,7 +6512,7 @@ static unsigned int mdstat_poll(struct file *filp, poll_table *wait)
 	/* always allow read */
 	mask = POLLIN | POLLRDNORM;
 
-	if (mi->event != atomic_read(&md_event_count))
+	if (mi->event != atomic_read_unchecked(&md_event_count))
 		mask |= POLLERR | POLLPRI;
 	return mask;
 }
