@@ -326,6 +326,9 @@ config PAX_KERNEXEC
 	  that is, enabling this option will make it harder to inject
 	  and execute 'foreign' code in kernel memory itself.
 
+	  Note that on x86_64 kernels there is a known regression when
+	  this feature and KVM/VMX are both enabled in the host kernel.
+
 config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
 	default "4"

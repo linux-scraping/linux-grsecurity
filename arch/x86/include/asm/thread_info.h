@@ -49,7 +49,7 @@ struct thread_info {
 	},					\
 }
 
-#define init_thread_info	(init_task.tinfo)
+#define init_thread_info	(init_thread_union.stack)
 #define init_stack		(init_thread_union.stack)
 
 #else /* !__ASSEMBLY__ */

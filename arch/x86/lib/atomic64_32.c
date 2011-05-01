@@ -34,6 +34,8 @@ EXPORT_SYMBOL(atomic64_add_unless_cx8);
 #ifndef CONFIG_X86_CMPXCHG64
 long long atomic64_read_386(long long, const atomic64_t *v);
 EXPORT_SYMBOL(atomic64_read_386);
+long long atomic64_read_unchecked_386(long long, const atomic64_unchecked_t *v);
+EXPORT_SYMBOL(atomic64_read_unchecked_386);
 long long atomic64_set_386(long long, const atomic64_t *v);
 EXPORT_SYMBOL(atomic64_set_386);
 long long atomic64_xchg_386(long long, unsigned high);
@@ -44,6 +46,8 @@ long long atomic64_sub_return_386(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_sub_return_386);
 long long atomic64_inc_return_386(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_inc_return_386);
+long long atomic64_inc_return_unchecked_386(long long a, atomic64_unchecked_t *v);
+EXPORT_SYMBOL(atomic64_inc_unchecked_return_386);
 long long atomic64_dec_return_386(long long a, atomic64_t *v);
 EXPORT_SYMBOL(atomic64_dec_return_386);
 long long atomic64_add_386(long long a, atomic64_t *v);

@@ -181,6 +181,13 @@ ENTRY(atomic64_dec_if_positive_cx8)
 	movl %edx, %ecx
 	subl $1, %ebx
 	sbb $0, %ecx
+
+#ifdef CONFIG_PAX_REFCOUNT
+	into
+1234:
+	_ASM_EXTABLE(1234b, 2f)
+#endif
+
 	js 2f
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
@@ -219,7 +226,7 @@ ENTRY(atomic64_add_unless_cx8)
 #ifdef CONFIG_PAX_REFCOUNT
 	into
 1234:
-	_ASM_EXTABLE(1234b, 1234b)
+	_ASM_EXTABLE(1234b, 3f)
 #endif
 
 	LOCK_PREFIX
@@ -258,7 +265,7 @@ ENTRY(atomic64_inc_not_zero_cx8)
 #ifdef CONFIG_PAX_REFCOUNT
 	into
 1234:
-	_ASM_EXTABLE(1234b, 1234b)
+	_ASM_EXTABLE(1234b, 3f)
 #endif
 
 	LOCK_PREFIX

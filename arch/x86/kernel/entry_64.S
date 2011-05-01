@@ -283,22 +283,22 @@ ENTRY(pax_erase_kstack)
 	mov $-0xBEEF, %rax
 	std
 1:
-	mov %rdi, %rcx
-	and $THREAD_SIZE_asm - 1, %rcx
-	shr $3, %rcx
+	mov %edi, %ecx
+	and $THREAD_SIZE_asm - 1, %ecx
+	shr $3, %ecx
 	repne scasq
 	jecxz 2f
-	sub $8, %rcx
+	sub $8, %ecx
 	jc 2f
-	mov $8, %rcx
+	mov $8, %ecx
 	repe scasq
 	jecxz 2f
 	jne 1b
 2:
 	cld
-	mov %rsp, %rcx
-	sub %rdi, %rcx
-	shr $3, %rcx
+	mov %esp, %ecx
+	sub %edi, %ecx
+	shr $3, %ecx
 	rep stosq
 
 	pop %rdi

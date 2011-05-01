@@ -158,20 +158,6 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 	mm->unmap_area = arch_unmap_area;
 }
 
-static inline unsigned long brk_rnd(void)
-{
-	unsigned long rnd = get_random_int();
-
-	rnd = rnd << PAGE_SHIFT;
-	/* 8MB for 32bit, 256MB for 64bit */
-	if (TASK_IS_32BIT_ADDR)
-		rnd = rnd & 0x7ffffful;
-	else
-		rnd = rnd & 0xffffffful;
-
-	return rnd;
-}
-
 SYSCALL_DEFINE6(mips_mmap, unsigned long, addr, unsigned long, len,
 	unsigned long, prot, unsigned long, flags, unsigned long,
 	fd, off_t, offset)
