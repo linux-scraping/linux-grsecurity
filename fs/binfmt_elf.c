@@ -975,6 +975,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		current->mm->context.user_cs_base = SEGMEXEC_TASK_SIZE;
 		current->mm->context.user_cs_limit = TASK_SIZE-SEGMEXEC_TASK_SIZE;
 		pax_task_size = SEGMEXEC_TASK_SIZE;
+		current->mm->def_flags |= VM_NOHUGEPAGE;
 	}
 #endif
 

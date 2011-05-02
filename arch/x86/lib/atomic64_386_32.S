@@ -61,6 +61,10 @@ BEGIN(set)
 	movl %ebx,  (v)
 	movl %ecx, 4(v)
 RET_ENDP
+BEGIN(set_unchecked)
+	movl %ebx,  (v)
+	movl %ecx, 4(v)
+RET_ENDP
 #undef v
 
 #define v  %esi
@@ -87,6 +91,10 @@ BEGIN(add)
 #endif
 
 RET_ENDP
+BEGIN(add_unchecked)
+	addl %eax,  (v)
+	adcl %edx, 4(v)
+RET_ENDP
 #undef v
 
 #define v %ecx
@@ -108,6 +116,12 @@ BEGIN(add_return)
 #endif
 
 RET_ENDP
+BEGIN(add_return_unchecked)
+	addl  (v), %eax
+	adcl 4(v), %edx
+	movl %eax,  (v)
+	movl %edx, 4(v)
+RET_ENDP
 #undef v
 
 #define v %ecx
@@ -124,6 +138,10 @@ BEGIN(sub)
 	_ASM_EXTABLE(0b, 0b)
 #endif
 
+RET_ENDP
+BEGIN(sub_unchecked)
+	subl %eax,  (v)
+	sbbl %edx, 4(v)
 RET_ENDP
 #undef v
 
@@ -149,6 +167,15 @@ BEGIN(sub_return)
 #endif
 
 RET_ENDP
+BEGIN(sub_return_unchecked)
+	negl %edx
+	negl %eax
+	sbbl $0, %edx
+	addl  (v), %eax
+	adcl 4(v), %edx
+	movl %eax,  (v)
+	movl %edx, 4(v)
+RET_ENDP
 #undef v
 
 #define v %esi
@@ -165,6 +192,10 @@ BEGIN(inc)
 	_ASM_EXTABLE(0b, 0b)
 #endif
 
+RET_ENDP
+BEGIN(inc_unchecked)
+	addl $1,  (v)
+	adcl $0, 4(v)
 RET_ENDP
 #undef v
 
@@ -214,6 +245,10 @@ BEGIN(dec)
 #endif
 
 RET_ENDP
+BEGIN(dec_unchecked)
+	subl $1,  (v)
+	sbbl $0, 4(v)
+RET_ENDP
 #undef v
 
 #define v %esi
@@ -236,6 +271,14 @@ BEGIN(dec_return)
 2:
 #endif
 
+RET_ENDP
+BEGIN(dec_return_unchecked)
+	movl  (v), %eax
+	movl 4(v), %edx
+	subl $1, %eax
+	sbbl $0, %edx
+	movl %eax,  (v)
+	movl %edx, 4(v)
 RET_ENDP
 #undef v
 

@@ -279,7 +279,7 @@ ENDPROC(pax_exit_kernel)
 ENTRY(pax_erase_kstack)
 	push %rdi
 
-	mov %rsp, %rdi
+	lea -128(%rsp), %rdi
 	mov $-0xBEEF, %rax
 	std
 1:

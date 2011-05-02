@@ -47,7 +47,7 @@ ENTRY(atomic64_read_unchecked_cx8)
 	read64 %ecx
 	ret
 	CFI_ENDPROC
-ENDPROC(atomic64_read_cx8)
+ENDPROC(atomic64_read_unchecked_cx8)
 
 ENTRY(atomic64_set_cx8)
 	CFI_STARTPROC
@@ -61,6 +61,19 @@ ENTRY(atomic64_set_cx8)
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_set_cx8)
+
+ENTRY(atomic64_set_unchecked_cx8)
+	CFI_STARTPROC
+
+1:
+/* we don't need LOCK_PREFIX since aligned 64-bit writes
+ * are atomic on 586 and newer */
+	cmpxchg8b (%esi)
+	jne 1b
+
+	ret
+	CFI_ENDPROC
+ENDPROC(atomic64_set_unchecked_cx8)
 
 ENTRY(atomic64_xchg_cx8)
 	CFI_STARTPROC
@@ -121,12 +134,13 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	RESTORE ebp
 	ret
 	CFI_ENDPROC
-ENDPROC(atomic64_\func\()_return_cx8)
+ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
 .endm
 
 addsub_return add add adc
 addsub_return sub sub sbb
 addsub_return add add adc _unchecked
+addsub_return sub sub sbb _unchecked
 
 .macro incdec_return func ins insc unchecked
 ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
@@ -164,12 +178,13 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	RESTORE ebx
 	ret
 	CFI_ENDPROC
-ENDPROC(atomic64_\func\()_return_cx8)
+ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
 .endm
 
 incdec_return inc add adc
 incdec_return dec sub sbb
 incdec_return inc add adc _unchecked
+incdec_return dec sub sbb _unchecked
 
 ENTRY(atomic64_dec_if_positive_cx8)
 	CFI_STARTPROC
