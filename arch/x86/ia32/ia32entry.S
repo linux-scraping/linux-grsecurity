@@ -365,7 +365,7 @@ ENTRY(ia32_cstar_target)
 	cmpq $IA32_NR_syscalls-1,%rax
 	ja  ia32_badsys
 cstar_do_call:
-	IA32_ARG_FIXUP 0
+	IA32_ARG_FIXUP 1
 cstar_dispatch:
 	call *ia32_sys_call_table(,%rax,8)
 	movq %rax,RAX-ARGOFFSET(%rsp)

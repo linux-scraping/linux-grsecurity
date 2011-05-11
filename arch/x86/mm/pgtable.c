@@ -107,9 +107,6 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 }
 #endif
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
-static inline void pgd_ctor(pgd_t *pgd) {}
-static inline void pgd_dtor(pgd_t *pgd) {}
 #ifdef CONFIG_X86_64
 #define pxd_t				pud_t
 #define pyd_t				pgd_t
@@ -127,15 +124,11 @@ static inline void pgd_dtor(pgd_t *pgd) {}
 #define pyd_offset(mm ,address)		pud_offset((mm), (address))
 #define PYD_SIZE			PUD_SIZE
 #endif
-#else
-#define pxd_t				pmd_t
-#define pyd_t				pud_t
-#define paravirt_release_pxd(pfn)	paravirt_release_pmd(pfn)
-#define pxd_free(mm, pmd)		pmd_free((mm), (pmd))
-#define pyd_populate(mm, pud, pmd)	pud_populate((mm), (pud), (pmd))
-#define pyd_offset(mm ,address)		pud_offset((mm), (address))
-#define PYD_SIZE			PUD_SIZE
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+static inline void pgd_ctor(pgd_t *pgd) {}
+static inline void pgd_dtor(pgd_t *pgd) {}
+#else
 static void pgd_ctor(pgd_t *pgd)
 {
 	/* If the pgd points to a shared pagetable level (either the

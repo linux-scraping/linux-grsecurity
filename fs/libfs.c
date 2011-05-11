@@ -132,8 +132,6 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 	struct dentry *dentry = filp->f_path.dentry;
 	struct dentry *cursor = filp->private_data;
 	struct list_head *p, *q = &cursor->d_u.d_child;
-	char d_name[DNAME_INLINE_LEN];
-	const char *name;
 	ino_t ino;
 	int i = filp->f_pos;
 
@@ -159,16 +157,19 @@ int dcache_readdir(struct file * filp, void * dirent, filldir_t filldir)
 
 			for (p=q->next; p != &dentry->d_subdirs; p=p->next) {
 				struct dentry *next;
+				char d_name[sizeof(next->d_iname)];
+				const unsigned char *name;
+
 				next = list_entry(p, struct dentry, d_u.d_child);
 				if (d_unhashed(next) || !next->d_inode)
 					continue;
 
 				spin_unlock(&dcache_lock);
-				if (next->d_name.len < DNAME_INLINE_LEN) {
-					memcpy(d_name, next->d_name.name, next->d_name.len);
+				name = next->d_name.name;
+				if (name == next->d_iname) {
+					memcpy(d_name, name, next->d_name.len);
 					name = d_name;
-				} else
-					name = next->d_name.name;
+				}
 				if (filldir(dirent, name, 
 					    next->d_name.len, filp->f_pos, 
 					    next->d_inode->i_ino, 

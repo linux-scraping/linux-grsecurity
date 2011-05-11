@@ -671,7 +671,7 @@ static int semctl_main(struct ipc_namespace *ns, int semid, int semnum,
 	ushort* sem_io = fast_sem_io;
 	int nsems;
 
-	STACKLEAK_PROBE(fast_sem_io);
+	stackleak_probe(fast_sem_io);
 
 	sma = sem_lock_check(ns, semid);
 	if (IS_ERR(sma))
@@ -1073,7 +1073,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 	unsigned long jiffies_left = 0;
 	struct ipc_namespace *ns;
 
-	STACKLEAK_PROBE(fast_sops);
+	stackleak_probe(fast_sops);
 
 	ns = current->nsproxy->ipc_ns;
 

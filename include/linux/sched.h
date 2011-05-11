@@ -1628,16 +1628,19 @@ void pax_report_refcount_overflow(struct pt_regs *regs);
 void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-#define STACKLEAK_PROBE(x)					\
+#define stackleak_probe(var)					\
 	do {							\
-		int __i;					\
-		for (__i = 0;					\
-		     __i < (sizeof(x) - sizeof(unsigned long)); \
-		     __i += 64)					\
-			*(unsigned long *)((unsigned char *)&(x) + __i) = 0UL; \
+		size_t maxidx = sizeof(var) / sizeof(long);	\
+		long *p = (long *)&var;				\
+		unsigned int i;					\
+								\
+		BUILD_BUG_ON(sizeof(var) < 64);			\
+								\
+		for (i = 0; i < maxidx; i += 64 / sizeof(long))	\
+			p[i] = 0;				\
 	} while (0)
 #else
-#define STACKLEAK_PROBE(x)	do { } while (0)
+#define stackleak_probe(var)	do { } while (0)
 #endif
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
