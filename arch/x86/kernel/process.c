@@ -701,10 +701,13 @@ asmlinkage void pax_randomize_kstack(void)
 
 	/* P4 seems to return a 0 LSB, ignore it */
 #ifdef CONFIG_MPENTIUM4
-	time &= 0x1EUL;
+	time &= 0x3EUL;
 	time <<= 2;
-#else
+#elif defined(CONFIG_X86_64)
 	time &= 0xFUL;
+	time <<= 4;
+#else
+	time &= 0x1FUL;
 	time <<= 3;
 #endif
 

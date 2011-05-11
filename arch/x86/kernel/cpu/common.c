@@ -972,7 +972,7 @@ DEFINE_PER_CPU(struct task_struct *, current_task) ____cacheline_aligned =
 EXPORT_PER_CPU_SYMBOL(current_task);
 
 DEFINE_PER_CPU(unsigned long, kernel_stack) =
-	(unsigned long)&init_thread_union - 8 + THREAD_SIZE;
+	(unsigned long)&init_thread_union - 16 + THREAD_SIZE;
 EXPORT_PER_CPU_SYMBOL(kernel_stack);
 
 DEFINE_PER_CPU(char *, irq_stack_ptr) =

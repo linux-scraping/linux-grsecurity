@@ -1868,7 +1868,7 @@ void ipath_rc_rcv(struct ipath_ibdev *dev, struct ipath_ib_header *hdr,
 		struct ib_atomic_eth *ateth;
 		struct ipath_ack_entry *e;
 		u64 vaddr;
-		atomic64_t *maddr;
+		atomic64_unchecked_t *maddr;
 		u64 sdata;
 		u32 rkey;
 		u8 next;
@@ -1903,11 +1903,11 @@ void ipath_rc_rcv(struct ipath_ibdev *dev, struct ipath_ib_header *hdr,
 					    IB_ACCESS_REMOTE_ATOMIC)))
 			goto nack_acc_unlck;
 		/* Perform atomic OP and save result. */
-		maddr = (atomic64_t *) qp->r_sge.sge.vaddr;
+		maddr = (atomic64_unchecked_t *) qp->r_sge.sge.vaddr;
 		sdata = be64_to_cpu(ateth->swap_data);
 		e = &qp->s_ack_queue[qp->r_head_ack_queue];
 		e->atomic_data = (opcode == OP(FETCH_ADD)) ?
-			(u64) atomic64_add_return(sdata, maddr) - sdata :
+			(u64) atomic64_add_return_unchecked(sdata, maddr) - sdata :
 			(u64) cmpxchg((u64 *) qp->r_sge.sge.vaddr,
 				      be64_to_cpu(ateth->compare_data),
 				      sdata);

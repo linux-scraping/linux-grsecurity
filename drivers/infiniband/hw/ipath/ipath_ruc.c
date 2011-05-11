@@ -266,7 +266,7 @@ static void ipath_ruc_loopback(struct ipath_qp *sqp)
 	unsigned long flags;
 	struct ib_wc wc;
 	u64 sdata;
-	atomic64_t *maddr;
+	atomic64_unchecked_t *maddr;
 	enum ib_wc_status send_status;
 
 	/*
@@ -382,11 +382,11 @@ again:
 					    IB_ACCESS_REMOTE_ATOMIC)))
 			goto acc_err;
 		/* Perform atomic OP and save result. */
-		maddr = (atomic64_t *) qp->r_sge.sge.vaddr;
+		maddr = (atomic64_unchecked_t *) qp->r_sge.sge.vaddr;
 		sdata = wqe->wr.wr.atomic.compare_add;
 		*(u64 *) sqp->s_sge.sge.vaddr =
 			(wqe->wr.opcode == IB_WR_ATOMIC_FETCH_AND_ADD) ?
-			(u64) atomic64_add_return(sdata, maddr) - sdata :
+			(u64) atomic64_add_return_unchecked(sdata, maddr) - sdata :
 			(u64) cmpxchg((u64 *) qp->r_sge.sge.vaddr,
 				      sdata, wqe->wr.wr.atomic.swap);
 		goto send_comp;

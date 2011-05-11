@@ -260,7 +260,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	struct pt_regs *childregs;
 	struct task_struct *me = current;
 
-	childregs = task_stack_page(p) + THREAD_SIZE - sizeof(struct pt_regs) - 8;
+	childregs = task_stack_page(p) + THREAD_SIZE - sizeof(struct pt_regs) - 16;
 	*childregs = *regs;
 
 	childregs->ax = 0;
@@ -527,11 +527,11 @@ unsigned long get_wchan(struct task_struct *p)
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
 	stack = (unsigned long)task_stack_page(p);
-	if (p->thread.sp < stack || p->thread.sp > stack+THREAD_SIZE-8-sizeof(u64))
+	if (p->thread.sp < stack || p->thread.sp > stack+THREAD_SIZE-16-sizeof(u64))
 		return 0;
 	fp = *(u64 *)(p->thread.sp);
 	do {
-		if (fp < stack || fp > stack+THREAD_SIZE-8-sizeof(u64))
+		if (fp < stack || fp > stack+THREAD_SIZE-16-sizeof(u64))
 			return 0;
 		ip = *(u64 *)(fp+8);
 		if (!in_sched_functions(ip))

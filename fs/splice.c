@@ -316,7 +316,7 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 		.spd_release = spd_release_page,
 	};
 
-	STACKLEAK_PROBE(partial);
+	stackleak_probe(partial);
 
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
@@ -601,8 +601,7 @@ ssize_t default_file_splice_read(struct file *in, loff_t *ppos,
 		.spd_release = spd_release_page,
 	};
 
-	STACKLEAK_PROBE(partial);
-	STACKLEAK_PROBE(__vec);
+	stackleak_probe(partial);
 
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
@@ -1620,7 +1619,7 @@ static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
 	};
 	long ret;
 
-	STACKLEAK_PROBE(partial);
+	stackleak_probe(partial);
 
 	pipe = get_pipe_info(file);
 	if (!pipe)

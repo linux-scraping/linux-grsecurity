@@ -325,10 +325,10 @@ WEAK(xen_entry)
 	__INITDATA
 
 subarch_entries:
-	.long pa(default_entry)		/* normal x86/PC */
-	.long pa(lguest_entry)		/* lguest hypervisor */
-	.long pa(xen_entry)		/* Xen hypervisor */
-	.long pa(default_entry)		/* Moorestown MID */
+	.long ta(default_entry)		/* normal x86/PC */
+	.long ta(lguest_entry)		/* lguest hypervisor */
+	.long ta(xen_entry)		/* Xen hypervisor */
+	.long ta(default_entry)		/* Moorestown MID */
 num_subarch_entries = (. - subarch_entries) / 4
 .previous
 #else

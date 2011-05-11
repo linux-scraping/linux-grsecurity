@@ -780,7 +780,7 @@ do_rest:
 #else
 	clear_tsk_thread_flag(c_idle.idle, TIF_FORK);
 	initial_gs = per_cpu_offset(cpu);
-	per_cpu(kernel_stack, cpu) = (unsigned long)task_stack_page(c_idle.idle) - 8 + THREAD_SIZE;
+	per_cpu(kernel_stack, cpu) = (unsigned long)task_stack_page(c_idle.idle) - 16 + THREAD_SIZE;
 #endif
 
 	pax_open_kernel();

@@ -46,6 +46,21 @@ static inline long long atomic64_cmpxchg(atomic64_t *v, long long o, long long n
 }
 
 /**
+ * atomic64_cmpxchg_unchecked - cmpxchg atomic64 variable
+ * @p: pointer to type atomic64_unchecked_t
+ * @o: expected value
+ * @n: new value
+ *
+ * Atomically sets @v to @n if it was equal to @o and returns
+ * the old value.
+ */
+
+static inline long long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *v, long long o, long long n)
+{
+	return cmpxchg64(&v->counter, o, n);
+}
+
+/**
  * atomic64_xchg - xchg atomic64 variable
  * @v: pointer to type atomic64_t
  * @n: value to assign
@@ -144,6 +159,22 @@ static inline long long atomic64_read_unchecked(atomic64_unchecked_t *v)
 static inline long long atomic64_add_return(long long i, atomic64_t *v)
 {
 	asm volatile(ATOMIC64_ALTERNATIVE(add_return)
+		     : "+A" (i), "+c" (v)
+		     : : "memory"
+		     );
+	return i;
+}
+
+/**
+ * atomic64_add_return_unchecked - add and return
+ * @i: integer value to add
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @i to @v and returns @i + *@v
+ */
+static inline long long atomic64_add_return_unchecked(long long i, atomic64_unchecked_t *v)
+{
+	asm volatile(ATOMIC64_ALTERNATIVE(add_return_unchecked)
 		     : "+A" (i), "+c" (v)
 		     : : "memory"
 		     );

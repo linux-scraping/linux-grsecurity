@@ -720,7 +720,7 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
 	/* Clear the ACK state */
 	clear_bit(IB_ACK_IN_FLIGHT, &ic->i_ack_flags);
 #ifdef KERNEL_HAS_ATOMIC64
-	atomic64_set(&ic->i_ack_next, 0);
+	atomic64_set_unchecked(&ic->i_ack_next, 0);
 #else
 	ic->i_ack_next = 0;
 #endif

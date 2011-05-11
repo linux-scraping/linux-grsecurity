@@ -2175,7 +2175,7 @@ int ocfs2_claim_new_inode_at_loc(handle_t *handle,
 	mlog(0, "Allocated %u bits from suballocator %llu\n", res->sr_bits,
 	     (unsigned long long)di_blkno);
 
-	atomic_inc(&OCFS2_SB(ac->ac_inode->i_sb)->alloc_stats.bg_allocs);
+	atomic_inc_unchecked(&OCFS2_SB(ac->ac_inode->i_sb)->alloc_stats.bg_allocs);
 
 	BUG_ON(res->sr_bits != 1);
 
