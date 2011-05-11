@@ -280,6 +280,7 @@ ENTRY(pax_erase_kstack)
 	push %rdi
 
 	lea -128(%rsp), %rdi
+	and $-64, %rdi
 	mov $-0xBEEF, %rax
 	std
 1:
@@ -288,8 +289,16 @@ ENTRY(pax_erase_kstack)
 	shr $3, %ecx
 	repne scasq
 	jecxz 2f
-	sub $8, %ecx
+
+	and $-64, %rdi
+	and $-8, %ecx
+
+	sub $64, %ecx
 	jc 2f
+	mov $8, %ecx
+	repe scasq
+	jne 1b
+	sub $(512 - 64), %rdi
 	mov $8, %ecx
 	repe scasq
 	jecxz 2f

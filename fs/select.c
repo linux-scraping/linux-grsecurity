@@ -404,6 +404,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
 	int retval, i, timed_out = 0;
 	unsigned long slack = 0;
 
+	STACKLEAK_PROBE(table);
+
 	rcu_read_lock();
 	retval = max_select_fd(n, fds);
 	rcu_read_unlock();
@@ -840,6 +842,9 @@ int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds,
 	struct poll_list *const head = (struct poll_list *)stack_pps;
  	struct poll_list *walk = head;
  	unsigned long todo = nfds;
+
+	STACKLEAK_PROBE(table);
+	STACKLEAK_PROBE(stack_pps);
 
 	gr_learn_resource(current, RLIMIT_NOFILE, nfds, 1);
 	if (nfds > rlimit(RLIMIT_NOFILE))

@@ -854,6 +854,8 @@ static int semctl_main(struct ipc_namespace *ns, int semid, int semnum,
 	int nsems;
 	struct list_head tasks;
 
+	STACKLEAK_PROBE(fast_sem_io);
+
 	sma = sem_lock_check(ns, semid);
 	if (IS_ERR(sma))
 		return PTR_ERR(sma);
@@ -1298,6 +1300,8 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 	unsigned long jiffies_left = 0;
 	struct ipc_namespace *ns;
 	struct list_head tasks;
+
+	STACKLEAK_PROBE(fast_sops);
 
 	ns = current->nsproxy->ipc_ns;
 

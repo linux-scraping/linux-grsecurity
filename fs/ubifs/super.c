@@ -1235,12 +1235,12 @@ static int mount_ubifs(struct ubifs_info *c)
 		goto out_free;
 	}
 
+	err = alloc_wbufs(c);
+	if (err)
+		goto out_cbuf;
+
 	sprintf(c->bgt_name, BGT_NAME_PATTERN, c->vi.ubi_num, c->vi.vol_id);
 	if (!c->ro_mount) {
-		err = alloc_wbufs(c);
-		if (err)
-			goto out_cbuf;
-
 		/* Create background thread */
 		c->bgt = kthread_create(ubifs_bg_thread, c, "%s", c->bgt_name);
 		if (IS_ERR(c->bgt)) {
@@ -1603,12 +1603,6 @@ static int ubifs_remount_rw(struct ubifs_info *c)
 	if (err)
 		goto out;
 
-	err = alloc_wbufs(c);
-	if (err)
-		goto out;
-
-	ubifs_create_buds_lists(c);
-
 	/* Create background thread */
 	c->bgt = kthread_create(ubifs_bg_thread, c, "%s", c->bgt_name);
 	if (IS_ERR(c->bgt)) {
@@ -1643,15 +1637,27 @@ static int ubifs_remount_rw(struct ubifs_info *c)
 	if (err)
 		goto out;
 
+	dbg_gen("re-mounted read-write");
+	c->remounting_rw = 0;
+
 	if (c->need_recovery) {
 		c->need_recovery = 0;
 		ubifs_msg("deferred recovery completed");
+	} else {
+		/*
+		 * Do not run the debugging space check if the were doing
+		 * recovery, because when we saved the information we had the
+		 * file-system in a state where the TNC and lprops has been
+		 * modified in memory, but all the I/O operations (including a
+		 * commit) were deferred. So the file-system was in
+		 * "non-committed" state. Now the file-system is in committed
+		 * state, and of course the amount of free space will change
+		 * because, for example, the old index size was imprecise.
+		 */
+		err = dbg_check_space_info(c);
 	}
 
-	dbg_gen("re-mounted read-write");
-	c->remounting_rw = 0;
 	c->always_chk_crc = 0;
-	err = dbg_check_space_info(c);
 	mutex_unlock(&c->umount_mutex);
 	return err;
 
@@ -1705,7 +1711,6 @@ static void ubifs_remount_ro(struct ubifs_info *c)
 	if (err)
 		ubifs_ro_mode(c, err);
 
-	free_wbufs(c);
 	vfree(c->orph_buf);
 	c->orph_buf = NULL;
 	vfree(c->ileb_buf);

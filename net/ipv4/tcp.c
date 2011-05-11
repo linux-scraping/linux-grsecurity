@@ -2144,6 +2144,8 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 		struct tcp_cookie_transactions ctd;
 		struct tcp_cookie_values *cvp = NULL;
 
+		STACKLEAK_PROBE(ctd);
+
 		if (sizeof(ctd) > optlen)
 			return -EINVAL;
 		if (copy_from_user(&ctd, optval, sizeof(ctd)))
@@ -2547,6 +2549,8 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
 	case TCP_INFO: {
 		struct tcp_info info;
 
+		STACKLEAK_PROBE(info);
+
 		if (get_user(len, optlen))
 			return -EFAULT;
 
@@ -2576,6 +2580,8 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
 	case TCP_COOKIE_TRANSACTIONS: {
 		struct tcp_cookie_transactions ctd;
 		struct tcp_cookie_values *cvp = tp->cookie_values;
+
+		STACKLEAK_PROBE(ctd);
 
 		if (get_user(len, optlen))
 			return -EFAULT;
