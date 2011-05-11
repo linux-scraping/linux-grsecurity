@@ -1086,7 +1086,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		if (rc == -ENOMEM) {
 			UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
 					 is_udplite);
-			atomic_inc(&sk->sk_drops);
+			atomic_inc_unchecked(&sk->sk_drops);
 		}
 		goto drop;
 	}
@@ -1785,7 +1785,7 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 #else
 		sp,
 #endif
-		atomic_read(&sp->sk_drops), len);
+		atomic_read_unchecked(&sp->sk_drops), len);
 }
 
 int udp4_seq_show(struct seq_file *seq, void *v)

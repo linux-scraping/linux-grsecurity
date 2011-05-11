@@ -438,7 +438,7 @@ static void ip_vs_process_message(const char *buffer, const size_t buflen)
 
 		if (opt)
 			memcpy(&cp->in_seq, opt, sizeof(*opt));
-		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+		atomic_set_unchecked(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
 		cp->state = state;
 		cp->old_state = cp->state;
 		/*

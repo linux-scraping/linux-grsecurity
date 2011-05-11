@@ -123,7 +123,7 @@ atomic_t			kgdb_active = ATOMIC_INIT(-1);
  */
 static atomic_t			passive_cpu_wait[NR_CPUS];
 static atomic_t			cpu_in_kgdb[NR_CPUS];
-atomic_t			kgdb_setting_breakpoint;
+atomic_unchecked_t		kgdb_setting_breakpoint;
 
 struct task_struct		*kgdb_usethread;
 struct task_struct		*kgdb_contthread;
@@ -140,7 +140,7 @@ static unsigned long		gdb_regs[(NUMREGBYTES +
 					sizeof(unsigned long)];
 
 /* to keep track of the CPU which is doing the single stepping*/
-atomic_t			kgdb_cpu_doing_single_step = ATOMIC_INIT(-1);
+atomic_unchecked_t		kgdb_cpu_doing_single_step = ATOMIC_INIT(-1);
 
 /*
  * If you are debugging a problem where roundup (the collection of
@@ -815,7 +815,7 @@ static int kgdb_io_ready(int print_wait)
 		return 0;
 	if (kgdb_connected)
 		return 1;
-	if (atomic_read(&kgdb_setting_breakpoint))
+	if (atomic_read_unchecked(&kgdb_setting_breakpoint))
 		return 1;
 	if (print_wait)
 		printk(KERN_CRIT "KGDB: Waiting for remote debugger\n");
@@ -1426,8 +1426,8 @@ acquirelock:
 	 * instance of the exception handler wanted to come into the
 	 * debugger on a different CPU via a single step
 	 */
-	if (atomic_read(&kgdb_cpu_doing_single_step) != -1 &&
-	    atomic_read(&kgdb_cpu_doing_single_step) != cpu) {
+	if (atomic_read_unchecked(&kgdb_cpu_doing_single_step) != -1 &&
+	    atomic_read_unchecked(&kgdb_cpu_doing_single_step) != cpu) {
 
 		atomic_set(&kgdb_active, -1);
 		touch_softlockup_watchdog();
@@ -1712,11 +1712,11 @@ EXPORT_SYMBOL_GPL(kgdb_unregister_io_module);
  */
 void kgdb_breakpoint(void)
 {
-	atomic_set(&kgdb_setting_breakpoint, 1);
+	atomic_set_unchecked(&kgdb_setting_breakpoint, 1);
 	wmb(); /* Sync point before breakpoint */
 	arch_kgdb_breakpoint();
 	wmb(); /* Sync point after breakpoint */
-	atomic_set(&kgdb_setting_breakpoint, 0);
+	atomic_set_unchecked(&kgdb_setting_breakpoint, 0);
 }
 EXPORT_SYMBOL_GPL(kgdb_breakpoint);
 

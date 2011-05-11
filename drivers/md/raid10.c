@@ -1255,7 +1255,7 @@ static void end_sync_read(struct bio *bio, int error)
 	if (test_bit(BIO_UPTODATE, &bio->bi_flags))
 		set_bit(R10BIO_Uptodate, &r10_bio->state);
 	else {
-		atomic_add(r10_bio->sectors,
+		atomic_add_unchecked(r10_bio->sectors,
 			   &conf->mirrors[d].rdev->corrected_errors);
 		if (!test_bit(MD_RECOVERY_SYNC, &conf->mddev->recovery))
 			md_error(r10_bio->mddev,
@@ -1520,7 +1520,7 @@ static void fix_read_error(conf_t *conf, mddev_t *mddev, r10bio_t *r10_bio)
 			    test_bit(In_sync, &rdev->flags)) {
 				atomic_inc(&rdev->nr_pending);
 				rcu_read_unlock();
-				atomic_add(s, &rdev->corrected_errors);
+				atomic_add_unchecked(s, &rdev->corrected_errors);
 				if (sync_page_io(rdev->bdev,
 						 r10_bio->devs[sl].addr +
 						 sect + rdev->data_offset,

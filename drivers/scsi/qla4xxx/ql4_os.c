@@ -641,13 +641,13 @@ static void qla4xxx_timer(struct scsi_qla_host *ha)
 			    ddb_entry->fw_ddb_device_state ==
 			    DDB_DS_SESSION_FAILED) {
 				/* Reset retry relogin timer */
-				atomic_inc(&ddb_entry->relogin_retry_count);
+				atomic_inc_unchecked(&ddb_entry->relogin_retry_count);
 				DEBUG2(printk("scsi%ld: index[%d] relogin"
 					      " timed out-retrying"
 					      " relogin (%d)\n",
 					      ha->host_no,
 					      ddb_entry->fw_ddb_index,
-					      atomic_read(&ddb_entry->
+					      atomic_read_unchecked(&ddb_entry->
 							  relogin_retry_count))
 					);
 				start_dpc++;

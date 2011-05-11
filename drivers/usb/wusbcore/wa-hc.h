@@ -192,7 +192,7 @@ struct wahc {
 	struct list_head xfer_delayed_list;
 	spinlock_t xfer_list_lock;
 	struct work_struct xfer_work;
-	atomic_t xfer_id_count;
+	atomic_unchecked_t xfer_id_count;
 };
 
 
@@ -246,7 +246,7 @@ static inline void wa_init(struct wahc *wa)
 	INIT_LIST_HEAD(&wa->xfer_delayed_list);
 	spin_lock_init(&wa->xfer_list_lock);
 	INIT_WORK(&wa->xfer_work, wa_urb_enqueue_run);
-	atomic_set(&wa->xfer_id_count, 1);
+	atomic_set_unchecked(&wa->xfer_id_count, 1);
 }
 
 /**

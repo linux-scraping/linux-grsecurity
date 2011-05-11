@@ -152,7 +152,7 @@ void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
 #ifdef CONFIG_XFRM
 	{
 		struct rt6_info *rt = (struct rt6_info  *)dst;
-		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
+		rt->rt6i_flow_cache_genid = atomic_read_unchecked(&flow_cache_genid);
 	}
 #endif
 }
@@ -167,7 +167,7 @@ struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
 #ifdef CONFIG_XFRM
 	if (dst) {
 		struct rt6_info *rt = (struct rt6_info *)dst;
-		if (rt->rt6i_flow_cache_genid != atomic_read(&flow_cache_genid)) {
+		if (rt->rt6i_flow_cache_genid != atomic_read_unchecked(&flow_cache_genid)) {
 			sk->sk_dst_cache = NULL;
 			dst_release(dst);
 			dst = NULL;

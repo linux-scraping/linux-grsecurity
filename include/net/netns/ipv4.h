@@ -54,7 +54,7 @@ struct netns_ipv4 {
 	int current_rt_cache_rebuild_count;
 
 	struct timer_list rt_secret_timer;
-	atomic_t rt_genid;
+	atomic_unchecked_t rt_genid;
 
 #ifdef CONFIG_IP_MROUTE
 	struct sock		*mroute_sk;

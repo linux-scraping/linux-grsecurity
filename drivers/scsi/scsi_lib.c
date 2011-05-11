@@ -400,10 +400,15 @@ static inline int scsi_host_is_busy(struct Scsi_Host *shost)
 static void scsi_run_queue(struct request_queue *q)
 {
 	struct scsi_device *sdev = q->queuedata;
-	struct Scsi_Host *shost = sdev->host;
+	struct Scsi_Host *shost;
 	LIST_HEAD(starved_list);
 	unsigned long flags;
 
+	/* if the device is dead, sdev will be NULL, so no queue to run */
+	if (!sdev)
+		return;
+
+	shost = sdev->host;
 	if (scsi_target(sdev)->single_lun)
 		scsi_single_lun_run(sdev);
 
@@ -1379,7 +1384,7 @@ static void scsi_kill_request(struct request *req, struct request_queue *q)
 
 	scsi_init_cmd_errh(cmd);
 	cmd->result = DID_NO_CONNECT << 16;
-	atomic_inc(&cmd->device->iorequest_cnt);
+	atomic_inc_unchecked(&cmd->device->iorequest_cnt);
 
 	/*
 	 * SCSI request completion path will do scsi_device_unbusy(),
@@ -1410,9 +1415,9 @@ static void scsi_softirq_done(struct request *rq)
 	 */
 	cmd->serial_number = 0;
 
-	atomic_inc(&cmd->device->iodone_cnt);
+	atomic_inc_unchecked(&cmd->device->iodone_cnt);
 	if (cmd->result)
-		atomic_inc(&cmd->device->ioerr_cnt);
+		atomic_inc_unchecked(&cmd->device->ioerr_cnt);
 
 	disposition = scsi_decide_disposition(cmd);
 	if (disposition != SUCCESS &&

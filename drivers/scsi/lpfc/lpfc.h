@@ -400,7 +400,7 @@ struct lpfc_vport {
 	struct dentry *debug_nodelist;
 	struct dentry *vport_debugfs_root;
 	struct lpfc_debugfs_trc *disc_trc;
-	atomic_t disc_trc_cnt;
+	atomic_unchecked_t disc_trc_cnt;
 #endif
 	uint8_t stat_data_enabled;
 	uint8_t stat_data_blocked;
@@ -725,8 +725,8 @@ struct lpfc_hba {
 	struct timer_list fabric_block_timer;
 	unsigned long bit_flags;
 #define	FABRIC_COMANDS_BLOCKED	0
-	atomic_t num_rsrc_err;
-	atomic_t num_cmd_success;
+	atomic_unchecked_t num_rsrc_err;
+	atomic_unchecked_t num_cmd_success;
 	unsigned long last_rsrc_error_time;
 	unsigned long last_ramp_down_time;
 	unsigned long last_ramp_up_time;
@@ -740,7 +740,7 @@ struct lpfc_hba {
 	struct dentry *debug_dumpDif;    /* BlockGuard BPL*/
 	struct dentry *debug_slow_ring_trc;
 	struct lpfc_debugfs_trc *slow_ring_trc;
-	atomic_t slow_ring_trc_cnt;
+	atomic_unchecked_t slow_ring_trc_cnt;
 #endif
 
 	/* Used for deferred freeing of ELS data buffers */

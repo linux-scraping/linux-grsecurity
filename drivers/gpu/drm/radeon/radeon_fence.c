@@ -47,7 +47,7 @@ int radeon_fence_emit(struct radeon_device *rdev, struct radeon_fence *fence)
 		write_unlock_irqrestore(&rdev->fence_drv.lock, irq_flags);
 		return 0;
 	}
-	fence->seq = atomic_add_return(1, &rdev->fence_drv.seq);
+	fence->seq = atomic_add_return_unchecked(1, &rdev->fence_drv.seq);
 	if (!rdev->cp.ready) {
 		/* FIXME: cp is not running assume everythings is done right
 		 * away
@@ -364,7 +364,7 @@ int radeon_fence_driver_init(struct radeon_device *rdev)
 		return r;
 	}
 	WREG32(rdev->fence_drv.scratch_reg, 0);
-	atomic_set(&rdev->fence_drv.seq, 0);
+	atomic_set_unchecked(&rdev->fence_drv.seq, 0);
 	INIT_LIST_HEAD(&rdev->fence_drv.created);
 	INIT_LIST_HEAD(&rdev->fence_drv.emited);
 	INIT_LIST_HEAD(&rdev->fence_drv.signaled);

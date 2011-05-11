@@ -292,7 +292,7 @@ static void rq_cq_reap(struct svcxprt_rdma *xprt)
 		return;
 
 	ib_req_notify_cq(xprt->sc_rq_cq, IB_CQ_NEXT_COMP);
-	atomic_inc(&rdma_stat_rq_poll);
+	atomic_inc_unchecked(&rdma_stat_rq_poll);
 
 	while ((ret = ib_poll_cq(xprt->sc_rq_cq, 1, &wc)) > 0) {
 		ctxt = (struct svc_rdma_op_ctxt *)(unsigned long)wc.wr_id;
@@ -314,7 +314,7 @@ static void rq_cq_reap(struct svcxprt_rdma *xprt)
 	}
 
 	if (ctxt)
-		atomic_inc(&rdma_stat_rq_prod);
+		atomic_inc_unchecked(&rdma_stat_rq_prod);
 
 	set_bit(XPT_DATA, &xprt->sc_xprt.xpt_flags);
 	/*
@@ -386,7 +386,7 @@ static void sq_cq_reap(struct svcxprt_rdma *xprt)
 		return;
 
 	ib_req_notify_cq(xprt->sc_sq_cq, IB_CQ_NEXT_COMP);
-	atomic_inc(&rdma_stat_sq_poll);
+	atomic_inc_unchecked(&rdma_stat_sq_poll);
 	while ((ret = ib_poll_cq(cq, 1, &wc)) > 0) {
 		if (wc.status != IB_WC_SUCCESS)
 			/* Close the transport */
@@ -404,7 +404,7 @@ static void sq_cq_reap(struct svcxprt_rdma *xprt)
 	}
 
 	if (ctxt)
-		atomic_inc(&rdma_stat_sq_prod);
+		atomic_inc_unchecked(&rdma_stat_sq_prod);
 }
 
 static void sq_comp_handler(struct ib_cq *cq, void *cq_context)
@@ -1260,7 +1260,7 @@ int svc_rdma_send(struct svcxprt_rdma *xprt, struct ib_send_wr *wr)
 		spin_lock_bh(&xprt->sc_lock);
 		if (xprt->sc_sq_depth < atomic_read(&xprt->sc_sq_count) + wr_count) {
 			spin_unlock_bh(&xprt->sc_lock);
-			atomic_inc(&rdma_stat_sq_starve);
+			atomic_inc_unchecked(&rdma_stat_sq_starve);
 
 			/* See if we can opportunistically reap SQ WR to make room */
 			sq_cq_reap(xprt);

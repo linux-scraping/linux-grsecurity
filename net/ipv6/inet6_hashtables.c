@@ -118,7 +118,7 @@ out:
 }
 EXPORT_SYMBOL(__inet6_lookup_established);
 
-static int inline compute_score(struct sock *sk, struct net *net,
+static inline int compute_score(struct sock *sk, struct net *net,
 				const unsigned short hnum,
 				const struct in6_addr *daddr,
 				const int dif)

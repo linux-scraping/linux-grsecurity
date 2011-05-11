@@ -533,7 +533,7 @@ struct omap24xxcam_fh {
 	spinlock_t vbq_lock; /* spinlock for the videobuf queue */
 	struct videobuf_queue vbq;
 	struct v4l2_pix_format pix; /* serialise pix by vbq->lock */
-	atomic_t field_count; /* field counter for videobuf_buffer */
+	atomic_unchecked_t field_count; /* field counter for videobuf_buffer */
 	/* accessing cam here doesn't need serialisation: it's constant */
 	struct omap24xxcam_device *cam;
 };

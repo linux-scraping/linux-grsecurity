@@ -68,7 +68,7 @@ struct nfulnl_instance {
 };
 
 static DEFINE_RWLOCK(instances_lock);
-static atomic_t global_seq;
+static atomic_unchecked_t global_seq;
 
 #define INSTANCE_BUCKETS	16
 static struct hlist_head instance_table[INSTANCE_BUCKETS];
@@ -493,7 +493,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 	/* global sequence number */
 	if (inst->flags & NFULNL_CFG_F_SEQ_GLOBAL)
 		NLA_PUT_BE32(inst->skb, NFULA_SEQ_GLOBAL,
-			     htonl(atomic_inc_return(&global_seq)));
+			     htonl(atomic_inc_return_unchecked(&global_seq)));
 
 	if (data_len) {
 		struct nlattr *nla;

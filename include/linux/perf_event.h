@@ -476,7 +476,7 @@ struct hw_perf_event {
 			struct hrtimer	hrtimer;
 		};
 	};
-	atomic64_t			prev_count;
+	atomic64_unchecked_t		prev_count;
 	u64				sample_period;
 	u64				last_period;
 	atomic64_t			period_left;
@@ -557,7 +557,7 @@ struct perf_event {
 	const struct pmu		*pmu;
 
 	enum perf_event_active_state	state;
-	atomic64_t			count;
+	atomic64_unchecked_t		count;
 
 	/*
 	 * These are the total time in nanoseconds that the event
@@ -595,8 +595,8 @@ struct perf_event {
 	 * These accumulate total time (in nanoseconds) that children
 	 * events have been enabled and running, respectively.
 	 */
-	atomic64_t			child_total_time_enabled;
-	atomic64_t			child_total_time_running;
+	atomic64_unchecked_t		child_total_time_enabled;
+	atomic64_unchecked_t		child_total_time_running;
 
 	/*
 	 * Protect attach/detach and child_list:

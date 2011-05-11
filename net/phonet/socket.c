@@ -488,7 +488,7 @@ static int pn_sock_seq_show(struct seq_file *seq, void *v)
 #else
 			sk,
 #endif
-			atomic_read(&sk->sk_drops), &len);
+			atomic_read_unchecked(&sk->sk_drops), &len);
 	}
 	seq_printf(seq, "%*s\n", 127 - len, "");
 	return 0;

@@ -149,7 +149,7 @@ int radeon_pm_init(struct radeon_device *rdev);
  */
 struct radeon_fence_driver {
 	uint32_t			scratch_reg;
-	atomic_t			seq;
+	atomic_unchecked_t		seq;
 	uint32_t			last_seq;
 	unsigned long			count_timeout;
 	wait_queue_head_t		queue;

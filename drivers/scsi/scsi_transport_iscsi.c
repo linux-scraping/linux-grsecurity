@@ -81,7 +81,7 @@ struct iscsi_internal {
 	struct device_attribute *session_attrs[ISCSI_SESSION_ATTRS + 1];
 };
 
-static atomic_t iscsi_session_nr; /* sysfs session id for next new session */
+static atomic_unchecked_t iscsi_session_nr; /* sysfs session id for next new session */
 static struct workqueue_struct *iscsi_eh_timer_workq;
 
 /*
@@ -728,7 +728,7 @@ int iscsi_add_session(struct iscsi_cls_session *session, unsigned int target_id)
 	int err;
 
 	ihost = shost->shost_data;
-	session->sid = atomic_add_return(1, &iscsi_session_nr);
+	session->sid = atomic_add_return_unchecked(1, &iscsi_session_nr);
 
 	if (id == ISCSI_MAX_TARGET) {
 		for (id = 0; id < ISCSI_MAX_TARGET; id++) {
@@ -2060,7 +2060,7 @@ static __init int iscsi_transport_init(void)
 	printk(KERN_INFO "Loading iSCSI transport class v%s.\n",
 		ISCSI_TRANSPORT_VERSION);
 
-	atomic_set(&iscsi_session_nr, 0);
+	atomic_set_unchecked(&iscsi_session_nr, 0);
 
 	err = class_register(&iscsi_transport_class);
 	if (err)

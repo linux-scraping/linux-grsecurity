@@ -77,7 +77,7 @@ int sysctl_perf_event_mlock __read_mostly = 516; /* 'free' kb per user */
  */
 int sysctl_perf_event_sample_rate __read_mostly = 100000;
 
-static atomic64_t perf_event_id;
+static atomic64_unchecked_t perf_event_id;
 
 /*
  * Lock for (sysadmin-configurable) event reservations:
@@ -1094,9 +1094,9 @@ static void __perf_event_sync_stat(struct perf_event *event,
 	 * In order to keep per-task stats reliable we need to flip the event
 	 * values when we flip the contexts.
 	 */
-	value = atomic64_read(&next_event->count);
-	value = atomic64_xchg(&event->count, value);
-	atomic64_set(&next_event->count, value);
+	value = atomic64_read_unchecked(&next_event->count);
+	value = atomic64_xchg_unchecked(&event->count, value);
+	atomic64_set_unchecked(&next_event->count, value);
 
 	swap(event->total_time_enabled, next_event->total_time_enabled);
 	swap(event->total_time_running, next_event->total_time_running);
@@ -1552,7 +1552,7 @@ static u64 perf_event_read(struct perf_event *event)
 		update_event_times(event);
 	}
 
-	return atomic64_read(&event->count);
+	return atomic64_read_unchecked(&event->count);
 }
 
 /*
@@ -1790,11 +1790,11 @@ static int perf_event_read_group(struct perf_event *event,
 	values[n++] = 1 + leader->nr_siblings;
 	if (read_format & PERF_FORMAT_TOTAL_TIME_ENABLED) {
 		values[n++] = leader->total_time_enabled +
-			atomic64_read(&leader->child_total_time_enabled);
+			atomic64_read_unchecked(&leader->child_total_time_enabled);
 	}
 	if (read_format & PERF_FORMAT_TOTAL_TIME_RUNNING) {
 		values[n++] = leader->total_time_running +
-			atomic64_read(&leader->child_total_time_running);
+			atomic64_read_unchecked(&leader->child_total_time_running);
 	}
 
 	size = n * sizeof(u64);
@@ -1829,11 +1829,11 @@ static int perf_event_read_one(struct perf_event *event,
 	values[n++] = perf_event_read_value(event);
 	if (read_format & PERF_FORMAT_TOTAL_TIME_ENABLED) {
 		values[n++] = event->total_time_enabled +
-			atomic64_read(&event->child_total_time_enabled);
+			atomic64_read_unchecked(&event->child_total_time_enabled);
 	}
 	if (read_format & PERF_FORMAT_TOTAL_TIME_RUNNING) {
 		values[n++] = event->total_time_running +
-			atomic64_read(&event->child_total_time_running);
+			atomic64_read_unchecked(&event->child_total_time_running);
 	}
 	if (read_format & PERF_FORMAT_ID)
 		values[n++] = primary_event_id(event);
@@ -1903,7 +1903,7 @@ static unsigned int perf_poll(struct file *file, poll_table *wait)
 static void perf_event_reset(struct perf_event *event)
 {
 	(void)perf_event_read(event);
-	atomic64_set(&event->count, 0);
+	atomic64_set_unchecked(&event->count, 0);
 	perf_event_update_userpage(event);
 }
 
@@ -2079,15 +2079,15 @@ void perf_event_update_userpage(struct perf_event *event)
 	++userpg->lock;
 	barrier();
 	userpg->index = perf_event_index(event);
-	userpg->offset = atomic64_read(&event->count);
+	userpg->offset = atomic64_read_unchecked(&event->count);
 	if (event->state == PERF_EVENT_STATE_ACTIVE)
-		userpg->offset -= atomic64_read(&event->hw.prev_count);
+		userpg->offset -= atomic64_read_unchecked(&event->hw.prev_count);
 
 	userpg->time_enabled = event->total_time_enabled +
-			atomic64_read(&event->child_total_time_enabled);
+			atomic64_read_unchecked(&event->child_total_time_enabled);
 
 	userpg->time_running = event->total_time_running +
-			atomic64_read(&event->child_total_time_running);
+			atomic64_read_unchecked(&event->child_total_time_running);
 
 	barrier();
 	++userpg->lock;
@@ -2903,14 +2903,14 @@ static void perf_output_read_one(struct perf_output_handle *handle,
 	u64 values[4];
 	int n = 0;
 
-	values[n++] = atomic64_read(&event->count);
+	values[n++] = atomic64_read_unchecked(&event->count);
 	if (read_format & PERF_FORMAT_TOTAL_TIME_ENABLED) {
 		values[n++] = event->total_time_enabled +
-			atomic64_read(&event->child_total_time_enabled);
+			atomic64_read_unchecked(&event->child_total_time_enabled);
 	}
 	if (read_format & PERF_FORMAT_TOTAL_TIME_RUNNING) {
 		values[n++] = event->total_time_running +
-			atomic64_read(&event->child_total_time_running);
+			atomic64_read_unchecked(&event->child_total_time_running);
 	}
 	if (read_format & PERF_FORMAT_ID)
 		values[n++] = primary_event_id(event);
@@ -2940,7 +2940,7 @@ static void perf_output_read_group(struct perf_output_handle *handle,
 	if (leader != event)
 		leader->pmu->read(leader);
 
-	values[n++] = atomic64_read(&leader->count);
+	values[n++] = atomic64_read_unchecked(&leader->count);
 	if (read_format & PERF_FORMAT_ID)
 		values[n++] = primary_event_id(leader);
 
@@ -2952,7 +2952,7 @@ static void perf_output_read_group(struct perf_output_handle *handle,
 		if (sub != event)
 			sub->pmu->read(sub);
 
-		values[n++] = atomic64_read(&sub->count);
+		values[n++] = atomic64_read_unchecked(&sub->count);
 		if (read_format & PERF_FORMAT_ID)
 			values[n++] = primary_event_id(sub);
 
@@ -3787,7 +3787,7 @@ static void perf_swevent_add(struct perf_event *event, u64 nr,
 {
 	struct hw_perf_event *hwc = &event->hw;
 
-	atomic64_add(nr, &event->count);
+	atomic64_add_unchecked(nr, &event->count);
 
 	if (!hwc->sample_period)
 		return;
@@ -4044,9 +4044,9 @@ static void cpu_clock_perf_event_update(struct perf_event *event)
 	u64 now;
 
 	now = cpu_clock(cpu);
-	prev = atomic64_read(&event->hw.prev_count);
-	atomic64_set(&event->hw.prev_count, now);
-	atomic64_add(now - prev, &event->count);
+	prev = atomic64_read_unchecked(&event->hw.prev_count);
+	atomic64_set_unchecked(&event->hw.prev_count, now);
+	atomic64_add_unchecked(now - prev, &event->count);
 }
 
 static int cpu_clock_perf_event_enable(struct perf_event *event)
@@ -4054,7 +4054,7 @@ static int cpu_clock_perf_event_enable(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	int cpu = raw_smp_processor_id();
 
-	atomic64_set(&hwc->prev_count, cpu_clock(cpu));
+	atomic64_set_unchecked(&hwc->prev_count, cpu_clock(cpu));
 	perf_swevent_start_hrtimer(event);
 
 	return 0;
@@ -4086,9 +4086,9 @@ static void task_clock_perf_event_update(struct perf_event *event, u64 now)
 	u64 prev;
 	s64 delta;
 
-	prev = atomic64_xchg(&event->hw.prev_count, now);
+	prev = atomic64_xchg_unchecked(&event->hw.prev_count, now);
 	delta = now - prev;
-	atomic64_add(delta, &event->count);
+	atomic64_add_unchecked(delta, &event->count);
 }
 
 static int task_clock_perf_event_enable(struct perf_event *event)
@@ -4098,7 +4098,7 @@ static int task_clock_perf_event_enable(struct perf_event *event)
 
 	now = event->ctx->time;
 
-	atomic64_set(&hwc->prev_count, now);
+	atomic64_set_unchecked(&hwc->prev_count, now);
 
 	perf_swevent_start_hrtimer(event);
 
@@ -4293,7 +4293,7 @@ perf_event_alloc(struct perf_event_attr *attr,
 	event->parent		= parent_event;
 
 	event->ns		= get_pid_ns(current->nsproxy->pid_ns);
-	event->id		= atomic64_inc_return(&perf_event_id);
+	event->id		= atomic64_inc_return_unchecked(&perf_event_id);
 
 	event->state		= PERF_EVENT_STATE_INACTIVE;
 
@@ -4724,15 +4724,15 @@ static void sync_child_event(struct perf_event *child_event,
 	if (child_event->attr.inherit_stat)
 		perf_event_read_event(child_event, child);
 
-	child_val = atomic64_read(&child_event->count);
+	child_val = atomic64_read_unchecked(&child_event->count);
 
 	/*
 	 * Add back the child's count to the parent's count:
 	 */
-	atomic64_add(child_val, &parent_event->count);
-	atomic64_add(child_event->total_time_enabled,
+	atomic64_add_unchecked(child_val, &parent_event->count);
+	atomic64_add_unchecked(child_event->total_time_enabled,
 		     &parent_event->child_total_time_enabled);
-	atomic64_add(child_event->total_time_running,
+	atomic64_add_unchecked(child_event->total_time_running,
 		     &parent_event->child_total_time_running);
 
 	/*

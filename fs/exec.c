@@ -2122,7 +2122,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	char **helper_argv = NULL;
 	int helper_argc = 0;
 	int dump_count = 0;
-	static atomic_t core_dump_count = ATOMIC_INIT(0);
+	static atomic_unchecked_t core_dump_count = ATOMIC_INIT(0);
 
 	audit_core_dumps(signr);
 
@@ -2209,7 +2209,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 			goto fail_unlock;
 		}
 
-		dump_count = atomic_inc_return(&core_dump_count);
+		dump_count = atomic_inc_return_unchecked(&core_dump_count);
 		if (core_pipe_limit && (core_pipe_limit < dump_count)) {
 			printk(KERN_WARNING "Pid %d(%s) over core_pipe_limit\n",
 			       task_tgid_vnr(current), current->comm);
@@ -2273,7 +2273,7 @@ close_fail:
 	filp_close(file, NULL);
 fail_dropcount:
 	if (dump_count)
-		atomic_dec(&core_dump_count);
+		atomic_dec_unchecked(&core_dump_count);
 fail_unlock:
 	if (helper_argv)
 		argv_free(helper_argv);

@@ -2542,7 +2542,7 @@ static void ack_apic_edge(unsigned int irq)
 	ack_APIC_irq();
 }
 
-atomic_t irq_mis_count;
+atomic_unchecked_t irq_mis_count;
 
 static void ack_apic_level(unsigned int irq)
 {
@@ -2626,7 +2626,7 @@ static void ack_apic_level(unsigned int irq)
 
 	/* Tail end of version 0x11 I/O APIC bug workaround */
 	if (!(v & (1 << (i & 0x1f)))) {
-		atomic_inc(&irq_mis_count);
+		atomic_inc_unchecked(&irq_mis_count);
 		spin_lock(&ioapic_lock);
 		__mask_and_edge_IO_APIC_irq(cfg);
 		__unmask_and_level_IO_APIC_irq(cfg);

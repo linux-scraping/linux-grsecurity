@@ -480,7 +480,7 @@ MODULE_PARM_DESC(dev_loss_tmo,
  * Netlink Infrastructure
  */
 
-static atomic_t fc_event_seq;
+static atomic_unchecked_t fc_event_seq;
 
 /**
  * fc_get_event_number - Obtain the next sequential FC event number
@@ -493,7 +493,7 @@ static atomic_t fc_event_seq;
 u32
 fc_get_event_number(void)
 {
-	return atomic_add_return(1, &fc_event_seq);
+	return atomic_add_return_unchecked(1, &fc_event_seq);
 }
 EXPORT_SYMBOL(fc_get_event_number);
 
@@ -641,7 +641,7 @@ static __init int fc_transport_init(void)
 {
 	int error;
 
-	atomic_set(&fc_event_seq, 0);
+	atomic_set_unchecked(&fc_event_seq, 0);
 
 	error = transport_class_register(&fc_host_class);
 	if (error)

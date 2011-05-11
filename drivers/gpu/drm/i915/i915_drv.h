@@ -197,7 +197,7 @@ typedef struct drm_i915_private {
 	int page_flipping;
 
 	wait_queue_head_t irq_queue;
-	atomic_t irq_received;
+	atomic_unchecked_t irq_received;
 	/** Protects user_irq_refcount and irq_mask_reg */
 	spinlock_t user_irq_lock;
 	/** Refcount for i915_user_irq_get() versus i915_user_irq_put(). */

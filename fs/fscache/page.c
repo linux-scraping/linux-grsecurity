@@ -59,7 +59,7 @@ bool __fscache_maybe_release_page(struct fscache_cookie *cookie,
 	val = radix_tree_lookup(&cookie->stores, page->index);
 	if (!val) {
 		rcu_read_unlock();
-		fscache_stat(&fscache_n_store_vmscan_not_storing);
+		fscache_stat_unchecked(&fscache_n_store_vmscan_not_storing);
 		__fscache_uncache_page(cookie, page);
 		return true;
 	}
@@ -89,11 +89,11 @@ bool __fscache_maybe_release_page(struct fscache_cookie *cookie,
 	spin_unlock(&cookie->stores_lock);
 
 	if (xpage) {
-		fscache_stat(&fscache_n_store_vmscan_cancelled);
-		fscache_stat(&fscache_n_store_radix_deletes);
+		fscache_stat_unchecked(&fscache_n_store_vmscan_cancelled);
+		fscache_stat_unchecked(&fscache_n_store_radix_deletes);
 		ASSERTCMP(xpage, ==, page);
 	} else {
-		fscache_stat(&fscache_n_store_vmscan_gone);
+		fscache_stat_unchecked(&fscache_n_store_vmscan_gone);
 	}
 
 	wake_up_bit(&cookie->flags, 0);
@@ -106,7 +106,7 @@ page_busy:
 	/* we might want to wait here, but that could deadlock the allocator as
 	 * the slow-work threads writing to the cache may all end up sleeping
 	 * on memory allocation */
-	fscache_stat(&fscache_n_store_vmscan_busy);
+	fscache_stat_unchecked(&fscache_n_store_vmscan_busy);
 	return false;
 }
 EXPORT_SYMBOL(__fscache_maybe_release_page);
@@ -130,7 +130,7 @@ static void fscache_end_page_write(struct fscache_object *object,
 				     FSCACHE_COOKIE_STORING_TAG);
 		if (!radix_tree_tag_get(&cookie->stores, page->index,
 					FSCACHE_COOKIE_PENDING_TAG)) {
-			fscache_stat(&fscache_n_store_radix_deletes);
+			fscache_stat_unchecked(&fscache_n_store_radix_deletes);
 			xpage = radix_tree_delete(&cookie->stores, page->index);
 		}
 		spin_unlock(&cookie->stores_lock);
@@ -151,7 +151,7 @@ static void fscache_attr_changed_op(struct fscache_operation *op)
 
 	_enter("{OBJ%x OP%x}", object->debug_id, op->debug_id);
 
-	fscache_stat(&fscache_n_attr_changed_calls);
+	fscache_stat_unchecked(&fscache_n_attr_changed_calls);
 
 	if (fscache_object_is_active(object)) {
 		fscache_set_op_state(op, "CallFS");
@@ -178,11 +178,11 @@ int __fscache_attr_changed(struct fscache_cookie *cookie)
 
 	ASSERTCMP(cookie->def->type, !=, FSCACHE_COOKIE_TYPE_INDEX);
 
-	fscache_stat(&fscache_n_attr_changed);
+	fscache_stat_unchecked(&fscache_n_attr_changed);
 
 	op = kzalloc(sizeof(*op), GFP_KERNEL);
 	if (!op) {
-		fscache_stat(&fscache_n_attr_changed_nomem);
+		fscache_stat_unchecked(&fscache_n_attr_changed_nomem);
 		_leave(" = -ENOMEM");
 		return -ENOMEM;
 	}
@@ -202,7 +202,7 @@ int __fscache_attr_changed(struct fscache_cookie *cookie)
 	if (fscache_submit_exclusive_op(object, op) < 0)
 		goto nobufs;
 	spin_unlock(&cookie->lock);
-	fscache_stat(&fscache_n_attr_changed_ok);
+	fscache_stat_unchecked(&fscache_n_attr_changed_ok);
 	fscache_put_operation(op);
 	_leave(" = 0");
 	return 0;
@@ -210,7 +210,7 @@ int __fscache_attr_changed(struct fscache_cookie *cookie)
 nobufs:
 	spin_unlock(&cookie->lock);
 	kfree(op);
-	fscache_stat(&fscache_n_attr_changed_nobufs);
+	fscache_stat_unchecked(&fscache_n_attr_changed_nobufs);
 	_leave(" = %d", -ENOBUFS);
 	return -ENOBUFS;
 }
@@ -264,7 +264,7 @@ static struct fscache_retrieval *fscache_alloc_retrieval(
 	/* allocate a retrieval operation and attempt to submit it */
 	op = kzalloc(sizeof(*op), GFP_NOIO);
 	if (!op) {
-		fscache_stat(&fscache_n_retrievals_nomem);
+		fscache_stat_unchecked(&fscache_n_retrievals_nomem);
 		return NULL;
 	}
 
@@ -294,13 +294,13 @@ static int fscache_wait_for_deferred_lookup(struct fscache_cookie *cookie)
 		return 0;
 	}
 
-	fscache_stat(&fscache_n_retrievals_wait);
+	fscache_stat_unchecked(&fscache_n_retrievals_wait);
 
 	jif = jiffies;
 	if (wait_on_bit(&cookie->flags, FSCACHE_COOKIE_LOOKING_UP,
 			fscache_wait_bit_interruptible,
 			TASK_INTERRUPTIBLE) != 0) {
-		fscache_stat(&fscache_n_retrievals_intr);
+		fscache_stat_unchecked(&fscache_n_retrievals_intr);
 		_leave(" = -ERESTARTSYS");
 		return -ERESTARTSYS;
 	}
@@ -318,8 +318,8 @@ static int fscache_wait_for_deferred_lookup(struct fscache_cookie *cookie)
  */
 static int fscache_wait_for_retrieval_activation(struct fscache_object *object,
 						 struct fscache_retrieval *op,
-						 atomic_t *stat_op_waits,
-						 atomic_t *stat_object_dead)
+						 atomic_unchecked_t *stat_op_waits,
+						 atomic_unchecked_t *stat_object_dead)
 {
 	int ret;
 
@@ -327,7 +327,7 @@ static int fscache_wait_for_retrieval_activation(struct fscache_object *object,
 		goto check_if_dead;
 
 	_debug(">>> WT");
-	fscache_stat(stat_op_waits);
+	fscache_stat_unchecked(stat_op_waits);
 	if (wait_on_bit(&op->op.flags, FSCACHE_OP_WAITING,
 			fscache_wait_bit_interruptible,
 			TASK_INTERRUPTIBLE) < 0) {
@@ -344,7 +344,7 @@ static int fscache_wait_for_retrieval_activation(struct fscache_object *object,
 
 check_if_dead:
 	if (unlikely(fscache_object_is_dead(object))) {
-		fscache_stat(stat_object_dead);
+		fscache_stat_unchecked(stat_object_dead);
 		return -ENOBUFS;
 	}
 	return 0;
@@ -371,7 +371,7 @@ int __fscache_read_or_alloc_page(struct fscache_cookie *cookie,
 
 	_enter("%p,%p,,,", cookie, page);
 
-	fscache_stat(&fscache_n_retrievals);
+	fscache_stat_unchecked(&fscache_n_retrievals);
 
 	if (hlist_empty(&cookie->backing_objects))
 		goto nobufs;
@@ -405,7 +405,7 @@ int __fscache_read_or_alloc_page(struct fscache_cookie *cookie,
 		goto nobufs_unlock;
 	spin_unlock(&cookie->lock);
 
-	fscache_stat(&fscache_n_retrieval_ops);
+	fscache_stat_unchecked(&fscache_n_retrieval_ops);
 
 	/* pin the netfs read context in case we need to do the actual netfs
 	 * read because we've encountered a cache read failure */
@@ -435,15 +435,15 @@ int __fscache_read_or_alloc_page(struct fscache_cookie *cookie,
 
 error:
 	if (ret == -ENOMEM)
-		fscache_stat(&fscache_n_retrievals_nomem);
+		fscache_stat_unchecked(&fscache_n_retrievals_nomem);
 	else if (ret == -ERESTARTSYS)
-		fscache_stat(&fscache_n_retrievals_intr);
+		fscache_stat_unchecked(&fscache_n_retrievals_intr);
 	else if (ret == -ENODATA)
-		fscache_stat(&fscache_n_retrievals_nodata);
+		fscache_stat_unchecked(&fscache_n_retrievals_nodata);
 	else if (ret < 0)
-		fscache_stat(&fscache_n_retrievals_nobufs);
+		fscache_stat_unchecked(&fscache_n_retrievals_nobufs);
 	else
-		fscache_stat(&fscache_n_retrievals_ok);
+		fscache_stat_unchecked(&fscache_n_retrievals_ok);
 
 	fscache_put_retrieval(op);
 	_leave(" = %d", ret);
@@ -453,7 +453,7 @@ nobufs_unlock:
 	spin_unlock(&cookie->lock);
 	kfree(op);
 nobufs:
-	fscache_stat(&fscache_n_retrievals_nobufs);
+	fscache_stat_unchecked(&fscache_n_retrievals_nobufs);
 	_leave(" = -ENOBUFS");
 	return -ENOBUFS;
 }
@@ -491,7 +491,7 @@ int __fscache_read_or_alloc_pages(struct fscache_cookie *cookie,
 
 	_enter("%p,,%d,,,", cookie, *nr_pages);
 
-	fscache_stat(&fscache_n_retrievals);
+	fscache_stat_unchecked(&fscache_n_retrievals);
 
 	if (hlist_empty(&cookie->backing_objects))
 		goto nobufs;
@@ -522,7 +522,7 @@ int __fscache_read_or_alloc_pages(struct fscache_cookie *cookie,
 		goto nobufs_unlock;
 	spin_unlock(&cookie->lock);
 
-	fscache_stat(&fscache_n_retrieval_ops);
+	fscache_stat_unchecked(&fscache_n_retrieval_ops);
 
 	/* pin the netfs read context in case we need to do the actual netfs
 	 * read because we've encountered a cache read failure */
@@ -552,15 +552,15 @@ int __fscache_read_or_alloc_pages(struct fscache_cookie *cookie,
 
 error:
 	if (ret == -ENOMEM)
-		fscache_stat(&fscache_n_retrievals_nomem);
+		fscache_stat_unchecked(&fscache_n_retrievals_nomem);
 	else if (ret == -ERESTARTSYS)
-		fscache_stat(&fscache_n_retrievals_intr);
+		fscache_stat_unchecked(&fscache_n_retrievals_intr);
 	else if (ret == -ENODATA)
-		fscache_stat(&fscache_n_retrievals_nodata);
+		fscache_stat_unchecked(&fscache_n_retrievals_nodata);
 	else if (ret < 0)
-		fscache_stat(&fscache_n_retrievals_nobufs);
+		fscache_stat_unchecked(&fscache_n_retrievals_nobufs);
 	else
-		fscache_stat(&fscache_n_retrievals_ok);
+		fscache_stat_unchecked(&fscache_n_retrievals_ok);
 
 	fscache_put_retrieval(op);
 	_leave(" = %d", ret);
@@ -570,7 +570,7 @@ nobufs_unlock:
 	spin_unlock(&cookie->lock);
 	kfree(op);
 nobufs:
-	fscache_stat(&fscache_n_retrievals_nobufs);
+	fscache_stat_unchecked(&fscache_n_retrievals_nobufs);
 	_leave(" = -ENOBUFS");
 	return -ENOBUFS;
 }
@@ -594,7 +594,7 @@ int __fscache_alloc_page(struct fscache_cookie *cookie,
 
 	_enter("%p,%p,,,", cookie, page);
 
-	fscache_stat(&fscache_n_allocs);
+	fscache_stat_unchecked(&fscache_n_allocs);
 
 	if (hlist_empty(&cookie->backing_objects))
 		goto nobufs;
@@ -621,7 +621,7 @@ int __fscache_alloc_page(struct fscache_cookie *cookie,
 		goto nobufs_unlock;
 	spin_unlock(&cookie->lock);
 
-	fscache_stat(&fscache_n_alloc_ops);
+	fscache_stat_unchecked(&fscache_n_alloc_ops);
 
 	ret = fscache_wait_for_retrieval_activation(
 		object, op,
@@ -637,11 +637,11 @@ int __fscache_alloc_page(struct fscache_cookie *cookie,
 
 error:
 	if (ret == -ERESTARTSYS)
-		fscache_stat(&fscache_n_allocs_intr);
+		fscache_stat_unchecked(&fscache_n_allocs_intr);
 	else if (ret < 0)
-		fscache_stat(&fscache_n_allocs_nobufs);
+		fscache_stat_unchecked(&fscache_n_allocs_nobufs);
 	else
-		fscache_stat(&fscache_n_allocs_ok);
+		fscache_stat_unchecked(&fscache_n_allocs_ok);
 
 	fscache_put_retrieval(op);
 	_leave(" = %d", ret);
@@ -651,7 +651,7 @@ nobufs_unlock:
 	spin_unlock(&cookie->lock);
 	kfree(op);
 nobufs:
-	fscache_stat(&fscache_n_allocs_nobufs);
+	fscache_stat_unchecked(&fscache_n_allocs_nobufs);
 	_leave(" = -ENOBUFS");
 	return -ENOBUFS;
 }
@@ -694,7 +694,7 @@ static void fscache_write_op(struct fscache_operation *_op)
 
 	spin_lock(&cookie->stores_lock);
 
-	fscache_stat(&fscache_n_store_calls);
+	fscache_stat_unchecked(&fscache_n_store_calls);
 
 	/* find a page to store */
 	page = NULL;
@@ -705,7 +705,7 @@ static void fscache_write_op(struct fscache_operation *_op)
 	page = results[0];
 	_debug("gang %d [%lx]", n, page->index);
 	if (page->index > op->store_limit) {
-		fscache_stat(&fscache_n_store_pages_over_limit);
+		fscache_stat_unchecked(&fscache_n_store_pages_over_limit);
 		goto superseded;
 	}
 
@@ -721,7 +721,7 @@ static void fscache_write_op(struct fscache_operation *_op)
 
 	if (page) {
 		fscache_set_op_state(&op->op, "Store");
-		fscache_stat(&fscache_n_store_pages);
+		fscache_stat_unchecked(&fscache_n_store_pages);
 		fscache_stat(&fscache_n_cop_write_page);
 		ret = object->cache->ops->write_page(op, page);
 		fscache_stat_d(&fscache_n_cop_write_page);
@@ -792,7 +792,7 @@ int __fscache_write_page(struct fscache_cookie *cookie,
 	ASSERTCMP(cookie->def->type, !=, FSCACHE_COOKIE_TYPE_INDEX);
 	ASSERT(PageFsCache(page));
 
-	fscache_stat(&fscache_n_stores);
+	fscache_stat_unchecked(&fscache_n_stores);
 
 	op = kzalloc(sizeof(*op), GFP_NOIO);
 	if (!op)
@@ -844,7 +844,7 @@ int __fscache_write_page(struct fscache_cookie *cookie,
 	spin_unlock(&cookie->stores_lock);
 	spin_unlock(&object->lock);
 
-	op->op.debug_id	= atomic_inc_return(&fscache_op_debug_id);
+	op->op.debug_id	= atomic_inc_return_unchecked(&fscache_op_debug_id);
 	op->store_limit = object->store_limit;
 
 	if (fscache_submit_op(object, &op->op) < 0)
@@ -852,8 +852,8 @@ int __fscache_write_page(struct fscache_cookie *cookie,
 
 	spin_unlock(&cookie->lock);
 	radix_tree_preload_end();
-	fscache_stat(&fscache_n_store_ops);
-	fscache_stat(&fscache_n_stores_ok);
+	fscache_stat_unchecked(&fscache_n_store_ops);
+	fscache_stat_unchecked(&fscache_n_stores_ok);
 
 	/* the slow work queue now carries its own ref on the object */
 	fscache_put_operation(&op->op);
@@ -861,14 +861,14 @@ int __fscache_write_page(struct fscache_cookie *cookie,
 	return 0;
 
 already_queued:
-	fscache_stat(&fscache_n_stores_again);
+	fscache_stat_unchecked(&fscache_n_stores_again);
 already_pending:
 	spin_unlock(&cookie->stores_lock);
 	spin_unlock(&object->lock);
 	spin_unlock(&cookie->lock);
 	radix_tree_preload_end();
 	kfree(op);
-	fscache_stat(&fscache_n_stores_ok);
+	fscache_stat_unchecked(&fscache_n_stores_ok);
 	_leave(" = 0");
 	return 0;
 
@@ -886,14 +886,14 @@ nobufs:
 	spin_unlock(&cookie->lock);
 	radix_tree_preload_end();
 	kfree(op);
-	fscache_stat(&fscache_n_stores_nobufs);
+	fscache_stat_unchecked(&fscache_n_stores_nobufs);
 	_leave(" = -ENOBUFS");
 	return -ENOBUFS;
 
 nomem_free:
 	kfree(op);
 nomem:
-	fscache_stat(&fscache_n_stores_oom);
+	fscache_stat_unchecked(&fscache_n_stores_oom);
 	_leave(" = -ENOMEM");
 	return -ENOMEM;
 }
@@ -911,7 +911,7 @@ void __fscache_uncache_page(struct fscache_cookie *cookie, struct page *page)
 	ASSERTCMP(cookie->def->type, !=, FSCACHE_COOKIE_TYPE_INDEX);
 	ASSERTCMP(page, !=, NULL);
 
-	fscache_stat(&fscache_n_uncaches);
+	fscache_stat_unchecked(&fscache_n_uncaches);
 
 	/* cache withdrawal may beat us to it */
 	if (!PageFsCache(page))
@@ -964,7 +964,7 @@ void fscache_mark_pages_cached(struct fscache_retrieval *op,
 	unsigned long loop;
 
 #ifdef CONFIG_FSCACHE_STATS
-	atomic_add(pagevec->nr, &fscache_n_marks);
+	atomic_add_unchecked(pagevec->nr, &fscache_n_marks);
 #endif
 
 	for (loop = 0; loop < pagevec->nr; loop++) {

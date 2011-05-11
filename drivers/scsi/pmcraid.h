@@ -690,7 +690,7 @@ struct pmcraid_instance {
 	atomic_t outstanding_cmds;
 
 	/* should add/delete resources to mid-layer now ?*/
-	atomic_t expose_resources;
+	atomic_unchecked_t expose_resources;
 
 	/* Tasklet to handle deferred processing */
 	struct tasklet_struct isr_tasklet[PMCRAID_NUM_MSIX_VECTORS];
@@ -727,8 +727,8 @@ struct pmcraid_resource_entry {
 	struct list_head queue;	/* link to "to be exposed" resources */
 	struct pmcraid_config_table_entry cfg_entry;
 	struct scsi_device *scsi_dev;	/* Link scsi_device structure */
-	atomic_t read_failures;		/* count of failed READ commands */
-	atomic_t write_failures;	/* count of failed WRITE commands */
+	atomic_unchecked_t read_failures;		/* count of failed READ commands */
+	atomic_unchecked_t write_failures;	/* count of failed WRITE commands */
 
 	/* To indicate add/delete/modify during CCN */
 	u8 change_detected;

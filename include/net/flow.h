@@ -92,7 +92,7 @@ typedef int (*flow_resolve_t)(struct net *net, struct flowi *key, u16 family,
 extern void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family,
 			       u8 dir, flow_resolve_t resolver);
 extern void flow_cache_flush(void);
-extern atomic_t flow_cache_genid;
+extern atomic_unchecked_t flow_cache_genid;
 
 static inline int flow_cache_uli_match(struct flowi *fl1, struct flowi *fl2)
 {

@@ -21,7 +21,7 @@
 #define MAX_RT_TEST_MUTEXES	8
 
 static spinlock_t rttest_lock;
-static atomic_t rttest_event;
+static atomic_unchecked_t rttest_event;
 
 struct test_thread_data {
 	int			opcode;
@@ -64,7 +64,7 @@ static int handle_op(struct test_thread_data *td, int lockwakeup)
 
 	case RTTEST_LOCKCONT:
 		td->mutexes[td->opdata] = 1;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		return 0;
 
 	case RTTEST_RESET:
@@ -82,7 +82,7 @@ static int handle_op(struct test_thread_data *td, int lockwakeup)
 		return 0;
 
 	case RTTEST_RESETEVENT:
-		atomic_set(&rttest_event, 0);
+		atomic_set_unchecked(&rttest_event, 0);
 		return 0;
 
 	default:
@@ -99,9 +99,9 @@ static int handle_op(struct test_thread_data *td, int lockwakeup)
 			return ret;
 
 		td->mutexes[id] = 1;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		rt_mutex_lock(&mutexes[id]);
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		td->mutexes[id] = 4;
 		return 0;
 
@@ -112,9 +112,9 @@ static int handle_op(struct test_thread_data *td, int lockwakeup)
 			return ret;
 
 		td->mutexes[id] = 1;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		ret = rt_mutex_lock_interruptible(&mutexes[id], 0);
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		td->mutexes[id] = ret ? 0 : 4;
 		return ret ? -EINTR : 0;
 
@@ -123,9 +123,9 @@ static int handle_op(struct test_thread_data *td, int lockwakeup)
 		if (id < 0 || id >= MAX_RT_TEST_MUTEXES || td->mutexes[id] != 4)
 			return ret;
 
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		rt_mutex_unlock(&mutexes[id]);
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		td->mutexes[id] = 0;
 		return 0;
 
@@ -187,7 +187,7 @@ void schedule_rt_mutex_test(struct rt_mutex *mutex)
 			break;
 
 		td->mutexes[dat] = 2;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		break;
 
 	case RTTEST_LOCKBKL:
@@ -208,7 +208,7 @@ void schedule_rt_mutex_test(struct rt_mutex *mutex)
 			return;
 
 		td->mutexes[dat] = 3;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		break;
 
 	case RTTEST_LOCKNOWAIT:
@@ -220,7 +220,7 @@ void schedule_rt_mutex_test(struct rt_mutex *mutex)
 			return;
 
 		td->mutexes[dat] = 1;
-		td->event = atomic_add_return(1, &rttest_event);
+		td->event = atomic_add_return_unchecked(1, &rttest_event);
 		return;
 
 	case RTTEST_LOCKBKL:

@@ -365,7 +365,7 @@ struct ip_vs_conn {
 	struct ip_vs_conn       *control;       /* Master control connection */
 	atomic_t                n_control;      /* Number of controlled ones */
 	struct ip_vs_dest       *dest;          /* real server */
-	atomic_t                in_pkts;        /* incoming packet counter */
+	atomic_unchecked_t      in_pkts;        /* incoming packet counter */
 
 	/* packet transmitter for different forwarding methods.  If it
 	   mangles the packet, it must return NF_DROP or better NF_STOLEN,
@@ -466,7 +466,7 @@ struct ip_vs_dest {
 	union nf_inet_addr	addr;		/* IP address of the server */
 	__be16			port;		/* port number of the server */
 	volatile unsigned	flags;		/* dest status flags */
-	atomic_t		conn_flags;	/* flags to copy to conn */
+	atomic_unchecked_t	conn_flags;	/* flags to copy to conn */
 	atomic_t		weight;		/* server weight */
 
 	atomic_t		refcnt;		/* reference counter */

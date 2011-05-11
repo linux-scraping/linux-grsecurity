@@ -192,7 +192,7 @@ static int i915_interrupt_info(struct seq_file *m, void *data)
 			   I915_READ(GTIMR));
 	}
 	seq_printf(m, "Interrupts received: %d\n",
-		   atomic_read(&dev_priv->irq_received));
+		   atomic_read_unchecked(&dev_priv->irq_received));
 	if (dev_priv->hw_status_page != NULL) {
 		seq_printf(m, "Current sequence:    %d\n",
 			   i915_get_gem_seqno(dev));

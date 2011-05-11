@@ -1896,7 +1896,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 	 */
 	smp_wmb();
 	atomic_set(&sk->sk_refcnt, 1);
-	atomic_set(&sk->sk_drops, 0);
+	atomic_set_unchecked(&sk->sk_drops, 0);
 }
 EXPORT_SYMBOL(sock_init_data);
 

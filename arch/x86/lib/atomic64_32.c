@@ -25,6 +25,12 @@ u64 atomic64_cmpxchg(atomic64_t *ptr, u64 old_val, u64 new_val)
 }
 EXPORT_SYMBOL(atomic64_cmpxchg);
 
+u64 atomic64_cmpxchg_unchecked(atomic64_unchecked_t *ptr, u64 old_val, u64 new_val)
+{
+	return cmpxchg8b(&ptr->counter, old_val, new_val);
+}
+EXPORT_SYMBOL(atomic64_cmpxchg_unchecked);
+
 /**
  * atomic64_xchg - xchg atomic64 variable
  * @ptr:      pointer to type atomic64_t
@@ -56,6 +62,36 @@ u64 atomic64_xchg(atomic64_t *ptr, u64 new_val)
 EXPORT_SYMBOL(atomic64_xchg);
 
 /**
+ * atomic64_xchg_unchecked - xchg atomic64 variable
+ * @ptr:      pointer to type atomic64_unchecked_t
+ * @new_val:  value to assign
+ *
+ * Atomically xchgs the value of @ptr to @new_val and returns
+ * the old value.
+ */
+u64 atomic64_xchg_unchecked(atomic64_unchecked_t *ptr, u64 new_val)
+{
+	/*
+	 * Try first with a (possibly incorrect) assumption about
+	 * what we have there. We'll do two loops most likely,
+	 * but we'll get an ownership MESI transaction straight away
+	 * instead of a read transaction followed by a
+	 * flush-for-ownership transaction:
+	 */
+	u64 old_val, real_val = 0;
+
+	do {
+		old_val = real_val;
+
+		real_val = atomic64_cmpxchg_unchecked(ptr, old_val, new_val);
+
+	} while (real_val != old_val);
+
+	return old_val;
+}
+EXPORT_SYMBOL(atomic64_xchg_unchecked);
+
+/**
  * atomic64_set - set atomic64 variable
  * @ptr:      pointer to type atomic64_t
  * @new_val:  value to assign
@@ -69,7 +105,19 @@ void atomic64_set(atomic64_t *ptr, u64 new_val)
 EXPORT_SYMBOL(atomic64_set);
 
 /**
-EXPORT_SYMBOL(atomic64_read);
+ * atomic64_unchecked_set - set atomic64 variable
+ * @ptr:      pointer to type atomic64_unchecked_t
+ * @new_val:  value to assign
+ *
+ * Atomically sets the value of @ptr to @new_val.
+ */
+void atomic64_set_unchecked(atomic64_unchecked_t *ptr, u64 new_val)
+{
+	atomic64_xchg_unchecked(ptr, new_val);
+}
+EXPORT_SYMBOL(atomic64_set_unchecked);
+
+/**
  * atomic64_add_return - add and return
  * @delta: integer value to add
  * @ptr:   pointer to type atomic64_t
@@ -99,11 +147,47 @@ noinline u64 atomic64_add_return(u64 delta, atomic64_t *ptr)
 }
 EXPORT_SYMBOL(atomic64_add_return);
 
+/**
+ * atomic64_add_return_unchecked - add and return
+ * @delta: integer value to add
+ * @ptr:   pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @delta to @ptr and returns @delta + *@ptr
+ */
+noinline u64 atomic64_add_return_unchecked(u64 delta, atomic64_unchecked_t *ptr)
+{
+	/*
+	 * Try first with a (possibly incorrect) assumption about
+	 * what we have there. We'll do two loops most likely,
+	 * but we'll get an ownership MESI transaction straight away
+	 * instead of a read transaction followed by a
+	 * flush-for-ownership transaction:
+	 */
+	u64 old_val, new_val, real_val = 0;
+
+	do {
+		old_val = real_val;
+		new_val = old_val + delta;
+
+		real_val = atomic64_cmpxchg_unchecked(ptr, old_val, new_val);
+
+	} while (real_val != old_val);
+
+	return new_val;
+}
+EXPORT_SYMBOL(atomic64_add_return_unchecked);
+
 u64 atomic64_sub_return(u64 delta, atomic64_t *ptr)
 {
 	return atomic64_add_return(-delta, ptr);
 }
 EXPORT_SYMBOL(atomic64_sub_return);
+
+u64 atomic64_sub_return_unchecked(u64 delta, atomic64_unchecked_t *ptr)
+{
+	return atomic64_add_return_unchecked(-delta, ptr);
+}
+EXPORT_SYMBOL(atomic64_sub_return_unchecked);
 
 u64 atomic64_inc_return(atomic64_t *ptr)
 {
@@ -111,11 +195,23 @@ u64 atomic64_inc_return(atomic64_t *ptr)
 }
 EXPORT_SYMBOL(atomic64_inc_return);
 
+u64 atomic64_inc_return_unchecked(atomic64_unchecked_t *ptr)
+{
+	return atomic64_add_return_unchecked(1, ptr);
+}
+EXPORT_SYMBOL(atomic64_inc_return_unchecked);
+
 u64 atomic64_dec_return(atomic64_t *ptr)
 {
 	return atomic64_sub_return(1, ptr);
 }
 EXPORT_SYMBOL(atomic64_dec_return);
+
+u64 atomic64_dec_return_unchecked(atomic64_unchecked_t *ptr)
+{
+	return atomic64_sub_return_unchecked(1, ptr);
+}
+EXPORT_SYMBOL(atomic64_dec_return_unchecked);
 
 /**
  * atomic64_add - add integer to atomic64 variable
@@ -131,6 +227,19 @@ void atomic64_add(u64 delta, atomic64_t *ptr)
 EXPORT_SYMBOL(atomic64_add);
 
 /**
+ * atomic64_add_unchecked - add integer to atomic64 variable
+ * @delta: integer value to add
+ * @ptr:   pointer to type atomic64_unchecked_t
+ *
+ * Atomically adds @delta to @ptr.
+ */
+void atomic64_add_unchecked(u64 delta, atomic64_unchecked_t *ptr)
+{
+	atomic64_add_return_unchecked(delta, ptr);
+}
+EXPORT_SYMBOL(atomic64_add_unchecked);
+
+/**
  * atomic64_sub - subtract the atomic64 variable
  * @delta: integer value to subtract
  * @ptr:   pointer to type atomic64_t
@@ -142,6 +251,19 @@ void atomic64_sub(u64 delta, atomic64_t *ptr)
 	atomic64_add(-delta, ptr);
 }
 EXPORT_SYMBOL(atomic64_sub);
+
+/**
+ * atomic64_sub_unchecked - subtract the atomic64 variable
+ * @delta: integer value to subtract
+ * @ptr:   pointer to type atomic64_unchecked_t
+ *
+ * Atomically subtracts @delta from @ptr.
+ */
+void atomic64_sub_unchecked(u64 delta, atomic64_unchecked_t *ptr)
+{
+	atomic64_add_unchecked(-delta, ptr);
+}
+EXPORT_SYMBOL(atomic64_sub_unchecked);
 
 /**
  * atomic64_sub_and_test - subtract value from variable and test result
@@ -173,6 +295,18 @@ void atomic64_inc(atomic64_t *ptr)
 EXPORT_SYMBOL(atomic64_inc);
 
 /**
+ * atomic64_inc_unchecked - increment atomic64 variable
+ * @ptr: pointer to type atomic64_unchecked_t
+ *
+ * Atomically increments @ptr by 1.
+ */
+void atomic64_inc_unchecked(atomic64_unchecked_t *ptr)
+{
+	atomic64_add_unchecked(1, ptr);
+}
+EXPORT_SYMBOL(atomic64_inc_unchecked);
+
+/**
  * atomic64_dec - decrement atomic64 variable
  * @ptr: pointer to type atomic64_t
  *
@@ -183,6 +317,18 @@ void atomic64_dec(atomic64_t *ptr)
 	atomic64_sub(1, ptr);
 }
 EXPORT_SYMBOL(atomic64_dec);
+
+/**
+ * atomic64_dec_unchecked - decrement atomic64 variable
+ * @ptr: pointer to type atomic64_unchecked_t
+ *
+ * Atomically decrements @ptr by 1.
+ */
+void atomic64_dec_unchecked(atomic64_unchecked_t *ptr)
+{
+	atomic64_sub_unchecked(1, ptr);
+}
+EXPORT_SYMBOL(atomic64_dec_unchecked);
 
 /**
  * atomic64_dec_and_test - decrement and test

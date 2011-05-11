@@ -1794,7 +1794,7 @@ void smp_error_interrupt(struct pt_regs *regs)
 	apic_write(APIC_ESR, 0);
 	v1 = apic_read(APIC_ESR);
 	ack_APIC_irq();
-	atomic_inc(&irq_err_count);
+	atomic_inc_unchecked(&irq_err_count);
 
 	/*
 	 * Here is what the APIC error bits mean:

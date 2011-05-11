@@ -145,11 +145,11 @@ typedef struct _ce_stats_t {
 	 * operations
 	 */
 	u32 unircv;	/* # multicast packets received */
-	atomic_t unixmt;	/* # multicast packets for Tx */
+	atomic_unchecked_t unixmt;	/* # multicast packets for Tx */
 	u32 multircv;	/* # multicast packets received */
-	atomic_t multixmt;	/* # multicast packets for Tx */
+	atomic_unchecked_t multixmt;	/* # multicast packets for Tx */
 	u32 brdcstrcv;	/* # broadcast packets received */
-	atomic_t brdcstxmt;	/* # broadcast packets for Tx */
+	atomic_unchecked_t brdcstxmt;	/* # broadcast packets for Tx */
 	u32 norcvbuf;	/* # Rx packets discarded */
 	u32 noxmtbuf;	/* # Tx packets discarded */
 

@@ -129,14 +129,14 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 {
 	int logtype;
 	char *result = (audit == GR_DO_AUDIT) ? "successful" : "denied";
-	char *str1, *str2, *str3;
-	void *voidptr;
-	int num1, num2;
-	unsigned long ulong1, ulong2;
-	struct dentry *dentry;
-	struct vfsmount *mnt;
-	struct file *file;
-	struct task_struct *task;
+	char *str1 = NULL, *str2 = NULL, *str3 = NULL;
+	void *voidptr = NULL;
+	int num1 = 0, num2 = 0;
+	unsigned long ulong1 = 0, ulong2 = 0;
+	struct dentry *dentry = NULL;
+	struct vfsmount *mnt = NULL;
+	struct file *file = NULL;
+	struct task_struct *task = NULL;
 	const struct cred *cred, *pcred;
 	va_list ap;
 

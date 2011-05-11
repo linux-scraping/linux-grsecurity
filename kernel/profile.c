@@ -39,7 +39,7 @@ struct profile_hit {
 /* Oprofile timer tick hook */
 static int (*timer_hook)(struct pt_regs *) __read_mostly;
 
-static atomic_t *prof_buffer;
+static atomic_unchecked_t *prof_buffer;
 static unsigned long prof_len, prof_shift;
 
 int prof_on __read_mostly;
@@ -283,7 +283,7 @@ static void profile_flip_buffers(void)
 					hits[i].pc = 0;
 				continue;
 			}
-			atomic_add(hits[i].hits, &prof_buffer[hits[i].pc]);
+			atomic_add_unchecked(hits[i].hits, &prof_buffer[hits[i].pc]);
 			hits[i].hits = hits[i].pc = 0;
 		}
 	}
@@ -346,9 +346,9 @@ void profile_hits(int type, void *__pc, unsigned int nr_hits)
 	 * Add the current hit(s) and flush the write-queue out
 	 * to the global buffer:
 	 */
-	atomic_add(nr_hits, &prof_buffer[pc]);
+	atomic_add_unchecked(nr_hits, &prof_buffer[pc]);
 	for (i = 0; i < NR_PROFILE_HIT; ++i) {
-		atomic_add(hits[i].hits, &prof_buffer[hits[i].pc]);
+		atomic_add_unchecked(hits[i].hits, &prof_buffer[hits[i].pc]);
 		hits[i].pc = hits[i].hits = 0;
 	}
 out:
@@ -426,7 +426,7 @@ void profile_hits(int type, void *__pc, unsigned int nr_hits)
 	if (prof_on != type || !prof_buffer)
 		return;
 	pc = ((unsigned long)__pc - (unsigned long)_stext) >> prof_shift;
-	atomic_add(nr_hits, &prof_buffer[min(pc, prof_len - 1)]);
+	atomic_add_unchecked(nr_hits, &prof_buffer[min(pc, prof_len - 1)]);
 }
 #endif /* !CONFIG_SMP */
 EXPORT_SYMBOL_GPL(profile_hits);
@@ -517,7 +517,7 @@ read_profile(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 			return -EFAULT;
 		buf++; p++; count--; read++;
 	}
-	pnt = (char *)prof_buffer + p - sizeof(atomic_t);
+	pnt = (char *)prof_buffer + p - sizeof(atomic_unchecked_t);
 	if (copy_to_user(buf, (void *)pnt, count))
 		return -EFAULT;
 	read += count;
@@ -548,7 +548,7 @@ static ssize_t write_profile(struct file *file, const char __user *buf,
 	}
 #endif
 	profile_discard_flip_buffers();
-	memset(prof_buffer, 0, prof_len * sizeof(atomic_t));
+	memset(prof_buffer, 0, prof_len * sizeof(atomic_unchecked_t));
 	return count;
 }
 

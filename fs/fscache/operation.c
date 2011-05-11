@@ -16,7 +16,7 @@
 #include <linux/seq_file.h>
 #include "internal.h"
 
-atomic_t fscache_op_debug_id;
+atomic_unchecked_t fscache_op_debug_id;
 EXPORT_SYMBOL(fscache_op_debug_id);
 
 /**
@@ -39,7 +39,7 @@ void fscache_enqueue_operation(struct fscache_operation *op)
 	ASSERTCMP(op->object->state, >=, FSCACHE_OBJECT_AVAILABLE);
 	ASSERTCMP(atomic_read(&op->usage), >, 0);
 
-	fscache_stat(&fscache_n_op_enqueue);
+	fscache_stat_unchecked(&fscache_n_op_enqueue);
 	switch (op->flags & FSCACHE_OP_TYPE) {
 	case FSCACHE_OP_FAST:
 		_debug("queue fast");
@@ -76,7 +76,7 @@ static void fscache_run_op(struct fscache_object *object,
 		wake_up_bit(&op->flags, FSCACHE_OP_WAITING);
 	if (op->processor)
 		fscache_enqueue_operation(op);
-	fscache_stat(&fscache_n_op_run);
+	fscache_stat_unchecked(&fscache_n_op_run);
 }
 
 /*
@@ -107,11 +107,11 @@ int fscache_submit_exclusive_op(struct fscache_object *object,
 		if (object->n_ops > 0) {
 			atomic_inc(&op->usage);
 			list_add_tail(&op->pend_link, &object->pending_ops);
-			fscache_stat(&fscache_n_op_pend);
+			fscache_stat_unchecked(&fscache_n_op_pend);
 		} else if (!list_empty(&object->pending_ops)) {
 			atomic_inc(&op->usage);
 			list_add_tail(&op->pend_link, &object->pending_ops);
-			fscache_stat(&fscache_n_op_pend);
+			fscache_stat_unchecked(&fscache_n_op_pend);
 			fscache_start_operations(object);
 		} else {
 			ASSERTCMP(object->n_in_progress, ==, 0);
@@ -127,7 +127,7 @@ int fscache_submit_exclusive_op(struct fscache_object *object,
 		object->n_exclusive++;	/* reads and writes must wait */
 		atomic_inc(&op->usage);
 		list_add_tail(&op->pend_link, &object->pending_ops);
-		fscache_stat(&fscache_n_op_pend);
+		fscache_stat_unchecked(&fscache_n_op_pend);
 		ret = 0;
 	} else {
 		/* not allowed to submit ops in any other state */
@@ -214,11 +214,11 @@ int fscache_submit_op(struct fscache_object *object,
 		if (object->n_exclusive > 0) {
 			atomic_inc(&op->usage);
 			list_add_tail(&op->pend_link, &object->pending_ops);
-			fscache_stat(&fscache_n_op_pend);
+			fscache_stat_unchecked(&fscache_n_op_pend);
 		} else if (!list_empty(&object->pending_ops)) {
 			atomic_inc(&op->usage);
 			list_add_tail(&op->pend_link, &object->pending_ops);
-			fscache_stat(&fscache_n_op_pend);
+			fscache_stat_unchecked(&fscache_n_op_pend);
 			fscache_start_operations(object);
 		} else {
 			ASSERTCMP(object->n_exclusive, ==, 0);
@@ -230,12 +230,12 @@ int fscache_submit_op(struct fscache_object *object,
 		object->n_ops++;
 		atomic_inc(&op->usage);
 		list_add_tail(&op->pend_link, &object->pending_ops);
-		fscache_stat(&fscache_n_op_pend);
+		fscache_stat_unchecked(&fscache_n_op_pend);
 		ret = 0;
 	} else if (object->state == FSCACHE_OBJECT_DYING ||
 		   object->state == FSCACHE_OBJECT_LC_DYING ||
 		   object->state == FSCACHE_OBJECT_WITHDRAWING) {
-		fscache_stat(&fscache_n_op_rejected);
+		fscache_stat_unchecked(&fscache_n_op_rejected);
 		ret = -ENOBUFS;
 	} else if (!test_bit(FSCACHE_IOERROR, &object->cache->flags)) {
 		fscache_report_unexpected_submission(object, op, ostate);
@@ -305,7 +305,7 @@ int fscache_cancel_op(struct fscache_operation *op)
 
 	ret = -EBUSY;
 	if (!list_empty(&op->pend_link)) {
-		fscache_stat(&fscache_n_op_cancelled);
+		fscache_stat_unchecked(&fscache_n_op_cancelled);
 		list_del_init(&op->pend_link);
 		object->n_ops--;
 		if (test_bit(FSCACHE_OP_EXCLUSIVE, &op->flags))
@@ -344,7 +344,7 @@ void fscache_put_operation(struct fscache_operation *op)
 	if (test_and_set_bit(FSCACHE_OP_DEAD, &op->flags))
 		BUG();
 
-	fscache_stat(&fscache_n_op_release);
+	fscache_stat_unchecked(&fscache_n_op_release);
 
 	if (op->release) {
 		op->release(op);
@@ -361,7 +361,7 @@ void fscache_put_operation(struct fscache_operation *op)
 	 * lock, and defer it otherwise */
 	if (!spin_trylock(&object->lock)) {
 		_debug("defer put");
-		fscache_stat(&fscache_n_op_deferred_release);
+		fscache_stat_unchecked(&fscache_n_op_deferred_release);
 
 		cache = object->cache;
 		spin_lock(&cache->op_gc_list_lock);
@@ -423,7 +423,7 @@ void fscache_operation_gc(struct work_struct *work)
 
 		_debug("GC DEFERRED REL OBJ%x OP%x",
 		       object->debug_id, op->debug_id);
-		fscache_stat(&fscache_n_op_gc);
+		fscache_stat_unchecked(&fscache_n_op_gc);
 
 		ASSERTCMP(atomic_read(&op->usage), ==, 0);
 

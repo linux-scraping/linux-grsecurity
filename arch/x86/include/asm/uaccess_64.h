@@ -41,8 +41,12 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic(dst, (__force const void *)src, size);
 	}
 	switch (size) {
@@ -77,8 +81,12 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned size)
 			       ret, "q", "", "=r", 8);
 		return ret;
 	default:
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic(dst, (__force const void *)src, size);
 	}
 }
@@ -100,8 +108,12 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic((__force void *)dst, src, size);
 	}
 	switch (size) {
@@ -136,8 +148,12 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned size)
 			       ret, "q", "", "er", 8);
 		return ret;
 	default:
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic((__force void *)dst, src, size);
 	}
 }
@@ -184,10 +200,14 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 #endif
 
 	if (!__builtin_constant_p(size)) {
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic((__force void *)dst,
 					 (__force const void *)src, size);
 	}
@@ -230,10 +250,14 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		return ret;
 	}
 	default:
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 			src += PAX_USER_SHADOW_BASE;
 		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 			dst += PAX_USER_SHADOW_BASE;
+#endif
+
 		return copy_user_generic((__force void *)dst,
 					 (__force const void *)src, size);
 	}
@@ -258,10 +282,11 @@ __copy_from_user_inatomic(void *dst, const void __user *src, unsigned size)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!__access_ok(VERIFY_READ, src, size))
 		return size;
-#endif
 
 	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 		src += PAX_USER_SHADOW_BASE;
+#endif
+
 	return copy_user_generic(dst, (__force const void *)src, size);
 }
 
@@ -274,10 +299,11 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned size)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!__access_ok(VERIFY_WRITE, dst, size))
 		return size;
-#endif
 
 	if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 		dst += PAX_USER_SHADOW_BASE;
+#endif
+
 	return copy_user_generic((__force void *)dst, src, size);
 }
 

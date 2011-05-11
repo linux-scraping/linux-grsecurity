@@ -143,6 +143,7 @@ int main(void)
 
 	BLANK();
 	DEFINE(PAGE_SIZE_asm, PAGE_SIZE);
+	DEFINE(THREAD_SIZE_asm, THREAD_SIZE);
 #ifdef CONFIG_XEN
 	BLANK();
 	OFFSET(XEN_vcpu_info_mask, vcpu_info, evtchn_upcall_mask);

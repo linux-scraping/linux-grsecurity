@@ -252,28 +252,28 @@ struct cifsTconInfo {
 	__u16 Flags;		/* optional support bits */
 	enum statusEnum tidStatus;
 #ifdef CONFIG_CIFS_STATS
-	atomic_t num_smbs_sent;
-	atomic_t num_writes;
-	atomic_t num_reads;
-	atomic_t num_flushes;
-	atomic_t num_oplock_brks;
-	atomic_t num_opens;
-	atomic_t num_closes;
-	atomic_t num_deletes;
-	atomic_t num_mkdirs;
-	atomic_t num_posixopens;
-	atomic_t num_posixmkdirs;
-	atomic_t num_rmdirs;
-	atomic_t num_renames;
-	atomic_t num_t2renames;
-	atomic_t num_ffirst;
-	atomic_t num_fnext;
-	atomic_t num_fclose;
-	atomic_t num_hardlinks;
-	atomic_t num_symlinks;
-	atomic_t num_locks;
-	atomic_t num_acl_get;
-	atomic_t num_acl_set;
+	atomic_unchecked_t num_smbs_sent;
+	atomic_unchecked_t num_writes;
+	atomic_unchecked_t num_reads;
+	atomic_unchecked_t num_flushes;
+	atomic_unchecked_t num_oplock_brks;
+	atomic_unchecked_t num_opens;
+	atomic_unchecked_t num_closes;
+	atomic_unchecked_t num_deletes;
+	atomic_unchecked_t num_mkdirs;
+	atomic_unchecked_t num_posixopens;
+	atomic_unchecked_t num_posixmkdirs;
+	atomic_unchecked_t num_rmdirs;
+	atomic_unchecked_t num_renames;
+	atomic_unchecked_t num_t2renames;
+	atomic_unchecked_t num_ffirst;
+	atomic_unchecked_t num_fnext;
+	atomic_unchecked_t num_fclose;
+	atomic_unchecked_t num_hardlinks;
+	atomic_unchecked_t num_symlinks;
+	atomic_unchecked_t num_locks;
+	atomic_unchecked_t num_acl_get;
+	atomic_unchecked_t num_acl_set;
 #ifdef CONFIG_CIFS_STATS2
 	unsigned long long time_writes;
 	unsigned long long time_reads;
@@ -414,7 +414,7 @@ static inline char CIFS_DIR_SEP(const struct cifs_sb_info *cifs_sb)
 }
 
 #ifdef CONFIG_CIFS_STATS
-#define cifs_stats_inc atomic_inc
+#define cifs_stats_inc atomic_inc_unchecked
 
 static inline void cifs_stats_bytes_written(struct cifsTconInfo *tcon,
 					    unsigned int bytes)

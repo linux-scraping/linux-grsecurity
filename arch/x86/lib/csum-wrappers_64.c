@@ -52,8 +52,12 @@ csum_partial_copy_from_user(const void __user *src, void *dst,
 			len -= 2;
 		}
 	}
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
 		src += PAX_USER_SHADOW_BASE;
+#endif
+
 	isum = csum_partial_copy_generic((__force const void *)src,
 				dst, len, isum, errp, NULL);
 	if (unlikely(*errp))
@@ -107,8 +111,12 @@ csum_partial_copy_to_user(const void *src, void __user *dst,
 	}
 
 	*errp = 0;
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 	if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
 		dst += PAX_USER_SHADOW_BASE;
+#endif
+
 	return csum_partial_copy_generic(src, (void __force *)dst,
 					 len, isum, NULL, errp);
 }

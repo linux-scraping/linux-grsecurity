@@ -109,7 +109,7 @@ static int rxrpc_abort_connection(struct rxrpc_connection *conn,
 
 	len = iov[0].iov_len + iov[1].iov_len;
 
-	hdr.serial = htonl(atomic_inc_return(&conn->serial));
+	hdr.serial = htonl(atomic_inc_return_unchecked(&conn->serial));
 	_proto("Tx CONN ABORT %%%u { %d }", ntohl(hdr.serial), abort_code);
 
 	ret = kernel_sendmsg(conn->trans->local->socket, &msg, iov, 2, len);

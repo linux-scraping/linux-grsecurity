@@ -484,7 +484,7 @@ static void bdi_add_to_pending(struct rcu_head *head)
  * Add the default flusher task that gets created for any bdi
  * that has dirty data pending writeout
  */
-void static bdi_add_default_flusher_task(struct backing_dev_info *bdi)
+static void bdi_add_default_flusher_task(struct backing_dev_info *bdi)
 {
 	if (!bdi_cap_writeback_dirty(bdi))
 		return;

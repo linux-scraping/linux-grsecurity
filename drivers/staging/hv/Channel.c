@@ -464,8 +464,8 @@ int VmbusChannelEstablishGpadl(struct vmbus_channel *Channel, void *Kbuffer,
 
 	DPRINT_ENTER(VMBUS);
 
-	nextGpadlHandle = atomic_read(&gVmbusConnection.NextGpadlHandle);
-	atomic_inc(&gVmbusConnection.NextGpadlHandle);
+	nextGpadlHandle = atomic_read_unchecked(&gVmbusConnection.NextGpadlHandle);
+	atomic_inc_unchecked(&gVmbusConnection.NextGpadlHandle);
 
 	VmbusChannelCreateGpadlHeader(Kbuffer, Size, &msgInfo, &msgCount);
 	ASSERT(msgInfo != NULL);

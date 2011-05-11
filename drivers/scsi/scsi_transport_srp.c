@@ -33,7 +33,7 @@
 #include "scsi_transport_srp_internal.h"
 
 struct srp_host_attrs {
-	atomic_t next_port_id;
+	atomic_unchecked_t next_port_id;
 };
 #define to_srp_host_attrs(host)	((struct srp_host_attrs *)(host)->shost_data)
 
@@ -62,7 +62,7 @@ static int srp_host_setup(struct transport_container *tc, struct device *dev,
 	struct Scsi_Host *shost = dev_to_shost(dev);
 	struct srp_host_attrs *srp_host = to_srp_host_attrs(shost);
 
-	atomic_set(&srp_host->next_port_id, 0);
+	atomic_set_unchecked(&srp_host->next_port_id, 0);
 	return 0;
 }
 
@@ -211,7 +211,7 @@ struct srp_rport *srp_rport_add(struct Scsi_Host *shost,
 	memcpy(rport->port_id, ids->port_id, sizeof(rport->port_id));
 	rport->roles = ids->roles;
 
-	id = atomic_inc_return(&to_srp_host_attrs(shost)->next_port_id);
+	id = atomic_inc_return_unchecked(&to_srp_host_attrs(shost)->next_port_id);
 	dev_set_name(&rport->dev, "port-%d:%d", shost->host_no, id);
 
 	transport_setup_device(&rport->dev);

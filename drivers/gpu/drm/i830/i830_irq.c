@@ -47,7 +47,7 @@ irqreturn_t i830_driver_irq_handler(DRM_IRQ_ARGS)
 
 	I830_WRITE16(I830REG_INT_IDENTITY_R, temp);
 
-	atomic_inc(&dev_priv->irq_received);
+	atomic_inc_unchecked(&dev_priv->irq_received);
 	wake_up_interruptible(&dev_priv->irq_queue);
 
 	return IRQ_HANDLED;
@@ -60,14 +60,14 @@ static int i830_emit_irq(struct drm_device * dev)
 
 	DRM_DEBUG("%s\n", __func__);
 
-	atomic_inc(&dev_priv->irq_emitted);
+	atomic_inc_unchecked(&dev_priv->irq_emitted);
 
 	BEGIN_LP_RING(2);
 	OUT_RING(0);
 	OUT_RING(GFX_OP_USER_INTERRUPT);
 	ADVANCE_LP_RING();
 
-	return atomic_read(&dev_priv->irq_emitted);
+	return atomic_read_unchecked(&dev_priv->irq_emitted);
 }
 
 static int i830_wait_irq(struct drm_device * dev, int irq_nr)
@@ -79,7 +79,7 @@ static int i830_wait_irq(struct drm_device * dev, int irq_nr)
 
 	DRM_DEBUG("%s\n", __func__);
 
-	if (atomic_read(&dev_priv->irq_received) >= irq_nr)
+	if (atomic_read_unchecked(&dev_priv->irq_received) >= irq_nr)
 		return 0;
 
 	dev_priv->sarea_priv->perf_boxes |= I830_BOX_WAIT;
@@ -88,7 +88,7 @@ static int i830_wait_irq(struct drm_device * dev, int irq_nr)
 
 	for (;;) {
 		__set_current_state(TASK_INTERRUPTIBLE);
-		if (atomic_read(&dev_priv->irq_received) >= irq_nr)
+		if (atomic_read_unchecked(&dev_priv->irq_received) >= irq_nr)
 			break;
 		if ((signed)(end - jiffies) <= 0) {
 			DRM_ERROR("timeout iir %x imr %x ier %x hwstam %x\n",
@@ -163,8 +163,8 @@ void i830_driver_irq_preinstall(struct drm_device * dev)
 	I830_WRITE16(I830REG_HWSTAM, 0xffff);
 	I830_WRITE16(I830REG_INT_MASK_R, 0x0);
 	I830_WRITE16(I830REG_INT_ENABLE_R, 0x0);
-	atomic_set(&dev_priv->irq_received, 0);
-	atomic_set(&dev_priv->irq_emitted, 0);
+	atomic_set_unchecked(&dev_priv->irq_received, 0);
+	atomic_set_unchecked(&dev_priv->irq_emitted, 0);
 	init_waitqueue_head(&dev_priv->irq_queue);
 }
 

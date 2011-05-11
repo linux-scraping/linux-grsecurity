@@ -59,9 +59,6 @@ config PAX_EI_PAX
 	  know about the non-standard use of the ELF header) therefore it
 	  has been deprecated in favour of PT_PAX_FLAGS support.
 
-	  If your toolchain does not support PT_PAX_FLAGS markings,
-	  you can create one in most cases with 'paxctl -C'.
-
 	  Note that if you enable PT_PAX_FLAGS marking support as well,
 	  the PT_PAX_FLAG marks will override the legacy EI_PAX marks.
 
@@ -76,9 +73,8 @@ config PAX_PT_PAX_FLAGS
 	  integrated into the toolchain (the binutils patch is available
 	  from http://pax.grsecurity.net).
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF
-	  program header then you MUST enable the EI_PAX marking support
-	  otherwise they will not get any protection.
+	  If your toolchain does not support PT_PAX_FLAGS markings,
+	  you can create one in most cases with 'paxctl -C'.
 
 	  Note that if you enable the legacy EI_PAX marking support as well,
 	  the EI_PAX marks will be overridden by the PT_PAX_FLAGS marks.
@@ -330,6 +326,9 @@ config PAX_KERNEXEC
 	  that is, enabling this option will make it harder to inject
 	  and execute 'foreign' code in kernel memory itself.
 
+	  Note that on x86_64 kernels there is a known regression when
+	  this feature and KVM/VMX are both enabled in the host kernel.
+
 config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
 	default "4"
@@ -457,6 +456,23 @@ config PAX_MEMORY_SANITIZE
 
 	  Note that this feature does not protect data stored in live pages,
 	  e.g., process memory swapped to disk may stay there for a long time.
+
+config PAX_MEMORY_STACKLEAK
+	bool "Sanitize kernel stack"
+	help
+	  By saying Y here the kernel will erase the kernel stack before it
+	  returns from a system call.  This in turn reduces the information
+	  that a kernel stack leak bug can reveal.
+
+	  Note that such a bug can still leak information that was put on
+	  the stack by the current system call (the one eventually triggering
+	  the bug) but traces of earlier system calls on the kernel stack
+	  cannot leak anymore.
+
+	  The tradeoff is performance impact, on a single CPU system kernel
+	  compilation sees a 1% slowdown, other systems and workloads may vary
+	  and you are advised to test this feature on your expected workload
+	  before deploying it.
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"

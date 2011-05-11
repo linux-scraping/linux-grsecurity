@@ -222,10 +222,10 @@ static void print_mce_tail(void)
 
 #define PANIC_TIMEOUT 5 /* 5 seconds */
 
-static atomic_t mce_paniced;
+static atomic_unchecked_t mce_paniced;
 
 static int fake_panic;
-static atomic_t mce_fake_paniced;
+static atomic_unchecked_t mce_fake_paniced;
 
 /* Panic in progress. Enable interrupts and wait for final IPI */
 static void wait_for_panic(void)
@@ -249,7 +249,7 @@ static void mce_panic(char *msg, struct mce *final, char *exp)
 		/*
 		 * Make sure only one CPU runs in machine check panic
 		 */
-		if (atomic_inc_return(&mce_paniced) > 1)
+		if (atomic_inc_return_unchecked(&mce_paniced) > 1)
 			wait_for_panic();
 		barrier();
 
@@ -257,7 +257,7 @@ static void mce_panic(char *msg, struct mce *final, char *exp)
 		console_verbose();
 	} else {
 		/* Don't log too much for fake panic */
-		if (atomic_inc_return(&mce_fake_paniced) > 1)
+		if (atomic_inc_return_unchecked(&mce_fake_paniced) > 1)
 			return;
 	}
 	print_mce_head();
@@ -617,7 +617,7 @@ static int mce_timed_out(u64 *t)
 	 * might have been modified by someone else.
 	 */
 	rmb();
-	if (atomic_read(&mce_paniced))
+	if (atomic_read_unchecked(&mce_paniced))
 		wait_for_panic();
 	if (!monarch_timeout)
 		goto out;
@@ -2083,7 +2083,7 @@ struct dentry *mce_get_debugfs_dir(void)
 static void mce_reset(void)
 {
 	cpu_missing = 0;
-	atomic_set(&mce_fake_paniced, 0);
+	atomic_set_unchecked(&mce_fake_paniced, 0);
 	atomic_set(&mce_executing, 0);
 	atomic_set(&mce_callin, 0);
 	atomic_set(&global_nwo, 0);

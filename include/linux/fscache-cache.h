@@ -116,7 +116,7 @@ struct fscache_operation {
 #endif
 };
 
-extern atomic_t fscache_op_debug_id;
+extern atomic_unchecked_t fscache_op_debug_id;
 extern const struct slow_work_ops fscache_op_slow_work_ops;
 
 extern void fscache_enqueue_operation(struct fscache_operation *);
@@ -134,7 +134,7 @@ static inline void fscache_operation_init(struct fscache_operation *op,
 					  fscache_operation_release_t release)
 {
 	atomic_set(&op->usage, 1);
-	op->debug_id = atomic_inc_return(&fscache_op_debug_id);
+	op->debug_id = atomic_inc_return_unchecked(&fscache_op_debug_id);
 	op->release = release;
 	INIT_LIST_HEAD(&op->pend_link);
 	fscache_set_op_state(op, "Init");

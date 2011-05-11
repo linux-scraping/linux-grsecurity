@@ -56,7 +56,7 @@ static struct pci_device_id cx18_pci_tbl[] __devinitdata = {
 
 MODULE_DEVICE_TABLE(pci, cx18_pci_tbl);
 
-static atomic_t cx18_instance = ATOMIC_INIT(0);
+static atomic_unchecked_t cx18_instance = ATOMIC_INIT(0);
 
 /* Parameter declarations */
 static int cardtype[CX18_MAX_CARDS];
@@ -800,7 +800,7 @@ static int __devinit cx18_probe(struct pci_dev *pci_dev,
 	struct cx18 *cx;
 
 	/* FIXME - module parameter arrays constrain max instances */
-	i = atomic_inc_return(&cx18_instance) - 1;
+	i = atomic_inc_return_unchecked(&cx18_instance) - 1;
 	if (i >= CX18_MAX_CARDS) {
 		printk(KERN_ERR "cx18: cannot manage card %d, driver has a "
 		       "limit of 0 - %d\n", i, CX18_MAX_CARDS - 1);

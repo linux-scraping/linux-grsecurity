@@ -285,6 +285,8 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 		.spd_release = spd_release_page,
 	};
 
+	STACKLEAK_PROBE(partial);
+
 	index = *ppos >> PAGE_CACHE_SHIFT;
 	loff = *ppos & ~PAGE_CACHE_MASK;
 	req_pages = (len + loff + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
@@ -564,6 +566,9 @@ ssize_t default_file_splice_read(struct file *in, loff_t *ppos,
 		.ops = &default_pipe_buf_ops,
 		.spd_release = spd_release_page,
 	};
+
+	STACKLEAK_PROBE(partial);
+	STACKLEAK_PROBE(vec);
 
 	index = *ppos >> PAGE_CACHE_SHIFT;
 	offset = *ppos & ~PAGE_CACHE_MASK;
@@ -1591,6 +1596,8 @@ static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
 		.ops = &user_page_pipe_buf_ops,
 		.spd_release = spd_release_page,
 	};
+
+	STACKLEAK_PROBE(partial);
 
 	pipe = pipe_info(file->f_path.dentry->d_inode);
 	if (!pipe)

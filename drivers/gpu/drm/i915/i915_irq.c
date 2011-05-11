@@ -528,7 +528,7 @@ irqreturn_t i915_driver_irq_handler(DRM_IRQ_ARGS)
 	int irq_received;
 	int ret = IRQ_NONE;
 
-	atomic_inc(&dev_priv->irq_received);
+	atomic_inc_unchecked(&dev_priv->irq_received);
 
 	if (IS_IGDNG(dev))
 		return igdng_irq_handler(dev);
@@ -1021,7 +1021,7 @@ void i915_driver_irq_preinstall(struct drm_device * dev)
 {
 	drm_i915_private_t *dev_priv = (drm_i915_private_t *) dev->dev_private;
 
-	atomic_set(&dev_priv->irq_received, 0);
+	atomic_set_unchecked(&dev_priv->irq_received, 0);
 
 	INIT_WORK(&dev_priv->hotplug_work, i915_hotplug_work_func);
 	INIT_WORK(&dev_priv->error_work, i915_error_work_func);

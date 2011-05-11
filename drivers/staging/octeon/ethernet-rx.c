@@ -406,11 +406,11 @@ void cvm_oct_tasklet_rx(unsigned long unused)
 				/* Increment RX stats for virtual ports */
 				if (work->ipprt >= CVMX_PIP_NUM_INPUT_PORTS) {
 #ifdef CONFIG_64BIT
-					atomic64_add(1, (atomic64_t *)&priv->stats.rx_packets);
-					atomic64_add(skb->len, (atomic64_t *)&priv->stats.rx_bytes);
+					atomic64_add_unchecked(1, (atomic64_unchecked_t *)&priv->stats.rx_packets);
+					atomic64_add_unchecked(skb->len, (atomic64_unchecked_t *)&priv->stats.rx_bytes);
 #else
-					atomic_add(1, (atomic_t *)&priv->stats.rx_packets);
-					atomic_add(skb->len, (atomic_t *)&priv->stats.rx_bytes);
+					atomic_add_unchecked(1, (atomic_unchecked_t *)&priv->stats.rx_packets);
+					atomic_add_unchecked(skb->len, (atomic_unchecked_t *)&priv->stats.rx_bytes);
 #endif
 				}
 				netif_receive_skb(skb);
@@ -424,9 +424,9 @@ void cvm_oct_tasklet_rx(unsigned long unused)
 				   dev->name);
 				 */
 #ifdef CONFIG_64BIT
-				atomic64_add(1, (atomic64_t *)&priv->stats.rx_dropped);
+				atomic64_add_unchecked(1, (atomic64_t *)&priv->stats.rx_dropped);
 #else
-				atomic_add(1, (atomic_t *)&priv->stats.rx_dropped);
+				atomic_add_unchecked(1, (atomic_t *)&priv->stats.rx_dropped);
 #endif
 				dev_kfree_skb_irq(skb);
 			}

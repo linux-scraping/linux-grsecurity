@@ -282,7 +282,6 @@ static int raw_release(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct raw_sock *ro;
 
-
 	if (!sk)
 		return 0;
 

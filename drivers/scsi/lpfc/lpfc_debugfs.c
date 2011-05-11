@@ -124,7 +124,7 @@ struct lpfc_debug {
 	int  len;
 };
 
-static atomic_t lpfc_debugfs_seq_trc_cnt = ATOMIC_INIT(0);
+static atomic_unchecked_t lpfc_debugfs_seq_trc_cnt = ATOMIC_INIT(0);
 static unsigned long lpfc_debugfs_start_time = 0L;
 
 /**
@@ -158,7 +158,7 @@ lpfc_debugfs_disc_trc_data(struct lpfc_vport *vport, char *buf, int size)
 	lpfc_debugfs_enable = 0;
 
 	len = 0;
-	index = (atomic_read(&vport->disc_trc_cnt) + 1) &
+	index = (atomic_read_unchecked(&vport->disc_trc_cnt) + 1) &
 		(lpfc_debugfs_max_disc_trc - 1);
 	for (i = index; i < lpfc_debugfs_max_disc_trc; i++) {
 		dtp = vport->disc_trc + i;
@@ -219,7 +219,7 @@ lpfc_debugfs_slow_ring_trc_data(struct lpfc_hba *phba, char *buf, int size)
 	lpfc_debugfs_enable = 0;
 
 	len = 0;
-	index = (atomic_read(&phba->slow_ring_trc_cnt) + 1) &
+	index = (atomic_read_unchecked(&phba->slow_ring_trc_cnt) + 1) &
 		(lpfc_debugfs_max_slow_ring_trc - 1);
 	for (i = index; i < lpfc_debugfs_max_slow_ring_trc; i++) {
 		dtp = phba->slow_ring_trc + i;
@@ -634,14 +634,14 @@ lpfc_debugfs_disc_trc(struct lpfc_vport *vport, int mask, char *fmt,
 		!vport || !vport->disc_trc)
 		return;
 
-	index = atomic_inc_return(&vport->disc_trc_cnt) &
+	index = atomic_inc_return_unchecked(&vport->disc_trc_cnt) &
 		(lpfc_debugfs_max_disc_trc - 1);
 	dtp = vport->disc_trc + index;
 	dtp->fmt = fmt;
 	dtp->data1 = data1;
 	dtp->data2 = data2;
 	dtp->data3 = data3;
-	dtp->seq_cnt = atomic_inc_return(&lpfc_debugfs_seq_trc_cnt);
+	dtp->seq_cnt = atomic_inc_return_unchecked(&lpfc_debugfs_seq_trc_cnt);
 	dtp->jif = jiffies;
 #endif
 	return;
@@ -672,14 +672,14 @@ lpfc_debugfs_slow_ring_trc(struct lpfc_hba *phba, char *fmt,
 		!phba || !phba->slow_ring_trc)
 		return;
 
-	index = atomic_inc_return(&phba->slow_ring_trc_cnt) &
+	index = atomic_inc_return_unchecked(&phba->slow_ring_trc_cnt) &
 		(lpfc_debugfs_max_slow_ring_trc - 1);
 	dtp = phba->slow_ring_trc + index;
 	dtp->fmt = fmt;
 	dtp->data1 = data1;
 	dtp->data2 = data2;
 	dtp->data3 = data3;
-	dtp->seq_cnt = atomic_inc_return(&lpfc_debugfs_seq_trc_cnt);
+	dtp->seq_cnt = atomic_inc_return_unchecked(&lpfc_debugfs_seq_trc_cnt);
 	dtp->jif = jiffies;
 #endif
 	return;
@@ -1364,7 +1364,7 @@ lpfc_debugfs_initialize(struct lpfc_vport *vport)
 						 "slow_ring buffer\n");
 				goto debug_failed;
 			}
-			atomic_set(&phba->slow_ring_trc_cnt, 0);
+			atomic_set_unchecked(&phba->slow_ring_trc_cnt, 0);
 			memset(phba->slow_ring_trc, 0,
 				(sizeof(struct lpfc_debugfs_trc) *
 				lpfc_debugfs_max_slow_ring_trc));
@@ -1410,7 +1410,7 @@ lpfc_debugfs_initialize(struct lpfc_vport *vport)
 				 "buffer\n");
 		goto debug_failed;
 	}
-	atomic_set(&vport->disc_trc_cnt, 0);
+	atomic_set_unchecked(&vport->disc_trc_cnt, 0);
 
 	snprintf(name, sizeof(name), "discovery_trace");
 	vport->debug_disc_trc =

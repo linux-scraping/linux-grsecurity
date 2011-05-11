@@ -733,7 +733,7 @@ static void netlink_overrun(struct sock *sk)
 			sk->sk_error_report(sk);
 		}
 	}
-	atomic_inc(&sk->sk_drops);
+	atomic_inc_unchecked(&sk->sk_drops);
 }
 
 static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
@@ -1980,7 +1980,7 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
 			   nlk->cb,
 #endif
 			   atomic_read(&s->sk_refcnt),
-			   atomic_read(&s->sk_drops)
+			   atomic_read_unchecked(&s->sk_drops)
 			);
 
 	}

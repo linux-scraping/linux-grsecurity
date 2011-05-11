@@ -189,8 +189,8 @@ static int pmcraid_slave_alloc(struct scsi_device *scsi_dev)
 		res->scsi_dev = scsi_dev;
 		scsi_dev->hostdata = res;
 		res->change_detected = 0;
-		atomic_set(&res->read_failures, 0);
-		atomic_set(&res->write_failures, 0);
+		atomic_set_unchecked(&res->read_failures, 0);
+		atomic_set_unchecked(&res->write_failures, 0);
 		rc = 0;
 	}
 	spin_unlock_irqrestore(&pinstance->resource_lock, lock_flags);
@@ -2396,9 +2396,9 @@ static int pmcraid_error_handler(struct pmcraid_cmd *cmd)
 
 	/* If this was a SCSI read/write command keep count of errors */
 	if (SCSI_CMD_TYPE(scsi_cmd->cmnd[0]) == SCSI_READ_CMD)
-		atomic_inc(&res->read_failures);
+		atomic_inc_unchecked(&res->read_failures);
 	else if (SCSI_CMD_TYPE(scsi_cmd->cmnd[0]) == SCSI_WRITE_CMD)
-		atomic_inc(&res->write_failures);
+		atomic_inc_unchecked(&res->write_failures);
 
 	if (!RES_IS_GSCSI(res->cfg_entry) &&
 		masked_ioasc != PMCRAID_IOASC_HW_DEVICE_BUS_STATUS_ERROR) {
@@ -3508,6 +3508,9 @@ static long pmcraid_ioctl_passthrough(
 			rc = -EFAULT;
 			goto out_free_buffer;
 		}
+	} else if (request_size < 0) {
+		rc = -EINVAL;
+		goto out_free_buffer;
 	}
 
 	/* check if we have any additional command parameters */
@@ -4110,7 +4113,7 @@ static void pmcraid_worker_function(struct work_struct *workp)
 
 	pinstance = container_of(workp, struct pmcraid_instance, worker_q);
 	/* add resources only after host is added into system */
-	if (!atomic_read(&pinstance->expose_resources))
+	if (!atomic_read_unchecked(&pinstance->expose_resources))
 		return;
 
 	spin_lock_irqsave(&pinstance->resource_lock, lock_flags);
@@ -4844,7 +4847,7 @@ static int __devinit pmcraid_init_instance(
 	init_waitqueue_head(&pinstance->reset_wait_q);
 
 	atomic_set(&pinstance->outstanding_cmds, 0);
-	atomic_set(&pinstance->expose_resources, 0);
+	atomic_set_unchecked(&pinstance->expose_resources, 0);
 
 	INIT_LIST_HEAD(&pinstance->free_res_q);
 	INIT_LIST_HEAD(&pinstance->used_res_q);
@@ -5496,7 +5499,7 @@ static int __devinit pmcraid_probe(
 	/* Schedule worker thread to handle CCN and take care of adding and
 	 * removing devices to OS
 	 */
-	atomic_set(&pinstance->expose_resources, 1);
+	atomic_set_unchecked(&pinstance->expose_resources, 1);
 	schedule_work(&pinstance->worker_q);
 	return rc;
 

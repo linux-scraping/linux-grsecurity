@@ -35,7 +35,7 @@ struct flow_cache_entry {
 	atomic_t		*object_ref;
 };
 
-atomic_t flow_cache_genid = ATOMIC_INIT(0);
+atomic_unchecked_t flow_cache_genid = ATOMIC_INIT(0);
 
 static u32 flow_hash_shift;
 #define flow_hash_size	(1 << flow_hash_shift)
@@ -190,7 +190,7 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
 		if (fle->family == family &&
 		    fle->dir == dir &&
 		    flow_key_compare(key, &fle->key) == 0) {
-			if (fle->genid == atomic_read(&flow_cache_genid)) {
+			if (fle->genid == atomic_read_unchecked(&flow_cache_genid)) {
 				void *ret = fle->object;
 
 				if (ret)
@@ -228,7 +228,7 @@ nocache:
 		err = resolver(net, key, family, dir, &obj, &obj_ref);
 
 		if (fle && !err) {
-			fle->genid = atomic_read(&flow_cache_genid);
+			fle->genid = atomic_read_unchecked(&flow_cache_genid);
 
 			if (fle->object)
 				atomic_dec(fle->object_ref);
@@ -258,7 +258,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
 
 		fle = flow_table(cpu)[i];
 		for (; fle; fle = fle->next) {
-			unsigned genid = atomic_read(&flow_cache_genid);
+			unsigned genid = atomic_read_unchecked(&flow_cache_genid);
 
 			if (!fle->object || fle->genid == genid)
 				continue;

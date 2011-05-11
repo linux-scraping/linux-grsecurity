@@ -485,7 +485,7 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
 		ret = cp->packet_xmit(skb, cp, pp);
 		/* do not touch skb anymore */
 
-		atomic_inc(&cp->in_pkts);
+		atomic_inc_unchecked(&cp->in_pkts);
 		ip_vs_conn_put(cp);
 		return ret;
 	}
@@ -1357,7 +1357,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
 	 * Sync connection if it is about to close to
 	 * encorage the standby servers to update the connections timeout
 	 */
-	pkts = atomic_add_return(1, &cp->in_pkts);
+	pkts = atomic_add_return_unchecked(1, &cp->in_pkts);
 	if (af == AF_INET &&
 	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
 	    (((cp->protocol != IPPROTO_TCP ||

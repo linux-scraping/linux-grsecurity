@@ -390,13 +390,13 @@ int kgdb_arch_handle_exception(int e_vector, int signo, int err_code,
 
 		/* clear the trace bit */
 		linux_regs->flags &= ~X86_EFLAGS_TF;
-		atomic_set(&kgdb_cpu_doing_single_step, -1);
+		atomic_set_unchecked(&kgdb_cpu_doing_single_step, -1);
 
 		/* set the trace bit if we're stepping */
 		if (remcomInBuffer[0] == 's') {
 			linux_regs->flags |= X86_EFLAGS_TF;
 			kgdb_single_step = 1;
-			atomic_set(&kgdb_cpu_doing_single_step,
+			atomic_set_unchecked(&kgdb_cpu_doing_single_step,
 				   raw_smp_processor_id());
 		}
 
@@ -476,7 +476,7 @@ static int __kgdb_notify(struct die_args *args, unsigned long cmd)
 		break;
 
 	case DIE_DEBUG:
-		if (atomic_read(&kgdb_cpu_doing_single_step) ==
+		if (atomic_read_unchecked(&kgdb_cpu_doing_single_step) ==
 		    raw_smp_processor_id()) {
 			if (user_mode(regs))
 				return single_step_cont(regs, args);

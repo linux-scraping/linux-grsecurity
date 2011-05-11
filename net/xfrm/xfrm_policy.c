@@ -586,7 +586,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
 		hlist_add_head(&policy->bydst, chain);
 	xfrm_pol_hold(policy);
 	net->xfrm.policy_count[dir]++;
-	atomic_inc(&flow_cache_genid);
+	atomic_inc_unchecked(&flow_cache_genid);
 	if (delpol)
 		__xfrm_policy_unlink(delpol, dir);
 	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
@@ -669,7 +669,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u8 type, int dir,
 	write_unlock_bh(&xfrm_policy_lock);
 
 	if (ret && delete) {
-		atomic_inc(&flow_cache_genid);
+		atomic_inc_unchecked(&flow_cache_genid);
 		xfrm_policy_kill(ret);
 	}
 	return ret;
@@ -710,7 +710,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u8 type, int dir, u32 id,
 	write_unlock_bh(&xfrm_policy_lock);
 
 	if (ret && delete) {
-		atomic_inc(&flow_cache_genid);
+		atomic_inc_unchecked(&flow_cache_genid);
 		xfrm_policy_kill(ret);
 	}
 	return ret;
@@ -824,7 +824,7 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
 		}
 
 	}
-	atomic_inc(&flow_cache_genid);
+	atomic_inc_unchecked(&flow_cache_genid);
 out:
 	write_unlock_bh(&xfrm_policy_lock);
 	return err;
@@ -1088,7 +1088,7 @@ int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
 	write_unlock_bh(&xfrm_policy_lock);
 	if (pol) {
 		if (dir < XFRM_POLICY_MAX)
-			atomic_inc(&flow_cache_genid);
+			atomic_inc_unchecked(&flow_cache_genid);
 		xfrm_policy_kill(pol);
 		return 0;
 	}
@@ -1537,7 +1537,7 @@ int __xfrm_lookup(struct net *net, struct dst_entry **dst_p, struct flowi *fl,
 	u8 dir = policy_to_flow_dir(XFRM_POLICY_OUT);
 
 restart:
-	genid = atomic_read(&flow_cache_genid);
+	genid = atomic_read_unchecked(&flow_cache_genid);
 	policy = NULL;
 	for (pi = 0; pi < ARRAY_SIZE(pols); pi++)
 		pols[pi] = NULL;
@@ -1680,7 +1680,7 @@ restart:
 					goto error;
 				}
 				if (nx == -EAGAIN ||
-				    genid != atomic_read(&flow_cache_genid)) {
+				    genid != atomic_read_unchecked(&flow_cache_genid)) {
 					xfrm_pols_put(pols, npols);
 					goto restart;
 				}

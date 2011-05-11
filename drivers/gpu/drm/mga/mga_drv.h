@@ -120,9 +120,9 @@ typedef struct drm_mga_private {
 	u32 clear_cmd;
 	u32 maccess;
 
-	atomic_t vbl_received;          /**< Number of vblanks received. */
+	atomic_unchecked_t vbl_received;          /**< Number of vblanks received. */
 	wait_queue_head_t fence_queue;
-	atomic_t last_fence_retired;
+	atomic_unchecked_t last_fence_retired;
 	u32 next_fence_to_post;
 
 	unsigned int fb_cpp;
