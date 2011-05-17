@@ -197,12 +197,10 @@ register unsigned long current_stack_pointer asm("esp") __used;
  * preempt_count needs to be 1 initially, until the scheduler is functional.
  */
 #ifndef __ASSEMBLY__
+DECLARE_PER_CPU(unsigned long, kernel_stack);
 
 /* how to get the current stack pointer from C */
 register unsigned long current_stack_pointer asm("rsp") __used;
-
-DECLARE_PER_CPU(unsigned long, kernel_stack);
-
 #endif
 
 #endif /* !X86_32 */

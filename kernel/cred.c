@@ -157,6 +157,8 @@ static void put_cred_rcu(struct rcu_head *rcu)
  */
 void __put_cred(struct cred *cred)
 {
+	pax_track_stack();
+
 	kdebug("__put_cred(%p{%d,%d})", cred,
 	       atomic_read(&cred->usage),
 	       read_cred_subscribers(cred));
@@ -180,6 +182,8 @@ EXPORT_SYMBOL(__put_cred);
 void exit_creds(struct task_struct *tsk)
 {
 	struct cred *cred;
+
+	pax_track_stack();
 
 	kdebug("exit_creds(%u,%p,%p,{%d,%d})", tsk->pid, tsk->real_cred, tsk->cred,
 	       atomic_read(&tsk->cred->usage),
@@ -219,6 +223,8 @@ const struct cred *get_task_cred(struct task_struct *task)
 {
 	const struct cred *cred;
 
+	pax_track_stack();
+
 	rcu_read_lock();
 
 	do {
@@ -237,6 +243,8 @@ const struct cred *get_task_cred(struct task_struct *task)
 struct cred *cred_alloc_blank(void)
 {
 	struct cred *new;
+
+	pax_track_stack();
 
 	new = kmem_cache_zalloc(cred_jar, GFP_KERNEL);
 	if (!new)
@@ -286,6 +294,8 @@ struct cred *prepare_creds(void)
 	const struct cred *old;
 	struct cred *new;
 
+	pax_track_stack();
+
 	validate_process_creds();
 
 	new = kmem_cache_alloc(cred_jar, GFP_KERNEL);
@@ -331,6 +341,8 @@ struct cred *prepare_exec_creds(void)
 {
 	struct thread_group_cred *tgcred = NULL;
 	struct cred *new;
+
+	pax_track_stack();
 
 #ifdef CONFIG_KEYS
 	tgcred = kmalloc(sizeof(*tgcred), GFP_KERNEL);
@@ -383,6 +395,8 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 #endif
 	struct cred *new;
 	int ret;
+
+	pax_track_stack();
 
 	if (
 #ifdef CONFIG_KEYS
@@ -469,6 +483,8 @@ int commit_creds(struct cred *new)
 	struct task_struct *task = current;
 	const struct cred *old = task->real_cred;
 
+	pax_track_stack();
+
 	kdebug("commit_creds(%p{%d,%d})", new,
 	       atomic_read(&new->usage),
 	       read_cred_subscribers(new));
@@ -547,6 +563,8 @@ EXPORT_SYMBOL(commit_creds);
  */
 void abort_creds(struct cred *new)
 {
+	pax_track_stack();
+
 	kdebug("abort_creds(%p{%d,%d})", new,
 	       atomic_read(&new->usage),
 	       read_cred_subscribers(new));
@@ -569,6 +587,8 @@ EXPORT_SYMBOL(abort_creds);
 const struct cred *override_creds(const struct cred *new)
 {
 	const struct cred *old = current->cred;
+
+	pax_track_stack();
 
 	kdebug("override_creds(%p{%d,%d})", new,
 	       atomic_read(&new->usage),
@@ -598,6 +618,8 @@ EXPORT_SYMBOL(override_creds);
 void revert_creds(const struct cred *old)
 {
 	const struct cred *override = current->cred;
+
+	pax_track_stack();
 
 	kdebug("revert_creds(%p{%d,%d})", old,
 	       atomic_read(&old->usage),
@@ -644,6 +666,8 @@ struct cred *prepare_kernel_cred(struct task_struct *daemon)
 {
 	const struct cred *old;
 	struct cred *new;
+
+	pax_track_stack();
 
 	new = kmem_cache_alloc(cred_jar, GFP_KERNEL);
 	if (!new)
@@ -699,6 +723,8 @@ EXPORT_SYMBOL(prepare_kernel_cred);
  */
 int set_security_override(struct cred *new, u32 secid)
 {
+	pax_track_stack();
+
 	return security_kernel_act_as(new, secid);
 }
 EXPORT_SYMBOL(set_security_override);
@@ -717,6 +743,8 @@ int set_security_override_from_ctx(struct cred *new, const char *secctx)
 {
 	u32 secid;
 	int ret;
+
+	pax_track_stack();
 
 	ret = security_secctx_to_secid(secctx, strlen(secctx), &secid);
 	if (ret < 0)
