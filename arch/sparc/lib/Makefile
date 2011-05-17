@@ -2,7 +2,7 @@
 #
 
 asflags-y := -ansi -DST_DIV0=0x02
-ccflags-y := -Werror
+#ccflags-y := -Werror
 
 lib-$(CONFIG_SPARC32) += mul.o rem.o sdiv.o udiv.o umul.o urem.o ashrdi3.o
 lib-$(CONFIG_SPARC32) += memcpy.o memset.o
