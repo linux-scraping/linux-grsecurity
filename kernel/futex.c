@@ -1795,6 +1795,8 @@ static int futex_wait(u32 __user *uaddr, int fshared,
 	struct futex_q q;
 	int ret;
 
+	pax_track_stack();
+
 	if (!bitset)
 		return -EINVAL;
 
@@ -2208,6 +2210,8 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 	union futex_key key2;
 	struct futex_q q;
 	int res, ret;
+
+	pax_track_stack();
 
 	if (!bitset)
 		return -EINVAL;

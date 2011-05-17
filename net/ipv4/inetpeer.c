@@ -366,6 +366,8 @@ struct inet_peer *inet_getpeer(__be32 daddr, int create)
 	struct inet_peer *p, *n;
 	struct inet_peer **stack[PEER_MAXDEPTH], ***stackptr;
 
+	pax_track_stack();
+
 	/* Look up for the address quickly. */
 	read_lock_bh(&peer_pool_lock);
 	p = lookup(daddr, NULL);

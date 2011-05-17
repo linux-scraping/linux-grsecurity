@@ -1337,6 +1337,8 @@ static int copy_everything_to_user(struct ebt_table *t, void __user *user,
 	unsigned int entries_size, nentries;
 	char *entries;
 
+	pax_track_stack();
+
 	if (cmd == EBT_SO_GET_ENTRIES) {
 		entries_size = t->private->entries_size;
 		nentries = t->private->nentries;

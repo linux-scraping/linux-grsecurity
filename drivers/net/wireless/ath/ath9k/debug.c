@@ -220,6 +220,8 @@ static ssize_t read_file_interrupt(struct file *file, char __user *user_buf,
 	char buf[512];
 	unsigned int len = 0;
 
+	pax_track_stack();
+
 	len += snprintf(buf + len, sizeof(buf) - len,
 		"%8s: %10u\n", "RX", sc->debug.stats.istats.rxok);
 	len += snprintf(buf + len, sizeof(buf) - len,
@@ -359,6 +361,8 @@ static ssize_t read_file_wiphy(struct file *file, char __user *user_buf,
 	unsigned int len = 0;
 	int i;
 	u8 addr[ETH_ALEN];
+
+	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"primary: %s (%s chan=%d ht=%d)\n",

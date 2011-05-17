@@ -590,6 +590,8 @@ static int dvb_ca_en50221_read_data(struct dvb_ca_private *ca, int slot, u8 * eb
 	u8 buf[HOST_LINK_BUF_SIZE];
 	int i;
 
+	pax_track_stack();
+
 	dprintk("%s\n", __func__);
 
 	/* check if we have space for a link buf in the rx_buffer */
@@ -1284,6 +1286,8 @@ static ssize_t dvb_ca_en50221_io_write(struct file *file,
 	int fraglen;
 	unsigned long timeout;
 	int written;
+
+	pax_track_stack();
 
 	dprintk("%s\n", __func__);
 

@@ -1243,6 +1243,8 @@ static int subbuf_splice_actor(struct file *in,
 	};
 	ssize_t ret;
 
+	pax_track_stack();
+
 	if (rbuf->subbufs_produced == rbuf->subbufs_consumed)
 		return 0;
 

@@ -730,6 +730,8 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
 	u64 icm_size;
 	int err;
 
+	pax_track_stack();
+
 	err = mlx4_QUERY_FW(dev);
 	if (err) {
 		if (err == -EACCES)

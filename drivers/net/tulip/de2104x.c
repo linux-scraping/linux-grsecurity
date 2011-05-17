@@ -1785,6 +1785,8 @@ static void __devinit de21041_get_srom_info (struct de_private *de)
 	struct de_srom_info_leaf *il;
 	void *bufp;
 
+	pax_track_stack();
+
 	/* download entire eeprom */
 	for (i = 0; i < DE_EEPROM_WORDS; i++)
 		((__le16 *)ee_data)[i] =

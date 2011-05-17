@@ -353,6 +353,8 @@ static void calculate_clipping_registers_rect(struct saa7146_dev *dev, struct sa
 
 	int x[32], y[32], w[32], h[32];
 
+	pax_track_stack();
+
 	/* clear out memory */
 	memset(&line_list[0],  0x00, sizeof(u32)*32);
 	memset(&pixel_list[0], 0x00, sizeof(u32)*32);

@@ -738,6 +738,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 	u16 proto;
 	int err;
 
+	pax_track_stack();
+
 	/* Rough check on arithmetic overflow,
 	   better check is made in ip6_append_data().
 	 */

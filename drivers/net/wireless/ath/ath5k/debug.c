@@ -205,6 +205,8 @@ static ssize_t read_file_beacon(struct file *file, char __user *user_buf,
 	unsigned int v;
 	u64 tsf;
 
+	pax_track_stack();
+
 	v = ath5k_hw_reg_read(sc->ah, AR5K_BEACON);
 	len += snprintf(buf+len, sizeof(buf)-len,
 		"%-24s0x%08x\tintval: %d\tTIM: 0x%x\n",
@@ -317,6 +319,8 @@ static ssize_t read_file_debug(struct file *file, char __user *user_buf,
 	char buf[700];
 	unsigned int len = 0;
 	unsigned int i;
+
+	pax_track_stack();
 
 	len += snprintf(buf+len, sizeof(buf)-len,
 		"DEBUG LEVEL: 0x%08x\n\n", sc->debug.level);

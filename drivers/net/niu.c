@@ -9128,6 +9128,8 @@ static void __devinit niu_try_msix(struct niu *np, u8 *ldg_num_map)
 	int i, num_irqs, err;
 	u8 first_ldg;
 
+	pax_track_stack();
+
 	first_ldg = (NIU_NUM_LDG / parent->num_ports) * np->port;
 	for (i = 0; i < (NIU_NUM_LDG / parent->num_ports); i++)
 		ldg_num_map[i] = first_ldg + i;

@@ -34,6 +34,7 @@ struct thread_info {
 	mm_segment_t		addr_limit;
 	struct restart_block    restart_block;
 	void __user		*sysenter_return;
+	unsigned long		lowest_stack;
 	int			uaccess_err;
 };
 
@@ -195,6 +196,10 @@ register unsigned long current_stack_pointer asm("esp") __used;
  * preempt_count needs to be 1 initially, until the scheduler is functional.
  */
 #ifndef __ASSEMBLY__
+
+/* how to get the current stack pointer from C */
+register unsigned long current_stack_pointer asm("rsp") __used;
+
 DECLARE_PER_CPU(unsigned long, kernel_stack);
 
 #endif

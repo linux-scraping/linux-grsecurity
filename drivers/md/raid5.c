@@ -1870,6 +1870,7 @@ static sector_t compute_blocknr(struct stripe_head *sh, int i, int previous)
 	sector_t r_sector;
 	struct stripe_head sh2;
 
+	pax_track_stack();
 
 	chunk_offset = sector_div(new_sector, sectors_per_chunk);
 	stripe = new_sector;

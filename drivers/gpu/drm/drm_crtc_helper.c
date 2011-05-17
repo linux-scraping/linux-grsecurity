@@ -642,6 +642,8 @@ bool drm_crtc_helper_set_mode(struct drm_crtc *crtc,
 
 	adjusted_mode = drm_mode_duplicate(dev, mode);
 
+	pax_track_stack();
+
 	crtc->enabled = drm_helper_crtc_in_use(crtc);
 
 	if (!crtc->enabled)

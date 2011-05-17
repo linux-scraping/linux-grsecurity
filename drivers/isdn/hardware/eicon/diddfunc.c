@@ -54,6 +54,8 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
 	IDI_SYNC_REQ req;
 	DESCRIPTOR DIDD_Table[MAX_DESCRIPTORS];
 
+	pax_track_stack();
+
 	DIVA_DIDD_Read(DIDD_Table, sizeof(DIDD_Table));
 
 	for (x = 0; x < MAX_DESCRIPTORS; x++) {

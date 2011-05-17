@@ -5809,6 +5809,8 @@ bnx2_test_nvram(struct bnx2 *bp)
 	int rc = 0;
 	u32 magic, csum;
 
+	pax_track_stack();
+
 	if ((rc = bnx2_nvram_read(bp, 0, data, 4)) != 0)
 		goto test_nvram_done;
 

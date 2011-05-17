@@ -155,6 +155,8 @@ static int sock_xmit(struct nbd_device *lo, int send, void *buf, int size,
 	struct kvec iov;
 	sigset_t blocked, oldset;
 
+	pax_track_stack();
+
 	if (unlikely(!sock)) {
 		printk(KERN_ERR "%s: Attempted %s on closed socket in sock_xmit\n",
 		       lo->disk->disk_name, (send ? "send" : "recv"));
@@ -569,6 +571,8 @@ static void do_nbd_request(struct request_queue *q)
 static int __nbd_ioctl(struct block_device *bdev, struct nbd_device *lo,
 		       unsigned int cmd, unsigned long arg)
 {
+	pax_track_stack();
+
 	switch (cmd) {
 	case NBD_DISCONNECT: {
 		struct request sreq;

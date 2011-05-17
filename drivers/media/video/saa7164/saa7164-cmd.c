@@ -87,6 +87,8 @@ int saa7164_irq_dequeue(struct saa7164_dev *dev)
 	wait_queue_head_t *q = 0;
 	dprintk(DBGLVL_CMD, "%s()\n", __func__);
 
+	pax_track_stack();
+
 	/* While any outstand message on the bus exists... */
 	do {
 
@@ -125,6 +127,8 @@ int saa7164_cmd_dequeue(struct saa7164_dev *dev)
 	wait_queue_head_t *q = 0;
 	u8 tmp[512];
 	dprintk(DBGLVL_CMD, "%s()\n", __func__);
+
+	pax_track_stack();
 
 	while (loop) {
 

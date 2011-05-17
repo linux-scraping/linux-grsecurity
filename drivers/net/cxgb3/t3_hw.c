@@ -699,6 +699,8 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
 	int i, addr, ret;
 	struct t3_vpd vpd;
 
+	pax_track_stack();
+
 	/*
 	 * Card information is normally at VPD_BASE but some early cards had
 	 * it at 0.

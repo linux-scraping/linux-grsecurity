@@ -3457,6 +3457,8 @@ nfsd4_lock(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate,
 	unsigned int cmd;
 	int err;
 
+	pax_track_stack();
+
 	dprintk("NFSD: nfsd4_lock: start=%Ld length=%Ld\n",
 		(long long) lock->lk_offset,
 		(long long) lock->lk_length);

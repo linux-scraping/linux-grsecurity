@@ -397,6 +397,8 @@ lpfc_debugfs_dumpHBASlim_data(struct lpfc_hba *phba, char *buf, int size)
 	uint32_t *ptr;
 	char buffer[1024];
 
+	pax_track_stack();
+
 	off = 0;
 	spin_lock_irq(&phba->hbalock);
 

@@ -297,6 +297,8 @@ static __init int init_posix_timers(void)
 		.nsleep = no_nsleep,
 	};
 
+	pax_track_stack();
+
 	register_posix_clock(CLOCK_REALTIME, &clock_realtime);
 	register_posix_clock(CLOCK_MONOTONIC, &clock_monotonic);
 	register_posix_clock(CLOCK_MONOTONIC_RAW, &clock_monotonic_raw);

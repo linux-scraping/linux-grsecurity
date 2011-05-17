@@ -1544,6 +1544,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
 	struct sk_buff *frag_iter;
 	struct sock *sk = skb->sk;
 
+	pax_track_stack();
+
 	/*
 	 * __skb_splice_bits() only fails if the output has no room left,
 	 * so no point in going over the frag_list for the error case.

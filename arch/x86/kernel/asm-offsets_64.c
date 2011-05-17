@@ -44,6 +44,8 @@ int main(void)
 	ENTRY(addr_limit);
 	ENTRY(preempt_count);
 	ENTRY(status);
+	ENTRY(lowest_stack);
+	DEFINE(TI_task_thread_sp0, offsetof(struct task_struct, thread.sp0) - offsetof(struct task_struct, tinfo));
 #ifdef CONFIG_IA32_EMULATION
 	ENTRY(sysenter_return);
 #endif

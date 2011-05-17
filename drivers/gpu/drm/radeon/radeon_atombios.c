@@ -275,6 +275,8 @@ bool radeon_get_atom_connector_info_from_object_table(struct drm_device *dev)
 	bool linkb;
 	struct radeon_i2c_bus_rec ddc_bus;
 
+	pax_track_stack();
+
 	atom_parse_data_header(ctx, index, &size, &frev, &crev, &data_offset);
 
 	if (data_offset == 0)

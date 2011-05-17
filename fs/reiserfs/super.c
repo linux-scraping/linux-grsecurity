@@ -912,6 +912,8 @@ static int reiserfs_parse_options(struct super_block *s, char *options,	/* strin
 		{.option_name = NULL}
 	};
 
+	pax_track_stack();
+
 	*blocks = 0;
 	if (!options || !*options)
 		/* use default configuration: create tails, journaling on, no

@@ -542,6 +542,8 @@ int ide_pci_init_two(struct pci_dev *dev1, struct pci_dev *dev2,
 	int ret, i, n_ports = dev2 ? 4 : 2;
 	struct ide_hw hw[4], *hws[] = { NULL, NULL, NULL, NULL };
 
+	pax_track_stack();
+
 	for (i = 0; i < n_ports / 2; i++) {
 		ret = ide_setup_pci_controller(pdev[i], d, !i);
 		if (ret < 0)

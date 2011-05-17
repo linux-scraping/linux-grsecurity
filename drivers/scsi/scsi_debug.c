@@ -1395,6 +1395,8 @@ static int resp_mode_select(struct scsi_cmnd * scp, int mselect6,
 	unsigned char arr[SDEBUG_MAX_MSELECT_SZ];
 	unsigned char *cmd = (unsigned char *)scp->cmnd;
 
+	pax_track_stack();
+
 	if ((errsts = check_readiness(scp, 1, devip)))
 		return errsts;
 	memset(arr, 0, sizeof(arr));
@@ -1491,6 +1493,8 @@ static int resp_log_sense(struct scsi_cmnd * scp,
 	int ppc, sp, pcontrol, pcode, subpcode, alloc_len, errsts, len, n;
 	unsigned char arr[SDEBUG_MAX_LSENSE_SZ];
 	unsigned char *cmd = (unsigned char *)scp->cmnd;
+
+	pax_track_stack();
 
 	if ((errsts = check_readiness(scp, 1, devip)))
 		return errsts;

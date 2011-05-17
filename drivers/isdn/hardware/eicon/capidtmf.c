@@ -498,6 +498,7 @@ void capidtmf_recv_block (t_capidtmf_state   *p_state, byte   *buffer, word leng
   byte goertzel_result_buffer[CAPIDTMF_RECV_TOTAL_FREQUENCY_COUNT];
     short windowed_sample_buffer[CAPIDTMF_RECV_WINDOWED_SAMPLES];
 
+  pax_track_stack();
 
   if (p_state->recv.state & CAPIDTMF_RECV_STATE_DTMF_ACTIVE)
   {

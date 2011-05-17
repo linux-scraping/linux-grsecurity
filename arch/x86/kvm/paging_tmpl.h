@@ -416,6 +416,8 @@ static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr,
 	int level = PT_PAGE_TABLE_LEVEL;
 	unsigned long mmu_seq;
 
+	pax_track_stack();
+
 	pgprintk("%s: addr %lx err %x\n", __func__, addr, error_code);
 	kvm_mmu_audit(vcpu, "pre page fault");
 

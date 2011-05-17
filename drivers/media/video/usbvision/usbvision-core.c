@@ -820,6 +820,8 @@ static enum ParseState usbvision_parse_compress(struct usb_usbvision *usbvision,
 	unsigned char rv, gv, bv;
 	static unsigned char *Y, *U, *V;
 
+	pax_track_stack();
+
 	frame  = usbvision->curFrame;
 	imageSize = frame->frmwidth * frame->frmheight;
 	if ( (frame->v4l2_format.format == V4L2_PIX_FMT_YUV422P) ||

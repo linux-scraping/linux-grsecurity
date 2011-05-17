@@ -44,6 +44,8 @@ static int find_boot_record(struct NFTLrecord *nftl)
 	struct mtd_info *mtd = nftl->mbd.mtd;
 	unsigned int i;
 
+	pax_track_stack();
+
         /* Assume logical EraseSize == physical erasesize for starting the scan.
 	   We'll sort it out later if we find a MediaHeader which says otherwise */
 	/* Actually, we won't.  The new DiskOnChip driver has already scanned

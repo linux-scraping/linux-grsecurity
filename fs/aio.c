@@ -1089,6 +1089,8 @@ static int read_events(struct kioctx *ctx,
 	struct aio_timeout	to;
 	int			retry = 0;
 
+	pax_track_stack();
+
 	/* needed to zero any padding within an entry (there shouldn't be 
 	 * any, but C is fun!
 	 */

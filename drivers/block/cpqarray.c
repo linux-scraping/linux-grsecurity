@@ -896,6 +896,8 @@ static void do_ida_request(struct request_queue *q)
 	struct scatterlist tmp_sg[SG_MAX];
 	int i, dir, seg;
 
+	pax_track_stack();
+
 	if (blk_queue_plugged(q))
 		goto startio;
 

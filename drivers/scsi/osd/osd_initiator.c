@@ -94,6 +94,8 @@ static int _osd_print_system_info(struct osd_dev *od, void *caps)
 	int nelem = ARRAY_SIZE(get_attrs), a = 0;
 	int ret;
 
+	pax_track_stack();
+
 	or = osd_start_request(od, GFP_KERNEL);
 	if (!or)
 		return -ENOMEM;

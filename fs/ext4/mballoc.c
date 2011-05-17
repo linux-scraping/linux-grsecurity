@@ -2172,6 +2172,8 @@ static int ext4_mb_seq_groups_show(struct seq_file *seq, void *v)
 		ext4_grpblk_t counters[16];
 	} sg;
 
+	pax_track_stack();
+
 	group--;
 	if (group == 0)
 		seq_printf(seq, "#%-5s: %-5s %-5s %-5s "

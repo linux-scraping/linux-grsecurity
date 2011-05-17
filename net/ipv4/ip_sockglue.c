@@ -1015,6 +1015,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
 	int val;
 	int len;
 
+	pax_track_stack();
+
 	if (level != SOL_IP)
 		return -EOPNOTSUPP;
 

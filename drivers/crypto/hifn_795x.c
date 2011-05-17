@@ -1655,6 +1655,8 @@ static int hifn_test(struct hifn_device *dev, int encdec, u8 snum)
 		0xCA, 0x34, 0x2B, 0x2E};
 	struct scatterlist sg;
 
+	pax_track_stack();
+
 	memset(src, 0, sizeof(src));
 	memset(ctx.key, 0, sizeof(ctx.key));
 

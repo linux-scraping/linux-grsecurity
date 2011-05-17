@@ -524,6 +524,8 @@ static ssize_t iwl_dbgfs_status_read(struct file *file,
 	int pos = 0;
 	const size_t bufsz = sizeof(buf);
 
+	pax_track_stack();
+
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_HCMD_ACTIVE:\t %d\n",
 		test_bit(STATUS_HCMD_ACTIVE, &priv->status));
 	pos += scnprintf(buf + pos, bufsz - pos, "STATUS_HCMD_SYNC_ACTIVE: %d\n",
@@ -657,6 +659,8 @@ static ssize_t iwl_dbgfs_qos_read(struct file *file, char __user *user_buf,
 	char buf[256];
 	const size_t bufsz = sizeof(buf);
 	ssize_t ret;
+
+	pax_track_stack();
 
 	for (i = 0; i < AC_NUM; i++) {
 		pos += scnprintf(buf + pos, bufsz - pos,

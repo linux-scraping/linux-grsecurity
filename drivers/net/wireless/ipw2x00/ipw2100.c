@@ -2014,6 +2014,8 @@ static int ipw2100_set_essid(struct ipw2100_priv *priv, char *essid,
 	int err;
 	DECLARE_SSID_BUF(ssid);
 
+	pax_track_stack();
+
 	IPW_DEBUG_HC("SSID: '%s'\n", print_ssid(ssid, essid, ssid_len));
 
 	if (ssid_len)
@@ -5379,6 +5381,8 @@ static int ipw2100_set_key(struct ipw2100_priv *priv,
 	};
 	struct ipw2100_wep_key *wep_key = (void *)cmd.host_command_parameters;
 	int err;
+
+	pax_track_stack();
 
 	IPW_DEBUG_HC("WEP_KEY_INFO: index = %d, len = %d/%d\n",
 		     idx, keylen, len);

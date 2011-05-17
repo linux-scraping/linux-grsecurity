@@ -1438,6 +1438,8 @@ ieee80211_rx_mgmt_assoc_resp(struct ieee80211_sub_if_data *sdata,
 	bool have_higher_than_11mbit = false, newsta = false;
 	u16 ap_ht_cap_flags;
 
+	pax_track_stack();
+
 	/*
 	 * AssocResp and ReassocResp have identical structure, so process both
 	 * of them in this function.

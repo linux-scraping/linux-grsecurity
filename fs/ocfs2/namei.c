@@ -1043,6 +1043,8 @@ static int ocfs2_rename(struct inode *old_dir,
 	struct ocfs2_dir_lookup_result orphan_insert = { NULL, };
 	struct ocfs2_dir_lookup_result target_insert = { NULL, };
 
+	pax_track_stack();
+
 	/* At some point it might be nice to break this function up a
 	 * bit. */
 

@@ -3503,6 +3503,8 @@ megaraid_cmm_register(adapter_t *adapter)
 	int		rval;
 	int		i;
 
+	pax_track_stack();
+
 	// Allocate memory for the base list of scb for management module.
 	adapter->uscb_list = kcalloc(MBOX_MAX_USER_CMDS, sizeof(scb_t), GFP_KERNEL);
 

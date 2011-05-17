@@ -809,6 +809,8 @@ static void fcoe_ctlr_recv_els(struct fcoe_ctlr *fip, struct sk_buff *skb)
 	size_t rlen;
 	size_t dlen;
 
+	pax_track_stack();
+
 	fiph = (struct fip_header *)skb->data;
 	sub = fiph->fip_subcode;
 	if (sub != FIP_SC_REQ && sub != FIP_SC_REP)

@@ -332,6 +332,8 @@ int dib0700_download_firmware(struct usb_device *udev, const struct firmware *fw
 
 	u8 buf[260];
 
+	pax_track_stack();
+
 	while ((ret = dvb_usb_get_hexline(fw, &hx, &pos)) > 0) {
 		deb_fwdata("writing to address 0x%08x (buffer: 0x%02x %02x)\n",hx.addr, hx.len, hx.chk);
 

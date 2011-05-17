@@ -36,6 +36,7 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/types.h>
+#include <linux/sched.h>
 
 #include <asm/byteorder.h>
 
@@ -343,6 +344,8 @@ int fw_run_transaction(struct fw_card *card, int tcode, int destination_id,
 {
 	struct transaction_callback_data d;
 	struct fw_transaction t;
+
+	pax_track_stack();
 
 	init_completion(&d.done);
 	d.payload = payload;

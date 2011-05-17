@@ -1087,6 +1087,8 @@ static int port_detect(unsigned long port_base, unsigned int j,
 	struct hostdata *ha;
 	char name[16];
 
+	pax_track_stack();
+
 	sprintf(name, "%s%d", driver_name, j);
 
 	if (!request_region(port_base, REGION_SIZE, driver_name)) {

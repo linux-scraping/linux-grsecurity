@@ -4269,6 +4269,8 @@ static int stli_getportstruct(struct stliport __user *arg)
 	struct stliport stli_dummyport;
 	struct stliport *portp;
 
+	pax_track_stack();
+
 	if (copy_from_user(&stli_dummyport, arg, sizeof(struct stliport)))
 		return -EFAULT;
 	portp = stli_getport(stli_dummyport.brdnr, stli_dummyport.panelnr,
@@ -4290,6 +4292,8 @@ static int stli_getbrdstruct(struct stlibrd __user *arg)
 {
 	struct stlibrd stli_dummybrd;
 	struct stlibrd *brdp;
+
+	pax_track_stack();
 
 	if (copy_from_user(&stli_dummybrd, arg, sizeof(struct stlibrd)))
 		return -EFAULT;

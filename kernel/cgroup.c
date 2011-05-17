@@ -536,6 +536,8 @@ static struct css_set *find_css_set(
 	struct hlist_head *hhead;
 	struct cg_cgroup_link *link;
 
+	pax_track_stack();
+
 	/* First see if we already have a cgroup group that matches
 	 * the desired set */
 	read_lock(&css_set_lock);

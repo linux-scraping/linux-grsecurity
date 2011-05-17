@@ -461,6 +461,8 @@ static void sixpack_receive_buf(struct tty_struct *tty,
 	unsigned char buf[512];
 	int count1;
 
+	pax_track_stack();
+
 	if (!count)
 		return;
 

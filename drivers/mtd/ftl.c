@@ -474,6 +474,8 @@ static int copy_erase_unit(partition_t *part, uint16_t srcunit,
     loff_t offset;
     uint16_t srcunitswap = cpu_to_le16(srcunit);
 
+    pax_track_stack();
+
     eun = &part->EUNInfo[srcunit];
     xfer = &part->XferInfo[xferunit];
     DEBUG(2, "ftl_cs: copying block 0x%x to 0x%x\n",

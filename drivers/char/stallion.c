@@ -2448,6 +2448,8 @@ static int stl_getportstruct(struct stlport __user *arg)
 	struct stlport	stl_dummyport;
 	struct stlport	*portp;
 
+	pax_track_stack();
+
 	if (copy_from_user(&stl_dummyport, arg, sizeof(struct stlport)))
 		return -EFAULT;
 	portp = stl_getport(stl_dummyport.brdnr, stl_dummyport.panelnr,

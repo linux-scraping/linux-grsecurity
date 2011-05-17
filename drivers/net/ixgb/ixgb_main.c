@@ -1052,6 +1052,8 @@ ixgb_set_multi(struct net_device *netdev)
 	u32 rctl;
 	int i;
 
+	pax_track_stack();
+
 	/* Check for Promiscuous and All Multicast modes */
 
 	rctl = IXGB_READ_REG(hw, RCTL);
