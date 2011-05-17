@@ -106,6 +106,8 @@ static int lpddr_pfow_present(struct map_info *map, struct lpddr_private *lpddr)
 {
 	map_word pfow_val[4];
 
+	pax_track_stack();
+
 	/* Check identification string */
 	pfow_val[0] = map_read(map, map->pfow_base + PFOW_QUERY_STRING_P);
 	pfow_val[1] = map_read(map, map->pfow_base + PFOW_QUERY_STRING_F);

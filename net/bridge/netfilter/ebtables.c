@@ -1779,6 +1779,8 @@ static int compat_copy_everything_to_user(struct ebt_table *t,
 	int ret;
 	void __user *pos;
 
+	pax_track_stack();
+
 	memset(&tinfo, 0, sizeof(tinfo));
 
 	if (cmd == EBT_SO_GET_ENTRIES) {

@@ -314,6 +314,8 @@ static int jffs2_dynrubin_compress(unsigned char *data_in,
 	int ret;
 	uint32_t mysrclen, mydstlen;
 
+	pax_track_stack();
+
 	mysrclen = *sourcelen;
 	mydstlen = *dstlen - 8;
 

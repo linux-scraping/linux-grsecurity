@@ -350,6 +350,8 @@ int log_do_checkpoint(journal_t *journal)
 	tid_t this_tid;
 	int result;
 
+	pax_track_stack();
+
 	jbd_debug(1, "Start checkpoint\n");
 
 	/*

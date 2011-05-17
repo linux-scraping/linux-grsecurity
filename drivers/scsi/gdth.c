@@ -4107,6 +4107,8 @@ static int ioc_lockdrv(void __user *arg)
     unsigned long flags;
     gdth_ha_str *ha;
 
+    pax_track_stack();
+
     if (copy_from_user(&ldrv, arg, sizeof(gdth_ioctl_lockdrv)))
         return -EFAULT;
     ha = gdth_find_ha(ldrv.ionode);
@@ -4138,6 +4140,8 @@ static int ioc_resetdrv(void __user *arg, char *cmnd)
     gdth_cmd_str cmd;
     gdth_ha_str *ha;
     int rval;
+
+    pax_track_stack();
 
     if (copy_from_user(&res, arg, sizeof(gdth_ioctl_reset)) ||
         res.number >= MAX_HDRIVES)
@@ -4173,6 +4177,8 @@ static int ioc_general(void __user *arg, char *cmnd)
     u64 paddr; 
     gdth_ha_str *ha;
     int rval;
+
+    pax_track_stack();
 
     if (copy_from_user(&gen, arg, sizeof(gdth_ioctl_general)))
         return -EFAULT;
@@ -4642,6 +4648,9 @@ static void gdth_flush(gdth_ha_str *ha)
     int             i;
     gdth_cmd_str    gdtcmd;
     char            cmnd[MAX_COMMAND_SIZE];   
+
+    pax_track_stack();
+
     memset(cmnd, 0xff, MAX_COMMAND_SIZE);
 
     TRACE2(("gdth_flush() hanum %d\n", ha->hanum));

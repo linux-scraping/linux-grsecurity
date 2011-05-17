@@ -183,8 +183,8 @@ ENDPROC(native_usergs_sysret64)
 	1234: .quad \off; .word \sel
 	.popsection
 #else
-	push $\sel
-	push $\off
+	pushq $\sel
+	pushq $\off
 	lretq
 #endif
 	.endm
@@ -203,7 +203,7 @@ ENDPROC(native_usergs_sysret64)
 
 #ifdef CONFIG_PAX_KERNEXEC
 ENTRY(pax_enter_kernel)
-	push %rdi
+	pushq %rdi
 
 #ifdef CONFIG_PARAVIRT
 	PV_SAVE_REGS(CLBR_RDI)
@@ -224,12 +224,12 @@ ENTRY(pax_enter_kernel)
 	PV_RESTORE_REGS(CLBR_RDI)
 #endif
 
-	pop %rdi
+	popq %rdi
 	retq
 ENDPROC(pax_enter_kernel)
 
 ENTRY(pax_exit_kernel)
-	push %rdi
+	pushq %rdi
 
 #ifdef CONFIG_PARAVIRT
 	PV_SAVE_REGS(CLBR_RDI)
@@ -248,7 +248,7 @@ ENTRY(pax_exit_kernel)
 	PV_RESTORE_REGS(CLBR_RDI);
 #endif
 
-	pop %rdi
+	popq %rdi
 	retq
 ENDPROC(pax_exit_kernel)
 #endif
@@ -269,56 +269,14 @@ ENDPROC(pax_exit_kernel)
 	pop %rax
 #endif
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	push %rax
 	call pax_erase_kstack
-	pop %rax
 #endif
 	.endm
 
-#ifdef CONFIG_PAX_MEMORY_STACKLEAK
-ENTRY(pax_erase_kstack)
-	push %rdi
-
-	lea -128(%rsp), %rdi
-	and $-64, %rdi
-	mov $-0xBEEF, %rax
-	std
-1:
-	mov %edi, %ecx
-	and $THREAD_SIZE_asm - 1, %ecx
-	shr $3, %ecx
-	repne scasq
-	jecxz 2f
-
-	and $-64, %rdi
-	and $-8, %ecx
-
-	sub $64, %ecx
-	jc 2f
-	mov $8, %ecx
-	repe scasq
-	jne 1b
-	sub $(512 - 64), %rdi
-	mov $8, %ecx
-	repe scasq
-	jecxz 2f
-	jne 1b
-2:
-	cld
-	mov %esp, %ecx
-	sub %edi, %ecx
-	shr $3, %ecx
-	rep stosq
-
-	pop %rdi
-	ret
-ENDPROC(pax_erase_kstack)
-#endif
-
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 ENTRY(pax_enter_kernel_user)
-	push %rdi
-	push %rbx
+	pushq %rdi
+	pushq %rbx
 
 #ifdef CONFIG_PARAVIRT
 	PV_SAVE_REGS(CLBR_RDI)
@@ -330,7 +288,7 @@ ENTRY(pax_enter_kernel_user)
 	sub phys_base(%rip),%rbx
 
 #ifdef CONFIG_PARAVIRT
-	push %rdi
+	pushq %rdi
 	cmpl $0, pv_info+PARAVIRT_enabled
 	jz 1f
 	i = 0
@@ -352,7 +310,7 @@ ENTRY(pax_enter_kernel_user)
 	.endr
 
 #ifdef CONFIG_PARAVIRT
-2:	pop %rdi
+2:	popq %rdi
 #endif
 	SET_RDI_INTO_CR3
 
@@ -366,8 +324,8 @@ ENTRY(pax_enter_kernel_user)
 	PV_RESTORE_REGS(CLBR_RDI)
 #endif
 
-	pop %rbx
-	pop %rdi
+	popq %rbx
+	popq %rdi
 	retq
 ENDPROC(pax_enter_kernel_user)
 
@@ -375,7 +333,7 @@ ENTRY(pax_exit_kernel_user)
 	push %rdi
 
 #ifdef CONFIG_PARAVIRT
-	push %rbx
+	pushq %rbx
 	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
@@ -413,12 +371,55 @@ ENTRY(pax_exit_kernel_user)
 
 #ifdef CONFIG_PARAVIRT
 2:	PV_RESTORE_REGS(CLBR_RDI)
-	pop %rbx
+	popq %rbx
 #endif
 
-	pop %rdi
+	popq %rdi
 	retq
 ENDPROC(pax_exit_kernel_user)
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+/*
+ * r10: thread_info
+ * rcx, rdx: can be clobbered
+ */
+ENTRY(pax_erase_kstack)
+	pushq %rdi
+	pushq %rax
+
+	mov TI_lowest_stack(%r10), %rdi
+	mov $-0xBEEF, %rax
+	std
+
+1:	mov %edi, %ecx
+	and $THREAD_SIZE_asm - 1, %ecx
+	shr $3, %ecx
+	repne scasq
+	jecxz 2f
+
+	cmp $2*8, %ecx
+	jc 2f
+
+	mov $2*8, %ecx
+	repe scasq
+	jecxz 2f
+	jne 1b
+
+2:	cld
+	mov %esp, %ecx
+	sub %edi, %ecx
+	shr $3, %ecx
+	rep stosq
+
+	mov TI_task_thread_sp0(%r10), %rdi
+	sub $256, %rdi
+	mov %rdi, TI_lowest_stack(%r10)
+
+	popq %rax
+	popq %rdi
+	ret
+ENDPROC(pax_erase_kstack)
 #endif
 
 .macro TRACE_IRQS_IRETQ offset=ARGOFFSET

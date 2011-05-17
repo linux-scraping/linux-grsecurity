@@ -611,6 +611,7 @@ static int lme2510_download_firmware(struct usb_device *dev,
 	packet_size = 0x31;
 	len_in = 1;
 
+	pax_track_stack();
 
 	info("FRM Starting Firmware Download");
 
@@ -665,6 +666,8 @@ static void lme_coldreset(struct usb_device *dev)
 {
 	int ret = 0, len_in;
 	u8 data[512] = {0};
+
+	pax_track_stack();
 
 	data[0] = 0x0a;
 	len_in = 1;

@@ -734,6 +734,8 @@ static void ar9003_hw_tx_iq_cal(struct ath_hw *ah)
 	s32 i, j, ip, im, nmeasurement;
 	u8 nchains = get_streams(common->tx_chainmask);
 
+	pax_track_stack();
+
 	for (ip = 0; ip < MPASS; ip++) {
 		REG_RMW_FIELD(ah, AR_PHY_TX_IQCAL_CONTROL_1,
 			      AR_PHY_TX_IQCAQL_CONTROL_1_IQCORR_I_Q_COFF_DELPT,
@@ -855,6 +857,8 @@ static void ar9003_hw_tx_iq_cal_post_proc(struct ath_hw *ah)
 	u8 num_chains = 0;
 	int i, ip, im, j;
 	int nmeasurement;
+
+	pax_track_stack();
 
 	for (i = 0; i < AR9300_MAX_CHAINS; i++) {
 		if (ah->txchainmask & (1 << i))

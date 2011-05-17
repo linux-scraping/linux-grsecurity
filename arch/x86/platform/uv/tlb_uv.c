@@ -341,6 +341,8 @@ static void uv_reset_with_ipi(struct bau_target_uvhubmask *distribution,
 	cpumask_t mask;
 	struct reset_args reset_args;
 
+	pax_track_stack();
+
 	reset_args.sender = sender;
 
 	cpus_clear(mask);

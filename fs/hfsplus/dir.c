@@ -129,6 +129,8 @@ static int hfsplus_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	struct hfsplus_readdir_data *rd;
 	u16 type;
 
+	pax_track_stack();
+
 	if (filp->f_pos >= inode->i_size)
 		return 0;
 

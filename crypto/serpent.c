@@ -224,6 +224,8 @@ static int serpent_setkey(struct crypto_tfm *tfm, const u8 *key,
 	u32 r0,r1,r2,r3,r4;
 	int i;
 
+	pax_track_stack();
+
 	/* Copy key, add padding */
 
 	for (i = 0; i < keylen; ++i)

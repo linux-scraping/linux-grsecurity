@@ -327,6 +327,8 @@ static ssize_t iwm_debugfs_fw_err_read(struct file *filp,
 	int buf_len = 512;
 	size_t len = 0;
 
+	pax_track_stack();
+
 	if (*ppos != 0)
 		return 0;
 	if (count < sizeof(buf))

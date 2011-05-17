@@ -2,7 +2,7 @@
 #include <asm/iommu_table.h>
 #include <linux/string.h>
 #include <linux/kallsyms.h>
-
+#include <linux/sched.h>
 
 #define DEBUG 1
 
@@ -52,6 +52,8 @@ void __init check_iommu_entries(struct iommu_table_entry *start,
 	struct iommu_table_entry *p, *q, *x;
 	char sym_p[KSYM_SYMBOL_LEN];
 	char sym_q[KSYM_SYMBOL_LEN];
+
+	pax_track_stack();
 
 	/* Simple cyclic dependency checker. */
 	for (p = start; p < finish; p++) {

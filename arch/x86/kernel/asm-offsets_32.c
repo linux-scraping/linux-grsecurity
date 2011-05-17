@@ -59,6 +59,8 @@ void foo(void)
 	OFFSET(TI_restart_block, thread_info, restart_block);
 	OFFSET(TI_sysenter_return, thread_info, sysenter_return);
 	OFFSET(TI_cpu, thread_info, cpu);
+	OFFSET(TI_lowest_stack, thread_info, lowest_stack);
+	DEFINE(TI_task_thread_sp0, offsetof(struct task_struct, thread.sp0) - offsetof(struct task_struct, tinfo));
 	BLANK();
 
 	OFFSET(GDS_size, desc_ptr, size);

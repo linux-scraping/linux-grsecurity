@@ -6536,6 +6536,8 @@ static void netdev_get_ethtool_stats(struct net_device *dev,
 	int rc;
 	u64 counter[TOTAL_PORT_COUNTER_NUM];
 
+	pax_track_stack();
+
 	mutex_lock(&hw_priv->lock);
 	n = SWITCH_PORT_NUM;
 	for (i = 0, p = port->first_port; i < port->mib_port_cnt; i++, p++) {

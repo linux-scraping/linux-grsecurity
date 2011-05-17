@@ -7,6 +7,7 @@
 #include <linux/pci_regs.h>
 #include <linux/pci_ids.h>
 #include <linux/errno.h>
+#include <linux/sched.h>
 #include <asm/io.h>
 #include <asm/processor.h>
 #include <asm/fcntl.h>
@@ -178,6 +179,8 @@ asmlinkage void early_printk(const char *fmt, ...)
 	char buf[512];
 	int n;
 	va_list ap;
+
+	pax_track_stack();
 
 	va_start(ap, fmt);
 	n = vscnprintf(buf, sizeof(buf), fmt, ap);

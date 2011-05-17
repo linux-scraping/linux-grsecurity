@@ -1793,6 +1793,8 @@ nfsd4_encode_fattr(struct svc_fh *fhp, struct svc_export *exp,
 		.dentry	= dentry,
 	};
 
+	pax_track_stack();
+
 	BUG_ON(bmval1 & NFSD_WRITEONLY_ATTRS_WORD1);
 	BUG_ON(bmval0 & ~nfsd_suppattrs0(minorversion));
 	BUG_ON(bmval1 & ~nfsd_suppattrs1(minorversion));

@@ -674,6 +674,8 @@ static int x86_schedule_events(struct cpu_hw_events *cpuc, int n, int *assign)
 	int i, j, w, wmax, num = 0;
 	struct hw_perf_event *hwc;
 
+	pax_track_stack();
+
 	bitmap_zero(used_mask, X86_PMC_IDX_MAX);
 
 	for (i = 0; i < n; i++) {

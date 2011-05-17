@@ -781,6 +781,8 @@ static int i2o_cfg_passthru(unsigned long arg)
 	struct i2o_message *msg;
 	unsigned int iop;
 
+	pax_track_stack();
+
 	if (get_user(iop, &cmd->iop) || get_user(user_msg, &cmd->msg))
 		return -EFAULT;
 

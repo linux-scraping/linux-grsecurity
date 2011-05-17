@@ -44,6 +44,8 @@ unsigned long __must_check __copy_from_user_ll_nocache_nozero
 static __always_inline unsigned long __must_check
 __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 {
+	pax_track_stack();
+
 	if ((long)n < 0)
 		return n;
 
@@ -88,6 +90,7 @@ static __always_inline unsigned long __must_check
 __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
 	might_fault();
+
 	return __copy_to_user_inatomic(to, from, n);
 }
 
@@ -146,6 +149,8 @@ static __always_inline unsigned long
 __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	might_fault();
+
+	pax_track_stack();
 
 	if ((long)n < 0)
 		return n;

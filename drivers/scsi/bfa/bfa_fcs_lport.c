@@ -1559,6 +1559,8 @@ bfa_fcs_lport_fdmi_build_rhba_pyld(struct bfa_fcs_lport_fdmi_s *fdmi, u8 *pyld)
 	u16        len, count;
 	u16	templen;
 
+	pax_track_stack();
+
 	/*
 	 * get hba attributes
 	 */
@@ -1835,6 +1837,8 @@ bfa_fcs_lport_fdmi_build_portattr_block(struct bfa_fcs_lport_fdmi_s *fdmi,
 	u16        len;
 	u8	count = 0;
 	u16	templen;
+
+	pax_track_stack();
 
 	/*
 	 * get port attributes

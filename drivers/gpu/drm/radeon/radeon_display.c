@@ -934,6 +934,8 @@ void radeon_compute_pll_legacy(struct radeon_pll *pll,
 	uint32_t post_div;
 	u32 pll_out_min, pll_out_max;
 
+	pax_track_stack();
+
 	DRM_DEBUG_KMS("PLL freq %llu %u %u\n", freq, pll->min_ref_div, pll->max_ref_div);
 	freq = freq * 1000;
 

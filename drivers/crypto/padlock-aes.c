@@ -109,6 +109,8 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
 	struct crypto_aes_ctx gen_aes;
 	int cpu;
 
+	pax_track_stack();
+
 	if (key_len % 8) {
 		*flags |= CRYPTO_TFM_RES_BAD_KEY_LEN;
 		return -EINVAL;

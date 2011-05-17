@@ -37,6 +37,8 @@ static int jffs2_rtime_compress(unsigned char *data_in,
 	int outpos = 0;
 	int pos=0;
 
+	pax_track_stack();
+
 	memset(positions,0,sizeof(positions));
 
 	while (pos < (*sourcelen) && outpos <= (*dstlen)-2) {
@@ -77,6 +79,8 @@ static int jffs2_rtime_decompress(unsigned char *data_in,
 	short positions[256];
 	int outpos = 0;
 	int pos=0;
+
+	pax_track_stack();
 
 	memset(positions,0,sizeof(positions));
 

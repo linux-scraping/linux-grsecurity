@@ -1619,21 +1619,16 @@ void pax_report_insns(void *pc, void *sp);
 void pax_report_refcount_overflow(struct pt_regs *regs);
 void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
 
+static inline void pax_track_stack(void)
+{
+
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-#define stackleak_probe(var)					\
-	do {							\
-		size_t maxidx = sizeof(var) / sizeof(long);	\
-		long *p = (long *)&var;				\
-		unsigned int i;					\
-								\
-		BUILD_BUG_ON(sizeof(var) < 64);			\
-								\
-		for (i = 0; i < maxidx; i += 64 / sizeof(long))	\
-			p[i] = 0;				\
-	} while (0)
-#else
-#define stackleak_probe(var)	do { } while (0)
+	if (current_thread_info()->lowest_stack > current_stack_pointer &&
+	    (unsigned long)task_stack_page(current) < current_stack_pointer)
+		current_thread_info()->lowest_stack = current_stack_pointer;
 #endif
+
+}
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)

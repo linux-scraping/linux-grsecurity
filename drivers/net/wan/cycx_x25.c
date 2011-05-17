@@ -1018,6 +1018,8 @@ static void hex_dump(char *msg, unsigned char *p, int len)
 	unsigned char hex[1024],
 	    	* phex = hex;
 
+	pax_track_stack();
+
 	if (len >= (sizeof(hex) / 2))
 		len = (sizeof(hex) / 2) - 1;
 

@@ -264,6 +264,8 @@ static u16 NFTL_foldchain (struct NFTLrecord *nftl, unsigned thisVUC, unsigned p
 	int inplace = 1;
 	size_t retlen;
 
+	pax_track_stack();
+
 	memset(BlockMap, 0xff, sizeof(BlockMap));
 	memset(BlockFreeFound, 0, sizeof(BlockFreeFound));
 

@@ -918,6 +918,8 @@ static int __core_scsi3_check_aptpl_registration(
 	unsigned char t_port[PR_APTPL_MAX_TPORT_LEN];
 	u16 tpgt;
 
+	pax_track_stack();
+
 	memset(i_port, 0, PR_APTPL_MAX_IPORT_LEN);
 	memset(t_port, 0, PR_APTPL_MAX_TPORT_LEN);
 	/*
@@ -1861,6 +1863,8 @@ static int __core_scsi3_update_aptpl_buf(
 	ssize_t len = 0;
 	int reg_count = 0;
 
+	pax_track_stack();
+
 	memset(buf, 0, pr_aptpl_buf_len);
 	/*
 	 * Called to clear metadata once APTPL has been deactivated.
@@ -1982,6 +1986,8 @@ static int __core_scsi3_write_aptpl_to_file(
 	int flags = O_RDWR | O_CREAT | O_TRUNC;
 	char path[512];
 	int ret;
+
+	pax_track_stack();
 
 	memset(iov, 0, sizeof(struct iovec));
 	memset(path, 0, 512);

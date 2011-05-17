@@ -838,6 +838,8 @@ target_emulate_modesense(struct se_cmd *cmd, int ten)
 	int length = 0;
 	unsigned char buf[SE_MODE_PAGE_BUF];
 
+	pax_track_stack();
+
 	memset(buf, 0, SE_MODE_PAGE_BUF);
 
 	switch (cdb[2] & 0x3f) {

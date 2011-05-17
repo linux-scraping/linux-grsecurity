@@ -97,6 +97,8 @@ static inline void VXGE_COMPLETE_VPATH_TX(struct vxge_fifo *fifo)
 	struct sk_buff *completed[NR_SKB_COMPLETED];
 	int more;
 
+	pax_track_stack();
+
 	do {
 		more = 0;
 		skb_ptr = completed;
@@ -1888,6 +1890,8 @@ static enum vxge_hw_status vxge_rth_configure(struct vxgedev *vdev)
 	u8 itable[256] = {0}; /* indirection table */
 	u8 mtable[256] = {0}; /* CPU to vpath mapping  */
 	int index;
+
+	pax_track_stack();
 
 	/*
 	 * Filling

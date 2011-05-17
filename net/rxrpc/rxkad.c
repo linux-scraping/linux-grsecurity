@@ -211,6 +211,8 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
 	u16 check;
 	int nsg;
 
+	pax_track_stack();
+
 	sp = rxrpc_skb(skb);
 
 	_enter("");
@@ -337,6 +339,8 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
 	u32 data_size, buf;
 	u16 check;
 	int nsg;
+
+	pax_track_stack();
 
 	_enter("");
 

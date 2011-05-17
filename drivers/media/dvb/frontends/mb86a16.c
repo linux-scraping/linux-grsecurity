@@ -1060,6 +1060,8 @@ static int mb86a16_set_fe(struct mb86a16_state *state)
 	int ret = -1;
 	int sync;
 
+	pax_track_stack();
+
 	dprintk(verbose, MB86A16_INFO, 1, "freq=%d Mhz, symbrt=%d Ksps", state->frequency, state->srate);
 
 	fcp = 3000;

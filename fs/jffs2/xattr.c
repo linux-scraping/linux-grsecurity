@@ -773,6 +773,8 @@ void jffs2_build_xattr_subsystem(struct jffs2_sb_info *c)
 
 	BUG_ON(!(c->flags & JFFS2_SB_FLAG_BUILDING));
 
+	pax_track_stack();
+
 	/* Phase.1 : Merge same xref */
 	for (i=0; i < XREF_TMPHASH_SIZE; i++)
 		xref_tmphash[i] = NULL;

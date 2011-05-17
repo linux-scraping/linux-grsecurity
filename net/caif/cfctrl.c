@@ -9,6 +9,7 @@
 #include <linux/stddef.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 #include <net/caif/caif_layer.h>
 #include <net/caif/cfpkt.h>
 #include <net/caif/cfctrl.h>
@@ -385,6 +386,7 @@ static int cfctrl_recv(struct cflayer *layer, struct cfpkt *pkt)
 	struct cfctrl *cfctrl = container_obj(layer);
 	struct cfctrl_request_info rsp, *req;
 
+	pax_track_stack();
 
 	cfpkt_extr_head(pkt, &cmdrsp, 1);
 	cmd = cmdrsp & CFCTRL_CMD_MASK;

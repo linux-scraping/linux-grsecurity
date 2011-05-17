@@ -362,6 +362,8 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
 	u8 vpd[VPD_LEN], csum;
 	unsigned int vpdr_len, kw_offset, id_len;
 
+	pax_track_stack();
+
 	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(vpd), vpd);
 	if (ret < 0)
 		return ret;

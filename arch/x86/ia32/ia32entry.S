@@ -105,14 +105,12 @@ ENDPROC(native_irq_enable_sysexit)
 	call pax_exit_kernel_user
 #endif
 #ifdef CONFIG_PAX_RANDKSTACK
-	push %rax
+	pushq %rax
 	call pax_randomize_kstack
-	pop %rax
+	popq %rax
 #endif
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	push %rax
 	call pax_erase_kstack
-	pop %rax
 #endif
 	.endm
 

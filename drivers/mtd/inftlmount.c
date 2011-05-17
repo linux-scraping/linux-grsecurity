@@ -53,6 +53,8 @@ static int find_boot_record(struct INFTLrecord *inftl)
 	struct INFTLPartition *ip;
 	size_t retlen;
 
+	pax_track_stack();
+
 	DEBUG(MTD_DEBUG_LEVEL3, "INFTL: find_boot_record(inftl=%p)\n", inftl);
 
         /*

@@ -675,6 +675,8 @@ static int core_alua_update_tpg_primary_metadata(
 	char path[ALUA_METADATA_PATH_LEN];
 	int len;
 
+	pax_track_stack();
+
 	memset(path, 0, ALUA_METADATA_PATH_LEN);
 
 	len = snprintf(md_buf, tg_pt_gp->tg_pt_gp_md_buf_len,
@@ -937,6 +939,8 @@ static int core_alua_update_tpg_secondary_metadata(
 	struct se_portal_group *se_tpg = port->sep_tpg;
 	char path[ALUA_METADATA_PATH_LEN], wwn[ALUA_SECONDARY_METADATA_WWN_LEN];
 	int len;
+
+	pax_track_stack();
 
 	memset(path, 0, ALUA_METADATA_PATH_LEN);
 	memset(wwn, 0, ALUA_SECONDARY_METADATA_WWN_LEN);

@@ -1937,6 +1937,8 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned, flags)
 	int err, ctl_len, iov_size, total_len;
 	int fput_needed;
 
+	pax_track_stack();
+
 	err = -EFAULT;
 	if (MSG_CMSG_COMPAT & flags) {
 		if (get_compat_msghdr(&msg_sys, msg_compat))

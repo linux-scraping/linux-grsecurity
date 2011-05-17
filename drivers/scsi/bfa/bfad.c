@@ -1027,6 +1027,8 @@ bfad_start_ops(struct bfad_s *bfad) {
 	struct bfad_vport_s *vport, *vport_new;
 	struct bfa_fcs_driver_info_s driver_info;
 
+	pax_track_stack();
+
 	/* Fill the driver_info info to fcs*/
 	memset(&driver_info, 0, sizeof(driver_info));
 	strncpy(driver_info.version, BFAD_DRIVER_VERSION,

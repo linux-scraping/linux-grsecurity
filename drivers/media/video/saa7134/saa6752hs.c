@@ -682,6 +682,8 @@ static int saa6752hs_init(struct v4l2_subdev *sd, u32 leading_null_bytes)
 	unsigned char localPAT[256];
 	unsigned char localPMT[256];
 
+	pax_track_stack();
+
 	/* Set video format - must be done first as it resets other settings */
 	set_reg8(client, 0x41, h->video_format);
 

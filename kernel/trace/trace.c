@@ -3316,6 +3316,8 @@ static ssize_t tracing_splice_read_pipe(struct file *filp,
 	size_t rem;
 	unsigned int i;
 
+	pax_track_stack();
+
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
 
@@ -3798,6 +3800,8 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	struct buffer_ref *ref;
 	int entries, size, i;
 	size_t ret;
+
+	pax_track_stack();
 
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;

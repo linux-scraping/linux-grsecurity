@@ -478,6 +478,8 @@ struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
 	struct inet_peer_base *base = family_to_base(daddr->family);
 	struct inet_peer *p;
 
+	pax_track_stack();
+
 	/* Look up for the address quickly, lockless.
 	 * Because of a concurrent writer, we might not find an existing entry.
 	 */

@@ -203,6 +203,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.sp0 = (unsigned long) (childregs+1);
+	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p);
 
 	p->thread.ip = (unsigned long) ret_from_fork;
 

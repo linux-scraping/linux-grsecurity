@@ -261,6 +261,9 @@ void __devinit
 ixgb_check_options(struct ixgb_adapter *adapter)
 {
 	int bd = adapter->bd_number;
+
+	pax_track_stack();
+
 	if (bd >= IXGB_MAX_NIC) {
 		pr_notice("Warning: no configuration for board #%i\n", bd);
 		pr_notice("Using defaults for all values\n");

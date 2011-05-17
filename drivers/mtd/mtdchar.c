@@ -560,6 +560,8 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 	u_long size;
 	struct mtd_info_user info;
 
+	pax_track_stack();
+
 	DEBUG(MTD_DEBUG_LEVEL0, "MTD_ioctl\n");
 
 	size = (cmd & IOCSIZE_MASK) >> IOCSIZE_SHIFT;

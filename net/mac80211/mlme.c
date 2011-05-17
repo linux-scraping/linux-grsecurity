@@ -1356,6 +1356,8 @@ static bool ieee80211_assoc_success(struct ieee80211_work *wk,
 	bool have_higher_than_11mbit = false;
 	u16 ap_ht_cap_flags;
 
+	pax_track_stack();
+
 	/* AssocResp and ReassocResp have identical structure */
 
 	aid = le16_to_cpu(mgmt->u.assoc_resp.aid);

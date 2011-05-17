@@ -321,6 +321,8 @@ static ssize_t read_file_interrupt(struct file *file, char __user *user_buf,
 	char buf[512];
 	unsigned int len = 0;
 
+	pax_track_stack();
+
 	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_EDMA) {
 		len += snprintf(buf + len, sizeof(buf) - len,
 			"%8s: %10u\n", "RXLP", sc->debug.stats.istats.rxlp);
@@ -409,6 +411,8 @@ static ssize_t read_file_wiphy(struct file *file, char __user *user_buf,
 	int i;
 	u8 addr[ETH_ALEN];
 	u32 tmp;
+
+	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"primary: %s (%s chan=%d ht=%d)\n",

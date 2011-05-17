@@ -1787,6 +1787,8 @@ int compat_core_sys_select(int n, compat_ulong_t __user *inp,
 	struct fdtable *fdt;
 	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
 
+	pax_track_stack();
+
 	if (n < 0)
 		goto out_nofds;
 

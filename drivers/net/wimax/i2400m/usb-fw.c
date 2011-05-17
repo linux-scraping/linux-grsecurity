@@ -287,6 +287,8 @@ ssize_t i2400mu_bus_bm_wait_for_ack(struct i2400m *i2400m,
 	int do_autopm = 1;
 	DECLARE_COMPLETION_ONSTACK(notif_completion);
 
+	pax_track_stack();
+
 	d_fnstart(8, dev, "(i2400m %p ack %p size %zu)\n",
 		  i2400m, ack, ack_size);
 	BUG_ON(_ack == i2400m->bm_ack_buf);

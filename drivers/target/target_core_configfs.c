@@ -1279,6 +1279,8 @@ static ssize_t target_core_dev_pr_show_attr_res_pr_registered_i_pts(
 	ssize_t len = 0;
 	int reg_count = 0, prf_isid;
 
+	pax_track_stack();
+
 	if (!(su_dev->se_dev_ptr))
 		return -ENODEV;
 

@@ -883,6 +883,8 @@ static void rs_tx_status(void *priv_r, struct ieee80211_supported_band *sband,
 	struct iwl_station_priv *sta_priv = (void *)sta->drv_priv;
 	struct iwl_rxon_context *ctx = sta_priv->common.ctx;
 
+	pax_track_stack();
+
 	IWL_DEBUG_RATE_LIMIT(priv, "get frame ack response, update rate scale window\n");
 
 	/* Treat uninitialized rate scaling data same as non-existing. */
@@ -2891,6 +2893,8 @@ static void rs_fill_link_cmd(struct iwl_priv *priv,
 	u8 use_ht_possible = 1;
 	u8 valid_tx_ant = 0;
 	struct iwl_link_quality_cmd *lq_cmd = &lq_sta->lq;
+
+	pax_track_stack();
 
 	/* Override starting rate (index 0) if needed for debug purposes */
 	rs_dbgfs_set_mcs(lq_sta, &new_rate, index);

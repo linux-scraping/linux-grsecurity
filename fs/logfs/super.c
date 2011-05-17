@@ -266,6 +266,8 @@ static int logfs_recover_sb(struct super_block *sb)
 	struct logfs_disk_super _ds1, *ds1 = &_ds1;
 	int err, valid0, valid1;
 
+	pax_track_stack();
+
 	/* read first superblock */
 	err = wbuf_read(sb, super->s_sb_ofs[0], sizeof(*ds0), ds0);
 	if (err)

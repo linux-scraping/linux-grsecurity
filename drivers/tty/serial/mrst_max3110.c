@@ -393,6 +393,8 @@ static void max3110_con_receive(struct uart_max3110 *max)
 	int loop = 1, num, total = 0;
 	u8 recv_buf[512], *pbuf;
 
+	pax_track_stack();
+
 	pbuf = recv_buf;
 	do {
 		num = max3110_read_multi(max, pbuf);

@@ -1565,6 +1565,8 @@ static void libipw_process_probe_response(struct libipw_device
 	unsigned long flags;
 	DECLARE_SSID_BUF(ssid);
 
+	pax_track_stack();
+
 	LIBIPW_DEBUG_SCAN("'%s' (%pM"
 		     "): %c%c%c%c %c%c%c%c-%c%c%c%c %c%c%c%c\n",
 		     print_ssid(ssid, info_element->data, info_element->len),

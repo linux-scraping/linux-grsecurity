@@ -2299,6 +2299,8 @@ static struct buffer_head *reiserfs_breada(struct block_device *dev,
 	struct buffer_head *bh;
 	int i, j;
 
+	pax_track_stack();
+
 	bh = __getblk(dev, block, bufsize);
 	if (buffer_uptodate(bh))
 		return (bh);

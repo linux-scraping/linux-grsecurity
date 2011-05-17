@@ -3429,6 +3429,8 @@ static int __devinit enable_msix(struct adapter *adap)
 	unsigned int nchan = adap->params.nports;
 	struct msix_entry entries[MAX_INGQ + 1];
 
+	pax_track_stack();
+
 	for (i = 0; i < ARRAY_SIZE(entries); ++i)
 		entries[i].entry = i;
 

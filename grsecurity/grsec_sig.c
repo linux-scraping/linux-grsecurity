@@ -179,11 +179,10 @@ void gr_handle_kernel_exploit(void)
 #endif
 }
 
-int gr_process_user_ban(void)
+int __gr_process_user_ban(struct user_struct *user)
 {
 #if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
-	if (unlikely(current->cred->user->banned)) {
-		struct user_struct *user = current->cred->user;
+	if (unlikely(user->banned)) {
 		if (user->ban_expires != ~0UL && time_after_eq(get_seconds(), user->ban_expires)) {
 			user->banned = 0;
 			user->ban_expires = 0;
@@ -193,5 +192,12 @@ int gr_process_user_ban(void)
 	}
 #endif
 	return 0;
+}
 
+int gr_process_user_ban(void)
+{
+#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
+	return __gr_process_user_ban(current->cred->user);
+#endif
+	return 0;
 }

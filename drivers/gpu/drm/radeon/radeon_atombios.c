@@ -545,6 +545,8 @@ bool radeon_get_atom_connector_info_from_object_table(struct drm_device *dev)
 	struct radeon_gpio_rec gpio;
 	struct radeon_hpd hpd;
 
+	pax_track_stack();
+
 	if (!atom_parse_data_header(ctx, index, &size, &frev, &crev, &data_offset))
 		return false;
 

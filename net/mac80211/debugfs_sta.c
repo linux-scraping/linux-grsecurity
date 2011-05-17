@@ -115,6 +115,8 @@ static ssize_t sta_agg_status_read(struct file *file, char __user *userbuf,
 	struct tid_ampdu_rx *tid_rx;
 	struct tid_ampdu_tx *tid_tx;
 
+	pax_track_stack();
+
 	rcu_read_lock();
 
 	p += scnprintf(p, sizeof(buf) + buf - p, "next dialog_token: %#02x\n",
@@ -214,6 +216,8 @@ static ssize_t sta_ht_capa_read(struct file *file, char __user *userbuf,
 	int i;
 	struct sta_info *sta = file->private_data;
 	struct ieee80211_sta_ht_cap *htc = &sta->sta.ht_cap;
+
+	pax_track_stack();
 
 	p += scnprintf(p, sizeof(buf) + buf - p, "ht %ssupported\n",
 			htc->ht_supported ? "" : "not ");

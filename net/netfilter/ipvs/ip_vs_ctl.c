@@ -2376,6 +2376,8 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
 	int ret = 0;
 	unsigned int copylen;
 
+	pax_track_stack();
+
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 

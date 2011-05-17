@@ -44,6 +44,8 @@ static int wm8350_i2c_write_device(struct wm8350 *wm8350, char reg,
 	u8 msg[(WM8350_MAX_REGISTER << 1) + 1];
 	int ret;
 
+	pax_track_stack();
+
 	if (bytes > ((WM8350_MAX_REGISTER << 1) + 1))
 		return -EINVAL;
 

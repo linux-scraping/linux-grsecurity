@@ -1155,6 +1155,8 @@ static struct page *shmem_swapin(swp_entry_t entry, gfp_t gfp,
 	struct vm_area_struct pvma;
 	struct page *page;
 
+	pax_track_stack();
+
 	spol = mpol_cond_copy(&mpol,
 				mpol_shared_policy_lookup(&info->policy, idx));
 

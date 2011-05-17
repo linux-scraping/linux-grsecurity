@@ -47,6 +47,9 @@ static int gdth_set_asc_info(struct Scsi_Host *host, char *buffer,
     u64         paddr;
 
     char            cmnd[MAX_COMMAND_SIZE];
+
+    pax_track_stack();
+
     memset(cmnd, 0xff, 12);
     memset(&gdtcmd, 0, sizeof(gdth_cmd_str));
 
@@ -174,6 +177,8 @@ static int gdth_get_info(char *buffer,char **start,off_t offset,int length,
     gdth_cdrinfo_str *pcdi;
     gdth_hget_str *phg;
     char cmnd[MAX_COMMAND_SIZE];
+
+    pax_track_stack();
 
     gdtcmd = kmalloc(sizeof(*gdtcmd), GFP_KERNEL);
     estr = kmalloc(sizeof(*estr), GFP_KERNEL);

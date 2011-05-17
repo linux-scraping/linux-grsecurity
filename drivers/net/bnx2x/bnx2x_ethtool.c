@@ -1788,6 +1788,8 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
 	int i, rc;
 	u32 magic, crc;
 
+	pax_track_stack();
+
 	if (BP_NOMCP(bp))
 		return 0;
 

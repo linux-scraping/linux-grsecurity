@@ -279,6 +279,8 @@ static void wl1271_spi_raw_write(struct wl1271 *wl, int addr, void *buf,
 	u32 chunk_len;
 	int i;
 
+	pax_track_stack();
+
 	WARN_ON(len > WL1271_AGGR_BUFFER_SIZE);
 
 	spi_message_init(&m);

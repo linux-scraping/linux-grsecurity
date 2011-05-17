@@ -554,6 +554,8 @@ static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr, u32 error_code,
 	unsigned long mmu_seq;
 	bool map_writable;
 
+	pax_track_stack();
+
 	pgprintk("%s: addr %lx err %x\n", __func__, addr, error_code);
 
 	r = mmu_topup_memory_caches(vcpu);

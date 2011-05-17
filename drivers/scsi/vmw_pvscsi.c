@@ -447,6 +447,8 @@ static void pvscsi_setup_all_rings(const struct pvscsi_adapter *adapter)
 	dma_addr_t base;
 	unsigned i;
 
+	pax_track_stack();
+
 	cmd.ringsStatePPN   = adapter->ringStatePA >> PAGE_SHIFT;
 	cmd.reqRingNumPages = adapter->req_pages;
 	cmd.cmpRingNumPages = adapter->cmp_pages;

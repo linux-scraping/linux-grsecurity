@@ -356,6 +356,8 @@ static bool create_pa_curve(u32 *data_L, u32 *data_U, u32 *pa_table, u16 *gain)
 	int theta_low_bin = 0;
 	int i;
 
+	pax_track_stack();
+
 	/* disregard any bin that contains <= 16 samples */
 	thresh_accum_cnt = 16;
 	scale_factor = 5;

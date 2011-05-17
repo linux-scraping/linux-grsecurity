@@ -962,6 +962,8 @@ static int __init BusLogic_InitializeFlashPointProbeInfo(struct BusLogic_HostAda
 static void __init BusLogic_InitializeProbeInfoList(struct BusLogic_HostAdapter
 						    *PrototypeHostAdapter)
 {
+	pax_track_stack();
+
 	/*
 	   If a PCI BIOS is present, interrogate it for MultiMaster and FlashPoint
 	   Host Adapters; otherwise, default to the standard ISA MultiMaster probe.

@@ -1844,6 +1844,8 @@ bfa_fcs_rport_process_rpsc(struct bfa_fcs_rport_s *rport,
 	struct fc_rpsc_speed_info_s speeds;
 	struct bfa_port_attr_s pport_attr;
 
+	pax_track_stack();
+
 	bfa_trc(port->fcs, rx_fchs->s_id);
 	bfa_trc(port->fcs, rx_fchs->d_id);
 

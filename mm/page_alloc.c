@@ -2435,6 +2435,8 @@ void show_free_areas(void)
 	int cpu;
 	struct zone *zone;
 
+	pax_track_stack();
+
 	for_each_populated_zone(zone) {
 		show_node(zone);
 		printk("%s per-cpu:\n", zone->name);

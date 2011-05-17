@@ -2478,6 +2478,8 @@ void ata_eh_report(struct ata_port *ap)
 {
 	struct ata_link *link;
 
+	pax_track_stack();
+
 	ata_for_each_link(link, ap, HOST_FIRST)
 		ata_eh_link_report(link);
 }

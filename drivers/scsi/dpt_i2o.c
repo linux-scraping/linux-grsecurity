@@ -1811,6 +1811,8 @@ static int adpt_i2o_passthru(adpt_hba* pHba, u32 __user *arg)
 	dma_addr_t addr;
 	ulong flags = 0;
 
+	pax_track_stack();
+
 	memset(&msg, 0, MAX_MESSAGE_SIZE*4);
 	// get user msg size in u32s 
 	if(get_user(size, &user_msg[0])){
@@ -2316,6 +2318,8 @@ static s32 adpt_scsi_to_i2o(adpt_hba* pHba, struct scsi_cmnd* cmd, struct adpt_d
 	u32 reqlen;
 	s32 rcode;
 	dma_addr_t addr;
+
+	pax_track_stack();
 
 	memset(msg, 0 , sizeof(msg));
 	len = scsi_bufflen(cmd);

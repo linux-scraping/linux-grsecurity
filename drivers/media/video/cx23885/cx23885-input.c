@@ -53,6 +53,8 @@ static void cx23885_input_process_measurements(struct cx23885_dev *dev,
 	bool handle = false;
 	struct ir_raw_event ir_core_event[64];
 
+	pax_track_stack();
+
 	do {
 		num = 0;
 		v4l2_subdev_call(dev->sd_ir, ir, rx_read, (u8 *) ir_core_event,

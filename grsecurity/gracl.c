@@ -2281,6 +2281,8 @@ gr_set_proc_res(struct task_struct *task)
 	return;
 }
 
+extern int __gr_process_user_ban(struct user_struct *user);
+
 int
 gr_check_user_change(int real, int effective, int fs)
 {
@@ -2291,6 +2293,28 @@ gr_check_user_change(int real, int effective, int fs)
 	int realok = 0;
 	int effectiveok = 0;
 	int fsok = 0;
+
+#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
+	struct user_struct *user;
+
+	if (real == -1)
+		goto skipit;
+
+	user = find_user(real);
+	if (user == NULL)
+		goto skipit;
+
+	if (__gr_process_user_ban(user)) {
+		/* for find_user */
+		free_uid(user);
+		return 1;
+	}
+
+	/* for find_user */
+	free_uid(user);
+
+skipit:
+#endif
 
 	if (unlikely(!(gr_status & GR_READY)))
 		return 0;

@@ -1543,6 +1543,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
 	struct sock *sk = skb->sk;
 	int ret = 0;
 
+	pax_track_stack();
+
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
 

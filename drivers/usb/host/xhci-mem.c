@@ -1616,6 +1616,8 @@ static int xhci_check_trb_in_td_math(struct xhci_hcd *xhci, gfp_t mem_flags)
 	unsigned int num_tests;
 	int i, ret;
 
+	pax_track_stack();
+
 	num_tests = ARRAY_SIZE(simple_test_vector);
 	for (i = 0; i < num_tests; i++) {
 		ret = xhci_test_trb_in_td(xhci,

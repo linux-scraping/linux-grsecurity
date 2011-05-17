@@ -1115,6 +1115,8 @@ static int do_pages_move(struct mm_struct *mm, struct task_struct *task,
 	unsigned long chunk_start;
 	int err;
 
+	pax_track_stack();
+
 	task_nodes = cpuset_mems_allowed(task);
 
 	err = -ENOMEM;

@@ -179,6 +179,8 @@ int hfsplus_find_cat(struct super_block *sb, u32 cnid,
 	int err;
 	u16 type;
 
+	pax_track_stack();
+
 	hfsplus_cat_build_key(sb, fd->search_key, cnid, NULL);
 	err = hfs_brec_read(fd, &tmp, sizeof(hfsplus_cat_entry));
 	if (err)
@@ -209,6 +211,8 @@ int hfsplus_create_cat(u32 cnid, struct inode *dir,
 	hfsplus_cat_entry entry;
 	int entry_size;
 	int err;
+
+	pax_track_stack();
 
 	dprint(DBG_CAT_MOD, "create_cat: %s,%u(%d)\n",
 		str->name, cnid, inode->i_nlink);
@@ -348,6 +352,8 @@ int hfsplus_rename_cat(u32 cnid,
 	hfsplus_cat_entry entry;
 	int entry_size, type;
 	int err = 0;
+
+	pax_track_stack();
 
 	dprint(DBG_CAT_MOD, "rename_cat: %u - %lu,%s - %lu,%s\n",
 		cnid, src_dir->i_ino, src_name->name,

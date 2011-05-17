@@ -379,6 +379,8 @@ static int ide_floppy_get_capacity(ide_drive_t *drive)
 	u8 pc_buf[256], header_len, desc_cnt;
 	int i, rc = 1, blocks, length;
 
+	pax_track_stack();
+
 	ide_debug_log(IDE_DBG_FUNC, "enter");
 
 	drive->bios_cyl = 0;

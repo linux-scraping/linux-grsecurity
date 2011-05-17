@@ -259,6 +259,8 @@ static u16 INFTL_foldchain(struct INFTLrecord *inftl, unsigned thisVUC, unsigned
 	struct inftl_oob oob;
 	size_t retlen;
 
+	pax_track_stack();
+
 	DEBUG(MTD_DEBUG_LEVEL3, "INFTL: INFTL_foldchain(inftl=%p,thisVUC=%d,"
 		"pending=%d)\n", inftl, thisVUC, pendingblock);
 

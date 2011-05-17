@@ -409,6 +409,8 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	char tcomm[sizeof(task->comm)] = { 0 };
 	unsigned long flags;
 
+	pax_track_stack();
+
 	state = *get_task_state(task);
 	vsize = eip = esp = 0;
 	permitted = ptrace_may_access(task, PTRACE_MODE_READ);

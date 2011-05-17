@@ -120,6 +120,8 @@ int pvr2_eeprom_analyze(struct pvr2_hdw *hdw)
 	u8 *eeprom;
 	struct tveeprom tvdata;
 
+	pax_track_stack();
+
 	memset(&tvdata,0,sizeof(tvdata));
 
 	eeprom = pvr2_eeprom_fetch(hdw);

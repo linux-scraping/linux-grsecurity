@@ -491,6 +491,8 @@ int hfsplus_cat_read_inode(struct inode *inode, struct hfs_find_data *fd)
 	int res = 0;
 	u16 type;
 
+	pax_track_stack();
+
 	type = hfs_bnode_read_u16(fd->bnode, fd->entryoffset);
 
 	HFSPLUS_I(inode)->linkid = 0;
@@ -553,6 +555,8 @@ int hfsplus_cat_write_inode(struct inode *inode)
 	struct inode *main_inode = inode;
 	struct hfs_find_data fd;
 	hfsplus_cat_entry entry;
+
+	pax_track_stack();
 
 	if (HFSPLUS_IS_RSRC(inode))
 		main_inode = HFSPLUS_I(inode)->rsrc_inode;

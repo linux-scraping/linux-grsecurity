@@ -133,6 +133,9 @@ static void *get_call_destination(u8 type)
 		.pv_lock_ops = pv_lock_ops,
 #endif
 	};
+
+	pax_track_stack();
+
 	return *((void **)&tmpl + type);
 }
 
