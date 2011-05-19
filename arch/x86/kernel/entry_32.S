@@ -213,9 +213,7 @@
 ENTRY(pax_enter_kernel)
 #ifdef CONFIG_PARAVIRT
 	pushl %eax
-	CFI_REL_OFFSET eax, 0
 	pushl %ecx
-	CFI_REL_OFFSET ecx, 0
 	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
 	mov %eax, %esi
 #else
@@ -238,9 +236,7 @@ ENTRY(pax_enter_kernel)
 3:
 #ifdef CONFIG_PARAVIRT
 	popl %ecx
-	CFI_RESTORE ecx
 	popl %eax
-	CFI_RESTORE eax
 #endif
 	ret
 ENDPROC(pax_enter_kernel)
@@ -248,9 +244,7 @@ ENDPROC(pax_enter_kernel)
 ENTRY(pax_exit_kernel)
 #ifdef CONFIG_PARAVIRT
 	pushl %eax
-	CFI_REL_OFFSET eax, 0
 	pushl %ecx
-	CFI_REL_OFFSET ecx, 0
 #endif
 	mov %cs, %esi
 	cmp $__KERNEXEC_KERNEL_CS, %esi
@@ -273,9 +267,7 @@ ENTRY(pax_exit_kernel)
 2:
 #ifdef CONFIG_PARAVIRT
 	popl %ecx
-	CFI_RESTORE ecx
 	popl %eax
-	CFI_RESTORE eax
 #endif
 	ret
 ENDPROC(pax_exit_kernel)

@@ -1623,9 +1623,10 @@ static inline void pax_track_stack(void)
 {
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	if (current_thread_info()->lowest_stack > current_stack_pointer &&
-	    (unsigned long)task_stack_page(current) < current_stack_pointer)
-		current_thread_info()->lowest_stack = current_stack_pointer;
+	unsigned long sp = current_stack_pointer;
+	if (current_thread_info()->lowest_stack > sp &&
+	    (unsigned long)task_stack_page(current) < sp)
+		current_thread_info()->lowest_stack = sp;
 #endif
 
 }

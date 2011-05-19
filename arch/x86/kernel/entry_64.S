@@ -388,6 +388,7 @@ ENTRY(pax_erase_kstack)
 	pushq %rdi
 	pushq %rax
 
+	GET_THREAD_INFO(%r10)
 	mov TI_lowest_stack(%r10), %rdi
 	mov $-0xBEEF, %rax
 	std

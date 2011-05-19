@@ -1,6 +1,7 @@
 *.a
 *.aux
 *.bin
+*.cis
 *.cpio
 *.csp
 *.dbg
@@ -9,6 +10,7 @@
 *.elf
 *.eps
 *.fw
+*.gcno
 *.gen.S
 *.gif
 *.grep
@@ -88,6 +90,7 @@ btfixupprep
 build
 bvmlinux
 bzImage*
+capability_names.h
 capflags.c
 classlist.h*
 clut_vga16.c
@@ -197,6 +200,7 @@ raid6int*.c
 raid6tables.c
 regdb.c
 relocs
+rlim_names.h
 rn50_reg_safe.h
 rs600_reg_safe.h
 rv515_reg_safe.h
