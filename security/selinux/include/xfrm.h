@@ -48,7 +48,7 @@ int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
 
 static inline void selinux_xfrm_notify_policyload(void)
 {
-	atomic_inc(&flow_cache_genid);
+	atomic_inc_unchecked(&flow_cache_genid);
 }
 #else
 static inline int selinux_xfrm_enabled(void)

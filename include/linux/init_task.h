@@ -85,10 +85,8 @@ extern struct group_info init_groups;
 
 #ifdef CONFIG_X86
 #define INIT_TASK_THREAD_INFO .tinfo = INIT_THREAD_INFO,
-#define INIT_TASK_STACK	      .stack = &init_thread_union,
 #else
 #define INIT_TASK_THREAD_INFO
-#define INIT_TASK_STACK	      .stack = &init_thread_info,
 #endif
 
 #ifdef CONFIG_SECURITY_FILE_CAPABILITIES
@@ -130,7 +128,7 @@ extern struct cred init_cred;
 #define INIT_TASK(tsk)	\
 {									\
 	.state		= 0,						\
-	INIT_TASK_STACK							\
+	.stack		= &init_thread_info,				\
 	.usage		= ATOMIC_INIT(2),				\
 	.flags		= PF_KTHREAD,					\
 	.lock_depth	= -1,						\
