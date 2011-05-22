@@ -229,17 +229,27 @@ int generic_permission(struct inode *inode, int mask, unsigned int flags,
 	 * Searching includes executable on directories, else just read.
 	 */
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
-	if (mask == MAY_READ || (S_ISDIR(inode->i_mode) && !(mask & MAY_WRITE)))
+	if (mask == MAY_READ || (S_ISDIR(inode->i_mode) && !(mask & MAY_WRITE))) {
+#ifdef CONFIG_GRKERNSEC
+		if (flags & IPERM_FLAG_RCU)
+			return -ECHILD;
+#endif
 		if (capable(CAP_DAC_READ_SEARCH))
 			return 0;
+	}
 
 	/*
 	 * Read/write DACs are always overridable.
 	 * Executable DACs are overridable if at least one exec bit is set.
 	 */
-	if (!(mask & MAY_EXEC) || execute_ok(inode))
+	if (!(mask & MAY_EXEC) || execute_ok(inode)) {
+#ifdef CONFIG_GRKERNSEC
+		if (flags & IPERM_FLAG_RCU)
+			return -ECHILD;
+#endif
 		if (capable(CAP_DAC_OVERRIDE))
 			return 0;
+	}
 
 	return -EACCES;
 }
@@ -687,9 +697,17 @@ static inline int exec_permission(struct inode *inode, unsigned int flags)
 	if (ret == -ECHILD)
 		return ret;
 
-	if (capable_nolog(CAP_DAC_OVERRIDE) || capable(CAP_DAC_READ_SEARCH) ||
+	if (capable_nolog(CAP_DAC_OVERRIDE))
+		goto ok;
+	else {
+#ifdef CONFIG_GRKERNSEC
+		if (flags & IPERM_FLAG_RCU)
+			return -ECHILD;
+#endif
+		if (capable(CAP_DAC_READ_SEARCH) ||
 			capable(CAP_DAC_OVERRIDE))
 		goto ok;
+	}
 
 	return ret;
 ok:
