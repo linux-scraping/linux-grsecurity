@@ -255,7 +255,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
 done:
 	lock_acquired(&lock->dep_map, ip);
 	/* got the lock - rejoice! */
-	mutex_remove_waiter(lock, &waiter, current);
+	mutex_remove_waiter(lock, &waiter, task);
 	mutex_set_owner(lock);
 
 	/* set it to 0 if there are no waiters left: */
