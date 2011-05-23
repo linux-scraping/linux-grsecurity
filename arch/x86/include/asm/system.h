@@ -347,7 +347,7 @@ extern void free_init_pages(char *what, unsigned long begin, unsigned long end);
 
 void default_idle(void);
 
-void stop_this_cpu(void *dummy);
+void stop_this_cpu(void *dummy) __noreturn;
 
 /*
  * Force strict CPU ordering.

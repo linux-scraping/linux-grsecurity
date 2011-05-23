@@ -218,7 +218,7 @@ static int tboot_setup_sleep(void)
 
 void tboot_shutdown(u32 shutdown_type)
 {
-	void (*shutdown)(void);
+	void (* __noreturn shutdown)(void);
 
 	if (!tboot_enabled())
 		return;
@@ -240,7 +240,7 @@ void tboot_shutdown(u32 shutdown_type)
 
 	switch_to_tboot_pt();
 
-	shutdown = (void(*)(void))(unsigned long)tboot->shutdown_entry;
+	shutdown = (void *)tboot->shutdown_entry;
 	shutdown();
 
 	/* should not reach here */

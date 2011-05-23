@@ -1723,6 +1723,8 @@ void ptrace_notify(int exit_code)
 {
 	siginfo_t info;
 
+	pax_track_stack();
+
 	BUG_ON((exit_code & (0x7f | ~0xffff)) != SIGTRAP);
 
 	memset(&info, 0, sizeof info);

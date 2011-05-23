@@ -114,6 +114,12 @@ ENDPROC(native_irq_enable_sysexit)
 #endif
 	.endm
 
+	.macro pax_erase_kstack
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	call pax_erase_kstack
+#endif
+	.endm
+
 /*
  * 32bit SYSENTER instruction entry.
  *
@@ -229,6 +235,9 @@ sysexit_from_sys_call:
 	movl %eax,%esi			/* 2nd arg: syscall number */
 	movl $AUDIT_ARCH_I386,%edi	/* 1st arg: audit arch */
 	call audit_syscall_entry
+
+	pax_erase_kstack
+
 	movl RAX-ARGOFFSET(%rsp),%eax	/* reload syscall number */
 	cmpq $(IA32_NR_syscalls-1),%rax
 	ja ia32_badsys
@@ -281,6 +290,9 @@ sysenter_tracesys:
 	movq	$-ENOSYS,RAX(%rsp)/* ptrace can change this for a bad syscall */
 	movq	%rsp,%rdi        /* &pt_regs -> arg1 */
 	call	syscall_trace_enter
+
+	pax_erase_kstack
+
 	LOAD_ARGS32 ARGOFFSET  /* reload args from stack in case ptrace changed it */
 	RESTORE_REST
 	cmpq	$(IA32_NR_syscalls-1),%rax
@@ -411,6 +423,9 @@ cstar_tracesys:
 	movq $-ENOSYS,RAX(%rsp)	/* ptrace can change this for a bad syscall */
 	movq %rsp,%rdi        /* &pt_regs -> arg1 */
 	call syscall_trace_enter
+
+	pax_erase_kstack
+
 	LOAD_ARGS32 ARGOFFSET, 1  /* reload args from stack in case ptrace changed it */
 	RESTORE_REST
 	xchgl %ebp,%r9d
@@ -490,6 +505,9 @@ ia32_tracesys:
 	movq $-ENOSYS,RAX(%rsp)	/* ptrace can change this for a bad syscall */
 	movq %rsp,%rdi        /* &pt_regs -> arg1 */
 	call syscall_trace_enter
+
+	pax_erase_kstack
+
 	LOAD_ARGS32 ARGOFFSET  /* reload args from stack in case ptrace changed it */
 	RESTORE_REST
 	cmpq $(IA32_NR_syscalls-1),%rax
