@@ -75,7 +75,7 @@ static int sffsdr_hw_params(struct snd_pcm_substream *substream,
 #endif
 }
 
-static struct snd_soc_ops sffsdr_ops = {
+static const struct snd_soc_ops sffsdr_ops = {
 	.hw_params = sffsdr_hw_params,
 };
 

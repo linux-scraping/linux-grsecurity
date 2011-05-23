@@ -244,7 +244,7 @@ static int jz4740_pcm_mmap(struct snd_pcm_substream *substream,
 			vma->vm_end - vma->vm_start, vma->vm_page_prot);
 }
 
-static struct snd_pcm_ops jz4740_pcm_ops = {
+static const struct snd_pcm_ops jz4740_pcm_ops = {
 	.open		= jz4740_pcm_open,
 	.close		= jz4740_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,

@@ -28,7 +28,7 @@
 #define CON3270_OUTPUT_BUFFER_SIZE 1024
 #define CON3270_STRING_PAGES 4
 
-static struct raw3270_fn con3270_fn;
+static const struct raw3270_fn con3270_fn;
 
 /*
  * Main 3270 console view data structure.
@@ -413,7 +413,7 @@ con3270_irq(struct con3270 *cp, struct raw3270_request *rq, struct irb *irb)
 }
 
 /* Console view to a 3270 device. */
-static struct raw3270_fn con3270_fn = {
+static const struct raw3270_fn con3270_fn = {
 	.activate = con3270_activate,
 	.deactivate = con3270_deactivate,
 	.intv = (void *) con3270_irq

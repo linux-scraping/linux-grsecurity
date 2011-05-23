@@ -626,7 +626,7 @@ atmel_ac97c_capture_pointer(struct snd_pcm_substream *substream)
 	return frames;
 }
 
-static struct snd_pcm_ops atmel_ac97_playback_ops = {
+static const struct snd_pcm_ops atmel_ac97_playback_ops = {
 	.open		= atmel_ac97c_playback_open,
 	.close		= atmel_ac97c_playback_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -637,7 +637,7 @@ static struct snd_pcm_ops atmel_ac97_playback_ops = {
 	.pointer	= atmel_ac97c_playback_pointer,
 };
 
-static struct snd_pcm_ops atmel_ac97_capture_ops = {
+static const struct snd_pcm_ops atmel_ac97_capture_ops = {
 	.open		= atmel_ac97c_capture_open,
 	.close		= atmel_ac97c_capture_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -909,7 +909,7 @@ static int __devinit atmel_ac97c_probe(struct platform_device *pdev)
 	struct resource			*regs;
 	struct ac97c_platform_data	*pdata;
 	struct clk			*pclk;
-	static struct snd_ac97_bus_ops	ops = {
+	static const struct snd_ac97_bus_ops ops = {
 		.write	= atmel_ac97c_write,
 		.read	= atmel_ac97c_read,
 	};

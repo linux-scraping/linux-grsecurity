@@ -287,7 +287,8 @@ int iwm_cfg80211_inform_bss(struct iwm_priv *iwm)
 			return -EINVAL;
 		}
 
-		freq = ieee80211_channel_to_frequency(umac_bss->channel);
+		freq = ieee80211_channel_to_frequency(umac_bss->channel,
+						      band->band);
 		channel = ieee80211_get_channel(wiphy, freq);
 		signal = umac_bss->rssi * 100;
 
@@ -762,7 +763,7 @@ static int iwm_cfg80211_flush_pmksa(struct wiphy *wiphy,
 }
 
 
-static struct cfg80211_ops iwm_cfg80211_ops = {
+static const struct cfg80211_ops iwm_cfg80211_ops = {
 	.change_virtual_intf = iwm_cfg80211_change_iface,
 	.add_key = iwm_cfg80211_add_key,
 	.get_key = iwm_cfg80211_get_key,

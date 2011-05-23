@@ -24,7 +24,7 @@
 #include <linux/of_pdt.h>
 #include <asm/prom.h>
 
-static struct of_pdt_ops *of_pdt_prom_ops __initdata;
+static const struct of_pdt_ops *of_pdt_prom_ops;
 
 void __initdata (*of_pdt_build_more)(struct device_node *dp,
 		struct device_node ***nextp);

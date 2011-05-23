@@ -117,7 +117,7 @@ indirect_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 		out_le32(hose->cfg_addr, (0x80000000 | (bus_no << 16) |
 			 (devfn << 8) | reg | cfg_type));
 
-	/* surpress setting of PCI_PRIMARY_BUS */
+	/* suppress setting of PCI_PRIMARY_BUS */
 	if (hose->indirect_type & PPC_INDIRECT_TYPE_SURPRESS_PRIMARY_BUS)
 		if ((offset == PCI_PRIMARY_BUS) &&
 			(bus->number == hose->first_busno))
@@ -148,7 +148,7 @@ indirect_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops indirect_pci_ops =
+static const struct pci_ops indirect_pci_ops =
 {
 	.read = indirect_read_config,
 	.write = indirect_write_config,

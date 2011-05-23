@@ -1,7 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
-#include <linux/smp_lock.h>
 #include <linux/gracl.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>

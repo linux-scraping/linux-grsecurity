@@ -238,7 +238,7 @@ struct aem_read_sensor_resp {
 struct aem_driver_data {
 	struct list_head	aem_devices;
 	struct ipmi_smi_watcher	bmc_events;
-	struct ipmi_user_hndl	ipmi_hndlrs;
+	const struct ipmi_user_hndl ipmi_hndlrs;
 };
 
 static void aem_register_bmc(int iface, struct device *dev);

@@ -239,14 +239,14 @@ static void line6_midi_input_trigger(struct snd_rawmidi_substream *substream,
 		line6->line6midi->substream_receive = 0;
 }
 
-static struct snd_rawmidi_ops line6_midi_output_ops = {
+static const struct snd_rawmidi_ops line6_midi_output_ops = {
 	.open = line6_midi_output_open,
 	.close = line6_midi_output_close,
 	.trigger = line6_midi_output_trigger,
 	.drain = line6_midi_output_drain,
 };
 
-static struct snd_rawmidi_ops line6_midi_input_ops = {
+static const struct snd_rawmidi_ops line6_midi_input_ops = {
 	.open = line6_midi_input_open,
 	.close = line6_midi_input_close,
 	.trigger = line6_midi_input_trigger,
@@ -373,7 +373,7 @@ static int snd_line6_midi_free(struct snd_device *device)
 */
 int line6_init_midi(struct usb_line6 *line6)
 {
-	static struct snd_device_ops midi_ops = {
+	static const struct snd_device_ops midi_ops = {
 		.dev_free = snd_line6_midi_free,
 	};
 

@@ -367,7 +367,7 @@ static void vt1724_midi_output_drain(struct snd_rawmidi_substream *s)
 	} while (time_after(timeout, jiffies));
 }
 
-static struct snd_rawmidi_ops vt1724_midi_output_ops = {
+static const struct snd_rawmidi_ops vt1724_midi_output_ops = {
 	.open = vt1724_midi_output_open,
 	.close = vt1724_midi_output_close,
 	.trigger = vt1724_midi_output_trigger,
@@ -402,7 +402,7 @@ static void vt1724_midi_input_trigger(struct snd_rawmidi_substream *s, int up)
 	spin_unlock_irqrestore(&ice->reg_lock, flags);
 }
 
-static struct snd_rawmidi_ops vt1724_midi_input_ops = {
+static const struct snd_rawmidi_ops vt1724_midi_input_ops = {
 	.open = vt1724_midi_input_open,
 	.close = vt1724_midi_input_close,
 	.trigger = vt1724_midi_input_trigger,
@@ -2463,7 +2463,7 @@ static int __devinit snd_vt1724_create(struct snd_card *card,
 {
 	struct snd_ice1712 *ice;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_vt1724_dev_free,
 	};
 

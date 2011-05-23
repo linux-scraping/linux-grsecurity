@@ -163,7 +163,7 @@ static int tosa_lcd_set_mode(struct lcd_device *lcd, struct fb_videomode *mode)
 	return 0;
 }
 
-static struct lcd_ops tosa_lcd_ops = {
+static const struct lcd_ops tosa_lcd_ops = {
 	.set_power = tosa_lcd_set_power,
 	.get_power = tosa_lcd_get_power,
 	.set_mode = tosa_lcd_set_mode,

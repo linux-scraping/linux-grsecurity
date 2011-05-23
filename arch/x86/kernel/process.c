@@ -66,9 +66,9 @@ void arch_task_cache_init(void)
 				  SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
 }
 
-struct task_struct *alloc_task_struct(void)
+struct task_struct *alloc_task_struct_node(int node)
 {
-	return kmem_cache_alloc(task_struct_cachep, GFP_KERNEL);
+	return kmem_cache_alloc_node(task_struct_cachep, GFP_KERNEL, node);
 }
 
 void free_task_struct(struct task_struct *task)
@@ -104,7 +104,7 @@ void exit_thread(void)
 void show_regs(struct pt_regs *regs)
 {
 	show_registers(regs);
-	show_trace(NULL, regs, (unsigned long *)kernel_stack_pointer(regs));
+	show_trace(NULL, regs, (unsigned long *)kernel_stack_pointer(regs), 0);
 }
 
 void show_regs_common(void)
@@ -127,12 +127,9 @@ void show_regs_common(void)
 		init_utsname()->release,
 		(int)strcspn(init_utsname()->version, " "),
 		init_utsname()->version);
-	printk(KERN_CONT " ");
-	printk(KERN_CONT "%s %s", vendor, product);
-	if (board) {
-		printk(KERN_CONT "/");
-		printk(KERN_CONT "%s", board);
-	}
+	printk(KERN_CONT " %s %s", vendor, product);
+	if (board)
+		printk(KERN_CONT "/%s", board);
 	printk(KERN_CONT "\n");
 }
 

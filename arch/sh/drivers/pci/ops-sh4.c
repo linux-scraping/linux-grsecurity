@@ -96,7 +96,7 @@ static int sh4_pci_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops sh4_pci_ops = {
+const struct pci_ops sh4_pci_ops = {
 	.read		= sh4_pci_read,
 	.write		= sh4_pci_write,
 };

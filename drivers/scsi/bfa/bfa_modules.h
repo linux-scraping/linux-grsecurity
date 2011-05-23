@@ -68,8 +68,8 @@ enum {
 	static void bfa_ ## __mod ## _stop(struct bfa_s *bfa);      \
 	static void bfa_ ## __mod ## _iocdisable(struct bfa_s *bfa);      \
 									\
-	extern struct bfa_module_s hal_mod_ ## __mod;			\
-	struct bfa_module_s hal_mod_ ## __mod = {			\
+	extern  const struct bfa_module_s hal_mod_ ## __mod;			\
+	 const struct bfa_module_s hal_mod_ ## __mod = {			\
 		bfa_ ## __mod ## _meminfo,				\
 		bfa_ ## __mod ## _attach,				\
 		bfa_ ## __mod ## _detach,				\
@@ -116,12 +116,12 @@ struct bfa_s {
 };
 
 extern bfa_boolean_t bfa_auto_recover;
-extern struct bfa_module_s hal_mod_sgpg;
-extern struct bfa_module_s hal_mod_fcport;
-extern struct bfa_module_s hal_mod_fcxp;
-extern struct bfa_module_s hal_mod_lps;
-extern struct bfa_module_s hal_mod_uf;
-extern struct bfa_module_s hal_mod_rport;
-extern struct bfa_module_s hal_mod_fcpim;
+extern const struct bfa_module_s hal_mod_sgpg;
+extern const struct bfa_module_s hal_mod_fcport;
+extern const struct bfa_module_s hal_mod_fcxp;
+extern const struct bfa_module_s hal_mod_lps;
+extern const struct bfa_module_s hal_mod_uf;
+extern const struct bfa_module_s hal_mod_rport;
+extern const struct bfa_module_s hal_mod_fcpim;
 
 #endif /* __BFA_MODULES_H__ */

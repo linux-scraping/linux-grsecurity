@@ -23,9 +23,8 @@
 #include <linux/errno.h>
 #include <linux/iommu.h>
 
-static struct iommu_ops *iommu_ops;
-
-void register_iommu(struct iommu_ops *ops)
+static const struct iommu_ops *iommu_ops;
+void register_iommu(const struct iommu_ops *ops)
 {
 	if (iommu_ops)
 		BUG();

@@ -21,7 +21,7 @@
 
 struct sdhci_of_data {
 	unsigned int quirks;
-	struct sdhci_ops ops;
+	const struct sdhci_ops ops;
 };
 
 struct sdhci_of_host {

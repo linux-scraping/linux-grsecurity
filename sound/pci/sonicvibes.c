@@ -855,7 +855,7 @@ static int snd_sonicvibes_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops snd_sonicvibes_playback_ops = {
+static const struct snd_pcm_ops snd_sonicvibes_playback_ops = {
 	.open =		snd_sonicvibes_playback_open,
 	.close =	snd_sonicvibes_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -866,7 +866,7 @@ static struct snd_pcm_ops snd_sonicvibes_playback_ops = {
 	.pointer =	snd_sonicvibes_playback_pointer,
 };
 
-static struct snd_pcm_ops snd_sonicvibes_capture_ops = {
+static const struct snd_pcm_ops snd_sonicvibes_capture_ops = {
 	.open =		snd_sonicvibes_capture_open,
 	.close =	snd_sonicvibes_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1255,7 +1255,7 @@ static int __devinit snd_sonicvibes_create(struct snd_card *card,
 	struct sonicvibes *sonic;
 	unsigned int dmaa, dmac;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_sonicvibes_dev_free,
 	};
 

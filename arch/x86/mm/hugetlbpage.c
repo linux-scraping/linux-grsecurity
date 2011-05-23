@@ -333,7 +333,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	if (mm->free_area_cache < len)
 		goto fail;
 
-	/* either no address requested or cant fit in requested address hole */
+	/* either no address requested or can't fit in requested address hole */
 	addr = (mm->free_area_cache - len);
 	do {
 		addr &= huge_page_mask(h);

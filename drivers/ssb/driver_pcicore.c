@@ -223,7 +223,7 @@ static int ssb_pcicore_write_config(struct pci_bus *bus, unsigned int devfn,
 	return err ? PCIBIOS_DEVICE_NOT_FOUND : PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops ssb_pcicore_pciops = {
+static const struct pci_ops ssb_pcicore_pciops = {
 	.read	= ssb_pcicore_read_config,
 	.write	= ssb_pcicore_write_config,
 };

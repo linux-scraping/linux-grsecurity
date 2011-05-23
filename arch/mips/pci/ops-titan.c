@@ -105,7 +105,7 @@ static int titan_write_config(struct pci_bus *bus, unsigned int devfn, int reg,
 /*
  * Titan PCI structure
  */
-struct pci_ops titan_pci_ops = {
+const struct pci_ops titan_pci_ops = {
 	titan_read_config,
 	titan_write_config,
 };

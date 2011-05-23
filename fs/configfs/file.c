@@ -215,7 +215,7 @@ static int check_perm(struct inode * inode, struct file * file)
 	struct config_item *item = configfs_get_config_item(file->f_path.dentry->d_parent);
 	struct configfs_attribute * attr = to_attr(file->f_path.dentry);
 	struct configfs_buffer * buffer;
-	struct configfs_item_operations * ops = NULL;
+	struct configfs_item_operations *ops = NULL;
 	int error = 0;
 
 	if (!item || !attr)

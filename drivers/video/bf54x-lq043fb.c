@@ -467,7 +467,7 @@ static int bfin_lcd_check_fb(struct lcd_device *dev, struct fb_info *fi)
 	return 0;
 }
 
-static struct lcd_ops bfin_lcd_ops = {
+static const struct lcd_ops bfin_lcd_ops = {
 	.get_power = bfin_lcd_get_power,
 	.set_power = bfin_lcd_set_power,
 	.get_contrast = bfin_lcd_get_contrast,
@@ -649,6 +649,7 @@ static int __devinit bfin_bf54x_probe(struct platform_device *pdev)
 	}
 #ifndef NO_BL_SUPPORT
 	memset(&props, 0, sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_RAW;
 	props.max_brightness = 255;
 	bl_dev = backlight_device_register("bf54x-bl", NULL, NULL,
 					   &bfin_lq043fb_bl_ops, &props);

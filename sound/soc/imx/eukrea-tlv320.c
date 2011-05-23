@@ -71,7 +71,7 @@ static int eukrea_tlv320_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops eukrea_tlv320_snd_ops = {
+static const struct snd_soc_ops eukrea_tlv320_snd_ops = {
 	.hw_params	= eukrea_tlv320_hw_params,
 };
 
@@ -98,7 +98,8 @@ static int __init eukrea_tlv320_init(void)
 	int ret;
 
 	if (!machine_is_eukrea_cpuimx27() && !machine_is_eukrea_cpuimx25sd()
-		&& !machine_is_eukrea_cpuimx35sd())
+		&& !machine_is_eukrea_cpuimx35sd()
+		&& !machine_is_eukrea_cpuimx51sd())
 		/* return happy. We might run on a totally different machine */
 		return 0;
 

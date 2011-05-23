@@ -36,7 +36,7 @@
  * Initialization flow and process
  * -------------------------------
  *
- * This files containes the routines to search for PCI buses,
+ * This files contains the routines to search for PCI buses,
  * enumerate the buses, and configure any attached devices.
  *
  * There are two entry points here:
@@ -60,7 +60,7 @@ int __write_once tile_plx_gen1;
 static struct pci_controller controllers[TILE_NUM_PCIE];
 static int num_controllers;
 
-static struct pci_ops tile_cfg_ops;
+static const struct pci_ops tile_cfg_ops;
 
 
 /*
@@ -519,7 +519,7 @@ static int __devinit tile_cfg_read(struct pci_bus *bus,
 
 
 /*
- * See tile_cfg_read() for relevent comments.
+ * See tile_cfg_read() for relevant comments.
  * Note that "val" is the value to write, not a pointer to that value.
  */
 static int __devinit tile_cfg_write(struct pci_bus *bus,
@@ -564,7 +564,7 @@ static int __devinit tile_cfg_write(struct pci_bus *bus,
 }
 
 
-static struct pci_ops tile_cfg_ops = {
+static const struct pci_ops tile_cfg_ops = {
 	.read =         tile_cfg_read,
 	.write =        tile_cfg_write,
 };

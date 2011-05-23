@@ -302,7 +302,7 @@ static int config_write(struct pci_bus *bus, unsigned int devfn,
 	}
 }
 
-struct pci_ops au1x_pci_ops = {
+const struct pci_ops au1x_pci_ops = {
 	config_read,
 	config_write
 };

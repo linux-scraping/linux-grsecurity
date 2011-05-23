@@ -37,6 +37,7 @@ const char *kallsyms_lookup(unsigned long addr,
 
 /* Look up a kernel symbol and return it in a text buffer. */
 extern int sprint_symbol(char *buffer, unsigned long address);
+extern int sprint_backtrace(char *buffer, unsigned long address);
 
 /* Look up a kernel symbol and print it to the kernel messages. */
 extern void __print_symbol(const char *fmt, unsigned long address);
@@ -80,6 +81,12 @@ static inline int sprint_symbol(char *buffer, unsigned long addr)
 	return 0;
 }
 
+static inline int sprint_backtrace(char *buffer, unsigned long addr)
+{
+	*buffer = '\0';
+	return 0;
+}
+
 static inline int lookup_symbol_name(unsigned long addr, char *symname)
 {
 	return -ERANGE;
@@ -96,6 +103,7 @@ static inline int lookup_symbol_attrs(unsigned long addr, unsigned long *size, u
 #else /* when included by kallsyms.c, vsnprintf.c, or
 	 arch/x86/kernel/dumpstack.c, with HIDESYM enabled */
 extern void __print_symbol(const char *fmt, unsigned long address);
+extern int sprint_backtrace(char *buffer, unsigned long address);
 extern int sprint_symbol(char *buffer, unsigned long address);
 const char *kallsyms_lookup(unsigned long addr,
 			    unsigned long *symbolsize,

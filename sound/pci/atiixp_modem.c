@@ -498,7 +498,7 @@ static int snd_atiixp_aclink_reset(struct atiixp_modem *chip)
 		atiixp_read(chip, CMD);
 		msleep(1);
 		atiixp_update(chip, CMD, ATI_REG_CMD_AC_RESET, ATI_REG_CMD_AC_RESET);
-		if (--timeout) {
+		if (!--timeout) {
 			snd_printk(KERN_ERR "atiixp-modem: codec reset timeout\n");
 			break;
 		}
@@ -947,7 +947,7 @@ static int snd_atiixp_capture_close(struct snd_pcm_substream *substream)
 
 
 /* AC97 playback */
-static struct snd_pcm_ops snd_atiixp_playback_ops = {
+static const struct snd_pcm_ops snd_atiixp_playback_ops = {
 	.open =		snd_atiixp_playback_open,
 	.close =	snd_atiixp_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -959,7 +959,7 @@ static struct snd_pcm_ops snd_atiixp_playback_ops = {
 };
 
 /* AC97 capture */
-static struct snd_pcm_ops snd_atiixp_capture_ops = {
+static const struct snd_pcm_ops snd_atiixp_capture_ops = {
 	.open =		snd_atiixp_capture_open,
 	.close =	snd_atiixp_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1067,7 +1067,7 @@ static int __devinit snd_atiixp_mixer_new(struct atiixp_modem *chip, int clock)
 	struct snd_ac97_template ac97;
 	int i, err;
 	int codec_count;
-	static struct snd_ac97_bus_ops ops = {
+	static const struct snd_ac97_bus_ops ops = {
 		.write = snd_atiixp_ac97_write,
 		.read = snd_atiixp_ac97_read,
 	};
@@ -1226,7 +1226,7 @@ static int __devinit snd_atiixp_create(struct snd_card *card,
 				       struct pci_dev *pci,
 				       struct atiixp_modem **r_chip)
 {
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_atiixp_dev_free,
 	};
 	struct atiixp_modem *chip;

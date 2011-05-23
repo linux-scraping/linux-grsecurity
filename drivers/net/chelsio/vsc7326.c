@@ -566,7 +566,7 @@ static int mac_disable(struct cmac *mac, int which)
 	for (i = 0; i <= 0x3a; ++i)
 		vsc_write(mac->adapter, CRA(4, port, i), 0);
 
-	/* Clear sofware counters */
+	/* Clear software counters */
 	memset(&mac->stats, 0, sizeof(struct cmac_statistics));
 
 	return 0;
@@ -666,7 +666,7 @@ static void mac_destroy(struct cmac *mac)
 	kfree(mac);
 }
 
-static struct cmac_ops vsc7326_ops = {
+static const struct cmac_ops vsc7326_ops = {
 	.destroy                  = mac_destroy,
 	.reset                    = mac_reset,
 	.interrupt_handler        = mac_intr_handler,

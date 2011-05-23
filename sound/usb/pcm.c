@@ -32,6 +32,7 @@
 #include "helper.h"
 #include "pcm.h"
 #include "clock.h"
+#include "power.h"
 
 /*
  * return the current pcm pointer.  just based on the hwptr_done value.
@@ -739,6 +740,9 @@ static int setup_hw_info(struct snd_pcm_runtime *runtime, struct snd_usb_substre
 		pt = 125 * (1 << fp->datainterval);
 		ptmin = min(ptmin, pt);
 	}
+	err = snd_usb_autoresume(subs->stream->chip);
+	if (err < 0)
+		return err;
 
 	param_period_time_if_needed = SNDRV_PCM_HW_PARAM_PERIOD_TIME;
 	if (snd_usb_get_speed(subs->dev) == USB_SPEED_FULL)
@@ -756,21 +760,21 @@ static int setup_hw_info(struct snd_pcm_runtime *runtime, struct snd_usb_substre
 				       SNDRV_PCM_HW_PARAM_CHANNELS,
 				       param_period_time_if_needed,
 				       -1)) < 0)
-		return err;
+		goto rep_err;
 	if ((err = snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
 				       hw_rule_channels, subs,
 				       SNDRV_PCM_HW_PARAM_FORMAT,
 				       SNDRV_PCM_HW_PARAM_RATE,
 				       param_period_time_if_needed,
 				       -1)) < 0)
-		return err;
+		goto rep_err;
 	if ((err = snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_FORMAT,
 				       hw_rule_format, subs,
 				       SNDRV_PCM_HW_PARAM_RATE,
 				       SNDRV_PCM_HW_PARAM_CHANNELS,
 				       param_period_time_if_needed,
 				       -1)) < 0)
-		return err;
+		goto rep_err;
 	if (param_period_time_if_needed >= 0) {
 		err = snd_pcm_hw_rule_add(runtime, 0,
 					  SNDRV_PCM_HW_PARAM_PERIOD_TIME,
@@ -780,11 +784,15 @@ static int setup_hw_info(struct snd_pcm_runtime *runtime, struct snd_usb_substre
 					  SNDRV_PCM_HW_PARAM_RATE,
 					  -1);
 		if (err < 0)
-			return err;
+			goto rep_err;
 	}
 	if ((err = snd_usb_pcm_check_knot(runtime, subs)) < 0)
-		return err;
+		goto rep_err;
 	return 0;
+
+rep_err:
+	snd_usb_autosuspend(subs->stream->chip);
+	return err;
 }
 
 static int snd_usb_pcm_open(struct snd_pcm_substream *substream, int direction)
@@ -798,6 +806,7 @@ static int snd_usb_pcm_open(struct snd_pcm_substream *substream, int direction)
 	runtime->hw = snd_usb_hardware;
 	runtime->private_data = subs;
 	subs->pcm_substream = substream;
+	/* runtime PM is also done there */
 	return setup_hw_info(runtime, subs);
 }
 
@@ -811,6 +820,7 @@ static int snd_usb_pcm_close(struct snd_pcm_substream *substream, int direction)
 		subs->interface = -1;
 	}
 	subs->pcm_substream = NULL;
+	snd_usb_autosuspend(subs->stream->chip);
 	return 0;
 }
 
@@ -834,7 +844,7 @@ static int snd_usb_capture_close(struct snd_pcm_substream *substream)
 	return snd_usb_pcm_close(substream, SNDRV_PCM_STREAM_CAPTURE);
 }
 
-static struct snd_pcm_ops snd_usb_playback_ops = {
+static const struct snd_pcm_ops snd_usb_playback_ops = {
 	.open =		snd_usb_playback_open,
 	.close =	snd_usb_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -847,7 +857,7 @@ static struct snd_pcm_ops snd_usb_playback_ops = {
 	.mmap =		snd_pcm_lib_mmap_vmalloc,
 };
 
-static struct snd_pcm_ops snd_usb_capture_ops = {
+static const struct snd_pcm_ops snd_usb_capture_ops = {
 	.open =		snd_usb_capture_open,
 	.close =	snd_usb_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,

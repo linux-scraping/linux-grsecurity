@@ -415,7 +415,7 @@ out_free:
 /**
  * The crypto operations for a CEX2A card.
  */
-static struct zcrypt_ops zcrypt_cex2a_ops = {
+static const struct zcrypt_ops zcrypt_cex2a_ops = {
 	.rsa_modexpo = zcrypt_cex2a_modexpo,
 	.rsa_modexpo_crt = zcrypt_cex2a_modexpo_crt,
 };

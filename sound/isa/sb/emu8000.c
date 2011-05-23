@@ -370,7 +370,7 @@ init_arrays(struct snd_emu8000 *emu)
 
 /*
  * Size the onboard memory.
- * This is written so as not to need arbitary delays after the write. It
+ * This is written so as not to need arbitrary delays after the write. It
  * seems that the only way to do this is to use the one channel and keep
  * reallocating between read and write.
  */
@@ -1079,7 +1079,7 @@ snd_emu8000_new(struct snd_card *card, int index, long port, int seq_ports,
 	struct snd_seq_device *awe;
 	struct snd_emu8000 *hw;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = snd_emu8000_dev_free,
 	};
 

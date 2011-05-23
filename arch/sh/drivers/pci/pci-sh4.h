@@ -161,7 +161,7 @@
 #define SH4_PCIPDR		0x220		/* Port IO Data Register */
 
 /* arch/sh/kernel/drivers/pci/ops-sh4.c */
-extern struct pci_ops sh4_pci_ops;
+extern const struct pci_ops sh4_pci_ops;
 int pci_fixup_pcic(struct pci_channel *chan);
 
 struct sh4_pci_address_space {

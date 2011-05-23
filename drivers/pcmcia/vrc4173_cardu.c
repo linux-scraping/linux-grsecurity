@@ -384,7 +384,7 @@ static void cardu_proc_setup(unsigned int sock, struct proc_dir_entry *base)
 {
 }
 
-static struct pccard_operations cardu_operations = {
+static const struct pccard_operations cardu_operations = {
 	.init			= cardu_init,
 	.register_callback	= cardu_register_callback,
 	.inquire_socket		= cardu_inquire_socket,

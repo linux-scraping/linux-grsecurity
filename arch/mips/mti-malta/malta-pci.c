@@ -64,9 +64,9 @@ static struct resource msc_io_resource = {
 	.flags	= IORESOURCE_IO,
 };
 
-extern struct pci_ops bonito64_pci_ops;
-extern struct pci_ops gt64xxx_pci0_ops;
-extern struct pci_ops msc_pci_ops;
+extern const struct pci_ops bonito64_pci_ops;
+extern const struct pci_ops gt64xxx_pci0_ops;
+extern const struct pci_ops msc_pci_ops;
 
 static struct pci_controller bonito64_controller = {
 	.pci_ops	= &bonito64_pci_ops,

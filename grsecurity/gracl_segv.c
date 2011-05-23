@@ -8,7 +8,6 @@
 #include <linux/fs.h>
 #include <linux/net.h>
 #include <linux/in.h>
-#include <linux/smp_lock.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/sched.h>

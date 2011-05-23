@@ -79,7 +79,7 @@ static const struct mt9m001_datafmt mt9m001_colour_fmts[] = {
 static const struct mt9m001_datafmt mt9m001_monochrome_fmts[] = {
 	/* Order important - see above */
 	{V4L2_MBUS_FMT_Y10_1X10, V4L2_COLORSPACE_JPEG},
-	{V4L2_MBUS_FMT_GREY8_1X8, V4L2_COLORSPACE_JPEG},
+	{V4L2_MBUS_FMT_Y8_1X8, V4L2_COLORSPACE_JPEG},
 };
 
 struct mt9m001 {
@@ -691,7 +691,7 @@ static int mt9m001_g_skip_top_lines(struct v4l2_subdev *sd, u32 *lines)
 	return 0;
 }
 
-static struct v4l2_subdev_core_ops mt9m001_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops mt9m001_subdev_core_ops = {
 	.g_ctrl		= mt9m001_g_ctrl,
 	.s_ctrl		= mt9m001_s_ctrl,
 	.g_chip_ident	= mt9m001_g_chip_ident,
@@ -714,7 +714,7 @@ static int mt9m001_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
-static struct v4l2_subdev_video_ops mt9m001_subdev_video_ops = {
+static const struct v4l2_subdev_video_ops mt9m001_subdev_video_ops = {
 	.s_stream	= mt9m001_s_stream,
 	.s_mbus_fmt	= mt9m001_s_fmt,
 	.g_mbus_fmt	= mt9m001_g_fmt,
@@ -725,7 +725,7 @@ static struct v4l2_subdev_video_ops mt9m001_subdev_video_ops = {
 	.enum_mbus_fmt	= mt9m001_enum_fmt,
 };
 
-static struct v4l2_subdev_sensor_ops mt9m001_subdev_sensor_ops = {
+static const struct v4l2_subdev_sensor_ops mt9m001_subdev_sensor_ops = {
 	.g_skip_top_lines	= mt9m001_g_skip_top_lines,
 };
 

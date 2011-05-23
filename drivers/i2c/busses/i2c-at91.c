@@ -181,7 +181,7 @@ static u32 at91_func(struct i2c_adapter *adapter)
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
 
-static struct i2c_algorithm at91_algorithm = {
+static const struct i2c_algorithm at91_algorithm = {
 	.master_xfer	= at91_xfer,
 	.functionality	= at91_func,
 };

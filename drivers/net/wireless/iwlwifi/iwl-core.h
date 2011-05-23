@@ -63,6 +63,8 @@
 #ifndef __iwl_core_h__
 #define __iwl_core_h__
 
+#include "iwl-dev.h"
+
 /************************
  * forward declarations *
  ************************/
@@ -196,39 +198,29 @@ struct iwl_lib_ops {
 	int (*set_channel_switch)(struct iwl_priv *priv,
 				  struct ieee80211_channel_switch *ch_switch);
 	/* power management */
-	struct iwl_apm_ops apm_ops;
+	const struct iwl_apm_ops apm_ops;
 
 	/* power */
 	int (*send_tx_power) (struct iwl_priv *priv);
 	void (*update_chain_flags)(struct iwl_priv *priv);
 
 	/* isr */
-	struct iwl_isr_ops isr_ops;
+	const struct iwl_isr_ops isr_ops;
 
 	/* eeprom operations (as defined in iwl-eeprom.h) */
 	struct iwl_eeprom_ops eeprom_ops;
 
 	/* temperature */
-	struct iwl_temp_ops temp_ops;
-	/* check for plcp health */
-	bool (*check_plcp_health)(struct iwl_priv *priv,
-					struct iwl_rx_packet *pkt);
-	/* check for ack health */
-	bool (*check_ack_health)(struct iwl_priv *priv,
-					struct iwl_rx_packet *pkt);
+	const struct iwl_temp_ops temp_ops;
+
 	int (*txfifo_flush)(struct iwl_priv *priv, u16 flush_control);
 	void (*dev_txfifo_flush)(struct iwl_priv *priv, u16 flush_control);
 
-	struct iwl_debugfs_ops debugfs_ops;
-
-	/* thermal throttling */
-	struct iwl_tt_ops tt_ops;
+	const struct iwl_debugfs_ops debugfs_ops;const struct iwl_tt_ops tt_ops;
 };
 
 struct iwl_led_ops {
 	int (*cmd)(struct iwl_priv *priv, struct iwl_led_cmd *led_cmd);
-	int (*on)(struct iwl_priv *priv);
-	int (*off)(struct iwl_priv *priv);
 };
 
 /* NIC specific ops */
@@ -309,7 +301,6 @@ struct iwl_base_params {
 	u16 led_compensation;
 	const bool broken_powersave;
 	int chain_noise_num_beacons;
-	const bool supports_idle;
 	bool adv_thermal_throttle;
 	bool support_ct_kill_exit;
 	const bool support_wimax_coexist;
@@ -344,6 +335,7 @@ struct iwl_bt_params {
 	u8 ampdu_factor;
 	u8 ampdu_density;
 	bool bt_sco_disable;
+	bool bt_session_2;
 };
 /*
  * @use_rts_for_aggregation: use rts/cts protection for HT traffic
@@ -368,6 +360,7 @@ struct iwl_ht_params {
  * @adv_pm: advance power management
  * @rx_with_siso_diversity: 1x1 device with rx antenna diversity
  * @internal_wimax_coex: internal wifi/wimax combo device
+ * @iq_invert: I/Q inversion
  *
  * We enable the driver to be backward compatible wrt API version. The
  * driver specifies which APIs it supports (with @ucode_api_max being the
@@ -417,6 +410,7 @@ struct iwl_cfg {
 	const bool adv_pm;
 	const bool rx_with_siso_diversity;
 	const bool internal_wimax_coex;
+	const bool iq_invert;
 };
 
 /***************************
@@ -446,10 +440,6 @@ bool iwl_is_ht40_tx_allowed(struct iwl_priv *priv,
 void iwl_connection_init_rx_config(struct iwl_priv *priv,
 				   struct iwl_rxon_context *ctx);
 void iwl_set_rate(struct iwl_priv *priv);
-int iwl_set_decrypted_flag(struct iwl_priv *priv,
-			   struct ieee80211_hdr *hdr,
-			   u32 decrypt_res,
-			   struct ieee80211_rx_status *stats);
 void iwl_irq_handle_error(struct iwl_priv *priv);
 int iwl_mac_add_interface(struct ieee80211_hw *hw,
 			  struct ieee80211_vif *vif);
@@ -496,46 +486,21 @@ static inline void iwl_dbg_log_rx_data_frame(struct iwl_priv *priv,
 static inline void iwl_update_stats(struct iwl_priv *priv, bool is_tx,
 				    __le16 fc, u16 len)
 {
-	struct traffic_stats	*stats;
-
-	if (is_tx)
-		stats = &priv->tx_stats;
-	else
-		stats = &priv->rx_stats;
-
-	if (ieee80211_is_data(fc)) {
-		/* data */
-		stats->data_bytes += len;
-	}
-	iwl_leds_background(priv);
 }
 #endif
-/*****************************************************
- * RX handlers.
- * **************************************************/
-void iwl_rx_pm_sleep_notif(struct iwl_priv *priv,
-			   struct iwl_rx_mem_buffer *rxb);
-void iwl_rx_pm_debug_statistics_notif(struct iwl_priv *priv,
-				      struct iwl_rx_mem_buffer *rxb);
-void iwl_rx_reply_error(struct iwl_priv *priv,
-			struct iwl_rx_mem_buffer *rxb);
 
 /*****************************************************
 * RX
 ******************************************************/
 void iwl_cmd_queue_free(struct iwl_priv *priv);
+void iwl_cmd_queue_unmap(struct iwl_priv *priv);
 int iwl_rx_queue_alloc(struct iwl_priv *priv);
 void iwl_rx_queue_update_write_ptr(struct iwl_priv *priv,
 				  struct iwl_rx_queue *q);
 int iwl_rx_queue_space(const struct iwl_rx_queue *q);
 void iwl_tx_cmd_complete(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb);
-/* Handlers */
-void iwl_rx_spectrum_measure_notif(struct iwl_priv *priv,
-					  struct iwl_rx_mem_buffer *rxb);
-void iwl_recover_from_statistics(struct iwl_priv *priv,
-				struct iwl_rx_packet *pkt);
+
 void iwl_chswitch_done(struct iwl_priv *priv, bool is_success);
-void iwl_rx_csa(struct iwl_priv *priv, struct iwl_rx_mem_buffer *rxb);
 
 /* TX helpers */
 
@@ -548,6 +513,7 @@ int iwl_tx_queue_init(struct iwl_priv *priv, struct iwl_tx_queue *txq,
 void iwl_tx_queue_reset(struct iwl_priv *priv, struct iwl_tx_queue *txq,
 			int slots_num, u32 txq_id);
 void iwl_tx_queue_free(struct iwl_priv *priv, int txq_id);
+void iwl_tx_queue_unmap(struct iwl_priv *priv, int txq_id);
 void iwl_setup_watchdog(struct iwl_priv *priv);
 /*****************************************************
  * TX power
@@ -584,6 +550,10 @@ u16 iwl_get_passive_dwell_time(struct iwl_priv *priv,
 			       struct ieee80211_vif *vif);
 void iwl_setup_scan_deferred_work(struct iwl_priv *priv);
 void iwl_cancel_scan_deferred_work(struct iwl_priv *priv);
+int __must_check iwl_scan_initiate(struct iwl_priv *priv,
+				   struct ieee80211_vif *vif,
+				   enum iwl_scan_type scan_type,
+				   enum ieee80211_band band);
 
 /* For faster active scanning, scan will move to the next channel if fewer than
  * PLCP_QUIET_THRESH packets are heard on this channel within
@@ -755,6 +725,17 @@ static inline const struct ieee80211_supported_band *iwl_get_hw_mode(
 			struct iwl_priv *priv, enum ieee80211_band band)
 {
 	return priv->hw->wiphy->bands[band];
+}
+
+static inline bool iwl_advanced_bt_coexist(struct iwl_priv *priv)
+{
+	return priv->cfg->bt_params &&
+	       priv->cfg->bt_params->advanced_bt_coexist;
+}
+
+static inline bool iwl_bt_statistics(struct iwl_priv *priv)
+{
+	return priv->cfg->bt_params && priv->cfg->bt_params->bt_statistics;
 }
 
 extern bool bt_coex_active;

@@ -239,7 +239,7 @@ cia_write_config(struct pci_bus *bus, unsigned int devfn, int where, int size,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops cia_pci_ops = 
+const struct pci_ops cia_pci_ops = 
 {
 	.read = 	cia_read_config,
 	.write =	cia_write_config,

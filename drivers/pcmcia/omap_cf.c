@@ -185,7 +185,7 @@ omap_cf_set_mem_map(struct pcmcia_socket *s, struct pccard_mem_map *map)
 	return 0;
 }
 
-static struct pccard_operations omap_cf_ops = {
+static const struct pccard_operations omap_cf_ops = {
 	.init			= omap_cf_ss_init,
 	.suspend		= omap_cf_ss_suspend,
 	.get_status		= omap_cf_get_status,

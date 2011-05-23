@@ -139,8 +139,8 @@ fixup_bp_irq_link(unsigned long bp, unsigned long *stack,
  * severe exception (double fault, nmi, stack fault, debug, mce) hardware stack
  */
 
-void dump_trace(struct task_struct *task,
-		struct pt_regs *regs, unsigned long *stack,
+void dump_trace(struct task_struct *task, struct pt_regs *regs,
+		unsigned long *stack, unsigned long bp,
 		const struct stacktrace_ops *ops, void *data)
 {
 	const unsigned cpu = get_cpu();
@@ -149,7 +149,6 @@ void dump_trace(struct task_struct *task,
 	unsigned used = 0;
 	int graph = 0;
 	unsigned long dummy;
-	unsigned long bp;
 	void *stack_start;
 
 	if (!task)
@@ -161,7 +160,8 @@ void dump_trace(struct task_struct *task,
 			stack = (unsigned long *)task->thread.sp;
 	}
 
-	bp = stack_frame(task, regs);
+	if (!bp)
+		bp = stack_frame(task, regs);
 	/*
 	 * Print function call entries in all stacks, starting at the
 	 * current stack address. If the stacks consist of nested
@@ -226,7 +226,7 @@ EXPORT_SYMBOL(dump_trace);
 
 void
 show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
-		   unsigned long *sp, char *log_lvl)
+		   unsigned long *sp, unsigned long bp, char *log_lvl)
 {
 	unsigned long *irq_stack_end;
 	unsigned long *irq_stack;
@@ -270,7 +270,7 @@ show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	preempt_enable();
 
 	printk(KERN_CONT "\n");
-	show_trace_log_lvl(task, regs, sp, log_lvl);
+	show_trace_log_lvl(task, regs, sp, bp, log_lvl);
 }
 
 void show_registers(struct pt_regs *regs)
@@ -299,7 +299,7 @@ void show_registers(struct pt_regs *regs)
 
 		printk(KERN_EMERG "Stack:\n");
 		show_stack_log_lvl(NULL, regs, (unsigned long *)sp,
-				   KERN_EMERG);
+				   0, KERN_EMERG);
 
 		printk(KERN_EMERG "Code: ");
 

@@ -346,7 +346,7 @@ static int atmel_pcm_mmap(struct snd_pcm_substream *substream,
 		       vma->vm_end - vma->vm_start, vma->vm_page_prot);
 }
 
-static struct snd_pcm_ops atmel_pcm_ops = {
+static const struct snd_pcm_ops atmel_pcm_ops = {
 	.open		= atmel_pcm_open,
 	.close		= atmel_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,

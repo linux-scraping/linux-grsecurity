@@ -186,7 +186,6 @@ struct abx500_init_settings {
 struct ab3550_platform_data {
 	struct {unsigned int base; unsigned int count; } irq;
 	void *dev_data[AB3550_NUM_DEVICES];
-	size_t dev_data_sz[AB3550_NUM_DEVICES];
 	struct abx500_init_settings *init_settings;
 	unsigned int init_settings_sz;
 };
@@ -228,6 +227,6 @@ struct abx500_ops {
 	int (*startup_irq_enabled) (struct device *, unsigned int);
 };
 
-int abx500_register_ops(struct device *core_dev, struct abx500_ops *ops);
+int abx500_register_ops(struct device *core_dev, const struct abx500_ops *ops);
 void abx500_remove_ops(struct device *dev);
 #endif

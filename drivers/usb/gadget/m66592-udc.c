@@ -258,7 +258,7 @@ static int pipe_buffer_setting(struct m66592 *m66592,
 		break;
 	case M66592_BULK:
 		/* isochronous pipes may be used as bulk pipes */
-		if (info->pipe > M66592_BASE_PIPENUM_BULK)
+		if (info->pipe >= M66592_BASE_PIPENUM_BULK)
 			bufnum = info->pipe - M66592_BASE_PIPENUM_BULK;
 		else
 			bufnum = info->pipe - M66592_BASE_PIPENUM_ISOC;
@@ -1437,7 +1437,7 @@ static void m66592_fifo_flush(struct usb_ep *_ep)
 	spin_unlock_irqrestore(&ep->m66592->lock, flags);
 }
 
-static struct usb_ep_ops m66592_ep_ops = {
+static const struct usb_ep_ops m66592_ep_ops = {
 	.enable		= m66592_enable,
 	.disable	= m66592_disable,
 
@@ -1542,7 +1542,7 @@ static int m66592_get_frame(struct usb_gadget *_gadget)
 	return m66592_read(m66592, M66592_FRMNUM) & 0x03FF;
 }
 
-static struct usb_gadget_ops m66592_gadget_ops = {
+static const struct usb_gadget_ops m66592_gadget_ops = {
 	.get_frame		= m66592_get_frame,
 };
 

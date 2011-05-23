@@ -133,7 +133,7 @@ conf_read(unsigned long addr)
 
 	local_irq_save(flags);
 
-	/* Reset status register to avoid loosing errors.  */
+	/* Reset status register to avoid losing errors.  */
 	stat0 = *(vulp)LCA_IOC_STAT0;
 	*(vulp)LCA_IOC_STAT0 = stat0;
 	mb();
@@ -170,7 +170,7 @@ conf_write(unsigned long addr, unsigned int value)
 
 	local_irq_save(flags);	/* avoid getting hit by machine check */
 
-	/* Reset status register to avoid loosing errors.  */
+	/* Reset status register to avoid losing errors.  */
 	stat0 = *(vulp)LCA_IOC_STAT0;
 	*(vulp)LCA_IOC_STAT0 = stat0;
 	mb();
@@ -231,7 +231,7 @@ lca_write_config(struct pci_bus *bus, unsigned int devfn, int where, int size,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops lca_pci_ops = 
+const struct pci_ops lca_pci_ops = 
 {
 	.read =		lca_read_config,
 	.write =	lca_write_config,

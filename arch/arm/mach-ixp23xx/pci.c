@@ -136,7 +136,7 @@ static int ixp23xx_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops ixp23xx_pci_ops = {
+const struct pci_ops ixp23xx_pci_ops = {
 	.read	= ixp23xx_pci_read_config,
 	.write	= ixp23xx_pci_write_config,
 };

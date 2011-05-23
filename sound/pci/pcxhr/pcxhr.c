@@ -1121,7 +1121,7 @@ static snd_pcm_uframes_t pcxhr_stream_pointer(struct snd_pcm_substream *subs)
 }
 
 
-static struct snd_pcm_ops pcxhr_ops = {
+static const struct snd_pcm_ops pcxhr_ops = {
 	.open      = pcxhr_open,
 	.close     = pcxhr_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -1184,7 +1184,7 @@ static int __devinit pcxhr_create(struct pcxhr_mgr *mgr,
 {
 	int err;
 	struct snd_pcxhr *chip;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = pcxhr_chip_dev_free,
 	};
 

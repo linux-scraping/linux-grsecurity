@@ -179,13 +179,13 @@ static void calioc2_dump_error_regs(struct iommu_table *tbl);
 static void calgary_init_bitmap_from_tce_table(struct iommu_table *tbl);
 static void get_tce_space_from_tar(void);
 
-static struct cal_chipset_ops calgary_chip_ops = {
+static const struct cal_chipset_ops calgary_chip_ops = {
 	.handle_quirks = calgary_handle_quirks,
 	.tce_cache_blast = calgary_tce_cache_blast,
 	.dump_error_regs = calgary_dump_error_regs
 };
 
-static struct cal_chipset_ops calioc2_chip_ops = {
+static const struct cal_chipset_ops calioc2_chip_ops = {
 	.handle_quirks = calioc2_handle_quirks,
 	.tce_cache_blast = calioc2_tce_cache_blast,
 	.dump_error_regs = calioc2_dump_error_regs
@@ -1279,7 +1279,7 @@ static int __init calgary_bus_has_devices(int bus, unsigned short pci_dev)
 
 	if (pci_dev == PCI_DEVICE_ID_IBM_CALIOC2) {
 		/*
-		 * FIXME: properly scan for devices accross the
+		 * FIXME: properly scan for devices across the
 		 * PCI-to-PCI bridge on every CalIOC2 port.
 		 */
 		return 1;
@@ -1295,7 +1295,7 @@ static int __init calgary_bus_has_devices(int bus, unsigned short pci_dev)
 
 /*
  * calgary_init_bitmap_from_tce_table():
- * Funtion for kdump case. In the second/kdump kernel initialize
+ * Function for kdump case. In the second/kdump kernel initialize
  * the bitmap based on the tce table entries obtained from first kernel
  */
 static void calgary_init_bitmap_from_tce_table(struct iommu_table *tbl)

@@ -87,7 +87,7 @@ static int jornada_lcd_set_power(struct lcd_device *dev, int power)
 	return 0;
 }
 
-static struct lcd_ops jornada_lcd_props = {
+static const struct lcd_ops jornada_lcd_props = {
 	.get_contrast = jornada_lcd_get_contrast,
 	.set_contrast = jornada_lcd_set_contrast,
 	.get_power = jornada_lcd_get_power,
@@ -135,12 +135,12 @@ static struct platform_driver jornada_lcd_driver = {
 	},
 };
 
-int __init jornada_lcd_init(void)
+static int __init jornada_lcd_init(void)
 {
 	return platform_driver_register(&jornada_lcd_driver);
 }
 
-void __exit jornada_lcd_exit(void)
+static void __exit jornada_lcd_exit(void)
 {
 	platform_driver_unregister(&jornada_lcd_driver);
 }

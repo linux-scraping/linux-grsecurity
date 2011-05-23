@@ -178,7 +178,7 @@ int snd_seq_device_new(struct snd_card *card, int device, char *id, int argsize,
 	struct snd_seq_device *dev;
 	struct ops_list *ops;
 	int err;
-	static struct snd_device_ops dops = {
+	static const struct snd_device_ops dops = {
 		.dev_free = snd_seq_device_dev_free,
 		.dev_register = snd_seq_device_dev_register,
 		.dev_disconnect = snd_seq_device_dev_disconnect,
@@ -307,7 +307,7 @@ static int snd_seq_device_dev_disconnect(struct snd_device *device)
  * id = driver id
  * entry = driver operators - duplicated to each instance
  */
-int snd_seq_device_register_driver(char *id, struct snd_seq_dev_ops *entry,
+int snd_seq_device_register_driver(char *id, const struct snd_seq_dev_ops *entry,
 				   int argsize)
 {
 	struct ops_list *ops;

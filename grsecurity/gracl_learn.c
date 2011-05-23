@@ -2,7 +2,6 @@
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/poll.h>
-#include <linux/smp_lock.h>
 #include <linux/string.h>
 #include <linux/file.h>
 #include <linux/types.h>

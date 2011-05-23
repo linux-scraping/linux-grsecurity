@@ -35,9 +35,9 @@ static const struct snd_pcm_hardware ep93xx_pcm_hardware = {
 				   SNDRV_PCM_INFO_INTERLEAVED	|
 				   SNDRV_PCM_INFO_BLOCK_TRANSFER),
 				   
-	.rates			= SNDRV_PCM_RATE_8000_96000,
+	.rates			= SNDRV_PCM_RATE_8000_192000,
 	.rate_min		= SNDRV_PCM_RATE_8000,
-	.rate_max		= SNDRV_PCM_RATE_96000,
+	.rate_max		= SNDRV_PCM_RATE_192000,
 	
 	.formats		= (SNDRV_PCM_FMTBIT_S16_LE |
 				   SNDRV_PCM_FMTBIT_S24_LE |
@@ -216,7 +216,7 @@ static int ep93xx_pcm_mmap(struct snd_pcm_substream *substream,
 				     runtime->dma_bytes);
 }
 
-static struct snd_pcm_ops ep93xx_pcm_ops = {
+static const struct snd_pcm_ops ep93xx_pcm_ops = {
 	.open		= ep93xx_pcm_open,
 	.close		= ep93xx_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,

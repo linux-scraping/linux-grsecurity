@@ -65,7 +65,7 @@ static inline void i2c_pnx_arm_timer(struct i2c_pnx_algo_data *alg_data)
 		jiffies, expires);
 
 	timer->expires = jiffies + expires;
-	timer->data = (unsigned long)&alg_data;
+	timer->data = (unsigned long)alg_data;
 
 	add_timer(timer);
 }
@@ -535,7 +535,7 @@ static u32 i2c_pnx_func(struct i2c_adapter *adapter)
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
 
-static struct i2c_algorithm pnx_algorithm = {
+static const struct i2c_algorithm pnx_algorithm = {
 	.master_xfer = i2c_pnx_xfer,
 	.functionality = i2c_pnx_func,
 };

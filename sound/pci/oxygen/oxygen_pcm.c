@@ -606,7 +606,7 @@ static snd_pcm_uframes_t oxygen_pointer(struct snd_pcm_substream *substream)
 	return bytes_to_frames(runtime, curr_addr - (u32)runtime->dma_addr);
 }
 
-static struct snd_pcm_ops oxygen_rec_a_ops = {
+static const struct snd_pcm_ops oxygen_rec_a_ops = {
 	.open      = oxygen_rec_a_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -617,7 +617,7 @@ static struct snd_pcm_ops oxygen_rec_a_ops = {
 	.pointer   = oxygen_pointer,
 };
 
-static struct snd_pcm_ops oxygen_rec_b_ops = {
+static const struct snd_pcm_ops oxygen_rec_b_ops = {
 	.open      = oxygen_rec_b_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -628,7 +628,7 @@ static struct snd_pcm_ops oxygen_rec_b_ops = {
 	.pointer   = oxygen_pointer,
 };
 
-static struct snd_pcm_ops oxygen_rec_c_ops = {
+static const struct snd_pcm_ops oxygen_rec_c_ops = {
 	.open      = oxygen_rec_c_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -639,7 +639,7 @@ static struct snd_pcm_ops oxygen_rec_c_ops = {
 	.pointer   = oxygen_pointer,
 };
 
-static struct snd_pcm_ops oxygen_spdif_ops = {
+static const struct snd_pcm_ops oxygen_spdif_ops = {
 	.open      = oxygen_spdif_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -650,7 +650,7 @@ static struct snd_pcm_ops oxygen_spdif_ops = {
 	.pointer   = oxygen_pointer,
 };
 
-static struct snd_pcm_ops oxygen_multich_ops = {
+static const struct snd_pcm_ops oxygen_multich_ops = {
 	.open      = oxygen_multich_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -661,7 +661,7 @@ static struct snd_pcm_ops oxygen_multich_ops = {
 	.pointer   = oxygen_pointer,
 };
 
-static struct snd_pcm_ops oxygen_ac97_ops = {
+static const struct snd_pcm_ops oxygen_ac97_ops = {
 	.open      = oxygen_ac97_open,
 	.close     = oxygen_close,
 	.ioctl     = snd_pcm_lib_ioctl,

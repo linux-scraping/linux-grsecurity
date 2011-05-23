@@ -7,20 +7,13 @@
  * published by the Free Software Foundation.
 */
 
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
-#include <linux/i2c.h>
 
-#include <sound/core.h>
-#include <sound/pcm.h>
 #include <sound/soc.h>
 
 #include <plat/audio-simtec.h>
 
-#include "dma.h"
 #include "s3c24xx-i2s.h"
 #include "s3c24xx_simtec.h"
 
@@ -235,7 +228,7 @@ static int simtec_call_startup(struct s3c24xx_audio_simtec_pdata *pd)
 	return 0;
 }
 
-static struct snd_soc_ops simtec_snd_ops = {
+static const struct snd_soc_ops simtec_snd_ops = {
 	.hw_params	= simtec_hw_params,
 };
 

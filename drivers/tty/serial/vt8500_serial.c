@@ -519,7 +519,7 @@ static struct console vt8500_console = {
 #define VT8500_CONSOLE	NULL
 #endif
 
-static struct uart_ops vt8500_uart_pops = {
+static const struct uart_ops vt8500_uart_pops = {
 	.tx_empty	= vt8500_tx_empty,
 	.set_mctrl	= vt8500_set_mctrl,
 	.get_mctrl	= vt8500_get_mctrl,

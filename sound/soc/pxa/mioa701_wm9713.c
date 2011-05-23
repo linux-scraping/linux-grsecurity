@@ -156,7 +156,7 @@ static int mioa701_wm9713_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static struct snd_soc_ops mioa701_ops;
+static const struct snd_soc_ops mioa701_ops;
 
 static struct snd_soc_dai_link mioa701_dai[] = {
 	{

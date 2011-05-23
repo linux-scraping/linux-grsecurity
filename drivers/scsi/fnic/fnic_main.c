@@ -69,7 +69,7 @@ module_param(fnic_log_level, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(fnic_log_level, "bit mask of fnic logging levels");
 
 
-static struct libfc_function_template fnic_transport_template = {
+static const struct libfc_function_template fnic_transport_template = {
 	.frame_send = fnic_send,
 	.lport_set_port_id = fnic_set_port_id,
 	.fcp_abort_io = fnic_empty_scsi_cleanup,

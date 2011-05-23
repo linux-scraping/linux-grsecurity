@@ -150,7 +150,7 @@ MODULE_PARM_DESC(enable, "Enable RME Digi96 soundcard.");
 #define RME96_RCR_BITPOS_F1 28
 #define RME96_RCR_BITPOS_F2 29
 
-/* Additonal register bits */
+/* Additional register bits */
 #define RME96_AR_WSEL       (1 << 0)
 #define RME96_AR_ANALOG     (1 << 1)
 #define RME96_AR_FREQPAD_0  (1 << 2)
@@ -1447,7 +1447,7 @@ snd_rme96_capture_pointer(struct snd_pcm_substream *substream)
 	return snd_rme96_capture_ptr(rme96);
 }
 
-static struct snd_pcm_ops snd_rme96_playback_spdif_ops = {
+static const struct snd_pcm_ops snd_rme96_playback_spdif_ops = {
 	.open =		snd_rme96_playback_spdif_open,
 	.close =	snd_rme96_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1460,7 +1460,7 @@ static struct snd_pcm_ops snd_rme96_playback_spdif_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static struct snd_pcm_ops snd_rme96_capture_spdif_ops = {
+static const struct snd_pcm_ops snd_rme96_capture_spdif_ops = {
 	.open =		snd_rme96_capture_spdif_open,
 	.close =	snd_rme96_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1472,7 +1472,7 @@ static struct snd_pcm_ops snd_rme96_capture_spdif_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static struct snd_pcm_ops snd_rme96_playback_adat_ops = {
+static const struct snd_pcm_ops snd_rme96_playback_adat_ops = {
 	.open =		snd_rme96_playback_adat_open,
 	.close =	snd_rme96_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1485,7 +1485,7 @@ static struct snd_pcm_ops snd_rme96_playback_adat_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static struct snd_pcm_ops snd_rme96_capture_adat_ops = {
+static const struct snd_pcm_ops snd_rme96_capture_adat_ops = {
 	.open =		snd_rme96_capture_adat_open,
 	.close =	snd_rme96_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,

@@ -95,6 +95,11 @@ static struct snd_soc_jack_pin hs_jack_pins[] = {
 		.pin	= "Headphone Jack",
 		.mask	= SND_JACK_HEADPHONE,
 	},
+	{
+		.pin    = "Ext Spk",
+		.mask   = SND_JACK_HEADPHONE,
+		.invert = 1
+	},
 };
 
 /* Headset jack detection gpios */
@@ -182,7 +187,7 @@ err:
 	return ret;
 }
 
-static struct snd_soc_ops z2_ops = {
+static const struct snd_soc_ops z2_ops = {
 	.hw_params = z2_hw_params,
 };
 

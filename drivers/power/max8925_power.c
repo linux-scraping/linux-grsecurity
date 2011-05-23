@@ -426,7 +426,7 @@ static __devinit int max8925_power_probe(struct platform_device *pdev)
 {
 	struct max8925_chip *chip = dev_get_drvdata(pdev->dev.parent);
 	struct max8925_platform_data *max8925_pdata;
-	struct max8925_power_pdata *pdata = NULL;
+	const struct max8925_power_pdata *pdata = NULL;
 	struct max8925_power_info *info;
 	int ret;
 

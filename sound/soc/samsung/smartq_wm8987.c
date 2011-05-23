@@ -13,20 +13,14 @@
  *
  */
 
-#include <linux/module.h>
-#include <linux/platform_device.h>
 #include <linux/gpio.h>
 
-#include <sound/pcm.h>
-#include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
 
 #include <asm/mach-types.h>
 
-#include "dma.h"
 #include "i2s.h"
-
 #include "../codecs/wm8750.h"
 
 /*
@@ -98,7 +92,7 @@ static int smartq_hifi_hw_params(struct snd_pcm_substream *substream,
 /*
  * SmartQ WM8987 HiFi DAI operations.
  */
-static struct snd_soc_ops smartq_hifi_ops = {
+static const struct snd_soc_ops smartq_hifi_ops = {
 	.hw_params = smartq_hifi_hw_params,
 };
 

@@ -57,7 +57,7 @@ static int static_find_io(struct pcmcia_socket *s, unsigned int attr,
 }
 
 
-struct pccard_resource_ops pccard_static_ops = {
+const struct pccard_resource_ops pccard_static_ops = {
 	.validate_mem = NULL,
 	.find_io = static_find_io,
 	.find_mem = NULL,

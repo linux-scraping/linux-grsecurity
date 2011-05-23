@@ -88,8 +88,8 @@ void it8152_init_irq(void)
 	__raw_writel((0), IT8152_INTC_LDCNIRR);
 
 	for (irq = IT8152_IRQ(0); irq <= IT8152_LAST_IRQ; irq++) {
-		set_irq_chip(irq, &it8152_irq_chip);
-		set_irq_handler(irq, handle_level_irq);
+		irq_set_chip_and_handler(irq, &it8152_irq_chip,
+					 handle_level_irq);
 		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
 }
@@ -221,7 +221,7 @@ static int it8152_pci_write_config(struct pci_bus *bus,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops it8152_ops = {
+static const struct pci_ops it8152_ops = {
 	.read = it8152_pci_read_config,
 	.write = it8152_pci_write_config,
 };

@@ -283,7 +283,7 @@ static int ixp4xx_pci_write_config(struct pci_bus *bus,  unsigned int devfn, int
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops ixp4xx_ops = {
+const struct pci_ops ixp4xx_ops = {
 	.read =  ixp4xx_pci_read_config,
 	.write = ixp4xx_pci_write_config,
 };

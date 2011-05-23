@@ -69,7 +69,7 @@
  *    ADC: Philips 1361T (Stereo 24bit)
  *    DAC: CS4382-K (8-channel, 24bit, 192Khz)
  *
- *  This code was initally based on code from ALSA's emu10k1x.c which is:
+ *  This code was initially based on code from ALSA's emu10k1x.c which is:
  *  Copyright (c) by Francisco Moraes <fmoraes@nc.rr.com>
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -601,7 +601,7 @@ snd_p16v_pcm_pointer_capture(struct snd_pcm_substream *substream)
 }
 
 /* operators */
-static struct snd_pcm_ops snd_p16v_playback_front_ops = {
+static const struct snd_pcm_ops snd_p16v_playback_front_ops = {
 	.open =        snd_p16v_pcm_open_playback_front,
 	.close =       snd_p16v_pcm_close_playback,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -612,7 +612,7 @@ static struct snd_pcm_ops snd_p16v_playback_front_ops = {
 	.pointer =     snd_p16v_pcm_pointer_playback,
 };
 
-static struct snd_pcm_ops snd_p16v_capture_ops = {
+static const struct snd_pcm_ops snd_p16v_capture_ops = {
 	.open =        snd_p16v_pcm_open_capture,
 	.close =       snd_p16v_pcm_close_capture,
 	.ioctl =       snd_pcm_lib_ioctl,

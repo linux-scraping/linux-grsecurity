@@ -189,8 +189,7 @@ int line6_pcm_stop(struct snd_line6_pcm *line6pcm, int channels)
 		line6pcm->buffer_out = NULL;
 	}
 #if LINE6_BACKUP_MONITOR_SIGNAL
-	if (line6pcm->prev_fbuf != NULL)
-		kfree(line6pcm->prev_fbuf);
+	kfree(line6pcm->prev_fbuf);
 #endif
 
 	return 0;
@@ -385,7 +384,7 @@ void line6_pcm_disconnect(struct snd_line6_pcm *line6pcm)
 int line6_init_pcm(struct usb_line6 *line6,
 		   struct line6_pcm_properties *properties)
 {
-	static struct snd_device_ops pcm_ops = {
+	static const struct snd_device_ops pcm_ops = {
 		.dev_free = snd_line6_pcm_free,
 	};
 

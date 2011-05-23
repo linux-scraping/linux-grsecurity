@@ -9503,7 +9503,7 @@ static struct niu_parent * __devinit niu_new_parent(struct niu *np,
 	struct niu_parent *p;
 	int i;
 
-	plat_dev = platform_device_register_simple("niu", niu_parent_index,
+	plat_dev = platform_device_register_simple("niu-board", niu_parent_index,
 						   NULL, 0);
 	if (IS_ERR(plat_dev))
 		return NULL;
@@ -10064,8 +10064,7 @@ static const struct niu_ops niu_phys_ops = {
 	.unmap_single	= niu_phys_unmap_single,
 };
 
-static int __devinit niu_of_probe(struct platform_device *op,
-				  const struct of_device_id *match)
+static int __devinit niu_of_probe(struct platform_device *op)
 {
 	union niu_parent_id parent_id;
 	struct net_device *dev;
@@ -10225,7 +10224,7 @@ static const struct of_device_id niu_match[] = {
 };
 MODULE_DEVICE_TABLE(of, niu_match);
 
-static struct of_platform_driver niu_of_driver = {
+static struct platform_driver niu_of_driver = {
 	.driver = {
 		.name = "niu",
 		.owner = THIS_MODULE,
@@ -10246,14 +10245,14 @@ static int __init niu_init(void)
 	niu_debug = netif_msg_init(debug, NIU_MSG_DEFAULT);
 
 #ifdef CONFIG_SPARC64
-	err = of_register_platform_driver(&niu_of_driver);
+	err = platform_driver_register(&niu_of_driver);
 #endif
 
 	if (!err) {
 		err = pci_register_driver(&niu_pci_driver);
 #ifdef CONFIG_SPARC64
 		if (err)
-			of_unregister_platform_driver(&niu_of_driver);
+			platform_driver_unregister(&niu_of_driver);
 #endif
 	}
 
@@ -10264,7 +10263,7 @@ static void __exit niu_exit(void)
 {
 	pci_unregister_driver(&niu_pci_driver);
 #ifdef CONFIG_SPARC64
-	of_unregister_platform_driver(&niu_of_driver);
+	platform_driver_unregister(&niu_of_driver);
 #endif
 }
 

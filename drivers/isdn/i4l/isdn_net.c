@@ -400,7 +400,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 		isdn_net_local *lp = p->local;
 #ifdef CONFIG_ISDN_X25
 		struct concap_proto *cprot = lp->netdev->cprot;
-		struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
+		const struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
 #endif
 		switch (cmd) {
 			case ISDN_STAT_BSENT:
@@ -831,7 +831,7 @@ isdn_net_hangup(struct net_device *d)
 	isdn_ctrl cmd;
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto *cprot = lp->netdev->cprot;
-	struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
+	const struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
 #endif
 
 	if (lp->flags & ISDN_NET_CONNECTED) {
@@ -1530,7 +1530,7 @@ isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
 		printk (KERN_WARNING
 				"UPDOWN: Line protocol on Interface %s,"
 				" changed state to down\n", lp->netdev->dev->name);
-		/* should stop routing higher-level data accross */
+		/* should stop routing higher-level data across */
 	} else if ((!lp->cisco_line_state) &&
 		(myseq_diff >= 0) && (myseq_diff <= 2)) {
 		/* line down -> up */
@@ -1538,7 +1538,7 @@ isdn_net_ciscohdlck_slarp_send_keepalive(unsigned long data)
 		printk (KERN_WARNING
 				"UPDOWN: Line protocol on Interface %s,"
 				" changed state to up\n", lp->netdev->dev->name);
-		/* restart routing higher-level data accross */
+		/* restart routing higher-level data across */
 	}
 
 	if (lp->cisco_debserint)

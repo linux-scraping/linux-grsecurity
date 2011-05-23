@@ -155,7 +155,7 @@ irongate_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops irongate_pci_ops =
+const struct pci_ops irongate_pci_ops =
 {
 	.read =		irongate_read_config,
 	.write =	irongate_write_config,

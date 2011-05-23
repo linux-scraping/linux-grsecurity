@@ -88,7 +88,7 @@ struct qlogic_ib_stats {
 };
 
 extern struct qlogic_ib_stats qib_stats;
-extern struct pci_error_handlers qib_pci_err_handler;
+extern const struct pci_error_handlers qib_pci_err_handler;
 extern struct pci_driver qib_driver;
 
 #define QIB_CHIP_SWVERSION QIB_CHIP_VERS_MAJ
@@ -654,7 +654,7 @@ struct diag_observer_list_elt;
 
 /* device data struct now contains only "general per-device" info.
  * fields related to a physical IB port are in a qib_pportdata struct,
- * described above) while fields only used by a particualr chip-type are in
+ * described above) while fields only used by a particular chip-type are in
  * a qib_chipdata struct, whose contents are opaque to this file.
  */
 struct qib_devdata {

@@ -1083,7 +1083,9 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq == DS_DFLT) {
 		/* bus reset */
+		spin_unlock(&r8a66597->lock);
 		r8a66597->driver->disconnect(&r8a66597->gadget);
+		spin_lock(&r8a66597->lock);
 		r8a66597_update_usb_speed(r8a66597);
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
@@ -1390,7 +1392,7 @@ static void r8a66597_fifo_flush(struct usb_ep *_ep)
 	spin_unlock_irqrestore(&ep->r8a66597->lock, flags);
 }
 
-static struct usb_ep_ops r8a66597_ep_ops = {
+static const struct usb_ep_ops r8a66597_ep_ops = {
 	.enable		= r8a66597_enable,
 	.disable	= r8a66597_disable,
 
@@ -1495,7 +1497,7 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
 }
 
-static struct usb_gadget_ops r8a66597_gadget_ops = {
+static const struct usb_gadget_ops r8a66597_gadget_ops = {
 	.get_frame		= r8a66597_get_frame,
 };
 

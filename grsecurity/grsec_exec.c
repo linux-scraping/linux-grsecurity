@@ -2,7 +2,6 @@
 #include <linux/sched.h>
 #include <linux/file.h>
 #include <linux/binfmts.h>
-#include <linux/smp_lock.h>
 #include <linux/fs.h>
 #include <linux/types.h>
 #include <linux/grdefs.h>

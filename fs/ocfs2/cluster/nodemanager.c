@@ -752,7 +752,7 @@ static void o2nm_node_group_drop_item(struct config_group *group,
 	config_item_put(item);
 }
 
-static struct configfs_group_operations o2nm_node_group_group_ops = {
+static const struct configfs_group_operations o2nm_node_group_group_ops = {
 	.make_item	= o2nm_node_group_make_item,
 	.drop_item	= o2nm_node_group_drop_item,
 };
@@ -869,7 +869,7 @@ static void o2nm_cluster_group_drop_item(struct config_group *group, struct conf
 	config_item_put(item);
 }
 
-static struct configfs_group_operations o2nm_cluster_group_group_ops = {
+static const struct configfs_group_operations o2nm_cluster_group_group_ops = {
 	.make_group	= o2nm_cluster_group_make_group,
 	.drop_item	= o2nm_cluster_group_drop_item,
 };

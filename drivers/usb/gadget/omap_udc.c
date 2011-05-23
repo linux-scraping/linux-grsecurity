@@ -1177,7 +1177,7 @@ done:
 	return status;
 }
 
-static struct usb_ep_ops omap_ep_ops = {
+static const struct usb_ep_ops omap_ep_ops = {
 	.enable		= omap_ep_enable,
 	.disable	= omap_ep_disable,
 
@@ -1374,7 +1374,7 @@ static int omap_pullup(struct usb_gadget *gadget, int is_on)
 	return 0;
 }
 
-static struct usb_gadget_ops omap_gadget_ops = {
+static const struct usb_gadget_ops omap_gadget_ops = {
 	.get_frame		= omap_get_frame,
 	.wakeup			= omap_wakeup,
 	.set_selfpowered	= omap_set_selfpowered,

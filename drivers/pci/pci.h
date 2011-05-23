@@ -11,7 +11,7 @@
 extern int pci_uevent(struct device *dev, struct kobj_uevent_env *env);
 extern int pci_create_sysfs_dev_files(struct pci_dev *pdev);
 extern void pci_remove_sysfs_dev_files(struct pci_dev *pdev);
-#ifndef CONFIG_DMI
+#if !defined(CONFIG_DMI) && !defined(CONFIG_ACPI)
 static inline void pci_create_firmware_label_files(struct pci_dev *pdev)
 { return; }
 static inline void pci_remove_firmware_label_files(struct pci_dev *pdev)
@@ -65,7 +65,7 @@ struct pci_platform_pm_ops {
 	int (*run_wake)(struct pci_dev *dev, bool enable);
 };
 
-extern int pci_set_platform_pm(struct pci_platform_pm_ops *ops);
+extern int pci_set_platform_pm(const struct pci_platform_pm_ops *ops);
 extern void pci_update_current_state(struct pci_dev *dev, pci_power_t state);
 extern void pci_disable_enabled_device(struct pci_dev *dev);
 extern int pci_finish_runtime_suspend(struct pci_dev *dev);

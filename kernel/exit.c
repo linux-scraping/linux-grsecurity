@@ -869,7 +869,7 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	/* Let father know we died
 	 *
 	 * Thread signals are configurable, but you aren't going to use
-	 * that to send signals to arbitary processes.
+	 * that to send signals to arbitrary processes.
 	 * That stops right now.
 	 *
 	 * If the parent exec id doesn't match the exec id we saved
@@ -933,17 +933,11 @@ NORET_TYPE void do_exit(long code)
 	struct task_struct *tsk = current;
 	int group_dead;
 
-	/*
-	 * Check this first since set_fs() below depends on
-	 * current_thread_info(), which we better not access when we're in
-	 * interrupt context.  Other than that, we want to do the set_fs()
-	 * as early as possible.
-	 */
 	if (unlikely(in_interrupt()))
 		panic("Aiee, killing interrupt handler!");
 
 	/*
-	 * If do_exit is called because this processes Oops'ed, it's possible
+	 * If do_exit is called because this processes oopsed, it's possible
 	 * that get_fs() was left as KERNEL_DS, so reset it to USER_DS before
 	 * continuing. Amongst other possible reasons, this is to prevent
 	 * mm_release()->clear_child_tid() from writing to a user-controlled
@@ -954,6 +948,7 @@ NORET_TYPE void do_exit(long code)
 	profile_task_exit(tsk);
 
 	WARN_ON(atomic_read(&tsk->fs_excl));
+	WARN_ON(blk_needs_flush_plug(tsk));
 
 	if (unlikely(!tsk->pid))
 		panic("Attempted to kill the idle task!");

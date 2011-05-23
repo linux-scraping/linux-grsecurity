@@ -38,9 +38,11 @@
 #define ta(X) ((X) - __PAGE_OFFSET)
 #endif
 
-/* We can free up trampoline after bootup if cpu hotplug is not supported. */
-__CPUINITRODATA
-.code16
+#ifdef CONFIG_SMP
+
+	.section ".x86_trampoline","a"
+	.balign PAGE_SIZE
+	.code16
 
 ENTRY(trampoline_data)
 r_base = .
@@ -50,7 +52,7 @@ r_base = .
 
 	cli			# We should be safe anyway
 
-	movl	$0xA5A5A5A5, trampoline_data - r_base
+	movl	$0xA5A5A5A5, trampoline_status - r_base
 				# write marker for master knows we're running
 
 	/* GDT tables in non default location kernel can be beyond 16MB and
@@ -78,5 +80,10 @@ boot_idt_descr:
 	.word	0				# idt limit = 0
 	.long	0				# idt base = 0L
 
+ENTRY(trampoline_status)
+	.long	0
+
 .globl trampoline_end
 trampoline_end:
+
+#endif /* CONFIG_SMP */

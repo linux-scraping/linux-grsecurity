@@ -1038,7 +1038,7 @@ static int generic_check_power_status(struct hda_codec *codec, hda_nid_t nid)
 
 /*
  */
-static struct hda_codec_ops generic_patch_ops = {
+static const struct hda_codec_ops generic_patch_ops = {
 	.build_controls = build_generic_controls,
 	.build_pcms = build_generic_pcms,
 	.free = snd_hda_generic_free,

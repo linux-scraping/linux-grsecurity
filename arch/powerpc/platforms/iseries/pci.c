@@ -533,7 +533,7 @@ static int iSeries_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	return 0;
 }
 
-static struct pci_ops iSeries_pci_ops = {
+static const struct pci_ops iSeries_pci_ops = {
 	.read = iSeries_pci_read_config,
 	.write = iSeries_pci_write_config
 };

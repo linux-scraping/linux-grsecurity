@@ -421,7 +421,7 @@ static int saa7134_go7007_send_command(struct go7007 *go, unsigned int cmd,
 
 }
 
-static struct go7007_hpi_ops saa7134_go7007_hpi_ops = {
+static const struct go7007_hpi_ops saa7134_go7007_hpi_ops = {
 	.interface_reset	= saa7134_go7007_interface_reset,
 	.write_interrupt	= saa7134_go7007_write_interrupt,
 	.read_interrupt		= saa7134_go7007_read_interrupt,

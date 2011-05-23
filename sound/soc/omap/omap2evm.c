@@ -74,7 +74,7 @@ static int omap2evm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops omap2evm_ops = {
+static const struct snd_soc_ops omap2evm_ops = {
 	.hw_params = omap2evm_hw_params,
 };
 

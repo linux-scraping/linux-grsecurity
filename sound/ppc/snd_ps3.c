@@ -358,7 +358,7 @@ static irqreturn_t snd_ps3_interrupt(int irq, void *dev_id)
 		 * filling dummy data, serial automatically start to
 		 * consume them and then will generate normal buffer
 		 * empty interrupts.
-		 * If both buffer underflow and buffer empty are occured,
+		 * If both buffer underflow and buffer empty are occurred,
 		 * it is better to do nomal data transfer than empty one
 		 */
 		snd_ps3_program_dma(card,
@@ -773,7 +773,7 @@ static struct snd_kcontrol_new spdif_ctls[] = {
 	},
 };
 
-static struct snd_pcm_ops snd_ps3_pcm_spdif_ops = {
+static const struct snd_pcm_ops snd_ps3_pcm_spdif_ops = {
 	.open = snd_ps3_pcm_open,
 	.close = snd_ps3_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,

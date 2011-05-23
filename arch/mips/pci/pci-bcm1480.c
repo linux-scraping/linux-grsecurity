@@ -171,7 +171,7 @@ static int bcm1480_pcibios_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops bcm1480_pci_ops = {
+const struct pci_ops bcm1480_pci_ops = {
 	bcm1480_pcibios_read,
 	bcm1480_pcibios_write,
 };
@@ -210,7 +210,7 @@ static int __init bcm1480_pcibios_init(void)
 	PCIBIOS_MIN_IO = 0x00008000UL;
 	PCIBIOS_MIN_MEM = 0x01000000UL;
 
-	/* Set I/O resource limits. - unlimited for now to accomodate HT */
+	/* Set I/O resource limits. - unlimited for now to accommodate HT */
 	ioport_resource.end = 0xffffffffUL;
 	iomem_resource.end = 0xffffffffUL;
 

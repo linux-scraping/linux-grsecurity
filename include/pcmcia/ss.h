@@ -241,9 +241,9 @@ struct pcmcia_socket {
  *				"select PCCARD_NONSTATIC" in Kconfig.
  *
  */
-extern struct pccard_resource_ops pccard_static_ops;
+extern const struct pccard_resource_ops pccard_static_ops;
 #if defined(CONFIG_PCMCIA) || defined(CONFIG_PCMCIA_MODULE)
-extern struct pccard_resource_ops pccard_iodyn_ops;
+extern const struct pccard_resource_ops pccard_iodyn_ops;
 extern struct pccard_resource_ops pccard_nonstatic_ops;
 #else
 /* If PCMCIA is not used, but only CARDBUS, these functions are not used

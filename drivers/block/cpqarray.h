@@ -69,7 +69,7 @@ struct access_method {
 struct board_type {
 	__u32	board_id;
 	char	*product_name;
-	struct access_method *access;
+	const struct access_method *access;
 };
 
 struct ctlr_info {

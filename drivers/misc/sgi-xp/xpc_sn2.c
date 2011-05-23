@@ -2351,7 +2351,7 @@ xpc_received_payload_sn2(struct xpc_channel *ch, void *payload)
 		xpc_acknowledge_msgs_sn2(ch, get, msg->flags);
 }
 
-static struct xpc_arch_operations xpc_arch_ops_sn2 = {
+static const struct xpc_arch_operations xpc_arch_ops_sn2 = {
 	.setup_partitions = xpc_setup_partitions_sn2,
 	.teardown_partitions = xpc_teardown_partitions_sn2,
 	.process_activate_IRQ_rcvd = xpc_process_activate_IRQ_rcvd_sn2,

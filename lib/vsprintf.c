@@ -436,7 +436,9 @@ char *symbol_string(char *buf, char *end, void *ptr,
 	unsigned long value = (unsigned long) ptr;
 #ifdef CONFIG_KALLSYMS
 	char sym[KSYM_SYMBOL_LEN];
-	if (ext != 'f' && ext != 's' && ext != 'a')
+	if (ext == 'B')
+		sprint_backtrace(sym, value);
+	else if (ext != 'f' && ext != 's' && ext != 'a')
 		sprint_symbol(sym, value);
 	else
 		kallsyms_lookup(value, NULL, NULL, NULL, sym);
@@ -799,9 +801,9 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
 }
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-int kptr_restrict = 2;
+int kptr_restrict __read_mostly = 2;
 #else
-int kptr_restrict = 1;
+int kptr_restrict __read_mostly;
 #endif
 
 /*
@@ -815,6 +817,7 @@ int kptr_restrict = 1;
  * - 'f' For simple symbolic function names without offset
  * - 'S' For symbolic direct pointers with offset
  * - 's' For symbolic direct pointers without offset
+ * - 'B' For backtraced symbolic direct pointers with offset
  * - 'A' For symbolic direct pointers with offset approved for use with GRKERNSEC_HIDESYM
  * - 'a' For symbolic direct pointers without offset approved for use with GRKERNSEC_HIDESYM
  * - 'R' For decoded struct resource, e.g., [mem 0x0-0x1f 64bit pref]
@@ -859,7 +862,7 @@ static noinline_for_stack
 char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	      struct printf_spec spec)
 {
-	if (!ptr) {
+	if (!ptr && *fmt != 'K') {
 		/*
 		 * Print (nil) with the same width as a pointer so it makes
 		 * tabular output look nice.
@@ -883,6 +886,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 #endif
 	case 'A':
 	case 'a':
+	case 'B':
 		return symbol_string(buf, end, ptr, spec, *fmt);
 	case 'R':
 	case 'r':
@@ -922,16 +926,12 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			if (spec.field_width == -1)
 				spec.field_width = 2 * sizeof(void *);
 			return string(buf, end, "pK-error", spec);
-		} else if ((kptr_restrict == 0) ||
-			 (kptr_restrict == 1 &&
-			  has_capability_noaudit(current, CAP_SYSLOG)))
-			break;
-
-		if (spec.field_width == -1) {
-			spec.field_width = 2 * sizeof(void *);
-			spec.flags |= ZEROPAD;
 		}
-		return number(buf, end, 0, spec);
+		if (!((kptr_restrict == 0) ||
+		      (kptr_restrict == 1 &&
+		       has_capability_noaudit(current, CAP_SYSLOG))))
+			ptr = NULL;
+		break;
 	}
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
@@ -1154,6 +1154,7 @@ qualifier:
  * %ps output the name of a text symbol without offset
  * %pF output the name of a function pointer with its offset
  * %pf output the name of a function pointer without its offset
+ * %pB output the name of a backtrace symbol with its offset
  * %pR output the address range in a struct resource with decoded flags
  * %pr output the address range in a struct resource with raw flags
  * %pM output a 6-byte MAC address with colons

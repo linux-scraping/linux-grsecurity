@@ -239,7 +239,7 @@ static irqreturn_t ep93xx_ac97_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-struct snd_ac97_bus_ops soc_ac97_ops = {
+const struct snd_ac97_bus_ops soc_ac97_ops = {
 	.read		= ep93xx_ac97_read,
 	.write		= ep93xx_ac97_write,
 	.reset		= ep93xx_ac97_cold_reset,
@@ -252,7 +252,6 @@ static int ep93xx_ac97_trigger(struct snd_pcm_substream *substream,
 {
 	struct ep93xx_ac97_info *info = snd_soc_dai_get_drvdata(dai);
 	unsigned v = 0;
-
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:

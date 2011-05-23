@@ -1327,7 +1327,7 @@ static int rj54n1_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	return 0;
 }
 
-static struct v4l2_subdev_core_ops rj54n1_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops rj54n1_subdev_core_ops = {
 	.g_ctrl		= rj54n1_g_ctrl,
 	.s_ctrl		= rj54n1_s_ctrl,
 	.g_chip_ident	= rj54n1_g_chip_ident,
@@ -1337,7 +1337,7 @@ static struct v4l2_subdev_core_ops rj54n1_subdev_core_ops = {
 #endif
 };
 
-static struct v4l2_subdev_video_ops rj54n1_subdev_video_ops = {
+static const struct v4l2_subdev_video_ops rj54n1_subdev_video_ops = {
 	.s_stream	= rj54n1_s_stream,
 	.s_mbus_fmt	= rj54n1_s_fmt,
 	.g_mbus_fmt	= rj54n1_g_fmt,

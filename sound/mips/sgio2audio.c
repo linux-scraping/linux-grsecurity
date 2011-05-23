@@ -681,7 +681,7 @@ snd_sgio2audio_pcm_pointer(struct snd_pcm_substream *substream)
 }
 
 /* operators */
-static struct snd_pcm_ops snd_sgio2audio_playback1_ops = {
+static const struct snd_pcm_ops snd_sgio2audio_playback1_ops = {
 	.open =        snd_sgio2audio_playback1_open,
 	.close =       snd_sgio2audio_pcm_close,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -694,7 +694,7 @@ static struct snd_pcm_ops snd_sgio2audio_playback1_ops = {
 	.mmap =        snd_pcm_lib_mmap_vmalloc,
 };
 
-static struct snd_pcm_ops snd_sgio2audio_playback2_ops = {
+static const struct snd_pcm_ops snd_sgio2audio_playback2_ops = {
 	.open =        snd_sgio2audio_playback2_open,
 	.close =       snd_sgio2audio_pcm_close,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -707,7 +707,7 @@ static struct snd_pcm_ops snd_sgio2audio_playback2_ops = {
 	.mmap =        snd_pcm_lib_mmap_vmalloc,
 };
 
-static struct snd_pcm_ops snd_sgio2audio_capture_ops = {
+static const struct snd_pcm_ops snd_sgio2audio_capture_ops = {
 	.open =        snd_sgio2audio_capture_open,
 	.close =       snd_sgio2audio_pcm_close,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -829,7 +829,7 @@ static int snd_sgio2audio_dev_free(struct snd_device *device)
 	return snd_sgio2audio_free(chip);
 }
 
-static struct snd_device_ops ops = {
+static const struct snd_device_ops ops = {
 	.dev_free = snd_sgio2audio_dev_free,
 };
 

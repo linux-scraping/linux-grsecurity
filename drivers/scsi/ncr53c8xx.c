@@ -2679,7 +2679,7 @@ static	struct script script0 __initdata = {
 }/*-------------------------< RESEL_TAG >-------------------*/,{
 	/*
 	**	Read IDENTIFY + SIMPLE + TAG using a single MOVE.
-	**	Agressive optimization, is'nt it?
+	**	Aggressive optimization, is'nt it?
 	**	No need to test the SIMPLE TAG message, since the 
 	**	driver only supports conformant devices for tags. ;-)
 	*/
@@ -8606,7 +8606,7 @@ static void ncr53c8xx_get_signalling(struct Scsi_Host *shost)
 	spi_signalling(shost) = type;
 }
 
-static struct spi_function_template ncr53c8xx_transport_functions =  {
+static struct spi_function_template ncr53c8xx_transport_functions = {
 	.set_period	= ncr53c8xx_set_period,
 	.show_period	= 1,
 	.set_offset	= ncr53c8xx_set_offset,

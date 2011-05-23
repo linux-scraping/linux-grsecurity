@@ -178,7 +178,7 @@ static struct pci_driver driver = {
 };
 
 /* operators for playback PCM alsa interface */
-static struct snd_pcm_ops snd_aw2_playback_ops = {
+static const struct snd_pcm_ops snd_aw2_playback_ops = {
 	.open = snd_aw2_pcm_playback_open,
 	.close = snd_aw2_pcm_playback_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -190,7 +190,7 @@ static struct snd_pcm_ops snd_aw2_playback_ops = {
 };
 
 /* operators for capture PCM alsa interface */
-static struct snd_pcm_ops snd_aw2_capture_ops = {
+static const struct snd_pcm_ops snd_aw2_capture_ops = {
 	.open = snd_aw2_pcm_capture_open,
 	.close = snd_aw2_pcm_capture_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -263,7 +263,7 @@ static int __devinit snd_aw2_create(struct snd_card *card,
 {
 	struct aw2 *chip;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = snd_aw2_dev_free,
 	};
 

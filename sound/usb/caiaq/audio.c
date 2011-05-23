@@ -322,7 +322,7 @@ snd_usb_caiaq_pcm_pointer(struct snd_pcm_substream *sub)
 }
 
 /* operators for both playback and capture */
-static struct snd_pcm_ops snd_usb_caiaq_ops = {
+static const struct snd_pcm_ops snd_usb_caiaq_ops = {
 	.open =		snd_usb_caiaq_substream_open,
 	.close =	snd_usb_caiaq_substream_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -805,6 +805,7 @@ int snd_usb_caiaq_audio_init(struct snd_usb_caiaqdev *dev)
 	case USB_ID(USB_VID_NATIVEINSTRUMENTS, USB_PID_AUDIO2DJ):
 	case USB_ID(USB_VID_NATIVEINSTRUMENTS, USB_PID_AUDIO4DJ):
 	case USB_ID(USB_VID_NATIVEINSTRUMENTS, USB_PID_AUDIO8DJ):
+	case USB_ID(USB_VID_NATIVEINSTRUMENTS, USB_PID_TRAKTORAUDIO2):
 		dev->samplerates |= SNDRV_PCM_RATE_88200;
 		break;
 	}

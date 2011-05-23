@@ -22,7 +22,8 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/dw_spi.h>
+
+#include "dw_spi.h"
 
 #ifdef CONFIG_SPI_DW_MID_DMA
 #include <linux/intel_mid_dma.h>
@@ -179,7 +180,7 @@ static int mid_spi_dma_transfer(struct dw_spi *dws, int cs_change)
 	return 0;
 }
 
-static struct dw_spi_dma_ops mid_dma_ops = {
+static const struct dw_spi_dma_ops mid_dma_ops = {
 	.dma_init	= mid_spi_dma_init,
 	.dma_exit	= mid_spi_dma_exit,
 	.dma_transfer	= mid_spi_dma_transfer,

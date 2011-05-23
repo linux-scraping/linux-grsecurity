@@ -748,7 +748,7 @@ static int davinci_pcm_mmap(struct snd_pcm_substream *substream,
 				     runtime->dma_bytes);
 }
 
-static struct snd_pcm_ops davinci_pcm_ops = {
+static const struct snd_pcm_ops davinci_pcm_ops = {
 	.open = 	davinci_pcm_open,
 	.close = 	davinci_pcm_close,
 	.ioctl = 	snd_pcm_lib_ioctl,

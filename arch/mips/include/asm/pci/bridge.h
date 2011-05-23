@@ -262,7 +262,7 @@ typedef volatile struct bridge_s {
 } bridge_t;
 
 /*
- * Field formats for Error Command Word and Auxillary Error Command Word
+ * Field formats for Error Command Word and Auxiliary Error Command Word
  * of bridge.
  */
 typedef struct bridge_err_cmdword_s {
@@ -849,6 +849,6 @@ struct bridge_controller {
 extern void register_bridge_irq(unsigned int irq);
 extern int request_bridge_irq(struct bridge_controller *bc);
 
-extern struct pci_ops bridge_pci_ops;
+extern const struct pci_ops bridge_pci_ops;
 
 #endif /* _ASM_PCI_BRIDGE_H */

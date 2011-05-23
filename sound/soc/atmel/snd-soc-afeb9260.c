@@ -81,7 +81,7 @@ static int afeb9260_hw_params(struct snd_pcm_substream *substream,
 	return err;
 }
 
-static struct snd_soc_ops afeb9260_ops = {
+static const struct snd_soc_ops afeb9260_ops = {
 	.hw_params = afeb9260_hw_params,
 };
 

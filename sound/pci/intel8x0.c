@@ -534,7 +534,7 @@ static int snd_intel8x0_codec_semaphore(struct intel8x0 *chip, unsigned int code
 		udelay(10);
 	} while (time--);
 
-	/* access to some forbidden (non existant) ac97 registers will not
+	/* access to some forbidden (non existent) ac97 registers will not
 	 * reset the semaphore. So even if you don't get the semaphore, still
 	 * continue the access. We don't need the semaphore anyway. */
 	snd_printk(KERN_ERR "codec_semaphore: semaphore is not ready [0x%x][0x%x]\n",
@@ -2152,12 +2152,12 @@ static int __devinit snd_intel8x0_mixer(struct intel8x0 *chip, int ac97_clock,
 	int err;
 	unsigned int i, codecs;
 	unsigned int glob_sta = 0;
-	struct snd_ac97_bus_ops *ops;
-	static struct snd_ac97_bus_ops standard_bus_ops = {
+	const struct snd_ac97_bus_ops *ops;
+	static const struct snd_ac97_bus_ops standard_bus_ops = {
 		.write = snd_intel8x0_codec_write,
 		.read = snd_intel8x0_codec_read,
 	};
-	static struct snd_ac97_bus_ops ali_bus_ops = {
+	static const struct snd_ac97_bus_ops ali_bus_ops = {
 		.write = snd_intel8x0_ali_codec_write,
 		.read = snd_intel8x0_ali_codec_read,
 	};
@@ -2921,7 +2921,7 @@ static int __devinit snd_intel8x0_create(struct snd_card *card,
 	unsigned int i;
 	unsigned int int_sta_masks;
 	struct ichdev *ichdev;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_intel8x0_dev_free,
 	};
 

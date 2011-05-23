@@ -176,7 +176,7 @@ static int pa_pxp_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops pa_pxp_ops = {
+static const struct pci_ops pa_pxp_ops = {
 	.read = pa_pxp_read_config,
 	.write = pa_pxp_write_config,
 };

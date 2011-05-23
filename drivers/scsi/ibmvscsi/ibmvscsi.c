@@ -104,7 +104,7 @@ static struct scsi_transport_template *ibmvscsi_transport_template;
 
 #define IBMVSCSI_VERSION "1.5.9"
 
-static struct ibmvscsi_ops *ibmvscsi_ops;
+static const struct ibmvscsi_ops *ibmvscsi_ops;
 
 MODULE_DESCRIPTION("IBM Virtual SCSI");
 MODULE_AUTHOR("Dave Boutcher");
@@ -2059,7 +2059,7 @@ static struct vio_device_id ibmvscsi_device_table[] __devinitdata = {
 };
 MODULE_DEVICE_TABLE(vio, ibmvscsi_device_table);
 
-static struct dev_pm_ops ibmvscsi_pm_ops = {
+static const struct dev_pm_ops ibmvscsi_pm_ops = {
 	.resume = ibmvscsi_resume
 };
 
@@ -2075,7 +2075,7 @@ static struct vio_driver ibmvscsi_driver = {
 	}
 };
 
-static struct srp_function_template ibmvscsi_transport_functions = {
+static const struct srp_function_template ibmvscsi_transport_functions = {
 };
 
 int __init ibmvscsi_module_init(void)

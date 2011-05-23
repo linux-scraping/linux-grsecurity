@@ -708,7 +708,7 @@ static int hal2_capture_ack(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops hal2_playback_ops = {
+static const struct snd_pcm_ops hal2_playback_ops = {
 	.open =        hal2_playback_open,
 	.close =       hal2_playback_close,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -720,7 +720,7 @@ static struct snd_pcm_ops hal2_playback_ops = {
 	.ack =         hal2_playback_ack,
 };
 
-static struct snd_pcm_ops hal2_capture_ops = {
+static const struct snd_pcm_ops hal2_capture_ops = {
 	.open =        hal2_capture_open,
 	.close =       hal2_capture_close,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -766,7 +766,7 @@ static int hal2_dev_free(struct snd_device *device)
 	return 0;
 }
 
-static struct snd_device_ops hal2_ops = {
+static const struct snd_device_ops hal2_ops = {
 	.dev_free = hal2_dev_free,
 };
 

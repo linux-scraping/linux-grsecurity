@@ -389,7 +389,7 @@ static void ca0110_free(struct hda_codec *codec)
 	kfree(codec->spec);
 }
 
-static struct hda_codec_ops ca0110_patch_ops = {
+static const struct hda_codec_ops ca0110_patch_ops = {
 	.build_controls = ca0110_build_controls,
 	.build_pcms = ca0110_build_pcms,
 	.init = ca0110_init,

@@ -17,12 +17,11 @@
 #include <asm/stacktrace.h>
 
 
-void dump_trace(struct task_struct *task,
-		struct pt_regs *regs, unsigned long *stack,
+void dump_trace(struct task_struct *task, struct pt_regs *regs,
+		unsigned long *stack, unsigned long bp,
 		const struct stacktrace_ops *ops, void *data)
 {
 	int graph = 0;
-	unsigned long bp;
 
 	if (!task)
 		task = current;
@@ -35,9 +34,12 @@ void dump_trace(struct task_struct *task,
 			stack = (unsigned long *)task->thread.sp;
 	}
 
-	bp = stack_frame(task, regs);
+	if (!bp)
+		bp = stack_frame(task, regs);
+
 	for (;;) {
 		void *stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
+
 		bp = ops->walk_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
 
 		if (stack_start == task_stack_page(task))
@@ -52,7 +54,7 @@ EXPORT_SYMBOL(dump_trace);
 
 void
 show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
-		   unsigned long *sp, char *log_lvl)
+		   unsigned long *sp, unsigned long bp, char *log_lvl)
 {
 	unsigned long *stack;
 	int i;
@@ -74,7 +76,7 @@ show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 		touch_nmi_watchdog();
 	}
 	printk(KERN_CONT "\n");
-	show_trace_log_lvl(task, regs, sp, log_lvl);
+	show_trace_log_lvl(task, regs, sp, bp, log_lvl);
 }
 
 
@@ -100,7 +102,7 @@ void show_registers(struct pt_regs *regs)
 		unsigned long cs_base = get_desc_base(&get_cpu_gdt_table(smp_processor_id())[(0xffff & regs->cs) >> 3]);
 
 		printk(KERN_EMERG "Stack:\n");
-		show_stack_log_lvl(NULL, regs, &regs->sp, KERN_EMERG);
+		show_stack_log_lvl(NULL, regs, &regs->sp, 0, KERN_EMERG);
 
 		printk(KERN_EMERG "Code: ");
 

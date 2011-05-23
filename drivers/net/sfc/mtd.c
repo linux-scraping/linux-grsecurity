@@ -1,7 +1,7 @@
 /****************************************************************************
  * Driver for Solarflare Solarstorm network controllers and boards
  * Copyright 2005-2006 Fen Systems Ltd.
- * Copyright 2006-2009 Solarflare Communications Inc.
+ * Copyright 2006-2010 Solarflare Communications Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published
@@ -382,7 +382,7 @@ static int falcon_mtd_sync(struct mtd_info *mtd)
 	return rc;
 }
 
-static struct efx_mtd_ops falcon_mtd_ops = {
+static const struct efx_mtd_ops falcon_mtd_ops = {
 	.read	= falcon_mtd_read,
 	.erase	= falcon_mtd_erase,
 	.write	= falcon_mtd_write,
@@ -560,7 +560,7 @@ static int siena_mtd_sync(struct mtd_info *mtd)
 	return rc;
 }
 
-static struct efx_mtd_ops siena_mtd_ops = {
+static const struct efx_mtd_ops siena_mtd_ops = {
 	.read	= siena_mtd_read,
 	.erase	= siena_mtd_erase,
 	.write	= siena_mtd_write,

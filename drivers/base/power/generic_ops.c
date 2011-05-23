@@ -215,7 +215,7 @@ int pm_generic_restore(struct device *dev)
 EXPORT_SYMBOL_GPL(pm_generic_restore);
 #endif /* CONFIG_PM_SLEEP */
 
-struct dev_pm_ops generic_subsys_pm_ops = {
+const struct dev_pm_ops generic_subsys_pm_ops = {
 #ifdef CONFIG_PM_SLEEP
 	.suspend = pm_generic_suspend,
 	.resume = pm_generic_resume,

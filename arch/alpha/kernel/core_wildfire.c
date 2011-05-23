@@ -431,7 +431,7 @@ wildfire_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops wildfire_pci_ops = 
+const struct pci_ops wildfire_pci_ops = 
 {
 	.read =		wildfire_read_config,
 	.write =	wildfire_write_config,

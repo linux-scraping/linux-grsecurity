@@ -831,7 +831,7 @@ static snd_pcm_uframes_t pcm_pointer(struct snd_pcm_substream *substream)
 
 
 /* pcm *_ops structures */
-static struct snd_pcm_ops analog_playback_ops = {
+static const struct snd_pcm_ops analog_playback_ops = {
 	.open = pcm_analog_out_open,
 	.close = pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -842,7 +842,7 @@ static struct snd_pcm_ops analog_playback_ops = {
 	.pointer = pcm_pointer,
 	.page = snd_pcm_sgbuf_ops_page,
 };
-static struct snd_pcm_ops analog_capture_ops = {
+static const struct snd_pcm_ops analog_capture_ops = {
 	.open = pcm_analog_in_open,
 	.close = pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -855,7 +855,7 @@ static struct snd_pcm_ops analog_capture_ops = {
 };
 #ifdef ECHOCARD_HAS_DIGITAL_IO
 #ifndef ECHOCARD_HAS_VMIXER
-static struct snd_pcm_ops digital_playback_ops = {
+static const struct snd_pcm_ops digital_playback_ops = {
 	.open = pcm_digital_out_open,
 	.close = pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -867,7 +867,7 @@ static struct snd_pcm_ops digital_playback_ops = {
 	.page = snd_pcm_sgbuf_ops_page,
 };
 #endif /* !ECHOCARD_HAS_VMIXER */
-static struct snd_pcm_ops digital_capture_ops = {
+static const struct snd_pcm_ops digital_capture_ops = {
 	.open = pcm_digital_in_open,
 	.close = pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -1945,7 +1945,7 @@ static __devinit int snd_echo_create(struct snd_card *card,
 	struct echoaudio *chip;
 	int err;
 	size_t sz;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = snd_echo_dev_free,
 	};
 

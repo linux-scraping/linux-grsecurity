@@ -168,12 +168,12 @@ struct sunhv_ops {
 	int (*receive_chars)(struct uart_port *port, struct tty_struct *tty);
 };
 
-static struct sunhv_ops bychar_ops = {
+static const struct sunhv_ops bychar_ops = {
 	.transmit_chars = transmit_chars_putchar,
 	.receive_chars = receive_chars_getchar,
 };
 
-static struct sunhv_ops bywrite_ops = {
+static const struct sunhv_ops bywrite_ops = {
 	.transmit_chars = transmit_chars_write,
 	.receive_chars = receive_chars_read,
 };
@@ -370,7 +370,7 @@ static int sunhv_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return -EINVAL;
 }
 
-static struct uart_ops sunhv_pops = {
+static const struct uart_ops sunhv_pops = {
 	.tx_empty	= sunhv_tx_empty,
 	.set_mctrl	= sunhv_set_mctrl,
 	.get_mctrl	= sunhv_get_mctrl,
@@ -519,7 +519,7 @@ static struct console sunhv_console = {
 	.data	=	&sunhv_reg,
 };
 
-static int __devinit hv_probe(struct platform_device *op, const struct of_device_id *match)
+static int __devinit hv_probe(struct platform_device *op)
 {
 	struct uart_port *port;
 	unsigned long minor;
@@ -629,7 +629,7 @@ static const struct of_device_id hv_match[] = {
 };
 MODULE_DEVICE_TABLE(of, hv_match);
 
-static struct of_platform_driver hv_driver = {
+static struct platform_driver hv_driver = {
 	.driver = {
 		.name = "hv",
 		.owner = THIS_MODULE,
@@ -644,12 +644,12 @@ static int __init sunhv_init(void)
 	if (tlb_type != hypervisor)
 		return -ENODEV;
 
-	return of_register_platform_driver(&hv_driver);
+	return platform_driver_register(&hv_driver);
 }
 
 static void __exit sunhv_exit(void)
 {
-	of_unregister_platform_driver(&hv_driver);
+	platform_driver_unregister(&hv_driver);
 }
 
 module_init(sunhv_init);

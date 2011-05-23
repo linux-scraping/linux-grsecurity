@@ -10,17 +10,12 @@
  *  option) any later version.
  */
 
-#include <linux/platform_device.h>
-#include <linux/clk.h>
-#include <sound/core.h>
-#include <sound/pcm.h>
-#include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/pcm_params.h>
 
 #include <asm/mach-types.h>
 
 #include "../codecs/wm8580.h"
-#include "dma.h"
 #include "i2s.h"
 
 /*
@@ -119,7 +114,7 @@ static int smdk_hw_params(struct snd_pcm_substream *substream,
 /*
  * SMDK WM8580 DAI operations.
  */
-static struct snd_soc_ops smdk_ops = {
+static const struct snd_soc_ops smdk_ops = {
 	.hw_params = smdk_hw_params,
 };
 

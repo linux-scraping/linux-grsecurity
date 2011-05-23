@@ -612,10 +612,8 @@ void hfa384x_destroy(hfa384x_t *hw)
 		hfa384x_drvr_stop(hw);
 	hw->state = HFA384x_STATE_PREINIT;
 
-	if (hw->scanresults) {
-		kfree(hw->scanresults);
-		hw->scanresults = NULL;
-	}
+	kfree(hw->scanresults);
+	hw->scanresults = NULL;
 
 	/* Now to clean out the auth queue */
 	while ((skb = skb_dequeue(&hw->authq)))
@@ -673,7 +671,7 @@ struct usbctlx_cmd_completor {
 	hfa384x_cmdresult_t *result;
 };
 
-static inline int usbctlx_cmd_completor_fn(struct usbctlx_completor *head)
+static inline int usbctlx_cmd_completor_fn(const struct usbctlx_completor *head)
 {
 	struct usbctlx_cmd_completor *complete;
 
@@ -707,7 +705,7 @@ struct usbctlx_rrid_completor {
 	unsigned int riddatalen;
 };
 
-static int usbctlx_rrid_completor_fn(struct usbctlx_completor *head)
+static int usbctlx_rrid_completor_fn(const struct usbctlx_completor *head)
 {
 	struct usbctlx_rrid_completor *complete;
 	hfa384x_rridresult_t rridresult;
@@ -770,7 +768,7 @@ struct usbctlx_rmem_completor {
 };
 typedef struct usbctlx_rmem_completor usbctlx_rmem_completor_t;
 
-static int usbctlx_rmem_completor_fn(struct usbctlx_completor *head)
+static int usbctlx_rmem_completor_fn(const struct usbctlx_completor *head)
 {
 	usbctlx_rmem_completor_t *complete = (usbctlx_rmem_completor_t *) head;
 

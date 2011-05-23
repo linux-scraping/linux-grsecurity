@@ -624,7 +624,7 @@ static struct snd_pci_quirk cmi9880_cfg_tbl[] = {
 	{} /* terminator */
 };
 
-static struct hda_codec_ops cmi9880_patch_ops = {
+static const struct hda_codec_ops cmi9880_patch_ops = {
 	.build_controls = cmi9880_build_controls,
 	.build_pcms = cmi9880_build_pcms,
 	.init = cmi9880_init,

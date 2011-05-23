@@ -354,7 +354,7 @@ static int m41t80_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *t)
 	return 0;
 }
 
-static struct rtc_class_ops m41t80_rtc_ops = {
+static const struct rtc_class_ops m41t80_rtc_ops = {
 	.read_time = m41t80_rtc_read_time,
 	.set_time = m41t80_rtc_set_time,
 	.read_alarm = m41t80_rtc_read_alarm,
@@ -783,6 +783,9 @@ static int m41t80_probe(struct i2c_client *client,
 		goto exit;
 	}
 
+	clientdata->features = id->driver_data;
+	i2c_set_clientdata(client, clientdata);
+
 	rtc = rtc_device_register(client->name, &client->dev,
 				  &m41t80_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc)) {
@@ -792,8 +795,6 @@ static int m41t80_probe(struct i2c_client *client,
 	}
 
 	clientdata->rtc = rtc;
-	clientdata->features = id->driver_data;
-	i2c_set_clientdata(client, clientdata);
 
 	/* Make sure HT (Halt Update) bit is cleared */
 	rc = i2c_smbus_read_byte_data(client, M41T80_REG_ALARM_HOUR);

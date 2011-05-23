@@ -266,7 +266,7 @@ error:
 /*
  * The config ops structure as defined by virtio config
  */
-static struct virtio_config_ops kvm_vq_configspace_ops = {
+static const struct virtio_config_ops kvm_vq_configspace_ops = {
 	.get_features = kvm_get_features,
 	.finalize_features = kvm_finalize_features,
 	.get = kvm_get,
@@ -381,10 +381,10 @@ static void kvm_extint_handler(unsigned int ext_int_code,
 	u16 subcode;
 	u32 param;
 
-	kstat_cpu(smp_processor_id()).irqs[EXTINT_VRT]++;
 	subcode = ext_int_code >> 16;
 	if ((subcode & 0xff00) != VIRTIO_SUBCODE_64)
 		return;
+	kstat_cpu(smp_processor_id()).irqs[EXTINT_VRT]++;
 
 	/* The LSB might be overloaded, we have to mask it */
 	vq = (struct virtqueue *)(param64 & ~1UL);

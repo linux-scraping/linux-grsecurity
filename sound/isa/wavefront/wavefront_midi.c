@@ -537,7 +537,7 @@ snd_wavefront_midi_start (snd_wavefront_card_t *card)
 	}
 
 	/* Turn on Virtual MIDI, but first *always* turn it off,
-	   since otherwise consectutive reloads of the driver will
+	   since otherwise consecutive reloads of the driver will
 	   never cause the hardware to generate the initial "internal" or 
 	   "external" source bytes in the MIDI data stream. This
 	   is pretty important, since the internal hardware generally will
@@ -561,14 +561,14 @@ snd_wavefront_midi_start (snd_wavefront_card_t *card)
 	return 0;
 }
 
-struct snd_rawmidi_ops snd_wavefront_midi_output =
+const struct snd_rawmidi_ops snd_wavefront_midi_output =
 {
 	.open =		snd_wavefront_midi_output_open,
 	.close =	snd_wavefront_midi_output_close,
 	.trigger =	snd_wavefront_midi_output_trigger,
 };
 
-struct snd_rawmidi_ops snd_wavefront_midi_input =
+const struct snd_rawmidi_ops snd_wavefront_midi_input =
 {
 	.open =		snd_wavefront_midi_input_open,
 	.close =	snd_wavefront_midi_input_close,

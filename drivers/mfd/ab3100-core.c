@@ -385,7 +385,7 @@ static int ab3100_event_registers_startup_state_get(struct device *dev,
 	return 0;
 }
 
-static struct abx500_ops ab3100_ops = {
+static const struct abx500_ops ab3100_ops = {
 	.get_chip_id = ab3100_get_chip_id,
 	.set_register = set_register_interruptible,
 	.get_register = get_register_interruptible,
@@ -949,10 +949,8 @@ static int __devinit ab3100_probe(struct i2c_client *client,
 		goto exit_no_ops;
 
 	/* Set up and register the platform devices. */
-	for (i = 0; i < ARRAY_SIZE(ab3100_devs); i++) {
-		ab3100_devs[i].platform_data = ab3100_plf_data;
-		ab3100_devs[i].data_size = sizeof(struct ab3100_platform_data);
-	}
+	for (i = 0; i < ARRAY_SIZE(ab3100_devs); i++)
+		ab3100_devs[i].mfd_data = ab3100_plf_data;
 
 	err = mfd_add_devices(&client->dev, 0, ab3100_devs,
 		ARRAY_SIZE(ab3100_devs), NULL, 0);

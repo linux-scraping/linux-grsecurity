@@ -309,7 +309,7 @@ static int sdhci_s3c_platform_8bit_width(struct sdhci_host *host, int width)
 	return 0;
 }
 
-static struct sdhci_ops sdhci_s3c_ops = {
+static const struct sdhci_ops sdhci_s3c_ops = {
 	.get_max_clock		= sdhci_s3c_get_max_clk,
 	.set_clock		= sdhci_s3c_set_clock,
 	.get_min_clock		= sdhci_s3c_get_min_clock,
@@ -498,6 +498,9 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	 * transfers, not sure if this is a problem with this specific
 	 * SDHCI block, or a missing configuration that needs to be set. */
 	host->quirks |= SDHCI_QUIRK_NO_BUSY_IRQ;
+
+	/* This host supports the Auto CMD12 */
+	host->quirks |= SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12;
 
 	if (pdata->cd_type == S3C_SDHCI_CD_NONE ||
 	    pdata->cd_type == S3C_SDHCI_CD_PERMANENT)

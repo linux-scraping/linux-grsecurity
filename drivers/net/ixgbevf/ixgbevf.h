@@ -207,7 +207,6 @@ struct ixgbevf_adapter {
 	u64 hw_tso_ctxt;
 	u64 hw_tso6_ctxt;
 	u32 tx_timeout_count;
-	bool detect_tx_hung;
 
 	/* RX */
 	struct ixgbevf_ring *rx_ring;	/* One per active queue */
@@ -280,7 +279,7 @@ enum ixgbevf_boards {
 
 extern struct ixgbevf_info ixgbevf_82599_vf_info;
 extern struct ixgbevf_info ixgbevf_X540_vf_info;
-extern struct ixgbe_mac_operations ixgbevf_mbx_ops;
+extern const struct ixgbe_mac_operations ixgbevf_mbx_ops;
 
 /* needed by ethtool.c */
 extern char ixgbevf_driver_name[];

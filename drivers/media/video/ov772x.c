@@ -1079,7 +1079,7 @@ static struct soc_camera_ops ov772x_ops = {
 	.num_controls		= ARRAY_SIZE(ov772x_controls),
 };
 
-static struct v4l2_subdev_core_ops ov772x_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops ov772x_subdev_core_ops = {
 	.g_ctrl		= ov772x_g_ctrl,
 	.s_ctrl		= ov772x_s_ctrl,
 	.g_chip_ident	= ov772x_g_chip_ident,
@@ -1099,7 +1099,7 @@ static int ov772x_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
-static struct v4l2_subdev_video_ops ov772x_subdev_video_ops = {
+static const struct v4l2_subdev_video_ops ov772x_subdev_video_ops = {
 	.s_stream	= ov772x_s_stream,
 	.g_mbus_fmt	= ov772x_g_fmt,
 	.s_mbus_fmt	= ov772x_s_fmt,

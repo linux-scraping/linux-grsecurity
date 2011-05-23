@@ -14,7 +14,7 @@
 
 #include <asm/gt64120.h>
 
-extern struct pci_ops gt64xxx_pci0_ops;
+extern const struct pci_ops gt64xxx_pci0_ops;
 
 static struct resource cobalt_mem_resource = {
 	.start	= GT_DEF_PCI0_MEM0_BASE,

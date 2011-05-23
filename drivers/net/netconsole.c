@@ -634,7 +634,7 @@ static void drop_netconsole_target(struct config_group *group,
 	config_item_put(&nt->item);
 }
 
-static struct configfs_group_operations netconsole_subsys_group_ops = {
+static const struct configfs_group_operations netconsole_subsys_group_ops = {
 	.make_item	= make_netconsole_target,
 	.drop_item	= drop_netconsole_target,
 };
@@ -671,6 +671,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
 		goto done;
 
 	spin_lock_irqsave(&target_list_lock, flags);
+restart:
 	list_for_each_entry(nt, &target_list, list) {
 		netconsole_target_get(nt);
 		if (nt->np.dev == dev) {
@@ -683,9 +684,16 @@ static int netconsole_netdev_event(struct notifier_block *this,
 				 * rtnl_lock already held
 				 */
 				if (nt->np.dev) {
+					spin_unlock_irqrestore(
+							      &target_list_lock,
+							      flags);
 					__netpoll_cleanup(&nt->np);
+					spin_lock_irqsave(&target_list_lock,
+							  flags);
 					dev_put(nt->np.dev);
 					nt->np.dev = NULL;
+					netconsole_target_put(nt);
+					goto restart;
 				}
 				/* Fall through */
 			case NETDEV_GOING_DOWN:

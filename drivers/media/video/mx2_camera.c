@@ -668,7 +668,7 @@ static void mx2_videobuf_release(struct videobuf_queue *vq,
 	free_buffer(vq, buf);
 }
 
-static struct videobuf_queue_ops mx2_videobuf_ops = {
+static const struct videobuf_queue_ops mx2_videobuf_ops = {
 	.buf_setup      = mx2_videobuf_setup,
 	.buf_prepare    = mx2_videobuf_prepare,
 	.buf_queue      = mx2_videobuf_queue,

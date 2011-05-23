@@ -383,7 +383,7 @@ static int cafe_smbus_write_data(struct cafe_camera *cam,
 	 * causes the device to die.
 	 * Use a busy-wait because we often send a large quantity of small
 	 * commands at-once; using msleep() would cause a lot of context
-	 * switches which take longer than 2ms, resulting in a noticable
+	 * switches which take longer than 2ms, resulting in a noticeable
 	 * boot-time and capture-start delays.
 	 */
 	mdelay(2);
@@ -520,7 +520,7 @@ static u32 cafe_smbus_func(struct i2c_adapter *adapter)
 	       I2C_FUNC_SMBUS_WRITE_BYTE_DATA;
 }
 
-static struct i2c_algorithm cafe_smbus_algo = {
+static const struct i2c_algorithm cafe_smbus_algo = {
 	.smbus_xfer = cafe_smbus_xfer,
 	.functionality = cafe_smbus_func
 };

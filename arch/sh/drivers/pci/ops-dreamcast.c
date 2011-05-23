@@ -76,7 +76,7 @@ static int gapspci_write(struct pci_bus *bus, unsigned int devfn, int where, int
         return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops gapspci_pci_ops = {
+const struct pci_ops gapspci_pci_ops = {
 	.read	= gapspci_read,
 	.write	= gapspci_write,
 };

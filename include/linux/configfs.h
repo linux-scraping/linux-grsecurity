@@ -82,7 +82,7 @@ extern void config_item_put(struct config_item *);
 struct config_item_type {
 	struct module				*ct_owner;
 	struct configfs_item_operations		*ct_item_ops;
-	struct configfs_group_operations	*ct_group_ops;
+	const struct configfs_group_operations	*ct_group_ops;
 	struct configfs_attribute		**ct_attrs;
 };
 
@@ -218,7 +218,7 @@ static ssize_t _item##_attr_store(struct config_item *item,		\
  * group children.  default_groups may coexist alongsize make_group() or
  * make_item(), but if the group wishes to have only default_groups
  * children (disallowing mkdir(2)), it need not provide either function.
- * If the group has commit(), it supports pending and commited (active)
+ * If the group has commit(), it supports pending and committed (active)
  * items.
  */
 struct configfs_item_operations {

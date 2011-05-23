@@ -234,7 +234,7 @@ static void ttusb_dec_handle_irq( struct urb *urb)
 		 * (with buffer[3] == 0x40) in an intervall of ~100ms.
 		 * But to handle this correctly we had to imlemenent some
 		 * kind of timer which signals a 'key up' event if no
-		 * keyrepeat signal is recieved for lets say 200ms.
+		 * keyrepeat signal is received for lets say 200ms.
 		 * this should/could be added later ...
 		 * for now lets report each signal as a key down and up*/
 		dprintk("%s:rc signal:%d\n", __func__, buffer[4]);
@@ -1614,7 +1614,7 @@ static int fe_send_command(struct dvb_frontend* fe, const u8 command,
 	return ttusb_dec_send_command(dec, command, param_length, params, result_length, cmd_result);
 }
 
-static struct ttusbdecfe_config fe_config = {
+static const struct ttusbdecfe_config fe_config = {
 	.send_command = fe_send_command
 };
 

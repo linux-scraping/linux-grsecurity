@@ -9,7 +9,6 @@
 #include <linux/skbuff.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
-#include <linux/smp_lock.h>
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/netdevice.h>

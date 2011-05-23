@@ -393,7 +393,7 @@ static bool SA5_performant_intr_pending(ctlr_info_t *h)
 	return register_value & SA5_OUTDB_STATUS_PERF_BIT;
 }
 
-static struct access_method SA5_access = {
+static const struct access_method SA5_access = {
 	SA5_submit_command,
 	SA5_intr_mask,
 	SA5_fifo_full,
@@ -401,7 +401,7 @@ static struct access_method SA5_access = {
 	SA5_completed,
 };
 
-static struct access_method SA5B_access = {
+static const struct access_method SA5B_access = {
         SA5_submit_command,
         SA5B_intr_mask,
         SA5_fifo_full,
@@ -409,7 +409,7 @@ static struct access_method SA5B_access = {
         SA5_completed,
 };
 
-static struct access_method SA5_performant_access = {
+static const struct access_method SA5_performant_access = {
 	SA5_submit_command,
 	SA5_performant_intr_mask,
 	SA5_fifo_full,
@@ -420,7 +420,7 @@ static struct access_method SA5_performant_access = {
 struct board_type {
 	__u32	board_id;
 	char	*product_name;
-	struct access_method *access;
+	const struct access_method *access;
 	int nr_cmds; /* Max cmds this kind of ctlr can handle. */
 };
 

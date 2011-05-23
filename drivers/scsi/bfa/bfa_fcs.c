@@ -70,7 +70,7 @@ bfa_fcs_attach(struct bfa_fcs_s *fcs, struct bfa_s *bfa, struct bfad_s *bfad,
 	       bfa_boolean_t min_cfg)
 {
 	int		i;
-	struct bfa_fcs_mod_s  *mod;
+	const struct bfa_fcs_mod_s *mod;
 
 	fcs->bfa = bfa;
 	fcs->bfad = bfad;
@@ -93,7 +93,7 @@ void
 bfa_fcs_init(struct bfa_fcs_s *fcs)
 {
 	int		i, npbc_vports;
-	struct bfa_fcs_mod_s  *mod;
+	const struct bfa_fcs_mod_s *mod;
 	struct bfi_pbc_vport_s pbc_vports[BFI_PBC_MAX_VPORTS];
 
 	for (i = 0; i < sizeof(fcs_modules) / sizeof(fcs_modules[0]); i++) {
@@ -140,7 +140,7 @@ bfa_fcs_driver_info_init(struct bfa_fcs_s *fcs,
 void
 bfa_fcs_exit(struct bfa_fcs_s *fcs)
 {
-	struct bfa_fcs_mod_s  *mod;
+	const struct bfa_fcs_mod_s *mod;
 	int		nmods, i;
 
 	bfa_wc_init(&fcs->wc, bfa_fcs_exit_comp, fcs);
@@ -1033,7 +1033,7 @@ bfa_fcs_fabric_delvport(struct bfa_fcs_fabric_s *fabric,
 
 
 /*
- * Lookup for a vport withing a fabric given its pwwn
+ * Lookup for a vport within a fabric given its pwwn
  */
 struct bfa_fcs_vport_s *
 bfa_fcs_fabric_vport_lookup(struct bfa_fcs_fabric_s *fabric, wwn_t pwwn)

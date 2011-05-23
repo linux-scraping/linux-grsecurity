@@ -283,7 +283,7 @@ static irqreturn_t mpc52xx_psc_handle_irq(struct uart_port *port)
 	return mpc5xxx_uart_process_int(port);
 }
 
-static struct psc_ops mpc52xx_psc_ops = {
+static const struct psc_ops mpc52xx_psc_ops = {
 	.fifo_init = mpc52xx_psc_fifo_init,
 	.raw_rx_rdy = mpc52xx_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc52xx_psc_raw_tx_rdy,
@@ -304,7 +304,7 @@ static struct psc_ops mpc52xx_psc_ops = {
 	.handle_irq = mpc52xx_psc_handle_irq,
 };
 
-static struct psc_ops mpc5200b_psc_ops = {
+static const struct psc_ops mpc5200b_psc_ops = {
 	.fifo_init = mpc52xx_psc_fifo_init,
 	.raw_rx_rdy = mpc52xx_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc52xx_psc_raw_tx_rdy,
@@ -571,7 +571,7 @@ static void mpc512x_psc_get_irq(struct uart_port *port, struct device_node *np)
 	port->irq = psc_fifoc_irq;
 }
 
-static struct psc_ops mpc512x_psc_ops = {
+static const struct psc_ops mpc512x_psc_ops = {
 	.fifo_init = mpc512x_psc_fifo_init,
 	.raw_rx_rdy = mpc512x_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc512x_psc_raw_tx_rdy,
@@ -596,7 +596,7 @@ static struct psc_ops mpc512x_psc_ops = {
 };
 #endif
 
-static struct psc_ops *psc_ops;
+static const struct psc_ops *psc_ops;
 
 /* ======================================================================== */
 /* UART operations                                                          */
@@ -905,7 +905,7 @@ mpc52xx_uart_verify_port(struct uart_port *port, struct serial_struct *ser)
 }
 
 
-static struct uart_ops mpc52xx_uart_ops = {
+static const struct uart_ops mpc52xx_uart_ops = {
 	.tx_empty	= mpc52xx_uart_tx_empty,
 	.set_mctrl	= mpc52xx_uart_set_mctrl,
 	.get_mctrl	= mpc52xx_uart_get_mctrl,
@@ -1302,16 +1302,13 @@ static struct of_device_id mpc52xx_uart_of_match[] = {
 	{},
 };
 
-static int __devinit
-mpc52xx_uart_of_probe(struct platform_device *op, const struct of_device_id *match)
+static int __devinit mpc52xx_uart_of_probe(struct platform_device *op)
 {
 	int idx = -1;
 	unsigned int uartclk;
 	struct uart_port *port = NULL;
 	struct resource res;
 	int ret;
-
-	dev_dbg(&op->dev, "mpc52xx_uart_probe(op=%p, match=%p)\n", op, match);
 
 	/* Check validity & presence */
 	for (idx = 0; idx < MPC52xx_PSC_MAXNUM; idx++)
@@ -1453,7 +1450,7 @@ mpc52xx_uart_of_enumerate(void)
 
 MODULE_DEVICE_TABLE(of, mpc52xx_uart_of_match);
 
-static struct of_platform_driver mpc52xx_uart_of_driver = {
+static struct platform_driver mpc52xx_uart_of_driver = {
 	.probe		= mpc52xx_uart_of_probe,
 	.remove		= mpc52xx_uart_of_remove,
 #ifdef CONFIG_PM
@@ -1497,9 +1494,9 @@ mpc52xx_uart_init(void)
 			return ret;
 	}
 
-	ret = of_register_platform_driver(&mpc52xx_uart_of_driver);
+	ret = platform_driver_register(&mpc52xx_uart_of_driver);
 	if (ret) {
-		printk(KERN_ERR "%s: of_register_platform_driver failed (%i)\n",
+		printk(KERN_ERR "%s: platform_driver_register failed (%i)\n",
 		       __FILE__, ret);
 		uart_unregister_driver(&mpc52xx_uart_driver);
 		return ret;
@@ -1514,7 +1511,7 @@ mpc52xx_uart_exit(void)
 	if (psc_ops->fifoc_uninit)
 		psc_ops->fifoc_uninit();
 
-	of_unregister_platform_driver(&mpc52xx_uart_of_driver);
+	platform_driver_unregister(&mpc52xx_uart_of_driver);
 	uart_unregister_driver(&mpc52xx_uart_driver);
 }
 

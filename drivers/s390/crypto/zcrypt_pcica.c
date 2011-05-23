@@ -347,7 +347,7 @@ out_free:
 /**
  * The crypto operations for a PCICA card.
  */
-static struct zcrypt_ops zcrypt_pcica_ops = {
+static const struct zcrypt_ops zcrypt_pcica_ops = {
 	.rsa_modexpo = zcrypt_pcica_modexpo,
 	.rsa_modexpo_crt = zcrypt_pcica_modexpo_crt,
 };

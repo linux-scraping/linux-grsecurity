@@ -274,12 +274,6 @@ static int mxc_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	return 0;
 }
 
-static int mxc_rtc_update_irq_enable(struct device *dev, unsigned int enabled)
-{
-	mxc_rtc_irq_enable(dev, RTC_1HZ_BIT, enabled);
-	return 0;
-}
-
 /*
  * This function reads the current RTC time into tm in Gregorian date.
  */
@@ -361,14 +355,13 @@ static int mxc_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 }
 
 /* RTC layer */
-static struct rtc_class_ops mxc_rtc_ops = {
+static const struct rtc_class_ops mxc_rtc_ops = {
 	.release		= mxc_rtc_release,
 	.read_time		= mxc_rtc_read_time,
 	.set_mmss		= mxc_rtc_set_mmss,
 	.read_alarm		= mxc_rtc_read_alarm,
 	.set_alarm		= mxc_rtc_set_alarm,
 	.alarm_irq_enable	= mxc_rtc_alarm_irq_enable,
-	.update_irq_enable	= mxc_rtc_update_irq_enable,
 };
 
 static int __init mxc_rtc_probe(struct platform_device *pdev)
@@ -425,14 +418,6 @@ static int __init mxc_rtc_probe(struct platform_device *pdev)
 		goto exit_put_clk;
 	}
 
-	rtc = rtc_device_register(pdev->name, &pdev->dev, &mxc_rtc_ops,
-				  THIS_MODULE);
-	if (IS_ERR(rtc)) {
-		ret = PTR_ERR(rtc);
-		goto exit_put_clk;
-	}
-
-	pdata->rtc = rtc;
 	platform_set_drvdata(pdev, pdata);
 
 	/* Configure and enable the RTC */
@@ -445,8 +430,19 @@ static int __init mxc_rtc_probe(struct platform_device *pdev)
 		pdata->irq = -1;
 	}
 
+	rtc = rtc_device_register(pdev->name, &pdev->dev, &mxc_rtc_ops,
+				  THIS_MODULE);
+	if (IS_ERR(rtc)) {
+		ret = PTR_ERR(rtc);
+		goto exit_clr_drvdata;
+	}
+
+	pdata->rtc = rtc;
+
 	return 0;
 
+exit_clr_drvdata:
+	platform_set_drvdata(pdev, NULL);
 exit_put_clk:
 	clk_disable(pdata->clk);
 	clk_put(pdata->clk);

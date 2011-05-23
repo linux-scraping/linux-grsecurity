@@ -305,7 +305,11 @@ static int iwlagn_set_pan_params(struct iwl_priv *priv)
 	cmd.slots[0].type = 0; /* BSS */
 	cmd.slots[1].type = 1; /* PAN */
 
-	if (ctx_bss->vif && ctx_pan->vif) {
+	if (priv->_agn.hw_roc_channel) {
+		/* both contexts must be used for this to happen */
+		slot1 = priv->_agn.hw_roc_duration;
+		slot0 = IWL_MIN_SLOT_TIME;
+	} else if (ctx_bss->vif && ctx_pan->vif) {
 		int bcnint = ctx_pan->vif->bss_conf.beacon_int;
 		int dtim = ctx_pan->vif->bss_conf.dtim_period ?: 1;
 
@@ -330,12 +334,12 @@ static int iwlagn_set_pan_params(struct iwl_priv *priv)
 		if (test_bit(STATUS_SCAN_HW, &priv->status) ||
 		    (!ctx_bss->vif->bss_conf.idle &&
 		     !ctx_bss->vif->bss_conf.assoc)) {
-			slot0 = dtim * bcnint * 3 - 20;
-			slot1 = 20;
+			slot0 = dtim * bcnint * 3 - IWL_MIN_SLOT_TIME;
+			slot1 = IWL_MIN_SLOT_TIME;
 		} else if (!ctx_pan->vif->bss_conf.idle &&
 			   !ctx_pan->vif->bss_conf.assoc) {
-			slot1 = bcnint * 3 - 20;
-			slot0 = 20;
+			slot1 = bcnint * 3 - IWL_MIN_SLOT_TIME;
+			slot0 = IWL_MIN_SLOT_TIME;
 		}
 	} else if (ctx_pan->vif) {
 		slot0 = 0;
@@ -344,8 +348,8 @@ static int iwlagn_set_pan_params(struct iwl_priv *priv)
 		slot1 = max_t(int, DEFAULT_BEACON_INTERVAL, slot1);
 
 		if (test_bit(STATUS_SCAN_HW, &priv->status)) {
-			slot0 = slot1 * 3 - 20;
-			slot1 = 20;
+			slot0 = slot1 * 3 - IWL_MIN_SLOT_TIME;
+			slot1 = IWL_MIN_SLOT_TIME;
 		}
 	}
 
@@ -359,7 +363,7 @@ static int iwlagn_set_pan_params(struct iwl_priv *priv)
 	return ret;
 }
 
-struct iwl_hcmd_ops iwlagn_hcmd = {
+const struct iwl_hcmd_ops iwlagn_hcmd = {
 	.rxon_assoc = iwlagn_send_rxon_assoc,
 	.commit_rxon = iwlagn_commit_rxon,
 	.set_rxon_chain = iwlagn_set_rxon_chain,
@@ -368,7 +372,7 @@ struct iwl_hcmd_ops iwlagn_hcmd = {
 	.set_pan_params = iwlagn_set_pan_params,
 };
 
-struct iwl_hcmd_ops iwlagn_bt_hcmd = {
+const struct iwl_hcmd_ops iwlagn_bt_hcmd = {
 	.rxon_assoc = iwlagn_send_rxon_assoc,
 	.commit_rxon = iwlagn_commit_rxon,
 	.set_rxon_chain = iwlagn_set_rxon_chain,
@@ -377,7 +381,7 @@ struct iwl_hcmd_ops iwlagn_bt_hcmd = {
 	.set_pan_params = iwlagn_set_pan_params,
 };
 
-struct iwl_hcmd_utils_ops iwlagn_hcmd_utils = {
+const struct iwl_hcmd_utils_ops iwlagn_hcmd_utils = {
 	.get_hcmd_size = iwlagn_get_hcmd_size,
 	.build_addsta_hcmd = iwlagn_build_addsta_hcmd,
 	.gain_computation = iwlagn_gain_computation,

@@ -225,7 +225,7 @@ static u32 iop13xx_atue_cfg_address(struct pci_bus *bus, int devfn, int where)
 /* This routine checks the status of the last configuration cycle.  If an error
  * was detected it returns >0, else it returns a 0.  The errors being checked
  * are parity, master abort, target abort (master and target).  These types of
- * errors occure during a config cycle where there is no device, like during
+ * errors occur during a config cycle where there is no device, like during
  * the discovery stage.
  */
 static int iop13xx_atux_pci_status(int clear)
@@ -324,7 +324,7 @@ iop13xx_atux_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops iop13xx_atux_ops = {
+static const struct pci_ops iop13xx_atux_ops = {
 	.read	= iop13xx_atux_read_config,
 	.write	= iop13xx_atux_write_config,
 };
@@ -332,7 +332,7 @@ static struct pci_ops iop13xx_atux_ops = {
 /* This routine checks the status of the last configuration cycle.  If an error
  * was detected it returns >0, else it returns a 0.  The errors being checked
  * are parity, master abort, target abort (master and target).  These types of
- * errors occure during a config cycle where there is no device, like during
+ * errors occur during a config cycle where there is no device, like during
  * the discovery stage.
  */
 static int iop13xx_atue_pci_status(int clear)
@@ -471,7 +471,7 @@ iop13xx_atue_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops iop13xx_atue_ops = {
+static const struct pci_ops iop13xx_atue_ops = {
 	.read	= iop13xx_atue_read_config,
 	.write	= iop13xx_atue_write_config,
 };

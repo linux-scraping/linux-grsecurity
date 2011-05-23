@@ -1126,7 +1126,7 @@ static void cs_unsol_event(struct hda_codec *codec, unsigned int res)
 	}
 }
 
-static struct hda_codec_ops cs_patch_ops = {
+static const struct hda_codec_ops cs_patch_ops = {
 	.build_controls = cs_build_controls,
 	.build_pcms = cs_build_pcms,
 	.init = cs_init,

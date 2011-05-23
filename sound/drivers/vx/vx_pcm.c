@@ -895,7 +895,7 @@ static int vx_pcm_prepare(struct snd_pcm_substream *subs)
 /*
  * operators for PCM playback
  */
-static struct snd_pcm_ops vx_pcm_playback_ops = {
+static const struct snd_pcm_ops vx_pcm_playback_ops = {
 	.open =		vx_pcm_playback_open,
 	.close =	vx_pcm_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1116,7 +1116,7 @@ static snd_pcm_uframes_t vx_pcm_capture_pointer(struct snd_pcm_substream *subs)
 /*
  * operators for PCM capture
  */
-static struct snd_pcm_ops vx_pcm_capture_ops = {
+static const struct snd_pcm_ops vx_pcm_capture_ops = {
 	.open =		vx_pcm_capture_open,
 	.close =	vx_pcm_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1189,7 +1189,7 @@ void vx_pcm_update_intr(struct vx_core *chip, unsigned int events)
 
 
 /*
- * vx_init_audio_io - check the availabe audio i/o and allocate pipe arrays
+ * vx_init_audio_io - check the available audio i/o and allocate pipe arrays
  */
 static int vx_init_audio_io(struct vx_core *chip)
 {

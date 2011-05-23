@@ -142,7 +142,7 @@ static int msc_pcibios_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops msc_pci_ops = {
+const struct pci_ops msc_pci_ops = {
 	.read = msc_pcibios_read,
 	.write = msc_pcibios_write
 };

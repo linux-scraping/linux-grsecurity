@@ -358,7 +358,7 @@ static int o2cb_cluster_this_node(unsigned int *node)
 	return 0;
 }
 
-static struct ocfs2_stack_operations o2cb_stack_ops = {
+static const struct ocfs2_stack_operations o2cb_stack_ops = {
 	.connect	= o2cb_cluster_connect,
 	.disconnect	= o2cb_cluster_disconnect,
 	.this_node	= o2cb_cluster_this_node,
@@ -369,7 +369,6 @@ static struct ocfs2_stack_operations o2cb_stack_ops = {
 	.lock_lvb	= o2cb_dlm_lvb,
 	.dump_lksb	= o2cb_dump_lksb,
 };
-
 static struct ocfs2_stack_plugin o2cb_stack = {
 	.sp_name	= "o2cb",
 	.sp_ops		= &o2cb_stack_ops,

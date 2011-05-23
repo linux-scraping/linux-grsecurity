@@ -553,7 +553,7 @@ out_free:
 /**
  * The crypto operations for a PCICC card.
  */
-static struct zcrypt_ops zcrypt_pcicc_ops = {
+static const struct zcrypt_ops zcrypt_pcicc_ops = {
 	.rsa_modexpo = zcrypt_pcicc_modexpo,
 	.rsa_modexpo_crt = zcrypt_pcicc_modexpo_crt,
 };

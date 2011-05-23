@@ -845,7 +845,7 @@ replay_fork_event(struct trace_fork_event *fork_event,
 	register_pid(fork_event->child_pid, fork_event->child_comm);
 }
 
-static struct trace_sched_handler replay_ops  = {
+static const struct trace_sched_handler replay_ops = {
 	.wakeup_event		= replay_wakeup_event,
 	.switch_event		= replay_switch_event,
 	.fork_event		= replay_fork_event,
@@ -1183,7 +1183,7 @@ latency_migrate_task_event(struct trace_migrate_task_event *migrate_task_event,
 		nr_unordered_timestamps++;
 }
 
-static struct trace_sched_handler lat_ops  = {
+static const struct trace_sched_handler lat_ops = {
 	.wakeup_event		= latency_wakeup_event,
 	.switch_event		= latency_switch_event,
 	.runtime_event		= latency_runtime_event,
@@ -1353,7 +1353,7 @@ static void sort_lat(void)
 	}
 }
 
-static struct trace_sched_handler *trace_handler;
+static const struct trace_sched_handler *trace_handler;
 
 static void
 process_sched_wakeup_event(void *data, struct perf_session *session,
@@ -1574,9 +1574,9 @@ process_sched_migrate_task_event(void *data, struct perf_session *session,
 						 event, cpu, timestamp, thread);
 }
 
-static void
-process_raw_event(event_t *raw_event __used, struct perf_session *session,
-		  void *data, int cpu, u64 timestamp, struct thread *thread)
+static void process_raw_event(union perf_event *raw_event __used,
+			      struct perf_session *session, void *data, int cpu,
+			      u64 timestamp, struct thread *thread)
 {
 	struct event *event;
 	int type;
@@ -1601,7 +1601,9 @@ process_raw_event(event_t *raw_event __used, struct perf_session *session,
 		process_sched_migrate_task_event(data, session, event, cpu, timestamp, thread);
 }
 
-static int process_sample_event(event_t *event, struct sample_data *sample,
+static int process_sample_event(union perf_event *event,
+				struct perf_sample *sample,
+				struct perf_evsel *evsel __used,
 				struct perf_session *session)
 {
 	struct thread *thread;
@@ -1629,9 +1631,9 @@ static int process_sample_event(event_t *event, struct sample_data *sample,
 
 static struct perf_event_ops event_ops = {
 	.sample			= process_sample_event,
-	.comm			= event__process_comm,
-	.lost			= event__process_lost,
-	.fork			= event__process_task,
+	.comm			= perf_event__process_comm,
+	.lost			= perf_event__process_lost,
+	.fork			= perf_event__process_task,
 	.ordered_samples	= true,
 };
 
@@ -1717,7 +1719,7 @@ static void __cmd_lat(void)
 
 }
 
-static struct trace_sched_handler map_ops  = {
+static const struct trace_sched_handler map_ops = {
 	.wakeup_event		= NULL,
 	.switch_event		= map_switch_event,
 	.runtime_event		= NULL,

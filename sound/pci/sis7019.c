@@ -308,7 +308,7 @@ static irqreturn_t sis_interrupt(int irq, void *dev)
 	u32 intr, status;
 
 	/* We only use the DMA interrupts, and we don't enable any other
-	 * source of interrupts. But, it is possible to see an interupt
+	 * source of interrupts. But, it is possible to see an interrupt
 	 * status that didn't actually interrupt us, so eliminate anything
 	 * we're not expecting to avoid falsely claiming an IRQ, and an
 	 * ensuing endless loop.
@@ -773,7 +773,7 @@ static void sis_prepare_timing_voice(struct voice *voice,
 		vperiod = 0;
 	}
 
-	/* The interrupt handler implements the timing syncronization, so
+	/* The interrupt handler implements the timing synchronization, so
 	 * setup its state.
 	 */
 	timing->flags |= VOICE_SYNC_TIMING;
@@ -1011,7 +1011,7 @@ static int __devinit sis_mixer_create(struct sis7019 *sis)
 {
 	struct snd_ac97_bus *bus;
 	struct snd_ac97_template ac97;
-	static struct snd_ac97_bus_ops ops = {
+	static const struct snd_ac97_bus_ops ops = {
 		.write = sis_ac97_write,
 		.read = sis_ac97_read,
 	};
@@ -1139,7 +1139,7 @@ static int sis_chip_init(struct sis7019 *sis)
 	 */
 	outl(SIS_DMA_CSR_PCI_SETTINGS, io + SIS_DMA_CSR);
 
-	/* Reset the syncronization groups for all of the channels
+	/* Reset the synchronization groups for all of the channels
 	 * to be asyncronous. If we start doing SPDIF or 5.1 sound, etc.
 	 * we'll need to change how we handle these. Until then, we just
 	 * assign sub-mixer 0 to all playback channels, and avoid any
@@ -1293,7 +1293,7 @@ static int __devinit sis_chip_create(struct snd_card *card,
 {
 	struct sis7019 *sis = card->private_data;
 	struct voice *voice;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = sis_dev_free,
 	};
 	int rc;

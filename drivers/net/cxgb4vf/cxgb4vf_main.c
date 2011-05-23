@@ -1572,7 +1572,7 @@ static int cxgb4vf_set_tso(struct net_device *dev, u32 tso)
 	return 0;
 }
 
-static struct ethtool_ops cxgb4vf_ethtool_ops = {
+static const struct ethtool_ops cxgb4vf_ethtool_ops = {
 	.get_settings		= cxgb4vf_get_settings,
 	.get_drvinfo		= cxgb4vf_get_drvinfo,
 	.get_msglevel		= cxgb4vf_get_msglevel,
@@ -2738,7 +2738,7 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
 	cfg_queues(adapter);
 
 	/*
-	 * Print a short notice on the existance and configuration of the new
+	 * Print a short notice on the existence and configuration of the new
 	 * VF network device ...
 	 */
 	for_each_port(adapter, pidx) {

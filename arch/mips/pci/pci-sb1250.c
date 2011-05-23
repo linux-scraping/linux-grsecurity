@@ -181,7 +181,7 @@ static int sb1250_pcibios_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops sb1250_pci_ops = {
+const struct pci_ops sb1250_pci_ops = {
 	.read	= sb1250_pcibios_read,
 	.write	= sb1250_pcibios_write,
 };

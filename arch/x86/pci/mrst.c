@@ -218,7 +218,7 @@ static int mrst_pci_irq_enable(struct pci_dev *dev)
 	return 0;
 }
 
-struct pci_ops pci_mrst_ops = {
+const struct pci_ops pci_mrst_ops = {
 	.read = pci_read,
 	.write = pci_write,
 };

@@ -37,7 +37,7 @@
 struct tty_driver *tty3270_driver;
 static int tty3270_max_index;
 
-static struct raw3270_fn tty3270_fn;
+static const struct raw3270_fn tty3270_fn;
 
 struct tty3270_cell {
 	unsigned char character;
@@ -328,7 +328,7 @@ tty3270_write_callback(struct raw3270_request *rq, void *data)
 
 	tp = (struct tty3270 *) rq->view;
 	if (rq->rc != 0) {
-		/* Write wasn't successfull. Refresh all. */
+		/* Write wasn't successful. Refresh all. */
 		tp->update_flags = TTY_UPDATE_ALL;
 		tty3270_set_timer(tp, 1);
 	}
@@ -834,7 +834,7 @@ tty3270_del_views(void)
 	}
 }
 
-static struct raw3270_fn tty3270_fn = {
+static const struct raw3270_fn tty3270_fn = {
 	.activate = tty3270_activate,
 	.deactivate = tty3270_deactivate,
 	.intv = (void *) tty3270_irq,
@@ -1718,9 +1718,8 @@ tty3270_wait_until_sent(struct tty_struct *tty, int timeout)
 {
 }
 
-static int
-tty3270_ioctl(struct tty_struct *tty, struct file *file,
-	      unsigned int cmd, unsigned long arg)
+static int tty3270_ioctl(struct tty_struct *tty, unsigned int cmd,
+			 unsigned long arg)
 {
 	struct tty3270 *tp;
 
@@ -1729,13 +1728,12 @@ tty3270_ioctl(struct tty_struct *tty, struct file *file,
 		return -ENODEV;
 	if (tty->flags & (1 << TTY_IO_ERROR))
 		return -EIO;
-	return kbd_ioctl(tp->kbd, file, cmd, arg);
+	return kbd_ioctl(tp->kbd, cmd, arg);
 }
 
 #ifdef CONFIG_COMPAT
-static long
-tty3270_compat_ioctl(struct tty_struct *tty, struct file *file,
-	      unsigned int cmd, unsigned long arg)
+static long tty3270_compat_ioctl(struct tty_struct *tty,
+				 unsigned int cmd, unsigned long arg)
 {
 	struct tty3270 *tp;
 
@@ -1744,7 +1742,7 @@ tty3270_compat_ioctl(struct tty_struct *tty, struct file *file,
 		return -ENODEV;
 	if (tty->flags & (1 << TTY_IO_ERROR))
 		return -EIO;
-	return kbd_ioctl(tp->kbd, file, cmd, (unsigned long)compat_ptr(arg));
+	return kbd_ioctl(tp->kbd, cmd, (unsigned long)compat_ptr(arg));
 }
 #endif
 

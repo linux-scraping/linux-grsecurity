@@ -28,7 +28,7 @@
  *
  * History
  * May 02, 2003 Liam Girdwood <lrg@slimlogic.co.uk>
- *	Removed non existant WM9700
+ *	Removed non existent WM9700
  *	Added support for WM9705, WM9708, WM9709, WM9710, WM9711
  *	WM9712 and WM9717
  * Mar 28, 2002 Randolph Bentson <bentson@holmsjoen.com>
@@ -99,23 +99,23 @@ static int generic_digital_control(struct ac97_codec *codec, int slots, int rate
  *	operations yet
  */
  
-static struct ac97_ops null_ops = { NULL, NULL, NULL };
-static struct ac97_ops default_ops = { NULL, eapd_control, NULL };
-static struct ac97_ops default_digital_ops = { NULL, eapd_control, generic_digital_control};
-static struct ac97_ops wolfson_ops03 = { wolfson_init03, NULL, NULL };
-static struct ac97_ops wolfson_ops04 = { wolfson_init04, NULL, NULL };
-static struct ac97_ops wolfson_ops05 = { wolfson_init05, NULL, NULL };
-static struct ac97_ops wolfson_ops11 = { wolfson_init11, NULL, NULL };
-static struct ac97_ops wolfson_ops13 = { wolfson_init13, NULL, NULL };
-static struct ac97_ops tritech_ops = { tritech_init, NULL, NULL };
-static struct ac97_ops tritech_m_ops = { tritech_maestro_init, NULL, NULL };
-static struct ac97_ops sigmatel_9708_ops = { sigmatel_9708_init, NULL, NULL };
-static struct ac97_ops sigmatel_9721_ops = { sigmatel_9721_init, NULL, NULL };
-static struct ac97_ops sigmatel_9744_ops = { sigmatel_9744_init, NULL, NULL };
-static struct ac97_ops crystal_digital_ops = { NULL, eapd_control, crystal_digital_control };
-static struct ac97_ops ad1886_ops = { ad1886_init, eapd_control, NULL };
-static struct ac97_ops cmedia_ops = { NULL, eapd_control, NULL};
-static struct ac97_ops cmedia_digital_ops = { cmedia_init, eapd_control, cmedia_digital_control};
+static const struct ac97_ops null_ops = { NULL, NULL, NULL };
+static const struct ac97_ops default_ops = { NULL, eapd_control, NULL };
+static const struct ac97_ops default_digital_ops = { NULL, eapd_control, generic_digital_control};
+static const struct ac97_ops wolfson_ops03 = { wolfson_init03, NULL, NULL };
+static const struct ac97_ops wolfson_ops04 = { wolfson_init04, NULL, NULL };
+static const struct ac97_ops wolfson_ops05 = { wolfson_init05, NULL, NULL };
+static const struct ac97_ops wolfson_ops11 = { wolfson_init11, NULL, NULL };
+static const struct ac97_ops wolfson_ops13 = { wolfson_init13, NULL, NULL };
+static const struct ac97_ops tritech_ops = { tritech_init, NULL, NULL };
+static const struct ac97_ops tritech_m_ops = { tritech_maestro_init, NULL, NULL };
+static const struct ac97_ops sigmatel_9708_ops = { sigmatel_9708_init, NULL, NULL };
+static const struct ac97_ops sigmatel_9721_ops = { sigmatel_9721_init, NULL, NULL };
+static const struct ac97_ops sigmatel_9744_ops = { sigmatel_9744_init, NULL, NULL };
+static const struct ac97_ops crystal_digital_ops = { NULL, eapd_control, crystal_digital_control };
+static const struct ac97_ops ad1886_ops = { ad1886_init, eapd_control, NULL };
+static const struct ac97_ops cmedia_ops = { NULL, eapd_control, NULL};
+static const struct ac97_ops cmedia_digital_ops = { cmedia_init, eapd_control, cmedia_digital_control};
 
 /* sorted by vendor/device id */
 static const struct {
@@ -441,7 +441,7 @@ static void ac97_set_mixer(struct ac97_codec *codec, unsigned int oss_mixer, uns
 }
 
 /* read or write the recmask, the ac97 can really have left and right recording
-   inputs independantly set, but OSS doesn't seem to want us to express that to
+   inputs independently set, but OSS doesn't seem to want us to express that to
    the user. the caller guarantees that we have a supported bit set, and they
    must be holding the card's spinlock */
 static int ac97_recmask_io(struct ac97_codec *codec, int rw, int mask) 
@@ -754,7 +754,7 @@ int ac97_probe_codec(struct ac97_codec *codec)
 	if((codec->codec_ops == &null_ops) && (f & 4))
 		codec->codec_ops = &default_digital_ops;
 	
-	/* A device which thinks its a modem but isnt */
+	/* A device which thinks its a modem but isn't */
 	if(codec->flags & AC97_DELUDED_MODEM)
 		codec->modem = 0;
 		

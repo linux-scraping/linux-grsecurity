@@ -109,7 +109,7 @@ static unsigned long corgibl_flags;
 #define CORGIBL_BATTLOW       0x02
 
 /*
- * This is only a psuedo I2C interface. We can't use the standard kernel
+ * This is only a pseudo I2C interface. We can't use the standard kernel
  * routines as the interface is write only. We just assume the data is acked...
  */
 static void lcdtg_ssp_i2c_send(struct corgi_lcd *lcd, uint8_t data)
@@ -383,7 +383,7 @@ static int corgi_lcd_get_power(struct lcd_device *ld)
 	return lcd->power;
 }
 
-static struct lcd_ops corgi_lcd_ops = {
+static const struct lcd_ops corgi_lcd_ops = {
 	.get_power	= corgi_lcd_get_power,
 	.set_power	= corgi_lcd_set_power,
 	.set_mode	= corgi_lcd_set_mode,
@@ -562,6 +562,7 @@ static int __devinit corgi_lcd_probe(struct spi_device *spi)
 	lcd->mode = (pdata) ? pdata->init_mode : CORGI_LCD_MODE_VGA;
 
 	memset(&props, 0, sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_RAW;
 	props.max_brightness = pdata->max_intensity;
 	lcd->bl_dev = backlight_device_register("corgi_bl", &spi->dev, lcd,
 						&corgi_bl_ops, &props);

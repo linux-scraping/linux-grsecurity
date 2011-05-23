@@ -340,7 +340,7 @@ static int v3_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static struct pci_ops pci_v3_ops = {
+static const struct pci_ops pci_v3_ops = {
 	.read	= v3_read_config,
 	.write	= v3_write_config,
 };

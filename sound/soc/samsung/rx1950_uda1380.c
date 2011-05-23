@@ -17,26 +17,15 @@
  *
  */
 
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/platform_device.h>
-#include <linux/i2c.h>
 #include <linux/gpio.h>
-#include <linux/clk.h>
 
 #include <sound/soc.h>
-#include <sound/uda1380.h>
 #include <sound/jack.h>
 
 #include <plat/regs-iis.h>
-
-#include <mach/regs-clock.h>
-
 #include <asm/mach-types.h>
 
-#include "dma.h"
 #include "s3c24xx-i2s.h"
-#include "../codecs/uda1380.h"
 
 static int rx1950_uda1380_init(struct snd_soc_pcm_runtime *rtd);
 static int rx1950_startup(struct snd_pcm_substream *substream);
@@ -81,7 +70,7 @@ static struct snd_soc_jack_gpio hp_jack_gpios[] = {
 	},
 };
 
-static struct snd_soc_ops rx1950_ops = {
+static const struct snd_soc_ops rx1950_ops = {
 	.startup	= rx1950_startup,
 	.hw_params	= rx1950_hw_params,
 };

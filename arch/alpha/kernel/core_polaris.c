@@ -136,7 +136,7 @@ polaris_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops polaris_pci_ops = 
+const struct pci_ops polaris_pci_ops = 
 {
 	.read =		polaris_read_config,
 	.write =	polaris_write_config,

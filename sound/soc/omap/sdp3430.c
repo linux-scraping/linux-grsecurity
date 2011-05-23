@@ -87,7 +87,7 @@ static int sdp3430_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops sdp3430_ops = {
+static const struct snd_soc_ops sdp3430_ops = {
 	.hw_params = sdp3430_hw_params,
 };
 
@@ -130,7 +130,7 @@ static int sdp3430_hw_voice_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops sdp3430_voice_ops = {
+static const struct snd_soc_ops sdp3430_voice_ops = {
 	.hw_params = sdp3430_hw_voice_params,
 };
 

@@ -137,7 +137,7 @@ static int enp2611_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
 
-static struct pci_ops enp2611_pci_ops = {
+static const struct pci_ops enp2611_pci_ops = {
 	.read   = enp2611_pci_read_config,
 	.write  = enp2611_pci_write_config
 };

@@ -107,7 +107,7 @@ struct	intf_hdl {
 	void (*intf_hdl_unload)(u8 *priv);
 	void (*intf_hdl_open)(u8 *priv);
 	void (*intf_hdl_close)(u8 *priv);
-	struct	_io_ops	io_ops;
+	const struct _io_ops io_ops;
 };
 
 struct reg_protocol_rd {

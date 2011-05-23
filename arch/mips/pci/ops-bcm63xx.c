@@ -173,7 +173,7 @@ static int bcm63xx_pci_write(struct pci_bus *bus, unsigned int devfn,
 				     where, size, val);
 }
 
-struct pci_ops bcm63xx_pci_ops = {
+const struct pci_ops bcm63xx_pci_ops = {
 	.read   = bcm63xx_pci_read,
 	.write  = bcm63xx_pci_write
 };
@@ -402,7 +402,7 @@ static int bcm63xx_cb_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
 
-struct pci_ops bcm63xx_cb_ops = {
+const struct pci_ops bcm63xx_cb_ops = {
 	.read   = bcm63xx_cb_read,
 	.write   = bcm63xx_cb_write,
 };

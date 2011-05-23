@@ -78,7 +78,7 @@
 #define  URXD_FRMERR     (1<<12)
 #define  URXD_BRK        (1<<11)
 #define  URXD_PRERR      (1<<10)
-#define  UCR1_ADEN       (1<<15) /* Auto dectect interrupt */
+#define  UCR1_ADEN       (1<<15) /* Auto detect interrupt */
 #define  UCR1_ADBR       (1<<14) /* Auto detect baud rate */
 #define  UCR1_TRDYEN     (1<<13) /* Transmitter ready interrupt enable */
 #define  UCR1_IDEN       (1<<12) /* Idle condition interrupt */
@@ -1018,7 +1018,7 @@ imx_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return ret;
 }
 
-static struct uart_ops imx_pops = {
+static const struct uart_ops imx_pops = {
 	.tx_empty	= imx_tx_empty,
 	.set_mctrl	= imx_set_mctrl,
 	.get_mctrl	= imx_get_mctrl,

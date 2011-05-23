@@ -22,6 +22,7 @@
 #include <linux/ctype.h>
 #include <linux/sysctl.h>
 #include <linux/audit.h>
+#include <linux/user_namespace.h>
 #include <net/sock.h>
 
 #include "include/apparmor.h"
@@ -136,11 +137,11 @@ static int apparmor_capget(struct task_struct *target, kernel_cap_t *effective,
 }
 
 static int apparmor_capable(struct task_struct *task, const struct cred *cred,
-			    int cap, int audit)
+			    struct user_namespace *ns, int cap, int audit)
 {
 	struct aa_profile *profile;
 	/* cap_capable returns 0 on success, else -EPERM */
-	int error = cap_capable(task, cred, cap, audit);
+	int error = cap_capable(task, cred, ns, cap, audit);
 	if (!error) {
 		profile = aa_cred_profile(cred);
 		if (!unconfined(profile))
@@ -670,7 +671,7 @@ static struct security_operations apparmor_ops __read_only = {
 static int param_set_aabool(const char *val, const struct kernel_param *kp);
 static int param_get_aabool(char *buffer, const struct kernel_param *kp);
 #define param_check_aabool(name, p) __param_check(name, p, int)
-static struct kernel_param_ops param_ops_aabool = {
+static const struct kernel_param_ops param_ops_aabool = {
 	.set = param_set_aabool,
 	.get = param_get_aabool
 };
@@ -678,7 +679,7 @@ static struct kernel_param_ops param_ops_aabool = {
 static int param_set_aauint(const char *val, const struct kernel_param *kp);
 static int param_get_aauint(char *buffer, const struct kernel_param *kp);
 #define param_check_aauint(name, p) __param_check(name, p, int)
-static struct kernel_param_ops param_ops_aauint = {
+static const struct kernel_param_ops param_ops_aauint = {
 	.set = param_set_aauint,
 	.get = param_get_aauint
 };
@@ -686,18 +687,16 @@ static struct kernel_param_ops param_ops_aauint = {
 static int param_set_aalockpolicy(const char *val, const struct kernel_param *kp);
 static int param_get_aalockpolicy(char *buffer, const struct kernel_param *kp);
 #define param_check_aalockpolicy(name, p) __param_check(name, p, int)
-static struct kernel_param_ops param_ops_aalockpolicy = {
+static const struct kernel_param_ops param_ops_aalockpolicy = {
 	.set = param_set_aalockpolicy,
 	.get = param_get_aalockpolicy
 };
 
 static int param_set_audit(const char *val, struct kernel_param *kp);
 static int param_get_audit(char *buffer, struct kernel_param *kp);
-#define param_check_audit(name, p) __param_check(name, p, int)
 
 static int param_set_mode(const char *val, struct kernel_param *kp);
 static int param_get_mode(char *buffer, struct kernel_param *kp);
-#define param_check_mode(name, p) __param_check(name, p, int)
 
 /* Flag values, also controllable via /sys/module/apparmor/parameters
  * We define special types as we want to do additional mediation.

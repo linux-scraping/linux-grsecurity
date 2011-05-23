@@ -18,7 +18,7 @@ struct abx500_device_entry {
 	struct device *dev;
 };
 
-static void lookup_ops(struct device *dev, struct abx500_ops **ops)
+static void lookup_ops(struct device *dev, const struct abx500_ops **ops)
 {
 	struct abx500_device_entry *dev_entry;
 
@@ -31,7 +31,7 @@ static void lookup_ops(struct device *dev, struct abx500_ops **ops)
 	}
 }
 
-int abx500_register_ops(struct device *dev, struct abx500_ops *ops)
+int abx500_register_ops(struct device *dev, const struct abx500_ops *ops)
 {
 	struct abx500_device_entry *dev_entry;
 
@@ -65,7 +65,7 @@ EXPORT_SYMBOL(abx500_remove_ops);
 int abx500_set_register_interruptible(struct device *dev, u8 bank, u8 reg,
 	u8 value)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->set_register != NULL))
@@ -78,7 +78,7 @@ EXPORT_SYMBOL(abx500_set_register_interruptible);
 int abx500_get_register_interruptible(struct device *dev, u8 bank, u8 reg,
 	u8 *value)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->get_register != NULL))
@@ -91,7 +91,7 @@ EXPORT_SYMBOL(abx500_get_register_interruptible);
 int abx500_get_register_page_interruptible(struct device *dev, u8 bank,
 	u8 first_reg, u8 *regvals, u8 numregs)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->get_register_page != NULL))
@@ -105,7 +105,7 @@ EXPORT_SYMBOL(abx500_get_register_page_interruptible);
 int abx500_mask_and_set_register_interruptible(struct device *dev, u8 bank,
 	u8 reg, u8 bitmask, u8 bitvalues)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->mask_and_set_register != NULL))
@@ -118,7 +118,7 @@ EXPORT_SYMBOL(abx500_mask_and_set_register_interruptible);
 
 int abx500_get_chip_id(struct device *dev)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->get_chip_id != NULL))
@@ -130,7 +130,7 @@ EXPORT_SYMBOL(abx500_get_chip_id);
 
 int abx500_event_registers_startup_state_get(struct device *dev, u8 *event)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->event_registers_startup_state_get != NULL))
@@ -142,7 +142,7 @@ EXPORT_SYMBOL(abx500_event_registers_startup_state_get);
 
 int abx500_startup_irq_enabled(struct device *dev, unsigned int irq)
 {
-	struct abx500_ops *ops;
+	const struct abx500_ops *ops;
 
 	lookup_ops(dev->parent, &ops);
 	if ((ops != NULL) && (ops->startup_irq_enabled != NULL))

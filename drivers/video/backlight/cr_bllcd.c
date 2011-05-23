@@ -165,7 +165,7 @@ static int cr_lcd_set_power(struct lcd_device *ld, int power)
 	return 0;
 }
 
-static struct lcd_ops cr_lcd_ops = {
+static const struct lcd_ops cr_lcd_ops = {
 	.set_power = cr_lcd_set_power,
 };
 
@@ -193,6 +193,7 @@ static int cr_backlight_probe(struct platform_device *pdev)
 	}
 
 	memset(&props, 0, sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_RAW;
 	bdp = backlight_device_register("cr-backlight", &pdev->dev, NULL,
 					&cr_backlight_ops, &props);
 	if (IS_ERR(bdp)) {

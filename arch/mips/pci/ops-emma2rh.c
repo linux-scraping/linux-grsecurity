@@ -176,7 +176,7 @@ static int pci_config_write(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops emma2rh_pci_ops = {
+const struct pci_ops emma2rh_pci_ops = {
 	.read = pci_config_read,
 	.write = pci_config_write,
 };

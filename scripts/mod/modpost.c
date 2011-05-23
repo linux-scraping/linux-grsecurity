@@ -1255,6 +1255,19 @@ static int is_function(Elf_Sym *sym)
 		return -1;
 }
 
+static void print_section_list(const char * const list[20])
+{
+	const char *const *s = list;
+
+	while (*s) {
+		fprintf(stderr, "%s", *s);
+		s++;
+		if (*s)
+			fprintf(stderr, ", ");
+	}
+	fprintf(stderr, "\n");
+}
+
 /*
  * Print a warning about a section mismatch.
  * Try to find symbols near it so user can find it.
@@ -1311,7 +1324,6 @@ static void report_sec_mismatch(const char *modname,
 		break;
 	case DATA_TO_ANY_INIT: {
 		prl_to = sec2annotation(tosec);
-		const char *const *s = mismatch->symbol_white_list;
 		fprintf(stderr,
 		"The variable %s references\n"
 		"the %s %s%s%s\n"
@@ -1319,9 +1331,7 @@ static void report_sec_mismatch(const char *modname,
 		"variable with __init* or __refdata (see linux/init.h) "
 		"or name the variable:\n",
 		fromsym, to, prl_to, tosym, to_p);
-		while (*s)
-			fprintf(stderr, "%s, ", *s++);
-		fprintf(stderr, "\n");
+		print_section_list(mismatch->symbol_white_list);
 		free(prl_to);
 		break;
 	}
@@ -1336,7 +1346,6 @@ static void report_sec_mismatch(const char *modname,
 		break;
 	case DATA_TO_ANY_EXIT: {
 		prl_to = sec2annotation(tosec);
-		const char *const *s = mismatch->symbol_white_list;
 		fprintf(stderr,
 		"The variable %s references\n"
 		"the %s %s%s%s\n"
@@ -1344,9 +1353,7 @@ static void report_sec_mismatch(const char *modname,
 		"variable with __exit* (see linux/init.h) or "
 		"name the variable:\n",
 		fromsym, to, prl_to, tosym, to_p);
-		while (*s)
-			fprintf(stderr, "%s, ", *s++);
-		fprintf(stderr, "\n");
+		print_section_list(mismatch->symbol_white_list);
 		free(prl_to);
 		break;
 	}

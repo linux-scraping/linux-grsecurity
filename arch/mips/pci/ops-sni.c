@@ -83,7 +83,7 @@ static int pcimt_write(struct pci_bus *bus, unsigned int devfn, int reg,
 	return 0;
 }
 
-struct pci_ops sni_pcimt_ops = {
+const struct pci_ops sni_pcimt_ops = {
 	.read = pcimt_read,
 	.write = pcimt_write,
 };
@@ -158,7 +158,7 @@ static int pcit_write(struct pci_bus *bus, unsigned int devfn, int reg,
 }
 
 
-struct pci_ops sni_pcit_ops = {
+const struct pci_ops sni_pcit_ops = {
 	.read = pcit_read,
 	.write = pcit_write,
 };

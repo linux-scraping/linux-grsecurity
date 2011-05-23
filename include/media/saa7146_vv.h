@@ -202,13 +202,13 @@ void saa7146_set_gpio(struct saa7146_dev *saa, u8 pin, u8 data);
 
 /* from saa7146_video.c */
 extern const struct v4l2_ioctl_ops saa7146_video_ioctl_ops;
-extern struct saa7146_use_ops saa7146_video_uops;
+extern const struct saa7146_use_ops saa7146_video_uops;
 int saa7146_start_preview(struct saa7146_fh *fh);
 int saa7146_stop_preview(struct saa7146_fh *fh);
 long saa7146_video_do_ioctl(struct file *file, unsigned int cmd, void *arg);
 
 /* from saa7146_vbi.c */
-extern struct saa7146_use_ops saa7146_vbi_uops;
+extern const struct saa7146_use_ops saa7146_vbi_uops;
 
 /* resource management functions */
 int saa7146_res_get(struct saa7146_fh *fh, unsigned int bit);

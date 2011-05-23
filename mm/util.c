@@ -112,6 +112,7 @@ EXPORT_SYMBOL(memdup_user);
  * allocated buffer. Use this if you don't want to free the buffer immediately
  * like, for example, with RCU.
  */
+#undef __krealloc
 void *__krealloc(const void *p, size_t new_size, gfp_t flags)
 {
 	void *ret;
@@ -145,6 +146,7 @@ EXPORT_SYMBOL(__krealloc);
  * behaves exactly like kmalloc().  If @size is 0 and @p is not a
  * %NULL pointer, the object pointed to is freed.
  */
+#undef krealloc
 void *krealloc(const void *p, size_t new_size, gfp_t flags)
 {
 	void *ret;
@@ -233,7 +235,7 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 /*
  * Like get_user_pages_fast() except its IRQ-safe in that it won't fall
  * back to the regular GUP.
- * If the architecture not support this fucntion, simply return with no
+ * If the architecture not support this function, simply return with no
  * page pinned
  */
 int __attribute__((weak)) __get_user_pages_fast(unsigned long start,

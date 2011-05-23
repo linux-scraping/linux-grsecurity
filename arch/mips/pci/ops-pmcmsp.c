@@ -344,7 +344,7 @@ static irqreturn_t bpci_interrupt(int irq, void *dev_id)
  *                              PCI_ACCESS_WRITE and PCI_ACCESS_READ.
  *
  *               bus          - pointer to the bus number of the device to
- *                              be targetted for the configuration cycle.
+ *                              be targeted for the configuration cycle.
  *                              The only element of the pci_bus structure
  *                              used is bus->number. This argument determines
  *                              if the configuration access will be Type 0 or
@@ -354,7 +354,7 @@ static irqreturn_t bpci_interrupt(int irq, void *dev_id)
  *
  *               devfn        - this is an 8-bit field. The lower three bits
  *                              specify the function number of the device to
- *                              be targetted for the configuration cycle, with
+ *                              be targeted for the configuration cycle, with
  *                              all three-bit combinations being legal. The
  *                              upper five bits specify the device number,
  *                              with legal values being 10 to 31.
@@ -904,7 +904,7 @@ msp_pcibios_write_config(struct pci_bus *bus,
  *    write     - function for Linux to generate PCI Configuration writes.
  *
  ****************************************************************************/
-struct pci_ops msp_pci_ops = {
+const struct pci_ops msp_pci_ops = {
 	.read = msp_pcibios_read_config,
 	.write = msp_pcibios_write_config
 };

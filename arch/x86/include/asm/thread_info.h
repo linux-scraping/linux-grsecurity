@@ -155,8 +155,14 @@ struct thread_info {
 
 #define __HAVE_ARCH_THREAD_INFO_ALLOCATOR
 
-#define alloc_thread_info(tsk)						\
-	((struct thread_info *)__get_free_pages(THREAD_FLAGS, THREAD_ORDER))
+#define alloc_thread_info_node(tsk, node)				\
+({									\
+	struct page *page = alloc_pages_node(node, THREAD_FLAGS,	\
+					     THREAD_ORDER);		\
+	struct thread_info *ret = page ? page_address(page) : NULL;	\
+									\
+	ret;								\
+})
 
 #ifdef __ASSEMBLY__
 /* how to get the thread information struct from ASM */
@@ -244,7 +250,7 @@ extern int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src
 #define end_of_stack(p) ((unsigned long *)task_stack_page(p) + 1)
 
 #define __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
-extern struct task_struct *alloc_task_struct(void);
+extern struct task_struct *alloc_task_struct_node(int node);
 extern void free_task_struct(struct task_struct *);
 
 #endif

@@ -130,7 +130,7 @@ static int pcie_wr_conf(struct pci_bus *bus, u32 devfn,
 	return ret;
 }
 
-static struct pci_ops pcie_ops = {
+static const struct pci_ops pcie_ops = {
 	.read = pcie_rd_conf,
 	.write = pcie_wr_conf,
 };
@@ -368,7 +368,7 @@ static int orion5x_pci_wr_conf(struct pci_bus *bus, u32 devfn,
 					PCI_FUNC(devfn), where, size, val);
 }
 
-static struct pci_ops pci_ops = {
+static const struct pci_ops pci_ops = {
 	.read = orion5x_pci_rd_conf,
 	.write = orion5x_pci_wr_conf,
 };

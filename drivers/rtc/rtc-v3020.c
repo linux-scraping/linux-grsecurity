@@ -62,7 +62,7 @@ struct v3020 {
 	/* GPIO access */
 	struct v3020_gpio *gpio;
 
-	struct v3020_chip_ops *ops;
+	const struct v3020_chip_ops *ops;
 
 	struct rtc_device *rtc;
 };
@@ -100,7 +100,7 @@ static unsigned char v3020_mmio_read_bit(struct v3020 *chip)
 	return !!(readl(chip->ioaddress) & (1 << chip->leftshift));
 }
 
-static struct v3020_chip_ops v3020_mmio_ops = {
+static const struct v3020_chip_ops v3020_mmio_ops = {
 	.map_io		= v3020_mmio_map,
 	.unmap_io	= v3020_mmio_unmap,
 	.read_bit	= v3020_mmio_read_bit,
@@ -177,7 +177,7 @@ static unsigned char v3020_gpio_read_bit(struct v3020 *chip)
 	return bit;
 }
 
-static struct v3020_chip_ops v3020_gpio_ops = {
+static const struct v3020_chip_ops v3020_gpio_ops = {
 	.map_io		= v3020_gpio_map,
 	.unmap_io	= v3020_gpio_unmap,
 	.read_bit	= v3020_gpio_read_bit,

@@ -11,9 +11,6 @@
 #include <linux/grinternal.h>
 #include <linux/gracl.h>
 
-kernel_cap_t gr_cap_rtnetlink(struct sock *sock);
-EXPORT_SYMBOL(gr_cap_rtnetlink);
-
 extern int gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb);
 extern int gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr);
 
@@ -244,32 +241,4 @@ gr_handle_sock_client(const struct sockaddr *sck)
 	}
 #endif
 	return 0;
-}
-
-kernel_cap_t
-gr_cap_rtnetlink(struct sock *sock)
-{
-#ifdef CONFIG_GRKERNSEC
-	if (!gr_acl_is_enabled())
-		return current_cap();
-	else if (sock->sk_protocol == NETLINK_ISCSI &&
-		 cap_raised(current_cap(), CAP_SYS_ADMIN) &&
-		 gr_is_capable(CAP_SYS_ADMIN))
-		return current_cap();
-	else if (sock->sk_protocol == NETLINK_AUDIT &&
-		 cap_raised(current_cap(), CAP_AUDIT_WRITE) &&
-		 gr_is_capable(CAP_AUDIT_WRITE) &&
-		 cap_raised(current_cap(), CAP_AUDIT_CONTROL) &&
-		 gr_is_capable(CAP_AUDIT_CONTROL))
-		return current_cap();
-	else if (cap_raised(current_cap(), CAP_NET_ADMIN) &&
-		 ((sock->sk_protocol == NETLINK_ROUTE) ? 
-		  gr_is_capable_nolog(CAP_NET_ADMIN) : 
-		  gr_is_capable(CAP_NET_ADMIN)))
-		return current_cap();
-	else
-		return __cap_empty_set;
-#else
-	return current_cap();
-#endif
 }

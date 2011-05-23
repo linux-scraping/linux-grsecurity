@@ -1273,7 +1273,7 @@ static int ftrace_update_code(struct module *mod)
 		p->flags = 0L;
 
 		/*
-		 * Do the initial record convertion from mcount jump
+		 * Do the initial record conversion from mcount jump
 		 * to the NOP instructions.
 		 */
 		if (!ftrace_code_disable(mod, p)) {
@@ -1472,7 +1472,7 @@ t_next(struct seq_file *m, void *v, loff_t *pos)
 		return t_hash_next(m, pos);
 
 	(*pos)++;
-	iter->pos = *pos;
+	iter->pos = iter->func_pos = *pos;
 
 	if (iter->flags & FTRACE_ITER_PRINTALL)
 		return t_hash_start(m, pos);
@@ -1507,7 +1507,6 @@ t_next(struct seq_file *m, void *v, loff_t *pos)
 	if (!rec)
 		return t_hash_start(m, pos);
 
-	iter->func_pos = *pos;
 	iter->func = rec;
 
 	return iter;
@@ -2017,7 +2016,7 @@ static void ftrace_free_entry_rcu(struct rcu_head *rhp)
 
 int
 register_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
-			      void *data)
+				void *data)
 {
 	struct ftrace_func_probe *entry;
 	struct ftrace_page *pg;
@@ -2089,7 +2088,7 @@ enum {
 };
 
 static void
-__unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
+__unregister_ftrace_function_probe(char *glob, const struct ftrace_probe_ops *ops,
 				  void *data, int flags)
 {
 	struct ftrace_func_probe *entry;
@@ -2150,7 +2149,7 @@ unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 }
 
 void
-unregister_ftrace_function_probe_func(char *glob, struct ftrace_probe_ops *ops)
+unregister_ftrace_function_probe_func(char *glob, const struct ftrace_probe_ops *ops)
 {
 	__unregister_ftrace_function_probe(glob, ops, NULL, PROBE_TEST_FUNC);
 }
@@ -3431,7 +3430,7 @@ graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack)
 	atomic_set(&t->tracing_graph_pause, 0);
 	atomic_set(&t->trace_overrun, 0);
 	t->ftrace_timestamp = 0;
-	/* make curr_ret_stack visable before we add the ret_stack */
+	/* make curr_ret_stack visible before we add the ret_stack */
 	smp_wmb();
 	t->ret_stack = ret_stack;
 }

@@ -293,19 +293,11 @@ static int acpi_dev_run_wake(struct device *phys_dev, bool enable)
 	}
 
 	if (enable) {
-		if (!dev->wakeup.run_wake_count++) {
-			acpi_enable_wakeup_device_power(dev, ACPI_STATE_S0);
-			acpi_enable_gpe(dev->wakeup.gpe_device,
-					dev->wakeup.gpe_number);
-		}
-	} else if (dev->wakeup.run_wake_count > 0) {
-		if (!--dev->wakeup.run_wake_count) {
-			acpi_disable_gpe(dev->wakeup.gpe_device,
-					 dev->wakeup.gpe_number);
-			acpi_disable_wakeup_device_power(dev);
-		}
+		acpi_enable_wakeup_device_power(dev, ACPI_STATE_S0);
+		acpi_enable_gpe(dev->wakeup.gpe_device, dev->wakeup.gpe_number);
 	} else {
-		error = -EALREADY;
+		acpi_disable_gpe(dev->wakeup.gpe_device, dev->wakeup.gpe_number);
+		acpi_disable_wakeup_device_power(dev);
 	}
 
 	return error;
@@ -340,7 +332,7 @@ static int acpi_pci_run_wake(struct pci_dev *dev, bool enable)
 	return 0;
 }
 
-static struct pci_platform_pm_ops acpi_pci_platform_pm = {
+static const struct pci_platform_pm_ops acpi_pci_platform_pm = {
 	.is_manageable = acpi_pci_power_manageable,
 	.set_state = acpi_pci_set_power_state,
 	.choose_state = acpi_pci_choose_state,

@@ -37,6 +37,7 @@
 #include "phy.h"
 #include "dm.h"
 #include "hw.h"
+#include "rf.h"
 #include "sw.h"
 #include "trx.h"
 #include "led.h"
@@ -46,13 +47,13 @@ int rtl92c_init_sw_vars(struct ieee80211_hw *hw)
 	struct rtl_priv *rtlpriv = rtl_priv(hw);
 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
 
-	rtlpriv->dm.b_dm_initialgain_enable = 1;
+	rtlpriv->dm.dm_initialgain_enable = 1;
 	rtlpriv->dm.dm_flag = 0;
-	rtlpriv->dm.b_disable_framebursting = 0;;
+	rtlpriv->dm.disable_framebursting = 0;
 	rtlpriv->dm.thermalvalue = 0;
 	rtlpci->transmit_config = CFENDFORM | BIT(12) | BIT(13);
 
-	rtlpci->receive_config = (RCR_APPFCS |
+	rtlpci->receive_config = (RCR_APP_FCS |
 				  RCR_AMF |
 				  RCR_ADF |
 				  RCR_APP_MIC |
@@ -95,7 +96,7 @@ void rtl92c_deinit_sw_vars(struct ieee80211_hw *hw)
 	}
 }
 
-static struct rtl_hal_ops rtl8192ce_hal_ops = {
+static const struct rtl_hal_ops rtl8192ce_hal_ops = {
 	.init_sw_vars = rtl92c_init_sw_vars,
 	.deinit_sw_vars = rtl92c_deinit_sw_vars,
 	.read_eeprom_info = rtl92ce_read_eeprom_info,
@@ -122,7 +123,7 @@ static struct rtl_hal_ops rtl8192ce_hal_ops = {
 	.switch_channel = rtl92c_phy_sw_chnl,
 	.dm_watchdog = rtl92c_dm_watchdog,
 	.scan_operation_backup = rtl92c_phy_scan_operation_backup,
-	.set_rf_power_state = rtl92c_phy_set_rf_power_state,
+	.set_rf_power_state = rtl92ce_phy_set_rf_power_state,
 	.led_control = rtl92ce_led_control,
 	.set_desc = rtl92ce_set_desc,
 	.get_desc = rtl92ce_get_desc,
@@ -133,15 +134,24 @@ static struct rtl_hal_ops rtl8192ce_hal_ops = {
 	.deinit_sw_leds = rtl92ce_deinit_sw_leds,
 	.get_bbreg = rtl92c_phy_query_bb_reg,
 	.set_bbreg = rtl92c_phy_set_bb_reg,
-	.get_rfreg = rtl92c_phy_query_rf_reg,
-	.set_rfreg = rtl92c_phy_set_rf_reg,
+	.get_rfreg = rtl92ce_phy_query_rf_reg,
+	.set_rfreg = rtl92ce_phy_set_rf_reg,
+	.cmd_send_packet = _rtl92c_cmd_send_packet,
+	.phy_rf6052_config = rtl92ce_phy_rf6052_config,
+	.phy_rf6052_set_cck_txpower = rtl92ce_phy_rf6052_set_cck_txpower,
+	.phy_rf6052_set_ofdm_txpower = rtl92ce_phy_rf6052_set_ofdm_txpower,
+	.config_bb_with_headerfile = _rtl92ce_phy_config_bb_with_headerfile,
+	.config_bb_with_pgheaderfile = _rtl92ce_phy_config_bb_with_pgheaderfile,
+	.phy_lc_calibrate = _rtl92ce_phy_lc_calibrate,
+	.phy_set_bw_mode_callback = rtl92ce_phy_set_bw_mode_callback,
+	.dm_dynamic_txpower = rtl92ce_dm_dynamic_txpower,
 };
 
 static struct rtl_mod_params rtl92ce_mod_params = {
 	.sw_crypto = 0,
 };
 
-static struct rtl_hal_cfg rtl92ce_hal_cfg = {
+static const struct rtl_hal_cfg rtl92ce_hal_cfg = {
 	.name = "rtl92c_pci",
 	.fw_name = "rtlwifi/rtl8192cfw.bin",
 	.ops = &rtl8192ce_hal_ops,

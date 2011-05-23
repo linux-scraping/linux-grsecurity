@@ -597,7 +597,7 @@ static int bcm_enet_set_mac_address(struct net_device *dev, void *p)
 }
 
 /*
- * Change rx mode (promiscous/allmulti) and update multicast list
+ * Change rx mode (promiscuous/allmulti) and update multicast list
  */
 static void bcm_enet_set_multicast_list(struct net_device *dev)
 {
@@ -1469,7 +1469,7 @@ static int bcm_enet_set_pauseparam(struct net_device *dev,
 	return 0;
 }
 
-static struct ethtool_ops bcm_enet_ethtool_ops = {
+static const struct ethtool_ops bcm_enet_ethtool_ops = {
 	.get_strings		= bcm_enet_get_strings,
 	.get_sset_count		= bcm_enet_get_sset_count,
 	.get_ethtool_stats      = bcm_enet_get_ethtool_stats,

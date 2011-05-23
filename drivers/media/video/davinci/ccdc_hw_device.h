@@ -99,7 +99,7 @@ struct ccdc_hw_device {
 	/* module owner */
 	struct module *owner;
 	/* hw ops */
-	struct ccdc_hw_ops hw_ops;
+	const struct ccdc_hw_ops hw_ops;
 };
 
 /* Used by CCDC module to register & unregister with vpfe capture driver */

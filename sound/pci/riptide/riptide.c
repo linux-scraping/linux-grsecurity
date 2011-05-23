@@ -1675,7 +1675,7 @@ static int snd_riptide_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops snd_riptide_playback_ops = {
+static const struct snd_pcm_ops snd_riptide_playback_ops = {
 	.open = snd_riptide_playback_open,
 	.close = snd_riptide_playback_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -1686,7 +1686,7 @@ static struct snd_pcm_ops snd_riptide_playback_ops = {
 	.trigger = snd_riptide_trigger,
 	.pointer = snd_riptide_pointer,
 };
-static struct snd_pcm_ops snd_riptide_capture_ops = {
+static const struct snd_pcm_ops snd_riptide_capture_ops = {
 	.open = snd_riptide_capture_open,
 	.close = snd_riptide_capture_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -1857,7 +1857,7 @@ snd_riptide_create(struct snd_card *card, struct pci_dev *pci,
 	struct snd_riptide *chip;
 	struct riptideport *hwport;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free = snd_riptide_dev_free,
 	};
 
@@ -1999,7 +1999,7 @@ static int __devinit snd_riptide_mixer(struct snd_riptide *chip)
 	struct snd_ac97_bus *pbus;
 	struct snd_ac97_template ac97;
 	int err = 0;
-	static struct snd_ac97_bus_ops ops = {
+	static const struct snd_ac97_bus_ops ops = {
 		.write = snd_riptide_codec_write,
 		.read = snd_riptide_codec_read,
 	};

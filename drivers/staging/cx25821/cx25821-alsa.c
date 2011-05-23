@@ -586,7 +586,7 @@ static struct page *snd_cx25821_page(struct snd_pcm_substream *substream,
 /*
  * operators
  */
-static struct snd_pcm_ops snd_cx25821_pcm_ops = {
+static const struct snd_pcm_ops snd_cx25821_pcm_ops = {
 	.open = snd_cx25821_pcm_open,
 	.close = snd_cx25821_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -770,10 +770,12 @@ static int cx25821_alsa_init(void)
 	struct cx25821_dev *dev = NULL;
 	struct list_head *list;
 
+	mutex_lock(&cx25821_devlist_mutex);
 	list_for_each(list, &cx25821_devlist) {
 		dev = list_entry(list, struct cx25821_dev, devlist);
 		cx25821_audio_initdev(dev);
 	}
+	mutex_unlock(&cx25821_devlist_mutex);
 
 	if (dev == NULL)
 		pr_info("ERROR ALSA: no cx25821 cards found\n");

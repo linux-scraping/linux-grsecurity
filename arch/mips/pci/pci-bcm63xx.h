@@ -16,8 +16,8 @@
 /*
  * defined in ops-bcm63xx.c
  */
-extern struct pci_ops bcm63xx_pci_ops;
-extern struct pci_ops bcm63xx_cb_ops;
+extern const struct pci_ops bcm63xx_pci_ops;
+extern const struct pci_ops bcm63xx_cb_ops;
 
 /*
  * defined in pci-bcm63xx.c

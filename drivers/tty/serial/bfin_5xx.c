@@ -1036,7 +1036,7 @@ static int bfin_kgdboc_port_startup(struct uart_port *port)
 }
 #endif
 
-static struct uart_ops bfin_serial_pops = {
+static const struct uart_ops bfin_serial_pops = {
 	.tx_empty	= bfin_serial_tx_empty,
 	.set_mctrl	= bfin_serial_set_mctrl,
 	.get_mctrl	= bfin_serial_get_mctrl,

@@ -263,7 +263,7 @@ static void si3054_free(struct hda_codec *codec)
 /*
  */
 
-static struct hda_codec_ops si3054_patch_ops = {
+static const struct hda_codec_ops si3054_patch_ops = {
 	.build_controls = si3054_build_controls,
 	.build_pcms = si3054_build_pcms,
 	.init = si3054_init,

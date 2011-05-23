@@ -939,7 +939,7 @@ m32r_sio_type(struct uart_port *port)
 	return uart_config[type].name;
 }
 
-static struct uart_ops m32r_sio_pops = {
+static const struct uart_ops m32r_sio_pops = {
 	.tx_empty	= m32r_sio_tx_empty,
 	.set_mctrl	= m32r_sio_set_mctrl,
 	.get_mctrl	= m32r_sio_get_mctrl,

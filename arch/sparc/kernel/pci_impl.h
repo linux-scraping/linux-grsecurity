@@ -131,9 +131,9 @@ struct pci_pbm_info {
 	void				*msi_queues;
 	unsigned long			*msi_bitmap;
 	unsigned int			*msi_irq_table;
-	int (*setup_msi_irq)(unsigned int *virt_irq_p, struct pci_dev *pdev,
+	int (*setup_msi_irq)(unsigned int *irq_p, struct pci_dev *pdev,
 			     struct msi_desc *entry);
-	void (*teardown_msi_irq)(unsigned int virt_irq, struct pci_dev *pdev);
+	void (*teardown_msi_irq)(unsigned int irq, struct pci_dev *pdev);
 	const struct sparc64_msiq_ops	*msi_ops;
 #endif /* !(CONFIG_PCI_MSI) */
 
@@ -175,8 +175,8 @@ extern void pci_config_write8(u8 *addr, u8 val);
 extern void pci_config_write16(u16 *addr, u16 val);
 extern void pci_config_write32(u32 *addr, u32 val);
 
-extern struct pci_ops sun4u_pci_ops;
-extern struct pci_ops sun4v_pci_ops;
+extern const struct pci_ops sun4u_pci_ops;
+extern const struct pci_ops sun4v_pci_ops;
 
 extern volatile int pci_poke_in_progress;
 extern volatile int pci_poke_cpu;

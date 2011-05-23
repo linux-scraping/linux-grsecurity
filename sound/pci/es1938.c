@@ -1004,7 +1004,7 @@ static int snd_es1938_playback_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops snd_es1938_playback_ops = {
+static const struct snd_pcm_ops snd_es1938_playback_ops = {
 	.open =		snd_es1938_playback_open,
 	.close =	snd_es1938_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1015,7 +1015,7 @@ static struct snd_pcm_ops snd_es1938_playback_ops = {
 	.pointer =	snd_es1938_playback_pointer,
 };
 
-static struct snd_pcm_ops snd_es1938_capture_ops = {
+static const struct snd_pcm_ops snd_es1938_capture_ops = {
 	.open =		snd_es1938_capture_open,
 	.close =	snd_es1938_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1598,7 +1598,7 @@ static int __devinit snd_es1938_create(struct snd_card *card,
 {
 	struct es1938 *chip;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_es1938_dev_free,
 	};
 

@@ -851,13 +851,13 @@ static long zcrypt_pcixcc_rng(struct zcrypt_device *zdev,
 /**
  * The crypto operations for a PCIXCC/CEX2C card.
  */
-static struct zcrypt_ops zcrypt_pcixcc_ops = {
+static const struct zcrypt_ops zcrypt_pcixcc_ops = {
 	.rsa_modexpo = zcrypt_pcixcc_modexpo,
 	.rsa_modexpo_crt = zcrypt_pcixcc_modexpo_crt,
 	.send_cprb = zcrypt_pcixcc_send_cprb,
 };
 
-static struct zcrypt_ops zcrypt_pcixcc_with_rng_ops = {
+static const struct zcrypt_ops zcrypt_pcixcc_with_rng_ops = {
 	.rsa_modexpo = zcrypt_pcixcc_modexpo,
 	.rsa_modexpo_crt = zcrypt_pcixcc_modexpo_crt,
 	.send_cprb = zcrypt_pcixcc_send_cprb,

@@ -166,7 +166,7 @@ tsunami_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-struct pci_ops tsunami_pci_ops = 
+const struct pci_ops tsunami_pci_ops = 
 {
 	.read =		tsunami_read_config,
 	.write = 	tsunami_write_config,

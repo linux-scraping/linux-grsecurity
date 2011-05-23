@@ -26,7 +26,7 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 		     clk->enable_reg);
 }
 
-static struct clk_ops sh_clk_mstp32_clk_ops = {
+static const struct clk_ops sh_clk_mstp32_clk_ops = {
 	.enable		= sh_clk_mstp32_enable,
 	.disable	= sh_clk_mstp32_disable,
 	.recalc		= followparent_recalc,
@@ -150,7 +150,7 @@ static void sh_clk_div6_disable(struct clk *clk)
 	__raw_writel(value, clk->enable_reg);
 }
 
-static struct clk_ops sh_clk_div6_clk_ops = {
+static const struct clk_ops sh_clk_div6_clk_ops = {
 	.recalc		= sh_clk_div6_recalc,
 	.round_rate	= sh_clk_div_round_rate,
 	.set_rate	= sh_clk_div6_set_rate,
@@ -158,7 +158,7 @@ static struct clk_ops sh_clk_div6_clk_ops = {
 	.disable	= sh_clk_div6_disable,
 };
 
-static struct clk_ops sh_clk_div6_reparent_clk_ops = {
+static const struct clk_ops sh_clk_div6_reparent_clk_ops = {
 	.recalc		= sh_clk_div6_recalc,
 	.round_rate	= sh_clk_div_round_rate,
 	.set_rate	= sh_clk_div6_set_rate,
@@ -282,13 +282,13 @@ static void sh_clk_div4_disable(struct clk *clk)
 	__raw_writel(__raw_readl(clk->enable_reg) | (1 << 8), clk->enable_reg);
 }
 
-static struct clk_ops sh_clk_div4_clk_ops = {
+static const struct clk_ops sh_clk_div4_clk_ops = {
 	.recalc		= sh_clk_div4_recalc,
 	.set_rate	= sh_clk_div4_set_rate,
 	.round_rate	= sh_clk_div_round_rate,
 };
 
-static struct clk_ops sh_clk_div4_enable_clk_ops = {
+static const struct clk_ops sh_clk_div4_enable_clk_ops = {
 	.recalc		= sh_clk_div4_recalc,
 	.set_rate	= sh_clk_div4_set_rate,
 	.round_rate	= sh_clk_div_round_rate,
@@ -296,7 +296,7 @@ static struct clk_ops sh_clk_div4_enable_clk_ops = {
 	.disable	= sh_clk_div4_disable,
 };
 
-static struct clk_ops sh_clk_div4_reparent_clk_ops = {
+static const struct clk_ops sh_clk_div4_reparent_clk_ops = {
 	.recalc		= sh_clk_div4_recalc,
 	.set_rate	= sh_clk_div4_set_rate,
 	.round_rate	= sh_clk_div_round_rate,

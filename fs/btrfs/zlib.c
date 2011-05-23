@@ -57,7 +57,8 @@ static struct list_head *zlib_alloc_workspace(void)
 	if (!workspace)
 		return ERR_PTR(-ENOMEM);
 
-	workspace->def_strm.workspace = vmalloc(zlib_deflate_workspacesize());
+	workspace->def_strm.workspace = vmalloc(zlib_deflate_workspacesize(
+						MAX_WBITS, MAX_MEM_LEVEL));
 	workspace->inf_strm.workspace = vmalloc(zlib_inflate_workspacesize());
 	workspace->buf = kmalloc(PAGE_CACHE_SIZE, GFP_NOFS);
 	if (!workspace->def_strm.workspace ||
@@ -389,7 +390,7 @@ next:
 	return ret;
 }
 
-struct btrfs_compress_op btrfs_zlib_compress = {
+const struct btrfs_compress_op btrfs_zlib_compress = {
 	.alloc_workspace	= zlib_alloc_workspace,
 	.free_workspace		= zlib_free_workspace,
 	.compress_pages		= zlib_compress_pages,

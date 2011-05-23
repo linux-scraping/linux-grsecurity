@@ -53,7 +53,7 @@ struct vgasr_priv {
 	int registered_clients;
 	struct vga_switcheroo_client clients[VGA_SWITCHEROO_MAX_CLIENTS];
 
-	struct vga_switcheroo_handler *handler;
+	const struct vga_switcheroo_handler *handler;
 };
 
 static int vga_switcheroo_debugfs_init(struct vgasr_priv *priv);
@@ -62,7 +62,7 @@ static void vga_switcheroo_debugfs_fini(struct vgasr_priv *priv);
 /* only one switcheroo per system */
 static struct vgasr_priv vgasr_priv;
 
-int vga_switcheroo_register_handler(struct vga_switcheroo_handler *handler)
+int vga_switcheroo_register_handler(const struct vga_switcheroo_handler *handler)
 {
 	mutex_lock(&vgasr_mutex);
 	if (vgasr_priv.handler) {
@@ -219,9 +219,6 @@ static int vga_switchto_stage1(struct vga_switcheroo_client *new_client)
 	int i;
 	struct vga_switcheroo_client *active = NULL;
 
-	if (new_client->active == true)
-		return 0;
-
 	for (i = 0; i < VGA_SWITCHEROO_MAX_CLIENTS; i++) {
 		if (vgasr_priv.clients[i].active == true) {
 			active = &vgasr_priv.clients[i];
@@ -371,6 +368,9 @@ vga_switcheroo_debugfs_write(struct file *filp, const char __user *ubuf,
 		ret = vgasr_priv.handler->switchto(client_id);
 		goto out;
 	}
+
+	if (client->active == true)
+		goto out;
 
 	/* okay we want a switch - test if devices are willing to switch */
 	can_switch = true;

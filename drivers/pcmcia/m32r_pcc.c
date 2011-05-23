@@ -652,7 +652,7 @@ static int pcc_init(struct pcmcia_socket *s)
 	return 0;
 }
 
-static struct pccard_operations pcc_operations = {
+static const struct pccard_operations pcc_operations = {
 	.init			= pcc_init,
 	.get_status		= pcc_get_status,
 	.set_socket		= pcc_set_socket,

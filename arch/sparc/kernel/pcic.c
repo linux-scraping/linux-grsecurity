@@ -268,7 +268,7 @@ static int pcic_write_config(struct pci_bus *bus, unsigned int devfn,
 	return -EINVAL;
 }
 
-static struct pci_ops pcic_ops = {
+static const struct pci_ops pcic_ops = {
 	.read =		pcic_read_config,
 	.write =	pcic_write_config,
 };
@@ -700,10 +700,8 @@ static void pcic_clear_clock_irq(void)
 
 static irqreturn_t pcic_timer_handler (int irq, void *h)
 {
-	write_seqlock(&xtime_lock);	/* Dummy, to show that we remember */
 	pcic_clear_clock_irq();
-	do_timer(1);
-	write_sequnlock(&xtime_lock);
+	xtime_update(1);
 #ifndef CONFIG_SMP
 	update_process_times(user_mode(get_irq_regs()));
 #endif

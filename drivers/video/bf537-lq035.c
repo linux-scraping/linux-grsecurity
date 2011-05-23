@@ -682,7 +682,7 @@ static int bfin_lcd_check_fb(struct lcd_device *lcd, struct fb_info *fi)
 	return 0;
 }
 
-static struct lcd_ops bfin_lcd_ops = {
+static const struct lcd_ops bfin_lcd_ops = {
 	.get_power	= bfin_lcd_get_power,
 	.set_power	= bfin_lcd_set_power,
 	.get_contrast	= bfin_lcd_get_contrast,

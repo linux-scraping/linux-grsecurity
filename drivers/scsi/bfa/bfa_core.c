@@ -24,7 +24,7 @@ BFA_TRC_FILE(HAL, CORE);
 /*
  * BFA module list terminated by NULL
  */
-static struct bfa_module_s *hal_mods[] = {
+static const struct bfa_module_s *hal_mods[] = {
 	&hal_mod_sgpg,
 	&hal_mod_fcport,
 	&hal_mod_fcxp,
@@ -355,7 +355,7 @@ bfa_msix_lpu_err(struct bfa_s *bfa, int vec)
 			/*
 			 * ERR_PSS bit needs to be cleared as well in case
 			 * interrups are shared so driver's interrupt handler is
-			 * still called eventhough it is already masked out.
+			 * still called even though it is already masked out.
 			 */
 			curr_value = readl(
 					bfa->ioc.ioc_regs.pss_err_status_reg);

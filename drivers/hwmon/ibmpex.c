@@ -110,7 +110,7 @@ struct ibmpex_bmc_data {
 struct ibmpex_driver_data {
 	struct list_head	bmc_data;
 	struct ipmi_smi_watcher	bmc_events;
-	struct ipmi_user_hndl	ipmi_hndlrs;
+	const struct ipmi_user_hndl ipmi_hndlrs;
 };
 
 static struct ibmpex_driver_data driver_data = {

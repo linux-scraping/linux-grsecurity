@@ -27,6 +27,10 @@
 #include <linux/stddef.h>
 #include "aerdrv.h"
 
+/* Override the existing corrected and uncorrected error masks */
+static int aer_mask_override;
+module_param(aer_mask_override, bool, 0);
+
 struct aer_error_inj {
 	u8 bus;
 	u8 dev;
@@ -60,7 +64,7 @@ struct aer_error {
 struct pci_bus_ops {
 	struct list_head list;
 	struct pci_bus *bus;
-	struct pci_ops *ops;
+	const struct pci_ops *ops;
 };
 
 static LIST_HEAD(einjected);
@@ -106,7 +110,7 @@ static struct aer_error *__find_aer_error_by_dev(struct pci_dev *dev)
 }
 
 /* inject_lock must be held before calling */
-static struct pci_ops *__find_pci_bus_ops(struct pci_bus *bus)
+static const struct pci_ops *__find_pci_bus_ops(struct pci_bus *bus)
 {
 	struct pci_bus_ops *bus_ops;
 
@@ -183,7 +187,7 @@ static int pci_read_aer(struct pci_bus *bus, unsigned int devfn, int where,
 	u32 *sim;
 	struct aer_error *err;
 	unsigned long flags;
-	struct pci_ops *ops;
+	const struct pci_ops *ops;
 	int domain;
 
 	spin_lock_irqsave(&inject_lock, flags);
@@ -215,7 +219,7 @@ int pci_write_aer(struct pci_bus *bus, unsigned int devfn, int where, int size,
 	struct aer_error *err;
 	unsigned long flags;
 	int rw1cs;
-	struct pci_ops *ops;
+	const struct pci_ops *ops;
 	int domain;
 
 	spin_lock_irqsave(&inject_lock, flags);
@@ -250,7 +254,7 @@ static struct pci_ops pci_ops_aer = {
 
 static void pci_bus_ops_init(struct pci_bus_ops *bus_ops,
 			     struct pci_bus *bus,
-			     struct pci_ops *ops)
+			     const struct pci_ops *ops)
 {
 	INIT_LIST_HEAD(&bus_ops->list);
 	bus_ops->bus = bus;
@@ -259,7 +263,7 @@ static void pci_bus_ops_init(struct pci_bus_ops *bus_ops,
 
 static int pci_bus_set_aer_ops(struct pci_bus *bus)
 {
-	struct pci_ops *ops;
+	const struct pci_ops *ops;
 	struct pci_bus_ops *bus_ops;
 	unsigned long flags;
 
@@ -322,7 +326,7 @@ static int aer_inject(struct aer_error_inj *einj)
 	unsigned long flags;
 	unsigned int devfn = PCI_DEVFN(einj->dev, einj->fn);
 	int pos_cap_err, rp_pos_cap_err;
-	u32 sever, cor_mask, uncor_mask;
+	u32 sever, cor_mask, uncor_mask, cor_mask_orig, uncor_mask_orig;
 	int ret = 0;
 
 	dev = pci_get_domain_bus_and_slot((int)einj->domain, einj->bus, devfn);
@@ -361,6 +365,18 @@ static int aer_inject(struct aer_error_inj *einj)
 		goto out_put;
 	}
 
+	if (aer_mask_override) {
+		cor_mask_orig = cor_mask;
+		cor_mask &= !(einj->cor_status);
+		pci_write_config_dword(dev, pos_cap_err + PCI_ERR_COR_MASK,
+				       cor_mask);
+
+		uncor_mask_orig = uncor_mask;
+		uncor_mask &= !(einj->uncor_status);
+		pci_write_config_dword(dev, pos_cap_err + PCI_ERR_UNCOR_MASK,
+				       uncor_mask);
+	}
+
 	spin_lock_irqsave(&inject_lock, flags);
 
 	err = __find_aer_error_by_dev(dev);
@@ -378,14 +394,16 @@ static int aer_inject(struct aer_error_inj *einj)
 	err->header_log2 = einj->header_log2;
 	err->header_log3 = einj->header_log3;
 
-	if (einj->cor_status && !(einj->cor_status & ~cor_mask)) {
+	if (!aer_mask_override && einj->cor_status &&
+	    !(einj->cor_status & ~cor_mask)) {
 		ret = -EINVAL;
 		printk(KERN_WARNING "The correctable error(s) is masked "
 				"by device\n");
 		spin_unlock_irqrestore(&inject_lock, flags);
 		goto out_put;
 	}
-	if (einj->uncor_status && !(einj->uncor_status & ~uncor_mask)) {
+	if (!aer_mask_override && einj->uncor_status &&
+	    !(einj->uncor_status & ~uncor_mask)) {
 		ret = -EINVAL;
 		printk(KERN_WARNING "The uncorrectable error(s) is masked "
 				"by device\n");
@@ -424,6 +442,13 @@ static int aer_inject(struct aer_error_inj *einj)
 		rperr->source_id |= ((einj->bus << 8) | devfn) << 16;
 	}
 	spin_unlock_irqrestore(&inject_lock, flags);
+
+	if (aer_mask_override) {
+		pci_write_config_dword(dev, pos_cap_err + PCI_ERR_COR_MASK,
+				       cor_mask_orig);
+		pci_write_config_dword(dev, pos_cap_err + PCI_ERR_UNCOR_MASK,
+				       uncor_mask_orig);
+	}
 
 	ret = pci_bus_set_aer_ops(dev->bus);
 	if (ret)

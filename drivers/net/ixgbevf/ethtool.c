@@ -172,7 +172,7 @@ static char *ixgbevf_reg_names[] = {
 	"IXGBE_VFSTATUS",
 	"IXGBE_VFLINKS",
 	"IXGBE_VFRXMEMWRAP",
-	"IXGBE_VFRTIMER",
+	"IXGBE_VFFRTIMER",
 	"IXGBE_VTEICR",
 	"IXGBE_VTEICS",
 	"IXGBE_VTEIMS",
@@ -240,7 +240,7 @@ static void ixgbevf_get_regs(struct net_device *netdev,
 	regs_buff[1] = IXGBE_READ_REG(hw, IXGBE_VFSTATUS);
 	regs_buff[2] = IXGBE_READ_REG(hw, IXGBE_VFLINKS);
 	regs_buff[3] = IXGBE_READ_REG(hw, IXGBE_VFRXMEMWRAP);
-	regs_buff[4] = IXGBE_READ_REG(hw, IXGBE_VFRTIMER);
+	regs_buff[4] = IXGBE_READ_REG(hw, IXGBE_VFFRTIMER);
 
 	/* Interrupt */
 	/* don't read EICR because it can clear interrupt causes, instead
@@ -709,7 +709,7 @@ static int ixgbevf_nway_reset(struct net_device *netdev)
 	return 0;
 }
 
-static struct ethtool_ops ixgbevf_ethtool_ops = {
+static const struct ethtool_ops ixgbevf_ethtool_ops = {
 	.get_settings           = ixgbevf_get_settings,
 	.get_drvinfo            = ixgbevf_get_drvinfo,
 	.get_regs_len           = ixgbevf_get_regs_len,

@@ -8,7 +8,6 @@
 #include <linux/mount.h>
 #include <linux/tty.h>
 #include <linux/proc_fs.h>
-#include <linux/smp_lock.h>
 #include <linux/lglock.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>

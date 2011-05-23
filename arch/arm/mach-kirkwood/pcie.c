@@ -18,8 +18,16 @@
 #include <mach/bridge-regs.h>
 #include "common.h"
 
+void kirkwood_enable_pcie(void)
+{
+	u32 curr = readl(CLOCK_GATING_CTRL);
+	if (!(curr & CGC_PEX0))
+		writel(curr | CGC_PEX0, CLOCK_GATING_CTRL);
+}
+
 void __init kirkwood_pcie_id(u32 *dev, u32 *rev)
 {
+	kirkwood_enable_pcie();
 	*dev = orion_pcie_dev_id((void __iomem *)PCIE_VIRT_BASE);
 	*rev = orion_pcie_rev((void __iomem *)PCIE_VIRT_BASE);
 }
@@ -103,7 +111,7 @@ static int pcie_wr_conf(struct pci_bus *bus, u32 devfn,
 	return ret;
 }
 
-static struct pci_ops pcie_ops = {
+static const struct pci_ops pcie_ops = {
 	.read = pcie_rd_conf,
 	.write = pcie_wr_conf,
 };

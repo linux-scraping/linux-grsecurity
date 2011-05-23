@@ -480,9 +480,9 @@ pci_restore_bars(struct pci_dev *dev)
 		pci_update_resource(dev, i);
 }
 
-static struct pci_platform_pm_ops *pci_platform_pm;
+static const struct pci_platform_pm_ops *pci_platform_pm;
 
-int pci_set_platform_pm(struct pci_platform_pm_ops *ops)
+int pci_set_platform_pm(const struct pci_platform_pm_ops *ops)
 {
 	if (!ops->is_manageable || !ops->set_state || !ops->choose_state
 	    || !ops->sleep_wake || !ops->can_wakeup)
@@ -740,6 +740,12 @@ int pci_set_power_state(struct pci_dev *dev, pci_power_t state)
 
 	if (!__pci_complete_power_transition(dev, state))
 		error = 0;
+	/*
+	 * When aspm_policy is "powersave" this call ensures
+	 * that ASPM is configured.
+	 */
+	if (!error && dev->bus->self)
+		pcie_aspm_powersave_config_link(dev->bus->self);
 
 	return error;
 }

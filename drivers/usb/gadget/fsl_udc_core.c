@@ -464,7 +464,7 @@ static int fsl_ep_enable(struct usb_ep *_ep,
 
 	max = le16_to_cpu(desc->wMaxPacketSize);
 
-	/* Disable automatic zlp generation.  Driver is reponsible to indicate
+	/* Disable automatic zlp generation.  Driver is responsible to indicate
 	 * explicitly through req->req.zero.  This is needed to enable multi-td
 	 * request. */
 	zlt = 1;
@@ -648,7 +648,7 @@ static void fsl_queue_td(struct fsl_ep *ep, struct fsl_req *req)
 			| EP_QUEUE_HEAD_STATUS_HALT));
 	dQH->size_ioc_int_sts &= temp;
 
-	/* Ensure that updates to the QH will occure before priming. */
+	/* Ensure that updates to the QH will occur before priming. */
 	wmb();
 
 	/* Prime endpoint by writing 1 to ENDPTPRIME */
@@ -766,7 +766,6 @@ fsl_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 	struct fsl_req *req = container_of(_req, struct fsl_req, req);
 	struct fsl_udc *udc;
 	unsigned long flags;
-	int is_iso = 0;
 
 	/* catch various bogus parameters */
 	if (!_req || !req->req.complete || !req->req.buf
@@ -781,7 +780,6 @@ fsl_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 	if (ep->desc->bmAttributes == USB_ENDPOINT_XFER_ISOC) {
 		if (req->req.length > ep->ep.maxpacket)
 			return -EMSGSIZE;
-		is_iso = 1;
 	}
 
 	udc = ep->udc;
@@ -1005,7 +1003,7 @@ static void fsl_ep_fifo_flush(struct usb_ep *_ep)
 	} while (fsl_readl(&dr_regs->endptstatus) & bits);
 }
 
-static struct usb_ep_ops fsl_ep_ops = {
+static const struct usb_ep_ops fsl_ep_ops = {
 	.enable = fsl_ep_enable,
 	.disable = fsl_ep_disable,
 
@@ -1116,7 +1114,7 @@ static int fsl_pullup(struct usb_gadget *gadget, int is_on)
 }
 
 /* defined in gadget.h */
-static struct usb_gadget_ops fsl_gadget_ops = {
+static const struct usb_gadget_ops fsl_gadget_ops = {
 	.get_frame = fsl_get_frame,
 	.wakeup = fsl_wakeup,
 /*	.set_selfpowered = fsl_set_selfpowered,	*/ /* Always selfpowered */
@@ -1461,7 +1459,7 @@ static int process_ep_req(struct fsl_udc *udc, int pipe,
 				status = -EILSEQ;
 				break;
 			} else
-				ERR("Unknown error has occured (0x%x)!\n",
+				ERR("Unknown error has occurred (0x%x)!\n",
 					errors);
 
 		} else if (le32_to_cpu(curr_td->size_ioc_sts)

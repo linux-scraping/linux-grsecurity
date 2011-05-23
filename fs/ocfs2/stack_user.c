@@ -399,7 +399,7 @@ static int ocfs2_control_do_setversion_msg(struct file *file,
 	long major, minor;
 	char *ptr = NULL;
 	struct ocfs2_control_private *p = file->private_data;
-	struct ocfs2_protocol_version *max =
+	const struct ocfs2_protocol_version *max =
 		&ocfs2_user_plugin.sp_max_proto;
 
 	if (ocfs2_control_get_handshake_state(file) !=
@@ -861,7 +861,7 @@ static int user_cluster_this_node(unsigned int *this_node)
 	return 0;
 }
 
-static struct ocfs2_stack_operations ocfs2_user_plugin_ops = {
+static const struct ocfs2_stack_operations ocfs2_user_plugin_ops = {
 	.connect	= user_cluster_connect,
 	.disconnect	= user_cluster_disconnect,
 	.this_node	= user_cluster_this_node,

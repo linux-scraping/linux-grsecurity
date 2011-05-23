@@ -82,7 +82,7 @@ static int omap3beagle_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops omap3beagle_ops = {
+static const struct snd_soc_ops omap3beagle_ops = {
 	.hw_params = omap3beagle_hw_params,
 };
 

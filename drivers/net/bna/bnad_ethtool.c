@@ -1242,7 +1242,7 @@ bnad_get_sset_count(struct net_device *netdev, int sset)
 	}
 }
 
-static struct ethtool_ops bnad_ethtool_ops = {
+static const struct ethtool_ops bnad_ethtool_ops = {
 	.get_settings = bnad_get_settings,
 	.set_settings = bnad_set_settings,
 	.get_drvinfo = bnad_get_drvinfo,

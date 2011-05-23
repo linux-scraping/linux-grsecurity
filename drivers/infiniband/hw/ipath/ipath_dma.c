@@ -175,7 +175,7 @@ static void ipath_dma_free_coherent(struct ib_device *dev, size_t size,
 	free_pages((unsigned long) cpu_addr, get_order(size));
 }
 
-struct ib_dma_mapping_ops ipath_dma_mapping_ops = {
+const struct ib_dma_mapping_ops ipath_dma_mapping_ops = {
 	ipath_mapping_error,
 	ipath_dma_map_single,
 	ipath_dma_unmap_single,

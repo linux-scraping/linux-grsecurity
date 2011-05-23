@@ -297,7 +297,7 @@ static int nuc900_dma_mmap(struct snd_pcm_substream *substream,
 					runtime->dma_bytes);
 }
 
-static struct snd_pcm_ops nuc900_dma_ops = {
+static const struct snd_pcm_ops nuc900_dma_ops = {
 	.open		= nuc900_dma_open,
 	.close		= nuc900_dma_close,
 	.ioctl		= snd_pcm_lib_ioctl,

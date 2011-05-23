@@ -103,7 +103,7 @@ struct vpss_oper_config {
 	__iomem void *vpss_regs_base1;
 	enum vpss_platform_type platform;
 	spinlock_t vpss_lock;
-	struct vpss_hw_ops hw_ops;
+	const struct vpss_hw_ops hw_ops;
 };
 
 static struct vpss_oper_config oper_cfg;

@@ -136,7 +136,7 @@ static void ks8695_local_writeconfig(int where, u32 value)
 	__raw_writel(value, KS8695_PCI_VA + KS8695_PBCD);
 }
 
-static struct pci_ops ks8695_pci_ops = {
+static const struct pci_ops ks8695_pci_ops = {
 	.read	= ks8695_pci_readconfig,
 	.write	= ks8695_pci_writeconfig,
 };

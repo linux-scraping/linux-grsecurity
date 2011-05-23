@@ -141,7 +141,7 @@ static int __devinit snd_vx222_create(struct snd_card *card, struct pci_dev *pci
 	struct vx_core *chip;
 	struct snd_vx222 *vx;
 	int i, err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_vx222_dev_free,
 	};
 	struct snd_vx_ops *vx_ops;

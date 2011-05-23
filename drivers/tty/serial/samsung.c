@@ -64,7 +64,7 @@
 #define tx_enabled(port) ((port)->unused[0])
 #define rx_enabled(port) ((port)->unused[1])
 
-/* flag to ignore all characters comming in */
+/* flag to ignore all characters coming in */
 #define RXSTAT_DUMMY_READ (0x10000000)
 
 static inline struct s3c24xx_uart_port *to_ourport(struct uart_port *port)
@@ -291,7 +291,7 @@ static irqreturn_t s3c24xx_serial_tx_chars(int irq, void *id)
 		goto out;
 	}
 
-	/* if there isnt anything more to transmit, or the uart is now
+	/* if there isn't anything more to transmit, or the uart is now
 	 * stopped, disable the uart and exit
 	*/
 
@@ -860,7 +860,7 @@ static struct console s3c24xx_serial_console;
 #define S3C24XX_SERIAL_CONSOLE NULL
 #endif
 
-static struct uart_ops s3c24xx_serial_ops = {
+static const struct uart_ops s3c24xx_serial_ops = {
 	.pm		= s3c24xx_serial_pm,
 	.tx_empty	= s3c24xx_serial_tx_empty,
 	.get_mctrl	= s3c24xx_serial_get_mctrl,

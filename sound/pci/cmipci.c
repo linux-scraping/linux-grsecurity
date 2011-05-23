@@ -73,7 +73,7 @@ MODULE_PARM_DESC(mpu_port, "MPU-401 port.");
 module_param_array(fm_port, long, NULL, 0444);
 MODULE_PARM_DESC(fm_port, "FM port.");
 module_param_array(soft_ac3, bool, NULL, 0444);
-MODULE_PARM_DESC(soft_ac3, "Sofware-conversion of raw SPDIF packets (model 033 only).");
+MODULE_PARM_DESC(soft_ac3, "Software-conversion of raw SPDIF packets (model 033 only).");
 #ifdef SUPPORT_JOYSTICK
 module_param_array(joystick_port, int, NULL, 0444);
 MODULE_PARM_DESC(joystick_port, "Joystick port address.");
@@ -656,8 +656,8 @@ out:
 }
 
 /*
- * Program pll register bits, I assume that the 8 registers 0xf8 upto 0xff
- * are mapped onto the 8 ADC/DAC sampling frequency which can be choosen
+ * Program pll register bits, I assume that the 8 registers 0xf8 up to 0xff
+ * are mapped onto the 8 ADC/DAC sampling frequency which can be chosen
  * at the register CM_REG_FUNCTRL1 (0x04).
  * Problem: other ways are also possible (any information about that?)
  */
@@ -666,7 +666,7 @@ static void snd_cmipci_set_pll(struct cmipci *cm, unsigned int rate, unsigned in
 	unsigned int reg = CM_REG_PLL + slot;
 	/*
 	 * Guess that this programs at reg. 0x04 the pos 15:13/12:10
-	 * for DSFC/ASFC (000 upto 111).
+	 * for DSFC/ASFC (000 up to 111).
 	 */
 
 	/* FIXME: Init (Do we've to set an other register first before programming?) */
@@ -1838,7 +1838,7 @@ static int snd_cmipci_capture_spdif_close(struct snd_pcm_substream *substream)
 /*
  */
 
-static struct snd_pcm_ops snd_cmipci_playback_ops = {
+static const struct snd_pcm_ops snd_cmipci_playback_ops = {
 	.open =		snd_cmipci_playback_open,
 	.close =	snd_cmipci_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1849,7 +1849,7 @@ static struct snd_pcm_ops snd_cmipci_playback_ops = {
 	.pointer =	snd_cmipci_playback_pointer,
 };
 
-static struct snd_pcm_ops snd_cmipci_capture_ops = {
+static const struct snd_pcm_ops snd_cmipci_capture_ops = {
 	.open =		snd_cmipci_capture_open,
 	.close =	snd_cmipci_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1860,7 +1860,7 @@ static struct snd_pcm_ops snd_cmipci_capture_ops = {
 	.pointer =	snd_cmipci_capture_pointer,
 };
 
-static struct snd_pcm_ops snd_cmipci_playback2_ops = {
+static const struct snd_pcm_ops snd_cmipci_playback2_ops = {
 	.open =		snd_cmipci_playback2_open,
 	.close =	snd_cmipci_playback2_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1871,7 +1871,7 @@ static struct snd_pcm_ops snd_cmipci_playback2_ops = {
 	.pointer =	snd_cmipci_capture_pointer,	/* channel B */
 };
 
-static struct snd_pcm_ops snd_cmipci_playback_spdif_ops = {
+static const struct snd_pcm_ops snd_cmipci_playback_spdif_ops = {
 	.open =		snd_cmipci_playback_spdif_open,
 	.close =	snd_cmipci_playback_spdif_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1882,7 +1882,7 @@ static struct snd_pcm_ops snd_cmipci_playback_spdif_ops = {
 	.pointer =	snd_cmipci_playback_pointer,
 };
 
-static struct snd_pcm_ops snd_cmipci_capture_spdif_ops = {
+static const struct snd_pcm_ops snd_cmipci_capture_spdif_ops = {
 	.open =		snd_cmipci_capture_spdif_open,
 	.close =	snd_cmipci_capture_spdif_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -3011,7 +3011,7 @@ static int __devinit snd_cmipci_create(struct snd_card *card, struct pci_dev *pc
 {
 	struct cmipci *cm;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_cmipci_dev_free,
 	};
 	unsigned int val;

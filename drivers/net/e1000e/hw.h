@@ -801,21 +801,20 @@ struct e1000_phy_operations {
 
 /* Function pointers for the NVM. */
 struct e1000_nvm_operations {
-	s32  (* acquire)(struct e1000_hw *);	/* cannot be const, see drivers/net/e1000e/82571.c e1000_init_nvm_params_82571() */
-	s32  (* const read)(struct e1000_hw *, u16, u16, u16 *);
-	void (* release)(struct e1000_hw *);	/* cannot be const, see drivers/net/e1000e/82571.c e1000_init_nvm_params_82571() */
-	s32  (* const update)(struct e1000_hw *);
-	s32  (* const valid_led_default)(struct e1000_hw *, u16 *);
-	s32  (* const validate)(struct e1000_hw *);
-	s32  (* const write)(struct e1000_hw *, u16, u16, u16 *);
+	s32  (*acquire)(struct e1000_hw *);
+	s32  (*read)(struct e1000_hw *, u16, u16, u16 *);
+	void (*release)(struct e1000_hw *);
+	s32  (*update)(struct e1000_hw *);
+	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
+	s32  (*validate)(struct e1000_hw *);
+	s32  (*write)(struct e1000_hw *, u16, u16, u16 *);
 };
 
 struct e1000_mac_info {
 	/* cannot be const see e1000_init_mac_params_ich8lan */
 	struct e1000_mac_operations ops;
-
-	u8 addr[6];
-	u8 perm_addr[6];
+	u8 addr[ETH_ALEN];
+	u8 perm_addr[ETH_ALEN];
 
 	enum e1000_mac_type type;
 

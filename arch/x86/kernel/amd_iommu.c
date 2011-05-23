@@ -48,7 +48,7 @@ static DEFINE_SPINLOCK(iommu_pd_list_lock);
  */
 static struct protection_domain *pt_domain;
 
-static struct iommu_ops amd_iommu_ops;
+static const struct iommu_ops amd_iommu_ops;
 
 /*
  * general struct to manage commands send to an IOMMU
@@ -2582,7 +2582,7 @@ static int amd_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-static struct iommu_ops amd_iommu_ops = {
+static const struct iommu_ops amd_iommu_ops = {
 	.domain_init = amd_iommu_domain_init,
 	.domain_destroy = amd_iommu_domain_destroy,
 	.attach_dev = amd_iommu_attach_device,

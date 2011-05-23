@@ -75,7 +75,7 @@ MAPPING_BEYOND_END = PAGE_TABLE_SIZE(LOWMEM_PAGES) << PAGE_SHIFT
  */
 KERNEL_PAGES = LOWMEM_PAGES
 
-INIT_MAP_SIZE = PAGE_TABLE_SIZE(KERNEL_PAGES) * PAGE_SIZE_asm
+INIT_MAP_SIZE = PAGE_TABLE_SIZE(KERNEL_PAGES) * PAGE_SIZE
 RESERVE_BRK(pagetables, INIT_MAP_SIZE)
 
 /*
@@ -203,7 +203,7 @@ ENTRY(startup_32)
 	movsl
 1:
 
-#ifdef CONFIG_OLPC_OPENFIRMWARE
+#ifdef CONFIG_OLPC
 	/* save OFW's pgdir table for later use when calling into OFW */
 	movl %cr3, %eax
 	movl %eax, pa(olpc_ofw_pgd)
@@ -757,7 +757,7 @@ ENTRY(initial_page_table)
 # else
 #  error "Kernel PMDs should be 1, 2 or 3"
 # endif
-	.align PAGE_SIZE_asm		/* needs to be page-sized too */
+	.align PAGE_SIZE		/* needs to be page-sized too */
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 ENTRY(cpu_pgd)

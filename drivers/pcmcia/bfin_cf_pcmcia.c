@@ -184,7 +184,7 @@ bfin_cf_set_mem_map(struct pcmcia_socket *s, struct pccard_mem_map *map)
 	return 0;
 }
 
-static struct pccard_operations bfin_cf_ops = {
+static const struct pccard_operations bfin_cf_ops = {
 	.init = bfin_cf_ss_init,
 	.suspend = bfin_cf_ss_suspend,
 	.get_status = bfin_cf_get_status,
@@ -235,7 +235,7 @@ static int __devinit bfin_cf_probe(struct platform_device *pdev)
 	cf->irq = irq;
 	cf->socket.pci_irq = irq;
 
-	set_irq_type(irq, IRQF_TRIGGER_LOW);
+	irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
 
 	io_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	attr_mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);

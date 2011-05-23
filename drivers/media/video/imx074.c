@@ -267,7 +267,7 @@ static int imx074_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
+static const struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
 	.s_stream	= imx074_s_stream,
 	.s_mbus_fmt	= imx074_s_fmt,
 	.g_mbus_fmt	= imx074_g_fmt,
@@ -277,7 +277,7 @@ static struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
 	.cropcap	= imx074_cropcap,
 };
 
-static struct v4l2_subdev_core_ops imx074_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops imx074_subdev_core_ops = {
 	.g_chip_ident	= imx074_g_chip_ident,
 };
 
@@ -298,7 +298,7 @@ static unsigned long imx074_query_bus_param(struct soc_camera_device *icd)
 static int imx074_set_bus_param(struct soc_camera_device *icd,
 				 unsigned long flags)
 {
-	return -1;
+	return -EINVAL;
 }
 
 static struct soc_camera_ops imx074_ops = {

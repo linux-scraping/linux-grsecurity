@@ -293,7 +293,7 @@ static int pm3393_enable_port(struct cmac *cmac, int which)
 	pm3393_enable(cmac, which);
 
 	/*
-	 * XXX This should be done by the PHY and preferrably not at all.
+	 * XXX This should be done by the PHY and preferably not at all.
 	 * The PHY doesn't give us link status indication on its own so have
 	 * the link management code query it instead.
 	 */
@@ -571,7 +571,7 @@ static void pm3393_destroy(struct cmac *cmac)
 	kfree(cmac);
 }
 
-static struct cmac_ops pm3393_ops = {
+static const struct cmac_ops pm3393_ops = {
 	.destroy                 = pm3393_destroy,
 	.reset                   = pm3393_reset,
 	.interrupt_enable        = pm3393_interrupt_enable,

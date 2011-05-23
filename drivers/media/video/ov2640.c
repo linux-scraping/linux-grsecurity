@@ -1080,7 +1080,7 @@ static struct soc_camera_ops ov2640_ops = {
 	.num_controls		= ARRAY_SIZE(ov2640_controls),
 };
 
-static struct v4l2_subdev_core_ops ov2640_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops ov2640_subdev_core_ops = {
 	.g_ctrl		= ov2640_g_ctrl,
 	.s_ctrl		= ov2640_s_ctrl,
 	.g_chip_ident	= ov2640_g_chip_ident,
@@ -1090,7 +1090,7 @@ static struct v4l2_subdev_core_ops ov2640_subdev_core_ops = {
 #endif
 };
 
-static struct v4l2_subdev_video_ops ov2640_subdev_video_ops = {
+static const struct v4l2_subdev_video_ops ov2640_subdev_video_ops = {
 	.s_stream	= ov2640_s_stream,
 	.g_mbus_fmt	= ov2640_g_fmt,
 	.s_mbus_fmt	= ov2640_s_fmt,

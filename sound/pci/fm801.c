@@ -662,7 +662,7 @@ static int snd_fm801_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static struct snd_pcm_ops snd_fm801_playback_ops = {
+static const struct snd_pcm_ops snd_fm801_playback_ops = {
 	.open =		snd_fm801_playback_open,
 	.close =	snd_fm801_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -673,7 +673,7 @@ static struct snd_pcm_ops snd_fm801_playback_ops = {
 	.pointer =	snd_fm801_playback_pointer,
 };
 
-static struct snd_pcm_ops snd_fm801_capture_ops = {
+static const struct snd_pcm_ops snd_fm801_capture_ops = {
 	.open =		snd_fm801_capture_open,
 	.close =	snd_fm801_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1236,7 +1236,7 @@ static int __devinit snd_fm801_mixer(struct fm801 *chip)
 	struct snd_ac97_template ac97;
 	unsigned int i;
 	int err;
-	static struct snd_ac97_bus_ops ops = {
+	static const struct snd_ac97_bus_ops ops = {
 		.write = snd_fm801_codec_write,
 		.read = snd_fm801_codec_read,
 	};
@@ -1396,7 +1396,7 @@ static int __devinit snd_fm801_create(struct snd_card *card,
 {
 	struct fm801 *chip;
 	int err;
-	static struct snd_device_ops ops = {
+	static const struct snd_device_ops ops = {
 		.dev_free =	snd_fm801_dev_free,
 	};
 

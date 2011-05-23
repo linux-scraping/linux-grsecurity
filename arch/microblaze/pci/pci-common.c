@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_pci.h>
 
 #include <asm/processor.h>
 #include <asm/io.h>
@@ -236,7 +237,7 @@ int pci_read_irq_line(struct pci_dev *pci_dev)
 
 		virq = irq_create_mapping(NULL, line);
 		if (virq != NO_IRQ)
-			set_irq_type(virq, IRQ_TYPE_LEVEL_LOW);
+			irq_set_irq_type(virq, IRQ_TYPE_LEVEL_LOW);
 	} else {
 		pr_debug(" Got one, spec %d cells (0x%08x 0x%08x...) on %s\n",
 			 oirq.size, oirq.specifier[0], oirq.specifier[1],
@@ -1582,7 +1583,7 @@ null_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
 
-static struct pci_ops null_pci_ops = {
+static const struct pci_ops null_pci_ops = {
 	.read = null_read_config,
 	.write = null_write_config,
 };
