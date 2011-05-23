@@ -514,7 +514,7 @@ ENTRY(resume_userspace)
 	andl $_TIF_WORK_MASK, %ecx	# is there any work to be done on
 					# int/exception return?
 	jne work_pending
-	jmp restore_all
+	jmp restore_all_pax
 END(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
@@ -649,6 +649,9 @@ sysenter_audit:
 	movl %eax,%edx			/* 2nd arg: syscall number */
 	movl $AUDIT_ARCH_I386,%eax	/* 1st arg: audit arch */
 	call audit_syscall_entry
+
+	pax_erase_kstack
+
 	pushl %ebx
 	CFI_ADJUST_CFA_OFFSET 4
 	movl PT_EAX(%esp),%eax		/* reload syscall number */
@@ -715,6 +718,8 @@ syscall_exit:
 	movl TI_flags(%ebp), %ecx
 	testl $_TIF_ALLWORK_MASK, %ecx	# current->work
 	jne syscall_exit_work
+
+restore_all_pax:
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	call pax_randomize_kstack
@@ -826,7 +831,7 @@ work_resched:
 	movl TI_flags(%ebp), %ecx
 	andl $_TIF_WORK_MASK, %ecx	# is there any work to be done other
 					# than syscall tracing?
-	jz restore_all
+	jz restore_all_pax
 	testb $_TIF_NEED_RESCHED, %cl
 	jnz work_resched
 
@@ -857,6 +862,9 @@ syscall_trace_entry:
 	movl $-ENOSYS,PT_EAX(%esp)
 	movl %esp, %eax
 	call syscall_trace_enter
+
+	pax_erase_kstack
+
 	/* What it returned is what we'll actually use.  */
 	cmpl $(nr_syscalls), %eax
 	jnae syscall_call

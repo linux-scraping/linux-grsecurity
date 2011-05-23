@@ -365,6 +365,8 @@ int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst
 {
 	int copied = 0;
 
+	pax_track_stack();
+
 	while (len > 0) {
 		char buf[128];
 		int this_len, retval;
@@ -389,6 +391,8 @@ int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst
 int ptrace_writedata(struct task_struct *tsk, char __user *src, unsigned long dst, int len)
 {
 	int copied = 0;
+
+	pax_track_stack();
 
 	while (len > 0) {
 		char buf[128];
@@ -530,6 +534,8 @@ int ptrace_request(struct task_struct *child, long request,
 {
 	int ret = -EIO;
 	siginfo_t siginfo;
+
+	pax_track_stack();
 
 	switch (request) {
 	case PTRACE_PEEKTEXT:
@@ -695,6 +701,8 @@ int compat_ptrace_request(struct task_struct *child, compat_long_t request,
 	compat_ulong_t word;
 	siginfo_t siginfo;
 	int ret;
+
+	pax_track_stack();
 
 	switch (request) {
 	case PTRACE_PEEKTEXT:

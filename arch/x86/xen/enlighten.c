@@ -991,7 +991,7 @@ static const struct pv_apic_ops xen_apic_ops __initdata = {
 #endif
 };
 
-static void xen_reboot(int reason)
+static __noreturn void xen_reboot(int reason)
 {
 	struct sched_shutdown r = { .reason = reason };
 
@@ -999,17 +999,17 @@ static void xen_reboot(int reason)
 		BUG();
 }
 
-static void xen_restart(char *msg)
+static __noreturn void xen_restart(char *msg)
 {
 	xen_reboot(SHUTDOWN_reboot);
 }
 
-static void xen_emergency_restart(void)
+static __noreturn void xen_emergency_restart(void)
 {
 	xen_reboot(SHUTDOWN_reboot);
 }
 
-static void xen_machine_halt(void)
+static __noreturn void xen_machine_halt(void)
 {
 	xen_reboot(SHUTDOWN_poweroff);
 }

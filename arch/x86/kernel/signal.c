@@ -785,6 +785,8 @@ static void do_signal(struct pt_regs *regs)
 	int signr;
 	sigset_t *oldset;
 
+	pax_track_stack();
+
 	/*
 	 * We want the common case to go fast, which is why we may in certain
 	 * cases get here from kernel mode. Just return without doing anything

@@ -346,7 +346,7 @@ static const unsigned char jump_to_bios [] =
  * specified by the code and length parameters.
  * We assume that length will aways be less that 100!
  */
-void machine_real_restart(const unsigned char *code, unsigned int length)
+__noreturn void machine_real_restart(const unsigned char *code, unsigned int length)
 {
 	local_irq_disable();
 
@@ -415,6 +415,7 @@ void machine_real_restart(const unsigned char *code, unsigned int length)
 	__asm__ __volatile__ ("ljmp $0x0008,%0"
 				:
 				: "i" ((void *)(0x1000 - sizeof (real_mode_switch) - 100)));
+	do { } while (1);
 }
 #ifdef CONFIG_APM_MODULE
 EXPORT_SYMBOL(machine_real_restart);
@@ -535,7 +536,7 @@ void __attribute__((weak)) mach_reboot_fixups(void)
 {
 }
 
-static void native_machine_emergency_restart(void)
+__noreturn static void native_machine_emergency_restart(void)
 {
 	int i;
 
@@ -650,13 +651,13 @@ void native_machine_shutdown(void)
 #endif
 }
 
-static void __machine_emergency_restart(int emergency)
+static __noreturn void __machine_emergency_restart(int emergency)
 {
 	reboot_emergency = emergency;
 	machine_ops.emergency_restart();
 }
 
-static void native_machine_restart(char *__unused)
+static __noreturn void native_machine_restart(char *__unused)
 {
 	printk("machine restart\n");
 
@@ -665,7 +666,7 @@ static void native_machine_restart(char *__unused)
 	__machine_emergency_restart(0);
 }
 
-static void native_machine_halt(void)
+static __noreturn void native_machine_halt(void)
 {
 	/* stop other cpus and apics */
 	machine_shutdown();
@@ -676,7 +677,7 @@ static void native_machine_halt(void)
 	stop_this_cpu(NULL);
 }
 
-static void native_machine_power_off(void)
+__noreturn static void native_machine_power_off(void)
 {
 	if (pm_power_off) {
 		if (!reboot_force)
@@ -685,6 +686,7 @@ static void native_machine_power_off(void)
 	}
 	/* a fallback in case there is no PM info available */
 	tboot_shutdown(TB_SHUTDOWN_HALT);
+	do { } while (1);
 }
 
 struct machine_ops machine_ops = {

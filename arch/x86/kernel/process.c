@@ -327,7 +327,7 @@ void default_idle(void)
 EXPORT_SYMBOL(default_idle);
 #endif
 
-void stop_this_cpu(void *dummy)
+__noreturn void stop_this_cpu(void *dummy)
 {
 	local_irq_disable();
 	/*

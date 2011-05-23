@@ -195,12 +195,14 @@ static int __init setup_pax_nouderef(char *str)
 {
 #ifdef CONFIG_X86_32
 	unsigned int cpu;
+	struct desc_struct *gdt;
 
 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].type = 3;
-		get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_DS].limit = 0xf;
-		get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_CS].limit = 0xf;
-		get_cpu_gdt_table(cpu)[GDT_ENTRY_DEFAULT_USER_DS].limit = 0xf;
+		gdt = get_cpu_gdt_table(cpu);
+		gdt[GDT_ENTRY_KERNEL_DS].type = 3;
+		gdt[GDT_ENTRY_KERNEL_DS].limit = 0xf;
+		gdt[GDT_ENTRY_DEFAULT_USER_CS].limit = 0xf;
+		gdt[GDT_ENTRY_DEFAULT_USER_DS].limit = 0xf;
 	}
 	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
 #else

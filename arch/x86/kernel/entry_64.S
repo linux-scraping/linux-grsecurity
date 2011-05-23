@@ -379,6 +379,12 @@ ENTRY(pax_exit_kernel_user)
 ENDPROC(pax_exit_kernel_user)
 #endif
 
+	.macro pax_erase_kstack
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+	call pax_erase_kstack
+#endif
+	.endm
+
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 /*
  * r10: thread_info
@@ -812,6 +818,9 @@ auditsys:
 	movq %rax,%rsi			/* 2nd arg: syscall number */
 	movl $AUDIT_ARCH_X86_64,%edi	/* 1st arg: audit arch */
 	call audit_syscall_entry
+
+	pax_erase_kstack
+
 	LOAD_ARGS 0		/* reload call-clobbered registers */
 	jmp system_call_fastpath
 
@@ -842,6 +851,9 @@ tracesys:
 	FIXUP_TOP_OF_STACK %rdi
 	movq %rsp,%rdi
 	call syscall_trace_enter
+
+	pax_erase_kstack
+
 	/*
 	 * Reload arg registers from stack in case ptrace changed them.
 	 * We don't reload %rax because syscall_trace_enter() returned
