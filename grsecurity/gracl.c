@@ -73,7 +73,9 @@ static struct acl_role_label *kernel_role = NULL;
 static unsigned int gr_auth_attempts = 0;
 static unsigned long gr_auth_expires = 0UL;
 
+#ifdef CONFIG_NET
 extern struct vfsmount *sock_mnt;
+#endif
 extern struct vfsmount *pipe_mnt;
 extern struct vfsmount *shm_mnt;
 #ifdef CONFIG_HUGETLBFS
@@ -1814,7 +1816,10 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	spin_lock(&dcache_lock);
 	spin_lock(&vfsmount_lock);
 
-	if (unlikely((mnt == shm_mnt && dentry->d_inode->i_nlink == 0) || mnt == pipe_mnt || mnt == sock_mnt ||
+	if (unlikely((mnt == shm_mnt && dentry->d_inode->i_nlink == 0) || mnt == pipe_mnt || 
+#ifdef CONFIG_NET
+	    mnt == sock_mnt ||
+#endif
 #ifdef CONFIG_HUGETLBFS
 	    (mnt == hugetlbfs_vfsmount && dentry->d_inode->i_nlink == 0) ||
 #endif
