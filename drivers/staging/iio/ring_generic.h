@@ -134,7 +134,7 @@ struct iio_ring_buffer {
 	struct iio_handler		access_handler;
 	struct iio_event_interface	ev_int;
 	struct iio_shared_ev_pointer	shared_ev_pointer;
-	const struct iio_ring_access_funcs access;
+	struct iio_ring_access_funcs access;
 	int				(*preenable)(struct iio_dev *);
 	int				(*postenable)(struct iio_dev *);
 	int				(*predisable)(struct iio_dev *);
