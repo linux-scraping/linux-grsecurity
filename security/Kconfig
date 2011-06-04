@@ -475,6 +475,12 @@ config PAX_MEMORY_STACKLEAK
 	  and you are advised to test this feature on your expected workload
 	  before deploying it.
 
+	  Note: full support for this feature requires gcc with plugin support
+	  so make sure your compiler is at least gcc 4.5.0 (cross compilation
+	  is not supported).  Using older gcc versions means that functions
+	  with large enough stack frames may leave uninitialized memory behind
+	  that may be exposed to a later syscall leaking the stack.
+
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
 	depends on X86 && !UML_X86 && !XEN

@@ -63,6 +63,8 @@ struct thread_info {
 	struct pt_regs		*kern_una_regs;
 	unsigned int		kern_una_insn;
 
+	unsigned long		lowest_stack;
+
 	unsigned long		fpregs[0] __attribute__ ((aligned(64)));
 };
 

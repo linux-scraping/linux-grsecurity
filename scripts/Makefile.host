@@ -31,6 +31,7 @@
 # Note: Shared libraries consisting of C++ files are not supported
 
 __hostprogs := $(sort $(hostprogs-y) $(hostprogs-m))
+__hostlibs := $(sort $(hostlibs-y) $(hostlibs-m))
 
 # C code
 # Executables compiled from a single .c file
@@ -54,6 +55,7 @@ host-cxxobjs	:= $(sort $(foreach m,$(host-cxxmulti),$($(m)-cxxobjs)))
 # Shared libaries (only .c supported)
 # Shared libraries (.so) - all .so files referenced in "xxx-objs"
 host-cshlib	:= $(sort $(filter %.so, $(host-cobjs)))
+host-cshlib	+= $(sort $(filter %.so, $(__hostlibs)))
 # Remove .so files from "xxx-objs"
 host-cobjs	:= $(filter-out %.so,$(host-cobjs))
 

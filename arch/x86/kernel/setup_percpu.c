@@ -206,7 +206,7 @@ void __init setup_per_cpu_areas(void)
 	delta = (unsigned long)pcpu_base_addr - (unsigned long)__per_cpu_start;
 	for_each_possible_cpu(cpu) {
 #ifdef CONFIG_CC_STACKPROTECTOR
-#ifdef CONFIG_x86_32
+#ifdef CONFIG_X86_32
 		unsigned long canary = per_cpu(stack_canary, cpu);
 #endif
 #endif
@@ -251,7 +251,7 @@ void __init setup_per_cpu_areas(void)
 		set_cpu_numa_node(cpu, early_cpu_to_node(cpu));
 #endif
 #ifdef CONFIG_CC_STACKPROTECTOR
-#ifdef CONFIG_x86_32
+#ifdef CONFIG_X86_32
 		if (cpu == boot_cpu_id)
 			per_cpu(stack_canary, cpu) = canary;
 #endif

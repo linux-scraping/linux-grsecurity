@@ -1940,6 +1940,18 @@ void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char
 }
 #endif
 
+#if __GNUC__ == 4 && __GNUC_MINOR__ >= 5
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+void pax_track_stack_gcc(unsigned long sp)
+{
+	if (sp < current_thread_info()->lowest_stack &&
+	    sp > (unsigned long)task_stack_page(current))
+		current_thread_info()->lowest_stack = sp;
+}
+EXPORT_SYMBOL(pax_track_stack_gcc);
+#endif
+#endif
+
 static int zap_process(struct task_struct *start, int exit_code)
 {
 	struct task_struct *t;
