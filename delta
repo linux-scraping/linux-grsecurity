@@ -1,5 +1,5 @@
---- a/grsecurity-2.2.2-2.6.39.1-201106040846.patch
-+++ b/grsecurity-2.2.2-2.6.39.1-201106040846.patch
+--- a/grsecurity-2.2.2-2.6.39.1-201106041748.patch
++++ b/grsecurity-2.2.2-2.6.39.1-201106041748.patch
 @@ -1,261 +1,3 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index 470d3dba1a69aa48c55d98bea3c70d094f458de6..c5906b5239e6ea43e27146ac00195de0ed242839 100644
@@ -191,7 +191,7 @@
 - 
 - 	pcd.		[PARIDE]
 -diff --git a/Makefile b/Makefile
--index 045b186fa8efd7d889876a18773b1da9c8a10e2d..4686521fee0bf6dc7a8310623758dbc28317d18e 100644
+-index 045b186fa8efd7d889876a18773b1da9c8a10e2d..2ef8a43de79a5577f4efc3606fd921574ac7bc62 100644
 ---- a/Makefile
 -+++ b/Makefile
 -@@ -237,8 +237,9 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
@@ -236,7 +236,7 @@
 -+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 pax-plugin
 -+
 -+ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
--+KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(obj)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
+-+KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
 -+endif
 -+pax-plugin:
 -+ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
@@ -9305,12 +9305,12 @@
 ++++ linux-2.6.39.1/arch/x86/mm/extable.c	2011-05-22 19:36:30.000000000 -0400
 @@ -21643,4 +20924,3 @@
 -diff --git a/arch/x86/mm/fault.c b/arch/x86/mm/fault.c
--index 20e3f8702d1e5701b130d2891e23bf39fbe81663..cb6ea996351aa83a080fe6a27c7dcffc25f4dae9 100644
+-index 20e3f8702d1e5701b130d2891e23bf39fbe81663..15fc2ada5b33bb54c64cda5e7f32a925f754cd1b 100644
 ---- a/arch/x86/mm/fault.c
 -+++ b/arch/x86/mm/fault.c
 +diff -urNp linux-2.6.39.1/arch/x86/mm/fault.c linux-2.6.39.1/arch/x86/mm/fault.c
 +--- linux-2.6.39.1/arch/x86/mm/fault.c	2011-05-19 00:06:34.000000000 -0400
-++++ linux-2.6.39.1/arch/x86/mm/fault.c	2011-05-22 20:33:41.000000000 -0400
+++++ linux-2.6.39.1/arch/x86/mm/fault.c	2011-06-04 10:15:52.000000000 -0400
 @@ -21666 +20946 @@
 -@@ -53,7 +61,7 @@ static inline int __kprobes notify_page_fault(struct pt_regs *regs)
 +@@ -53,7 +61,7 @@ static inline int __kprobes notify_page_
@@ -10184,7 +10184,7 @@
 +@@ -151,9 +187,7 @@ notrace int __vdso_gettimeofday(struct t
 @@ -24574,18 +23816,3 @@
 -diff --git a/arch/x86/vdso/vdso.lds.S b/arch/x86/vdso/vdso.lds.S
--index 4e5dd3b4de7f64428db97c5ef7ef9c29ceecfbf6..00ba15ed1714b9633f749fcb47a9075841306e44 100644
+-index 4e5dd3b4de7f64428db97c5ef7ef9c29ceecfbf6..725cd3a02f3377f1c913a7beaa9dbec3c724f7de 100644
 ---- a/arch/x86/vdso/vdso.lds.S
 -+++ b/arch/x86/vdso/vdso.lds.S
 -@@ -35,3 +35,9 @@ VDSO64_PRELINK = VDSO_PRELINK;
@@ -10193,8 +10193,8 @@
 - #undef	VEXTERN
 -+
 -+#define VEXTERN(x)	VDSO64_ ## x = __vdso_ ## x;
--+VEXTERN(fallback_gettimeofday)
--+VEXTERN(fallback_time)
+-+VEXTERN(gettimeofday)
+-+VEXTERN(clock_gettime)
 -+VEXTERN(getcpu)
 -+#undef	VEXTERN
 -diff --git a/arch/x86/vdso/vdso32-setup.c b/arch/x86/vdso/vdso32-setup.c
@@ -10223,15 +10223,15 @@
 -+++ b/arch/x86/vdso/vextern.h
 +diff -urNp linux-2.6.39.1/arch/x86/vdso/vdso.lds.S linux-2.6.39.1/arch/x86/vdso/vdso.lds.S
 +--- linux-2.6.39.1/arch/x86/vdso/vdso.lds.S	2011-05-19 00:06:34.000000000 -0400
-++++ linux-2.6.39.1/arch/x86/vdso/vdso.lds.S	2011-05-22 19:36:30.000000000 -0400
+++++ linux-2.6.39.1/arch/x86/vdso/vdso.lds.S	2011-06-04 10:15:38.000000000 -0400
 +@@ -35,3 +35,9 @@ VDSO64_PRELINK = VDSO_PRELINK;
 + #define VEXTERN(x)	VDSO64_ ## x = vdso_ ## x;
 + #include "vextern.h"
 + #undef	VEXTERN
 ++
 ++#define VEXTERN(x)	VDSO64_ ## x = __vdso_ ## x;
-++VEXTERN(fallback_gettimeofday)
-++VEXTERN(fallback_time)
+++VEXTERN(gettimeofday)
+++VEXTERN(clock_gettime)
 ++VEXTERN(getcpu)
 ++#undef	VEXTERN
 +diff -urNp linux-2.6.39.1/arch/x86/vdso/vextern.h linux-2.6.39.1/arch/x86/vdso/vextern.h
@@ -31404,7 +31404,7 @@
 -@@ -1724,7 +1724,7 @@ int generic_file_mmap(struct file * file, struct vm_area_struct * vma)
 +diff -urNp linux-2.6.39.1/Makefile linux-2.6.39.1/Makefile
 +--- linux-2.6.39.1/Makefile	2011-06-03 00:04:13.000000000 -0400
-++++ linux-2.6.39.1/Makefile	2011-06-03 01:27:33.000000000 -0400
+++++ linux-2.6.39.1/Makefile	2011-06-04 17:40:47.000000000 -0400
 +@@ -237,8 +237,9 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH"
 + 
 + HOSTCC       = gcc
@@ -31447,7 +31447,7 @@
 ++PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 pax-plugin
 ++
 ++ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-++KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(obj)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
+++KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
 ++endif
 ++pax-plugin:
 ++ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
