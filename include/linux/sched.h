@@ -1628,17 +1628,11 @@ void pax_report_insns(void *pc, void *sp);
 void pax_report_refcount_overflow(struct pt_regs *regs);
 void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
 
-static inline void pax_track_stack(void)
-{
-#if __GNUC__ <= 3 || (__GNUC__ == 4 && __GNUC_MINOR__ < 5)
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	unsigned long sp = current_stack_pointer;
-	if (current_thread_info()->lowest_stack > sp &&
-	    (unsigned long)task_stack_page(current) < sp)
-		current_thread_info()->lowest_stack = sp;
+extern void pax_track_stack(void);
+#else
+static inline void pax_track_stack(void) {}
 #endif
-#endif
-}
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)

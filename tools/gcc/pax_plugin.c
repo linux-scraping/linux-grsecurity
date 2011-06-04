@@ -37,7 +37,7 @@
 int plugin_is_GPL_compatible;
 
 static int track_frame_size = -1;
-static const char track_function[] = "pax_track_stack_gcc";
+static const char track_function[] = "pax_track_stack";
 static bool init_locals;
 
 static struct plugin_info pax_plugin_info = {
@@ -48,7 +48,6 @@ static struct plugin_info pax_plugin_info = {
 
 static bool gate_pax_track_stack(void);
 static unsigned int execute_pax_tree_instrument(void);
-static unsigned int execute_pax_expand(void);
 static unsigned int execute_pax_final(void);
 
 static struct gimple_opt_pass pax_tree_instrument_pass = {
@@ -66,24 +65,6 @@ static struct gimple_opt_pass pax_tree_instrument_pass = {
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
 		.todo_flags_finish	= TODO_verify_stmts // | TODO_dump_func
-	}
-};
-
-static struct rtl_opt_pass pax_expand_rtl_opt_pass = {
-	.pass = {
-		.type			= RTL_PASS,
-		.name			= "pax_expand",
-		.gate			= gate_pax_track_stack,
-		.execute		= execute_pax_expand,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= 0 //TODO_dump_func | TODO_ggc_collect
 	}
 };
 
@@ -113,13 +94,13 @@ static bool gate_pax_track_stack(void)
 static void pax_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
 {
 	gimple call;
-	tree sp, decl, type;
+	tree decl, type;
 
-	sp = build_int_cst_wide(ptr_type_node, 0, 0);
-	type = build_function_type_list(void_type_node, unsigned_type_node, NULL_TREE);
+	// insert call to void pax_track_stack(void)
+	type = build_function_type_list(void_type_node, NULL_TREE);
 	decl = build_fn_decl(track_function, type);
 	DECL_ASSEMBLER_NAME(decl); // for LTO
-	call = gimple_build_call(decl, 1, sp);
+	call = gimple_build_call(decl, 0);
 	if (before)
 		gsi_insert_before(gsi, call, GSI_CONTINUE_LINKING);
 	else
@@ -130,7 +111,6 @@ static unsigned int execute_pax_tree_instrument(void)
 {
 	basic_block bb;
 	gimple_stmt_iterator gsi;
-	bool isalloca = false;
 
 	// 1. loop through BBs and GIMPLE statements
 	FOR_EACH_BB(bb) {
@@ -153,18 +133,13 @@ static unsigned int execute_pax_tree_instrument(void)
 			if (DECL_FUNCTION_CODE(decl) != BUILT_IN_ALLOCA)
 				continue;
 
-			// 3. insert track call after each __builtin_alloca call
+			// 2. insert track call after each __builtin_alloca call
 			pax_add_instrumentation(&gsi, false);
-			isalloca = true;
 //			print_node(stderr, "pax", decl, 4);
 		}
 	}
 
-	// 2. if no __builtin_alloca call is found
-	if (isalloca)
-		return 0;
-
-	// 2.1 insert track call at the beginning
+	// 3. insert track call at the beginning
 	bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun)->next_bb;
 	gsi = gsi_start_bb(bb);
 	pax_add_instrumentation(&gsi, true);
@@ -172,9 +147,12 @@ static unsigned int execute_pax_tree_instrument(void)
 	return 0;
 }
 
-static unsigned int execute_pax_expand(void)
+static unsigned int execute_pax_final(void)
 {
-	rtx sp, insn;
+	rtx insn;
+
+	if (cfun->calls_alloca)
+		return 0;
 
 	// 1. find pax_track_stack calls
 	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
@@ -194,66 +172,16 @@ static unsigned int execute_pax_expand(void)
 			continue;
 		if (strcmp(XSTR(body, 0), track_function))
 			continue;
-		// 2. fix parameter to be the stack pointer
-		// rtl match: (insn 6 5 7 3 (set (mem (reg 56 virtual-outgoing-args) [0 S4 A32]) (0)) -1 (nil))
-		//            (insn 6 5 7 3 (set (reg 0 ax) (0)) -1 (nil))
-		//            (insn 6 5 7 3 (set (reg 5 di) (0)) -1 (nil))
-		sp = PREV_INSN(insn);
-		if (!INSN_P(sp))
+//		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
+		// 2. delete call if function frame is not big enough
+		if (get_frame_size() >= track_frame_size)
 			continue;
-		sp = PATTERN(sp);
-		if (GET_CODE(sp) != SET)
-			continue;
-		SET_SRC(sp) = stack_pointer_rtx;
+		delete_insn_and_edges(insn);
 	}
 
 //	print_simple_rtl(stderr, get_insns());
 //	print_rtl(stderr, get_insns());
 //	warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
-
-	return 0;
-}
-
-static unsigned int execute_pax_final(void)
-{
-	rtx sp = NULL, insn;
-
-	// 1. find pax_track_stack calls
-	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
-		// rtl match: (call_insn 8 7 9 3 (call (mem (symbol_ref ("pax_track_stack") [flags 0x41] <function_decl 0xb7470e80 pax_track_stack>) [0 S1 A8]) (4)) -1 (nil) (nil))
-		rtx body;
-
-		if (!INSN_P(insn))
-			continue;
-		body = PATTERN(insn);
-		if (GET_CODE(body) == SET) {
-			if (GET_CODE(body) == SET && SET_SRC(body) == stack_pointer_rtx)
-				sp = insn;
-			continue;
-		}
-
-		if (!CALL_P(insn))
-			continue;
-		if (GET_CODE(body) != CALL)
-			continue;
-		body = XEXP(body, 0);
-		if (GET_CODE(body) != MEM)
-			continue;
-		body = XEXP(body, 0);
-		if (GET_CODE(body) != SYMBOL_REF)
-			continue;
-		if (strcmp(XSTR(body, 0), track_function))
-			continue;
-//	warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
-		// 2. delete call if function frame is not big enough
-		if (cfun->calls_alloca)
-			continue;
-		if (get_frame_size() >= track_frame_size)
-			continue;
-		if (sp)
-			delete_insn_and_edges(sp);
-		delete_insn_and_edges(insn);
-	}
 
 	return 0;
 }
@@ -268,12 +196,6 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		.pass				= &pax_tree_instrument_pass.pass,
 //		.reference_pass_name		= "tree_profile",
 		.reference_pass_name		= "optimized",
-		.ref_pass_instance_number	= 0,
-		.pos_op 			= PASS_POS_INSERT_AFTER
-	};
-	struct register_pass_info pax_expand_pass_info = {
-		.pass				= &pax_expand_rtl_opt_pass.pass,
-		.reference_pass_name		= "expand",
 		.ref_pass_instance_number	= 0,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
@@ -314,7 +236,6 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pax_tree_instrument_pass_info);
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pax_expand_pass_info);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pax_final_pass_info);
 
 	return 0;
