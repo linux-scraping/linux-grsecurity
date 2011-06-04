@@ -937,7 +937,7 @@ include/config/kernel.release: include/config/auto.conf FORCE
 PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 pax-plugin
 
 ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(obj)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
+KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
 endif
 pax-plugin:
 ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))

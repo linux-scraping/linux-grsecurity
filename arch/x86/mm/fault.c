@@ -784,10 +784,10 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 #ifdef CONFIG_X86_64
 	if (mm && (error_code & PF_INSTR) && mm->context.vdso) {
 		if (regs->ip == (unsigned long)vgettimeofday) {
-			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_gettimeofday);
+			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, gettimeofday);
 			return;
 		} else if (regs->ip == (unsigned long)vtime) {
-			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_time);
+			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, clock_gettime);
 			return;
 		} else if (regs->ip == (unsigned long)vgetcpu) {
 			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, getcpu);
