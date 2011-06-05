@@ -109,16 +109,14 @@ ENDPROC(native_irq_enable_sysexit)
 	call pax_randomize_kstack
 	popq %rax
 #endif
-#ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call pax_erase_kstack
-#endif
+	pax_erase_kstack
 	.endm
 
-	.macro pax_erase_kstack
+.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 	call pax_erase_kstack
 #endif
-	.endm
+.endm
 
 /*
  * 32bit SYSENTER instruction entry.

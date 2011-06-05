@@ -1384,13 +1384,18 @@ static ssize_t aio_fsync(struct kiocb *iocb)
 static ssize_t aio_setup_vectored_rw(int type, struct kiocb *kiocb)
 {
 	ssize_t ret;
+	struct iovec iovstack;
 
 	ret = rw_copy_check_uvector(type, (struct iovec __user *)kiocb->ki_buf,
 				    kiocb->ki_nbytes, 1,
-				    &kiocb->ki_inline_vec, &kiocb->ki_iovec);
+				    &iovstack, &kiocb->ki_iovec);
 	if (ret < 0)
 		goto out;
 
+	if (kiocb->ki_iovec == &iovstack) {
+		kiocb->ki_inline_vec = iovstack;
+		kiocb->ki_iovec = &kiocb->ki_inline_vec;
+	}
 	kiocb->ki_nr_segs = kiocb->ki_nbytes;
 	kiocb->ki_cur_seg = 0;
 	/* ki_nbytes/left now reflect bytes instead of segs */

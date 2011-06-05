@@ -459,6 +459,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_STACKLEAK
 	bool "Sanitize kernel stack"
+	depends on X86
 	help
 	  By saying Y here the kernel will erase the kernel stack before it
 	  returns from a system call.  This in turn reduces the information
@@ -473,6 +474,12 @@ config PAX_MEMORY_STACKLEAK
 	  compilation sees a 1% slowdown, other systems and workloads may vary
 	  and you are advised to test this feature on your expected workload
 	  before deploying it.
+
+	  Note: full support for this feature requires gcc with plugin support
+	  so make sure your compiler is at least gcc 4.5.0 (cross compilation
+	  is not supported).  Using older gcc versions means that functions
+	  with large enough stack frames may leave uninitialized memory behind
+	  that may be exposed to a later syscall leaking the stack.
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
