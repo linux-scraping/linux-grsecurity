@@ -1555,7 +1555,7 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
 		    || in_group_p(CONFIG_GRKERNSEC_PROC_GID)
 #endif
-		)
+		) {
 #endif
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 #ifdef CONFIG_GRKERNSEC_PROC_USER
@@ -1571,6 +1571,12 @@ static int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat
 			stat->gid = cred->egid;
 #endif
 		}
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+		} else {
+			rcu_read_unlock();
+			return -ENOENT;
+		}
+#endif
 	}
 	rcu_read_unlock();
 	return 0;
