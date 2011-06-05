@@ -207,7 +207,7 @@ void __init setup_per_cpu_areas(void)
 	for_each_possible_cpu(cpu) {
 #ifdef CONFIG_CC_STACKPROTECTOR
 #ifdef CONFIG_X86_32
-		unsigned long canary = per_cpu(stack_canary, cpu);
+		unsigned long canary = per_cpu(stack_canary.canary, cpu);
 #endif
 #endif
 		per_cpu_offset(cpu) = delta + pcpu_unit_offsets[cpu];
@@ -252,8 +252,8 @@ void __init setup_per_cpu_areas(void)
 #endif
 #ifdef CONFIG_CC_STACKPROTECTOR
 #ifdef CONFIG_X86_32
-		if (cpu == boot_cpu_id)
-			per_cpu(stack_canary, cpu) = canary;
+		if (!cpu)
+			per_cpu(stack_canary.canary, cpu) = canary;
 #endif
 #endif
 		/*
