@@ -37,7 +37,7 @@ VDSO64_PRELINK = VDSO_PRELINK;
 #undef	VEXTERN
 
 #define VEXTERN(x)	VDSO64_ ## x = __vdso_ ## x;
-VEXTERN(gettimeofday)
-VEXTERN(clock_gettime)
+VEXTERN(fallback_gettimeofday)
+VEXTERN(fallback_time)
 VEXTERN(getcpu)
 #undef	VEXTERN
