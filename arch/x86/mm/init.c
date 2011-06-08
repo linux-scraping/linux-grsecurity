@@ -325,22 +325,27 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
  * Access has to be given to non-kernel-ram areas as well, these contain the PCI
  * mmio resources as well as potential bios/acpi data regions.
  */
+
 int devmem_is_allowed(unsigned long pagenr)
 {
-#ifndef CONFIG_GRKERNSEC_KMEM
+#ifdef CONFIG_GRKERNSEC_KMEM
+	/* allow BDA */
 	if (!pagenr)
 		return 1;
-#ifdef CONFIG_VM86
-	if (pagenr < (ISA_START_ADDRESS >> PAGE_SHIFT))
+	/* allow EBDA */
+	if ((0x9f000 >> PAGE_SHIFT) == pagenr)
 		return 1;
-#endif
-#else
-	if (pagenr < (ISA_START_ADDRESS >> PAGE_SHIFT))
-		return 0;
-#endif
-
+	/* allow ISA/video mem */
 	if ((ISA_START_ADDRESS >> PAGE_SHIFT) <= pagenr && pagenr < (ISA_END_ADDRESS >> PAGE_SHIFT))
 		return 1;
+	/* throw out everything else below 1MB */
+	if (pagenr <= 256)
+		return 0;
+#else
+	if (pagenr <= 256)
+		return 1;
+#endif
+
 	if (iomem_is_exclusive(pagenr << PAGE_SHIFT))
 		return 0;
 	if (!page_is_ram(pagenr))
