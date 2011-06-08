@@ -2572,7 +2572,7 @@ struct ixgbe_phy_operations {
 };
 
 struct ixgbe_eeprom_info {
-	struct ixgbe_eeprom_operations ops;
+	struct ixgbe_eeprom_operations  ops;
 	enum ixgbe_eeprom_type          type;
 	u32                             semaphore_delay;
 	u16                             word_size;
@@ -2581,7 +2581,7 @@ struct ixgbe_eeprom_info {
 
 #define IXGBE_FLAGS_DOUBLE_RESET_REQUIRED	0x01
 struct ixgbe_mac_info {
-	struct ixgbe_mac_operations ops;
+	struct ixgbe_mac_operations     ops;
 	enum ixgbe_mac_type             type;
 	u8                              addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
 	u8                              perm_addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
@@ -2608,7 +2608,7 @@ struct ixgbe_mac_info {
 };
 
 struct ixgbe_phy_info {
-	struct ixgbe_phy_operations ops;
+	struct ixgbe_phy_operations     ops;
 	struct mdio_if_info		mdio;
 	enum ixgbe_phy_type             type;
 	u32                             id;

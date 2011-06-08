@@ -834,7 +834,7 @@ struct vxge_hw_device_hw_info {
 struct vxge_hw_device_attr {
 	void __iomem		*bar0;
 	struct pci_dev 		*pdev;
-	struct vxge_hw_uld_cbs uld_callbacks;
+	struct vxge_hw_uld_cbs	uld_callbacks;
 };
 
 #define VXGE_HW_DEVICE_LINK_STATE_SET(hldev, ls)	(hldev->link_state = ls)

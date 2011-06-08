@@ -520,8 +520,8 @@ struct nouveau_vram_engine {
 
 struct nouveau_engine {
 	struct nouveau_instmem_engine instmem;
-	struct nouveau_mc_engine mc;
-	struct nouveau_timer_engine timer;
+	struct nouveau_mc_engine      mc;
+	struct nouveau_timer_engine   timer;
 	struct nouveau_fb_engine      fb;
 	struct nouveau_pgraph_engine  graph;
 	struct nouveau_fifo_engine    fifo;
@@ -529,7 +529,7 @@ struct nouveau_engine {
 	struct nouveau_gpio_engine    gpio;
 	struct nouveau_pm_engine      pm;
 	struct nouveau_crypt_engine   crypt;
-	struct nouveau_vram_engine vram;
+	struct nouveau_vram_engine    vram;
 };
 
 struct nouveau_pll_vals {

@@ -753,7 +753,9 @@ struct ath_hw {
 	} enable_32kHz_clock;
 
 	/* Private to hardware code */
-	struct ath_hw_private_ops private_ops;struct ath_hw_ops ops;
+	struct ath_hw_private_ops private_ops;
+	/* Accessed by the lower level driver */
+	struct ath_hw_ops ops;
 
 	/* Used to program the radio on non single-chip devices */
 	u32 *analogBank0Data;

@@ -369,6 +369,7 @@ static const struct ocfs2_stack_operations o2cb_stack_ops = {
 	.lock_lvb	= o2cb_dlm_lvb,
 	.dump_lksb	= o2cb_dump_lksb,
 };
+
 static struct ocfs2_stack_plugin o2cb_stack = {
 	.sp_name	= "o2cb",
 	.sp_ops		= &o2cb_stack_ops,
