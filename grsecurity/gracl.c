@@ -82,7 +82,8 @@ extern struct vfsmount *shm_mnt;
 extern struct vfsmount *hugetlbfs_vfsmount;
 #endif
 
-static struct acl_object_label *fakefs_obj;
+static struct acl_object_label *fakefs_obj_rw;
+static struct acl_object_label *fakefs_obj_rwx;
 
 extern int gr_init_uidset(void);
 extern void gr_free_uidset(void);
@@ -826,10 +827,15 @@ init_variables(const struct gr_arg *arg)
 	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(real_root.dentry), real_root.dentry->d_inode->i_ino);
 #endif
 
-	fakefs_obj = acl_alloc(sizeof(struct acl_object_label));
-	if (fakefs_obj == NULL)
+	fakefs_obj_rw = acl_alloc(sizeof(struct acl_object_label));
+	if (fakefs_obj_rw == NULL)
 		return 1;
-	fakefs_obj->mode = GR_FIND | GR_READ | GR_WRITE | GR_EXEC;
+	fakefs_obj_rw->mode = GR_FIND | GR_READ | GR_WRITE;
+
+	fakefs_obj_rwx = acl_alloc(sizeof(struct acl_object_label));
+	if (fakefs_obj_rwx == NULL)
+		return 1;
+	fakefs_obj_rwx->mode = GR_FIND | GR_READ | GR_WRITE | GR_EXEC;
 
 	subj_map_set.s_hash =
 	    (struct subject_map **) create_table(&subj_map_set.s_size, sizeof(void *));
@@ -1838,7 +1844,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 #endif
 		/* ignore Eric Biederman */
 	    IS_PRIVATE(l_dentry->d_inode))) {
-		retval = fakefs_obj;
+		retval = (subj->mode & GR_SHMEXEC) ? fakefs_obj_rwx : fakefs_obj_rw;
 		goto out;
 	}
 
