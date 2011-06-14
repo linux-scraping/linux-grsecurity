@@ -2244,6 +2244,8 @@ static inline struct reg_window *kernel_stack_up(struct reg_window *rw)
 	return (struct reg_window *) (fp + STACK_BIAS);
 }
 
+extern void gr_handle_kernel_exploit(void);
+
 void die_if_kernel(char *str, struct pt_regs *regs)
 {
 	static int die_counter;
@@ -2284,8 +2286,11 @@ void die_if_kernel(char *str, struct pt_regs *regs)
 		}
 		user_instruction_dump ((unsigned int __user *) regs->tpc);
 	}
-	if (regs->tstate & TSTATE_PRIV)
+	if (regs->tstate & TSTATE_PRIV) {
+		gr_handle_kernel_exploit();		
 		do_exit(SIGKILL);
+	}
+
 	do_exit(SIGSEGV);
 }
 EXPORT_SYMBOL(die_if_kernel);

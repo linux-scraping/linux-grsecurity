@@ -140,7 +140,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_MODHARDEN if (MODULES)
 	select GRKERNSEC_HARDEN_PTRACE
 	select GRKERNSEC_VM86 if (X86_32)
-	select GRKERNSEC_KERN_LOCKOUT if (X86)
+	select GRKERNSEC_KERN_LOCKOUT if (X86 || ARM || PPC || SPARC32 || SPARC64)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -340,7 +340,7 @@ config GRKERNSEC_HIDESYM
 
 config GRKERNSEC_KERN_LOCKOUT
 	bool "Active kernel exploit response"
-	depends on X86
+	depends on X86 || ARM || PPC || SPARC32 || SPARC64
 	help
 	  If you say Y here, when a PaX alert is triggered due to suspicious
 	  activity in the kernel (from KERNEXEC/UDEREF/USERCOPY)

@@ -44,6 +44,8 @@ static void instruction_dump(unsigned long *pc)
 #define __SAVE __asm__ __volatile__("save %sp, -0x40, %sp\n\t")
 #define __RESTORE __asm__ __volatile__("restore %g0, %g0, %g0\n\t")
 
+extern void gr_handle_kernel_exploit(void);
+
 void die_if_kernel(char *str, struct pt_regs *regs)
 {
 	static int die_counter;
@@ -83,8 +85,10 @@ void die_if_kernel(char *str, struct pt_regs *regs)
 	}
 	printk("Instruction DUMP:");
 	instruction_dump ((unsigned long *) regs->pc);
-	if(regs->psr & PSR_PS)
+	if(regs->psr & PSR_PS) {
+		gr_handle_kernel_exploit();
 		do_exit(SIGKILL);
+	}
 	do_exit(SIGSEGV);
 }
 
