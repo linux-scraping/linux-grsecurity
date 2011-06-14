@@ -96,6 +96,8 @@ static void pmac_backlight_unblank(void)
 static inline void pmac_backlight_unblank(void) { }
 #endif
 
+extern void gr_handle_kernel_exploit(void);
+
 int die(const char *str, struct pt_regs *regs, long err)
 {
 	static struct {
@@ -169,6 +171,8 @@ int die(const char *str, struct pt_regs *regs, long err)
 
 	if (panic_on_oops)
 		panic("Fatal exception");
+
+	gr_handle_kernel_exploit();
 
 	oops_exit();
 	do_exit(err);

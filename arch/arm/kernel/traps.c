@@ -258,6 +258,8 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_SPINLOCK(die_lock);
 
+extern void gr_handle_kernel_exploit(void);
+
 /*
  * This function is protected against re-entrancy.
  */
@@ -285,6 +287,9 @@ void die(const char *str, struct pt_regs *regs, int err)
 		panic("Fatal exception in interrupt");
 	if (panic_on_oops)
 		panic("Fatal exception");
+
+	gr_handle_kernel_exploit();
+
 	if (ret != NOTIFY_STOP)
 		do_exit(SIGSEGV);
 }
