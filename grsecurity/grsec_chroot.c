@@ -292,7 +292,7 @@ gr_handle_chroot_mount(const struct dentry *dentry,
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_MOUNT
 	if (grsec_enable_chroot_mount && proc_is_chrooted(current)) {
-		gr_log_str_fs(GR_DONT_AUDIT, GR_MOUNT_CHROOT_MSG, dev_name, dentry, mnt);
+		gr_log_str_fs(GR_DONT_AUDIT, GR_MOUNT_CHROOT_MSG, dev_name ? dev_name : "none" , dentry, mnt);
 		return -EPERM;
 	}
 #endif
