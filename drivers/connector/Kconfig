@@ -1,7 +1,7 @@
 
 menuconfig CONNECTOR
 	tristate "Connector - unified userspace <-> kernelspace linker"
-	depends on NET && !GRKERNSEC
+	depends on NET
 	---help---
 	  This is unified userspace <-> kernelspace connector working on top
 	  of the netlink socket protocol.
@@ -13,7 +13,7 @@ if CONNECTOR
 
 config PROC_EVENTS
 	boolean "Report process events to userspace"
-	depends on CONNECTOR=y && !GRKERNSEC
+	depends on CONNECTOR=y
 	default y
 	---help---
 	  Provide a connector that reports process events to userspace. Send
