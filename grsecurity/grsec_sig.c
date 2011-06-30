@@ -89,6 +89,9 @@ void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	uid_t uid = 0;
 
+	if (!grsec_enable_brute)
+		return;
+
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);

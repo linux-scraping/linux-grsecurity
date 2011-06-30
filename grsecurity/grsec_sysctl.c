@@ -43,6 +43,15 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_BRUTE
+	{
+		.procname	= "deter_bruteforce",
+		.data		= &grsec_enable_brute,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_FIFO
 	{
 		.procname	= "fifo_restrictions",

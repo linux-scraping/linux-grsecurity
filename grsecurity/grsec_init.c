@@ -7,6 +7,7 @@
 #include <linux/percpu.h>
 #include <linux/module.h>
 
+int grsec_enable_brute;
 int grsec_enable_link;
 int grsec_enable_dmesg;
 int grsec_enable_harden_ptrace;
@@ -170,6 +171,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_LINK
 	grsec_enable_link = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_BRUTE
+	grsec_enable_brute = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_DMESG
 	grsec_enable_dmesg = 1;

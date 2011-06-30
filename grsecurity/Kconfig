@@ -76,7 +76,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_ASLR
 	select PAX_RANDMMAP
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || SPARC32 || SPARC64 || PPC) && (SLAB || SLUB || SLOB))
+	select PAX_USERCOPY if ((X86 || SPARC || PPC || ARM) && (SLAB || SLUB))
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -140,7 +140,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_MODHARDEN if (MODULES)
 	select GRKERNSEC_HARDEN_PTRACE
 	select GRKERNSEC_VM86 if (X86_32)
-	select GRKERNSEC_KERN_LOCKOUT if (X86 || ARM || PPC || SPARC32 || SPARC64)
+	select GRKERNSEC_KERN_LOCKOUT if (X86 || ARM || PPC || SPARC)
 	select PAX
 	select PAX_RANDUSTACK
 	select PAX_ASLR
@@ -155,13 +155,13 @@ config GRKERNSEC_HIGH
 	select PAX_RANDKSTACK if (X86_TSC && X86)
 	select PAX_SEGMEXEC if (X86_32)
 	select PAX_PAGEEXEC
-	select PAX_EMUPLT if (ALPHA || PARISC || SPARC32 || SPARC64)
+	select PAX_EMUPLT if (ALPHA || PARISC || SPARC)
 	select PAX_EMUTRAMP if (PARISC)
 	select PAX_EMUSIGRT if (PARISC)
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
 	select PAX_ELFRELOCS if (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || PPC || SPARC32 || SPARC64) && (SLAB || SLUB || SLOB))
+	select PAX_USERCOPY if ((X86 || PPC || SPARC || ARM) && (SLAB || SLUB))
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks
@@ -291,6 +291,9 @@ config GRKERNSEC_BRUTE
 	  It is recommended that you also enable signal logging in the auditing
 	  section so that logs are generated when a process triggers a suspicious
 	  signal.
+	  If the sysctl option is enabled, a sysctl option with name
+	  "deter_bruteforce" is created.
+
 
 config GRKERNSEC_MODHARDEN
 	bool "Harden module auto-loading"
@@ -340,7 +343,7 @@ config GRKERNSEC_HIDESYM
 
 config GRKERNSEC_KERN_LOCKOUT
 	bool "Active kernel exploit response"
-	depends on X86 || ARM || PPC || SPARC32 || SPARC64
+	depends on X86 || ARM || PPC || SPARC
 	help
 	  If you say Y here, when a PaX alert is triggered due to suspicious
 	  activity in the kernel (from KERNEXEC/UDEREF/USERCOPY)
