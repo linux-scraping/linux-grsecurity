@@ -19,7 +19,7 @@
 
 #define PAGE_SHIFT 12
 
-/* Prototype: int __copy_to_user(void *to, const char *from, size_t n)
+/* Prototype: int ___copy_to_user(void *to, const char *from, size_t n)
  * Purpose  : copy a block to user memory from kernel memory
  * Params   : to   - user memory
  *          : from - kernel memory
@@ -39,7 +39,7 @@ USER(		strgtbt	r3, [r0], #1)			@ May fault
 		sub	r2, r2, ip
 		b	.Lc2u_dest_aligned
 
-ENTRY(__copy_to_user)
+ENTRY(___copy_to_user)
 		stmfd	sp!, {r2, r4 - r7, lr}
 		cmp	r2, #4
 		blt	.Lc2u_not_enough
@@ -277,14 +277,14 @@ USER(		strgebt	r3, [r0], #1)			@ May fault
 		ldrgtb	r3, [r1], #0
 USER(		strgtbt	r3, [r0], #1)			@ May fault
 		b	.Lc2u_finished
-ENDPROC(__copy_to_user)
+ENDPROC(___copy_to_user)
 
 		.section .fixup,"ax"
 		.align	0
 9001:		ldmfd	sp!, {r0, r4 - r7, pc}
 		.previous
 
-/* Prototype: unsigned long __copy_from_user(void *to,const void *from,unsigned long n);
+/* Prototype: unsigned long ___copy_from_user(void *to,const void *from,unsigned long n);
  * Purpose  : copy a block from user memory to kernel memory
  * Params   : to   - kernel memory
  *          : from - user memory
@@ -303,7 +303,7 @@ USER(		ldrgtbt	r3, [r1], #1)			@ May fault
 		sub	r2, r2, ip
 		b	.Lcfu_dest_aligned
 
-ENTRY(__copy_from_user)
+ENTRY(___copy_from_user)
 		stmfd	sp!, {r0, r2, r4 - r7, lr}
 		cmp	r2, #4
 		blt	.Lcfu_not_enough
@@ -543,7 +543,7 @@ USER(		ldrgebt	r3, [r1], #1)			@ May fault
 USER(		ldrgtbt	r3, [r1], #1)			@ May fault
 		strgtb	r3, [r0], #1
 		b	.Lcfu_finished
-ENDPROC(__copy_from_user)
+ENDPROC(___copy_from_user)
 
 		.section .fixup,"ax"
 		.align	0

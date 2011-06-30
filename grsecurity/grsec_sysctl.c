@@ -45,6 +45,16 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_BRUTE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "deter_bruteforce",
+		.data		= &grsec_enable_brute,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_FIFO
 	{
 		.ctl_name	= CTL_UNNUMBERED,
