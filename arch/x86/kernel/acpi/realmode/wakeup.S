@@ -94,6 +94,9 @@ wakeup_code:
 	/* Do any other stuff... */
 
 #ifndef CONFIG_64BIT
+	/* Recheck NX bit overrides (64bit path does this in trampoline */
+	call	verify_cpu
+
 	/* This could also be done in C code... */
 	movl	pmode_cr3, %eax
 	movl	%eax, %cr3
@@ -117,6 +120,7 @@ wakeup_code:
 	movl	pmode_cr0, %eax
 	movl	%eax, %cr0
 	jmp	pmode_return
+# include "../../verify_cpu.S"
 #else
 	pushw	$0
 	pushw	trampoline_segment
