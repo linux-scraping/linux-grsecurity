@@ -97,6 +97,8 @@ __HEAD
 #endif
 
 ENTRY(startup_32)
+	movl pa(stack_start),%ecx
+
 	/* test KEEP_SEGMENTS flag to see if the bootloader is asking
 		us to not reload segments */
 	testb $(1<<6), BP_loadflags(%esi)
@@ -111,7 +113,9 @@ ENTRY(startup_32)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+	movl %eax,%ss
 2:
+	leal -__PAGE_OFFSET(%ecx),%esp
 
 #ifdef CONFIG_SMP
 	movl $pa(cpu_gdt_table),%edi
@@ -343,6 +347,9 @@ ENTRY(startup_32_smp)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
+	movl pa(stack_start),%ecx
+	movl %eax,%ss
+	leal -__PAGE_OFFSET(%ecx),%esp
 #endif /* CONFIG_SMP */
 3:
 
@@ -377,6 +384,10 @@ ENTRY(startup_32_smp)
 	cpuid
 	cmpl $0x80000000, %eax
 	jbe 6f
+
+	/* Clear bogus XD_DISABLE bits */
+	call verify_cpu
+
 	mov $0x80000001, %eax
 	cpuid
 	/* Execute Disable bit supported? */
@@ -407,8 +418,8 @@ ENTRY(startup_32_smp)
 	movl %eax,%cr0		/* ..and set paging (PG) bit */
 	ljmp $__BOOT_CS,$1f	/* Clear prefetch and normalize %eip */
 1:
-	/* Set up the stack pointer */
-	lss stack_start,%esp
+	/* Shift the stack pointer to a virtual address */
+	addl $__PAGE_OFFSET, %esp
 
 /*
  * Initialize eflags.  Some BIOS's leave bits like NT set.  This would
@@ -420,7 +431,7 @@ ENTRY(startup_32_smp)
 
 #ifdef CONFIG_SMP
 	cmpb $0, ready
-	jnz checkCPUtype		/* Initial CPU cleans BSS */
+	jnz checkCPUtype
 #endif /* CONFIG_SMP */
 
 /*
@@ -535,10 +546,7 @@ is386:	movl $2,%ecx		# set MP
 
 	cld			# gcc2 wants the direction flag cleared at all times
 	pushl $0		# fake return address for unwinder
-#ifdef CONFIG_SMP
-	movb ready, %cl
 	movb $1, ready
-#endif /* CONFIG_SMP */
 	jmp *(initial_code)
 
 /*
@@ -677,6 +685,8 @@ ignore_int:
 #endif
 	iret
 
+#include "verify_cpu.S"
+
 	__REFDATA
 .align 4
 ENTRY(initial_code)
@@ -757,9 +767,9 @@ ENTRY(cpu_pgd)
 #endif
 
 .data
+.balign 4
 ENTRY(stack_start)
 	.long init_thread_union+THREAD_SIZE-8
-	.long __BOOT_DS
 
 ready:	.byte 0
 
