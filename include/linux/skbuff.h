@@ -1367,7 +1367,7 @@ static inline int skb_network_offset(const struct sk_buff *skb)
  * headroom, you should not reduce this.
  */
 #ifndef NET_SKB_PAD
-#define NET_SKB_PAD	(_AC(32,U))
+#define NET_SKB_PAD	(_AC(32,UL))
 #endif
 
 extern int ___pskb_trim(struct sk_buff *skb, unsigned int len);

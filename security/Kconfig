@@ -522,7 +522,7 @@ config PAX_REFCOUNT
 config PAX_USERCOPY
 	bool "Harden heap object copies between kernel and userland"
 	depends on X86 || PPC || SPARC || ARM
-	depends on GRKERNSEC && (SLAB || SLUB)
+	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	help
 	  By saying Y here the kernel will enforce the size of heap objects
 	  when they are copied in either direction between the kernel and

@@ -375,12 +375,25 @@ export MODVERDIR := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_ve
 RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
 export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exclude CVS --exclude .pc --exclude .hg --exclude .git
 
+ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
+KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
+endif
+PHONY += pax_plugin
+pax-plugin:
+ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
+	$(Q)$(MAKE) $(build)=tools/gcc
+else
+ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
+	$(Q)echo "warning, your gcc does not support plugins, PAX_MEMORY_STACKLEAK will be less secure"
+endif
+endif
+
 # ===========================================================================
 # Rules shared between *config targets and build targets
 
 # Basic helpers built in scripts/
 PHONY += scripts_basic
-scripts_basic:
+scripts_basic: pax-plugin
 	$(Q)$(MAKE) $(build)=scripts/basic
 
 # To avoid any implicit rule to kick in, define an empty command.
@@ -952,19 +965,7 @@ include/config/kernel.release: include/config/auto.conf FORCE
 # version.h and scripts_basic is processed / created.
 
 # Listed in dependency order
-PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 pax-plugin
-
-ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
-endif
-pax-plugin:
-ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
-	$(Q)$(MAKE) $(build)=tools/gcc
-else
-ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-	$(Q)echo "warning, your gcc does not support plugins, PAX_MEMORY_STACKLEAK will be less secure"
-endif
-endif
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
@@ -1437,7 +1438,7 @@ clean: $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@find $(KBUILD_EXTMOD) $(RCS_FIND_IGNORE) \
-		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
+		\( -name '*.[oas]' -o -name '*.[ks]o' -o -name '.*.cmd' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
 

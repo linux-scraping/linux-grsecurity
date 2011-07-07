@@ -8,7 +8,7 @@
 #define _SPARC_CACHE_H
 
 #define L1_CACHE_SHIFT 5
-#define L1_CACHE_BYTES 32U
+#define L1_CACHE_BYTES 32UL
 #define L1_CACHE_ALIGN(x) ((((x)+(L1_CACHE_BYTES-1))&~(L1_CACHE_BYTES-1)))
 
 #ifdef CONFIG_SPARC32
