@@ -15,6 +15,7 @@
  * - initialize all local variables
  *
  * BUGS:
+ * - cloned functions are instrumented twice
  */
 #include "gcc-plugin.h"
 #include "plugin-version.h"

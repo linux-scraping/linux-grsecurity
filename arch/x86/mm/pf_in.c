@@ -148,7 +148,7 @@ enum reason_type get_ins_type(unsigned long ins_addr)
 	int i;
 	enum reason_type rv = OTHERS;
 
-	p = (unsigned char *)ins_addr;
+	p = (unsigned char *)ktla_ktva(ins_addr);
 	p += skip_prefix(p, &prf);
 	p += get_opcode(p, &opcode);
 
@@ -168,7 +168,7 @@ static unsigned int get_ins_reg_width(unsigned long ins_addr)
 	struct prefix_bits prf;
 	int i;
 
-	p = (unsigned char *)ins_addr;
+	p = (unsigned char *)ktla_ktva(ins_addr);
 	p += skip_prefix(p, &prf);
 	p += get_opcode(p, &opcode);
 
@@ -191,7 +191,7 @@ unsigned int get_ins_mem_width(unsigned long ins_addr)
 	struct prefix_bits prf;
 	int i;
 
-	p = (unsigned char *)ins_addr;
+	p = (unsigned char *)ktla_ktva(ins_addr);
 	p += skip_prefix(p, &prf);
 	p += get_opcode(p, &opcode);
 
@@ -416,7 +416,7 @@ unsigned long get_ins_reg_val(unsigned long ins_addr, struct pt_regs *regs)
 	int i;
 	unsigned long rv;
 
-	p = (unsigned char *)ins_addr;
+	p = (unsigned char *)ktla_ktva(ins_addr);
 	p += skip_prefix(p, &prf);
 	p += get_opcode(p, &opcode);
 	for (i = 0; i < ARRAY_SIZE(reg_rop); i++)
@@ -476,7 +476,7 @@ unsigned long get_ins_imm_val(unsigned long ins_addr)
 	int i;
 	unsigned long rv;
 
-	p = (unsigned char *)ins_addr;
+	p = (unsigned char *)ktla_ktva(ins_addr);
 	p += skip_prefix(p, &prf);
 	p += get_opcode(p, &opcode);
 	for (i = 0; i < ARRAY_SIZE(imm_wop); i++)

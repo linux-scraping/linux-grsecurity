@@ -10,7 +10,7 @@
 #define ARCH_SLAB_MINALIGN	__alignof__(unsigned long long)
 
 #define L1_CACHE_SHIFT 5
-#define L1_CACHE_BYTES 32U
+#define L1_CACHE_BYTES 32UL
 
 #ifdef CONFIG_SPARC32
 #define SMP_CACHE_BYTES_SHIFT 5

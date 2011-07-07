@@ -92,7 +92,6 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 	/* build the stack frame on the IRQ stack */
 	isp = (u32 *) ((char *)irqctx + sizeof(*irqctx) - 8);
 	irqctx->previous_esp = current_stack_pointer;
-	add_preempt_count(HARDIRQ_OFFSET);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	__set_fs(MAKE_MM_SEG(0));
@@ -113,7 +112,6 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 	__set_fs(current_thread_info()->addr_limit);
 #endif
 
-	sub_preempt_count(HARDIRQ_OFFSET);
 	return 1;
 }
 

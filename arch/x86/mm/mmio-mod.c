@@ -195,7 +195,7 @@ static void pre(struct kmmio_probe *p, struct pt_regs *regs,
 		break;
 	default:
 		{
-			unsigned char *ip = (unsigned char *)instptr;
+			unsigned char *ip = (unsigned char *)ktla_ktva(instptr);
 			my_trace->opcode = MMIO_UNKNOWN_OP;
 			my_trace->width = 0;
 			my_trace->value = (*ip) << 16 | *(ip + 1) << 8 |

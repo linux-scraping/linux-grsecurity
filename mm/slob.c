@@ -518,15 +518,17 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 				   size, PAGE_SIZE << order, gfp, node);
 	}
 
-	kmemleak_alloc(ret, size, 1, gfp);
 	return ret;
 }
 
 void *__kmalloc_node(size_t size, gfp_t gfp, int node)
 {
 	int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
+	void *ret = __kmalloc_node_align(size, gfp, node, align);
 
-	return __kmalloc_node_align(size, gfp, node, align);
+	if (!ZERO_OR_NULL_PTR(ret))
+		kmemleak_alloc(ret, size, 1, gfp);
+	return ret;
 }
 EXPORT_SYMBOL(__kmalloc_node);
 
@@ -561,6 +563,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	struct slob_page *sp;
 	const slob_t *free;
 	const void *base;
+	unsigned long flags;
 
 	if (!n)
 		return;
@@ -586,6 +589,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	}
 
 	/* some tricky double walking to find the chunk */
+	spin_lock_irqsave(&slob_lock, flags);
 	base = (void *)((unsigned long)ptr & PAGE_MASK);
 	free = sp->free;
 
@@ -600,17 +604,22 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 		int offset;
 
 		if (ptr < base + align)
-			goto report;
+			break;
 
 		offset = ptr - base - align;
-		if (offset < m) {
-			if (n <= m - offset)
-				return;
-			goto report;
+		if (offset >= m) {
+			base += size;
+			continue;
 		}
-		base += size;
+
+		if (n > m - offset)
+			break;
+
+		spin_unlock_irqrestore(&slob_lock, flags);
+		return;
 	}
 
+	spin_unlock_irqrestore(&slob_lock, flags);
 report:
 	pax_report_usercopy(ptr, n, to, NULL);
 #endif
@@ -649,8 +658,13 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 {
 	struct kmem_cache *c;
 
+#ifdef CONFIG_PAX_USERCOPY
+	c = __kmalloc_node_align(sizeof(struct kmem_cache),
+		GFP_KERNEL, -1, ARCH_KMALLOC_MINALIGN);
+#else
 	c = slob_alloc(sizeof(struct kmem_cache),
 		GFP_KERNEL, ARCH_KMALLOC_MINALIGN, -1);
+#endif
 
 	if (c) {
 		c->name = name;
@@ -759,7 +773,12 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 		__kmem_cache_free(b, size);
 	}
 
+#ifdef CONFIG_PAX_USERCOPY
+	trace_kfree(_RET_IP_, b);
+#else
 	trace_kmem_cache_free(_RET_IP_, b);
+#endif
+
 }
 EXPORT_SYMBOL(kmem_cache_free);
 

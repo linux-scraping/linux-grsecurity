@@ -76,7 +76,7 @@ config GRKERNSEC_MEDIUM
 	select PAX_ASLR
 	select PAX_RANDMMAP
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || SPARC || PPC || ARM) && (SLAB || SLUB))
+	select PAX_USERCOPY if ((X86 || SPARC || PPC || ARM) && (SLAB || SLUB || SLOB))
 
 	help
 	  If you say Y here, several features in addition to those included
@@ -161,7 +161,7 @@ config GRKERNSEC_HIGH
 	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
 	select PAX_ELFRELOCS if (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
 	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || PPC || SPARC || ARM) && (SLAB || SLUB))
+	select PAX_USERCOPY if ((X86 || PPC || SPARC || ARM) && (SLAB || SLUB || SLOB))
 	help
 	  If you say Y here, many of the features of grsecurity will be
 	  enabled, which will protect you against many kinds of attacks

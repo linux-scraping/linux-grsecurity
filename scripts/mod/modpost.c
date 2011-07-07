@@ -1648,7 +1648,7 @@ static void section_rel(const char *modname, struct elf_info *elf,
 static void check_sec_ref(struct module *mod, const char *modname,
                           struct elf_info *elf)
 {
-	int i;
+	unsigned int i;
 	Elf_Shdr *sechdrs = elf->sechdrs;
 
 	/* Walk through all sections */
