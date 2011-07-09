@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 39
-EXTRAVERSION = .2
+EXTRAVERSION = .3
 NAME = Flesh-Eating Bats with Fangs
 
 # *DOCUMENTATION*
@@ -396,24 +396,11 @@ export MODVERDIR := $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_ve
 RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS -o -name .pc -o -name .hg -o -name .git \) -prune -o
 export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exclude CVS --exclude .pc --exclude .hg --exclude .git
 
-ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
-endif
-PHONY += pax_plugin
-pax-plugin:
-ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
-	$(Q)$(MAKE) $(build)=tools/gcc
-else
-ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
-	$(Q)echo "warning, your gcc does not support plugins, PAX_MEMORY_STACKLEAK will be less secure"
-endif
-endif
-
 # ===========================================================================
 # Rules shared between *config targets and build targets
 
 # Basic helpers built in scripts/
-PHONY += scripts_basic
+PHONY += scripts_basic pax-plugin
 scripts_basic: pax-plugin
 	$(Q)$(MAKE) $(build)=scripts/basic
 	$(Q)rm -f .tmp_quiet_recordmcount
@@ -565,6 +552,18 @@ KBUILD_CFLAGS	+= -O2
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
+
+ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
+KBUILD_CFLAGS += $(call cc-ifversion, -ge, 0405, -fplugin=$(objtree)/tools/gcc/pax_plugin.so -fplugin-arg-pax_plugin-track-lowest-sp=100)
+endif
+pax-plugin:
+ifneq (,$(findstring pax_plugin, $(KBUILD_CFLAGS)))
+	$(Q)$(MAKE) $(build)=tools/gcc
+else
+ifeq ($(CONFIG_PAX_MEMORY_STACKLEAK),y)
+	$(Q)echo "warning, your gcc does not support plugins, PAX_MEMORY_STACKLEAK will be less secure"
+endif
+endif
 
 ifneq ($(CONFIG_FRAME_WARN),0)
 KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
