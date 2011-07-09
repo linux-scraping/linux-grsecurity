@@ -30,6 +30,7 @@
 #include <linux/notifier.h>
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
+#include <linux/hugetlb.h>
 
 #include "internal.h"
 
@@ -65,6 +66,8 @@ static void put_compound_page(struct page *page)
 		compound_page_dtor *dtor;
 
 		dtor = get_compound_page_dtor(page);
+		if (!PageHuge(page))
+			BUG_ON(dtor != free_compound_page);
 		(*dtor)(page);
 	}
 }
