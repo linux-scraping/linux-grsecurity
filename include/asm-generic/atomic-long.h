@@ -383,12 +383,12 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_add_unchecked(0, (atomic_unchecked_t *)NULL);
 	atomic_sub_unchecked(0, (atomic_unchecked_t *)NULL);
 	atomic_inc_unchecked((atomic_unchecked_t *)NULL);
-	atomic_inc_and_test_unchecked((atomic_unchecked_t *)NULL);
+	(void)atomic_inc_and_test_unchecked((atomic_unchecked_t *)NULL);
 	atomic_inc_return_unchecked((atomic_unchecked_t *)NULL);
 	atomic_add_return_unchecked(0, (atomic_unchecked_t *)NULL);
 	atomic_dec_unchecked((atomic_unchecked_t *)NULL);
 	atomic_cmpxchg_unchecked((atomic_unchecked_t *)NULL, 0, 0);
-	atomic_xchg_unchecked((atomic_unchecked_t *)NULL, 0);
+	(void)atomic_xchg_unchecked((atomic_unchecked_t *)NULL, 0);
 
 	atomic_long_read_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_set_unchecked((atomic_long_unchecked_t *)NULL, 0);
