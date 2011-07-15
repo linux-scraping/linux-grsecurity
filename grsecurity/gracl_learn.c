@@ -91,13 +91,12 @@ gr_clear_learn_entries(void)
 	char *tmp;
 
 	mutex_lock(&gr_learn_user_mutex);
-	if (learn_buffer != NULL) {
-		spin_lock(&gr_learn_lock);
-		tmp = learn_buffer;
-		learn_buffer = NULL;
-		spin_unlock(&gr_learn_lock);
-		vfree(learn_buffer);
-	}
+	spin_lock(&gr_learn_lock);
+	tmp = learn_buffer;
+	learn_buffer = NULL;
+	spin_unlock(&gr_learn_lock);
+	if (tmp)
+		vfree(tmp);
 	if (learn_buffer_user != NULL) {
 		vfree(learn_buffer_user);
 		learn_buffer_user = NULL;
@@ -177,17 +176,15 @@ out_error:
 static int
 close_learn(struct inode *inode, struct file *file)
 {
-	char *tmp;
-
 	if (file->f_mode & FMODE_READ) {
+		char *tmp = NULL;
 		mutex_lock(&gr_learn_user_mutex);
-		if (learn_buffer != NULL) {
-			spin_lock(&gr_learn_lock);
-			tmp = learn_buffer;
-			learn_buffer = NULL;
-			spin_unlock(&gr_learn_lock);
+		spin_lock(&gr_learn_lock);
+		tmp = learn_buffer;
+		learn_buffer = NULL;
+		spin_unlock(&gr_learn_lock);
+		if (tmp)
 			vfree(tmp);
-		}
 		if (learn_buffer_user != NULL) {
 			vfree(learn_buffer_user);
 			learn_buffer_user = NULL;

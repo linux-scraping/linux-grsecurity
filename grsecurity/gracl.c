@@ -3311,9 +3311,6 @@ int gr_apply_subject_to_task(struct task_struct *task)
 		task->acl = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
 					   task->role);
 	if (task->acl) {
-		struct acl_subject_label *curr;
-		curr = task->acl;
-
 		task->is_writable = 0;
 		/* ignore additional mmap checks for processes that are writable 
 		   by the default ACL */

@@ -207,6 +207,9 @@ void gr_handle_mem_readwrite(u64 from, u64 to);
 
 extern int grsec_enable_dmesg;
 extern int grsec_disable_privio;
+#ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
+extern int grsec_enable_chroot_findtask;
+#endif
 #endif
 
 #endif

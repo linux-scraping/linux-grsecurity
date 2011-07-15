@@ -2136,6 +2136,7 @@ extern struct pid_namespace init_pid_ns;
  */
 
 extern struct task_struct *find_task_by_vpid(pid_t nr);
+extern struct task_struct *find_task_by_vpid_unrestricted(pid_t nr);
 extern struct task_struct *find_task_by_pid_ns(pid_t nr,
 		struct pid_namespace *ns);
 

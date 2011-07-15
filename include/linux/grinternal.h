@@ -46,7 +46,6 @@ extern int grsec_enable_forkfail;
 extern int grsec_enable_time;
 extern int grsec_enable_rofs;
 extern int grsec_enable_chroot_shmat;
-extern int grsec_enable_chroot_findtask;
 extern int grsec_enable_chroot_mount;
 extern int grsec_enable_chroot_double;
 extern int grsec_enable_chroot_pivot;

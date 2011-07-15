@@ -46,7 +46,7 @@ gr_handle_chroot_unix(struct pid *pid)
 
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
-	p = pid_task(pid, PIDTYPE_PID);
+	p = find_task_by_vpid_unrestricted(pid);
 	if (unlikely(p && !have_same_root(current, p))) {
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
@@ -174,7 +174,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		const time_t shm_createtime)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_SHMAT
-	struct pid *pid = NULL;
+	struct task_struct *p;
 	time_t starttime;
 
 	if (unlikely(!grsec_enable_chroot_shmat))
@@ -186,12 +186,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 
-	pid = find_vpid(shm_cprid);
-	if (pid) {
-		struct task_struct *p;
-		p = pid_task(pid, PIDTYPE_PID);
-		if (p == NULL)
-			goto unlock;
+	if ((p = find_task_by_vpid_unrestricted(shm_cprid))) {
 		starttime = p->start_time.tv_sec;
 		if (unlikely(!have_same_root(current, p) &&
 			     time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime))) {
@@ -200,22 +195,15 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
 			return 0;
 		}
-	} else {
-		pid = find_vpid(shm_lapid);
-		if (pid) {
-			struct task_struct *p;
-			p = pid_task(pid, PIDTYPE_PID);
-			if (p == NULL)
-				goto unlock;
-			if (unlikely(!have_same_root(current, p))) {
-				read_unlock(&tasklist_lock);
-				rcu_read_unlock();
-				gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
-				return 0;
-			}
+	} else if ((p = find_task_by_vpid_unrestricted(shm_lapid))) {
+		if (unlikely(!have_same_root(current, p))) {
+			read_unlock(&tasklist_lock);
+			rcu_read_unlock();
+			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
+			return 0;
 		}
 	}
-unlock:
+
 	read_unlock(&tasklist_lock);
 	rcu_read_unlock();
 #endif
