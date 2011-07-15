@@ -630,7 +630,10 @@ static int check_kill_permission(int sig, struct siginfo *info,
 		}
 	}
 
-	if (gr_handle_signal(t, sig))
+	/* allow glibc communication via tgkill to other threads in our
+	   thread group */
+	if ((info->si_code != SI_TKILL || sig != (SIGRTMIN+1) ||
+	    task_tgid_vnr(t) != info->si_pid) && gr_handle_signal(t, sig))
 		return -EPERM;
 
 	return security_task_kill(t, info, sig, 0);
@@ -2296,7 +2299,15 @@ do_send_specific(pid_t tgid, pid_t pid, int sig, struct siginfo *info)
 	int error = -ESRCH;
 
 	rcu_read_lock();
-	p = find_task_by_vpid(pid);
+#ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
+	/* allow glibc communication via tgkill to other threads in our
+	   thread group */
+	if (grsec_enable_chroot_findtask && info->si_code == SI_TKILL &&
+	    sig == (SIGRTMIN+1) && tgid == info->si_pid)	    
+		p = find_task_by_vpid_unrestricted(pid);
+	else
+#endif
+		p = find_task_by_vpid(pid);
 	if (p && (tgid <= 0 || task_tgid_vnr(p) == tgid)) {
 		error = check_kill_permission(sig, info, p);
 		/*

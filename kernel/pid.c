@@ -399,6 +399,13 @@ struct task_struct *find_task_by_vpid(pid_t vnr)
 	return find_task_by_pid_ns(vnr, current->nsproxy->pid_ns);
 }
 
+struct task_struct *find_task_by_vpid_unrestricted(pid_t vnr)
+{
+	struct task_struct *task;
+	
+	return pid_task(find_pid_ns(vnr, current->nsproxy->pid_ns), PIDTYPE_PID);
+}
+
 struct pid *get_task_pid(struct task_struct *task, enum pid_type type)
 {
 	struct pid *pid;
