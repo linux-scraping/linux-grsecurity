@@ -33,7 +33,7 @@ void gr_clear_chroot_entries(struct task_struct *task)
 }	
 
 int
-gr_handle_chroot_unix(struct pid *pid)
+gr_handle_chroot_unix(const pid_t pid)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_UNIX
 	struct task_struct *p;

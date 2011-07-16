@@ -794,7 +794,7 @@ static struct sock *unix_find_other(struct net *net,
 			struct dentry *dentry;
 			dentry = unix_sk(u)->dentry;
 
-			if (!gr_handle_chroot_unix(u->sk_peer_pid)) {
+			if (!gr_handle_chroot_unix(pid_vnr(u->sk_peer_pid))) {
 				err = -EPERM;
 				sock_put(u);
 				goto fail;

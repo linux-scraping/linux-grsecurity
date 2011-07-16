@@ -56,7 +56,7 @@ int gr_handle_chroot_mount(const struct dentry *dentry,
 				  const struct vfsmount *mnt,
 				  const char *dev_name);
 int gr_handle_chroot_pivot(void);
-int gr_handle_chroot_unix(struct pid *pid);
+int gr_handle_chroot_unix(const pid_t pid);
 
 int gr_handle_rawio(const struct inode *inode);
 int gr_handle_nproc(void);
