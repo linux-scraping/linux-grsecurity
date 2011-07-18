@@ -188,14 +188,19 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 
 	if ((p = find_task_by_vpid_unrestricted(shm_cprid))) {
 		starttime = p->start_time.tv_sec;
-		if (unlikely(!have_same_root(current, p) &&
-			     time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime))) {
-			read_unlock(&tasklist_lock);
-			rcu_read_unlock();
-			gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
-			return 0;
+		if (time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime)) {
+			if (have_same_root(current, p)) {
+				goto allow;
+			} else {
+				read_unlock(&tasklist_lock);
+				rcu_read_unlock();
+				gr_log_noargs(GR_DONT_AUDIT, GR_SHMAT_CHROOT_MSG);
+				return 0;
+			}
 		}
-	} else if ((p = find_task_by_vpid_unrestricted(shm_lapid))) {
+		/* creator exited, pid reuse, fall through to next check */
+	}
+	if ((p = find_task_by_vpid_unrestricted(shm_lapid))) {
 		if (unlikely(!have_same_root(current, p))) {
 			read_unlock(&tasklist_lock);
 			rcu_read_unlock();
@@ -204,6 +209,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		}
 	}
 
+allow:
 	read_unlock(&tasklist_lock);
 	rcu_read_unlock();
 #endif

@@ -914,11 +914,6 @@ out_mknod_drop_write:
 			goto out_unlock;
 		}
 
-#ifdef CONFIG_GRKERNSEC_CHROOT_UNIX
-		put_pid(sk->sk_peer_pid);
-		sk->sk_peer_pid = get_pid(task_tgid(current));
-#endif
-
 		list = &unix_socket_table[addr->hash];
 	} else {
 		list = &unix_socket_table[dentry->d_inode->i_ino & (UNIX_HASH_SIZE-1)];
