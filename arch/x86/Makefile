@@ -44,6 +44,7 @@ ifeq ($(CONFIG_X86_32),y)
 else
         BITS := 64
         UTS_MACHINE := x86_64
+        biarch := $(call cc-option,-m64)
         CHECKFLAGS += -D__x86_64__ -m64
 
         KBUILD_AFLAGS += -m64
