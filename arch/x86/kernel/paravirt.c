@@ -53,6 +53,9 @@ u64 _paravirt_ident_64(u64 x)
 {
 	return x;
 }
+#if defined(CONFIG_X86_32) && defined(CONFIG_X86_PAE)
+PV_CALLEE_SAVE_REGS_THUNK(_paravirt_ident_64);
+#endif
 
 void __init default_banner(void)
 {
@@ -157,6 +160,10 @@ unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 		ret = paravirt_patch_ident_32(insnbuf, len);
 	else if (opfunc == (void *)_paravirt_ident_64)
 		ret = paravirt_patch_ident_64(insnbuf, len);
+#if defined(CONFIG_X86_32) && defined(CONFIG_X86_PAE)
+	else if (opfunc == (void *)__raw_callee_save__paravirt_ident_64)
+		ret = paravirt_patch_ident_64(insnbuf, len);
+#endif
 
 	else if (type == PARAVIRT_PATCH(pv_cpu_ops.iret) ||
 		 type == PARAVIRT_PATCH(pv_cpu_ops.irq_enable_sysexit) ||
@@ -391,9 +398,14 @@ struct pv_apic_ops pv_apic_ops __read_only = {
 #endif
 };
 
-#if defined(CONFIG_X86_32) && !defined(CONFIG_X86_PAE)
+#ifdef CONFIG_X86_32
+#ifdef CONFIG_X86_PAE
+/* 64-bit pagetable entries */
+#define PTE_IDENT	PV_CALLEE_SAVE(_paravirt_ident_64)
+#else
 /* 32-bit pagetable entries */
 #define PTE_IDENT	__PV_IS_CALLEE_SAVE(_paravirt_ident_32)
+#endif
 #else
 /* 64-bit pagetable entries */
 #define PTE_IDENT	__PV_IS_CALLEE_SAVE(_paravirt_ident_64)
