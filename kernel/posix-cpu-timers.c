@@ -1698,7 +1698,7 @@ static long thread_cpu_nsleep_restart(struct restart_block *restart_block)
 
 static __init int init_posix_cpu_timers(void)
 {
-	struct k_clock process = {
+	static struct k_clock process = {
 		.clock_getres = process_cpu_clock_getres,
 		.clock_get = process_cpu_clock_get,
 		.clock_set = do_posix_clock_nosettime,
@@ -1706,7 +1706,7 @@ static __init int init_posix_cpu_timers(void)
 		.nsleep = process_cpu_nsleep,
 		.nsleep_restart = process_cpu_nsleep_restart,
 	};
-	struct k_clock thread = {
+	static struct k_clock thread = {
 		.clock_getres = thread_cpu_clock_getres,
 		.clock_get = thread_cpu_clock_get,
 		.clock_set = do_posix_clock_nosettime,

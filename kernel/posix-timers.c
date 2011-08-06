@@ -218,6 +218,8 @@ static inline int invalid_clockid(const clockid_t which_clock)
 		return 0;
 	if ((unsigned) which_clock >= MAX_CLOCKS)
 		return 1;
+	if (!posix_clocks[which_clock])
+		return 0;
 	if (posix_clocks[which_clock]->clock_getres != NULL)
 		return 0;
 	if (posix_clocks[which_clock]->res != 0)
@@ -267,29 +269,29 @@ int posix_get_coarse_res(const clockid_t which_clock, struct timespec *tp)
  */
 static __init int init_posix_timers(void)
 {
-	struct k_clock clock_realtime = {
+	static struct k_clock clock_realtime = {
 		.clock_getres = hrtimer_get_res,
 	};
-	struct k_clock clock_monotonic = {
+	static struct k_clock clock_monotonic = {
 		.clock_getres = hrtimer_get_res,
 		.clock_get = posix_ktime_get_ts,
 		.clock_set = do_posix_clock_nosettime,
 	};
-	struct k_clock clock_monotonic_raw = {
+	static struct k_clock clock_monotonic_raw = {
 		.clock_getres = hrtimer_get_res,
 		.clock_get = posix_get_monotonic_raw,
 		.clock_set = do_posix_clock_nosettime,
 		.timer_create = no_timer_create,
 		.nsleep = no_nsleep,
 	};
-	struct k_clock clock_realtime_coarse = {
+	static struct k_clock clock_realtime_coarse = {
 		.clock_getres = posix_get_coarse_res,
 		.clock_get = posix_get_realtime_coarse,
 		.clock_set = do_posix_clock_nosettime,
 		.timer_create = no_timer_create,
 		.nsleep = no_nsleep,
 	};
-	struct k_clock clock_monotonic_coarse = {
+	static struct k_clock clock_monotonic_coarse = {
 		.clock_getres = posix_get_coarse_res,
 		.clock_get = posix_get_monotonic_coarse,
 		.clock_set = do_posix_clock_nosettime,
