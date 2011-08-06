@@ -35,7 +35,7 @@ struct snd_ak4xxx_ops {
 	void (*write)(struct snd_akm4xxx *ak, int chip, unsigned char reg,
 		      unsigned char val);
 	void (*set_rate_val)(struct snd_akm4xxx *ak, unsigned int rate);
-};
+} __no_const;
 
 #define AK4XXX_IMAGE_SIZE	(AK4XXX_MAX_CHIPS * 16)	/* 64 bytes */
 

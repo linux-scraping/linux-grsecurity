@@ -1748,7 +1748,6 @@ static int kvm_vcpu_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/* cannot be const */
 static struct file_operations kvm_vcpu_fops = {
 	.release        = kvm_vcpu_release,
 	.unlocked_ioctl = kvm_vcpu_ioctl,
@@ -2345,7 +2344,6 @@ static int kvm_vm_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-/* cannot be const */
 static struct file_operations kvm_vm_fops = {
 	.release        = kvm_vm_release,
 	.unlocked_ioctl = kvm_vm_ioctl,
@@ -2433,7 +2431,6 @@ out:
 	return r;
 }
 
-/* cannot be const */
 static struct file_operations kvm_chardev_ops = {
 	.unlocked_ioctl = kvm_dev_ioctl,
 	.compat_ioctl   = kvm_dev_ioctl,
@@ -2776,9 +2773,11 @@ int kvm_init(const void *opaque, unsigned int vcpu_size,
 		goto out_free_5;
 	}
 
-	kvm_chardev_ops.owner = module;
-	kvm_vm_fops.owner = module;
-	kvm_vcpu_fops.owner = module;
+	pax_open_kernel();
+	*(void **)&kvm_chardev_ops.owner = module;
+	*(void **)&kvm_vm_fops.owner = module;
+	*(void **)&kvm_vcpu_fops.owner = module;
+	pax_close_kernel();
 
 	r = misc_register(&kvm_dev);
 	if (r) {

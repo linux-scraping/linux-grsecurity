@@ -81,7 +81,7 @@ static struct {
 	void (*set_initial_ap_state)(int, int);
 	void (*halt)(void);
   	void (*set_lazy_mode)(int mode);
-} vmi_ops __read_only;
+} __no_const vmi_ops __read_only;
 
 /* Cached VMI operations */
 struct vmi_timer_ops vmi_timer_ops __read_only;

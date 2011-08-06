@@ -655,14 +655,14 @@ static int __init ultracam_init(void)
 {
 	struct usbvideo_cb cbTbl;
 	memset(&cbTbl, 0, sizeof(cbTbl));
-	cbTbl.probe = ultracam_probe;
-	cbTbl.setupOnOpen = ultracam_setup_on_open;
-	cbTbl.videoStart = ultracam_video_start;
-	cbTbl.videoStop = ultracam_video_stop;
-	cbTbl.processData = ultracam_ProcessIsocData;
-	cbTbl.postProcess = usbvideo_DeinterlaceFrame;
-	cbTbl.adjustPicture = ultracam_adjust_picture;
-	cbTbl.getFPS = ultracam_calculate_fps;
+	*(void **)&cbTbl.probe = ultracam_probe;
+	*(void **)&cbTbl.setupOnOpen = ultracam_setup_on_open;
+	*(void **)&cbTbl.videoStart = ultracam_video_start;
+	*(void **)&cbTbl.videoStop = ultracam_video_stop;
+	*(void **)&cbTbl.processData = ultracam_ProcessIsocData;
+	*(void **)&cbTbl.postProcess = usbvideo_DeinterlaceFrame;
+	*(void **)&cbTbl.adjustPicture = ultracam_adjust_picture;
+	*(void **)&cbTbl.getFPS = ultracam_calculate_fps;
 	return usbvideo_register(
 		&cams,
 		MAX_CAMERAS,

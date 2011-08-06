@@ -365,7 +365,9 @@ void raise_softirq(unsigned int nr)
 
 void open_softirq(int nr, void (*action)(void))
 {
-	softirq_vec[nr].action = action;
+	pax_open_kernel();
+	*(void **)&softirq_vec[nr].action = action;
+	pax_close_kernel();
 }
 
 /*

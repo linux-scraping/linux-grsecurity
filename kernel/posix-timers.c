@@ -132,7 +132,7 @@ static DEFINE_SPINLOCK(idr_lock);
  *	    which we beg off on and pass to do_sys_settimeofday().
  */
 
-static struct k_clock posix_clocks[MAX_CLOCKS];
+static struct k_clock *posix_clocks[MAX_CLOCKS];
 
 /*
  * These ones are defined below.
@@ -158,8 +158,8 @@ static inline void unlock_timer(struct k_itimer *timr, unsigned long flags)
  */
 #define CLOCK_DISPATCH(clock, call, arglist) \
  	((clock) < 0 ? posix_cpu_##call arglist : \
- 	 (posix_clocks[clock].call != NULL \
- 	  ? (*posix_clocks[clock].call) arglist : common_##call arglist))
+ 	 (posix_clocks[clock]->call != NULL \
+ 	  ? (*posix_clocks[clock]->call) arglist : common_##call arglist))
 
 /*
  * Default clock hook functions when the struct k_clock passed
@@ -173,7 +173,7 @@ static inline int common_clock_getres(const clockid_t which_clock,
 				      struct timespec *tp)
 {
 	tp->tv_sec = 0;
-	tp->tv_nsec = posix_clocks[which_clock].res;
+	tp->tv_nsec = posix_clocks[which_clock]->res;
 	return 0;
 }
 
@@ -218,9 +218,9 @@ static inline int invalid_clockid(const clockid_t which_clock)
 		return 0;
 	if ((unsigned) which_clock >= MAX_CLOCKS)
 		return 1;
-	if (posix_clocks[which_clock].clock_getres != NULL)
+	if (posix_clocks[which_clock]->clock_getres != NULL)
 		return 0;
-	if (posix_clocks[which_clock].res != 0)
+	if (posix_clocks[which_clock]->res != 0)
 		return 0;
 	return 1;
 }
@@ -487,7 +487,7 @@ void register_posix_clock(const clockid_t clock_id, struct k_clock *new_clock)
 		return;
 	}
 
-	posix_clocks[clock_id] = *new_clock;
+	posix_clocks[clock_id] = new_clock;
 }
 EXPORT_SYMBOL_GPL(register_posix_clock);
 

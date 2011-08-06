@@ -715,16 +715,16 @@ int fc_disc_init(struct fc_lport *lport)
 	struct fc_disc *disc;
 
 	if (!lport->tt.disc_start)
-		lport->tt.disc_start = fc_disc_start;
+		*(void **)&lport->tt.disc_start = fc_disc_start;
 
 	if (!lport->tt.disc_stop)
-		lport->tt.disc_stop = fc_disc_stop;
+		*(void **)&lport->tt.disc_stop = fc_disc_stop;
 
 	if (!lport->tt.disc_stop_final)
-		lport->tt.disc_stop_final = fc_disc_stop_final;
+		*(void **)&lport->tt.disc_stop_final = fc_disc_stop_final;
 
 	if (!lport->tt.disc_recv_req)
-		lport->tt.disc_recv_req = fc_disc_recv_req;
+		*(void **)&lport->tt.disc_recv_req = fc_disc_recv_req;
 
 	disc = &lport->disc;
 	INIT_DELAYED_WORK(&disc->disc_work, fc_disc_timeout);

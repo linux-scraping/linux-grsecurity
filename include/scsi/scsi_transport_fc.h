@@ -663,9 +663,9 @@ struct fc_function_template {
 	int	(*bsg_timeout)(struct fc_bsg_job *);
 
 	/* allocation lengths for host-specific data */
-	u32	 			dd_fcrport_size;
-	u32	 			dd_fcvport_size;
-	u32				dd_bsg_size;
+	const u32			dd_fcrport_size;
+	const u32			dd_fcvport_size;
+	const u32			dd_bsg_size;
 
 	/*
 	 * The driver sets these to tell the transport class it
@@ -675,39 +675,39 @@ struct fc_function_template {
 	 */
 
 	/* remote port fixed attributes */
-	unsigned long	show_rport_maxframe_size:1;
-	unsigned long	show_rport_supported_classes:1;
-	unsigned long   show_rport_dev_loss_tmo:1;
+	const unsigned long	show_rport_maxframe_size:1;
+	const unsigned long	show_rport_supported_classes:1;
+	const unsigned long   show_rport_dev_loss_tmo:1;
 
 	/*
 	 * target dynamic attributes
 	 * These should all be "1" if the driver uses the remote port
 	 * add/delete functions (so attributes reflect rport values).
 	 */
-	unsigned long	show_starget_node_name:1;
-	unsigned long	show_starget_port_name:1;
-	unsigned long	show_starget_port_id:1;
+	const unsigned long	show_starget_node_name:1;
+	const unsigned long	show_starget_port_name:1;
+	const unsigned long	show_starget_port_id:1;
 
 	/* host fixed attributes */
-	unsigned long	show_host_node_name:1;
-	unsigned long	show_host_port_name:1;
-	unsigned long	show_host_permanent_port_name:1;
-	unsigned long	show_host_supported_classes:1;
-	unsigned long	show_host_supported_fc4s:1;
-	unsigned long	show_host_supported_speeds:1;
-	unsigned long	show_host_maxframe_size:1;
-	unsigned long	show_host_serial_number:1;
+	const unsigned long	show_host_node_name:1;
+	const unsigned long	show_host_port_name:1;
+	const unsigned long	show_host_permanent_port_name:1;
+	const unsigned long	show_host_supported_classes:1;
+	const unsigned long	show_host_supported_fc4s:1;
+	const unsigned long	show_host_supported_speeds:1;
+	const unsigned long	show_host_maxframe_size:1;
+	const unsigned long	show_host_serial_number:1;
 	/* host dynamic attributes */
-	unsigned long	show_host_port_id:1;
-	unsigned long	show_host_port_type:1;
-	unsigned long	show_host_port_state:1;
-	unsigned long	show_host_active_fc4s:1;
-	unsigned long	show_host_speed:1;
-	unsigned long	show_host_fabric_name:1;
-	unsigned long	show_host_symbolic_name:1;
-	unsigned long	show_host_system_hostname:1;
+	const unsigned long	show_host_port_id:1;
+	const unsigned long	show_host_port_type:1;
+	const unsigned long	show_host_port_state:1;
+	const unsigned long	show_host_active_fc4s:1;
+	const unsigned long	show_host_speed:1;
+	const unsigned long	show_host_fabric_name:1;
+	const unsigned long	show_host_symbolic_name:1;
+	const unsigned long	show_host_system_hostname:1;
 
-	unsigned long	disable_target_scan:1;
+	const unsigned long	disable_target_scan:1;
 };
 
 

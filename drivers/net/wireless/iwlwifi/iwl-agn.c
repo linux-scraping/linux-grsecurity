@@ -2911,7 +2911,9 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		if (iwl_debug_level & IWL_DL_INFO)
 			dev_printk(KERN_DEBUG, &(pdev->dev),
 				   "Disabling hw_scan\n");
-		iwl_hw_ops.hw_scan = NULL;
+		pax_open_kernel();
+		*(void **)&iwl_hw_ops.hw_scan = NULL;
+		pax_close_kernel();
 	}
 
 	hw = iwl_alloc_all(cfg, &iwl_hw_ops);

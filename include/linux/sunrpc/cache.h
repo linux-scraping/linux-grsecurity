@@ -125,7 +125,7 @@ struct cache_detail {
  */
 struct cache_req {
 	struct cache_deferred_req *(*defer)(struct cache_req *req);
-};
+} __no_const;
 /* this must be embedded in a deferred_request that is being
  * delayed awaiting cache-fill
  */

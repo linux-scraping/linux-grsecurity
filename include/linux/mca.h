@@ -80,7 +80,7 @@ struct mca_bus_accessor_functions {
 						  int region);
 	void *		(*mca_transform_memory)(struct mca_device *,
 						void *memory);
-};
+} __no_const;
 
 struct mca_bus {
 	u64			default_dma_mask;

@@ -656,7 +656,7 @@ static int do_patch_intel_hdmi(struct hda_codec *codec)
 	spec->multiout.dig_out_nid = cvt_nid;
 
 	codec->spec = spec;
-	codec->patch_ops = intel_hdmi_patch_ops;
+	memcpy((void *)&codec->patch_ops, &intel_hdmi_patch_ops, sizeof(intel_hdmi_patch_ops));
 
 	snd_hda_eld_proc_new(codec, &spec->sink_eld);
 

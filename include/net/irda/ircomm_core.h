@@ -51,7 +51,7 @@ typedef struct {
 	int (*connect_response)(struct ircomm_cb *, struct sk_buff *);
 	int (*disconnect_request)(struct ircomm_cb *, struct sk_buff *, 
 				  struct ircomm_info *);	
-} call_t;
+} __no_const call_t;
 
 struct ircomm_cb {
 	irda_queue_t queue;

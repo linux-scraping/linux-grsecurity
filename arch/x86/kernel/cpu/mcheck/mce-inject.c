@@ -211,7 +211,9 @@ static ssize_t mce_write(struct file *filp, const char __user *ubuf,
 static int inject_init(void)
 {
 	printk(KERN_INFO "Machine check injector initialized\n");
-	mce_chrdev_ops.write = mce_write;
+	pax_open_kernel();
+	*(void **)&mce_chrdev_ops.write = mce_write;
+	pax_close_kernel();
 	register_die_notifier(&mce_raise_nb);
 	return 0;
 }

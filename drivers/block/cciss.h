@@ -90,7 +90,7 @@ struct ctlr_info
 	// information about each logical volume
 	drive_info_struct *drv[CISS_MAX_LUN];
 
-	struct access_method access;
+	struct access_method *access;
 
 	/* queue and queue Info */ 
 	struct hlist_head reqQ;

@@ -458,7 +458,7 @@ int saa7146_vv_init(struct saa7146_dev* dev, struct saa7146_ext_vv *ext_vv)
 		ERR(("out of memory. aborting.\n"));
 		return -ENOMEM;
 	}
-	ext_vv->ops = saa7146_video_ioctl_ops;
+	memcpy((void *)&ext_vv->ops, &saa7146_video_ioctl_ops, sizeof(saa7146_video_ioctl_ops));
 	ext_vv->core_ops = &saa7146_video_ioctl_ops;
 
 	DEB_EE(("dev:%p\n",dev));

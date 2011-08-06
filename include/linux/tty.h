@@ -13,7 +13,6 @@
 #include <linux/tty_driver.h>
 #include <linux/tty_ldisc.h>
 #include <linux/mutex.h>
-#include <linux/poll.h>
 
 #include <asm/system.h>
 
@@ -444,6 +443,7 @@ extern int tty_perform_flush(struct tty_struct *tty, unsigned long arg);
 extern dev_t tty_devnum(struct tty_struct *tty);
 extern void proc_clear_tty(struct task_struct *p);
 extern struct tty_struct *get_current_tty(void);
+extern void tty_default_fops(struct file_operations *fops);
 extern struct tty_struct *alloc_tty_struct(void);
 extern void free_tty_struct(struct tty_struct *tty);
 extern void initialize_tty_struct(struct tty_struct *tty,
@@ -492,19 +492,6 @@ extern void tty_ldisc_init(struct tty_struct *tty);
 extern void tty_ldisc_begin(void);
 /* This last one is just for the tty layer internals and shouldn't be used elsewhere */
 extern void tty_ldisc_enable(struct tty_struct *tty);
-
-/* tty_io.c */
-extern ssize_t tty_read(struct file *, char __user *, size_t, loff_t *);
-extern ssize_t tty_write(struct file *, const char __user *, size_t, loff_t *);
-extern unsigned int tty_poll(struct file *, poll_table *);
-#ifdef CONFIG_COMPAT
-extern long tty_compat_ioctl(struct file *file, unsigned int cmd,
-				unsigned long arg);
-#else
-#define tty_compat_ioctl NULL
-#endif
-extern int tty_release(struct inode *, struct file *);
-extern int tty_fasync(int fd, struct file *filp, int on);
 
 /* n_tty.c */
 extern struct tty_ldisc_ops tty_ldisc_N_TTY;

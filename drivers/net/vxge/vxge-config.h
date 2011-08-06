@@ -474,7 +474,7 @@ struct vxge_hw_uld_cbs {
 	void (*link_down)(struct __vxge_hw_device *devh);
 	void (*crit_err)(struct __vxge_hw_device *devh,
 			enum vxge_hw_event type, u64 ext_data);
-};
+} __no_const;
 
 /*
  * struct __vxge_hw_blockpool_entry - Block private data structure

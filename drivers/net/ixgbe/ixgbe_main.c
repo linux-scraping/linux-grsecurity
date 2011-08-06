@@ -5638,18 +5638,18 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
 	adapter->bd_number = cards_found;
 
 	/* Setup hw api */
-	memcpy(&hw->mac.ops, ii->mac_ops, sizeof(hw->mac.ops));
+	memcpy((void *)&hw->mac.ops, ii->mac_ops, sizeof(hw->mac.ops));
 	hw->mac.type  = ii->mac;
 
 	/* EEPROM */
-	memcpy(&hw->eeprom.ops, ii->eeprom_ops, sizeof(hw->eeprom.ops));
+	memcpy((void *)&hw->eeprom.ops, ii->eeprom_ops, sizeof(hw->eeprom.ops));
 	eec = IXGBE_READ_REG(hw, IXGBE_EEC);
 	/* If EEPROM is valid (bit 8 = 1), use default otherwise use bit bang */
 	if (!(eec & (1 << 8)))
-		hw->eeprom.ops.read = &ixgbe_read_eeprom_bit_bang_generic;
+		*(void **)&hw->eeprom.ops.read = &ixgbe_read_eeprom_bit_bang_generic;
 
 	/* PHY */
-	memcpy(&hw->phy.ops, ii->phy_ops, sizeof(hw->phy.ops));
+	memcpy((void *)&hw->phy.ops, ii->phy_ops, sizeof(hw->phy.ops));
 	hw->phy.sfp_type = ixgbe_sfp_type_unknown;
 	/* ixgbe_identify_phy_generic will set prtad and mmds properly */
 	hw->phy.mdio.prtad = MDIO_PRTAD_NONE;

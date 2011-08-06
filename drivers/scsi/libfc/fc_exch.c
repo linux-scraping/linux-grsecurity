@@ -2027,25 +2027,25 @@ EXPORT_SYMBOL(fc_exch_recv);
 int fc_exch_init(struct fc_lport *lp)
 {
 	if (!lp->tt.seq_start_next)
-		lp->tt.seq_start_next = fc_seq_start_next;
+		*(void **)&lp->tt.seq_start_next = fc_seq_start_next;
 
 	if (!lp->tt.exch_seq_send)
-		lp->tt.exch_seq_send = fc_exch_seq_send;
+		*(void **)&lp->tt.exch_seq_send = fc_exch_seq_send;
 
 	if (!lp->tt.seq_send)
-		lp->tt.seq_send = fc_seq_send;
+		*(void **)&lp->tt.seq_send = fc_seq_send;
 
 	if (!lp->tt.seq_els_rsp_send)
-		lp->tt.seq_els_rsp_send = fc_seq_els_rsp_send;
+		*(void **)&lp->tt.seq_els_rsp_send = fc_seq_els_rsp_send;
 
 	if (!lp->tt.exch_done)
-		lp->tt.exch_done = fc_exch_done;
+		*(void **)&lp->tt.exch_done = fc_exch_done;
 
 	if (!lp->tt.exch_mgr_reset)
-		lp->tt.exch_mgr_reset = fc_exch_mgr_reset;
+		*(void **)&lp->tt.exch_mgr_reset = fc_exch_mgr_reset;
 
 	if (!lp->tt.seq_exch_abort)
-		lp->tt.seq_exch_abort = fc_seq_exch_abort;
+		*(void **)&lp->tt.seq_exch_abort = fc_seq_exch_abort;
 
 	/*
 	 * Initialize fc_cpu_mask and fc_cpu_order. The

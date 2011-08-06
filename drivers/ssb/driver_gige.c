@@ -180,8 +180,8 @@ static int ssb_gige_probe(struct ssb_device *sdev, const struct ssb_device_id *i
 	dev->pci_controller.io_resource = &dev->io_resource;
 	dev->pci_controller.mem_resource = &dev->mem_resource;
 	dev->pci_controller.io_map_base = 0x800;
-	dev->pci_ops.read = ssb_gige_pci_read_config;
-	dev->pci_ops.write = ssb_gige_pci_write_config;
+	*(void **)&dev->pci_ops.read = ssb_gige_pci_read_config;
+	*(void **)&dev->pci_ops.write = ssb_gige_pci_write_config;
 
 	dev->io_resource.name = SSB_GIGE_IO_RES_NAME;
 	dev->io_resource.start = 0x800;

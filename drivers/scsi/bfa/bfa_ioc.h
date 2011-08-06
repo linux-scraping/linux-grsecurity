@@ -127,7 +127,7 @@ struct bfa_ioc_cbfn_s {
 	bfa_ioc_disable_cbfn_t	disable_cbfn;
 	bfa_ioc_hbfail_cbfn_t	hbfail_cbfn;
 	bfa_ioc_reset_cbfn_t	reset_cbfn;
-};
+} __no_const;
 
 /**
  * Heartbeat failure notification queue element.

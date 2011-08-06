@@ -215,7 +215,7 @@ static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
 #endif
 
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
-void *__kmalloc(size_t size, gfp_t flags);
+void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1);
 
 #ifdef CONFIG_KMEMTRACE
 extern void *kmem_cache_alloc_notrace(struct kmem_cache *s, gfp_t gfpflags);

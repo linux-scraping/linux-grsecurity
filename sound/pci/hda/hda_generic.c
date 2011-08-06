@@ -1097,7 +1097,7 @@ int snd_hda_parse_generic_codec(struct hda_codec *codec)
 	    (err = parse_output(codec)) < 0)
 		goto error;
 
-	codec->patch_ops = generic_patch_ops;
+	memcpy((void *)&codec->patch_ops, &generic_patch_ops, sizeof(generic_patch_ops));
 
 	return 0;
 

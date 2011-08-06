@@ -1669,7 +1669,7 @@ xpc_received_payload_uv(struct xpc_channel *ch, void *payload)
 		XPC_DEACTIVATE_PARTITION(&xpc_partitions[ch->partid], ret);
 }
 
-static struct xpc_arch_operations xpc_arch_ops_uv = {
+static const struct xpc_arch_operations xpc_arch_ops_uv = {
 	.setup_partitions = xpc_setup_partitions_uv,
 	.teardown_partitions = xpc_teardown_partitions_uv,
 	.process_activate_IRQ_rcvd = xpc_process_activate_IRQ_rcvd_uv,
@@ -1729,7 +1729,9 @@ static struct xpc_arch_operations xpc_arch_ops_uv = {
 int
 xpc_init_uv(void)
 {
-	xpc_arch_ops = xpc_arch_ops_uv;
+	pax_open_kernel();
+	memcpy((void *)&xpc_arch_ops, &xpc_arch_ops_uv, sizeof(xpc_arch_ops_uv));
+	pax_close_kernel();
 
 	if (sizeof(struct xpc_notify_mq_msghdr_uv) > XPC_MSG_HDR_MAX_SIZE) {
 		dev_err(xpc_part, "xpc_notify_mq_msghdr_uv is larger than %d\n",

@@ -1399,9 +1399,9 @@ static int patch_vt1708(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.init = via_auto_init;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1708_loopbacks;
 #endif
@@ -1870,10 +1870,10 @@ static int patch_vt1709_10ch(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1709_loopbacks;
 #endif
@@ -1964,10 +1964,10 @@ static int patch_vt1709_6ch(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1709_loopbacks;
 #endif
@@ -2418,10 +2418,10 @@ static int patch_vt1708B_8ch(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1708B_loopbacks;
 #endif
@@ -2470,10 +2470,10 @@ static int patch_vt1708B_4ch(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1708B_loopbacks;
 #endif
@@ -2905,10 +2905,10 @@ static int patch_vt1708S(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1708S_loopbacks;
 #endif
@@ -3223,10 +3223,10 @@ static int patch_vt1702(struct hda_codec *codec)
 		spec->num_mixers++;
 	}
 
-	codec->patch_ops = via_patch_ops;
+	memcpy((void *)&codec->patch_ops, &via_patch_ops, sizeof(via_patch_ops));
 
-	codec->patch_ops.init = via_auto_init;
-	codec->patch_ops.unsol_event = via_unsol_event;
+	*(void **)&codec->patch_ops.init = via_auto_init;
+	*(void **)&codec->patch_ops.unsol_event = via_unsol_event;
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = vt1702_loopbacks;
 #endif

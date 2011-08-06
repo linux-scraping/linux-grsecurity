@@ -207,7 +207,6 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
 	struct e1000_mac_info *mac = &hw->mac;
-	/* cannot be const */
 	struct e1000_mac_operations *func = &mac->ops;
 
 	/* Set media type */
@@ -230,16 +229,16 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
 	/* check for link */
 	switch (hw->phy.media_type) {
 	case e1000_media_type_copper:
-		func->setup_physical_interface = e1000_setup_copper_link_80003es2lan;
-		func->check_for_link = e1000e_check_for_copper_link;
+		*(void **)&func->setup_physical_interface = e1000_setup_copper_link_80003es2lan;
+		*(void **)&func->check_for_link = e1000e_check_for_copper_link;
 		break;
 	case e1000_media_type_fiber:
-		func->setup_physical_interface = e1000e_setup_fiber_serdes_link;
-		func->check_for_link = e1000e_check_for_fiber_link;
+		*(void **)&func->setup_physical_interface = e1000e_setup_fiber_serdes_link;
+		*(void **)&func->check_for_link = e1000e_check_for_fiber_link;
 		break;
 	case e1000_media_type_internal_serdes:
-		func->setup_physical_interface = e1000e_setup_fiber_serdes_link;
-		func->check_for_link = e1000e_check_for_serdes_link;
+		*(void **)&func->setup_physical_interface = e1000e_setup_fiber_serdes_link;
+		*(void **)&func->check_for_link = e1000e_check_for_serdes_link;
 		break;
 	default:
 		return -E1000_ERR_CONFIG;

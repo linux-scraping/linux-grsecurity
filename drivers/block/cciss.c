@@ -2854,7 +2854,7 @@ static unsigned long pollcomplete(int ctlr)
 	/* Wait (up to 20 seconds) for a command to complete */
 
 	for (i = 20 * HZ; i > 0; i--) {
-		done = hba[ctlr]->access.command_completed(hba[ctlr]);
+		done = hba[ctlr]->access->command_completed(hba[ctlr]);
 		if (done == FIFO_EMPTY)
 			schedule_timeout_uninterruptible(1);
 		else
@@ -2878,7 +2878,7 @@ static int sendcmd_core(ctlr_info_t *h, CommandList_struct *c)
 resend_cmd1:
 
 	/* Disable interrupt on the board. */
-	h->access.set_intr_mask(h, CCISS_INTR_OFF);
+	h->access->set_intr_mask(h, CCISS_INTR_OFF);
 
 	/* Make sure there is room in the command FIFO */
 	/* Actually it should be completely empty at this time */
@@ -2886,13 +2886,13 @@ resend_cmd1:
 	/* tape side of the driver. */
 	for (i = 200000; i > 0; i--) {
 		/* if fifo isn't full go */
-		if (!(h->access.fifo_full(h)))
+		if (!(h->access->fifo_full(h)))
 			break;
 		udelay(10);
 		printk(KERN_WARNING "cciss cciss%d: SendCmd FIFO full,"
 		       " waiting!\n", h->ctlr);
 	}
-	h->access.submit_command(h, c); /* Send the cmd */
+	h->access->submit_command(h, c); /* Send the cmd */
 	do {
 		complete = pollcomplete(h->ctlr);
 
@@ -3025,7 +3025,7 @@ static void start_io(ctlr_info_t *h)
 	while (!hlist_empty(&h->reqQ)) {
 		c = hlist_entry(h->reqQ.first, CommandList_struct, list);
 		/* can't do anything if fifo is full */
-		if ((h->access.fifo_full(h))) {
+		if ((h->access->fifo_full(h))) {
 			printk(KERN_WARNING "cciss: fifo full\n");
 			break;
 		}
@@ -3035,7 +3035,7 @@ static void start_io(ctlr_info_t *h)
 		h->Qdepth--;
 
 		/* Tell the controller execute command */
-		h->access.submit_command(h, c);
+		h->access->submit_command(h, c);
 
 		/* Put job onto the completed Q */
 		addQ(&h->cmpQ, c);
@@ -3395,17 +3395,17 @@ startio:
 
 static inline unsigned long get_next_completion(ctlr_info_t *h)
 {
-	return h->access.command_completed(h);
+	return h->access->command_completed(h);
 }
 
 static inline int interrupt_pending(ctlr_info_t *h)
 {
-	return h->access.intr_pending(h);
+	return h->access->intr_pending(h);
 }
 
 static inline long interrupt_not_for_us(ctlr_info_t *h)
 {
-	return (((h->access.intr_pending(h) == 0) ||
+	return (((h->access->intr_pending(h) == 0) ||
 		 (h->interrupts_enabled == 0)));
 }
 
@@ -3894,7 +3894,7 @@ static int __devinit cciss_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 	 */
 	c->max_commands = readl(&(c->cfgtable->CmdsOutMax));
 	c->product_name = products[prod_index].product_name;
-	c->access = *(products[prod_index].access);
+	c->access = products[prod_index].access;
 	c->nr_cmds = c->max_commands - 4;
 	if ((readb(&c->cfgtable->Signature[0]) != 'C') ||
 	    (readb(&c->cfgtable->Signature[1]) != 'I') ||
@@ -4293,7 +4293,7 @@ static int __devinit cciss_init_one(struct pci_dev *pdev,
 	}
 
 	/* make sure the board interrupts are off */
-	hba[i]->access.set_intr_mask(hba[i], CCISS_INTR_OFF);
+	hba[i]->access->set_intr_mask(hba[i], CCISS_INTR_OFF);
 	if (request_irq(hba[i]->intr[SIMPLE_MODE_INT], do_cciss_intr,
 			IRQF_DISABLED | IRQF_SHARED, hba[i]->devname, hba[i])) {
 		printk(KERN_ERR "cciss: Unable to get irq %d for %s\n",
@@ -4343,7 +4343,7 @@ static int __devinit cciss_init_one(struct pci_dev *pdev,
 	cciss_scsi_setup(i);
 
 	/* Turn the interrupts on so we can service requests */
-	hba[i]->access.set_intr_mask(hba[i], CCISS_INTR_ON);
+	hba[i]->access->set_intr_mask(hba[i], CCISS_INTR_ON);
 
 	/* Get the firmware version */
 	inq_buff = kzalloc(sizeof(InquiryData_struct), GFP_KERNEL);

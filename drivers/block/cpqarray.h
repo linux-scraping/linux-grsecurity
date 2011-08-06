@@ -99,7 +99,7 @@ struct ctlr_info {
 	drv_info_t	drv[NWD];
 	struct proc_dir_entry *proc;
 
-	struct access_method access;
+	struct access_method *access;
 
 	cmdlist_t *reqQ;
 	cmdlist_t *cmpQ;

@@ -247,6 +247,10 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __attribute_const__	/* unimplemented */
 #endif
 
+#ifndef __no_const
+# define __no_const
+#endif
+
 /*
  * Tell gcc if a function is cold. The compiler will assume any path
  * directly leading to the call is unlikely.
@@ -257,19 +261,19 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 #endif
 
 #ifndef __alloc_size
-#define __alloc_size
+#define __alloc_size(...)
 #endif
 
 #ifndef __bos
-#define __bos
+#define __bos(ptr, arg)
 #endif
 
 #ifndef __bos0
-#define __bos0
+#define __bos0(ptr)
 #endif
 
 #ifndef __bos1
-#define __bos1
+#define __bos1(ptr)
 #endif
 
 /* Simple shorthand for a section definition */

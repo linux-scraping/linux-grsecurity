@@ -28,7 +28,7 @@ struct x86_init_mpparse {
 	void (*mpc_oem_bus_info)(struct mpc_bus *m, char *name);
 	void (*find_smp_config)(unsigned int reserve);
 	void (*get_smp_config)(unsigned int early);
-};
+} __no_const;
 
 /**
  * struct x86_init_resources - platform specific resource related ops
@@ -42,7 +42,7 @@ struct x86_init_resources {
 	void (*probe_roms)(void);
 	void (*reserve_resources)(void);
 	char *(*memory_setup)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_irqs - platform specific interrupt setup
@@ -55,7 +55,7 @@ struct x86_init_irqs {
 	void (*pre_vector_init)(void);
 	void (*intr_init)(void);
 	void (*trap_init)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_oem - oem platform specific customizing functions
@@ -65,7 +65,7 @@ struct x86_init_irqs {
 struct x86_init_oem {
 	void (*arch_setup)(void);
 	void (*banner)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_paging - platform specific paging functions
@@ -75,7 +75,7 @@ struct x86_init_oem {
 struct x86_init_paging {
 	void (*pagetable_setup_start)(pgd_t *base);
 	void (*pagetable_setup_done)(pgd_t *base);
-};
+} __no_const;
 
 /**
  * struct x86_init_timers - platform specific timer setup
@@ -88,7 +88,7 @@ struct x86_init_timers {
 	void (*setup_percpu_clockev)(void);
 	void (*tsc_pre_init)(void);
 	void (*timer_init)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_ops - functions for platform specific setup
@@ -101,7 +101,7 @@ struct x86_init_ops {
 	struct x86_init_oem		oem;
 	struct x86_init_paging		paging;
 	struct x86_init_timers		timers;
-};
+} __no_const;
 
 /**
  * struct x86_cpuinit_ops - platform specific cpu hotplug setups
@@ -109,7 +109,7 @@ struct x86_init_ops {
  */
 struct x86_cpuinit_ops {
 	void (*setup_percpu_clockev)(void);
-};
+} __no_const;
 
 /**
  * struct x86_platform_ops - platform specific runtime functions
@@ -121,7 +121,7 @@ struct x86_platform_ops {
 	unsigned long (*calibrate_tsc)(void);
 	unsigned long (*get_wallclock)(void);
 	int (*set_wallclock)(unsigned long nowtime);
-};
+} __no_const;
 
 extern struct x86_init_ops x86_init;
 extern struct x86_cpuinit_ops x86_cpuinit;

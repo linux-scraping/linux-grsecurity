@@ -935,16 +935,16 @@ static int __init konicawc_init(void)
 	struct usbvideo_cb cbTbl;
 	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
 	       DRIVER_DESC "\n");
-	memset(&cbTbl, 0, sizeof(cbTbl));
-	cbTbl.probe = konicawc_probe;
-	cbTbl.setupOnOpen = konicawc_setup_on_open;
-	cbTbl.processData = konicawc_process_isoc;
-	cbTbl.getFPS = konicawc_calculate_fps;
-	cbTbl.setVideoMode = konicawc_set_video_mode;
-	cbTbl.startDataPump = konicawc_start_data;
-	cbTbl.stopDataPump = konicawc_stop_data;
-	cbTbl.adjustPicture = konicawc_adjust_picture;
-	cbTbl.userFree = konicawc_free_uvd;
+	memset((void * )&cbTbl, 0, sizeof(cbTbl));
+	*(void **)&cbTbl.probe = konicawc_probe;
+	*(void **)&cbTbl.setupOnOpen = konicawc_setup_on_open;
+	*(void **)&cbTbl.processData = konicawc_process_isoc;
+	*(void **)&cbTbl.getFPS = konicawc_calculate_fps;
+	*(void **)&cbTbl.setVideoMode = konicawc_set_video_mode;
+	*(void **)&cbTbl.startDataPump = konicawc_start_data;
+	*(void **)&cbTbl.stopDataPump = konicawc_stop_data;
+	*(void **)&cbTbl.adjustPicture = konicawc_adjust_picture;
+	*(void **)&cbTbl.userFree = konicawc_free_uvd;
 	return usbvideo_register(
 		&cams,
 		MAX_CAMERAS,

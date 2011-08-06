@@ -336,13 +336,13 @@ static int __init vesafb_probe(struct platform_device *dev)
 	if (ypan || pmi_setpal) {
 		unsigned short *pmi_base;
 
-		pmi_base = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
+		pmi_base  = (unsigned short*)phys_to_virt(((unsigned long)screen_info.vesapm_seg << 4) + screen_info.vesapm_off);
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		pax_open_kernel();
 		memcpy(pmi_code, pmi_base, screen_info.vesapm_size);
 #else
-		pmi_code = pmi_base;
+		pmi_code  = pmi_base;
 #endif
 
 		pmi_start = (void*)((char*)pmi_code + pmi_base[1]);

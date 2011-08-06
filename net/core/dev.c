@@ -1658,7 +1658,7 @@ static inline int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
 
 struct dev_gso_cb {
 	void (*destructor)(struct sk_buff *skb);
-};
+} __no_const;
 
 #define DEV_GSO_CB(skb) ((struct dev_gso_cb *)(skb)->cb)
 

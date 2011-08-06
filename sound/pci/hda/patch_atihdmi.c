@@ -177,7 +177,7 @@ static int patch_atihdmi(struct hda_codec *codec)
 	 */
 	spec->multiout.dig_out_nid = CVT_NID;
 
-	codec->patch_ops = atihdmi_patch_ops;
+	memcpy((void *)&codec->patch_ops, &atihdmi_patch_ops, sizeof(atihdmi_patch_ops));
 
 	return 0;
 }

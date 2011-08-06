@@ -184,23 +184,23 @@ static int __init nforce2_s4985_init(void)
 	}
 
 	/* Fill in the new structures */
-	s4985_algo[0] = *(nforce2_smbus->algo);
-	s4985_algo[0].smbus_xfer = nforce2_access_virt0;
+	memcpy((void *)&s4985_algo[0], nforce2_smbus->algo, sizeof(s4985_algo[0]));
+	*(void **)&s4985_algo[0].smbus_xfer = nforce2_access_virt0;
 	s4985_adapter[0] = *nforce2_smbus;
 	s4985_adapter[0].algo = s4985_algo;
 	s4985_adapter[0].dev.parent = nforce2_smbus->dev.parent;
 	for (i = 1; i < 5; i++) {
-		s4985_algo[i] = *(nforce2_smbus->algo);
+		memcpy((void *)&s4985_algo[i], nforce2_smbus->algo, sizeof(s4985_algo[i]));
 		s4985_adapter[i] = *nforce2_smbus;
 		snprintf(s4985_adapter[i].name, sizeof(s4985_adapter[i].name),
 			 "SMBus nForce2 adapter (CPU%d)", i - 1);
 		s4985_adapter[i].algo = s4985_algo + i;
 		s4985_adapter[i].dev.parent = nforce2_smbus->dev.parent;
 	}
-	s4985_algo[1].smbus_xfer = nforce2_access_virt1;
-	s4985_algo[2].smbus_xfer = nforce2_access_virt2;
-	s4985_algo[3].smbus_xfer = nforce2_access_virt3;
-	s4985_algo[4].smbus_xfer = nforce2_access_virt4;
+	*(void **)&s4985_algo[1].smbus_xfer = nforce2_access_virt1;
+	*(void **)&s4985_algo[2].smbus_xfer = nforce2_access_virt2;
+	*(void **)&s4985_algo[3].smbus_xfer = nforce2_access_virt3;
+	*(void **)&s4985_algo[4].smbus_xfer = nforce2_access_virt4;
 
 	/* Register virtual adapters */
 	for (i = 0; i < 5; i++) {

@@ -569,7 +569,7 @@ int fc_lport_destroy(struct fc_lport *lport)
 	mutex_lock(&lport->lp_mutex);
 	lport->state = LPORT_ST_DISABLED;
 	lport->link_up = 0;
-	lport->tt.frame_send = fc_frame_drop;
+	*(void **)&lport->tt.frame_send = fc_frame_drop;
 	mutex_unlock(&lport->lp_mutex);
 
 	lport->tt.fcp_abort_io(lport);
@@ -1477,10 +1477,10 @@ EXPORT_SYMBOL(fc_lport_config);
 int fc_lport_init(struct fc_lport *lport)
 {
 	if (!lport->tt.lport_recv)
-		lport->tt.lport_recv = fc_lport_recv_req;
+		*(void **)&lport->tt.lport_recv = fc_lport_recv_req;
 
 	if (!lport->tt.lport_reset)
-		lport->tt.lport_reset = fc_lport_reset;
+		*(void **)&lport->tt.lport_reset = fc_lport_reset;
 
 	fc_host_port_type(lport->host) = FC_PORTTYPE_NPORT;
 	fc_host_node_name(lport->host) = lport->wwnn;

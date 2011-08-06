@@ -168,7 +168,7 @@ struct drm_i915_display_funcs {
 	/* display clock increase/decrease */
 	/* pll clock increase/decrease */
 	/* clock gating init */
-};
+} __no_const;
 
 typedef struct drm_i915_private {
 	struct drm_device *dev;

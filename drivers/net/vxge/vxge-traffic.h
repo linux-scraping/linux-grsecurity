@@ -2123,7 +2123,7 @@ struct vxge_hw_mempool_cbs {
 			struct vxge_hw_mempool_dma	*dma_object,
 			u32			index,
 			u32			is_last);
-};
+} __no_const;
 
 void
 __vxge_hw_mempool_destroy(

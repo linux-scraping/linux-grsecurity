@@ -402,7 +402,7 @@ static int __init cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 	if (register_blkdev(COMPAQ_SMART2_MAJOR+i, hba[i]->devname)) {
 		goto Enomem4;
 	}
-	hba[i]->access.set_intr_mask(hba[i], 0);
+	hba[i]->access->set_intr_mask(hba[i], 0);
 	if (request_irq(hba[i]->intr, do_ida_intr,
 		IRQF_DISABLED|IRQF_SHARED, hba[i]->devname, hba[i]))
 	{
@@ -460,7 +460,7 @@ static int __init cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 	add_timer(&hba[i]->timer);
 
 	/* Enable IRQ now that spinlock and rate limit timer are set up */
-	hba[i]->access.set_intr_mask(hba[i], FIFO_NOT_EMPTY);
+	hba[i]->access->set_intr_mask(hba[i], FIFO_NOT_EMPTY);
 
 	for(j=0; j<NWD; j++) {
 		struct gendisk *disk = ida_gendisk[i][j];
@@ -695,7 +695,7 @@ DBGINFO(
 	for(i=0; i<NR_PRODUCTS; i++) {
 		if (board_id == products[i].board_id) {
 			c->product_name = products[i].product_name;
-			c->access = *(products[i].access);
+			c->access = products[i].access;
 			break;
 		}
 	}
@@ -793,7 +793,7 @@ static int __init cpqarray_eisa_detect(void)
 		hba[ctlr]->intr = intr;
 		sprintf(hba[ctlr]->devname, "ida%d", nr_ctlr);
 		hba[ctlr]->product_name = products[j].product_name;
-		hba[ctlr]->access = *(products[j].access);
+		hba[ctlr]->access = products[j].access;
 		hba[ctlr]->ctlr = ctlr;
 		hba[ctlr]->board_id = board_id;
 		hba[ctlr]->pci_dev = NULL; /* not PCI */
@@ -970,7 +970,7 @@ static void start_io(ctlr_info_t *h)
 
 	while((c = h->reqQ) != NULL) {
 		/* Can't do anything if we're busy */
-		if (h->access.fifo_full(h) == 0)
+		if (h->access->fifo_full(h) == 0)
 			return;
 
 		/* Get the first entry from the request Q */
@@ -978,7 +978,7 @@ static void start_io(ctlr_info_t *h)
 		h->Qdepth--;
 	
 		/* Tell the controller to do our bidding */
-		h->access.submit_command(h, c);
+		h->access->submit_command(h, c);
 
 		/* Get onto the completion Q */
 		addQ(&h->cmpQ, c);
@@ -1040,7 +1040,7 @@ static irqreturn_t do_ida_intr(int irq, void *dev_id)
 	unsigned long flags;
 	__u32 a,a1;
 
-	istat = h->access.intr_pending(h);
+	istat = h->access->intr_pending(h);
 	/* Is this interrupt for us? */
 	if (istat == 0)
 		return IRQ_NONE;
@@ -1051,7 +1051,7 @@ static irqreturn_t do_ida_intr(int irq, void *dev_id)
 	 */
 	spin_lock_irqsave(IDA_LOCK(h->ctlr), flags);
 	if (istat & FIFO_NOT_EMPTY) {
-		while((a = h->access.command_completed(h))) {
+		while((a = h->access->command_completed(h))) {
 			a1 = a; a &= ~3;
 			if ((c = h->cmpQ) == NULL)
 			{  
@@ -1436,11 +1436,11 @@ static int sendcmd(
 	/*
 	 * Disable interrupt
 	 */
-	info_p->access.set_intr_mask(info_p, 0);
+	info_p->access->set_intr_mask(info_p, 0);
 	/* Make sure there is room in the command FIFO */
 	/* Actually it should be completely empty at this time. */
 	for (i = 200000; i > 0; i--) {
-		temp = info_p->access.fifo_full(info_p);
+		temp = info_p->access->fifo_full(info_p);
 		if (temp != 0) {
 			break;
 		}
@@ -1453,7 +1453,7 @@ DBG(
 	/*
 	 * Send the cmd
 	 */
-	info_p->access.submit_command(info_p, c);
+	info_p->access->submit_command(info_p, c);
 	complete = pollcomplete(ctlr);
 	
 	pci_unmap_single(info_p->pci_dev, (dma_addr_t) c->req.sg[0].addr, 
@@ -1536,9 +1536,9 @@ static int revalidate_allvol(ctlr_info_t *host)
 	 * we check the new geometry.  Then turn interrupts back on when
 	 * we're done.
 	 */
-	host->access.set_intr_mask(host, 0);
+	host->access->set_intr_mask(host, 0);
 	getgeometry(ctlr);
-	host->access.set_intr_mask(host, FIFO_NOT_EMPTY);
+	host->access->set_intr_mask(host, FIFO_NOT_EMPTY);
 
 	for(i=0; i<NWD; i++) {
 		struct gendisk *disk = ida_gendisk[ctlr][i];
@@ -1578,7 +1578,7 @@ static int pollcomplete(int ctlr)
 	/* Wait (up to 2 seconds) for a command to complete */
 
 	for (i = 200000; i > 0; i--) {
-		done = hba[ctlr]->access.command_completed(hba[ctlr]);
+		done = hba[ctlr]->access->command_completed(hba[ctlr]);
 		if (done == 0) {
 			udelay(10);	/* a short fixed delay */
 		} else

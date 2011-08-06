@@ -1491,7 +1491,7 @@ struct block_device_operations;
  * can be called without the big kernel lock held in all filesystems.
  */
 struct file_operations {
-	struct module *owner;
+	struct module * const owner;
 	loff_t (*llseek) (struct file *, loff_t, int);
 	ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
 	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);

@@ -367,7 +367,7 @@ static int patch_nvhdmi_8ch(struct hda_codec *codec)
 	spec->multiout.max_channels = 8;
 	spec->multiout.dig_out_nid = Nv_Master_Convert_nid;
 
-	codec->patch_ops = nvhdmi_patch_ops_8ch;
+	memcpy((void *)&codec->patch_ops, &nvhdmi_patch_ops_8ch, sizeof(nvhdmi_patch_ops_8ch));
 
 	return 0;
 }
@@ -386,7 +386,7 @@ static int patch_nvhdmi_2ch(struct hda_codec *codec)
 	spec->multiout.max_channels = 2;
 	spec->multiout.dig_out_nid = Nv_Master_Convert_nid;
 
-	codec->patch_ops = nvhdmi_patch_ops_2ch;
+	memcpy((void *)&codec->patch_ops, &nvhdmi_patch_ops_2ch, sizeof(nvhdmi_patch_ops_2ch));
 
 	return 0;
 }

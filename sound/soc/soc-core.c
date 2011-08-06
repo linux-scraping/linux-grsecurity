@@ -1107,13 +1107,13 @@ static int soc_new_pcm(struct snd_soc_device *socdev,
 
 	dai_link->pcm = pcm;
 	pcm->private_data = rtd;
-	soc_pcm_ops.mmap = platform->pcm_ops->mmap;
-	soc_pcm_ops.pointer = platform->pcm_ops->pointer;
-	soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
-	soc_pcm_ops.copy = platform->pcm_ops->copy;
-	soc_pcm_ops.silence = platform->pcm_ops->silence;
-	soc_pcm_ops.ack = platform->pcm_ops->ack;
-	soc_pcm_ops.page = platform->pcm_ops->page;
+	*(void **)&soc_pcm_ops.mmap = platform->pcm_ops->mmap;
+	*(void **)&soc_pcm_ops.pointer = platform->pcm_ops->pointer;
+	*(void **)&soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
+	*(void **)&soc_pcm_ops.copy = platform->pcm_ops->copy;
+	*(void **)&soc_pcm_ops.silence = platform->pcm_ops->silence;
+	*(void **)&soc_pcm_ops.ack = platform->pcm_ops->ack;
+	*(void **)&soc_pcm_ops.page = platform->pcm_ops->page;
 
 	if (playback)
 		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &soc_pcm_ops);

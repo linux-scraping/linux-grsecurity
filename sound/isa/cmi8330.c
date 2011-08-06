@@ -455,16 +455,16 @@ static int __devinit snd_cmi8330_pcm(struct snd_card *card, struct snd_cmi8330 *
 	
 	/* SB16 */
 	ops = snd_sb16dsp_get_pcm_ops(CMI_SB_STREAM);
-	chip->streams[CMI_SB_STREAM].ops = *ops;
+	memcpy((void *)&chip->streams[CMI_SB_STREAM].ops, ops, sizeof(*ops));
 	chip->streams[CMI_SB_STREAM].open = ops->open;
-	chip->streams[CMI_SB_STREAM].ops.open = cmi_open_callbacks[CMI_SB_STREAM];
+	*(void **)&chip->streams[CMI_SB_STREAM].ops.open = cmi_open_callbacks[CMI_SB_STREAM];
 	chip->streams[CMI_SB_STREAM].private_data = chip->sb;
 
 	/* AD1848 */
 	ops = snd_wss_get_pcm_ops(CMI_AD_STREAM);
-	chip->streams[CMI_AD_STREAM].ops = *ops;
+	memcpy((void *)&chip->streams[CMI_AD_STREAM].ops, ops, sizeof(*ops));
 	chip->streams[CMI_AD_STREAM].open = ops->open;
-	chip->streams[CMI_AD_STREAM].ops.open = cmi_open_callbacks[CMI_AD_STREAM];
+	*(void **)&chip->streams[CMI_AD_STREAM].ops.open = cmi_open_callbacks[CMI_AD_STREAM];
 	chip->streams[CMI_AD_STREAM].private_data = chip->wss;
 
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &chip->streams[SNDRV_PCM_STREAM_PLAYBACK].ops);

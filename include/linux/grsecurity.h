@@ -7,6 +7,9 @@
 #include <linux/compat.h>
 
 /* notify of brain-dead configs */
+#if defined(CONFIG_GRKERNSEC_PROC_USER) && defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+#error "CONFIG_GRKERNSEC_PROC_USER and CONFIG_GRKERNSEC_PROC_USERGROUP cannot both be enabled."
+#endif
 #if defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_PAGEEXEC) && !defined(CONFIG_PAX_SEGMEXEC) && !defined(CONFIG_PAX_KERNEXEC)
 #error "CONFIG_PAX_NOEXEC enabled, but PAGEEXEC, SEGMEXEC, and KERNEXEC are disabled."
 #endif

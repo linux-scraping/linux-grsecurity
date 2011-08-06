@@ -3947,15 +3947,15 @@ static struct usb_device_id id_table[] = {
 static int __init ibmcam_init(void)
 {
 	struct usbvideo_cb cbTbl;
-	memset(&cbTbl, 0, sizeof(cbTbl));
-	cbTbl.probe = ibmcam_probe;
-	cbTbl.setupOnOpen = ibmcam_setup_on_open;
-	cbTbl.videoStart = ibmcam_video_start;
-	cbTbl.videoStop = ibmcam_video_stop;
-	cbTbl.processData = ibmcam_ProcessIsocData;
-	cbTbl.postProcess = usbvideo_DeinterlaceFrame;
-	cbTbl.adjustPicture = ibmcam_adjust_picture;
-	cbTbl.getFPS = ibmcam_calculate_fps;
+	memset((void *)&cbTbl, 0, sizeof(cbTbl));
+	*(void **)&cbTbl.probe = ibmcam_probe;
+	*(void **)&cbTbl.setupOnOpen = ibmcam_setup_on_open;
+	*(void **)&cbTbl.videoStart = ibmcam_video_start;
+	*(void **)&cbTbl.videoStop = ibmcam_video_stop;
+	*(void **)&cbTbl.processData = ibmcam_ProcessIsocData;
+	*(void **)&cbTbl.postProcess = usbvideo_DeinterlaceFrame;
+	*(void **)&cbTbl.adjustPicture = ibmcam_adjust_picture;
+	*(void **)&cbTbl.getFPS = ibmcam_calculate_fps;
 	return usbvideo_register(
 		&cams,
 		MAX_IBMCAM,

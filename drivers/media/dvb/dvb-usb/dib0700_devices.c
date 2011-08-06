@@ -28,7 +28,7 @@ MODULE_PARM_DESC(force_lna_activation, "force the activation of Low-Noise-Amplif
 
 struct dib0700_adapter_state {
 	int (*set_param_save) (struct dvb_frontend *, struct dvb_frontend_parameters *);
-};
+} __no_const;
 
 /* Hauppauge Nova-T 500 (aka Bristol)
  *  has a LNA on GPIO0 which is enabled by setting 1 */

@@ -62,9 +62,9 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
 	struct ixgbe_mac_info *mac = &hw->mac;
 	if (hw->phy.multispeed_fiber) {
 		/* Set up dual speed SFP+ support */
-		mac->ops.setup_link = &ixgbe_setup_mac_link_multispeed_fiber;
+		*(void **)&mac->ops.setup_link = &ixgbe_setup_mac_link_multispeed_fiber;
 	} else {
-		mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
+		*(void **)&mac->ops.setup_link = &ixgbe_setup_mac_link_82599;
 	}
 }
 
@@ -76,7 +76,7 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
 	if (hw->phy.sfp_type != ixgbe_sfp_type_unknown) {
 		ixgbe_init_mac_link_ops_82599(hw);
 
-		hw->phy.ops.reset = NULL;
+		*(void **)&hw->phy.ops.reset = NULL;
 
 		ret_val = ixgbe_get_sfp_init_sequence_offsets(hw, &list_offset,
 		                                              &data_offset);
@@ -171,16 +171,16 @@ static s32 ixgbe_init_phy_ops_82599(struct ixgbe_hw *hw)
 
 	/* If copper media, overwrite with copper function pointers */
 	if (mac->ops.get_media_type(hw) == ixgbe_media_type_copper) {
-		mac->ops.setup_link = &ixgbe_setup_copper_link_82599;
-		mac->ops.get_link_capabilities =
+		*(void **)&mac->ops.setup_link = &ixgbe_setup_copper_link_82599;
+		*(void **)&mac->ops.get_link_capabilities =
 		                  &ixgbe_get_copper_link_capabilities_82599;
 	}
 
 	/* Set necessary function pointers based on phy type */
 	switch (hw->phy.type) {
 	case ixgbe_phy_tn:
-		phy->ops.check_link = &ixgbe_check_phy_link_tnx;
-		phy->ops.get_firmware_version =
+		*(void **)&phy->ops.check_link = &ixgbe_check_phy_link_tnx;
+		*(void **)&phy->ops.get_firmware_version =
 		             &ixgbe_get_phy_firmware_version_tnx;
 		break;
 	default:

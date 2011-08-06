@@ -41,22 +41,22 @@ static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
 static bool init_locals;
 
-static struct plugin_info pax_plugin_info = {
+static struct plugin_info stackleak_plugin_info = {
 	.version	= "201106030000",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
 
-static bool gate_pax_track_stack(void);
-static unsigned int execute_pax_tree_instrument(void);
-static unsigned int execute_pax_final(void);
+static bool gate_stackleak_track_stack(void);
+static unsigned int execute_stackleak_tree_instrument(void);
+static unsigned int execute_stackleak_final(void);
 
-static struct gimple_opt_pass pax_tree_instrument_pass = {
+static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
-		.name			= "pax_tree_instrument",
-		.gate			= gate_pax_track_stack,
-		.execute		= execute_pax_tree_instrument,
+		.name			= "stackleak_tree_instrument",
+		.gate			= gate_stackleak_track_stack,
+		.execute		= execute_stackleak_tree_instrument,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
@@ -69,12 +69,12 @@ static struct gimple_opt_pass pax_tree_instrument_pass = {
 	}
 };
 
-static struct rtl_opt_pass pax_final_rtl_opt_pass = {
+static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 	.pass = {
 		.type			= RTL_PASS,
-		.name			= "pax_final",
-		.gate			= gate_pax_track_stack,
-		.execute		= execute_pax_final,
+		.name			= "stackleak_final",
+		.gate			= gate_stackleak_track_stack,
+		.execute		= execute_stackleak_final,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
@@ -87,12 +87,12 @@ static struct rtl_opt_pass pax_final_rtl_opt_pass = {
 	}
 };
 
-static bool gate_pax_track_stack(void)
+static bool gate_stackleak_track_stack(void)
 {
 	return track_frame_size >= 0;
 }
 
-static void pax_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
+static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
 {
 	gimple call;
 	tree decl, type;
@@ -108,7 +108,7 @@ static void pax_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
 		gsi_insert_after(gsi, call, GSI_CONTINUE_LINKING);
 }
 
-static unsigned int execute_pax_tree_instrument(void)
+static unsigned int execute_stackleak_tree_instrument(void)
 {
 	basic_block bb;
 	gimple_stmt_iterator gsi;
@@ -135,7 +135,7 @@ static unsigned int execute_pax_tree_instrument(void)
 				continue;
 
 			// 2. insert track call after each __builtin_alloca call
-			pax_add_instrumentation(&gsi, false);
+			stackleak_add_instrumentation(&gsi, false);
 //			print_node(stderr, "pax", decl, 4);
 		}
 	}
@@ -143,12 +143,12 @@ static unsigned int execute_pax_tree_instrument(void)
 	// 3. insert track call at the beginning
 	bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun)->next_bb;
 	gsi = gsi_start_bb(bb);
-	pax_add_instrumentation(&gsi, true);
+	stackleak_add_instrumentation(&gsi, true);
 
 	return 0;
 }
 
-static unsigned int execute_pax_final(void)
+static unsigned int execute_stackleak_final(void)
 {
 	rtx insn;
 
@@ -193,15 +193,15 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
-	struct register_pass_info pax_tree_instrument_pass_info = {
-		.pass				= &pax_tree_instrument_pass.pass,
+	struct register_pass_info stackleak_tree_instrument_pass_info = {
+		.pass				= &stackleak_tree_instrument_pass.pass,
 //		.reference_pass_name		= "tree_profile",
 		.reference_pass_name		= "optimized",
 		.ref_pass_instance_number	= 0,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
-	struct register_pass_info pax_final_pass_info = {
-		.pass				= &pax_final_rtl_opt_pass.pass,
+	struct register_pass_info stackleak_final_pass_info = {
+		.pass				= &stackleak_final_rtl_opt_pass.pass,
 		.reference_pass_name		= "final",
 		.ref_pass_instance_number	= 0,
 		.pos_op 			= PASS_POS_INSERT_BEFORE
@@ -212,7 +212,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		return 1;
 	}
 
-	register_callback(plugin_name, PLUGIN_INFO, NULL, &pax_plugin_info);
+	register_callback(plugin_name, PLUGIN_INFO, NULL, &stackleak_plugin_info);
 
 	for (i = 0; i < argc; ++i) {
 		if (!strcmp(argv[i].key, "track-lowest-sp")) {
@@ -236,8 +236,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pax_tree_instrument_pass_info);
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pax_final_pass_info);
+	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_tree_instrument_pass_info);
+	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_final_pass_info);
 
 	return 0;
 }

@@ -728,7 +728,7 @@ static int patch_cmi9880(struct hda_codec *codec)
 
 	spec->adc_nids = cmi9880_adc_nids;
 
-	codec->patch_ops = cmi9880_patch_ops;
+	memcpy((void *)&codec->patch_ops, &cmi9880_patch_ops, sizeof(cmi9880_patch_ops));
 
 	return 0;
 }

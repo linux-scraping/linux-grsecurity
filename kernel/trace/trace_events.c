@@ -952,14 +952,9 @@ static LIST_HEAD(ftrace_module_file_list);
  * reference counting.
  */
 
-/* cannot be const */
 struct ftrace_module_file_ops {
 	struct list_head		list;
 	struct module			*mod;
-	struct file_operations		id;
-	struct file_operations		enable;
-	struct file_operations		format;
-	struct file_operations		filter;
 };
 
 static void remove_subsystem_dir(const char *name)
@@ -1006,17 +1001,12 @@ trace_create_file_ops(struct module *mod)
 
 	file_ops->mod = mod;
 
-	file_ops->id = ftrace_event_id_fops;
-	file_ops->id.owner = mod;
-
-	file_ops->enable = ftrace_enable_fops;
-	file_ops->enable.owner = mod;
-
-	file_ops->filter = ftrace_event_filter_fops;
-	file_ops->filter.owner = mod;
-
-	file_ops->format = ftrace_event_format_fops;
-	file_ops->format.owner = mod;
+	pax_open_kernel();
+	*(void **)&mod->trace_id.owner = mod;
+	*(void **)&mod->trace_enable.owner = mod;
+	*(void **)&mod->trace_filter.owner = mod;
+	*(void **)&mod->trace_format.owner = mod;
+	pax_close_kernel();
 
 	list_add(&file_ops->list, &ftrace_module_file_list);
 
@@ -1065,8 +1055,8 @@ static void trace_module_add_events(struct module *mod)
 		call->mod = mod;
 		list_add(&call->list, &ftrace_events);
 		event_create_dir(call, d_events,
-				 &file_ops->id, &file_ops->enable,
-				 &file_ops->filter, &file_ops->format);
+				 &mod->trace_id, &mod->trace_enable,
+				 &mod->trace_filter, &mod->trace_format);
 	}
 }
 

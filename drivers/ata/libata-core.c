@@ -6013,7 +6013,7 @@ static void ata_finalize_port_ops(const struct ata_port_operations *ops)
 		if (IS_ERR(*pp))
 			*pp = NULL;
 
-	((struct ata_port_operations *)ops)->inherits = NULL;
+	*(struct ata_port_operations **)&ops->inherits = NULL;
 
 	pax_close_kernel();
 	spin_unlock(&lock);

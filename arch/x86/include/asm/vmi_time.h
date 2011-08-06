@@ -43,7 +43,7 @@ extern struct vmi_timer_ops {
 	int (*wallclock_updated)(void);
 	void (*set_alarm)(u32 flags, u64 expiry, u64 period);
 	void (*cancel_alarm)(u32 flags);
-} vmi_timer_ops;
+} __no_const vmi_timer_ops;
 
 /* Prototypes */
 extern void __init vmi_time_init(void);

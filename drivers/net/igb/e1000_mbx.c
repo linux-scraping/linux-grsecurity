@@ -414,13 +414,13 @@ s32 igb_init_mbx_params_pf(struct e1000_hw *hw)
 
 		mbx->size = E1000_VFMAILBOX_SIZE;
 
-		mbx->ops.read = igb_read_mbx_pf;
-		mbx->ops.write = igb_write_mbx_pf;
-		mbx->ops.read_posted = igb_read_posted_mbx;
-		mbx->ops.write_posted = igb_write_posted_mbx;
-		mbx->ops.check_for_msg = igb_check_for_msg_pf;
-		mbx->ops.check_for_ack = igb_check_for_ack_pf;
-		mbx->ops.check_for_rst = igb_check_for_rst_pf;
+		*(void **)&mbx->ops.read = igb_read_mbx_pf;
+		*(void **)&mbx->ops.write = igb_write_mbx_pf;
+		*(void **)&mbx->ops.read_posted = igb_read_posted_mbx;
+		*(void **)&mbx->ops.write_posted = igb_write_posted_mbx;
+		*(void **)&mbx->ops.check_for_msg = igb_check_for_msg_pf;
+		*(void **)&mbx->ops.check_for_ack = igb_check_for_ack_pf;
+		*(void **)&mbx->ops.check_for_rst = igb_check_for_rst_pf;
 
 		mbx->stats.msgs_tx = 0;
 		mbx->stats.msgs_rx = 0;

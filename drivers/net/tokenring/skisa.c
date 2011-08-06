@@ -363,9 +363,11 @@ static int __init sk_isa_init(void)
 	struct platform_device *pdev;
 	int i, num = 0, err = 0;
 
-	sk_isa_netdev_ops = tms380tr_netdev_ops;
-	sk_isa_netdev_ops.ndo_open = sk_isa_open;
-	sk_isa_netdev_ops.ndo_stop = tms380tr_close;
+	pax_open_kernel();
+	memcpy((void *)&sk_isa_netdev_ops, &tms380tr_netdev_ops, sizeof(tms380tr_netdev_ops));
+	*(void **)&sk_isa_netdev_ops.ndo_open = sk_isa_open;
+	*(void **)&sk_isa_netdev_ops.ndo_stop = tms380tr_close;
+	pax_close_kernel();
 
 	err = platform_driver_register(&sk_isa_driver);
 	if (err)

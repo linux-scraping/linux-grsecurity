@@ -44,7 +44,6 @@ static unsigned int in_len;
 static char *in, *inbuf;
 
 /* The operations for our console. */
-/* cannot be const */
 static struct hv_ops virtio_cons;
 
 /* The hvc device */
@@ -134,7 +133,9 @@ static int get_chars(u32 vtermno, char *buf, int count)
  * virtqueue, so we let the drivers do some boutique early-output thing. */
 int __init virtio_cons_early_init(int (*put_chars)(u32, const char *, int))
 {
-	virtio_cons.put_chars = put_chars;
+	pax_open_kernel();
+	*(void **)&virtio_cons.put_chars = put_chars;
+	pax_close_kernel();
 	return hvc_instantiate(0, 0, &virtio_cons);
 }
 
@@ -214,11 +215,13 @@ static int __devinit virtcons_probe(struct virtio_device *dev)
 	out_vq = vqs[1];
 
 	/* Start using the new console output. */
-	virtio_cons.get_chars = get_chars;
-	virtio_cons.put_chars = put_chars;
-	virtio_cons.notifier_add = notifier_add_vio;
-	virtio_cons.notifier_del = notifier_del_vio;
-	virtio_cons.notifier_hangup = notifier_del_vio;
+	pax_open_kernel();
+	*(void **)&virtio_cons.get_chars = get_chars;
+	*(void **)&virtio_cons.put_chars = put_chars;
+	*(void **)&virtio_cons.notifier_add = notifier_add_vio;
+	*(void **)&virtio_cons.notifier_del = notifier_del_vio;
+	*(void **)&virtio_cons.notifier_hangup = notifier_del_vio;
+	pax_close_kernel();
 
 	/* The first argument of hvc_alloc() is the virtual console number, so
 	 * we use zero.  The second argument is the parameter for the

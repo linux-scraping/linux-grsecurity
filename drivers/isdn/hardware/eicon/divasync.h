@@ -146,7 +146,7 @@ typedef struct _diva_didd_add_adapter {
 } diva_didd_add_adapter_t;
 typedef struct _diva_didd_remove_adapter {
  IDI_CALL p_request;
-} diva_didd_remove_adapter_t;
+} __no_const diva_didd_remove_adapter_t;
 typedef struct _diva_didd_read_adapter_array {
  void   * buffer;
  dword length;

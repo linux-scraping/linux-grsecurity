@@ -61,7 +61,7 @@ struct bfa_hwif_s {
 	void (*hw_isr_mode_set)(struct bfa_s *bfa, bfa_boolean_t msix);
 	void (*hw_msix_getvecs)(struct bfa_s *bfa, u32 *vecmap,
 			u32 *nvecs, u32 *maxvec);
-};
+} __no_const;
 typedef void (*bfa_cb_iocfc_t) (void *cbarg, enum bfa_status status);
 
 struct bfa_iocfc_s {

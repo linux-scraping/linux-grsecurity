@@ -451,10 +451,12 @@ static struct pci_driver abyss_driver = {
 
 static int __init abyss_init (void)
 {
-	abyss_netdev_ops = tms380tr_netdev_ops;
+	pax_open_kernel();
+	memcpy((void *)&abyss_netdev_ops, &tms380tr_netdev_ops, sizeof(tms380tr_netdev_ops));
 
-	abyss_netdev_ops.ndo_open = abyss_open;
-	abyss_netdev_ops.ndo_stop = abyss_close;
+	*(void **)&abyss_netdev_ops.ndo_open = abyss_open;
+	*(void **)&abyss_netdev_ops.ndo_stop = abyss_close;
+	pax_close_kernel();
 
 	return pci_register_driver(&abyss_driver);
 }

@@ -963,12 +963,12 @@ static int snd_usb_pcm_playback_trigger(struct snd_pcm_substream *substream,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		subs->ops.prepare = prepare_playback_urb;
+		*(void **)&subs->ops.prepare = prepare_playback_urb;
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 		return deactivate_urbs(subs, 0, 0);
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		subs->ops.prepare = prepare_nodata_playback_urb;
+		*(void **)&subs->ops.prepare = prepare_nodata_playback_urb;
 		return 0;
 	default:
 		return -EINVAL;
@@ -985,15 +985,15 @@ static int snd_usb_pcm_capture_trigger(struct snd_pcm_substream *substream,
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		subs->ops.retire = retire_capture_urb;
+		*(void **)&subs->ops.retire = retire_capture_urb;
 		return start_urbs(subs, substream->runtime);
 	case SNDRV_PCM_TRIGGER_STOP:
 		return deactivate_urbs(subs, 0, 0);
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		subs->ops.retire = retire_paused_capture_urb;
+		*(void **)&subs->ops.retire = retire_paused_capture_urb;
 		return 0;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		subs->ops.retire = retire_capture_urb;
+		*(void **)&subs->ops.retire = retire_capture_urb;
 		return 0;
 	default:
 		return -EINVAL;
@@ -1542,7 +1542,7 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 	/* for playback, submit the URBs now; otherwise, the first hwptr_done
 	 * updates for all URBs would happen at the same time when starting */
 	if (subs->direction == SNDRV_PCM_STREAM_PLAYBACK) {
-		subs->ops.prepare = prepare_nodata_playback_urb;
+		*(void **)&subs->ops.prepare = prepare_nodata_playback_urb;
 		return start_urbs(subs, runtime);
 	} else
 		return 0;
@@ -2228,14 +2228,14 @@ static void init_substream(struct snd_usb_stream *as, int stream, struct audiofo
 	subs->direction = stream;
 	subs->dev = as->chip->dev;
 	if (snd_usb_get_speed(subs->dev) == USB_SPEED_FULL) {
-		subs->ops = audio_urb_ops[stream];
+		memcpy((void *)&subs->ops, &audio_urb_ops[stream], sizeof(subs->ops));
 	} else {
-		subs->ops = audio_urb_ops_high_speed[stream];
+		memcpy((void *)&subs->ops, &audio_urb_ops_high_speed[stream], sizeof(subs->ops));
 		switch (as->chip->usb_id) {
 		case USB_ID(0x041e, 0x3f02): /* E-Mu 0202 USB */
 		case USB_ID(0x041e, 0x3f04): /* E-Mu 0404 USB */
 		case USB_ID(0x041e, 0x3f0a): /* E-Mu Tracker Pre */
-			subs->ops.retire_sync = retire_playback_sync_urb_hs_emu;
+			*(void **)&subs->ops.retire_sync = retire_playback_sync_urb_hs_emu;
 			break;
 		}
 	}

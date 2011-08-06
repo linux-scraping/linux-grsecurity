@@ -353,9 +353,11 @@ static int __init proteon_init(void)
 	struct platform_device *pdev;
 	int i, num = 0, err = 0;
 
-	proteon_netdev_ops = tms380tr_netdev_ops;
-	proteon_netdev_ops.ndo_open = proteon_open;
-	proteon_netdev_ops.ndo_stop = tms380tr_close;
+	pax_open_kernel();
+	memcpy((void *)&proteon_netdev_ops, &tms380tr_netdev_ops, sizeof(tms380tr_netdev_ops));
+	*(void **)&proteon_netdev_ops.ndo_open = proteon_open;
+	*(void **)&proteon_netdev_ops.ndo_stop = tms380tr_close;
+	pax_close_kernel();
 
 	err = platform_driver_register(&proteon_driver);
 	if (err)

@@ -129,7 +129,7 @@ struct iw_cm_verbs {
 					 int backlog);
 
 	int		(*destroy_listen)(struct iw_cm_id *cm_id);
-};
+} __no_const;
 
 /**
  * iw_create_cm_id - Create an IW CM identifier.

@@ -1069,7 +1069,7 @@ static int patch_ad1986a(struct hda_codec *codec)
 #endif
 	spec->vmaster_nid = 0x1b;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	/* override some parameters */
 	board_config = snd_hda_check_board_config(codec, AD1986A_MODELS,
@@ -1120,8 +1120,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 		if (!is_jack_available(codec, 0x25))
 			spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1986a_automic_capture_source;
-		codec->patch_ops.unsol_event = ad1986a_automic_unsol_event;
-		codec->patch_ops.init = ad1986a_automic_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1986a_automic_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1986a_automic_init;
 		break;
 	case AD1986A_SAMSUNG_P50:
 		spec->num_mixers = 2;
@@ -1137,8 +1137,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 		if (!is_jack_available(codec, 0x25))
 			spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1986a_automic_capture_source;
-		codec->patch_ops.unsol_event = ad1986a_samsung_p50_unsol_event;
-		codec->patch_ops.init = ad1986a_samsung_p50_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1986a_samsung_p50_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1986a_samsung_p50_init;
 		break;
 	case AD1986A_LAPTOP_AUTOMUTE:
 		spec->num_mixers = 3;
@@ -1154,8 +1154,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 		if (!is_jack_available(codec, 0x25))
 			spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1986a_laptop_eapd_capture_source;
-		codec->patch_ops.unsol_event = ad1986a_hp_unsol_event;
-		codec->patch_ops.init = ad1986a_hp_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1986a_hp_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1986a_hp_init;
 		/* Lenovo N100 seems to report the reversed bit
 		 * for HP jack-sensing
 		 */
@@ -1363,7 +1363,7 @@ static int patch_ad1983(struct hda_codec *codec)
 #endif
 	spec->vmaster_nid = 0x05;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	return 0;
 }
@@ -1769,7 +1769,7 @@ static int patch_ad1981(struct hda_codec *codec)
 #endif
 	spec->vmaster_nid = 0x05;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	/* override some parameters */
 	board_config = snd_hda_check_board_config(codec, AD1981_MODELS,
@@ -1783,8 +1783,8 @@ static int patch_ad1981(struct hda_codec *codec)
 		spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1981_hp_capture_source;
 
-		codec->patch_ops.init = ad1981_hp_init;
-		codec->patch_ops.unsol_event = ad1981_hp_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1981_hp_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1981_hp_unsol_event;
 		break;
 	case AD1981_THINKPAD:
 		spec->mixers[0] = ad1981_thinkpad_mixers;
@@ -1805,8 +1805,8 @@ static int patch_ad1981(struct hda_codec *codec)
 		spec->init_verbs[1] = ad1981_toshiba_init_verbs;
 		spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1981_hp_capture_source;
-		codec->patch_ops.init = ad1981_hp_init;
-		codec->patch_ops.unsol_event = ad1981_hp_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1981_hp_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1981_hp_unsol_event;
 		break;
 	}
 	return 0;
@@ -3096,14 +3096,14 @@ static int patch_ad1988(struct hda_codec *codec)
 	if (spec->dig_in_nid && codec->vendor_id < 0x11d4989a)
 		spec->mixers[spec->num_mixers++] = ad1988_spdif_in_mixers;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 	switch (board_config) {
 	case AD1988_AUTO:
-		codec->patch_ops.init = ad1988_auto_init;
+		*(void **)&codec->patch_ops.init = ad1988_auto_init;
 		break;
 	case AD1988_LAPTOP:
 	case AD1988_LAPTOP_DIG:
-		codec->patch_ops.unsol_event = ad1988_laptop_unsol_event;
+		*(void **)&codec->patch_ops.unsol_event = ad1988_laptop_unsol_event;
 		break;
 	}
 #ifdef CONFIG_SND_HDA_POWER_SAVE
@@ -3321,7 +3321,7 @@ static int patch_ad1884(struct hda_codec *codec)
 	/* we need to cover all playback volumes */
 	spec->slave_vols = ad1884_slave_vols;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	return 0;
 }
@@ -3529,7 +3529,7 @@ static int patch_ad1984(struct hda_codec *codec)
 	case AD1984_BASIC:
 		/* additional digital mics */
 		spec->mixers[spec->num_mixers++] = ad1984_dmic_mixers;
-		codec->patch_ops.build_pcms = ad1984_build_pcms;
+		*(void **)&codec->patch_ops.build_pcms = ad1984_build_pcms;
 		break;
 	case AD1984_THINKPAD:
 		spec->multiout.dig_out_nid = AD1884_SPDIF_OUT;
@@ -4229,7 +4229,7 @@ static int patch_ad1884a(struct hda_codec *codec)
 #ifdef CONFIG_SND_HDA_POWER_SAVE
 	spec->loopback.amplist = ad1884a_loopbacks;
 #endif
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	/* override some parameters */
 	board_config = snd_hda_check_board_config(codec, AD1884A_MODELS,
@@ -4240,8 +4240,8 @@ static int patch_ad1884a(struct hda_codec *codec)
 		spec->mixers[0] = ad1884a_laptop_mixers;
 		spec->init_verbs[spec->num_init_verbs++] = ad1884a_laptop_verbs;
 		spec->multiout.dig_out_nid = 0;
-		codec->patch_ops.unsol_event = ad1884a_laptop_unsol_event;
-		codec->patch_ops.init = ad1884a_laptop_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1884a_laptop_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1884a_laptop_init;
 		/* set the upper-limit for mixer amp to 0dB for avoiding the
 		 * possible damage by overloading
 		 */
@@ -4255,8 +4255,8 @@ static int patch_ad1884a(struct hda_codec *codec)
 		spec->mixers[0] = ad1884a_mobile_mixers;
 		spec->init_verbs[0] = ad1884a_mobile_verbs;
 		spec->multiout.dig_out_nid = 0;
-		codec->patch_ops.unsol_event = ad1884a_hp_unsol_event;
-		codec->patch_ops.init = ad1884a_hp_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1884a_hp_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1884a_hp_init;
 		/* set the upper-limit for mixer amp to 0dB for avoiding the
 		 * possible damage by overloading
 		 */
@@ -4272,15 +4272,15 @@ static int patch_ad1884a(struct hda_codec *codec)
 			ad1984a_thinkpad_verbs;
 		spec->multiout.dig_out_nid = 0;
 		spec->input_mux = &ad1984a_thinkpad_capture_source;
-		codec->patch_ops.unsol_event = ad1984a_thinkpad_unsol_event;
-		codec->patch_ops.init = ad1984a_thinkpad_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1984a_thinkpad_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1984a_thinkpad_init;
 		break;
 	case AD1984A_TOUCHSMART:
 		spec->mixers[0] = ad1984a_touchsmart_mixers;
 		spec->init_verbs[0] = ad1984a_touchsmart_verbs;
 		spec->multiout.dig_out_nid = 0;
-		codec->patch_ops.unsol_event = ad1984a_touchsmart_unsol_event;
-		codec->patch_ops.init = ad1984a_touchsmart_init;
+		*(void **)&codec->patch_ops.unsol_event = ad1984a_touchsmart_unsol_event;
+		*(void **)&codec->patch_ops.init = ad1984a_touchsmart_init;
 		/* set the upper-limit for mixer amp to 0dB for avoiding the
 		 * possible damage by overloading
 		 */
@@ -4607,7 +4607,7 @@ static int patch_ad1882(struct hda_codec *codec)
 #endif
 	spec->vmaster_nid = 0x04;
 
-	codec->patch_ops = ad198x_patch_ops;
+	memcpy((void *)&codec->patch_ops, &ad198x_patch_ops, sizeof(ad198x_patch_ops));
 
 	/* override some parameters */
 	board_config = snd_hda_check_board_config(codec, AD1882_MODELS,

@@ -49,7 +49,7 @@ struct snd_hwdep_ops {
 			  struct snd_hwdep_dsp_status *status);
 	int (*dsp_load)(struct snd_hwdep *hw,
 			struct snd_hwdep_dsp_image *image);
-};
+} __no_const;
 
 struct snd_hwdep {
 	struct snd_card *card;

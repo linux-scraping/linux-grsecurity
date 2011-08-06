@@ -2795,7 +2795,9 @@ bool intel_sdvo_init(struct drm_device *dev, int output_device)
 	sdvo_priv->slave_addr = intel_sdvo_get_slave_addr(dev, output_device);
 
 	/* Save the bit-banging i2c functionality for use by the DDC wrapper */
-	intel_sdvo_i2c_bit_algo.functionality = intel_output->i2c_bus->algo->functionality;
+	pax_open_kernel();
+	*(void **)&intel_sdvo_i2c_bit_algo.functionality = intel_output->i2c_bus->algo->functionality;
+	pax_close_kernel();
 
 	/* Read the regs to test if we can talk to the device */
 	for (i = 0; i < 0x40; i++) {

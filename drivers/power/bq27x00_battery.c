@@ -44,7 +44,7 @@ struct bq27x00_device_info;
 struct bq27x00_access_methods {
 	int (*read)(u8 reg, int *rt_value, int b_single,
 		struct bq27x00_device_info *di);
-};
+} __no_const;
 
 struct bq27x00_device_info {
 	struct device 		*dev;

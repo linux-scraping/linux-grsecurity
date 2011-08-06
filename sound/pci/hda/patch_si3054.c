@@ -275,7 +275,7 @@ static int patch_si3054(struct hda_codec *codec)
 	if (spec == NULL)
 		return -ENOMEM;
 	codec->spec = spec;
-	codec->patch_ops = si3054_patch_ops;
+	memcpy((void *)&codec->patch_ops, &si3054_patch_ops, sizeof(si3054_patch_ops));
 	return 0;
 }
 

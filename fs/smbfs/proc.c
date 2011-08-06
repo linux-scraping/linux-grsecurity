@@ -266,9 +266,9 @@ int smb_setcodepage(struct smb_sb_info *server, struct smb_nls_codepage *cp)
 
 out:
 	if (server->local_nls != NULL && server->remote_nls != NULL)
-		server->ops->convert = convert_cp;
+		*(void **)&server->ops->convert = convert_cp;
 	else
-		server->ops->convert = convert_memcpy;
+		*(void **)&server->ops->convert = convert_memcpy;
 
 	smb_unlock_server(server);
 	return n;
@@ -933,9 +933,9 @@ smb_newconn(struct smb_sb_info *server, struct smb_conn_opt *opt)
 
 	/* FIXME: the win9x code wants to modify these ... (seek/trunc bug) */
 	if (server->mnt->flags & SMB_MOUNT_OLDATTR) {
-		server->ops->getattr = smb_proc_getattr_core;
+		*(void **)&server->ops->getattr = smb_proc_getattr_core;
 	} else if (server->mnt->flags & SMB_MOUNT_DIRATTR) {
-		server->ops->getattr = smb_proc_getattr_ff;
+		*(void **)&server->ops->getattr = smb_proc_getattr_ff;
 	}
 
 	/* Decode server capabilities */
@@ -3439,7 +3439,7 @@ out:
 static void
 install_ops(struct smb_ops *dst, struct smb_ops *src)
 {
-	memcpy(dst, src, sizeof(void *) * SMB_OPS_NUM_STATIC);
+	memcpy((void *)dst, src, sizeof(void *) * SMB_OPS_NUM_STATIC);
 }
 
 /* < LANMAN2 */

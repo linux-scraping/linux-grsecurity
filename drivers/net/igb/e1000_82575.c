@@ -135,7 +135,7 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
 			? true : false;
 
 	/* physical interface link setup */
-	mac->ops.setup_physical_interface =
+	*(void **)&mac->ops.setup_physical_interface =
 		(hw->phy.media_type == e1000_media_type_copper)
 			? igb_setup_copper_link_82575
 			: igb_setup_serdes_link_82575;
@@ -191,13 +191,13 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
 
 	/* PHY function pointers */
 	if (igb_sgmii_active_82575(hw)) {
-		phy->ops.reset              = igb_phy_hw_reset_sgmii_82575;
-		phy->ops.read_reg           = igb_read_phy_reg_sgmii_82575;
-		phy->ops.write_reg          = igb_write_phy_reg_sgmii_82575;
+		*(void **)&phy->ops.reset              = igb_phy_hw_reset_sgmii_82575;
+		*(void **)&phy->ops.read_reg           = igb_read_phy_reg_sgmii_82575;
+		*(void **)&phy->ops.write_reg          = igb_write_phy_reg_sgmii_82575;
 	} else {
-		phy->ops.reset              = igb_phy_hw_reset;
-		phy->ops.read_reg           = igb_read_phy_reg_igp;
-		phy->ops.write_reg          = igb_write_phy_reg_igp;
+		*(void **)&phy->ops.reset              = igb_phy_hw_reset;
+		*(void **)&phy->ops.read_reg           = igb_read_phy_reg_igp;
+		*(void **)&phy->ops.write_reg          = igb_write_phy_reg_igp;
 	}
 
 	/* set lan id */
@@ -213,17 +213,17 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
 	switch (phy->id) {
 	case M88E1111_I_PHY_ID:
 		phy->type                   = e1000_phy_m88;
-		phy->ops.get_phy_info       = igb_get_phy_info_m88;
-		phy->ops.get_cable_length   = igb_get_cable_length_m88;
-		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
+		*(void **)&phy->ops.get_phy_info       = igb_get_phy_info_m88;
+		*(void **)&phy->ops.get_cable_length   = igb_get_cable_length_m88;
+		*(void **)&phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
 		break;
 	case IGP03E1000_E_PHY_ID:
 		phy->type                   = e1000_phy_igp_3;
-		phy->ops.get_phy_info       = igb_get_phy_info_igp;
-		phy->ops.get_cable_length   = igb_get_cable_length_igp_2;
-		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_igp;
-		phy->ops.set_d0_lplu_state  = igb_set_d0_lplu_state_82575;
-		phy->ops.set_d3_lplu_state  = igb_set_d3_lplu_state;
+		*(void **)&phy->ops.get_phy_info       = igb_get_phy_info_igp;
+		*(void **)&phy->ops.get_cable_length   = igb_get_cable_length_igp_2;
+		*(void **)&phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_igp;
+		*(void **)&phy->ops.set_d0_lplu_state  = igb_set_d0_lplu_state_82575;
+		*(void **)&phy->ops.set_d3_lplu_state  = igb_set_d3_lplu_state;
 		break;
 	default:
 		return -E1000_ERR_PHY;

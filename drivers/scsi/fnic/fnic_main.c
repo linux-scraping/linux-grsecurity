@@ -669,7 +669,7 @@ static int __devinit fnic_probe(struct pci_dev *pdev,
 	/* Start local port initiatialization */
 
 	lp->link_up = 0;
-	lp->tt = fnic_transport_template;
+	memcpy((void *)&lp->tt, &fnic_transport_template, sizeof(fnic_transport_template));
 
 	lp->max_retry_count = fnic->config.flogi_retries;
 	lp->max_rport_retry_count = fnic->config.plogi_retries;

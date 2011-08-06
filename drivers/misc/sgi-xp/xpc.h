@@ -876,7 +876,7 @@ extern struct xpc_registration xpc_registrations[];
 /* found in xpc_main.c */
 extern struct device *xpc_part;
 extern struct device *xpc_chan;
-extern struct xpc_arch_operations xpc_arch_ops;
+extern const struct xpc_arch_operations xpc_arch_ops;
 extern int xpc_disengage_timelimit;
 extern int xpc_disengage_timedout;
 extern int xpc_activate_IRQ_rcvd;

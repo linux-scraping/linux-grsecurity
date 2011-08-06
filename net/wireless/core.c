@@ -367,7 +367,7 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 
 	wiphy_net_set(&rdev->wiphy, &init_net);
 
-	rdev->rfkill_ops.set_block = cfg80211_rfkill_set_block;
+	*(void **)&rdev->rfkill_ops.set_block = cfg80211_rfkill_set_block;
 	rdev->rfkill = rfkill_alloc(dev_name(&rdev->wiphy.dev),
 				   &rdev->wiphy.dev, RFKILL_TYPE_WLAN,
 				   &rdev->rfkill_ops, rdev);
@@ -505,7 +505,7 @@ void wiphy_rfkill_start_polling(struct wiphy *wiphy)
 
 	if (!rdev->ops->rfkill_poll)
 		return;
-	rdev->rfkill_ops.poll = cfg80211_rfkill_poll;
+	*(void **)&rdev->rfkill_ops.poll = cfg80211_rfkill_poll;
 	rfkill_resume_polling(rdev->rfkill);
 }
 EXPORT_SYMBOL(wiphy_rfkill_start_polling);

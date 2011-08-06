@@ -266,9 +266,9 @@ mb_cache_create(const char *name, struct mb_cache_op *cache_op,
 	if (!cache)
 		goto fail;
 	cache->c_name = name;
-	cache->c_op.free = NULL;
+	*(void **)&cache->c_op.free = NULL;
 	if (cache_op)
-		cache->c_op.free = cache_op->free;
+		*(void **)&cache->c_op.free = cache_op->free;
 	atomic_set(&cache->c_entry_count, 0);
 	cache->c_bucket_bits = bucket_bits;
 #ifdef MB_CACHE_INDEXES_COUNT

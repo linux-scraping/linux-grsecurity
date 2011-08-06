@@ -191,7 +191,6 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 			const struct dvb_device *template, void *priv, int type)
 {
 	struct dvb_device *dvbdev;
-	/* cannot be const */
 	struct file_operations *dvbdevfops;
 	struct device *clsdev;
 	int minor;
@@ -229,8 +228,8 @@ int dvb_register_device(struct dvb_adapter *adap, struct dvb_device **pdvbdev,
 	dvbdev->fops = dvbdevfops;
 	init_waitqueue_head (&dvbdev->wait_queue);
 
-	memcpy(dvbdevfops, template->fops, sizeof(struct file_operations));
-	dvbdevfops->owner = adap->module;
+	memcpy((void *)dvbdevfops, template->fops, sizeof(struct file_operations));
+	*(void **)&dvbdevfops->owner = adap->module;
 
 	list_add_tail (&dvbdev->list_head, &adap->device_list);
 

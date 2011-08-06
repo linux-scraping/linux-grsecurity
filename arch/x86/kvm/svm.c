@@ -2483,6 +2483,7 @@ static int handle_exit(struct kvm_run *kvm_run, struct kvm_vcpu *vcpu)
 static void reload_tss(struct kvm_vcpu *vcpu)
 {
 	int cpu = raw_smp_processor_id();
+
 	struct svm_cpu_data *svm_data = per_cpu(svm_data, cpu);
 
 	pax_open_kernel();

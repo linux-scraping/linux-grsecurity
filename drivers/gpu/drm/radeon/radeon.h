@@ -640,7 +640,7 @@ struct radeon_asic {
 			       uint32_t offset, uint32_t obj_size);
 	int (*clear_surface_reg)(struct radeon_device *rdev, int reg);
 	void (*bandwidth_update)(struct radeon_device *rdev);
-};
+} __no_const;
 
 /*
  * Asic structures

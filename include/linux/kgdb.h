@@ -226,8 +226,8 @@ extern int kgdb_arch_remove_breakpoint(unsigned long addr, char *bundle);
  * hardware debug registers.
  */
 struct kgdb_arch {
-	unsigned char		gdb_bpt_instr[BREAK_INSTR_SIZE];
-	unsigned long		flags;
+	const unsigned char	gdb_bpt_instr[BREAK_INSTR_SIZE];
+	const unsigned long	flags;
 
 	int	(*set_breakpoint)(unsigned long, char *);
 	int	(*remove_breakpoint)(unsigned long, char *);
