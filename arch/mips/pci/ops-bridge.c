@@ -316,7 +316,7 @@ static int pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	return pci_conf0_write_config(bus, devfn, where, size, value);
 }
 
-const struct pci_ops bridge_pci_ops = {
+struct pci_ops bridge_pci_ops = {
 	.read	= pci_read_config,
 	.write	= pci_write_config,
 };

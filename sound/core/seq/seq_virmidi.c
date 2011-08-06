@@ -337,13 +337,13 @@ static int snd_virmidi_unuse(void *private_data,
  *  Register functions
  */
 
-static const struct snd_rawmidi_ops snd_virmidi_input_ops = {
+static struct snd_rawmidi_ops snd_virmidi_input_ops = {
 	.open = snd_virmidi_input_open,
 	.close = snd_virmidi_input_close,
 	.trigger = snd_virmidi_input_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_virmidi_output_ops = {
+static struct snd_rawmidi_ops snd_virmidi_output_ops = {
 	.open = snd_virmidi_output_open,
 	.close = snd_virmidi_output_close,
 	.trigger = snd_virmidi_output_trigger,
@@ -467,7 +467,7 @@ static int snd_virmidi_dev_unregister(struct snd_rawmidi *rmidi)
 /*
  *
  */
-static const struct snd_rawmidi_global_ops snd_virmidi_global_ops = {
+static struct snd_rawmidi_global_ops snd_virmidi_global_ops = {
 	.dev_register = snd_virmidi_dev_register,
 	.dev_unregister = snd_virmidi_dev_unregister,
 };

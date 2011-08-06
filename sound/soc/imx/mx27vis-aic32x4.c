@@ -70,7 +70,7 @@ static int mx27vis_aic32x4_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops mx27vis_aic32x4_snd_ops = {
+static struct snd_soc_ops mx27vis_aic32x4_snd_ops = {
 	.hw_params	= mx27vis_aic32x4_hw_params,
 };
 

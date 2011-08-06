@@ -378,7 +378,7 @@ snd_line6_capture_pointer(struct snd_pcm_substream *substream)
 }
 
 /* capture operators */
-const struct snd_pcm_ops snd_line6_capture_ops = {
+struct snd_pcm_ops snd_line6_capture_ops = {
 	.open = snd_line6_capture_open,
 	.close = snd_line6_capture_close,
 	.ioctl = snd_pcm_lib_ioctl,

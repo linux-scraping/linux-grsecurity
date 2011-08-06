@@ -669,7 +669,7 @@ fail:
 	return 0;
 }
 
-static const struct iommu_ops msm_iommu_ops = {
+static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
 	.domain_destroy = msm_iommu_domain_destroy,
 	.attach_dev = msm_iommu_attach_dev,

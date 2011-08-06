@@ -1926,7 +1926,7 @@ snd_m3_capture_close(struct snd_pcm_substream *subs)
  * create pcm instance
  */
 
-static const struct snd_pcm_ops snd_m3_playback_ops = {
+static struct snd_pcm_ops snd_m3_playback_ops = {
 	.open =		snd_m3_playback_open,
 	.close =	snd_m3_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1937,7 +1937,7 @@ static const struct snd_pcm_ops snd_m3_playback_ops = {
 	.pointer =	snd_m3_pcm_pointer,
 };
 
-static const struct snd_pcm_ops snd_m3_capture_ops = {
+static struct snd_pcm_ops snd_m3_capture_ops = {
 	.open =		snd_m3_capture_open,
 	.close =	snd_m3_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -2150,7 +2150,7 @@ static int __devinit snd_m3_mixer(struct snd_m3 *chip)
 	struct snd_ctl_elem_id elem_id;
 #endif
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_m3_ac97_write,
 		.read = snd_m3_ac97_read,
 	};
@@ -2643,7 +2643,7 @@ snd_m3_create(struct snd_card *card, struct pci_dev *pci,
 	struct snd_m3 *chip;
 	int i, err;
 	const struct snd_pci_quirk *quirk;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_m3_dev_free,
 	};
 

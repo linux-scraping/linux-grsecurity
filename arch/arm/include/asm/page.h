@@ -126,7 +126,7 @@ struct cpu_user_fns {
 };
 
 #ifdef MULTI_USER
-extern const struct cpu_user_fns cpu_user;
+extern struct cpu_user_fns cpu_user;
 
 #define __cpu_clear_user_highpage	cpu_user.cpu_clear_user_highpage
 #define __cpu_copy_user_highpage	cpu_user.cpu_copy_user_highpage

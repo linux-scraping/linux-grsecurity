@@ -2201,7 +2201,7 @@ static int snd_usb_mixer_status_create(struct usb_mixer_interface *mixer)
 int snd_usb_create_mixer(struct snd_usb_audio *chip, int ctrlif,
 			 int ignore_error)
 {
-	static const struct snd_device_ops dev_ops = {
+	static struct snd_device_ops dev_ops = {
 		.dev_free = snd_usb_mixer_dev_free
 	};
 	struct usb_mixer_interface *mixer;

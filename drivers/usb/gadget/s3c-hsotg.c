@@ -2461,7 +2461,7 @@ static int s3c_hsotg_ep_sethalt(struct usb_ep *ep, int value)
 	return 0;
 }
 
-static const struct usb_ep_ops s3c_hsotg_ep_ops = {
+static struct usb_ep_ops s3c_hsotg_ep_ops = {
 	.enable		= s3c_hsotg_ep_enable,
 	.disable	= s3c_hsotg_ep_disable,
 	.alloc_request	= s3c_hsotg_ep_alloc_request,
@@ -2725,7 +2725,7 @@ static int s3c_hsotg_gadget_getframe(struct usb_gadget *gadget)
 	return s3c_hsotg_read_frameno(to_hsotg(gadget));
 }
 
-static const struct usb_gadget_ops s3c_hsotg_gadget_ops = {
+static struct usb_gadget_ops s3c_hsotg_gadget_ops = {
 	.get_frame	= s3c_hsotg_gadget_getframe,
 };
 

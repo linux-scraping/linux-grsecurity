@@ -233,7 +233,7 @@ static struct scsi_host_template cs5536_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations cs5536_port_ops = {
+static struct ata_port_operations cs5536_port_ops = {
 	.inherits		= &ata_bmdma32_port_ops,
 	.cable_detect		= cs5536_cable_detect,
 	.set_piomode		= cs5536_set_piomode,

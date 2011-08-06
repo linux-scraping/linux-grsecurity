@@ -305,7 +305,7 @@ apecs_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops apecs_pci_ops = 
+struct pci_ops apecs_pci_ops = 
 {
 	.read =		apecs_read_config,
 	.write =	apecs_write_config,

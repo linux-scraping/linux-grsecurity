@@ -81,6 +81,7 @@ struct snd_pcm_ops {
 	int (*mmap)(struct snd_pcm_substream *substream, struct vm_area_struct *vma);
 	int (*ack)(struct snd_pcm_substream *substream);
 };
+typedef struct snd_pcm_ops __no_const snd_pcm_ops_no_const;
 
 /*
  *
@@ -379,7 +380,7 @@ struct snd_pcm_substream {
 	unsigned int dma_buf_id;
 	size_t dma_max;
 	/* -- hardware operations -- */
-	const struct snd_pcm_ops *ops;
+	struct snd_pcm_ops *ops;
 	/* -- runtime information -- */
 	struct snd_pcm_runtime *runtime;
         /* -- timer section -- */
@@ -845,7 +846,7 @@ const unsigned char *snd_pcm_format_silence_64(snd_pcm_format_t format);
 int snd_pcm_format_set_silence(snd_pcm_format_t format, void *buf, unsigned int frames);
 snd_pcm_format_t snd_pcm_build_linear_format(int width, int unsignd, int big_endian);
 
-void snd_pcm_set_ops(struct snd_pcm * pcm, int direction, const struct snd_pcm_ops *ops);
+void snd_pcm_set_ops(struct snd_pcm * pcm, int direction, struct snd_pcm_ops *ops);
 void snd_pcm_set_sync(struct snd_pcm_substream *substream);
 int snd_pcm_lib_interleave_len(struct snd_pcm_substream *substream);
 int snd_pcm_lib_ioctl(struct snd_pcm_substream *substream,

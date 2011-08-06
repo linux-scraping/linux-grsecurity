@@ -2459,7 +2459,7 @@ static int __devinit azx_create(struct snd_card *card, struct pci_dev *pci,
 	struct azx *chip;
 	int i, err;
 	unsigned short gcap;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = azx_dev_free,
 	};
 

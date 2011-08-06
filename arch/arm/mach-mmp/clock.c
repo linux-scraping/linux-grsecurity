@@ -29,7 +29,7 @@ static void apbc_clk_disable(struct clk *clk)
 	__raw_writel(0, clk->clk_rst);
 }
 
-const struct clkops apbc_clk_ops = {
+struct clkops apbc_clk_ops = {
 	.enable		= apbc_clk_enable,
 	.disable	= apbc_clk_disable,
 };
@@ -44,7 +44,7 @@ static void apmu_clk_disable(struct clk *clk)
 	__raw_writel(0, clk->clk_rst);
 }
 
-const struct clkops apmu_clk_ops = {
+struct clkops apmu_clk_ops = {
 	.enable		= apmu_clk_enable,
 	.disable	= apmu_clk_disable,
 };

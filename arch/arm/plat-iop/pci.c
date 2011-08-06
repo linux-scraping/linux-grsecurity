@@ -161,7 +161,7 @@ iop3xx_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops iop3xx_ops = {
+static struct pci_ops iop3xx_ops = {
 	.read	= iop3xx_read_config,
 	.write	= iop3xx_write_config,
 };

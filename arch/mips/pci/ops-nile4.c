@@ -141,7 +141,7 @@ static int nile4_pcibios_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops nile4_pci_ops = {
+struct pci_ops nile4_pci_ops = {
 	.read = nile4_pcibios_read,
 	.write = nile4_pcibios_write,
 };

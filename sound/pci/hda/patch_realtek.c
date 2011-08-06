@@ -4273,7 +4273,7 @@ static int alc_resume(struct hda_codec *codec)
 
 /*
  */
-static const struct hda_codec_ops alc_patch_ops = {
+static struct hda_codec_ops alc_patch_ops = {
 	.build_controls = alc_build_controls,
 	.build_pcms = alc_build_pcms,
 	.init = alc_init,

@@ -55,7 +55,7 @@ static int s6105_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops s6105_ops = {
+static struct snd_soc_ops s6105_ops = {
 	.hw_params = s6105_hw_params,
 };
 

@@ -725,7 +725,7 @@ static int mt9t031_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops mt9t031_dev_pm_ops = {
+static struct dev_pm_ops mt9t031_dev_pm_ops = {
 	.runtime_suspend	= mt9t031_runtime_suspend,
 	.runtime_resume		= mt9t031_runtime_resume,
 };
@@ -788,7 +788,7 @@ static int mt9t031_g_skip_top_lines(struct v4l2_subdev *sd, u32 *lines)
 	return 0;
 }
 
-static const struct v4l2_subdev_core_ops mt9t031_subdev_core_ops = {
+static struct v4l2_subdev_core_ops mt9t031_subdev_core_ops = {
 	.g_ctrl		= mt9t031_g_ctrl,
 	.s_ctrl		= mt9t031_s_ctrl,
 	.g_chip_ident	= mt9t031_g_chip_ident,
@@ -808,7 +808,7 @@ static int mt9t031_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops mt9t031_subdev_video_ops = {
+static struct v4l2_subdev_video_ops mt9t031_subdev_video_ops = {
 	.s_stream	= mt9t031_s_stream,
 	.s_mbus_fmt	= mt9t031_s_fmt,
 	.g_mbus_fmt	= mt9t031_g_fmt,
@@ -819,7 +819,7 @@ static const struct v4l2_subdev_video_ops mt9t031_subdev_video_ops = {
 	.enum_mbus_fmt	= mt9t031_enum_fmt,
 };
 
-static const struct v4l2_subdev_sensor_ops mt9t031_subdev_sensor_ops = {
+static struct v4l2_subdev_sensor_ops mt9t031_subdev_sensor_ops = {
 	.g_skip_top_lines	= mt9t031_g_skip_top_lines,
 };
 

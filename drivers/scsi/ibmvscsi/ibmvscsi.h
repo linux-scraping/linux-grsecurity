@@ -127,7 +127,7 @@ struct ibmvscsi_ops {
 	int (*resume) (struct ibmvscsi_host_data *hostdata);
 };
 
-extern const struct ibmvscsi_ops iseriesvscsi_ops;
-extern const struct ibmvscsi_ops rpavscsi_ops;
+extern struct ibmvscsi_ops iseriesvscsi_ops;
+extern struct ibmvscsi_ops rpavscsi_ops;
 
 #endif				/* IBMVSCSI_H */

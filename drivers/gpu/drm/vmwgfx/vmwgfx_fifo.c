@@ -534,7 +534,7 @@ static int vmw_fifo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return VM_FAULT_SIGBUS;
 }
 
-static const struct vm_operations_struct vmw_fifo_vm_ops = {
+static struct vm_operations_struct vmw_fifo_vm_ops = {
 	.fault = vmw_fifo_vm_fault,
 	.open = NULL,
 	.close = NULL

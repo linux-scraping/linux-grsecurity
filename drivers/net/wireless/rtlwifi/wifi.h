@@ -1447,7 +1447,7 @@ struct rtl_hal_cfg {
 	u8 bar_id;
 	char *name;
 	char *fw_name;
-	const struct rtl_hal_ops *ops;
+	struct rtl_hal_ops *ops;
 	struct rtl_mod_params *mod_params;
 	struct rtl_hal_usbint_cfg *usb_interface_cfg;
 
@@ -1533,7 +1533,7 @@ struct rtl_priv {
 	 *intf_ops : for diff interrface usb/pcie
 	 */
 	struct rtl_hal_cfg *cfg;
-	const struct rtl_intf_ops *intf_ops;
+	struct rtl_intf_ops *intf_ops;
 
 	/*this var will be set by set_bit,
 	   and was used to indicate status of

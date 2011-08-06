@@ -1178,7 +1178,7 @@ static struct console serial_hsu_console = {
 };
 #endif
 
-const struct uart_ops serial_hsu_pops = {
+struct uart_ops serial_hsu_pops = {
 	.tx_empty	= serial_hsu_tx_empty,
 	.set_mctrl	= serial_hsu_set_mctrl,
 	.get_mctrl	= serial_hsu_get_mctrl,

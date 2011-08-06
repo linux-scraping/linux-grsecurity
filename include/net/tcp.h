@@ -1374,8 +1374,8 @@ enum tcp_seq_states {
 struct tcp_seq_afinfo {
 	char			*name;
 	sa_family_t		family;
-	struct file_operations	seq_fops;	/* cannot be const */
-	struct seq_operations	seq_ops;
+	file_operations_no_const	seq_fops;
+	seq_operations_no_const	seq_ops;
 };
 
 struct tcp_iter_state {

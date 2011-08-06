@@ -361,7 +361,7 @@ struct cipher_tfm {
 	                  const u8 *key, unsigned int keylen);
 	void (*cit_encrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
 	void (*cit_decrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
-};
+} __no_const;
 
 struct hash_tfm {
 	int (*init)(struct hash_desc *desc);
@@ -382,13 +382,13 @@ struct compress_tfm {
 	int (*cot_decompress)(struct crypto_tfm *tfm,
 	                      const u8 *src, unsigned int slen,
 	                      u8 *dst, unsigned int *dlen);
-};
+} __no_const;
 
 struct rng_tfm {
 	int (*rng_gen_random)(struct crypto_rng *tfm, u8 *rdata,
 			      unsigned int dlen);
 	int (*rng_reset)(struct crypto_rng *tfm, u8 *seed, unsigned int slen);
-};
+} __no_const;
 
 #define crt_ablkcipher	crt_u.ablkcipher
 #define crt_aead	crt_u.aead

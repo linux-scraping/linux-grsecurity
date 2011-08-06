@@ -754,13 +754,15 @@ static void snd_uart16550_output_trigger(struct snd_rawmidi_substream *substream
 		snd_uart16550_output_write(substream);
 }
 
-static const struct snd_rawmidi_ops snd_uart16550_output = {
+static struct snd_rawmidi_ops snd_uart16550_output =
+{
 	.open =		snd_uart16550_output_open,
 	.close =	snd_uart16550_output_close,
 	.trigger =	snd_uart16550_output_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_uart16550_input = {
+static struct snd_rawmidi_ops snd_uart16550_input =
+{
 	.open =		snd_uart16550_input_open,
 	.close =	snd_uart16550_input_close,
 	.trigger =	snd_uart16550_input_trigger,
@@ -790,7 +792,7 @@ static int __devinit snd_uart16550_create(struct snd_card *card,
 				       int droponfull,
 				       struct snd_uart16550 **ruart)
 {
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_uart16550_dev_free,
 	};
 	struct snd_uart16550 *uart;

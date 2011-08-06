@@ -1445,7 +1445,7 @@ static void comedi_unmap(struct vm_area_struct *area)
 	mutex_unlock(&dev->mutex);
 }
 
-static const struct vm_operations_struct comedi_vm_ops = {
+static struct vm_operations_struct comedi_vm_ops = {
 	.close = comedi_unmap,
 };
 

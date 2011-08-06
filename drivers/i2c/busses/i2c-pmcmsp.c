@@ -615,7 +615,7 @@ static u32 pmcmsptwi_i2c_func(struct i2c_adapter *adapter)
 
 /* -- Initialization -- */
 
-static const struct i2c_algorithm pmcmsptwi_algo = {
+static struct i2c_algorithm pmcmsptwi_algo = {
 	.master_xfer	= pmcmsptwi_master_xfer,
 	.functionality	= pmcmsptwi_i2c_func,
 };

@@ -360,7 +360,7 @@ struct msm_hs_port {
 static struct msm_hs_port q_uart_port[UARTDM_NR];
 static struct platform_driver msm_serial_hs_platform_driver;
 static struct uart_driver msm_hs_driver;
-static const struct uart_ops msm_hs_ops;
+static struct uart_ops msm_hs_ops;
 static struct workqueue_struct *msm_hs_workqueue;
 
 #define UARTDM_TO_MSM(uart_port) \
@@ -1856,7 +1856,7 @@ static struct uart_driver msm_hs_driver = {
 	.cons = 0,
 };
 
-static const struct uart_ops msm_hs_ops = {
+static struct uart_ops msm_hs_ops = {
 	.tx_empty = msm_hs_tx_empty,
 	.set_mctrl = msm_hs_set_mctrl_locked,
 	.get_mctrl = msm_hs_get_mctrl_locked,

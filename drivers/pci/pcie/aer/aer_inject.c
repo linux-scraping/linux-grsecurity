@@ -64,7 +64,7 @@ struct aer_error {
 struct pci_bus_ops {
 	struct list_head list;
 	struct pci_bus *bus;
-	const struct pci_ops *ops;
+	struct pci_ops *ops;
 };
 
 static LIST_HEAD(einjected);
@@ -110,7 +110,7 @@ static struct aer_error *__find_aer_error_by_dev(struct pci_dev *dev)
 }
 
 /* inject_lock must be held before calling */
-static const struct pci_ops *__find_pci_bus_ops(struct pci_bus *bus)
+static struct pci_ops *__find_pci_bus_ops(struct pci_bus *bus)
 {
 	struct pci_bus_ops *bus_ops;
 
@@ -187,7 +187,7 @@ static int pci_read_aer(struct pci_bus *bus, unsigned int devfn, int where,
 	u32 *sim;
 	struct aer_error *err;
 	unsigned long flags;
-	const struct pci_ops *ops;
+	struct pci_ops *ops;
 	int domain;
 
 	spin_lock_irqsave(&inject_lock, flags);
@@ -219,7 +219,7 @@ int pci_write_aer(struct pci_bus *bus, unsigned int devfn, int where, int size,
 	struct aer_error *err;
 	unsigned long flags;
 	int rw1cs;
-	const struct pci_ops *ops;
+	struct pci_ops *ops;
 	int domain;
 
 	spin_lock_irqsave(&inject_lock, flags);
@@ -254,7 +254,7 @@ static struct pci_ops pci_ops_aer = {
 
 static void pci_bus_ops_init(struct pci_bus_ops *bus_ops,
 			     struct pci_bus *bus,
-			     const struct pci_ops *ops)
+			     struct pci_ops *ops)
 {
 	INIT_LIST_HEAD(&bus_ops->list);
 	bus_ops->bus = bus;
@@ -263,7 +263,7 @@ static void pci_bus_ops_init(struct pci_bus_ops *bus_ops,
 
 static int pci_bus_set_aer_ops(struct pci_bus *bus)
 {
-	const struct pci_ops *ops;
+	struct pci_ops *ops;
 	struct pci_bus_ops *bus_ops;
 	unsigned long flags;
 

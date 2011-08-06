@@ -113,7 +113,7 @@ struct cppi_channel {
 
 /* CPPI DMA controller object */
 struct cppi {
-	const struct dma_controller controller;
+	struct dma_controller		controller;
 	struct musb			*musb;
 	void __iomem			*mregs;		/* Mentor regs */
 	void __iomem			*tibase;	/* TI/CPPI regs */

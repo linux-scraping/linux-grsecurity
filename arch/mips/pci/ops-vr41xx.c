@@ -120,7 +120,7 @@ static int pci_config_write(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops vr41xx_pci_ops = {
+struct pci_ops vr41xx_pci_ops = {
 	.read	= pci_config_read,
 	.write	= pci_config_write,
 };

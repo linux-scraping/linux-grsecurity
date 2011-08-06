@@ -393,7 +393,7 @@ static int intel_iommu_strict;
 static DEFINE_SPINLOCK(device_domain_lock);
 static LIST_HEAD(device_domain_list);
 
-static const struct iommu_ops intel_iommu_ops;
+static struct iommu_ops intel_iommu_ops;
 
 static int __init intel_iommu_setup(char *str)
 {
@@ -2964,7 +2964,7 @@ static int intel_mapping_error(struct device *dev, dma_addr_t dma_addr)
 	return !dma_addr;
 }
 
-const struct dma_map_ops intel_dma_ops = {
+struct dma_map_ops intel_dma_ops = {
 	.alloc_coherent = intel_alloc_coherent,
 	.free_coherent = intel_free_coherent,
 	.map_sg = intel_map_sg,
@@ -3761,7 +3761,7 @@ static int intel_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-static const struct iommu_ops intel_iommu_ops = {
+static struct iommu_ops intel_iommu_ops = {
 	.domain_init	= intel_iommu_domain_init,
 	.domain_destroy = intel_iommu_domain_destroy,
 	.attach_dev	= intel_iommu_attach_device,

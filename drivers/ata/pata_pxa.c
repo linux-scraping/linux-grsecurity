@@ -198,7 +198,7 @@ static struct scsi_host_template pxa_ata_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations pxa_ata_port_ops = {
+static struct ata_port_operations pxa_ata_port_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.cable_detect		= ata_cable_40wire,
 

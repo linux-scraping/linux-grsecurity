@@ -826,7 +826,7 @@ static int __devinit snd_intel8x0m_mixer(struct intel8x0m *chip, int ac97_clock)
 	struct snd_ac97 *x97;
 	int err;
 	unsigned int glob_sta = 0;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_intel8x0m_codec_write,
 		.read = snd_intel8x0m_codec_read,
 	};
@@ -1116,7 +1116,7 @@ static int __devinit snd_intel8x0m_create(struct snd_card *card,
 	unsigned int i;
 	unsigned int int_sta_masks;
 	struct ichdev *ichdev;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_intel8x0m_dev_free,
 	};
 	static struct ich_reg_info intel_regs[2] = {

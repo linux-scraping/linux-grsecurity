@@ -671,7 +671,7 @@ struct usbctlx_cmd_completor {
 	hfa384x_cmdresult_t *result;
 };
 
-static inline int usbctlx_cmd_completor_fn(const struct usbctlx_completor *head)
+static inline int usbctlx_cmd_completor_fn(struct usbctlx_completor *head)
 {
 	struct usbctlx_cmd_completor *complete;
 
@@ -705,7 +705,7 @@ struct usbctlx_rrid_completor {
 	unsigned int riddatalen;
 };
 
-static int usbctlx_rrid_completor_fn(const struct usbctlx_completor *head)
+static int usbctlx_rrid_completor_fn(struct usbctlx_completor *head)
 {
 	struct usbctlx_rrid_completor *complete;
 	hfa384x_rridresult_t rridresult;
@@ -768,7 +768,7 @@ struct usbctlx_rmem_completor {
 };
 typedef struct usbctlx_rmem_completor usbctlx_rmem_completor_t;
 
-static int usbctlx_rmem_completor_fn(const struct usbctlx_completor *head)
+static int usbctlx_rmem_completor_fn(struct usbctlx_completor *head)
 {
 	usbctlx_rmem_completor_t *complete = (usbctlx_rmem_completor_t *) head;
 

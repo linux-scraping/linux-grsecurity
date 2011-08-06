@@ -52,7 +52,7 @@ static int isdn_x25iface_connect_ind( struct concap_proto * );
 static int isdn_x25iface_disconn_ind( struct concap_proto * );
 
 
-static const struct concap_proto_ops ix25_pops = {
+static struct concap_proto_ops ix25_pops = {
 	&isdn_x25iface_proto_new,
 	&isdn_x25iface_proto_del,
 	&isdn_x25iface_proto_restart,

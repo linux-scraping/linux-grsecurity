@@ -127,12 +127,12 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
+static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
 	.try_mbus_fmt	= sh_csi2_try_fmt,
 };
 
-static const struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops;
+static struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops;
 
 static struct v4l2_subdev_ops sh_csi2_subdev_ops = {
 	.core	= &sh_csi2_subdev_core_ops,

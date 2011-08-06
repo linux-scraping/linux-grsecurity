@@ -354,7 +354,7 @@ static int m41t80_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *t)
 	return 0;
 }
 
-static const struct rtc_class_ops m41t80_rtc_ops = {
+static struct rtc_class_ops m41t80_rtc_ops = {
 	.read_time = m41t80_rtc_read_time,
 	.set_time = m41t80_rtc_set_time,
 	.read_alarm = m41t80_rtc_read_alarm,

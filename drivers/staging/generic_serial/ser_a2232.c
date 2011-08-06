@@ -144,7 +144,7 @@ static int  a2232_open(struct tty_struct * tty, struct file * filp);
 /*---------------------------------------------------------------------------
  * Interface from generic_serial.c back here
  *--------------------------------------------------------------------------*/
-static const struct real_driver a2232_real_driver = {
+static struct real_driver a2232_real_driver = {
         a2232_disable_tx_interrupts,
         a2232_enable_tx_interrupts,
         a2232_disable_rx_interrupts,

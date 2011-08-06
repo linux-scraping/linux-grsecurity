@@ -198,7 +198,7 @@ int mce_notify_irq(void);
 void mce_notify_process(void);
 
 DECLARE_PER_CPU(struct mce, injectm);
-extern struct file_operations mce_chrdev_ops;	/* cannot be const, see arch/x86/kernel/cpu/mcheck/mce. */
+extern struct file_operations mce_chrdev_ops;
 
 /*
  * Exception handler

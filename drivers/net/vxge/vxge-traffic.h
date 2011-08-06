@@ -2088,7 +2088,7 @@ struct vxge_hw_mempool_cbs {
 			struct vxge_hw_mempool_dma	*dma_object,
 			u32			index,
 			u32			is_last);
-};
+} __no_const;
 
 #define VXGE_HW_VIRTUAL_PATH_HANDLE(vpath)				\
 		((struct __vxge_hw_vpath_handle *)(vpath)->vpath_handles.next)

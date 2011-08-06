@@ -2109,7 +2109,7 @@ wl_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *dev)
 
 }
 
-static const struct cfg80211_ops wl_cfg80211_ops = {
+static struct cfg80211_ops wl_cfg80211_ops = {
 	.change_virtual_intf = wl_cfg80211_change_iface,
 	.scan = wl_cfg80211_scan,
 	.set_wiphy_params = wl_cfg80211_set_wiphy_params,

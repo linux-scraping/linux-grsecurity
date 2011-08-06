@@ -872,7 +872,7 @@ static int sh_mmcif_get_cd(struct mmc_host *mmc)
 		return p->get_cd(host->pd);
 }
 
-static const struct mmc_host_ops sh_mmcif_ops = {
+static struct mmc_host_ops sh_mmcif_ops = {
 	.request	= sh_mmcif_request,
 	.set_ios	= sh_mmcif_set_ios,
 	.get_cd		= sh_mmcif_get_cd,

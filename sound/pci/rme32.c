@@ -1197,7 +1197,7 @@ snd_rme32_capture_fd_pointer(struct snd_pcm_substream *substream)
 }
 
 /* for halfduplex mode */
-static const struct snd_pcm_ops snd_rme32_playback_spdif_ops = {
+static struct snd_pcm_ops snd_rme32_playback_spdif_ops = {
 	.open =		snd_rme32_playback_spdif_open,
 	.close =	snd_rme32_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1211,7 +1211,7 @@ static const struct snd_pcm_ops snd_rme32_playback_spdif_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static const struct snd_pcm_ops snd_rme32_capture_spdif_ops = {
+static struct snd_pcm_ops snd_rme32_capture_spdif_ops = {
 	.open =		snd_rme32_capture_spdif_open,
 	.close =	snd_rme32_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1224,7 +1224,7 @@ static const struct snd_pcm_ops snd_rme32_capture_spdif_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static const struct snd_pcm_ops snd_rme32_playback_adat_ops = {
+static struct snd_pcm_ops snd_rme32_playback_adat_ops = {
 	.open =		snd_rme32_playback_adat_open,
 	.close =	snd_rme32_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1237,7 +1237,7 @@ static const struct snd_pcm_ops snd_rme32_playback_adat_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static const struct snd_pcm_ops snd_rme32_capture_adat_ops = {
+static struct snd_pcm_ops snd_rme32_capture_adat_ops = {
 	.open =		snd_rme32_capture_adat_open,
 	.close =	snd_rme32_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1250,7 +1250,7 @@ static const struct snd_pcm_ops snd_rme32_capture_adat_ops = {
 };
 
 /* for fullduplex mode */
-static const struct snd_pcm_ops snd_rme32_playback_spdif_fd_ops = {
+static struct snd_pcm_ops snd_rme32_playback_spdif_fd_ops = {
 	.open =		snd_rme32_playback_spdif_open,
 	.close =	snd_rme32_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1262,7 +1262,7 @@ static const struct snd_pcm_ops snd_rme32_playback_spdif_fd_ops = {
 	.ack =		snd_rme32_playback_fd_ack,
 };
 
-static const struct snd_pcm_ops snd_rme32_capture_spdif_fd_ops = {
+static struct snd_pcm_ops snd_rme32_capture_spdif_fd_ops = {
 	.open =		snd_rme32_capture_spdif_open,
 	.close =	snd_rme32_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1274,7 +1274,7 @@ static const struct snd_pcm_ops snd_rme32_capture_spdif_fd_ops = {
 	.ack =		snd_rme32_capture_fd_ack,
 };
 
-static const struct snd_pcm_ops snd_rme32_playback_adat_fd_ops = {
+static struct snd_pcm_ops snd_rme32_playback_adat_fd_ops = {
 	.open =		snd_rme32_playback_adat_open,
 	.close =	snd_rme32_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1285,7 +1285,7 @@ static const struct snd_pcm_ops snd_rme32_playback_adat_fd_ops = {
 	.ack =		snd_rme32_playback_fd_ack,
 };
 
-static const struct snd_pcm_ops snd_rme32_capture_adat_fd_ops = {
+static struct snd_pcm_ops snd_rme32_capture_adat_fd_ops = {
 	.open =		snd_rme32_capture_adat_open,
 	.close =	snd_rme32_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,

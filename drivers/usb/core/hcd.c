@@ -2574,7 +2574,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_platform_shutdown);
 
 #if defined(CONFIG_USB_MON) || defined(CONFIG_USB_MON_MODULE)
 
-const struct usb_mon_operations *mon_ops;
+struct usb_mon_operations *mon_ops;
 
 /*
  * The registration is unlocked.
@@ -2584,7 +2584,7 @@ const struct usb_mon_operations *mon_ops;
  * symbols from usbcore, usbcore gets referenced and cannot be unloaded first.
  */
  
-int usb_mon_register (const struct usb_mon_operations *ops)
+int usb_mon_register (struct usb_mon_operations *ops)
 {
 
 	if (mon_ops)

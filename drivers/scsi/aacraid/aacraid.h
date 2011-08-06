@@ -492,7 +492,7 @@ struct adapter_ops
 	int  (*adapter_scsi)(struct fib * fib, struct scsi_cmnd * cmd);
 	/* Administrative operations */
 	int  (*adapter_comm)(struct aac_dev * dev, int comm);
-};
+} __no_const;
 
 /*
  *	Define which interrupt handler needs to be installed

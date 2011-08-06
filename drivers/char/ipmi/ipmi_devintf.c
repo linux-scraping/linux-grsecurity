@@ -109,7 +109,8 @@ static int ipmi_fasync(int fd, struct file *file, int on)
 	return (result);
 }
 
-static const struct ipmi_user_hndl ipmi_hndlrs = {
+static struct ipmi_user_hndl ipmi_hndlrs =
+{
 	.ipmi_recv_hndl	= file_receive_handler,
 };
 

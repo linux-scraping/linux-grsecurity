@@ -380,7 +380,7 @@ static int clps711xuart_request_port(struct uart_port *port)
 	return 0;
 }
 
-static const struct uart_ops clps711x_pops = {
+static struct uart_ops clps711x_pops = {
 	.tx_empty	= clps711xuart_tx_empty,
 	.set_mctrl	= clps711xuart_set_mctrl_null,
 	.get_mctrl	= clps711xuart_get_mctrl,

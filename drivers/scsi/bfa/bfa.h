@@ -238,7 +238,7 @@ struct bfa_hwif_s {
 				u32 *nvecs, u32 *maxvec);
 	void (*hw_msix_get_rme_range) (struct bfa_s *bfa, u32 *start,
 				       u32 *end);
-};
+} __no_const;
 typedef void (*bfa_cb_iocfc_t) (void *cbarg, enum bfa_status status);
 
 struct bfa_iocfc_s {

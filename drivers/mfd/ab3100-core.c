@@ -385,7 +385,7 @@ static int ab3100_event_registers_startup_state_get(struct device *dev,
 	return 0;
 }
 
-static const struct abx500_ops ab3100_ops = {
+static struct abx500_ops ab3100_ops = {
 	.get_chip_id = ab3100_get_chip_id,
 	.set_register = set_register_interruptible,
 	.get_register = get_register_interruptible,

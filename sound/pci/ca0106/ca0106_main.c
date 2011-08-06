@@ -1103,7 +1103,7 @@ snd_ca0106_pcm_pointer_capture(struct snd_pcm_substream *substream)
 }
 
 /* operators */
-static const struct snd_pcm_ops snd_ca0106_playback_front_ops = {
+static struct snd_pcm_ops snd_ca0106_playback_front_ops = {
 	.open =        snd_ca0106_pcm_open_playback_front,
 	.close =       snd_ca0106_pcm_close_playback,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -1114,7 +1114,7 @@ static const struct snd_pcm_ops snd_ca0106_playback_front_ops = {
 	.pointer =     snd_ca0106_pcm_pointer_playback,
 };
 
-static const struct snd_pcm_ops snd_ca0106_capture_0_ops = {
+static struct snd_pcm_ops snd_ca0106_capture_0_ops = {
 	.open =        snd_ca0106_pcm_open_0_capture,
 	.close =       snd_ca0106_pcm_close_capture,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -1125,7 +1125,7 @@ static const struct snd_pcm_ops snd_ca0106_capture_0_ops = {
 	.pointer =     snd_ca0106_pcm_pointer_capture,
 };
 
-static const struct snd_pcm_ops snd_ca0106_capture_1_ops = {
+static struct snd_pcm_ops snd_ca0106_capture_1_ops = {
 	.open =        snd_ca0106_pcm_open_1_capture,
 	.close =       snd_ca0106_pcm_close_capture,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -1136,7 +1136,7 @@ static const struct snd_pcm_ops snd_ca0106_capture_1_ops = {
 	.pointer =     snd_ca0106_pcm_pointer_capture,
 };
 
-static const struct snd_pcm_ops snd_ca0106_capture_2_ops = {
+static struct snd_pcm_ops snd_ca0106_capture_2_ops = {
 	.open =        snd_ca0106_pcm_open_2_capture,
 	.close =       snd_ca0106_pcm_close_capture,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -1147,7 +1147,7 @@ static const struct snd_pcm_ops snd_ca0106_capture_2_ops = {
 	.pointer =     snd_ca0106_pcm_pointer_capture,
 };
 
-static const struct snd_pcm_ops snd_ca0106_capture_3_ops = {
+static struct snd_pcm_ops snd_ca0106_capture_3_ops = {
 	.open =        snd_ca0106_pcm_open_3_capture,
 	.close =       snd_ca0106_pcm_close_capture,
 	.ioctl =       snd_pcm_lib_ioctl,
@@ -1158,7 +1158,7 @@ static const struct snd_pcm_ops snd_ca0106_capture_3_ops = {
 	.pointer =     snd_ca0106_pcm_pointer_capture,
 };
 
-static const struct snd_pcm_ops snd_ca0106_playback_center_lfe_ops = {
+static struct snd_pcm_ops snd_ca0106_playback_center_lfe_ops = {
         .open =         snd_ca0106_pcm_open_playback_center_lfe,
         .close =        snd_ca0106_pcm_close_playback,
         .ioctl =        snd_pcm_lib_ioctl,
@@ -1169,7 +1169,7 @@ static const struct snd_pcm_ops snd_ca0106_playback_center_lfe_ops = {
         .pointer =      snd_ca0106_pcm_pointer_playback, 
 };
 
-static const struct snd_pcm_ops snd_ca0106_playback_unknown_ops = {
+static struct snd_pcm_ops snd_ca0106_playback_unknown_ops = {
         .open =         snd_ca0106_pcm_open_playback_unknown,
         .close =        snd_ca0106_pcm_close_playback,
         .ioctl =        snd_pcm_lib_ioctl,
@@ -1180,7 +1180,7 @@ static const struct snd_pcm_ops snd_ca0106_playback_unknown_ops = {
         .pointer =      snd_ca0106_pcm_pointer_playback, 
 };
 
-static const struct snd_pcm_ops snd_ca0106_playback_rear_ops = {
+static struct snd_pcm_ops snd_ca0106_playback_rear_ops = {
         .open =         snd_ca0106_pcm_open_playback_rear,
         .close =        snd_ca0106_pcm_close_playback,
         .ioctl =        snd_pcm_lib_ioctl,
@@ -1223,7 +1223,7 @@ static int snd_ca0106_ac97(struct snd_ca0106 *chip)
 	struct snd_ac97_bus *pbus;
 	struct snd_ac97_template ac97;
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_ca0106_ac97_write,
 		.read = snd_ca0106_ac97_read,
 	};
@@ -1629,7 +1629,7 @@ static int __devinit snd_ca0106_create(int dev, struct snd_card *card,
 	struct snd_ca0106 *chip;
 	struct snd_ca0106_details *c;
 	int err;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_ca0106_dev_free,
 	};
 

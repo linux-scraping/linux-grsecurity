@@ -527,7 +527,7 @@ static void fusb300_fifo_flush(struct usb_ep *_ep)
 {
 }
 
-static const struct usb_ep_ops fusb300_ep_ops = {
+static struct usb_ep_ops fusb300_ep_ops = {
 	.enable		= fusb300_enable,
 	.disable	= fusb300_disable,
 
@@ -1570,7 +1570,7 @@ static int fusb300_udc_pullup(struct usb_gadget *_gadget, int is_active)
 	return 0;
 }
 
-static const struct usb_gadget_ops fusb300_gadget_ops = {
+static struct usb_gadget_ops fusb300_gadget_ops = {
 	.pullup		= fusb300_udc_pullup,
 };
 

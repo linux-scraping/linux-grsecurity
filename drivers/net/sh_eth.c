@@ -1360,7 +1360,7 @@ static void sh_eth_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
 	}
 }
 
-static const struct ethtool_ops sh_eth_ethtool_ops = {
+static struct ethtool_ops sh_eth_ethtool_ops = {
 	.get_settings	= sh_eth_get_settings,
 	.set_settings	= sh_eth_set_settings,
 	.nway_reset		= sh_eth_nway_reset,

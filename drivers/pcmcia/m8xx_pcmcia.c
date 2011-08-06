@@ -1139,7 +1139,7 @@ static int m8xx_sock_suspend(struct pcmcia_socket *sock)
 	return m8xx_set_socket(sock, &dead_socket);
 }
 
-static const struct pccard_operations m8xx_services = {
+static struct pccard_operations m8xx_services = {
 	.init = m8xx_sock_init,
 	.suspend = m8xx_sock_suspend,
 	.get_status = m8xx_get_status,

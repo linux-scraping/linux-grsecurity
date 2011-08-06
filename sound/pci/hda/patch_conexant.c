@@ -546,7 +546,7 @@ static int conexant_suspend(struct hda_codec *codec, pm_message_t state)
 }
 #endif
 
-static const struct hda_codec_ops conexant_patch_ops = {
+static struct hda_codec_ops conexant_patch_ops = {
 	.build_controls = conexant_build_controls,
 	.build_pcms = conexant_build_pcms,
 	.init = conexant_init,
@@ -3792,7 +3792,7 @@ static int cx_auto_build_controls(struct hda_codec *codec)
 	return conexant_build_controls(codec);
 }
 
-static const struct hda_codec_ops cx_auto_patch_ops = {
+static struct hda_codec_ops cx_auto_patch_ops = {
 	.build_controls = cx_auto_build_controls,
 	.build_pcms = conexant_build_pcms,
 	.init = cx_auto_init,

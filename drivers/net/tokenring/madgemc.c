@@ -744,9 +744,11 @@ static struct mca_driver madgemc_driver = {
 
 static int __init madgemc_init (void)
 {
-	madgemc_netdev_ops = tms380tr_netdev_ops;
-	madgemc_netdev_ops.ndo_open = madgemc_open;
-	madgemc_netdev_ops.ndo_stop = madgemc_close;
+	pax_open_kernel();
+	memcpy((void *)&madgemc_netdev_ops, &tms380tr_netdev_ops, sizeof(tms380tr_netdev_ops));
+	*(void **)&madgemc_netdev_ops.ndo_open = madgemc_open;
+	*(void **)&madgemc_netdev_ops.ndo_stop = madgemc_close;
+	pax_close_kernel();
 
 	return mca_register_driver (&madgemc_driver);
 }

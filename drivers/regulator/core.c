@@ -2883,7 +2883,7 @@ core_initcall(regulator_init);
 static int __init regulator_init_complete(void)
 {
 	struct regulator_dev *rdev;
-	const struct regulator_ops *ops;
+	struct regulator_ops *ops;
 	struct regulation_constraints *c;
 	int enabled, ret;
 

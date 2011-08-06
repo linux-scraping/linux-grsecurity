@@ -464,7 +464,7 @@ netx_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return ret;
 }
 
-static const struct uart_ops netx_pops = {
+static struct uart_ops netx_pops = {
 	.tx_empty	= netx_tx_empty,
 	.set_mctrl	= netx_set_mctrl,
 	.get_mctrl	= netx_get_mctrl,

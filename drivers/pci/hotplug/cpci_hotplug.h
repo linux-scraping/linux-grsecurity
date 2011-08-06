@@ -59,7 +59,7 @@ struct cpci_hp_controller_ops {
 	int (*hardware_test) (struct slot* slot, u32 value);
 	u8  (*get_power) (struct slot* slot);
 	int (*set_power) (struct slot* slot, int value);
-};
+} __no_const;
 
 struct cpci_hp_controller {
 	unsigned int irq;

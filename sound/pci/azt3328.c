@@ -822,7 +822,7 @@ snd_azf3328_mixer_new(struct snd_azf3328 *chip)
 {
 	struct snd_ac97_bus *bus;
 	struct snd_ac97_template ac97;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_azf3328_mixer_ac97_write,
 		.read = snd_azf3328_mixer_ac97_read,
 	};
@@ -2179,7 +2179,7 @@ snd_azf3328_pcm_close(struct snd_pcm_substream *substream
 
 /******************************************************************/
 
-static const struct snd_pcm_ops snd_azf3328_playback_ops = {
+static struct snd_pcm_ops snd_azf3328_playback_ops = {
 	.open =		snd_azf3328_pcm_playback_open,
 	.close =	snd_azf3328_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -2190,7 +2190,7 @@ static const struct snd_pcm_ops snd_azf3328_playback_ops = {
 	.pointer =	snd_azf3328_pcm_pointer
 };
 
-static const struct snd_pcm_ops snd_azf3328_capture_ops = {
+static struct snd_pcm_ops snd_azf3328_capture_ops = {
 	.open =		snd_azf3328_pcm_capture_open,
 	.close =	snd_azf3328_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -2201,7 +2201,7 @@ static const struct snd_pcm_ops snd_azf3328_capture_ops = {
 	.pointer =	snd_azf3328_pcm_pointer
 };
 
-static const struct snd_pcm_ops snd_azf3328_i2s_out_ops = {
+static struct snd_pcm_ops snd_azf3328_i2s_out_ops = {
 	.open =		snd_azf3328_pcm_i2s_out_open,
 	.close =	snd_azf3328_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -2497,7 +2497,7 @@ snd_azf3328_create(struct snd_card *card,
 {
 	struct snd_azf3328 *chip;
 	int err;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =     snd_azf3328_dev_free,
 	};
 	u8 dma_init;

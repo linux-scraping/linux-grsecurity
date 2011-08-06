@@ -1672,7 +1672,7 @@ static int go7007_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return 0;
 }
 
-static const struct vm_operations_struct go7007_vm_ops = {
+static struct vm_operations_struct go7007_vm_ops = {
 	.open	= go7007_vm_open,
 	.close	= go7007_vm_close,
 	.fault	= go7007_vm_fault,

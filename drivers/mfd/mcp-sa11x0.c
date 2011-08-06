@@ -128,7 +128,7 @@ static void mcp_sa11x0_disable(struct mcp *mcp)
 /*
  * Our methods.
  */
-static const struct mcp_ops mcp_sa11x0 = {
+static struct mcp_ops mcp_sa11x0 = {
 	.set_telecom_divisor	= mcp_sa11x0_set_telecom_divisor,
 	.set_audio_divisor	= mcp_sa11x0_set_audio_divisor,
 	.reg_write		= mcp_sa11x0_write,

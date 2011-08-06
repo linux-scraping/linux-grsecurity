@@ -165,7 +165,7 @@ static int cr_lcd_set_power(struct lcd_device *ld, int power)
 	return 0;
 }
 
-static const struct lcd_ops cr_lcd_ops = {
+static struct lcd_ops cr_lcd_ops = {
 	.set_power = cr_lcd_set_power,
 };
 

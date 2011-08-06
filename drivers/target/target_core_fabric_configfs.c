@@ -1174,7 +1174,7 @@ static void target_fabric_drop_wwn(
 	config_item_put(item);
 }
 
-static const struct configfs_group_operations target_fabric_wwn_group_ops = {
+static struct configfs_group_operations target_fabric_wwn_group_ops = {
 	.make_group	= target_fabric_make_wwn,
 	.drop_item	= target_fabric_drop_wwn,
 };

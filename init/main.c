@@ -184,7 +184,7 @@ early_param("pax_nouderef", setup_pax_nouderef);
 #endif
 
 #ifdef CONFIG_PAX_SOFTMODE
-unsigned int pax_softmode;
+int pax_softmode;
 
 static int __init setup_pax_softmode(char *str)
 {

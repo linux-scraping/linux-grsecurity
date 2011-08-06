@@ -1514,7 +1514,7 @@ static int ppc4xx_pciex_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops ppc4xx_pciex_pci_ops =
+static struct pci_ops ppc4xx_pciex_pci_ops =
 {
 	.read  = ppc4xx_pciex_read_config,
 	.write = ppc4xx_pciex_write_config,

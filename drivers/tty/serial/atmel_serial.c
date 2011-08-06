@@ -1382,7 +1382,7 @@ atmel_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 
 
 
-static const struct uart_ops atmel_pops = {
+static struct uart_ops atmel_pops = {
 	.tx_empty	= atmel_tx_empty,
 	.set_mctrl	= atmel_set_mctrl,
 	.get_mctrl	= atmel_get_mctrl,

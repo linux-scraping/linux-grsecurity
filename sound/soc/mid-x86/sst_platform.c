@@ -381,7 +381,7 @@ static int sst_platform_pcm_hw_free(struct snd_pcm_substream *substream)
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static const struct snd_pcm_ops sst_platform_ops = {
+static struct snd_pcm_ops sst_platform_ops = {
 	.open = sst_platform_open,
 	.close = sst_platform_close,
 	.ioctl = snd_pcm_lib_ioctl,

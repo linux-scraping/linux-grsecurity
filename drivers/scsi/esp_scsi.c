@@ -2680,7 +2680,7 @@ static void esp_set_width(struct scsi_target *target, int width)
 	tp->flags |= ESP_TGT_CHECK_NEGO;
 }
 
-static const struct spi_function_template esp_transport_ops = {
+static struct spi_function_template esp_transport_ops = {
 	.set_offset		= esp_set_offset,
 	.show_offset		= 1,
 	.set_period		= esp_set_period,

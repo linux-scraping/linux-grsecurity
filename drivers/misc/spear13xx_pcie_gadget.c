@@ -644,7 +644,7 @@ static ssize_t pcie_gadget_target_attr_store(struct config_item *item,
 	return ret;
 }
 
-static const struct configfs_item_operations pcie_gadget_target_item_ops = {
+static struct configfs_item_operations pcie_gadget_target_item_ops = {
 	.show_attribute		= pcie_gadget_target_attr_show,
 	.store_attribute	= pcie_gadget_target_attr_store,
 };

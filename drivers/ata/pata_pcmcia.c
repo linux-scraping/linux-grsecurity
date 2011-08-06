@@ -151,14 +151,14 @@ static struct scsi_host_template pcmcia_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations pcmcia_port_ops = {
+static struct ata_port_operations pcmcia_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.sff_data_xfer	= ata_sff_data_xfer_noirq,
 	.cable_detect	= ata_cable_40wire,
 	.set_mode	= pcmcia_set_mode,
 };
 
-static const struct ata_port_operations pcmcia_8bit_port_ops = {
+static struct ata_port_operations pcmcia_8bit_port_ops = {
 	.inherits	= &ata_sff_port_ops,
 	.sff_data_xfer	= ata_data_xfer_8bit,
 	.cable_detect	= ata_cable_40wire,
@@ -205,7 +205,7 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
 	unsigned long io_base, ctl_base;
 	void __iomem *io_addr, *ctl_addr;
 	int n_ports = 1;
-	const struct ata_port_operations *ops = &pcmcia_port_ops;
+	struct ata_port_operations *ops = &pcmcia_port_ops;
 
 	/* Set up attributes in order to probe card and get resources */
 	pdev->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_IO |

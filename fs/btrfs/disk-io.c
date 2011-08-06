@@ -42,7 +42,7 @@
 #include "tree-log.h"
 #include "free-space-cache.h"
 
-static const struct extent_io_ops btree_extent_io_ops;
+static struct extent_io_ops btree_extent_io_ops;
 static void end_workqueue_fn(struct btrfs_work *work);
 static void free_fs_root(struct btrfs_root *root);
 static void btrfs_check_super_valid(struct btrfs_fs_info *fs_info,
@@ -3070,7 +3070,7 @@ static int btrfs_cleanup_transaction(struct btrfs_root *root)
 	return 0;
 }
 
-static const struct extent_io_ops btree_extent_io_ops = {
+static struct extent_io_ops btree_extent_io_ops = {
 	.write_cache_pages_lock_hook = btree_lock_page_hook,
 	.readpage_end_io_hook = btree_readpage_end_io_hook,
 	.submit_bio_hook = btree_submit_bio_hook,

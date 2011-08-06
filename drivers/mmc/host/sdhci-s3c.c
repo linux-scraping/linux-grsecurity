@@ -309,7 +309,7 @@ static int sdhci_s3c_platform_8bit_width(struct sdhci_host *host, int width)
 	return 0;
 }
 
-static const struct sdhci_ops sdhci_s3c_ops = {
+static struct sdhci_ops sdhci_s3c_ops = {
 	.get_max_clock		= sdhci_s3c_get_max_clk,
 	.set_clock		= sdhci_s3c_set_clock,
 	.get_min_clock		= sdhci_s3c_get_min_clock,

@@ -94,7 +94,7 @@ static struct scc_port scc_ports[2];
  * Interface from generic_serial.c back here
  *--------------------------------------------------------------------------*/
 
-static const struct real_driver scc_real_driver = {
+static struct real_driver scc_real_driver = {
         scc_disable_tx_interrupts,
         scc_enable_tx_interrupts,
         scc_disable_rx_interrupts,

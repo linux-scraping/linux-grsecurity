@@ -176,7 +176,7 @@ static int goni_hifi_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops goni_hifi_ops = {
+static struct snd_soc_ops goni_hifi_ops = {
 	.hw_params = goni_hifi_hw_params,
 };
 
@@ -227,7 +227,7 @@ static struct snd_soc_dai_driver voice_dai = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 };
 
-static const struct snd_soc_ops goni_voice_ops = {
+static struct snd_soc_ops goni_voice_ops = {
 	.hw_params = goni_voice_hw_params,
 };
 

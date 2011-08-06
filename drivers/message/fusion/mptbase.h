@@ -908,7 +908,7 @@ extern int	 mpt_event_register(u8 cb_idx, MPT_EVHANDLER ev_cbfunc);
 extern void	 mpt_event_deregister(u8 cb_idx);
 extern int	 mpt_reset_register(u8 cb_idx, MPT_RESETHANDLER reset_func);
 extern void	 mpt_reset_deregister(u8 cb_idx);
-extern int	 mpt_device_driver_register(const struct mpt_pci_driver * dd_cbfunc, u8 cb_idx);
+extern int	 mpt_device_driver_register(struct mpt_pci_driver * dd_cbfunc, u8 cb_idx);
 extern void	 mpt_device_driver_deregister(u8 cb_idx);
 extern MPT_FRAME_HDR	*mpt_get_msg_frame(u8 cb_idx, MPT_ADAPTER *ioc);
 extern void	 mpt_free_msg_frame(MPT_ADAPTER *ioc, MPT_FRAME_HDR *mf);

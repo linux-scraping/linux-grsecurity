@@ -155,7 +155,7 @@ static int pcie_wr_conf(struct pci_bus *bus, u32 devfn,
 	return ret;
 }
 
-static const struct pci_ops pcie_ops = {
+static struct pci_ops pcie_ops = {
 	.read = pcie_rd_conf,
 	.write = pcie_wr_conf,
 };

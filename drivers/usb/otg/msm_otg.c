@@ -95,7 +95,7 @@ static int ulpi_write(struct otg_transceiver *otg, u32 val, u32 reg)
 	return 0;
 }
 
-static const struct otg_io_access_ops msm_otg_io_ops = {
+static struct otg_io_access_ops msm_otg_io_ops = {
 	.read = ulpi_read,
 	.write = ulpi_write,
 };

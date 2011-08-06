@@ -773,7 +773,7 @@ static struct snd_kcontrol_new spdif_ctls[] = {
 	},
 };
 
-static const struct snd_pcm_ops snd_ps3_pcm_spdif_ops = {
+static struct snd_pcm_ops snd_ps3_pcm_spdif_ops = {
 	.open = snd_ps3_pcm_open,
 	.close = snd_ps3_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,

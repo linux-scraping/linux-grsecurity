@@ -451,7 +451,7 @@ static u32 functionality(struct i2c_adapter *adap)
 	return I2C_FUNC_SMBUS_EMUL;
 }
 
-static const struct i2c_algorithm em28xx_algo = {
+static struct i2c_algorithm em28xx_algo = {
 	.master_xfer   = em28xx_i2c_xfer,
 	.functionality = functionality,
 };

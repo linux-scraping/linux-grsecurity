@@ -173,7 +173,7 @@ static int electra_cf_set_mem_map(struct pcmcia_socket *s,
 	return 0;
 }
 
-static const struct pccard_operations electra_cf_ops = {
+static struct pccard_operations electra_cf_ops = {
 	.init			= electra_cf_ss_init,
 	.get_status		= electra_cf_get_status,
 	.set_socket		= electra_cf_set_socket,

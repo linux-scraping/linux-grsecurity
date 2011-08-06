@@ -763,7 +763,7 @@ static int iwm_cfg80211_flush_pmksa(struct wiphy *wiphy,
 }
 
 
-static const struct cfg80211_ops iwm_cfg80211_ops = {
+static struct cfg80211_ops iwm_cfg80211_ops = {
 	.change_virtual_intf = iwm_cfg80211_change_iface,
 	.add_key = iwm_cfg80211_add_key,
 	.get_key = iwm_cfg80211_get_key,

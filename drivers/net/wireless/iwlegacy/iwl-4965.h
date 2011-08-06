@@ -70,7 +70,7 @@ extern struct iwl_cfg iwl4965_cfg;
 
 extern struct iwl_mod_params iwl4965_mod_params;
 
-extern const struct ieee80211_ops iwl4965_hw_ops;
+extern struct ieee80211_ops iwl4965_hw_ops;
 
 /* tx queue */
 void iwl4965_free_tfds_in_queue(struct iwl_priv *priv,

@@ -146,7 +146,7 @@ static struct scsi_host_template adma_ata_sht = {
 	.dma_boundary		= ADMA_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations adma_ata_ops = {
+static struct ata_port_operations adma_ata_ops = {
 	.inherits		= &ata_sff_port_ops,
 
 	.lost_interrupt		= ATA_OP_NULL,

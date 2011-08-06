@@ -44,7 +44,7 @@ struct snd_info_entry_text {
 		     struct snd_info_buffer *buffer);
 	void (*write)(struct snd_info_entry *entry,
 		      struct snd_info_buffer *buffer);
-};
+} __no_const;
 
 struct snd_info_entry_ops {
 	int (*open)(struct snd_info_entry *entry,

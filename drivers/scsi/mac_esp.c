@@ -473,7 +473,7 @@ static irqreturn_t mac_scsi_esp_intr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static const struct esp_driver_ops mac_esp_ops = {
+static struct esp_driver_ops mac_esp_ops = {
 	.esp_write8       = mac_esp_write8,
 	.esp_read8        = mac_esp_read8,
 	.map_single       = mac_esp_map_single,

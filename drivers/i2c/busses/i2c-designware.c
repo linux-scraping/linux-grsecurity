@@ -689,7 +689,7 @@ tx_aborted:
 	return IRQ_HANDLED;
 }
 
-static const struct i2c_algorithm i2c_dw_algo = {
+static struct i2c_algorithm i2c_dw_algo = {
 	.master_xfer	= i2c_dw_xfer,
 	.functionality	= i2c_dw_func,
 };

@@ -1598,7 +1598,7 @@ static struct scsi_host_template sata_dwc_sht = {
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations sata_dwc_ops = {
+static struct ata_port_operations sata_dwc_ops = {
 	.inherits		= &ata_sff_port_ops,
 
 	.error_handler		= sata_dwc_error_handler,

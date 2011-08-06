@@ -38,7 +38,7 @@ struct outer_cache_fns {
 
 #ifdef CONFIG_OUTER_CACHE
 
-extern const struct outer_cache_fns outer_cache;
+extern struct outer_cache_fns outer_cache;
 
 static inline void outer_inv_range(phys_addr_t start, phys_addr_t end)
 {

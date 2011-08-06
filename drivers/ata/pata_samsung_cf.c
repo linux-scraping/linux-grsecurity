@@ -399,7 +399,7 @@ static struct scsi_host_template pata_s3c_sht = {
 	ATA_PIO_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations pata_s3c_port_ops = {
+static struct ata_port_operations pata_s3c_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.sff_check_status	= pata_s3c_check_status,
 	.sff_check_altstatus    = pata_s3c_check_altstatus,
@@ -413,7 +413,7 @@ static const struct ata_port_operations pata_s3c_port_ops = {
 	.set_piomode		= pata_s3c_set_piomode,
 };
 
-static const struct ata_port_operations pata_s5p_port_ops = {
+static struct ata_port_operations pata_s5p_port_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.set_piomode		= pata_s3c_set_piomode,
 };

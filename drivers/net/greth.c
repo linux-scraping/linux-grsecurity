@@ -1192,7 +1192,7 @@ static const struct ethtool_ops greth_ethtool_ops = {
 	.get_link		= ethtool_op_get_link,
 };
 
-static const struct net_device_ops greth_netdev_ops = {
+static struct net_device_ops greth_netdev_ops = {
 	.ndo_open		= greth_open,
 	.ndo_stop		= greth_close,
 	.ndo_start_xmit		= greth_start_xmit,

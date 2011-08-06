@@ -185,7 +185,7 @@ static u8 dcon_read_status_xo_1_5(void)
 	return status;
 }
 
-const struct dcon_platform_data dcon_pdata_xo_1_5 = {
+struct dcon_platform_data dcon_pdata_xo_1_5 = {
 	.init = dcon_init_xo_1_5,
 	.bus_stabilize_wiggle = dcon_wiggle_xo_1_5,
 	.set_dconload = dcon_set_dconload_xo_1_5,

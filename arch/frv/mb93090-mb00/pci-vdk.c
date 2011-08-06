@@ -27,7 +27,7 @@ unsigned int __nongpreldata pci_probe = 1;
 
 int  __nongpreldata pcibios_last_bus = -1;
 struct pci_bus *__nongpreldata pci_root_bus;
-const struct pci_ops *__nongpreldata pci_root_ops;
+struct pci_ops *__nongpreldata pci_root_ops;
 
 /*
  * The accessible PCI window does not cover the entire CPU address space, but
@@ -169,7 +169,7 @@ static int pci_frv_write_config(struct pci_bus *bus, unsigned int devfn, int whe
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops pci_direct_frv = {
+static struct pci_ops pci_direct_frv = {
 	pci_frv_read_config,
 	pci_frv_write_config,
 };
@@ -356,7 +356,7 @@ void __init pcibios_fixup_bus(struct pci_bus *bus)
 
 int __init pcibios_init(void)
 {
-	const struct pci_ops *dir = NULL;
+	struct pci_ops *dir = NULL;
 
 	if (!mb93090_mb00_detected)
 		return -ENXIO;

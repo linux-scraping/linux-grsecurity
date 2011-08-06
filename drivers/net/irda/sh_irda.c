@@ -307,7 +307,7 @@ static int xir_fte(struct sh_irda_self *self)
 	return 0;
 }
 
-static const struct sh_irda_xir_func xir_func = {
+static struct sh_irda_xir_func xir_func = {
 	.xir_fre	= xir_fre,
 	.xir_trov	= xir_trov,
 	.xir_9		= xir_9,
@@ -321,7 +321,7 @@ static const struct sh_irda_xir_func xir_func = {
  *
  * MIR/FIR are not supported now
  *=====================================*/
-static const struct sh_irda_xir_func mfir_func = {
+static struct sh_irda_xir_func mfir_func = {
 	.xir_fre	= xir_fre,
 	.xir_trov	= xir_trov,
 	.xir_9		= xir_9,
@@ -400,7 +400,7 @@ static int sir_fte(struct sh_irda_self *self)
 	return 0;
 }
 
-static const struct sh_irda_xir_func sir_func = {
+static struct sh_irda_xir_func sir_func = {
 	.xir_fre	= sir_fre,
 	.xir_trov	= sir_trov,
 	.xir_9		= sir_tot,
@@ -411,7 +411,7 @@ static const struct sh_irda_xir_func sir_func = {
 static void sh_irda_set_mode(struct sh_irda_self *self, enum sh_irda_mode mode)
 {
 	struct device *dev = &self->ndev->dev;
-	const struct sh_irda_xir_func *func;
+	struct sh_irda_xir_func	*func;
 	const char *name;
 	u16 data;
 

@@ -273,7 +273,7 @@ static void xenvif_get_strings(struct net_device *dev, u32 stringset, u8 * data)
 	}
 }
 
-static const struct ethtool_ops xenvif_ethtool_ops = {
+static struct ethtool_ops xenvif_ethtool_ops = {
 	.get_tx_csum	= ethtool_op_get_tx_csum,
 	.set_tx_csum	= xenvif_set_tx_csum,
 	.get_sg		= ethtool_op_get_sg,

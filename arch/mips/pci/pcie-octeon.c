@@ -1237,7 +1237,7 @@ static int octeon_pcie1_write_config(struct pci_bus *bus, unsigned int devfn,
 	return octeon_pcie_write_config(1, bus, devfn, reg, size, val);
 }
 
-static const struct pci_ops octeon_pcie0_ops = {
+static struct pci_ops octeon_pcie0_ops = {
 	octeon_pcie0_read_config,
 	octeon_pcie0_write_config,
 };
@@ -1258,7 +1258,7 @@ static struct pci_controller octeon_pcie0_controller = {
 	.io_resource = &octeon_pcie0_io_resource,
 };
 
-static const struct pci_ops octeon_pcie1_ops = {
+static struct pci_ops octeon_pcie1_ops = {
 	octeon_pcie1_read_config,
 	octeon_pcie1_write_config,
 };

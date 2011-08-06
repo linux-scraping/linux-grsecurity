@@ -211,7 +211,7 @@ static int msm_fb_lcdc_gpio_config(int on)
 }
 
 
-static const struct lcdc_platform_data lcdc_pdata = {
+static struct lcdc_platform_data lcdc_pdata = {
 	.lcdc_gpio_config = msm_fb_lcdc_gpio_config,
 };
 

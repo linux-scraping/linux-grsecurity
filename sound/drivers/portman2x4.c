@@ -548,13 +548,13 @@ static void snd_portman_midi_output_trigger(struct snd_rawmidi_substream *substr
 	spin_unlock_irqrestore(&pm->reg_lock, flags);
 }
 
-static const struct snd_rawmidi_ops snd_portman_midi_output = {
+static struct snd_rawmidi_ops snd_portman_midi_output = {
 	.open =		snd_portman_midi_open,
 	.close =	snd_portman_midi_close,
 	.trigger =	snd_portman_midi_output_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_portman_midi_input = {
+static struct snd_rawmidi_ops snd_portman_midi_input = {
 	.open =		snd_portman_midi_open,
 	.close =	snd_portman_midi_close,
 	.trigger =	snd_portman_midi_input_trigger,

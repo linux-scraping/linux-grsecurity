@@ -165,7 +165,7 @@ static int versatile_write_config(struct pci_bus *bus, unsigned int devfn, int w
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops pci_versatile_ops = {
+static struct pci_ops pci_versatile_ops = {
 	.read	= versatile_read_config,
 	.write	= versatile_write_config,
 };

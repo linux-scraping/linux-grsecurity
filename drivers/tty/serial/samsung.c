@@ -860,7 +860,7 @@ static struct console s3c24xx_serial_console;
 #define S3C24XX_SERIAL_CONSOLE NULL
 #endif
 
-static const struct uart_ops s3c24xx_serial_ops = {
+static struct uart_ops s3c24xx_serial_ops = {
 	.pm		= s3c24xx_serial_pm,
 	.tx_empty	= s3c24xx_serial_tx_empty,
 	.get_mctrl	= s3c24xx_serial_get_mctrl,

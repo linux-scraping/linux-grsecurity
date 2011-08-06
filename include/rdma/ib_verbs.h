@@ -1149,7 +1149,7 @@ struct ib_device {
 						  struct ib_mad *in_mad,
 						  struct ib_mad *out_mad);
 
-	const struct ib_dma_mapping_ops   *dma_ops;
+	struct ib_dma_mapping_ops   *dma_ops;
 
 	struct module               *owner;
 	struct device                dev;

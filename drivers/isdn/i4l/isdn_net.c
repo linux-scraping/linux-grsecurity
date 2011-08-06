@@ -400,7 +400,7 @@ isdn_net_stat_callback(int idx, isdn_ctrl *c)
 		isdn_net_local *lp = p->local;
 #ifdef CONFIG_ISDN_X25
 		struct concap_proto *cprot = lp->netdev->cprot;
-		const struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
+		struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
 #endif
 		switch (cmd) {
 			case ISDN_STAT_BSENT:
@@ -831,7 +831,7 @@ isdn_net_hangup(struct net_device *d)
 	isdn_ctrl cmd;
 #ifdef CONFIG_ISDN_X25
 	struct concap_proto *cprot = lp->netdev->cprot;
-	const struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
+	struct concap_proto_ops *pops = cprot ? cprot->pops : NULL;
 #endif
 
 	if (lp->flags & ISDN_NET_CONNECTED) {

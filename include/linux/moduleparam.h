@@ -285,48 +285,48 @@ static inline void destroy_params(const struct kernel_param *params,
 #define __param_check(name, p, type) \
 	static inline type *__check_##name(void) { return(p); }
 
-extern const struct kernel_param_ops param_ops_byte;
+extern struct kernel_param_ops param_ops_byte;
 extern int param_set_byte(const char *val, const struct kernel_param *kp);
 extern int param_get_byte(char *buffer, const struct kernel_param *kp);
 #define param_check_byte(name, p) __param_check(name, p, unsigned char)
 
-extern const struct kernel_param_ops param_ops_short;
+extern struct kernel_param_ops param_ops_short;
 extern int param_set_short(const char *val, const struct kernel_param *kp);
 extern int param_get_short(char *buffer, const struct kernel_param *kp);
 #define param_check_short(name, p) __param_check(name, p, short)
 
-extern const struct kernel_param_ops param_ops_ushort;
+extern struct kernel_param_ops param_ops_ushort;
 extern int param_set_ushort(const char *val, const struct kernel_param *kp);
 extern int param_get_ushort(char *buffer, const struct kernel_param *kp);
 #define param_check_ushort(name, p) __param_check(name, p, unsigned short)
 
-extern const struct kernel_param_ops param_ops_int;
+extern struct kernel_param_ops param_ops_int;
 extern int param_set_int(const char *val, const struct kernel_param *kp);
 extern int param_get_int(char *buffer, const struct kernel_param *kp);
 #define param_check_int(name, p) __param_check(name, p, int)
 
-extern const struct kernel_param_ops param_ops_uint;
+extern struct kernel_param_ops param_ops_uint;
 extern int param_set_uint(const char *val, const struct kernel_param *kp);
 extern int param_get_uint(char *buffer, const struct kernel_param *kp);
 #define param_check_uint(name, p) __param_check(name, p, unsigned int)
 
-extern const struct kernel_param_ops param_ops_long;
+extern struct kernel_param_ops param_ops_long;
 extern int param_set_long(const char *val, const struct kernel_param *kp);
 extern int param_get_long(char *buffer, const struct kernel_param *kp);
 #define param_check_long(name, p) __param_check(name, p, long)
 
-extern const struct kernel_param_ops param_ops_ulong;
+extern struct kernel_param_ops param_ops_ulong;
 extern int param_set_ulong(const char *val, const struct kernel_param *kp);
 extern int param_get_ulong(char *buffer, const struct kernel_param *kp);
 #define param_check_ulong(name, p) __param_check(name, p, unsigned long)
 
-extern const struct kernel_param_ops param_ops_charp;
+extern struct kernel_param_ops param_ops_charp;
 extern int param_set_charp(const char *val, const struct kernel_param *kp);
 extern int param_get_charp(char *buffer, const struct kernel_param *kp);
 #define param_check_charp(name, p) __param_check(name, p, char *)
 
 /* For historical reasons "bool" parameters can be (unsigned) "int". */
-extern const struct kernel_param_ops param_ops_bool;
+extern struct kernel_param_ops param_ops_bool;
 extern int param_set_bool(const char *val, const struct kernel_param *kp);
 extern int param_get_bool(char *buffer, const struct kernel_param *kp);
 #define param_check_bool(name, p)					\
@@ -337,7 +337,7 @@ extern int param_get_bool(char *buffer, const struct kernel_param *kp);
 			     !__same_type((p), int *));			\
 	}
 
-extern const struct kernel_param_ops param_ops_invbool;
+extern struct kernel_param_ops param_ops_invbool;
 extern int param_set_invbool(const char *val, const struct kernel_param *kp);
 extern int param_get_invbool(char *buffer, const struct kernel_param *kp);
 #define param_check_invbool(name, p) __param_check(name, p, bool)
@@ -379,9 +379,9 @@ extern int param_get_invbool(char *buffer, const struct kernel_param *kp);
 			    __same_type(array[0], bool), perm);		\
 	__MODULE_PARM_TYPE(name, "array of " #type)
 
-extern const struct kernel_param_ops param_array_ops;
+extern struct kernel_param_ops param_array_ops;
 
-extern const struct kernel_param_ops param_ops_string;
+extern struct kernel_param_ops param_ops_string;
 extern int param_set_copystring(const char *val, const struct kernel_param *);
 extern int param_get_string(char *buffer, const struct kernel_param *kp);
 

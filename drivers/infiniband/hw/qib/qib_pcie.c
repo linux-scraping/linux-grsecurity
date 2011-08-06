@@ -735,7 +735,7 @@ qib_pci_resume(struct pci_dev *pdev)
 	qib_init(dd, 1); /* same as re-init after reset */
 }
 
-const struct pci_error_handlers qib_pci_err_handler = {
+struct pci_error_handlers qib_pci_err_handler = {
 	.error_detected = qib_pci_error_detected,
 	.mmio_enabled = qib_pci_mmio_enabled,
 	.link_reset = qib_pci_link_reset,

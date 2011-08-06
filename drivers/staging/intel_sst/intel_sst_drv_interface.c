@@ -470,7 +470,7 @@ int sst_device_control(int cmd, void *arg)
 }
 
 
-const struct intel_sst_pcm_control pcm_ops = {
+struct intel_sst_pcm_control pcm_ops = {
 	.open = sst_open_pcm_stream,
 	.device_control = sst_device_control,
 	.close = sst_close_pcm_stream,

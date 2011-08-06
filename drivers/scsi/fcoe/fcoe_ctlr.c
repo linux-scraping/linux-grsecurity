@@ -1912,7 +1912,7 @@ static void fcoe_ctlr_vn_rport_callback(struct fc_lport *lport,
 	mutex_unlock(&fip->ctlr_mutex);
 }
 
-static const struct fc_rport_operations fcoe_ctlr_vn_rport_ops = {
+static struct fc_rport_operations fcoe_ctlr_vn_rport_ops = {
 	.event_callback = fcoe_ctlr_vn_rport_callback,
 };
 

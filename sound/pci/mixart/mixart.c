@@ -887,7 +887,7 @@ static snd_pcm_uframes_t snd_mixart_stream_pointer(struct snd_pcm_substream *sub
 
 
 
-static const struct snd_pcm_ops snd_mixart_playback_ops = {
+static struct snd_pcm_ops snd_mixart_playback_ops = {
 	.open      = snd_mixart_playback_open,
 	.close     = snd_mixart_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -898,7 +898,7 @@ static const struct snd_pcm_ops snd_mixart_playback_ops = {
 	.pointer   = snd_mixart_stream_pointer,
 };
 
-static const struct snd_pcm_ops snd_mixart_capture_ops = {
+static struct snd_pcm_ops snd_mixart_capture_ops = {
 	.open      = snd_mixart_capture_open,
 	.close     = snd_mixart_close,
 	.ioctl     = snd_pcm_lib_ioctl,
@@ -1008,7 +1008,7 @@ static int __devinit snd_mixart_create(struct mixart_mgr *mgr, struct snd_card *
 {
 	int err;
 	struct snd_mixart *chip;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_mixart_chip_dev_free,
 	};
 

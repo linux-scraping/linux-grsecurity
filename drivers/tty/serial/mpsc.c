@@ -1663,7 +1663,7 @@ static void mpsc_put_poll_char(struct uart_port *port,
 }
 #endif
 
-static const struct uart_ops mpsc_pops = {
+static struct uart_ops mpsc_pops = {
 	.tx_empty	= mpsc_tx_empty,
 	.set_mctrl	= mpsc_set_mctrl,
 	.get_mctrl	= mpsc_get_mctrl,

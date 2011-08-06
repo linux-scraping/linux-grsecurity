@@ -1260,9 +1260,11 @@ static int __init init_mac80211_hwsim(void)
 		return -EINVAL;
 
 	if (fake_hw_scan) {
-		mac80211_hwsim_ops.hw_scan = mac80211_hwsim_hw_scan;
-		mac80211_hwsim_ops.sw_scan_start = NULL;
-		mac80211_hwsim_ops.sw_scan_complete = NULL;
+		pax_open_kernel();
+		*(void **)&mac80211_hwsim_ops.hw_scan = mac80211_hwsim_hw_scan;
+		*(void **)&mac80211_hwsim_ops.sw_scan_start = NULL;
+		*(void **)&mac80211_hwsim_ops.sw_scan_complete = NULL;
+		pax_close_kernel();
 	}
 
 	spin_lock_init(&hwsim_radio_lock);

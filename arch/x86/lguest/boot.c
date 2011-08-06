@@ -1178,9 +1178,10 @@ static __init int early_put_chars(u32 vtermno, const char *buf, int count)
  * Rebooting also tells the Host we're finished, but the RESTART flag tells the
  * Launcher to reboot us.
  */
-static void lguest_restart(char *reason)
+static __noreturn void lguest_restart(char *reason)
 {
 	hcall(LHCALL_SHUTDOWN, __pa(reason), LGUEST_SHUTDOWN_RESTART, 0, 0);
+	BUG();
 }
 
 /*G:050

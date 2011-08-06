@@ -374,7 +374,7 @@ error:
 }
 
 /* The ops structure which hooks everything together. */
-static const struct virtio_config_ops lguest_config_ops = {
+static struct virtio_config_ops lguest_config_ops = {
 	.get_features = lg_get_features,
 	.finalize_features = lg_finalize_features,
 	.get = lg_get,

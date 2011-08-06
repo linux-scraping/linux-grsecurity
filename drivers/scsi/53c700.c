@@ -2153,7 +2153,7 @@ EXPORT_SYMBOL(NCR_700_detect);
 EXPORT_SYMBOL(NCR_700_release);
 EXPORT_SYMBOL(NCR_700_intr);
 
-static struct spi_function_template NCR_700_transport_functions = {
+static struct spi_function_template NCR_700_transport_functions =  {
 	.set_period	= NCR_700_set_period,
 	.show_period	= 1,
 	.set_offset	= NCR_700_set_offset,

@@ -958,7 +958,7 @@ struct radeon_asic {
 	void (*pre_page_flip)(struct radeon_device *rdev, int crtc);
 	u32 (*page_flip)(struct radeon_device *rdev, int crtc, u64 crtc_base);
 	void (*post_page_flip)(struct radeon_device *rdev, int crtc);
-};
+} __no_const;
 
 /*
  * Asic structures

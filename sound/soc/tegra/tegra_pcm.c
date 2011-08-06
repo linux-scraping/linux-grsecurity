@@ -277,7 +277,7 @@ static int tegra_pcm_mmap(struct snd_pcm_substream *substream,
 					runtime->dma_bytes);
 }
 
-static const struct snd_pcm_ops tegra_pcm_ops = {
+static struct snd_pcm_ops tegra_pcm_ops = {
 	.open		= tegra_pcm_open,
 	.close		= tegra_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,

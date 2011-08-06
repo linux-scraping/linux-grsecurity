@@ -56,7 +56,7 @@
 struct rtnl_link {
 	rtnl_doit_func		doit;
 	rtnl_dumpit_func	dumpit;
-};
+} __no_const;
 
 static DEFINE_MUTEX(rtnl_mutex);
 

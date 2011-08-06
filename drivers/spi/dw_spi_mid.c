@@ -180,7 +180,7 @@ static int mid_spi_dma_transfer(struct dw_spi *dws, int cs_change)
 	return 0;
 }
 
-static const struct dw_spi_dma_ops mid_dma_ops = {
+static struct dw_spi_dma_ops mid_dma_ops = {
 	.dma_init	= mid_spi_dma_init,
 	.dma_exit	= mid_spi_dma_exit,
 	.dma_transfer	= mid_spi_dma_transfer,

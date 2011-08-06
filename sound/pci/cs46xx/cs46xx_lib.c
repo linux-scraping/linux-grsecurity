@@ -3722,7 +3722,7 @@ int __devinit snd_cs46xx_create(struct snd_card *card,
 	struct snd_cs46xx_region *region;
 	struct cs_card_type *cp;
 	u16 ss_card, ss_vendor;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_cs46xx_dev_free,
 	};
 	

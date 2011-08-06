@@ -53,7 +53,7 @@ MODULE_LICENSE("GPL");
 
 #define RTC_BITS 55 /* 55 bits for this implementation */
 
-static const struct k_clock sgi_clock;
+static struct k_clock sgi_clock;
 
 extern unsigned long sn_rtc_cycles_per_second;
 
@@ -772,7 +772,7 @@ static int sgi_clock_getres(const clockid_t which_clock, struct timespec *tp)
 	return 0;
 }
 
-static const struct k_clock sgi_clock = {
+static struct k_clock sgi_clock = {
 	.clock_set	= sgi_clock_set,
 	.clock_get	= sgi_clock_get,
 	.clock_getres	= sgi_clock_getres,

@@ -166,7 +166,7 @@ static int bcm1480ht_pcibios_get_busno(void)
 	return 0;
 }
 
-const struct pci_ops bcm1480ht_pci_ops = {
+struct pci_ops bcm1480ht_pci_ops = {
 	.read	= bcm1480ht_pcibios_read,
 	.write	= bcm1480ht_pcibios_write,
 };

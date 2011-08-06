@@ -296,7 +296,7 @@ struct iommu_flush {
 			      u8 fm, u64 type);
 	void (*flush_iotlb)(struct intel_iommu *iommu, u16 did, u64 addr,
 			    unsigned int size_order, u64 type);
-};
+} __no_const;
 
 enum {
 	SR_DMAR_FECTL_REG,

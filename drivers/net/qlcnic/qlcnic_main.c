@@ -340,13 +340,13 @@ static const struct net_device_ops qlcnic_netdev_ops = {
 #endif
 };
 
-static const struct qlcnic_nic_template qlcnic_ops = {
+static struct qlcnic_nic_template qlcnic_ops = {
 	.config_bridged_mode = qlcnic_config_bridged_mode,
 	.config_led = qlcnic_config_led,
 	.start_firmware = qlcnic_start_firmware
 };
 
-static const struct qlcnic_nic_template qlcnic_vf_ops = {
+static struct qlcnic_nic_template qlcnic_vf_ops = {
 	.config_bridged_mode = qlcnicvf_config_bridged_mode,
 	.config_led = qlcnicvf_config_led,
 	.start_firmware = qlcnicvf_start_firmware

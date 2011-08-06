@@ -760,7 +760,7 @@ static void edac_inst_grp_release(struct kobject *kobj)
 }
 
 /* Intermediate show/store table */
-static const struct sysfs_ops inst_grp_ops = {
+static struct sysfs_ops inst_grp_ops = {
 	.show = inst_grp_show,
 	.store = inst_grp_store
 };

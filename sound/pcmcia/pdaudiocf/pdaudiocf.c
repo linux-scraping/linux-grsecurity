@@ -94,7 +94,7 @@ static int snd_pdacf_probe(struct pcmcia_device *link)
 	int i, err;
 	struct snd_pdacf *pdacf;
 	struct snd_card *card;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_pdacf_dev_free,
 	};
 

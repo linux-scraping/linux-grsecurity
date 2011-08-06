@@ -324,7 +324,7 @@ iop13xx_atux_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops iop13xx_atux_ops = {
+static struct pci_ops iop13xx_atux_ops = {
 	.read	= iop13xx_atux_read_config,
 	.write	= iop13xx_atux_write_config,
 };
@@ -471,7 +471,7 @@ iop13xx_atue_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops iop13xx_atue_ops = {
+static struct pci_ops iop13xx_atue_ops = {
 	.read	= iop13xx_atue_read_config,
 	.write	= iop13xx_atue_write_config,
 };

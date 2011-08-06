@@ -14,8 +14,8 @@
 
 #include <irq.h>
 
-extern const struct pci_ops nile4_pci_ops;
-extern const struct pci_ops gt64xxx_pci0_ops;
+extern struct pci_ops nile4_pci_ops;
+extern struct pci_ops gt64xxx_pci0_ops;
 static struct resource lasat_pci_mem_resource = {
 	.name	= "LASAT PCI MEM",
 	.start	= 0x18000000,

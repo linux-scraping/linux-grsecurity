@@ -346,6 +346,7 @@ struct i2c_algorithm {
 	/* To determine what the adapter supports */
 	u32 (*functionality) (struct i2c_adapter *);
 };
+typedef struct i2c_algorithm __no_const i2c_algorithm_no_const;
 
 /*
  * i2c_adapter is the structure used to identify a physical i2c bus along

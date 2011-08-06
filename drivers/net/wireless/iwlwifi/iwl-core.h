@@ -198,25 +198,28 @@ struct iwl_lib_ops {
 	int (*set_channel_switch)(struct iwl_priv *priv,
 				  struct ieee80211_channel_switch *ch_switch);
 	/* power management */
-	const struct iwl_apm_ops apm_ops;
+	struct iwl_apm_ops apm_ops;
 
 	/* power */
 	int (*send_tx_power) (struct iwl_priv *priv);
 	void (*update_chain_flags)(struct iwl_priv *priv);
 
 	/* isr */
-	const struct iwl_isr_ops isr_ops;
+	struct iwl_isr_ops isr_ops;
 
 	/* eeprom operations (as defined in iwl-eeprom.h) */
 	struct iwl_eeprom_ops eeprom_ops;
 
 	/* temperature */
-	const struct iwl_temp_ops temp_ops;
+	struct iwl_temp_ops temp_ops;
 
 	int (*txfifo_flush)(struct iwl_priv *priv, u16 flush_control);
 	void (*dev_txfifo_flush)(struct iwl_priv *priv, u16 flush_control);
 
-	const struct iwl_debugfs_ops debugfs_ops;const struct iwl_tt_ops tt_ops;
+	struct iwl_debugfs_ops debugfs_ops;
+
+	/* thermal throttling */
+	struct iwl_tt_ops tt_ops;
 };
 
 struct iwl_led_ops {

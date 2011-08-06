@@ -267,7 +267,7 @@ static int imx074_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
+static struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
 	.s_stream	= imx074_s_stream,
 	.s_mbus_fmt	= imx074_s_fmt,
 	.g_mbus_fmt	= imx074_g_fmt,
@@ -277,7 +277,7 @@ static const struct v4l2_subdev_video_ops imx074_subdev_video_ops = {
 	.cropcap	= imx074_cropcap,
 };
 
-static const struct v4l2_subdev_core_ops imx074_subdev_core_ops = {
+static struct v4l2_subdev_core_ops imx074_subdev_core_ops = {
 	.g_chip_ident	= imx074_g_chip_ident,
 };
 

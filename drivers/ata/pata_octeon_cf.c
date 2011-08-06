@@ -780,7 +780,7 @@ static unsigned int octeon_cf_qc_issue(struct ata_queued_cmd *qc)
 	return 0;
 }
 
-static struct ata_port_operations octeon_cf_ops = {	/* cannot be const */
+static struct ata_port_operations octeon_cf_ops = {
 	.inherits		= &ata_sff_port_ops,
 	.check_atapi_dma	= octeon_cf_check_atapi_dma,
 	.qc_prep		= ata_noop_qc_prep,

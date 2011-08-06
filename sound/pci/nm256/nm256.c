@@ -899,7 +899,7 @@ snd_nm256_capture_close(struct snd_pcm_substream *substream)
 /*
  * create a pcm instance
  */
-static const struct snd_pcm_ops snd_nm256_playback_ops = {
+static struct snd_pcm_ops snd_nm256_playback_ops = {
 	.open =		snd_nm256_playback_open,
 	.close =	snd_nm256_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -914,7 +914,7 @@ static const struct snd_pcm_ops snd_nm256_playback_ops = {
 	.mmap =		snd_pcm_lib_mmap_iomem,
 };
 
-static const struct snd_pcm_ops snd_nm256_capture_ops = {
+static struct snd_pcm_ops snd_nm256_capture_ops = {
 	.open =		snd_nm256_capture_open,
 	.close =	snd_nm256_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1301,7 +1301,7 @@ snd_nm256_mixer(struct nm256 *chip)
 	struct snd_ac97_bus *pbus;
 	struct snd_ac97_template ac97;
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.reset = snd_nm256_ac97_reset,
 		.write = snd_nm256_ac97_write,
 		.read = snd_nm256_ac97_read,
@@ -1471,7 +1471,7 @@ snd_nm256_create(struct snd_card *card, struct pci_dev *pci,
 {
 	struct nm256 *chip;
 	int err, pval;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_nm256_dev_free,
 	};
 	u32 addr;

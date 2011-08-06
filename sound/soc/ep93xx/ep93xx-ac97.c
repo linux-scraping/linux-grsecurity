@@ -239,7 +239,7 @@ static irqreturn_t ep93xx_ac97_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-const struct snd_ac97_bus_ops soc_ac97_ops = {
+struct snd_ac97_bus_ops soc_ac97_ops = {
 	.read		= ep93xx_ac97_read,
 	.write		= ep93xx_ac97_write,
 	.reset		= ep93xx_ac97_cold_reset,

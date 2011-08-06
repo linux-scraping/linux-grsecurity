@@ -6,6 +6,7 @@ GCCPLUGINS_DIR := $(shell $(HOSTCC) -print-file-name=plugin)
 
 HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include
 
-hostlibs-y := pax_plugin.so
+hostlibs-y := stackleak_plugin.so constify_plugin.so
 always := $(hostlibs-y)
-pax_plugin-objs := pax_plugin.o
+stackleak_plugin-objs := stackleak_plugin.o
+constify_plugin-objs := constify_plugin.o

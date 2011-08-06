@@ -651,7 +651,7 @@ static int ld9040_set_brightness(struct backlight_device *bd)
 	return ret;
 }
 
-static const struct lcd_ops ld9040_lcd_ops = {
+static struct lcd_ops ld9040_lcd_ops = {
 	.set_power = ld9040_set_power,
 	.get_power = ld9040_get_power,
 };

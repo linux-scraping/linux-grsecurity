@@ -116,9 +116,6 @@ extern void iommu_init_early_iSeries(void);
 extern void iommu_init_early_dart(void);
 extern void iommu_init_early_pasemi(void);
 
-/* dma-iommu.c */
-extern int dma_iommu_dma_supported(struct device *dev, u64 mask);
-
 #ifdef CONFIG_PCI
 extern void pci_iommu_init(void);
 extern void pci_direct_iommu_init(void);

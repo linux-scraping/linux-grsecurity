@@ -242,7 +242,7 @@ static void tegra_sdhci_pltfm_exit(struct sdhci_host *host)
 	clk_put(pltfm_host->clk);
 }
 
-static const struct sdhci_ops tegra_sdhci_ops = {
+static struct sdhci_ops tegra_sdhci_ops = {
 	.get_ro     = tegra_sdhci_get_ro,
 	.read_l     = tegra_sdhci_readl,
 	.read_w     = tegra_sdhci_readw,

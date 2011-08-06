@@ -244,7 +244,7 @@ static void bf5xx_ac97_cold_reset(struct snd_ac97 *ac97)
 #endif
 }
 
-const struct snd_ac97_bus_ops soc_ac97_ops = {
+struct snd_ac97_bus_ops soc_ac97_ops = {
 	.read	= bf5xx_ac97_read,
 	.write	= bf5xx_ac97_write,
 	.warm_reset	= bf5xx_ac97_warm_reset,

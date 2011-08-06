@@ -33,7 +33,7 @@ struct mpoa_client {
 	struct mpc_parameters parameters;  /* parameters for this client    */
 
 	const struct net_device_ops *old_ops;
-	struct net_device_ops new_ops;
+	net_device_ops_no_const new_ops;
 };
 
 

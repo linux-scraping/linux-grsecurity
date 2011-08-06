@@ -78,7 +78,7 @@ static int zoom2_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops zoom2_ops = {
+static struct snd_soc_ops zoom2_ops = {
 	.hw_params = zoom2_hw_params,
 };
 
@@ -121,7 +121,7 @@ static int zoom2_hw_voice_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops zoom2_voice_ops = {
+static struct snd_soc_ops zoom2_voice_ops = {
 	.hw_params = zoom2_hw_voice_params,
 };
 

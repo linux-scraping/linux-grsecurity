@@ -104,27 +104,27 @@ static int   ftdi_stmclite_probe(struct usb_serial *serial);
 static void  ftdi_USB_UIRT_setup(struct ftdi_private *priv);
 static void  ftdi_HE_TIRA1_setup(struct ftdi_private *priv);
 
-static const struct ftdi_sio_quirk ftdi_jtag_quirk = {
+static struct ftdi_sio_quirk ftdi_jtag_quirk = {
 	.probe	= ftdi_jtag_probe,
 };
 
-static const struct ftdi_sio_quirk ftdi_mtxorb_hack_quirk = {
+static struct ftdi_sio_quirk ftdi_mtxorb_hack_quirk = {
 	.probe  = ftdi_mtxorb_hack_setup,
 };
 
-static const struct ftdi_sio_quirk ftdi_NDI_device_quirk = {
+static struct ftdi_sio_quirk ftdi_NDI_device_quirk = {
 	.probe	= ftdi_NDI_device_setup,
 };
 
-static const struct ftdi_sio_quirk ftdi_USB_UIRT_quirk = {
+static struct ftdi_sio_quirk ftdi_USB_UIRT_quirk = {
 	.port_probe = ftdi_USB_UIRT_setup,
 };
 
-static const struct ftdi_sio_quirk ftdi_HE_TIRA1_quirk = {
+static struct ftdi_sio_quirk ftdi_HE_TIRA1_quirk = {
 	.port_probe = ftdi_HE_TIRA1_setup,
 };
 
-static const struct ftdi_sio_quirk ftdi_stmclite_quirk = {
+static struct ftdi_sio_quirk ftdi_stmclite_quirk = {
 	.probe	= ftdi_stmclite_probe,
 };
 

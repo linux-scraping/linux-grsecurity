@@ -589,7 +589,7 @@ struct kvm_x86_ops {
 	void (*write_tsc_offset)(struct kvm_vcpu *vcpu, u64 offset);
 
 	void (*get_exit_info)(struct kvm_vcpu *vcpu, u64 *info1, u64 *info2);
-	const struct trace_print_flags *exit_reasons_str;
+	const struct trace_print_flags * const exit_reasons_str;
 };
 
 struct kvm_arch_async_pf {
@@ -599,7 +599,7 @@ struct kvm_arch_async_pf {
 	bool direct_map;
 };
 
-extern const struct kvm_x86_ops *kvm_x86_ops;
+extern struct kvm_x86_ops *kvm_x86_ops;
 
 int kvm_mmu_module_init(void);
 void kvm_mmu_module_exit(void);

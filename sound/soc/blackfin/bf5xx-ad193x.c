@@ -88,7 +88,7 @@ static int bf5xx_ad193x_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops bf5xx_ad193x_ops = {
+static struct snd_soc_ops bf5xx_ad193x_ops = {
 	.startup = bf5xx_ad193x_startup,
 	.hw_params = bf5xx_ad193x_hw_params,
 };

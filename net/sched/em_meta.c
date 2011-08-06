@@ -832,7 +832,7 @@ static int em_meta_dump(struct sk_buff *skb, struct tcf_ematch *em)
 {
 	struct meta_match *meta = (struct meta_match *) em->data;
 	struct tcf_meta_hdr hdr;
-	const struct meta_type_ops *ops;
+	struct meta_type_ops *ops;
 
 	memset(&hdr, 0, sizeof(hdr));
 	memcpy(&hdr.left, &meta->lvalue.hdr, sizeof(hdr.left));

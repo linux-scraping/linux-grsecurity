@@ -74,7 +74,7 @@ struct drm_crtc_helper_funcs {
 
 	/* disable crtc when not in use - more explicit than dpms off */
 	void (*disable)(struct drm_crtc *crtc);
-};
+} __no_const;
 
 struct drm_encoder_helper_funcs {
 	void (*dpms)(struct drm_encoder *encoder, int mode);
@@ -95,7 +95,7 @@ struct drm_encoder_helper_funcs {
 					    struct drm_connector *connector);
 	/* disable encoder when not in use - more explicit than dpms off */
 	void (*disable)(struct drm_encoder *encoder);
-};
+} __no_const;
 
 struct drm_connector_helper_funcs {
 	int (*get_modes)(struct drm_connector *connector);

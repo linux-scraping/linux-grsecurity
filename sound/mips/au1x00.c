@@ -416,7 +416,7 @@ snd_au1000_pointer(struct snd_pcm_substream *substream)
 	return bytes_to_frames(runtime,location);
 }
 
-static const struct snd_pcm_ops snd_card_au1000_playback_ops = {
+static struct snd_pcm_ops snd_card_au1000_playback_ops = {
 	.open			= snd_au1000_playback_open,
 	.close			= snd_au1000_playback_close,
 	.ioctl			= snd_pcm_lib_ioctl,
@@ -427,7 +427,7 @@ static const struct snd_pcm_ops snd_card_au1000_playback_ops = {
 	.pointer		= snd_au1000_pointer,
 };
 
-static const struct snd_pcm_ops snd_card_au1000_capture_ops = {
+static struct snd_pcm_ops snd_card_au1000_capture_ops = {
 	.open			= snd_au1000_capture_open,
 	.close			= snd_au1000_capture_close,
 	.ioctl			= snd_pcm_lib_ioctl,
@@ -557,7 +557,7 @@ snd_au1000_ac97_new(struct snd_au1000 *au1000)
 	int err;
 	struct snd_ac97_bus *pbus;
 	struct snd_ac97_template ac97;
- 	static const struct snd_ac97_bus_ops ops = {
+ 	static struct snd_ac97_bus_ops ops = {
 		.write = snd_au1000_ac97_write,
 		.read = snd_au1000_ac97_read,
 	};

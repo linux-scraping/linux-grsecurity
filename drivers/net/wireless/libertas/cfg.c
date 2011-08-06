@@ -2003,7 +2003,7 @@ static int lbs_leave_ibss(struct wiphy *wiphy, struct net_device *dev)
  * Initialization
  */
 
-static const struct cfg80211_ops lbs_cfg80211_ops = {
+static struct cfg80211_ops lbs_cfg80211_ops = {
 	.set_channel = lbs_cfg_set_channel,
 	.scan = lbs_cfg_scan,
 	.connect = lbs_cfg_connect,

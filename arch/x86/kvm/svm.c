@@ -3879,7 +3879,7 @@ static void svm_fpu_deactivate(struct kvm_vcpu *vcpu)
 	update_cr0_intercept(svm);
 }
 
-static const struct kvm_x86_ops svm_x86_ops = {
+static struct kvm_x86_ops svm_x86_ops = {
 	.cpu_has_kvm_support = has_svm,
 	.disabled_by_bios = is_disabled,
 	.hardware_setup = svm_hardware_setup,

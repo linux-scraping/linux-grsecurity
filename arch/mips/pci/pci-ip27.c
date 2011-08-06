@@ -39,7 +39,7 @@ static struct bridge_controller bridges[MAX_PCI_BUSSES];
 struct bridge_controller *irq_to_bridge[MAX_PCI_BUSSES * MAX_DEVICES_PER_PCIBUS];
 int irq_to_slot[MAX_PCI_BUSSES * MAX_DEVICES_PER_PCIBUS];
 
-extern const struct pci_ops bridge_pci_ops;
+extern struct pci_ops bridge_pci_ops;
 
 int __cpuinit bridge_probe(nasid_t nasid, int widget_id, int masterwid)
 {

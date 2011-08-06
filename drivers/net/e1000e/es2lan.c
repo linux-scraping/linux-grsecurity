@@ -205,7 +205,7 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
 	struct e1000_mac_info *mac = &hw->mac;
-	struct e1000_mac_operations *func = &mac->ops;	/* cannot be const */
+	e1000_mac_operations_no_const *func = &mac->ops;
 
 	/* Set media type */
 	switch (adapter->pdev->device) {
@@ -1431,7 +1431,7 @@ static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw)
 	er32(ICRXDMTC);
 }
 
-static const struct e1000_mac_operations es2_mac_ops = {
+static struct e1000_mac_operations es2_mac_ops = {
 	.read_mac_addr		= e1000_read_mac_addr_80003es2lan,
 	.id_led_init		= e1000e_id_led_init,
 	.check_mng_mode		= e1000e_check_mng_mode_generic,
@@ -1453,7 +1453,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
 	.setup_led		= e1000e_setup_led_generic,
 };
 
-static const struct e1000_phy_operations es2_phy_ops = {
+static struct e1000_phy_operations es2_phy_ops = {
 	.acquire		= e1000_acquire_phy_80003es2lan,
 	.check_polarity		= e1000_check_polarity_m88,
 	.check_reset_block	= e1000e_check_reset_block_generic,
@@ -1471,7 +1471,7 @@ static const struct e1000_phy_operations es2_phy_ops = {
 	.cfg_on_link_up      	= e1000_cfg_on_link_up_80003es2lan,
 };
 
-static const struct e1000_nvm_operations es2_nvm_ops = {
+static struct e1000_nvm_operations es2_nvm_ops = {
 	.acquire		= e1000_acquire_nvm_80003es2lan,
 	.read			= e1000e_read_nvm_eerd,
 	.release		= e1000_release_nvm_80003es2lan,

@@ -225,7 +225,7 @@ static int snd_imx_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_pcm_ops imx_pcm_ops = {
+static struct snd_pcm_ops imx_pcm_ops = {
 	.open		= snd_imx_open,
 	.close		= snd_imx_close,
 	.ioctl		= snd_pcm_lib_ioctl,

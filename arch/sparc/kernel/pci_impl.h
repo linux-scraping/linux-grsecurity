@@ -175,8 +175,8 @@ extern void pci_config_write8(u8 *addr, u8 val);
 extern void pci_config_write16(u16 *addr, u16 val);
 extern void pci_config_write32(u32 *addr, u32 val);
 
-extern const struct pci_ops sun4u_pci_ops;
-extern const struct pci_ops sun4v_pci_ops;
+extern struct pci_ops sun4u_pci_ops;
+extern struct pci_ops sun4v_pci_ops;
 
 extern volatile int pci_poke_in_progress;
 extern volatile int pci_poke_cpu;

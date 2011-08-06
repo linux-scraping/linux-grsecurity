@@ -161,7 +161,7 @@ static int iodyn_find_io(struct pcmcia_socket *s, unsigned int attr,
 }
 
 
-const struct pccard_resource_ops pccard_iodyn_ops = {
+struct pccard_resource_ops pccard_iodyn_ops = {
 	.validate_mem = NULL,
 	.find_io = iodyn_find_io,
 	.find_mem = NULL,

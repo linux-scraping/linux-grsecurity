@@ -52,7 +52,7 @@ struct cfctrl_rsp {
 	void (*radioset_rsp)(void);
 	void (*reject_rsp)(struct cflayer *layer, u8 linkid,
 				struct cflayer *client_layer);
-};
+} __no_const;
 
 /* Link Setup Parameters for CAIF-Links. */
 struct cfctrl_link_param {

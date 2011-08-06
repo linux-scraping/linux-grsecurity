@@ -573,7 +573,7 @@ static int mpc83xx_pcie_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops mpc83xx_pcie_ops = {
+static struct pci_ops mpc83xx_pcie_ops = {
 	.read = mpc83xx_pcie_read_config,
 	.write = mpc83xx_pcie_write_config,
 };

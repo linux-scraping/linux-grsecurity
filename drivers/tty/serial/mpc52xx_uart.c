@@ -283,7 +283,7 @@ static irqreturn_t mpc52xx_psc_handle_irq(struct uart_port *port)
 	return mpc5xxx_uart_process_int(port);
 }
 
-static const struct psc_ops mpc52xx_psc_ops = {
+static struct psc_ops mpc52xx_psc_ops = {
 	.fifo_init = mpc52xx_psc_fifo_init,
 	.raw_rx_rdy = mpc52xx_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc52xx_psc_raw_tx_rdy,
@@ -304,7 +304,7 @@ static const struct psc_ops mpc52xx_psc_ops = {
 	.handle_irq = mpc52xx_psc_handle_irq,
 };
 
-static const struct psc_ops mpc5200b_psc_ops = {
+static struct psc_ops mpc5200b_psc_ops = {
 	.fifo_init = mpc52xx_psc_fifo_init,
 	.raw_rx_rdy = mpc52xx_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc52xx_psc_raw_tx_rdy,
@@ -571,7 +571,7 @@ static void mpc512x_psc_get_irq(struct uart_port *port, struct device_node *np)
 	port->irq = psc_fifoc_irq;
 }
 
-static const struct psc_ops mpc512x_psc_ops = {
+static struct psc_ops mpc512x_psc_ops = {
 	.fifo_init = mpc512x_psc_fifo_init,
 	.raw_rx_rdy = mpc512x_psc_raw_rx_rdy,
 	.raw_tx_rdy = mpc512x_psc_raw_tx_rdy,
@@ -596,7 +596,7 @@ static const struct psc_ops mpc512x_psc_ops = {
 };
 #endif
 
-static const struct psc_ops *psc_ops;
+static struct psc_ops *psc_ops;
 
 /* ======================================================================== */
 /* UART operations                                                          */
@@ -905,7 +905,7 @@ mpc52xx_uart_verify_port(struct uart_port *port, struct serial_struct *ser)
 }
 
 
-static const struct uart_ops mpc52xx_uart_ops = {
+static struct uart_ops mpc52xx_uart_ops = {
 	.tx_empty	= mpc52xx_uart_tx_empty,
 	.set_mctrl	= mpc52xx_uart_set_mctrl,
 	.get_mctrl	= mpc52xx_uart_get_mctrl,

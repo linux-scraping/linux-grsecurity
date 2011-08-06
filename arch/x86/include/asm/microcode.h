@@ -12,13 +12,13 @@ struct device;
 enum ucode_state { UCODE_ERROR, UCODE_OK, UCODE_NFOUND };
 
 struct microcode_ops {
-	enum ucode_state (* const request_microcode_user) (int cpu,
+	enum ucode_state (*request_microcode_user) (int cpu,
 				const void __user *buf, size_t size);
 
-	enum ucode_state (* const request_microcode_fw) (int cpu,
+	enum ucode_state (*request_microcode_fw) (int cpu,
 				struct device *device);
 
-	void (* const microcode_fini_cpu) (int cpu);
+	void (*microcode_fini_cpu) (int cpu);
 
 	/*
 	 * The generic 'microcode_core' part guarantees that
@@ -38,16 +38,16 @@ struct ucode_cpu_info {
 extern struct ucode_cpu_info ucode_cpu_info[];
 
 #ifdef CONFIG_MICROCODE_INTEL
-extern const struct microcode_ops * __init init_intel_microcode(void);
+extern struct microcode_ops * __init init_intel_microcode(void);
 #else
-static inline const struct microcode_ops * __init init_intel_microcode(void)
+static inline struct microcode_ops * __init init_intel_microcode(void)
 {
 	return NULL;
 }
 #endif /* CONFIG_MICROCODE_INTEL */
 
 #ifdef CONFIG_MICROCODE_AMD
-extern const struct microcode_ops * __init init_amd_microcode(void);
+extern struct microcode_ops * __init init_amd_microcode(void);
 
 static inline void get_ucode_data(void *to, const u8 *from, size_t n)
 {
@@ -55,7 +55,7 @@ static inline void get_ucode_data(void *to, const u8 *from, size_t n)
 }
 
 #else
-static inline const struct microcode_ops * __init init_amd_microcode(void)
+static inline struct microcode_ops * __init init_amd_microcode(void)
 {
 	return NULL;
 }

@@ -1581,7 +1581,7 @@ static int pl010_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return ret;
 }
 
-static const struct uart_ops amba_pl011_pops = {
+static struct uart_ops amba_pl011_pops = {
 	.tx_empty	= pl01x_tx_empty,
 	.set_mctrl	= pl011_set_mctrl,
 	.get_mctrl	= pl01x_get_mctrl,

@@ -37,7 +37,7 @@
 struct tty_driver *tty3270_driver;
 static int tty3270_max_index;
 
-static const struct raw3270_fn tty3270_fn;
+static struct raw3270_fn tty3270_fn;
 
 struct tty3270_cell {
 	unsigned char character;
@@ -834,7 +834,7 @@ tty3270_del_views(void)
 	}
 }
 
-static const struct raw3270_fn tty3270_fn = {
+static struct raw3270_fn tty3270_fn = {
 	.activate = tty3270_activate,
 	.deactivate = tty3270_deactivate,
 	.intv = (void *) tty3270_irq,

@@ -2870,7 +2870,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 	kmem_cache_free(vm_area_cachep, new_vma);
 	return NULL;
 }
- 
+
 #ifdef CONFIG_PAX_SEGMEXEC
 long pax_mirror_vma(struct vm_area_struct *vma_m, struct vm_area_struct *vma)
 {

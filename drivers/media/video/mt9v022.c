@@ -825,7 +825,7 @@ static int mt9v022_g_skip_top_lines(struct v4l2_subdev *sd, u32 *lines)
 	return 0;
 }
 
-static const struct v4l2_subdev_core_ops mt9v022_subdev_core_ops = {
+static struct v4l2_subdev_core_ops mt9v022_subdev_core_ops = {
 	.g_ctrl		= mt9v022_g_ctrl,
 	.s_ctrl		= mt9v022_s_ctrl,
 	.g_chip_ident	= mt9v022_g_chip_ident,
@@ -848,7 +848,7 @@ static int mt9v022_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops mt9v022_subdev_video_ops = {
+static struct v4l2_subdev_video_ops mt9v022_subdev_video_ops = {
 	.s_stream	= mt9v022_s_stream,
 	.s_mbus_fmt	= mt9v022_s_fmt,
 	.g_mbus_fmt	= mt9v022_g_fmt,
@@ -859,7 +859,7 @@ static const struct v4l2_subdev_video_ops mt9v022_subdev_video_ops = {
 	.enum_mbus_fmt	= mt9v022_enum_fmt,
 };
 
-static const struct v4l2_subdev_sensor_ops mt9v022_subdev_sensor_ops = {
+static struct v4l2_subdev_sensor_ops mt9v022_subdev_sensor_ops = {
 	.g_skip_top_lines	= mt9v022_g_skip_top_lines,
 };
 

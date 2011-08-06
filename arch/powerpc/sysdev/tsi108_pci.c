@@ -190,7 +190,7 @@ void tsi108_clear_pci_cfg_error(void)
 	tsi108_clear_pci_error(tsi108_pci_cfg_phys);
 }
 
-static const struct pci_ops tsi108_direct_pci_ops = {
+static struct pci_ops tsi108_direct_pci_ops = {
 	.read = tsi108_direct_read_config,
 	.write = tsi108_direct_write_config,
 };

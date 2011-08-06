@@ -69,7 +69,7 @@ static void set_clock(struct sdhci_host *host, unsigned int clock)
 	}
 }
 
-static const struct sdhci_ops sdhci_pxa_ops = {
+static struct sdhci_ops sdhci_pxa_ops = {
 	.set_clock = set_clock,
 };
 

@@ -2099,7 +2099,7 @@ static struct ixgbe_phy_operations phy_ops_82599 = {
 	.check_overtemp		= &ixgbe_tn_check_overtemp,
 };
 
-const struct ixgbe_info ixgbe_82599_info = {
+struct ixgbe_info ixgbe_82599_info = {
 	.mac                    = ixgbe_mac_82599EB,
 	.get_invariants         = &ixgbe_get_invariants_82599,
 	.mac_ops                = &mac_ops_82599,

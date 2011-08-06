@@ -234,7 +234,7 @@ static int ioat_dca_dev_managed(struct dca_provider *dca,
 	return 0;
 }
 
-static const struct dca_ops ioat_dca_ops = {
+static struct dca_ops ioat_dca_ops = {
 	.add_requester		= ioat_dca_add_requester,
 	.remove_requester	= ioat_dca_remove_requester,
 	.get_tag		= ioat_dca_get_tag,
@@ -384,7 +384,7 @@ static u8 ioat2_dca_get_tag(struct dca_provider *dca,
 	return tag;
 }
 
-static const struct dca_ops ioat2_dca_ops = {
+static struct dca_ops ioat2_dca_ops = {
 	.add_requester		= ioat2_dca_add_requester,
 	.remove_requester	= ioat2_dca_remove_requester,
 	.get_tag		= ioat2_dca_get_tag,
@@ -579,7 +579,7 @@ static u8 ioat3_dca_get_tag(struct dca_provider *dca,
 	return tag;
 }
 
-static const struct dca_ops ioat3_dca_ops = {
+static struct dca_ops ioat3_dca_ops = {
 	.add_requester		= ioat3_dca_add_requester,
 	.remove_requester	= ioat3_dca_remove_requester,
 	.get_tag		= ioat3_dca_get_tag,

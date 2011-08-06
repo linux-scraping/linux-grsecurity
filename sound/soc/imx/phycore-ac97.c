@@ -21,7 +21,7 @@
 
 static struct snd_soc_card imx_phycore;
 
-static const struct snd_soc_ops imx_phycore_hifi_ops = {
+static struct snd_soc_ops imx_phycore_hifi_ops = {
 };
 
 static struct snd_soc_dai_link imx_phycore_dai_ac97[] = {

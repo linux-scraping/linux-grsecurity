@@ -49,7 +49,7 @@ static DEFINE_SPINLOCK(iommu_pd_list_lock);
  */
 static struct protection_domain *pt_domain;
 
-static const struct iommu_ops amd_iommu_ops;
+static struct iommu_ops amd_iommu_ops;
 
 /*
  * general struct to manage commands send to an IOMMU
@@ -2307,7 +2307,7 @@ static void prealloc_protection_domains(void)
 	}
 }
 
-static const struct dma_map_ops amd_iommu_dma_ops = {
+static struct dma_map_ops amd_iommu_dma_ops = {
 	.alloc_coherent = alloc_coherent,
 	.free_coherent = free_coherent,
 	.map_page = map_page,
@@ -2624,7 +2624,7 @@ static int amd_iommu_domain_has_cap(struct iommu_domain *domain,
 	return 0;
 }
 
-static const struct iommu_ops amd_iommu_ops = {
+static struct iommu_ops amd_iommu_ops = {
 	.domain_init = amd_iommu_domain_init,
 	.domain_destroy = amd_iommu_domain_destroy,
 	.attach_dev = amd_iommu_attach_device,

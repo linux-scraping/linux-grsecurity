@@ -305,7 +305,7 @@ static int snd_usb_audio_create(struct usb_device *dev, int idx,
 	struct snd_usb_audio *chip;
 	int err, len;
 	char component[14];
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_usb_audio_dev_free,
 	};
 

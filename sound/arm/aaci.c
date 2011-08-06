@@ -635,7 +635,7 @@ static int aaci_pcm_playback_trigger(struct snd_pcm_substream *substream, int cm
 	return ret;
 }
 
-static const struct snd_pcm_ops aaci_playback_ops = {
+static struct snd_pcm_ops aaci_playback_ops = {
 	.open		= aaci_pcm_open,
 	.close		= aaci_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -738,7 +738,7 @@ static int aaci_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_pcm_ops aaci_capture_ops = {
+static struct snd_pcm_ops aaci_capture_ops = {
 	.open		= aaci_pcm_open,
 	.close		= aaci_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -827,7 +827,7 @@ static struct ac97_pcm ac97_defs[] __devinitdata = {
 	}
 };
 
-static const struct snd_ac97_bus_ops aaci_bus_ops = {
+static struct snd_ac97_bus_ops aaci_bus_ops = {
 	.write	= aaci_ac97_write,
 	.read	= aaci_ac97_read,
 };

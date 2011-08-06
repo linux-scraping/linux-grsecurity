@@ -234,7 +234,7 @@ static int radeon_atpx_get_client_id(struct pci_dev *pdev)
 		return VGA_SWITCHEROO_DIS;
 }
 
-static const struct vga_switcheroo_handler radeon_atpx_handler = {
+static struct vga_switcheroo_handler radeon_atpx_handler = {
 	.switchto = radeon_atpx_switchto,
 	.power_state = radeon_atpx_power_state,
 	.init = radeon_atpx_init,

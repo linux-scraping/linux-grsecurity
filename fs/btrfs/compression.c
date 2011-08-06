@@ -719,7 +719,7 @@ static int comp_num_workspace[BTRFS_COMPRESS_TYPES];
 static atomic_t comp_alloc_workspace[BTRFS_COMPRESS_TYPES];
 static wait_queue_head_t comp_workspace_wait[BTRFS_COMPRESS_TYPES];
 
-const struct btrfs_compress_op *btrfs_compress_op[] = {
+struct btrfs_compress_op *btrfs_compress_op[] = {
 	&btrfs_zlib_compress,
 	&btrfs_lzo_compress,
 };

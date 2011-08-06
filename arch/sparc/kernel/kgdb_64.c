@@ -187,7 +187,7 @@ void kgdb_arch_set_pc(struct pt_regs *regs, unsigned long ip)
 	regs->tnpc = regs->tpc + 4;
 }
 
-const struct kgdb_arch arch_kgdb_ops = {
+struct kgdb_arch arch_kgdb_ops = {
 	/* Breakpoint instruction: ta 0x72 */
 	.gdb_bpt_instr		= { 0x91, 0xd0, 0x20, 0x72 },
 };

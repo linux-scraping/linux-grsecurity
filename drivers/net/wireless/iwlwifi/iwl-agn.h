@@ -109,9 +109,9 @@ extern struct iwl_cfg iwl230_bg_cfg;
 extern struct iwl_cfg iwl230_bgn_cfg;
 
 extern struct iwl_mod_params iwlagn_mod_params;
-extern const struct iwl_hcmd_ops iwlagn_hcmd;
-extern const struct iwl_hcmd_ops iwlagn_bt_hcmd;
-extern const struct iwl_hcmd_utils_ops iwlagn_hcmd_utils;
+extern struct iwl_hcmd_ops iwlagn_hcmd;
+extern struct iwl_hcmd_ops iwlagn_bt_hcmd;
+extern struct iwl_hcmd_utils_ops iwlagn_hcmd_utils;
 
 extern struct ieee80211_ops iwlagn_hw_ops;
 extern struct ieee80211_ops iwl4965_hw_ops;

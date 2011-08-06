@@ -173,7 +173,7 @@ static int alpha_noop_set_mask(struct device *dev, u64 mask)
 	return 0;
 }
 
-const struct dma_map_ops alpha_noop_ops = {
+struct dma_map_ops alpha_noop_ops = {
 	.alloc_coherent		= alpha_noop_alloc_coherent,
 	.free_coherent		= alpha_noop_free_coherent,
 	.map_page		= alpha_noop_map_page,
@@ -183,7 +183,7 @@ const struct dma_map_ops alpha_noop_ops = {
 	.set_dma_mask		= alpha_noop_set_mask,
 };
 
-const struct dma_map_ops *dma_ops = &alpha_noop_ops;
+struct dma_map_ops *dma_ops = &alpha_noop_ops;
 EXPORT_SYMBOL(dma_ops);
 
 void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)

@@ -465,7 +465,7 @@ int sn_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
 	return ret;
 }
 
-static const struct dma_map_ops sn_dma_ops = {
+static struct dma_map_ops sn_dma_ops = {
 	.alloc_coherent		= sn_dma_alloc_coherent,
 	.free_coherent		= sn_dma_free_coherent,
 	.map_page		= sn_dma_map_page,

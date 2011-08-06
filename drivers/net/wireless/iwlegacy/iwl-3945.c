@@ -2630,7 +2630,7 @@ static int iwl3945_load_bsm(struct iwl_priv *priv)
 	return 0;
 }
 
-static const struct iwl_hcmd_ops iwl3945_hcmd = {
+static struct iwl_hcmd_ops iwl3945_hcmd = {
 	.rxon_assoc = iwl3945_send_rxon_assoc,
 	.commit_rxon = iwl3945_commit_rxon,
 };
@@ -2675,7 +2675,7 @@ static const struct iwl_legacy_ops iwl3945_legacy_ops = {
 	.manage_ibss_station = iwl3945_manage_ibss_station,
 };
 
-static const struct iwl_hcmd_utils_ops iwl3945_hcmd_utils = {
+static struct iwl_hcmd_utils_ops iwl3945_hcmd_utils = {
 	.get_hcmd_size = iwl3945_get_hcmd_size,
 	.build_addsta_hcmd = iwl3945_build_addsta_hcmd,
 	.request_scan = iwl3945_request_scan,

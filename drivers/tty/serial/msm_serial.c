@@ -702,7 +702,7 @@ static void msm_power(struct uart_port *port, unsigned int state,
 	}
 }
 
-static const struct uart_ops msm_uart_pops = {
+static struct uart_ops msm_uart_pops = {
 	.tx_empty = msm_tx_empty,
 	.set_mctrl = msm_set_mctrl,
 	.get_mctrl = msm_get_mctrl,

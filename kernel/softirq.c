@@ -206,7 +206,7 @@ EXPORT_SYMBOL(local_bh_enable_ip);
 
 asmlinkage void __do_softirq(void)
 {
-	const struct softirq_action *h;
+	struct softirq_action *h;
 	__u32 pending;
 	int max_restart = MAX_SOFTIRQ_RESTART;
 	int cpu;
@@ -379,7 +379,9 @@ void raise_softirq(unsigned int nr)
 
 void open_softirq(int nr, void (*action)(void))
 {
-	softirq_vec[nr].action = action;
+	pax_open_kernel();
+	*(void **)&softirq_vec[nr].action = action;
+	pax_close_kernel();
 }
 
 /*

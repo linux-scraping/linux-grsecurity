@@ -3000,7 +3000,7 @@ mptctl_remove(struct pci_dev *pdev)
 {
 }
 
-static const struct mpt_pci_driver mptctl_driver = {
+static struct mpt_pci_driver mptctl_driver = {
   .probe		= mptctl_probe,
   .remove		= mptctl_remove,
 };

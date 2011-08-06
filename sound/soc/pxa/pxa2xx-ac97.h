@@ -15,6 +15,6 @@
 #define PXA2XX_DAI_AC97_MIC		2
 
 /* platform data */
-extern const struct snd_ac97_bus_ops pxa2xx_ac97_ops;
+extern struct snd_ac97_bus_ops pxa2xx_ac97_ops;
 
 #endif

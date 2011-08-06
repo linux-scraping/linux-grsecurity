@@ -122,23 +122,23 @@ struct intel_dvo_dev_ops {
 	 *
 	 * \return singly-linked list of modes or NULL if no modes found.
 	 */
-	struct drm_display_mode *(* const get_modes)(struct intel_dvo_device *dvo);
+	struct drm_display_mode *(*get_modes)(struct intel_dvo_device *dvo);
 
 	/**
 	 * Clean up driver-specific bits of the output
 	 */
-	void (* const destroy) (struct intel_dvo_device *dvo);
+	void (*destroy) (struct intel_dvo_device *dvo);
 
 	/**
 	 * Debugging hook to dump device registers to log file
 	 */
-	void (* const dump_regs)(struct intel_dvo_device *dvo);
+	void (*dump_regs)(struct intel_dvo_device *dvo);
 };
 
-extern const struct intel_dvo_dev_ops sil164_ops;
-extern const struct intel_dvo_dev_ops ch7xxx_ops;
-extern const struct intel_dvo_dev_ops ivch_ops;
-extern const struct intel_dvo_dev_ops tfp410_ops;
-extern const struct intel_dvo_dev_ops ch7017_ops;
+extern struct intel_dvo_dev_ops sil164_ops;
+extern struct intel_dvo_dev_ops ch7xxx_ops;
+extern struct intel_dvo_dev_ops ivch_ops;
+extern struct intel_dvo_dev_ops tfp410_ops;
+extern struct intel_dvo_dev_ops ch7017_ops;
 
 #endif /* _INTEL_DVO_H */

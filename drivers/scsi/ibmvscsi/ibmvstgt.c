@@ -951,7 +951,7 @@ static int get_system_info(void)
 	return 0;
 }
 
-static const struct srp_function_template ibmvstgt_transport_functions = {
+static struct srp_function_template ibmvstgt_transport_functions = {
 	.tsk_mgmt_response = ibmvstgt_tsk_mgmt_response,
 	.it_nexus_response = ibmvstgt_it_nexus_response,
 };

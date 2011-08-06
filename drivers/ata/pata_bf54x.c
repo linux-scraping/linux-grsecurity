@@ -1420,7 +1420,7 @@ static struct scsi_host_template bfin_sht = {
 	.dma_boundary		= ATA_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations bfin_pata_ops = {
+static struct ata_port_operations bfin_pata_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 
 	.set_piomode		= bfin_set_piomode,

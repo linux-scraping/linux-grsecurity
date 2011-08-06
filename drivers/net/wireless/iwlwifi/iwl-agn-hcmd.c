@@ -355,7 +355,7 @@ static int iwlagn_set_pan_params(struct iwl_priv *priv)
 	return ret;
 }
 
-const struct iwl_hcmd_ops iwlagn_hcmd = {
+struct iwl_hcmd_ops iwlagn_hcmd = {
 	.rxon_assoc = iwlagn_send_rxon_assoc,
 	.commit_rxon = iwlagn_commit_rxon,
 	.set_rxon_chain = iwlagn_set_rxon_chain,
@@ -364,7 +364,7 @@ const struct iwl_hcmd_ops iwlagn_hcmd = {
 	.set_pan_params = iwlagn_set_pan_params,
 };
 
-const struct iwl_hcmd_ops iwlagn_bt_hcmd = {
+struct iwl_hcmd_ops iwlagn_bt_hcmd = {
 	.rxon_assoc = iwlagn_send_rxon_assoc,
 	.commit_rxon = iwlagn_commit_rxon,
 	.set_rxon_chain = iwlagn_set_rxon_chain,
@@ -373,7 +373,7 @@ const struct iwl_hcmd_ops iwlagn_bt_hcmd = {
 	.set_pan_params = iwlagn_set_pan_params,
 };
 
-const struct iwl_hcmd_utils_ops iwlagn_hcmd_utils = {
+struct iwl_hcmd_utils_ops iwlagn_hcmd_utils = {
 	.get_hcmd_size = iwlagn_get_hcmd_size,
 	.build_addsta_hcmd = iwlagn_build_addsta_hcmd,
 	.gain_computation = iwlagn_gain_computation,

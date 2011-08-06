@@ -801,7 +801,7 @@ static struct scsi_host_template it821x_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations it821x_smart_port_ops = {
+static struct ata_port_operations it821x_smart_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.check_atapi_dma= it821x_check_atapi_dma,
@@ -815,7 +815,7 @@ static const struct ata_port_operations it821x_smart_port_ops = {
 	.port_start	= it821x_port_start,
 };
 
-static const struct ata_port_operations it821x_passthru_port_ops = {
+static struct ata_port_operations it821x_passthru_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.check_atapi_dma= it821x_check_atapi_dma,
@@ -831,7 +831,7 @@ static const struct ata_port_operations it821x_passthru_port_ops = {
 	.port_start	= it821x_port_start,
 };
 
-static const struct ata_port_operations it821x_rdc_port_ops = {
+static struct ata_port_operations it821x_rdc_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.check_atapi_dma= it821x_check_atapi_dma,

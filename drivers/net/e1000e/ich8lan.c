@@ -3866,7 +3866,7 @@ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
 	}
 }
 
-static const struct e1000_mac_operations ich8_mac_ops = {
+static struct e1000_mac_operations ich8_mac_ops = {
 	.id_led_init		= e1000e_id_led_init,
 	/* check_mng_mode dependent on mac type */
 	.check_for_link		= e1000_check_for_copper_link_ich8lan,
@@ -3885,7 +3885,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
 	/* id_led_init dependent on mac type */
 };
 
-static const struct e1000_phy_operations ich8_phy_ops = {
+static struct e1000_phy_operations ich8_phy_ops = {
 	.acquire		= e1000_acquire_swflag_ich8lan,
 	.check_reset_block	= e1000_check_reset_block_ich8lan,
 	.commit			= NULL,
@@ -3899,7 +3899,7 @@ static const struct e1000_phy_operations ich8_phy_ops = {
 	.write_reg		= e1000e_write_phy_reg_igp,
 };
 
-static const struct e1000_nvm_operations ich8_nvm_ops = {
+static struct e1000_nvm_operations ich8_nvm_ops = {
 	.acquire		= e1000_acquire_nvm_ich8lan,
 	.read		 	= e1000_read_nvm_ich8lan,
 	.release		= e1000_release_nvm_ich8lan,

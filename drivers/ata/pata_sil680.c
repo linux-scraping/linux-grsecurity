@@ -225,7 +225,8 @@ static struct scsi_host_template sil680_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations sil680_port_ops = {
+
+static struct ata_port_operations sil680_port_ops = {
 	.inherits		= &ata_bmdma32_port_ops,
 	.sff_exec_command	= sil680_sff_exec_command,
 	.sff_irq_check		= sil680_sff_irq_check,

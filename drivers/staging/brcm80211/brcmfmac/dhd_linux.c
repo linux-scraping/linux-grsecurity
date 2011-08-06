@@ -1500,7 +1500,7 @@ static void dhd_ethtool_get_drvinfo(struct net_device *net,
 	sprintf(info->bus_info, "%s", dev_name(&wl_cfg80211_get_sdio_func()->dev));
 }
 
-const struct ethtool_ops dhd_ethtool_ops = {
+struct ethtool_ops dhd_ethtool_ops = {
 	.get_drvinfo = dhd_ethtool_get_drvinfo
 };
 
@@ -2206,7 +2206,7 @@ dhd_iovar(dhd_pub_t *pub, int ifidx, char *name, char *cmd_buf, uint cmd_len,
 	return ret;
 }
 
-static const struct net_device_ops dhd_ops_pri = {
+static struct net_device_ops dhd_ops_pri = {
 	.ndo_open = dhd_open,
 	.ndo_stop = dhd_stop,
 	.ndo_get_stats = dhd_get_stats,

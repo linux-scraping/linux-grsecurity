@@ -799,7 +799,7 @@ static int snd_via82xx_pcm_close(struct snd_pcm_substream *substream)
 
 
 /* via686 playback callbacks */
-static const struct snd_pcm_ops snd_via686_playback_ops = {
+static struct snd_pcm_ops snd_via686_playback_ops = {
 	.open =		snd_via82xx_playback_open,
 	.close =	snd_via82xx_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -812,7 +812,7 @@ static const struct snd_pcm_ops snd_via686_playback_ops = {
 };
 
 /* via686 capture callbacks */
-static const struct snd_pcm_ops snd_via686_capture_ops = {
+static struct snd_pcm_ops snd_via686_capture_ops = {
 	.open =		snd_via82xx_capture_open,
 	.close =	snd_via82xx_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -889,7 +889,7 @@ static int __devinit snd_via82xx_mixer_new(struct via82xx_modem *chip)
 {
 	struct snd_ac97_template ac97;
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_via82xx_codec_write,
 		.read = snd_via82xx_codec_read,
 		.wait = snd_via82xx_codec_wait,
@@ -1105,7 +1105,7 @@ static int __devinit snd_via82xx_create(struct snd_card *card,
 {
 	struct via82xx_modem *chip;
 	int err;
-        static const struct snd_device_ops ops = {
+        static struct snd_device_ops ops = {
 		.dev_free =	snd_via82xx_dev_free,
         };
 

@@ -479,7 +479,7 @@ static int pccard_set_mem_map(struct pcmcia_socket *sock, struct pccard_mem_map 
 	return 0;
 }
 
-static const struct pccard_operations vrc4171_pccard_operations = {
+static struct pccard_operations vrc4171_pccard_operations = {
 	.init			= pccard_init,
 	.get_status		= pccard_get_status,
 	.set_socket		= pccard_set_socket,

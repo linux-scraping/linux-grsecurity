@@ -1196,7 +1196,7 @@ static int snd_cs4231_capture_close(struct snd_pcm_substream *substream)
  * XXX the audio AUXIO register...
  */
 
-static const struct snd_pcm_ops snd_cs4231_playback_ops = {
+static struct snd_pcm_ops snd_cs4231_playback_ops = {
 	.open		=	snd_cs4231_playback_open,
 	.close		=	snd_cs4231_playback_close,
 	.ioctl		=	snd_pcm_lib_ioctl,
@@ -1207,7 +1207,7 @@ static const struct snd_pcm_ops snd_cs4231_playback_ops = {
 	.pointer	=	snd_cs4231_playback_pointer,
 };
 
-static const struct snd_pcm_ops snd_cs4231_capture_ops = {
+static struct snd_pcm_ops snd_cs4231_capture_ops = {
 	.open		=	snd_cs4231_capture_open,
 	.close		=	snd_cs4231_capture_close,
 	.ioctl		=	snd_pcm_lib_ioctl,
@@ -1789,7 +1789,7 @@ static int snd_cs4231_sbus_dev_free(struct snd_device *device)
 	return snd_cs4231_sbus_free(cp);
 }
 
-static const struct snd_device_ops snd_cs4231_sbus_dev_ops = {
+static struct snd_device_ops snd_cs4231_sbus_dev_ops = {
 	.dev_free	=	snd_cs4231_sbus_dev_free,
 };
 
@@ -1955,7 +1955,7 @@ static int snd_cs4231_ebus_dev_free(struct snd_device *device)
 	return snd_cs4231_ebus_free(cp);
 }
 
-static const struct snd_device_ops snd_cs4231_ebus_dev_ops = {
+static struct snd_device_ops snd_cs4231_ebus_dev_ops = {
 	.dev_free	=	snd_cs4231_ebus_dev_free,
 };
 

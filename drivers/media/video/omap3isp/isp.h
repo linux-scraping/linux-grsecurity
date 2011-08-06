@@ -290,7 +290,7 @@ struct isp_device {
 
 	struct iommu *iommu;
 
-	const struct isp_platform_callback platform_cb;
+	struct isp_platform_callback platform_cb;
 };
 
 #define v4l2_dev_to_isp_device(dev) \

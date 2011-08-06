@@ -351,7 +351,7 @@ int kgdb_arch_handle_exception(int vector, int signo, int err_code,
 	return -1;
 }
 
-struct kgdb_arch arch_kgdb_ops;	/* cannot be const, see kgdb_arch_init */
+struct kgdb_arch arch_kgdb_ops;
 
 /*
  * We use kgdb_early_setup so that functions we need to call now don't

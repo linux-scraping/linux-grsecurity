@@ -69,11 +69,11 @@ static struct ttm_buffer_object *ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 	return best_bo;
 }
 
-int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct ttm_buffer_object *bo = (struct ttm_buffer_object *)
 	    vma->vm_private_data;
-	struct ttm_bo_device *bdev;
+	struct ttm_bo_device *bdev = bo->bdev;
 	unsigned long page_offset;
 	unsigned long page_last;
 	unsigned long pfn;
@@ -83,12 +83,8 @@ int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	int i;
 	unsigned long address = (unsigned long)vmf->virtual_address;
 	int retval = VM_FAULT_NOPAGE;
-	struct ttm_mem_type_manager *man;
-
-	if (!bo)
-		return VM_FAULT_NOPAGE;
-	bdev = bo->bdev;
-	man = &bdev->man[bo->mem.mem_type];
+	struct ttm_mem_type_manager *man =
+		&bdev->man[bo->mem.mem_type];
 
 	/*
 	 * Work around locking order reversal in fault / nopfn
@@ -223,25 +219,22 @@ out_unlock:
 	ttm_bo_unreserve(bo);
 	return retval;
 }
-EXPORT_SYMBOL(ttm_bo_vm_fault);
 
-void ttm_bo_vm_open(struct vm_area_struct *vma)
+static void ttm_bo_vm_open(struct vm_area_struct *vma)
 {
 	struct ttm_buffer_object *bo =
 	    (struct ttm_buffer_object *)vma->vm_private_data;
 
 	(void)ttm_bo_reference(bo);
 }
-EXPORT_SYMBOL(ttm_bo_vm_open);
 
-void ttm_bo_vm_close(struct vm_area_struct *vma)
+static void ttm_bo_vm_close(struct vm_area_struct *vma)
 {
 	struct ttm_buffer_object *bo = (struct ttm_buffer_object *)vma->vm_private_data;
 
 	ttm_bo_unref(&bo);
 	vma->vm_private_data = NULL;
 }
-EXPORT_SYMBOL(ttm_bo_vm_close);
 
 static const struct vm_operations_struct ttm_bo_vm_ops = {
 	.fault = ttm_bo_vm_fault,

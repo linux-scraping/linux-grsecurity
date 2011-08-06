@@ -1027,7 +1027,7 @@ typedef struct {
    int       (*intr)(struct ips_ha *);
    void      (*enableint)(struct ips_ha *);
    uint32_t (*statupd)(struct ips_ha *);
-} ips_hw_func_t;
+} __no_const ips_hw_func_t;
 
 typedef struct ips_ha {
    uint8_t            ha_id[IPS_MAX_CHANNELS+1];

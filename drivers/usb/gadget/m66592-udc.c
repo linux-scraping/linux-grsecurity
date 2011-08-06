@@ -1437,7 +1437,7 @@ static void m66592_fifo_flush(struct usb_ep *_ep)
 	spin_unlock_irqrestore(&ep->m66592->lock, flags);
 }
 
-static const struct usb_ep_ops m66592_ep_ops = {
+static struct usb_ep_ops m66592_ep_ops = {
 	.enable		= m66592_enable,
 	.disable	= m66592_disable,
 
@@ -1542,7 +1542,7 @@ static int m66592_get_frame(struct usb_gadget *_gadget)
 	return m66592_read(m66592, M66592_FRMNUM) & 0x03FF;
 }
 
-static const struct usb_gadget_ops m66592_gadget_ops = {
+static struct usb_gadget_ops m66592_gadget_ops = {
 	.get_frame		= m66592_get_frame,
 };
 

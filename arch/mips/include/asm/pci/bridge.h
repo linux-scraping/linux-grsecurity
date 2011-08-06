@@ -849,6 +849,6 @@ struct bridge_controller {
 extern void register_bridge_irq(unsigned int irq);
 extern int request_bridge_irq(struct bridge_controller *bc);
 
-extern const struct pci_ops bridge_pci_ops;
+extern struct pci_ops bridge_pci_ops;
 
 #endif /* _ASM_PCI_BRIDGE_H */

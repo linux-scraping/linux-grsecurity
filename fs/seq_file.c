@@ -553,7 +553,7 @@ static void single_stop(struct seq_file *p, void *v)
 int single_open(struct file *file, int (*show)(struct seq_file *, void *),
 		void *data)
 {
-	struct seq_operations *op = kmalloc(sizeof(*op), GFP_KERNEL);
+	seq_operations_no_const *op = kmalloc(sizeof(*op), GFP_KERNEL);
 	int res = -ENOMEM;
 
 	if (op) {

@@ -192,7 +192,7 @@ static struct device_attribute lcd_device_attributes[] = {
  * or a pointer to the newly allocated device.
  */
 struct lcd_device *lcd_device_register(const char *name, struct device *parent,
-		void *devdata, const struct lcd_ops *ops)
+		void *devdata, struct lcd_ops *ops)
 {
 	struct lcd_device *new_ld;
 	int rc;

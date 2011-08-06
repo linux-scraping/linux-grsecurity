@@ -1392,7 +1392,7 @@ static void r8a66597_fifo_flush(struct usb_ep *_ep)
 	spin_unlock_irqrestore(&ep->r8a66597->lock, flags);
 }
 
-static const struct usb_ep_ops r8a66597_ep_ops = {
+static struct usb_ep_ops r8a66597_ep_ops = {
 	.enable		= r8a66597_enable,
 	.disable	= r8a66597_disable,
 
@@ -1497,7 +1497,7 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
 }
 
-static const struct usb_gadget_ops r8a66597_gadget_ops = {
+static struct usb_gadget_ops r8a66597_gadget_ops = {
 	.get_frame		= r8a66597_get_frame,
 };
 

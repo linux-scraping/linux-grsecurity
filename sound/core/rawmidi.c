@@ -1449,7 +1449,7 @@ int snd_rawmidi_new(struct snd_card *card, char *id, int device,
 {
 	struct snd_rawmidi *rmidi;
 	int err;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_rawmidi_dev_free,
 		.dev_register = snd_rawmidi_dev_register,
 		.dev_disconnect = snd_rawmidi_dev_disconnect,
@@ -1654,7 +1654,7 @@ static int snd_rawmidi_dev_disconnect(struct snd_device *device)
  * Sets the rawmidi operators for the given stream direction.
  */
 void snd_rawmidi_set_ops(struct snd_rawmidi *rmidi, int stream,
-			 const struct snd_rawmidi_ops *ops)
+			 struct snd_rawmidi_ops *ops)
 {
 	struct snd_rawmidi_substream *substream;
 	

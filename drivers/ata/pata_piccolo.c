@@ -67,7 +67,7 @@ static struct scsi_host_template tosh_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations tosh_port_ops = {
+static struct ata_port_operations tosh_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= ata_cable_unknown,
 	.set_piomode	= tosh_set_piomode,

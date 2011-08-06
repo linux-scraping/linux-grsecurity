@@ -350,7 +350,7 @@ static struct scsi_host_template hpt3x2n_sht = {
  *	Configuration for HPT302N/371N.
  */
 
-static const struct ata_port_operations hpt3xxn_port_ops = {
+static struct ata_port_operations hpt3xxn_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 
 	.bmdma_stop	= hpt3x2n_bmdma_stop,
@@ -368,7 +368,7 @@ static const struct ata_port_operations hpt3xxn_port_ops = {
  *	Configuration for HPT372N. Same as 302N/371N but we have a mode filter.
  */
 
-static const struct ata_port_operations hpt372n_port_ops = {
+static struct ata_port_operations hpt372n_port_ops = {
 	.inherits	= &hpt3xxn_port_ops,
 	.mode_filter	= &hpt372n_filter,
 };

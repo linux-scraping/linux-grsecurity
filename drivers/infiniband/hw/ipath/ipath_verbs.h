@@ -931,6 +931,6 @@ extern unsigned int ib_ipath_max_srq_wrs;
 
 extern const u32 ib_ipath_rnr_table[];
 
-extern const struct ib_dma_mapping_ops ipath_dma_mapping_ops;
+extern struct ib_dma_mapping_ops ipath_dma_mapping_ops;
 
 #endif				/* IPATH_VERBS_H */

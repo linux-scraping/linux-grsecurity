@@ -768,7 +768,7 @@ static void fimc_unlock(struct vb2_queue *vq)
 	mutex_unlock(&ctx->fimc_dev->lock);
 }
 
-static const struct vb2_ops fimc_qops = {
+static struct vb2_ops fimc_qops = {
 	.queue_setup	 = fimc_queue_setup,
 	.buf_prepare	 = fimc_buf_prepare,
 	.buf_queue	 = fimc_buf_queue,

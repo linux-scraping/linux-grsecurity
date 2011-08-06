@@ -3974,7 +3974,9 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (cfg->mod_params->disable_hw_scan) {
 		dev_printk(KERN_DEBUG, &(pdev->dev),
 			"sw scan support is deprecated\n");
-		iwlagn_hw_ops.hw_scan = NULL;
+		pax_open_kernel();
+		*(void **)&iwlagn_hw_ops.hw_scan = NULL;
+		pax_close_kernel();
 	}
 
 	hw = iwl_alloc_all(cfg);

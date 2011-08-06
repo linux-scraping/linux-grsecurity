@@ -8606,7 +8606,7 @@ static void ncr53c8xx_get_signalling(struct Scsi_Host *shost)
 	spi_signalling(shost) = type;
 }
 
-static struct spi_function_template ncr53c8xx_transport_functions = {
+static struct spi_function_template ncr53c8xx_transport_functions =  {
 	.set_period	= ncr53c8xx_set_period,
 	.show_period	= 1,
 	.set_offset	= ncr53c8xx_set_offset,

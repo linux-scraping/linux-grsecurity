@@ -844,7 +844,7 @@ static int snd_usb_capture_close(struct snd_pcm_substream *substream)
 	return snd_usb_pcm_close(substream, SNDRV_PCM_STREAM_CAPTURE);
 }
 
-static const struct snd_pcm_ops snd_usb_playback_ops = {
+static struct snd_pcm_ops snd_usb_playback_ops = {
 	.open =		snd_usb_playback_open,
 	.close =	snd_usb_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -857,7 +857,7 @@ static const struct snd_pcm_ops snd_usb_playback_ops = {
 	.mmap =		snd_pcm_lib_mmap_vmalloc,
 };
 
-static const struct snd_pcm_ops snd_usb_capture_ops = {
+static struct snd_pcm_ops snd_usb_capture_ops = {
 	.open =		snd_usb_capture_open,
 	.close =	snd_usb_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,

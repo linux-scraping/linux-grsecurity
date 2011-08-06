@@ -256,7 +256,7 @@ static void fc_rport_work(struct work_struct *work)
 	struct fc_rport_libfc_priv *rpriv;
 	enum fc_rport_event event;
 	struct fc_lport *lport = rdata->local_port;
-	const struct fc_rport_operations *rport_ops;
+	struct fc_rport_operations *rport_ops;
 	struct fc_rport_identifiers ids;
 	struct fc_rport *rport;
 	struct fc4_prov *prov;

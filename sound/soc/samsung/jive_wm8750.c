@@ -92,7 +92,7 @@ static int jive_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops jive_ops = {
+static struct snd_soc_ops jive_ops = {
 	.hw_params	= jive_hw_params,
 };
 

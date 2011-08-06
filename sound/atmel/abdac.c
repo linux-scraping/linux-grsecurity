@@ -297,7 +297,7 @@ static irqreturn_t abdac_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static const struct snd_pcm_ops atmel_abdac_ops = {
+static struct snd_pcm_ops atmel_abdac_ops = {
 	.open		= atmel_abdac_open,
 	.close		= atmel_abdac_close,
 	.ioctl		= snd_pcm_lib_ioctl,

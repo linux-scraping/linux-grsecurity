@@ -743,7 +743,7 @@ struct qeth_card {
 	struct qeth_qdio_info qdio;
 	struct qeth_perf_stats perf_stats;
 	int read_or_write_problem;
-	const struct qeth_osn_info osn_info;
+	struct qeth_osn_info osn_info;
 	struct qeth_discipline discipline;
 	atomic_t force_alloc_skb;
 	struct service_level qeth_service_level;

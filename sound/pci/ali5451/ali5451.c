@@ -1847,7 +1847,7 @@ static int __devinit snd_ali_mixer(struct snd_ali * codec)
 	struct snd_ac97_template ac97;
 	unsigned int idx;
 	int i, err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_ali_codec_write,
 		.read = snd_ali_codec_read,
 	};
@@ -2114,7 +2114,7 @@ static int __devinit snd_ali_create(struct snd_card *card,
 	struct snd_ali *codec;
 	int i, err;
 	unsigned short cmdw;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_ali_dev_free,
         };
 

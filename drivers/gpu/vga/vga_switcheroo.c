@@ -53,7 +53,7 @@ struct vgasr_priv {
 	int registered_clients;
 	struct vga_switcheroo_client clients[VGA_SWITCHEROO_MAX_CLIENTS];
 
-	const struct vga_switcheroo_handler *handler;
+	struct vga_switcheroo_handler *handler;
 };
 
 static int vga_switcheroo_debugfs_init(struct vgasr_priv *priv);
@@ -62,7 +62,7 @@ static void vga_switcheroo_debugfs_fini(struct vgasr_priv *priv);
 /* only one switcheroo per system */
 static struct vgasr_priv vgasr_priv;
 
-int vga_switcheroo_register_handler(const struct vga_switcheroo_handler *handler)
+int vga_switcheroo_register_handler(struct vga_switcheroo_handler *handler)
 {
 	mutex_lock(&vgasr_mutex);
 	if (vgasr_priv.handler) {

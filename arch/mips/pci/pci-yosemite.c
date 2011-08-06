@@ -11,7 +11,7 @@
 #include <linux/pci.h>
 #include <asm/titan_dep.h>
 
-extern const struct pci_ops titan_pci_ops;
+extern struct pci_ops titan_pci_ops;
 
 static struct resource py_mem_resource = {
 	.start	= 0xe0000000UL,

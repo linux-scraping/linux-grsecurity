@@ -384,7 +384,7 @@ void line6_pcm_disconnect(struct snd_line6_pcm *line6pcm)
 int line6_init_pcm(struct usb_line6 *line6,
 		   struct line6_pcm_properties *properties)
 {
-	static const struct snd_device_ops pcm_ops = {
+	static struct snd_device_ops pcm_ops = {
 		.dev_free = snd_line6_pcm_free,
 	};
 

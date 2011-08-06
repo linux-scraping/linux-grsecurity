@@ -419,7 +419,7 @@ static int rfkill_set(void *data, bool blocked)
 	return 0;
 }
 
-static const struct rfkill_ops rfkill_ops = {
+static struct rfkill_ops rfkill_ops = {
 	.set_block = rfkill_set,
 };
 

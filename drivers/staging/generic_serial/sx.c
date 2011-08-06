@@ -355,7 +355,7 @@ module_param(sx_irqmask, int, 0);
 
 MODULE_LICENSE("GPL");
 
-static const struct real_driver sx_real_driver = {
+static struct real_driver sx_real_driver = {
 	sx_disable_tx_interrupts,
 	sx_enable_tx_interrupts,
 	sx_disable_rx_interrupts,

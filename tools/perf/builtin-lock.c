@@ -635,14 +635,14 @@ end:
 
 /* lock oriented handlers */
 /* TODO: handlers for CPU oriented, thread oriented */
-static const struct trace_lock_handler report_lock_ops = {
+static struct trace_lock_handler report_lock_ops  = {
 	.acquire_event		= report_lock_acquire_event,
 	.acquired_event		= report_lock_acquired_event,
 	.contended_event	= report_lock_contended_event,
 	.release_event		= report_lock_release_event,
 };
 
-static const struct trace_lock_handler *trace_handler;
+static struct trace_lock_handler *trace_handler;
 
 static void
 process_lock_acquire_event(void *data,

@@ -260,7 +260,7 @@ struct wl1251_if_operations {
 	void (*reset)(struct wl1251 *wl);
 	void (*enable_irq)(struct wl1251 *wl);
 	void (*disable_irq)(struct wl1251 *wl);
-};
+} __no_const;
 
 struct wl1251 {
 	struct ieee80211_hw *hw;

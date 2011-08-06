@@ -123,7 +123,7 @@ static int domU_read_console(uint32_t vtermno, char *buf, int len)
 	return recv;
 }
 
-static const struct hv_ops domU_hvc_ops = {
+static struct hv_ops domU_hvc_ops = {
 	.get_chars = domU_read_console,
 	.put_chars = domU_write_console,
 	.notifier_add = notifier_add_irq,
@@ -149,7 +149,7 @@ static int dom0_write_console(uint32_t vtermno, const char *str, int len)
 	return len;
 }
 
-static const struct hv_ops dom0_hvc_ops = {
+static struct hv_ops dom0_hvc_ops = {
 	.get_chars = dom0_read_console,
 	.put_chars = dom0_write_console,
 	.notifier_add = notifier_add_irq,
@@ -160,7 +160,7 @@ static const struct hv_ops dom0_hvc_ops = {
 static int __init xen_hvc_init(void)
 {
 	struct hvc_struct *hp;
-	const struct hv_ops *ops;
+	struct hv_ops *ops;
 
 	if (!xen_pv_domain())
 		return -ENODEV;
@@ -205,7 +205,7 @@ static void __exit xen_hvc_fini(void)
 
 static int xen_cons_init(void)
 {
-	const struct hv_ops *ops;
+	struct hv_ops *ops;
 
 	if (!xen_pv_domain())
 		return 0;

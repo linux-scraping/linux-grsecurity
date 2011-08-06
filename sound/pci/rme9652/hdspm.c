@@ -1773,13 +1773,15 @@ static int snd_hdspm_midi_output_close(struct snd_rawmidi_substream *substream)
 	return 0;
 }
 
-static const struct snd_rawmidi_ops snd_hdspm_midi_output = {
+static struct snd_rawmidi_ops snd_hdspm_midi_output =
+{
 	.open =		snd_hdspm_midi_output_open,
 	.close =	snd_hdspm_midi_output_close,
 	.trigger =	snd_hdspm_midi_output_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_hdspm_midi_input = {
+static struct snd_rawmidi_ops snd_hdspm_midi_input =
+{
 	.open =		snd_hdspm_midi_input_open,
 	.close =	snd_hdspm_midi_input_close,
 	.trigger =	snd_hdspm_midi_input_trigger,
@@ -6170,7 +6172,7 @@ static int snd_hdspm_hwdep_ioctl(struct snd_hwdep *hw, struct file *file,
 	return 0;
 }
 
-static const struct snd_pcm_ops snd_hdspm_playback_ops = {
+static struct snd_pcm_ops snd_hdspm_playback_ops = {
 	.open = snd_hdspm_playback_open,
 	.close = snd_hdspm_playback_release,
 	.ioctl = snd_hdspm_ioctl,
@@ -6182,7 +6184,7 @@ static const struct snd_pcm_ops snd_hdspm_playback_ops = {
 	.page = snd_pcm_sgbuf_ops_page,
 };
 
-static const struct snd_pcm_ops snd_hdspm_capture_ops = {
+static struct snd_pcm_ops snd_hdspm_capture_ops = {
 	.open = snd_hdspm_capture_open,
 	.close = snd_hdspm_capture_release,
 	.ioctl = snd_hdspm_ioctl,

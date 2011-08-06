@@ -17,14 +17,14 @@ struct pci_dev;
 struct pci_controller;
 
 /* core_apecs.c */
-extern const struct pci_ops apecs_pci_ops;
+extern struct pci_ops apecs_pci_ops;
 extern void apecs_init_arch(void);
 extern void apecs_pci_clr_err(void);
 extern void apecs_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void apecs_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_cia.c */
-extern const struct pci_ops cia_pci_ops;
+extern struct pci_ops cia_pci_ops;
 extern void cia_init_pci(void);
 extern void cia_init_arch(void);
 extern void pyxis_init_arch(void);
@@ -33,19 +33,19 @@ extern void cia_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void cia_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_irongate.c */
-extern const struct pci_ops irongate_pci_ops;
+extern struct pci_ops irongate_pci_ops;
 extern int irongate_pci_clr_err(void);
 extern void irongate_init_arch(void);
 #define irongate_pci_tbi ((void *)0)
 
 /* core_lca.c */
-extern const struct pci_ops lca_pci_ops;
+extern struct pci_ops lca_pci_ops;
 extern void lca_init_arch(void);
 extern void lca_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void lca_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_marvel.c */
-extern const struct pci_ops marvel_pci_ops;
+extern struct pci_ops marvel_pci_ops;
 extern void marvel_init_arch(void);
 extern void marvel_kill_arch(int);
 extern void marvel_machine_check(unsigned long, unsigned long);
@@ -60,14 +60,14 @@ struct io7 *marvel_next_io7(struct io7 *prev);
 void io7_clear_errors(struct io7 *io7);
 
 /* core_mcpcia.c */
-extern const struct pci_ops mcpcia_pci_ops;
+extern struct pci_ops mcpcia_pci_ops;
 extern void mcpcia_init_arch(void);
 extern void mcpcia_init_hoses(void);
 extern void mcpcia_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void mcpcia_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_polaris.c */
-extern const struct pci_ops polaris_pci_ops;
+extern struct pci_ops polaris_pci_ops;
 extern int polaris_read_config_dword(struct pci_dev *, int, u32 *);
 extern int polaris_write_config_dword(struct pci_dev *, int, u32);
 extern void polaris_init_arch(void);
@@ -75,14 +75,14 @@ extern void polaris_machine_check(unsigned long vector, unsigned long la_ptr);
 #define polaris_pci_tbi ((void *)0)
 
 /* core_t2.c */
-extern const struct pci_ops t2_pci_ops;
+extern struct pci_ops t2_pci_ops;
 extern void t2_init_arch(void);
 extern void t2_kill_arch(int);
 extern void t2_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void t2_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_titan.c */
-extern const struct pci_ops titan_pci_ops;
+extern struct pci_ops titan_pci_ops;
 extern void titan_init_arch(void);
 extern void titan_kill_arch(int);
 extern void titan_machine_check(unsigned long, unsigned long);
@@ -90,14 +90,14 @@ extern void titan_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 extern struct _alpha_agp_info *titan_agp_info(void);
 
 /* core_tsunami.c */
-extern const struct pci_ops tsunami_pci_ops;
+extern struct pci_ops tsunami_pci_ops;
 extern void tsunami_init_arch(void);
 extern void tsunami_kill_arch(int);
 extern void tsunami_machine_check(unsigned long vector, unsigned long la_ptr);
 extern void tsunami_pci_tbi(struct pci_controller *, dma_addr_t, dma_addr_t);
 
 /* core_wildfire.c */
-extern const struct pci_ops wildfire_pci_ops;
+extern struct pci_ops wildfire_pci_ops;
 extern void wildfire_init_arch(void);
 extern void wildfire_kill_arch(int);
 extern void wildfire_machine_check(unsigned long vector, unsigned long la_ptr);

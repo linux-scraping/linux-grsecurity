@@ -528,7 +528,7 @@ static int ks8695uart_verify_port(struct uart_port *port, struct serial_struct *
 	return ret;
 }
 
-static const struct uart_ops ks8695uart_pops = {
+static struct uart_ops ks8695uart_pops = {
 	.tx_empty	= ks8695uart_tx_empty,
 	.set_mctrl	= ks8695uart_set_mctrl,
 	.get_mctrl	= ks8695uart_get_mctrl,

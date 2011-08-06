@@ -319,7 +319,7 @@ snd_at73c213_pcm_pointer(struct snd_pcm_substream *substream)
 	return pos;
 }
 
-static const struct snd_pcm_ops at73c213_playback_ops = {
+static struct snd_pcm_ops at73c213_playback_ops = {
 	.open		= snd_at73c213_pcm_open,
 	.close		= snd_at73c213_pcm_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -882,7 +882,7 @@ static int snd_at73c213_dev_free(struct snd_device *device)
 static int __devinit snd_at73c213_dev_init(struct snd_card *card,
 					 struct spi_device *spi)
 {
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free	= snd_at73c213_dev_free,
 	};
 	struct snd_at73c213 *chip = get_chip(card);

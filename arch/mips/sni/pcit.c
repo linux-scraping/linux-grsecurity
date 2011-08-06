@@ -145,7 +145,7 @@ static void __init sni_pcit_resource_init(void)
 }
 
 
-extern const struct pci_ops sni_pcit_ops;
+extern struct pci_ops sni_pcit_ops;
 
 static struct pci_controller sni_pcit_controller = {
 	.pci_ops	= &sni_pcit_ops,

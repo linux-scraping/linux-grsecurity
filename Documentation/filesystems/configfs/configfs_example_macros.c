@@ -368,7 +368,7 @@ static struct configfs_item_operations group_children_item_ops = {
  * Note that, since no extra work is required on ->drop_item(),
  * no ->drop_item() is provided.
  */
-static const struct configfs_group_operations group_children_group_ops = {
+static struct configfs_group_operations group_children_group_ops = {
 	.make_group	= group_children_make_group,
 };
 

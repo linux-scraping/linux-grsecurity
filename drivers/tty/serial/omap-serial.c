@@ -1029,7 +1029,7 @@ static inline void serial_omap_add_console_port(struct uart_omap_port *up)
 
 #endif
 
-static const struct uart_ops serial_omap_pops = {
+static struct uart_ops serial_omap_pops = {
 	.tx_empty	= serial_omap_tx_empty,
 	.set_mctrl	= serial_omap_set_mctrl,
 	.get_mctrl	= serial_omap_get_mctrl,

@@ -644,7 +644,7 @@ static int s6e63m0_set_brightness(struct backlight_device *bd)
 	return ret;
 }
 
-static const struct lcd_ops s6e63m0_lcd_ops = {
+static struct lcd_ops s6e63m0_lcd_ops = {
 	.set_power = s6e63m0_set_power,
 	.get_power = s6e63m0_get_power,
 };

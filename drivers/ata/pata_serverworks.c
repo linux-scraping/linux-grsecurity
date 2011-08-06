@@ -300,7 +300,7 @@ static struct scsi_host_template serverworks_sht = {
 	ATA_BMDMA_SHT(DRV_NAME),
 };
 
-static const struct ata_port_operations serverworks_osb4_port_ops = {
+static struct ata_port_operations serverworks_osb4_port_ops = {
 	.inherits	= &ata_bmdma_port_ops,
 	.cable_detect	= serverworks_cable_detect,
 	.mode_filter	= serverworks_osb4_filter,
@@ -308,7 +308,7 @@ static const struct ata_port_operations serverworks_osb4_port_ops = {
 	.set_dmamode	= serverworks_set_dmamode,
 };
 
-static const struct ata_port_operations serverworks_csb_port_ops = {
+static struct ata_port_operations serverworks_csb_port_ops = {
 	.inherits	= &serverworks_osb4_port_ops,
 	.mode_filter	= serverworks_csb_filter,
 };

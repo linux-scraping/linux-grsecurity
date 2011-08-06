@@ -592,7 +592,7 @@ struct ath_hw_private_ops {
 
 	/* ANI */
 	void (*ani_cache_ini_regs)(struct ath_hw *ah);
-};
+} __no_const;
 
 /**
  * struct ath_hw_ops - callbacks used by hardware code and driver code
@@ -642,7 +642,7 @@ struct ath_hw_ops {
 				     u32 burstDuration);
 	void (*set11n_virtualmorefrag)(struct ath_hw *ah, void *ds,
 				       u32 vmf);
-};
+} __no_const;
 
 struct ath_nf_limits {
 	s16 max;

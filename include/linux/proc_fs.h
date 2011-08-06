@@ -271,7 +271,7 @@ union proc_op {
 	int (*proc_show)(struct seq_file *m,
 		struct pid_namespace *ns, struct pid *pid,
 		struct task_struct *task);
-};
+} __no_const;
 
 struct ctl_table_header;
 struct ctl_table;

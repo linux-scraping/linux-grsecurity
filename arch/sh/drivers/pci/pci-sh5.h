@@ -105,6 +105,6 @@ extern unsigned long pcicr_virt;
 #define PCISH5_MEM_SIZCONV(x)		  (((x / 0x40000) - 1) << 18)
 #define PCISH5_IO_SIZCONV(x)		  (((x / 0x40000) - 1) << 18)
 
-extern const struct pci_ops sh5_pci_ops;
+extern struct pci_ops sh5_pci_ops;
 
 #endif /* __PCI_SH5_H */

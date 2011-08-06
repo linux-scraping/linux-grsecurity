@@ -1225,7 +1225,7 @@ static int snd_ensoniq_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_pcm_ops snd_ensoniq_playback1_ops = {
+static struct snd_pcm_ops snd_ensoniq_playback1_ops = {
 	.open =		snd_ensoniq_playback1_open,
 	.close =	snd_ensoniq_playback1_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1236,7 +1236,7 @@ static const struct snd_pcm_ops snd_ensoniq_playback1_ops = {
 	.pointer =	snd_ensoniq_playback1_pointer,
 };
 
-static const struct snd_pcm_ops snd_ensoniq_playback2_ops = {
+static struct snd_pcm_ops snd_ensoniq_playback2_ops = {
 	.open =		snd_ensoniq_playback2_open,
 	.close =	snd_ensoniq_playback2_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1247,7 +1247,7 @@ static const struct snd_pcm_ops snd_ensoniq_playback2_ops = {
 	.pointer =	snd_ensoniq_playback2_pointer,
 };
 
-static const struct snd_pcm_ops snd_ensoniq_capture_ops = {
+static struct snd_pcm_ops snd_ensoniq_capture_ops = {
 	.open =		snd_ensoniq_capture_open,
 	.close =	snd_ensoniq_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1633,7 +1633,7 @@ static int __devinit snd_ensoniq_1371_mixer(struct ensoniq *ensoniq,
 	struct snd_ac97_bus *pbus;
 	struct snd_ac97_template ac97;
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_es1371_codec_write,
 		.read = snd_es1371_codec_read,
 		.wait = snd_es1371_codec_wait,
@@ -2096,7 +2096,7 @@ static int __devinit snd_ensoniq_create(struct snd_card *card,
 {
 	struct ensoniq *ensoniq;
 	int err;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_ensoniq_dev_free,
 	};
 
@@ -2331,13 +2331,15 @@ static void snd_ensoniq_midi_output_trigger(struct snd_rawmidi_substream *substr
 	spin_unlock_irqrestore(&ensoniq->reg_lock, flags);
 }
 
-static const struct snd_rawmidi_ops snd_ensoniq_midi_output = {
+static struct snd_rawmidi_ops snd_ensoniq_midi_output =
+{
 	.open =		snd_ensoniq_midi_output_open,
 	.close =	snd_ensoniq_midi_output_close,
 	.trigger =	snd_ensoniq_midi_output_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_ensoniq_midi_input = {
+static struct snd_rawmidi_ops snd_ensoniq_midi_input =
+{
 	.open =		snd_ensoniq_midi_input_open,
 	.close =	snd_ensoniq_midi_input_close,
 	.trigger =	snd_ensoniq_midi_input_trigger,

@@ -1722,7 +1722,7 @@ int __devinit snd_emu10k1_create(struct snd_card *card,
 	int is_audigy;
 	unsigned int silent_page;
 	const struct snd_emu_chip_details *c;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_emu10k1_dev_free,
 	};
 

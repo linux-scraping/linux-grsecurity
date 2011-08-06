@@ -625,7 +625,7 @@ static struct inet_protosw l2tp_ip_protosw = {
 	.no_check	= 0,
 };
 
-static const struct net_protocol l2tp_ip_protocol = {
+static struct net_protocol l2tp_ip_protocol __read_mostly = {
 	.handler	= l2tp_ip_recv,
 };
 

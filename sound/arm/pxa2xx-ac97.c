@@ -34,7 +34,7 @@ static void pxa2xx_ac97_reset(struct snd_ac97 *ac97)
 	pxa2xx_ac97_finish_reset(ac97);
 }
 
-static const struct snd_ac97_bus_ops pxa2xx_ac97_ops = {
+static struct snd_ac97_bus_ops pxa2xx_ac97_ops = {
 	.read	= pxa2xx_ac97_read,
 	.write	= pxa2xx_ac97_write,
 	.reset	= pxa2xx_ac97_reset,

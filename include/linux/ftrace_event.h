@@ -84,7 +84,7 @@ struct trace_event_functions {
 	trace_print_func	raw;
 	trace_print_func	hex;
 	trace_print_func	binary;
-};
+} __no_const;
 
 struct trace_event {
 	struct hlist_node		node;

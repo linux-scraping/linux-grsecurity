@@ -139,7 +139,7 @@ static int rx51_hw_params(struct snd_pcm_substream *substream,
 				      SND_SOC_CLOCK_IN);
 }
 
-static const struct snd_soc_ops rx51_ops = {
+static struct snd_soc_ops rx51_ops = {
 	.startup = rx51_startup,
 	.hw_params = rx51_hw_params,
 };

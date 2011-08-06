@@ -440,7 +440,7 @@ static void gntalloc_vma_close(struct vm_area_struct *vma)
 	spin_unlock(&gref_lock);
 }
 
-static const struct vm_operations_struct gntalloc_vmops = {
+static struct vm_operations_struct gntalloc_vmops = {
 	.close = gntalloc_vma_close,
 };
 

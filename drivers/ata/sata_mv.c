@@ -662,7 +662,7 @@ static struct scsi_host_template mv6_sht = {
 	.dma_boundary		= MV_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations mv5_ops = {
+static struct ata_port_operations mv5_ops = {
 	.inherits		= &ata_sff_port_ops,
 
 	.lost_interrupt		= ATA_OP_NULL,
@@ -682,7 +682,7 @@ static const struct ata_port_operations mv5_ops = {
 	.port_stop		= mv_port_stop,
 };
 
-static const struct ata_port_operations mv6_ops = {
+static struct ata_port_operations mv6_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 
 	.lost_interrupt		= ATA_OP_NULL,
@@ -716,7 +716,7 @@ static const struct ata_port_operations mv6_ops = {
 	.port_stop		= mv_port_stop,
 };
 
-static const struct ata_port_operations mv_iie_ops = {
+static struct ata_port_operations mv_iie_ops = {
 	.inherits		= &mv6_ops,
 	.dev_config		= ATA_OP_NULL,
 	.qc_prep		= mv_qc_prep_iie,

@@ -422,7 +422,7 @@ int kgdb_arch_handle_exception(int vector, int signo, int err_code,
 /*
  * Global data
  */
-const struct kgdb_arch arch_kgdb_ops = {
+struct kgdb_arch arch_kgdb_ops = {
 	.gdb_bpt_instr = {0x7d, 0x82, 0x10, 0x08},
 };
 

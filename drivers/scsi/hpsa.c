@@ -469,7 +469,7 @@ static inline u32 next_command(struct ctlr_info *h)
 	u32 a;
 
 	if (unlikely(!(h->transMethod & CFGTBL_Trans_Performant)))
-		return h->access.command_completed(h);
+		return h->access->command_completed(h);
 
 	if ((*(h->reply_pool_head) & 1) == (h->reply_pool_wraparound)) {
 		a = *(h->reply_pool_head); /* Next cmd in ring buffer */
@@ -2889,7 +2889,7 @@ static void start_io(struct ctlr_info *h)
 	while (!list_empty(&h->reqQ)) {
 		c = list_entry(h->reqQ.next, struct CommandList, list);
 		/* can't do anything if fifo is full */
-		if ((h->access.fifo_full(h))) {
+		if ((h->access->fifo_full(h))) {
 			dev_warn(&h->pdev->dev, "fifo full\n");
 			break;
 		}
@@ -2899,7 +2899,7 @@ static void start_io(struct ctlr_info *h)
 		h->Qdepth--;
 
 		/* Tell the controller execute command */
-		h->access.submit_command(h, c);
+		h->access->submit_command(h, c);
 
 		/* Put job onto the completed Q */
 		addQ(&h->cmpQ, c);
@@ -2908,17 +2908,17 @@ static void start_io(struct ctlr_info *h)
 
 static inline unsigned long get_next_completion(struct ctlr_info *h)
 {
-	return h->access.command_completed(h);
+	return h->access->command_completed(h);
 }
 
 static inline bool interrupt_pending(struct ctlr_info *h)
 {
-	return h->access.intr_pending(h);
+	return h->access->intr_pending(h);
 }
 
 static inline long interrupt_not_for_us(struct ctlr_info *h)
 {
-	return (h->access.intr_pending(h) == 0) ||
+	return (h->access->intr_pending(h) == 0) ||
 		(h->interrupts_enabled == 0);
 }
 
@@ -3684,7 +3684,7 @@ static int __devinit hpsa_pci_init(struct ctlr_info *h)
 	if (prod_index < 0)
 		return -ENODEV;
 	h->product_name = products[prod_index].product_name;
-	h->access = *(products[prod_index].access);
+	h->access = products[prod_index].access;
 
 	if (hpsa_board_disabled(h->pdev)) {
 		dev_warn(&h->pdev->dev, "controller appears to be disabled\n");
@@ -3845,7 +3845,7 @@ static int __devinit hpsa_init_one(struct pci_dev *pdev,
 	}
 
 	/* make sure the board interrupts are off */
-	h->access.set_intr_mask(h, HPSA_INTR_OFF);
+	h->access->set_intr_mask(h, HPSA_INTR_OFF);
 
 	if (h->msix_vector || h->msi_vector)
 		rc = request_irq(h->intr[h->intr_mode], do_hpsa_intr_msi,
@@ -3892,7 +3892,7 @@ static int __devinit hpsa_init_one(struct pci_dev *pdev,
 	hpsa_scsi_setup(h);
 
 	/* Turn the interrupts on so we can service requests */
-	h->access.set_intr_mask(h, HPSA_INTR_ON);
+	h->access->set_intr_mask(h, HPSA_INTR_ON);
 
 	hpsa_put_ctlr_into_performant_mode(h);
 	hpsa_hba_inquiry(h);
@@ -3955,7 +3955,7 @@ static void hpsa_shutdown(struct pci_dev *pdev)
 	 * To write all data in the battery backed cache to disks
 	 */
 	hpsa_flush_cache(h);
-	h->access.set_intr_mask(h, HPSA_INTR_OFF);
+	h->access->set_intr_mask(h, HPSA_INTR_OFF);
 	free_irq(h->intr[h->intr_mode], h);
 #ifdef CONFIG_PCI_MSI
 	if (h->msix_vector)
@@ -4118,7 +4118,7 @@ static __devinit void hpsa_enter_performant_mode(struct ctlr_info *h,
 		return;
 	}
 	/* Change the access methods to the performant access methods */
-	h->access = SA5_performant_access;
+	h->access = &SA5_performant_access;
 	h->transMethod = CFGTBL_Trans_Performant;
 }
 

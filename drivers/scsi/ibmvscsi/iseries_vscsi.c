@@ -163,7 +163,7 @@ static int iseriesvscsi_resume(struct ibmvscsi_host_data *hostdata)
 	return 0;
 }
 
-const struct ibmvscsi_ops iseriesvscsi_ops = {
+struct ibmvscsi_ops iseriesvscsi_ops = {
 	.init_crq_queue = iseriesvscsi_init_crq_queue,
 	.release_crq_queue = iseriesvscsi_release_crq_queue,
 	.reset_crq_queue = iseriesvscsi_reset_crq_queue,

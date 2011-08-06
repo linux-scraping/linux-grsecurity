@@ -74,9 +74,9 @@ EXPORT_SYMBOL(pci_bus_write_config_dword);
  *
  * Return previous raw operations
  */
-const struct pci_ops *pci_bus_set_ops(struct pci_bus *bus, const struct pci_ops *ops)
+struct pci_ops *pci_bus_set_ops(struct pci_bus *bus, struct pci_ops *ops)
 {
-	const struct pci_ops *old_ops;
+	struct pci_ops *old_ops;
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&pci_lock, flags);

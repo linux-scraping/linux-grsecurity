@@ -577,7 +577,7 @@ sa1100_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return ret;
 }
 
-static const struct uart_ops sa1100_pops = {
+static struct uart_ops sa1100_pops = {
 	.tx_empty	= sa1100_tx_empty,
 	.set_mctrl	= sa1100_set_mctrl,
 	.get_mctrl	= sa1100_get_mctrl,

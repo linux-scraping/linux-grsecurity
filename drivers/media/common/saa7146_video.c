@@ -1420,7 +1420,7 @@ out:
 	return ret;
 }
 
-const struct saa7146_use_ops saa7146_video_uops = {
+struct saa7146_use_ops saa7146_video_uops = {
 	.init = video_init,
 	.open = video_open,
 	.release = video_close,

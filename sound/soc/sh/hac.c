@@ -227,7 +227,7 @@ static void hac_ac97_coldrst(struct snd_ac97 *ac97)
 	hac_ac97_warmrst(ac97);
 }
 
-const struct snd_ac97_bus_ops soc_ac97_ops = {
+struct snd_ac97_bus_ops soc_ac97_ops = {
 	.read	= hac_ac97_read,
 	.write	= hac_ac97_write,
 	.reset	= hac_ac97_coldrst,

@@ -95,7 +95,7 @@ nf_conntrack_eventmask_report(unsigned int eventmask,
 			      int report)
 {
 	int ret = 0;
-	const struct nf_ct_event_notifier *notify;
+	struct nf_ct_event_notifier *notify;
 	struct nf_conntrack_ecache *e;
 
 	rcu_read_lock();
@@ -174,7 +174,7 @@ nf_ct_expect_event_report(enum ip_conntrack_expect_events event,
 			  u32 pid,
 			  int report)
 {
-	const struct nf_exp_event_notifier *notify;
+	struct nf_exp_event_notifier *notify;
 	struct nf_conntrack_ecache *e;
 
 	rcu_read_lock();

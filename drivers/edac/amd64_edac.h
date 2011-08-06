@@ -333,7 +333,7 @@ struct chip_select {
 };
 
 struct amd64_pvt {
-	const struct low_ops *ops;
+	struct low_ops *ops;
 
 	/* pci_device handles which we utilize */
 	struct pci_dev *F1, *F2, *F3;
@@ -443,7 +443,7 @@ struct low_ops {
 struct amd64_family_type {
 	const char *ctl_name;
 	u16 f1_id, f3_id;
-	const struct low_ops ops;
+	struct low_ops ops;
 };
 
 int __amd64_write_pci_cfg_dword(struct pci_dev *pdev, int offset,

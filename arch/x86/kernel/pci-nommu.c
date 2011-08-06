@@ -95,7 +95,7 @@ static void nommu_sync_sg_for_device(struct device *dev,
 	flush_write_buffers();
 }
 
-const struct dma_map_ops nommu_dma_ops = {
+struct dma_map_ops nommu_dma_ops = {
 	.alloc_coherent		= dma_generic_alloc_coherent,
 	.free_coherent		= nommu_free_coherent,
 	.map_sg			= nommu_map_sg,

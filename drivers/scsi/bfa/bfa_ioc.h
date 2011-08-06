@@ -196,7 +196,7 @@ struct bfa_ioc_cbfn_s {
 	bfa_ioc_disable_cbfn_t	disable_cbfn;
 	bfa_ioc_hbfail_cbfn_t	hbfail_cbfn;
 	bfa_ioc_reset_cbfn_t	reset_cbfn;
-};
+} __no_const;
 
 /*
  * Heartbeat failure notification queue element.
@@ -267,7 +267,7 @@ struct bfa_ioc_hwif_s {
 	void		(*ioc_sync_leave)	(struct bfa_ioc_s *ioc);
 	void		(*ioc_sync_ack)		(struct bfa_ioc_s *ioc);
 	bfa_boolean_t	(*ioc_sync_complete)	(struct bfa_ioc_s *ioc);
-};
+} __no_const;
 
 #define bfa_ioc_pcifn(__ioc)		((__ioc)->pcidev.pci_func)
 #define bfa_ioc_devid(__ioc)		((__ioc)->pcidev.device_id)

@@ -31,6 +31,9 @@
 
 
 #if __GNUC_MINOR__ >= 5
+
+#define __no_const __attribute__((no_const))
+
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer

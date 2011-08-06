@@ -1,10 +1,10 @@
 #ifndef __ASM_SH_DMA_MAPPING_H
 #define __ASM_SH_DMA_MAPPING_H
 
-extern const struct dma_map_ops *dma_ops;
+extern struct dma_map_ops *dma_ops;
 extern void no_iommu_init(void);
 
-static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
+static inline struct dma_map_ops *get_dma_ops(struct device *dev)
 {
 	return dma_ops;
 }
@@ -14,7 +14,7 @@ static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
 
 static inline int dma_supported(struct device *dev, u64 mask)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	if (ops->dma_supported)
 		return ops->dma_supported(dev, mask);
@@ -24,7 +24,7 @@ static inline int dma_supported(struct device *dev, u64 mask)
 
 static inline int dma_set_mask(struct device *dev, u64 mask)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	if (!dev->dma_mask || !dma_supported(dev, mask))
 		return -EIO;
@@ -44,7 +44,7 @@ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 
 static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	if (ops->mapping_error)
 		return ops->mapping_error(dev, dma_addr);
@@ -55,7 +55,7 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 				       dma_addr_t *dma_handle, gfp_t gfp)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 	void *memory;
 
 	if (dma_alloc_from_coherent(dev, size, dma_handle, &memory))
@@ -72,7 +72,7 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 static inline void dma_free_coherent(struct device *dev, size_t size,
 				     void *vaddr, dma_addr_t dma_handle)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	if (dma_release_from_coherent(dev, get_order(size), vaddr))
 		return;

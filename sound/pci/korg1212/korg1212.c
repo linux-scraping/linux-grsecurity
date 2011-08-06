@@ -1682,7 +1682,7 @@ static int snd_korg1212_capture_copy(struct snd_pcm_substream *substream,
 	return snd_korg1212_copy_to(korg1212, dst, pos, count, 0, korg1212->channels * 2);
 }
 
-static const struct snd_pcm_ops snd_korg1212_playback_ops = {
+static struct snd_pcm_ops snd_korg1212_playback_ops = {
         .open =		snd_korg1212_playback_open,
         .close =	snd_korg1212_playback_close,
         .ioctl =	snd_korg1212_ioctl,
@@ -1694,7 +1694,7 @@ static const struct snd_pcm_ops snd_korg1212_playback_ops = {
         .silence =	snd_korg1212_playback_silence,
 };
 
-static const struct snd_pcm_ops snd_korg1212_capture_ops = {
+static struct snd_pcm_ops snd_korg1212_capture_ops = {
 	.open =		snd_korg1212_capture_open,
 	.close =	snd_korg1212_capture_close,
 	.ioctl =	snd_korg1212_ioctl,
@@ -2164,7 +2164,7 @@ static int __devinit snd_korg1212_create(struct snd_card *card, struct pci_dev *
         struct snd_korg1212 * korg1212;
 	const struct firmware *dsp_code;
 
-        static const struct snd_device_ops ops = {
+        static struct snd_device_ops ops = {
                 .dev_free = snd_korg1212_dev_free,
         };
 

@@ -1676,12 +1676,12 @@ static u32 dib9000_i2c_func(struct i2c_adapter *adapter)
 	return I2C_FUNC_I2C;
 }
 
-static const struct i2c_algorithm dib9000_tuner_algo = {
+static struct i2c_algorithm dib9000_tuner_algo = {
 	.master_xfer = dib9000_tuner_xfer,
 	.functionality = dib9000_i2c_func,
 };
 
-static const struct i2c_algorithm dib9000_component_bus_algo = {
+static struct i2c_algorithm dib9000_component_bus_algo = {
 	.master_xfer = dib9000_fw_component_bus_xfer,
 	.functionality = dib9000_i2c_func,
 };

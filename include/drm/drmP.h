@@ -909,7 +909,7 @@ struct drm_driver {
 			    uint32_t handle);
 
 	/* Driver private ops for this object */
-	const struct vm_operations_struct *gem_vm_ops;
+	struct vm_operations_struct *gem_vm_ops;
 
 	int major;
 	int minor;

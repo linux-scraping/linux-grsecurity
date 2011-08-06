@@ -709,7 +709,7 @@ static int ixgbevf_nway_reset(struct net_device *netdev)
 	return 0;
 }
 
-static const struct ethtool_ops ixgbevf_ethtool_ops = {
+static struct ethtool_ops ixgbevf_ethtool_ops = {
 	.get_settings           = ixgbevf_get_settings,
 	.get_drvinfo            = ixgbevf_get_drvinfo,
 	.get_regs_len           = ixgbevf_get_regs_len,

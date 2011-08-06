@@ -380,7 +380,7 @@ static int altera_uart_verify_port(struct uart_port *port,
 /*
  *	Define the basic serial functions we support.
  */
-static const struct uart_ops altera_uart_ops = {
+static struct uart_ops altera_uart_ops = {
 	.tx_empty	= altera_uart_tx_empty,
 	.get_mctrl	= altera_uart_get_mctrl,
 	.set_mctrl	= altera_uart_set_mctrl,

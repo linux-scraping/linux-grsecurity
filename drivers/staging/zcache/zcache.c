@@ -882,7 +882,7 @@ static void zcache_obj_free(struct tmem_obj *obj, struct tmem_pool *pool)
 	kmem_cache_free(zcache_obj_cache, obj);
 }
 
-static const struct tmem_hostops zcache_hostops = {
+static struct tmem_hostops zcache_hostops = {
 	.obj_alloc = zcache_obj_alloc,
 	.obj_free = zcache_obj_free,
 	.objnode_alloc = zcache_objnode_alloc,
@@ -987,7 +987,7 @@ static void zcache_pampd_free(void *pampd, struct tmem_pool *pool)
 	}
 }
 
-static const struct tmem_pamops zcache_pamops = {
+static struct tmem_pamops zcache_pamops = {
 	.create = zcache_pampd_create,
 	.get_data = zcache_pampd_get_data,
 	.free = zcache_pampd_free,

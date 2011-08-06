@@ -474,7 +474,7 @@ static void wl_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
     }
 } // wl_get_drvinfo
 
-static const struct ethtool_ops wl_ethtool_ops = {
+static struct ethtool_ops wl_ethtool_ops = {
     .get_drvinfo = wl_get_drvinfo,
     .get_link = ethtool_op_get_link,
 };

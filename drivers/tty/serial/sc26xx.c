@@ -515,7 +515,7 @@ static int sc26xx_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return -EINVAL;
 }
 
-static const struct uart_ops sc26xx_ops = {
+static struct uart_ops sc26xx_ops = {
 	.tx_empty	= sc26xx_tx_empty,
 	.set_mctrl	= sc26xx_set_mctrl,
 	.get_mctrl	= sc26xx_get_mctrl,

@@ -184,7 +184,7 @@ bfin_cf_set_mem_map(struct pcmcia_socket *s, struct pccard_mem_map *map)
 	return 0;
 }
 
-static const struct pccard_operations bfin_cf_ops = {
+static struct pccard_operations bfin_cf_ops = {
 	.init = bfin_cf_ss_init,
 	.suspend = bfin_cf_ss_suspend,
 	.get_status = bfin_cf_get_status,

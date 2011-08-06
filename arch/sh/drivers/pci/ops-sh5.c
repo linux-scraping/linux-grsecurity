@@ -62,7 +62,7 @@ static int sh5pci_write(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops sh5_pci_ops = {
+struct pci_ops sh5_pci_ops = {
 	.read		= sh5pci_read,
 	.write		= sh5pci_write,
 };

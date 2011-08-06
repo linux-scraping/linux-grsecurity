@@ -4968,7 +4968,7 @@ static int stac92xx_suspend(struct hda_codec *codec, pm_message_t state)
 }
 #endif
 
-static const struct hda_codec_ops stac92xx_patch_ops = {
+static struct hda_codec_ops stac92xx_patch_ops = {
 	.build_controls = stac92xx_build_controls,
 	.build_pcms = stac92xx_build_pcms,
 	.init = stac92xx_init,

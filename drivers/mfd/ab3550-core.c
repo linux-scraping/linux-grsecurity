@@ -676,7 +676,7 @@ static int ab3550_startup_irq_enabled(struct device *dev, unsigned int irq)
 	return val;
 }
 
-static const struct abx500_ops ab3550_ops = {
+static struct abx500_ops ab3550_ops = {
 	.get_chip_id = ab3550_get_chip_id,
 	.get_register = ab3550_get_register_interruptible,
 	.set_register = ab3550_set_register_interruptible,

@@ -125,7 +125,7 @@ int ixp2000_pci_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 }
 
 
-static const struct pci_ops ixp2000_pci_ops = {
+static struct pci_ops ixp2000_pci_ops = {
 	.read	= ixp2000_pci_read_config,
 	.write	= ixp2000_pci_write_config
 };

@@ -555,7 +555,7 @@ static void nilfs_write_file_node_binfo(struct nilfs_sc_info *sci,
 	*vblocknr = binfo->bi_v.bi_vblocknr;
 }
 
-static const struct nilfs_sc_operations nilfs_sc_file_ops = {
+static struct nilfs_sc_operations nilfs_sc_file_ops = {
 	.collect_data = nilfs_collect_file_data,
 	.collect_node = nilfs_collect_file_node,
 	.collect_bmap = nilfs_collect_file_bmap,
@@ -604,7 +604,7 @@ static void nilfs_write_dat_node_binfo(struct nilfs_sc_info *sci,
 	*binfo_dat = binfo->bi_dat;
 }
 
-static const struct nilfs_sc_operations nilfs_sc_dat_ops = {
+static struct nilfs_sc_operations nilfs_sc_dat_ops = {
 	.collect_data = nilfs_collect_dat_data,
 	.collect_node = nilfs_collect_file_node,
 	.collect_bmap = nilfs_collect_dat_bmap,
@@ -612,7 +612,7 @@ static const struct nilfs_sc_operations nilfs_sc_dat_ops = {
 	.write_node_binfo = nilfs_write_dat_node_binfo,
 };
 
-static const struct nilfs_sc_operations nilfs_sc_dsync_ops = {
+static struct nilfs_sc_operations nilfs_sc_dsync_ops = {
 	.collect_data = nilfs_collect_file_data,
 	.collect_node = NULL,
 	.collect_bmap = NULL,
@@ -971,7 +971,7 @@ static size_t nilfs_segctor_buffer_rest(struct nilfs_sc_info *sci)
 
 static int nilfs_segctor_scan_file(struct nilfs_sc_info *sci,
 				   struct inode *inode,
-				   const struct nilfs_sc_operations *sc_ops)
+				   struct nilfs_sc_operations *sc_ops)
 {
 	LIST_HEAD(data_buffers);
 	LIST_HEAD(node_buffers);
@@ -1475,7 +1475,7 @@ nilfs_segctor_update_payload_blocknr(struct nilfs_sc_info *sci,
 	sector_t blocknr;
 	unsigned long nfinfo = segbuf->sb_sum.nfinfo;
 	unsigned long nblocks = 0, ndatablk = 0;
-	const struct nilfs_sc_operations *sc_op = NULL;
+	struct nilfs_sc_operations *sc_op = NULL;
 	struct nilfs_segsum_pointer ssp;
 	struct nilfs_finfo *finfo = NULL;
 	union nilfs_binfo binfo;

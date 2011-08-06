@@ -88,11 +88,11 @@ static int evm_spdif_hw_params(struct snd_pcm_substream *substream,
 	return snd_soc_dai_set_fmt(cpu_dai, AUDIO_FORMAT);
 }
 
-static const struct snd_soc_ops evm_ops = {
+static struct snd_soc_ops evm_ops = {
 	.hw_params = evm_hw_params,
 };
 
-static const struct snd_soc_ops evm_spdif_ops = {
+static struct snd_soc_ops evm_spdif_ops = {
 	.hw_params = evm_spdif_hw_params,
 };
 

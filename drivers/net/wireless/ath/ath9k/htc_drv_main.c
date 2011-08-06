@@ -1822,7 +1822,7 @@ static void ath9k_htc_set_coverage_class(struct ieee80211_hw *hw,
 	mutex_unlock(&priv->mutex);
 }
 
-const struct ieee80211_ops ath9k_htc_ops = {
+struct ieee80211_ops ath9k_htc_ops = {
 	.tx                 = ath9k_htc_tx,
 	.start              = ath9k_htc_start,
 	.stop               = ath9k_htc_stop,

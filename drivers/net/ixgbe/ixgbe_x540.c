@@ -727,7 +727,7 @@ static struct ixgbe_phy_operations phy_ops_X540 = {
 	.check_overtemp         = &ixgbe_tn_check_overtemp,
 };
 
-const struct ixgbe_info ixgbe_X540_info = {
+struct ixgbe_info ixgbe_X540_info = {
 	.mac                    = ixgbe_mac_X540,
 	.get_invariants         = &ixgbe_get_invariants_X540,
 	.mac_ops                = &mac_ops_X540,

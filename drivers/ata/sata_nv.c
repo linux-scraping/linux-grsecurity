@@ -465,7 +465,7 @@ static struct scsi_host_template nv_swncq_sht = {
  * cases.  Define nv_hardreset() which only kicks in for post-boot
  * probing and use it for all variants.
  */
-static const struct ata_port_operations nv_generic_ops = {
+static struct ata_port_operations nv_generic_ops = {
 	.inherits		= &ata_bmdma_port_ops,
 	.lost_interrupt		= ATA_OP_NULL,
 	.scr_read		= nv_scr_read,
@@ -473,20 +473,20 @@ static const struct ata_port_operations nv_generic_ops = {
 	.hardreset		= nv_hardreset,
 };
 
-static const struct ata_port_operations nv_nf2_ops = {
+static struct ata_port_operations nv_nf2_ops = {
 	.inherits		= &nv_generic_ops,
 	.freeze			= nv_nf2_freeze,
 	.thaw			= nv_nf2_thaw,
 };
 
-static const struct ata_port_operations nv_ck804_ops = {
+static struct ata_port_operations nv_ck804_ops = {
 	.inherits		= &nv_generic_ops,
 	.freeze			= nv_ck804_freeze,
 	.thaw			= nv_ck804_thaw,
 	.host_stop		= nv_ck804_host_stop,
 };
 
-static const struct ata_port_operations nv_adma_ops = {
+static struct ata_port_operations nv_adma_ops = {
 	.inherits		= &nv_ck804_ops,
 
 	.check_atapi_dma	= nv_adma_check_atapi_dma,
@@ -510,7 +510,7 @@ static const struct ata_port_operations nv_adma_ops = {
 	.host_stop		= nv_adma_host_stop,
 };
 
-static const struct ata_port_operations nv_swncq_ops = {
+static struct ata_port_operations nv_swncq_ops = {
 	.inherits		= &nv_generic_ops,
 
 	.qc_defer		= ata_std_qc_defer,

@@ -14,6 +14,9 @@ cflags-$(CONFIG_X86_64) := -mcmodel=small
 KBUILD_CFLAGS += $(cflags-y)
 KBUILD_CFLAGS += $(call cc-option,-ffreestanding)
 KBUILD_CFLAGS += $(call cc-option,-fno-stack-protector)
+ifdef CONSTIFY_PLUGIN
+KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) -fplugin-arg-constify_plugin-no-constify
+endif
 
 KBUILD_AFLAGS  := $(KBUILD_CFLAGS) -D__ASSEMBLY__
 GCOV_PROFILE := n

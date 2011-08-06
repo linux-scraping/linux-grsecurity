@@ -87,7 +87,7 @@ static struct scsi_host_template acard_ahci_sht = {
 	AHCI_SHT("acard-ahci"),
 };
 
-static const struct ata_port_operations acard_ops = {
+static struct ata_port_operations acard_ops = {
 	.inherits		= &ahci_ops,
 	.qc_prep		= acard_ahci_qc_prep,
 	.qc_fill_rtf		= acard_ahci_qc_fill_rtf,

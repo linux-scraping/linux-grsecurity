@@ -94,17 +94,17 @@ static struct scsi_host_template ahci_sht = {
 	AHCI_SHT("ahci"),
 };
 
-static const struct ata_port_operations ahci_vt8251_ops = {
+static struct ata_port_operations ahci_vt8251_ops = {
 	.inherits		= &ahci_ops,
 	.hardreset		= ahci_vt8251_hardreset,
 };
 
-static const struct ata_port_operations ahci_p5wdh_ops = {
+static struct ata_port_operations ahci_p5wdh_ops = {
 	.inherits		= &ahci_ops,
 	.hardreset		= ahci_p5wdh_hardreset,
 };
 
-static const struct ata_port_operations ahci_sb600_ops = {
+static struct ata_port_operations ahci_sb600_ops = {
 	.inherits		= &ahci_ops,
 	.softreset		= ahci_sb600_softreset,
 	.pmp_softreset		= ahci_sb600_softreset,

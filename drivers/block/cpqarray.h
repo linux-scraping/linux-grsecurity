@@ -69,7 +69,7 @@ struct access_method {
 struct board_type {
 	__u32	board_id;
 	char	*product_name;
-	const struct access_method *access;
+	struct access_method *access;
 };
 
 struct ctlr_info {
@@ -99,7 +99,7 @@ struct ctlr_info {
 	drv_info_t	drv[NWD];
 	struct proc_dir_entry *proc;
 
-	struct access_method access;
+	struct access_method *access;
 
 	cmdlist_t *reqQ;
 	cmdlist_t *cmpQ;

@@ -262,7 +262,7 @@ static void ace_dataout_8(struct ace_device *ace)
 	ace->data_ptr = src;
 }
 
-static const struct ace_reg_ops ace_reg_8_ops = {
+static struct ace_reg_ops ace_reg_8_ops = {
 	.in = ace_in_8,
 	.out = ace_out_8,
 	.datain = ace_datain_8,
@@ -327,14 +327,14 @@ static void ace_dataout_le16(struct ace_device *ace)
 	ace->data_ptr = src;
 }
 
-static const struct ace_reg_ops ace_reg_be16_ops = {
+static struct ace_reg_ops ace_reg_be16_ops = {
 	.in = ace_in_be16,
 	.out = ace_out_be16,
 	.datain = ace_datain_be16,
 	.dataout = ace_dataout_be16,
 };
 
-static const struct ace_reg_ops ace_reg_le16_ops = {
+static struct ace_reg_ops ace_reg_le16_ops = {
 	.in = ace_in_le16,
 	.out = ace_out_le16,
 	.datain = ace_datain_le16,

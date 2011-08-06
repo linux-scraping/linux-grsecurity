@@ -1407,7 +1407,7 @@ unsigned int __devinit pci_scan_child_bus(struct pci_bus *bus)
 }
 
 struct pci_bus * pci_create_bus(struct device *parent,
-		int bus, const struct pci_ops *ops, void *sysdata)
+		int bus, struct pci_ops *ops, void *sysdata)
 {
 	int error;
 	struct pci_bus *b, *b2;
@@ -1483,7 +1483,7 @@ err_out:
 }
 
 struct pci_bus * __devinit pci_scan_bus_parented(struct device *parent,
-		int bus, const struct pci_ops *ops, void *sysdata)
+		int bus, struct pci_ops *ops, void *sysdata)
 {
 	struct pci_bus *b;
 

@@ -150,7 +150,7 @@ struct iwl_lib_ops {
 	int (*set_channel_switch)(struct iwl_priv *priv,
 				  struct ieee80211_channel_switch *ch_switch);
 	/* power management */
-	const struct iwl_apm_ops apm_ops;
+	struct iwl_apm_ops apm_ops;
 
 	/* power */
 	int (*send_tx_power) (struct iwl_priv *priv);
@@ -160,12 +160,12 @@ struct iwl_lib_ops {
 	struct iwl_eeprom_ops eeprom_ops;
 
 	/* temperature */
-	const struct iwl_temp_ops temp_ops;
+	struct iwl_temp_ops temp_ops;
 	/* check for plcp health */
 	bool (*check_plcp_health)(struct iwl_priv *priv,
 					struct iwl_rx_packet *pkt);
 
-	const struct iwl_debugfs_ops debugfs_ops;
+	struct iwl_debugfs_ops debugfs_ops;
 
 };
 

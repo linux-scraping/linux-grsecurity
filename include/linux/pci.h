@@ -411,7 +411,7 @@ struct pci_bus {
 	struct resource *resource[PCI_BRIDGE_RESOURCE_NUM];
 	struct list_head resources;	/* address space routed to this bus */
 
-	const struct pci_ops	*ops;	/* configuration access functions */
+	struct pci_ops	*ops;		/* configuration access functions */
 	void		*sysdata;	/* hook for sys-specific extension */
 	struct proc_dir_entry *procdir;	/* directory entry in /proc/bus/pci */
 
@@ -550,7 +550,7 @@ struct pci_driver {
 	int  (*resume_early) (struct pci_dev *dev);
 	int  (*resume) (struct pci_dev *dev);	                /* Device woken up */
 	void (*shutdown) (struct pci_dev *dev);
-	const struct pci_error_handlers *err_handler;
+	struct pci_error_handlers *err_handler;
 	struct device_driver	driver;
 	struct pci_dynids dynids;
 };
@@ -639,7 +639,7 @@ void pcibios_scan_specific_bus(int busn);
 extern struct pci_bus *pci_find_bus(int domain, int busnr);
 void pci_bus_add_devices(const struct pci_bus *bus);
 struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus,
-				      const struct pci_ops *ops, void *sysdata);
+				      struct pci_ops *ops, void *sysdata);
 static inline struct pci_bus * __devinit pci_scan_bus(int bus, struct pci_ops *ops,
 					   void *sysdata)
 {
@@ -650,7 +650,7 @@ static inline struct pci_bus * __devinit pci_scan_bus(int bus, struct pci_ops *o
 	return root_bus;
 }
 struct pci_bus *pci_create_bus(struct device *parent, int bus,
-			       const struct pci_ops *ops, void *sysdata);
+			       struct pci_ops *ops, void *sysdata);
 struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev,
 				int busnr);
 void pcie_update_link_speed(struct pci_bus *bus, u16 link_status);
@@ -727,7 +727,7 @@ int pci_bus_write_config_word(struct pci_bus *bus, unsigned int devfn,
 			      int where, u16 val);
 int pci_bus_write_config_dword(struct pci_bus *bus, unsigned int devfn,
 			       int where, u32 val);
-const struct pci_ops *pci_bus_set_ops(struct pci_bus *bus, const struct pci_ops *ops);
+struct pci_ops *pci_bus_set_ops(struct pci_bus *bus, struct pci_ops *ops);
 
 static inline int pci_read_config_byte(struct pci_dev *dev, int where, u8 *val)
 {

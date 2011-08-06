@@ -105,7 +105,7 @@ int snd_jack_new(struct snd_card *card, const char *id, int type,
 	struct snd_jack *jack;
 	int err;
 	int i;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_jack_dev_free,
 		.dev_register = snd_jack_dev_register,
 	};

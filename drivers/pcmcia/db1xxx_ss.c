@@ -384,7 +384,7 @@ static int au1x00_pcmcia_set_mem_map(struct pcmcia_socket *skt,
 	return 0;
 }
 
-static const struct pccard_operations db1x_pcmcia_operations = {
+static struct pccard_operations db1x_pcmcia_operations = {
 	.init			= db1x_pcmcia_sock_init,
 	.suspend		= db1x_pcmcia_sock_suspend,
 	.get_status		= db1x_pcmcia_get_status,

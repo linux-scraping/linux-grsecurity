@@ -240,7 +240,7 @@ static int pcifront_bus_write(struct pci_bus *bus, unsigned int devfn,
 	return errno_to_pcibios_err(do_pci_op(pdev, &op));
 }
 
-const struct pci_ops pcifront_bus_ops = {
+struct pci_ops pcifront_bus_ops = {
 	.read = pcifront_bus_read,
 	.write = pcifront_bus_write,
 };
@@ -378,7 +378,7 @@ static void pci_frontend_disable_msi(struct pci_dev *dev)
 		printk(KERN_DEBUG "get fake response frombackend\n");
 }
 
-static const struct xen_pci_frontend_ops pci_frontend_ops = {
+static struct xen_pci_frontend_ops pci_frontend_ops = {
 	.enable_msi = pci_frontend_enable_msi,
 	.disable_msi = pci_frontend_disable_msi,
 	.enable_msix = pci_frontend_enable_msix,

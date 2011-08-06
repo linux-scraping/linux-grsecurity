@@ -458,7 +458,7 @@ static int read_curr_temp(struct thermal_zone_device *tzd, unsigned long *temp)
 }
 
 /* Can't be const */
-static const struct thermal_zone_device_ops tzd_ops = {
+static struct thermal_zone_device_ops tzd_ops = {
        .get_temp = read_curr_temp,
 };
 

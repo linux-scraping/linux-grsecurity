@@ -221,7 +221,7 @@ static int ltv350qv_get_power(struct lcd_device *ld)
 	return lcd->power;
 }
 
-static const struct lcd_ops ltv_ops = {
+static struct lcd_ops ltv_ops = {
 	.get_power	= ltv350qv_get_power,
 	.set_power	= ltv350qv_set_power,
 };

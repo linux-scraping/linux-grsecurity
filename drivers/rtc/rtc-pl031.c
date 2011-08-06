@@ -374,7 +374,7 @@ err_req:
 }
 
 /* Operations for the original ARM version */
-static const struct rtc_class_ops arm_pl031_ops = {
+static struct rtc_class_ops arm_pl031_ops = {
 	.read_time = pl031_read_time,
 	.set_time = pl031_set_time,
 	.read_alarm = pl031_read_alarm,
@@ -383,7 +383,7 @@ static const struct rtc_class_ops arm_pl031_ops = {
 };
 
 /* The First ST derivative */
-static const struct rtc_class_ops stv1_pl031_ops = {
+static struct rtc_class_ops stv1_pl031_ops = {
 	.read_time = pl031_read_time,
 	.set_time = pl031_set_time,
 	.read_alarm = pl031_read_alarm,
@@ -392,7 +392,7 @@ static const struct rtc_class_ops stv1_pl031_ops = {
 };
 
 /* And the second ST derivative */
-static const struct rtc_class_ops stv2_pl031_ops = {
+static struct rtc_class_ops stv2_pl031_ops = {
 	.read_time = pl031_stv2_read_time,
 	.set_time = pl031_stv2_set_time,
 	.read_alarm = pl031_stv2_read_alarm,

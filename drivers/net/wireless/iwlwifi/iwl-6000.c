@@ -420,11 +420,11 @@ static struct iwl_lib_ops iwl6030_lib = {
 	}
 };
 
-static const struct iwl_nic_ops iwl6050_nic_ops = {
+static struct iwl_nic_ops iwl6050_nic_ops = {
 	.additional_nic_config = &iwl6050_additional_nic_config,
 };
 
-static const struct iwl_nic_ops iwl6150_nic_ops = {
+static struct iwl_nic_ops iwl6150_nic_ops = {
 	.additional_nic_config = &iwl6150_additional_nic_config,
 };
 

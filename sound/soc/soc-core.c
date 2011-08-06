@@ -1027,7 +1027,7 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 }
 
 /* ASoC PCM operations */
-static struct snd_pcm_ops soc_pcm_ops = {
+static snd_pcm_ops_no_const soc_pcm_ops = {
 	.open		= soc_pcm_open,
 	.close		= soc_codec_close,
 	.hw_params	= soc_pcm_hw_params,
@@ -2105,6 +2105,7 @@ static int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 
 	rtd->pcm = pcm;
 	pcm->private_data = rtd;
+	/* this whole logic is broken... */
 	soc_pcm_ops.mmap = platform->driver->ops->mmap;
 	soc_pcm_ops.pointer = platform->driver->ops->pointer;
 	soc_pcm_ops.ioctl = platform->driver->ops->ioctl;

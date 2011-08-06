@@ -221,13 +221,13 @@ struct ocfs2_stack_operations {
 };
 
 /*
- * Each stack plugin must describe itself by registerin const g a
+ * Each stack plugin must describe itself by registering a
  * ocfs2_stack_plugin structure.  This is only seen by stackglue and the
  * stack driver.
  */
 struct ocfs2_stack_plugin {
 	char *sp_name;
-	const struct ocfs2_stack_operations *sp_ops;
+	struct ocfs2_stack_operations *sp_ops;
 	struct module *sp_owner;
 
 	/* These are managed by the stackglue code. */

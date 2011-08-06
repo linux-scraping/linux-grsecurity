@@ -634,7 +634,7 @@ static void drop_netconsole_target(struct config_group *group,
 	config_item_put(&nt->item);
 }
 
-static const struct configfs_group_operations netconsole_subsys_group_ops = {
+static struct configfs_group_operations netconsole_subsys_group_ops = {
 	.make_item	= make_netconsole_target,
 	.drop_item	= drop_netconsole_target,
 };

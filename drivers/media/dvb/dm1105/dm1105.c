@@ -418,7 +418,7 @@ static u32 functionality(struct i2c_adapter *adap)
 	return I2C_FUNC_I2C;
 }
 
-static const struct i2c_algorithm dm1105_algo = {
+static struct i2c_algorithm dm1105_algo = {
 	.master_xfer   = dm1105_i2c_xfer,
 	.functionality = functionality,
 };

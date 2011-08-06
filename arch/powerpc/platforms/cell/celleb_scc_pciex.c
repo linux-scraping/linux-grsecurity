@@ -399,7 +399,7 @@ static int scc_pciex_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops scc_pciex_pci_ops = {
+static struct pci_ops scc_pciex_pci_ops = {
 	scc_pciex_read_config,
 	scc_pciex_write_config,
 };

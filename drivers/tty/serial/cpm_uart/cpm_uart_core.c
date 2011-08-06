@@ -1099,7 +1099,7 @@ static void cpm_put_poll_char(struct uart_port *port,
 }
 #endif /* CONFIG_CONSOLE_POLL */
 
-static const struct uart_ops cpm_uart_pops = {
+static struct uart_ops cpm_uart_pops = {
 	.tx_empty	= cpm_uart_tx_empty,
 	.set_mctrl	= cpm_uart_set_mctrl,
 	.get_mctrl	= cpm_uart_get_mctrl,

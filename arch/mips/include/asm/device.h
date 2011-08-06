@@ -10,7 +10,7 @@ struct dma_map_ops;
 
 struct dev_archdata {
 	/* DMA operations on that device */
-	const struct dma_map_ops *dma_ops;
+	struct dma_map_ops *dma_ops;
 };
 
 struct pdev_archdata {

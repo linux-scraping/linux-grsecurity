@@ -12,10 +12,10 @@ extern int dma_supported(struct device *dev, u64 mask);
 #define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
 #define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
 
-extern const struct dma_map_ops *dma_ops, pci32_dma_ops;
+extern struct dma_map_ops *dma_ops, pci32_dma_ops;
 extern struct bus_type pci_bus_type;
 
-static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
+static inline struct dma_map_ops *get_dma_ops(struct device *dev)
 {
 #if defined(CONFIG_SPARC32) && defined(CONFIG_PCI)
 	if (dev->bus == &pci_bus_type)
@@ -29,7 +29,7 @@ static inline const struct dma_map_ops *get_dma_ops(struct device *dev)
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 				       dma_addr_t *dma_handle, gfp_t flag)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 	void *cpu_addr;
 
 	cpu_addr = ops->alloc_coherent(dev, size, dma_handle, flag);
@@ -40,7 +40,7 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 static inline void dma_free_coherent(struct device *dev, size_t size,
 				     void *cpu_addr, dma_addr_t dma_handle)
 {
-	const struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dma_ops(dev);
 
 	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
 	ops->free_coherent(dev, size, cpu_addr, dma_handle);

@@ -28,7 +28,7 @@
 /* multiplexer per channel data */
 struct i2c_mux_priv {
 	struct i2c_adapter adap;
-	struct i2c_algorithm algo;
+	i2c_algorithm_no_const algo;
 
 	struct i2c_adapter *parent;
 	void *mux_dev;	/* the mux chip/device */

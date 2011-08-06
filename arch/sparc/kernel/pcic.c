@@ -268,7 +268,7 @@ static int pcic_write_config(struct pci_bus *bus, unsigned int devfn,
 	return -EINVAL;
 }
 
-static const struct pci_ops pcic_ops = {
+static struct pci_ops pcic_ops = {
 	.read =		pcic_read_config,
 	.write =	pcic_write_config,
 };

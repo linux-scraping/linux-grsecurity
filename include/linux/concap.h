@@ -30,7 +30,7 @@ struct concap_device_ops;
 struct concap_proto{
 	struct net_device *net_dev;	/* net device using our service  */
 	struct concap_device_ops *dops;	/* callbacks provided by device */
- 	const struct concap_proto_ops  *pops;	/* callbacks provided by us */
+ 	struct concap_proto_ops  *pops;	/* callbacks provided by us */
  	spinlock_t lock;
 	int flags;
 	void *proto_data;		/* protocol specific private data, to

@@ -183,7 +183,7 @@ static int export_features_open(struct inode *inode, struct file *file)
 	return single_open(file, export_features_show, NULL);
 }
 
-static const struct file_operations export_features_operations = {
+static struct file_operations export_features_operations = {
 	.open		= export_features_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,

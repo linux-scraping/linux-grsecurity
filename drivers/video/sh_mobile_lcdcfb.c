@@ -245,7 +245,7 @@ static unsigned long lcdc_sys_read_data(void *handle)
 	return lcdc_read(ch->lcdc, _LDDRDR) & 0x3ffff;
 }
 
-const struct sh_mobile_lcdc_sys_bus_ops sh_mobile_lcdc_sys_bus_ops = {
+struct sh_mobile_lcdc_sys_bus_ops sh_mobile_lcdc_sys_bus_ops = {
 	lcdc_sys_write_index,
 	lcdc_sys_write_data,
 	lcdc_sys_read_data,

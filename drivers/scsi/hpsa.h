@@ -73,7 +73,7 @@ struct ctlr_info {
 	unsigned int msix_vector;
 	unsigned int msi_vector;
 	int intr_mode; /* either PERF_MODE_INT or SIMPLE_MODE_INT */
-	struct access_method access;
+	struct access_method *access;
 
 	/* queue and queue Info */
 	struct list_head reqQ;
@@ -347,7 +347,7 @@ static struct access_method SA5_access = {
 	SA5_completed,
 };
 
-static const struct access_method SA5_performant_access = {
+static struct access_method SA5_performant_access = {
 	SA5_submit_command,
 	SA5_performant_intr_mask,
 	SA5_fifo_full,

@@ -239,14 +239,16 @@ static int mrst_i8042_detect(void)
 }
 
 /* Reboot and power off are handled by the SCU on a MID device */
-static void mrst_power_off(void)
+static __noreturn void mrst_power_off(void)
 {
 	intel_scu_ipc_simple_command(0xf1, 1);
+	BUG();
 }
 
-static void mrst_reboot(void)
+static __noreturn void mrst_reboot(void)
 {
 	intel_scu_ipc_simple_command(0xf1, 0);
+	BUG();
 }
 
 /*

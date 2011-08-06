@@ -141,7 +141,7 @@ struct cdc_ncm_ctx {
 static void cdc_ncm_tx_timeout(unsigned long arg);
 static const struct driver_info cdc_ncm_info;
 static struct usb_driver cdc_ncm_driver;
-static const struct ethtool_ops cdc_ncm_ethtool_ops;
+static struct ethtool_ops cdc_ncm_ethtool_ops;
 
 static const struct usb_device_id cdc_devs[] = {
 	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
@@ -1258,7 +1258,7 @@ static struct usb_driver cdc_ncm_driver = {
 	.supports_autosuspend = 1,
 };
 
-static const struct ethtool_ops cdc_ncm_ethtool_ops = {
+static struct ethtool_ops cdc_ncm_ethtool_ops = {
 	.get_drvinfo = cdc_ncm_get_drvinfo,
 	.get_link = usbnet_get_link,
 	.get_msglevel = usbnet_get_msglevel,

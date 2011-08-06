@@ -358,7 +358,7 @@ static int rpavscsi_resume(struct ibmvscsi_host_data *hostdata)
 	return 0;
 }
 
-const struct ibmvscsi_ops rpavscsi_ops = {
+struct ibmvscsi_ops rpavscsi_ops = {
 	.init_crq_queue = rpavscsi_init_crq_queue,
 	.release_crq_queue = rpavscsi_release_crq_queue,
 	.reset_crq_queue = rpavscsi_reset_crq_queue,

@@ -223,7 +223,7 @@ static int ab8500_mask_and_set_register(struct device *dev,
 
 }
 
-static const struct abx500_ops ab8500_ops = {
+static struct abx500_ops ab8500_ops = {
 	.get_chip_id = ab8500_get_chip_id,
 	.get_register = ab8500_get_register,
 	.set_register = ab8500_set_register,

@@ -10,7 +10,7 @@
 
 int xen_swiotlb __read_mostly;
 
-static const struct dma_map_ops xen_swiotlb_dma_ops = {
+static struct dma_map_ops xen_swiotlb_dma_ops = {
 	.mapping_error = xen_swiotlb_dma_mapping_error,
 	.alloc_coherent = xen_swiotlb_alloc_coherent,
 	.free_coherent = xen_swiotlb_free_coherent,

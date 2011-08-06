@@ -238,7 +238,7 @@ static int dino_cfg_write(struct pci_bus *bus, unsigned int devfn, int where,
 	return 0;
 }
 
-static const struct pci_ops dino_cfg_ops = {
+static struct pci_ops dino_cfg_ops = {
 	.read =		dino_cfg_read,
 	.write =	dino_cfg_write,
 };

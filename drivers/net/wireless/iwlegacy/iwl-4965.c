@@ -1902,7 +1902,7 @@ static void iwl4965_rx_handler_setup(struct iwl_priv *priv)
 	priv->rx_handlers[BEACON_NOTIFICATION] = iwl4965_rx_beacon_notif;
 }
 
-static const struct iwl_hcmd_ops iwl4965_hcmd = {
+static struct iwl_hcmd_ops iwl4965_hcmd = {
 	.rxon_assoc = iwl4965_send_rxon_assoc,
 	.commit_rxon = iwl4965_commit_rxon,
 	.set_rxon_chain = iwl4965_set_rxon_chain,
@@ -2054,7 +2054,7 @@ static void iwl4965_config_ap(struct iwl_priv *priv)
 	iwl4965_send_beacon_cmd(priv);
 }
 
-static const struct iwl_hcmd_utils_ops iwl4965_hcmd_utils = {
+static struct iwl_hcmd_utils_ops iwl4965_hcmd_utils = {
 	.get_hcmd_size = iwl4965_get_hcmd_size,
 	.build_addsta_hcmd = iwl4965_build_addsta_hcmd,
 	.request_scan = iwl4965_request_scan,
@@ -2112,7 +2112,7 @@ static const struct iwl_legacy_ops iwl4965_legacy_ops = {
 	.update_bcast_stations = iwl4965_update_bcast_stations,
 };
 
-const struct ieee80211_ops iwl4965_hw_ops = {
+struct ieee80211_ops iwl4965_hw_ops = {
 	.tx = iwl4965_mac_tx,
 	.start = iwl4965_mac_start,
 	.stop = iwl4965_mac_stop,

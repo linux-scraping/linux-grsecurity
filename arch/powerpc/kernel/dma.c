@@ -136,7 +136,7 @@ static inline void dma_direct_sync_single(struct device *dev,
 }
 #endif
 
-const struct dma_map_ops dma_direct_ops = {
+struct dma_map_ops dma_direct_ops = {
 	.alloc_coherent	= dma_direct_alloc_coherent,
 	.free_coherent	= dma_direct_free_coherent,
 	.map_sg		= dma_direct_map_sg,
@@ -157,7 +157,7 @@ EXPORT_SYMBOL(dma_direct_ops);
 
 int dma_set_mask(struct device *dev, u64 dma_mask)
 {
-	const struct dma_map_ops *dma_ops = get_dma_ops(dev);
+	struct dma_map_ops *dma_ops = get_dma_ops(dev);
 
 	if (ppc_md.dma_set_mask)
 		return ppc_md.dma_set_mask(dev, dma_mask);

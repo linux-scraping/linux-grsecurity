@@ -189,7 +189,7 @@ static u32 functionality(struct i2c_adapter *adap)
 
 /* -----exported algorithm data: -------------------------------------	*/
 
-static const struct i2c_algorithm usbvision_algo = {
+static struct i2c_algorithm usbvision_algo = {
 	.master_xfer   = usbvision_i2c_xfer,
 	.smbus_xfer    = NULL,
 	.functionality = functionality,

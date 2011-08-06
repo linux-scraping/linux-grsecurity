@@ -1572,7 +1572,7 @@ static int cxgb4vf_set_tso(struct net_device *dev, u32 tso)
 	return 0;
 }
 
-static const struct ethtool_ops cxgb4vf_ethtool_ops = {
+static struct ethtool_ops cxgb4vf_ethtool_ops = {
 	.get_settings		= cxgb4vf_get_settings,
 	.get_drvinfo		= cxgb4vf_get_drvinfo,
 	.get_msglevel		= cxgb4vf_get_msglevel,

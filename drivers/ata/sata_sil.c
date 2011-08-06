@@ -181,7 +181,7 @@ static struct scsi_host_template sil_sht = {
 	.sg_tablesize		= ATA_MAX_PRD
 };
 
-static const struct ata_port_operations sil_ops = {
+static struct ata_port_operations sil_ops = {
 	.inherits		= &ata_bmdma32_port_ops,
 	.dev_config		= sil_dev_config,
 	.set_mode		= sil_set_mode,

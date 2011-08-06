@@ -56,7 +56,7 @@ static int openrd_client_hw_params(struct snd_pcm_substream *substream,
 
 }
 
-static const struct snd_soc_ops openrd_client_ops = {
+static struct snd_soc_ops openrd_client_ops = {
 	.hw_params = openrd_client_hw_params,
 };
 

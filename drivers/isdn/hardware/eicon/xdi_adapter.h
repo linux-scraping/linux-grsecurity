@@ -44,7 +44,7 @@ typedef struct _xdi_mbox_t {
 typedef struct _diva_os_idi_adapter_interface {
 	diva_init_card_proc_t cleanup_adapter_proc;
 	diva_cmd_card_proc_t cmd_proc;
-} diva_os_idi_adapter_interface_t;
+} __no_const diva_os_idi_adapter_interface_t;
 
 typedef struct _diva_os_xdi_adapter {
 	struct list_head link;

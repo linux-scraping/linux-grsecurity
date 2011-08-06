@@ -22,7 +22,7 @@ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 	return swiotlb_alloc_coherent(dev, size, dma_handle, gfp);
 }
 
-const struct dma_map_ops swiotlb_dma_ops = {
+struct dma_map_ops swiotlb_dma_ops = {
 	.alloc_coherent = ia64_swiotlb_alloc_coherent,
 	.free_coherent = swiotlb_free_coherent,
 	.map_page = swiotlb_map_page,

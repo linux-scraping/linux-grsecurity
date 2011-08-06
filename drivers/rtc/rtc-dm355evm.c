@@ -115,7 +115,7 @@ static int dm355evm_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
-static const struct rtc_class_ops dm355evm_rtc_ops = {
+static struct rtc_class_ops dm355evm_rtc_ops = {
 	.read_time	= dm355evm_rtc_read_time,
 	.set_time	= dm355evm_rtc_set_time,
 };

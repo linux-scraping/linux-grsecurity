@@ -849,7 +849,7 @@ static int go7007_usb_send_firmware(struct go7007 *go, u8 *data, int len)
 					&transferred, timeout);
 }
 
-static const struct go7007_hpi_ops go7007_usb_ezusb_hpi_ops = {
+static struct go7007_hpi_ops go7007_usb_ezusb_hpi_ops = {
 	.interface_reset	= go7007_usb_interface_reset,
 	.write_interrupt	= go7007_usb_ezusb_write_interrupt,
 	.read_interrupt		= go7007_usb_read_interrupt,
@@ -858,7 +858,7 @@ static const struct go7007_hpi_ops go7007_usb_ezusb_hpi_ops = {
 	.send_firmware		= go7007_usb_send_firmware,
 };
 
-static const struct go7007_hpi_ops go7007_usb_onboard_hpi_ops = {
+static struct go7007_hpi_ops go7007_usb_onboard_hpi_ops = {
 	.interface_reset	= go7007_usb_interface_reset,
 	.write_interrupt	= go7007_usb_onboard_write_interrupt,
 	.read_interrupt		= go7007_usb_read_interrupt,
@@ -950,7 +950,7 @@ static u32 go7007_usb_functionality(struct i2c_adapter *adapter)
 	return (I2C_FUNC_SMBUS_EMUL) & ~I2C_FUNC_SMBUS_QUICK;
 }
 
-static const struct i2c_algorithm go7007_usb_algo = {
+static struct i2c_algorithm go7007_usb_algo = {
 	.master_xfer	= go7007_usb_i2c_master_xfer,
 	.functionality	= go7007_usb_functionality,
 };

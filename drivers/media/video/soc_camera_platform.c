@@ -70,7 +70,7 @@ static int soc_camera_platform_fill_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static const struct v4l2_subdev_core_ops platform_subdev_core_ops;
+static struct v4l2_subdev_core_ops platform_subdev_core_ops;
 
 static int soc_camera_platform_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 					enum v4l2_mbus_pixelcode *code)
@@ -115,7 +115,7 @@ static int soc_camera_platform_cropcap(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops platform_subdev_video_ops = {
+static struct v4l2_subdev_video_ops platform_subdev_video_ops = {
 	.s_stream	= soc_camera_platform_s_stream,
 	.enum_mbus_fmt	= soc_camera_platform_enum_fmt,
 	.cropcap	= soc_camera_platform_cropcap,

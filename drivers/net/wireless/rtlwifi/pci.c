@@ -1869,7 +1869,7 @@ int rtl_pci_resume(struct pci_dev *pdev)
 }
 EXPORT_SYMBOL(rtl_pci_resume);
 
-const struct rtl_intf_ops rtl_pci_ops = {
+struct rtl_intf_ops rtl_pci_ops = {
 	.adapter_start = rtl_pci_start,
 	.adapter_stop = rtl_pci_stop,
 	.adapter_tx = rtl_pci_tx,

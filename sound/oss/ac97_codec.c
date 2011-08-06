@@ -99,23 +99,23 @@ static int generic_digital_control(struct ac97_codec *codec, int slots, int rate
  *	operations yet
  */
  
-static const struct ac97_ops null_ops = { NULL, NULL, NULL };
-static const struct ac97_ops default_ops = { NULL, eapd_control, NULL };
-static const struct ac97_ops default_digital_ops = { NULL, eapd_control, generic_digital_control};
-static const struct ac97_ops wolfson_ops03 = { wolfson_init03, NULL, NULL };
-static const struct ac97_ops wolfson_ops04 = { wolfson_init04, NULL, NULL };
-static const struct ac97_ops wolfson_ops05 = { wolfson_init05, NULL, NULL };
-static const struct ac97_ops wolfson_ops11 = { wolfson_init11, NULL, NULL };
-static const struct ac97_ops wolfson_ops13 = { wolfson_init13, NULL, NULL };
-static const struct ac97_ops tritech_ops = { tritech_init, NULL, NULL };
-static const struct ac97_ops tritech_m_ops = { tritech_maestro_init, NULL, NULL };
-static const struct ac97_ops sigmatel_9708_ops = { sigmatel_9708_init, NULL, NULL };
-static const struct ac97_ops sigmatel_9721_ops = { sigmatel_9721_init, NULL, NULL };
-static const struct ac97_ops sigmatel_9744_ops = { sigmatel_9744_init, NULL, NULL };
-static const struct ac97_ops crystal_digital_ops = { NULL, eapd_control, crystal_digital_control };
-static const struct ac97_ops ad1886_ops = { ad1886_init, eapd_control, NULL };
-static const struct ac97_ops cmedia_ops = { NULL, eapd_control, NULL};
-static const struct ac97_ops cmedia_digital_ops = { cmedia_init, eapd_control, cmedia_digital_control};
+static struct ac97_ops null_ops = { NULL, NULL, NULL };
+static struct ac97_ops default_ops = { NULL, eapd_control, NULL };
+static struct ac97_ops default_digital_ops = { NULL, eapd_control, generic_digital_control};
+static struct ac97_ops wolfson_ops03 = { wolfson_init03, NULL, NULL };
+static struct ac97_ops wolfson_ops04 = { wolfson_init04, NULL, NULL };
+static struct ac97_ops wolfson_ops05 = { wolfson_init05, NULL, NULL };
+static struct ac97_ops wolfson_ops11 = { wolfson_init11, NULL, NULL };
+static struct ac97_ops wolfson_ops13 = { wolfson_init13, NULL, NULL };
+static struct ac97_ops tritech_ops = { tritech_init, NULL, NULL };
+static struct ac97_ops tritech_m_ops = { tritech_maestro_init, NULL, NULL };
+static struct ac97_ops sigmatel_9708_ops = { sigmatel_9708_init, NULL, NULL };
+static struct ac97_ops sigmatel_9721_ops = { sigmatel_9721_init, NULL, NULL };
+static struct ac97_ops sigmatel_9744_ops = { sigmatel_9744_init, NULL, NULL };
+static struct ac97_ops crystal_digital_ops = { NULL, eapd_control, crystal_digital_control };
+static struct ac97_ops ad1886_ops = { ad1886_init, eapd_control, NULL };
+static struct ac97_ops cmedia_ops = { NULL, eapd_control, NULL};
+static struct ac97_ops cmedia_digital_ops = { cmedia_init, eapd_control, cmedia_digital_control};
 
 /* sorted by vendor/device id */
 static const struct {

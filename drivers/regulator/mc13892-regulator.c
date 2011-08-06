@@ -560,10 +560,12 @@ static int __devinit mc13892_regulator_probe(struct platform_device *pdev)
 	}
 	mc13xxx_unlock(mc13892);
 
-	mc13892_regulators[MC13892_VCAM].desc.ops->set_mode
+	pax_open_kernel();
+	*(void **)&mc13892_regulators[MC13892_VCAM].desc.ops->set_mode
 		= mc13892_vcam_set_mode;
-	mc13892_regulators[MC13892_VCAM].desc.ops->get_mode
+	*(void **)&mc13892_regulators[MC13892_VCAM].desc.ops->get_mode
 		= mc13892_vcam_get_mode;
+	pax_close_kernel();
 	for (i = 0; i < pdata->num_regulators; i++) {
 		init_data = &pdata->regulators[i];
 		priv->regulators[i] = regulator_register(

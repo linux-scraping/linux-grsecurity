@@ -82,7 +82,7 @@ extern void config_item_put(struct config_item *);
 struct config_item_type {
 	struct module				*ct_owner;
 	struct configfs_item_operations		*ct_item_ops;
-	const struct configfs_group_operations	*ct_group_ops;
+	struct configfs_group_operations	*ct_group_ops;
 	struct configfs_attribute		**ct_attrs;
 };
 

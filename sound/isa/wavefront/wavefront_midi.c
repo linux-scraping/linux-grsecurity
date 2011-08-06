@@ -561,14 +561,14 @@ snd_wavefront_midi_start (snd_wavefront_card_t *card)
 	return 0;
 }
 
-const struct snd_rawmidi_ops snd_wavefront_midi_output =
+struct snd_rawmidi_ops snd_wavefront_midi_output =
 {
 	.open =		snd_wavefront_midi_output_open,
 	.close =	snd_wavefront_midi_output_close,
 	.trigger =	snd_wavefront_midi_output_trigger,
 };
 
-const struct snd_rawmidi_ops snd_wavefront_midi_input =
+struct snd_rawmidi_ops snd_wavefront_midi_input =
 {
 	.open =		snd_wavefront_midi_input_open,
 	.close =	snd_wavefront_midi_input_close,

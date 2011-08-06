@@ -733,7 +733,7 @@ static int snd_amd7930_hw_free(struct snd_pcm_substream *substream)
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static const struct snd_pcm_ops snd_amd7930_playback_ops = {
+static struct snd_pcm_ops snd_amd7930_playback_ops = {
 	.open		=	snd_amd7930_playback_open,
 	.close		=	snd_amd7930_playback_close,
 	.ioctl		=	snd_pcm_lib_ioctl,
@@ -744,7 +744,7 @@ static const struct snd_pcm_ops snd_amd7930_playback_ops = {
 	.pointer	=	snd_amd7930_playback_pointer,
 };
 
-static const struct snd_pcm_ops snd_amd7930_capture_ops = {
+static struct snd_pcm_ops snd_amd7930_capture_ops = {
 	.open		=	snd_amd7930_capture_open,
 	.close		=	snd_amd7930_capture_close,
 	.ioctl		=	snd_pcm_lib_ioctl,
@@ -929,7 +929,7 @@ static int snd_amd7930_dev_free(struct snd_device *device)
 	return snd_amd7930_free(amd);
 }
 
-static const struct snd_device_ops snd_amd7930_dev_ops = {
+static struct snd_device_ops snd_amd7930_dev_ops = {
 	.dev_free	=	snd_amd7930_dev_free,
 };
 

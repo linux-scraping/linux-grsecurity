@@ -389,7 +389,7 @@ int __devinit snd_ak4531_mixer(struct snd_card *card,
 	unsigned int idx;
 	int err;
 	struct snd_ak4531 *ak4531;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_ak4531_dev_free,
 	};
 

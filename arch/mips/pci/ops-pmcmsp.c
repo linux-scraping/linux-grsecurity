@@ -904,7 +904,7 @@ msp_pcibios_write_config(struct pci_bus *bus,
  *    write     - function for Linux to generate PCI Configuration writes.
  *
  ****************************************************************************/
-const struct pci_ops msp_pci_ops = {
+struct pci_ops msp_pci_ops = {
 	.read = msp_pcibios_read_config,
 	.write = msp_pcibios_write_config
 };

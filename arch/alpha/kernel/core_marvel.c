@@ -588,7 +588,7 @@ marvel_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops marvel_pci_ops =
+struct pci_ops marvel_pci_ops =
 {
 	.read =		marvel_read_config,
 	.write = 	marvel_write_config,

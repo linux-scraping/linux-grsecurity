@@ -303,7 +303,7 @@ static unsigned int nwpserial_tx_empty(struct uart_port *port)
 	return ret & UART_LSR_TEMT ? TIOCSER_TEMT : 0;
 }
 
-static const struct uart_ops nwpserial_pops = {
+static struct uart_ops nwpserial_pops = {
 	.tx_empty     = nwpserial_tx_empty,
 	.set_mctrl    = nwpserial_set_mctrl,
 	.get_mctrl    = nwpserial_get_mctrl,

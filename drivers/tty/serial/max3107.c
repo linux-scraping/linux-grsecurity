@@ -910,7 +910,7 @@ static void max3107_break_ctl(struct uart_port *port, int break_state)
 
 
 /* Port functions */
-static const struct uart_ops max3107_ops = {
+static struct uart_ops max3107_ops = {
 	.tx_empty       = max3107_tx_empty,
 	.set_mctrl      = max3107_set_mctrl,
 	.get_mctrl      = max3107_get_mctrl,

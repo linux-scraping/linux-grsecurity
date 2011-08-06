@@ -117,7 +117,7 @@ static int nanoengine_write_config(struct pci_bus *bus, unsigned int devfn, int 
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops pci_nano_ops = {
+static struct pci_ops pci_nano_ops = {
 	.read	= nanoengine_read_config,
 	.write	= nanoengine_write_config,
 };

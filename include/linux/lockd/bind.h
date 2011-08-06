@@ -23,13 +23,13 @@ struct svc_rqst;
  * This is the set of functions for lockd->nfsd communication
  */
 struct nlmsvc_binding {
-	__be32			(* const fopen)(struct svc_rqst *,
+	__be32			(*fopen)(struct svc_rqst *,
 						struct nfs_fh *,
 						struct file **);
-	void			(* const fclose)(struct file *);
+	void			(*fclose)(struct file *);
 };
 
-extern const struct nlmsvc_binding *	nlmsvc_ops;
+extern struct nlmsvc_binding *	nlmsvc_ops;
 
 /*
  * Similar to nfs_client_initdata, but without the NFS-specific

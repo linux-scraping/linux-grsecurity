@@ -3884,16 +3884,16 @@ static void perf_pending_event(struct irq_work *entry)
  * Later on, we might change it to a list if there is
  * another virtualization implementation supporting the callbacks.
  */
-const struct perf_guest_info_callbacks *perf_guest_cbs;
+struct perf_guest_info_callbacks *perf_guest_cbs;
 
-int perf_register_guest_info_callbacks(const struct perf_guest_info_callbacks *cbs)
+int perf_register_guest_info_callbacks(struct perf_guest_info_callbacks *cbs)
 {
 	perf_guest_cbs = cbs;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(perf_register_guest_info_callbacks);
 
-int perf_unregister_guest_info_callbacks(const struct perf_guest_info_callbacks *cbs)
+int perf_unregister_guest_info_callbacks(struct perf_guest_info_callbacks *cbs)
 {
 	perf_guest_cbs = NULL;
 	return 0;

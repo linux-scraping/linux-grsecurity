@@ -366,7 +366,7 @@ resource_size_t pcibios_align_resource(void *data, const struct resource *res,
 	return start;
 }
 
-const struct pci_ops titan_pci_ops = {
+struct pci_ops titan_pci_ops = {
         titan_ht_config_read_byte,
         titan_ht_config_read_word,
         titan_ht_config_read_dword,

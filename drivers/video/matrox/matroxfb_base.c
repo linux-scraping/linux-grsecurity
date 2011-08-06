@@ -1232,7 +1232,7 @@ static struct fb_ops matroxfb_ops = {
 #define RSText		0x7
 #define RSText8		0x8
 /* 9-F */
-static const struct { struct fb_bitfield red, green, blue, transp; int bits_per_pixel; } colors[] = {
+static struct { struct fb_bitfield red, green, blue, transp; int bits_per_pixel; } colors[] = {
 	{ {  0, 8, 0}, { 0, 8, 0}, { 0, 8, 0}, {  0, 0, 0},  8 },
 	{ { 10, 5, 0}, { 5, 5, 0}, { 0, 5, 0}, { 15, 1, 0}, 16 },
 	{ { 11, 5, 0}, { 5, 6, 0}, { 0, 5, 0}, {  0, 0, 0}, 16 },

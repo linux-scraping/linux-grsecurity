@@ -218,7 +218,7 @@ static int omap3pandora_in_init(struct snd_soc_pcm_runtime *rtd)
 	return snd_soc_dapm_sync(dapm);
 }
 
-static const struct snd_soc_ops omap3pandora_ops = {
+static struct snd_soc_ops omap3pandora_ops = {
 	.hw_params = omap3pandora_hw_params,
 };
 

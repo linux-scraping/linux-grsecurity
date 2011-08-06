@@ -230,7 +230,7 @@ static void psbfb_vm_close(struct vm_area_struct *vma)
 	DRM_DEBUG("vm_close\n");
 }
 
-static const struct vm_operations_struct psbfb_vm_ops = {
+static struct vm_operations_struct psbfb_vm_ops = {
 	.fault	= psbfb_vm_fault,
 	.open	= psbfb_vm_open,
 	.close	= psbfb_vm_close

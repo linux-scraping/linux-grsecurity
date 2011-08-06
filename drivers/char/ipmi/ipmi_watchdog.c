@@ -216,7 +216,7 @@ static int set_param_timeout(const char *val, const struct kernel_param *kp)
 	return rv;
 }
 
-static const struct kernel_param_ops param_ops_timeout = {
+static struct kernel_param_ops param_ops_timeout = {
 	.set = set_param_timeout,
 	.get = param_get_int,
 };
@@ -278,14 +278,14 @@ static int set_param_wdog_ifnum(const char *val, const struct kernel_param *kp)
 	return 0;
 }
 
-static const struct kernel_param_ops param_ops_wdog_ifnum = {
+static struct kernel_param_ops param_ops_wdog_ifnum = {
 	.set = set_param_wdog_ifnum,
 	.get = param_get_int,
 };
 
 #define param_check_wdog_ifnum param_check_int
 
-static const struct kernel_param_ops param_ops_str = {
+static struct kernel_param_ops param_ops_str = {
 	.set = set_param_str,
 	.get = get_param_str,
 };
@@ -953,7 +953,7 @@ static void ipmi_wdog_pretimeout_handler(void *handler_data)
 	pretimeout_since_last_heartbeat = 1;
 }
 
-static const struct ipmi_user_hndl ipmi_hndlrs = {
+static struct ipmi_user_hndl ipmi_hndlrs = {
 	.ipmi_recv_hndl           = ipmi_wdog_msg_handler,
 	.ipmi_watchdog_pretimeout = ipmi_wdog_pretimeout_handler
 };

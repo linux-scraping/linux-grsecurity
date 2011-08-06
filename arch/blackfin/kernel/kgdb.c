@@ -420,7 +420,7 @@ int kgdb_arch_handle_exception(int vector, int signo,
 	return -1;		/* this means that we do not want to exit from the handler */
 }
 
-const struct kgdb_arch arch_kgdb_ops = {
+struct kgdb_arch arch_kgdb_ops = {
 	.gdb_bpt_instr = {0xa1},
 	.flags = KGDB_HW_BREAKPOINT,
 	.set_hw_breakpoint = bfin_set_hw_break,

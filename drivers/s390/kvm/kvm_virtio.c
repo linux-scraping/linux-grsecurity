@@ -266,7 +266,7 @@ error:
 /*
  * The config ops structure as defined by virtio config
  */
-static const struct virtio_config_ops kvm_vq_configspace_ops = {
+static struct virtio_config_ops kvm_vq_configspace_ops = {
 	.get_features = kvm_get_features,
 	.finalize_features = kvm_finalize_features,
 	.get = kvm_get,

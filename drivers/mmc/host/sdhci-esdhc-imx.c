@@ -201,7 +201,7 @@ static unsigned int esdhc_pltfm_get_ro(struct sdhci_host *host)
 		return -ENOSYS;
 }
 
-static const struct sdhci_ops sdhci_esdhc_ops = {
+static struct sdhci_ops sdhci_esdhc_ops = {
 	.read_l = esdhc_readl_le,
 	.read_w = esdhc_readw_le,
 	.write_l = esdhc_writel_le,

@@ -48,14 +48,14 @@ resource_size_t isa_mem_base;
 /* Default PCI flags is 0 on ppc32, modified at boot on ppc64 */
 unsigned int pci_flags;
 
-static const struct dma_map_ops *pci_dma_ops = &dma_direct_ops;
+static struct dma_map_ops *pci_dma_ops = &dma_direct_ops;
 
-void set_pci_dma_ops(const struct dma_map_ops *dma_ops)
+void set_pci_dma_ops(struct dma_map_ops *dma_ops)
 {
 	pci_dma_ops = dma_ops;
 }
 
-const struct dma_map_ops *get_pci_dma_ops(void)
+struct dma_map_ops *get_pci_dma_ops(void)
 {
 	return pci_dma_ops;
 }
@@ -1583,7 +1583,7 @@ null_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
 
-static const struct pci_ops null_pci_ops = {
+static struct pci_ops null_pci_ops = {
 	.read = null_read_config,
 	.write = null_write_config,
 };

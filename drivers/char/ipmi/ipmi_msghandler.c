@@ -82,7 +82,7 @@ struct ipmi_user {
 	struct kref refcount;
 
 	/* The upper layer that handles receive messages. */
-	const struct ipmi_user_hndl *handler;
+	struct ipmi_user_hndl *handler;
 	void             *handler_data;
 
 	/* The interface this user is bound to. */
@@ -875,7 +875,7 @@ static int intf_err_seq(ipmi_smi_t   intf,
 
 
 int ipmi_create_user(unsigned int          if_num,
-		     const struct ipmi_user_hndl *handler,
+		     struct ipmi_user_hndl *handler,
 		     void                  *handler_data,
 		     ipmi_user_t           *user)
 {

@@ -402,7 +402,7 @@ static void sbus_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 	BUG();
 }
 
-const struct dma_map_ops sbus_dma_ops = {
+struct dma_map_ops sbus_dma_ops = {
 	.alloc_coherent		= sbus_alloc_coherent,
 	.free_coherent		= sbus_free_coherent,
 	.map_page		= sbus_map_page,
@@ -653,7 +653,7 @@ static void pci32_sync_sg_for_device(struct device *device, struct scatterlist *
 	}
 }
 
-const struct dma_map_ops pci32_dma_ops = {
+struct dma_map_ops pci32_dma_ops = {
 	.alloc_coherent		= pci32_alloc_coherent,
 	.free_coherent		= pci32_free_coherent,
 	.map_page		= pci32_map_page,

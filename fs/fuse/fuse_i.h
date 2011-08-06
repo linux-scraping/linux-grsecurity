@@ -540,16 +540,6 @@ extern const struct file_operations fuse_dev_operations;
 
 extern const struct dentry_operations fuse_dentry_operations;
 
-extern ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
-			      unsigned long nr_segs, loff_t pos);
-
-extern ssize_t fuse_dev_write(struct kiocb *iocb, const struct iovec *iov,
-			       unsigned long nr_segs, loff_t pos);
-
-extern unsigned fuse_dev_poll(struct file *file, poll_table *wait);
-
-extern int fuse_dev_fasync(int fd, struct file *file, int on);
-
 /**
  * Inode to nodeid comparison.
  */

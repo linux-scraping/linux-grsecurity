@@ -24,7 +24,7 @@ unsigned int pci_probe = 1;
 
 int pcibios_last_bus = -1;
 struct pci_bus *pci_root_bus;
-const struct pci_ops *pci_root_ops;
+struct pci_ops *pci_root_ops;
 
 /*
  * The accessible PCI window does not cover the entire CPU address space, but
@@ -274,7 +274,7 @@ static int pci_ampci_write_config(struct pci_bus *bus, unsigned int devfn,
 	}
 }
 
-static const struct pci_ops pci_direct_ampci = {
+static struct pci_ops pci_direct_ampci = {
 	pci_ampci_read_config,
 	pci_ampci_write_config,
 };
@@ -289,7 +289,7 @@ static const struct pci_ops pci_direct_ampci = {
  * This should be close to trivial, but it isn't, because there are buggy
  * chipsets (yes, you guessed it, by Intel and Compaq) that have no class ID.
  */
-static int __init pci_sanity_check(const struct pci_ops *o)
+static int __init pci_sanity_check(struct pci_ops *o)
 {
 	struct pci_bus bus;		/* Fake bus and device */
 	u32 x;

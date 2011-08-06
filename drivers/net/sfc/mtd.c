@@ -382,7 +382,7 @@ static int falcon_mtd_sync(struct mtd_info *mtd)
 	return rc;
 }
 
-static const struct efx_mtd_ops falcon_mtd_ops = {
+static struct efx_mtd_ops falcon_mtd_ops = {
 	.read	= falcon_mtd_read,
 	.erase	= falcon_mtd_erase,
 	.write	= falcon_mtd_write,
@@ -560,7 +560,7 @@ static int siena_mtd_sync(struct mtd_info *mtd)
 	return rc;
 }
 
-static const struct efx_mtd_ops siena_mtd_ops = {
+static struct efx_mtd_ops siena_mtd_ops = {
 	.read	= siena_mtd_read,
 	.erase	= siena_mtd_erase,
 	.write	= siena_mtd_write,

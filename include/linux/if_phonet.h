@@ -13,7 +13,7 @@
 #define PHONET_DEV_MTU		PHONET_MAX_MTU
 
 #ifdef __KERNEL__
-extern const struct header_ops phonet_header_ops;
+extern struct header_ops phonet_header_ops;
 #endif
 
 #endif

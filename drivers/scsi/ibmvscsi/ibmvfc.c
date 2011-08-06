@@ -4881,7 +4881,7 @@ static struct vio_device_id ibmvfc_device_table[] __devinitdata = {
 };
 MODULE_DEVICE_TABLE(vio, ibmvfc_device_table);
 
-static const struct dev_pm_ops ibmvfc_pm_ops = {
+static struct dev_pm_ops ibmvfc_pm_ops = {
 	.resume = ibmvfc_resume
 };
 

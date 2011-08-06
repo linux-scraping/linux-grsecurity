@@ -950,7 +950,7 @@ static int alpha_pci_set_mask(struct device *dev, u64 mask)
 	return 0;
 }
 
-const struct dma_map_ops alpha_pci_ops = {
+struct dma_map_ops alpha_pci_ops = {
 	.alloc_coherent		= alpha_pci_alloc_coherent,
 	.free_coherent		= alpha_pci_free_coherent,
 	.map_page		= alpha_pci_map_page,
@@ -962,5 +962,5 @@ const struct dma_map_ops alpha_pci_ops = {
 	.set_dma_mask		= alpha_pci_set_mask,
 };
 
-const struct dma_map_ops *dma_ops = &alpha_pci_ops;
+struct dma_map_ops *dma_ops = &alpha_pci_ops;
 EXPORT_SYMBOL(dma_ops);

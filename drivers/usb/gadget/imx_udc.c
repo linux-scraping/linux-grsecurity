@@ -937,7 +937,7 @@ static void imx_ep_fifo_flush(struct usb_ep *usb_ep)
 	local_irq_restore(flags);
 }
 
-static const struct usb_ep_ops imx_ep_ops = {
+static struct usb_ep_ops imx_ep_ops = {
 	.enable		= imx_ep_enable,
 	.disable	= imx_ep_disable,
 

@@ -5756,7 +5756,7 @@ static void ata_host_stop(struct device *gendev, void *res)
  *	LOCKING:
  *	None.
  */
-static void ata_finalize_port_ops(const struct ata_port_operations *ops)
+static void ata_finalize_port_ops(struct ata_port_operations *ops)
 {
 	static DEFINE_SPINLOCK(lock);
 	const struct ata_port_operations *cur;
@@ -5782,7 +5782,7 @@ static void ata_finalize_port_ops(const struct ata_port_operations *ops)
 		if (IS_ERR(*pp))
 			*pp = NULL;
 
-	((struct ata_port_operations *)ops)->inherits = NULL;
+	*(struct ata_port_operations **)&ops->inherits = NULL;
 
 	pax_close_kernel();
 	spin_unlock(&lock);
@@ -5881,7 +5881,7 @@ int ata_host_start(struct ata_host *host)
  */
 /* KILLME - the only user left is ipr */
 void ata_host_init(struct ata_host *host, struct device *dev,
-		   unsigned long flags, const struct ata_port_operations *ops)
+		   unsigned long flags, struct ata_port_operations *ops)
 {
 	spin_lock_init(&host->lock);
 	mutex_init(&host->eh_mutex);
@@ -6585,7 +6585,7 @@ static void ata_dummy_error_handler(struct ata_port *ap)
 	/* truly dummy */
 }
 
-const struct ata_port_operations ata_dummy_port_ops = {
+struct ata_port_operations ata_dummy_port_ops = {
 	.qc_prep		= ata_noop_qc_prep,
 	.qc_issue		= ata_dummy_qc_issue,
 	.error_handler		= ata_dummy_error_handler,

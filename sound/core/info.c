@@ -897,7 +897,7 @@ static int snd_info_dev_register_entry(struct snd_device *device)
 int snd_card_proc_new(struct snd_card *card, const char *name,
 		      struct snd_info_entry **entryp)
 {
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_info_dev_free_entry,
 		.dev_register =	snd_info_dev_register_entry,
 		/* disconnect is done via snd_info_card_disconnect() */

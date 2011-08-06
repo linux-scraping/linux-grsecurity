@@ -156,7 +156,7 @@ static int zylonite_voice_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static const struct snd_soc_ops zylonite_voice_ops = {
+static struct snd_soc_ops zylonite_voice_ops = {
 	.hw_params = zylonite_voice_hw_params,
 };
 

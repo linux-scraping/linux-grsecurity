@@ -1391,7 +1391,8 @@ u32 cipher_suites[] = {
     WLAN_CIPHER_SUITE_CCMP,
 };
 
-static const struct cfg80211_ops ar6k_cfg80211_ops = {
+static struct
+cfg80211_ops ar6k_cfg80211_ops = {
     .change_virtual_intf = ar6k_cfg80211_change_iface,
     .add_virtual_intf = ar6k_cfg80211_add_virtual_intf,
     .del_virtual_intf = ar6k_cfg80211_del_virtual_intf,

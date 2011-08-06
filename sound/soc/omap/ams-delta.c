@@ -420,7 +420,7 @@ static int ams_delta_hw_params(struct snd_pcm_substream *substream,
 				   SND_SOC_DAIFMT_CBM_CFM);
 }
 
-static const struct snd_soc_ops ams_delta_ops = {
+static struct snd_soc_ops ams_delta_ops = {
 	.hw_params = ams_delta_hw_params,
 };
 

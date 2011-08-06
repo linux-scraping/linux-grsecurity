@@ -44,7 +44,7 @@ static int t5325_hw_params(struct snd_pcm_substream *substream,
 
 }
 
-static const struct snd_soc_ops t5325_ops = {
+static struct snd_soc_ops t5325_ops = {
 	.hw_params = t5325_hw_params,
 };
 

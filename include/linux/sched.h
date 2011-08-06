@@ -1591,7 +1591,7 @@ struct task_struct {
 #define MF_PAX_SEGMEXEC		0x20000000	/* Segmentation based non-executable pages */
 
 #ifdef CONFIG_PAX_SOFTMODE
-extern unsigned int pax_softmode;
+extern int pax_softmode;
 #endif
 
 extern int pax_check_flags(unsigned long *);

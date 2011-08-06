@@ -103,7 +103,7 @@ MODULE_DEVICE_TABLE(pci, cciss_pci_device_id);
  *  product = Marketing Name for the board
  *  access = Address of the struct of function pointers
  */
-static const struct board_type products[] = {
+static struct board_type products[] = {
 	{0x40700E11, "Smart Array 5300", &SA5_access},
 	{0x40800E11, "Smart Array 5i", &SA5B_access},
 	{0x40820E11, "Smart Array 532", &SA5B_access},
@@ -2935,7 +2935,7 @@ static void start_io(ctlr_info_t *h)
 	while (!list_empty(&h->reqQ)) {
 		c = list_entry(h->reqQ.next, CommandList_struct, list);
 		/* can't do anything if fifo is full */
-		if ((h->access.fifo_full(h))) {
+		if ((h->access->fifo_full(h))) {
 			dev_warn(&h->pdev->dev, "fifo full\n");
 			break;
 		}
@@ -2945,7 +2945,7 @@ static void start_io(ctlr_info_t *h)
 		h->Qdepth--;
 
 		/* Tell the controller execute command */
-		h->access.submit_command(h, c);
+		h->access->submit_command(h, c);
 
 		/* Put job onto the completed Q */
 		addQ(&h->cmpQ, c);
@@ -3371,17 +3371,17 @@ startio:
 
 static inline unsigned long get_next_completion(ctlr_info_t *h)
 {
-	return h->access.command_completed(h);
+	return h->access->command_completed(h);
 }
 
 static inline int interrupt_pending(ctlr_info_t *h)
 {
-	return h->access.intr_pending(h);
+	return h->access->intr_pending(h);
 }
 
 static inline long interrupt_not_for_us(ctlr_info_t *h)
 {
-	return ((h->access.intr_pending(h) == 0) ||
+	return ((h->access->intr_pending(h) == 0) ||
 		(h->interrupts_enabled == 0));
 }
 
@@ -3414,7 +3414,7 @@ static inline u32 next_command(ctlr_info_t *h)
 	u32 a;
 
 	if (unlikely(!(h->transMethod & CFGTBL_Trans_Performant)))
-		return h->access.command_completed(h);
+		return h->access->command_completed(h);
 
 	if ((*(h->reply_pool_head) & 1) == (h->reply_pool_wraparound)) {
 		a = *(h->reply_pool_head); /* Next cmd in ring buffer */
@@ -3912,7 +3912,7 @@ static void __devinit cciss_put_controller_into_performant_mode(ctlr_info_t *h)
 		trans_support & CFGTBL_Trans_use_short_tags);
 
 	/* Change the access methods to the performant access methods */
-	h->access = SA5_performant_access;
+	h->access = &SA5_performant_access;
 	h->transMethod = CFGTBL_Trans_Performant;
 
 	return;
@@ -4181,7 +4181,7 @@ static int __devinit cciss_pci_init(ctlr_info_t *h)
 	if (prod_index < 0)
 		return -ENODEV;
 	h->product_name = products[prod_index].product_name;
-	h->access = *(products[prod_index].access);
+	h->access = products[prod_index].access;
 
 	if (cciss_board_disabled(h)) {
 		dev_warn(&h->pdev->dev, "controller appears to be disabled\n");
@@ -4663,7 +4663,7 @@ static int __devinit cciss_init_one(struct pci_dev *pdev,
 	}
 
 	/* make sure the board interrupts are off */
-	h->access.set_intr_mask(h, CCISS_INTR_OFF);
+	h->access->set_intr_mask(h, CCISS_INTR_OFF);
 	if (h->msi_vector || h->msix_vector) {
 		if (request_irq(h->intr[PERF_MODE_INT],
 				do_cciss_msix_intr,
@@ -4746,7 +4746,7 @@ static int __devinit cciss_init_one(struct pci_dev *pdev,
 	cciss_scsi_setup(h);
 
 	/* Turn the interrupts on so we can service requests */
-	h->access.set_intr_mask(h, CCISS_INTR_ON);
+	h->access->set_intr_mask(h, CCISS_INTR_ON);
 
 	/* Get the firmware version */
 	inq_buff = kzalloc(sizeof(InquiryData_struct), GFP_KERNEL);
@@ -4830,7 +4830,7 @@ static void cciss_shutdown(struct pci_dev *pdev)
 	kfree(flush_buf);
 	if (return_code != IO_OK)
 		dev_warn(&h->pdev->dev, "Error flushing cache\n");
-	h->access.set_intr_mask(h, CCISS_INTR_OFF);
+	h->access->set_intr_mask(h, CCISS_INTR_OFF);
 	free_irq(h->intr[PERF_MODE_INT], h);
 }
 

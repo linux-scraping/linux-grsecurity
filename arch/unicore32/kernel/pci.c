@@ -66,7 +66,7 @@ puv3_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops pci_puv3_ops = {
+struct pci_ops pci_puv3_ops = {
 	.read  = puv3_read_config,
 	.write = puv3_write_config,
 };

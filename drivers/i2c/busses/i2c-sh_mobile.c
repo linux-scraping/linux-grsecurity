@@ -529,7 +529,7 @@ static u32 sh_mobile_i2c_func(struct i2c_adapter *adapter)
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 }
 
-static const struct i2c_algorithm sh_mobile_i2c_algorithm = {
+static struct i2c_algorithm sh_mobile_i2c_algorithm = {
 	.functionality	= sh_mobile_i2c_func,
 	.master_xfer	= sh_mobile_i2c_xfer,
 };

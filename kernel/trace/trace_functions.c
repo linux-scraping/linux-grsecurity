@@ -308,7 +308,7 @@ ftrace_trace_onoff_print(struct seq_file *m, unsigned long ip,
 static int
 ftrace_trace_onoff_unreg(char *glob, char *cmd, char *param)
 {
-	const struct ftrace_probe_ops *ops;
+	struct ftrace_probe_ops *ops;
 
 	/* we register both traceon and traceoff to this callback */
 	if (strcmp(cmd, "traceon") == 0)

@@ -1681,7 +1681,14 @@ bnad_setup_tx(struct bnad *bnad, uint tx_id)
 	struct bna_intr_info *intr_info =
 			&res_info[BNA_TX_RES_INTR_T_TXCMPL].res_u.intr_info;
 	struct bna_tx_config *tx_config = &bnad->tx_config[tx_id];
-	struct bna_tx_event_cbfn tx_cbfn;
+	static struct bna_tx_event_cbfn tx_cbfn = {
+		/* Initialize the tx event handlers */
+		.tcb_setup_cbfn = bnad_cb_tcb_setup,
+		.tcb_destroy_cbfn = bnad_cb_tcb_destroy,
+		.tx_stall_cbfn = bnad_cb_tx_stall,
+		.tx_resume_cbfn = bnad_cb_tx_resume,
+		.tx_cleanup_cbfn = bnad_cb_tx_cleanup
+	};
 	struct bna_tx *tx;
 	unsigned long flags;
 
@@ -1689,13 +1696,6 @@ bnad_setup_tx(struct bnad *bnad, uint tx_id)
 	tx_config->num_txq = bnad->num_txq_per_tx;
 	tx_config->txq_depth = bnad->txq_depth;
 	tx_config->tx_type = BNA_TX_T_REGULAR;
-
-	/* Initialize the tx event handlers */
-	tx_cbfn.tcb_setup_cbfn = bnad_cb_tcb_setup;
-	tx_cbfn.tcb_destroy_cbfn = bnad_cb_tcb_destroy;
-	tx_cbfn.tx_stall_cbfn = bnad_cb_tx_stall;
-	tx_cbfn.tx_resume_cbfn = bnad_cb_tx_resume;
-	tx_cbfn.tx_cleanup_cbfn = bnad_cb_tx_cleanup;
 
 	/* Get BNA's resource requirement for one tx object */
 	spin_lock_irqsave(&bnad->bna_lock, flags);
@@ -1827,20 +1827,20 @@ bnad_setup_rx(struct bnad *bnad, uint rx_id)
 	struct bna_intr_info *intr_info =
 			&res_info[BNA_RX_RES_T_INTR].res_u.intr_info;
 	struct bna_rx_config *rx_config = &bnad->rx_config[rx_id];
-	struct bna_rx_event_cbfn rx_cbfn;
+	static struct bna_rx_event_cbfn rx_cbfn = {
+		/* Initialize the Rx event handlers */
+		.rcb_setup_cbfn = bnad_cb_rcb_setup,
+		.rcb_destroy_cbfn = bnad_cb_rcb_destroy,
+		.ccb_setup_cbfn = bnad_cb_ccb_setup,
+		.ccb_destroy_cbfn = bnad_cb_ccb_destroy,
+		.rx_cleanup_cbfn = bnad_cb_rx_cleanup,
+		.rx_post_cbfn = bnad_cb_rx_post
+	};
 	struct bna_rx *rx;
 	unsigned long flags;
 
 	/* Initialize the Rx object configuration */
 	bnad_init_rx_config(bnad, rx_config);
-
-	/* Initialize the Rx event handlers */
-	rx_cbfn.rcb_setup_cbfn = bnad_cb_rcb_setup;
-	rx_cbfn.rcb_destroy_cbfn = bnad_cb_rcb_destroy;
-	rx_cbfn.ccb_setup_cbfn = bnad_cb_ccb_setup;
-	rx_cbfn.ccb_destroy_cbfn = bnad_cb_ccb_destroy;
-	rx_cbfn.rx_cleanup_cbfn = bnad_cb_rx_cleanup;
-	rx_cbfn.rx_post_cbfn = bnad_cb_rx_post;
 
 	/* Get BNA's resource requirement for one Rx object */
 	spin_lock_irqsave(&bnad->bna_lock, flags);

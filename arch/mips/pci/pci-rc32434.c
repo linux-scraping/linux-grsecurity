@@ -75,7 +75,7 @@ static struct resource rc32434_res_pci_io1 = {
 	.flags = IORESOURCE_IO,
 };
 
-extern const struct pci_ops rc32434_pci_ops;
+extern struct pci_ops rc32434_pci_ops;
 
 #define PCI_MEM1_START	PCI_ADDR_START
 #define PCI_MEM1_END	(PCI_ADDR_START + CPUTOPCI_MEM_WIN - 1)

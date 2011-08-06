@@ -24,7 +24,7 @@ BFA_TRC_FILE(HAL, CORE);
 /*
  * BFA module list terminated by NULL
  */
-static const struct bfa_module_s *hal_mods[] = {
+static struct bfa_module_s *hal_mods[] = {
 	&hal_mod_sgpg,
 	&hal_mod_fcport,
 	&hal_mod_fcxp,

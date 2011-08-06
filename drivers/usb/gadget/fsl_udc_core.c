@@ -1003,7 +1003,7 @@ static void fsl_ep_fifo_flush(struct usb_ep *_ep)
 	} while (fsl_readl(&dr_regs->endptstatus) & bits);
 }
 
-static const struct usb_ep_ops fsl_ep_ops = {
+static struct usb_ep_ops fsl_ep_ops = {
 	.enable = fsl_ep_enable,
 	.disable = fsl_ep_disable,
 
@@ -1114,7 +1114,7 @@ static int fsl_pullup(struct usb_gadget *gadget, int is_on)
 }
 
 /* defined in gadget.h */
-static const struct usb_gadget_ops fsl_gadget_ops = {
+static struct usb_gadget_ops fsl_gadget_ops = {
 	.get_frame = fsl_get_frame,
 	.wakeup = fsl_wakeup,
 /*	.set_selfpowered = fsl_set_selfpowered,	*/ /* Always selfpowered */

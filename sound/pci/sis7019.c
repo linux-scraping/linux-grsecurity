@@ -1011,7 +1011,7 @@ static int __devinit sis_mixer_create(struct sis7019 *sis)
 {
 	struct snd_ac97_bus *bus;
 	struct snd_ac97_template ac97;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = sis_ac97_write,
 		.read = sis_ac97_read,
 	};
@@ -1293,7 +1293,7 @@ static int __devinit sis_chip_create(struct snd_card *card,
 {
 	struct sis7019 *sis = card->private_data;
 	struct voice *voice;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = sis_dev_free,
 	};
 	int rc;

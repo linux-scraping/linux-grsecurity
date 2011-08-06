@@ -183,7 +183,7 @@ static void __init sni_pcimt_resource_init(void)
 		request_resource(&sni_mem_resource, pcimt_mem_resources + i);
 }
 
-extern const struct pci_ops sni_pcimt_ops;
+extern struct pci_ops sni_pcimt_ops;
 
 static struct pci_controller sni_controller = {
 	.pci_ops	= &sni_pcimt_ops,

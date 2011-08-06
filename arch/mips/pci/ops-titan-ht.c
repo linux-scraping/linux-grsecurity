@@ -118,7 +118,7 @@ static int titan_ht_config_write(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops titan_ht_pci_ops = {
+struct pci_ops titan_ht_pci_ops = {
 	.read	= titan_ht_config_read,
 	.write	= titan_ht_config_write,
 };

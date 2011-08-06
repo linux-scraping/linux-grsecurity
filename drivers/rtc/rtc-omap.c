@@ -274,7 +274,7 @@ static int omap_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	return 0;
 }
 
-static const struct rtc_class_ops omap_rtc_ops = {
+static struct rtc_class_ops omap_rtc_ops = {
 	.read_time	= omap_rtc_read_time,
 	.set_time	= omap_rtc_set_time,
 	.read_alarm	= omap_rtc_read_alarm,

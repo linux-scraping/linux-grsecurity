@@ -1299,7 +1299,7 @@ static void fc_lport_enter_ns(struct fc_lport *lport, enum fc_lport_state state)
 		fc_lport_error(lport, fp);
 }
 
-static const struct fc_rport_operations fc_lport_rport_ops = {
+static struct fc_rport_operations fc_lport_rport_ops = {
 	.event_callback = fc_lport_rport_callback,
 };
 

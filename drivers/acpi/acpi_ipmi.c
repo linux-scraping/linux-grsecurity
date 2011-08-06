@@ -70,7 +70,7 @@ struct acpi_ipmi_device {
 struct ipmi_driver_data {
 	struct list_head	ipmi_devices;
 	struct ipmi_smi_watcher	bmc_events;
-	const struct ipmi_user_hndl ipmi_hndlrs;
+	struct ipmi_user_hndl	ipmi_hndlrs;
 	struct mutex		ipmi_lock;
 };
 

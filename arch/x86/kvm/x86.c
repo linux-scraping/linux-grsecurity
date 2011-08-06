@@ -94,7 +94,7 @@ static void update_cr8_intercept(struct kvm_vcpu *vcpu);
 static int kvm_dev_ioctl_get_supported_cpuid(struct kvm_cpuid2 *cpuid,
 				    struct kvm_cpuid_entry2 __user *entries);
 
-const struct kvm_x86_ops *kvm_x86_ops;
+struct kvm_x86_ops *kvm_x86_ops;
 EXPORT_SYMBOL_GPL(kvm_x86_ops);
 
 int ignore_msrs = 0;
@@ -4683,7 +4683,7 @@ static unsigned long kvm_get_guest_ip(void)
 	return ip;
 }
 
-static const struct perf_guest_info_callbacks kvm_guest_cbs = {
+static struct perf_guest_info_callbacks kvm_guest_cbs = {
 	.is_in_guest		= kvm_is_in_guest,
 	.is_user_mode		= kvm_is_user_mode,
 	.get_guest_ip		= kvm_get_guest_ip,
@@ -4704,7 +4704,7 @@ EXPORT_SYMBOL_GPL(kvm_after_handle_nmi);
 int kvm_arch_init(const void *opaque)
 {
 	int r;
-	const struct kvm_x86_ops *ops = (const struct kvm_x86_ops *)opaque;
+	struct kvm_x86_ops *ops = (struct kvm_x86_ops *)opaque;
 
 	if (kvm_x86_ops) {
 		printk(KERN_ERR "kvm: already loaded the other module\n");

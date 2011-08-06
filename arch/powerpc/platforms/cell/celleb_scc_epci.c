@@ -245,7 +245,7 @@ static int celleb_epci_write_config(struct pci_bus *bus,
 	return celleb_epci_check_abort(hose, addr);
 }
 
-const struct pci_ops celleb_epci_ops = {
+struct pci_ops celleb_epci_ops = {
 	.read = celleb_epci_read_config,
 	.write = celleb_epci_write_config,
 };

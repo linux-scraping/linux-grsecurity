@@ -231,7 +231,7 @@ lca_write_config(struct pci_bus *bus, unsigned int devfn, int where, int size,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops lca_pci_ops = 
+struct pci_ops lca_pci_ops = 
 {
 	.read =		lca_read_config,
 	.write =	lca_write_config,

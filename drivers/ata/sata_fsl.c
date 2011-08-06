@@ -1268,7 +1268,7 @@ static struct scsi_host_template sata_fsl_sht = {
 	.dma_boundary = ATA_DMA_BOUNDARY,
 };
 
-static const struct ata_port_operations sata_fsl_ops = {
+static struct ata_port_operations sata_fsl_ops = {
 	.inherits		= &sata_pmp_port_ops,
 
 	.qc_defer = ata_std_qc_defer,

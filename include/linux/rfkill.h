@@ -147,6 +147,7 @@ struct rfkill_ops {
 	void	(*query)(struct rfkill *rfkill, void *data);
 	int	(*set_block)(void *data, bool blocked);
 };
+typedef struct rfkill_ops __no_const rfkill_ops_no_const;
 
 #if defined(CONFIG_RFKILL) || defined(CONFIG_RFKILL_MODULE)
 /**

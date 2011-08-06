@@ -3924,7 +3924,7 @@ void ata_do_eh(struct ata_port *ap, ata_prereset_fn_t prereset,
  */
 void ata_std_error_handler(struct ata_port *ap)
 {
-	const struct ata_port_operations *ops = ap->ops;
+	struct ata_port_operations *ops = ap->ops;
 	ata_reset_fn_t hardreset = ops->hardreset;
 
 	/* ignore built-in hardreset if SCR access is not available */

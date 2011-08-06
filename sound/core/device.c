@@ -41,7 +41,7 @@
  * Returns zero if successful, or a negative error code on failure.
  */
 int snd_device_new(struct snd_card *card, snd_device_type_t type,
-		   void *device_data, const struct snd_device_ops *ops)
+		   void *device_data, struct snd_device_ops *ops)
 {
 	struct snd_device *dev;
 

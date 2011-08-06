@@ -366,7 +366,7 @@ megasas_check_reset_xscale(struct megasas_instance *instance,
 	return 0;
 }
 
-static const struct megasas_instance_template megasas_instance_template_xscale = {
+static struct megasas_instance_template megasas_instance_template_xscale = {
 
 	.fire_cmd = megasas_fire_cmd_xscale,
 	.enable_intr = megasas_enable_intr_xscale,
@@ -497,7 +497,7 @@ megasas_check_reset_ppc(struct megasas_instance *instance,
 {
 	return 0;
 }
-static const struct megasas_instance_template megasas_instance_template_ppc = {
+static struct megasas_instance_template megasas_instance_template_ppc = {
 
 	.fire_cmd = megasas_fire_cmd_ppc,
 	.enable_intr = megasas_enable_intr_ppc,
@@ -623,7 +623,7 @@ megasas_check_reset_skinny(struct megasas_instance *instance,
 	return 0;
 }
 
-static const struct megasas_instance_template megasas_instance_template_skinny = {
+static struct megasas_instance_template megasas_instance_template_skinny = {
 
 	.fire_cmd = megasas_fire_cmd_skinny,
 	.enable_intr = megasas_enable_intr_skinny,
@@ -810,7 +810,7 @@ megasas_check_reset_gen2(struct megasas_instance *instance,
 	return 0;
 }
 
-static const struct megasas_instance_template megasas_instance_template_gen2 = {
+static struct megasas_instance_template megasas_instance_template_gen2 = {
 
 	.fire_cmd = megasas_fire_cmd_gen2,
 	.enable_intr = megasas_enable_intr_gen2,
@@ -834,7 +834,7 @@ static const struct megasas_instance_template megasas_instance_template_gen2 = {
 /*
  * Template added for TB (Fusion)
  */
-extern const struct megasas_instance_template megasas_instance_template_fusion;
+extern struct megasas_instance_template megasas_instance_template_fusion;
 
 /**
  * megasas_issue_polled -	Issues a polling command

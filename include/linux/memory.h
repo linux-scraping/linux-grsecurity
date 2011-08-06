@@ -142,7 +142,7 @@ struct memory_accessor {
 			size_t count);
 	ssize_t (*write)(struct memory_accessor *, const char *buf,
 			 off_t offset, size_t count);
-};
+} __no_const;
 
 /*
  * Kernel text modification mutex, used for code patching. Users of this lock

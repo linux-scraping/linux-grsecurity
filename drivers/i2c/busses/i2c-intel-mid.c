@@ -917,7 +917,7 @@ err:
 	return IRQ_HANDLED;
 }
 
-static const struct i2c_algorithm intel_mid_i2c_algorithm = {
+static struct i2c_algorithm intel_mid_i2c_algorithm = {
 	.master_xfer	= intel_mid_i2c_xfer,
 	.functionality	= intel_mid_i2c_func,
 };

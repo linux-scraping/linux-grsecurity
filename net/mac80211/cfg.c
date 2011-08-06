@@ -2031,7 +2031,7 @@ static void ieee80211_get_ringparam(struct wiphy *wiphy,
 	drv_get_ringparam(local, tx, tx_max, rx, rx_max);
 }
 
-const struct cfg80211_ops mac80211_config_ops = {
+struct cfg80211_ops mac80211_config_ops = {
 	.add_virtual_intf = ieee80211_add_iface,
 	.del_virtual_intf = ieee80211_del_iface,
 	.change_virtual_intf = ieee80211_change_iface,

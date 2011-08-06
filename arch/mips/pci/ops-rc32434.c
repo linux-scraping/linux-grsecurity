@@ -201,7 +201,7 @@ static int pci_config_write(struct pci_bus *bus, unsigned int devfn,
 	}
 }
 
-const struct pci_ops rc32434_pci_ops = {
+struct pci_ops rc32434_pci_ops = {
 	.read = pci_config_read,
 	.write = pci_config_write,
 };

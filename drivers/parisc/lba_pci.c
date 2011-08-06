@@ -468,7 +468,7 @@ static int elroy_cfg_write(struct pci_bus *bus, unsigned int devfn, int pos, int
 }
 
 
-static const struct pci_ops elroy_cfg_ops = {
+static struct pci_ops elroy_cfg_ops = {
 	.read =		elroy_cfg_read,
 	.write =	elroy_cfg_write,
 };
@@ -541,7 +541,7 @@ static int mercury_cfg_write(struct pci_bus *bus, unsigned int devfn, int pos, i
 	return 0;
 }
 
-static const struct pci_ops mercury_cfg_ops = {
+static struct pci_ops mercury_cfg_ops = {
 	.read =		mercury_cfg_read,
 	.write =	mercury_cfg_write,
 };
@@ -1405,7 +1405,7 @@ lba_driver_probe(struct parisc_device *dev)
 {
 	struct lba_device *lba_dev;
 	struct pci_bus *lba_bus;
-	const struct pci_ops *cfg_ops;
+	struct pci_ops *cfg_ops;
 	u32 func_class;
 	void *tmp_obj;
 	char *version;

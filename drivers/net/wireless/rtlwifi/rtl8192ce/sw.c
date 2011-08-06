@@ -96,7 +96,7 @@ void rtl92c_deinit_sw_vars(struct ieee80211_hw *hw)
 	}
 }
 
-static const struct rtl_hal_ops rtl8192ce_hal_ops = {
+static struct rtl_hal_ops rtl8192ce_hal_ops = {
 	.init_sw_vars = rtl92c_init_sw_vars,
 	.deinit_sw_vars = rtl92c_deinit_sw_vars,
 	.read_eeprom_info = rtl92ce_read_eeprom_info,
@@ -151,7 +151,7 @@ static struct rtl_mod_params rtl92ce_mod_params = {
 	.sw_crypto = 0,
 };
 
-static const struct rtl_hal_cfg rtl92ce_hal_cfg = {
+static struct rtl_hal_cfg rtl92ce_hal_cfg = {
 	.name = "rtl92c_pci",
 	.fw_name = "rtlwifi/rtl8192cfw.bin",
 	.ops = &rtl8192ce_hal_ops,

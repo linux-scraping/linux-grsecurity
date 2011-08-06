@@ -104,7 +104,7 @@ static void bin_emit_property(void *e, struct label *labels)
 	bin_emit_cell(e, FDT_PROP);
 }
 
-static const struct emitter bin_emitter = {
+static struct emitter bin_emitter = {
 	.cell = bin_emit_cell,
 	.string = bin_emit_string,
 	.align = bin_emit_align,
@@ -230,7 +230,7 @@ static void asm_emit_property(void *e, struct label *labels)
 	asm_emit_cell(e, FDT_PROP);
 }
 
-static const struct emitter asm_emitter = {
+static struct emitter asm_emitter = {
 	.cell = asm_emit_cell,
 	.string = asm_emit_string,
 	.align = asm_emit_align,

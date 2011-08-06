@@ -435,7 +435,7 @@ static const struct dmi_system_id __devinitconst toshiba_ohci1394_dmi_table[] = 
 			DMI_MATCH(DMI_PRODUCT_VERSION, "PSA40U"),
 		},
 	},
-	{}
+	{ }
 };
 
 static void __devinit pci_pre_fixup_toshiba_ohci1394(struct pci_dev *dev)

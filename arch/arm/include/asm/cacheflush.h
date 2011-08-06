@@ -115,7 +115,7 @@ struct cpu_cache_fns {
  */
 #ifdef MULTI_CACHE
 
-extern const struct cpu_cache_fns cpu_cache;
+extern struct cpu_cache_fns cpu_cache;
 
 #define __cpuc_flush_icache_all		cpu_cache.flush_icache_all
 #define __cpuc_flush_kern_all		cpu_cache.flush_kern_all

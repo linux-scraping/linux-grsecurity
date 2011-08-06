@@ -180,7 +180,7 @@ static int u3_agp_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops u3_agp_pci_ops =
+static struct pci_ops u3_agp_pci_ops =
 {
 	.read = u3_agp_read_config,
 	.write = u3_agp_write_config,
@@ -276,7 +276,7 @@ static int u3_ht_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops u3_ht_pci_ops =
+static struct pci_ops u3_ht_pci_ops =
 {
 	.read = u3_ht_read_config,
 	.write = u3_ht_write_config,
@@ -381,7 +381,7 @@ static int u4_pcie_write_config(struct pci_bus *bus, unsigned int devfn,
         return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops u4_pcie_pci_ops =
+static struct pci_ops u4_pcie_pci_ops =
 {
 	.read = u4_pcie_read_config,
 	.write = u4_pcie_write_config,

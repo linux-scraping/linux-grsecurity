@@ -89,7 +89,7 @@ static ssize_t pn544_test(struct device *dev,
 
 static int pn544_enable(struct pn544_info *info, int mode)
 {
-	const struct pn544_nfc_platform_data *pdata;
+	struct pn544_nfc_platform_data *pdata;
 	struct i2c_client *client = info->i2c_dev;
 
 	int r;
@@ -118,7 +118,7 @@ static int pn544_enable(struct pn544_info *info, int mode)
 
 static void pn544_disable(struct pn544_info *info)
 {
-	const struct pn544_nfc_platform_data *pdata;
+	struct pn544_nfc_platform_data *pdata;
 	struct i2c_client *client = info->i2c_dev;
 
 	pdata = client->dev.platform_data;
@@ -509,7 +509,7 @@ static long pn544_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct pn544_info *info = container_of(file->private_data,
 					       struct pn544_info, miscdev);
 	struct i2c_client *client = info->i2c_dev;
-	const struct pn544_nfc_platform_data *pdata;
+	struct pn544_nfc_platform_data *pdata;
 	unsigned int val;
 	int r = 0;
 
@@ -715,7 +715,7 @@ static int __devinit pn544_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
 	struct pn544_info *info;
-	const struct pn544_nfc_platform_data *pdata;
+	struct pn544_nfc_platform_data *pdata;
 	int r = 0;
 
 	dev_dbg(&client->dev, "%s\n", __func__);

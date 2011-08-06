@@ -33,7 +33,7 @@ struct xen_pci_frontend_ops {
 	void (*disable_msix)(struct pci_dev *dev);
 };
 
-extern const struct xen_pci_frontend_ops *xen_pci_frontend;
+extern struct xen_pci_frontend_ops *xen_pci_frontend;
 
 static inline int xen_pci_frontend_enable_msi(struct pci_dev *dev,
 					      int vectors[])

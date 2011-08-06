@@ -603,9 +603,8 @@ void radeon_ttm_set_active_vram_size(struct radeon_device *rdev, u64 size)
 	man->size = size >> PAGE_SHIFT;
 }
 
-extern int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
-extern void ttm_bo_vm_open(struct vm_area_struct *vma);
-extern void ttm_bo_vm_close(struct vm_area_struct *vma);
+static struct vm_operations_struct radeon_ttm_vm_ops;
+static const struct vm_operations_struct *ttm_vm_ops = NULL;
 
 static int radeon_ttm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
@@ -613,21 +612,16 @@ static int radeon_ttm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct radeon_device *rdev;
 	int r;
 
-	bo = (struct ttm_buffer_object *)vma->vm_private_data;
-	if (!bo)
+	bo = (struct ttm_buffer_object *)vma->vm_private_data;	
+	if (bo == NULL) {
 		return VM_FAULT_NOPAGE;
+	}
 	rdev = radeon_get_rdev(bo->bdev);
 	mutex_lock(&rdev->vram_mutex);
-	r = ttm_bo_vm_fault(vma, vmf);
+	r = ttm_vm_ops->fault(vma, vmf);
 	mutex_unlock(&rdev->vram_mutex);
 	return r;
 }
-
-static const struct vm_operations_struct radeon_ttm_vm_ops = {
-	.fault = radeon_ttm_fault,
-	.open = ttm_bo_vm_open,
-	.close = ttm_bo_vm_close
-};
 
 int radeon_mmap(struct file *filp, struct vm_area_struct *vma)
 {
@@ -641,11 +635,20 @@ int radeon_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	file_priv = filp->private_data;
 	rdev = file_priv->minor->dev->dev_private;
-	if (!rdev)
+	if (rdev == NULL) {
 		return -EINVAL;
+	}
 	r = ttm_bo_mmap(filp, vma, &rdev->mman.bdev);
-	if (r)
+	if (unlikely(r != 0)) {
 		return r;
+	}
+	if (unlikely(ttm_vm_ops == NULL)) {
+		ttm_vm_ops = vma->vm_ops;
+		pax_open_kernel();
+		memcpy((void *)&radeon_ttm_vm_ops, ttm_vm_ops, sizeof(radeon_ttm_vm_ops));
+		*(void **)&radeon_ttm_vm_ops.fault = &radeon_ttm_fault;
+		pax_close_kernel();
+	}
 	vma->vm_ops = &radeon_ttm_vm_ops;
 	return 0;
 }

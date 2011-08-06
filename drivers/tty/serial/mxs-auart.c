@@ -499,7 +499,7 @@ static void mxs_auart_enable_ms(struct uart_port *port)
 	/* just empty */
 }
 
-static const struct uart_ops mxs_auart_ops = {
+static struct uart_ops mxs_auart_ops = {
 	.tx_empty       = mxs_auart_tx_empty,
 	.start_tx       = mxs_auart_start_tx,
 	.stop_tx	= mxs_auart_stop_tx,

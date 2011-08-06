@@ -913,7 +913,7 @@ static bool rtl_usb_tx_chk_waitq_insert(struct ieee80211_hw *hw,
 	return false;
 }
 
-static const struct rtl_intf_ops rtl_usb_ops = {
+static struct rtl_intf_ops rtl_usb_ops = {
 	.adapter_start = rtl_usb_start,
 	.adapter_stop = rtl_usb_stop,
 	.adapter_tx = rtl_usb_tx,

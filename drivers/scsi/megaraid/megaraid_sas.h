@@ -1330,7 +1330,7 @@ struct megasas_instance {
 	atomic_t fw_outstanding;
 	atomic_t fw_reset_no_pci_access;
 
-	const struct megasas_instance_template *instancet;
+	struct megasas_instance_template *instancet;
 	struct tasklet_struct isr_tasklet;
 	struct work_struct work_init;
 

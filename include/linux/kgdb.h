@@ -241,8 +241,8 @@ extern void kgdb_arch_late(void);
  * hardware debug registers.
  */
 struct kgdb_arch {
-	unsigned char		gdb_bpt_instr[BREAK_INSTR_SIZE];
-	unsigned long		flags;
+	const unsigned char	gdb_bpt_instr[BREAK_INSTR_SIZE];
+	const unsigned long	flags;
 
 	int	(*set_breakpoint)(unsigned long, char *);
 	int	(*remove_breakpoint)(unsigned long, char *);
@@ -268,23 +268,23 @@ struct kgdb_arch {
  * not a console
  */
 struct kgdb_io {
-	const char		*name;
-	int			(* const read_char) (void);
-	void			(* const write_char) (u8);
-	void			(* const flush) (void);
-	int			(* const init) (void);
-	void			(* const pre_exception) (void);
-	void			(* const post_exception) (void);
-	int			is_console;
+	const char * const	name;
+	int			(*read_char) (void);
+	void			(*write_char) (u8);
+	void			(*flush) (void);
+	int			(*init) (void);
+	void			(*pre_exception) (void);
+	void			(*post_exception) (void);
+	const int		is_console;
 };
 
-extern const struct kgdb_arch arch_kgdb_ops;
+extern struct kgdb_arch		arch_kgdb_ops;
 
 extern unsigned long __weak kgdb_arch_pc(int exception, struct pt_regs *regs);
 
-extern int kgdb_register_io_module(const struct kgdb_io *local_kgdb_io_ops);
-extern void kgdb_unregister_io_module(const struct kgdb_io *local_kgdb_io_ops);
-extern const struct kgdb_io *dbg_io_ops;
+extern int kgdb_register_io_module(struct kgdb_io *local_kgdb_io_ops);
+extern void kgdb_unregister_io_module(struct kgdb_io *local_kgdb_io_ops);
+extern struct kgdb_io *dbg_io_ops;
 
 extern int kgdb_hex2long(char **ptr, unsigned long *long_val);
 extern char *kgdb_mem2hex(char *mem, char *buf, int count);

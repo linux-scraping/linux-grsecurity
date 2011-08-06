@@ -728,7 +728,7 @@ static void serial_m3110_enable_ms(struct uart_port *port)
 {
 }
 
-const struct uart_ops serial_m3110_ops = {
+struct uart_ops serial_m3110_ops = {
 	.tx_empty	= serial_m3110_tx_empty,
 	.set_mctrl	= serial_m3110_set_mctrl,
 	.get_mctrl	= serial_m3110_get_mctrl,

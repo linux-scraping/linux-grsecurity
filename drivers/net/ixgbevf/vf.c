@@ -368,7 +368,7 @@ static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
 	return 0;
 }
 
-static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
+static struct ixgbe_mac_operations ixgbevf_mac_ops = {
 	.init_hw             = ixgbevf_init_hw_vf,
 	.reset_hw            = ixgbevf_reset_hw_vf,
 	.start_hw            = ixgbevf_start_hw_vf,
@@ -381,12 +381,12 @@ static const struct ixgbe_mac_operations ixgbevf_mac_ops = {
 	.set_vfta            = ixgbevf_set_vfta_vf,
 };
 
-const struct ixgbevf_info ixgbevf_82599_vf_info = {
+struct ixgbevf_info ixgbevf_82599_vf_info = {
 	.mac = ixgbe_mac_82599_vf,
 	.mac_ops = &ixgbevf_mac_ops,
 };
 
-const struct ixgbevf_info ixgbevf_X540_vf_info = {
+struct ixgbevf_info ixgbevf_X540_vf_info = {
 	.mac = ixgbe_mac_X540_vf,
 	.mac_ops = &ixgbevf_mac_ops,
 };

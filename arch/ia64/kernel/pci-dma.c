@@ -43,7 +43,7 @@ struct device fallback_dev = {
 	.dma_mask = &fallback_dev.coherent_dma_mask,
 };
 
-extern const struct dma_map_ops intel_dma_ops;
+extern struct dma_map_ops intel_dma_ops;
 
 static int __init pci_iommu_init(void)
 {

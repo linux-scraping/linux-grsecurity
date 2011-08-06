@@ -63,7 +63,7 @@ static int bf5xx_board_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_soc_ops bf5xx_board_ops = {
+static struct snd_soc_ops bf5xx_board_ops = {
 	.startup = bf5xx_board_startup,
 };
 

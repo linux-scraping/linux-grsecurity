@@ -14,7 +14,7 @@
 
 #define DMA_ERROR_CODE 0
 
-extern const struct dma_map_ops *dma_ops;
+extern struct dma_map_ops *dma_ops;
 extern struct ia64_machine_vector ia64_mv;
 extern void set_iommu_machvec(void);
 
@@ -26,7 +26,7 @@ extern void machvec_dma_sync_sg(struct device *, struct scatterlist *, int,
 static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 				       dma_addr_t *daddr, gfp_t gfp)
 {
-	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	void *caddr;
 
 	caddr = ops->alloc_coherent(dev, size, daddr, gfp);
@@ -37,7 +37,7 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
 static inline void dma_free_coherent(struct device *dev, size_t size,
 				     void *caddr, dma_addr_t daddr)
 {
-	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	debug_dma_free_coherent(dev, size, caddr, daddr);
 	ops->free_coherent(dev, size, caddr, daddr);
 }
@@ -51,13 +51,13 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
 
 static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
 {
-	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	return ops->mapping_error(dev, daddr);
 }
 
 static inline int dma_supported(struct device *dev, u64 mask)
 {
-	const struct dma_map_ops *ops = platform_dma_get_ops(dev);
+	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 	return ops->dma_supported(dev, mask);
 }
 

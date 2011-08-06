@@ -106,7 +106,7 @@ static int saarb_i2s_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static const struct snd_soc_ops saarb_i2s_ops = {
+static struct snd_soc_ops saarb_i2s_ops = {
 	.hw_params	= saarb_i2s_hw_params,
 };
 

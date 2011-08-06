@@ -62,7 +62,7 @@ static int sdp4430_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static const struct snd_soc_ops sdp4430_ops = {
+static struct snd_soc_ops sdp4430_ops = {
 	.hw_params = sdp4430_hw_params,
 };
 

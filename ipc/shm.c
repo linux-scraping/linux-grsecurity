@@ -467,17 +467,18 @@ static inline int shm_more_checks(struct kern_ipc_perm *ipcp,
 	return 0;
 }
 
+static struct ipc_ops shm_ops = {
+	.getnew		= newseg,
+	.associate	= shm_security,
+	.more_checks	= shm_more_checks
+};
+
 SYSCALL_DEFINE3(shmget, key_t, key, size_t, size, int, shmflg)
 {
 	struct ipc_namespace *ns;
-	struct ipc_ops shm_ops;
 	struct ipc_params shm_params;
 
 	ns = current->nsproxy->ipc_ns;
-
-	shm_ops.getnew = newseg;
-	shm_ops.associate = shm_security;
-	shm_ops.more_checks = shm_more_checks;
 
 	shm_params.key = key;
 	shm_params.flg = shmflg;

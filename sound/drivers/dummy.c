@@ -350,7 +350,7 @@ static void dummy_systimer_free(struct snd_pcm_substream *substream)
 	kfree(substream->runtime->private_data);
 }
 
-static const struct dummy_timer_ops dummy_systimer_ops = {
+static struct dummy_timer_ops dummy_systimer_ops = {
 	.create =	dummy_systimer_create,
 	.free =		dummy_systimer_free,
 	.prepare =	dummy_systimer_prepare,
@@ -474,7 +474,7 @@ static void dummy_hrtimer_free(struct snd_pcm_substream *substream)
 	kfree(dpcm);
 }
 
-static const struct dummy_timer_ops dummy_hrtimer_ops = {
+static struct dummy_timer_ops dummy_hrtimer_ops = {
 	.create =	dummy_hrtimer_create,
 	.free =		dummy_hrtimer_free,
 	.prepare =	dummy_hrtimer_prepare,
@@ -660,7 +660,7 @@ static struct page *dummy_pcm_page(struct snd_pcm_substream *substream,
 	return virt_to_page(dummy_page[substream->stream]); /* the same page */
 }
 
-static const struct snd_pcm_ops dummy_pcm_ops = {
+static struct snd_pcm_ops dummy_pcm_ops = {
 	.open =		dummy_pcm_open,
 	.close =	dummy_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -671,7 +671,7 @@ static const struct snd_pcm_ops dummy_pcm_ops = {
 	.pointer =	dummy_pcm_pointer,
 };
 
-static const struct snd_pcm_ops dummy_pcm_ops_no_buf = {
+static struct snd_pcm_ops dummy_pcm_ops_no_buf = {
 	.open =		dummy_pcm_open,
 	.close =	dummy_pcm_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -689,7 +689,7 @@ static int __devinit snd_card_dummy_pcm(struct snd_dummy *dummy, int device,
 					int substreams)
 {
 	struct snd_pcm *pcm;
-	const struct snd_pcm_ops *ops;
+	struct snd_pcm_ops *ops;
 	int err;
 
 	err = snd_pcm_new(dummy->card, "Dummy PCM", device,

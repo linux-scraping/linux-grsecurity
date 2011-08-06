@@ -74,7 +74,7 @@ static int edb93xx_hw_params(struct snd_pcm_substream *substream,
 				      SND_SOC_CLOCK_OUT);
 }
 
-static const struct snd_soc_ops edb93xx_ops = {
+static struct snd_soc_ops edb93xx_ops = {
 	.hw_params	= edb93xx_hw_params,
 };
 

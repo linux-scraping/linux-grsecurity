@@ -168,12 +168,12 @@ struct sunhv_ops {
 	int (*receive_chars)(struct uart_port *port, struct tty_struct *tty);
 };
 
-static const struct sunhv_ops bychar_ops = {
+static struct sunhv_ops bychar_ops = {
 	.transmit_chars = transmit_chars_putchar,
 	.receive_chars = receive_chars_getchar,
 };
 
-static const struct sunhv_ops bywrite_ops = {
+static struct sunhv_ops bywrite_ops = {
 	.transmit_chars = transmit_chars_write,
 	.receive_chars = receive_chars_read,
 };
@@ -370,7 +370,7 @@ static int sunhv_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return -EINVAL;
 }
 
-static const struct uart_ops sunhv_pops = {
+static struct uart_ops sunhv_pops = {
 	.tx_empty	= sunhv_tx_empty,
 	.set_mctrl	= sunhv_set_mctrl,
 	.get_mctrl	= sunhv_get_mctrl,

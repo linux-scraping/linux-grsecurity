@@ -16,39 +16,39 @@ enum dma_data_direction {
 };
 
 struct dma_map_ops {
-	void* (* const alloc_coherent)(struct device *dev, size_t size,
+	void* (*alloc_coherent)(struct device *dev, size_t size,
 				dma_addr_t *dma_handle, gfp_t gfp);
-	void (* const free_coherent)(struct device *dev, size_t size,
+	void (*free_coherent)(struct device *dev, size_t size,
 			      void *vaddr, dma_addr_t dma_handle);
-	dma_addr_t (* const map_page)(struct device *dev, struct page *page,
+	dma_addr_t (*map_page)(struct device *dev, struct page *page,
 			       unsigned long offset, size_t size,
 			       enum dma_data_direction dir,
 			       struct dma_attrs *attrs);
-	void (* const unmap_page)(struct device *dev, dma_addr_t dma_handle,
+	void (*unmap_page)(struct device *dev, dma_addr_t dma_handle,
 			   size_t size, enum dma_data_direction dir,
 			   struct dma_attrs *attrs);
-	int (* const map_sg)(struct device *dev, struct scatterlist *sg,
+	int (*map_sg)(struct device *dev, struct scatterlist *sg,
 		      int nents, enum dma_data_direction dir,
 		      struct dma_attrs *attrs);
-	void (* const unmap_sg)(struct device *dev,
+	void (*unmap_sg)(struct device *dev,
 			 struct scatterlist *sg, int nents,
 			 enum dma_data_direction dir,
 			 struct dma_attrs *attrs);
-	void (* const sync_single_for_cpu)(struct device *dev,
+	void (*sync_single_for_cpu)(struct device *dev,
 				    dma_addr_t dma_handle, size_t size,
 				    enum dma_data_direction dir);
-	void (* const sync_single_for_device)(struct device *dev,
+	void (*sync_single_for_device)(struct device *dev,
 				       dma_addr_t dma_handle, size_t size,
 				       enum dma_data_direction dir);
-	void (* const sync_sg_for_cpu)(struct device *dev,
+	void (*sync_sg_for_cpu)(struct device *dev,
 				struct scatterlist *sg, int nents,
 				enum dma_data_direction dir);
-	void (* const sync_sg_for_device)(struct device *dev,
+	void (*sync_sg_for_device)(struct device *dev,
 				   struct scatterlist *sg, int nents,
 				   enum dma_data_direction dir);
-	int (* const mapping_error)(struct device *dev, dma_addr_t dma_addr);
-	int (* const dma_supported)(struct device *dev, u64 mask);
-	int (* set_dma_mask)(struct device *dev, u64 mask);
+	int (*mapping_error)(struct device *dev, dma_addr_t dma_addr);
+	int (*dma_supported)(struct device *dev, u64 mask);
+	int (*set_dma_mask)(struct device *dev, u64 mask);
 	const int is_phys;
 };
 

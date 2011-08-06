@@ -161,7 +161,7 @@ enclosure_register(struct device *dev, const char *name, int components,
 }
 EXPORT_SYMBOL_GPL(enclosure_register);
 
-static const struct enclosure_component_callbacks enclosure_null_callbacks;
+static struct enclosure_component_callbacks enclosure_null_callbacks;
 
 /**
  * enclosure_unregister - remove an enclosure

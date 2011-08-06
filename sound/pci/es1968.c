@@ -1682,7 +1682,7 @@ static int snd_es1968_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_pcm_ops snd_es1968_playback_ops = {
+static struct snd_pcm_ops snd_es1968_playback_ops = {
 	.open =		snd_es1968_playback_open,
 	.close =	snd_es1968_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1693,7 +1693,7 @@ static const struct snd_pcm_ops snd_es1968_playback_ops = {
 	.pointer =	snd_es1968_pcm_pointer,
 };
 
-static const struct snd_pcm_ops snd_es1968_capture_ops = {
+static struct snd_pcm_ops snd_es1968_capture_ops = {
 	.open =		snd_es1968_capture_open,
 	.close =	snd_es1968_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -2053,7 +2053,7 @@ snd_es1968_mixer(struct es1968 *chip)
 	struct snd_ctl_elem_id elem_id;
 #endif
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_es1968_ac97_write,
 		.read = snd_es1968_ac97_read,
 	};
@@ -2627,7 +2627,7 @@ static int __devinit snd_es1968_create(struct snd_card *card,
 				       int do_pm,
 				       struct es1968 **chip_ret)
 {
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_es1968_dev_free,
 	};
 	struct es1968 *chip;

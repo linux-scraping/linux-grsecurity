@@ -218,7 +218,7 @@ static int macrisc_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops macrisc_pci_ops =
+static struct pci_ops macrisc_pci_ops =
 {
 	.read = macrisc_read_config,
 	.write = macrisc_write_config,
@@ -273,7 +273,7 @@ chaos_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	return macrisc_write_config(bus, devfn, offset, len, val);
 }
 
-static const struct pci_ops chaos_pci_ops =
+static struct pci_ops chaos_pci_ops =
 {
 	.read = chaos_read_config,
 	.write = chaos_write_config,

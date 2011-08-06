@@ -109,7 +109,7 @@ static struct resource sh7786_pci2_resources[] = {
 	},
 };
 
-extern const struct pci_ops sh7786_pci_ops;
+extern struct pci_ops sh7786_pci_ops;
 
 #define DEFINE_CONTROLLER(start, idx)					\
 {									\

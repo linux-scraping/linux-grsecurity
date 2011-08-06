@@ -221,7 +221,7 @@ static int it8152_pci_write_config(struct pci_bus *bus,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops it8152_ops = {
+static struct pci_ops it8152_ops = {
 	.read = it8152_pci_read_config,
 	.write = it8152_pci_write_config,
 };

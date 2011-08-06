@@ -179,13 +179,13 @@ static void calioc2_dump_error_regs(struct iommu_table *tbl);
 static void calgary_init_bitmap_from_tce_table(struct iommu_table *tbl);
 static void get_tce_space_from_tar(void);
 
-static const struct cal_chipset_ops calgary_chip_ops = {
+static struct cal_chipset_ops calgary_chip_ops = {
 	.handle_quirks = calgary_handle_quirks,
 	.tce_cache_blast = calgary_tce_cache_blast,
 	.dump_error_regs = calgary_dump_error_regs
 };
 
-static const struct cal_chipset_ops calioc2_chip_ops = {
+static struct cal_chipset_ops calioc2_chip_ops = {
 	.handle_quirks = calioc2_handle_quirks,
 	.tce_cache_blast = calioc2_tce_cache_blast,
 	.dump_error_regs = calioc2_dump_error_regs
@@ -476,7 +476,7 @@ static void calgary_free_coherent(struct device *dev, size_t size,
 	free_pages((unsigned long)vaddr, get_order(size));
 }
 
-static const struct dma_map_ops calgary_dma_ops = {
+static struct dma_map_ops calgary_dma_ops = {
 	.alloc_coherent = calgary_alloc_coherent,
 	.free_coherent = calgary_free_coherent,
 	.map_sg = calgary_map_sg,

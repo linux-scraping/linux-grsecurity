@@ -273,7 +273,7 @@ static void rdc_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 	pci_write_config_byte(dev, 0x48, udma_enable);
 }
 
-static const struct ata_port_operations rdc_pata_ops = {
+static struct ata_port_operations rdc_pata_ops = {
 	.inherits		= &ata_bmdma32_port_ops,
 	.cable_detect		= rdc_pata_cable_detect,
 	.set_piomode		= rdc_set_piomode,

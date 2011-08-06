@@ -1124,7 +1124,7 @@ static void generic_hdmi_free(struct hda_codec *codec)
 	kfree(spec);
 }
 
-static const struct hda_codec_ops generic_hdmi_patch_ops = {
+static struct hda_codec_ops generic_hdmi_patch_ops = {
 	.init			= generic_hdmi_init,
 	.free			= generic_hdmi_free,
 	.build_pcms		= generic_hdmi_build_pcms,
@@ -1465,14 +1465,14 @@ static struct hda_pcm_stream nvhdmi_pcm_playback_2ch = {
 	},
 };
 
-static const struct hda_codec_ops nvhdmi_patch_ops_8ch_7x = {
+static struct hda_codec_ops nvhdmi_patch_ops_8ch_7x = {
 	.build_controls = generic_hdmi_build_controls,
 	.build_pcms = generic_hdmi_build_pcms,
 	.init = nvhdmi_7x_init,
 	.free = generic_hdmi_free,
 };
 
-static const struct hda_codec_ops nvhdmi_patch_ops_2ch = {
+static struct hda_codec_ops nvhdmi_patch_ops_2ch = {
 	.build_controls = generic_hdmi_build_controls,
 	.build_pcms = generic_hdmi_build_pcms,
 	.init = nvhdmi_7x_init,
@@ -1599,7 +1599,7 @@ static int atihdmi_init(struct hda_codec *codec)
 	return 0;
 }
 
-static const struct hda_codec_ops atihdmi_patch_ops = {
+static struct hda_codec_ops atihdmi_patch_ops = {
 	.build_controls = generic_hdmi_build_controls,
 	.build_pcms = generic_hdmi_build_pcms,
 	.init = atihdmi_init,

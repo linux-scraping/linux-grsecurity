@@ -36,7 +36,7 @@
 
 #include "pci-vr41xx.h"
 
-extern const struct pci_ops vr41xx_pci_ops;
+extern struct pci_ops vr41xx_pci_ops;
 
 static void __iomem *pciu_base;
 

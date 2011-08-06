@@ -552,12 +552,12 @@ struct rtl8169_private {
 	struct mdio_ops {
 		void (*write)(void __iomem *, int, int);
 		int (*read)(void __iomem *, int);
-	} mdio_ops;
+	} __no_const mdio_ops;
 
 	struct pll_power_ops {
 		void (*down)(struct rtl8169_private *);
 		void (*up)(struct rtl8169_private *);
-	} pll_power_ops;
+	} __no_const pll_power_ops;
 
 	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
 	int (*get_settings)(struct net_device *, struct ethtool_cmd *);

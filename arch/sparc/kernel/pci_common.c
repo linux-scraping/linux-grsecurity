@@ -249,7 +249,7 @@ static int sun4u_write_pci_cfg(struct pci_bus *bus_dev, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops sun4u_pci_ops = {
+struct pci_ops sun4u_pci_ops = {
 	.read =		sun4u_read_pci_cfg,
 	.write =	sun4u_write_pci_cfg,
 };
@@ -310,7 +310,7 @@ static int sun4v_write_pci_cfg(struct pci_bus *bus_dev, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-const struct pci_ops sun4v_pci_ops = {
+struct pci_ops sun4v_pci_ops = {
 	.read =		sun4v_read_pci_cfg,
 	.write =	sun4v_write_pci_cfg,
 };

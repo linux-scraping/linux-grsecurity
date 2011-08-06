@@ -60,7 +60,7 @@ int __write_once tile_plx_gen1;
 static struct pci_controller controllers[TILE_NUM_PCIE];
 static int num_controllers;
 
-static const struct pci_ops tile_cfg_ops;
+static struct pci_ops tile_cfg_ops;
 
 
 /*
@@ -563,7 +563,7 @@ static int __devinit tile_cfg_write(struct pci_bus *bus,
 }
 
 
-static const struct pci_ops tile_cfg_ops = {
+static struct pci_ops tile_cfg_ops = {
 	.read =         tile_cfg_read,
 	.write =        tile_cfg_write,
 };

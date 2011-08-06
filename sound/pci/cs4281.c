@@ -947,7 +947,7 @@ static int snd_cs4281_capture_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static const struct snd_pcm_ops snd_cs4281_playback_ops = {
+static struct snd_pcm_ops snd_cs4281_playback_ops = {
 	.open =		snd_cs4281_playback_open,
 	.close =	snd_cs4281_playback_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -958,7 +958,7 @@ static const struct snd_pcm_ops snd_cs4281_playback_ops = {
 	.pointer =	snd_cs4281_pointer,
 };
 
-static const struct snd_pcm_ops snd_cs4281_capture_ops = {
+static struct snd_pcm_ops snd_cs4281_capture_ops = {
 	.open =		snd_cs4281_capture_open,
 	.close =	snd_cs4281_capture_close,
 	.ioctl =	snd_pcm_lib_ioctl,
@@ -1098,7 +1098,7 @@ static int __devinit snd_cs4281_mixer(struct cs4281 * chip)
 	struct snd_card *card = chip->card;
 	struct snd_ac97_template ac97;
 	int err;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_cs4281_ac97_write,
 		.read = snd_cs4281_ac97_read,
 	};
@@ -1343,7 +1343,7 @@ static int __devinit snd_cs4281_create(struct snd_card *card,
 	struct cs4281 *chip;
 	unsigned int tmp;
 	int err;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free =	snd_cs4281_dev_free,
 	};
 
@@ -1765,13 +1765,15 @@ static void snd_cs4281_midi_output_trigger(struct snd_rawmidi_substream *substre
 	spin_unlock_irqrestore(&chip->reg_lock, flags);
 }
 
-static const struct snd_rawmidi_ops snd_cs4281_midi_output = {
+static struct snd_rawmidi_ops snd_cs4281_midi_output =
+{
 	.open =		snd_cs4281_midi_output_open,
 	.close =	snd_cs4281_midi_output_close,
 	.trigger =	snd_cs4281_midi_output_trigger,
 };
 
-static const struct snd_rawmidi_ops snd_cs4281_midi_input = {
+static struct snd_rawmidi_ops snd_cs4281_midi_input =
+{
 	.open = 	snd_cs4281_midi_input_open,
 	.close =	snd_cs4281_midi_input_close,
 	.trigger =	snd_cs4281_midi_input_trigger,

@@ -43,7 +43,7 @@ module_param(noinit, int, 0444);
 static int useaa = 1;
 module_param(useaa, int, 0444);
 
-static const struct dcon_platform_data *pdata;
+static struct dcon_platform_data *pdata;
 
 /* I2C structures */
 

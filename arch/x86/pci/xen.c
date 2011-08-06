@@ -62,7 +62,7 @@ static int acpi_register_gsi_xen_hvm(struct device *dev, u32 gsi,
 #include <linux/msi.h>
 #include <asm/msidef.h>
 
-const struct xen_pci_frontend_ops *xen_pci_frontend;
+struct xen_pci_frontend_ops *xen_pci_frontend;
 EXPORT_SYMBOL_GPL(xen_pci_frontend);
 
 #define XEN_PIRQ_MSI_DATA  (MSI_DATA_TRIGGER_EDGE | \

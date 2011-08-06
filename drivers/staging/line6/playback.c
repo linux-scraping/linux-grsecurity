@@ -536,7 +536,7 @@ snd_line6_playback_pointer(struct snd_pcm_substream *substream)
 }
 
 /* playback operators */
-const struct snd_pcm_ops snd_line6_playback_ops = {
+struct snd_pcm_ops snd_line6_playback_ops = {
 	.open = snd_line6_playback_open,
 	.close = snd_line6_playback_close,
 	.ioctl = snd_pcm_lib_ioctl,

@@ -103,7 +103,7 @@ struct pxa3xx_gcu_priv {
 	dma_addr_t		  shared_phys;
 	struct resource		 *resource_mem;
 	struct miscdevice	  misc_dev;
-	const struct file_operations	  misc_fops;
+	struct file_operations	  misc_fops;
 	wait_queue_head_t	  wait_idle;
 	wait_queue_head_t	  wait_free;
 	spinlock_t		  spinlock;

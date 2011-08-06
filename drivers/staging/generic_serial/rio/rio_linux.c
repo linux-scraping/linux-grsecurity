@@ -221,7 +221,7 @@ module_param(rio_poll, int, 0);
 module_param(rio_debug, int, 0644);
 module_param(rio_irqmask, long, 0);
 
-static const struct real_driver rio_real_driver = {
+static struct real_driver rio_real_driver = {
 	rio_disable_tx_interrupts,
 	rio_enable_tx_interrupts,
 	rio_disable_rx_interrupts,

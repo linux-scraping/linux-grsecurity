@@ -2254,7 +2254,7 @@ static int via_check_power_status(struct hda_codec *codec, hda_nid_t nid)
 
 /*
  */
-static const struct hda_codec_ops via_patch_ops = {
+static struct hda_codec_ops via_patch_ops = {
 	.build_controls = via_build_controls,
 	.build_pcms = via_build_pcms,
 	.init = via_init,

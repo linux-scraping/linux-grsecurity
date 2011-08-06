@@ -289,7 +289,7 @@ static int playpaq_wm8510_hw_params(struct snd_pcm_substream *substream,
 
 
 
-static const struct snd_soc_ops playpaq_wm8510_ops = {
+static struct snd_soc_ops playpaq_wm8510_ops = {
 	.hw_params = playpaq_wm8510_hw_params,
 };
 

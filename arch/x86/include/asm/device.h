@@ -6,7 +6,7 @@ struct dev_archdata {
 	void	*acpi_handle;
 #endif
 #ifdef CONFIG_X86_64
-	const struct dma_map_ops *dma_ops;
+struct dma_map_ops *dma_ops;
 #endif
 #if defined(CONFIG_DMAR) || defined(CONFIG_AMD_IOMMU)
 	void *iommu; /* hook for IOMMU specific extension */

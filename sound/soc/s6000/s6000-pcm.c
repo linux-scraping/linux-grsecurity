@@ -420,7 +420,7 @@ static int s6000_pcm_hw_free(struct snd_pcm_substream *substream)
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static const struct snd_pcm_ops s6000_pcm_ops = {
+static struct snd_pcm_ops s6000_pcm_ops = {
 	.open = 	s6000_pcm_open,
 	.close = 	s6000_pcm_close,
 	.ioctl = 	snd_pcm_lib_ioctl,

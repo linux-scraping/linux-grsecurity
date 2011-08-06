@@ -41,7 +41,7 @@
 
 static struct svc_program	nlmsvc_program;
 
-const struct nlmsvc_binding *	nlmsvc_ops;
+struct nlmsvc_binding *		nlmsvc_ops;
 EXPORT_SYMBOL_GPL(nlmsvc_ops);
 
 static DEFINE_MUTEX(nlmsvc_mutex);

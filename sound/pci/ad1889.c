@@ -574,7 +574,7 @@ snd_ad1889_capture_pointer(struct snd_pcm_substream *ss)
 	return bytes_to_frames(ss->runtime, ptr);
 }
 
-static const struct snd_pcm_ops snd_ad1889_playback_ops = {
+static struct snd_pcm_ops snd_ad1889_playback_ops = {
 	.open = snd_ad1889_playback_open,
 	.close = snd_ad1889_playback_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -585,7 +585,7 @@ static const struct snd_pcm_ops snd_ad1889_playback_ops = {
 	.pointer = snd_ad1889_playback_pointer, 
 };
 
-static const struct snd_pcm_ops snd_ad1889_capture_ops = {
+static struct snd_pcm_ops snd_ad1889_capture_ops = {
 	.open = snd_ad1889_capture_open,
 	.close = snd_ad1889_capture_close,
 	.ioctl = snd_pcm_lib_ioctl,
@@ -809,7 +809,7 @@ snd_ad1889_ac97_init(struct snd_ad1889 *chip, const char *quirk_override)
 {
 	int err;
 	struct snd_ac97_template ac97;
-	static const struct snd_ac97_bus_ops ops = {
+	static struct snd_ac97_bus_ops ops = {
 		.write = snd_ad1889_ac97_write,
 		.read = snd_ad1889_ac97_read,
 	};
@@ -899,7 +899,7 @@ snd_ad1889_create(struct snd_card *card,
 	int err;
 
 	struct snd_ad1889 *chip;
-	static const struct snd_device_ops ops = {
+	static struct snd_device_ops ops = {
 		.dev_free = snd_ad1889_dev_free,
 	};
 

@@ -786,7 +786,7 @@ static int sdhci_pci_enable_dma(struct sdhci_host *host)
 	return 0;
 }
 
-static const struct sdhci_ops sdhci_pci_ops = {
+static struct sdhci_ops sdhci_pci_ops = {
 	.enable_dma	= sdhci_pci_enable_dma,
 };
 

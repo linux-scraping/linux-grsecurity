@@ -117,13 +117,13 @@ struct neighbour {
 };
 
 struct neigh_ops {
-	int			family;
-	void			(* const solicit)(struct neighbour *, struct sk_buff*);
-	void			(* const error_report)(struct neighbour *, struct sk_buff*);
-	int			(* const output)(struct sk_buff*);
-	int			(* const connected_output)(struct sk_buff*);
-	int			(* const hh_output)(struct sk_buff*);
-	int			(* const queue_xmit)(struct sk_buff*);
+	const int		family;
+	void			(*solicit)(struct neighbour *, struct sk_buff*);
+	void			(*error_report)(struct neighbour *, struct sk_buff*);
+	int			(*output)(struct sk_buff*);
+	int			(*connected_output)(struct sk_buff*);
+	int			(*hh_output)(struct sk_buff*);
+	int			(*queue_xmit)(struct sk_buff*);
 };
 
 struct pneigh_entry {

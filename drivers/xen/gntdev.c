@@ -340,7 +340,7 @@ static void gntdev_vma_close(struct vm_area_struct *vma)
 	gntdev_put_map(map);
 }
 
-static const struct vm_operations_struct gntdev_vmops = {
+static struct vm_operations_struct gntdev_vmops = {
 	.close = gntdev_vma_close,
 };
 
@@ -404,7 +404,7 @@ static void mn_release(struct mmu_notifier *mn,
 	spin_unlock(&priv->lock);
 }
 
-const struct mmu_notifier_ops gntdev_mmu_ops = {
+struct mmu_notifier_ops gntdev_mmu_ops = {
 	.release                = mn_release,
 	.invalidate_page        = mn_invl_page,
 	.invalidate_range_start = mn_invl_range_start,

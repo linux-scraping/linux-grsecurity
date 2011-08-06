@@ -204,7 +204,7 @@ static struct page *go7007_snd_pcm_page(struct snd_pcm_substream *substream,
 	return vmalloc_to_page(substream->runtime->dma_area + offset);
 }
 
-static const struct snd_pcm_ops go7007_snd_capture_ops = {
+static struct snd_pcm_ops go7007_snd_capture_ops = {
 	.open		= go7007_snd_capture_open,
 	.close		= go7007_snd_capture_close,
 	.ioctl		= snd_pcm_lib_ioctl,
@@ -227,7 +227,7 @@ static int go7007_snd_free(struct snd_device *device)
 	return 0;
 }
 
-static const struct snd_device_ops go7007_snd_device_ops = {
+static struct snd_device_ops go7007_snd_device_ops = {
 	.dev_free	= go7007_snd_free,
 };
 

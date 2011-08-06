@@ -138,7 +138,7 @@ struct crypt_config {
 	char *cipher;
 	char *cipher_string;
 
-	const struct crypt_iv_operations *iv_gen_ops;
+	struct crypt_iv_operations *iv_gen_ops;
 	union {
 		struct iv_essiv_private essiv;
 		struct iv_benbi_private benbi;
@@ -620,15 +620,15 @@ static int crypt_iv_lmk_post(struct crypt_config *cc, u8 *iv,
 	return r;
 }
 
-static const struct crypt_iv_operations crypt_iv_plain_ops = {
+static struct crypt_iv_operations crypt_iv_plain_ops = {
 	.generator = crypt_iv_plain_gen
 };
 
-static const struct crypt_iv_operations crypt_iv_plain64_ops = {
+static struct crypt_iv_operations crypt_iv_plain64_ops = {
 	.generator = crypt_iv_plain64_gen
 };
 
-static const struct crypt_iv_operations crypt_iv_essiv_ops = {
+static struct crypt_iv_operations crypt_iv_essiv_ops = {
 	.ctr       = crypt_iv_essiv_ctr,
 	.dtr       = crypt_iv_essiv_dtr,
 	.init      = crypt_iv_essiv_init,
@@ -636,17 +636,17 @@ static const struct crypt_iv_operations crypt_iv_essiv_ops = {
 	.generator = crypt_iv_essiv_gen
 };
 
-static const struct crypt_iv_operations crypt_iv_benbi_ops = {
+static struct crypt_iv_operations crypt_iv_benbi_ops = {
 	.ctr	   = crypt_iv_benbi_ctr,
 	.dtr	   = crypt_iv_benbi_dtr,
 	.generator = crypt_iv_benbi_gen
 };
 
-static const struct crypt_iv_operations crypt_iv_null_ops = {
+static struct crypt_iv_operations crypt_iv_null_ops = {
 	.generator = crypt_iv_null_gen
 };
 
-static const struct crypt_iv_operations crypt_iv_lmk_ops = {
+static struct crypt_iv_operations crypt_iv_lmk_ops = {
 	.ctr	   = crypt_iv_lmk_ctr,
 	.dtr	   = crypt_iv_lmk_dtr,
 	.init	   = crypt_iv_lmk_init,

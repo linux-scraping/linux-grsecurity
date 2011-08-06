@@ -43,7 +43,7 @@ static struct resource pci_mem_resource = {
 	.flags = IORESOURCE_MEM,
 };
 
-extern const struct pci_ops emma2rh_pci_ops;
+extern struct pci_ops emma2rh_pci_ops;
 
 static struct pci_controller emma2rh_pci_controller = {
 	.pci_ops = &emma2rh_pci_ops,

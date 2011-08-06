@@ -461,7 +461,7 @@ snd_seq_midisynth_unregister_port(struct snd_seq_device *dev)
 
 static int __init alsa_seq_midi_init(void)
 {
-	static const struct snd_seq_dev_ops ops = {
+	static struct snd_seq_dev_ops ops = {
 		snd_seq_midisynth_register_port,
 		snd_seq_midisynth_unregister_port,
 	};

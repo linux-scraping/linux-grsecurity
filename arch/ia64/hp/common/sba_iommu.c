@@ -2097,7 +2097,7 @@ static struct acpi_driver acpi_sba_ioc_driver = {
 	},
 };
 
-extern const struct dma_map_ops swiotlb_dma_ops;
+extern struct dma_map_ops swiotlb_dma_ops;
 
 static int __init
 sba_init(void)
@@ -2211,7 +2211,7 @@ sba_page_override(char *str)
 
 __setup("sbapagesize=",sba_page_override);
 
-const struct dma_map_ops sba_dma_ops = {
+struct dma_map_ops sba_dma_ops = {
 	.alloc_coherent		= sba_alloc_coherent,
 	.free_coherent		= sba_free_coherent,
 	.map_page		= sba_map_page,

@@ -371,7 +371,7 @@ static int pci_bios_write(unsigned int seg, unsigned int bus,
  * Function table for BIOS32 access
  */
 
-static const struct pci_raw_ops pci_bios_access = {
+static struct pci_raw_ops pci_bios_access = {
 	.read =		pci_bios_read,
 	.write =	pci_bios_write
 };
@@ -380,7 +380,7 @@ static const struct pci_raw_ops pci_bios_access = {
  * Try to find PCI BIOS.
  */
 
-static const struct pci_raw_ops * __devinit pci_find_bios(void)
+static struct pci_raw_ops * __devinit pci_find_bios(void)
 {
 	union bios32 *check;
 	unsigned char sum;

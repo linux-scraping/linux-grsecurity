@@ -56,7 +56,7 @@ static int imote2_asoc_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static const struct snd_soc_ops imote2_asoc_ops = {
+static struct snd_soc_ops imote2_asoc_ops = {
 	.hw_params = imote2_asoc_hw_params,
 };
 

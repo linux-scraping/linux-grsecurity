@@ -234,7 +234,7 @@ static int celleb_fake_pci_write_config(struct pci_bus *bus,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops celleb_fake_pci_ops = {
+static struct pci_ops celleb_fake_pci_ops = {
 	.read = celleb_fake_pci_read_config,
 	.write = celleb_fake_pci_write_config,
 };

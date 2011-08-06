@@ -151,7 +151,7 @@ struct dw_spi {
 	int			dma_chan_done;
 	struct device		*dma_dev;
 	dma_addr_t		dma_addr; /* phy address of the Data register */
-	const struct dw_spi_dma_ops	*dma_ops;
+	struct dw_spi_dma_ops	*dma_ops;
 	void			*dma_priv; /* platform relate info */
 	struct pci_dev		*dmac;
 

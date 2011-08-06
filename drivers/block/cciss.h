@@ -100,7 +100,7 @@ struct ctlr_info
 	/* information about each logical volume */
 	drive_info_struct *drv[CISS_MAX_LUN];
 
-	struct access_method access;
+	struct access_method *access;
 
 	/* queue and queue Info */ 
 	struct list_head reqQ;
@@ -393,7 +393,7 @@ static bool SA5_performant_intr_pending(ctlr_info_t *h)
 	return register_value & SA5_OUTDB_STATUS_PERF_BIT;
 }
 
-static const struct access_method SA5_access = {
+static struct access_method SA5_access = {
 	SA5_submit_command,
 	SA5_intr_mask,
 	SA5_fifo_full,
@@ -401,7 +401,7 @@ static const struct access_method SA5_access = {
 	SA5_completed,
 };
 
-static const struct access_method SA5B_access = {
+static struct access_method SA5B_access = {
         SA5_submit_command,
         SA5B_intr_mask,
         SA5_fifo_full,
@@ -409,7 +409,7 @@ static const struct access_method SA5B_access = {
         SA5_completed,
 };
 
-static const struct access_method SA5_performant_access = {
+static struct access_method SA5_performant_access = {
 	SA5_submit_command,
 	SA5_performant_intr_mask,
 	SA5_fifo_full,
@@ -420,7 +420,7 @@ static const struct access_method SA5_performant_access = {
 struct board_type {
 	__u32	board_id;
 	char	*product_name;
-	const struct access_method *access;
+	struct access_method *access;
 	int nr_cmds; /* Max cmds this kind of ctlr can handle. */
 };
 

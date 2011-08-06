@@ -69,6 +69,7 @@ struct ixgbe_mac_operations {
 	s32 (*clear_vfta)(struct ixgbe_hw *);
 	s32 (*set_vfta)(struct ixgbe_hw *, u32, u32, bool);
 };
+typedef struct ixgbe_mac_operations __no_const ixgbe_mac_operations_no_const;
 
 enum ixgbe_mac_type {
 	ixgbe_mac_unknown = 0,
@@ -78,7 +79,7 @@ enum ixgbe_mac_type {
 };
 
 struct ixgbe_mac_info {
-	struct ixgbe_mac_operations ops;
+	ixgbe_mac_operations_no_const ops;
 	u8 addr[6];
 	u8 perm_addr[6];
 
@@ -102,6 +103,7 @@ struct ixgbe_mbx_operations {
 	s32 (*check_for_ack)(struct ixgbe_hw *);
 	s32 (*check_for_rst)(struct ixgbe_hw *);
 };
+typedef struct ixgbe_mbx_operations __no_const ixgbe_mbx_operations_no_const;
 
 struct ixgbe_mbx_stats {
 	u32 msgs_tx;
@@ -113,7 +115,7 @@ struct ixgbe_mbx_stats {
 };
 
 struct ixgbe_mbx_info {
-	struct ixgbe_mbx_operations ops;
+	ixgbe_mbx_operations_no_const ops;
 	struct ixgbe_mbx_stats stats;
 	u32 timeout;
 	u32 udelay;
@@ -166,7 +168,7 @@ struct ixgbevf_hw_stats {
 
 struct ixgbevf_info {
 	enum ixgbe_mac_type		mac;
-	const struct ixgbe_mac_operations	*mac_ops;
+	struct ixgbe_mac_operations	*mac_ops;
 };
 
 #endif /* __IXGBE_VF_H__ */

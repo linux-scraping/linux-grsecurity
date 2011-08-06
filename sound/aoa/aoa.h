@@ -122,8 +122,8 @@ extern struct snd_card *aoa_get_card(void);
 extern int aoa_snd_ctl_add(struct snd_kcontrol* control);
 
 /* GPIO stuff */
-extern const struct gpio_methods *pmf_gpio_methods;
-extern const struct gpio_methods *ftr_gpio_methods;
+extern struct gpio_methods *pmf_gpio_methods;
+extern struct gpio_methods *ftr_gpio_methods;
 /* extern struct gpio_methods *map_gpio_methods; */
 
 #endif /* __AOA_H */

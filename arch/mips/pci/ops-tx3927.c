@@ -121,7 +121,7 @@ static int tx3927_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	return check_abort();
 }
 
-static const struct pci_ops tx3927_pci_ops = {
+static struct pci_ops tx3927_pci_ops = {
 	.read = tx3927_pci_read_config,
 	.write = tx3927_pci_write_config,
 };

@@ -652,7 +652,7 @@ void fw_card_release(struct kref *kref)
 
 void fw_core_remove_card(struct fw_card *card)
 {
-	struct fw_card_driver dummy_driver = dummy_driver_template;
+	fw_card_driver_no_const dummy_driver = dummy_driver_template;
 
 	card->driver->update_phy_reg(card, 4,
 				     PHY_LINK_ACTIVE | PHY_CONTENDER, 0);

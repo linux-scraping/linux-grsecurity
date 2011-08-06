@@ -140,7 +140,7 @@ indirect_write_config(struct pci_bus *bus, unsigned int devfn, int offset,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops indirect_pci_ops = {
+static struct pci_ops indirect_pci_ops = {
 	.read = indirect_read_config,
 	.write = indirect_write_config,
 };

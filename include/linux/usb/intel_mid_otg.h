@@ -115,7 +115,7 @@ struct intel_mid_otg_xceiv {
 	void __iomem		*base;
 
 	/* ops to access ulpi */
-	const struct iotg_ulpi_access_ops ulpi_ops;
+	struct iotg_ulpi_access_ops	ulpi_ops;
 
 	/* atomic notifier for interrupt context */
 	struct atomic_notifier_head	iotg_notifier;

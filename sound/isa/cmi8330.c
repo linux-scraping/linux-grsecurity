@@ -172,7 +172,7 @@ struct snd_cmi8330 {
 
 	struct snd_pcm *pcm;
 	struct snd_cmi8330_stream {
-		struct snd_pcm_ops ops;
+		snd_pcm_ops_no_const ops;
 		snd_pcm_open_callback_t open;
 		void *private_data; /* sb or wss */
 	} streams[2];

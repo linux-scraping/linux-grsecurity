@@ -149,7 +149,7 @@ static int rtas_pci_write_config(struct pci_bus *bus,
 	return PCIBIOS_DEVICE_NOT_FOUND;
 }
 
-static const struct pci_ops rtas_pci_ops = {
+static struct pci_ops rtas_pci_ops = {
 	.read = rtas_pci_read_config,
 	.write = rtas_pci_write_config,
 };

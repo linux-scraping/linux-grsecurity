@@ -494,7 +494,7 @@ static int snd_intelmad_device_set(struct snd_kcontrol *kcontrol,
 	struct snd_intelmad *intelmaddata;
 	struct snd_pmic_ops *scard_ops;
 	int ret_val = 0, vendor, status;
-	const struct intel_sst_pcm_control *pcm_control;
+	struct intel_sst_pcm_control *pcm_control;
 
 	pr_debug("snd_intelmad_device_set called\n");
 

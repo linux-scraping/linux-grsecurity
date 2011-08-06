@@ -215,7 +215,9 @@ static int inject_init(void)
 	if (!alloc_cpumask_var(&mce_inject_cpumask, GFP_KERNEL))
 		return -ENOMEM;
 	printk(KERN_INFO "Machine check injector initialized\n");
-	mce_chrdev_ops.write = mce_write;
+	pax_open_kernel();
+	*(void **)&mce_chrdev_ops.write = mce_write;
+	pax_close_kernel();
 	register_die_notifier(&mce_raise_nb);
 	return 0;
 }

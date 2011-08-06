@@ -421,7 +421,7 @@ static u32 ipheth_ethtool_op_get_link(struct net_device *net)
 	return netif_carrier_ok(dev->net);
 }
 
-static const struct ethtool_ops ops = {
+static struct ethtool_ops ops = {
 	.get_link = ipheth_ethtool_op_get_link
 };
 

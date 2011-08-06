@@ -239,7 +239,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
 	struct e1000_mac_info *mac = &hw->mac;
-	struct e1000_mac_operations *func = &mac->ops;	/* cannot be const */
+	e1000_mac_operations_no_const *func = &mac->ops;
 	u32 swsm = 0;
 	u32 swsm2 = 0;
 	bool force_clear_smbi = false;
@@ -1930,7 +1930,7 @@ static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw)
 	er32(ICRXDMTC);
 }
 
-static const struct e1000_mac_operations e82571_mac_ops = {
+static struct e1000_mac_operations e82571_mac_ops = {
 	/* .check_mng_mode: mac type dependent */
 	/* .check_for_link: media type dependent */
 	.id_led_init		= e1000e_id_led_init,
@@ -1952,7 +1952,7 @@ static const struct e1000_mac_operations e82571_mac_ops = {
 	.read_mac_addr		= e1000_read_mac_addr_82571,
 };
 
-static const struct e1000_phy_operations e82_phy_ops_igp = {
+static struct e1000_phy_operations e82_phy_ops_igp = {
 	.acquire		= e1000_get_hw_semaphore_82571,
 	.check_polarity		= e1000_check_polarity_igp,
 	.check_reset_block	= e1000e_check_reset_block_generic,
@@ -1970,7 +1970,7 @@ static const struct e1000_phy_operations e82_phy_ops_igp = {
 	.cfg_on_link_up      	= NULL,
 };
 
-static const struct e1000_phy_operations e82_phy_ops_m88 = {
+static struct e1000_phy_operations e82_phy_ops_m88 = {
 	.acquire		= e1000_get_hw_semaphore_82571,
 	.check_polarity		= e1000_check_polarity_m88,
 	.check_reset_block	= e1000e_check_reset_block_generic,
@@ -1988,7 +1988,7 @@ static const struct e1000_phy_operations e82_phy_ops_m88 = {
 	.cfg_on_link_up      	= NULL,
 };
 
-static const struct e1000_phy_operations e82_phy_ops_bm = {
+static struct e1000_phy_operations e82_phy_ops_bm = {
 	.acquire		= e1000_get_hw_semaphore_82571,
 	.check_polarity		= e1000_check_polarity_m88,
 	.check_reset_block	= e1000e_check_reset_block_generic,
@@ -2006,7 +2006,7 @@ static const struct e1000_phy_operations e82_phy_ops_bm = {
 	.cfg_on_link_up      	= NULL,
 };
 
-static const struct e1000_nvm_operations e82571_nvm_ops = {
+static struct e1000_nvm_operations e82571_nvm_ops = {
 	.acquire		= e1000_acquire_nvm_82571,
 	.read			= e1000e_read_nvm_eerd,
 	.release		= e1000_release_nvm_82571,

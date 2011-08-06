@@ -426,7 +426,7 @@ int cyasblkdev_revalidate_disk(struct gendisk *gd)
 
 
 /*standard block device driver interface */
-static const struct block_device_operations cyasblkdev_bdops = {
+static struct block_device_operations cyasblkdev_bdops = {
 	.open			= cyasblkdev_blk_open,
 	.release		= cyasblkdev_blk_release,
 	.ioctl			= cyasblkdev_blk_ioctl,

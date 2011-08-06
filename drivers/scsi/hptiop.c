@@ -1226,7 +1226,7 @@ static void hptiop_remove(struct pci_dev *pcidev)
 	scsi_host_put(host);
 }
 
-static const struct hptiop_adapter_ops hptiop_itl_ops = {
+static struct hptiop_adapter_ops hptiop_itl_ops = {
 	.iop_wait_ready    = iop_wait_ready_itl,
 	.internal_memalloc = NULL,
 	.internal_memfree  = NULL,
@@ -1241,7 +1241,7 @@ static const struct hptiop_adapter_ops hptiop_itl_ops = {
 	.post_req          = hptiop_post_req_itl,
 };
 
-static const struct hptiop_adapter_ops hptiop_mv_ops = {
+static struct hptiop_adapter_ops hptiop_mv_ops = {
 	.iop_wait_ready    = iop_wait_ready_mv,
 	.internal_memalloc = hptiop_internal_memalloc_mv,
 	.internal_memfree  = hptiop_internal_memfree_mv,

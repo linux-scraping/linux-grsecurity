@@ -845,7 +845,7 @@ replay_fork_event(struct trace_fork_event *fork_event,
 	register_pid(fork_event->child_pid, fork_event->child_comm);
 }
 
-static const struct trace_sched_handler replay_ops = {
+static struct trace_sched_handler replay_ops  = {
 	.wakeup_event		= replay_wakeup_event,
 	.switch_event		= replay_switch_event,
 	.fork_event		= replay_fork_event,
@@ -1183,7 +1183,7 @@ latency_migrate_task_event(struct trace_migrate_task_event *migrate_task_event,
 		nr_unordered_timestamps++;
 }
 
-static const struct trace_sched_handler lat_ops = {
+static struct trace_sched_handler lat_ops  = {
 	.wakeup_event		= latency_wakeup_event,
 	.switch_event		= latency_switch_event,
 	.runtime_event		= latency_runtime_event,
@@ -1353,7 +1353,7 @@ static void sort_lat(void)
 	}
 }
 
-static const struct trace_sched_handler *trace_handler;
+static struct trace_sched_handler *trace_handler;
 
 static void
 process_sched_wakeup_event(void *data, struct perf_session *session,
@@ -1719,7 +1719,7 @@ static void __cmd_lat(void)
 
 }
 
-static const struct trace_sched_handler map_ops = {
+static struct trace_sched_handler map_ops  = {
 	.wakeup_event		= NULL,
 	.switch_event		= map_switch_event,
 	.runtime_event		= NULL,

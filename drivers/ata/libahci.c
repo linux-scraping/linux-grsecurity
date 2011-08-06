@@ -141,7 +141,7 @@ struct device_attribute *ahci_sdev_attrs[] = {
 };
 EXPORT_SYMBOL_GPL(ahci_sdev_attrs);
 
-const struct ata_port_operations ahci_ops = {
+struct ata_port_operations ahci_ops = {
 	.inherits		= &sata_pmp_port_ops,
 
 	.qc_defer		= ahci_pmp_qc_defer,

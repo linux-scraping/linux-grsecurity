@@ -106,7 +106,7 @@ static int evb3_i2s_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static const struct snd_soc_ops evb3_i2s_ops = {
+static struct snd_soc_ops evb3_i2s_ops = {
 	.hw_params	= evb3_i2s_hw_params,
 };
 

@@ -44,6 +44,7 @@ struct snd_urb_ops {
 	int (*prepare_sync)(struct snd_usb_substream *subs, struct snd_pcm_runtime *runtime, struct urb *u);
 	int (*retire_sync)(struct snd_usb_substream *subs, struct snd_pcm_runtime *runtime, struct urb *u);
 };
+typedef struct snd_urb_ops __no_const snd_urb_ops_no_const;
 
 struct snd_usb_substream {
 	struct snd_usb_stream *stream;
@@ -93,7 +94,7 @@ struct snd_usb_substream {
 	struct snd_pcm_hw_constraint_list rate_list;	/* limited rates */
 	spinlock_t lock;
 
-	struct snd_urb_ops ops;		/* callbacks (must be filled at init) */
+	snd_urb_ops_no_const ops;		/* callbacks (must be filled at init) */
 };
 
 struct snd_usb_stream {

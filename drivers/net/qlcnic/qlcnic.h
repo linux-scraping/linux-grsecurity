@@ -1037,7 +1037,7 @@ struct qlcnic_adapter {
 	struct vlan_group *vlgrp;
 	struct qlcnic_npar_info *npars;
 	struct qlcnic_eswitch *eswitch;
-	const struct qlcnic_nic_template *nic_ops;
+	struct qlcnic_nic_template *nic_ops;
 
 	struct qlcnic_adapter_stats stats;
 

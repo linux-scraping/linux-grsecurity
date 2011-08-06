@@ -231,7 +231,7 @@ static long radio_si4713_default(struct file *file, void *p,
 							ioctl, cmd, arg);
 }
 
-static const struct v4l2_ioctl_ops radio_si4713_ioctl_ops = {
+static struct v4l2_ioctl_ops radio_si4713_ioctl_ops = {
 	.vidioc_enumaudout	= radio_si4713_enumaudout,
 	.vidioc_g_audout	= radio_si4713_g_audout,
 	.vidioc_s_audout	= radio_si4713_s_audout,

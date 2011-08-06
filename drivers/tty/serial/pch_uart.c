@@ -1351,7 +1351,7 @@ static int pch_uart_verify_port(struct uart_port *port,
 	return 0;
 }
 
-static const struct uart_ops pch_uart_ops = {
+static struct uart_ops pch_uart_ops = {
 	.tx_empty = pch_uart_tx_empty,
 	.set_mctrl = pch_uart_set_mctrl,
 	.get_mctrl = pch_uart_get_mctrl,

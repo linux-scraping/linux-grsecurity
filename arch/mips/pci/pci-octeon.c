@@ -334,7 +334,7 @@ static int octeon_write_config(struct pci_bus *bus, unsigned int devfn,
 }
 
 
-static const struct pci_ops octeon_pci_ops = {
+static struct pci_ops octeon_pci_ops = {
 	octeon_read_config,
 	octeon_write_config,
 };

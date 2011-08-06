@@ -1181,7 +1181,7 @@ static ssize_t fuse_dev_do_read(struct fuse_conn *fc, struct file *file,
 	return err;
 }
 
-ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
+static ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
 			      unsigned long nr_segs, loff_t pos)
 {
 	struct fuse_copy_state cs;
@@ -1194,8 +1194,6 @@ ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
 
 	return fuse_dev_do_read(fc, file, &cs, iov_length(iov, nr_segs));
 }
-
-EXPORT_SYMBOL_GPL(fuse_dev_read);
 
 static int fuse_dev_pipe_buf_steal(struct pipe_inode_info *pipe,
 				   struct pipe_buffer *buf)
@@ -1733,7 +1731,7 @@ static ssize_t fuse_dev_do_write(struct fuse_conn *fc,
 	return err;
 }
 
-ssize_t fuse_dev_write(struct kiocb *iocb, const struct iovec *iov,
+static ssize_t fuse_dev_write(struct kiocb *iocb, const struct iovec *iov,
 			      unsigned long nr_segs, loff_t pos)
 {
 	struct fuse_copy_state cs;
@@ -1745,8 +1743,6 @@ ssize_t fuse_dev_write(struct kiocb *iocb, const struct iovec *iov,
 
 	return fuse_dev_do_write(fc, &cs, iov_length(iov, nr_segs));
 }
-
-EXPORT_SYMBOL_GPL(fuse_dev_write);
 
 static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 				     struct file *out, loff_t *ppos,
@@ -1826,7 +1822,7 @@ out:
 	return ret;
 }
 
-unsigned fuse_dev_poll(struct file *file, poll_table *wait)
+static unsigned fuse_dev_poll(struct file *file, poll_table *wait)
 {
 	unsigned mask = POLLOUT | POLLWRNORM;
 	struct fuse_conn *fc = fuse_get_conn(file);
@@ -1844,8 +1840,6 @@ unsigned fuse_dev_poll(struct file *file, poll_table *wait)
 
 	return mask;
 }
-
-EXPORT_SYMBOL_GPL(fuse_dev_poll);
 
 /*
  * Abort all requests on the given list (pending or processing)
@@ -1983,7 +1977,7 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 }
 EXPORT_SYMBOL_GPL(fuse_dev_release);
 
-int fuse_dev_fasync(int fd, struct file *file, int on)
+static int fuse_dev_fasync(int fd, struct file *file, int on)
 {
 	struct fuse_conn *fc = fuse_get_conn(file);
 	if (!fc)
@@ -1992,8 +1986,6 @@ int fuse_dev_fasync(int fd, struct file *file, int on)
 	/* No locking - fasync_helper does its own locking */
 	return fasync_helper(fd, file, on, &fc->fasync);
 }
-
-EXPORT_SYMBOL_GPL(fuse_dev_fasync);
 
 const struct file_operations fuse_dev_operations = {
 	.owner		= THIS_MODULE,

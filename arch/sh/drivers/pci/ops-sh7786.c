@@ -165,7 +165,7 @@ out:
 	return ret;
 }
 
-const struct pci_ops sh7786_pci_ops = {
+struct pci_ops sh7786_pci_ops = {
 	.read	= sh7786_pcie_read,
 	.write	= sh7786_pcie_write,
 };

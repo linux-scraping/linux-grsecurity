@@ -129,7 +129,7 @@ dc21285_write_config(struct pci_bus *bus, unsigned int devfn, int where,
 	return PCIBIOS_SUCCESSFUL;
 }
 
-static const struct pci_ops dc21285_ops = {
+static struct pci_ops dc21285_ops = {
 	.read	= dc21285_read_config,
 	.write	= dc21285_write_config,
 };

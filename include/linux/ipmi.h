@@ -282,7 +282,7 @@ struct ipmi_user_hndl {
 
 /* Create a new user of the IPMI layer on the given interface number. */
 int ipmi_create_user(unsigned int          if_num,
-		     const struct ipmi_user_hndl *handler,
+		     struct ipmi_user_hndl *handler,
 		     void                  *handler_data,
 		     ipmi_user_t           *user);
 

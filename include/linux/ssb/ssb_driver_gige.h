@@ -44,7 +44,7 @@ struct ssb_gige {
 
 	/* The PCI controller device. */
 	struct pci_controller pci_controller;
-	const struct pci_ops pci_ops;
+	struct pci_ops pci_ops;
 	struct resource mem_resource;
 	struct resource io_resource;
 };

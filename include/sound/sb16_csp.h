@@ -139,7 +139,7 @@ struct snd_sb_csp_ops {
 	int (*csp_start) (struct snd_sb_csp * p, int sample_width, int channels);
 	int (*csp_stop) (struct snd_sb_csp * p);
 	int (*csp_qsound_transfer) (struct snd_sb_csp * p);
-};
+} __no_const;
 
 /*
  * CSP private data

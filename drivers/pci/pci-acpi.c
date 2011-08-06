@@ -332,7 +332,7 @@ static int acpi_pci_run_wake(struct pci_dev *dev, bool enable)
 	return 0;
 }
 
-static const struct pci_platform_pm_ops acpi_pci_platform_pm = {
+static struct pci_platform_pm_ops acpi_pci_platform_pm = {
 	.is_manageable = acpi_pci_power_manageable,
 	.set_state = acpi_pci_set_power_state,
 	.choose_state = acpi_pci_choose_state,

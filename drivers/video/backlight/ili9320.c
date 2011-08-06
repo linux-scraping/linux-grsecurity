@@ -166,7 +166,7 @@ static int ili9320_get_power(struct lcd_device *ld)
 	return lcd->power;
 }
 
-static const struct lcd_ops ili9320_ops = {
+static struct lcd_ops ili9320_ops = {
 	.get_power	= ili9320_get_power,
 	.set_power	= ili9320_set_power,
 };

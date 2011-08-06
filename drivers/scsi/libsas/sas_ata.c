@@ -307,7 +307,7 @@ static void sas_ata_post_internal(struct ata_queued_cmd *qc)
 	}
 }
 
-static const struct ata_port_operations sas_sata_ops = {
+static struct ata_port_operations sas_sata_ops = {
 	.prereset		= ata_std_prereset,
 	.softreset		= NULL,
 	.hardreset		= sas_ata_hard_reset,

@@ -276,7 +276,7 @@ static int config_write(struct pci_bus *bus, unsigned int devfn, int where, int 
 	}
 }
 
-const struct pci_ops pnx8550_pci_ops = {
+struct pci_ops pnx8550_pci_ops = {
 	config_read,
 	config_write
 };

@@ -108,7 +108,7 @@ static int pci_conf1_mq_write(unsigned int seg, unsigned int bus,
 
 #undef PCI_CONF1_MQ_ADDRESS
 
-static const struct pci_raw_ops pci_direct_conf1_mq = {
+static struct pci_raw_ops pci_direct_conf1_mq = {
 	.read	= pci_conf1_mq_read,
 	.write	= pci_conf1_mq_write
 };

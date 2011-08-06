@@ -1859,7 +1859,7 @@ out:
 	return status;
 }
 
-static const struct usb_ep_ops qe_ep_ops = {
+static struct usb_ep_ops qe_ep_ops = {
 	.enable = qe_ep_enable,
 	.disable = qe_ep_disable,
 
@@ -1928,7 +1928,7 @@ static int qe_pullup(struct usb_gadget *gadget, int is_on)
 }
 
 /* defined in usb_gadget.h */
-static const struct usb_gadget_ops qe_gadget_ops = {
+static struct usb_gadget_ops qe_gadget_ops = {
 	.get_frame = qe_get_frame,
 	.wakeup = qe_wakeup,
 /*	.set_selfpowered = qe_set_selfpowered,*/ /* always selfpowered */

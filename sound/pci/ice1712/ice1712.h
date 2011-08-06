@@ -269,7 +269,7 @@ struct snd_ak4xxx_private {
 	unsigned int mask_flags;	/* total mask bits */
 	struct snd_akm4xxx_ops {
 		void (*set_rate_val)(struct snd_akm4xxx *ak, unsigned int rate);
-	} ops;
+	} __no_const ops;
 };
 
 struct snd_ice1712_spdif {
@@ -285,7 +285,7 @@ struct snd_ice1712_spdif {
 		int (*default_put)(struct snd_ice1712 *, struct snd_ctl_elem_value *ucontrol);
 		void (*stream_get)(struct snd_ice1712 *, struct snd_ctl_elem_value *ucontrol);
 		int (*stream_put)(struct snd_ice1712 *, struct snd_ctl_elem_value *ucontrol);
-	} ops;
+	} __no_const ops;
 };
 
 

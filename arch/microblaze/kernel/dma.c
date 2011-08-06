@@ -134,7 +134,7 @@ static inline void dma_direct_unmap_page(struct device *dev,
 	__dma_sync_page(dma_address, 0 , size, direction);
 }
 
-const struct dma_map_ops dma_direct_ops = {
+struct dma_map_ops dma_direct_ops = {
 	.alloc_coherent	= dma_direct_alloc_coherent,
 	.free_coherent	= dma_direct_free_coherent,
 	.map_sg		= dma_direct_map_sg,

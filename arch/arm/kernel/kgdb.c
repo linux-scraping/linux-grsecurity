@@ -246,7 +246,7 @@ void kgdb_arch_exit(void)
  * and we handle the normal undef case within the do_undefinstr
  * handler.
  */
-const struct kgdb_arch arch_kgdb_ops = {
+struct kgdb_arch arch_kgdb_ops = {
 #ifndef __ARMEB__
 	.gdb_bpt_instr		= {0xfe, 0xde, 0xff, 0xe7}
 #else /* ! __ARMEB__ */

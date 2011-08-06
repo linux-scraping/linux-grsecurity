@@ -88,7 +88,7 @@ struct snd_device {
 	snd_device_state_t state;	/* state of the device */
 	snd_device_type_t type;		/* device type */
 	void *device_data;		/* device structure */
-	const struct snd_device_ops *ops;	/* operations */
+	struct snd_device_ops *ops;	/* operations */
 };
 
 #define snd_device(n) list_entry(n, struct snd_device, list)
@@ -301,7 +301,7 @@ int snd_card_file_remove(struct snd_card *card, struct file *file);
 /* device.c */
 
 int snd_device_new(struct snd_card *card, snd_device_type_t type,
-		   void *device_data, const struct snd_device_ops *ops);
+		   void *device_data, struct snd_device_ops *ops);
 int snd_device_register(struct snd_card *card, void *device_data);
 int snd_device_register_all(struct snd_card *card);
 int snd_device_disconnect(struct snd_card *card, void *device_data);

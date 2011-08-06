@@ -946,7 +946,7 @@ sunsu_type(struct uart_port *port)
 	return uart_config[type].name;
 }
 
-static const struct uart_ops sunsu_pops = {
+static struct uart_ops sunsu_pops = {
 	.tx_empty	= sunsu_tx_empty,
 	.set_mctrl	= sunsu_set_mctrl,
 	.get_mctrl	= sunsu_get_mctrl,
