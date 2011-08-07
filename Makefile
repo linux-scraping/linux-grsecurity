@@ -541,11 +541,11 @@ gcc-plugins:
 else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-	$(Q)echo "warning, your gcc installation does not support plugins, perhaps the necessary headers are missing?"
+	$(error Your gcc installation does not support plugins.  If the necessary headers for plugin support are missing, they should be installed.  On Debian, apt-get install gcc-<ver>-plugin-dev.))
 else
 	$(Q)echo "warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least"
 endif
-	$(Q)echo "PAX_MEMORY_STACKLEAK and other  will be less secure"
+	$(Q)echo "PAX_MEMORY_STACKLEAK and constification will be less secure"
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
