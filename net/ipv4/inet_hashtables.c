@@ -22,6 +22,7 @@
 
 #include <net/inet_connection_sock.h>
 #include <net/inet_hashtables.h>
+#include <net/secure_seq.h>
 #include <net/ip.h>
 
 extern void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock *inet);
