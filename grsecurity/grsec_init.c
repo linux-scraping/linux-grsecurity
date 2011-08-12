@@ -13,7 +13,6 @@ int grsec_enable_link;
 int grsec_enable_dmesg;
 int grsec_enable_harden_ptrace;
 int grsec_enable_fifo;
-int grsec_enable_execve;
 int grsec_enable_execlog;
 int grsec_enable_signal;
 int grsec_enable_forkfail;
@@ -185,9 +184,6 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_FIFO
 	grsec_enable_fifo = 1;
-#endif
-#ifdef CONFIG_GRKERNSEC_EXECVE
-	grsec_enable_execve = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	grsec_enable_execlog = 1;

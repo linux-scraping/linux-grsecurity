@@ -272,7 +272,7 @@ static void bdi_task_init(struct backing_dev_info *bdi,
 	list_add_tail_rcu(&wb->list, &bdi->wb_list);
 	spin_unlock(&bdi->wb_lock);
 
-	tsk->flags |= PF_FLUSHER | PF_SWAPWRITE;
+	tsk->flags |= PF_SWAPWRITE;
 	set_freezable();
 
 	/*

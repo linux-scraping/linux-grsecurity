@@ -1491,6 +1491,25 @@ int compat_do_execve(char * filename,
 	struct files_struct *displaced;
 	bool clear_in_exec;
 	int retval;
+	const struct cred *cred = current_cred();
+
+	/*
+	 * We move the actual failure in case of RLIMIT_NPROC excess from
+	 * set*uid() to execve() because too many poorly written programs
+	 * don't check setuid() return code.  Here we additionally recheck
+	 * whether NPROC limit is still exceeded.
+	 */
+	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
+
+	if ((current->flags & PF_NPROC_EXCEEDED) &&
+	    atomic_read(&cred->user->processes) > current->signal->rlim[RLIMIT_NPROC].rlim_cur) {
+		retval = -EAGAIN;
+		goto out_ret;
+	}
+
+	/* We're below the limit (still or again), so we don't want to make
+	 * further execve() calls fail. */
+	current->flags &= ~PF_NPROC_EXCEEDED;
 
 	retval = unshare_files(&displaced);
 	if (retval)
@@ -1527,10 +1546,6 @@ int compat_do_execve(char * filename,
 		goto out_file;
 	}
 
-	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
-	retval = -EAGAIN;
-	if (gr_handle_nproc())
-		goto out_file;
 	retval = -EACCES;
 	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt))
 		goto out_file;

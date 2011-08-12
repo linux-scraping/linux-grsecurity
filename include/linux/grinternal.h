@@ -37,7 +37,6 @@ char *gr_to_filename3(const struct dentry *dentry,
 extern int grsec_enable_harden_ptrace;
 extern int grsec_enable_link;
 extern int grsec_enable_fifo;
-extern int grsec_enable_execve;
 extern int grsec_enable_shm;
 extern int grsec_enable_execlog;
 extern int grsec_enable_signal;

@@ -5,8 +5,8 @@
  * This gcc plugin constifies all structures which contain only function pointers and const fields.
  *
  * Usage:
- * $ gcc -I`gcc -print-file-name=plugin`/include -fPIC -shared -O2 -o const_plugin.so const_plugin.c
- * $ gcc -fplugin=const_plugin.so test.c  -O2
+ * $ gcc -I`gcc -print-file-name=plugin`/include -fPIC -shared -O2 -o constify_plugin.so constify_plugin.c
+ * $ gcc -fplugin=constify_plugin.so test.c  -O2
  */
 
 #include "gcc-plugin.h"
@@ -26,12 +26,54 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "20110706",
+	.version	= "20110721",
 	.help		= "no-constify\tturn off constification\n",
 };
 
+static bool walk_struct(tree node);
+
+static void deconstify_node(tree node)
+{
+	tree field;
+
+	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
+		enum tree_code code = TREE_CODE(TREE_TYPE(field));
+		if (code == RECORD_TYPE || code == UNION_TYPE)
+			deconstify_node(TREE_TYPE(field));
+		TREE_READONLY(field) = 0;
+		TREE_READONLY(TREE_TYPE(field)) = 0;
+	}
+}
+
 static tree handle_no_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
 {
+	if (TREE_CODE(*node) == FUNCTION_DECL) {
+		error("%qE attribute does not apply to functions", name);
+		*no_add_attrs = true;
+		return NULL_TREE;
+	}
+
+	if (DECL_P(*node) && lookup_attribute("no_const", TYPE_ATTRIBUTES(TREE_TYPE(*node)))) {
+		error("%qE attribute is already applied to the type" , name);
+		*no_add_attrs = true;
+		return NULL_TREE;
+	}
+
+	if (TREE_CODE(*node) == TYPE_DECL && !TREE_READONLY(TREE_TYPE(*node))) {
+		error("%qE attribute used on type that is not constified" , name);
+		*no_add_attrs = true;
+		return NULL_TREE;
+	}
+
+	if (TREE_CODE(*node) == TYPE_DECL) {
+		tree chain = TREE_CHAIN(TREE_TYPE(*node));
+		TREE_TYPE(*node) = copy_node(TREE_TYPE(*node));
+		TREE_CHAIN(TREE_TYPE(*node)) = copy_list(chain);
+		TREE_READONLY(TREE_TYPE(*node)) = 0;
+		deconstify_node(TREE_TYPE(*node));
+		return NULL_TREE;
+	}
+
 	return NULL_TREE;
 }
 
@@ -88,7 +130,7 @@ static bool walk_struct(tree node)
 
 	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
 		enum tree_code code = TREE_CODE(TREE_TYPE(field));
-		if (code == RECORD_TYPE) {
+		if (code == RECORD_TYPE || code == UNION_TYPE) {
 			if (!(walk_struct(TREE_TYPE(field))))
 				return false;
 		} else if (is_fptr(field) == false && !TREE_READONLY(field))

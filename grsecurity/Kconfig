@@ -24,7 +24,6 @@ config GRKERNSEC_LOW
 	bool "Low"
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_EXECVE
 	select GRKERNSEC_RANDNET
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_CHROOT
@@ -41,7 +40,6 @@ config GRKERNSEC_LOW
 
 	  - Linking restrictions
 	  - FIFO restrictions
-	  - Enforcing RLIMIT_NPROC on execve
 	  - Restricted dmesg
 	  - Enforced chdir("/") on chroot
 	  - Runtime module disabling
@@ -57,7 +55,6 @@ config GRKERNSEC_MEDIUM
 	select GRKERNSEC_CHROOT_SYSCTL
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_RANDNET
 	select GRKERNSEC_FORKFAIL
@@ -107,7 +104,6 @@ config GRKERNSEC_HIGH
 	bool "High"
 	select GRKERNSEC_LINK
 	select GRKERNSEC_FIFO
-	select GRKERNSEC_EXECVE
 	select GRKERNSEC_DMESG
 	select GRKERNSEC_FORKFAIL
 	select GRKERNSEC_TIME
@@ -773,14 +769,6 @@ endmenu
 
 menu "Executable Protections"
 depends on GRKERNSEC
-
-config GRKERNSEC_EXECVE
-	bool "Enforce RLIMIT_NPROC on execs"
-	help
-	  If you say Y here, users with a resource limit on processes will
-	  have the value checked during execve() calls.  The current system
-	  only checks the system limit during fork() calls.  If the sysctl option
-	  is enabled, a sysctl option with name "execve_limiting" is created.
 
 config GRKERNSEC_DMESG
 	bool "Dmesg(8) restriction"

@@ -1069,6 +1069,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		    !capable(CAP_SYS_RESOURCE) && !capable(CAP_SYS_ADMIN))
 			goto bad_fork_free;
 	}
+	current->flags &= ~PF_NPROC_EXCEEDED;
 
 	retval = copy_creds(p, clone_flags);
 	if (retval < 0)
