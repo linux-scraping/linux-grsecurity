@@ -898,8 +898,10 @@ static void reportdesc_callback(struct hv_device *dev, void *packet, u32 len)
 	if (hid_dev) {
 		DPRINT_INFO(INPUTVSC_DRV, "hid_device created");
 
-		hid_dev->ll_driver->open  = mousevsc_hid_open;
-		hid_dev->ll_driver->close = mousevsc_hid_close;
+		pax_open_kernel();
+		*(void **)&hid_dev->ll_driver->open  = mousevsc_hid_open;
+		*(void **)&hid_dev->ll_driver->close = mousevsc_hid_close;
+		pax_close_kernel();
 
 		hid_dev->bus = BUS_VIRTUAL;
 		hid_dev->vendor = input_device_ctx->device_info.vendor;
