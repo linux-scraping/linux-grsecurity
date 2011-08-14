@@ -230,8 +230,10 @@ int psb_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (unlikely(dev_priv->ttm_vm_ops == NULL)) {
 		dev_priv->ttm_vm_ops = (struct vm_operations_struct *)
 								vma->vm_ops;
-		psb_ttm_vm_ops = *vma->vm_ops;
-		psb_ttm_vm_ops.fault = &psb_ttm_fault;
+		pax_open_kernel();
+		memcpy((void *)&psb_ttm_vm_ops, vma->vm_ops, sizeof(psb_ttm_vm_ops));
+		*(void **)&psb_ttm_vm_ops.fault = &psb_ttm_fault;
+		pax_close_kernel();
 	}
 
 	vma->vm_ops = &psb_ttm_vm_ops;

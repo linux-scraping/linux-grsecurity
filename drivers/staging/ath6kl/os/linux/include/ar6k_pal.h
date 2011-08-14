@@ -30,7 +30,7 @@ typedef bool (*ar6k_pal_recv_pkt_t)(void *pHciPalInfo, void *skb);
 typedef struct ar6k_pal_config_s
 {
 	ar6k_pal_recv_pkt_t fpar6k_pal_recv_pkt;
-}ar6k_pal_config_t;
+} __no_const ar6k_pal_config_t;
 
 void register_pal_cb(ar6k_pal_config_t *palConfig_p);
 #endif /* _AR6K_PAL_H_ */

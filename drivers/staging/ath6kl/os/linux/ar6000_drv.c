@@ -384,7 +384,7 @@ static struct ar_cookie s_ar_cookie_mem[MAX_COOKIE_NUM];
         (((ar)->arTargetType == TARGET_TYPE_AR6003) ? AR6003_HOST_INTEREST_ITEM_ADDRESS(item) : 0))
 
 
-static struct net_device_ops ar6000_netdev_ops = {
+static net_device_ops_no_const ar6000_netdev_ops = {
     .ndo_init               = NULL,
     .ndo_open               = ar6000_open,
     .ndo_stop               = ar6000_close,

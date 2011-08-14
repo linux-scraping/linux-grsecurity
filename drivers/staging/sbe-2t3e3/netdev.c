@@ -51,7 +51,7 @@ int t3e3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	t3e3_if_config(sc, cmd_2t3e3, (char *)&param, &resp, &rlen);
 
 	if (rlen)
-		if (copy_to_user(data, &resp, rlen))
+		if (rlen > sizeof resp || copy_to_user(data, &resp, rlen))
 			return -EFAULT;
 
 	return 0;
