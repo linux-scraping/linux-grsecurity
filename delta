@@ -1,5 +1,5 @@
---- a/grsecurity-2.2.2-2.6.32.45-201108162042.patch
-+++ b/grsecurity-2.2.2-2.6.32.45-201108162042.patch
+--- a/grsecurity-2.2.2-2.6.32.45-201108162115.patch
++++ b/grsecurity-2.2.2-2.6.32.45-201108162115.patch
 @@ -1,283 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index e1efc400bed66095629a46c2229b5bf863434315..f313c01bd8aa6ebf37bb602ab0d8062c2f517c59 100644
@@ -26320,12 +26320,12 @@
 +@@ -8774,7 +8779,7 @@ static void init_sched_groups_power(int 
 @@ -66995,4 +65480,3 @@
 -diff --git a/kernel/signal.c b/kernel/signal.c
--index 2494827e42acd3450380026a2a5144474f2c616e..f4687d607e7c67216a6c507ea16a050a1aa0da34 100644
+-index 2494827e42acd3450380026a2a5144474f2c616e..cda80a0f5b7536e1fab0e9c5accfa9cf90f94536 100644
 ---- a/kernel/signal.c
 -+++ b/kernel/signal.c
 +diff -urNp linux-2.6.32.45/kernel/signal.c linux-2.6.32.45/kernel/signal.c
 +--- linux-2.6.32.45/kernel/signal.c	2011-04-17 17:00:52.000000000 -0400
-++++ linux-2.6.32.45/kernel/signal.c	2011-07-14 20:33:33.000000000 -0400
+++++ linux-2.6.32.45/kernel/signal.c	2011-08-16 21:15:58.000000000 -0400
 @@ -67014 +65498 @@
 -@@ -56,7 +56,7 @@ static int sig_handler_ignored(void __user *handler, int sig)
 +@@ -56,7 +56,7 @@ static int sig_handler_ignored(void __us
@@ -26336,24 +26336,24 @@
 -@@ -327,7 +330,7 @@ flush_signal_handlers(struct task_struct *t, int force_default)
 +@@ -327,7 +330,7 @@ flush_signal_handlers(struct task_struct
 @@ -67042 +65526 @@
--@@ -627,6 +630,12 @@ static int check_kill_permission(int sig, struct siginfo *info,
-+@@ -627,6 +630,12 @@ static int check_kill_permission(int sig
-@@ -67055 +65539 @@
--@@ -968,7 +977,7 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
-+@@ -968,7 +977,7 @@ __group_send_sig_info(int sig, struct si
-@@ -67064 +65548 @@
--@@ -1005,6 +1014,7 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
-+@@ -1005,6 +1014,7 @@ force_sig_info(int sig, struct siginfo *
-@@ -67072 +65556 @@
--@@ -1019,9 +1029,18 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
-+@@ -1019,9 +1029,18 @@ force_sig_info(int sig, struct siginfo *
-@@ -67091 +65575 @@
--@@ -1081,8 +1100,11 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
-+@@ -1081,8 +1100,11 @@ int group_send_sig_info(int sig, struct 
-@@ -67113 +65597 @@
--@@ -2275,7 +2299,15 @@ do_send_specific(pid_t tgid, pid_t pid, int sig, struct siginfo *info)
-+@@ -2275,7 +2299,15 @@ do_send_specific(pid_t tgid, pid_t pid, 
-@@ -67130,5 +65614,4 @@
+-@@ -627,6 +630,13 @@ static int check_kill_permission(int sig, struct siginfo *info,
++@@ -627,6 +630,13 @@ static int check_kill_permission(int sig
+@@ -67056 +65540 @@
+-@@ -968,7 +978,7 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
++@@ -968,7 +978,7 @@ __group_send_sig_info(int sig, struct si
+@@ -67065 +65549 @@
+-@@ -1005,6 +1015,7 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
++@@ -1005,6 +1015,7 @@ force_sig_info(int sig, struct siginfo *
+@@ -67073 +65557 @@
+-@@ -1019,9 +1030,18 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
++@@ -1019,9 +1030,18 @@ force_sig_info(int sig, struct siginfo *
+@@ -67092 +65576 @@
+-@@ -1081,8 +1101,11 @@ int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
++@@ -1081,8 +1101,11 @@ int group_send_sig_info(int sig, struct 
+@@ -67114 +65598 @@
+-@@ -2275,7 +2300,15 @@ do_send_specific(pid_t tgid, pid_t pid, int sig, struct siginfo *info)
++@@ -2275,7 +2300,15 @@ do_send_specific(pid_t tgid, pid_t pid, 
+@@ -67131,5 +65615,4 @@
 -diff --git a/kernel/smp.c b/kernel/smp.c
 -index aa9cff3cd1fa2e5a4d09a063ba0eb95bd67d82b8..631a0de48fe488b4c8fc80237f57ec3dc342c60a 100644
 ---- a/kernel/smp.c
@@ -26363,7 +26363,7 @@
 +--- linux-2.6.32.45/kernel/smp.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/smp.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -522,22 +522,22 @@ int smp_call_function(void (*func)(void 
-@@ -67161,5 +65644,4 @@
+@@ -67162,5 +65645,4 @@
 -diff --git a/kernel/softirq.c b/kernel/softirq.c
 -index 04a0252d7d240bde607adeadd1f57f3109db3ff4..580c5128b9c305b8561629b5149ae10908c4a16e 100644
 ---- a/kernel/softirq.c
@@ -26373,13 +26373,13 @@
 +--- linux-2.6.32.45/kernel/softirq.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/softirq.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -56,7 +56,7 @@ static struct softirq_action softirq_vec
-@@ -67206 +65688 @@
+@@ -67207 +65689 @@
 -@@ -419,7 +421,7 @@ void __tasklet_hi_schedule_first(struct tasklet_struct *t)
 +@@ -419,7 +421,7 @@ void __tasklet_hi_schedule_first(struct 
-@@ -67215 +65697 @@
+@@ -67216 +65698 @@
 -@@ -454,7 +456,7 @@ static void tasklet_action(struct softirq_action *a)
 +@@ -454,7 +456,7 @@ static void tasklet_action(struct softir
-@@ -67224,5 +65706,4 @@
+@@ -67225,5 +65707,4 @@
 -diff --git a/kernel/sys.c b/kernel/sys.c
 -index e9512b185801314850e6ace469d02248b63ad826..3c265dec4e34806092c2df4d278908839d7c139d 100644
 ---- a/kernel/sys.c
@@ -26389,28 +26389,28 @@
 +--- linux-2.6.32.45/kernel/sys.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/sys.c	2011-08-11 19:51:54.000000000 -0400
 +@@ -133,6 +133,12 @@ static int set_one_prio(struct task_stru
-@@ -67241 +65722 @@
+@@ -67242 +65723 @@
 -@@ -190,10 +196,10 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 +@@ -190,10 +196,10 @@ SYSCALL_DEFINE3(setpriority, int, which,
-@@ -67254 +65735 @@
+@@ -67255 +65736 @@
 -@@ -253,13 +259,13 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 +@@ -253,13 +259,13 @@ SYSCALL_DEFINE2(getpriority, int, which,
-@@ -67270 +65751 @@
+@@ -67271 +65752 @@
 -@@ -509,6 +515,9 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 +@@ -509,6 +515,9 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, g
-@@ -67315 +65796 @@
+@@ -67316 +65797 @@
 -@@ -627,6 +647,9 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 +@@ -627,6 +647,9 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, u
-@@ -67338 +65819 @@
+@@ -67339 +65820 @@
 -@@ -732,6 +761,9 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 +@@ -732,6 +761,9 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, 
-@@ -67348 +65829 @@
+@@ -67349 +65830 @@
 -@@ -800,6 +832,9 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 +@@ -800,6 +832,9 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, 
-@@ -67378 +65859 @@
+@@ -67379 +65860 @@
 -@@ -1454,7 +1495,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 +@@ -1454,7 +1495,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
-@@ -67387,4 +65868,3 @@
+@@ -67388,4 +65869,3 @@
 -diff --git a/kernel/sysctl.c b/kernel/sysctl.c
 -index b8bd058c5cd24b99cdbe899528e6794b81ce504a..ab6a76beb6369b2d28950c839d6a37074f9e2df0 100644
 ---- a/kernel/sysctl.c
@@ -26418,34 +26418,34 @@
 +diff -urNp linux-2.6.32.45/kernel/sysctl.c linux-2.6.32.45/kernel/sysctl.c
 +--- linux-2.6.32.45/kernel/sysctl.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/sysctl.c	2011-04-17 15:56:46.000000000 -0400
-@@ -67405 +65885 @@
+@@ -67406 +65886 @@
 -@@ -168,6 +175,7 @@ static int proc_do_cad_pid(struct ctl_table *table, int write,
 +@@ -168,6 +175,7 @@ static int proc_do_cad_pid(struct ctl_ta
-@@ -67435 +65915 @@
+@@ -67436 +65916 @@
 -@@ -251,6 +274,24 @@ static int max_wakeup_granularity_ns = NSEC_PER_SEC;	/* 1 second */
 +@@ -251,6 +274,24 @@ static int max_wakeup_granularity_ns = N
-@@ -67485 +65965 @@
+@@ -67486 +65966 @@
 -@@ -1803,6 +1851,8 @@ static int do_sysctl_strategy(struct ctl_table_root *root,
 +@@ -1803,6 +1851,8 @@ static int do_sysctl_strategy(struct ctl
-@@ -67503 +65983 @@
+@@ -67504 +65984 @@
 -@@ -1906,6 +1956,33 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
 +@@ -1906,6 +1956,33 @@ int sysctl_perm(struct ctl_table_root *r
-@@ -67537 +66017 @@
+@@ -67538 +66018 @@
 -@@ -2335,6 +2412,16 @@ int proc_dostring(struct ctl_table *table, int write,
 +@@ -2335,6 +2412,16 @@ int proc_dostring(struct ctl_table *tabl
-@@ -67554 +66034 @@
+@@ -67555 +66035 @@
 -@@ -2609,7 +2696,7 @@ static int __do_proc_doulongvec_minmax(void *data, struct ctl_table *table, int
 +@@ -2609,7 +2696,7 @@ static int __do_proc_doulongvec_minmax(v
-@@ -67563 +66043 @@
+@@ -67564 +66044 @@
 -@@ -2910,6 +2997,12 @@ int proc_dostring(struct ctl_table *table, int write,
 +@@ -2910,6 +2997,12 @@ int proc_dostring(struct ctl_table *tabl
-@@ -67576 +66056 @@
+@@ -67577 +66057 @@
 -@@ -3038,6 +3131,16 @@ int sysctl_string(struct ctl_table *table,
 +@@ -3038,6 +3131,16 @@ int sysctl_string(struct ctl_table *tabl
-@@ -67593 +66073 @@
+@@ -67594 +66074 @@
 -@@ -3182,6 +3285,13 @@ int sysctl_string(struct ctl_table *table,
 +@@ -3182,6 +3285,13 @@ int sysctl_string(struct ctl_table *tabl
-@@ -67622,5 +66102,4 @@
+@@ -67623,5 +66103,4 @@
 -diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
 -index 469193ccf5b79ce0ba969387d71febb48cef5c4f..ea3ecb26b80e0195e1f6fdeec3bcb125987cd56b 100644
 ---- a/kernel/sysctl_check.c
@@ -26455,7 +26455,7 @@
 +--- linux-2.6.32.45/kernel/sysctl_check.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/sysctl_check.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -1489,10 +1489,12 @@ int sysctl_check_table(struct nsproxy *n
-@@ -67639,4 +66118,3 @@
+@@ -67640,4 +66119,3 @@
 -diff --git a/kernel/taskstats.c b/kernel/taskstats.c
 -index b080920409c6805839d4d44f3efbb97fda226643..d344f89ff6848d0790d469c3dfce47ffd3eaf642 100644
 ---- a/kernel/taskstats.c
@@ -26463,10 +26463,10 @@
 +diff -urNp linux-2.6.32.45/kernel/taskstats.c linux-2.6.32.45/kernel/taskstats.c
 +--- linux-2.6.32.45/kernel/taskstats.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/kernel/taskstats.c	2011-07-13 17:23:19.000000000 -0400
-@@ -67656 +66134 @@
+@@ -67657 +66135 @@
 -@@ -442,6 +445,9 @@ static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
 +@@ -442,6 +445,9 @@ static int taskstats_user_cmd(struct sk_
-@@ -67666,39 +66144,4 @@
+@@ -67667,39 +66145,4 @@
 -diff --git a/kernel/time.c b/kernel/time.c
 -index 2e2e469a7fecea49ea9124eaedf5b025075d789e..240787969ddb7bb148ecb894b54ca0e59dde4467 100644
 ---- a/kernel/time.c
@@ -26510,7 +26510,7 @@
 +--- linux-2.6.32.45/kernel/time/tick-broadcast.c	2011-05-23 16:56:59.000000000 -0400
 ++++ linux-2.6.32.45/kernel/time/tick-broadcast.c	2011-05-23 16:57:13.000000000 -0400
 +@@ -116,7 +116,7 @@ int tick_device_uses_broadcast(struct cl
-@@ -67713,4 +66156,3 @@
+@@ -67714,4 +66157,3 @@
 -diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
 -index 1d1206a8f873ce7854d5065ba6f114a3d88b490b..08a7c2f2ba7cd3469702b2f35d2da4ddbbb47ec0 100644
 ---- a/kernel/time/timekeeping.c
@@ -26518,7 +26518,7 @@
 +diff -urNp linux-2.6.32.45/kernel/time/timekeeping.c linux-2.6.32.45/kernel/time/timekeeping.c
 +--- linux-2.6.32.45/kernel/time/timekeeping.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/kernel/time/timekeeping.c	2011-06-25 12:56:37.000000000 -0400
-@@ -67743,5 +66185,4 @@
+@@ -67744,5 +66186,4 @@
 -diff --git a/kernel/time/timer_list.c b/kernel/time/timer_list.c
 -index 54c0ddaa06c98d3b4b244657c54145183c90e28d..e9095d9dd123f5fa099c9cddad986df03c2b270e 100644
 ---- a/kernel/time/timer_list.c
@@ -26528,10 +26528,10 @@
 +--- linux-2.6.32.45/kernel/time/timer_list.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/time/timer_list.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -38,12 +38,16 @@ DECLARE_PER_CPU(struct hrtimer_cpu_base,
-@@ -67776 +66217 @@
+@@ -67777 +66218 @@
 -@@ -289,7 +297,11 @@ static int __init init_timer_list_procfs(void)
 +@@ -289,7 +297,11 @@ static int __init init_timer_list_procfs
-@@ -67788,4 +66229,3 @@
+@@ -67789,4 +66230,3 @@
 -diff --git a/kernel/time/timer_stats.c b/kernel/time/timer_stats.c
 -index ee5681f8d7ecd2f1429d5455ea2839f12921b42f..634089b82b5d57cabcfe769ad4355c8970c02752 100644
 ---- a/kernel/time/timer_stats.c
@@ -26539,19 +26539,19 @@
 +diff -urNp linux-2.6.32.45/kernel/time/timer_stats.c linux-2.6.32.45/kernel/time/timer_stats.c
 +--- linux-2.6.32.45/kernel/time/timer_stats.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/time/timer_stats.c	2011-05-04 17:56:28.000000000 -0400
-@@ -67810 +66250 @@
+@@ -67811 +66251 @@
 -@@ -261,7 +261,7 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
 +@@ -261,7 +261,7 @@ void timer_stats_update_stats(void *time
-@@ -67819 +66259 @@
+@@ -67820 +66260 @@
 -@@ -269,12 +269,16 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
 +@@ -269,12 +269,16 @@ void timer_stats_update_stats(void *time
-@@ -67836 +66276 @@
+@@ -67837 +66277 @@
 -@@ -300,9 +304,9 @@ static int tstats_show(struct seq_file *m, void *v)
 +@@ -300,9 +304,9 @@ static int tstats_show(struct seq_file *
-@@ -67848 +66288 @@
+@@ -67849 +66289 @@
 -@@ -415,7 +419,11 @@ static int __init init_tstats_procfs(void)
 +@@ -415,7 +419,11 @@ static int __init init_tstats_procfs(voi
-@@ -67860,4 +66300,36 @@
+@@ -67861,4 +66301,36 @@
 -diff --git a/kernel/timer.c b/kernel/timer.c
 -index cb3c1f19a2f6f001952cca2cb32cc69c45298820..8bf55261737384934011a26e79022d737aee981e 100644
 ---- a/kernel/timer.c
@@ -26592,7 +26592,7 @@
 +diff -urNp linux-2.6.32.45/kernel/timer.c linux-2.6.32.45/kernel/timer.c
 +--- linux-2.6.32.45/kernel/timer.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/timer.c	2011-04-17 15:56:46.000000000 -0400
-@@ -67873,5 +66345,4 @@
+@@ -67874,5 +66346,4 @@
 -diff --git a/kernel/trace/blktrace.c b/kernel/trace/blktrace.c
 -index d9d6206e0b148f5c67e5ecda22a7c7992eec76d7..f19467e3d266ac8ee022740bc1fd9e0ad3d34f0b 100644
 ---- a/kernel/trace/blktrace.c
@@ -26602,13 +26602,13 @@
 +--- linux-2.6.32.45/kernel/trace/blktrace.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/blktrace.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -313,7 +313,7 @@ static ssize_t blk_dropped_read(struct f
-@@ -67886 +66357 @@
+@@ -67887 +66358 @@
 -@@ -376,7 +376,7 @@ static int blk_subbuf_start_callback(struct rchan_buf *buf, void *subbuf,
 +@@ -376,7 +376,7 @@ static int blk_subbuf_start_callback(str
-@@ -67895 +66366 @@
+@@ -67896 +66367 @@
 -@@ -477,7 +477,7 @@ int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 +@@ -477,7 +477,7 @@ int do_blk_trace_setup(struct request_qu
-@@ -67904,5 +66375,4 @@
+@@ -67905,5 +66376,4 @@
 -diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
 -index 487293732a8a4cff896fb8e7ea22bdce47b0211e..c794d406e54b7c2a4cfd904d5f8c57f16133fd03 100644
 ---- a/kernel/trace/ftrace.c
@@ -26618,7 +26618,7 @@
 +--- linux-2.6.32.45/kernel/trace/ftrace.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/ftrace.c	2011-06-25 12:56:37.000000000 -0400
 +@@ -1100,13 +1100,18 @@ ftrace_code_disable(struct module *mod, 
-@@ -67929,5 +66399,4 @@
+@@ -67930,5 +66400,4 @@
 -diff --git a/kernel/trace/ring_buffer.c b/kernel/trace/ring_buffer.c
 -index e749a054915ce14d14afae6b7f04136dfeea01cb..19c6e940c78ca93baead7e532f8e5817498e8dc0 100644
 ---- a/kernel/trace/ring_buffer.c
@@ -26628,7 +26628,7 @@
 +--- linux-2.6.32.45/kernel/trace/ring_buffer.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/ring_buffer.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -606,7 +606,7 @@ static struct list_head *rb_list_head(st
-@@ -67942,5 +66411,4 @@
+@@ -67943,5 +66412,4 @@
 -diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
 -index a2a2d1f02c833c2e1fb905e5c60ce69a675849aa..7f32b099082ef9601b632d2d23ba0e4cd4fbc577 100644
 ---- a/kernel/trace/trace.c
@@ -26638,13 +26638,13 @@
 +--- linux-2.6.32.45/kernel/trace/trace.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -3193,6 +3193,8 @@ static ssize_t tracing_splice_read_pipe(
-@@ -67955 +66423 @@
+@@ -67956 +66424 @@
 -@@ -3659,6 +3661,8 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 +@@ -3659,6 +3661,8 @@ tracing_buffers_splice_read(struct file 
-@@ -67964 +66432 @@
+@@ -67965 +66433 @@
 -@@ -3816,10 +3820,9 @@ static const struct file_operations tracing_dyn_info_fops = {
 +@@ -3816,10 +3820,9 @@ static const struct file_operations trac
-@@ -67988,5 +66456,4 @@
+@@ -67989,5 +66457,4 @@
 -diff --git a/kernel/trace/trace_events.c b/kernel/trace/trace_events.c
 -index d128f65778e69654207c6d8d7b987bc7837f7541..f37b4af531337092e1a73ec9933ed3c49159bc12 100644
 ---- a/kernel/trace/trace_events.c
@@ -26654,13 +26654,13 @@
 +--- linux-2.6.32.45/kernel/trace/trace_events.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace_events.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -951,13 +951,10 @@ static LIST_HEAD(ftrace_module_file_list
-@@ -68007 +66474 @@
+@@ -68008 +66475 @@
 -@@ -1004,17 +1001,12 @@ trace_create_file_ops(struct module *mod)
 +@@ -1004,17 +1001,12 @@ trace_create_file_ops(struct module *mod
-@@ -68031 +66498 @@
+@@ -68032 +66499 @@
 -@@ -1063,8 +1055,8 @@ static void trace_module_add_events(struct module *mod)
 +@@ -1063,8 +1055,8 @@ static void trace_module_add_events(stru
-@@ -68042,4 +66509,3 @@
+@@ -68043,4 +66510,3 @@
 -diff --git a/kernel/trace/trace_mmiotrace.c b/kernel/trace/trace_mmiotrace.c
 -index 0acd834659ed9f9306165d40b81d34a563604095..b800b5601c3136b25aad2c9aea28c3faaa463801 100644
 ---- a/kernel/trace/trace_mmiotrace.c
@@ -26668,16 +26668,16 @@
 +diff -urNp linux-2.6.32.45/kernel/trace/trace_mmiotrace.c linux-2.6.32.45/kernel/trace/trace_mmiotrace.c
 +--- linux-2.6.32.45/kernel/trace/trace_mmiotrace.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace_mmiotrace.c	2011-05-04 17:56:28.000000000 -0400
-@@ -68055 +66521 @@
+@@ -68056 +66522 @@
 -@@ -126,7 +126,7 @@ static void mmio_close(struct trace_iterator *iter)
 +@@ -126,7 +126,7 @@ static void mmio_close(struct trace_iter
-@@ -68064 +66530 @@
+@@ -68065 +66531 @@
 -@@ -316,7 +316,7 @@ static void __trace_mmiotrace_rw(struct trace_array *tr,
 +@@ -316,7 +316,7 @@ static void __trace_mmiotrace_rw(struct 
-@@ -68073 +66539 @@
+@@ -68074 +66540 @@
 -@@ -346,7 +346,7 @@ static void __trace_mmiotrace_map(struct trace_array *tr,
 +@@ -346,7 +346,7 @@ static void __trace_mmiotrace_map(struct
-@@ -68082,5 +66548,4 @@
+@@ -68083,5 +66549,4 @@
 -diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
 -index b6c12c6a1bcde267a7e25d6b1b8df41c559f1500..41fdc53546078f5a177901a310f20536deacdf7f 100644
 ---- a/kernel/trace/trace_output.c
@@ -26687,7 +26687,7 @@
 +--- linux-2.6.32.45/kernel/trace/trace_output.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace_output.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -237,7 +237,7 @@ int trace_seq_path(struct trace_seq *s, 
-@@ -68095,4 +66560,3 @@
+@@ -68096,4 +66561,3 @@
 -diff --git a/kernel/trace/trace_stack.c b/kernel/trace/trace_stack.c
 -index 8504ac71e4e8f9831edd7cc0d3186f98fdcad6c1..ecf0adb4994539c423ecfdcd7a7190d9f729373d 100644
 ---- a/kernel/trace/trace_stack.c
@@ -26695,7 +26695,7 @@
 +diff -urNp linux-2.6.32.45/kernel/trace/trace_stack.c linux-2.6.32.45/kernel/trace/trace_stack.c
 +--- linux-2.6.32.45/kernel/trace/trace_stack.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace_stack.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68108,4 +66572,3 @@
+@@ -68109,4 +66573,3 @@
 -diff --git a/kernel/trace/trace_workqueue.c b/kernel/trace/trace_workqueue.c
 -index 40cafb07dffd11e533b17ef5c7fcf6546aef00f5..d5ead43c2b4700bed396eba5676924b8013623ae 100644
 ---- a/kernel/trace/trace_workqueue.c
@@ -26703,13 +26703,13 @@
 +diff -urNp linux-2.6.32.45/kernel/trace/trace_workqueue.c linux-2.6.32.45/kernel/trace/trace_workqueue.c
 +--- linux-2.6.32.45/kernel/trace/trace_workqueue.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/trace/trace_workqueue.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68121 +66584 @@
+@@ -68122 +66585 @@
 -@@ -58,7 +58,7 @@ probe_workqueue_insertion(struct task_struct *wq_thread,
 +@@ -58,7 +58,7 @@ probe_workqueue_insertion(struct task_st
-@@ -68130 +66593 @@
+@@ -68131 +66594 @@
 -@@ -205,7 +205,7 @@ static int workqueue_stat_show(struct seq_file *s, void *p)
 +@@ -205,7 +205,7 @@ static int workqueue_stat_show(struct se
-@@ -68139,5 +66602,4 @@
+@@ -68140,5 +66603,4 @@
 -diff --git a/kernel/user.c b/kernel/user.c
 -index 1b9170128817c8859f1808f7e6b0ea9998d81782..8795237cc49dc3b2ca63630702486791d0f19e92 100644
 ---- a/kernel/user.c
@@ -26719,7 +26719,7 @@
 +--- linux-2.6.32.45/kernel/user.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/kernel/user.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -159,6 +159,7 @@ struct user_struct *alloc_uid(struct use
-@@ -68147,22 +66609,8 @@
+@@ -68148,22 +66610,8 @@
 -+			put_user_ns(ns);
 - 			key_put(new->uid_keyring);
 - 			key_put(new->session_keyring);
@@ -26750,7 +26750,7 @@
 +--- linux-2.6.32.45/lib/bug.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/bug.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -135,6 +135,8 @@ enum bug_trap_type report_bug(unsigned l
-@@ -68177,5 +66625,4 @@
+@@ -68178,5 +66626,4 @@
 -diff --git a/lib/debugobjects.c b/lib/debugobjects.c
 -index 2b413db7b25f91eaf156cc0a4f1f4d3b0c862565..e21d2070b2a093173a954cf5af4c4565278bee83 100644
 ---- a/lib/debugobjects.c
@@ -26760,7 +26760,7 @@
 +--- linux-2.6.32.45/lib/debugobjects.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/lib/debugobjects.c	2011-07-13 17:23:19.000000000 -0400
 +@@ -277,7 +277,7 @@ static void debug_object_is_on_stack(voi
-@@ -68190,4 +66637,3 @@
+@@ -68191,4 +66638,3 @@
 -diff --git a/lib/dma-debug.c b/lib/dma-debug.c
 -index 084e879d42ccc8e5ee8743cafea55f135c88d73f..0674448b2de36909b8e56eec2e155a0f7c8ca3df 100644
 ---- a/lib/dma-debug.c
@@ -26768,7 +26768,7 @@
 +diff -urNp linux-2.6.32.45/lib/dma-debug.c linux-2.6.32.45/lib/dma-debug.c
 +--- linux-2.6.32.45/lib/dma-debug.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/dma-debug.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68203,5 +66649,4 @@
+@@ -68204,5 +66650,4 @@
 -diff --git a/lib/idr.c b/lib/idr.c
 -index eda7ba372f1abad67aa1faf54a88af271ecf4ecb..915dfaeab3f67af62846e32f670a0b62a2309e2c 100644
 ---- a/lib/idr.c
@@ -26778,7 +26778,7 @@
 +--- linux-2.6.32.45/lib/idr.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/idr.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -156,7 +156,7 @@ static int sub_alloc(struct idr *idp, in
-@@ -68216,4 +66661,3 @@
+@@ -68217,4 +66662,3 @@
 -diff --git a/lib/inflate.c b/lib/inflate.c
 -index d10255973a9fc8b79df675c684a6532da26694a8..4215f31d7421f564b68a8220f262da0550ea1fe0 100644
 ---- a/lib/inflate.c
@@ -26786,7 +26786,7 @@
 +diff -urNp linux-2.6.32.45/lib/inflate.c linux-2.6.32.45/lib/inflate.c
 +--- linux-2.6.32.45/lib/inflate.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/inflate.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68229,5 +66673,16 @@
+@@ -68230,5 +66674,16 @@
 -diff --git a/lib/kobject.c b/lib/kobject.c
 -index b512b746d2aff464e1c18a01c53300ef7b6e68f4..8115eb1bbf4dc198cc5f9a725c40f4a6afd0e414 100644
 ---- a/lib/kobject.c
@@ -26808,10 +26808,10 @@
 +--- linux-2.6.32.45/lib/kobject.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/kobject.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -700,7 +700,7 @@ static ssize_t kobj_attr_store(struct ko
-@@ -68251 +66706 @@
+@@ -68252 +66707 @@
 -@@ -832,7 +832,7 @@ static struct kset *kset_create(const char *name,
 +@@ -832,7 +832,7 @@ static struct kset *kset_create(const ch
-@@ -68260,5 +66715,4 @@
+@@ -68261,5 +66716,4 @@
 -diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
 -index 920a3ca6e2590ddc3d64950a729441758d0a5ce5..c9d3a3e8405d884c80eeb6e15a7379f48fd333f6 100644
 ---- a/lib/kobject_uevent.c
@@ -26821,7 +26821,7 @@
 +--- linux-2.6.32.45/lib/kobject_uevent.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/kobject_uevent.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -95,7 +95,7 @@ int kobject_uevent_env(struct kobject *k
-@@ -68273,4 +66727,3 @@
+@@ -68274,4 +66728,3 @@
 -diff --git a/lib/kref.c b/lib/kref.c
 -index 9ecd6e86561034f2a097bcc027765704e124f7df..12c94c1dd3c5196dabd480554a21c45b354169f2 100644
 ---- a/lib/kref.c
@@ -26829,7 +26829,7 @@
 +diff -urNp linux-2.6.32.45/lib/kref.c linux-2.6.32.45/lib/kref.c
 +--- linux-2.6.32.45/lib/kref.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/kref.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68286,5 +66739,4 @@
+@@ -68287,5 +66740,4 @@
 -diff --git a/lib/parser.c b/lib/parser.c
 -index b00d02059a5f8acc3a58a6290251aa487f2cca2e..1b343254fe426da13536363eedb712785506e031 100644
 ---- a/lib/parser.c
@@ -26839,7 +26839,7 @@
 +--- linux-2.6.32.45/lib/parser.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/parser.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -126,7 +126,7 @@ static int match_number(substring_t *s, 
-@@ -68299,4 +66751,3 @@
+@@ -68300,4 +66752,3 @@
 -diff --git a/lib/radix-tree.c b/lib/radix-tree.c
 -index 92cdd9936e3d2797f4d9b3804ad648b6bbec3c1b..a8149d75383a99526dc06cd1336aa0c5658dc330 100644
 ---- a/lib/radix-tree.c
@@ -26847,7 +26847,7 @@
 +diff -urNp linux-2.6.32.45/lib/radix-tree.c linux-2.6.32.45/lib/radix-tree.c
 +--- linux-2.6.32.45/lib/radix-tree.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/radix-tree.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68312,5 +66763,4 @@
+@@ -68313,5 +66764,4 @@
 -diff --git a/lib/random32.c b/lib/random32.c
 -index 217d5c4b666d22e4f309ad363c157580c2810bf8..45aba8a9ec4ff3f66f9df9a301c267143fe6b507 100644
 ---- a/lib/random32.c
@@ -26857,7 +26857,7 @@
 +--- linux-2.6.32.45/lib/random32.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/random32.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -61,7 +61,7 @@ static u32 __random32(struct rnd_state *
-@@ -68325,4 +66775,3 @@
+@@ -68326,4 +66776,3 @@
 -diff --git a/lib/vsprintf.c b/lib/vsprintf.c
 -index 33bed5e67a2110b2201856b8828b457110147728..1477e46882ce6d0d1ef41120dd12fdd1d0e01224 100644
 ---- a/lib/vsprintf.c
@@ -26865,28 +26865,28 @@
 +diff -urNp linux-2.6.32.45/lib/vsprintf.c linux-2.6.32.45/lib/vsprintf.c
 +--- linux-2.6.32.45/lib/vsprintf.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/lib/vsprintf.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68339 +66788 @@
+@@ -68340 +66789 @@
 -@@ -546,12 +549,12 @@ static char *number(char *buf, char *end, unsigned long long num,
 +@@ -546,12 +549,12 @@ static char *number(char *buf, char *end
-@@ -68354 +66803 @@
+@@ -68355 +66804 @@
 -@@ -581,7 +584,7 @@ static char *symbol_string(char *buf, char *end, void *ptr,
 +@@ -581,7 +584,7 @@ static char *symbol_string(char *buf, ch
-@@ -68363 +66812 @@
+@@ -68364 +66813 @@
 -@@ -801,6 +804,8 @@ static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
 +@@ -801,6 +804,8 @@ static char *ip4_addr_string(char *buf, 
-@@ -68372 +66821 @@
+@@ -68373 +66822 @@
 -@@ -822,7 +827,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 +@@ -822,7 +827,7 @@ static char *pointer(const char *fmt, ch
-@@ -68381 +66830 @@
+@@ -68382 +66831 @@
 -@@ -831,6 +836,14 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 +@@ -831,6 +836,14 @@ static char *pointer(const char *fmt, ch
-@@ -68405 +66854 @@
+@@ -68406 +66855 @@
 -@@ -1555,11 +1568,11 @@ int bstr_printf(char *buf, size_t size, const char *fmt, const u32 *bin_buf)
 +@@ -1555,11 +1568,11 @@ int bstr_printf(char *buf, size_t size, 
-@@ -68420 +66869 @@
+@@ -68421 +66870 @@
 -@@ -1622,7 +1635,7 @@ int bstr_printf(char *buf, size_t size, const char *fmt, const u32 *bin_buf)
 +@@ -1622,7 +1635,7 @@ int bstr_printf(char *buf, size_t size, 
-@@ -68429,5 +66878,3 @@
+@@ -68430,5 +66879,3 @@
 -diff --git a/localversion-grsec b/localversion-grsec
 -new file mode 100644
 -index 0000000000000000000000000000000000000000..7cd6065beb8d6e5457afdf0c5f79c1ca740fcb7e
@@ -26895,7 +26895,7 @@
 +diff -urNp linux-2.6.32.45/localversion-grsec linux-2.6.32.45/localversion-grsec
 +--- linux-2.6.32.45/localversion-grsec	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-2.6.32.45/localversion-grsec	2011-04-17 15:56:46.000000000 -0400
-@@ -68436,18 +66883,131 @@
+@@ -68437,18 +66884,131 @@
 -diff --git a/mm/Kconfig b/mm/Kconfig
 -index 2c19c0bac10e2fc087c3b87edcd2dfdc3dc818ef..f3c3f83043b2ee34592eb5273b9a899f00e94d73 100644
 ---- a/mm/Kconfig
@@ -27045,10 +27045,10 @@
 +--- linux-2.6.32.45/mm/backing-dev.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/backing-dev.c	2011-08-11 19:48:17.000000000 -0400
 +@@ -272,7 +272,7 @@ static void bdi_task_init(struct backing
-@@ -68462 +67022 @@
+@@ -68463 +67023 @@
 -@@ -484,7 +484,7 @@ static void bdi_add_to_pending(struct rcu_head *head)
 +@@ -484,7 +484,7 @@ static void bdi_add_to_pending(struct rc
-@@ -68471,5 +67031,4 @@
+@@ -68472,5 +67032,4 @@
 -diff --git a/mm/filemap.c b/mm/filemap.c
 -index 9e0826ea7bbe759dfb2356d13bdfb038cc3e0869..4ee8f13b35155f846d334649bc6ef964f1c2169e 100644
 ---- a/mm/filemap.c
@@ -27058,10 +27058,10 @@
 +--- linux-2.6.32.45/mm/filemap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/filemap.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -1631,7 +1631,7 @@ int generic_file_mmap(struct file * file
-@@ -68484 +67043 @@
+@@ -68485 +67044 @@
 -@@ -2027,6 +2027,7 @@ inline int generic_write_checks(struct file *file, loff_t *pos, size_t *count, i
 +@@ -2027,6 +2027,7 @@ inline int generic_write_checks(struct f
-@@ -68492,5 +67051,4 @@
+@@ -68493,5 +67052,4 @@
 -diff --git a/mm/fremap.c b/mm/fremap.c
 -index b6ec85abbb39cc22dac7e9c309953c60a22e921c..a24ac227094f7edbffd8b1f512cd9d5fd7d72007 100644
 ---- a/mm/fremap.c
@@ -27071,10 +27071,10 @@
 +--- linux-2.6.32.45/mm/fremap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/fremap.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -153,6 +153,11 @@ SYSCALL_DEFINE5(remap_file_pages, unsign
-@@ -68508 +67066 @@
+@@ -68509 +67067 @@
 -@@ -221,7 +226,7 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 +@@ -221,7 +226,7 @@ SYSCALL_DEFINE5(remap_file_pages, unsign
-@@ -68517,4 +67075,3 @@
+@@ -68518,4 +67076,3 @@
 -diff --git a/mm/highmem.c b/mm/highmem.c
 -index 9c1e627f282e58e7b85f6dae52098c2f222a44e7..5ca9447f319976b2b7e5bf7d3c7ff3f6498cc987 100644
 ---- a/mm/highmem.c
@@ -27082,7 +27082,7 @@
 +diff -urNp linux-2.6.32.45/mm/highmem.c linux-2.6.32.45/mm/highmem.c
 +--- linux-2.6.32.45/mm/highmem.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/highmem.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68546,5 +67103,4 @@
+@@ -68547,5 +67104,4 @@
 -diff --git a/mm/hugetlb.c b/mm/hugetlb.c
 -index 5e1e5083c3b5f0b1f4b43595e3078f361d4ddbdf..9f0ebad02cdcd42df67a4232dbcb612da2a21606 100644
 ---- a/mm/hugetlb.c
@@ -27092,10 +27092,10 @@
 +--- linux-2.6.32.45/mm/hugetlb.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/mm/hugetlb.c	2011-07-13 17:23:19.000000000 -0400
 +@@ -1933,6 +1933,26 @@ static int unmap_ref_private(struct mm_s
-@@ -68600 +67156 @@
+@@ -68601 +67157 @@
 -@@ -2163,6 +2192,28 @@ int hugetlb_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2163,6 +2192,28 @@ int hugetlb_fault(struct mm_struct *mm, 
-@@ -68629,5 +67185,4 @@
+@@ -68630,5 +67186,4 @@
 -diff --git a/mm/internal.h b/mm/internal.h
 -index f03e8e2c2270685936ab1c72ddd269a66fe68c65..7354343f35608ccded861812be3b3a9cd7359362 100644
 ---- a/mm/internal.h
@@ -27105,7 +27105,7 @@
 +--- linux-2.6.32.45/mm/internal.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/internal.h	2011-07-09 09:13:08.000000000 -0400
 +@@ -49,6 +49,7 @@ extern void putback_lru_page(struct page
-@@ -68641,5 +67196,16 @@
+@@ -68642,5 +67197,16 @@
 -diff --git a/mm/kmemleak.c b/mm/kmemleak.c
 -index c3466601d3e7731f4fa2d85ecf823af8226e8741..b47382f7b0ff8320d64a24b925fe98c6ceedd2ad 100644
 ---- a/mm/kmemleak.c
@@ -27127,7 +27127,7 @@
 +--- linux-2.6.32.45/mm/kmemleak.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/mm/kmemleak.c	2011-06-25 12:56:37.000000000 -0400
 +@@ -358,7 +358,7 @@ static void print_unreferenced(struct se
-@@ -68654,4 +67220,3 @@
+@@ -68655,4 +67221,3 @@
 -diff --git a/mm/maccess.c b/mm/maccess.c
 -index 9073695ff25f3db8da8df878e6ade3952542229a..c6da50db1c1ca4d71d558fccd67fc61f333a31ba 100644
 ---- a/mm/maccess.c
@@ -27135,7 +27135,7 @@
 +diff -urNp linux-2.6.32.45/mm/maccess.c linux-2.6.32.45/mm/maccess.c
 +--- linux-2.6.32.45/mm/maccess.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/maccess.c	2011-04-17 15:56:46.000000000 -0400
-@@ -68676,5 +67241,4 @@
+@@ -68677,5 +67242,4 @@
 -diff --git a/mm/madvise.c b/mm/madvise.c
 -index 35b1479b7c9d080ed97b772da44603c4f757093c..499f7d43b43b614f0c62da4efae694141904b2d7 100644
 ---- a/mm/madvise.c
@@ -27145,16 +27145,16 @@
 +--- linux-2.6.32.45/mm/madvise.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/madvise.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -44,6 +44,10 @@ static long madvise_behavior(struct vm_a
-@@ -68705 +67269 @@
+@@ -68706 +67270 @@
 -@@ -161,6 +172,11 @@ static long madvise_dontneed(struct vm_area_struct * vma,
 +@@ -161,6 +172,11 @@ static long madvise_dontneed(struct vm_a
-@@ -68717 +67281 @@
+@@ -68718 +67282 @@
 -@@ -173,6 +189,21 @@ static long madvise_dontneed(struct vm_area_struct * vma,
 +@@ -173,6 +189,21 @@ static long madvise_dontneed(struct vm_a
-@@ -68739 +67303 @@
+@@ -68740 +67304 @@
 -@@ -359,6 +390,16 @@ SYSCALL_DEFINE3(madvise, unsigned long, start, size_t, len_in, int, behavior)
 +@@ -359,6 +390,16 @@ SYSCALL_DEFINE3(madvise, unsigned long, 
-@@ -68756,27 +67320,4 @@
+@@ -68757,27 +67321,4 @@
 -diff --git a/mm/memory-failure.c b/mm/memory-failure.c
 -index 8aeba5341ccdc833d80547901ada58891453bfa9..747bec313f2dff16e4d0a3227d60e61a9c55cd41 100644
 ---- a/mm/memory-failure.c
@@ -27186,55 +27186,55 @@
 +--- linux-2.6.32.45/mm/memory.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/mm/memory.c	2011-07-13 17:23:23.000000000 -0400
 +@@ -187,8 +187,12 @@ static inline void free_pmd_range(struct
-@@ -68795 +67336 @@
+@@ -68796 +67337 @@
 -@@ -219,9 +223,12 @@ static inline void free_pud_range(struct mmu_gather *tlb, pgd_t *pgd,
 +@@ -219,9 +223,12 @@ static inline void free_pud_range(struct
-@@ -68808 +67349 @@
+@@ -68809 +67350 @@
 -@@ -1251,10 +1258,10 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 +@@ -1251,10 +1258,10 @@ int __get_user_pages(struct task_struct 
-@@ -68821 +67362 @@
+@@ -68822 +67363 @@
 -@@ -1306,7 +1313,7 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 +@@ -1306,7 +1313,7 @@ int __get_user_pages(struct task_struct 
-@@ -68830 +67371 @@
+@@ -68831 +67372 @@
 -@@ -1381,7 +1388,7 @@ int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 +@@ -1381,7 +1388,7 @@ int __get_user_pages(struct task_struct 
-@@ -68839 +67380 @@
+@@ -68840 +67381 @@
 -@@ -1526,6 +1533,10 @@ static int insert_page(struct vm_area_struct *vma, unsigned long addr,
 +@@ -1526,6 +1533,10 @@ static int insert_page(struct vm_area_st
-@@ -68873 +67414 @@
+@@ -68874 +67415 @@
 -@@ -1649,6 +1672,7 @@ int vm_insert_mixed(struct vm_area_struct *vma, unsigned long addr,
 +@@ -1649,6 +1672,7 @@ int vm_insert_mixed(struct vm_area_struc
-@@ -68881 +67422 @@
+@@ -68882 +67423 @@
 -@@ -1977,6 +2001,186 @@ static inline void cow_user_page(struct page *dst, struct page *src, unsigned lo
 +@@ -1977,6 +2001,186 @@ static inline void cow_user_page(struct 
-@@ -69092 +67633 @@
+@@ -69093 +67634 @@
 -@@ -2606,6 +2820,11 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2606,6 +2820,11 @@ static int do_swap_page(struct mm_struct
-@@ -69104 +67645 @@
+@@ -69105 +67646 @@
 -@@ -2617,6 +2836,11 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2617,6 +2836,11 @@ static int do_swap_page(struct mm_struct
-@@ -69157 +67698 @@
+@@ -69158 +67699 @@
 -@@ -2674,27 +2864,23 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2674,27 +2864,23 @@ static int do_anonymous_page(struct mm_s
-@@ -69190 +67731 @@
+@@ -69191 +67732 @@
 -@@ -2713,6 +2899,11 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2713,6 +2899,11 @@ static int do_anonymous_page(struct mm_s
-@@ -69215 +67756 @@
+@@ -69216 +67757 @@
 -@@ -2862,6 +3059,12 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2862,6 +3059,12 @@ static int __do_fault(struct mm_struct *
-@@ -69228 +67769 @@
+@@ -69229 +67770 @@
 -@@ -2881,6 +3084,14 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -2881,6 +3084,14 @@ static int __do_fault(struct mm_struct *
-@@ -69243 +67784 @@
+@@ -69244 +67785 @@
 -@@ -3028,6 +3239,12 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 +@@ -3028,6 +3239,12 @@ static inline int handle_pte_fault(struc
-@@ -69256 +67797 @@
+@@ -69257 +67798 @@
 -@@ -3044,6 +3261,10 @@ int handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -3044,6 +3261,10 @@ int handle_mm_fault(struct mm_struct *mm
-@@ -69267 +67808 @@
+@@ -69268 +67809 @@
 -@@ -3051,6 +3272,34 @@ int handle_mm_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -3051,6 +3272,34 @@ int handle_mm_fault(struct mm_struct *mm
-@@ -69311,5 +67852,25 @@
+@@ -69312,5 +67853,25 @@
 -diff --git a/mm/mempolicy.c b/mm/mempolicy.c
 -index 3c6e3e29255caa2e89d446f21892625e0324212e..ad9871cea8315623f97481ceab6edccdf6b61b3d 100644
 ---- a/mm/mempolicy.c
@@ -27265,22 +27265,22 @@
 +--- linux-2.6.32.45/mm/mempolicy.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/mempolicy.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -573,6 +573,10 @@ static int mbind_range(struct vm_area_st
-@@ -69326 +67887 @@
+@@ -69327 +67888 @@
 -@@ -584,6 +588,16 @@ static int mbind_range(struct vm_area_struct *vma, unsigned long start,
 +@@ -584,6 +588,16 @@ static int mbind_range(struct vm_area_st
-@@ -69343 +67904 @@
+@@ -69344 +67905 @@
 -@@ -1002,6 +1016,17 @@ static long do_mbind(unsigned long start, unsigned long len,
 +@@ -1002,6 +1016,17 @@ static long do_mbind(unsigned long start
-@@ -69361 +67922 @@
+@@ -69362 +67923 @@
 -@@ -1207,6 +1232,14 @@ SYSCALL_DEFINE4(migrate_pages, pid_t, pid, unsigned long, maxnode,
 +@@ -1207,6 +1232,14 @@ SYSCALL_DEFINE4(migrate_pages, pid_t, pi
-@@ -69376 +67937 @@
+@@ -69377 +67938 @@
 -@@ -1216,8 +1249,7 @@ SYSCALL_DEFINE4(migrate_pages, pid_t, pid, unsigned long, maxnode,
 +@@ -1216,8 +1249,7 @@ SYSCALL_DEFINE4(migrate_pages, pid_t, pi
-@@ -69386 +67947 @@
+@@ -69387 +67948 @@
 -@@ -2396,7 +2428,7 @@ int show_numa_map(struct seq_file *m, void *v)
 +@@ -2396,7 +2428,7 @@ int show_numa_map(struct seq_file *m, vo
-@@ -69395,5 +67956,4 @@
+@@ -69396,5 +67957,4 @@
 -diff --git a/mm/migrate.c b/mm/migrate.c
 -index aaca868fb114b84b22f422591e1fb3cac149783e..2ebecdcea07a8eab7a7d61bc2280d58cf4d05fd6 100644
 ---- a/mm/migrate.c
@@ -27290,13 +27290,13 @@
 +--- linux-2.6.32.45/mm/migrate.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/mm/migrate.c	2011-07-13 17:23:23.000000000 -0400
 +@@ -916,6 +916,8 @@ static int do_pages_move(struct mm_struc
-@@ -69408 +67968 @@
+@@ -69409 +67969 @@
 -@@ -1106,6 +1108,14 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 +@@ -1106,6 +1108,14 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, 
-@@ -69423 +67983 @@
+@@ -69424 +67984 @@
 -@@ -1115,8 +1125,7 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 +@@ -1115,8 +1125,7 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, 
-@@ -69433,4 +67993,3 @@
+@@ -69434,4 +67994,3 @@
 -diff --git a/mm/mlock.c b/mm/mlock.c
 -index 2d846cfe3990daff87cba2361e05debcd9daba06..98134d286f431bdbb702d452a5b3964caf83f561 100644
 ---- a/mm/mlock.c
@@ -27304,31 +27304,31 @@
 +diff -urNp linux-2.6.32.45/mm/mlock.c linux-2.6.32.45/mm/mlock.c
 +--- linux-2.6.32.45/mm/mlock.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/mlock.c	2011-04-17 15:56:46.000000000 -0400
-@@ -69459 +68018 @@
+@@ -69460 +68019 @@
 -@@ -177,12 +171,6 @@ static long __mlock_vma_pages_range(struct vm_area_struct *vma,
 +@@ -177,12 +171,6 @@ static long __mlock_vma_pages_range(stru
-@@ -69472 +68031 @@
+@@ -69473 +68032 @@
 -@@ -440,7 +428,7 @@ static int do_mlock(unsigned long start, size_t len, int on)
 +@@ -440,7 +428,7 @@ static int do_mlock(unsigned long start,
-@@ -69481 +68040 @@
+@@ -69482 +68041 @@
 -@@ -448,6 +436,9 @@ static int do_mlock(unsigned long start, size_t len, int on)
 +@@ -448,6 +436,9 @@ static int do_mlock(unsigned long start,
-@@ -69491 +68050 @@
+@@ -69492 +68051 @@
 -@@ -458,6 +449,11 @@ static int do_mlock(unsigned long start, size_t len, int on)
 +@@ -458,6 +449,11 @@ static int do_mlock(unsigned long start,
-@@ -69503 +68062 @@
+@@ -69504 +68063 @@
 -@@ -507,6 +503,7 @@ SYSCALL_DEFINE2(mlock, unsigned long, start, size_t, len)
 +@@ -507,6 +503,7 @@ SYSCALL_DEFINE2(mlock, unsigned long, st
-@@ -69511 +68070 @@
+@@ -69512 +68071 @@
 -@@ -528,17 +525,23 @@ SYSCALL_DEFINE2(munlock, unsigned long, start, size_t, len)
 +@@ -528,17 +525,23 @@ SYSCALL_DEFINE2(munlock, unsigned long, 
-@@ -69529 +68088 @@
+@@ -69530 +68089 @@
 - 
 ++
-@@ -69534 +68093 @@
+@@ -69535 +68094 @@
 -+
 + 
-@@ -69547,4 +68106,3 @@
+@@ -69548,4 +68107,3 @@
 -diff --git a/mm/mmap.c b/mm/mmap.c
 -index 292afec036153e9c133ac5ecdc12d4fda1d15236..1d66bb5afaefc346ff9d9bb213d86d811224b5e2 100644
 ---- a/mm/mmap.c
@@ -27336,159 +27336,159 @@
 +diff -urNp linux-2.6.32.45/mm/mmap.c linux-2.6.32.45/mm/mmap.c
 +--- linux-2.6.32.45/mm/mmap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/mmap.c	2011-04-17 15:56:46.000000000 -0400
-@@ -69568 +68126 @@
+@@ -69569 +68127 @@
 -@@ -70,22 +80,32 @@ static void unmap_region(struct mm_struct *mm,
 +@@ -70,22 +80,32 @@ static void unmap_region(struct mm_struc
-@@ -69603 +68161 @@
+@@ -69604 +68162 @@
 -@@ -231,6 +251,7 @@ static struct vm_area_struct *remove_vma(struct vm_area_struct *vma)
 +@@ -231,6 +251,7 @@ static struct vm_area_struct *remove_vma
-@@ -69645 +68203 @@
+@@ -69646 +68204 @@
 -@@ -765,12 +799,19 @@ can_vma_merge_after(struct vm_area_struct *vma, unsigned long vm_flags,
 +@@ -765,12 +799,19 @@ can_vma_merge_after(struct vm_area_struc
-@@ -69666 +68224 @@
+@@ -69667 +68225 @@
 -@@ -786,6 +827,15 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 +@@ -786,6 +827,15 @@ struct vm_area_struct *vma_merge(struct 
-@@ -69682 +68240 @@
+@@ -69683 +68241 @@
 -@@ -805,9 +855,24 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 +@@ -805,9 +855,24 @@ struct vm_area_struct *vma_merge(struct 
-@@ -69708 +68266 @@
+@@ -69709 +68267 @@
 -@@ -818,12 +883,27 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 +@@ -818,12 +883,27 @@ struct vm_area_struct *vma_merge(struct 
-@@ -69754 +68312 @@
+@@ -69755 +68313 @@
 -@@ -932,7 +1009,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 +@@ -932,7 +1009,7 @@ unsigned long do_mmap_pgoff(struct file 
-@@ -69763 +68321 @@
+@@ -69764 +68322 @@
 -@@ -958,7 +1035,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 +@@ -958,7 +1035,7 @@ unsigned long do_mmap_pgoff(struct file 
-@@ -69772 +68330 @@
+@@ -69773 +68331 @@
 -@@ -969,6 +1046,36 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 +@@ -969,6 +1046,36 @@ unsigned long do_mmap_pgoff(struct file 
-@@ -69809 +68367 @@
+@@ -69810 +68368 @@
 -@@ -980,6 +1087,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 +@@ -980,6 +1087,7 @@ unsigned long do_mmap_pgoff(struct file 
-@@ -69817 +68375 @@
+@@ -69818 +68376 @@
 -@@ -1053,6 +1161,9 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 +@@ -1053,6 +1161,9 @@ unsigned long do_mmap_pgoff(struct file 
-@@ -69840 +68398 @@
+@@ -69841 +68399 @@
 -@@ -1117,14 +1228,24 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 +@@ -1117,14 +1228,24 @@ unsigned long mmap_region(struct file *f
-@@ -69982 +68540 @@
+@@ -69983 +68541 @@
 -@@ -1281,18 +1475,23 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 +@@ -1281,18 +1475,23 @@ arch_get_unmapped_area(struct file *filp
-@@ -70065 +68623 @@
+@@ -70066 +68624 @@
 -@@ -1348,7 +1553,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 +@@ -1348,7 +1553,7 @@ arch_get_unmapped_area_topdown(struct fi
-@@ -70074 +68632 @@
+@@ -70075 +68633 @@
 -@@ -1357,13 +1562,18 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 +@@ -1357,13 +1562,18 @@ arch_get_unmapped_area_topdown(struct fi
-@@ -70097 +68655 @@
+@@ -70098 +68656 @@
 -@@ -1378,7 +1588,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 +@@ -1378,7 +1588,7 @@ arch_get_unmapped_area_topdown(struct fi
-@@ -70106 +68664 @@
+@@ -70107 +68665 @@
 -@@ -1395,7 +1605,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 +@@ -1395,7 +1605,7 @@ arch_get_unmapped_area_topdown(struct fi
-@@ -70115 +68673 @@
+@@ -70116 +68674 @@
 -@@ -1404,8 +1614,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 +@@ -1404,8 +1614,8 @@ arch_get_unmapped_area_topdown(struct fi
-@@ -70163 +68721 @@
+@@ -70164 +68722 @@
 -@@ -1436,8 +1660,10 @@ void arch_unmap_area_topdown(struct mm_struct *mm, unsigned long addr)
 +@@ -1436,8 +1660,10 @@ void arch_unmap_area_topdown(struct mm_s
-@@ -70203 +68761 @@
+@@ -70204 +68762 @@
 -@@ -1561,6 +1808,7 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
 +@@ -1561,6 +1808,7 @@ static int acct_stack_growth(struct vm_a
-@@ -70211 +68769 @@
+@@ -70212 +68770 @@
 -@@ -1570,6 +1818,7 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
 +@@ -1570,6 +1818,7 @@ static int acct_stack_growth(struct vm_a
-@@ -70219 +68777 @@
+@@ -70220 +68778 @@
 -@@ -1600,37 +1849,48 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
 +@@ -1600,37 +1849,48 @@ static int acct_stack_growth(struct vm_a
-@@ -70277 +68835 @@
+@@ -70278 +68836 @@
 -@@ -1640,6 +1900,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 +@@ -1640,6 +1900,8 @@ int expand_upwards(struct vm_area_struct
-@@ -70286 +68844 @@
+@@ -70287 +68845 @@
 -@@ -1652,6 +1914,8 @@ static int expand_downwards(struct vm_area_struct *vma,
 +@@ -1652,6 +1914,8 @@ static int expand_downwards(struct vm_ar
-@@ -70295 +68853 @@
+@@ -70296 +68854 @@
 -@@ -1665,6 +1929,15 @@ static int expand_downwards(struct vm_area_struct *vma,
 +@@ -1665,6 +1929,15 @@ static int expand_downwards(struct vm_ar
-@@ -70311 +68869 @@
+@@ -70312 +68870 @@
 -@@ -1674,9 +1947,17 @@ static int expand_downwards(struct vm_area_struct *vma,
 +@@ -1674,9 +1947,17 @@ static int expand_downwards(struct vm_ar
-@@ -70330 +68888 @@
+@@ -70331 +68889 @@
 -@@ -1684,9 +1965,20 @@ static int expand_downwards(struct vm_area_struct *vma,
 +@@ -1684,9 +1965,20 @@ static int expand_downwards(struct vm_ar
-@@ -70351 +68909 @@
+@@ -70352 +68910 @@
 -@@ -1762,6 +2054,13 @@ static void remove_vma_list(struct mm_struct *mm, struct vm_area_struct *vma)
 +@@ -1762,6 +2054,13 @@ static void remove_vma_list(struct mm_st
-@@ -70365 +68923 @@
+@@ -70366 +68924 @@
 -@@ -1807,6 +2106,16 @@ detach_vmas_to_be_unmapped(struct mm_struct *mm, struct vm_area_struct *vma,
 +@@ -1807,6 +2106,16 @@ detach_vmas_to_be_unmapped(struct mm_str
-@@ -70382 +68940 @@
+@@ -70383 +68941 @@
 -@@ -1834,10 +2143,25 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 +@@ -1834,10 +2143,25 @@ int split_vma(struct mm_struct * mm, str
-@@ -70408 +68966 @@
+@@ -70409 +68967 @@
 -@@ -1845,6 +2169,16 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 +@@ -1845,6 +2169,16 @@ int split_vma(struct mm_struct * mm, str
-@@ -70425 +68983 @@
+@@ -70426 +68984 @@
 -@@ -1855,8 +2189,29 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 +@@ -1855,8 +2189,29 @@ int split_vma(struct mm_struct * mm, str
-@@ -70455 +69013 @@
+@@ -70456 +69014 @@
 -@@ -1877,6 +2232,28 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 +@@ -1877,6 +2232,28 @@ int split_vma(struct mm_struct * mm, str
-@@ -70484 +69042 @@
+@@ -70485 +69043 @@
 -@@ -1885,11 +2262,30 @@ int split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 +@@ -1885,11 +2262,30 @@ int split_vma(struct mm_struct * mm, str
-@@ -70489,2 +69047,2 @@
+@@ -70490,2 +69048,2 @@
 - int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 - {
 ++int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 ++{
-@@ -70500 +69058 @@
+@@ -70501 +69059 @@
 -+int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 + int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
-@@ -70502 +69060 @@
+@@ -70503 +69061 @@
 -+{
 + {
-@@ -70515 +69073 @@
+@@ -70516 +69074 @@
 -@@ -1953,6 +2349,8 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 +@@ -1953,6 +2349,8 @@ int do_munmap(struct mm_struct *mm, unsi
-@@ -70524 +69082 @@
+@@ -70525 +69083 @@
 -@@ -1965,22 +2363,18 @@ SYSCALL_DEFINE2(munmap, unsigned long, addr, size_t, len)
 +@@ -1965,22 +2363,18 @@ SYSCALL_DEFINE2(munmap, unsigned long, a
-@@ -70553 +69111 @@
+@@ -70554 +69112 @@
 -@@ -1994,6 +2388,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 +@@ -1994,6 +2388,7 @@ unsigned long do_brk(unsigned long addr,
-@@ -70561 +69119 @@
+@@ -70562 +69120 @@
 -@@ -2005,16 +2400,30 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 +@@ -2005,16 +2400,30 @@ unsigned long do_brk(unsigned long addr,
-@@ -70593 +69151 @@
+@@ -70594 +69152 @@
 -@@ -2031,22 +2440,22 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 +@@ -2031,22 +2440,22 @@ unsigned long do_brk(unsigned long addr,
-@@ -70620 +69178 @@
+@@ -70621 +69179 @@
 -@@ -2060,7 +2469,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 +@@ -2060,7 +2469,7 @@ unsigned long do_brk(unsigned long addr,
-@@ -70629 +69187 @@
+@@ -70630 +69188 @@
 -@@ -2072,11 +2481,12 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 +@@ -2072,11 +2481,12 @@ unsigned long do_brk(unsigned long addr,
-@@ -70656 +69214 @@
+@@ -70657 +69215 @@
 -@@ -2138,6 +2550,10 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 +@@ -2138,6 +2550,10 @@ int insert_vm_struct(struct mm_struct * 
-@@ -70667 +69225 @@
+@@ -70668 +69226 @@
 -@@ -2160,7 +2576,22 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 +@@ -2160,7 +2576,22 @@ int insert_vm_struct(struct mm_struct * 
-@@ -70690 +69248 @@
+@@ -70691 +69249 @@
 -@@ -2178,6 +2609,8 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 +@@ -2178,6 +2609,8 @@ struct vm_area_struct *copy_vma(struct v
-@@ -70699 +69257 @@
+@@ -70700 +69258 @@
 -@@ -2221,6 +2654,35 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 +@@ -2221,6 +2654,35 @@ struct vm_area_struct *copy_vma(struct v
-@@ -70735 +69293 @@
+@@ -70736 +69294 @@
 -@@ -2231,7 +2693,7 @@ int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 +@@ -2231,7 +2693,7 @@ int may_expand_vm(struct mm_struct *mm, 
-@@ -70744 +69302 @@
+@@ -70745 +69303 @@
 -@@ -2301,6 +2763,22 @@ int install_special_mapping(struct mm_struct *mm,
 +@@ -2301,6 +2763,22 @@ int install_special_mapping(struct mm_st
-@@ -70767,4 +69325,3 @@
+@@ -70768,4 +69326,3 @@
 -diff --git a/mm/mprotect.c b/mm/mprotect.c
 -index 1737c7e7af536c587c23c0f00f13b602203ac6c8..c7faeb458ae51846f19347b43729d3095dd432c4 100644
 ---- a/mm/mprotect.c
@@ -27496,31 +27496,31 @@
 +diff -urNp linux-2.6.32.45/mm/mprotect.c linux-2.6.32.45/mm/mprotect.c
 +--- linux-2.6.32.45/mm/mprotect.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/mprotect.c	2011-04-17 15:56:46.000000000 -0400
-@@ -70788 +69345 @@
+@@ -70789 +69346 @@
 -@@ -132,6 +138,48 @@ static void change_protection(struct vm_area_struct *vma,
 +@@ -132,6 +138,48 @@ static void change_protection(struct vm_
-@@ -70837 +69394 @@
+@@ -70838 +69395 @@
 -@@ -144,11 +192,29 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 +@@ -144,11 +192,29 @@ mprotect_fixup(struct vm_area_struct *vm
-@@ -70867 +69424 @@
+@@ -70868 +69425 @@
 -@@ -165,6 +231,38 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 +@@ -165,6 +231,38 @@ mprotect_fixup(struct vm_area_struct *vm
-@@ -70929 +69486 @@
+@@ -70930 +69487 @@
 -@@ -239,6 +349,17 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 +@@ -239,6 +349,17 @@ SYSCALL_DEFINE3(mprotect, unsigned long,
-@@ -70947 +69504 @@
+@@ -70948 +69505 @@
 -@@ -246,7 +367,7 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 +@@ -246,7 +367,7 @@ SYSCALL_DEFINE3(mprotect, unsigned long,
-@@ -70956 +69513 @@
+@@ -70957 +69514 @@
 -@@ -278,6 +399,11 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 +@@ -278,6 +399,11 @@ SYSCALL_DEFINE3(mprotect, unsigned long,
-@@ -70968 +69525 @@
+@@ -70969 +69526 @@
 -@@ -287,6 +413,14 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 +@@ -287,6 +413,14 @@ SYSCALL_DEFINE3(mprotect, unsigned long,
-@@ -70983 +69540 @@
+@@ -70984 +69541 @@
 -@@ -301,6 +435,9 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 +@@ -301,6 +435,9 @@ SYSCALL_DEFINE3(mprotect, unsigned long,
-@@ -70993,5 +69550,4 @@
+@@ -70994,5 +69551,4 @@
 -diff --git a/mm/mremap.c b/mm/mremap.c
 -index 3e98d79f55892e66abd5cea68adbf4191e2eaada..1706cec834c880d4ab1fb794fb11d3381d0745ba 100644
 ---- a/mm/mremap.c
@@ -27530,25 +27530,25 @@
 +--- linux-2.6.32.45/mm/mremap.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/mm/mremap.c	2011-04-17 17:03:58.000000000 -0400
 +@@ -112,6 +112,12 @@ static void move_ptes(struct vm_area_str
-@@ -71010 +69566 @@
+@@ -71011 +69567 @@
 -@@ -271,6 +277,11 @@ static struct vm_area_struct *vma_to_resize(unsigned long addr,
 +@@ -271,6 +277,11 @@ static struct vm_area_struct *vma_to_res
-@@ -71022 +69578 @@
+@@ -71023 +69579 @@
 -@@ -327,20 +338,25 @@ static unsigned long mremap_to(unsigned long addr,
 +@@ -327,20 +338,25 @@ static unsigned long mremap_to(unsigned 
-@@ -71053 +69609 @@
+@@ -71054 +69610 @@
 -@@ -412,6 +428,7 @@ unsigned long do_mremap(unsigned long addr,
 +@@ -412,6 +428,7 @@ unsigned long do_mremap(unsigned long ad
-@@ -71061 +69617 @@
+@@ -71062 +69618 @@
 -@@ -430,6 +447,17 @@ unsigned long do_mremap(unsigned long addr,
 +@@ -430,6 +447,17 @@ unsigned long do_mremap(unsigned long ad
-@@ -71079 +69635 @@
+@@ -71080 +69636 @@
 -@@ -476,6 +504,7 @@ unsigned long do_mremap(unsigned long addr,
 +@@ -476,6 +504,7 @@ unsigned long do_mremap(unsigned long ad
-@@ -71087 +69643 @@
+@@ -71088 +69644 @@
 -@@ -502,7 +531,13 @@ unsigned long do_mremap(unsigned long addr,
 +@@ -502,7 +531,13 @@ unsigned long do_mremap(unsigned long ad
-@@ -71101,5 +69657,4 @@
+@@ -71102,5 +69658,4 @@
 -diff --git a/mm/nommu.c b/mm/nommu.c
 -index 406e8d47ce49f76180667647cffc717b029ff950..53970d3f81837726675c34091bba8fb8dd614f40 100644
 ---- a/mm/nommu.c
@@ -27558,10 +27558,10 @@
 +--- linux-2.6.32.45/mm/nommu.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/nommu.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -67,7 +67,6 @@ int sysctl_overcommit_memory = OVERCOMMI
-@@ -71113 +69668 @@
+@@ -71114 +69669 @@
 -@@ -761,15 +760,6 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 +@@ -761,15 +760,6 @@ struct vm_area_struct *find_vma(struct m
-@@ -71129,4 +69684,3 @@
+@@ -71130,4 +69685,3 @@
 -diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 -index 3ecab7e7bbfa9ec72e620c327559a8a0d63f5192..594a4715370b33d1f9cc35f16ba3b83b62e1d72d 100644
 ---- a/mm/page_alloc.c
@@ -27569,22 +27569,22 @@
 +diff -urNp linux-2.6.32.45/mm/page_alloc.c linux-2.6.32.45/mm/page_alloc.c
 +--- linux-2.6.32.45/mm/page_alloc.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/mm/page_alloc.c	2011-07-09 09:13:08.000000000 -0400
-@@ -71142 +69696 @@
+@@ -71143 +69697 @@
 -@@ -587,6 +587,10 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 +@@ -587,6 +587,10 @@ static void __free_pages_ok(struct page 
-@@ -71153 +69707 @@
+@@ -71154 +69708 @@
 -@@ -599,6 +603,12 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 +@@ -599,6 +603,12 @@ static void __free_pages_ok(struct page 
-@@ -71166 +69720 @@
+@@ -71167 +69721 @@
 -@@ -702,8 +712,10 @@ static int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 +@@ -702,8 +712,10 @@ static int prep_new_page(struct page *pa
-@@ -71177 +69731 @@
+@@ -71178 +69732 @@
 -@@ -1097,6 +1109,11 @@ static void free_hot_cold_page(struct page *page, int cold)
 +@@ -1097,6 +1109,11 @@ static void free_hot_cold_page(struct pa
-@@ -71198 +69752 @@
+@@ -71199 +69753 @@
 -@@ -3736,7 +3755,7 @@ static void __init setup_usemap(struct pglist_data *pgdat,
 +@@ -3736,7 +3755,7 @@ static void __init setup_usemap(struct p
-@@ -71207,5 +69761,4 @@
+@@ -71208,5 +69762,4 @@
 -diff --git a/mm/percpu.c b/mm/percpu.c
 -index 3bfd6e251f1948b6b748a14a5d0917476c76fc68..60404b97ddc522215de824c5ef6c22739790a377 100644
 ---- a/mm/percpu.c
@@ -27594,7 +27594,7 @@
 +--- linux-2.6.32.45/mm/percpu.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/percpu.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -115,7 +115,7 @@ static unsigned int pcpu_first_unit_cpu 
-@@ -71220,5 +69773,4 @@
+@@ -71221,5 +69774,4 @@
 -diff --git a/mm/rmap.c b/mm/rmap.c
 -index dd43373a483fa764ce35a3bdc541ea4148653af4..d848cd74b96c5c6e74f597a1e78c8c10b5690a13 100644
 ---- a/mm/rmap.c
@@ -27604,7 +27604,7 @@
 +--- linux-2.6.32.45/mm/rmap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/rmap.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -121,6 +121,17 @@ int anon_vma_prepare(struct vm_area_stru
-@@ -71242,4 +69794,3 @@
+@@ -71243,4 +69795,3 @@
 -diff --git a/mm/shmem.c b/mm/shmem.c
 -index 3e0005bc52a8543a8a17a16121763d56cc578078..1d659a847720652b5f7ff2c676804a3ca2a69ce4 100644
 ---- a/mm/shmem.c
@@ -27612,19 +27612,19 @@
 +diff -urNp linux-2.6.32.45/mm/shmem.c linux-2.6.32.45/mm/shmem.c
 +--- linux-2.6.32.45/mm/shmem.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/shmem.c	2011-05-18 20:09:37.000000000 -0400
-@@ -71255 +69806 @@
+@@ -71256 +69807 @@
 -@@ -1061,6 +1061,8 @@ static int shmem_writepage(struct page *page, struct writeback_control *wbc)
 +@@ -1061,6 +1061,8 @@ static int shmem_writepage(struct page *
-@@ -71264 +69815 @@
+@@ -71265 +69816 @@
 -@@ -1144,6 +1146,8 @@ static struct page *shmem_swapin(swp_entry_t entry, gfp_t gfp,
 +@@ -1144,6 +1146,8 @@ static struct page *shmem_swapin(swp_ent
-@@ -71273 +69824 @@
+@@ -71274 +69825 @@
 -@@ -1962,7 +1966,7 @@ static int shmem_symlink(struct inode *dir, struct dentry *dentry, const char *s
 +@@ -1962,7 +1966,7 @@ static int shmem_symlink(struct inode *d
-@@ -71282 +69833 @@
+@@ -71283 +69834 @@
 -@@ -2310,8 +2314,7 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 +@@ -2310,8 +2314,7 @@ int shmem_fill_super(struct super_block 
-@@ -71292,4 +69843,3 @@
+@@ -71293,4 +69844,3 @@
 -diff --git a/mm/slab.c b/mm/slab.c
 -index c8d466a4e9b7119fab913fecb3819e94d2784b00..aff3e0b5dfbc53c855c23157278f54b4afeeabc6 100644
 ---- a/mm/slab.c
@@ -27632,19 +27632,19 @@
 +diff -urNp linux-2.6.32.45/mm/slab.c linux-2.6.32.45/mm/slab.c
 +--- linux-2.6.32.45/mm/slab.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/slab.c	2011-05-04 17:56:20.000000000 -0400
-@@ -71323 +69873 @@
+@@ -71324 +69874 @@
 -@@ -409,10 +409,10 @@ static void kmem_list3_init(struct kmem_list3 *parent)
 +@@ -409,10 +409,10 @@ static void kmem_list3_init(struct kmem_
-@@ -71338 +69888 @@
+@@ -71339 +69889 @@
 -@@ -558,7 +558,7 @@ static inline void *index_to_obj(struct kmem_cache *cache, struct slab *slab,
 +@@ -558,7 +558,7 @@ static inline void *index_to_obj(struct 
-@@ -71374 +69924 @@
+@@ -71375 +69925 @@
 -@@ -4211,10 +4211,10 @@ static int s_show(struct seq_file *m, void *p)
 +@@ -4211,10 +4211,10 @@ static int s_show(struct seq_file *m, vo
-@@ -71389 +69939 @@
+@@ -71390 +69940 @@
 -@@ -4471,15 +4471,66 @@ static const struct file_operations proc_slabstats_operations = {
 +@@ -4471,15 +4471,66 @@ static const struct file_operations proc
-@@ -71458,4 +70008,3 @@
+@@ -71459,4 +70009,3 @@
 -diff --git a/mm/slob.c b/mm/slob.c
 -index 837ebd64cc346875c9f84f2d87ac4b149c137755..36dfaacddaf83254fa6d13101bc59b125d12423f 100644
 ---- a/mm/slob.c
@@ -27652,34 +27652,34 @@
 +diff -urNp linux-2.6.32.45/mm/slob.c linux-2.6.32.45/mm/slob.c
 +--- linux-2.6.32.45/mm/slob.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/slob.c	2011-07-06 19:53:33.000000000 -0400
-@@ -71498 +70047 @@
+@@ -71499 +70048 @@
 -@@ -148,7 +150,7 @@ static inline void clear_slob_page(struct slob_page *sp)
 +@@ -148,7 +150,7 @@ static inline void clear_slob_page(struc
-@@ -71507 +70056 @@
+@@ -71508 +70057 @@
 -@@ -208,7 +210,7 @@ static void set_slob(slob_t *s, slobidx_t size, slob_t *next)
 +@@ -208,7 +210,7 @@ static void set_slob(slob_t *s, slobidx_
-@@ -71534 +70083 @@
+@@ -71535 +70084 @@
 -@@ -252,6 +254,7 @@ static void *slob_new_pages(gfp_t gfp, int order, int node)
 +@@ -252,6 +254,7 @@ static void *slob_new_pages(gfp_t gfp, i
-@@ -71542 +70091 @@
+@@ -71543 +70092 @@
 -@@ -368,11 +371,11 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 +@@ -368,11 +371,11 @@ static void *slob_alloc(size_t size, gfp
-@@ -71568 +70117 @@
+@@ -71569 +70118 @@
 -@@ -491,7 +493,10 @@ void *__kmalloc_node(size_t size, gfp_t gfp, int node)
 +@@ -491,7 +493,10 @@ void *__kmalloc_node(size_t size, gfp_t 
-@@ -71580 +70129 @@
+@@ -71581 +70130 @@
 -@@ -501,16 +506,25 @@ void *__kmalloc_node(size_t size, gfp_t gfp, int node)
 +@@ -501,16 +506,25 @@ void *__kmalloc_node(size_t size, gfp_t 
-@@ -71716 +70265 @@
+@@ -71717 +70266 @@
 -@@ -566,8 +655,13 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 +@@ -566,8 +655,13 @@ struct kmem_cache *kmem_cache_create(con
-@@ -71730 +70279 @@
+@@ -71731 +70280 @@
 -@@ -605,17 +699,25 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 +@@ -605,17 +699,25 @@ void *kmem_cache_alloc_node(struct kmem_
-@@ -71775 +70324 @@
+@@ -71776 +70325 @@
 -@@ -643,18 +751,32 @@ static void kmem_rcu_free(struct rcu_head *head)
 +@@ -643,18 +751,32 @@ static void kmem_rcu_free(struct rcu_hea
-@@ -71811,5 +70360,4 @@
+@@ -71812,5 +70361,4 @@
 -diff --git a/mm/slub.c b/mm/slub.c
 -index 4996fc7195528ba931dda8c042da44b2501b083e..4f33d3f2773aff357e892560dcd503ced9e34f79 100644
 ---- a/mm/slub.c
@@ -27689,40 +27689,40 @@
 +--- linux-2.6.32.45/mm/slub.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/slub.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -410,7 +410,7 @@ static void print_track(const char *s, s
-@@ -71824 +70372 @@
+@@ -71825 +70373 @@
 -@@ -1893,6 +1893,8 @@ void kmem_cache_free(struct kmem_cache *s, void *x)
 +@@ -1893,6 +1893,8 @@ void kmem_cache_free(struct kmem_cache *
-@@ -71842 +70390 @@
+@@ -71843 +70391 @@
 -@@ -2493,7 +2495,7 @@ static int kmem_cache_open(struct kmem_cache *s, gfp_t gfpflags,
 +@@ -2493,7 +2495,7 @@ static int kmem_cache_open(struct kmem_c
-@@ -71851 +70399 @@
+@@ -71852 +70400 @@
 -@@ -2630,8 +2632,7 @@ static inline int kmem_cache_close(struct kmem_cache *s)
 +@@ -2630,8 +2632,7 @@ static inline int kmem_cache_close(struc
-@@ -71861 +70409 @@
+@@ -71862 +70410 @@
 -@@ -2691,12 +2692,10 @@ static int __init setup_slub_nomerge(char *str)
 +@@ -2691,12 +2692,10 @@ static int __init setup_slub_nomerge(cha
-@@ -71876 +70424 @@
+@@ -71877 +70425 @@
 -@@ -2915,6 +2914,46 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 +@@ -2915,6 +2914,46 @@ void *__kmalloc_node(size_t size, gfp_t 
-@@ -71956 +70504 @@
+@@ -71957 +70505 @@
 -@@ -3293,7 +3332,7 @@ static int slab_unmergeable(struct kmem_cache *s)
 +@@ -3293,7 +3332,7 @@ static int slab_unmergeable(struct kmem_
-@@ -71965 +70513 @@
+@@ -71966 +70514 @@
 -@@ -3353,7 +3392,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 +@@ -3353,7 +3392,7 @@ struct kmem_cache *kmem_cache_create(con
-@@ -71974 +70522 @@
+@@ -71975 +70523 @@
 -@@ -3372,7 +3411,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 +@@ -3372,7 +3411,7 @@ struct kmem_cache *kmem_cache_create(con
-@@ -71992 +70540 @@
+@@ -71993 +70541 @@
 -@@ -4503,7 +4542,7 @@ static void kmem_cache_release(struct kobject *kobj)
 +@@ -4503,7 +4542,7 @@ static void kmem_cache_release(struct ko
-@@ -72001 +70549 @@
+@@ -72002 +70550 @@
 -@@ -4522,7 +4561,7 @@ static int uevent_filter(struct kset *kset, struct kobject *kobj)
 +@@ -4522,7 +4561,7 @@ static int uevent_filter(struct kset *ks
-@@ -72010 +70558 @@
+@@ -72011 +70559 @@
 -@@ -4785,7 +4824,13 @@ static const struct file_operations proc_slabinfo_operations = {
 +@@ -4785,7 +4824,13 @@ static const struct file_operations proc
-@@ -72025,4 +70573,3 @@
+@@ -72026,4 +70574,3 @@
 -diff --git a/mm/swap.c b/mm/swap.c
 -index 308e57d8d7ed9e256eb26be6b5478da06aac5d7f..5de19c0c70c2a664fb8a56d7c2c51468d7880363 100644
 ---- a/mm/swap.c
@@ -27730,10 +27730,10 @@
 +diff -urNp linux-2.6.32.45/mm/swap.c linux-2.6.32.45/mm/swap.c
 +--- linux-2.6.32.45/mm/swap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/swap.c	2011-07-09 09:15:19.000000000 -0400
-@@ -72037 +70584 @@
+@@ -72038 +70585 @@
 -@@ -65,6 +66,8 @@ static void put_compound_page(struct page *page)
 +@@ -65,6 +66,8 @@ static void put_compound_page(struct pag
-@@ -72046,4 +70593,3 @@
+@@ -72047,4 +70594,3 @@
 -diff --git a/mm/util.c b/mm/util.c
 -index b377ce43080312411a8910ea21a5f2867a7c7007..3a891afc6362f3f8c7bcbc5be4a5ba734461559b 100644
 ---- a/mm/util.c
@@ -27741,7 +27741,7 @@
 +diff -urNp linux-2.6.32.45/mm/util.c linux-2.6.32.45/mm/util.c
 +--- linux-2.6.32.45/mm/util.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/util.c	2011-04-17 15:56:46.000000000 -0400
-@@ -72063,5 +70609,4 @@
+@@ -72064,5 +70610,4 @@
 -diff --git a/mm/vmalloc.c b/mm/vmalloc.c
 -index 680dcbb2d91ee75ddaaa1d0236962974a96d4696..5bde9c2cb83006311f37e37e6a729486bcb2dc82 100644
 ---- a/mm/vmalloc.c
@@ -27751,37 +27751,37 @@
 +--- linux-2.6.32.45/mm/vmalloc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/vmalloc.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -40,8 +40,19 @@ static void vunmap_pte_range(pmd_t *pmd,
-@@ -72089 +70634 @@
+@@ -72090 +70635 @@
 -@@ -92,6 +103,7 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 +@@ -92,6 +103,7 @@ static int vmap_pte_range(pmd_t *pmd, un
-@@ -72097 +70642 @@
+@@ -72098 +70643 @@
 -@@ -101,17 +113,32 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 +@@ -101,17 +113,32 @@ static int vmap_pte_range(pmd_t *pmd, un
-@@ -72135 +70680 @@
+@@ -72136 +70681 @@
 -@@ -192,11 +219,20 @@ int is_vmalloc_or_module_addr(const void *x)
 +@@ -192,11 +219,20 @@ int is_vmalloc_or_module_addr(const void
-@@ -72157 +70702 @@
+@@ -72158 +70703 @@
 -@@ -217,8 +253,14 @@ struct page *vmalloc_to_page(const void *vmalloc_addr)
 +@@ -217,8 +253,14 @@ struct page *vmalloc_to_page(const void 
-@@ -72172 +70717 @@
+@@ -72173 +70718 @@
 -@@ -292,13 +334,13 @@ static void __insert_vmap_area(struct vmap_area *va)
 +@@ -292,13 +334,13 @@ static void __insert_vmap_area(struct vm
-@@ -72190 +70735 @@
+@@ -72191 +70736 @@
 -@@ -1232,6 +1274,16 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 +@@ -1232,6 +1274,16 @@ static struct vm_struct *__get_vm_area_n
-@@ -72207 +70752 @@
+@@ -72208 +70753 @@
 -@@ -1457,6 +1509,11 @@ void *vmap(struct page **pages, unsigned int count,
 +@@ -1457,6 +1509,11 @@ void *vmap(struct page **pages, unsigned
-@@ -72219 +70764 @@
+@@ -72220 +70765 @@
 -@@ -1567,6 +1624,13 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 +@@ -1567,6 +1624,13 @@ static void *__vmalloc_node(unsigned lon
-@@ -72233 +70778 @@
+@@ -72234 +70779 @@
 -@@ -1585,6 +1649,7 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 +@@ -1585,6 +1649,7 @@ static void *__vmalloc_node(unsigned lon
-@@ -72294 +70839 @@
+@@ -72295 +70840 @@
 -@@ -1964,6 +2034,8 @@ int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 +@@ -1964,6 +2034,8 @@ int remap_vmalloc_range(struct vm_area_s
-@@ -72303,4 +70848,3 @@
+@@ -72304,4 +70849,3 @@
 -diff --git a/mm/vmstat.c b/mm/vmstat.c
 -index 42d76c65e9f29719ea206887cf1c597df99ae17d..5643dc46d909c113d57704ffad721ceef48ead39 100644
 ---- a/mm/vmstat.c
@@ -27789,7 +27789,7 @@
 +diff -urNp linux-2.6.32.45/mm/vmstat.c linux-2.6.32.45/mm/vmstat.c
 +--- linux-2.6.32.45/mm/vmstat.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/mm/vmstat.c	2011-04-17 15:56:46.000000000 -0400
-@@ -72359,5 +70903,4 @@
+@@ -72360,5 +70904,4 @@
 -diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
 -index a29c5ab5815cef5887f99a381a89e9bc2c312b26..6143f207d155dcb194060def9578729970ff3eb6 100644
 ---- a/net/8021q/vlan.c
@@ -27799,7 +27799,7 @@
 +--- linux-2.6.32.45/net/8021q/vlan.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/8021q/vlan.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -622,8 +622,7 @@ static int vlan_ioctl_handler(struct net
-@@ -72373,5 +70916,4 @@
+@@ -72374,5 +70917,4 @@
 -diff --git a/net/atm/atm_misc.c b/net/atm/atm_misc.c
 -index 02cc7e71efea24e36fbe78a5e43ee6e7122f3b64..4514f1b75deb78900146e0daf513fafe18bc4a62 100644
 ---- a/net/atm/atm_misc.c
@@ -27809,16 +27809,16 @@
 +--- linux-2.6.32.45/net/atm/atm_misc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/atm_misc.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -19,7 +19,7 @@ int atm_charge(struct atm_vcc *vcc,int t
-@@ -72386 +70928 @@
+@@ -72387 +70929 @@
 -@@ -41,7 +41,7 @@ struct sk_buff *atm_alloc_charge(struct atm_vcc *vcc,int pdu_size,
 +@@ -41,7 +41,7 @@ struct sk_buff *atm_alloc_charge(struct 
-@@ -72395 +70937 @@
+@@ -72396 +70938 @@
 -@@ -88,7 +88,7 @@ int atm_pcr_goal(const struct atm_trafprm *tp)
 +@@ -88,7 +88,7 @@ int atm_pcr_goal(const struct atm_trafpr
-@@ -72404 +70946 @@
+@@ -72405 +70947 @@
 -@@ -96,7 +96,7 @@ void sonet_copy_stats(struct k_sonet_stats *from,struct sonet_stats *to)
 +@@ -96,7 +96,7 @@ void sonet_copy_stats(struct k_sonet_sta
-@@ -72413,4 +70955,3 @@
+@@ -72414,4 +70956,3 @@
 -diff --git a/net/atm/lec.h b/net/atm/lec.h
 -index 9d14d196cc1d74aa9ea06baec24ba5772cc2c24b..5c145f3ed400bf28c9b35dfc03bb9a5a7c70ed2b 100644
 ---- a/net/atm/lec.h
@@ -27826,7 +27826,7 @@
 +diff -urNp linux-2.6.32.45/net/atm/lec.h linux-2.6.32.45/net/atm/lec.h
 +--- linux-2.6.32.45/net/atm/lec.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/lec.h	2011-08-05 20:33:55.000000000 -0400
-@@ -72426,5 +70967,4 @@
+@@ -72427,5 +70968,4 @@
 -diff --git a/net/atm/mpc.c b/net/atm/mpc.c
 -index 38a6cb0863f052d5557ee4938475a576bc64b632..5f27116b95af5f7729e54b464fcc8df7be4a2175 100644
 ---- a/net/atm/mpc.c
@@ -27836,7 +27836,7 @@
 +--- linux-2.6.32.45/net/atm/mpc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/mpc.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -291,8 +291,8 @@ static void start_mpc(struct mpoa_client
-@@ -72441,5 +70981,4 @@
+@@ -72442,5 +70982,4 @@
 -diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
 -index 4504a4b339bb8fb66e4c2e743815462157984c95..1733f1e132592caccea0915561b3f582d1906a33 100644
 ---- a/net/atm/mpoa_caches.c
@@ -27846,7 +27846,7 @@
 +--- linux-2.6.32.45/net/atm/mpoa_caches.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/mpoa_caches.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -498,6 +498,8 @@ static void clear_expired(struct mpoa_cl
-@@ -72454,5 +70993,4 @@
+@@ -72455,5 +70994,4 @@
 -diff --git a/net/atm/proc.c b/net/atm/proc.c
 -index ab8419a324b61556de9f353b8d6d6569704803ab..aa914973b16b64c68e9a9d597170305a34fbfdb7 100644
 ---- a/net/atm/proc.c
@@ -27856,13 +27856,13 @@
 +--- linux-2.6.32.45/net/atm/proc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/proc.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -43,9 +43,9 @@ static void add_stats(struct seq_file *s
-@@ -72471 +71009 @@
+@@ -72472 +71010 @@
 -@@ -188,7 +188,12 @@ static void vcc_info(struct seq_file *seq, struct atm_vcc *vcc)
 +@@ -188,7 +188,12 @@ static void vcc_info(struct seq_file *se
-@@ -72484 +71022 @@
+@@ -72485 +71023 @@
 -@@ -214,7 +219,11 @@ static void svc_info(struct seq_file *seq, struct atm_vcc *vcc)
 +@@ -214,7 +219,11 @@ static void svc_info(struct seq_file *se
-@@ -72496,5 +71034,4 @@
+@@ -72497,5 +71035,4 @@
 -diff --git a/net/atm/resources.c b/net/atm/resources.c
 -index 56b7322ff461c0dc9ebc652a85320cc249b4b8e8..c48b84e3ca4d1e4e7a11cba76b81656c2bbb1ab5 100644
 ---- a/net/atm/resources.c
@@ -27872,10 +27872,10 @@
 +--- linux-2.6.32.45/net/atm/resources.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/atm/resources.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -161,7 +161,7 @@ void atm_dev_deregister(struct atm_dev *
-@@ -72509 +71046 @@
+@@ -72510 +71047 @@
 -@@ -170,7 +170,7 @@ static void copy_aal_stats(struct k_atm_aal_stats *from,
 +@@ -170,7 +170,7 @@ static void copy_aal_stats(struct k_atm_
-@@ -72518,5 +71055,4 @@
+@@ -72519,5 +71056,4 @@
 -diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
 -index 8d1c4a93eee9a0b225361e6555a09e40abd2c524..720bfb97a79ef8d73b7376fb26650ce3013ff241 100644
 ---- a/net/bluetooth/l2cap.c
@@ -27885,10 +27885,10 @@
 +--- linux-2.6.32.45/net/bluetooth/l2cap.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/bluetooth/l2cap.c	2011-06-25 14:36:21.000000000 -0400
 +@@ -1885,7 +1885,7 @@ static int l2cap_sock_getsockopt_old(str
-@@ -72531 +71067 @@
+@@ -72532 +71068 @@
 -@@ -2719,7 +2719,7 @@ static inline int l2cap_config_req(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 +@@ -2719,7 +2719,7 @@ static inline int l2cap_config_req(struc
-@@ -72540,5 +71076,4 @@
+@@ -72541,5 +71077,4 @@
 -diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
 -index 30a36499ee7741afc4f6116c633273ee87032fae..1ae3f80fe472c2fba522f199a3f7b79de5e0a432 100644
 ---- a/net/bluetooth/rfcomm/sock.c
@@ -27898,7 +27898,7 @@
 +--- linux-2.6.32.45/net/bluetooth/rfcomm/sock.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/bluetooth/rfcomm/sock.c	2011-06-12 06:35:00.000000000 -0400
 +@@ -878,6 +878,7 @@ static int rfcomm_sock_getsockopt_old(st
-@@ -72552,5 +71087,4 @@
+@@ -72553,5 +71088,4 @@
 -diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
 -index 8567d4712f1ac7fa0ffcd19588aec7eaff12642b..bba22927be4b1145a4db4335b9b84f83173020b6 100644
 ---- a/net/bridge/br_private.h
@@ -27908,7 +27908,7 @@
 +--- linux-2.6.32.45/net/bridge/br_private.h	2011-08-09 18:35:30.000000000 -0400
 ++++ linux-2.6.32.45/net/bridge/br_private.h	2011-08-09 18:34:01.000000000 -0400
 +@@ -255,7 +255,7 @@ extern void br_ifinfo_notify(int event, 
-@@ -72565,5 +71099,4 @@
+@@ -72566,5 +71100,4 @@
 -diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
 -index 9a52ac5b452557ad945aa69e79ed3e86aecd21ef..c97538e3d473bfc01350e19b58bc834472ce06b1 100644
 ---- a/net/bridge/br_stp_if.c
@@ -27918,7 +27918,7 @@
 +--- linux-2.6.32.45/net/bridge/br_stp_if.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/bridge/br_stp_if.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -146,7 +146,7 @@ static void br_stp_stop(struct net_bridg
-@@ -72578,5 +71111,4 @@
+@@ -72579,5 +71112,4 @@
 -diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
 -index 820643a3ba9c35e98d1b679e50bfbac22e987aa3..ce77fb33f87b520a3896a5124ca03b2cc17eee63 100644
 ---- a/net/bridge/br_sysfs_if.c
@@ -27928,7 +27928,7 @@
 +--- linux-2.6.32.45/net/bridge/br_sysfs_if.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/bridge/br_sysfs_if.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -220,7 +220,7 @@ static ssize_t brport_store(struct kobje
-@@ -72591,5 +71123,4 @@
+@@ -72592,5 +71124,4 @@
 -diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
 -index d73d47f2a4add9512f48a7bf32ee30b0eb410888..72df42a7e87ca13fcf661c979a3e75868b07bdc7 100644
 ---- a/net/bridge/netfilter/ebtables.c
@@ -27938,7 +27938,7 @@
 +--- linux-2.6.32.45/net/bridge/netfilter/ebtables.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/net/bridge/netfilter/ebtables.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -1337,6 +1337,8 @@ static int copy_everything_to_user(struc
-@@ -72604,5 +71135,4 @@
+@@ -72605,5 +71136,4 @@
 -diff --git a/net/can/bcm.c b/net/can/bcm.c
 -index 2ffd2e01dc5225656c91a45f94313bd7be6b5cf7..72a74861fab658832938875ff59f7b2e6b59ed71 100644
 ---- a/net/can/bcm.c
@@ -27948,7 +27948,7 @@
 +--- linux-2.6.32.45/net/can/bcm.c	2011-05-10 22:12:01.000000000 -0400
 ++++ linux-2.6.32.45/net/can/bcm.c	2011-05-10 22:12:34.000000000 -0400
 +@@ -164,9 +164,15 @@ static int bcm_proc_show(struct seq_file
-@@ -72624,5 +71154,4 @@
+@@ -72625,5 +71155,4 @@
 -diff --git a/net/core/dev.c b/net/core/dev.c
 -index 64eb849c60b3f456c09adee0a8d2642a774a7326..7b5948b4fb214450ea97f4ed2577ce2f5a3c283d 100644
 ---- a/net/core/dev.c
@@ -27958,13 +27958,13 @@
 +--- linux-2.6.32.45/net/core/dev.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/net/core/dev.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1047,10 +1047,14 @@ void dev_load(struct net *net, const cha
-@@ -72643 +71172 @@
+@@ -72644 +71173 @@
 -@@ -1654,7 +1658,7 @@ static inline int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
 +@@ -1654,7 +1658,7 @@ static inline int illegal_highdma(struct
-@@ -72661 +71190 @@
+@@ -72662 +71191 @@
 -@@ -2826,7 +2830,7 @@ void netif_napi_del(struct napi_struct *napi)
 +@@ -2826,7 +2830,7 @@ void netif_napi_del(struct napi_struct *
-@@ -72670,4 +71199,3 @@
+@@ -72671,4 +71200,3 @@
 -diff --git a/net/core/flow.c b/net/core/flow.c
 -index 96015871eceadeacc65d8b572fdcf0d757ecccca..8c4824e833fac6ad1406478a1dd653d7966e98c4 100644
 ---- a/net/core/flow.c
@@ -27972,13 +27972,13 @@
 +diff -urNp linux-2.6.32.45/net/core/flow.c linux-2.6.32.45/net/core/flow.c
 +--- linux-2.6.32.45/net/core/flow.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/core/flow.c	2011-05-04 17:56:20.000000000 -0400
-@@ -72706 +71234 @@
+@@ -72707 +71235 @@
 -@@ -190,7 +190,7 @@ void *flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
 +@@ -190,7 +190,7 @@ void *flow_cache_lookup(struct net *net,
-@@ -72724 +71252 @@
+@@ -72725 +71253 @@
 -@@ -258,7 +258,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
 +@@ -258,7 +258,7 @@ static void flow_cache_flush_tasklet(uns
-@@ -72733,4 +71261,3 @@
+@@ -72734,4 +71262,3 @@
 -diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
 -index d4fd895e8712b59df367033f20d13047f7dcc5d1..ac9b1e60c4518be20835174f2ffda3e8a9e8ec42 100644
 ---- a/net/core/rtnetlink.c
@@ -27986,7 +27986,7 @@
 +diff -urNp linux-2.6.32.45/net/core/rtnetlink.c linux-2.6.32.45/net/core/rtnetlink.c
 +--- linux-2.6.32.45/net/core/rtnetlink.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/core/rtnetlink.c	2011-08-05 20:33:55.000000000 -0400
-@@ -72746,5 +71273,4 @@
+@@ -72747,5 +71274,4 @@
 -diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
 -index 45329d7c9dd9bec432a933804c00ee45fc43bbe4..626aaa665d7dd84ea10ede3b2918e62ffe1fbc31 100644
 ---- a/net/core/secure_seq.c
@@ -27996,10 +27996,10 @@
 +--- linux-2.6.32.45/net/core/secure_seq.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/core/secure_seq.c	2011-08-07 19:48:09.000000000 -0400
 +@@ -57,7 +57,7 @@ __u32 secure_tcpv6_sequence_number(__be3
-@@ -72759 +71285 @@
+@@ -72760 +71286 @@
 -@@ -71,7 +71,6 @@ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
 +@@ -71,7 +71,6 @@ u32 secure_ipv6_port_ephemeral(const __b
-@@ -72767,5 +71293,4 @@
+@@ -72768,5 +71294,4 @@
 -diff --git a/net/core/skbuff.c b/net/core/skbuff.c
 -index 283f4412847996317dc24f0c1f0e7aa7b617bcd4..dd4d01a3bca4540d1b9fd06516fc06ff2e9e2ad2 100644
 ---- a/net/core/skbuff.c
@@ -28009,7 +28009,7 @@
 +--- linux-2.6.32.45/net/core/skbuff.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/core/skbuff.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -1544,6 +1544,8 @@ int skb_splice_bits(struct sk_buff *skb,
-@@ -72780,5 +71305,4 @@
+@@ -72781,5 +71306,4 @@
 -diff --git a/net/core/sock.c b/net/core/sock.c
 -index 6605e756bcd4beee839e86ddfa4846315262fd7f..3acebdac4941252db482f5649a59a0a3ffaa35f4 100644
 ---- a/net/core/sock.c
@@ -28019,10 +28019,10 @@
 +--- linux-2.6.32.45/net/core/sock.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/core/sock.c	2011-05-04 17:56:20.000000000 -0400
 +@@ -864,11 +864,15 @@ int sock_getsockopt(struct socket *sock,
-@@ -72801 +71325 @@
+@@ -72802 +71326 @@
 -@@ -1892,7 +1896,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 +@@ -1892,7 +1896,7 @@ void sock_init_data(struct socket *sock,
-@@ -72810,5 +71334,4 @@
+@@ -72811,5 +71335,4 @@
 -diff --git a/net/decnet/sysctl_net_decnet.c b/net/decnet/sysctl_net_decnet.c
 -index 2036568beea98260d11eb8bda40dd1d8a7d0c903..c55883daefb5029c19c845a5b3f891866746c89f 100644
 ---- a/net/decnet/sysctl_net_decnet.c
@@ -28032,10 +28032,10 @@
 +--- linux-2.6.32.45/net/decnet/sysctl_net_decnet.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/decnet/sysctl_net_decnet.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -206,7 +206,7 @@ static int dn_node_address_handler(ctl_t
-@@ -72823 +71346 @@
+@@ -72824 +71347 @@
 -@@ -327,7 +327,7 @@ static int dn_def_dev_handler(ctl_table *table, int write,
 +@@ -327,7 +327,7 @@ static int dn_def_dev_handler(ctl_table 
-@@ -72832,4 +71355,3 @@
+@@ -72833,4 +71356,3 @@
 -diff --git a/net/econet/Kconfig b/net/econet/Kconfig
 -index 39a2d2975e0ebfee766ab51879ed7b05ae4af3e6..f39c0fe79b47fc1fb4168a844505a815db8bbebe 100644
 ---- a/net/econet/Kconfig
@@ -28043,7 +28043,7 @@
 +diff -urNp linux-2.6.32.45/net/econet/Kconfig linux-2.6.32.45/net/econet/Kconfig
 +--- linux-2.6.32.45/net/econet/Kconfig	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/econet/Kconfig	2011-04-17 15:56:46.000000000 -0400
-@@ -72845,4 +71367,3 @@
+@@ -72846,4 +71368,3 @@
 -diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
 -index a413b1bf4465828860d9052d7fad828330edce89..380849c52a31925484b2b30ba0630e4a7198d1e6 100644
 ---- a/net/ieee802154/dgram.c
@@ -28051,7 +28051,7 @@
 +diff -urNp linux-2.6.32.45/net/ieee802154/dgram.c linux-2.6.32.45/net/ieee802154/dgram.c
 +--- linux-2.6.32.45/net/ieee802154/dgram.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ieee802154/dgram.c	2011-05-04 17:56:28.000000000 -0400
-@@ -72858,4 +71379,3 @@
+@@ -72859,4 +71380,3 @@
 -diff --git a/net/ieee802154/raw.c b/net/ieee802154/raw.c
 -index 30e74eee07d664755882ef4f16b4ecf901baf7c2..bfc6ee0deb56e5adedbdd562d2d21107879081a8 100644
 ---- a/net/ieee802154/raw.c
@@ -28059,7 +28059,7 @@
 +diff -urNp linux-2.6.32.45/net/ieee802154/raw.c linux-2.6.32.45/net/ieee802154/raw.c
 +--- linux-2.6.32.45/net/ieee802154/raw.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ieee802154/raw.c	2011-05-04 17:56:28.000000000 -0400
-@@ -72871,5 +71391,4 @@
+@@ -72872,5 +71392,4 @@
 -diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
 -index dba56d29af080369fc0cdff78d9f141b8c40c62d..acee5d6be87612dce3544512a82d6259f41fcdbe 100644
 ---- a/net/ipv4/inet_diag.c
@@ -28069,16 +28069,16 @@
 +--- linux-2.6.32.45/net/ipv4/inet_diag.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/inet_diag.c	2011-06-20 19:31:13.000000000 -0400
 +@@ -113,8 +113,13 @@ static int inet_csk_diag_fill(struct soc
-@@ -72889 +71408 @@
+@@ -72890 +71409 @@
 -@@ -200,8 +205,15 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
 +@@ -200,8 +205,15 @@ static int inet_twsk_diag_fill(struct in
-@@ -72905 +71424 @@
+@@ -72906 +71425 @@
 -@@ -284,12 +296,14 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
 +@@ -284,12 +296,14 @@ static int inet_diag_get_exact(struct sk
-@@ -72920 +71439 @@
+@@ -72921 +71440 @@
 -@@ -579,8 +593,14 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
 +@@ -579,8 +593,14 @@ static int inet_diag_fill_req(struct sk_
-@@ -72935,4 +71454,3 @@
+@@ -72936,4 +71455,3 @@
 -diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
 -index d7172674d1a4bf60b33a148e8c27aaa85cf9835b..56de7e723be00405b2a4f5570d47a05879f9bfa7 100644
 ---- a/net/ipv4/inet_hashtables.c
@@ -28086,7 +28086,7 @@
 +diff -urNp linux-2.6.32.45/net/ipv4/inet_hashtables.c linux-2.6.32.45/net/ipv4/inet_hashtables.c
 +--- linux-2.6.32.45/net/ipv4/inet_hashtables.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/inet_hashtables.c	2011-08-16 20:42:30.000000000 -0400
-@@ -72964,5 +71482,4 @@
+@@ -72965,5 +71483,4 @@
 -diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
 -index 13b229f400b3946bde2c152089d80c3e5d344a02..6956484aa0de04c4eab7c3f652e72cf1780c1230 100644
 ---- a/net/ipv4/inetpeer.c
@@ -28096,10 +28096,10 @@
 +--- linux-2.6.32.45/net/ipv4/inetpeer.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/inetpeer.c	2011-08-07 19:48:09.000000000 -0400
 +@@ -367,6 +367,8 @@ struct inet_peer *inet_getpeer(__be32 da
-@@ -72977 +71494 @@
+@@ -72978 +71495 @@
 -@@ -390,7 +392,7 @@ struct inet_peer *inet_getpeer(__be32 daddr, int create)
 +@@ -390,7 +392,7 @@ struct inet_peer *inet_getpeer(__be32 da
-@@ -72986,5 +71503,4 @@
+@@ -72987,5 +71504,4 @@
 -diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
 -index d3fe10be721956eca29a46cdfa7d58abced87744..feeafc97101d3c4f800f4652e1d9dc9b17b94192 100644
 ---- a/net/ipv4/ip_fragment.c
@@ -28109,7 +28109,7 @@
 +--- linux-2.6.32.45/net/ipv4/ip_fragment.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/ip_fragment.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -255,7 +255,7 @@ static inline int ip_frag_too_far(struct
-@@ -72999,5 +71515,4 @@
+@@ -73000,5 +71516,4 @@
 -diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
 -index e982b5c1ee17c6788b3a11767336ef59ebb2983a..dfdcf0bcfec036ace0eef276b5466001f5e901ab 100644
 ---- a/net/ipv4/ip_sockglue.c
@@ -28119,7 +28119,7 @@
 +--- linux-2.6.32.45/net/ipv4/ip_sockglue.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/ip_sockglue.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -1015,6 +1015,8 @@ static int do_ip_getsockopt(struct sock 
-@@ -73012,5 +71527,4 @@
+@@ -73013,5 +71528,4 @@
 -diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
 -index c8b0cc35d14839fba9775394f64716a79fb5e626..4da5ae27c20cb0faf2b08feee7905afb470df5b1 100644
 ---- a/net/ipv4/netfilter/arp_tables.c
@@ -28129,7 +28129,7 @@
 +--- linux-2.6.32.45/net/ipv4/netfilter/arp_tables.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/netfilter/arp_tables.c	2011-04-17 17:04:18.000000000 -0400
 +@@ -934,6 +934,7 @@ static int get_info(struct net *net, voi
-@@ -73024,5 +71538,4 @@
+@@ -73025,5 +71539,4 @@
 -diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
 -index 0606db1fa0105711a5a86124649f7b97dd63fc3b..02e7e4c488950b07f97aa49648e57d8447ce001b 100644
 ---- a/net/ipv4/netfilter/ip_tables.c
@@ -28139,7 +28139,7 @@
 +--- linux-2.6.32.45/net/ipv4/netfilter/ip_tables.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/netfilter/ip_tables.c	2011-04-17 17:04:18.000000000 -0400
 +@@ -1141,6 +1141,7 @@ static int get_info(struct net *net, voi
-@@ -73036,5 +71549,4 @@
+@@ -73037,5 +71550,4 @@
 -diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
 -index d9521f6f9ed0f29a9eeabc27710636d7c6393ac9..3c3eb253569ac54a5e8fa62f3db9f17751ace6a9 100644
 ---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
@@ -28149,7 +28149,7 @@
 +--- linux-2.6.32.45/net/ipv4/netfilter/nf_nat_snmp_basic.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/netfilter/nf_nat_snmp_basic.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -397,7 +397,7 @@ static unsigned char asn1_octets_decode(
-@@ -73049,5 +71561,4 @@
+@@ -73050,5 +71562,4 @@
 -diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
 -index ab996f9c0fe0ec0c8210698d874022cd786add7d..3da5f96012b0ac2b19fdd606fc6bd9c8abfdf662 100644
 ---- a/net/ipv4/raw.c
@@ -28159,16 +28159,16 @@
 +--- linux-2.6.32.45/net/ipv4/raw.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/raw.c	2011-08-14 11:46:51.000000000 -0400
 +@@ -292,7 +292,7 @@ static int raw_rcv_skb(struct sock * sk,
-@@ -73062 +71573 @@
+@@ -73063 +71574 @@
 -@@ -303,7 +303,7 @@ static int raw_rcv_skb(struct sock * sk, struct sk_buff * skb)
 +@@ -303,7 +303,7 @@ static int raw_rcv_skb(struct sock * sk,
-@@ -73096 +71607 @@
+@@ -73097 +71608 @@
 -@@ -743,8 +750,9 @@ static int raw_geticmpfilter(struct sock *sk, char __user *optval, int __user *o
 +@@ -743,8 +750,9 @@ static int raw_geticmpfilter(struct sock
-@@ -73108 +71619 @@
+@@ -73109 +71620 @@
 -@@ -954,7 +962,13 @@ static void raw_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 +@@ -954,7 +962,13 @@ static void raw_sock_seq_show(struct seq
-@@ -73123,5 +71634,4 @@
+@@ -73124,5 +71635,4 @@
 -diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 -index 58f141b6dac0c12a7b105fc2341bedcec387a7d5..b7597020664e494a274a2e32e349a1aa0054f613 100644
 ---- a/net/ipv4/route.c
@@ -28178,13 +28178,13 @@
 +--- linux-2.6.32.45/net/ipv4/route.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/route.c	2011-08-07 19:48:09.000000000 -0400
 +@@ -269,7 +269,7 @@ static inline unsigned int rt_hash(__be3
-@@ -73136 +71646 @@
+@@ -73137 +71647 @@
 -@@ -889,7 +889,7 @@ static void rt_cache_invalidate(struct net *net)
 +@@ -889,7 +889,7 @@ static void rt_cache_invalidate(struct n
-@@ -73145 +71655 @@
+@@ -73146 +71656 @@
 -@@ -3357,7 +3357,7 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
 +@@ -3357,7 +3357,7 @@ static __net_initdata struct pernet_oper
-@@ -73154,5 +71664,4 @@
+@@ -73155,5 +71665,4 @@
 -diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 -index f0956595006bb3c78504e2907e94b0d63ed2ffce..adc892a836ebcbc3bc4f95fc44041765879dae94 100644
 ---- a/net/ipv4/tcp.c
@@ -28194,10 +28194,10 @@
 +--- linux-2.6.32.45/net/ipv4/tcp.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -2085,6 +2085,8 @@ static int do_tcp_setsockopt(struct sock
-@@ -73167 +71676 @@
+@@ -73168 +71677 @@
 -@@ -2355,6 +2357,8 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
 +@@ -2355,6 +2357,8 @@ static int do_tcp_getsockopt(struct sock
-@@ -73176,4 +71685,3 @@
+@@ -73177,4 +71686,3 @@
 -diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
 -index 6fc7961eaf54ec547fde741dadc6b6b9bc82a469..51e1266f9b52e18d21f10387902aa326350afd86 100644
 ---- a/net/ipv4/tcp_ipv4.c
@@ -28205,33 +28205,33 @@
 +diff -urNp linux-2.6.32.45/net/ipv4/tcp_ipv4.c linux-2.6.32.45/net/ipv4/tcp_ipv4.c
 +--- linux-2.6.32.45/net/ipv4/tcp_ipv4.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp_ipv4.c	2011-08-07 19:48:09.000000000 -0400
-@@ -73190 +71698 @@
+@@ -73191 +71699 @@
 -@@ -1543,6 +1546,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 +@@ -1543,6 +1546,9 @@ int tcp_v4_do_rcv(struct sock *sk, struc
-@@ -73234 +71742 @@
+@@ -73235 +71743 @@
 -@@ -2195,14 +2213,14 @@ int tcp_proc_register(struct net *net, struct tcp_seq_afinfo *afinfo)
 +@@ -2195,14 +2213,14 @@ int tcp_proc_register(struct net *net, s
-@@ -73241,0 +71750,4 @@
+@@ -73242,0 +71751,4 @@
 +-
 +-	afinfo->seq_ops.start		= tcp_seq_start;
 +-	afinfo->seq_ops.next		= tcp_seq_next;
 +-	afinfo->seq_ops.stop		= tcp_seq_stop;
-@@ -73246,4 +71758 @@
+@@ -73247,4 +71759 @@
 - 
 --	afinfo->seq_ops.start		= tcp_seq_start;
 --	afinfo->seq_ops.next		= tcp_seq_next;
 --	afinfo->seq_ops.stop		= tcp_seq_stop;
 ++
-@@ -73256 +71765 @@
+@@ -73257 +71766 @@
 -@@ -2238,7 +2256,11 @@ static void get_openreq4(struct sock *sk, struct request_sock *req,
 +@@ -2238,7 +2256,11 @@ static void get_openreq4(struct sock *sk
-@@ -73268 +71777 @@
+@@ -73269 +71778 @@
 -@@ -2280,7 +2302,12 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
 +@@ -2280,7 +2302,12 @@ static void get_tcp4_sock(struct sock *s
-@@ -73282 +71791 @@
+@@ -73283 +71792 @@
 -@@ -2308,7 +2335,13 @@ static void get_timewait4_sock(struct inet_timewait_sock *tw,
 +@@ -2308,7 +2335,13 @@ static void get_timewait4_sock(struct in
-@@ -73297,4 +71806,3 @@
+@@ -73298,4 +71807,3 @@
 -diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
 -index 4c03598ed9248f29fa721b4a3473fca83b21b18f..e09a8e8af310fca92ea21ccba7d5e0599c271ee6 100644
 ---- a/net/ipv4/tcp_minisocks.c
@@ -28239,7 +28239,7 @@
 +diff -urNp linux-2.6.32.45/net/ipv4/tcp_minisocks.c linux-2.6.32.45/net/ipv4/tcp_minisocks.c
 +--- linux-2.6.32.45/net/ipv4/tcp_minisocks.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp_minisocks.c	2011-04-17 15:56:46.000000000 -0400
-@@ -73323,5 +71831,4 @@
+@@ -73324,5 +71832,4 @@
 -diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 -index af83bdf559da50314c15c079147a4fab20257024..ec91cb271f687a5416993ab867757a37888a741a 100644
 ---- a/net/ipv4/tcp_output.c
@@ -28249,7 +28249,7 @@
 +--- linux-2.6.32.45/net/ipv4/tcp_output.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp_output.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -2234,6 +2234,8 @@ struct sk_buff *tcp_make_synack(struct s
-@@ -73336,5 +71843,4 @@
+@@ -73337,5 +71844,4 @@
 -diff --git a/net/ipv4/tcp_probe.c b/net/ipv4/tcp_probe.c
 -index 59f5b5e7c56684ff2d3bdbdfcf469ae97b633763..193860f209dbb8fb18255d43a786e2a4debdcff9 100644
 ---- a/net/ipv4/tcp_probe.c
@@ -28259,7 +28259,7 @@
 +--- linux-2.6.32.45/net/ipv4/tcp_probe.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp_probe.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -200,7 +200,7 @@ static ssize_t tcpprobe_read(struct file
-@@ -73349,4 +71855,3 @@
+@@ -73350,4 +71856,3 @@
 -diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
 -index 57d550193df3e9d0433b1ca1e37a6f8716790a0b..a9ed13ade232228a3ccf4883da0f945f24a34428 100644
 ---- a/net/ipv4/tcp_timer.c
@@ -28267,10 +28267,10 @@
 +diff -urNp linux-2.6.32.45/net/ipv4/tcp_timer.c linux-2.6.32.45/net/ipv4/tcp_timer.c
 +--- linux-2.6.32.45/net/ipv4/tcp_timer.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/tcp_timer.c	2011-04-17 15:56:46.000000000 -0400
-@@ -73364 +71869 @@
+@@ -73365 +71870 @@
 -@@ -164,6 +168,13 @@ static int tcp_write_timeout(struct sock *sk)
 +@@ -164,6 +168,13 @@ static int tcp_write_timeout(struct sock
-@@ -73378,4 +71883,3 @@
+@@ -73379,4 +71884,3 @@
 -diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
 -index 0ac88332d56a3f52ee8e216f3db9c053ff274176..2b2935dd09ef662cff176fe40aee8d9ca8cbd81c 100644
 ---- a/net/ipv4/udp.c
@@ -28278,33 +28278,33 @@
 +diff -urNp linux-2.6.32.45/net/ipv4/udp.c linux-2.6.32.45/net/ipv4/udp.c
 +--- linux-2.6.32.45/net/ipv4/udp.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv4/udp.c	2011-08-05 20:33:55.000000000 -0400
-@@ -73411 +71915 @@
+@@ -73412 +71916 @@
 -@@ -639,9 +647,18 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 +@@ -639,9 +647,18 @@ int udp_sendmsg(struct kiocb *iocb, stru
-@@ -73441 +71945 @@
+@@ -73442 +71946 @@
 -@@ -1068,7 +1089,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 +@@ -1068,7 +1089,7 @@ static int __udp_queue_rcv_skb(struct so
-@@ -73450 +71954 @@
+@@ -73451 +71955 @@
 -@@ -1338,6 +1359,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
 +@@ -1338,6 +1359,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, 
-@@ -73460 +71964 @@
+@@ -73461 +71965 @@
 -@@ -1719,14 +1743,14 @@ int udp_proc_register(struct net *net, struct udp_seq_afinfo *afinfo)
 +@@ -1719,14 +1743,14 @@ int udp_proc_register(struct net *net, s
-@@ -73467,0 +71972,4 @@
+@@ -73468,0 +71973,4 @@
 +-
 +-	afinfo->seq_ops.start		= udp_seq_start;
 +-	afinfo->seq_ops.next		= udp_seq_next;
 +-	afinfo->seq_ops.stop		= udp_seq_stop;
-@@ -73472,4 +71980 @@
+@@ -73473,4 +71981 @@
 - 
 --	afinfo->seq_ops.start		= udp_seq_start;
 --	afinfo->seq_ops.next		= udp_seq_next;
 --	afinfo->seq_ops.stop		= udp_seq_stop;
 ++
-@@ -73482 +71987 @@
+@@ -73483 +71988 @@
 -@@ -1758,8 +1782,13 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 +@@ -1758,8 +1782,13 @@ static void udp4_format_sock(struct sock
-@@ -73498,5 +72003,4 @@
+@@ -73499,5 +72004,4 @@
 -diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
 -index cc4797dd8325f7dd3f33a40957105321c0d3d324..7cfdfccc48fe15e418897af49bdfc622026da8e9 100644
 ---- a/net/ipv6/inet6_connection_sock.c
@@ -28314,10 +28314,10 @@
 +--- linux-2.6.32.45/net/ipv6/inet6_connection_sock.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/inet6_connection_sock.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -152,7 +152,7 @@ void __inet6_csk_dst_store(struct sock *
-@@ -73511 +72015 @@
+@@ -73512 +72016 @@
 -@@ -167,7 +167,7 @@ struct dst_entry *__inet6_csk_dst_check(struct sock *sk, u32 cookie)
 +@@ -167,7 +167,7 @@ struct dst_entry *__inet6_csk_dst_check(
-@@ -73520,4 +72024,3 @@
+@@ -73521,4 +72025,3 @@
 -diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
 -index 093e9b23416124af5f2f3279a0e910672ed9c982..f72cddbb45eee7b4ad6413117efc534a988dc4d9 100644
 ---- a/net/ipv6/inet6_hashtables.c
@@ -28325,7 +28325,7 @@
 +diff -urNp linux-2.6.32.45/net/ipv6/inet6_hashtables.c linux-2.6.32.45/net/ipv6/inet6_hashtables.c
 +--- linux-2.6.32.45/net/ipv6/inet6_hashtables.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/inet6_hashtables.c	2011-08-07 19:48:09.000000000 -0400
-@@ -73533,5 +72036,4 @@
+@@ -73534,5 +72037,4 @@
 -diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
 -index 4f7aaf6996a3e674a57724cbc05e6d2c82c977f2..845cc18b7f88ce2f04d294f1659d64e760e248ba 100644
 ---- a/net/ipv6/ipv6_sockglue.c
@@ -28335,10 +28335,10 @@
 +--- linux-2.6.32.45/net/ipv6/ipv6_sockglue.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/ipv6_sockglue.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -130,6 +130,8 @@ static int do_ipv6_setsockopt(struct soc
-@@ -73546 +72048 @@
+@@ -73547 +72049 @@
 -@@ -881,6 +883,8 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
 +@@ -881,6 +883,8 @@ static int do_ipv6_getsockopt(struct soc
-@@ -73555,5 +72057,4 @@
+@@ -73556,5 +72058,4 @@
 -diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
 -index 78b5a3697678872b2952c7bd3e6befae185761a5..7f374331b1fd3aa6d8a65406b80468da695bc73d 100644
 ---- a/net/ipv6/netfilter/ip6_tables.c
@@ -28348,7 +28348,7 @@
 +--- linux-2.6.32.45/net/ipv6/netfilter/ip6_tables.c	2011-04-17 17:00:52.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/netfilter/ip6_tables.c	2011-04-17 17:04:18.000000000 -0400
 +@@ -1173,6 +1173,7 @@ static int get_info(struct net *net, voi
-@@ -73567,5 +72068,4 @@
+@@ -73568,5 +72069,4 @@
 -diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
 -index 4f24570b0869bd5093b18884866d4c67f20dcf41..b813b343079116b14f3a37847ae2da1d0d7bab65 100644
 ---- a/net/ipv6/raw.c
@@ -28358,25 +28358,25 @@
 +--- linux-2.6.32.45/net/ipv6/raw.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/raw.c	2011-08-14 11:48:20.000000000 -0400
 +@@ -375,14 +375,14 @@ static inline int rawv6_rcv_skb(struct s
-@@ -73588 +72088 @@
+@@ -73589 +72089 @@
 -@@ -403,7 +403,7 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
 +@@ -403,7 +403,7 @@ int rawv6_rcv(struct sock *sk, struct sk
-@@ -73597 +72097 @@
+@@ -73598 +72098 @@
 -@@ -427,7 +427,7 @@ int rawv6_rcv(struct sock *sk, struct sk_buff *skb)
 +@@ -427,7 +427,7 @@ int rawv6_rcv(struct sock *sk, struct sk
-@@ -73624 +72124 @@
+@@ -73625 +72125 @@
 -@@ -738,6 +738,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 +@@ -738,6 +738,8 @@ static int rawv6_sendmsg(struct kiocb *i
-@@ -73652 +72152 @@
+@@ -73653 +72153 @@
 -@@ -934,6 +941,7 @@ static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 +@@ -934,6 +941,7 @@ static int rawv6_geticmpfilter(struct so
-@@ -73660 +72160 @@
+@@ -73661 +72161 @@
 -@@ -945,7 +953,8 @@ static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 +@@ -945,7 +953,8 @@ static int rawv6_geticmpfilter(struct so
-@@ -73670 +72170 @@
+@@ -73671 +72171 @@
 -@@ -1241,7 +1250,13 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 +@@ -1241,7 +1250,13 @@ static void raw6_sock_seq_show(struct se
-@@ -73685,5 +72185,4 @@
+@@ -73686,5 +72186,4 @@
 -diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
 -index faae6dfd6cf370c047dbea268aa550063f138d29..d4430c10e2f805a1941c25ffd4abf9b3e75ccf29 100644
 ---- a/net/ipv6/tcp_ipv6.c
@@ -28386,22 +28386,22 @@
 +--- linux-2.6.32.45/net/ipv6/tcp_ipv6.c	2011-08-16 20:37:25.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/tcp_ipv6.c	2011-08-07 19:48:09.000000000 -0400
 +@@ -89,6 +89,10 @@ static struct tcp_md5sig_key *tcp_v6_md5
-@@ -73700 +72199 @@
+@@ -73701 +72200 @@
 -@@ -1579,6 +1583,9 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
 +@@ -1579,6 +1583,9 @@ static int tcp_v6_do_rcv(struct sock *sk
-@@ -73710 +72209 @@
+@@ -73711 +72210 @@
 -@@ -1656,12 +1663,20 @@ static int tcp_v6_rcv(struct sk_buff *skb)
 +@@ -1656,12 +1663,20 @@ static int tcp_v6_rcv(struct sk_buff *sk
-@@ -73744 +72243 @@
+@@ -73745 +72244 @@
 -@@ -1916,7 +1935,13 @@ static void get_openreq6(struct seq_file *seq,
 +@@ -1916,7 +1935,13 @@ static void get_openreq6(struct seq_file
-@@ -73759 +72258 @@
+@@ -73760 +72259 @@
 -@@ -1966,7 +1991,12 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
 +@@ -1966,7 +1991,12 @@ static void get_tcp6_sock(struct seq_fil
-@@ -73773 +72272 @@
+@@ -73774 +72273 @@
 -@@ -2001,7 +2031,13 @@ static void get_timewait6_sock(struct seq_file *seq,
 +@@ -2001,7 +2031,13 @@ static void get_timewait6_sock(struct se
-@@ -73788,4 +72287,3 @@
+@@ -73789,4 +72288,3 @@
 -diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
 -index ca520d4d9069600cb6aff363aa27f93a20a502f0..3daf2d6236accad50966b414cbdb182b7539c342 100644
 ---- a/net/ipv6/udp.c
@@ -28409,16 +28409,16 @@
 +diff -urNp linux-2.6.32.45/net/ipv6/udp.c linux-2.6.32.45/net/ipv6/udp.c
 +--- linux-2.6.32.45/net/ipv6/udp.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/net/ipv6/udp.c	2011-07-13 17:23:27.000000000 -0400
-@@ -73803 +72301 @@
+@@ -73804 +72302 @@
 -@@ -391,7 +395,7 @@ int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 +@@ -391,7 +395,7 @@ int udpv6_queue_rcv_skb(struct sock * sk
-@@ -73812 +72310 @@
+@@ -73813 +72311 @@
 -@@ -590,6 +594,9 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
 +@@ -590,6 +594,9 @@ int __udp6_lib_rcv(struct sk_buff *skb, 
-@@ -73822 +72320 @@
+@@ -73823 +72321 @@
 -@@ -1209,8 +1216,13 @@ static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket
 +@@ -1209,8 +1216,13 @@ static void udp6_sock_seq_show(struct se
-@@ -73838,5 +72336,4 @@
+@@ -73839,5 +72337,4 @@
 -diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
 -index 811984d9324b6ea0f925d4d3124db1bc7c0e575a..11f59b7cf1cc462733fc77d411467f3df815193f 100644
 ---- a/net/irda/ircomm/ircomm_tty.c
@@ -28428,31 +28428,31 @@
 +--- linux-2.6.32.45/net/irda/ircomm/ircomm_tty.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/irda/ircomm/ircomm_tty.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -280,16 +280,16 @@ static int ircomm_tty_block_til_ready(st
-@@ -73862 +72359 @@
+@@ -73863 +72360 @@
 -@@ -329,7 +329,7 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
 +@@ -329,7 +329,7 @@ static int ircomm_tty_block_til_ready(st
-@@ -73871 +72368 @@
+@@ -73872 +72369 @@
 -@@ -340,13 +340,13 @@ static int ircomm_tty_block_til_ready(struct ircomm_tty_cb *self,
 +@@ -340,13 +340,13 @@ static int ircomm_tty_block_til_ready(st
-@@ -73888 +72385 @@
+@@ -73889 +72386 @@
 -@@ -415,14 +415,14 @@ static int ircomm_tty_open(struct tty_struct *tty, struct file *filp)
 +@@ -415,14 +415,14 @@ static int ircomm_tty_open(struct tty_st
-@@ -73905 +72402 @@
+@@ -73906 +72403 @@
 -@@ -511,7 +511,7 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
 +@@ -511,7 +511,7 @@ static void ircomm_tty_close(struct tty_
-@@ -73914 +72411 @@
+@@ -73915 +72412 @@
 -@@ -521,16 +521,16 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
 +@@ -521,16 +521,16 @@ static void ircomm_tty_close(struct tty_
-@@ -73937 +72434 @@
+@@ -73938 +72435 @@
 -@@ -562,7 +562,7 @@ static void ircomm_tty_close(struct tty_struct *tty, struct file *filp)
 +@@ -562,7 +562,7 @@ static void ircomm_tty_close(struct tty_
-@@ -73946 +72443 @@
+@@ -73947 +72444 @@
 -@@ -1017,7 +1017,7 @@ static void ircomm_tty_hangup(struct tty_struct *tty)
 +@@ -1017,7 +1017,7 @@ static void ircomm_tty_hangup(struct tty
-@@ -73955 +72452 @@
+@@ -73956 +72453 @@
 -@@ -1369,7 +1369,7 @@ static void ircomm_tty_line_info(struct ircomm_tty_cb *self, struct seq_file *m)
 +@@ -1369,7 +1369,7 @@ static void ircomm_tty_line_info(struct 
-@@ -73964,5 +72461,4 @@
+@@ -73965,5 +72462,4 @@
 -diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
 -index bada1b9c670bd555fa10833165326492762b3d97..f3259434e974e4f0d10d4ef766f2e70d75174eef 100644
 ---- a/net/iucv/af_iucv.c
@@ -28462,7 +28462,7 @@
 +--- linux-2.6.32.45/net/iucv/af_iucv.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/iucv/af_iucv.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -651,10 +651,10 @@ static int iucv_sock_autobind(struct soc
-@@ -73981,5 +72477,4 @@
+@@ -73982,5 +72478,4 @@
 -diff --git a/net/key/af_key.c b/net/key/af_key.c
 -index 4e98193dfa0fcd05532a18c7b8ff3a0e832ace5e..439b449525b283b6055574ed21eb231e940c0133 100644
 ---- a/net/key/af_key.c
@@ -28472,10 +28472,10 @@
 +--- linux-2.6.32.45/net/key/af_key.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/key/af_key.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -2489,6 +2489,8 @@ static int pfkey_migrate(struct sock *sk
-@@ -73994 +72489 @@
+@@ -73995 +72490 @@
 -@@ -3660,7 +3662,11 @@ static int pfkey_seq_show(struct seq_file *f, void *v)
 +@@ -3660,7 +3662,11 @@ static int pfkey_seq_show(struct seq_fil
-@@ -74006,5 +72501,4 @@
+@@ -74007,5 +72502,4 @@
 -diff --git a/net/lapb/lapb_iface.c b/net/lapb/lapb_iface.c
 -index bda96d18fd98388e87e8aef8a61bbcbeb7ff9798..c038b722bb9b75d185641b63ca4dabc50058f6fa 100644
 ---- a/net/lapb/lapb_iface.c
@@ -28485,13 +28485,13 @@
 +--- linux-2.6.32.45/net/lapb/lapb_iface.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/lapb/lapb_iface.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -157,7 +157,7 @@ int lapb_register(struct net_device *dev
-@@ -74019 +72513 @@
+@@ -74020 +72514 @@
 -@@ -379,32 +379,32 @@ int lapb_data_received(struct net_device *dev, struct sk_buff *skb)
 +@@ -379,32 +379,32 @@ int lapb_data_received(struct net_device
-@@ -74062 +72556 @@
+@@ -74063 +72557 @@
 -@@ -414,8 +414,8 @@ int lapb_data_transmit(struct lapb_cb *lapb, struct sk_buff *skb)
 +@@ -414,8 +414,8 @@ int lapb_data_transmit(struct lapb_cb *l
-@@ -74073,5 +72567,4 @@
+@@ -74074,5 +72568,4 @@
 -diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
 -index fe2d3f8c5ae7b6fbd8be30c13c4b56f65f735629..e57f68337103b8318f6acb73a1e9b4f63fb825d9 100644
 ---- a/net/mac80211/cfg.c
@@ -28501,7 +28501,7 @@
 +--- linux-2.6.32.45/net/mac80211/cfg.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/cfg.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -1369,7 +1369,7 @@ static int ieee80211_set_bitrate_mask(st
-@@ -74086,4 +72579,3 @@
+@@ -74087,4 +72580,3 @@
 -diff --git a/net/mac80211/cfg.h b/net/mac80211/cfg.h
 -index 7d7879f5b00b9d9fb7aa42ca8695d04e330dadb0..2d51f62dc76cd4978f1249c4a8ad1f95535a3e21 100644
 ---- a/net/mac80211/cfg.h
@@ -28509,7 +28509,7 @@
 +diff -urNp linux-2.6.32.45/net/mac80211/cfg.h linux-2.6.32.45/net/mac80211/cfg.h
 +--- linux-2.6.32.45/net/mac80211/cfg.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/cfg.h	2011-04-17 15:56:46.000000000 -0400
-@@ -74098,5 +72590,4 @@
+@@ -74099,5 +72591,4 @@
 -diff --git a/net/mac80211/debugfs_key.c b/net/mac80211/debugfs_key.c
 -index 99c752588b30ef58c4d1a18f242c7f9906d230af..9cb49379867a77a5a72d7882368406a3e7e29a56 100644
 ---- a/net/mac80211/debugfs_key.c
@@ -28519,7 +28519,7 @@
 +--- linux-2.6.32.45/net/mac80211/debugfs_key.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/debugfs_key.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -211,9 +211,13 @@ static ssize_t key_key_read(struct file 
-@@ -74117,5 +72608,4 @@
+@@ -74118,5 +72609,4 @@
 -diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
 -index 33a2e892115b33d9949c5952fa6359336bfcfb62..08650c84caacd5244ae033796810d4de92d22c1b 100644
 ---- a/net/mac80211/debugfs_sta.c
@@ -28529,7 +28529,7 @@
 +--- linux-2.6.32.45/net/mac80211/debugfs_sta.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/debugfs_sta.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -124,6 +124,8 @@ static ssize_t sta_agg_status_read(struc
-@@ -74130,4 +72620,3 @@
+@@ -74131,4 +72621,3 @@
 -diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
 -index ca62bfe229dd501f8064698aa8605c552dc1601f..6657a03ba4592b2b2e9261fc6387338d621d4d99 100644
 ---- a/net/mac80211/ieee80211_i.h
@@ -28537,7 +28537,7 @@
 +diff -urNp linux-2.6.32.45/net/mac80211/ieee80211_i.h linux-2.6.32.45/net/mac80211/ieee80211_i.h
 +--- linux-2.6.32.45/net/mac80211/ieee80211_i.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/ieee80211_i.h	2011-04-17 15:56:46.000000000 -0400
-@@ -74151,5 +72640,4 @@
+@@ -74152,5 +72641,4 @@
 -diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
 -index 079c500a7de554ab8aa5ea40693972e811ef2ae1..eb3c6d4d8cde5b6eceb1230eca7f8b45a2e42313 100644
 ---- a/net/mac80211/iface.c
@@ -28547,22 +28547,22 @@
 +--- linux-2.6.32.45/net/mac80211/iface.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/iface.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -166,7 +166,7 @@ static int ieee80211_open(struct net_dev
-@@ -74164 +72652 @@
+@@ -74165 +72653 @@
 -@@ -196,7 +196,7 @@ static int ieee80211_open(struct net_device *dev)
 +@@ -196,7 +196,7 @@ static int ieee80211_open(struct net_dev
-@@ -74173 +72661 @@
+@@ -74174 +72662 @@
 -@@ -292,7 +292,7 @@ static int ieee80211_open(struct net_device *dev)
 +@@ -292,7 +292,7 @@ static int ieee80211_open(struct net_dev
-@@ -74182 +72670 @@
+@@ -74183 +72671 @@
 -@@ -320,7 +320,7 @@ static int ieee80211_open(struct net_device *dev)
 +@@ -320,7 +320,7 @@ static int ieee80211_open(struct net_dev
-@@ -74191 +72679 @@
+@@ -74192 +72680 @@
 -@@ -420,7 +420,7 @@ static int ieee80211_stop(struct net_device *dev)
 +@@ -420,7 +420,7 @@ static int ieee80211_stop(struct net_dev
-@@ -74200 +72688 @@
+@@ -74201 +72689 @@
 -@@ -526,7 +526,7 @@ static int ieee80211_stop(struct net_device *dev)
 +@@ -526,7 +526,7 @@ static int ieee80211_stop(struct net_dev
-@@ -74209,5 +72697,4 @@
+@@ -74210,5 +72698,4 @@
 -diff --git a/net/mac80211/main.c b/net/mac80211/main.c
 -index 2dfe1768e2ab1cbb4fd5997e359c27626c5f8e2a..74e438896023a4d1b1b82a98276e121a0dbf4a06 100644
 ---- a/net/mac80211/main.c
@@ -28572,7 +28572,7 @@
 +--- linux-2.6.32.45/net/mac80211/main.c	2011-05-10 22:12:02.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/main.c	2011-05-10 22:12:34.000000000 -0400
 +@@ -145,7 +145,7 @@ int ieee80211_hw_config(struct ieee80211
-@@ -74222,5 +72709,4 @@
+@@ -74223,5 +72710,4 @@
 -diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
 -index e67eea71e953cda70b8577c58624d3a79f56b03b..fcc227e7bfde9994056e59b0b098ad45241fa025 100644
 ---- a/net/mac80211/mlme.c
@@ -28582,7 +28582,7 @@
 +--- linux-2.6.32.45/net/mac80211/mlme.c	2011-08-09 18:35:30.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/mlme.c	2011-08-09 18:34:01.000000000 -0400
 +@@ -1438,6 +1438,8 @@ ieee80211_rx_mgmt_assoc_resp(struct ieee
-@@ -74235,5 +72721,4 @@
+@@ -74236,5 +72722,4 @@
 -diff --git a/net/mac80211/pm.c b/net/mac80211/pm.c
 -index e535f1c988fe74cd2f5b147977b8904e3d74ee36..4d733d15384db681672489cdfeb4d106048805dc 100644
 ---- a/net/mac80211/pm.c
@@ -28592,7 +28592,7 @@
 +--- linux-2.6.32.45/net/mac80211/pm.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/pm.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -107,7 +107,7 @@ int __ieee80211_suspend(struct ieee80211
-@@ -74248,5 +72733,4 @@
+@@ -74249,5 +72734,4 @@
 -diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
 -index b33efc4fc267d4aca2dc5cddead602314f4f36ff..0a2efb6cee4ef182481ae7a7ee72b871d130ab18 100644
 ---- a/net/mac80211/rate.c
@@ -28602,7 +28602,7 @@
 +--- linux-2.6.32.45/net/mac80211/rate.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/rate.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -287,7 +287,7 @@ int ieee80211_init_rate_ctrl_alg(struct 
-@@ -74261,5 +72745,4 @@
+@@ -74262,5 +72746,4 @@
 -diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
 -index b1d79046257b39137f21f6e7c961064d906fa98a..57e4da799f5d4501cb97dea12a533d291bcba3a7 100644
 ---- a/net/mac80211/tx.c
@@ -28612,7 +28612,7 @@
 +--- linux-2.6.32.45/net/mac80211/tx.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/tx.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -173,7 +173,7 @@ static __le16 ieee80211_duration(struct 
-@@ -74274,5 +72757,4 @@
+@@ -74275,5 +72758,4 @@
 -diff --git a/net/mac80211/util.c b/net/mac80211/util.c
 -index 31b10850905fced1908ae098ad94dc62a911c3b9..48fb26d383a1cbbb0aa3016e0ac6e9070a04f077 100644
 ---- a/net/mac80211/util.c
@@ -28622,7 +28622,7 @@
 +--- linux-2.6.32.45/net/mac80211/util.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/mac80211/util.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -1042,7 +1042,7 @@ int ieee80211_reconfig(struct ieee80211_
-@@ -74287,38 +72769,4 @@
+@@ -74288,38 +72770,4 @@
 -diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
 -index 634d14affc8d03684405b5b979952aa4d57c7f5d..b35a60844c549b5ed7c27a0cb589e3759d96c0d6 100644
 ---- a/net/netfilter/Kconfig
@@ -28665,7 +28665,7 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_app.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_app.c	2011-05-17 19:26:34.000000000 -0400
 +@@ -564,7 +564,7 @@ static const struct file_operations ip_v
-@@ -74333,5 +72781,4 @@
+@@ -74334,5 +72782,4 @@
 -diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
 -index 95682e56902398486bec7fe20432db6c98cc9535..457dbace89dc121fde8b8ce45003430b26f105c0 100644
 ---- a/net/netfilter/ipvs/ip_vs_conn.c
@@ -28675,19 +28675,19 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_conn.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_conn.c	2011-05-17 19:26:34.000000000 -0400
 +@@ -453,10 +453,10 @@ ip_vs_bind_dest(struct ip_vs_conn *cp, s
-@@ -74350 +72797 @@
+@@ -74351 +72798 @@
 -@@ -723,7 +723,7 @@ ip_vs_conn_new(int af, int proto, const union nf_inet_addr *caddr, __be16 cport,
 +@@ -723,7 +723,7 @@ ip_vs_conn_new(int af, int proto, const 
-@@ -74359 +72806 @@
+@@ -74360 +72807 @@
 -@@ -871,7 +871,7 @@ static const struct file_operations ip_vs_conn_fops = {
 +@@ -871,7 +871,7 @@ static const struct file_operations ip_v
-@@ -74368 +72815 @@
+@@ -74369 +72816 @@
 -@@ -934,7 +934,7 @@ static const struct file_operations ip_vs_conn_sync_fops = {
 +@@ -934,7 +934,7 @@ static const struct file_operations ip_v
-@@ -74377 +72824 @@
+@@ -74378 +72825 @@
 -@@ -961,7 +961,7 @@ static inline int todrop_entry(struct ip_vs_conn *cp)
 +@@ -961,7 +961,7 @@ static inline int todrop_entry(struct ip
-@@ -74386,5 +72833,4 @@
+@@ -74387,5 +72834,4 @@
 -diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
 -index b95699f00545a1f5f5733590071a813599bcae2f..5fee919ae38b8b2fba8622acb9a9c5f4fb0a7b24 100644
 ---- a/net/netfilter/ipvs/ip_vs_core.c
@@ -28697,10 +28697,10 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_core.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_core.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -485,7 +485,7 @@ int ip_vs_leave(struct ip_vs_service *sv
-@@ -74399 +72845 @@
+@@ -74400 +72846 @@
 -@@ -1357,7 +1357,7 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb,
 +@@ -1357,7 +1357,7 @@ ip_vs_in(unsigned int hooknum, struct sk
-@@ -74408,5 +72854,4 @@
+@@ -74409,5 +72855,4 @@
 -diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
 -index 02b2610c4d2e88acd378f7305de45f2bd427d3ae..2d8942412f8094147c7aee20864b5770fb6444a4 100644
 ---- a/net/netfilter/ipvs/ip_vs_ctl.c
@@ -28710,28 +28710,28 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_ctl.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_ctl.c	2011-05-17 19:26:34.000000000 -0400
 +@@ -792,7 +792,7 @@ __ip_vs_update_dest(struct ip_vs_service
-@@ -74421 +72866 @@
+@@ -74422 +72867 @@
 -@@ -1888,7 +1888,7 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
 +@@ -1888,7 +1888,7 @@ static int ip_vs_info_seq_show(struct se
-@@ -74430 +72875 @@
+@@ -74431 +72876 @@
 -@@ -1899,7 +1899,7 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
 +@@ -1899,7 +1899,7 @@ static int ip_vs_info_seq_show(struct se
-@@ -74439 +72884 @@
+@@ -74440 +72885 @@
 -@@ -1927,7 +1927,7 @@ static const struct file_operations ip_vs_info_fops = {
 +@@ -1927,7 +1927,7 @@ static const struct file_operations ip_v
-@@ -74448 +72893 @@
+@@ -74449 +72894 @@
 -@@ -1976,7 +1976,7 @@ static const struct file_operations ip_vs_stats_fops = {
 +@@ -1976,7 +1976,7 @@ static const struct file_operations ip_v
-@@ -74457 +72902 @@
+@@ -74458 +72903 @@
 -@@ -2292,7 +2292,7 @@ __ip_vs_get_dest_entries(const struct ip_vs_get_dests *get,
 +@@ -2292,7 +2292,7 @@ __ip_vs_get_dest_entries(const struct ip
-@@ -74466 +72911 @@
+@@ -74467 +72912 @@
 -@@ -2353,6 +2353,8 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
 +@@ -2353,6 +2353,8 @@ do_ip_vs_get_ctl(struct sock *sk, int cm
-@@ -74475 +72920 @@
+@@ -74476 +72921 @@
 -@@ -2802,7 +2804,7 @@ static int ip_vs_genl_fill_dest(struct sk_buff *skb, struct ip_vs_dest *dest)
 +@@ -2802,7 +2804,7 @@ static int ip_vs_genl_fill_dest(struct s
-@@ -74484,5 +72929,4 @@
+@@ -74485,5 +72930,4 @@
 -diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
 -index e177f0dc20849d4b62620939e9b2532db12f3e7e..55e858127f5bb094f721d8e0c911b61203e82020 100644
 ---- a/net/netfilter/ipvs/ip_vs_sync.c
@@ -28741,7 +28741,7 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_sync.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_sync.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -438,7 +438,7 @@ static void ip_vs_process_message(const 
-@@ -74497,5 +72941,4 @@
+@@ -74498,5 +72942,4 @@
 -diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
 -index 30b3189bd29c9aa982d2bf2e1a5ba9d7e0309cdd..e2e4b55d25a0663005cc6d878ff7791c4a070124 100644
 ---- a/net/netfilter/ipvs/ip_vs_xmit.c
@@ -28751,10 +28751,10 @@
 +--- linux-2.6.32.45/net/netfilter/ipvs/ip_vs_xmit.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/ipvs/ip_vs_xmit.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -875,7 +875,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, str
-@@ -74510 +72953 @@
+@@ -74511 +72954 @@
 -@@ -949,7 +949,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
 +@@ -949,7 +949,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, 
-@@ -74519,5 +72962,35 @@
+@@ -74520,5 +72963,35 @@
 -diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
 -index d5217182dbdb2a9f3c7fdbc6f5e8dac9dba43144..d0fd7a1f386b5ad6f39567b0ce0e740180f6c58d 100644
 ---- a/net/netfilter/nf_conntrack_netlink.c
@@ -28795,7 +28795,7 @@
 +--- linux-2.6.32.45/net/netfilter/nf_conntrack_netlink.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/nf_conntrack_netlink.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -706,7 +706,7 @@ ctnetlink_parse_tuple_proto(struct nlatt
-@@ -74532,4 +73005,3 @@
+@@ -74533,4 +73006,3 @@
 -diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
 -index f900dc3194af67981bc0e7f1b83838f3128e31d5..5e45346ad4956d5b561d4dfc5caf45367a6bfe3c 100644
 ---- a/net/netfilter/nfnetlink_log.c
@@ -28803,10 +28803,10 @@
 +diff -urNp linux-2.6.32.45/net/netfilter/nfnetlink_log.c linux-2.6.32.45/net/netfilter/nfnetlink_log.c
 +--- linux-2.6.32.45/net/netfilter/nfnetlink_log.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netfilter/nfnetlink_log.c	2011-05-04 17:56:28.000000000 -0400
-@@ -74545 +73017 @@
+@@ -74546 +73018 @@
 -@@ -493,7 +493,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 +@@ -493,7 +493,7 @@ __build_packet_message(struct nfulnl_ins
-@@ -74554,5 +73026,3 @@
+@@ -74555,5 +73027,3 @@
 -diff --git a/net/netfilter/xt_gradm.c b/net/netfilter/xt_gradm.c
 -new file mode 100644
 -index 0000000000000000000000000000000000000000..b1bac7660646c37a2da109363222494d23a1da48
@@ -28815,7 +28815,7 @@
 +diff -urNp linux-2.6.32.45/net/netfilter/xt_gradm.c linux-2.6.32.45/net/netfilter/xt_gradm.c
 +--- linux-2.6.32.45/net/netfilter/xt_gradm.c	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-2.6.32.45/net/netfilter/xt_gradm.c	2011-04-17 15:56:46.000000000 -0400
-@@ -74611,5 +73081,4 @@
+@@ -74612,5 +73082,4 @@
 -diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
 -index 5a7dcdf2b1dec4570ade1b2919b65589a5288db5..24a357847913d18c9ed5ea4355d411bbc087980a 100644
 ---- a/net/netlink/af_netlink.c
@@ -28825,10 +28825,10 @@
 +--- linux-2.6.32.45/net/netlink/af_netlink.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netlink/af_netlink.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -733,7 +733,7 @@ static void netlink_overrun(struct sock 
-@@ -74624 +73093 @@
+@@ -74625 +73094 @@
 -@@ -1964,15 +1964,23 @@ static int netlink_seq_show(struct seq_file *seq, void *v)
 +@@ -1964,15 +1964,23 @@ static int netlink_seq_show(struct seq_f
-@@ -74649,5 +73118,4 @@
+@@ -74650,5 +73119,4 @@
 -diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
 -index 7a834952f67fe75f72558b7e3c8477bc8ac259a6..ab0062f3683f337e8eeafee9faa0320e186a83d7 100644
 ---- a/net/netrom/af_netrom.c
@@ -28838,10 +28838,10 @@
 +--- linux-2.6.32.45/net/netrom/af_netrom.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/netrom/af_netrom.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -838,6 +838,7 @@ static int nr_getname(struct socket *soc
-@@ -74661 +73129 @@
+@@ -74662 +73130 @@
 -@@ -852,7 +853,6 @@ static int nr_getname(struct socket *sock, struct sockaddr *uaddr,
 +@@ -852,7 +853,6 @@ static int nr_getname(struct socket *soc
-@@ -74669,5 +73137,4 @@
+@@ -74670,5 +73138,4 @@
 -diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
 -index 35cfa792aec2f20ea6623adbd73ffbd8bd295a54..4e78ff7d74804656b9c338dbd5b7bf5811908774 100644
 ---- a/net/packet/af_packet.c
@@ -28851,7 +28851,7 @@
 +--- linux-2.6.32.45/net/packet/af_packet.c	2011-07-13 17:23:04.000000000 -0400
 ++++ linux-2.6.32.45/net/packet/af_packet.c	2011-07-13 17:23:27.000000000 -0400
 +@@ -2429,7 +2429,11 @@ static int packet_seq_show(struct seq_fi
-@@ -74685,5 +73152,4 @@
+@@ -74686,5 +73153,4 @@
 -diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
 -index 519ff9d46e40fb973a192a9cec779f29ae75a286..a422a900f7a7f187b4635e0e1ba3c7df54fae92b 100644
 ---- a/net/phonet/af_phonet.c
@@ -28861,10 +28861,10 @@
 +--- linux-2.6.32.45/net/phonet/af_phonet.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/phonet/af_phonet.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -41,7 +41,7 @@ static struct phonet_protocol *phonet_pr
-@@ -74698 +73164 @@
+@@ -74699 +73165 @@
 -@@ -402,7 +402,7 @@ int __init_or_module phonet_proto_register(int protocol,
 +@@ -402,7 +402,7 @@ int __init_or_module phonet_proto_regist
-@@ -74707,5 +73173,4 @@
+@@ -74708,5 +73174,4 @@
 -diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
 -index ef5c75c372e41701965737ae04ed88c0f805c9f2..2b6c2fa1caaec1de1b575337b07a5e3af59e1a33 100644
 ---- a/net/phonet/datagram.c
@@ -28874,7 +28874,7 @@
 +--- linux-2.6.32.45/net/phonet/datagram.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/phonet/datagram.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -162,7 +162,7 @@ static int pn_backlog_rcv(struct sock *s
-@@ -74720,5 +73185,4 @@
+@@ -74721,5 +73186,4 @@
 -diff --git a/net/phonet/pep.c b/net/phonet/pep.c
 -index 9cdd35e787594c2fb5fe04548a2f471d2f046cce..16cd850604a37a70c202482f1df1c1803cdf43a9 100644
 ---- a/net/phonet/pep.c
@@ -28884,10 +28884,10 @@
 +--- linux-2.6.32.45/net/phonet/pep.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/phonet/pep.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -348,7 +348,7 @@ static int pipe_do_rcv(struct sock *sk, 
-@@ -74733 +73197 @@
+@@ -74734 +73198 @@
 -@@ -362,12 +362,12 @@ static int pipe_do_rcv(struct sock *sk, struct sk_buff *skb)
 +@@ -362,12 +362,12 @@ static int pipe_do_rcv(struct sock *sk, 
-@@ -74748,5 +73212,4 @@
+@@ -74749,5 +73213,4 @@
 -diff --git a/net/phonet/socket.c b/net/phonet/socket.c
 -index aa5b5a972bff7a3e40700b8969e3b145bca428eb..c09b4f882106036838a0b4c14512e63a7c3dd775 100644
 ---- a/net/phonet/socket.c
@@ -28897,7 +28897,7 @@
 +--- linux-2.6.32.45/net/phonet/socket.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/phonet/socket.c	2011-05-04 17:57:07.000000000 -0400
 +@@ -482,8 +482,13 @@ static int pn_sock_seq_show(struct seq_f
-@@ -74768,17 +73231,3 @@
+@@ -74769,17 +73232,3 @@
 -diff --git a/net/rds/Kconfig b/net/rds/Kconfig
 -index ec753b3ae72ade6005cecee012ec1e2759a7fb45..821187ce004661b9e7d24d34709da5ef68955aef 100644
 ---- a/net/rds/Kconfig
@@ -28918,10 +28918,10 @@
 +diff -urNp linux-2.6.32.45/net/rds/cong.c linux-2.6.32.45/net/rds/cong.c
 +--- linux-2.6.32.45/net/rds/cong.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rds/cong.c	2011-05-04 17:56:28.000000000 -0400
-@@ -74794 +73243 @@
+@@ -74795 +73244 @@
 -@@ -232,7 +232,7 @@ void rds_cong_map_updated(struct rds_cong_map *map, uint64_t portmask)
 +@@ -232,7 +232,7 @@ void rds_cong_map_updated(struct rds_con
-@@ -74812,5 +73261,4 @@
+@@ -74813,5 +73262,4 @@
 -diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
 -index de4a1b16bf7b070814c6ff4d7f92fbce4e2e906b..94ec8615c11619b860d41c7f65c9393a9c8b5480 100644
 ---- a/net/rds/iw_rdma.c
@@ -28931,7 +28931,7 @@
 +--- linux-2.6.32.45/net/rds/iw_rdma.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rds/iw_rdma.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -181,6 +181,8 @@ int rds_iw_update_cm_id(struct rds_iw_de
-@@ -74825,5 +73273,16 @@
+@@ -74826,5 +73274,16 @@
 -diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
 -index a86afceaa94fadd8a1137c7688a03cb5714cf18e..8657bce2cb981aee99e0d9c60eed9f5564090710 100644
 ---- a/net/rxrpc/af_rxrpc.c
@@ -28953,7 +28953,7 @@
 +--- linux-2.6.32.45/net/rxrpc/af_rxrpc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/af_rxrpc.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -38,7 +38,7 @@ static const struct proto_ops rxrpc_rpc_
-@@ -74838,5 +73297,4 @@
+@@ -74839,5 +73298,4 @@
 -diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
 -index b4a2209770311a4fdce0757c9857bbdd6fdf2f39..539106cc72f7e77a5112b75c188951566a2a752d 100644
 ---- a/net/rxrpc/ar-ack.c
@@ -28963,19 +28963,19 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-ack.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-ack.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -174,7 +174,7 @@ static void rxrpc_resend(struct rxrpc_ca
-@@ -74851 +73309 @@
+@@ -74852 +73310 @@
 -@@ -198,7 +198,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
 +@@ -198,7 +198,7 @@ static void rxrpc_resend(struct rxrpc_ca
-@@ -74860 +73318 @@
+@@ -74861 +73319 @@
 -@@ -401,7 +401,7 @@ static void rxrpc_rotate_tx_window(struct rxrpc_call *call, u32 hard)
 +@@ -401,7 +401,7 @@ static void rxrpc_rotate_tx_window(struc
-@@ -74878 +73336 @@
+@@ -74879 +73337 @@
 -@@ -840,6 +840,8 @@ void rxrpc_process_call(struct work_struct *work)
 +@@ -840,6 +840,8 @@ void rxrpc_process_call(struct work_stru
-@@ -74887 +73345 @@
+@@ -74888 +73346 @@
 -@@ -1159,7 +1161,7 @@ void rxrpc_process_call(struct work_struct *work)
 +@@ -1159,7 +1161,7 @@ void rxrpc_process_call(struct work_stru
-@@ -74914,5 +73372,4 @@
+@@ -74915,5 +73373,4 @@
 -diff --git a/net/rxrpc/ar-call.c b/net/rxrpc/ar-call.c
 -index bc0019f704fecb433b369798a064aaf7230a6a6c..e1b4b24fb456d9b6a221c256012145171f5b9b06 100644
 ---- a/net/rxrpc/ar-call.c
@@ -28985,7 +28985,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-call.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-call.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -82,7 +82,7 @@ static struct rxrpc_call *rxrpc_alloc_ca
-@@ -74927,5 +73384,4 @@
+@@ -74928,5 +73385,4 @@
 -diff --git a/net/rxrpc/ar-connection.c b/net/rxrpc/ar-connection.c
 -index 9f1ce841a0bbcd348e83c7ad518649079e95c357..ff8d061af6f9313f8ea143be7c7826c3627962fa 100644
 ---- a/net/rxrpc/ar-connection.c
@@ -28995,7 +28995,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-connection.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-connection.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -205,7 +205,7 @@ static struct rxrpc_connection *rxrpc_al
-@@ -74940,5 +73396,4 @@
+@@ -74941,5 +73397,4 @@
 -diff --git a/net/rxrpc/ar-connevent.c b/net/rxrpc/ar-connevent.c
 -index 0505cdc4d6d4d5b3b299812fdc8490911a687a9d..f0748cedd710680a8174d4eddf137ff05d11e7bf 100644
 ---- a/net/rxrpc/ar-connevent.c
@@ -29005,7 +29005,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-connevent.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-connevent.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -109,7 +109,7 @@ static int rxrpc_abort_connection(struct
-@@ -74953,5 +73408,4 @@
+@@ -74954,5 +73409,4 @@
 -diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
 -index f98c8027e5c12970f959144309d5d44f4677ee9a..9e8488e12129c11d8e630273af720dc5511e9f52 100644
 ---- a/net/rxrpc/ar-input.c
@@ -29015,7 +29015,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-input.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-input.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -339,9 +339,9 @@ void rxrpc_fast_process_packet(struct rx
-@@ -74969,4 +73423,3 @@
+@@ -74970,4 +73424,3 @@
 -diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
 -index 7043b294bb67d6266621949aa20cd5e6fa7180c4..06edcdf245e81c0fa9115fb2b352130003600583 100644
 ---- a/net/rxrpc/ar-internal.h
@@ -29023,10 +29023,10 @@
 +diff -urNp linux-2.6.32.45/net/rxrpc/ar-internal.h linux-2.6.32.45/net/rxrpc/ar-internal.h
 +--- linux-2.6.32.45/net/rxrpc/ar-internal.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-internal.h	2011-05-04 17:56:28.000000000 -0400
-@@ -74993 +73446 @@
+@@ -74994 +73447 @@
 -@@ -420,7 +420,7 @@ static inline void rxrpc_abort_call(struct rxrpc_call *call, u32 abort_code)
 +@@ -420,7 +420,7 @@ static inline void rxrpc_abort_call(stru
-@@ -75002,5 +73455,4 @@
+@@ -75003,5 +73456,4 @@
 -diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
 -index 74697b2004962059857c6b42e84a5490befce23d..10f9b778011e643f4394ce5888090416279b7cfc 100644
 ---- a/net/rxrpc/ar-key.c
@@ -29036,10 +29036,10 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-key.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-key.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -88,11 +88,11 @@ static int rxrpc_instantiate_xdr_rxkad(s
-@@ -75020 +73472 @@
+@@ -75021 +73473 @@
 -@@ -730,10 +730,10 @@ static int rxrpc_instantiate(struct key *key, const void *data, size_t datalen)
 +@@ -730,10 +730,10 @@ static int rxrpc_instantiate(struct key 
-@@ -75033,5 +73485,4 @@
+@@ -75034,5 +73486,4 @@
 -diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
 -index 807535ff29b52d0ebdb85ac6ba4fa5e4c5d18805..5b7f19e01d5b0c24186b0cd97065332d17a7f44f 100644
 ---- a/net/rxrpc/ar-local.c
@@ -29049,7 +29049,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-local.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-local.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -44,7 +44,7 @@ struct rxrpc_local *rxrpc_alloc_local(st
-@@ -75046,5 +73497,4 @@
+@@ -75047,5 +73498,4 @@
 -diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
 -index cc9102c5b588319e09b9769302bd5704e9bfb8e3..7d3888ed1548f7e7821bd04e4408c811b152c10d 100644
 ---- a/net/rxrpc/ar-output.c
@@ -29059,7 +29059,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-output.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-output.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -680,9 +680,9 @@ static int rxrpc_send_data(struct kiocb 
-@@ -75062,5 +73512,4 @@
+@@ -75063,5 +73513,4 @@
 -diff --git a/net/rxrpc/ar-peer.c b/net/rxrpc/ar-peer.c
 -index edc026c1eb763aeaf837d27ab9692374a4a7653b..4bd4e2d174c3f0dd8816aa54840408416f5c8799 100644
 ---- a/net/rxrpc/ar-peer.c
@@ -29069,7 +29069,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-peer.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-peer.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -86,7 +86,7 @@ static struct rxrpc_peer *rxrpc_alloc_pe
-@@ -75075,5 +73524,4 @@
+@@ -75076,5 +73525,4 @@
 -diff --git a/net/rxrpc/ar-proc.c b/net/rxrpc/ar-proc.c
 -index 38047f713f2cf0fb2b60261039c475bd7fe19f7e..9f48511a5a0face574ebc5c4ef9f75340f1f6d29 100644
 ---- a/net/rxrpc/ar-proc.c
@@ -29079,7 +29079,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-proc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-proc.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -164,8 +164,8 @@ static int rxrpc_connection_seq_show(str
-@@ -75090,5 +73538,4 @@
+@@ -75091,5 +73539,4 @@
 -diff --git a/net/rxrpc/ar-transport.c b/net/rxrpc/ar-transport.c
 -index 0936e1acc30ece6110313c01fb0ee78c0e5dd91e..437c6400567906ce031cb9b9d8e1841ada024bce 100644
 ---- a/net/rxrpc/ar-transport.c
@@ -29089,7 +29089,7 @@
 +--- linux-2.6.32.45/net/rxrpc/ar-transport.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/ar-transport.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -46,7 +46,7 @@ static struct rxrpc_transport *rxrpc_all
-@@ -75103,5 +73550,4 @@
+@@ -75104,5 +73551,4 @@
 -diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
 -index 713ac593e2e96d5a21b43958ff3ebb67816a8a3c..306f6ae9dcb737d0cc1de865309dc06c0aeacc02 100644
 ---- a/net/rxrpc/rxkad.c
@@ -29099,16 +29099,16 @@
 +--- linux-2.6.32.45/net/rxrpc/rxkad.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/rxrpc/rxkad.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -210,6 +210,8 @@ static int rxkad_secure_packet_encrypt(c
-@@ -75116 +73562 @@
+@@ -75117 +73563 @@
 -@@ -337,6 +339,8 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
 +@@ -337,6 +339,8 @@ static int rxkad_verify_packet_auth(cons
-@@ -75125 +73571 @@
+@@ -75126 +73572 @@
 -@@ -609,7 +613,7 @@ static int rxkad_issue_challenge(struct rxrpc_connection *conn)
 +@@ -609,7 +613,7 @@ static int rxkad_issue_challenge(struct 
-@@ -75134 +73580 @@
+@@ -75135 +73581 @@
 -@@ -659,7 +663,7 @@ static int rxkad_send_response(struct rxrpc_connection *conn,
 +@@ -659,7 +663,7 @@ static int rxkad_send_response(struct rx
-@@ -75143,5 +73589,4 @@
+@@ -75144,5 +73590,4 @@
 -diff --git a/net/sctp/proc.c b/net/sctp/proc.c
 -index d093cbfeaac449855fcb89fcb87fe74daa523d90..9fc36fc23c385526bba2ede8e0ce7019745a9115 100644
 ---- a/net/sctp/proc.c
@@ -29118,10 +29118,10 @@
 +--- linux-2.6.32.45/net/sctp/proc.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sctp/proc.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -213,7 +213,12 @@ static int sctp_eps_seq_show(struct seq_
-@@ -75161 +73606 @@
+@@ -75162 +73607 @@
 -@@ -320,7 +325,12 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
 +@@ -320,7 +325,12 @@ static int sctp_assocs_seq_show(struct s
-@@ -75175,4 +73620,3 @@
+@@ -75176,4 +73621,3 @@
 -diff --git a/net/sctp/socket.c b/net/sctp/socket.c
 -index 3a95fcb17a9e35c715123316cb458efde2975157..c40fc1d1c5b1b792001a04f2358b796ccf342ae7 100644
 ---- a/net/sctp/socket.c
@@ -29129,7 +29129,7 @@
 +diff -urNp linux-2.6.32.45/net/sctp/socket.c linux-2.6.32.45/net/sctp/socket.c
 +--- linux-2.6.32.45/net/sctp/socket.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sctp/socket.c	2011-04-23 12:56:11.000000000 -0400
-@@ -75187,4 +73631,3 @@
+@@ -75188,4 +73632,3 @@
 -diff --git a/net/socket.c b/net/socket.c
 -index d449812d6208d337d0d927d47401ca62346632ea..44ff16d77fddc09c8e1299d48871f994b9b56e52 100644
 ---- a/net/socket.c
@@ -29137,40 +29137,40 @@
 +diff -urNp linux-2.6.32.45/net/socket.c linux-2.6.32.45/net/socket.c
 +--- linux-2.6.32.45/net/socket.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/socket.c	2011-05-16 21:46:57.000000000 -0400
-@@ -75221 +73664 @@
+@@ -75222 +73665 @@
 -@@ -298,7 +314,7 @@ static int sockfs_get_sb(struct file_system_type *fs_type,
 +@@ -298,7 +314,7 @@ static int sockfs_get_sb(struct file_sys
-@@ -75230 +73673 @@
+@@ -75231 +73674 @@
 -@@ -1154,6 +1170,8 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 +@@ -1154,6 +1170,8 @@ static int __sock_create(struct net *net
-@@ -75239 +73682 @@
+@@ -75240 +73683 @@
 -@@ -1283,6 +1301,16 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 +@@ -1283,6 +1301,16 @@ SYSCALL_DEFINE3(socket, int, family, int
-@@ -75256 +73699 @@
+@@ -75257 +73700 @@
 -@@ -1415,6 +1443,14 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 +@@ -1415,6 +1443,14 @@ SYSCALL_DEFINE3(bind, int, fd, struct so
-@@ -75271 +73714 @@
+@@ -75272 +73715 @@
 -@@ -1423,6 +1459,7 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 +@@ -1423,6 +1459,7 @@ SYSCALL_DEFINE3(bind, int, fd, struct so
-@@ -75279 +73722 @@
+@@ -75280 +73723 @@
 -@@ -1446,10 +1483,20 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 +@@ -1446,10 +1483,20 @@ SYSCALL_DEFINE2(listen, int, fd, int, ba
-@@ -75300 +73743 @@
+@@ -75301 +73744 @@
 -@@ -1492,6 +1539,18 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 +@@ -1492,6 +1539,18 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
-@@ -75319 +73762 @@
+@@ -75320 +73763 @@
 -@@ -1534,6 +1593,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 +@@ -1534,6 +1593,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct
-@@ -75328 +73771 @@
+@@ -75329 +73772 @@
 -@@ -1571,6 +1632,7 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
 +@@ -1571,6 +1632,7 @@ SYSCALL_DEFINE3(connect, int, fd, struct
-@@ -75336 +73779 @@
+@@ -75337 +73780 @@
 -@@ -1581,6 +1643,17 @@ SYSCALL_DEFINE3(connect, int, fd, struct sockaddr __user *, uservaddr,
 +@@ -1581,6 +1643,17 @@ SYSCALL_DEFINE3(connect, int, fd, struct
-@@ -75354 +73797 @@
+@@ -75355 +73798 @@
 -@@ -1882,6 +1955,8 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned, flags)
 +@@ -1882,6 +1955,8 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct
-@@ -75363,5 +73806,4 @@
+@@ -75364,5 +73807,4 @@
 -diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
 -index 570da303b015a387b74a154149f0cf5ca510d248..899c4aa49a101818a4f47a4a6d9412cd2b8b3581 100644
 ---- a/net/sunrpc/sched.c
@@ -29180,7 +29180,7 @@
 +--- linux-2.6.32.45/net/sunrpc/sched.c	2011-08-09 18:35:30.000000000 -0400
 ++++ linux-2.6.32.45/net/sunrpc/sched.c	2011-08-09 18:34:01.000000000 -0400
 +@@ -234,10 +234,10 @@ static int rpc_wait_bit_killable(void *w
-@@ -75380,5 +73822,4 @@
+@@ -75381,5 +73823,4 @@
 -diff --git a/net/sunrpc/xprtrdma/svc_rdma.c b/net/sunrpc/xprtrdma/svc_rdma.c
 -index 35fb68b9c8ec96ca2080530e014135d643aaabac..236a8bf1559aeea7e70bb68187fc5088a954a12c 100644
 ---- a/net/sunrpc/xprtrdma/svc_rdma.c
@@ -29190,13 +29190,13 @@
 +--- linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma.c	2011-05-04 17:56:20.000000000 -0400
 +@@ -59,15 +59,15 @@ unsigned int svcrdma_max_req_size = RPCR
-@@ -75409 +73850 @@
+@@ -75410 +73851 @@
 -@@ -105,7 +105,7 @@ static int read_reset_stat(ctl_table *table, int write,
 +@@ -105,7 +105,7 @@ static int read_reset_stat(ctl_table *ta
-@@ -75418 +73859 @@
+@@ -75419 +73860 @@
 -@@ -149,63 +149,63 @@ static ctl_table svcrdma_parm_table[] = {
 +@@ -149,63 +149,63 @@ static ctl_table svcrdma_parm_table[] = 
-@@ -75491,4 +73932,3 @@
+@@ -75492,4 +73933,3 @@
 -diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
 -index 9e884383134f6536f6ba5a81e916c5999386ca98..8ed5cf0a77790389e1bbe4dd50b2e64f541395fe 100644
 ---- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
@@ -29204,13 +29204,13 @@
 +diff -urNp linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
 +--- linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c	2011-05-04 17:56:28.000000000 -0400
-@@ -75504 +73944 @@
+@@ -75505 +73945 @@
 -@@ -606,7 +606,7 @@ int svc_rdma_recvfrom(struct svc_rqst *rqstp)
 +@@ -606,7 +606,7 @@ int svc_rdma_recvfrom(struct svc_rqst *r
-@@ -75513 +73953 @@
+@@ -75514 +73954 @@
 -@@ -626,7 +626,7 @@ int svc_rdma_recvfrom(struct svc_rqst *rqstp)
 +@@ -626,7 +626,7 @@ int svc_rdma_recvfrom(struct svc_rqst *r
-@@ -75522,5 +73962,4 @@
+@@ -75523,5 +73963,4 @@
 -diff --git a/net/sunrpc/xprtrdma/svc_rdma_sendto.c b/net/sunrpc/xprtrdma/svc_rdma_sendto.c
 -index f11be72a1a80a1f8cc1876d23c5cce7cb5bc9ea6..7aad4e8c60491122d6dea40d249cb556a8130bbf 100644
 ---- a/net/sunrpc/xprtrdma/svc_rdma_sendto.c
@@ -29220,7 +29220,7 @@
 +--- linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_sendto.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_sendto.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -328,7 +328,7 @@ static int send_write(struct svcxprt_rdm
-@@ -75535,5 +73974,4 @@
+@@ -75536,5 +73975,4 @@
 -diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
 -index 3fa5751af0ecca4b03002d19a804f969b7011096..030ba894db933dd8be99580a1cc6eed2dbf2d128 100644
 ---- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
@@ -29230,19 +29230,19 @@
 +--- linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_transport.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sunrpc/xprtrdma/svc_rdma_transport.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -292,7 +292,7 @@ static void rq_cq_reap(struct svcxprt_rd
-@@ -75548 +73986 @@
+@@ -75549 +73987 @@
 -@@ -314,7 +314,7 @@ static void rq_cq_reap(struct svcxprt_rdma *xprt)
 +@@ -314,7 +314,7 @@ static void rq_cq_reap(struct svcxprt_rd
-@@ -75557 +73995 @@
+@@ -75558 +73996 @@
 -@@ -386,7 +386,7 @@ static void sq_cq_reap(struct svcxprt_rdma *xprt)
 +@@ -386,7 +386,7 @@ static void sq_cq_reap(struct svcxprt_rd
-@@ -75566 +74004 @@
+@@ -75567 +74005 @@
 -@@ -404,7 +404,7 @@ static void sq_cq_reap(struct svcxprt_rdma *xprt)
 +@@ -404,7 +404,7 @@ static void sq_cq_reap(struct svcxprt_rd
-@@ -75575 +74013 @@
+@@ -75576 +74014 @@
 -@@ -1260,7 +1260,7 @@ int svc_rdma_send(struct svcxprt_rdma *xprt, struct ib_send_wr *wr)
 +@@ -1260,7 +1260,7 @@ int svc_rdma_send(struct svcxprt_rdma *x
-@@ -75584,5 +74022,4 @@
+@@ -75585,5 +74023,4 @@
 -diff --git a/net/sysctl_net.c b/net/sysctl_net.c
 -index 0b15d7250c401356cf0c6e87679437788f157ac8..7934fbbe181d48c3b7761afbe6158a78e04f972d 100644
 ---- a/net/sysctl_net.c
@@ -29252,7 +29252,7 @@
 +--- linux-2.6.32.45/net/sysctl_net.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/sysctl_net.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -46,7 +46,7 @@ static int net_ctl_permissions(struct ct
-@@ -75597,5 +74034,4 @@
+@@ -75598,5 +74035,4 @@
 -diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 -index db8d51a974b4fff10ab964aee0692ed1f291c418..608692def95db191aea6d1e00ba0cbb9c24817c8 100644
 ---- a/net/unix/af_unix.c
@@ -29262,16 +29262,16 @@
 +--- linux-2.6.32.45/net/unix/af_unix.c	2011-05-10 22:12:02.000000000 -0400
 ++++ linux-2.6.32.45/net/unix/af_unix.c	2011-07-18 18:17:33.000000000 -0400
 +@@ -745,6 +745,12 @@ static struct sock *unix_find_other(stru
-@@ -75614 +74050 @@
+@@ -75615 +74051 @@
 -@@ -765,6 +771,13 @@ static struct sock *unix_find_other(struct net *net,
 +@@ -765,6 +771,13 @@ static struct sock *unix_find_other(stru
-@@ -75628 +74064 @@
+@@ -75629 +74065 @@
 -@@ -850,11 +863,18 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 +@@ -850,11 +863,18 @@ static int unix_bind(struct socket *sock
-@@ -75647 +74083 @@
+@@ -75648 +74084 @@
 -@@ -2211,7 +2231,11 @@ static int unix_seq_show(struct seq_file *seq, void *v)
 +@@ -2211,7 +2231,11 @@ static int unix_seq_show(struct seq_file
-@@ -75659,5 +74095,4 @@
+@@ -75660,5 +74096,4 @@
 -diff --git a/net/wireless/core.c b/net/wireless/core.c
 -index a595f712b5bf3edf09e3f97a6dd10c118e0341a3..6c7b3b1b101e7ae9e21c44722350acc22d2d232e 100644
 ---- a/net/wireless/core.c
@@ -29281,10 +29281,10 @@
 +--- linux-2.6.32.45/net/wireless/core.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/wireless/core.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -367,7 +367,7 @@ struct wiphy *wiphy_new(const struct cfg
-@@ -75672 +74107 @@
+@@ -75673 +74108 @@
 -@@ -505,7 +505,7 @@ void wiphy_rfkill_start_polling(struct wiphy *wiphy)
 +@@ -505,7 +505,7 @@ void wiphy_rfkill_start_polling(struct w
-@@ -75681,5 +74116,4 @@
+@@ -75682,5 +74117,4 @@
 -diff --git a/net/wireless/wext.c b/net/wireless/wext.c
 -index a2e4c60ac23904da29d40fa05f074dcd490e5618..0979cbe500510a14192e63ffb59c1263ed934057 100644
 ---- a/net/wireless/wext.c
@@ -29294,10 +29294,10 @@
 +--- linux-2.6.32.45/net/wireless/wext.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/wireless/wext.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -816,8 +816,7 @@ static int ioctl_standard_iw_point(struc
-@@ -75695 +74129 @@
+@@ -75696 +74130 @@
 -@@ -854,22 +853,6 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
 +@@ -854,22 +853,6 @@ static int ioctl_standard_iw_point(struc
-@@ -75718,5 +74152,4 @@
+@@ -75719,5 +74153,4 @@
 -diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
 -index cb81ca35b0d6eae85ecac2f7967d556971519afb..e15d49a4efa692a38d8ad1ee4789f5def2c92130 100644
 ---- a/net/xfrm/xfrm_policy.c
@@ -29307,28 +29307,28 @@
 +--- linux-2.6.32.45/net/xfrm/xfrm_policy.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/xfrm/xfrm_policy.c	2011-05-04 17:56:20.000000000 -0400
 +@@ -586,7 +586,7 @@ int xfrm_policy_insert(int dir, struct x
-@@ -75731 +74164 @@
+@@ -75732 +74165 @@
 -@@ -669,7 +669,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u8 type, int dir,
 +@@ -669,7 +669,7 @@ struct xfrm_policy *xfrm_policy_bysel_ct
-@@ -75740 +74173 @@
+@@ -75741 +74174 @@
 -@@ -710,7 +710,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u8 type, int dir, u32 id,
 +@@ -710,7 +710,7 @@ struct xfrm_policy *xfrm_policy_byid(str
-@@ -75749 +74182 @@
+@@ -75750 +74183 @@
 -@@ -824,7 +824,7 @@ int xfrm_policy_flush(struct net *net, u8 type, struct xfrm_audit *audit_info)
 +@@ -824,7 +824,7 @@ int xfrm_policy_flush(struct net *net, u
-@@ -75758 +74191 @@
+@@ -75759 +74192 @@
 -@@ -1088,7 +1088,7 @@ int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
 +@@ -1088,7 +1088,7 @@ int xfrm_policy_delete(struct xfrm_polic
-@@ -75776 +74209 @@
+@@ -75777 +74210 @@
 -@@ -1489,7 +1489,7 @@ xfrm_dst_alloc_copy(void **target, void *src, int size)
 +@@ -1489,7 +1489,7 @@ xfrm_dst_alloc_copy(void **target, void 
-@@ -75785 +74218 @@
+@@ -75786 +74219 @@
 -@@ -1501,7 +1501,7 @@ xfrm_dst_update_parent(struct dst_entry *dst, struct xfrm_selector *sel)
 +@@ -1501,7 +1501,7 @@ xfrm_dst_update_parent(struct dst_entry 
-@@ -75794 +74227 @@
+@@ -75795 +74228 @@
 -@@ -1537,7 +1537,7 @@ int __xfrm_lookup(struct net *net, struct dst_entry **dst_p, struct flowi *fl,
 +@@ -1537,7 +1537,7 @@ int __xfrm_lookup(struct net *net, struc
-@@ -75812,5 +74245,4 @@
+@@ -75813,5 +74246,4 @@
 -diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
 -index b95a2d64eb59c3f86e066acc86fee8e2e7fb61e1..85c4d785892f5ad9f1f94d838f870a45a89876ff 100644
 ---- a/net/xfrm/xfrm_user.c
@@ -29338,10 +29338,10 @@
 +--- linux-2.6.32.45/net/xfrm/xfrm_user.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/net/xfrm/xfrm_user.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -1169,6 +1169,8 @@ static int copy_to_user_tmpl(struct xfrm
-@@ -75825 +74257 @@
+@@ -75826 +74258 @@
 -@@ -1784,6 +1786,8 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
 +@@ -1784,6 +1786,8 @@ static int xfrm_do_migrate(struct sk_buf
-@@ -75834,5 +74266,4 @@
+@@ -75835,5 +74267,4 @@
 -diff --git a/samples/kobject/kset-example.c b/samples/kobject/kset-example.c
 -index 45b7d56fb54185d2008814ec6f4dfff4b42a2e11..19e828cedf8d9ad15863f9f20b62f0809a58be53 100644
 ---- a/samples/kobject/kset-example.c
@@ -29351,7 +29351,7 @@
 +--- linux-2.6.32.45/samples/kobject/kset-example.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/samples/kobject/kset-example.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -87,7 +87,7 @@ static ssize_t foo_attr_store(struct kob
-@@ -75847,4 +74278,34 @@
+@@ -75848,4 +74279,34 @@
 -diff --git a/scripts/Makefile.build b/scripts/Makefile.build
 -index 341b58902ffced6d70801f6e90ea85f60bcee88d..405aed3fddc76d1568e6eddb3cc9a256da406947 100644
 ---- a/scripts/Makefile.build
@@ -29390,7 +29390,7 @@
 +diff -urNp linux-2.6.32.45/scripts/Makefile.build linux-2.6.32.45/scripts/Makefile.build
 +--- linux-2.6.32.45/scripts/Makefile.build	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/Makefile.build	2011-06-04 20:46:51.000000000 -0400
-@@ -75860,5 +74321,4 @@
+@@ -75861,5 +74322,4 @@
 -diff --git a/scripts/Makefile.clean b/scripts/Makefile.clean
 -index 6f89fbb56256987bf0c002683f85941ccddc861a..53adc9cb772672e34658bb8e98866fa7f58f76ec 100644
 ---- a/scripts/Makefile.clean
@@ -29400,7 +29400,7 @@
 +--- linux-2.6.32.45/scripts/Makefile.clean	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/Makefile.clean	2011-06-04 20:47:19.000000000 -0400
 +@@ -43,7 +43,8 @@ subdir-ymn	:= $(addprefix $(obj)/,$(subd
-@@ -75874,4 +74334,3 @@
+@@ -75875,4 +74335,3 @@
 -diff --git a/scripts/Makefile.host b/scripts/Makefile.host
 -index 1ac414fd50300384663248c0ac651c9887bfe45d..a1c14518457786b79abb9b1723943a9af5ab7764 100644
 ---- a/scripts/Makefile.host
@@ -29408,10 +29408,10 @@
 +diff -urNp linux-2.6.32.45/scripts/Makefile.host linux-2.6.32.45/scripts/Makefile.host
 +--- linux-2.6.32.45/scripts/Makefile.host	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/Makefile.host	2011-06-04 20:48:22.000000000 -0400
-@@ -75886 +74345 @@
+@@ -75887 +74346 @@
 -@@ -54,6 +55,7 @@ host-cxxobjs	:= $(sort $(foreach m,$(host-cxxmulti),$($(m)-cxxobjs)))
 +@@ -54,6 +55,7 @@ host-cxxobjs	:= $(sort $(foreach m,$(hos
-@@ -75894,39 +74353,4 @@
+@@ -75895,39 +74354,4 @@
 -diff --git a/scripts/basic/fixdep.c b/scripts/basic/fixdep.c
 -index 6bf21f83837dff5a42893d57dde41e8d225948e4..77380d1d875a1eab4b77f8cca7be69205a2c3d04 100644
 ---- a/scripts/basic/fixdep.c
@@ -29455,22 +29455,22 @@
 +--- linux-2.6.32.45/scripts/mod/file2alias.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/mod/file2alias.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -72,7 +72,7 @@ static void device_id_check(const char *
-@@ -75941 +74365 @@
+@@ -75942 +74366 @@
 -@@ -102,7 +102,7 @@ static void device_id_check(const char *modname, const char *device_id,
 +@@ -102,7 +102,7 @@ static void device_id_check(const char *
-@@ -75950 +74374 @@
+@@ -75951 +74375 @@
 -@@ -368,7 +368,7 @@ static void do_pnp_device_entry(void *symval, unsigned long size,
 +@@ -368,7 +368,7 @@ static void do_pnp_device_entry(void *sy
-@@ -75959 +74383 @@
+@@ -75960 +74384 @@
 -@@ -398,7 +398,7 @@ static void do_pnp_card_entries(void *symval, unsigned long size,
 +@@ -398,7 +398,7 @@ static void do_pnp_card_entries(void *sy
-@@ -75968 +74392 @@
+@@ -75969 +74393 @@
 -@@ -424,7 +424,7 @@ static void do_pnp_card_entries(void *symval, unsigned long size,
 +@@ -424,7 +424,7 @@ static void do_pnp_card_entries(void *sy
-@@ -75977 +74401 @@
+@@ -75978 +74402 @@
 -@@ -699,7 +699,7 @@ static void dmi_ascii_filter(char *d, const char *s)
 +@@ -699,7 +699,7 @@ static void dmi_ascii_filter(char *d, co
-@@ -75986,4 +74410,3 @@
+@@ -75987,4 +74411,3 @@
 -diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
 -index 03efeabdfdb9ffebf1b2969e156b07346ebd6a9f..08889894a266cabf3e34daeb37f5e790f1720c91 100644
 ---- a/scripts/mod/modpost.c
@@ -29478,25 +29478,25 @@
 +diff -urNp linux-2.6.32.45/scripts/mod/modpost.c linux-2.6.32.45/scripts/mod/modpost.c
 +--- linux-2.6.32.45/scripts/mod/modpost.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/mod/modpost.c	2011-07-06 19:53:33.000000000 -0400
-@@ -75998 +74421 @@
+@@ -75999 +74422 @@
 -@@ -920,6 +921,12 @@ const struct sectioncheck sectioncheck[] = {
 +@@ -920,6 +921,12 @@ const struct sectioncheck sectioncheck[]
-@@ -76011 +74434 @@
+@@ -76012 +74435 @@
 -@@ -1024,10 +1031,10 @@ static Elf_Sym *find_elf_symbol(struct elf_info *elf, Elf64_Sword addr,
 +@@ -1024,10 +1031,10 @@ static Elf_Sym *find_elf_symbol(struct e
-@@ -76024 +74447 @@
+@@ -76025 +74448 @@
 -@@ -1268,6 +1275,14 @@ static void report_sec_mismatch(const char *modname, enum mismatch mismatch,
 +@@ -1268,6 +1275,14 @@ static void report_sec_mismatch(const ch
-@@ -76039 +74462 @@
+@@ -76040 +74463 @@
 -@@ -1495,7 +1510,7 @@ static void section_rel(const char *modname, struct elf_info *elf,
 +@@ -1495,7 +1510,7 @@ static void section_rel(const char *modn
-@@ -76048 +74471 @@
+@@ -76049 +74472 @@
 -@@ -1651,7 +1666,7 @@ void __attribute__((format(printf, 2, 3))) buf_printf(struct buffer *buf,
 +@@ -1651,7 +1666,7 @@ void __attribute__((format(printf, 2, 3)
-@@ -76057 +74480 @@
+@@ -76058 +74481 @@
 -@@ -1863,7 +1878,7 @@ static void write_if_changed(struct buffer *b, const char *fname)
 +@@ -1863,7 +1878,7 @@ static void write_if_changed(struct buff
-@@ -76066,5 +74489,4 @@
+@@ -76067,5 +74490,4 @@
 -diff --git a/scripts/mod/modpost.h b/scripts/mod/modpost.h
 -index 09f58e33d227bf3fecb88d555f33cd52fc4375a7..4b660925adac099cfce2c316fc1fe3fc6f2aa836 100644
 ---- a/scripts/mod/modpost.h
@@ -29506,7 +29506,7 @@
 +--- linux-2.6.32.45/scripts/mod/modpost.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/mod/modpost.h	2011-04-17 15:56:46.000000000 -0400
 +@@ -92,15 +92,15 @@ void *do_nofail(void *ptr, const char *e
-@@ -76089,5 +74511,4 @@
+@@ -76090,5 +74512,4 @@
 -diff --git a/scripts/mod/sumversion.c b/scripts/mod/sumversion.c
 -index ecf9c7dc18259358d10ba9ff1c1cf91d9664a63f..d52b38e7d923223a6c170857eec56749440cc1fe 100644
 ---- a/scripts/mod/sumversion.c
@@ -29516,7 +29516,7 @@
 +--- linux-2.6.32.45/scripts/mod/sumversion.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/mod/sumversion.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -455,7 +455,7 @@ static void write_version(const char *fi
-@@ -76102,5 +74523,4 @@
+@@ -76103,5 +74524,4 @@
 -diff --git a/scripts/package/mkspec b/scripts/package/mkspec
 -index 47bdd2f99b780dad38d946bbbfde5685d630d7b8..d4d4e93463b8b391ce59529399e7b66dbde488bd 100755
 ---- a/scripts/package/mkspec
@@ -29526,7 +29526,7 @@
 +--- linux-2.6.32.45/scripts/package/mkspec	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/package/mkspec	2011-07-19 18:19:12.000000000 -0400
 +@@ -70,7 +70,7 @@ echo 'mkdir -p $RPM_BUILD_ROOT/boot $RPM
-@@ -76115,4 +74535,3 @@
+@@ -76116,4 +74536,3 @@
 -diff --git a/scripts/pnmtologo.c b/scripts/pnmtologo.c
 -index 5c113123ed9f208840d5af7283e6df4769a4bc12..72742b53784ee8697409a4c1d26b619dd372c2ae 100644
 ---- a/scripts/pnmtologo.c
@@ -29534,7 +29534,7 @@
 +diff -urNp linux-2.6.32.45/scripts/pnmtologo.c linux-2.6.32.45/scripts/pnmtologo.c
 +--- linux-2.6.32.45/scripts/pnmtologo.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/pnmtologo.c	2011-04-17 15:56:46.000000000 -0400
-@@ -76145,4 +74564,3 @@
+@@ -76146,4 +74565,3 @@
 -diff --git a/scripts/tags.sh b/scripts/tags.sh
 -index d52f7a01557c1b28cf3155a640c175ce613558aa..269eb1bc365738fb35331c9403b3f16e971322e0 100755
 ---- a/scripts/tags.sh
@@ -29542,7 +29542,7 @@
 +diff -urNp linux-2.6.32.45/scripts/tags.sh linux-2.6.32.45/scripts/tags.sh
 +--- linux-2.6.32.45/scripts/tags.sh	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/scripts/tags.sh	2011-06-07 18:06:04.000000000 -0400
-@@ -76172,4 +74590,106 @@
+@@ -76173,4 +74591,106 @@
 -diff --git a/security/Kconfig b/security/Kconfig
 -index fb363cd81cf6db10753c69a3726c31143c3823b2..88391d00dd13b150270008e5ffeba8ac0d76b427 100644
 ---- a/security/Kconfig
@@ -29653,7 +29653,7 @@
 +diff -urNp linux-2.6.32.45/security/Kconfig linux-2.6.32.45/security/Kconfig
 +--- linux-2.6.32.45/security/Kconfig	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/Kconfig	2011-07-06 19:58:11.000000000 -0400
-@@ -76741,114 +75261,4 @@
+@@ -76742,114 +75262,4 @@
 -diff --git a/security/capability.c b/security/capability.c
 -index fce07a7bc8257e9e57afa2681d96d71d22cbb785..5f12858c0a1a49049d31c369658d9750a86e865a 100644
 ---- a/security/capability.c
@@ -29772,7 +29772,7 @@
 +--- linux-2.6.32.45/security/keys/keyring.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/keys/keyring.c	2011-04-18 22:03:00.000000000 -0400
 +@@ -214,15 +214,15 @@ static long keyring_read(const struct ke
-@@ -76873,5 +75283,4 @@
+@@ -76874,5 +75284,4 @@
 -diff --git a/security/min_addr.c b/security/min_addr.c
 -index d9f94258c10866a5bbc119010ab39e2b18905672..c28cef4bc8b9fa48a63633db67faed5ee1802570 100644
 ---- a/security/min_addr.c
@@ -29782,7 +29782,7 @@
 +--- linux-2.6.32.45/security/min_addr.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/min_addr.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -14,6 +14,7 @@ unsigned long dac_mmap_min_addr = CONFIG
-@@ -76893,5 +75302,4 @@
+@@ -76894,5 +75303,4 @@
 -diff --git a/security/root_plug.c b/security/root_plug.c
 -index 2f7ffa67c4d2db7069f6c2e9b141eb544c409d25..045540015eccca88fa91ccbd53c8488d64513720 100644
 ---- a/security/root_plug.c
@@ -29792,7 +29792,7 @@
 +--- linux-2.6.32.45/security/root_plug.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/root_plug.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -70,7 +70,7 @@ static int rootplug_bprm_check_security 
-@@ -76906,5 +75314,4 @@
+@@ -76907,5 +75315,4 @@
 -diff --git a/security/security.c b/security/security.c
 -index c4c673240c1c6761beadc94f3746e99d09c6a703..3a3d82109782f3c7ad3a081b77c2f64793587b78 100644
 ---- a/security/security.c
@@ -29802,10 +29802,10 @@
 +--- linux-2.6.32.45/security/security.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/security.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -24,7 +24,7 @@ static __initdata char chosen_lsm[SECURI
-@@ -76919 +75326 @@
+@@ -76920 +75327 @@
 -@@ -106,7 +106,7 @@ int __init security_module_enable(struct security_operations *ops)
 +@@ -106,7 +106,7 @@ int __init security_module_enable(struct
-@@ -76928,4 +75335,3 @@
+@@ -76929,4 +75336,3 @@
 -diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
 -index a1067544c86b5ead3c5213e87cef0cd59f17788d..2805823ecfb42c6648e5bb7ca9aaa5fea27e558a 100644
 ---- a/security/selinux/hooks.c
@@ -29813,10 +29813,10 @@
 +diff -urNp linux-2.6.32.45/security/selinux/hooks.c linux-2.6.32.45/security/selinux/hooks.c
 +--- linux-2.6.32.45/security/selinux/hooks.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/selinux/hooks.c	2011-04-17 15:56:46.000000000 -0400
-@@ -76941 +75347 @@
+@@ -76942 +75348 @@
 -@@ -5457,7 +5457,7 @@ static int selinux_key_getsecurity(struct key *key, char **_buffer)
 +@@ -5457,7 +5457,7 @@ static int selinux_key_getsecurity(struc
-@@ -76960,5 +75366,4 @@
+@@ -76961,5 +75367,4 @@
 -diff --git a/security/selinux/include/xfrm.h b/security/selinux/include/xfrm.h
 -index 13128f9a3e5aef56b7453af34ce86aa0e99f0513..c23c7364360b860c7466a561a194ba41a562822b 100644
 ---- a/security/selinux/include/xfrm.h
@@ -29826,7 +29826,7 @@
 +--- linux-2.6.32.45/security/selinux/include/xfrm.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/selinux/include/xfrm.h	2011-05-18 20:09:37.000000000 -0400
 +@@ -48,7 +48,7 @@ int selinux_xfrm_decode_session(struct s
-@@ -76973,5 +75378,4 @@
+@@ -76974,5 +75379,4 @@
 -diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
 -index ff17820d35ec73bedfab174d3adfb7c87b762420..d68084c2bd7f007d9e80fb1a8b4eff576bc025c3 100644
 ---- a/security/selinux/ss/services.c
@@ -29836,7 +29836,7 @@
 +--- linux-2.6.32.45/security/selinux/ss/services.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/selinux/ss/services.c	2011-05-16 21:46:57.000000000 -0400
 +@@ -1715,6 +1715,8 @@ int security_load_policy(void *data, siz
-@@ -76986,5 +75390,4 @@
+@@ -76987,5 +75391,4 @@
 -diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
 -index c33b6bb9b6dd018de224c46c11c76aad314a44c9..9651403d4d5900bbbf72fa85853fd18e182de769 100644
 ---- a/security/smack/smack_lsm.c
@@ -29846,7 +29846,7 @@
 +--- linux-2.6.32.45/security/smack/smack_lsm.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/smack/smack_lsm.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -3073,7 +3073,7 @@ static int smack_inode_getsecctx(struct 
-@@ -76999,5 +75402,4 @@
+@@ -77000,5 +75403,4 @@
 -diff --git a/security/tomoyo/tomoyo.c b/security/tomoyo/tomoyo.c
 -index 9548a0984cc43674c8b5470ef5931bf71ac9cb1e..9a5f384e088473ccbdacc19ab8b80b0edf14189b 100644
 ---- a/security/tomoyo/tomoyo.c
@@ -29856,7 +29856,7 @@
 +--- linux-2.6.32.45/security/tomoyo/tomoyo.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/security/tomoyo/tomoyo.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -275,7 +275,7 @@ static int tomoyo_dentry_open(struct fil
-@@ -77012,4 +75414,3 @@
+@@ -77013,4 +75415,3 @@
 -diff --git a/sound/aoa/codecs/onyx.c b/sound/aoa/codecs/onyx.c
 -index 84bb07d39a7fc29766fb1d0d019e0d08e392e664..c2ab6b688ffe75cf42ab1cb9f32339a26c54129f 100644
 ---- a/sound/aoa/codecs/onyx.c
@@ -29864,13 +29864,13 @@
 +diff -urNp linux-2.6.32.45/sound/aoa/codecs/onyx.c linux-2.6.32.45/sound/aoa/codecs/onyx.c
 +--- linux-2.6.32.45/sound/aoa/codecs/onyx.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/aoa/codecs/onyx.c	2011-04-17 15:56:46.000000000 -0400
-@@ -77025 +75426 @@
+@@ -77026 +75427 @@
 -@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_item *cii,
 +@@ -752,7 +752,7 @@ static int onyx_open(struct codec_info_i
-@@ -77034 +75435 @@
+@@ -77035 +75436 @@
 -@@ -764,8 +764,7 @@ static int onyx_close(struct codec_info_item *cii,
 +@@ -764,8 +764,7 @@ static int onyx_close(struct codec_info_
-@@ -77044,4 +75445,3 @@
+@@ -77045,4 +75446,3 @@
 -diff --git a/sound/aoa/codecs/onyx.h b/sound/aoa/codecs/onyx.h
 -index ffd20254ff76113b90cef058e79ce5ecc6d63600..df062c972ad34c407e843732a2e6ee994c0de4de 100644
 ---- a/sound/aoa/codecs/onyx.h
@@ -29878,7 +29878,7 @@
 +diff -urNp linux-2.6.32.45/sound/aoa/codecs/onyx.h linux-2.6.32.45/sound/aoa/codecs/onyx.h
 +--- linux-2.6.32.45/sound/aoa/codecs/onyx.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/aoa/codecs/onyx.h	2011-04-17 15:56:46.000000000 -0400
-@@ -77056,4 +75456,3 @@
+@@ -77057,4 +75457,3 @@
 -diff --git a/sound/core/seq/seq_device.c b/sound/core/seq/seq_device.c
 -index 1f997675c893bbeb50fd01c530007540bc7a86fd..1463653368f489cb07a9d9ed0bd24e741523ce2b 100644
 ---- a/sound/core/seq/seq_device.c
@@ -29886,16 +29886,16 @@
 +diff -urNp linux-2.6.32.45/sound/core/seq/seq_device.c linux-2.6.32.45/sound/core/seq/seq_device.c
 +--- linux-2.6.32.45/sound/core/seq/seq_device.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/core/seq/seq_device.c	2011-08-05 20:33:55.000000000 -0400
-@@ -77069 +75468 @@
+@@ -77070 +75469 @@
 -@@ -332,7 +332,7 @@ int snd_seq_device_register_driver(char *id, struct snd_seq_dev_ops *entry,
 +@@ -332,7 +332,7 @@ int snd_seq_device_register_driver(char 
-@@ -77078 +75477 @@
+@@ -77079 +75478 @@
 -@@ -462,7 +462,7 @@ static int init_device(struct snd_seq_device *dev, struct ops_list *ops)
 +@@ -462,7 +462,7 @@ static int init_device(struct snd_seq_de
-@@ -77087 +75486 @@
+@@ -77088 +75487 @@
 -@@ -489,7 +489,7 @@ static int free_device(struct snd_seq_device *dev, struct ops_list *ops)
 +@@ -489,7 +489,7 @@ static int free_device(struct snd_seq_de
-@@ -77096,4 +75495,3 @@
+@@ -77097,4 +75496,3 @@
 -diff --git a/sound/drivers/mts64.c b/sound/drivers/mts64.c
 -index 9284829bf9275e9c2afabbbe8e2026c35c2dfb60..ac8e8b23ab45764a1e4c73545d8874a0bdf6043e 100644
 ---- a/sound/drivers/mts64.c
@@ -29903,19 +29903,19 @@
 +diff -urNp linux-2.6.32.45/sound/drivers/mts64.c linux-2.6.32.45/sound/drivers/mts64.c
 +--- linux-2.6.32.45/sound/drivers/mts64.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/drivers/mts64.c	2011-04-17 15:56:46.000000000 -0400
-@@ -77117 +75515 @@
+@@ -77118 +75516 @@
 -@@ -695,7 +696,7 @@ static int snd_mts64_rawmidi_open(struct snd_rawmidi_substream *substream)
 +@@ -695,7 +696,7 @@ static int snd_mts64_rawmidi_open(struct
-@@ -77126 +75524 @@
+@@ -77127 +75525 @@
 -@@ -703,7 +704,7 @@ static int snd_mts64_rawmidi_open(struct snd_rawmidi_substream *substream)
 +@@ -703,7 +704,7 @@ static int snd_mts64_rawmidi_open(struct
-@@ -77135 +75533 @@
+@@ -77136 +75534 @@
 -@@ -713,8 +714,7 @@ static int snd_mts64_rawmidi_close(struct snd_rawmidi_substream *substream)
 +@@ -713,8 +714,7 @@ static int snd_mts64_rawmidi_close(struc
-@@ -77145 +75543 @@
+@@ -77146 +75544 @@
 -@@ -723,8 +723,8 @@ static int snd_mts64_rawmidi_close(struct snd_rawmidi_substream *substream)
 +@@ -723,8 +723,8 @@ static int snd_mts64_rawmidi_close(struc
-@@ -77156,5 +75554,4 @@
+@@ -77157,5 +75555,4 @@
 -diff --git a/sound/drivers/opl4/opl4_lib.c b/sound/drivers/opl4/opl4_lib.c
 -index 01997f24c895708f19a4851061b42bce57c88b1d..cbc1195040d73b6c78f3dcf12f712026e5c51a46 100644
 ---- a/sound/drivers/opl4/opl4_lib.c
@@ -29925,7 +29925,7 @@
 +--- linux-2.6.32.45/sound/drivers/opl4/opl4_lib.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/drivers/opl4/opl4_lib.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -27,7 +27,7 @@ MODULE_AUTHOR("Clemens Ladisch <clemens@
-@@ -77169,4 +75566,3 @@
+@@ -77170,4 +75567,3 @@
 -diff --git a/sound/drivers/portman2x4.c b/sound/drivers/portman2x4.c
 -index 60158e2e0eafb529e00013b4a9997d325b1b7fa2..0a0cc1ad1f09f7126996bffe099f98ed8230d6c7 100644
 ---- a/sound/drivers/portman2x4.c
@@ -29933,7 +29933,7 @@
 +diff -urNp linux-2.6.32.45/sound/drivers/portman2x4.c linux-2.6.32.45/sound/drivers/portman2x4.c
 +--- linux-2.6.32.45/sound/drivers/portman2x4.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/drivers/portman2x4.c	2011-04-17 15:56:46.000000000 -0400
-@@ -77190,5 +75586,4 @@
+@@ -77191,5 +75587,4 @@
 -diff --git a/sound/isa/cmi8330.c b/sound/isa/cmi8330.c
 -index 02f79d2527189813d62a114f804f8400488f197b..80c67dc7c4d4bc7755f0d932aa6032678ff4d62d 100644
 ---- a/sound/isa/cmi8330.c
@@ -29943,7 +29943,7 @@
 +--- linux-2.6.32.45/sound/isa/cmi8330.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/isa/cmi8330.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -455,16 +455,16 @@ static int __devinit snd_cmi8330_pcm(str
-@@ -77215,4 +75610,3 @@
+@@ -77216,4 +75611,3 @@
 -diff --git a/sound/oss/sb_audio.c b/sound/oss/sb_audio.c
 -index 733b014ec7d1637a50954b46ff64b6bd662241e3..56ce96fc6f96bc4b70bdbad284f16f1d2ebad2f6 100644
 ---- a/sound/oss/sb_audio.c
@@ -29951,7 +29951,7 @@
 +diff -urNp linux-2.6.32.45/sound/oss/sb_audio.c linux-2.6.32.45/sound/oss/sb_audio.c
 +--- linux-2.6.32.45/sound/oss/sb_audio.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/oss/sb_audio.c	2011-04-17 15:56:46.000000000 -0400
-@@ -77228,4 +75622,3 @@
+@@ -77229,4 +75623,3 @@
 -diff --git a/sound/oss/swarm_cs4297a.c b/sound/oss/swarm_cs4297a.c
 -index 3136c88eacdfae03e84ab28e9c86d5d26996aa8a..28ad950d39366a51dddea7b3f70da463148583c0 100644
 ---- a/sound/oss/swarm_cs4297a.c
@@ -29959,7 +29959,7 @@
 +diff -urNp linux-2.6.32.45/sound/oss/swarm_cs4297a.c linux-2.6.32.45/sound/oss/swarm_cs4297a.c
 +--- linux-2.6.32.45/sound/oss/swarm_cs4297a.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/oss/swarm_cs4297a.c	2011-04-17 15:56:46.000000000 -0400
-@@ -77266,5 +75659,4 @@
+@@ -77267,5 +75660,4 @@
 -diff --git a/sound/pci/ac97/ac97_codec.c b/sound/pci/ac97/ac97_codec.c
 -index 78288dbfc17a039cc4b9b417bf6ae56bbf2f1419..0406809d110d0808bb5d4756595d2afaa00263f9 100644
 ---- a/sound/pci/ac97/ac97_codec.c
@@ -29969,7 +29969,7 @@
 +--- linux-2.6.32.45/sound/pci/ac97/ac97_codec.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/ac97/ac97_codec.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -1952,7 +1952,7 @@ static int snd_ac97_dev_disconnect(struc
-@@ -77279,5 +75671,4 @@
+@@ -77280,5 +75672,4 @@
 -diff --git a/sound/pci/ac97/ac97_patch.c b/sound/pci/ac97/ac97_patch.c
 -index e7efcef7b812e382c1dc477e2b973e151431adbf..0c943c098b23e6301105e77c0d625f5aac07b6d1 100644
 ---- a/sound/pci/ac97/ac97_patch.c
@@ -29979,100 +29979,100 @@
 +--- linux-2.6.32.45/sound/pci/ac97/ac97_patch.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/ac97/ac97_patch.c	2011-04-23 12:56:12.000000000 -0400
 +@@ -371,7 +371,7 @@ static int patch_yamaha_ymf743_build_spd
-@@ -77292 +75683 @@
+@@ -77293 +75684 @@
 -@@ -455,7 +455,7 @@ static int patch_yamaha_ymf753_post_spdif(struct snd_ac97 * ac97)
 +@@ -455,7 +455,7 @@ static int patch_yamaha_ymf753_post_spdi
-@@ -77301 +75692 @@
+@@ -77302 +75693 @@
 -@@ -502,7 +502,7 @@ static int patch_wolfson_wm9703_specific(struct snd_ac97 * ac97)
 +@@ -502,7 +502,7 @@ static int patch_wolfson_wm9703_specific
-@@ -77310 +75701 @@
+@@ -77311 +75702 @@
 -@@ -533,7 +533,7 @@ static int patch_wolfson_wm9704_specific(struct snd_ac97 * ac97)
 +@@ -533,7 +533,7 @@ static int patch_wolfson_wm9704_specific
-@@ -77319 +75710 @@
+@@ -77320 +75711 @@
 -@@ -555,7 +555,7 @@ static int patch_wolfson_wm9705_specific(struct snd_ac97 * ac97)
 +@@ -555,7 +555,7 @@ static int patch_wolfson_wm9705_specific
-@@ -77328 +75719 @@
+@@ -77329 +75720 @@
 -@@ -692,7 +692,7 @@ static int patch_wolfson_wm9711_specific(struct snd_ac97 * ac97)
 +@@ -692,7 +692,7 @@ static int patch_wolfson_wm9711_specific
-@@ -77337 +75728 @@
+@@ -77338 +75729 @@
 -@@ -886,7 +886,7 @@ static void patch_wolfson_wm9713_resume (struct snd_ac97 * ac97)
 +@@ -886,7 +886,7 @@ static void patch_wolfson_wm9713_resume 
-@@ -77346 +75737 @@
+@@ -77347 +75738 @@
 -@@ -991,7 +991,7 @@ static int patch_sigmatel_stac97xx_specific(struct snd_ac97 * ac97)
 +@@ -991,7 +991,7 @@ static int patch_sigmatel_stac97xx_speci
-@@ -77355 +75746 @@
+@@ -77356 +75747 @@
 -@@ -1038,7 +1038,7 @@ static int patch_sigmatel_stac9708_specific(struct snd_ac97 *ac97)
 +@@ -1038,7 +1038,7 @@ static int patch_sigmatel_stac9708_speci
-@@ -77364 +75755 @@
+@@ -77365 +75756 @@
 -@@ -1267,7 +1267,7 @@ static int patch_sigmatel_stac9758_specific(struct snd_ac97 *ac97)
 +@@ -1267,7 +1267,7 @@ static int patch_sigmatel_stac9758_speci
-@@ -77373 +75764 @@
+@@ -77374 +75765 @@
 -@@ -1342,7 +1342,7 @@ static int patch_cirrus_build_spdif(struct snd_ac97 * ac97)
 +@@ -1342,7 +1342,7 @@ static int patch_cirrus_build_spdif(stru
-@@ -77382 +75773 @@
+@@ -77383 +75774 @@
 -@@ -1399,7 +1399,7 @@ static int patch_conexant_build_spdif(struct snd_ac97 * ac97)
 +@@ -1399,7 +1399,7 @@ static int patch_conexant_build_spdif(st
-@@ -77391 +75782 @@
+@@ -77392 +75783 @@
 -@@ -1575,7 +1575,7 @@ static void patch_ad1881_chained(struct snd_ac97 * ac97, int unchained_idx, int
 +@@ -1575,7 +1575,7 @@ static void patch_ad1881_chained(struct 
-@@ -77400 +75791 @@
+@@ -77401 +75792 @@
 -@@ -1662,7 +1662,7 @@ static int patch_ad1885_specific(struct snd_ac97 * ac97)
 +@@ -1662,7 +1662,7 @@ static int patch_ad1885_specific(struct 
-@@ -77409 +75800 @@
+@@ -77410 +75801 @@
 -@@ -1689,7 +1689,7 @@ static int patch_ad1886_specific(struct snd_ac97 * ac97)
 +@@ -1689,7 +1689,7 @@ static int patch_ad1886_specific(struct 
-@@ -77418 +75809 @@
+@@ -77419 +75810 @@
 -@@ -1896,7 +1896,7 @@ static int patch_ad1981a_specific(struct snd_ac97 * ac97)
 +@@ -1896,7 +1896,7 @@ static int patch_ad1981a_specific(struct
-@@ -77427 +75818 @@
+@@ -77428 +75819 @@
 -@@ -1951,7 +1951,7 @@ static int patch_ad1981b_specific(struct snd_ac97 *ac97)
 +@@ -1951,7 +1951,7 @@ static int patch_ad1981b_specific(struct
-@@ -77436 +75827 @@
+@@ -77437 +75828 @@
 -@@ -2090,7 +2090,7 @@ static int patch_ad1888_specific(struct snd_ac97 *ac97)
 +@@ -2090,7 +2090,7 @@ static int patch_ad1888_specific(struct 
-@@ -77445 +75836 @@
+@@ -77446 +75837 @@
 -@@ -2139,7 +2139,7 @@ static int patch_ad1980_specific(struct snd_ac97 *ac97)
 +@@ -2139,7 +2139,7 @@ static int patch_ad1980_specific(struct 
-@@ -77454 +75845 @@
+@@ -77455 +75846 @@
 -@@ -2254,7 +2254,7 @@ static int patch_ad1985_specific(struct snd_ac97 *ac97)
 +@@ -2254,7 +2254,7 @@ static int patch_ad1985_specific(struct 
-@@ -77463 +75854 @@
+@@ -77464 +75855 @@
 -@@ -2546,7 +2546,7 @@ static int patch_ad1986_specific(struct snd_ac97 *ac97)
 +@@ -2546,7 +2546,7 @@ static int patch_ad1986_specific(struct 
-@@ -77472 +75863 @@
+@@ -77473 +75864 @@
 -@@ -2651,7 +2651,7 @@ static int patch_alc650_specific(struct snd_ac97 * ac97)
 +@@ -2651,7 +2651,7 @@ static int patch_alc650_specific(struct 
-@@ -77481 +75872 @@
+@@ -77482 +75873 @@
 -@@ -2803,7 +2803,7 @@ static int patch_alc655_specific(struct snd_ac97 * ac97)
 +@@ -2803,7 +2803,7 @@ static int patch_alc655_specific(struct 
-@@ -77490 +75881 @@
+@@ -77491 +75882 @@
 -@@ -2915,7 +2915,7 @@ static int patch_alc850_specific(struct snd_ac97 *ac97)
 +@@ -2915,7 +2915,7 @@ static int patch_alc850_specific(struct 
-@@ -77499 +75890 @@
+@@ -77500 +75891 @@
 -@@ -2977,7 +2977,7 @@ static int patch_cm9738_specific(struct snd_ac97 * ac97)
 +@@ -2977,7 +2977,7 @@ static int patch_cm9738_specific(struct 
-@@ -77508 +75899 @@
+@@ -77509 +75900 @@
 -@@ -3068,7 +3068,7 @@ static int patch_cm9739_post_spdif(struct snd_ac97 * ac97)
 +@@ -3068,7 +3068,7 @@ static int patch_cm9739_post_spdif(struc
-@@ -77517 +75908 @@
+@@ -77518 +75909 @@
 -@@ -3242,7 +3242,7 @@ static int patch_cm9761_specific(struct snd_ac97 * ac97)
 +@@ -3242,7 +3242,7 @@ static int patch_cm9761_specific(struct 
-@@ -77526 +75917 @@
+@@ -77527 +75918 @@
 -@@ -3338,7 +3338,7 @@ static int patch_cm9780_specific(struct snd_ac97 *ac97)
 +@@ -3338,7 +3338,7 @@ static int patch_cm9780_specific(struct 
-@@ -77535 +75926 @@
+@@ -77536 +75927 @@
 -@@ -3458,7 +3458,7 @@ static int patch_vt1616_specific(struct snd_ac97 * ac97)
 +@@ -3458,7 +3458,7 @@ static int patch_vt1616_specific(struct 
-@@ -77544 +75935 @@
+@@ -77545 +75936 @@
 -@@ -3812,7 +3812,7 @@ static int patch_it2646_specific(struct snd_ac97 * ac97)
 +@@ -3812,7 +3812,7 @@ static int patch_it2646_specific(struct 
-@@ -77553 +75944 @@
+@@ -77554 +75945 @@
 -@@ -3846,7 +3846,7 @@ static int patch_si3036_specific(struct snd_ac97 * ac97)
 +@@ -3846,7 +3846,7 @@ static int patch_si3036_specific(struct 
-@@ -77562 +75953 @@
+@@ -77563 +75954 @@
 -@@ -3913,7 +3913,7 @@ static int patch_ucb1400_specific(struct snd_ac97 * ac97)
 +@@ -3913,7 +3913,7 @@ static int patch_ucb1400_specific(struct
-@@ -77571,4 +75962,3 @@
+@@ -77572,4 +75963,3 @@
 -diff --git a/sound/pci/hda/hda_codec.h b/sound/pci/hda/hda_codec.h
 -index 99552fb5f75699d09461bebfbfd997e37c685f75..62665207ebd3f039ebf02552ab2df663f99edede 100644
 ---- a/sound/pci/hda/hda_codec.h
@@ -30080,7 +30080,7 @@
 +diff -urNp linux-2.6.32.45/sound/pci/hda/hda_codec.h linux-2.6.32.45/sound/pci/hda/hda_codec.h
 +--- linux-2.6.32.45/sound/pci/hda/hda_codec.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/hda_codec.h	2011-08-05 20:33:55.000000000 -0400
-@@ -77593,5 +75983,4 @@
+@@ -77594,5 +75984,4 @@
 -diff --git a/sound/pci/hda/hda_generic.c b/sound/pci/hda/hda_generic.c
 -index b36f6c5a92dfa1f4a9cead04c369f0d88249d725..2af258ee09db05f2245fa8ef9ac639db90a8584a 100644
 ---- a/sound/pci/hda/hda_generic.c
@@ -30090,7 +30090,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/hda_generic.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/hda_generic.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1097,7 +1097,7 @@ int snd_hda_parse_generic_codec(struct h
-@@ -77606,5 +75995,4 @@
+@@ -77607,5 +75996,4 @@
 -diff --git a/sound/pci/hda/patch_analog.c b/sound/pci/hda/patch_analog.c
 -index 3736bc4fda599bd352a68846203c3a5bf8f520f7..2d0aedcc9b07489f1ffd26b3d8639750141d792e 100644
 ---- a/sound/pci/hda/patch_analog.c
@@ -30100,52 +30100,52 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_analog.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_analog.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1069,7 +1069,7 @@ static int patch_ad1986a(struct hda_code
-@@ -77619 +76007 @@
+@@ -77620 +76008 @@
 -@@ -1120,8 +1120,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 +@@ -1120,8 +1120,8 @@ static int patch_ad1986a(struct hda_code
-@@ -77630 +76018 @@
+@@ -77631 +76019 @@
 -@@ -1137,8 +1137,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 +@@ -1137,8 +1137,8 @@ static int patch_ad1986a(struct hda_code
-@@ -77641 +76029 @@
+@@ -77642 +76030 @@
 -@@ -1154,8 +1154,8 @@ static int patch_ad1986a(struct hda_codec *codec)
 +@@ -1154,8 +1154,8 @@ static int patch_ad1986a(struct hda_code
-@@ -77652 +76040 @@
+@@ -77653 +76041 @@
 -@@ -1363,7 +1363,7 @@ static int patch_ad1983(struct hda_codec *codec)
 +@@ -1363,7 +1363,7 @@ static int patch_ad1983(struct hda_codec
-@@ -77661 +76049 @@
+@@ -77662 +76050 @@
 -@@ -1769,7 +1769,7 @@ static int patch_ad1981(struct hda_codec *codec)
 +@@ -1769,7 +1769,7 @@ static int patch_ad1981(struct hda_codec
-@@ -77670 +76058 @@
+@@ -77671 +76059 @@
 -@@ -1783,8 +1783,8 @@ static int patch_ad1981(struct hda_codec *codec)
 +@@ -1783,8 +1783,8 @@ static int patch_ad1981(struct hda_codec
-@@ -77681 +76069 @@
+@@ -77682 +76070 @@
 -@@ -1805,8 +1805,8 @@ static int patch_ad1981(struct hda_codec *codec)
 +@@ -1805,8 +1805,8 @@ static int patch_ad1981(struct hda_codec
-@@ -77692 +76080 @@
+@@ -77693 +76081 @@
 -@@ -3096,14 +3096,14 @@ static int patch_ad1988(struct hda_codec *codec)
 +@@ -3096,14 +3096,14 @@ static int patch_ad1988(struct hda_codec
-@@ -77710 +76098 @@
+@@ -77711 +76099 @@
 -@@ -3321,7 +3321,7 @@ static int patch_ad1884(struct hda_codec *codec)
 +@@ -3321,7 +3321,7 @@ static int patch_ad1884(struct hda_codec
-@@ -77719 +76107 @@
+@@ -77720 +76108 @@
 -@@ -3529,7 +3529,7 @@ static int patch_ad1984(struct hda_codec *codec)
 +@@ -3529,7 +3529,7 @@ static int patch_ad1984(struct hda_codec
-@@ -77728 +76116 @@
+@@ -77729 +76117 @@
 -@@ -4229,7 +4229,7 @@ static int patch_ad1884a(struct hda_codec *codec)
 +@@ -4229,7 +4229,7 @@ static int patch_ad1884a(struct hda_code
-@@ -77737 +76125 @@
+@@ -77738 +76126 @@
 -@@ -4240,8 +4240,8 @@ static int patch_ad1884a(struct hda_codec *codec)
 +@@ -4240,8 +4240,8 @@ static int patch_ad1884a(struct hda_code
-@@ -77748 +76136 @@
+@@ -77749 +76137 @@
 -@@ -4255,8 +4255,8 @@ static int patch_ad1884a(struct hda_codec *codec)
 +@@ -4255,8 +4255,8 @@ static int patch_ad1884a(struct hda_code
-@@ -77759 +76147 @@
+@@ -77760 +76148 @@
 -@@ -4272,15 +4272,15 @@ static int patch_ad1884a(struct hda_codec *codec)
 +@@ -4272,15 +4272,15 @@ static int patch_ad1884a(struct hda_code
-@@ -77779 +76167 @@
+@@ -77780 +76168 @@
 -@@ -4607,7 +4607,7 @@ static int patch_ad1882(struct hda_codec *codec)
 +@@ -4607,7 +4607,7 @@ static int patch_ad1882(struct hda_codec
-@@ -77788,5 +76176,4 @@
+@@ -77789,5 +76177,4 @@
 -diff --git a/sound/pci/hda/patch_atihdmi.c b/sound/pci/hda/patch_atihdmi.c
 -index fb684f00156b207844d4b7b8c79e77a49e2f32a5..2b11ceac3bb19f34f1aa64b3d493cb7a37544631 100644
 ---- a/sound/pci/hda/patch_atihdmi.c
@@ -30155,7 +30155,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_atihdmi.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_atihdmi.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -177,7 +177,7 @@ static int patch_atihdmi(struct hda_code
-@@ -77801,5 +76188,4 @@
+@@ -77802,5 +76189,4 @@
 -diff --git a/sound/pci/hda/patch_ca0110.c b/sound/pci/hda/patch_ca0110.c
 -index d08353d3bb7f7c8f82e41cc2c10a56afe7dbfe34..057bb865f296c1fa8d0c6176b18332bb72bc45b4 100644
 ---- a/sound/pci/hda/patch_ca0110.c
@@ -30165,7 +30165,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_ca0110.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_ca0110.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -525,7 +525,7 @@ static int patch_ca0110(struct hda_codec
-@@ -77814,5 +76200,4 @@
+@@ -77815,5 +76201,4 @@
 -diff --git a/sound/pci/hda/patch_cirrus.c b/sound/pci/hda/patch_cirrus.c
 -index 72c1b56b64d9d9874bf3c00a374eb11d90f6c3dc..1a281b7d65f3db8e25d89ccd71c8b081cd0416d0 100644
 ---- a/sound/pci/hda/patch_cirrus.c
@@ -30175,7 +30175,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_cirrus.c	2011-05-10 22:12:02.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_cirrus.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1191,7 +1191,7 @@ static int patch_cs420x(struct hda_codec
-@@ -77827,5 +76212,4 @@
+@@ -77828,5 +76213,4 @@
 -diff --git a/sound/pci/hda/patch_cmedia.c b/sound/pci/hda/patch_cmedia.c
 -index 780e1a72114aecd935d63a50137ffabbf6f24c6c..2421b676686e16a8a02898102fba887e6145a1e3 100644
 ---- a/sound/pci/hda/patch_cmedia.c
@@ -30185,7 +30185,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_cmedia.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_cmedia.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -728,7 +728,7 @@ static int patch_cmi9880(struct hda_code
-@@ -77840,5 +76224,4 @@
+@@ -77841,5 +76225,4 @@
 -diff --git a/sound/pci/hda/patch_conexant.c b/sound/pci/hda/patch_conexant.c
 -index d68aaf4ba338b5768fc2907959aed6852c2e0bfe..210dad5c75dcb9f156bca7ab4473b1117f353d77 100644
 ---- a/sound/pci/hda/patch_conexant.c
@@ -30195,28 +30195,28 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_conexant.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_conexant.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1119,55 +1119,55 @@ static int patch_cxt5045(struct hda_code
-@@ -77911 +76294 @@
+@@ -77912 +76295 @@
 -@@ -1556,7 +1556,7 @@ static int patch_cxt5047(struct hda_codec *codec)
 +@@ -1556,7 +1556,7 @@ static int patch_cxt5047(struct hda_code
-@@ -77920 +76303 @@
+@@ -77921 +76304 @@
 -@@ -1565,13 +1565,13 @@ static int patch_cxt5047(struct hda_codec *codec)
 +@@ -1565,13 +1565,13 @@ static int patch_cxt5047(struct hda_code
-@@ -77937 +76320 @@
+@@ -77938 +76321 @@
 -@@ -1579,14 +1579,14 @@ static int patch_cxt5047(struct hda_codec *codec)
 +@@ -1579,14 +1579,14 @@ static int patch_cxt5047(struct hda_code
-@@ -77954 +76337 @@
+@@ -77955 +76338 @@
 -@@ -1904,8 +1904,8 @@ static int patch_cxt5051(struct hda_codec *codec)
 +@@ -1904,8 +1904,8 @@ static int patch_cxt5051(struct hda_code
-@@ -77965 +76348 @@
+@@ -77966 +76349 @@
 -@@ -1923,7 +1923,7 @@ static int patch_cxt5051(struct hda_codec *codec)
 +@@ -1923,7 +1923,7 @@ static int patch_cxt5051(struct hda_code
-@@ -77974 +76357 @@
+@@ -77975 +76358 @@
 -@@ -2372,8 +2372,8 @@ static int patch_cxt5066(struct hda_codec *codec)
 +@@ -2372,8 +2372,8 @@ static int patch_cxt5066(struct hda_code
-@@ -77985 +76368 @@
+@@ -77986 +76369 @@
 -@@ -2413,7 +2413,7 @@ static int patch_cxt5066(struct hda_codec *codec)
 +@@ -2413,7 +2413,7 @@ static int patch_cxt5066(struct hda_code
-@@ -77994,5 +76377,4 @@
+@@ -77995,5 +76378,4 @@
 -diff --git a/sound/pci/hda/patch_intelhdmi.c b/sound/pci/hda/patch_intelhdmi.c
 -index 7c23016fe8fa89c97537f81ee129b5eab3f2082c..c5bfdd70f12b4804c7833123541ea83034e2dadf 100644
 ---- a/sound/pci/hda/patch_intelhdmi.c
@@ -30226,10 +30226,10 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_intelhdmi.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_intelhdmi.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -511,10 +511,10 @@ static void hdmi_non_intrinsic_event(str
-@@ -78013 +76395 @@
+@@ -78014 +76396 @@
 -@@ -656,7 +656,7 @@ static int do_patch_intel_hdmi(struct hda_codec *codec)
 +@@ -656,7 +656,7 @@ static int do_patch_intel_hdmi(struct hd
-@@ -78022,5 +76404,4 @@
+@@ -78023,5 +76405,4 @@
 -diff --git a/sound/pci/hda/patch_nvhdmi.c b/sound/pci/hda/patch_nvhdmi.c
 -index 6afdab09bab77ae9e81737b12f1f81d3d476b9ce..68ed3528a788682962c83a26ee75007630c7d3cc 100644
 ---- a/sound/pci/hda/patch_nvhdmi.c
@@ -30239,10 +30239,10 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_nvhdmi.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_nvhdmi.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -367,7 +367,7 @@ static int patch_nvhdmi_8ch(struct hda_c
-@@ -78035 +76416 @@
+@@ -78036 +76417 @@
 -@@ -386,7 +386,7 @@ static int patch_nvhdmi_2ch(struct hda_codec *codec)
 +@@ -386,7 +386,7 @@ static int patch_nvhdmi_2ch(struct hda_c
-@@ -78044,5 +76425,4 @@
+@@ -78045,5 +76426,4 @@
 -diff --git a/sound/pci/hda/patch_realtek.c b/sound/pci/hda/patch_realtek.c
 -index 083b77718dae177264e9870e7283a77a2eac074e..4e51c7d4e385c411d3f314e6a53466595935d9a3 100644
 ---- a/sound/pci/hda/patch_realtek.c
@@ -30252,31 +30252,31 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_realtek.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_realtek.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -4856,7 +4856,7 @@ static int patch_alc880(struct hda_codec
-@@ -78057 +76437 @@
+@@ -78058 +76438 @@
 -@@ -6479,7 +6479,7 @@ static int patch_alc260(struct hda_codec *codec)
 +@@ -6479,7 +6479,7 @@ static int patch_alc260(struct hda_codec
-@@ -78066 +76446 @@
+@@ -78067 +76447 @@
 -@@ -9997,7 +9997,7 @@ static int patch_alc882(struct hda_codec *codec)
 +@@ -9997,7 +9997,7 @@ static int patch_alc882(struct hda_codec
-@@ -78075 +76455 @@
+@@ -78076 +76456 @@
 -@@ -11871,7 +11871,7 @@ static int patch_alc262(struct hda_codec *codec)
 +@@ -11871,7 +11871,7 @@ static int patch_alc262(struct hda_codec
-@@ -78084 +76464 @@
+@@ -78085 +76465 @@
 -@@ -12950,7 +12950,7 @@ static int patch_alc268(struct hda_codec *codec)
 +@@ -12950,7 +12950,7 @@ static int patch_alc268(struct hda_codec
-@@ -78093 +76473 @@
+@@ -78094 +76474 @@
 -@@ -13636,7 +13636,7 @@ static int patch_alc269(struct hda_codec *codec)
 +@@ -13636,7 +13636,7 @@ static int patch_alc269(struct hda_codec
-@@ -78102 +76482 @@
+@@ -78103 +76483 @@
 -@@ -14741,7 +14741,7 @@ static int patch_alc861(struct hda_codec *codec)
 +@@ -14741,7 +14741,7 @@ static int patch_alc861(struct hda_codec
-@@ -78111 +76491 @@
+@@ -78112 +76492 @@
 -@@ -15727,7 +15727,7 @@ static int patch_alc861vd(struct hda_codec *codec)
 +@@ -15727,7 +15727,7 @@ static int patch_alc861vd(struct hda_cod
-@@ -78120 +76500 @@
+@@ -78121 +76501 @@
 -@@ -17652,7 +17652,7 @@ static int patch_alc662(struct hda_codec *codec)
 +@@ -17652,7 +17652,7 @@ static int patch_alc662(struct hda_codec
-@@ -78129,5 +76509,4 @@
+@@ -78130,5 +76510,4 @@
 -diff --git a/sound/pci/hda/patch_si3054.c b/sound/pci/hda/patch_si3054.c
 -index 43b436c5d01bc245a3bbbdfcd6c54f08af0feaa3..05e27950c54c2b8230650e16b5c2e7eeb650021e 100644
 ---- a/sound/pci/hda/patch_si3054.c
@@ -30286,7 +30286,7 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_si3054.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_si3054.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -275,7 +275,7 @@ static int patch_si3054(struct hda_codec
-@@ -78142,5 +76521,4 @@
+@@ -78143,5 +76522,4 @@
 -diff --git a/sound/pci/hda/patch_sigmatel.c b/sound/pci/hda/patch_sigmatel.c
 -index 01da10bd8715a3b639a7df5019d5bf086f902c68..a193831a39daf711f2b79e2d5de3bb483cb20dc5 100644
 ---- a/sound/pci/hda/patch_sigmatel.c
@@ -30296,25 +30296,25 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_sigmatel.c	2011-06-25 12:55:35.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_sigmatel.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -4899,7 +4899,7 @@ static int patch_stac9200(struct hda_cod
-@@ -78155 +76533 @@
+@@ -78156 +76534 @@
 -@@ -4981,7 +4981,7 @@ static int patch_stac925x(struct hda_codec *codec)
 +@@ -4981,7 +4981,7 @@ static int patch_stac925x(struct hda_cod
-@@ -78182 +76560 @@
+@@ -78183 +76561 @@
 -@@ -5294,7 +5294,7 @@ static int patch_stac92hd71bxx(struct hda_codec *codec)
 +@@ -5294,7 +5294,7 @@ static int patch_stac92hd71bxx(struct hd
-@@ -78200 +76578 @@
+@@ -78201 +76579 @@
 -@@ -5634,7 +5634,7 @@ static int patch_stac922x(struct hda_codec *codec)
 +@@ -5634,7 +5634,7 @@ static int patch_stac922x(struct hda_cod
-@@ -78209 +76587 @@
+@@ -78210 +76588 @@
 -@@ -5757,7 +5757,7 @@ static int patch_stac927x(struct hda_codec *codec)
 +@@ -5757,7 +5757,7 @@ static int patch_stac927x(struct hda_cod
-@@ -78218 +76596 @@
+@@ -78219 +76597 @@
 -@@ -5880,7 +5880,7 @@ static int patch_stac9205(struct hda_codec *codec)
 +@@ -5880,7 +5880,7 @@ static int patch_stac9205(struct hda_cod
-@@ -78227 +76605 @@
+@@ -78228 +76606 @@
 -@@ -5974,7 +5974,7 @@ static int patch_stac9872(struct hda_codec *codec)
 +@@ -5974,7 +5974,7 @@ static int patch_stac9872(struct hda_cod
-@@ -78236,5 +76614,4 @@
+@@ -78237,5 +76615,4 @@
 -diff --git a/sound/pci/hda/patch_via.c b/sound/pci/hda/patch_via.c
 -index ee89db90c9b62913758a480dd2adb228aa69444d..6abcc17cd4a88016f519dc073bd6da444f154d4a 100644
 ---- a/sound/pci/hda/patch_via.c
@@ -30324,25 +30324,25 @@
 +--- linux-2.6.32.45/sound/pci/hda/patch_via.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/hda/patch_via.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1399,9 +1399,9 @@ static int patch_vt1708(struct hda_codec
-@@ -78252 +76629 @@
+@@ -78253 +76630 @@
 -@@ -1870,10 +1870,10 @@ static int patch_vt1709_10ch(struct hda_codec *codec)
 +@@ -1870,10 +1870,10 @@ static int patch_vt1709_10ch(struct hda_
-@@ -78266 +76643 @@
+@@ -78267 +76644 @@
 -@@ -1964,10 +1964,10 @@ static int patch_vt1709_6ch(struct hda_codec *codec)
 +@@ -1964,10 +1964,10 @@ static int patch_vt1709_6ch(struct hda_c
-@@ -78280 +76657 @@
+@@ -78281 +76658 @@
 -@@ -2418,10 +2418,10 @@ static int patch_vt1708B_8ch(struct hda_codec *codec)
 +@@ -2418,10 +2418,10 @@ static int patch_vt1708B_8ch(struct hda_
-@@ -78294 +76671 @@
+@@ -78295 +76672 @@
 -@@ -2470,10 +2470,10 @@ static int patch_vt1708B_4ch(struct hda_codec *codec)
 +@@ -2470,10 +2470,10 @@ static int patch_vt1708B_4ch(struct hda_
-@@ -78308 +76685 @@
+@@ -78309 +76686 @@
 -@@ -2905,10 +2905,10 @@ static int patch_vt1708S(struct hda_codec *codec)
 +@@ -2905,10 +2905,10 @@ static int patch_vt1708S(struct hda_code
-@@ -78322 +76699 @@
+@@ -78323 +76700 @@
 -@@ -3223,10 +3223,10 @@ static int patch_vt1702(struct hda_codec *codec)
 +@@ -3223,10 +3223,10 @@ static int patch_vt1702(struct hda_codec
-@@ -78336,4 +76713,3 @@
+@@ -78337,4 +76714,3 @@
 -diff --git a/sound/pci/ice1712/ice1712.h b/sound/pci/ice1712/ice1712.h
 -index d063149e70475326dc1713d9ed08a8b1098ed4b3..01599a4d2ef64b4def5b914b419cadcaf9d45fb9 100644
 ---- a/sound/pci/ice1712/ice1712.h
@@ -30350,7 +30350,7 @@
 +diff -urNp linux-2.6.32.45/sound/pci/ice1712/ice1712.h linux-2.6.32.45/sound/pci/ice1712/ice1712.h
 +--- linux-2.6.32.45/sound/pci/ice1712/ice1712.h	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/ice1712/ice1712.h	2011-08-05 20:33:55.000000000 -0400
-@@ -78358,4 +76734,3 @@
+@@ -78359,4 +76735,3 @@
 -diff --git a/sound/pci/intel8x0m.c b/sound/pci/intel8x0m.c
 -index 9e7d12e7673f52abc3d02518da23a51c6d0ff59a..3e3bc64b5dbcbd1e282e62fbd43cd3a410452714 100644
 ---- a/sound/pci/intel8x0m.c
@@ -30358,7 +30358,7 @@
 +diff -urNp linux-2.6.32.45/sound/pci/intel8x0m.c linux-2.6.32.45/sound/pci/intel8x0m.c
 +--- linux-2.6.32.45/sound/pci/intel8x0m.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/intel8x0m.c	2011-04-23 12:56:12.000000000 -0400
-@@ -78371,5 +76746,4 @@
+@@ -78372,5 +76747,4 @@
 -diff --git a/sound/pci/ymfpci/ymfpci_main.c b/sound/pci/ymfpci/ymfpci_main.c
 -index 5518371db13f25832f566870492eff6215c8e116..45cf7ac9ac1baf368d4497093f7450b7dd6eeb02 100644
 ---- a/sound/pci/ymfpci/ymfpci_main.c
@@ -30368,16 +30368,16 @@
 +--- linux-2.6.32.45/sound/pci/ymfpci/ymfpci_main.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/pci/ymfpci/ymfpci_main.c	2011-05-04 17:56:28.000000000 -0400
 +@@ -202,8 +202,8 @@ static void snd_ymfpci_hw_stop(struct sn
-@@ -78386 +76760 @@
+@@ -78387 +76761 @@
 -@@ -787,7 +787,7 @@ static void snd_ymfpci_irq_wait(struct snd_ymfpci *chip)
 +@@ -787,7 +787,7 @@ static void snd_ymfpci_irq_wait(struct s
-@@ -78395 +76769 @@
+@@ -78396 +76770 @@
 -@@ -825,8 +825,8 @@ static irqreturn_t snd_ymfpci_interrupt(int irq, void *dev_id)
 +@@ -825,8 +825,8 @@ static irqreturn_t snd_ymfpci_interrupt(
-@@ -78406 +76780 @@
+@@ -78407 +76781 @@
 -@@ -2369,7 +2369,7 @@ int __devinit snd_ymfpci_create(struct snd_card *card,
 +@@ -2369,7 +2369,7 @@ int __devinit snd_ymfpci_create(struct s
-@@ -78415,5 +76789,4 @@
+@@ -78416,5 +76790,4 @@
 -diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
 -index 0a1b2f64bbee38a18947a9fa161eb922dc0f17a0..6bc08f8fbf999d3b14e70b652de425d0708bd001 100644
 ---- a/sound/soc/soc-core.c
@@ -30387,7 +30387,7 @@
 +--- linux-2.6.32.45/sound/soc/soc-core.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/soc/soc-core.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -1107,13 +1107,13 @@ static int soc_new_pcm(struct snd_soc_de
-@@ -78440,5 +76813,4 @@
+@@ -78441,5 +76814,4 @@
 -diff --git a/sound/usb/usbaudio.c b/sound/usb/usbaudio.c
 -index 79633eae6439a5948b0a663ce61ea86e1f4624a6..9732e903a97be7442e52c104a0a3364006246775 100644
 ---- a/sound/usb/usbaudio.c
@@ -30397,16 +30397,16 @@
 +--- linux-2.6.32.45/sound/usb/usbaudio.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/sound/usb/usbaudio.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -963,12 +963,12 @@ static int snd_usb_pcm_playback_trigger(
-@@ -78459 +76831 @@
+@@ -78460 +76832 @@
 -@@ -985,15 +985,15 @@ static int snd_usb_pcm_capture_trigger(struct snd_pcm_substream *substream,
 +@@ -985,15 +985,15 @@ static int snd_usb_pcm_capture_trigger(s
-@@ -78478 +76850 @@
+@@ -78479 +76851 @@
 -@@ -1542,7 +1542,7 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 +@@ -1542,7 +1542,7 @@ static int snd_usb_pcm_prepare(struct sn
-@@ -78487 +76859 @@
+@@ -78488 +76860 @@
 -@@ -2228,14 +2228,14 @@ static void init_substream(struct snd_usb_stream *as, int stream, struct audiofo
 +@@ -2228,14 +2228,14 @@ static void init_substream(struct snd_us
-@@ -78505,23 +76877,3 @@
+@@ -78506,23 +76878,3 @@
 -diff --git a/tools/gcc/Makefile b/tools/gcc/Makefile
 -new file mode 100644
 -index 0000000000000000000000000000000000000000..fec7e69692c6307c72dcf0cf79335a9e5b48c43a
@@ -30433,7 +30433,7 @@
 +diff -urNp linux-2.6.32.45/tools/gcc/constify_plugin.c linux-2.6.32.45/tools/gcc/constify_plugin.c
 +--- linux-2.6.32.45/tools/gcc/constify_plugin.c	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-2.6.32.45/tools/gcc/constify_plugin.c	2011-08-11 19:12:51.000000000 -0400
-@@ -78718,5 +77070,21 @@
+@@ -78719,5 +77071,21 @@
 -diff --git a/tools/gcc/stackleak_plugin.c b/tools/gcc/stackleak_plugin.c
 -new file mode 100644
 -index 0000000000000000000000000000000000000000..88079be8248d866a53b616f7108a3c3c08f3a37c
@@ -30460,7 +30460,7 @@
 +diff -urNp linux-2.6.32.45/tools/gcc/stackleak_plugin.c linux-2.6.32.45/tools/gcc/stackleak_plugin.c
 +--- linux-2.6.32.45/tools/gcc/stackleak_plugin.c	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-2.6.32.45/tools/gcc/stackleak_plugin.c	2011-08-05 20:33:55.000000000 -0400
-@@ -78967,5 +77335,5 @@
+@@ -78968,5 +77336,5 @@
 -diff --git a/usr/gen_init_cpio.c b/usr/gen_init_cpio.c
 -index 83b3dde1a83b74a5f1e75cb2d98a44787e33bca2..835bee7cc677cb2f08c981ebf5fe22dd3296de9e 100644
 ---- a/usr/gen_init_cpio.c
@@ -30471,10 +30471,10 @@
 +--- linux-2.6.32.45/usr/gen_init_cpio.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/usr/gen_init_cpio.c	2011-04-17 15:56:46.000000000 -0400
 +@@ -299,7 +299,7 @@ static int cpio_mkfile(const char *name,
-@@ -78980 +77348 @@
+@@ -78981 +77349 @@
 -@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_location)
 +@@ -383,9 +383,10 @@ static char *cpio_replace_env(char *new_
-@@ -78993,5 +77361,4 @@
+@@ -78994,5 +77362,4 @@
 -diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
 -index 4f3434fbb086a2e20ea662ba28530d20040acadc..159bc3e723d07539bf9abc902eabc6305f2ab484 100644
 ---- a/virt/kvm/kvm_main.c
@@ -30484,9 +30484,9 @@
 +--- linux-2.6.32.45/virt/kvm/kvm_main.c	2011-03-27 14:31:47.000000000 -0400
 ++++ linux-2.6.32.45/virt/kvm/kvm_main.c	2011-08-05 20:33:55.000000000 -0400
 +@@ -2494,7 +2494,7 @@ asmlinkage void kvm_handle_fault_on_rebo
-@@ -79006 +77373 @@
+@@ -79007 +77374 @@
 -@@ -2714,7 +2714,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 +@@ -2714,7 +2714,7 @@ static void kvm_sched_out(struct preempt
-@@ -79015 +77382 @@
+@@ -79016 +77383 @@
 -@@ -2767,15 +2767,17 @@ int kvm_init(void *opaque, unsigned int vcpu_size,
 +@@ -2767,15 +2767,17 @@ int kvm_init(void *opaque, unsigned int 
