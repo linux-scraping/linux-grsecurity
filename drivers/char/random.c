@@ -1352,12 +1352,12 @@ ctl_table random_table[] = {
 #endif 	/* CONFIG_SYSCTL */
 
 static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
+
 static int __init random_int_secret_init(void)
 {
 	get_random_bytes(random_int_secret, sizeof(random_int_secret));
 	return 0;
 }
-
 late_initcall(random_int_secret_init);
 
 /*
@@ -1373,7 +1373,6 @@ unsigned int get_random_int(void)
 	unsigned int ret;
 
 	hash[0] += current->pid + jiffies + get_cycles();
-
 	md5_transform(hash, random_int_secret);
 	ret = hash[0];
 	put_cpu_var(get_random_int_hash);
