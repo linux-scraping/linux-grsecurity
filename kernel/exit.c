@@ -173,7 +173,9 @@ void release_task(struct task_struct * p)
 	struct task_struct *leader;
 	int zap_leader;
 repeat:
+#ifdef CONFIG_NET
 	gr_del_task_from_ip_table(p);
+#endif
 
 	tracehook_prepare_release_task(p);
 	/* don't need to get the RCU readlock here - the process is dead and

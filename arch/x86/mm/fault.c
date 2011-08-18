@@ -779,7 +779,9 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		       unsigned long address, int si_code)
 {
 	struct task_struct *tsk = current;
+#if defined(CONFIG_X86_64) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 	struct mm_struct *mm = tsk->mm;
+#endif
 
 #ifdef CONFIG_X86_64
 	if (mm && (error_code & PF_INSTR) && mm->context.vdso) {

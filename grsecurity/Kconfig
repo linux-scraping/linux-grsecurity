@@ -877,6 +877,7 @@ config GRKERNSEC_RANDNET
 
 config GRKERNSEC_BLACKHOLE
 	bool "TCP/UDP blackhole and LAST_ACK DoS prevention"
+	depends on NET
 	help
 	  If you say Y here, neither TCP resets nor ICMP
 	  destination-unreachable packets will be sent in response to packets
@@ -909,6 +910,7 @@ config GRKERNSEC_BLACKHOLE
 
 config GRKERNSEC_SOCKET
 	bool "Socket restrictions"
+	depends on NET
 	help
 	  If you say Y here, you will be able to choose from several options.
 	  If you assign a GID on your system and add it to the supplementary

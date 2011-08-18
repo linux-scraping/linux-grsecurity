@@ -49,13 +49,13 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
 	unsigned cpu = smp_processor_id();
-#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)) && defined(CONFIG_SMP)
 	int tlbstate = TLBSTATE_OK;
 #endif
 
 	if (likely(prev != next)) {
 #ifdef CONFIG_SMP
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
 		tlbstate = percpu_read(cpu_tlbstate.state);
 #endif
 		percpu_write(cpu_tlbstate.state, TLBSTATE_OK);
