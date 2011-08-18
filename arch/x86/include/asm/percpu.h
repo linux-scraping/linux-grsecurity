@@ -78,6 +78,7 @@ do {							\
 	if (0) {					\
 		T__ tmp__;				\
 		tmp__ = (val);				\
+		(void)tmp__;				\
 	}						\
 	switch (sizeof(var)) {				\
 	case 1:						\

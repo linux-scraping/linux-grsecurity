@@ -50,11 +50,18 @@ static void warn_setuid_and_fcaps_mixed(char *fname)
 	}
 }
 
+#ifdef CONFIG_NET
 extern kernel_cap_t gr_cap_rtnetlink(struct sock *sk);
+#endif
 
 int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
+#ifdef CONFIG_NET
 	NETLINK_CB(skb).eff_cap = gr_cap_rtnetlink(sk);
+#else
+	NETLINK_CB(skb).eff_cap = current_cap();
+#endif
+	
 	return 0;
 }
 
