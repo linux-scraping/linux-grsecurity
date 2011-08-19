@@ -120,7 +120,7 @@ static inline void arch_read_lock(raw_rwlock_t *lock)
 	: "memory", "cc");
 }
 
-static int inline arch_read_trylock(raw_rwlock_t *lock)
+static inline int arch_read_trylock(raw_rwlock_t *lock)
 {
 	int tmp1, tmp2;
 
@@ -201,7 +201,7 @@ static inline void arch_write_unlock(raw_rwlock_t *lock)
 	: "memory");
 }
 
-static int inline arch_write_trylock(raw_rwlock_t *lock)
+static inline int arch_write_trylock(raw_rwlock_t *lock)
 {
 	unsigned long mask, tmp1, tmp2, result;
 
