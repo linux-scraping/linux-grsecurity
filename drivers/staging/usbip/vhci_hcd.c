@@ -965,11 +965,9 @@ static void vhci_device_init(struct vhci_device *vdev)
 
 	init_waitqueue_head(&vdev->waitq_tx);
 
-	pax_open_kernel();
-	*(void **)&vdev->ud.eh_ops.shutdown = vhci_shutdown_connection;
-	*(void **)&vdev->ud.eh_ops.reset = vhci_device_reset;
-	*(void **)&vdev->ud.eh_ops.unusable = vhci_device_unusable;
-	pax_close_kernel();
+	vdev->ud.eh_ops.shutdown = vhci_shutdown_connection;
+	vdev->ud.eh_ops.reset = vhci_device_reset;
+	vdev->ud.eh_ops.unusable = vhci_device_unusable;
 
 	usbip_start_eh(&vdev->ud);
 }

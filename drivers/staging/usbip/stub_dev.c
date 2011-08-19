@@ -357,11 +357,9 @@ static struct stub_device *stub_device_alloc(struct usb_device *udev,
 
 	init_waitqueue_head(&sdev->tx_waitq);
 
-	pax_open_kernel();
-	*(void **)&sdev->ud.eh_ops.shutdown = stub_shutdown_connection;
-	*(void **)&sdev->ud.eh_ops.reset    = stub_device_reset;
-	*(void **)&sdev->ud.eh_ops.unusable = stub_device_unusable;
-	pax_close_kernel();
+	sdev->ud.eh_ops.shutdown = stub_shutdown_connection;
+	sdev->ud.eh_ops.reset    = stub_device_reset;
+	sdev->ud.eh_ops.unusable = stub_device_unusable;
 
 	usbip_start_eh(&sdev->ud);
 

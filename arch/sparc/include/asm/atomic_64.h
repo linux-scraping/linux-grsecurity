@@ -88,7 +88,10 @@ static inline long atomic64_add_return_unchecked(long i, atomic64_unchecked_t *v
  * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
-#define atomic_inc_and_test_unchecked(v) (atomic_inc_return_unchecked(v) == 0)
+static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_inc_return_unchecked(v) == 0;
+}
 #define atomic64_inc_and_test(v) (atomic64_inc_return(v) == 0)
 
 #define atomic_sub_and_test(i, v) (atomic_sub_ret(i, v) == 0)
@@ -123,9 +126,15 @@ static inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
 #define atomic64_add_negative(i, v) (atomic64_add_ret(i, v) < 0)
 
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
-#define atomic_cmpxchg_unchecked(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
+static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
+{
+	return cmpxchg(&v->counter, old, new);
+}
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
-#define atomic_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
+static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
+{
+	return xchg(&v->counter, new);
+}
 
 static inline int atomic_add_unless(atomic_t *v, int a, int u)
 {
@@ -158,6 +167,10 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define atomic64_cmpxchg(v, o, n) \
 	((__typeof__((v)->counter))cmpxchg(&((v)->counter), (o), (n)))
 #define atomic64_xchg(v, new) (xchg(&((v)->counter), new))
+static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
+{
+	return xchg(&v->counter, new);
+}
 
 static inline long atomic64_add_unless(atomic64_t *v, long a, long u)
 {
