@@ -146,6 +146,7 @@ EXPORT_SYMBOL(__downgrade_write);
 EXPORT_SYMBOL(atomic_add);
 EXPORT_SYMBOL(atomic_add_unchecked);
 EXPORT_SYMBOL(atomic_add_ret);
+EXPORT_SYMBOL(atomic_add_ret_unchecked);
 EXPORT_SYMBOL(atomic_sub);
 EXPORT_SYMBOL(atomic_sub_unchecked);
 EXPORT_SYMBOL(atomic_sub_ret);
