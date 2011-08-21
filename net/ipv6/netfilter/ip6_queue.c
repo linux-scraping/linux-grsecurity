@@ -287,6 +287,9 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct nf_queue_entry *e)
 
 	if (v->data_len < sizeof(*user_iph))
 		return 0;
+	if (v->data_len > 65535)
+		return -EMSGSIZE;
+
 	diff = v->data_len - e->skb->len;
 	if (diff < 0) {
 		if (pskb_trim(e->skb, v->data_len))
@@ -411,7 +414,8 @@ ipq_dev_drop(int ifindex)
 static inline void
 __ipq_rcv_skb(struct sk_buff *skb)
 {
-	int status, type, pid, flags, nlmsglen, skblen;
+	int status, type, pid, flags;
+	unsigned int nlmsglen, skblen;
 	struct nlmsghdr *nlh;
 
 	skblen = skb->len;

@@ -103,7 +103,7 @@ extern unsigned long profile_pc(struct pt_regs *regs);
 	} while(0)
 
 struct task_struct;
-extern unsigned long ptrace_get_reg(struct task_struct *task, int regno);
+extern unsigned long ptrace_get_reg(struct task_struct *task, unsigned int regno);
 extern int ptrace_put_reg(struct task_struct *task, int regno,
 			  unsigned long data);
 

@@ -737,7 +737,7 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
 extern void sock_prot_inuse_add(struct net *net, struct proto *prot, int inc);
 extern int sock_prot_inuse_get(struct net *net, struct proto *proto);
 #else
-static void inline sock_prot_inuse_add(struct net *net, struct proto *prot,
+static inline void sock_prot_inuse_add(struct net *net, struct proto *prot,
 		int inc)
 {
 }

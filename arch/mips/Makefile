@@ -51,6 +51,8 @@ endif
 cflags-y := -ffunction-sections
 cflags-y += $(call cc-option, -mno-check-zero-division)
 
+cflags-y += -Wno-sign-compare -Wno-extra
+
 ifdef CONFIG_32BIT
 ld-emul			= $(32bit-emul)
 vmlinux-32		= vmlinux

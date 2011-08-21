@@ -86,7 +86,7 @@ static int set_user_trap(struct task_struct *task, unsigned long trap)
 /*
  * Get contents of register REGNO in task TASK.
  */
-unsigned long ptrace_get_reg(struct task_struct *task, int regno)
+unsigned long ptrace_get_reg(struct task_struct *task, unsigned int regno)
 {
 	if (task->thread.regs == NULL)
 		return -EIO;
@@ -894,7 +894,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 
 		CHECK_FULL_REGS(child->thread.regs);
 		if (index < PT_FPR0) {
-			tmp = ptrace_get_reg(child, (int) index);
+			tmp = ptrace_get_reg(child, index);
 		} else {
 			flush_fp_to_thread(child);
 			tmp = ((unsigned long *)child->thread.fpr)

@@ -250,7 +250,7 @@ static int __init mark_nonram_nosave(void)
 {
 	unsigned long lmb_next_region_start_pfn,
 		      lmb_region_max_pfn;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < lmb.memory.cnt - 1; i++) {
 		lmb_region_max_pfn =

@@ -401,8 +401,6 @@ struct task_struct *find_task_by_vpid(pid_t vnr)
 
 struct task_struct *find_task_by_vpid_unrestricted(pid_t vnr)
 {
-	struct task_struct *task;
-	
 	return pid_task(find_pid_ns(vnr, current->nsproxy->pid_ns), PIDTYPE_PID);
 }
 

@@ -111,6 +111,7 @@ elfconfig.h*
 fixdep
 fore200e_mkfirm
 fore200e_pca_fw.c*
+gate.lds
 gconf
 gen-devlist
 gen_crc32table
