@@ -16,7 +16,8 @@ obj-$(CONFIG_GRKERNSEC) += grsec_init.o grsum.o gracl.o gracl_segv.o \
 obj-$(CONFIG_GRKERNSEC_RESLOG) += gracl_res.o
 
 ifdef CONFIG_NET
-obj-$(CONFIG_GRKERNSEC) += gracl_ip.o grsec_sock.o
+obj-y += grsec_sock.o
+obj-$(CONFIG_GRKERNSEC) += gracl_ip.o
 endif
 
 ifndef CONFIG_GRKERNSEC
