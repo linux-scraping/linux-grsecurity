@@ -26,6 +26,7 @@
 #include <asm/nmi.h>
 #include <asm/pcr.h>
 
+#include "kernel.h"
 #include "kstack.h"
 
 /* Sparc64 chips have two performance counters, 32-bits each, with
@@ -1300,7 +1301,8 @@ static bool __init supported_pmu(void)
 		sparc_pmu = &niagara1_pmu;
 		return true;
 	}
-	if (!strcmp(sparc_pmu_type, "niagara2")) {
+	if (!strcmp(sparc_pmu_type, "niagara2") ||
+	    !strcmp(sparc_pmu_type, "niagara3")) {
 		sparc_pmu = &niagara2_pmu;
 		return true;
 	}

@@ -44,6 +44,7 @@ extern struct mm_struct *pgd_page_get_mm(struct page *page);
 
 #ifndef __PAGETABLE_PUD_FOLDED
 #define set_pgd(pgdp, pgd)		native_set_pgd(pgdp, pgd)
+#define set_pgd_batched(pgdp, pgd)	native_set_pgd_batched(pgdp, pgd)
 #define pgd_clear(pgd)			native_pgd_clear(pgd)
 #endif
 

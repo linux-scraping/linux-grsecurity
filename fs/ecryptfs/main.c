@@ -135,12 +135,12 @@ static int ecryptfs_init_lower_file(struct dentry *dentry,
 	return rc;
 }
 
-int ecryptfs_get_lower_file(struct dentry *dentry)
+int ecryptfs_get_lower_file(struct dentry *dentry, struct inode *inode)
 {
-	struct ecryptfs_inode_info *inode_info =
-		ecryptfs_inode_to_private(dentry->d_inode);
+	struct ecryptfs_inode_info *inode_info;
 	int count, rc = 0;
 
+	inode_info = ecryptfs_inode_to_private(inode);
 	mutex_lock(&inode_info->lower_file_mutex);
 	count = atomic_inc_return(&inode_info->lower_file_count);
 	if (WARN_ON_ONCE(count < 1))
@@ -168,75 +168,6 @@ void ecryptfs_put_lower_file(struct inode *inode)
 	}
 }
 
-static struct inode *ecryptfs_get_inode(struct inode *lower_inode,
-		       struct super_block *sb)
-{
-	struct inode *inode;
-	int rc = 0;
-
-	if (lower_inode->i_sb != ecryptfs_superblock_to_lower(sb)) {
-		rc = -EXDEV;
-		goto out;
-	}
-	if (!igrab(lower_inode)) {
-		rc = -ESTALE;
-		goto out;
-	}
-	inode = iget5_locked(sb, (unsigned long)lower_inode,
-			     ecryptfs_inode_test, ecryptfs_inode_set,
-			     lower_inode);
-	if (!inode) {
-		rc = -EACCES;
-		iput(lower_inode);
-		goto out;
-	}
-	if (inode->i_state & I_NEW)
-		unlock_new_inode(inode);
-	else
-		iput(lower_inode);
-	if (S_ISLNK(lower_inode->i_mode))
-		inode->i_op = &ecryptfs_symlink_iops;
-	else if (S_ISDIR(lower_inode->i_mode))
-		inode->i_op = &ecryptfs_dir_iops;
-	if (S_ISDIR(lower_inode->i_mode))
-		inode->i_fop = &ecryptfs_dir_fops;
-	if (special_file(lower_inode->i_mode))
-		init_special_inode(inode, lower_inode->i_mode,
-				   lower_inode->i_rdev);
-	fsstack_copy_attr_all(inode, lower_inode);
-	/* This size will be overwritten for real files w/ headers and
-	 * other metadata */
-	fsstack_copy_inode_size(inode, lower_inode);
-	return inode;
-out:
-	return ERR_PTR(rc);
-}
-
-/**
- * ecryptfs_interpose
- * @lower_dentry: Existing dentry in the lower filesystem
- * @dentry: ecryptfs' dentry
- * @sb: ecryptfs's super_block
- * @flags: flags to govern behavior of interpose procedure
- *
- * Interposes upper and lower dentries.
- *
- * Returns zero on success; non-zero otherwise
- */
-int ecryptfs_interpose(struct dentry *lower_dentry, struct dentry *dentry,
-		       struct super_block *sb, u32 flags)
-{
-	struct inode *lower_inode = lower_dentry->d_inode;
-	struct inode *inode = ecryptfs_get_inode(lower_inode, sb);
-	if (IS_ERR(inode))
-		return PTR_ERR(inode);
-	if (flags & ECRYPTFS_INTERPOSE_FLAG_D_ADD)
-		d_add(dentry, inode);
-	else
-		d_instantiate(dentry, inode);
-	return 0;
-}
-
 enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
        ecryptfs_opt_cipher, ecryptfs_opt_ecryptfs_cipher,
        ecryptfs_opt_ecryptfs_key_bytes,
@@ -244,6 +175,7 @@ enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
        ecryptfs_opt_encrypted_view, ecryptfs_opt_fnek_sig,
        ecryptfs_opt_fn_cipher, ecryptfs_opt_fn_cipher_key_bytes,
        ecryptfs_opt_unlink_sigs, ecryptfs_opt_mount_auth_tok_only,
+       ecryptfs_opt_check_dev_ruid,
        ecryptfs_opt_err };
 
 static const match_table_t tokens = {
@@ -260,6 +192,7 @@ static const match_table_t tokens = {
 	{ecryptfs_opt_fn_cipher_key_bytes, "ecryptfs_fn_key_bytes=%u"},
 	{ecryptfs_opt_unlink_sigs, "ecryptfs_unlink_sigs"},
 	{ecryptfs_opt_mount_auth_tok_only, "ecryptfs_mount_auth_tok_only"},
+	{ecryptfs_opt_check_dev_ruid, "ecryptfs_check_dev_ruid"},
 	{ecryptfs_opt_err, NULL}
 };
 
@@ -305,6 +238,7 @@ static void ecryptfs_init_mount_crypt_stat(
  * ecryptfs_parse_options
  * @sb: The ecryptfs super block
  * @options: The options passed to the kernel
+ * @check_ruid: set to 1 if device uid should be checked against the ruid
  *
  * Parse mount options:
  * debug=N 	   - ecryptfs_verbosity level for debug output
@@ -320,7 +254,8 @@ static void ecryptfs_init_mount_crypt_stat(
  *
  * Returns zero on success; non-zero on error
  */
-static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options)
+static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
+				  uid_t *check_ruid)
 {
 	char *p;
 	int rc = 0;
@@ -344,6 +279,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options)
 	char *fnek_src;
 	char *cipher_key_bytes_src;
 	char *fn_cipher_key_bytes_src;
+
+	*check_ruid = 0;
 
 	if (!options) {
 		rc = -EINVAL;
@@ -449,6 +386,9 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options)
 			mount_crypt_stat->flags |=
 				ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY;
 			break;
+		case ecryptfs_opt_check_dev_ruid:
+			*check_ruid = 1;
+			break;
 		case ecryptfs_opt_err:
 		default:
 			printk(KERN_WARNING
@@ -544,6 +484,7 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	const char *err = "Getting sb failed";
 	struct inode *inode;
 	struct path path;
+	uid_t check_ruid;
 	int rc;
 
 	sbi = kmem_cache_zalloc(ecryptfs_sb_info_cache, GFP_KERNEL);
@@ -552,7 +493,7 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 		goto out;
 	}
 
-	rc = ecryptfs_parse_options(sbi, raw_data);
+	rc = ecryptfs_parse_options(sbi, raw_data, &check_ruid);
 	if (rc) {
 		err = "Error parsing options";
 		goto out;
@@ -590,6 +531,15 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 			"known incompatibilities\n");
 		goto out_free;
 	}
+
+	if (check_ruid && path.dentry->d_inode->i_uid != current_uid()) {
+		rc = -EPERM;
+		printk(KERN_ERR "Mount of device (uid: %d) not owned by "
+		       "requested user (uid: %d)\n",
+		       path.dentry->d_inode->i_uid, current_uid());
+		goto out_free;
+	}
+
 	ecryptfs_set_superblock_lower(s, path.dentry->d_sb);
 	s->s_maxbytes = path.dentry->d_sb->s_maxbytes;
 	s->s_blocksize = path.dentry->d_sb->s_blocksize;
@@ -704,13 +654,8 @@ static struct ecryptfs_cache_info {
 		.size = sizeof(struct ecryptfs_sb_info),
 	},
 	{
-		.cache = &ecryptfs_header_cache_1,
-		.name = "ecryptfs_headers_1",
-		.size = PAGE_CACHE_SIZE,
-	},
-	{
-		.cache = &ecryptfs_header_cache_2,
-		.name = "ecryptfs_headers_2",
+		.cache = &ecryptfs_header_cache,
+		.name = "ecryptfs_headers",
 		.size = PAGE_CACHE_SIZE,
 	},
 	{

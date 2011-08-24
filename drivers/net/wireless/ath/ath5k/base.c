@@ -1449,6 +1449,21 @@ ath5k_receive_frame_ok(struct ath5k_softc *sc, struct ath5k_rx_status *rs)
 }
 
 static void
+ath5k_set_current_imask(struct ath5k_softc *sc)
+{
+	enum ath5k_int imask = sc->imask;
+	unsigned long flags;
+
+	spin_lock_irqsave(&sc->irqlock, flags);
+	if (sc->rx_pending)
+		imask &= ~AR5K_INT_RX_ALL;
+	if (sc->tx_pending)
+		imask &= ~AR5K_INT_TX_ALL;
+	ath5k_hw_set_imr(sc->ah, imask);
+	spin_unlock_irqrestore(&sc->irqlock, flags);
+}
+
+static void
 ath5k_tasklet_rx(unsigned long data)
 {
 	struct ath5k_rx_status rs = {};
@@ -1511,6 +1526,8 @@ next:
 	} while (ath5k_rxbuf_setup(sc, bf) == 0);
 unlock:
 	spin_unlock(&sc->rxbuflock);
+	sc->rx_pending = false;
+	ath5k_set_current_imask(sc);
 }
 
 
@@ -1578,28 +1595,28 @@ ath5k_tx_frame_completed(struct ath5k_softc *sc, struct sk_buff *skb,
 			 struct ath5k_txq *txq, struct ath5k_tx_status *ts)
 {
 	struct ieee80211_tx_info *info;
+	u8 tries[3];
 	int i;
 
 	sc->stats.tx_all_count++;
 	sc->stats.tx_bytes_count += skb->len;
 	info = IEEE80211_SKB_CB(skb);
 
+	tries[0] = info->status.rates[0].count;
+	tries[1] = info->status.rates[1].count;
+	tries[2] = info->status.rates[2].count;
+
 	ieee80211_tx_info_clear_status(info);
-	for (i = 0; i < 4; i++) {
+
+	for (i = 0; i < ts->ts_final_idx; i++) {
 		struct ieee80211_tx_rate *r =
 			&info->status.rates[i];
 
-		if (ts->ts_rate[i]) {
-			r->idx = ath5k_hw_to_driver_rix(sc, ts->ts_rate[i]);
-			r->count = ts->ts_retry[i];
-		} else {
-			r->idx = -1;
-			r->count = 0;
-		}
+		r->count = tries[i];
 	}
 
-	/* count the successful attempt as well */
-	info->status.rates[ts->ts_final_idx].count++;
+	info->status.rates[ts->ts_final_idx].count = ts->ts_final_retry;
+	info->status.rates[ts->ts_final_idx + 1].idx = -1;
 
 	if (unlikely(ts->ts_status)) {
 		sc->stats.ack_fail++;
@@ -1614,6 +1631,9 @@ ath5k_tx_frame_completed(struct ath5k_softc *sc, struct sk_buff *skb,
 	} else {
 		info->flags |= IEEE80211_TX_STAT_ACK;
 		info->status.ack_signal = ts->ts_rssi;
+
+		/* count the successful attempt as well */
+		info->status.rates[ts->ts_final_idx].count++;
 	}
 
 	/*
@@ -1695,6 +1715,9 @@ ath5k_tasklet_tx(unsigned long data)
 	for (i=0; i < AR5K_NUM_TX_QUEUES; i++)
 		if (sc->txqs[i].setup && (sc->ah->ah_txq_isr & BIT(i)))
 			ath5k_tx_processq(sc, &sc->txqs[i]);
+
+	sc->tx_pending = false;
+	ath5k_set_current_imask(sc);
 }
 
 
@@ -1725,6 +1748,8 @@ ath5k_beacon_setup(struct ath5k_softc *sc, struct ath5k_buf *bf)
 
 	if (dma_mapping_error(sc->dev, bf->skbaddr)) {
 		ATH5K_ERR(sc, "beacon DMA mapping failed\n");
+		dev_kfree_skb_any(skb);
+		bf->skb = NULL;
 		return -EIO;
 	}
 
@@ -1809,8 +1834,6 @@ ath5k_beacon_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	ath5k_txbuf_free_skb(sc, avf->bbuf);
 	avf->bbuf->skb = skb;
 	ret = ath5k_beacon_setup(sc, avf->bbuf);
-	if (ret)
-		avf->bbuf->skb = NULL;
 out:
 	return ret;
 }
@@ -1831,6 +1854,7 @@ ath5k_beacon_send(struct ath5k_softc *sc)
 	struct ath5k_vif *avf;
 	struct ath5k_buf *bf;
 	struct sk_buff *skb;
+	int err;
 
 	ATH5K_DBG_UNLIMIT(sc, ATH5K_DEBUG_BEACON, "in beacon_send\n");
 
@@ -1879,11 +1903,6 @@ ath5k_beacon_send(struct ath5k_softc *sc)
 
 	avf = (void *)vif->drv_priv;
 	bf = avf->bbuf;
-	if (unlikely(bf->skb == NULL || sc->opmode == NL80211_IFTYPE_STATION ||
-			sc->opmode == NL80211_IFTYPE_MONITOR)) {
-		ATH5K_WARN(sc, "bf=%p bf_skb=%p\n", bf, bf ? bf->skb : NULL);
-		return;
-	}
 
 	/*
 	 * Stop any current dma and put the new frame on the queue.
@@ -1897,8 +1916,17 @@ ath5k_beacon_send(struct ath5k_softc *sc)
 
 	/* refresh the beacon for AP or MESH mode */
 	if (sc->opmode == NL80211_IFTYPE_AP ||
-			sc->opmode == NL80211_IFTYPE_MESH_POINT)
-		ath5k_beacon_update(sc->hw, vif);
+			sc->opmode == NL80211_IFTYPE_MESH_POINT) {
+		err = ath5k_beacon_update(sc->hw, vif);
+		if (err)
+			return;
+	}
+
+	if (unlikely(bf->skb == NULL || sc->opmode == NL80211_IFTYPE_STATION ||
+			sc->opmode == NL80211_IFTYPE_MONITOR)) {
+		ATH5K_WARN(sc, "bf=%p bf_skb=%p\n", bf, bf->skb);
+		return;
+	}
 
 	trace_ath5k_tx(sc, bf->skb, &sc->txqs[sc->bhalq]);
 
@@ -2124,6 +2152,20 @@ ath5k_intr_calibration_poll(struct ath5k_hw *ah)
 	 * AR5K_REG_ENABLE_BITS(ah, AR5K_CR, AR5K_CR_SWI); */
 }
 
+static void
+ath5k_schedule_rx(struct ath5k_softc *sc)
+{
+	sc->rx_pending = true;
+	tasklet_schedule(&sc->rxtq);
+}
+
+static void
+ath5k_schedule_tx(struct ath5k_softc *sc)
+{
+	sc->tx_pending = true;
+	tasklet_schedule(&sc->txtq);
+}
+
 irqreturn_t
 ath5k_intr(int irq, void *dev_id)
 {
@@ -2166,7 +2208,7 @@ ath5k_intr(int irq, void *dev_id)
 				ieee80211_queue_work(sc->hw, &sc->reset_work);
 			}
 			else
-				tasklet_schedule(&sc->rxtq);
+				ath5k_schedule_rx(sc);
 		} else {
 			if (status & AR5K_INT_SWBA) {
 				tasklet_hi_schedule(&sc->beacontq);
@@ -2184,10 +2226,10 @@ ath5k_intr(int irq, void *dev_id)
 				ath5k_hw_update_tx_triglevel(ah, true);
 			}
 			if (status & (AR5K_INT_RXOK | AR5K_INT_RXERR))
-				tasklet_schedule(&sc->rxtq);
+				ath5k_schedule_rx(sc);
 			if (status & (AR5K_INT_TXOK | AR5K_INT_TXDESC
 					| AR5K_INT_TXERR | AR5K_INT_TXEOL))
-				tasklet_schedule(&sc->txtq);
+				ath5k_schedule_tx(sc);
 			if (status & AR5K_INT_BMISS) {
 				/* TODO */
 			}
@@ -2205,6 +2247,9 @@ ath5k_intr(int irq, void *dev_id)
 			break;
 
 	} while (ath5k_hw_is_intr_pending(ah) && --counter > 0);
+
+	if (sc->rx_pending || sc->tx_pending)
+		ath5k_set_current_imask(sc);
 
 	if (unlikely(!counter))
 		ATH5K_WARN(sc, "too many interrupts, giving up for now\n");
@@ -2359,7 +2404,7 @@ ath5k_init_softc(struct ath5k_softc *sc, const struct ath_bus_ops *bus_ops)
 	spin_lock_init(&sc->rxbuflock);
 	spin_lock_init(&sc->txbuflock);
 	spin_lock_init(&sc->block);
-
+	spin_lock_init(&sc->irqlock);
 
 	/* Setup interrupt handler */
 	ret = request_irq(sc->irq, ath5k_intr, IRQF_SHARED, "ath", sc);
@@ -2577,6 +2622,8 @@ done:
 
 static void stop_tasklets(struct ath5k_softc *sc)
 {
+	sc->rx_pending = false;
+	sc->tx_pending = false;
 	tasklet_kill(&sc->rxtq);
 	tasklet_kill(&sc->txtq);
 	tasklet_kill(&sc->calib);
@@ -2847,7 +2894,7 @@ ath5k_init(struct ieee80211_hw *hw)
 	INIT_WORK(&sc->reset_work, ath5k_reset_work);
 	INIT_DELAYED_WORK(&sc->tx_complete_work, ath5k_tx_complete_poll_work);
 
-	ret = ath5k_eeprom_read_mac(ah, mac);
+	ret = ath5k_hw_common(ah)->bus_ops->eeprom_read_mac(ah, mac);
 	if (ret) {
 		ATH5K_ERR(sc, "unable to read address from EEPROM\n");
 		goto err_queues;
@@ -2907,7 +2954,6 @@ ath5k_deinit_softc(struct ath5k_softc *sc)
 	 * XXX: ??? detach ath5k_hw ???
 	 * Other than that, it's straightforward...
 	 */
-	ath5k_debug_finish_device(sc);
 	ieee80211_unregister_hw(hw);
 	ath5k_desc_free(sc);
 	ath5k_txq_release(sc);

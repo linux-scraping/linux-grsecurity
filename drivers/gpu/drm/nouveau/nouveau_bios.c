@@ -5049,11 +5049,7 @@ int get_pll_limits(struct drm_device *dev, uint32_t limit_match, struct pll_lims
 		pll_lim->vco1.max_n = record[11];
 		pll_lim->min_p = record[12];
 		pll_lim->max_p = record[13];
-		/* where did this go to?? */
-		if ((entry[0] & 0xf0) == 0x80)
-			pll_lim->refclk = 27000;
-		else
-			pll_lim->refclk = 100000;
+		pll_lim->refclk = ROM16(entry[9]) * 1000;
 	}
 
 	/*
@@ -5492,7 +5488,7 @@ parse_bit_displayport_tbl_entry(struct drm_device *dev, struct nvbios *bios,
 struct bit_table {
 	const char id;
 	int (* const parse_fn)(struct drm_device *, struct nvbios *, struct bit_entry *);
-};
+} __no_const;
 
 #define BIT_TABLE(id, funcid) ((struct bit_table){ id, parse_bit_##funcid##_tbl_entry })
 
@@ -6035,6 +6031,7 @@ parse_dcb_connector_table(struct nvbios *bios)
 		case DCB_CONNECTOR_DVI_I:
 		case DCB_CONNECTOR_DVI_D:
 		case DCB_CONNECTOR_LVDS:
+		case DCB_CONNECTOR_LVDS_SPWG:
 		case DCB_CONNECTOR_DP:
 		case DCB_CONNECTOR_eDP:
 		case DCB_CONNECTOR_HDMI_0:

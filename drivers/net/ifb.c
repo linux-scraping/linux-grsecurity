@@ -145,7 +145,7 @@ static void ifb_setup(struct net_device *dev)
 
 	dev->flags |= IFF_NOARP;
 	dev->flags &= ~IFF_MULTICAST;
-	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
 	random_ether_addr(dev->dev_addr);
 }
 
@@ -232,10 +232,6 @@ static int __init ifb_init_one(int index)
 
 	if (!dev_ifb)
 		return -ENOMEM;
-
-	err = dev_alloc_name(dev_ifb, dev_ifb->name);
-	if (err < 0)
-		goto err;
 
 	dev_ifb->rtnl_link_ops = &ifb_link_ops;
 	err = register_netdevice(dev_ifb);

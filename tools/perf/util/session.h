@@ -43,6 +43,7 @@ struct perf_session {
 	 */
 	struct hists		hists;
 	u64			sample_type;
+	int			sample_size;
 	int			fd;
 	bool			fd_pipe;
 	bool			repipe;
@@ -111,6 +112,7 @@ int perf_session__set_kallsyms_ref_reloc_sym(struct map **maps,
 					     u64 addr);
 
 void mem_bswap_64(void *src, int byte_size);
+void perf_event__attr_swap(struct perf_event_attr *attr);
 
 int perf_session__create_kernel_maps(struct perf_session *self);
 
@@ -159,8 +161,12 @@ static inline int perf_session__parse_sample(struct perf_session *session,
 					     struct perf_sample *sample)
 {
 	return perf_event__parse_sample(event, session->sample_type,
+					session->sample_size,
 					session->sample_id_all, sample);
 }
+
+struct perf_evsel *perf_session__find_first_evtype(struct perf_session *session,
+					    unsigned int type);
 
 void perf_session__print_symbols(union perf_event *event,
 				 struct perf_sample *sample,

@@ -23,21 +23,10 @@ VERSION {
 		__vdso_gettimeofday;
 		getcpu;
 		__vdso_getcpu;
+		time;
+		__vdso_time;
 	local: *;
 	};
 }
 
 VDSO64_PRELINK = VDSO_PRELINK;
-
-/*
- * Define VDSO64_x for each VEXTERN(x), for use via VDSO64_SYMBOL.
- */
-#define VEXTERN(x)	VDSO64_ ## x = vdso_ ## x;
-#include "vextern.h"
-#undef	VEXTERN
-
-#define VEXTERN(x)	VDSO64_ ## x = __vdso_ ## x;
-VEXTERN(fallback_gettimeofday)
-VEXTERN(fallback_time)
-VEXTERN(getcpu)
-#undef	VEXTERN

@@ -5,9 +5,9 @@
 #include <linux/fs.h>
 #include <linux/types.h>
 #include <linux/grdefs.h>
+#include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 #include <linux/capability.h>
-#include <linux/compat.h>
 
 #include <asm/uaccess.h>
 
@@ -31,8 +31,10 @@ gr_handle_nproc(void)
 	return 0;
 }
 
+extern const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr);
+
 void
-gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *argv)
+gr_handle_exec_args(struct linux_binprm *bprm, struct user_arg_ptr argv)
 {
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	char *grarg = gr_exec_arg_buf;
@@ -47,17 +49,14 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *
 	mutex_lock(&gr_exec_arg_mutex);
 	memset(grarg, 0, sizeof(gr_exec_arg_buf));
 
-	if (unlikely(argv == NULL))
-		goto log;
-
 	for (i = 0; i < bprm->argc && execlen < 128; i++) {
 		const char __user *p;
 		unsigned int len;
 
-		if (copy_from_user(&p, argv + i, sizeof(p)))
+		p = get_user_arg_ptr(argv, i);
+		if (IS_ERR(p))
 			goto log;
-		if (!p)
-			goto log;
+
 		len = strnlen_user(p, 128 - execlen);
 		if (len > 128 - execlen)
 			len = 128 - execlen;
@@ -86,61 +85,3 @@ gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *
 #endif
 	return;
 }
-
-#ifdef CONFIG_COMPAT
-void
-gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv)
-{
-#ifdef CONFIG_GRKERNSEC_EXECLOG
-	char *grarg = gr_exec_arg_buf;
-	unsigned int i, x, execlen = 0;
-	char c;
-
-	if (!((grsec_enable_execlog && grsec_enable_group &&
-	       in_group_p(grsec_audit_gid))
-	      || (grsec_enable_execlog && !grsec_enable_group)))
-		return;
-
-	mutex_lock(&gr_exec_arg_mutex);
-	memset(grarg, 0, sizeof(gr_exec_arg_buf));
-
-	if (unlikely(argv == NULL))
-		goto log;
-
-	for (i = 0; i < bprm->argc && execlen < 128; i++) {
-		compat_uptr_t p;
-		unsigned int len;
-
-		if (get_user(p, argv + i))
-			goto log;
-		len = strnlen_user(compat_ptr(p), 128 - execlen);
-		if (len > 128 - execlen)
-			len = 128 - execlen;
-		else if (len > 0)
-			len--;
-		else
-			goto log;
-		if (copy_from_user(grarg + execlen, compat_ptr(p), len))
-			goto log;
-
-		/* rewrite unprintable characters */
-		for (x = 0; x < len; x++) {
-			c = *(grarg + execlen + x);
-			if (c < 32 || c > 126)
-				*(grarg + execlen + x) = ' ';
-		}
-
-		execlen += len;
-		*(grarg + execlen) = ' ';
-		*(grarg + execlen + 1) = '\0';
-		execlen++;
-	}
-
-      log:
-	gr_log_fs_str(GR_DO_AUDIT, GR_EXEC_AUDIT_MSG, bprm->file->f_path.dentry,
-			bprm->file->f_path.mnt, grarg);
-	mutex_unlock(&gr_exec_arg_mutex);
-#endif
-	return;
-}
-#endif

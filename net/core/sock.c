@@ -921,7 +921,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 		if (len > sizeof(peercred))
 			len = sizeof(peercred);
 		cred_to_ucred(sk->sk_peer_pid, sk->sk_peer_cred, &peercred);
-		if (copy_to_user(optval, &peercred, len))
+		if (len > sizeof(peercred) || copy_to_user(optval, &peercred, len))
 			return -EFAULT;
 		goto lenout;
 	}

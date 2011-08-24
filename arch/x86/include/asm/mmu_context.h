@@ -32,10 +32,7 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 	pax_open_kernel();
 	pgd = get_cpu_pgd(smp_processor_id());
 	for (i = USER_PGD_PTRS; i < 2 * USER_PGD_PTRS; ++i)
-		if (paravirt_enabled())
-			set_pgd(pgd+i, native_make_pgd(0));
-		else
-			pgd[i] = native_make_pgd(0);
+		set_pgd_batched(pgd+i, native_make_pgd(0));
 	pax_close_kernel();
 #endif
 
@@ -49,7 +46,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
 	unsigned cpu = smp_processor_id();
-#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)) && defined(CONFIG_SMP)
+#if defined(CONFIG_X86_32) && defined(CONFIG_SMP) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
 	int tlbstate = TLBSTATE_OK;
 #endif
 

@@ -714,10 +714,19 @@ static int tuner_remove(struct i2c_client *client)
  * returns 0.
  * This function is needed for boards that have a separate tuner for
  * radio (like devices with tea5767).
+ * NOTE: mt20xx uses V4L2_TUNER_DIGITAL_TV and calls set_tv_freq to
+ *       select a TV frequency. So, t_mode = T_ANALOG_TV could actually
+ *	 be used to represent a Digital TV too.
  */
 static inline int check_mode(struct tuner *t, enum v4l2_tuner_type mode)
 {
-	if ((1 << mode & t->mode_mask) == 0)
+	int t_mode;
+	if (mode == V4L2_TUNER_RADIO)
+		t_mode = T_RADIO;
+	else
+		t_mode = T_ANALOG_TV;
+
+	if ((t_mode & t->mode_mask) == 0)
 		return -EINVAL;
 
 	return 0;
@@ -823,7 +832,8 @@ static void set_tv_freq(struct i2c_client *c, unsigned int freq)
 /**
  * tuner_fixup_std - force a given video standard variant
  *
- * @t:	tuner internal struct
+ * @t: tuner internal struct
+ * @std:	TV standard
  *
  * A few devices or drivers have problem to detect some standard variations.
  * On other operational systems, the drivers generally have a per-country
@@ -833,57 +843,39 @@ static void set_tv_freq(struct i2c_client *c, unsigned int freq)
  * to distinguish all video standard variations, a modprobe parameter can
  * be used to force a video standard match.
  */
-static int tuner_fixup_std(struct tuner *t)
+static v4l2_std_id tuner_fixup_std(struct tuner *t, v4l2_std_id std)
 {
-	if ((t->std & V4L2_STD_PAL) == V4L2_STD_PAL) {
+	if (pal[0] != '-' && (std & V4L2_STD_PAL) == V4L2_STD_PAL) {
 		switch (pal[0]) {
 		case '6':
-			tuner_dbg("insmod fixup: PAL => PAL-60\n");
-			t->std = V4L2_STD_PAL_60;
-			break;
+			return V4L2_STD_PAL_60;
 		case 'b':
 		case 'B':
 		case 'g':
 		case 'G':
-			tuner_dbg("insmod fixup: PAL => PAL-BG\n");
-			t->std = V4L2_STD_PAL_BG;
-			break;
+			return V4L2_STD_PAL_BG;
 		case 'i':
 		case 'I':
-			tuner_dbg("insmod fixup: PAL => PAL-I\n");
-			t->std = V4L2_STD_PAL_I;
-			break;
+			return V4L2_STD_PAL_I;
 		case 'd':
 		case 'D':
 		case 'k':
 		case 'K':
-			tuner_dbg("insmod fixup: PAL => PAL-DK\n");
-			t->std = V4L2_STD_PAL_DK;
-			break;
+			return V4L2_STD_PAL_DK;
 		case 'M':
 		case 'm':
-			tuner_dbg("insmod fixup: PAL => PAL-M\n");
-			t->std = V4L2_STD_PAL_M;
-			break;
+			return V4L2_STD_PAL_M;
 		case 'N':
 		case 'n':
-			if (pal[1] == 'c' || pal[1] == 'C') {
-				tuner_dbg("insmod fixup: PAL => PAL-Nc\n");
-				t->std = V4L2_STD_PAL_Nc;
-			} else {
-				tuner_dbg("insmod fixup: PAL => PAL-N\n");
-				t->std = V4L2_STD_PAL_N;
-			}
-			break;
-		case '-':
-			/* default parameter, do nothing */
-			break;
+			if (pal[1] == 'c' || pal[1] == 'C')
+				return V4L2_STD_PAL_Nc;
+			return V4L2_STD_PAL_N;
 		default:
 			tuner_warn("pal= argument not recognised\n");
 			break;
 		}
 	}
-	if ((t->std & V4L2_STD_SECAM) == V4L2_STD_SECAM) {
+	if (secam[0] != '-' && (std & V4L2_STD_SECAM) == V4L2_STD_SECAM) {
 		switch (secam[0]) {
 		case 'b':
 		case 'B':
@@ -891,63 +883,42 @@ static int tuner_fixup_std(struct tuner *t)
 		case 'G':
 		case 'h':
 		case 'H':
-			tuner_dbg("insmod fixup: SECAM => SECAM-BGH\n");
-			t->std = V4L2_STD_SECAM_B |
-				 V4L2_STD_SECAM_G |
-				 V4L2_STD_SECAM_H;
-			break;
+			return V4L2_STD_SECAM_B |
+			       V4L2_STD_SECAM_G |
+			       V4L2_STD_SECAM_H;
 		case 'd':
 		case 'D':
 		case 'k':
 		case 'K':
-			tuner_dbg("insmod fixup: SECAM => SECAM-DK\n");
-			t->std = V4L2_STD_SECAM_DK;
-			break;
+			return V4L2_STD_SECAM_DK;
 		case 'l':
 		case 'L':
-			if ((secam[1] == 'C') || (secam[1] == 'c')) {
-				tuner_dbg("insmod fixup: SECAM => SECAM-L'\n");
-				t->std = V4L2_STD_SECAM_LC;
-			} else {
-				tuner_dbg("insmod fixup: SECAM => SECAM-L\n");
-				t->std = V4L2_STD_SECAM_L;
-			}
-			break;
-		case '-':
-			/* default parameter, do nothing */
-			break;
+			if ((secam[1] == 'C') || (secam[1] == 'c'))
+				return V4L2_STD_SECAM_LC;
+			return V4L2_STD_SECAM_L;
 		default:
 			tuner_warn("secam= argument not recognised\n");
 			break;
 		}
 	}
 
-	if ((t->std & V4L2_STD_NTSC) == V4L2_STD_NTSC) {
+	if (ntsc[0] != '-' && (std & V4L2_STD_NTSC) == V4L2_STD_NTSC) {
 		switch (ntsc[0]) {
 		case 'm':
 		case 'M':
-			tuner_dbg("insmod fixup: NTSC => NTSC-M\n");
-			t->std = V4L2_STD_NTSC_M;
-			break;
+			return V4L2_STD_NTSC_M;
 		case 'j':
 		case 'J':
-			tuner_dbg("insmod fixup: NTSC => NTSC_M_JP\n");
-			t->std = V4L2_STD_NTSC_M_JP;
-			break;
+			return V4L2_STD_NTSC_M_JP;
 		case 'k':
 		case 'K':
-			tuner_dbg("insmod fixup: NTSC => NTSC_M_KR\n");
-			t->std = V4L2_STD_NTSC_M_KR;
-			break;
-		case '-':
-			/* default parameter, do nothing */
-			break;
+			return V4L2_STD_NTSC_M_KR;
 		default:
 			tuner_info("ntsc= argument not recognised\n");
 			break;
 		}
 	}
-	return 0;
+	return std;
 }
 
 /*
@@ -1022,7 +993,7 @@ static void tuner_status(struct dvb_frontend *fe)
 	case V4L2_TUNER_RADIO:
 		p = "radio";
 		break;
-	case V4L2_TUNER_DIGITAL_TV:
+	case V4L2_TUNER_DIGITAL_TV: /* Used by mt20xx */
 		p = "digital TV";
 		break;
 	case V4L2_TUNER_ANALOG_TV:
@@ -1077,16 +1048,20 @@ static int tuner_s_radio(struct v4l2_subdev *sd)
 /**
  * tuner_s_power - controls the power state of the tuner
  * @sd: pointer to struct v4l2_subdev
- * @on: a zero value puts the tuner to sleep
+ * @on: a zero value puts the tuner to sleep, non-zero wakes it up
  */
 static int tuner_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct tuner *t = to_tuner(sd);
 	struct analog_demod_ops *analog_ops = &t->fe.ops.analog_ops;
 
-	/* FIXME: Why this function don't wake the tuner if on != 0 ? */
-	if (on)
+	if (on) {
+		if (t->standby && set_mode(t, t->mode) == 0) {
+			tuner_dbg("Waking up tuner\n");
+			set_freq(t, 0);
+		}
 		return 0;
+	}
 
 	tuner_dbg("Putting tuner to sleep\n");
 	t->standby = true;
@@ -1102,8 +1077,9 @@ static int tuner_s_std(struct v4l2_subdev *sd, v4l2_std_id std)
 	if (set_mode(t, V4L2_TUNER_ANALOG_TV))
 		return 0;
 
-	t->std = std;
-	tuner_fixup_std(t);
+	t->std = tuner_fixup_std(t, std);
+	if (t->std != std)
+		tuner_dbg("Fixup standard %llx to %llx\n", std, t->std);
 	set_freq(t, 0);
 	return 0;
 }
@@ -1117,6 +1093,16 @@ static int tuner_s_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *f)
 	return 0;
 }
 
+/**
+ * tuner_g_frequency - Get the tuned frequency for the tuner
+ * @sd: pointer to struct v4l2_subdev
+ * @f: pointer to struct v4l2_frequency
+ *
+ * At return, the structure f will be filled with tuner frequency
+ * if the tuner matches the f->type.
+ * Note: f->type should be initialized before calling it.
+ * This is done by either video_ioctl2 or by the bridge driver.
+ */
 static int tuner_g_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *f)
 {
 	struct tuner *t = to_tuner(sd);
@@ -1124,8 +1110,7 @@ static int tuner_g_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *f)
 
 	if (check_mode(t, f->type) == -EINVAL)
 		return 0;
-	f->type = t->mode;
-	if (fe_tuner_ops->get_frequency && !t->standby) {
+	if (f->type == t->mode && fe_tuner_ops->get_frequency && !t->standby) {
 		u32 abs_freq;
 
 		fe_tuner_ops->get_frequency(&t->fe, &abs_freq);
@@ -1133,12 +1118,22 @@ static int tuner_g_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *f)
 			DIV_ROUND_CLOSEST(abs_freq * 2, 125) :
 			DIV_ROUND_CLOSEST(abs_freq, 62500);
 	} else {
-		f->frequency = (V4L2_TUNER_RADIO == t->mode) ?
+		f->frequency = (V4L2_TUNER_RADIO == f->type) ?
 			t->radio_freq : t->tv_freq;
 	}
 	return 0;
 }
 
+/**
+ * tuner_g_tuner - Fill in tuner information
+ * @sd: pointer to struct v4l2_subdev
+ * @vt: pointer to struct v4l2_tuner
+ *
+ * At return, the structure vt will be filled with tuner information
+ * if the tuner matches vt->type.
+ * Note: vt->type should be initialized before calling it.
+ * This is done by either video_ioctl2 or by the bridge driver.
+ */
 static int tuner_g_tuner(struct v4l2_subdev *sd, struct v4l2_tuner *vt)
 {
 	struct tuner *t = to_tuner(sd);
@@ -1147,38 +1142,47 @@ static int tuner_g_tuner(struct v4l2_subdev *sd, struct v4l2_tuner *vt)
 
 	if (check_mode(t, vt->type) == -EINVAL)
 		return 0;
-	vt->type = t->mode;
-	if (analog_ops->get_afc)
+	if (vt->type == t->mode && analog_ops->get_afc)
 		vt->afc = analog_ops->get_afc(&t->fe);
-	if (t->mode == V4L2_TUNER_ANALOG_TV)
-		vt->capability |= V4L2_TUNER_CAP_NORM;
 	if (t->mode != V4L2_TUNER_RADIO) {
+		vt->capability |= V4L2_TUNER_CAP_NORM;
 		vt->rangelow = tv_range[0] * 16;
 		vt->rangehigh = tv_range[1] * 16;
 		return 0;
 	}
 
 	/* radio mode */
-	vt->rxsubchans = V4L2_TUNER_SUB_MONO | V4L2_TUNER_SUB_STEREO;
-	if (fe_tuner_ops->get_status) {
-		u32 tuner_status;
+	if (vt->type == t->mode) {
+		vt->rxsubchans = V4L2_TUNER_SUB_MONO | V4L2_TUNER_SUB_STEREO;
+		if (fe_tuner_ops->get_status) {
+			u32 tuner_status;
 
-		fe_tuner_ops->get_status(&t->fe, &tuner_status);
-		vt->rxsubchans =
-			(tuner_status & TUNER_STATUS_STEREO) ?
-			V4L2_TUNER_SUB_STEREO :
-			V4L2_TUNER_SUB_MONO;
+			fe_tuner_ops->get_status(&t->fe, &tuner_status);
+			vt->rxsubchans =
+				(tuner_status & TUNER_STATUS_STEREO) ?
+				V4L2_TUNER_SUB_STEREO :
+				V4L2_TUNER_SUB_MONO;
+		}
+		if (analog_ops->has_signal)
+			vt->signal = analog_ops->has_signal(&t->fe);
+		vt->audmode = t->audmode;
 	}
-	if (analog_ops->has_signal)
-		vt->signal = analog_ops->has_signal(&t->fe);
 	vt->capability |= V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO;
-	vt->audmode = t->audmode;
 	vt->rangelow = radio_range[0] * 16000;
 	vt->rangehigh = radio_range[1] * 16000;
 
 	return 0;
 }
 
+/**
+ * tuner_s_tuner - Set the tuner's audio mode
+ * @sd: pointer to struct v4l2_subdev
+ * @vt: pointer to struct v4l2_tuner
+ *
+ * Sets the audio mode if the tuner matches vt->type.
+ * Note: vt->type should be initialized before calling it.
+ * This is done by either video_ioctl2 or by the bridge driver.
+ */
 static int tuner_s_tuner(struct v4l2_subdev *sd, struct v4l2_tuner *vt)
 {
 	struct tuner *t = to_tuner(sd);

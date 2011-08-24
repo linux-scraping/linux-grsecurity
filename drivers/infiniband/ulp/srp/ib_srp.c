@@ -1147,7 +1147,7 @@ static void srp_process_aer_req(struct srp_target_port *target,
 static void srp_handle_recv(struct srp_target_port *target, struct ib_wc *wc)
 {
 	struct ib_device *dev = target->srp_host->srp_dev->dev;
-	struct srp_iu *iu = (struct srp_iu *) wc->wr_id;
+	struct srp_iu *iu = (struct srp_iu *) (uintptr_t) wc->wr_id;
 	int res;
 	u8 opcode;
 
@@ -1231,7 +1231,7 @@ static void srp_send_completion(struct ib_cq *cq, void *target_ptr)
 			break;
 		}
 
-		iu = (struct srp_iu *) wc.wr_id;
+		iu = (struct srp_iu *) (uintptr_t) wc.wr_id;
 		list_add(&iu->list, &target->free_tx);
 	}
 }
@@ -2127,6 +2127,8 @@ static ssize_t srp_create_target(struct device *dev,
 		return -ENOMEM;
 
 	target_host->transportt  = ib_srp_transport_template;
+	target_host->max_channel = 0;
+	target_host->max_id      = 1;
 	target_host->max_lun     = SRP_MAX_LUN;
 	target_host->max_cmd_len = sizeof ((struct srp_cmd *) (void *) 0L)->cdb;
 

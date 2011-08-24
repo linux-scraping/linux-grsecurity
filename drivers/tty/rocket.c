@@ -1382,7 +1382,6 @@ static void rp_send_xchar(struct tty_struct *tty, char ch)
 static void rp_throttle(struct tty_struct *tty)
 {
 	struct r_port *info = tty->driver_data;
-	CHANNEL_t *cp;
 
 #ifdef ROCKET_DEBUG_THROTTLE
 	printk(KERN_INFO "throttle %s: %d....\n", tty->name,
@@ -1392,7 +1391,6 @@ static void rp_throttle(struct tty_struct *tty)
 	if (rocket_paranoia_check(info, "rp_throttle"))
 		return;
 
-	cp = &info->channel;
 	if (I_IXOFF(tty))
 		rp_send_xchar(tty, STOP_CHAR(tty));
 
@@ -1402,7 +1400,6 @@ static void rp_throttle(struct tty_struct *tty)
 static void rp_unthrottle(struct tty_struct *tty)
 {
 	struct r_port *info = tty->driver_data;
-	CHANNEL_t *cp;
 #ifdef ROCKET_DEBUG_THROTTLE
 	printk(KERN_INFO "unthrottle %s: %d....\n", tty->name,
 	       tty->ldisc.chars_in_buffer(tty));
@@ -1411,7 +1408,6 @@ static void rp_unthrottle(struct tty_struct *tty)
 	if (rocket_paranoia_check(info, "rp_throttle"))
 		return;
 
-	cp = &info->channel;
 	if (I_IXOFF(tty))
 		rp_send_xchar(tty, START_CHAR(tty));
 
@@ -1724,12 +1720,9 @@ static int rp_write_room(struct tty_struct *tty)
 static int rp_chars_in_buffer(struct tty_struct *tty)
 {
 	struct r_port *info = tty->driver_data;
-	CHANNEL_t *cp;
 
 	if (rocket_paranoia_check(info, "rp_chars_in_buffer"))
 		return 0;
-
-	cp = &info->channel;
 
 #ifdef ROCKET_DEBUG_WRITE
 	printk(KERN_INFO "rp_chars_in_buffer returns %d...\n", info->xmit_cnt);
@@ -1781,7 +1774,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 {
 	int num_aiops, aiop, max_num_aiops, num_chan, chan;
 	unsigned int aiopio[MAX_AIOPS_PER_BOARD];
-	char *str, *board_type;
 	CONTROLLER_t *ctlp;
 
 	int fast_clock = 0;
@@ -1802,7 +1794,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 	/*  Depending on the model, set up some config variables */
 	switch (dev->device) {
 	case PCI_DEVICE_ID_RP4QUAD:
-		str = "Quadcable";
 		max_num_aiops = 1;
 		ports_per_aiop = 4;
 		rocketModel[i].model = MODEL_RP4QUAD;
@@ -1810,42 +1801,36 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 4;
 		break;
 	case PCI_DEVICE_ID_RP8OCTA:
-		str = "Octacable";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_RP8OCTA;
 		strcpy(rocketModel[i].modelString, "RocketPort 8 port w/octa cable");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_URP8OCTA:
-		str = "Octacable";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_UPCI_RP8OCTA;
 		strcpy(rocketModel[i].modelString, "RocketPort UPCI 8 port w/octa cable");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_RP8INTF:
-		str = "8";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_RP8INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort 8 port w/external I/F");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_URP8INTF:
-		str = "8";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_UPCI_RP8INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort UPCI 8 port w/external I/F");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_RP8J:
-		str = "8J";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_RP8J;
 		strcpy(rocketModel[i].modelString, "RocketPort 8 port w/RJ11 connectors");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_RP4J:
-		str = "4J";
 		max_num_aiops = 1;
 		ports_per_aiop = 4;
 		rocketModel[i].model = MODEL_RP4J;
@@ -1853,56 +1838,48 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 4;
 		break;
 	case PCI_DEVICE_ID_RP8SNI:
-		str = "8 (DB78 Custom)";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_RP8SNI;
 		strcpy(rocketModel[i].modelString, "RocketPort 8 port w/ custom DB78");
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_RP16SNI:
-		str = "16 (DB78 Custom)";
 		max_num_aiops = 2;
 		rocketModel[i].model = MODEL_RP16SNI;
 		strcpy(rocketModel[i].modelString, "RocketPort 16 port w/ custom DB78");
 		rocketModel[i].numPorts = 16;
 		break;
 	case PCI_DEVICE_ID_RP16INTF:
-		str = "16";
 		max_num_aiops = 2;
 		rocketModel[i].model = MODEL_RP16INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort 16 port w/external I/F");
 		rocketModel[i].numPorts = 16;
 		break;
 	case PCI_DEVICE_ID_URP16INTF:
-		str = "16";
 		max_num_aiops = 2;
 		rocketModel[i].model = MODEL_UPCI_RP16INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort UPCI 16 port w/external I/F");
 		rocketModel[i].numPorts = 16;
 		break;
 	case PCI_DEVICE_ID_CRP16INTF:
-		str = "16";
 		max_num_aiops = 2;
 		rocketModel[i].model = MODEL_CPCI_RP16INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort Compact PCI 16 port w/external I/F");
 		rocketModel[i].numPorts = 16;
 		break;
 	case PCI_DEVICE_ID_RP32INTF:
-		str = "32";
 		max_num_aiops = 4;
 		rocketModel[i].model = MODEL_RP32INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort 32 port w/external I/F");
 		rocketModel[i].numPorts = 32;
 		break;
 	case PCI_DEVICE_ID_URP32INTF:
-		str = "32";
 		max_num_aiops = 4;
 		rocketModel[i].model = MODEL_UPCI_RP32INTF;
 		strcpy(rocketModel[i].modelString, "RocketPort UPCI 32 port w/external I/F");
 		rocketModel[i].numPorts = 32;
 		break;
 	case PCI_DEVICE_ID_RPP4:
-		str = "Plus Quadcable";
 		max_num_aiops = 1;
 		ports_per_aiop = 4;
 		altChanRingIndicator++;
@@ -1912,7 +1889,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 4;
 		break;
 	case PCI_DEVICE_ID_RPP8:
-		str = "Plus Octacable";
 		max_num_aiops = 2;
 		ports_per_aiop = 4;
 		altChanRingIndicator++;
@@ -1922,7 +1898,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 8;
 		break;
 	case PCI_DEVICE_ID_RP2_232:
-		str = "Plus 2 (RS-232)";
 		max_num_aiops = 1;
 		ports_per_aiop = 2;
 		altChanRingIndicator++;
@@ -1932,7 +1907,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 2;
 		break;
 	case PCI_DEVICE_ID_RP2_422:
-		str = "Plus 2 (RS-422)";
 		max_num_aiops = 1;
 		ports_per_aiop = 2;
 		altChanRingIndicator++;
@@ -1945,7 +1919,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 
 		max_num_aiops = 1;
 		ports_per_aiop = 6;
-		str = "6-port";
 
 		/*  If revision is 1, the rocketmodem flash must be loaded.
 		 *  If it is 2 it is a "socketed" version. */
@@ -1963,7 +1936,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 	case PCI_DEVICE_ID_RP4M:
 		max_num_aiops = 1;
 		ports_per_aiop = 4;
-		str = "4-port";
 		if (dev->revision == 1) {
 			rcktpt_type[i] = ROCKET_TYPE_MODEMII;
 			rocketModel[i].loadrm2 = 1;
@@ -1976,7 +1948,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rocketModel[i].numPorts = 4;
 		break;
 	default:
-		str = "(unknown/unsupported)";
 		max_num_aiops = 0;
 		break;
 	}
@@ -2002,14 +1973,12 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 			if (!
 			    (sInW(ConfigIO + _PCI_9030_GPIO_CTRL) &
 			     PCI_GPIO_CTRL_8PORT)) {
-				str = "Quadcable";
 				ports_per_aiop = 4;
 				rocketModel[i].numPorts = 4;
 			}
 		}
 		break;
 	case PCI_DEVICE_ID_UPCI_RM3_8PORT:
-		str = "8 ports";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_UPCI_RM3_8PORT;
 		strcpy(rocketModel[i].modelString, "RocketModem III 8 port");
@@ -2020,7 +1989,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rcktpt_type[i] = ROCKET_TYPE_MODEMIII;
 		break;
 	case PCI_DEVICE_ID_UPCI_RM3_4PORT:
-		str = "4 ports";
 		max_num_aiops = 1;
 		rocketModel[i].model = MODEL_UPCI_RM3_4PORT;
 		strcpy(rocketModel[i].modelString, "RocketModem III 4 port");
@@ -2031,21 +1999,6 @@ static __init int register_PCI(int i, struct pci_dev *dev)
 		rcktpt_type[i] = ROCKET_TYPE_MODEMIII;
 		break;
 	default:
-		break;
-	}
-
-	switch (rcktpt_type[i]) {
-	case ROCKET_TYPE_MODEM:
-		board_type = "RocketModem";
-		break;
-	case ROCKET_TYPE_MODEMII:
-		board_type = "RocketModem II";
-		break;
-	case ROCKET_TYPE_MODEMIII:
-		board_type = "RocketModem III";
-		break;
-	default:
-		board_type = "RocketPort";
 		break;
 	}
 

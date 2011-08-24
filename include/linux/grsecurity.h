@@ -4,7 +4,6 @@
 #include <linux/fs_struct.h>
 #include <linux/binfmts.h>
 #include <linux/gracl.h>
-#include <linux/compat.h>
 
 /* notify of brain-dead configs */
 #if defined(CONFIG_GRKERNSEC_PROC_USER) && defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
@@ -25,6 +24,20 @@
 #if defined(CONFIG_PAX) && !defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_ASLR)
 #error "CONFIG_PAX enabled, but no PaX options are enabled."
 #endif
+
+#include <linux/compat.h>
+
+struct user_arg_ptr {
+#ifdef CONFIG_COMPAT
+	bool is_compat;
+#endif
+	union {
+		const char __user *const __user *native;
+#ifdef CONFIG_COMPAT
+		compat_uptr_t __user *compat;
+#endif
+	} ptr;
+};
 
 void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags);
 void gr_handle_brute_check(void);
@@ -79,10 +92,7 @@ void gr_log_chdir(const struct dentry *dentry,
 			 const struct vfsmount *mnt);
 void gr_log_chroot_exec(const struct dentry *dentry,
 			       const struct vfsmount *mnt);
-void gr_handle_exec_args(struct linux_binprm *bprm, const char __user *const __user *argv);
-#ifdef CONFIG_COMPAT
-void gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv);
-#endif
+void gr_handle_exec_args(struct linux_binprm *bprm, struct user_arg_ptr argv);
 void gr_log_remount(const char *devname, const int retval);
 void gr_log_unmount(const char *devname, const int retval);
 void gr_log_mount(const char *from, const char *to, const int retval);

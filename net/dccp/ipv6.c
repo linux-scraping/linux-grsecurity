@@ -29,6 +29,7 @@
 #include <net/transp_v6.h>
 #include <net/ip6_checksum.h>
 #include <net/xfrm.h>
+#include <net/secure_seq.h>
 
 #include "dccp.h"
 #include "ipv6.h"
@@ -54,8 +55,8 @@ static void dccp_v6_hash(struct sock *sk)
 
 /* add pseudo-header to DCCP checksum stored in skb->csum */
 static inline __sum16 dccp_v6_csum_finish(struct sk_buff *skb,
-				      struct in6_addr *saddr,
-				      struct in6_addr *daddr)
+				      const struct in6_addr *saddr,
+				      const struct in6_addr *daddr)
 {
 	return csum_ipv6_magic(saddr, daddr, skb->len, IPPROTO_DCCP, skb->csum);
 }
@@ -69,13 +70,7 @@ static inline void dccp_v6_send_check(struct sock *sk, struct sk_buff *skb)
 	dh->dccph_checksum = dccp_v6_csum_finish(skb, &np->saddr, &np->daddr);
 }
 
-static inline __u32 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
-						  __be16 sport, __be16 dport   )
-{
-	return secure_tcpv6_sequence_number(saddr, daddr, sport, dport);
-}
-
-static inline __u32 dccp_v6_init_sequence(struct sk_buff *skb)
+static inline __u64 dccp_v6_init_sequence(struct sk_buff *skb)
 {
 	return secure_dccpv6_sequence_number(ipv6_hdr(skb)->daddr.s6_addr32,
 					     ipv6_hdr(skb)->saddr.s6_addr32,
@@ -87,7 +82,7 @@ static inline __u32 dccp_v6_init_sequence(struct sk_buff *skb)
 static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 			u8 type, u8 code, int offset, __be32 info)
 {
-	struct ipv6hdr *hdr = (struct ipv6hdr *)skb->data;
+	const struct ipv6hdr *hdr = (const struct ipv6hdr *)skb->data;
 	const struct dccp_hdr *dh = (struct dccp_hdr *)(skb->data + offset);
 	struct dccp_sock *dp;
 	struct ipv6_pinfo *np;
@@ -296,7 +291,7 @@ static void dccp_v6_reqsk_destructor(struct request_sock *req)
 
 static void dccp_v6_ctl_send_reset(struct sock *sk, struct sk_buff *rxskb)
 {
-	struct ipv6hdr *rxip6h;
+	const struct ipv6hdr *rxip6h;
 	struct sk_buff *skb;
 	struct flowi6 fl6;
 	struct net *net = dev_net(skb_dst(rxskb)->dev);
@@ -573,7 +568,7 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
 
 	   First: no IPv4 options.
 	 */
-	newinet->opt = NULL;
+	newinet->inet_opt = NULL;
 
 	/* Clone RX bits */
 	newnp->rxopt.all = np->rxopt.all;

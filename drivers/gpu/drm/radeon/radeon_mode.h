@@ -438,6 +438,9 @@ struct radeon_connector {
 	struct radeon_i2c_chan *ddc_bus;
 	/* some systems have an hdmi and vga port with a shared ddc line */
 	bool shared_ddc;
+	/* for some Radeon chip families we apply an additional EDID header
+	   check as part of the DDC probe */
+	bool requires_extended_probe;
 	bool use_digital;
 	/* we need to mind the EDID between detect
 	   and get modes due to analog/digital/tvencoder */
@@ -464,22 +467,30 @@ radeon_atombios_get_tv_info(struct radeon_device *rdev);
 extern struct drm_connector *
 radeon_get_connector_for_encoder(struct drm_encoder *encoder);
 
+extern bool radeon_encoder_is_dp_bridge(struct drm_encoder *encoder);
+extern bool radeon_connector_encoder_is_dp_bridge(struct drm_connector *connector);
+extern bool radeon_connector_encoder_is_hbr2(struct drm_connector *connector);
+extern bool radeon_connector_is_dp12_capable(struct drm_connector *connector);
+
 extern void radeon_connector_hotplug(struct drm_connector *connector);
-extern bool radeon_dp_needs_link_train(struct radeon_connector *radeon_connector);
-extern int radeon_dp_mode_valid_helper(struct radeon_connector *radeon_connector,
+extern int radeon_dp_mode_valid_helper(struct drm_connector *connector,
 				       struct drm_display_mode *mode);
 extern void radeon_dp_set_link_config(struct drm_connector *connector,
 				      struct drm_display_mode *mode);
-extern void dp_link_train(struct drm_encoder *encoder,
-			  struct drm_connector *connector);
+extern void radeon_dp_link_train(struct drm_encoder *encoder,
+				 struct drm_connector *connector);
+extern bool radeon_dp_needs_link_train(struct radeon_connector *radeon_connector);
 extern u8 radeon_dp_getsinktype(struct radeon_connector *radeon_connector);
 extern bool radeon_dp_getdpcd(struct radeon_connector *radeon_connector);
-extern void atombios_dig_encoder_setup(struct drm_encoder *encoder, int action);
+extern void atombios_dig_encoder_setup(struct drm_encoder *encoder, int action, int panel_mode);
+extern void radeon_atom_encoder_init(struct radeon_device *rdev);
 extern void atombios_dig_transmitter_setup(struct drm_encoder *encoder,
 					   int action, uint8_t lane_num,
 					   uint8_t lane_set);
+extern void radeon_atom_ext_encoder_setup_ddc(struct drm_encoder *encoder);
+extern struct drm_encoder *radeon_atom_get_external_encoder(struct drm_encoder *encoder);
 extern int radeon_dp_i2c_aux_ch(struct i2c_adapter *adapter, int mode,
-				uint8_t write_byte, uint8_t *read_byte);
+				u8 write_byte, u8 *read_byte);
 
 extern void radeon_i2c_init(struct radeon_device *rdev);
 extern void radeon_i2c_fini(struct radeon_device *rdev);
@@ -507,7 +518,8 @@ extern void radeon_i2c_put_byte(struct radeon_i2c_chan *i2c,
 				u8 val);
 extern void radeon_router_select_ddc_port(struct radeon_connector *radeon_connector);
 extern void radeon_router_select_cd_port(struct radeon_connector *radeon_connector);
-extern bool radeon_ddc_probe(struct radeon_connector *radeon_connector);
+extern bool radeon_ddc_probe(struct radeon_connector *radeon_connector,
+			bool requires_extended_probe);
 extern int radeon_ddc_get_modes(struct radeon_connector *radeon_connector);
 
 extern struct drm_encoder *radeon_best_encoder(struct drm_connector *connector);
@@ -545,7 +557,7 @@ struct drm_encoder *radeon_encoder_legacy_tmds_ext_add(struct drm_device *dev, i
 extern void atombios_dvo_setup(struct drm_encoder *encoder, int action);
 extern void atombios_digital_setup(struct drm_encoder *encoder, int action);
 extern int atombios_get_encoder_mode(struct drm_encoder *encoder);
-extern void atombios_set_edp_panel_power(struct drm_connector *connector, int action);
+extern bool atombios_set_edp_panel_power(struct drm_connector *connector, int action);
 extern void radeon_encoder_set_active_device(struct drm_encoder *encoder);
 
 extern void radeon_crtc_load_lut(struct drm_crtc *crtc);

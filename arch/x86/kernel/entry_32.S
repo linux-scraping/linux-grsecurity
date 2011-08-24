@@ -779,8 +779,21 @@ ldt_ss:
 	movl $cpu_gdt_table, %ebx
 #endif
 	shr $16, %edx
+
+#ifdef CONFIG_PAX_KERNEXEC
+	mov %cr0, %esi
+	btr $16, %esi
+	mov %esi, %cr0
+#endif
+
 	mov %dl, 4 + GDT_ESPFIX_SS /* bits 16..23 */
 	mov %dh, 7 + GDT_ESPFIX_SS /* bits 24..31 */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	bts $16, %esi
+	mov %esi, %cr0
+#endif
+
 	pushl_cfi $__ESPFIX_SS
 	pushl_cfi %eax			/* new kernel esp */
 	/* Disable interrupts, but do not irqtrace this section: we

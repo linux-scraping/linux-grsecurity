@@ -6,7 +6,6 @@
 #include <linux/errno.h>
 #include <linux/compiler.h>
 #include <linux/thread_info.h>
-#include <linux/prefetch.h>
 #include <linux/string.h>
 #include <linux/sched.h>
 #include <asm/asm.h>
@@ -628,7 +627,6 @@ extern struct movsl_mask {
 
 #define ARCH_HAS_NOCACHE_UACCESS 1
 
-#define ARCH_HAS_SORT_EXTABLE
 #ifdef CONFIG_X86_32
 # include "uaccess_32.h"
 #else

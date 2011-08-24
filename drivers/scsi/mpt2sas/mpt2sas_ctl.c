@@ -1041,7 +1041,10 @@ _ctl_getiocinfo(void __user *arg)
 	    __func__));
 
 	memset(&karg, 0 , sizeof(karg));
-	karg.adapter_type = MPT2_IOCTL_INTERFACE_SAS2;
+	if (ioc->is_warpdrive)
+		karg.adapter_type = MPT2_IOCTL_INTERFACE_SAS2_SSS6200;
+	else
+		karg.adapter_type = MPT2_IOCTL_INTERFACE_SAS2;
 	if (ioc->pfacts)
 		karg.port_number = ioc->pfacts[0].PortNumber;
 	pci_read_config_byte(ioc->pdev, PCI_CLASS_REVISION, &revision);
@@ -2703,13 +2706,13 @@ static DEVICE_ATTR(ioc_reset_count, S_IRUGO,
     _ctl_ioc_reset_count_show, NULL);
 
 struct DIAG_BUFFER_START {
-	u32 Size;
-	u32 DiagVersion;
+	__le32 Size;
+	__le32 DiagVersion;
 	u8 BufferType;
 	u8 Reserved[3];
-	u32 Reserved1;
-	u32 Reserved2;
-	u32 Reserved3;
+	__le32 Reserved1;
+	__le32 Reserved2;
+	__le32 Reserved3;
 };
 /**
  * _ctl_host_trace_buffer_size_show - host buffer size (trace only)

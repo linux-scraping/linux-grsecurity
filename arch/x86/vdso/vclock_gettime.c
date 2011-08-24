@@ -2,7 +2,7 @@
  * Copyright 2006 Andi Kleen, SUSE Labs.
  * Subject to the GNU Public License, v.2
  *
- * Fast user context implementation of clock_gettime and gettimeofday.
+ * Fast user context implementation of clock_gettime, gettimeofday, and time.
  *
  * The code should have no internal unresolved relocations.
  * Check with readelf after changing.
@@ -22,48 +22,23 @@
 #include <asm/hpet.h>
 #include <asm/unistd.h>
 #include <asm/io.h>
-#include <asm/fixmap.h>
-#include "vextern.h"
 
-#define gtod vdso_vsyscall_gtod_data
-
-notrace noinline long __vdso_fallback_time(long *t)
-{
-	long secs;
-	asm volatile("syscall"
-		: "=a" (secs)
-		: "0" (__NR_time),"D" (t) : "r11", "cx", "memory");
-	return secs;
-}
+#define gtod (&VVAR(vsyscall_gtod_data))
 
 notrace static long vdso_fallback_gettime(long clock, struct timespec *ts)
 {
 	long ret;
 	asm("syscall" : "=a" (ret) :
-	    "0" (__NR_clock_gettime),"D" (clock), "S" (ts) : "r11", "cx", "memory");
+	    "0" (__NR_clock_gettime),"D" (clock), "S" (ts) : "memory");
 	return ret;
-}
-
-notrace static inline cycle_t __vdso_vread_hpet(void)
-{
-	return readl((const void __iomem *)fix_to_virt(VSYSCALL_HPET) + 0xf0);
-}
-
-notrace static inline cycle_t __vdso_vread_tsc(void)
-{
-	cycle_t ret = (cycle_t)vget_cycles();
-
-	return ret >= gtod->clock.cycle_last ? ret : gtod->clock.cycle_last;
 }
 
 notrace static inline long vgetns(void)
 {
 	long v;
-	if (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3])
-		v = __vdso_vread_tsc();
-	else
-		v = __vdso_vread_hpet();
-	v = (v - gtod->clock.cycle_last) & gtod->clock.mask;
+	cycles_t (*vread)(void);
+	vread = gtod->clock.vread;
+	v = (vread() - gtod->clock.cycle_last) & gtod->clock.mask;
 	return (v * gtod->clock.mult) >> gtod->clock.shift;
 }
 
@@ -80,22 +55,6 @@ notrace static noinline int do_realtime(struct timespec *ts)
 	return 0;
 }
 
-/* Copy of the version in kernel/time.c which we cannot directly access */
-notrace static void
-vset_normalized_timespec(struct timespec *ts, long sec, long nsec)
-{
-	while (nsec >= NSEC_PER_SEC) {
-		nsec -= NSEC_PER_SEC;
-		++sec;
-	}
-	while (nsec < 0) {
-		nsec += NSEC_PER_SEC;
-		--sec;
-	}
-	ts->tv_sec = sec;
-	ts->tv_nsec = nsec;
-}
-
 notrace static noinline int do_monotonic(struct timespec *ts)
 {
 	unsigned long seq, ns, secs;
@@ -106,7 +65,17 @@ notrace static noinline int do_monotonic(struct timespec *ts)
 		secs += gtod->wall_to_monotonic.tv_sec;
 		ns += gtod->wall_to_monotonic.tv_nsec;
 	} while (unlikely(read_seqretry(&gtod->lock, seq)));
-	vset_normalized_timespec(ts, secs, ns);
+
+	/* wall_time_nsec, vgetns(), and wall_to_monotonic.tv_nsec
+	 * are all guaranteed to be nonnegative.
+	 */
+	while (ns >= NSEC_PER_SEC) {
+		ns -= NSEC_PER_SEC;
+		++secs;
+	}
+	ts->tv_sec = secs;
+	ts->tv_nsec = ns;
+
 	return 0;
 }
 
@@ -131,15 +100,23 @@ notrace static noinline int do_monotonic_coarse(struct timespec *ts)
 		secs += gtod->wall_to_monotonic.tv_sec;
 		ns += gtod->wall_to_monotonic.tv_nsec;
 	} while (unlikely(read_seqretry(&gtod->lock, seq)));
-	vset_normalized_timespec(ts, secs, ns);
+
+	/* wall_time_nsec and wall_to_monotonic.tv_nsec are
+	 * guaranteed to be between 0 and NSEC_PER_SEC.
+	 */
+	if (ns >= NSEC_PER_SEC) {
+		ns -= NSEC_PER_SEC;
+		++secs;
+	}
+	ts->tv_sec = secs;
+	ts->tv_nsec = ns;
+
 	return 0;
 }
 
 notrace int __vdso_clock_gettime(clockid_t clock, struct timespec *ts)
 {
-	if (likely(gtod->sysctl_enabled &&
-		   ((gtod->clock.name[0] == 'h' && gtod->clock.name[1] == 'p' && gtod->clock.name[2] == 'e' && gtod->clock.name[3] == 't' && !gtod->clock.name[4]) ||
-		    (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3]))))
+	if (likely(gtod->sysctl_enabled))
 		switch (clock) {
 		case CLOCK_REALTIME:
 			if (likely(gtod->clock.vread))
@@ -159,20 +136,10 @@ notrace int __vdso_clock_gettime(clockid_t clock, struct timespec *ts)
 int clock_gettime(clockid_t, struct timespec *)
 	__attribute__((weak, alias("__vdso_clock_gettime")));
 
-notrace noinline int __vdso_fallback_gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	long ret;
-	asm("syscall" : "=a" (ret) :
-	    "0" (__NR_gettimeofday), "D" (tv), "S" (tz) : "r11", "cx", "memory");
-	return ret;
-}
-
 notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
-	if (likely(gtod->sysctl_enabled &&
-		   ((gtod->clock.name[0] == 'h' && gtod->clock.name[1] == 'p' && gtod->clock.name[2] == 'e' && gtod->clock.name[3] == 't' && !gtod->clock.name[4]) ||
-		    (gtod->clock.name[0] == 't' && gtod->clock.name[1] == 's' && gtod->clock.name[2] == 'c' && !gtod->clock.name[3]))))
-	{
+	long ret;
+	if (likely(gtod->sysctl_enabled && gtod->clock.vread)) {
 		if (likely(tv != NULL)) {
 			BUILD_BUG_ON(offsetof(struct timeval, tv_usec) !=
 				     offsetof(struct timespec, tv_nsec) ||
@@ -187,7 +154,38 @@ notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 		}
 		return 0;
 	}
-	return __vdso_fallback_gettimeofday(tv, tz);
+	asm("syscall" : "=a" (ret) :
+	    "0" (__NR_gettimeofday), "D" (tv), "S" (tz) : "memory");
+	return ret;
 }
 int gettimeofday(struct timeval *, struct timezone *)
 	__attribute__((weak, alias("__vdso_gettimeofday")));
+
+/* This will break when the xtime seconds get inaccurate, but that is
+ * unlikely */
+
+static __always_inline long time_syscall(long *t)
+{
+	long secs;
+	asm volatile("syscall"
+		     : "=a" (secs)
+		     : "0" (__NR_time), "D" (t) : "cc", "r11", "cx", "memory");
+	return secs;
+}
+
+notrace time_t __vdso_time(time_t *t)
+{
+	time_t result;
+
+	if (unlikely(!VVAR(vsyscall_gtod_data).sysctl_enabled))
+		return time_syscall(t);
+
+	/* This is atomic on x86_64 so we don't need any locks. */
+	result = ACCESS_ONCE(VVAR(vsyscall_gtod_data).wall_time_sec);
+
+	if (t)
+		*t = result;
+	return result;
+}
+int time(time_t *t)
+	__attribute__((weak, alias("__vdso_time")));

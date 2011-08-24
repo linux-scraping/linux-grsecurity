@@ -156,8 +156,10 @@ static int if_open(struct tty_struct *tty, struct file *filp)
 	if (!cs || !try_module_get(cs->driver->owner))
 		return -ENODEV;
 
-	if (mutex_lock_interruptible(&cs->mutex))
+	if (mutex_lock_interruptible(&cs->mutex)) {
+		module_put(cs->driver->owner);
 		return -ERESTARTSYS;
+	}
 	tty->driver_data = cs;
 
 	if (local_inc_return(&cs->open_count) == 1) {

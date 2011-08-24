@@ -141,7 +141,6 @@ struct iso_resource {
 	int generation;
 	u64 channels;
 	s32 bandwidth;
-	__be32 transaction_data[2];
 	struct iso_resource_event *e_alloc, *e_dealloc;
 };
 
@@ -150,7 +149,7 @@ static void release_iso_resource(struct client *, struct client_resource *);
 static void schedule_iso_resource(struct iso_resource *r, unsigned long delay)
 {
 	client_get(r->client);
-	if (!schedule_delayed_work(&r->work, delay))
+	if (!queue_delayed_work(fw_workqueue, &r->work, delay))
 		client_put(r->client);
 }
 
@@ -254,13 +253,10 @@ static int fw_device_op_open(struct inode *inode, struct file *file)
 	init_waitqueue_head(&client->wait);
 	init_waitqueue_head(&client->tx_flush_wait);
 	INIT_LIST_HEAD(&client->phy_receiver_link);
+	INIT_LIST_HEAD(&client->link);
 	kref_init(&client->kref);
 
 	file->private_data = client;
-
-	mutex_lock(&device->client_list_mutex);
-	list_add_tail(&client->link, &device->client_list);
-	mutex_unlock(&device->client_list_mutex);
 
 	return nonseekable_open(inode, file);
 }
@@ -452,15 +448,20 @@ static int ioctl_get_info(struct client *client, union ioctl_arg *arg)
 	if (ret != 0)
 		return -EFAULT;
 
+	mutex_lock(&client->device->client_list_mutex);
+
 	client->bus_reset_closure = a->bus_reset_closure;
 	if (a->bus_reset != 0) {
 		fill_bus_reset_event(&bus_reset, client);
-		if (copy_to_user(u64_to_uptr(a->bus_reset),
-				 &bus_reset, sizeof(bus_reset)))
-			return -EFAULT;
+		ret = copy_to_user(u64_to_uptr(a->bus_reset),
+				   &bus_reset, sizeof(bus_reset));
 	}
+	if (ret == 0 && list_empty(&client->link))
+		list_add_tail(&client->link, &client->device->client_list);
 
-	return 0;
+	mutex_unlock(&client->device->client_list_mutex);
+
+	return ret ? -EFAULT : 0;
 }
 
 static int add_client_resource(struct client *client,
@@ -1108,6 +1109,7 @@ static int ioctl_queue_iso(struct client *client, union ioctl_arg *arg)
 		payload += u.packet.payload_length;
 		count++;
 	}
+	fw_iso_context_queue_flush(ctx);
 
 	a->size    -= uptr_to_u64(p) - a->packets;
 	a->packets  = uptr_to_u64(p);
@@ -1229,8 +1231,7 @@ static void iso_resource_work(struct work_struct *work)
 			r->channels, &channel, &bandwidth,
 			todo == ISO_RES_ALLOC ||
 			todo == ISO_RES_REALLOC ||
-			todo == ISO_RES_ALLOC_ONCE,
-			r->transaction_data);
+			todo == ISO_RES_ALLOC_ONCE);
 	/*
 	 * Is this generation outdated already?  As long as this resource sticks
 	 * in the idr, it will be scheduled again for a newer generation or at
@@ -1583,7 +1584,7 @@ static int dispatch_ioctl(struct client *client,
 	if (_IOC_TYPE(cmd) != '#' ||
 	    _IOC_NR(cmd) >= ARRAY_SIZE(ioctl_handlers) ||
 	    _IOC_SIZE(cmd) > sizeof(buffer))
-		return -EINVAL;
+		return -ENOTTY;
 
 	if (_IOC_DIR(cmd) == _IOC_READ)
 		memset(&buffer, 0, _IOC_SIZE(cmd));

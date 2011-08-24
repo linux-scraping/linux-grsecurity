@@ -12,6 +12,7 @@
 #include <linux/mmiotrace.h>		/* kmmio_handler, ...		*/
 #include <linux/perf_event.h>		/* perf_sw_event		*/
 #include <linux/hugetlb.h>		/* hstate_index_to_shift	*/
+#include <linux/prefetch.h>		/* prefetchw			*/
 #include <linux/unistd.h>
 #include <linux/compiler.h>
 
@@ -785,14 +786,10 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 
 #ifdef CONFIG_X86_64
 	if (mm && (error_code & PF_INSTR) && mm->context.vdso) {
-		if (regs->ip == (unsigned long)vgettimeofday) {
-			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_gettimeofday);
-			return;
-		} else if (regs->ip == (unsigned long)vtime) {
-			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, fallback_time);
-			return;
-		} else if (regs->ip == (unsigned long)vgetcpu) {
-			regs->ip = (unsigned long)VDSO64_SYMBOL(mm->context.vdso, getcpu);
+		if (regs->ip == VSYSCALL_ADDR(__NR_vgettimeofday) ||
+		    regs->ip == VSYSCALL_ADDR(__NR_vtime) ||
+		    regs->ip == VSYSCALL_ADDR(__NR_vgetcpu)) {
+			regs->ip += mm->context.vdso - PAGE_SIZE - VSYSCALL_START;
 			return;
 		}
 	}
@@ -964,16 +961,30 @@ do_sigbus(struct pt_regs *regs, unsigned long error_code, unsigned long address,
 	force_sig_info_fault(SIGBUS, code, address, tsk, fault);
 }
 
-static noinline void
+static noinline int
 mm_fault_error(struct pt_regs *regs, unsigned long error_code,
 	       unsigned long address, unsigned int fault)
 {
+	/*
+	 * Pagefault was interrupted by SIGKILL. We have no reason to
+	 * continue pagefault.
+	 */
+	if (fatal_signal_pending(current)) {
+		if (!(fault & VM_FAULT_RETRY))
+			up_read(&current->mm->mmap_sem);
+		if (!(error_code & PF_USER))
+			no_context(regs, error_code, address);
+		return 1;
+	}
+	if (!(fault & VM_FAULT_ERROR))
+		return 0;
+
 	if (fault & VM_FAULT_OOM) {
 		/* Kernel mode? Handle exceptions or die: */
 		if (!(error_code & PF_USER)) {
 			up_read(&current->mm->mmap_sem);
 			no_context(regs, error_code, address);
-			return;
+			return 1;
 		}
 
 		out_of_memory(regs, error_code, address);
@@ -984,6 +995,7 @@ mm_fault_error(struct pt_regs *regs, unsigned long error_code,
 		else
 			BUG();
 	}
+	return 1;
 }
 
 static int spurious_fault_check(unsigned long error_code, pte_t *pte)
@@ -1201,7 +1213,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	struct mm_struct *mm;
 	int fault;
 	int write = error_code & PF_WRITE;
-	unsigned int flags = FAULT_FLAG_ALLOW_RETRY |
+	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE |
 					(write ? FAULT_FLAG_WRITE : 0);
 
 	/* Get the faulting address: */
@@ -1395,9 +1407,9 @@ good_area:
 	 */
 	fault = handle_mm_fault(mm, vma, address, flags);
 
-	if (unlikely(fault & VM_FAULT_ERROR)) {
-		mm_fault_error(regs, error_code, address, fault);
-		return;
+	if (unlikely(fault & (VM_FAULT_RETRY|VM_FAULT_ERROR))) {
+		if (mm_fault_error(regs, error_code, address, fault))
+			return;
 	}
 
 	/*

@@ -1070,7 +1070,7 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
 	hdlc_device *hdlc = dev_to_hdlc(frad);
 	pvc_device *pvc;
 	struct net_device *dev;
-	int result, used;
+	int used;
 
 	if ((pvc = add_pvc(frad, dlci)) == NULL) {
 		printk(KERN_WARNING "%s: Memory squeeze on fr_add_pvc()\n",
@@ -1083,9 +1083,10 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
 
 	used = pvc_is_used(pvc);
 
-	if (type == ARPHRD_ETHER)
+	if (type == ARPHRD_ETHER) {
 		dev = alloc_netdev(0, "pvceth%d", ether_setup);
-	else
+		dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+	} else
 		dev = alloc_netdev(0, "pvc%d", pvc_setup);
 
 	if (!dev) {
@@ -1105,13 +1106,6 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
 	dev->mtu = HDLC_MAX_MTU;
 	dev->tx_queue_len = 0;
 	dev->ml_priv = pvc;
-
-	result = dev_alloc_name(dev, dev->name);
-	if (result < 0) {
-		free_netdev(dev);
-		delete_unused_pvcs(hdlc);
-		return result;
-	}
 
 	if (register_netdevice(dev) != 0) {
 		free_netdev(dev);

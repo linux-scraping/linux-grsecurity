@@ -1920,7 +1920,7 @@ static int __core_scsi3_update_aptpl_buf(
 				pr_reg->pr_res_mapped_lun);
 		}
 
-		if ((len + strlen(tmp) > pr_aptpl_buf_len)) {
+		if ((len + strlen(tmp) >= pr_aptpl_buf_len)) {
 			printk(KERN_ERR "Unable to update renaming"
 				" APTPL metadata\n");
 			spin_unlock(&T10_RES(su_dev)->registration_lock);
@@ -1938,7 +1938,7 @@ static int __core_scsi3_update_aptpl_buf(
 			TPG_TFO(tpg)->tpg_get_tag(tpg),
 			lun->lun_sep->sep_rtpi, lun->unpacked_lun, reg_count);
 
-		if ((len + strlen(tmp) > pr_aptpl_buf_len)) {
+		if ((len + strlen(tmp) >= pr_aptpl_buf_len)) {
 			printk(KERN_ERR "Unable to update renaming"
 				" APTPL metadata\n");
 			spin_unlock(&T10_RES(su_dev)->registration_lock);
@@ -1992,7 +1992,7 @@ static int __core_scsi3_write_aptpl_to_file(
 	memset(iov, 0, sizeof(struct iovec));
 	memset(path, 0, 512);
 
-	if (strlen(&wwn->unit_serial[0]) > 512) {
+	if (strlen(&wwn->unit_serial[0]) >= 512) {
 		printk(KERN_ERR "WWN value for struct se_device does not fit"
 			" into path buffer\n");
 		return -1;

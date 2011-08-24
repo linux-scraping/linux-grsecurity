@@ -169,7 +169,7 @@ static unsigned int sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
 	}
 	case htons(ETH_P_IPV6):
 	{
-		struct ipv6hdr *iph;
+		const struct ipv6hdr *iph;
 		int poff;
 
 		if (!pskb_network_may_pull(skb, sizeof(*iph)))
@@ -410,7 +410,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	/* Return Congestion Notification only if we dropped a packet
 	 * from this flow.
 	 */
-	return (qlen != slot->qlen) ? NET_XMIT_CN : NET_XMIT_SUCCESS;
+	if (qlen != slot->qlen)
+		return NET_XMIT_CN;
+
+	/* As we dropped a packet, better let upper stack know this */
+	qdisc_tree_decrease_qlen(sch, 1);
+	return NET_XMIT_SUCCESS;
 }
 
 static struct sk_buff *

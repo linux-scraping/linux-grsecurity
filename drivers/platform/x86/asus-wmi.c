@@ -425,7 +425,7 @@ static void asus_rfkill_hotplug(struct asus_wmi *asus)
 	if (asus->hotplug_slot) {
 		bus = pci_find_bus(0, 1);
 		if (!bus) {
-			pr_warning("Unable to find PCI bus 1?\n");
+			pr_warn("Unable to find PCI bus 1?\n");
 			goto out_unlock;
 		}
 
@@ -436,12 +436,12 @@ static void asus_rfkill_hotplug(struct asus_wmi *asus)
 		absent = (l == 0xffffffff);
 
 		if (blocked != absent) {
-			pr_warning("BIOS says wireless lan is %s, "
-				   "but the pci device is %s\n",
-				   blocked ? "blocked" : "unblocked",
-				   absent ? "absent" : "present");
-			pr_warning("skipped wireless hotplug as probably "
-				   "inappropriate for this model\n");
+			pr_warn("BIOS says wireless lan is %s, "
+				"but the pci device is %s\n",
+				blocked ? "blocked" : "unblocked",
+				absent ? "absent" : "present");
+			pr_warn("skipped wireless hotplug as probably "
+				"inappropriate for this model\n");
 			goto out_unlock;
 		}
 
@@ -500,7 +500,7 @@ static int asus_register_rfkill_notifier(struct asus_wmi *asus, char *node)
 						     ACPI_SYSTEM_NOTIFY,
 						     asus_rfkill_notify, asus);
 		if (ACPI_FAILURE(status))
-			pr_warning("Failed to register notify on %s\n", node);
+			pr_warn("Failed to register notify on %s\n", node);
 	} else
 		return -ENODEV;
 
@@ -797,8 +797,8 @@ exit:
  * Hwmon device
  */
 static ssize_t asus_hwmon_pwm1(struct device *dev,
-			    struct device_attribute *attr,
-			    char *buf)
+			       struct device_attribute *attr,
+			       char *buf)
 {
 	struct asus_wmi *asus = dev_get_drvdata(dev);
 	u32 value;
@@ -809,7 +809,7 @@ static ssize_t asus_hwmon_pwm1(struct device *dev,
 	if (err < 0)
 		return err;
 
-	value |= 0xFF;
+	value &= 0xFF;
 
 	if (value == 1) /* Low Speed */
 		value = 85;
@@ -869,7 +869,7 @@ static mode_t asus_hwmon_sysfs_is_visible(struct kobject *kobj,
 		 * - reverved bits are non-zero
 		 * - sfun and presence bit are not set
 		 */
-		if (value != ASUS_WMI_UNSUPPORTED_METHOD || value & 0xFFF80000
+		if (value == ASUS_WMI_UNSUPPORTED_METHOD || value & 0xFFF80000
 		    || (!asus->sfun && !(value & ASUS_WMI_DSTS_PRESENCE_BIT)))
 			ok = false;
 	}
@@ -904,6 +904,7 @@ static int asus_wmi_hwmon_init(struct asus_wmi *asus)
 		pr_err("Could not register asus hwmon device\n");
 		return PTR_ERR(hwmon);
 	}
+	dev_set_drvdata(hwmon, asus);
 	asus->hwmon_device = hwmon;
 	result = sysfs_create_group(&hwmon->kobj, &hwmon_attribute_group);
 	if (result)
@@ -1025,6 +1026,7 @@ static int asus_wmi_backlight_init(struct asus_wmi *asus)
 		return power;
 
 	memset(&props, 0, sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_PLATFORM;
 	props.max_brightness = max;
 	bd = backlight_device_register(asus->driver->name,
 				       &asus->platform_device->dev, asus,
@@ -1163,14 +1165,18 @@ ASUS_WMI_CREATE_DEVICE_ATTR(cardr, 0644, ASUS_WMI_DEVID_CARDREADER);
 static ssize_t store_cpufv(struct device *dev, struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	int value;
+	int value, rv;
 
 	if (!count || sscanf(buf, "%i", &value) != 1)
 		return -EINVAL;
 	if (value < 0 || value > 2)
 		return -EINVAL;
 
-	return asus_wmi_evaluate_method(ASUS_WMI_METHODID_CFVS, value, 0, NULL);
+	rv = asus_wmi_evaluate_method(ASUS_WMI_METHODID_CFVS, value, 0, NULL);
+	if (rv < 0)
+		return rv;
+
+	return count;
 }
 
 static DEVICE_ATTR(cpufv, S_IRUGO | S_IWUSR, NULL, store_cpufv);
@@ -1583,12 +1589,12 @@ static int asus_wmi_probe(struct platform_device *pdev)
 	int ret;
 
 	if (!wmi_has_guid(ASUS_WMI_MGMT_GUID)) {
-		pr_warning("Management GUID not found\n");
+		pr_warn("Management GUID not found\n");
 		return -ENODEV;
 	}
 
 	if (wdrv->event_guid && !wmi_has_guid(wdrv->event_guid)) {
-		pr_warning("Event GUID not found\n");
+		pr_warn("Event GUID not found\n");
 		return -ENODEV;
 	}
 

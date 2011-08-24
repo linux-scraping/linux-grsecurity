@@ -1023,7 +1023,7 @@ int spi_bus_unlock(struct spi_master *master)
 EXPORT_SYMBOL_GPL(spi_bus_unlock);
 
 /* portable code must never pass more than 32 bytes */
-#define	SPI_BUFSIZ	max(32U,SMP_CACHE_BYTES)
+#define	SPI_BUFSIZ	max(32UL,SMP_CACHE_BYTES)
 
 static u8	*buf;
 
@@ -1047,8 +1047,8 @@ static u8	*buf;
  * spi_{async,sync}() calls with dma-safe buffers.
  */
 int spi_write_then_read(struct spi_device *spi,
-		const u8 *txbuf, unsigned n_tx,
-		u8 *rxbuf, unsigned n_rx)
+		const void *txbuf, unsigned n_tx,
+		void *rxbuf, unsigned n_rx)
 {
 	static DEFINE_MUTEX(lock);
 

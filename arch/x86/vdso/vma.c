@@ -15,31 +15,19 @@
 #include <asm/proto.h>
 #include <asm/vdso.h>
 
-#include "vextern.h"		/* Just for VMAGIC.  */
-#undef VEXTERN
-
-unsigned int __read_mostly vdso_enabled = 1;
-
 extern char vdso_start[], vdso_end[];
 extern unsigned short vdso_sync_cpuid;
+extern char __vsyscall_0;
 
 static struct page **vdso_pages;
+static struct page *vsyscall_page;
 static unsigned vdso_size;
-
-static inline void *var_ref(void *p, char *name)
-{
-	if (*(void **)p != (void *)VMAGIC) {
-		printk("VDSO: variable %s broken\n", name);
-		vdso_enabled = 0;
-	}
-	return p;
-}
 
 static int __init init_vdso_vars(void)
 {
-	int npages = (vdso_end - vdso_start + PAGE_SIZE - 1) / PAGE_SIZE;
-	int i;
-	char *vbase;
+	size_t nbytes = vdso_end - vdso_start;
+	size_t npages = (nbytes + PAGE_SIZE - 1) / PAGE_SIZE;
+	size_t i;
 
 	vdso_size = npages << PAGE_SHIFT;
 	vdso_pages = kmalloc(sizeof(struct page *) * npages, GFP_KERNEL);
@@ -47,33 +35,19 @@ static int __init init_vdso_vars(void)
 		goto oom;
 	for (i = 0; i < npages; i++) {
 		struct page *p;
-		p = alloc_page(GFP_KERNEL);
+		p = alloc_page(GFP_KERNEL | __GFP_ZERO);
 		if (!p)
 			goto oom;
 		vdso_pages[i] = p;
-		copy_page(page_address(p), vdso_start + i*PAGE_SIZE);
+		memcpy(page_address(p), vdso_start + i*PAGE_SIZE, nbytes > PAGE_SIZE ? PAGE_SIZE : nbytes);
+		nbytes -= PAGE_SIZE;
 	}
+	vsyscall_page = pfn_to_page((__pa_symbol(&__vsyscall_0)) >> PAGE_SHIFT);
 
-	vbase = vmap(vdso_pages, npages, 0, PAGE_KERNEL);
-	if (!vbase)
-		goto oom;
-
-	if (memcmp(vbase, ELFMAG, SELFMAG)) {
-		printk("VDSO: I'm broken; not ELF\n");
-		vdso_enabled = 0;
-	}
-
-#define VEXTERN(x) \
-	*(typeof(__ ## x) **) var_ref(VDSO64_SYMBOL(vbase, x), #x) = &__ ## x;
-#include "vextern.h"
-#undef VEXTERN
-	vunmap(vbase);
 	return 0;
 
  oom:
-	printk("Cannot allocate vdso\n");
-	vdso_enabled = 0;
-	return -ENOMEM;
+	panic("Cannot allocate vdso\n");
 }
 subsys_initcall(init_vdso_vars);
 
@@ -107,28 +81,33 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	unsigned long addr;
 	int ret;
 
-	if (!vdso_enabled)
-		return 0;
-
 	down_write(&mm->mmap_sem);
-	addr = vdso_addr(mm->start_stack, vdso_size);
-	addr = get_unmapped_area(NULL, addr, vdso_size, 0, 0);
+	addr = vdso_addr(mm->start_stack, vdso_size + PAGE_SIZE);
+	addr = get_unmapped_area(NULL, addr, vdso_size + PAGE_SIZE, 0, 0);
 	if (IS_ERR_VALUE(addr)) {
 		ret = addr;
 		goto up_fail;
 	}
 
-	current->mm->context.vdso = addr;
+	mm->context.vdso = addr + PAGE_SIZE;
 
-	ret = install_special_mapping(mm, addr, vdso_size,
+	ret = install_special_mapping(mm, addr, PAGE_SIZE,
+				      VM_READ|VM_EXEC|
+				      VM_MAYREAD|VM_MAYEXEC|
+				      VM_ALWAYSDUMP,
+				      &vsyscall_page);
+	if (ret) {
+		mm->context.vdso = 0;
+		goto up_fail;
+	}
+
+	ret = install_special_mapping(mm, addr + PAGE_SIZE, vdso_size,
 				      VM_READ|VM_EXEC|
 				      VM_MAYREAD|VM_MAYWRITE|VM_MAYEXEC|
 				      VM_ALWAYSDUMP,
 				      vdso_pages);
-	if (ret) {
-		current->mm->context.vdso = 0;
-		goto up_fail;
-	}
+	if (ret)
+		mm->context.vdso = 0;
 
 up_fail:
 	up_write(&mm->mmap_sem);

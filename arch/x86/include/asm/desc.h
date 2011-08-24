@@ -5,31 +5,34 @@
 #include <asm/ldt.h>
 #include <asm/mmu.h>
 #include <asm/pgtable.h>
+
 #include <linux/smp.h>
 
-static inline void fill_ldt(struct desc_struct *desc,
-			    const struct user_desc *info)
+static inline void fill_ldt(struct desc_struct *desc, const struct user_desc *info)
 {
-	desc->limit0 = info->limit & 0x0ffff;
-	desc->base0 = info->base_addr & 0x0000ffff;
+	desc->limit0		= info->limit & 0x0ffff;
 
-	desc->base1 = (info->base_addr & 0x00ff0000) >> 16;
-	desc->type = (info->read_exec_only ^ 1) << 1;
-	desc->type |= info->contents << 2;
-	desc->type |= info->seg_not_present ^ 1;
-	desc->s = 1;
-	desc->dpl = 0x3;
-	desc->p = info->seg_not_present ^ 1;
-	desc->limit = (info->limit & 0xf0000) >> 16;
-	desc->avl = info->useable;
-	desc->d = info->seg_32bit;
-	desc->g = info->limit_in_pages;
-	desc->base2 = (info->base_addr & 0xff000000) >> 24;
+	desc->base0		= (info->base_addr & 0x0000ffff);
+	desc->base1		= (info->base_addr & 0x00ff0000) >> 16;
+
+	desc->type		= (info->read_exec_only ^ 1) << 1;
+	desc->type	       |= info->contents << 2;
+	desc->type	       |= info->seg_not_present ^ 1;
+
+	desc->s			= 1;
+	desc->dpl		= 0x3;
+	desc->p			= info->seg_not_present ^ 1;
+	desc->limit		= (info->limit & 0xf0000) >> 16;
+	desc->avl		= info->useable;
+	desc->d			= info->seg_32bit;
+	desc->g			= info->limit_in_pages;
+
+	desc->base2		= (info->base_addr & 0xff000000) >> 24;
 	/*
 	 * Don't allow setting of the lm bit. It is useless anyway
 	 * because 64bit system calls require __USER_CS:
 	 */
-	desc->l = 0;
+	desc->l			= 0;
 }
 
 extern struct desc_ptr idt_descr;
@@ -46,16 +49,16 @@ static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
 static inline void pack_gate(gate_desc *gate, unsigned type, unsigned long func,
 			     unsigned dpl, unsigned ist, unsigned seg)
 {
-	gate->offset_low = PTR_LOW(func);
-	gate->segment = __KERNEL_CS;
-	gate->ist = ist;
-	gate->p = 1;
-	gate->dpl = dpl;
-	gate->zero0 = 0;
-	gate->zero1 = 0;
-	gate->type = type;
-	gate->offset_middle = PTR_MIDDLE(func);
-	gate->offset_high = PTR_HIGH(func);
+	gate->offset_low	= PTR_LOW(func);
+	gate->segment		= __KERNEL_CS;
+	gate->ist		= ist;
+	gate->p			= 1;
+	gate->dpl		= dpl;
+	gate->zero0		= 0;
+	gate->zero1		= 0;
+	gate->type		= type;
+	gate->offset_middle	= PTR_MIDDLE(func);
+	gate->offset_high	= PTR_HIGH(func);
 }
 
 #else
@@ -63,14 +66,14 @@ static inline void pack_gate(gate_desc *gate, unsigned char type,
 			     unsigned long base, unsigned dpl, unsigned flags,
 			     unsigned short seg)
 {
-	gate->gate.offset_low = base;
-	gate->gate.seg = seg;
-	gate->gate.reserved = 0;
-	gate->gate.type = type;
-	gate->gate.s = 0;
-	gate->gate.dpl = dpl;
-	gate->gate.p = 1;
-	gate->gate.offset_high = base >> 16;
+	gate->gate.offset_low	= base;
+	gate->gate.seg		= seg;
+	gate->gate.reserved	= 0;
+	gate->gate.type		= type;
+	gate->gate.s		= 0;
+	gate->gate.dpl		= dpl;
+	gate->gate.p		= 1;
+	gate->gate.offset_high	= base >> 16;
 }
 
 #endif
@@ -78,31 +81,29 @@ static inline void pack_gate(gate_desc *gate, unsigned char type,
 static inline int desc_empty(const void *ptr)
 {
 	const u32 *desc = ptr;
+
 	return !(desc[0] | desc[1]);
 }
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
-#define load_TR_desc() native_load_tr_desc()
-#define load_gdt(dtr) native_load_gdt(dtr)
-#define load_idt(dtr) native_load_idt(dtr)
-#define load_tr(tr) asm volatile("ltr %0"::"m" (tr))
-#define load_ldt(ldt) asm volatile("lldt %0"::"m" (ldt))
+#define load_TR_desc()				native_load_tr_desc()
+#define load_gdt(dtr)				native_load_gdt(dtr)
+#define load_idt(dtr)				native_load_idt(dtr)
+#define load_tr(tr)				asm volatile("ltr %0"::"m" (tr))
+#define load_ldt(ldt)				asm volatile("lldt %0"::"m" (ldt))
 
-#define store_gdt(dtr) native_store_gdt(dtr)
-#define store_idt(dtr) native_store_idt(dtr)
-#define store_tr(tr) (tr = native_store_tr())
+#define store_gdt(dtr)				native_store_gdt(dtr)
+#define store_idt(dtr)				native_store_idt(dtr)
+#define store_tr(tr)				(tr = native_store_tr())
 
-#define load_TLS(t, cpu) native_load_tls(t, cpu)
-#define set_ldt native_set_ldt
+#define load_TLS(t, cpu)			native_load_tls(t, cpu)
+#define set_ldt					native_set_ldt
 
-#define write_ldt_entry(dt, entry, desc)	\
-	native_write_ldt_entry(dt, entry, desc)
-#define write_gdt_entry(dt, entry, desc, type)		\
-	native_write_gdt_entry(dt, entry, desc, type)
-#define write_idt_entry(dt, entry, g)		\
-	native_write_idt_entry(dt, entry, g)
+#define write_ldt_entry(dt, entry, desc)	native_write_ldt_entry(dt, entry, desc)
+#define write_gdt_entry(dt, entry, desc, type)	native_write_gdt_entry(dt, entry, desc, type)
+#define write_idt_entry(dt, entry, g)		native_write_idt_entry(dt, entry, g)
 
 static inline void paravirt_alloc_ldt(struct desc_struct *ldt, unsigned entries)
 {
@@ -115,36 +116,29 @@ static inline void paravirt_free_ldt(struct desc_struct *ldt, unsigned entries)
 
 #define store_ldt(ldt) asm("sldt %0" : "=m"(ldt))
 
-static inline void native_write_idt_entry(gate_desc *idt, int entry,
-					  const gate_desc *gate)
+static inline void native_write_idt_entry(gate_desc *idt, int entry, const gate_desc *gate)
 {
 	pax_open_kernel();
 	memcpy(&idt[entry], gate, sizeof(*gate));
 	pax_close_kernel();
 }
 
-static inline void native_write_ldt_entry(struct desc_struct *ldt, int entry,
-					  const void *desc)
+static inline void native_write_ldt_entry(struct desc_struct *ldt, int entry, const void *desc)
 {
 	pax_open_kernel();
 	memcpy(&ldt[entry], desc, 8);
 	pax_close_kernel();
 }
 
-static inline void native_write_gdt_entry(struct desc_struct *gdt, int entry,
-					  const void *desc, int type)
+static inline void
+native_write_gdt_entry(struct desc_struct *gdt, int entry, const void *desc, int type)
 {
 	unsigned int size;
+
 	switch (type) {
-	case DESC_TSS:
-		size = sizeof(tss_desc);
-		break;
-	case DESC_LDT:
-		size = sizeof(ldt_desc);
-		break;
-	default:
-		size = sizeof(struct desc_struct);
-		break;
+	case DESC_TSS:	size = sizeof(tss_desc);	break;
+	case DESC_LDT:	size = sizeof(ldt_desc);	break;
+	default:	size = sizeof(*gdt);		break;
 	}
 
 	pax_open_kernel();
@@ -164,20 +158,21 @@ static inline void pack_descriptor(struct desc_struct *desc, unsigned long base,
 }
 
 
-static inline void set_tssldt_descriptor(void *d, unsigned long addr,
-					 unsigned type, unsigned size)
+static inline void set_tssldt_descriptor(void *d, unsigned long addr, unsigned type, unsigned size)
 {
 #ifdef CONFIG_X86_64
 	struct ldttss_desc64 *desc = d;
+
 	memset(desc, 0, sizeof(*desc));
-	desc->limit0 = size & 0xFFFF;
-	desc->base0 = PTR_LOW(addr);
-	desc->base1 = PTR_MIDDLE(addr) & 0xFF;
-	desc->type = type;
-	desc->p = 1;
-	desc->limit1 = (size >> 16) & 0xF;
-	desc->base2 = (PTR_MIDDLE(addr) >> 8) & 0xFF;
-	desc->base3 = PTR_HIGH(addr);
+
+	desc->limit0		= size & 0xFFFF;
+	desc->base0		= PTR_LOW(addr);
+	desc->base1		= PTR_MIDDLE(addr) & 0xFF;
+	desc->type		= type;
+	desc->p			= 1;
+	desc->limit1		= (size >> 16) & 0xF;
+	desc->base2		= (PTR_MIDDLE(addr) >> 8) & 0xFF;
+	desc->base3		= PTR_HIGH(addr);
 #else
 	pack_descriptor((struct desc_struct *)d, addr, size, 0x80 | type, 0);
 #endif
@@ -249,14 +244,16 @@ static inline void native_store_idt(struct desc_ptr *dtr)
 static inline unsigned long native_store_tr(void)
 {
 	unsigned long tr;
+
 	asm volatile("str %0":"=r" (tr));
+
 	return tr;
 }
 
 static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
 {
-	unsigned int i;
 	struct desc_struct *gdt = get_cpu_gdt_table(cpu);
+	unsigned int i;
 
 	pax_open_kernel();
 	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++)
@@ -327,6 +324,7 @@ static inline void _set_gate(int gate, unsigned type, const void *addr,
 			     unsigned dpl, unsigned ist, unsigned seg)
 {
 	gate_desc s;
+
 	pack_gate(&s, type, (unsigned long)addr, dpl, ist, seg);
 	/*
 	 * does not need to be atomic because it is only done once at
@@ -357,8 +355,9 @@ static inline void alloc_system_vector(int vector)
 		set_bit(vector, used_vectors);
 		if (first_system_vector > vector)
 			first_system_vector = vector;
-	} else
+	} else {
 		BUG();
+	}
 }
 
 static inline void alloc_intr_gate(unsigned int n, void *addr)
