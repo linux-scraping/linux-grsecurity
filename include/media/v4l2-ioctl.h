@@ -243,6 +243,7 @@ struct v4l2_ioctl_ops {
 	long (*vidioc_default)	       (struct file *file, void *fh,
 					int cmd, void *arg);
 };
+typedef struct v4l2_ioctl_ops __no_const v4l2_ioctl_ops_no_const;
 
 
 /* v4l debugging and diagnostics */

@@ -1518,6 +1518,7 @@ struct file_operations {
 	ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
 	int (*setlease)(struct file *, long, struct file_lock **);
 };
+typedef struct file_operations __no_const file_operations_no_const;
 
 struct inode_operations {
 	int (*create) (struct inode *,struct dentry *,int, struct nameidata *);

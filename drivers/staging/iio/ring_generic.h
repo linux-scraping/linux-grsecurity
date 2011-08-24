@@ -87,7 +87,7 @@ struct iio_ring_access_funcs {
 
 	int (*is_enabled)(struct iio_ring_buffer *ring);
 	int (*enable)(struct iio_ring_buffer *ring);
-};
+} __no_const;
 
 /**
  * struct iio_ring_buffer - general ring buffer structure

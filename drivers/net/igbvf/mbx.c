@@ -331,13 +331,13 @@ s32 e1000_init_mbx_params_vf(struct e1000_hw *hw)
 
 	mbx->size = E1000_VFMAILBOX_SIZE;
 
-	*(void **)&mbx->ops.read = e1000_read_mbx_vf;
-	*(void **)&mbx->ops.write = e1000_write_mbx_vf;
-	*(void **)&mbx->ops.read_posted = e1000_read_posted_mbx;
-	*(void **)&mbx->ops.write_posted = e1000_write_posted_mbx;
-	*(void **)&mbx->ops.check_for_msg = e1000_check_for_msg_vf;
-	*(void **)&mbx->ops.check_for_ack = e1000_check_for_ack_vf;
-	*(void **)&mbx->ops.check_for_rst = e1000_check_for_rst_vf;
+	mbx->ops.read = e1000_read_mbx_vf;
+	mbx->ops.write = e1000_write_mbx_vf;
+	mbx->ops.read_posted = e1000_read_posted_mbx;
+	mbx->ops.write_posted = e1000_write_posted_mbx;
+	mbx->ops.check_for_msg = e1000_check_for_msg_vf;
+	mbx->ops.check_for_ack = e1000_check_for_ack_vf;
+	mbx->ops.check_for_rst = e1000_check_for_rst_vf;
 
 	mbx->stats.msgs_tx = 0;
 	mbx->stats.msgs_rx = 0;

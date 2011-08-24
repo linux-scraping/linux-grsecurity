@@ -32,10 +32,7 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 	pax_open_kernel();
 	pgd = get_cpu_pgd(smp_processor_id());
 	for (i = USER_PGD_PTRS; i < 2 * USER_PGD_PTRS; ++i)
-		if (paravirt_enabled())
-			set_pgd(pgd+i, native_make_pgd(0));
-		else
-			pgd[i] = native_make_pgd(0);
+		set_pgd_batched(pgd+i, native_make_pgd(0));
 	pax_close_kernel();
 #endif
 

@@ -525,7 +525,7 @@ static int patch_ca0110(struct hda_codec *codec)
 	if (err < 0)
 		goto error;
 
-	memcpy((void *)&codec->patch_ops, &ca0110_patch_ops, sizeof(ca0110_patch_ops));
+	codec->patch_ops = ca0110_patch_ops;
 
 	return 0;
 

@@ -39,6 +39,7 @@ extern struct list_head pgd_list;
 
 #ifndef __PAGETABLE_PUD_FOLDED
 #define set_pgd(pgdp, pgd)		native_set_pgd(pgdp, pgd)
+#define set_pgd_batched(pgdp, pgd)	native_set_pgd_batched(pgdp, pgd)
 #define pgd_clear(pgd)			native_pgd_clear(pgd)
 #endif
 

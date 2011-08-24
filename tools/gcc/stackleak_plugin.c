@@ -18,10 +18,13 @@
  * - cloned functions are instrumented twice
  */
 #include "gcc-plugin.h"
-#include "plugin-version.h"
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
+#include "tree-pass.h"
+#include "intl.h"
+#include "plugin-version.h"
 #include "tm.h"
 #include "toplev.h"
 #include "basic-block.h"
@@ -31,9 +34,6 @@
 #include "rtl.h"
 #include "emit-rtl.h"
 #include "function.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "intl.h"
 
 int plugin_is_GPL_compatible;
 

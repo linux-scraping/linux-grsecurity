@@ -294,7 +294,7 @@ ENTRY(pax_enter_kernel_user)
 	mov i*8(%rbx),%rsi
 	mov $0,%sil
 	lea i*8(%rbx),%rdi
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
 	jmp 2f
@@ -354,7 +354,7 @@ ENTRY(pax_exit_kernel_user)
 	mov i*8(%rbx),%rsi
 	mov $0x67,%sil
 	lea i*8(%rbx),%rdi
-	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd)
+	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
 	jmp 2f

@@ -462,6 +462,7 @@ struct pv_mmu_ops pv_mmu_ops __read_only = {
 	.make_pud = PTE_IDENT,
 
 	.set_pgd = native_set_pgd,
+	.set_pgd_batched = native_set_pgd_batched,
 #endif
 #endif /* PAGETABLE_LEVELS >= 3 */
 

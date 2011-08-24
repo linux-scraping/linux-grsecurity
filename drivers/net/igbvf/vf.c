@@ -55,21 +55,21 @@ static s32 e1000_init_mac_params_vf(struct e1000_hw *hw)
 
 	/* Function pointers */
 	/* reset */
-	*(void **)&mac->ops.reset_hw = e1000_reset_hw_vf;
+	mac->ops.reset_hw = e1000_reset_hw_vf;
 	/* hw initialization */
-	*(void **)&mac->ops.init_hw = e1000_init_hw_vf;
+	mac->ops.init_hw = e1000_init_hw_vf;
 	/* check for link */
-	*(void **)&mac->ops.check_for_link = e1000_check_for_link_vf;
+	mac->ops.check_for_link = e1000_check_for_link_vf;
 	/* link info */
-	*(void **)&mac->ops.get_link_up_info = e1000_get_link_up_info_vf;
+	mac->ops.get_link_up_info = e1000_get_link_up_info_vf;
 	/* multicast address update */
-	*(void **)&mac->ops.update_mc_addr_list = e1000_update_mc_addr_list_vf;
+	mac->ops.update_mc_addr_list = e1000_update_mc_addr_list_vf;
 	/* set mac address */
-	*(void **)&mac->ops.rar_set = e1000_rar_set_vf;
+	mac->ops.rar_set = e1000_rar_set_vf;
 	/* read mac address */
-	*(void **)&mac->ops.read_mac_addr = e1000_read_mac_addr_vf;
+	mac->ops.read_mac_addr = e1000_read_mac_addr_vf;
 	/* set vlan filter table array */
-	*(void **)&mac->ops.set_vfta = e1000_set_vfta_vf;
+	mac->ops.set_vfta = e1000_set_vfta_vf;
 
 	return E1000_SUCCESS;
 }
@@ -80,8 +80,8 @@ static s32 e1000_init_mac_params_vf(struct e1000_hw *hw)
  **/
 void e1000_init_function_pointers_vf(struct e1000_hw *hw)
 {
-	*(void **)&hw->mac.ops.init_params = e1000_init_mac_params_vf;
-	*(void **)&hw->mbx.ops.init_params = e1000_init_mbx_params_vf;
+	hw->mac.ops.init_params = e1000_init_mac_params_vf;
+	hw->mbx.ops.init_params = e1000_init_mbx_params_vf;
 }
 
 /**

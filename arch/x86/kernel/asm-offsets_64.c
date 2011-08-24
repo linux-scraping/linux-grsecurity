@@ -74,7 +74,7 @@ int main(void)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	OFFSET(PV_MMU_read_cr3, pv_mmu_ops, read_cr3);
 	OFFSET(PV_MMU_write_cr3, pv_mmu_ops, write_cr3);
-	OFFSET(PV_MMU_set_pgd, pv_mmu_ops, set_pgd);
+	OFFSET(PV_MMU_set_pgd_batched, pv_mmu_ops, set_pgd_batched);
 #endif
 
 #endif

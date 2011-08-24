@@ -1191,7 +1191,7 @@ static int patch_cs420x(struct hda_codec *codec)
 	if (err < 0)
 		goto error;
 
-	memcpy((void *)&codec->patch_ops, &cs_patch_ops, sizeof(cs_patch_ops));
+	codec->patch_ops = cs_patch_ops;
 
 	return 0;
 

@@ -80,6 +80,7 @@ struct snd_pcm_ops {
 	int (*mmap)(struct snd_pcm_substream *substream, struct vm_area_struct *vma);
 	int (*ack)(struct snd_pcm_substream *substream);
 };
+typedef struct snd_pcm_ops __no_const snd_pcm_ops_no_const;
 
 /*
  *

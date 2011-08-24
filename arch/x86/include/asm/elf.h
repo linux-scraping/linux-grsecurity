@@ -328,8 +328,7 @@ do {									\
 
 #define ARCH_DLINFO							\
 do {									\
-	if (vdso_enabled)						\
-		NEW_AUX_ENT(AT_SYSINFO_EHDR, current->mm->context.vdso);\
+	NEW_AUX_ENT(AT_SYSINFO_EHDR, current->mm->context.vdso);	\
 } while (0)
 
 #define AT_SYSINFO		32

@@ -17,8 +17,6 @@
 #include "vextern.h"		/* Just for VMAGIC.  */
 #undef VEXTERN
 
-unsigned int __read_mostly vdso_enabled = 1;
-
 extern char vdso_start[], vdso_end[];
 extern unsigned short vdso_sync_cpuid;
 
@@ -27,10 +25,8 @@ static unsigned vdso_size;
 
 static inline void *var_ref(void *p, char *name)
 {
-	if (*(void **)p != (void *)VMAGIC) {
-		printk("VDSO: variable %s broken\n", name);
-		vdso_enabled = 0;
-	}
+	if (*(void **)p != (void *)VMAGIC)
+		panic("VDSO: variable %s broken\n", name);
 	return p;
 }
 
@@ -57,10 +53,8 @@ static int __init init_vdso_vars(void)
 	if (!vbase)
 		goto oom;
 
-	if (memcmp(vbase, ELFMAG, SELFMAG)) {
-		printk("VDSO: I'm broken; not ELF\n");
-		vdso_enabled = 0;
-	}
+	if (memcmp(vbase, ELFMAG, SELFMAG))
+		panic("VDSO: I'm broken; not ELF\n");
 
 #define VEXTERN(x) \
 	*(typeof(__ ## x) **) var_ref(VDSO64_SYMBOL(vbase, x), #x) = &__ ## x;
@@ -70,9 +64,7 @@ static int __init init_vdso_vars(void)
 	return 0;
 
  oom:
-	printk("Cannot allocate vdso\n");
-	vdso_enabled = 0;
-	return -ENOMEM;
+	panic("Cannot allocate vdso\n");
 }
 __initcall(init_vdso_vars);
 
@@ -105,9 +97,6 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	struct mm_struct *mm = current->mm;
 	unsigned long addr;
 	int ret;
-
-	if (!vdso_enabled)
-		return 0;
 
 	down_write(&mm->mmap_sem);
 	addr = vdso_addr(mm->start_stack, vdso_size);

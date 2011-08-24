@@ -374,7 +374,7 @@ struct usbip_device {
 		void (*shutdown)(struct usbip_device *);
 		void (*reset)(struct usbip_device *);
 		void (*unusable)(struct usbip_device *);
-	} eh_ops;
+	} __no_const eh_ops;
 };
 
 

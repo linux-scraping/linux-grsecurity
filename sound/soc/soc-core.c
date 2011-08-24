@@ -609,7 +609,7 @@ static int soc_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 /* ASoC PCM operations */
-static struct snd_pcm_ops soc_pcm_ops = {
+static snd_pcm_ops_no_const soc_pcm_ops = {
 	.open		= soc_pcm_open,
 	.close		= soc_codec_close,
 	.hw_params	= soc_pcm_hw_params,
@@ -1107,13 +1107,13 @@ static int soc_new_pcm(struct snd_soc_device *socdev,
 
 	dai_link->pcm = pcm;
 	pcm->private_data = rtd;
-	*(void **)&soc_pcm_ops.mmap = platform->pcm_ops->mmap;
-	*(void **)&soc_pcm_ops.pointer = platform->pcm_ops->pointer;
-	*(void **)&soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
-	*(void **)&soc_pcm_ops.copy = platform->pcm_ops->copy;
-	*(void **)&soc_pcm_ops.silence = platform->pcm_ops->silence;
-	*(void **)&soc_pcm_ops.ack = platform->pcm_ops->ack;
-	*(void **)&soc_pcm_ops.page = platform->pcm_ops->page;
+	soc_pcm_ops.mmap = platform->pcm_ops->mmap;
+	soc_pcm_ops.pointer = platform->pcm_ops->pointer;
+	soc_pcm_ops.ioctl = platform->pcm_ops->ioctl;
+	soc_pcm_ops.copy = platform->pcm_ops->copy;
+	soc_pcm_ops.silence = platform->pcm_ops->silence;
+	soc_pcm_ops.ack = platform->pcm_ops->ack;
+	soc_pcm_ops.page = platform->pcm_ops->page;
 
 	if (playback)
 		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &soc_pcm_ops);

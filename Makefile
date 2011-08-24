@@ -379,9 +379,10 @@ export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exc
 # Rules shared between *config targets and build targets
 
 # Basic helpers built in scripts/
-PHONY += scripts_basic gcc-plugins
-scripts_basic: gcc-plugins
+PHONY += scripts_basic0 scripts_basic gcc-plugins
+scripts_basic0:
 	$(Q)$(MAKE) $(build)=scripts/basic
+scripts_basic: scripts_basic0 gcc-plugins
 
 # To avoid any implicit rule to kick in, define an empty command.
 scripts/basic/%: scripts_basic ;
@@ -1264,7 +1265,7 @@ distclean: mrproper
 	@find $(srctree) $(RCS_FIND_IGNORE) \
 		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
-		-o -name '.*.rej' -o -size 0 \
+		-o -name '.*.rej' -o -size 0 -o -name '*.so' \
 		-o -name '*%' -o -name '.*.cmd' -o -name 'core' \) \
 		-type f -print | xargs rm -f
 

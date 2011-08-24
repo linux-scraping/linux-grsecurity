@@ -32,6 +32,7 @@ struct seq_operations {
 	void * (*next) (struct seq_file *m, void *v, loff_t *pos);
 	int (*show) (struct seq_file *m, void *v);
 };
+typedef struct seq_operations __no_const seq_operations_no_const;
 
 #define SEQ_SKIP 1
 

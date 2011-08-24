@@ -637,6 +637,7 @@ struct net_device_ops {
 						     u16 xid);
 #endif
 };
+typedef struct net_device_ops __no_const net_device_ops_no_const;
 
 /*
  *	The DEVICE structure.

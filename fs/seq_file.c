@@ -555,14 +555,14 @@ static void single_stop(struct seq_file *p, void *v)
 int single_open(struct file *file, int (*show)(struct seq_file *, void *),
 		void *data)
 {
-	struct seq_operations *op = kmalloc(sizeof(*op), GFP_KERNEL);
+	seq_operations_no_const *op = kmalloc(sizeof(*op), GFP_KERNEL);
 	int res = -ENOMEM;
 
 	if (op) {
-		*(void **)&op->start = single_start;
-		*(void **)&op->next = single_next;
-		*(void **)&op->stop = single_stop;
-		*(void **)&op->show = show;
+		op->start = single_start;
+		op->next = single_next;
+		op->stop = single_stop;
+		op->show = show;
 		res = seq_open(file, op);
 		if (!res)
 			((struct seq_file *)file->private_data)->private = data;

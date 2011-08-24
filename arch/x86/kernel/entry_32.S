@@ -799,8 +799,21 @@ ldt_ss:
 	movl $cpu_gdt_table, %ebx
 #endif
 	shr $16, %edx
+
+#ifdef CONFIG_PAX_KERNEXEC
+	mov %cr0, %esi
+	btr $16, %esi
+	mov %esi, %cr0
+#endif
+
 	mov %dl, GDT_ENTRY_ESPFIX_SS * 8 + 4(%ebx) /* bits 16..23 */
 	mov %dh, GDT_ENTRY_ESPFIX_SS * 8 + 7(%ebx) /* bits 24..31 */
+
+#ifdef CONFIG_PAX_KERNEXEC
+	bts $16, %esi
+	mov %esi, %cr0
+#endif
+
 	pushl $__ESPFIX_SS
 	CFI_ADJUST_CFA_OFFSET 4
 	push %eax			/* new kernel esp */

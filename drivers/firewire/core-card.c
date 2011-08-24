@@ -558,7 +558,7 @@ void fw_card_release(struct kref *kref)
 
 void fw_core_remove_card(struct fw_card *card)
 {
-	struct fw_card_driver dummy_driver = dummy_driver_template;
+	fw_card_driver_no_const dummy_driver = dummy_driver_template;
 
 	card->driver->update_phy_reg(card, 4,
 				     PHY_LINK_ACTIVE | PHY_CONTENDER, 0);
@@ -569,10 +569,8 @@ void fw_core_remove_card(struct fw_card *card)
 	mutex_unlock(&card_mutex);
 
 	/* Switch off most of the card driver interface. */
-	pax_open_kernel();
-	*(void **)&dummy_driver.free_iso_context	= card->driver->free_iso_context;
-	*(void **)&dummy_driver.stop_iso		= card->driver->stop_iso;
-	pax_close_kernel();
+	dummy_driver.free_iso_context	= card->driver->free_iso_context;
+	dummy_driver.stop_iso		= card->driver->stop_iso;
 	card->driver = &dummy_driver;
 
 	fw_destroy_nodes(card);
