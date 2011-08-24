@@ -22,26 +22,30 @@
 #include "function.h"
 #include "tree-flow.h"
 #include "plugin.h"
+//#include "c-tree.h"
+
+#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1 (TYPE)
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "20110817",
+	.version	= "20110824",
 	.help		= "no-constify\tturn off constification\n",
 };
 
 static bool walk_struct(tree node);
 
-static void deconstify_node(tree node)
+static void deconstify_node(tree type)
 {
 	tree field;
 
-	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
+	C_TYPE_FIELDS_READONLY(type) = 0;
+	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
 		enum tree_code code = TREE_CODE(TREE_TYPE(field));
 		if (code == RECORD_TYPE || code == UNION_TYPE)
 			deconstify_node(TREE_TYPE(field));
 		TREE_READONLY(field) = 0;
-		TREE_READONLY(TREE_TYPE(field)) = 0;
+		TYPE_READONLY(TREE_TYPE(field)) = 0;
 	}
 }
 
@@ -80,7 +84,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	if (TREE_CODE(*node) == TYPE_DECL && !TREE_READONLY(type)) {
+	if (TREE_CODE(*node) == TYPE_DECL && !TYPE_READONLY(type)) {
 		error("%qE attribute used on type that is not constified", name);
 		return NULL_TREE;
 	}
@@ -157,9 +161,6 @@ static void finish_type(void *event_data, void *data)
 	if (TREE_READONLY(node))
 		return;
 
-	if (TYPE_FIELDS(node) == NULL_TREE)
-		return;
-
 	if (walk_struct(node))
 		constify_node(node);
 }
@@ -189,10 +190,10 @@ static unsigned int check_local_variables(void)
 	tree var;
 	referenced_var_iterator rvi;
 
-#if __GNUC_MINOR__ >= 6
-	FOR_EACH_REFERENCED_VAR(cfun, var, rvi) {
-#else
+#if __GNUC__ == 4 && __GNUC_MINOR__ == 5
 	FOR_EACH_REFERENCED_VAR(var, rvi) {
+#else
+	FOR_EACH_REFERENCED_VAR(cfun, var, rvi) {
 #endif
 		tree type = TREE_TYPE(var);
 
@@ -202,7 +203,7 @@ static unsigned int check_local_variables(void)
 		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
 			continue;
 
-		if (!TREE_READONLY(type))
+		if (!TYPE_READONLY(type))
 			continue;
 
 //		if (lookup_attribute("no_const", DECL_ATTRIBUTES(var)))

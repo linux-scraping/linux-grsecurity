@@ -1865,6 +1865,7 @@ static __init void xen_post_allocator_init(void)
 	pv_mmu_ops.set_pud = xen_set_pud;
 #if PAGETABLE_LEVELS == 4
 	pv_mmu_ops.set_pgd = xen_set_pgd;
+	pv_mmu_ops.set_pgd_batched = xen_set_pgd;
 #endif
 
 	/* This will work as long as patching hasn't happened yet
@@ -1951,6 +1952,7 @@ static const struct pv_mmu_ops xen_mmu_ops __initdata = {
 	.pud_val = PV_CALLEE_SAVE(xen_pud_val),
 	.make_pud = PV_CALLEE_SAVE(xen_make_pud),
 	.set_pgd = xen_set_pgd_hyper,
+	.set_pgd_batched = xen_set_pgd_hyper,
 
 	.alloc_pud = xen_alloc_pmd_init,
 	.release_pud = xen_release_pmd_init,
