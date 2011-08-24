@@ -68,12 +68,12 @@ struct dvb_demux_feed {
 	union {
 		struct dmx_ts_feed ts;
 		struct dmx_section_feed sec;
-	} feed;
+	} __no_const feed;
 
 	union {
 		dmx_ts_cb ts;
 		dmx_section_cb sec;
-	} cb;
+	} __no_const cb;
 
 	struct dvb_demux *demux;
 	void *priv;

@@ -97,7 +97,7 @@
 #define DIBUSB_IOCTL_CMD_DISABLE_STREAM	0x02
 
 struct dibusb_state {
-	struct dib_fe_xfer_ops ops;
+	dib_fe_xfer_ops_no_const ops;
 	int mt2060_present;
 	u8 tuner_addr;
 };

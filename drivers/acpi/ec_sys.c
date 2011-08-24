@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/acpi.h>
 #include <linux/debugfs.h>
+#include <asm/uaccess.h>
 #include "internal.h"
 
 MODULE_AUTHOR("Thomas Renninger <trenn@suse.de>");
@@ -39,7 +40,7 @@ static ssize_t acpi_ec_read_io(struct file *f, char __user *buf,
 	 * struct acpi_ec *ec = ((struct seq_file *)f->private_data)->private;
 	 */
 	unsigned int size = EC_SPACE_SIZE;
-	u8 *data = (u8 *) buf;
+	u8 data;
 	loff_t init_off = *off;
 	int err = 0;
 
@@ -52,9 +53,11 @@ static ssize_t acpi_ec_read_io(struct file *f, char __user *buf,
 		size = count;
 
 	while (size) {
-		err = ec_read(*off, &data[*off - init_off]);
+		err = ec_read(*off, &data);
 		if (err)
 			return err;
+		if (put_user(data, &buf[*off - init_off]))
+			return -EFAULT;
 		*off += 1;
 		size--;
 	}
@@ -70,7 +73,6 @@ static ssize_t acpi_ec_write_io(struct file *f, const char __user *buf,
 
 	unsigned int size = count;
 	loff_t init_off = *off;
-	u8 *data = (u8 *) buf;
 	int err = 0;
 
 	if (*off >= EC_SPACE_SIZE)
@@ -81,7 +83,9 @@ static ssize_t acpi_ec_write_io(struct file *f, const char __user *buf,
 	}
 
 	while (size) {
-		u8 byte_write = data[*off - init_off];
+		u8 byte_write;
+		if (get_user(byte_write, &buf[*off - init_off]))
+			return -EFAULT;
 		err = ec_write(*off, byte_write);
 		if (err)
 			return err;

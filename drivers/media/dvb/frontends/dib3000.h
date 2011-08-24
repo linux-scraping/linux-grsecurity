@@ -40,10 +40,11 @@ struct dib_fe_xfer_ops
 	int (*pid_ctrl)(struct dvb_frontend *fe, int index, int pid, int onoff);
 	int (*tuner_pass_ctrl)(struct dvb_frontend *fe, int onoff, u8 pll_ctrl);
 };
+typedef struct dib_fe_xfer_ops __no_const dib_fe_xfer_ops_no_const;
 
 #if defined(CONFIG_DVB_DIB3000MB) || (defined(CONFIG_DVB_DIB3000MB_MODULE) && defined(MODULE))
 extern struct dvb_frontend* dib3000mb_attach(const struct dib3000_config* config,
-					     struct i2c_adapter* i2c, struct dib_fe_xfer_ops *xfer_ops);
+					     struct i2c_adapter* i2c, dib_fe_xfer_ops_no_const *xfer_ops);
 #else
 static inline struct dvb_frontend* dib3000mb_attach(const struct dib3000_config* config,
 					     struct i2c_adapter* i2c, struct dib_fe_xfer_ops *xfer_ops)

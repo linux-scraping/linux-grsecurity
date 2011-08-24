@@ -95,7 +95,7 @@ struct su3000_state {
 
 struct s6x0_state {
 	int (*old_set_voltage)(struct dvb_frontend *f, fe_sec_voltage_t v);
-};
+} __no_const;
 
 /* debug */
 static int dvb_usb_dw2102_debug;

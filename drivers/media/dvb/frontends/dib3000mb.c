@@ -756,7 +756,7 @@ static int dib3000mb_tuner_pass_ctrl(struct dvb_frontend *fe, int onoff, u8 pll_
 static struct dvb_frontend_ops dib3000mb_ops;
 
 struct dvb_frontend* dib3000mb_attach(const struct dib3000_config* config,
-				      struct i2c_adapter* i2c, struct dib_fe_xfer_ops *xfer_ops)
+				      struct i2c_adapter* i2c, dib_fe_xfer_ops_no_const *xfer_ops)
 {
 	struct dib3000_state* state = NULL;
 
