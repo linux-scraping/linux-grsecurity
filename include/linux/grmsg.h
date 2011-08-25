@@ -31,7 +31,6 @@
 #define GR_RENAME_ACL_MSG "%s rename of %.480s to %.480s by "
 #define GR_UNSAFESHARE_EXEC_ACL_MSG "denied exec with cloned fs of %.950s by "
 #define GR_PTRACE_EXEC_ACL_MSG "denied ptrace of %.950s by "
-#define GR_NPROC_MSG "denied overstep of process limit by "
 #define GR_EXEC_ACL_MSG "%s execution of %.950s by "
 #define GR_EXEC_TPE_MSG "denied untrusted exec of %.950s by "
 #define GR_SEGVSTART_ACL_MSG "possible exploit bruteforcing on " DEFAULTSECMSG " banning uid %u from login for %lu seconds"

@@ -61,15 +61,6 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
-#ifdef CONFIG_GRKERNSEC_EXECVE
-	{
-		.procname	= "execve_limiting",
-		.data		= &grsec_enable_execve,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
 #ifdef CONFIG_GRKERNSEC_BLACKHOLE
 	{
 		.procname	= "ip_blackhole",

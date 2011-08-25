@@ -16,21 +16,6 @@ static char gr_exec_arg_buf[132];
 static DEFINE_MUTEX(gr_exec_arg_mutex);
 #endif
 
-int
-gr_handle_nproc(void)
-{
-#ifdef CONFIG_GRKERNSEC_EXECVE
-	const struct cred *cred = current_cred();
-	if (grsec_enable_execve && cred->user &&
-	    (atomic_read(&cred->user->processes) > rlimit(RLIMIT_NPROC)) &&
-	    !capable(CAP_SYS_ADMIN) && !capable(CAP_SYS_RESOURCE)) {
-		gr_log_noargs(GR_DONT_AUDIT, GR_NPROC_MSG);
-		return -EAGAIN;
-	}
-#endif
-	return 0;
-}
-
 extern const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr);
 
 void

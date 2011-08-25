@@ -911,8 +911,8 @@ GLOBAL_EXTERN atomic_t tconInfoReconnectCount;
 /* Various Debug counters */
 GLOBAL_EXTERN atomic_t bufAllocCount;    /* current number allocated  */
 #ifdef CONFIG_CIFS_STATS2
-GLOBAL_EXTERN atomic_t totBufAllocCount; /* total allocated over all time */
-GLOBAL_EXTERN atomic_t totSmBufAllocCount;
+GLOBAL_EXTERN atomic_unchecked_t totBufAllocCount; /* total allocated over all time */
+GLOBAL_EXTERN atomic_unchecked_t totSmBufAllocCount;
 #endif
 GLOBAL_EXTERN atomic_t smBufAllocCount;
 GLOBAL_EXTERN atomic_t midCount;

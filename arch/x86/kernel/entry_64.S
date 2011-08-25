@@ -270,9 +270,6 @@ ENDPROC(pax_exit_kernel)
 	call pax_randomize_kstack
 	pop %rax
 #endif
-#ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call pax_erase_kstack
-#endif
 	.endm
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
@@ -418,6 +415,12 @@ ENTRY(pax_erase_kstack)
 2:	cld
 	mov %esp, %ecx
 	sub %edi, %ecx
+
+	cmp $THREAD_SIZE_asm, %rcx
+	jb 3f
+	ud2
+3:
+
 	shr $3, %ecx
 	rep stosq
 
@@ -758,6 +761,7 @@ sysret_check:
 	jnz  sysret_careful
 	CFI_REMEMBER_STATE
 	pax_exit_kernel_user
+	pax_erase_kstack
 	/*
 	 * sysretq will re-enable interrupts:
 	 */
@@ -1120,6 +1124,7 @@ retint_swapgs:		/* return to user-space */
 	 */
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	pax_exit_kernel_user
+	pax_erase_kstack
 	TRACE_IRQS_IRETQ
 	SWAPGS
 	jmp restore_args

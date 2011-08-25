@@ -111,9 +111,6 @@ ENDPROC(native_irq_enable_sysexit)
 	call pax_randomize_kstack
 	popq %rax
 #endif
-#ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call pax_erase_kstack
-#endif
 	.endm
 
 	.macro pax_erase_kstack
@@ -203,6 +200,7 @@ sysenter_dispatch:
 	jnz	sysexit_audit
 sysexit_from_sys_call:
 	pax_exit_kernel_user
+	pax_erase_kstack
 	andl    $~TS_COMPAT,TI_status(%r10)
 	/* clear IF, that popfq doesn't enable interrupts early */
 	andl  $~0x200,EFLAGS-R11(%rsp) 
@@ -380,6 +378,7 @@ cstar_dispatch:
 	jnz sysretl_audit
 sysretl_from_sys_call:
 	pax_exit_kernel_user
+	pax_erase_kstack
 	andl $~TS_COMPAT,TI_status(%r10)
 	RESTORE_ARGS 1,-ARG_SKIP,1,1,1
 	movl RIP-ARGOFFSET(%rsp),%ecx
