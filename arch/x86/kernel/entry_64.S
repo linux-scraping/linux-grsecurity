@@ -390,6 +390,7 @@ ENDPROC(pax_exit_kernel_user)
 ENTRY(pax_erase_kstack)
 	pushq %rdi
 	pushq %rax
+	pushq %r10
 
 	GET_THREAD_INFO(%r10)
 	mov TI_lowest_stack(%r10), %rdi
@@ -426,6 +427,7 @@ ENTRY(pax_erase_kstack)
 	sub $256, %rdi
 	mov %rdi, TI_lowest_stack(%r10)
 
+	popq %r10
 	popq %rax
 	popq %rdi
 	ret

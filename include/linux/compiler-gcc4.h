@@ -42,7 +42,10 @@
 #define __bos1(ptr)		__bos((ptr), 1)
 
 #if __GNUC_MINOR__ >= 5
+#ifdef CONSTIFY_PLUGIN
 #define __no_const __attribute__((no_const))
+#define __do_const __attribute__((do_const))
+#endif
 #endif
 
 #endif

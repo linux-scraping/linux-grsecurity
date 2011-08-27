@@ -883,8 +883,8 @@ struct ata_port_operations {
 	 * ->inherits must be the last field and all the preceding
 	 * fields must be pointers.
 	 */
-	const struct ata_port_operations * const inherits;
-};
+	const struct ata_port_operations	*inherits;
+} __do_const;
 
 struct ata_port_info {
 	unsigned long		flags;

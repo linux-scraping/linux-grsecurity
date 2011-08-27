@@ -1491,7 +1491,7 @@ struct block_device_operations;
  * can be called without the big kernel lock held in all filesystems.
  */
 struct file_operations {
-	struct module * const owner;
+	struct module *owner;
 	loff_t (*llseek) (struct file *, loff_t, int);
 	ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
 	ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
@@ -1517,7 +1517,7 @@ struct file_operations {
 	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *, loff_t *, size_t, unsigned int);
 	ssize_t (*splice_read)(struct file *, loff_t *, struct pipe_inode_info *, size_t, unsigned int);
 	int (*setlease)(struct file *, long, struct file_lock **);
-};
+} __do_const;
 typedef struct file_operations __no_const file_operations_no_const;
 
 struct inode_operations {

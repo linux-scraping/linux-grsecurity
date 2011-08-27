@@ -1265,20 +1265,20 @@ static inline int blk_integrity_rq(struct request *rq)
 #endif /* CONFIG_BLK_DEV_INTEGRITY */
 
 struct block_device_operations {
-	int (* const open) (struct block_device *, fmode_t);
-	int (* const release) (struct gendisk *, fmode_t);
-	int (* const locked_ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
-	int (* const ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
-	int (* const compat_ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
-	int (* const direct_access) (struct block_device *, sector_t,
+	int (*open) (struct block_device *, fmode_t);
+	int (*release) (struct gendisk *, fmode_t);
+	int (*locked_ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
+	int (*ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
+	int (*compat_ioctl) (struct block_device *, fmode_t, unsigned, unsigned long);
+	int (*direct_access) (struct block_device *, sector_t,
 						void **, unsigned long *);
-	int (* const media_changed) (struct gendisk *);
-	unsigned long long (* const set_capacity) (struct gendisk *,
+	int (*media_changed) (struct gendisk *);
+	unsigned long long (*set_capacity) (struct gendisk *,
 						unsigned long long);
-	int (* const revalidate_disk) (struct gendisk *);
-	int (*const getgeo)(struct block_device *, struct hd_geometry *);
-	struct module * const owner;
-};
+	int (*revalidate_disk) (struct gendisk *);
+	int (*getgeo)(struct block_device *, struct hd_geometry *);
+	struct module *owner;
+} __do_const;
 
 extern int __blkdev_driver_ioctl(struct block_device *, fmode_t, unsigned int,
 				 unsigned long);
