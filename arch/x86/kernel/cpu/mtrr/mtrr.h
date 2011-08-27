@@ -12,8 +12,8 @@
 extern unsigned int mtrr_usage_table[MTRR_MAX_VAR_RANGES];
 
 struct mtrr_ops {
-	const u32	vendor;
-	const u32	use_intel_if;
+	u32	vendor;
+	u32	use_intel_if;
 	void	(*set)(unsigned int reg, unsigned long base,
 		       unsigned long size, mtrr_type type);
 	void	(*set_all)(void);
@@ -25,7 +25,7 @@ struct mtrr_ops {
 	int	(*validate_add_page)(unsigned long base, unsigned long size,
 				     unsigned int type);
 	int	(*have_wrcomb)(void);
-};
+} __do_const;
 
 extern int generic_get_free_region(unsigned long base, unsigned long size,
 				   int replace_reg);

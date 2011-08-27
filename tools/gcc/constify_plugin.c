@@ -24,29 +24,29 @@
 #include "plugin.h"
 //#include "c-tree.h"
 
-#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1 (TYPE)
+#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "20110824",
+	.version	= "20110826",
 	.help		= "no-constify\tturn off constification\n",
 };
 
+static void constify_type(tree type);
 static bool walk_struct(tree node);
 
-static void deconstify_node(tree type)
+static tree deconstify_type(tree old_type)
 {
-	tree field;
+	tree new_type, field;
 
-	C_TYPE_FIELDS_READONLY(type) = 0;
-	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-		enum tree_code code = TREE_CODE(TREE_TYPE(field));
-		if (code == RECORD_TYPE || code == UNION_TYPE)
-			deconstify_node(TREE_TYPE(field));
-		TREE_READONLY(field) = 0;
-		TYPE_READONLY(TREE_TYPE(field)) = 0;
-	}
+	new_type = build_qualified_type(old_type, TYPE_QUALS(old_type) & ~TYPE_QUAL_CONST);
+	TYPE_FIELDS(new_type) = copy_list(TYPE_FIELDS(new_type));
+	for (field = TYPE_FIELDS(new_type); field; field = TREE_CHAIN(field))
+		DECL_FIELD_CONTEXT(field) = new_type;
+	TYPE_READONLY(new_type) = 0;
+	C_TYPE_FIELDS_READONLY(new_type) = 0;
+	return new_type;
 }
 
 static tree handle_no_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
@@ -64,7 +64,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	if (!DECL_P(*node)) {
+	if (TYPE_P(*node)) {
 		if (TREE_CODE(*node) == RECORD_TYPE || TREE_CODE(*node) == UNION_TYPE)
 			*no_add_attrs = false;
 		else
@@ -79,7 +79,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type))) {
+	if (lookup_attribute(IDENTIFIER_POINTER(name), TYPE_ATTRIBUTES(type))) {
 		error("%qE attribute is already applied to the type", name);
 		return NULL_TREE;
 	}
@@ -90,12 +90,29 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	}
 
 	if (TREE_CODE(*node) == TYPE_DECL) {
-		TREE_TYPE(*node) = build_qualified_type(type, TYPE_QUALS(type) & ~TYPE_QUAL_CONST);
-		TYPE_FIELDS(TREE_TYPE(*node)) = copy_list(TYPE_FIELDS(TREE_TYPE(*node)));
-		deconstify_node(TREE_TYPE(*node));
+		TREE_TYPE(*node) = deconstify_type(type);
+		TREE_READONLY(*node) = 0;
 		return NULL_TREE;
 	}
 
+	return NULL_TREE;
+}
+
+static tree handle_do_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
+{
+	*no_add_attrs = true;
+	if (!TYPE_P(*node)) {
+		error("%qE attribute applies to types only", name);
+		return NULL_TREE;
+	}
+
+	if (TREE_CODE(*node) != RECORD_TYPE && TREE_CODE(*node) != UNION_TYPE) {
+		error("%qE attribute applies to struct and union types only", name);
+		return NULL_TREE;
+	}
+
+	*no_add_attrs = false;
+	constify_type(*node);
 	return NULL_TREE;
 }
 
@@ -109,14 +126,26 @@ static struct attribute_spec no_const_attr = {
 	.handler		= handle_no_const_attribute
 };
 
+static struct attribute_spec do_const_attr = {
+	.name			= "do_const",
+	.min_length		= 0,
+	.max_length		= 0,
+	.decl_required		= false,
+	.type_required		= false,
+	.function_type_required	= false,
+	.handler		= handle_do_const_attribute
+};
+
 static void register_attributes(void *event_data, void *data)
 {
 	register_attribute(&no_const_attr);
+	register_attribute(&do_const_attr);
 }
 
-static void constify_node(tree node)
+static void constify_type(tree type)
 {
-	TREE_READONLY(node) = 1;
+	TYPE_READONLY(type) = 1;
+	C_TYPE_FIELDS_READONLY(type) = 1;
 }
 
 static bool is_fptr(tree field)
@@ -145,7 +174,7 @@ static bool walk_struct(tree node)
 		if (code == RECORD_TYPE || code == UNION_TYPE) {
 			if (!(walk_struct(type)))
 				return false;
-		} else if (is_fptr(field) == false && !TREE_READONLY(field))
+		} else if (!is_fptr(field) && !TREE_READONLY(field))
 			return false;
 	}
 	return true;
@@ -153,16 +182,16 @@ static bool walk_struct(tree node)
 
 static void finish_type(void *event_data, void *data)
 {
-	tree node = (tree)event_data;
+	tree type = (tree)event_data;
 
-	if (node == NULL_TREE)
+	if (type == NULL_TREE)
 		return;
 
-	if (TREE_READONLY(node))
+	if (TYPE_READONLY(type))
 		return;
 
-	if (walk_struct(node))
-		constify_node(node);
+	if (walk_struct(type))
+		constify_type(type);
 }
 
 static unsigned int check_local_variables(void);

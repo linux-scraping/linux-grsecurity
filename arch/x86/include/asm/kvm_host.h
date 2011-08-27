@@ -618,8 +618,8 @@ struct kvm_x86_ops {
 			       struct x86_instruction_info *info,
 			       enum x86_intercept_stage stage);
 
-	const struct trace_print_flags * const exit_reasons_str;
-};
+	const struct trace_print_flags *exit_reasons_str;
+} __do_const;
 
 struct kvm_arch_async_pf {
 	u32 token;

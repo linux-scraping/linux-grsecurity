@@ -466,7 +466,7 @@ static void __cpuinit init_intel(struct cpuinfo_x86 *c)
 
 		rdmsrl(MSR_IA32_ENERGY_PERF_BIAS, epb);
 		if ((epb & 0xF) == 0) {
-			printk_once(KERN_WARNING, "x86: updated energy_perf_bias"
+			printk_once(KERN_WARNING "x86: updated energy_perf_bias"
 				" to 'normal' from 'performance'\n"
 				"You can view and update epb via utility,"
 				" such as x86_energy_perf_policy(8)\n");

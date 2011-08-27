@@ -124,7 +124,7 @@ struct neigh_ops {
 	int			(*connected_output)(struct sk_buff*);
 	int			(*hh_output)(struct sk_buff*);
 	int			(*queue_xmit)(struct sk_buff*);
-};
+} __do_const;
 
 struct pneigh_entry {
 	struct pneigh_entry	*next;

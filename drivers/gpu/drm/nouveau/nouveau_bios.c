@@ -200,7 +200,7 @@ struct methods {
 	const char desc[8];
 	void (*loadbios)(struct drm_device *, uint8_t *);
 	const bool rw;
-};
+} __do_const;
 
 static struct methods shadow_methods[] = {
 	{ "PRAMIN", load_vbios_pramin, true },
