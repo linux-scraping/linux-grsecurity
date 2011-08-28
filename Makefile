@@ -573,8 +573,9 @@ ifdef CONFIG_PAX_MEMORY_STACKLEAK
 STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -fplugin-arg-stackleak_plugin-track-lowest-sp=100
 endif
 export CONSTIFY_PLUGIN STACKLEAK_PLUGIN
-gcc-plugins:
+gcc-plugins0:
 	$(Q)$(MAKE) $(build)=tools/gcc
+gcc-plugins: scripts_basic gcc-plugins0
 else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
