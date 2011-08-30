@@ -22,7 +22,7 @@
 #include "function.h"
 #include "tree-flow.h"
 #include "plugin.h"
-#include "diagnostic-core.h"
+#include "diagnostic.h"
 //#include "c-tree.h"
 
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
