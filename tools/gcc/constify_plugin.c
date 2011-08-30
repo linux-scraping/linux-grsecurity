@@ -1,12 +1,16 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
- * This gcc plugin constifies all structures which contain only function pointers and const fields.
+ * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
+ *
+ * Homepage:
+ * http://www.grsecurity.net/~ephox/const_plugin/
  *
  * Usage:
  * $ gcc -I`gcc -print-file-name=plugin`/include -fPIC -shared -O2 -o constify_plugin.so constify_plugin.c
- * $ gcc -fplugin=constify_plugin.so test.c  -O2
+ * $ gcc -fplugin=constify_plugin.so test.c -O2
  */
 
 #include "gcc-plugin.h"
