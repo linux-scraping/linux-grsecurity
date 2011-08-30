@@ -619,6 +619,7 @@ sysenter_exit:
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	pushl_cfi %eax
+	movl %esp, %eax
 	call pax_randomize_kstack
 	popl_cfi %eax
 #endif
@@ -722,6 +723,7 @@ syscall_exit:
 restore_all_pax:
 
 #ifdef CONFIG_PAX_RANDKSTACK
+	movl %esp, %eax
 	call pax_randomize_kstack
 #endif
 

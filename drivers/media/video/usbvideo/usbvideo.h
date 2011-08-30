@@ -268,7 +268,7 @@ struct usbvideo_cb {
 	int (*startDataPump)(struct uvd *uvd);
 	void (*stopDataPump)(struct uvd *uvd);
 	int (*setVideoMode)(struct uvd *uvd, struct video_window *vw);
-};
+} __no_const;
 
 struct usbvideo {
 	int num_cameras;		/* As allocated */

@@ -589,12 +589,15 @@ static int __init idle_setup(char *str)
 early_param("idle", idle_setup);
 
 #ifdef CONFIG_PAX_RANDKSTACK
-asmlinkage void pax_randomize_kstack(void)
+void pax_randomize_kstack(struct pt_regs *regs)
 {
 	struct thread_struct *thread = &current->thread;
 	unsigned long time;
 
 	if (!randomize_va_space)
+		return;
+
+	if (v8086_mode(regs))
 		return;
 
 	rdtscl(time);
