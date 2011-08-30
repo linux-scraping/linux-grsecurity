@@ -109,7 +109,7 @@ struct vmbus_channel_interface {
 			      u32 *GpadlHandle);
 	int (*TeardownGpadl)(struct hv_device *device, u32 GpadlHandle);
 	void (*GetInfo)(struct hv_device *dev, struct hv_device_info *devinfo);
-};
+} __no_const;
 
 /* Base driver object */
 struct hv_driver {
