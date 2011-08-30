@@ -32,7 +32,7 @@ struct of_pdt_ops {
 
 	/* return 0 on success; fill in 'len' with number of bytes in path */
 	int (*pkg2path)(phandle node, char *buf, const int buflen, int *len);
-};
+} __no_const;
 
 extern void *prom_early_alloc(unsigned long size);
 

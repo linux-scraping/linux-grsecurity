@@ -163,7 +163,7 @@ static struct of_pdt_ops prom_olpc_ops __initdata = {
 	.getchild = olpc_dt_getchild,
 	.getsibling = olpc_dt_getsibling,
 	.pkg2path = olpc_dt_pkg2path,
-} __no_const;
+};
 
 void __init olpc_dt_build_devicetree(void)
 {
