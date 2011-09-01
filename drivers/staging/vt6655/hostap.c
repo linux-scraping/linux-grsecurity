@@ -84,7 +84,7 @@ static int hostap_enable_hostapd(PSDevice pDevice, int rtnl_locked)
     PSDevice apdev_priv;
 	struct net_device *dev = pDevice->dev;
 	int ret;
-	const struct net_device_ops apdev_netdev_ops = {
+	static const struct net_device_ops apdev_netdev_ops = {
 		.ndo_start_xmit         = pDevice->tx_80211,
 	};
 
