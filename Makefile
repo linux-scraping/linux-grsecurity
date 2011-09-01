@@ -411,6 +411,7 @@ export RCS_TAR_IGNORE := --exclude SCCS --exclude BitKeeper --exclude .svn --exc
 
 # Basic helpers built in scripts/
 PHONY += scripts_basic
+scripts_basic: KBUILD_CFLAGS := $(filter-out $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN),$(KBUILD_CFLAGS))
 scripts_basic:
 	$(Q)$(MAKE) $(build)=scripts/basic
 	$(Q)rm -f .tmp_quiet_recordmcount
@@ -573,7 +574,7 @@ ifdef CONFIG_PAX_MEMORY_STACKLEAK
 STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -fplugin-arg-stackleak_plugin-track-lowest-sp=100
 endif
 export CONSTIFY_PLUGIN STACKLEAK_PLUGIN
-gcc-plugins: prepare
+gcc-plugins:
 	$(Q)$(MAKE) $(build)=tools/gcc
 else
 gcc-plugins:
@@ -955,7 +956,7 @@ vmlinux.o: $(modpost-init) $(vmlinux-main) FORCE
 
 # The actual objects are generated when descending, 
 # make sure no implicit rule kicks in
-$(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): prepare scripts $(vmlinux-dirs) ;
+$(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
 
 # Handle descending into subdirectories listed in $(vmlinux-dirs)
 # Preset locale variables to speed up the build process. Limit locale
@@ -964,7 +965,8 @@ $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): prepare scripts $(vmlinu
 # Error messages still appears in the original language
 
 PHONY += $(vmlinux-dirs)
-$(vmlinux-dirs): gcc-plugins
+$(vmlinux-dirs): KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN)
+$(vmlinux-dirs): gcc-plugins prepare scripts
 	$(Q)$(MAKE) $(build)=$@
 
 # Store (new) KERNELRELASE string in include/config/kernel.release
@@ -1009,6 +1011,7 @@ prepare0: archprepare FORCE
 	$(Q)$(MAKE) $(build)=. missing-syscalls
 
 # All the preparing..
+prepare: KBUILD_CFLAGS := $(filter-out $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN),$(KBUILD_CFLAGS))
 prepare: prepare0
 
 # Generate some files
@@ -1110,8 +1113,7 @@ all: modules
 #	using awk while concatenating to the final file.
 
 PHONY += modules
-$(vmlinux-dirs): KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN)
-modules: prepare scripts $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
+modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
 	$(Q)$(AWK) '!x[$$0]++' $(vmlinux-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
 	@$(kecho) '  Building modules, stage 2.';
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
@@ -1510,7 +1512,8 @@ else
         target-dir = $(if $(KBUILD_EXTMOD),$(dir $<),$(dir $@))
 endif
 
-%.s: %.c prepare scripts FORCE
+%.s: KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN)
+%.s: %.c gcc-plugins prepare scripts FORCE
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
 %.i: %.c prepare scripts FORCE
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
@@ -1519,7 +1522,7 @@ endif
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
 %.lst: %.c prepare scripts FORCE
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
-%.s: %.S prepare scripts FORCE
+%.s: %.S gcc-plugins prepare scripts FORCE
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
 %.o: %.S gcc-plugins prepare scripts FORCE
 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
@@ -1531,11 +1534,13 @@ endif
 	$(cmd_crmodverdir)
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
-%/: prepare scripts FORCE
+%/: KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN)
+%/: gcc-plugins prepare scripts FORCE
 	$(cmd_crmodverdir)
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
 	$(build)=$(build-dir)
-%.ko: prepare scripts FORCE
+%.ko: KBUILD_CFLAGS += $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN)
+%.ko: gcc-plugins prepare scripts FORCE
 	$(cmd_crmodverdir)
 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1)   \
 	$(build)=$(build-dir) $(@:.ko=.o)
