@@ -50,20 +50,23 @@ static int gr_log_start(int audit)
 	char *loglevel = (audit == GR_DO_AUDIT) ? KERN_INFO : KERN_ALERT;
 	char *fmt = (audit == GR_DO_AUDIT) ? gr_audit_log_fmt : gr_alert_log_fmt;
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
+	unsigned long curr_secs = get_seconds();
 
 	if (audit == GR_DO_AUDIT)
 		goto set_fmt;
 
-	if (!grsec_alert_wtime || jiffies - grsec_alert_wtime > CONFIG_GRKERNSEC_FLOODTIME * HZ) {
-		grsec_alert_wtime = jiffies;
+	if (!grsec_alert_wtime || time_after(curr_secs, grsec_alert_wtime + CONFIG_GRKERNSEC_FLOODTIME)) {
+		grsec_alert_wtime = curr_secs;
 		grsec_alert_fyet = 0;
-	} else if ((jiffies - grsec_alert_wtime < CONFIG_GRKERNSEC_FLOODTIME * HZ) && (grsec_alert_fyet < CONFIG_GRKERNSEC_FLOODBURST)) {
-		grsec_alert_fyet++;
-	} else if (grsec_alert_fyet == CONFIG_GRKERNSEC_FLOODBURST) {
-		grsec_alert_wtime = jiffies;
-		grsec_alert_fyet++;
-		printk(KERN_ALERT "grsec: more alerts, logging disabled for %d seconds\n", CONFIG_GRKERNSEC_FLOODTIME);
-		return FLOODING;
+	} else if (time_before(curr_secs, grsec_alert_wtime + CONFIG_GRKERNSEC_FLOODTIME)) {
+		if (grsec_alert_fyet < CONFIG_GRKERNSEC_FLOODBURST) {
+			grsec_alert_fyet++;
+		} else if (grsec_alert_fyet && grsec_alert_fyet == CONFIG_GRKERNSEC_FLOODBURST) {
+			grsec_alert_wtime = curr_secs;
+			grsec_alert_fyet++;
+			printk(KERN_ALERT "grsec: more alerts, logging disabled for %d seconds\n", CONFIG_GRKERNSEC_FLOODTIME);
+			return FLOODING;
+		}
 	} else return FLOODING;
 
 set_fmt:

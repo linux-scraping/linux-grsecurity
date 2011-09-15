@@ -49,7 +49,6 @@ int gr_handle_chroot_setpriority(struct task_struct *p,
 int gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt);
 int gr_handle_chroot_chroot(const struct dentry *dentry,
 				   const struct vfsmount *mnt);
-int gr_handle_chroot_caps(struct path *path);
 void gr_handle_chroot_chdir(struct path *path);
 int gr_handle_chroot_chmod(const struct dentry *dentry,
 				  const struct vfsmount *mnt, const int mode);

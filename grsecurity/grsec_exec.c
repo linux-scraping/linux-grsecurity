@@ -9,6 +9,7 @@
 #include <linux/grinternal.h>
 #include <linux/capability.h>
 #include <linux/compat.h>
+#include <linux/module.h>
 
 #include <asm/uaccess.h>
 
@@ -130,3 +131,74 @@ gr_handle_exec_args_compat(struct linux_binprm *bprm, compat_uptr_t __user *argv
 	return;
 }
 #endif
+
+#ifdef CONFIG_GRKERNSEC
+extern int gr_acl_is_capable(const int cap);
+extern int gr_acl_is_capable_nolog(const int cap);
+extern int gr_chroot_is_capable(const int cap);
+extern int gr_chroot_is_capable_nolog(const int cap);
+#endif
+
+const char *captab_log[] = {
+	"CAP_CHOWN",
+	"CAP_DAC_OVERRIDE",
+	"CAP_DAC_READ_SEARCH",
+	"CAP_FOWNER",
+	"CAP_FSETID",
+	"CAP_KILL",
+	"CAP_SETGID",
+	"CAP_SETUID",
+	"CAP_SETPCAP",
+	"CAP_LINUX_IMMUTABLE",
+	"CAP_NET_BIND_SERVICE",
+	"CAP_NET_BROADCAST",
+	"CAP_NET_ADMIN",
+	"CAP_NET_RAW",
+	"CAP_IPC_LOCK",
+	"CAP_IPC_OWNER",
+	"CAP_SYS_MODULE",
+	"CAP_SYS_RAWIO",
+	"CAP_SYS_CHROOT",
+	"CAP_SYS_PTRACE",
+	"CAP_SYS_PACCT",
+	"CAP_SYS_ADMIN",
+	"CAP_SYS_BOOT",
+	"CAP_SYS_NICE",
+	"CAP_SYS_RESOURCE",
+	"CAP_SYS_TIME",
+	"CAP_SYS_TTY_CONFIG",
+	"CAP_MKNOD",
+	"CAP_LEASE",
+	"CAP_AUDIT_WRITE",
+	"CAP_AUDIT_CONTROL",
+	"CAP_SETFCAP",
+	"CAP_MAC_OVERRIDE",
+	"CAP_MAC_ADMIN"
+};
+
+int captab_log_entries = sizeof(captab_log)/sizeof(captab_log[0]);
+
+int gr_is_capable(const int cap)
+{
+#ifdef CONFIG_GRKERNSEC
+	if (gr_acl_is_capable(cap) && gr_chroot_is_capable(cap))
+		return 1;
+	return 0;
+#else
+	return 1;
+#endif
+}
+
+int gr_is_capable_nolog(const int cap)
+{
+#ifdef CONFIG_GRKERNSEC
+	if (gr_acl_is_capable_nolog(cap) && gr_chroot_is_capable_nolog(cap))
+		return 1;
+	return 0;
+#else
+	return 1;
+#endif
+}
+
+EXPORT_SYMBOL(gr_is_capable);
+EXPORT_SYMBOL(gr_is_capable_nolog);
