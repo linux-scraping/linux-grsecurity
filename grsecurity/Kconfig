@@ -632,7 +632,7 @@ config GRKERNSEC_CHROOT_CAPS
 	bool "Capability restrictions"
 	depends on GRKERNSEC_CHROOT
 	help
-	  If you say Y here, the capabilities on all root processes within a
+	  If you say Y here, the capabilities on all processes within a
 	  chroot jail will be lowered to stop module insertion, raw i/o,
 	  system and net admin tasks, rebooting the system, modifying immutable
 	  files, modifying IPC owned by another, and changing the system time.
