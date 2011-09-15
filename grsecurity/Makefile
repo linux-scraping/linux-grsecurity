@@ -29,6 +29,7 @@ extra-y := grsec_hidesym.o
 $(obj)/grsec_hidesym.o:
 	@-chmod -f 500 /boot
 	@-chmod -f 500 /lib/modules
+	@-chmod -f 500 /lib64/modules
 	@-chmod -f 700 .
 	@echo '  grsec: protected kernel image paths'
 endif

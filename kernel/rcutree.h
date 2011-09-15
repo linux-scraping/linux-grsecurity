@@ -86,7 +86,7 @@
 struct rcu_dynticks {
 	int dynticks_nesting;	/* Track irq/process nesting level. */
 	int dynticks_nmi_nesting; /* Track NMI nesting level. */
-	atomic_t dynticks;	/* Even value for dynticks-idle, else odd. */
+	atomic_unchecked_t dynticks;	/* Even value for dynticks-idle, else odd. */
 };
 
 /* RCU's kthread states for tracing. */

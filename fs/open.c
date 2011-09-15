@@ -457,11 +457,6 @@ SYSCALL_DEFINE1(chroot, const char __user *, filename)
 	if (gr_handle_chroot_chroot(path.dentry, path.mnt))
 		goto dput_and_out;
 
-	if (gr_handle_chroot_caps(&path)) {
-		error = -ENOMEM;
-		goto dput_and_out;
-	}
-
 	set_fs_root(current->fs, &path);
 
 	gr_handle_chroot_chdir(&path);

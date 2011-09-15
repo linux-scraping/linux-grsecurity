@@ -1025,7 +1025,7 @@ config GRKERNSEC_FLOODTIME
 
 config GRKERNSEC_FLOODBURST
 	int "Number of messages in a burst (maximum)"
-	default 4
+	default 6
 	help
 	  This option allows you to choose the maximum number of messages allowed
 	  within the flood time interval you chose in a separate option.  The

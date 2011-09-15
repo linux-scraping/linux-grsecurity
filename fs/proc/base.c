@@ -349,7 +349,7 @@ static int proc_pid_auxv(struct task_struct *task, char *buffer)
 		if (PAX_RAND_FLAGS(mm) &&
 		    (!(task->ptrace & PT_PTRACED) || (task->parent != current))) {
 			mmput(mm);
-			return res;
+			return 0;
 		}
 #endif
 
