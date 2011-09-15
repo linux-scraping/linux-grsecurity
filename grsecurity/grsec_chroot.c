@@ -384,7 +384,3 @@ gr_handle_chroot_chmod(const struct dentry *dentry,
 #endif
 	return 0;
 }
-
-#ifdef CONFIG_SECURITY
-EXPORT_SYMBOL(gr_handle_chroot_caps);
-#endif
