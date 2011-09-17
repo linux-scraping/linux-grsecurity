@@ -51,6 +51,9 @@ ENTRY(call_rwsem_down_read_failed)
 	popq_cfi %rdx
 	CFI_RESTORE rdx
 	restore_common_regs
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(call_rwsem_down_read_failed)
@@ -61,6 +64,9 @@ ENTRY(call_rwsem_down_write_failed)
 	movq %rax,%rdi
 	call rwsem_down_write_failed
 	restore_common_regs
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(call_rwsem_down_write_failed)
@@ -73,6 +79,9 @@ ENTRY(call_rwsem_wake)
 	movq %rax,%rdi
 	call rwsem_wake
 	restore_common_regs
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 1:	ret
 	CFI_ENDPROC
 ENDPROC(call_rwsem_wake)
@@ -88,6 +97,9 @@ ENTRY(call_rwsem_downgrade_wake)
 	popq_cfi %rdx
 	CFI_RESTORE rdx
 	restore_common_regs
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(call_rwsem_downgrade_wake)

@@ -8,6 +8,9 @@ copy_page_c:
 	CFI_STARTPROC
 	movl $4096/8,%ecx
 	rep movsq
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(copy_page_c)
@@ -94,6 +97,9 @@ ENTRY(copy_page)
 	CFI_RESTORE r13
 	addq	$3*8,%rsp
 	CFI_ADJUST_CFA_OFFSET -3*8
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 .Lcopy_page_end:
 	CFI_ENDPROC

@@ -790,6 +790,9 @@ ECRYPT_encrypt_bytes:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 #   bytesatleast65:
 ._bytesatleast65:
@@ -891,6 +894,9 @@ ECRYPT_keysetup:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 # enter ECRYPT_ivsetup
 .text
@@ -917,4 +923,7 @@ ECRYPT_ivsetup:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret

@@ -71,6 +71,12 @@ FUNC:	movq	r1,r2;			\
 	je	B192;			\
 	leaq	32(r9),r9;
 
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+#define ret	orb $0x80, 0x7(%rsp); ret
+#else
+#define ret	ret
+#endif
+
 #define epilogue(r1,r2,r3,r4,r5,r6,r7,r8,r9) \
 	movq	r1,r2;			\
 	movq	r3,r4;			\

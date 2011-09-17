@@ -108,6 +108,9 @@ ENTRY(__copy_user_nocache)
 	jnz 21b
 23:	xorl %eax,%eax
 	sfence
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 
 	.section .fixup,"ax"

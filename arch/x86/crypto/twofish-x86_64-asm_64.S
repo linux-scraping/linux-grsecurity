@@ -269,6 +269,9 @@ twofish_enc_blk:
 
 	popq	R1
 	movq	$1,%rax
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 
 twofish_dec_blk:
@@ -321,4 +324,7 @@ twofish_dec_blk:
 
 	popq	R1
 	movq	$1,%rax
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret

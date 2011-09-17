@@ -25,6 +25,9 @@ ENTRY(__iowrite32_copy)
 	CFI_STARTPROC
 	movl %edx,%ecx
 	rep movsd
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(__iowrite32_copy)

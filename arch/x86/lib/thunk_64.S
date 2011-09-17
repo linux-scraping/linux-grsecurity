@@ -50,5 +50,8 @@
 	SAVE_ARGS
 restore:
 	RESTORE_ARGS
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret	
 	CFI_ENDPROC

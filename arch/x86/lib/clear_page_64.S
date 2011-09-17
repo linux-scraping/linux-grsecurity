@@ -11,6 +11,9 @@ ENTRY(clear_page_c)
 	movl $4096/8,%ecx
 	xorl %eax,%eax
 	rep stosq
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(clear_page_c)
@@ -20,6 +23,9 @@ ENTRY(clear_page_c_e)
 	movl $4096,%ecx
 	xorl %eax,%eax
 	rep stosb
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 ENDPROC(clear_page_c_e)
@@ -43,6 +49,9 @@ ENTRY(clear_page)
 	leaq	64(%rdi),%rdi
 	jnz	.Lloop
 	nop
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	orb $0x80, 0x7(%rsp)
+#endif
 	ret
 	CFI_ENDPROC
 .Lclear_page_end:
