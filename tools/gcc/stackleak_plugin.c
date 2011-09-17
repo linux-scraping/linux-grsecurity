@@ -65,7 +65,7 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_stmts // | TODO_dump_func
+		.todo_flags_finish	= TODO_verify_stmts | TODO_dump_func
 	}
 };
 
@@ -83,7 +83,7 @@ static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
+		.todo_flags_finish	= TODO_dump_func
 	}
 };
 
@@ -161,6 +161,10 @@ static unsigned int execute_stackleak_final(void)
 	if (cfun->calls_alloca)
 		return 0;
 
+	// keep calls only if function frame is big enough
+	if (get_frame_size() >= track_frame_size)
+		return 0;
+
 	// 1. find pax_track_stack calls
 	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
 		// rtl match: (call_insn 8 7 9 3 (call (mem (symbol_ref ("pax_track_stack") [flags 0x41] <function_decl 0xb7470e80 pax_track_stack>) [0 S1 A8]) (4)) -1 (nil) (nil))
@@ -180,9 +184,7 @@ static unsigned int execute_stackleak_final(void)
 		if (strcmp(XSTR(body, 0), track_function))
 			continue;
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
-		// 2. delete call if function frame is not big enough
-		if (get_frame_size() >= track_frame_size)
-			continue;
+		// 2. delete call
 		delete_insn_and_edges(insn);
 	}
 

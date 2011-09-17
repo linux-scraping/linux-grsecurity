@@ -44,6 +44,10 @@ void __init efi_call_phys_prelog(void)
 {
 	struct desc_ptr gdt_descr;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	struct desc_struct d;
+#endif
+
 	local_irq_save(efi_rt_eflags);
 
 	clone_pgd_range(efi_bak_pg_dir_pointer, swapper_pg_dir, KERNEL_PGD_PTRS);
@@ -55,6 +59,13 @@ void __init efi_call_phys_prelog(void)
 	 */
 	__flush_tlb_all();
 
+#ifdef CONFIG_PAX_KERNEXEC
+	pack_descriptor(&d, 0, 0xFFFFF, 0x9B, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_CS, &d, DESCTYPE_S);
+	pack_descriptor(&d, 0, 0xFFFFF, 0x93, 0xC);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
+#endif
+
 	gdt_descr.address = (struct desc_struct *)__pa(get_cpu_gdt_table(0));
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
@@ -63,6 +74,14 @@ void __init efi_call_phys_prelog(void)
 void __init efi_call_phys_epilog(void)
 {
 	struct desc_ptr gdt_descr;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	struct desc_struct d;
+
+	memset(&d, 0, sizeof d);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_CS, &d, DESCTYPE_S);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
+#endif
 
 	gdt_descr.address = get_cpu_gdt_table(0);
 	gdt_descr.size = GDT_SIZE - 1;

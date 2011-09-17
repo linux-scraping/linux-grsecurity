@@ -37,7 +37,11 @@ ENTRY(efi_call_phys)
 	 * The mapping of lower virtual memory has been created in prelog and
 	 * epilog.
 	 */
-	jmp	1f-__PAGE_OFFSET
+	movl	$(__KERNEXEC_EFI_DS), %edx
+	mov	%edx, %ds
+	mov	%edx, %es
+	mov	%edx, %ss
+	ljmp $(__KERNEXEC_EFI_CS),$1f-__PAGE_OFFSET
 1:
 
 	/*
@@ -85,8 +89,12 @@ ENTRY(efi_call_phys)
 	 * 8. Now restore the virtual mode from flat mode by
 	 * adding EIP with PAGE_OFFSET.
 	 */
-	jmp	1f+__PAGE_OFFSET
+	ljmp $(__KERNEL_CS),$1f+__PAGE_OFFSET
 1:
+	movl	$(__KERNEL_DS), %edx
+	mov	%edx, %ds
+	mov	%edx, %es
+	mov	%edx, %ss
 
 	/*
 	 * 9. Balance the stack. And because EAX contain the return value,

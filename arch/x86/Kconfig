@@ -1453,7 +1453,7 @@ config ARCH_USES_PG_UNCACHED
 
 config EFI
 	bool "EFI runtime service support"
-	depends on ACPI && !PAX_KERNEXEC
+	depends on ACPI
 	---help---
 	  This enables the kernel to use EFI runtime services that are
 	  available (such as the EFI variable services).

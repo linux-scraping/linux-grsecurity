@@ -32,6 +32,8 @@
 #include "emit-rtl.h"
 #include "function.h"
 
+extern void print_gimple_stmt(FILE *, gimple, int, int);
+
 int plugin_is_GPL_compatible;
 
 static const char * const kalloc_functions[] = {
