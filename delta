@@ -1,5 +1,5 @@
---- a/grsecurity-2.2.2-3.0.4-201109171832.patch
-+++ b/grsecurity-2.2.2-3.0.4-201109171832.patch
+--- a/grsecurity-2.2.2-3.0.4-201109190917.patch
++++ b/grsecurity-2.2.2-3.0.4-201109190917.patch
 @@ -1,311 +1,4 @@
 -diff --git a/Documentation/dontdiff b/Documentation/dontdiff
 -index dfa6fc6e4b287fcdc8c79ea94dbbed71cc0bb807..6cfc6e52de8c1561418288d896465038abee6745 100644
@@ -8445,12 +8445,12 @@
 +@@ -438,7 +515,8 @@ int pcibios_set_irq_routing(struct pci_d
 @@ -21985,4 +21342,3 @@
 -diff --git a/arch/x86/platform/efi/efi_32.c b/arch/x86/platform/efi/efi_32.c
--index 5cab48ee61a4a6e61e522117d97bbfdabaa95a6d..7245b682536058e38b83f5ea7b905e7eaf11925c 100644
+-index 5cab48ee61a4a6e61e522117d97bbfdabaa95a6d..2d5a7ed869cc7821e58be02c7221c1dce6105ce0 100644
 ---- a/arch/x86/platform/efi/efi_32.c
 -+++ b/arch/x86/platform/efi/efi_32.c
 +diff -urNp linux-3.0.4/arch/x86/platform/efi/efi_32.c linux-3.0.4/arch/x86/platform/efi/efi_32.c
 +--- linux-3.0.4/arch/x86/platform/efi/efi_32.c	2011-07-21 22:17:23.000000000 -0400
-++++ linux-3.0.4/arch/x86/platform/efi/efi_32.c	2011-09-17 00:53:42.000000000 -0400
+++++ linux-3.0.4/arch/x86/platform/efi/efi_32.c	2011-09-19 09:16:58.000000000 -0400
 @@ -22002,0 +21359 @@
 +-	local_irq_save(efi_rt_eflags);
 @@ -22006,2 +21362,0 @@
@@ -8460,14 +8460,14 @@
 --
 ++	local_irq_save(efi_rt_eflags);
 + 
-@@ -22088,4 +21444,3 @@
+@@ -22086,4 +21442,3 @@
 -diff --git a/arch/x86/platform/efi/efi_stub_32.S b/arch/x86/platform/efi/efi_stub_32.S
--index fbe66e626c09f437da6110bec5c080ef39e6bf95..af1e2d47642a062f77ded0565fe52165f752be61 100644
+-index fbe66e626c09f437da6110bec5c080ef39e6bf95..c5c0dd29ae6ce800b07d0d15f1324f870570cb16 100644
 ---- a/arch/x86/platform/efi/efi_stub_32.S
 -+++ b/arch/x86/platform/efi/efi_stub_32.S
 +diff -urNp linux-3.0.4/arch/x86/platform/efi/efi_stub_32.S linux-3.0.4/arch/x86/platform/efi/efi_stub_32.S
 +--- linux-3.0.4/arch/x86/platform/efi/efi_stub_32.S	2011-07-21 22:17:23.000000000 -0400
-++++ linux-3.0.4/arch/x86/platform/efi/efi_stub_32.S	2011-09-17 00:53:42.000000000 -0400
+++++ linux-3.0.4/arch/x86/platform/efi/efi_stub_32.S	2011-09-19 09:16:58.000000000 -0400
 @@ -22198,4 +21553,3 @@
 -diff --git a/arch/x86/platform/efi/efi_stub_64.S b/arch/x86/platform/efi/efi_stub_64.S
 -index 4c07ccab8146f0bbed2850f586a68f126b2bc7eb..114ff937e4814d52d925f6512720e86b6f063fca 100644
@@ -27792,13 +27792,13 @@
 @@ -74962,5 +73577,3 @@
 -diff --git a/tools/gcc/kernexec_plugin.c b/tools/gcc/kernexec_plugin.c
 -new file mode 100644
--index 0000000000000000000000000000000000000000..f5ffa0e9bcddbb865fcb179ef4a057d3d96c4702
+-index 0000000000000000000000000000000000000000..0d600780204727f0840c5a5c5c98cd07cda9dc9d
 ---- /dev/null
 -+++ b/tools/gcc/kernexec_plugin.c
 +diff -urNp linux-3.0.4/tools/gcc/kernexec_plugin.c linux-3.0.4/tools/gcc/kernexec_plugin.c
 +--- linux-3.0.4/tools/gcc/kernexec_plugin.c	1969-12-31 19:00:00.000000000 -0500
-++++ linux-3.0.4/tools/gcc/kernexec_plugin.c	2011-09-17 00:53:44.000000000 -0400
-@@ -75235,5 +73848,21 @@
+++++ linux-3.0.4/tools/gcc/kernexec_plugin.c	2011-09-19 09:16:58.000000000 -0400
+@@ -75233,5 +73846,21 @@
 -diff --git a/tools/gcc/stackleak_plugin.c b/tools/gcc/stackleak_plugin.c
 -new file mode 100644
 -index 0000000000000000000000000000000000000000..8bd7ab4170bf8d80bfc5b2f3c15f8a8b8715764c
@@ -27825,7 +27825,7 @@
 +diff -urNp linux-3.0.4/tools/gcc/stackleak_plugin.c linux-3.0.4/tools/gcc/stackleak_plugin.c
 +--- linux-3.0.4/tools/gcc/stackleak_plugin.c	1969-12-31 19:00:00.000000000 -0500
 ++++ linux-3.0.4/tools/gcc/stackleak_plugin.c	2011-09-17 00:53:44.000000000 -0400
-@@ -75492,5 +74121,4 @@
+@@ -75490,5 +74119,4 @@
 -diff --git a/usr/gen_init_cpio.c b/usr/gen_init_cpio.c
 -index af0f22fb1ef71e6dc94c620873bc3241c2883430..9a7d479d44b124d1f521b24d24185ff95259c87f 100644
 ---- a/usr/gen_init_cpio.c
@@ -27835,10 +27835,10 @@
 +--- linux-3.0.4/usr/gen_init_cpio.c	2011-07-21 22:17:23.000000000 -0400
 ++++ linux-3.0.4/usr/gen_init_cpio.c	2011-08-23 21:47:56.000000000 -0400
 +@@ -303,7 +303,7 @@ static int cpio_mkfile(const char *name,
-@@ -75505 +74133 @@
+@@ -75503 +74131 @@
 -@@ -392,9 +392,10 @@ static char *cpio_replace_env(char *new_location)
 +@@ -392,9 +392,10 @@ static char *cpio_replace_env(char *new_
-@@ -75518,4 +74146,3 @@
+@@ -75516,4 +74144,3 @@
 -diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
 -index 96ebc0679415baeff88d7764b1c0e956820adad2..b6f830e7184b3d79fd3bca931e1a44acfe8ef881 100644
 ---- a/virt/kvm/kvm_main.c
@@ -27846,15 +27846,15 @@
 +diff -urNp linux-3.0.4/virt/kvm/kvm_main.c linux-3.0.4/virt/kvm/kvm_main.c
 +--- linux-3.0.4/virt/kvm/kvm_main.c	2011-07-21 22:17:23.000000000 -0400
 ++++ linux-3.0.4/virt/kvm/kvm_main.c	2011-08-23 21:47:56.000000000 -0400
-@@ -75531 +74158 @@
+@@ -75529 +74156 @@
 -@@ -2176,7 +2176,7 @@ static void hardware_enable_nolock(void *junk)
 +@@ -2176,7 +2176,7 @@ static void hardware_enable_nolock(void 
-@@ -75553 +74180 @@
+@@ -75551 +74178 @@
 -@@ -2498,7 +2498,7 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 +@@ -2498,7 +2498,7 @@ static void kvm_sched_out(struct preempt
-@@ -75562 +74189 @@
+@@ -75560 +74187 @@
 -@@ -2561,7 +2561,7 @@ int kvm_init(void *opaque, unsigned vcpu_size, unsigned vcpu_align,
 +@@ -2561,7 +2561,7 @@ int kvm_init(void *opaque, unsigned vcpu
-@@ -75571 +74198 @@
+@@ -75569 +74196 @@
 -@@ -2571,9 +2571,11 @@ int kvm_init(void *opaque, unsigned vcpu_size, unsigned vcpu_align,
 +@@ -2571,9 +2571,11 @@ int kvm_init(void *opaque, unsigned vcpu
