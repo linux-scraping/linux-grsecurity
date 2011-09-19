@@ -66,7 +66,7 @@ void __init efi_call_phys_prelog(void)
 	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
 #endif
 
-	gdt_descr.address = (struct desc_struct *)__pa(get_cpu_gdt_table(0));
+	gdt_descr.address = __pa(get_cpu_gdt_table(0));
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 }
@@ -83,7 +83,7 @@ void __init efi_call_phys_epilog(void)
 	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
 #endif
 
-	gdt_descr.address = get_cpu_gdt_table(0);
+	gdt_descr.address = (unsigned long)get_cpu_gdt_table(0);
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 

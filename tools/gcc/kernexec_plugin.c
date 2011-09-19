@@ -38,7 +38,7 @@ extern void print_gimple_stmt(FILE *, gimple, int, int);
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201109162200",
+	.version	= "201109191200",
 };
 
 static unsigned int execute_kernexec_fptr(void);
@@ -87,7 +87,7 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
 {
 	gimple assign_intptr, assign_new_fptr, call_stmt;
-	tree intptr, old_fptr, new_fptr;
+	tree intptr, old_fptr, new_fptr, kernexec_mask;
 
 	call_stmt = gsi_stmt(gsi);
 	old_fptr = gimple_call_fn(call_stmt);
@@ -103,8 +103,8 @@ static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
 	gsi_next(&gsi);
 
 	// apply logical or to temporary unsigned long and bitmask
-	tree kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
-//	tree kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
+	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
+//	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
 	assign_intptr = gimple_build_assign(intptr, fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask));
 	update_stmt(assign_intptr);
 	gsi_insert_before(&gsi, assign_intptr, GSI_NEW_STMT);
@@ -179,7 +179,7 @@ static void kernexec_instrument_retaddr(rtx insn)
 
 	start_sequence();
 
-	// compute rsp+7
+	// compute 7(%rsp)
 	ret_addr = gen_rtx_MEM(QImode, gen_rtx_PLUS(Pmode, stack_pointer_rtx, GEN_INT(7)));
 	MEM_VOLATILE_P(ret_addr) = 1;
 
@@ -213,12 +213,10 @@ static unsigned int execute_kernexec_retaddr(void)
 		if (!JUMP_P(insn))
 			continue;
 		body = PATTERN(insn);
-		if (GET_CODE(body) != RETURN) {
-			if (GET_CODE(body) != PARALLEL)
-				continue;
-			if (GET_CODE(XVECEXP(body, 0, 0)) != RETURN)
-				continue;
-		}
+		if (GET_CODE(body) == PARALLEL)
+			body = XVECEXP(body, 0, 0);
+		if (GET_CODE(body) != RETURN)
+			continue;
 		kernexec_instrument_retaddr(insn);
 	}
 
