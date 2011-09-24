@@ -201,7 +201,7 @@ struct track {
 
 enum track_item { TRACK_ALLOC, TRACK_FREE };
 
-#ifdef CONFIG_SLUB_DEBUG
+#if defined(CONFIG_SLUB_DEBUG) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
 static int sysfs_slab_add(struct kmem_cache *);
 static int sysfs_slab_alias(struct kmem_cache *, const char *);
 static void sysfs_slab_remove(struct kmem_cache *);

@@ -165,18 +165,6 @@ gr_search_connectbind(const int mode, const struct socket *sock,
 	return 0;
 }
 
-int
-gr_is_capable(const int cap)
-{
-	return 1;
-}
-
-int
-gr_is_capable_nolog(const int cap)
-{
-	return 1;
-}
-
 void
 gr_handle_alertkill(struct task_struct *task)
 {
@@ -437,8 +425,6 @@ dev_t gr_get_dev_from_dentry(struct dentry *dentry)
 	return dentry->d_inode->i_sb->s_dev;
 }
 
-EXPORT_SYMBOL(gr_is_capable);
-EXPORT_SYMBOL(gr_is_capable_nolog);
 EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY
