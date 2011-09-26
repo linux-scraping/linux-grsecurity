@@ -50,6 +50,7 @@ static int gr_log_start(int audit)
 	char *loglevel = (audit == GR_DO_AUDIT) ? KERN_INFO : KERN_ALERT;
 	char *fmt = (audit == GR_DO_AUDIT) ? gr_audit_log_fmt : gr_alert_log_fmt;
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
+#if (CONFIG_GRKERNSEC_FLOODTIME > 0 && CONFIG_GRKERNSEC_FLOODBURST > 0)
 	unsigned long curr_secs = get_seconds();
 
 	if (audit == GR_DO_AUDIT)
@@ -58,18 +59,19 @@ static int gr_log_start(int audit)
 	if (!grsec_alert_wtime || time_after(curr_secs, grsec_alert_wtime + CONFIG_GRKERNSEC_FLOODTIME)) {
 		grsec_alert_wtime = curr_secs;
 		grsec_alert_fyet = 0;
-	} else if (time_before(curr_secs, grsec_alert_wtime + CONFIG_GRKERNSEC_FLOODTIME)) {
-		if (grsec_alert_fyet < CONFIG_GRKERNSEC_FLOODBURST) {
-			grsec_alert_fyet++;
-		} else if (grsec_alert_fyet && grsec_alert_fyet == CONFIG_GRKERNSEC_FLOODBURST) {
-			grsec_alert_wtime = curr_secs;
-			grsec_alert_fyet++;
-			printk(KERN_ALERT "grsec: more alerts, logging disabled for %d seconds\n", CONFIG_GRKERNSEC_FLOODTIME);
-			return FLOODING;
-		}
-	} else return FLOODING;
+	} else if (time_before_eq(curr_secs, grsec_alert_wtime + CONFIG_GRKERNSEC_FLOODTIME)
+		    && (grsec_alert_fyet < CONFIG_GRKERNSEC_FLOODBURST)) {
+		grsec_alert_fyet++;
+	} else if (grsec_alert_fyet == CONFIG_GRKERNSEC_FLOODBURST) {
+		grsec_alert_wtime = curr_secs;
+		grsec_alert_fyet++;
+		printk(KERN_ALERT "grsec: more alerts, logging disabled for %d seconds\n", CONFIG_GRKERNSEC_FLOODTIME);
+		return FLOODING;
+	}
+	else return FLOODING;
 
 set_fmt:
+#endif
 	memset(buf, 0, PAGE_SIZE);
 	if (current->signal->curr_ip && gr_acl_is_enabled()) {
 		sprintf(fmt, "%s%s", loglevel, "grsec: From %pI4: (%.64s:%c:%.950s) ");
