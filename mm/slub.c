@@ -4703,6 +4703,7 @@ static char *create_unique_id(struct kmem_cache *s)
 	return name;
 }
 
+#if defined(CONFIG_SYSFS) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
 static int sysfs_slab_add(struct kmem_cache *s)
 {
 	int err;
@@ -4765,6 +4766,7 @@ static void sysfs_slab_remove(struct kmem_cache *s)
 	kobject_del(&s->kobj);
 	kobject_put(&s->kobj);
 }
+#endif
 
 /*
  * Need to buffer aliases during bootup until sysfs becomes
@@ -4778,6 +4780,7 @@ struct saved_alias {
 
 static struct saved_alias *alias_list;
 
+#if defined(CONFIG_SYSFS) && !defined(CONFIG_GRKERNSEC_PROC_ADD)
 static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 {
 	struct saved_alias *al;
@@ -4800,6 +4803,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	alias_list = al;
 	return 0;
 }
+#endif
 
 static int __init slab_sysfs_init(void)
 {
