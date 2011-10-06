@@ -19,4 +19,13 @@
 	.endm
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	.macro pax_force_retaddr rip=0
+	btsq $63,\rip(%rsp)
+	.endm
+#else
+	.macro pax_force_retaddr rip=0
+	.endm
+#endif
+
 #endif  /*  __ASSEMBLY__  */

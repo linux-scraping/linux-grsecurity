@@ -162,7 +162,7 @@ static void grow_config(int len)
 /*
  * Lookup a value in the configuration string.
  */
-static int is_defined_config(const char * name, int len)
+static int is_defined_config(const char * name, unsigned int len)
 {
 	const char * pconfig;
 	const char * plast = str_config + len_config - len;
@@ -199,7 +199,7 @@ static void clear_config(void)
 /*
  * Record the use of a CONFIG_* word.
  */
-static void use_config(char *m, int slen)
+static void use_config(char *m, unsigned int slen)
 {
 	char s[PATH_MAX];
 	char *p;

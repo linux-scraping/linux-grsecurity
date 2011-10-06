@@ -523,7 +523,7 @@ static ssize_t kernel_readv(struct file *file, const struct iovec *vec,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	res = vfs_readv(file, (__force const struct iovec __user *)vec, vlen, &pos);
+	res = vfs_readv(file, (const struct iovec __force_user *)vec, vlen, &pos);
 	set_fs(old_fs);
 
 	return res;
@@ -538,7 +538,7 @@ static ssize_t kernel_write(struct file *file, const char *buf, size_t count,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	res = vfs_write(file, (__force const char __user *)buf, count, &pos);
+	res = vfs_write(file, (const char __force_user *)buf, count, &pos);
 	set_fs(old_fs);
 
 	return res;

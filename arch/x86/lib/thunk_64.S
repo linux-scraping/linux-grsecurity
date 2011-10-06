@@ -10,7 +10,8 @@
 	#include <asm/dwarf2.h>
 	#include <asm/calling.h>			
 	#include <asm/rwlock.h>
-		
+	#include <asm/alternative-asm.h>
+
 	/* rdi:	arg1 ... normal C conventions. rax is saved/restored. */ 	
 	.macro thunk name,func
 	.globl \name
@@ -70,6 +71,7 @@
 	SAVE_ARGS
 restore:
 	RESTORE_ARGS
+	pax_force_retaddr
 	ret	
 	CFI_ENDPROC
 	
@@ -77,5 +79,6 @@ restore:
 	SAVE_ARGS
 restore_norax:	
 	RESTORE_ARGS 1
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC

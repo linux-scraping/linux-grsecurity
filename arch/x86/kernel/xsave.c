@@ -196,7 +196,7 @@ fx_only:
 	 * the other extended state.
 	 */
 	xrstor_state(init_xstate_buf, pcntxt_mask & ~XSTATE_FPSSE);
-	return fxrstor_checking((struct i387_fxsave_struct __user *)buf);
+	return fxrstor_checking((struct i387_fxsave_struct __force_kernel *)buf);
 }
 
 /*

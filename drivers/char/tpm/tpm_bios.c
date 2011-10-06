@@ -416,7 +416,7 @@ static int read_log(struct tpm_bios_log *log)
 		return -EFAULT;
 	}
 
-	memcpy(log->bios_event_log, virt, len);
+	memcpy(log->bios_event_log, (const char __force_kernel *)virt, len);
 
 	acpi_os_unmap_memory(virt, len);
 	return 0;

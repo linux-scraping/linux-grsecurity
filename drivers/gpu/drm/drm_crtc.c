@@ -1323,7 +1323,7 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 	 */
 	if ((out_resp->count_modes >= mode_count) && mode_count) {
 		copied = 0;
-		mode_ptr = (struct drm_mode_modeinfo *)(unsigned long)out_resp->modes_ptr;
+		mode_ptr = (struct drm_mode_modeinfo __user *)(unsigned long)out_resp->modes_ptr;
 		list_for_each_entry(mode, &connector->modes, head) {
 			drm_crtc_convert_to_umode(&u_mode, mode);
 			if (copy_to_user(mode_ptr + copied,
@@ -1338,8 +1338,8 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 
 	if ((out_resp->count_props >= props_count) && props_count) {
 		copied = 0;
-		prop_ptr = (uint32_t *)(unsigned long)(out_resp->props_ptr);
-		prop_values = (uint64_t *)(unsigned long)(out_resp->prop_values_ptr);
+		prop_ptr = (uint32_t __user *)(unsigned long)(out_resp->props_ptr);
+		prop_values = (uint64_t __user *)(unsigned long)(out_resp->prop_values_ptr);
 		for (i = 0; i < DRM_CONNECTOR_MAX_PROPERTY; i++) {
 			if (connector->property_ids[i] != 0) {
 				if (put_user(connector->property_ids[i],
@@ -1361,7 +1361,7 @@ int drm_mode_getconnector(struct drm_device *dev, void *data,
 
 	if ((out_resp->count_encoders >= encoders_count) && encoders_count) {
 		copied = 0;
-		encoder_ptr = (uint32_t *)(unsigned long)(out_resp->encoders_ptr);
+		encoder_ptr = (uint32_t __user *)(unsigned long)(out_resp->encoders_ptr);
 		for (i = 0; i < DRM_CONNECTOR_MAX_ENCODER; i++) {
 			if (connector->encoder_ids[i] != 0) {
 				if (put_user(connector->encoder_ids[i],
@@ -1513,7 +1513,7 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 		}
 
 		for (i = 0; i < crtc_req->count_connectors; i++) {
-			set_connectors_ptr = (uint32_t *)(unsigned long)crtc_req->set_connectors_ptr;
+			set_connectors_ptr = (uint32_t __user *)(unsigned long)crtc_req->set_connectors_ptr;
 			if (get_user(out_id, &set_connectors_ptr[i])) {
 				ret = -EFAULT;
 				goto out;
@@ -2118,7 +2118,7 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 	out_resp->flags = property->flags;
 
 	if ((out_resp->count_values >= value_count) && value_count) {
-		values_ptr = (uint64_t *)(unsigned long)out_resp->values_ptr;
+		values_ptr = (uint64_t __user *)(unsigned long)out_resp->values_ptr;
 		for (i = 0; i < value_count; i++) {
 			if (copy_to_user(values_ptr + i, &property->values[i], sizeof(uint64_t))) {
 				ret = -EFAULT;
@@ -2131,7 +2131,7 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 	if (property->flags & DRM_MODE_PROP_ENUM) {
 		if ((out_resp->count_enum_blobs >= enum_count) && enum_count) {
 			copied = 0;
-			enum_ptr = (struct drm_mode_property_enum *)(unsigned long)out_resp->enum_blob_ptr;
+			enum_ptr = (struct drm_mode_property_enum __user *)(unsigned long)out_resp->enum_blob_ptr;
 			list_for_each_entry(prop_enum, &property->enum_blob_list, head) {
 
 				if (copy_to_user(&enum_ptr[copied].value, &prop_enum->value, sizeof(uint64_t))) {
@@ -2154,7 +2154,7 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 		if ((out_resp->count_enum_blobs >= blob_count) && blob_count) {
 			copied = 0;
 			blob_id_ptr = (uint32_t *)(unsigned long)out_resp->enum_blob_ptr;
-			blob_length_ptr = (uint32_t *)(unsigned long)out_resp->values_ptr;
+			blob_length_ptr = (uint32_t __user *)(unsigned long)out_resp->values_ptr;
 
 			list_for_each_entry(prop_blob, &property->enum_blob_list, head) {
 				if (put_user(prop_blob->base.id, blob_id_ptr + copied)) {
@@ -2226,7 +2226,7 @@ int drm_mode_getblob_ioctl(struct drm_device *dev,
 	blob = obj_to_blob(obj);
 
 	if (out_resp->length == blob->length) {
-		blob_ptr = (void *)(unsigned long)out_resp->data;
+		blob_ptr = (void __user *)(unsigned long)out_resp->data;
 		if (copy_to_user(blob_ptr, blob->data, blob->length)){
 			ret = -EFAULT;
 			goto done;

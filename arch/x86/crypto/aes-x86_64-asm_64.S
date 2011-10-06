@@ -8,6 +8,8 @@
  * including this sentence is retained in full.
  */
 
+#include <asm/alternative-asm.h>
+
 .extern crypto_ft_tab
 .extern crypto_it_tab
 .extern crypto_fl_tab
@@ -70,6 +72,8 @@ FUNC:	movq	r1,r2;			\
 	leaq	32(r9),r9;		\
 	je	B192;			\
 	leaq	32(r9),r9;
+
+#define ret	pax_force_retaddr; ret
 
 #define epilogue(r1,r2,r3,r4,r5,r6,r7,r8,r9) \
 	movq	r1,r2;			\

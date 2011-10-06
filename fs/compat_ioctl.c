@@ -1515,7 +1515,7 @@ static int serial_struct_ioctl(unsigned fd, unsigned cmd, unsigned long arg)
 			return -EFAULT;
                 if (__get_user(udata, &ss32->iomem_base))
 			return -EFAULT;
-                ss.iomem_base = compat_ptr(udata);
+                ss.iomem_base = (unsigned char __force_kernel *)compat_ptr(udata);
                 if (__get_user(ss.iomem_reg_shift, &ss32->iomem_reg_shift) ||
 		    __get_user(ss.port_high, &ss32->port_high))
 			return -EFAULT;
@@ -1811,7 +1811,7 @@ static int compat_ioctl_preallocate(struct file *file, unsigned long arg)
 	    copy_in_user(&p->l_len,	&p32->l_len,	sizeof(s64)) ||
 	    copy_in_user(&p->l_sysid,	&p32->l_sysid,	sizeof(s32)) ||
 	    copy_in_user(&p->l_pid,	&p32->l_pid,	sizeof(u32)) ||
-	    copy_in_user(&p->l_pad,	&p32->l_pad,	4*sizeof(u32)))
+	    copy_in_user(p->l_pad,	&p32->l_pad,	4*sizeof(u32)))
 		return -EFAULT;
 
 	return ioctl_preallocate(file, p);

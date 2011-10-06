@@ -2053,7 +2053,7 @@ int addrconf_set_dstaddr(struct net *net, void __user *arg)
 		p.iph.ihl = 5;
 		p.iph.protocol = IPPROTO_IPV6;
 		p.iph.ttl = 64;
-		ifr.ifr_ifru.ifru_data = (__force void __user *)&p;
+		ifr.ifr_ifru.ifru_data = (void __force_user *)&p;
 
 		if (ops->ndo_do_ioctl) {
 			mm_segment_t oldfs = get_fs();

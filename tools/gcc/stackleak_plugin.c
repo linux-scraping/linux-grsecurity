@@ -15,7 +15,7 @@
  * - initialize all local variables
  *
  * BUGS:
- * - cloned functions are instrumented twice
+ * - none known
  */
 #include "gcc-plugin.h"
 #include "config.h"
@@ -42,7 +42,7 @@ static const char track_function[] = "pax_track_stack";
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201106030000",
+	.version	= "201109112100",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -65,7 +65,7 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_stmts // | TODO_dump_func
+		.todo_flags_finish	= TODO_verify_stmts | TODO_dump_func
 	}
 };
 
@@ -83,7 +83,7 @@ static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
+		.todo_flags_finish	= TODO_dump_func
 	}
 };
 
@@ -95,13 +95,13 @@ static bool gate_stackleak_track_stack(void)
 static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
 {
 	gimple call;
-	tree decl, type;
+	tree fndecl, type;
 
 	// insert call to void pax_track_stack(void)
 	type = build_function_type_list(void_type_node, NULL_TREE);
-	decl = build_fn_decl(track_function, type);
-	DECL_ASSEMBLER_NAME(decl); // for LTO
-	call = gimple_build_call(decl, 0);
+	fndecl = build_fn_decl(track_function, type);
+	DECL_ASSEMBLER_NAME(fndecl); // for LTO
+	call = gimple_build_call(fndecl, 0);
 	if (before)
 		gsi_insert_before(gsi, call, GSI_CONTINUE_LINKING);
 	else
@@ -110,40 +110,46 @@ static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi, bool before
 
 static unsigned int execute_stackleak_tree_instrument(void)
 {
-	basic_block bb;
+	basic_block bb, entry_bb;
 	gimple_stmt_iterator gsi;
+	bool prologue_instrumented = false;
+
+	entry_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun)->next_bb;
 
 	// 1. loop through BBs and GIMPLE statements
 	FOR_EACH_BB(bb) {
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: align 8 built-in BUILT_IN_NORMAL:BUILT_IN_ALLOCA attributes <tree_list 0xb7576450>
-			tree decl;
+			tree fndecl;
 			gimple stmt = gsi_stmt(gsi);
 
 			if (!is_gimple_call(stmt))
 				continue;
-			decl = gimple_call_fndecl(stmt);
-			if (!decl)
+			fndecl = gimple_call_fndecl(stmt);
+			if (!fndecl)
 				continue;
-			if (TREE_CODE(decl) != FUNCTION_DECL)
+			if (TREE_CODE(fndecl) != FUNCTION_DECL)
 				continue;
-			if (!DECL_BUILT_IN(decl))
+			if (!DECL_BUILT_IN(fndecl))
 				continue;
-			if (DECL_BUILT_IN_CLASS(decl) != BUILT_IN_NORMAL)
+			if (DECL_BUILT_IN_CLASS(fndecl) != BUILT_IN_NORMAL)
 				continue;
-			if (DECL_FUNCTION_CODE(decl) != BUILT_IN_ALLOCA)
+			if (DECL_FUNCTION_CODE(fndecl) != BUILT_IN_ALLOCA)
 				continue;
 
 			// 2. insert track call after each __builtin_alloca call
 			stackleak_add_instrumentation(&gsi, false);
-//			print_node(stderr, "pax", decl, 4);
+			if (bb == entry_bb)
+				prologue_instrumented = true;
+//			print_node(stderr, "pax", fndecl, 4);
 		}
 	}
 
 	// 3. insert track call at the beginning
-	bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun)->next_bb;
-	gsi = gsi_start_bb(bb);
-	stackleak_add_instrumentation(&gsi, true);
+	if (!prologue_instrumented) {
+		gsi = gsi_start_bb(entry_bb);
+		stackleak_add_instrumentation(&gsi, true);
+	}
 
 	return 0;
 }
@@ -153,6 +159,10 @@ static unsigned int execute_stackleak_final(void)
 	rtx insn;
 
 	if (cfun->calls_alloca)
+		return 0;
+
+	// keep calls only if function frame is big enough
+	if (get_frame_size() >= track_frame_size)
 		return 0;
 
 	// 1. find pax_track_stack calls
@@ -174,9 +184,7 @@ static unsigned int execute_stackleak_final(void)
 		if (strcmp(XSTR(body, 0), track_function))
 			continue;
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
-		// 2. delete call if function frame is not big enough
-		if (get_frame_size() >= track_frame_size)
-			continue;
+		// 2. delete call
 		delete_insn_and_edges(insn);
 	}
 

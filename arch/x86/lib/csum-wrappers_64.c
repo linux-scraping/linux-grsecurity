@@ -58,7 +58,7 @@ csum_partial_copy_from_user(const void __user *src, void *dst,
 		src += PAX_USER_SHADOW_BASE;
 #endif
 
-	isum = csum_partial_copy_generic((__force const void *)src,
+	isum = csum_partial_copy_generic((const void __force_kernel *)src,
 				dst, len, isum, errp, NULL);
 	if (unlikely(*errp))
 		goto out_err;
@@ -117,7 +117,7 @@ csum_partial_copy_to_user(const void *src, void __user *dst,
 		dst += PAX_USER_SHADOW_BASE;
 #endif
 
-	return csum_partial_copy_generic(src, (void __force *)dst,
+	return csum_partial_copy_generic(src, (void __force_kernel *)dst,
 					 len, isum, NULL, errp);
 }
 EXPORT_SYMBOL(csum_partial_copy_to_user);

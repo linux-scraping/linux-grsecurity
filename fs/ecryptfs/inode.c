@@ -660,7 +660,7 @@ static int ecryptfs_readlink_lower(struct dentry *dentry, char **buf,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	rc = lower_dentry->d_inode->i_op->readlink(lower_dentry,
-						   (__force char __user *)lower_buf,
+						   (char __force_user *)lower_buf,
 						   lower_bufsiz);
 	set_fs(old_fs);
 	if (rc < 0)

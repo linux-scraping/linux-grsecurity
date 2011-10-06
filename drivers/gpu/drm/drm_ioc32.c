@@ -463,7 +463,7 @@ static int compat_drm_infobufs(struct file *file, unsigned int cmd,
 	request = compat_alloc_user_space(nbytes);
 	if (!access_ok(VERIFY_WRITE, request, nbytes))
 		return -EFAULT;
-	list = (struct drm_buf_desc *) (request + 1);
+	list = (struct drm_buf_desc __user *) (request + 1);
 
 	if (__put_user(count, &request->count)
 	    || __put_user(list, &request->list))
@@ -525,7 +525,7 @@ static int compat_drm_mapbufs(struct file *file, unsigned int cmd,
 	request = compat_alloc_user_space(nbytes);
 	if (!access_ok(VERIFY_WRITE, request, nbytes))
 		return -EFAULT;
-	list = (struct drm_buf_pub *) (request + 1);
+	list = (struct drm_buf_pub __user *) (request + 1);
 
 	if (__put_user(count, &request->count)
 	    || __put_user(list, &request->list))

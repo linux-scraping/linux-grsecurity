@@ -122,7 +122,7 @@ check_prefetch_opcode(struct pt_regs *regs, unsigned char *instr,
 	case 0x00:
 		/* Prefetch instruction is 0x0F0D or 0x0F18 */
 		if (user_mode(regs)) {
-			if (__copy_from_user_inatomic(&opcode, (__force unsigned char __user *)(instr), 1))
+			if (__copy_from_user_inatomic(&opcode, (unsigned char __force_user *)(instr), 1))
 				return 0;
 		} else if (probe_kernel_address(instr, opcode))
 			return 0;
@@ -159,7 +159,7 @@ is_prefetch(struct pt_regs *regs, unsigned long error_code, unsigned long addr)
 		unsigned char opcode;
 
 		if (user_mode(regs)) {
-			if (__copy_from_user_inatomic(&opcode, (__force unsigned char __user *)(instr), 1))
+			if (__copy_from_user_inatomic(&opcode, (unsigned char __force_user *)(instr), 1))
 				break;
 		} else if (probe_kernel_address(instr, opcode))
 			break;
@@ -1567,7 +1567,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at PC: ");
 	for (i = 0; i < 20; i++) {
 		unsigned char c;
-		if (get_user(c, (__force unsigned char __user *)pc+i))
+		if (get_user(c, (unsigned char __force_user *)pc+i))
 			printk(KERN_CONT "?? ");
 		else
 			printk(KERN_CONT "%02x ", c);
@@ -1577,7 +1577,7 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at SP-%lu: ", (unsigned long)sizeof(long));
 	for (i = -1; i < 80 / (long)sizeof(long); i++) {
 		unsigned long c;
-		if (get_user(c, (__force unsigned long __user *)sp+i))
+		if (get_user(c, (unsigned long __force_user *)sp+i))
 #ifdef CONFIG_X86_32
 			printk(KERN_CONT "???????? ");
 #else
@@ -1607,7 +1607,7 @@ long notrace probe_kernel_write(void *dst, const void *src, size_t size)
 	set_fs(KERNEL_DS);
 	pagefault_disable();
 	pax_open_kernel();
-	ret = __copy_to_user_inatomic((__force void __user *)dst, src, size);
+	ret = __copy_to_user_inatomic((void __force_user *)dst, src, size);
 	pax_close_kernel();
 	pagefault_enable();
 	set_fs(old_fs);

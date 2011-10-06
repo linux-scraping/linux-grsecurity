@@ -16,6 +16,7 @@
 #include <asm/thread_info.h>
 #include <asm/cpufeature.h>
 #include <asm/pgtable.h>
+#include <asm/alternative-asm.h>
 
 	.macro ALTERNATIVE_JUMP feature,orig,alt
 0:
@@ -84,6 +85,7 @@ bad_from_user:
 	stosb
 bad_to_user:
 	movl %edx,%eax
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(bad_from_user)
@@ -151,6 +153,7 @@ ENTRY(copy_user_generic_unrolled)
 	decl %ecx
 	jnz 21b
 23:	xor %eax,%eax
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"
@@ -223,6 +226,7 @@ ENTRY(copy_user_generic_string)
 3:	rep
 	movsb
 4:	xorl %eax,%eax
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"

@@ -108,7 +108,7 @@ static long compat_nanosleep_restart(struct restart_block *restart)
 	mm_segment_t oldfs;
 	long ret;
 
-	restart->nanosleep.rmtp = (struct timespec __user *) &rmt;
+	restart->nanosleep.rmtp = (struct timespec __force_user *) &rmt;
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	ret = hrtimer_nanosleep_restart(restart);
@@ -140,7 +140,7 @@ asmlinkage long compat_sys_nanosleep(struct compat_timespec __user *rqtp,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	ret = hrtimer_nanosleep(&tu,
-				rmtp ? (struct timespec __user *)&rmt : NULL,
+				rmtp ? (struct timespec __force_user *)&rmt : NULL,
 				HRTIMER_MODE_REL, CLOCK_MONOTONIC);
 	set_fs(oldfs);
 
@@ -247,7 +247,7 @@ asmlinkage long compat_sys_sigpending(compat_old_sigset_t __user *set)
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_sigpending((old_sigset_t __user *) &s);
+	ret = sys_sigpending((old_sigset_t __force_user *) &s);
 	set_fs(old_fs);
 	if (ret == 0)
 		ret = put_user(s, set);
@@ -266,8 +266,8 @@ asmlinkage long compat_sys_sigprocmask(int how, compat_old_sigset_t __user *set,
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 	ret = sys_sigprocmask(how,
-			      set ? (old_sigset_t __user *) &s : NULL,
-			      oset ? (old_sigset_t __user *) &s : NULL);
+			      set ? (old_sigset_t __force_user *) &s : NULL,
+			      oset ? (old_sigset_t __force_user *) &s : NULL);
 	set_fs(old_fs);
 	if (ret == 0)
 		if (oset)
@@ -310,7 +310,7 @@ asmlinkage long compat_sys_old_getrlimit(unsigned int resource,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_old_getrlimit(resource, &r);
+	ret = sys_old_getrlimit(resource, (struct rlimit __force_user *)&r);
 	set_fs(old_fs);
 
 	if (!ret) {
@@ -385,7 +385,7 @@ asmlinkage long compat_sys_getrusage(int who, struct compat_rusage __user *ru)
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_getrusage(who, (struct rusage __user *) &r);
+	ret = sys_getrusage(who, (struct rusage __force_user *) &r);
 	set_fs(old_fs);
 
 	if (ret)
@@ -412,8 +412,8 @@ compat_sys_wait4(compat_pid_t pid, compat_uint_t __user *stat_addr, int options,
 		set_fs (KERNEL_DS);
 		ret = sys_wait4(pid,
 				(stat_addr ?
-				 (unsigned int __user *) &status : NULL),
-				options, (struct rusage __user *) &r);
+				 (unsigned int __force_user *) &status : NULL),
+				options, (struct rusage __force_user *) &r);
 		set_fs (old_fs);
 
 		if (ret > 0) {
@@ -438,8 +438,8 @@ asmlinkage long compat_sys_waitid(int which, compat_pid_t pid,
 	memset(&info, 0, sizeof(info));
 
 	set_fs(KERNEL_DS);
-	ret = sys_waitid(which, pid, (siginfo_t __user *)&info, options,
-			 uru ? (struct rusage __user *)&ru : NULL);
+	ret = sys_waitid(which, pid, (siginfo_t __force_user *)&info, options,
+			 uru ? (struct rusage __force_user *)&ru : NULL);
 	set_fs(old_fs);
 
 	if ((ret < 0) || (info.si_signo == 0))
@@ -569,8 +569,8 @@ long compat_sys_timer_settime(timer_t timer_id, int flags,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_timer_settime(timer_id, flags,
-				(struct itimerspec __user *) &newts,
-				(struct itimerspec __user *) &oldts);
+				(struct itimerspec __force_user *) &newts,
+				(struct itimerspec __force_user *) &oldts);
 	set_fs(oldfs);
 	if (!err && old && put_compat_itimerspec(old, &oldts))
 		return -EFAULT;
@@ -587,7 +587,7 @@ long compat_sys_timer_gettime(timer_t timer_id,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_timer_gettime(timer_id,
-				(struct itimerspec __user *) &ts);
+				(struct itimerspec __force_user *) &ts);
 	set_fs(oldfs);
 	if (!err && put_compat_itimerspec(setting, &ts))
 		return -EFAULT;
@@ -606,7 +606,7 @@ long compat_sys_clock_settime(clockid_t which_clock,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_clock_settime(which_clock,
-				(struct timespec __user *) &ts);
+				(struct timespec __force_user *) &ts);
 	set_fs(oldfs);
 	return err;
 }
@@ -621,7 +621,7 @@ long compat_sys_clock_gettime(clockid_t which_clock,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_clock_gettime(which_clock,
-				(struct timespec __user *) &ts);
+				(struct timespec __force_user *) &ts);
 	set_fs(oldfs);
 	if (!err && put_compat_timespec(&ts, tp))
 		return -EFAULT;
@@ -638,7 +638,7 @@ long compat_sys_clock_getres(clockid_t which_clock,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_clock_getres(which_clock,
-			       (struct timespec __user *) &ts);
+			       (struct timespec __force_user *) &ts);
 	set_fs(oldfs);
 	if (!err && tp && put_compat_timespec(&ts, tp))
 		return -EFAULT;
@@ -650,9 +650,9 @@ static long compat_clock_nanosleep_restart(struct restart_block *restart)
 	long err;
 	mm_segment_t oldfs;
 	struct timespec tu;
-	struct compat_timespec *rmtp = restart->nanosleep.compat_rmtp;
+	struct compat_timespec __user *rmtp = restart->nanosleep.compat_rmtp;
 
-	restart->nanosleep.rmtp = (struct timespec __user *) &tu;
+	restart->nanosleep.rmtp = (struct timespec __force_user *) &tu;
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = clock_nanosleep_restart(restart);
@@ -684,8 +684,8 @@ long compat_sys_clock_nanosleep(clockid_t which_clock, int flags,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = sys_clock_nanosleep(which_clock, flags,
-				  (struct timespec __user *) &in,
-				  (struct timespec __user *) &out);
+				  (struct timespec __force_user *) &in,
+				  (struct timespec __force_user *) &out);
 	set_fs(oldfs);
 
 	if ((err == -ERESTART_RESTARTBLOCK) && rmtp &&

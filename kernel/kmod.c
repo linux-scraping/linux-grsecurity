@@ -279,7 +279,7 @@ static int wait_for_helper(void *data)
 		 *
 		 * Thus the __user pointer cast is valid here.
 		 */
-		sys_wait4(pid, (int __user *)&ret, 0, NULL);
+		sys_wait4(pid, (int __force_user *)&ret, 0, NULL);
 
 		/*
 		 * If ret is 0, either ____call_usermodehelper failed and the

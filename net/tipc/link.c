@@ -1418,7 +1418,7 @@ again:
 
 		if (!sect_rest) {
 			sect_rest = msg_sect[++curr_sect].iov_len;
-			sect_crs = (const unchar *)msg_sect[curr_sect].iov_base;
+			sect_crs = (const unchar __user *)msg_sect[curr_sect].iov_base;
 		}
 
 		if (sect_rest < fragm_rest)
@@ -1437,7 +1437,7 @@ error:
 			}
 		} else
 			skb_copy_to_linear_data_offset(buf, fragm_crs,
-						       sect_crs, sz);
+						       (const void __force_kernel *)sect_crs, sz);
 		sect_crs += sz;
 		sect_rest -= sz;
 		fragm_crs += sz;

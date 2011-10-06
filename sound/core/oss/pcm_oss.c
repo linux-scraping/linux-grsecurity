@@ -1395,7 +1395,7 @@ static ssize_t snd_pcm_oss_write1(struct snd_pcm_substream *substream, const cha
 			}
 		} else {
 			tmp = snd_pcm_oss_write2(substream,
-						 (const char __force *)buf,
+						 (const char __force_kernel *)buf,
 						 runtime->oss.period_bytes, 0);
 			if (tmp <= 0)
 				goto err;
@@ -1483,7 +1483,7 @@ static ssize_t snd_pcm_oss_read1(struct snd_pcm_substream *substream, char __use
 			xfer += tmp;
 			runtime->oss.buffer_used -= tmp;
 		} else {
-			tmp = snd_pcm_oss_read2(substream, (char __force *)buf,
+			tmp = snd_pcm_oss_read2(substream, (char __force_kernel *)buf,
 						runtime->oss.period_bytes, 0);
 			if (tmp <= 0)
 				goto err;

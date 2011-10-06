@@ -64,7 +64,7 @@ static int kill_proc_ao(struct task_struct *t, unsigned long addr, int trapno,
 	si.si_signo = SIGBUS;
 	si.si_errno = 0;
 	si.si_code = BUS_MCEERR_AO;
-	si.si_addr = (void *)addr;
+	si.si_addr = (void __user *)addr;
 #ifdef __ARCH_SI_TRAPNO
 	si.si_trapno = trapno;
 #endif

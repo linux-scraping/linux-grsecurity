@@ -54,6 +54,7 @@
 #include <asm/ftrace.h>
 #include <asm/percpu.h>
 #include <asm/pgtable.h>
+#include <asm/alternative-asm.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */
 #include <linux/elf-em.h>
@@ -1131,6 +1132,7 @@ retint_swapgs:		/* return to user-space */
 retint_restore_args:	/* return to kernel space */
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	pax_exit_kernel
+	pax_force_retaddr RIP-ARGOFFSET
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
@@ -1748,6 +1750,7 @@ ENTRY(paranoid_exit)
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
+	pax_force_retaddr
 	jmp irq_return
 #endif
 paranoid_swapgs:
@@ -1764,6 +1767,7 @@ paranoid_restore:
 	pax_exit_kernel
 	TRACE_IRQS_IRETQ 0
 	RESTORE_ALL 8
+	pax_force_retaddr
 	jmp irq_return
 paranoid_userspace:
 	GET_THREAD_INFO(%rcx)
@@ -1904,6 +1908,7 @@ ENTRY(nmi)
 	pax_exit_kernel
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
+	pax_force_retaddr
 	jmp irq_return
 #endif
 nmi_swapgs:
@@ -1918,6 +1923,7 @@ nmi_swapgs:
 nmi_restore:
 	pax_exit_kernel
 	RESTORE_ALL 8
+	pax_force_retaddr
 	jmp irq_return
 nmi_userspace:
 	GET_THREAD_INFO(%rcx)

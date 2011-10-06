@@ -69,9 +69,9 @@ int get_compat_msghdr(struct msghdr *kmsg, struct compat_msghdr __user *umsg)
 	    __get_user(kmsg->msg_controllen, &umsg->msg_controllen) ||
 	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
 		return -EFAULT;
-	kmsg->msg_name = compat_ptr(tmp1);
-	kmsg->msg_iov = compat_ptr(tmp2);
-	kmsg->msg_control = compat_ptr(tmp3);
+	kmsg->msg_name = (void __force_kernel *)compat_ptr(tmp1);
+	kmsg->msg_iov = (void __force_kernel *)compat_ptr(tmp2);
+	kmsg->msg_control = (void __force_kernel *)compat_ptr(tmp3);
 	return 0;
 }
 
@@ -94,7 +94,7 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
 		kern_msg->msg_name = NULL;
 
 	tot_len = iov_from_user_compat_to_kern(kern_iov,
-					  (struct compat_iovec __user *)kern_msg->msg_iov,
+					  (struct compat_iovec __force_user *)kern_msg->msg_iov,
 					  kern_msg->msg_iovlen);
 	if (tot_len >= 0)
 		kern_msg->msg_iov = kern_iov;
@@ -114,20 +114,20 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
 
 #define CMSG_COMPAT_FIRSTHDR(msg)			\
 	(((msg)->msg_controllen) >= sizeof(struct compat_cmsghdr) ?	\
-	 (struct compat_cmsghdr __user *)((msg)->msg_control) :		\
+	 (struct compat_cmsghdr __force_user *)((msg)->msg_control) :		\
 	 (struct compat_cmsghdr __user *)NULL)
 
 #define CMSG_COMPAT_OK(ucmlen, ucmsg, mhdr) \
 	((ucmlen) >= sizeof(struct compat_cmsghdr) && \
 	 (ucmlen) <= (unsigned long) \
 	 ((mhdr)->msg_controllen - \
-	  ((char *)(ucmsg) - (char *)(mhdr)->msg_control)))
+	  ((char __force_kernel *)(ucmsg) - (char *)(mhdr)->msg_control)))
 
 static inline struct compat_cmsghdr __user *cmsg_compat_nxthdr(struct msghdr *msg,
 		struct compat_cmsghdr __user *cmsg, int cmsg_len)
 {
 	char __user *ptr = (char __user *)cmsg + CMSG_COMPAT_ALIGN(cmsg_len);
-	if ((unsigned long)(ptr + 1 - (char __user *)msg->msg_control) >
+	if ((unsigned long)(ptr + 1 - (char __force_user *)msg->msg_control) >
 			msg->msg_controllen)
 		return NULL;
 	return (struct compat_cmsghdr __user *)ptr;
@@ -219,7 +219,7 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
 {
 	struct compat_timeval ctv;
 	struct compat_timespec cts[3];
-	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
+	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __force_user *) kmsg->msg_control;
 	struct compat_cmsghdr cmhdr;
 	int cmlen;
 
@@ -271,7 +271,7 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
 
 void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
 {
-	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
+	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __force_user *) kmsg->msg_control;
 	int fdmax = (kmsg->msg_controllen - sizeof(struct compat_cmsghdr)) / sizeof(int);
 	int fdnum = scm->fp->count;
 	struct file **fp = scm->fp->fp;
@@ -433,7 +433,7 @@ static int do_get_sock_timeout(struct socket *sock, int level, int optname,
 	len = sizeof(ktime);
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	err = sock_getsockopt(sock, level, optname, (char *) &ktime, &len);
+	err = sock_getsockopt(sock, level, optname, (char __force_user *) &ktime, (int __force_user *)&len);
 	set_fs(old_fs);
 
 	if (!err) {
@@ -570,7 +570,7 @@ int compat_mc_setsockopt(struct sock *sock, int level, int optname,
 	case MCAST_JOIN_GROUP:
 	case MCAST_LEAVE_GROUP:
 	{
-		struct compat_group_req __user *gr32 = (void *)optval;
+		struct compat_group_req __user *gr32 = (void __user *)optval;
 		struct group_req __user *kgr =
 			compat_alloc_user_space(sizeof(struct group_req));
 		u32 interface;
@@ -591,7 +591,7 @@ int compat_mc_setsockopt(struct sock *sock, int level, int optname,
 	case MCAST_BLOCK_SOURCE:
 	case MCAST_UNBLOCK_SOURCE:
 	{
-		struct compat_group_source_req __user *gsr32 = (void *)optval;
+		struct compat_group_source_req __user *gsr32 = (void __user *)optval;
 		struct group_source_req __user *kgsr = compat_alloc_user_space(
 			sizeof(struct group_source_req));
 		u32 interface;
@@ -612,7 +612,7 @@ int compat_mc_setsockopt(struct sock *sock, int level, int optname,
 	}
 	case MCAST_MSFILTER:
 	{
-		struct compat_group_filter __user *gf32 = (void *)optval;
+		struct compat_group_filter __user *gf32 = (void __user *)optval;
 		struct group_filter __user *kgf;
 		u32 interface, fmode, numsrc;
 

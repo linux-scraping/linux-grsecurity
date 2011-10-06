@@ -12,18 +12,18 @@
 #include <asm/system.h>
 
 #define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg)	\
-	typecheck(u32 *, uaddr);				\
+	typecheck(u32 __user *, uaddr);				\
 	asm volatile("1:\t" insn "\n"				\
 		     "2:\t.section .fixup,\"ax\"\n"		\
 		     "3:\tmov\t%3, %1\n"			\
 		     "\tjmp\t2b\n"				\
 		     "\t.previous\n"				\
 		     _ASM_EXTABLE(1b, 3b)			\
-		     : "=r" (oldval), "=r" (ret), "+m" (*(u32 *)____m(uaddr))\
+		     : "=r" (oldval), "=r" (ret), "+m" (*(u32 __user *)____m(uaddr))\
 		     : "i" (-EFAULT), "0" (oparg), "1" (0))
 
 #define __futex_atomic_op2(insn, ret, oldval, uaddr, oparg)	\
-	typecheck(u32 *, uaddr);				\
+	typecheck(u32 __user *, uaddr);				\
 	asm volatile("1:\tmovl	%2, %0\n"			\
 		     "\tmovl\t%0, %3\n"				\
 		     "\t" insn "\n"				\
@@ -36,7 +36,7 @@
 		     _ASM_EXTABLE(1b, 4b)			\
 		     _ASM_EXTABLE(2b, 4b)			\
 		     : "=&a" (oldval), "=&r" (ret),		\
-		       "+m" (*(u32 *)____m(uaddr)), "=&r" (tem)	\
+		       "+m" (*(u32 __user *)____m(uaddr)), "=&r" (tem)	\
 		     : "r" (oparg), "i" (-EFAULT), "1" (0))
 
 static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)

@@ -69,8 +69,8 @@ asmlinkage long sys32_ftruncate64(unsigned int fd, unsigned long offset_low,
  */
 static int cp_stat64(struct stat64 __user *ubuf, struct kstat *stat)
 {
-	typeof(ubuf->st_uid) uid = 0;
-	typeof(ubuf->st_gid) gid = 0;
+	typeof(((struct stat64 *)0)->st_uid) uid = 0;
+	typeof(((struct stat64 *)0)->st_gid) gid = 0;
 	SET_UID(uid, stat->uid);
 	SET_GID(gid, stat->gid);
 	if (!access_ok(VERIFY_WRITE, ubuf, sizeof(struct stat64)) ||
@@ -308,8 +308,8 @@ asmlinkage long sys32_rt_sigprocmask(int how, compat_sigset_t __user *set,
 	}
 	set_fs(KERNEL_DS);
 	ret = sys_rt_sigprocmask(how,
-				 set ? (sigset_t __user *)&s : NULL,
-				 oset ? (sigset_t __user *)&s : NULL,
+				 set ? (sigset_t __force_user *)&s : NULL,
+				 oset ? (sigset_t __force_user *)&s : NULL,
 				 sigsetsize);
 	set_fs(old_fs);
 	if (ret)
@@ -371,7 +371,7 @@ asmlinkage long sys32_sched_rr_get_interval(compat_pid_t pid,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_sched_rr_get_interval(pid, (struct timespec __user *)&t);
+	ret = sys_sched_rr_get_interval(pid, (struct timespec __force_user *)&t);
 	set_fs(old_fs);
 	if (put_compat_timespec(&t, interval))
 		return -EFAULT;
@@ -387,7 +387,7 @@ asmlinkage long sys32_rt_sigpending(compat_sigset_t __user *set,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_rt_sigpending((sigset_t __user *)&s, sigsetsize);
+	ret = sys_rt_sigpending((sigset_t __force_user *)&s, sigsetsize);
 	set_fs(old_fs);
 	if (!ret) {
 		switch (_NSIG_WORDS) {
@@ -412,7 +412,7 @@ asmlinkage long sys32_rt_sigqueueinfo(int pid, int sig,
 	if (copy_siginfo_from_user32(&info, uinfo))
 		return -EFAULT;
 	set_fs(KERNEL_DS);
-	ret = sys_rt_sigqueueinfo(pid, sig, (siginfo_t __user *)&info);
+	ret = sys_rt_sigqueueinfo(pid, sig, (siginfo_t __force_user *)&info);
 	set_fs(old_fs);
 	return ret;
 }
@@ -513,7 +513,7 @@ asmlinkage long sys32_sendfile(int out_fd, int in_fd,
 		return -EFAULT;
 
 	set_fs(KERNEL_DS);
-	ret = sys_sendfile(out_fd, in_fd, offset ? (off_t __user *)&of : NULL,
+	ret = sys_sendfile(out_fd, in_fd, offset ? (off_t __force_user *)&of : NULL,
 			   count);
 	set_fs(old_fs);
 

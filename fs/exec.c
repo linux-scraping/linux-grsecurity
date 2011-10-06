@@ -773,7 +773,7 @@ int kernel_read(struct file *file, loff_t offset,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	result = vfs_read(file, (__force void __user *)addr, count, &pos);
+	result = vfs_read(file, (void __force_user *)addr, count, &pos);
 	set_fs(old_fs);
 	return result;
 }

@@ -17,6 +17,7 @@ ENTRY(__write_lock_failed)
 	LOCK_PREFIX
 	subl $RW_LOCK_BIAS,(%rdi)
 	jnz  __write_lock_failed
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(__write_lock_failed)
@@ -33,6 +34,7 @@ ENTRY(__read_lock_failed)
 	LOCK_PREFIX
 	decl (%rdi)
 	js __read_lock_failed
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(__read_lock_failed)

@@ -946,7 +946,7 @@ int cachefiles_write_page(struct fscache_storage *op, struct page *page)
 			old_fs = get_fs();
 			set_fs(KERNEL_DS);
 			ret = file->f_op->write(
-				file, (__force const void __user *) data, len, &pos);
+				file, (const void __force_user *) data, len, &pos);
 			set_fs(old_fs);
 			kunmap(page);
 			if (ret != len)

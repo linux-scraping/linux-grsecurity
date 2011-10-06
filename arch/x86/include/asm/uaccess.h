@@ -295,7 +295,7 @@ extern void __put_user_8(void);
 	__typeof__(*(ptr)) __pu_val;				\
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
-	__pu_val = x;						\
+	__pu_val = (x);						\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
 		__put_user_x(1, __pu_val, ptr, __ret_pu);	\

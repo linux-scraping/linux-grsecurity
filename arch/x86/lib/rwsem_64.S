@@ -48,6 +48,7 @@ ENTRY(call_rwsem_down_read_failed)
 	call rwsem_down_read_failed
 	popq %rdx
 	restore_common_regs
+	pax_force_retaddr
 	ret
 	ENDPROC(call_rwsem_down_read_failed)
 
@@ -56,6 +57,7 @@ ENTRY(call_rwsem_down_write_failed)
 	movq %rax,%rdi
 	call rwsem_down_write_failed
 	restore_common_regs
+	pax_force_retaddr
 	ret
 	ENDPROC(call_rwsem_down_write_failed)
 
@@ -66,7 +68,8 @@ ENTRY(call_rwsem_wake)
 	movq %rax,%rdi
 	call rwsem_wake
 	restore_common_regs
-1:	ret
+1:	pax_force_retaddr
+	ret
 	ENDPROC(call_rwsem_wake)
 
 /* Fix up special calling conventions */
@@ -77,5 +80,6 @@ ENTRY(call_rwsem_downgrade_wake)
 	call rwsem_downgrade_wake
 	popq %rdx
 	restore_common_regs
+	pax_force_retaddr
 	ret
 	ENDPROC(call_rwsem_downgrade_wake)

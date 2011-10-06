@@ -1,3 +1,5 @@
+#include <asm/alternative-asm.h>
+
 # enter ECRYPT_encrypt_bytes
 .text
 .p2align 5
@@ -790,6 +792,7 @@ ECRYPT_encrypt_bytes:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+	pax_force_retaddr
 	ret
 #   bytesatleast65:
 ._bytesatleast65:
@@ -891,6 +894,7 @@ ECRYPT_keysetup:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+	pax_force_retaddr
 	ret
 # enter ECRYPT_ivsetup
 .text
@@ -917,4 +921,5 @@ ECRYPT_ivsetup:
 	add	%r11,%rsp
 	mov	%rdi,%rax
 	mov	%rsi,%rdx
+	pax_force_retaddr
 	ret

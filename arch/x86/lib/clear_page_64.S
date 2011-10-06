@@ -1,5 +1,6 @@
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
+#include <asm/alternative-asm.h>
 
 /*
  * Zero a page. 	
@@ -10,6 +11,7 @@ ENTRY(clear_page_c)
 	movl $4096/8,%ecx
 	xorl %eax,%eax
 	rep stosq
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(clear_page_c)
@@ -33,6 +35,7 @@ ENTRY(clear_page)
 	leaq	64(%rdi),%rdi
 	jnz	.Lloop
 	nop
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 .Lclear_page_end:
