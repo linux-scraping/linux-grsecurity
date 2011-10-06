@@ -569,17 +569,22 @@ endif
 
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(CC)"), y)
 CONSTIFY_PLUGIN := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
-ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-KERNEXEC_PLUGIN := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
+ifdef CONFIG_PAX_MEMORY_STACKLEAK
+STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -fplugin-arg-stackleak_plugin-track-lowest-sp=100
 endif
 ifdef CONFIG_KALLOCSTAT_PLUGIN
 KALLOCSTAT_PLUGIN := -fplugin=$(objtree)/tools/gcc/kallocstat_plugin.so
 endif
-ifdef CONFIG_PAX_MEMORY_STACKLEAK
-STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -fplugin-arg-stackleak_plugin-track-lowest-sp=100
+ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+KERNEXEC_PLUGIN := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
 endif
-GCC_PLUGINS := $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN) $(KALLOCSTAT_PLUGIN) $(KERNEXEC_PLUGIN)
-export CONSTIFY_PLUGIN STACKLEAK_PLUGIN KERNEXEC_PLUGIN
+ifdef CONFIG_CHECKER_PLUGIN
+ifeq ($(call cc-ifversion, -ge, 0406, y), y)
+CHECKER_PLUGIN := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
+endif
+endif
+GCC_PLUGINS := $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN) $(KALLOCSTAT_PLUGIN) $(KERNEXEC_PLUGIN) $(CHECKER_PLUGIN)
+export CONSTIFY_PLUGIN STACKLEAK_PLUGIN KERNEXEC_PLUGIN CHECKER_PLUGIN
 gcc-plugins:
 	$(Q)$(MAKE) $(build)=tools/gcc
 else

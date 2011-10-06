@@ -7,6 +7,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 #define SAVE_XMM			\
 	mov %rsp, %rax;			\
@@ -40,9 +41,7 @@ ENTRY(efi_call0)
 	call *%rdi
 	addq $32, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call0)
 
@@ -53,9 +52,7 @@ ENTRY(efi_call1)
 	call *%rdi
 	addq $32, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call1)
 
@@ -66,9 +63,7 @@ ENTRY(efi_call2)
 	call *%rdi
 	addq $32, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call2)
 
@@ -80,9 +75,7 @@ ENTRY(efi_call3)
 	call *%rdi
 	addq $32, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call3)
 
@@ -95,9 +88,7 @@ ENTRY(efi_call4)
 	call *%rdi
 	addq $32, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call4)
 
@@ -111,9 +102,7 @@ ENTRY(efi_call5)
 	call *%rdi
 	addq $48, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call5)
 
@@ -130,8 +119,6 @@ ENTRY(efi_call6)
 	call *%rdi
 	addq $48, %rsp
 	RESTORE_XMM
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 ENDPROC(efi_call6)

@@ -81,7 +81,7 @@ void devm_iounmap(struct device *dev, void __iomem *addr)
 {
 	iounmap(addr);
 	WARN_ON(devres_destroy(dev, devm_ioremap_release, devm_ioremap_match,
-			       (void *)addr));
+			       (void __force *)addr));
 }
 EXPORT_SYMBOL(devm_iounmap);
 
@@ -141,7 +141,7 @@ void devm_ioport_unmap(struct device *dev, void __iomem *addr)
 {
 	ioport_unmap(addr);
 	WARN_ON(devres_destroy(dev, devm_ioport_map_release,
-			       devm_ioport_map_match, (void *)addr));
+			       devm_ioport_map_match, (void __force *)addr));
 }
 EXPORT_SYMBOL(devm_ioport_unmap);
 

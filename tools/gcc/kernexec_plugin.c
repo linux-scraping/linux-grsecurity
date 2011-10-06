@@ -34,21 +34,23 @@
 #include "tree-flow.h"
 
 extern void print_gimple_stmt(FILE *, gimple, int, int);
+extern rtx emit_move_insn(rtx x, rtx y);
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201109191200",
+	.version	= "201110032145",
 };
 
 static unsigned int execute_kernexec_fptr(void);
 static unsigned int execute_kernexec_retaddr(void);
+static bool kernexec_cmodel_check(void);
 
 static struct gimple_opt_pass kernexec_fptr_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "kernexec_fptr",
-		.gate			= NULL,
+		.gate			= kernexec_cmodel_check,
 		.execute		= execute_kernexec_fptr,
 		.sub			= NULL,
 		.next			= NULL,
@@ -66,7 +68,7 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 	.pass = {
 		.type			= RTL_PASS,
 		.name			= "kernexec_retaddr",
-		.gate			= NULL,
+		.gate			= kernexec_cmodel_check,
 		.execute		= execute_kernexec_retaddr,
 		.sub			= NULL,
 		.next			= NULL,
@@ -76,9 +78,27 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func
+		.todo_flags_finish	= TODO_dump_func | TODO_ggc_collect
 	}
 };
+
+static bool kernexec_cmodel_check(void)
+{
+	tree section;
+
+	if (ix86_cmodel != CM_KERNEL)
+		return false;
+
+	section = lookup_attribute("__section__", DECL_ATTRIBUTES(current_function_decl));
+	if (!section || !TREE_VALUE(section))
+		return true;
+
+	section = TREE_VALUE(TREE_VALUE(section));
+	if (strncmp(TREE_STRING_POINTER(section), ".vsyscall_", 10))
+		return true;
+
+	return false;
+}
 
 /*
  * add special KERNEXEC instrumentation: force MSB of fptr to 1, which will produce
@@ -98,18 +118,14 @@ static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
 	mark_sym_for_renaming(intptr);
 	assign_intptr = gimple_build_assign(intptr, fold_convert(long_unsigned_type_node, old_fptr));
 	update_stmt(assign_intptr);
-	gsi_insert_before(&gsi, assign_intptr, GSI_NEW_STMT);
-
-	gsi_next(&gsi);
+	gsi_insert_before(&gsi, assign_intptr, GSI_SAME_STMT);
 
 	// apply logical or to temporary unsigned long and bitmask
 	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
 //	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
 	assign_intptr = gimple_build_assign(intptr, fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask));
 	update_stmt(assign_intptr);
-	gsi_insert_before(&gsi, assign_intptr, GSI_NEW_STMT);
-
-	gsi_next(&gsi);
+	gsi_insert_before(&gsi, assign_intptr, GSI_SAME_STMT);
 
 	// cast temporary unsigned long back to a temporary fptr variable
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), NULL);
@@ -117,9 +133,7 @@ static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
 	mark_sym_for_renaming(new_fptr);
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));
 	update_stmt(assign_new_fptr);
-	gsi_insert_before(&gsi, assign_new_fptr, GSI_NEW_STMT);
-
-	gsi_next(&gsi);
+	gsi_insert_before(&gsi, assign_new_fptr, GSI_SAME_STMT);
 
 	// replace call stmt fn with the new fptr
 	gimple_call_set_fn(call_stmt, new_fptr);
@@ -172,28 +186,22 @@ static unsigned int execute_kernexec_fptr(void)
 	return 0;
 }
 
-// add special KERNEXEC instrumentation: orb $0x80,7(%rsp) just before retn
+// add special KERNEXEC instrumentation: btsq $63,(%rsp) just before retn
 static void kernexec_instrument_retaddr(rtx insn)
 {
-	rtx ret_addr, clob, or;
+	rtx btsq;
+	rtvec argvec, constraintvec, labelvec;
+	int line;
 
-	start_sequence();
-
-	// compute 7(%rsp)
-	ret_addr = gen_rtx_MEM(QImode, gen_rtx_PLUS(Pmode, stack_pointer_rtx, GEN_INT(7)));
-	MEM_VOLATILE_P(ret_addr) = 1;
-
-	// create orb $0x80,7(%rsp)
-	or = gen_rtx_SET(VOIDmode, ret_addr, gen_rtx_IOR(QImode, ret_addr, GEN_INT(0xffffffffffffff80)));
-	clob = gen_rtx_CLOBBER(VOIDmode, gen_rtx_REG(CCmode, FLAGS_REG));
-
-	// put everything together
-	or = emit_insn(gen_rtx_PARALLEL(VOIDmode, gen_rtvec(2, or, clob)));
-	RTX_FRAME_RELATED_P(or) = 1;
-
-	end_sequence();
-
-	emit_insn_before(or, insn);
+	// create asm volatile("btsq $63,(%%rsp)":::)
+	argvec = rtvec_alloc(0);
+	constraintvec = rtvec_alloc(0);
+	labelvec = rtvec_alloc(0);
+	line = expand_location(RTL_LOCATION(insn)).line;
+	btsq = gen_rtx_ASM_OPERANDS(VOIDmode, "btsq $63,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
+	MEM_VOLATILE_P(btsq) = 1;
+	RTX_FRAME_RELATED_P(btsq) = 1;
+	emit_insn_before(btsq, insn);
 }
 
 /*
@@ -255,7 +263,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	for (i = 0; i < argc; ++i)
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 
-	if (TARGET_64BIT == 0 || ix86_cmodel != CM_KERNEL)
+	if (TARGET_64BIT == 0)
 		return 0;
 
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &kernexec_fptr_pass_info);

@@ -15,6 +15,15 @@
 	.endm
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+	.macro pax_force_retaddr rip=0
+	btsq $63,\rip(%rsp)
+	.endm
+#else
+	.macro pax_force_retaddr rip=0
+	.endm
+#endif
+
 .macro altinstruction_entry orig alt feature orig_len alt_len
 	.align 8
 	.quad \orig

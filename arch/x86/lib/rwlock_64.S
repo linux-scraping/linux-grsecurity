@@ -17,9 +17,7 @@ ENTRY(__write_lock_failed)
 	LOCK_PREFIX
 	subl $RW_LOCK_BIAS,(%rdi)
 	jnz  __write_lock_failed
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(__write_lock_failed)
@@ -36,9 +34,7 @@ ENTRY(__read_lock_failed)
 	LOCK_PREFIX
 	decl (%rdi)
 	js __read_lock_failed
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(__read_lock_failed)

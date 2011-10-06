@@ -5,31 +5,40 @@
 
 #ifdef __CHECKER__
 # define __user		__attribute__((noderef, address_space(1)))
+# define __force_user	__force __user
 # define __kernel	__attribute__((address_space(0)))
+# define __force_kernel	__force __kernel
 # define __safe		__attribute__((safe))
 # define __force	__attribute__((force))
 # define __nocast	__attribute__((nocast))
 # define __iomem	__attribute__((noderef, address_space(2)))
+# define __force_iomem	__force __iomem
 # define __acquires(x)	__attribute__((context(x,0,1)))
 # define __releases(x)	__attribute__((context(x,1,0)))
 # define __acquire(x)	__context__(x,1)
 # define __release(x)	__context__(x,-1)
 # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
 # define __percpu	__attribute__((noderef, address_space(3)))
+# define __force_percpu	__force __percpu
 #ifdef CONFIG_SPARSE_RCU_POINTER
 # define __rcu		__attribute__((noderef, address_space(4)))
+# define __force_rcu	__force __rcu
 #else
 # define __rcu
+# define __force_rcu
 #endif
 extern void __chk_user_ptr(const volatile void __user *);
 extern void __chk_io_ptr(const volatile void __iomem *);
-#else
-# define __user
-# define __kernel
+#elif defined(CHECKER_PLUGIN)
+//# define __user
+//# define __force_user
+//# define __kernel
+//# define __force_kernel
 # define __safe
 # define __force
 # define __nocast
 # define __iomem
+# define __force_iomem
 # define __chk_user_ptr(x) (void)0
 # define __chk_io_ptr(x) (void)0
 # define __builtin_warning(x, y...) (1)
@@ -39,7 +48,31 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 # define __release(x) (void)0
 # define __cond_lock(x,c) (c)
 # define __percpu
+# define __force_percpu
 # define __rcu
+# define __force_rcu
+#else
+# define __user
+# define __force_user
+# define __kernel
+# define __force_kernel
+# define __safe
+# define __force
+# define __nocast
+# define __iomem
+# define __force_iomem
+# define __chk_user_ptr(x) (void)0
+# define __chk_io_ptr(x) (void)0
+# define __builtin_warning(x, y...) (1)
+# define __acquires(x)
+# define __releases(x)
+# define __acquire(x) (void)0
+# define __release(x) (void)0
+# define __cond_lock(x,c) (c)
+# define __percpu
+# define __force_percpu
+# define __rcu
+# define __force_rcu
 #endif
 
 #ifdef __KERNEL__

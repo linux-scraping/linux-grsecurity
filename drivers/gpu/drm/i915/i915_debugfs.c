@@ -1147,7 +1147,7 @@ static int i915_opregion(struct seq_file *m, void *unused)
 		return ret;
 
 	if (opregion->header)
-		seq_write(m, opregion->header, OPREGION_SIZE);
+		seq_write(m, (const void __force_kernel *)opregion->header, OPREGION_SIZE);
 
 	mutex_unlock(&dev->struct_mutex);
 

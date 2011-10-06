@@ -182,7 +182,7 @@ walk:
 			break;
 		}
 
-		ptep_user = (pt_element_t __user *)((void *)host_addr + offset);
+		ptep_user = (pt_element_t __force_user *)((void *)host_addr + offset);
 		if (unlikely(__copy_from_user(&pte, ptep_user, sizeof(pte)))) {
 			present = false;
 			break;

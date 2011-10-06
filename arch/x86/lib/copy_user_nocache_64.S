@@ -8,6 +8,7 @@
 
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
+#include <asm/alternative-asm.h>
 
 #define FIX_ALIGNMENT 1
 
@@ -108,9 +109,7 @@ ENTRY(__copy_user_nocache)
 	jnz 21b
 23:	xorl %eax,%eax
 	sfence
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"

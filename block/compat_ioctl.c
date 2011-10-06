@@ -354,7 +354,7 @@ static int compat_fd_ioctl(struct block_device *bdev, fmode_t mode,
 		err |= __get_user(f->spec1, &uf->spec1);
 		err |= __get_user(f->fmt_gap, &uf->fmt_gap);
 		err |= __get_user(name, &uf->name);
-		f->name = compat_ptr(name);
+		f->name = (void __force_kernel *)compat_ptr(name);
 		if (err) {
 			err = -EFAULT;
 			goto out;

@@ -85,9 +85,7 @@ bad_from_user:
 	stosb
 bad_to_user:
 	movl %edx,%eax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(bad_from_user)
@@ -155,9 +153,7 @@ ENTRY(copy_user_generic_unrolled)
 	decl %ecx
 	jnz 21b
 23:	xor %eax,%eax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"
@@ -230,9 +226,7 @@ ENTRY(copy_user_generic_string)
 3:	rep
 	movsb
 4:	xorl %eax,%eax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"
@@ -269,9 +263,7 @@ ENTRY(copy_user_enhanced_fast_string)
 1:	rep
 	movsb
 2:	xorl %eax,%eax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 
 	.section .fixup,"ax"

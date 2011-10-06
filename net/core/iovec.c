@@ -42,7 +42,7 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address, 
 	if (m->msg_namelen) {
 		if (mode == VERIFY_READ) {
 			void __user *namep;
-			namep = (void __user __force *) m->msg_name;
+			namep = (void __force_user *) m->msg_name;
 			err = move_addr_to_kernel(namep, m->msg_namelen,
 						  address);
 			if (err < 0)
@@ -54,7 +54,7 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address, 
 	}
 
 	size = m->msg_iovlen * sizeof(struct iovec);
-	if (copy_from_user(iov, (void __user __force *) m->msg_iov, size))
+	if (copy_from_user(iov, (void __force_user *) m->msg_iov, size))
 		return -EFAULT;
 
 	m->msg_iov = iov;

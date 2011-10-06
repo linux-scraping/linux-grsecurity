@@ -1618,30 +1618,30 @@ static inline int drbd_setsockopt(struct socket *sock, int level, int optname,
 
 static inline void drbd_tcp_cork(struct socket *sock)
 {
-	int __user val = 1;
+	int val = 1;
 	(void) drbd_setsockopt(sock, SOL_TCP, TCP_CORK,
-			(char __user *)&val, sizeof(val));
+			(char __force_user *)&val, sizeof(val));
 }
 
 static inline void drbd_tcp_uncork(struct socket *sock)
 {
-	int __user val = 0;
+	int val = 0;
 	(void) drbd_setsockopt(sock, SOL_TCP, TCP_CORK,
-			(char __user *)&val, sizeof(val));
+			(char __force_user *)&val, sizeof(val));
 }
 
 static inline void drbd_tcp_nodelay(struct socket *sock)
 {
-	int __user val = 1;
+	int val = 1;
 	(void) drbd_setsockopt(sock, SOL_TCP, TCP_NODELAY,
-			(char __user *)&val, sizeof(val));
+			(char __force_user *)&val, sizeof(val));
 }
 
 static inline void drbd_tcp_quickack(struct socket *sock)
 {
-	int __user val = 2;
+	int val = 2;
 	(void) drbd_setsockopt(sock, SOL_TCP, TCP_QUICKACK,
-			(char __user *)&val, sizeof(val));
+			(char __force_user *)&val, sizeof(val));
 }
 
 void drbd_bump_write_ordering(struct drbd_conf *mdev, enum write_ordering_e wo);

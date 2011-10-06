@@ -26,7 +26,7 @@ long __probe_kernel_read(void *dst, const void *src, size_t size)
 	set_fs(KERNEL_DS);
 	pagefault_disable();
 	ret = __copy_from_user_inatomic(dst,
-			(__force const void __user *)src, size);
+			(const void __force_user *)src, size);
 	pagefault_enable();
 	set_fs(old_fs);
 
@@ -53,7 +53,7 @@ long __probe_kernel_write(void *dst, const void *src, size_t size)
 
 	set_fs(KERNEL_DS);
 	pagefault_disable();
-	ret = __copy_to_user_inatomic((__force void __user *)dst, src, size);
+	ret = __copy_to_user_inatomic((void __force_user *)dst, src, size);
 	pagefault_enable();
 	set_fs(old_fs);
 

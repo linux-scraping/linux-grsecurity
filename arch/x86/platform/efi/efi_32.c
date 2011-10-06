@@ -61,9 +61,9 @@ void __init efi_call_phys_prelog(void)
 
 #ifdef CONFIG_PAX_KERNEXEC
 	pack_descriptor(&d, 0, 0xFFFFF, 0x9B, 0xC);
-	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_CS, &d, DESCTYPE_S);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_KERNEXEC_EFI_CS, &d, DESCTYPE_S);
 	pack_descriptor(&d, 0, 0xFFFFF, 0x93, 0xC);
-	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_KERNEXEC_EFI_DS, &d, DESCTYPE_S);
 #endif
 
 	gdt_descr.address = __pa(get_cpu_gdt_table(0));
@@ -79,8 +79,8 @@ void __init efi_call_phys_epilog(void)
 	struct desc_struct d;
 
 	memset(&d, 0, sizeof d);
-	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_CS, &d, DESCTYPE_S);
-	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_EFI_DS, &d, DESCTYPE_S);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_KERNEXEC_EFI_CS, &d, DESCTYPE_S);
+	write_gdt_entry(get_cpu_gdt_table(0), GDT_ENTRY_KERNEXEC_EFI_DS, &d, DESCTYPE_S);
 #endif
 
 	gdt_descr.address = (unsigned long)get_cpu_gdt_table(0);

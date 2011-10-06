@@ -8,6 +8,7 @@
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
 #include <asm/errno.h>
+#include <asm/alternative-asm.h>
 
 /*
  * Checksum copy with exception handling.
@@ -228,9 +229,7 @@ ENTRY(csum_partial_copy_generic)
 	CFI_RESTORE rbp
 	addq $7*8, %rsp
 	CFI_ADJUST_CFA_OFFSET -7*8
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_RESTORE_STATE
 

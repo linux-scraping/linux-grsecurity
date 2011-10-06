@@ -35,9 +35,7 @@ ENTRY(atomic64_read_cx8)
 	CFI_STARTPROC
 
 	read64 %ecx
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_read_cx8)
@@ -46,9 +44,7 @@ ENTRY(atomic64_read_unchecked_cx8)
 	CFI_STARTPROC
 
 	read64 %ecx
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_read_unchecked_cx8)
@@ -62,9 +58,7 @@ ENTRY(atomic64_set_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_set_cx8)
@@ -78,9 +72,7 @@ ENTRY(atomic64_set_unchecked_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_set_unchecked_cx8)
@@ -95,9 +87,7 @@ ENTRY(atomic64_xchg_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_xchg_cx8)
@@ -145,9 +135,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	RESTORE esi
 	RESTORE ebx
 	RESTORE ebp
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
@@ -192,9 +180,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 .endif
 
 	RESTORE ebx
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
@@ -231,9 +217,7 @@ ENTRY(atomic64_dec_if_positive_cx8)
 	movl %ebx, %eax
 	movl %ecx, %edx
 	RESTORE ebx
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(atomic64_dec_if_positive_cx8)
@@ -276,9 +260,7 @@ ENTRY(atomic64_add_unless_cx8)
 	CFI_ADJUST_CFA_OFFSET -8
 	RESTORE ebx
 	RESTORE ebp
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 4:
 	cmpl %edx, 4(%esp)
@@ -315,9 +297,7 @@ ENTRY(atomic64_inc_not_zero_cx8)
 	movl $1, %eax
 3:
 	RESTORE ebx
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 4:
 	testl %edx, %edx

@@ -427,14 +427,14 @@ const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr)
 		compat_uptr_t compat;
 
 		if (get_user(compat, argv.ptr.compat + nr))
-			return ERR_PTR(-EFAULT);
+			return (const char __force_user *)ERR_PTR(-EFAULT);
 
 		return compat_ptr(compat);
 	}
 #endif
 
 	if (get_user(native, argv.ptr.native + nr))
-		return ERR_PTR(-EFAULT);
+		return (const char __force_user *)ERR_PTR(-EFAULT);
 
 	return native;
 }
@@ -453,7 +453,7 @@ static int count(struct user_arg_ptr argv, int max)
 			if (!p)
 				break;
 
-			if (IS_ERR(p))
+			if (IS_ERR((const char __force_kernel *)p))
 				return -EFAULT;
 
 			if (i++ >= max)
@@ -487,7 +487,7 @@ static int copy_strings(int argc, struct user_arg_ptr argv,
 
 		ret = -EFAULT;
 		str = get_user_arg_ptr(argv, argc);
-		if (IS_ERR(str))
+		if (IS_ERR((const char __force_kernel *)str))
 			goto out;
 
 		len = strnlen_user(str, MAX_ARG_STRLEN);
@@ -569,7 +569,7 @@ int copy_strings_kernel(int argc, const char *const *__argv,
 	int r;
 	mm_segment_t oldfs = get_fs();
 	struct user_arg_ptr argv = {
-		.ptr.native = (__force const char __user *const  __user *)__argv,
+		.ptr.native = (const char __force_user *const  __force_user *)__argv,
 	};
 
 	set_fs(KERNEL_DS);
@@ -829,7 +829,7 @@ int kernel_read(struct file *file, loff_t offset,
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
-	result = vfs_read(file, (__force void __user *)addr, count, &pos);
+	result = vfs_read(file, (void __force_user *)addr, count, &pos);
 	set_fs(old_fs);
 	return result;
 }
@@ -2519,7 +2519,7 @@ fail:
  */
 int dump_write(struct file *file, const void *addr, int nr)
 {
-	return access_ok(VERIFY_READ, addr, nr) && file->f_op->write(file, addr, nr, &file->f_pos) == nr;
+	return access_ok(VERIFY_READ, addr, nr) && file->f_op->write(file, (const char __force_user *)addr, nr, &file->f_pos) == nr;
 }
 EXPORT_SYMBOL(dump_write);
 

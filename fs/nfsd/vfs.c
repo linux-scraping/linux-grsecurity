@@ -896,7 +896,7 @@ nfsd_vfs_read(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
 	} else {
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
-		host_err = vfs_readv(file, (__force struct iovec __user *)vec, vlen, &offset);
+		host_err = vfs_readv(file, (struct iovec __force_user *)vec, vlen, &offset);
 		set_fs(oldfs);
 	}
 
@@ -1000,7 +1000,7 @@ nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
 
 	/* Write the data. */
 	oldfs = get_fs(); set_fs(KERNEL_DS);
-	host_err = vfs_writev(file, (__force struct iovec __user *)vec, vlen, &offset);
+	host_err = vfs_writev(file, (struct iovec __force_user *)vec, vlen, &offset);
 	set_fs(oldfs);
 	if (host_err < 0)
 		goto out_nfserr;
@@ -1535,7 +1535,7 @@ nfsd_readlink(struct svc_rqst *rqstp, struct svc_fh *fhp, char *buf, int *lenp)
 	 */
 
 	oldfs = get_fs(); set_fs(KERNEL_DS);
-	host_err = inode->i_op->readlink(dentry, (__force char __user *)buf, *lenp);
+	host_err = inode->i_op->readlink(dentry, (char __force_user *)buf, *lenp);
 	set_fs(oldfs);
 
 	if (host_err < 0)

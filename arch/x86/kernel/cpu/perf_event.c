@@ -1874,7 +1874,7 @@ perf_callchain_user(struct perf_callchain_entry *entry, struct pt_regs *regs)
 			break;
 
 		perf_callchain_store(entry, frame.return_address);
-		fp = (__force const void __user *)frame.next_frame;
+		fp = (const void __force_user *)frame.next_frame;
 	}
 }
 

@@ -94,7 +94,7 @@ static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	if ((unsigned long)fx < PAX_USER_SHADOW_BASE)
-		fx = (struct i387_fxsave_struct *)((void *)fx + PAX_USER_SHADOW_BASE);
+		fx = (struct i387_fxsave_struct __user *)((void *)fx + PAX_USER_SHADOW_BASE);
 #endif
 
 	/* See comment in fxsave() below. */

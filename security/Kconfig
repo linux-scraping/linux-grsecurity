@@ -322,7 +322,7 @@ config PAX_DLRESOLVE
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
-	depends on PAX_NOEXEC && (PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN
+	depends on (PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN
 	select PAX_PER_CPU_PGD if X86_64 || (X86_32 && X86_PAE)
 	select PAX_KERNEXEC_PLUGIN if X86_64
 	help
@@ -390,7 +390,7 @@ config PAX_ASLR
 
 config PAX_RANDKSTACK
 	bool "Randomize kernel stack base"
-	depends on PAX_ASLR && X86_TSC && X86
+	depends on X86_TSC && X86
 	help
 	  By saying Y here the kernel will randomize every task's kernel
 	  stack on every system call.  This will not only force an attacker

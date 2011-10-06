@@ -101,7 +101,7 @@ static inline int xsave_user(struct xsave_struct __user *buf)
 static inline int xrestore_user(struct xsave_struct __user *buf, u64 mask)
 {
 	int err;
-	struct xsave_struct *xstate = ((__force struct xsave_struct *)buf);
+	struct xsave_struct *xstate = ((__force_kernel struct xsave_struct *)buf);
 	u32 lmask = mask;
 	u32 hmask = mask >> 32;
 

@@ -187,7 +187,7 @@ static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
 	} else
 		cmdptr = tmpcmd;
 
-	if (copy_from_user(cmdptr, (void *)(unsigned long)hdr->request,
+	if (copy_from_user(cmdptr, (void __user *)(unsigned long)hdr->request,
 			   hdr->request_len))
 		return -EFAULT;
 
@@ -257,7 +257,7 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
 	struct request *rq, *next_rq = NULL;
 	int ret, rw;
 	unsigned int dxfer_len;
-	void *dxferp = NULL;
+	void __user *dxferp = NULL;
 	struct bsg_class_device *bcd = &q->bsg_dev;
 
 	/* if the LLD has been removed then the bsg_unregister_queue will
@@ -299,7 +299,7 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
 		rq->next_rq = next_rq;
 		next_rq->cmd_type = rq->cmd_type;
 
-		dxferp = (void*)(unsigned long)hdr->din_xferp;
+		dxferp = (void __user *)(unsigned long)hdr->din_xferp;
 		ret =  blk_rq_map_user(q, next_rq, NULL, dxferp,
 				       hdr->din_xfer_len, GFP_KERNEL);
 		if (ret)
@@ -308,10 +308,10 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
 
 	if (hdr->dout_xfer_len) {
 		dxfer_len = hdr->dout_xfer_len;
-		dxferp = (void*)(unsigned long)hdr->dout_xferp;
+		dxferp = (void __user *)(unsigned long)hdr->dout_xferp;
 	} else if (hdr->din_xfer_len) {
 		dxfer_len = hdr->din_xfer_len;
-		dxferp = (void*)(unsigned long)hdr->din_xferp;
+		dxferp = (void __user *)(unsigned long)hdr->din_xferp;
 	} else
 		dxfer_len = 0;
 
@@ -453,7 +453,7 @@ static int blk_complete_sgv4_hdr_rq(struct request *rq, struct sg_io_v4 *hdr,
 		int len = min_t(unsigned int, hdr->max_response_len,
 					rq->sense_len);
 
-		ret = copy_to_user((void*)(unsigned long)hdr->response,
+		ret = copy_to_user((void __user *)(unsigned long)hdr->response,
 				   rq->sense, len);
 		if (!ret)
 			hdr->response_len = len;

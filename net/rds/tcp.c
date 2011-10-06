@@ -58,7 +58,7 @@ void rds_tcp_nonagle(struct socket *sock)
 	int val = 1;
 
 	set_fs(KERNEL_DS);
-	sock->ops->setsockopt(sock, SOL_TCP, TCP_NODELAY, (char __user *)&val,
+	sock->ops->setsockopt(sock, SOL_TCP, TCP_NODELAY, (char __force_user *)&val,
 			      sizeof(val));
 	set_fs(oldfs);
 }

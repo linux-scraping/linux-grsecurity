@@ -344,7 +344,7 @@ static __ref void *alloc_low_page(unsigned long *phys)
 	if (pfn >= pgt_buf_top)
 		panic("alloc_low_page: ran out of memory");
 
-	adr = early_memremap(pfn * PAGE_SIZE, PAGE_SIZE);
+	adr = (void __force_kernel *)early_memremap(pfn * PAGE_SIZE, PAGE_SIZE);
 	clear_page(adr);
 	*phys  = pfn * PAGE_SIZE;
 	return adr;
@@ -360,7 +360,7 @@ static __ref void *map_low_page(void *virt)
 
 	phys = __pa(virt);
 	left = phys & (PAGE_SIZE - 1);
-	adr = early_memremap(phys & PAGE_MASK, PAGE_SIZE);
+	adr = (void __force_kernel *)early_memremap(phys & PAGE_MASK, PAGE_SIZE);
 	adr = (void *)(((unsigned long)adr) | left);
 
 	return adr;

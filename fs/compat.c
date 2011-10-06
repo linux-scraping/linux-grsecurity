@@ -133,8 +133,8 @@ asmlinkage long compat_sys_utimes(const char __user *filename, struct compat_tim
 static int cp_compat_stat(struct kstat *stat, struct compat_stat __user *ubuf)
 {
 	compat_ino_t ino = stat->ino;
-	typeof(ubuf->st_uid) uid = 0;
-	typeof(ubuf->st_gid) gid = 0;
+	typeof(((struct compat_stat *)0)->st_uid) uid = 0;
+	typeof(((struct compat_stat *)0)->st_gid) gid = 0;
 	int err;
 
 	SET_UID(uid, stat->uid);
@@ -508,7 +508,7 @@ compat_sys_io_setup(unsigned nr_reqs, u32 __user *ctx32p)
 
 	set_fs(KERNEL_DS);
 	/* The __user pointer cast is valid because of the set_fs() */
-	ret = sys_io_setup(nr_reqs, (aio_context_t __user *) &ctx64);
+	ret = sys_io_setup(nr_reqs, (aio_context_t __force_user *) &ctx64);
 	set_fs(oldfs);
 	/* truncating is ok because it's a user address */
 	if (!ret)
@@ -1097,7 +1097,7 @@ asmlinkage long compat_sys_getdents64(unsigned int fd,
 		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
-		typeof(lastdirent->d_off) d_off = file->f_pos;
+		typeof(((struct linux_dirent64 *)0)->d_off) d_off = file->f_pos;
 		if (__put_user_unaligned(d_off, &lastdirent->d_off))
 			error = -EFAULT;
 		else
@@ -1924,7 +1924,7 @@ asmlinkage long compat_sys_nfsservctl(int cmd,
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	/* The __user pointer casts are valid because of the set_fs() */
-	err = sys_nfsservctl(cmd, (void __user *) karg, (void __user *) kres);
+	err = sys_nfsservctl(cmd, (void __force_user *) karg, (void __force_user *) kres);
 	set_fs(oldfs);
 
 	if (err)

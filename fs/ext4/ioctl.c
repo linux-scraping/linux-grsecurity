@@ -344,7 +344,7 @@ mext_out:
 		if (!blk_queue_discard(q))
 			return -EOPNOTSUPP;
 
-		if (copy_from_user(&range, (struct fstrim_range *)arg,
+		if (copy_from_user(&range, (struct fstrim_range __user *)arg,
 		    sizeof(range)))
 			return -EFAULT;
 
@@ -354,7 +354,7 @@ mext_out:
 		if (ret < 0)
 			return ret;
 
-		if (copy_to_user((struct fstrim_range *)arg, &range,
+		if (copy_to_user((struct fstrim_range __user *)arg, &range,
 		    sizeof(range)))
 			return -EFAULT;
 

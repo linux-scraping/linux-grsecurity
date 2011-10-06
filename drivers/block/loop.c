@@ -283,7 +283,7 @@ static int __do_lo_send_write(struct file *file,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(get_ds());
-	bw = file->f_op->write(file, buf, len, &pos);
+	bw = file->f_op->write(file, (const char __force_user *)buf, len, &pos);
 	set_fs(old_fs);
 	if (likely(bw == len))
 		return 0;

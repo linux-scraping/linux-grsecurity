@@ -851,7 +851,7 @@ static int __init kernel_init(void * unused)
 	do_basic_setup();
 
 	/* Open the /dev/console on the rootfs, this should never fail */
-	if (sys_open((__force const char __user *) "/dev/console", O_RDWR, 0) < 0)
+	if (sys_open((const char __force_user *) "/dev/console", O_RDWR, 0) < 0)
 		printk(KERN_WARNING "Warning: unable to open an initial console.\n");
 
 	(void) sys_dup(0);
@@ -864,7 +864,7 @@ static int __init kernel_init(void * unused)
 	if (!ramdisk_execute_command)
 		ramdisk_execute_command = "/init";
 
-	if (sys_access((__force const char __user *) ramdisk_execute_command, 0) != 0) {
+	if (sys_access((const char __force_user *) ramdisk_execute_command, 0) != 0) {
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
 	}

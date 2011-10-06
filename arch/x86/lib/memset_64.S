@@ -31,9 +31,7 @@
 	movl %r8d,%ecx
 	rep stosb
 	movq %r9,%rax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 .Lmemset_e:
 	.previous
@@ -56,9 +54,7 @@
 	movl %edx,%ecx
 	rep stosb
 	movq %r9,%rax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 .Lmemset_e_e:
 	.previous
@@ -127,9 +123,7 @@ ENTRY(__memset)
 
 .Lende:
 	movq	%r10,%rax
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 
 	CFI_RESTORE_STATE

@@ -17,6 +17,7 @@
 
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
+#include <asm/alternative-asm.h>
 
 /*
  * override generic version in lib/iomap_copy.c
@@ -25,9 +26,7 @@ ENTRY(__iowrite32_copy)
 	CFI_STARTPROC
 	movl %edx,%ecx
 	rep movsd
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(__iowrite32_copy)

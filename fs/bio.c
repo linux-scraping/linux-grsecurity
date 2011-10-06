@@ -1233,7 +1233,7 @@ static void bio_copy_kern_endio(struct bio *bio, int err)
 	const int read = bio_data_dir(bio) == READ;
 	struct bio_map_data *bmd = bio->bi_private;
 	int i;
-	char *p = (__force char *)bmd->sgvecs[0].iov_base;
+	char *p = (char __force_kernel *)bmd->sgvecs[0].iov_base;
 
 	__bio_for_each_segment(bvec, bio, i, 0) {
 		char *addr = page_address(bvec->bv_page);

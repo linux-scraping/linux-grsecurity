@@ -217,7 +217,7 @@ static __kprobes void FETCH_FUNC_NAME(memory, string)(struct pt_regs *regs,
 	long ret;
 	int maxlen = get_rloc_len(*(u32 *)dest);
 	u8 *dst = get_rloc_data(dest);
-	u8 *src = addr;
+	const u8 __user *src = (const u8 __force_user *)addr;
 	mm_segment_t old_fs = get_fs();
 	if (!maxlen)
 		return;
@@ -229,7 +229,7 @@ static __kprobes void FETCH_FUNC_NAME(memory, string)(struct pt_regs *regs,
 	pagefault_disable();
 	do
 		ret = __copy_from_user_inatomic(dst++, src++, 1);
-	while (dst[-1] && ret == 0 && src - (u8 *)addr < maxlen);
+	while (dst[-1] && ret == 0 && src - (const u8 __force_user *)addr < maxlen);
 	dst[-1] = '\0';
 	pagefault_enable();
 	set_fs(old_fs);
@@ -238,7 +238,7 @@ static __kprobes void FETCH_FUNC_NAME(memory, string)(struct pt_regs *regs,
 		((u8 *)get_rloc_data(dest))[0] = '\0';
 		*(u32 *)dest = make_data_rloc(0, get_rloc_offs(*(u32 *)dest));
 	} else
-		*(u32 *)dest = make_data_rloc(src - (u8 *)addr,
+		*(u32 *)dest = make_data_rloc(src - (const u8 __force_user *)addr,
 					      get_rloc_offs(*(u32 *)dest));
 }
 /* Return the length of string -- including null terminal byte */
@@ -252,7 +252,7 @@ static __kprobes void FETCH_FUNC_NAME(memory, string_size)(struct pt_regs *regs,
 	set_fs(KERNEL_DS);
 	pagefault_disable();
 	do {
-		ret = __copy_from_user_inatomic(&c, (u8 *)addr + len, 1);
+		ret = __copy_from_user_inatomic(&c, (const u8 __force_user *)addr + len, 1);
 		len++;
 	} while (c && ret == 0 && len < MAX_STRING_SIZE);
 	pagefault_enable();

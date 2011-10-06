@@ -203,7 +203,7 @@ static void do_usb_entry_multi(struct usb_device_id *id, struct module *mod)
 {
 	unsigned int devlo, devhi;
 	unsigned char chi, clo, max;
-	int ndigits;
+	unsigned int ndigits;
 
 	id->match_flags = TO_NATIVE(id->match_flags);
 	id->idVendor = TO_NATIVE(id->idVendor);

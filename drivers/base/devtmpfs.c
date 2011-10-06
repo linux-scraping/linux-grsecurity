@@ -357,7 +357,7 @@ int devtmpfs_mount(const char *mntdir)
 	if (!dev_mnt)
 		return 0;
 
-	err = sys_mount("devtmpfs", (char *)mntdir, "devtmpfs", MS_SILENT, NULL);
+	err = sys_mount((char __force_user *)"devtmpfs", (char __force_user *)mntdir, (char __force_user *)"devtmpfs", MS_SILENT, NULL);
 	if (err)
 		printk(KERN_INFO "devtmpfs: error mounting %i\n", err);
 	else

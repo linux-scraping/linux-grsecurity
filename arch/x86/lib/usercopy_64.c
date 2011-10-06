@@ -172,7 +172,7 @@ unsigned long copy_in_user(void __user *to, const void __user *from, unsigned le
 			from += PAX_USER_SHADOW_BASE;
 #endif
 
-		return copy_user_generic((__force void *)to, (__force void *)from, len);
+		return copy_user_generic((void __force_kernel *)to, (void __force_kernel *)from, len);
 	}
 	return len;
 }
@@ -184,7 +184,7 @@ EXPORT_SYMBOL(copy_in_user);
  * it is not necessary to optimize tail handling.
  */
 unsigned long
-copy_user_handle_tail(char *to, char *from, unsigned len, unsigned zerorest)
+copy_user_handle_tail(char __user *to, char __user *from, unsigned len, unsigned zerorest)
 {
 	char c;
 	unsigned zero_len;

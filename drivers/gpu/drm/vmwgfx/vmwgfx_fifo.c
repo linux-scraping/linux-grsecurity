@@ -356,7 +356,7 @@ void *vmw_fifo_reserve(struct vmw_private *dev_priv, uint32_t bytes)
 				if (reserveable)
 					iowrite32(bytes, fifo_mem +
 						  SVGA_FIFO_RESERVED);
-				return fifo_mem + (next_cmd >> 2);
+				return (__le32 __force_kernel *)fifo_mem + (next_cmd >> 2);
 			} else {
 				need_bounce = true;
 			}

@@ -1033,7 +1033,8 @@ asmlinkage long compat_sys_kexec_load(unsigned long entry,
 				unsigned long flags)
 {
 	struct compat_kexec_segment in;
-	struct kexec_segment out, __user *ksegments;
+	struct kexec_segment out;
+	struct kexec_segment __user *ksegments;
 	unsigned long i, result;
 
 	/* Don't allow clients that don't understand the native

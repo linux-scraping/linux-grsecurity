@@ -287,11 +287,11 @@ static void __init get_fs_names(char *page)
 
 static int __init do_mount_root(char *name, char *fs, int flags, void *data)
 {
-	int err = sys_mount((__force char __user *)name, (__force char __user *)"/root", (__force char __user *)fs, flags, (__force void __user *)data);
+	int err = sys_mount((char __force_user *)name, (char __force_user *)"/root", (char __force_user *)fs, flags, (void __force_user *)data);
 	if (err)
 		return err;
 
-	sys_chdir((const char __user __force *)"/root");
+	sys_chdir((const char __force_user*)"/root");
 	ROOT_DEV = current->fs->pwd.mnt->mnt_sb->s_dev;
 	printk(KERN_INFO
 	       "VFS: Mounted root (%s filesystem)%s on device %u:%u.\n",
@@ -488,6 +488,6 @@ void __init prepare_namespace(void)
 	mount_root();
 out:
 	devtmpfs_mount("dev");
-	sys_mount((__force char __user *)".", (__force char __user *)"/", NULL, MS_MOVE, NULL);
-	sys_chroot((const char __user __force *)".");
+	sys_mount((char __force_user *)".", (char __force_user *)"/", NULL, MS_MOVE, NULL);
+	sys_chroot((const char __force_user *)".");
 }

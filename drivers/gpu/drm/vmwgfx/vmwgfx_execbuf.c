@@ -610,7 +610,7 @@ int vmw_execbuf_ioctl(struct drm_device *dev, void *data,
 	struct drm_vmw_fence_rep fence_rep;
 	struct drm_vmw_fence_rep __user *user_fence_rep;
 	int ret;
-	void *user_cmd;
+	void __user *user_cmd;
 	void *cmd;
 	uint32_t sequence;
 	struct vmw_sw_context *sw_context = &dev_priv->ctx;

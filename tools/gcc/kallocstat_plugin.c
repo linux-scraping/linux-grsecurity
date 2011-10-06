@@ -85,10 +85,10 @@ static bool is_kalloc(const char *fnname)
 static unsigned int execute_kallocstat(void)
 {
 	basic_block bb;
-	gimple_stmt_iterator gsi;
 
 	// 1. loop through BBs and GIMPLE statements
 	FOR_EACH_BB(bb) {
+		gimple_stmt_iterator gsi;
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: 
 			tree fndecl, size;

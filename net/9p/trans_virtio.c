@@ -328,7 +328,7 @@ req_retry_pinned:
 		} else {
 			char *pbuf;
 			if (req->tc->pubuf)
-				pbuf = (__force char *) req->tc->pubuf;
+				pbuf = (char __force_kernel *) req->tc->pubuf;
 			else
 				pbuf = req->tc->pkbuf;
 			outp = pack_sg_list(chan->sg, out, VIRTQUEUE_NUM, pbuf,
@@ -357,7 +357,7 @@ req_retry_pinned:
 		} else {
 			char *pbuf;
 			if (req->tc->pubuf)
-				pbuf = (__force char *) req->tc->pubuf;
+				pbuf = (char __force_kernel *) req->tc->pubuf;
 			else
 				pbuf = req->tc->pkbuf;
 

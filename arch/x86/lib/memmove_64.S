@@ -9,6 +9,7 @@
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
 #include <asm/cpufeature.h>
+#include <asm/alternative-asm.h>
 
 #undef memmove
 
@@ -201,9 +202,7 @@ ENTRY(memmove)
 	movb (%rsi), %r11b
 	movb %r11b, (%rdi)
 13:
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	retq
 	CFI_ENDPROC
 
@@ -212,9 +211,7 @@ ENTRY(memmove)
 	/* Forward moving data. */
 	movq %rdx, %rcx
 	rep movsb
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-	orb $0x80, 0x7(%rsp)
-#endif
+	pax_force_retaddr
 	retq
 .Lmemmove_end_forward_efs:
 	.previous

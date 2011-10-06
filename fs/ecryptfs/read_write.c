@@ -48,7 +48,7 @@ int ecryptfs_write_lower(struct inode *ecryptfs_inode, char *data,
 		return -EIO;
 	fs_save = get_fs();
 	set_fs(get_ds());
-	rc = vfs_write(lower_file, data, size, &offset);
+	rc = vfs_write(lower_file, (const char __force_user *)data, size, &offset);
 	set_fs(fs_save);
 	mark_inode_dirty_sync(ecryptfs_inode);
 	return rc;
@@ -235,7 +235,7 @@ int ecryptfs_read_lower(char *data, loff_t offset, size_t size,
 		return -EIO;
 	fs_save = get_fs();
 	set_fs(get_ds());
-	rc = vfs_read(lower_file, data, size, &offset);
+	rc = vfs_read(lower_file, (char __force_user *)data, size, &offset);
 	set_fs(fs_save);
 	return rc;
 }

@@ -60,7 +60,7 @@ static int autofs4_write(struct file *file, const void *addr, int bytes)
 {
 	unsigned long sigpipe, flags;
 	mm_segment_t fs;
-	const char *data = (const char *)addr;
+	const char __user *data = (const char __force_user *)addr;
 	ssize_t wr = 0;
 
 	/** WARNING: this is not safe for writing more than PIPE_BUF bytes! **/
