@@ -677,6 +677,11 @@ static inline int do_follow_link(struct path *path, struct nameidata *nd)
 		goto loop;
 	}
 
+	if (!gr_acl_handle_hidden_file(path->dentry, nd->path.mnt)) {
+		err = -ENOENT;
+		goto loop;
+	}
+
 	current->link_count++;
 	current->total_link_count++;
 	nd->depth++;
