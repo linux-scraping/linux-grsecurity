@@ -873,8 +873,6 @@ define rule_vmlinux-modpost
 endef
 
 # vmlinux image - including updated kernel symbols
-$(vmlinux-all): KBUILD_CFLAGS += $(GCC_PLUGINS)
-$(vmlinux-all): gcc-plugins
 vmlinux: $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) vmlinux.o $(kallsyms.o) FORCE
 ifdef CONFIG_HEADERS_CHECK
 	$(Q)$(MAKE) -f $(srctree)/Makefile headers_check
@@ -900,6 +898,7 @@ vmlinux.o: $(modpost-init) $(vmlinux-main) FORCE
 
 # The actual objects are generated when descending, 
 # make sure no implicit rule kicks in
+$(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): KBUILD_CFLAGS += $(GCC_PLUGINS)
 $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
 
 # Handle descending into subdirectories listed in $(vmlinux-dirs)
@@ -909,7 +908,6 @@ $(sort $(vmlinux-init) $(vmlinux-main)) $(vmlinux-lds): $(vmlinux-dirs) ;
 # Error messages still appears in the original language
 
 PHONY += $(vmlinux-dirs)
-$(vmlinux-dirs): KBUILD_CFLAGS += $(GCC_PLUGINS)
 $(vmlinux-dirs): gcc-plugins prepare scripts
 	$(Q)$(MAKE) $(build)=$@
 
@@ -1161,6 +1159,7 @@ all: modules
 #	using awk while concatenating to the final file.
 
 PHONY += modules
+modules: KBUILD_CFLAGS += $(GCC_PLUGINS)
 modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux)
 	$(Q)$(AWK) '!x[$$0]++' $(vmlinux-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
 	@$(kecho) '  Building modules, stage 2.';

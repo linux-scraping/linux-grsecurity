@@ -23,8 +23,13 @@
 	.macro pax_force_retaddr rip=0
 	btsq $63,\rip(%rsp)
 	.endm
+	.macro pax_force_fptr ptr
+	btsq $63,\ptr
+	.endm
 #else
 	.macro pax_force_retaddr rip=0
+	.endm
+	.macro pax_force_fptr ptr
 	.endm
 #endif
 

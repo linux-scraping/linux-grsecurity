@@ -17,6 +17,7 @@
 #include <asm/asm.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
+#include <asm/alternative-asm.h>
 
 /*
  * __put_user_X
@@ -31,7 +32,7 @@
  */
 
 #define ENTER	CFI_STARTPROC
-#define EXIT	ret ; \
+#define EXIT	pax_force_retaddr; ret ; \
 		CFI_ENDPROC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)

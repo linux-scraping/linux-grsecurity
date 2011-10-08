@@ -66,6 +66,7 @@
 #ifdef CONFIG_FUNCTION_TRACER
 #ifdef CONFIG_DYNAMIC_FTRACE
 ENTRY(mcount)
+	pax_force_retaddr
 	retq
 END(mcount)
 
@@ -90,6 +91,7 @@ GLOBAL(ftrace_graph_call)
 #endif
 
 GLOBAL(ftrace_stub)
+	pax_force_retaddr
 	retq
 END(ftrace_caller)
 
@@ -110,6 +112,7 @@ ENTRY(mcount)
 #endif
 
 GLOBAL(ftrace_stub)
+	pax_force_retaddr
 	retq
 
 trace:
@@ -119,6 +122,7 @@ trace:
 	movq 8(%rbp), %rsi
 	subq $MCOUNT_INSN_SIZE, %rdi
 
+	pax_force_fptr ftrace_trace_function
 	call   *ftrace_trace_function
 
 	MCOUNT_RESTORE_FRAME
@@ -144,6 +148,7 @@ ENTRY(ftrace_graph_caller)
 
 	MCOUNT_RESTORE_FRAME
 
+	pax_force_retaddr
 	retq
 END(ftrace_graph_caller)
 
@@ -161,6 +166,7 @@ GLOBAL(return_to_handler)
 	movq 8(%rsp), %rdx
 	movq (%rsp), %rax
 	addq $16, %rsp
+	pax_force_retaddr
 	retq
 #endif
 
@@ -226,6 +232,7 @@ ENTRY(pax_enter_kernel)
 #endif
 
 	popq %rdi
+	pax_force_retaddr
 	retq
 ENDPROC(pax_enter_kernel)
 
@@ -250,6 +257,7 @@ ENTRY(pax_exit_kernel)
 #endif
 
 	popq %rdi
+	pax_force_retaddr
 	retq
 ENDPROC(pax_exit_kernel)
 #endif
@@ -324,6 +332,7 @@ ENTRY(pax_enter_kernel_user)
 
 	popq %rbx
 	popq %rdi
+	pax_force_retaddr
 	retq
 ENDPROC(pax_enter_kernel_user)
 
@@ -373,6 +382,7 @@ ENTRY(pax_exit_kernel_user)
 #endif
 
 	popq %rdi
+	pax_force_retaddr
 	retq
 ENDPROC(pax_exit_kernel_user)
 #endif
@@ -431,6 +441,7 @@ ENTRY(pax_erase_kstack)
 	popq %r10
 	popq %rax
 	popq %rdi
+	pax_force_retaddr
 	ret
 ENDPROC(pax_erase_kstack)
 #endif
@@ -597,6 +608,7 @@ ENTRY(save_args)
 	 * We entered an interrupt context - irqs are off:
 	 */
 2:	TRACE_IRQS_OFF
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(save_args)
@@ -612,6 +624,7 @@ ENTRY(save_rest)
 	movq_cfi r15, R15+16
 	movq %r11, 8(%rsp)	/* return address */
 	FIXUP_TOP_OF_STACK %r11, 16
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(save_rest)
@@ -643,7 +656,8 @@ ENTRY(save_paranoid)
 	js 1f	/* negative -> in kernel */
 	SWAPGS
 	xorl %ebx,%ebx
-1:	ret
+1:	pax_force_retaddr
+	ret
 	CFI_ENDPROC
 END(save_paranoid)
 	.popsection
@@ -977,6 +991,7 @@ ENTRY(ptregscall_common)
 	movq_cfi_restore R12+8, r12
 	movq_cfi_restore RBP+8, rbp
 	movq_cfi_restore RBX+8, rbx
+	pax_force_retaddr
 	ret $REST_SKIP		/* pop extended registers */
 	CFI_ENDPROC
 END(ptregscall_common)
@@ -1479,6 +1494,7 @@ gs_change:
 	SWAPGS
 	popf
 	CFI_ADJUST_CFA_OFFSET -8
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(native_load_gs_index)
@@ -1533,6 +1549,7 @@ ENTRY(kernel_thread)
 	 */
 	RESTORE_ALL
 	UNFAKE_STACK_FRAME
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(kernel_thread)
@@ -1546,6 +1563,7 @@ ENTRY(child_rip)
 	 */
 	movq %rdi, %rax
 	movq %rsi, %rdi
+	pax_force_fptr %rax
 	call *%rax
 	# exit
 	mov %eax, %edi
@@ -1581,6 +1599,7 @@ ENTRY(kernel_execve)
 	je int_ret_from_sys_call
 	RESTORE_ARGS
 	UNFAKE_STACK_FRAME
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(kernel_execve)
@@ -1601,6 +1620,7 @@ ENTRY(call_softirq)
 	CFI_DEF_CFA_REGISTER	rsp
 	CFI_ADJUST_CFA_OFFSET   -8
 	decl PER_CPU_VAR(irq_count)
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 END(call_softirq)
@@ -1829,6 +1849,7 @@ error_swapgs:
 	SWAPGS
 error_sti:
 	TRACE_IRQS_OFF
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 
