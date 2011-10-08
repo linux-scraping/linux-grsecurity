@@ -75,8 +75,8 @@ ENTRY(call_rwsem_wake)
 	movq %rax,%rdi
 	call rwsem_wake
 	restore_common_regs
-	pax_force_retaddr
-1:	ret
+1:	pax_force_retaddr
+	ret
 	CFI_ENDPROC
 ENDPROC(call_rwsem_wake)
 

@@ -172,7 +172,6 @@ machtypes.h
 map
 map_hugetlb
 maui_boot.h
-media
 mconf
 miboot*
 mk_elfconfig
