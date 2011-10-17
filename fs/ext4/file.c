@@ -122,8 +122,8 @@ static int ext4_file_open(struct inode * inode, struct file * filp)
 		cp = d_path(&path, buf, sizeof(buf));
 		path_put(&path);
 		if (!IS_ERR(cp)) {
-			memcpy(sbi->s_es->s_last_mounted, cp,
-			       sizeof(sbi->s_es->s_last_mounted));
+			strlcpy(sbi->s_es->s_last_mounted, cp,
+			        sizeof(sbi->s_es->s_last_mounted));
 			sb->s_dirt = 1;
 		}
 	}

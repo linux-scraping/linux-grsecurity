@@ -245,7 +245,7 @@ gr_acl_handle_unix(const struct dentry *dentry, const struct vfsmount *mnt)
 			   GR_UNIXCONNECT_ACL_MSG);
 }
 
-/* hardlinks require at minimum create permission,
+/* hardlinks require at minimum create and link permission,
    any additional privilege required is based on the
    privilege of the file being linked to
 */
