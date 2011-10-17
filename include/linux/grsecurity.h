@@ -162,6 +162,8 @@ __u32 gr_acl_handle_creat(const struct dentry *dentry,
 				 const int imode);
 void gr_handle_create(const struct dentry *dentry,
 			     const struct vfsmount *mnt);
+void gr_handle_proc_create(const struct dentry *dentry,
+			   const struct inode *inode);
 __u32 gr_acl_handle_mknod(const struct dentry *new_dentry,
 				 const struct dentry *parent_dentry,
 				 const struct vfsmount *parent_mnt,
