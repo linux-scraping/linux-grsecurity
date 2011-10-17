@@ -2025,63 +2025,6 @@ gr_log_learn_id_change(const char type, const unsigned int real,
 }
 
 __u32
-gr_check_link(const struct dentry * new_dentry,
-	      const struct dentry * parent_dentry,
-	      const struct vfsmount * parent_mnt,
-	      const struct dentry * old_dentry, const struct vfsmount * old_mnt)
-{
-	struct acl_object_label *obj;
-	__u32 oldmode, newmode;
-	__u32 needmode;
-
-	if (unlikely(!(gr_status & GR_READY)))
-		return (GR_CREATE | GR_LINK);
-
-	obj = chk_obj_label(old_dentry, old_mnt, current->acl);
-	oldmode = obj->mode;
-
-	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))
-		oldmode |= (GR_CREATE | GR_LINK);
-
-	needmode = GR_CREATE | GR_AUDIT_CREATE | GR_SUPPRESS;
-	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
-		needmode |= GR_SETID | GR_AUDIT_SETID;
-
-	newmode =
-	    gr_check_create(new_dentry, parent_dentry, parent_mnt,
-			    oldmode | needmode);
-
-	needmode = newmode & (GR_FIND | GR_APPEND | GR_WRITE | GR_EXEC |
-			      GR_SETID | GR_READ | GR_FIND | GR_DELETE |
-			      GR_INHERIT | GR_AUDIT_INHERIT);
-
-	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID) && !(newmode & GR_SETID))
-		goto bad;
-
-	if ((oldmode & needmode) != needmode)
-		goto bad;
-
-	needmode = oldmode & (GR_NOPTRACE | GR_PTRACERD | GR_INHERIT | GR_AUDITS);
-	if ((newmode & needmode) != needmode)
-		goto bad;
-
-	if ((newmode & (GR_CREATE | GR_LINK)) == (GR_CREATE | GR_LINK))
-		return newmode;
-bad:
-	needmode = oldmode;
-	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
-		needmode |= GR_SETID;
-	
-	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) {
-		gr_log_learn(old_dentry, old_mnt, needmode);
-		return (GR_CREATE | GR_LINK);
-	} else if (newmode & GR_SUPPRESS)
-		return GR_SUPPRESS;
-	else
-		return 0;
-}
-
-__u32
 gr_search_file(const struct dentry * dentry, const __u32 mode,
 	       const struct vfsmount * mnt)
 {
@@ -2136,68 +2079,122 @@ gr_search_file(const struct dentry * dentry, const __u32 mode,
 	return retval;
 }
 
-__u32
-gr_check_create(const struct dentry * new_dentry, const struct dentry * parent,
-		const struct vfsmount * mnt, const __u32 mode)
+struct acl_object_label *gr_get_create_object(const struct dentry *new_dentry,
+					      const struct dentry *parent,
+					      const struct vfsmount *mnt)
 {
 	struct name_entry *match;
 	struct acl_object_label *matchpo;
 	struct acl_subject_label *curracl;
 	char *path;
-	__u32 retval;
 
 	if (unlikely(!(gr_status & GR_READY)))
-		return (mode & ~GR_AUDITS);
+		return NULL;
 
 	preempt_disable();
 	path = gr_to_filename_rbac(new_dentry, mnt);
 	match = lookup_name_entry_create(path);
 
-	if (!match)
-		goto check_parent;
-
 	curracl = current->acl;
 
-	read_lock(&gr_inode_lock);
-	matchpo = lookup_acl_obj_label_create(match->inode, match->device, curracl);
-	read_unlock(&gr_inode_lock);
+	if (match) {
+		read_lock(&gr_inode_lock);
+		matchpo = lookup_acl_obj_label_create(match->inode, match->device, curracl);
+		read_unlock(&gr_inode_lock);
 
-	if (matchpo) {
-		if ((matchpo->mode & mode) !=
-		    (mode & ~(GR_AUDITS | GR_SUPPRESS))
-		    && curracl->mode & (GR_LEARN | GR_INHERITLEARN)) {
-			__u32 new_mode = mode;
-
-			new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
-
-			gr_log_learn(new_dentry, mnt, new_mode);
-
+		if (matchpo) {
 			preempt_enable();
-			return new_mode;
+			return matchpo;
 		}
-		preempt_enable();
-		return (matchpo->mode & mode);
 	}
 
-      check_parent:
-	curracl = current->acl;
+	// lookup parent
 
 	matchpo = chk_obj_create_label(parent, mnt, curracl, path);
+
+	preempt_enable();
+	return matchpo;
+}
+
+__u32
+gr_check_create(const struct dentry * new_dentry, const struct dentry * parent,
+		const struct vfsmount * mnt, const __u32 mode)
+{
+	struct acl_object_label *matchpo;
+	__u32 retval;
+
+	if (unlikely(!(gr_status & GR_READY)))
+		return (mode & ~GR_AUDITS);
+
+	matchpo = gr_get_create_object(new_dentry, parent, mnt);
+
 	retval = matchpo->mode & mode;
 
 	if ((retval != (mode & ~(GR_AUDITS | GR_SUPPRESS)))
-	    && (curracl->mode & (GR_LEARN | GR_INHERITLEARN))) {
+	    && (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))) {
 		__u32 new_mode = mode;
 
 		new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
 
 		gr_log_learn(new_dentry, mnt, new_mode);
-		preempt_enable();
 		return new_mode;
 	}
 
-	preempt_enable();
 	return retval;
+}
+
+__u32
+gr_check_link(const struct dentry * new_dentry,
+	      const struct dentry * parent_dentry,
+	      const struct vfsmount * parent_mnt,
+	      const struct dentry * old_dentry, const struct vfsmount * old_mnt)
+{
+	struct acl_object_label *obj;
+	__u32 oldmode, newmode;
+	__u32 needmode;
+	__u32 checkmodes = GR_FIND | GR_APPEND | GR_WRITE | GR_EXEC | GR_SETID | GR_READ |
+			   GR_DELETE | GR_INHERIT;
+
+	if (unlikely(!(gr_status & GR_READY)))
+		return (GR_CREATE | GR_LINK);
+
+	obj = chk_obj_label(old_dentry, old_mnt, current->acl);
+	oldmode = obj->mode;
+
+	obj = gr_get_create_object(new_dentry, parent_dentry, parent_mnt);
+	newmode = obj->mode;
+
+	needmode = newmode & checkmodes;
+
+	// old name for hardlink must have at least the permissions of the new name
+	if ((oldmode & needmode) != needmode)
+		goto bad;
+
+	// if old name had restrictions/auditing, make sure the new name does as well
+	needmode = oldmode & (GR_NOPTRACE | GR_PTRACERD | GR_INHERIT | GR_AUDITS);
+
+	// don't allow hardlinking of suid/sgid files without permission
+	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
+		needmode |= GR_SETID;
+
+	if ((newmode & needmode) != needmode)
+		goto bad;
+
+	// enforce minimum permissions
+	if ((newmode & (GR_CREATE | GR_LINK)) == (GR_CREATE | GR_LINK))
+		return newmode;
+bad:
+	needmode = oldmode;
+	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
+		needmode |= GR_SETID;
+	
+	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) {
+		gr_log_learn(old_dentry, old_mnt, needmode | GR_CREATE | GR_LINK);
+		return (GR_CREATE | GR_LINK);
+	} else if (newmode & GR_SUPPRESS)
+		return GR_SUPPRESS;
+	else
+		return 0;
 }
 
 int

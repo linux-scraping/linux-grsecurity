@@ -2027,8 +2027,9 @@ static int __sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
 	 * used_address->name_len is initialized to UINT_MAX so that the first
 	 * destination address never matches.
 	 */
-	if (used_address && used_address->name_len == msg_sys->msg_namelen &&
-	    !memcmp(&used_address->name, msg->msg_name,
+	if (used_address && msg_sys->msg_name &&
+	    used_address->name_len == msg_sys->msg_namelen &&
+	    !memcmp(&used_address->name, msg_sys->msg_name,
 		    used_address->name_len)) {
 		err = sock_sendmsg_nosec(sock, msg_sys, total_len);
 		goto out_freectl;
@@ -2040,8 +2041,9 @@ static int __sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
 	 */
 	if (used_address && err >= 0) {
 		used_address->name_len = msg_sys->msg_namelen;
-		memcpy(&used_address->name, msg->msg_name,
-		       used_address->name_len);
+		if (msg_sys->msg_name)
+			memcpy(&used_address->name, msg_sys->msg_name,
+			       used_address->name_len);
 	}
 
 out_freectl:

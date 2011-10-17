@@ -380,7 +380,7 @@ static void __devexit i82443bxgx_edacmc_remove_one(struct pci_dev *pdev)
 
 EXPORT_SYMBOL_GPL(i82443bxgx_edacmc_remove_one);
 
-static const struct pci_device_id i82443bxgx_pci_tbl[] __devinitdata = {
+static const struct pci_device_id i82443bxgx_pci_tbl[] __devinitconst = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443BX_0)},
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443BX_2)},
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443GX_0)},

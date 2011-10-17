@@ -1549,9 +1549,10 @@ ENTRY(kernel_execve)
 	je int_ret_from_sys_call
 	RESTORE_ARGS
 	UNFAKE_STACK_FRAME
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(kernel_execve)
+ENDPROC(kernel_execve)
 
 /* Call softirq on interrupt stack. Interrupts are off. */
 ENTRY(call_softirq)
@@ -1572,7 +1573,7 @@ ENTRY(call_softirq)
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(call_softirq)
+ENDPROC(call_softirq)
 
 #ifdef CONFIG_XEN
 zeroentry xen_hypervisor_callback xen_do_hypervisor_callback

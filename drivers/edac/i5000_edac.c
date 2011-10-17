@@ -1516,7 +1516,7 @@ static void __devexit i5000_remove_one(struct pci_dev *pdev)
  *
  *	The "E500P" device is the first device supported.
  */
-static const struct pci_device_id i5000_pci_tbl[] __devinitdata = {
+static const struct pci_device_id i5000_pci_tbl[] __devinitconst = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I5000_DEV16),
 	 .driver_data = I5000P},
 

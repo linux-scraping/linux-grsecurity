@@ -379,7 +379,7 @@ static struct ngene_info ngene_info_m780 = {
 
 /****************************************************************************/
 
-static const struct pci_device_id ngene_id_tbl[] __devinitdata = {
+static const struct pci_device_id ngene_id_tbl[] __devinitconst = {
 	NGENE_ID(0x18c3, 0xabc3, ngene_info_cineS2),
 	NGENE_ID(0x18c3, 0xabc4, ngene_info_cineS2),
 	NGENE_ID(0x18c3, 0xdb01, ngene_info_satixS2),
