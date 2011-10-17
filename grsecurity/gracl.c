@@ -171,6 +171,16 @@ gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned i
 	return !memcmp(a, b, lena);
 }
 
+static int prepend(char **buffer, int *buflen, const char *str, int namelen)
+{
+	*buflen -= namelen;
+	if (*buflen < 0)
+		return -ENAMETOOLONG;
+	*buffer -= namelen;
+	memcpy(*buffer, str, namelen);
+	return 0;
+}
+
 /* this must be called with vfsmount_lock and dcache_lock held */
 
 static char * __our_d_path(struct dentry *dentry, struct vfsmount *vfsmnt,
@@ -294,6 +304,27 @@ gr_to_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt)
 	spin_lock(&vfsmount_lock);
 	ret = __d_real_path(dentry, mnt, per_cpu_ptr(gr_shared_page[0],smp_processor_id()),
 			     PAGE_SIZE);
+	spin_unlock(&vfsmount_lock);
+	spin_unlock(&dcache_lock);
+	return ret;
+}
+
+static char *
+gr_to_proc_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt)
+{
+	char *ret;
+	char *buf;
+	int buflen;
+
+	spin_lock(&dcache_lock);
+	spin_lock(&vfsmount_lock);
+	buf = per_cpu_ptr(gr_shared_page[0], smp_processor_id());
+	ret = __d_real_path(dentry, mnt, buf, PAGE_SIZE - 6);
+	buflen = (int)(ret - buf);
+	if (buflen >= 5)
+		prepend(&ret, &buflen, "/proc", 5);
+	else
+		ret = strcpy(buf, "<path too long>");
 	spin_unlock(&vfsmount_lock);
 	spin_unlock(&dcache_lock);
 	return ret;
@@ -2699,14 +2730,11 @@ update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 }
 
 static void
-do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
-		 const struct vfsmount *mnt)
+__do_handle_create(const struct name_entry *matchn, ino_t inode, dev_t dev)
 {
 	struct acl_subject_label *subj;
 	struct acl_role_label *role;
 	unsigned int x;
-	ino_t inode = dentry->d_inode->i_ino;
-	dev_t dev = __get_dev(dentry);
 	
 	FOR_EACH_ROLE_START(role)
 		update_acl_subj_label(matchn->inode, matchn->device,
@@ -2729,6 +2757,18 @@ do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 	return;
 }
 
+static void
+do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
+		 const struct vfsmount *mnt)
+{
+	ino_t ino = dentry->d_inode->i_ino;
+	dev_t dev = __get_dev(dentry);
+
+	__do_handle_create(matchn, ino, dev);	
+
+	return;
+}
+
 void
 gr_handle_create(const struct dentry *dentry, const struct vfsmount *mnt)
 {
@@ -2743,6 +2783,27 @@ gr_handle_create(const struct dentry *dentry, const struct vfsmount *mnt)
 	if (unlikely((unsigned long)matchn)) {
 		write_lock(&gr_inode_lock);
 		do_handle_create(matchn, dentry, mnt);
+		write_unlock(&gr_inode_lock);
+	}
+	preempt_enable();
+
+	return;
+}
+
+void
+gr_handle_proc_create(const struct dentry *dentry, const struct inode *inode)
+{
+	struct name_entry *matchn;
+
+	if (unlikely(!(gr_status & GR_READY)))
+		return;
+
+	preempt_disable();
+	matchn = lookup_name_entry(gr_to_proc_filename_rbac(dentry, init_pid_ns.proc_mnt));
+
+	if (unlikely((unsigned long)matchn)) {
+		write_lock(&gr_inode_lock);
+		__do_handle_create(matchn, inode->i_ino, inode->i_sb->s_dev);
 		write_unlock(&gr_inode_lock);
 	}
 	preempt_enable();

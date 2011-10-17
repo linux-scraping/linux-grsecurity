@@ -124,6 +124,9 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 
 	err = NULL;
 	dentry->d_op = &proc_sys_dentry_operations;
+
+	gr_handle_proc_create(dentry, inode);
+
 	d_add(dentry, inode);
 
 out:
@@ -205,6 +208,9 @@ static int proc_sys_fill_cache(struct file *filp, void *dirent,
 				return -ENOMEM;
 			} else {
 				child->d_op = &proc_sys_dentry_operations;
+
+				gr_handle_proc_create(child, inode);
+
 				d_add(child, inode);
 			}
 		} else {
