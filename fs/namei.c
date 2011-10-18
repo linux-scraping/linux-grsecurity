@@ -241,10 +241,6 @@ int generic_permission(struct inode *inode, int mask, unsigned int flags,
 	 */
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
 	if (mask == MAY_READ || (S_ISDIR(inode->i_mode) && !(mask & MAY_WRITE))) {
-#ifdef CONFIG_GRKERNSEC
-		if (flags & IPERM_FLAG_RCU)
-			return -ECHILD;
-#endif
 		if (ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
 			return 0;
 	}
@@ -255,10 +251,6 @@ int generic_permission(struct inode *inode, int mask, unsigned int flags,
 	 * for non-directories that have least one exec bit set.
 	 */
 	if (!(mask & MAY_EXEC) || execute_ok(inode)) {
-#ifdef CONFIG_GRKERNSEC
-		if (flags & IPERM_FLAG_RCU)
-			return -ECHILD;
-#endif
 		if (ns_capable(inode_userns(inode), CAP_DAC_OVERRIDE))
 			return 0;
 	}
@@ -609,10 +601,6 @@ static inline int exec_permission(struct inode *inode, unsigned int flags)
 	if (ns_capable_nolog(ns, CAP_DAC_OVERRIDE))
 		goto ok;
 	else {
-#ifdef CONFIG_GRKERNSEC
-		if (flags & IPERM_FLAG_RCU)
-			return -ECHILD;
-#endif
 		if (ns_capable(ns, CAP_DAC_READ_SEARCH) || ns_capable(ns, CAP_DAC_OVERRIDE))
 			goto ok;
 	}
@@ -2154,7 +2142,7 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		/* sayonara */
 		error = complete_walk(nd);
 		if (error)
-			return ERR_PTR(-ECHILD);
+			return ERR_PTR(error);
 
 		error = -ENOTDIR;
 		if (nd->flags & LOOKUP_DIRECTORY) {
