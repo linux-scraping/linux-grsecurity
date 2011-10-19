@@ -25,6 +25,11 @@
 
 #include "internal.h"
 
+#ifdef CONFIG_PROC_SYSCTL
+extern const struct inode_operations proc_sys_inode_operations;
+extern const struct inode_operations proc_sys_dir_operations;
+#endif
+
 static void proc_evict_inode(struct inode *inode)
 {
 	struct proc_dir_entry *de;
@@ -50,6 +55,13 @@ static void proc_evict_inode(struct inode *inode)
 	ns_ops = PROC_I(inode)->ns_ops;
 	if (ns_ops && ns_ops->put)
 		ns_ops->put(PROC_I(inode)->ns);
+
+#ifdef CONFIG_PROC_SYSCTL
+	if (inode->i_op == &proc_sys_inode_operations ||
+	    inode->i_op == &proc_sys_dir_operations)
+		gr_handle_delete(inode->i_ino, inode->i_sb->s_dev);
+#endif
+
 }
 
 static struct kmem_cache * proc_inode_cachep;
@@ -103,16 +115,10 @@ void __init proc_init_inodecache(void)
 					     init_once);
 }
 
-static int proc_drop_inode(struct inode *inode)
-{
-	gr_handle_delete(inode->i_ino, inode->i_sb->s_dev);
-	return generic_delete_inode(inode);
-}
-
 static const struct super_operations proc_sops = {
 	.alloc_inode	= proc_alloc_inode,
 	.destroy_inode	= proc_destroy_inode,
-	.drop_inode	= proc_drop_inode,
+	.drop_inode	= generic_delete_inode,
 	.evict_inode	= proc_evict_inode,
 	.statfs		= simple_statfs,
 };

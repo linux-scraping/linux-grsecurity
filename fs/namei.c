@@ -549,9 +549,6 @@ static int complete_walk(struct nameidata *nd)
 		br_read_unlock(vfsmount_lock);
 	}
 
-	if (!(nd->flags & LOOKUP_PARENT) && !gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt))
-		return -ENOENT;
-
 	if (likely(!(nd->flags & LOOKUP_JUMPED)))
 		return 0;
 
@@ -1621,6 +1618,12 @@ static int path_lookupat(int dfd, const char *name,
 	if (!err)
 		err = complete_walk(nd);
 
+	if (!(nd->flags & LOOKUP_PARENT) && !gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
+		if (!err)
+			path_put(&nd->path);
+		err = -ENOENT;
+	}
+
 	if (!err && nd->flags & LOOKUP_DIRECTORY) {
 		if (!nd->inode->i_op->lookup) {
 			path_put(&nd->path);
@@ -2112,6 +2115,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		error = complete_walk(nd);
 		if (error)
 			return ERR_PTR(error);
+		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
+			error = -ENOENT;
+			goto exit;
+		}
 		audit_inode(pathname, nd->path.dentry);
 		if (open_flag & O_CREAT) {
 			error = -EISDIR;
@@ -2122,6 +2129,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		error = complete_walk(nd);
 		if (error)
 			return ERR_PTR(error);
+		if (!gr_acl_handle_hidden_file(dir, nd->path.mnt)) {
+			error = -ENOENT;
+			goto exit;
+		}
 		audit_inode(pathname, dir);
 		goto ok;
 	}
@@ -2142,7 +2153,12 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		/* sayonara */
 		error = complete_walk(nd);
 		if (error)
-			return ERR_PTR(error);
+			return ERR_PTR(-ECHILD);
+
+		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
+			error = -ENOENT;
+			goto exit;
+		}
 
 		error = -ENOTDIR;
 		if (nd->flags & LOOKUP_DIRECTORY) {
@@ -2219,6 +2235,11 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 	/*
 	 * It already exists.
 	 */
+
+	if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
+		error = -ENOENT;
+		goto exit_mutex_unlock;
+	}
 
 	/* only check if O_CREAT is specified, all other checks need to go
 	   into may_open */
@@ -2436,6 +2457,10 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir)
 	}
 	return dentry;
 eexist:
+	if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
+		dput(dentry);
+		return ERR_PTR(-ENOENT);
+	}
 	dput(dentry);
 	dentry = ERR_PTR(-EEXIST);
 fail:

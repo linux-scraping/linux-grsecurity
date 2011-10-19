@@ -2772,8 +2772,6 @@ static struct dentry *proc_base_instantiate(struct inode *dir,
 		inode->i_fop = p->fop;
 	ei->op = p->op;
 
-	gr_handle_proc_create(dentry, inode);
-
 	d_add(dentry, inode);
 	error = NULL;
 out:
