@@ -677,11 +677,6 @@ static inline int do_follow_link(struct path *path, struct nameidata *nd)
 		goto loop;
 	}
 
-	if (!gr_acl_handle_hidden_file(path->dentry, nd->path.mnt)) {
-		err = -ENOENT;
-		goto loop;
-	}
-
 	current->link_count++;
 	current->total_link_count++;
 	nd->depth++;
@@ -1029,7 +1024,8 @@ return_reval:
 				break;
 		}
 return_base:
-		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
+		if (!(nd->flags & (LOOKUP_CONTINUE | LOOKUP_PARENT)) &&
+		    !gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 			path_put(&nd->path);
 			return -ENOENT;
 		}
@@ -2068,10 +2064,10 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir)
 	}
 	return dentry;
 eexist:
-        if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
-                dput(dentry);
-                return ERR_PTR(-ENOENT);
-        }
+	if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
+		dput(dentry);
+		return ERR_PTR(-ENOENT);
+	}
 	dput(dentry);
 	dentry = ERR_PTR(-EEXIST);
 fail:
