@@ -11,9 +11,9 @@ extern __u32 gr_handle_sysctl(const struct ctl_table *table, const int op);
 
 static const struct dentry_operations proc_sys_dentry_operations;
 static const struct file_operations proc_sys_file_operations;
-static const struct inode_operations proc_sys_inode_operations;
+const struct inode_operations proc_sys_inode_operations;
 static const struct file_operations proc_sys_dir_file_operations;
-static const struct inode_operations proc_sys_dir_operations;
+const struct inode_operations proc_sys_dir_operations;
 
 static struct inode *proc_sys_make_inode(struct super_block *sb,
 		struct ctl_table_header *head, struct ctl_table *table)
@@ -379,13 +379,13 @@ static const struct file_operations proc_sys_dir_file_operations = {
 	.llseek		= generic_file_llseek,
 };
 
-static const struct inode_operations proc_sys_inode_operations = {
+const struct inode_operations proc_sys_inode_operations = {
 	.permission	= proc_sys_permission,
 	.setattr	= proc_sys_setattr,
 	.getattr	= proc_sys_getattr,
 };
 
-static const struct inode_operations proc_sys_dir_operations = {
+const struct inode_operations proc_sys_dir_operations = {
 	.lookup		= proc_sys_lookup,
 	.permission	= proc_sys_permission,
 	.setattr	= proc_sys_setattr,

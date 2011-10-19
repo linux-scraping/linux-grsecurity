@@ -25,6 +25,12 @@
 
 #include "internal.h"
 
+#ifdef CONFIG_PROC_SYSCTL
+extern const struct inode_operations proc_sys_inode_operations;
+extern const struct inode_operations proc_sys_dir_operations;
+#endif
+
+
 struct proc_dir_entry *de_get(struct proc_dir_entry *de)
 {
 	atomic_inc(&de->count);
@@ -63,6 +69,13 @@ static void proc_delete_inode(struct inode *inode)
 		de_put(de);
 	if (PROC_I(inode)->sysctl)
 		sysctl_head_put(PROC_I(inode)->sysctl);
+
+#ifdef CONFIG_PROC_SYSCTL
+	if (inode->i_op == &proc_sys_inode_operations ||
+	    inode->i_op == &proc_sys_dir_operations)
+		gr_handle_delete(inode->i_ino, inode->i_sb->s_dev);
+#endif
+
 	clear_inode(inode);
 }
 
@@ -110,16 +123,10 @@ void __init proc_init_inodecache(void)
 					     init_once);
 }
 
-static void proc_drop_inode(struct inode *inode)
-{
-	gr_handle_delete(inode->i_ino, inode->i_sb->s_dev);
-	return generic_delete_inode(inode);
-}
-
 static const struct super_operations proc_sops = {
 	.alloc_inode	= proc_alloc_inode,
 	.destroy_inode	= proc_destroy_inode,
-	.drop_inode	= proc_drop_inode,
+	.drop_inode	= generic_delete_inode,
 	.delete_inode	= proc_delete_inode,
 	.statfs		= simple_statfs,
 };

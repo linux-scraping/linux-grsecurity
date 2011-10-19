@@ -1662,7 +1662,7 @@ static int __open_namei_create(struct nameidata *nd, struct path *path,
 	int error;
 	struct dentry *dir = nd->path.dentry;
 
-	if (!gr_acl_handle_creat(path->dentry, nd->path.dentry, nd->path.mnt, flag, mode)) {
+	if (!gr_acl_handle_creat(path->dentry, dir, nd->path.mnt, flag, mode)) {
 		error = -EACCES;
 		goto out_unlock;
 	}
@@ -1859,6 +1859,11 @@ do_last:
 	/*
 	 * It already exists.
 	 */
+
+	if (!gr_acl_handle_hidden_file(path.dentry, path.mnt)) {
+		error = -ENOENT;
+		goto exit_mutex_unlock;
+	}
 
 	/* only check if O_CREAT is specified, all other checks need
 	   to go into may_open */
@@ -2063,6 +2068,10 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir)
 	}
 	return dentry;
 eexist:
+        if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
+                dput(dentry);
+                return ERR_PTR(-ENOENT);
+        }
 	dput(dentry);
 	dentry = ERR_PTR(-EEXIST);
 fail:
