@@ -716,13 +716,6 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 		return error;
 	}
 
-	if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt)) {
-		error = -ENOENT;
-		*p = ERR_PTR(error); /* no ->put_link(), please */
-		path_put(&nd->path);
-		return error;
-	}
-
 	nd->last_type = LAST_BIND;
 	*p = dentry->d_inode->i_op->follow_link(dentry, nd);
 	error = PTR_ERR(*p);
