@@ -121,7 +121,8 @@ extern rwlock_t grsec_exec_file_lock;
 	CAP_TO_MASK(CAP_SYS_PACCT) | CAP_TO_MASK(CAP_SYS_ADMIN) | \
 	CAP_TO_MASK(CAP_SYS_BOOT) | CAP_TO_MASK(CAP_SYS_TIME) | \
 	CAP_TO_MASK(CAP_NET_RAW) | CAP_TO_MASK(CAP_SYS_TTY_CONFIG) | \
-	CAP_TO_MASK(CAP_IPC_OWNER) , 0 }}
+	CAP_TO_MASK(CAP_IPC_OWNER) | CAP_TO_MASK(CAP_SETFCAP), \
+	CAP_TO_MASK(CAP_MAC_ADMIN) }}
 
 #define security_learn(normal_msg,args...) \
 ({ \
