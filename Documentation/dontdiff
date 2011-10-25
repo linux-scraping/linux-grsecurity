@@ -110,8 +110,10 @@ conf
 config
 config-*
 config_data.h*
+config.c
 config.mak
 config.mak.autogen
+config.tmp
 conmakehash
 consolemap_deftbl.c*
 cpustr.h
@@ -154,6 +156,7 @@ int32.c
 int4.c
 int8.c
 kallsyms
+kern_constants.h
 keywords.c
 ksym.c*
 ksym.h*
@@ -237,6 +240,7 @@ tftpboot.img
 timeconst.h
 times.h*
 trix_boot.h
+user_constants.h
 utsrelease.h*
 vdso-syms.lds
 vdso.lds

@@ -39,6 +39,12 @@ gr_acl_is_enabled(void)
 	return 0;
 }
 
+void
+gr_handle_proc_create(const struct dentry *dentry, const struct inode *inode) 
+{
+	return;
+}
+
 int
 gr_handle_rawio(const struct inode *inode)
 {

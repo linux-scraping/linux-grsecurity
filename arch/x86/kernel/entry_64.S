@@ -70,7 +70,7 @@
 ENTRY(mcount)
 	pax_force_retaddr
 	retq
-END(mcount)
+ENDPROC(mcount)
 
 ENTRY(ftrace_caller)
 	cmpl $0, function_trace_stop
@@ -95,7 +95,7 @@ GLOBAL(ftrace_graph_call)
 GLOBAL(ftrace_stub)
 	pax_force_retaddr
 	retq
-END(ftrace_caller)
+ENDPROC(ftrace_caller)
 
 #else /* ! CONFIG_DYNAMIC_FTRACE */
 ENTRY(mcount)
@@ -130,7 +130,7 @@ trace:
 	MCOUNT_RESTORE_FRAME
 
 	jmp ftrace_stub
-END(mcount)
+ENDPROC(mcount)
 #endif /* CONFIG_DYNAMIC_FTRACE */
 #endif /* CONFIG_FUNCTION_TRACER */
 
@@ -152,7 +152,7 @@ ENTRY(ftrace_graph_caller)
 
 	pax_force_retaddr
 	retq
-END(ftrace_graph_caller)
+ENDPROC(ftrace_graph_caller)
 
 GLOBAL(return_to_handler)
 	subq  $24, %rsp
@@ -612,7 +612,7 @@ ENTRY(save_args)
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(save_args)
+ENDPROC(save_args)
 	.popsection
 
 ENTRY(save_rest)
@@ -629,7 +629,7 @@ ENTRY(save_rest)
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(save_rest)
+ENDPROC(save_rest)
 
 /* save complete stack frame */
 	.pushsection .kprobes.text, "ax"
@@ -661,7 +661,7 @@ ENTRY(save_paranoid)
 1:	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(save_paranoid)
+ENDPROC(save_paranoid)
 	.popsection
 
 /*
@@ -693,7 +693,7 @@ ENTRY(ret_from_fork)
 	jmp ret_from_sys_call			# go to the SYSRET fastpath
 
 	CFI_ENDPROC
-END(ret_from_fork)
+ENDPROC(ret_from_fork)
 
 /*
  * System call entry. Up to 6 arguments in registers are supported.
@@ -951,7 +951,7 @@ int_restore_rest:
 	TRACE_IRQS_OFF
 	jmp int_with_check
 	CFI_ENDPROC
-END(system_call)
+ENDPROC(system_call)
 
 /*
  * Certain special system calls that need to save a complete full stack frame.
@@ -967,7 +967,7 @@ ENTRY(\label)
 	call \func
 	jmp ptregscall_common
 	CFI_ENDPROC
-END(\label)
+ENDPROC(\label)
 	.endm
 
 	PTREGSCALL stub_clone, sys_clone, %r8
@@ -988,7 +988,7 @@ ENTRY(ptregscall_common)
 	pax_force_retaddr
 	ret $REST_SKIP		/* pop extended registers */
 	CFI_ENDPROC
-END(ptregscall_common)
+ENDPROC(ptregscall_common)
 
 ENTRY(stub_execve)
 	CFI_STARTPROC
@@ -1003,7 +1003,7 @@ ENTRY(stub_execve)
 	RESTORE_REST
 	jmp int_ret_from_sys_call
 	CFI_ENDPROC
-END(stub_execve)
+ENDPROC(stub_execve)
 
 /*
  * sigreturn is special because it needs to restore all registers on return.
@@ -1021,7 +1021,7 @@ ENTRY(stub_rt_sigreturn)
 	RESTORE_REST
 	jmp int_ret_from_sys_call
 	CFI_ENDPROC
-END(stub_rt_sigreturn)
+ENDPROC(stub_rt_sigreturn)
 
 /*
  * Build the entry stubs and pointer table with some assembler magic.
@@ -1056,7 +1056,7 @@ vector=vector+1
 2:	jmp common_interrupt
 .endr
 	CFI_ENDPROC
-END(irq_entries_start)
+ENDPROC(irq_entries_start)
 
 .previous
 END(interrupt)
@@ -1239,7 +1239,7 @@ ENTRY(retint_kernel)
 #endif
 
 	CFI_ENDPROC
-END(common_interrupt)
+ENDPROC(common_interrupt)
 /*
  * End of kprobes section
  */
@@ -1255,7 +1255,7 @@ ENTRY(\sym)
 	interrupt \do_sym
 	jmp ret_from_intr
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 #ifdef CONFIG_SMP
@@ -1340,7 +1340,7 @@ ENTRY(\sym)
 	call \do_sym
 	jmp error_exit		/* %ebx: no swapgs flag */
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 .macro paranoidzeroentry sym do_sym
@@ -1367,7 +1367,7 @@ ENTRY(\sym)
 	call \do_sym
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 #define INIT_TSS_IST(x) (TSS_ist + ((x) - 1) * 8)(%r12)
@@ -1403,7 +1403,7 @@ ENTRY(\sym)
 	addq $EXCEPTION_STKSZ, INIT_TSS_IST(\ist)
 	jmp paranoid_exit	/* %ebx: no swapgs flag */
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 .macro errorentry sym do_sym
@@ -1430,7 +1430,7 @@ ENTRY(\sym)
 	call \do_sym
 	jmp error_exit			/* %ebx: no swapgs flag */
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 	/* error code is on the stack already */
@@ -1459,7 +1459,7 @@ ENTRY(\sym)
 	call \do_sym
 	jmp paranoid_exit		/* %ebx: no swapgs flag */
 	CFI_ENDPROC
-END(\sym)
+ENDPROC(\sym)
 .endm
 
 zeroentry divide_error do_divide_error
@@ -1491,7 +1491,7 @@ gs_change:
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
-END(native_load_gs_index)
+ENDPROC(native_load_gs_index)
 
 	.section __ex_table,"a"
 	.align 8
@@ -1520,7 +1520,7 @@ ENTRY(kernel_thread_helper)
 	call do_exit
 	ud2			# padding for call trace
 	CFI_ENDPROC
-END(kernel_thread_helper)
+ENDPROC(kernel_thread_helper)
 
 /*
  * execve(). This function needs to use IRET, not SYSRET, to set up all state properly.
@@ -1611,7 +1611,7 @@ ENTRY(xen_do_hypervisor_callback)   # do_hypervisor_callback(struct *pt_regs)
 	decl PER_CPU_VAR(irq_count)
 	jmp  error_exit
 	CFI_ENDPROC
-END(xen_do_hypervisor_callback)
+ENDPROC(xen_do_hypervisor_callback)
 
 /*
  * Hypervisor uses this for application faults while it executes.
@@ -1670,7 +1670,7 @@ ENTRY(xen_failsafe_callback)
 	SAVE_ALL
 	jmp error_exit
 	CFI_ENDPROC
-END(xen_failsafe_callback)
+ENDPROC(xen_failsafe_callback)
 
 apicinterrupt XEN_HVM_EVTCHN_CALLBACK \
 	xen_hvm_callback_vector xen_evtchn_do_upcall
@@ -1772,7 +1772,7 @@ paranoid_schedule:
 	TRACE_IRQS_OFF
 	jmp paranoid_userspace
 	CFI_ENDPROC
-END(paranoid_exit)
+ENDPROC(paranoid_exit)
 
 /*
  * Exception entry point. This expects an error code/orig_rax on the stack.
@@ -1832,7 +1832,7 @@ bstep_iret:
 	movq %rcx,RIP+8(%rsp)
 	jmp error_swapgs
 	CFI_ENDPROC
-END(error_entry)
+ENDPROC(error_entry)
 
 
 /* ebx:	no swapgs flag (1: don't need swapgs, 0: need it) */
@@ -1852,7 +1852,7 @@ ENTRY(error_exit)
 	jnz retint_careful
 	jmp retint_swapgs
 	CFI_ENDPROC
-END(error_exit)
+ENDPROC(error_exit)
 
 
 	/* runs on exception stack */
@@ -1934,14 +1934,14 @@ nmi_schedule:
 	jmp paranoid_exit
 	CFI_ENDPROC
 #endif
-END(nmi)
+ENDPROC(nmi)
 
 ENTRY(ignore_sysret)
 	CFI_STARTPROC
 	mov $-ENOSYS,%eax
 	sysret
 	CFI_ENDPROC
-END(ignore_sysret)
+ENDPROC(ignore_sysret)
 
 /*
  * End of kprobes section

@@ -82,7 +82,6 @@
  */
 #ifndef ENDPROC
 #define ENDPROC(name) \
-  .size name, .-name; \
   .type name, @function; \
   END(name)
 #endif
