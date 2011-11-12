@@ -136,7 +136,7 @@ static int do_getname(const char __user *filename, char *page)
 	return retval;
 }
 
-static char *getname_flags(const char __user * filename, int flags)
+static char *getname_flags(const char __user *filename, int flags, int *empty)
 {
 	char *tmp, *result;
 
@@ -147,6 +147,8 @@ static char *getname_flags(const char __user * filename, int flags)
 
 		result = tmp;
 		if (retval < 0) {
+			if (retval == -ENOENT && empty)
+				*empty = 1;
 			if (retval != -ENOENT || !(flags & LOOKUP_EMPTY)) {
 				__putname(tmp);
 				result = ERR_PTR(retval);
@@ -159,7 +161,7 @@ static char *getname_flags(const char __user * filename, int flags)
 
 char *getname(const char __user * filename)
 {
-	return getname_flags(filename, 0);
+	return getname_flags(filename, 0, 0);
 }
 
 #ifdef CONFIG_AUDITSYSCALL
@@ -792,17 +794,20 @@ static int follow_automount(struct path *path, unsigned flags,
 	if ((flags & LOOKUP_NO_AUTOMOUNT) && !(flags & LOOKUP_CONTINUE))
 		return -EISDIR; /* we actually want to stop here */
 
-	/* We want to mount if someone is trying to open/create a file of any
-	 * type under the mountpoint, wants to traverse through the mountpoint
-	 * or wants to open the mounted directory.
+	/* We don't want to mount if someone's just doing a stat -
+	 * unless they're stat'ing a directory and appended a '/' to
+	 * the name.
 	 *
-	 * We don't want to mount if someone's just doing a stat and they've
-	 * set AT_SYMLINK_NOFOLLOW - unless they're stat'ing a directory and
-	 * appended a '/' to the name.
+	 * We do, however, want to mount if someone wants to open or
+	 * create a file of any type under the mountpoint, wants to
+	 * traverse through the mountpoint or wants to open the
+	 * mounted directory.  Also, autofs may mark negative dentries
+	 * as being automount points.  These will need the attentions
+	 * of the daemon to instantiate them before they can be used.
 	 */
-	if (!(flags & LOOKUP_FOLLOW) &&
-	    !(flags & (LOOKUP_CONTINUE | LOOKUP_DIRECTORY |
-		       LOOKUP_OPEN | LOOKUP_CREATE)))
+	if (!(flags & (LOOKUP_CONTINUE | LOOKUP_DIRECTORY |
+		     LOOKUP_OPEN | LOOKUP_CREATE | LOOKUP_AUTOMOUNT)) &&
+	    path->dentry->d_inode)
 		return -EISDIR;
 
 	current->total_link_count++;
@@ -918,7 +923,7 @@ static int follow_managed(struct path *path, unsigned flags)
 		mntput(path->mnt);
 	if (ret == -EISDIR)
 		ret = 0;
-	return ret;
+	return ret < 0 ? ret : need_mntput;
 }
 
 int follow_down_one(struct path *path)
@@ -966,6 +971,7 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
 			break;
 		path->mnt = mounted;
 		path->dentry = mounted->mnt_root;
+		nd->flags |= LOOKUP_JUMPED;
 		nd->seq = read_seqcount_begin(&path->dentry->d_seq);
 		/*
 		 * Update the inode too. We don't need to re-check the
@@ -1240,6 +1246,8 @@ retry:
 		path_put_conditional(path, nd);
 		return err;
 	}
+	if (err)
+		nd->flags |= LOOKUP_JUMPED;
 	*inode = path->dentry->d_inode;
 	return 0;
 }
@@ -1769,11 +1777,11 @@ struct dentry *lookup_one_len(const char *name, struct dentry *base, int len)
 	return __lookup_hash(&this, base, NULL);
 }
 
-int user_path_at(int dfd, const char __user *name, unsigned flags,
-		 struct path *path)
+int user_path_at_empty(int dfd, const char __user *name, unsigned flags,
+		 struct path *path, int *empty)
 {
 	struct nameidata nd;
-	char *tmp = getname_flags(name, flags);
+	char *tmp = getname_flags(name, flags, empty);
 	int err = PTR_ERR(tmp);
 	if (!IS_ERR(tmp)) {
 
@@ -1785,6 +1793,12 @@ int user_path_at(int dfd, const char __user *name, unsigned flags,
 			*path = nd.path;
 	}
 	return err;
+}
+
+int user_path_at(int dfd, const char __user *name, unsigned flags,
+		 struct path *path)
+{
+	return user_path_at_empty(dfd, name, flags, path, 0);
 }
 
 static int user_path_parent(int dfd, const char __user *path,
@@ -2163,6 +2177,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 	}
 
 	/* create side of things */
+	/*
+	 * This will *only* deal with leaving RCU mode - LOOKUP_JUMPED has been
+	 * cleared when we got to the last component we are about to look up
+	 */
 	error = complete_walk(nd);
 	if (error)
 		return ERR_PTR(error);
@@ -2252,6 +2270,9 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 	if (error < 0)
 		goto exit_dput;
 
+	if (error)
+		nd->flags |= LOOKUP_JUMPED;
+
 	error = -ENOENT;
 	if (!path->dentry->d_inode)
 		goto exit_dput;
@@ -2261,6 +2282,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 
 	path_to_nameidata(path, nd);
 	nd->inode = path->dentry->d_inode;
+	/* Why this, you ask?  _Now_ we might have grown LOOKUP_JUMPED... */
+	error = complete_walk(nd);
+	if (error)
+		goto exit;
 	error = -EISDIR;
 	if (S_ISDIR(nd->inode->i_mode))
 		goto exit;
