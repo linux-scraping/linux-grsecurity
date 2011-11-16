@@ -2833,6 +2833,7 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 {
 	struct name_entry *matchn;
 	struct inodev_entry *inodev;
+	struct inode *inode = new_dentry->d_inode;
 	ino_t old_ino = old_dentry->d_inode->i_ino;
 	dev_t old_dev = __get_dev(old_dentry);
 
@@ -2855,17 +2856,17 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 	 */
 
 	write_lock(&gr_inode_lock);
-	if (unlikely(replace && new_dentry->d_inode)) {
-		ino_t new_ino = new_dentry->d_inode->i_ino;
+	if (unlikely(replace && inode)) {
+		ino_t new_ino = inode->i_ino;
 		dev_t new_dev = __get_dev(new_dentry);
 
 		inodev = lookup_inodev_entry(new_ino, new_dev);
-		if (inodev != NULL && (new_dentry->d_inode->i_nlink <= 1))
+		if (inodev != NULL && ((inode->i_nlink <= 1) || S_ISDIR(inode->i_mode)))
 			do_handle_delete(inodev, new_ino, new_dev);
 	}
 
 	inodev = lookup_inodev_entry(old_ino, old_dev);
-	if (inodev != NULL && (old_dentry->d_inode->i_nlink <= 1))
+	if (inodev != NULL && ((old_dentry->d_inode->i_nlink <= 1) || S_ISDIR(old_dentry->d_inode->i_mode)))
 		do_handle_delete(inodev, old_ino, old_dev);
 
 	if (unlikely((unsigned long)matchn))

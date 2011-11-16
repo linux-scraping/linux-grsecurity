@@ -2775,10 +2775,8 @@ static long do_rmdir(int dfd, const char __user *pathname)
 		goto exit3;
 	}
 
-	if (dentry->d_inode->i_nlink <= 1) {
-		saved_ino = dentry->d_inode->i_ino;
-		saved_dev = gr_get_dev_from_dentry(dentry);
-	}
+	saved_ino = dentry->d_inode->i_ino;
+	saved_dev = gr_get_dev_from_dentry(dentry);
 
 	if (!gr_acl_handle_rmdir(dentry, nd.path.mnt)) {
 		error = -EACCES;
