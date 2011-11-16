@@ -211,15 +211,18 @@ gr_handle_crash(struct task_struct *task, const int sig)
 		} else {
 			gr_log_crash2(GR_DONT_AUDIT, GR_SEGVNOSUID_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			read_lock(&tasklist_lock);
+			read_lock(&grsec_exec_file_lock);
 			do_each_thread(tsk2, tsk) {
 				if (likely(tsk != task)) {
 					curr2 = tsk->acl;
 
-					if (curr2->device == curr->device &&
-					    curr2->inode == curr->inode)
+					// if this thread has the same subject as the one that triggered
+					// RES_CRASH and it's the same binary, kill it
+					if (tsk->acl == task->acl && tsk->exec_file == task->exec_file)
 						gr_fake_force_sig(SIGKILL, tsk);
 				}
 			} while_each_thread(tsk2, tsk);
+			read_unlock(&grsec_exec_file_lock);
 			read_unlock(&tasklist_lock);
 		}
 		rcu_read_unlock();
