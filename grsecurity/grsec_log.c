@@ -119,12 +119,15 @@ static void gr_log_middle_varargs(int audit, const char *msg, ...)
 	return;
 }
 
-static void gr_log_end(int audit)
+static void gr_log_end(int audit, int append_default)
 {
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
-	unsigned int len = strlen(buf);
 
-	snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, DEFAULTSECARGS(current, current_cred(), __task_cred(current->real_parent)));
+	if (append_default) {
+		unsigned int len = strlen(buf);
+		snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, DEFAULTSECARGS(current, current_cred(), __task_cred(current->real_parent)));
+	}
+
 	printk("%s\n", buf);
 
 	return;
@@ -310,6 +313,10 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		gr_log_middle(audit, msg, ap);
 	}
 	va_end(ap);
-	gr_log_end(audit);
+	// these don't need DEFAULTSECARGS printed on the end
+	if (argtypes == GR_CRASH1 || argtypes == GR_CRASH2)
+		gr_log_end(audit, 0);
+	else
+		gr_log_end(audit, 1);
 	END_LOCKS(audit);
 }

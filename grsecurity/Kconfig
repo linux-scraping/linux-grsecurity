@@ -94,7 +94,7 @@ config GRKERNSEC_MEDIUM
 	  - Deny mknod in chroot
 	  - Deny access to abstract AF_UNIX sockets out of chroot
 	  - Deny pivot_root in chroot
-	  - Denied writes of /dev/kmem, /dev/mem, and /dev/port
+	  - Denied reads/writes of /dev/kmem, /dev/mem, and /dev/port
 	  - /proc restrictions with special GID set to 10 (usually wheel)
 	  - Address Space Layout Randomization (ASLR)
 	  - Prevent exploitation of most refcount overflows
@@ -184,7 +184,6 @@ config GRKERNSEC_HIGH
 	  - Kernel stack randomization
 	  - Mount/unmount/remount logging
 	  - Kernel symbol hiding
-	  - Prevention of memory exhaustion-based exploits
 	  - Hardening of module auto-loading
 	  - Ptrace restrictions
 	  - Restricted vm86 mode
@@ -207,12 +206,12 @@ menu "Address Space Protection"
 depends on GRKERNSEC
 
 config GRKERNSEC_KMEM
-	bool "Deny writing to /dev/kmem, /dev/mem, and /dev/port"
+	bool "Deny reading/writing to /dev/kmem, /dev/mem, and /dev/port"
 	select STRICT_DEVMEM if (X86 || ARM || TILE || S390)
 	help
 	  If you say Y here, /dev/kmem and /dev/mem won't be allowed to
-	  be written to via mmap or otherwise to modify the running kernel.
-	  /dev/port will also not be allowed to be opened. If you have module
+	  be written to or read from to modify or leak the contents of the running
+	  kernel.  /dev/port will also not be allowed to be opened. If you have module
 	  support disabled, enabling this will close up four ways that are
 	  currently used  to insert malicious code into the running kernel.
 	  Even with all these features enabled, we still highly recommend that
