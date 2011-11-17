@@ -28,6 +28,7 @@
  */
 
 #include <linux/nfs_fs.h>
+#include <linux/nfs_page.h>
 #include "internal.h"
 #include "pnfs.h"
 #include "iostat.h"
@@ -75,8 +76,11 @@ find_pnfs_driver(u32 id)
 void
 unset_pnfs_layoutdriver(struct nfs_server *nfss)
 {
-	if (nfss->pnfs_curr_ld)
+	if (nfss->pnfs_curr_ld) {
+		if (nfss->pnfs_curr_ld->clear_layoutdriver)
+			nfss->pnfs_curr_ld->clear_layoutdriver(nfss);
 		module_put(nfss->pnfs_curr_ld->owner);
+	}
 	nfss->pnfs_curr_ld = NULL;
 }
 
@@ -87,7 +91,8 @@ unset_pnfs_layoutdriver(struct nfs_server *nfss)
  * @id layout type. Zero (illegal layout type) indicates pNFS not in use.
  */
 void
-set_pnfs_layoutdriver(struct nfs_server *server, u32 id)
+set_pnfs_layoutdriver(struct nfs_server *server, const struct nfs_fh *mntfh,
+		      u32 id)
 {
 	struct pnfs_layoutdriver_type *ld_type = NULL;
 
@@ -114,6 +119,13 @@ set_pnfs_layoutdriver(struct nfs_server *server, u32 id)
 		goto out_no_driver;
 	}
 	server->pnfs_curr_ld = ld_type;
+	if (ld_type->set_layoutdriver
+	    && ld_type->set_layoutdriver(server, mntfh)) {
+		printk(KERN_ERR "%s: Error initializing pNFS layout driver %u.\n",
+				__func__, id);
+		module_put(ld_type->owner);
+		goto out_no_driver;
+	}
 
 	dprintk("%s: pNFS module for %u set\n", __func__, id);
 	return;
@@ -450,11 +462,20 @@ pnfs_destroy_layout(struct nfs_inode *nfsi)
 void
 pnfs_destroy_all_layouts(struct nfs_client *clp)
 {
+	struct nfs_server *server;
 	struct pnfs_layout_hdr *lo;
 	LIST_HEAD(tmp_list);
 
+	nfs4_deviceid_mark_client_invalid(clp);
+	nfs4_deviceid_purge_client(clp);
+
 	spin_lock(&clp->cl_lock);
-	list_splice_init(&clp->cl_layouts, &tmp_list);
+	rcu_read_lock();
+	list_for_each_entry_rcu(server, &clp->cl_superblocks, client_link) {
+		if (!list_empty(&server->layouts))
+			list_splice_init(&server->layouts, &tmp_list);
+	}
+	rcu_read_unlock();
 	spin_unlock(&clp->cl_lock);
 
 	while (!list_empty(&tmp_list)) {
@@ -663,6 +684,7 @@ _pnfs_return_layout(struct inode *ino)
 	lrp->args.stateid = stateid;
 	lrp->args.layout_type = NFS_SERVER(ino)->pnfs_curr_ld->id;
 	lrp->args.inode = ino;
+	lrp->args.layout = lo;
 	lrp->clp = NFS_SERVER(ino)->nfs_client;
 
 	status = nfs4_proc_layoutreturn(lrp);
@@ -927,7 +949,8 @@ pnfs_update_layout(struct inode *ino,
 	};
 	unsigned pg_offset;
 	struct nfs_inode *nfsi = NFS_I(ino);
-	struct nfs_client *clp = NFS_SERVER(ino)->nfs_client;
+	struct nfs_server *server = NFS_SERVER(ino);
+	struct nfs_client *clp = server->nfs_client;
 	struct pnfs_layout_hdr *lo;
 	struct pnfs_layout_segment *lseg = NULL;
 	bool first = false;
@@ -971,7 +994,7 @@ pnfs_update_layout(struct inode *ino,
 		 */
 		spin_lock(&clp->cl_lock);
 		BUG_ON(!list_empty(&lo->plh_layouts));
-		list_add_tail(&lo->plh_layouts, &clp->cl_layouts);
+		list_add_tail(&lo->plh_layouts, &server->layouts);
 		spin_unlock(&clp->cl_lock);
 	}
 
@@ -980,7 +1003,8 @@ pnfs_update_layout(struct inode *ino,
 		arg.offset -= pg_offset;
 		arg.length += pg_offset;
 	}
-	arg.length = PAGE_CACHE_ALIGN(arg.length);
+	if (arg.length != NFS4_MAX_UINT64)
+		arg.length = PAGE_CACHE_ALIGN(arg.length);
 
 	lseg = send_layoutget(lo, ctx, &arg, gfp_flags);
 	if (!lseg && first) {
@@ -998,6 +1022,7 @@ out_unlock:
 	spin_unlock(&ino->i_lock);
 	goto out;
 }
+EXPORT_SYMBOL_GPL(pnfs_update_layout);
 
 int
 pnfs_layout_process(struct nfs4_layoutget *lgp)
@@ -1055,35 +1080,71 @@ out_forget_reply:
 	goto out;
 }
 
+void
+pnfs_generic_pg_init_read(struct nfs_pageio_descriptor *pgio, struct nfs_page *req)
+{
+	BUG_ON(pgio->pg_lseg != NULL);
+
+	pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
+					   req->wb_context,
+					   req_offset(req),
+					   req->wb_bytes,
+					   IOMODE_READ,
+					   GFP_KERNEL);
+	/* If no lseg, fall back to read through mds */
+	if (pgio->pg_lseg == NULL)
+		nfs_pageio_reset_read_mds(pgio);
+
+}
+EXPORT_SYMBOL_GPL(pnfs_generic_pg_init_read);
+
+void
+pnfs_generic_pg_init_write(struct nfs_pageio_descriptor *pgio, struct nfs_page *req)
+{
+	BUG_ON(pgio->pg_lseg != NULL);
+
+	pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
+					   req->wb_context,
+					   req_offset(req),
+					   req->wb_bytes,
+					   IOMODE_RW,
+					   GFP_NOFS);
+	/* If no lseg, fall back to write through mds */
+	if (pgio->pg_lseg == NULL)
+		nfs_pageio_reset_write_mds(pgio);
+}
+EXPORT_SYMBOL_GPL(pnfs_generic_pg_init_write);
+
+bool
+pnfs_pageio_init_read(struct nfs_pageio_descriptor *pgio, struct inode *inode)
+{
+	struct nfs_server *server = NFS_SERVER(inode);
+	struct pnfs_layoutdriver_type *ld = server->pnfs_curr_ld;
+
+	if (ld == NULL)
+		return false;
+	nfs_pageio_init(pgio, inode, ld->pg_read_ops, server->rsize, 0);
+	return true;
+}
+
+bool
+pnfs_pageio_init_write(struct nfs_pageio_descriptor *pgio, struct inode *inode, int ioflags)
+{
+	struct nfs_server *server = NFS_SERVER(inode);
+	struct pnfs_layoutdriver_type *ld = server->pnfs_curr_ld;
+
+	if (ld == NULL)
+		return false;
+	nfs_pageio_init(pgio, inode, ld->pg_write_ops, server->wsize, ioflags);
+	return true;
+}
+
 bool
 pnfs_generic_pg_test(struct nfs_pageio_descriptor *pgio, struct nfs_page *prev,
 		     struct nfs_page *req)
 {
-	enum pnfs_iomode access_type;
-	gfp_t gfp_flags;
-
-	/* We assume that pg_ioflags == 0 iff we're reading a page */
-	if (pgio->pg_ioflags == 0) {
-		access_type = IOMODE_READ;
-		gfp_flags = GFP_KERNEL;
-	} else {
-		access_type = IOMODE_RW;
-		gfp_flags = GFP_NOFS;
-	}
-
-	if (pgio->pg_lseg == NULL) {
-		if (pgio->pg_count != prev->wb_bytes)
-			return true;
-		/* This is first coelesce call for a series of nfs_pages */
-		pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
-						   prev->wb_context,
-						   req_offset(prev),
-						   pgio->pg_count,
-						   access_type,
-						   gfp_flags);
-		if (pgio->pg_lseg == NULL)
-			return true;
-	}
+	if (pgio->pg_lseg == NULL)
+		return nfs_generic_pg_test(pgio, prev, req);
 
 	/*
 	 * Test if a nfs_page is fully contained in the pnfs_layout_range.
@@ -1107,35 +1168,44 @@ EXPORT_SYMBOL_GPL(pnfs_generic_pg_test);
 /*
  * Called by non rpc-based layout drivers
  */
-int
-pnfs_ld_write_done(struct nfs_write_data *data)
+void pnfs_ld_write_done(struct nfs_write_data *data)
 {
-	int status;
-
-	if (!data->pnfs_error) {
+	if (likely(!data->pnfs_error)) {
 		pnfs_set_layoutcommit(data);
 		data->mds_ops->rpc_call_done(&data->task, data);
-		data->mds_ops->rpc_release(data);
-		return 0;
+	} else {
+		put_lseg(data->lseg);
+		data->lseg = NULL;
+		dprintk("pnfs write error = %d\n", data->pnfs_error);
 	}
-
-	dprintk("%s: pnfs_error=%d, retry via MDS\n", __func__,
-		data->pnfs_error);
-	status = nfs_initiate_write(data, NFS_CLIENT(data->inode),
-				    data->mds_ops, NFS_FILE_SYNC);
-	return status ? : -EAGAIN;
+	data->mds_ops->rpc_release(data);
 }
 EXPORT_SYMBOL_GPL(pnfs_ld_write_done);
 
-enum pnfs_try_status
+static void
+pnfs_write_through_mds(struct nfs_pageio_descriptor *desc,
+		struct nfs_write_data *data)
+{
+	list_splice_tail_init(&data->pages, &desc->pg_list);
+	if (data->req && list_empty(&data->req->wb_list))
+		nfs_list_add_request(data->req, &desc->pg_list);
+	nfs_pageio_reset_write_mds(desc);
+	desc->pg_recoalesce = 1;
+	nfs_writedata_release(data);
+}
+
+static enum pnfs_try_status
 pnfs_try_to_write_data(struct nfs_write_data *wdata,
-			const struct rpc_call_ops *call_ops, int how)
+			const struct rpc_call_ops *call_ops,
+			struct pnfs_layout_segment *lseg,
+			int how)
 {
 	struct inode *inode = wdata->inode;
 	enum pnfs_try_status trypnfs;
 	struct nfs_server *nfss = NFS_SERVER(inode);
 
 	wdata->mds_ops = call_ops;
+	wdata->lseg = get_lseg(lseg);
 
 	dprintk("%s: Writing ino:%lu %u@%llu (how %d)\n", __func__,
 		inode->i_ino, wdata->args.count, wdata->args.offset, how);
@@ -1151,41 +1221,87 @@ pnfs_try_to_write_data(struct nfs_write_data *wdata,
 	return trypnfs;
 }
 
+static void
+pnfs_do_multiple_writes(struct nfs_pageio_descriptor *desc, struct list_head *head, int how)
+{
+	struct nfs_write_data *data;
+	const struct rpc_call_ops *call_ops = desc->pg_rpc_callops;
+	struct pnfs_layout_segment *lseg = desc->pg_lseg;
+
+	desc->pg_lseg = NULL;
+	while (!list_empty(head)) {
+		enum pnfs_try_status trypnfs;
+
+		data = list_entry(head->next, struct nfs_write_data, list);
+		list_del_init(&data->list);
+
+		trypnfs = pnfs_try_to_write_data(data, call_ops, lseg, how);
+		if (trypnfs == PNFS_NOT_ATTEMPTED)
+			pnfs_write_through_mds(desc, data);
+	}
+	put_lseg(lseg);
+}
+
+int
+pnfs_generic_pg_writepages(struct nfs_pageio_descriptor *desc)
+{
+	LIST_HEAD(head);
+	int ret;
+
+	ret = nfs_generic_flush(desc, &head);
+	if (ret != 0) {
+		put_lseg(desc->pg_lseg);
+		desc->pg_lseg = NULL;
+		return ret;
+	}
+	pnfs_do_multiple_writes(desc, &head, desc->pg_ioflags);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pnfs_generic_pg_writepages);
+
 /*
  * Called by non rpc-based layout drivers
  */
-int
-pnfs_ld_read_done(struct nfs_read_data *data)
+void pnfs_ld_read_done(struct nfs_read_data *data)
 {
-	int status;
-
-	if (!data->pnfs_error) {
+	if (likely(!data->pnfs_error)) {
 		__nfs4_read_done_cb(data);
 		data->mds_ops->rpc_call_done(&data->task, data);
-		data->mds_ops->rpc_release(data);
-		return 0;
+	} else {
+		put_lseg(data->lseg);
+		data->lseg = NULL;
+		dprintk("pnfs write error = %d\n", data->pnfs_error);
 	}
-
-	dprintk("%s: pnfs_error=%d, retry via MDS\n", __func__,
-		data->pnfs_error);
-	status = nfs_initiate_read(data, NFS_CLIENT(data->inode),
-				   data->mds_ops);
-	return status ? : -EAGAIN;
+	data->mds_ops->rpc_release(data);
 }
 EXPORT_SYMBOL_GPL(pnfs_ld_read_done);
+
+static void
+pnfs_read_through_mds(struct nfs_pageio_descriptor *desc,
+		struct nfs_read_data *data)
+{
+	list_splice_tail_init(&data->pages, &desc->pg_list);
+	if (data->req && list_empty(&data->req->wb_list))
+		nfs_list_add_request(data->req, &desc->pg_list);
+	nfs_pageio_reset_read_mds(desc);
+	desc->pg_recoalesce = 1;
+	nfs_readdata_release(data);
+}
 
 /*
  * Call the appropriate parallel I/O subsystem read function.
  */
-enum pnfs_try_status
+static enum pnfs_try_status
 pnfs_try_to_read_data(struct nfs_read_data *rdata,
-		       const struct rpc_call_ops *call_ops)
+		       const struct rpc_call_ops *call_ops,
+		       struct pnfs_layout_segment *lseg)
 {
 	struct inode *inode = rdata->inode;
 	struct nfs_server *nfss = NFS_SERVER(inode);
 	enum pnfs_try_status trypnfs;
 
 	rdata->mds_ops = call_ops;
+	rdata->lseg = get_lseg(lseg);
 
 	dprintk("%s: Reading ino:%lu %u@%llu\n",
 		__func__, inode->i_ino, rdata->args.count, rdata->args.offset);
@@ -1201,6 +1317,44 @@ pnfs_try_to_read_data(struct nfs_read_data *rdata,
 	return trypnfs;
 }
 
+static void
+pnfs_do_multiple_reads(struct nfs_pageio_descriptor *desc, struct list_head *head)
+{
+	struct nfs_read_data *data;
+	const struct rpc_call_ops *call_ops = desc->pg_rpc_callops;
+	struct pnfs_layout_segment *lseg = desc->pg_lseg;
+
+	desc->pg_lseg = NULL;
+	while (!list_empty(head)) {
+		enum pnfs_try_status trypnfs;
+
+		data = list_entry(head->next, struct nfs_read_data, list);
+		list_del_init(&data->list);
+
+		trypnfs = pnfs_try_to_read_data(data, call_ops, lseg);
+		if (trypnfs == PNFS_NOT_ATTEMPTED)
+			pnfs_read_through_mds(desc, data);
+	}
+	put_lseg(lseg);
+}
+
+int
+pnfs_generic_pg_readpages(struct nfs_pageio_descriptor *desc)
+{
+	LIST_HEAD(head);
+	int ret;
+
+	ret = nfs_generic_pagein(desc, &head);
+	if (ret != 0) {
+		put_lseg(desc->pg_lseg);
+		desc->pg_lseg = NULL;
+		return ret;
+	}
+	pnfs_do_multiple_reads(desc, &head);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pnfs_generic_pg_readpages);
+
 /*
  * There can be multiple RW segments.
  */
@@ -1214,6 +1368,18 @@ static void pnfs_list_write_lseg(struct inode *inode, struct list_head *listp)
 			list_add(&lseg->pls_lc_list, listp);
 	}
 }
+
+void pnfs_set_lo_fail(struct pnfs_layout_segment *lseg)
+{
+	if (lseg->pls_range.iomode == IOMODE_RW) {
+		dprintk("%s Setting layout IOMODE_RW fail bit\n", __func__);
+		set_bit(lo_fail_bit(IOMODE_RW), &lseg->pls_layout->plh_flags);
+	} else {
+		dprintk("%s Setting layout IOMODE_READ fail bit\n", __func__);
+		set_bit(lo_fail_bit(IOMODE_READ), &lseg->pls_layout->plh_flags);
+	}
+}
+EXPORT_SYMBOL_GPL(pnfs_set_lo_fail);
 
 void
 pnfs_set_layoutcommit(struct nfs_write_data *wdata)
@@ -1244,6 +1410,14 @@ pnfs_set_layoutcommit(struct nfs_write_data *wdata)
 		mark_inode_dirty_sync(wdata->inode);
 }
 EXPORT_SYMBOL_GPL(pnfs_set_layoutcommit);
+
+void pnfs_cleanup_layoutcommit(struct nfs4_layoutcommit_data *data)
+{
+	struct nfs_server *nfss = NFS_SERVER(data->args.inode);
+
+	if (nfss->pnfs_curr_ld->cleanup_layoutcommit)
+		nfss->pnfs_curr_ld->cleanup_layoutcommit(data);
+}
 
 /*
  * For the LAYOUT4_NFSV4_1_FILES layout type, NFS_DATA_SYNC WRITEs and

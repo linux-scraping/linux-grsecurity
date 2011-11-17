@@ -155,11 +155,11 @@ int gr_set_proc_label(const struct dentry *dentry,
 __u32 gr_acl_handle_hidden_file(const struct dentry *dentry,
 				const struct vfsmount *mnt);
 __u32 gr_acl_handle_open(const struct dentry *dentry,
-				const struct vfsmount *mnt, const int fmode);
+				const struct vfsmount *mnt, int acc_mode);
 __u32 gr_acl_handle_creat(const struct dentry *dentry,
 				 const struct dentry *p_dentry,
-				 const struct vfsmount *p_mnt, const int fmode,
-				 const int imode);
+				 const struct vfsmount *p_mnt,
+				 int open_flags, int acc_mode, const int imode);
 void gr_handle_create(const struct dentry *dentry,
 			     const struct vfsmount *mnt);
 void gr_handle_proc_create(const struct dentry *dentry,

@@ -42,7 +42,7 @@ static inline int notify_page_fault(struct pt_regs *regs, int trap)
 int exception_trace = 1;
 
 #ifdef CONFIG_PAX_PAGEEXEC
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	unsigned long i;
 

@@ -128,7 +128,7 @@ SYSCALL_DEFINE1(uselib, const char __user *, library)
 	char *tmp = getname(library);
 	int error = PTR_ERR(tmp);
 	static const struct open_flags uselib_flags = {
-		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC | FMODE_GREXEC,
+		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC,
 		.acc_mode = MAY_READ | MAY_EXEC | MAY_OPEN,
 		.intent = LOOKUP_OPEN
 	};
@@ -193,14 +193,7 @@ static void acct_arg_size(struct linux_binprm *bprm, unsigned long pages)
 		return;
 
 	bprm->vma_pages = pages;
-
-#ifdef SPLIT_RSS_COUNTING
 	add_mm_counter(mm, MM_ANONPAGES, diff);
-#else
-	spin_lock(&mm->page_table_lock);
-	add_mm_counter(mm, MM_ANONPAGES, diff);
-	spin_unlock(&mm->page_table_lock);
-#endif
 }
 
 static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
@@ -281,7 +274,7 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 	 * use STACK_TOP because that can depend on attributes which aren't
 	 * configured yet.
 	 */
-	BUG_ON(VM_STACK_FLAGS & VM_STACK_INCOMPLETE_SETUP);
+	BUILD_BUG_ON(VM_STACK_FLAGS & VM_STACK_INCOMPLETE_SETUP);
 	vma->vm_end = STACK_TOP_MAX;
 	vma->vm_start = vma->vm_end - PAGE_SIZE;
 	vma->vm_flags = VM_STACK_FLAGS | VM_STACK_INCOMPLETE_SETUP;
@@ -788,7 +781,7 @@ struct file *open_exec(const char *name)
 	struct file *file;
 	int err;
 	static const struct open_flags open_exec_flags = {
-		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC | FMODE_GREXEC,
+		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC,
 		.acc_mode = MAY_EXEC | MAY_OPEN,
 		.intent = LOOKUP_OPEN
 	};
@@ -980,9 +973,18 @@ static int de_thread(struct task_struct *tsk)
 		leader->group_leader = tsk;
 
 		tsk->exit_signal = SIGCHLD;
+		leader->exit_signal = -1;
 
 		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
 		leader->exit_state = EXIT_DEAD;
+
+		/*
+		 * We are going to release_task()->ptrace_unlink() silently,
+		 * the tracer can sleep in do_wait(). EXIT_DEAD guarantees
+		 * the tracer wont't block again waiting for this thread.
+		 */
+		if (unlikely(leader->ptrace))
+			__wake_up_parent(leader, leader->parent);
 		write_unlock_irq(&tasklist_lock);
 
 		release_task(leader);
@@ -1122,6 +1124,13 @@ out:
 }
 EXPORT_SYMBOL(flush_old_exec);
 
+void would_dump(struct linux_binprm *bprm, struct file *file)
+{
+	if (inode_permission(file->f_path.dentry->d_inode, MAY_READ) < 0)
+		bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
+}
+EXPORT_SYMBOL(would_dump);
+
 void setup_new_exec(struct linux_binprm * bprm)
 {
 	int i, ch;
@@ -1161,9 +1170,10 @@ void setup_new_exec(struct linux_binprm * bprm)
 	if (bprm->cred->uid != current_euid() ||
 	    bprm->cred->gid != current_egid()) {
 		current->pdeath_signal = 0;
-	} else if (file_permission(bprm->file, MAY_READ) ||
-		   bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP) {
-		set_dumpable(current->mm, suid_dumpable);
+	} else {
+		would_dump(bprm, bprm->file);
+		if (bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP)
+			set_dumpable(current->mm, suid_dumpable);
 	}
 
 	/*
@@ -1242,7 +1252,12 @@ int check_unsafe_exec(struct linux_binprm *bprm)
 	unsigned n_fs;
 	int res = 0;
 
-	bprm->unsafe = tracehook_unsafe_exec(p);
+	if (p->ptrace) {
+		if (p->ptrace & PT_PTRACE_CAP)
+			bprm->unsafe |= LSM_UNSAFE_PTRACE_CAP;
+		else
+			bprm->unsafe |= LSM_UNSAFE_PTRACE;
+	}
 
 	n_fs = 1;
 	spin_lock(&p->fs->lock);
@@ -1370,6 +1385,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 	unsigned int depth = bprm->recursion_depth;
 	int try,retval;
 	struct linux_binfmt *fmt;
+	pid_t old_pid;
 
 	retval = security_bprm_check(bprm);
 	if (retval)
@@ -1378,6 +1394,11 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 	retval = audit_bprm(bprm);
 	if (retval)
 		return retval;
+
+	/* Need to fetch pid before load_binary changes it */
+	rcu_read_lock();
+	old_pid = task_pid_nr_ns(current, task_active_pid_ns(current->parent));
+	rcu_read_unlock();
 
 	retval = -ENOENT;
 	for (try=0; try<2; try++) {
@@ -1398,7 +1419,8 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 			bprm->recursion_depth = depth;
 			if (retval >= 0) {
 				if (depth == 0)
-					tracehook_report_exec(fmt, bprm, regs);
+					ptrace_event(PTRACE_EVENT_EXEC,
+							old_pid);
 				put_binfmt(fmt);
 				allow_write_access(bprm->file);
 				if (bprm->file)
@@ -1418,9 +1440,9 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 			}
 		}
 		read_unlock(&binfmt_lock);
+#ifdef CONFIG_MODULES
 		if (retval != -ENOEXEC || bprm->mm == NULL) {
 			break;
-#ifdef CONFIG_MODULES
 		} else {
 #define printable(c) (((c)=='\t') || ((c)=='\n') || (0x20<=(c) && (c)<=0x7e))
 			if (printable(bprm->buf[0]) &&
@@ -1431,8 +1453,10 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 			if (try)
 				break; /* -ENOEXEC */
 			request_module("binfmt-%04x", *(unsigned short *)(&bprm->buf[2]));
-#endif
 		}
+#else
+		break;
+#endif
 	}
 	return retval;
 }
@@ -1712,15 +1736,26 @@ expand_fail:
 	return ret;
 }
 
+static void cn_escape(char *str)
+{
+	for (; *str; str++)
+		if (*str == '/')
+			*str = '!';
+}
+
 static int cn_print_exe_file(struct core_name *cn)
 {
 	struct file *exe_file;
-	char *pathbuf, *path, *p;
+	char *pathbuf, *path;
 	int ret;
 
 	exe_file = get_mm_exe_file(current->mm);
-	if (!exe_file)
-		return cn_printf(cn, "(unknown)");
+	if (!exe_file) {
+		char *commstart = cn->corename + cn->used;
+		ret = cn_printf(cn, "%s (path unknown)", current->comm);
+		cn_escape(commstart);
+		return ret;
+	}
 
 	pathbuf = kmalloc(PATH_MAX, GFP_TEMPORARY);
 	if (!pathbuf) {
@@ -1734,9 +1769,7 @@ static int cn_print_exe_file(struct core_name *cn)
 		goto free_buf;
 	}
 
-	for (p = path; *p; p++)
-		if (*p == '/')
-			*p = '!';
+	cn_escape(path);
 
 	ret = cn_printf(cn, "%s", path);
 
@@ -1808,16 +1841,22 @@ static int format_corename(struct core_name *cn, long signr)
 				break;
 			}
 			/* hostname */
-			case 'h':
+			case 'h': {
+				char *namestart = cn->corename + cn->used;
 				down_read(&uts_sem);
 				err = cn_printf(cn, "%s",
 					      utsname()->nodename);
 				up_read(&uts_sem);
+				cn_escape(namestart);
 				break;
+			}
 			/* executable */
-			case 'e':
+			case 'e': {
+				char *commstart = cn->corename + cn->used;
 				err = cn_printf(cn, "%s", current->comm);
+				cn_escape(commstart);
 				break;
+			}
 			case 'E':
 				err = cn_print_exe_file(cn);
 				break;
@@ -1969,7 +2008,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			task_uid(tsk), task_euid(tsk), pc, sp);
 	free_page((unsigned long)buffer_exec);
 	free_page((unsigned long)buffer_fault);
-	pax_report_insns(pc, sp);
+	pax_report_insns(regs, pc, sp);
 	do_coredump(SIGKILL, SIGKILL, regs);
 }
 #endif
@@ -2074,7 +2113,7 @@ static int zap_process(struct task_struct *start, int exit_code)
 
 	t = start;
 	do {
-		task_clear_group_stop_pending(t);
+		task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
 		if (t != current && t->mm) {
 			sigaddset(&t->pending.signal, SIGKILL);
 			signal_wake_up(t, 1);
@@ -2397,17 +2436,15 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 
 	ispipe = format_corename(&cn, signr);
 
-	if (ispipe == -ENOMEM) {
-		printk(KERN_WARNING "format_corename failed\n");
-		printk(KERN_WARNING "Aborting core\n");
-		goto fail_corename;
-	}
-
-	gr_learn_resource(current, RLIMIT_CORE, binfmt->min_coredump, 1);
-
  	if (ispipe) {
 		int dump_count;
 		char **helper_argv;
+
+		if (ispipe < 0) {
+			printk(KERN_WARNING "format_corename failed\n");
+			printk(KERN_WARNING "Aborting core\n");
+			goto fail_corename;
+		}
 
 		if (cprm.limit == 1) {
 			/*
@@ -2458,6 +2495,8 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
  		}
 	} else {
 		struct inode *inode;
+
+		gr_learn_resource(current, RLIMIT_CORE, binfmt->min_coredump, 1);
 
 		if (cprm.limit < binfmt->min_coredump)
 			goto fail_unlock;

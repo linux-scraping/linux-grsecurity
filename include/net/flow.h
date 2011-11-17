@@ -9,7 +9,7 @@
 
 #include <linux/socket.h>
 #include <linux/in6.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 struct flowi_common {
 	int	flowic_oif;

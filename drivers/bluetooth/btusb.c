@@ -60,9 +60,6 @@ static struct usb_device_id btusb_table[] = {
 	/* Generic Bluetooth USB device */
 	{ USB_DEVICE_INFO(0xe0, 0x01, 0x01) },
 
-	/* Broadcom SoftSailing reporting vendor specific */
-	{ USB_DEVICE(0x05ac, 0x21e1) },
-
 	/* Apple MacBookPro 7,1 */
 	{ USB_DEVICE(0x05ac, 0x8213) },
 
@@ -266,7 +263,9 @@ static void btusb_intr_complete(struct urb *urb)
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
 	if (err < 0) {
-		if (err != -EPERM)
+		/* -EPERM: urb is being killed;
+		 * -ENODEV: device got disconnected */
+		if (err != -EPERM && err != -ENODEV)
 			BT_ERR("%s urb %p failed to resubmit (%d)",
 						hdev->name, urb, -err);
 		usb_unanchor_urb(urb);
@@ -351,7 +350,9 @@ static void btusb_bulk_complete(struct urb *urb)
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
 	if (err < 0) {
-		if (err != -EPERM)
+		/* -EPERM: urb is being killed;
+		 * -ENODEV: device got disconnected */
+		if (err != -EPERM && err != -ENODEV)
 			BT_ERR("%s urb %p failed to resubmit (%d)",
 						hdev->name, urb, -err);
 		usb_unanchor_urb(urb);
@@ -441,7 +442,9 @@ static void btusb_isoc_complete(struct urb *urb)
 
 	err = usb_submit_urb(urb, GFP_ATOMIC);
 	if (err < 0) {
-		if (err != -EPERM)
+		/* -EPERM: urb is being killed;
+		 * -ENODEV: device got disconnected */
+		if (err != -EPERM && err != -ENODEV)
 			BT_ERR("%s urb %p failed to resubmit (%d)",
 						hdev->name, urb, -err);
 		usb_unanchor_urb(urb);

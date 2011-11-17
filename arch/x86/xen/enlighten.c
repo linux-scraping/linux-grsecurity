@@ -339,6 +339,8 @@ static void xen_set_ldt(const void *addr, unsigned entries)
 	struct mmuext_op *op;
 	struct multicall_space mcs = xen_mc_entry(sizeof(*op));
 
+	trace_xen_cpu_set_ldt(addr, entries);
+
 	op = mcs.args;
 	op->cmd = MMUEXT_SET_LDT;
 	op->arg1.linear_addr = (unsigned long)addr;
@@ -494,6 +496,8 @@ static void xen_write_ldt_entry(struct desc_struct *dt, int entrynum,
 	xmaddr_t mach_lp = arbitrary_virt_to_machine(&dt[entrynum]);
 	u64 entry = *(u64 *)ptr;
 
+	trace_xen_cpu_write_ldt_entry(dt, entrynum, entry);
+
 	preempt_disable();
 
 	xen_mc_flush();
@@ -563,6 +567,8 @@ static void xen_write_idt_entry(gate_desc *dt, int entrynum, const gate_desc *g)
 	unsigned long p = (unsigned long)&dt[entrynum];
 	unsigned long start, end;
 
+	trace_xen_cpu_write_idt_entry(dt, entrynum, g);
+
 	preempt_disable();
 
 	start = __this_cpu_read(idt_desc.address);
@@ -617,6 +623,8 @@ static void xen_load_idt(const struct desc_ptr *desc)
 	static DEFINE_SPINLOCK(lock);
 	static struct trap_info traps[257];
 
+	trace_xen_cpu_load_idt(desc);
+
 	spin_lock(&lock);
 
 	__get_cpu_var(idt_desc) = *desc;
@@ -635,6 +643,8 @@ static void xen_load_idt(const struct desc_ptr *desc)
 static void xen_write_gdt_entry(struct desc_struct *dt, int entry,
 				const void *desc, int type)
 {
+	trace_xen_cpu_write_gdt_entry(dt, entry, desc, type);
+
 	preempt_disable();
 
 	switch (type) {
@@ -663,6 +673,8 @@ static void xen_write_gdt_entry(struct desc_struct *dt, int entry,
 static void __init xen_write_gdt_entry_boot(struct desc_struct *dt, int entry,
 					    const void *desc, int type)
 {
+	trace_xen_cpu_write_gdt_entry(dt, entry, desc, type);
+
 	switch (type) {
 	case DESC_LDT:
 	case DESC_TSS:
@@ -682,7 +694,9 @@ static void __init xen_write_gdt_entry_boot(struct desc_struct *dt, int entry,
 static void xen_load_sp0(struct tss_struct *tss,
 			 struct thread_struct *thread)
 {
-	struct multicall_space mcs = xen_mc_entry(0);
+	struct multicall_space mcs;
+
+	mcs = xen_mc_entry(0);
 	MULTI_stack_switch(mcs.mc, __KERNEL_DS, thread->sp0);
 	xen_mc_issue(PARAVIRT_LAZY_CPU);
 }
@@ -934,6 +948,10 @@ static unsigned xen_patch(u8 type, u16 clobbers, void *insnbuf,
 static const struct pv_info xen_info __initconst = {
 	.paravirt_enabled = 1,
 	.shared_kernel_pmd = 0,
+
+#ifdef CONFIG_X86_64
+	.extra_user_64bit_cs = FLAT_USER_CS64,
+#endif
 
 	.name = "Xen",
 };

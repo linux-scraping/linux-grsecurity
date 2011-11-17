@@ -458,7 +458,7 @@ emulate:
 	return 1;
 }
 
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	unsigned long i;
 
@@ -516,7 +516,7 @@ asmlinkage void do_sparc_fault(struct pt_regs *regs, int text_fault, int write,
         if (in_atomic() || !mm)
                 goto no_context;
 
-	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, 0, regs, address);
+	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, regs, address);
 
 	down_read(&mm->mmap_sem);
 
@@ -584,12 +584,10 @@ good_area:
 	}
 	if (fault & VM_FAULT_MAJOR) {
 		current->maj_flt++;
-		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1, 0,
-			      regs, address);
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1, regs, address);
 	} else {
 		current->min_flt++;
-		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1, 0,
-			      regs, address);
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1, regs, address);
 	}
 	up_read(&mm->mmap_sem);
 	return;

@@ -105,6 +105,7 @@ struct rpc_call_ops {
 	void (*rpc_call_done)(struct rpc_task *, void *);
 	void (*rpc_release)(void *);
 };
+typedef struct rpc_call_ops __no_const rpc_call_ops_no_const;
 
 struct rpc_task_setup {
 	struct rpc_task *task;
@@ -227,6 +228,10 @@ void		rpc_init_wait_queue(struct rpc_wait_queue *, const char *);
 void		rpc_destroy_wait_queue(struct rpc_wait_queue *);
 void		rpc_sleep_on(struct rpc_wait_queue *, struct rpc_task *,
 					rpc_action action);
+void		rpc_sleep_on_priority(struct rpc_wait_queue *,
+					struct rpc_task *,
+					rpc_action action,
+					int priority);
 void		rpc_wake_up_queued_task(struct rpc_wait_queue *,
 					struct rpc_task *);
 void		rpc_wake_up(struct rpc_wait_queue *);

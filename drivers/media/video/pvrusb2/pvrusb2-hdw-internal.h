@@ -196,7 +196,7 @@ struct pvr2_hdw {
 
 	/* I2C stuff */
 	struct i2c_adapter i2c_adap;
-	struct i2c_algorithm i2c_algo;
+	i2c_algorithm_no_const i2c_algo;
 	pvr2_i2c_func i2c_func[PVR2_I2C_FUNC_CNT];
 	int i2c_cx25840_hack_state;
 	int i2c_linked;

@@ -1,8 +1,8 @@
 VERSION = 3
-PATCHLEVEL = 0
-SUBLEVEL = 9
+PATCHLEVEL = 1
+SUBLEVEL = 1
 EXTRAVERSION =
-NAME = Sneaky Weasel
+NAME = "Divemaster Edition"
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -361,7 +361,7 @@ CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
                    -Iarch/$(hdr-arch)/include/generated -Iinclude \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
-                   -include include/generated/autoconf.h
+                   -include $(srctree)/include/linux/kconfig.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__
 
@@ -570,7 +570,8 @@ endif
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(CC)"), y)
 CONSTIFY_PLUGIN := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
 ifdef CONFIG_PAX_MEMORY_STACKLEAK
-STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -fplugin-arg-stackleak_plugin-track-lowest-sp=100
+STACKLEAK_PLUGIN := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -DSTACKLEAK_PLUGIN
+STACKLEAK_PLUGIN += -fplugin-arg-stackleak_plugin-track-lowest-sp=100
 endif
 ifdef CONFIG_KALLOCSTAT_PLUGIN
 KALLOCSTAT_PLUGIN := -fplugin=$(objtree)/tools/gcc/kallocstat_plugin.so
@@ -1326,6 +1327,7 @@ help:
 	@echo  '  make O=dir [targets] Locate all output files in "dir", including .config'
 	@echo  '  make C=1   [targets] Check all c source with $$CHECK (sparse by default)'
 	@echo  '  make C=2   [targets] Force check of all c source with $$CHECK'
+	@echo  '  make RECORDMCOUNT_WARN=1 [targets] Warn about ignored mcount sections'
 	@echo  '  make W=n   [targets] Enable extra gcc checks, n=1,2,3 where'
 	@echo  '		1: warnings which may be relevant and do not occur too often'
 	@echo  '		2: warnings which occur quite often but may still be relevant'

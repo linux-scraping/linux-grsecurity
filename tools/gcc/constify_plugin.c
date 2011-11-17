@@ -19,22 +19,26 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "flags.h"
 #include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
 #include "toplev.h"
-#include "function.h"
-#include "tree-flow.h"
 #include "plugin.h"
 #include "diagnostic.h"
-//#include "c-tree.h"
+#include "plugin-version.h"
+#include "tm.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "emit-rtl.h"
+#include "tree-flow.h"
 
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "20110826",
+	.version	= "201111150100",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -128,7 +132,10 @@ static struct attribute_spec no_const_attr = {
 	.decl_required		= false,
 	.type_required		= false,
 	.function_type_required	= false,
-	.handler		= handle_no_const_attribute
+	.handler		= handle_no_const_attribute,
+#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+	.affects_type_identity	= true
+#endif
 };
 
 static struct attribute_spec do_const_attr = {
@@ -138,7 +145,10 @@ static struct attribute_spec do_const_attr = {
 	.decl_required		= false,
 	.type_required		= false,
 	.function_type_required	= false,
-	.handler		= handle_do_const_attribute
+	.handler		= handle_do_const_attribute,
+#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+	.affects_type_identity	= true
+#endif
 };
 
 static void register_attributes(void *event_data, void *data)

@@ -386,7 +386,7 @@ extern const struct file_operations hfsplus_dir_operations;
 
 /* extents.c */
 int hfsplus_ext_cmp_key(const hfsplus_btree_key *, const hfsplus_btree_key *);
-void hfsplus_ext_write_extent(struct inode *);
+int hfsplus_ext_write_extent(struct inode *);
 int hfsplus_get_block(struct inode *, sector_t, struct buffer_head *, int);
 int hfsplus_free_fork(struct super_block *, u32,
 		struct hfsplus_fork_raw *, int);
@@ -404,7 +404,8 @@ int hfsplus_cat_read_inode(struct inode *, struct hfs_find_data *);
 int hfsplus_cat_write_inode(struct inode *);
 struct inode *hfsplus_new_inode(struct super_block *, int);
 void hfsplus_delete_inode(struct inode *);
-int hfsplus_file_fsync(struct file *file, int datasync);
+int hfsplus_file_fsync(struct file *file, loff_t start, loff_t end,
+		       int datasync);
 
 /* ioctl.c */
 long hfsplus_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);

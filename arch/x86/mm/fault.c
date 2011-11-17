@@ -113,7 +113,7 @@ check_prefetch_opcode(struct pt_regs *regs, unsigned char *instr,
 		 * but for now it's good enough to assume that long
 		 * mode only uses well known segments or kernel.
 		 */
-		return (!user_mode(regs)) || (regs->cs == __USER_CS);
+		return (!user_mode(regs) || user_64bit_mode(regs));
 #endif
 	case 0x60:
 		/* 0x64 thru 0x67 are valid prefixes in all modes. */
@@ -193,6 +193,10 @@ force_sig_info_fault(int si_signo, int si_code, unsigned long address,
 
 	force_sig_info(si_signo, &info, tsk);
 }
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+static bool pax_is_fetch_fault(struct pt_regs *regs, unsigned long error_code, unsigned long address);
+#endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
 static int pax_handle_fetch_fault(struct pt_regs *regs);
@@ -780,66 +784,6 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		       unsigned long address, int si_code)
 {
 	struct task_struct *tsk = current;
-#if defined(CONFIG_X86_64) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	struct mm_struct *mm = tsk->mm;
-#endif
-
-#ifdef CONFIG_X86_64
-	if (mm && (error_code & PF_INSTR) && mm->context.vdso) {
-		if (regs->ip == VSYSCALL_ADDR(__NR_vgettimeofday) ||
-		    regs->ip == VSYSCALL_ADDR(__NR_vtime) ||
-		    regs->ip == VSYSCALL_ADDR(__NR_vgetcpu)) {
-			regs->ip += mm->context.vdso - PAGE_SIZE - VSYSCALL_START;
-			return;
-		}
-	}
-#endif
-
-#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-	if (mm && (error_code & PF_USER)) {
-		unsigned long ip = regs->ip;
-
-		if (v8086_mode(regs))
-			ip = ((regs->cs & 0xffff) << 4) + (ip & 0xffff);
-
-		/*
-		 * It's possible to have interrupts off here:
-		 */
-		local_irq_enable();
-
-#ifdef CONFIG_PAX_PAGEEXEC
-		if ((mm->pax_flags & MF_PAX_PAGEEXEC) &&
-		    (((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR)) || (!(error_code & (PF_PROT | PF_WRITE)) && ip == address))) {
-
-#ifdef CONFIG_PAX_EMUTRAMP
-			switch (pax_handle_fetch_fault(regs)) {
-			case 2:
-				return;
-			}
-#endif
-
-			pax_report_fault(regs, (void *)ip, (void *)regs->sp);
-			do_group_exit(SIGKILL);
-		}
-#endif
-
-#ifdef CONFIG_PAX_SEGMEXEC
-		if ((mm->pax_flags & MF_PAX_SEGMEXEC) && !(error_code & (PF_PROT | PF_WRITE)) && (ip + SEGMEXEC_TASK_SIZE == address)) {
-
-#ifdef CONFIG_PAX_EMUTRAMP
-			switch (pax_handle_fetch_fault(regs)) {
-			case 2:
-				return;
-			}
-#endif
-
-			pax_report_fault(regs, (void *)ip, (void *)regs->sp);
-			do_group_exit(SIGKILL);
-		}
-#endif
-
-	}
-#endif
 
 	/* User mode accesses just cause a SIGSEGV */
 	if (error_code & PF_USER) {
@@ -857,6 +801,33 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 
 		if (is_errata100(regs, address))
 			return;
+
+#ifdef CONFIG_X86_64
+		/*
+		 * Instruction fetch faults in the vsyscall page might need
+		 * emulation.
+		 */
+		if (unlikely((error_code & PF_INSTR) &&
+			     ((address & ~0xfff) == VSYSCALL_START))) {
+			if (emulate_vsyscall(regs, address))
+				return;
+		}
+#endif
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+		if (pax_is_fetch_fault(regs, error_code, address)) {
+
+#ifdef CONFIG_PAX_EMUTRAMP
+			switch (pax_handle_fetch_fault(regs)) {
+			case 2:
+				return;
+			}
+#endif
+
+			pax_report_fault(regs, (void *)regs->ip, (void *)regs->sp);
+			do_group_exit(SIGKILL);
+		}
+#endif
 
 		if (unlikely(show_unhandled_signals))
 			show_signal_msg(regs, error_code, address, tsk);
@@ -954,7 +925,7 @@ do_sigbus(struct pt_regs *regs, unsigned long error_code, unsigned long address,
 	if (fault & (VM_FAULT_HWPOISON|VM_FAULT_HWPOISON_LARGE)) {
 		printk(KERN_ERR
 	"MCE: Killing %s:%d due to hardware memory corruption fault at %lx\n",
-			tsk->comm, tsk->pid, address);
+			tsk->comm, task_pid_nr(tsk), address);
 		code = BUS_MCEERR_AR;
 	}
 #endif
@@ -1227,7 +1198,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		}
 		if (address < PAX_USER_SHADOW_BASE) {
 			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
-			printk(KERN_ERR "PAX: faulting IP: %pA\n", (void *)regs->ip);
+			printk(KERN_ERR "PAX: faulting IP: %pS\n", (void *)regs->ip);
 			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
 		} else
 			address -= PAX_USER_SHADOW_BASE;
@@ -1307,7 +1278,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	if (unlikely(error_code & PF_RSVD))
 		pgtable_bad(regs, error_code, address);
 
-	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, 0, regs, address);
+	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, regs, address);
 
 	/*
 	 * If we're in an interrupt, have no user context or are running
@@ -1420,11 +1391,11 @@ good_area:
 	if (flags & FAULT_FLAG_ALLOW_RETRY) {
 		if (fault & VM_FAULT_MAJOR) {
 			tsk->maj_flt++;
-			perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1, 0,
+			perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1,
 				      regs, address);
 		} else {
 			tsk->min_flt++;
-			perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1, 0,
+			perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1,
 				      regs, address);
 		}
 		if (fault & VM_FAULT_RETRY) {
@@ -1439,6 +1410,37 @@ good_area:
 
 	up_read(&mm->mmap_sem);
 }
+
+#if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+static bool pax_is_fetch_fault(struct pt_regs *regs, unsigned long error_code, unsigned long address)
+{
+	struct mm_struct *mm = current->mm;
+	unsigned long ip = regs->ip;
+
+	if (v8086_mode(regs))
+		ip = ((regs->cs & 0xffff) << 4) + (ip & 0xffff);
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (mm->pax_flags & MF_PAX_PAGEEXEC) {
+		if ((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR))
+			return true;
+		if (!(error_code & (PF_PROT | PF_WRITE)) && ip == address)
+			return true;
+		return false;
+	}
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
+		if (!(error_code & (PF_PROT | PF_WRITE)) && (ip + SEGMEXEC_TASK_SIZE == address))
+			return true;
+		return false;
+	}
+#endif
+
+	return false;
+}
+#endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
 static int pax_handle_fetch_fault_32(struct pt_regs *regs)
@@ -1581,7 +1583,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 #endif
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	long i;
 
@@ -1598,14 +1600,24 @@ void pax_report_insns(void *pc, void *sp)
 	printk(KERN_ERR "PAX: bytes at SP-%lu: ", (unsigned long)sizeof(long));
 	for (i = -1; i < 80 / (long)sizeof(long); i++) {
 		unsigned long c;
-		if (get_user(c, (unsigned long __force_user *)sp+i))
+		if (get_user(c, (unsigned long __force_user *)sp+i)) {
 #ifdef CONFIG_X86_32
 			printk(KERN_CONT "???????? ");
 #else
-			printk(KERN_CONT "???????????????? ");
+			if ((regs->cs == __USER32_CS || (regs->cs & SEGMENT_LDT)))
+				printk(KERN_CONT "???????? ???????? ");
+			else
+				printk(KERN_CONT "???????????????? ");
 #endif
-		else
-			printk(KERN_CONT "%0*lx ", 2 * (int)sizeof(long), c);
+		} else {
+#ifdef CONFIG_X86_64
+			if ((regs->cs == __USER32_CS || (regs->cs & SEGMENT_LDT))) {
+				printk(KERN_CONT "%08x ", (unsigned int)c);
+				printk(KERN_CONT "%08x ", (unsigned int)(c >> 32));
+			} else
+#endif
+				printk(KERN_CONT "%0*lx ", 2 * (int)sizeof(long), c);
+		}
 	}
 	printk("\n");
 }

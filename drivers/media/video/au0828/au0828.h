@@ -191,7 +191,7 @@ struct au0828_dev {
 
 	/* I2C */
 	struct i2c_adapter		i2c_adap;
-	struct i2c_algorithm		i2c_algo;
+	i2c_algorithm_no_const		i2c_algo;
 	struct i2c_client		i2c_client;
 	u32 				i2c_rc;
 

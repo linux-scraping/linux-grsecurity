@@ -14,7 +14,6 @@
 #include <asm/pgtable.h>
 #include <asm/mce.h>
 #include <asm/nmi.h>
-#include <asm/vsyscall.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 #include <asm/io.h>
@@ -250,7 +249,6 @@ static void __init_or_module add_nops(void *insns, unsigned int len)
 
 extern struct alt_instr __alt_instructions[], __alt_instructions_end[];
 extern s32 __smp_locks[], __smp_locks_end[];
-extern char __vsyscall_0;
 void *text_poke_early(void *addr, const void *opcode, size_t len);
 
 /* Replace instructions with better alternatives for this CPU type.
@@ -263,6 +261,7 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 					 struct alt_instr *end)
 {
 	struct alt_instr *a;
+	u8 *instr, *replacement;
 	u8 insnbuf[MAX_PATCH_LEN];
 
 	DPRINTK("%s: alt table %p -> %p\n", __func__, start, end);
@@ -276,25 +275,30 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 	 * order.
 	 */
 	for (a = start; a < end; a++) {
-		u8 *instr = a->instr;
+		instr = (u8 *)&a->instr_offset + a->instr_offset;
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		instr += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+		if (instr < (u8 *)_text || (u8 *)_einittext <= instr)
+			instr -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+#endif
+
+		replacement = (u8 *)&a->repl_offset + a->repl_offset;
 		BUG_ON(a->replacementlen > a->instrlen);
 		BUG_ON(a->instrlen > sizeof(insnbuf));
 		BUG_ON(a->cpuid >= NCAPINTS*32);
 		if (!boot_cpu_has(a->cpuid))
 			continue;
-#ifdef CONFIG_X86_64
-		/* vsyscall code is not mapped yet. resolve it manually. */
-		if (instr >= (u8 *)VSYSCALL_START && instr < (u8*)VSYSCALL_END) {
-			instr = __va(instr - (u8*)VSYSCALL_START + (u8*)__pa_symbol(&__vsyscall_0));
-			DPRINTK("%s: vsyscall fixup: %p => %p\n",
-				__func__, a->instr, instr);
-		}
-#endif
-		memcpy(insnbuf, a->replacement, a->replacementlen);
+
+		memcpy(insnbuf, replacement, a->replacementlen);
+
+		/* 0xe8 is a relative jump; fix the offset. */
 		if (*insnbuf == 0xe8 && a->replacementlen == 5)
-		    *(s32 *)(insnbuf + 1) += a->replacement - a->instr;
+		    *(s32 *)(insnbuf + 1) += replacement - instr;
+
 		add_nops(insnbuf + a->replacementlen,
 			 a->instrlen - a->replacementlen);
+
 		text_poke_early(instr, insnbuf, a->instrlen);
 	}
 }
@@ -309,6 +313,12 @@ static void alternatives_smp_lock(const s32 *start, const s32 *end,
 	mutex_lock(&text_mutex);
 	for (poff = start; poff < end; poff++) {
 		u8 *ptr = (u8 *)poff + *poff;
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		ptr += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+		if (ptr < (u8 *)_text || (u8 *)_einittext <= ptr)
+			ptr -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+#endif
 
 		if (!*poff || ptr < text || ptr >= text_end)
 			continue;
@@ -330,6 +340,12 @@ static void alternatives_smp_unlock(const s32 *start, const s32 *end,
 	mutex_lock(&text_mutex);
 	for (poff = start; poff < end; poff++) {
 		u8 *ptr = (u8 *)poff + *poff;
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		ptr += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+		if (ptr < (u8 *)_text || (u8 *)_einittext <= ptr)
+			ptr -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+#endif
 
 		if (!*poff || ptr < text || ptr >= text_end)
 			continue;

@@ -157,7 +157,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 	return 1;
 }
 
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	unsigned long i;
 

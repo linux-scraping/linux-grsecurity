@@ -72,6 +72,7 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
 		break;
 	}
 }
+EXPORT_SYMBOL_GPL(skb_clone_tx_timestamp);
 
 void skb_complete_tx_timestamp(struct sk_buff *skb,
 			       struct skb_shared_hwtstamps *hwtstamps)
@@ -129,6 +130,7 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
 
 	return false;
 }
+EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
 
 void __init skb_timestamping_init(void)
 {

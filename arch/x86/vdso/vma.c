@@ -14,42 +14,59 @@
 #include <asm/vgtod.h>
 #include <asm/proto.h>
 #include <asm/vdso.h>
+#include <asm/page.h>
 
 extern char vdso_start[], vdso_end[];
 extern unsigned short vdso_sync_cpuid;
-extern char __vsyscall_0;
 
-static struct page **vdso_pages;
-static struct page *vsyscall_page;
+extern struct page *vdso_pages[];
 static unsigned vdso_size;
 
-static int __init init_vdso_vars(void)
+static void __init patch_vdso(void *vdso, size_t len)
 {
-	size_t nbytes = vdso_end - vdso_start;
-	size_t npages = (nbytes + PAGE_SIZE - 1) / PAGE_SIZE;
-	size_t i;
+	Elf64_Ehdr *hdr = vdso;
+	Elf64_Shdr *sechdrs, *alt_sec = 0;
+	char *secstrings;
+	void *alt_data;
+	int i;
+
+	BUG_ON(len < sizeof(Elf64_Ehdr));
+	BUG_ON(memcmp(hdr->e_ident, ELFMAG, SELFMAG) != 0);
+
+	sechdrs = (void *)hdr + hdr->e_shoff;
+	secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
+
+	for (i = 1; i < hdr->e_shnum; i++) {
+		Elf64_Shdr *shdr = &sechdrs[i];
+		if (!strcmp(secstrings + shdr->sh_name, ".altinstructions")) {
+			alt_sec = shdr;
+			goto found;
+		}
+	}
+
+	/* If we get here, it's probably a bug. */
+	pr_warning("patch_vdso: .altinstructions not found\n");
+	return;  /* nothing to patch */
+
+found:
+	alt_data = (void *)hdr + alt_sec->sh_offset;
+	apply_alternatives(alt_data, alt_data + alt_sec->sh_size);
+}
+
+static int __init init_vdso(void)
+{
+	int npages = (vdso_end - vdso_start + PAGE_SIZE - 1) / PAGE_SIZE;
+	int i;
+
+	patch_vdso(vdso_start, vdso_end - vdso_start);
 
 	vdso_size = npages << PAGE_SHIFT;
-	vdso_pages = kmalloc(sizeof(struct page *) * npages, GFP_KERNEL);
-	if (!vdso_pages)
-		goto oom;
-	for (i = 0; i < npages; i++) {
-		struct page *p;
-		p = alloc_page(GFP_KERNEL | __GFP_ZERO);
-		if (!p)
-			goto oom;
-		vdso_pages[i] = p;
-		memcpy(page_address(p), vdso_start + i*PAGE_SIZE, nbytes > PAGE_SIZE ? PAGE_SIZE : nbytes);
-		nbytes -= PAGE_SIZE;
-	}
-	vsyscall_page = pfn_to_page((__pa_symbol(&__vsyscall_0)) >> PAGE_SHIFT);
+	for (i = 0; i < npages; i++)
+		vdso_pages[i] = virt_to_page(vdso_start + i*PAGE_SIZE);
 
 	return 0;
-
- oom:
-	panic("Cannot allocate vdso\n");
 }
-subsys_initcall(init_vdso_vars);
+subsys_initcall(init_vdso);
 
 struct linux_binprm;
 
@@ -78,34 +95,30 @@ static unsigned long vdso_addr(unsigned long start, unsigned len)
 int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 {
 	struct mm_struct *mm = current->mm;
-	unsigned long addr;
+	unsigned long addr = 0;
 	int ret;
 
 	down_write(&mm->mmap_sem);
-	addr = vdso_addr(mm->start_stack, vdso_size + PAGE_SIZE);
-	addr = get_unmapped_area(NULL, addr, vdso_size + PAGE_SIZE, 0, 0);
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
+	addr = vdso_addr(mm->start_stack, vdso_size);
+	addr = get_unmapped_area(NULL, addr, vdso_size, 0, 0);
 	if (IS_ERR_VALUE(addr)) {
 		ret = addr;
 		goto up_fail;
 	}
 
-	mm->context.vdso = addr + PAGE_SIZE;
+	mm->context.vdso = addr;
 
-	ret = install_special_mapping(mm, addr, PAGE_SIZE,
-				      VM_READ|VM_EXEC|
-				      VM_MAYREAD|VM_MAYEXEC|
-				      VM_ALWAYSDUMP,
-				      &vsyscall_page);
-	if (ret) {
-		mm->context.vdso = 0;
-		goto up_fail;
-	}
-
-	ret = install_special_mapping(mm, addr + PAGE_SIZE, vdso_size,
+	ret = install_special_mapping(mm, addr, vdso_size,
 				      VM_READ|VM_EXEC|
 				      VM_MAYREAD|VM_MAYWRITE|VM_MAYEXEC|
 				      VM_ALWAYSDUMP,
 				      vdso_pages);
+
 	if (ret)
 		mm->context.vdso = 0;
 

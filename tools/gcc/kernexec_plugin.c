@@ -20,17 +20,19 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "flags.h"
 #include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
 #include "toplev.h"
-#include "basic-block.h"
-#include "gimple.h"
+#include "plugin.h"
 //#include "expr.h" where are you...
 #include "diagnostic.h"
+#include "plugin-version.h"
+#include "tm.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "emit-rtl.h"
-#include "function.h"
 #include "tree-flow.h"
 
 extern void print_gimple_stmt(FILE *, gimple, int, int);
@@ -39,7 +41,7 @@ extern rtx emit_move_insn(rtx x, rtx y);
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201110032145",
+	.version	= "201111150100",
 };
 
 static unsigned int execute_kernexec_fptr(void);
@@ -89,7 +91,7 @@ static bool kernexec_cmodel_check(void)
 	if (ix86_cmodel != CM_KERNEL)
 		return false;
 
-	section = lookup_attribute("__section__", DECL_ATTRIBUTES(current_function_decl));
+	section = lookup_attribute("section", DECL_ATTRIBUTES(current_function_decl));
 	if (!section || !TREE_VALUE(section))
 		return true;
 

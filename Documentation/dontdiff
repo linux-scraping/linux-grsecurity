@@ -97,6 +97,7 @@ bounds.h
 bsetup
 btfixupprep
 build
+builtin-policy.h
 bvmlinux
 bzImage*
 capability_names.h
@@ -127,6 +128,7 @@ dslm
 elf2ecoff
 elfconfig.h*
 evergreen_reg_safe.h
+exception_policy.conf
 fixdep
 flask.h
 fore200e_mkfirm
@@ -274,4 +276,5 @@ wakeup.elf
 wakeup.lds
 zImage*
 zconf.hash.c
+zconf.lex.c
 zoffset.h

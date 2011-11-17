@@ -614,7 +614,7 @@ bsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	ret = __bsg_read(buf, count, bd, NULL, &bytes_read);
 	*ppos = bytes_read;
 
-	if (!bytes_read || (bytes_read && err_block_err(ret)))
+	if (!bytes_read || err_block_err(ret))
 		bytes_read = ret;
 
 	return bytes_read;
@@ -694,7 +694,7 @@ bsg_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	/*
 	 * return bytes written on non-fatal errors
 	 */
-	if (!bytes_written || (bytes_written && err_block_err(ret)))
+	if (!bytes_written || err_block_err(ret))
 		bytes_written = ret;
 
 	dprintk("%s: returning %Zd\n", bd->name, bytes_written);
@@ -886,7 +886,7 @@ static unsigned int bsg_poll(struct file *file, poll_table *wait)
 	spin_lock_irq(&bd->lock);
 	if (!list_empty(&bd->done_list))
 		mask |= POLLIN | POLLRDNORM;
-	if (bd->queued_cmds >= bd->max_queue)
+	if (bd->queued_cmds < bd->max_queue)
 		mask |= POLLOUT;
 	spin_unlock_irq(&bd->lock);
 

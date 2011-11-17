@@ -3856,6 +3856,7 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 		
 	if (retmode & GR_PTRACERD) {
 		switch (request) {
+		case PTRACE_SEIZE:
 		case PTRACE_POKETEXT:
 		case PTRACE_POKEDATA:
 		case PTRACE_POKEUSR:

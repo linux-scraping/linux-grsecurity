@@ -1256,6 +1256,9 @@ struct atom_context *atom_parse(struct card_info *card, void *bios)
 
 	pax_track_stack();
 
+	if (!ctx)
+		return NULL;
+
 	ctx->card = card;
 	ctx->bios = bios;
 

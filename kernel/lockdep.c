@@ -2473,6 +2473,9 @@ mark_held_locks(struct task_struct *curr, enum mark_type mark)
 
 		BUG_ON(usage_bit >= LOCK_USAGE_STATES);
 
+		if (hlock_class(hlock)->key == __lockdep_no_validate__.subkeys)
+			continue;
+
 		if (!mark_lock(curr, hlock, usage_bit))
 			return 0;
 	}
@@ -2483,34 +2486,13 @@ mark_held_locks(struct task_struct *curr, enum mark_type mark)
 /*
  * Hardirqs will be enabled:
  */
-void trace_hardirqs_on_caller(unsigned long ip)
+static void __trace_hardirqs_on_caller(unsigned long ip)
 {
 	struct task_struct *curr = current;
 
-	time_hardirqs_on(CALLER_ADDR0, ip);
-
-	if (unlikely(!debug_locks || current->lockdep_recursion))
-		return;
-
-	if (DEBUG_LOCKS_WARN_ON(unlikely(early_boot_irqs_disabled)))
-		return;
-
-	if (unlikely(curr->hardirqs_enabled)) {
-		/*
-		 * Neither irq nor preemption are disabled here
-		 * so this is racy by nature but losing one hit
-		 * in a stat is not a big deal.
-		 */
-		__debug_atomic_inc(redundant_hardirqs_on);
-		return;
-	}
 	/* we'll do an OFF -> ON transition: */
 	curr->hardirqs_enabled = 1;
 
-	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
-		return;
-	if (DEBUG_LOCKS_WARN_ON(current->hardirq_context))
-		return;
 	/*
 	 * We are going to turn hardirqs on, so set the
 	 * usage bit for all held locks:
@@ -2529,6 +2511,37 @@ void trace_hardirqs_on_caller(unsigned long ip)
 	curr->hardirq_enable_ip = ip;
 	curr->hardirq_enable_event = ++curr->irq_events;
 	debug_atomic_inc(hardirqs_on_events);
+}
+
+void trace_hardirqs_on_caller(unsigned long ip)
+{
+	time_hardirqs_on(CALLER_ADDR0, ip);
+
+	if (unlikely(!debug_locks || current->lockdep_recursion))
+		return;
+
+	if (unlikely(current->hardirqs_enabled)) {
+		/*
+		 * Neither irq nor preemption are disabled here
+		 * so this is racy by nature but losing one hit
+		 * in a stat is not a big deal.
+		 */
+		__debug_atomic_inc(redundant_hardirqs_on);
+		return;
+	}
+
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+		return;
+
+	if (DEBUG_LOCKS_WARN_ON(unlikely(early_boot_irqs_disabled)))
+		return;
+
+	if (DEBUG_LOCKS_WARN_ON(current->hardirq_context))
+		return;
+
+	current->lockdep_recursion = 1;
+	__trace_hardirqs_on_caller(ip);
+	current->lockdep_recursion = 0;
 }
 EXPORT_SYMBOL(trace_hardirqs_on_caller);
 
@@ -2579,7 +2592,7 @@ void trace_softirqs_on(unsigned long ip)
 {
 	struct task_struct *curr = current;
 
-	if (unlikely(!debug_locks))
+	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
 	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
@@ -2590,6 +2603,7 @@ void trace_softirqs_on(unsigned long ip)
 		return;
 	}
 
+	current->lockdep_recursion = 1;
 	/*
 	 * We'll do an OFF -> ON transition:
 	 */
@@ -2604,6 +2618,7 @@ void trace_softirqs_on(unsigned long ip)
 	 */
 	if (curr->hardirqs_enabled)
 		mark_held_locks(curr, SOFTIRQ);
+	current->lockdep_recursion = 0;
 }
 
 /*
@@ -2613,7 +2628,7 @@ void trace_softirqs_off(unsigned long ip)
 {
 	struct task_struct *curr = current;
 
-	if (unlikely(!debug_locks))
+	if (unlikely(!debug_locks || current->lockdep_recursion))
 		return;
 
 	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
@@ -2864,10 +2879,7 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
 void lockdep_init_map(struct lockdep_map *lock, const char *name,
 		      struct lock_class_key *key, int subclass)
 {
-	int i;
-
-	for (i = 0; i < NR_LOCKDEP_CACHING_CLASSES; i++)
-		lock->class_cache[i] = NULL;
+	memset(lock, 0, sizeof(*lock));
 
 #ifdef CONFIG_LOCK_STAT
 	lock->cpu = raw_smp_processor_id();
@@ -3104,7 +3116,13 @@ static int match_held_lock(struct held_lock *hlock, struct lockdep_map *lock)
 		if (!class)
 			class = look_up_lock_class(lock, 0);
 
-		if (DEBUG_LOCKS_WARN_ON(!class))
+		/*
+		 * If look_up_lock_class() failed to find a class, we're trying
+		 * to test if we hold a lock that has never yet been acquired.
+		 * Clearly if the lock hasn't been acquired _ever_, we're not
+		 * holding it either, so report failure.
+		 */
+		if (!class)
 			return 0;
 
 		if (DEBUG_LOCKS_WARN_ON(!hlock->nest_lock))
