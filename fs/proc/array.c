@@ -406,7 +406,7 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	cputime_t cutime, cstime, utime, stime;
 	cputime_t cgtime, gtime;
 	unsigned long rsslim = 0;
-	char tcomm[sizeof(task->comm)] = { 0 };
+	char tcomm[sizeof(task->comm)];
 	unsigned long flags;
 
 	pax_track_stack();

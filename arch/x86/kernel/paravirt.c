@@ -125,7 +125,7 @@ unsigned paravirt_patch_jmp(void *insnbuf, const void *target,
  * corresponding structure. */
 static void *get_call_destination(u8 type)
 {
-	const struct paravirt_patch_template tmpl = {
+	struct paravirt_patch_template tmpl = {
 		.pv_init_ops = pv_init_ops,
 		.pv_time_ops = pv_time_ops,
 		.pv_cpu_ops = pv_cpu_ops,

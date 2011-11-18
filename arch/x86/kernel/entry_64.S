@@ -391,11 +391,11 @@ ENTRY(pax_exit_kernel_user)
 ENDPROC(pax_exit_kernel_user)
 #endif
 
-	.macro pax_erase_kstack
+.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 	call pax_erase_kstack
 #endif
-	.endm
+.endm
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 /*

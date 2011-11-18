@@ -6938,7 +6938,7 @@ EXPORT_SYMBOL(btrfs_getattr);
 
 dev_t get_btrfs_dev_from_inode(struct inode *inode)
 {
-	return BTRFS_I(inode)->root->anon_super.s_dev;
+	return BTRFS_I(inode)->root->anon_dev;
 }
 EXPORT_SYMBOL(get_btrfs_dev_from_inode);
 

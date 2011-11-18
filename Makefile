@@ -246,8 +246,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 HOSTCC       = gcc
 HOSTCXX      = g++
 HOSTCFLAGS   = -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter -Wno-missing-field-initializers -O2 -fomit-frame-pointer -fno-delete-null-pointer-checks
-HOSTCFLAGS  += $(call cc-option, -Wno-empty-body)
-HOSTCXXFLAGS = -O2 -fno-delete-null-pointer-checks
+HOSTCLFAGS  += $(call cc-option, -Wno-empty-body)
+HOSTCXXFLAGS = -O2 -Wall -W -fno-delete-null-pointer-checks
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -366,12 +366,10 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
 KBUILD_CPPFLAGS := -D__KERNEL__
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-		   -W -Wno-unused-parameter -Wno-missing-field-initializers \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks
-KBUILD_CFLAGS   += $(call cc-option, -Wno-empty-body)
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
@@ -595,7 +593,7 @@ ifeq ($(call cc-ifversion, -ge, 0405, y), y)
 else
 	$(Q)echo "warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least"
 endif
-	$(Q)echo "PAX_MEMORY_STACKLEAK and constification will be less secure"
+	$(Q)echo "PAX_MEMORY_STACKLEAK and other features will be less secure"
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile

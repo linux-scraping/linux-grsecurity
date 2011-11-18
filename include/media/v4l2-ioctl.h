@@ -274,7 +274,6 @@ struct v4l2_ioctl_ops {
 };
 typedef struct v4l2_ioctl_ops __no_const v4l2_ioctl_ops_no_const;
 
-
 /* v4l debugging and diagnostics */
 
 /* Debug bitmask flags to be used on V4L2 */

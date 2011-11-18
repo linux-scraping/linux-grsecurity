@@ -1311,7 +1311,6 @@ static bool ldm_frag_add (const u8 *data, int size, struct list_head *frags)
 		ldm_error ("A VBLK claims to have %d parts.", num);
 		return false;
 	}
-
 	if (rec >= num) {
 		ldm_error("REC value (%d) exceeds NUM value (%d)", rec, num);
 		return false;

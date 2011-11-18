@@ -36,7 +36,7 @@
 #endif
 
 #if defined(CONFIG_GRKERNSEC) && !defined(CONFIG_GRKERNSEC_NO_RBAC)
-extern struct file_operations grsec_fops;
+extern const struct file_operations grsec_fops;
 #endif
 
 static inline unsigned long size_inside_page(unsigned long start,

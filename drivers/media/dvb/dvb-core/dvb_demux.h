@@ -68,7 +68,7 @@ struct dvb_demux_feed {
 	union {
 		struct dmx_ts_feed ts;
 		struct dmx_section_feed sec;
-	} __no_const feed;
+	} feed;
 
 	union {
 		dmx_ts_cb ts;

@@ -339,7 +339,6 @@ int devmem_is_allowed(unsigned long pagenr)
 		return 0;
 	if (!page_is_ram(pagenr))
 		return 1;
-
 	return 0;
 }
 

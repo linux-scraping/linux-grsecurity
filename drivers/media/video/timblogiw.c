@@ -766,7 +766,7 @@ static __devinitconst v4l2_ioctl_ops_no_const timblogiw_ioctl_ops = {
 	.vidioc_enum_framesizes		= timblogiw_enum_framesizes,
 };
 
-static __devinitconst struct v4l2_file_operations timblogiw_fops = {
+static __devinitconst v4l2_file_operations_no_const timblogiw_fops = {
 	.owner		= THIS_MODULE,
 	.open		= timblogiw_open,
 	.release	= timblogiw_close,
