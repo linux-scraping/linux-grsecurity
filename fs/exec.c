@@ -1812,7 +1812,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			task_uid(tsk), task_euid(tsk), pc, sp);
 	free_page((unsigned long)buffer_exec);
 	free_page((unsigned long)buffer_fault);
-	pax_report_insns(pc, sp);
+	pax_report_insns(regs, pc, sp);
 	do_coredump(SIGKILL, SIGKILL, regs);
 }
 #endif

@@ -49,6 +49,10 @@ USER_CFLAGS = $(patsubst $(KERNEL_DEFINES),,$(patsubst -D__KERNEL__,,\
 	$(patsubst -I%,,$(KBUILD_CFLAGS)))) $(ARCH_INCLUDE) $(MODE_INCLUDE) \
 	$(filter -I%,$(CFLAGS)) -D_FILE_OFFSET_BITS=64
 
+ifdef CONSTIFY_PLUGIN
+USER_CFLAGS	+= $(CONSTIFY_PLUGIN) -fplugin-arg-constify_plugin-no-constify
+endif
+
 include $(srctree)/$(ARCH_DIR)/Makefile-$(SUBARCH)
 
 #This will adjust *FLAGS accordingly to the platform.

@@ -1087,7 +1087,10 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 			 * might try to exec.  This is because the brk will
 			 * follow the loader, and is not movable.  */
 #ifdef CONFIG_X86
-			load_bias = 0;
+			if (current->flags & PF_RANDOMIZE)
+				load_bias = 0;
+			else
+				load_bias = ELF_PAGESTART(ELF_ET_DYN_BASE - vaddr);
 #else
 			load_bias = ELF_PAGESTART(ELF_ET_DYN_BASE - vaddr);
 #endif

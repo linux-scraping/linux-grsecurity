@@ -427,6 +427,7 @@ static inline int fault_in_pages_readable(const char __user *uaddr, int size)
 		 	ret = __get_user(c, end);
 			(void)c;
 	}
+	(void)c;
 	return ret;
 }
 

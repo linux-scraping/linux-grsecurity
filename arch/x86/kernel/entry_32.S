@@ -473,7 +473,7 @@ ENTRY(ret_from_fork)
 	CFI_ADJUST_CFA_OFFSET -4
 	jmp syscall_exit
 	CFI_ENDPROC
-END(ret_from_fork)
+ENDPROC(ret_from_fork)
 
 /*
  * Return to user mode is not as complex as all this looks,
@@ -515,7 +515,7 @@ ENTRY(resume_userspace)
 					# int/exception return?
 	jne work_pending
 	jmp restore_all_pax
-END(ret_from_exception)
+ENDPROC(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
 ENTRY(resume_kernel)
@@ -530,7 +530,7 @@ need_resched:
 	jz restore_all
 	call preempt_schedule_irq
 	jmp need_resched
-END(resume_kernel)
+ENDPROC(resume_kernel)
 #endif
 	CFI_ENDPROC
 
@@ -869,7 +869,7 @@ work_notifysig:				# deal with pending signals and
 	xorl %edx, %edx
 	call do_notify_resume
 	jmp resume_userspace_sig
-END(work_pending)
+ENDPROC(work_pending)
 
 	# perform syscall exit tracing
 	ALIGN
@@ -884,7 +884,7 @@ syscall_trace_entry:
 	cmpl $(nr_syscalls), %eax
 	jnae syscall_call
 	jmp syscall_exit
-END(syscall_trace_entry)
+ENDPROC(syscall_trace_entry)
 
 	# perform syscall exit tracing
 	ALIGN
@@ -897,7 +897,7 @@ syscall_exit_work:
 	movl %esp, %eax
 	call syscall_trace_leave
 	jmp resume_userspace
-END(syscall_exit_work)
+ENDPROC(syscall_exit_work)
 	CFI_ENDPROC
 
 	RING0_INT_FRAME			# can't unwind into user space anyway
@@ -909,12 +909,12 @@ syscall_fault:
 	GET_THREAD_INFO(%ebp)
 	movl $-EFAULT,PT_EAX(%esp)
 	jmp resume_userspace
-END(syscall_fault)
+ENDPROC(syscall_fault)
 
 syscall_badsys:
 	movl $-ENOSYS,PT_EAX(%esp)
 	jmp resume_userspace
-END(syscall_badsys)
+ENDPROC(syscall_badsys)
 	CFI_ENDPROC
 
 /*
@@ -1037,7 +1037,7 @@ vector=vector+1
   .endr
 2:	jmp common_interrupt
 .endr
-END(irq_entries_start)
+ENDPROC(irq_entries_start)
 
 .previous
 END(interrupt)
@@ -1084,7 +1084,7 @@ ENTRY(coprocessor_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(coprocessor_error)
+ENDPROC(coprocessor_error)
 
 ENTRY(simd_coprocessor_error)
 	RING0_INT_FRAME
@@ -1094,7 +1094,7 @@ ENTRY(simd_coprocessor_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(simd_coprocessor_error)
+ENDPROC(simd_coprocessor_error)
 
 ENTRY(device_not_available)
 	RING0_INT_FRAME
@@ -1104,7 +1104,7 @@ ENTRY(device_not_available)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(device_not_available)
+ENDPROC(device_not_available)
 
 #ifdef CONFIG_PARAVIRT
 ENTRY(native_iret)
@@ -1113,12 +1113,12 @@ ENTRY(native_iret)
 	.align 4
 	.long native_iret, iret_exc
 .previous
-END(native_iret)
+ENDPROC(native_iret)
 
 ENTRY(native_irq_enable_sysexit)
 	sti
 	sysexit
-END(native_irq_enable_sysexit)
+ENDPROC(native_irq_enable_sysexit)
 #endif
 
 ENTRY(overflow)
@@ -1129,7 +1129,7 @@ ENTRY(overflow)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(overflow)
+ENDPROC(overflow)
 
 ENTRY(bounds)
 	RING0_INT_FRAME
@@ -1139,7 +1139,7 @@ ENTRY(bounds)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(bounds)
+ENDPROC(bounds)
 
 ENTRY(invalid_op)
 	RING0_INT_FRAME
@@ -1149,7 +1149,7 @@ ENTRY(invalid_op)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(invalid_op)
+ENDPROC(invalid_op)
 
 ENTRY(coprocessor_segment_overrun)
 	RING0_INT_FRAME
@@ -1159,7 +1159,7 @@ ENTRY(coprocessor_segment_overrun)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(coprocessor_segment_overrun)
+ENDPROC(coprocessor_segment_overrun)
 
 ENTRY(invalid_TSS)
 	RING0_EC_FRAME
@@ -1167,7 +1167,7 @@ ENTRY(invalid_TSS)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(invalid_TSS)
+ENDPROC(invalid_TSS)
 
 ENTRY(segment_not_present)
 	RING0_EC_FRAME
@@ -1175,7 +1175,7 @@ ENTRY(segment_not_present)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(segment_not_present)
+ENDPROC(segment_not_present)
 
 ENTRY(stack_segment)
 	RING0_EC_FRAME
@@ -1183,7 +1183,7 @@ ENTRY(stack_segment)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(stack_segment)
+ENDPROC(stack_segment)
 
 ENTRY(alignment_check)
 	RING0_EC_FRAME
@@ -1191,7 +1191,7 @@ ENTRY(alignment_check)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(alignment_check)
+ENDPROC(alignment_check)
 
 ENTRY(divide_error)
 	RING0_INT_FRAME
@@ -1201,7 +1201,7 @@ ENTRY(divide_error)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(divide_error)
+ENDPROC(divide_error)
 
 #ifdef CONFIG_X86_MCE
 ENTRY(machine_check)
@@ -1212,7 +1212,7 @@ ENTRY(machine_check)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(machine_check)
+ENDPROC(machine_check)
 #endif
 
 ENTRY(spurious_interrupt_bug)
@@ -1223,7 +1223,7 @@ ENTRY(spurious_interrupt_bug)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(spurious_interrupt_bug)
+ENDPROC(spurious_interrupt_bug)
 
 ENTRY(kernel_thread_helper)
 	pushl $0		# fake return address for unwinder
@@ -1339,7 +1339,7 @@ ENDPROC(xen_failsafe_callback)
 
 ENTRY(mcount)
 	ret
-END(mcount)
+ENDPROC(mcount)
 
 ENTRY(ftrace_caller)
 	cmpl $0, function_trace_stop
@@ -1368,7 +1368,7 @@ ftrace_graph_call:
 .globl ftrace_stub
 ftrace_stub:
 	ret
-END(ftrace_caller)
+ENDPROC(ftrace_caller)
 
 #else /* ! CONFIG_DYNAMIC_FTRACE */
 
@@ -1404,7 +1404,7 @@ trace:
 	popl %ecx
 	popl %eax
 	jmp ftrace_stub
-END(mcount)
+ENDPROC(mcount)
 #endif /* CONFIG_DYNAMIC_FTRACE */
 #endif /* CONFIG_FUNCTION_TRACER */
 
@@ -1425,7 +1425,7 @@ ENTRY(ftrace_graph_caller)
 	popl %ecx
 	popl %eax
 	ret
-END(ftrace_graph_caller)
+ENDPROC(ftrace_graph_caller)
 
 .globl return_to_handler
 return_to_handler:
@@ -1509,7 +1509,7 @@ error_code:
 	call *%edi
 	jmp ret_from_exception
 	CFI_ENDPROC
-END(page_fault)
+ENDPROC(page_fault)
 
 /*
  * Debug traps and NMI can happen at the one SYSENTER instruction
@@ -1555,7 +1555,7 @@ debug_stack_correct:
 	call do_debug
 	jmp ret_from_exception
 	CFI_ENDPROC
-END(debug)
+ENDPROC(debug)
 
 /*
  * NMI is doubly nasty. It can happen _while_ we're handling
@@ -1648,7 +1648,7 @@ nmi_espfix_stack:
 	CFI_ADJUST_CFA_OFFSET -24
 	jmp irq_return
 	CFI_ENDPROC
-END(nmi)
+ENDPROC(nmi)
 
 ENTRY(int3)
 	RING0_INT_FRAME
@@ -1661,7 +1661,7 @@ ENTRY(int3)
 	call do_int3
 	jmp ret_from_exception
 	CFI_ENDPROC
-END(int3)
+ENDPROC(int3)
 
 ENTRY(general_protection)
 	RING0_EC_FRAME
@@ -1669,7 +1669,7 @@ ENTRY(general_protection)
 	CFI_ADJUST_CFA_OFFSET 4
 	jmp error_code
 	CFI_ENDPROC
-END(general_protection)
+ENDPROC(general_protection)
 
 /*
  * End of kprobes section

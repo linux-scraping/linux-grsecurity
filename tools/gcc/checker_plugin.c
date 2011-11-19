@@ -21,17 +21,19 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "flags.h"
 #include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
 #include "toplev.h"
-#include "basic-block.h"
-#include "gimple.h"
+#include "plugin.h"
 //#include "expr.h" where are you...
 #include "diagnostic.h"
+#include "plugin-version.h"
+#include "tm.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "emit-rtl.h"
-#include "function.h"
 #include "tree-flow.h"
 #include "target.h"
 
@@ -48,7 +50,7 @@ extern rtx emit_move_insn(rtx x, rtx y);
 int plugin_is_GPL_compatible;
 
 static struct plugin_info checker_plugin_info = {
-	.version	= "201110031940",
+	.version	= "201111150100",
 };
 
 #define ADDR_SPACE_KERNEL		0

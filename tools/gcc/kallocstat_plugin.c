@@ -20,17 +20,19 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "flags.h"
 #include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
 #include "toplev.h"
-#include "basic-block.h"
-#include "gimple.h"
+#include "plugin.h"
 //#include "expr.h" where are you...
 #include "diagnostic.h"
+#include "plugin-version.h"
+#include "tm.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "emit-rtl.h"
-#include "function.h"
 
 extern void print_gimple_stmt(FILE *, gimple, int, int);
 
@@ -49,7 +51,7 @@ static const char * const kalloc_functions[] = {
 };
 
 static struct plugin_info kallocstat_plugin_info = {
-	.version	= "201109121100",
+	.version	= "201111150100",
 };
 
 static unsigned int execute_kallocstat(void);

@@ -645,6 +645,9 @@ static void __used __kprobes kretprobe_trampoline_holder(void)
 			/* Skip orig_ax, ip, cs */
 			"	addq $24, %rsp\n"
 			"	popfq\n"
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+			"	btsq $63,(%rsp)\n"
+#endif
 #else
 			"	pushf\n"
 			/*

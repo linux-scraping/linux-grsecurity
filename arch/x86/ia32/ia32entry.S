@@ -15,6 +15,7 @@
 #include <asm/irqflags.h>
 #include <asm/pgtable.h>
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */
 #include <linux/elf-em.h>
@@ -521,6 +522,7 @@ ia32_badsys:
 
 quiet_ni_syscall:
 	movq $-ENOSYS,%rax
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 	

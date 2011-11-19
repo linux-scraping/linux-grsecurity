@@ -98,6 +98,8 @@ config
 config-*
 config_data.h*
 config_data.gz*
+config.c
+config.tmp
 conmakehash
 consolemap_deftbl.c*
 cpustr.h
@@ -126,6 +128,7 @@ initramfs_data.cpio.bz2
 initramfs_data.cpio.gz
 initramfs_list
 kallsyms
+kern_constants.h
 keywords.c
 ksym.c*
 ksym.h*
@@ -193,6 +196,7 @@ tftpboot.img
 timeconst.h
 times.h*
 trix_boot.h
+user_constants.h
 utsrelease.h*
 vdso-syms.lds
 vdso.lds

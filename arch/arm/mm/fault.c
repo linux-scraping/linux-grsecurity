@@ -365,7 +365,7 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 #endif					/* CONFIG_MMU */
 
 #ifdef CONFIG_PAX_PAGEEXEC
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	long i;
 

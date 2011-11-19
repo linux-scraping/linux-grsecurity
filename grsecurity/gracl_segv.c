@@ -164,7 +164,6 @@ void
 gr_handle_crash(struct task_struct *task, const int sig)
 {
 	struct acl_subject_label *curr;
-	struct acl_subject_label *curr2;
 	struct task_struct *tsk, *tsk2;
 	const struct cred *cred;
 	const struct cred *cred2;
@@ -214,8 +213,6 @@ gr_handle_crash(struct task_struct *task, const int sig)
 			read_lock(&grsec_exec_file_lock);
 			do_each_thread(tsk2, tsk) {
 				if (likely(tsk != task)) {
-					curr2 = tsk->acl;
-
 					// if this thread has the same subject as the one that triggered
 					// RES_CRASH and it's the same binary, kill it
 					if (tsk->acl == task->acl && tsk->exec_file == task->exec_file)

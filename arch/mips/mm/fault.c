@@ -27,7 +27,7 @@
 #include <asm/highmem.h>		/* For VMALLOC_END */
 
 #ifdef CONFIG_PAX_PAGEEXEC
-void pax_report_insns(void *pc, void *sp)
+void pax_report_insns(struct pt_regs *regs, void *pc, void *sp)
 {
 	unsigned long i;
 

@@ -561,16 +561,19 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	const slob_t *free;
 	const void *base;
 	unsigned long flags;
+	const char *type;
 
 	if (!n)
 		return;
 
+	type = "<null>";
 	if (ZERO_OR_NULL_PTR(ptr))
 		goto report;
 
 	if (!virt_addr_valid(ptr))
 		return;
 
+	type = "<process stack>";
 	sp = slob_page(ptr);
 	if (!PageSlab((struct page*)sp)) {
 		if (object_is_on_stack(ptr, n) == -1)
@@ -578,6 +581,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 		return;
 	}
 
+	type = "<slob>";
 	if (sp->size) {
 		base = page_address(&sp->page);
 		if (base <= ptr && n <= sp->size - (ptr - base))
@@ -618,7 +622,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	spin_unlock_irqrestore(&slob_lock, flags);
 report:
-	pax_report_usercopy(ptr, n, to, NULL);
+	pax_report_usercopy(ptr, n, to, type);
 #endif
 
 }

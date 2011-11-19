@@ -305,3 +305,50 @@ int is_valid_bugaddr(unsigned long ip)
 	return ud2 == 0x0b0f;
 }
 
+
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
+void pax_check_alloca(unsigned long size)
+{
+	unsigned long sp = (unsigned long)&sp, stack_start, stack_end;
+	unsigned cpu, used;
+	char *id;
+
+	/* check the process stack first */
+	stack_start = (unsigned long)task_stack_page(current);
+	stack_end = stack_start + THREAD_SIZE;
+	if (likely(stack_start <= sp && sp < stack_end)) {
+		unsigned long stack_left = sp & (THREAD_SIZE - 1);
+		BUG_ON(stack_left < 256 || size >= stack_left - 256);
+		return;
+	}
+
+	cpu = get_cpu();
+
+	/* check the irq stacks */
+	stack_end = (unsigned long)per_cpu(irq_stack_ptr, cpu);
+	stack_start = stack_end - IRQ_STACK_SIZE;
+	if (stack_start <= sp && sp < stack_end) {
+		unsigned long stack_left = sp & (IRQ_STACK_SIZE - 1);
+		put_cpu();
+		BUG_ON(stack_left < 256 || size >= stack_left - 256);
+		return;
+	}
+
+	/* check the exception stacks */
+	used = 0;
+	stack_end = (unsigned long)in_exception_stack(cpu, sp, &used, &id);
+	stack_start = stack_end - EXCEPTION_STKSZ;
+	if (stack_end && stack_start <= sp && sp < stack_end) {
+		unsigned long stack_left = sp & (EXCEPTION_STKSZ - 1);
+		put_cpu();
+		BUG_ON(stack_left < 256 || size >= stack_left - 256);
+		return;
+	}
+
+	put_cpu();
+
+	/* unknown stack */
+	BUG();
+}
+EXPORT_SYMBOL(pax_check_alloca);
+#endif

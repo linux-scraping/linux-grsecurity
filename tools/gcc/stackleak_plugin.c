@@ -23,26 +23,31 @@
 #include "coretypes.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "flags.h"
 #include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
 #include "toplev.h"
-#include "basic-block.h"
-#include "gimple.h"
+#include "plugin.h"
 //#include "expr.h" where are you...
 #include "diagnostic.h"
+#include "plugin-version.h"
+#include "tm.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "emit-rtl.h"
-#include "function.h"
+
+extern void print_gimple_stmt(FILE *, gimple, int, int);
 
 int plugin_is_GPL_compatible;
 
 static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
+static const char check_function[] = "pax_check_alloca";
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201109112100",
+	.version	= "201111150100",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -65,7 +70,7 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_stmts | TODO_dump_func
+		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
 	}
 };
 
@@ -92,63 +97,94 @@ static bool gate_stackleak_track_stack(void)
 	return track_frame_size >= 0;
 }
 
-static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi, bool before)
+static void stackleak_check_alloca(gimple_stmt_iterator gsi)
 {
-	gimple call;
-	tree fndecl, type;
+	gimple check_alloca;
+	tree fndecl, fntype, alloca_size;
+
+	// insert call to void pax_check_alloca(unsigned long size)
+	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
+	fndecl = build_fn_decl(check_function, fntype);
+	DECL_ASSEMBLER_NAME(fndecl); // for LTO
+	alloca_size = gimple_call_arg(gsi_stmt(gsi), 0);
+	check_alloca = gimple_build_call(fndecl, 1, alloca_size);
+	gsi_insert_before(&gsi, check_alloca, GSI_CONTINUE_LINKING);
+}
+
+static void stackleak_add_instrumentation(gimple_stmt_iterator gsi)
+{
+	gimple track_stack;
+	tree fndecl, fntype;
 
 	// insert call to void pax_track_stack(void)
-	type = build_function_type_list(void_type_node, NULL_TREE);
-	fndecl = build_fn_decl(track_function, type);
+	fntype = build_function_type_list(void_type_node, NULL_TREE);
+	fndecl = build_fn_decl(track_function, fntype);
 	DECL_ASSEMBLER_NAME(fndecl); // for LTO
-	call = gimple_build_call(fndecl, 0);
-	if (before)
-		gsi_insert_before(gsi, call, GSI_CONTINUE_LINKING);
-	else
-		gsi_insert_after(gsi, call, GSI_CONTINUE_LINKING);
+	track_stack = gimple_build_call(fndecl, 0);
+	gsi_insert_after(&gsi, track_stack, GSI_CONTINUE_LINKING);
+}
+
+#if __GNUC__ == 4 && __GNUC_MINOR__ == 5
+static bool gimple_call_builtin_p(gimple stmt, enum built_in_function code)
+{
+	tree fndecl;
+
+	if (!is_gimple_call(stmt))
+		return false;
+	fndecl = gimple_call_fndecl(stmt);
+	if (!fndecl)
+		return false;
+	if (DECL_BUILT_IN_CLASS(fndecl) != BUILT_IN_NORMAL)
+		return false;
+//	print_node(stderr, "pax", fndecl, 4);
+	return DECL_FUNCTION_CODE(fndecl) == code;
+}
+#endif
+
+static bool is_alloca(gimple stmt)
+{
+	if (gimple_call_builtin_p(stmt, BUILT_IN_ALLOCA))
+		return true;
+
+#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+	if (gimple_call_builtin_p(stmt, BUILT_IN_ALLOCA_WITH_ALIGN))
+		return true;
+#endif
+
+	return false;
 }
 
 static unsigned int execute_stackleak_tree_instrument(void)
 {
 	basic_block bb, entry_bb;
-	gimple_stmt_iterator gsi;
 	bool prologue_instrumented = false;
 
 	entry_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun)->next_bb;
 
 	// 1. loop through BBs and GIMPLE statements
 	FOR_EACH_BB(bb) {
+		gimple_stmt_iterator gsi;
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: align 8 built-in BUILT_IN_NORMAL:BUILT_IN_ALLOCA attributes <tree_list 0xb7576450>
-			tree fndecl;
-			gimple stmt = gsi_stmt(gsi);
-
-			if (!is_gimple_call(stmt))
-				continue;
-			fndecl = gimple_call_fndecl(stmt);
-			if (!fndecl)
-				continue;
-			if (TREE_CODE(fndecl) != FUNCTION_DECL)
-				continue;
-			if (!DECL_BUILT_IN(fndecl))
-				continue;
-			if (DECL_BUILT_IN_CLASS(fndecl) != BUILT_IN_NORMAL)
-				continue;
-			if (DECL_FUNCTION_CODE(fndecl) != BUILT_IN_ALLOCA)
+			if (!is_alloca(gsi_stmt(gsi)))
 				continue;
 
-			// 2. insert track call after each __builtin_alloca call
-			stackleak_add_instrumentation(&gsi, false);
+			// 2. insert stack overflow check before each __builtin_alloca call
+			stackleak_check_alloca(gsi);
+
+			// 3. insert track call after each __builtin_alloca call
+			stackleak_add_instrumentation(gsi);
 			if (bb == entry_bb)
 				prologue_instrumented = true;
-//			print_node(stderr, "pax", fndecl, 4);
 		}
 	}
 
-	// 3. insert track call at the beginning
+	// 4. insert track call at the beginning
 	if (!prologue_instrumented) {
-		gsi = gsi_start_bb(entry_bb);
-		stackleak_add_instrumentation(&gsi, true);
+		bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
+		if (dom_info_available_p(CDI_DOMINATORS))
+			set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR);
+		stackleak_add_instrumentation(gsi_start_bb(bb));
 	}
 
 	return 0;
@@ -185,7 +221,11 @@ static unsigned int execute_stackleak_final(void)
 			continue;
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
 		// 2. delete call
-		delete_insn_and_edges(insn);
+		insn = delete_insn_and_edges(insn);
+#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+		if (GET_CODE(insn) == NOTE && NOTE_KIND(insn) == NOTE_INSN_CALL_ARG_LOCATION)
+			insn = delete_insn_and_edges(insn);
+#endif
 	}
 
 //	print_simple_rtl(stderr, get_insns());

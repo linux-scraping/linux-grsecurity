@@ -531,7 +531,7 @@ struct zsCbFuncTbl
     u8_t (*zfcbClassifyTxPacket)(zdev_t* dev, zbuf_t* buf);
 
     void (*zfcbHwWatchDogNotify)(zdev_t* dev);
-};
+} __no_const;
 
 extern void zfZeroMemory(u8_t* va, u16_t length);
 #define ZM_INIT_CB_FUNC_TABLE(p)        zfZeroMemory((u8_t *)p, sizeof(struct zsCbFuncTbl));

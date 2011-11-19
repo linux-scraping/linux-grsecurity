@@ -1623,7 +1623,7 @@ extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 #endif
 
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
-extern void pax_report_insns(void *pc, void *sp);
+extern void pax_report_insns(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_refcount_overflow(struct pt_regs *regs);
 extern NORET_TYPE void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type) ATTRIB_NORET;
 

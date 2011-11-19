@@ -17,7 +17,7 @@
 # define AT_VECTOR_SIZE_ARCH 1
 #endif
 
-extern unsigned long arch_align_stack(unsigned long sp);
+#define arch_align_stack(x) ((x) & ~0xfUL)
 
 void default_idle(void);
 
