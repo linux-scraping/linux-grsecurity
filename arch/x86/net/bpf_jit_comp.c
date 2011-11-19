@@ -586,7 +586,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 				if (unlikely(proglen + ilen > oldproglen)) {
 					pr_err("bpb_jit_compile fatal error\n");
 					kfree(addrs);
-					module_free(NULL, image);
+					module_free_exec(NULL, image);
 					return;
 				}
 				pax_open_kernel();
@@ -639,11 +639,11 @@ out:
 
 static void jit_free_defer(struct work_struct *arg)
 {
-	module_free(NULL, arg);
+	module_free_exec(NULL, arg);
 }
 
 /* run from softirq, we must use a work_struct to call
- * module_free() from process context
+ * module_free_exec() from process context
  */
 void bpf_jit_free(struct sk_filter *fp)
 {

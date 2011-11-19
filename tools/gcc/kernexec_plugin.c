@@ -202,7 +202,7 @@ static void kernexec_instrument_retaddr(rtx insn)
 	line = expand_location(RTL_LOCATION(insn)).line;
 	btsq = gen_rtx_ASM_OPERANDS(VOIDmode, "btsq $63,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
 	MEM_VOLATILE_P(btsq) = 1;
-	RTX_FRAME_RELATED_P(btsq) = 1;
+//	RTX_FRAME_RELATED_P(btsq) = 1; // not for ASM_OPERANDS
 	emit_insn_before(btsq, insn);
 }
 
