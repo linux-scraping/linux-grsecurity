@@ -1608,7 +1608,7 @@ int may_open(struct path *path, int acc_mode, int flag)
 		error = -EPERM;
 		goto err_out;
 	}
-	if (!gr_acl_handle_open(dentry, path->mnt, flag)) {
+	if (!gr_acl_handle_open(dentry, path->mnt, acc_mode)) {
 		error = -EACCES;
 		goto err_out;
 	}
@@ -1657,8 +1657,14 @@ static int __open_namei_create(struct nameidata *nd, struct path *path,
 {
 	int error;
 	struct dentry *dir = nd->path.dentry;
+	int acc_mode = ACC_MODE(flag);
 
-	if (!gr_acl_handle_creat(path->dentry, dir, nd->path.mnt, flag, mode)) {
+        if (flag & O_TRUNC)
+                acc_mode |= MAY_WRITE;
+        if (flag & O_APPEND)
+                acc_mode |= MAY_APPEND;
+
+	if (!gr_acl_handle_creat(path->dentry, dir, nd->path.mnt, flag, acc_mode, mode)) {
 		error = -EACCES;
 		goto out_unlock;
 	}
@@ -1764,7 +1770,7 @@ struct file *do_filp_open(int dfd, const char *pathname,
 			goto exit;
 		}
 
-		if (!gr_acl_handle_open(nd.path.dentry, nd.path.mnt, flag)) {
+		if (!gr_acl_handle_open(nd.path.dentry, nd.path.mnt, acc_mode)) {
 			error = -EACCES;
 			goto exit;
 		}

@@ -90,11 +90,6 @@ struct inodes_stat_t {
 /* Expect random access pattern */
 #define FMODE_RANDOM		((__force fmode_t)4096)
 
-/* Hack for grsec so as not to require read permission simply to execute
- * a binary
- */
-#define FMODE_GREXEC		((__force fmode_t)0x2000000)
-
 /*
  * The below are the various read and write types that we support. Some of
  * them include behavioral modifiers that send information down to the

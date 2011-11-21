@@ -34,7 +34,7 @@ gr_acl_handle_hidden_file(const struct dentry * dentry,
 
 __u32
 gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
-		   const int fmode)
+		   int acc_mode)
 {
 	__u32 reqmode = GR_FIND;
 	__u32 mode;
@@ -42,14 +42,13 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 	if (unlikely(!dentry->d_inode))
 		return reqmode;
 
-	if (unlikely(fmode & O_APPEND))
+	if (acc_mode & MAY_APPEND)
 		reqmode |= GR_APPEND;
-	else if (unlikely(fmode & FMODE_WRITE))
+	else if (acc_mode & MAY_WRITE)
 		reqmode |= GR_WRITE;
-	if (likely((fmode & FMODE_READ) && !(fmode & O_DIRECTORY)))
+	if ((acc_mode & MAY_READ) && !S_ISDIR(dentry->d_inode->i_mode))
 		reqmode |= GR_READ;
-	if ((fmode & FMODE_GREXEC) && (fmode & FMODE_EXEC))
-		reqmode &= ~GR_READ;
+
 	mode =
 	    gr_search_file(dentry, reqmode | to_gr_audit(reqmode) | GR_SUPPRESS,
 			   mnt);
@@ -77,17 +76,20 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 __u32
 gr_acl_handle_creat(const struct dentry * dentry,
 		    const struct dentry * p_dentry,
-		    const struct vfsmount * p_mnt, const int fmode,
+		    const struct vfsmount * p_mnt, int open_flags, int acc_mode,
 		    const int imode)
 {
 	__u32 reqmode = GR_WRITE | GR_CREATE;
 	__u32 mode;
 
-	if (unlikely(fmode & O_APPEND))
+	if (acc_mode & MAY_APPEND)
 		reqmode |= GR_APPEND;
-	if (unlikely((fmode & FMODE_READ) && !(fmode & O_DIRECTORY)))
+	// if a directory was required or the directory already exists, then
+	// don't count this open as a read
+	if ((acc_mode & MAY_READ) &&
+	    !((open_flags & O_DIRECTORY) || (dentry->d_inode && S_ISDIR(dentry->d_inode->i_mode))))
 		reqmode |= GR_READ;
-	if (unlikely((fmode & O_CREAT) && (imode & (S_ISUID | S_ISGID))))
+	if ((open_flags & O_CREAT) && (imode & (S_ISUID | S_ISGID)))
 		reqmode |= GR_SETID;
 
 	mode =
