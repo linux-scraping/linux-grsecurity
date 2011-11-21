@@ -117,6 +117,10 @@ static inline void bpf_flush_icache(void *start, void *end)
 	set_fs(old_fs);
 }
 
+struct bpf_jit_work {
+	struct work_struct work;
+	void *image;
+};
 
 void bpf_jit_compile(struct sk_filter *fp)
 {
@@ -140,6 +144,10 @@ void bpf_jit_compile(struct sk_filter *fp)
 	addrs = kmalloc(flen * sizeof(*addrs), GFP_KERNEL);
 	if (addrs == NULL)
 		return;
+
+	fp->work = kmalloc(sizeof(*fp->work), GFP_KERNEL);
+	if (!fp->work)
+		goto out;
 
 	/* Before first pass, make a rough estimation of addrs[]
 	 * each bpf instruction is translated to less than 64 bytes
@@ -585,9 +593,8 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 			if (image) {
 				if (unlikely(proglen + ilen > oldproglen)) {
 					pr_err("bpb_jit_compile fatal error\n");
-					kfree(addrs);
 					module_free_exec(NULL, image);
-					return;
+					goto out;
 				}
 				pax_open_kernel();
 				memcpy(image + proglen, temp, ilen);
@@ -633,13 +640,15 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 		fp->bpf_func = (void *)image;
 	}
 out:
+	kfree(fp->work);
 	kfree(addrs);
 	return;
 }
 
 static void jit_free_defer(struct work_struct *arg)
 {
-	module_free_exec(NULL, arg);
+	module_free_exec(NULL, ((struct bpf_jit_work*)arg)->image);
+	kfree(arg);
 }
 
 /* run from softirq, we must use a work_struct to call
@@ -648,9 +657,10 @@ static void jit_free_defer(struct work_struct *arg)
 void bpf_jit_free(struct sk_filter *fp)
 {
 	if (fp->bpf_func != sk_run_filter) {
-		struct work_struct *work = (struct work_struct *)fp->bpf_func;
+		struct work_struct *work = &fp->work->work;
 
 		INIT_WORK(work, jit_free_defer);
+		fp->work->image = fp->bpf_func;
 		schedule_work(work);
 	}
 }
