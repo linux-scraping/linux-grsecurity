@@ -20,6 +20,7 @@
 #include <asm/processor-flags.h>
 #include <asm/percpu.h>
 #include <asm/cpufeature.h>
+#include <asm/alternative-asm.h>
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/asm-offsets.h>
@@ -179,7 +180,9 @@ ENTRY(secondary_startup_64)
 	jnc     1f
 	btsl	$_EFER_NX, %eax
 	leaq	init_level4_pgt(%rip), %rdi
+#ifndef CONFIG_EFI
 	btsq	$_PAGE_BIT_NX, 8*L4_PAGE_OFFSET(%rdi)
+#endif
 	btsq	$_PAGE_BIT_NX, 8*L4_VMALLOC_START(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*L4_VMEMMAP_START(%rdi)
 	btsq	$_PAGE_BIT_NX, __supported_pte_mask(%rip)
@@ -244,6 +247,7 @@ ENTRY(secondary_startup_64)
 	 * jump.  In addition we need to ensure %cs is set so we make this
 	 * a far return.
 	 */
+	pax_set_fptr_mask
 	movq	initial_code(%rip),%rax
 	pushq	$0		# fake return address to stop unwinder
 	pushq	$__KERNEL_CS	# set correct cs

@@ -98,6 +98,7 @@ ENDPROC(native_irq_enable_sysexit)
 #endif
 
 	.macro pax_enter_kernel_user
+	pax_set_fptr_mask
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	call pax_enter_kernel_user
 #endif
@@ -146,12 +147,6 @@ ENTRY(ia32_sysenter_target)
 	CFI_REGISTER	rsp,rbp
 	SWAPGS_UNSAFE_STACK
 	movq	PER_CPU_VAR(kernel_stack), %rsp
-	pax_enter_kernel_user
-	/*
-	 * No need to follow this irqs on/off section: the syscall
-	 * disabled irqs, here we enable it straight after entry:
-	 */
-	ENABLE_INTERRUPTS(CLBR_NONE)
  	movl	%ebp,%ebp		/* zero extension */
 	pushq_cfi $__USER32_DS
 	/*CFI_REL_OFFSET ss,0*/
@@ -159,32 +154,38 @@ ENTRY(ia32_sysenter_target)
 	CFI_REL_OFFSET rsp,0
 	pushfq_cfi
 	/*CFI_REL_OFFSET rflags,0*/
-	GET_THREAD_INFO(%r10)
-	movl	TI_sysenter_return(%r10), %r10d
-	CFI_REGISTER rip,r10
+	GET_THREAD_INFO(%r11)
+	movl	TI_sysenter_return(%r11), %r11d
+	CFI_REGISTER rip,r11
 	pushq_cfi $__USER32_CS
 	/*CFI_REL_OFFSET cs,0*/
 	movl	%eax, %eax
-	pushq_cfi %r10
+	pushq_cfi %r11
 	CFI_REL_OFFSET rip,0
 	pushq_cfi %rax
 	cld
 	SAVE_ARGS 0,1,0
+	pax_enter_kernel_user
+	/*
+	 * No need to follow this irqs on/off section: the syscall
+	 * disabled irqs, here we enable it straight after entry:
+	 */
+	ENABLE_INTERRUPTS(CLBR_NONE)
  	/* no need to do an access_ok check here because rbp has been
  	   32bit zero extended */ 
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%r10
-	add %r10,%rbp
+	mov $PAX_USER_SHADOW_BASE,%r11
+	add %r11,%rbp
 #endif
 
 1:	movl	(%rbp),%ebp
  	.section __ex_table,"a"
  	.quad 1b,ia32_badarg
  	.previous	
-	GET_THREAD_INFO(%r10)
-	orl    $TS_COMPAT,TI_status(%r10)
-	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r10)
+	GET_THREAD_INFO(%r11)
+	orl    $TS_COMPAT,TI_status(%r11)
+	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
 	CFI_REMEMBER_STATE
 	jnz  sysenter_tracesys
 	cmpq	$(IA32_NR_syscalls-1),%rax
@@ -194,15 +195,15 @@ sysenter_do_call:
 sysenter_dispatch:
 	call	*ia32_sys_call_table(,%rax,8)
 	movq	%rax,RAX-ARGOFFSET(%rsp)
-	GET_THREAD_INFO(%r10)
+	GET_THREAD_INFO(%r11)
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
-	testl	$_TIF_ALLWORK_MASK,TI_flags(%r10)
+	testl	$_TIF_ALLWORK_MASK,TI_flags(%r11)
 	jnz	sysexit_audit
 sysexit_from_sys_call:
 	pax_exit_kernel_user
 	pax_erase_kstack
-	andl    $~TS_COMPAT,TI_status(%r10)
+	andl    $~TS_COMPAT,TI_status(%r11)
 	/* clear IF, that popfq doesn't enable interrupts early */
 	andl  $~0x200,EFLAGS-R11(%rsp) 
 	movl	RIP-R11(%rsp),%edx		/* User %eip */
@@ -242,7 +243,7 @@ sysexit_from_sys_call:
 	.endm
 
 	.macro auditsys_exit exit
-	testl $(_TIF_ALLWORK_MASK & ~_TIF_SYSCALL_AUDIT),TI_flags(%r10)
+	testl $(_TIF_ALLWORK_MASK & ~_TIF_SYSCALL_AUDIT),TI_flags(%r11)
 	jnz ia32_ret_from_sys_call
 	TRACE_IRQS_ON
 	sti
@@ -252,12 +253,12 @@ sysexit_from_sys_call:
 	movzbl %al,%edi		/* zero-extend that into %edi */
 	inc %edi /* first arg, 0->1(AUDITSC_SUCCESS), 1->2(AUDITSC_FAILURE) */
 	call audit_syscall_exit
-	GET_THREAD_INFO(%r10)
+	GET_THREAD_INFO(%r11)
 	movl RAX-ARGOFFSET(%rsp),%eax	/* reload syscall return value */
 	movl $(_TIF_ALLWORK_MASK & ~_TIF_SYSCALL_AUDIT),%edi
 	cli
 	TRACE_IRQS_OFF
-	testl %edi,TI_flags(%r10)
+	testl %edi,TI_flags(%r11)
 	jz \exit
 	CLEAR_RREGS -ARGOFFSET
 	jmp int_with_check
@@ -275,7 +276,7 @@ sysexit_audit:
 
 sysenter_tracesys:
 #ifdef CONFIG_AUDITSYSCALL
-	testl	$(_TIF_WORK_SYSCALL_ENTRY & ~_TIF_SYSCALL_AUDIT),TI_flags(%r10)
+	testl	$(_TIF_WORK_SYSCALL_ENTRY & ~_TIF_SYSCALL_AUDIT),TI_flags(%r11)
 	jz	sysenter_auditsys
 #endif
 	SAVE_REST
@@ -324,17 +325,13 @@ ENTRY(ia32_cstar_target)
 	movl	%esp,%r8d
 	CFI_REGISTER	rsp,r8
 	movq	PER_CPU_VAR(kernel_stack),%rsp
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
+	SAVE_ARGS 8*6,0,0
 	pax_enter_kernel_user
-#endif
-
 	/*
 	 * No need to follow this irqs on/off section: the syscall
 	 * disabled irqs and here we enable it straight after entry:
 	 */
 	ENABLE_INTERRUPTS(CLBR_NONE)
-	SAVE_ARGS 8*6,0,0
 	movl 	%eax,%eax	/* zero extension */
 	movq	%rax,ORIG_RAX-ARGOFFSET(%rsp)
 	movq	%rcx,RIP-ARGOFFSET(%rsp)
@@ -352,17 +349,17 @@ ENTRY(ia32_cstar_target)
 	/* hardware stack frame is complete now */	
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%r10
-	add %r10,%r8
+	mov $PAX_USER_SHADOW_BASE,%r11
+	add %r11,%r8
 #endif
 
 1:	movl	(%r8),%r9d
 	.section __ex_table,"a"
 	.quad 1b,ia32_badarg
 	.previous	
-	GET_THREAD_INFO(%r10)
-	orl   $TS_COMPAT,TI_status(%r10)
-	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r10)
+	GET_THREAD_INFO(%r11)
+	orl   $TS_COMPAT,TI_status(%r11)
+	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
 	CFI_REMEMBER_STATE
 	jnz   cstar_tracesys
 	cmpq $IA32_NR_syscalls-1,%rax
@@ -372,15 +369,15 @@ cstar_do_call:
 cstar_dispatch:
 	call *ia32_sys_call_table(,%rax,8)
 	movq %rax,RAX-ARGOFFSET(%rsp)
-	GET_THREAD_INFO(%r10)
+	GET_THREAD_INFO(%r11)
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
-	testl $_TIF_ALLWORK_MASK,TI_flags(%r10)
+	testl $_TIF_ALLWORK_MASK,TI_flags(%r11)
 	jnz sysretl_audit
 sysretl_from_sys_call:
 	pax_exit_kernel_user
 	pax_erase_kstack
-	andl $~TS_COMPAT,TI_status(%r10)
+	andl $~TS_COMPAT,TI_status(%r11)
 	RESTORE_ARGS 0,-ARG_SKIP,0,0,0
 	movl RIP-ARGOFFSET(%rsp),%ecx
 	CFI_REGISTER rip,rcx
@@ -408,7 +405,7 @@ sysretl_audit:
 
 cstar_tracesys:
 #ifdef CONFIG_AUDITSYSCALL
-	testl $(_TIF_WORK_SYSCALL_ENTRY & ~_TIF_SYSCALL_AUDIT),TI_flags(%r10)
+	testl $(_TIF_WORK_SYSCALL_ENTRY & ~_TIF_SYSCALL_AUDIT),TI_flags(%r11)
 	jz cstar_auditsys
 #endif
 	xchgl %r9d,%ebp
@@ -465,21 +462,21 @@ ENTRY(ia32_syscall)
 	CFI_REL_OFFSET	rip,RIP-RIP
 	PARAVIRT_ADJUST_EXCEPTION_FRAME
 	SWAPGS
-	pax_enter_kernel_user
-	/*
-	 * No need to follow this irqs on/off section: the syscall
-	 * disabled irqs and here we enable it straight after entry:
-	 */
-	ENABLE_INTERRUPTS(CLBR_NONE)
 	movl %eax,%eax
 	pushq_cfi %rax
 	cld
 	/* note the registers are not zero extended to the sf.
 	   this could be a problem. */
 	SAVE_ARGS 0,1,0
-	GET_THREAD_INFO(%r10)
-	orl   $TS_COMPAT,TI_status(%r10)
-	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r10)
+	pax_enter_kernel_user
+	/*
+	 * No need to follow this irqs on/off section: the syscall
+	 * disabled irqs and here we enable it straight after entry:
+	 */
+	ENABLE_INTERRUPTS(CLBR_NONE)
+	GET_THREAD_INFO(%r11)
+	orl   $TS_COMPAT,TI_status(%r11)
+	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
 	jnz ia32_tracesys
 	cmpq $(IA32_NR_syscalls-1),%rax
 	ja ia32_badsys

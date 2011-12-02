@@ -1953,7 +1953,7 @@ int rcu_needs_cpu(int cpu)
 	for_each_online_cpu(thatcpu) {
 		if (thatcpu == cpu)
 			continue;
-		snap = atomic_add_return(0, &per_cpu(rcu_dynticks,
+		snap = atomic_add_return_unchecked(0, &per_cpu(rcu_dynticks,
 						     thatcpu).dynticks);
 		smp_mb(); /* Order sampling of snap with end of grace period. */
 		if ((snap & 0x1) != 0) {

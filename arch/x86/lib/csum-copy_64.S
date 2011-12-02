@@ -229,7 +229,7 @@ ENTRY(csum_partial_copy_generic)
 	CFI_RESTORE rbp
 	addq $7*8, %rsp
 	CFI_ADJUST_CFA_OFFSET -7*8
-	pax_force_retaddr
+	pax_force_retaddr 0, 1
 	ret
 	CFI_RESTORE_STATE
 

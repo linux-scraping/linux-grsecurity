@@ -1393,7 +1393,7 @@ static void unexpected_machine_check(struct pt_regs *regs, long error_code)
 }
 
 /* Call the installed machine check handler for this CPU setup. */
-void (*machine_check_vector)(struct pt_regs *, long error_code) =
+void (*machine_check_vector)(struct pt_regs *, long error_code) __read_only =
 						unexpected_machine_check;
 
 /*
@@ -1416,7 +1416,9 @@ void __cpuinit mcheck_cpu_init(struct cpuinfo_x86 *c)
 		return;
 	}
 
+	pax_open_kernel();
 	machine_check_vector = do_machine_check;
+	pax_close_kernel();
 
 	__mcheck_cpu_init_generic();
 	__mcheck_cpu_init_vendor(c);

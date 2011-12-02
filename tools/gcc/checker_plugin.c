@@ -165,7 +165,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	if (TARGET_64BIT == 0)
 		return 0;
 
-	register_callback (plugin_name, PLUGIN_PRAGMAS, register_checker_address_spaces, NULL);
+	register_callback(plugin_name, PLUGIN_PRAGMAS, register_checker_address_spaces, NULL);
 
 	return 0;
 }

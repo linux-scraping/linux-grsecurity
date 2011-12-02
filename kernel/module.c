@@ -2511,7 +2511,13 @@ static struct module *setup_load_info(struct load_info *info)
 static int check_modinfo(struct module *mod, struct load_info *info)
 {
 	const char *modmagic = get_modinfo(info, "vermagic");
+	const char *license = get_modinfo(info, "license");
 	int err;
+
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	if (!license || !license_is_gpl_compatible(license))
+		return -ENOEXEC;
+#endif
 
 	/* This is allowed: modprobe --force will invalidate it. */
 	if (!modmagic) {
@@ -2532,7 +2538,7 @@ static int check_modinfo(struct module *mod, struct load_info *info)
 	}
 
 	/* Set up license info based on the info section */
-	set_license(mod, get_modinfo(info, "license"));
+	set_license(mod, license);
 
 	return 0;
 }

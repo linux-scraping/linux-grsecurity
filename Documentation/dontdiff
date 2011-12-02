@@ -15,6 +15,7 @@
 *.gcov
 *.gen.S
 *.gif
+*.gmo
 *.grep
 *.grp
 *.gz
@@ -144,6 +145,7 @@ genheaders
 genksyms
 *_gray256.c
 hash
+hid-example
 hpet_example
 hugepage-mmap
 hugepage-shm
@@ -178,6 +180,7 @@ map
 map_hugetlb
 maui_boot.h
 mconf
+mdp
 miboot*
 mk_elfconfig
 mkboot

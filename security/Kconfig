@@ -333,6 +333,34 @@ config PAX_KERNEXEC
 	  Note that on x86_64 kernels there is a known regression when
 	  this feature and KVM/VMX are both enabled in the host kernel.
 
+choice
+	prompt "Return Address Instrumentation Method"
+	default PAX_KERNEXEC_PLUGIN_METHOD_BTS
+	depends on PAX_KERNEXEC_PLUGIN
+	help
+	  Select the method used to instrument function pointer dereferences.
+	  Note that binary modules cannot be instrumented by this approach.
+
+	config PAX_KERNEXEC_PLUGIN_METHOD_BTS
+		bool "bts"
+		help
+		  This method is compatible with binary only modules but has
+		  a higher runtime overhead.
+
+	config PAX_KERNEXEC_PLUGIN_METHOD_OR
+		bool "or"
+		depends on !PARAVIRT
+		help
+		  This method is incompatible with binary only modules but has
+		  a lower runtime overhead.
+endchoice
+
+config PAX_KERNEXEC_PLUGIN_METHOD
+	string
+	default "bts" if PAX_KERNEXEC_PLUGIN_METHOD_BTS
+	default "or" if PAX_KERNEXEC_PLUGIN_METHOD_OR
+	default ""
+
 config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
 	default "4"
