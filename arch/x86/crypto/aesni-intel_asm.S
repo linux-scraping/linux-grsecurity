@@ -16,6 +16,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 .text
 
@@ -52,6 +53,7 @@ _key_expansion_256a:
 	pxor %xmm1, %xmm0
 	movaps %xmm0, (%rcx)
 	add $0x10, %rcx
+	pax_force_retaddr_bts
 	ret
 
 _key_expansion_192a:
@@ -75,6 +77,7 @@ _key_expansion_192a:
 	shufps $0b01001110, %xmm2, %xmm1
 	movaps %xmm1, 16(%rcx)
 	add $0x20, %rcx
+	pax_force_retaddr_bts
 	ret
 
 _key_expansion_192b:
@@ -93,6 +96,7 @@ _key_expansion_192b:
 
 	movaps %xmm0, (%rcx)
 	add $0x10, %rcx
+	pax_force_retaddr_bts
 	ret
 
 _key_expansion_256b:
@@ -104,6 +108,7 @@ _key_expansion_256b:
 	pxor %xmm1, %xmm2
 	movaps %xmm2, (%rcx)
 	add $0x10, %rcx
+	pax_force_retaddr_bts
 	ret
 
 /*
@@ -239,7 +244,9 @@ ENTRY(aesni_set_key)
 	cmp %rcx, %rdi
 	jb .Ldec_key_loop
 	xor %rax, %rax
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_set_key)
 
 /*
  * void aesni_enc(struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
@@ -249,7 +256,9 @@ ENTRY(aesni_enc)
 	movups (INP), STATE		# input
 	call _aesni_enc1
 	movups STATE, (OUTP)		# output
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_enc)
 
 /*
  * _aesni_enc1:		internal ABI
@@ -319,6 +328,7 @@ _aesni_enc1:
 	movaps 0x70(TKEYP), KEY
 	# aesenclast KEY, STATE	# last round
 	.byte 0x66, 0x0f, 0x38, 0xdd, 0xc2
+	pax_force_retaddr_bts
 	ret
 
 /*
@@ -482,6 +492,7 @@ _aesni_enc4:
 	.byte 0x66, 0x0f, 0x38, 0xdd, 0xea
 	# aesenclast KEY, STATE4
 	.byte 0x66, 0x0f, 0x38, 0xdd, 0xf2
+	pax_force_retaddr_bts
 	ret
 
 /*
@@ -493,7 +504,9 @@ ENTRY(aesni_dec)
 	movups (INP), STATE		# input
 	call _aesni_dec1
 	movups STATE, (OUTP)		#output
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_dec)
 
 /*
  * _aesni_dec1:		internal ABI
@@ -563,6 +576,7 @@ _aesni_dec1:
 	movaps 0x70(TKEYP), KEY
 	# aesdeclast KEY, STATE		# last round
 	.byte 0x66, 0x0f, 0x38, 0xdf, 0xc2
+	pax_force_retaddr_bts
 	ret
 
 /*
@@ -726,6 +740,7 @@ _aesni_dec4:
 	.byte 0x66, 0x0f, 0x38, 0xdf, 0xea
 	# aesdeclast KEY, STATE4
 	.byte 0x66, 0x0f, 0x38, 0xdf, 0xf2
+	pax_force_retaddr_bts
 	ret
 
 /*
@@ -769,7 +784,9 @@ ENTRY(aesni_ecb_enc)
 	cmp $16, LEN
 	jge .Lecb_enc_loop1
 .Lecb_enc_ret:
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_ecb_enc)
 
 /*
  * void aesni_ecb_dec(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
@@ -813,7 +830,9 @@ ENTRY(aesni_ecb_dec)
 	cmp $16, LEN
 	jge .Lecb_dec_loop1
 .Lecb_dec_ret:
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_ecb_dec)
 
 /*
  * void aesni_cbc_enc(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
@@ -837,7 +856,9 @@ ENTRY(aesni_cbc_enc)
 	jge .Lcbc_enc_loop
 	movups STATE, (IVP)
 .Lcbc_enc_ret:
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_cbc_enc)
 
 /*
  * void aesni_cbc_dec(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
@@ -894,4 +915,6 @@ ENTRY(aesni_cbc_dec)
 .Lcbc_dec_ret:
 	movups IV, (IVP)
 .Lcbc_dec_just_ret:
+	pax_force_retaddr 0, 1
 	ret
+ENDPROC(aesni_cbc_dec)

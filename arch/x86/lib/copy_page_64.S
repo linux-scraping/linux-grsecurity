@@ -40,7 +40,7 @@ ENTRY(copy_page)
 	movq     16 (%rsi), %rdx
 	movq     24 (%rsi), %r8
 	movq     32 (%rsi), %r9
-	movq     40 (%rsi), %r10
+	movq     40 (%rsi), %r13
 	movq     48 (%rsi), %r11
 	movq     56 (%rsi), %r12
 
@@ -51,7 +51,7 @@ ENTRY(copy_page)
 	movq     %rdx, 16 (%rdi)
 	movq     %r8,  24 (%rdi)
 	movq     %r9,  32 (%rdi)
-	movq     %r10, 40 (%rdi)
+	movq     %r13, 40 (%rdi)
 	movq     %r11, 48 (%rdi)
 	movq     %r12, 56 (%rdi)
 
@@ -70,7 +70,7 @@ ENTRY(copy_page)
 	movq     16 (%rsi), %rdx
 	movq     24 (%rsi), %r8
 	movq     32 (%rsi), %r9
-	movq     40 (%rsi), %r10
+	movq     40 (%rsi), %r13
 	movq     48 (%rsi), %r11
 	movq     56 (%rsi), %r12
 
@@ -79,7 +79,7 @@ ENTRY(copy_page)
 	movq     %rdx, 16 (%rdi)
 	movq     %r8,  24 (%rdi)
 	movq     %r9,  32 (%rdi)
-	movq     %r10, 40 (%rdi)
+	movq     %r13, 40 (%rdi)
 	movq     %r11, 48 (%rdi)
 	movq     %r12, 56 (%rdi)
 

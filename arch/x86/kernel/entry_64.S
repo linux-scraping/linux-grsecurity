@@ -197,6 +197,7 @@ ENDPROC(native_usergs_sysret64)
 	.endm
 
 	.macro pax_enter_kernel
+	pax_set_fptr_mask
 #ifdef CONFIG_PAX_KERNEXEC
 	call pax_enter_kernel
 #endif
@@ -218,14 +219,11 @@ ENTRY(pax_enter_kernel)
 
 	GET_CR0_INTO_RDI
 	bts $16,%rdi
-	jnc 1f
+	jnc 3f
 	mov %cs,%edi
 	cmp $__KERNEL_CS,%edi
-	jz 3f
-	ljmpq __KERNEL_CS,3f
-1:	ljmpq __KERNEXEC_KERNEL_CS,2f
-2:	SET_RDI_INTO_CR0
-3:
+	jnz 2f
+1:
 
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI)
@@ -234,6 +232,11 @@ ENTRY(pax_enter_kernel)
 	popq %rdi
 	pax_force_retaddr
 	retq
+
+2:	ljmpq __KERNEL_CS,1f
+3:	ljmpq __KERNEXEC_KERNEL_CS,4f
+4:	SET_RDI_INTO_CR0
+	jmp 1b
 ENDPROC(pax_enter_kernel)
 
 ENTRY(pax_exit_kernel)
@@ -245,13 +248,22 @@ ENTRY(pax_exit_kernel)
 
 	mov %cs,%rdi
 	cmp $__KERNEXEC_KERNEL_CS,%edi
-	jnz 2f
-	GET_CR0_INTO_RDI
-	btr $16,%rdi
-	ljmpq __KERNEL_CS,1f
-1:	SET_RDI_INTO_CR0
-2:
+	jz 2f
+1:
 
+#ifdef CONFIG_PARAVIRT
+	PV_RESTORE_REGS(CLBR_RDI);
+#endif
+
+	popq %rdi
+	pax_force_retaddr
+	retq
+
+2:	GET_CR0_INTO_RDI
+	btr $16,%rdi
+	ljmpq __KERNEL_CS,3f
+3:	SET_RDI_INTO_CR0
+	jmp 1b
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI);
 #endif
@@ -263,6 +275,7 @@ ENDPROC(pax_exit_kernel)
 #endif
 
 	.macro pax_enter_kernel_user
+	pax_set_fptr_mask
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	call pax_enter_kernel_user
 #endif
@@ -395,16 +408,16 @@ ENDPROC(pax_exit_kernel_user)
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 /*
- * r10: thread_info
+ * r11: thread_info
  * rcx, rdx: can be clobbered
  */
 ENTRY(pax_erase_kstack)
 	pushq %rdi
 	pushq %rax
-	pushq %r10
+	pushq %r11
 
-	GET_THREAD_INFO(%r10)
-	mov TI_lowest_stack(%r10), %rdi
+	GET_THREAD_INFO(%r11)
+	mov TI_lowest_stack(%r11), %rdi
 	mov $-0xBEEF, %rax
 	std
 
@@ -434,11 +447,11 @@ ENTRY(pax_erase_kstack)
 	shr $3, %ecx
 	rep stosq
 
-	mov TI_task_thread_sp0(%r10), %rdi
+	mov TI_task_thread_sp0(%r11), %rdi
 	sub $256, %rdi
-	mov %rdi, TI_lowest_stack(%r10)
+	mov %rdi, TI_lowest_stack(%r11)
 
-	popq %r10
+	popq %r11
 	popq %rax
 	popq %rdi
 	pax_force_retaddr
@@ -656,7 +669,7 @@ ENTRY(save_paranoid)
 	js 1f	/* negative -> in kernel */
 	SWAPGS
 	xorl %ebx,%ebx
-1:	pax_force_retaddr
+1:	pax_force_retaddr_bts
 	ret
 	CFI_ENDPROC
 ENDPROC(save_paranoid)
@@ -742,13 +755,13 @@ ENTRY(system_call_after_swapgs)
 
 	movq	%rsp,PER_CPU_VAR(old_rsp)
 	movq	PER_CPU_VAR(kernel_stack),%rsp
+	SAVE_ARGS 8*6,1
 	pax_enter_kernel_user
 	/*
 	 * No need to follow this irqs off/on section - it's straight
 	 * and short:
 	 */
 	ENABLE_INTERRUPTS(CLBR_NONE)
-	SAVE_ARGS 8*6,1
 	movq  %rax,ORIG_RAX-ARGOFFSET(%rsp)
 	movq  %rcx,RIP-ARGOFFSET(%rsp)
 	CFI_REL_OFFSET rip,RIP-ARGOFFSET
@@ -758,7 +771,7 @@ ENTRY(system_call_after_swapgs)
 system_call_fastpath:
 	cmpq $__NR_syscall_max,%rax
 	ja badsys
-	movq %r10,%rcx
+	movq R10-ARGOFFSET(%rsp),%rcx
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative
 	movq %rax,RAX-ARGOFFSET(%rsp)
 /*
@@ -832,7 +845,7 @@ badsys:
 	 * jump back to the normal fast path.
 	 */
 auditsys:
-	movq %r10,%r9			/* 6th arg: 4th syscall arg */
+	movq R10-ARGOFFSET(%rsp),%r9	/* 6th arg: 4th syscall arg */
 	movq %rdx,%r8			/* 5th arg: 3rd syscall arg */
 	movq %rsi,%rcx			/* 4th arg: 2nd syscall arg */
 	movq %rdi,%rdx			/* 3rd arg: 1st syscall arg */
@@ -843,6 +856,7 @@ auditsys:
 	pax_erase_kstack
 
 	LOAD_ARGS 0		/* reload call-clobbered registers */
+	pax_set_fptr_mask
 	jmp system_call_fastpath
 
 	/*
@@ -881,10 +895,11 @@ tracesys:
 	 * the value it wants us to use in the table lookup.
 	 */
 	LOAD_ARGS ARGOFFSET, 1
+	pax_set_fptr_mask
 	RESTORE_REST
 	cmpq $__NR_syscall_max,%rax
 	ja   int_ret_from_sys_call	/* RAX(%rsp) set to -ENOSYS above */
-	movq %r10,%rcx	/* fixup for C */
+	movq R10-ARGOFFSET(%rsp),%rcx	/* fixup for C */
 	call *sys_call_table(,%rax,8)
 	movq %rax,RAX-ARGOFFSET(%rsp)
 	/* Use IRET because user could have changed frame */
@@ -1770,7 +1785,7 @@ ENTRY(paranoid_exit)
 	TRACE_IRQS_IRETQ 0
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	jmp irq_return
 #endif
 paranoid_swapgs:
@@ -1787,7 +1802,7 @@ paranoid_restore:
 	pax_exit_kernel
 	TRACE_IRQS_IRETQ 0
 	RESTORE_ALL 8
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	jmp irq_return
 paranoid_userspace:
 	GET_THREAD_INFO(%rcx)
@@ -1849,7 +1864,7 @@ error_swapgs:
 	SWAPGS
 error_sti:
 	TRACE_IRQS_OFF
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	ret
 	CFI_ENDPROC
 
@@ -1929,7 +1944,7 @@ ENTRY(nmi)
 	pax_exit_kernel
 	SWAPGS_UNSAFE_STACK
 	RESTORE_ALL 8
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	jmp irq_return
 #endif
 nmi_swapgs:
@@ -1944,7 +1959,7 @@ nmi_swapgs:
 nmi_restore:
 	pax_exit_kernel
 	RESTORE_ALL 8
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	jmp irq_return
 nmi_userspace:
 	GET_THREAD_INFO(%rcx)

@@ -120,7 +120,7 @@ ENTRY(memcpy)
 	jnz .Lloop_1
 
 .Lend:
-	pax_force_retaddr
+	pax_force_retaddr 0, 1
 	ret
 	CFI_ENDPROC
 ENDPROC(memcpy)

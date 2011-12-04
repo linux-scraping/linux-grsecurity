@@ -41,12 +41,16 @@ extern rtx emit_move_insn(rtx x, rtx y);
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201111150100",
+	.version	= "201111291120",
+	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
 static unsigned int execute_kernexec_fptr(void);
 static unsigned int execute_kernexec_retaddr(void);
 static bool kernexec_cmodel_check(void);
+
+static void (*kernexec_instrument_fptr)(gimple_stmt_iterator);
+static void (*kernexec_instrument_retaddr)(rtx);
 
 static struct gimple_opt_pass kernexec_fptr_pass = {
 	.pass = {
@@ -106,7 +110,7 @@ static bool kernexec_cmodel_check(void)
  * add special KERNEXEC instrumentation: force MSB of fptr to 1, which will produce
  * a non-canonical address from a userland ptr and will just trigger a GPF on dereference
  */
-static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
+static void kernexec_instrument_fptr_bts(gimple_stmt_iterator gsi)
 {
 	gimple assign_intptr, assign_new_fptr, call_stmt;
 	tree intptr, old_fptr, new_fptr, kernexec_mask;
@@ -115,27 +119,59 @@ static void kernexec_instrument_fptr(gimple_stmt_iterator gsi)
 	old_fptr = gimple_call_fn(call_stmt);
 
 	// create temporary unsigned long variable used for bitops and cast fptr to it
-	intptr = create_tmp_var(long_unsigned_type_node, NULL);
+	intptr = create_tmp_var(long_unsigned_type_node, "kernexec_bts");
 	add_referenced_var(intptr);
 	mark_sym_for_renaming(intptr);
 	assign_intptr = gimple_build_assign(intptr, fold_convert(long_unsigned_type_node, old_fptr));
-	update_stmt(assign_intptr);
 	gsi_insert_before(&gsi, assign_intptr, GSI_SAME_STMT);
+	update_stmt(assign_intptr);
 
 	// apply logical or to temporary unsigned long and bitmask
 	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
 //	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
 	assign_intptr = gimple_build_assign(intptr, fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask));
-	update_stmt(assign_intptr);
 	gsi_insert_before(&gsi, assign_intptr, GSI_SAME_STMT);
+	update_stmt(assign_intptr);
 
 	// cast temporary unsigned long back to a temporary fptr variable
-	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), NULL);
+	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec");
 	add_referenced_var(new_fptr);
 	mark_sym_for_renaming(new_fptr);
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));
-	update_stmt(assign_new_fptr);
 	gsi_insert_before(&gsi, assign_new_fptr, GSI_SAME_STMT);
+	update_stmt(assign_new_fptr);
+
+	// replace call stmt fn with the new fptr
+	gimple_call_set_fn(call_stmt, new_fptr);
+	update_stmt(call_stmt);
+}
+
+static void kernexec_instrument_fptr_or(gimple_stmt_iterator gsi)
+{
+	gimple asm_or_stmt, call_stmt;
+	tree old_fptr, new_fptr, input, output;
+	VEC(tree, gc) *inputs = NULL;
+	VEC(tree, gc) *outputs = NULL;
+
+	call_stmt = gsi_stmt(gsi);
+	old_fptr = gimple_call_fn(call_stmt);
+
+	// create temporary fptr variable
+	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_or");
+	add_referenced_var(new_fptr);
+	mark_sym_for_renaming(new_fptr);
+
+	// build asm volatile("orq %%r10, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
+	input = build_tree_list(NULL_TREE, build_string(2, "0"));
+	input = chainon(NULL_TREE, build_tree_list(input, old_fptr));
+	output = build_tree_list(NULL_TREE, build_string(3, "=r"));
+	output = chainon(NULL_TREE, build_tree_list(output, new_fptr));
+	VEC_safe_push(tree, gc, inputs, input);
+	VEC_safe_push(tree, gc, outputs, output);
+	asm_or_stmt = gimple_build_asm_vec("orq %%r10, %0\n\t", inputs, outputs, NULL, NULL);
+	gimple_asm_set_volatile(asm_or_stmt, true);
+	gsi_insert_before(&gsi, asm_or_stmt, GSI_SAME_STMT);
+	update_stmt(asm_or_stmt);
 
 	// replace call stmt fn with the new fptr
 	gimple_call_set_fn(call_stmt, new_fptr);
@@ -189,7 +225,7 @@ static unsigned int execute_kernexec_fptr(void)
 }
 
 // add special KERNEXEC instrumentation: btsq $63,(%rsp) just before retn
-static void kernexec_instrument_retaddr(rtx insn)
+static void kernexec_instrument_retaddr_bts(rtx insn)
 {
 	rtx btsq;
 	rtvec argvec, constraintvec, labelvec;
@@ -204,6 +240,24 @@ static void kernexec_instrument_retaddr(rtx insn)
 	MEM_VOLATILE_P(btsq) = 1;
 //	RTX_FRAME_RELATED_P(btsq) = 1; // not for ASM_OPERANDS
 	emit_insn_before(btsq, insn);
+}
+
+// add special KERNEXEC instrumentation: orq %r10,(%rsp) just before retn
+static void kernexec_instrument_retaddr_or(rtx insn)
+{
+	rtx orq;
+	rtvec argvec, constraintvec, labelvec;
+	int line;
+
+	// create asm volatile("orq %%r10,(%%rsp)":::)
+	argvec = rtvec_alloc(0);
+	constraintvec = rtvec_alloc(0);
+	labelvec = rtvec_alloc(0);
+	line = expand_location(RTL_LOCATION(insn)).line;
+	orq = gen_rtx_ASM_OPERANDS(VOIDmode, "orq %%r10,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
+	MEM_VOLATILE_P(orq) = 1;
+//	RTX_FRAME_RELATED_P(orq) = 1; // not for ASM_OPERANDS
+	emit_insn_before(orq, insn);
 }
 
 /*
@@ -262,11 +316,30 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &kernexec_plugin_info);
 
-	for (i = 0; i < argc; ++i)
-		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
-
 	if (TARGET_64BIT == 0)
 		return 0;
+
+	for (i = 0; i < argc; ++i) {
+		if (!strcmp(argv[i].key, "method")) {
+			if (!argv[i].value) {
+				error(G_("no value supplied for option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+				continue;
+			}
+			if (!strcmp(argv[i].value, "bts")) {
+				kernexec_instrument_fptr = kernexec_instrument_fptr_bts;
+				kernexec_instrument_retaddr = kernexec_instrument_retaddr_bts;
+			} else if (!strcmp(argv[i].value, "or")) {
+				kernexec_instrument_fptr = kernexec_instrument_fptr_or;
+				kernexec_instrument_retaddr = kernexec_instrument_retaddr_or;
+				fix_register("r10", 1, 1);
+			} else
+				error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"), plugin_name, argv[i].key, argv[i].value);
+			continue;
+		}
+		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+	}
+	if (!kernexec_instrument_fptr || !kernexec_instrument_retaddr)
+		error(G_("no instrumentation method was selected via '-fplugin-arg-%s-method'"), plugin_name);
 
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &kernexec_fptr_pass_info);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &kernexec_retaddr_pass_info);
