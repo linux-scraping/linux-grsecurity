@@ -1224,7 +1224,10 @@ static int override_release(char __user *release, int len)
 		}
 		v = ((LINUX_VERSION_CODE >> 8) & 0xff) + 40;
 		snprintf(buf, len, "2.6.%u%s", v, rest);
-		ret = copy_to_user(release, buf, len);
+		if (len > sizeof(buf))
+			ret = -EFAULT;
+		else
+			ret = copy_to_user(release, buf, len);
 	}
 	return ret;
 }

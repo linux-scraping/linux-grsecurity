@@ -281,10 +281,17 @@ int generic_permission(struct inode *inode, int mask)
 	if (ret != -EACCES)
 		return ret;
 
+#ifdef CONFIG_GRKERNSEC
+	/* we'll block if we have to log due to a denied capability use */
+	if (mask & MAY_NOT_BLOCK)
+		return -ECHILD;
+#endif
+
 	if (S_ISDIR(inode->i_mode)) {
 		/* DACs are overridable for directories */
 		if (!(mask & MAY_WRITE))
-			if (ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
+			if (ns_capable_nolog(inode_userns(inode), CAP_DAC_OVERRIDE) ||
+			    ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
 				return 0;
 		if (ns_capable(inode_userns(inode), CAP_DAC_OVERRIDE))
 			return 0;
@@ -295,7 +302,8 @@ int generic_permission(struct inode *inode, int mask)
 	 */
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
 	if (mask == MAY_READ)
-		if (ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
+		if (ns_capable_nolog(inode_userns(inode), CAP_DAC_OVERRIDE) ||
+		    ns_capable(inode_userns(inode), CAP_DAC_READ_SEARCH))
 			return 0;
 
 	/*
@@ -1630,10 +1638,19 @@ static int path_lookupat(int dfd, const char *name,
 	if (!err)
 		err = complete_walk(nd);
 
-	if (!(nd->flags & LOOKUP_PARENT) && !gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
-		if (!err)
-			path_put(&nd->path);
-		err = -ENOENT;
+	if (!(nd->flags & LOOKUP_PARENT)) {
+#ifdef CONFIG_GRKERNSEC
+		if (flags & LOOKUP_RCU) {
+			if (!err)
+				path_put(&nd->path);
+			err = -ECHILD;
+		} else
+#endif
+		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
+			if (!err)
+				path_put(&nd->path);
+			err = -ENOENT;
+		}
 	}
 
 	if (!err && nd->flags & LOOKUP_DIRECTORY) {
@@ -1663,8 +1680,14 @@ static int do_path_lookup(int dfd, const char *name,
 		retval = path_lookupat(dfd, name, flags | LOOKUP_REVAL, nd);
 
 	if (likely(!retval)) {
-		if (*name != '/' && nd->path.dentry && nd->inode && !gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
-			return -ENOENT;
+		if (*name != '/' && nd->path.dentry && nd->inode) {
+#ifdef CONFIG_GRKERNSEC
+			if (flags & LOOKUP_RCU)
+				return -ECHILD;
+#endif
+			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
+				return -ENOENT;
+		}
 
 		if (unlikely(!audit_dummy_context())) {
 			if (nd->path.dentry && nd->inode)
@@ -2147,6 +2170,12 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		error = complete_walk(nd);
 		if (error)
 			return ERR_PTR(error);
+#ifdef CONFIG_GRKERNSEC
+		if (nd->flags & LOOKUP_RCU) {
+			error = -ECHILD;
+			goto exit;
+		}
+#endif
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 			error = -ENOENT;
 			goto exit;
@@ -2161,6 +2190,12 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		error = complete_walk(nd);
 		if (error)
 			return ERR_PTR(error);
+#ifdef CONFIG_GRKERNSEC
+		if (nd->flags & LOOKUP_RCU) {
+			error = -ECHILD;
+			goto exit;
+		}
+#endif
 		if (!gr_acl_handle_hidden_file(dir, nd->path.mnt)) {
 			error = -ENOENT;
 			goto exit;
@@ -2186,7 +2221,12 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 		error = complete_walk(nd);
 		if (error)
 			return ERR_PTR(-ECHILD);
-
+#ifdef CONFIG_GRKERNSEC
+		if (nd->flags & LOOKUP_RCU) {
+			error = -ECHILD;
+			goto exit;
+		}
+#endif
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 			error = -ENOENT;
 			goto exit;
@@ -3089,7 +3129,7 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
 {
 	struct dentry *new_dentry;
 	struct path old_path, new_path;
-	char *to;
+	char *to = NULL;
 	int how = 0;
 	int error;
 
