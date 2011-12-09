@@ -332,21 +332,10 @@ static void reparent_to_kthreadd(void)
 {
 	write_lock_irq(&tasklist_lock);
 
-#ifdef CONFIG_GRKERNSEC
-	write_lock(&grsec_exec_file_lock);
-	if (current->exec_file) {
-		fput(current->exec_file);
-		current->exec_file = NULL;
-	}
-	write_unlock(&grsec_exec_file_lock);
-#endif
-
 	ptrace_unlink(current);
 	/* Reparent to init */
 	current->real_parent = current->parent = kthreadd_task;
 	list_move_tail(&current->sibling, &current->real_parent->children);
-
-	gr_set_kernel_label(current);
 
 	/* Set the exit signal to SIGCHLD so we signal init on exit */
 	current->exit_signal = SIGCHLD;

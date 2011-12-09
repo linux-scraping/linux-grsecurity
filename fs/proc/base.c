@@ -3156,9 +3156,6 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, struct
 	if (!task)
 		goto out;
 
-	if (!has_group_leader_pid(task))
-		goto out_put_task;
-
 	if (gr_pid_is_chrooted(task) || gr_check_hidden_task(task))
 		goto out_put_task;
 

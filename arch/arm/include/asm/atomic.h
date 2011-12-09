@@ -239,6 +239,14 @@ typedef struct {
 	u64 __aligned(8) counter;
 } atomic64_t;
 
+#ifdef CONFIG_PAX_REFCOUNT
+typedef struct {
+	u64 __aligned(8) counter;
+} atomic64_unchecked_t;
+#else
+typedef atomic64_t atomic64_unchecked_t;
+#endif
+
 #define ATOMIC64_INIT(i) { (i) }
 
 static inline u64 atomic64_read(atomic64_t *v)
