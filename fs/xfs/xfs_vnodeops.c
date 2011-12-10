@@ -113,7 +113,7 @@ xfs_readlink(
 	char		*link)
 {
 	xfs_mount_t	*mp = ip->i_mount;
-	int		pathlen;
+	xfs_fsize_t	pathlen;
 	int		error = 0;
 
 	trace_xfs_readlink(ip);
@@ -127,12 +127,14 @@ xfs_readlink(
 	if (!pathlen)
 		goto out;
 
-	if (pathlen > MAXPATHLEN) {
-		xfs_alert(mp, "%s: inode (%llu) symlink length (%d) too long",
-			 __func__, (unsigned long long)ip->i_ino, pathlen);
+	if (pathlen < 0 || pathlen > MAXPATHLEN) {
+		xfs_alert(mp, "%s: inode (%llu) bad symlink length (%lld)",
+			 __func__, (unsigned long long) ip->i_ino,
+			 (long long) pathlen);
 		ASSERT(0);
 		return XFS_ERROR(EFSCORRUPTED);
 	}
+
 
 	if (ip->i_df.if_flags & XFS_IFINLINE) {
 		memcpy(link, ip->i_df.if_u1.if_data, pathlen);

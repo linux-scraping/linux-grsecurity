@@ -48,7 +48,7 @@ copy_in_user(void __user *to, const void __user *from, unsigned long len);
 
 static inline unsigned long __must_check copy_from_user(void *to,
 					  const void __user *from,
-					  unsigned long n)
+					  unsigned n)
 {
 	might_fault();
 

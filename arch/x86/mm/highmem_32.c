@@ -49,6 +49,8 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	set_pte(kmap_pte-idx, mk_pte(page, prot));
 	pax_close_kernel();
 
+	arch_flush_lazy_mmu_mode();
+
 	return (void *)vaddr;
 }
 EXPORT_SYMBOL(kmap_atomic_prot);
@@ -91,6 +93,7 @@ void __kunmap_atomic(void *kvaddr)
 		 */
 		kpte_clear_flush(kmap_pte-idx, vaddr);
 		kmap_atomic_idx_pop();
+		arch_flush_lazy_mmu_mode();
 	}
 #ifdef CONFIG_DEBUG_HIGHMEM
 	else {
