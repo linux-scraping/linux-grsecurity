@@ -231,14 +231,14 @@ alloc_read_gpt_entries(struct block_device *bdev, gpt_header *gpt)
 	if (!bdev || !gpt)
 		return NULL;
 
-	count = le32_to_cpu(gpt->num_partition_entries) *
-                le32_to_cpu(gpt->sizeof_partition_entry);
-	if (!count)
+	if (!le32_to_cpu(gpt->num_partition_entries))
 		return NULL;
-	pte = kzalloc(count, GFP_KERNEL);
+	pte = kcalloc(le32_to_cpu(gpt->num_partition_entries), le32_to_cpu(gpt->sizeof_partition_entry), GFP_KERNEL);
 	if (!pte)
 		return NULL;
 
+	count = le32_to_cpu(gpt->num_partition_entries) *
+                le32_to_cpu(gpt->sizeof_partition_entry);
 	if (read_lba(bdev, le64_to_cpu(gpt->partition_entry_lba),
                      (u8 *) pte,
 		     count) < count) {

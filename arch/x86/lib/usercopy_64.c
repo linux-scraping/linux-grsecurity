@@ -161,7 +161,7 @@ long strlen_user(const char __user *s)
 }
 EXPORT_SYMBOL(strlen_user);
 
-unsigned long copy_in_user(void __user *to, const void __user *from, unsigned len)
+unsigned long copy_in_user(void __user *to, const void __user *from, unsigned long len)
 {
 	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len)) {
 
@@ -184,7 +184,7 @@ EXPORT_SYMBOL(copy_in_user);
  * it is not necessary to optimize tail handling.
  */
 unsigned long
-copy_user_handle_tail(char __user *to, char __user *from, unsigned len, unsigned zerorest)
+copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, unsigned zerorest)
 {
 	char c;
 	unsigned zero_len;

@@ -133,7 +133,7 @@ static struct attribute_spec no_const_attr = {
 	.type_required		= false,
 	.function_type_required	= false,
 	.handler		= handle_no_const_attribute,
-#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+#if BUILDING_GCC_VERSION >= 4007
 	.affects_type_identity	= true
 #endif
 };
@@ -146,7 +146,7 @@ static struct attribute_spec do_const_attr = {
 	.type_required		= false,
 	.function_type_required	= false,
 	.handler		= handle_do_const_attribute,
-#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+#if BUILDING_GCC_VERSION >= 4007
 	.affects_type_identity	= true
 #endif
 };
@@ -234,7 +234,7 @@ static unsigned int check_local_variables(void)
 	tree var;
 	referenced_var_iterator rvi;
 
-#if __GNUC__ == 4 && __GNUC_MINOR__ == 5
+#if BUILDING_GCC_VERSION == 4005
 	FOR_EACH_REFERENCED_VAR(var, rvi) {
 #else
 	FOR_EACH_REFERENCED_VAR(cfun, var, rvi) {

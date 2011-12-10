@@ -42,6 +42,8 @@ L4_START_KERNEL = pgd_index(__START_KERNEL_map)
 L3_START_KERNEL = pud_index(__START_KERNEL_map)
 L4_VMALLOC_START = pgd_index(VMALLOC_START)
 L3_VMALLOC_START = pud_index(VMALLOC_START)
+L4_VMALLOC_END = pgd_index(VMALLOC_END)
+L3_VMALLOC_END = pud_index(VMALLOC_END)
 L4_VMEMMAP_START = pgd_index(VMEMMAP_START)
 L3_VMEMMAP_START = pud_index(VMEMMAP_START)
 
@@ -92,6 +94,7 @@ startup_64:
 	addq	%rbp, init_level4_pgt + 0(%rip)
 	addq	%rbp, init_level4_pgt + (L4_PAGE_OFFSET*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_VMALLOC_START*8)(%rip)
+	addq	%rbp, init_level4_pgt + (L4_VMALLOC_END*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_VMEMMAP_START*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_START_KERNEL*8)(%rip)
 
@@ -185,6 +188,7 @@ ENTRY(secondary_startup_64)
 	btsq	$_PAGE_BIT_NX, 8*L4_PAGE_OFFSET(%rdi)
 #endif
 	btsq	$_PAGE_BIT_NX, 8*L4_VMALLOC_START(%rdi)
+	btsq	$_PAGE_BIT_NX, 8*L4_VMALLOC_END(%rdi)
 	btsq	$_PAGE_BIT_NX, 8*L4_VMEMMAP_START(%rdi)
 1:	wrmsr				/* Make changes effective */
 
@@ -356,7 +360,9 @@ NEXT_PAGE(init_level4_pgt)
 	.org	init_level4_pgt + L4_PAGE_OFFSET*8, 0
 	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.org	init_level4_pgt + L4_VMALLOC_START*8, 0
-	.quad	level3_vmalloc_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level3_vmalloc_start_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.org	init_level4_pgt + L4_VMALLOC_END*8, 0
+	.quad	level3_vmalloc_end_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.org	init_level4_pgt + L4_VMEMMAP_START*8, 0
 	.quad	level3_vmemmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.org	init_level4_pgt + L4_START_KERNEL*8, 0
@@ -379,7 +385,10 @@ NEXT_PAGE(level3_ident_pgt)
 	.fill	510,8,0
 #endif
 
-NEXT_PAGE(level3_vmalloc_pgt)
+NEXT_PAGE(level3_vmalloc_start_pgt)
+	.fill	512,8,0
+
+NEXT_PAGE(level3_vmalloc_end_pgt)
 	.fill	512,8,0
 
 NEXT_PAGE(level3_vmemmap_pgt)

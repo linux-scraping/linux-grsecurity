@@ -124,7 +124,7 @@ static void stackleak_add_instrumentation(gimple_stmt_iterator gsi)
 	gsi_insert_after(&gsi, track_stack, GSI_CONTINUE_LINKING);
 }
 
-#if __GNUC__ == 4 && __GNUC_MINOR__ == 5
+#if BUILDING_GCC_VERSION == 4005
 static bool gimple_call_builtin_p(gimple stmt, enum built_in_function code)
 {
 	tree fndecl;
@@ -146,7 +146,7 @@ static bool is_alloca(gimple stmt)
 	if (gimple_call_builtin_p(stmt, BUILT_IN_ALLOCA))
 		return true;
 
-#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+#if BUILDING_GCC_VERSION >= 4007
 	if (gimple_call_builtin_p(stmt, BUILT_IN_ALLOCA_WITH_ALIGN))
 		return true;
 #endif
@@ -222,7 +222,7 @@ static unsigned int execute_stackleak_final(void)
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
 		// 2. delete call
 		insn = delete_insn_and_edges(insn);
-#if __GNUC__ > 4 || __GNUC_MINOR__ >= 7
+#if BUILDING_GCC_VERSION >= 4007
 		if (GET_CODE(insn) == NOTE && NOTE_KIND(insn) == NOTE_INSN_CALL_ARG_LOCATION)
 			insn = delete_insn_and_edges(insn);
 #endif

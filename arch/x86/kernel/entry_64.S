@@ -517,8 +517,8 @@ ENDPROC(pax_erase_kstack)
 	.endm
 
 	.macro UNFAKE_STACK_FRAME
-	addq $8*6, %rsp
-	CFI_ADJUST_CFA_OFFSET	-(6*8)
+	addq $8*6 + ARG_SKIP, %rsp
+	CFI_ADJUST_CFA_OFFSET	-(6*8 + ARG_SKIP)
 	.endm
 
 /*
@@ -1562,7 +1562,7 @@ ENTRY(kernel_thread)
 	 * of hacks for example to fork off the per-CPU idle tasks.
 	 * [Hopefully no generic code relies on the reschedule -AK]
 	 */
-	RESTORE_ALL
+	RESTORE_REST
 	UNFAKE_STACK_FRAME
 	pax_force_retaddr
 	ret
@@ -1612,7 +1612,6 @@ ENTRY(kernel_execve)
 	RESTORE_REST
 	testq %rax,%rax
 	je int_ret_from_sys_call
-	RESTORE_ARGS
 	UNFAKE_STACK_FRAME
 	pax_force_retaddr
 	ret
