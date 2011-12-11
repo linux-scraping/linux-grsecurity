@@ -1654,7 +1654,8 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 #if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (!(pgprot_val(prot) & _PAGE_NX))
 		area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNLIST | VM_KERNEXEC,
-						VMALLOC_START, VMALLOC_END, node, gfp_mask, caller);
+					  VMALLOC_START, VMALLOC_END, node,
+					  gfp_mask, caller);
 	else
 #endif
 
