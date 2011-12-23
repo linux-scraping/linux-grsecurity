@@ -136,10 +136,8 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 {
 	struct compat_robust_list_head __user *head;
 	unsigned long ret;
-#ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
 	const struct cred *cred = current_cred();
 	const struct cred *pcred;
-#endif
 
 	if (!futex_cmpxchg_enabled)
 		return -ENOSYS;
@@ -158,13 +156,12 @@ compat_sys_get_robust_list(int pid, compat_uptr_t __user *head_ptr,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		if (!ptrace_may_access(p, PTRACE_MODE_READ))
 			goto err_unlock;
-#else
+#endif
 		pcred = __task_cred(p);
 		if (cred->euid != pcred->euid &&
 		    cred->euid != pcred->uid &&
 		    !capable(CAP_SYS_PTRACE))
 			goto err_unlock;
-#endif
 		head = p->compat_robust_list;
 		read_unlock(&tasklist_lock);
 	}

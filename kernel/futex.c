@@ -2417,9 +2417,7 @@ SYSCALL_DEFINE3(get_robust_list, int, pid,
 {
 	struct robust_list_head __user *head;
 	unsigned long ret;
-#ifndef CONFIG_GRKERNSEC_PROC_MEMMAP
 	const struct cred *cred = current_cred(), *pcred;
-#endif
 
 	if (!futex_cmpxchg_enabled)
 		return -ENOSYS;
@@ -2438,13 +2436,12 @@ SYSCALL_DEFINE3(get_robust_list, int, pid,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		if (!ptrace_may_access(p, PTRACE_MODE_READ))
 			goto err_unlock;
-#else
+#endif
 		pcred = __task_cred(p);
 		if (cred->euid != pcred->euid &&
 		    cred->euid != pcred->uid &&
 		    !capable(CAP_SYS_PTRACE))
 			goto err_unlock;
-#endif
 		head = p->robust_list;
 		rcu_read_unlock();
 	}
