@@ -223,6 +223,9 @@ extern int grsec_disable_privio;
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
 extern int grsec_enable_chroot_findtask;
 #endif
+#ifdef CONFIG_GRKERNSEC_SETXID
+extern int grsec_enable_setxid;
+#endif
 #endif
 
 #endif

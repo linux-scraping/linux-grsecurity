@@ -7,6 +7,7 @@
 #include <linux/percpu.h>
 #include <linux/module.h>
 
+int grsec_enable_setxid;
 int grsec_enable_brute;
 int grsec_enable_link;
 int grsec_enable_dmesg;
@@ -186,6 +187,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_EXECLOG
 	grsec_enable_execlog = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_SETXID
+	grsec_enable_setxid = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_SIGNAL
 	grsec_enable_signal = 1;

@@ -401,6 +401,7 @@ void cpu_idle_wait(void);
 extern void free_init_pages(char *what, unsigned long begin, unsigned long end);
 
 void default_idle(void);
+bool set_pm_idle_to_default(void);
 
 void stop_this_cpu(void *dummy) __noreturn;
 

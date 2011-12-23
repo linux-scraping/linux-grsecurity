@@ -289,9 +289,9 @@ error:
  *
  * Call commit_creds() or abort_creds() to clean up.
  */
-struct cred *prepare_creds(void)
+
+static struct cred *__prepare_creds(struct task_struct *task)
 {
-	struct task_struct *task = current;
 	const struct cred *old;
 	struct cred *new;
 
@@ -331,6 +331,11 @@ struct cred *prepare_creds(void)
 error:
 	abort_creds(new);
 	return NULL;
+}
+
+struct cred *prepare_creds(void)
+{
+	return __prepare_creds(current);
 }
 EXPORT_SYMBOL(prepare_creds);
 
@@ -484,9 +489,8 @@ error_put:
  * Always returns 0 thus allowing this function to be tail-called at the end
  * of, say, sys_setgid().
  */
-int commit_creds(struct cred *new)
+static int __commit_creds(struct task_struct *task, struct cred *new)
 {
-	struct task_struct *task = current;
 	const struct cred *old = task->real_cred;
 
 	pax_track_stack();
@@ -556,6 +560,64 @@ int commit_creds(struct cred *new)
 	put_cred(old);
 	return 0;
 }
+
+int commit_creds(struct cred *new)
+{
+#ifdef CONFIG_GRKERNSEC_SETXID
+	struct task_struct *t;
+	struct cred *ncred;
+	const struct cred *old;
+
+	if (grsec_enable_setxid && !current_is_single_threaded() &&
+	    !current_uid() && new->uid) {
+		rcu_read_lock();
+		read_lock(&tasklist_lock);
+		for (t = next_thread(current); t != current;
+		     t = next_thread(t)) {
+			old = __task_cred(t);
+			if (old->uid)
+				continue;
+			ncred = __prepare_creds(t);
+			if (!ncred)
+				goto die;
+			// uids
+			ncred->uid = new->uid;
+			ncred->euid = new->euid;
+			ncred->suid = new->suid;
+			ncred->fsuid = new->fsuid;
+			// gids
+			ncred->gid = new->gid;
+			ncred->egid = new->egid;
+			ncred->sgid = new->sgid;
+			ncred->fsgid = new->fsgid;
+			// groups
+			if (set_groups(ncred, new->group_info) < 0) {
+				abort_creds(ncred);
+				goto die;
+			}
+			// caps
+			ncred->securebits = new->securebits;
+			ncred->cap_inheritable = new->cap_inheritable;
+			ncred->cap_permitted = new->cap_permitted;
+			ncred->cap_effective = new->cap_effective;
+			ncred->cap_bset = new->cap_bset;
+
+			__commit_creds(t, ncred);
+		}	
+		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
+	}
+#endif
+	return __commit_creds(current, new);
+#ifdef CONFIG_GRKERNSEC_SETXID
+die:
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+	abort_creds(new);
+	do_group_exit(SIGKILL);
+#endif
+}
+
 EXPORT_SYMBOL(commit_creds);
 
 /**

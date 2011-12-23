@@ -46,7 +46,6 @@ struct hfs_btree *hfs_btree_open(struct super_block *sb, u32 id, btree_keycmp ke
 	case HFS_EXT_CNID:
 		hfs_inode_read_fork(tree->inode, mdb->drXTExtRec, mdb->drXTFlSize,
 				    mdb->drXTFlSize, be32_to_cpu(mdb->drXTClpSiz));
-
 		if (HFS_I(tree->inode)->alloc_blocks >
 					HFS_I(tree->inode)->first_blocks) {
 			printk(KERN_ERR "hfs: invalid btree extent records\n");
