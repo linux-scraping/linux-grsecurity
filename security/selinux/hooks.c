@@ -76,6 +76,7 @@
 #include <linux/selinux.h>
 #include <linux/mutex.h>
 #include <linux/posix-timers.h>
+#include <linux/syslog.h>
 
 #include "avc.h"
 #include "objsec.h"
@@ -2050,29 +2051,30 @@ static int selinux_quota_on(struct dentry *dentry)
 	return dentry_has_perm(cred, NULL, dentry, FILE__QUOTAON);
 }
 
-static int selinux_syslog(int type)
+static int selinux_syslog(int type, bool from_file)
 {
 	int rc;
 
-	rc = cap_syslog(type);
+	rc = cap_syslog(type, from_file);
 	if (rc)
 		return rc;
 
 	switch (type) {
-	case 3:		/* Read last kernel messages */
-	case 10:	/* Return size of the log buffer */
+	case SYSLOG_ACTION_READ_ALL:	/* Read last kernel messages */
+	case SYSLOG_ACTION_SIZE_BUFFER:	/* Return size of the log buffer */
 		rc = task_has_system(current, SYSTEM__SYSLOG_READ);
 		break;
-	case 6:		/* Disable logging to console */
-	case 7:		/* Enable logging to console */
-	case 8:		/* Set level of messages printed to console */
+	case SYSLOG_ACTION_CONSOLE_OFF:	/* Disable logging to console */
+	case SYSLOG_ACTION_CONSOLE_ON:	/* Enable logging to console */
+	/* Set level of messages printed to console */
+	case SYSLOG_ACTION_CONSOLE_LEVEL:
 		rc = task_has_system(current, SYSTEM__SYSLOG_CONSOLE);
 		break;
-	case 0:		/* Close log */
-	case 1:		/* Open log */
-	case 2:		/* Read from log */
-	case 4:		/* Read/clear last kernel messages */
-	case 5:		/* Clear ring buffer */
+	case SYSLOG_ACTION_CLOSE:	/* Close log */
+	case SYSLOG_ACTION_OPEN:	/* Open log */
+	case SYSLOG_ACTION_READ:	/* Read from log */
+	case SYSLOG_ACTION_READ_CLEAR:	/* Read/clear last kernel messages */
+	case SYSLOG_ACTION_CLEAR:	/* Clear ring buffer */
 	default:
 		rc = task_has_system(current, SYSTEM__SYSLOG_MOD);
 		break;
