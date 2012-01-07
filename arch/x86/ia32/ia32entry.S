@@ -108,7 +108,9 @@ ENDPROC(native_irq_enable_sysexit)
 #endif
 #ifdef CONFIG_PAX_RANDKSTACK
 	pushq %rax
+	pushq %r11
 	call pax_randomize_kstack
+	popq %r11
 	popq %rax
 #endif
 	.endm

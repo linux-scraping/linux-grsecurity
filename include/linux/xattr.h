@@ -33,6 +33,11 @@
 #define XATTR_USER_PREFIX "user."
 #define XATTR_USER_PREFIX_LEN (sizeof (XATTR_USER_PREFIX) - 1)
 
+/* User namespace */
+#define XATTR_PAX_PREFIX XATTR_USER_PREFIX "pax."
+#define XATTR_PAX_FLAGS_SUFFIX "flags"
+#define XATTR_NAME_PAX_FLAGS XATTR_PAX_PREFIX XATTR_PAX_FLAGS_SUFFIX
+
 struct inode;
 struct dentry;
 

@@ -290,7 +290,7 @@ struct mm_struct {
 	struct mmu_notifier_mm *mmu_notifier_mm;
 #endif
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	unsigned long pax_flags;
 #endif
 

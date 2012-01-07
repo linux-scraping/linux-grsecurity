@@ -40,12 +40,11 @@ menu "PaX Control"
 
 config PAX_SOFTMODE
 	bool 'Support soft mode'
-	select PAX_PT_PAX_FLAGS
 	help
 	  Enabling this option will allow you to run PaX in soft mode, that
 	  is, PaX features will not be enforced by default, only on executables
-	  marked explicitly.  You must also enable PT_PAX_FLAGS support as it
-	  is the only way to mark executables for soft mode use.
+	  marked explicitly.  You must also enable PT_PAX_FLAGS or XATTR_PAX_FLAGS
+	  support as they are the only way to mark executables for soft mode use.
 
 	  Soft mode can be activated by using the "pax_softmode=1" kernel command
 	  line option on boot.  Furthermore you can control various PaX features
@@ -60,10 +59,15 @@ config PAX_EI_PAX
 	  an otherwise reserved part of the ELF header.  This marking has
 	  numerous drawbacks (no support for soft-mode, toolchain does not
 	  know about the non-standard use of the ELF header) therefore it
-	  has been deprecated in favour of PT_PAX_FLAGS support.
+	  has been deprecated in favour of PT_PAX_FLAGS and XATTR_PAX_FLAGS
+	  support.
 
-	  Note that if you enable PT_PAX_FLAGS marking support as well,
-	  the PT_PAX_FLAG marks will override the legacy EI_PAX marks.
+	  If you have applications not marked by the PT_PAX_FLAGS ELF program
+	  header and you cannot use XATTR_PAX_FLAGS then you MUST enable this
+	  option otherwise they will not get any protection.
+
+	  Note that if you enable PT_PAX_FLAGS or XATTR_PAX_FLAGS marking
+	  support as well, they will override the legacy EI_PAX marks.
 
 config PAX_PT_PAX_FLAGS
 	bool 'Use ELF program header marking'
@@ -76,11 +80,48 @@ config PAX_PT_PAX_FLAGS
 	  integrated into the toolchain (the binutils patch is available
 	  from http://pax.grsecurity.net).
 
-	  If your toolchain does not support PT_PAX_FLAGS markings,
-	  you can create one in most cases with 'paxctl -C'.
+	  If you have applications not marked by the PT_PAX_FLAGS ELF program
+	  header then you MUST enable either XATTR_PAX_FLAGS or EI_PAX marking
+	  support otherwise they will not get any protection.
+
+	  If you enable both PT_PAX_FLAGS and XATTR_PAX_FLAGS support then you
+	  must make sure that the marks are the same if a binary has both marks.
 
 	  Note that if you enable the legacy EI_PAX marking support as well,
 	  the EI_PAX marks will be overridden by the PT_PAX_FLAGS marks.
+
+config PAX_XATTR_PAX_FLAGS
+	bool 'Use filesystem extended attributes marking'
+	depends on EXPERT
+	select CIFS_XATTR if CIFS
+	select EXT2_FS_XATTR if EXT2_FS
+	select EXT3_FS_XATTR if EXT3_FS
+	select EXT4_FS_XATTR if EXT4_FS
+	select JFFS2_FS_XATTR if JFFS2_FS
+	select REISERFS_FS_XATTR if REISERFS_FS
+	select SQUASHFS_XATTR if SQUASHFS
+	select TMPFS_XATTR if TMPFS
+	select UBIFS_FS_XATTR if UBIFS_FS
+	help
+	  Enabling this option will allow you to control PaX features on
+	  a per executable basis via the 'setfattr' utility.  The control
+	  flags will be read from the user.pax.flags extended attribute of
+	  the file.  This marking has the benefit of supporting binary-only
+	  applications that self-check themselves (e.g., skype) and would
+	  not tolerate chpax/paxctl changes.  The main drawback is that
+	  extended attributes are not supported by some filesystems (e.g.,
+	  isofs, udf, vfat) so copying files through such filesystems will
+	  lose the extended attributes and these PaX markings.
+
+	  If you have applications not marked by the PT_PAX_FLAGS ELF program
+	  header then you MUST enable either XATTR_PAX_FLAGS or EI_PAX marking
+	  support otherwise they will not get any protection.
+
+	  If you enable both PT_PAX_FLAGS and XATTR_PAX_FLAGS support then you
+	  must make sure that the marks are the same if a binary has both marks.
+
+	  Note that if you enable the legacy EI_PAX marking support as well,
+	  the EI_PAX marks will be overridden by the XATTR_PAX_FLAGS marks.
 
 choice
 	prompt 'MAC system integration'
@@ -113,7 +154,7 @@ menu "Non-executable pages"
 
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
-	depends on (PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS) && (ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86)
+	depends on ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86
 	help
 	  By design some architectures do not allow for protecting memory
 	  pages against execution or even if they do, Linux does not make
@@ -388,7 +429,6 @@ menu "Address Space Layout Randomization"
 
 config PAX_ASLR
 	bool "Address Space Layout Randomization"
-	depends on PAX_EI_PAX || PAX_PT_PAX_FLAGS || PAX_HAVE_ACL_FLAGS || PAX_HOOK_ACL_FLAGS
 	help
 	  Many if not most exploit techniques rely on the knowledge of
 	  certain addresses in the attacked program.  The following options
@@ -508,10 +548,10 @@ config PAX_MEMORY_STACKLEAK
 	  before deploying it.
 
 	  Note: full support for this feature requires gcc with plugin support
-	  so make sure your compiler is at least gcc 4.5.0 (cross compilation
-	  is not supported).  Using older gcc versions means that functions
-	  with large enough stack frames may leave uninitialized memory behind
-	  that may be exposed to a later syscall leaking the stack.
+	  so make sure your compiler is at least gcc 4.5.0.  Using older gcc
+	  versions means that functions with large enough stack frames may
+	  leave uninitialized memory behind that may be exposed to a later
+	  syscall leaking the stack.
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"

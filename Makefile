@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 32
-EXTRAVERSION = .52
+EXTRAVERSION = .53
 NAME = Man-Eating Seals of Antiquity
 
 # *DOCUMENTATION*
@@ -550,8 +550,12 @@ endif
 endif
 GCC_PLUGINS := $(CONSTIFY_PLUGIN) $(STACKLEAK_PLUGIN) $(KALLOCSTAT_PLUGIN) $(KERNEXEC_PLUGIN) $(CHECKER_PLUGIN)
 export CONSTIFY_PLUGIN STACKLEAK_PLUGIN KERNEXEC_PLUGIN CHECKER_PLUGIN
+ifeq ($(KBUILD_EXTMOD),)
 gcc-plugins:
 	$(Q)$(MAKE) $(build)=tools/gcc
+else
+gcc-plugins: ;
+endif
 else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
