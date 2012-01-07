@@ -786,7 +786,7 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 	/* Filter out anything that depends on CPUID levels we don't have */
 	filter_cpuid_features(c, true);
 
-#if defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || (defined(CONFIG_PAX_MEMORY_UDEREF) && defined(CONFIG_X86_32))
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF))
 	setup_clear_cpu_cap(X86_FEATURE_SEP);
 #endif
 

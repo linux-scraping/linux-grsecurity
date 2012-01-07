@@ -290,9 +290,9 @@ ENDPROC(pax_exit_kernel)
 	call pax_exit_kernel_user
 #endif
 #ifdef CONFIG_PAX_RANDKSTACK
-	push %rax
+	pushq %rax
 	call pax_randomize_kstack
-	pop %rax
+	popq %rax
 #endif
 	.endm
 

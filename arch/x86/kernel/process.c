@@ -431,7 +431,6 @@ bool set_pm_idle_to_default(void)
 
 	return ret;
 }
-
 __noreturn void stop_this_cpu(void *dummy)
 {
 	local_irq_disable();

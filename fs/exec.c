@@ -68,6 +68,10 @@
 #include <asm/tlb.h>
 #include "internal.h"
 
+#ifndef CONFIG_PAX_HAVE_ACL_FLAGS
+void __weak pax_set_initial_flags(struct linux_binprm *bprm) {}
+#endif
+
 #ifdef CONFIG_PAX_HOOK_ACL_FLAGS
 void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 EXPORT_SYMBOL(pax_set_initial_flags_func);

@@ -297,7 +297,7 @@ static struct cred *__prepare_creds(struct task_struct *task)
 
 	pax_track_stack();
 
-	validate_process_creds();
+	validate_task_creds(task);
 
 	new = kmem_cache_alloc(cred_jar, GFP_KERNEL);
 	if (!new)

@@ -49,6 +49,11 @@
 #define XATTR_CAPS_SUFFIX "capability"
 #define XATTR_NAME_CAPS XATTR_SECURITY_PREFIX XATTR_CAPS_SUFFIX
 
+/* User namespace */
+#define XATTR_PAX_PREFIX XATTR_USER_PREFIX "pax."
+#define XATTR_PAX_FLAGS_SUFFIX "flags"
+#define XATTR_NAME_PAX_FLAGS XATTR_PAX_PREFIX XATTR_PAX_FLAGS_SUFFIX
+
 #ifdef  __KERNEL__
 
 #include <linux/types.h>

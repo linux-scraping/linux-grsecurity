@@ -32,6 +32,7 @@
 #include <linux/elf.h>
 #include <linux/utsname.h>
 #include <linux/coredump.h>
+#include <linux/xattr.h>
 #include <asm/uaccess.h>
 #include <asm/param.h>
 #include <asm/page.h>
@@ -553,10 +554,11 @@ out:
 	return error;
 }
 
-#if (defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS)) && defined(CONFIG_PAX_SOFTMODE)
-static unsigned long pax_parse_softmode(const struct elf_phdr * const elf_phdata)
+static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf_phdata)
 {
 	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PT_PAX_FLAGS
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (elf_phdata->p_flags & PF_PAGEEXEC)
@@ -592,14 +594,16 @@ static unsigned long pax_parse_softmode(const struct elf_phdr * const elf_phdata
 		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
-	return pax_flags;
-}
 #endif
 
-#ifdef CONFIG_PAX_PT_PAX_FLAGS
-static unsigned long pax_parse_hardmode(const struct elf_phdr * const elf_phdata)
+	return pax_flags;
+}
+
+static unsigned long pax_parse_pt_pax_hardmode(const struct elf_phdr * const elf_phdata)
 {
 	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PT_PAX_FLAGS
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (!(elf_phdata->p_flags & PF_NOPAGEEXEC))
@@ -635,14 +639,16 @@ static unsigned long pax_parse_hardmode(const struct elf_phdr * const elf_phdata
 		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
-	return pax_flags;
-}
 #endif
 
-#ifdef CONFIG_PAX_EI_PAX
+	return pax_flags;
+}
+
 static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 {
 	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_EI_PAX
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (!(elf_ex->e_ident[EI_PAX] & EF_PAX_PAGEEXEC))
@@ -678,25 +684,38 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
-	return pax_flags;
-}
+#else
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	pax_flags |= MF_PAX_PAGEEXEC;
 #endif
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS)
-static long pax_parse_elf_flags(const struct elfhdr * const elf_ex, const struct elf_phdr * const elf_phdata)
+#ifdef CONFIG_PAX_MPROTECT
+	pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+#ifdef CONFIG_PAX_RANDMMAP
+	pax_flags |= MF_PAX_RANDMMAP;
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (!(__supported_pte_mask & _PAGE_NX)) {
+		pax_flags &= ~MF_PAX_PAGEEXEC;
+		pax_flags |= MF_PAX_SEGMEXEC;
+	}
+#endif
+
+#endif
+
+	return pax_flags;
+}
+
+static unsigned long pax_parse_pt_pax(const struct elfhdr * const elf_ex, const struct elf_phdr * const elf_phdata)
 {
-	unsigned long pax_flags = 0UL;
 
 #ifdef CONFIG_PAX_PT_PAX_FLAGS
 	unsigned long i;
-	int found_flags = 0;
-#endif
 
-#ifdef CONFIG_PAX_EI_PAX
-	pax_flags = pax_parse_ei_pax(elf_ex);
-#endif
-
-#ifdef CONFIG_PAX_PT_PAX_FLAGS
 	for (i = 0UL; i < elf_ex->e_phnum; i++)
 		if (elf_phdata[i].p_type == PT_PAX_FLAGS) {
 			if (((elf_phdata[i].p_flags & PF_PAGEEXEC) && (elf_phdata[i].p_flags & PF_NOPAGEEXEC)) ||
@@ -704,33 +723,170 @@ static long pax_parse_elf_flags(const struct elfhdr * const elf_ex, const struct
 			    ((elf_phdata[i].p_flags & PF_EMUTRAMP) && (elf_phdata[i].p_flags & PF_NOEMUTRAMP)) ||
 			    ((elf_phdata[i].p_flags & PF_MPROTECT) && (elf_phdata[i].p_flags & PF_NOMPROTECT)) ||
 			    ((elf_phdata[i].p_flags & PF_RANDMMAP) && (elf_phdata[i].p_flags & PF_NORANDMMAP)))
-				return -EINVAL;
+				return ~0UL;
 
 #ifdef CONFIG_PAX_SOFTMODE
 			if (pax_softmode)
-				pax_flags = pax_parse_softmode(&elf_phdata[i]);
+				return pax_parse_pt_pax_softmode(&elf_phdata[i]);
 			else
 #endif
 
-				pax_flags = pax_parse_hardmode(&elf_phdata[i]);
-			found_flags = 1;
+				return pax_parse_pt_pax_hardmode(&elf_phdata[i]);
 			break;
 		}
 #endif
 
-#if !defined(CONFIG_PAX_EI_PAX) && defined(CONFIG_PAX_PT_PAX_FLAGS)
-	if (found_flags == 0) {
-		struct elf_phdr phdr;
-		memset(&phdr, 0, sizeof(phdr));
-		phdr.p_flags = PF_NOEMUTRAMP;
-#ifdef CONFIG_PAX_SOFTMODE
-		if (pax_softmode)
-			pax_flags = pax_parse_softmode(&phdr);
-		else
+	return ~0UL;
+}
+
+static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmode)
+{
+	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (pax_flags_softmode & MF_PAX_PAGEEXEC)
+		pax_flags |= MF_PAX_PAGEEXEC;
 #endif
-			pax_flags = pax_parse_hardmode(&phdr);
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (pax_flags_softmode & MF_PAX_SEGMEXEC)
+		pax_flags |= MF_PAX_SEGMEXEC;
+#endif
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if ((__supported_pte_mask & _PAGE_NX))
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
 	}
 #endif
+
+#ifdef CONFIG_PAX_EMUTRAMP
+	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
+		pax_flags |= MF_PAX_EMUTRAMP;
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (pax_flags_softmode & MF_PAX_MPROTECT)
+		pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
+	if (randomize_va_space && (pax_flags_softmode & MF_PAX_RANDMMAP))
+		pax_flags |= MF_PAX_RANDMMAP;
+#endif
+
+	return pax_flags;
+}
+
+static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmode)
+{
+	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (!(pax_flags_hardmode & MF_PAX_PAGEEXEC))
+		pax_flags |= MF_PAX_PAGEEXEC;
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (!(pax_flags_hardmode & MF_PAX_SEGMEXEC))
+		pax_flags |= MF_PAX_SEGMEXEC;
+#endif
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if ((__supported_pte_mask & _PAGE_NX))
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
+#endif
+
+#ifdef CONFIG_PAX_EMUTRAMP
+	if (!(pax_flags_hardmode & MF_PAX_EMUTRAMP))
+		pax_flags |= MF_PAX_EMUTRAMP;
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (!(pax_flags_hardmode & MF_PAX_MPROTECT))
+		pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
+	if (randomize_va_space && !(pax_flags_hardmode & MF_PAX_RANDMMAP))
+		pax_flags |= MF_PAX_RANDMMAP;
+#endif
+
+	return pax_flags;
+}
+
+static unsigned long pax_parse_xattr_pax(struct file * const file)
+{
+
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
+	ssize_t xattr_size, i;
+	unsigned char xattr_value[5];
+	unsigned long pax_flags_hardmode = 0UL, pax_flags_softmode = 0UL;
+
+	xattr_size = vfs_getxattr(file->f_path.dentry, XATTR_NAME_PAX_FLAGS, xattr_value, sizeof xattr_value);
+	if (xattr_size <= 0)
+		return ~0UL;
+
+	for (i = 0; i < xattr_size; i++)
+		switch (xattr_value[i]) {
+		default:
+			return ~0UL;
+
+#define parse_flag(option1, option2, flag)			\
+		case option1:					\
+			pax_flags_hardmode |= MF_PAX_##flag;	\
+			break;					\
+		case option2:					\
+			pax_flags_softmode |= MF_PAX_##flag;	\
+			break;
+
+		parse_flag('p', 'P', PAGEEXEC);
+		parse_flag('e', 'E', EMUTRAMP);
+		parse_flag('m', 'M', MPROTECT);
+		parse_flag('r', 'R', RANDMMAP);
+		parse_flag('s', 'S', SEGMEXEC);
+
+#undef parse_flag
+		}
+
+	if (pax_flags_hardmode & pax_flags_softmode)
+		return ~0UL;
+
+#ifdef CONFIG_PAX_SOFTMODE
+	if (pax_softmode)
+		return pax_parse_xattr_pax_softmode(pax_flags_softmode);
+	else
+#endif
+
+		return pax_parse_xattr_pax_hardmode(pax_flags_hardmode);
+#else
+	return ~0UL;
+#endif
+}
+
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
+static long pax_parse_pax_flags(const struct elfhdr * const elf_ex, const struct elf_phdr * const elf_phdata, struct file * const file)
+{
+	unsigned long pax_flags, pt_pax_flags, xattr_pax_flags;
+
+	pax_flags = pax_parse_ei_pax(elf_ex);
+	pt_pax_flags = pax_parse_pt_pax(elf_ex, elf_phdata);
+	xattr_pax_flags = pax_parse_xattr_pax(file);
+
+	if (pt_pax_flags == ~0UL)
+		pt_pax_flags = xattr_pax_flags;
+	else if (xattr_pax_flags == ~0UL)
+		xattr_pax_flags = pt_pax_flags;
+	if (pt_pax_flags != xattr_pax_flags)
+		return -EINVAL;
+	if (pt_pax_flags != ~0UL)
+		pax_flags = pt_pax_flags;
 
 	if (0 > pax_check_flags(&pax_flags))
 		return -EINVAL;
@@ -950,8 +1106,8 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 	current->mm->def_flags = 0;
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS)
-	if (0 > pax_parse_elf_flags(&loc->elf_ex, elf_phdata)) {
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
+	if (0 > pax_parse_pax_flags(&loc->elf_ex, elf_phdata, bprm->file)) {
 		send_sig(SIGKILL, current, 0);
 		goto out_free_dentry;
 	}
