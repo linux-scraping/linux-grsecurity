@@ -892,21 +892,6 @@ static long pax_parse_pax_flags(const struct elfhdr * const elf_ex, const struct
 	if (pt_pax_flags != ~0UL)
 		pax_flags = pt_pax_flags;
 
-#if !defined(CONFIG_PAX_EI_PAX) && defined(CONFIG_PAX_PT_PAX_FLAGS)
-	if (found_flags == 0) {
-		struct elf_phdr phdr;
-		memset(&phdr, 0, sizeof(phdr));
-		phdr.p_flags = PF_NOEMUTRAMP;
-#ifdef CONFIG_PAX_SOFTMODE
-		if (pax_softmode)
-			pax_flags = pax_parse_softmode(&phdr);
-	else
-#endif
-			pax_flags = pax_parse_hardmode(&phdr);
-	}
-#endif
-
-
 	if (0 > pax_check_flags(&pax_flags))
 		return -EINVAL;
 
