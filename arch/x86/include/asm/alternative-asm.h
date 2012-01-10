@@ -8,10 +8,10 @@
 
 #ifdef CONFIG_SMP
 	.macro LOCK_PREFIX
-1:	lock
+672:	lock
 	.section .smp_locks,"a"
 	.align 4
-	X86_ALIGN 1b
+	X86_ALIGN 672b
 	.previous
 	.endm
 #else

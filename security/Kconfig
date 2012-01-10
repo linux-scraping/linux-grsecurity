@@ -99,8 +99,6 @@ config PAX_XATTR_PAX_FLAGS
 	select EXT4_FS_XATTR if EXT4_FS
 	select JFFS2_FS_XATTR if JFFS2_FS
 	select REISERFS_FS_XATTR if REISERFS_FS
-	select SQUASHFS_XATTR if SQUASHFS
-	select TMPFS_XATTR if TMPFS
 	select UBIFS_FS_XATTR if UBIFS_FS
 	help
 	  Enabling this option will allow you to control PaX features on
@@ -110,8 +108,8 @@ config PAX_XATTR_PAX_FLAGS
 	  applications that self-check themselves (e.g., skype) and would
 	  not tolerate chpax/paxctl changes.  The main drawback is that
 	  extended attributes are not supported by some filesystems (e.g.,
-	  isofs, udf, vfat) so copying files through such filesystems will
-	  lose the extended attributes and these PaX markings.
+	  isofs, squashfs, tmpfs, udf, vfat) so copying files through such
+	  filesystems will lose the extended attributes and these PaX markings.
 
 	  If you have applications not marked by the PT_PAX_FLAGS ELF program
 	  header then you MUST enable either XATTR_PAX_FLAGS or EI_PAX marking

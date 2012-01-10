@@ -389,8 +389,8 @@ static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
 #ifdef CONFIG_M386
 no_xadd: /* Legacy 386 processor */
 	local_irq_save(flags);
-	__i = atomic_read(v);
-	atomic_set(v, i + __i);
+	__i = atomic_read_unchecked(v);
+	atomic_set_unchecked(v, i + __i);
 	local_irq_restore(flags);
 	return i + __i;
 #endif
