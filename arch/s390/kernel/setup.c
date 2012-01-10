@@ -271,7 +271,7 @@ static int __init early_parse_mem(char *p)
 }
 early_param("mem", early_parse_mem);
 
-unsigned int user_mode = SECONDARY_SPACE_MODE;
+unsigned int user_mode = HOME_SPACE_MODE;
 EXPORT_SYMBOL_GPL(user_mode);
 
 static int set_amode_and_uaccess(unsigned long user_amode,

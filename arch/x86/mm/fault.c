@@ -1447,6 +1447,30 @@ static int pax_handle_fetch_fault_32(struct pt_regs *regs)
 {
 	int err;
 
+	do { /* PaX: libffi trampoline emulation */
+		unsigned char mov, jmp;
+		unsigned int addr1, addr2;
+
+#ifdef CONFIG_X86_64
+		if ((regs->ip + 9) >> 32)
+			break;
+#endif
+
+		err = get_user(mov, (unsigned char __user *)regs->ip);
+		err |= get_user(addr1, (unsigned int __user *)(regs->ip + 1));
+		err |= get_user(jmp, (unsigned char __user *)(regs->ip + 5));
+		err |= get_user(addr2, (unsigned int __user *)(regs->ip + 6));
+
+		if (err)
+			break;
+
+		if (mov == 0xB8 && jmp == 0xE9) {
+			regs->ax = addr1;
+			regs->ip = (unsigned int)(regs->ip + addr2 + 10);
+			return 2;
+		}
+	} while (0);
+
 	do { /* PaX: gcc trampoline emulation #1 */
 		unsigned char mov1, mov2;
 		unsigned short jmp;
@@ -1505,6 +1529,34 @@ static int pax_handle_fetch_fault_32(struct pt_regs *regs)
 static int pax_handle_fetch_fault_64(struct pt_regs *regs)
 {
 	int err;
+
+	do { /* PaX: libffi trampoline emulation */
+		unsigned short mov1, mov2, jmp1;
+		unsigned char stcclc, jmp2;
+		unsigned long addr1, addr2;
+
+		err = get_user(mov1, (unsigned short __user *)regs->ip);
+		err |= get_user(addr1, (unsigned long __user *)(regs->ip + 2));
+		err |= get_user(mov2, (unsigned short __user *)(regs->ip + 10));
+		err |= get_user(addr2, (unsigned long __user *)(regs->ip + 12));
+		err |= get_user(stcclc, (unsigned char __user *)(regs->ip + 20));
+		err |= get_user(jmp1, (unsigned short __user *)(regs->ip + 21));
+		err |= get_user(jmp2, (unsigned char __user *)(regs->ip + 23));
+
+		if (err)
+			break;
+
+		if (mov1 == 0xBB49 && mov2 == 0xBA49 && (stcclc == 0xF8 || stcclc == 0xF9) && jmp1 == 0xFF49 && jmp2 == 0xE3) {
+			regs->r11 = addr1;
+			regs->r10 = addr2;
+			if (stcclc == 0xF8)
+				regs->flags &= ~X86_EFLAGS_CF;
+			else
+				regs->flags |= X86_EFLAGS_CF;
+			regs->ip = addr1;
+			return 2;
+		}
+	} while (0);
 
 	do { /* PaX: gcc trampoline emulation #1 */
 		unsigned short mov1, mov2, jmp1;
