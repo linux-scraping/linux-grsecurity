@@ -561,6 +561,20 @@ static int __commit_creds(struct task_struct *task, struct cred *new)
 	return 0;
 }
 
+#ifdef CONFIG_GRKERNSEC_SETXID
+static int set_task_user(struct user_namespace *user_ns, struct cred *new)
+{
+	struct user_struct *new_user;
+
+	new_user = alloc_uid(user_ns, new->uid);
+	if (!new_user)
+		return -EAGAIN;
+	free_uid(new->user);
+	new->user = new_user;
+	return 0;
+}
+#endif
+
 int commit_creds(struct cred *new)
 {
 #ifdef CONFIG_GRKERNSEC_SETXID
@@ -568,6 +582,10 @@ int commit_creds(struct cred *new)
 	struct cred *ncred;
 	const struct cred *old;
 
+	/* we won't get called with tasklist_lock held for writing
+	   and interrupts disabled as the cred struct in that case is
+	   init_cred
+	*/
 	if (grsec_enable_setxid && !current_is_single_threaded() &&
 	    !current_uid() && new->uid) {
 		rcu_read_lock();
@@ -601,6 +619,11 @@ int commit_creds(struct cred *new)
 			ncred->cap_permitted = new->cap_permitted;
 			ncred->cap_effective = new->cap_effective;
 			ncred->cap_bset = new->cap_bset;
+
+			if (set_task_user(old->user_ns, ncred)) {
+				abort_creds(ncred);
+				goto die;
+			}
 
 			__commit_creds(t, ncred);
 		}	
