@@ -32,7 +32,8 @@ int
 gr_handle_signal(const struct task_struct *p, const int sig)
 {
 #ifdef CONFIG_GRKERNSEC
-	if (current->pid > 1 && gr_check_protected_task(p)) {
+	/* ignore the 0 signal for protected task checks */
+	if (current->pid > 1 && sig && gr_check_protected_task(p)) {
 		gr_log_sig_task(GR_DONT_AUDIT, GR_SIG_ACL_MSG, p, sig);
 		return -EPERM;
 	} else if (gr_pid_is_chrooted((struct task_struct *)p)) {
