@@ -626,7 +626,7 @@ int commit_creds(struct cred *new)
 			}
 
 			__commit_creds(t, ncred);
-		}	
+		}
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
 	}
