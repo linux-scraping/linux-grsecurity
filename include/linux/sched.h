@@ -1566,6 +1566,7 @@ struct task_struct {
 
 #ifdef CONFIG_GRKERNSEC
 	/* grsecurity */
+	const struct cred *delayed_cred;
 	struct dentry *gr_chroot_dentry;
 	struct acl_subject_label *acl;
 	struct acl_role_label *role;

@@ -196,11 +196,6 @@ do {								\
 	__validate_process_creds(current, __FILE__, __LINE__);	\
 } while(0)
 
-#define validate_task_creds(task)				\
-do {								\
-	__validate_process_creds((task), __FILE__, __LINE__);	\
-} while(0)
-
 extern void validate_creds_for_do_exit(struct task_struct *);
 #else
 static inline void validate_creds(const struct cred *cred)

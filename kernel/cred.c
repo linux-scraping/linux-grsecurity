@@ -208,6 +208,15 @@ void exit_creds(struct task_struct *tsk)
 		validate_creds(cred);
 		put_cred(cred);
 	}
+
+#ifdef CONFIG_GRKERNSEC_SETXID
+	cred = (struct cred *) tsk->delayed_cred;
+	if (cred) {
+		tsk->delayed_cred = NULL;
+		validate_creds(cred);
+		put_cred(cred);
+	}
+#endif
 }
 
 /**
@@ -290,14 +299,15 @@ error:
  * Call commit_creds() or abort_creds() to clean up.
  */
 
-static struct cred *__prepare_creds(struct task_struct *task)
+struct cred *prepare_creds(void)
 {
+	struct task_struct *task = current;
 	const struct cred *old;
 	struct cred *new;
 
 	pax_track_stack();
 
-	validate_task_creds(task);
+	validate_process_creds();
 
 	new = kmem_cache_alloc(cred_jar, GFP_KERNEL);
 	if (!new)
@@ -331,11 +341,6 @@ static struct cred *__prepare_creds(struct task_struct *task)
 error:
 	abort_creds(new);
 	return NULL;
-}
-
-struct cred *prepare_creds(void)
-{
-	return __prepare_creds(current);
 }
 EXPORT_SYMBOL(prepare_creds);
 
@@ -489,8 +494,9 @@ error_put:
  * Always returns 0 thus allowing this function to be tail-called at the end
  * of, say, sys_setgid().
  */
-static int __commit_creds(struct task_struct *task, struct cred *new)
+static int __commit_creds(struct cred *new)
 {
+	struct task_struct *task = current;
 	const struct cred *old = task->real_cred;
 
 	pax_track_stack();
@@ -560,18 +566,62 @@ static int __commit_creds(struct task_struct *task, struct cred *new)
 	put_cred(old);
 	return 0;
 }
-
 #ifdef CONFIG_GRKERNSEC_SETXID
-static int set_task_user(struct user_namespace *user_ns, struct cred *new)
-{
-	struct user_struct *new_user;
+extern int set_user(struct cred *new);
 
-	new_user = alloc_uid(user_ns, new->uid);
-	if (!new_user)
-		return -EAGAIN;
-	free_uid(new->user);
-	new->user = new_user;
-	return 0;
+void gr_delayed_cred_worker(void)
+{
+	const struct cred *new = current->delayed_cred;
+	struct cred *ncred;
+
+	current->delayed_cred = NULL;
+
+	if (current_uid() && new != NULL) {
+		// from doing get_cred on it when queueing this
+		put_cred(new);
+		return;
+	} else if (new == NULL)
+		return;
+
+	ncred = prepare_creds();
+	if (!ncred)
+		goto die;
+	// uids
+	ncred->uid = new->uid;
+	ncred->euid = new->euid;
+	ncred->suid = new->suid;
+	ncred->fsuid = new->fsuid;
+	// gids
+	ncred->gid = new->gid;
+	ncred->egid = new->egid;
+	ncred->sgid = new->sgid;
+	ncred->fsgid = new->fsgid;
+	// groups
+	if (set_groups(ncred, new->group_info) < 0) {
+		abort_creds(ncred);
+		goto die;
+	}
+	// caps
+	ncred->securebits = new->securebits;
+	ncred->cap_inheritable = new->cap_inheritable;
+	ncred->cap_permitted = new->cap_permitted;
+	ncred->cap_effective = new->cap_effective;
+	ncred->cap_bset = new->cap_bset;
+
+	if (set_user(ncred)) {
+		abort_creds(ncred);
+		goto die;
+	}
+
+	// from doing get_cred on it when queueing this
+	put_cred(new);
+
+	__commit_creds(ncred);
+	return;
+die:
+	// from doing get_cred on it when queueing this
+	put_cred(new);
+	do_group_exit(SIGKILL);
 }
 #endif
 
@@ -579,8 +629,6 @@ int commit_creds(struct cred *new)
 {
 #ifdef CONFIG_GRKERNSEC_SETXID
 	struct task_struct *t;
-	struct cred *ncred;
-	const struct cred *old;
 
 	/* we won't get called with tasklist_lock held for writing
 	   and interrupts disabled as the cred struct in that case is
@@ -592,53 +640,16 @@ int commit_creds(struct cred *new)
 		read_lock(&tasklist_lock);
 		for (t = next_thread(current); t != current;
 		     t = next_thread(t)) {
-			old = __task_cred(t);
-			if (old->uid)
-				continue;
-			ncred = __prepare_creds(t);
-			if (!ncred)
-				goto die;
-			// uids
-			ncred->uid = new->uid;
-			ncred->euid = new->euid;
-			ncred->suid = new->suid;
-			ncred->fsuid = new->fsuid;
-			// gids
-			ncred->gid = new->gid;
-			ncred->egid = new->egid;
-			ncred->sgid = new->sgid;
-			ncred->fsgid = new->fsgid;
-			// groups
-			if (set_groups(ncred, new->group_info) < 0) {
-				abort_creds(ncred);
-				goto die;
+			if (t->delayed_cred == NULL) {
+				t->delayed_cred = get_cred(new);
+				set_tsk_need_resched(t);
 			}
-			// caps
-			ncred->securebits = new->securebits;
-			ncred->cap_inheritable = new->cap_inheritable;
-			ncred->cap_permitted = new->cap_permitted;
-			ncred->cap_effective = new->cap_effective;
-			ncred->cap_bset = new->cap_bset;
-
-			if (set_task_user(old->user_ns, ncred)) {
-				abort_creds(ncred);
-				goto die;
-			}
-
-			__commit_creds(t, ncred);
 		}
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
 	}
 #endif
-	return __commit_creds(current, new);
-#ifdef CONFIG_GRKERNSEC_SETXID
-die:
-	read_unlock(&tasklist_lock);
-	rcu_read_unlock();
-	abort_creds(new);
-	do_group_exit(SIGKILL);
-#endif
+	return __commit_creds(new);
 }
 
 EXPORT_SYMBOL(commit_creds);
