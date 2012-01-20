@@ -850,6 +850,8 @@ static int mem_open(struct inode* inode, struct file* file)
 	return 0;
 }
 
+static int task_dumpable(struct task_struct *task);
+
 static ssize_t mem_read(struct file * file, char __user * buf,
 			size_t count, loff_t *ppos)
 {
@@ -864,6 +866,12 @@ static ssize_t mem_read(struct file * file, char __user * buf,
 
 	if (check_mem_permission(task))
 		goto out;
+
+	// XXX: temporary workaround
+	if (!task_dumpable(task) && task == current) {
+		ret = -EACCES;
+		goto out;
+	}
 
 	ret = -ENOMEM;
 	page = (char *)__get_free_page(GFP_TEMPORARY);
