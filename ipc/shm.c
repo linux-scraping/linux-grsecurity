@@ -874,6 +874,12 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr)
 		f_mode = FMODE_READ | FMODE_WRITE;
 	}
 	if (shmflg & SHM_EXEC) {
+
+#ifdef CONFIG_PAX_MPROTECT
+		if (current->mm->pax_flags & MF_PAX_MPROTECT)
+			goto out;
+#endif
+
 		prot |= PROT_EXEC;
 		acc_mode |= S_IXUGO;
 	}

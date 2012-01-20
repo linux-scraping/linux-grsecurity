@@ -157,6 +157,7 @@ ENTRY(ia32_sysenter_target)
 	pushfq
 	CFI_ADJUST_CFA_OFFSET 8
 	/*CFI_REL_OFFSET rflags,0*/
+	orl	$X86_EFLAGS_IF,(%rsp)
 	GET_THREAD_INFO(%r11)
 	movl	TI_sysenter_return(%r11), %r11d
 	CFI_REGISTER rip,r11
