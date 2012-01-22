@@ -19,7 +19,7 @@
 #include <asm/traps.h>			/* dotraplinkage, ...		*/
 #include <asm/pgalloc.h>		/* pgd_*(), ...			*/
 #include <asm/kmemcheck.h>		/* kmemcheck_*(), ...		*/
-#include <asm/vsyscall.h>
+#include <asm/fixmap.h>			/* VSYSCALL_START		*/
 #include <asm/tlbflush.h>
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -490,12 +490,14 @@ static noinline __kprobes int vmalloc_fault(unsigned long address)
 	return 0;
 }
 
+#ifdef CONFIG_CPU_SUP_AMD
 static const char errata93_warning[] =
 KERN_ERR 
 "******* Your BIOS seems to not contain a fix for K8 errata #93\n"
 "******* Working around it, but it may cause SEGVs or burn power.\n"
 "******* Please consider a BIOS update.\n"
 "******* Disabling USB legacy in the BIOS may also help.\n";
+#endif
 
 /*
  * No vm86 mode in 64-bit mode:
@@ -575,7 +577,11 @@ bad:
  */
 static int is_errata93(struct pt_regs *regs, unsigned long address)
 {
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && defined(CONFIG_CPU_SUP_AMD)
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_AMD
+	    || boot_cpu_data.x86 != 0xf)
+		return 0;
+
 	if (address != regs->ip)
 		return 0;
 

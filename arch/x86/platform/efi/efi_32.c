@@ -25,6 +25,7 @@
 #include <linux/efi.h>
 
 #include <asm/io.h>
+#include <asm/desc.h>
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
@@ -38,9 +39,8 @@
  */
 
 static unsigned long efi_rt_eflags;
-static pgd_t __initdata efi_bak_pg_dir_pointer[KERNEL_PGD_PTRS];
 
-void __init efi_call_phys_prelog(void)
+void efi_call_phys_prelog(void)
 {
 	struct desc_ptr gdt_descr;
 
@@ -50,13 +50,7 @@ void __init efi_call_phys_prelog(void)
 
 	local_irq_save(efi_rt_eflags);
 
-	clone_pgd_range(efi_bak_pg_dir_pointer, swapper_pg_dir, KERNEL_PGD_PTRS);
-	clone_pgd_range(swapper_pg_dir, swapper_pg_dir + KERNEL_PGD_BOUNDARY,
-			min_t(unsigned long, KERNEL_PGD_PTRS, KERNEL_PGD_BOUNDARY));
-
-	/*
-	 * After the lock is released, the original page table is restored.
-	 */
+	load_cr3(initial_page_table);
 	__flush_tlb_all();
 
 #ifdef CONFIG_PAX_KERNEXEC
@@ -71,7 +65,7 @@ void __init efi_call_phys_prelog(void)
 	load_gdt(&gdt_descr);
 }
 
-void __init efi_call_phys_epilog(void)
+void efi_call_phys_epilog(void)
 {
 	struct desc_ptr gdt_descr;
 
@@ -87,11 +81,7 @@ void __init efi_call_phys_epilog(void)
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 
-	clone_pgd_range(swapper_pg_dir, efi_bak_pg_dir_pointer, KERNEL_PGD_PTRS);
-
-	/*
-	 * After the lock is released, the original page table is restored.
-	 */
+	load_cr3(swapper_pg_dir);
 	__flush_tlb_all();
 
 	local_irq_restore(efi_rt_eflags);

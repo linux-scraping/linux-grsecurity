@@ -25,6 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
+#include <linux/export.h>
 
 #include "iwm.h"
 #include "bus.h"
@@ -326,8 +327,6 @@ static ssize_t iwm_debugfs_fw_err_read(struct file *filp,
 	char buf[512];
 	int buf_len = 512;
 	size_t len = 0;
-
-	pax_track_stack();
 
 	if (*ppos != 0)
 		return 0;

@@ -30,7 +30,7 @@
 
 #define PRINT_PREF KERN_INFO "mtd_stresstest: "
 
-static int dev;
+static int dev = -EINVAL;
 module_param(dev, int, S_IRUGO);
 MODULE_PARM_DESC(dev, "MTD device number to use");
 
@@ -154,7 +154,7 @@ static int do_read(void)
 	}
 	addr = eb * mtd->erasesize + offs;
 	err = mtd->read(mtd, addr, len, &read, readbuf);
-	if (err == -EUCLEAN)
+	if (mtd_is_bitflip(err))
 		err = 0;
 	if (unlikely(err || read != len)) {
 		printk(PRINT_PREF "error: read failed at 0x%llx\n",
@@ -250,6 +250,13 @@ static int __init mtd_stresstest_init(void)
 
 	printk(KERN_INFO "\n");
 	printk(KERN_INFO "=================================================\n");
+
+	if (dev < 0) {
+		printk(PRINT_PREF "Please specify a valid mtd-device via module paramter\n");
+		printk(KERN_CRIT "CAREFUL: This test wipes all data on the specified MTD device!\n");
+		return -EINVAL;
+	}
+
 	printk(PRINT_PREF "MTD device: %d\n", dev);
 
 	mtd = get_mtd_device(NULL, dev);
@@ -276,12 +283,6 @@ static int __init mtd_stresstest_init(void)
 	       "eraseblock %u, OOB size %u\n",
 	       (unsigned long long)mtd->size, mtd->erasesize,
 	       pgsize, ebcnt, pgcnt, mtd->oobsize);
-
-	if (ebcnt < 2) {
-		printk(PRINT_PREF "error: need at least 2 eraseblocks\n");
-		err = -ENOSPC;
-		goto out_put_mtd;
-	}
 
 	/* Read or write up 2 eraseblocks at a time */
 	bufsize = mtd->erasesize * 2;
@@ -321,7 +322,6 @@ out:
 	kfree(bbt);
 	vfree(writebuf);
 	vfree(readbuf);
-out_put_mtd:
 	put_mtd_device(mtd);
 	if (err)
 		printk(PRINT_PREF "error %d occurred\n", err);

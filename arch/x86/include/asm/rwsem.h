@@ -260,21 +260,7 @@ static inline void rwsem_atomic_add(long delta, struct rw_semaphore *sem)
  */
 static inline long rwsem_atomic_update(long delta, struct rw_semaphore *sem)
 {
-	long tmp = delta;
-
-	asm volatile(LOCK_PREFIX "xadd %0,%1\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     "mov %0,%1\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+r" (tmp), "+m" (sem->count)
-		     : : "memory");
-
-	return tmp + delta;
+	return delta + xadd_check_overflow(&sem->count, delta);
 }
 
 #endif /* __KERNEL__ */

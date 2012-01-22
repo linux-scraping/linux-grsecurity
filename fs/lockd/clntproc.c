@@ -621,8 +621,6 @@ nlmclnt_reclaim(struct nlm_host *host, struct file_lock *fl)
 	struct nlm_rqst reqst, *req;
 	int		status;
 
-	pax_track_stack();
-
 	req = &reqst;
 	memset(req, 0, sizeof(*req));
 	locks_init_lock(&req->a_args.lock.fl);

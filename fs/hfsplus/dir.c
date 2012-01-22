@@ -131,8 +131,6 @@ static int hfsplus_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	struct hfsplus_readdir_data *rd;
 	u16 type;
 
-	pax_track_stack();
-
 	if (filp->f_pos >= inode->i_size)
 		return 0;
 
@@ -417,7 +415,7 @@ static int hfsplus_symlink(struct inode *dir, struct dentry *dentry,
 	goto out;
 
 out_err:
-	inode->i_nlink = 0;
+	clear_nlink(inode);
 	hfsplus_delete_inode(inode);
 	iput(inode);
 out:
@@ -442,7 +440,7 @@ static int hfsplus_mknod(struct inode *dir, struct dentry *dentry,
 
 	res = hfsplus_create_cat(inode->i_ino, dir, &dentry->d_name, inode);
 	if (res) {
-		inode->i_nlink = 0;
+		clear_nlink(inode);
 		hfsplus_delete_inode(inode);
 		iput(inode);
 		goto out;

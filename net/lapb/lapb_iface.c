@@ -139,7 +139,8 @@ out:
 	return lapb;
 }
 
-int lapb_register(struct net_device *dev, struct lapb_register_struct *callbacks)
+int lapb_register(struct net_device *dev,
+		  const struct lapb_register_struct *callbacks)
 {
 	struct lapb_cb *lapb;
 	int rc = LAPB_BADTOKEN;

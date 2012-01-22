@@ -377,8 +377,6 @@ static void reset_with_ipi(struct pnmask *distribution, struct bau_control *bcp)
 	struct bau_control *smaster = bcp->socket_master;
 	struct reset_args reset_args;
 
-	pax_track_stack();
-
 	reset_args.sender = sender;
 	cpus_clear(*mask);
 	/* find a single cpu for each uvhub in this distribution mask */

@@ -109,8 +109,6 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
 	struct crypto_aes_ctx gen_aes;
 	int cpu;
 
-	pax_track_stack();
-
 	if (key_len % 8) {
 		*flags |= CRYPTO_TFM_RES_BAD_KEY_LEN;
 		return -EINVAL;
@@ -510,10 +508,8 @@ static int __init padlock_init(void)
 	int ret;
 	struct cpuinfo_x86 *c = &cpu_data(0);
 
-	if (!cpu_has_xcrypt) {
-		printk(KERN_NOTICE PFX "VIA PadLock not detected.\n");
+	if (!cpu_has_xcrypt)
 		return -ENODEV;
-	}
 
 	if (!cpu_has_xcrypt_enabled) {
 		printk(KERN_NOTICE PFX "VIA PadLock detected, but not enabled. Hmm, strange...\n");

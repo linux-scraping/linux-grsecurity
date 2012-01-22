@@ -57,19 +57,19 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
  */
+#include <linux/export.h>
+#include <linux/moduleparam.h>
 
-#include "base.h"
+#include <linux/seq_file.h>
+#include <linux/list.h>
 #include "debug.h"
+#include "ath5k.h"
+#include "reg.h"
+#include "base.h"
 
 static unsigned int ath5k_debug;
 module_param_named(debug, ath5k_debug, uint, 0);
 
-
-#ifdef CONFIG_ATH5K_DEBUG
-
-#include <linux/seq_file.h>
-#include "reg.h"
-#include "ani.h"
 
 static int ath5k_debugfs_open(struct inode *inode, struct file *file)
 {
@@ -203,8 +203,6 @@ static ssize_t read_file_beacon(struct file *file, char __user *user_buf,
 	unsigned int v;
 	u64 tsf;
 
-	pax_track_stack();
-
 	v = ath5k_hw_reg_read(ah, AR5K_BEACON);
 	len += snprintf(buf + len, sizeof(buf) - len,
 		"%-24s0x%08x\tintval: %d\tTIM: 0x%x\n",
@@ -322,8 +320,6 @@ static ssize_t read_file_debug(struct file *file, char __user *user_buf,
 	char buf[700];
 	unsigned int len = 0;
 	unsigned int i;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 		"DEBUG LEVEL: 0x%08x\n\n", ah->debug.level);
@@ -496,8 +492,6 @@ static ssize_t read_file_misc(struct file *file, char __user *user_buf,
 	unsigned int len = 0;
 	u32 filt = ath5k_hw_get_rx_filter(ah);
 
-	pax_track_stack();
-
 	len += snprintf(buf + len, sizeof(buf) - len, "bssid-mask: %pM\n",
 			ah->bssidmask);
 	len += snprintf(buf + len, sizeof(buf) - len, "filter-flags: 0x%x ",
@@ -553,8 +547,6 @@ static ssize_t read_file_frameerrors(struct file *file, char __user *user_buf,
 	char buf[700];
 	unsigned int len = 0;
 	int i;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"RX\n---------------------\n");
@@ -672,8 +664,6 @@ static ssize_t read_file_ani(struct file *file, char __user *user_buf,
 
 	char buf[700];
 	unsigned int len = 0;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"HW has PHY error counters:\t%s\n",
@@ -838,8 +828,6 @@ static ssize_t read_file_queue(struct file *file, char __user *user_buf,
 	struct ath5k_txq *txq;
 	struct ath5k_buf *bf, *bf0;
 	int i, n;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"available txbuffers: %d\n", ah->txbuf_len);
@@ -1043,5 +1031,3 @@ ath5k_debug_printtxbuf(struct ath5k_hw *ah, struct ath5k_buf *bf)
 		td->tx_stat.tx_status_0, td->tx_stat.tx_status_1,
 		done ? ' ' : (ts.ts_status == 0) ? '*' : '!');
 }
-
-#endif /* ifdef CONFIG_ATH5K_DEBUG */

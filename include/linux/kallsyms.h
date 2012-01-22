@@ -101,7 +101,7 @@ static inline int lookup_symbol_attrs(unsigned long addr, unsigned long *size, u
 #define __print_symbol(fmt, addr)
 #endif /*CONFIG_KALLSYMS*/
 #else /* when included by kallsyms.c, vsnprintf.c, or
-	 arch/x86/kernel/dumpstack.c, with HIDESYM enabled */
+	arch/x86/kernel/dumpstack.c, with HIDESYM enabled */
 extern void __print_symbol(const char *fmt, unsigned long address);
 extern int sprint_backtrace(char *buffer, unsigned long address);
 extern int sprint_symbol(char *buffer, unsigned long address);
@@ -112,9 +112,8 @@ const char *kallsyms_lookup(unsigned long addr,
 #endif
 
 /* This macro allows us to keep printk typechecking */
-static void __check_printsym_format(const char *fmt, ...)
-__attribute__((format(printf,1,2)));
-static inline void __check_printsym_format(const char *fmt, ...)
+static __printf(1, 2)
+void __check_printsym_format(const char *fmt, ...)
 {
 }
 

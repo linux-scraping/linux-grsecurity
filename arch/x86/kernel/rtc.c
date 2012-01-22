@@ -5,12 +5,14 @@
 #include <linux/mc146818rtc.h>
 #include <linux/acpi.h>
 #include <linux/bcd.h>
+#include <linux/export.h>
 #include <linux/pnp.h>
 #include <linux/of.h>
 
 #include <asm/vsyscall.h>
 #include <asm/x86_init.h>
 #include <asm/time.h>
+#include <asm/mrst.h>
 
 #ifdef CONFIG_X86_32
 /*
@@ -240,6 +242,10 @@ static __init int add_rtc_cmos(void)
 #endif
 	if (of_have_populated_dt())
 		return 0;
+
+	/* Intel MID platforms don't have ioport rtc */
+	if (mrst_identify_cpu())
+		return -ENODEV;
 
 	platform_device_register(&rtc_device);
 	dev_info(&rtc_device.dev,

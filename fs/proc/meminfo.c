@@ -29,8 +29,6 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	unsigned long pages[NR_LRU_LISTS];
 	int lru;
 
-	pax_track_stack();
-
 /*
  * display in kilobytes.
  */

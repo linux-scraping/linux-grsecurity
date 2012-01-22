@@ -299,8 +299,6 @@ ncp_lookup_validate(struct dentry *dentry, struct nameidata *nd)
 	int res, val = 0, len;
 	__u8 __name[NCP_MAXPATHLEN + 1];
 
-	pax_track_stack();
-
 	if (dentry == dentry->d_sb->s_root)
 		return 1;
 
@@ -846,8 +844,6 @@ static struct dentry *ncp_lookup(struct inode *dir, struct dentry *dentry, struc
 	int error, res, len;
 	__u8 __name[NCP_MAXPATHLEN + 1];
 
-	pax_track_stack();
-
 	error = -EIO;
 	if (!ncp_conn_valid(server))
 		goto finished;
@@ -935,8 +931,6 @@ int ncp_create_new(struct inode *dir, struct dentry *dentry, int mode,
 	PPRINTK("ncp_create_new: creating %s/%s, mode=%x\n",
 		dentry->d_parent->d_name.name, dentry->d_name.name, mode);
 
-	pax_track_stack();
-
 	ncp_age_dentry(server, dentry);
 	len = sizeof(__name);
 	error = ncp_io2vol(server, __name, &len, dentry->d_name.name,
@@ -997,8 +991,6 @@ static int ncp_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 	struct ncp_server *server = NCP_SERVER(dir);
 	int error, len;
 	__u8 __name[NCP_MAXPATHLEN + 1];
-
-	pax_track_stack();
 
 	DPRINTK("ncp_mkdir: making %s/%s\n",
 		dentry->d_parent->d_name.name, dentry->d_name.name);
@@ -1147,8 +1139,6 @@ static int ncp_rename(struct inode *old_dir, struct dentry *old_dentry,
 	int error;
 	int old_len, new_len;
 	__u8 __old_name[NCP_MAXPATHLEN + 1], __new_name[NCP_MAXPATHLEN + 1];
-
-	pax_track_stack();
 
 	DPRINTK("ncp_rename: %s/%s to %s/%s\n",
 		old_dentry->d_parent->d_name.name, old_dentry->d_name.name,

@@ -56,7 +56,7 @@
 #include <linux/syscalls.h>
 #include <linux/ptrace.h>
 #include <linux/signal.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/magic.h>
 #include <linux/pid.h>
 #include <linux/nsproxy.h>
@@ -872,7 +872,7 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_q *this)
 {
 	struct task_struct *new_owner;
 	struct futex_pi_state *pi_state = this->pi_state;
-	u32 curval, newval;
+	u32 uninitialized_var(curval), newval;
 
 	if (!pi_state)
 		return -EINVAL;
@@ -934,7 +934,7 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_q *this)
 
 static int unlock_futex_pi(u32 __user *uaddr, u32 uval)
 {
-	u32 oldval;
+	u32 uninitialized_var(oldval);
 
 	/*
 	 * There is no waiter, so we unlock the futex. The owner died
@@ -1594,7 +1594,7 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
 	u32 newtid = task_pid_vnr(newowner) | FUTEX_WAITERS;
 	struct futex_pi_state *pi_state = q->pi_state;
 	struct task_struct *oldowner = pi_state->owner;
-	u32 uval, curval, newval;
+	u32 uval, uninitialized_var(curval), newval;
 	int ret;
 
 	/* Owner died? */
@@ -1811,7 +1811,7 @@ static void futex_wait_queue_me(struct futex_hash_bucket *hb, struct futex_q *q,
  *
  * Returns:
  *  0 - uaddr contains val and hb has been locked
- * <1 - -EFAULT or -EWOULDBLOCK (uaddr does not contain val) and hb is unlcoked
+ * <1 - -EFAULT or -EWOULDBLOCK (uaddr does not contain val) and hb is unlocked
  */
 static int futex_wait_setup(u32 __user *uaddr, u32 val, unsigned int flags,
 			   struct futex_q *q, struct futex_hash_bucket **hb)
@@ -1880,8 +1880,6 @@ static int futex_wait(u32 __user *uaddr, unsigned int flags, u32 val,
 	struct futex_hash_bucket *hb;
 	struct futex_q q = futex_q_init;
 	int ret;
-
-	pax_track_stack();
 
 	if (!bitset)
 		return -EINVAL;
@@ -2279,8 +2277,6 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, unsigned int flags,
 	struct futex_q q = futex_q_init;
 	int res, ret;
 
-	pax_track_stack();
-
 	if (!bitset)
 		return -EINVAL;
 
@@ -2507,7 +2503,7 @@ err_unlock:
  */
 int handle_futex_death(u32 __user *uaddr, struct task_struct *curr, int pi)
 {
-	u32 uval, nval, mval;
+	u32 uval, uninitialized_var(nval), mval;
 
 retry:
 	if (get_user(uval, uaddr))

@@ -33,7 +33,7 @@
 
 /* find_boot_record: Find the NFTL Media Header and its Spare copy which contains the
  *	various device information of the NFTL partition and Bad Unit Table. Update
- *	the ReplUnitTable[] table accroding to the Bad Unit Table. ReplUnitTable[]
+ *	the ReplUnitTable[] table according to the Bad Unit Table. ReplUnitTable[]
  *	is used for management of Erase Unit in other routines in nftl.c and nftlmount.c
  */
 static int find_boot_record(struct NFTLrecord *nftl)
@@ -45,8 +45,6 @@ static int find_boot_record(struct NFTLrecord *nftl)
 	struct NFTLMediaHeader *mh = &nftl->MediaHdr;
 	struct mtd_info *mtd = nftl->mbd.mtd;
 	unsigned int i;
-
-	pax_track_stack();
 
         /* Assume logical EraseSize == physical erasesize for starting the scan.
 	   We'll sort it out later if we find a MediaHeader which says otherwise */
@@ -300,7 +298,7 @@ static int check_free_sectors(struct NFTLrecord *nftl, unsigned int address, int
  *
  * Return: 0 when succeed, -1 on error.
  *
- *  ToDo: 1. Is it neceressary to check_free_sector after erasing ??
+ *  ToDo: 1. Is it necessary to check_free_sector after erasing ??
  */
 int NFTL_formatblock(struct NFTLrecord *nftl, int block)
 {
@@ -340,7 +338,7 @@ int NFTL_formatblock(struct NFTLrecord *nftl, int block)
 		nb_erases = le32_to_cpu(uci.WearInfo);
 		nb_erases++;
 
-		/* wrap (almost impossible with current flashs) or free block */
+		/* wrap (almost impossible with current flash) or free block */
 		if (nb_erases == 0)
 			nb_erases = 1;
 
@@ -366,10 +364,10 @@ fail:
  *	Mark as 'IGNORE' each incorrect sector. This check is only done if the chain
  *	was being folded when NFTL was interrupted.
  *
- *	The check_free_sectors in this function is neceressary. There is a possible
+ *	The check_free_sectors in this function is necessary. There is a possible
  *	situation that after writing the Data area, the Block Control Information is
  *	not updated according (due to power failure or something) which leaves the block
- *	in an umconsistent state. So we have to check if a block is really FREE in this
+ *	in an inconsistent state. So we have to check if a block is really FREE in this
  *	case. */
 static void check_sectors_in_chain(struct NFTLrecord *nftl, unsigned int first_block)
 {
@@ -431,7 +429,7 @@ static int calc_chain_length(struct NFTLrecord *nftl, unsigned int first_block)
 
 	for (;;) {
 		length++;
-		/* avoid infinite loops, although this is guaranted not to
+		/* avoid infinite loops, although this is guaranteed not to
 		   happen because of the previous checks */
 		if (length >= nftl->nb_blocks) {
 			printk("nftl: length too long %d !\n", length);
@@ -450,11 +448,11 @@ static int calc_chain_length(struct NFTLrecord *nftl, unsigned int first_block)
 /* format_chain: Format an invalid Virtual Unit chain. It frees all the Erase Units in a
  *	Virtual Unit Chain, i.e. all the units are disconnected.
  *
- *	It is not stricly correct to begin from the first block of the chain because
+ *	It is not strictly correct to begin from the first block of the chain because
  *	if we stop the code, we may see again a valid chain if there was a first_block
  *	flag in a block inside it. But is it really a problem ?
  *
- * FixMe: Figure out what the last statesment means. What if power failure when we are
+ * FixMe: Figure out what the last statement means. What if power failure when we are
  *	in the for (;;) loop formatting blocks ??
  */
 static void format_chain(struct NFTLrecord *nftl, unsigned int first_block)
@@ -488,7 +486,7 @@ static void format_chain(struct NFTLrecord *nftl, unsigned int first_block)
  *	totally free (only 0xff).
  *
  * Definition: Free Erase Unit -- A properly erased/formatted Free Erase Unit should have meet the
- *	following critia:
+ *	following criteria:
  *	1. */
 static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 {
@@ -505,7 +503,7 @@ static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 	erase_mark = le16_to_cpu ((h1.EraseMark | h1.EraseMark1));
 	if (erase_mark != ERASE_MARK) {
 		/* if no erase mark, the block must be totally free. This is
-		   possible in two cases : empty filsystem or interrupted erase (very unlikely) */
+		   possible in two cases : empty filesystem or interrupted erase (very unlikely) */
 		if (check_free_sectors (nftl, block * nftl->EraseSize, nftl->EraseSize, 1) != 0)
 			return -1;
 
@@ -547,7 +545,7 @@ static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 /* get_fold_mark: Read fold mark from Unit Control Information #2, we use FOLD_MARK_IN_PROGRESS
  *	to indicate that we are in the progression of a Virtual Unit Chain folding. If the UCI #2
  *	is FOLD_MARK_IN_PROGRESS when mounting the NFTL, the (previous) folding process is interrupted
- *	for some reason. A clean up/check of the VUC is neceressary in this case.
+ *	for some reason. A clean up/check of the VUC is necessary in this case.
  *
  * WARNING: return 0 if read error
  */
@@ -660,7 +658,7 @@ int NFTL_mount(struct NFTLrecord *s)
 						printk("Block %d: incorrect logical block: %d expected: %d\n",
 						       block, logical_block, first_logical_block);
 						/* the chain is incorrect : we must format it,
-						   but we need to read it completly */
+						   but we need to read it completely */
 						do_format_chain = 1;
 					}
 					if (is_first_block) {
@@ -672,7 +670,7 @@ int NFTL_mount(struct NFTLrecord *s)
 							printk("Block %d: incorrectly marked as first block in chain\n",
 							       block);
 							/* the chain is incorrect : we must format it,
-							   but we need to read it completly */
+							   but we need to read it completely */
 							do_format_chain = 1;
 						} else {
 							printk("Block %d: folding in progress - ignoring first block flag\n",

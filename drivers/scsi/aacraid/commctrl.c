@@ -482,7 +482,6 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 	u32 actual_fibsize64, actual_fibsize = 0;
 	int i;
 
-	pax_track_stack();
 
 	if (dev->in_reset) {
 		dprintk((KERN_DEBUG"aacraid: send raw srb -EBUSY\n"));

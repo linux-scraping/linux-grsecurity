@@ -31,8 +31,6 @@ static ssize_t read_file_tgt_int_stats(struct file *file, char __user *user_buf,
 	unsigned int len = 0;
 	int ret = 0;
 
-	pax_track_stack();
-
 	memset(&cmd_rsp, 0, sizeof(cmd_rsp));
 
 	ath9k_htc_ps_wakeup(priv);
@@ -90,8 +88,6 @@ static ssize_t read_file_tgt_tx_stats(struct file *file, char __user *user_buf,
 	char buf[512];
 	unsigned int len = 0;
 	int ret = 0;
-
-	pax_track_stack();
 
 	memset(&cmd_rsp, 0, sizeof(cmd_rsp));
 
@@ -163,8 +159,6 @@ static ssize_t read_file_tgt_rx_stats(struct file *file, char __user *user_buf,
 	unsigned int len = 0;
 	int ret = 0;
 
-	pax_track_stack();
-
 	memset(&cmd_rsp, 0, sizeof(cmd_rsp));
 
 	ath9k_htc_ps_wakeup(priv);
@@ -208,8 +202,6 @@ static ssize_t read_file_xmit(struct file *file, char __user *user_buf,
 	struct ath9k_htc_priv *priv = file->private_data;
 	char buf[512];
 	unsigned int len = 0;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len,
 			"%20s : %10u\n", "Buffers queued",
@@ -384,8 +376,6 @@ static ssize_t read_file_slot(struct file *file, char __user *user_buf,
 	char buf[512];
 	unsigned int len = 0;
 
-	pax_track_stack();
-
 	spin_lock_bh(&priv->tx.tx_lock);
 
 	len += snprintf(buf + len, sizeof(buf) - len, "TX slot bitmap : ");
@@ -420,8 +410,6 @@ static ssize_t read_file_queue(struct file *file, char __user *user_buf,
 	struct ath9k_htc_priv *priv = file->private_data;
 	char buf[512];
 	unsigned int len = 0;
-
-	pax_track_stack();
 
 	len += snprintf(buf + len, sizeof(buf) - len, "%20s : %10u\n",
 			"Mgmt endpoint", skb_queue_len(&priv->tx.mgmt_ep_queue));

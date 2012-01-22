@@ -121,7 +121,7 @@
 
 static int ip_rt_max_size;
 static int ip_rt_gc_timeout __read_mostly	= RT_GC_TIMEOUT;
-static int ip_rt_gc_interval __read_mostly	= 60 * HZ;
+static int ip_rt_gc_interval __read_mostly  = 60 * HZ;
 static int ip_rt_gc_min_interval __read_mostly	= HZ / 2;
 static int ip_rt_redirect_number __read_mostly	= 9;
 static int ip_rt_redirect_load __read_mostly	= HZ / 50;
@@ -144,7 +144,7 @@ static unsigned long expires_ljiffies;
 
 static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie);
 static unsigned int	 ipv4_default_advmss(const struct dst_entry *dst);
-static unsigned int	 ipv4_default_mtu(const struct dst_entry *dst);
+static unsigned int	 ipv4_mtu(const struct dst_entry *dst);
 static void		 ipv4_dst_destroy(struct dst_entry *dst);
 static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
 static void		 ipv4_link_failure(struct sk_buff *skb);
@@ -199,7 +199,7 @@ static struct dst_ops ipv4_dst_ops = {
 	.gc =			rt_garbage_collect,
 	.check =		ipv4_dst_check,
 	.default_advmss =	ipv4_default_advmss,
-	.default_mtu =		ipv4_default_mtu,
+	.mtu =			ipv4_mtu,
 	.cow_metrics =		ipv4_cow_metrics,
 	.destroy =		ipv4_dst_destroy,
 	.ifdown =		ipv4_dst_ifdown,
@@ -329,7 +329,7 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)
 	struct rtable *r = NULL;
 
 	for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
-		if (!rcu_dereference_raw(rt_hash_table[st->bucket].chain))
+		if (!rcu_access_pointer(rt_hash_table[st->bucket].chain))
 			continue;
 		rcu_read_lock_bh();
 		r = rcu_dereference_bh(rt_hash_table[st->bucket].chain);
@@ -355,7 +355,7 @@ static struct rtable *__rt_cache_get_next(struct seq_file *seq,
 		do {
 			if (--st->bucket < 0)
 				return NULL;
-		} while (!rcu_dereference_raw(rt_hash_table[st->bucket].chain));
+		} while (!rcu_access_pointer(rt_hash_table[st->bucket].chain));
 		rcu_read_lock_bh();
 		r = rcu_dereference_bh(rt_hash_table[st->bucket].chain);
 	}
@@ -770,7 +770,7 @@ static void rt_do_flush(struct net *net, int process_context)
 
 		if (process_context && need_resched())
 			cond_resched();
-		rth = rcu_dereference_raw(rt_hash_table[i].chain);
+		rth = rcu_access_pointer(rt_hash_table[i].chain);
 		if (!rth)
 			continue;
 
@@ -1921,12 +1921,17 @@ static unsigned int ipv4_default_advmss(const struct dst_entry *dst)
 	return advmss;
 }
 
-static unsigned int ipv4_default_mtu(const struct dst_entry *dst)
+static unsigned int ipv4_mtu(const struct dst_entry *dst)
 {
-	unsigned int mtu = dst->dev->mtu;
+	const struct rtable *rt = (const struct rtable *) dst;
+	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
+
+	if (mtu && rt_is_output_route(rt))
+		return mtu;
+
+	mtu = dst->dev->mtu;
 
 	if (unlikely(dst_metric_locked(dst, RTAX_MTU))) {
-		const struct rtable *rt = (const struct rtable *) dst;
 
 		if (rt->rt_gateway != rt->rt_dst && mtu > 576)
 			mtu = 576;
@@ -2866,9 +2871,11 @@ static struct dst_entry *ipv4_blackhole_dst_check(struct dst_entry *dst, u32 coo
 	return NULL;
 }
 
-static unsigned int ipv4_blackhole_default_mtu(const struct dst_entry *dst)
+static unsigned int ipv4_blackhole_mtu(const struct dst_entry *dst)
 {
-	return 0;
+	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
+
+	return mtu ? : dst->dev->mtu;
 }
 
 static void ipv4_rt_blackhole_update_pmtu(struct dst_entry *dst, u32 mtu)
@@ -2886,7 +2893,7 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
 	.protocol		=	cpu_to_be16(ETH_P_IP),
 	.destroy		=	ipv4_dst_destroy,
 	.check			=	ipv4_blackhole_dst_check,
-	.default_mtu		=	ipv4_blackhole_default_mtu,
+	.mtu			=	ipv4_blackhole_mtu,
 	.default_advmss		=	ipv4_default_advmss,
 	.update_pmtu		=	ipv4_rt_blackhole_update_pmtu,
 	.cow_metrics		=	ipv4_rt_blackhole_cow_metrics,
@@ -2964,7 +2971,7 @@ static int rt_fill_info(struct net *net,
 	struct rtable *rt = skb_rtable(skb);
 	struct rtmsg *r;
 	struct nlmsghdr *nlh;
-	long expires = 0;
+	unsigned long expires = 0;
 	const struct inet_peer *peer = rt->peer;
 	u32 id = 0, ts = 0, tsage = 0, error;
 
@@ -3021,8 +3028,12 @@ static int rt_fill_info(struct net *net,
 			tsage = get_seconds() - peer->tcp_ts_stamp;
 		}
 		expires = ACCESS_ONCE(peer->pmtu_expires);
-		if (expires)
-			expires -= jiffies;
+		if (expires) {
+			if (time_before(jiffies, expires))
+				expires -= jiffies;
+			else
+				expires = 0;
+		}
 	}
 
 	if (rt_is_input_route(rt)) {
@@ -3259,13 +3270,6 @@ static ctl_table ipv4_route_table[] = {
 	{
 		.procname	= "gc_timeout",
 		.data		= &ip_rt_gc_timeout,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_jiffies,
-	},
-	{
-		.procname	= "gc_interval",
-		.data		= &ip_rt_gc_interval,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_jiffies,

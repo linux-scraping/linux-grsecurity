@@ -607,8 +607,6 @@ void *videobuf_sg_alloc(size_t size)
 {
 	struct videobuf_queue q;
 
-	pax_track_stack();
-
 	/* Required to make generic handler to call __videobuf_alloc */
 	q.int_ops = &sg_ops;
 

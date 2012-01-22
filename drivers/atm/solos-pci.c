@@ -899,8 +899,6 @@ static int print_buffer(struct sk_buff *buf)
 	char msg[500];
 	char item[10];
 
-	pax_track_stack();
-
 	len = buf->len;
 	for (i = 0; i < len; i++){
 		if(i % 8 == 0)

@@ -504,7 +504,9 @@ int bitmap_parse_user(const char __user *ubuf,
 {
 	if (!access_ok(VERIFY_READ, ubuf, ulen))
 		return -EFAULT;
-	return __bitmap_parse((const char __force_kernel *)ubuf, ulen, 1, maskp, nmaskbits);
+	return __bitmap_parse((const char __force_kernel *)ubuf,
+				ulen, 1, maskp, nmaskbits);
+
 }
 EXPORT_SYMBOL(bitmap_parse_user);
 

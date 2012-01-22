@@ -67,10 +67,11 @@
  *
  * NEC	MegaRAID PCI Express ROMB	1000	0408	1033	8287
  *
- * For history of changes, see Documentation/ChangeLog.megaraid
+ * For history of changes, see Documentation/scsi/ChangeLog.megaraid
  */
 
 #include <linux/slab.h>
+#include <linux/module.h>
 #include "megaraid_mbox.h"
 
 static int megaraid_init(void);
@@ -3502,8 +3503,6 @@ megaraid_cmm_register(adapter_t *adapter)
 	mbox_ccb_t	*ccb;
 	int		rval;
 	int		i;
-
-	pax_track_stack();
 
 	// Allocate memory for the base list of scb for management module.
 	adapter->uscb_list = kcalloc(MBOX_MAX_USER_CMDS, sizeof(scb_t), GFP_KERNEL);

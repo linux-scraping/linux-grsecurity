@@ -133,6 +133,8 @@ extern void exit_ptrace(struct task_struct *tracer);
 extern bool ptrace_may_access(struct task_struct *task, unsigned int mode);
 /* Returns true on success, false on denial. */
 extern bool ptrace_may_access_log(struct task_struct *task, unsigned int mode);
+/* Returns true on success, false on denial. */
+extern bool ptrace_may_access_nolock(struct task_struct *task, unsigned int mode);
 
 static inline int ptrace_reparented(struct task_struct *child)
 {

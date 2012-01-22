@@ -299,8 +299,6 @@ static int show_journal(struct seq_file *m, struct super_block *sb)
 	struct journal_params *jp = &rs->s_v1.s_journal;
 	char b[BDEVNAME_SIZE];
 
-	pax_track_stack();
-
 	seq_printf(m,		/* on-disk fields */
 		   "jp_journal_1st_block: \t%i\n"
 		   "jp_journal_dev: \t%s[%x]\n"

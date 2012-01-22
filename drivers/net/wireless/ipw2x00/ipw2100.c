@@ -161,7 +161,7 @@ that only one external action is invoked at a time.
 #include <linux/firmware.h>
 #include <linux/acpi.h>
 #include <linux/ctype.h>
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 
 #include <net/lib80211.h>
 
@@ -174,7 +174,7 @@ that only one external action is invoked at a time.
 #define DRV_DESCRIPTION	"Intel(R) PRO/Wireless 2100 Network Driver"
 #define DRV_COPYRIGHT	"Copyright(c) 2003-2006 Intel Corporation"
 
-static struct pm_qos_request_list ipw2100_pm_qos_req;
+static struct pm_qos_request ipw2100_pm_qos_req;
 
 /* Debugging stuff */
 #ifdef CONFIG_IPW2100_DEBUG
@@ -2101,8 +2101,6 @@ static int ipw2100_set_essid(struct ipw2100_priv *priv, char *essid,
 	};
 	int err;
 	DECLARE_SSID_BUF(ssid);
-
-	pax_track_stack();
 
 	IPW_DEBUG_HC("SSID: '%s'\n", print_ssid(ssid, essid, ssid_len));
 
@@ -5452,8 +5450,6 @@ static int ipw2100_set_key(struct ipw2100_priv *priv,
 	};
 	struct ipw2100_wep_key *wep_key = (void *)cmd.host_command_parameters;
 	int err;
-
-	pax_track_stack();
 
 	IPW_DEBUG_HC("WEP_KEY_INFO: index = %d, len = %d/%d\n",
 		     idx, keylen, len);

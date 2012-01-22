@@ -48,7 +48,7 @@ void free_thread_xstate(struct task_struct *tsk)
 
 void free_thread_info(struct thread_info *ti)
 {
-	free_pages((unsigned long)ti, get_order(THREAD_SIZE));
+	free_pages((unsigned long)ti, THREAD_ORDER);
 }
 
 static struct kmem_cache *task_struct_cachep;

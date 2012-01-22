@@ -35,7 +35,6 @@
 #include <scsi/scsi_ioctl.h>
 
 #include <asm/byteorder.h>
-#include <linux/irq.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <asm/unaligned.h>
@@ -378,8 +377,6 @@ static int ide_floppy_get_capacity(ide_drive_t *drive)
 	u8 *cap_desc;
 	u8 pc_buf[256], header_len, desc_cnt;
 	int i, rc = 1, blocks, length;
-
-	pax_track_stack();
 
 	ide_debug_log(IDE_DBG_FUNC, "enter");
 

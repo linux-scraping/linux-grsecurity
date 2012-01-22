@@ -70,8 +70,6 @@
 #include "ebitmap.h"
 #include "audit.h"
 
-extern void selnl_notify_policyload(u32 seqno);
-
 int selinux_policycap_netpeer;
 int selinux_policycap_openperm;
 
@@ -1790,7 +1788,6 @@ static void security_load_policycaps(void)
 						  POLICYDB_CAPABILITY_OPENPERM);
 }
 
-extern void selinux_complete_init(void);
 static int security_preserve_bools(struct policydb *p);
 
 /**
@@ -1813,8 +1810,6 @@ int security_load_policy(void *data, size_t len)
 	u16 map_size;
 	int rc = 0;
 	struct policy_file file = { data, len }, *fp = &file;
-
-	pax_track_stack();
 
 	if (!ss_initialized) {
 		avtab_cache_init();

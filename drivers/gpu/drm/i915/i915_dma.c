@@ -41,6 +41,7 @@
 #include <linux/pnp.h>
 #include <linux/vga_switcheroo.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <acpi/video.h>
 
 static void i915_write_hws_pga(struct drm_device *dev)
@@ -884,7 +885,7 @@ static int i915_get_bridge_dev(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	dev_priv->bridge_dev = pci_get_bus_and_slot(0, PCI_DEVFN(0,0));
+	dev_priv->bridge_dev = pci_get_bus_and_slot(0, PCI_DEVFN(0, 0));
 	if (!dev_priv->bridge_dev) {
 		DRM_ERROR("bridge device not found\n");
 		return -1;
@@ -1740,10 +1741,10 @@ static DEFINE_SPINLOCK(mchdev_lock);
  */
 unsigned long i915_read_mch_val(void)
 {
-  	struct drm_i915_private *dev_priv;
+	struct drm_i915_private *dev_priv;
 	unsigned long chipset_val, graphics_val, ret = 0;
 
-  	spin_lock(&mchdev_lock);
+	spin_lock(&mchdev_lock);
 	if (!i915_mch_dev)
 		goto out_unlock;
 	dev_priv = i915_mch_dev;
@@ -1754,9 +1755,9 @@ unsigned long i915_read_mch_val(void)
 	ret = chipset_val + graphics_val;
 
 out_unlock:
-  	spin_unlock(&mchdev_lock);
+	spin_unlock(&mchdev_lock);
 
-  	return ret;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(i915_read_mch_val);
 
@@ -1767,10 +1768,10 @@ EXPORT_SYMBOL_GPL(i915_read_mch_val);
  */
 bool i915_gpu_raise(void)
 {
-  	struct drm_i915_private *dev_priv;
+	struct drm_i915_private *dev_priv;
 	bool ret = true;
 
-  	spin_lock(&mchdev_lock);
+	spin_lock(&mchdev_lock);
 	if (!i915_mch_dev) {
 		ret = false;
 		goto out_unlock;
@@ -1781,9 +1782,9 @@ bool i915_gpu_raise(void)
 		dev_priv->max_delay--;
 
 out_unlock:
-  	spin_unlock(&mchdev_lock);
+	spin_unlock(&mchdev_lock);
 
-  	return ret;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(i915_gpu_raise);
 
@@ -1795,10 +1796,10 @@ EXPORT_SYMBOL_GPL(i915_gpu_raise);
  */
 bool i915_gpu_lower(void)
 {
-  	struct drm_i915_private *dev_priv;
+	struct drm_i915_private *dev_priv;
 	bool ret = true;
 
-  	spin_lock(&mchdev_lock);
+	spin_lock(&mchdev_lock);
 	if (!i915_mch_dev) {
 		ret = false;
 		goto out_unlock;
@@ -1809,9 +1810,9 @@ bool i915_gpu_lower(void)
 		dev_priv->max_delay++;
 
 out_unlock:
-  	spin_unlock(&mchdev_lock);
+	spin_unlock(&mchdev_lock);
 
-  	return ret;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(i915_gpu_lower);
 
@@ -1822,10 +1823,10 @@ EXPORT_SYMBOL_GPL(i915_gpu_lower);
  */
 bool i915_gpu_busy(void)
 {
-  	struct drm_i915_private *dev_priv;
+	struct drm_i915_private *dev_priv;
 	bool ret = false;
 
-  	spin_lock(&mchdev_lock);
+	spin_lock(&mchdev_lock);
 	if (!i915_mch_dev)
 		goto out_unlock;
 	dev_priv = i915_mch_dev;
@@ -1833,9 +1834,9 @@ bool i915_gpu_busy(void)
 	ret = dev_priv->busy;
 
 out_unlock:
-  	spin_unlock(&mchdev_lock);
+	spin_unlock(&mchdev_lock);
 
-  	return ret;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(i915_gpu_busy);
 
@@ -1847,10 +1848,10 @@ EXPORT_SYMBOL_GPL(i915_gpu_busy);
  */
 bool i915_gpu_turbo_disable(void)
 {
-  	struct drm_i915_private *dev_priv;
+	struct drm_i915_private *dev_priv;
 	bool ret = true;
 
-  	spin_lock(&mchdev_lock);
+	spin_lock(&mchdev_lock);
 	if (!i915_mch_dev) {
 		ret = false;
 		goto out_unlock;
@@ -1863,9 +1864,9 @@ bool i915_gpu_turbo_disable(void)
 		ret = false;
 
 out_unlock:
-  	spin_unlock(&mchdev_lock);
+	spin_unlock(&mchdev_lock);
 
-  	return ret;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(i915_gpu_turbo_disable);
 
@@ -1958,7 +1959,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	agp_size = dev_priv->mm.gtt->gtt_mappable_entries << PAGE_SHIFT;
 
-        dev_priv->mm.gtt_mapping =
+	dev_priv->mm.gtt_mapping =
 		io_mapping_create_wc(dev->agp->base, agp_size);
 	if (dev_priv->mm.gtt_mapping == NULL) {
 		ret = -EIO;
@@ -2045,7 +2046,9 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	spin_lock_init(&dev_priv->error_lock);
 	spin_lock_init(&dev_priv->rps_lock);
 
-	if (IS_MOBILE(dev) || !IS_GEN2(dev))
+	if (IS_IVYBRIDGE(dev))
+		dev_priv->num_pipe = 3;
+	else if (IS_MOBILE(dev) || !IS_GEN2(dev))
 		dev_priv->num_pipe = 2;
 	else
 		dev_priv->num_pipe = 1;

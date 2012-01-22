@@ -180,8 +180,6 @@ asmlinkage void early_printk(const char *fmt, ...)
 	int n;
 	va_list ap;
 
-	pax_track_stack();
-
 	va_start(ap, fmt);
 	n = vscnprintf(buf, sizeof(buf), fmt, ap);
 	early_console->write(early_console, buf, n);

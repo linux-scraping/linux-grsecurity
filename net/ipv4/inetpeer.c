@@ -400,8 +400,6 @@ struct inet_peer *inet_getpeer(const struct inetpeer_addr *daddr, int create)
 	unsigned int sequence;
 	int invalidated, gccnt = 0;
 
-	pax_track_stack();
-
 	/* Attempt a lockless lookup first.
 	 * Because of a concurrent writer, we might not find an existing entry.
 	 */

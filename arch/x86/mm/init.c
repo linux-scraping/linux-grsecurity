@@ -15,6 +15,7 @@
 #include <asm/tlbflush.h>
 #include <asm/tlb.h>
 #include <asm/proto.h>
+#include <asm/desc.h>
 
 unsigned long __initdata pgt_buf_start;
 unsigned long __meminitdata pgt_buf_end;

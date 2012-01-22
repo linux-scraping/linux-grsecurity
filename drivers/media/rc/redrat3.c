@@ -195,11 +195,6 @@ struct redrat3_dev {
 	dma_addr_t dma_in;
 	dma_addr_t dma_out;
 
-	/* true if write urb is busy */
-	bool write_busy;
-	/* wait for the write to finish */
-	struct completion write_finished;
-
 	/* locks this structure */
 	struct mutex lock;
 
@@ -207,8 +202,6 @@ struct redrat3_dev {
 	struct timer_list rx_timeout;
 	u32 hw_timeout;
 
-	/* Is the device currently receiving? */
-	bool recv_in_progress;
 	/* is the detector enabled*/
 	bool det_enabled;
 	/* Is the device currently transmitting?*/
@@ -912,7 +905,7 @@ static int redrat3_set_tx_carrier(struct rc_dev *dev, u32 carrier)
 	return carrier;
 }
 
-static int redrat3_transmit_ir(struct rc_dev *rcdev, int *txbuf, u32 n)
+static int redrat3_transmit_ir(struct rc_dev *rcdev, unsigned *txbuf, u32 n)
 {
 	struct redrat3_dev *rr3 = rcdev->priv;
 	struct device *dev = rr3->dev;

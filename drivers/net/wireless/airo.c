@@ -2754,7 +2754,7 @@ static const struct net_device_ops airo_netdev_ops = {
 	.ndo_stop		= airo_close,
 	.ndo_start_xmit		= airo_start_xmit,
 	.ndo_get_stats		= airo_get_stats,
-	.ndo_set_multicast_list	= airo_set_multicast_list,
+	.ndo_set_rx_mode	= airo_set_multicast_list,
 	.ndo_set_mac_address	= airo_set_mac_address,
 	.ndo_do_ioctl		= airo_ioctl,
 	.ndo_change_mtu		= airo_change_mtu,
@@ -2766,7 +2766,7 @@ static const struct net_device_ops mpi_netdev_ops = {
 	.ndo_stop		= airo_close,
 	.ndo_start_xmit		= mpi_start_xmit,
 	.ndo_get_stats		= airo_get_stats,
-	.ndo_set_multicast_list	= airo_set_multicast_list,
+	.ndo_set_rx_mode	= airo_set_multicast_list,
 	.ndo_set_mac_address	= airo_set_mac_address,
 	.ndo_do_ioctl		= airo_ioctl,
 	.ndo_change_mtu		= airo_change_mtu,
@@ -3002,8 +3002,6 @@ static void airo_process_scan_results (struct airo_info *ai) {
 	int rc;
 	BSSListElement * loop_net;
 	BSSListElement * tmp_net;
-
-	pax_track_stack();
 
 	/* Blow away current list of scan results */
 	list_for_each_entry_safe (loop_net, tmp_net, &ai->network_list, list) {
@@ -3795,8 +3793,6 @@ static u16 setup_card(struct airo_info *ai, u8 *mac, int lock)
 	__le16 lastindex;
 	WepKeyRid wkr;
 	int rc;
-
-	pax_track_stack();
 
 	memset( &mySsid, 0, sizeof( mySsid ) );
 	kfree (ai->flash);
@@ -4757,8 +4753,6 @@ static int proc_stats_rid_open( struct inode *inode,
 	__le32 *vals = stats.vals;
 	int len;
 
-	pax_track_stack();
-
 	if ((file->private_data = kzalloc(sizeof(struct proc_data ), GFP_KERNEL)) == NULL)
 		return -ENOMEM;
 	data = file->private_data;
@@ -5481,8 +5475,6 @@ static int proc_BSSList_open( struct inode *inode, struct file *file ) {
 	int rc;
 	/* If doLoseSync is not 1, we won't do a Lose Sync */
 	int doLoseSync = -1;
-
-	pax_track_stack();
 
 	if ((file->private_data = kzalloc(sizeof(struct proc_data ), GFP_KERNEL)) == NULL)
 		return -ENOMEM;
@@ -7189,8 +7181,6 @@ static int airo_get_aplist(struct net_device *dev,
 	int i;
 	int loseSync = capable(CAP_NET_ADMIN) ? 1: -1;
 
-	pax_track_stack();
-
 	qual = kmalloc(IW_MAX_AP * sizeof(*qual), GFP_KERNEL);
 	if (!qual)
 		return -ENOMEM;
@@ -7750,8 +7740,6 @@ static void airo_read_wireless_stats(struct airo_info *local)
 	StatsRid stats_rid;
 	CapabilityRid cap_rid;
 	__le32 *vals = stats_rid.vals;
-
-	pax_track_stack();
 
 	/* Get stats out of the card */
 	clear_bit(JOB_WSTATS, &local->jobs);

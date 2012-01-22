@@ -939,8 +939,6 @@ fb_set_var(struct fb_info *info, struct fb_var_screeninfo *var)
 	int flags = info->flags;
 	int ret = 0;
 
-	pax_track_stack();
-
 	if (var->activate & FB_ACTIVATE_INV_MODE) {
 		struct fb_videomode mode1, mode2;
 
@@ -1065,8 +1063,6 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct fb_event event;
 	void __user *argp = (void __user *)arg;
 	long ret = 0;
-
-	pax_track_stack();
 
 	switch (cmd) {
 	case FBIOGET_VSCREENINFO:

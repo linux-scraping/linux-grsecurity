@@ -39,7 +39,7 @@ enum {
  */
 struct renesas_usbhs_driver_callback {
 	int (*notify_hotplug)(struct platform_device *pdev);
-};
+} __no_const;
 
 /*
  * callback functions for platform
@@ -82,7 +82,14 @@ struct renesas_usbhs_platform_callback {
 	 * get VBUS status function.
 	 */
 	int (*get_vbus)(struct platform_device *pdev);
-};
+
+	/*
+	 * option:
+	 *
+	 * VBUS control is needed for Host
+	 */
+	int (*set_vbus)(struct platform_device *pdev, int enable);
+} __no_const;
 
 /*
  * parameters for renesas usbhs
@@ -101,6 +108,8 @@ struct renesas_usbhs_driver_param {
 	 * option:
 	 *
 	 * for BUSWAIT :: BWAIT
+	 * see
+	 *	renesas_usbhs/common.c :: usbhsc_set_buswait()
 	 * */
 	int buswait_bwait;
 
@@ -127,6 +136,11 @@ struct renesas_usbhs_driver_param {
 	 * pio <--> dma border.
 	 */
 	int pio_dma_border; /* default is 64byte */
+
+	/*
+	 * option:
+	 */
+	u32 has_otg:1; /* for controlling PWEN/EXTLP */
 };
 
 /*

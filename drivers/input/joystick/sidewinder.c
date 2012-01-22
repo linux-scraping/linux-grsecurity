@@ -429,8 +429,6 @@ static int sw_read(struct sw *sw)
 	unsigned char buf[SW_LENGTH];
 	int i;
 
-	pax_track_stack();
-
 	i = sw_read_packet(sw->gameport, buf, sw->length, 0);
 
 	if (sw->type == SW_ID_3DP && sw->length == 66 && i != 66) {		/* Broken packet, try to fix */

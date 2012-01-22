@@ -318,6 +318,7 @@ static void bad_page(struct page *page)
 		current->comm, page_to_pfn(page));
 	dump_page(page);
 
+	print_modules();
 	dump_stack();
 out:
 	/* Leave bad fields for debug, except PageBuddy could make trouble */
@@ -1765,7 +1766,6 @@ static DEFINE_RATELIMIT_STATE(nopage_rs,
 
 void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
 {
-	va_list args;
 	unsigned int filter = SHOW_MEM_FILTER_NODES;
 
 	if ((gfp_mask & __GFP_NOWARN) || !__ratelimit(&nopage_rs))
@@ -1784,14 +1784,21 @@ void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
 		filter &= ~SHOW_MEM_FILTER_NODES;
 
 	if (fmt) {
-		printk(KERN_WARNING);
+		struct va_format vaf;
+		va_list args;
+
 		va_start(args, fmt);
-		vprintk(fmt, args);
+
+		vaf.fmt = fmt;
+		vaf.va = &args;
+
+		pr_warn("%pV", &vaf);
+
 		va_end(args);
 	}
 
-	pr_warning("%s: page allocation failure: order:%d, mode:0x%x\n",
-		   current->comm, order, gfp_mask);
+	pr_warn("%s: page allocation failure: order:%d, mode:0x%x\n",
+		current->comm, order, gfp_mask);
 
 	dump_stack();
 	if (!should_suppress_show_mem())
@@ -2550,8 +2557,6 @@ void show_free_areas(unsigned int filter)
 {
 	int cpu;
 	struct zone *zone;
-
-	pax_track_stack();
 
 	for_each_populated_zone(zone) {
 		if (skip_free_areas_node(filter, zone_to_nid(zone)))

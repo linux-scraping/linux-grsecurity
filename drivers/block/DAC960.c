@@ -1980,8 +1980,6 @@ static bool DAC960_V1_ReadDeviceConfiguration(DAC960_Controller_T
   unsigned long flags;
   int Channel, TargetID;
 
-  pax_track_stack();
-
   if (!init_dma_loaf(Controller->PCIDevice, &local_dma, 
 		DAC960_V1_MaxChannels*(sizeof(DAC960_V1_DCDB_T) +
 			sizeof(DAC960_SCSI_Inquiry_T) +

@@ -1286,8 +1286,6 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg)
 	} iocpar;
 	void __user *argp = (void __user *)arg;
 
-	pax_track_stack();
-
 #define name  iocpar.name
 #define bname iocpar.bname
 #define iocts iocpar.iocts
@@ -2310,11 +2308,11 @@ static int __init isdn_init(void)
 	int i;
 	char tmprev[50];
 
-	if (!(dev = vmalloc(sizeof(isdn_dev)))) {
+	dev = vzalloc(sizeof(isdn_dev));
+	if (!dev) {
 		printk(KERN_WARNING "isdn: Could not allocate device-struct.\n");
 		return -EIO;
 	}
-	memset((char *) dev, 0, sizeof(isdn_dev));
 	init_timer(&dev->timer);
 	dev->timer.function = isdn_timer_funct;
 	spin_lock_init(&dev->lock);

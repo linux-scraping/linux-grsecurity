@@ -4220,8 +4220,6 @@ static void send_panic_events(char *str)
 	struct ipmi_smi_msg               smi_msg;
 	struct ipmi_recv_msg              recv_msg;
 
-	pax_track_stack();
-
 	si = (struct ipmi_system_interface_addr *) &addr;
 	si->addr_type = IPMI_SYSTEM_INTERFACE_ADDR_TYPE;
 	si->channel = IPMI_BMC_CHANNEL;

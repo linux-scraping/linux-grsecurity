@@ -315,7 +315,7 @@ struct rio_ops {
 				 int mbox, void *buffer, size_t len);
 	int (*add_inb_buffer)(struct rio_mport *mport, int mbox, void *buf);
 	void *(*get_inb_message)(struct rio_mport *mport, int mbox);
-};
+} __no_const;
 
 #define RIO_RESOURCE_MEM	0x00000100
 #define RIO_RESOURCE_DOORBELL	0x00000200

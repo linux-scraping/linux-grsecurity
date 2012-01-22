@@ -842,8 +842,6 @@ void rxrpc_process_call(struct work_struct *work)
 	u32 abort_code = RX_PROTOCOL_ERROR;
 	u8 *acks = NULL;
 
-	pax_track_stack();
-
 	//printk("\n--------------------\n");
 	_enter("{%d,%s,%lx} [%lu]",
 	       call->debug_id, rxrpc_call_states[call->state], call->events,

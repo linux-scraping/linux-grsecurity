@@ -1019,8 +1019,6 @@ bfad_start_ops(struct bfad_s *bfad) {
 	struct bfad_vport_s *vport, *vport_new;
 	struct bfa_fcs_driver_info_s driver_info;
 
-	pax_track_stack();
-
 	/* Limit min/max. xfer size to [64k-32MB] */
 	if (max_xfer_size < BFAD_MIN_SECTORS >> 1)
 		max_xfer_size = BFAD_MIN_SECTORS >> 1;

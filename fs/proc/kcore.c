@@ -321,8 +321,6 @@ static void elf_kcore_store_hdr(char *bufp, int nphdr, int dataoff)
 	off_t offset = 0;
 	struct kcore_list *m;
 
-	pax_track_stack();
-
 	/* setup ELF header */
 	elf = (struct elfhdr *) bufp;
 	bufp += sizeof(struct elfhdr);

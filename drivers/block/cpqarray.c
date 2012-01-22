@@ -620,6 +620,7 @@ static int cpqarray_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 	}
 	vendor_id = pdev->vendor;
 	device_id = pdev->device;
+	revision  = pdev->revision;
 	irq = pdev->irq;
 
 	for(i=0; i<6; i++)
@@ -632,7 +633,6 @@ static int cpqarray_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 	}
 
 	pci_read_config_word(pdev, PCI_COMMAND, &command);
-	pci_read_config_byte(pdev, PCI_CLASS_REVISION, &revision);
 	pci_read_config_byte(pdev, PCI_CACHE_LINE_SIZE, &cache_line_size);
 	pci_read_config_byte(pdev, PCI_LATENCY_TIMER, &latency_timer);
 
@@ -910,8 +910,6 @@ static void do_ida_request(struct request_queue *q)
 	struct request *creq;
 	struct scatterlist tmp_sg[SG_MAX];
 	int i, dir, seg;
-
-	pax_track_stack();
 
 queue_next:
 	creq = blk_peek_request(q);

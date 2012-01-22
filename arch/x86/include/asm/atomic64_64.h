@@ -316,19 +316,7 @@ static inline int atomic64_add_negative(long i, atomic64_t *v)
  */
 static inline long atomic64_add_return(long i, atomic64_t *v)
 {
-	long __i = i;
-	asm volatile(LOCK_PREFIX "xaddq %0, %1\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     "movq %0, %1\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+r" (i), "+m" (v->counter)
-		     : : "memory");
-	return i + __i;
+	return i + xadd_check_overflow(&v->counter, i);
 }
 
 /**
@@ -340,11 +328,7 @@ static inline long atomic64_add_return(long i, atomic64_t *v)
  */
 static inline long atomic64_add_return_unchecked(long i, atomic64_unchecked_t *v)
 {
-	long __i = i;
-	asm volatile(LOCK_PREFIX "xaddq %0, %1"
-		     : "+r" (i), "+m" (v->counter)
-		     : : "memory");
-	return i + __i;
+	return i + xadd(&v->counter, i);
 }
 
 static inline long atomic64_sub_return(long i, atomic64_t *v)

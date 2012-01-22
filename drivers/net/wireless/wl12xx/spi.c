@@ -281,8 +281,6 @@ static void wl1271_spi_raw_write(struct wl1271 *wl, int addr, void *buf,
 	u32 chunk_len;
 	int i;
 
-	pax_track_stack();
-
 	WARN_ON(len > WL1271_AGGR_BUFFER_SIZE);
 
 	spi_message_init(&m);
@@ -488,8 +486,6 @@ module_exit(wl1271_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luciano Coelho <coelho@ti.com>");
 MODULE_AUTHOR("Juuso Oikarinen <juuso.oikarinen@nokia.com>");
-MODULE_FIRMWARE(WL1271_FW_NAME);
+MODULE_FIRMWARE(WL127X_FW_NAME);
 MODULE_FIRMWARE(WL128X_FW_NAME);
-MODULE_FIRMWARE(WL127X_AP_FW_NAME);
-MODULE_FIRMWARE(WL128X_AP_FW_NAME);
 MODULE_ALIAS("spi:wl1271");

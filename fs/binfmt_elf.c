@@ -168,8 +168,6 @@ create_elf_tables(struct linux_binprm *bprm, struct elfhdr *exec,
 	struct vm_area_struct *vma;
 	unsigned long saved_auxv[AT_VECTOR_SIZE];
 
-	pax_track_stack();
-
 	/*
 	 * In some cases (e.g. Hyper-Threading), we want to avoid L1
 	 * evictions by the processes running on the same package. One

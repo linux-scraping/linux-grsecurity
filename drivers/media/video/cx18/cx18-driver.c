@@ -327,8 +327,6 @@ void cx18_read_eeprom(struct cx18 *cx, struct tveeprom *tv)
 	struct i2c_client c;
 	u8 eedata[256];
 
-	pax_track_stack();
-
 	memset(&c, 0, sizeof(c));
 	strlcpy(c.name, "cx18 tveeprom tmp", sizeof(c.name));
 	c.adapter = &cx->i2c_adap[0];
@@ -1087,6 +1085,8 @@ static int __devinit cx18_probe(struct pci_dev *pci_dev,
 		setup.addr = ADDR_UNSET;
 		setup.type = cx->options.tuner;
 		setup.mode_mask = T_ANALOG_TV;  /* matches TV tuners */
+		if (cx->options.radio > 0)
+			setup.mode_mask |= T_RADIO;
 		setup.tuner_callback = (setup.type == TUNER_XC2028) ?
 			cx18_reset_tuner_gpio : NULL;
 		cx18_call_all(cx, tuner, s_type_addr, &setup);

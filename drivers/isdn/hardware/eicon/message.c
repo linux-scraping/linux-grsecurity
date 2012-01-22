@@ -4886,8 +4886,6 @@ static void sig_ind(PLCI *plci)
   dword d;
   word w;
 
-  pax_track_stack();
-
   a = plci->adapter;
   Id = ((word)plci->Id<<8)|a->Id;
   PUT_WORD(&SS_Ind[4],0x0000);
@@ -7482,8 +7480,6 @@ static word add_b1(PLCI *plci, API_PARSE *bp, word b_channel_info,
   word j, n, w;
   dword d;
 
-  pax_track_stack();
-
 
   for(i=0;i<8;i++) bp_parms[i].length = 0;
   for(i=0;i<2;i++) global_config[i].length = 0;
@@ -7957,8 +7953,6 @@ static word add_b23(PLCI *plci, API_PARSE *bp)
 
   const byte llc3[] = {4,3,2,2,6,6,0};
   const byte header[] = {0,2,3,3,0,0,0};
-
-  pax_track_stack();
 
   for(i=0;i<8;i++) bp_parms[i].length = 0;
   for(i=0;i<6;i++) b2_config_parms[i].length = 0;
@@ -14746,8 +14740,6 @@ static void group_optimization(DIVA_CAPI_ADAPTER   * a, PLCI   * plci)
   dword cip_mask_group[MAX_CIP_TYPES];
   word appl_number_group_type[MAX_APPL];
   PLCI   *auxplci;
-
-  pax_track_stack();
 
   set_group_ind_mask (plci); /* all APPLs within this inc. call are allowed to dial in */
 

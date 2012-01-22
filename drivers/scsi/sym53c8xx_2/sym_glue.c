@@ -1756,8 +1756,6 @@ static int __devinit sym2_probe(struct pci_dev *pdev,
 	int do_iounmap = 0;
 	int do_disable_device = 1;
 
-	pax_track_stack();
-
 	memset(&sym_dev, 0, sizeof(sym_dev));
 	memset(&nvram, 0, sizeof(nvram));
 	sym_dev.pdev = pdev;

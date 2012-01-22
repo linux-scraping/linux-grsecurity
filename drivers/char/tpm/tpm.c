@@ -862,8 +862,6 @@ ssize_t tpm_show_pubek(struct device *dev, struct device_attribute *attr,
 
 	struct tpm_chip *chip = dev_get_drvdata(dev);
 
-	pax_track_stack();
-
 	tpm_cmd.header.in = tpm_readpubek_header;
 	err = transmit_cmd(chip, &tpm_cmd, READ_PUBEK_RESULT_SIZE,
 			"attempting to read the PUBEK");
@@ -967,6 +965,9 @@ ssize_t tpm_show_durations(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
 	struct tpm_chip *chip = dev_get_drvdata(dev);
+
+	if (chip->vendor.duration[TPM_LONG] == 0)
+		return 0;
 
 	return sprintf(buf, "%d %d %d [%s]\n",
 		       jiffies_to_usecs(chip->vendor.duration[TPM_SHORT]),

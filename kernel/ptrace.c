@@ -8,7 +8,7 @@
  */
 
 #include <linux/capability.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/mm.h>
@@ -224,6 +224,11 @@ bool ptrace_may_access(struct task_struct *task, unsigned int mode)
 	err = __ptrace_may_access(task, mode, 0);
 	task_unlock(task);
 	return !err;
+}
+
+bool ptrace_may_access_nolock(struct task_struct *task, unsigned int mode)
+{
+	return __ptrace_may_access(task, mode, 0);
 }
 
 bool ptrace_may_access_log(struct task_struct *task, unsigned int mode)
@@ -485,8 +490,6 @@ int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst
 {
 	int copied = 0;
 
-	pax_track_stack();
-
 	while (len > 0) {
 		char buf[128];
 		int this_len, retval;
@@ -511,8 +514,6 @@ int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst
 int ptrace_writedata(struct task_struct *tsk, char __user *src, unsigned long dst, int len)
 {
 	int copied = 0;
-
-	pax_track_stack();
 
 	while (len > 0) {
 		char buf[128];
@@ -700,8 +701,6 @@ int ptrace_request(struct task_struct *child, long request,
 	void __user *datavp = (__force void __user *) data;
 	unsigned long __user *datalp = datavp;
 	unsigned long flags;
-
-	pax_track_stack();
 
 	switch (request) {
 	case PTRACE_PEEKTEXT:
@@ -963,8 +962,6 @@ int compat_ptrace_request(struct task_struct *child, compat_long_t request,
 	compat_ulong_t word;
 	siginfo_t siginfo;
 	int ret;
-
-	pax_track_stack();
 
 	switch (request) {
 	case PTRACE_PEEKTEXT:

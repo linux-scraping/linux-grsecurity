@@ -1655,8 +1655,6 @@ static int hifn_test(struct hifn_device *dev, int encdec, u8 snum)
 		0xCA, 0x34, 0x2B, 0x2E};
 	struct scatterlist sg;
 
-	pax_track_stack();
-
 	memset(src, 0, sizeof(src));
 	memset(ctx.key, 0, sizeof(ctx.key));
 
@@ -2746,10 +2744,8 @@ static int __init hifn_init(void)
 	unsigned int freq;
 	int err;
 
-	if (sizeof(dma_addr_t) > 4) {
-		printk(KERN_INFO "HIFN supports only 32-bit addresses.\n");
-		return -EINVAL;
-	}
+	/* HIFN supports only 32-bit addresses */
+	BUILD_BUG_ON(sizeof(dma_addr_t) != 4);
 
 	if (strncmp(hifn_pll_ref, "ext", 3) &&
 	    strncmp(hifn_pll_ref, "pci", 3)) {

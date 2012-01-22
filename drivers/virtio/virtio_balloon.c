@@ -25,6 +25,7 @@
 #include <linux/freezer.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 struct virtio_balloon
 {
@@ -173,8 +174,6 @@ static void update_balloon_stats(struct virtio_balloon *vb)
 	unsigned long events[NR_VM_EVENT_ITEMS];
 	struct sysinfo i;
 	int idx = 0;
-
-	pax_track_stack();
 
 	all_vm_events(events);
 	si_meminfo(&i);

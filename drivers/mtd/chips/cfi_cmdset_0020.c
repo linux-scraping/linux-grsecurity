@@ -255,8 +255,6 @@ static inline int do_read_onechip(struct map_info *map, struct flchip *chip, lof
 	unsigned long cmd_addr;
 	struct cfi_private *cfi = map->fldrv_priv;
 
-	pax_track_stack();
-
 	adr += chip->start;
 
 	/* Ensure cmd read/writes are aligned. */
@@ -430,8 +428,6 @@ static inline int do_write_buffer(struct map_info *map, struct flchip *chip,
 	unsigned long cmd_adr, timeo;
 	DECLARE_WAITQUEUE(wait, current);
 	int wbufsize, z;
-
-	pax_track_stack();
 
         /* M58LW064A requires bus alignment for buffer wriets -- saw */
         if (adr & (map_bankwidth(map)-1))
@@ -747,8 +743,6 @@ static inline int do_erase_oneblock(struct map_info *map, struct flchip *chip, u
 	DECLARE_WAITQUEUE(wait, current);
 	int ret = 0;
 
-	pax_track_stack();
-
 	adr += chip->start;
 
 	/* Let's determine this according to the interleave only once */
@@ -1054,8 +1048,6 @@ static inline int do_lock_oneblock(struct map_info *map, struct flchip *chip, un
 	unsigned long timeo = jiffies + HZ;
 	DECLARE_WAITQUEUE(wait, current);
 
-	pax_track_stack();
-
 	adr += chip->start;
 
 	/* Let's determine this according to the interleave only once */
@@ -1204,8 +1196,6 @@ static inline int do_unlock_oneblock(struct map_info *map, struct flchip *chip, 
 	map_word status, status_OK;
 	unsigned long timeo = jiffies + HZ;
 	DECLARE_WAITQUEUE(wait, current);
-
-	pax_track_stack();
 
 	adr += chip->start;
 

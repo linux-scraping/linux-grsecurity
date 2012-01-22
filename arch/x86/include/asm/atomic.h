@@ -334,58 +334,42 @@ static inline int atomic_add_negative(int i, atomic_t *v)
  */
 static inline int atomic_add_return(int i, atomic_t *v)
 {
-	int __i;
 #ifdef CONFIG_M386
+	int __i;
 	unsigned long flags;
 	if (unlikely(boot_cpu_data.x86 <= 3))
 		goto no_xadd;
 #endif
 	/* Modern 486+ processor */
-	__i = i;
-	asm volatile(LOCK_PREFIX "xaddl %0, %1\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     "movl %0, %1\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+r" (i), "+m" (v->counter)
-		     : : "memory");
-	return i + __i;
+	return i + xadd_check_overflow(&v->counter, i);
 
 #ifdef CONFIG_M386
 no_xadd: /* Legacy 386 processor */
-	local_irq_save(flags);
+	raw_local_irq_save(flags);
 	__i = atomic_read(v);
 	atomic_set(v, i + __i);
-	local_irq_restore(flags);
+	raw_local_irq_restore(flags);
 	return i + __i;
 #endif
 }
 
 /**
  * atomic_add_return_unchecked - add integer and return
- * @v: pointer of type atomic_unchecked_t
  * @i: integer value to add
+ * @v: pointer of type atomic_unchecked_t
  *
  * Atomically adds @i to @v and returns @i + @v
  */
 static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
 {
-	int __i;
 #ifdef CONFIG_M386
+	int __i;
 	unsigned long flags;
 	if (unlikely(boot_cpu_data.x86 <= 3))
 		goto no_xadd;
 #endif
 	/* Modern 486+ processor */
-	__i = i;
-	asm volatile(LOCK_PREFIX "xaddl %0, %1"
-		     : "+r" (i), "+m" (v->counter)
-		     : : "memory");
-	return i + __i;
+	return i + xadd(&v->counter, i);
 
 #ifdef CONFIG_M386
 no_xadd: /* Legacy 386 processor */

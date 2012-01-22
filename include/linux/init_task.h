@@ -42,7 +42,7 @@ extern struct fs_struct init_fs;
 	.cputimer	= { 						\
 		.cputime = INIT_CPUTIME,				\
 		.running = 0,						\
-		.lock = __SPIN_LOCK_UNLOCKED(sig.cputimer.lock),	\
+		.lock = __RAW_SPIN_LOCK_UNLOCKED(sig.cputimer.lock),	\
 	},								\
 	.cred_guard_mutex =						\
 		 __MUTEX_INITIALIZER(sig.cred_guard_mutex),		\
@@ -126,6 +126,8 @@ extern struct cred init_cred;
 # define INIT_PERF_EVENTS(tsk)
 #endif
 
+#define INIT_TASK_COMM "swapper"
+
 #ifdef CONFIG_X86
 #define INIT_TASK_THREAD_INFO .tinfo = INIT_THREAD_INFO,
 #else
@@ -168,7 +170,7 @@ extern struct cred init_cred;
 	.group_leader	= &tsk,						\
 	RCU_INIT_POINTER(.real_cred, &init_cred),			\
 	RCU_INIT_POINTER(.cred, &init_cred),				\
-	.comm		= "swapper",					\
+	.comm		= INIT_TASK_COMM,				\
 	.thread		= INIT_THREAD,					\
 	INIT_TASK_THREAD_INFO						\
 	.fs		= &init_fs,					\
@@ -191,7 +193,6 @@ extern struct cred init_cred;
 		[PIDTYPE_SID]  = INIT_PID_LINK(PIDTYPE_SID),		\
 	},								\
 	.thread_group	= LIST_HEAD_INIT(tsk.thread_group),		\
-	.dirties = INIT_PROP_LOCAL_SINGLE(dirties),			\
 	INIT_IDS							\
 	INIT_PERF_EVENTS(tsk)						\
 	INIT_TRACE_IRQFLAGS						\

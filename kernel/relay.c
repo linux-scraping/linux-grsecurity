@@ -15,7 +15,7 @@
 #include <linux/errno.h>
 #include <linux/stddef.h>
 #include <linux/slab.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/string.h>
 #include <linux/relay.h>
 #include <linux/vmalloc.h>
@@ -1235,8 +1235,6 @@ static ssize_t subbuf_splice_actor(struct file *in,
 		.spd_release = relay_page_release,
 	};
 	ssize_t ret;
-
-	pax_track_stack();
 
 	if (rbuf->subbufs_produced == rbuf->subbufs_consumed)
 		return 0;

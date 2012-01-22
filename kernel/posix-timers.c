@@ -47,7 +47,7 @@
 #include <linux/syscalls.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
-#include <linux/module.h>
+#include <linux/export.h>
 
 /*
  * Management arrays for POSIX timers.	 Timers are kept in slab memory
@@ -272,8 +272,6 @@ static __init int init_posix_timers(void)
 		.timer_get	= common_timer_get,
 		.timer_del	= common_timer_del,
 	};
-
-	pax_track_stack();
 
 	posix_timers_register_clock(CLOCK_REALTIME, &clock_realtime);
 	posix_timers_register_clock(CLOCK_MONOTONIC, &clock_monotonic);

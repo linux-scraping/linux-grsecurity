@@ -223,13 +223,11 @@ static int check_acl(struct inode *inode, int mask)
 }
 
 /*
- * This does basic POSIX ACL permission checking
+ * This does the basic permission checking
  */
 static int acl_permission_check(struct inode *inode, int mask)
 {
 	unsigned int mode = inode->i_mode;
-
-	mask &= MAY_READ | MAY_WRITE | MAY_EXEC | MAY_NOT_BLOCK;
 
 	if (current_user_ns() != inode_userns(inode))
 		goto other_perms;
@@ -259,7 +257,7 @@ other_perms:
 /**
  * generic_permission -  check for access rights on a Posix-like filesystem
  * @inode:	inode to check access rights for
- * @mask:	right to check for (%MAY_READ, %MAY_WRITE, %MAY_EXEC)
+ * @mask:	right to check for (%MAY_READ, %MAY_WRITE, %MAY_EXEC, ...)
  *
  * Used to check for read/write/execute permissions on a file.
  * We use "fsuid" for this, letting us set arbitrary permissions
@@ -275,7 +273,7 @@ int generic_permission(struct inode *inode, int mask)
 	int ret;
 
 	/*
-	 * Do the basic POSIX ACL permission checks.
+	 * Do the basic permission checks.
 	 */
 	ret = acl_permission_check(inode, mask);
 	if (ret != -EACCES)
@@ -341,12 +339,14 @@ static inline int do_inode_permission(struct inode *inode, int mask)
 /**
  * inode_permission  -  check for access rights to a given inode
  * @inode:	inode to check permission on
- * @mask:	right to check for (%MAY_READ, %MAY_WRITE, %MAY_EXEC)
+ * @mask:	right to check for (%MAY_READ, %MAY_WRITE, %MAY_EXEC, ...)
  *
  * Used to check for read/write/execute permissions on an inode.
  * We use "fsuid" for this, letting us set arbitrary permissions
  * for filesystem access without changing the "normal" uids which
  * are used for other things.
+ *
+ * When checking for MAY_APPEND, MAY_WRITE must also be set in @mask.
  */
 int inode_permission(struct inode *inode, int mask)
 {
@@ -2086,30 +2086,14 @@ static int may_open(struct path *path, int acc_mode, int flag)
 	if (flag & O_NOATIME && !inode_owner_or_capable(inode))
 		return -EPERM;
 
-	/*
-	 * Ensure there are no outstanding leases on the file.
-	 */
-	error = break_lease(inode, flag);
+	if (gr_handle_rofs_blockwrite(dentry, path->mnt, acc_mode))
+		return -EPERM;
+	if (gr_handle_rawio(inode))
+		return -EPERM;
+	if (!gr_acl_handle_open(dentry, path->mnt, acc_mode))
+		return -EACCES;
 
-	if (error)
-		return error;
-
-	if (gr_handle_rofs_blockwrite(dentry, path->mnt, acc_mode)) {
-		error = -EPERM;
-		goto exit;
-	}
-
-	if (gr_handle_rawio(inode)) {
-		error = -EPERM;
-		goto exit;
-	}
-
-	if (!gr_acl_handle_open(dentry, path->mnt, acc_mode)) {
-		error = -EACCES;
-		goto exit;
-	}
-exit:
-	return error;
+	return 0;
 }
 
 static int handle_truncate(struct file *filp)
@@ -3358,8 +3342,6 @@ SYSCALL_DEFINE4(renameat, int, olddfd, const char __user *, oldname,
 	char *from;
 	char *to;
 	int error;
-
-	pax_track_stack();
 
 	error = user_path_parent(olddfd, oldname, &oldnd, &from);
 	if (error)

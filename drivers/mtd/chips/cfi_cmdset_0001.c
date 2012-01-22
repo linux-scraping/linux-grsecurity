@@ -757,8 +757,6 @@ static int chip_ready (struct map_info *map, struct flchip *chip, unsigned long 
 	struct cfi_pri_intelext *cfip = cfi->cmdset_priv;
 	unsigned long timeo = jiffies + HZ;
 
-	pax_track_stack();
-
 	/* Prevent setting state FL_SYNCING for chip in suspended state. */
 	if (mode == FL_SYNCING && chip->oldstate != FL_READY)
 		goto sleep;
@@ -1655,8 +1653,6 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 	unsigned long initial_adr;
 	int initial_len = len;
 
-	pax_track_stack();
-
 	wbufsize = cfi_interleave(cfi) << cfi->cfiq->MaxBufWriteSize;
 	adr += chip->start;
 	initial_adr = adr;
@@ -1874,8 +1870,6 @@ static int __xipram do_erase_oneblock(struct map_info *map, struct flchip *chip,
 	map_word status;
 	int retries = 3;
 	int ret;
-
-	pax_track_stack();
 
 	adr += chip->start;
 

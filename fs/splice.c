@@ -320,8 +320,6 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 		.spd_release = spd_release_page,
 	};
 
-	pax_track_stack();
-
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
 
@@ -604,8 +602,6 @@ ssize_t default_file_splice_read(struct file *in, loff_t *ppos,
 		.ops = &default_pipe_buf_ops,
 		.spd_release = spd_release_page,
 	};
-
-	pax_track_stack();
 
 	if (splice_grow_spd(pipe, &spd))
 		return -ENOMEM;
@@ -1622,8 +1618,6 @@ static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
 		.spd_release = spd_release_page,
 	};
 	long ret;
-
-	pax_track_stack();
 
 	pipe = get_pipe_info(file);
 	if (!pipe)

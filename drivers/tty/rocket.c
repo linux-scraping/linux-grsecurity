@@ -1277,8 +1277,6 @@ static int get_ports(struct r_port *info, struct rocket_ports __user *retports)
 	struct rocket_ports tmp;
 	int board;
 
-	pax_track_stack();
-
 	if (!retports)
 		return -EFAULT;
 	memset(&tmp, 0, sizeof (tmp));

@@ -51,8 +51,6 @@ void __init check_iommu_entries(struct iommu_table_entry *start,
 {
 	struct iommu_table_entry *p, *q, *x;
 
-	pax_track_stack();
-
 	/* Simple cyclic dependency checker. */
 	for (p = start; p < finish; p++) {
 		q = find_dependents_of(start, finish, p);

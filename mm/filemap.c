@@ -9,7 +9,7 @@
  * most "normal" filesystems (but you don't /have/ to use this:
  * the NFS filesystem used to do this differently, for example)
  */
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/compiler.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -393,10 +393,23 @@ EXPORT_SYMBOL(filemap_write_and_wait_range);
 int replace_page_cache_page(struct page *old, struct page *new, gfp_t gfp_mask)
 {
 	int error;
+	struct mem_cgroup *memcg = NULL;
 
 	VM_BUG_ON(!PageLocked(old));
 	VM_BUG_ON(!PageLocked(new));
 	VM_BUG_ON(new->mapping);
+
+	/*
+	 * This is not page migration, but prepare_migration and
+	 * end_migration does enough work for charge replacement.
+	 *
+	 * In the longer term we probably want a specialized function
+	 * for moving the charge from old to new in a more efficient
+	 * manner.
+	 */
+	error = mem_cgroup_prepare_migration(old, new, &memcg, gfp_mask);
+	if (error)
+		return error;
 
 	error = radix_tree_preload(gfp_mask & ~__GFP_HIGHMEM);
 	if (!error) {
@@ -419,12 +432,13 @@ int replace_page_cache_page(struct page *old, struct page *new, gfp_t gfp_mask)
 		if (PageSwapBacked(new))
 			__inc_zone_page_state(new, NR_SHMEM);
 		spin_unlock_irq(&mapping->tree_lock);
-		/* mem_cgroup codes must not be called under tree_lock */
-		mem_cgroup_replace_page_cache(old, new);
 		radix_tree_preload_end();
 		if (freepage)
 			freepage(old);
 		page_cache_release(old);
+		mem_cgroup_end_migration(memcg, old, new, true);
+	} else {
+		mem_cgroup_end_migration(memcg, old, new, false);
 	}
 
 	return error;
@@ -2098,6 +2112,7 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes)
 	} else {
 		const struct iovec *iov = i->iov;
 		size_t base = i->iov_offset;
+		unsigned long nr_segs = i->nr_segs;
 
 		/*
 		 * The !iov->iov_len check ensures we skip over unlikely
@@ -2113,11 +2128,13 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes)
 			base += copy;
 			if (iov->iov_len == base) {
 				iov++;
+				nr_segs--;
 				base = 0;
 			}
 		}
 		i->iov = iov;
 		i->iov_offset = base;
+		i->nr_segs = nr_segs;
 	}
 }
 EXPORT_SYMBOL(iov_iter_advance);
@@ -2388,7 +2405,6 @@ static ssize_t generic_perform_write(struct file *file,
 						iov_iter_count(i));
 
 again:
-
 		/*
 		 * Bring in the user page that we will copy from _first_.
 		 * Otherwise there's a nasty deadlock on copying from the
@@ -2444,7 +2460,10 @@ again:
 		written += copied;
 
 		balance_dirty_pages_ratelimited(mapping);
-
+		if (fatal_signal_pending(current)) {
+			status = -EINTR;
+			break;
+		}
 	} while (iov_iter_count(i));
 
 	return written ? written : status;

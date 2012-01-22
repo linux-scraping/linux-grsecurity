@@ -4976,8 +4976,6 @@ static int ixj_daa_cid_read(IXJ *j)
 	bool mContinue;
 	char *pIn, *pOut;
 
-	pax_track_stack();
-
 	if (!SCI_Prepare(j))
 		return 0;
 

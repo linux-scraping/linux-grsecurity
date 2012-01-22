@@ -2481,8 +2481,6 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
 	struct xfrm_migrate m[XFRM_MAX_DEPTH];
 	struct xfrm_kmaddress k;
 
-	pax_track_stack();
-
 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC - 1],
 				     ext_hdrs[SADB_EXT_ADDRESS_DST - 1]) ||
 	    !ext_hdrs[SADB_X_EXT_POLICY - 1]) {

@@ -13,6 +13,7 @@
 
 #include <linux/rtc.h>
 #include <linux/sched.h>
+#include <linux/module.h>
 #include <linux/log2.h>
 #include <linux/workqueue.h>
 
@@ -227,11 +228,11 @@ int __rtc_read_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 		alarm->time.tm_hour = now.tm_hour;
 
 	/* For simplicity, only support date rollover for now */
-	if (alarm->time.tm_mday < 1 || alarm->time.tm_mday > 31) {
+	if (alarm->time.tm_mday == -1) {
 		alarm->time.tm_mday = now.tm_mday;
 		missing = day;
 	}
-	if ((unsigned)alarm->time.tm_mon >= 12) {
+	if (alarm->time.tm_mon == -1) {
 		alarm->time.tm_mon = now.tm_mon;
 		if (missing == none)
 			missing = month;

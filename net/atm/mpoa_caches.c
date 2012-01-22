@@ -255,8 +255,6 @@ static void check_resolving_entries(struct mpoa_client *client)
 	struct timeval now;
 	struct k_message msg;
 
-	pax_track_stack();
-
 	do_gettimeofday(&now);
 
 	read_lock_bh(&client->ingress_lock);

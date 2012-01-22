@@ -11,7 +11,7 @@
  */
 
 #include <linux/slab.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
@@ -1367,13 +1367,24 @@ int kill_proc_info(int sig, struct siginfo *info, pid_t pid)
 	return error;
 }
 
+static int kill_as_cred_perm(const struct cred *cred,
+			     struct task_struct *target)
+{
+	const struct cred *pcred = __task_cred(target);
+	if (cred->user_ns != pcred->user_ns)
+		return 0;
+	if (cred->euid != pcred->suid && cred->euid != pcred->uid &&
+	    cred->uid  != pcred->suid && cred->uid  != pcred->uid)
+		return 0;
+	return 1;
+}
+
 /* like kill_pid_info(), but doesn't use uid/euid of "current" */
-int kill_pid_info_as_uid(int sig, struct siginfo *info, struct pid *pid,
-		      uid_t uid, uid_t euid, u32 secid)
+int kill_pid_info_as_cred(int sig, struct siginfo *info, struct pid *pid,
+			 const struct cred *cred, u32 secid)
 {
 	int ret = -EINVAL;
 	struct task_struct *p;
-	const struct cred *pcred;
 	unsigned long flags;
 
 	if (!valid_signal(sig))
@@ -1385,10 +1396,7 @@ int kill_pid_info_as_uid(int sig, struct siginfo *info, struct pid *pid,
 		ret = -ESRCH;
 		goto out_unlock;
 	}
-	pcred = __task_cred(p);
-	if (si_fromuser(info) &&
-	    euid != pcred->suid && euid != pcred->uid &&
-	    uid  != pcred->suid && uid  != pcred->uid) {
+	if (si_fromuser(info) && !kill_as_cred_perm(cred, p)) {
 		ret = -EPERM;
 		goto out_unlock;
 	}
@@ -1407,7 +1415,7 @@ out_unlock:
 	rcu_read_unlock();
 	return ret;
 }
-EXPORT_SYMBOL_GPL(kill_pid_info_as_uid);
+EXPORT_SYMBOL_GPL(kill_pid_info_as_cred);
 
 /*
  * kill_something_info() interprets pid in interesting ways just like kill(2).
@@ -1931,8 +1939,6 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 static void ptrace_do_notify(int signr, int exit_code, int why)
 {
 	siginfo_t info;
-
-	pax_track_stack();
 
 	memset(&info, 0, sizeof info);
 	info.si_signo = signr;

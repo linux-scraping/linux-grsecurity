@@ -94,7 +94,9 @@ struct snd_usb_substream {
 	struct snd_pcm_hw_constraint_list rate_list;	/* limited rates */
 	spinlock_t lock;
 
-	snd_urb_ops_no_const ops;		/* callbacks (must be filled at init) */
+	snd_urb_ops_no_const ops;	/* callbacks (must be filled at init) */
+	int last_frame_number;          /* stored frame number */
+	int last_delay;                 /* stored delay */
 };
 
 struct snd_usb_stream {
