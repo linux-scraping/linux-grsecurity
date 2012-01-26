@@ -739,7 +739,7 @@ int scsi_verify_blk_ioctl(struct block_device *bd, unsigned int cmd)
 		 * and we do not want to spam dmesg about it.   CD-ROMs do
 		 * not have partitions, so we get here only for disks.
 		 */
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 	default:
 		break;
 	}
@@ -748,7 +748,7 @@ int scsi_verify_blk_ioctl(struct block_device *bd, unsigned int cmd)
 	printk_ratelimited(KERN_WARNING
 			   "%s: sending ioctl %x to a partition!\n", current->comm, cmd);
 
-	return capable(CAP_SYS_RAWIO) ? 0 : -ENOIOCTLCMD;
+	return capable(CAP_SYS_RAWIO) ? 0 : -ENOTTY;
 }
 EXPORT_SYMBOL(scsi_verify_blk_ioctl);
 
