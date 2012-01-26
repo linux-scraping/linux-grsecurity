@@ -1525,6 +1525,11 @@ static int do_execve_common(const char *filename,
 	if (IS_ERR(file))
 		goto out_unmark;
 
+	if (gr_ptrace_readexec(file, bprm->unsafe)) {
+		retval = -EPERM;
+		goto out_file;
+	}
+
 	sched_exec();
 
 	bprm->file = file;

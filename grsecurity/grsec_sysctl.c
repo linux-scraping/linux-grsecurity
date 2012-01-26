@@ -61,6 +61,15 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_PTRACE_READEXEC
+	{
+		.procname	= "ptrace_readexec",
+		.data		= &grsec_enable_ptrace_readexec,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_SETXID
 	{
 		.procname	= "consistent_setxid",

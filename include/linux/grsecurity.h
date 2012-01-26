@@ -213,6 +213,8 @@ int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int a
 void gr_audit_ptrace(struct task_struct *task);
 dev_t gr_get_dev_from_dentry(struct dentry *dentry);
 
+int gr_ptrace_readexec(struct file *file, int unsafe_flags);
+
 #ifdef CONFIG_GRKERNSEC
 void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
 void gr_handle_vm86(void);

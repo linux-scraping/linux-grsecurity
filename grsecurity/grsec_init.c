@@ -7,6 +7,7 @@
 #include <linux/percpu.h>
 #include <linux/module.h>
 
+int grsec_enable_ptrace_readexec;
 int grsec_enable_setxid;
 int grsec_enable_brute;
 int grsec_enable_link;
@@ -159,6 +160,9 @@ grsecurity_init(void)
 #ifdef CONFIG_GRKERNSEC_AUDIT_GROUP
 	grsec_enable_group = 1;
 	grsec_audit_gid = CONFIG_GRKERNSEC_AUDIT_GID;
+#endif
+#ifdef CONFIG_GRKERNSEC_PTRACE_READEXEC
+	grsec_enable_ptrace_readexec = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_CHDIR
 	grsec_enable_chdir = 1;
