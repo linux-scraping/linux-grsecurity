@@ -1434,6 +1434,11 @@ int do_execve(char * filename,
 	if (IS_ERR(file))
 		goto out_unmark;
 
+	if (gr_ptrace_readexec(file, bprm->unsafe)) {
+		retval = -EPERM;
+		goto out_file;
+	}
+
 	sched_exec();
 
 	bprm->file = file;
@@ -1502,7 +1507,7 @@ int do_execve(char * filename,
 #endif
 
 	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
-				   bprm->unsafe & LSM_UNSAFE_SHARE);
+				   bprm->unsafe);
 	if (retval < 0)
 		goto out_fail;
 

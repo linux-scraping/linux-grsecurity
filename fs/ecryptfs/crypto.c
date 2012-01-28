@@ -418,17 +418,6 @@ static int ecryptfs_encrypt_extent(struct page *enc_extent_page,
 				rc);
 		goto out;
 	}
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Encrypting extent "
-				"with iv:\n");
-		ecryptfs_dump_hex(extent_iv, crypt_stat->iv_bytes);
-		ecryptfs_printk(KERN_DEBUG, "First 8 bytes before "
-				"encryption:\n");
-		ecryptfs_dump_hex((char *)
-				  (page_address(page)
-				   + (extent_offset * crypt_stat->extent_size)),
-				  8);
-	}
 	rc = ecryptfs_encrypt_page_offset(crypt_stat, enc_extent_page, 0,
 					  page, (extent_offset
 						 * crypt_stat->extent_size),
@@ -441,14 +430,6 @@ static int ecryptfs_encrypt_extent(struct page *enc_extent_page,
 		goto out;
 	}
 	rc = 0;
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Encrypt extent [0x%.16x]; "
-				"rc = [%d]\n", (extent_base + extent_offset),
-				rc);
-		ecryptfs_printk(KERN_DEBUG, "First 8 bytes after "
-				"encryption:\n");
-		ecryptfs_dump_hex((char *)(page_address(enc_extent_page)), 8);
-	}
 out:
 	return rc;
 }
@@ -545,17 +526,6 @@ static int ecryptfs_decrypt_extent(struct page *page,
 				rc);
 		goto out;
 	}
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Decrypting extent "
-				"with iv:\n");
-		ecryptfs_dump_hex(extent_iv, crypt_stat->iv_bytes);
-		ecryptfs_printk(KERN_DEBUG, "First 8 bytes before "
-				"decryption:\n");
-		ecryptfs_dump_hex((char *)
-				  (page_address(enc_extent_page)
-				   + (extent_offset * crypt_stat->extent_size)),
-				  8);
-	}
 	rc = ecryptfs_decrypt_page_offset(crypt_stat, page,
 					  (extent_offset
 					   * crypt_stat->extent_size),
@@ -569,6 +539,7 @@ static int ecryptfs_decrypt_extent(struct page *page,
 		goto out;
 	}
 	rc = 0;
+<<<<<<< HEAD
 	if (unlikely(ecryptfs_verbosity > 0)) {
 		ecryptfs_printk(KERN_DEBUG, "Decrypt extent [0x%.16x]; "
 				"rc = [%d]\n", (extent_base + extent_offset),
@@ -579,6 +550,8 @@ static int ecryptfs_decrypt_extent(struct page *page,
 					   + (extent_offset
 					      * crypt_stat->extent_size)), 8);
 	}
+=======
+>>>>>>> 58ded24... eCryptfs: Fix oops when printing debug info in extent crypto functions
 out:
 	return rc;
 }

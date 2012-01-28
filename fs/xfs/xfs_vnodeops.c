@@ -572,7 +572,8 @@ xfs_readlink(
 		xfs_fs_cmn_err(CE_ALERT, mp, "%s: inode (%llu) symlink length (%d) too long",
 			      __func__, (unsigned long long)ip->i_ino, pathlen);
 		ASSERT(0);
-		return XFS_ERROR(EFSCORRUPTED);
+		error = XFS_ERROR(EFSCORRUPTED);
+		goto out;
 	}
 
 	if (ip->i_df.if_flags & XFS_IFINLINE) {

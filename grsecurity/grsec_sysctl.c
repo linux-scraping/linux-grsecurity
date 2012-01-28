@@ -65,6 +65,26 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_PTRACE_READEXEC
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "ptrace_readexec",
+		.data		= &grsec_enable_ptrace_readexec,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_GRKERNSEC_SETXID
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "consistent_setxid",
+		.data		= &grsec_enable_setxid,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_BLACKHOLE
 	{
 		.ctl_name	= CTL_UNNUMBERED,

@@ -141,7 +141,7 @@ void gr_set_role_label(struct task_struct *task, const uid_t uid,
 			      const gid_t gid);
 int gr_set_proc_label(const struct dentry *dentry,
 			const struct vfsmount *mnt,
-			const int unsafe_share);
+			const int unsafe_flags);
 __u32 gr_acl_handle_hidden_file(const struct dentry *dentry,
 				const struct vfsmount *mnt);
 __u32 gr_acl_handle_open(const struct dentry *dentry,
@@ -203,6 +203,8 @@ int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int a
 void gr_audit_ptrace(struct task_struct *task);
 dev_t gr_get_dev_from_dentry(struct dentry *dentry);
 
+int gr_ptrace_readexec(struct file *file, int unsafe_flags);
+
 #ifdef CONFIG_GRKERNSEC
 void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
 void gr_handle_vm86(void);
@@ -212,6 +214,9 @@ extern int grsec_enable_dmesg;
 extern int grsec_disable_privio;
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
 extern int grsec_enable_chroot_findtask;
+#endif
+#ifdef CONFIG_GRKERNSEC_SETXID
+extern int grsec_enable_setxid;
 #endif
 #endif
 

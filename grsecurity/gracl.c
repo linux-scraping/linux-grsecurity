@@ -17,7 +17,7 @@
 #include <linux/ptrace.h>
 #include <linux/gracl.h>
 #include <linux/gralloc.h>
-#include <linux/grsecurity.h>
+#include <linux/security.h>
 #include <linux/grinternal.h>
 #include <linux/pid_namespace.h>
 #include <linux/fdtable.h>
@@ -2511,7 +2511,7 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 
 int
 gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
-		  const int unsafe_share)
+		  const int unsafe_flags)
 {
 	struct task_struct *task = current;
 	struct acl_subject_label *newacl;
@@ -2524,13 +2524,12 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 	newacl = chk_subj_label(dentry, mnt, task->role);
 
 	task_lock(task);
-	if ((((task->ptrace & PT_PTRACED) || unsafe_share) &&
-	     !(task->acl->mode & GR_POVERRIDE) && (task->acl != newacl) &&
+	if (unsafe_flags && !(task->acl->mode & GR_POVERRIDE) && (task->acl != newacl) &&
 	     !(task->role->roletype & GR_ROLE_GOD) &&
 	     !gr_search_file(dentry, GR_PTRACERD, mnt) &&
-	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN)))) {
+	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN))) {
                 task_unlock(task);
-		if (unsafe_share)
+		if (unsafe_flags & LSM_UNSAFE_SHARE)
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_UNSAFESHARE_EXEC_ACL_MSG, dentry, mnt);
 		else
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
