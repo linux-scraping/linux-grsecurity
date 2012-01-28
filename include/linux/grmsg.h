@@ -32,7 +32,7 @@
 #define GR_UNSAFESHARE_EXEC_ACL_MSG "denied exec with cloned fs of %.950s by "
 #define GR_PTRACE_EXEC_ACL_MSG "denied ptrace of %.950s by "
 #define GR_EXEC_ACL_MSG "%s execution of %.950s by "
-#define GR_EXEC_TPE_MSG "denied untrusted exec of %.950s by "
+#define GR_EXEC_TPE_MSG "denied untrusted exec (due to %.64s) of %.950s by "
 #define GR_SEGVSTART_ACL_MSG "possible exploit bruteforcing on " DEFAULTSECMSG " banning uid %u from login for %lu seconds"
 #define GR_SEGVNOSUID_ACL_MSG "possible exploit bruteforcing on " DEFAULTSECMSG " banning execution for %lu seconds"
 #define GR_MOUNT_CHROOT_MSG "denied mount of %.256s as %.930s from chroot by "

@@ -12,25 +12,58 @@ gr_tpe_allow(const struct file *file)
 #ifdef CONFIG_GRKERNSEC
 	struct inode *inode = file->f_path.dentry->d_parent->d_inode;
 	const struct cred *cred = current_cred();
+	char *msg = NULL;
+	char *msg2 = NULL;
 
-	if (cred->uid && ((grsec_enable_tpe &&
+	// never restrict root
+	if (!cred->uid)
+		return 1;
+
+	if (grsec_enable_tpe) {
 #ifdef CONFIG_GRKERNSEC_TPE_INVERT
-	    ((grsec_enable_tpe_invert && !in_group_p(grsec_tpe_gid)) ||
-	     (!grsec_enable_tpe_invert && in_group_p(grsec_tpe_gid)))
+		if (grsec_enable_tpe_invert && !in_group_p(grsec_tpe_gid))
+			msg = "not being in trusted group";
+		else if (!grsec_enable_tpe_invert && in_group_p(grsec_tpe_gid))
+			msg = "being in untrusted group";
 #else
-	    in_group_p(grsec_tpe_gid)
+		if (in_group_p(grsec_tpe_gid))
+			msg = "being in untrusted group";
 #endif
-	    ) || gr_acl_tpe_check()) &&
-	    (inode->i_uid || (!inode->i_uid && ((inode->i_mode & S_IWGRP) ||
-						(inode->i_mode & S_IWOTH))))) {
-		gr_log_fs_generic(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, file->f_path.dentry, file->f_path.mnt);
+	} else if (gr_acl_tpe_check())
+		msg = "being in untrusted role";
+
+	// not in any affected group/role
+	if (!msg)
+		goto next_check;
+
+	if (inode->i_uid)
+		msg2 = "file in non-root-owned directory";
+	else if (inode->i_mode & S_IWOTH)
+		msg2 = "file in world-writable directory";
+	else if (inode->i_mode & S_IWGRP)
+		msg2 = "file in group-writable directory";
+
+	if (msg && msg2) {
+		char fullmsg[64] = {0};
+		snprintf(fullmsg, sizeof(fullmsg)-1, "%s and %s", msg, msg2);
+		gr_log_str_fs(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, fullmsg, file->f_path.dentry, file->f_path.mnt);
 		return 0;
 	}
+	msg = NULL;
+next_check:
 #ifdef CONFIG_GRKERNSEC_TPE_ALL
-	if (cred->uid && grsec_enable_tpe && grsec_enable_tpe_all &&
-	    ((inode->i_uid && (inode->i_uid != cred->uid)) ||
-	     (inode->i_mode & S_IWGRP) || (inode->i_mode & S_IWOTH))) {
-		gr_log_fs_generic(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, file->f_path.dentry, file->f_path.mnt);
+	if (!grsec_enable_tpe || !grsec_enable_tpe_all)
+		return 1;
+
+	if (inode->i_uid && (inode->i_uid != cred->uid))
+		msg = "directory not owned by user";
+	else if (inode->i_mode & S_IWOTH)
+		msg = "file in world-writable directory";
+	else if (inode->i_mode & S_IWGRP)
+		msg = "file in group-writable directory";
+
+	if (msg) {
+		gr_log_str_fs(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, msg, file->f_path.dentry, file->f_path.mnt);
 		return 0;
 	}
 #endif
