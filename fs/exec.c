@@ -1598,7 +1598,7 @@ static int do_execve_common(const char *filename,
 #endif
 
 	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
-					bprm->unsafe & LSM_UNSAFE_SHARE);
+					bprm->unsafe);
 	if (retval < 0)
 		goto out_fail;
 
