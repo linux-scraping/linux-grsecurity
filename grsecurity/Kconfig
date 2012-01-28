@@ -801,13 +801,11 @@ config GRKERNSEC_HARDEN_PTRACE
 config GRKERNSEC_PTRACE_READEXEC
 	bool "Require read access to ptrace sensitive binaries"
 	help
-	  If you say Y here, read permission will be required by any unprivileged
-	  process to ptrace suid/sgid binaries.  Note that the ability to
-	  ptrace privileged binaries and retain that binary's privilege is
-	  already not possible.  This option is useful in environments that
+	  If you say Y here, unprivileged users will not be able to ptrace unreadable
+	  binaries.  This option is useful in environments that
 	  remove the read bits (e.g. file mode 4711) from suid binaries to
-	  prevent infoleaking of their contents.  What this option adds
-	  is consistency to the use of that file mode, as the binary could normally
+	  prevent infoleaking of their contents.  This option adds
+	  consistency to the use of that file mode, as the binary could normally
 	  be read out when run without privileges while ptracing.
 
 	  If the sysctl option is enabled, a sysctl option with name "ptrace_readexec"
