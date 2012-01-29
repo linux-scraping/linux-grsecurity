@@ -29,7 +29,8 @@ gr_tpe_allow(const struct file *file)
 		if (in_group_p(grsec_tpe_gid))
 			msg = "being in untrusted group";
 #endif
-	} else if (gr_acl_tpe_check())
+	}
+	if (!msg && gr_acl_tpe_check())
 		msg = "being in untrusted role";
 
 	// not in any affected group/role
