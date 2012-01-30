@@ -539,19 +539,6 @@ static int ecryptfs_decrypt_extent(struct page *page,
 		goto out;
 	}
 	rc = 0;
-<<<<<<< HEAD
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Decrypt extent [0x%.16x]; "
-				"rc = [%d]\n", (extent_base + extent_offset),
-				rc);
-		ecryptfs_printk(KERN_DEBUG, "First 8 bytes after "
-				"decryption:\n");
-		ecryptfs_dump_hex((char *)(page_address(page)
-					   + (extent_offset
-					      * crypt_stat->extent_size)), 8);
-	}
-=======
->>>>>>> 58ded24... eCryptfs: Fix oops when printing debug info in extent crypto functions
 out:
 	return rc;
 }
