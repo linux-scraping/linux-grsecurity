@@ -468,15 +468,19 @@ config GRKERNSEC_SYSFS_RESTRICT
 	depends on SYSFS
 	help
 	  If you say Y here, sysfs (the pseudo-filesystem mounted at /sys) and
-	  any filesystem normally mounted under it (e.g. debugfs) will only
-	  be accessible by root.  These filesystems generally provide access
+	  any filesystem normally mounted under it (e.g. debugfs) will be
+	  mostly accessible only by root.  These filesystems generally provide access
 	  to hardware and debug information that isn't appropriate for unprivileged
 	  users of the system.  Sysfs and debugfs have also become a large source
 	  of new vulnerabilities, ranging from infoleaks to local compromise.
 	  There has been very little oversight with an eye toward security involved
 	  in adding new exporters of information to these filesystems, so their
 	  use is discouraged.
-	  This option is equivalent to a chmod 0700 of the mount paths.
+	  For reasons of compatibility, a few directories have been whitelisted
+	  for access by non-root users:
+	  /sys/fs/selinux
+	  /sys/fs/fuse
+	  /sys/devices/system/cpu
 
 config GRKERNSEC_ROFS
 	bool "Runtime read-only mount protection"
