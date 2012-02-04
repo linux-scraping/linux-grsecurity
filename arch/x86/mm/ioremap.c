@@ -315,6 +315,9 @@ void *xlate_dev_mem_ptr(unsigned long phys)
 
 	/* If page is RAM, we can use __va. Otherwise ioremap and unmap. */
 	if (page_is_ram(start >> PAGE_SHIFT))
+#ifdef CONFIG_HIGHMEM
+	if ((start >> PAGE_SHIFT) < max_low_pfn)
+#endif
 		return __va(phys);
 
 	addr = (void __force *)ioremap_cache(start, PAGE_SIZE);

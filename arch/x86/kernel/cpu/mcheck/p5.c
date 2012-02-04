@@ -11,6 +11,7 @@
 #include <asm/processor.h>
 #include <asm/system.h>
 #include <asm/mce.h>
+#include <asm/msr.h>
 #include <asm/pgtable.h>
 
 /* By default disabled */
