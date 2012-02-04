@@ -750,9 +750,18 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 
 	retval = -EPERM;
 	if (!capable(CAP_SETUID)) {
-		if (ruid != (uid_t) -1 && ruid != old->uid &&
-		    ruid != old->euid  && ruid != old->suid)
-			goto error;
+		// if RBAC is enabled, require CAP_SETUID to change
+		// uid to euid (from a suid binary, for instance)
+		// this is a hardening of normal permissions, not
+		// weakening
+		if (gr_acl_is_enabled()) {
+			if (ruid != (uid_t) -1 && ruid != old->uid)
+				goto error;
+		} else {
+			if (ruid != (uid_t) -1 && ruid != old->uid &&
+			    ruid != old->euid  && ruid != old->suid)
+				goto error;
+		}
 		if (euid != (uid_t) -1 && euid != old->uid &&
 		    euid != old->euid  && euid != old->suid)
 			goto error;
@@ -821,9 +830,18 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 
 	retval = -EPERM;
 	if (!capable(CAP_SETGID)) {
-		if (rgid != (gid_t) -1 && rgid != old->gid &&
-		    rgid != old->egid  && rgid != old->sgid)
-			goto error;
+		// if RBAC is enabled, require CAP_SETGID to change
+		// gid to egid (from a sgid binary, for instance)
+		// this is a hardening of normal permissions, not
+		// weakening
+		if (gr_acl_is_enabled()) {
+			if (rgid != (gid_t) -1 && rgid != old->gid)
+				goto error;
+		} else {
+			if (rgid != (gid_t) -1 && rgid != old->gid &&
+			    rgid != old->egid  && rgid != old->sgid)
+				goto error;
+		}
 		if (egid != (gid_t) -1 && egid != old->gid &&
 		    egid != old->egid  && egid != old->sgid)
 			goto error;

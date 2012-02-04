@@ -11,6 +11,7 @@
 #include <asm/system.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/pgtable.h>
 
 /* Machine check handler for WinChip C6: */
 static void winchip_machine_check(struct pt_regs *regs, long error_code)

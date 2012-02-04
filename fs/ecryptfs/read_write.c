@@ -141,6 +141,11 @@ int ecryptfs_write(struct file *ecryptfs_file, char *data, loff_t offset,
 			break;
 		}
 
+		if (fatal_signal_pending(current)) {
+			rc = -EINTR;
+			break;
+		}
+
 		if (num_bytes > total_remaining_bytes)
 			num_bytes = total_remaining_bytes;
 		if (pos < offset) {

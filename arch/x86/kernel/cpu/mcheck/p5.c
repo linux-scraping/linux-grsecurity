@@ -12,6 +12,7 @@
 #include <asm/system.h>
 #include <asm/mce.h>
 #include <asm/msr.h>
+#include <asm/pgtable.h>
 
 /* By default disabled */
 int mce_p5_enabled __read_mostly;
