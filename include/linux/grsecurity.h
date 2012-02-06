@@ -12,12 +12,6 @@
 #if defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_PAGEEXEC) && !defined(CONFIG_PAX_SEGMEXEC) && !defined(CONFIG_PAX_KERNEXEC)
 #error "CONFIG_PAX_NOEXEC enabled, but PAGEEXEC, SEGMEXEC, and KERNEXEC are disabled."
 #endif
-#if defined(CONFIG_PAX_NOEXEC) && !defined(CONFIG_PAX_EI_PAX) && !defined(CONFIG_PAX_PT_PAX_FLAGS)
-#error "CONFIG_PAX_NOEXEC enabled, but neither CONFIG_PAX_EI_PAX nor CONFIG_PAX_PT_PAX_FLAGS are enabled."
-#endif
-#if defined(CONFIG_PAX_ASLR) && (defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)) && !defined(CONFIG_PAX_EI_PAX) && !defined(CONFIG_PAX_PT_PAX_FLAGS)
-#error "CONFIG_PAX_ASLR enabled, but neither CONFIG_PAX_EI_PAX nor CONFIG_PAX_PT_PAX_FLAGS are enabled."
-#endif
 #if defined(CONFIG_PAX_ASLR) && !defined(CONFIG_PAX_RANDKSTACK) && !defined(CONFIG_PAX_RANDUSTACK) && !defined(CONFIG_PAX_RANDMMAP)
 #error "CONFIG_PAX_ASLR enabled, but RANDKSTACK, RANDUSTACK, and RANDMMAP are disabled."
 #endif
