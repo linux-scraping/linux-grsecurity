@@ -484,7 +484,7 @@ void bpf_jit_compile(struct sk_filter *fp)
 				func = sk_load_word;
 common_load:			seen |= SEEN_DATAREF;
 				if ((int)K < 0)
-					goto out;
+					goto error;
 				t_offset = func - (image + addrs[i]);
 				EMIT1_off32(0xbe, K); /* mov imm32,%esi */
 				EMIT1_off32(0xe8, t_offset); /* call */
@@ -594,14 +594,14 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 				break;
 			default:
 				/* hmm, too complex filter, give up with jit compiler */
-				goto out;
+				goto error;
 			}
 			ilen = prog - temp;
 			if (image) {
 				if (unlikely(proglen + ilen > oldproglen)) {
 					pr_err("bpb_jit_compile fatal error\n");
 					module_free_exec(NULL, image);
-					goto out;
+					goto error;
 				}
 				pax_open_kernel();
 				memcpy(image + proglen, temp, ilen);
@@ -626,11 +626,9 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 			break;
 		}
 		if (proglen == oldproglen) {
-			image = module_alloc_exec(max_t(unsigned int,
-						   proglen,
-						   sizeof(struct work_struct)));
+			image = module_alloc_exec(proglen);
 			if (!image)
-				goto out;
+				goto error;
 		}
 		oldproglen = proglen;
 	}
@@ -646,9 +644,11 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 		bpf_flush_icache(image, image + proglen);
 
 		fp->bpf_func = (void *)image;
-	}
+	} else
+error:
+		kfree(fp->work);
+
 out:
-	kfree(fp->work);
 	kfree(addrs);
 	return;
 }
