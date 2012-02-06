@@ -45,7 +45,7 @@ gr_tpe_allow(const struct file *file)
 		msg2 = "file in group-writable directory";
 
 	if (msg && msg2) {
-		char fullmsg[64] = {0};
+		char fullmsg[70] = {0};
 		snprintf(fullmsg, sizeof(fullmsg)-1, "%s and %s", msg, msg2);
 		gr_log_str_fs(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, fullmsg, file->f_path.dentry, file->f_path.mnt);
 		return 0;
