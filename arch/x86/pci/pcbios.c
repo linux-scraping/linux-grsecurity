@@ -141,7 +141,7 @@ static unsigned long __devinit bios32_service(unsigned long service)
 			flags |= 8;
 		}
 
-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
 			gdt = get_cpu_gdt_table(cpu);
 			pack_descriptor(&d, address, length, 0x9b, flags);
 			write_gdt_entry(gdt, GDT_ENTRY_PCIBIOS_CS, &d, DESCTYPE_S);

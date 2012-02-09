@@ -920,6 +920,7 @@ GLOBAL(int_with_check)
 	andl %edi,%edx
 	jnz   int_careful
 	andl    $~TS_COMPAT,TI_status(%rcx)
+	pax_erase_kstack
 	jmp   retint_swapgs
 
 	/* Either reschedule or signal or syscall exit tracking needed. */
@@ -1155,7 +1156,6 @@ retint_swapgs:		/* return to user-space */
 	 */
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	pax_exit_kernel_user
-	pax_erase_kstack
 	TRACE_IRQS_IRETQ
 	SWAPGS
 	jmp restore_args

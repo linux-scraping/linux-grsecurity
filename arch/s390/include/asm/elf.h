@@ -167,8 +167,8 @@ extern unsigned int vdso_enabled;
 #ifdef CONFIG_PAX_ASLR
 #define PAX_ELF_ET_DYN_BASE	(test_thread_flag(TIF_31BIT) ? 0x10000UL : 0x80000000UL)
 
-#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_31BIT) ? 15 : 26 )
-#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_31BIT) ? 15 : 26 )
+#define PAX_DELTA_MMAP_LEN	(test_thread_flag(TIF_31BIT) ? 15 : 26)
+#define PAX_DELTA_STACK_LEN	(test_thread_flag(TIF_31BIT) ? 15 : 26)
 #endif
 
 /* This yields a mask that user programs can use to figure out what

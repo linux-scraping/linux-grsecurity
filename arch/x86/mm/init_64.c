@@ -121,7 +121,7 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
 			pgd_t *pgd = pgd_offset_cpu(cpu, address);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {

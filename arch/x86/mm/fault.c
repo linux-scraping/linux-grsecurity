@@ -282,7 +282,7 @@ void vmalloc_sync_all(void)
 		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
 			pgd_t *pgd = get_cpu_pgd(cpu);
 			pmd_t *ret;
 #else

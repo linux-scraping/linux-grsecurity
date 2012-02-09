@@ -77,7 +77,7 @@ static struct linux_binfmt elf_format = {
 	.core_dump	= elf_core_dump,
 
 #ifdef CONFIG_PAX_MPROTECT
-		.handle_mprotect= elf_handle_mprotect,
+	.handle_mprotect= elf_handle_mprotect,
 #endif
 
 	.min_coredump	= ELF_EXEC_PAGESIZE,
@@ -737,6 +737,7 @@ static unsigned long pax_parse_pt_pax(const struct elfhdr * const elf_ex, const 
 	return ~0UL;
 }
 
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
 static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmode)
 {
 	unsigned long pax_flags = 0UL;
@@ -818,6 +819,7 @@ static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmo
 
 	return pax_flags;
 }
+#endif
 
 static unsigned long pax_parse_xattr_pax(struct file * const file)
 {
@@ -866,6 +868,7 @@ static unsigned long pax_parse_xattr_pax(struct file * const file)
 #else
 	return ~0UL;
 #endif
+
 }
 
 #if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
