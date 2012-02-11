@@ -1372,6 +1372,10 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 
 EXPORT_SYMBOL(search_binary_handler);
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+atomic64_unchecked_t global_exec_counter = ATOMIC64_INIT(0);
+#endif
+
 /*
  * sys_execve() executes a new program.
  */
@@ -1521,6 +1525,10 @@ int do_execve(char * filename,
 #endif
 
 	/* execve succeeded */
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	current->exec_id = atomic64_inc_return_unchecked(&global_exec_counter);
+#endif
+
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);

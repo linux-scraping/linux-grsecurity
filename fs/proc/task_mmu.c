@@ -8,6 +8,7 @@
 #include <linux/mempolicy.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/grsecurity.h>
 
 #include <asm/elf.h>
 #include <asm/uaccess.h>
@@ -290,6 +291,13 @@ static int show_map(struct seq_file *m, void *v)
 	struct proc_maps_private *priv = m->private;
 	struct task_struct *task = priv->task;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("maps");
+		return 0;
+	}
+#endif
+
 	show_map_vma(m, vma);
 
 	if (m->count < m->size)  /* vma is copied successfully */
@@ -411,6 +419,12 @@ static int show_smap(struct seq_file *m, void *v)
 		.private = &mss,
 	};
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("smaps");
+		return 0;
+	}
+#endif
 	memset(&mss, 0, sizeof mss);
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP

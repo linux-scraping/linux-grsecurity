@@ -204,6 +204,8 @@ void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
 void gr_handle_vm86(void);
 void gr_handle_mem_readwrite(u64 from, u64 to);
 
+void gr_log_badprocpid(const char *entry);
+
 extern int grsec_enable_dmesg;
 extern int grsec_disable_privio;
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK

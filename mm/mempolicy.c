@@ -2399,6 +2399,12 @@ static inline void check_huge_range(struct vm_area_struct *vma,
 }
 #endif
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
+			     (_mm->pax_flags & MF_PAX_RANDMMAP || \
+			      _mm->pax_flags & MF_PAX_SEGMEXEC))
+#endif
+
 /*
  * Display pages allocated per node and memory policy via /proc.
  */
@@ -2413,6 +2419,13 @@ int show_numa_map(struct seq_file *m, void *v)
 	int n;
 	char buffer[50];
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("numa_maps");
+		return 0;
+	}
+#endif
+
 	if (!mm)
 		return 0;
 
@@ -2424,7 +2437,11 @@ int show_numa_map(struct seq_file *m, void *v)
 	mpol_to_str(buffer, sizeof(buffer), pol, 0);
 	mpol_cond_put(pol);
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	seq_printf(m, "%08lx %s", PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : vma->vm_start, buffer);
+#else
 	seq_printf(m, "%08lx %s", vma->vm_start, buffer);
+#endif
 
 	if (file) {
 		seq_printf(m, " file=");
