@@ -1216,6 +1216,10 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	gr_copy_label(p);
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	p->exec_id = current->exec_id;
+#endif
+
 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
 	/*
 	 * Clear TID on mm_release()?
