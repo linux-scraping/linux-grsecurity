@@ -31,3 +31,10 @@ gr_handle_vm86(void)
 	gr_log_noargs(GR_DONT_AUDIT, GR_VM86_MSG);
 	return;
 }
+
+void
+gr_log_badprocpid(const char *entry)
+{
+	gr_log_str(GR_DONT_AUDIT, GR_BADPROCPID_MSG, entry);
+	return;
+}

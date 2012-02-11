@@ -268,6 +268,10 @@ config GRKERNSEC_PROC_MEMMAP
 	  If you say Y here, the /proc/<pid>/maps and /proc/<pid>/stat files will
 	  give no information about the addresses of its mappings if
 	  PaX features that rely on random addresses are enabled on the task.
+	  In addition to sanitizing this information and disabling other
+	  dangerous sources of information, this option causes reads of sensitive
+	  /proc/<pid> entries where the file descriptor was opened in a different
+	  task than the one performing the read.  Such attempts are logged.
 	  If you use PaX it is greatly recommended that you say Y here as it
 	  closes up a hole that makes the full ASLR useless for suid
 	  binaries.

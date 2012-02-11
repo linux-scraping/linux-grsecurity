@@ -11,6 +11,7 @@
 #include <linux/rmap.h>
 #include <linux/swap.h>
 #include <linux/swapops.h>
+#include <linux/grsecurity.h>
 
 #include <asm/elf.h>
 #include <asm/uaccess.h>
@@ -303,6 +304,13 @@ static int show_map(struct seq_file *m, void *v)
 	struct proc_maps_private *priv = m->private;
 	struct task_struct *task = priv->task;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("maps");
+		return 0;
+	}
+#endif
+
 	show_map_vma(m, vma);
 
 	if (m->count < m->size)  /* vma is copied successfully */
@@ -456,6 +464,12 @@ static int show_smap(struct seq_file *m, void *v)
 		.private = &mss,
 	};
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("smaps");
+		return 0;
+	}
+#endif
 	memset(&mss, 0, sizeof mss);
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	if (!PAX_RAND_FLAGS(vma->vm_mm)) {
@@ -1046,6 +1060,13 @@ static int show_numa_map(struct seq_file *m, void *v)
 	int n;
 	char buffer[50];
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("numa_maps");
+		return 0;
+	}
+#endif
+
 	if (!mm)
 		return 0;
 
@@ -1063,7 +1084,11 @@ static int show_numa_map(struct seq_file *m, void *v)
 	mpol_to_str(buffer, sizeof(buffer), pol, 0);
 	mpol_cond_put(pol);
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	seq_printf(m, "%08lx %s", PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : vma->vm_start, buffer);
+#else
 	seq_printf(m, "%08lx %s", vma->vm_start, buffer);
+#endif
 
 	if (file) {
 		seq_printf(m, " file=");

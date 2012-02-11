@@ -24,6 +24,9 @@ struct seq_file {
 	struct mutex lock;
 	const struct seq_operations *op;
 	int poll_event;
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	long long exec_id;
+#endif
 	void *private;
 };
 

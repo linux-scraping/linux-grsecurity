@@ -409,6 +409,13 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	char tcomm[sizeof(task->comm)];
 	unsigned long flags;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("stat");
+		return 0;
+	}
+#endif
+
 	state = *get_task_state(task);
 	vsize = eip = esp = 0;
 	permitted = ptrace_may_access(task, PTRACE_MODE_READ);
@@ -584,6 +591,13 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 {
 	unsigned long size = 0, resident = 0, shared = 0, text = 0, data = 0;
 	struct mm_struct *mm = get_task_mm(task);
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (current->exec_id != m->exec_id) {
+		gr_log_badprocpid("statm");
+		return 0;
+	}
+#endif
 
 	if (mm) {
 		size = task_statm(mm, &shared, &text, &data, &resident);

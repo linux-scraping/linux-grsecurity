@@ -6,6 +6,8 @@
 # are copyright Brad Spengler - Open Source Security, Inc., and released 
 # under the GPL v2 or higher
 
+KBUILD_CFLAGS += -Werror
+
 obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
 	grsec_mount.o grsec_sig.o grsec_sysctl.o \
 	grsec_time.o grsec_tpe.o grsec_link.o grsec_pax.o grsec_ptrace.o

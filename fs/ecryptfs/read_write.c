@@ -137,11 +137,6 @@ int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 			break;
 		}
 
-		if (fatal_signal_pending(current)) {
-			rc = -EINTR;
-			break;
-		}
-
 		if (num_bytes > total_remaining_bytes)
 			num_bytes = total_remaining_bytes;
 		if (pos < offset) {

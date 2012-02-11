@@ -1569,6 +1569,9 @@ struct task_struct {
 
 #ifdef CONFIG_GRKERNSEC
 	/* grsecurity */
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	long long exec_id;
+#endif
 #ifdef CONFIG_GRKERNSEC_SETXID
 	const struct cred *delayed_cred;
 #endif
