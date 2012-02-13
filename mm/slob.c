@@ -575,7 +575,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 
 	type = "<process stack>";
 	sp = slob_page(ptr);
-	if (!PageSlab((struct page*)sp)) {
+	if (!PageSlab((struct page *)sp)) {
 		if (object_is_on_stack(ptr, n) == -1)
 			goto report;
 		return;

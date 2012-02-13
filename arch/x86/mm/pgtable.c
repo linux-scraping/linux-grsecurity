@@ -113,7 +113,7 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 #define paravirt_release_pxd(pfn)	paravirt_release_pud(pfn)
 #define pxd_free(mm, pud)		pud_free((mm), (pud))
 #define pyd_populate(mm, pgd, pud)	pgd_populate((mm), (pgd), (pud))
-#define pyd_offset(mm ,address)		pgd_offset((mm), (address))
+#define pyd_offset(mm, address)		pgd_offset((mm), (address))
 #define PYD_SIZE			PGDIR_SIZE
 #else
 #define pxd_t				pmd_t
@@ -121,7 +121,7 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 #define paravirt_release_pxd(pfn)	paravirt_release_pmd(pfn)
 #define pxd_free(mm, pud)		pmd_free((mm), (pud))
 #define pyd_populate(mm, pgd, pud)	pud_populate((mm), (pgd), (pud))
-#define pyd_offset(mm ,address)		pud_offset((mm), (address))
+#define pyd_offset(mm, address)		pud_offset((mm), (address))
 #define PYD_SIZE			PUD_SIZE
 #endif
 

@@ -197,7 +197,7 @@ static int __init setup_pax_nouderef(char *str)
 	unsigned int cpu;
 	struct desc_struct *gdt;
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
 		gdt = get_cpu_gdt_table(cpu);
 		gdt[GDT_ENTRY_KERNEL_DS].type = 3;
 		gdt[GDT_ENTRY_KERNEL_DS].limit = 0xf;

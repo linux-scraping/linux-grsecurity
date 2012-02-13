@@ -277,7 +277,7 @@ void vmalloc_sync_all(void)
 		spin_lock_irqsave(&pgd_lock, flags);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
 			pgd_t *pgd = get_cpu_pgd(cpu);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
@@ -406,7 +406,7 @@ void vmalloc_sync_all(void)
 		spin_lock_irqsave(&pgd_lock, flags);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-		for (cpu = 0; cpu < NR_CPUS; ++cpu) {
+		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
 			pgd_t *pgd = pgd_offset_cpu(cpu, address);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
