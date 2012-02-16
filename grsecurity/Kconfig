@@ -204,7 +204,7 @@ config GRKERNSEC_CUSTOM
 
 endchoice
 
-menu "Address Space Protection"
+menu "Memory Protections"
 depends on GRKERNSEC
 
 config GRKERNSEC_KMEM
@@ -261,7 +261,7 @@ config GRKERNSEC_IO
 	  protect your kernel against modification, use the RBAC system.
 
 config GRKERNSEC_PROC_MEMMAP
-	bool "Remove addresses from /proc/<pid>/[smaps|maps|stat]"
+	bool "Harden ASLR against information leaks and entropy reduction"
 	default y if (PAX_NOEXEC || PAX_ASLR)
 	depends on PAX_NOEXEC || PAX_ASLR
 	help
@@ -272,9 +272,11 @@ config GRKERNSEC_PROC_MEMMAP
 	  dangerous sources of information, this option causes reads of sensitive
 	  /proc/<pid> entries where the file descriptor was opened in a different
 	  task than the one performing the read.  Such attempts are logged.
-	  If you use PaX it is greatly recommended that you say Y here as it
-	  closes up a hole that makes the full ASLR useless for suid
-	  binaries.
+	  Finally, this option limits argv/env strings for suid/sgid binaries
+	  to 1MB to prevent a complete exhaustion of the stack entropy provided
+	  by ASLR.
+	  If you use PaX it is essential that you say Y here as it closes up
+	  several holes that make full ASLR useless for suid/sgid binaries.
 
 config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"

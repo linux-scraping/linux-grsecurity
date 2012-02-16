@@ -25,7 +25,7 @@ struct seq_file {
 	const struct seq_operations *op;
 	int poll_event;
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	long long exec_id;
+	u64 exec_id;
 #endif
 	void *private;
 };
