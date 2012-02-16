@@ -213,6 +213,17 @@ struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 		if (size <= ARG_MAX)
 			return page;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+		// only allow 1MB for argv+env on suid/sgid binaries
+		// to prevent easy ASLR exhaustion
+		if (((bprm->cred->euid != current_euid()) ||
+		     (bprm->cred->egid != current_egid())) &&
+		    (size > (1024 * 1024))) {
+			put_page(page);
+			return NULL;
+		}
+#endif
+
 		/*
 		 * Limit to 1/4-th the stack size for the argv+env strings.
 		 * This ensures that:

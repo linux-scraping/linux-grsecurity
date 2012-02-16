@@ -24,7 +24,7 @@ struct seq_file {
 	struct mutex lock;
 	const struct seq_operations *op;
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	long long exec_id;
+	u64 exec_id;
 #endif
 	void *private;
 };
