@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 
 #include <asm/uaccess.h>
 #include <asm/page.h>
