@@ -2476,8 +2476,8 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 
 	/* don't change the role if we're not a privileged process */
 	if (role && task->role != role &&
-	    (((role->roletype & GR_ROLE_USER) && gr_acl_is_capable(CAP_SETUID)) ||
-	     ((role->roletype & GR_ROLE_GROUP) && gr_acl_is_capable(CAP_SETGID))))
+	    (((role->roletype & GR_ROLE_USER) && !gr_acl_is_capable(CAP_SETUID)) ||
+	     ((role->roletype & GR_ROLE_GROUP) && !gr_acl_is_capable(CAP_SETGID))))
 		return;
 
 	/* perform subject lookup in possibly new role
