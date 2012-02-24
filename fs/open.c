@@ -479,7 +479,7 @@ static int chmod_common(struct path *path, umode_t mode)
 		return error;
 	mutex_lock(&inode->i_mutex);
 
-	if (!gr_acl_handle_fchmod(path->dentry, path->mnt, mode)) {
+	if (!gr_acl_handle_chmod(path->dentry, path->mnt, &mode)) {
 		error = -EACCES;
 		goto out_unlock;
 	}

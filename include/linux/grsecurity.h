@@ -72,6 +72,8 @@ int gr_handle_rawio(const struct inode *inode);
 void gr_handle_ioperm(void);
 void gr_handle_iopl(void);
 
+umode_t gr_acl_umask(void);
+
 int gr_tpe_allow(const struct file *file);
 
 void gr_set_chroot_entries(struct task_struct *task, struct path *path);
@@ -126,10 +128,8 @@ __u32 gr_acl_handle_utime(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
 __u32 gr_acl_handle_access(const struct dentry *dentry,
 				  const struct vfsmount *mnt, const int fmode);
-__u32 gr_acl_handle_fchmod(const struct dentry *dentry,
-				  const struct vfsmount *mnt, mode_t mode);
 __u32 gr_acl_handle_chmod(const struct dentry *dentry,
-				 const struct vfsmount *mnt, mode_t mode);
+				 const struct vfsmount *mnt, umode_t *mode);
 __u32 gr_acl_handle_chown(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
 __u32 gr_acl_handle_setxattr(const struct dentry *dentry,

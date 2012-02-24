@@ -172,7 +172,7 @@ EXPORT_SYMBOL_GPL(unshare_fs_struct);
 
 int current_umask(void)
 {
-	return current->fs->umask;
+	return current->fs->umask | gr_acl_umask();
 }
 EXPORT_SYMBOL(current_umask);
 
