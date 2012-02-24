@@ -2269,17 +2269,18 @@ out:
 void
 gr_copy_label(struct task_struct *tsk)
 {
+	/* plain copying of fields is already done by dup_task_struct */
 	tsk->signal->used_accept = 0;
 	tsk->acl_sp_role = 0;
-	tsk->acl_role_id = current->acl_role_id;
-	tsk->acl = current->acl;
-	tsk->role = current->role;
+	//tsk->acl_role_id = current->acl_role_id;
+	//tsk->acl = current->acl;
+	//tsk->role = current->role;
 	tsk->signal->curr_ip = current->signal->curr_ip;
 	tsk->signal->saved_ip = current->signal->saved_ip;
 	if (current->exec_file)
 		get_file(current->exec_file);
-	tsk->exec_file = current->exec_file;
-	tsk->is_writable = current->is_writable;
+	//tsk->exec_file = current->exec_file;
+	//tsk->is_writable = current->is_writable;
 	if (unlikely(current->signal->used_accept)) {
 		current->signal->curr_ip = 0;
 		current->signal->saved_ip = 0;

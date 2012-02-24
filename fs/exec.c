@@ -1476,7 +1476,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 EXPORT_SYMBOL(search_binary_handler);
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-atomic64_unchecked_t global_exec_counter = ATOMIC64_INIT(0);
+static atomic64_unchecked_t global_exec_counter = ATOMIC64_INIT(0);
 #endif
 
 /*
