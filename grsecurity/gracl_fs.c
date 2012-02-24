@@ -8,6 +8,15 @@
 #include <linux/grinternal.h>
 #include <linux/gracl.h>
 
+umode_t
+gr_acl_umask(void)
+{
+	if (unlikely(!gr_acl_is_enabled()))
+		return 0;
+
+	return current->role->umask;
+}
+
 __u32
 gr_acl_handle_hidden_file(const struct dentry * dentry,
 			  const struct vfsmount * mnt)
@@ -196,25 +205,18 @@ gr_acl_handle_utime(const struct dentry *dentry, const struct vfsmount *mnt)
 }
 
 __u32
-gr_acl_handle_fchmod(const struct dentry *dentry, const struct vfsmount *mnt,
-		     mode_t mode)
+gr_acl_handle_chmod(const struct dentry *dentry, const struct vfsmount *mnt,
+		     umode_t *modeptr)
 {
+	mode_t mode;
+
+	*modeptr &= ~(mode_t)gr_acl_umask();
+	mode = *modeptr;
+
 	if (unlikely(dentry->d_inode && S_ISSOCK(dentry->d_inode->i_mode)))
 		return 1;
 
-	if (unlikely((mode != (mode_t)-1) && (mode & (S_ISUID | S_ISGID)))) {
-		return generic_fs_handler(dentry, mnt, GR_WRITE | GR_SETID,
-				   GR_FCHMOD_ACL_MSG);
-	} else {
-		return generic_fs_handler(dentry, mnt, GR_WRITE, GR_FCHMOD_ACL_MSG);
-	}
-}
-
-__u32
-gr_acl_handle_chmod(const struct dentry *dentry, const struct vfsmount *mnt,
-		    mode_t mode)
-{
-	if (unlikely((mode != (mode_t)-1) && (mode & (S_ISUID | S_ISGID)))) {
+	if (unlikely(mode & (S_ISUID | S_ISGID))) {
 		return generic_fs_handler(dentry, mnt, GR_WRITE | GR_SETID,
 				   GR_CHMOD_ACL_MSG);
 	} else {

@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.2.2"
-#define GRSECURITY_VERSION 0x2202
+#define GR_VERSION  "grsecurity 2.9"
+#define GRSECURITY_VERSION 0x2900
 
 enum {
 	GR_SHUTDOWN = 0,
@@ -172,6 +172,8 @@ struct acl_role_label {
 	struct role_allowed_ip *allowed_ips;
 	uid_t *domain_children;
 	__u16 domain_child_num;
+
+	mode_t umask;
 
 	struct acl_subject_label **subj_hash;
 	__u32 subj_hash_size;

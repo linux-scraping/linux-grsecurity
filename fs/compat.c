@@ -1472,6 +1472,10 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+extern atomic64_unchecked_t global_exec_counter;
+#endif
+
 /*
  * compat_do_execve() is mostly a copy of do_execve(), with the exception
  * that it processes 32 bit argv and envp pointers.
@@ -1620,6 +1624,9 @@ int compat_do_execve(char * filename,
 #endif
 
 	/* execve succeeded */
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+        current->exec_id = atomic64_inc_return_unchecked(&global_exec_counter);
+#endif
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);

@@ -237,15 +237,8 @@ gr_acl_handle_access(const struct dentry * dentry,
 }
 
 __u32
-gr_acl_handle_fchmod(const struct dentry * dentry, const struct vfsmount * mnt,
-		     mode_t mode)
-{
-	return 1;
-}
-
-__u32
 gr_acl_handle_chmod(const struct dentry * dentry, const struct vfsmount * mnt,
-		    mode_t mode)
+		    umode_t *mode)
 {
 	return 1;
 }
@@ -266,6 +259,11 @@ void
 grsecurity_init(void)
 {
 	return;
+}
+
+umode_t gr_acl_umask(void)
+{
+	return 0;
 }
 
 __u32
