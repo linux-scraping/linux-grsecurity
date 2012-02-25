@@ -15,6 +15,10 @@
 #include <linux/types.h>
 #include <asm/system.h>
 
+#ifdef CONFIG_GENERIC_ATOMIC64
+#include <asm-generic/atomic64.h>
+#endif
+
 #define ATOMIC_INIT(i)	{ (i) }
 
 #ifdef __KERNEL__
