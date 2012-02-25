@@ -756,7 +756,7 @@ static int sgi_timer_set(struct k_itimer *timr, int flags,
 	return err;
 }
 
-static struct k_clock sgi_clock = {
+static k_clock_no_const sgi_clock = {
 	.res = 0,
 	.clock_set = sgi_clock_set,
 	.clock_get = sgi_clock_get,
