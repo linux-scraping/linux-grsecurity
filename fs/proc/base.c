@@ -847,6 +847,11 @@ static const struct file_operations proc_single_file_operations = {
 static int mem_open(struct inode* inode, struct file* file)
 {
 	file->private_data = (void*)((long)current->self_exec_id);
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	file->f_version = current->exec_id;
+#endif
+
 	return 0;
 }
 
@@ -861,17 +866,18 @@ static ssize_t mem_read(struct file * file, char __user * buf,
 	int ret = -ESRCH;
 	struct mm_struct *mm;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (file->f_version != current->exec_id) {
+		gr_log_badprocpid("mem");
+		return 0;
+	}
+#endif
+
 	if (!task)
 		goto out_no_task;
 
 	if (check_mem_permission(task))
 		goto out;
-
-	// XXX: temporary workaround
-	if (!task_dumpable(task) && task == current) {
-		ret = -EACCES;
-		goto out;
-	}
 
 	ret = -ENOMEM;
 	page = (char *)__get_free_page(GFP_TEMPORARY);
