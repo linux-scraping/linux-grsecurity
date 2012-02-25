@@ -97,7 +97,7 @@ static bool gate_stackleak_track_stack(void)
 	return track_frame_size >= 0;
 }
 
-static void stackleak_check_alloca(gimple_stmt_iterator gsi)
+static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 {
 	gimple check_alloca;
 	tree fndecl, fntype, alloca_size;
@@ -106,12 +106,12 @@ static void stackleak_check_alloca(gimple_stmt_iterator gsi)
 	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
 	fndecl = build_fn_decl(check_function, fntype);
 	DECL_ASSEMBLER_NAME(fndecl); // for LTO
-	alloca_size = gimple_call_arg(gsi_stmt(gsi), 0);
+	alloca_size = gimple_call_arg(gsi_stmt(*gsi), 0);
 	check_alloca = gimple_build_call(fndecl, 1, alloca_size);
-	gsi_insert_before(&gsi, check_alloca, GSI_CONTINUE_LINKING);
+	gsi_insert_before(gsi, check_alloca, GSI_SAME_STMT);
 }
 
-static void stackleak_add_instrumentation(gimple_stmt_iterator gsi)
+static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
 {
 	gimple track_stack;
 	tree fndecl, fntype;
@@ -121,7 +121,7 @@ static void stackleak_add_instrumentation(gimple_stmt_iterator gsi)
 	fndecl = build_fn_decl(track_function, fntype);
 	DECL_ASSEMBLER_NAME(fndecl); // for LTO
 	track_stack = gimple_build_call(fndecl, 0);
-	gsi_insert_after(&gsi, track_stack, GSI_CONTINUE_LINKING);
+	gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
 }
 
 #if BUILDING_GCC_VERSION == 4005
@@ -164,16 +164,17 @@ static unsigned int execute_stackleak_tree_instrument(void)
 	// 1. loop through BBs and GIMPLE statements
 	FOR_EACH_BB(bb) {
 		gimple_stmt_iterator gsi;
+
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: align 8 built-in BUILT_IN_NORMAL:BUILT_IN_ALLOCA attributes <tree_list 0xb7576450>
 			if (!is_alloca(gsi_stmt(gsi)))
 				continue;
 
 			// 2. insert stack overflow check before each __builtin_alloca call
-			stackleak_check_alloca(gsi);
+			stackleak_check_alloca(&gsi);
 
 			// 3. insert track call after each __builtin_alloca call
-			stackleak_add_instrumentation(gsi);
+			stackleak_add_instrumentation(&gsi);
 			if (bb == entry_bb)
 				prologue_instrumented = true;
 		}
@@ -181,10 +182,13 @@ static unsigned int execute_stackleak_tree_instrument(void)
 
 	// 4. insert track call at the beginning
 	if (!prologue_instrumented) {
+		gimple_stmt_iterator gsi;
+
 		bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
 		if (dom_info_available_p(CDI_DOMINATORS))
 			set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR);
-		stackleak_add_instrumentation(gsi_start_bb(bb));
+		gsi = gsi_start_bb(bb);
+		stackleak_add_instrumentation(&gsi);
 	}
 
 	return 0;

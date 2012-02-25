@@ -2,9 +2,9 @@
 #PLUGIN_SOURCE_FILES := pax_plugin.c
 #PLUGIN_OBJECT_FILES := $(patsubst %.c,%.o,$(PLUGIN_SOURCE_FILES))
 GCCPLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
-#CFLAGS += -I$(GCCPLUGINS_DIR)/include -fPIC -O2 -Wall -W
+#CFLAGS += -I$(GCCPLUGINS_DIR)/include -fPIC -O2 -Wall -W -std=gnu99
 
-HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include
+HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu99
 
 hostlibs-y := constify_plugin.so
 hostlibs-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so
