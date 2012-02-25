@@ -804,6 +804,10 @@ static int mem_open(struct inode* inode, struct file* file)
 	file->f_mode |= FMODE_UNSIGNED_OFFSET;
 	file->private_data = mm;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	file->f_version = current->exec_id;
+#endif
+
 	return 0;
 }
 
@@ -818,6 +822,12 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 #ifdef CONFIG_GRKERNSEC
 	if (write)
 		return -EPERM;
+#endif
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (file->f_version != current->exec_id) {
+		gr_log_badprocpid("mem");
+		return 0;
+	}
 #endif
 
 	if (!mm)
