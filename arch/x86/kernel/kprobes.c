@@ -690,7 +690,7 @@ static void __used __kprobes kretprobe_trampoline_holder(void)
 			"	movq %rax, 152(%rsp)\n"
 			RESTORE_REGS_STRING
 			"	popfq\n"
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+#ifdef KERNEXEC_PLUGIN
 			"	btsq $63,(%rsp)\n"
 #endif
 #else
