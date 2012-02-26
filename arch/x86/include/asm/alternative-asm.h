@@ -19,7 +19,7 @@
 	.endm
 #endif
 
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN
+#ifdef KERNEXEC_PLUGIN
 	.macro pax_force_retaddr_bts rip=0
 	btsq $63,\rip(%rsp)
 	.endm
