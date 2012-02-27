@@ -49,7 +49,7 @@
 #define GR_WRITLIB_ACL_MSG "denied load of writable library %.950s by "
 #define GR_INITF_ACL_MSG "init_variables() failed %s by "
 #define GR_DISABLED_ACL_MSG "Error loading %s, trying to run kernel with acls disabled. To disable acls at startup use <kernel image name> gracl=off from your boot loader"
-#define GR_DEV_ACL_MSG "/dev/grsec: %d bytes sent %d required, being fed garbaged by "
+#define GR_DEV_ACL_MSG "/dev/grsec: %d bytes sent %d required, being fed garbage by "
 #define GR_SHUTS_ACL_MSG "shutdown auth success for "
 #define GR_SHUTF_ACL_MSG "shutdown auth failure for "
 #define GR_SHUTI_ACL_MSG "ignoring shutdown for disabled RBAC system for "
