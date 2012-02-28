@@ -697,7 +697,7 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 #endif
 
 #ifdef CONFIG_PAX_SEGMEXEC
-	if (!(__supported_pte_mask & _PAGE_NX)) {
+	if (!(pax_flags & MF_PAX_PAGEEXEC) || !(__supported_pte_mask & _PAGE_NX)) {
 		pax_flags &= ~MF_PAX_PAGEEXEC;
 		pax_flags |= MF_PAX_SEGMEXEC;
 	}
