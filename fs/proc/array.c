@@ -576,7 +576,7 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 			struct pid *pid, struct task_struct *task)
 {
 	int size = 0, resident = 0, shared = 0, text = 0, lib = 0, data = 0;
-	struct mm_struct *mm = get_task_mm(task);
+	struct mm_struct *mm;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	if (current->exec_id != m->exec_id) {
@@ -585,6 +585,7 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 	}
 #endif
 
+	mm = get_task_mm(task);
 	if (mm) {
 		size = task_statm(mm, &shared, &text, &data, &resident);
 		mmput(mm);

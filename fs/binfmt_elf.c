@@ -558,6 +558,7 @@ out:
 	return error;
 }
 
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
 static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf_phdata)
 {
 	unsigned long pax_flags = 0UL;
@@ -877,7 +878,6 @@ static unsigned long pax_parse_xattr_pax(struct file * const file)
 
 }
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
 static long pax_parse_pax_flags(const struct elfhdr * const elf_ex, const struct elf_phdr * const elf_phdata, struct file * const file)
 {
 	unsigned long pax_flags, pt_pax_flags, xattr_pax_flags;
