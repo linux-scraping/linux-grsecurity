@@ -4,7 +4,7 @@
 GCCPLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
 #CFLAGS += -I$(GCCPLUGINS_DIR)/include -fPIC -O2 -Wall -W -std=gnu99
 
-HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu99 -ggdb
+HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(GCCPLUGINS_DIR)/include/c-family -std=gnu99 -ggdb
 
 hostlibs-y := constify_plugin.so
 hostlibs-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so

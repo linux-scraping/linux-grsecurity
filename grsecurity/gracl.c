@@ -1773,7 +1773,7 @@ glob_match(const char *p, const char *n)
 
 static struct acl_object_label *
 chk_glob_label(struct acl_object_label *globbed,
-	struct dentry *dentry, struct vfsmount *mnt, char **path)
+	const struct dentry *dentry, const struct vfsmount *mnt, char **path)
 {
 	struct acl_object_label *tmp;
 
@@ -1806,8 +1806,7 @@ __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 		retval = lookup_acl_obj_label(curr_ino, curr_dev, tmpsubj);
 		if (retval) {
 			if (checkglob && retval->globbed) {
-				retval2 = chk_glob_label(retval->globbed, (struct dentry *)orig_dentry,
-						(struct vfsmount *)orig_mnt, path);
+				retval2 = chk_glob_label(retval->globbed, orig_dentry, orig_mnt, path);
 				if (retval2)
 					retval = retval2;
 			}
