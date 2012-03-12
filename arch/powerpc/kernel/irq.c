@@ -547,9 +547,6 @@ struct irq_host *irq_alloc_host(struct device_node *of_node,
 	host->ops = ops;
 	host->of_node = of_node_get(of_node);
 
-	if (host->ops->match == NULL)
-		host->ops->match = default_irq_host_match;
-
 	raw_spin_lock_irqsave(&irq_big_lock, flags);
 
 	/* If it's a legacy controller, check for duplicates and
@@ -622,7 +619,12 @@ struct irq_host *irq_find_host(struct device_node *node)
 	 */
 	raw_spin_lock_irqsave(&irq_big_lock, flags);
 	list_for_each_entry(h, &irq_hosts, link)
-		if (h->ops->match(h, node)) {
+		if (h->ops->match) {
+			if (h->ops->match(h, node)) {
+				found = h;
+				break;
+			}
+		} else if (default_irq_host_match(h, node)) {
 			found = h;
 			break;
 		}

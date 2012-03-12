@@ -11,6 +11,7 @@
 #ifndef _XTENSA_CORE_CONFIGURATION_H
 #define _XTENSA_CORE_CONFIGURATION_H
 
+#include <linux/const.h>
 
 /****************************************************************************
 	    Parameters Useful for Any Code, USER or PRIVILEGED
@@ -118,9 +119,9 @@
   ----------------------------------------------------------------------*/
 
 #define XCHAL_ICACHE_LINESIZE		16	/* I-cache line size in bytes */
-#define XCHAL_DCACHE_LINESIZE		16	/* D-cache line size in bytes */
 #define XCHAL_ICACHE_LINEWIDTH		4	/* log2(I line size in bytes) */
 #define XCHAL_DCACHE_LINEWIDTH		4	/* log2(D line size in bytes) */
+#define XCHAL_DCACHE_LINESIZE		(_AC(1,UL) << XCHAL_DCACHE_LINEWIDTH)	/* D-cache line size in bytes */
 
 #define XCHAL_ICACHE_SIZE		32768	/* I-cache size in bytes or 0 */
 #define XCHAL_DCACHE_SIZE		32768	/* D-cache size in bytes or 0 */

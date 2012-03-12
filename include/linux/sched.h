@@ -1664,7 +1664,7 @@ extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_insns(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_refcount_overflow(struct pt_regs *regs);
-extern NORET_TYPE void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type) ATTRIB_NORET;
+extern __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
@@ -2352,7 +2352,7 @@ extern void __cleanup_sighand(struct sighand_struct *);
 extern void exit_itimers(struct signal_struct *);
 extern void flush_itimer_signals(void);
 
-extern NORET_TYPE void do_group_exit(int) ATTRIB_NORET;
+extern __noreturn void do_group_exit(int);
 
 extern void daemonize(const char *, ...);
 extern int allow_signal(int);

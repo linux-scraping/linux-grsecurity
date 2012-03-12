@@ -4,6 +4,5 @@
 #include <asm/atomic_64.h>
 #else
 #include <asm/atomic_32.h>
-#include <asm-generic/atomic64.h>
 #endif
 #endif

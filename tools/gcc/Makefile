@@ -11,6 +11,7 @@ hostlibs-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so
 hostlibs-$(CONFIG_KALLOCSTAT_PLUGIN) += kallocstat_plugin.so
 hostlibs-$(CONFIG_PAX_KERNEXEC_PLUGIN) += kernexec_plugin.so
 hostlibs-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
+hostlibs-y += colorize_plugin.so
 
 always := $(hostlibs-y)
 
@@ -19,3 +20,4 @@ stackleak_plugin-objs := stackleak_plugin.o
 kallocstat_plugin-objs := kallocstat_plugin.o
 kernexec_plugin-objs := kernexec_plugin.o
 checker_plugin-objs := checker_plugin.o
+colorize_plugin-objs := colorize_plugin.o

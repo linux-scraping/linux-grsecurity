@@ -3,6 +3,7 @@
 
 #ifdef __KERNEL__
 
+#include <linux/const.h>
 
 /* bytes per L1 cache line */
 #if defined(CONFIG_8xx) || defined(CONFIG_403GCX)
@@ -22,7 +23,7 @@
 #define L1_CACHE_SHIFT		7
 #endif
 
-#define	L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
+#define	L1_CACHE_BYTES		(_AC(1,UL) << L1_CACHE_SHIFT)
 
 #define	SMP_CACHE_BYTES		L1_CACHE_BYTES
 

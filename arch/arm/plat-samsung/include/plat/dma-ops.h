@@ -41,7 +41,7 @@ struct samsung_dma_ops {
 	int (*started)(unsigned ch);
 	int (*flush)(unsigned ch);
 	int (*stop)(unsigned ch);
-};
+} __no_const;
 
 extern void *samsung_dmadev_get_ops(void);
 extern void *s3c_dma_get_ops(void);

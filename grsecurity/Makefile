@@ -6,9 +6,7 @@
 # are copyright Brad Spengler - Open Source Security, Inc., and released 
 # under the GPL v2 or higher
 
-ifndef CONFIG_IA64
 KBUILD_CFLAGS += -Werror
-endif
 
 obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
 	grsec_mount.o grsec_sig.o grsec_sysctl.o \

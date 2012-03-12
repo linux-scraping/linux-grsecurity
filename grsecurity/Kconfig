@@ -272,11 +272,13 @@ config GRKERNSEC_PROC_MEMMAP
 	  dangerous sources of information, this option causes reads of sensitive
 	  /proc/<pid> entries where the file descriptor was opened in a different
 	  task than the one performing the read.  Such attempts are logged.
-	  Finally, this option limits argv/env strings for suid/sgid binaries
-	  to 1MB to prevent a complete exhaustion of the stack entropy provided
-	  by ASLR.
+	  This option also limits argv/env strings for suid/sgid binaries
+	  to 512KB to prevent a complete exhaustion of the stack entropy provided
+	  by ASLR.  Finally, it places an 8MB stack resource limit on suid/sgid
+	  binaries to prevent alternative mmap layouts from being abused.
+
 	  If you use PaX it is essential that you say Y here as it closes up
-	  several holes that make full ASLR useless for suid/sgid binaries.
+	  several holes that make full ASLR useless locally.
 
 config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"
@@ -416,8 +418,9 @@ config GRKERNSEC_PROC
 	  Depending upon the option you choose, you can either restrict users to
 	  see only the processes they themselves run, or choose a group that can
 	  view all processes and files normally restricted to root if you choose
-	  the "restrict to user only" option.  NOTE: If you're running identd as
-	  a non-root user, you will have to run it as the group you specify here.
+	  the "restrict to user only" option.  NOTE: If you're running identd or
+	  ntpd as a non-root user, you will have to run it as the group you
+	  specify here.
 
 config GRKERNSEC_PROC_USER
 	bool "Restrict /proc to user only"

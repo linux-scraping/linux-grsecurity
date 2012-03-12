@@ -248,7 +248,7 @@ static unsigned int execute_stackleak_final(void)
 	return 0;
 }
 
-static void stackleak_start_unit(void *gcc_data, void *user_dat)
+static void stackleak_start_unit(void *gcc_data, void *user_data)
 {
 	tree fntype;
 
@@ -318,7 +318,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
-	register_callback("start_unit", PLUGIN_START_UNIT, &stackleak_start_unit, NULL);
+	register_callback(plugin_name, PLUGIN_START_UNIT, &stackleak_start_unit, NULL);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_tree_instrument_pass_info);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_final_pass_info);
 

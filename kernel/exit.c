@@ -1091,7 +1091,7 @@ SYSCALL_DEFINE1(exit, int, error_code)
  * Take down every thread in the group.  This is called by fatal signals
  * as well as by sys_exit_group (below).
  */
-NORET_TYPE void
+__noreturn void
 do_group_exit(int exit_code)
 {
 	struct signal_struct *sig = current->signal;
