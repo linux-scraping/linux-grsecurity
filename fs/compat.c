@@ -1472,10 +1472,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-extern atomic64_unchecked_t global_exec_counter;
-#endif
-
 /*
  * compat_do_execve() is mostly a copy of do_execve(), with the exception
  * that it processes 32 bit argv and envp pointers.
@@ -1575,33 +1571,6 @@ int compat_do_execve(char * filename,
 	if (retval < 0)
 		goto out;
 
-	retval = copy_strings_kernel(1, &bprm->filename, bprm);
-	if (retval < 0)
-		goto out;
-
-	bprm->exec = bprm->p;
-	retval = compat_copy_strings(bprm->envc, envp, bprm);
-	if (retval < 0)
-		goto out;
-
-	retval = compat_copy_strings(bprm->argc, argv, bprm);
-	if (retval < 0)
-		goto out;
-
-	if (!gr_tpe_allow(file)) {
-		retval = -EACCES;
-		goto out;
-	}
-
-	if (gr_check_crash_exec(file)) {
-		retval = -EACCES;
-		goto out;
-	}
-
-	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
-
-	gr_handle_exec_args_compat(bprm, argv);
-
 #ifdef CONFIG_GRKERNSEC
 	old_acl = current->acl;
 	memcpy(old_rlim, current->signal->rlim, sizeof(old_rlim));
@@ -1609,11 +1578,45 @@ int compat_do_execve(char * filename,
 	get_file(file);
 	current->exec_file = file;
 #endif
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	/* limit suid stack to 8MB
+	   we saved the old limits above and will restore them if this exec fails
+	*/
+	if ((bprm->cred->euid != current_euid()) || (bprm->cred->egid != current_egid()))
+		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
+#endif
+
+	if (!gr_tpe_allow(file)) {
+		retval = -EACCES;
+		goto out_fail;
+	}
+
+	if (gr_check_crash_exec(file)) {
+		retval = -EACCES;
+		goto out_fail;
+	}
 
 	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
 				   bprm->unsafe);
 	if (retval < 0)
 		goto out_fail;
+
+	retval = copy_strings_kernel(1, &bprm->filename, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	bprm->exec = bprm->p;
+	retval = compat_copy_strings(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	retval = compat_copy_strings(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
+
+	gr_handle_exec_args_compat(bprm, argv);
 
 	retval = search_binary_handler(bprm, regs);
 	if (retval < 0)
@@ -1624,9 +1627,7 @@ int compat_do_execve(char * filename,
 #endif
 
 	/* execve succeeded */
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-        current->exec_id = atomic64_inc_return_unchecked(&global_exec_counter);
-#endif
+	increment_exec_counter();
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);

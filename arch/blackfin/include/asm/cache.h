@@ -7,12 +7,14 @@
 #ifndef __ARCH_BLACKFIN_CACHE_H
 #define __ARCH_BLACKFIN_CACHE_H
 
+#include <linux/const.h>
+
 /*
  * Bytes per L1 cache line
  * Blackfin loads 32 bytes for cache
  */
 #define L1_CACHE_SHIFT	5
-#define L1_CACHE_BYTES	(1 << L1_CACHE_SHIFT)
+#define L1_CACHE_BYTES	(_AC(1,UL) << L1_CACHE_SHIFT)
 #define SMP_CACHE_BYTES	L1_CACHE_BYTES
 
 #define ARCH_KMALLOC_MINALIGN	L1_CACHE_BYTES

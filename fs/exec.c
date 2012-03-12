@@ -214,11 +214,11 @@ struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 			return page;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		// only allow 1MB for argv+env on suid/sgid binaries
+		// only allow 512KB for argv+env on suid/sgid binaries
 		// to prevent easy ASLR exhaustion
 		if (((bprm->cred->euid != current_euid()) ||
 		     (bprm->cred->egid != current_egid())) &&
-		    (size > (1024 * 1024))) {
+		    (size > (512 * 1024))) {
 			put_page(page);
 			return NULL;
 		}
@@ -303,7 +303,7 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 
 #ifdef CONFIG_PAX_RANDUSTACK
 	if (randomize_va_space)
-		bprm->p ^= (pax_get_random_long() & ~15) & ~PAGE_MASK;
+		bprm->p ^= random32() & ~PAGE_MASK;
 #endif
 
 	return 0;
@@ -1385,7 +1385,18 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 EXPORT_SYMBOL(search_binary_handler);
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-atomic64_unchecked_t global_exec_counter = ATOMIC64_INIT(0);
+DEFINE_PER_CPU(u64, exec_counter);
+static int __init init_exec_counters(void)
+{
+	unsigned int cpu;
+
+	for_each_possible_cpu(cpu) {
+		per_cpu(exec_counter, cpu) = (u64)cpu;
+	}
+
+	return 0;
+}
+early_initcall(init_exec_counters);
 #endif
 
 /*
@@ -1487,33 +1498,6 @@ int do_execve(char * filename,
 	if (retval < 0)
 		goto out;
 
-	retval = copy_strings_kernel(1, &bprm->filename, bprm);
-	if (retval < 0)
-		goto out;
-
-	bprm->exec = bprm->p;
-	retval = copy_strings(bprm->envc, envp, bprm);
-	if (retval < 0)
-		goto out;
-
-	retval = copy_strings(bprm->argc, argv, bprm);
-	if (retval < 0)
-		goto out;
-
-	if (!gr_tpe_allow(file)) {
-		retval = -EACCES;
-		goto out;
-	}
-
-	if (gr_check_crash_exec(file)) {
-		retval = -EACCES;
-		goto out;
-	}
-
-	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
-
-	gr_handle_exec_args(bprm, (const char __user *const __user *)argv);
-
 #ifdef CONFIG_GRKERNSEC
 	old_acl = current->acl;
 	memcpy(old_rlim, current->signal->rlim, sizeof(old_rlim));
@@ -1521,11 +1505,46 @@ int do_execve(char * filename,
 	get_file(file);
 	current->exec_file = file;
 #endif
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	/* limit suid stack to 8MB
+	   we saved the old limits above and will restore them if this exec fails
+	*/
+	if (((bprm->cred->euid != current_euid()) || (bprm->cred->egid != current_egid())) &&
+	    (old_rlim[RLIMIT_STACK].rlim_cur > (8 * 1024 * 1024)))
+		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
+#endif
+
+	if (!gr_tpe_allow(file)) {
+		retval = -EACCES;
+		goto out_fail;
+	}
+
+	if (gr_check_crash_exec(file)) {
+		retval = -EACCES;
+		goto out_fail;
+	}
 
 	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
 				   bprm->unsafe);
 	if (retval < 0)
 		goto out_fail;
+
+	retval = copy_strings_kernel(1, &bprm->filename, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	bprm->exec = bprm->p;
+	retval = copy_strings(bprm->envc, envp, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	retval = copy_strings(bprm->argc, argv, bprm);
+	if (retval < 0)
+		goto out_fail;
+
+	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
+
+	gr_handle_exec_args(bprm, (const char __user *const __user *)argv);
 
 	current->flags &= ~PF_KTHREAD;
 	retval = search_binary_handler(bprm,regs);
@@ -1537,10 +1556,8 @@ int do_execve(char * filename,
 #endif
 
 	/* execve succeeded */
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	current->exec_id = atomic64_inc_return_unchecked(&global_exec_counter);
-#endif
 
+	increment_exec_counter();
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	acct_update_integrals(current);

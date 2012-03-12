@@ -2720,6 +2720,23 @@ static inline unsigned long rlimit_max(unsigned int limit)
 	return task_rlimit_max(current, limit);
 }
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+DECLARE_PER_CPU(u64, exec_counter);
+static inline void increment_exec_counter(void)
+{
+	unsigned int cpu;
+	u64 *exec_id_ptr;
+        BUILD_BUG_ON(NR_CPUS > (1 << 16));
+	cpu = get_cpu();
+	exec_id_ptr = &per_cpu(exec_counter, cpu);
+	*exec_id_ptr += 1ULL << 16;
+        current->exec_id = *exec_id_ptr;
+	put_cpu();
+}
+#else
+static inline void increment_exec_counter(void) {}
+#endif
+
 #endif /* __KERNEL__ */
 
 #endif

@@ -1,11 +1,12 @@
 #ifndef _ASM_CRIS_ARCH_CACHE_H
 #define _ASM_CRIS_ARCH_CACHE_H
 
+#include <linux/const.h>
 #include <arch/hwregs/dma.h>
 
 /* A cache-line is 32 bytes. */
-#define L1_CACHE_BYTES 32
 #define L1_CACHE_SHIFT 5
+#define L1_CACHE_BYTES (_AC(1,UL) << L1_CACHE_SHIFT)
 
 void flush_dma_list(dma_descr_data *descr);
 void flush_dma_descr(dma_descr_data *descr, int flush_buf);

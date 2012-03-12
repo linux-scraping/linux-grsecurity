@@ -12,10 +12,11 @@
 #ifndef __ASM_CACHE_H
 #define __ASM_CACHE_H
 
+#include <linux/const.h>
 
 /* bytes per L1 cache line */
 #define L1_CACHE_SHIFT		(CONFIG_FRV_L1_CACHE_SHIFT)
-#define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
+#define L1_CACHE_BYTES		(_AC(1,UL) << L1_CACHE_SHIFT)
 
 #define ARCH_KMALLOC_MINALIGN	L1_CACHE_BYTES
 

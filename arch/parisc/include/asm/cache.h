@@ -5,6 +5,7 @@
 #ifndef __ARCH_PARISC_CACHE_H
 #define __ARCH_PARISC_CACHE_H
 
+#include <linux/const.h>
 
 /*
  * PA 2.0 processors have 64-byte cachelines; PA 1.1 processors have
@@ -15,12 +16,12 @@
  * just ruin performance.
  */
 #ifdef CONFIG_PA20
-#define L1_CACHE_BYTES 64
 #define L1_CACHE_SHIFT 6
 #else
-#define L1_CACHE_BYTES 32
 #define L1_CACHE_SHIFT 5
 #endif
+
+#define L1_CACHE_BYTES (_AC(1,UL) << L1_CACHE_SHIFT)
 
 #ifndef __ASSEMBLY__
 
