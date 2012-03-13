@@ -74,14 +74,18 @@ SECTIONS
 #ifndef CONFIG_XIP_KERNEL
 		__init_begin = _stext;
 		INIT_DATA
+		EXIT_TEXT
+		EXIT_DATA
 		. = ALIGN(PAGE_SIZE);
 		__init_end = .;
 #endif
 	}
 
 	/DISCARD/ : {			/* Exit code and data		*/
+#ifdef CONFIG_XIP_KERNEL
 		EXIT_TEXT
 		EXIT_DATA
+#endif
 		*(.exitcall.exit)
 		*(.discard)
 		*(.ARM.exidx.exit.text)

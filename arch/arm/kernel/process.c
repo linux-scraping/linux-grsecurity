@@ -83,7 +83,7 @@ static int __init hlt_setup(char *__unused)
 __setup("nohlt", nohlt_setup);
 __setup("hlt", hlt_setup);
 
-void arm_machine_restart(char mode, const char *cmd)
+__noreturn void arm_machine_restart(char mode, const char *cmd)
 {
 	/*
 	 * Clean and disable cache, and turn off interrupts
@@ -117,7 +117,7 @@ void arm_machine_restart(char mode, const char *cmd)
 void (*pm_power_off)(void);
 EXPORT_SYMBOL(pm_power_off);
 
-void (*arm_pm_restart)(char str, const char *cmd) = arm_machine_restart;
+void (*arm_pm_restart)(char str, const char *cmd) __noreturn = arm_machine_restart;
 EXPORT_SYMBOL_GPL(arm_pm_restart);
 
 
@@ -195,6 +195,7 @@ __setup("reboot=", reboot_setup);
 
 void machine_halt(void)
 {
+	BUG();
 }
 
 
@@ -202,6 +203,7 @@ void machine_power_off(void)
 {
 	if (pm_power_off)
 		pm_power_off();
+	BUG();
 }
 
 void machine_restart(char *cmd)

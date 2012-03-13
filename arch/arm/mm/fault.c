@@ -603,6 +603,20 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	const struct fsr_info *inf = ifsr_info + fsr_fs(ifsr);
 	struct siginfo info;
 
+#ifdef CONFIG_PAX_REFCOUNT
+	if (fsr_fs(ifsr) == 2) {
+		unsigned int bkpt;
+
+		if (!probe_kernel_address((unsigned int *)addr, bkpt) && bkpt == 0xe12f1073) {
+			current->thread.error_code = ifsr;
+			current->thread.trap_no = 0;
+			pax_report_refcount_overflow(regs);
+			fixup_exception(regs);
+			return;
+		}
+	}
+#endif
+
 	if (!inf->fn(addr, ifsr | FSR_LNX_PF, regs))
 		return;
 

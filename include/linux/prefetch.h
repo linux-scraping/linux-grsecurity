@@ -11,6 +11,7 @@
 #define _LINUX_PREFETCH_H
 
 #include <linux/types.h>
+#include <linux/const.h>
 #include <asm/processor.h>
 #include <asm/cache.h>
 

@@ -1926,8 +1926,7 @@ int object_is_on_stack(const void *obj, unsigned long len)
 #endif
 }
 
-
-NORET_TYPE void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type)
+__noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type)
 {
 	if (current->signal->curr_ip)
 		printk(KERN_ERR "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",

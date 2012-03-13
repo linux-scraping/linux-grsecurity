@@ -621,7 +621,7 @@ ENTRY(save_args)
 	 * We entered an interrupt context - irqs are off:
 	 */
 2:	TRACE_IRQS_OFF
-	pax_force_retaddr
+	pax_force_retaddr_bts
 	ret
 	CFI_ENDPROC
 ENDPROC(save_args)

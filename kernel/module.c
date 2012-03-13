@@ -2257,7 +2257,7 @@ static noinline struct module *load_module(void __user *umod,
 	license = get_modinfo(sechdrs, infoindex, "license");
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
 	if (!license || !license_is_gpl_compatible(license)) {
-		err -ENOEXEC;
+		err = -ENOEXEC;
 		goto free_hdr;
 	}
 #endif

@@ -573,7 +573,7 @@ config PAX_MEMORY_UDEREF
 
 config PAX_REFCOUNT
 	bool "Prevent various kernel object reference counter overflows"
-	depends on GRKERNSEC && (X86 || SPARC64)
+	depends on GRKERNSEC && ((ARM && (CPU_32v6 || CPU_32v6K || CPU_32v7)) || SPARC64 || X86)
 	help
 	  By saying Y here the kernel will detect and prevent overflowing
 	  various (but not all) kinds of object reference counters.  Such

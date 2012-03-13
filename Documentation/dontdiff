@@ -138,6 +138,7 @@ kxgettext
 lkc_defs.h
 lex.c
 lex.*.c
+lib1funcs.S
 logo_*.c
 logo_*_clut224.c
 logo_*_mono.c
