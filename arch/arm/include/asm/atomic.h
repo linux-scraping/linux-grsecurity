@@ -29,10 +29,15 @@
  * atomic_set() is the clrex or dummy strex done on every exception return.
  */
 #define atomic_read(v)	(*(volatile int *)&(v)->counter)
+static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
+{
+	return v->counter;
+}
 #define atomic_set(v,i)	(((v)->counter) = (i))
-
-#define atomic_read_unchecked(v)	(*(volatile int *)&(v)->counter)
-#define atomic_set_unchecked(v,i)	(((v)->counter) = (i))
+static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
+{
+	v->counter = i;
+}
 
 #if __LINUX_ARM_ARCH__ >= 6
 
@@ -47,17 +52,24 @@ static inline void atomic_add(int i, atomic_t *v)
 	int result;
 
 	__asm__ __volatile__("@ atomic_add\n"
-"1:	ldrex	%0, [%3]\n"
-"	add	%0, %0, %4\n"
+"1:	ldrex	%1, [%3]\n"
+"	adds	%0, %1, %4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
 #endif
 
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
@@ -87,17 +99,25 @@ static inline int atomic_add_return(int i, atomic_t *v)
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic_add_return\n"
-"1:	ldrex	%0, [%3]\n"
-"	add	%0, %0, %4\n"
+"1:	ldrex	%1, [%3]\n"
+"	adds	%0, %1, %4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"	mov	%0, %1\n"
+"2:	bkpt 0xf103\n"
+"3:\n"
 #endif
 
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
@@ -135,17 +155,24 @@ static inline void atomic_sub(int i, atomic_t *v)
 	int result;
 
 	__asm__ __volatile__("@ atomic_sub\n"
-"1:	ldrex	%0, [%3]\n"
-"	sub	%0, %0, %4\n"
+"1:	ldrex	%1, [%3]\n"
+"	subs	%0, %1, %4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
 #endif
 
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
@@ -175,11 +202,25 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic_sub_return\n"
-"1:	ldrex	%0, [%3]\n"
-"	sub	%0, %0, %4\n"
+"1:	ldrex	%1, [%3]\n"
+"	sub	%0, %1, %4\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	bvc	3f\n"
+"	mov	%0, %1\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
+#endif
+
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "Ir" (i)
 	: "cc");
@@ -308,7 +349,10 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 #endif /* __LINUX_ARM_ARCH__ */
 
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
-#define atomic_xchg_unchecked(v, new) (xchg_unchecked(&((v)->counter), new))
+static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
+{
+	return xchg(&v->counter, new);
+}
 
 static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
@@ -321,15 +365,27 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 }
 
 #define atomic_inc(v)		atomic_add(1, v)
-#define atomic_inc_unchecked(v)		atomic_add_unchecked(1, v)
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
+{
+	atomic_add_unchecked(1, v);
+}
 #define atomic_dec(v)		atomic_sub(1, v)
-#define atomic_dec_unchecked(v)		atomic_sub_unchecked(1, v)
+static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
+{
+	atomic_sub_unchecked(1, v);
+}
 
 #define atomic_inc_and_test(v)	(atomic_add_return(1, v) == 0)
-#define atomic_inc_and_test_unchecked(v)	(atomic_add_return_unchecked(1, v) == 0)
+static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_add_return_unchecked(1, v) == 0;
+}
 #define atomic_dec_and_test(v)	(atomic_sub_return(1, v) == 0)
 #define atomic_inc_return(v)    (atomic_add_return(1, v))
-#define atomic_inc_return_unchecked(v)    (atomic_add_return_unchecked(1, v))
+static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_add_return_unchecked(1, v);
+}
 #define atomic_dec_return(v)    (atomic_sub_return(1, v))
 #define atomic_sub_and_test(i, v) (atomic_sub_return(i, v) == 0)
 
@@ -417,16 +473,23 @@ static inline void atomic64_add(u64 i, atomic64_t *v)
 	__asm__ __volatile__("@ atomic64_add\n"
 "1:	ldrexd	%0, %H0, [%3]\n"
 "	adds	%0, %0, %4\n"
-"	adc	%H0, %H0, %H4\n"
+"	adcs	%H0, %H0, %H4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
 #endif
 
 "	strexd	%1, %0, %H0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
@@ -451,24 +514,32 @@ static inline void atomic64_add_unchecked(u64 i, atomic64_unchecked_t *v)
 
 static inline u64 atomic64_add_return(u64 i, atomic64_t *v)
 {
-	u64 result;
-	unsigned long tmp;
+	u64 result, tmp;
 
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic64_add_return\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	adds	%0, %0, %4\n"
-"	adc	%H0, %H0, %H4\n"
+"1:	ldrexd	%1, %H1, [%3]\n"
+"	adds	%0, %1, %4\n"
+"	adcs	%H0, %H1, %H4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"	mov	%0, %1\n"
+"	mov	%H0, %H1\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
 #endif
 
 "	strexd	%1, %0, %H0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
@@ -509,16 +580,23 @@ static inline void atomic64_sub(u64 i, atomic64_t *v)
 	__asm__ __volatile__("@ atomic64_sub\n"
 "1:	ldrexd	%0, %H0, [%3]\n"
 "	subs	%0, %0, %4\n"
-"	sbc	%H0, %H0, %H4\n"
+"	sbcs	%H0, %H0, %H4\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
-	"bvc 2f\n"
-	"\tbkpt 0xf103\n2:\n"
+"	bvc	3f\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
 #endif
 
 "	strexd	%1, %0, %H0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
@@ -543,18 +621,32 @@ static inline void atomic64_sub_unchecked(u64 i, atomic64_unchecked_t *v)
 
 static inline u64 atomic64_sub_return(u64 i, atomic64_t *v)
 {
-	u64 result;
-	unsigned long tmp;
+	u64 result, tmp;
 
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic64_sub_return\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	subs	%0, %0, %4\n"
-"	sbc	%H0, %H0, %H4\n"
+"1:	ldrexd	%1, %H1, [%3]\n"
+"	subs	%0, %1, %4\n"
+"	sbc	%H0, %H1, %H4\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	bvc	3f\n"
+"	mov	%0, %1\n"
+"	mov	%H0, %H1\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
+#endif
+
 "	strexd	%1, %0, %H0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
@@ -635,21 +727,34 @@ static inline u64 atomic64_xchg(atomic64_t *ptr, u64 new)
 
 static inline u64 atomic64_dec_if_positive(atomic64_t *v)
 {
-	u64 result;
-	unsigned long tmp;
+	u64 result, tmp;
 
 	smp_mb();
 
 	__asm__ __volatile__("@ atomic64_dec_if_positive\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	subs	%0, %0, #1\n"
-"	sbc	%H0, %H0, #0\n"
+"1:	ldrexd	%1, %H1, [%3]\n"
+"	subs	%0, %1, #1\n"
+"	sbc	%H0, %H1, #0\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	bvc	3f\n"
+"	mov	%0, %1\n"
+"	mov	%H0, %H1\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
+#endif
+
 "	teq	%H0, #0\n"
-"	bmi	2f\n"
+"	bmi	4f\n"
 "	strexd	%1, %0, %H0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b\n"
-"2:"
+"4:\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter)
 	: "cc");
@@ -672,13 +777,25 @@ static inline int atomic64_add_unless(atomic64_t *v, u64 a, u64 u)
 "	teq	%0, %5\n"
 "	teqeq	%H0, %H5\n"
 "	moveq	%1, #0\n"
-"	beq	2f\n"
+"	beq	4f\n"
 "	adds	%0, %0, %6\n"
 "	adc	%H0, %H0, %H6\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	bvc	3f\n"
+"2:	bkpt	0xf103\n"
+"3:\n"
+#endif
+
 "	strexd	%2, %0, %H0, [%4]\n"
 "	teq	%2, #0\n"
 "	bne	1b\n"
-"2:"
+"4:\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
 	: "=&r" (val), "+r" (ret), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (u), "r" (a)
 	: "cc");

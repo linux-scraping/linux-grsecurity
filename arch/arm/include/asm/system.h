@@ -528,6 +528,13 @@ static inline unsigned long long __cmpxchg64_mb(volatile void *ptr,
 
 #endif	/* __LINUX_ARM_ARCH__ >= 6 */
 
+#define _ASM_EXTABLE(from, to)		\
+"	.pushsection __ex_table,\"a\"\n"\
+"	.align	3\n"			\
+"	.long	" #from ", " #to"\n"	\
+"	.popsection"
+
+
 #endif /* __ASSEMBLY__ */
 
 #define arch_align_stack(x) (x)
