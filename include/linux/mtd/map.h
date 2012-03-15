@@ -25,6 +25,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/string.h>
+#include <linux/kernel.h>
 #include <linux/bug.h>
 
 

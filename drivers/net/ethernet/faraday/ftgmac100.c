@@ -30,6 +30,8 @@
 #include <linux/netdevice.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
+#include <linux/irqreturn.h>
 #include <net/ip.h>
 
 #include "ftgmac100.h"

@@ -126,6 +126,7 @@ devlist.h*
 dnotify_test
 docproc
 dslm
+dtc-lexer.lex.c
 elf2ecoff
 elfconfig.h*
 evergreen_reg_safe.h

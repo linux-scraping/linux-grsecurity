@@ -139,8 +139,8 @@ void dwmac_mmc_ctrl(void __iomem *ioaddr, unsigned int mode)
 
 	writel(value, ioaddr + MMC_CNTRL);
 
-	pr_debug("stmmac: MMC ctrl register (offset 0x%x): 0x%08x\n",
-		 MMC_CNTRL, value);
+//	pr_debug("stmmac: MMC ctrl register (offset 0x%x): 0x%08x\n",
+//		 MMC_CNTRL, value);
 }
 
 /* To mask all all interrupts.*/

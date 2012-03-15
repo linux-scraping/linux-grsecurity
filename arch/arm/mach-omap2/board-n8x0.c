@@ -593,7 +593,7 @@ static int n8x0_menelaus_late_init(struct device *dev)
 }
 #endif
 
-static struct menelaus_platform_data n8x0_menelaus_platform_data __initdata = {
+static struct menelaus_platform_data n8x0_menelaus_platform_data __initconst = {
 	.late_init = n8x0_menelaus_late_init,
 };
 
