@@ -64,12 +64,6 @@ enum omap_vout_channels {
 	OMAP_VIDEO2,
 };
 
-static struct videobuf_queue_ops video_vbq_ops = {
-	.buf_setup = omap_vout_buffer_setup,
-	.buf_prepare = omap_vout_buffer_prepare,
-	.buf_release = omap_vout_buffer_release,
-	.buf_queue = omap_vout_buffer_queue,
-};
 /* Variables configurable through module params*/
 static u32 video1_numbuffers = 3;
 static u32 video2_numbuffers = 3;
@@ -999,6 +993,13 @@ static int omap_vout_release(struct file *file)
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "Exiting %s\n", __func__);
 	return ret;
 }
+
+static struct videobuf_queue_ops video_vbq_ops = {
+	.buf_setup = omap_vout_buffer_setup,
+	.buf_prepare = omap_vout_buffer_prepare,
+	.buf_release = omap_vout_buffer_release,
+	.buf_queue = omap_vout_buffer_queue,
+};
 
 static int omap_vout_open(struct file *file)
 {
