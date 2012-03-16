@@ -39,6 +39,7 @@ typedef struct
 #define local_add_return(i, l) atomic_long_add_return((i), (&(l)->a))
 #define local_sub_return(i, l) atomic_long_sub_return((i), (&(l)->a))
 #define local_inc_return(l) atomic_long_inc_return(&(l)->a)
+#define local_dec_return(l) atomic_long_dec_return(&(l)->a)
 
 #define local_cmpxchg(l, o, n) atomic_long_cmpxchg((&(l)->a), (o), (n))
 #define local_xchg(l, n) atomic_long_xchg((&(l)->a), (n))

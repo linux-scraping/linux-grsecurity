@@ -44,12 +44,10 @@ int plugin_is_GPL_compatible;
 static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
 static const char check_function[] = "pax_check_alloca";
-static tree pax_check_alloca_decl;
-static tree pax_track_stack_decl;
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201203021600",
+	.version	= "201203140940",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -102,20 +100,29 @@ static bool gate_stackleak_track_stack(void)
 static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 {
 	gimple check_alloca;
-	tree alloca_size;
+	tree fntype, fndecl, alloca_size;
+
+	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
+	fndecl = build_fn_decl(check_function, fntype);
+	DECL_ASSEMBLER_NAME(fndecl); // for LTO
 
 	// insert call to void pax_check_alloca(unsigned long size)
 	alloca_size = gimple_call_arg(gsi_stmt(*gsi), 0);
-	check_alloca = gimple_build_call(pax_check_alloca_decl, 1, alloca_size);
+	check_alloca = gimple_build_call(fndecl, 1, alloca_size);
 	gsi_insert_before(gsi, check_alloca, GSI_SAME_STMT);
 }
 
 static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
 {
 	gimple track_stack;
+	tree fntype, fndecl;
+
+	fntype = build_function_type_list(void_type_node, NULL_TREE);
+	fndecl = build_fn_decl(track_function, fntype);
+	DECL_ASSEMBLER_NAME(fndecl); // for LTO
 
 	// insert call to void pax_track_stack(void)
-	track_stack = gimple_build_call(pax_track_stack_decl, 0);
+	track_stack = gimple_build_call(fndecl, 0);
 	gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
 }
 
@@ -248,27 +255,6 @@ static unsigned int execute_stackleak_final(void)
 	return 0;
 }
 
-static void stackleak_start_unit(void *gcc_data, void *user_data)
-{
-	tree fntype;
-
-	// declare void pax_check_alloca(unsigned long size)
-	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
-	pax_check_alloca_decl = build_fn_decl(check_function, fntype);
-	DECL_ASSEMBLER_NAME(pax_check_alloca_decl); // for LTO
-	TREE_PUBLIC(pax_check_alloca_decl) = 1;
-	DECL_EXTERNAL(pax_check_alloca_decl) = 1;
-	DECL_ARTIFICIAL(pax_check_alloca_decl) = 1;
-
-	// declare void pax_track_stack(void)
-	fntype = build_function_type_list(void_type_node, NULL_TREE);
-	pax_track_stack_decl = build_fn_decl(track_function, fntype);
-	DECL_ASSEMBLER_NAME(pax_track_stack_decl); // for LTO
-	TREE_PUBLIC(pax_track_stack_decl) = 1;
-	DECL_EXTERNAL(pax_track_stack_decl) = 1;
-	DECL_ARTIFICIAL(pax_track_stack_decl) = 1;
-}
-
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
@@ -318,7 +304,6 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
-	register_callback(plugin_name, PLUGIN_START_UNIT, &stackleak_start_unit, NULL);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_tree_instrument_pass_info);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_final_pass_info);
 
