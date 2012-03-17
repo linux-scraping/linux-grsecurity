@@ -56,6 +56,8 @@ struct ah_skb_cb {
 #define AH_SKB_CB(__skb) ((struct ah_skb_cb *)&((__skb)->cb[0]))
 
 static void *ah_alloc_tmp(struct crypto_ahash *ahash, int nfrags,
+			  unsigned int size) __size_overflow(3);
+static void *ah_alloc_tmp(struct crypto_ahash *ahash, int nfrags,
 			  unsigned int size)
 {
 	unsigned int len;

@@ -3037,6 +3037,7 @@ static int svm_set_vm_cr(struct kvm_vcpu *vcpu, u64 data)
 	return 0;
 }
 
+static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data) __size_overflow(3);
 static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);

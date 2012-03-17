@@ -109,7 +109,7 @@ struct cache_sizes {
 extern struct cache_sizes malloc_sizes[];
 
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
-void *__kmalloc(size_t size, gfp_t flags);
+void *__kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 
 #ifdef CONFIG_TRACING
 extern void *kmem_cache_alloc_trace(size_t size,
@@ -127,6 +127,7 @@ static inline size_t slab_buffer_size(struct kmem_cache *cachep)
 }
 #endif
 
+static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *cachep;
@@ -162,7 +163,7 @@ found:
 }
 
 #ifdef CONFIG_NUMA
-extern void *__kmalloc_node(size_t size, gfp_t flags, int node);
+extern void *__kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
 extern void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 
 #ifdef CONFIG_TRACING
@@ -181,6 +182,7 @@ kmem_cache_alloc_node_trace(size_t size,
 }
 #endif
 
+static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	struct kmem_cache *cachep;

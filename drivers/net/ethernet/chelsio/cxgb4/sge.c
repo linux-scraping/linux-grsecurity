@@ -593,6 +593,9 @@ static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
  */
 static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
 			size_t sw_size, dma_addr_t *phys, void *metadata,
+			size_t stat_size, int node) __size_overflow(2,4);
+static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
+			size_t sw_size, dma_addr_t *phys, void *metadata,
 			size_t stat_size, int node)
 {
 	size_t len = nelem * elem_size + stat_size;

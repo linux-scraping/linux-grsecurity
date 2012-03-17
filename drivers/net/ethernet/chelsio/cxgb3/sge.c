@@ -611,6 +611,8 @@ static void recycle_rx_buf(struct adapter *adap, struct sge_fl *q,
  *	of the SW ring.
  */
 static void *alloc_ring(struct pci_dev *pdev, size_t nelem, size_t elem_size,
+			size_t sw_size, dma_addr_t * phys, void *metadata) __size_overflow(2,4);
+static void *alloc_ring(struct pci_dev *pdev, size_t nelem, size_t elem_size,
 			size_t sw_size, dma_addr_t * phys, void *metadata)
 {
 	size_t len = nelem * elem_size;

@@ -56,18 +56,18 @@ static inline void vmalloc_init(void)
 }
 #endif
 
-extern void *vmalloc(unsigned long size);
-extern void *vzalloc(unsigned long size);
-extern void *vmalloc_user(unsigned long size);
-extern void *vmalloc_node(unsigned long size, int node);
-extern void *vzalloc_node(unsigned long size, int node);
-extern void *vmalloc_exec(unsigned long size);
-extern void *vmalloc_32(unsigned long size);
-extern void *vmalloc_32_user(unsigned long size);
-extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot);
+extern void *vmalloc(unsigned long size) __size_overflow(1);
+extern void *vzalloc(unsigned long size) __size_overflow(1);
+extern void *vmalloc_user(unsigned long size) __size_overflow(1);
+extern void *vmalloc_node(unsigned long size, int node) __size_overflow(1);
+extern void *vzalloc_node(unsigned long size, int node) __size_overflow(1);
+extern void *vmalloc_exec(unsigned long size) __size_overflow(1);
+extern void *vmalloc_32(unsigned long size) __size_overflow(1);
+extern void *vmalloc_32_user(unsigned long size) __size_overflow(1);
+extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot) __size_overflow(1);
 extern void *__vmalloc_node_range(unsigned long size, unsigned long align,
 			unsigned long start, unsigned long end, gfp_t gfp_mask,
-			pgprot_t prot, int node, void *caller);
+			pgprot_t prot, int node, void *caller) __size_overflow(1);
 extern void vfree(const void *addr);
 
 extern void *vmap(struct page **pages, unsigned int count,
@@ -128,8 +128,8 @@ extern struct vm_struct *alloc_vm_area(size_t size, pte_t **ptes);
 extern void free_vm_area(struct vm_struct *area);
 
 /* for /dev/kmem */
-extern long vread(char *buf, char *addr, unsigned long count);
-extern long vwrite(char *buf, char *addr, unsigned long count);
+extern long vread(char *buf, char *addr, unsigned long count) __size_overflow(3);
+extern long vwrite(char *buf, char *addr, unsigned long count) __size_overflow(3);
 
 /*
  *	Internals.  Dont't use..
@@ -160,104 +160,5 @@ pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms)
 }
 # endif
 #endif
-
-#define vmalloc(x)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc size overflow\n"))	\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc((unsigned long)___x);	\
-	___retval;						\
-})
-
-#define vzalloc(x)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vzalloc size overflow\n"))	\
-		___retval = NULL;				\
-	else							\
-		___retval = vzalloc((unsigned long)___x);	\
-	___retval;						\
-})
-
-#define __vmalloc(x, y, z)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "__vmalloc size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = __vmalloc((unsigned long)___x, (y), (z));\
-	___retval;						\
-})
-
-#define vmalloc_user(x)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc_user size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc_user((unsigned long)___x);	\
-	___retval;						\
-})
-
-#define vmalloc_exec(x)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc_exec size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc_exec((unsigned long)___x);	\
-	___retval;						\
-})
-
-#define vmalloc_node(x, y)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc_node size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc_node((unsigned long)___x, (y));\
-	___retval;						\
-})
-
-#define vzalloc_node(x, y)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vzalloc_node size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vzalloc_node((unsigned long)___x, (y));\
-	___retval;						\
-})
-
-#define vmalloc_32(x)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc_32 size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc_32((unsigned long)___x);	\
-	___retval;						\
-})
-
-#define vmalloc_32_user(x)					\
-({								\
-void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "vmalloc_32_user size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = vmalloc_32_user((unsigned long)___x);\
-	___retval;						\
-})
 
 #endif /* _LINUX_VMALLOC_H */

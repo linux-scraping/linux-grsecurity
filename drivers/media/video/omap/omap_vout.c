@@ -994,17 +994,16 @@ static int omap_vout_release(struct file *file)
 	return ret;
 }
 
-static struct videobuf_queue_ops video_vbq_ops = {
-	.buf_setup = omap_vout_buffer_setup,
-	.buf_prepare = omap_vout_buffer_prepare,
-	.buf_release = omap_vout_buffer_release,
-	.buf_queue = omap_vout_buffer_queue,
-};
-
 static int omap_vout_open(struct file *file)
 {
 	struct videobuf_queue *q;
 	struct omap_vout_device *vout = NULL;
+	static struct videobuf_queue_ops video_vbq_ops = {
+		.buf_setup = omap_vout_buffer_setup,
+		.buf_prepare = omap_vout_buffer_prepare,
+		.buf_release = omap_vout_buffer_release,
+		.buf_queue = omap_vout_buffer_queue,
+	};
 
 	vout = video_drvdata(file);
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "Entering %s\n", __func__);

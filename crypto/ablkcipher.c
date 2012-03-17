@@ -307,6 +307,8 @@ int ablkcipher_walk_phys(struct ablkcipher_request *req,
 EXPORT_SYMBOL_GPL(ablkcipher_walk_phys);
 
 static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
+			    unsigned int keylen) __size_overflow(3);
+static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct ablkcipher_alg *cipher = crypto_ablkcipher_alg(tfm);
@@ -328,6 +330,8 @@ static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
 	return ret;
 }
 
+static int setkey(struct crypto_ablkcipher *tfm, const u8 *key,
+		  unsigned int keylen) __size_overflow(3);
 static int setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 		  unsigned int keylen)
 {

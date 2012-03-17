@@ -14,7 +14,7 @@ extern unsigned long long elfcorehdr_addr;
 extern unsigned long long elfcorehdr_size;
 
 extern ssize_t copy_oldmem_page(unsigned long, char *, size_t,
-						unsigned long, int);
+						unsigned long, int) __size_overflow(3);
 
 /* Architecture code defines this if there are other possible ELF
  * machine types, e.g. on bi-arch capable hardware. */

@@ -907,6 +907,7 @@ static int do_set_msr(struct kvm_vcpu *vcpu, unsigned index, u64 *data)
 	return kvm_set_msr(vcpu, index, *data);
 }
 
+static void kvm_write_wall_clock(struct kvm *kvm, gpa_t wall_clock) __size_overflow(2);
 static void kvm_write_wall_clock(struct kvm *kvm, gpa_t wall_clock)
 {
 	int version;
@@ -3960,6 +3961,9 @@ gpa_t kvm_mmu_gva_to_gpa_system(struct kvm_vcpu *vcpu, gva_t gva,
 
 static int kvm_read_guest_virt_helper(gva_t addr, void *val, unsigned int bytes,
 				      struct kvm_vcpu *vcpu, u32 access,
+				      struct x86_exception *exception) __size_overflow(1,3);
+static int kvm_read_guest_virt_helper(gva_t addr, void *val, unsigned int bytes,
+				      struct kvm_vcpu *vcpu, u32 access,
 				      struct x86_exception *exception)
 {
 	void *data = val;
@@ -3991,6 +3995,9 @@ out:
 /* used for instruction fetching */
 static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
 				gva_t addr, void *val, unsigned int bytes,
+				struct x86_exception *exception) __size_overflow(2,4);
+static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
+				gva_t addr, void *val, unsigned int bytes,
 				struct x86_exception *exception)
 {
 	struct kvm_vcpu *vcpu = emul_to_vcpu(ctxt);
@@ -4013,6 +4020,9 @@ int kvm_read_guest_virt(struct x86_emulate_ctxt *ctxt,
 }
 EXPORT_SYMBOL_GPL(kvm_read_guest_virt);
 
+static int kvm_read_guest_virt_system(struct x86_emulate_ctxt *ctxt,
+				      gva_t addr, void *val, unsigned int bytes,
+				      struct x86_exception *exception) __size_overflow(2,4);
 static int kvm_read_guest_virt_system(struct x86_emulate_ctxt *ctxt,
 				      gva_t addr, void *val, unsigned int bytes,
 				      struct x86_exception *exception)
@@ -4128,11 +4138,15 @@ static int read_prepare(struct kvm_vcpu *vcpu, void *val, int bytes)
 }
 
 static int read_emulate(struct kvm_vcpu *vcpu, gpa_t gpa,
+			void *val, int bytes) __size_overflow(2);
+static int read_emulate(struct kvm_vcpu *vcpu, gpa_t gpa,
 			void *val, int bytes)
 {
 	return !kvm_read_guest(vcpu->kvm, gpa, val, bytes);
 }
 
+static int write_emulate(struct kvm_vcpu *vcpu, gpa_t gpa,
+			 void *val, int bytes) __size_overflow(2);
 static int write_emulate(struct kvm_vcpu *vcpu, gpa_t gpa,
 			 void *val, int bytes)
 {
@@ -4279,6 +4293,12 @@ int emulator_write_emulated(struct x86_emulate_ctxt *ctxt,
 	(cmpxchg64((u64 *)(ptr), *(u64 *)(old), *(u64 *)(new)) == *(u64 *)(old))
 #endif
 
+static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
+				     unsigned long addr,
+				     const void *old,
+				     const void *new,
+				     unsigned int bytes,
+				     struct x86_exception *exception) __size_overflow(5);
 static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
 				     unsigned long addr,
 				     const void *old,

@@ -2150,6 +2150,16 @@ void pax_track_stack(void)
 EXPORT_SYMBOL(pax_track_stack);
 #endif
 
+#ifdef CONFIG_PAX_SIZE_OVERFLOW
+void report_size_overflow(const char *file, unsigned int line, const char *func)
+{
+	printk(KERN_ERR "PAX: size overflow detected in function %s %s:%u\n", func, file, line);
+	dump_stack();
+	do_group_exit(SIGKILL);
+}
+EXPORT_SYMBOL(report_size_overflow);
+#endif
+
 static int zap_process(struct task_struct *start, int exit_code)
 {
 	struct task_struct *t;

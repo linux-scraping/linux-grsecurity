@@ -338,6 +338,8 @@ out:
 
 /* Write an UBI debugfs file */
 static ssize_t dfs_file_write(struct file *file, const char __user *user_buf,
+			      size_t count, loff_t *ppos) __size_overflow(3);
+static ssize_t dfs_file_write(struct file *file, const char __user *user_buf,
 			      size_t count, loff_t *ppos)
 {
 	unsigned long ubi_num = (unsigned long)file->private_data;

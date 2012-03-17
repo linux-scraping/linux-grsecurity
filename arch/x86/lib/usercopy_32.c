@@ -83,7 +83,7 @@ do {									   \
  * and returns @count.
  */
 long
-__strncpy_from_user(char *dst, const char __user *src, long count)
+__strncpy_from_user(char *dst, const char __user *src, unsigned long count)
 {
 	long res;
 	__do_strncpy_from_user(dst, src, count, res);
@@ -110,7 +110,7 @@ EXPORT_SYMBOL(__strncpy_from_user);
  * and returns @count.
  */
 long
-strncpy_from_user(char *dst, const char __user *src, long count)
+strncpy_from_user(char *dst, const char __user *src, unsigned long count)
 {
 	long res = -EFAULT;
 	if (access_ok(VERIFY_READ, src, 1))
@@ -194,7 +194,7 @@ EXPORT_SYMBOL(__clear_user);
  * On exception, returns 0.
  * If the string is too long, returns a value greater than @n.
  */
-long strnlen_user(const char __user *s, long n)
+long strnlen_user(const char __user *s, unsigned long n)
 {
 	unsigned long mask = -__addr_ok(s);
 	unsigned long res, tmp;
@@ -447,6 +447,8 @@ __generic_copy_from_user_intel(void *to, const void __user *from, unsigned long 
 }
 
 static unsigned long
+__copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size) __size_overflow(3);
+static unsigned long
 __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 {
 	int d0, d1;
@@ -547,6 +549,8 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
  */
 
 static unsigned long __copy_user_zeroing_intel_nocache(void *to,
+				const void __user *from, unsigned long size) __size_overflow(3);
+static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 				const void __user *from, unsigned long size)
 {
 	int d0, d1;
@@ -643,6 +647,8 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	return size;
 }
 
+static unsigned long __copy_user_intel_nocache(void *to,
+				const void __user *from, unsigned long size) __size_overflow(3);
 static unsigned long __copy_user_intel_nocache(void *to,
 				const void __user *from, unsigned long size)
 {

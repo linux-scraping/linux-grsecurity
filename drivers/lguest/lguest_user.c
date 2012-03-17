@@ -198,6 +198,7 @@ static int user_send_irq(struct lg_cpu *cpu, const unsigned long __user *input)
  * Once our Guest is initialized, the Launcher makes it run by reading
  * from /dev/lguest.
  */
+static ssize_t read(struct file *file, char __user *user, size_t size,loff_t*o) __size_overflow(3);
 static ssize_t read(struct file *file, char __user *user, size_t size,loff_t*o)
 {
 	struct lguest *lg = file->private_data;

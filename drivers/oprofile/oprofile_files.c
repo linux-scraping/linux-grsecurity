@@ -36,6 +36,8 @@ static ssize_t timeout_read(struct file *file, char __user *buf,
 
 
 static ssize_t timeout_write(struct file *file, char const __user *buf,
+		size_t count, loff_t *offset) __size_overflow(3);
+static ssize_t timeout_write(struct file *file, char const __user *buf,
 		size_t count, loff_t *offset)
 {
 	unsigned long val;
@@ -72,6 +74,7 @@ static ssize_t depth_read(struct file *file, char __user *buf, size_t count, lof
 }
 
 
+static ssize_t depth_write(struct file *file, char const __user *buf, size_t count, loff_t *offset) __size_overflow(3);
 static ssize_t depth_write(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	unsigned long val;
@@ -126,12 +129,14 @@ static const struct file_operations cpu_type_fops = {
 };
 
 
+static ssize_t enable_read(struct file *file, char __user *buf, size_t count, loff_t *offset) __size_overflow(3);
 static ssize_t enable_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
 	return oprofilefs_ulong_to_user(oprofile_started, buf, count, offset);
 }
 
 
+static ssize_t enable_write(struct file *file, char const __user *buf, size_t count, loff_t *offset) __size_overflow(3);
 static ssize_t enable_write(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	unsigned long val;

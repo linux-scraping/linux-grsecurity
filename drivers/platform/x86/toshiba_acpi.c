@@ -517,6 +517,8 @@ static int set_lcd_status(struct backlight_device *bd)
 }
 
 static ssize_t lcd_proc_write(struct file *file, const char __user *buf,
+			      size_t count, loff_t *pos) __size_overflow(3);
+static ssize_t lcd_proc_write(struct file *file, const char __user *buf,
 			      size_t count, loff_t *pos)
 {
 	struct toshiba_acpi_dev *dev = PDE(file->f_path.dentry->d_inode)->data;

@@ -92,7 +92,6 @@ config PAX_PT_PAX_FLAGS
 
 config PAX_XATTR_PAX_FLAGS
 	bool 'Use filesystem extended attributes marking'
-	depends on EXPERT
 	select CIFS_XATTR if CIFS
 	select EXT2_FS_XATTR if EXT2_FS
 	select EXT3_FS_XATTR if EXT3_FS
@@ -620,6 +619,19 @@ config PAX_USERCOPY
 
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
+
+config PAX_SIZE_OVERFLOW
+	bool "Prevent various integer overflows in function size parameters"
+	help
+	  By saying Y here the kernel recomputes expressions of function
+	  arguments marked by a size_overflow attribute with double integer
+	  precision (DImode/TImode for 32/64 bit integer types).
+
+	  The recomputed argument is checked against INT_MAX and an event
+	  is logged on overflow and the triggering process is killed.
+
+	  Homepage:
+	  http://www.grsecurity.net/~ephox/overflow_plugin/
 
 endmenu
 

@@ -655,6 +655,9 @@ static int acpi_battery_read_alarm(struct seq_file *seq, void *offset)
 
 static ssize_t
 acpi_battery_write_alarm(struct file *file, const char __user * buffer,
+			 size_t count, loff_t * ppos) __size_overflow(3);
+static ssize_t
+acpi_battery_write_alarm(struct file *file, const char __user * buffer,
 			 size_t count, loff_t * ppos)
 {
 	struct seq_file *seq = file->private_data;

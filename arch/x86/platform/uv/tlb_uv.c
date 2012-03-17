@@ -1433,6 +1433,8 @@ static ssize_t tunables_read(struct file *file, char __user *userbuf,
  *  0: display meaning of the statistics
  */
 static ssize_t ptc_proc_write(struct file *file, const char __user *user,
+				size_t count, loff_t *data) __size_overflow(3);
+static ssize_t ptc_proc_write(struct file *file, const char __user *user,
 				size_t count, loff_t *data)
 {
 	int cpu;
@@ -1547,6 +1549,8 @@ static int parse_tunables_write(struct bau_control *bcp, char *instr,
 /*
  * Handle a write to debugfs. (/sys/kernel/debug/sgi_uv/bau_tunables)
  */
+static ssize_t tunables_write(struct file *file, const char __user *user,
+				size_t count, loff_t *data) __size_overflow(3);
 static ssize_t tunables_write(struct file *file, const char __user *user,
 				size_t count, loff_t *data)
 {

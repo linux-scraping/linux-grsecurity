@@ -130,7 +130,7 @@ static inline int ncp_is_nfs_extras(struct ncp_server* server, unsigned int voln
 int ncp__io2vol(struct ncp_server *, unsigned char *, unsigned int *,
 				const unsigned char *, unsigned int, int);
 int ncp__vol2io(struct ncp_server *, unsigned char *, unsigned int *,
-				const unsigned char *, unsigned int, int);
+				const unsigned char *, unsigned int, int) __size_overflow(5);
 
 #define NCP_ESC			':'
 #define NCP_IO_TABLE(sb)	(NCP_SBP(sb)->nls_io)
@@ -146,7 +146,7 @@ int ncp__vol2io(struct ncp_server *, unsigned char *, unsigned int *,
 int ncp__io2vol(unsigned char *, unsigned int *,
 				const unsigned char *, unsigned int, int);
 int ncp__vol2io(unsigned char *, unsigned int *,
-				const unsigned char *, unsigned int, int);
+				const unsigned char *, unsigned int, int) __size_overflow(5);
 
 #define NCP_IO_TABLE(sb)	NULL
 #define ncp_tolower(t, c)	tolower(c)

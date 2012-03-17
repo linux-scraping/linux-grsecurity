@@ -791,6 +791,10 @@ static int ioperm_active(struct task_struct *target,
 static int ioperm_get(struct task_struct *target,
 		      const struct user_regset *regset,
 		      unsigned int pos, unsigned int count,
+		      void *kbuf, void __user *ubuf) __size_overflow(3,4);
+static int ioperm_get(struct task_struct *target,
+		      const struct user_regset *regset,
+		      unsigned int pos, unsigned int count,
 		      void *kbuf, void __user *ubuf)
 {
 	if (!target->thread.io_bitmap_ptr)

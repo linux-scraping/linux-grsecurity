@@ -2817,6 +2817,7 @@ static ssize_t dfs_file_read(struct file *file, char __user *u, size_t count,
  * debugfs file. Returns %0 or %1 in case of success and a negative error code
  * in case of failure.
  */
+static int interpret_user_input(const char __user *u, size_t count) __size_overflow(2);
 static int interpret_user_input(const char __user *u, size_t count)
 {
 	size_t buf_size;
@@ -2834,6 +2835,8 @@ static int interpret_user_input(const char __user *u, size_t count)
 	return -EINVAL;
 }
 
+static ssize_t dfs_file_write(struct file *file, const char __user *u,
+			      size_t count, loff_t *ppos) __size_overflow(3);
 static ssize_t dfs_file_write(struct file *file, const char __user *u,
 			      size_t count, loff_t *ppos)
 {

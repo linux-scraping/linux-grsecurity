@@ -119,10 +119,10 @@ void kvm_write_tsc(struct kvm_vcpu *vcpu, u64 data);
 
 int kvm_read_guest_virt(struct x86_emulate_ctxt *ctxt,
 	gva_t addr, void *val, unsigned int bytes,
-	struct x86_exception *exception);
+	struct x86_exception *exception) __size_overflow(2,4);
 
 int kvm_write_guest_virt_system(struct x86_emulate_ctxt *ctxt,
 	gva_t addr, void *val, unsigned int bytes,
-	struct x86_exception *exception);
+	struct x86_exception *exception) __size_overflow(2,4);
 
 #endif

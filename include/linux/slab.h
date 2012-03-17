@@ -167,8 +167,8 @@ unsigned int kmem_cache_size(struct kmem_cache *);
 /*
  * Common kmalloc functions provided by all allocators
  */
-void * __must_check __krealloc(const void *, size_t, gfp_t);
-void * __must_check krealloc(const void *, size_t, gfp_t);
+void * __must_check __krealloc(const void *, size_t, gfp_t) __size_overflow(2);
+void * __must_check krealloc(const void *, size_t, gfp_t) __size_overflow(2);
 void kfree(const void *);
 void kzfree(const void *);
 size_t ksize(const void *);
@@ -299,7 +299,7 @@ static inline void *kmem_cache_alloc_node(struct kmem_cache *cachep,
  */
 #if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || \
 	(defined(CONFIG_SLAB) && defined(CONFIG_TRACING))
-extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
+extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long) __size_overflow(1);
 #define kmalloc_track_caller(size, flags) \
 	__kmalloc_track_caller(size, flags, _RET_IP_)
 #else
@@ -318,7 +318,7 @@ extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
  */
 #if defined(CONFIG_DEBUG_SLAB) || defined(CONFIG_SLUB) || \
 	(defined(CONFIG_SLAB) && defined(CONFIG_TRACING))
-extern void *__kmalloc_node_track_caller(size_t, gfp_t, int, unsigned long);
+extern void *__kmalloc_node_track_caller(size_t, gfp_t, int, unsigned long) __size_overflow(1);
 #define kmalloc_node_track_caller(size, flags, node) \
 	__kmalloc_node_track_caller(size, flags, node, \
 			_RET_IP_)
@@ -364,60 +364,5 @@ static inline void *kzalloc_node(size_t size, gfp_t flags, int node)
 }
 
 void __init kmem_cache_init_late(void);
-
-#define kmalloc(x, y)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "kmalloc size overflow\n"))	\
-		___retval = NULL;				\
-	else							\
-		___retval = kmalloc((size_t)___x, (y));		\
-	___retval;						\
-})
-
-#define kmalloc_node(x, y, z)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "kmalloc_node size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = kmalloc_node((size_t)___x, (y), (z));\
-	___retval;						\
-})
-
-#define kzalloc(x, y)						\
-({								\
-	void *___retval;					\
-	intoverflow_t ___x = (intoverflow_t)x;			\
-	if (WARN(___x > ULONG_MAX, "kzalloc size overflow\n"))	\
-		___retval = NULL;				\
-	else							\
-		___retval = kzalloc((size_t)___x, (y));		\
-	___retval;						\
-})
-
-#define __krealloc(x, y, z)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___y = (intoverflow_t)y;			\
-	if (WARN(___y > ULONG_MAX, "__krealloc size overflow\n"))\
-		___retval = NULL;				\
-	else							\
-		___retval = __krealloc((x), (size_t)___y, (z));	\
-	___retval;						\
-})
-
-#define krealloc(x, y, z)					\
-({								\
-	void *___retval;					\
-	intoverflow_t ___y = (intoverflow_t)y;			\
-	if (WARN(___y > ULONG_MAX, "krealloc size overflow\n"))	\
-		___retval = NULL;				\
-	else							\
-		___retval = krealloc((x), (size_t)___y, (z));	\
-	___retval;						\
-})
 
 #endif	/* _LINUX_SLAB_H */
