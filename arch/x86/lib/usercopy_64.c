@@ -39,7 +39,7 @@ do {									   \
 } while (0)
 
 long
-__strncpy_from_user(char *dst, const char __user *src, long count)
+__strncpy_from_user(char *dst, const char __user *src, unsigned long count)
 {
 	long res;
 
@@ -54,7 +54,7 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 EXPORT_SYMBOL(__strncpy_from_user);
 
 long
-strncpy_from_user(char *dst, const char __user *src, long count)
+strncpy_from_user(char *dst, const char __user *src, unsigned long count)
 {
 	long res = -EFAULT;
 	if (access_ok(VERIFY_READ, src, 1))
@@ -119,7 +119,7 @@ EXPORT_SYMBOL(clear_user);
  * Return 0 on exception, a value greater than N if too long
  */
 
-long __strnlen_user(const char __user *s, long n)
+long __strnlen_user(const char __user *s, unsigned long n)
 {
 	long res = 0;
 	char c;
@@ -137,7 +137,7 @@ long __strnlen_user(const char __user *s, long n)
 }
 EXPORT_SYMBOL(__strnlen_user);
 
-long strnlen_user(const char __user *s, long n)
+long strnlen_user(const char __user *s, unsigned long n)
 {
 	if (!access_ok(VERIFY_READ, s, 1))
 		return 0;

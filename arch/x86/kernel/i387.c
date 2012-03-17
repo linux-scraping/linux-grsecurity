@@ -176,6 +176,9 @@ int xfpregs_active(struct task_struct *target, const struct user_regset *regset)
 
 int xfpregs_get(struct task_struct *target, const struct user_regset *regset,
 		unsigned int pos, unsigned int count,
+		void *kbuf, void __user *ubuf) __size_overflow(4);
+int xfpregs_get(struct task_struct *target, const struct user_regset *regset,
+		unsigned int pos, unsigned int count,
 		void *kbuf, void __user *ubuf)
 {
 	int ret;
@@ -191,6 +194,9 @@ int xfpregs_get(struct task_struct *target, const struct user_regset *regset,
 				   &target->thread.xstate->fxsave, 0, -1);
 }
 
+int xfpregs_set(struct task_struct *target, const struct user_regset *regset,
+		unsigned int pos, unsigned int count,
+		const void *kbuf, const void __user *ubuf) __size_overflow(4);
 int xfpregs_set(struct task_struct *target, const struct user_regset *regset,
 		unsigned int pos, unsigned int count,
 		const void *kbuf, const void __user *ubuf)
@@ -365,6 +371,9 @@ static void convert_to_fxsr(struct task_struct *tsk,
 
 int fpregs_get(struct task_struct *target, const struct user_regset *regset,
 	       unsigned int pos, unsigned int count,
+	       void *kbuf, void __user *ubuf) __size_overflow(3,4);
+int fpregs_get(struct task_struct *target, const struct user_regset *regset,
+	       unsigned int pos, unsigned int count,
 	       void *kbuf, void __user *ubuf)
 {
 	struct user_i387_ia32_struct env;
@@ -393,6 +402,9 @@ int fpregs_get(struct task_struct *target, const struct user_regset *regset,
 	return user_regset_copyout(&pos, &count, &kbuf, &ubuf, &env, 0, -1);
 }
 
+int fpregs_set(struct task_struct *target, const struct user_regset *regset,
+	       unsigned int pos, unsigned int count,
+	       const void *kbuf, const void __user *ubuf) __size_overflow(3,4);
 int fpregs_set(struct task_struct *target, const struct user_regset *regset,
 	       unsigned int pos, unsigned int count,
 	       const void *kbuf, const void __user *ubuf)
@@ -539,6 +551,8 @@ static inline int restore_i387_fsave(struct _fpstate_ia32 __user *buf)
 				sizeof(struct i387_fsave_struct));
 }
 
+static int restore_i387_fxsave(struct _fpstate_ia32 __user *buf,
+			       unsigned int size) __size_overflow(2);
 static int restore_i387_fxsave(struct _fpstate_ia32 __user *buf,
 			       unsigned int size)
 {

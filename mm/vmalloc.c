@@ -1684,7 +1684,6 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 	return addr;
 }
 
-#undef __vmalloc
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)
 {
 	return __vmalloc_node(size, 1, gfp_mask, prot, -1,
@@ -1701,7 +1700,6 @@ EXPORT_SYMBOL(__vmalloc);
  *	For tight control over page level allocator and protection flags
  *	use __vmalloc() instead.
  */
-#undef vmalloc
 void *vmalloc(unsigned long size)
 {
 	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL,
@@ -1716,7 +1714,6 @@ EXPORT_SYMBOL(vmalloc);
  * The resulting memory area is zeroed so it can be mapped to userspace
  * without leaking data.
  */
-#undef vmalloc_user
 void *vmalloc_user(unsigned long size)
 {
 	struct vm_struct *area;
@@ -1744,7 +1741,6 @@ EXPORT_SYMBOL(vmalloc_user);
  *	For tight control over page level allocator and protection flags
  *	use __vmalloc() instead.
  */
-#undef vmalloc_node
 void *vmalloc_node(unsigned long size, int node)
 {
 	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL,
@@ -1767,7 +1763,6 @@ EXPORT_SYMBOL(vmalloc_node);
  *	For tight control over page level allocator and protection flags
  *	use __vmalloc() instead.
  */
-#undef vmalloc_exec
 void *vmalloc_exec(unsigned long size)
 {
 	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL_EXEC,
@@ -1789,7 +1784,6 @@ void *vmalloc_exec(unsigned long size)
  *	Allocate enough 32bit PA addressable pages to cover @size from the
  *	page level allocator and map them into contiguous kernel virtual space.
  */
-#undef vmalloc_32
 void *vmalloc_32(unsigned long size)
 {
 	return __vmalloc_node(size, 1, GFP_VMALLOC32, PAGE_KERNEL,
@@ -1804,7 +1798,6 @@ EXPORT_SYMBOL(vmalloc_32);
  * The resulting memory area is 32bit addressable and zeroed so it can be
  * mapped to userspace without leaking data.
  */
-#undef vmalloc_32_user
 void *vmalloc_32_user(unsigned long size)
 {
 	struct vm_struct *area;

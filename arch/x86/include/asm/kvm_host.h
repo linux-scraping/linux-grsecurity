@@ -558,9 +558,9 @@ void kvm_mmu_change_mmu_pages(struct kvm *kvm, unsigned int kvm_nr_mmu_pages);
 int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3);
 
 int emulator_write_phys(struct kvm_vcpu *vcpu, gpa_t gpa,
-			  const void *val, int bytes);
+			  const void *val, int bytes) __size_overflow(2);
 int kvm_pv_mmu_op(struct kvm_vcpu *vcpu, unsigned long bytes,
-		  gpa_t addr, unsigned long *ret);
+		  gpa_t addr, unsigned long *ret) __size_overflow(2,3);
 u8 kvm_get_guest_memory_type(struct kvm_vcpu *vcpu, gfn_t gfn);
 
 extern bool tdp_enabled;
@@ -619,7 +619,7 @@ void kvm_lmsw(struct kvm_vcpu *vcpu, unsigned long msw);
 void kvm_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l);
 
 int kvm_get_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata);
-int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data);
+int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data) __size_overflow(3);
 
 void kvm_queue_exception(struct kvm_vcpu *vcpu, unsigned nr);
 void kvm_queue_exception_e(struct kvm_vcpu *vcpu, unsigned nr, u32 error_code);
@@ -643,7 +643,7 @@ unsigned long segment_base(u16 selector);
 void kvm_mmu_flush_tlb(struct kvm_vcpu *vcpu);
 void kvm_mmu_pte_write(struct kvm_vcpu *vcpu, gpa_t gpa,
 		       const u8 *new, int bytes,
-		       bool guest_initiated);
+		       bool guest_initiated) __size_overflow(2);
 int kvm_mmu_unprotect_page_virt(struct kvm_vcpu *vcpu, gva_t gva);
 void __kvm_mmu_free_some_pages(struct kvm_vcpu *vcpu);
 int kvm_mmu_load(struct kvm_vcpu *vcpu);

@@ -110,6 +110,9 @@ static int copy_vm86_regs_to_user(struct vm86_regs __user *user,
 /* convert vm86_regs to kernel_vm86_regs */
 static int copy_vm86_regs_from_user(struct kernel_vm86_regs *regs,
 				    const struct vm86_regs __user *user,
+				    unsigned extra) __size_overflow(3);
+static int copy_vm86_regs_from_user(struct kernel_vm86_regs *regs,
+				    const struct vm86_regs __user *user,
 				    unsigned extra)
 {
 	int ret = 0;

@@ -1,6 +1,7 @@
 *.a
 *.aux
 *.bin
+*.c.[012].*
 *.cis
 *.cpio
 *.csp

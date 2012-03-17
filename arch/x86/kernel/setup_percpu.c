@@ -98,6 +98,8 @@ static bool __init pcpu_need_numa(void)
  * Pointer to the allocated area on success, NULL on failure.
  */
 static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
+					unsigned long align) __size_overflow(2);
+static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 					unsigned long align)
 {
 	const unsigned long goal = __pa(MAX_DMA_ADDRESS);
@@ -126,6 +128,8 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 /*
  * Helpers for first chunk memory allocation
  */
+static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align) __size_overflow(2);
+
 static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
 	return pcpu_alloc_bootmem(cpu, size, align);

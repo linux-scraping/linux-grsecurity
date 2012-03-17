@@ -1209,6 +1209,10 @@ get_entries(struct net *net, struct ipt_get_entries __user *uptr, int *len)
 static int
 __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
 	     struct xt_table_info *newinfo, unsigned int num_counters,
+	     void __user *counters_ptr) __size_overflow(5);
+static int
+__do_replace(struct net *net, const char *name, unsigned int valid_hooks,
+	     struct xt_table_info *newinfo, unsigned int num_counters,
 	     void __user *counters_ptr)
 {
 	int ret;
@@ -1339,6 +1343,8 @@ add_counter_to_entry(struct ipt_entry *e,
 	return 0;
 }
 
+static int
+do_add_counters(struct net *net, void __user *user, unsigned int len, int compat) __size_overflow(3);
 static int
 do_add_counters(struct net *net, void __user *user, unsigned int len, int compat)
 {

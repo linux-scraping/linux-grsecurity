@@ -189,11 +189,13 @@ static unsigned int execute_stackleak_tree_instrument(void)
 		}
 	}
 
-	// special case for some bad linux code: taking the address of static inline functions will materialize them
+	// special cases for some bad linux code: taking the address of static inline functions will materialize them
 	// but we mustn't instrument some of them as the resulting stack alignment required by the function call ABI
 	// will break other assumptions regarding the expected (but not otherwise enforced) register clobbering  ABI.
 	// case in point: native_save_fl on amd64 when optimized for size clobbers rdx if it were instrumented here.
 	if (is_leaf && !TREE_PUBLIC(current_function_decl) && DECL_DECLARED_INLINE_P(current_function_decl))
+		return 0;
+	if (is_leaf && !strncmp(IDENTIFIER_POINTER(DECL_NAME(current_function_decl)), "_paravirt_", 10))
 		return 0;
 
 	// 4. insert track call at the beginning

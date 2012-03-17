@@ -24,7 +24,7 @@ int sys_fork(struct pt_regs *);
 int sys_vfork(struct pt_regs *);
 
 /* kernel/ldt.c */
-asmlinkage int sys_modify_ldt(int, void __user *, unsigned long);
+asmlinkage int sys_modify_ldt(int, void __user *, unsigned long) __size_overflow(3);
 
 /* kernel/signal.c */
 long sys_rt_sigreturn(struct pt_regs *);

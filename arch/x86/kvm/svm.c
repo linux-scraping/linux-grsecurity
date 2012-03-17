@@ -2240,6 +2240,7 @@ static int rdmsr_interception(struct vcpu_svm *svm, struct kvm_run *kvm_run)
 	return 1;
 }
 
+static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data) __size_overflow(3);
 static int svm_set_msr(struct kvm_vcpu *vcpu, unsigned ecx, u64 data)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);

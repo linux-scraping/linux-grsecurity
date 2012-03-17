@@ -357,6 +357,8 @@ int blkcipher_walk_virt_block(struct blkcipher_desc *desc,
 EXPORT_SYMBOL_GPL(blkcipher_walk_virt_block);
 
 static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
+			    unsigned int keylen) __size_overflow(3);
+static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct blkcipher_alg *cipher = &tfm->__crt_alg->cra_blkcipher;
@@ -378,6 +380,7 @@ static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
 	return ret;
 }
 
+static int setkey(struct crypto_tfm *tfm, const u8 *key, unsigned int keylen) __size_overflow(3);
 static int setkey(struct crypto_tfm *tfm, const u8 *key, unsigned int keylen)
 {
 	struct blkcipher_alg *cipher = &tfm->__crt_alg->cra_blkcipher;

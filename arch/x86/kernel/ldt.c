@@ -158,6 +158,7 @@ void destroy_context(struct mm_struct *mm)
 	}
 }
 
+static int read_ldt(void __user *ptr, unsigned long bytecount) __size_overflow(2);
 static int read_ldt(void __user *ptr, unsigned long bytecount)
 {
 	int err;

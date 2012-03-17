@@ -330,6 +330,9 @@ error:
 
 static int __videobuf_copy_to_user ( struct videobuf_queue *q,
 				char __user *data, size_t count,
+				int nonblocking ) __size_overflow(3);
+static int __videobuf_copy_to_user ( struct videobuf_queue *q,
+				char __user *data, size_t count,
 				int nonblocking )
 {
 	struct videobuf_vmalloc_memory *mem=q->read_buf->priv;

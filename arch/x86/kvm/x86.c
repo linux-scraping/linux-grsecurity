@@ -547,6 +547,7 @@ static int do_set_msr(struct kvm_vcpu *vcpu, unsigned index, u64 *data)
 	return kvm_set_msr(vcpu, index, *data);
 }
 
+static void kvm_write_wall_clock(struct kvm *kvm, gpa_t wall_clock) __size_overflow(2);
 static void kvm_write_wall_clock(struct kvm *kvm, gpa_t wall_clock)
 {
 	int version;
@@ -2773,7 +2774,14 @@ int emulator_write_emulated(unsigned long addr,
 }
 EXPORT_SYMBOL_GPL(emulator_write_emulated);
 
-static int emulator_cmpxchg_emulated(unsigned long addr,
+static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
+				     unsigned long addr,
+				     const void *old,
+				     const void *new,
+				     unsigned int bytes,
+				     struct kvm_vcpu *vcpu) __size_overflow(5);
+static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
+				     unsigned long addr,
 				     const void *old,
 				     const void *new,
 				     unsigned int bytes,

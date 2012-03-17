@@ -178,6 +178,8 @@ static void raise_mce(struct mce *m)
 
 /* Error injection interface */
 static ssize_t mce_write(struct file *filp, const char __user *ubuf,
+			 size_t usize, loff_t *off) __size_overflow(3);
+static ssize_t mce_write(struct file *filp, const char __user *ubuf,
 			 size_t usize, loff_t *off)
 {
 	struct mce m;

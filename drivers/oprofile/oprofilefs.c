@@ -89,6 +89,7 @@ static ssize_t ulong_read_file(struct file *file, char __user *buf, size_t count
 }
 
 
+static ssize_t ulong_write_file(struct file *file, char const __user *buf, size_t count, loff_t *offset) __size_overflow(3);
 static ssize_t ulong_write_file(struct file *file, char const __user *buf, size_t count, loff_t *offset)
 {
 	unsigned long *value = file->private_data;

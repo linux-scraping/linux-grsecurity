@@ -14,6 +14,9 @@
 #define __compiler_offsetof(a,b) __builtin_offsetof(a,b)
 #define __always_inline		inline __attribute__((always_inline))
 
+#ifdef SIZE_OVERFLOW_PLUGIN
+#define __size_overflow(...) __attribute__((size_overflow(__VA_ARGS__)))
+#endif
 /*
  * A trick to suppress uninitialized variable warning without generating any
  * code

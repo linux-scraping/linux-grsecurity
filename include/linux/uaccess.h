@@ -104,6 +104,6 @@ extern long probe_kernel_read(void *dst, const void *src, size_t size);
  * Safely write to address @dst from the buffer at @src.  If a kernel fault
  * happens, handle that and return -EFAULT.
  */
-extern long probe_kernel_write(void *dst, const void *src, size_t size);
+extern long probe_kernel_write(void *dst, const void *src, size_t size) __size_overflow(3);
 
 #endif		/* __LINUX_UACCESS_H__ */

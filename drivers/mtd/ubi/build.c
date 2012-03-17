@@ -1281,7 +1281,7 @@ static int __init bytes_str_to_int(const char *str)
 		return -EINVAL;
 	}
 
-	if ((intoverflow_t)result*scale >= INT_MAX) {
+	if (result*scale >= INT_MAX) {
 		printk(KERN_ERR "UBI error: incorrect bytes count: \"%s\"\n",
 		       str);
 		return -EINVAL;

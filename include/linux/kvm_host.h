@@ -519,7 +519,7 @@ int kvm_setup_default_irq_routing(struct kvm *kvm);
 int kvm_set_irq_routing(struct kvm *kvm,
 			const struct kvm_irq_routing_entry *entries,
 			unsigned nr,
-			unsigned flags);
+			unsigned flags) __size_overflow(3);
 void kvm_free_irq_routing(struct kvm *kvm);
 
 #else

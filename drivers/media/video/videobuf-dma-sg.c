@@ -631,6 +631,9 @@ static int __videobuf_mmap_mapper(struct videobuf_queue *q,
 
 static int __videobuf_copy_to_user ( struct videobuf_queue *q,
 				char __user *data, size_t count,
+				int nonblocking ) __size_overflow(3);
+static int __videobuf_copy_to_user ( struct videobuf_queue *q,
+				char __user *data, size_t count,
 				int nonblocking )
 {
 	struct videobuf_dma_sg_memory *mem = q->read_buf->priv;

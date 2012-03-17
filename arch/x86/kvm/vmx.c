@@ -1039,6 +1039,7 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 *pdata)
  * Returns 0 on success, non-0 otherwise.
  * Assumes vcpu_load() was already called.
  */
+static int vmx_set_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data) __size_overflow(3);
 static int vmx_set_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);

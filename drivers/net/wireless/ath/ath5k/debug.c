@@ -341,6 +341,9 @@ static ssize_t read_file_debug(struct file *file, char __user *user_buf,
 
 static ssize_t write_file_debug(struct file *file,
 				 const char __user *userbuf,
+				 size_t count, loff_t *ppos) __size_overflow(3);
+static ssize_t write_file_debug(struct file *file,
+				 const char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
 	struct ath5k_softc *sc = file->private_data;
