@@ -930,6 +930,7 @@ free_variables(void)
 
 	/* release the reference to the real root dentry and vfsmount */
 	path_put(&real_root);
+	memset(&real_root, 0, sizeof(real_root));
 
 	/* free all object hash tables */
 
@@ -1453,40 +1454,28 @@ copy_user_acl(struct gr_arg *arg)
 	num_sprole_pws = arg->num_sprole_pws;
 	acl_special_roles = (struct sprole_pw **) acl_alloc_num(num_sprole_pws, sizeof(struct sprole_pw *));
 
-	if (!acl_special_roles) {
-		err = -ENOMEM;
-		goto cleanup;
-	}
+	if (!acl_special_roles && num_sprole_pws)
+		return -ENOMEM;
 
 	for (i = 0; i < num_sprole_pws; i++) {
 		sptmp = (struct sprole_pw *) acl_alloc(sizeof(struct sprole_pw));
-		if (!sptmp) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
+		if (!sptmp)
+			return -ENOMEM;
 		if (copy_from_user(sptmp, arg->sprole_pws + i,
-				   sizeof (struct sprole_pw))) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+				   sizeof (struct sprole_pw)))
+			return -EFAULT;
 
-		len =
-		    strnlen_user(sptmp->rolename, GR_SPROLE_LEN);
+		len = strnlen_user(sptmp->rolename, GR_SPROLE_LEN);
 
-		if (!len || len >= GR_SPROLE_LEN) {
-			err = -EINVAL;
-			goto cleanup;
-		}
+		if (!len || len >= GR_SPROLE_LEN)
+			return -EINVAL;
 
-		if ((tmp = (char *) acl_alloc(len)) == NULL) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
+		if ((tmp = (char *) acl_alloc(len)) == NULL)
+			return -ENOMEM;
 
-		if (copy_from_user(tmp, sptmp->rolename, len)) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+		if (copy_from_user(tmp, sptmp->rolename, len))
+			return -EFAULT;
+
 		tmp[len-1] = '\0';
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
 		printk(KERN_ALERT "Copying special role %s\n", tmp);
@@ -1500,38 +1489,28 @@ copy_user_acl(struct gr_arg *arg)
 	for (r_num = 0; r_num < arg->role_db.num_roles; r_num++) {
 		r_tmp = acl_alloc(sizeof (struct acl_role_label));
 
-		if (!r_tmp) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
+		if (!r_tmp)
+			return -ENOMEM;
 
 		if (copy_from_user(&r_utmp2, r_utmp + r_num,
-				   sizeof (struct acl_role_label *))) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+				   sizeof (struct acl_role_label *)))
+			return -EFAULT;
 
 		if (copy_from_user(r_tmp, r_utmp2,
-				   sizeof (struct acl_role_label))) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+				   sizeof (struct acl_role_label)))
+			return -EFAULT;
 
 		len = strnlen_user(r_tmp->rolename, GR_SPROLE_LEN);
 
-		if (!len || len >= PATH_MAX) {
-			err = -EINVAL;
-			goto cleanup;
-		}
+		if (!len || len >= PATH_MAX)
+			return -EINVAL;
 
-		if ((tmp = (char *) acl_alloc(len)) == NULL) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
-		if (copy_from_user(tmp, r_tmp->rolename, len)) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+		if ((tmp = (char *) acl_alloc(len)) == NULL)
+			return -ENOMEM;
+
+		if (copy_from_user(tmp, r_tmp->rolename, len))
+			return -EFAULT;
+
 		tmp[len-1] = '\0';
 		r_tmp->rolename = tmp;
 
@@ -1542,14 +1521,11 @@ copy_user_acl(struct gr_arg *arg)
 			kernel_role = r_tmp;
 		}
 
-		if ((ghash = (struct gr_hash_struct *) acl_alloc(sizeof(struct gr_hash_struct))) == NULL) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
-		if (copy_from_user(ghash, r_tmp->hash, sizeof(struct gr_hash_struct))) {
-			err = -EFAULT;
-			goto cleanup;
-		}
+		if ((ghash = (struct gr_hash_struct *) acl_alloc(sizeof(struct gr_hash_struct))) == NULL)
+			return -ENOMEM;
+
+		if (copy_from_user(ghash, r_tmp->hash, sizeof(struct gr_hash_struct)))
+			return -EFAULT;
 
 		r_tmp->hash = ghash;
 
@@ -1560,32 +1536,28 @@ copy_user_acl(struct gr_arg *arg)
 		    (struct acl_subject_label **)
 		    create_table(&(r_tmp->subj_hash_size), sizeof(void *));
 
-		if (!r_tmp->subj_hash) {
-			err = -ENOMEM;
-			goto cleanup;
-		}
+		if (!r_tmp->subj_hash)
+			return -ENOMEM;
 
 		err = copy_user_allowedips(r_tmp);
 		if (err)
-			goto cleanup;
+			return err;
 
 		/* copy domain info */
 		if (r_tmp->domain_children != NULL) {
 			domainlist = acl_alloc_num(r_tmp->domain_child_num, sizeof(uid_t));
-			if (domainlist == NULL) {
-				err = -ENOMEM;
-				goto cleanup;
-			}
-			if (copy_from_user(domainlist, r_tmp->domain_children, r_tmp->domain_child_num * sizeof(uid_t))) {
-				err = -EFAULT;
-				goto cleanup;
-			}
+			if (domainlist == NULL)
+				return -ENOMEM;
+
+			if (copy_from_user(domainlist, r_tmp->domain_children, r_tmp->domain_child_num * sizeof(uid_t)))
+				return -EFAULT;
+
 			r_tmp->domain_children = domainlist;
 		}
 
 		err = copy_user_transitions(r_tmp);
 		if (err)
-			goto cleanup;
+			return err;
 
 		memset(r_tmp->subj_hash, 0,
 		       r_tmp->subj_hash_size *
@@ -1594,7 +1566,7 @@ copy_user_acl(struct gr_arg *arg)
 		err = copy_user_subjs(r_tmp->hash->first, r_tmp);
 
 		if (err)
-			goto cleanup;
+			return err;
 
 		/* set nested subject list to null */
 		r_tmp->hash->first = NULL;
@@ -1602,12 +1574,10 @@ copy_user_acl(struct gr_arg *arg)
 		insert_acl_role_label(r_tmp);
 	}
 
-	goto return_err;
-      cleanup:
-	free_variables();
-      return_err:
-	return err;
+	if (default_role == NULL || kernel_role == NULL)
+		return -EINVAL;
 
+	return err;
 }
 
 static int

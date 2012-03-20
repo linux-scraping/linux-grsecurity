@@ -272,8 +272,6 @@ static inline long copy_to_user(void __user *to,
  */
 #ifndef __strncpy_from_user
 static inline long
-__strncpy_from_user(char *dst, const char __user *src, unsigned long count) __size_overflow(3);
-static inline long
 __strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	char *tmp;
@@ -284,8 +282,6 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 }
 #endif
 
-static inline long
-strncpy_from_user(char *dst, const char __user *src, unsigned long count) __size_overflow(3);
 static inline long
 strncpy_from_user(char *dst, const char __user *src, long count)
 {
