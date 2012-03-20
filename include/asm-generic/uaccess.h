@@ -272,8 +272,6 @@ static inline long copy_to_user(void __user *to,
  */
 #ifndef __strncpy_from_user
 static inline long
-__strncpy_from_user(char *dst, const char __user *src, unsigned long count) __size_overflow(3);
-static inline long
 __strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	char *tmp;
@@ -285,7 +283,6 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 #endif
 
 static inline long
-strncpy_from_user(char *dst, const char __user *src, unsigned long count) __size_overflow(3);
 static inline long
 strncpy_from_user(char *dst, const char __user *src, long count)
 {
@@ -300,7 +297,6 @@ strncpy_from_user(char *dst, const char __user *src, long count)
  * Return 0 on exception, a value greater than N if too long
  */
 #ifndef strnlen_user
-static inline long strnlen_user(const char __user *src, unsigned long n) __size_overflow(2);
 static inline long strnlen_user(const char __user *src, long n)
 {
 	if (!access_ok(VERIFY_READ, src, 1))

@@ -1330,7 +1330,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
-		elf_brk += PAGE_SIZE + ((pax_get_random_long() & ~PAGE_MASK) << 4);
+		elf_brk += PAGE_SIZE + ((pax_get_random_long() & ((1UL << 22) - 1UL)) << 4);
 #endif
 
 	/* Calling set_brk effectively mmaps the pages that we need
