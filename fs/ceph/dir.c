@@ -598,7 +598,7 @@ static struct dentry *ceph_lookup(struct inode *dir, struct dentry *dentry,
 	if (nd &&
 	    (nd->flags & LOOKUP_OPEN) &&
 	    !(nd->intent.open.flags & O_CREAT)) {
-		int mode = nd->intent.open.create_mode & ~current->fs->umask;
+		int mode = nd->intent.open.create_mode & ~current_umask();
 		return ceph_lookup_open(dir, dentry, nd, mode, 1);
 	}
 

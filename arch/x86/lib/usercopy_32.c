@@ -83,7 +83,7 @@ do {									   \
  * and returns @count.
  */
 long
-__strncpy_from_user(char *dst, const char __user *src, unsigned long count)
+__strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	long res;
 	__do_strncpy_from_user(dst, src, count, res);
@@ -110,7 +110,7 @@ EXPORT_SYMBOL(__strncpy_from_user);
  * and returns @count.
  */
 long
-strncpy_from_user(char *dst, const char __user *src, unsigned long count)
+strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	long res = -EFAULT;
 	if (access_ok(VERIFY_READ, src, 1))
@@ -194,7 +194,7 @@ EXPORT_SYMBOL(__clear_user);
  * On exception, returns 0.
  * If the string is too long, returns a value greater than @n.
  */
-long strnlen_user(const char __user *s, unsigned long n)
+long strnlen_user(const char __user *s, long n)
 {
 	unsigned long mask = -__addr_ok(s);
 	unsigned long res, tmp;

@@ -317,11 +317,11 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 }
 
 __must_check long
-strncpy_from_user(char *dst, const char __user *src, unsigned long count);
+strncpy_from_user(char *dst, const char __user *src, long count);
 __must_check long
-__strncpy_from_user(char *dst, const char __user *src, unsigned long count);
-__must_check long strnlen_user(const char __user *str, unsigned long n);
-__must_check long __strnlen_user(const char __user *str, unsigned long n);
+__strncpy_from_user(char *dst, const char __user *src, long count);
+__must_check long strnlen_user(const char __user *str, long n);
+__must_check long __strnlen_user(const char __user *str, long n);
 __must_check long strlen_user(const char __user *str);
 __must_check unsigned long clear_user(void __user *mem, unsigned long len) __size_overflow(2);
 __must_check unsigned long __clear_user(void __user *mem, unsigned long len) __size_overflow(2);
