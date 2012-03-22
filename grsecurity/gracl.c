@@ -652,22 +652,60 @@ __insert_acl_role_label(struct acl_role_label *role, uid_t uidgid)
 	unsigned int index =
 	    rhash(uidgid, role->roletype & (GR_ROLE_USER | GR_ROLE_GROUP), acl_role_set.r_size);
 	struct acl_role_label **curr;
-	struct acl_role_label *tmp;
+	struct acl_role_label *tmp, *tmp2;
 
 	curr = &acl_role_set.r_hash[index];
 
-	/* if role was already inserted due to domains and already has
-	   a role in the same bucket as it attached, then we need to
-	   combine these two buckets
-	*/
-	if (role->next) {
-		tmp = role->next;
-		while (tmp->next)
+	/* simple case, slot is empty, just set it to our role */
+	if (*curr == NULL) {
+		*curr = role;
+	} else {
+		/* example:
+		   1 -> 2 -> 3 (adding 2 -> 3 to here)
+		   2 -> 3
+		*/
+		/* first check to see if we can already be reached via this slot */
+		tmp = *curr;
+		while (tmp && tmp != role)
 			tmp = tmp->next;
-		tmp->next = *curr;
-	} else
-		role->next = *curr;
-	*curr = role;
+		if (tmp == role) {
+			/* we don't need to add ourselves to this slot's chain */
+			return;
+		}
+		/* we need to add ourselves to this chain, two cases */
+		if (role->next == NULL) {
+			/* simple case, append the current chain to our role */
+			role->next = *curr;
+			*curr = role;
+		} else {
+			/* 1 -> 2 -> 3 -> 4
+			   2 -> 3 -> 4
+			   3 -> 4 (adding 1 -> 2 -> 3 -> 4 to here)
+			*/			   
+			/* trickier case: walk our role's chain until we find
+			   the role for the start of the current slot's chain */
+			tmp = role;
+			tmp2 = *curr;
+			while (tmp->next && tmp->next != tmp2)
+				tmp = tmp->next;
+			if (tmp->next == tmp2) {
+				/* from example above, we found 3, so just
+				   replace this slot's chain with ours */
+				*curr = role;
+			} else {
+				/* we didn't find a subset of our role's chain
+				   in the current slot's chain, so append their
+				   chain to ours, and set us as the first role in
+				   the slot's chain
+
+				   we could fold this case with the case above,
+				   but making it explicit for clarity
+				*/
+				tmp->next = tmp2;
+				*curr = role;
+			}
+		}
+	}
 
 	return;
 }
@@ -996,6 +1034,7 @@ next_role:
 	memset(&subj_map_set, 0, sizeof (struct acl_subj_map_db));
 
 	default_role = NULL;
+	kernel_role = NULL;
 	role_list = NULL;
 
 	return;

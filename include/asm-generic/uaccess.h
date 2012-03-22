@@ -283,7 +283,6 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 #endif
 
 static inline long
-static inline long
 strncpy_from_user(char *dst, const char __user *src, long count)
 {
 	if (!access_ok(VERIFY_READ, src, 1))

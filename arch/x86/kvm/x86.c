@@ -2774,14 +2774,12 @@ int emulator_write_emulated(unsigned long addr,
 }
 EXPORT_SYMBOL_GPL(emulator_write_emulated);
 
-static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
-				     unsigned long addr,
+static int emulator_cmpxchg_emulated(unsigned long addr,
 				     const void *old,
 				     const void *new,
 				     unsigned int bytes,
 				     struct kvm_vcpu *vcpu) __size_overflow(5);
-static int emulator_cmpxchg_emulated(struct x86_emulate_ctxt *ctxt,
-				     unsigned long addr,
+static int emulator_cmpxchg_emulated(unsigned long addr,
 				     const void *old,
 				     const void *new,
 				     unsigned int bytes,
