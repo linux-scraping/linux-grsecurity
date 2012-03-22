@@ -173,7 +173,8 @@ struct acl_role_label {
 	uid_t *domain_children;
 	__u16 domain_child_num;
 
-	mode_t umask;
+	// __u16
+	umode_t umask;
 
 	struct acl_subject_label **subj_hash;
 	__u32 subj_hash_size;

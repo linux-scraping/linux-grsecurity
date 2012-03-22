@@ -279,9 +279,9 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 }
 
 long __must_check strncpy_from_user(char *dst, const char __user *src,
-				    unsigned long count);
+				    long count);
 long __must_check __strncpy_from_user(char *dst,
-				      const char __user *src, unsigned long count);
+				      const char __user *src, long count);
 
 /**
  * strlen_user: - Get the size of a string in user space.
@@ -299,7 +299,7 @@ long __must_check __strncpy_from_user(char *dst,
  */
 #define strlen_user(str) strnlen_user(str, LONG_MAX)
 
-long strnlen_user(const char __user *str, unsigned long n);
+long strnlen_user(const char __user *str, long n);
 unsigned long __must_check clear_user(void __user *mem, unsigned long len) __size_overflow(2);
 unsigned long __must_check __clear_user(void __user *mem, unsigned long len) __size_overflow(2);
 

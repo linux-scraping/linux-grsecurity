@@ -208,9 +208,9 @@ __u32
 gr_acl_handle_chmod(const struct dentry *dentry, const struct vfsmount *mnt,
 		     umode_t *modeptr)
 {
-	mode_t mode;
+	umode_t mode;
 
-	*modeptr &= ~(mode_t)gr_acl_umask();
+	*modeptr &= ~gr_acl_umask();
 	mode = *modeptr;
 
 	if (unlikely(dentry->d_inode && S_ISSOCK(dentry->d_inode->i_mode)))
