@@ -241,11 +241,11 @@ static ssize_t softsynth_read(struct file *fp, char *buf, size_t count,
 			break;
 		} else if (!initialized) {
 			if (*init) {
-				ch = *init;
 				init++;
 			} else {
 				initialized = 1;
 			}
+			ch = *init;
 		} else {
 			ch = synth_buffer_getc();
 		}

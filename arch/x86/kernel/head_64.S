@@ -479,6 +479,10 @@ ENTRY(phys_base)
 ENTRY(idt_table)
 	.fill 512,8,0
 
+	.align L1_CACHE_BYTES
+ENTRY(nmi_idt_table)
+	.fill 512,8,0
+
 	__PAGE_ALIGNED_BSS
 	.align PAGE_SIZE
 ENTRY(empty_zero_page)

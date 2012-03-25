@@ -51,6 +51,8 @@ typedef unsigned int u32;
 typedef signed long long s64;
 typedef unsigned long long u64;
 
+typedef unsigned long long intoverflow_t;
+
 #define S8_C(x)  x
 #define U8_C(x)  x ## U
 #define S16_C(x) x

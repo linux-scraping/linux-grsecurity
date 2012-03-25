@@ -29,6 +29,7 @@
    the kernel context */
 #define __cold			__attribute__((__cold__))
 
+#define __linktime_error(message) __attribute__((__error__(message)))
 
 #if __GNUC_MINOR__ >= 5
 
@@ -37,9 +38,6 @@
 #define __do_const __attribute__((do_const))
 #endif
 
-#ifdef SIZE_OVERFLOW_PLUGIN
-#define __size_overflow(...) __attribute__((size_overflow(__VA_ARGS__)))
-#endif
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer

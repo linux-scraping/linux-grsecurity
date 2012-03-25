@@ -66,6 +66,8 @@
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
 #include <asm/tlb.h>
+
+#include <trace/events/task.h>
 #include "internal.h"
 
 #ifndef CONFIG_PAX_HAVE_ACL_FLAGS
@@ -1086,6 +1088,8 @@ void set_task_comm(struct task_struct *tsk, char *buf)
 {
 	task_lock(tsk);
 
+	trace_task_rename(tsk, buf);
+
 	/*
 	 * Threads may access current->comm without holding
 	 * the task lock, so write the string carefully.
@@ -1258,7 +1262,7 @@ EXPORT_SYMBOL(install_exec_creds);
  * - the caller must hold ->cred_guard_mutex to protect against
  *   PTRACE_ATTACH
  */
-int check_unsafe_exec(struct linux_binprm *bprm)
+static int check_unsafe_exec(struct linux_binprm *bprm)
 {
 	struct task_struct *p = current, *t;
 	unsigned n_fs;
@@ -2150,16 +2154,6 @@ void pax_track_stack(void)
 EXPORT_SYMBOL(pax_track_stack);
 #endif
 
-#ifdef CONFIG_PAX_SIZE_OVERFLOW
-void report_size_overflow(const char *file, unsigned int line, const char *func)
-{
-	printk(KERN_ERR "PAX: size overflow detected in function %s %s:%u\n", func, file, line);
-	dump_stack();
-	do_group_exit(SIGKILL);
-}
-EXPORT_SYMBOL(report_size_overflow);
-#endif
-
 static int zap_process(struct task_struct *start, int exit_code)
 {
 	struct task_struct *t;
@@ -2258,7 +2252,6 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 {
 	struct task_struct *tsk = current;
 	struct mm_struct *mm = tsk->mm;
-	struct completion *vfork_done;
 	int core_waiters = -EBUSY;
 
 	init_completion(&core_state->startup);
@@ -2270,22 +2263,9 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 		core_waiters = zap_threads(tsk, mm, core_state, exit_code);
 	up_write(&mm->mmap_sem);
 
-	if (unlikely(core_waiters < 0))
-		goto fail;
-
-	/*
-	 * Make sure nobody is waiting for us to release the VM,
-	 * otherwise we can deadlock when we wait on each other
-	 */
-	vfork_done = tsk->vfork_done;
-	if (vfork_done) {
-		tsk->vfork_done = NULL;
-		complete(vfork_done);
-	}
-
-	if (core_waiters)
+	if (core_waiters > 0)
 		wait_for_completion(&core_state->startup);
-fail:
+
 	return core_waiters;
 }
 

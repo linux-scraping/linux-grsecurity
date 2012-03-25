@@ -182,7 +182,7 @@ int drm_stub_open(struct inode *inode, struct file *filp)
 		goto out;
 
 	old_fops = filp->f_op;
-	filp->f_op = fops_get(&dev->driver->fops);
+	filp->f_op = fops_get(dev->driver->fops);
 	if (filp->f_op == NULL) {
 		filp->f_op = old_fops;
 		goto out;
@@ -473,7 +473,7 @@ int drm_release(struct inode *inode, struct file *filp)
 
 	mutex_lock(&drm_global_mutex);
 
-	DRM_DEBUG("open_count = %d\n", local_read(&dev->open_count));
+	DRM_DEBUG("open_count = %ld\n", local_read(&dev->open_count));
 
 	if (dev->driver->preclose)
 		dev->driver->preclose(dev, file_priv);
@@ -482,7 +482,7 @@ int drm_release(struct inode *inode, struct file *filp)
 	 * Begin inline drm_release
 	 */
 
-	DRM_DEBUG("pid = %d, device = 0x%lx, open_count = %d\n",
+	DRM_DEBUG("pid = %d, device = 0x%lx, open_count = %ld\n",
 		  task_pid_nr(current),
 		  (long)old_encode_dev(file_priv->minor->device),
 		  local_read(&dev->open_count));

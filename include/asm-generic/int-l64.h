@@ -46,6 +46,8 @@ typedef unsigned int u32;
 typedef signed long s64;
 typedef unsigned long u64;
 
+typedef unsigned int intoverflow_t __attribute__ ((mode(TI)));
+
 #define S8_C(x)  x
 #define U8_C(x)  x ## U
 #define S16_C(x) x

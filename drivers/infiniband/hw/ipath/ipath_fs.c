@@ -46,7 +46,7 @@
 static struct super_block *ipath_super;
 
 static int ipathfs_mknod(struct inode *dir, struct dentry *dentry,
-			 int mode, const struct file_operations *fops,
+			 umode_t mode, const struct file_operations *fops,
 			 void *data)
 {
 	int error;
@@ -61,7 +61,7 @@ static int ipathfs_mknod(struct inode *dir, struct dentry *dentry,
 	inode->i_mode = mode;
 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	inode->i_private = data;
-	if ((mode & S_IFMT) == S_IFDIR) {
+	if (S_ISDIR(mode)) {
 		inode->i_op = &simple_dir_inode_operations;
 		inc_nlink(inode);
 		inc_nlink(dir);
@@ -76,7 +76,7 @@ bail:
 	return error;
 }
 
-static int create_file(const char *name, mode_t mode,
+static int create_file(const char *name, umode_t mode,
 		       struct dentry *parent, struct dentry **dentry,
 		       const struct file_operations *fops, void *data)
 {
@@ -89,7 +89,7 @@ static int create_file(const char *name, mode_t mode,
 		error = ipathfs_mknod(parent->d_inode, *dentry,
 				      mode, fops, data);
 	else
-		error = PTR_ERR(dentry);
+		error = PTR_ERR(*dentry);
 	mutex_unlock(&parent->d_inode->i_mutex);
 
 	return error;
@@ -125,8 +125,6 @@ static const struct file_operations atomic_counters_ops = {
 	.llseek = default_llseek,
 };
 
-static ssize_t flash_read(struct file *file, char __user *buf,
-			  size_t count, loff_t *ppos) __size_overflow(3);
 static ssize_t flash_read(struct file *file, char __user *buf,
 			  size_t count, loff_t *ppos)
 {

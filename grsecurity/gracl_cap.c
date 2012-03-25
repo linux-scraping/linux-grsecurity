@@ -8,11 +8,8 @@
 extern const char *captab_log[];
 extern int captab_log_entries;
 
-int
-gr_acl_is_capable(const int cap)
+int gr_task_acl_is_capable(const struct task_struct *task, const struct cred *cred, const int cap)
 {
-	struct task_struct *task = current;
-	const struct cred *cred = current_cred();
 	struct acl_subject_label *curracl;
 	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
 	kernel_cap_t cap_audit = __cap_empty_set;
@@ -63,11 +60,17 @@ gr_acl_is_capable(const int cap)
 
 	if ((cap >= 0) && (cap < captab_log_entries) && cap_raised(cred->cap_effective, cap) && !cap_raised(cap_audit, cap))
 		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);
+
 	return 0;
 }
 
 int
-gr_acl_is_capable_nolog(const int cap)
+gr_acl_is_capable(const int cap)
+{
+	return gr_task_acl_is_capable(current, current_cred(), cap);
+}
+
+int gr_task_acl_is_capable_nolog(const struct task_struct *task, const int cap)
 {
 	struct acl_subject_label *curracl;
 	kernel_cap_t cap_drop = __cap_empty_set, cap_mask = __cap_empty_set;
@@ -75,7 +78,7 @@ gr_acl_is_capable_nolog(const int cap)
 	if (!gr_acl_is_enabled())
 		return 1;
 
-	curracl = current->acl;
+	curracl = task->acl;
 
 	cap_drop = curracl->cap_lower;
 	cap_mask = curracl->cap_mask;
@@ -97,5 +100,11 @@ gr_acl_is_capable_nolog(const int cap)
 		return 1;
 
 	return 0;
+}
+
+int
+gr_acl_is_capable_nolog(const int cap)
+{
+	return gr_task_acl_is_capable_nolog(current, cap);
 }
 

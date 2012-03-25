@@ -787,9 +787,6 @@ static int acpi_battery_print_alarm(struct seq_file *seq, int result)
 
 static ssize_t acpi_battery_write_alarm(struct file *file,
 					const char __user * buffer,
-					size_t count, loff_t * ppos) __size_overflow(3);
-static ssize_t acpi_battery_write_alarm(struct file *file,
-					const char __user * buffer,
 					size_t count, loff_t * ppos)
 {
 	int result = 0;
@@ -876,7 +873,7 @@ DECLARE_FILE_FUNCTIONS(alarm);
 
 static const struct battery_file {
 	struct file_operations ops;
-	mode_t mode;
+	umode_t mode;
 	const char *name;
 } acpi_battery_file[] = {
 	FILE_DESCRIPTION_RO(info),

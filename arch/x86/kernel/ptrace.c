@@ -749,7 +749,8 @@ put:
 /*
  * Handle PTRACE_POKEUSR calls for the debug register area.
  */
-int ptrace_set_debugreg(struct task_struct *tsk, int n, unsigned long val)
+static int ptrace_set_debugreg(struct task_struct *tsk, int n,
+			       unsigned long val)
 {
 	struct thread_struct *thread = &(tsk->thread);
 	int rc = 0;
@@ -788,10 +789,6 @@ static int ioperm_active(struct task_struct *target,
 	return target->thread.io_bitmap_max / regset->size;
 }
 
-static int ioperm_get(struct task_struct *target,
-		      const struct user_regset *regset,
-		      unsigned int pos, unsigned int count,
-		      void *kbuf, void __user *ubuf) __size_overflow(3,4);
 static int ioperm_get(struct task_struct *target,
 		      const struct user_regset *regset,
 		      unsigned int pos, unsigned int count,
@@ -1395,20 +1392,18 @@ long syscall_trace_enter(struct pt_regs *regs)
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
 		trace_sys_enter(regs, regs->orig_ax);
 
-	if (unlikely(current->audit_context)) {
-		if (IS_IA32)
-			audit_syscall_entry(AUDIT_ARCH_I386,
-					    regs->orig_ax,
-					    regs->bx, regs->cx,
-					    regs->dx, regs->si);
+	if (IS_IA32)
+		audit_syscall_entry(AUDIT_ARCH_I386,
+				    regs->orig_ax,
+				    regs->bx, regs->cx,
+				    regs->dx, regs->si);
 #ifdef CONFIG_X86_64
-		else
-			audit_syscall_entry(AUDIT_ARCH_X86_64,
-					    regs->orig_ax,
-					    regs->di, regs->si,
-					    regs->dx, regs->r10);
+	else
+		audit_syscall_entry(AUDIT_ARCH_X86_64,
+				    regs->orig_ax,
+				    regs->di, regs->si,
+				    regs->dx, regs->r10);
 #endif
-	}
 
 	return ret ?: regs->orig_ax;
 }
@@ -1417,8 +1412,7 @@ void syscall_trace_leave(struct pt_regs *regs)
 {
 	bool step;
 
-	if (unlikely(current->audit_context))
-		audit_syscall_exit(AUDITSC_RESULT(regs->ax), regs->ax);
+	audit_syscall_exit(regs);
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
 		trace_sys_exit(regs, regs->ax);

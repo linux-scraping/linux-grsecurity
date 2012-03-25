@@ -937,7 +937,7 @@ store_in_##reg(struct device *dev, struct device_attribute *attr, \
 	int nr = sensor_attr->index; \
 	unsigned long val; \
 	int err; \
-	err = strict_strtoul(buf, 10, &val); \
+	err = kstrtoul(buf, 10, &val); \
 	if (err < 0) \
 		return err; \
 	mutex_lock(&data->update_lock); \
@@ -1054,7 +1054,7 @@ store_fan_min(struct device *dev, struct device_attribute *attr,
 	unsigned int reg;
 	u8 new_div;
 
-	err = strict_strtoul(buf, 10, &val);
+	err = kstrtoul(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1199,7 +1199,7 @@ store_##reg(struct device *dev, struct device_attribute *attr, \
 	int nr = sensor_attr->index; \
 	int err; \
 	long val; \
-	err = strict_strtol(buf, 10, &val); \
+	err = kstrtol(buf, 10, &val); \
 	if (err < 0) \
 		return err; \
 	mutex_lock(&data->update_lock); \
@@ -1325,7 +1325,7 @@ store_pwm_mode(struct device *dev, struct device_attribute *attr,
 	int err;
 	u16 reg;
 
-	err = strict_strtoul(buf, 10, &val);
+	err = kstrtoul(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1357,7 +1357,7 @@ store_pwm(struct device *dev, struct device_attribute *attr,
 	unsigned long val;
 	int err;
 
-	err = strict_strtoul(buf, 10, &val);
+	err = kstrtoul(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1382,7 +1382,7 @@ store_pwm_enable(struct device *dev, struct device_attribute *attr,
 	int err;
 	u16 reg;
 
-	err = strict_strtoul(buf, 10, &val);
+	err = kstrtoul(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1436,7 +1436,7 @@ store_target_temp(struct device *dev, struct device_attribute *attr,
 	long val;
 	int err;
 
-	err = strict_strtol(buf, 10, &val);
+	err = kstrtol(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1461,7 +1461,7 @@ store_tolerance(struct device *dev, struct device_attribute *attr,
 	long val;
 	int err;
 
-	err = strict_strtol(buf, 10, &val);
+	err = kstrtol(buf, 10, &val);
 	if (err < 0)
 		return err;
 
@@ -1562,7 +1562,7 @@ store_##reg(struct device *dev, struct device_attribute *attr, \
 	int nr = sensor_attr->index; \
 	unsigned long val; \
 	int err; \
-	err = strict_strtoul(buf, 10, &val); \
+	err = kstrtoul(buf, 10, &val); \
 	if (err < 0) \
 		return err; \
 	val = SENSORS_LIMIT(val, 1, 255); \
@@ -1601,7 +1601,7 @@ store_##reg(struct device *dev, struct device_attribute *attr, \
 	int nr = sensor_attr->index; \
 	unsigned long val; \
 	int err; \
-	err = strict_strtoul(buf, 10, &val); \
+	err = kstrtoul(buf, 10, &val); \
 	if (err < 0) \
 		return err; \
 	val = step_time_to_reg(val, data->pwm_mode[nr]); \
@@ -1708,7 +1708,7 @@ clear_caseopen(struct device *dev, struct device_attribute *attr,
 	unsigned long val;
 	u16 reg, mask;
 
-	if (strict_strtoul(buf, 10, &val) || val != 0)
+	if (kstrtoul(buf, 10, &val) || val != 0)
 		return -EINVAL;
 
 	mask = to_sensor_dev_attr_2(attr)->nr;
@@ -2349,11 +2349,6 @@ static int __devinit w83627ehf_probe(struct platform_device *pdev)
 
 	/* Read fan clock dividers immediately */
 	w83627ehf_update_fan_div_common(dev, data);
-
-	/* Read pwm data to save original values */
-	w83627ehf_update_pwm_common(dev, data);
-	for (i = 0; i < data->pwm_num; i++)
-		data->pwm_enable_orig[i] = data->pwm_enable[i];
 
 	/* Read pwm data to save original values */
 	w83627ehf_update_pwm_common(dev, data);

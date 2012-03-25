@@ -250,8 +250,6 @@ static int show_debug_level(char *page, char **start, off_t offset,
 }
 
 static int store_debug_level(struct file *file, const char *buffer,
-			     unsigned long count, void *data) __size_overflow(3);
-static int store_debug_level(struct file *file, const char *buffer,
 			     unsigned long count, void *data)
 {
 	char buf[] = "0x00000000";

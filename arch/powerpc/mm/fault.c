@@ -49,6 +49,8 @@
 #include <mm/mmu_decl.h>
 #include <asm/ptrace.h>
 
+#include "icswx.h"
+
 #ifdef CONFIG_KPROBES
 static inline int notify_page_fault(struct pt_regs *regs)
 {
@@ -174,6 +176,21 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
 #else
 	is_write = error_code & ESR_DST;
 #endif /* CONFIG_4xx || CONFIG_BOOKE */
+
+#ifdef CONFIG_PPC_ICSWX
+	/*
+	 * we need to do this early because this "data storage
+	 * interrupt" does not update the DAR/DEAR so we don't want to
+	 * look at it
+	 */
+	if (error_code & ICSWX_DSI_UCT) {
+		int ret;
+
+		ret = acop_handle_fault(regs, address, error_code);
+		if (ret)
+			return ret;
+	}
+#endif
 
 	if (notify_page_fault(regs))
 		return 0;

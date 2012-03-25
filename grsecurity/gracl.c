@@ -22,6 +22,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/fdtable.h>
 #include <linux/percpu.h>
+#include "../fs/mount.h"
 
 #include <asm/uaccess.h>
 #include <asm/errno.h>
@@ -193,6 +194,7 @@ static int prepend_path(const struct path *path, struct path *root,
 {
 	struct dentry *dentry = path->dentry;
 	struct vfsmount *vfsmnt = path->mnt;
+	struct mount *mnt = real_mount(vfsmnt);
 	bool slash = false;
 	int error = 0;
 
@@ -201,11 +203,12 @@ static int prepend_path(const struct path *path, struct path *root,
 
 		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
 			/* Global root? */
-			if (vfsmnt->mnt_parent == vfsmnt) {
+			if (!mnt_has_parent(mnt)) {
 				goto out;
 			}
-			dentry = vfsmnt->mnt_mountpoint;
-			vfsmnt = vfsmnt->mnt_parent;
+			dentry = mnt->mnt_mountpoint;
+			mnt = mnt->mnt_parent;
+			vfsmnt = &mnt->mnt;
 			continue;
 		}
 		parent = dentry->d_parent;
@@ -1858,6 +1861,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 {
 	struct dentry *dentry = (struct dentry *) l_dentry;
 	struct vfsmount *mnt = (struct vfsmount *) l_mnt;
+	struct mount *real_mnt = real_mount(mnt);
 	struct acl_object_label *retval;
 	struct dentry *parent;
 
@@ -1882,15 +1886,16 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			break;
 
 		if (dentry == mnt->mnt_root || IS_ROOT(dentry)) {
-			if (mnt->mnt_parent == mnt)
+			if (!mnt_has_parent(real_mnt))
 				break;
 
 			retval = full_lookup(l_dentry, l_mnt, dentry, subj, &path, checkglob);
 			if (retval != NULL)
 				goto out;
 
-			dentry = mnt->mnt_mountpoint;
-			mnt = mnt->mnt_parent;
+			dentry = real_mnt->mnt_mountpoint;
+			real_mnt = real_mnt->mnt_parent;
+			mnt = &real_mnt->mnt;
 			continue;
 		}
 
@@ -1945,6 +1950,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 {
 	struct dentry *dentry = (struct dentry *) l_dentry;
 	struct vfsmount *mnt = (struct vfsmount *) l_mnt;
+	struct mount *real_mnt = real_mount(mnt);
 	struct acl_subject_label *retval;
 	struct dentry *parent;
 
@@ -1955,7 +1961,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		if (dentry == real_root.dentry && mnt == real_root.mnt)
 			break;
 		if (dentry == mnt->mnt_root || IS_ROOT(dentry)) {
-			if (mnt->mnt_parent == mnt)
+			if (!mnt_has_parent(real_mnt))
 				break;
 
 			spin_lock(&dentry->d_lock);
@@ -1968,8 +1974,9 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			if (retval != NULL)
 				goto out;
 
-			dentry = mnt->mnt_mountpoint;
-			mnt = mnt->mnt_parent;
+			dentry = real_mnt->mnt_mountpoint;
+			real_mnt = real_mnt->mnt_parent;
+			mnt = &real_mnt->mnt;
 			continue;
 		}
 

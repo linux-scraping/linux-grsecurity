@@ -204,7 +204,6 @@ static __always_inline int kmalloc_index(size_t size)
  * This ought to end up with a global pointer to the right cache
  * in kmalloc_caches.
  */
-static __always_inline struct kmem_cache *kmalloc_slab(size_t size) __size_overflow(1);
 static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
 {
 	int index = kmalloc_index(size);
@@ -216,10 +215,8 @@ static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
 }
 
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
-void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1) __size_overflow(1);
+void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1);
 
-static __always_inline void *
-kmalloc_order(size_t size, gfp_t flags, unsigned int order) __size_overflow(1);
 static __always_inline void *
 kmalloc_order(size_t size, gfp_t flags, unsigned int order)
 {
@@ -259,14 +256,12 @@ kmalloc_order_trace(size_t size, gfp_t flags, unsigned int order)
 }
 #endif
 
-static __always_inline void *kmalloc_large(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
 {
 	unsigned int order = get_order(size);
 	return kmalloc_order_trace(size, flags, order);
 }
 
-static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	if (__builtin_constant_p(size)) {
@@ -286,7 +281,7 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags)
 }
 
 #ifdef CONFIG_NUMA
-void *__kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
+void *__kmalloc_node(size_t size, gfp_t flags, int node);
 void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 
 #ifdef CONFIG_TRACING
@@ -303,7 +298,6 @@ kmem_cache_alloc_node_trace(struct kmem_cache *s,
 }
 #endif
 
-static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	if (__builtin_constant_p(size) &&

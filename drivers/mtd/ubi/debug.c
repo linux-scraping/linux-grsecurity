@@ -216,7 +216,7 @@ void ubi_dbg_dump_flash(struct ubi_device *ubi, int pnum, int offset, int len)
 	buf = vmalloc(len);
 	if (!buf)
 		return;
-	err = ubi->mtd->read(ubi->mtd, addr, len, &read, buf);
+	err = mtd_read(ubi->mtd, addr, len, &read, buf);
 	if (err && err != -EUCLEAN) {
 		ubi_err("error %d while reading %d bytes from PEB %d:%d, "
 			"read %zd bytes", err, len, pnum, offset, read);
@@ -337,8 +337,6 @@ out:
 }
 
 /* Write an UBI debugfs file */
-static ssize_t dfs_file_write(struct file *file, const char __user *user_buf,
-			      size_t count, loff_t *ppos) __size_overflow(3);
 static ssize_t dfs_file_write(struct file *file, const char __user *user_buf,
 			      size_t count, loff_t *ppos)
 {

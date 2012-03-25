@@ -109,6 +109,9 @@ int gr_handle_hardlink(const struct dentry *dentry,
 
 int gr_is_capable(const int cap);
 int gr_is_capable_nolog(const int cap);
+int gr_task_is_capable(const struct task_struct *task, const struct cred *cred, const int cap);
+int gr_task_is_capable_nolog(const struct task_struct *task, const int cap);
+
 void gr_learn_resource(const struct task_struct *task, const int limit,
 			      const unsigned long wanted, const int gt);
 void gr_copy_label(struct task_struct *tsk);

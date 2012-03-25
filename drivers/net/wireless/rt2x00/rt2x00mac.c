@@ -169,7 +169,7 @@ void rt2x00mac_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 	rt2x00queue_pause_queue(queue);
 	spin_unlock(&queue->tx_lock);
  exit_free_skb:
-	dev_kfree_skb_any(skb);
+	ieee80211_free_txskb(hw, skb);
 }
 EXPORT_SYMBOL_GPL(rt2x00mac_tx);
 
