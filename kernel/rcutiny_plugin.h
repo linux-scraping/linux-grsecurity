@@ -907,7 +907,7 @@ static int rcu_kthread(void *arg)
 		have_rcu_kthread_work = morework;
 		local_irq_restore(flags);
 		if (work)
-			rcu_process_callbacks(NULL);
+			rcu_process_callbacks();
 		schedule_timeout_interruptible(1); /* Leave CPU for others. */
 	}
 
