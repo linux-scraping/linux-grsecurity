@@ -1328,11 +1328,6 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	start_data += load_bias;
 	end_data += load_bias;
 
-#ifdef CONFIG_PAX_RANDMMAP
-	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
-		elf_brk += PAGE_SIZE + ((pax_get_random_long() & ((1UL << 22) - 1UL)) << 4);
-#endif
-
 	/* Calling set_brk effectively mmaps the pages that we need
 	 * for the bss and break sections.  We must do this before
 	 * mapping in the interpreter, to make sure it doesn't wind
@@ -1350,6 +1345,28 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		 * we don't check the return value
 		 */
 	}
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (current->mm->pax_flags & MF_PAX_RANDMMAP) {
+		unsigned long start, size;
+
+		start = ELF_PAGEALIGN(elf_brk);
+		size = PAGE_SIZE + ((pax_get_random_long() & ((1UL << 22) - 1UL)) << 4);
+		down_write(&current->mm->mmap_sem);
+		retval = -ENOMEM;
+		if (!find_vma_intersection(current->mm, start, start + size + PAGE_SIZE)) {
+			retval = do_mmap(NULL, start, size, PROT_NONE, MAP_FIXED | MAP_PRIVATE, 0);
+			if (retval >= 0)
+				retval = do_mmap(NULL, ELF_PAGEALIGN(start + size), PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_PRIVATE, 0);
+		}
+		up_write(&current->mm->mmap_sem);
+		if (retval < 0) {
+			send_sig(SIGKILL, current, 0);
+			goto out_free_dentry;
+		}
+		current->mm->start_brk = current->mm->brk = start + size + PAGE_SIZE;
+	}
+#endif
 
 	if (elf_interpreter) {
 		unsigned long uninitialized_var(interp_map_addr);
