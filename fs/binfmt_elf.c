@@ -1355,16 +1355,16 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		down_write(&current->mm->mmap_sem);
 		retval = -ENOMEM;
 		if (!find_vma_intersection(current->mm, start, start + size + PAGE_SIZE)) {
-			retval = do_mmap(NULL, start, size, PROT_NONE, MAP_FIXED | MAP_PRIVATE, 0);
-			if (retval >= 0)
-				retval = do_mmap(NULL, ELF_PAGEALIGN(start + size), PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_PRIVATE, 0);
+			start = do_mmap(NULL, start, size, PROT_NONE, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
+			retval = IS_ERR_VALUE(start) ? start : 0;
 		}
 		up_write(&current->mm->mmap_sem);
+		if (retval == 0)
+			retval = set_brk(start + size, start + size + PAGE_SIZE);
 		if (retval < 0) {
 			send_sig(SIGKILL, current, 0);
 			goto out_free_dentry;
 		}
-		current->mm->start_brk = current->mm->brk = start + size + PAGE_SIZE;
 	}
 #endif
 

@@ -1174,7 +1174,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 
 	/* Get routing info from the tunnel socket */
 	skb_dst_drop(skb);
-	skb_dst_set(skb, dst_clone(__sk_dst_get(sk_tun)));
+	skb_dst_set(skb, dst_clone(__sk_dst_check(sk_tun, 0)));
 	pppol2tp_skb_set_owner_w(skb, sk_tun);
 
 	/* Calculate UDP checksum if configured to do so */
