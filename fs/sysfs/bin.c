@@ -67,6 +67,8 @@ fill_read(struct file *file, char *buffer, loff_t off, size_t count)
 }
 
 static ssize_t
+read(struct file *file, char __user *userbuf, size_t bytes, loff_t *off) __size_overflow(3);
+static ssize_t
 read(struct file *file, char __user *userbuf, size_t bytes, loff_t *off)
 {
 	struct bin_buffer *bb = file->private_data;

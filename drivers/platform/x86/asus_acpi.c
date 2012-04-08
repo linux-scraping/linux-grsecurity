@@ -887,6 +887,8 @@ static int lcd_proc_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t lcd_proc_write(struct file *file, const char __user *buffer,
+	       size_t count, loff_t *pos) __size_overflow(3);
+static ssize_t lcd_proc_write(struct file *file, const char __user *buffer,
 	       size_t count, loff_t *pos)
 {
 	int rv, value;

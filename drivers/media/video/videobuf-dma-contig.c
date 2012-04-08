@@ -184,6 +184,7 @@ static int videobuf_dma_contig_user_get(struct videobuf_dma_contig_memory *mem,
 	return ret;
 }
 
+static struct videobuf_buffer *__videobuf_alloc_vb(size_t size) __size_overflow(1);
 static struct videobuf_buffer *__videobuf_alloc_vb(size_t size)
 {
 	struct videobuf_dma_contig_memory *mem;

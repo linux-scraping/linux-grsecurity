@@ -729,6 +729,9 @@ static inline void __refill_fl(struct adapter *adapter, struct sge_fl *fl)
  */
 static void *alloc_ring(struct device *dev, size_t nelem, size_t hwsize,
 			size_t swsize, dma_addr_t *busaddrp, void *swringp,
+			size_t stat_size) __size_overflow(2,4);
+static void *alloc_ring(struct device *dev, size_t nelem, size_t hwsize,
+			size_t swsize, dma_addr_t *busaddrp, void *swringp,
 			size_t stat_size)
 {
 	/*

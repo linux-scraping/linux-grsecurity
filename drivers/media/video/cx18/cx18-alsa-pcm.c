@@ -229,6 +229,8 @@ static int snd_cx18_pcm_ioctl(struct snd_pcm_substream *substream,
 
 
 static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
+					size_t size) __size_overflow(2);
+static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
 					size_t size)
 {
 	struct snd_pcm_runtime *runtime = subs->runtime;

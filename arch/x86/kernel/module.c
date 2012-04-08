@@ -36,6 +36,7 @@
 #define DEBUGP(fmt...)
 #endif
 
+static inline void *__module_alloc(unsigned long size, pgprot_t prot) __size_overflow(1);
 static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 {
 	if (size == 0 || PAGE_ALIGN(size) > MODULES_LEN)

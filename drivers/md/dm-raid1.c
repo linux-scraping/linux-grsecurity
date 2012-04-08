@@ -848,6 +848,10 @@ static void do_mirror(struct work_struct *work)
 static struct mirror_set *alloc_context(unsigned int nr_mirrors,
 					uint32_t region_size,
 					struct dm_target *ti,
+					struct dm_dirty_log *dl) __size_overflow(1);
+static struct mirror_set *alloc_context(unsigned int nr_mirrors,
+					uint32_t region_size,
+					struct dm_target *ti,
 					struct dm_dirty_log *dl)
 {
 	size_t len;

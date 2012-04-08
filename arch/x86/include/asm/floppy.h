@@ -157,6 +157,7 @@ static unsigned long dma_mem_alloc(unsigned long size)
 }
 
 
+static unsigned long vdma_mem_alloc(unsigned long size) __size_overflow(1);
 static unsigned long vdma_mem_alloc(unsigned long size)
 {
 	return (unsigned long)vmalloc(size);

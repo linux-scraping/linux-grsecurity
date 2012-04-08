@@ -91,6 +91,8 @@ mtrr_file_del(unsigned long base, unsigned long size,
  *    "base=%Lx size=%Lx type=%s" or "disable=%d"
  */
 static ssize_t
+mtrr_write(struct file *file, const char __user *buf, size_t len, loff_t * ppos) __size_overflow(3);
+static ssize_t
 mtrr_write(struct file *file, const char __user *buf, size_t len, loff_t * ppos)
 {
 	int i, err;

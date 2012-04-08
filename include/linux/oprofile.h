@@ -163,7 +163,7 @@ ssize_t oprofilefs_ulong_to_user(unsigned long val, char __user * buf, size_t co
  * Read an ASCII string for a number from a userspace buffer and fill *val on success.
  * Returns 0 on success, < 0 on error.
  */
-int oprofilefs_ulong_from_user(unsigned long * val, char const __user * buf, size_t count);
+int oprofilefs_ulong_from_user(unsigned long * val, char const __user * buf, size_t count) __size_overflow(3);
 
 /** lock for read/write safety */
 extern raw_spinlock_t oprofilefs_lock;

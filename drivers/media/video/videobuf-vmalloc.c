@@ -135,6 +135,7 @@ static const struct vm_operations_struct videobuf_vm_ops = {
 	struct videobuf_dma_sg_memory
  */
 
+static struct videobuf_buffer *__videobuf_alloc_vb(size_t size) __size_overflow(1);
 static struct videobuf_buffer *__videobuf_alloc_vb(size_t size)
 {
 	struct videobuf_vmalloc_memory *mem;

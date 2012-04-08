@@ -21,6 +21,8 @@
 #include "internal.h"
 
 static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
+			    unsigned int keylen) __size_overflow(3);
+static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct cipher_alg *cia = &tfm->__crt_alg->cra_cipher;
@@ -43,6 +45,7 @@ static int setkey_unaligned(struct crypto_tfm *tfm, const u8 *key,
 
 }
 
+static int setkey(struct crypto_tfm *tfm, const u8 *key, unsigned int keylen) __size_overflow(3);
 static int setkey(struct crypto_tfm *tfm, const u8 *key, unsigned int keylen)
 {
 	struct cipher_alg *cia = &tfm->__crt_alg->cra_cipher;

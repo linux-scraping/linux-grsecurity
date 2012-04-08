@@ -47,6 +47,8 @@ static ssize_t uevent_helper_store(struct kobject *kobj,
 {
 	if (count+1 > UEVENT_HELPER_PATH_LEN)
 		return -ENOENT;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 	memcpy(uevent_helper, buf, count);
 	uevent_helper[count] = '\0';
 	if (count && uevent_helper[count-1] == '\n')

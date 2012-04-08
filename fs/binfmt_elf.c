@@ -1350,13 +1350,12 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP) {
 		unsigned long start, size;
 
-		current->mm->end_data = end_data = elf_brk;
 		start = ELF_PAGEALIGN(elf_brk);
 		size = PAGE_SIZE + ((pax_get_random_long() & ((1UL << 22) - 1UL)) << 4);
-		current->mm->start_brk = start + size;
 		down_write(&current->mm->mmap_sem);
 		retval = -ENOMEM;
 		if (!find_vma_intersection(current->mm, start, start + size + PAGE_SIZE)) {
+			current->mm->brk_gap = PAGE_ALIGN(size) >> PAGE_SHIFT;
 			start = do_mmap(NULL, start, size, PROT_NONE, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
 			retval = IS_ERR_VALUE(start) ? start : 0;
 		}

@@ -389,6 +389,8 @@ static int cx231xx_init_audio_bulk(struct cx231xx *dev)
 }
 
 static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
+					size_t size) __size_overflow(2);
+static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
 					size_t size)
 {
 	struct snd_pcm_runtime *runtime = subs->runtime;

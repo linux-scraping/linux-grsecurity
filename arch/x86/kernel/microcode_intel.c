@@ -434,6 +434,7 @@ static enum ucode_state request_microcode_fw(int cpu, struct device *device)
 	return ret;
 }
 
+static int get_ucode_user(void *to, const void *from, size_t n) __size_overflow(3);
 static int get_ucode_user(void *to, const void *from, size_t n)
 {
 	return copy_from_user(to, (const void __force_user *)from, n);

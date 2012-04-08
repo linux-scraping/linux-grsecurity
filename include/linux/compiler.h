@@ -305,6 +305,9 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __do_const
 #endif
 
+#ifndef __size_overflow
+# define __size_overflow(...)
+#endif
 /*
  * Tell gcc if a function is cold. The compiler will assume any path
  * directly leading to the call is unlikely.

@@ -55,6 +55,7 @@ static void trigger_event(struct work_struct *work)
 	dm_table_event(sc->ti->table);
 }
 
+static inline struct stripe_c *alloc_context(unsigned int stripes) __size_overflow(1);
 static inline struct stripe_c *alloc_context(unsigned int stripes)
 {
 	size_t len;
