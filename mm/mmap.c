@@ -2863,12 +2863,13 @@ int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 	unsigned long cur = mm->total_vm;	/* pages */
 	unsigned long lim;
 
+	lim = rlimit(RLIMIT_AS) >> PAGE_SHIFT;
+
 #ifdef CONFIG_PAX_RANDMMAP
-	if ((mm->pax_flags & MF_PAX_RANDMMAP) && mm->end_data)
-		cur -= (mm->start_brk - mm->end_data) >> PAGE_SHIFT;
+	if (mm->pax_flags & MF_PAX_RANDMMAP)
+		cur -= mm->brk_gap;
 #endif
 
-	lim = rlimit(RLIMIT_AS) >> PAGE_SHIFT;
 	gr_learn_resource(current, RLIMIT_AS, (cur + npages) << PAGE_SHIFT, 1);
 	if (cur + npages > lim)
 		return 0;

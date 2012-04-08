@@ -204,7 +204,7 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 	update_stmt(assign_intptr);
 
 	// cast temporary unsigned long back to a temporary fptr variable
-	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec");
+	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_fptr");
 	add_referenced_var(new_fptr);
 	mark_sym_for_renaming(new_fptr);
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));

@@ -1311,7 +1311,7 @@ module_exit(ubi_exit);
 static int __init bytes_str_to_int(const char *str)
 {
 	char *endp;
-	unsigned long result, scale = 1;
+	unsigned long result;
 
 	result = simple_strtoul(str, &endp, 0);
 	if (str == endp || result >= INT_MAX) {
@@ -1322,11 +1322,11 @@ static int __init bytes_str_to_int(const char *str)
 
 	switch (*endp) {
 	case 'G':
-		scale *= 1024;
+		result *= 1024;
 	case 'M':
-		scale *= 1024;
+		result *= 1024;
 	case 'K':
-		scale *= 1024;
+		result *= 1024;
 		if (endp[1] == 'i' && endp[2] == 'B')
 			endp += 2;
 	case '\0':
@@ -1337,13 +1337,7 @@ static int __init bytes_str_to_int(const char *str)
 		return -EINVAL;
 	}
 
-	if (result*scale >= INT_MAX) {
-		printk(KERN_ERR "UBI error: incorrect bytes count: \"%s\"\n",
-		       str);
-		return -EINVAL;
-	}
-
-	return result*scale;
+	return result;
 }
 
 /**

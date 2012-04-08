@@ -929,6 +929,8 @@ out_free_ablkcipher:
 }
 
 static int rfc4106_set_key(struct crypto_aead *parent, const u8 *key,
+						   unsigned int key_len) __size_overflow(3);
+static int rfc4106_set_key(struct crypto_aead *parent, const u8 *key,
 						   unsigned int key_len)
 {
 	int ret = 0;

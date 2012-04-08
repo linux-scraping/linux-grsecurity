@@ -1342,6 +1342,7 @@ static int set_msr_mce(struct kvm_vcpu *vcpu, u32 msr, u64 data)
 	return 0;
 }
 
+static int xen_hvm_config(struct kvm_vcpu *vcpu, u64 data) __size_overflow(2);
 static int xen_hvm_config(struct kvm_vcpu *vcpu, u64 data)
 {
 	struct kvm *kvm = vcpu->kvm;

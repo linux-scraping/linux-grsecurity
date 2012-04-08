@@ -2555,19 +2555,32 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 
 	newacl = chk_subj_label(dentry, mnt, task->role);
 
-	task_lock(task);
+	/* special handling for if we did an strace -f -p <pid> from an admin role, where pid then
+	   did an exec
+	*/
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	if (task->ptrace && task->parent && ((task->parent->role->roletype & GR_ROLE_GOD) ||
+	    (task->parent->acl->mode & GR_POVERRIDE))) {
+		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
+		goto skip_check;
+	}
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+
 	if (unsafe_flags && !(task->acl->mode & GR_POVERRIDE) && (task->acl != newacl) &&
 	     !(task->role->roletype & GR_ROLE_GOD) &&
 	     !gr_search_file(dentry, GR_PTRACERD, mnt) &&
 	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN))) {
-                task_unlock(task);
 		if (unsafe_flags & LSM_UNSAFE_SHARE)
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_UNSAFESHARE_EXEC_ACL_MSG, dentry, mnt);
 		else
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
 		return -EACCES;
 	}
-	task_unlock(task);
+
+skip_check:
 
 	obj = chk_obj_label(dentry, mnt, task->acl);
 	retmode = obj->mode & (GR_INHERIT | GR_AUDIT_INHERIT);

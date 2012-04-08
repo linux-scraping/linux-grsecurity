@@ -1052,6 +1052,8 @@ MODULE_PARM_DESC(copybreak, "Receive copy threshold");
  *	be copied but there is no memory for the copy.
  */
 static inline struct sk_buff *get_packet(struct pci_dev *pdev,
+					 struct freelQ *fl, unsigned int len) __size_overflow(3);
+static inline struct sk_buff *get_packet(struct pci_dev *pdev,
 					 struct freelQ *fl, unsigned int len)
 {
 	struct sk_buff *skb;

@@ -319,6 +319,9 @@ denied:
 int
 gr_search_connect(struct socket *sock, struct sockaddr_in *addr)
 {
+	/* always allow disconnection of dgram sockets with connect */
+	if (addr->sin_family == AF_UNSPEC)
+		return 0;
 	return gr_search_connectbind(GR_CONNECT | GR_CONNECTOVERRIDE, sock->sk, addr, sock->type);
 }
 
