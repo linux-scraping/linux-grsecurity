@@ -560,6 +560,8 @@ static int uv_ptc_seq_show(struct seq_file *file, void *data)
  * >0: retry limit
  */
 static ssize_t uv_ptc_proc_write(struct file *file, const char __user *user,
+				 size_t count, loff_t *data) __size_overflow(3);
+static ssize_t uv_ptc_proc_write(struct file *file, const char __user *user,
 				 size_t count, loff_t *data)
 {
 	long newmode;

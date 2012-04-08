@@ -126,6 +126,7 @@ static void ulog_timer(unsigned long data)
 	spin_unlock_bh(&ulog_lock);
 }
 
+static struct sk_buff *ulog_alloc_skb(unsigned int size) __size_overflow(1);
 static struct sk_buff *ulog_alloc_skb(unsigned int size)
 {
 	struct sk_buff *skb;

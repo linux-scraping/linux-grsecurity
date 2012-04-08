@@ -132,6 +132,7 @@ static const struct vm_operations_struct videobuf_vm_ops =
 	struct videobuf_dma_sg_memory
  */
 
+static void *__videobuf_alloc(size_t size) __size_overflow(1);
 static void *__videobuf_alloc(size_t size)
 {
 	struct videobuf_vmalloc_memory *mem;
@@ -351,6 +352,9 @@ static int __videobuf_copy_to_user ( struct videobuf_queue *q,
 	return count;
 }
 
+static int __videobuf_copy_stream ( struct videobuf_queue *q,
+				char __user *data, size_t count, size_t pos,
+				int vbihack, int nonblocking ) __size_overflow(3);
 static int __videobuf_copy_stream ( struct videobuf_queue *q,
 				char __user *data, size_t count, size_t pos,
 				int vbihack, int nonblocking )

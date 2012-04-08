@@ -331,6 +331,7 @@ static int gspca_is_compressed(__u32 format)
 	return 0;
 }
 
+static void *rvmalloc(unsigned long size) __size_overflow(1);
 static void *rvmalloc(unsigned long size)
 {
 	void *mem;

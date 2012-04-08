@@ -35,7 +35,7 @@ static inline u32 bstat(char *name)
 static inline u32 bstat(char *name)
 {
 	struct stat stat;
-	if (sys_newstat((const char __force_user *)name, (struct stat __force_user *)&stat) != 0)
+	if (sys_newstat((char __force_user *)name, (struct stat __force_user *)&stat) != 0)
 		return 0;
 	if (!S_ISBLK(stat.st_mode))
 		return 0;

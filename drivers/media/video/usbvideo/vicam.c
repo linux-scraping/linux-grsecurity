@@ -81,6 +81,7 @@
  * in the future.
  *
 */
+static void *rvmalloc(unsigned long size) __size_overflow(1);
 static void *rvmalloc(unsigned long size)
 {
 	void *mem;

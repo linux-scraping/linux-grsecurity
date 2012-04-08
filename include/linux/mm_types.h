@@ -237,7 +237,7 @@ struct mm_struct {
 	unsigned long total_vm, locked_vm, shared_vm, exec_vm;
 	unsigned long stack_vm, reserved_vm, def_flags, nr_ptes;
 	unsigned long start_code, end_code, start_data, end_data;
-	unsigned long start_brk, brk, start_stack;
+	unsigned long brk_gap, start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 
 	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
@@ -290,7 +290,7 @@ struct mm_struct {
 	struct mmu_notifier_mm *mmu_notifier_mm;
 #endif
 
-#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS) || defined(CONFIG_PAX_HAVE_ACL_FLAGS) || defined(CONFIG_PAX_HOOK_ACL_FLAGS)
 	unsigned long pax_flags;
 #endif
 

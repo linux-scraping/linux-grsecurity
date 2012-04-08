@@ -72,6 +72,7 @@ static struct page *snd_pcm_get_vmalloc_page(struct snd_pcm_substream *subs,
  * called from hw_params
  * NOTE: this may be called not only once per pcm open!
  */
+static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs, size_t size) __size_overflow(2);
 static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs, size_t size)
 {
 	struct snd_pcm_runtime *runtime = subs->runtime;

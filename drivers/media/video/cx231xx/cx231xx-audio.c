@@ -240,6 +240,8 @@ static int cx231xx_cmd(struct cx231xx *dev, int cmd, int arg)
 }
 
 static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
+					size_t size) __size_overflow(2);
+static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs,
 					size_t size)
 {
 	struct snd_pcm_runtime *runtime = subs->runtime;

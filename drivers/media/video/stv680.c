@@ -125,6 +125,7 @@ module_param(video_nr, int, 0);
  *
  * And the STV0680 driver - Kevin
  ********************************************************************/
+static void *rvmalloc (unsigned long size) __size_overflow(1);
 static void *rvmalloc (unsigned long size)
 {
 	void *mem;

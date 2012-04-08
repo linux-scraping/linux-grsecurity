@@ -775,6 +775,8 @@ static inline unsigned int flits_to_desc(unsigned int n)
  *	be copied but there is no memory for the copy.
  */
 static struct sk_buff *get_packet(struct adapter *adap, struct sge_fl *fl,
+				  unsigned int len, unsigned int drop_thres) __size_overflow(3);
+static struct sk_buff *get_packet(struct adapter *adap, struct sge_fl *fl,
 				  unsigned int len, unsigned int drop_thres)
 {
 	struct sk_buff *skb = NULL;

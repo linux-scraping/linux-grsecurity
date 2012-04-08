@@ -193,6 +193,7 @@ error_return:
 	return err;
 }
 
+static int read_default_ldt(void __user *ptr, unsigned long bytecount) __size_overflow(2);
 static int read_default_ldt(void __user *ptr, unsigned long bytecount)
 {
 	/* CHECKME: Can we use _one_ random number ? */

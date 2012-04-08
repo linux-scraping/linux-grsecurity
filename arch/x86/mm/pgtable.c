@@ -96,13 +96,17 @@ void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 #ifdef CONFIG_PAX_PER_CPU_PGD
 void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 {
-	while (count--)
+	while (count--) {
+		pgd_t pgd;
+
+		pgd = __pgd(pgd_val(*src++) | _PAGE_USER);
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		*dst++ = __pgd(pgd_val(*src++) & clone_pgd_mask);
-#else
-		*dst++ = *src++;
+		pgd = __pgd(pgd_val(pgd) & clone_pgd_mask);
 #endif
+
+		*dst++ = pgd;
+	}
 
 }
 #endif

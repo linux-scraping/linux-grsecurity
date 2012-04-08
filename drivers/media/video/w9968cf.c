@@ -430,7 +430,7 @@ static int w9968cf_i2c_smbus_xfer(struct i2c_adapter*, u16 addr,
 static u32 w9968cf_i2c_func(struct i2c_adapter*);
 
 /* Memory management */
-static void* rvmalloc(unsigned long size);
+static void* rvmalloc(unsigned long size) __size_overflow(1);
 static void rvfree(void *mem, unsigned long size);
 static void w9968cf_deallocate_memory(struct w9968cf_device*);
 static int  w9968cf_allocate_memory(struct w9968cf_device*);

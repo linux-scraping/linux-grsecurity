@@ -86,6 +86,7 @@ static inline unsigned long kvirt_to_pa(unsigned long adr)
 	return ret;
 }
 
+static void *rvmalloc(unsigned long size) __size_overflow(1);
 static void *rvmalloc(unsigned long size)
 {
 	void *mem;

@@ -199,6 +199,7 @@ static void set_flicker(struct cam_params *params, volatile u32 *command_flags,
  * Memory management
  *
  **********************************************************************/
+static void *rvmalloc(unsigned long size) __size_overflow(1);
 static void *rvmalloc(unsigned long size)
 {
 	void *mem;

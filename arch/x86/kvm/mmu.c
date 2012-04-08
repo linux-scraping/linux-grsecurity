@@ -3065,6 +3065,8 @@ static void *pv_mmu_read_buffer(struct kvm_pv_mmu_op_buffer *buffer,
 }
 
 static int kvm_pv_mmu_write(struct kvm_vcpu *vcpu,
+			     gpa_t addr, gpa_t value) __size_overflow(2);
+static int kvm_pv_mmu_write(struct kvm_vcpu *vcpu,
 			     gpa_t addr, gpa_t value)
 {
 	int bytes = 8;

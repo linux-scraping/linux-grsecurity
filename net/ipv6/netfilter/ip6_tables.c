@@ -995,6 +995,10 @@ static struct xt_counters *alloc_counters(struct xt_table *table)
 static int
 copy_entries_to_user(unsigned int total_size,
 		     struct xt_table *table,
+		     void __user *userptr) __size_overflow(1);
+static int
+copy_entries_to_user(unsigned int total_size,
+		     struct xt_table *table,
 		     void __user *userptr)
 {
 	unsigned int off, num;

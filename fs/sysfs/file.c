@@ -163,6 +163,8 @@ out:
  */
 
 static int 
+fill_write_buffer(struct sysfs_buffer * buffer, const char __user * buf, size_t count) __size_overflow(3);
+static int 
 fill_write_buffer(struct sysfs_buffer * buffer, const char __user * buf, size_t count)
 {
 	int error;
