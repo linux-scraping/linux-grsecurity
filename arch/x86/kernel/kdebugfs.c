@@ -28,6 +28,8 @@ struct setup_data_node {
 };
 
 static ssize_t setup_data_read(struct file *file, char __user *user_buf,
+			       size_t count, loff_t *ppos) __size_overflow(3);
+static ssize_t setup_data_read(struct file *file, char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
 	struct setup_data_node *node = file->private_data;

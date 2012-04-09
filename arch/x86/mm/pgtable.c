@@ -100,7 +100,11 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
 	while (count--) {
 		pgd_t pgd;
 
+#ifdef CONFIG_X86_64
 		pgd = __pgd(pgd_val(*src++) | _PAGE_USER);
+#else
+		pgd = *src++;
+#endif
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 		pgd = __pgd(pgd_val(pgd) & clone_pgd_mask);
