@@ -502,8 +502,6 @@ static inline int pmd_trans_unstable(pmd_t *pmd)
 #endif
 }
 
-#endif /* CONFIG_MMU */
-
 #ifndef __HAVE_ARCH_PAX_OPEN_KERNEL
 static inline unsigned long pax_open_kernel(void) { return 0; }
 #endif
@@ -511,6 +509,8 @@ static inline unsigned long pax_open_kernel(void) { return 0; }
 #ifndef __HAVE_ARCH_PAX_CLOSE_KERNEL
 static inline unsigned long pax_close_kernel(void) { return 0; }
 #endif
+
+#endif /* CONFIG_MMU */
 
 #endif /* !__ASSEMBLY__ */
 
