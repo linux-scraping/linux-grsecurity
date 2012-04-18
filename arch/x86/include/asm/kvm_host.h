@@ -756,7 +756,7 @@ void kvm_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l);
 int kvm_set_xcr(struct kvm_vcpu *vcpu, u32 index, u64 xcr);
 
 int kvm_get_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata);
-int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data) __size_overflow(3);
+int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data);
 
 unsigned long kvm_get_rflags(struct kvm_vcpu *vcpu);
 void kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags);
