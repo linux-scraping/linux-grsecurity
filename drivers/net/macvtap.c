@@ -526,6 +526,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
 		}
 		base = (unsigned long)from->iov_base + offset1;
 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+		if (i + size >= MAX_SKB_FRAGS)
+			return -EFAULT;
 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
 		if ((num_pages != size) ||
 		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
