@@ -611,11 +611,6 @@ config PAX_USERCOPY
 	  accessors.  Though the whitelist of regions will be reduced over
 	  time, it notably protects important data structures like task structs.
 
-
-	  If frame pointers are enabled on x86, this option will also
-	  restrict copies into and out of the kernel stack to local variables
-	  within a single frame.
-
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
 

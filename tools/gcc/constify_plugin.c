@@ -257,7 +257,7 @@ static unsigned int check_local_variables(void)
 //			continue;
 
 		if (walk_struct(type)) {
-			error("constified variable %qE cannot be local", var);
+			error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
 			return 1;
 		}
 	}
