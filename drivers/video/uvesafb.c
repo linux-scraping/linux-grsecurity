@@ -839,13 +839,14 @@ static int __devinit uvesafb_vbe_init(struct fb_info *info)
 	par->ypan = ypan;
 
 	if (par->pmi_setpal || par->ypan) {
+#if !defined(CONFIG_MODULES) || !defined(CONFIG_PAX_KERNEXEC)
 		if (__supported_pte_mask & _PAGE_NX) {
 			par->pmi_setpal = par->ypan = 0;
 			printk(KERN_WARNING "uvesafb: NX protection is actively."
 				"We have better not to use the PMI.\n");
-		} else {
+		} else
+#endif
 			uvesafb_vbe_getpmi(task, par);
-		}
 	}
 #else
 	/* The protected mode interface is not available on non-x86. */
