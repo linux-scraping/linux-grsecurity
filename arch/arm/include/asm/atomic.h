@@ -105,7 +105,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
 "	mov	%0, %1\n"
-"2:	bkpt 0xf103\n"
+"2:	bkpt	0xf103\n"
 "3:\n"
 #endif
 
