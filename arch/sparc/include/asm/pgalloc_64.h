@@ -26,6 +26,7 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
 }
 
 #define pud_populate(MM, PUD, PMD)	pud_set(PUD, PMD)
+#define pud_populate_kernel(MM, PUD, PMD)	pud_populate((MM), (PUD), (PMD))
 
 static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
 {

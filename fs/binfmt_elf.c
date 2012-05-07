@@ -1355,8 +1355,12 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		down_write(&current->mm->mmap_sem);
 		retval = -ENOMEM;
 		if (!find_vma_intersection(current->mm, start, start + size + PAGE_SIZE)) {
+			unsigned long prot = PROT_NONE;
+
 			current->mm->brk_gap = PAGE_ALIGN(size) >> PAGE_SHIFT;
-			start = do_mmap(NULL, start, size, PROT_NONE, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
+//			if (current->personality & ADDR_NO_RANDOMIZE)
+//				prot = PROT_READ;
+			start = do_mmap(NULL, start, size, prot, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
 			retval = IS_ERR_VALUE(start) ? start : 0;
 		}
 		up_write(&current->mm->mmap_sem);
