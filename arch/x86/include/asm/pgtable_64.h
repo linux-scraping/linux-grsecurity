@@ -90,7 +90,9 @@ static inline void native_pmd_clear(pmd_t *pmd)
 
 static inline void native_set_pud(pud_t *pudp, pud_t pud)
 {
+	pax_open_kernel();
 	*pudp = pud;
+	pax_close_kernel();
 }
 
 static inline void native_pud_clear(pud_t *pud)

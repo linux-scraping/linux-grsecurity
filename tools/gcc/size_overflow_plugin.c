@@ -52,12 +52,13 @@ struct size_overflow_hash {
 
 #define __unused __attribute__((__unused__))
 #define NAME(node) IDENTIFIER_POINTER(DECL_NAME(node))
+#define NAME_LEN(node) IDENTIFIER_LENGTH(DECL_NAME(node))
 #define BEFORE_STMT true
 #define AFTER_STMT false
 #define CREATE_NEW_VAR NULL_TREE
 
 int plugin_is_GPL_compatible;
-void debug_gimple_stmt (gimple gs);
+void debug_gimple_stmt(gimple gs);
 
 static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed, tree var);
 static tree signed_size_overflow_type;
@@ -65,9 +66,10 @@ static tree unsigned_size_overflow_type;
 static tree report_size_overflow_decl;
 static tree const_char_ptr_type_node;
 static unsigned int handle_function(void);
+static bool file_match = true;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20120409beta",
+	.version	= "20120502beta",
 	.help		= "no-size_overflow\tturn off size overflow checking\n",
 };
 
@@ -196,7 +198,9 @@ static void check_missing_attribute(tree arg)
 		return;
 
 	hash = get_function_hash(func);
-	if (hash->name && !strcmp(hash->name, NAME(func)) && !strcmp(hash->file, xloc.file))
+	if (hash->name && !strcmp(hash->name, NAME(func)))
+		return;
+	if (file_match && hash->file && !strcmp(hash->file, xloc.file))
 		return;
 
 	gcc_assert(TREE_CODE(arg) != COMPONENT_REF);
@@ -309,6 +313,25 @@ static tree create_assign(struct pointer_set_t *visited, bool *potentionally_ove
 
 	stmt = build_cast_stmt(signed_size_overflow_type, rhs1, CREATE_NEW_VAR, gimple_location(oldstmt));
 	gsi = gsi_for_stmt(oldstmt);
+	if (lookup_stmt_eh_lp(oldstmt) != 0) {
+		basic_block next_bb, cur_bb;
+		edge e;
+
+		gcc_assert(before == false);
+		gcc_assert(stmt_can_throw_internal(oldstmt));
+		gcc_assert(gimple_code(oldstmt) == GIMPLE_CALL);
+		gcc_assert(!gsi_end_p(gsi));
+
+		cur_bb = gimple_bb(oldstmt);
+		next_bb = cur_bb->next_bb;
+		e = find_edge(cur_bb, next_bb);
+		gcc_assert(e != NULL);
+		gcc_assert(e->flags & EDGE_FALLTHRU);
+
+		gsi = gsi_after_labels(next_bb);
+		gcc_assert(!gsi_end_p(gsi));
+		before = true;
+	}
 	if (before)
 		gsi_insert_before(&gsi, stmt, GSI_NEW_STMT);
 	else
@@ -439,7 +462,7 @@ static gimple handle_new_phi_arg(tree arg, tree new_var, tree new_rhs)
 		newstmt = gimple_build_assign(new_var, new_rhs);
 		break;
 	case GIMPLE_ASSIGN:
-		newstmt = gimple_copy(def_newstmt);
+		newstmt = gimple_build_assign(new_var, gimple_get_lhs(def_newstmt));
 		break;
 	default:
 		/* unknown gimple_code (handle_build_new_phi_arg) */
@@ -448,6 +471,7 @@ static gimple handle_new_phi_arg(tree arg, tree new_var, tree new_rhs)
 
 	gimple_set_lhs(newstmt, make_ssa_name(new_var, newstmt));
 	gsi_insert(&gsi, newstmt, GSI_NEW_STMT);
+	update_stmt(newstmt);
 	return newstmt;
 }
 
@@ -462,7 +486,6 @@ static tree build_new_phi_arg(struct pointer_set_t *visited, bool *potentionally
 		return NULL_TREE;
 
 	newstmt = handle_new_phi_arg(arg, new_var, new_rhs);
-	update_stmt(newstmt);
 	return gimple_get_lhs(newstmt);
 }
 
@@ -519,6 +542,7 @@ static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_
 		return handle_unary_rhs(visited, potentionally_overflowed, var);
 
 	case ARRAY_REF:
+	case BIT_FIELD_REF:
 	case ADDR_EXPR:
 	case COMPONENT_REF:
 	case COND_EXPR:
@@ -550,9 +574,19 @@ static void insert_cond(basic_block cond_bb, tree arg, enum tree_code cond_code,
 
 static tree create_string_param(tree string)
 {
-	tree array_ref = build4(ARRAY_REF, TREE_TYPE(string), string, integer_zero_node, NULL, NULL);
+	tree i_type, a_type;
+	int length = TREE_STRING_LENGTH(string);
 
-	return build1(ADDR_EXPR, ptr_type_node, array_ref);
+	gcc_assert(length > 0);
+
+	i_type = build_index_type(build_int_cst(NULL_TREE, length - 1));
+	a_type = build_array_type(char_type_node, i_type);
+
+	TREE_TYPE(string) = a_type;
+	TREE_CONSTANT(string) = 1;
+	TREE_READONLY(string) = 1;
+
+	return build1(ADDR_EXPR, ptr_type_node, string);
 }
 
 static void insert_cond_result(basic_block bb_true, gimple stmt, tree arg)
@@ -573,12 +607,10 @@ static void insert_cond_result(basic_block bb_true, gimple stmt, tree arg)
 
 	loc_line = build_int_cstu(unsigned_type_node, xloc.line);
 
-	loc_file = build_string(strlen(xloc.file), xloc.file);
-	TREE_TYPE(loc_file) = char_array_type_node;
+	loc_file = build_string(strlen(xloc.file) + 1, xloc.file);
 	loc_file = create_string_param(loc_file);
 
-	current_func = build_string(IDENTIFIER_LENGTH(DECL_NAME(current_function_decl)), NAME(current_function_decl));
-	TREE_TYPE(current_func) = char_array_type_node;
+	current_func = build_string(NAME_LEN(current_function_decl) + 1, NAME(current_function_decl));
 	current_func = create_string_param(current_func);
 
 	// void report_size_overflow(const char *file, unsigned int line, const char *func)
@@ -979,9 +1011,13 @@ static void handle_function_by_hash(gimple stmt, tree fndecl)
 	xloc = expand_location(DECL_SOURCE_LOCATION(fndecl));
 
 	fndecl = get_original_function_decl(fndecl);
-	if (!hash->name || !hash->file)
+	if (!hash->name)
 		return;
-	if (strcmp(hash->name, NAME(fndecl)) || strcmp(hash->file, xloc.file))
+	if (file_match && !hash->file)
+		return;
+	if (strcmp(hash->name, NAME(fndecl)))
+		return;
+	if (file_match && strcmp(hash->file, xloc.file))
 		return;
 
 #define search_param(argnum)							\
@@ -1064,6 +1100,7 @@ static void start_unit_callback(void __unused *gcc_data, void __unused *user_dat
 					  NULL_TREE);
 	report_size_overflow_decl = build_fn_decl("report_size_overflow", fntype);
 
+	DECL_ASSEMBLER_NAME(report_size_overflow_decl);
 	TREE_PUBLIC(report_size_overflow_decl) = 1;
 	DECL_EXTERNAL(report_size_overflow_decl) = 1;
 	DECL_ARTIFICIAL(report_size_overflow_decl) = 1;
@@ -1092,8 +1129,11 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	for (i = 0; i < argc; ++i) {
-		if (!(strcmp(argv[i].key, "no-size_overflow"))) {
+		if (!strcmp(argv[i].key, "no-size-overflow")) {
 			enable = false;
+			continue;
+		} else if (!(strcmp(argv[i].key, "no-file-match"))) {
+			file_match = false;
 			continue;
 		}
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
