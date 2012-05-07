@@ -50,6 +50,7 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
 #ifndef CONFIG_PPC_64K_PAGES
 
 #define pgd_populate(MM, PGD, PUD)	pgd_set(PGD, PUD)
+#define pgd_populate_kernel(MM, PGD, PUD)	pgd_populate((MM), (PGD), (PUD))
 
 static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
 {
@@ -67,6 +68,11 @@ static inline void pud_populate(struct mm_struct *mm, pud_t *pud, pmd_t *pmd)
 	pud_set(pud, (unsigned long)pmd);
 }
 
+static inline void pud_populate_kernel(struct mm_struct *mm, pud_t *pud, pmd_t *pmd)
+{
+	pud_populate(mm, pud, pmd);
+}
+
 #define pmd_populate(mm, pmd, pte_page) \
 	pmd_populate_kernel(mm, pmd, page_address(pte_page))
 #define pmd_populate_kernel(mm, pmd, pte) pmd_set(pmd, (unsigned long)(pte))
@@ -76,6 +82,7 @@ static inline void pud_populate(struct mm_struct *mm, pud_t *pud, pmd_t *pmd)
 #else /* CONFIG_PPC_64K_PAGES */
 
 #define pud_populate(mm, pud, pmd)	pud_set(pud, (unsigned long)pmd)
+#define pud_populate_kernel(mm, pud, pmd)	pud_populate((mm), (pud), (pmd))
 
 static inline void pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd,
 				       pte_t *pte)

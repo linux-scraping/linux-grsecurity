@@ -37,6 +37,7 @@ BTFIXUPDEF_CALL(void, free_pgd_fast, pgd_t *)
 BTFIXUPDEF_CALL(void, pgd_set, pgd_t *, pmd_t *)
 #define pgd_set(pgdp,pmdp) BTFIXUP_CALL(pgd_set)(pgdp,pmdp)
 #define pgd_populate(MM, PGD, PMD)      pgd_set(PGD, PMD)
+#define pgd_populate_kernel(MM, PGD, PMD)      pgd_populate((MM), (PGD), (PMD))
 
 BTFIXUPDEF_CALL(pmd_t *, pmd_alloc_one, struct mm_struct *, unsigned long)
 #define pmd_alloc_one(mm, address)	BTFIXUP_CALL(pmd_alloc_one)(mm, address)
