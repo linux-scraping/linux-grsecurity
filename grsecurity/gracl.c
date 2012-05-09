@@ -3855,21 +3855,22 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 	if (unlikely(!(gr_status & GR_READY)))
 		return 0;
 #endif
+	if (request == PTRACE_ATTACH || request == PTRACE_SEIZE) {
+		read_lock(&tasklist_lock);
+		while (tmp->pid > 0) {
+			if (tmp == curtemp)
+				break;
+			tmp = tmp->real_parent;
+		}
 
-	read_lock(&tasklist_lock);
-	while (tmp->pid > 0) {
-		if (tmp == curtemp)
-			break;
-		tmp = tmp->real_parent;
-	}
-
-	if (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
-				((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE)))) {
+		if (tmp->pid == 0 && ((grsec_enable_harden_ptrace && current_uid() && !(gr_status & GR_READY)) ||
+					((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE)))) {
+			read_unlock(&tasklist_lock);
+			gr_log_ptrace(GR_DONT_AUDIT, GR_PTRACE_ACL_MSG, task);
+			return 1;
+		}
 		read_unlock(&tasklist_lock);
-		gr_log_ptrace(GR_DONT_AUDIT, GR_PTRACE_ACL_MSG, task);
-		return 1;
 	}
-	read_unlock(&tasklist_lock);
 
 #ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	if (!(gr_status & GR_READY))
