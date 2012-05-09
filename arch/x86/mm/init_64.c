@@ -507,7 +507,7 @@ phys_pud_init(pud_t *pud_page, unsigned long addr, unsigned long end,
 		unmap_low_page(pmd);
 
 		spin_lock(&init_mm.page_table_lock);
-		pud_populate(&init_mm, pud, __va(pmd_phys));
+		pud_populate_kernel(&init_mm, pud, __va(pmd_phys));
 		spin_unlock(&init_mm.page_table_lock);
 	}
 	__flush_tlb_all();

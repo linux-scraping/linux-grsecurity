@@ -1879,7 +1879,9 @@ static int apply_to_pmd_range(struct mm_struct *mm, pud_t *pud,
 
 	BUG_ON(pud_huge(*pud));
 
-	pmd = pmd_alloc(mm, pud, addr);
+	pmd = (mm == &init_mm) ?
+		pmd_alloc_kernel(mm, pud, addr) :
+		pmd_alloc(mm, pud, addr);
 	if (!pmd)
 		return -ENOMEM;
 	do {
@@ -1899,7 +1901,9 @@ static int apply_to_pud_range(struct mm_struct *mm, pgd_t *pgd,
 	unsigned long next;
 	int err;
 
-	pud = pud_alloc(mm, pgd, addr);
+	pud = (mm == &init_mm) ?
+		pud_alloc_kernel(mm, pgd, addr) :
+		pud_alloc(mm, pgd, addr);
 	if (!pud)
 		return -ENOMEM;
 	do {

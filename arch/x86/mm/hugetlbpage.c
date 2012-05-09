@@ -338,10 +338,15 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	addr = (mm->free_area_cache - len);
 	do {
 		addr &= huge_page_mask(h);
-		vma = find_vma(mm, addr);
 		/*
 		 * Lookup failure means no vma is above this address,
 		 * i.e. return with success:
+		 */
+		vma = find_vma(mm, addr);
+		if (!vma)
+			return addr;
+
+		/*
 		 * new region fits between prev_vma->vm_end and
 		 * vma->vm_start, use it:
 		 */
