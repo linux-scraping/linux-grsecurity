@@ -685,6 +685,8 @@ die:
 int commit_creds(struct cred *new)
 {
 #ifdef CONFIG_GRKERNSEC_SETXID
+	int ret;
+	int schedule_it = 0;
 	struct task_struct *t;
 
 	/* we won't get called with tasklist_lock held for writing
@@ -693,20 +695,27 @@ int commit_creds(struct cred *new)
 	*/
 	if (grsec_enable_setxid && !current_is_single_threaded() &&
 	    !current_uid() && new->uid) {
+		schedule_it = 1;
+	}
+	ret = __commit_creds(new);
+	if (schedule_it) {
 		rcu_read_lock();
 		read_lock(&tasklist_lock);
 		for (t = next_thread(current); t != current;
 			t = next_thread(t)) {
 			if (t->delayed_cred == NULL) {
 				t->delayed_cred = get_cred(new);
+				set_tsk_thread_flag(t, TIF_GRSEC_SETXID);
 				set_tsk_need_resched(t);
 			}
 		}
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
 	}
-#endif
+	return ret;
+#else
 	return __commit_creds(new);
+#endif
 }
 
 EXPORT_SYMBOL(commit_creds);
