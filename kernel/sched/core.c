@@ -3142,19 +3142,6 @@ pick_next_task(struct rq *rq)
 	BUG(); /* the idle class will always have a runnable task */
 }
 
-#ifdef CONFIG_GRKERNSEC_SETXID
-extern void gr_delayed_cred_worker(void);
-static inline void gr_cred_schedule(void)
-{
-	if (unlikely(current->delayed_cred))
-		gr_delayed_cred_worker();
-}
-#else
-static inline void gr_cred_schedule(void)
-{
-}
-#endif
-
 /*
  * __schedule() is the main scheduler function.
  */
@@ -3173,8 +3160,6 @@ need_resched:
 	prev = rq->curr;
 
 	schedule_debug(prev);
-
-	gr_cred_schedule();
 
 	if (sched_feat(HRTICK))
 		hrtick_clear(rq);

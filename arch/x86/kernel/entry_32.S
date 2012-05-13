@@ -481,7 +481,7 @@ resume_userspace_sig:
 #ifdef CONFIG_PAX_KERNEXEC
 	jae resume_userspace
 
-	PAX_EXIT_KERNEL
+	pax_exit_kernel
 	jmp resume_kernel
 #else
 	jb resume_kernel		# not returning to v8086 or userspace
