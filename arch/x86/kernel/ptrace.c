@@ -1364,6 +1364,10 @@ void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
 # define IS_IA32	0
 #endif
 
+#ifdef CONFIG_GRKERNSEC_SETXID
+extern void gr_delayed_cred_worker(void);
+#endif
+
 /*
  * We must return the syscall number to actually look up in the table.
  * This can be -1L to skip running any syscall at all.
@@ -1371,6 +1375,11 @@ void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs,
 long syscall_trace_enter(struct pt_regs *regs)
 {
 	long ret = 0;
+
+#ifdef CONFIG_GRKERNSEC_SETXID
+	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
+                gr_delayed_cred_worker();
+#endif		
 
 	/*
 	 * If we stepped into a sysenter/syscall insn, it trapped in
@@ -1416,6 +1425,11 @@ long syscall_trace_enter(struct pt_regs *regs)
 void syscall_trace_leave(struct pt_regs *regs)
 {
 	bool step;
+
+#ifdef CONFIG_GRKERNSEC_SETXID
+	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
+                gr_delayed_cred_worker();
+#endif		
 
 	if (unlikely(current->audit_context))
 		audit_syscall_exit(AUDITSC_RESULT(regs->ax), regs->ax);

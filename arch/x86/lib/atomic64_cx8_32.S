@@ -146,7 +146,7 @@ addsub_return sub sub sbb
 addsub_return add add adc _unchecked
 addsub_return sub sub sbb _unchecked
 
-.macro incdec_return func ins insc unchecked
+.macro incdec_return func ins insc unchecked=""
 ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	CFI_STARTPROC
 	SAVE ebx
