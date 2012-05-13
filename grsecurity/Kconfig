@@ -132,7 +132,7 @@ config GRKERNSEC_HIGH
 	select GRKERNSEC_PROC_ADD
 	select GRKERNSEC_CHROOT_CHMOD
 	select GRKERNSEC_CHROOT_NICE
-	select GRKERNSEC_SETXID if (X86)
+	select GRKERNSEC_SETXID if (X86 || SPARC64 || PPC || ARM || MIPS)
 	select GRKERNSEC_AUDIT_MOUNT
 	select GRKERNSEC_MODHARDEN if (MODULES)
 	select GRKERNSEC_HARDEN_PTRACE
@@ -827,7 +827,7 @@ config GRKERNSEC_PTRACE_READEXEC
 
 config GRKERNSEC_SETXID
 	bool "Enforce consistent multithreaded privileges"
-	depends on (X86)
+	depends on (X86 || SPARC64 || PPC || ARM || MIPS)
 	help
 	  If you say Y here, a change from a root uid to a non-root uid
 	  in a multithreaded application will cause the resulting uids,
