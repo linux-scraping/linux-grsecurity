@@ -544,4 +544,7 @@ MODULE_DEVICE_TABLE (pci, rio_pci_tbl);
 #define DEFAULT_RXT		750
 #define DEFAULT_TXC		1
 #define MAX_TXC			8
+
+#include <linux/mii.h>
+
 #endif				/* __DL2K_H__ */
