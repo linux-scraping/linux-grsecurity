@@ -16,6 +16,7 @@
 #include <asm/tlb.h>
 #include <asm/proto.h>
 #include <asm/desc.h>
+#include <asm/bios_ebda.h>
 
 unsigned long __initdata pgt_buf_start;
 unsigned long __meminitdata pgt_buf_end;
@@ -311,6 +312,12 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
  * Access has to be given to non-kernel-ram areas as well, these contain the PCI
  * mmio resources as well as potential bios/acpi data regions.
  */
+
+#ifdef CONFIG_GRKERNSEC_KMEM
+static unsigned int ebda_start __read_only;
+static unsigned int ebda_end __read_only;
+#endif
+
 int devmem_is_allowed(unsigned long pagenr)
 {
 #ifdef CONFIG_GRKERNSEC_KMEM
@@ -318,7 +325,7 @@ int devmem_is_allowed(unsigned long pagenr)
 	if (!pagenr)
 		return 1;
 	/* allow EBDA */
-	if ((0x9f000 >> PAGE_SHIFT) == pagenr)
+	if (pagenr >= ebda_start && pagenr < ebda_end)
 		return 1;
 #else
 	if (!pagenr)
@@ -392,16 +399,44 @@ void free_init_pages(char *what, unsigned long begin, unsigned long end)
 #endif
 }
 
+#ifdef CONFIG_GRKERNSEC_KMEM
+static inline void gr_init_ebda(void)
+{
+	unsigned int ebda_addr;
+	unsigned int ebda_size = 0;
+
+	ebda_addr = get_bios_ebda();
+	if (ebda_addr) {
+		ebda_size = *(unsigned char *)phys_to_virt(ebda_addr);
+		ebda_size <<= 10;
+	}
+	if (ebda_addr && ebda_size) {
+		ebda_start = ebda_addr >> PAGE_SHIFT;
+		ebda_end = min(PAGE_ALIGN(ebda_addr + ebda_size), 0xa0000) >> PAGE_SHIFT;
+	} else {
+		ebda_start = 0x9f000 >> PAGE_SHIFT;
+		ebda_end = 0xa0000 >> PAGE_SHIFT;
+	}
+}
+#else
+static inline void gr_init_ebda(void) { }
+#endif
+
 void free_initmem(void)
 {
-
 #ifdef CONFIG_PAX_KERNEXEC
 #ifdef CONFIG_X86_32
 	/* PaX: limit KERNEL_CS to actual size */
 	unsigned long addr, limit;
 	struct desc_struct d;
 	int cpu;
+#endif
+#endif
 
+	gr_init_ebda();
+
+#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_X86_32
 	limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
 	limit = (limit - 1UL) >> PAGE_SHIFT;
 
