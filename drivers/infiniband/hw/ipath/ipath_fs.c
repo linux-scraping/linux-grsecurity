@@ -126,8 +126,6 @@ static const struct file_operations atomic_counters_ops = {
 };
 
 static ssize_t flash_read(struct file *file, char __user *buf,
-			  size_t count, loff_t *ppos) __size_overflow(3);
-static ssize_t flash_read(struct file *file, char __user *buf,
 			  size_t count, loff_t *ppos)
 {
 	struct ipath_devdata *dd;
@@ -178,8 +176,6 @@ bail:
 	return ret;
 }
 
-static ssize_t flash_write(struct file *file, const char __user *buf,
-			   size_t count, loff_t *ppos) __size_overflow(3);
 static ssize_t flash_write(struct file *file, const char __user *buf,
 			   size_t count, loff_t *ppos)
 {

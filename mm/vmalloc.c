@@ -372,6 +372,10 @@ static void purge_vmap_area_lazy(void);
 static struct vmap_area *alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
+				int node, gfp_t gfp_mask) __size_overflow(1);
+static struct vmap_area *alloc_vmap_area(unsigned long size,
+				unsigned long align,
+				unsigned long vstart, unsigned long vend,
 				int node, gfp_t gfp_mask)
 {
 	struct vmap_area *va;

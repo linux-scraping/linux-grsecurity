@@ -56,15 +56,15 @@ static inline void vmalloc_init(void)
 }
 #endif
 
-extern void *vmalloc(unsigned long size) __size_overflow(1);
-extern void *vzalloc(unsigned long size) __size_overflow(1);
-extern void *vmalloc_user(unsigned long size) __size_overflow(1);
-extern void *vmalloc_node(unsigned long size, int node) __size_overflow(1);
-extern void *vzalloc_node(unsigned long size, int node) __size_overflow(1);
-extern void *vmalloc_exec(unsigned long size) __size_overflow(1);
-extern void *vmalloc_32(unsigned long size) __size_overflow(1);
-extern void *vmalloc_32_user(unsigned long size) __size_overflow(1);
-extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot) __size_overflow(1);
+extern void *vmalloc(unsigned long size);
+extern void *vzalloc(unsigned long size);
+extern void *vmalloc_user(unsigned long size);
+extern void *vmalloc_node(unsigned long size, int node);
+extern void *vzalloc_node(unsigned long size, int node);
+extern void *vmalloc_exec(unsigned long size);
+extern void *vmalloc_32(unsigned long size);
+extern void *vmalloc_32_user(unsigned long size);
+extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot);
 extern void *__vmalloc_node_range(unsigned long size, unsigned long align,
 			unsigned long start, unsigned long end, gfp_t gfp_mask,
 			pgprot_t prot, int node, void *caller) __size_overflow(1);
