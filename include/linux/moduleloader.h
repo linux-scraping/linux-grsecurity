@@ -26,7 +26,7 @@ unsigned int arch_mod_section_prepend(struct module *mod, unsigned int section);
 void *module_alloc(unsigned long size) __size_overflow(1);
 
 #ifdef CONFIG_PAX_KERNEXEC
-void *module_alloc_exec(unsigned long size);
+void *module_alloc_exec(unsigned long size) __size_overflow(1);
 #else
 #define module_alloc_exec(x) module_alloc(x)
 #endif

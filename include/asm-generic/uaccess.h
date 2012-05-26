@@ -76,8 +76,6 @@ extern unsigned long search_exception_table(unsigned long);
  */
 #ifndef __copy_from_user
 static inline __must_check long __copy_from_user(void *to,
-		const void __user * from, unsigned long n) __size_overflow(3);
-static inline __must_check long __copy_from_user(void *to,
 		const void __user * from, unsigned long n)
 {
 	if (__builtin_constant_p(n)) {
@@ -107,8 +105,6 @@ static inline __must_check long __copy_from_user(void *to,
 #endif
 
 #ifndef __copy_to_user
-static inline __must_check long __copy_to_user(void __user *to,
-		const void *from, unsigned long n) __size_overflow(3);
 static inline __must_check long __copy_to_user(void __user *to,
 		const void *from, unsigned long n)
 {
@@ -228,7 +224,6 @@ extern int __put_user_bad(void) __attribute__((noreturn));
 		-EFAULT;					\
 })
 
-static inline int __get_user_fn(size_t size, const void __user *ptr, void *x) __size_overflow(1);
 static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 {
 	size = __copy_from_user(x, ptr, size);
@@ -245,7 +240,6 @@ extern int __get_user_bad(void) __attribute__((noreturn));
 #define __copy_to_user_inatomic __copy_to_user
 #endif
 
-static inline long copy_from_user(void *to, const void __user * from, unsigned long n) __size_overflow(3);
 static inline long copy_from_user(void *to,
 		const void __user * from, unsigned long n)
 {
@@ -256,7 +250,6 @@ static inline long copy_from_user(void *to,
 		return n;
 }
 
-static inline long copy_to_user(void __user *to, const void *from, unsigned long n) __size_overflow(3);
 static inline long copy_to_user(void __user *to,
 		const void *from, unsigned long n)
 {
@@ -316,8 +309,6 @@ static inline long strlen_user(const char __user *src)
  */
 #ifndef __clear_user
 static inline __must_check unsigned long
-__clear_user(void __user *to, unsigned long n) __size_overflow(2);
-static inline __must_check unsigned long
 __clear_user(void __user *to, unsigned long n)
 {
 	memset((void __force *)to, 0, n);
@@ -325,8 +316,6 @@ __clear_user(void __user *to, unsigned long n)
 }
 #endif
 
-static inline __must_check unsigned long
-clear_user(void __user *to, unsigned long n) __size_overflow(2);
 static inline __must_check unsigned long
 clear_user(void __user *to, unsigned long n)
 {

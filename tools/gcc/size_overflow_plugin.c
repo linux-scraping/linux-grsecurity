@@ -33,9 +33,9 @@
 #include "cfgloop.h"
 
 struct size_overflow_hash {
+		struct size_overflow_hash *next;
 		const char *name;
 		const char *file;
-		unsigned short collision:1;
 		unsigned short param1:1;
 		unsigned short param2:1;
 		unsigned short param3:1;
@@ -47,8 +47,7 @@ struct size_overflow_hash {
 		unsigned short param9:1;
 };
 
-#include "size_overflow_hash1.h"
-#include "size_overflow_hash2.h"
+#include "size_overflow_hash.h"
 
 #define __unused __attribute__((__unused__))
 #define NAME(node) IDENTIFIER_POINTER(DECL_NAME(node))
@@ -69,7 +68,7 @@ static unsigned int handle_function(void);
 static bool file_match = true;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20120502beta",
+	.version	= "20120521beta",
 	.help		= "no-size_overflow\tturn off size overflow checking\n",
 };
 
@@ -134,9 +133,15 @@ static unsigned int CrapWow(const char *key, unsigned int len, unsigned int seed
 #undef cwmixb
 }
 
-static inline unsigned int size_overflow_hash(const char *fndecl, unsigned int seed)
+static inline unsigned int get_hash_num(const char *fndecl, const char *loc_file, unsigned int seed)
 {
-	return CrapWow(fndecl, strlen(fndecl), seed) & 0xffff;
+	unsigned int fn = CrapWow(fndecl, strlen(fndecl), seed) & 0xffff;
+	unsigned int file = CrapWow(loc_file, strlen(loc_file), seed) & 0xffff;
+
+	if (file_match)
+		return fn ^ file;
+	else
+		return fn;
 }
 
 static inline tree get_original_function_decl(tree fndecl)
@@ -152,18 +157,22 @@ static inline gimple get_def_stmt(tree node)
 	return SSA_NAME_DEF_STMT(node);
 }
 
-static struct size_overflow_hash *get_function_hash(tree fndecl)
+static struct size_overflow_hash *get_function_hash(tree fndecl, const char *loc_file)
 {
 	unsigned int hash;
-	const char *func = NAME(fndecl);
+	struct size_overflow_hash *entry;
+	const char *func_name = NAME(fndecl);
 
-	hash = size_overflow_hash(func, 0);
+	hash = get_hash_num(NAME(fndecl), loc_file, 0);
 
-	if (size_overflow_hash1[hash].collision) {
-		hash = size_overflow_hash(func, 23432);
-		return &size_overflow_hash2[hash];
+	entry = size_overflow_hash[hash];
+	while (entry) {
+		if (!strcmp(entry->name, func_name) && (!file_match || !strcmp(entry->file, loc_file)))
+			return entry;
+		entry = entry->next;
 	}
-	return &size_overflow_hash1[hash];
+
+	return NULL;
 }
 
 static void check_arg_type(tree var)
@@ -171,39 +180,16 @@ static void check_arg_type(tree var)
 	tree type = TREE_TYPE(var);
 	enum tree_code code = TREE_CODE(type);
 
-	gcc_assert(code == INTEGER_TYPE ||
+	gcc_assert(code == INTEGER_TYPE || code == ENUMERAL_TYPE ||
 		  (code == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == VOID_TYPE) ||
 		  (code == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == INTEGER_TYPE));
 }
 
-static void check_missing_attribute(tree arg)
+static int find_arg_number(tree arg, tree func)
 {
-	tree var, type, func = get_original_function_decl(current_function_decl);
-	const char *curfunc = NAME(func);
-	unsigned int new_hash, argnum = 1;
-	struct size_overflow_hash *hash;
-	location_t loc;
-	expanded_location xloc;
+	tree var;
 	bool match = false;
-
-	type = TREE_TYPE(arg);
-	// skip function pointers
-	if (TREE_CODE(type) == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == FUNCTION_TYPE)
-		return;
-
-	loc = DECL_SOURCE_LOCATION(func);
-	xloc = expand_location(loc);
-
-	if (lookup_attribute("size_overflow", TYPE_ATTRIBUTES(TREE_TYPE(func))))
-		return;
-
-	hash = get_function_hash(func);
-	if (hash->name && !strcmp(hash->name, NAME(func)))
-		return;
-	if (file_match && hash->file && !strcmp(hash->file, xloc.file))
-		return;
-
-	gcc_assert(TREE_CODE(arg) != COMPONENT_REF);
+	unsigned int argnum = 1;
 
 	if (TREE_CODE(arg) == SSA_NAME)
 		arg = SSA_NAME_VAR(arg);
@@ -217,11 +203,52 @@ static void check_missing_attribute(tree arg)
 
 		match = true;
 		if (!TYPE_UNSIGNED(TREE_TYPE(var)))
-			return;
+			return 0;
 		break;
 	}
 	if (!match) {
-		warning(0, "check_missing_attribute: cannot find the %s argument in %s", NAME(arg), NAME(func));
+		warning(0, "find_arg_number: cannot find the %s argument in %s", NAME(arg), NAME(func));
+		return 0;
+	}
+	return argnum;
+}
+
+static void print_missing_msg(tree func, const char *filename, unsigned int argnum)
+{
+	unsigned int new_hash;
+	location_t loc = DECL_SOURCE_LOCATION(func);
+	const char *curfunc = NAME(func);
+
+	new_hash = get_hash_num(curfunc, filename, 0);
+	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%d+%u+%s+", curfunc, curfunc, argnum, new_hash, filename);
+}
+
+static void check_missing_attribute(tree arg)
+{
+	tree type, func = get_original_function_decl(current_function_decl);
+	unsigned int argnum;
+	struct size_overflow_hash *hash;
+	const char *filename;
+
+	gcc_assert(TREE_CODE(arg) != COMPONENT_REF);
+
+	type = TREE_TYPE(arg);
+	// skip function pointers
+	if (TREE_CODE(type) == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == FUNCTION_TYPE)
+		return;
+
+	if (lookup_attribute("size_overflow", TYPE_ATTRIBUTES(TREE_TYPE(func))))
+		return;
+
+	argnum = find_arg_number(arg, func);
+	if (argnum == 0)
+		return;
+
+	filename = DECL_SOURCE_FILE(func);
+
+	hash = get_function_hash(func, filename);
+	if (!hash) {
+		print_missing_msg(func, filename, argnum);
 		return;
 	}
 
@@ -239,8 +266,7 @@ static void check_missing_attribute(tree arg)
 	check_param(9);
 #undef check_param
 
-	new_hash = size_overflow_hash(curfunc, 0);
-	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%d+%u+%s", curfunc, curfunc, argnum, new_hash, xloc.file);
+	print_missing_msg(func, filename, argnum);
 }
 
 static tree create_new_var(tree type)
@@ -419,6 +445,16 @@ static tree signed_cast_constant(tree node)
 	return cast_a_tree(signed_size_overflow_type, node);
 }
 
+static basic_block create_a_first_bb(void)
+{
+	basic_block first_bb;
+
+	first_bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
+	if (dom_info_available_p(CDI_DOMINATORS))
+		set_immediate_dominator(CDI_DOMINATORS, first_bb, ENTRY_BLOCK_PTR);
+	return first_bb;
+}
+
 static gimple cast_old_phi_arg(gimple oldstmt, tree arg, tree new_var, unsigned int i)
 {
 	basic_block bb;
@@ -436,6 +472,8 @@ static gimple cast_old_phi_arg(gimple oldstmt, tree arg, tree new_var, unsigned 
 	}
 
 	bb = gimple_phi_arg_edge(oldstmt, i)->src;
+	if (bb->index == 0)
+		bb = create_a_first_bb();
 	gsi = gsi_after_labels(bb);
 	gsi_insert_before(&gsi, newstmt, GSI_NEW_STMT);
 	return newstmt;
@@ -537,6 +575,7 @@ static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_
 	if (is_gimple_constant(rhs1))
 		return dup_assign(visited, potentionally_overflowed, def_stmt, signed_cast_constant(rhs1), NULL_TREE, NULL_TREE);
 
+	gcc_assert(TREE_CODE(rhs1) != COND_EXPR);
 	switch (TREE_CODE(rhs1)) {
 	case SSA_NAME:
 		return handle_unary_rhs(visited, potentionally_overflowed, var);
@@ -545,7 +584,6 @@ static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_
 	case BIT_FIELD_REF:
 	case ADDR_EXPR:
 	case COMPONENT_REF:
-	case COND_EXPR:
 	case INDIRECT_REF:
 #if BUILDING_GCC_VERSION >= 4006
 	case MEM_REF:
@@ -619,12 +657,18 @@ static void insert_cond_result(basic_block bb_true, gimple stmt, tree arg)
 	gsi_insert_after(&gsi, func_stmt, GSI_CONTINUE_LINKING);
 }
 
+static void __unused print_the_code_insertions(gimple stmt)
+{
+	location_t loc = gimple_location(stmt);
+
+	inform(loc, "Integer size_overflow check applied here.");
+}
+
 static void insert_check_size_overflow(gimple stmt, enum tree_code cond_code, tree arg, tree type_value)
 {
 	basic_block cond_bb, join_bb, bb_true;
 	edge e;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
-//	location_t loc = gimple_location(stmt);
 
 	cond_bb = gimple_bb(stmt);
 	gsi_prev(&gsi);
@@ -655,7 +699,7 @@ static void insert_check_size_overflow(gimple stmt, enum tree_code cond_code, tr
 	insert_cond(cond_bb, arg, cond_code, type_value);
 	insert_cond_result(bb_true, stmt, arg);
 
-//	inform(loc, "Integer size_overflow check applied here.");
+//	print_the_code_insertions(stmt);
 }
 
 static tree get_type_for_check(tree rhs)
@@ -766,6 +810,7 @@ static tree handle_binary_ops(struct pointer_set_t *visited, bool *potentionally
 	case ROUND_MOD_EXPR:
 	case EXACT_DIV_EXPR:
 	case POINTER_PLUS_EXPR:
+	case BIT_AND_EXPR:
 		return create_assign(visited, potentionally_overflowed, def_stmt, var, AFTER_STMT);
 	default:
 		break;
@@ -870,7 +915,7 @@ static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed
 	if (TREE_CODE(var) == ADDR_EXPR)
 		return NULL_TREE;
 
-	gcc_assert(code == INTEGER_TYPE || code == POINTER_TYPE || code == BOOLEAN_TYPE);
+	gcc_assert(code == INTEGER_TYPE || code == POINTER_TYPE || code == BOOLEAN_TYPE || code == ENUMERAL_TYPE);
 	if (code != INTEGER_TYPE)
 		return NULL_TREE;
 
@@ -1004,20 +1049,13 @@ static void handle_function_by_attribute(gimple stmt, tree attr, tree fndecl)
 
 static void handle_function_by_hash(gimple stmt, tree fndecl)
 {
+	tree orig_fndecl;
 	struct size_overflow_hash *hash;
-	expanded_location xloc;
+	const char *filename = DECL_SOURCE_FILE(fndecl);
 
-	hash = get_function_hash(fndecl);
-	xloc = expand_location(DECL_SOURCE_LOCATION(fndecl));
-
-	fndecl = get_original_function_decl(fndecl);
-	if (!hash->name)
-		return;
-	if (file_match && !hash->file)
-		return;
-	if (strcmp(hash->name, NAME(fndecl)))
-		return;
-	if (file_match && strcmp(hash->file, xloc.file))
+	orig_fndecl = get_original_function_decl(fndecl);
+	hash = get_function_hash(orig_fndecl, filename);
+	if (!hash)
 		return;
 
 #define search_param(argnum)							\

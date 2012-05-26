@@ -25,9 +25,8 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/string.h>
-#include <linux/kernel.h>
 #include <linux/bug.h>
-
+#include <linux/kernel.h>
 
 #include <asm/unaligned.h>
 #include <asm/system.h>
