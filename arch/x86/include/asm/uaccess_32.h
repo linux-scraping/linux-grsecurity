@@ -42,8 +42,6 @@ unsigned long __must_check __copy_from_user_ll_nocache_nozero
  */
 
 static __always_inline unsigned long __must_check
-__copy_to_user_inatomic(void __user *to, const void *from, unsigned long n) __size_overflow(3);
-static __always_inline unsigned long __must_check
 __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 {
 	pax_track_stack();
@@ -89,8 +87,6 @@ __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
  * On success, this will be zero.
  */
 static __always_inline unsigned long __must_check
-__copy_to_user(void __user *to, const void *from, unsigned long n) __size_overflow(3);
-static __always_inline unsigned long __must_check
 __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
 	might_fault();
@@ -98,8 +94,6 @@ __copy_to_user(void __user *to, const void *from, unsigned long n)
 	return __copy_to_user_inatomic(to, from, n);
 }
 
-static __always_inline unsigned long
-__copy_from_user_inatomic(void *to, const void __user *from, unsigned long n) __size_overflow(3);
 static __always_inline unsigned long
 __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 {
@@ -152,8 +146,6 @@ __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
  * for explanation of why this is needed.
  */
 static __always_inline unsigned long
-__copy_from_user(void *to, const void __user *from, unsigned long n) __size_overflow(3);
-static __always_inline unsigned long
 __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	might_fault();
@@ -184,8 +176,6 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 }
 
 static __always_inline unsigned long __copy_from_user_nocache(void *to,
-				const void __user *from, unsigned long n) __size_overflow(3);
-static __always_inline unsigned long __copy_from_user_nocache(void *to,
 				const void __user *from, unsigned long n)
 {
 	might_fault();
@@ -213,9 +203,6 @@ static __always_inline unsigned long __copy_from_user_nocache(void *to,
 
 static __always_inline unsigned long
 __copy_from_user_inatomic_nocache(void *to, const void __user *from,
-				  unsigned long n) __size_overflow(3);
-static __always_inline unsigned long
-__copy_from_user_inatomic_nocache(void *to, const void __user *from,
 				  unsigned long n)
 {
 	if ((long)n < 0)
@@ -237,8 +224,6 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
  * Returns number of bytes that could not be copied.
  * On success, this will be zero.
  */
-static __always_inline unsigned long __must_check
-copy_to_user(void __user *to, const void *from, unsigned long n) __size_overflow(3);
 static __always_inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
 {
@@ -263,8 +248,6 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
  * If some data could not be copied, this function will pad the copied
  * data to the requested size using zero bytes.
  */
-static __always_inline unsigned long __must_check
-copy_from_user(void *to, const void __user *from, unsigned long n) __size_overflow(3);
 static __always_inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {

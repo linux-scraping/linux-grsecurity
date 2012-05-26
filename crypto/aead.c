@@ -25,8 +25,6 @@
 #include "internal.h"
 
 static int setkey_unaligned(struct crypto_aead *tfm, const u8 *key,
-			    unsigned int keylen) __size_overflow(3);
-static int setkey_unaligned(struct crypto_aead *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct aead_alg *aead = crypto_aead_alg(tfm);
@@ -48,7 +46,6 @@ static int setkey_unaligned(struct crypto_aead *tfm, const u8 *key,
 	return ret;
 }
 
-static int setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen) __size_overflow(3);
 static int setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen)
 {
 	struct aead_alg *aead = crypto_aead_alg(tfm);

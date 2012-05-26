@@ -125,7 +125,6 @@ static inline size_t slab_buffer_size(struct kmem_cache *cachep)
 }
 #endif
 
-static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *cachep;
@@ -181,7 +180,6 @@ kmem_cache_alloc_node_notrace(struct kmem_cache *cachep,
 }
 #endif
 
-static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	struct kmem_cache *cachep;

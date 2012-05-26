@@ -165,6 +165,8 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 			 * second-to-last pointer (index -2 to end) in the
 			 * exception stack:
 			 */
+			if ((u16)estack_end[-1] != __KERNEL_DS)
+				goto out;
 			stack = (unsigned long *) estack_end[-2];
 			continue;
 		}
@@ -197,6 +199,7 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 	 */
 	stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
 	bp = print_context_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
+out:
 	put_cpu();
 }
 EXPORT_SYMBOL(dump_trace);

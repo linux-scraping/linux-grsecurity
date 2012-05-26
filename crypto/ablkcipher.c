@@ -29,8 +29,6 @@
 static const char *skcipher_default_geniv __read_mostly;
 
 static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
-			    unsigned int keylen) __size_overflow(3);
-static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct ablkcipher_alg *cipher = crypto_ablkcipher_alg(tfm);
@@ -52,8 +50,6 @@ static int setkey_unaligned(struct crypto_ablkcipher *tfm, const u8 *key,
 	return ret;
 }
 
-static int setkey(struct crypto_ablkcipher *tfm, const u8 *key,
-		  unsigned int keylen) __size_overflow(3);
 static int setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 		  unsigned int keylen)
 {

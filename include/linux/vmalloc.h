@@ -56,13 +56,13 @@ static inline void vmalloc_init(void)
 }
 #endif
 
-extern void *vmalloc(unsigned long size) __size_overflow(1);
-extern void *vmalloc_user(unsigned long size) __size_overflow(1);
-extern void *vmalloc_node(unsigned long size, int node) __size_overflow(1);
-extern void *vmalloc_exec(unsigned long size) __size_overflow(1);
-extern void *vmalloc_32(unsigned long size) __size_overflow(1);
-extern void *vmalloc_32_user(unsigned long size) __size_overflow(1);
-extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot) __size_overflow(1);
+extern void *vmalloc(unsigned long size);
+extern void *vmalloc_user(unsigned long size);
+extern void *vmalloc_node(unsigned long size, int node);
+extern void *vmalloc_exec(unsigned long size);
+extern void *vmalloc_32(unsigned long size);
+extern void *vmalloc_32_user(unsigned long size);
+extern void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot);
 extern void *__vmalloc_area(struct vm_struct *area, gfp_t gfp_mask,
 				pgprot_t prot);
 extern void vfree(const void *addr);

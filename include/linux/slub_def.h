@@ -145,6 +145,7 @@ extern struct kmem_cache kmalloc_caches[SLUB_PAGE_SHIFT];
  * Sorry that the following has to be that ugly but some versions of GCC
  * have trouble with constant propagation and loops.
  */
+static __always_inline int kmalloc_index(size_t size) __size_overflow(1);
 static __always_inline int kmalloc_index(size_t size)
 {
 	if (!size)
@@ -197,7 +198,6 @@ static __always_inline int kmalloc_index(size_t size)
  * This ought to end up with a global pointer to the right cache
  * in kmalloc_caches.
  */
-static __always_inline struct kmem_cache *kmalloc_slab(size_t size) __size_overflow(1);
 static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
 {
 	int index = kmalloc_index(size);
@@ -216,7 +216,7 @@ static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
 #endif
 
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
-void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1) __size_overflow(1);
+void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1);
 
 #ifdef CONFIG_KMEMTRACE
 extern void *kmem_cache_alloc_notrace(struct kmem_cache *s, gfp_t gfpflags);
@@ -240,7 +240,6 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
 	return ret;
 }
 
-static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	void *ret;
@@ -283,7 +282,6 @@ kmem_cache_alloc_node_notrace(struct kmem_cache *s,
 }
 #endif
 
-static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	void *ret;

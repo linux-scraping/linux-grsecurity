@@ -436,10 +436,6 @@ static unsigned char asn1_subid_decode(struct asn1_ctx *ctx,
 static unsigned char asn1_oid_decode(struct asn1_ctx *ctx,
 				     unsigned char *eoc,
 				     unsigned long **oid,
-				     unsigned int *len) __size_overflow(2);
-static unsigned char asn1_oid_decode(struct asn1_ctx *ctx,
-				     unsigned char *eoc,
-				     unsigned long **oid,
 				     unsigned int *len)
 {
 	unsigned long subid;
