@@ -87,16 +87,20 @@ static inline void pgd_list_del(pgd_t *pgd)
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 pgdval_t clone_pgd_mask __read_only = ~_PAGE_PRESENT;
 
-void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count)
+void __shadow_user_pgds(pgd_t *dst, const pgd_t *src)
 {
+	unsigned int count = USER_PGD_PTRS;
+
 	while (count--)
 		*dst++ = __pgd((pgd_val(*src++) | (_PAGE_NX & __supported_pte_mask)) & ~_PAGE_USER);
 }
 #endif
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count)
+void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 {
+	unsigned int count = USER_PGD_PTRS;
+
 	while (count--) {
 		pgd_t pgd;
 

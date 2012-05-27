@@ -360,7 +360,7 @@ CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 # Needed to be compatible with the O= option
 LINUXINCLUDE    := -isystem arch/$(hdr-arch)/include \
 		   -isystem arch/$(hdr-arch)/include/generated -isystem include \
-                   $(if $(KBUILD_SRC), -I$(srctree)/include) \
+                   -isystem include/generated \
                    -include $(srctree)/include/linux/kconfig.h
 
 KBUILD_CPPFLAGS := -D__KERNEL__
@@ -443,7 +443,7 @@ asm-generic:
 
 no-dot-config-targets := clean mrproper distclean \
 			 cscope gtags TAGS tags help %docs check% coccicheck \
-			 include/linux/version.h headers_% \
+			 include/generated/linux/version.h headers_% \
 			 kernelversion %src-pkg
 
 config-targets := 0
@@ -486,11 +486,11 @@ include $(srctree)/arch/$(SRCARCH)/Makefile
 export KBUILD_DEFCONFIG KBUILD_KCONFIG
 
 config: scripts_basic outputmakefile FORCE
-	$(Q)mkdir -p include/linux include/config
+	$(Q)mkdir -p include/generated/linux include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
 %config: scripts_basic outputmakefile FORCE
-	$(Q)mkdir -p include/linux include/config
+	$(Q)mkdir -p include/generated/linux include/config
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
 else
@@ -1022,12 +1022,14 @@ ifneq ($(KBUILD_SRC),)
 		echo "  in the '$(srctree)' directory.";\
 		/bin/false; \
 	fi;
+	$(Q)for dir in $(srctree)/include/* ; do ln -fsn $$dir include/`basename $$dir` ; done
+	$(Q)ln -fsn $(srctree)/arch/$(SRCARCH)/include/asm arch/$(SRCARCH)/include;
 endif
 
 # prepare2 creates a makefile if using a separate output directory
 prepare2: prepare3 outputmakefile asm-generic
 
-prepare1: prepare2 include/linux/version.h include/generated/utsrelease.h \
+prepare1: prepare2 include/generated/linux/version.h include/generated/utsrelease.h \
                    include/config/auto.conf
 	$(cmd_crmodverdir)
 
@@ -1061,7 +1063,7 @@ define filechk_version.h
 	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))';)
 endef
 
-include/linux/version.h: $(srctree)/Makefile FORCE
+include/generated/linux/version.h: $(srctree)/Makefile FORCE
 	$(call filechk,version.h)
 
 include/generated/utsrelease.h: include/config/kernel.release FORCE
@@ -1100,7 +1102,7 @@ hdr-inst := -rR -f $(srctree)/scripts/Makefile.headersinst obj
 hdr-dst = $(if $(KBUILD_HEADERS), dst=include/asm-$(hdr-arch), dst=include/asm)
 
 PHONY += __headers
-__headers: include/linux/version.h scripts_basic asm-generic FORCE
+__headers: include/generated/linux/version.h scripts_basic asm-generic FORCE
 	$(Q)$(MAKE) $(build)=scripts build_unifdef
 
 PHONY += headers_install_all
@@ -1215,7 +1217,7 @@ CLEAN_FILES +=	vmlinux System.map \
 MRPROPER_DIRS  += include/config usr/include include/generated          \
                   arch/*/include/generated
 MRPROPER_FILES += .config .config.old .version .old_version             \
-                  include/linux/version.h                               \
+                  include/generated/linux/version.h                               \
 		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
 # clean - Delete most, but leave enough to build external modules
