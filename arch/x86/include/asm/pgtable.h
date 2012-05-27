@@ -708,13 +708,13 @@ static inline void clone_pgd_range(pgd_t *dst, const pgd_t *src, int count)
 }
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-extern void __clone_user_pgds(pgd_t *dst, const pgd_t *src, int count);
+extern void __clone_user_pgds(pgd_t *dst, const pgd_t *src);
 #endif
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-extern void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count);
+extern void __shadow_user_pgds(pgd_t *dst, const pgd_t *src);
 #else
-static inline void __shadow_user_pgds(pgd_t *dst, const pgd_t *src, int count) {}
+static inline void __shadow_user_pgds(pgd_t *dst, const pgd_t *src) {}
 #endif
 
 #include <asm-generic/pgtable.h>
