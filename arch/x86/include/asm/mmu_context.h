@@ -63,8 +63,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		/* Re-load page tables */
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		pax_open_kernel();
-		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd, USER_PGD_PTRS);
-		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd, USER_PGD_PTRS);
+		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd);
+		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd);
 		pax_close_kernel();
 		load_cr3(get_cpu_pgd(cpu));
 #else
@@ -104,8 +104,8 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		pax_open_kernel();
-		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd, USER_PGD_PTRS);
-		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd, USER_PGD_PTRS);
+		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd);
+		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd);
 		pax_close_kernel();
 		load_cr3(get_cpu_pgd(cpu));
 #endif
