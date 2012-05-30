@@ -318,7 +318,7 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct vm_area_struc
 
 	charge = 0;
 	if (mpnt->vm_flags & VM_ACCOUNT) {
-		unsigned int len = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
+		unsigned long len = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
 		if (security_vm_enough_memory(len))
 			goto fail_nomem;
 		charge = len;

@@ -38,24 +38,47 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201111150100",
+	.version	= "201205300030",
 	.help		= "no-constify\tturn off constification\n",
 };
 
-static void constify_type(tree type);
-static bool walk_struct(tree node);
+static void deconstify_tree(tree node);
 
-static tree deconstify_type(tree old_type)
+static void deconstify_type(tree type)
 {
-	tree new_type, field;
+	tree field;
+
+	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
+		tree type = TREE_TYPE(field);
+
+		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+			continue;
+		if (!TYPE_READONLY(type))
+			continue;
+
+		deconstify_tree(field);
+	}
+	TYPE_READONLY(type) = 0;
+	C_TYPE_FIELDS_READONLY(type) = 0;
+}
+
+static void deconstify_tree(tree node)
+{
+	tree old_type, new_type, field;
+
+	old_type = TREE_TYPE(node);
+
+	gcc_assert(TYPE_READONLY(old_type) && (TYPE_QUALS(old_type) & TYPE_QUAL_CONST));
 
 	new_type = build_qualified_type(old_type, TYPE_QUALS(old_type) & ~TYPE_QUAL_CONST);
 	TYPE_FIELDS(new_type) = copy_list(TYPE_FIELDS(new_type));
 	for (field = TYPE_FIELDS(new_type); field; field = TREE_CHAIN(field))
 		DECL_FIELD_CONTEXT(field) = new_type;
-	TYPE_READONLY(new_type) = 0;
-	C_TYPE_FIELDS_READONLY(new_type) = 0;
-	return new_type;
+
+	deconstify_type(new_type);
+
+	TREE_READONLY(node) = 0;
+	TREE_TYPE(node) = new_type;
 }
 
 static tree handle_no_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
@@ -99,12 +122,17 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	}
 
 	if (TREE_CODE(*node) == TYPE_DECL) {
-		TREE_TYPE(*node) = deconstify_type(type);
-		TREE_READONLY(*node) = 0;
+		deconstify_tree(*node);
 		return NULL_TREE;
 	}
 
 	return NULL_TREE;
+}
+
+static void constify_type(tree type)
+{
+	TYPE_READONLY(type) = 1;
+	C_TYPE_FIELDS_READONLY(type) = 1;
 }
 
 static tree handle_do_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
@@ -157,12 +185,6 @@ static void register_attributes(void *event_data, void *data)
 	register_attribute(&do_const_attr);
 }
 
-static void constify_type(tree type)
-{
-	TYPE_READONLY(type) = 1;
-	C_TYPE_FIELDS_READONLY(type) = 1;
-}
-
 static bool is_fptr(tree field)
 {
 	tree ptr = TREE_TYPE(field);
@@ -177,11 +199,14 @@ static bool walk_struct(tree node)
 {
 	tree field;
 
-	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node)))
-		return false;
-
 	if (TYPE_FIELDS(node) == NULL_TREE)
 		return false;
+
+	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node))) {
+		gcc_assert(!TYPE_READONLY(node));
+		deconstify_type(node);
+		return false;
+	}
 
 	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
 		tree type = TREE_TYPE(field);

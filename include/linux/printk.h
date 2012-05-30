@@ -94,6 +94,8 @@ void early_printk(const char *fmt, ...);
 extern int printk_needs_cpu(int cpu);
 extern void printk_tick(void);
 
+extern int kptr_restrict;
+
 #ifdef CONFIG_PRINTK
 asmlinkage __printf(1, 0)
 int vprintk(const char *fmt, va_list args);
@@ -112,7 +114,6 @@ extern bool printk_timed_ratelimit(unsigned long *caller_jiffies,
 
 extern int printk_delay_msec;
 extern int dmesg_restrict;
-extern int kptr_restrict;
 
 void log_buf_kexec_setup(void);
 void __init setup_log_buf(int early);
