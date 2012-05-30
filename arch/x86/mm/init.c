@@ -409,7 +409,7 @@ static inline void gr_init_ebda(void)
 	}
 	if (ebda_addr && ebda_size) {
 		ebda_start = ebda_addr >> PAGE_SHIFT;
-		ebda_end = min(PAGE_ALIGN(ebda_addr + ebda_size), 0xa0000) >> PAGE_SHIFT;
+		ebda_end = min((unsigned int)PAGE_ALIGN(ebda_addr + ebda_size), (unsigned int)0xa0000) >> PAGE_SHIFT;
 	} else {
 		ebda_start = 0x9f000 >> PAGE_SHIFT;
 		ebda_end = 0xa0000 >> PAGE_SHIFT;
@@ -428,6 +428,12 @@ void free_initmem(void)
 	struct desc_struct d;
 	int cpu;
 #endif
+#endif
+#ifndef CONFIG_X86_PAE
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	unsigned long addr, end;
 #endif
 
 	gr_init_ebda();
@@ -472,11 +478,6 @@ void free_initmem(void)
 #endif
 
 #else
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	unsigned long addr, end;
-
 	/* PaX: make kernel code/rodata read-only, rest non-executable */
 	for (addr = __START_KERNEL_map; addr < __START_KERNEL_map + KERNEL_IMAGE_SIZE; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);
