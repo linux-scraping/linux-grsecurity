@@ -217,7 +217,7 @@ static void print_missing_msg(tree func, const char *filename, unsigned int argn
 	const char *curfunc = NAME(func);
 
 	new_hash = get_hash_num(curfunc, filename, 0);
-	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%d+%u+%s+", curfunc, curfunc, argnum, new_hash, filename);
+//	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%d+%u+%s+", curfunc, curfunc, argnum, new_hash, filename);
 }
 
 static void check_missing_attribute(tree arg)

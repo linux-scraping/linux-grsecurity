@@ -381,6 +381,6 @@ unifdef-y += wireless.h
 unifdef-y += xattr.h
 unifdef-y += xfrm.h
 
-genhdr-y += version.h
+objhdr-y += version.h
 header-y += wimax.h
 header-y += wimax/
