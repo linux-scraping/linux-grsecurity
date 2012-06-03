@@ -427,13 +427,12 @@ void free_initmem(void)
 	unsigned long addr, limit;
 	struct desc_struct d;
 	int cpu;
-#endif
-#endif
-#ifndef CONFIG_X86_PAE
+#else
 	pgd_t *pgd;
 	pud_t *pud;
 	pmd_t *pmd;
 	unsigned long addr, end;
+#endif
 #endif
 
 	gr_init_ebda();
