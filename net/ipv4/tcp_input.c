@@ -5632,7 +5632,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			goto discard;
 
 		if (th->syn) {
-			if (th->fin)
+			if (th->fin || th->urg || th->psh)
 				goto discard;
 			if (icsk->icsk_af_ops->conn_request(sk, skb) < 0)
 				return 1;
