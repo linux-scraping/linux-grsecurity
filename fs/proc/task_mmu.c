@@ -18,6 +18,12 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
+			     (_mm->pax_flags & MF_PAX_RANDMMAP || \
+			      _mm->pax_flags & MF_PAX_SEGMEXEC))
+#endif
+
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long data, text, lib, swap;
@@ -71,7 +77,8 @@ void task_mem(struct seq_file *m, struct mm_struct *mm)
 		swap << (PAGE_SHIFT-10)
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
-		, mm->context.user_cs_base, mm->context.user_cs_limit
+		, PAX_RAND_FLAGS(mm) ? 0 : mm->context.user_cs_base
+		, PAX_RAND_FLAGS(mm) ? 0 : mm->context.user_cs_limit
 #endif
 
 	);
@@ -220,12 +227,6 @@ static int do_maps_open(struct inode *inode, struct file *file,
 	}
 	return ret;
 }
-
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-#define PAX_RAND_FLAGS(_mm) (_mm != NULL && _mm != current->mm && \
-			     (_mm->pax_flags & MF_PAX_RANDMMAP || \
-			      _mm->pax_flags & MF_PAX_SEGMEXEC))
-#endif
 
 static void show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 {
