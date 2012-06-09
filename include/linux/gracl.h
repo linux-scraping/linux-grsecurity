@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 2.9"
-#define GRSECURITY_VERSION 0x2900
+#define GR_VERSION  "grsecurity 2.9.1"
+#define GRSECURITY_VERSION 0x2901
 
 enum {
 	GR_SHUTDOWN = 0,
