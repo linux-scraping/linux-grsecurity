@@ -109,8 +109,7 @@ static inline struct thread_info *current_thread_info(void)
 #define TIF_NOERROR		12	/* Force successful syscall return */
 #define TIF_NOTIFY_RESUME	13	/* callback before returning to user */
 #define TIF_SYSCALL_TRACEPOINT	15	/* syscall tracepoint instrumentation */
-#define TIF_RUNLATCH		16	/* Is the runlatch enabled? */
-#define TIF_MEMDIE		17	/* is terminating due to OOM killer */
+#define TIF_MEMDIE		16	/* is terminating due to OOM killer */
 /* mask must be expressable within 16 bits to satisfy 'andi' instruction reqs */
 #define TIF_GRSEC_SETXID	9	/* update credentials on syscall entry/exit */
 
@@ -146,11 +145,13 @@ static inline struct thread_info *current_thread_info(void)
 #define TLF_SLEEPING		1	/* suspend code enabled SLEEP mode */
 #define TLF_RESTORE_SIGMASK	2	/* Restore signal mask in do_signal */
 #define TLF_LAZY_MMU		3	/* tlb_batch is active */
+#define TLF_RUNLATCH		4	/* Is the runlatch enabled? */
 
 #define _TLF_NAPPING		(1 << TLF_NAPPING)
 #define _TLF_SLEEPING		(1 << TLF_SLEEPING)
 #define _TLF_RESTORE_SIGMASK	(1 << TLF_RESTORE_SIGMASK)
 #define _TLF_LAZY_MMU		(1 << TLF_LAZY_MMU)
+#define _TLF_RUNLATCH		(1 << TLF_RUNLATCH)
 
 #ifndef __ASSEMBLY__
 #define HAVE_SET_RESTORE_SIGMASK	1
@@ -159,6 +160,12 @@ static inline void set_restore_sigmask(void)
 	struct thread_info *ti = current_thread_info();
 	ti->local_flags |= _TLF_RESTORE_SIGMASK;
 	set_bit(TIF_SIGPENDING, &ti->flags);
+}
+
+static inline bool test_thread_local_flags(unsigned int flags)
+{
+	struct thread_info *ti = current_thread_info();
+	return (ti->local_flags & flags) != 0;
 }
 
 #ifdef CONFIG_PPC64

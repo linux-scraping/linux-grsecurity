@@ -280,9 +280,9 @@ BEGIN(dec_return_unchecked)
 RET_ENDP
 #undef v
 
-#define v %ecx
+#define v %esi
 BEGIN(add_unless)
-	addl %eax, %esi
+	addl %eax, %ecx
 	adcl %edx, %edi
 	addl  (v), %eax
 	adcl 4(v), %edx
@@ -293,7 +293,7 @@ BEGIN(add_unless)
 	_ASM_EXTABLE(1234b, 2f)
 #endif
 
-	cmpl %eax, %esi
+	cmpl %eax, %ecx
 	je 3f
 1:
 	movl %eax,  (v)

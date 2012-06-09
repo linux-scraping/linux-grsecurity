@@ -12,14 +12,9 @@
 #include <regex.h>
 #include <tools/le_byteshift.h>
 
-static void die(char *fmt, ...);
-
 #include "../../../include/generated/autoconf.h"
-#ifdef CONFIG_X86_32
-#define __PAGE_OFFSET CONFIG_PAGE_OFFSET
-#else
-#define __PAGE_OFFSET 0
-#endif
+
+static void die(char *fmt, ...);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 static Elf32_Ehdr ehdr;
@@ -479,14 +474,18 @@ static void read_relocs(FILE *fp)
 				strerror(errno));
 		}
 		base = 0;
+
+#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
 		for (j = 0; j < ehdr.e_phnum; j++) {
 			if (phdr[j].p_type != PT_LOAD )
 				continue;
 			if (secs[sec->shdr.sh_info].shdr.sh_offset < phdr[j].p_offset || secs[sec->shdr.sh_info].shdr.sh_offset >= phdr[j].p_offset + phdr[j].p_filesz)
 				continue;
-			base = __PAGE_OFFSET + phdr[j].p_paddr - phdr[j].p_vaddr;
+			base = CONFIG_PAGE_OFFSET + phdr[j].p_paddr - phdr[j].p_vaddr;
 			break;
 		}
+#endif
+
 		for (j = 0; j < sec->shdr.sh_size/sizeof(Elf32_Rel); j++) {
 			Elf32_Rel *rel = &sec->reltab[j];
 			rel->r_offset = elf32_to_cpu(rel->r_offset) + base;
@@ -538,7 +537,7 @@ static void print_absolute_relocs(void)
 		struct section *sec_applies, *sec_symtab;
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
-		unsigned int j;
+		int j;
 		if (sec->shdr.sh_type != SHT_REL) {
 			continue;
 		}
@@ -606,7 +605,7 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym),
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
 		struct section *sec_applies, *sec_symtab;
-		unsigned int j;
+		int j;
 		struct section *sec = &secs[i];
 
 		if (sec->shdr.sh_type != SHT_REL) {
@@ -630,8 +629,6 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym),
 			sym = &sh_symtab[ELF32_R_SYM(rel->r_info)];
 			r_type = ELF32_R_TYPE(rel->r_info);
 
-			shn_abs = sym->st_shndx == SHN_ABS;
-
 			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
 			if (!strcmp(sec_name(sym->st_shndx), ".data..percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
 				continue;
@@ -647,6 +644,8 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym),
 			if (!strcmp(sec_name(sym->st_shndx), ".text") && strcmp(sym_name(sym_strtab, sym), "__LOAD_PHYSICAL_ADDR"))
 				continue;
 #endif
+
+			shn_abs = sym->st_shndx == SHN_ABS;
 
 			switch (r_type) {
 			case R_386_NONE:

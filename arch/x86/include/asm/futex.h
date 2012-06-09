@@ -9,7 +9,6 @@
 #include <asm/asm.h>
 #include <asm/errno.h>
 #include <asm/processor.h>
-#include <asm/system.h>
 
 #define __futex_atomic_op1(insn, ret, oldval, uaddr, oparg)	\
 	typecheck(u32 __user *, uaddr);				\

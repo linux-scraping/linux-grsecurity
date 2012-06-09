@@ -286,7 +286,7 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	char *res;
 	struct path path;
 	struct path root;
-	struct task_struct *reaper = &init_task;
+	struct task_struct *reaper = init_pid_ns.child_reaper;
 
 	path.dentry = (struct dentry *)dentry;
 	path.mnt = (struct vfsmount *)vfsmnt;
@@ -860,7 +860,7 @@ create_table(__u32 * len, int elementsize)
 static int
 init_variables(const struct gr_arg *arg)
 {
-	struct task_struct *reaper = &init_task;
+	struct task_struct *reaper = init_pid_ns.child_reaper;
 	unsigned int stacksize;
 
 	subj_map_set.s_size = arg->role_db.num_subjects;
@@ -2027,20 +2027,6 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, &task->signal->saved_ip);
-
-	return;
-}
-
-static void
-gr_log_learn_sysctl(const char *path, const __u32 mode)
-{
-	struct task_struct *task = current;
-	const struct cred *cred = current_cred();
-
-	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
-		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       1UL, 1UL, path, (unsigned long) mode, &task->signal->saved_ip);
 
 	return;
 }
@@ -3608,173 +3594,6 @@ pax_set_initial_flags(struct linux_binprm *bprm)
 	pax_set_flags(task, flags);
 
         return;
-}
-#endif
-
-#ifdef CONFIG_SYSCTL
-/* Eric Biederman likes breaking userland ABI and every inode-based security
-   system to save 35kb of memory */
-
-/* we modify the passed in filename, but adjust it back before returning */
-static struct acl_object_label *gr_lookup_by_name(char *name, unsigned int len)
-{
-	struct name_entry *nmatch;
-	char *p, *lastp = NULL;
-	struct acl_object_label *obj = NULL, *tmp;
-	struct acl_subject_label *tmpsubj;
-	char c = '\0';
-
-	read_lock(&gr_inode_lock);
-
-	p = name + len - 1;
-	do {
-		nmatch = lookup_name_entry(name);
-		if (lastp != NULL)
-			*lastp = c;
-
-		if (nmatch == NULL)
-			goto next_component;
-		tmpsubj = current->acl;
-		do {
-			obj = lookup_acl_obj_label(nmatch->inode, nmatch->device, tmpsubj);
-			if (obj != NULL) {
-				tmp = obj->globbed;
-				while (tmp) {
-					if (!glob_match(tmp->filename, name)) {
-						obj = tmp;
-						goto found_obj;
-					}
-					tmp = tmp->next;
-				}
-				goto found_obj;
-			}
-		} while ((tmpsubj = tmpsubj->parent_subject));
-next_component:
-		/* end case */
-		if (p == name)
-			break;
-
-		while (*p != '/')
-			p--;
-		if (p == name)
-			lastp = p + 1;
-		else {
-			lastp = p;
-			p--;
-		}
-		c = *lastp;
-		*lastp = '\0';
-	} while (1);
-found_obj:
-	read_unlock(&gr_inode_lock);
-	/* obj returned will always be non-null */
-	return obj;
-}
-
-/* returns 0 when allowing, non-zero on error
-   op of 0 is used for readdir, so we don't log the names of hidden files
-*/
-__u32
-gr_handle_sysctl(const struct ctl_table *table, const int op)
-{
-	struct ctl_table *tmp;
-	const char *proc_sys = "/proc/sys";
-	char *path;
-	struct acl_object_label *obj;
-	unsigned short len = 0, pos = 0, depth = 0, i;
-	__u32 err = 0;
-	__u32 mode = 0;
-
-	if (unlikely(!(gr_status & GR_READY)))
-		return 0;
-
-	/* for now, ignore operations on non-sysctl entries if it's not a
-	   readdir*/
-	if (table->child != NULL && op != 0)
-		return 0;
-
-	mode |= GR_FIND;
-	/* it's only a read if it's an entry, read on dirs is for readdir */
-	if (op & MAY_READ)
-		mode |= GR_READ;
-	if (op & MAY_WRITE)
-		mode |= GR_WRITE;
-
-	preempt_disable();
-
-	path = per_cpu_ptr(gr_shared_page[0], smp_processor_id());
-
-	/* it's only a read/write if it's an actual entry, not a dir
-	   (which are opened for readdir)
-	*/
-
-	/* convert the requested sysctl entry into a pathname */
-
-	for (tmp = (struct ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
-		len += strlen(tmp->procname);
-		len++;
-		depth++;
-	}
-
-	if ((len + depth + strlen(proc_sys) + 1) > PAGE_SIZE) {
-		/* deny */
-		goto out;
-	}
-
-	memset(path, 0, PAGE_SIZE);
-
-	memcpy(path, proc_sys, strlen(proc_sys));
-
-	pos += strlen(proc_sys);
-
-	for (; depth > 0; depth--) {
-		path[pos] = '/';
-		pos++;
-		for (i = 1, tmp = (struct ctl_table *)table; tmp != NULL; tmp = tmp->parent) {
-			if (depth == i) {
-				memcpy(path + pos, tmp->procname,
-				       strlen(tmp->procname));
-				pos += strlen(tmp->procname);
-			}
-			i++;
-		}
-	}
-
-	obj = gr_lookup_by_name(path, pos);
-	err = obj->mode & (mode | to_gr_audit(mode) | GR_SUPPRESS);
-
-	if (unlikely((current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) &&
-		     ((err & mode) != mode))) {
-		__u32 new_mode = mode;
-
-		new_mode &= ~(GR_AUDITS | GR_SUPPRESS);
-
-		err = 0;
-		gr_log_learn_sysctl(path, new_mode);
-	} else if (!(err & GR_FIND) && !(err & GR_SUPPRESS) && op != 0) {
-		gr_log_hidden_sysctl(GR_DONT_AUDIT, GR_HIDDEN_ACL_MSG, path);
-		err = -ENOENT;
-	} else if (!(err & GR_FIND)) {
-		err = -ENOENT;
-	} else if (((err & mode) & ~GR_FIND) != (mode & ~GR_FIND) && !(err & GR_SUPPRESS)) {
-		gr_log_str4(GR_DONT_AUDIT, GR_SYSCTL_ACL_MSG, "denied",
-			       path, (mode & GR_READ) ? " reading" : "",
-			       (mode & GR_WRITE) ? " writing" : "");
-		err = -EACCES;
-	} else if ((err & mode) != mode) {
-		err = -EACCES;
-	} else if ((((err & mode) & ~GR_FIND) == (mode & ~GR_FIND)) && (err & GR_AUDITS)) {
-		gr_log_str4(GR_DO_AUDIT, GR_SYSCTL_ACL_MSG, "successful",
-			       path, (mode & GR_READ) ? " reading" : "",
-			       (mode & GR_WRITE) ? " writing" : "");
-		err = 0;
-	} else
-		err = 0;
-
-      out:
-	preempt_enable();
-
-	return err;
 }
 #endif
 

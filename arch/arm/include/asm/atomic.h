@@ -13,7 +13,9 @@
 
 #include <linux/compiler.h>
 #include <linux/types.h>
-#include <asm/system.h>
+#include <linux/irqflags.h>
+#include <asm/barrier.h>
+#include <asm/cmpxchg.h>
 
 #ifdef CONFIG_GENERIC_ATOMIC64
 #include <asm-generic/atomic64.h>
@@ -22,6 +24,12 @@
 #define ATOMIC_INIT(i)	{ (i) }
 
 #ifdef __KERNEL__
+
+#define _ASM_EXTABLE(from, to)		\
+"	.pushsection __ex_table,\"a\"\n"\
+"	.align	3\n"			\
+"	.long	" #from ", " #to"\n"	\
+"	.popsection"
 
 /*
  * On ARM, ordinary assignment (str instruction) doesn't clear the local

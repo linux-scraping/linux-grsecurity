@@ -12,7 +12,6 @@
 #include <linux/thread_info.h>
 #include <linux/kernel.h>
 #include <asm/asi.h>
-#include <asm/system.h>
 #include <asm/spitfire.h>
 #include <asm-generic/uaccess-unaligned.h>
 #endif

@@ -80,8 +80,6 @@ ENDPROC(atomic64_set_unchecked_cx8)
 ENTRY(atomic64_xchg_cx8)
 	CFI_STARTPROC
 
-	movl %ebx, %eax
-	movl %ecx, %edx
 1:
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
@@ -104,7 +102,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	movl %edx, %edi
 	movl %ecx, %ebp
 
-	read64 %ebp
+	read64 %ecx
 1:
 	movl %eax, %ebx
 	movl %edx, %ecx
@@ -228,20 +226,19 @@ ENTRY(atomic64_add_unless_cx8)
 	SAVE ebx
 /* these just push these two parameters on the stack */
 	SAVE edi
-	SAVE esi
+	SAVE ecx
 
-	movl %ecx, %ebp
-	movl %eax, %esi
+	movl %eax, %ebp
 	movl %edx, %edi
 
-	read64 %ebp
+	read64 %esi
 1:
 	cmpl %eax, 0(%esp)
 	je 4f
 2:
 	movl %eax, %ebx
 	movl %edx, %ecx
-	addl %esi, %ebx
+	addl %ebp, %ebx
 	adcl %edi, %ecx
 
 #ifdef CONFIG_PAX_REFCOUNT
@@ -251,7 +248,7 @@ ENTRY(atomic64_add_unless_cx8)
 #endif
 
 	LOCK_PREFIX
-	cmpxchg8b (%ebp)
+	cmpxchg8b (%esi)
 	jne 1b
 
 	movl $1, %eax
@@ -276,13 +273,13 @@ ENTRY(atomic64_inc_not_zero_cx8)
 
 	read64 %esi
 1:
-	testl %eax, %eax
-	je 4f
-2:
+	movl %eax, %ecx
+	orl %edx, %ecx
+	jz 3f
 	movl %eax, %ebx
-	movl %edx, %ecx
+	xorl %ecx, %ecx
 	addl $1, %ebx
-	adcl $0, %ecx
+	adcl %edx, %ecx
 
 #ifdef CONFIG_PAX_REFCOUNT
 	into
@@ -299,9 +296,5 @@ ENTRY(atomic64_inc_not_zero_cx8)
 	RESTORE ebx
 	pax_force_retaddr
 	ret
-4:
-	testl %edx, %edx
-	jne 2b
-	jmp 3b
 	CFI_ENDPROC
 ENDPROC(atomic64_inc_not_zero_cx8)

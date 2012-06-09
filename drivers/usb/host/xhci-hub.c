@@ -422,6 +422,32 @@ void xhci_set_link_state(struct xhci_hcd *xhci, __le32 __iomem **port_array,
 	xhci_writel(xhci, temp, port_array[port_id]);
 }
 
+void xhci_set_remote_wake_mask(struct xhci_hcd *xhci,
+		__le32 __iomem **port_array, int port_id, u16 wake_mask)
+{
+	u32 temp;
+
+	temp = xhci_readl(xhci, port_array[port_id]);
+	temp = xhci_port_state_to_neutral(temp);
+
+	if (wake_mask & USB_PORT_FEAT_REMOTE_WAKE_CONNECT)
+		temp |= PORT_WKCONN_E;
+	else
+		temp &= ~PORT_WKCONN_E;
+
+	if (wake_mask & USB_PORT_FEAT_REMOTE_WAKE_DISCONNECT)
+		temp |= PORT_WKDISC_E;
+	else
+		temp &= ~PORT_WKDISC_E;
+
+	if (wake_mask & USB_PORT_FEAT_REMOTE_WAKE_OVER_CURRENT)
+		temp |= PORT_WKOC_E;
+	else
+		temp &= ~PORT_WKOC_E;
+
+	xhci_writel(xhci, temp, port_array[port_id]);
+}
+
 /* Test and clear port RWC bit */
 void xhci_test_and_clear_bit(struct xhci_hcd *xhci, __le32 __iomem **port_array,
 				int port_id, u32 port_bit)
@@ -448,6 +474,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	int slot_id;
 	struct xhci_bus_state *bus_state;
 	u16 link_state = 0;
+	u16 wake_mask = 0;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -531,6 +558,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 				xhci_dbg(xhci, "Resume USB2 port %d\n",
 					wIndex + 1);
 				bus_state->resume_done[wIndex] = 0;
+				clear_bit(wIndex, &bus_state->resuming_ports);
 				xhci_set_link_state(xhci, port_array, wIndex,
 							XDEV_U0);
 				xhci_dbg(xhci, "set port %d resume\n",
@@ -593,6 +621,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	case SetPortFeature:
 		if (wValue == USB_PORT_FEAT_LINK_STATE)
 			link_state = (wIndex & 0xff00) >> 3;
+		if (wValue == USB_PORT_FEAT_REMOTE_WAKE_MASK)
+			wake_mask = wIndex & 0xff00;
 		wIndex &= 0xff;
 		if (!wIndex || wIndex > max_ports)
 			goto error;
@@ -703,6 +733,14 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			temp = xhci_readl(xhci, port_array[wIndex]);
 			xhci_dbg(xhci, "set port reset, actual port %d status  = 0x%x\n", wIndex, temp);
 			break;
+		case USB_PORT_FEAT_REMOTE_WAKE_MASK:
+			xhci_set_remote_wake_mask(xhci, port_array,
+					wIndex, wake_mask);
+			temp = xhci_readl(xhci, port_array[wIndex]);
+			xhci_dbg(xhci, "set port remote wake mask, "
+					"actual port %d status  = 0x%x\n",
+					wIndex, temp);
+			break;
 		case USB_PORT_FEAT_BH_PORT_RESET:
 			temp |= PORT_WR;
 			xhci_writel(xhci, temp, port_array[wIndex]);
@@ -808,7 +846,12 @@ int xhci_hub_status_data(struct usb_hcd *hcd, char *buf)
 	/* Initial status is no changes */
 	retval = (max_ports + 8) / 8;
 	memset(buf, 0, retval);
-	status = 0;
+
+	/*
+	 * Inform the usbcore about resume-in-progress by returning
+	 * a non-zero value even if there are no status changes.
+	 */
+	status = bus_state->resuming_ports;
 
 	mask = PORT_CSC | PORT_PEC | PORT_OCC | PORT_PLC | PORT_WRC;
 
@@ -848,15 +891,11 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 	spin_lock_irqsave(&xhci->lock, flags);
 
 	if (hcd->self.root_hub->do_remote_wakeup) {
-		port_index = max_ports;
-		while (port_index--) {
-			if (bus_state->resume_done[port_index] != 0) {
-				spin_unlock_irqrestore(&xhci->lock, flags);
-				xhci_dbg(xhci, "suspend failed because "
-						"port %d is resuming\n",
-						port_index + 1);
-				return -EBUSY;
-			}
+		if (bus_state->resuming_ports) {
+			spin_unlock_irqrestore(&xhci->lock, flags);
+			xhci_dbg(xhci, "suspend failed because "
+						"a port is resuming\n");
+			return -EBUSY;
 		}
 	}
 
@@ -883,6 +922,10 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 			t2 |= PORT_LINK_STROBE | XDEV_U3;
 			set_bit(port_index, &bus_state->bus_suspended);
 		}
+		/* USB core sets remote wake mask for USB 3.0 hubs,
+		 * including the USB 3.0 roothub, but only if CONFIG_USB_SUSPEND
+		 * is enabled, so also enable remote wake here.
+		 */
 		if (hcd->self.root_hub->do_remote_wakeup) {
 			if (t1 & PORT_CONNECT) {
 				t2 |= PORT_WKOC_E | PORT_WKDISC_E;

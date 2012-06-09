@@ -18,8 +18,8 @@
 #include <linux/types.h>
 #include <asm/barrier.h>
 #include <asm/cpu-features.h>
+#include <asm/cmpxchg.h>
 #include <asm/war.h>
-#include <asm/system.h>
 
 #ifdef CONFIG_GENERIC_ATOMIC64
 #include <asm-generic/atomic64.h>

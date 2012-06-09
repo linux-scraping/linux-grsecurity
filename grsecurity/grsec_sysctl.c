@@ -8,6 +8,8 @@ int
 gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
+	if (dirname == NULL || name == NULL)
+		return 0;
 	if (!strcmp(dirname, "grsecurity") && grsec_lock && (op & MAY_WRITE)) {
 		gr_log_str(GR_DONT_AUDIT, GR_SYSCTL_MSG, name);
 		return -EACCES;

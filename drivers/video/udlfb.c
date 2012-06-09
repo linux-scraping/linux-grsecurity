@@ -72,6 +72,7 @@ MODULE_DEVICE_TABLE(usb, id_table);
 static bool console = 1; /* Allow fbcon to open framebuffer */
 static bool fb_defio = 1;  /* Detect mmap writes using page faults */
 static bool shadow = 1; /* Optionally disable shadow framebuffer */
+static int pixel_limit; /* Optionally force a pixel resolution limit */
 
 /* dlfb keeps a list of urbs for efficient bulk transfers */
 static void dlfb_urb_completion(struct urb *urb);
@@ -1015,7 +1016,8 @@ static int dlfb_is_valid_mode(struct fb_videomode *mode,
 		return 0;
 	}
 
-	pr_info("%dx%d valid mode\n", mode->xres, mode->yres);
+	pr_info("%dx%d @ %d Hz valid mode\n", mode->xres, mode->yres,
+		mode->refresh);
 
 	return 1;
 }
@@ -1430,19 +1432,22 @@ static ssize_t edid_store(
 	struct device *fbdev = container_of(kobj, struct device, kobj);
 	struct fb_info *fb_info = dev_get_drvdata(fbdev);
 	struct dlfb_data *dev = fb_info->par;
+	int ret;
 
 	/* We only support write of entire EDID at once, no offset*/
 	if ((src_size != EDID_LENGTH) || (src_off != 0))
-		return 0;
+		return -EINVAL;
 
-	dlfb_setup_modes(dev, fb_info, src, src_size);
+	ret = dlfb_setup_modes(dev, fb_info, src, src_size);
+	if (ret)
+		return ret;
 
-	if (dev->edid && (memcmp(src, dev->edid, src_size) == 0)) {
-		pr_info("sysfs written EDID is new default\n");
-		dlfb_ops_set_par(fb_info);
-		return src_size;
-	} else
-		return 0;
+	if (!dev->edid || memcmp(src, dev->edid, src_size))
+		return -EINVAL;
+
+	pr_info("sysfs written EDID is new default\n");
+	dlfb_ops_set_par(fb_info);
+	return src_size;
 }
 
 static ssize_t metrics_reset_store(struct device *fbdev,
@@ -1540,7 +1545,7 @@ static int dlfb_parse_vendor_descriptor(struct dlfb_data *dev,
 			u8 length;
 			u16 key;
 
-			key = *((u16 *) desc);
+			key = le16_to_cpu(*((u16 *) desc));
 			desc += sizeof(u16);
 			length = *desc;
 			desc++;
@@ -1614,6 +1619,14 @@ static int dlfb_usb_probe(struct usb_interface *interface,
 		pr_err("firmware not recognized. Assume incompatible device\n");
 		goto error;
 	}
+
+	if (pixel_limit) {
+		pr_warn("DL chip limit of %d overriden"
+			" by module param to %d\n",
+			dev->sku_pixel_limit, pixel_limit);
+		dev->sku_pixel_limit = pixel_limit;
+	}
+
 
 	if (!dlfb_alloc_urb_list(dev, WRITES_IN_FLIGHT, MAX_TRANSFER)) {
 		retval = -ENOMEM;
@@ -1740,14 +1753,10 @@ static void dlfb_usb_disconnect(struct usb_interface *interface)
 	dlfb_free_urb_list(dev);
 
 	if (info) {
-
 		/* remove udlfb's sysfs interfaces */
 		for (i = 0; i < ARRAY_SIZE(fb_device_attrs); i++)
 			device_remove_file(info->dev, &fb_device_attrs[i]);
 		device_remove_bin_file(info->dev, &edid_attr);
-
-		/* it's safe to uncomment next line if your kernel
-		   doesn't yet have this function exported */
 		unlink_framebuffer(info);
 	}
 
@@ -1961,6 +1970,9 @@ MODULE_PARM_DESC(fb_defio, "Page fault detection of mmap writes");
 
 module_param(shadow, bool, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
 MODULE_PARM_DESC(shadow, "Shadow vid mem. Disable to save mem but lose perf");
+
+module_param(pixel_limit, int, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP);
+MODULE_PARM_DESC(pixel_limit, "Force limit on max mode (in x*y pixels)");
 
 MODULE_AUTHOR("Roberto De Ioris <roberto@unbit.it>, "
 	      "Jaya Kumar <jayakumar.lkml@gmail.com>, "

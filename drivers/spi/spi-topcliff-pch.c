@@ -217,7 +217,7 @@ struct pch_pd_dev_save {
 	struct pch_spi_board_data *board_dat;
 };
 
-static struct pci_device_id pch_spi_pcidev_id[] = {
+static DEFINE_PCI_DEVICE_TABLE(pch_spi_pcidev_id) = {
 	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_GE_SPI),    1, },
 	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7213_SPI), 2, },
 	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7223_SPI), 1, },
@@ -1099,7 +1099,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		sg_dma_address(sg) = dma->rx_buf_dma + sg->offset;
 	}
 	sg = dma->sg_rx_p;
-	desc_rx = dma->chan_rx->device->device_prep_slave_sg(dma->chan_rx, sg,
+	desc_rx = dmaengine_prep_slave_sg(dma->chan_rx, sg,
 					num, DMA_DEV_TO_MEM,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!desc_rx) {
@@ -1158,7 +1158,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		sg_dma_address(sg) = dma->tx_buf_dma + sg->offset;
 	}
 	sg = dma->sg_tx_p;
-	desc_tx = dma->chan_tx->device->device_prep_slave_sg(dma->chan_tx,
+	desc_tx = dmaengine_prep_slave_sg(dma->chan_tx,
 					sg, num, DMA_MEM_TO_DEV,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!desc_tx) {

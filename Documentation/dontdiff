@@ -174,7 +174,6 @@ logo_*.c
 logo_*_clut224.c
 logo_*_mono.c
 lxdialog
-mach
 mach-types
 mach-types.h
 machtypes.h
@@ -206,6 +205,7 @@ oui.c*
 page-types
 parse.c
 parse.h
+parse-events*
 patches*
 pca200e.bin
 pca200e_ecd.bin2
@@ -215,6 +215,7 @@ perf-archive
 piggyback
 piggy.gzip
 piggy.S
+pmu-*
 pnmtologo
 ppc_defs.h*
 pss_boot.h
@@ -259,6 +260,8 @@ vdso32.lds
 vdso32.so.dbg
 vdso64.lds
 vdso64.so.dbg
+vdsox32.lds
+vdsox32-syms.lds
 version.h*
 vmImage
 vmlinux

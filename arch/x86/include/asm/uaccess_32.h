@@ -280,11 +280,6 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 	return n;
 }
 
-long __must_check strncpy_from_user(char *dst, const char __user *src,
-				    long count);
-long __must_check __strncpy_from_user(char *dst,
-				      const char __user *src, long count);
-
 /**
  * strlen_user: - Get the size of a string in user space.
  * @str: The string to measure.

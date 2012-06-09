@@ -317,7 +317,8 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	struct hstate *h = hstate_file(file);
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long base = mm->mmap_base, addr;
+	unsigned long base = mm->mmap_base;
+	unsigned long addr;
 	unsigned long largest_hole = mm->cached_hole_size;
 
 	/* don't allow allocations above current base */
@@ -334,7 +335,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 		goto fail;
 
 	/* either no address requested or can't fit in requested address hole */
-	addr = (mm->free_area_cache - len);
+	addr = mm->free_area_cache - len;
 	do {
 		addr &= huge_page_mask(h);
 		/*
@@ -345,17 +346,12 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 		if (!vma)
 			return addr;
 
-		/*
-		 * new region fits between prev_vma->vm_end and
-		 * vma->vm_start, use it:
-		 */
 		if (check_heap_stack_gap(vma, addr, len)) {
 			/* remember the address as a hint for next time */
 			mm->cached_hole_size = largest_hole;
 			return (mm->free_area_cache = addr);
-		}
-		/* pull free_area_cache down to the first hole */
-		if (mm->free_area_cache == vma->vm_end) {
+		} else if (mm->free_area_cache == vma->vm_end) {
+			/* pull free_area_cache down to the first hole */
 			mm->free_area_cache = vma->vm_start;
 			mm->cached_hole_size = largest_hole;
 		}
