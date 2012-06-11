@@ -1486,7 +1486,6 @@ static ssize_t aio_setup_vectored_rw(int type, struct kiocb *kiocb, bool compat)
 		kiocb->ki_inline_vec = iovstack;
 		kiocb->ki_iovec = &kiocb->ki_inline_vec;
 	}
-
 	kiocb->ki_nr_segs = kiocb->ki_nbytes;
 	kiocb->ki_cur_seg = 0;
 	/* ki_nbytes/left now reflect bytes instead of segs */
