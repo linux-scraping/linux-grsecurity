@@ -28,6 +28,7 @@
 #include <linux/prctl.h>
 #include <linux/securebits.h>
 #include <linux/syslog.h>
+#include <linux/personality.h>
 #include <net/sock.h>
 
 /*
