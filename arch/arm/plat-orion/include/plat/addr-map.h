@@ -26,7 +26,7 @@ struct orion_addr_map_cfg {
 	   value in bridge_virt_base */
 	void __iomem *(*win_cfg_base) (const struct orion_addr_map_cfg *cfg,
 				 const int win);
-};
+} __no_const;
 
 /*
  * Information needed to setup one address mapping.

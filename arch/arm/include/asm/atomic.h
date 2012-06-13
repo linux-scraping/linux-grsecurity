@@ -315,9 +315,17 @@ static inline int atomic_add_return(int i, atomic_t *v)
 
 	return val;
 }
-#define atomic_add_return_unchecked(i, v) atomic_add_return(i, v)
+
+static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+{
+	return atomic_add_return(i, v);
+}
+
 #define atomic_add(i, v)	(void) atomic_add_return(i, v)
-#define atomic_add_unchecked(i, v)	(void) atomic_add_return_unchecked(i, v)
+static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+{
+	(void) atomic_add_return(i, v);
+}
 
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
@@ -331,9 +339,11 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 	return val;
 }
-#define atomic_sub_return_unchecked(i, v) atomic_sub_return(i, v)
 #define atomic_sub(i, v)	(void) atomic_sub_return(i, v)
-#define atomic_sub_unchecked(i, v)	(void) atomic_sub_return_unchecked(i, v)
+static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+{
+	(void) atomic_sub_return(i, v);
+}
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
@@ -348,7 +358,11 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 
 	return ret;
 }
-#define atomic_cmpxchg_unchecked(v, o, n) atomic_cmpxchg(v, o, n)
+
+static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
+{
+	return atomic_cmpxchg(v, old, new);
+}
 
 static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 {
