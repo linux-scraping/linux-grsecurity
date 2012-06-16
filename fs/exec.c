@@ -71,8 +71,11 @@
 #include <asm/tlb.h>
 #include "internal.h"
 
-#ifndef CONFIG_PAX_HAVE_ACL_FLAGS
-void __weak pax_set_initial_flags(struct linux_binprm *bprm) {}
+#ifdef CONFIG_PAX_HAVE_ACL_FLAGS
+void __weak pax_set_initial_flags(struct linux_binprm *bprm)
+{
+	WARN_ONCE(1, "PAX: PAX_HAVE_ACL_FLAGS was enabled without providing the pax_set_initial_flags callback, this is probably not what you wanted.\n");
+}
 #endif
 
 #ifdef CONFIG_PAX_HOOK_ACL_FLAGS
