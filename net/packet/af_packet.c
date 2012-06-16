@@ -3316,7 +3316,11 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
 
 	if (put_user(len, optlen))
 		return -EFAULT;
-	if (len > sizeof(st) || copy_to_user(optval, data, len))
+
+	if ((data == &val && len > sizeof(val)) ||
+	    (data == &st_u.stats3 && len > sizeof(st_u.stats3)) ||
+	    (data == &st && len > sizeof(st)) ||
+	    copy_to_user(optval, data, len))
 		return -EFAULT;
 	return 0;
 }

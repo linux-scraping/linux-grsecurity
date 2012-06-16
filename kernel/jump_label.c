@@ -13,6 +13,7 @@
 #include <linux/sort.h>
 #include <linux/err.h>
 #include <linux/jump_label.h>
+#include <linux/mm.h>
 
 #ifdef HAVE_JUMP_LABEL
 
