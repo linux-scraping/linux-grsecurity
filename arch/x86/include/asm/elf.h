@@ -258,8 +258,8 @@ extern int force_personality32;
 #else
 #define PAX_ELF_ET_DYN_BASE	0x400000UL
 
-#define PAX_DELTA_MMAP_LEN	((test_thread_flag(TIF_IA32)) ? 16 : TASK_SIZE_MAX_SHIFT - PAGE_SHIFT - 3)
-#define PAX_DELTA_STACK_LEN	((test_thread_flag(TIF_IA32)) ? 16 : TASK_SIZE_MAX_SHIFT - PAGE_SHIFT - 3)
+#define PAX_DELTA_MMAP_LEN	((test_thread_flag(TIF_ADDR32)) ? 16 : TASK_SIZE_MAX_SHIFT - PAGE_SHIFT - 3)
+#define PAX_DELTA_STACK_LEN	((test_thread_flag(TIF_ADDR32)) ? 16 : TASK_SIZE_MAX_SHIFT - PAGE_SHIFT - 3)
 #endif
 #endif
 

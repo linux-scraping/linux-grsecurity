@@ -48,6 +48,22 @@ __copy_from_user(void *to, const void __user *from, unsigned long len) __size_ov
 __must_check unsigned long
 copy_in_user(void __user *to, const void __user *from, unsigned long len) __size_overflow(3);
 
+extern void copy_to_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_to_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_to_user() buffer size is not provably correct")
+#endif
+;
+
+extern void copy_from_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_from_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_from_user() buffer size is not provably correct")
+#endif
+;
+
 static inline unsigned long __must_check copy_from_user(void *to,
 					  const void __user *from,
 					  unsigned long n)
@@ -91,9 +107,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 #endif
 
 	if (unlikely(sz != -1 && sz < size)) {
-#ifdef CONFIG_DEBUG_VM
-		WARN(1, "Buffer overflow detected!\n");
-#endif
+		copy_from_user_overflow();
 		return size;
 	}
 
@@ -166,9 +180,7 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 #endif
 
 	if (unlikely(sz != -1 && sz < size)) {
-#ifdef CONFIG_DEBUG_VM
-		WARN(1, "Buffer overflow detected!\n");
-#endif
+		copy_to_user_overflow();
 		return size;
 	}
 

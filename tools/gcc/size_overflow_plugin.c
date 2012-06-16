@@ -89,7 +89,10 @@ static struct attribute_spec no_size_overflow_attr = {
 	.decl_required			= false,
 	.type_required			= true,
 	.function_type_required		= true,
-	.handler			= handle_size_overflow_attribute
+	.handler			= handle_size_overflow_attribute,
+#if BUILDING_GCC_VERSION >= 4007
+	.affects_type_identity		= false
+#endif
 };
 
 static void register_attributes(void __unused *event_data, void __unused *data)
