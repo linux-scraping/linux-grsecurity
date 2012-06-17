@@ -24,9 +24,26 @@ copy_user_generic(void *to, const void *from, unsigned long len) __size_overflow
 __must_check unsigned long
 copy_in_user(void __user *to, const void __user *from, unsigned long len);
 
+extern void copy_to_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_to_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_to_user() buffer size is not provably correct")
+#endif
+;
+
+extern void copy_from_user_overflow(void)
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+	__compiletime_error("copy_from_user() buffer size is not provably correct")
+#else
+	__compiletime_warning("copy_from_user() buffer size is not provably correct")
+#endif
+;
+
 static __always_inline __must_check
 unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long size)
 {
+	int sz = __compiletime_object_size(dst);
 	unsigned ret = 0;
 
 	might_fault();
@@ -38,6 +55,11 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 	if (!__access_ok(VERIFY_READ, src, size))
 		return size;
 #endif
+
+	if (unlikely(sz != -1 && sz < size)) {
+		copy_from_user_overflow();
+		return size;
+	}
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
@@ -94,6 +116,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 static __always_inline __must_check
 unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long size)
 {
+	int sz = __compiletime_object_size(dst);
 	unsigned ret = 0;
 
 	might_fault();
@@ -107,6 +130,11 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 	if (!__access_ok(VERIFY_WRITE, dst, size))
 		return size;
 #endif
+
+	if (unlikely(sz != -1 && sz < size)) {
+		copy_to_user_overflow();
+		return size;
+	}
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);

@@ -4,18 +4,23 @@
 GCCPLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
 #CFLAGS += -I$(GCCPLUGINS_DIR)/include -fPIC -O2 -Wall -W -std=gnu99
 
+ifeq ($(PLUGINCC),$(HOSTCC))
+HOSTLIBS := hostlibs
 HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(GCCPLUGINS_DIR)/include/c-family -std=gnu99 -ggdb
-CFLAGS_size_overflow_plugin.o := -Wno-missing-initializer
+else
+HOSTLIBS := hostcxxlibs
+HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(GCCPLUGINS_DIR)/include/c-family -std=gnu++98 -ggdb -Wno-unused-parameter
+endif
 
-hostlibs-y := constify_plugin.so
-hostlibs-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so
-hostlibs-$(CONFIG_KALLOCSTAT_PLUGIN) += kallocstat_plugin.so
-hostlibs-$(CONFIG_PAX_KERNEXEC_PLUGIN) += kernexec_plugin.so
-hostlibs-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
-hostlibs-y += colorize_plugin.so
-hostlibs-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
+$(HOSTLIBS)-y := constify_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so
+$(HOSTLIBS)-$(CONFIG_KALLOCSTAT_PLUGIN) += kallocstat_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_KERNEXEC_PLUGIN) += kernexec_plugin.so
+$(HOSTLIBS)-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
+$(HOSTLIBS)-y += colorize_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
 
-always := $(hostlibs-y)
+always := $($(HOSTLIBS)-y)
 
 constify_plugin-objs := constify_plugin.o
 stackleak_plugin-objs := stackleak_plugin.o
