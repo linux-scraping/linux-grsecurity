@@ -10,7 +10,7 @@
  * The recomputed argument is checked against TYPE_MAX and an event is logged on overflow and the triggering process is killed.
  *
  * Usage:
- * $ gcc -I`gcc -print-file-name=plugin`/include -fPIC -shared -O2 -o size_overflow_plugin.so size_overflow_plugin.c
+ * $ gcc -I`gcc -print-file-name=plugin`/include/c-family -I`gcc -print-file-name=plugin`/include -fPIC -shared -O2 -ggdb -Wall -W -Wno-missing-field-initializers -o size_overflow_plugin.so size_overflow_plugin.c
  * $ gcc -fplugin=size_overflow_plugin.so test.c  -O2
  */
 
@@ -64,8 +64,8 @@ static tree const_char_ptr_type_node;
 static unsigned int handle_function(void);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20120612beta",
-	.help		= "no-size_overflow\tturn off size overflow checking\n",
+	.version	= "20120617beta",
+	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
 static tree handle_size_overflow_attribute(tree *node, tree __unused name, tree args, int __unused flags, bool *no_add_attrs)
@@ -89,7 +89,7 @@ static struct attribute_spec no_size_overflow_attr = {
 	.decl_required			= false,
 	.type_required			= true,
 	.function_type_required		= true,
-	.handler			= handle_size_overflow_attribute,
+	.handler			= handle_size_overflow_attribute
 #if BUILDING_GCC_VERSION >= 4007
 	.affects_type_identity		= false
 #endif
@@ -353,9 +353,15 @@ static bool is_bool(tree node)
 
 static tree cast_a_tree(tree type, tree var)
 {
+	gcc_assert(type != NULL_TREE && var != NULL_TREE);
 	gcc_assert(fold_convertible_p(type, var));
 
 	return fold_convert(type, var);
+}
+
+static tree signed_cast(tree var)
+{
+	return cast_a_tree(signed_size_overflow_type, var);
 }
 
 static gimple build_cast_stmt(tree type, tree var, tree new_var, location_t loc)
@@ -456,7 +462,7 @@ static tree dup_assign(struct pointer_set_t *visited, bool *potentionally_overfl
 
 	if (rhs1 != NULL_TREE) {
 		if (!gimple_assign_cast_p(oldstmt))
-			rhs1 = cast_a_tree(signed_size_overflow_type, rhs1);
+			rhs1 = signed_cast(rhs1);
 		gimple_assign_set_rhs1(stmt, rhs1);
 	}
 
@@ -492,13 +498,6 @@ static gimple overflow_create_phi_node(gimple oldstmt, tree var)
 	gsi_insert_after(&gsi, phi, GSI_NEW_STMT);
 	gimple_set_bb(phi, bb);
 	return phi;
-}
-
-static tree signed_cast_constant(tree node)
-{
-	gcc_assert(is_gimple_constant(node));
-
-	return cast_a_tree(signed_size_overflow_type, node);
 }
 
 static basic_block create_a_first_bb(void)
@@ -596,7 +595,7 @@ static tree build_new_phi(struct pointer_set_t *visited, bool *potentionally_ove
 
 		arg = gimple_phi_arg_def(oldstmt, i);
 		if (is_gimple_constant(arg))
-			arg = signed_cast_constant(arg);
+			arg = signed_cast(arg);
 		lhs = build_new_phi_arg(visited, potentionally_overflowed, arg, new_var);
 		if (lhs == NULL_TREE)
 			lhs = gimple_get_lhs(cast_old_phi_arg(oldstmt, arg, new_var, i));
@@ -629,7 +628,7 @@ static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_
 	tree rhs1 = gimple_assign_rhs1(def_stmt);
 
 	if (is_gimple_constant(rhs1))
-		return dup_assign(visited, potentionally_overflowed, def_stmt, signed_cast_constant(rhs1), NULL_TREE, NULL_TREE);
+		return dup_assign(visited, potentionally_overflowed, def_stmt, signed_cast(rhs1), NULL_TREE, NULL_TREE);
 
 	gcc_assert(TREE_CODE(rhs1) != COND_EXPR);
 	switch (TREE_CODE(rhs1)) {
@@ -758,19 +757,6 @@ static void insert_check_size_overflow(gimple stmt, enum tree_code cond_code, tr
 //	print_the_code_insertions(stmt);
 }
 
-static tree get_type_for_check(tree rhs)
-{
-	tree def_rhs;
-	gimple def_stmt = get_def_stmt(rhs);
-
-	if (!gimple_assign_cast_p(def_stmt))
-		return TREE_TYPE(rhs);
-	def_rhs = gimple_assign_rhs1(def_stmt);
-	if (TREE_CODE(TREE_TYPE(def_rhs)) == INTEGER_TYPE)
-		return TREE_TYPE(def_rhs);
-	return TREE_TYPE(rhs);
-}
-
 static gimple cast_to_unsigned_size_overflow_type(gimple stmt, tree cast_rhs)
 {
 	gimple ucast_stmt;
@@ -785,38 +771,32 @@ static gimple cast_to_unsigned_size_overflow_type(gimple stmt, tree cast_rhs)
 
 static void check_size_overflow(gimple stmt, tree cast_rhs, tree rhs, bool *potentionally_overflowed)
 {
-	tree type_max, type_min, rhs_type;
+	tree type_max, type_min, rhs_type = TREE_TYPE(rhs);
 	gimple ucast_stmt;
 
 	if (!*potentionally_overflowed)
 		return;
-
-	rhs_type = get_type_for_check(rhs);
 
 	if (TYPE_UNSIGNED(rhs_type)) {
 		ucast_stmt = cast_to_unsigned_size_overflow_type(stmt, cast_rhs);
 		type_max = cast_a_tree(unsigned_size_overflow_type, TYPE_MAX_VALUE(rhs_type));
 		insert_check_size_overflow(stmt, GT_EXPR, gimple_get_lhs(ucast_stmt), type_max);
 	} else {
-		type_max = cast_a_tree(signed_size_overflow_type, TYPE_MAX_VALUE(rhs_type));
+		type_max = signed_cast(TYPE_MAX_VALUE(rhs_type));
 		insert_check_size_overflow(stmt, GT_EXPR, cast_rhs, type_max);
 
-		type_min = cast_a_tree(signed_size_overflow_type, TYPE_MIN_VALUE(rhs_type));
+		type_min = signed_cast(TYPE_MIN_VALUE(rhs_type));
 		insert_check_size_overflow(stmt, LT_EXPR, cast_rhs, type_min);
 	}
 }
 
-static tree change_assign_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple stmt, tree orig_rhs)
+static tree change_assign_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple stmt, tree orig_rhs, tree new_rhs)
 {
 	gimple assign;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
-	tree new_rhs, origtype = TREE_TYPE(orig_rhs);
+	tree origtype = TREE_TYPE(orig_rhs);
 
 	gcc_assert(gimple_code(stmt) == GIMPLE_ASSIGN);
-
-	new_rhs = expand(visited, potentionally_overflowed, orig_rhs);
-	if (new_rhs == NULL_TREE)
-		return NULL_TREE;
 
 	assign = build_cast_stmt(origtype, new_rhs, CREATE_NEW_VAR, gimple_location(stmt));
 	gsi_insert_before(&gsi, assign, GSI_SAME_STMT);
@@ -824,22 +804,21 @@ static tree change_assign_rhs(struct pointer_set_t *visited, bool *potentionally
 	return gimple_get_lhs(assign);
 }
 
-static tree handle_const_assign(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple def_stmt, tree var, tree rhs, tree new_rhs1, tree new_rhs2, void (*gimple_assign_set_rhs)(gimple, tree))
+static tree handle_const_assign(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple def_stmt, tree var, tree orig_rhs, tree var_rhs, tree new_rhs1, tree new_rhs2, void (*gimple_assign_set_rhs)(gimple, tree))
 {
-	tree new_rhs, cast_rhs;
+	tree new_rhs;
 
 	if (gimple_assign_rhs_code(def_stmt) == MIN_EXPR)
 		return dup_assign(visited, potentionally_overflowed, def_stmt, new_rhs1, new_rhs2, NULL_TREE);
 
-	new_rhs = change_assign_rhs(visited, potentionally_overflowed, def_stmt, rhs);
-	if (new_rhs != NULL_TREE) {
-		gimple_assign_set_rhs(def_stmt, new_rhs);
-		update_stmt(def_stmt);
+	if (var_rhs == NULL_TREE)
+		return create_assign(visited, potentionally_overflowed, def_stmt, var, AFTER_STMT);
 
-		cast_rhs = gimple_assign_rhs1(get_def_stmt(new_rhs));
+	new_rhs = change_assign_rhs(visited, potentionally_overflowed, def_stmt, orig_rhs, var_rhs);
+	gimple_assign_set_rhs(def_stmt, new_rhs);
+	update_stmt(def_stmt);
 
-		check_size_overflow(def_stmt, cast_rhs, rhs, potentionally_overflowed);
-	}
+	check_size_overflow(def_stmt, var_rhs, orig_rhs, potentionally_overflowed);
 	return create_assign(visited, potentionally_overflowed, def_stmt, var, AFTER_STMT);
 }
 
@@ -880,10 +859,10 @@ static tree handle_binary_ops(struct pointer_set_t *visited, bool *potentionally
 		new_rhs2 = expand(visited, potentionally_overflowed, rhs2);
 
 	if (is_gimple_constant(rhs2))
-		return handle_const_assign(visited, potentionally_overflowed, def_stmt, var, rhs1, new_rhs1, signed_cast_constant(rhs2), &gimple_assign_set_rhs1);
+		return handle_const_assign(visited, potentionally_overflowed, def_stmt, var, rhs1, new_rhs1, new_rhs1, signed_cast(rhs2), &gimple_assign_set_rhs1);
 
 	if (is_gimple_constant(rhs1))
-		return handle_const_assign(visited, potentionally_overflowed, def_stmt, var, rhs2, signed_cast_constant(rhs1), new_rhs2, &gimple_assign_set_rhs2);
+		return handle_const_assign(visited, potentionally_overflowed, def_stmt, var, rhs2, new_rhs2, signed_cast(rhs1), new_rhs2, &gimple_assign_set_rhs2);
 
 	return dup_assign(visited, potentionally_overflowed, def_stmt, new_rhs1, new_rhs2, NULL_TREE);
 }
@@ -892,7 +871,7 @@ static tree handle_binary_ops(struct pointer_set_t *visited, bool *potentionally
 static tree get_new_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, tree rhs)
 {
 	if (is_gimple_constant(rhs))
-		return signed_cast_constant(rhs);
+		return signed_cast(rhs);
 	if (TREE_CODE(rhs) != SSA_NAME)
 		return NULL_TREE;
 	return expand(visited, potentionally_overflowed, rhs);
