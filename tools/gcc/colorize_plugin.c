@@ -29,6 +29,7 @@ int plugin_is_GPL_compatible;
 
 static struct plugin_info colorize_plugin_info = {
 	.version	= "201203092200",
+	.help		= NULL,
 };
 
 #define GREEN		"\033[32m\033[2m"
