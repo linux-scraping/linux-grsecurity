@@ -361,9 +361,9 @@ static inline unsigned long __must_check copy_from_user(void *to,
 					  const void __user *from,
 					  unsigned long n)
 {
-	int sz = __compiletime_object_size(to);
+	size_t sz = __compiletime_object_size(to);
 
-	if (likely(sz == -1 || sz >= n))
+	if (likely(sz == (size_t)-1 || sz >= n))
 		n = _copy_from_user(to, from, n);
 	else
 		copy_from_user_overflow();

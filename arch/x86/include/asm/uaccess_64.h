@@ -93,7 +93,7 @@ int copy_to_user(void __user *dst, const void *src, unsigned long size)
 static __always_inline __must_check
 unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long size)
 {
-	int sz = __compiletime_object_size(dst);
+	size_t sz = __compiletime_object_size(dst);
 	unsigned ret = 0;
 
 	might_fault();
@@ -106,7 +106,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 		return size;
 #endif
 
-	if (unlikely(sz != -1 && sz < size)) {
+	if (unlikely(sz != (size_t)-1 && sz < size)) {
 		copy_from_user_overflow();
 		return size;
 	}
@@ -166,7 +166,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 static __always_inline __must_check
 unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long size)
 {
-	int sz = __compiletime_object_size(src);
+	size_t sz = __compiletime_object_size(src);
 	unsigned ret = 0;
 
 	might_fault();
@@ -179,7 +179,7 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 		return size;
 #endif
 
-	if (unlikely(sz != -1 && sz < size)) {
+	if (unlikely(sz != (size_t)-1 && sz < size)) {
 		copy_to_user_overflow();
 		return size;
 	}
