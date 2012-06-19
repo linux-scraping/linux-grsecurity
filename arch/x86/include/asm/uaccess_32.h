@@ -243,9 +243,9 @@ extern void copy_from_user_overflow(void)
 static __always_inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	int sz = __compiletime_object_size(from);
+	size_t sz = __compiletime_object_size(from);
 
-	if (unlikely(sz != -1 && sz < n))
+	if (unlikely(sz != (size_t)-1 && sz < n))
 		copy_to_user_overflow();
 	else if (access_ok(VERIFY_WRITE, to, n))
 		n = __copy_to_user(to, from, n);
@@ -271,9 +271,9 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 static __always_inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	int sz = __compiletime_object_size(to);
+	size_t sz = __compiletime_object_size(to);
 
-	if (unlikely(sz != -1 && sz < n))
+	if (unlikely(sz != (size_t)-1 && sz < n))
 		copy_from_user_overflow();
 	else if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
