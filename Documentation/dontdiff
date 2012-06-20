@@ -237,6 +237,7 @@ series
 setup
 setup.bin
 setup.elf
+size_overflow_hash.h
 sImage
 slabinfo
 sm_tbl*

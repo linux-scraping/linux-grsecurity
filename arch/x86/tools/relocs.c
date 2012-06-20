@@ -536,7 +536,7 @@ static void print_absolute_relocs(void)
 		struct section *sec_applies, *sec_symtab;
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
-		int j;
+		unsigned int j;
 		if (sec->shdr.sh_type != SHT_REL) {
 			continue;
 		}
@@ -604,7 +604,7 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym),
 		char *sym_strtab;
 		Elf32_Sym *sh_symtab;
 		struct section *sec_applies, *sec_symtab;
-		int j;
+		unsigned int j;
 		struct section *sec = &secs[i];
 
 		if (sec->shdr.sh_type != SHT_REL) {

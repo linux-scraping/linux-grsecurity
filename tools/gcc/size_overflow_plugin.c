@@ -35,7 +35,7 @@
 struct size_overflow_hash {
 		struct size_overflow_hash *next;
 		const char *name;
-		unsigned short param;
+		unsigned int param;
 };
 
 #include "size_overflow_hash.h"
@@ -64,7 +64,7 @@ static tree const_char_ptr_type_node;
 static unsigned int handle_function(void);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20120617beta",
+	.version	= "20120618beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -201,13 +201,12 @@ static unsigned int get_function_decl(tree fndecl, unsigned char *tree_codes)
 	enum tree_code code = TREE_CODE(type);
 	size_t len = 0;
 
-	// skip builtins __builtin_constant_p
-	if (DECL_BUILT_IN(fndecl))
-		return 0;
-
 	gcc_assert(code == FUNCTION_TYPE);
 
 	arg = TYPE_ARG_TYPES(type);
+	// skip builtins __builtin_constant_p
+	if (!arg && DECL_BUILT_IN(fndecl))
+		return 0;
 	gcc_assert(arg != NULL_TREE);
 
 	if (TREE_CODE_CLASS(code) == tcc_type)
@@ -790,7 +789,7 @@ static void check_size_overflow(gimple stmt, tree cast_rhs, tree rhs, bool *pote
 	}
 }
 
-static tree change_assign_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple stmt, tree orig_rhs, tree new_rhs)
+static tree change_assign_rhs(gimple stmt, tree orig_rhs, tree new_rhs)
 {
 	gimple assign;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
@@ -814,7 +813,7 @@ static tree handle_const_assign(struct pointer_set_t *visited, bool *potentional
 	if (var_rhs == NULL_TREE)
 		return create_assign(visited, potentionally_overflowed, def_stmt, var, AFTER_STMT);
 
-	new_rhs = change_assign_rhs(visited, potentionally_overflowed, def_stmt, orig_rhs, var_rhs);
+	new_rhs = change_assign_rhs(def_stmt, orig_rhs, var_rhs);
 	gimple_assign_set_rhs(def_stmt, new_rhs);
 	update_stmt(def_stmt);
 
