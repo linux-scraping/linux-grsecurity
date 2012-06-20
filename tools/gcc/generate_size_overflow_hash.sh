@@ -71,7 +71,7 @@ create_headers () {
 
 create_array_elements () {
 	index=0
-	grep -v "nohasharray" $database | sort -n -k 2,7 | while read data
+	grep -v "nohasharray" $database | sort -n -k 4 | while read data
 	do
 		data_array=($data)
 		i="${data_array[3]}"
