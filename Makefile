@@ -1255,7 +1255,7 @@ CLEAN_FILES +=	vmlinux System.map \
 MRPROPER_DIRS  += include/config include2 usr/include include/generated
 MRPROPER_FILES += .config .config.old include/asm .version .old_version \
                   include/linux/autoconf.h include/linux/version.h      \
-                  include/linux/utsrelease.h                            \
+                  include/linux/utsrelease.h tools/gcc/size_overflow_hash.h \
                   include/linux/bounds.h include/asm*/asm-offsets.h     \
 		  Module.symvers Module.markers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
