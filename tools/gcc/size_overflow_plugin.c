@@ -177,6 +177,8 @@ static unsigned char get_tree_code(tree type)
 		return 9;
 	case VECTOR_TYPE:
 		return 10;
+	case REFERENCE_TYPE:
+		return 11;
 	default:
 		debug_tree(type);
 		gcc_unreachable();
