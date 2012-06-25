@@ -4,7 +4,190 @@
 
 menu "Security options"
 
-source grsecurity/Kconfig
+menu "Grsecurity"
+
+config GRKERNSEC
+	bool "Grsecurity"
+	select CRYPTO
+	select CRYPTO_SHA256
+	help
+	  If you say Y here, you will be able to configure many features
+	  that will enhance the security of your system.  It is highly
+	  recommended that you say Y here and read through the help
+	  for each option so that you fully understand the features and
+	  can evaluate their usefulness for your machine.
+
+choice
+	prompt "Configuration Method"
+	depends on GRKERNSEC
+	default GRKERNSEC_CONFIG_CUSTOM
+	help
+
+config GRKERNSEC_CONFIG_AUTO
+	bool "Automatic"
+	help
+	  If you choose this configuration method, you'll be able to answer a small
+	  number of simple questions about how you plan to use this kernel.
+	  The settings of grsecurity and PaX will be automatically configured for
+	  the highest commonly-used settings within the provided constraints.
+
+	  If you require additional configuration, custom changes can still be made
+	  from the "custom configuration" menu.
+
+config GRKERNSEC_CONFIG_CUSTOM
+	bool "Custom"
+	help
+	  If you choose this configuration method, you'll be able to configure all
+	  grsecurity and PaX settings manually.  Via this method, no options are
+	  automatically enabled.
+
+endchoice
+
+choice
+	prompt "Usage Type"
+	depends on (GRKERNSEC && GRKERNSEC_CONFIG_AUTO)
+	default GRKERNSEC_CONFIG_SERVER
+	help
+
+config GRKERNSEC_CONFIG_SERVER
+	bool "Server"
+	help
+	  Choose this option if you plan to use this kernel on a server.
+
+config GRKERNSEC_CONFIG_DESKTOP
+	bool "Desktop"
+	help
+	  Choose this option if you plan to use this kernel on a desktop.
+
+endchoice
+
+choice
+	prompt "Virtualization Type"
+	depends on (GRKERNSEC && X86 && GRKERNSEC_CONFIG_AUTO)
+	default GRKERNSEC_CONFIG_VIRT_NONE
+	help
+
+config GRKERNSEC_CONFIG_VIRT_NONE
+	bool "None"
+	help
+	  Choose this option if this kernel will be run on bare metal.
+
+config GRKERNSEC_CONFIG_VIRT_GUEST
+	bool "Guest"
+	help
+	  Choose this option if this kernel will be run as a VM guest.
+
+config GRKERNSEC_CONFIG_VIRT_HOST
+	bool "Host"
+	help
+	  Choose this option if this kernel will be run as a VM host.
+
+endchoice
+
+choice
+	prompt "Virtualization Hardware"
+	depends on (GRKERNSEC && X86 && GRKERNSEC_CONFIG_AUTO && (GRKERNSEC_CONFIG_VIRT_GUEST || GRKERNSEC_CONFIG_VIRT_HOST))
+	help
+
+config GRKERNSEC_CONFIG_VIRT_EPT
+	bool "EPT/RVI Processor Support"
+	depends on X86
+	help
+	  Choose this option if your CPU supports the EPT or RVI features of 2nd-gen
+	  hardware virtualization.  This allows for additional kernel hardening protections
+	  to operate without additional performance impact.
+
+	  To see if your Intel processor supports EPT, see:
+	  http://ark.intel.com/Products/VirtualizationTechnology
+	  (Most Core i3/5/7 support EPT)
+
+	  To see if your AMD processor supports RVI, see:
+	  http://support.amd.com/us/kbarticles/Pages/GPU120AMDRVICPUsHyperVWin8.aspx
+
+config GRKERNSEC_CONFIG_VIRT_SOFT
+	bool "First-gen/No Hardware Virtualization"
+	help
+	  Choose this option if you use an Atom/Pentium/Core 2 processor that either doesn't
+	  support hardware virtualization or doesn't support the EPT/RVI extensions.
+
+endchoice
+
+choice
+	prompt "Virtualization Software"
+	depends on (GRKERNSEC && GRKERNSEC_CONFIG_AUTO && (GRKERNSEC_CONFIG_VIRT_GUEST || GRKERNSEC_CONFIG_VIRT_HOST))
+	help
+
+config GRKERNSEC_CONFIG_VIRT_XEN
+	bool "Xen"
+	help
+	  Choose this option if this kernel is running as a Xen guest or host.
+
+config GRKERNSEC_CONFIG_VIRT_VMWARE
+	bool "VMWare"
+	help
+	  Choose this option if this kernel is running as a VMWare guest or host.
+
+config GRKERNSEC_CONFIG_VIRT_KVM
+	bool "KVM"
+	help
+	  Choose this option if this kernel is running as a KVM guest or host.
+
+config GRKERNSEC_CONFIG_VIRT_VIRTUALBOX
+	bool "VirtualBox"
+	help
+	  Choose this option if this kernel is running as a VirtualBox guest or host.
+
+endchoice
+
+choice
+	prompt "Required Priorities"
+	depends on (GRKERNSEC && GRKERNSEC_CONFIG_AUTO)
+	default GRKERNSEC_CONFIG_PRIORITY_PERF
+	help
+
+config GRKERNSEC_CONFIG_PRIORITY_PERF
+	bool "Performance"
+	help
+	  Choose this option if performance is of highest priority for this deployment
+	  of grsecurity.  Features like UDEREF on a 64bit kernel, kernel stack clearing,
+	  and freed memory sanitizing will be disabled.
+
+config GRKERNSEC_CONFIG_PRIORITY_SECURITY
+	bool "Security"
+	help
+	  Choose this option if security is of highest priority for this deployment of
+	  grsecurity.  UDEREF, kernel stack clearing, and freed memory sanitizing will
+	  be enabled for this kernel.  In a worst-case scenario, these features can
+	  introduce a 20% performance hit (UDEREF on x64 contributing half of this hit).
+
+endchoice
+
+menu "Default Special Groups"
+depends on (GRKERNSEC && GRKERNSEC_CONFIG_AUTO)
+
+config GRKERNSEC_PROC_GID
+	int "GID exempted from /proc restrictions"
+	default 1001
+	help
+	  Setting this GID determines which group will be exempted from
+	  grsecurity's /proc restrictions, allowing users of the specified
+	  group  to view network statistics and the existence of other users'
+	  processes on the system.
+
+config GRKERNSEC_TPE_GID
+	int "GID for untrusted users"
+	default 1005
+	help
+	  Setting this GID determines which group untrusted users should
+	  be added to.  These users will be placed under grsecurity's Trusted Path
+	  Execution mechanism, preventing them from executing their own binaries.
+	  The users will only be able to execute binaries in directories owned and
+	  writable only by the root user.
+
+endmenu
+
+menu "Customize Configuration"
+depends on GRKERNSEC
 
 menu "PaX"
 
@@ -29,6 +212,7 @@ menu "PaX"
 	
 config PAX
 	bool "Enable various PaX features"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC && (ALPHA || ARM || AVR32 || IA64 || MIPS || PARISC || PPC || SPARC || X86)
 	help
 	  This allows you to enable various PaX features.  PaX adds
@@ -52,6 +236,7 @@ config PAX_SOFTMODE
 
 config PAX_EI_PAX
 	bool 'Use legacy ELF header marking'
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  Enabling this option will allow you to control PaX features on
 	  a per executable basis via the 'chpax' utility available at
@@ -71,6 +256,7 @@ config PAX_EI_PAX
 
 config PAX_PT_PAX_FLAGS
 	bool 'Use ELF program header marking'
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  Enabling this option will allow you to control PaX features on
 	  a per executable basis via the 'paxctl' utility available at
@@ -92,6 +278,7 @@ config PAX_PT_PAX_FLAGS
 
 config PAX_XATTR_PAX_FLAGS
 	bool 'Use filesystem extended attributes marking'
+	default y if GRKERNSEC_CONFIG_AUTO
 	select CIFS_XATTR if CIFS
 	select EXT2_FS_XATTR if EXT2_FS
 	select EXT3_FS_XATTR if EXT3_FS
@@ -153,6 +340,7 @@ menu "Non-executable pages"
 
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86
 	help
 	  By design some architectures do not allow for protecting memory
@@ -181,6 +369,7 @@ config PAX_NOEXEC
 
 config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MATOM || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
 	select S390_SWITCH_AMODE if S390
 	select S390_EXEC_PROTECT if S390
@@ -203,6 +392,7 @@ config PAX_PAGEEXEC
 
 config PAX_SEGMEXEC
 	bool "Segmentation based non-executable pages"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_NOEXEC && X86_32
 	help
 	  This implementation is based on the segmentation feature of the
@@ -269,6 +459,7 @@ config PAX_EMUSIGRT
 
 config PAX_MPROTECT
 	bool "Restrict mprotect()"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on (PAX_PAGEEXEC || PAX_SEGMEXEC)
 	help
 	  Enabling this option will prevent programs from
@@ -286,8 +477,8 @@ config PAX_MPROTECT
 
 config PAX_MPROTECT_COMPAT
 	bool "Use legacy/compat protection demoting (read help)"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_DESKTOP)
 	depends on PAX_MPROTECT
-	default n
 	help
 	  The current implementation of PAX_MPROTECT denies RWX allocations/mprotects
 	  by sending the proper error code to the application.  For some broken 
@@ -362,6 +553,7 @@ config PAX_DLRESOLVE
 
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
+	default y if GRKERNSEC_CONFIG_AUTO && (GRKERNSEC_CONFIG_VIRT_NONE || (GRKERNSEC_CONFIG_VIRT_EPT && GRKERNSEC_CONFIG_VIRT_GUEST) || (GRKERNSEC_CONFIG_VIRT_EPT && GRKERNSEC_CONFIG_VIRT_KVM))
 	depends on (PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN
 	select PAX_PER_CPU_PGD if X86_64 || (X86_32 && X86_PAE)
 	select PAX_KERNEXEC_PLUGIN if X86_64
@@ -403,7 +595,8 @@ config PAX_KERNEXEC_PLUGIN_METHOD
 
 config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
-	default "4"
+	default "4" if (!GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_SERVER)
+	default "12" if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_DESKTOP)
 	depends on PAX_KERNEXEC && X86_32 && MODULES
 	help
 	  Due to implementation details the kernel must reserve a fixed
@@ -428,6 +621,7 @@ menu "Address Space Layout Randomization"
 
 config PAX_ASLR
 	bool "Address Space Layout Randomization"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  Many if not most exploit techniques rely on the knowledge of
 	  certain addresses in the attacked program.  The following options
@@ -457,6 +651,7 @@ config PAX_ASLR
 
 config PAX_RANDKSTACK
 	bool "Randomize kernel stack base"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on X86_TSC && X86
 	help
 	  By saying Y here the kernel will randomize every task's kernel
@@ -471,6 +666,7 @@ config PAX_RANDKSTACK
 
 config PAX_RANDUSTACK
 	bool "Randomize user stack base"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_ASLR
 	help
 	  By saying Y here the kernel will randomize every task's userland
@@ -483,6 +679,7 @@ config PAX_RANDUSTACK
 
 config PAX_RANDMMAP
 	bool "Randomize mmap() base"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_ASLR
 	help
 	  By saying Y here the kernel will use a randomized base address for
@@ -509,6 +706,7 @@ menu "Miscellaneous hardening features"
 
 config PAX_MEMORY_SANITIZE
 	bool "Sanitize all freed memory"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
 	depends on !HIBERNATION
 	help
 	  By saying Y here the kernel will erase memory pages as soon as they
@@ -531,6 +729,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_STACKLEAK
 	bool "Sanitize kernel stack"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
 	depends on X86
 	help
 	  By saying Y here the kernel will erase the kernel stack before it
@@ -555,6 +754,7 @@ config PAX_MEMORY_STACKLEAK
 
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
+	default y if GRKERNSEC_CONFIG_AUTO && (X86_32 || (X86_64 && GRKERNSEC_CONFIG_PRIORITY_SECURITY)) && (GRKERNSEC_CONFIG_VIRT_NONE || GRKERNSEC_CONFIG_VIRT_EPT)
 	depends on X86 && !UML_X86 && !XEN
 	select PAX_PER_CPU_PGD if X86_64
 	help
@@ -574,6 +774,7 @@ config PAX_MEMORY_UDEREF
 
 config PAX_REFCOUNT
 	bool "Prevent various kernel object reference counter overflows"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC && ((ARM && (CPU_32v6 || CPU_32v6K || CPU_32v7)) || SPARC64 || X86)
 	help
 	  By saying Y here the kernel will detect and prevent overflowing
@@ -593,6 +794,7 @@ config PAX_REFCOUNT
 
 config PAX_USERCOPY
 	bool "Harden heap object copies between kernel and userland"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on X86 || PPC || SPARC || ARM
 	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	help
@@ -622,6 +824,7 @@ config PAX_USERCOPY
 
 config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on X86
 	help
 	  By saying Y here the kernel recomputes expressions of function
@@ -633,6 +836,12 @@ config PAX_SIZE_OVERFLOW
 
 	  Homepage:
 	  http://www.grsecurity.net/~ephox/overflow_plugin/
+
+endmenu
+
+endmenu
+
+source grsecurity/Kconfig
 
 endmenu
 
