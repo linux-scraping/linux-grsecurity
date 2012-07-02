@@ -24,21 +24,8 @@ copy_user_generic(void *to, const void *from, unsigned long len) __size_overflow
 __must_check unsigned long
 copy_in_user(void __user *to, const void __user *from, unsigned long len);
 
-extern void copy_to_user_overflow(void)
-#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-	__compiletime_error("copy_to_user() buffer size is not provably correct")
-#else
-	__compiletime_warning("copy_to_user() buffer size is not provably correct")
-#endif
-;
-
-extern void copy_from_user_overflow(void)
-#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-	__compiletime_error("copy_from_user() buffer size is not provably correct")
-#else
-	__compiletime_warning("copy_from_user() buffer size is not provably correct")
-#endif
-;
+extern void copy_to_user_overflow(void) __compiletime_warning("copy_to_user() buffer size is not provably correct");
+extern void copy_from_user_overflow(void) __compiletime_warning("copy_from_user() buffer size is not provably correct");
 
 static __always_inline __must_check
 unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long size)

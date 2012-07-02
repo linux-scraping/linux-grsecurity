@@ -211,21 +211,8 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
 	return __copy_from_user_ll_nocache_nozero(to, from, n);
 }
 
-extern void copy_to_user_overflow(void)
-#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-	__compiletime_error("copy_to_user() buffer size is not provably correct")
-#else
-	__compiletime_warning("copy_to_user() buffer size is not provably correct")
-#endif
-;
-
-extern void copy_from_user_overflow(void)
-#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
-	__compiletime_error("copy_from_user() buffer size is not provably correct")
-#else
-	__compiletime_warning("copy_from_user() buffer size is not provably correct")
-#endif
-;
+extern void copy_to_user_overflow(void) __compiletime_warning("copy_to_user() buffer size is not provably correct");
+extern void copy_from_user_overflow(void) __compiletime_warning("copy_from_user() buffer size is not provably correct");
 
 /**
  * copy_to_user: - Copy a block of data into user space.
