@@ -1371,6 +1371,9 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
 		if (!res)
 			res = walk_component(nd, path, &nd->last,
 					     nd->last_type, LOOKUP_FOLLOW);
+		if (res >= 0 && gr_handle_symlink_owner(&link, nd->inode)) {
+			res = -EACCES;
+		}
 		put_link(nd, &link, cookie);
 	} while (res > 0);
 
@@ -1762,6 +1765,9 @@ static int path_lookupat(int dfd, const char *name,
 			err = follow_link(&link, nd, &cookie);
 			if (!err)
 				err = lookup_last(nd, &path);
+			if (!err && gr_handle_symlink_owner(&link, nd->inode)) {
+				err = -EACCES;
+			}
 			put_link(nd, &link, cookie);
 		}
 	}
@@ -2505,8 +2511,14 @@ static struct file *path_openat(int dfd, const char *pathname,
 		error = follow_link(&link, nd, &cookie);
 		if (unlikely(error))
 			filp = ERR_PTR(error);
-		else
+		else {
 			filp = do_last(nd, &path, op, pathname);
+			if (!IS_ERR(filp) && gr_handle_symlink_owner(&link, nd->inode)) {
+				if (filp)
+					fput(filp);
+				filp = ERR_PTR(-EACCES);
+			}
+		}
 		put_link(nd, &link, cookie);
 	}
 out:

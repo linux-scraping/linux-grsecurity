@@ -182,6 +182,7 @@ __u32 gr_acl_handle_link(const struct dentry *new_dentry,
 				const struct vfsmount *parent_mnt,
 				const struct dentry *old_dentry,
 				const struct vfsmount *old_mnt, const char *to);
+int gr_handle_symlink_owner(const struct path *link, const struct inode *target);
 int gr_acl_handle_rename(struct dentry *new_dentry,
 				struct dentry *parent_dentry,
 				const struct vfsmount *parent_mnt,

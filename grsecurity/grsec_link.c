@@ -4,6 +4,22 @@
 #include <linux/file.h>
 #include <linux/grinternal.h>
 
+int gr_handle_symlink_owner(const struct path *link, const struct inode *target)
+{
+#ifdef CONFIG_GRKERNSEC_SYMLINKOWN
+	const struct inode *link_inode = link->dentry->d_inode;
+
+	if (grsec_enable_symlinkown && in_group_p(grsec_symlinkown_gid) &&
+	   /* ignore root-owned links, e.g. /proc/self */
+	    link_inode->i_uid &&
+	    link_inode->i_uid != target->i_uid) {
+		gr_log_fs_int2(GR_DONT_AUDIT, GR_SYMLINKOWNER_MSG, link->dentry, link->mnt, link_inode->i_uid, target->i_uid);
+		return 1;
+	}
+#endif
+	return 0;
+}
+
 int
 gr_handle_follow_link(const struct inode *parent,
 		      const struct inode *inode,

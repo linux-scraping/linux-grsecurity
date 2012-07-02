@@ -3952,11 +3952,15 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 		return 1;
 
 	subj = task->acl;
+	read_lock(&gr_inode_lock);
 	do {
 		obj = lookup_acl_obj_label(ino, dev, subj);
-		if (obj != NULL)
+		if (obj != NULL) {
+			read_unlock(&gr_inode_lock);
 			return (obj->mode & GR_FIND) ? 1 : 0;
+		}
 	} while ((subj = subj->parent_subject));
+	read_unlock(&gr_inode_lock);
 	
 	/* this is purely an optimization since we're looking for an object
 	   for the directory we're doing a readdir on

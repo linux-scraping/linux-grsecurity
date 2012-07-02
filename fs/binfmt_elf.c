@@ -549,12 +549,11 @@ out:
 	return error;
 }
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
+#ifdef CONFIG_PAX_PT_PAX_FLAGS
+#ifdef CONFIG_PAX_SOFTMODE
 static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf_phdata)
 {
 	unsigned long pax_flags = 0UL;
-
-#ifdef CONFIG_PAX_PT_PAX_FLAGS
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (elf_phdata->p_flags & PF_PAGEEXEC)
@@ -590,16 +589,13 @@ static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf
 		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
-#endif
-
 	return pax_flags;
 }
+#endif
 
 static unsigned long pax_parse_pt_pax_hardmode(const struct elf_phdr * const elf_phdata)
 {
 	unsigned long pax_flags = 0UL;
-
-#ifdef CONFIG_PAX_PT_PAX_FLAGS
 
 #ifdef CONFIG_PAX_PAGEEXEC
 	if (!(elf_phdata->p_flags & PF_NOPAGEEXEC))
@@ -635,11 +631,97 @@ static unsigned long pax_parse_pt_pax_hardmode(const struct elf_phdr * const elf
 		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
+	return pax_flags;
+}
+#endif
+
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
+#ifdef CONFIG_PAX_SOFTMODE
+static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmode)
+{
+	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (pax_flags_softmode & MF_PAX_PAGEEXEC)
+		pax_flags |= MF_PAX_PAGEEXEC;
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (pax_flags_softmode & MF_PAX_SEGMEXEC)
+		pax_flags |= MF_PAX_SEGMEXEC;
+#endif
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if ((__supported_pte_mask & _PAGE_NX))
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
+#endif
+
+#ifdef CONFIG_PAX_EMUTRAMP
+	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
+		pax_flags |= MF_PAX_EMUTRAMP;
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (pax_flags_softmode & MF_PAX_MPROTECT)
+		pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
+	if (randomize_va_space && (pax_flags_softmode & MF_PAX_RANDMMAP))
+		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
 	return pax_flags;
 }
+#endif
 
+static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmode)
+{
+	unsigned long pax_flags = 0UL;
+
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (!(pax_flags_hardmode & MF_PAX_PAGEEXEC))
+		pax_flags |= MF_PAX_PAGEEXEC;
+#endif
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (!(pax_flags_hardmode & MF_PAX_SEGMEXEC))
+		pax_flags |= MF_PAX_SEGMEXEC;
+#endif
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if ((__supported_pte_mask & _PAGE_NX))
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
+#endif
+
+#ifdef CONFIG_PAX_EMUTRAMP
+	if (!(pax_flags_hardmode & MF_PAX_EMUTRAMP))
+		pax_flags |= MF_PAX_EMUTRAMP;
+#endif
+
+#ifdef CONFIG_PAX_MPROTECT
+	if (!(pax_flags_hardmode & MF_PAX_MPROTECT))
+		pax_flags |= MF_PAX_MPROTECT;
+#endif
+
+#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
+	if (randomize_va_space && !(pax_flags_hardmode & MF_PAX_RANDMMAP))
+		pax_flags |= MF_PAX_RANDMMAP;
+#endif
+
+	return pax_flags;
+}
+#endif
+
+#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
 static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 {
 	unsigned long pax_flags = 0UL;
@@ -734,90 +816,6 @@ static unsigned long pax_parse_pt_pax(const struct elfhdr * const elf_ex, const 
 
 	return ~0UL;
 }
-
-#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
-static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmode)
-{
-	unsigned long pax_flags = 0UL;
-
-#ifdef CONFIG_PAX_PAGEEXEC
-	if (pax_flags_softmode & MF_PAX_PAGEEXEC)
-		pax_flags |= MF_PAX_PAGEEXEC;
-#endif
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (pax_flags_softmode & MF_PAX_SEGMEXEC)
-		pax_flags |= MF_PAX_SEGMEXEC;
-#endif
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if ((__supported_pte_mask & _PAGE_NX))
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
-#endif
-
-#ifdef CONFIG_PAX_EMUTRAMP
-	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
-		pax_flags |= MF_PAX_EMUTRAMP;
-#endif
-
-#ifdef CONFIG_PAX_MPROTECT
-	if (pax_flags_softmode & MF_PAX_MPROTECT)
-		pax_flags |= MF_PAX_MPROTECT;
-#endif
-
-#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
-	if (randomize_va_space && (pax_flags_softmode & MF_PAX_RANDMMAP))
-		pax_flags |= MF_PAX_RANDMMAP;
-#endif
-
-	return pax_flags;
-}
-
-static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmode)
-{
-	unsigned long pax_flags = 0UL;
-
-#ifdef CONFIG_PAX_PAGEEXEC
-	if (!(pax_flags_hardmode & MF_PAX_PAGEEXEC))
-		pax_flags |= MF_PAX_PAGEEXEC;
-#endif
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (!(pax_flags_hardmode & MF_PAX_SEGMEXEC))
-		pax_flags |= MF_PAX_SEGMEXEC;
-#endif
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if ((__supported_pte_mask & _PAGE_NX))
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
-#endif
-
-#ifdef CONFIG_PAX_EMUTRAMP
-	if (!(pax_flags_hardmode & MF_PAX_EMUTRAMP))
-		pax_flags |= MF_PAX_EMUTRAMP;
-#endif
-
-#ifdef CONFIG_PAX_MPROTECT
-	if (!(pax_flags_hardmode & MF_PAX_MPROTECT))
-		pax_flags |= MF_PAX_MPROTECT;
-#endif
-
-#if defined(CONFIG_PAX_RANDMMAP) || defined(CONFIG_PAX_RANDUSTACK)
-	if (randomize_va_space && !(pax_flags_hardmode & MF_PAX_RANDMMAP))
-		pax_flags |= MF_PAX_RANDMMAP;
-#endif
-
-	return pax_flags;
-}
-#endif
 
 static unsigned long pax_parse_xattr_pax(struct file * const file)
 {

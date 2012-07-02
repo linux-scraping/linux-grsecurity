@@ -176,6 +176,7 @@ config GRKERNSEC_PROC_GID
 
 config GRKERNSEC_TPE_GID
 	int "GID for untrusted users"
+	depends on GRKERNSEC_CONFIG_SERVER
 	default 1005
 	help
 	  Setting this GID determines which group untrusted users should
@@ -183,6 +184,16 @@ config GRKERNSEC_TPE_GID
 	  Execution mechanism, preventing them from executing their own binaries.
 	  The users will only be able to execute binaries in directories owned and
 	  writable only by the root user.
+
+config GRKERNSEC_SYMLINKOWN_GID
+        int "GID for users with kernel-enforced SymlinksIfOwnerMatch"
+        depends on GRKERNSEC_CONFIG_SERVER
+        default 1006
+        help
+          Setting this GID determines what group kernel-enforced
+          SymlinksIfOwnerMatch will be enabled for.  If the sysctl option
+          is enabled, a sysctl option with name "symlinkown_gid" is created.
+
 
 endmenu
 

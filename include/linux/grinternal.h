@@ -59,6 +59,8 @@ extern int grsec_enable_chroot_execlog;
 extern int grsec_enable_chroot_caps;
 extern int grsec_enable_chroot_sysctl;
 extern int grsec_enable_chroot_unix;
+extern int grsec_enable_symlinkown;
+extern int grsec_symlinkown_gid;
 extern int grsec_enable_tpe;
 extern int grsec_tpe_gid;
 extern int grsec_enable_tpe_all;

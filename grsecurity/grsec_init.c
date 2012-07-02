@@ -9,6 +9,8 @@
 
 int grsec_enable_ptrace_readexec;
 int grsec_enable_setxid;
+int grsec_enable_symlinkown;
+int grsec_symlinkown_gid;
 int grsec_enable_brute;
 int grsec_enable_link;
 int grsec_enable_dmesg;
@@ -251,6 +253,10 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
 	grsec_enable_chroot_sysctl = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_SYMLINKOWN
+	grsec_enable_symlinkown = 1;
+	grsec_symlinkown_gid = CONFIG_GRKERNSEC_SYMLINKOWN_GID;
 #endif
 #ifdef CONFIG_GRKERNSEC_TPE
 	grsec_enable_tpe = 1;

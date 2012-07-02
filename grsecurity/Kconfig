@@ -271,6 +271,31 @@ config GRKERNSEC_LINK
 	  able to hardlink to files they do not own.  If the sysctl option is
 	  enabled, a sysctl option with name "linking_restrictions" is created.
 
+config GRKERNSEC_SYMLINKOWN
+	bool "Kernel-enforced SymlinksIfOwnerMatch"
+	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER
+	help
+	  Apache's SymlinksIfOwnerMatch option has an inherent race condition
+	  that prevents it from being used as a security feature.  As Apache
+	  verifies the symlink by performing a stat() against the target of
+	  the symlink before it is followed, an attacker can setup a symlink
+	  to point to a same-owned file, then replace the symlink with one
+	  that targets another user's file just after Apache "validates" the
+	  symlink -- a classic TOCTOU race.  If you say Y here, a complete,
+	  race-free replacement for Apache's "SymlinksIfOwnerMatch" option
+	  will be in place for the group you specify. If the sysctl option
+	  is enabled, a sysctl option with name "enforce_symlinksifowner" is
+	  created.
+
+config GRKERNSEC_SYMLINKOWN_GID
+	int "GID for users with kernel-enforced SymlinksIfOwnerMatch"
+	depends on GRKERNSEC_SYMLINKOWN
+	default 1006
+	help
+	  Setting this GID determines what group kernel-enforced
+	  SymlinksIfOwnerMatch will be enabled for.  If the sysctl option
+	  is enabled, a sysctl option with name "symlinkown_gid" is created.
+
 config GRKERNSEC_FIFO
 	bool "FIFO restrictions"
 	default y if GRKERNSEC_CONFIG_AUTO
@@ -674,7 +699,7 @@ config GRKERNSEC_SETXID
 
 config GRKERNSEC_TPE
 	bool "Trusted Path Execution (TPE)"
-	default y if GRKERNSEC_CONFIG_AUTO
+	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER
 	help
 	  If you say Y here, you will be able to choose a gid to add to the
 	  supplementary groups of users you want to mark as "untrusted."
