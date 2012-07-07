@@ -6,6 +6,25 @@ menu "Security options"
 
 menu "Grsecurity"
 
+	config ARCH_TRACK_EXEC_LIMIT
+	bool
+
+	config PAX_KERNEXEC_PLUGIN
+	bool
+
+	config PAX_PER_CPU_PGD
+	bool
+
+	config TASK_SIZE_MAX_SHIFT
+	int
+	depends on X86_64
+	default 47 if !PAX_PER_CPU_PGD
+	default 42 if PAX_PER_CPU_PGD
+
+	config PAX_ENABLE_PAE
+	bool
+	default y if (X86_32 && (MPENTIUM4 || MK8 || MPSC || MCORE2 || MATOM))
+	
 config GRKERNSEC
 	bool "Grsecurity"
 	select CRYPTO
@@ -202,25 +221,6 @@ depends on GRKERNSEC
 
 menu "PaX"
 
-	config ARCH_TRACK_EXEC_LIMIT
-	bool
-
-	config PAX_KERNEXEC_PLUGIN
-	bool
-
-	config PAX_PER_CPU_PGD
-	bool
-
-	config TASK_SIZE_MAX_SHIFT
-	int
-	depends on X86_64
-	default 47 if !PAX_PER_CPU_PGD
-	default 42 if PAX_PER_CPU_PGD
-
-	config PAX_ENABLE_PAE
-	bool
-	default y if (X86_32 && (MPENTIUM4 || MK8 || MPSC || MCORE2 || MATOM))
-	
 config PAX
 	bool "Enable various PaX features"
 	default y if GRKERNSEC_CONFIG_AUTO
