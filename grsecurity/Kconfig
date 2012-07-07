@@ -1,214 +1,12 @@
 #
 # grecurity configuration
 #
-
-menu "Grsecurity"
-
-config GRKERNSEC
-	bool "Grsecurity"
-	select CRYPTO
-	select CRYPTO_SHA256
-	help
-	  If you say Y here, you will be able to configure many features
-	  that will enhance the security of your system.  It is highly
-	  recommended that you say Y here and read through the help
-	  for each option so that you fully understand the features and
-	  can evaluate their usefulness for your machine.
-
-choice
-	prompt "Security Level"
-	depends on GRKERNSEC
-	default GRKERNSEC_CUSTOM
-
-config GRKERNSEC_LOW
-	bool "Low"
-	select GRKERNSEC_LINK
-	select GRKERNSEC_FIFO
-	select GRKERNSEC_RANDNET
-	select GRKERNSEC_DMESG
-	select GRKERNSEC_CHROOT
-	select GRKERNSEC_CHROOT_CHDIR
-
-	help
-	  If you choose this option, several of the grsecurity options will
-	  be enabled that will give you greater protection against a number
-	  of attacks, while assuring that none of your software will have any
-	  conflicts with the additional security measures.  If you run a lot
-	  of unusual software, or you are having problems with the higher
-	  security levels, you should say Y here.  With this option, the
-	  following features are enabled:
-
-	  - Linking restrictions
-	  - FIFO restrictions
-	  - Restricted dmesg
-	  - Enforced chdir("/") on chroot
-	  - Runtime module disabling
-
-config GRKERNSEC_MEDIUM
-	bool "Medium"
-	select PAX
-	select PAX_EI_PAX
-	select PAX_PT_PAX_FLAGS
-	select PAX_HAVE_ACL_FLAGS
-	select GRKERNSEC_PROC_MEMMAP if (PAX_NOEXEC || PAX_ASLR)
-	select GRKERNSEC_CHROOT
-	select GRKERNSEC_CHROOT_SYSCTL
-	select GRKERNSEC_LINK
-	select GRKERNSEC_FIFO
-	select GRKERNSEC_DMESG
-	select GRKERNSEC_RANDNET
-	select GRKERNSEC_FORKFAIL
-	select GRKERNSEC_TIME
-	select GRKERNSEC_SIGNAL
-	select GRKERNSEC_CHROOT
-	select GRKERNSEC_CHROOT_UNIX
-	select GRKERNSEC_CHROOT_MOUNT
-	select GRKERNSEC_CHROOT_PIVOT
-	select GRKERNSEC_CHROOT_DOUBLE
-	select GRKERNSEC_CHROOT_CHDIR
-	select GRKERNSEC_CHROOT_MKNOD
-	select GRKERNSEC_PROC
-	select GRKERNSEC_PROC_USERGROUP
-	select PAX_RANDUSTACK
-	select PAX_ASLR
-	select PAX_RANDMMAP
-	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || SPARC || PPC || ARM) && (SLAB || SLUB || SLOB))
-
-	help
-	  If you say Y here, several features in addition to those included
-	  in the low additional security level will be enabled.  These
-	  features provide even more security to your system, though in rare
-	  cases they may be incompatible with very old or poorly written
-	  software.  If you enable this option, make sure that your auth
-	  service (identd) is running as gid 1001.  With this option, 
-	  the following features (in addition to those provided in the 
-	  low additional security level) will be enabled:
-
-	  - Failed fork logging
-	  - Time change logging
-	  - Signal logging
-	  - Deny mounts in chroot
-	  - Deny double chrooting
-	  - Deny sysctl writes in chroot
-	  - Deny mknod in chroot
-	  - Deny access to abstract AF_UNIX sockets out of chroot
-	  - Deny pivot_root in chroot
-	  - Denied reads/writes of /dev/kmem, /dev/mem, and /dev/port
-	  - /proc restrictions with special GID set to 10 (usually wheel)
-	  - Address Space Layout Randomization (ASLR)
-	  - Prevent exploitation of most refcount overflows
-	  - Bounds checking of copying between the kernel and userland
-
-config GRKERNSEC_HIGH
-	bool "High"
-	select GRKERNSEC_LINK
-	select GRKERNSEC_FIFO
-	select GRKERNSEC_DMESG
-	select GRKERNSEC_FORKFAIL
-	select GRKERNSEC_TIME
-	select GRKERNSEC_SIGNAL
-	select GRKERNSEC_CHROOT
-	select GRKERNSEC_CHROOT_SHMAT
-	select GRKERNSEC_CHROOT_UNIX
-	select GRKERNSEC_CHROOT_MOUNT
-	select GRKERNSEC_CHROOT_FCHDIR
-	select GRKERNSEC_CHROOT_PIVOT
-	select GRKERNSEC_CHROOT_DOUBLE
-	select GRKERNSEC_CHROOT_CHDIR
-	select GRKERNSEC_CHROOT_MKNOD
-	select GRKERNSEC_CHROOT_CAPS
-	select GRKERNSEC_CHROOT_SYSCTL
-	select GRKERNSEC_CHROOT_FINDTASK
-	select GRKERNSEC_SYSFS_RESTRICT
-	select GRKERNSEC_PROC
-	select GRKERNSEC_PROC_MEMMAP if (PAX_NOEXEC || PAX_ASLR)
-	select GRKERNSEC_HIDESYM
-	select GRKERNSEC_BRUTE
-	select GRKERNSEC_PROC_USERGROUP
-	select GRKERNSEC_KMEM
-	select GRKERNSEC_RESLOG
-	select GRKERNSEC_RANDNET
-	select GRKERNSEC_PROC_ADD
-	select GRKERNSEC_CHROOT_CHMOD
-	select GRKERNSEC_CHROOT_NICE
-	select GRKERNSEC_SETXID if (X86 || SPARC64 || PPC || ARM || MIPS)
-	select GRKERNSEC_AUDIT_MOUNT
-	select GRKERNSEC_MODHARDEN if (MODULES)
-	select GRKERNSEC_HARDEN_PTRACE
-	select GRKERNSEC_PTRACE_READEXEC
-	select GRKERNSEC_VM86 if (X86_32)
-	select GRKERNSEC_KERN_LOCKOUT if (X86 || ARM || PPC || SPARC)
-	select PAX
-	select PAX_RANDUSTACK
-	select PAX_ASLR
-	select PAX_RANDMMAP
-	select PAX_NOEXEC
-	select PAX_MPROTECT
-	select PAX_EI_PAX
-	select PAX_PT_PAX_FLAGS
-	select PAX_HAVE_ACL_FLAGS
-	select PAX_KERNEXEC if ((PPC || X86) && (!X86_32 || X86_WP_WORKS_OK) && !XEN)
-	select PAX_MEMORY_UDEREF if (X86 && !XEN)
-	select PAX_RANDKSTACK if (X86_TSC && X86)
-	select PAX_SEGMEXEC if (X86_32)
-	select PAX_PAGEEXEC
-	select PAX_EMUPLT if (ALPHA || PARISC || SPARC)
-	select PAX_EMUTRAMP if (PARISC)
-	select PAX_EMUSIGRT if (PARISC)
-	select PAX_ETEXECRELOCS if (ALPHA || IA64 || PARISC)
-	select PAX_ELFRELOCS if (PAX_ETEXECRELOCS || (IA64 || PPC || X86))
-	select PAX_REFCOUNT if (X86 || SPARC64)
-	select PAX_USERCOPY if ((X86 || SPARC || PPC || ARM) && (SLAB || SLUB || SLOB))
-	help
-	  If you say Y here, many of the features of grsecurity will be
-	  enabled, which will protect you against many kinds of attacks
-	  against your system.  The heightened security comes at a cost
-	  of an increased chance of incompatibilities with rare software
-	  on your machine.  Since this security level enables PaX, you should
-	  view <http://pax.grsecurity.net> and read about the PaX
-	  project.  While you are there, download chpax and run it on
-	  binaries that cause problems with PaX.  Also remember that
-	  since the /proc restrictions are enabled, you must run your
-	  identd as gid 1001.  This security level enables the following 
-	  features in addition to those listed in the low and medium 
-	  security levels:
-
-	  - Additional /proc restrictions
-	  - Chmod restrictions in chroot
-	  - No signals, ptrace, or viewing of processes outside of chroot
-	  - Capability restrictions in chroot
-	  - Deny fchdir out of chroot
-	  - Priority restrictions in chroot
-	  - Segmentation-based implementation of PaX
-	  - Mprotect restrictions
-	  - Removal of addresses from /proc/<pid>/[smaps|maps|stat]
-	  - Kernel stack randomization
-	  - Mount/unmount/remount logging
-	  - Kernel symbol hiding
-	  - Hardening of module auto-loading
-	  - Ptrace restrictions
-	  - Restricted vm86 mode
-	  - Restricted sysfs/debugfs
-	  - Active kernel exploit response
-
-config GRKERNSEC_CUSTOM
-	bool "Custom"
-	help
-	  If you say Y here, you will be able to configure every grsecurity
-	  option, which allows you to enable many more features that aren't
-	  covered in the basic security levels.  These additional features
-	  include TPE, socket restrictions, and the sysctl system for
-	  grsecurity.  It is advised that you read through the help for
-	  each option to determine its usefulness in your situation.
-
-endchoice
-
 menu "Memory Protections"
 depends on GRKERNSEC
 
 config GRKERNSEC_KMEM
 	bool "Deny reading/writing to /dev/kmem, /dev/mem, and /dev/port"
+	default y if GRKERNSEC_CONFIG_AUTO
 	select STRICT_DEVMEM if (X86 || ARM || TILE || S390)
 	help
 	  If you say Y here, /dev/kmem and /dev/mem won't be allowed to
@@ -230,6 +28,7 @@ config GRKERNSEC_KMEM
 
 config GRKERNSEC_VM86
 	bool "Restrict VM86 mode"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER)
 	depends on X86_32
 
 	help
@@ -243,6 +42,7 @@ config GRKERNSEC_VM86
 
 config GRKERNSEC_IO
 	bool "Disable privileged I/O"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER)
 	depends on X86
 	select RTC_CLASS
 	select RTC_INTF_DEV
@@ -262,7 +62,7 @@ config GRKERNSEC_IO
 
 config GRKERNSEC_PROC_MEMMAP
 	bool "Harden ASLR against information leaks and entropy reduction"
-	default y if (PAX_NOEXEC || PAX_ASLR)
+	default y if (GRKERNSEC_CONFIG_AUTO || PAX_NOEXEC || PAX_ASLR)
 	depends on PAX_NOEXEC || PAX_ASLR
 	help
 	  If you say Y here, the /proc/<pid>/maps and /proc/<pid>/stat files will
@@ -282,6 +82,7 @@ config GRKERNSEC_PROC_MEMMAP
 
 config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, attempts to bruteforce exploits against forking
 	  daemons such as apache or sshd, as well as against suid/sgid binaries
@@ -301,6 +102,7 @@ config GRKERNSEC_BRUTE
 
 config GRKERNSEC_MODHARDEN
 	bool "Harden module auto-loading"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on MODULES
 	help
 	  If you say Y here, module auto-loading in response to use of some
@@ -322,6 +124,7 @@ config GRKERNSEC_MODHARDEN
 
 config GRKERNSEC_HIDESYM
 	bool "Hide kernel symbols"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, getting information on loaded modules, and
 	  displaying all kernel symbols through a syscall will be restricted
@@ -347,11 +150,12 @@ config GRKERNSEC_HIDESYM
 
 config GRKERNSEC_KERN_LOCKOUT
 	bool "Active kernel exploit response"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on X86 || ARM || PPC || SPARC
 	help
 	  If you say Y here, when a PaX alert is triggered due to suspicious
 	  activity in the kernel (from KERNEXEC/UDEREF/USERCOPY)
-	  or an OOPs occurs due to bad memory accesses, instead of just
+	  or an OOPS occurs due to bad memory accesses, instead of just
 	  terminating the offending process (and potentially allowing
 	  a subsequent exploit from the same user), we will take one of two
 	  actions:
@@ -410,6 +214,7 @@ depends on GRKERNSEC
 
 config GRKERNSEC_PROC
 	bool "Proc restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, the permissions of the /proc filesystem
 	  will be altered to enhance system security and privacy.  You MUST
@@ -431,6 +236,7 @@ config GRKERNSEC_PROC_USER
 
 config GRKERNSEC_PROC_USERGROUP
 	bool "Allow special group"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_PROC && !GRKERNSEC_PROC_USER
 	help
 	  If you say Y here, you will be able to select a group that will be
@@ -446,6 +252,7 @@ config GRKERNSEC_PROC_GID
 
 config GRKERNSEC_PROC_ADD
 	bool "Additional restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_PROC_USER || GRKERNSEC_PROC_USERGROUP
 	help
 	  If you say Y here, additional restrictions will be placed on
@@ -454,6 +261,7 @@ config GRKERNSEC_PROC_ADD
 
 config GRKERNSEC_LINK
 	bool "Linking restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, /tmp race exploits will be prevented, since users
 	  will no longer be able to follow symlinks owned by other users in
@@ -462,8 +270,34 @@ config GRKERNSEC_LINK
 	  able to hardlink to files they do not own.  If the sysctl option is
 	  enabled, a sysctl option with name "linking_restrictions" is created.
 
+config GRKERNSEC_SYMLINKOWN
+	bool "Kernel-enforced SymlinksIfOwnerMatch"
+	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER
+	help
+	  Apache's SymlinksIfOwnerMatch option has an inherent race condition
+	  that prevents it from being used as a security feature.  As Apache
+	  verifies the symlink by performing a stat() against the target of
+	  the symlink before it is followed, an attacker can setup a symlink
+	  to point to a same-owned file, then replace the symlink with one
+	  that targets another user's file just after Apache "validates" the
+	  symlink -- a classic TOCTOU race.  If you say Y here, a complete,
+	  race-free replacement for Apache's "SymlinksIfOwnerMatch" option
+	  will be in place for the group you specify. If the sysctl option
+	  is enabled, a sysctl option with name "enforce_symlinksifowner" is
+	  created.
+
+config GRKERNSEC_SYMLINKOWN_GID
+	int "GID for users with kernel-enforced SymlinksIfOwnerMatch"
+	depends on GRKERNSEC_SYMLINKOWN
+	default 1006
+	help
+	  Setting this GID determines what group kernel-enforced
+	  SymlinksIfOwnerMatch will be enabled for.  If the sysctl option
+	  is enabled, a sysctl option with name "symlinkown_gid" is created.
+
 config GRKERNSEC_FIFO
 	bool "FIFO restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, users will not be able to write to FIFOs they don't
 	  own in world-writable +t directories (e.g. /tmp), unless the owner of
@@ -473,6 +307,7 @@ config GRKERNSEC_FIFO
 
 config GRKERNSEC_SYSFS_RESTRICT
 	bool "Sysfs/debugfs restriction"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER)
 	depends on SYSFS
 	help
 	  If you say Y here, sysfs (the pseudo-filesystem mounted at /sys) and
@@ -506,6 +341,7 @@ config GRKERNSEC_ROFS
 
 config GRKERNSEC_CHROOT
 	bool "Chroot jail restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, you will be able to choose several options that will
 	  make breaking out of a chrooted jail much more difficult.  If you
@@ -514,6 +350,7 @@ config GRKERNSEC_CHROOT
 
 config GRKERNSEC_CHROOT_MOUNT
 	bool "Deny mounts"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to
@@ -522,6 +359,7 @@ config GRKERNSEC_CHROOT_MOUNT
 
 config GRKERNSEC_CHROOT_DOUBLE
 	bool "Deny double-chroots"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to chroot
@@ -532,6 +370,7 @@ config GRKERNSEC_CHROOT_DOUBLE
 
 config GRKERNSEC_CHROOT_PIVOT
 	bool "Deny pivot_root in chroot"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to use
@@ -544,6 +383,7 @@ config GRKERNSEC_CHROOT_PIVOT
 
 config GRKERNSEC_CHROOT_CHDIR
 	bool "Enforce chdir(\"/\") on all chroots"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, the current working directory of all newly-chrooted
@@ -560,6 +400,7 @@ config GRKERNSEC_CHROOT_CHDIR
 
 config GRKERNSEC_CHROOT_CHMOD
 	bool "Deny (f)chmod +s"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to chmod
@@ -570,6 +411,7 @@ config GRKERNSEC_CHROOT_CHMOD
 
 config GRKERNSEC_CHROOT_FCHDIR
 	bool "Deny fchdir out of chroot"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, a well-known method of breaking chroots by fchdir'ing
@@ -579,6 +421,7 @@ config GRKERNSEC_CHROOT_FCHDIR
 
 config GRKERNSEC_CHROOT_MKNOD
 	bool "Deny mknod"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be allowed to
@@ -593,6 +436,7 @@ config GRKERNSEC_CHROOT_MKNOD
 
 config GRKERNSEC_CHROOT_SHMAT
 	bool "Deny shmat() out of chroot"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to attach
@@ -602,6 +446,7 @@ config GRKERNSEC_CHROOT_SHMAT
 
 config GRKERNSEC_CHROOT_UNIX
 	bool "Deny access to abstract AF_UNIX sockets out of chroot"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to
@@ -612,6 +457,7 @@ config GRKERNSEC_CHROOT_UNIX
 
 config GRKERNSEC_CHROOT_FINDTASK
 	bool "Protect outside processes"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to
@@ -622,6 +468,7 @@ config GRKERNSEC_CHROOT_FINDTASK
 
 config GRKERNSEC_CHROOT_NICE
 	bool "Restrict priority changes"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, processes inside a chroot will not be able to raise
@@ -633,6 +480,7 @@ config GRKERNSEC_CHROOT_NICE
 
 config GRKERNSEC_CHROOT_SYSCTL
 	bool "Deny sysctl writes"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, an attacker in a chroot will not be able to
@@ -643,6 +491,7 @@ config GRKERNSEC_CHROOT_SYSCTL
 
 config GRKERNSEC_CHROOT_CAPS
 	bool "Capability restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, the capabilities on all processes within a
@@ -685,6 +534,7 @@ config GRKERNSEC_EXECLOG
 
 config GRKERNSEC_RESLOG
 	bool "Resource logging"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, all attempts to overstep resource limits will
 	  be logged with the resource name, the requested size, and the current
@@ -723,6 +573,7 @@ config GRKERNSEC_AUDIT_MOUNT
 
 config GRKERNSEC_SIGNAL
 	bool "Signal logging"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, certain important signals will be logged, such as
 	  SIGSEGV, which will as a result inform you of when a error in a program
@@ -740,6 +591,7 @@ config GRKERNSEC_FORKFAIL
 
 config GRKERNSEC_TIME
 	bool "Time change logging"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, any changes of the system clock will be logged.
 	  If the sysctl option is enabled, a sysctl option with name
@@ -747,6 +599,7 @@ config GRKERNSEC_TIME
 
 config GRKERNSEC_PROC_IPADDR
 	bool "/proc/<pid>/ipaddr support"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, a new entry will be added to each /proc/<pid>
 	  directory that contains the IP address of the person using the task.
@@ -758,6 +611,7 @@ config GRKERNSEC_PROC_IPADDR
 
 config GRKERNSEC_RWXMAP_LOG
 	bool 'Denied RWX mmap/mprotect logging'
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_MPROTECT && !PAX_EMUPLT && !PAX_EMUSIGRT
 	help
 	  If you say Y here, calls to mmap() and mprotect() with explicit
@@ -786,6 +640,7 @@ depends on GRKERNSEC
 
 config GRKERNSEC_DMESG
 	bool "Dmesg(8) restriction"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, non-root users will not be able to use dmesg(8)
 	  to view up to the last 4kb of messages in the kernel's log buffer.
@@ -797,6 +652,7 @@ config GRKERNSEC_DMESG
 
 config GRKERNSEC_HARDEN_PTRACE
 	bool "Deter ptrace-based process snooping"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, TTY sniffers and other malicious monitoring
 	  programs implemented through ptrace will be defeated.  If you
@@ -813,6 +669,7 @@ config GRKERNSEC_HARDEN_PTRACE
 
 config GRKERNSEC_PTRACE_READEXEC
 	bool "Require read access to ptrace sensitive binaries"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, unprivileged users will not be able to ptrace unreadable
 	  binaries.  This option is useful in environments that
@@ -826,6 +683,7 @@ config GRKERNSEC_PTRACE_READEXEC
 
 config GRKERNSEC_SETXID
 	bool "Enforce consistent multithreaded privileges"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on (X86 || SPARC64 || PPC || ARM || MIPS)
 	help
 	  If you say Y here, a change from a root uid to a non-root uid
@@ -840,6 +698,7 @@ config GRKERNSEC_SETXID
 
 config GRKERNSEC_TPE
 	bool "Trusted Path Execution (TPE)"
+	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER
 	help
 	  If you say Y here, you will be able to choose a gid to add to the
 	  supplementary groups of users you want to mark as "untrusted."
@@ -896,6 +755,7 @@ depends on GRKERNSEC
 
 config GRKERNSEC_RANDNET
 	bool "Larger entropy pools"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, the entropy pools used for many features of Linux
 	  and grsecurity will be doubled in size.  Since several grsecurity
@@ -905,6 +765,7 @@ config GRKERNSEC_RANDNET
 
 config GRKERNSEC_BLACKHOLE
 	bool "TCP/UDP blackhole and LAST_ACK DoS prevention"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on NET
 	help
 	  If you say Y here, neither TCP resets nor ICMP
@@ -1004,11 +865,12 @@ config GRKERNSEC_SOCKET_SERVER_GID
 	  option with name "socket_server_gid" is created.
 
 endmenu
-menu "Sysctl support"
+menu "Sysctl Support"
 depends on GRKERNSEC && SYSCTL
 
 config GRKERNSEC_SYSCTL
 	bool "Sysctl support"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, you will be able to change the options that
 	  grsecurity runs with at bootup, without having to recompile your
@@ -1039,6 +901,7 @@ config GRKERNSEC_SYSCTL_DISTRO
 
 config GRKERNSEC_SYSCTL_ON
 	bool "Turn on features by default"
+	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_SYSCTL
 	help
 	  If you say Y here, instead of having all features enabled in the
@@ -1072,7 +935,5 @@ config GRKERNSEC_FLOODBURST
 	  default should be suitable for most people, however if you find that
 	  many of your logs are being interpreted as flooding, you may want to
 	  raise this value.
-
-endmenu
 
 endmenu

@@ -45,6 +45,24 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_SYMLINKOWN
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "enforce_symlinksifowner",
+		.data		= &grsec_enable_symlinkown,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "symlinkown_gid",
+		.data		= &grsec_symlinkown_gid,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	{
 		.ctl_name	= CTL_UNNUMBERED,

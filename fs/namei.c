@@ -646,6 +646,10 @@ static __always_inline int __do_follow_link(struct path *path, struct nameidata 
 		if (dentry->d_inode->i_op->put_link)
 			dentry->d_inode->i_op->put_link(dentry, nd, cookie);
 	}
+
+	if (!error && gr_handle_symlink_owner(path, nd->path.dentry->d_inode))
+		error = -EACCES;
+
 	path_put(path);
 
 	return error;
@@ -1734,6 +1738,7 @@ struct file *do_filp_open(int dfd, const char *pathname,
 	struct nameidata nd;
 	int error;
 	struct path path;
+	struct path link_path;
 	struct dentry *dir;
 	int count = 0;
 	int will_write;
@@ -2001,9 +2006,15 @@ do_link:
 	}
 	dir = nd.path.dentry;
 	mutex_lock(&dir->d_inode->i_mutex);
+	link_path.dentry = path.dentry;
+	link_path.mnt = path.mnt;
 	path.dentry = lookup_hash(&nd);
 	path.mnt = nd.path.mnt;
 	__putname(nd.last.name);
+	if (!IS_ERR(path.dentry) && gr_handle_symlink_owner(&link_path, path.dentry->d_inode)) {
+		error = -EACCES;
+		goto exit_mutex_unlock;
+	}
 	goto do_last;
 }
 
