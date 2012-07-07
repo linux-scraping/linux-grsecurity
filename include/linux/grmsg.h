@@ -107,3 +107,4 @@
 #define GR_PTRACE_READEXEC_MSG "denied ptrace of unreadable binary %.950s by "
 #define GR_INIT_TRANSFER_MSG "persistent special role transferred privilege to init by "
 #define GR_BADPROCPID_MSG "denied read of sensitive /proc/pid/%s entry via fd passed across exec by "
+#define GR_SYMLINKOWNER_MSG "denied following symlink %.950s since symlink owner %u does not match target owner %u, by "

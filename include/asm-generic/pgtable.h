@@ -445,8 +445,8 @@ static inline int pmd_write(pmd_t pmd)
 #endif /* __HAVE_ARCH_PMD_WRITE */
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
-#ifndef  __HAVE_ARCH_READ_PMD_ATOMIC
-static inline pmd_t read_pmd_atomic(pmd_t *pmdp)
+#ifndef pmd_read_atomic
+static inline pmd_t pmd_read_atomic(pmd_t *pmdp)
 {
 	/*
 	 * Depend on compiler for an atomic pmd read. NOTE: this is
@@ -455,7 +455,7 @@ static inline pmd_t read_pmd_atomic(pmd_t *pmdp)
 	 */
 	return *pmdp;
 }
-#endif /* __HAVE_ARCH_READ_PMD_ATOMIC */
+#endif
 
 /*
  * This function is meant to be used by sites walking pagetables with
@@ -480,10 +480,20 @@ static inline pmd_t read_pmd_atomic(pmd_t *pmdp)
  */
 static inline int pmd_none_or_trans_huge_or_clear_bad(pmd_t *pmd)
 {
-	pmd_t pmdval = read_pmd_atomic(pmd);
+	pmd_t pmdval = pmd_read_atomic(pmd);
 	/*
 	 * The barrier will stabilize the pmdval in a register or on
 	 * the stack so that it will stop changing under the code.
+	 *
+	 * When CONFIG_TRANSPARENT_HUGEPAGE=y on x86 32bit PAE,
+	 * pmd_read_atomic is allowed to return a not atomic pmdval
+	 * (for example pointing to an hugepage that has never been
+	 * mapped in the pmd). The below checks will only care about
+	 * the low part of the pmd with 32bit PAE x86 anyway, with the
+	 * exception of pmd_none(). So the important thing is that if
+	 * the low part of the pmd is found null, the high part will
+	 * be also null or the pmd_none() check below would be
+	 * confused.
 	 */
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	barrier();
