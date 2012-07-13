@@ -29,6 +29,7 @@ config GRKERNSEC
 	bool "Grsecurity"
 	select CRYPTO
 	select CRYPTO_SHA256
+	select STOP_MACHINE
 	help
 	  If you say Y here, you will be able to configure many features
 	  that will enhance the security of your system.  It is highly

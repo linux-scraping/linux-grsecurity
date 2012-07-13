@@ -20,6 +20,7 @@
 #include <linux/security.h>
 #include <linux/grinternal.h>
 #include <linux/pid_namespace.h>
+#include <linux/stop_machine.h>
 #include <linux/fdtable.h>
 #include <linux/percpu.h>
 #include "../fs/mount.h"
@@ -2270,18 +2271,17 @@ out:
 void
 gr_copy_label(struct task_struct *tsk)
 {
-	/* plain copying of fields is already done by dup_task_struct */
 	tsk->signal->used_accept = 0;
 	tsk->acl_sp_role = 0;
-	//tsk->acl_role_id = current->acl_role_id;
-	//tsk->acl = current->acl;
-	//tsk->role = current->role;
+	tsk->acl_role_id = current->acl_role_id;
+	tsk->acl = current->acl;
+	tsk->role = current->role;
 	tsk->signal->curr_ip = current->signal->curr_ip;
 	tsk->signal->saved_ip = current->signal->saved_ip;
 	if (current->exec_file)
 		get_file(current->exec_file);
-	//tsk->exec_file = current->exec_file;
-	//tsk->is_writable = current->is_writable;
+	tsk->exec_file = current->exec_file;
+	tsk->is_writable = current->is_writable;
 	if (unlikely(current->signal->used_accept)) {
 		current->signal->curr_ip = 0;
 		current->signal->saved_ip = 0;
@@ -3090,6 +3090,15 @@ int gr_check_secure_terminal(struct task_struct *task)
 	return 1;
 }
 
+static int gr_rbac_disable(void *unused)
+{
+	pax_open_kernel();
+	gr_status &= ~GR_READY;
+	pax_close_kernel();
+
+	return 0;
+}
+
 ssize_t
 write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *ppos)
 {
@@ -3174,15 +3183,12 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 	case GR_SHUTDOWN:
 		if ((gr_status & GR_READY)
 		    && !(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
-			pax_open_kernel();
-			gr_status &= ~GR_READY;
-			pax_close_kernel();
-
-			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SHUTS_ACL_MSG);
+			stop_machine(gr_rbac_disable, NULL, NULL);
 			free_variables();
 			memset(gr_usermode, 0, sizeof (struct gr_arg));
 			memset(gr_system_salt, 0, GR_SALT_LEN);
 			memset(gr_system_sum, 0, GR_SHA_LEN);
+			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SHUTS_ACL_MSG);
 		} else if (gr_status & GR_READY) {
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHUTF_ACL_MSG);
 			error = -EPERM;
@@ -3207,20 +3213,14 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOADI_ACL_MSG, GR_VERSION);
 			error = -EAGAIN;
 		} else if (!(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
-			preempt_disable();
-
-			pax_open_kernel();
-			gr_status &= ~GR_READY;
-			pax_close_kernel();
-
+			stop_machine(gr_rbac_disable, NULL, NULL);
 			free_variables();
-			if (!(error2 = gracl_init(gr_usermode))) {
-				preempt_enable();
+			error2 = gracl_init(gr_usermode);
+			if (!error2)
 				gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOAD_ACL_MSG, GR_VERSION);
-			} else {
-				preempt_enable();
-				error = error2;
+			else {
 				gr_log_str(GR_DONT_AUDIT, GR_RELOADF_ACL_MSG, GR_VERSION);
+				error = error2;
 			}
 		} else {
 			gr_log_str(GR_DONT_AUDIT, GR_RELOADF_ACL_MSG, GR_VERSION);
