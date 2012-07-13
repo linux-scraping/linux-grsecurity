@@ -1214,8 +1214,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 			goto bad_fork_free_pid;
 	}
 
-	gr_copy_label(p);
-
 	p->set_child_tid = (clone_flags & CLONE_CHILD_SETTID) ? child_tidptr : NULL;
 	/*
 	 * Clear TID on mm_release()?
@@ -1265,6 +1263,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	/* Need tasklist lock for parent etc handling! */
 	write_lock_irq(&tasklist_lock);
+
+	/* synchronizes with gr_set_acls() */
+	gr_copy_label(p);
 
 	/* CLONE_PARENT re-uses the old parent */
 	if (clone_flags & (CLONE_PARENT|CLONE_THREAD)) {
