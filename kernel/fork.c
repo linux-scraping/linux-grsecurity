@@ -239,16 +239,21 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	}
 
  	err = arch_dup_task_struct(tsk, orig);
-	if (err)
-		goto out;
+	/*
+	 * We defer looking at err, because we will need this setup
+	 * for the clean up path to work correctly.
+	 */
 
 	tsk->stack = ti;
+	setup_thread_stack(tsk, orig);
+
+	if (err)
+		goto out;
 
 	err = prop_local_init_single(&tsk->dirties);
 	if (err)
 		goto out;
 
-	setup_thread_stack(tsk, orig);
 	stackend = end_of_stack(tsk);
 	*stackend = STACK_END_MAGIC;	/* for overflow detection */
 
