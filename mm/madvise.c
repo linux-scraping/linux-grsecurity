@@ -269,7 +269,6 @@ static long madvise_remove(struct vm_area_struct *vma,
 	error = vmtruncate_range(mapping->host, offset, endoff);
 	fput(f);
 	down_read(&current->mm->mmap_sem);
-	fput(f);
 	return error;
 }
 
