@@ -15,7 +15,7 @@
 #include <linux/sched.h>
 #include <linux/pipe_fs_i.h>
 
-static void wait_for_partner(struct inode* inode, unsigned int *cnt)
+static int wait_for_partner(struct inode* inode, unsigned int *cnt)
 {
 	int cur = *cnt;	
 
@@ -24,6 +24,7 @@ static void wait_for_partner(struct inode* inode, unsigned int *cnt)
 		if (signal_pending(current))
 			break;
 	}
+	return cur == *cnt ? -ERESTARTSYS : 0;
 }
 
 static void wake_up_partner(struct inode* inode)
@@ -67,10 +68,8 @@ static int fifo_open(struct inode *inode, struct file *filp)
 				/* suppress POLLHUP until we have
 				 * seen a writer */
 				filp->f_version = pipe->w_counter;
-			} else 
-			{
-				wait_for_partner(inode, &pipe->w_counter);
-				if(signal_pending(current))
+			} else {
+				if (wait_for_partner(inode, &pipe->w_counter))
 					goto err_rd;
 			}
 		}
@@ -92,8 +91,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 			wake_up_partner(inode);
 
 		if (!atomic_read(&pipe->readers)) {
-			wait_for_partner(inode, &pipe->r_counter);
-			if (signal_pending(current))
+			if (wait_for_partner(inode, &pipe->r_counter))
 				goto err_wr;
 		}
 		break;
