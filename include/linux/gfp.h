@@ -38,6 +38,12 @@ struct vm_area_struct;
 #define ___GFP_OTHER_NODE	0x800000u
 #define ___GFP_WRITE		0x1000000u
 
+#ifdef CONFIG_PAX_USERCOPY
+#define ___GFP_USERCOPY		0x2000000u
+#else
+#define ___GFP_USERCOPY		0
+#endif
+
 /*
  * GFP bitmasks..
  *
@@ -87,6 +93,7 @@ struct vm_area_struct;
 #define __GFP_NO_KSWAPD	((__force gfp_t)___GFP_NO_KSWAPD)
 #define __GFP_OTHER_NODE ((__force gfp_t)___GFP_OTHER_NODE) /* On behalf of other node */
 #define __GFP_WRITE	((__force gfp_t)___GFP_WRITE)	/* Allocator intends to dirty page */
+#define __GFP_USERCOPY	((__force gfp_t)___GFP_USERCOPY)/* Allocator intends to copy page to/from userland */
 
 /*
  * This may seem redundant, but it's a way of annotating false positives vs.
@@ -94,7 +101,7 @@ struct vm_area_struct;
  */
 #define __GFP_NOTRACK_FALSE_POSITIVE (__GFP_NOTRACK)
 
-#define __GFP_BITS_SHIFT 25	/* Room for N __GFP_FOO bits */
+#define __GFP_BITS_SHIFT 26	/* Room for N __GFP_FOO bits */
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /* This equals 0, but use constants in case they ever change */
@@ -147,6 +154,8 @@ struct vm_area_struct;
 
 /* 4GB DMA on some platforms */
 #define GFP_DMA32	__GFP_DMA32
+
+#define GFP_USERCOPY	__GFP_USERCOPY
 
 /* Convert GFP flags to their corresponding migrate type */
 static inline int allocflags_to_migratetype(gfp_t gfp_flags)

@@ -103,6 +103,11 @@ struct cache_sizes {
 #ifdef CONFIG_ZONE_DMA
 	struct kmem_cache	*cs_dmacachep;
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY
+	struct kmem_cache	*cs_usercopycachep;
+#endif
+
 };
 extern struct cache_sizes malloc_sizes[];
 
@@ -150,6 +155,13 @@ found:
 			cachep = malloc_sizes[i].cs_dmacachep;
 		else
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY
+		if (flags & GFP_USERCOPY)
+			cachep = malloc_sizes[i].cs_usercopycachep;
+		else
+#endif
+
 			cachep = malloc_sizes[i].cs_cachep;
 
 		ret = kmem_cache_alloc_trace(size, cachep, flags);
@@ -203,6 +215,13 @@ found:
 			cachep = malloc_sizes[i].cs_dmacachep;
 		else
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY
+		if (flags & GFP_USERCOPY)
+			cachep = malloc_sizes[i].cs_usercopycachep;
+		else
+#endif
+
 			cachep = malloc_sizes[i].cs_cachep;
 
 		return kmem_cache_alloc_node_trace(size, cachep, flags, node);

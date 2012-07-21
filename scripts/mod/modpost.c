@@ -1442,12 +1442,12 @@ static void report_sec_mismatch(const char *modname,
 		free(prl_to);
 		break;
 	case DATA_TO_TEXT:
-/*
+#if 0
 		fprintf(stderr,
-		"The variable %s references\n"
-		"the %s %s%s%s\n",
-		fromsym, to, sec2annotation(tosec), tosym, to_p);
-*/
+		"The %s %s:%s references\n"
+		"the %s %s:%s%s\n",
+		from, fromsec, fromsym, to, tosec, tosym, to_p);
+#endif
 		break;
 	}
 	fprintf(stderr, "\n");

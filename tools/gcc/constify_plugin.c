@@ -300,7 +300,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info local_variable_pass_info = {
 		.pass				= &pass_local_variable.pass,
 		.reference_pass_name		= "*referenced_vars",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op				= PASS_POS_INSERT_AFTER
 	};
 

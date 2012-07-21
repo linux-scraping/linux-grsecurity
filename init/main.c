@@ -793,8 +793,14 @@ static void __init do_initcall_level(int level)
 		   level, level,
 		   repair_env_string);
 
-	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++)
+	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++) {
 		do_one_initcall(*fn);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 }
 
 static void __init do_initcalls(void)
@@ -828,8 +834,14 @@ static void __init do_pre_smp_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __initcall_start; fn < __initcall0_start; fn++)
+	for (fn = __initcall_start; fn < __initcall0_start; fn++) {
 		do_one_initcall(*fn);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 }
 
 static void run_init_process(const char *init_filename)

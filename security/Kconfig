@@ -259,12 +259,11 @@ config PAX_EI_PAX
 	  has been deprecated in favour of PT_PAX_FLAGS and XATTR_PAX_FLAGS
 	  support.
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF program
-	  header and you cannot use XATTR_PAX_FLAGS then you MUST enable this
-	  option otherwise they will not get any protection.
-
 	  Note that if you enable PT_PAX_FLAGS or XATTR_PAX_FLAGS marking
 	  support as well, they will override the legacy EI_PAX marks.
+
+	  If you enable none of the marking options then all applications
+	  will run with PaX enabled on them by default.
 
 config PAX_PT_PAX_FLAGS
 	bool 'Use ELF program header marking'
@@ -278,15 +277,14 @@ config PAX_PT_PAX_FLAGS
 	  integrated into the toolchain (the binutils patch is available
 	  from http://pax.grsecurity.net).
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF program
-	  header then you MUST enable either XATTR_PAX_FLAGS or EI_PAX marking
-	  support otherwise they will not get any protection.
+	  Note that if you enable the legacy EI_PAX marking support as well,
+	  the EI_PAX marks will be overridden by the PT_PAX_FLAGS marks.
 
 	  If you enable both PT_PAX_FLAGS and XATTR_PAX_FLAGS support then you
 	  must make sure that the marks are the same if a binary has both marks.
 
-	  Note that if you enable the legacy EI_PAX marking support as well,
-	  the EI_PAX marks will be overridden by the PT_PAX_FLAGS marks.
+	  If you enable none of the marking options then all applications
+	  will run with PaX enabled on them by default.
 
 config PAX_XATTR_PAX_FLAGS
 	bool 'Use filesystem extended attributes marking'
@@ -311,15 +309,14 @@ config PAX_XATTR_PAX_FLAGS
 	  isofs, udf, vfat) so copying files through such filesystems will
 	  lose the extended attributes and these PaX markings.
 
-	  If you have applications not marked by the PT_PAX_FLAGS ELF program
-	  header then you MUST enable either XATTR_PAX_FLAGS or EI_PAX marking
-	  support otherwise they will not get any protection.
+	  Note that if you enable the legacy EI_PAX marking support as well,
+	  the EI_PAX marks will be overridden by the XATTR_PAX_FLAGS marks.
 
 	  If you enable both PT_PAX_FLAGS and XATTR_PAX_FLAGS support then you
 	  must make sure that the marks are the same if a binary has both marks.
 
-	  Note that if you enable the legacy EI_PAX marking support as well,
-	  the EI_PAX marks will be overridden by the XATTR_PAX_FLAGS marks.
+	  If you enable none of the marking options then all applications
+	  will run with PaX enabled on them by default.
 
 choice
 	prompt 'MAC system integration'
@@ -848,6 +845,18 @@ config PAX_SIZE_OVERFLOW
 
 	  Homepage:
 	  http://www.grsecurity.net/~ephox/overflow_plugin/
+
+config PAX_LATENT_ENTROPY
+	bool "Generate some entropy during boot"
+	help
+	  By saying Y here the kernel will instrument early boot code to
+	  extract some entropy from both original and artificially created
+	  program state.  This will help especially embedded systems where
+	  there is little 'natural' source of entropy normally.  The cost
+	  is some slowdown of the boot process.
+
+	  Note that entropy extracted this way is not cryptographically
+	  secure!
 
 endmenu
 

@@ -3224,6 +3224,10 @@ static struct kmem_cache *kmem_cache;
 static struct kmem_cache *kmalloc_dma_caches[SLUB_PAGE_SHIFT];
 #endif
 
+#ifdef CONFIG_PAX_USERCOPY
+static struct kmem_cache *kmalloc_usercopy_caches[SLUB_PAGE_SHIFT];
+#endif
+
 static int __init setup_slub_min_order(char *str)
 {
 	get_option(&str, &slub_min_order);
@@ -3338,6 +3342,13 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
 		return kmalloc_dma_caches[index];
 
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY
+	if (flags & SLAB_USERCOPY)
+		return kmalloc_usercopy_caches[index];
+
+#endif
+
 	return kmalloc_caches[index];
 }
 
@@ -3405,6 +3416,33 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 }
 EXPORT_SYMBOL(__kmalloc_node);
 #endif
+
+bool is_usercopy_alloc(const void *ptr)
+{
+#ifdef CONFIG_PAX_USERCOPY
+	struct page *page;
+	struct kmem_cache *s;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		return false;
+
+	if (!virt_addr_valid(ptr))
+		return false;
+
+	page = virt_to_head_page(ptr);
+
+	if (!PageSlab(page))
+		return false;
+
+	s = page->slab;
+	if (!(s->flags & SLAB_USERCOPY))
+		return false;
+
+	return true;
+#endif
+
+	return false;
+}
 
 void check_object_size(const void *ptr, unsigned long n, bool to)
 {
@@ -3896,6 +3934,22 @@ void __init kmem_cache_init(void)
 		}
 	}
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY
+	for (i = 0; i < SLUB_PAGE_SHIFT; i++) {
+		struct kmem_cache *s = kmalloc_caches[i];
+
+		if (s && s->size) {
+			char *name = kasprintf(GFP_NOWAIT,
+				 "usercopy-kmalloc-%d", s->objsize);
+
+			BUG_ON(!name);
+			kmalloc_usercopy_caches[i] = create_kmalloc_cache(name,
+				s->objsize, SLAB_USERCOPY);
+		}
+	}
+#endif
+
 	printk(KERN_INFO
 		"SLUB: Genslabs=%d, HWalign=%d, Order=%d-%d, MinObjects=%d,"
 		" CPUs=%d, Nodes=%d\n",

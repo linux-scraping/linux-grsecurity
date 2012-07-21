@@ -173,6 +173,7 @@ void kfree(const void *);
 void kzfree(const void *);
 size_t ksize(const void *);
 void check_object_size(const void *ptr, unsigned long n, bool to);
+bool is_usercopy_alloc(const void *ptr);
 
 /*
  * Allocator specific definitions. These are mainly used to establish optimized

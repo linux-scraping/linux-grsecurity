@@ -7284,8 +7284,7 @@ static void do_intel_finish_page_flip(struct drm_device *dev,
 
 	obj = work->old_fb_obj;
 
-	atomic_clear_mask(1 << intel_crtc->plane,
-			  &obj->pending_flip.counter);
+	atomic_clear_mask_unchecked(1 << intel_crtc->plane, &obj->pending_flip);
 	if (atomic_read_unchecked(&obj->pending_flip) == 0)
 		wake_up(&dev_priv->pending_flip_queue);
 

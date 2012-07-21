@@ -558,6 +558,11 @@ void kfree(const void *block)
 }
 EXPORT_SYMBOL(kfree);
 
+bool is_usercopy_alloc(const void *ptr)
+{
+	return false;
+}
+
 void check_object_size(const void *ptr, unsigned long n, bool to)
 {
 
