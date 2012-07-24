@@ -880,7 +880,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	   as in the /proc/kallsyms case, as we make it display nothing
 	   for non-root users, and the real contents for root users
 	*/
-	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_alloc(buf)) {
+	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
 		ptr = NULL;
 		goto simple;
 	}

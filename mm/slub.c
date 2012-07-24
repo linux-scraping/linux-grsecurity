@@ -3224,7 +3224,7 @@ static struct kmem_cache *kmem_cache;
 static struct kmem_cache *kmalloc_dma_caches[SLUB_PAGE_SHIFT];
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 static struct kmem_cache *kmalloc_usercopy_caches[SLUB_PAGE_SHIFT];
 #endif
 
@@ -3343,7 +3343,7 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
 
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	if (flags & SLAB_USERCOPY)
 		return kmalloc_usercopy_caches[index];
 
@@ -3417,9 +3417,8 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 EXPORT_SYMBOL(__kmalloc_node);
 #endif
 
-bool is_usercopy_alloc(const void *ptr)
+bool is_usercopy_object(const void *ptr)
 {
-#ifdef CONFIG_PAX_USERCOPY
 	struct page *page;
 	struct kmem_cache *s;
 
@@ -3435,58 +3434,38 @@ bool is_usercopy_alloc(const void *ptr)
 		return false;
 
 	s = page->slab;
-	if (!(s->flags & SLAB_USERCOPY))
-		return false;
-
-	return true;
-#endif
-
-	return false;
+	return s->flags & SLAB_USERCOPY;
 }
 
-void check_object_size(const void *ptr, unsigned long n, bool to)
-{
-
 #ifdef CONFIG_PAX_USERCOPY
+const char *check_heap_object(const void *ptr, unsigned long n, bool to)
+{
 	struct page *page;
-	struct kmem_cache *s = NULL;
+	struct kmem_cache *s;
 	unsigned long offset;
-	const char *type;
 
-	if (!n)
-		return;
-
-	type = "<null>";
 	if (ZERO_OR_NULL_PTR(ptr))
-		goto report;
+		return "<null>";
 
 	if (!virt_addr_valid(ptr))
-		return;
+		return NULL;
 
 	page = virt_to_head_page(ptr);
 
-	type = "<process stack>";
-	if (!PageSlab(page)) {
-		if (object_is_on_stack(ptr, n) == -1)
-			goto report;
-		return;
-	}
+	if (!PageSlab(page))
+		return NULL;
 
 	s = page->slab;
-	type = s->name;
 	if (!(s->flags & SLAB_USERCOPY))
-		goto report;
+		return s->name;
 
 	offset = (ptr - page_address(page)) % s->size;
 	if (offset <= s->objsize && n <= s->objsize - offset)
-		return;
+		return NULL;
 
-report:
-	pax_report_usercopy(ptr, n, to, type);
-#endif
-
+	return s->name;
 }
-EXPORT_SYMBOL(check_object_size);
+#endif
 
 size_t ksize(const void *object)
 {
@@ -3935,7 +3914,7 @@ void __init kmem_cache_init(void)
 	}
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	for (i = 0; i < SLUB_PAGE_SHIFT; i++) {
 		struct kmem_cache *s = kmalloc_caches[i];
 

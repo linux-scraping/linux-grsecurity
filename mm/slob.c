@@ -558,45 +558,34 @@ void kfree(const void *block)
 }
 EXPORT_SYMBOL(kfree);
 
-bool is_usercopy_alloc(const void *ptr)
+bool is_usercopy_object(const void *ptr)
 {
 	return false;
 }
 
-void check_object_size(const void *ptr, unsigned long n, bool to)
-{
-
 #ifdef CONFIG_PAX_USERCOPY
+const char *check_heap_object(const void *ptr, unsigned long n, bool to)
+{
 	struct slob_page *sp;
 	const slob_t *free;
 	const void *base;
 	unsigned long flags;
-	const char *type;
 
-	if (!n)
-		return;
-
-	type = "<null>";
 	if (ZERO_OR_NULL_PTR(ptr))
-		goto report;
+		return "<null>";
 
 	if (!virt_addr_valid(ptr))
-		return;
+		return NULL;
 
-	type = "<process stack>";
 	sp = slob_page(ptr);
-	if (!PageSlab((struct page *)sp)) {
-		if (object_is_on_stack(ptr, n) == -1)
-			goto report;
-		return;
-	}
+	if (!PageSlab((struct page *)sp))
+		return NULL;
 
-	type = "<slob>";
 	if (sp->size) {
 		base = page_address(&sp->page);
 		if (base <= ptr && n <= sp->size - (ptr - base))
-			return;
-		goto report;
+			return NULL;
+		return "<slob>";
 	}
 
 	/* some tricky double walking to find the chunk */
@@ -627,16 +616,13 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 			break;
 
 		spin_unlock_irqrestore(&slob_lock, flags);
-		return;
+		return NULL;
 	}
 
 	spin_unlock_irqrestore(&slob_lock, flags);
-report:
-	pax_report_usercopy(ptr, n, to, type);
-#endif
-
+	return "<slob>";
 }
-EXPORT_SYMBOL(check_object_size);
+#endif
 
 /* can't use ksize for kmem_cache_alloc memory, only kmalloc */
 size_t ksize(const void *block)
@@ -669,7 +655,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 {
 	struct kmem_cache *c;
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	c = __kmalloc_node_align(sizeof(struct kmem_cache),
 		GFP_KERNEL, -1, ARCH_KMALLOC_MINALIGN);
 #else
@@ -717,7 +703,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 
 	lockdep_trace_alloc(flags);
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	b = __kmalloc_node_align(c->size, flags, node, c->align);
 #else
 	if (c->size < PAGE_SIZE) {
@@ -771,7 +757,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 {
 	int size = c->size;
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	if (size + c->align < PAGE_SIZE) {
 		size += c->align;
 		b -= c->align;
@@ -788,7 +774,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 		__kmem_cache_free(b, size);
 	}
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	trace_kfree(_RET_IP_, b);
 #else
 	trace_kmem_cache_free(_RET_IP_, b);

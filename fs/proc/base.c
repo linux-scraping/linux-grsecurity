@@ -903,15 +903,16 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 
 	ret = 0;
 	while (count > 0) {
-		int this_len, retval, max_len;
+		size_t this_len, max_len;
+		int retval;
+
+		if (src >= (mm->env_end - mm->env_start))
+			break;
 
 		this_len = mm->env_end - (mm->env_start + src);
 
-		if (this_len <= 0)
-			break;
-
-		max_len = (count > PAGE_SIZE) ? PAGE_SIZE : count;
-		this_len = (this_len > max_len) ? max_len : this_len;
+		max_len = min(PAGE_SIZE, count);
+		this_len = min(max_len, this_len);
 
 		retval = access_process_vm(task, (mm->env_start + src),
 			page, this_len, 0);

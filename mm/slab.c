@@ -758,7 +758,7 @@ static inline struct kmem_cache *__find_general_cachep(size_t size,
 		return csizep->cs_dmacachep;
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 	if (unlikely(gfpflags & GFP_USERCOPY))
 		return csizep->cs_usercopycachep;
 #endif
@@ -1634,7 +1634,7 @@ void __init kmem_cache_init(void)
 					NULL);
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 		sizes->cs_usercopycachep = kmem_cache_create(
 					names->name_usercopy,
 					sizes->cs_size,
@@ -4676,12 +4676,10 @@ static int __init slab_proc_init(void)
 module_init(slab_proc_init);
 #endif
 
-bool is_usercopy_alloc(const void *ptr)
+bool is_usercopy_object(const void *ptr)
 {
-#ifdef CONFIG_PAX_USERCOPY
 	struct page *page;
 	struct kmem_cache *cachep;
-	struct slab *slabp;
 
 	if (ZERO_OR_NULL_PTR(ptr))
 		return false;
@@ -4695,63 +4693,43 @@ bool is_usercopy_alloc(const void *ptr)
 		return false;
 
 	cachep = page_get_cache(page);
-	if (!(cachep->flags & SLAB_USERCOPY))
-		return false;
-
-	return true;
-#endif
-
-	return false;
+	return cachep->flags & SLAB_USERCOPY;
 }
 
-void check_object_size(const void *ptr, unsigned long n, bool to)
-{
-
 #ifdef CONFIG_PAX_USERCOPY
+const char *check_heap_object(const void *ptr, unsigned long n, bool to)
+{
 	struct page *page;
-	struct kmem_cache *cachep = NULL;
+	struct kmem_cache *cachep;
 	struct slab *slabp;
 	unsigned int objnr;
 	unsigned long offset;
-	const char *type;
 
-	if (!n)
-		return;
-
-	type = "<null>";
 	if (ZERO_OR_NULL_PTR(ptr))
-		goto report;
+		return "<null>";
 
 	if (!virt_addr_valid(ptr))
-		return;
+		return NULL;
 
 	page = virt_to_head_page(ptr);
 
-	type = "<process stack>";
-	if (!PageSlab(page)) {
-		if (object_is_on_stack(ptr, n) == -1)
-			goto report;
-		return;
-	}
+	if (!PageSlab(page))
+		return NULL;
 
 	cachep = page_get_cache(page);
-	type = cachep->name;
 	if (!(cachep->flags & SLAB_USERCOPY))
-		goto report;
+		return cachep->name;
 
 	slabp = page_get_slab(page);
 	objnr = obj_to_index(cachep, slabp, ptr);
 	BUG_ON(objnr >= cachep->num);
 	offset = ptr - index_to_obj(cachep, slabp, objnr) - obj_offset(cachep);
 	if (offset <= obj_size(cachep) && n <= obj_size(cachep) - offset)
-		return;
+		return NULL;
 
-report:
-	pax_report_usercopy(ptr, n, to, type);
-#endif
-
+	return cachep->name;
 }
-EXPORT_SYMBOL(check_object_size);
+#endif
 
 /**
  * ksize - get the actual amount of memory allocated for a given object

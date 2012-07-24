@@ -38,7 +38,7 @@ struct vm_area_struct;
 #define ___GFP_OTHER_NODE	0x800000u
 #define ___GFP_WRITE		0x1000000u
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 #define ___GFP_USERCOPY		0x2000000u
 #else
 #define ___GFP_USERCOPY		0
