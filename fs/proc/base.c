@@ -255,7 +255,7 @@ struct mm_struct *mm_for_maps(struct task_struct *task)
 {
 	struct mm_struct *mm;
 
-	if (mutex_lock_killable(&task->cred_guard_mutex))
+	if (mutex_lock_killable(&task->signal->cred_guard_mutex))
 		return NULL;
 
 	mm = get_task_mm(task);
@@ -264,7 +264,7 @@ struct mm_struct *mm_for_maps(struct task_struct *task)
 		mmput(mm);
 		mm = NULL;
 	}
-	mutex_unlock(&task->cred_guard_mutex);
+	mutex_unlock(&task->signal->cred_guard_mutex);
 
 	return mm;
 }
@@ -368,11 +368,11 @@ static int proc_pid_wchan(struct task_struct *task, char *buffer)
 
 static int lock_trace(struct task_struct *task)
 {
-	int err = mutex_lock_killable(&task->cred_guard_mutex);
+	int err = mutex_lock_killable(&task->signal->cred_guard_mutex);
 	if (err)
 		return err;
 	if (!ptrace_may_access(task, PTRACE_MODE_ATTACH)) {
-		mutex_unlock(&task->cred_guard_mutex);
+		mutex_unlock(&task->signal->cred_guard_mutex);
 		return -EPERM;
 	}
 	return 0;
@@ -380,7 +380,7 @@ static int lock_trace(struct task_struct *task)
 
 static void unlock_trace(struct task_struct *task)
 {
-	mutex_unlock(&task->cred_guard_mutex);
+	mutex_unlock(&task->signal->cred_guard_mutex);
 }
 
 #if defined(CONFIG_STACKTRACE) && !defined(CONFIG_GRKERNSEC_HIDESYM)
@@ -1015,6 +1015,12 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 	int ret = -ESRCH;
 	struct mm_struct *mm;
 
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	if (file->f_version != current->exec_id) {
+		gr_log_badprocpid("environ");
+		return ret;
+	}
+#endif
 	if (!task)
 		goto out_no_task;
 
@@ -1044,7 +1050,7 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 
 		this_len = mm->env_end - (mm->env_start + src);
 
-		max_len = min(PAGE_SIZE, count);
+		max_len = min_t(size_t, PAGE_SIZE, count);
 		this_len = min(max_len, this_len);
 
 		retval = access_process_vm(task, (mm->env_start + src),
@@ -1078,6 +1084,7 @@ out_no_task:
 
 static const struct file_operations proc_environ_operations = {
 	.read		= environ_read,
+	.open		= mem_open,
 };
 
 static ssize_t oom_adjust_read(struct file *file, char __user *buf,
@@ -2301,14 +2308,14 @@ static ssize_t proc_pid_attr_write(struct file * file, const char __user * buf,
 		goto out_free;
 
 	/* Guard against adverse ptrace interaction */
-	length = mutex_lock_interruptible(&task->cred_guard_mutex);
+	length = mutex_lock_interruptible(&task->signal->cred_guard_mutex);
 	if (length < 0)
 		goto out_free;
 
 	length = security_setprocattr(task,
 				      (char*)file->f_path.dentry->d_name.name,
 				      (void*)page, count);
-	mutex_unlock(&task->cred_guard_mutex);
+	mutex_unlock(&task->signal->cred_guard_mutex);
 out_free:
 	free_page((unsigned long) page);
 out:
@@ -2610,9 +2617,16 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 {
 	struct task_io_accounting acct = task->ioac;
 	unsigned long flags;
+	int result;
 
-	if (!ptrace_may_access(task, PTRACE_MODE_READ))
-		return -EACCES;
+	result = mutex_lock_killable(&task->signal->cred_guard_mutex);
+	if (result)
+		return result;
+
+	if (!ptrace_may_access(task, PTRACE_MODE_READ)) {
+		result = -EACCES;
+		goto out_unlock;
+	}
 
 	if (whole && lock_task_sighand(task, &flags)) {
 		struct task_struct *t = task;
@@ -2623,7 +2637,7 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 
 		unlock_task_sighand(task, &flags);
 	}
-	return sprintf(buffer,
+	result = sprintf(buffer,
 			"rchar: %llu\n"
 			"wchar: %llu\n"
 			"syscr: %llu\n"
@@ -2638,6 +2652,9 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 			(unsigned long long)acct.read_bytes,
 			(unsigned long long)acct.write_bytes,
 			(unsigned long long)acct.cancelled_write_bytes);
+out_unlock:
+	mutex_unlock(&task->signal->cred_guard_mutex);
+	return result;
 }
 
 static int proc_tid_io_accounting(struct task_struct *task, char *buffer)

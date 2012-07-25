@@ -29,6 +29,8 @@ extern struct fs_struct init_fs;
 		.running = 0,						\
 		.lock = __SPIN_LOCK_UNLOCKED(sig.cputimer.lock),	\
 	},								\
+	.cred_guard_mutex =						\
+		 __MUTEX_INITIALIZER(sig.cred_guard_mutex),		\
 }
 
 extern struct nsproxy init_nsproxy;
@@ -158,8 +160,6 @@ extern struct cred init_cred;
 	.group_leader	= &tsk,						\
 	.real_cred	= &init_cred,					\
 	.cred		= &init_cred,					\
-	.cred_guard_mutex =						\
-		 __MUTEX_INITIALIZER(tsk.cred_guard_mutex),		\
 	.comm		= "swapper",					\
 	.thread		= INIT_THREAD,					\
 	INIT_TASK_THREAD_INFO						\
