@@ -366,15 +366,21 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 		}
 	} while (0);
 
-	{ /* PaX: patched PLT emulation #2 */
+	do { /* PaX: patched PLT emulation #2 */
 		unsigned int ba;
 
 		err = get_user(ba, (unsigned int *)regs->tpc);
 
-		if (!err && (ba & 0xFFC00000U) == 0x30800000U) {
+		if (err)
+			break;
+
+		if ((ba & 0xFFC00000U) == 0x30800000U || (ba & 0xFFF80000U) == 0x30480000U) {
 			unsigned long addr;
 
-			addr = regs->tpc + ((((ba | 0xFFFFFFFFFFC00000UL) ^ 0x00200000UL) + 0x00200000UL) << 2);
+			if ((ba & 0xFFC00000U) == 0x30800000U)
+				addr = regs->tpc + ((((ba | 0xFFFFFFFFFFC00000UL) ^ 0x00200000UL) + 0x00200000UL) << 2);
+			else
+				addr = regs->tpc + ((((ba | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
 
 			if (test_thread_flag(TIF_32BIT))
 				addr &= 0xFFFFFFFFUL;
@@ -383,27 +389,30 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			regs->tnpc = addr+4;
 			return 2;
 		}
-	}
+	} while (0);
 
 	do { /* PaX: patched PLT emulation #3 */
-		unsigned int sethi, jmpl, nop;
+		unsigned int sethi, bajmpl, nop;
 
 		err = get_user(sethi, (unsigned int *)regs->tpc);
-		err |= get_user(jmpl, (unsigned int *)(regs->tpc+4));
+		err |= get_user(bajmpl, (unsigned int *)(regs->tpc+4));
 		err |= get_user(nop, (unsigned int *)(regs->tpc+8));
 
 		if (err)
 			break;
 
 		if ((sethi & 0xFFC00000U) == 0x03000000U &&
-		    (jmpl & 0xFFFFE000U) == 0x81C06000U &&
+		    ((bajmpl & 0xFFFFE000U) == 0x81C06000U || (bajmpl & 0xFFF80000U) == 0x30480000U) &&
 		    nop == 0x01000000U)
 		{
 			unsigned long addr;
 
 			addr = (sethi & 0x003FFFFFU) << 10;
 			regs->u_regs[UREG_G1] = addr;
-			addr += (((jmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+			if ((bajmpl & 0xFFFFE000U) == 0x81C06000U)
+				addr += (((bajmpl | 0xFFFFFFFFFFFFE000UL) ^ 0x00001000UL) + 0x00001000UL);
+			else
+				addr = regs->tpc + ((((bajmpl | 0xFFFFFFFFFFF80000UL) ^ 0x00040000UL) + 0x00040000UL) << 2);
 
 			if (test_thread_flag(TIF_32BIT))
 				addr &= 0xFFFFFFFFUL;
