@@ -2960,7 +2960,7 @@ const char *check_heap_object(const void *ptr, unsigned long n, bool to)
 
 	page = get_object_page(ptr);
 
-	if (!PageSlab(page))
+	if (!page)
 		return NULL;
 
 	s = page->slab;
