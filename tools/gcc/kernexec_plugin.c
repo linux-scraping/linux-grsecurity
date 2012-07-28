@@ -370,19 +370,19 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info kernexec_reload_pass_info = {
 		.pass				= &kernexec_reload_pass.pass,
 		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
 	struct register_pass_info kernexec_fptr_pass_info = {
 		.pass				= &kernexec_fptr_pass.pass,
 		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
 	struct register_pass_info kernexec_retaddr_pass_info = {
 		.pass				= &kernexec_retaddr_pass.pass,
 		.reference_pass_name		= "pro_and_epilogue",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
 

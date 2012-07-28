@@ -757,8 +757,14 @@ static void __init do_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __early_initcall_end; fn < __initcall_end; fn++)
+	for (fn = __early_initcall_end; fn < __initcall_end; fn++) {
 		do_one_initcall(*fn);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 }
 
 /*
@@ -784,8 +790,14 @@ static void __init do_pre_smp_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __initcall_start; fn < __early_initcall_end; fn++)
+	for (fn = __initcall_start; fn < __early_initcall_end; fn++) {
 		do_one_initcall(*fn);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 }
 
 static void run_init_process(const char *init_filename)

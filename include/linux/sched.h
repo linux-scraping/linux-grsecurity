@@ -1664,7 +1664,7 @@ extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_insns(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_refcount_overflow(struct pt_regs *regs);
-extern __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type);
+extern void check_object_size(const void *ptr, unsigned long n, bool to);
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
@@ -1983,6 +1983,14 @@ static inline int set_cpus_allowed_ptr(struct task_struct *p,
 	return 0;
 }
 #endif
+
+#ifdef CONFIG_NO_HZ
+void calc_load_enter_idle(void);
+void calc_load_exit_idle(void);
+#else
+static inline void calc_load_enter_idle(void) { }
+static inline void calc_load_exit_idle(void) { }
+#endif /* CONFIG_NO_HZ */
 
 #ifndef CONFIG_CPUMASK_OFFSTACK
 static inline int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
@@ -2523,10 +2531,6 @@ static inline int object_starts_on_stack(void *obj)
 
 	return (obj >= stack) && (obj < (stack + THREAD_SIZE));
 }
-
-#ifdef CONFIG_PAX_USERCOPY
-extern int object_is_on_stack(const void *obj, unsigned long len);
-#endif
 
 extern void thread_info_cache_init(void);
 

@@ -19,6 +19,7 @@ $(HOSTLIBS)-$(CONFIG_PAX_KERNEXEC_PLUGIN) += kernexec_plugin.so
 $(HOSTLIBS)-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
 $(HOSTLIBS)-y += colorize_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_LATENT_ENTROPY) += latent_entropy_plugin.so
 
 always := $($(HOSTLIBS)-y)
 
@@ -29,6 +30,7 @@ kernexec_plugin-objs := kernexec_plugin.o
 checker_plugin-objs := checker_plugin.o
 colorize_plugin-objs := colorize_plugin.o
 size_overflow_plugin-objs := size_overflow_plugin.o
+latent_entropy_plugin-objs := latent_entropy_plugin.o
 
 $(obj)/size_overflow_plugin.o: $(objtree)/$(obj)/size_overflow_hash.h
 
