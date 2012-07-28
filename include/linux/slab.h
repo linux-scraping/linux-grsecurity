@@ -19,7 +19,7 @@
  */
 #define SLAB_DEBUG_FREE		0x00000100UL	/* DEBUG: Perform (expensive) checks on free */
 
-#ifdef CONFIG_PAX_USERCOPY
+#ifdef CONFIG_PAX_USERCOPY_SLABS
 #define SLAB_USERCOPY		0x00000200UL	/* PaX: Allow copying objs to/from userland */
 #else
 #define SLAB_USERCOPY		0x00000000UL
@@ -149,7 +149,8 @@ void * __must_check krealloc(const void *, size_t, gfp_t);
 void kfree(const void *);
 void kzfree(const void *);
 size_t ksize(const void *);
-void check_object_size(const void *ptr, unsigned long n, bool to);
+const char *check_heap_object(const void *ptr, unsigned long n, bool to);
+bool is_usercopy_object(const void *ptr);
 
 /*
  * Allocator specific definitions. These are mainly used to establish optimized

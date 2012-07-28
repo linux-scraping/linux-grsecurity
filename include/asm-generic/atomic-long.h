@@ -389,6 +389,10 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_dec_unchecked((atomic_unchecked_t *)NULL);
 	atomic_cmpxchg_unchecked((atomic_unchecked_t *)NULL, 0, 0);
 	(void)atomic_xchg_unchecked((atomic_unchecked_t *)NULL, 0);
+#ifdef CONFIG_X86
+	atomic_clear_mask_unchecked(0, NULL);
+	atomic_set_mask_unchecked(0, NULL);
+#endif
 
 	atomic_long_read_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_set_unchecked((atomic_long_unchecked_t *)NULL, 0);
@@ -409,6 +413,8 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_dec_unchecked(v) atomic_dec(v)
 #define atomic_cmpxchg_unchecked(v, o, n) atomic_cmpxchg((v), (o), (n))
 #define atomic_xchg_unchecked(v, i) atomic_xchg((v), (i))
+#define atomic_clear_mask_unchecked(mask, v) atomic_clear_mask((mask), (v))
+#define atomic_set_mask_unchecked(mask, v) atomic_set_mask((mask), (v))
 
 #define atomic_long_read_unchecked(v) atomic_long_read(v)
 #define atomic_long_set_unchecked(v, i) atomic_long_set((v), (i))

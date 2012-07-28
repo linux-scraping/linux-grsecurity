@@ -194,7 +194,7 @@ static ssize_t read_mem(struct file * file, char __user * buf,
 			return -EFAULT;
 
 #ifdef CONFIG_PAX_USERCOPY
-		temp = kmalloc(sz, GFP_KERNEL);
+		temp = kmalloc(sz, GFP_KERNEL|GFP_USERCOPY);
 		if (!temp) {
 			unxlate_dev_mem_ptr(p, ptr);
 			return -ENOMEM;
@@ -491,7 +491,7 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
 			kbuf = xlate_dev_kmem_ptr((char *)p);
 
 #ifdef CONFIG_PAX_USERCOPY
-			temp = kmalloc(sz, GFP_KERNEL);
+			temp = kmalloc(sz, GFP_KERNEL|GFP_USERCOPY);
 			if (!temp)
 				return -ENOMEM;
 			memcpy(temp, kbuf, sz);

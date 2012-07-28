@@ -805,8 +805,14 @@ static void __init do_initcalls(void)
 {
 	initcall_t *call;
 
-	for (call = __early_initcall_end; call < __initcall_end; call++)
+	for (call = __early_initcall_end; call < __initcall_end; call++) {
 		do_one_initcall(*call);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 
 	/* Make sure there is no pending stuff from the initcall sequence */
 	flush_scheduled_work();
@@ -835,8 +841,14 @@ static void __init do_pre_smp_initcalls(void)
 {
 	initcall_t *call;
 
-	for (call = __initcall_start; call < __early_initcall_end; call++)
+	for (call = __initcall_start; call < __early_initcall_end; call++) {
 		do_one_initcall(*call);
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+		transfer_latent_entropy();
+#endif
+
+	}
 }
 
 static void run_init_process(char *init_filename)

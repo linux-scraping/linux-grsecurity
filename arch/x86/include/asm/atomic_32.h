@@ -475,13 +475,37 @@ static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 /* These are x86-specific, used by some header files */
-#define atomic_clear_mask(mask, addr)				\
-	asm volatile(LOCK_PREFIX "andl %0,%1"			\
-		     : : "r" (~(mask)), "m" (*(addr)) : "memory")
+static inline void atomic_clear_mask(unsigned int mask, atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "andl %1,%0"
+		     : "+m" (v->counter)
+		     : "r" (~(mask))
+		     : "memory");
+}
 
-#define atomic_set_mask(mask, addr)				\
-	asm volatile(LOCK_PREFIX "orl %0,%1"				\
-		     : : "r" (mask), "m" (*(addr)) : "memory")
+static inline void atomic_clear_mask_unchecked(unsigned int mask, atomic_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "andl %1,%0"
+		     : "+m" (v->counter)
+		     : "r" (~(mask))
+		     : "memory");
+}
+
+static inline void atomic_set_mask(unsigned int mask, atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "orl %1,%0"
+		     : "+m" (v->counter)
+		     : "r" (mask)
+		     : "memory");
+}
+
+static inline void atomic_set_mask_unchecked(unsigned int mask, atomic_unchecked_t *v)
+{
+	asm volatile(LOCK_PREFIX "orl %1,%0"
+		     : "+m" (v->counter)
+		     : "r" (mask)
+		     : "memory");
+}
 
 /* Atomic operations are already serializing on x86 */
 #define smp_mb__before_atomic_dec()	barrier()

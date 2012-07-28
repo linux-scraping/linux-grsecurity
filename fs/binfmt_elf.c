@@ -574,15 +574,6 @@ static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
-#endif
-
 #ifdef CONFIG_PAX_EMUTRAMP
 	if (elf_phdata->p_flags & PF_EMUTRAMP)
 		pax_flags |= MF_PAX_EMUTRAMP;
@@ -614,15 +605,6 @@ static unsigned long pax_parse_pt_pax_hardmode(const struct elf_phdr * const elf
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (!(elf_phdata->p_flags & PF_NOSEGMEXEC))
 		pax_flags |= MF_PAX_SEGMEXEC;
-#endif
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -660,15 +642,6 @@ static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmo
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if (nx_enabled)
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
-#endif
-
 #ifdef CONFIG_PAX_EMUTRAMP
 	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
 		pax_flags |= MF_PAX_EMUTRAMP;
@@ -702,15 +675,6 @@ static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmo
 		pax_flags |= MF_PAX_SEGMEXEC;
 #endif
 
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if ((__supported_pte_mask & _PAGE_NX))
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
-#endif
-
 #ifdef CONFIG_PAX_EMUTRAMP
 	if (!(pax_flags_hardmode & MF_PAX_EMUTRAMP))
 		pax_flags |= MF_PAX_EMUTRAMP;
@@ -730,7 +694,7 @@ static unsigned long pax_parse_xattr_pax_hardmode(unsigned long pax_flags_hardmo
 }
 #endif
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 {
 	unsigned long pax_flags = 0UL;
@@ -745,15 +709,6 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (!(elf_ex->e_ident[EI_PAX] & EF_PAX_SEGMEXEC))
 		pax_flags |= MF_PAX_SEGMEXEC;
-#endif
-
-#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
-	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
-		if ((__supported_pte_mask & _PAGE_NX))
-			pax_flags &= ~MF_PAX_SEGMEXEC;
-		else
-			pax_flags &= ~MF_PAX_PAGEEXEC;
-	}
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
@@ -777,19 +732,17 @@ static unsigned long pax_parse_ei_pax(const struct elfhdr * const elf_ex)
 	pax_flags |= MF_PAX_PAGEEXEC;
 #endif
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	pax_flags |= MF_PAX_SEGMEXEC;
+#endif
+
 #ifdef CONFIG_PAX_MPROTECT
 	pax_flags |= MF_PAX_MPROTECT;
 #endif
 
 #ifdef CONFIG_PAX_RANDMMAP
-	pax_flags |= MF_PAX_RANDMMAP;
-#endif
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (!(pax_flags & MF_PAX_PAGEEXEC) || !(__supported_pte_mask & _PAGE_NX)) {
-		pax_flags &= ~MF_PAX_PAGEEXEC;
-		pax_flags |= MF_PAX_SEGMEXEC;
-	}
+	if (randomize_va_space)
+		pax_flags |= MF_PAX_RANDMMAP;
 #endif
 
 #endif
@@ -892,6 +845,15 @@ static long pax_parse_pax_flags(const struct elfhdr * const elf_ex, const struct
 		return -EINVAL;
 	if (pt_pax_flags != ~0UL)
 		pax_flags = pt_pax_flags;
+
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_PAX_SEGMEXEC)
+	if ((pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) == (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
+		if ((__supported_pte_mask & _PAGE_NX))
+			pax_flags &= ~MF_PAX_SEGMEXEC;
+		else
+			pax_flags &= ~MF_PAX_PAGEEXEC;
+	}
+#endif
 
 	if (0 > pax_check_flags(&pax_flags))
 		return -EINVAL;
@@ -1112,7 +1074,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 	current->mm->def_flags = 0;
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS)
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	if (0 > pax_parse_pax_flags(&loc->elf_ex, elf_phdata, bprm->file)) {
 		send_sig(SIGKILL, current, 0);
 		goto out_free_dentry;

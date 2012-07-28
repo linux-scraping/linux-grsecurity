@@ -134,7 +134,7 @@ static inline void atomic_dec(atomic_t *v)
 
 #define atomic_inc_not_zero(v) atomic_add_unless((v), 1, 0)
 
-static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
+static inline void atomic_clear_mask(unsigned int mask, atomic_t *v)
 {
 	unsigned long flags;
 

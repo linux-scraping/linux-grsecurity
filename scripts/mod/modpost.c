@@ -1276,12 +1276,12 @@ static void report_sec_mismatch(const char *modname, enum mismatch mismatch,
 		"or drop the export.\n",
 		tosym, sec2annotation(tosec), sec2annotation(tosec), tosym);
 	case DATA_TO_TEXT:
-/*
+#if 0
 		fprintf(stderr,
-		"The variable %s references\n"
-		"the %s %s%s%s\n",
-		fromsym, to, sec2annotation(tosec), tosym, to_p);
-*/
+		"The %s %s:%s references\n"
+		"the %s %s:%s%s\n",
+		from, fromsec, fromsym, to, tosec, tosym, to_p);
+#endif
 		break;
 	case NO_MISMATCH:
 		/* To get warnings on missing members */

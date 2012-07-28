@@ -51,6 +51,10 @@ extern void add_input_randomness(unsigned int type, unsigned int code,
 				 unsigned int value);
 extern void add_interrupt_randomness(int irq, int irq_flags);
 
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+extern void transfer_latent_entropy(void);
+#endif
+
 extern void get_random_bytes(void *buf, int nbytes);
 void generate_random_uuid(unsigned char uuid_out[16]);
 

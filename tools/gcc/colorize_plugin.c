@@ -132,7 +132,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info colorize_rearm_pass_info = {
 		.pass				= &pass_ipa_colorize_rearm.pass,
 		.reference_pass_name		= "*free_lang_data",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_AFTER
 	};
 

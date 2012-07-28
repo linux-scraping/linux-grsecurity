@@ -17,6 +17,11 @@
 #ifdef SIZE_OVERFLOW_PLUGIN
 #define __size_overflow(...) __attribute__((size_overflow(__VA_ARGS__)))
 #endif
+
+#ifdef LATENT_ENTROPY_PLUGIN
+#define __latent_entropy __attribute__((latent_entropy))
+#endif
+
 /*
  * A trick to suppress uninitialized variable warning without generating any
  * code

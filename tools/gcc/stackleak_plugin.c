@@ -267,13 +267,13 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		.pass				= &stackleak_tree_instrument_pass.pass,
 //		.reference_pass_name		= "tree_profile",
 		.reference_pass_name		= "optimized",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_BEFORE
 	};
 	struct register_pass_info stackleak_final_pass_info = {
 		.pass				= &stackleak_final_rtl_opt_pass.pass,
 		.reference_pass_name		= "final",
-		.ref_pass_instance_number	= 0,
+		.ref_pass_instance_number	= 1,
 		.pos_op 			= PASS_POS_INSERT_BEFORE
 	};
 

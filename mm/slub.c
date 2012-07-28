@@ -2791,6 +2791,10 @@ out:
 }
 #endif
 
+#ifdef CONFIG_PAX_USERCOPY_SLABS
+static struct kmem_cache kmalloc_caches_usercopy[SLUB_PAGE_SHIFT];
+#endif
+
 /*
  * Conversion table for small slabs sizes / 8 to the index in the
  * kmalloc array. This is necessary for slabs < 192 since we have non power
@@ -2846,6 +2850,13 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
 		return dma_kmalloc_cache(index, flags);
 
 #endif
+
+#ifdef CONFIG_PAX_USERCOPY_SLABS
+	if (flags & SLAB_USERCOPY)
+		return &kmalloc_caches_usercopy[index];
+
+#endif
+
 	return &kmalloc_caches[index];
 }
 
@@ -2914,49 +2925,55 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 EXPORT_SYMBOL(__kmalloc_node);
 #endif
 
-void check_object_size(const void *ptr, unsigned long n, bool to)
+bool is_usercopy_object(const void *ptr)
 {
-
-#ifdef CONFIG_PAX_USERCOPY
 	struct page *page;
-	struct kmem_cache *s = NULL;
-	unsigned long offset;
-	const char *type;
+	struct kmem_cache *s;
 
-	if (!n)
-		return;
-
-	type = "<null>";
 	if (ZERO_OR_NULL_PTR(ptr))
-		goto report;
+		return false;
 
 	if (!virt_addr_valid(ptr))
-		return;
+		return false;
+
+	page = virt_to_head_page(ptr);
+
+	if (!PageSlab(page))
+		return false;
+
+	s = page->slab;
+	return s->flags & SLAB_USERCOPY;
+}
+
+#ifdef CONFIG_PAX_USERCOPY
+const char *check_heap_object(const void *ptr, unsigned long n, bool to)
+{
+	struct page *page;
+	struct kmem_cache *s;
+	unsigned long offset;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		return "<null>";
+
+	if (!virt_addr_valid(ptr))
+		return NULL;
 
 	page = get_object_page(ptr);
 
-	type = "<process stack>";
-	if (!page) {
-		if (object_is_on_stack(ptr, n) == -1)
-			goto report;
-		return;
-	}
+	if (!PageSlab(page))
+		return NULL;
 
 	s = page->slab;
-	type = s->name;
 	if (!(s->flags & SLAB_USERCOPY))
-		goto report;
+		return s->name;
 
 	offset = (ptr - page_address(page)) % s->size;
 	if (offset <= s->objsize && n <= s->objsize - offset)
-		return;
+		return NULL;
 
-report:
-	pax_report_usercopy(ptr, n, to, type);
-#endif
-
+	return s->name;
 }
-EXPORT_SYMBOL(check_object_size);
+#endif
 
 size_t ksize(const void *object)
 {
@@ -3308,6 +3325,20 @@ void __init kmem_cache_init(void)
 				nr_cpu_ids * sizeof(struct kmem_cache_cpu *);
 #else
 	kmem_size = sizeof(struct kmem_cache);
+#endif
+
+#ifdef CONFIG_PAX_USERCOPY_SLABS
+	for (i = 0; i < SLUB_PAGE_SHIFT; i++) {
+		struct kmem_cache *s = &kmalloc_caches[i];
+
+		if (s->size) {
+			char *name = kasprintf(GFP_NOWAIT, "kmalloc-usercopy-%d", s->objsize);
+
+			BUG_ON(!name);
+			create_kmalloc_cache(&kmalloc_caches_usercopy[i], name,
+				s->objsize, GFP_NOWAIT, SLAB_USERCOPY);
+		}
+	}
 #endif
 
 	printk(KERN_INFO
