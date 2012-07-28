@@ -407,8 +407,10 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_dec_unchecked((atomic_unchecked_t *)NULL);
 	atomic_cmpxchg_unchecked((atomic_unchecked_t *)NULL, 0, 0);
 	(void)atomic_xchg_unchecked((atomic_unchecked_t *)NULL, 0);
+#ifdef CONFIG_X86
 	atomic_clear_mask_unchecked(0, NULL);
 	atomic_set_mask_unchecked(0, NULL);
+#endif
 
 	atomic_long_read_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_set_unchecked((atomic_long_unchecked_t *)NULL, 0);

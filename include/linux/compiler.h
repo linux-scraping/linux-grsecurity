@@ -309,6 +309,10 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __size_overflow(...)
 #endif
 
+#ifndef __latent_entropy
+# define __latent_entropy
+#endif
+
 /*
  * Tell gcc if a function is cold. The compiler will assume any path
  * directly leading to the call is unlikely.

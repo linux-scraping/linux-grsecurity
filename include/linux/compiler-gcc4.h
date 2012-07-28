@@ -42,6 +42,10 @@
 #define __size_overflow(...) __attribute__((size_overflow(__VA_ARGS__)))
 #endif
 
+#ifdef LATENT_ENTROPY_PLUGIN
+#define __latent_entropy __attribute__((latent_entropy))
+#endif
+
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer

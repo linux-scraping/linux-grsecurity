@@ -852,6 +852,7 @@ config PAX_SIZE_OVERFLOW
 
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot"
+	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  By saying Y here the kernel will instrument early boot code to
 	  extract some entropy from both original and artificially created

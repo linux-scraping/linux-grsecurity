@@ -11,10 +11,12 @@
  * used during boot in the kernel
  *
  * TODO:
- * - quite a few, see the comments :)
+ * - add ipa pass to identify not explicitly marked candidate functions
+ * - mix in more program state (function arguments/return values, loop variables, etc)
+ * - more instrumentation control via attribute parameters
  *
  * BUGS:
- * - none known
+ * - LTO needs -flto-partition=none for now
  */
 #include "gcc-plugin.h"
 #include "config.h"
@@ -36,17 +38,13 @@
 #include "rtl.h"
 #include "emit-rtl.h"
 #include "tree-flow.h"
-#include "cpplib.h"
-#include "c-pragma.h"
-
-#include "linux/kconfig.h"
 
 int plugin_is_GPL_compatible;
 
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201207202140",
+	.version	= "201207271820",
 	.help		= NULL
 };
 
@@ -71,54 +69,39 @@ static struct gimple_opt_pass latent_entropy_pass = {
 	}
 };
 
-// for kernel use we just want to instrument some of the boot code
-// for userland use this would need changes
+static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
+{
+	if (TREE_CODE(*node) != FUNCTION_DECL) {
+		*no_add_attrs = true;
+		error("%qE attribute only applies to functions", name);
+	}
+	return NULL_TREE;
+}
+
+static struct attribute_spec latent_entropy_attr = {
+	.name				= "latent_entropy",
+	.min_length			= 0,
+	.max_length			= 0,
+	.decl_required			= true,
+	.type_required			= false,
+	.function_type_required		= false,
+	.handler			= handle_latent_entropy_attribute,
+#if BUILDING_GCC_VERSION >= 4007
+	.affects_type_identity		= false
+#endif
+};
+
+static void register_attributes(void *event_data, void *data)
+{
+	register_attribute(&latent_entropy_attr);
+}
+
 static bool gate_latent_entropy(void)
 {
-	tree section_attr;
-	const char *section_name;
+	tree latent_entropy_attr;
 
-	// don't instrument modules
-	if (cpp_defined(parse_in, (const unsigned char *)"MODULE", 6))
-		return false;
-
-	// don't instrument normal code
-	section_attr = lookup_attribute("section", DECL_ATTRIBUTES(current_function_decl));
-	if (!section_attr || !TREE_VALUE(section_attr))
-		return false;
-
-	section_name = TREE_STRING_POINTER(TREE_VALUE(TREE_VALUE(section_attr)));
-
-	// instrument code in boot related sections
-	if (!strncmp(section_name, ".init.text", 10))
-		return true;
-
-	if (!strncmp(section_name, ".initcall", 9))
-		return true;
-
-	if (!strncmp(section_name, ".con_initcall", 13))
-		return true;
-
-	if (!strncmp(section_name, ".security_initcall", 18))
-		return true;
-
-#ifndef CONFIG_HOTPLUG
-	if (!strncmp(section_name, ".devinit.text", 13))
-		return true;
-#endif
-
-#ifndef CONFIG_HOTPLUG_CPU
-	if (!strncmp(section_name, ".cpuinit.text", 13))
-		return true;
-#endif
-
-#ifndef CONFIG_HOTPLUG_MEMORY
-	if (!strncmp(section_name, ".meminit.text", 13))
-		return true;
-#endif
-
-	// TODO check whether cfun is static and all its callers meet the above criteria
-	return false;
+	latent_entropy_attr = lookup_attribute("latent_entropy", DECL_ATTRIBUTES(current_function_decl));
+	return latent_entropy_attr != NULL_TREE;
 }
 
 static unsigned HOST_WIDE_INT seed;
@@ -204,8 +187,6 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	find_referenced_vars_in(assign);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
-
-	// TODO we could mix in more local state such as function return values, etc
 }
 
 static unsigned int execute_latent_entropy(void)
@@ -214,6 +195,23 @@ static unsigned int execute_latent_entropy(void)
 	gimple assign;
 	gimple_stmt_iterator gsi;
 	tree local_entropy;
+
+	if (!latent_entropy_decl) {
+		struct varpool_node *node;
+
+		for (node = varpool_nodes; node; node = node->next) {
+			tree var = node->decl;
+			if (strcmp(IDENTIFIER_POINTER(DECL_NAME(var)), "latent_entropy"))
+				continue;
+			latent_entropy_decl = var;
+//			debug_tree(var);
+			break;
+		}
+		if (!latent_entropy_decl) {
+//			debug_tree(current_function_decl);
+			return 0;
+		}
+	}
 
 //fprintf(stderr, "latent_entropy: %s\n", IDENTIFIER_POINTER(DECL_NAME(current_function_decl)));
 
@@ -248,24 +246,29 @@ static unsigned int execute_latent_entropy(void)
 
 static void start_unit_callback(void *gcc_data, void *user_data)
 {
-	// extern u64 latent_entropy
-	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), unsigned_intDI_type_node);
-
-	TREE_STATIC(latent_entropy_decl) = 1;
-	TREE_PUBLIC(latent_entropy_decl) = 1;
-	DECL_EXTERNAL(latent_entropy_decl) = 1;
-	DECL_ARTIFICIAL(latent_entropy_decl) = 1;
-	DECL_INITIAL(latent_entropy_decl) = NULL;
-//	DECL_ASSEMBLER_NAME(latent_entropy_decl);
-//	varpool_finalize_decl(latent_entropy_decl);
-//	varpool_mark_needed_node(latent_entropy_decl);
-
 #if BUILDING_GCC_VERSION >= 4007
 	seed = get_random_seed(false);
 #else
 	sscanf(get_random_seed(false), "%" HOST_WIDE_INT_PRINT "x", &seed);
 	seed *= seed;
 #endif
+
+	if (in_lto_p)
+		return;
+
+	// extern u64 latent_entropy
+	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), unsigned_intDI_type_node);
+
+	TREE_STATIC(latent_entropy_decl) = 1;
+	TREE_PUBLIC(latent_entropy_decl) = 1;
+	TREE_USED(latent_entropy_decl) = 1;
+	TREE_THIS_VOLATILE(latent_entropy_decl) = 1;
+	DECL_EXTERNAL(latent_entropy_decl) = 1;
+	DECL_ARTIFICIAL(latent_entropy_decl) = 0;
+	DECL_INITIAL(latent_entropy_decl) = NULL;
+//	DECL_ASSEMBLER_NAME(latent_entropy_decl);
+//	varpool_finalize_decl(latent_entropy_decl);
+//	varpool_mark_needed_node(latent_entropy_decl);
 }
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
@@ -286,6 +289,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &latent_entropy_plugin_info);
 	register_callback ("start_unit", PLUGIN_START_UNIT, &start_unit_callback, NULL);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
+	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 
 	return 0;
 }
