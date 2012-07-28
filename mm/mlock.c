@@ -428,7 +428,7 @@ static int do_mlock(unsigned long start, size_t len, int on)
 {
 	unsigned long nstart, end, tmp;
 	struct vm_area_struct * vma, * prev;
-	int error = -EINVAL;
+	int error = 0;
 
 	len = PAGE_ALIGN(len);
 	end = start + len;
