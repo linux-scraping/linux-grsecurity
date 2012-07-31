@@ -32,6 +32,7 @@ config GRKERNSEC
 	bool "Grsecurity"
 	select CRYPTO
 	select CRYPTO_SHA256
+	select PROC_FS
 	select STOP_MACHINE
 	help
 	  If you say Y here, you will be able to configure many features
