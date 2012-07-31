@@ -866,7 +866,22 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			return ip4_addr_string(buf, end, ptr, spec, fmt);
 		}
 		break;
+	case 'P':
+		break;
 	}
+
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	/* 'P' = approved pointers to copy to userland,
+	   as in the /proc/kallsyms case, as we make it display nothing
+	   for non-root users, and the real contents for root users
+	*/
+	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
+		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
+		dump_stack();
+		ptr = NULL;
+	}
+#endif
+
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
 		spec.field_width = 2*sizeof(void *);

@@ -124,6 +124,7 @@ config GRKERNSEC_MODHARDEN
 
 config GRKERNSEC_HIDESYM
 	bool "Hide kernel symbols"
+	select PAX_USERCOPY_SLABS
 	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, getting information on loaded modules, and

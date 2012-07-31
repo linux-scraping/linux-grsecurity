@@ -80,7 +80,11 @@ static int traverse(struct seq_file *m, loff_t offset)
 		return 0;
 	}
 	if (!m->buf) {
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL | GFP_USERCOPY);
+#else
 		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+#endif
 		if (!m->buf)
 			return -ENOMEM;
 	}
@@ -120,7 +124,11 @@ static int traverse(struct seq_file *m, loff_t offset)
 Eoverflow:
 	m->op->stop(m, p);
 	kfree(m->buf);
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL | GFP_USERCOPY);
+#else
 	m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+#endif
 	return !m->buf ? -ENOMEM : -EAGAIN;
 }
 
@@ -173,7 +181,11 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 	m->version = file->f_version;
 	/* grab buffer if we didn't have one */
 	if (!m->buf) {
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL | GFP_USERCOPY);
+#else
 		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
+#endif
 		if (!m->buf)
 			goto Enomem;
 	}
@@ -214,7 +226,11 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 			goto Fill;
 		m->op->stop(m, p);
 		kfree(m->buf);
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		m->buf = kmalloc(m->size <<= 1, GFP_KERNEL | GFP_USERCOPY);
+#else
 		m->buf = kmalloc(m->size <<= 1, GFP_KERNEL);
+#endif
 		if (!m->buf)
 			goto Enomem;
 		m->count = 0;
