@@ -140,8 +140,8 @@ SECTIONS
 		MODULES_EXEC_VADDR = .;
 		BYTE(0)
 		. += (CONFIG_PAX_KERNEXEC_MODULE_TEXT * 1024 * 1024);
-		. = ALIGN(HPAGE_SIZE);
-		MODULES_EXEC_END = . - 1;
+		. = ALIGN(HPAGE_SIZE) - 1;
+		MODULES_EXEC_END = .;
 #endif
 
 	} :module
@@ -149,6 +149,7 @@ SECTIONS
 
 	.text.end : AT(ADDR(.text.end) - LOAD_OFFSET) {
 		/* End of text section */
+		BYTE(0)
 		_etext = . - __KERNEL_TEXT_OFFSET;
 	}
 

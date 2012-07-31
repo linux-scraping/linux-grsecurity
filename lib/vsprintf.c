@@ -875,17 +875,6 @@ static noinline_for_stack
 char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	      struct printf_spec spec)
 {
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-	/* 'P' = approved pointers to copy to userland,
-	   as in the /proc/kallsyms case, as we make it display nothing
-	   for non-root users, and the real contents for root users
-	*/
-	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
-		ptr = NULL;
-		goto simple;
-	}
-#endif
-
 	if (!ptr && *fmt != 'K') {
 		/*
 		 * Print (nil) with the same width as a pointer so it makes
@@ -954,7 +943,8 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		 * %pK cannot be used in IRQ context because its test
 		 * for CAP_SYSLOG would be meaningless.
 		 */
-		if (in_irq() || in_serving_softirq() || in_nmi()) {
+		if (kptr_restrict && (in_irq() || in_serving_softirq() ||
+				      in_nmi())) {
 			if (spec.field_width == -1)
 				spec.field_width = 2 * sizeof(void *);
 			return string(buf, end, "pK-error", spec);
@@ -971,9 +961,19 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		}
 		break;
 	}
+
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-simple:
+	/* 'P' = approved pointers to copy to userland,
+	   as in the /proc/kallsyms case, as we make it display nothing
+	   for non-root users, and the real contents for root users
+	*/
+	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
+		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
+		dump_stack();
+		ptr = NULL;
+	}
 #endif
+
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
 		spec.field_width = 2 * sizeof(void *);
