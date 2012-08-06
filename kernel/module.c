@@ -3100,7 +3100,7 @@ static int m_show(struct seq_file *m, void *p)
 		   mod->state == MODULE_STATE_COMING ? "Loading":
 		   "Live");
 	/* Used by oprofile and other similar tools. */
-	seq_printf(m, " 0x%p 0x%p", mod->module_core_rx, mod->module_core_rw);
+	seq_printf(m, " 0x%pP 0x%pP", mod->module_core_rx, mod->module_core_rw);
 
 	/* Taints info */
 	if (mod->taints)
