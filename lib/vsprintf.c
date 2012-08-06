@@ -927,8 +927,10 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	/* 'P' = approved pointers to copy to userland,
 	   as in the /proc/kallsyms case, as we make it display nothing
 	   for non-root users, and the real contents for root users
+	   Also ignore 'K' pointers, since we force their NULLing for non-root users
+	   above
 	*/
-	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
+	if (ptr > TASK_SIZE && *fmt != 'P' && *fmt != 'K' && is_usercopy_object(buf)) {
 		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
 		dump_stack();
 		ptr = NULL;

@@ -135,7 +135,7 @@ static inline struct thread_info *current_thread_info(void)
 #define _TIF_GRSEC_SETXID	(1<<TIF_GRSEC_SETXID)
 
 #define _TIF_SYSCALL_T_OR_A	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
-				 _TIF_SECCOMP | _TIF_SYSCALL_TRACEPOINT \
+				 _TIF_SECCOMP | _TIF_SYSCALL_TRACEPOINT | \
 				 _TIF_GRSEC_SETXID)
 
 #define _TIF_USER_WORK_MASK	(_TIF_SIGPENDING | _TIF_NEED_RESCHED | \
