@@ -8,7 +8,7 @@
 #define L1_CACHE_SHIFT 5
 #define L1_CACHE_BYTES (_AC(1,UL) << L1_CACHE_SHIFT)
 
-#define __read_mostly __attribute__((__section__(".data.read_mostly")))
+#define __read_mostly __attribute__((__section__(".data..read_mostly")))
 
 void flush_dma_list(dma_descr_data *descr);
 void flush_dma_descr(dma_descr_data *descr, int flush_buf);

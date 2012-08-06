@@ -382,7 +382,7 @@ int lookup_symbol_attrs(unsigned long addr, unsigned long *size,
 
 /* Look up a kernel symbol and return it in a text buffer. */
 static int __sprint_symbol(char *buffer, unsigned long address,
-			   int symbol_offset)
+			   int symbol_offset, int add_offset)
 {
 	char *modname;
 	const char *name;
@@ -397,13 +397,13 @@ static int __sprint_symbol(char *buffer, unsigned long address,
 	if (name != buffer)
 		strcpy(buffer, name);
 	len = strlen(buffer);
-	buffer += len;
 	offset -= symbol_offset;
 
+	if (add_offset)
+		len += sprintf(buffer + len, "+%#lx/%#lx", offset, size);
+
 	if (modname)
-		len += sprintf(buffer, "+%#lx/%#lx [%s]", offset, size, modname);
-	else
-		len += sprintf(buffer, "+%#lx/%#lx", offset, size);
+		len += sprintf(buffer + len, " [%s]", modname);
 
 	return len;
 }
@@ -421,10 +421,26 @@ static int __sprint_symbol(char *buffer, unsigned long address,
  */
 int sprint_symbol(char *buffer, unsigned long address)
 {
-	return __sprint_symbol(buffer, address, 0);
+	return __sprint_symbol(buffer, address, 0, 1);
 }
-
 EXPORT_SYMBOL_GPL(sprint_symbol);
+
+/**
+ * sprint_symbol_no_offset - Look up a kernel symbol and return it in a text buffer
+ * @buffer: buffer to be stored
+ * @address: address to lookup
+ *
+ * This function looks up a kernel symbol with @address and stores its name
+ * and module name to @buffer if possible. If no symbol was found, just saves
+ * its @address as is.
+ *
+ * This function returns the number of bytes stored in @buffer.
+ */
+int sprint_symbol_no_offset(char *buffer, unsigned long address)
+{
+	return __sprint_symbol(buffer, address, 0, 0);
+}
+EXPORT_SYMBOL_GPL(sprint_symbol_no_offset);
 
 /**
  * sprint_backtrace - Look up a backtrace symbol and return it in a text buffer
@@ -442,7 +458,7 @@ EXPORT_SYMBOL_GPL(sprint_symbol);
  */
 int sprint_backtrace(char *buffer, unsigned long address)
 {
-	return __sprint_symbol(buffer, address, -1);
+	return __sprint_symbol(buffer, address, -1, 1);
 }
 
 /* Look up a kernel symbol and print it to the kernel messages. */
@@ -559,21 +575,11 @@ static int s_show(struct seq_file *m, void *p)
 		type = iter->exported ? toupper(iter->type) :
 					tolower(iter->type);
 
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-		seq_printf(m, "%pP %c %s\t[%s]\n", (void *)iter->value,
-			   type, iter->name, iter->module_name);
-#else
 		seq_printf(m, "%pK %c %s\t[%s]\n", (void *)iter->value,
 			   type, iter->name, iter->module_name);
-#endif
 	} else
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-		seq_printf(m, "%pP %c %s\n", (void *)iter->value,
-			   iter->type, iter->name);
-#else
 		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
 			   iter->type, iter->name);
-#endif
 	return 0;
 }
 

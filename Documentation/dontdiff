@@ -208,6 +208,7 @@ page-types
 parse.c
 parse.h
 parse-events*
+pasyms.h
 patches*
 pca200e.bin
 pca200e_ecd.bin2
@@ -227,6 +228,8 @@ r200_reg_safe.h
 r300_reg_safe.h
 r420_reg_safe.h
 r600_reg_safe.h
+realmode.lds
+realmode.relocs
 recordmcount
 regdb.c
 relocs
@@ -242,6 +245,7 @@ size_overflow_hash.h
 sImage
 slabinfo
 sm_tbl*
+sortextable
 split-include
 syscalltab.h
 tables.c

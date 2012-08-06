@@ -13,6 +13,7 @@
 #include <asm/thread_info.h>	
 #include <asm/segment.h>
 #include <asm/irqflags.h>
+#include <asm/asm.h>
 #include <asm/pgtable.h>
 #include <linux/linkage.h>
 #include <linux/err.h>
@@ -182,9 +183,7 @@ ENTRY(ia32_sysenter_target)
 #endif
 
 1:	movl	(%rbp),%ebp
- 	.section __ex_table,"a"
- 	.quad 1b,ia32_badarg
- 	.previous	
+	_ASM_EXTABLE(1b,ia32_badarg)
 	GET_THREAD_INFO(%r11)
 	orl    $TS_COMPAT,TI_status(%r11)
 	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -357,9 +356,7 @@ ENTRY(ia32_cstar_target)
 #endif
 
 1:	movl	(%r8),%r9d
-	.section __ex_table,"a"
-	.quad 1b,ia32_badarg
-	.previous	
+	_ASM_EXTABLE(1b,ia32_badarg)
 	GET_THREAD_INFO(%r11)
 	orl   $TS_COMPAT,TI_status(%r11)
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)

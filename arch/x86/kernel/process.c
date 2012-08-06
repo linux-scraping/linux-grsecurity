@@ -27,6 +27,16 @@
 #include <asm/debugreg.h>
 #include <asm/nmi.h>
 
+/*
+ * per-CPU TSS segments. Threads are completely 'soft' on Linux,
+ * no more per-task TSS's. The TSS size is kept cacheline-aligned
+ * so they are allowed to end up in the .data..cacheline_aligned
+ * section. Since TSS's are completely CPU-local, we want them
+ * on exact cacheline boundaries, to eliminate cacheline ping-pong.
+ */
+struct tss_struct init_tss[NR_CPUS] ____cacheline_internodealigned_in_smp = { [0 ... NR_CPUS-1] = INIT_TSS };
+EXPORT_SYMBOL(init_tss);
+
 #ifdef CONFIG_X86_64
 static DEFINE_PER_CPU(unsigned char, is_idle);
 static ATOMIC_NOTIFIER_HEAD(idle_notifier);
@@ -47,9 +57,15 @@ EXPORT_SYMBOL_GPL(idle_notifier_unregister);
 struct kmem_cache *task_xstate_cachep;
 EXPORT_SYMBOL_GPL(task_xstate_cachep);
 
+/*
+ * this gets called so that we can store lazy state into memory and copy the
+ * current task into the new thread.
+ */
 int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 {
 	int ret;
+
+	unlazy_fpu(src);
 
 	*dst = *src;
 	if (fpu_allocated(&src->thread.fpu)) {
@@ -67,35 +83,27 @@ void free_thread_xstate(struct task_struct *tsk)
 	fpu_free(&tsk->thread.fpu);
 }
 
-void free_thread_info(struct thread_info *ti)
+void arch_release_task_struct(struct task_struct *tsk)
 {
-	free_pages((unsigned long)ti, THREAD_ORDER);
+	free_thread_xstate(tsk);
 }
-
-static struct kmem_cache *task_struct_cachep;
 
 void arch_task_cache_init(void)
 {
-	/* create a slab on which task_structs can be allocated */
-	task_struct_cachep =
-		kmem_cache_create("task_struct", sizeof(struct task_struct),
-			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK, NULL);
-
-	task_xstate_cachep =
-		kmem_cache_create("task_xstate", xstate_size,
+        task_xstate_cachep =
+        	kmem_cache_create("task_xstate", xstate_size,
 				  __alignof__(union thread_xstate),
 				  SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
 }
 
-struct task_struct *alloc_task_struct_node(int node)
+static inline void drop_fpu(struct task_struct *tsk)
 {
-	return kmem_cache_alloc_node(task_struct_cachep, GFP_KERNEL, node);
-}
-
-void free_task_struct(struct task_struct *task)
-{
-	free_thread_xstate(task);
-	kmem_cache_free(task_struct_cachep, task);
+	/*
+	 * Forget coprocessor state..
+	 */
+	tsk->fpu_counter = 0;
+	clear_fpu(tsk);
+	clear_used_math();
 }
 
 /*
@@ -120,12 +128,8 @@ void exit_thread(void)
 		put_cpu();
 		kfree(bp);
 	}
-}
 
-void show_regs(struct pt_regs *regs)
-{
-	show_registers(regs);
-	show_trace(NULL, regs, (unsigned long *)kernel_stack_pointer(regs), 0);
+	drop_fpu(me);
 }
 
 void show_regs_common(void)
@@ -163,12 +167,7 @@ void flush_thread(void)
 #endif
 	flush_ptrace_hw_breakpoint(tsk);
 	memset(tsk->thread.tls_array, 0, sizeof(tsk->thread.tls_array));
-	/*
-	 * Forget coprocessor state..
-	 */
-	tsk->fpu_counter = 0;
-	clear_fpu(tsk);
-	clear_used_math();
+	drop_fpu(tsk);
 }
 
 static void hard_disable_TSC(void)
@@ -397,7 +396,7 @@ static inline void play_dead(void)
 #ifdef CONFIG_X86_64
 void enter_idle(void)
 {
-	percpu_write(is_idle, 1);
+	this_cpu_write(is_idle, 1);
 	atomic_notifier_call_chain(&idle_notifier, IDLE_START, NULL);
 }
 
@@ -536,26 +535,6 @@ __noreturn void stop_this_cpu(void *dummy)
 	}
 }
 
-static void do_nothing(void *unused)
-{
-}
-
-/*
- * cpu_idle_wait - Used to ensure that all the CPUs discard old value of
- * pm_idle and update to new pm_idle value. Required while changing pm_idle
- * handler on SMP systems.
- *
- * Caller must have changed pm_idle to the new value before the call. Old
- * pm_idle value will not be used by any CPU after the return of this function.
- */
-void cpu_idle_wait(void)
-{
-	smp_mb();
-	/* kick all the CPUs so that they exit out of pm_idle */
-	smp_call_function(do_nothing, NULL, 1);
-}
-EXPORT_SYMBOL_GPL(cpu_idle_wait);
-
 /* Default MONITOR/MWAIT with no hints, used for default C1 state */
 static void mwait_idle(void)
 {
@@ -614,8 +593,16 @@ int mwait_usable(const struct cpuinfo_x86 *c)
 {
 	u32 eax, ebx, ecx, edx;
 
+	/* Use mwait if idle=mwait boot option is given */
 	if (boot_option_idle_override == IDLE_FORCE_MWAIT)
 		return 1;
+
+	/*
+	 * Any idle= boot option other than idle=mwait means that we must not
+	 * use mwait. Eg: idle=halt or idle=poll or idle=nomwait
+	 */
+	if (boot_option_idle_override != IDLE_NO_OVERRIDE)
+		return 0;
 
 	if (c->cpuid_level < MWAIT_INFO)
 		return 0;
@@ -793,7 +780,7 @@ void pax_randomize_kstack(struct pt_regs *regs)
 	load_sp0(init_tss + smp_processor_id(), thread);
 
 #ifdef CONFIG_X86_64
-	percpu_write(kernel_stack, thread->sp0);
+	this_cpu_write(kernel_stack, thread->sp0);
 #endif
 }
 #endif

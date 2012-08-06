@@ -274,13 +274,12 @@ fail:
 	return 0;
 }
 
-void call_usermodehelper_freeinfo(struct subprocess_info *info)
+static void call_usermodehelper_freeinfo(struct subprocess_info *info)
 {
 	if (info->cleanup)
 		(*info->cleanup)(info);
 	kfree(info);
 }
-EXPORT_SYMBOL(call_usermodehelper_freeinfo);
 
 static void umh_complete(struct subprocess_info *sub_info)
 {
@@ -463,7 +462,7 @@ EXPORT_SYMBOL_GPL(usermodehelper_read_unlock);
 
 /**
  * __usermodehelper_set_disable_depth - Modify usermodehelper_disabled.
- * depth: New value to assign to usermodehelper_disabled.
+ * @depth: New value to assign to usermodehelper_disabled.
  *
  * Change the value of usermodehelper_disabled (under umhelper_sem locked for
  * writing) and wakeup tasks waiting for it to change.
@@ -532,6 +531,7 @@ static void helper_unlock(void)
  * structure.  This should be passed to call_usermodehelper_exec to
  * exec the process and free the structure.
  */
+static
 struct subprocess_info *call_usermodehelper_setup(char *path, char **argv,
 						  char **envp, gfp_t gfp_mask)
 {
@@ -547,7 +547,6 @@ struct subprocess_info *call_usermodehelper_setup(char *path, char **argv,
   out:
 	return sub_info;
 }
-EXPORT_SYMBOL(call_usermodehelper_setup);
 
 /**
  * call_usermodehelper_setfns - set a cleanup/init function
@@ -565,6 +564,7 @@ EXPORT_SYMBOL(call_usermodehelper_setup);
  * Function must be runnable in either a process context or the
  * context in which call_usermodehelper_exec is called.
  */
+static
 void call_usermodehelper_setfns(struct subprocess_info *info,
 		    int (*init)(struct subprocess_info *info, struct cred *new),
 		    void (*cleanup)(struct subprocess_info *info),
@@ -574,7 +574,6 @@ void call_usermodehelper_setfns(struct subprocess_info *info,
 	info->init = init;
 	info->data = data;
 }
-EXPORT_SYMBOL(call_usermodehelper_setfns);
 
 /**
  * call_usermodehelper_exec - start a usermode application
@@ -588,6 +587,7 @@ EXPORT_SYMBOL(call_usermodehelper_setfns);
  * asynchronously if wait is not set, and runs as a child of keventd.
  * (ie. it runs with full root capabilities).
  */
+static
 int call_usermodehelper_exec(struct subprocess_info *sub_info, int wait)
 {
 	DECLARE_COMPLETION_ONSTACK(done);
@@ -629,7 +629,25 @@ unlock:
 	helper_unlock();
 	return retval;
 }
-EXPORT_SYMBOL(call_usermodehelper_exec);
+
+int call_usermodehelper_fns(
+	char *path, char **argv, char **envp, int wait,
+	int (*init)(struct subprocess_info *info, struct cred *new),
+	void (*cleanup)(struct subprocess_info *), void *data)
+{
+	struct subprocess_info *info;
+	gfp_t gfp_mask = (wait == UMH_NO_WAIT) ? GFP_ATOMIC : GFP_KERNEL;
+
+	info = call_usermodehelper_setup(path, argv, envp, gfp_mask);
+
+	if (info == NULL)
+		return -ENOMEM;
+
+	call_usermodehelper_setfns(info, init, cleanup, data);
+
+	return call_usermodehelper_exec(info, wait);
+}
+EXPORT_SYMBOL(call_usermodehelper_fns);
 
 static int proc_cap_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp, loff_t *ppos)

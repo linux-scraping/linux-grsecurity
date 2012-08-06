@@ -113,7 +113,8 @@ static int usb_console_setup(struct console *co, char *options)
 	serial = usb_serial_get_by_index(co->index);
 	if (serial == NULL) {
 		/* no device is connected yet, sorry :( */
-		err("No USB device connected to ttyUSB%i", co->index);
+		printk(KERN_ERR "No USB device connected to ttyUSB%i\n",
+		       co->index);
 		return -ENODEV;
 	}
 
@@ -126,7 +127,7 @@ static int usb_console_setup(struct console *co, char *options)
 
 	info->port = port;
 
-	++port->port.count;
+	atomic_inc(&port->port.count);
 	if (!test_bit(ASYNCB_INITIALIZED, &port->port.flags)) {
 		if (serial->type->set_termios) {
 			/*
@@ -137,7 +138,7 @@ static int usb_console_setup(struct console *co, char *options)
 			tty = kzalloc(sizeof(*tty), GFP_KERNEL);
 			if (!tty) {
 				retval = -ENOMEM;
-				err("no more memory");
+				dev_err(&port->dev, "no more memory\n");
 				goto reset_open_count;
 			}
 			kref_init(&tty->kref);
@@ -146,7 +147,7 @@ static int usb_console_setup(struct console *co, char *options)
 			tty->index = co->index;
 			if (tty_init_termios(tty)) {
 				retval = -ENOMEM;
-				err("no more memory");
+				dev_err(&port->dev, "no more memory\n");
 				goto free_tty;
 			}
 		}
@@ -159,7 +160,7 @@ static int usb_console_setup(struct console *co, char *options)
 			retval = usb_serial_generic_open(NULL, port);
 
 		if (retval) {
-			err("could not open USB console port");
+			dev_err(&port->dev, "could not open USB console port\n");
 			goto fail;
 		}
 
@@ -176,7 +177,7 @@ static int usb_console_setup(struct console *co, char *options)
 	}
 	/* Now that any required fake tty operations are completed restore
 	 * the tty port count */
-	--port->port.count;
+	atomic_dec(&port->port.count);
 	/* The console is special in terms of closing the device so
 	 * indicate this port is now acting as a system console. */
 	port->port.console = 1;
@@ -189,7 +190,7 @@ static int usb_console_setup(struct console *co, char *options)
  free_tty:
 	kfree(tty);
  reset_open_count:
-	port->port.count = 0;
+	atomic_set(&port->port.count, 0);
 	usb_autopm_put_interface(serial->interface);
  error_get_interface:
 	usb_serial_put(serial);

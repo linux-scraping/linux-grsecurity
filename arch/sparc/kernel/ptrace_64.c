@@ -1066,7 +1066,7 @@ asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 	int ret = 0;
 
 	/* do the secure computing check first */
-	secure_computing(regs->u_regs[UREG_G1]);
+	secure_computing_strict(regs->u_regs[UREG_G1]);
 
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))

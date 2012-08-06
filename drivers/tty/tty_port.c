@@ -138,7 +138,7 @@ void tty_port_hangup(struct tty_port *port)
 	unsigned long flags;
 
 	spin_lock_irqsave(&port->lock, flags);
-	port->count = 0;
+	atomic_set(&port->count, 0);
 	port->flags &= ~ASYNC_NORMAL_ACTIVE;
 	if (port->tty) {
 		set_bit(TTY_IO_ERROR, &port->tty->flags);
@@ -264,7 +264,7 @@ int tty_port_block_til_ready(struct tty_port *port,
 	/* The port lock protects the port counts */
 	spin_lock_irqsave(&port->lock, flags);
 	if (!tty_hung_up_p(filp))
-		port->count--;
+		atomic_dec(&port->count);
 	port->blocked_open++;
 	spin_unlock_irqrestore(&port->lock, flags);
 
@@ -306,7 +306,7 @@ int tty_port_block_til_ready(struct tty_port *port,
 	   we must not mess that up further */
 	spin_lock_irqsave(&port->lock, flags);
 	if (!tty_hung_up_p(filp))
-		port->count++;
+		atomic_inc(&port->count);
 	port->blocked_open--;
 	if (retval == 0)
 		port->flags |= ASYNC_NORMAL_ACTIVE;
@@ -326,19 +326,19 @@ int tty_port_close_start(struct tty_port *port,
 		return 0;
 	}
 
-	if (tty->count == 1 && port->count != 1) {
+	if (tty->count == 1 && atomic_read(&port->count) != 1) {
 		printk(KERN_WARNING
 		    "tty_port_close_start: tty->count = 1 port count = %d.\n",
-								port->count);
-		port->count = 1;
+								atomic_read(&port->count));
+		atomic_set(&port->count, 1);
 	}
-	if (--port->count < 0) {
+	if (atomic_dec_return(&port->count) < 0) {
 		printk(KERN_WARNING "tty_port_close_start: count = %d\n",
-								port->count);
-		port->count = 0;
+								atomic_read(&port->count));
+		atomic_set(&port->count, 0);
 	}
 
-	if (port->count) {
+	if (atomic_read(&port->count)) {
 		spin_unlock_irqrestore(&port->lock, flags);
 		if (port->ops->drop)
 			port->ops->drop(port);
@@ -418,7 +418,7 @@ int tty_port_open(struct tty_port *port, struct tty_struct *tty,
 {
 	spin_lock_irq(&port->lock);
 	if (!tty_hung_up_p(filp))
-		++port->count;
+		atomic_inc(&port->count);
 	spin_unlock_irq(&port->lock);
 	tty_port_tty_set(port, tty);
 

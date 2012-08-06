@@ -37,10 +37,8 @@ static int cmp_ex(const void *a, const void *b)
 void sort_extable(struct exception_table_entry *start,
 		  struct exception_table_entry *finish)
 {
-	pax_open_kernel();
 	sort(start, finish - start, sizeof(struct exception_table_entry),
 	     cmp_ex, NULL);
-	pax_close_kernel();
 }
 
 #ifdef CONFIG_MODULES

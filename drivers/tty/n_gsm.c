@@ -2895,7 +2895,7 @@ static int gsmtty_open(struct tty_struct *tty, struct file *filp)
 	if (dlci == NULL)
 		return -ENOMEM;
 	port = &dlci->port;
-	port->count++;
+	atomic_inc(&port->count);
 	tty->driver_data = dlci;
 	dlci_get(dlci);
 	dlci_get(dlci->gsm->dlci[0]);

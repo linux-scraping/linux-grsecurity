@@ -256,7 +256,7 @@ bool is_usercopy_object(const void *ptr);
 static void *kmalloc_array(size_t n, size_t size, gfp_t flags) __size_overflow(1, 2);
 static inline void *kmalloc_array(size_t n, size_t size, gfp_t flags)
 {
-	if (size != 0 && n > ULONG_MAX / size)
+	if (size != 0 && n > SIZE_MAX / size)
 		return NULL;
 	return __kmalloc(n * size, flags);
 }

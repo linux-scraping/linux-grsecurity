@@ -114,11 +114,11 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 	int error;
 	struct file * file;
 	struct readdir_callback buf;
+	int fput_needed;
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	buf.result = 0;
 	buf.dirent = dirent;
@@ -128,8 +128,7 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 	if (buf.result)
 		error = buf.result;
 
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }
 
@@ -207,16 +206,15 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	struct file * file;
 	struct linux_dirent __user * lastdirent;
 	struct getdents_callback buf;
+	int fput_needed;
 	int error;
 
-	error = -EFAULT;
 	if (!access_ok(VERIFY_WRITE, dirent, count))
-		goto out;
+		return -EFAULT;
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	buf.current_dir = dirent;
 	buf.previous = NULL;
@@ -234,8 +232,7 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 		else
 			error = count - buf.count;
 	}
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }
 
@@ -296,16 +293,15 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 	struct file * file;
 	struct linux_dirent64 __user * lastdirent;
 	struct getdents_callback64 buf;
+	int fput_needed;
 	int error;
 
-	error = -EFAULT;
 	if (!access_ok(VERIFY_WRITE, dirent, count))
-		goto out;
+		return -EFAULT;
 
-	error = -EBADF;
-	file = fget(fd);
+	file = fget_light(fd, &fput_needed);
 	if (!file)
-		goto out;
+		return -EBADF;
 
 	buf.current_dir = dirent;
 	buf.previous = NULL;
@@ -324,7 +320,6 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 		else
 			error = count - buf.count;
 	}
-	fput(file);
-out:
+	fput_light(file, fput_needed);
 	return error;
 }

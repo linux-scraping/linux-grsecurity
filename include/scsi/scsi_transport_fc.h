@@ -740,6 +740,7 @@ struct fc_function_template {
 
 	unsigned long	disable_target_scan:1;
 } __do_const;
+typedef struct fc_function_template __no_const fc_function_template_no_const;
 
 
 /**

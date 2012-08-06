@@ -128,8 +128,11 @@ void __cpuinit irq_ctx_init(int cpu)
 	if (per_cpu(hardirq_ctx, cpu))
 		return;
 
-	per_cpu(hardirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREAD_FLAGS, THREAD_ORDER));
-	per_cpu(softirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREAD_FLAGS, THREAD_ORDER));
+	per_cpu(hardirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
+	per_cpu(softirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
+ 
+ 	printk(KERN_DEBUG "CPU %u irqstacks, hard=%p soft=%p\n",
+ 	       cpu, per_cpu(hardirq_ctx, cpu),  per_cpu(softirq_ctx, cpu));
 
 	printk(KERN_DEBUG "CPU %u irqstacks, hard=%p soft=%p\n",
 	       cpu, per_cpu(hardirq_ctx, cpu),  per_cpu(softirq_ctx, cpu));

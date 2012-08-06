@@ -22,7 +22,7 @@
 ccflags-$(GCOV) := -fprofile-arcs -ftest-coverage
 ccflags-$(GCOV) += -O0
 
-ccflags-y += -Werror
+#ccflags-y += -Werror
 
 obj-$(CONFIG_SCSI_LPFC) := lpfc.o
 

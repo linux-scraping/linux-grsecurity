@@ -2467,7 +2467,8 @@ static int copy_and_check(struct load_info *info,
 		goto free_hdr;
 	}
 
-	if (len < hdr->e_shoff + hdr->e_shnum * sizeof(Elf_Shdr)) {
+	if (hdr->e_shoff >= len ||
+	    hdr->e_shnum * sizeof(Elf_Shdr) > len - hdr->e_shoff) {
 		err = -ENOEXEC;
 		goto free_hdr;
 	}
@@ -2949,7 +2950,9 @@ int __weak module_finalize(const Elf_Ehdr *hdr,
 static int post_relocation(struct module *mod, const struct load_info *info)
 {
 	/* Sort exception table now relocations are done. */
+	pax_open_kernel();
 	sort_extable(mod->extable, mod->extable + mod->num_exentries);
+	pax_close_kernel();
 
 	/* Copy relocated percpu area over. */
 	percpu_modcopy(mod, (void *)info->sechdrs[info->index.pcpu].sh_addr,
@@ -3077,7 +3080,7 @@ static struct module *load_module(void __user *umod,
 
 	/* Module is ready to execute: parsing args may do that. */
 	err = parse_args(mod->name, mod->args, mod->kp, mod->num_kp,
-			 -32768, 32767, NULL);
+			 -32768, 32767, &ddebug_dyndbg_module_param_cb);
 	if (err < 0)
 		goto unlink;
 

@@ -1589,10 +1589,10 @@ static int cy_open(struct tty_struct *tty, struct file *filp)
 	printk(KERN_DEBUG "cyc:cy_open ttyC%d, count = %d\n", info->line,
 			info->port.count);
 #endif
-	info->port.count++;
+	atomic_inc(&info->port.count);
 #ifdef CY_DEBUG_COUNT
 	printk(KERN_DEBUG "cyc:cy_open (%d): incrementing count to %d\n",
-		current->pid, info->port.count);
+		current->pid, atomic_read(&info->port.count));
 #endif
 
 	/*
@@ -3987,7 +3987,7 @@ static int cyclades_proc_show(struct seq_file *m, void *v)
 		for (j = 0; j < cy_card[i].nports; j++) {
 			info = &cy_card[i].ports[j];
 
-			if (info->port.count) {
+			if (atomic_read(&info->port.count)) {
 				/* XXX is the ldisc num worth this? */
 				struct tty_struct *tty;
 				struct tty_ldisc *ld;

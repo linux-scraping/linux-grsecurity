@@ -88,7 +88,7 @@ static int __get_dumpable(unsigned long mm_flags)
 void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
-	uid_t uid = 0;
+	kuid_t uid = GLOBAL_ROOT_UID;
 
 	if (!grsec_enable_brute)
 		return;
@@ -102,7 +102,7 @@ void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
 		const struct cred *cred = __task_cred(p), *cred2;
 		struct task_struct *tsk, *tsk2;
 
-		if (!__get_dumpable(mm_flags) && cred->uid) {
+		if (!__get_dumpable(mm_flags) && !uid_eq(cred->uid, GLOBAL_ROOT_UID)) {
 			struct user_struct *user;
 
 			uid = cred->uid;
@@ -118,7 +118,7 @@ void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
 
 			do_each_thread(tsk2, tsk) {
 				cred2 = __task_cred(tsk);
-				if (tsk != p && cred2->uid == uid)
+				if (tsk != p && uid_eq(cred2->uid, uid))
 					gr_fake_force_sig(SIGKILL, tsk);
 			} while_each_thread(tsk2, tsk);
 		}
@@ -128,8 +128,9 @@ unlock:
 	read_unlock(&tasklist_lock);
 	rcu_read_unlock();
 
-	if (uid)
-		printk(KERN_ALERT "grsec: bruteforce prevention initiated against uid %u, banning for %d minutes\n", uid, GR_USER_BAN_TIME / 60);
+	if (!uid_eq(uid, GLOBAL_ROOT_UID))
+		printk(KERN_ALERT "grsec: bruteforce prevention initiated against uid %u, banning for %d minutes\n",
+			from_kuid_munged(&init_user_ns, uid), GR_USER_BAN_TIME / 60);
 
 #endif
 	return;
@@ -150,21 +151,22 @@ void gr_handle_kernel_exploit(void)
 	const struct cred *cred;
 	struct task_struct *tsk, *tsk2;
 	struct user_struct *user;
-	uid_t uid;
+	kuid_t uid;
 
 	if (in_irq() || in_serving_softirq() || in_nmi())
 		panic("grsec: halting the system due to suspicious kernel crash caused in interrupt context");
 
 	uid = current_uid();
 
-	if (uid == 0)
+	if (uid_eq(uid, GLOBAL_ROOT_UID))
 		panic("grsec: halting the system due to suspicious kernel crash caused by root");
 	else {
 		/* kill all the processes of this user, hold a reference
 		   to their creds struct, and prevent them from creating
 		   another process until system reset
 		*/
-		printk(KERN_ALERT "grsec: banning user with uid %u until system restart for suspicious kernel crash\n", uid);
+		printk(KERN_ALERT "grsec: banning user with uid %u until system restart for suspicious kernel crash\n",
+			from_kuid_munged(&init_user_ns, uid));
 		/* we intentionally leak this ref */
 		user = get_uid(current->cred->user);
 		if (user) {
@@ -175,7 +177,7 @@ void gr_handle_kernel_exploit(void)
 		read_lock(&tasklist_lock);
 		do_each_thread(tsk2, tsk) {
 			cred = __task_cred(tsk);
-			if (cred->uid == uid)
+			if (uid_eq(cred->uid, uid))
 				gr_fake_force_sig(SIGKILL, tsk);
 		} while_each_thread(tsk2, tsk);
 		read_unlock(&tasklist_lock); 

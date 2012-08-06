@@ -126,15 +126,6 @@ void release_thread(struct task_struct *dead_task)
 	release_vm86_irqs(dead_task);
 }
 
-/*
- * This gets called before we allocate a new thread and copy
- * the current task into it.
- */
-void prepare_to_copy(struct task_struct *tsk)
-{
-	unlazy_fpu(tsk);
-}
-
 int copy_thread(unsigned long clone_flags, unsigned long sp,
 	unsigned long unused,
 	struct task_struct *p, struct pt_regs *regs)
@@ -299,8 +290,8 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 */
 	arch_end_context_switch(next_p);
 
-	percpu_write(current_task, next_p);
-	percpu_write(current_tinfo, &next_p->tinfo);
+	this_cpu_write(current_task, next_p);
+	this_cpu_write(current_tinfo, &next_p->tinfo);
 
 	/*
 	 * Restore %gs if needed (which is common)

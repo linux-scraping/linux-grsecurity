@@ -81,6 +81,13 @@ static const char * const sym_regex_kernel[S_NSYMTYPES] = {
 
 static const char * const sym_regex_realmode[S_NSYMTYPES] = {
 /*
+ * These symbols are known to be relative, even if the linker marks them
+ * as absolute (typically defined outside any section in the linker script.)
+ */
+	[S_REL] =
+	"^pa_",
+
+/*
  * These are 16-bit segment symbols when compiling 16-bit code.
  */
 	[S_SEG] =
@@ -449,7 +456,7 @@ static void read_symtabs(FILE *fp)
 }
 
 
-static void read_relocs(FILE *fp)
+static void read_relocs(FILE *fp, int use_real_mode)
 {
 	unsigned int i,j;
 	uint32_t base;
@@ -476,7 +483,7 @@ static void read_relocs(FILE *fp)
 		base = 0;
 
 #ifdef CONFIG_X86_32
-		for (j = 0; j < ehdr.e_phnum; j++) {
+		for (j = 0; !use_real_mode && j < ehdr.e_phnum; j++) {
 			if (phdr[j].p_type != PT_LOAD )
 				continue;
 			if (secs[sec->shdr.sh_info].shdr.sh_offset < phdr[j].p_offset || secs[sec->shdr.sh_info].shdr.sh_offset >= phdr[j].p_offset + phdr[j].p_filesz)
@@ -629,21 +636,23 @@ static void walk_relocs(void (*visit)(Elf32_Rel *rel, Elf32_Sym *sym),
 			sym = &sh_symtab[ELF32_R_SYM(rel->r_info)];
 			r_type = ELF32_R_TYPE(rel->r_info);
 
-			/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
-			if (!strcmp(sec_name(sym->st_shndx), ".data..percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
-				continue;
+			if (!use_real_mode) {
+				/* Don't relocate actual per-cpu variables, they are absolute indices, not addresses */
+				if (!strcmp(sec_name(sym->st_shndx), ".data..percpu") && strcmp(sym_name(sym_strtab, sym), "__per_cpu_load"))
+					continue;
 
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
-			/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
-			if (!strcmp(sec_name(sym->st_shndx), ".text.end") && !strcmp(sym_name(sym_strtab, sym), "_etext"))
-				continue;
-			if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
-				continue;
-			if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
-				continue;
-			if (!strcmp(sec_name(sym->st_shndx), ".text") && strcmp(sym_name(sym_strtab, sym), "__LOAD_PHYSICAL_ADDR"))
-				continue;
+				/* Don't relocate actual code, they are relocated implicitly by the base address of KERNEL_CS */
+				if (!strcmp(sec_name(sym->st_shndx), ".text.end") && !strcmp(sym_name(sym_strtab, sym), "_etext"))
+					continue;
+				if (!strcmp(sec_name(sym->st_shndx), ".init.text"))
+					continue;
+				if (!strcmp(sec_name(sym->st_shndx), ".exit.text"))
+					continue;
+				if (!strcmp(sec_name(sym->st_shndx), ".text") && strcmp(sym_name(sym_strtab, sym), "__LOAD_PHYSICAL_ADDR"))
+					continue;
 #endif
+			}
 
 			shn_abs = sym->st_shndx == SHN_ABS;
 
@@ -869,7 +878,7 @@ int main(int argc, char **argv)
 	read_shdrs(fp);
 	read_strtabs(fp);
 	read_symtabs(fp);
-	read_relocs(fp);
+	read_relocs(fp, use_real_mode);
 	if (show_absolute_syms) {
 		print_absolute_symbols();
 		return 0;

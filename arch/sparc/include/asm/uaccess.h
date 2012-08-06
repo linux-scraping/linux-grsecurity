@@ -13,4 +13,10 @@ extern void check_object_size(const void *ptr, unsigned long n, bool to);
 #else
 #include <asm/uaccess_32.h>
 #endif
+
+#define user_addr_max() \
+	(segment_eq(get_fs(), USER_DS) ? TASK_SIZE : ~0UL)
+
+extern long strncpy_from_user(char *dest, const char __user *src, long count);
+
 #endif
