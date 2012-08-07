@@ -392,7 +392,7 @@ struct mm_struct {
 	struct cpumask cpumask_allocation;
 #endif
 
-#if defined(CONFIG_PAX_EI_PAX) || defined(CONFIG_PAX_PT_PAX_FLAGS) || defined(CONFIG_PAX_XATTR_PAX_FLAGS) || defined(CONFIG_PAX_HAVE_ACL_FLAGS) || defined(CONFIG_PAX_HOOK_ACL_FLAGS)
+#if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	unsigned long pax_flags;
 #endif
 
