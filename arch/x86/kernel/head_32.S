@@ -835,7 +835,7 @@ fault_msg:
  * segment size, and 32-bit linear address value:
  */
 
-	.data
+.section .rodata,"a",@progbits
 .globl boot_gdt_descr
 .globl idt_descr
 

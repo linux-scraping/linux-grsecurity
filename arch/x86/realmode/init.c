@@ -65,7 +65,7 @@ void __init setup_real_mode(void)
 	trampoline_header->start = __pa(ktla_ktva(startup_32_smp));
 
 #ifdef CONFIG_PAX_KERNEXEC
-	trampoline_header->start -=  ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+	trampoline_header->start -=  LOAD_PHYSICAL_ADDR;
 #endif
 
 	trampoline_header->boot_cs = __BOOT_CS;
