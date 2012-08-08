@@ -128,7 +128,7 @@ static void clk_gate_fn_disable(struct clk_hw *hw)
 	clk_gate_ops.disable(hw);
 }
 
-static struct clk_ops clk_gate_fn_ops;
+static clk_ops_no_const clk_gate_fn_ops;
 
 static struct clk __init *clk_register_gate_fn(struct device *dev,
 		const char *name,

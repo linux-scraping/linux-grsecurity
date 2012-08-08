@@ -110,6 +110,7 @@ struct clk_ops {
 				    unsigned long);
 	void		(*init)(struct clk_hw *hw);
 };
+typedef struct clk_ops __no_const clk_ops_no_const;
 
 /**
  * struct clk_init_data - holds init data that's common to all clocks and is

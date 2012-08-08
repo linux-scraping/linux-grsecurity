@@ -2,6 +2,9 @@
 # Makefile for the linux kernel.
 #
 
+ccflags-y := $(GCC_PLUGINS_CFLAGS)
+asflags-y := $(GCC_PLUGINS_AFLAGS)
+
 obj-y                          := main.o version.o mounts.o
 ifneq ($(CONFIG_BLK_DEV_INITRD),y)
 obj-y                          += noinitramfs.o
