@@ -647,7 +647,7 @@ static __always_inline int __do_follow_link(struct path *path, struct nameidata 
 			dentry->d_inode->i_op->put_link(dentry, nd, cookie);
 	}
 
-	if (!error && gr_handle_symlink_owner(path, nd->path.dentry->d_inode))
+	if (!error && !(nd->flags & LOOKUP_PARENT) && gr_handle_symlink_owner(path, nd->path.dentry->d_inode))
 		error = -EACCES;
 
 	path_put(path);
