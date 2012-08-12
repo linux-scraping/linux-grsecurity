@@ -308,9 +308,7 @@ __generic_copy_from_user_intel(void *to, const void __user *from, unsigned long 
 	return size;
 }
 
-static unsigned long
-__copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size) __size_overflow(3);
-static unsigned long
+static unsigned long __size_overflow(3)
 __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
 {
 	int d0, d1;
@@ -407,9 +405,7 @@ __copy_user_zeroing_intel(void *to, const void __user *from, unsigned long size)
  * hyoshiok@miraclelinux.com
  */
 
-static unsigned long __copy_user_zeroing_intel_nocache(void *to,
-				const void __user *from, unsigned long size) __size_overflow(3);
-static unsigned long __copy_user_zeroing_intel_nocache(void *to,
+static unsigned long __size_overflow(3) __copy_user_zeroing_intel_nocache(void *to,
 				const void __user *from, unsigned long size)
 {
 	int d0, d1;
@@ -503,9 +499,7 @@ static unsigned long __copy_user_zeroing_intel_nocache(void *to,
 	return size;
 }
 
-static unsigned long __copy_user_intel_nocache(void *to,
-				const void __user *from, unsigned long size) __size_overflow(3);
-static unsigned long __copy_user_intel_nocache(void *to,
+static unsigned long __size_overflow(3) __copy_user_intel_nocache(void *to,
 				const void __user *from, unsigned long size)
 {
 	int d0, d1;

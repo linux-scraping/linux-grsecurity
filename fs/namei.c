@@ -1402,9 +1402,8 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
 		if (!res)
 			res = walk_component(nd, path, &nd->last,
 					     nd->last_type, LOOKUP_FOLLOW);
-		if (res >= 0 && gr_handle_symlink_owner(&link, nd->inode)) {
+		if (res >= 0 && gr_handle_symlink_owner(&link, nd->inode))
 			res = -EACCES;
-		}
 		put_link(nd, &link, cookie);
 	} while (res > 0);
 
@@ -1798,9 +1797,8 @@ static int path_lookupat(int dfd, const char *name,
 			err = follow_link(&link, nd, &cookie);
 			if (!err)
 				err = lookup_last(nd, &path);
-			if (!err && gr_handle_symlink_owner(&link, nd->inode)) {
+			if (!err && gr_handle_symlink_owner(&link, nd->inode))
 				err = -EACCES;
-			}
 			put_link(nd, &link, cookie);
 		}
 	}
@@ -2243,7 +2241,7 @@ static inline int open_to_namei_flags(int flag)
 /*
  * Handle the last step of open()
  */
-static struct file *do_last(struct nameidata *nd, struct path *path,
+static struct file *do_last(struct nameidata *nd, struct path *path, struct path *link,
 			    const struct open_flags *op, const char *pathname)
 {
 	struct dentry *dir = nd->path.dentry;
@@ -2288,6 +2286,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 			error = -EISDIR;
 			goto exit;
 		}
+		if (link && gr_handle_symlink_owner(link, nd->inode)) {
+			error = -EACCES;
+			goto exit;
+		}
 		goto ok;
 	case LAST_BIND:
 		error = complete_walk(nd);
@@ -2301,6 +2303,10 @@ static struct file *do_last(struct nameidata *nd, struct path *path,
 #endif
 		if (!gr_acl_handle_hidden_file(dir, nd->path.mnt)) {
 			error = -ENOENT;
+			goto exit;
+		}
+		if (link && gr_handle_symlink_owner(link, nd->inode)) {
+			error = -EACCES;
 			goto exit;
 		}
 		audit_inode(pathname, dir);
@@ -2403,6 +2409,10 @@ retry_lookup:
 		error = -ENOENT;
 		goto exit_mutex_unlock;
 	}
+	if (link && gr_handle_symlink_owner(link, dentry->d_inode)) {
+		error = -EACCES;
+		goto exit_mutex_unlock;
+	}
 
 	/* only check if O_CREAT is specified, all other checks need to go
 	   into may_open */
@@ -2443,6 +2453,11 @@ finish_lookup:
 			}
 		}
 		BUG_ON(inode != path->dentry->d_inode);
+		/* if we're resolving a symlink to another symlink */
+		if (link && gr_handle_symlink_owner(link, inode)) {
+			error = -EACCES;
+			goto exit;
+		}
 		return NULL;
 	}
 
@@ -2452,7 +2467,6 @@ finish_lookup:
 		save_parent.dentry = nd->path.dentry;
 		save_parent.mnt = mntget(path->mnt);
 		nd->path.dentry = path->dentry;
-
 	}
 	nd->inode = inode;
 	/* Why this, you ask?  _Now_ we might have grown LOOKUP_JUMPED... */
@@ -2471,6 +2485,11 @@ finish_lookup:
 		error = -ENOENT;
 		goto exit;
 	}
+	if (link && gr_handle_symlink_owner(link, nd->inode)) {
+		error = -EACCES;
+		goto exit;
+	}
+
 	error = -EISDIR;
 	if ((open_flag & O_CREAT) && S_ISDIR(nd->inode->i_mode))
 		goto exit;
@@ -2565,7 +2584,7 @@ static struct file *path_openat(int dfd, const char *pathname,
 	if (unlikely(error))
 		goto out_filp;
 
-	filp = do_last(nd, &path, op, pathname);
+	filp = do_last(nd, &path, NULL, op, pathname);
 	while (unlikely(!filp)) { /* trailing symlink */
 		struct path link = path;
 		void *cookie;
@@ -2581,12 +2600,7 @@ static struct file *path_openat(int dfd, const char *pathname,
 		if (unlikely(error))
 			filp = ERR_PTR(error);
 		else {
-			filp = do_last(nd, &path, op, pathname);
-			if (!IS_ERR(filp) && gr_handle_symlink_owner(&link, nd->inode)) {
-				if (filp)
-					fput(filp);
-				filp = ERR_PTR(-EACCES);
-			}
+			filp = do_last(nd, &path, &link, op, pathname);
 		}
 		put_link(nd, &link, cookie);
 	}

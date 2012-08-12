@@ -253,7 +253,6 @@ bool is_usercopy_object(const void *ptr);
  * for general use, and so are not documented here. For a full list of
  * potential flags, always refer to linux/gfp.h.
  */
-static void *kmalloc_array(size_t n, size_t size, gfp_t flags) __size_overflow(1, 2);
 static inline void *kmalloc_array(size_t n, size_t size, gfp_t flags)
 {
 	if (size != 0 && n > SIZE_MAX / size)

@@ -153,8 +153,7 @@ extern struct kmem_cache *kmalloc_caches[SLUB_PAGE_SHIFT];
  * Sorry that the following has to be that ugly but some versions of GCC
  * have trouble with constant propagation and loops.
  */
-static __always_inline int kmalloc_index(size_t size) __size_overflow(1);
-static __always_inline int kmalloc_index(size_t size)
+static __always_inline __size_overflow(1) int kmalloc_index(size_t size)
 {
 	if (!size)
 		return 0;
@@ -260,8 +259,7 @@ kmalloc_order_trace(size_t size, gfp_t flags, unsigned int order)
 }
 #endif
 
-static __always_inline void *kmalloc_large(size_t size, gfp_t flags) __size_overflow(1);
-static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
+static __always_inline __size_overflow(1) void *kmalloc_large(size_t size, gfp_t flags)
 {
 	unsigned int order = get_order(size);
 	return kmalloc_order_trace(size, flags, order);

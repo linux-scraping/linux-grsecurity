@@ -11,7 +11,7 @@ int gr_handle_symlink_owner(const struct path *link, const struct inode *target)
 
 	if (grsec_enable_symlinkown && in_group_p(grsec_symlinkown_gid) &&
 	   /* ignore root-owned links, e.g. /proc/self */
-	    !uid_eq(link_inode->i_uid, GLOBAL_ROOT_UID) &&
+	    !uid_eq(link_inode->i_uid, GLOBAL_ROOT_UID) && target &&
 	    !uid_eq(link_inode->i_uid, target->i_uid)) {
 		gr_log_fs_int2(GR_DONT_AUDIT, GR_SYMLINKOWNER_MSG, link->dentry, link->mnt, link_inode->i_uid, target->i_uid);
 		return 1;

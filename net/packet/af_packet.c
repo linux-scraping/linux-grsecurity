@@ -2641,6 +2641,7 @@ out:
 
 static int packet_recv_error(struct sock *sk, struct msghdr *msg, int len)
 {
+	struct sock_extended_err ee;
 	struct sock_exterr_skb *serr;
 	struct sk_buff *skb, *skb2;
 	int copied, err;
@@ -2662,8 +2663,9 @@ static int packet_recv_error(struct sock *sk, struct msghdr *msg, int len)
 	sock_recv_timestamp(msg, sk, skb);
 
 	serr = SKB_EXT_ERR(skb);
+	ee = serr->ee;
 	put_cmsg(msg, SOL_PACKET, PACKET_TX_TIMESTAMP,
-		 sizeof(serr->ee), &serr->ee);
+		 sizeof ee, &ee);
 
 	msg->msg_flags |= MSG_ERRQUEUE;
 	err = copied;
