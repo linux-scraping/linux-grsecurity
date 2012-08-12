@@ -203,7 +203,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 	__asm__ __volatile__("@ atomic_sub_return\n"
 "1:	ldrex	%1, [%2]\n"
-"	sub	%0, %1, %3\n"
+"	subs	%0, %1, %3\n"
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"

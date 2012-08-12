@@ -29,8 +29,7 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags)
 	return __kmalloc_node(size, flags, -1);
 }
 
-static __always_inline void *__kmalloc(size_t size, gfp_t flags) __size_overflow(1);
-static __always_inline void *__kmalloc(size_t size, gfp_t flags)
+static __always_inline __size_overflow(1) void *__kmalloc(size_t size, gfp_t flags)
 {
 	return kmalloc(size, flags);
 }
