@@ -124,6 +124,7 @@ __noreturn void arm_machine_restart(char mode, const char *cmd)
 	 */
 	mdelay(1000);
 	printk("Reboot failed -- System halted\n");
+	local_irq_disable();
 	while (1);
 }
 
@@ -239,6 +240,7 @@ void machine_shutdown(void)
 void machine_halt(void)
 {
 	machine_shutdown();
+	local_irq_disable();
 	while (1);
 }
 
