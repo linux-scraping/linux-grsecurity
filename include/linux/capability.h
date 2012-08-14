@@ -569,6 +569,9 @@ int capable_nolog(int cap);
 struct dentry;
 extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
 
+extern int is_privileged_binary(const struct dentry *dentry);
+extern int is_root_privileged_binary(const struct dentry *dentry);
+
 #endif /* __KERNEL__ */
 
 #endif /* !_LINUX_CAPABILITY_H */

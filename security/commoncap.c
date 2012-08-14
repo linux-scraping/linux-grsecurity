@@ -251,6 +251,45 @@ static inline void bprm_clear_caps(struct linux_binprm *bprm)
 	bprm->cap_effective = false;
 }
 
+/* returns:
+	1 for suid privilege
+	2 for sgid privilege
+	3 for fscap privilege
+*/
+int is_privileged_binary(const struct dentry *dentry)
+{
+	struct cpu_vfs_cap_data capdata;
+	struct inode *inode = dentry->d_inode;
+
+	if (!inode || S_ISDIR(inode->i_mode))
+		return 0;
+
+	if (inode->i_mode & S_ISUID)
+		return 1;
+	if ((inode->i_mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))
+		return 2;
+
+	if (!get_vfs_caps_from_disk(dentry, &capdata)) {
+		if (!cap_isclear(capdata.inheritable) || !cap_isclear(capdata.permitted))
+			return 3;
+	}
+
+	return 0;
+}
+
+/* 	returns 1 for suid root privilege
+	returns 3 for fscap privilege
+*/
+int is_root_privileged_binary(const struct dentry *dentry)
+{
+	int ret = is_privileged_binary(dentry);
+	if (ret == 3)
+		return ret;
+	if (ret == 1 && dentry->d_inode->i_uid == 0)
+		return ret;
+	return 0;
+}
+
 #ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 
 /**
