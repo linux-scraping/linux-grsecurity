@@ -98,7 +98,8 @@ gr_acl_handle_creat(const struct dentry * dentry,
 	if ((acc_mode & MAY_READ) &&
 	    !((open_flags & O_DIRECTORY) || (dentry->d_inode && S_ISDIR(dentry->d_inode->i_mode))))
 		reqmode |= GR_READ;
-	if ((open_flags & O_CREAT) && (imode & (S_ISUID | S_ISGID)))
+	if ((open_flags & O_CREAT) &&
+	    ((imode & S_ISUID) || ((imode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))))
 		reqmode |= GR_SETID;
 
 	mode =
@@ -216,7 +217,8 @@ gr_acl_handle_chmod(const struct dentry *dentry, const struct vfsmount *mnt,
 	if (unlikely(dentry->d_inode && S_ISSOCK(dentry->d_inode->i_mode)))
 		return 1;
 
-	if (unlikely(mode & (S_ISUID | S_ISGID))) {
+	if (unlikely(dentry->d_inode && !S_ISDIR(dentry->d_inode->i_mode) &&
+		     ((mode & S_ISUID) || ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))))) {
 		return generic_fs_handler(dentry, mnt, GR_WRITE | GR_SETID,
 				   GR_CHMOD_ACL_MSG);
 	} else {
@@ -330,7 +332,7 @@ gr_acl_handle_mknod(const struct dentry * new_dentry,
 		    const int mode)
 {
 	__u32 reqmode = GR_WRITE | GR_CREATE;
-	if (unlikely(mode & (S_ISUID | S_ISGID)))
+	if (unlikely((mode & S_ISUID) || ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))))
 		reqmode |= GR_SETID;
 
 	return generic_fs_create_handler(new_dentry, parent_dentry, parent_mnt,

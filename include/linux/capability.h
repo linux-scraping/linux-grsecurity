@@ -560,6 +560,8 @@ extern bool inode_capable_nolog(const struct inode *inode, int cap);
 /* audit system wants to get cap info from files as well */
 extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
 
+extern int is_privileged_binary(const struct dentry *dentry);
+
 #endif /* __KERNEL__ */
 
 #endif /* !_LINUX_CAPABILITY_H */
