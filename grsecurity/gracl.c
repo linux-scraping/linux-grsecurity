@@ -2203,8 +2203,8 @@ gr_check_link(const struct dentry * new_dentry,
 	// if old name had restrictions/auditing, make sure the new name does as well
 	needmode = oldmode & (GR_NOPTRACE | GR_PTRACERD | GR_INHERIT | GR_AUDITS);
 
-	// don't allow hardlinking of suid/sgid files without permission
-	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
+	// don't allow hardlinking of suid/sgid/fcapped files without permission
+	if (is_privileged_binary(old_dentry))
 		needmode |= GR_SETID;
 
 	if ((newmode & needmode) != needmode)
@@ -2215,7 +2215,7 @@ gr_check_link(const struct dentry * new_dentry,
 		return newmode;
 bad:
 	needmode = oldmode;
-	if (old_dentry->d_inode->i_mode & (S_ISUID | S_ISGID))
+	if (is_privileged_binary(old_dentry))
 		needmode |= GR_SETID;
 	
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN)) {

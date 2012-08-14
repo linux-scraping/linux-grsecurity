@@ -47,8 +47,7 @@ gr_handle_hardlink(const struct dentry *dentry,
 	const struct cred *cred = current_cred();
 
 	if (grsec_enable_link && cred->fsuid != inode->i_uid &&
-	    (!S_ISREG(mode) || (mode & S_ISUID) ||
-	     ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP)) ||
+	    (!S_ISREG(mode) || is_privileged_binary(dentry) || 
 	     (inode_permission(inode, MAY_READ | MAY_WRITE))) &&
 	    !capable(CAP_FOWNER) && cred->uid) {
 		gr_log_fs_int2_str(GR_DONT_AUDIT, GR_HARDLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid, to);
