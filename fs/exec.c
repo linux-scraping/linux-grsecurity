@@ -1982,9 +1982,9 @@ EXPORT_SYMBOL(pax_track_stack);
 #endif
 
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
-void report_size_overflow(const char *file, unsigned int line, const char *func)
+void report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {
-	printk(KERN_ERR "PAX: size overflow detected in function %s %s:%u\n", func, file, line);
+	printk(KERN_ERR "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
 	dump_stack();
 	do_group_exit(SIGKILL);
 }
