@@ -413,12 +413,9 @@ ENDPROC(pax_exit_kernel_user)
 .endm
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-/*
- * r11: thread_info
- * rcx, rdx: can be clobbered
- */
 ENTRY(pax_erase_kstack)
 	pushq %rdi
+	pushq %rcx
 	pushq %rax
 	pushq %r11
 
@@ -459,6 +456,7 @@ ENTRY(pax_erase_kstack)
 
 	popq %r11
 	popq %rax
+	popq %rcx
 	popq %rdi
 	pax_force_retaddr
 	ret
@@ -796,6 +794,11 @@ GLOBAL(system_call_after_swapgs)
 	movq	PER_CPU_VAR(kernel_stack),%rsp
 	SAVE_ARGS 8*6,0
 	pax_enter_kernel_user
+
+#ifdef CONFIG_PAX_RANDKSTACK
+	pax_erase_kstack
+#endif
+
 	/*
 	 * No need to follow this irqs off/on section - it's straight
 	 * and short:
@@ -966,8 +969,9 @@ GLOBAL(int_with_check)
 	andl %edi,%edx
 	jnz   int_careful
 	andl    $~TS_COMPAT,TI_status(%rcx)
+	pax_exit_kernel_user
 	pax_erase_kstack
-	jmp   retint_swapgs
+	jmp   retint_swapgs_pax
 
 	/* Either reschedule or signal or syscall exit tracking needed. */
 	/* First do a reschedule test. */
@@ -1236,6 +1240,7 @@ retint_swapgs:		/* return to user-space */
 	 */
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	pax_exit_kernel_user
+retint_swapgs_pax:
 	TRACE_IRQS_IRETQ
 	SWAPGS
 	jmp restore_args
