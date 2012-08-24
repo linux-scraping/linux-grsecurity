@@ -618,6 +618,7 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
 			return -EINVAL;
 		len = sizeof(hctx->ccid3hctx_tfrc);
 		val = &hctx->ccid3hctx_tfrc;
+		hctx->ccid3hctx_tfrc.padding = 0;
 		break;
 	default:
 		return -ENOPROTOOPT;

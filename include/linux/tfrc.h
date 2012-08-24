@@ -50,6 +50,7 @@ struct tfrc_tx_info {
 	__u32 tfrctx_p;
 	__u32 tfrctx_rto;
 	__u32 tfrctx_ipi;
+	__u32 padding;
 };
 
 #endif /* _LINUX_TFRC_H_ */
