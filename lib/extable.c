@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/sort.h>
 #include <asm/uaccess.h>
-#include <asm/pgtable.h>
 
 #ifndef ARCH_HAS_SORT_EXTABLE
 /*

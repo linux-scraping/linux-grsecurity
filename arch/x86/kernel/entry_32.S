@@ -279,10 +279,10 @@ ENDPROC(pax_exit_kernel)
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 /*
  * ebp: thread_info
- * ecx, edx: can be clobbered
  */
 ENTRY(pax_erase_kstack)
 	pushl %edi
+	pushl %ecx
 	pushl %eax
 
 	mov TI_lowest_stack(%ebp), %edi
@@ -306,6 +306,12 @@ ENTRY(pax_erase_kstack)
 2:	cld
 	mov %esp, %ecx
 	sub %edi, %ecx
+
+	cmp $THREAD_SIZE_asm, %ecx
+	jb 3f
+	ud2
+3:
+
 	shr $2, %ecx
 	rep stosl
 
@@ -314,6 +320,7 @@ ENTRY(pax_erase_kstack)
 	mov %edi, TI_lowest_stack(%ebp)
 
 	popl %eax
+	popl %ecx
 	popl %edi
 	ret
 ENDPROC(pax_erase_kstack)
@@ -584,6 +591,10 @@ sysenter_past_esp:
 
 	GET_THREAD_INFO(%ebp)
 
+#ifdef CONFIG_PAX_RANDKSTACK
+	pax_erase_kstack
+#endif
+
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz sysenter_audit
 sysenter_do_call:
@@ -686,6 +697,11 @@ ENTRY(system_call)
 	pushl_cfi %eax			# save orig_eax
 	SAVE_ALL
 	GET_THREAD_INFO(%ebp)
+
+#ifdef CONFIG_PAX_RANDKSTACK
+	pax_erase_kstack
+#endif
+
 					# system call tracing in operation / emulation
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%ebp)
 	jnz syscall_trace_entry
