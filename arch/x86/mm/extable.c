@@ -6,7 +6,6 @@
 static inline unsigned long
 ex_insn_addr(const struct exception_table_entry *x)
 {
-//printk(KERN_ERR "fixup %p insn:%x fixup:%x\n", x, x->insn, x->fixup);
 	unsigned long reloc = 0;
 
 #if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
@@ -47,7 +46,6 @@ int fixup_exception(struct pt_regs *regs)
 #endif
 
 	fixup = search_exception_tables(regs->ip);
-//printk(KERN_ERR "fixup %p %lx\n", fixup, regs->ip);
 	if (fixup) {
 		new_ip = ex_fixup_addr(fixup);
 
