@@ -604,21 +604,29 @@ static void ccid3_hc_tx_get_info(struct sock *sk, struct tcp_info *info)
 static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
 				  u32 __user *optval, int __user *optlen)
 {
-	const struct ccid3_hc_tx_sock *hctx;
+	const struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
+	struct tfrc_tx_info tfrc;
 	const void *val;
 
 	/* Listen socks doesn't have a private CCID block */
 	if (sk->sk_state == DCCP_LISTEN)
 		return -EINVAL;
 
-	hctx = ccid3_hc_tx_sk(sk);
 	switch (optname) {
 	case DCCP_SOCKOPT_CCID_TX_INFO:
-		if (len < sizeof(hctx->ccid3hctx_tfrc))
+		if (len < sizeof(tfrc))
 			return -EINVAL;
-		len = sizeof(hctx->ccid3hctx_tfrc);
-		val = &hctx->ccid3hctx_tfrc;
-		hctx->ccid3hctx_tfrc.padding = 0;
+
+		memset(&tfrc, 0, sizeof(tfrc));
+		tfrc.tfrctx_x	   = hc->ccid3hctx_x;
+		tfrc.tfrctx_x_recv = hc->ccid3hctx_x_recv;
+		tfrc.tfrctx_x_calc = hc->ccid3hctx_x_calc;
+		tfrc.tfrctx_rtt	   = hc->ccid3hctx_rtt;
+		tfrc.tfrctx_p	   = hc->ccid3hctx_p;
+		tfrc.tfrctx_rto	   = hc->ccid3hctx_t_rto;
+		tfrc.tfrctx_ipi	   = hc->ccid3hctx_t_ipi;
+		len = sizeof(tfrc);
+		val = &tfrc;
 		break;
 	default:
 		return -ENOPROTOOPT;
