@@ -431,7 +431,7 @@ _000450_hash xt_alloc_table_info 1 57903 _000450_hash NULL
 _000451_hash zd_usb_iowrite16v_async 3 23984 _000451_hash NULL
 _000452_hash zd_usb_read_fw 4 22049 _000452_hash NULL
 _000453_hash aa_simple_write_to_buffer 3-4 49683 _000453_hash NULL
-_000454_hash acpi_ex_allocate_name_string 2 7685 _002692_hash NULL nohasharray
+_000454_hash acpi_ex_allocate_name_string 2-1 7685 _002692_hash NULL nohasharray
 _000455_hash acpi_os_allocate_zeroed 1 37422 _000455_hash NULL
 _000456_hash acpi_ut_initialize_buffer 2 47143 _002270_hash NULL nohasharray
 _000457_hash ad7879_spi_xfer 3 36311 _000457_hash NULL
@@ -1790,7 +1790,7 @@ _001894_hash sel_read_mls 3 25369 _001894_hash NULL
 _001895_hash sel_read_perm 3 42302 _001895_hash NULL
 _001896_hash sel_read_policy 3 55947 _001896_hash NULL
 _001897_hash sel_read_policycap 3 28544 _001897_hash NULL
-_001898_hash sel_read_policyvers 3 55 _001898_hash NULL
+_001898_hash sel_read_policyvers 3 55 _003157_hash NULL nohasharray
 _001899_hash short_retry_limit_read 3 4687 _001899_hash NULL
 _001900_hash simple_attr_read 3 24738 _001900_hash NULL
 _001901_hash simple_transaction_read 3 17076 _001901_hash NULL
@@ -2934,3 +2934,13 @@ _003147_hash create_table 2 16213 _003147_hash NULL
 _003148_hash acl_alloc 1 35979 _003148_hash NULL
 _003149_hash acl_alloc_stack_init 1 60630 _003149_hash NULL
 _003150_hash acl_alloc_num 1-2 60778 _003150_hash NULL
+_003152_hash kvm_set_msr_common 3 11953 _003152_hash NULL
+_003153_hash mem_read 3 57631 _003153_hash NULL
+_003154_hash mem_write 3 22232 _003154_hash NULL
+_003155_hash svm_set_msr 3 49643 _003155_hash NULL
+_003156_hash vmx_set_msr 3 49090 _003156_hash NULL
+_003157_hash padzero 1 55 _003157_hash &_001898_hash
+_003158_hash idmap_pipe_downcall 3 14591 _003158_hash NULL
+_003159_hash idmap_update_entry 3 43885 _003159_hash NULL
+_003160_hash nfs_dns_resolve_name 2 38670 _003160_hash NULL
+_003161_hash nfs_parse_server_name 2 14800 _003161_hash NULL
