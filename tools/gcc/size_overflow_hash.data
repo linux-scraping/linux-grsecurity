@@ -277,7 +277,7 @@ _000284_hash ip_vs_conn_fill_param_sync 6 29771 _002404_hash NULL nohasharray
 _000285_hash ip_vs_create_timeout_table 2 64478 _000285_hash NULL
 _000286_hash ipw_queue_tx_init 3 49161 _000286_hash NULL
 _000287_hash irda_setsockopt 5 19824 _000287_hash NULL
-_000288_hash irias_new_octseq_value 2 13596 _000288_hash NULL
+_000288_hash irias_new_octseq_value 2 13596 _003296_hash NULL nohasharray
 _000289_hash ir_lirc_transmit_ir 3 64403 _000289_hash NULL
 _000290_hash irnet_ctrl_write 3 24139 _000290_hash NULL
 _000291_hash isdn_add_channels 3 40905 _000291_hash NULL
@@ -301,7 +301,7 @@ _000309_hash keyctl_instantiate_key_common 4 47889 _000309_hash NULL
 _000310_hash keyctl_update_key 3 26061 _000310_hash NULL
 _000311_hash __kfifo_alloc 2-3 22173 _000311_hash NULL
 _000313_hash kfifo_copy_from_user 3 5091 _000313_hash NULL
-_000314_hash kmalloc_node 1 50163 _000314_hash NULL
+_000314_hash kmalloc_node 1 50163 _003293_hash NULL nohasharray
 _000315_hash kmalloc_parameter 1 65279 _000315_hash NULL
 _000316_hash kmem_alloc 1 31920 _000316_hash NULL
 _000317_hash kobj_map 2-3 9566 _000317_hash NULL
@@ -641,7 +641,7 @@ _000666_hash zd_usb_iowrite16v_async 3 23984 _000666_hash NULL
 _000667_hash zd_usb_read_fw 4 22049 _000667_hash NULL
 _000668_hash zerocopy_sg_from_iovec 3 11828 _000668_hash NULL
 _000669_hash zoran_write 3 22404 _000669_hash NULL
-_000671_hash acpi_ex_allocate_name_string 2 7685 _002855_hash NULL nohasharray
+_000671_hash acpi_ex_allocate_name_string 2-1 7685 _002855_hash NULL nohasharray
 _000672_hash acpi_os_allocate_zeroed 1 37422 _000672_hash NULL
 _000673_hash acpi_ut_initialize_buffer 2 47143 _002314_hash NULL nohasharray
 _000674_hash ad7879_spi_xfer 3 36311 _000674_hash NULL
@@ -891,7 +891,7 @@ _000943_hash l2tp_ip_sendmsg 4 50411 _000943_hash NULL
 _000944_hash l2tp_session_create 1 25286 _000944_hash NULL
 _000945_hash lc_create 3 48662 _000945_hash NULL
 _000946_hash leaf_dealloc 3 29566 _000946_hash NULL
-_000947_hash linear_conf 2 23485 _000947_hash NULL
+_000947_hash linear_conf 2 23485 _003314_hash NULL nohasharray
 _000948_hash lirc_buffer_init 2-3 53282 _000948_hash NULL
 _000950_hash llc_ui_sendmsg 4 24987 _000950_hash NULL
 _000951_hash lpfc_sli4_queue_alloc 3 62646 _000951_hash NULL
@@ -1021,7 +1021,7 @@ _001087_hash sctp_setsockopt_connectx_old 3 22631 _001087_hash NULL
 _001088_hash sctp_tsnmap_init 2 36446 _001088_hash NULL
 _001089_hash sctp_user_addto_chunk 2-3 62047 _001089_hash NULL
 _001091_hash security_context_to_sid 2 19839 _001091_hash NULL
-_001092_hash security_context_to_sid_default 2 3492 _001092_hash NULL
+_001092_hash security_context_to_sid_default 2 3492 _003366_hash NULL nohasharray
 _001093_hash security_context_to_sid_force 2 20724 _001093_hash NULL
 _001094_hash selinux_transaction_write 3 59038 _001094_hash NULL
 _001095_hash sel_write_access 3 51704 _001095_hash NULL
@@ -1091,7 +1091,7 @@ _001163_hash st_write 3 16874 _001163_hash NULL
 _001164_hash svc_pool_map_alloc_arrays 2 47181 _001164_hash NULL
 _001165_hash symtab_init 2 61050 _001165_hash NULL
 _001166_hash sys_bind 3 10799 _001166_hash NULL
-_001167_hash sys_connect 3 15291 _001167_hash NULL
+_001167_hash sys_connect 3 15291 _003291_hash NULL nohasharray
 _001168_hash sys_flistxattr 3 41407 _001168_hash NULL
 _001169_hash sys_fsetxattr 4 49736 _001169_hash NULL
 _001170_hash sysfs_write_file 3 57116 _001170_hash NULL
@@ -1232,11 +1232,11 @@ _001313_hash construct_key_and_link 4 8321 _001313_hash NULL
 _001314_hash copy_counters_to_user 5 17027 _001824_hash NULL nohasharray
 _001315_hash copy_entries_to_user 1 52367 _001315_hash NULL
 _001316_hash copy_from_buf 4 27308 _001316_hash NULL
-_001317_hash copy_oldmem_page 3 26164 _001317_hash NULL
+_001317_hash copy_oldmem_page 3-1 26164 _001317_hash NULL
 _001318_hash copy_to_user_fromio 3 57432 _001318_hash NULL
 _001319_hash cryptd_hash_setkey 3 42781 _001319_hash NULL
 _001320_hash crypto_authenc_esn_setkey 3 6985 _001320_hash NULL
-_001321_hash crypto_authenc_setkey 3 80 _001321_hash NULL
+_001321_hash crypto_authenc_setkey 3 80 _003311_hash NULL nohasharray
 _001322_hash cx18_copy_buf_to_user 4 22735 _001322_hash NULL
 _001324_hash cxgbi_ddp_reserve 4 30091 _001324_hash NULL
 _001325_hash datablob_hmac_append 3 40038 _001325_hash NULL
@@ -1460,7 +1460,7 @@ _001559_hash unix_seqpacket_sendmsg 4 27893 _001559_hash NULL
 _001560_hash unlink1 3 63059 _001560_hash NULL
 _001562_hash usb_allocate_stream_buffers 3 8964 _001562_hash NULL
 _001563_hash usbdev_read 3 45114 _001563_hash NULL
-_001564_hash usblp_read 3 57342 _001564_hash NULL
+_001564_hash usblp_read 3 57342 _003306_hash NULL nohasharray
 _001565_hash usbtmc_read 3 32377 _001565_hash NULL
 _001566_hash usbvision_v4l2_read 3 34386 _001566_hash NULL
 _001567_hash _usb_writeN_sync 4 31682 _001567_hash NULL
@@ -1473,7 +1473,7 @@ _001573_hash venus_link 5 32165 _001573_hash NULL
 _001574_hash venus_lookup 4 8121 _001574_hash NULL
 _001575_hash venus_mkdir 4 8967 _001575_hash NULL
 _001576_hash venus_remove 4 59781 _001576_hash NULL
-_001577_hash venus_rename 4-5 17707 _001577_hash NULL
+_001577_hash venus_rename 4-5 17707 _003279_hash NULL nohasharray
 _001579_hash venus_rmdir 4 45564 _001579_hash NULL
 _001580_hash venus_symlink 4-6 23570 _001580_hash NULL
 _001582_hash vfs_readlink 3 54368 _001582_hash NULL
@@ -1898,7 +1898,7 @@ _002009_hash sel_read_mls 3 25369 _002009_hash NULL
 _002010_hash sel_read_perm 3 42302 _002010_hash NULL
 _002011_hash sel_read_policy 3 55947 _002011_hash NULL
 _002012_hash sel_read_policycap 3 28544 _002012_hash NULL
-_002013_hash sel_read_policyvers 3 55 _002013_hash NULL
+_002013_hash sel_read_policyvers 3 55 _003257_hash NULL nohasharray
 _002014_hash send_msg 4 37323 _002014_hash NULL
 _002015_hash send_packet 4 52960 _002015_hash NULL
 _002016_hash short_retry_limit_read 3 4687 _002016_hash NULL
@@ -2904,7 +2904,7 @@ _003098_hash SendTxCommandPacket 3 42901 _003098_hash NULL
 _003099_hash snd_nm256_capture_copy 5 28622 _003099_hash NULL
 _003100_hash snd_nm256_playback_copy 5 38567 _003100_hash NULL
 _003101_hash tomoyo_init_log 2 14806 _003101_hash NULL
-_003102_hash usbdux_attach_common 4 51764 _003102_hash NULL
+_003102_hash usbdux_attach_common 4 51764 _003271_hash NULL nohasharray
 _003103_hash compat_sys_fcntl 3 15654 _003103_hash NULL
 _003104_hash ieee80211_auth_challenge 3 18810 _003104_hash NULL
 _003105_hash ieee80211_rtl_auth_challenge 3 61897 _003105_hash NULL
@@ -3055,3 +3055,110 @@ _003252_hash xenfb_write 3 43412 _003252_hash NULL
 _003253_hash acl_alloc 1 35979 _003253_hash NULL
 _003254_hash acl_alloc_stack_init 1 60630 _003254_hash NULL
 _003255_hash acl_alloc_num 1-2 60778 _003255_hash NULL
+_003257_hash padzero 1 55 _003257_hash &_002013_hash
+_003258_hash __get_vm_area_node 1 55305 _003258_hash NULL
+_003259_hash get_vm_area 1 18080 _003259_hash NULL
+_003260_hash __get_vm_area 1 61599 _003260_hash NULL
+_003261_hash get_vm_area_caller 1 10527 _003261_hash NULL
+_003262_hash __get_vm_area_caller 1 56416 _003302_hash NULL nohasharray
+_003263_hash alloc_vm_area 1 36149 _003263_hash NULL
+_003264_hash __ioremap_caller 1-2 21800 _003264_hash NULL
+_003266_hash vmap 2 15025 _003266_hash NULL
+_003267_hash ioremap_cache 1-2 47189 _003267_hash NULL
+_003269_hash ioremap_nocache 1-2 2439 _003269_hash NULL
+_003271_hash ioremap_prot 1-2 51764 _003271_hash &_003102_hash
+_003273_hash ioremap_wc 1-2 62695 _003273_hash NULL
+_003274_hash acpi_os_ioremap 1-2 49523 _003274_hash NULL
+_003276_hash ca91cx42_alloc_resource 2 10502 _003276_hash NULL
+_003277_hash devm_ioremap_nocache 2-3 2036 _003277_hash NULL
+_003279_hash __einj_error_trigger 1 17707 _003279_hash &_001577_hash
+_003280_hash io_mapping_map_wc 2 19284 _003280_hash NULL
+_003281_hash ioremap 1-2 23172 _003281_hash NULL
+_003283_hash lguest_map 1-2 42008 _003283_hash NULL
+_003285_hash msix_map_region 3 3411 _003285_hash NULL
+_003286_hash pci_iomap 3 47575 _003286_hash NULL
+_003287_hash sfi_map_memory 1-2 5183 _003287_hash NULL
+_003289_hash tsi148_alloc_resource 2 24563 _003289_hash NULL
+_003290_hash vb2_vmalloc_get_userptr 3 31374 _003290_hash NULL
+_003291_hash xlate_dev_mem_ptr 1 15291 _003291_hash &_001167_hash
+_003292_hash a4t_cs_init 3 27734 _003292_hash NULL
+_003293_hash aac_nark_ioremap 2 50163 _003293_hash &_000314_hash
+_003294_hash aac_rkt_ioremap 2 3333 _003294_hash NULL
+_003295_hash aac_rx_ioremap 2 52410 _003295_hash NULL
+_003296_hash aac_sa_ioremap 2 13596 _003296_hash &_000288_hash
+_003297_hash aac_src_ioremap 2 41688 _003297_hash NULL
+_003298_hash aac_srcv_ioremap 2 6659 _003298_hash NULL
+_003299_hash acpi_map 1-2 58725 _003299_hash NULL
+_003301_hash acpi_os_read_memory 1-3 54186 _003301_hash NULL
+_003302_hash acpi_os_write_memory 1-3 56416 _003302_hash &_003262_hash
+_003303_hash c101_run 2 37279 _003303_hash NULL
+_003304_hash ca91cx42_master_set 4 23146 _003304_hash NULL
+_003305_hash check586 2 29914 _003305_hash NULL
+_003306_hash check_mirror 1-2 57342 _003306_hash &_001564_hash
+_003308_hash cru_detect 1 11272 _003308_hash NULL
+_003309_hash cs553x_init_one 3 58886 _003309_hash NULL
+_003310_hash cycx_setup 4 47562 _003310_hash NULL
+_003311_hash DepcaSignature 2 80 _003311_hash &_001321_hash
+_003312_hash devm_ioremap 2-3 29235 _003312_hash NULL
+_003314_hash divasa_remap_pci_bar 3-4 23485 _003314_hash &_000947_hash
+_003316_hash dma_declare_coherent_memory 2-4 14244 _003316_hash NULL
+_003318_hash doc_probe 1 23285 _003318_hash NULL
+_003319_hash DoC_Probe 1 57534 _003319_hash NULL
+_003320_hash ems_pcmcia_add_card 2 62627 _003320_hash NULL
+_003321_hash gdth_init_isa 1 28091 _003321_hash NULL
+_003322_hash gdth_search_isa 1 58595 _003322_hash NULL
+_003323_hash isp1760_register 1-2 628 _003323_hash NULL
+_003325_hash mthca_map_reg 2-3 5664 _003325_hash NULL
+_003327_hash n2_run 3 53459 _003327_hash NULL
+_003328_hash pcim_iomap 3 58334 _003328_hash NULL
+_003329_hash probe_bios 1 17467 _003329_hash NULL
+_003330_hash register_device 2-3 60015 _003330_hash NULL
+_003332_hash remap_pci_mem 1-2 15966 _003332_hash NULL
+_003334_hash rtl_port_map 1-2 2385 _003334_hash NULL
+_003336_hash sfi_map_table 1 5462 _003336_hash NULL
+_003337_hash sriov_enable_migration 2 14889 _003337_hash NULL
+_003338_hash ssb_bus_scan 2 36578 _003338_hash NULL
+_003339_hash ssb_ioremap 2 5228 _003339_hash NULL
+_003340_hash tpm_tis_init 2-3 15304 _003340_hash NULL
+_003342_hash tsi148_master_set 4 14685 _003342_hash NULL
+_003343_hash acpi_os_map_memory 1-2 11161 _003343_hash NULL
+_003345_hash com90xx_found 3 13974 _003345_hash NULL
+_003346_hash dmam_declare_coherent_memory 2-4 43679 _003346_hash NULL
+_003348_hash gdth_isa_probe_one 1 48925 _003348_hash NULL
+_003349_hash sfi_check_table 1 6772 _003349_hash NULL
+_003350_hash sfi_sysfs_install_table 1 51688 _003350_hash NULL
+_003351_hash sriov_enable 2 59689 _003351_hash NULL
+_003352_hash ssb_bus_register 3 65183 _003352_hash NULL
+_003353_hash acpi_ex_system_memory_space_handler 2 31192 _003353_hash NULL
+_003354_hash acpi_tb_check_xsdt 1 21862 _003354_hash NULL
+_003355_hash acpi_tb_install_table 1 12988 _003355_hash NULL
+_003356_hash acpi_tb_parse_root_table 1 53455 _003356_hash NULL
+_003357_hash check_vendor_extension 1 3254 _003357_hash NULL
+_003358_hash pci_enable_sriov 2 35745 _003358_hash NULL
+_003359_hash ssb_bus_pcmciabus_register 3 56020 _003359_hash NULL
+_003360_hash ssb_bus_ssbbus_register 2 2217 _003360_hash NULL
+_003361_hash lpfc_sli_probe_sriov_nr_virtfn 2 26004 _003361_hash NULL
+_003364_hash alloc_vm_area 1 15989 _003364_hash NULL
+_003366_hash efi_ioremap 1-2 3492 _003366_hash &_001092_hash
+_003368_hash init_chip_wc_pat 2 62768 _003368_hash NULL
+_003369_hash io_mapping_create_wc 1-2 1354 _003369_hash NULL
+_003371_hash iommu_map_mmio_space 1 30919 _003371_hash NULL
+_003372_hash arch_gnttab_map_shared 3 41306 _003372_hash NULL
+_003373_hash arch_gnttab_map_status 3 49812 _003373_hash NULL
+_003374_hash intel_render_ring_init_dri 2-3 45446 _003374_hash NULL
+_003376_hash persistent_ram_iomap 1-2 47156 _003376_hash NULL
+_003378_hash sparse_early_usemaps_alloc_pgdat_section 2 62304 _003378_hash NULL
+_003379_hash ttm_bo_ioremap 2-3 31082 _003379_hash NULL
+_003381_hash ttm_bo_kmap_ttm 3 5922 _003381_hash NULL
+_003382_hash atyfb_setup_generic 3 49151 _003382_hash NULL
+_003383_hash do_test 1 15766 _003383_hash NULL
+_003384_hash mga_ioremap 1-2 8571 _003384_hash NULL
+_003386_hash mid_get_vbt_data_r0 2 10876 _003386_hash NULL
+_003387_hash mid_get_vbt_data_r10 2 6308 _003387_hash NULL
+_003388_hash mid_get_vbt_data_r1 2 26170 _003388_hash NULL
+_003389_hash persistent_ram_buffer_map 1-2 11332 _003389_hash NULL
+_003391_hash read_vbt_r0 1 503 _003391_hash NULL
+_003392_hash read_vbt_r10 1 60679 _003392_hash NULL
+_003393_hash tpci200_slot_map_space 2 3848 _003393_hash NULL
+_003394_hash ttm_bo_kmap 2-3 60118 _003394_hash NULL
+_003395_hash persistent_ram_new 1-2 14588 _003395_hash NULL

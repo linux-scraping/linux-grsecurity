@@ -4684,6 +4684,9 @@ bool is_usercopy_object(const void *ptr)
 	if (ZERO_OR_NULL_PTR(ptr))
 		return false;
 
+	if (!slab_is_available())
+		return false;
+
 	if (!virt_addr_valid(ptr))
 		return false;
 

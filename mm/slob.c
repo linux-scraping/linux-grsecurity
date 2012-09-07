@@ -560,6 +560,11 @@ EXPORT_SYMBOL(kfree);
 
 bool is_usercopy_object(const void *ptr)
 {
+	if (!slab_is_available())
+		return false;
+
+	// PAX: TODO
+
 	return false;
 }
 
