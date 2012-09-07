@@ -384,7 +384,7 @@ _000399_hash zd_usb_read_fw 4 22049 _000399_hash NULL
 _000400_hash zd_usb_rfwrite 3 42300 _000400_hash NULL
 _000401_hash zoran_write 3 22404 _000401_hash NULL
 _000402_hash acpi_battery_write_alarm 3 1240 _000402_hash NULL
-_000403_hash acpi_ex_allocate_name_string 2 7685 _002079_hash NULL nohasharray
+_000403_hash acpi_ex_allocate_name_string 2-1 7685 _002079_hash NULL nohasharray
 _000404_hash acpi_fan_write_state 3 39818 _000404_hash NULL
 _000405_hash acpi_os_allocate_zeroed 1 37422 _000405_hash NULL
 _000406_hash acpi_processor_write_limit 3 23201 _000406_hash NULL
@@ -1488,7 +1488,7 @@ _001566_hash sel_read_initcon 3 32362 _001566_hash NULL
 _001567_hash sel_read_mls 3 25369 _001567_hash NULL
 _001568_hash sel_read_perm 3 42302 _001568_hash NULL
 _001569_hash sel_read_policycap 3 28544 _001569_hash NULL
-_001570_hash sel_read_policyvers 3 55 _001570_hash NULL
+_001570_hash sel_read_policyvers 3 55 _002421_hash NULL nohasharray
 _001571_hash short_retry_limit_read 3 4687 _001571_hash NULL
 _001572_hash simple_attr_read 3 24738 _001572_hash NULL
 _001573_hash simple_transaction_read 3 17076 _001573_hash NULL
@@ -2268,3 +2268,8 @@ _002412_hash create_table 2 16213 _002412_hash NULL
 _002413_hash acl_alloc 1 35979 _002413_hash NULL
 _002414_hash acl_alloc_stack_init 1 60630 _002414_hash NULL
 _002415_hash acl_alloc_num 1-2 60778 _002415_hash NULL
+_002416_hash alloc_etherdev_mq_compat 1 2247 _002416_hash NULL
+_002417_hash __netdev_alloc_skb_ip_align 2 55067 _002417_hash NULL
+_002418_hash sysctl_string_modpriv 5 32895 _002418_hash NULL
+_002419_hash netdev_alloc_skb_ip_align 2 40811 _002419_hash NULL
+_002421_hash padzero 1 55 _002421_hash &_001570_hash

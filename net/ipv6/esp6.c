@@ -146,7 +146,6 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	struct esp_data *esp = x->data;
 
 	/* skb is pure payload to encrypt */
-	err = -ENOMEM;
 
 	/* Round to block size */
 	clen = skb->len;
@@ -164,8 +163,10 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
 	nfrags = err;
 
 	tmp = esp_alloc_tmp(aead, nfrags + 1);
-	if (!tmp)
+	if (!tmp) {
+		err = -ENOMEM;
 		goto error;
+	}
 
 	iv = esp_tmp_iv(aead, tmp);
 	req = esp_tmp_givreq(aead, iv);

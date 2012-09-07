@@ -2040,8 +2040,10 @@ int xfrm_init_state(struct xfrm_state *x)
 		goto error;
 
 	x->outer_mode = xfrm_get_mode(x->props.mode, family);
-	if (x->outer_mode == NULL)
+	if (x->outer_mode == NULL) {
+		err = -EPROTONOSUPPORT;
 		goto error;
+	}
 
 	x->km.state = XFRM_STATE_VALID;
 
