@@ -647,7 +647,7 @@ static __always_inline int __do_follow_link(struct path *path, struct nameidata 
 			dentry->d_inode->i_op->put_link(dentry, nd, cookie);
 	}
 
-	if (!error && !(nd->flags & LOOKUP_PARENT) && gr_handle_symlink_owner(path, nd->path.dentry->d_inode))
+	if (!error && (nd->flags & LOOKUP_SYMLINKOWN) && gr_handle_symlink_owner(path, nd->path.dentry->d_inode))
 		error = -EACCES;
 
 	path_put(path);
@@ -684,6 +684,7 @@ static inline int do_follow_link(struct path *path, struct nameidata *nd)
 	current->link_count++;
 	current->total_link_count++;
 	nd->depth++;
+	nd->flags |= LOOKUP_SYMLINKOWN;
 	err = __do_follow_link(path, nd);
 	current->link_count--;
 	nd->depth--;
@@ -1978,6 +1979,7 @@ do_link:
 		goto exit_dput;
 	}
 
+	nd.flags &= ~LOOKUP_SYMLINKOWN;
 	error = __do_follow_link(&path, &nd);
 	if (error) {
 		/* Does someone understand code flow here? Or it is only
@@ -2011,9 +2013,18 @@ do_link:
 	path.dentry = lookup_hash(&nd);
 	path.mnt = nd.path.mnt;
 	__putname(nd.last.name);
-	if (!IS_ERR(path.dentry) && gr_handle_symlink_owner(&link_path, path.dentry->d_inode)) {
-		error = -EACCES;
-		goto exit_mutex_unlock;
+
+	/* if the last path component resolved by the symlink exists, then check ownership against that
+	   if it doesn't, we're trying to create it, check ownership against its directory
+	*/
+	if (!IS_ERR(path.dentry) && !IS_ERR(nd.intent.open.file)) {
+		if (path.dentry->d_inode && gr_handle_symlink_owner(&link_path, path.dentry->d_inode)) {
+			error = -EACCES;
+			goto exit_mutex_unlock;
+		} else if (!path.dentry->d_inode && gr_handle_symlink_owner(&link_path, dir->d_inode)) {
+			error = -EACCES;
+			goto exit_mutex_unlock;			
+		}	
 	}
 	goto do_last;
 }
