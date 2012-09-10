@@ -2279,6 +2279,11 @@ static struct file *do_last(struct nameidata *nd, struct path *path, struct path
 	if (!dentry->d_inode) {
 		int mode = op->mode;
 
+		if (link && gr_handle_symlink_owner(link, dir->d_inode)) {
+			error = -EACCES;
+			goto exit_mutex_unlock;
+		}
+
 		if (!gr_acl_handle_creat(path->dentry, nd->path.dentry, path->mnt, open_flag, acc_mode, mode)) {
 			error = -EACCES;
 			goto exit_mutex_unlock;
