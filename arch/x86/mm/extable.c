@@ -8,7 +8,7 @@ ex_insn_addr(const struct exception_table_entry *x)
 {
 	unsigned long reloc = 0;
 
-#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	reloc = ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
 #endif
 
@@ -19,7 +19,7 @@ ex_fixup_addr(const struct exception_table_entry *x)
 {
 	unsigned long reloc = 0;
 
-#if defined(CONFIG_PAX_KERNEXEC) && defined(CONFIG_X86_32)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	reloc = ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
 #endif
 
@@ -157,6 +157,13 @@ void sort_extable(struct exception_table_entry *start,
 		i += 4;
 		p->fixup -= i;
 		i += 4;
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		BUILD_BUG_ON(!IS_ENABLED(CONFIG_BUILDTIME_EXTABLE_SORT));
+		p->insn -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+		p->fixup -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
+#endif
+
 	}
 }
 
