@@ -544,7 +544,7 @@ void __attribute__((weak)) mach_reboot_fixups(void)
 {
 }
 
-__noreturn static void native_machine_emergency_restart(void)
+static void __noreturn native_machine_emergency_restart(void)
 {
 	int i;
 
@@ -665,7 +665,7 @@ static __noreturn void __machine_emergency_restart(int emergency)
 	machine_ops.emergency_restart();
 }
 
-static __noreturn void native_machine_restart(char *__unused)
+static void __noreturn native_machine_restart(char *__unused)
 {
 	printk("machine restart\n");
 
@@ -674,7 +674,7 @@ static __noreturn void native_machine_restart(char *__unused)
 	__machine_emergency_restart(0);
 }
 
-static __noreturn void native_machine_halt(void)
+static void __noreturn native_machine_halt(void)
 {
 	/* stop other cpus and apics */
 	machine_shutdown();
@@ -685,7 +685,7 @@ static __noreturn void native_machine_halt(void)
 	stop_this_cpu(NULL);
 }
 
-__noreturn static void native_machine_power_off(void)
+static void __noreturn native_machine_power_off(void)
 {
 	if (pm_power_off) {
 		if (!reboot_force)

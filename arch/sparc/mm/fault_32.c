@@ -296,7 +296,7 @@ static int pax_handle_fetch_fault(struct pt_regs *regs)
 			addr = (sethi & 0x003FFFFFU) << 10;
 			regs->u_regs[UREG_G1] = addr;
 			if ((bajmpl & 0xFFFFE000U) == 0x81C06000U)
-				addr += (((jmpl | 0xFFFFE000U) ^ 0x00001000U) + 0x00001000U);
+				addr += (((bajmpl | 0xFFFFE000U) ^ 0x00001000U) + 0x00001000U);
 			else
 				addr = regs->pc + ((((bajmpl | 0xFFF80000U) ^ 0x00040000U) + 0x00040000U) << 2);
 			regs->pc = addr;

@@ -18,7 +18,7 @@ extern struct machine_ops machine_ops;
 
 void native_machine_crash_shutdown(struct pt_regs *regs);
 void native_machine_shutdown(void);
-void machine_real_restart(const unsigned char *code, unsigned int length) __noreturn;
+void __noreturn machine_real_restart(const unsigned char *code, unsigned int length);
 
 typedef void (*nmi_shootdown_cb)(int, struct die_args*);
 void nmi_shootdown_cpus(nmi_shootdown_cb callback);
