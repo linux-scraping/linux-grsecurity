@@ -62,6 +62,7 @@
 #define X86_CR4_RDWRGSFS 0x00010000 /* enable RDWRGSFS support */
 #define X86_CR4_OSXSAVE 0x00040000 /* enable xsave and xrestore */
 #define X86_CR4_SMEP	0x00100000 /* enable SMEP support */
+#define X86_CR4_SMAP	0x00200000 /* enable SMAP support */
 
 /*
  * x86-64 Task Priority Register, CR8

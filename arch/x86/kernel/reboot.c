@@ -385,7 +385,9 @@ __noreturn void machine_real_restart(unsigned int type)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	gdt[GDT_ENTRY_KERNEL_DS].type = 3;
 	gdt[GDT_ENTRY_KERNEL_DS].limit = 0xf;
-	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
+	loadsegment(ds, __KERNEL_DS);
+	loadsegment(es, __KERNEL_DS);
+	loadsegment(ss, __KERNEL_DS);
 #endif
 #ifdef CONFIG_PAX_KERNEXEC
 	gdt[GDT_ENTRY_KERNEL_CS].base0 = 0;
@@ -578,7 +580,7 @@ void __attribute__((weak)) mach_reboot_fixups(void)
  * try to force a triple fault and then cycle between hitting the keyboard
  * controller and doing that
  */
-__noreturn static void native_machine_emergency_restart(void)
+static void __noreturn native_machine_emergency_restart(void)
 {
 	int i;
 	int attempt = 0;
@@ -708,7 +710,7 @@ static __noreturn void __machine_emergency_restart(int emergency)
 	machine_ops.emergency_restart();
 }
 
-static __noreturn void native_machine_restart(char *__unused)
+static void __noreturn native_machine_restart(char *__unused)
 {
 	printk("machine restart\n");
 
@@ -717,7 +719,7 @@ static __noreturn void native_machine_restart(char *__unused)
 	__machine_emergency_restart(0);
 }
 
-static __noreturn void native_machine_halt(void)
+static void __noreturn native_machine_halt(void)
 {
 	/* stop other cpus and apics */
 	machine_shutdown();
@@ -728,7 +730,7 @@ static __noreturn void native_machine_halt(void)
 	stop_this_cpu(NULL);
 }
 
-__noreturn static void native_machine_power_off(void)
+static void __noreturn native_machine_power_off(void)
 {
 	if (pm_power_off) {
 		if (!reboot_force)

@@ -359,6 +359,14 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __compiletime_error(message)
 #endif
 
+#ifndef __size_overflow
+# define __size_overflow(...)
+#endif
+
+#ifndef __intentional_overflow
+# define __intentional_overflow(...)
+#endif
+
 /*
  * Prevent the compiler from merging or refetching accesses.  The compiler
  * is also forbidden from reordering successive instances of ACCESS_ONCE(),
