@@ -40,6 +40,14 @@ struct size_overflow_hash {
 
 #include "size_overflow_hash.h"
 
+enum marked {
+	MARKED_NO, MARKED_YES, MARKED_NOT_INTENTIONAL
+};
+
+enum overflow_reason {
+	OVERFLOW_NONE, OVERFLOW_INTENTIONAL
+};
+
 #define __unused __attribute__((__unused__))
 #define NAME(node) IDENTIFIER_POINTER(DECL_NAME(node))
 #define NAME_LEN(node) IDENTIFIER_LENGTH(DECL_NAME(node))
@@ -47,7 +55,7 @@ struct size_overflow_hash {
 #define AFTER_STMT false
 #define CREATE_NEW_VAR NULL_TREE
 #define CODES_LIMIT 32
-#define MAX_PARAM 10
+#define MAX_PARAM 16
 #define MY_STMT GF_PLF_1
 #define NO_CAST_CHECK GF_PLF_2
 
@@ -58,16 +66,16 @@ struct size_overflow_hash {
 int plugin_is_GPL_compatible;
 void debug_gimple_stmt(gimple gs);
 
-static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs);
+static tree expand(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree lhs);
 static tree report_size_overflow_decl;
 static const_tree const_char_ptr_type_node;
 static unsigned int handle_function(void);
-static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool *potentionally_overflowed, bool before);
-static tree get_size_overflow_type(gimple stmt, tree node);
-static tree dup_assign(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple oldstmt, tree size_overflow_type, tree rhs1, tree rhs2, tree __unused rhs3);
+static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, enum overflow_reason* overflowed, bool before);
+static tree get_size_overflow_type(gimple stmt, const_tree node);
+static tree dup_assign(struct pointer_set_t *visited, enum overflow_reason* overflowed, gimple oldstmt, tree size_overflow_type, tree rhs1, tree rhs2, tree __unused rhs3);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20120820beta",
+	.version	= "20120910beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -108,9 +116,23 @@ static struct attribute_spec size_overflow_attr = {
 #endif
 };
 
+static struct attribute_spec intentional_overflow_attr = {
+	.name				= "intentional_overflow",
+	.min_length			= 1,
+	.max_length			= -1,
+	.decl_required			= true,
+	.type_required			= false,
+	.function_type_required		= false,
+	.handler			= NULL,
+#if BUILDING_GCC_VERSION >= 4007
+	.affects_type_identity		= false
+#endif
+};
+
 static void register_attributes(void __unused *event_data, void __unused *data)
 {
 	register_attribute(&size_overflow_attr);
+	register_attribute(&intentional_overflow_attr);
 }
 
 // http://www.team5150.com/~andrew/noncryptohashzoo2~/CrapWow.html
@@ -166,7 +188,7 @@ static inline gimple get_def_stmt(const_tree node)
 	return SSA_NAME_DEF_STMT(node);
 }
 
-static unsigned char get_tree_code(tree type)
+static unsigned char get_tree_code(const_tree type)
 {
 	switch (TREE_CODE(type)) {
 	case ARRAY_TYPE:
@@ -193,13 +215,17 @@ static unsigned char get_tree_code(tree type)
 		return 10;
 	case REFERENCE_TYPE:
 		return 11;
+	case OFFSET_TYPE:
+		return 12;
+	case COMPLEX_TYPE:
+		return 13;
 	default:
-		debug_tree(type);
+		debug_tree((tree)type);
 		gcc_unreachable();
 	}
 }
 
-static size_t add_type_codes(tree type, unsigned char *tree_codes, size_t len)
+static size_t add_type_codes(const_tree type, unsigned char *tree_codes, size_t len)
 {
 	gcc_assert(type != NULL_TREE);
 
@@ -213,12 +239,11 @@ static size_t add_type_codes(tree type, unsigned char *tree_codes, size_t len)
 
 static unsigned int get_function_decl(const_tree fndecl, unsigned char *tree_codes)
 {
-	tree arg;
-	const_tree result, type = TREE_TYPE(fndecl);
+	const_tree arg, result, type = TREE_TYPE(fndecl);
 	enum tree_code code = TREE_CODE(type);
 	size_t len = 0;
 
-	gcc_assert(code == FUNCTION_TYPE);
+	gcc_assert(code == FUNCTION_TYPE || code == METHOD_TYPE);
 
 	arg = TYPE_ARG_TYPES(type);
 	// skip builtins __builtin_constant_p
@@ -313,10 +338,10 @@ static void print_missing_msg(const_tree func, unsigned int argnum)
 
 	len = get_function_decl(func, tree_codes);
 	new_hash = get_hash_num(curfunc, (const char *) tree_codes, len, 0);
-	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%d+%u+", curfunc, curfunc, argnum, new_hash);
+	inform(loc, "Function %s is missing from the size_overflow hash table +%s+%u+%u+", curfunc, curfunc, argnum, new_hash);
 }
 
-static void check_missing_attribute(const_tree arg)
+static unsigned int search_missing_attribute(const_tree arg)
 {
 	const_tree type = TREE_TYPE(arg);
 	const_tree func = get_original_function_decl(current_function_decl);
@@ -326,18 +351,21 @@ static void check_missing_attribute(const_tree arg)
 	gcc_assert(TREE_CODE(arg) != COMPONENT_REF);
 
 	if (TREE_CODE(type) == POINTER_TYPE)
-		return;
-
-	if (lookup_attribute("size_overflow", DECL_ATTRIBUTES(func)))
-		return;
+		return 0;
 
 	argnum = find_arg_number(arg, func);
 	if (argnum == 0)
-		return;
+		return 0;
+
+	if (lookup_attribute("size_overflow", DECL_ATTRIBUTES(func)))
+		return argnum;
 
 	hash = get_function_hash(func);
-	if (!hash || !(hash->param & (1U << argnum)))
+	if (!hash || !(hash->param & (1U << argnum))) {
 		print_missing_msg(func, argnum);
+		return 0;
+	}
+	return argnum;
 }
 
 static tree create_new_var(tree type)
@@ -437,7 +465,7 @@ static tree cast_to_new_size_overflow_type(gimple stmt, tree new_rhs1, tree size
 	return new_rhs1;
 }
 
-static tree follow_overflow_type_and_dup(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple stmt, tree node, tree new_rhs1, tree new_rhs2, tree new_rhs3)
+static tree follow_overflow_type_and_dup(struct pointer_set_t *visited, enum overflow_reason* overflowed, gimple stmt, const_tree node, tree new_rhs1, tree new_rhs2, tree new_rhs3)
 {
 	tree size_overflow_type = get_size_overflow_type(stmt, node);
 
@@ -449,18 +477,81 @@ static tree follow_overflow_type_and_dup(struct pointer_set_t *visited, bool *po
 	if (new_rhs3 != NULL_TREE)
 		new_rhs3 = cast_to_new_size_overflow_type(stmt, new_rhs3, size_overflow_type, BEFORE_STMT);
 
-	return dup_assign(visited, potentionally_overflowed, stmt, size_overflow_type, new_rhs1, new_rhs2, new_rhs3);
+	return dup_assign(visited, overflowed, stmt, size_overflow_type, new_rhs1, new_rhs2, new_rhs3);
 }
 
-static tree create_assign(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple oldstmt, tree rhs1, bool before)
+static enum marked is_already_marked(const_tree fndecl, unsigned int argnum)
 {
+	const_tree attr, p;
+
+	attr = lookup_attribute("intentional_overflow", DECL_ATTRIBUTES(fndecl));
+	if (!attr || !TREE_VALUE(attr))
+		return MARKED_NO;
+
+	p = TREE_VALUE(attr);
+	if (!TREE_INT_CST_LOW(TREE_VALUE(p)))
+		return MARKED_NOT_INTENTIONAL;
+
+	do {
+		if (argnum == TREE_INT_CST_LOW(TREE_VALUE(p)))
+			return MARKED_YES;
+		p = TREE_CHAIN(p);
+	} while (p);
+
+	return MARKED_NO;
+}
+
+static const_tree search_field_decl(const_tree comp_ref)
+{
+	const_tree field = NULL_TREE;
+	unsigned int i, len = TREE_OPERAND_LENGTH(comp_ref);
+
+	for (i = 0; i < len; i++) {
+		field = TREE_OPERAND(comp_ref, i);
+		if (TREE_CODE(field) == FIELD_DECL)
+			break;
+	}
+	gcc_assert(TREE_CODE(field) == FIELD_DECL);
+	return field;
+}
+
+static void handle_component_ref(enum overflow_reason* overflowed, const_gimple stmt, const_tree binary_dup_rhs)
+{
+	const_tree rhs, field, attr;
+
+	if (gimple_code(stmt) != GIMPLE_ASSIGN)
+		return;
+
+	gcc_assert(gimple_num_ops(stmt) == 2 || gimple_num_ops(stmt) == 3);
+
+	if (gimple_num_ops(stmt) == 2)
+		rhs = gimple_assign_rhs1(stmt);
+	else
+		rhs = binary_dup_rhs;
+
+	if (TREE_CODE(rhs) != COMPONENT_REF)
+		return;
+
+	field = search_field_decl(rhs);
+	attr = lookup_attribute("intentional_overflow", DECL_ATTRIBUTES(field));
+	if (!attr || !TREE_VALUE(attr))
+		return;
+
+	*overflowed = OVERFLOW_INTENTIONAL;
+}
+
+static tree create_assign(struct pointer_set_t *visited, enum overflow_reason* overflowed, gimple oldstmt, tree rhs1, bool before)
+{
+	unsigned int argnum;
 	const_tree oldstmt_rhs1;
 	tree size_overflow_type, lhs;
 	enum tree_code code;
 	gimple stmt;
 	gimple_stmt_iterator gsi;
 
-	if (!*potentionally_overflowed)
+	handle_component_ref(overflowed, oldstmt, rhs1);
+
+	if (*overflowed == OVERFLOW_INTENTIONAL)
 		return NULL_TREE;
 
 	if (rhs1 == NULL_TREE) {
@@ -476,8 +567,14 @@ static tree create_assign(struct pointer_set_t *visited, bool *potentionally_ove
 
 	oldstmt_rhs1 = gimple_assign_rhs1(oldstmt);
 	code = TREE_CODE(oldstmt_rhs1);
-	if (code == PARM_DECL || (code == SSA_NAME && gimple_code(get_def_stmt(oldstmt_rhs1)) == GIMPLE_NOP))
-		check_missing_attribute(oldstmt_rhs1);
+	if (code == PARM_DECL || (code == SSA_NAME && gimple_code(get_def_stmt(oldstmt_rhs1)) == GIMPLE_NOP)) {
+		argnum = search_missing_attribute(oldstmt_rhs1);
+		if (argnum && is_already_marked(get_original_function_decl(current_function_decl), argnum) == MARKED_YES) {
+			*overflowed = OVERFLOW_INTENTIONAL;
+			return NULL_TREE;
+		}
+
+	}
 
 	gsi = gsi_for_stmt(oldstmt);
 	pointer_set_insert(visited, oldstmt);
@@ -511,13 +608,13 @@ static tree create_assign(struct pointer_set_t *visited, bool *potentionally_ove
 	return gimple_get_lhs(stmt);
 }
 
-static tree dup_assign(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple oldstmt, tree size_overflow_type, tree rhs1, tree rhs2, tree __unused rhs3)
+static tree dup_assign(struct pointer_set_t *visited, enum overflow_reason* overflowed, gimple oldstmt, tree size_overflow_type, tree rhs1, tree rhs2, tree __unused rhs3)
 {
 	gimple stmt;
 	gimple_stmt_iterator gsi;
 	tree new_var, lhs = gimple_get_lhs(oldstmt);
 
-	if (!*potentionally_overflowed)
+	if (*overflowed == OVERFLOW_INTENTIONAL)
 		return NULL_TREE;
 
 	if (gimple_plf(oldstmt, MY_STMT))
@@ -525,11 +622,11 @@ static tree dup_assign(struct pointer_set_t *visited, bool *potentionally_overfl
 
 	if (gimple_num_ops(oldstmt) != 4 && rhs1 == NULL_TREE) {
 		rhs1 = gimple_assign_rhs1(oldstmt);
-		rhs1 = create_assign(visited, potentionally_overflowed, oldstmt, rhs1, BEFORE_STMT);
+		rhs1 = create_assign(visited, overflowed, oldstmt, rhs1, BEFORE_STMT);
 	}
 	if (gimple_num_ops(oldstmt) == 3 && rhs2 == NULL_TREE) {
 		rhs2 = gimple_assign_rhs2(oldstmt);
-		rhs2 = create_assign(visited, potentionally_overflowed, oldstmt, rhs2, BEFORE_STMT);
+		rhs2 = create_assign(visited, overflowed, oldstmt, rhs2, BEFORE_STMT);
 	}
 
 	stmt = gimple_copy(oldstmt);
@@ -657,13 +754,13 @@ static const_gimple handle_new_phi_arg(const_tree arg, tree new_var, tree new_rh
 	return newstmt;
 }
 
-static tree build_new_phi_arg(struct pointer_set_t *visited, bool *potentionally_overflowed, tree size_overflow_type, tree arg, tree new_var)
+static tree build_new_phi_arg(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree size_overflow_type, tree arg, tree new_var)
 {
 	const_gimple newstmt;
 	tree new_rhs;
 
-	new_rhs = expand(visited, potentionally_overflowed, arg);
-	if (new_rhs == NULL_TREE)
+	new_rhs = expand(visited, overflowed, arg);
+	if (new_rhs == NULL_TREE || *overflowed == OVERFLOW_INTENTIONAL)
 		return NULL_TREE;
 
 	new_rhs = cast_to_new_size_overflow_type(get_def_stmt(new_rhs), new_rhs, size_overflow_type, AFTER_STMT);
@@ -672,7 +769,7 @@ static tree build_new_phi_arg(struct pointer_set_t *visited, bool *potentionally
 	return gimple_get_lhs(newstmt);
 }
 
-static tree build_new_phi(struct pointer_set_t *visited, bool *potentionally_overflowed, tree orig_result)
+static tree build_new_phi(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree orig_result)
 {
 	gimple phi, oldstmt = get_def_stmt(orig_result);
 	tree new_result, size_overflow_type;
@@ -691,7 +788,9 @@ static tree build_new_phi(struct pointer_set_t *visited, bool *potentionally_ove
 		arg = gimple_phi_arg_def(oldstmt, i);
 		if (is_gimple_constant(arg))
 			arg = cast_a_tree(size_overflow_type, arg);
-		lhs = build_new_phi_arg(visited, potentionally_overflowed, size_overflow_type, arg, new_result);
+		lhs = build_new_phi_arg(visited, overflowed, size_overflow_type, arg, new_result);
+		if (*overflowed == OVERFLOW_INTENTIONAL)
+			return NULL_TREE;
 		if (lhs == NULL_TREE)
 			lhs = cast_old_phi_arg(oldstmt, size_overflow_type, arg, new_result, i);
 		add_phi_arg(phi, lhs, gimple_phi_arg_edge(oldstmt, i), gimple_location(oldstmt));
@@ -781,70 +880,71 @@ static bool is_a_cast_and_const_overflow(const_tree no_const_rhs)
 	return true;
 }
 
-static tree handle_unary_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, gimple stmt)
+static tree handle_unary_rhs(struct pointer_set_t *visited, enum overflow_reason* overflowed, gimple stmt)
 {
 	tree size_overflow_type, lhs = gimple_get_lhs(stmt);
 	tree new_rhs1, rhs1 = gimple_assign_rhs1(stmt);
 	const_tree rhs1_type = TREE_TYPE(rhs1);
 	const_tree lhs_type = TREE_TYPE(lhs);
 
-	*potentionally_overflowed = true;
+	new_rhs1 = expand(visited, overflowed, rhs1);
 
-	new_rhs1 = expand(visited, potentionally_overflowed, rhs1);
+	if (*overflowed == OVERFLOW_INTENTIONAL)
+		return NULL_TREE;
 
 	if (new_rhs1 == NULL_TREE || TREE_CODE(rhs1_type) == POINTER_TYPE)
-		return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 
 	if (gimple_plf(stmt, MY_STMT))
 		return lhs;
 
 	if (gimple_plf(stmt, NO_CAST_CHECK))
-		return follow_overflow_type_and_dup(visited, potentionally_overflowed, stmt, rhs1, new_rhs1, NULL_TREE, NULL_TREE);
+		return follow_overflow_type_and_dup(visited, overflowed, stmt, rhs1, new_rhs1, NULL_TREE, NULL_TREE);
 
 	if (gimple_assign_rhs_code(stmt) == BIT_NOT_EXPR) {
 		size_overflow_type = get_size_overflow_type(stmt, rhs1);
 		new_rhs1 = cast_to_new_size_overflow_type(stmt, new_rhs1, size_overflow_type, BEFORE_STMT);
-		check_size_overflow(stmt, size_overflow_type, new_rhs1, rhs1, potentionally_overflowed, BEFORE_STMT);
-		return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+		check_size_overflow(stmt, size_overflow_type, new_rhs1, rhs1, overflowed, BEFORE_STMT);
+		return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 	}
 
 	if (!gimple_assign_cast_p(stmt) || check_undefined_integer_operation(stmt))
-		return follow_overflow_type_and_dup(visited, potentionally_overflowed, stmt, lhs, new_rhs1, NULL_TREE, NULL_TREE);
+		return follow_overflow_type_and_dup(visited, overflowed, stmt, lhs, new_rhs1, NULL_TREE, NULL_TREE);
 
 	size_overflow_type = get_size_overflow_type(stmt, rhs1);
 	new_rhs1 = cast_to_new_size_overflow_type(stmt, new_rhs1, size_overflow_type, BEFORE_STMT);
 
 	change_rhs1(stmt, new_rhs1);
-	check_size_overflow(stmt, size_overflow_type, new_rhs1, rhs1, potentionally_overflowed, BEFORE_STMT);
+	check_size_overflow(stmt, size_overflow_type, new_rhs1, rhs1, overflowed, BEFORE_STMT);
 
 	rhs1 = gimple_assign_rhs1(stmt);
 	rhs1_type = TREE_TYPE(rhs1);
 	if (TYPE_UNSIGNED(rhs1_type) != TYPE_UNSIGNED(lhs_type))
-		return create_assign(visited, potentionally_overflowed, stmt, rhs1, AFTER_STMT);
+		return create_assign(visited, overflowed, stmt, rhs1, AFTER_STMT);
 
 	if (!check_mode_type(stmt))
-		return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 
 	size_overflow_type = get_size_overflow_type(stmt, lhs);
 	new_rhs1 = cast_to_new_size_overflow_type(stmt, new_rhs1, size_overflow_type, BEFORE_STMT);
 
-	check_size_overflow(stmt, size_overflow_type, new_rhs1, lhs, potentionally_overflowed, BEFORE_STMT);
+	check_size_overflow(stmt, size_overflow_type, new_rhs1, lhs, overflowed, BEFORE_STMT);
 
-	return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+	return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 }
 
-static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs)
+static tree handle_unary_ops(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree lhs)
 {
 	gimple def_stmt = get_def_stmt(lhs);
 	tree rhs1 = gimple_assign_rhs1(def_stmt);
 
 	if (is_gimple_constant(rhs1))
-		return create_assign(visited, potentionally_overflowed, def_stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, def_stmt, lhs, AFTER_STMT);
 
 	gcc_assert(TREE_CODE(rhs1) != COND_EXPR);
 	switch (TREE_CODE(rhs1)) {
 	case SSA_NAME:
-		return handle_unary_rhs(visited, potentionally_overflowed, def_stmt);
+		return handle_unary_rhs(visited, overflowed, def_stmt);
 	case ARRAY_REF:
 	case BIT_FIELD_REF:
 	case ADDR_EXPR:
@@ -856,7 +956,7 @@ static tree handle_unary_ops(struct pointer_set_t *visited, bool *potentionally_
 	case PARM_DECL:
 	case TARGET_MEM_REF:
 	case VAR_DECL:
-		return create_assign(visited, potentionally_overflowed, def_stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, def_stmt, lhs, AFTER_STMT);
 
 	default:
 		debug_gimple_stmt(def_stmt);
@@ -975,16 +1075,19 @@ static void insert_check_size_overflow(gimple stmt, enum tree_code cond_code, tr
 //	print_the_code_insertions(stmt);
 }
 
-static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool *potentionally_overflowed, bool before)
+static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, enum overflow_reason* overflowed, bool before)
 {
 	const_tree rhs_type = TREE_TYPE(rhs);
 	tree cast_rhs_type, type_max_type, type_min_type, type_max, type_min;
 
 	gcc_assert(rhs_type != NULL_TREE);
-	gcc_assert(TREE_CODE(rhs_type) == INTEGER_TYPE || TREE_CODE(rhs_type) == BOOLEAN_TYPE || TREE_CODE(rhs_type) == ENUMERAL_TYPE);
-
-	if (!*potentionally_overflowed)
+	if (TREE_CODE(rhs_type) == POINTER_TYPE)
 		return;
+
+	if (*overflowed == OVERFLOW_INTENTIONAL)
+		return;
+
+	gcc_assert(TREE_CODE(rhs_type) == INTEGER_TYPE || TREE_CODE(rhs_type) == BOOLEAN_TYPE || TREE_CODE(rhs_type) == ENUMERAL_TYPE);
 
 	type_max = cast_a_tree(size_overflow_type, TYPE_MAX_VALUE(rhs_type));
 	type_min = cast_a_tree(size_overflow_type, TYPE_MIN_VALUE(rhs_type));
@@ -1051,7 +1154,7 @@ static tree get_cast_def_stmt_rhs(const_tree new_rhs)
 	return gimple_assign_rhs1(def_stmt);
 }
 
-static tree cast_to_int_TI_type_and_check(bool *potentionally_overflowed, gimple stmt, tree new_rhs)
+static tree cast_to_int_TI_type_and_check(enum overflow_reason* overflowed, gimple stmt, tree new_rhs)
 {
 	gimple_stmt_iterator gsi;
 	const_gimple cast_stmt;
@@ -1077,7 +1180,7 @@ static tree cast_to_int_TI_type_and_check(bool *potentionally_overflowed, gimple
 	if (mode == DImode)
 		return new_rhs;
 
-	check_size_overflow(stmt, intTI_type_node, new_rhs, new_rhs, potentionally_overflowed, BEFORE_STMT);
+	check_size_overflow(stmt, intTI_type_node, new_rhs, new_rhs, overflowed, BEFORE_STMT);
 
 	return new_rhs;
 }
@@ -1117,7 +1220,7 @@ static bool is_an_integer_trunction(const_gimple stmt)
 	return true;
 }
 
-static tree handle_integer_truncation(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs)
+static tree handle_integer_truncation(struct pointer_set_t *visited, enum overflow_reason* overflowed, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
@@ -1129,8 +1232,11 @@ static tree handle_integer_truncation(struct pointer_set_t *visited, bool *poten
 	if (!is_an_integer_trunction(stmt))
 		return NULL_TREE;
 
-	new_rhs1 = expand(visited, potentionally_overflowed, rhs1);
-	new_rhs2 = expand(visited, potentionally_overflowed, rhs2);
+	new_rhs1 = expand(visited, overflowed, rhs1);
+	new_rhs2 = expand(visited, overflowed, rhs2);
+
+	if (*overflowed == OVERFLOW_INTENTIONAL)
+		return NULL_TREE;
 
 	new_rhs1_def_stmt_rhs1 = get_cast_def_stmt_rhs(new_rhs1);
 	new_rhs2_def_stmt_rhs1 = get_cast_def_stmt_rhs(new_rhs2);
@@ -1139,15 +1245,15 @@ static tree handle_integer_truncation(struct pointer_set_t *visited, bool *poten
 	new_rhs2_def_stmt_rhs1_type = TREE_TYPE(new_rhs2_def_stmt_rhs1);
 
 	if (!useless_type_conversion_p(new_rhs1_def_stmt_rhs1_type, new_rhs2_def_stmt_rhs1_type)) {
-		new_rhs1_def_stmt_rhs1 = cast_to_int_TI_type_and_check(potentionally_overflowed, stmt, new_rhs1_def_stmt_rhs1);
-		new_rhs2_def_stmt_rhs1 = cast_to_int_TI_type_and_check(potentionally_overflowed, stmt, new_rhs2_def_stmt_rhs1);
+		new_rhs1_def_stmt_rhs1 = cast_to_int_TI_type_and_check(overflowed, stmt, new_rhs1_def_stmt_rhs1);
+		new_rhs2_def_stmt_rhs1 = cast_to_int_TI_type_and_check(overflowed, stmt, new_rhs2_def_stmt_rhs1);
 	}
 
 	assign = create_binary_assign(MINUS_EXPR, stmt, new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1);
 	new_lhs = gimple_get_lhs(assign);
-	check_size_overflow(assign, TREE_TYPE(new_lhs), new_lhs, rhs1, potentionally_overflowed, AFTER_STMT);
+	check_size_overflow(assign, TREE_TYPE(new_lhs), new_lhs, rhs1, overflowed, AFTER_STMT);
 
-	return follow_overflow_type_and_dup(visited, potentionally_overflowed, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
+	return follow_overflow_type_and_dup(visited, overflowed, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
 
 static bool is_a_neg_overflow(const_gimple stmt, const_tree rhs)
@@ -1167,7 +1273,7 @@ static bool is_a_neg_overflow(const_gimple stmt, const_tree rhs)
 	return true;
 }
 
-static tree handle_intentional_overflow(struct pointer_set_t *visited, bool *potentionally_overflowed, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs1, tree new_rhs2)
+static tree handle_intentional_overflow(struct pointer_set_t *visited, enum overflow_reason* overflowed, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs1, tree new_rhs2)
 {
 	tree new_rhs, size_overflow_type, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -1176,7 +1282,7 @@ static tree handle_intentional_overflow(struct pointer_set_t *visited, bool *pot
 	tree lhs = gimple_get_lhs(stmt);
 
 	if (change_rhs == NULL_TREE)
-		return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 
 	if (new_rhs2 == NULL_TREE) {
 		size_overflow_type = get_size_overflow_type_for_intentional_overflow(stmt, new_rhs1);
@@ -1193,16 +1299,16 @@ static tree handle_intentional_overflow(struct pointer_set_t *visited, bool *pot
 	change_rhs = cast_to_new_size_overflow_type(stmt, change_rhs, size_overflow_type, BEFORE_STMT);
 
 	if (check_overflow)
-		check_size_overflow(stmt, size_overflow_type, change_rhs, orig_rhs, potentionally_overflowed, BEFORE_STMT);
+		check_size_overflow(stmt, size_overflow_type, change_rhs, orig_rhs, overflowed, BEFORE_STMT);
 
 	new_rhs = change_assign_rhs(stmt, orig_rhs, change_rhs);
 	gimple_assign_set_rhs(stmt, new_rhs);
 	update_stmt(stmt);
 
-	return create_assign(visited, potentionally_overflowed, stmt, lhs, AFTER_STMT);
+	return create_assign(visited, overflowed, stmt, lhs, AFTER_STMT);
 }
 
-static tree handle_binary_ops(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs)
+static tree handle_binary_ops(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree lhs)
 {
 	tree rhs1, rhs2, new_lhs;
 	gimple def_stmt = get_def_stmt(lhs);
@@ -1226,68 +1332,70 @@ static tree handle_binary_ops(struct pointer_set_t *visited, bool *potentionally
 	case EXACT_DIV_EXPR:
 	case POINTER_PLUS_EXPR:
 	case BIT_AND_EXPR:
-		return create_assign(visited, potentionally_overflowed, def_stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, def_stmt, lhs, AFTER_STMT);
 	default:
 		break;
 	}
 
-	*potentionally_overflowed = true;
-
-	new_lhs = handle_integer_truncation(visited, potentionally_overflowed, lhs);
+	new_lhs = handle_integer_truncation(visited, overflowed, lhs);
 	if (new_lhs != NULL_TREE)
 		return new_lhs;
 
 	if (TREE_CODE(rhs1) == SSA_NAME)
-		new_rhs1 = expand(visited, potentionally_overflowed, rhs1);
+		new_rhs1 = expand(visited, overflowed, rhs1);
 	if (TREE_CODE(rhs2) == SSA_NAME)
-		new_rhs2 = expand(visited, potentionally_overflowed, rhs2);
+		new_rhs2 = expand(visited, overflowed, rhs2);
+
+	if (*overflowed == OVERFLOW_INTENTIONAL)
+		return NULL_TREE;
 
 	if (is_a_neg_overflow(def_stmt, rhs2))
-		return handle_intentional_overflow(visited, potentionally_overflowed, true, def_stmt, new_rhs1, new_rhs1, NULL_TREE);
+		return handle_intentional_overflow(visited, overflowed, true, def_stmt, new_rhs1, new_rhs1, NULL_TREE);
 	if (is_a_neg_overflow(def_stmt, rhs1))
-		return handle_intentional_overflow(visited, potentionally_overflowed, true, def_stmt, new_rhs2, NULL_TREE, new_rhs2);
+		return handle_intentional_overflow(visited, overflowed, true, def_stmt, new_rhs2, NULL_TREE, new_rhs2);
 
 	if (is_a_constant_overflow(def_stmt, rhs2))
-		return handle_intentional_overflow(visited, potentionally_overflowed, !is_a_cast_and_const_overflow(rhs1), def_stmt, new_rhs1, new_rhs1, NULL_TREE);
+		return handle_intentional_overflow(visited, overflowed, !is_a_cast_and_const_overflow(rhs1), def_stmt, new_rhs1, new_rhs1, NULL_TREE);
 	if (is_a_constant_overflow(def_stmt, rhs1))
-		return handle_intentional_overflow(visited, potentionally_overflowed, !is_a_cast_and_const_overflow(rhs2), def_stmt, new_rhs2, NULL_TREE, new_rhs2);
+		return handle_intentional_overflow(visited, overflowed, !is_a_cast_and_const_overflow(rhs2), def_stmt, new_rhs2, NULL_TREE, new_rhs2);
 
-	return follow_overflow_type_and_dup(visited, potentionally_overflowed, def_stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
+	return follow_overflow_type_and_dup(visited, overflowed, def_stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
 
 #if BUILDING_GCC_VERSION >= 4007
-static tree get_new_rhs(struct pointer_set_t *visited, bool *potentionally_overflowed, tree size_overflow_type, tree rhs)
+static tree get_new_rhs(struct pointer_set_t *visited, enum overflow_reason * overflowed, tree size_overflow_type, tree rhs)
 {
 	if (is_gimple_constant(rhs))
 		return cast_a_tree(size_overflow_type, rhs);
 	if (TREE_CODE(rhs) != SSA_NAME)
 		return NULL_TREE;
-	return expand(visited, potentionally_overflowed, rhs);
+	return expand(visited, overflowed, rhs);
 }
 
-static tree handle_ternary_ops(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs)
+static tree handle_ternary_ops(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree lhs)
 {
 	tree rhs1, rhs2, rhs3, new_rhs1, new_rhs2, new_rhs3, size_overflow_type;
 	gimple def_stmt = get_def_stmt(lhs);
-
-	*potentionally_overflowed = true;
 
 	size_overflow_type = get_size_overflow_type(def_stmt, lhs);
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
 	rhs2 = gimple_assign_rhs2(def_stmt);
 	rhs3 = gimple_assign_rhs3(def_stmt);
-	new_rhs1 = get_new_rhs(visited, potentionally_overflowed, size_overflow_type, rhs1);
-	new_rhs2 = get_new_rhs(visited, potentionally_overflowed, size_overflow_type, rhs2);
-	new_rhs3 = get_new_rhs(visited, potentionally_overflowed, size_overflow_type, rhs3);
+	new_rhs1 = get_new_rhs(visited, overflowed, size_overflow_type, rhs1);
+	new_rhs2 = get_new_rhs(visited, overflowed, size_overflow_type, rhs2);
+	new_rhs3 = get_new_rhs(visited, overflowed, size_overflow_type, rhs3);
 
-	return follow_overflow_type_and_dup(visited, potentionally_overflowed, def_stmt, lhs, new_rhs1, new_rhs2, new_rhs3);
+	if (*overflowed == OVERFLOW_INTENTIONAL)
+		return NULL_TREE;
+
+	return follow_overflow_type_and_dup(visited, overflowed, def_stmt, lhs, new_rhs1, new_rhs2, new_rhs3);
 }
 #endif
 
-static tree get_size_overflow_type(gimple stmt, tree node)
+static tree get_size_overflow_type(gimple stmt, const_tree node)
 {
-	tree type;
+	const_tree type;
 
 	gcc_assert(node != NULL_TREE);
 
@@ -1308,7 +1416,7 @@ static tree get_size_overflow_type(gimple stmt, tree node)
 			return (TYPE_UNSIGNED(type)) ? unsigned_intDI_type_node : intDI_type_node;
 		return (TYPE_UNSIGNED(type)) ? unsigned_intTI_type_node : intTI_type_node;
 	default:
-		debug_tree(node);
+		debug_tree((tree)node);
 		error("get_size_overflow_type: unsupported gcc configuration.");
 		gcc_unreachable();
 	}
@@ -1334,9 +1442,10 @@ static tree expand_visited(gimple def_stmt)
 	}
 }
 
-static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed, tree lhs)
+static tree expand(struct pointer_set_t *visited, enum overflow_reason* overflowed, tree lhs)
 {
 	gimple def_stmt;
+	unsigned int argnum;
 	enum tree_code code = TREE_CODE(TREE_TYPE(lhs));
 
 	if (is_gimple_constant(lhs))
@@ -1347,8 +1456,13 @@ static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed
 
 	gcc_assert(code == INTEGER_TYPE || code == POINTER_TYPE || code == BOOLEAN_TYPE || code == ENUMERAL_TYPE);
 
-	if (TREE_CODE(SSA_NAME_VAR(lhs)) == PARM_DECL)
-		check_missing_attribute(lhs);
+	if (TREE_CODE(SSA_NAME_VAR(lhs)) == PARM_DECL) {
+		argnum = search_missing_attribute(lhs);
+		if (argnum && is_already_marked(get_original_function_decl(current_function_decl), argnum) == MARKED_YES) {
+			*overflowed = OVERFLOW_INTENTIONAL;
+			return NULL_TREE;
+		}
+	}
 
 	def_stmt = get_def_stmt(lhs);
 
@@ -1363,22 +1477,26 @@ static tree expand(struct pointer_set_t *visited, bool *potentionally_overflowed
 
 	switch (gimple_code(def_stmt)) {
 	case GIMPLE_NOP:
-		check_missing_attribute(lhs);
+		argnum = search_missing_attribute(lhs);
+		if (!argnum)
+			return NULL_TREE;
+		if (is_already_marked(get_original_function_decl(current_function_decl), argnum) == MARKED_YES)
+			*overflowed = OVERFLOW_INTENTIONAL;
 		return NULL_TREE;
 	case GIMPLE_PHI:
-		return build_new_phi(visited, potentionally_overflowed, lhs);
+		return build_new_phi(visited, overflowed, lhs);
 	case GIMPLE_CALL:
 	case GIMPLE_ASM:
-		return create_assign(visited, potentionally_overflowed, def_stmt, lhs, AFTER_STMT);
+		return create_assign(visited, overflowed, def_stmt, lhs, AFTER_STMT);
 	case GIMPLE_ASSIGN:
 		switch (gimple_num_ops(def_stmt)) {
 		case 2:
-			return handle_unary_ops(visited, potentionally_overflowed, lhs);
+			return handle_unary_ops(visited, overflowed, lhs);
 		case 3:
-			return handle_binary_ops(visited, potentionally_overflowed, lhs);
+			return handle_binary_ops(visited, overflowed, lhs);
 #if BUILDING_GCC_VERSION >= 4007
 		case 4:
-			return handle_ternary_ops(visited, potentionally_overflowed, lhs);
+			return handle_ternary_ops(visited, overflowed, lhs);
 #endif
 		}
 	default:
@@ -1434,7 +1552,9 @@ static void handle_function_arg(gimple stmt, const_tree fndecl, unsigned int arg
 {
 	struct pointer_set_t *visited;
 	tree arg, newarg;
-	bool potentionally_overflowed;
+	enum overflow_reason overflowed = OVERFLOW_NONE;
+	location_t loc;
+	enum marked is_marked;
 
 	arg = get_function_arg(argnum, stmt, fndecl);
 	if (arg == NULL_TREE)
@@ -1448,16 +1568,25 @@ static void handle_function_arg(gimple stmt, const_tree fndecl, unsigned int arg
 	check_arg_type(arg);
 
 	visited = pointer_set_create();
-	potentionally_overflowed = false;
-	newarg = expand(visited, &potentionally_overflowed, arg);
+	newarg = expand(visited, &overflowed, arg);
 	pointer_set_destroy(visited);
 
-	if (newarg == NULL_TREE || !potentionally_overflowed)
+	is_marked = is_already_marked(fndecl, argnum + 1);
+	if ((overflowed == OVERFLOW_INTENTIONAL && is_marked == MARKED_YES) || is_marked == MARKED_NOT_INTENTIONAL)
+		return;
+
+	if (overflowed == OVERFLOW_INTENTIONAL) {
+		loc = DECL_SOURCE_LOCATION(fndecl);
+		inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", NAME(fndecl), argnum + 1);
+		return;
+	}
+
+	if (newarg == NULL_TREE)
 		return;
 
 	change_function_arg(stmt, arg, argnum, newarg);
 
-	check_size_overflow(stmt, TREE_TYPE(newarg), newarg, arg, &potentionally_overflowed, BEFORE_STMT);
+	check_size_overflow(stmt, TREE_TYPE(newarg), newarg, arg, &overflowed, BEFORE_STMT);
 }
 
 static void handle_function_by_attribute(gimple stmt, const_tree attr, const_tree fndecl)

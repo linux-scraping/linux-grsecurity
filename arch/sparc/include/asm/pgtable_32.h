@@ -74,8 +74,8 @@ extern unsigned long ptr_in_current_pgd;
 
 #define __S000	PAGE_NONE
 #define __S001	PAGE_READONLY_NOEXEC
-#define __S010	PAGE_SHARE_NOEXEC
-#define __S011	PAGE_SHARE_NOEXEC
+#define __S010	PAGE_SHARED_NOEXEC
+#define __S011	PAGE_SHARED_NOEXEC
 #define __S100	PAGE_READONLY
 #define __S101	PAGE_READONLY
 #define __S110	PAGE_SHARED

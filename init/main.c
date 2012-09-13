@@ -170,7 +170,9 @@ static int __init setup_pax_nouderef(char *str)
 		gdt[GDT_ENTRY_DEFAULT_USER_CS].limit = 0xf;
 		gdt[GDT_ENTRY_DEFAULT_USER_DS].limit = 0xf;
 	}
-	asm("mov %0, %%ds; mov %0, %%es; mov %0, %%ss" : : "r" (__KERNEL_DS) : "memory");
+	loadsegment(ds, __KERNEL_DS);
+	loadsegment(es, __KERNEL_DS);
+	loadsegment(ss, __KERNEL_DS);
 #else
 	memcpy(pax_enter_kernel_user, (unsigned char []){0xc3}, 1);
 	memcpy(pax_exit_kernel_user, (unsigned char []){0xc3}, 1);

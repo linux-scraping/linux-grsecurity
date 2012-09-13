@@ -40,6 +40,7 @@
 
 #ifdef SIZE_OVERFLOW_PLUGIN
 #define __size_overflow(...) __attribute__((size_overflow(__VA_ARGS__)))
+#define __intentional_overflow(...) __attribute__((intentional_overflow(__VA_ARGS__)))
 #endif
 
 #ifdef LATENT_ENTROPY_PLUGIN
