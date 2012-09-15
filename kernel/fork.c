@@ -479,8 +479,8 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		if (retval)
 			goto out;
 
-		if (tmp->vm_file && uprobe_mmap(tmp))
-			goto out;
+		if (tmp->vm_file)
+			uprobe_mmap(tmp);
 	}
 
 #ifdef CONFIG_PAX_SEGMEXEC
