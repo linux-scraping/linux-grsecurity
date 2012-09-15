@@ -101,9 +101,7 @@ struct slob_page {
 	union {
 		struct {
 			unsigned long flags;	/* mandatory */
-			atomic_t _count;	/* mandatory */
 			slobidx_t units;	/* free units left in page */
-			unsigned long pad[1];
 			unsigned long size;	/* size when >=PAGE_SIZE */
 			slob_t *free;		/* first free slob_t in page */
 			struct list_head list;	/* linked list of free pages */
@@ -598,7 +596,7 @@ const char *check_heap_object(const void *ptr, unsigned long n, bool to)
 	base = (void *)((unsigned long)ptr & PAGE_MASK);
 	free = sp->free;
 
-	while (!slob_last(free) && (void *)free <= ptr) {
+	while ((void *)free <= ptr) {
 		base = free + slob_units(free);
 		free = slob_next(free);
 	}
