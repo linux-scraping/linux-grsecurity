@@ -593,7 +593,7 @@ const char *check_heap_object(const void *ptr, unsigned long n, bool to)
 	base = (void *)((unsigned long)ptr & PAGE_MASK);
 	free = sp->free;
 
-	while (!slob_last(free) && (void *)free <= ptr) {
+	while ((void *)free <= ptr) {
 		base = free + slob_units(free);
 		free = slob_next(free);
 	}
