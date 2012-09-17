@@ -50,7 +50,7 @@ void __init default_setup_apic_routing(void)
 
 	if (is_vsmp_box()) {
 		/* need to update phys_pkg_id */
-		apic->phys_pkg_id = apicid_phys_pkg_id;
+		*(void **)&apic->phys_pkg_id = apicid_phys_pkg_id;
 	}
 }
 

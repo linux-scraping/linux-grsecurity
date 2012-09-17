@@ -422,6 +422,7 @@ static inline void free_pmd_range(struct mmu_gather *tlb, pud_t *pud,
 		free_pte_range(tlb, pmd, addr);
 	} while (pmd++, addr = next, addr != end);
 
+#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_PER_CPU_PGD)
 	start &= PUD_MASK;
 	if (start < floor)
 		return;
@@ -434,8 +435,6 @@ static inline void free_pmd_range(struct mmu_gather *tlb, pud_t *pud,
 		return;
 
 	pmd = pmd_offset(pud, start);
-
-#if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_PER_CPU_PGD)
 	pud_clear(pud);
 	pmd_free_tlb(tlb, pmd, start);
 #endif
@@ -459,6 +458,7 @@ static inline void free_pud_range(struct mmu_gather *tlb, pgd_t *pgd,
 		free_pmd_range(tlb, pud, addr, next, floor, ceiling);
 	} while (pud++, addr = next, addr != end);
 
+#if !defined(CONFIG_X86_64) || !defined(CONFIG_PAX_PER_CPU_PGD)
 	start &= PGDIR_MASK;
 	if (start < floor)
 		return;
@@ -470,7 +470,6 @@ static inline void free_pud_range(struct mmu_gather *tlb, pgd_t *pgd,
 	if (end - 1 > ceiling - 1)
 		return;
 
-#if !defined(CONFIG_X86_64) || !defined(CONFIG_PAX_PER_CPU_PGD)
 	pud = pud_offset(pgd, start);
 	pgd_clear(pgd);
 	pud_free_tlb(tlb, pud, start);

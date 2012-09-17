@@ -1811,10 +1811,10 @@ __init int intel_pmu_init(void)
 	 * v2 and above have a perf capabilities MSR
 	 */
 	if (version > 1) {
-		u64 capabilities;
+		u64 capabilities = x86_pmu.intel_cap.capabilities;
 
-		rdmsrl(MSR_IA32_PERF_CAPABILITIES, capabilities);
-		x86_pmu.intel_cap.capabilities = capabilities;
+		if (rdmsrl_safe(MSR_IA32_PERF_CAPABILITIES, &x86_pmu.intel_cap.capabilities))
+			x86_pmu.intel_cap.capabilities = capabilities;
 	}
 
 	intel_ds_init();
