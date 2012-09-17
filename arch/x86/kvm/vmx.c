@@ -750,6 +750,10 @@ static void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		kvm_get_gdt(&dt);
 		vmcs_writel(HOST_GDTR_BASE, dt.base);   /* 22.2.4 */
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		vmcs_writel(HOST_CR3, read_cr3());  /* 22.2.3  FIXME: shadow tables */
+#endif
+
 		rdmsrl(MSR_IA32_SYSENTER_ESP, sysenter_esp);
 		vmcs_writel(HOST_IA32_SYSENTER_ESP, sysenter_esp); /* 22.2.3 */
 
@@ -2345,7 +2349,10 @@ static int vmx_vcpu_setup(struct vcpu_vmx *vmx)
 
 	vmcs_writel(HOST_CR0, read_cr0());  /* 22.2.3 */
 	vmcs_writel(HOST_CR4, read_cr4());  /* 22.2.3, 22.2.5 */
+
+#ifndef CONFIG_PAX_PER_CPU_PGD
 	vmcs_writel(HOST_CR3, read_cr3());  /* 22.2.3  FIXME: shadow tables */
+#endif
 
 	vmcs_write16(HOST_CS_SELECTOR, __KERNEL_CS);  /* 22.2.4 */
 	vmcs_write16(HOST_DS_SELECTOR, __KERNEL_DS);  /* 22.2.4 */
