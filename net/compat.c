@@ -797,7 +797,7 @@ asmlinkage long compat_sys_socketcall(int call, u32 __user *args)
 
 	if (call < SYS_SOCKET || call > SYS_SENDMMSG)
 		return -EINVAL;
-	if (copy_from_user(a, args, nas[call]))
+	if (nas[call] > sizeof a || copy_from_user(a, args, nas[call]))
 		return -EFAULT;
 	a0 = a[0];
 	a1 = a[1];

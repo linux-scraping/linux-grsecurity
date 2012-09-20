@@ -686,7 +686,7 @@ static int rfcomm_sock_setsockopt(struct socket *sock, int level, int optname, c
 	struct sock *sk = sock->sk;
 	struct bt_security sec;
 	int err = 0;
-	size_t len;
+	size_t len = optlen;
 	u32 opt;
 
 	BT_DBG("sk %p", sk);
@@ -708,7 +708,7 @@ static int rfcomm_sock_setsockopt(struct socket *sock, int level, int optname, c
 
 		sec.level = BT_SECURITY_LOW;
 
-		len = min_t(unsigned int, sizeof(sec), optlen);
+		len = min(sizeof(sec), len);
 		if (copy_from_user((char *) &sec, optval, len)) {
 			err = -EFAULT;
 			break;

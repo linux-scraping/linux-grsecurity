@@ -1948,7 +1948,7 @@ static ssize_t iwl_dbgfs_interrupt_write(struct file *file,
 	struct isr_statistics *isr_stats = &trans_pcie->isr_stats;
 
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 	u32 reset_flag;
 
 	memset(buf, 0, sizeof(buf));
@@ -1969,7 +1969,7 @@ static ssize_t iwl_dbgfs_csr_write(struct file *file,
 {
 	struct iwl_trans *trans = file->private_data;
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 	int csr;
 
 	memset(buf, 0, sizeof(buf));

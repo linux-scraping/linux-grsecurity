@@ -2327,7 +2327,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
 			goto out;
 		tmp.valid_hooks = t->valid_hooks;
 
-		if (copy_to_user(user, &tmp, *len) != 0) {
+		if (*len > sizeof(tmp) || copy_to_user(user, &tmp, *len) != 0) {
 			ret = -EFAULT;
 			break;
 		}
@@ -2338,7 +2338,7 @@ static int compat_do_ebt_get_ctl(struct sock *sk, int cmd,
 		tmp.entries_size = t->table->entries_size;
 		tmp.valid_hooks = t->table->valid_hooks;
 
-		if (copy_to_user(user, &tmp, *len) != 0) {
+		if (*len > sizeof(tmp) || copy_to_user(user, &tmp, *len) != 0) {
 			ret = -EFAULT;
 			break;
 		}

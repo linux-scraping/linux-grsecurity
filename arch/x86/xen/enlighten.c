@@ -883,21 +883,21 @@ static u32 xen_safe_apic_wait_icr_idle(void)
 
 static void set_xen_basic_apic_ops(void)
 {
-	apic->read = xen_apic_read;
-	apic->write = xen_apic_write;
-	apic->icr_read = xen_apic_icr_read;
-	apic->icr_write = xen_apic_icr_write;
-	apic->wait_icr_idle = xen_apic_wait_icr_idle;
-	apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
-	apic->set_apic_id = xen_set_apic_id;
-	apic->get_apic_id = xen_get_apic_id;
+	*(void **)&apic->read = xen_apic_read;
+	*(void **)&apic->write = xen_apic_write;
+	*(void **)&apic->icr_read = xen_apic_icr_read;
+	*(void **)&apic->icr_write = xen_apic_icr_write;
+	*(void **)&apic->wait_icr_idle = xen_apic_wait_icr_idle;
+	*(void **)&apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
+	*(void **)&apic->set_apic_id = xen_set_apic_id;
+	*(void **)&apic->get_apic_id = xen_get_apic_id;
 
 #ifdef CONFIG_SMP
-	apic->send_IPI_allbutself = xen_send_IPI_allbutself;
-	apic->send_IPI_mask_allbutself = xen_send_IPI_mask_allbutself;
-	apic->send_IPI_mask = xen_send_IPI_mask;
-	apic->send_IPI_all = xen_send_IPI_all;
-	apic->send_IPI_self = xen_send_IPI_self;
+	*(void **)&apic->send_IPI_allbutself = xen_send_IPI_allbutself;
+	*(void **)&apic->send_IPI_mask_allbutself = xen_send_IPI_mask_allbutself;
+	*(void **)&apic->send_IPI_mask = xen_send_IPI_mask;
+	*(void **)&apic->send_IPI_all = xen_send_IPI_all;
+	*(void **)&apic->send_IPI_self = xen_send_IPI_self;
 #endif
 }
 

@@ -209,7 +209,7 @@ int regset_tls_set(struct task_struct *target, const struct user_regset *regset,
 
 	if (kbuf)
 		info = kbuf;
-	else if (__copy_from_user(infobuf, ubuf, count))
+	else if (count > sizeof infobuf || __copy_from_user(infobuf, ubuf, count))
 		return -EFAULT;
 	else
 		info = infobuf;
