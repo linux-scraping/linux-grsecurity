@@ -771,12 +771,12 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 		struct timeval tm;
 	} v;
 
-	int lv = sizeof(int);
-	int len;
+	unsigned int lv = sizeof(int);
+	unsigned int len;
 
 	if (get_user(len, optlen))
 		return -EFAULT;
-	if (len < 0)
+	if (len > INT_MAX)
 		return -EINVAL;
 
 	memset(&v, 0, sizeof(v));
@@ -924,13 +924,13 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 
 	case SO_PEERNAME:
 	{
-		char address[128];
+		char address[_K_SS_MAXSIZE];
 
 		if (sock->ops->getname(sock, (struct sockaddr *)address, &lv, 2))
 			return -ENOTCONN;
-		if (lv < len)
+		if (lv < len || sizeof address < len)
 			return -EINVAL;
-		if (len > sizeof(address) || copy_to_user(optval, address, len))
+		if (copy_to_user(optval, address, len))
 			return -EFAULT;
 		goto lenout;
 	}
@@ -1308,6 +1308,7 @@ void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
 		} else {
 			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
 			sk->sk_gso_max_size = dst->dev->gso_max_size;
+			sk->sk_gso_max_segs = dst->dev->gso_max_segs;
 		}
 	}
 }

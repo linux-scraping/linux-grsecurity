@@ -575,9 +575,6 @@ config PAX_KERNEXEC
 	  that is, enabling this option will make it harder to inject
 	  and execute 'foreign' code in kernel memory itself.
 
-	  Note that on x86_64 kernels there is a known regression when
-	  this feature and KVM/VMX are both enabled in the host kernel.
-
 choice
 	prompt "Return Address Instrumentation Method"
 	default PAX_KERNEXEC_PLUGIN_METHOD_BTS

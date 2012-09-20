@@ -484,7 +484,8 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 	struct sock *sk = sock->sk;
 	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
 	struct l2cap_options opts;
-	int len, err = 0;
+	int err = 0;
+	size_t len = optlen;
 	u32 opt;
 
 	BT_DBG("sk %p", sk);
@@ -506,7 +507,7 @@ static int l2cap_sock_setsockopt_old(struct socket *sock, int optname, char __us
 		opts.max_tx   = chan->max_tx;
 		opts.txwin_size = (__u16)chan->tx_win;
 
-		len = min_t(unsigned int, sizeof(opts), optlen);
+		len = min(sizeof(opts), len);
 		if (copy_from_user((char *) &opts, optval, len)) {
 			err = -EFAULT;
 			break;
@@ -572,7 +573,8 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 	struct bt_security sec;
 	struct bt_power pwr;
 	struct l2cap_conn *conn;
-	int len, err = 0;
+	int err = 0;
+	size_t len = optlen;
 	u32 opt;
 
 	BT_DBG("sk %p", sk);
@@ -595,7 +597,7 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 
 		sec.level = BT_SECURITY_LOW;
 
-		len = min_t(unsigned int, sizeof(sec), optlen);
+		len = min(sizeof(sec), len);
 		if (copy_from_user((char *) &sec, optval, len)) {
 			err = -EFAULT;
 			break;
@@ -671,7 +673,7 @@ static int l2cap_sock_setsockopt(struct socket *sock, int level, int optname, ch
 
 		pwr.force_active = BT_POWER_FORCE_ACTIVE_ON;
 
-		len = min_t(unsigned int, sizeof(pwr), optlen);
+		len = min(sizeof(pwr), len);
 		if (copy_from_user((char *) &pwr, optval, len)) {
 			err = -EFAULT;
 			break;
