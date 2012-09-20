@@ -254,7 +254,7 @@ SYSCALL_DEFINE2(capset, cap_user_header_t, header, const cap_user_data_t, data)
 	if (pid != 0 && pid != task_pid_vnr(current))
 		return -EPERM;
 
-	if (copy_from_user(&kdata, data,
+	if (tocopy > _KERNEL_CAPABILITY_U32S || copy_from_user(&kdata, data,
 			   tocopy * sizeof(struct __user_cap_data_struct)))
 		return -EFAULT;
 

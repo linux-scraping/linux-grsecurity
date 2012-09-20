@@ -166,7 +166,7 @@ static ssize_t iwl_dbgfs_tx_statistics_write(struct file *file,
 	struct iwl_priv *priv = file->private_data;
 	u32 clear_flag;
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 
 	memset(buf, 0, sizeof(buf));
 	buf_size = min(count, sizeof(buf) -  1);
@@ -285,7 +285,7 @@ static ssize_t iwl_dbgfs_sram_write(struct file *file,
 {
 	struct iwl_priv *priv = file->private_data;
 	char buf[64];
-	int buf_size;
+	size_t buf_size;
 	u32 offset, len;
 
 	memset(buf, 0, sizeof(buf));
@@ -743,7 +743,7 @@ static ssize_t iwl_dbgfs_disable_ht40_write(struct file *file,
 {
 	struct iwl_priv *priv = file->private_data;
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 	int ht40;
 
 	memset(buf, 0, sizeof(buf));
@@ -786,7 +786,7 @@ static ssize_t iwl_dbgfs_sleep_level_override_write(struct file *file,
 {
 	struct iwl_priv *priv = file->private_data;
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 	int value;
 
 	memset(buf, 0, sizeof(buf));
@@ -954,7 +954,7 @@ static ssize_t iwl_dbgfs_traffic_log_write(struct file *file,
 {
 	struct iwl_priv *priv = file->private_data;
 	char buf[8];
-	int buf_size;
+	size_t buf_size;
 	int traffic_log;
 
 	memset(buf, 0, sizeof(buf));

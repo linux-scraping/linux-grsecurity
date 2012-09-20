@@ -1724,7 +1724,7 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
 	case PACKET_DROP_MEMBERSHIP:
 	{
 		struct packet_mreq_max mreq;
-		int len = optlen;
+		unsigned int len = optlen;
 		memset(&mreq, 0, sizeof(mreq));
 		if (len < sizeof(struct packet_mreq))
 			return -EINVAL;
@@ -1895,7 +1895,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
 	case PACKET_HDRLEN:
 		if (len > sizeof(int))
 			len = sizeof(int);
-		if (copy_from_user(&val, optval, len))
+		if (len > sizeof(val) || copy_from_user(&val, optval, len))
 			return -EFAULT;
 		switch (val) {
 		case TPACKET_V1:

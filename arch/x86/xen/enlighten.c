@@ -716,12 +716,12 @@ static u32 xen_safe_apic_wait_icr_idle(void)
 
 static void set_xen_basic_apic_ops(void)
 {
-	apic->read = xen_apic_read;
-	apic->write = xen_apic_write;
-	apic->icr_read = xen_apic_icr_read;
-	apic->icr_write = xen_apic_icr_write;
-	apic->wait_icr_idle = xen_apic_wait_icr_idle;
-	apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
+	*(void **)&apic->read = xen_apic_read;
+	*(void **)&apic->write = xen_apic_write;
+	*(void **)&apic->icr_read = xen_apic_icr_read;
+	*(void **)&apic->icr_write = xen_apic_icr_write;
+	*(void **)&apic->wait_icr_idle = xen_apic_wait_icr_idle;
+	*(void **)&apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
 }
 
 #endif
