@@ -900,14 +900,14 @@ static int compat_table_info(const struct xt_table_info *info,
 }
 #endif
 
-static int get_info(struct net *net, void __user *user, int *len, int compat)
+static int get_info(struct net *net, void __user *user, int len, int compat)
 {
 	char name[ARPT_TABLE_MAXNAMELEN];
 	struct xt_table *t;
 	int ret;
 
-	if (*len != sizeof(struct arpt_getinfo)) {
-		duprintf("length %u != %Zu\n", *len,
+	if (len != sizeof(struct arpt_getinfo)) {
+		duprintf("length %u != %Zu\n", len,
 			 sizeof(struct arpt_getinfo));
 		return -EINVAL;
 	}
