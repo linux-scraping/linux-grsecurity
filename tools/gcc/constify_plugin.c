@@ -211,6 +211,9 @@ static bool walk_struct(tree node)
 	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
 		tree type = TREE_TYPE(field);
 		enum tree_code code = TREE_CODE(type);
+
+		if (node == type)
+			return false;
 		if (code == RECORD_TYPE || code == UNION_TYPE) {
 			if (!(walk_struct(type)))
 				return false;
@@ -224,7 +227,7 @@ static void finish_type(void *event_data, void *data)
 {
 	tree type = (tree)event_data;
 
-	if (type == NULL_TREE)
+	if (type == NULL_TREE || type == error_mark_node)
 		return;
 
 	if (TYPE_READONLY(type))

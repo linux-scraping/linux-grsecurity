@@ -130,6 +130,10 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
 			return -EINVAL;
 
 		rs = nla_data(rt);
+
+		if (rs->bmp_len > XFRMA_REPLAY_ESN_MAX / sizeof(rs->bmp[0]) / 8)
+			return -EINVAL;
+
 		if (nla_len(rt) < xfrm_replay_state_esn_len(rs) &&
 		    nla_len(rt) != sizeof(*rs))
 			return -EINVAL;
@@ -378,7 +382,7 @@ static inline int xfrm_replay_verify_len(struct xfrm_replay_state_esn *replay_es
 					 struct nlattr *rp)
 {
 	struct xfrm_replay_state_esn *up;
-	size_t ulen;
+	int ulen;
 
 	if (!replay_esn || !rp)
 		return 0;
@@ -397,14 +401,14 @@ static int xfrm_alloc_replay_state_esn(struct xfrm_replay_state_esn **replay_esn
 				       struct nlattr *rta)
 {
 	struct xfrm_replay_state_esn *p, *pp, *up;
-	size_t klen, ulen;
+	int klen, ulen;
 
 	if (!rta)
 		return 0;
 
 	up = nla_data(rta);
 	klen = xfrm_replay_state_esn_len(up);
-	ulen = nla_len(rta) > sizeof(*up) ? klen : sizeof(*up);
+	ulen = nla_len(rta) >= klen ? klen : sizeof(*up);
 
 	p = kzalloc(klen, GFP_KERNEL);
 	if (!p)

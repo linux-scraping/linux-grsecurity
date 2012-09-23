@@ -569,7 +569,7 @@ static unsigned long pax_parse_pt_pax_softmode(const struct elf_phdr * const elf
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
-	if (elf_phdata->p_flags & PF_EMUTRAMP)
+	if ((elf_phdata->p_flags & PF_EMUTRAMP) && (pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)))
 		pax_flags |= MF_PAX_EMUTRAMP;
 #endif
 

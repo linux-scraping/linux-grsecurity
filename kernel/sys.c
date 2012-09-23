@@ -1209,10 +1209,10 @@ DECLARE_RWSEM(uts_sem);
 static int override_release(char __user *release, size_t len)
 {
 	int ret = 0;
-	char buf[65] = { 0 };
-	const char *rest = UTS_RELEASE;
 
 	if (current->personality & UNAME26) {
+		char buf[65] = { 0 };
+		const char *rest = UTS_RELEASE;
 		int ndots = 0;
 		unsigned v;
 
