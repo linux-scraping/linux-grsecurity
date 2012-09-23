@@ -2538,7 +2538,7 @@ int hugetlb_reserve_pages(struct inode *inode,
 	}
 
 	/* There must be enough pages in the subpool for the mapping */
-	if (hugetlb_subpool_get_pages(spool, chg)) {
+	if (hugepage_subpool_get_pages(spool, chg)) {
 		ret = -ENOSPC;
 		goto out_err;
 	}
@@ -2549,7 +2549,7 @@ int hugetlb_reserve_pages(struct inode *inode,
 	 */
 	ret = hugetlb_acct_memory(h, chg);
 	if (ret < 0) {
-		hugetlb_subpool_put_pages(spool, chg);
+		hugepage_subpool_put_pages(spool, chg);
 		goto out_err;
 	}
 
