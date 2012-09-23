@@ -554,7 +554,7 @@ xfs_readlink(
 	char		*link)
 {
 	xfs_mount_t	*mp = ip->i_mount;
-	int		pathlen;
+	xfs_fsize_t	pathlen;
 	int		error = 0;
 
 	xfs_itrace_entry(ip);
@@ -568,7 +568,7 @@ xfs_readlink(
 	if (!pathlen)
 		goto out;
 
-	if (pathlen > MAXPATHLEN) {
+	if (pathlen < 0 || pathlen > MAXPATHLEN) {
 		xfs_fs_cmn_err(CE_ALERT, mp, "%s: inode (%llu) symlink length (%d) too long",
 			      __func__, (unsigned long long)ip->i_ino, pathlen);
 		ASSERT(0);
