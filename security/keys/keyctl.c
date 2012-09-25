@@ -1270,7 +1270,7 @@ long keyctl_session_to_parent(void)
 		goto not_permitted;
 
 	/* the parent must be single threaded */
-	if (!thread_group_empty(parent))
+	if (atomic_read(&parent->signal->count) != 1)
 		goto not_permitted;
 
 	/* the parent and the child must have different session keyrings or

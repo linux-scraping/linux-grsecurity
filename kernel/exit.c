@@ -61,11 +61,11 @@ extern rwlock_t grsec_exec_file_lock;
 
 static void exit_mm(struct task_struct * tsk);
 
-static void __unhash_process(struct task_struct *p, bool group_dead)
+static void __unhash_process(struct task_struct *p)
 {
 	nr_threads--;
 	detach_pid(p, PIDTYPE_PID);
-	if (group_dead) {
+	if (thread_group_leader(p)) {
 		detach_pid(p, PIDTYPE_PGID);
 		detach_pid(p, PIDTYPE_SID);
 
@@ -82,19 +82,18 @@ static void __unhash_process(struct task_struct *p, bool group_dead)
 static void __exit_signal(struct task_struct *tsk)
 {
 	struct signal_struct *sig = tsk->signal;
-	bool group_dead = thread_group_leader(tsk);
 	struct sighand_struct *sighand;
-	struct tty_struct *uninitialized_var(tty);
+
+	BUG_ON(!sig);
+	BUG_ON(!atomic_read(&sig->count));
 
 	sighand = rcu_dereference(tsk->sighand);
 	spin_lock(&sighand->siglock);
 
 	posix_cpu_timers_exit(tsk);
-	if (group_dead) {
+	if (atomic_dec_and_test(&sig->count))
 		posix_cpu_timers_exit_group(tsk);
-		tty = sig->tty;
-		sig->tty = NULL;
-	} else {
+	else {
 		/*
 		 * This can only happen if the caller is de_thread().
 		 * FIXME: this is the temporary hack, we should teach
@@ -107,7 +106,7 @@ static void __exit_signal(struct task_struct *tsk)
 		 * If there is any task waiting for the group exit
 		 * then notify it:
 		 */
-		if (sig->notify_count > 0 && !--sig->notify_count)
+		if (sig->group_exit_task && atomic_read(&sig->count) == sig->notify_count)
 			wake_up_process(sig->group_exit_task);
 
 		if (tsk == sig->curr_target)
@@ -133,24 +132,32 @@ static void __exit_signal(struct task_struct *tsk)
 		sig->oublock += task_io_get_oublock(tsk);
 		task_io_accounting_add(&sig->ioac, &tsk->ioac);
 		sig->sum_sched_runtime += tsk->se.sum_exec_runtime;
+		sig = NULL; /* Marker for below. */
 	}
 
-	sig->nr_threads--;
-	__unhash_process(tsk, group_dead);
+	__unhash_process(tsk);
 
 	/*
 	 * Do this under ->siglock, we can race with another thread
 	 * doing sigqueue_free() if we have SIGQUEUE_PREALLOC signals.
 	 */
 	flush_sigqueue(&tsk->pending);
+
+	tsk->signal = NULL;
 	tsk->sighand = NULL;
 	spin_unlock(&sighand->siglock);
 
 	__cleanup_sighand(sighand);
 	clear_tsk_thread_flag(tsk,TIF_SIGPENDING);
-	if (group_dead) {
+	if (sig) {
 		flush_sigqueue(&sig->shared_pending);
-		tty_kref_put(tty);
+		taskstats_tgid_free(sig);
+		/*
+		 * Make sure ->signal can't go away under rq->lock,
+		 * see account_group_exec_runtime().
+		 */
+		task_rq_unlock_wait(tsk);
+		__cleanup_signal(sig);
 	}
 }
 
@@ -864,9 +871,12 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 
 	tsk->exit_state = signal == DEATH_REAP ? EXIT_DEAD : EXIT_ZOMBIE;
 
-	/* mt-exec, de_thread() is waiting for group leader */
-	if (unlikely(tsk->signal->notify_count < 0))
+	/* mt-exec, de_thread() is waiting for us */
+	if (thread_group_leader(tsk) &&
+	    tsk->signal->group_exit_task &&
+	    tsk->signal->notify_count < 0)
 		wake_up_process(tsk->signal->group_exit_task);
+
 	write_unlock_irq(&tasklist_lock);
 
 	tracehook_report_death(tsk, signal, cookie, group_dead);

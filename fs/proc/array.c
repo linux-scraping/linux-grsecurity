@@ -264,7 +264,7 @@ static inline void task_sig(struct seq_file *m, struct task_struct *p)
 		shpending = p->signal->shared_pending.signal;
 		blocked = p->blocked;
 		collect_sigign_sigcatch(p, &ignored, &caught);
-		num_threads = get_nr_threads(p);
+		num_threads = atomic_read(&p->signal->count);
 		qsize = atomic_read(&__task_cred(p)->user->sigpending);
 		qlim = p->signal->rlim[RLIMIT_SIGPENDING].rlim_cur;
 		unlock_task_sighand(p, &flags);
@@ -430,7 +430,7 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 			tty_nr = new_encode_dev(tty_devnum(sig->tty));
 		}
 
-		num_threads = get_nr_threads(task);
+		num_threads = atomic_read(&sig->count);
 		collect_sigign_sigcatch(task, &sigign, &sigcatch);
 
 		cmin_flt = sig->cmin_flt;
@@ -599,6 +599,14 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 #ifdef CONFIG_GRKERNSEC_PROC_IPADDR
 int proc_pid_ipaddr(struct task_struct *task, char *buffer)
 {
-	return sprintf(buffer, "%pI4\n", &task->signal->curr_ip);
+	u32 curr_ip = 0;
+	unsigned long flags;
+
+	if (lock_task_sighand(task, &flags)) {
+		curr_ip = task->signal->curr_ip;
+		unlock_task_sighand(task, &flags);
+	}
+
+	return sprintf(buffer, "%pI4\n", &curr_ip);
 }
 #endif

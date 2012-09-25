@@ -1054,24 +1054,23 @@ force_sig_specific(int sig, struct task_struct *t)
 /*
  * Nuke all other threads in the group.
  */
-int zap_other_threads(struct task_struct *p)
+void zap_other_threads(struct task_struct *p)
 {
-	struct task_struct *t = p;
-	int count = 0;
+	struct task_struct *t;
 
 	p->signal->group_stop_count = 0;
 
-	while_each_thread(p, t) {
-		count++;
-
-		/* Don't bother with already dead threads */
+	for (t = next_thread(p); t != p; t = next_thread(t)) {
+		/*
+		 * Don't bother with already dead threads
+		 */
 		if (t->exit_state)
 			continue;
+
+		/* SIGKILL will be handled before any pending SIGSTOP */
 		sigaddset(&t->pending.signal, SIGKILL);
 		signal_wake_up(t, 1);
 	}
-
-	return count;
 }
 
 struct sighand_struct *lock_task_sighand(struct task_struct *tsk, unsigned long *flags)

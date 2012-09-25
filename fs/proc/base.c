@@ -181,6 +181,18 @@ static int get_fs_path(struct task_struct *task, struct path *path, bool root)
 	return result;
 }
 
+static int get_nr_threads(struct task_struct *tsk)
+{
+	unsigned long flags;
+	int count = 0;
+
+	if (lock_task_sighand(tsk, &flags)) {
+		count = atomic_read(&tsk->signal->count);
+		unlock_task_sighand(tsk, &flags);
+	}
+	return count;
+}
+
 static int proc_cwd_link(struct inode *inode, struct path *path)
 {
 	struct task_struct *task = get_proc_task(inode);
@@ -2605,16 +2617,14 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 {
 	struct task_io_accounting acct = task->ioac;
 	unsigned long flags;
-	int result;
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	u64 saved_exec_id;
 
-	result = mutex_lock_killable(&task->signal->cred_guard_mutex);
-	if (result)
-		return result;
+	saved_exec_id = task->exec_id;
+#endif
 
-	if (!ptrace_may_access(task, PTRACE_MODE_READ)) {
-		result = -EACCES;
-		goto out_unlock;
-	}
+	if (!ptrace_may_access(task, PTRACE_MODE_READ))
+		return -EACCES;
 
 	if (whole && lock_task_sighand(task, &flags)) {
 		struct task_struct *t = task;
@@ -2625,7 +2635,14 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 
 		unlock_task_sighand(task, &flags);
 	}
-	result = sprintf(buffer,
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	/* clear the info if an exec occured during its processing*/
+	if (saved_exec_id != task->exec_id)
+		memset(&acct, 0, sizeof(acct));
+#endif
+
+	return sprintf(buffer,
 			"rchar: %llu\n"
 			"wchar: %llu\n"
 			"syscr: %llu\n"
@@ -2640,9 +2657,6 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 			(unsigned long long)acct.read_bytes,
 			(unsigned long long)acct.write_bytes,
 			(unsigned long long)acct.cancelled_write_bytes);
-out_unlock:
-	mutex_unlock(&task->signal->cred_guard_mutex);
-	return result;
 }
 
 static int proc_tid_io_accounting(struct task_struct *task, char *buffer)
@@ -2659,12 +2673,8 @@ static int proc_tgid_io_accounting(struct task_struct *task, char *buffer)
 static int proc_pid_personality(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task)
 {
-	int err = lock_trace(task);
-	if (!err) {
-		seq_printf(m, "%08x\n", task->personality);
-		unlock_trace(task);
-	}
-	return err;
+	seq_printf(m, "%08x\n", task->personality);
+	return 0;
 }
 
 /*
