@@ -50,7 +50,7 @@ USER_CFLAGS = $(patsubst $(KERNEL_DEFINES),,$(patsubst -D__KERNEL__,,\
 	$(filter -I%,$(CFLAGS)) -D_FILE_OFFSET_BITS=64
 
 ifdef CONSTIFY_PLUGIN
-USER_CFLAGS	+= $(CONSTIFY_PLUGIN) -fplugin-arg-constify_plugin-no-constify
+USER_CFLAGS	+= -fplugin-arg-constify_plugin-no-constify
 endif
 
 include $(srctree)/$(ARCH_DIR)/Makefile-$(SUBARCH)
