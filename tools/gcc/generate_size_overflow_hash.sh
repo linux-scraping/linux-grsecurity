@@ -31,7 +31,7 @@ do
 done
 
 create_defines() {
-	for i in `seq 1 10`
+	for i in `seq 1 32`
 	do
 		echo -e "#define PARAM"$i" (1U << "$i")" >> "$header1"
 	done
@@ -45,10 +45,9 @@ create_structs () {
 
 	cat "$database" | while read data
 	do
-		data_array=(${data// /?})
-		data_array=(${data_array[@]//+/ })
+		data_array=($data)
 		struct_hash_name="${data_array[0]}"
-		funcn="${data_array[1]//\?/ }"
+		funcn="${data_array[1]}"
 		params="${data_array[2]}"
 		next="${data_array[5]}"
 
@@ -72,10 +71,9 @@ create_headers () {
 
 create_array_elements () {
 	index=0
-	grep -v "nohasharray" $database | sort -n -t '+' -k 4 | while read data
+	grep -v "nohasharray" $database | sort -n -k 4 | while read data
 	do
-		data_array=(${data// /?})
-		data_array=(${data_array//+/ })
+		data_array=($data)
 		i="${data_array[3]}"
 		hash="${data_array[4]}"
 		while [[ $index -lt $i ]]

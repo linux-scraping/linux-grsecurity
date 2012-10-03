@@ -683,10 +683,8 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
 	p->phydev = phy_connect(netdev, phy_id, octeon_mgmt_adjust_link, 0,
 				PHY_INTERFACE_MODE_MII);
 
-	if (IS_ERR(p->phydev)) {
-		p->phydev = NULL;
+	if (!p->phydev)
 		return -1;
-	}
 
 	phy_start_aneg(p->phydev);
 

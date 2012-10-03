@@ -1116,12 +1116,12 @@ static u32 lguest_apic_safe_wait_icr_idle(void)
 
 static void set_lguest_basic_apic_ops(void)
 {
-	apic->read = lguest_apic_read;
-	apic->write = lguest_apic_write;
-	apic->icr_read = lguest_apic_icr_read;
-	apic->icr_write = lguest_apic_icr_write;
-	apic->wait_icr_idle = lguest_apic_wait_icr_idle;
-	apic->safe_wait_icr_idle = lguest_apic_safe_wait_icr_idle;
+	*(void **)&apic->read = lguest_apic_read;
+	*(void **)&apic->write = lguest_apic_write;
+	*(void **)&apic->icr_read = lguest_apic_icr_read;
+	*(void **)&apic->icr_write = lguest_apic_icr_write;
+	*(void **)&apic->wait_icr_idle = lguest_apic_wait_icr_idle;
+	*(void **)&apic->safe_wait_icr_idle = lguest_apic_safe_wait_icr_idle;
 };
 #endif
 
