@@ -4056,7 +4056,7 @@ int gr_is_taskstats_denied(int pid)
 		if (cred->uid != 0)
 			ret = -EACCES;
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-		if (cred->uid != 0 && !groups_search(cred->group_info, CONFIG_GRKERNSEC_PROC_GID))
+		if (cred->uid != 0 && !groups_search(cred->group_info, grsec_proc_gid))
 			ret = -EACCES;
 #endif
 #endif

@@ -184,6 +184,15 @@ static int __init set_reset_devices(char *str)
 
 __setup("reset_devices", set_reset_devices);
 
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+int grsec_proc_gid = CONFIG_GRKERNSEC_PROC_GID;
+static int __init setup_grsec_proc_gid(char *str)
+{
+	get_option(&str, &grsec_proc_gid);
+}
+__setup("grsec_proc_gid=", setup_grsec_proc_gid);
+#endif
+
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 extern char pax_enter_kernel_user[];
 extern char pax_exit_kernel_user[];

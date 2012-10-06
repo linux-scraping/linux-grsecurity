@@ -806,6 +806,9 @@ and is between 256 and 4096 characters. It is defined in the file
 	gpt		[EFI] Forces disk with valid GPT signature but
 			invalid Protective MBR to be treated as GPT.
 
+	grsec_proc_gid=	[GRKERNSEC_PROC_USERGROUP] Chooses GID to
+			ignore grsecurity's /proc restrictions
+
 	gvp11=		[HW,SCSI]
 
 	hashdist=	[KNL,NUMA] Large hashes allocated during boot
