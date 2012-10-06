@@ -1683,7 +1683,7 @@ struct inode *proc_pid_make_inode(struct super_block * sb, struct task_struct *t
 		cred = __task_cred(task);
 		inode->i_uid = cred->euid;
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-		inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+		inode->i_gid = grsec_proc_gid;
 #else
 		inode->i_gid = cred->egid;
 #endif
@@ -1725,7 +1725,7 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 #if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 		if (!tmpcred->uid || (tmpcred->uid == cred->uid)
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-		    || in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+		    || in_group_p(grsec_proc_gid)
 #endif
 		) {
 #endif
@@ -1738,7 +1738,7 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 		    task_dumpable(task)) {
 			stat->uid = cred->euid;
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-			stat->gid = CONFIG_GRKERNSEC_PROC_GID;
+			stat->gid = grsec_proc_gid;
 #else
 			stat->gid = cred->egid;
 #endif
@@ -1795,7 +1795,7 @@ int pid_revalidate(struct dentry *dentry, struct nameidata *nd)
 			cred = __task_cred(task);
 			inode->i_uid = cred->euid;
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-			inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+			inode->i_gid = grsec_proc_gid;
 #else
 			inode->i_gid = cred->egid;
 #endif
@@ -3020,7 +3020,7 @@ static struct dentry *proc_pid_instantiate(struct inode *dir,
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IXUSR;
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+	inode->i_gid = grsec_proc_gid;
 	inode->i_mode = S_IFDIR|S_IRUSR|S_IRGRP|S_IXUSR|S_IXGRP;
 #else
 	inode->i_mode = S_IFDIR|S_IRUGO|S_IXUGO;
@@ -3171,7 +3171,7 @@ int proc_pid_readdir(struct file * filp, void * dirent, filldir_t filldir)
 #if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 		    || (tmpcred->uid && (itercred->uid != tmpcred->uid)
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-			&& !in_group_p(CONFIG_GRKERNSEC_PROC_GID)
+			&& !in_group_p(grsec_proc_gid)
 #endif
 			)
 #endif

@@ -113,7 +113,7 @@ static struct net *get_proc_task_net(struct inode *dir)
 	if (cred->fsuid)
 		return net;
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-	if (cred->fsuid && !in_group_p(CONFIG_GRKERNSEC_PROC_GID))
+	if (cred->fsuid && !in_group_p(grsec_proc_gid))
 		return net;
 #endif
 

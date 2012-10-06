@@ -454,7 +454,7 @@ struct inode *proc_get_inode(struct super_block *sb, struct proc_dir_entry *de)
 			inode->i_mode = de->mode;
 			inode->i_uid = de->uid;
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-			inode->i_gid = CONFIG_GRKERNSEC_PROC_GID;
+			inode->i_gid = grsec_proc_gid;
 #else
 			inode->i_gid = de->gid;
 #endif
