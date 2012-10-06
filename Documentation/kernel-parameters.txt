@@ -905,6 +905,9 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	gpt		[EFI] Forces disk with valid GPT signature but
 			invalid Protective MBR to be treated as GPT.
 
+	grsec_proc_gid=	[GRKERNSEC_PROC_USERGROUP] Chooses GID to
+			ignore grsecurity's /proc restrictions
+
 	hashdist=	[KNL,NUMA] Large hashes allocated during boot
 			are distributed across NUMA nodes.  Defaults on
 			for 64-bit NUMA, off otherwise.

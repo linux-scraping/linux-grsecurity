@@ -242,10 +242,11 @@ config GRKERNSEC_PROC_USERGROUP
 	depends on GRKERNSEC_PROC && !GRKERNSEC_PROC_USER
 	help
 	  If you say Y here, you will be able to select a group that will be
-          able to view all processes and network-related information.  If you've
-          enabled GRKERNSEC_HIDESYM, kernel and symbol information may still
-          remain hidden.  This option is useful if you want to run identd as
-          a non-root user.
+	  able to view all processes and network-related information.  If you've
+	  enabled GRKERNSEC_HIDESYM, kernel and symbol information may still
+	  remain hidden.  This option is useful if you want to run identd as
+	  a non-root user.  The group you select may also be chosen at boot time
+	  via "grsec_proc_gid=" on the kernel commandline.
 
 config GRKERNSEC_PROC_GID
 	int "GID for special group"
@@ -734,7 +735,12 @@ config GRKERNSEC_TPE_INVERT
 	  entry will default to on for backward-compatibility.
 
 config GRKERNSEC_TPE_GID
-	int "GID for untrusted users"
+	int
+	default GRKERNSEC_TPE_UNTRUSTED_GID if (GRKERNSEC_TPE && !GRKERNSEC_TPE_INVERT)
+	default GRKERNSEC_TPE_TRUSTED_GID if (GRKERNSEC_TPE && GRKERNSEC_TPE_INVERT)
+	
+config GRKERNSEC_TPE_UNTRUSTED_GID
+	int "GID for TPE-untrusted users"
 	depends on GRKERNSEC_TPE && !GRKERNSEC_TPE_INVERT
 	default 1005
 	help
@@ -742,8 +748,8 @@ config GRKERNSEC_TPE_GID
 	  *enabled* for.  If the sysctl option is enabled, a sysctl option
 	  with name "tpe_gid" is created.
 
-config GRKERNSEC_TPE_GID
-	int "GID for trusted users"
+config GRKERNSEC_TPE_TRUSTED_GID
+	int "GID for TPE-trusted users"
 	depends on GRKERNSEC_TPE && GRKERNSEC_TPE_INVERT
 	default 1005
 	help

@@ -196,18 +196,29 @@ config GRKERNSEC_PROC_GID
 	  Setting this GID determines which group will be exempted from
 	  grsecurity's /proc restrictions, allowing users of the specified
 	  group  to view network statistics and the existence of other users'
-	  processes on the system.
+	  processes on the system.  This GID may also be chosen at boot time
+	  via "grsec_proc_gid=" on the kernel commandline.
 
-config GRKERNSEC_TPE_GID
-	int "GID for untrusted users"
-	depends on GRKERNSEC_CONFIG_SERVER
-	default 1005
-	help
+config GRKERNSEC_TPE_UNTRUSTED_GID
+        int "GID for TPE-untrusted users"
+        depends on GRKERNSEC_CONFIG_SERVER && GRKERNSEC_TPE && !GRKERNSEC_TPE_INVERT
+        default 1005
+        help
 	  Setting this GID determines which group untrusted users should
 	  be added to.  These users will be placed under grsecurity's Trusted Path
 	  Execution mechanism, preventing them from executing their own binaries.
 	  The users will only be able to execute binaries in directories owned and
-	  writable only by the root user.
+	  writable only by the root user.  If the sysctl option is enabled, a sysctl
+	  option with name "tpe_gid" is created.
+
+config GRKERNSEC_TPE_TRUSTED_GID
+        int "GID for TPE-trusted users"
+        depends on GRKERNSEC_CONFIG_SERVER && GRKERNSEC_TPE && GRKERNSEC_TPE_INVERT
+        default 1005
+        help
+          Setting this GID determines what group TPE restrictions will be
+          *disabled* for.  If the sysctl option is enabled, a sysctl option
+          with name "tpe_gid" is created.
 
 config GRKERNSEC_SYMLINKOWN_GID
         int "GID for users with kernel-enforced SymlinksIfOwnerMatch"

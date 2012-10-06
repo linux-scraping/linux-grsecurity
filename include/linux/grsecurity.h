@@ -222,6 +222,11 @@ void gr_log_badprocpid(const char *entry);
 
 extern int grsec_enable_dmesg;
 extern int grsec_disable_privio;
+
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+extern int grsec_proc_gid;
+#endif
+
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
 extern int grsec_enable_chroot_findtask;
 #endif
