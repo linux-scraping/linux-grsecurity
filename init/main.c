@@ -155,7 +155,8 @@ __setup("reset_devices", set_reset_devices);
 int grsec_proc_gid = CONFIG_GRKERNSEC_PROC_GID;
 static int __init setup_grsec_proc_gid(char *str)
 {
-	get_option(&str, &grsec_proc_gid);
+	grsec_proc_gid = (int)simple_strtol(str, NULL, 0);
+	return 1;
 }
 __setup("grsec_proc_gid=", setup_grsec_proc_gid);
 #endif
