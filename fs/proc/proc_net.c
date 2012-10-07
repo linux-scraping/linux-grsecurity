@@ -22,6 +22,7 @@
 #include <linux/nsproxy.h>
 #include <net/net_namespace.h>
 #include <linux/seq_file.h>
+#include <linux/grsecurity.h>
 
 #include "internal.h"
 
