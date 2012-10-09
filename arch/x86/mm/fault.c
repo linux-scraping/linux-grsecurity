@@ -266,15 +266,13 @@ void vmalloc_sync_all(void)
 	     address >= TASK_SIZE && address < FIXADDR_TOP;
 	     address += PMD_SIZE) {
 
-		unsigned long flags;
-
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		unsigned long cpu;
 #else
 		struct page *page;
 #endif
 
-		spin_lock_irqsave(&pgd_lock, flags);
+		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
@@ -287,7 +285,7 @@ void vmalloc_sync_all(void)
 			if (!vmalloc_sync_one(pgd, address))
 				break;
 		}
-		spin_unlock_irqrestore(&pgd_lock, flags);
+		spin_unlock(&pgd_lock);
 	}
 }
 
@@ -392,7 +390,6 @@ void vmalloc_sync_all(void)
 	     address += PGDIR_SIZE) {
 
 		const pgd_t *pgd_ref = pgd_offset_k(address);
-		unsigned long flags;
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		unsigned long cpu;
@@ -403,7 +400,7 @@ void vmalloc_sync_all(void)
 		if (pgd_none(*pgd_ref))
 			continue;
 
-		spin_lock_irqsave(&pgd_lock, flags);
+		spin_lock(&pgd_lock);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
@@ -419,7 +416,7 @@ void vmalloc_sync_all(void)
 			else
 				BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
 		}
-		spin_unlock_irqrestore(&pgd_lock, flags);
+		spin_unlock(&pgd_lock);
 	}
 }
 

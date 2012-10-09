@@ -1133,6 +1133,10 @@ int dev_open(struct net_device *dev)
 		 *	Wakeup transmit queue engine
 		 */
 		dev_activate(dev);
+
+		/*
+		 *	... and announce new interface.
+		 */
 		add_device_randomness(dev->dev_addr, dev->addr_len);
 		call_netdevice_notifiers(NETDEV_UP, dev);
 	}

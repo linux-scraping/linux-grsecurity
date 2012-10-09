@@ -777,6 +777,9 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 		goto out;
 	}
 	crypt_stat = &ecryptfs_inode_to_private(dentry->d_inode)->crypt_stat;
+	if (crypt_stat->flags & ECRYPTFS_NEW_FILE)
+		crypt_stat->flags &= ~(ECRYPTFS_NEW_FILE);
+
 	/* Set up a fake ecryptfs file, this is used to interface with
 	 * the file in the underlying filesystem so that the
 	 * truncation has an effect there as well. */
@@ -1035,6 +1038,8 @@ ecryptfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 	rc = lower_dentry->d_inode->i_op->setxattr(lower_dentry, name, value,
 						   size, flags);
 	mutex_unlock(&lower_dentry->d_inode->i_mutex);
+	if (!rc)
+		fsstack_copy_attr_all(dentry->d_inode, lower_dentry->d_inode, NULL);
 out:
 	return rc;
 }

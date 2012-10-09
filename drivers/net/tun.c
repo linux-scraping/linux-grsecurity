@@ -1124,9 +1124,9 @@ static long tun_chr_ioctl(struct file *file, unsigned int cmd,
 	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89) {
 		if (copy_from_user(&ifr, argp, sizeof ifr))
 			return -EFAULT;
-	} else
+	} else {
 		memset(&ifr, 0, sizeof(ifr));
-
+	}
 	if (cmd == TUNGETFEATURES) {
 		/* Currently this just means: "what IFF flags are valid?".
 		 * This is needed because we never checked for invalid flags on
