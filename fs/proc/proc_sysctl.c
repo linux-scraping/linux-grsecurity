@@ -437,7 +437,7 @@ static struct ctl_table_header *grab_header(struct inode *inode)
 }
 
 static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
-					struct nameidata *nd)
+					unsigned int flags)
 {
 	struct ctl_table_header *head = grab_header(dir);
 	struct ctl_table_header *h = NULL;
@@ -475,9 +475,6 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 	gr_handle_proc_create(dentry, inode);
 
 	d_add(dentry, inode);
-
-	if (!gr_acl_handle_hidden_file(dentry, nd->path.mnt))
-		err = ERR_PTR(-ENOENT);
 
 out:
 	if (h)
@@ -830,9 +827,9 @@ const struct inode_operations proc_sys_dir_operations = {
 	.getattr	= proc_sys_getattr,
 };
 
-static int proc_sys_revalidate(struct dentry *dentry, struct nameidata *nd)
+static int proc_sys_revalidate(struct dentry *dentry, unsigned int flags)
 {
-	if (nd->flags & LOOKUP_RCU)
+	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 	return !PROC_I(dentry->d_inode)->sysctl->unregistering;
 }

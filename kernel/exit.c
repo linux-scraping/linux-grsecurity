@@ -973,13 +973,10 @@ void do_exit(long code)
 	exit_signals(tsk);  /* sets PF_EXITING */
 	/*
 	 * tsk->flags are checked in the futex code to protect against
-	 * an exiting task cleaning up the robust pi futexes, and in
-	 * task_work_add() to avoid the race with exit_task_work().
+	 * an exiting task cleaning up the robust pi futexes.
 	 */
 	smp_mb();
 	raw_spin_unlock_wait(&tsk->pi_lock);
-
-	exit_task_work(tsk);
 
 	if (unlikely(in_atomic()))
 		printk(KERN_INFO "note: %s[%d] exited with preempt_count %d\n",
@@ -1018,6 +1015,7 @@ void do_exit(long code)
 	exit_shm(tsk);
 	exit_files(tsk);
 	exit_fs(tsk);
+	exit_task_work(tsk);
 	check_stack_usage();
 	exit_thread();
 

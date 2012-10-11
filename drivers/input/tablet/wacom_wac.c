@@ -894,7 +894,7 @@ static int wacom_tpc_single_touch(struct wacom_wac *wacom, size_t len)
 			prox = data[0] & 0x01;
 			x = get_unaligned_le16(&data[1]);
 			y = get_unaligned_le16(&data[3]);
-		} else { /* with capacity */
+		} else {
 			prox = data[1] & 0x01;
 			x = le16_to_cpup((__le16 *)&data[2]);
 			y = le16_to_cpup((__le16 *)&data[4]);
@@ -967,6 +967,7 @@ static int wacom_tpc_irq(struct wacom_wac *wacom, size_t len)
 		case WACOM_REPORT_TPC1FG:
 		case WACOM_REPORT_TPCHID:
 		case WACOM_REPORT_TPCST:
+		case WACOM_REPORT_TPC1FGE:
 			return wacom_tpc_single_touch(wacom, len);
 
 		case WACOM_REPORT_TPCMT:
@@ -1251,6 +1252,7 @@ void wacom_wac_irq(struct wacom_wac *wacom_wac, size_t len)
 		break;
 
 	case TABLETPC:
+	case TABLETPCE:
 	case TABLETPC2FG:
 	case MTSCREEN:
 		sync = wacom_tpc_irq(wacom_wac, len);
@@ -1558,10 +1560,8 @@ int wacom_setup_input_capabilities(struct input_dev *input_dev,
 		__set_bit(INPUT_PROP_POINTER, input_dev->propbit);
 		break;
 
-	case TABLETPC2FG:
 	case MTSCREEN:
 		if (features->device_type == BTN_TOOL_FINGER) {
-
 			wacom_wac->slots = kmalloc(features->touch_max *
 							sizeof(int),
 						   GFP_KERNEL);
@@ -1570,7 +1570,11 @@ int wacom_setup_input_capabilities(struct input_dev *input_dev,
 
 			for (i = 0; i < features->touch_max; i++)
 				wacom_wac->slots[i] = -1;
+		}
+		/* fall through */
 
+	case TABLETPC2FG:
+		if (features->device_type == BTN_TOOL_FINGER) {
 			input_mt_init_slots(input_dev, features->touch_max);
 			input_set_abs_params(input_dev, ABS_MT_TOOL_TYPE,
 					0, MT_TOOL_MAX, 0, 0);
@@ -1582,6 +1586,7 @@ int wacom_setup_input_capabilities(struct input_dev *input_dev,
 		/* fall through */
 
 	case TABLETPC:
+	case TABLETPCE:
 		__clear_bit(ABS_MISC, input_dev->absbit);
 
 		__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
@@ -1843,7 +1848,10 @@ static const struct wacom_features wacom_features_0x2A =
 	{ "Wacom Intuos5 M", WACOM_PKGLEN_INTUOS,  44704, 27940, 2047,
 	  63, INTUOS5, WACOM_INTUOS3_RES, WACOM_INTUOS3_RES };
 static const struct wacom_features wacom_features_0xF4 =
-	{ "Wacom Cintiq 24HD",    WACOM_PKGLEN_INTUOS,   104480, 65600, 2047,
+	{ "Wacom Cintiq 24HD",       WACOM_PKGLEN_INTUOS,   104480, 65600, 2047,
+	  63, WACOM_24HD, WACOM_INTUOS3_RES, WACOM_INTUOS3_RES };
+static const struct wacom_features wacom_features_0xF8 =
+	{ "Wacom Cintiq 24HD touch", WACOM_PKGLEN_INTUOS,   104480, 65600, 2047,
 	  63, WACOM_24HD, WACOM_INTUOS3_RES, WACOM_INTUOS3_RES };
 static const struct wacom_features wacom_features_0x3F =
 	{ "Wacom Cintiq 21UX",    WACOM_PKGLEN_INTUOS,    87200, 65600, 1023,
@@ -1902,6 +1910,12 @@ static const struct wacom_features wacom_features_0xE6 =
 static const struct wacom_features wacom_features_0xEC =
 	{ "Wacom ISDv4 EC",       WACOM_PKGLEN_GRAPHIRE,  25710, 14500,  255,
 	  0, TABLETPC,    WACOM_INTUOS_RES, WACOM_INTUOS_RES };
+static const struct wacom_features wacom_features_0xED =
+	{ "Wacom ISDv4 ED",       WACOM_PKGLEN_GRAPHIRE,  26202, 16325,  255,
+	  0, TABLETPCE, WACOM_INTUOS_RES, WACOM_INTUOS_RES };
+static const struct wacom_features wacom_features_0xEF =
+	{ "Wacom ISDv4 EF",       WACOM_PKGLEN_GRAPHIRE,  26202, 16325,  255,
+	  0, TABLETPC, WACOM_INTUOS_RES, WACOM_INTUOS_RES };
 static const struct wacom_features wacom_features_0x47 =
 	{ "Wacom Intuos2 6x8",    WACOM_PKGLEN_INTUOS,    20320, 16240, 1023,
 	  31, INTUOS, WACOM_INTUOS_RES, WACOM_INTUOS_RES };
@@ -2076,8 +2090,11 @@ const struct usb_device_id wacom_ids[] = {
 	{ USB_DEVICE_WACOM(0xE5) },
 	{ USB_DEVICE_WACOM(0xE6) },
 	{ USB_DEVICE_WACOM(0xEC) },
+	{ USB_DEVICE_WACOM(0xED) },
+	{ USB_DEVICE_WACOM(0xEF) },
 	{ USB_DEVICE_WACOM(0x47) },
 	{ USB_DEVICE_WACOM(0xF4) },
+	{ USB_DEVICE_WACOM(0xF8) },
 	{ USB_DEVICE_WACOM(0xFA) },
 	{ USB_DEVICE_LENOVO(0x6004) },
 	{ }

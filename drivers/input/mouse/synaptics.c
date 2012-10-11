@@ -53,14 +53,19 @@
 #define ABS_POS_BITS 13
 
 /*
- * Any position values from the hardware above the following limits are
- * treated as "wrapped around negative" values that have been truncated to
- * the 13-bit reporting range of the hardware. These are just reasonable
- * guesses and can be adjusted if hardware is found that operates outside
- * of these parameters.
+ * These values should represent the absolute maximum value that will
+ * be reported for a positive position value. Some Synaptics firmware
+ * uses this value to indicate a finger near the edge of the touchpad
+ * whose precise position cannot be determined.
+ *
+ * At least one touchpad is known to report positions in excess of this
+ * value which are actually negative values truncated to the 13-bit
+ * reporting range. These values have never been observed to be lower
+ * than 8184 (i.e. -8), so we treat all values greater than 8176 as
+ * negative and any other value as positive.
  */
-#define X_MAX_POSITIVE (((1 << ABS_POS_BITS) + XMAX) / 2)
-#define Y_MAX_POSITIVE (((1 << ABS_POS_BITS) + YMAX) / 2)
+#define X_MAX_POSITIVE 8176
+#define Y_MAX_POSITIVE 8176
 
 /*****************************************************************************
  *	Stuff we need even when we do not want native Synaptics support
@@ -151,6 +156,35 @@ static int synaptics_model_id(struct psmouse *psmouse)
 	if (synaptics_send_cmd(psmouse, SYN_QUE_MODEL, mi))
 		return -1;
 	priv->model_id = (mi[0]<<16) | (mi[1]<<8) | mi[2];
+	return 0;
+}
+
+/*
+ * Read the board id from the touchpad
+ * The board id is encoded in the "QUERY MODES" response
+ */
+static int synaptics_board_id(struct psmouse *psmouse)
+{
+	struct synaptics_data *priv = psmouse->private;
+	unsigned char bid[3];
+
+	if (synaptics_send_cmd(psmouse, SYN_QUE_MODES, bid))
+		return -1;
+	priv->board_id = ((bid[0] & 0xfc) << 6) | bid[1];
+	return 0;
+}
+
+/*
+ * Read the firmware id from the touchpad
+ */
+static int synaptics_firmware_id(struct psmouse *psmouse)
+{
+	struct synaptics_data *priv = psmouse->private;
+	unsigned char fwid[3];
+
+	if (synaptics_send_cmd(psmouse, SYN_QUE_FIRMWARE_ID, fwid))
+		return -1;
+	priv->firmware_id = (fwid[0] << 16) | (fwid[1] << 8) | fwid[2];
 	return 0;
 }
 
@@ -276,6 +310,10 @@ static int synaptics_query_hardware(struct psmouse *psmouse)
 	if (synaptics_identify(psmouse))
 		return -1;
 	if (synaptics_model_id(psmouse))
+		return -1;
+	if (synaptics_firmware_id(psmouse))
+		return -1;
+	if (synaptics_board_id(psmouse))
 		return -1;
 	if (synaptics_capability(psmouse))
 		return -1;
@@ -571,11 +609,21 @@ static int synaptics_parse_hw_state(const unsigned char buf[],
 		hw->right = (buf[0] & 0x02) ? 1 : 0;
 	}
 
-	/* Convert wrap-around values to negative */
+	/*
+	 * Convert wrap-around values to negative. (X|Y)_MAX_POSITIVE
+	 * is used by some firmware to indicate a finger at the edge of
+	 * the touchpad whose precise position cannot be determined, so
+	 * convert these values to the maximum axis value.
+	 */
 	if (hw->x > X_MAX_POSITIVE)
 		hw->x -= 1 << ABS_POS_BITS;
+	else if (hw->x == X_MAX_POSITIVE)
+		hw->x = XMAX;
+
 	if (hw->y > Y_MAX_POSITIVE)
 		hw->y -= 1 << ABS_POS_BITS;
+	else if (hw->y == Y_MAX_POSITIVE)
+		hw->y = YMAX;
 
 	return 0;
 }
@@ -1457,11 +1505,12 @@ static int __synaptics_init(struct psmouse *psmouse, bool absolute_mode)
 	priv->pkt_type = SYN_MODEL_NEWABS(priv->model_id) ? SYN_NEWABS : SYN_OLDABS;
 
 	psmouse_info(psmouse,
-		     "Touchpad model: %ld, fw: %ld.%ld, id: %#lx, caps: %#lx/%#lx/%#lx\n",
+		     "Touchpad model: %ld, fw: %ld.%ld, id: %#lx, caps: %#lx/%#lx/%#lx, board id: %lu, fw id: %lu\n",
 		     SYN_ID_MODEL(priv->identity),
 		     SYN_ID_MAJOR(priv->identity), SYN_ID_MINOR(priv->identity),
 		     priv->model_id,
-		     priv->capabilities, priv->ext_cap, priv->ext_cap_0c);
+		     priv->capabilities, priv->ext_cap, priv->ext_cap_0c,
+		     priv->board_id, priv->firmware_id);
 
 	set_input_params(psmouse->dev, priv);
 

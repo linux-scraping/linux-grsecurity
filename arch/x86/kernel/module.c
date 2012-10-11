@@ -15,6 +15,9 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/moduleloader.h>
 #include <linux/elf.h>
 #include <linux/vmalloc.h>
@@ -30,9 +33,14 @@
 #include <asm/pgtable.h>
 
 #if 0
-#define DEBUGP printk
+#define DEBUGP(fmt, ...)				\
+	printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 #else
-#define DEBUGP(fmt...)
+#define DEBUGP(fmt, ...)				\
+do {							\
+	if (0)						\
+		printk(KERN_DEBUG fmt, ##__VA_ARGS__);	\
+} while (0)
 #endif
 
 static inline void *__module_alloc(unsigned long size, pgprot_t prot)
@@ -101,8 +109,8 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 	Elf32_Sym *sym;
 	uint32_t *plocation, location;
 
-	DEBUGP("Applying relocate section %u to %u\n", relsec,
-	       sechdrs[relsec].sh_info);
+	DEBUGP("Applying relocate section %u to %u\n",
+	       relsec, sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
 		/* This is where to make the change */
 		plocation = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr + rel[i].r_offset;
@@ -122,13 +130,13 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 			pax_close_kernel();
 			break;
 		case R_386_PC32:
-			/* Add the value, subtract its postition */
+			/* Add the value, subtract its position */
 			pax_open_kernel();
 			*plocation += sym->st_value - location;
 			pax_close_kernel();
 			break;
 		default:
-			printk(KERN_ERR "module %s: Unknown relocation: %u\n",
+			pr_err("%s: Unknown relocation: %u\n",
 			       me->name, ELF32_R_TYPE(rel[i].r_info));
 			return -ENOEXEC;
 		}
@@ -148,8 +156,8 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	void *loc;
 	u64 val;
 
-	DEBUGP("Applying relocate section %u to %u\n", relsec,
-	       sechdrs[relsec].sh_info);
+	DEBUGP("Applying relocate section %u to %u\n",
+	       relsec, sechdrs[relsec].sh_info);
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
 		/* This is where to make the change */
 		loc = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
@@ -161,8 +169,8 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 			+ ELF64_R_SYM(rel[i].r_info);
 
 		DEBUGP("type %d st_value %Lx r_addend %Lx loc %Lx\n",
-			(int)ELF64_R_TYPE(rel[i].r_info),
-			sym->st_value, rel[i].r_addend, (u64)loc);
+		       (int)ELF64_R_TYPE(rel[i].r_info),
+		       sym->st_value, rel[i].r_addend, (u64)loc);
 
 		val = sym->st_value + rel[i].r_addend;
 
@@ -200,7 +208,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 #endif
 			break;
 		default:
-			printk(KERN_ERR "module %s: Unknown rela relocation: %llu\n",
+			pr_err("%s: Unknown rela relocation: %llu\n",
 			       me->name, ELF64_R_TYPE(rel[i].r_info));
 			return -ENOEXEC;
 		}
@@ -208,9 +216,9 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	return 0;
 
 overflow:
-	printk(KERN_ERR "overflow in relocation type %d val %Lx\n",
+	pr_err("overflow in relocation type %d val %Lx\n",
 	       (int)ELF64_R_TYPE(rel[i].r_info), val);
-	printk(KERN_ERR "`%s' likely not compiled with -mcmodel=kernel\n",
+	pr_err("`%s' likely not compiled with -mcmodel=kernel\n",
 	       me->name);
 	return -ENOEXEC;
 }

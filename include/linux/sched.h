@@ -1415,10 +1415,6 @@ struct task_struct {
 #endif
 /* filesystem information */
 	struct fs_struct *fs;
-
-	const struct cred __rcu *cred;	/* effective (overridable) subjective task
-					 * credentials (COW) */
-
 /* open file information */
 	struct files_struct *files;
 /* namespaces */
@@ -1436,7 +1432,7 @@ struct task_struct {
 	int (*notifier)(void *priv);
 	void *notifier_data;
 	sigset_t *notifier_mask;
-	struct hlist_head task_works;
+	struct callback_head *task_works;
 
 	struct audit_context *audit_context;
 #ifdef CONFIG_AUDITSYSCALL
@@ -1461,11 +1457,6 @@ struct task_struct {
 	/* Deadlock detection and priority inheritance handling */
 	struct rt_mutex_waiter *pi_blocked_on;
 #endif
-
-/* process credentials */
-	const struct cred __rcu *real_cred; /* objective and real subjective task
-					 * credentials (COW) */
-	struct cred *replacement_session_keyring; /* for KEYCTL_SESSION_TO_PARENT */
 
 #ifdef CONFIG_DEBUG_MUTEXES
 	/* mutex deadlock detection */
@@ -1494,6 +1485,10 @@ struct task_struct {
 	struct held_lock held_locks[MAX_LOCK_DEPTH];
 	gfp_t lockdep_reclaim_gfp;
 #endif
+
+/* process credentials */
+	const struct cred __rcu *real_cred; /* objective and real subjective task
+					 * credentials (COW) */
 
 /* journalling filesystem info */
 	void *journal_info;
@@ -1533,6 +1528,10 @@ struct task_struct {
 	/* cg_list protected by css_set_lock and tsk->alloc_lock */
 	struct list_head cg_list;
 #endif
+
+	const struct cred __rcu *cred;	/* effective (overridable) subjective task
+					 * credentials (COW) */
+
 #ifdef CONFIG_FUTEX
 	struct robust_list_head __user *robust_list;
 #ifdef CONFIG_COMPAT
@@ -1582,28 +1581,6 @@ struct task_struct {
 	unsigned long timer_slack_ns;
 	unsigned long default_timer_slack_ns;
 
-	struct list_head	*scm_work_list;
-
-#ifdef CONFIG_GRKERNSEC
-	/* grsecurity */
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	u64 exec_id;
-#endif
-#ifdef CONFIG_GRKERNSEC_SETXID
-	const struct cred *delayed_cred;
-#endif
-	struct dentry *gr_chroot_dentry;
-	struct acl_subject_label *acl;
-	struct acl_role_label *role;
-	struct file *exec_file;
-	u16 acl_role_id;
-	/* is this the task that authenticated to the special role */
-	u8 acl_sp_role;
-	u8 is_writable;
-	u8 brute;
-	u8 gr_is_chrooted;
-#endif
-
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	/* Index of current stored address in ret_stack */
 	int curr_ret_stack;
@@ -1625,7 +1602,7 @@ struct task_struct {
 	/* bitmask and counter of trace recursion */
 	unsigned long trace_recursion;
 #endif /* CONFIG_TRACING */
-#ifdef CONFIG_CGROUP_MEM_RES_CTLR /* memcg uses this to do batch job */
+#ifdef CONFIG_MEMCG /* memcg uses this to do batch job */
 	struct memcg_batch_info {
 		int do_batch;	/* incremented when batch uncharge started */
 		struct mem_cgroup *memcg; /* target memcg of uncharge */
@@ -1638,8 +1615,28 @@ struct task_struct {
 #endif
 #ifdef CONFIG_UPROBES
 	struct uprobe_task *utask;
-	int uprobe_srcu_id;
 #endif
+
+#ifdef CONFIG_GRKERNSEC
+	/* grsecurity */
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	u64 exec_id;
+#endif
+#ifdef CONFIG_GRKERNSEC_SETXID
+	const struct cred *delayed_cred;
+#endif
+	struct dentry *gr_chroot_dentry;
+	struct acl_subject_label *acl;
+	struct acl_role_label *role;
+	struct file *exec_file;
+	u16 acl_role_id;
+	/* is this the task that authenticated to the special role */
+	u8 acl_sp_role;
+	u8 is_writable;
+	u8 brute;
+	u8 gr_is_chrooted;
+#endif
+
 };
 
 #define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
@@ -1980,6 +1977,13 @@ static inline void rcu_copy_process(struct task_struct *p)
 }
 
 #endif
+
+static inline void tsk_restore_flags(struct task_struct *task,
+				unsigned long orig_flags, unsigned long flags)
+{
+	task->flags &= ~flags;
+	task->flags |= orig_flags & flags;
+}
 
 #ifdef CONFIG_SMP
 extern void do_set_cpus_allowed(struct task_struct *p,

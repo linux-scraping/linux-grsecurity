@@ -309,12 +309,12 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __size_overflow(...)
 #endif
 
-#ifndef __latent_entropy
-# define __latent_entropy
-#endif
-
 #ifndef __intentional_overflow
 # define __intentional_overflow(...)
+#endif
+
+#ifndef __latent_entropy
+# define __latent_entropy
 #endif
 
 /*
@@ -345,6 +345,10 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 /* Simple shorthand for a section definition */
 #ifndef __section
 # define __section(S) __attribute__ ((__section__(#S)))
+#endif
+
+#ifndef __visible
+#define __visible
 #endif
 
 /* Are two types/vars the same type (ignoring qualifiers)? */

@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 #include <linux/reboot.h>
 #include <linux/init.h>
@@ -20,14 +22,12 @@
 #include <asm/virtext.h>
 #include <asm/cpu.h>
 #include <asm/nmi.h>
+#include <asm/smp.h>
 
-#ifdef CONFIG_X86_32
-# include <linux/ctype.h>
-# include <linux/mc146818rtc.h>
-# include <asm/realmode.h>
-#else
-# include <asm/x86_init.h>
-#endif
+#include <linux/ctype.h>
+#include <linux/mc146818rtc.h>
+#include <asm/realmode.h>
+#include <asm/x86_init.h>
 
 /*
  * Power off function, if any
@@ -49,7 +49,7 @@ int reboot_force;
  */
 static int reboot_default = 1;
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_SMP)
+#ifdef CONFIG_SMP
 static int reboot_cpu = -1;
 #endif
 
@@ -67,8 +67,8 @@ bool port_cf9_safe = false;
  * reboot=b[ios] | s[mp] | t[riple] | k[bd] | e[fi] [, [w]arm | [c]old] | p[ci]
  * warm   Don't set the cold reboot flag
  * cold   Set the cold reboot flag
- * bios   Reboot by jumping through the BIOS (only for X86_32)
- * smp    Reboot by executing reset on BSP or other CPU (only for X86_32)
+ * bios   Reboot by jumping through the BIOS
+ * smp    Reboot by executing reset on BSP or other CPU
  * triple Force a triple fault (init)
  * kbd    Use the keyboard controller. cold reset (default)
  * acpi   Use the RESET_REG in the FADT
@@ -95,7 +95,6 @@ static int __init reboot_setup(char *str)
 			reboot_mode = 0;
 			break;
 
-#ifdef CONFIG_X86_32
 #ifdef CONFIG_SMP
 		case 's':
 			if (isdigit(*(str+1))) {
@@ -112,7 +111,6 @@ static int __init reboot_setup(char *str)
 #endif /* CONFIG_SMP */
 
 		case 'b':
-#endif
 		case 'a':
 		case 'k':
 		case 't':
@@ -138,7 +136,6 @@ static int __init reboot_setup(char *str)
 __setup("reboot=", reboot_setup);
 
 
-#ifdef CONFIG_X86_32
 /*
  * Reboot options and system auto-detection code provided by
  * Dell Inc. so their systems "just work". :-)
@@ -152,15 +149,14 @@ static int __init set_bios_reboot(const struct dmi_system_id *d)
 {
 	if (reboot_type != BOOT_BIOS) {
 		reboot_type = BOOT_BIOS;
-		printk(KERN_INFO "%s series board detected. Selecting BIOS-method for reboots.\n", d->ident);
+		pr_info("%s series board detected. Selecting %s-method for reboots.\n",
+			"BIOS", d->ident);
 	}
 	return 0;
 }
 
-__noreturn void machine_real_restart(unsigned int type)
+void __noreturn machine_real_restart(unsigned int type)
 {
-	void (*restart_lowmem)(unsigned int) = (void (*)(unsigned int))
-		real_mode_header->machine_real_restart_asm;
 
 #if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF))
 	struct desc_struct *gdt;
@@ -185,19 +181,16 @@ __noreturn void machine_real_restart(unsigned int type)
 	/*
 	 * Switch back to the initial page table.
 	 */
+#ifdef CONFIG_X86_32
 	load_cr3(initial_page_table);
-
-	/*
-	 * Write 0x1234 to absolute memory location 0x472.  The BIOS reads
-	 * this on booting to tell it to "Bypass memory test (also warm
-	 * boot)".  This seems like a fairly standard thing that gets set by
-	 * REBOOT.COM programs, and the previous reset routine did this
-	 * too. */
-	*(unsigned short *)(__va(0x472)) = reboot_mode;
+#else
+	write_cr3(real_mode_header->trampoline_pgd);
+#endif
 
 	/* Jump to the identity-mapped low memory code */
+#ifdef CONFIG_X86_32
 
-#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF))
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	gdt = get_cpu_gdt_table(smp_processor_id());
 	pax_open_kernel();
 #ifdef CONFIG_PAX_MEMORY_UDEREF
@@ -218,19 +211,19 @@ __noreturn void machine_real_restart(unsigned int type)
 	pax_close_kernel();
 #endif
 
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	asm volatile("push %0; push %1; lret\n" : : "i" (__KERNEL_CS), "rm" (restart_lowmem), "a" (type));
-	unreachable();
+	asm volatile("ljmpl *%0" : :
+		     "rm" (real_mode_header->machine_real_restart_asm),
+		     "a" (type));
 #else
-	restart_lowmem(type);
+	asm volatile("ljmpl *%0" : :
+		     "m" (real_mode_header->machine_real_restart_asm),
+		     "D" (type));
 #endif
-
+	unreachable();
 }
 #ifdef CONFIG_APM_MODULE
 EXPORT_SYMBOL(machine_real_restart);
 #endif
-
-#endif /* CONFIG_X86_32 */
 
 /*
  * Some Apple MacBook and MacBookPro's needs reboot=p to be able to reboot
@@ -239,8 +232,8 @@ static int __init set_pci_reboot(const struct dmi_system_id *d)
 {
 	if (reboot_type != BOOT_CF9) {
 		reboot_type = BOOT_CF9;
-		printk(KERN_INFO "%s series board detected. "
-		       "Selecting PCI-method for reboots.\n", d->ident);
+		pr_info("%s series board detected. Selecting %s-method for reboots.\n",
+			"PCI", d->ident);
 	}
 	return 0;
 }
@@ -249,17 +242,16 @@ static int __init set_kbd_reboot(const struct dmi_system_id *d)
 {
 	if (reboot_type != BOOT_KBD) {
 		reboot_type = BOOT_KBD;
-		printk(KERN_INFO "%s series board detected. Selecting KBD-method for reboot.\n", d->ident);
+		pr_info("%s series board detected. Selecting %s-method for reboot.\n",
+			"KBD", d->ident);
 	}
 	return 0;
 }
 
 /*
- * This is a single dmi_table handling all reboot quirks.  Note that
- * REBOOT_BIOS is only available for 32bit
+ * This is a single dmi_table handling all reboot quirks.
  */
 static struct dmi_system_id __initdata reboot_dmi_table[] = {
-#ifdef CONFIG_X86_32
 	{	/* Handle problems with rebooting on Dell E520's */
 		.callback = set_bios_reboot,
 		.ident = "Dell E520",
@@ -409,7 +401,6 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
 			DMI_MATCH(DMI_BOARD_NAME, "P4S800"),
 		},
 	},
-#endif /* CONFIG_X86_32 */
 
 	{	/* Handle reboot issue on Acer Aspire one */
 		.callback = set_kbd_reboot,
@@ -616,13 +607,11 @@ static void __noreturn native_machine_emergency_restart(void)
 			reboot_type = BOOT_KBD;
 			break;
 
-#ifdef CONFIG_X86_32
 		case BOOT_BIOS:
 			machine_real_restart(MRR_BIOS);
 
 			reboot_type = BOOT_KBD;
 			break;
-#endif
 
 		case BOOT_ACPI:
 			acpi_reboot();
@@ -664,12 +653,10 @@ void native_machine_shutdown(void)
 	/* The boot cpu is always logical cpu 0 */
 	int reboot_cpu_id = 0;
 
-#ifdef CONFIG_X86_32
 	/* See if there has been given a command line override */
 	if ((reboot_cpu != -1) && (reboot_cpu < nr_cpu_ids) &&
 		cpu_online(reboot_cpu))
 		reboot_cpu_id = reboot_cpu;
-#endif
 
 	/* Make certain the cpu I'm about to reboot on is online */
 	if (!cpu_online(reboot_cpu_id))
@@ -702,7 +689,7 @@ void native_machine_shutdown(void)
 #endif
 }
 
-static __noreturn void __machine_emergency_restart(int emergency)
+static void __noreturn __machine_emergency_restart(int emergency)
 {
 	reboot_emergency = emergency;
 	machine_ops.emergency_restart();
@@ -710,7 +697,7 @@ static __noreturn void __machine_emergency_restart(int emergency)
 
 static void __noreturn native_machine_restart(char *__unused)
 {
-	printk("machine restart\n");
+	pr_notice("machine restart\n");
 
 	if (!reboot_force)
 		machine_shutdown();

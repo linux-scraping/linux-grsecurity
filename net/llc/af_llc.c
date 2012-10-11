@@ -1023,7 +1023,7 @@ static int llc_ui_ioctl(struct socket *sock, unsigned int cmd,
  *	@sock: Socket to set options on.
  *	@level: Socket level user is requesting operations on.
  *	@optname: Operation name.
- *	@optval User provided operation data.
+ *	@optval: User provided operation data.
  *	@optlen: Length of optval.
  *
  *	Set various connection specific parameters.
@@ -1205,7 +1205,7 @@ static int __init llc2_init(void)
 	rc = llc_proc_init();
 	if (rc != 0) {
 		printk(llc_proc_err_msg);
-		goto out_unregister_llc_proto;
+		goto out_station;
 	}
 	rc = llc_sysctl_init();
 	if (rc) {
@@ -1225,7 +1225,8 @@ out_sysctl:
 	llc_sysctl_exit();
 out_proc:
 	llc_proc_exit();
-out_unregister_llc_proto:
+out_station:
+	llc_station_exit();
 	proto_unregister(&llc_proto);
 	goto out;
 }

@@ -69,6 +69,13 @@
 #define __bos1(ptr)		__bos((ptr), 1)
 #endif
 
+#if __GNUC_MINOR__ >= 6
+/*
+ * Tell the optimizer that something else uses this function or variable.
+ */
+#define __visible __attribute__((externally_visible))
+#endif
+
 #if __GNUC_MINOR__ > 0
 #define __compiletime_object_size(obj) __builtin_object_size(obj, 0)
 #endif

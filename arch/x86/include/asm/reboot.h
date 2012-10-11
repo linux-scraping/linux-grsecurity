@@ -19,7 +19,7 @@ extern struct machine_ops machine_ops;
 void native_machine_crash_shutdown(struct pt_regs *regs);
 void native_machine_shutdown(void);
 void __noreturn machine_real_restart(unsigned int type);
-/* These must match dispatch_table in reboot_32.S */
+/* These must match dispatch in arch/x86/realmore/rm/reboot.S */
 #define MRR_BIOS	0
 #define MRR_APM		1
 

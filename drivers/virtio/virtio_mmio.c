@@ -521,7 +521,7 @@ static int vm_cmdline_set(const char *device,
 
 	resources[0].end = memparse(device, &str) - 1;
 
-	processed = sscanf(str, "@%lli:%u%n:%d%n",
+	processed = sscanf(str, "@%lli:%llu%n:%d%n",
 			&base, &resources[1].start, &consumed,
 			&vm_cmdline_id, &consumed);
 

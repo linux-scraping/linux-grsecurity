@@ -972,21 +972,40 @@ static sector_t max_io_len_target_boundary(sector_t sector, struct dm_target *ti
 static sector_t max_io_len(sector_t sector, struct dm_target *ti)
 {
 	sector_t len = max_io_len_target_boundary(sector, ti);
+	sector_t offset, max_len;
 
 	/*
-	 * Does the target need to split even further ?
+	 * Does the target need to split even further?
 	 */
-	if (ti->split_io) {
-		sector_t boundary;
-		sector_t offset = dm_target_offset(ti, sector);
-		boundary = ((offset + ti->split_io) & ~(ti->split_io - 1))
-			   - offset;
-		if (len > boundary)
-			len = boundary;
+	if (ti->max_io_len) {
+		offset = dm_target_offset(ti, sector);
+		if (unlikely(ti->max_io_len & (ti->max_io_len - 1)))
+			max_len = sector_div(offset, ti->max_io_len);
+		else
+			max_len = offset & (ti->max_io_len - 1);
+		max_len = ti->max_io_len - max_len;
+
+		if (len > max_len)
+			len = max_len;
 	}
 
 	return len;
 }
+
+int dm_set_target_max_io_len(struct dm_target *ti, sector_t len)
+{
+	if (len > UINT_MAX) {
+		DMERR("Specified maximum size of target IO (%llu) exceeds limit (%u)",
+		      (unsigned long long)len, UINT_MAX);
+		ti->error = "Maximum size of target IO is too large";
+		return -EINVAL;
+	}
+
+	ti->max_io_len = (uint32_t) len;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(dm_set_target_max_io_len);
 
 static void __map_bio(struct dm_target *ti, struct bio *clone,
 		      struct dm_target_io *tio)
@@ -1200,7 +1219,10 @@ static int __clone_and_map_discard(struct clone_info *ci)
 		if (!ti->num_discard_requests)
 			return -EOPNOTSUPP;
 
-		len = min(ci->sector_count, max_io_len_target_boundary(ci->sector, ti));
+		if (!ti->split_discard_requests)
+			len = min(ci->sector_count, max_io_len_target_boundary(ci->sector, ti));
+		else
+			len = min(ci->sector_count, max_io_len(ci->sector, ti));
 
 		__issue_target_requests(ci, ti, ti->num_discard_requests, len);
 
@@ -2407,7 +2429,7 @@ static void dm_queue_flush(struct mapped_device *md)
  */
 struct dm_table *dm_swap_table(struct mapped_device *md, struct dm_table *table)
 {
-	struct dm_table *map = ERR_PTR(-EINVAL);
+	struct dm_table *live_map, *map = ERR_PTR(-EINVAL);
 	struct queue_limits limits;
 	int r;
 
@@ -2416,6 +2438,19 @@ struct dm_table *dm_swap_table(struct mapped_device *md, struct dm_table *table)
 	/* device must be suspended */
 	if (!dm_suspended_md(md))
 		goto out;
+
+	/*
+	 * If the new table has no data devices, retain the existing limits.
+	 * This helps multipath with queue_if_no_path if all paths disappear,
+	 * then new I/O is queued based on these limits, and then some paths
+	 * reappear.
+	 */
+	if (dm_table_has_no_data_devices(table)) {
+		live_map = dm_get_live_table(md);
+		if (live_map)
+			limits = md->queue->limits;
+		dm_table_put(live_map);
+	}
 
 	r = dm_calculate_queue_limits(table, &limits);
 	if (r) {

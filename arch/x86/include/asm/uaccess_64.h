@@ -20,18 +20,27 @@
 
 /* Handles exceptions in both to and from, but doesn't do access_ok */
 __must_check unsigned long
-copy_user_generic_string(void *to, const void *from, unsigned long len) __size_overflow(3);
+copy_user_enhanced_fast_string(void *to, const void *from, unsigned len) __size_overflow(3);
 __must_check unsigned long
-copy_user_generic_unrolled(void *to, const void *from, unsigned long len) __size_overflow(3);
+copy_user_generic_string(void *to, const void *from, unsigned len) __size_overflow(3);
+__must_check unsigned long
+copy_user_generic_unrolled(void *to, const void *from, unsigned len) __size_overflow(3);
 
-static __always_inline __must_check __size_overflow(3) unsigned long
-copy_user_generic(void *to, const void *from, unsigned long len)
+static __always_inline __must_check  __size_overflow(3) unsigned long
+copy_user_generic(void *to, const void *from, unsigned len)
 {
 	unsigned ret;
 
-	alternative_call(copy_user_generic_unrolled,
+	/*
+	 * If CPU has ERMS feature, use copy_user_enhanced_fast_string.
+	 * Otherwise, if CPU has rep_good feature, use copy_user_generic_string.
+	 * Otherwise, use copy_user_generic_unrolled.
+	 */
+	alternative_call_2(copy_user_generic_unrolled,
 			 copy_user_generic_string,
 			 X86_FEATURE_REP_GOOD,
+			 copy_user_enhanced_fast_string,
+			 X86_FEATURE_ERMS,
 			 ASM_OUTPUT2("=a" (ret), "=D" (to), "=S" (from),
 				     "=d" (len)),
 			 "1" (to), "2" (from), "3" (len)

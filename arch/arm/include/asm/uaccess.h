@@ -120,7 +120,7 @@ extern int __get_user_4(void *);
 		: "0" (__p), "r" (__l)					\
 		: __GUP_CLOBBER_##__s)
 
-#define get_user(x,p)							\
+#define __get_user_check(x,p)							\
 	({								\
 		unsigned long __limit = current_thread_info()->addr_limit - 1; \
 		register const typeof(*(p)) __user *__p asm("r0") = (p);\
@@ -143,6 +143,12 @@ extern int __get_user_4(void *);
 		__e;							\
 	})
 
+#define get_user(x,p)							\
+	({								\
+		might_fault();						\
+		__get_user_check(x,p);					\
+	 })
+
 extern int __put_user_1(void *, unsigned int);
 extern int __put_user_2(void *, unsigned int);
 extern int __put_user_4(void *, unsigned int);
@@ -157,7 +163,7 @@ extern int __put_user_8(void *, unsigned long long);
 		: "0" (__p), "r" (__r2), "r" (__l)			\
 		: "ip", "lr", "cc")
 
-#define put_user(x,p)							\
+#define __put_user_check(x,p)							\
 	({								\
 		unsigned long __limit = current_thread_info()->addr_limit - 1; \
 		register const typeof(*(p)) __r2 asm("r2") = (x);	\
@@ -182,6 +188,12 @@ extern int __put_user_8(void *, unsigned long long);
 		__e;							\
 	})
 
+#define put_user(x,p)							\
+	({								\
+		might_fault();						\
+		__put_user_check(x,p);					\
+	 })
+
 #else /* CONFIG_MMU */
 
 /*
@@ -204,6 +216,9 @@ static inline void set_fs(mm_segment_t fs)
 #endif /* CONFIG_MMU */
 
 #define access_ok(type,addr,size)	(__range_ok(addr,size) == 0)
+
+#define user_addr_max() \
+	(segment_eq(get_fs(), USER_DS) ? TASK_SIZE : ~0UL)
 
 /*
  * The "__xxx" versions of the user access functions do not verify the
@@ -232,6 +247,7 @@ do {									\
 	unsigned long __gu_addr = (unsigned long)(ptr);			\
 	unsigned long __gu_val;						\
 	__chk_user_ptr(ptr);						\
+	might_fault();							\
 	switch (sizeof(*(ptr))) {					\
 	case 1:	__get_user_asm_byte(__gu_val,__gu_addr,err);	break;	\
 	case 2:	__get_user_asm_half(__gu_val,__gu_addr,err);	break;	\
@@ -313,6 +329,7 @@ do {									\
 	unsigned long __pu_addr = (unsigned long)(ptr);			\
 	__typeof__(*(ptr)) __pu_val = (x);				\
 	__chk_user_ptr(ptr);						\
+	might_fault();							\
 	switch (sizeof(*(ptr))) {					\
 	case 1: __put_user_asm_byte(__pu_val,__pu_addr,err);	break;	\
 	case 2: __put_user_asm_half(__pu_val,__pu_addr,err);	break;	\
@@ -429,9 +446,6 @@ extern unsigned long __must_check __clear_user_std(void __user *addr, unsigned l
 #define __clear_user(addr,n)		(memset((void __force *)addr, 0, n), 0)
 #endif
 
-extern unsigned long __must_check __strncpy_from_user(char *to, const char __user *from, unsigned long count);
-extern unsigned long __must_check __strnlen_user(const char __user *s, long n);
-
 static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	if ((long)n < 0)
@@ -464,24 +478,9 @@ static inline unsigned long __must_check clear_user(void __user *to, unsigned lo
 	return n;
 }
 
-static inline long __must_check strncpy_from_user(char *dst, const char __user *src, long count)
-{
-	long res = -EFAULT;
-	if (access_ok(VERIFY_READ, src, 1))
-		res = __strncpy_from_user(dst, src, count);
-	return res;
-}
+extern long strncpy_from_user(char *dest, const char __user *src, long count);
 
-#define strlen_user(s)	strnlen_user(s, ~0UL >> 1)
-
-static inline long __must_check strnlen_user(const char __user *s, long n)
-{
-	unsigned long res = 0;
-
-	if (__addr_ok(s))
-		res = __strnlen_user(s, n);
-
-	return res;
-}
+extern __must_check long strlen_user(const char __user *str);
+extern __must_check long strnlen_user(const char __user *str, long n);
 
 #endif /* _ASMARM_UACCESS_H */

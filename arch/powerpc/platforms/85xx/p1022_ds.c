@@ -479,26 +479,6 @@ void __init p1022_ds_pic_init(void)
 
 #if defined(CONFIG_FB_FSL_DIU) || defined(CONFIG_FB_FSL_DIU_MODULE)
 
-/*
- * Disables a node in the device tree.
- *
- * This function is called before kmalloc() is available, so the 'new' object
- * should be allocated in the global area.  The easiest way is to do that is
- * to allocate one static local variable for each call to this function.
- */
-static void __init disable_one_node(struct device_node *np, struct property *new)
-{
-	struct property *old;
-
-	old = of_find_property(np, new->name, NULL);
-	if (old)
-		prom_update_property(np, new, old);
-	else
-		prom_add_property(np, new);
-
-	pr_info("p1022ds: disabling %s node\n", np->full_name);
-}
-
 /* TRUE if there is a "video=fslfb" command-line parameter. */
 static bool fslfb;
 
@@ -582,7 +562,17 @@ static void __init p1022_ds_setup_arch(void)
 					.length = sizeof("disabled"),
 				};
 
-				disable_one_node(np2, &nor_status);
+				/*
+				 * prom_update_property() is called before
+				 * kmalloc() is available, so the 'new' object
+				 * should be allocated in the global area.
+				 * The easiest way is to do that is to
+				 * allocate one static local variable for each
+				 * call to this function.
+				 */
+				pr_info("p1022ds: disabling %s node",
+					np2->full_name);
+				prom_update_property(np2, &nor_status);
 				of_node_put(np2);
 			}
 
@@ -596,7 +586,9 @@ static void __init p1022_ds_setup_arch(void)
 					.length = sizeof("disabled"),
 				};
 
-				disable_one_node(np2, &nand_status);
+				pr_info("p1022ds: disabling %s node",
+					np2->full_name);
+				prom_update_property(np2, &nand_status);
 				of_node_put(np2);
 			}
 
@@ -610,7 +602,7 @@ static void __init p1022_ds_setup_arch(void)
 	mpc85xx_smp_init();
 
 #ifdef CONFIG_SWIOTLB
-	if (memblock_end_of_DRAM() > max) {
+	if ((memblock_end_of_DRAM() - 1) > max) {
 		ppc_swiotlb_enable = 1;
 		set_pci_dma_ops(&swiotlb_dma_ops);
 		ppc_md.pci_dma_dev_setup = pci_dma_dev_setup_swiotlb;
