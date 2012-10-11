@@ -4366,8 +4366,13 @@ static int ptype_seq_show(struct seq_file *seq, void *v)
 		else
 			seq_printf(seq, "%04x", ntohs(pt->type));
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		seq_printf(seq, " %-8s %p\n",
+			   pt->dev ? pt->dev->name : "", NULL);
+#else
 		seq_printf(seq, " %-8s %pF\n",
 			   pt->dev ? pt->dev->name : "", pt->func);
+#endif
 	}
 
 	return 0;

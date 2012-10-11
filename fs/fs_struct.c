@@ -76,7 +76,13 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 			    && fs->root.mnt == old_root->mnt) {
 				path_get_longterm(new_root);
 				fs->root = *new_root;
-				gr_set_chroot_entries(p, new_root);
+				/* This function is only called
+				   from pivot_root().  Leave our
+				   gr_chroot_dentry and is_chrooted flags
+				   as-is, so that a pivoted root isn't treated
+				   as a chroot
+				*/
+				//gr_set_chroot_entries(p, new_root);
 				count++;
 			}
 			if (fs->pwd.dentry == old_root->dentry
