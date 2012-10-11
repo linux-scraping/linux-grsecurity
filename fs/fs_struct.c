@@ -61,7 +61,11 @@ static inline int replace_root_path(struct task_struct *task, struct path *p, co
 		return 0;
 	*p = *new;
 
-	gr_set_chroot_entries(task, new);
+	/* This function is only called from pivot_root().  Leave our
+	   gr_chroot_dentry and is_chrooted flags as-is, so that a
+	   pivoted root isn't treated as a chroot
+	*/
+	//gr_set_chroot_entries(task, new);
 
 	return 1;
 }

@@ -984,7 +984,13 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	tsk->fs = copy_fs_struct(fs);
 	if (!tsk->fs)
 		return -ENOMEM;
-	gr_set_chroot_entries(tsk, &tsk->fs->root);
+	/* Carry through gr_chroot_dentry and is_chrooted instead
+	   of recomputing it here.  Already copied when the task struct
+	   is duplicated.  This allows pivot_root to not be treated as
+	   a chroot
+	*/
+	//gr_set_chroot_entries(tsk, &tsk->fs->root);
+
 	return 0;
 }
 
