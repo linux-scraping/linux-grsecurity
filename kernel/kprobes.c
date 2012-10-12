@@ -1264,14 +1264,14 @@ static void __kprobes report_probe(struct seq_file *pi, struct kprobe *p,
 	else
 		kprobe_type = "k";
 	if (sym)
-		seq_printf(pi, "%p  %s  %s+0x%x  %s %s%s\n",
+		seq_printf(pi, "%pK  %s  %s+0x%x  %s %s%s\n",
 			p->addr, kprobe_type, sym, offset,
 			(modname ? modname : " "),
 			(kprobe_gone(p) ? "[GONE]" : ""),
 			((kprobe_disabled(p) && !kprobe_gone(p)) ?
 			 "[DISABLED]" : ""));
 	else
-		seq_printf(pi, "%p  %s  %p %s%s\n",
+		seq_printf(pi, "%pK  %s  %pK %s%s\n",
 			p->addr, kprobe_type, p->addr,
 			(kprobe_gone(p) ? "[GONE]" : ""),
 			((kprobe_disabled(p) && !kprobe_gone(p)) ?

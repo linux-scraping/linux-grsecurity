@@ -65,7 +65,7 @@ static int l_show(struct seq_file *m, void *v)
 		return 0;
 	}
 
-	seq_printf(m, "%p", class->key);
+	seq_printf(m, "%pK", class->key);
 #ifdef CONFIG_DEBUG_LOCKDEP
 	seq_printf(m, " OPS:%8ld", class->ops);
 #endif
@@ -83,7 +83,7 @@ static int l_show(struct seq_file *m, void *v)
 
 	list_for_each_entry(entry, &class->locks_after, entry) {
 		if (entry->distance == 1) {
-			seq_printf(m, " -> [%p] ", entry->class->key);
+			seq_printf(m, " -> [%pK] ", entry->class->key);
 			print_name(m, entry->class);
 			seq_puts(m, "\n");
 		}
@@ -152,7 +152,7 @@ static int lc_show(struct seq_file *m, void *v)
 		if (!class->key)
 			continue;
 
-		seq_printf(m, "[%p] ", class->key);
+		seq_printf(m, "[%pK] ", class->key);
 		print_name(m, class);
 		seq_puts(m, "\n");
 	}
@@ -504,7 +504,7 @@ static void seq_stats(struct seq_file *m, struct lock_stat_data *data)
 			seq_line(m, '-', 40-namelen, namelen);
 
 		sprint_symbol(sym, class->contention_point[i]);
-		snprintf(ip, sizeof(ip), "[<%p>]",
+		snprintf(ip, sizeof(ip), "[<%pK>]",
 				(void *)class->contention_point[i]);
 		seq_printf(m, "%40s %14lu %29s %s\n", name,
 				stats->contention_point[i],
@@ -521,7 +521,7 @@ static void seq_stats(struct seq_file *m, struct lock_stat_data *data)
 			seq_line(m, '-', 40-namelen, namelen);
 
 		sprint_symbol(sym, class->contending_point[i]);
-		snprintf(ip, sizeof(ip), "[<%p>]",
+		snprintf(ip, sizeof(ip), "[<%pK>]",
 				(void *)class->contending_point[i]);
 		seq_printf(m, "%40s %14lu %29s %s\n", name,
 				stats->contending_point[i],
