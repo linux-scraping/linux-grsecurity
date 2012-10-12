@@ -2040,11 +2040,11 @@ static void __kprobes report_probe(struct seq_file *pi, struct kprobe *p,
 		kprobe_type = "k";
 
 	if (sym)
-		seq_printf(pi, "%p  %s  %s+0x%x  %s ",
+		seq_printf(pi, "%pK  %s  %s+0x%x  %s ",
 			p->addr, kprobe_type, sym, offset,
 			(modname ? modname : " "));
 	else
-		seq_printf(pi, "%p  %s  %p ",
+		seq_printf(pi, "%pK  %s  %pK ",
 			p->addr, kprobe_type, p->addr);
 
 	if (!pp)
