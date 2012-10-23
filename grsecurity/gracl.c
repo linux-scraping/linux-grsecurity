@@ -1479,6 +1479,7 @@ static int
 copy_user_acl(struct gr_arg *arg)
 {
 	struct acl_role_label *r_tmp = NULL, **r_utmp, *r_utmp2;
+	struct acl_subject_label *subj_list;
 	struct sprole_pw *sptmp;
 	struct gr_hash_struct *ghash;
 	uid_t *domainlist;
@@ -1607,13 +1608,20 @@ copy_user_acl(struct gr_arg *arg)
 		       r_tmp->subj_hash_size *
 		       sizeof (struct acl_subject_label *));
 
-		err = copy_user_subjs(r_tmp->hash->first, r_tmp);
-
-		if (err)
-			return err;
+		/* acquire the list of subjects, then NULL out
+		   the list prior to parsing the subjects for this role,
+		   as during this parsing the list is replaced with a list
+		   of *nested* subjects for the role
+		*/
+		subj_list = r_tmp->hash->first;
 
 		/* set nested subject list to null */
 		r_tmp->hash->first = NULL;
+
+		err = copy_user_subjs(subj_list, r_tmp);
+
+		if (err)
+			return err;
 
 		insert_acl_role_label(r_tmp);
 	}
