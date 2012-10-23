@@ -175,8 +175,8 @@ struct e1000_info;
 /*
  * in the case of WTHRESH, it appears at least the 82571/2 hardware
  * writes back 4 descriptors when WTHRESH=5, and 3 descriptors when
- * WTHRESH=4, and since we want 64 bytes at a time written back, set
- * it to 5
+ * WTHRESH=4, so a setting of 5 gives the most efficient bus
+ * utilization but to avoid possible Tx stalls, set it to 1
  */
 #define E1000_TXDCTL_DMA_BURST_ENABLE                          \
 	(E1000_TXDCTL_GRAN | /* set descriptor granularity */  \

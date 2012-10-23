@@ -2623,8 +2623,9 @@ do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
 				matchpo->mode |= GR_DELETED;
 		FOR_EACH_SUBJECT_END(subj,x)
 		FOR_EACH_NESTED_SUBJECT_START(role, subj)
-			if (subj->inode == ino && subj->device == dev)
-				subj->mode |= GR_DELETED;
+			/* nested subjects aren't in the role's subj_hash table */
+			if ((matchpo = lookup_acl_obj_label(ino, dev, subj)) != NULL)
+				matchpo->mode |= GR_DELETED;
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		if ((matchps = lookup_acl_subj_label(ino, dev, role)) != NULL)
 			matchps->mode |= GR_DELETED;
@@ -2782,6 +2783,9 @@ __do_handle_create(const struct name_entry *matchn, ino_t ino, dev_t dev)
 				subj->inode = ino;
 				subj->device = dev;
 			}
+			/* nested subjects aren't in the role's subj_hash table */
+			update_acl_obj_label(matchn->inode, matchn->device,
+					     ino, dev, subj);
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		FOR_EACH_SUBJECT_START(role, subj, x)
 			update_acl_obj_label(matchn->inode, matchn->device,
