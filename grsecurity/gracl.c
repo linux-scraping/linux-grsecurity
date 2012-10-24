@@ -2784,7 +2784,7 @@ __do_handle_create(const struct name_entry *matchn, ino_t inode, dev_t dev)
 			}
 			/* nested subjects aren't in the role's subj_hash table */
 			update_acl_obj_label(matchn->inode, matchn->device,
-					     ino, dev, subj);
+					     inode, dev, subj);
 		FOR_EACH_NESTED_SUBJECT_END(subj)
 		FOR_EACH_SUBJECT_START(role, subj, x)
 			update_acl_obj_label(matchn->inode, matchn->device,
