@@ -187,6 +187,7 @@ unifdef-y += blktrace_api.h
 unifdef-y += capability.h
 unifdef-y += capi.h
 unifdef-y += cciss_ioctl.h
+unifdef-y += cciss_defs.h
 unifdef-y += cdrom.h
 unifdef-y += cm4000_cs.h
 unifdef-y += cn_proc.h

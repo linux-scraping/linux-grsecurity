@@ -2558,3 +2558,4 @@ _002738_hash um_idi_read 3 850 _002738_hash NULL
 _002739_hash diva_init_dma_map 3 58336 _002739_hash NULL
 _002740_hash divas_write 3 63901 _002740_hash NULL
 _002741_hash fbcon_prepare_logo 5 6246 _002741_hash NULL
+_002742_hash cciss_allocate_sg_chain_blocks 3-2 5368 _002742_hash NULL
