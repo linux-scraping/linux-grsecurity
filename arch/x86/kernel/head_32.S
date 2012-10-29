@@ -124,13 +124,13 @@ ENTRY(startup_32)
 #ifdef CONFIG_SMP
 	movl $pa(cpu_gdt_table),%edi
 	movl $__per_cpu_load,%eax
-	movw %ax,__KERNEL_PERCPU + 2(%edi)
+	movw %ax,GDT_ENTRY_PERCPU * 8 + 2(%edi)
 	rorl $16,%eax
-	movb %al,__KERNEL_PERCPU + 4(%edi)
-	movb %ah,__KERNEL_PERCPU + 7(%edi)
+	movb %al,GDT_ENTRY_PERCPU * 8 + 4(%edi)
+	movb %ah,GDT_ENTRY_PERCPU * 8 + 7(%edi)
 	movl $__per_cpu_end - 1,%eax
 	subl $__per_cpu_start,%eax
-	movw %ax,__KERNEL_PERCPU + 0(%edi)
+	movw %ax,GDT_ENTRY_PERCPU * 8 + 0(%edi)
 #endif
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
@@ -147,10 +147,10 @@ ENTRY(startup_32)
 #ifdef CONFIG_PAX_KERNEXEC
 	movl $pa(boot_gdt),%edi
 	movl $__LOAD_PHYSICAL_ADDR,%eax
-	movw %ax,__BOOT_CS + 2(%edi)
+	movw %ax,GDT_ENTRY_BOOT_CS * 8 + 2(%edi)
 	rorl $16,%eax
-	movb %al,__BOOT_CS + 4(%edi)
-	movb %ah,__BOOT_CS + 7(%edi)
+	movb %al,GDT_ENTRY_BOOT_CS * 8 + 4(%edi)
+	movb %ah,GDT_ENTRY_BOOT_CS * 8 + 7(%edi)
 	rorl $16,%eax
 
 	ljmp $(__BOOT_CS),$1f
@@ -160,13 +160,15 @@ ENTRY(startup_32)
 	movl $pa(cpu_gdt_table),%edi
 	addl $__PAGE_OFFSET,%eax
 1:
-	movw %ax,__KERNEL_CS + 2(%edi)
-	movw %ax,__KERNEXEC_KERNEL_CS + 2(%edi)
+	movb $0xc0,GDT_ENTRY_KERNEL_CS * 8 + 6(%edi)
+	movb $0xc0,GDT_ENTRY_KERNEXEC_KERNEL_CS * 8 + 6(%edi)
+	movw %ax,GDT_ENTRY_KERNEL_CS * 8 + 2(%edi)
+	movw %ax,GDT_ENTRY_KERNEXEC_KERNEL_CS * 8 + 2(%edi)
 	rorl $16,%eax
-	movb %al,__KERNEL_CS + 4(%edi)
-	movb %al,__KERNEXEC_KERNEL_CS + 4(%edi)
-	movb %ah,__KERNEL_CS + 7(%edi)
-	movb %ah,__KERNEXEC_KERNEL_CS + 7(%edi)
+	movb %al,GDT_ENTRY_KERNEL_CS * 8 + 4(%edi)
+	movb %al,GDT_ENTRY_KERNEXEC_KERNEL_CS * 8 + 4(%edi)
+	movb %ah,GDT_ENTRY_KERNEL_CS * 8 + 7(%edi)
+	movb %ah,GDT_ENTRY_KERNEXEC_KERNEL_CS * 8 + 7(%edi)
 	rorl $16,%eax
 	addl $PAGE_SIZE_asm,%edi
 	loop 1b
