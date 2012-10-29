@@ -401,8 +401,7 @@ static unsigned long total_mapping_size(struct elf_phdr *cmds, int nr)
    an ELF header */
 
 static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
-		struct file *interpreter, unsigned long *interp_map_addr,
-		unsigned long no_base)
+		struct file *interpreter, unsigned long no_base)
 {
 	struct elf_phdr *elf_phdata;
 	struct elf_phdr *eppnt;
@@ -483,8 +482,6 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 			map_addr = elf_map(interpreter, load_addr + vaddr,
 					eppnt, elf_prot, elf_type, total_size);
 			total_size = 0;
-			if (!*interp_map_addr)
-				*interp_map_addr = map_addr;
 			error = map_addr;
 			if (BAD_ADDR(map_addr))
 				goto out_close;
@@ -1334,11 +1331,8 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 #endif
 
 	if (elf_interpreter) {
-		unsigned long uninitialized_var(interp_map_addr);
-
 		elf_entry = load_elf_interp(&loc->interp_elf_ex,
 					    interpreter,
-					    &interp_map_addr,
 					    load_bias);
 		if (!IS_ERR((void *)elf_entry)) {
 			/*
