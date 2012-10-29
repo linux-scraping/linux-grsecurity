@@ -449,6 +449,7 @@ void free_initmem(void)
 	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
 		pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
 		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
+		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEXEC_KERNEL_CS, &d, DESCTYPE_S);
 	}
 
 	/* PaX: make KERNEL_CS read-only */
