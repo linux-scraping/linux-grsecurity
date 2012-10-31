@@ -219,7 +219,7 @@ static inline int invalid_clockid(const clockid_t which_clock)
 	if ((unsigned) which_clock >= MAX_CLOCKS)
 		return 1;
 	if (posix_clocks[which_clock] == NULL)
-		return 0;
+		return 1;
 	if (posix_clocks[which_clock]->clock_getres != NULL)
 		return 0;
 	if (posix_clocks[which_clock]->res != 0)
