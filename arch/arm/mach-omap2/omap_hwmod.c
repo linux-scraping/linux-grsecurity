@@ -187,10 +187,10 @@ struct omap_hwmod_soc_ops {
 	int (*is_hardreset_asserted)(struct omap_hwmod *oh,
 				     struct omap_hwmod_rst_info *ohri);
 	int (*init_clkdm)(struct omap_hwmod *oh);
-};
+} __no_const;
 
 /* soc_ops: adapts the omap_hwmod code to the currently-booted SoC */
-static struct omap_hwmod_soc_ops soc_ops;
+static struct omap_hwmod_soc_ops soc_ops __read_only;
 
 /* omap_hwmod_list contains all registered struct omap_hwmods */
 static LIST_HEAD(omap_hwmod_list);

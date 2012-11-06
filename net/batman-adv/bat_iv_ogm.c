@@ -191,7 +191,7 @@ static void batadv_iv_ogm_send_to_if(struct batadv_forw_packet *forw_packet,
 							    "Sending own" :
 							    "Forwarding"));
 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
-			   "%s %spacket (originator %pM, s_uncheckedeqno %u, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
+			   "%s %spacket (originator %pM, seqno %u, TQ %d, TTL %d, IDF %s, ttvn %d) on interface %s [%pM]\n",
 			   fwd_str, (packet_num > 0 ? "aggregated " : ""),
 			   batadv_ogm_packet->orig,
 			   ntohl(batadv_ogm_packet->seqno),
