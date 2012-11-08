@@ -1,6 +1,7 @@
 #include <linux/initrd.h>
 #include <linux/ioport.h>
 #include <linux/swap.h>
+#include <linux/tboot.h>
 
 #include <asm/cacheflush.h>
 #include <asm/e820.h>
@@ -341,6 +342,9 @@ int devmem_is_allowed(unsigned long pagenr)
 	/* allow EBDA */
 	if (pagenr >= ebda_start && pagenr < ebda_end)
 		return 1;
+	/* if tboot is in use, allow access to its hardcoded serial log range */
+	if (tboot_enabled() && ((0x60000 >> PAGE_SHIFT) <= pagenr) && (pagenr < (0x68000 >> PAGE_SHIFT)))
+		return 1;
 	/* allow ISA/video mem */
 	if ((ISA_START_ADDRESS >> PAGE_SHIFT) <= pagenr && pagenr < (ISA_END_ADDRESS >> PAGE_SHIFT))
 		return 1;
@@ -348,7 +352,7 @@ int devmem_is_allowed(unsigned long pagenr)
 	if (pagenr <= 256)
 		return 0;
 #else
-	if (pagenr <= 256)
+	if (pagenr < 256)
 		return 1;
 #endif
 
