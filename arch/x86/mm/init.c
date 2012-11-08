@@ -3,6 +3,7 @@
 #include <linux/ioport.h>
 #include <linux/swap.h>
 #include <linux/memblock.h>
+#include <linux/tboot.h>
 
 #include <asm/cacheflush.h>
 #include <asm/e820.h>
@@ -326,6 +327,9 @@ int devmem_is_allowed(unsigned long pagenr)
 		return 1;
 	/* allow EBDA */
 	if (pagenr >= ebda_start && pagenr < ebda_end)
+		return 1;
+	/* if tboot is in use, allow access to its hardcoded serial log range */
+	if (tboot_enabled() && ((0x60000 >> PAGE_SHIFT) <= pagenr) && (pagenr < (0x68000 >> PAGE_SHIFT)))
 		return 1;
 #else
 	if (!pagenr)
