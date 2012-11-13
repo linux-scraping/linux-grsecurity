@@ -1060,7 +1060,7 @@ count_user_objs(struct acl_object_label *userp)
 }
 
 static struct acl_subject_label *
-do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role);
+do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role, int *already_copied);
 
 static int
 copy_user_glob(struct acl_object_label *obj)
@@ -1146,13 +1146,18 @@ copy_user_objs(struct acl_object_label *userp, struct acl_subject_label *subj,
 			return ret;
 
 		if (o_tmp->nested) {
-			o_tmp->nested = do_copy_user_subj(o_tmp->nested, role);
+			int already_copied;
+
+			o_tmp->nested = do_copy_user_subj(o_tmp->nested, role, &already_copied);
 			if (IS_ERR(o_tmp->nested))
 				return PTR_ERR(o_tmp->nested);
 
-			/* insert into nested subject list */
-			o_tmp->nested->next = role->hash->first;
-			role->hash->first = o_tmp->nested;
+			/* insert into nested subject list if we haven't copied this one yet
+			   to prevent duplicate entries */
+			if (!already_copied) {
+				o_tmp->nested->next = role->hash->first;
+				role->hash->first = o_tmp->nested;
+			}
 		}
 	}
 
@@ -1271,7 +1276,7 @@ copy_user_transitions(struct acl_role_label *rolep)
 }
 
 static struct acl_subject_label *
-do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
+do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role, int *already_copied)
 {
 	struct acl_subject_label *s_tmp = NULL, *s_tmp2;
 	unsigned int len;
@@ -1283,13 +1288,19 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 	unsigned int i_num;
 	int err;
 
+	if (already_copied != NULL)
+		*already_copied = 0;
+
 	s_tmp = lookup_subject_map(userp);
 
 	/* we've already copied this subject into the kernel, just return
 	   the reference to it, and don't copy it over again
 	*/
-	if (s_tmp)
+	if (s_tmp) {
+		if (already_copied != NULL)
+			*already_copied = 1;
 		return(s_tmp);
+	}
 
 	if ((s_tmp = (struct acl_subject_label *)
 	    acl_alloc(sizeof (struct acl_subject_label))) == NULL)
@@ -1375,7 +1386,7 @@ do_copy_user_subj(struct acl_subject_label *userp, struct acl_role_label *role)
 
 	/* set pointer for parent subject */
 	if (s_tmp->parent_subject) {
-		s_tmp2 = do_copy_user_subj(s_tmp->parent_subject, role);
+		s_tmp2 = do_copy_user_subj(s_tmp->parent_subject, role, NULL);
 
 		if (IS_ERR(s_tmp2))
 			return s_tmp2;
@@ -1459,7 +1470,7 @@ copy_user_subjs(struct acl_subject_label *userp, struct acl_role_label *role)
 			continue;
 		}
 
-		ret = do_copy_user_subj(userp, role);
+		ret = do_copy_user_subj(userp, role, NULL);
 
 		err = PTR_ERR(ret);
 		if (IS_ERR(ret))

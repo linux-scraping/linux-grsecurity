@@ -1641,7 +1641,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 	p = strstr(mod->args, "grsec_modharden_fs");
 
 	if (p) {
-		char *endptr = p + strlen("grsec_modharden_fs");
+		char *endptr = p + sizeof("grsec_modharden_fs") - 1;
 		/* copy \0 as well */
 		memmove(p, endptr, strlen(mod->args) - (unsigned int)(endptr - mod->args) + 1);
 		is_fs_load = 1;
@@ -2481,7 +2481,7 @@ static noinline struct module *load_module(void __user *umod,
 			err = -EPERM;
 			goto cleanup;
 		} else if ((p = strstr(mod->args, "grsec_modharden_normal"))) {
-			p += strlen("grsec_modharden_normal");
+			p += sizeof("grsec_modharden_normal") - 1;
 			p2 = strstr(p, "_");
 			if (p2) {
 				*p2 = '\0';

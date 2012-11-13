@@ -33,13 +33,13 @@ static struct xt_match gradm_mt_reg __read_mostly = {
 };
 
 static int __init gradm_mt_init(void)
-{       
-	        return xt_register_match(&gradm_mt_reg);
+{
+	return xt_register_match(&gradm_mt_reg);
 }
 
 static void __exit gradm_mt_exit(void)
-{       
-	        xt_unregister_match(&gradm_mt_reg);
+{
+	xt_unregister_match(&gradm_mt_reg);
 }
 
 module_init(gradm_mt_init);
