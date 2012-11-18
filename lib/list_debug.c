@@ -23,17 +23,19 @@ void __list_add(struct list_head *new,
 			      struct list_head *prev,
 			      struct list_head *next)
 {
-	WARN(next->prev != prev,
+	if (WARN(next->prev != prev,
 		"list_add corruption. next->prev should be "
 		"prev (%p), but was %p. (next=%p).\n",
-		prev, next->prev, next);
-	WARN(prev->next != next,
+		prev, next->prev, next) ||
+	    WARN(prev->next != next,
 		"list_add corruption. prev->next should be "
 		"next (%p), but was %p. (prev=%p).\n",
-		next, prev->next, prev);
-	WARN(new == prev || new == next,
+		next, prev->next, prev) ||
+	    WARN(new == prev || new == next,
 	     "list_add double add: new=%p, prev=%p, next=%p.\n",
-	     new, prev, next);
+	     new, prev, next))
+		return;
+
 	next->prev = new;
 	new->next = next;
 	new->prev = prev;
@@ -86,12 +88,14 @@ EXPORT_SYMBOL(list_del);
 void __list_add_rcu(struct list_head *new,
 		    struct list_head *prev, struct list_head *next)
 {
-	WARN(next->prev != prev,
+	if (WARN(next->prev != prev,
 		"list_add_rcu corruption. next->prev should be prev (%p), but was %p. (next=%p).\n",
-		prev, next->prev, next);
-	WARN(prev->next != next,
+		prev, next->prev, next) ||
+	    WARN(prev->next != next,
 		"list_add_rcu corruption. prev->next should be next (%p), but was %p. (prev=%p).\n",
-		next, prev->next, prev);
+		next, prev->next, prev))
+		return;
+
 	new->next = next;
 	new->prev = prev;
 	rcu_assign_pointer(list_next_rcu(prev), new);
