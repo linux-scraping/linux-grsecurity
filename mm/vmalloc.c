@@ -103,7 +103,6 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 		unsigned long end, pgprot_t prot, struct page **pages, int *nr)
 {
 	pte_t *pte;
-	int ret = -ENOMEM;
 
 	/*
 	 * nr is a running index into the array which helps higher level
@@ -124,21 +123,21 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 		else
 #endif
 
-		if (WARN_ON(!pte_none(*pte))) {
-			ret = -EBUSY;
-			goto out;
+		if (!pte_none(*pte)) {
+			pax_close_kernel();
+			WARN_ON(1);
+			return -EBUSY;
 		}
-		if (WARN_ON(!page)) {
-			ret = -ENOMEM;
-			goto out;
+		if (!page) {
+			pax_close_kernel();
+			WARN_ON(1);
+			return -ENOMEM;
 		}
 		set_pte_at(&init_mm, addr, pte, mk_pte(page, prot));
 		(*nr)++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
-	ret = 0;
-out:
 	pax_close_kernel();
-	return ret;
+	return 0;
 }
 
 static int vmap_pmd_range(pud_t *pud, unsigned long addr,
