@@ -268,13 +268,6 @@ ENTRY(pax_exit_kernel)
 	ljmpq __KERNEL_CS,3f
 3:	SET_RDI_INTO_CR0
 	jmp 1b
-#ifdef CONFIG_PARAVIRT
-	PV_RESTORE_REGS(CLBR_RDI);
-#endif
-
-	popq %rdi
-	pax_force_retaddr
-	retq
 ENDPROC(pax_exit_kernel)
 #endif
 

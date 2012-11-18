@@ -1803,6 +1803,11 @@ static const struct xattr_handler *shmem_xattr_handlers[] = {
 static int shmem_xattr_validate(const char *name)
 {
 	struct { const char *prefix; size_t len; } arr[] = {
+
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
+		{ XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN},
+#endif
+
 		{ XATTR_SECURITY_PREFIX, XATTR_SECURITY_PREFIX_LEN },
 		{ XATTR_TRUSTED_PREFIX, XATTR_TRUSTED_PREFIX_LEN }
 	};
@@ -1855,6 +1860,15 @@ static int shmem_setxattr(struct dentry *dentry, const char *name,
 	err = shmem_xattr_validate(name);
 	if (err)
 		return err;
+
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
+	if (!strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN)) {
+		if (strcmp(name, XATTR_NAME_PAX_FLAGS))
+			return -EOPNOTSUPP;
+		if (size > 8)
+			return -EINVAL;
+	}
+#endif
 
 	if (size == 0)
 		value = "";  /* empty EA, do not remove */
