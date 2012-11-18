@@ -3378,3 +3378,5 @@ _003652_hash gnttab_alloc_grant_references 1 18240 _003652_hash NULL
 _003653_hash __kmalloc_section_memmap 1 32651 _003653_hash NULL
 _003654_hash kmalloc_section_memmap 3 46168 _003654_hash NULL
 _003655_hash sparse_add_one_section 3 41778 _003655_hash NULL
+_003656_hash hidraw_report_event 3 20503 _003656_hash NULL
+_003657_hash hid_report_raw_event 4 2762 _003657_hash NULL
