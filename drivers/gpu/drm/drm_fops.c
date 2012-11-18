@@ -136,8 +136,11 @@ int drm_open(struct inode *inode, struct file *filp)
 	retcode = drm_open_helper(inode, filp, dev);
 	if (!retcode) {
 		atomic_inc_unchecked(&dev->counts[_DRM_STAT_OPENS]);
-		if (local_inc_return(&dev->open_count) == 1)
+		if (local_inc_return(&dev->open_count) == 1) {
 			retcode = drm_setup(dev);
+			if (retcode)
+				local_dec(&dev->open_count);
+		}
 	}
 	if (!retcode) {
 		mutex_lock(&dev->struct_mutex);
