@@ -429,6 +429,11 @@ dev_t gr_get_dev_from_dentry(struct dentry *dentry)
 	return dentry->d_inode->i_sb->s_dev;
 }
 
+void gr_put_exec_file(struct task_struct *task)
+{
+	return;
+}
+
 EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY

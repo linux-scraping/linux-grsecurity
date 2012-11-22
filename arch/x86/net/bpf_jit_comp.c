@@ -11,6 +11,7 @@
 #include <asm/cacheflush.h>
 #include <linux/netdevice.h>
 #include <linux/filter.h>
+#include <linux/random.h>
 
 /*
  * Conventions :
@@ -45,13 +46,87 @@ static inline u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
 	return ptr + len;
 }
 
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+#define MAX_INSTR_CODE_SIZE 96
+#else
+#define MAX_INSTR_CODE_SIZE 64
+#endif
+
 #define EMIT(bytes, len)	do { prog = emit_code(prog, bytes, len); } while (0)
 
 #define EMIT1(b1)		EMIT(b1, 1)
 #define EMIT2(b1, b2)		EMIT((b1) + ((b2) << 8), 2)
 #define EMIT3(b1, b2, b3)	EMIT((b1) + ((b2) << 8) + ((b3) << 16), 3)
 #define EMIT4(b1, b2, b3, b4)   EMIT((b1) + ((b2) << 8) + ((b3) << 16) + ((b4) << 24), 4)
+
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+/* original constant will appear in ecx */
+#define DILUTE_CONST_SEQUENCE(_off, _key) 	\
+do {						\
+	/* mov ecx, randkey */			\
+	EMIT1(0xb9);				\
+	EMIT(_key, 4);				\
+	/* xor ecx, randkey ^ off */		\
+	EMIT2(0x81, 0xf1);			\
+	EMIT((_key) ^ (_off), 4);		\
+} while (0)
+
+#define EMIT1_off32(b1, _off)								\
+do { 											\
+	switch (b1) {									\
+		case 0x05: /* add eax, imm32 */						\
+		case 0x2d: /* sub eax, imm32 */						\
+		case 0x25: /* and eax, imm32 */						\
+		case 0x0d: /* or eax, imm32 */						\
+		case 0xb8: /* mov eax, imm32 */						\
+		case 0x3d: /* cmp eax, imm32 */						\
+		case 0xa9: /* test eax, imm32 */					\
+			DILUTE_CONST_SEQUENCE(_off, randkey);				\
+			EMIT2((b1) - 4, 0xc8); /* convert imm instruction to eax, ecx */\
+			break;								\
+		case 0xbb: /* mov ebx, imm32 */						\
+			DILUTE_CONST_SEQUENCE(_off, randkey);				\
+			/* mov ebx, ecx */						\
+			EMIT2(0x89, 0xcb);						\
+			break;								\
+		case 0xbe: /* mov esi, imm32 */						\
+			DILUTE_CONST_SEQUENCE(_off, randkey);				\
+			/* mov esi, ecx	*/						\
+			EMIT2(0x89, 0xce);						\
+			break;								\
+		case 0xe9: /* jmp rel imm32 */						\
+			EMIT1(b1);							\
+			EMIT(_off, 4);							\
+			/* prevent fall-through, we're not called if off = 0 */		\
+			EMIT(0xcccccccc, 4);						\
+			EMIT(0xcccccccc, 4);						\
+			break;								\
+		default:								\
+			EMIT1(b1);							\
+			EMIT(_off, 4);							\
+	}										\
+} while (0)
+
+#define EMIT2_off32(b1, b2, _off) 					\
+do { 									\
+	if ((b1) == 0x8d && (b2) == 0xb3) { /* lea esi, [rbx+imm32] */	\
+		EMIT2(0x8d, 0xb3); /* lea esi, [rbx+randkey] */		\
+		EMIT(randkey, 4);					\
+		EMIT2(0x8d, 0xb6); /* lea esi, [esi+off-randkey] */	\
+		EMIT((_off) - randkey, 4);				\
+	} else if ((b1) == 0x69 && (b2) == 0xc0) { /* imul eax, imm32 */\
+		DILUTE_CONST_SEQUENCE(_off, randkey);			\
+		/* imul eax, ecx */					\
+		EMIT3(0x0f, 0xaf, 0xc1);				\
+	} else {							\
+		EMIT2(b1, b2);						\
+		EMIT(_off, 4);						\
+	}								\
+} while (0)
+#else
 #define EMIT1_off32(b1, off)	do { EMIT1(b1); EMIT(off, 4);} while (0)
+#define EMIT2_off32(b1, b2, off) do { EMIT2(b1, b2); EMIT(off, 4);} while (0)
+#endif
 
 #define CLEAR_A() EMIT2(0x31, 0xc0) /* xor %eax,%eax */
 #define CLEAR_X() EMIT2(0x31, 0xdb) /* xor %ebx,%ebx */
@@ -86,6 +161,24 @@ do {									\
 #define X86_JBE 0x76
 #define X86_JA  0x77
 
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+#define APPEND_FLOW_VERIFY()	\
+do {				\
+	/* mov ecx, randkey */	\
+	EMIT1(0xb9);		\
+	EMIT(randkey, 4);	\
+	/* cmp ecx, randkey */	\
+	EMIT2(0x81, 0xf9);	\
+	EMIT(randkey, 4);	\
+	/* jz after 8 int 3s */ \
+	EMIT2(0x74, 0x08);	\
+	EMIT(0xcccccccc, 4);	\
+	EMIT(0xcccccccc, 4);	\
+} while (0)
+#else
+#define APPEND_FLOW_VERIFY() do { } while (0)
+#endif
+
 #define EMIT_COND_JMP(op, offset)				\
 do {								\
 	if (is_near(offset))					\
@@ -93,6 +186,7 @@ do {								\
 	else {							\
 		EMIT2(0x0f, op + 0x10);				\
 		EMIT(offset, 4); /* jxx .+off32 */		\
+		APPEND_FLOW_VERIFY();				\
 	}							\
 } while (0)
 
@@ -124,7 +218,7 @@ struct bpf_jit_work {
 
 void bpf_jit_compile(struct sk_filter *fp)
 {
-	u8 temp[64];
+	u8 temp[MAX_INSTR_CODE_SIZE];
 	u8 *prog;
 	unsigned int proglen, oldproglen = 0;
 	int ilen, i;
@@ -137,6 +231,9 @@ void bpf_jit_compile(struct sk_filter *fp)
 	unsigned int *addrs;
 	const struct sock_filter *filter = fp->insns;
 	int flen = fp->len;
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+	unsigned int randkey;
+#endif
 
 	if (!bpf_jit_enable)
 		return;
@@ -149,11 +246,15 @@ void bpf_jit_compile(struct sk_filter *fp)
 	if (!fp->work)
 		goto out;
 
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+	randkey = get_random_int();
+#endif
+
 	/* Before first pass, make a rough estimation of addrs[]
-	 * each bpf instruction is translated to less than 64 bytes
+	 * each bpf instruction is translated to less than MAX_INSTR_CODE_SIZE bytes
 	 */
 	for (proglen = 0, i = 0; i < flen; i++) {
-		proglen += 64;
+		proglen += MAX_INSTR_CODE_SIZE;
 		addrs[i] = proglen;
 	}
 	cleanup_addr = proglen; /* epilogue address */
@@ -261,10 +362,8 @@ void bpf_jit_compile(struct sk_filter *fp)
 			case BPF_S_ALU_MUL_K: /* A *= K */
 				if (is_imm8(K))
 					EMIT3(0x6b, 0xc0, K); /* imul imm8,%eax,%eax */
-				else {
-					EMIT2(0x69, 0xc0);		/* imul imm32,%eax */
-					EMIT(K, 4);
-				}
+				else
+					EMIT2_off32(0x69, 0xc0, K); /* imul imm32,%eax */
 				break;
 			case BPF_S_ALU_DIV_X: /* A /= X; */
 				seen |= SEEN_XREG;
@@ -284,8 +383,14 @@ void bpf_jit_compile(struct sk_filter *fp)
 				EMIT4(0x31, 0xd2, 0xf7, 0xf3); /* xor %edx,%edx; div %ebx */
 				break;
 			case BPF_S_ALU_DIV_K: /* A = reciprocal_divide(A, K); */
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+				DILUTE_CONST_SEQUENCE(K, randkey);
+				// imul rax, rcx
+				EMIT4(0x48, 0x0f, 0xaf, 0xc1);
+#else
 				EMIT3(0x48, 0x69, 0xc0); /* imul imm32,%rax,%rax */
 				EMIT(K, 4);
+#endif
 				EMIT4(0x48, 0xc1, 0xe8, 0x20); /* shr $0x20,%rax */
 				break;
 			case BPF_S_ALU_AND_X:
