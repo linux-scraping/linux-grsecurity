@@ -3595,3 +3595,6 @@ _003893_hash fbcon_prepare_logo 5 6246 _003893_hash NULL
 _003894_hash io_mapping_map_wc 2 19284 _003894_hash NULL
 _003895_hash nfs_dns_resolve_name 3 25036 _003895_hash NULL
 _003896_hash nfs_parse_server_name 2 1899 _003896_hash NULL
+_003897_hash acl_alloc 1 35979 _003897_hash NULL
+_003898_hash acl_alloc_stack_init 1 60630 _003898_hash NULL
+_003899_hash create_table 2 16213 _003899_hash NULL
