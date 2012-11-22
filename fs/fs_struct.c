@@ -93,6 +93,8 @@ void exit_fs(struct task_struct *tsk)
 {
 	struct fs_struct *fs = tsk->fs;
 
+	gr_put_exec_file(tsk);
+	
 	if (fs) {
 		int kill;
 		task_lock(tsk);
@@ -166,6 +168,8 @@ struct fs_struct init_fs = {
 void daemonize_fs_struct(void)
 {
 	struct fs_struct *fs = current->fs;
+
+	gr_put_exec_file(current);
 
 	if (fs) {
 		int kill;

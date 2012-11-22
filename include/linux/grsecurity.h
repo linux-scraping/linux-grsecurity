@@ -197,6 +197,7 @@ int gr_handle_rofs_mount(struct dentry *dentry, struct vfsmount *mnt, int mnt_fl
 int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode);
 void gr_audit_ptrace(struct task_struct *task);
 dev_t gr_get_dev_from_dentry(struct dentry *dentry);
+void gr_put_exec_file(struct task_struct *task);
 
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);
 

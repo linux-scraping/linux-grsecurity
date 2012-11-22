@@ -4186,6 +4186,22 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 	return (obj->mode & GR_FIND) ? 1 : 0;
 }
 
+void gr_put_exec_file(struct task_struct *task)
+{
+	struct file *filp;  
+
+	write_lock(&grsec_exec_file_lock);
+	filp = task->exec_file;   
+	task->exec_file = NULL;
+	write_unlock(&grsec_exec_file_lock);
+
+	if (filp)
+		fput(filp);
+
+	return;
+}
+
+
 #ifdef CONFIG_NETFILTER_XT_MATCH_GRADM_MODULE
 EXPORT_SYMBOL(gr_acl_is_enabled);
 #endif
