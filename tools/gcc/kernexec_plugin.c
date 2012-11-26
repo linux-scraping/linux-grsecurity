@@ -38,6 +38,10 @@
 extern void print_gimple_stmt(FILE *, gimple, int, int);
 extern rtx emit_move_insn(rtx x, rtx y);
 
+#if BUILDING_GCC_VERSION <= 4006
+#define ANY_RETURN_P(rtx) (GET_CODE(rtx) == RETURN)
+#endif
+
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
@@ -342,6 +346,7 @@ static unsigned int execute_kernexec_retaddr(void)
 	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
 		// rtl match: (jump_insn 41 40 42 2 (return) fptr.c:42 634 {return_internal} (nil))
 		//            (jump_insn 12 9 11 2 (parallel [ (return) (unspec [ (0) ] UNSPEC_REP) ]) fptr.c:46 635 {return_internal_long} (nil))
+		//            (jump_insn 97 96 98 6 (simple_return) fptr.c:50 -1 (nil) -> simple_return)
 		rtx body;
 
 		// is it a retn
@@ -350,7 +355,7 @@ static unsigned int execute_kernexec_retaddr(void)
 		body = PATTERN(insn);
 		if (GET_CODE(body) == PARALLEL)
 			body = XVECEXP(body, 0, 0);
-		if (GET_CODE(body) != RETURN)
+		if (!ANY_RETURN_P(body))
 			continue;
 		kernexec_instrument_retaddr(insn);
 	}
