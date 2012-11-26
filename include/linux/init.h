@@ -40,14 +40,32 @@
  */
 
 #ifdef MODULE
-#define add_latent_entropy
+#define add_init_latent_entropy
 #else
-#define add_latent_entropy __latent_entropy
+#define add_init_latent_entropy __latent_entropy
+#endif
+
+#ifdef CONFIG_HOTPLUG
+#define add_devinit_latent_entropy
+#else
+#define add_devinit_latent_entropy __latent_entropy
+#endif
+
+#ifdef CONFIG_HOTPLUG_CPU
+#define add_cpuinit_latent_entropy
+#else
+#define add_cpuinit_latent_entropy __latent_entropy
+#endif
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+#define add_meminit_latent_entropy
+#else
+#define add_meminit_latent_entropy __latent_entropy
 #endif
 
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
-#define __init		__section(.init.text) __cold notrace add_latent_entropy
+#define __init		__section(.init.text) __cold notrace add_init_latent_entropy
 #define __initdata	__section(.init.data)
 #define __initconst	__section(.init.rodata)
 #define __exitdata	__section(.exit.data)
@@ -89,7 +107,7 @@
 #define __exit          __section(.exit.text) __exitused __cold notrace
 
 /* Used for HOTPLUG */
-#define __devinit        __section(.devinit.text) __cold notrace add_latent_entropy
+#define __devinit        __section(.devinit.text) __cold notrace add_devinit_latent_entropy
 #define __devinitdata    __section(.devinit.data)
 #define __devinitconst   __section(.devinit.rodata)
 #define __devexit        __section(.devexit.text) __exitused __cold notrace
@@ -97,7 +115,7 @@
 #define __devexitconst   __section(.devexit.rodata)
 
 /* Used for HOTPLUG_CPU */
-#define __cpuinit        __section(.cpuinit.text) __cold notrace add_latent_entropy
+#define __cpuinit        __section(.cpuinit.text) __cold notrace add_cpuinit_latent_entropy
 #define __cpuinitdata    __section(.cpuinit.data)
 #define __cpuinitconst   __section(.cpuinit.rodata)
 #define __cpuexit        __section(.cpuexit.text) __exitused __cold notrace
@@ -105,7 +123,7 @@
 #define __cpuexitconst   __section(.cpuexit.rodata)
 
 /* Used for MEMORY_HOTPLUG */
-#define __meminit        __section(.meminit.text) __cold notrace add_latent_entropy
+#define __meminit        __section(.meminit.text) __cold notrace add_meminit_latent_entropy
 #define __meminitdata    __section(.meminit.data)
 #define __meminitconst   __section(.meminit.rodata)
 #define __memexit        __section(.memexit.text) __exitused __cold notrace
