@@ -56,14 +56,11 @@ static inline void tolerant_fwait(void)
 		     _ASM_EXTABLE(1b, 2b));
 }
 
-static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
+static inline int fxrstor_checking(struct i387_fxsave_struct __user *fx)
 {
 	int err;
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if ((unsigned long)fx < PAX_USER_SHADOW_BASE)
-		fx = (struct i387_fxsave_struct *)((void *)fx + PAX_USER_SHADOW_BASE);
-#endif
+	fx = (struct i387_fxsave_struct __user *)____m(fx);
 
 	asm volatile("1:  rex64/fxrstor (%[fx])\n\t"
 		     "2:\n"
@@ -110,10 +107,7 @@ static inline int fxsave_user(struct i387_fxsave_struct __user *fx)
 {
 	int err;
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if ((unsigned long)fx < PAX_USER_SHADOW_BASE)
-		fx = (struct i387_fxsave_struct __user *)((void __user *)fx + PAX_USER_SHADOW_BASE);
-#endif
+	fx = (struct i387_fxsave_struct __user *)____m(fx);
 
 	asm volatile("1:  rex64/fxsave (%[fx])\n\t"
 		     "2:\n"
@@ -189,15 +183,15 @@ static inline void tolerant_fwait(void)
 }
 
 /* perform fxrstor iff the processor has extended states, otherwise frstor */
-static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
+static inline int fxrstor_checking(struct i387_fxsave_struct __user *fx)
 {
 	/*
 	 * The "nop" is needed to make the instructions the same
 	 * length.
 	 */
 	alternative_input(
-		"nop ; frstor %1",
-		"fxrstor %1",
+		__copyuser_seg" frstor %1; nop",
+		__copyuser_seg" fxrstor %1",
 		X86_FEATURE_FXSR,
 		"m" (*fx));
 

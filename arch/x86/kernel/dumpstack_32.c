@@ -113,7 +113,7 @@ void show_registers(struct pt_regs *regs)
 		unsigned int code_len = code_bytes;
 		unsigned char c;
 		u8 *ip;
-		unsigned long cs_base = get_desc_base(&get_cpu_gdt_table(smp_processor_id())[(0xffff & regs->cs) >> 3]);
+		unsigned long cs_base = get_desc_base(&get_cpu_gdt_table(0)[(0xffff & regs->cs) >> 3]);
 
 		printk(KERN_EMERG "Stack:\n");
 		show_stack_log_lvl(NULL, regs, &regs->sp,

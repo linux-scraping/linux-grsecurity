@@ -71,12 +71,6 @@ unsigned long __clear_user(void __user *addr, unsigned long size)
 {
 	long __d0;
 	might_fault();
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	if ((unsigned long)addr < PAX_USER_SHADOW_BASE)
-		addr += PAX_USER_SHADOW_BASE;
-#endif
-
 	/* no memory constraint because it doesn't change any memory gcc knows
 	   about */
 	asm volatile(
@@ -99,7 +93,7 @@ unsigned long __clear_user(void __user *addr, unsigned long size)
 		_ASM_EXTABLE(0b,3b)
 		_ASM_EXTABLE(1b,2b)
 		: [size8] "=&c"(size), [dst] "=&D" (__d0)
-		: [size1] "r"(size & 7), "[size8]" (size / 8), "[dst]"(addr),
+		: [size1] "r"(size & 7), "[size8]" (size / 8), "[dst]"(____m(addr)),
 		  [zero] "r" (0UL), [eight] "r" (8UL));
 	return size;
 }
@@ -163,17 +157,8 @@ EXPORT_SYMBOL(strlen_user);
 
 unsigned long copy_in_user(void __user *to, const void __user *from, unsigned long len)
 {
-	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len)) {
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)to < PAX_USER_SHADOW_BASE)
-			to += PAX_USER_SHADOW_BASE;
-		if ((unsigned long)from < PAX_USER_SHADOW_BASE)
-			from += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic((void __force_kernel *)to, (void __force_kernel *)from, len);
-	}
+	if (access_ok(VERIFY_WRITE, to, len) && access_ok(VERIFY_READ, from, len))
+		return copy_user_generic((void __force_kernel *)____m(to), (void __force_kernel *)____m(from), len);
 	return len;
 }
 EXPORT_SYMBOL(copy_in_user);
