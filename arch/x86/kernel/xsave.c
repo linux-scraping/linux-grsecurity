@@ -266,7 +266,7 @@ fx_only:
 	 * the other extended state.
 	 */
 	xrstor_state(init_xstate_buf, pcntxt_mask & ~XSTATE_FPSSE);
-	return fxrstor_checking((struct i387_fxsave_struct __force_kernel *)buf);
+	return fxrstor_checking((struct i387_fxsave_struct __user *)buf);
 }
 
 /*
@@ -295,8 +295,7 @@ int restore_i387_xstate(void __user *buf)
 	if (use_xsave())
 		err = restore_user_xstate(buf);
 	else
-		err = fxrstor_checking((struct i387_fxsave_struct __force_kernel *)
-				       buf);
+		err = fxrstor_checking((struct i387_fxsave_struct __user *)buf);
 	if (unlikely(err)) {
 		/*
 		 * Encountered an error while doing the restore from the

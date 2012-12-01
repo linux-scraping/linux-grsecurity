@@ -111,13 +111,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(dst, size, false);
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-			src += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic(dst, (__force_kernel const void *)src, size);
+		return copy_user_generic(dst, (__force_kernel const void *)____m(src), size);
 	}
 	switch (size) {
 	case 1:__get_user_asm(*(u8 *)dst, (const u8 __user *)src,
@@ -151,13 +145,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 			       ret, "q", "", "=r", 8);
 		return ret;
 	default:
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-			src += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic(dst, (__force_kernel const void *)src, size);
+		return copy_user_generic(dst, (__force_kernel const void *)____m(src), size);
 	}
 }
 
@@ -184,13 +172,7 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 
 	if (!__builtin_constant_p(size)) {
 		check_object_size(src, size, true);
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
-			dst += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic((__force_kernel void *)dst, src, size);
+		return copy_user_generic((__force_kernel void *)____m(dst), src, size);
 	}
 	switch (size) {
 	case 1:__put_user_asm(*(const u8 *)src, (u8 __user *)dst,
@@ -224,13 +206,7 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 			       ret, "q", "", "er", 8);
 		return ret;
 	default:
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
-			dst += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic((__force_kernel void *)dst, src, size);
+		return copy_user_generic((__force_kernel void *)____m(dst), src, size);
 	}
 }
 
@@ -251,18 +227,9 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		return size;
 #endif
 
-	if (!__builtin_constant_p(size)) {
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-			src += PAX_USER_SHADOW_BASE;
-		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
-			dst += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic((__force_kernel void *)dst,
-					 (__force_kernel const void *)src, size);
-	}
+	if (!__builtin_constant_p(size))
+		return copy_user_generic((__force_kernel void *)____m(dst),
+					 (__force_kernel const void *)____m(src), size);
 	switch (size) {
 	case 1: {
 		u8 tmp;
@@ -302,16 +269,8 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		return ret;
 	}
 	default:
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-		if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-			src += PAX_USER_SHADOW_BASE;
-		if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
-			dst += PAX_USER_SHADOW_BASE;
-#endif
-
-		return copy_user_generic((__force_kernel void *)dst,
-					 (__force_kernel const void *)src, size);
+		return copy_user_generic((__force_kernel void *)____m(dst),
+					 (__force_kernel const void *)____m(src), size);
 	}
 }
 
@@ -331,15 +290,7 @@ __copy_from_user_inatomic(void *dst, const void __user *src, unsigned long size)
 	if (size > INT_MAX)
 		return size;
 
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_READ, src, size))
-		return size;
-
-	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-		src += PAX_USER_SHADOW_BASE;
-#endif
-
-	return copy_user_generic(dst, (__force_kernel const void *)src, size);
+	return copy_user_generic(dst, (__force_kernel const void *)____m(src), size);
 }
 
 static __must_check __always_inline unsigned long
@@ -348,15 +299,7 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 	if (size > INT_MAX)
 		return size;
 
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_WRITE, dst, size))
-		return size;
-
-	if ((unsigned long)dst < PAX_USER_SHADOW_BASE)
-		dst += PAX_USER_SHADOW_BASE;
-#endif
-
-	return copy_user_generic((__force_kernel void *)dst, src, size);
+	return copy_user_generic((__force_kernel void *)____m(dst), src, size);
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
