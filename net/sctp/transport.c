@@ -328,7 +328,7 @@ void sctp_transport_update_rto(struct sctp_transport *tp, __u32 rtt)
 		 * 1/8, rto_alpha would be expressed as 3.
 		 */
 		tp->rttvar = tp->rttvar - (tp->rttvar >> sctp_rto_beta)
-			+ ((abs(tp->srtt - rtt)) >> sctp_rto_beta);
+			+ (((__u32)abs64((__s64)tp->srtt - (__s64)rtt)) >> sctp_rto_beta);
 		tp->srtt = tp->srtt - (tp->srtt >> sctp_rto_alpha)
 			+ (rtt >> sctp_rto_alpha);
 	} else {

@@ -26,7 +26,7 @@
 	asm volatile("1:\tmovl	%2, %0\n"			\
 		     "\tmovl\t%0, %3\n"				\
 		     "\t" insn "\n"				\
-		     "2:\t" LOCK_PREFIX "cmpxchgl %3, %2\n"	\
+		     "2:\t" LOCK_PREFIX __copyuser_seg"cmpxchgl %3, %2\n"	\
 		     "\tjnz\t1b\n"				\
 		     "3:\t.section .fixup,\"ax\"\n"		\
 		     "4:\tmov\t%5, %1\n"			\
