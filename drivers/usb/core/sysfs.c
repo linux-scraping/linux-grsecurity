@@ -226,7 +226,7 @@ show_urbnum(struct device *dev, struct device_attribute *attr, char *buf)
 	struct usb_device *udev;
 
 	udev = to_usb_device(dev);
-	return sprintf(buf, "%d\n", atomic_read(&udev->urbnum));
+	return sprintf(buf, "%d\n", atomic_read_unchecked(&udev->urbnum));
 }
 static DEVICE_ATTR(urbnum, S_IRUGO, show_urbnum, NULL);
 
