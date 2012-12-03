@@ -500,7 +500,7 @@ struct usb_device {
 
 	int pm_usage_cnt;
 	u32 quirks;
-	atomic_t urbnum;
+	atomic_unchecked_t urbnum;
 
 	unsigned long active_duration;
 

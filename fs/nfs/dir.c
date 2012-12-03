@@ -830,6 +830,8 @@ out_set_verifier:
 out_zap_parent:
 	nfs_zap_caches(dir);
  out_bad:
+	nfs_free_fattr(fattr);
+	nfs_free_fhandle(fhandle);
 	nfs_mark_for_revalidate(dir);
 	if (inode && S_ISDIR(inode->i_mode)) {
 		/* Purge readdir caches. */
