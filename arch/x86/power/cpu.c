@@ -142,10 +142,6 @@ static void fix_processor_context(void)
 				 */
 
 #ifdef CONFIG_X86_64
-	pax_open_kernel();
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_TSS].type = 9;
-	pax_close_kernel();
-
 	syscall_init();				/* This sets MSR_*STAR and related */
 #endif
 	load_TR_desc();				/* This does ltr */
