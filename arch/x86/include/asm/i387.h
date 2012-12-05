@@ -257,8 +257,16 @@ static inline int restore_fpu_checking(struct task_struct *tsk)
 {
 	if (task_thread_info(tsk)->status & TS_XSAVE)
 		return xrstor_checking(&tsk->thread.xstate->xsave);
-	else
-		return fxrstor_checking(&tsk->thread.xstate->fxsave);
+	else {
+		int ret;
+		mm_segment_t fs;
+
+		fs = get_fs();
+		set_fs(KERNEL_DS);
+		ret = fxrstor_checking(&tsk->thread.xstate->fxsave);
+		set_fs(fs);
+		return ret;
+	}
 }
 
 /*
