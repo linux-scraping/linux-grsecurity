@@ -599,7 +599,7 @@ void __math_state_restore(struct task_struct *tsk)
 {
 	/* We need a safe address that is cheap to find and that is already
 	   in L1. */
-#define safe_address (init_tss[smp_processor_id()].x86_tss.sp0)
+#define safe_address (init_tss[raw_smp_processor_id()].x86_tss.sp0)
 
 	/* AMD K7/K8 CPUs don't save/restore FDP/FIP/FOP unless an exception
 	   is pending.  Clear the x87 state here by setting it to fixed
