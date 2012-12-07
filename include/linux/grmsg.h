@@ -108,3 +108,4 @@
 #define GR_INIT_TRANSFER_MSG "persistent special role transferred privilege to init by "
 #define GR_BADPROCPID_MSG "denied read of sensitive /proc/pid/%s entry via fd passed across exec by "
 #define GR_SYMLINKOWNER_MSG "denied following symlink %.950s since symlink owner %u does not match target owner %u, by "
+#define GR_BRUTE_DAEMON_MSG "bruteforce prevention initiated for the next 30 minutes or until service restarted, stalling each fork 30 seconds.  Please investigate the crash report for "
