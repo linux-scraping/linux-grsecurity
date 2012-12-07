@@ -75,6 +75,7 @@ int gr_fake_force_sig(int sig, struct task_struct *t)
 
 #ifdef CONFIG_GRKERNSEC_BRUTE
 #define GR_USER_BAN_TIME (15 * 60)
+#define GR_DAEMON_BRUTE_TIME (30 * 60)
 
 static int __get_dumpable(unsigned long mm_flags)
 {
@@ -85,10 +86,12 @@ static int __get_dumpable(unsigned long mm_flags)
 }
 #endif
 
-void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
+void gr_handle_brute_attach(unsigned long mm_flags)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
+	struct task_struct *p = current;
 	uid_t uid = 0;
+	int daemon = 0;
 
 	if (!grsec_enable_brute)
 		return;
@@ -96,9 +99,11 @@ void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags)
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
-	if (p->real_parent && p->real_parent->exec_file == p->exec_file)
+	if (p->real_parent && p->real_parent->exec_file == p->exec_file) {
+		p->real_parent->brute_expires = get_seconds() + GR_DAEMON_BRUTE_TIME;
 		p->real_parent->brute = 1;
-	else {
+		daemon = 1;
+	} else {
 		const struct cred *cred = __task_cred(p), *cred2;
 		struct task_struct *tsk, *tsk2;
 
@@ -130,6 +135,8 @@ unlock:
 
 	if (uid)
 		printk(KERN_ALERT "grsec: bruteforce prevention initiated against uid %u, banning for %d minutes\n", uid, GR_USER_BAN_TIME / 60);
+	else if (daemon)
+		gr_log_noargs(GR_DONT_AUDIT, GR_BRUTE_DAEMON_MSG);
 
 #endif
 	return;
@@ -138,8 +145,14 @@ unlock:
 void gr_handle_brute_check(void)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
-	if (current->brute)
-		msleep(30 * 1000);
+	struct task_struct *p = current;
+
+	if (unlikely(p->brute)) {
+		if (!grsec_enable_brute)
+			p->brute = 0;
+		else if (time_before(get_seconds(), p->brute_expires))
+			msleep(30 * 1000);
+	}
 #endif
 	return;
 }

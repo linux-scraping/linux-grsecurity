@@ -33,7 +33,7 @@ struct user_arg_ptr {
 	} ptr;
 };
 
-void gr_handle_brute_attach(struct task_struct *p, unsigned long mm_flags);
+void gr_handle_brute_attach(unsigned long mm_flags);
 void gr_handle_brute_check(void);
 void gr_handle_kernel_exploit(void);
 int gr_process_user_ban(void);
