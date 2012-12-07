@@ -2498,7 +2498,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 	audit_core_dumps(signr);
 
 	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
-		gr_handle_brute_attach(current, cprm.mm_flags);
+		gr_handle_brute_attach(cprm.mm_flags);
 
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
