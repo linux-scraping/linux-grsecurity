@@ -254,7 +254,14 @@ static inline int __save_init_fpu(struct task_struct *tsk)
 
 static inline int fpu_fxrstor_checking(struct fpu *fpu)
 {
-	return fxrstor_checking(&fpu->state->fxsave);
+	int ret;
+	mm_segment_t fs;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	ret = fxrstor_checking(&fpu->state->fxsave);
+	set_fs(fs);
+	return ret;
 }
 
 static inline int fpu_restore_checking(struct fpu *fpu)

@@ -822,6 +822,9 @@ int __cpuinit native_cpu_up(unsigned int cpu, struct task_struct *tidle)
 
 	per_cpu(cpu_state, cpu) = CPU_UP_PREPARE;
 
+	/* the FPU context is blank, nobody can own it */
+	__cpu_disable_lazy_restore(cpu);
+
 #ifdef CONFIG_PAX_PER_CPU_PGD
 	clone_pgd_range(get_cpu_pgd(cpu) + KERNEL_PGD_BOUNDARY,
 			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
