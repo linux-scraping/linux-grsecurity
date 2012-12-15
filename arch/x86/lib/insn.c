@@ -18,14 +18,15 @@
  * Copyright (C) IBM Corporation, 2002, 2004, 2009
  */
 
-#include <linux/string.h>
-#include <asm/inat.h>
-#include <asm/insn.h>
 #ifdef __KERNEL__
+#include <linux/string.h>
 #include <asm/pgtable_types.h>
 #else
+#include <string.h>
 #define ktla_ktva(addr) addr
 #endif
+#include <asm/inat.h>
+#include <asm/insn.h>
 
 /* Verify next sizeof(t) bytes can be on the same instruction */
 #define validate_next(t, insn, n)	\

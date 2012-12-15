@@ -33,6 +33,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
 #include <asm/asm.h>
+#include <asm/smap.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 #include <asm/alternative-asm.h>
@@ -51,6 +52,7 @@ ENTRY(__get_user_1)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
@@ -64,6 +66,7 @@ ENTRY(__get_user_1)
 
 1:	__copyuser_seg movzb (%_ASM_AX),%edx
 	xor %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -78,6 +81,7 @@ ENTRY(__get_user_2)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
@@ -91,6 +95,7 @@ ENTRY(__get_user_2)
 
 2:	__copyuser_seg movzwl -1(%_ASM_AX),%edx
 	xor %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -105,6 +110,7 @@ ENTRY(__get_user_4)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
@@ -118,6 +124,7 @@ ENTRY(__get_user_4)
 
 3:	__copyuser_seg mov -3(%_ASM_AX),%edx
 	xor %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -140,8 +147,10 @@ ENTRY(__get_user_8)
 1234:
 #endif
 
+	ASM_STAC
 4:	movq -7(%_ASM_AX),%_ASM_DX
 	xor %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -152,6 +161,7 @@ bad_get_user:
 	CFI_STARTPROC
 	xor %edx,%edx
 	mov $(-EFAULT),%_ASM_AX
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC

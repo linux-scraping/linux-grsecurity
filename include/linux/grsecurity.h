@@ -28,7 +28,7 @@ struct user_arg_ptr {
 	union {
 		const char __user *const __user *native;
 #ifdef CONFIG_COMPAT
-		compat_uptr_t __user *compat;
+		const compat_uptr_t __user *compat;
 #endif
 	} ptr;
 };
@@ -105,7 +105,7 @@ int gr_handle_fifo(const struct dentry *dentry,
 int gr_handle_hardlink(const struct dentry *dentry,
 			      const struct vfsmount *mnt,
 			      struct inode *inode,
-			      const int mode, const char *to);
+			      const int mode, const struct filename *to);
 
 int gr_is_capable(const int cap);
 int gr_is_capable_nolog(const int cap);
@@ -176,19 +176,19 @@ __u32 gr_acl_handle_unlink(const struct dentry *dentry,
 __u32 gr_acl_handle_symlink(const struct dentry *new_dentry,
 				   const struct dentry *parent_dentry,
 				   const struct vfsmount *parent_mnt,
-				   const char *from);
+				   const struct filename *from);
 __u32 gr_acl_handle_link(const struct dentry *new_dentry,
 				const struct dentry *parent_dentry,
 				const struct vfsmount *parent_mnt,
 				const struct dentry *old_dentry,
-				const struct vfsmount *old_mnt, const char *to);
+				const struct vfsmount *old_mnt, const struct filename *to);
 int gr_handle_symlink_owner(const struct path *link, const struct inode *target);
 int gr_acl_handle_rename(struct dentry *new_dentry,
 				struct dentry *parent_dentry,
 				const struct vfsmount *parent_mnt,
 				struct dentry *old_dentry,
 				struct inode *old_parent_inode,
-				struct vfsmount *old_mnt, const char *newname);
+				struct vfsmount *old_mnt, const struct filename *newname);
 void gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 				struct dentry *old_dentry,
 				struct dentry *new_dentry,

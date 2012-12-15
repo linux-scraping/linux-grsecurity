@@ -1255,15 +1255,10 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 		   sk_wmem_alloc_get(sp),
 		   sk_rmem_alloc_get(sp),
 		   0, 0L, 0,
-		   sock_i_uid(sp), 0,
+		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
+		   0,
 		   sock_i_ino(sp),
-		   atomic_read(&sp->sk_refcnt),
-#ifdef CONFIG_GRKERNSEC_HIDESYM
-		   NULL,
-#else
-		   sp,
-#endif
-		   atomic_read_unchecked(&sp->sk_drops));
+		   atomic_read(&sp->sk_refcnt), sp, atomic_read_unchecked(&sp->sk_drops));
 }
 
 static int raw6_seq_show(struct seq_file *seq, void *v)

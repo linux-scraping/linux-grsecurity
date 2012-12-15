@@ -142,7 +142,6 @@ static int msg_insert(struct msg_msg *msg, struct mqueue_inode_info *info)
 		leaf = kmalloc(sizeof(*leaf), GFP_ATOMIC);
 		if (!leaf)
 			return -ENOMEM;
-		rb_init_node(&leaf->rb_node);
 		INIT_LIST_HEAD(&leaf->msg_list);
 		info->qsize += sizeof(*leaf);
 	}
@@ -774,7 +773,7 @@ SYSCALL_DEFINE4(mq_open, const char __user *, u_name, int, oflag, umode_t, mode,
 {
 	struct path path;
 	struct file *filp;
-	char *name;
+	struct filename *name;
 	struct mq_attr attr;
 	int fd, error;
 	struct ipc_namespace *ipc_ns = current->nsproxy->ipc_ns;
@@ -797,7 +796,7 @@ SYSCALL_DEFINE4(mq_open, const char __user *, u_name, int, oflag, umode_t, mode,
 	ro = mnt_want_write(mnt);	/* we'll drop it in any case */
 	error = 0;
 	mutex_lock(&root->d_inode->i_mutex);
-	path.dentry = lookup_one_len(name, root, strlen(name));
+	path.dentry = lookup_one_len(name->name, root, strlen(name->name));
 	if (IS_ERR(path.dentry)) {
 		error = PTR_ERR(path.dentry);
 		goto out_putfd;
@@ -806,7 +805,7 @@ SYSCALL_DEFINE4(mq_open, const char __user *, u_name, int, oflag, umode_t, mode,
 
 	if (oflag & O_CREAT) {
 		if (path.dentry->d_inode) {	/* entry already exists */
-			audit_inode(name, path.dentry);
+			audit_inode(name, path.dentry, 0);
 			if (oflag & O_EXCL) {
 				error = -EEXIST;
 				goto out;
@@ -826,7 +825,7 @@ SYSCALL_DEFINE4(mq_open, const char __user *, u_name, int, oflag, umode_t, mode,
 			error = -ENOENT;
 			goto out;
 		}
-		audit_inode(name, path.dentry);
+		audit_inode(name, path.dentry, 0);
 		filp = do_open(&path, oflag);
 	}
 
@@ -851,7 +850,7 @@ out_putname:
 SYSCALL_DEFINE1(mq_unlink, const char __user *, u_name)
 {
 	int err;
-	char *name;
+	struct filename *name;
 	struct dentry *dentry;
 	struct inode *inode = NULL;
 	struct ipc_namespace *ipc_ns = current->nsproxy->ipc_ns;
@@ -865,7 +864,8 @@ SYSCALL_DEFINE1(mq_unlink, const char __user *, u_name)
 	if (err)
 		goto out_name;
 	mutex_lock_nested(&mnt->mnt_root->d_inode->i_mutex, I_MUTEX_PARENT);
-	dentry = lookup_one_len(name, mnt->mnt_root, strlen(name));
+	dentry = lookup_one_len(name->name, mnt->mnt_root,
+				strlen(name->name));
 	if (IS_ERR(dentry)) {
 		err = PTR_ERR(dentry);
 		goto out_unlock;
@@ -945,7 +945,7 @@ SYSCALL_DEFINE5(mq_timedsend, mqd_t, mqdes, const char __user *, u_msg_ptr,
 		size_t, msg_len, unsigned int, msg_prio,
 		const struct timespec __user *, u_abs_timeout)
 {
-	struct file *filp;
+	struct fd f;
 	struct inode *inode;
 	struct ext_wait_queue wait;
 	struct ext_wait_queue *receiver;
@@ -968,21 +968,21 @@ SYSCALL_DEFINE5(mq_timedsend, mqd_t, mqdes, const char __user *, u_msg_ptr,
 
 	audit_mq_sendrecv(mqdes, msg_len, msg_prio, timeout ? &ts : NULL);
 
-	filp = fget(mqdes);
-	if (unlikely(!filp)) {
+	f = fdget(mqdes);
+	if (unlikely(!f.file)) {
 		ret = -EBADF;
 		goto out;
 	}
 
-	inode = filp->f_path.dentry->d_inode;
-	if (unlikely(filp->f_op != &mqueue_file_operations)) {
+	inode = f.file->f_path.dentry->d_inode;
+	if (unlikely(f.file->f_op != &mqueue_file_operations)) {
 		ret = -EBADF;
 		goto out_fput;
 	}
 	info = MQUEUE_I(inode);
-	audit_inode(NULL, filp->f_path.dentry);
+	audit_inode(NULL, f.file->f_path.dentry, 0);
 
-	if (unlikely(!(filp->f_mode & FMODE_WRITE))) {
+	if (unlikely(!(f.file->f_mode & FMODE_WRITE))) {
 		ret = -EBADF;
 		goto out_fput;
 	}
@@ -1014,7 +1014,6 @@ SYSCALL_DEFINE5(mq_timedsend, mqd_t, mqdes, const char __user *, u_msg_ptr,
 
 	if (!info->node_cache && new_leaf) {
 		/* Save our speculative allocation into the cache */
-		rb_init_node(&new_leaf->rb_node);
 		INIT_LIST_HEAD(&new_leaf->msg_list);
 		info->node_cache = new_leaf;
 		info->qsize += sizeof(*new_leaf);
@@ -1024,7 +1023,7 @@ SYSCALL_DEFINE5(mq_timedsend, mqd_t, mqdes, const char __user *, u_msg_ptr,
 	}
 
 	if (info->attr.mq_curmsgs == info->attr.mq_maxmsg) {
-		if (filp->f_flags & O_NONBLOCK) {
+		if (f.file->f_flags & O_NONBLOCK) {
 			ret = -EAGAIN;
 		} else {
 			wait.task = current;
@@ -1057,7 +1056,7 @@ out_free:
 	if (ret)
 		free_msg(msg_ptr);
 out_fput:
-	fput(filp);
+	fdput(f);
 out:
 	return ret;
 }
@@ -1068,7 +1067,7 @@ SYSCALL_DEFINE5(mq_timedreceive, mqd_t, mqdes, char __user *, u_msg_ptr,
 {
 	ssize_t ret;
 	struct msg_msg *msg_ptr;
-	struct file *filp;
+	struct fd f;
 	struct inode *inode;
 	struct mqueue_inode_info *info;
 	struct ext_wait_queue wait;
@@ -1085,21 +1084,21 @@ SYSCALL_DEFINE5(mq_timedreceive, mqd_t, mqdes, char __user *, u_msg_ptr,
 
 	audit_mq_sendrecv(mqdes, msg_len, 0, timeout ? &ts : NULL);
 
-	filp = fget(mqdes);
-	if (unlikely(!filp)) {
+	f = fdget(mqdes);
+	if (unlikely(!f.file)) {
 		ret = -EBADF;
 		goto out;
 	}
 
-	inode = filp->f_path.dentry->d_inode;
-	if (unlikely(filp->f_op != &mqueue_file_operations)) {
+	inode = f.file->f_path.dentry->d_inode;
+	if (unlikely(f.file->f_op != &mqueue_file_operations)) {
 		ret = -EBADF;
 		goto out_fput;
 	}
 	info = MQUEUE_I(inode);
-	audit_inode(NULL, filp->f_path.dentry);
+	audit_inode(NULL, f.file->f_path.dentry, 0);
 
-	if (unlikely(!(filp->f_mode & FMODE_READ))) {
+	if (unlikely(!(f.file->f_mode & FMODE_READ))) {
 		ret = -EBADF;
 		goto out_fput;
 	}
@@ -1122,7 +1121,6 @@ SYSCALL_DEFINE5(mq_timedreceive, mqd_t, mqdes, char __user *, u_msg_ptr,
 
 	if (!info->node_cache && new_leaf) {
 		/* Save our speculative allocation into the cache */
-		rb_init_node(&new_leaf->rb_node);
 		INIT_LIST_HEAD(&new_leaf->msg_list);
 		info->node_cache = new_leaf;
 		info->qsize += sizeof(*new_leaf);
@@ -1131,7 +1129,7 @@ SYSCALL_DEFINE5(mq_timedreceive, mqd_t, mqdes, char __user *, u_msg_ptr,
 	}
 
 	if (info->attr.mq_curmsgs == 0) {
-		if (filp->f_flags & O_NONBLOCK) {
+		if (f.file->f_flags & O_NONBLOCK) {
 			spin_unlock(&info->lock);
 			ret = -EAGAIN;
 		} else {
@@ -1161,7 +1159,7 @@ SYSCALL_DEFINE5(mq_timedreceive, mqd_t, mqdes, char __user *, u_msg_ptr,
 		free_msg(msg_ptr);
 	}
 out_fput:
-	fput(filp);
+	fdput(f);
 out:
 	return ret;
 }
@@ -1175,7 +1173,7 @@ SYSCALL_DEFINE2(mq_notify, mqd_t, mqdes,
 		const struct sigevent __user *, u_notification)
 {
 	int ret;
-	struct file *filp;
+	struct fd f;
 	struct sock *sock;
 	struct inode *inode;
 	struct sigevent notification;
@@ -1221,13 +1219,13 @@ SYSCALL_DEFINE2(mq_notify, mqd_t, mqdes,
 			skb_put(nc, NOTIFY_COOKIE_LEN);
 			/* and attach it to the socket */
 retry:
-			filp = fget(notification.sigev_signo);
-			if (!filp) {
+			f = fdget(notification.sigev_signo);
+			if (!f.file) {
 				ret = -EBADF;
 				goto out;
 			}
-			sock = netlink_getsockbyfilp(filp);
-			fput(filp);
+			sock = netlink_getsockbyfilp(f.file);
+			fdput(f);
 			if (IS_ERR(sock)) {
 				ret = PTR_ERR(sock);
 				sock = NULL;
@@ -1246,14 +1244,14 @@ retry:
 		}
 	}
 
-	filp = fget(mqdes);
-	if (!filp) {
+	f = fdget(mqdes);
+	if (!f.file) {
 		ret = -EBADF;
 		goto out;
 	}
 
-	inode = filp->f_path.dentry->d_inode;
-	if (unlikely(filp->f_op != &mqueue_file_operations)) {
+	inode = f.file->f_path.dentry->d_inode;
+	if (unlikely(f.file->f_op != &mqueue_file_operations)) {
 		ret = -EBADF;
 		goto out_fput;
 	}
@@ -1293,7 +1291,7 @@ retry:
 	}
 	spin_unlock(&info->lock);
 out_fput:
-	fput(filp);
+	fdput(f);
 out:
 	if (sock) {
 		netlink_detachskb(sock, nc);
@@ -1309,7 +1307,7 @@ SYSCALL_DEFINE3(mq_getsetattr, mqd_t, mqdes,
 {
 	int ret;
 	struct mq_attr mqstat, omqstat;
-	struct file *filp;
+	struct fd f;
 	struct inode *inode;
 	struct mqueue_inode_info *info;
 
@@ -1320,14 +1318,14 @@ SYSCALL_DEFINE3(mq_getsetattr, mqd_t, mqdes,
 			return -EINVAL;
 	}
 
-	filp = fget(mqdes);
-	if (!filp) {
+	f = fdget(mqdes);
+	if (!f.file) {
 		ret = -EBADF;
 		goto out;
 	}
 
-	inode = filp->f_path.dentry->d_inode;
-	if (unlikely(filp->f_op != &mqueue_file_operations)) {
+	inode = f.file->f_path.dentry->d_inode;
+	if (unlikely(f.file->f_op != &mqueue_file_operations)) {
 		ret = -EBADF;
 		goto out_fput;
 	}
@@ -1336,15 +1334,15 @@ SYSCALL_DEFINE3(mq_getsetattr, mqd_t, mqdes,
 	spin_lock(&info->lock);
 
 	omqstat = info->attr;
-	omqstat.mq_flags = filp->f_flags & O_NONBLOCK;
+	omqstat.mq_flags = f.file->f_flags & O_NONBLOCK;
 	if (u_mqstat) {
 		audit_mq_getsetattr(mqdes, &mqstat);
-		spin_lock(&filp->f_lock);
+		spin_lock(&f.file->f_lock);
 		if (mqstat.mq_flags & O_NONBLOCK)
-			filp->f_flags |= O_NONBLOCK;
+			f.file->f_flags |= O_NONBLOCK;
 		else
-			filp->f_flags &= ~O_NONBLOCK;
-		spin_unlock(&filp->f_lock);
+			f.file->f_flags &= ~O_NONBLOCK;
+		spin_unlock(&f.file->f_lock);
 
 		inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	}
@@ -1357,7 +1355,7 @@ SYSCALL_DEFINE3(mq_getsetattr, mqd_t, mqdes,
 		ret = -EFAULT;
 
 out_fput:
-	fput(filp);
+	fdput(f);
 out:
 	return ret;
 }

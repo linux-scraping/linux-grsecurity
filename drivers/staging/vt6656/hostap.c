@@ -18,7 +18,7 @@
  *
  * File: hostap.c
  *
- * Purpose: handle hostap deamon ioctl input/out functions
+ * Purpose: handle hostap daemon ioctl input/out functions
  *
  * Author: Lyndon Chen
  *
@@ -48,7 +48,7 @@ static int          msglevel                =MSG_LEVEL_INFO;
 
 /*
  * Description:
- *      register net_device (AP) for hostap deamon
+ *      register net_device (AP) for hostap daemon
  *
  * Parameters:
  *  In:
@@ -177,7 +177,7 @@ int vt6656_hostap_set_hostapd(PSDevice pDevice, int val, int rtnl_locked)
 
 /*
  * Description:
- *      remove station function supported for hostap deamon
+ *      remove station function supported for hostap daemon
  *
  * Parameters:
  *  In:
@@ -205,7 +205,7 @@ static int hostap_remove_sta(PSDevice pDevice,
 
 /*
  * Description:
- *      add a station from hostap deamon
+ *      add a station from hostap daemon
  *
  * Parameters:
  *  In:
@@ -440,9 +440,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 		return -EINVAL;
 	}
 
-	if (param->sta_addr[0] == 0xff && param->sta_addr[1] == 0xff &&
-	    param->sta_addr[2] == 0xff && param->sta_addr[3] == 0xff &&
-	    param->sta_addr[4] == 0xff && param->sta_addr[5] == 0xff) {
+	if (is_broadcast_ether_addr(param->sta_addr)) {
 		if (param->u.crypt.idx >= MAX_GROUP_KEY)
 			return -EINVAL;
         iNodeIndex = 0;
@@ -664,9 +662,7 @@ static int hostap_get_encryption(PSDevice pDevice,
 
 	param->u.crypt.err = 0;
 
-	if (param->sta_addr[0] == 0xff && param->sta_addr[1] == 0xff &&
-	    param->sta_addr[2] == 0xff && param->sta_addr[3] == 0xff &&
-	    param->sta_addr[4] == 0xff && param->sta_addr[5] == 0xff) {
+	if (is_broadcast_ether_addr(param->sta_addr)) {
         iNodeIndex = 0;
 	} else {
 	    if (BSSbIsSTAInNodeDB(pDevice, param->sta_addr, &iNodeIndex) == FALSE) {
@@ -687,7 +683,7 @@ static int hostap_get_encryption(PSDevice pDevice,
 
 /*
  * Description:
- *      vt6656_hostap_ioctl main function supported for hostap deamon.
+ *      vt6656_hostap_ioctl main function supported for hostap daemon.
  *
  * Parameters:
  *  In:
@@ -733,8 +729,8 @@ int vt6656_hostap_ioctl(PSDevice pDevice, struct iw_point *p)
 		break;
 	case VIAWGET_HOSTAPD_SET_ASSOC_AP_ADDR:
 	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "VIAWGET_HOSTAPD_SET_ASSOC_AP_ADDR \n");
-		return -EOPNOTSUPP;
-		break;
+		ret = -EOPNOTSUPP;
+		goto out;
 	case VIAWGET_HOSTAPD_FLUSH:
 	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "VIAWGET_HOSTAPD_FLUSH \n");
         spin_lock_irq(&pDevice->lock);
@@ -778,13 +774,13 @@ int vt6656_hostap_ioctl(PSDevice pDevice, struct iw_point *p)
 
 	case VIAWGET_HOSTAPD_STA_CLEAR_STATS:
 	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "VIAWGET_HOSTAPD_STA_CLEAR_STATS \n");
-	    return -EOPNOTSUPP;
-
+	    ret = -EOPNOTSUPP;
+	    goto out;
 	default:
 	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "vt6656_hostap_ioctl: unknown cmd=%d\n",
 		       (int)param->cmd);
-		return -EOPNOTSUPP;
-		break;
+		ret = -EOPNOTSUPP;
+		goto out;
 	}
 
 

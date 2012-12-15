@@ -9,7 +9,7 @@
 
 TRACE_EVENT(do_sys_open,
 
-	TP_PROTO(char *filename, int flags, int mode),
+	TP_PROTO(const char *filename, int flags, int mode),
 
 	TP_ARGS(filename, flags, mode),
 

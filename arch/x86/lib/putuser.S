@@ -15,6 +15,7 @@
 #include <asm/thread_info.h>
 #include <asm/errno.h>
 #include <asm/asm.h>
+#include <asm/smap.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 #include <asm/alternative-asm.h>
@@ -32,7 +33,9 @@
  */
 
 #define ENTER	CFI_STARTPROC
-#define EXIT	pax_force_retaddr; ret ; \
+#define EXIT	ASM_CLAC ;		\
+		pax_force_retaddr ;	\
+		ret ;			\
 		CFI_ENDPROC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -55,6 +58,7 @@ ENTRY(__put_user_1)
 	GET_THREAD_INFO(%_ASM_BX)
 	cmp TI_addr_limit(%_ASM_BX),%_ASM_CX
 	jae bad_put_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
@@ -80,6 +84,7 @@ ENTRY(__put_user_2)
 	sub $1,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
@@ -105,6 +110,7 @@ ENTRY(__put_user_4)
 	sub $3,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
@@ -130,6 +136,7 @@ ENTRY(__put_user_8)
 	sub $7,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
+	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov $PAX_USER_SHADOW_BASE,%_ASM_BX

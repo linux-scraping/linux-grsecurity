@@ -45,7 +45,6 @@ struct kmem_cache {
 	unsigned int colour_off;	/* colour offset */
 	struct kmem_cache *slabp_cache;
 	unsigned int slab_size;
-	unsigned int dflags;		/* dynamic flags */
 
 	/* constructor func */
 	void (*ctor)(void *obj);
@@ -53,7 +52,7 @@ struct kmem_cache {
 /* 4) cache creation/removal */
 	const char *name;
 	struct list_head list;
-	int refcount;
+	atomic_t refcount;
 	int object_size;
 	int align;
 
@@ -117,18 +116,12 @@ void *kmem_cache_alloc(struct kmem_cache *, gfp_t);
 void *__kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 
 #ifdef CONFIG_TRACING
-extern void *kmem_cache_alloc_trace(size_t size,
-				    struct kmem_cache *cachep, gfp_t flags);
-extern size_t slab_buffer_size(struct kmem_cache *cachep);
+extern void *kmem_cache_alloc_trace(struct kmem_cache *, gfp_t, size_t);
 #else
 static __always_inline void *
-kmem_cache_alloc_trace(size_t size, struct kmem_cache *cachep, gfp_t flags)
+kmem_cache_alloc_trace(struct kmem_cache *cachep, gfp_t flags, size_t size)
 {
 	return kmem_cache_alloc(cachep, flags);
-}
-static inline size_t slab_buffer_size(struct kmem_cache *cachep)
-{
-	return 0;
 }
 #endif
 
@@ -166,7 +159,7 @@ found:
 
 			cachep = malloc_sizes[i].cs_cachep;
 
-		ret = kmem_cache_alloc_trace(size, cachep, flags);
+		ret = kmem_cache_alloc_trace(cachep, flags, size);
 
 		return ret;
 	}
@@ -178,16 +171,16 @@ extern void *__kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(
 extern void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 
 #ifdef CONFIG_TRACING
-extern void *kmem_cache_alloc_node_trace(size_t size,
-					 struct kmem_cache *cachep,
+extern void *kmem_cache_alloc_node_trace(struct kmem_cache *cachep,
 					 gfp_t flags,
-					 int nodeid);
+					 int nodeid,
+					 size_t size);
 #else
 static __always_inline void *
-kmem_cache_alloc_node_trace(size_t size,
-			    struct kmem_cache *cachep,
+kmem_cache_alloc_node_trace(struct kmem_cache *cachep,
 			    gfp_t flags,
-			    int nodeid)
+			    int nodeid,
+			    size_t size)
 {
 	return kmem_cache_alloc_node(cachep, flags, nodeid);
 }
@@ -226,7 +219,7 @@ found:
 
 			cachep = malloc_sizes[i].cs_cachep;
 
-		return kmem_cache_alloc_node_trace(size, cachep, flags, node);
+		return kmem_cache_alloc_node_trace(cachep, flags, node, size);
 	}
 	return __kmalloc_node(size, flags, node);
 }

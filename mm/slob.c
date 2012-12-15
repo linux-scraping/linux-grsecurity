@@ -194,7 +194,7 @@ static struct page *slob_new_pages(gfp_t gfp, unsigned int order, int node)
 	struct page *page;
 
 #ifdef CONFIG_NUMA
-	if (node != -1)
+	if (node != NUMA_NO_NODE)
 		page = alloc_pages_exact_node(node, gfp, order);
 	else
 #endif
@@ -294,7 +294,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 		 * If there's a node specification, search for a partial
 		 * page with a matching node id in the freelist.
 		 */
-		if (node != -1 && page_to_nid(sp) != node)
+		if (node != NUMA_NO_NODE && page_to_nid(sp) != node)
 			continue;
 #endif
 		/* Enough room on this page? */
@@ -427,7 +427,8 @@ out:
  * End of slob allocator proper. Begin kmem_cache_alloc and kmalloc frontend.
  */
 
-static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
+static __always_inline void *
+__do_kmalloc_node_align(size_t size, gfp_t gfp, int node, unsigned long caller, int align)
 {
 	slob_t *m;
 	void *ret = NULL;
@@ -450,7 +451,7 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 		m[1].units = align;
 		ret = (void *)m + align;
 
-		trace_kmalloc_node(_RET_IP_, ret,
+		trace_kmalloc_node(caller, ret,
 				   size, size + align, gfp, node);
 	} else {
 		unsigned int order = get_order(size);
@@ -464,23 +465,44 @@ static void *__kmalloc_node_align(size_t size, gfp_t gfp, int node, int align)
 			page->private = size;
 		}
 
-		trace_kmalloc_node(_RET_IP_, ret,
+		trace_kmalloc_node(caller, ret,
 				   size, PAGE_SIZE << order, gfp, node);
 	}
 
 	return ret;
 }
 
-void *__kmalloc_node(size_t size, gfp_t gfp, int node)
+static __always_inline void *
+__do_kmalloc_node(size_t size, gfp_t gfp, int node, unsigned long caller)
 {
 	int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
-	void *ret = __kmalloc_node_align(size, gfp, node, align);
+	void *ret = __do_kmalloc_node_align(size, gfp, node, caller, align);
 
 	if (!ZERO_OR_NULL_PTR(ret))
 		kmemleak_alloc(ret, size, 1, gfp);
 	return ret;
 }
+
+void *__kmalloc_node(size_t size, gfp_t gfp, int node)
+{
+	return __do_kmalloc_node(size, gfp, node, _RET_IP_);
+}
 EXPORT_SYMBOL(__kmalloc_node);
+
+#ifdef CONFIG_TRACING
+void *__kmalloc_track_caller(size_t size, gfp_t gfp, unsigned long caller)
+{
+	return __do_kmalloc_node(size, gfp, NUMA_NO_NODE, caller);
+}
+
+#ifdef CONFIG_NUMA
+void *__kmalloc_node_track_caller(size_t size, gfp_t gfp,
+					int node, unsigned long caller)
+{
+	return __do_kmalloc_node(size, gfp, node, caller);
+}
+#endif
+#endif
 
 void kfree(const void *block)
 {
@@ -495,7 +517,7 @@ void kfree(const void *block)
 	sp = virt_to_page(block);
 	VM_BUG_ON(!PageSlab(sp));
 	if (!sp->private) {
-		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
+		int align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
 		slob_free(m, m[0].units + align);
 	} else {
@@ -590,7 +612,7 @@ size_t ksize(const void *block)
 	sp = virt_to_page(block);
 	VM_BUG_ON(!PageSlab(sp));
 	if (!sp->private) {
-		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
+		int align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
 		return SLOB_UNITS(m[0].units) * SLOB_UNIT;
 	} else
@@ -598,49 +620,24 @@ size_t ksize(const void *block)
 }
 EXPORT_SYMBOL(ksize);
 
-struct kmem_cache *__kmem_cache_create(const char *name, size_t size,
-	size_t align, unsigned long flags, void (*ctor)(void *))
+int __kmem_cache_create(struct kmem_cache *c, unsigned long flags)
 {
-	struct kmem_cache *c;
+	size_t align = c->size;
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
-	c = __kmalloc_node_align(sizeof(struct kmem_cache),
-		GFP_KERNEL, -1, ARCH_KMALLOC_MINALIGN);
-#else
-	c = slob_alloc(sizeof(struct kmem_cache),
-		GFP_KERNEL, ARCH_KMALLOC_MINALIGN, -1);
-#endif
-
-	if (c) {
-		c->name = name;
-		c->size = size;
-		if (flags & SLAB_DESTROY_BY_RCU) {
-			/* leave room for rcu footer at the end of object */
-			c->size += sizeof(struct slob_rcu);
-		}
-		c->flags = flags;
-		c->ctor = ctor;
-		/* ignore alignment unless it's forced */
-		c->align = (flags & SLAB_HWCACHE_ALIGN) ? SLOB_ALIGN : 0;
-		if (c->align < ARCH_SLAB_MINALIGN)
-			c->align = ARCH_SLAB_MINALIGN;
-		if (c->align < align)
-			c->align = align;
-
-		kmemleak_alloc(c, sizeof(struct kmem_cache), 1, GFP_KERNEL);
-		c->refcount = 1;
+	if (flags & SLAB_DESTROY_BY_RCU) {
+		/* leave room for rcu footer at the end of object */
+		c->size += sizeof(struct slob_rcu);
 	}
-	return c;
-}
+	c->flags = flags;
+	/* ignore alignment unless it's forced */
+	c->align = (flags & SLAB_HWCACHE_ALIGN) ? SLOB_ALIGN : 0;
+	if (c->align < ARCH_SLAB_MINALIGN)
+		c->align = ARCH_SLAB_MINALIGN;
+	if (c->align < align)
+		c->align = align;
 
-void kmem_cache_destroy(struct kmem_cache *c)
-{
-	kmemleak_free(c);
-	if (c->flags & SLAB_DESTROY_BY_RCU)
-		rcu_barrier();
-	slob_free(c, sizeof(struct kmem_cache));
+	return 0;
 }
-EXPORT_SYMBOL(kmem_cache_destroy);
 
 void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 {
@@ -651,7 +648,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 	lockdep_trace_alloc(flags);
 
 #ifdef CONFIG_PAX_USERCOPY_SLABS
-	b = __kmalloc_node_align(c->size, flags, node, c->align);
+	b = __do_kmalloc_node_align(c->size, flags, node, _RET_IP_, c->align);
 #else
 	if (c->size < PAGE_SIZE) {
 		b = slob_alloc(c->size, flags, c->align, node);
@@ -736,14 +733,28 @@ unsigned int kmem_cache_size(struct kmem_cache *c)
 }
 EXPORT_SYMBOL(kmem_cache_size);
 
+int __kmem_cache_shutdown(struct kmem_cache *c)
+{
+	/* No way to check for remaining objects */
+	return 0;
+}
+
 int kmem_cache_shrink(struct kmem_cache *d)
 {
 	return 0;
 }
 EXPORT_SYMBOL(kmem_cache_shrink);
 
+struct kmem_cache kmem_cache_boot = {
+	.name = "kmem_cache",
+	.size = sizeof(struct kmem_cache),
+	.flags = SLAB_PANIC,
+	.align = ARCH_KMALLOC_MINALIGN,
+};
+
 void __init kmem_cache_init(void)
 {
+	kmem_cache = &kmem_cache_boot;
 	slab_state = UP;
 }
 

@@ -667,7 +667,8 @@ static int __cpuinit do_boot_cpu(int apicid, int cpu, struct task_struct *idle)
 	unsigned long boot_error = 0;
 	int timeout;
 
-	alternatives_smp_switch(1);
+	/* Just in case we booted with a single CPU. */
+	alternatives_enable_smp();
 
 	idle->thread.sp = (unsigned long) (((struct pt_regs *)
 			  (THREAD_SIZE +  task_stack_page(idle))) - 1);
@@ -1070,20 +1071,6 @@ out:
 	preempt_enable();
 }
 
-void arch_disable_nonboot_cpus_begin(void)
-{
-	/*
-	 * Avoid the smp alternatives switch during the disable_nonboot_cpus().
-	 * In the suspend path, we will be back in the SMP mode shortly anyways.
-	 */
-	skip_smp_alternatives = true;
-}
-
-void arch_disable_nonboot_cpus_end(void)
-{
-	skip_smp_alternatives = false;
-}
-
 void arch_enable_nonboot_cpus_begin(void)
 {
 	set_mtrr_aps_delayed_init();
@@ -1273,9 +1260,6 @@ void native_cpu_die(unsigned int cpu)
 		if (per_cpu(cpu_state, cpu) == CPU_DEAD) {
 			if (system_state == SYSTEM_RUNNING)
 				pr_info("CPU %u is now offline\n", cpu);
-
-			if (1 == num_online_cpus())
-				alternatives_smp_switch(0);
 			return;
 		}
 		msleep(100);

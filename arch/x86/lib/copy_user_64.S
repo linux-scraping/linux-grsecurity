@@ -17,6 +17,7 @@
 #include <asm/cpufeature.h>
 #include <asm/alternative-asm.h>
 #include <asm/asm.h>
+#include <asm/smap.h>
 #include <asm/pgtable.h>
 
 /*
@@ -104,6 +105,7 @@ ENDPROC(bad_from_user)
  */
 ENTRY(copy_user_generic_unrolled)
 	CFI_STARTPROC
+	ASM_STAC
 	cmpl $8,%edx
 	jb 20f		/* less then 8 bytes, go to byte copy loop */
 	ALIGN_DESTINATION
@@ -151,6 +153,7 @@ ENTRY(copy_user_generic_unrolled)
 	decl %ecx
 	jnz 21b
 23:	xor %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 
@@ -207,6 +210,7 @@ ENDPROC(copy_user_generic_unrolled)
  */
 ENTRY(copy_user_generic_string)
 	CFI_STARTPROC
+	ASM_STAC
 	andl %edx,%edx
 	jz 4f
 	cmpl $8,%edx
@@ -221,6 +225,7 @@ ENTRY(copy_user_generic_string)
 3:	rep
 	movsb
 4:	xorl %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 
@@ -249,12 +254,14 @@ ENDPROC(copy_user_generic_string)
  */
 ENTRY(copy_user_enhanced_fast_string)
 	CFI_STARTPROC
+	ASM_STAC
 	andl %edx,%edx
 	jz 2f
 	movl %edx,%ecx
 1:	rep
 	movsb
 2:	xorl %eax,%eax
+	ASM_CLAC
 	pax_force_retaddr
 	ret
 

@@ -283,14 +283,16 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 	}
 }
 
-__must_check unsigned long clear_user(void __user *mem, unsigned long len) __size_overflow(2);
-__must_check unsigned long __clear_user(void __user *mem, unsigned long len) __size_overflow(2);
-
 static __must_check __always_inline int
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned long size)
 {
 	if (size > INT_MAX)
 		return size;
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_READ, src, size))
+		return size;
+#endif
 
 	return copy_user_generic(dst, (__force_kernel const void *)____m(src), size);
 }
@@ -300,6 +302,11 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 {
 	if (size > INT_MAX)
 		return size;
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (!__access_ok(VERIFY_WRITE, dst, size))
+		return size;
+#endif
 
 	return copy_user_generic((__force_kernel void *)____m(dst), src, size);
 }

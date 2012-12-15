@@ -654,8 +654,6 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 	if (mi < 0)
 		return -EINVAL;
 
-	vma->vm_flags |= VM_IO | VM_RESERVED;
-
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	return remap_pfn_range(vma,
@@ -667,7 +665,7 @@ static int uio_mmap_physical(struct vm_area_struct *vma)
 
 static int uio_mmap_logical(struct vm_area_struct *vma)
 {
-	vma->vm_flags |= VM_RESERVED;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_ops = &uio_vm_ops;
 	uio_vma_open(vma);
 	return 0;

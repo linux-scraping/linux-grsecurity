@@ -20,6 +20,7 @@
 #include <linux/usb/ehci_def.h>
 #include <linux/delay.h>
 #include <linux/serial_core.h>
+#include <linux/kconfig.h>
 #include <linux/kgdb.h>
 #include <linux/kthread.h>
 #include <asm/io.h>
@@ -492,7 +493,7 @@ static int ehci_wait_for_port(int port);
  * Return -ENODEV for any general failure
  * Return -EIO if wait for port fails
  */
-int dbgp_external_startup(void)
+static int _dbgp_external_startup(void)
 {
 	int devnum;
 	struct usb_debug_descriptor dbgp_desc;
@@ -614,7 +615,6 @@ err:
 		goto try_again;
 	return -ENODEV;
 }
-EXPORT_SYMBOL_GPL(dbgp_external_startup);
 
 static int ehci_reset_port(int port)
 {
@@ -805,7 +805,7 @@ try_next_port:
 		dbgp_ehci_status("ehci skip - already configured");
 	}
 
-	ret = dbgp_external_startup();
+	ret = _dbgp_external_startup();
 	if (ret == -EIO)
 		goto next_debug_port;
 
@@ -935,7 +935,7 @@ static void early_dbgp_write(struct console *con, const char *str, u32 n)
 		ctrl = readl(&ehci_debug->control);
 		if (!(ctrl & DBGP_ENABLED)) {
 			dbgp_not_safe = 1;
-			dbgp_external_startup();
+			_dbgp_external_startup();
 		} else {
 			cmd |= CMD_RUN;
 			writel(cmd, &ehci_regs->command);
@@ -975,9 +975,14 @@ struct console early_dbgp_console = {
 	.index =	-1,
 };
 
-int dbgp_reset_prep(void)
+#if IS_ENABLED(CONFIG_USB_EHCI_HCD)
+int dbgp_reset_prep(struct usb_hcd *hcd)
 {
+	int ret = xen_dbgp_reset_prep(hcd);
 	u32 ctrl;
+
+	if (ret)
+		return ret;
 
 	dbgp_not_safe = 1;
 	if (!ehci_debug)
@@ -998,6 +1003,13 @@ int dbgp_reset_prep(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(dbgp_reset_prep);
+
+int dbgp_external_startup(struct usb_hcd *hcd)
+{
+	return xen_dbgp_external_startup(hcd) ?: _dbgp_external_startup();
+}
+EXPORT_SYMBOL_GPL(dbgp_external_startup);
+#endif /* USB_EHCI_HCD */
 
 #ifdef CONFIG_KGDB
 

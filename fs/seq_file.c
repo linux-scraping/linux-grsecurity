@@ -9,6 +9,7 @@
 #include <linux/export.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/cred.h>
 #include <linux/sched.h>
 
 #include <asm/uaccess.h>
@@ -57,6 +58,9 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	memset(p, 0, sizeof(*p));
 	mutex_init(&p->lock);
 	p->op = op;
+#ifdef CONFIG_USER_NS
+	p->user_ns = file->f_cred->user_ns;
+#endif
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	p->exec_id = current->exec_id;
 #endif

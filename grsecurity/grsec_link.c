@@ -41,7 +41,7 @@ gr_handle_follow_link(const struct inode *parent,
 int
 gr_handle_hardlink(const struct dentry *dentry,
 		   const struct vfsmount *mnt,
-		   struct inode *inode, const int mode, const char *to)
+		   struct inode *inode, const int mode, const struct filename *to)
 {
 #ifdef CONFIG_GRKERNSEC_LINK
 	const struct cred *cred = current_cred();
@@ -50,7 +50,7 @@ gr_handle_hardlink(const struct dentry *dentry,
 	    (!S_ISREG(mode) || is_privileged_binary(dentry) || 
 	     (inode_permission(inode, MAY_READ | MAY_WRITE))) &&
 	    !capable(CAP_FOWNER) && !uid_eq(cred->uid, GLOBAL_ROOT_UID)) {
-		gr_log_fs_int2_str(GR_DONT_AUDIT, GR_HARDLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid, to);
+		gr_log_fs_int2_str(GR_DONT_AUDIT, GR_HARDLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid, to->name);
 		return -EPERM;
 	}
 #endif

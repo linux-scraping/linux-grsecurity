@@ -1105,7 +1105,9 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
 		freeary(ns, ipcp);
 		goto out_up;
 	case IPC_SET:
-		ipc_update_perm(&semid64.sem_perm, ipcp);
+		err = ipc_update_perm(&semid64.sem_perm, ipcp);
+		if (err)
+			goto out_unlock;
 		sma->sem_ctime = get_seconds();
 		break;
 	default:
@@ -1678,6 +1680,7 @@ void exit_sem(struct task_struct *tsk)
 #ifdef CONFIG_PROC_FS
 static int sysvipc_sem_proc_show(struct seq_file *s, void *it)
 {
+	struct user_namespace *user_ns = seq_user_ns(s);
 	struct sem_array *sma = it;
 
 	return seq_printf(s,
@@ -1686,10 +1689,10 @@ static int sysvipc_sem_proc_show(struct seq_file *s, void *it)
 			  sma->sem_perm.id,
 			  sma->sem_perm.mode,
 			  sma->sem_nsems,
-			  sma->sem_perm.uid,
-			  sma->sem_perm.gid,
-			  sma->sem_perm.cuid,
-			  sma->sem_perm.cgid,
+			  from_kuid_munged(user_ns, sma->sem_perm.uid),
+			  from_kgid_munged(user_ns, sma->sem_perm.gid),
+			  from_kuid_munged(user_ns, sma->sem_perm.cuid),
+			  from_kgid_munged(user_ns, sma->sem_perm.cgid),
 			  sma->sem_otime,
 			  sma->sem_ctime);
 }

@@ -353,17 +353,17 @@ int __kprobes arch_prepare_optimized_kprobe(struct optimized_kprobe *op)
 	op->optinsn.size = ret;
 
 	/* Copy arch-dep-instance from template */
-	memcpy(buf, &optprobe_template_entry, TMPL_END_IDX);
+	memcpy(buf, ktla_ktva(&optprobe_template_entry), TMPL_END_IDX);
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
 
 	/* Set probe function call */
-	synthesize_relcall(buf + TMPL_CALL_IDX, ktla_ktva(optimized_callback));
+	synthesize_relcall(ktva_ktla(buf) + TMPL_CALL_IDX, optimized_callback);
 
 	/* Set returning jmp instruction at the tail of out-of-line buffer */
-	synthesize_reljump(buf + TMPL_END_IDX + op->optinsn.size,
-			   (u8 *)ktla_ktva(op->kp.addr) + op->optinsn.size);
+	synthesize_reljump(ktva_ktla(buf) + TMPL_END_IDX + op->optinsn.size,
+			   (u8 *)op->kp.addr + op->optinsn.size);
 
 	flush_icache_range((unsigned long) buf,
 			   (unsigned long) buf + TMPL_END_IDX +
@@ -483,7 +483,7 @@ setup_detour_execution(struct kprobe *p, struct pt_regs *regs, int reenter)
 		/* This kprobe is really able to run optimized path. */
 		op = container_of(p, struct optimized_kprobe, kp);
 		/* Detour through copied instructions */
-		regs->ip = (unsigned long)op->optinsn.insn + TMPL_END_IDX;
+		regs->ip = ktva_ktla((unsigned long)op->optinsn.insn) + TMPL_END_IDX;
 		if (!reenter)
 			reset_current_kprobe();
 		preempt_enable_no_resched();

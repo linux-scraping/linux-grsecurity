@@ -101,6 +101,7 @@
 #define HWCAP_S390_HPAGE	128
 #define HWCAP_S390_ETF3EH	256
 #define HWCAP_S390_HIGH_GPRS	512
+#define HWCAP_S390_TE		1024
 
 /*
  * These are used to set parameters in the core dumps.
@@ -214,5 +215,7 @@ struct linux_binprm;
 
 #define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
 int arch_setup_additional_pages(struct linux_binprm *, int);
+
+void *fill_cpu_elf_notes(void *ptr, struct save_area *sa);
 
 #endif

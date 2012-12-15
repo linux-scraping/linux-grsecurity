@@ -1434,7 +1434,7 @@ static int __devexit sonypi_remove(struct platform_device *dev)
 	sonypi_disable();
 
 	synchronize_irq(sonypi_device.irq);
-	flush_work_sync(&sonypi_device.input_work);
+	flush_work(&sonypi_device.input_work);
 
 	if (useinput) {
 		input_unregister_device(sonypi_device.input_key_dev);
@@ -1457,7 +1457,7 @@ static int __devexit sonypi_remove(struct platform_device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int old_camera_power;
 
 static int sonypi_suspend(struct device *dev)

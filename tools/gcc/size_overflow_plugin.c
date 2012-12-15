@@ -77,8 +77,10 @@ static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_
 static tree get_size_overflow_type(gimple stmt, const_tree node);
 static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 
+static unsigned int call_count=0;
+
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20121113beta",
+	.version	= "20121212beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -357,6 +359,9 @@ static void check_arg_type(const_tree arg)
 	const_tree type = TREE_TYPE(arg);
 	enum tree_code code = TREE_CODE(type);
 
+	if (code == BOOLEAN_TYPE)
+		return;
+
 	gcc_assert(code == INTEGER_TYPE || code == ENUMERAL_TYPE ||
 		  (code == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == VOID_TYPE) ||
 		  (code == POINTER_TYPE && TREE_CODE(TREE_TYPE(type)) == INTEGER_TYPE));
@@ -506,10 +511,20 @@ static tree create_assign(struct pointer_set_t *visited, gimple oldstmt, tree rh
 		gcc_unreachable();
 	}
 
-	if (gimple_code(oldstmt) == GIMPLE_ASM)
+	switch (gimple_code(oldstmt)) {
+	case GIMPLE_ASM:
 		lhs = rhs1;
-	else
+		break;
+	case GIMPLE_CALL:
+		lhs = gimple_call_lhs(oldstmt);
+		break;
+	case GIMPLE_ASSIGN:
 		lhs = gimple_get_lhs(oldstmt);
+		break;
+	default:
+		debug_gimple_stmt(oldstmt);
+		gcc_unreachable();
+	}
 
 	gsi = gsi_for_stmt(oldstmt);
 	pointer_set_insert(visited, oldstmt);
@@ -572,11 +587,8 @@ static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree
 	new_var = make_ssa_name(new_var, stmt);
 	gimple_set_lhs(stmt, new_var);
 
-	if (rhs1 != NULL_TREE) {
-		if (!gimple_assign_cast_p(oldstmt) && TREE_CODE_CLASS(gimple_assign_rhs_code(oldstmt)) != tcc_comparison)
-			rhs1 = cast_a_tree(size_overflow_type, rhs1);
+	if (rhs1 != NULL_TREE)
 		gimple_assign_set_rhs1(stmt, rhs1);
-	}
 
 	if (rhs2 != NULL_TREE)
 		gimple_assign_set_rhs2(stmt, rhs2);
@@ -811,6 +823,7 @@ static bool is_a_cast_and_const_overflow(const_tree no_const_rhs)
 
 static tree handle_unary_rhs(struct pointer_set_t *visited, gimple stmt)
 {
+	gimple def_stmt;
 	tree size_overflow_type, lhs = gimple_get_lhs(stmt);
 	tree new_rhs1, rhs1 = gimple_assign_rhs1(stmt);
 	const_tree rhs1_type = TREE_TYPE(rhs1);
@@ -840,13 +853,16 @@ static tree handle_unary_rhs(struct pointer_set_t *visited, gimple stmt)
 	size_overflow_type = get_size_overflow_type(stmt, rhs1);
 	new_rhs1 = cast_to_new_size_overflow_type(stmt, new_rhs1, size_overflow_type, BEFORE_STMT);
 
-	change_rhs1(stmt, new_rhs1);
 	check_size_overflow(stmt, size_overflow_type, new_rhs1, rhs1, BEFORE_STMT);
 
 	rhs1 = gimple_assign_rhs1(stmt);
 	rhs1_type = TREE_TYPE(rhs1);
-	if (TYPE_UNSIGNED(rhs1_type) != TYPE_UNSIGNED(lhs_type))
+	if (TYPE_UNSIGNED(rhs1_type) != TYPE_UNSIGNED(lhs_type)) {
+		def_stmt = get_def_stmt(new_rhs1);
+		rhs1 = gimple_assign_rhs1(def_stmt);
 		return create_assign(visited, stmt, rhs1, AFTER_STMT);
+	}
+	change_rhs1(stmt, new_rhs1);
 
 	if (!check_mode_type(stmt))
 		return create_assign(visited, stmt, lhs, AFTER_STMT);
@@ -859,10 +875,13 @@ static tree handle_unary_rhs(struct pointer_set_t *visited, gimple stmt)
 	return create_assign(visited, stmt, lhs, AFTER_STMT);
 }
 
-static tree handle_unary_ops(struct pointer_set_t *visited, tree lhs)
+static tree handle_unary_ops(struct pointer_set_t *visited, gimple stmt)
 {
+	tree rhs1, lhs = gimple_get_lhs(stmt);
 	gimple def_stmt = get_def_stmt(lhs);
-	tree rhs1 = gimple_assign_rhs1(def_stmt);
+
+	gcc_assert(gimple_code(def_stmt) != GIMPLE_NOP);
+	rhs1 = gimple_assign_rhs1(def_stmt);
 
 	if (is_gimple_constant(rhs1))
 		return create_assign(visited, def_stmt, lhs, AFTER_STMT);
@@ -879,10 +898,11 @@ static tree handle_unary_ops(struct pointer_set_t *visited, tree lhs)
 #if BUILDING_GCC_VERSION >= 4006
 	case MEM_REF:
 #endif
-	case PARM_DECL:
 	case TARGET_MEM_REF:
-	case VAR_DECL:
 		return create_assign(visited, def_stmt, lhs, AFTER_STMT);
+	case PARM_DECL:
+	case VAR_DECL:
+		return create_assign(visited, stmt, lhs, AFTER_STMT);
 
 	default:
 		debug_gimple_stmt(def_stmt);
@@ -925,7 +945,8 @@ static void insert_cond_result(basic_block bb_true, const_gimple stmt, const_tre
 	const_tree loc_line;
 	tree loc_file, ssa_name, current_func;
 	expanded_location xloc;
-	char ssa_name_buf[256];
+	char *ssa_name_buf;
+	int len;
 	gimple_stmt_iterator gsi = gsi_start_bb(bb_true);
 
 	def_stmt = get_def_stmt(arg);
@@ -945,8 +966,12 @@ static void insert_cond_result(basic_block bb_true, const_gimple stmt, const_tre
 	current_func = build_string(NAME_LEN(current_function_decl) + 1, NAME(current_function_decl));
 	current_func = create_string_param(current_func);
 
-	snprintf(ssa_name_buf, 256, "%s_%u (%s)\n", NAME(SSA_NAME_VAR(arg)), SSA_NAME_VERSION(arg), min ? "min" : "max");
-	ssa_name = build_string(256, ssa_name_buf);
+	gcc_assert(DECL_NAME(SSA_NAME_VAR(arg)) != NULL);
+	call_count++;
+	len = asprintf(&ssa_name_buf, "%s_%u %s, count: %u\n", NAME(SSA_NAME_VAR(arg)), SSA_NAME_VERSION(arg), min ? "min" : "max", call_count);
+	gcc_assert(len > 0);
+	ssa_name = build_string(len + 1, ssa_name_buf);
+	free(ssa_name_buf);
 	ssa_name = create_string_param(ssa_name);
 
 	// void report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
@@ -1049,7 +1074,7 @@ static tree get_size_overflow_type_for_intentional_overflow(gimple def_stmt, tre
 	if (gimple_assign_rhs_code(def_stmt) == RSHIFT_EXPR)
 		return get_size_overflow_type(change_rhs_def_stmt, change_rhs);
 
-	if (!types_compatible_p(lhs_type, rhs1_type) || !useless_type_conversion_p(rhs1_type, rhs2_type)) {
+	if (!types_compatible_p(lhs_type, rhs1_type) || !types_compatible_p(rhs1_type, rhs2_type)) {
 		debug_gimple_stmt(def_stmt);
 		gcc_unreachable();
 	}
@@ -1298,6 +1323,7 @@ static tree handle_ternary_ops(struct pointer_set_t *visited, tree lhs)
 static tree get_size_overflow_type(gimple stmt, const_tree node)
 {
 	const_tree type;
+	tree new_type;
 
 	gcc_assert(node != NULL_TREE);
 
@@ -1308,20 +1334,29 @@ static tree get_size_overflow_type(gimple stmt, const_tree node)
 
 	switch (TYPE_MODE(type)) {
 	case QImode:
-		return (TYPE_UNSIGNED(type)) ? unsigned_intHI_type_node : intHI_type_node;
+		new_type = (TYPE_UNSIGNED(type)) ? unsigned_intHI_type_node : intHI_type_node;
+		break;
 	case HImode:
-		return (TYPE_UNSIGNED(type)) ? unsigned_intSI_type_node : intSI_type_node;
+		new_type = (TYPE_UNSIGNED(type)) ? unsigned_intSI_type_node : intSI_type_node;
+		break;
 	case SImode:
-		return (TYPE_UNSIGNED(type)) ? unsigned_intDI_type_node : intDI_type_node;
+		new_type = (TYPE_UNSIGNED(type)) ? unsigned_intDI_type_node : intDI_type_node;
+		break;
 	case DImode:
 		if (LONG_TYPE_SIZE == GET_MODE_BITSIZE(SImode))
-			return (TYPE_UNSIGNED(type)) ? unsigned_intDI_type_node : intDI_type_node;
-		return (TYPE_UNSIGNED(type)) ? unsigned_intTI_type_node : intTI_type_node;
+			new_type = (TYPE_UNSIGNED(type)) ? unsigned_intDI_type_node : intDI_type_node;
+		else
+			new_type = (TYPE_UNSIGNED(type)) ? unsigned_intTI_type_node : intTI_type_node;
+		break;
 	default:
 		debug_tree((tree)node);
 		error("%s: unsupported gcc configuration.", __func__);
 		gcc_unreachable();
 	}
+
+	if (TYPE_QUALS(type) != 0)
+		return build_qualified_type(new_type, TYPE_QUALS(type));
+	return new_type;
 }
 
 static tree expand_visited(gimple def_stmt)
@@ -1362,21 +1397,22 @@ static tree expand(struct pointer_set_t *visited, tree lhs)
 
 	gcc_assert(code == INTEGER_TYPE || code == POINTER_TYPE || code == BOOLEAN_TYPE || code == ENUMERAL_TYPE);
 
-
 	def_stmt = get_def_stmt(lhs);
 
-	if (!def_stmt)
+	if (!def_stmt || gimple_code(def_stmt) == GIMPLE_NOP)
 		return NULL_TREE;
 
 	if (gimple_plf(def_stmt, MY_STMT))
 		return lhs;
 
+	// skip char type, except PHI (FIXME: only kernel)
+	if (TYPE_MODE(TREE_TYPE(lhs)) == QImode && gimple_code(def_stmt) != GIMPLE_PHI)
+		return create_assign(visited, def_stmt, lhs, AFTER_STMT);
+
 	if (pointer_set_contains(visited, def_stmt))
 		return expand_visited(def_stmt);
 
 	switch (gimple_code(def_stmt)) {
-	case GIMPLE_NOP:
-		return NULL_TREE;
 	case GIMPLE_PHI:
 		return build_new_phi(visited, lhs);
 	case GIMPLE_CALL:
@@ -1385,7 +1421,7 @@ static tree expand(struct pointer_set_t *visited, tree lhs)
 	case GIMPLE_ASSIGN:
 		switch (gimple_num_ops(def_stmt)) {
 		case 2:
-			return handle_unary_ops(visited, lhs);
+			return handle_unary_ops(visited, def_stmt);
 		case 3:
 			return handle_binary_ops(visited, lhs);
 #if BUILDING_GCC_VERSION >= 4007
@@ -1444,6 +1480,8 @@ static bool get_function_arg(unsigned int* argnum, const_tree fndecl)
 
 static bool skip_types(const_tree var)
 {
+	const_tree type;
+
 	switch (TREE_CODE(var)) {
 		case ADDR_EXPR:
 #if BUILDING_GCC_VERSION >= 4006
@@ -1458,6 +1496,17 @@ static bool skip_types(const_tree var)
 		default:
 			break;
 	}
+
+	type = TREE_TYPE(TREE_TYPE(var));
+	if (!type)
+		return false;
+	switch (TREE_CODE(type)) {
+		case RECORD_TYPE:
+			return true;
+		default:
+			break;
+	}
+
 	return false;
 }
 
@@ -1604,6 +1653,10 @@ static bool pre_expand(struct pointer_set_t *visited, const_tree lhs)
 		return false;
 
 	if (skip_types(lhs))
+		return false;
+
+	// skip char type (FIXME: only kernel)
+	if (TYPE_MODE(TREE_TYPE(lhs)) == QImode)
 		return false;
 
 	if (TREE_CODE(lhs) == PARM_DECL)

@@ -43,10 +43,11 @@ do {									\
 	might_fault();							\
 	__asm__ __volatile__(						\
 		__COPYUSER_SET_ES					\
+		ASM_STAC "\n"						\
 		"0:	rep; stosl\n"					\
 		"	movl %2,%0\n"					\
 		"1:	rep; stosb\n"					\
-		"2:\n"							\
+		"2: " ASM_CLAC "\n"					\
 		__COPYUSER_RESTORE_ES					\
 		".section .fixup,\"ax\"\n"				\
 		"3:	lea 0(%2,%0,4),%0\n"				\
@@ -738,10 +739,12 @@ survive:
 		return n;
 	}
 #endif
+	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user(to, from, n, "", __COPYUSER_SET_ES, __COPYUSER_RESTORE_ES);
 	else
 		n = __generic_copy_to_user_intel(to, from, n);
+	clac();
 	return n;
 }
 EXPORT_SYMBOL(__copy_to_user_ll);
@@ -749,10 +752,12 @@ EXPORT_SYMBOL(__copy_to_user_ll);
 unsigned long __copy_from_user_ll(void *to, const void __user *from,
 					unsigned long n)
 {
+	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user_zeroing(to, from, n);
 	else
 		n = __copy_user_zeroing_intel(to, from, n);
+	clac();
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll);
@@ -760,10 +765,12 @@ EXPORT_SYMBOL(__copy_from_user_ll);
 unsigned long __copy_from_user_ll_nozero(void *to, const void __user *from,
 					 unsigned long n)
 {
+	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user(to, from, n, __copyuser_seg, "", "");
 	else
 		n = __generic_copy_from_user_intel(to, from, n);
+	clac();
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nozero);
@@ -771,6 +778,7 @@ EXPORT_SYMBOL(__copy_from_user_ll_nozero);
 unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 					unsigned long n)
 {
+	stac();
 #ifdef CONFIG_X86_INTEL_USERCOPY
 	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_zeroing_intel_nocache(to, from, n);
@@ -779,6 +787,7 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 #else
 	__copy_user_zeroing(to, from, n);
 #endif
+	clac();
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache);
@@ -786,6 +795,7 @@ EXPORT_SYMBOL(__copy_from_user_ll_nocache);
 unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *from,
 					unsigned long n)
 {
+	stac();
 #ifdef CONFIG_X86_INTEL_USERCOPY
 	if (n > 64 && cpu_has_xmm2)
 		n = __copy_user_intel_nocache(to, from, n);
@@ -794,6 +804,7 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 #else
 	__copy_user(to, from, n, __copyuser_seg, "", "");
 #endif
+	clac();
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache_nozero);

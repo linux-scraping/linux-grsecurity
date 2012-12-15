@@ -286,7 +286,7 @@ gr_acl_handle_mkdir(const struct dentry * new_dentry,
 __u32
 gr_acl_handle_symlink(const struct dentry * new_dentry,
 		      const struct dentry * parent_dentry,
-		      const struct vfsmount * parent_mnt, const char *from)
+		      const struct vfsmount * parent_mnt, const struct filename *from)
 {
 	return 1;
 }
@@ -296,7 +296,7 @@ gr_acl_handle_link(const struct dentry * new_dentry,
 		   const struct dentry * parent_dentry,
 		   const struct vfsmount * parent_mnt,
 		   const struct dentry * old_dentry,
-		   const struct vfsmount * old_mnt, const char *to)
+		   const struct vfsmount * old_mnt, const struct filename *to)
 {
 	return 1;
 }
@@ -307,7 +307,7 @@ gr_acl_handle_rename(const struct dentry *new_dentry,
 		     const struct vfsmount *parent_mnt,
 		     const struct dentry *old_dentry,
 		     const struct inode *old_parent_inode,
-		     const struct vfsmount *old_mnt, const char *newname)
+		     const struct vfsmount *old_mnt, const struct filename *newname)
 {
 	return 0;
 }

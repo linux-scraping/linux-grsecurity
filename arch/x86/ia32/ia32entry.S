@@ -14,6 +14,7 @@
 #include <asm/segment.h>
 #include <asm/irqflags.h>
 #include <asm/asm.h>
+#include <asm/smap.h>
 #include <asm/pgtable.h>
 #include <linux/linkage.h>
 #include <linux/err.h>
@@ -187,8 +188,10 @@ ENTRY(ia32_sysenter_target)
 	add %r11,%rbp
 #endif
 
+	ASM_STAC
 1:	movl	(%rbp),%ebp
 	_ASM_EXTABLE(1b,ia32_badarg)
+	ASM_CLAC
 	GET_THREAD_INFO(%r11)
 	orl    $TS_COMPAT,TI_status(%r11)
 	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -365,8 +368,10 @@ ENTRY(ia32_cstar_target)
 	add %r11,%r8
 #endif
 
+	ASM_STAC
 1:	movl	(%r8),%r9d
 	_ASM_EXTABLE(1b,ia32_badarg)
+	ASM_CLAC
 	GET_THREAD_INFO(%r11)
 	orl   $TS_COMPAT,TI_status(%r11)
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -436,6 +441,7 @@ cstar_tracesys:
 END(ia32_cstar_target)
 				
 ia32_badarg:
+	ASM_CLAC
 	movq $-EFAULT,%rax
 	jmp ia32_sysret
 	CFI_ENDPROC
@@ -540,7 +546,7 @@ GLOBAL(\label)
 	PTREGSCALL stub32_rt_sigreturn, sys32_rt_sigreturn, %rdi
 	PTREGSCALL stub32_sigreturn, sys32_sigreturn, %rdi
 	PTREGSCALL stub32_sigaltstack, sys32_sigaltstack, %rdx
-	PTREGSCALL stub32_execve, sys32_execve, %rcx
+	PTREGSCALL stub32_execve, compat_sys_execve, %rcx
 	PTREGSCALL stub32_fork, sys_fork, %rdi
 	PTREGSCALL stub32_clone, sys32_clone, %rdx
 	PTREGSCALL stub32_vfork, sys_vfork, %rdi
