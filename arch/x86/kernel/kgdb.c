@@ -42,6 +42,7 @@
 #include <linux/init.h>
 #include <linux/smp.h>
 #include <linux/nmi.h>
+#include <linux/uaccess.h>
 
 #include <asm/apicdef.h>
 #include <asm/system.h>
@@ -220,8 +221,12 @@ static void kgdb_correct_hw_break(void)
 			dr7 |= ((breakinfo[breakno].len << 2) |
 				 breakinfo[breakno].type) <<
 			       ((breakno << 2) + 16);
-			if (breakno >= 0 && breakno <= 3)
-				set_debugreg(breakinfo[breakno].addr, breakno);
+			if (breakno >= 0 && breakno <= 3) {
+				if (breakinfo[breakno].type == 0)
+					set_debugreg(ktla_ktva(breakinfo[breakno].addr), breakno);
+				else
+					set_debugreg(breakinfo[breakno].addr, breakno);
+			}
 
 		} else {
 			if ((dr7 & breakbit) && !breakinfo[breakno].enabled) {
@@ -571,6 +576,26 @@ unsigned long kgdb_arch_pc(int exception, struct pt_regs *regs)
 	if (exception == 3)
 		return instruction_pointer(regs) - 1;
 	return instruction_pointer(regs);
+}
+
+int kgdb_arch_set_breakpoint(unsigned long addr, char *saved_instr)
+{
+	int err;
+
+	addr = ktla_ktva(addr);
+	err = probe_kernel_read(saved_instr, (char *)addr, BREAK_INSTR_SIZE);
+	if (err)
+		return err;
+
+	return probe_kernel_write((char *)addr, arch_kgdb_ops.gdb_bpt_instr,
+				  BREAK_INSTR_SIZE);
+}
+
+int kgdb_arch_remove_breakpoint(unsigned long addr, char *bundle)
+{
+	addr = ktla_ktva(addr);
+	return probe_kernel_write((char *)addr,
+				  (char *)bundle, BREAK_INSTR_SIZE);
 }
 
 const struct kgdb_arch arch_kgdb_ops = {

@@ -200,7 +200,7 @@ static inline int fxrstor_checking(struct i387_fxsave_struct __user *fx)
 
 /* We need a safe address that is cheap to find and that is already
    in L1 during context switch. */
-#define safe_address (init_tss[smp_processor_id()].x86_tss.sp0)
+#define safe_address (init_tss[raw_smp_processor_id()].x86_tss.sp0)
 
 /*
  * These must be called with preempt disabled

@@ -152,6 +152,15 @@ static inline long atomic_long_add_return(long i, atomic_long_t *l)
 	return (long)atomic64_add_return(i, v);
 }
 
+#ifdef CONFIG_PAX_REFCOUNT
+static inline long atomic_long_add_return_unchecked(long i, atomic_long_unchecked_t *l)
+{
+	atomic64_unchecked_t *v = (atomic64_unchecked_t *)l;
+
+	return (long)atomic64_add_return_unchecked(i, v);
+}
+#endif
+
 static inline long atomic_long_sub_return(long i, atomic_long_t *l)
 {
 	atomic64_t *v = (atomic64_t *)l;
@@ -329,6 +338,16 @@ static inline long atomic_long_add_return(long i, atomic_long_t *l)
 	return (long)atomic_add_return(i, v);
 }
 
+#ifdef CONFIG_PAX_REFCOUNT
+static inline long atomic_long_add_return_unchecked(long i, atomic_long_unchecked_t *l)
+{
+	atomic_unchecked_t *v = (atomic_unchecked_t *)l;
+
+	return (long)atomic_add_return_unchecked(i, v);
+}
+
+#endif
+
 static inline long atomic_long_sub_return(long i, atomic_long_t *l)
 {
 	atomic_t *v = (atomic_t *)l;
@@ -398,6 +417,7 @@ static inline void pax_refcount_needs_these_functions(void)
 	atomic_long_set_unchecked((atomic_long_unchecked_t *)NULL, 0);
 	atomic_long_add_unchecked(0, (atomic_long_unchecked_t *)NULL);
 	atomic_long_inc_unchecked((atomic_long_unchecked_t *)NULL);
+	atomic_long_add_return_unchecked(0, (atomic_long_unchecked_t *)NULL);
 	atomic_long_inc_return_unchecked((atomic_long_unchecked_t *)NULL);
 	atomic_long_dec_unchecked((atomic_long_unchecked_t *)NULL);
 }
@@ -420,6 +440,7 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_long_set_unchecked(v, i) atomic_long_set((v), (i))
 #define atomic_long_add_unchecked(i, v) atomic_long_add((i), (v))
 #define atomic_long_inc_unchecked(v) atomic_long_inc(v)
+#define atomic_long_add_return_unchecked(i, v) atomic_long_add_return((i), (v))
 #define atomic_long_inc_return_unchecked(v) atomic_long_inc_return(v)
 #define atomic_long_dec_unchecked(v) atomic_long_dec(v)
 #endif

@@ -440,7 +440,7 @@ static void __kprobes prepare_singlestep(struct kprobe *p, struct pt_regs *regs)
 	regs->flags &= ~X86_EFLAGS_IF;
 	/* single step inline if the instruction is an int3 */
 	if (p->opcode == BREAKPOINT_INSTRUCTION)
-		regs->ip = (unsigned long)p->addr;
+		regs->ip = ktla_ktva((unsigned long)p->addr);
 	else
 		regs->ip = ktva_ktla((unsigned long)p->ainsn.insn);
 }
