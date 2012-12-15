@@ -228,7 +228,10 @@ static void kgdb_correct_hw_break(void)
 		bp->attr.bp_addr = breakinfo[breakno].addr;
 		bp->attr.bp_len = breakinfo[breakno].len;
 		bp->attr.bp_type = breakinfo[breakno].type;
-		info->address = breakinfo[breakno].addr;
+		if (breakinfo[breakno].type == X86_BREAKPOINT_EXECUTE)
+			info->address = ktla_ktva(breakinfo[breakno].addr);
+		else
+			info->address = breakinfo[breakno].addr;
 		info->len = breakinfo[breakno].len;
 		info->type = breakinfo[breakno].type;
 		val = arch_install_hw_breakpoint(bp);
@@ -748,11 +751,11 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 	char opc[BREAK_INSTR_SIZE];
 
 	bpt->type = BP_BREAKPOINT;
-	err = probe_kernel_read(bpt->saved_instr, (char *)bpt->bpt_addr,
+	err = probe_kernel_read(bpt->saved_instr, ktla_ktva((char *)bpt->bpt_addr),
 				BREAK_INSTR_SIZE);
 	if (err)
 		return err;
-	err = probe_kernel_write((char *)bpt->bpt_addr,
+	err = probe_kernel_write(ktla_ktva((char *)bpt->bpt_addr),
 				 arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE);
 #ifdef CONFIG_DEBUG_RODATA
 	if (!err)
@@ -765,7 +768,7 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 		return -EBUSY;
 	text_poke((void *)bpt->bpt_addr, arch_kgdb_ops.gdb_bpt_instr,
 		  BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, (char *)bpt->bpt_addr, BREAK_INSTR_SIZE);
+	err = probe_kernel_read(opc, ktla_ktva((char *)bpt->bpt_addr), BREAK_INSTR_SIZE);
 	if (err)
 		return err;
 	if (memcmp(opc, arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE))
@@ -790,13 +793,13 @@ int kgdb_arch_remove_breakpoint(struct kgdb_bkpt *bpt)
 	if (mutex_is_locked(&text_mutex))
 		goto knl_write;
 	text_poke((void *)bpt->bpt_addr, bpt->saved_instr, BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, (char *)bpt->bpt_addr, BREAK_INSTR_SIZE);
+	err = probe_kernel_read(opc, ktla_ktva((char *)bpt->bpt_addr), BREAK_INSTR_SIZE);
 	if (err || memcmp(opc, bpt->saved_instr, BREAK_INSTR_SIZE))
 		goto knl_write;
 	return err;
 knl_write:
 #endif /* CONFIG_DEBUG_RODATA */
-	return probe_kernel_write((char *)bpt->bpt_addr,
+	return probe_kernel_write(ktla_ktva((char *)bpt->bpt_addr),
 				  (char *)bpt->saved_instr, BREAK_INSTR_SIZE);
 }
 

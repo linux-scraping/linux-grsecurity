@@ -238,7 +238,7 @@ do_ftrace_mod_code(unsigned long ip, const void *new_code)
 	 * kernel identity mapping to modify code.
 	 */
 	if (within(ip, (unsigned long)_text, (unsigned long)_etext))
-		ip = (unsigned long)__va(__pa(ip));
+		ip = (unsigned long)__va(__pa(ktla_ktva(ip)));
 
 	mod_code_ip = (void *)ip;
 	mod_code_newcode = new_code;
@@ -286,7 +286,7 @@ ftrace_modify_code(unsigned long ip, unsigned const char *old_code,
 	 */
 
 	/* read the text we want to modify */
-	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
+	if (probe_kernel_read(replaced, (void *)ktla_ktva(ip), MCOUNT_INSN_SIZE))
 		return -EFAULT;
 
 	/* Make sure it is what we expect it to be */
@@ -331,7 +331,7 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
 	unsigned char old[MCOUNT_INSN_SIZE], *new;
 	int ret;
 
-	memcpy(old, (void *)ktla_ktva((unsigned long)ftrace_call), MCOUNT_INSN_SIZE);
+	memcpy(old, ktla_ktva((void *)ftrace_call), MCOUNT_INSN_SIZE);
 	new = ftrace_call_replace(ip, (unsigned long)func);
 	ret = ftrace_modify_code(ip, old, new);
 

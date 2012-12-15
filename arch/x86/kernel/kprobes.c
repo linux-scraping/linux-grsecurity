@@ -117,7 +117,7 @@ static void __kprobes __synthesize_relative_insn(void *from, void *to, u8 op)
 		s32 raddr;
 	} __attribute__((packed)) *insn;
 
-	insn = (struct __arch_relative_insn *)from;
+	insn = (struct __arch_relative_insn *)ktla_ktva(from);
 
 	pax_open_kernel();
 	insn->raddr = (s32)((long)(to) - ((long)(from) + 5));
@@ -231,7 +231,7 @@ static int recover_probed_instruction(kprobe_opcode_t *buf, unsigned long addr)
 	 *  for the first byte, we can recover the original instruction
 	 *  from it and kp->opcode.
 	 */
-	memcpy(buf, kp->addr, MAX_INSN_SIZE * sizeof(kprobe_opcode_t));
+	memcpy(buf, ktla_ktva(kp->addr), MAX_INSN_SIZE * sizeof(kprobe_opcode_t));
 	buf[0] = kp->opcode;
 	return 0;
 }
@@ -267,7 +267,7 @@ static int __kprobes can_probe(unsigned long paddr)
 				 * recover it.
 				 */
 				return 0;
-			kernel_insn_init(&insn, buf);
+			kernel_insn_init(&insn, ktva_ktla(buf));
 		}
 		insn_get_length(&insn);
 		addr += insn.length;
@@ -501,7 +501,7 @@ static void __kprobes setup_singlestep(struct kprobe *p, struct pt_regs *regs,
 	regs->flags &= ~X86_EFLAGS_IF;
 	/* single step inline if the instruction is an int3 */
 	if (p->opcode == BREAKPOINT_INSTRUCTION)
-		regs->ip = (unsigned long)p->addr;
+		regs->ip = ktla_ktva((unsigned long)p->addr);
 	else
 		regs->ip = ktva_ktla((unsigned long)p->ainsn.insn);
 }
@@ -1409,17 +1409,17 @@ int __kprobes arch_prepare_optimized_kprobe(struct optimized_kprobe *op)
 	op->optinsn.size = ret;
 
 	/* Copy arch-dep-instance from template */
-	memcpy(buf, &optprobe_template_entry, TMPL_END_IDX);
+	memcpy(buf, ktla_ktva(&optprobe_template_entry), TMPL_END_IDX);
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
 
 	/* Set probe function call */
-	synthesize_relcall(buf + TMPL_CALL_IDX, ktla_ktva(optimized_callback));
+	synthesize_relcall(ktva_ktla(buf) + TMPL_CALL_IDX, optimized_callback);
 
 	/* Set returning jmp instruction at the tail of out-of-line buffer */
-	synthesize_reljump(buf + TMPL_END_IDX + op->optinsn.size,
-			   (u8 *)ktla_ktva(op->kp.addr) + op->optinsn.size);
+	synthesize_reljump(ktva_ktla(buf) + TMPL_END_IDX + op->optinsn.size,
+			   (u8 *)op->kp.addr + op->optinsn.size);
 
 	flush_icache_range((unsigned long) buf,
 			   (unsigned long) buf + TMPL_END_IDX +
@@ -1540,7 +1540,7 @@ static int  __kprobes setup_detour_execution(struct kprobe *p,
 		/* This kprobe is really able to run optimized path. */
 		op = container_of(p, struct optimized_kprobe, kp);
 		/* Detour through copied instructions */
-		regs->ip = (unsigned long)op->optinsn.insn + TMPL_END_IDX;
+		regs->ip = ktva_ktla((unsigned long)op->optinsn.insn) + TMPL_END_IDX;
 		if (!reenter)
 			reset_current_kprobe();
 		preempt_enable_no_resched();
