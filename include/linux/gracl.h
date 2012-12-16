@@ -258,25 +258,25 @@ struct acl_subj_map_db {
    Shift/add algorithm with modulus of table size and an XOR*/
 
 static __inline__ unsigned int
-rhash(const uid_t uid, const __u16 type, const unsigned int sz)
+gr_rhash(const uid_t uid, const __u16 type, const unsigned int sz)
 {
 	return ((((uid + type) << (16 + type)) ^ uid) % sz);
 }
 
  static __inline__ unsigned int
-shash(const struct acl_subject_label *userp, const unsigned int sz)
+gr_shash(const struct acl_subject_label *userp, const unsigned int sz)
 {
 	return ((const unsigned long)userp % sz);
 }
 
 static __inline__ unsigned int
-fhash(const ino_t ino, const dev_t dev, const unsigned int sz)
+gr_fhash(const ino_t ino, const dev_t dev, const unsigned int sz)
 {
 	return (((ino + dev) ^ ((ino << 13) + (ino << 23) + (dev << 9))) % sz);
 }
 
 static __inline__ unsigned int
-nhash(const char *name, const __u16 len, const unsigned int sz)
+gr_nhash(const char *name, const __u16 len, const unsigned int sz)
 {
 	return full_name_hash((const unsigned char *)name, len) % sz;
 }

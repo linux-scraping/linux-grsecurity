@@ -387,7 +387,7 @@ to_gr_audit(const __u32 reqmode)
 struct acl_subject_label *
 lookup_subject_map(const struct acl_subject_label *userp)
 {
-	unsigned int index = shash(userp, subj_map_set.s_size);
+	unsigned int index = gr_shash(userp, subj_map_set.s_size);
 	struct subject_map *match;
 
 	match = subj_map_set.s_hash[index];
@@ -404,7 +404,7 @@ lookup_subject_map(const struct acl_subject_label *userp)
 static void
 insert_subj_map_entry(struct subject_map *subjmap)
 {
-	unsigned int index = shash(subjmap->user, subj_map_set.s_size);
+	unsigned int index = gr_shash(subjmap->user, subj_map_set.s_size);
 	struct subject_map **curr;
 
 	subjmap->prev = NULL;
@@ -423,7 +423,7 @@ static struct acl_role_label *
 lookup_acl_role_label(const struct task_struct *task, const uid_t uid,
 		      const gid_t gid)
 {
-	unsigned int index = rhash(uid, GR_ROLE_USER, acl_role_set.r_size);
+	unsigned int index = gr_rhash(uid, GR_ROLE_USER, acl_role_set.r_size);
 	struct acl_role_label *match;
 	struct role_allowed_ip *ipp;
 	unsigned int x;
@@ -446,7 +446,7 @@ lookup_acl_role_label(const struct task_struct *task, const uid_t uid,
 found:
 	if (match == NULL) {
 	      try_group:
-		index = rhash(gid, GR_ROLE_GROUP, acl_role_set.r_size);
+		index = gr_rhash(gid, GR_ROLE_GROUP, acl_role_set.r_size);
 		match = acl_role_set.r_hash[index];
 
 		while (match) {
@@ -492,7 +492,7 @@ struct acl_subject_label *
 lookup_acl_subj_label(const ino_t ino, const dev_t dev,
 		      const struct acl_role_label *role)
 {
-	unsigned int index = fhash(ino, dev, role->subj_hash_size);
+	unsigned int index = gr_fhash(ino, dev, role->subj_hash_size);
 	struct acl_subject_label *match;
 
 	match = role->subj_hash[index];
@@ -512,7 +512,7 @@ struct acl_subject_label *
 lookup_acl_subj_label_deleted(const ino_t ino, const dev_t dev,
 			  const struct acl_role_label *role)
 {
-	unsigned int index = fhash(ino, dev, role->subj_hash_size);
+	unsigned int index = gr_fhash(ino, dev, role->subj_hash_size);
 	struct acl_subject_label *match;
 
 	match = role->subj_hash[index];
@@ -532,7 +532,7 @@ static struct acl_object_label *
 lookup_acl_obj_label(const ino_t ino, const dev_t dev,
 		     const struct acl_subject_label *subj)
 {
-	unsigned int index = fhash(ino, dev, subj->obj_hash_size);
+	unsigned int index = gr_fhash(ino, dev, subj->obj_hash_size);
 	struct acl_object_label *match;
 
 	match = subj->obj_hash[index];
@@ -552,7 +552,7 @@ static struct acl_object_label *
 lookup_acl_obj_label_create(const ino_t ino, const dev_t dev,
 		     const struct acl_subject_label *subj)
 {
-	unsigned int index = fhash(ino, dev, subj->obj_hash_size);
+	unsigned int index = gr_fhash(ino, dev, subj->obj_hash_size);
 	struct acl_object_label *match;
 
 	match = subj->obj_hash[index];
@@ -626,7 +626,7 @@ lookup_name_entry_create(const char *name)
 static struct inodev_entry *
 lookup_inodev_entry(const ino_t ino, const dev_t dev)
 {
-	unsigned int index = fhash(ino, dev, inodev_set.i_size);
+	unsigned int index = gr_fhash(ino, dev, inodev_set.i_size);
 	struct inodev_entry *match;
 
 	match = inodev_set.i_hash[index];
@@ -640,7 +640,7 @@ lookup_inodev_entry(const ino_t ino, const dev_t dev)
 static void
 insert_inodev_entry(struct inodev_entry *entry)
 {
-	unsigned int index = fhash(entry->nentry->inode, entry->nentry->device,
+	unsigned int index = gr_fhash(entry->nentry->inode, entry->nentry->device,
 				    inodev_set.i_size);
 	struct inodev_entry **curr;
 
@@ -660,7 +660,7 @@ static void
 __insert_acl_role_label(struct acl_role_label *role, uid_t uidgid)
 {
 	unsigned int index =
-	    rhash(uidgid, role->roletype & (GR_ROLE_USER | GR_ROLE_GROUP), acl_role_set.r_size);
+	    gr_rhash(uidgid, role->roletype & (GR_ROLE_USER | GR_ROLE_GROUP), acl_role_set.r_size);
 	struct acl_role_label **curr;
 	struct acl_role_label *tmp, *tmp2;
 
@@ -793,7 +793,7 @@ insert_acl_obj_label(struct acl_object_label *obj,
 		     struct acl_subject_label *subj)
 {
 	unsigned int index =
-	    fhash(obj->inode, obj->device, subj->obj_hash_size);
+	    gr_fhash(obj->inode, obj->device, subj->obj_hash_size);
 	struct acl_object_label **curr;
 
 	
@@ -813,7 +813,7 @@ static void
 insert_acl_subj_label(struct acl_subject_label *obj,
 		      struct acl_role_label *role)
 {
-	unsigned int index = fhash(obj->inode, obj->device, role->subj_hash_size);
+	unsigned int index = gr_fhash(obj->inode, obj->device, role->subj_hash_size);
 	struct acl_subject_label **curr;
 
 	obj->prev = NULL;
@@ -2677,7 +2677,7 @@ update_acl_obj_label(const ino_t oldinode, const dev_t olddevice,
 		     const ino_t newinode, const dev_t newdevice,
 		     struct acl_subject_label *subj)
 {
-	unsigned int index = fhash(oldinode, olddevice, subj->obj_hash_size);
+	unsigned int index = gr_fhash(oldinode, olddevice, subj->obj_hash_size);
 	struct acl_object_label *match;
 
 	match = subj->obj_hash[index];
@@ -2716,7 +2716,7 @@ update_acl_subj_label(const ino_t oldinode, const dev_t olddevice,
 		      const ino_t newinode, const dev_t newdevice,
 		      struct acl_role_label *role)
 {
-	unsigned int index = fhash(oldinode, olddevice, role->subj_hash_size);
+	unsigned int index = gr_fhash(oldinode, olddevice, role->subj_hash_size);
 	struct acl_subject_label *match;
 
 	match = role->subj_hash[index];
@@ -2754,7 +2754,7 @@ static void
 update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 		    const ino_t newinode, const dev_t newdevice)
 {
-	unsigned int index = fhash(oldinode, olddevice, inodev_set.i_size);
+	unsigned int index = gr_fhash(oldinode, olddevice, inodev_set.i_size);
 	struct inodev_entry *match;
 
 	match = inodev_set.i_hash[index];
