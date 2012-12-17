@@ -3747,7 +3747,6 @@ static void vmx_set_constant_host_state(void)
 	native_store_idt(&dt);
 	vmcs_writel(HOST_IDTR_BASE, dt.address);   /* 22.2.4 */
 
-	vmcs_writel(HOST_RIP, vmx_return); /* 22.2.5 */
 	vmcs_writel(HOST_RIP, ktla_ktva(vmx_return)); /* 22.2.5 */
 
 	rdmsr(MSR_IA32_SYSENTER_CS, low32, high32);
