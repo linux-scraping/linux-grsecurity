@@ -386,7 +386,7 @@ int autofs4_wait(struct autofs_sb_info *sbi, struct dentry *dentry,
 	if (IS_ROOT(dentry) && autofs_type_trigger(sbi->type))
 #ifdef CONFIG_GRKERNSEC_HIDESYM
 		/* this name does get written to userland via autofs4_write() */
-		qstr.len = sprintf(name, "%08lx", atomic_inc_return_unchecked(&autofs_dummy_name_id));
+		qstr.len = sprintf(name, "%08x", atomic_inc_return_unchecked(&autofs_dummy_name_id));
 #else
 		qstr.len = sprintf(name, "%p", dentry);
 #endif

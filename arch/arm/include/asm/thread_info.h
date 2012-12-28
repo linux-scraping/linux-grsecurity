@@ -174,7 +174,7 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define _TIF_GRSEC_SETXID	(1 << TIF_GRSEC_SETXID)
 
 /* Checks for any syscall work in entry-common.S */
-#define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | _TIF_SYSCALL_TRACEPOINT \
+#define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | _TIF_SYSCALL_TRACEPOINT | \
 			   _TIF_GRSEC_SETXID)
 
 /*

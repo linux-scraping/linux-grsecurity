@@ -663,7 +663,7 @@ config GRKERNSEC_DMESG
 	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  If you say Y here, non-root users will not be able to use dmesg(8)
-	  to view up to the last 4kb of messages in the kernel's log buffer.
+	  to view the contents of the kernel's circular log buffer.
 	  The kernel's log buffer often contains kernel addresses and other
 	  identifying information useful to an attacker in fingerprinting a
 	  system for a targeted exploit.
