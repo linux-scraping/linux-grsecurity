@@ -446,6 +446,7 @@ struct entropy_store {
 	int entropy_count;
 	int entropy_total;
 	unsigned int initialized:1;
+	bool last_data_init;
 	__u8 last_data[EXTRACT_SIZE];
 };
 
@@ -965,6 +966,10 @@ static ssize_t extract_entropy(struct entropy_store *r, void *buf,
 	ssize_t ret = 0, i;
 	__u8 tmp[EXTRACT_SIZE];
 
+	/* if last_data isn't primed, we need EXTRACT_SIZE extra bytes */
+	if (fips_enabled && !r->last_data_init)
+		nbytes += EXTRACT_SIZE;
+
 	xfer_secondary_pool(r, nbytes);
 	nbytes = account(r, nbytes, min, reserved);
 
@@ -973,6 +978,17 @@ static ssize_t extract_entropy(struct entropy_store *r, void *buf,
 
 		if (fips_enabled) {
 			unsigned long flags;
+
+
+			/* prime last_data value if need be, per fips 140-2 */
+			if (!r->last_data_init) {
+				spin_lock_irqsave(&r->lock, flags);
+				memcpy(r->last_data, tmp, EXTRACT_SIZE);
+				r->last_data_init = true;
+				nbytes -= EXTRACT_SIZE;
+				spin_unlock_irqrestore(&r->lock, flags);
+				extract_buf(r, tmp);
+			}
 
 			spin_lock_irqsave(&r->lock, flags);
 			if (!memcmp(tmp, r->last_data, EXTRACT_SIZE))
@@ -1105,6 +1121,7 @@ static void init_std_data(struct entropy_store *r)
 
 	r->entropy_count = 0;
 	r->entropy_total = 0;
+	r->last_data_init = false;
 	mix_pool_bytes(r, &now, sizeof(now), NULL);
 	for (i = r->poolinfo->POOLBYTES; i > 0; i -= sizeof(rv)) {
 		if (!arch_get_random_long(&rv))

@@ -860,6 +860,8 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
 	if (retval > 0) {
 		add_rchar(current, retval);
 		add_wchar(current, retval);
+		fsnotify_access(in_file->f_path.dentry);
+		fsnotify_modify(out_file->f_path.dentry);
 	}
 
 	inc_syscr(current);

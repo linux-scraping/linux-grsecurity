@@ -2179,6 +2179,7 @@ static void ext4_da_block_invalidatepages(struct mpage_da_data *mpd,
 	index = logical >> (PAGE_CACHE_SHIFT - inode->i_blkbits);
 	end   = (logical + blk_cnt - 1) >>
 				(PAGE_CACHE_SHIFT - inode->i_blkbits);
+	pagevec_init(&pvec, 0);
 	while (index <= end) {
 		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
 		if (nr_pages == 0)

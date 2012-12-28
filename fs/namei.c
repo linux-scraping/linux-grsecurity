@@ -1281,7 +1281,7 @@ static int __lookup_one_len(const char *name, struct qstr *this,
 
 	if (unlikely(name[0] == '.')) {
 		if (len < 2 || (len == 2 && name[1] == '.'))
-			return ERR_PTR(-EACCES);
+			return -EACCES;
 	}
 
 	hash = init_name_hash();
