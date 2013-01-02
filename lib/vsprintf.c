@@ -875,7 +875,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	   as in the /proc/kallsyms case, as we make it display nothing
 	   for non-root users, and the real contents for root users
 	*/
-	if (ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
+	if ((unsigned long)ptr > TASK_SIZE && *fmt != 'P' && is_usercopy_object(buf)) {
 		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
 		dump_stack();
 		ptr = NULL;
